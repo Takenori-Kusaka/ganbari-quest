@@ -97,6 +97,17 @@ export interface OpsAnalyticsData {
 	planBreakdown: PlanBreakdownWithRevenue[];
 	/** #1602 (ADR-0023 I13): setup challenges プリセット選択分布 */
 	presetDistribution: PresetDistribution;
+	/** 解約理由集計 (#1596 / ADR-0023 §3.8 / I3) — 直近 90 日 */
+	cancellationReasons: {
+		total: number;
+		breakdown: Array<{ category: string; count: number; percentage: number }>;
+		freeTextSamples: Array<{
+			id: number;
+			category: string;
+			freeText: string;
+			createdAt: string;
+		}>;
+	};
 	stripeEnabled: boolean;
 	fetchedAt: string;
 }
@@ -140,9 +151,13 @@ export function monthDiff(from: string, to: string): number {
 export function computeAnalytics(
 	tenants: Tenant[],
 	now?: Date,
-): Omit<OpsAnalyticsData, 'stripeEnabled' | 'fetchedAt' | 'presetDistribution'> {
+): Omit<
+	OpsAnalyticsData,
+	'stripeEnabled' | 'fetchedAt' | 'presetDistribution' | 'cancellationReasons'
+> {
 	// `presetDistribution` は settings 取得が必要なため computeAnalytics スコープ外。
 	// `getAnalyticsData` で別途集計し合成する (#1602)。
+	// `cancellationReasons` も同様に repos.cancellationReason 経由で別途集計 (#1596)。
 	const currentDate = now ?? new Date();
 	const currentMonth = getMonthKey(currentDate);
 
@@ -363,6 +378,11 @@ export function emptyAnalytics(): OpsAnalyticsData {
 		},
 		planBreakdown: [],
 		presetDistribution: emptyPresetDistribution(),
+		cancellationReasons: {
+			total: 0,
+			breakdown: [],
+			freeTextSamples: [],
+		},
 		stripeEnabled: false,
 		fetchedAt: new Date().toISOString(),
 	};
@@ -408,9 +428,43 @@ export async function getAnalyticsData(): Promise<OpsAnalyticsData> {
 	const challengesPerTenant = await fetchChallengesPerTenant(tenants);
 	const presetDistribution = computePresetDistribution(challengesPerTenant);
 
+	// #1596: 解約理由集計（直近 90 日）+ 自由記述サンプル（最新 20 件）
+	let cancellationReasons: OpsAnalyticsData['cancellationReasons'] = {
+		total: 0,
+		breakdown: [],
+		freeTextSamples: [],
+	};
+	try {
+		const [aggregation, samples] = await Promise.all([
+			repos.cancellationReason.aggregateRecent(90),
+			repos.cancellationReason.searchFreeText('', 20),
+		]);
+		cancellationReasons = {
+			total: aggregation.total,
+			breakdown: aggregation.breakdown.map((b) => ({
+				category: b.category,
+				count: b.count,
+				percentage: b.percentage,
+			})),
+			freeTextSamples: samples
+				.filter((s) => s.freeText)
+				.map((s) => ({
+					id: s.id,
+					category: s.category,
+					freeText: s.freeText ?? '',
+					createdAt: s.createdAt,
+				})),
+		};
+	} catch (e) {
+		logger.warn('[OPS/analytics] Failed to load cancellation reasons', {
+			context: { error: e instanceof Error ? e.message : String(e) },
+		});
+	}
+
 	return {
 		...result,
 		presetDistribution,
+		cancellationReasons,
 		stripeEnabled: isStripeEnabled(),
 		fetchedAt: new Date().toISOString(),
 	};

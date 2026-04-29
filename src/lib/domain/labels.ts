@@ -1642,6 +1642,10 @@ export const BILLING_LABELS = {
 	navLinkTitle: 'プラン管理',
 	navLinkHint: 'プランの選択・変更・トライアル開始',
 
+	// 解約フローへの導線 (#1596)
+	cancelLinkTitle: '解約手続き',
+	cancelLinkHint: '解約理由をお聞かせください（必須）',
+
 	// Dialog
 	dialogTitle: '請求管理画面を開く',
 	dialogDesc:
@@ -1653,6 +1657,104 @@ export const BILLING_LABELS = {
 	dialogConfirmLoading: '確認中…',
 	dialogConfirmButton: '請求管理画面へ',
 } as const;
+
+// ============================================================
+// CANCELLATION_LABELS - 解約フロー (#1596 / ADR-0023 §3.8 / I3)
+// 全プラン強制の解約理由ヒアリング (3 分類 + 自由記述)
+// Anti-engagement 原則 (ADR-0012): 「離脱トリガー」にしない設計（煽り無し・引き止め無し）
+// ============================================================
+
+/** 解約理由カテゴリ ID (DB 保存値) */
+export const CANCELLATION_CATEGORY = {
+	GRADUATION: 'graduation', // 卒業: 子供が自律した
+	CHURN: 'churn', // 離反: 不満があった
+	PAUSE: 'pause', // 中断: 家庭事情等で一時停止
+} as const;
+
+export type CancellationCategory =
+	(typeof CANCELLATION_CATEGORY)[keyof typeof CANCELLATION_CATEGORY];
+
+export const CANCELLATION_CATEGORIES: ReadonlyArray<CancellationCategory> = [
+	CANCELLATION_CATEGORY.GRADUATION,
+	CANCELLATION_CATEGORY.CHURN,
+	CANCELLATION_CATEGORY.PAUSE,
+];
+
+export const CANCELLATION_LABELS = {
+	pageHeading: '解約手続き',
+	pageDesc: '解約の前に、ぜひ理由をお聞かせください。今後の改善に活用させていただきます（必須）。',
+
+	// Form fields
+	reasonSectionTitle: '解約理由',
+	reasonRequired: '必須',
+	freeTextLabel: 'ご意見・ご要望（任意）',
+	freeTextPlaceholder:
+		'差し支えなければ、もう少し詳しく教えていただけると嬉しいです（最大 1000 文字）',
+	freeTextMaxLength: 1000,
+	freeTextHint: (current: number, max: number) => `${current} / ${max} 文字`,
+
+	// 3 categories - radio button options
+	categoryGraduationLabel: '卒業',
+	categoryGraduationHint: '子供が自律した・がんばりクエストを使う必要がなくなった',
+	categoryChurnLabel: '離反',
+	categoryChurnHint: '機能が合わない・期待と違った',
+	categoryPauseLabel: '中断',
+	categoryPauseHint: '家庭事情・引っ越し・一時的に離れる（再開予定あり）',
+
+	// Plan-context messaging (free / standard / family 共通)
+	freePlanNotice:
+		'無料プランをご利用中です。解約後はアカウント自体を削除する必要がありますが、その前に理由をお聞かせください。',
+	paidPlanNotice:
+		'解約手続きを進めると、Stripe の管理画面で決済停止を行います。次回の請求は発生しません。',
+
+	// Submit
+	submitButton: '解約手続きへ進む',
+	submitLoading: '送信中…',
+	submitButtonNoStripe: '解約理由を送信する',
+	cancelButton: '前のページに戻る',
+
+	// Errors
+	errorCategoryRequired: '解約理由を選択してください',
+	errorFreeTextTooLong: 'ご意見は 1000 文字以内で入力してください',
+	errorSubmitFailed: '送信に失敗しました。時間をおいて再度お試しください',
+
+	// Success
+	successHeading: 'ご回答ありがとうございました',
+	successDesc:
+		'いただいたご意見は、サービス改善に活用させていただきます。続けて Stripe の管理画面で解約手続きを完了してください。',
+	successProceedButton: 'Stripe 管理画面で解約を完了する',
+	successProceedHint:
+		'Stripe の管理画面で「サブスクリプションをキャンセル」を選択すると解約が完了します',
+	successFreeProceed: 'アカウント削除はこちら',
+} as const satisfies Record<string, unknown>;
+
+/** 表示用ラベル取得 */
+export function getCancellationCategoryLabel(category: CancellationCategory): string {
+	switch (category) {
+		case CANCELLATION_CATEGORY.GRADUATION:
+			return CANCELLATION_LABELS.categoryGraduationLabel;
+		case CANCELLATION_CATEGORY.CHURN:
+			return CANCELLATION_LABELS.categoryChurnLabel;
+		case CANCELLATION_CATEGORY.PAUSE:
+			return CANCELLATION_LABELS.categoryPauseLabel;
+	}
+}
+
+/** ops dashboard 解約理由集計セクション */
+export const OPS_CANCELLATION_LABELS = {
+	sectionTitle: '解約理由集計（#1596）',
+	sectionHint: '直近 90 日の解約理由カテゴリ別比率と件数',
+	colCategory: 'カテゴリ',
+	colCount: '件数',
+	colPercentage: '比率',
+	noData: '直近 90 日の解約理由データはありません',
+	totalLabel: (n: number) => `合計: ${n} 件`,
+	freeTextSearchLabel: '自由記述検索',
+	freeTextSearchPlaceholder: 'キーワードで自由記述を絞り込み（最低限機能）',
+	freeTextEmpty: '自由記述はまだありません',
+	freeTextDate: (date: string) => `${date} 投稿`,
+	freeTextCategory: (category: string) => `カテゴリ: ${category}`,
+} as const satisfies Record<string, unknown>;
 
 export const OPS_LICENSE_ISSUE_LABELS = {
 	pageTitle: 'OPS - キャンペーンキー発行',
@@ -2483,7 +2585,7 @@ export const PRICING_PAGE_LABELS = {
 	subtitleTrialDays: '7日間の無料体験',
 	subtitle2: '付き',
 	featureNote:
-		'お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は',
+		'お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・連続達成ボーナスなど）は',
 	featureNoteStrong: '全プラン共通',
 	featureNoteSuffix: 'で制限なし',
 	faqTitle: 'よくある質問',
@@ -3516,6 +3618,35 @@ export const LP_FOOTER_LABELS = {
 	copyright: '© 2026 がんばりクエスト. All rights reserved.',
 } as const;
 
+// LP Hero 価格 anchor バンド (#1625 R21)
+// site/index.html hero 直下に配置する 1 行価格プロミスバンド
+export const LP_HERO_PRICE_BAND_LABELS = {
+	itemFree: '基本無料',
+	itemPriceLabel: '月',
+	itemPriceValue: '¥500〜',
+	itemTrial: '7 日間無料',
+	itemCancel: 'いつでも解約',
+} as const;
+
+// LP CTA 直下の不安解消 3 バッジ (#1626 R22)
+// site/index.html / pricing.html / faq.html の CTA 直下に配置
+export const LP_CTA_TRUST_BADGES_LABELS = {
+	noCreditCard: 'クレジットカード登録不要',
+	noAds: '広告なし',
+	cancelAnytime: 'いつでも解約 OK',
+} as const;
+
+// LP Hero 仕様起点の数字バッジ (#1628 R24)
+// PMF 後送り testimonial の代替として仕様値を訴求
+export const LP_HERO_SPEC_BADGES_LABELS = {
+	ageRange: '3〜18 歳',
+	ageRangeSuffix: '対応',
+	presetCount: '50+',
+	presetSuffix: 'プリセット活動',
+	setupTime: '約 5 分',
+	setupSuffix: 'で初期設定',
+} as const;
+
 // LP CTA / 価格 / 期間表記 SSOT (#1616 R12)
 // PM 優先 J 節裁定 2: 「無料で始める」（漢字統一）
 // site/ 配下では本定数を data-lp-key で参照し、表記揺れを排除する
@@ -3647,9 +3778,9 @@ export const LP_PRICING_LABELS = {
 	ctaDisclaimerBadges: '✅ クレジットカード登録不要 ✅ 自動課金なし ✅ いつでも解約 OK',
 	ctaDisclaimerNote: '※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。',
 
-	// Plan note (below cards) — #1650 R44 (括弧書き一掃)
+	// Plan note (below cards) — #1650 R44 (括弧書き一掃) / #1629 R25 (「コンボ」→「連続達成ボーナス」へ)
 	allPlansNote:
-		'💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は',
+		'💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・連続達成ボーナスなど）は',
 	allPlansNoteStrong: '全プラン共通',
 	allPlansNoteSuffix: 'で制限なし',
 
@@ -3809,21 +3940,24 @@ export const FOUNDER_INQUIRY_LABELS = {
 	adminFooterHint: '個人開発者にメッセージを送る（無料）',
 } as const;
 
+// #1621 R17: [06b] retention セクションは [03] L2 (習慣カード) へ統合され、独立セクションは廃止。
+//   pamphlet.html / 旧 retention セクション参照のため定数自体は保持（短文のみ）。
+// #1629 R25: ADR-0012 Anti-engagement 原則と整合する語彙へ刷新（「変動比率強化」「射幸心」を撤去）。
 export const LP_RETENTION_LABELS = {
 	sectionTitle: '三日坊主にならない設計',
 	sectionDesc:
-		'「有料アプリって三日坊主になりがち…」という不安に先回りで答えます。スタンプカードのレア度分散は行動心理学の「変動比率強化」— 最も強固な習慣形成メカニズムです。',
+		'「有料アプリって三日坊主になりがち…」という不安に先回りで答えます。スタンプカードのレア度分散と「1 日 1 回まで」の煽らない設計が、毎日の継続を支えます。',
 	card1Title: '飽きを防ぐレア度分散',
 	card1Desc:
-		'普通のスタンプ (N) から超レアスタンプ (UR) まで 4 段階。毎回違うスタンプが押される「変動比率強化」が、子供の「明日もやろう」を支えます。',
+		'普通のスタンプ (N) から超レアスタンプ (UR) まで 4 段階。毎回違うスタンプが押されることで、子供の「明日もやろう」を支えます。',
 	card2Title: '習慣を育てるおみくじスタンプ',
 	card2Desc:
-		'毎朝のログイン → おみくじ → スタンプカードは、活動の記録とは別の「毎日アプリを開く習慣」を育てるための仕組みです。射幸心を煽るのではなく「ちょっとした楽しみ」で継続を支えます。',
+		'毎朝のログイン → おみくじ → スタンプカードは、活動の記録とは別の「毎日アプリを開く習慣」を育てるための仕組みです。「ちょっとした楽しみ」で継続を支えます。',
 	card3Title: '1 日 1 回まで — 煽らない設計',
 	card3Desc:
 		'「もっと引きたい」の誘導はありません。1 日 1 回という制限が、逆に「明日もやろう」という継続を生みます。',
 	pamphletNote:
-		'スタンプカードのレア度分散（N/R/SR/UR）は変動比率強化による習慣形成エンジン。射幸心ではなく、三日坊主を防ぐ設計です。',
+		'スタンプカードのレア度分散（N/R/SR/UR）が「明日もやろう」を支える習慣形成のエンジン。1 日 1 回までで煽らない設計のため、三日坊主を防ぎます。',
 } as const;
 
 export const BABY_HOME_LABELS = {
@@ -3877,7 +4011,7 @@ export const ONBOARDING_LABELS = {
 export const LP_VERSUS_LABELS = {
 	sectionTitle: 'シール帳・ホワイトボードでも、いいんじゃない？',
 	sectionDesc:
-		'わかります。私たちもまずは紙で試しました。<br>でも「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、デジタルだから届く差があります。',
+		'わかります。私たちもまずは紙で試しました。でも「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、デジタルだから届く差があります。',
 	tagAnalog: 'シール帳・紙',
 	tagDigital: 'がんばりクエスト',
 	row1AnalogTitle: '集計が手作業で計算ミスが起きがち',
@@ -3937,10 +4071,12 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 // SSOT: site/index.html [03] セクション用ラベル
 // ============================================================
 
+// #1624 R20: StoryBrand 7 要素のうち Internal Problem / Philosophical / Avoiding Failure
+//   を sectionDesc に補完。「毎日同じことを言う疲れ」「子供の自律を信じる」「シール帳で挫折しないため」
 export const LP_CORELOOP_LABELS = {
 	sectionTitle: '3 つの仕組みで、毎日のがんばりが本物の報酬になる',
 	sectionDesc:
-		'活動を記録してポイントを貯め、ポイントでごほうびショップの好きなものと交換する。3 つの仕組みが子供の「やりたい」を持続させます。',
+		'毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。子供は本来、自分で動きたい力を持っています。シール帳で 3 日でやめてしまった経験のある方こそ、活動 → 習慣 → ごほうびの 3 つの仕組みでお試しください。',
 	// 親視点サブタイトル
 	parentPerspectiveTitle: '親の視点',
 	parentPerspectiveDesc:
@@ -5363,4 +5499,62 @@ export const STORYBOOK_LABELS = {
 		titleOnlyTitle: 'Title Only',
 		titleOnlyBtn: 'Title Only Toast',
 	},
+} as const;
+
+// ============================================================
+// 初月価値プレビュー体験 (#1600 ADR-0023 I9)
+// マイルストーン演出 + 30 日後親レポートプレビュー
+// Anti-engagement (ADR-0012) 準拠: 過剰な祝福禁止、3 秒以内に閉じれる UI
+// ============================================================
+export const MILESTONE_LABELS = {
+	/** 子供 UI に表示する小さなマイルストーンバナータイトル */
+	bannerTitle: 'マイルストーン',
+	bannerCloseLabel: '閉じる',
+	first_record: {
+		title: 'はじめての記録',
+		description: '最初のがんばりを記録できました',
+	},
+	records_5: {
+		title: '5 かい きろく',
+		description: '5 回の活動を記録できました',
+	},
+	records_10: {
+		title: '10 かい きろく',
+		description: '10 回の活動を記録できました',
+	},
+	streak_7: {
+		title: '1 しゅうかん つづいた',
+		description: '7 日連続で記録できました',
+	},
+	streak_14: {
+		title: '2 しゅうかん つづいた',
+		description: '14 日連続で記録できました',
+	},
+	streak_30: {
+		title: '1 かげつ つづいた',
+		description: '30 日連続で記録できました',
+	},
+} as const;
+
+export const VALUE_PREVIEW_LABELS = {
+	/** dashboard セクションタイトル */
+	sectionTitleFirstMonth: 'はじめての 30 日',
+	sectionTitle30DayPreview: '1 か月の歩み',
+	sectionHintFirstMonth: (daysSince: number) =>
+		`登録から ${daysSince} 日目です。あと ${Math.max(0, 30 - daysSince)} 日で 1 か月の節目になります`,
+	sectionHint30DayPreview: '1 か月のお子さまのがんばりをまとめました',
+	totalActivitiesLabel: '記録した活動',
+	totalActivitiesUnit: '回',
+	currentStreakLabel: '現在の連続記録',
+	currentStreakUnit: '日',
+	longestStreakLabel: '最長連続記録',
+	totalPointsLabel: 'ためたポイント',
+	totalPointsUnit: 'pt',
+	achievedMilestonesHeading: '達成したマイルストーン',
+	noMilestonesYet: 'まだマイルストーン未達成です。最初の記録から始めましょう',
+	categoryBreakdownHeading: 'カテゴリ別の活動回数',
+	noCategoryData: 'まだ記録がありません',
+	emptyState: 'まだお子さまの活動記録がありません',
+	previewBannerHint: '続けて記録するほど、このグラフが充実していきます',
+	categoryCountAria: (categoryName: string, count: number): string => `${categoryName} ${count} 回`,
 } as const;

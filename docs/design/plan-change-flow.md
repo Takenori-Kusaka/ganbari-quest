@@ -89,6 +89,91 @@
 
 ## 3. プラン変更 / ダウングレード / 解約 — Customer Portal 経由
 
+### 3.0 解約理由ヒアリング（#1596 / ADR-0023 §3.8 / I3）
+
+解約フローは **全プラン (free / standard / family / lifetime) で必須** に理由収集を行う。
+PO の「解約原因が見えない」「卒業 vs 離反比率が検証されていない」課題を解決する。
+
+#### 3.0.1 入口
+
+```
+[/admin/billing]
+  ├─ 「プラン管理」ボタン → /admin/license
+  └─ 「解約手続き」ボタン → /admin/billing/cancel    ← #1596 入口
+```
+
+#### 3.0.2 フォーム
+
+```
+[/admin/billing/cancel]
+  └─ POST /admin/billing/cancel (form action)
+        │
+        ├─ category (必須):
+        │    ┌─ 'graduation' (卒業: 子供が自律した) — ポジティブ KPI、緑
+        │    ├─ 'churn'      (離反: 不満があった)    — 改善対象、赤
+        │    └─ 'pause'      (中断: 一時停止)         — 復帰候補、橙
+        │
+        ├─ freeText (任意, 1000 文字以下)
+        │
+        ▼
+  cancellation-service.submitCancellationReason()
+        │
+        ├─ DB: cancellation_reasons に保存
+        │      (tenantId / category / freeText / planAtCancellation /
+        │       stripeSubscriptionId / createdAt)
+        │
+        ├─ Discord churn channel に notifyCancellationWithReason() 通知
+        │      (カテゴリ別絵文字 + 自由記述 1024 文字まで含む)
+        │
+        ▼
+  分岐:
+    ├─ stripeSubscriptionId あり → Stripe Customer Portal にリダイレクト (303)
+    │     → Portal 上で「サブスクリプションをキャンセル」
+    │     → customer.subscription.deleted Webhook で DB 更新
+    │
+    └─ stripeSubscriptionId なし (free プラン)
+          → /admin/billing/cancel/thanks に遷移
+          → ユーザーが必要に応じて /admin/license や /admin/settings へ
+```
+
+#### 3.0.3 Anti-engagement 原則 (ADR-0012)
+
+- 「引き止め」UI を出さない（離脱トリガー化を防ぐ）
+- 自由記述は **任意** （義務化はストレス）
+- 「卒業」を選ばれた場合もポジティブに祝う（煽り無し）
+- カテゴリは 3 択のみ（細分化すると意思決定コストが上がる）
+
+#### 3.0.4 ops dashboard (`/ops/analytics`)
+
+直近 90 日の集計を表示:
+- カテゴリ別件数 + 比率（卒業 / 離反 / 中断）
+- 自由記述サンプル（最新 20 件、最低限の検索機能）
+
+詳細: `OpsAnalyticsData.cancellationReasons` (`src/lib/server/services/ops-analytics-service.ts`)
+
+#### 3.0.5 DB スキーマ
+
+```sql
+CREATE TABLE cancellation_reasons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id TEXT NOT NULL,
+    category TEXT NOT NULL,             -- 'graduation' | 'churn' | 'pause'
+    free_text TEXT,                     -- 任意、最大 1000 文字
+    plan_at_cancellation TEXT,          -- 解約時のプラン
+    stripe_subscription_id TEXT,        -- 課金プランの場合のみ
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_cancellation_reasons_tenant ON cancellation_reasons(tenant_id);
+CREATE INDEX idx_cancellation_reasons_category_date ON cancellation_reasons(category, created_at);
+CREATE INDEX idx_cancellation_reasons_date ON cancellation_reasons(created_at);
+```
+
+DynamoDB: PK=`CANCEL_REASON`, SK=`<isoTs>#<uuid>` (single global partition、低頻度書込み < 100/月想定)
+
+詳細: `docs/design/08-データベース設計書.md` §「cancellation_reasons」
+
+---
+
 ### 3.1 PIN 確認ゲート (#771)
 
 子供が親端末で誤操作するのを防ぐため、Portal 遷移前に二段階確認を必須化。

@@ -1069,3 +1069,30 @@ export const usageLogs = sqliteTable(
 		index('idx_usage_logs_tenant').on(table.tenantId, table.startedAt),
 	],
 );
+
+// ============================================================
+// cancellation_reasons - 解約理由ヒアリング (#1596 / ADR-0023 §3.8 / I3)
+// 解約フローに必須化された 3 分類 + 自由記述。
+// PO の解約原因可視化 / 卒業 vs 離反比率 / 改善方向の検証用。
+// 全プラン強制（任意だと偏ったデータしか取れない）。
+// ============================================================
+export const cancellationReasons = sqliteTable(
+	'cancellation_reasons',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		// '卒業' (graduation) | '離反' (churn) | '中断' (pause)
+		category: text('category').notNull(),
+		freeText: text('free_text'), // 任意、最大 1000 文字
+		// 解約時のプラン (free / monthly / yearly / family-monthly / family-yearly / lifetime)
+		planAtCancellation: text('plan_at_cancellation'),
+		// Stripe subscription ID(あれば。free プランは null)
+		stripeSubscriptionId: text('stripe_subscription_id'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_cancellation_reasons_tenant').on(table.tenantId),
+		index('idx_cancellation_reasons_category_date').on(table.category, table.createdAt),
+		index('idx_cancellation_reasons_date').on(table.createdAt),
+	],
+);

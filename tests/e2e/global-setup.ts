@@ -599,7 +599,22 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_enemy_collection_child
 				ON enemy_collection(child_id);
 
-
+			-- #1596 ADR-0023 §3.8 / I3: 解約理由ヒアリング
+			CREATE TABLE IF NOT EXISTS cancellation_reasons (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				tenant_id TEXT NOT NULL,
+				category TEXT NOT NULL,
+				free_text TEXT,
+				plan_at_cancellation TEXT,
+				stripe_subscription_id TEXT,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX IF NOT EXISTS idx_cancellation_reasons_tenant
+				ON cancellation_reasons(tenant_id);
+			CREATE INDEX IF NOT EXISTS idx_cancellation_reasons_category_date
+				ON cancellation_reasons(category, created_at);
+			CREATE INDEX IF NOT EXISTS idx_cancellation_reasons_date
+				ON cancellation_reasons(created_at);
 
 		`);
 

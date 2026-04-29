@@ -134,6 +134,10 @@
 .cta-bottom h2{font-size:1.6rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
 .cta-bottom p{color:var(--gray-500);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
 .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+/* #1626 R22: 不安解消 3 バッジ */
+.cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:18px auto 0;max-width:560px;font-size:.82rem;color:var(--gray-700)}
+.cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
+.cta-trust-badges li span{font-size:.95rem}
 
 /* #1658 R51: タブレット中間 1024px breakpoint (案 A: 2 列 + Family を下段中央) */
 @media(max-width:1024px) and (min-width:769px){
@@ -163,14 +167,13 @@
     <a href="index.html" class="logo">
       <img src="logo-compact.png" alt="がんばりクエスト" height="44">
     </a>
-    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)" data-lp-key="pricingExtra.k1">☰</button>
+    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
-      <a href="index.html" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
-      <a href="index.html#features" data-lp-key="nav.features" onclick="this.parentElement.classList.remove('open')">できること</a>
-      <a href="https://ganbari-quest.com/marketplace" data-testid="lp-nav-marketplace" data-lp-key="nav.marketplace" onclick="this.parentElement.classList.remove('open')">テンプレートを探す</a>
-      <a href="pricing.html" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-demo" data-lp-key="common.ctaDemo">デモ体験</a>
-      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="common.ctaSignup">無料ではじめる</a>
+      <a href="index.html" class="nav-text" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="pricing.html" class="nav-text" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="faq.html" class="nav-text" data-lp-key="nav.faq" onclick="this.parentElement.classList.remove('open')">よくあるご質問</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary nav-signup" data-lp-key="common.ctaSignup" onclick="this.parentElement.classList.remove('open')">無料で始める</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-lp-key="nav.login" onclick="this.parentElement.classList.remove('open')">ログイン</a>
     </nav>
   </div>
 </header>
@@ -186,6 +189,7 @@
     <span data-lp-key="pricing.heroSubtext">有料プランはすべて</span><strong data-lp-key="pricing.heroSubtextStrong">7日間の無料体験</strong><span data-lp-key="pricing.heroSubtextSuffix">付き（クレジットカード登録不要）</span>
   </p>
   <div class="hero-price-band" data-lp-key="pricing.heroPriceBand">基本無料 ・ 月 ¥500（税込）から ・ 7 日間無料体験 ・ いつでも解約 OK</div>
+  <p class="hero-cancel-disclaimer" style="font-size:.78rem;color:var(--gray-600);margin:8px auto 0;max-width:680px;line-height:1.6"><span data-lp-key="pricing.heroCancelDisclaimer">※「いつでも解約 OK」について: 解約申請後 30 日間は読み取り専用（閲覧・エクスポート可能）となり、その後すべてのデータが完全に削除されます。日割り返金はありません。</span> [<a href="faq.html#cancel">FAQ</a> / <a href="tokushoho.html">特商法表記</a>]</p>
   <div class="hero-cta">
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="pricing.heroCtaPrimary">7 日間無料で試す</a>
     <a href="#plans" class="btn btn-secondary" data-lp-key="pricing.heroCtaSecondary">プランを比較する</a>
@@ -212,14 +216,14 @@
           <small data-lp-key="pricing.ctaDisclaimerNote">※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。</small>
         </div>
         <ul class="plan-features">
-          <li data-lp-key="pricingExtra.k2">お子さまの登録：2人まで</li>
-          <li data-lp-key="pricingExtra.k3">プリセット活動の利用</li>
-          <li data-lp-key="pricingExtra.k4">オリジナル活動の作成：3個まで</li>
-          <li data-lp-key="pricingExtra.k5">レベル・ポイント・おみくじ・スタンプカード</li>
-          <li data-lp-key="pricingExtra.k6">ログインボーナス・コンボ</li>
-          <li data-lp-key="pricingExtra.k7">チェックリスト（持ち物／朝夜の習慣 合計3個/子まで）</li>
-          <li data-lp-key="pricingExtra.k8">90日間の履歴保持</li>
-          <li data-lp-key="pricingExtra.k9">メールサポート（標準）</li>
+          <li>お子さまの登録：2人まで</li>
+          <li>プリセット活動の利用</li>
+          <li>オリジナル活動の作成：3個まで</li>
+          <li>レベル・ポイント・おみくじ・スタンプカード</li>
+          <li>ログインボーナス・連続達成ボーナス</li>
+          <li>チェックリスト（持ち物／朝夜の習慣 合計3個/子まで）</li>
+          <li>90日間の履歴保持</li>
+          <li>メールサポート（標準）</li>
         </ul>
       </div>
 
@@ -237,15 +241,15 @@
           <small data-lp-key="pricing.ctaDisclaimerNote">※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。</small>
         </div>
         <ul class="plan-features">
-          <li data-lp-key="pricingExtra.k10">お子さまの登録人数：無制限</li>
-          <li data-lp-key="pricingExtra.k11">オリジナル活動の作成：無制限</li>
-          <li data-lp-key="pricingExtra.k12">チェックリスト自由作成（無制限）</li>
-          <li data-lp-key="pricingExtra.k13">家族メンバー招待：4人まで</li>
-          <li data-lp-key="pricingExtra.k14">特別なごほうび設定（即時付与）</li>
-          <li data-lp-key="pricingExtra.k15">クラウド保管枠（同時保管 3 個・手動エクスポート）</li>
-          <li data-lp-key="pricingExtra.k16">データのダウンロード</li>
-          <li data-lp-key="pricingExtra.k17">1年間の履歴保持</li>
-          <li data-lp-key="pricingExtra.k18">メールサポート</li>
+          <li>お子さまの登録人数：無制限</li>
+          <li>オリジナル活動の作成：無制限</li>
+          <li>チェックリスト自由作成（無制限）</li>
+          <li>家族メンバー招待：4人まで</li>
+          <li>特別なごほうび設定（即時付与）</li>
+          <li>クラウド保管枠（同時保管 3 個・手動エクスポート）</li>
+          <li>データのダウンロード</li>
+          <li>1年間の履歴保持</li>
+          <li>メールサポート</li>
         </ul>
       </div>
 
@@ -262,14 +266,14 @@
           <small data-lp-key="pricing.ctaDisclaimerNote">※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。</small>
         </div>
         <ul class="plan-features">
-          <li data-lp-key="pricingExtra.k19">スタンダードの全機能</li>
-          <li data-lp-key="pricingExtra.k20">家族メンバー招待：無制限</li>
-          <li data-lp-key="pricingExtra.k21">✨ AI 自動提案（活動・ごほうび・チェックリスト）</li>
-          <li data-lp-key="pricingExtra.k22">きょうだいランキング</li>
-          <li data-lp-key="pricingExtra.k23">ひとことメッセージ（自由テキスト）</li>
-          <li data-lp-key="pricingExtra.k24">クラウド保管枠（同時保管 10 個・手動エクスポート）</li>
-          <li data-lp-key="pricingExtra.k25">無制限の履歴保持</li>
-          <li data-lp-key="pricingExtra.k26">メールサポート</li>
+          <li>スタンダードの全機能</li>
+          <li>家族メンバー招待：無制限</li>
+          <li>✨ AI 自動提案（活動・ごほうび・チェックリスト）</li>
+          <li>きょうだいランキング</li>
+          <li>ひとことメッセージ（自由テキスト）</li>
+          <li>クラウド保管枠（同時保管 10 個・手動エクスポート）</li>
+          <li>無制限の履歴保持</li>
+          <li>メールサポート</li>
         </ul>
       </div>
 
@@ -277,7 +281,7 @@
 
     <!-- Note (#1650 R44 括弧書き軽減: 本文中で簡潔に説明) -->
     <p style="text-align:center;font-size:.85rem;color:var(--gray-500);margin-bottom:48px">
-      <span data-lp-key="pricing.allPlansNote">💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は</span><strong data-lp-key="pricing.allPlansNoteStrong">全プラン共通</strong><span data-lp-key="pricing.allPlansNoteSuffix">で制限なし</span>
+      <span data-lp-key="pricing.allPlansNote">💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・連続達成ボーナスなど）は</span><strong data-lp-key="pricing.allPlansNoteStrong">全プラン共通</strong><span data-lp-key="pricing.allPlansNoteSuffix">で制限なし</span>
     </p>
   </div>
 </section>
@@ -291,38 +295,38 @@
     <table class="comparison-table">
       <thead>
         <tr>
-          <th style="width:40%" data-lp-key="pricingExtra.k27">機能</th>
-          <th style="width:20%" data-lp-key="pricingExtra.k28">フリー</th>
-          <th style="width:20%" class="highlight-col" data-lp-key="pricingExtra.k29">スタンダード</th>
-          <th style="width:20%" data-lp-key="pricingExtra.k30">ファミリー</th>
+          <th style="width:40%">機能</th>
+          <th style="width:20%">フリー</th>
+          <th style="width:20%" class="highlight-col">スタンダード</th>
+          <th style="width:20%">ファミリー</th>
         </tr>
       </thead>
       <tbody>
-        <tr class="cat-row"><td colspan="4"><span data-lp-key="pricingExtra.k31">基本</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k32">お子さまの登録人数</span></td><td><span data-lp-key="pricingExtra.k33">2人まで</span></td><td class="check"><span data-lp-key="pricingExtra.k34">無制限</span></td><td class="check"><span data-lp-key="pricingExtra.k35">無制限</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k36">プリセット活動の利用</span></td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k37">オリジナル活動の作成</span></td><td><span data-lp-key="pricingExtra.k38">3個まで</span></td><td class="check"><span data-lp-key="pricingExtra.k39">無制限</span></td><td class="check"><span data-lp-key="pricingExtra.k40">無制限</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k41">活動履歴の保持</span></td><td><span data-lp-key="pricingExtra.k42">90日</span></td><td><span data-lp-key="pricingExtra.k43">1年</span></td><td class="check"><span data-lp-key="pricingExtra.k44">無制限</span></td></tr>
+        <tr class="cat-row"><td colspan="4">基本</td></tr>
+        <tr><td>お子さまの登録人数</td><td>2人まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
+        <tr><td>プリセット活動の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>オリジナル活動の作成</td><td>3個まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
+        <tr><td>活動履歴の保持</td><td>90日</td><td>1年</td><td class="check">無制限</td></tr>
 
-        <tr class="cat-row"><td colspan="4"><span data-lp-key="pricingExtra.k45">カスタマイズ</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k46">持ち物チェックリスト（登校・おでかけ）</span></td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k47">朝夜の習慣リスト（ルーティンチェックリスト）</span></td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k48">チェックリスト自由作成（持ち物／朝夜の習慣 合算）</span></td><td><span data-lp-key="pricingExtra.k49">3個/子まで</span></td><td class="check"><span data-lp-key="pricingExtra.k50">無制限</span></td><td class="check"><span data-lp-key="pricingExtra.k51">無制限</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k52">特別なごほうび設定（即時付与）</span></td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k53">AI 自動提案（活動・ごほうび・チェックリスト）</span></td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
+        <tr class="cat-row"><td colspan="4">カスタマイズ</td></tr>
+        <tr><td>持ち物チェックリスト（登校・おでかけ）</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>朝夜の習慣リスト（ルーティンチェックリスト）</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>チェックリスト自由作成（持ち物／朝夜の習慣 合算）</td><td>3個/子まで</td><td class="check">無制限</td><td class="check">無制限</td></tr>
+        <tr><td>特別なごほうび設定（即時付与）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>AI 自動提案（活動・ごほうび・チェックリスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
 
-        <tr class="cat-row"><td colspan="4"><span data-lp-key="pricingExtra.k54">レポート・家族機能</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k55">日次サマリー</span></td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k56">家族メンバー招待（別端末からアクセス）</span></td><td class="dash">&#8212;</td><td><span data-lp-key="pricingExtra.k57">4人まで</span></td><td class="check"><span data-lp-key="pricingExtra.k58">無制限</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k59">きょうだいランキング</span></td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k60">ひとことメッセージ（自由テキスト）</span></td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
+        <tr class="cat-row"><td colspan="4">レポート・家族機能</td></tr>
+        <tr><td>日次サマリー</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>家族メンバー招待（別端末からアクセス）</td><td class="dash">&#8212;</td><td>4人まで</td><td class="check">無制限</td></tr>
+        <tr><td>きょうだいランキング</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
+        <tr><td>ひとことメッセージ（自由テキスト）</td><td class="dash">&#8212;</td><td class="dash">&#8212;</td><td class="check">&#10003;</td></tr>
 
-        <tr class="cat-row"><td colspan="4"><span data-lp-key="pricingExtra.k61">データ管理</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k62">データのダウンロード（手動エクスポート）</span></td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k63">クラウド保管枠（手動エクスポート同時保管数）</span></td><td class="dash">&#8212;</td><td><span data-lp-key="pricingExtra.k64">3 個</span></td><td><span data-lp-key="pricingExtra.k65">10 個</span></td></tr>
+        <tr class="cat-row"><td colspan="4">データ管理</td></tr>
+        <tr><td>データのダウンロード（手動エクスポート）</td><td class="dash">&#8212;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>クラウド保管枠（手動エクスポート同時保管数）</td><td class="dash">&#8212;</td><td>3 個</td><td>10 個</td></tr>
 
-        <tr class="cat-row"><td colspan="4"><span data-lp-key="pricingExtra.k66">サポート</span></td></tr>
-        <tr><td><span data-lp-key="pricingExtra.k67">メールサポート</span></td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr class="cat-row"><td colspan="4">サポート</td></tr>
+        <tr><td>メールサポート</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
       </tbody>
     </table>
     </div>
@@ -445,7 +449,7 @@
   </div>
 </section>
 
-<!-- CTA -->
+<!-- CTA (#1626 R22: CTA 直下に不安解消 3 バッジを追加) -->
 <section class="cta-bottom">
   <h2 data-lp-key="pricing.ctaBottomTitle">お子さまの冒険を始めよう</h2>
   <p data-lp-key="pricing.ctaBottomDesc">まずは無料ではじめて、お子さまの反応を見てみませんか？</p>
@@ -453,6 +457,11 @@
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="pricing.ctaBottomPrimary">無料ではじめる</a>
     <a href="https://ganbari-quest.com/demo" class="btn btn-outline btn-lg" data-lp-key="pricing.ctaBottomSecondary">デモで体験する</a>
   </div>
+  <ul class="cta-trust-badges" aria-label="お申し込み前の安心ポイント">
+    <li data-lp-key="ctaTrustBadges.noCreditCard"><span aria-hidden="true">&#x1F4B3;</span> クレジットカード登録不要</li>
+    <li data-lp-key="ctaTrustBadges.noAds"><span aria-hidden="true">&#x1F6AB;</span> 広告なし</li>
+    <li data-lp-key="ctaTrustBadges.cancelAnytime"><span aria-hidden="true">&#x1F504;</span> いつでも解約 OK</li>
+  </ul>
 </section>
 
 <!-- Footer -->
