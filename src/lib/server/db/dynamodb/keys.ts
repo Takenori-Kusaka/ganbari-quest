@@ -2,6 +2,8 @@
 // PK/SK generation helpers for single-table design
 // All entity keys are defined here for type-safe, consistent key construction.
 
+import { createHash } from 'node:crypto';
+
 // ============================================================
 // Numeric ID padding (8 digits for lexicographic sort)
 // ============================================================
@@ -28,6 +30,8 @@ const PREFIX = {
 	CKTPL: 'CKTPL',
 	BENCH: 'BENCH',
 	INQUIRY: 'INQUIRY',
+	PUSH_SUB: 'PUSH_SUB',
+	NOTIF_LOG: 'NOTIF_LOG',
 } as const;
 
 // ============================================================
@@ -509,6 +513,66 @@ export function counterKey(entity: string, tenantId: string): DynamoKey {
 }
 
 // ============================================================
+// Push subscription / notification log (#1689 / ADR-0023 I6)
+// ============================================================
+//
+// 設計方針:
+//   - Tenant 単位の write/read のみがアクセスパターン (低頻度: 1 デバイス/家族 想定)
+//   - findByEndpoint は (endpoint, tenantId) を受けるため endpointHash で SK lookup → GetItem 1 回
+//   - 追加 GSI は Pre-PMF 規模では不要 (ADR-0010 過剰防衛禁止)
+//   - migration script (#1666) は SK が `PUSH_SUB#` 始まりの item を Scan する設計のため、
+//     SK = `PUSH_SUB#<endpointHash>` の規約を厳守すること
+
+const PUSH_SUB_HASH_LENGTH = 16; // SHA-256 16 hex chars (64 bit) — 衝突確率 < 10^-9
+
+/**
+ * Endpoint の決定的ハッシュを生成する。
+ * Service Worker push endpoint URL は長い (200+ chars) ため、SHA-256 先頭 16 桁を SK に使う。
+ *
+ * 衝突対策: 同一テナント内で 2^32 個の異なる endpoint がない限り衝突しない (生年単位 1 家族 < 10 デバイス想定)。
+ * 万一衝突しても tenantId 範囲なので影響範囲は単一家族の 1 通知のみ。
+ */
+export function pushSubscriptionEndpointHash(endpoint: string): string {
+	return createHash('sha256').update(endpoint).digest('hex').slice(0, PUSH_SUB_HASH_LENGTH);
+}
+
+/** Push subscription: PK=T#<tenantId>#PUSH_SUB, SK=PUSH_SUB#<endpointHash> */
+export function pushSubscriptionKey(tenantId: string, endpointHash: string): DynamoKey {
+	return {
+		PK: tenantPK(PREFIX.PUSH_SUB, tenantId),
+		SK: `${PREFIX.PUSH_SUB}#${endpointHash}`,
+	};
+}
+
+/** Push subscription PK for tenant Query */
+export function pushSubscriptionTenantPK(tenantId: string): string {
+	return tenantPK(PREFIX.PUSH_SUB, tenantId);
+}
+
+/** Push subscription SK prefix for filtering */
+export function pushSubscriptionSKPrefix(): string {
+	return `${PREFIX.PUSH_SUB}#`;
+}
+
+/** Notification log: PK=T#<tenantId>#NOTIF_LOG, SK=NOTIF#<sentAt>#<id> */
+export function notificationLogKey(tenantId: string, sentAt: string, id: number): DynamoKey {
+	return {
+		PK: tenantPK(PREFIX.NOTIF_LOG, tenantId),
+		SK: `NOTIF#${sentAt}#${padId(id)}`,
+	};
+}
+
+/** Notification log PK for tenant Query */
+export function notificationLogTenantPK(tenantId: string): string {
+	return tenantPK(PREFIX.NOTIF_LOG, tenantId);
+}
+
+/** Notification log SK prefix for date-range queries */
+export function notificationLogDatePrefix(date: string): string {
+	return `NOTIF#${date}`;
+}
+
+// ============================================================
 // GSI2 key builders (for category-based activity queries)
 // ============================================================
 
@@ -561,6 +625,8 @@ export const ENTITY_NAMES = {
 	activityMastery: 'activityMastery',
 	inquiry: 'inquiry',
 	voice: 'voice',
+	pushSubscription: 'pushSubscription',
+	notificationLog: 'notificationLog',
 } as const;
 
 export type EntityName = (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES];
