@@ -119,6 +119,11 @@ const envSchema = z.object({
 	// ----- GitHub API (#1201 / ADR-0044 /ops admin bypass metrics) -----
 	GITHUB_TOKEN: z.string().optional(),
 	GH_TOKEN: z.string().optional(),
+
+	// ----- App URL (#1598 / ADR-0023 I7) -----
+	// 本番では `https://ganbari-quest.com` を CDK context 経由で注入。
+	// 未設定時は本番 URL にフォールバック (email-service.ts と整合)。
+	APP_BASE_URL: z.string().url().optional(),
 });
 
 export type TypedEnv = z.infer<typeof envSchema>;

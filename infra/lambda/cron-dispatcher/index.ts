@@ -33,6 +33,8 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	'lifecycle-emails': '/api/cron/lifecycle-emails',
 	// #1648 R43: grace-period-service.ts findExpiredSoftDeletedTenants() を呼び出す物理削除バッチ
 	'grace-period-deletion': '/api/cron/grace-period-deletion',
+	// #1598 (ADR-0023 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
+	'pmf-survey': '/api/cron/pmf-survey',
 };
 
 interface CronEvent {
