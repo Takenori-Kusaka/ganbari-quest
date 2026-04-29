@@ -28,12 +28,15 @@ async function loginAs(page, email, password) {
 	await page.goto(`${BASE_URL}/auth/login`);
 	await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 15_000 });
 	// hydration が完了するまで少し待つ（Svelte 5 runes の reactivity が動き始める）
-	await page.waitForFunction(() => {
-		const input = document.querySelector('input[name="email"]');
-		// Svelte 5 では window 上の何らかの hydration マーカーは無いが、
-		// FormField primitive の input が type="email" になっていれば hydrated
-		return input?.getAttribute('type') === 'email';
-	}, { timeout: 15_000 });
+	await page.waitForFunction(
+		() => {
+			const input = document.querySelector('input[name="email"]');
+			// Svelte 5 では window 上の何らかの hydration マーカーは無いが、
+			// FormField primitive の input が type="email" になっていれば hydrated
+			return input?.getAttribute('type') === 'email';
+		},
+		{ timeout: 15_000 },
+	);
 
 	// pressSequentially で 1 文字ずつ送信（Svelte 5 runes の reactivity を確実にトリガー）
 	const emailInput = page.getByLabel('メールアドレス');
