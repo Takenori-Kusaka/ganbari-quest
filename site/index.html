@@ -81,11 +81,16 @@
 }
 </script>
 <style>
-/* Hero (#1617 R13: max-width 拡張 + text-wrap balance + auto-phrase) */
+/* Hero (#1617 R13: max-width 拡張 + text-wrap balance + auto-phrase / Phase 5 P2: PC 横長で h1 を拡大しゆとり padding) */
 .hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:64px 16px 48px;text-align:center}
 .hero h1{font-size:2.4rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3;max-width:1200px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
 .hero h1 span{color:var(--brand-700)}
 .hero-sub{font-size:1.05rem;color:var(--gray-600);margin-bottom:28px;max-width:720px;margin-left:auto;margin-right:auto;line-height:1.7;text-wrap:balance;word-break:auto-phrase}
+@media(min-width:1024px){
+  .hero{padding:80px 24px 64px}
+  .hero h1{font-size:2.9rem;margin-bottom:20px}
+  .hero-sub{font-size:1.12rem;max-width:780px}
+}
 .hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
 .hero-note{font-size:.85rem;color:var(--gray-500);margin-bottom:14px}
 /* #1625 R21: 価格 anchor 1 行バンド */
@@ -167,7 +172,8 @@
 }
 
 /* PC 2 カラムレイアウト (#1619 R15: text 8 / aside 4 で screenshot を sticky 配置)
-   仕組みグリッドは 3 カラム維持（縦積みすると高さが伸びすぎるため） */
+   仕組みグリッドは 3 カラム維持（縦積みすると高さが伸びすぎるため）
+   Phase 5 P2: 1440px+ で aside を 320px に拡張、screenshot をより視認しやすく */
 .core-loop-2col{display:block}
 .core-loop-aside{display:none}
 @media(min-width:1024px){
@@ -178,6 +184,12 @@
   .core-loop-aside .core-loop-note{margin:10px 0 0;text-align:left;font-size:.78rem;line-height:1.5}
   /* 2 カラム時の screenshot は縦長に戻す（モバイル UI を訴求するため） */
   .core-loop-2col .core-loop-aside .core-loop-visual picture source[media*="1024"]{display:none}
+}
+@media(min-width:1440px){
+  .core-loop-section-inner{max-width:1360px}
+  .core-loop-2col{grid-template-columns:minmax(0,1fr) 320px;gap:32px}
+  .core-loop-aside .core-loop-visual{max-width:300px;max-height:480px}
+  .core-loop-aside .core-loop-note{font-size:.82rem}
 }
 /* #1284: aspect-ratio を維持しつつ画像全体を表示するため max-height 拡張 + object-fit:contain に変更 */
 .core-loop-visual{max-width:280px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:380px;background:var(--gray-50)}
@@ -211,11 +223,16 @@
 /* 画像なし tour-card の plate (#1618 R14): 画像 tour-shot 同等の余白で高さを揃える */
 .tour-card .tour-shot-placeholder{margin-top:auto;min-height:160px;display:flex;align-items:center;justify-content:center;color:var(--gray-300);font-size:2.5rem;background:var(--gray-50);border-radius:8px;border:1px dashed var(--gray-200)}
 @media(min-width:1024px){
-  /* PC 整然配置: #1622 R18 で 5→4 カードに圧縮。4 列固定で半端なし */
-  .machine-tour{grid-template-columns:repeat(4,1fr);gap:18px}
-  .tour-card{min-height:460px}
-  .tour-card .tour-shot{max-height:200px}
-  .tour-card .tour-shot-placeholder{min-height:180px}
+  /* PC 整然配置 (#1618 R14 / Phase 5 P2): 4 列固定で半端なし、grid-auto-rows で行高を揃える */
+  .machine-tour{grid-template-columns:repeat(4,1fr);gap:20px;grid-auto-rows:1fr}
+  .tour-card{min-height:480px;padding:24px 22px}
+  /* 画像 / placeholder どちらでも同じ最終 panel サイズに揃える */
+  .tour-card .tour-shot{max-height:200px;min-height:200px}
+  .tour-card .tour-shot-placeholder{min-height:200px}
+}
+@media(min-width:1440px){
+  .machine-tour{max-width:1320px;gap:24px}
+  .tour-card{padding:28px 24px}
 }
 
 /* Soft features */

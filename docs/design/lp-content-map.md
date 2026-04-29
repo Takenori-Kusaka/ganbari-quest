@@ -137,7 +137,7 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 | 08 | FAQ | Top 3 のみ (残りは /faq) | 1200 | 700 |
 | 08b | founder 直接相談 (#1594) | Pre-PMF 期 founder と直接対話する入口 | 600 | 400 |
 | 09 | 最終 CTA | 「7 日間、家族で試す」 | 700 | 500 |
-| | **合計（実測 2026-04-28）** | | **~13443** | **~7327** |
+| | **合計（実測 2026-04-29）** | | **~13662** | **~7458** |
 
 > #1621 R17 で [06b] retention セクションを削除し、コア訴求（変動比率/射幸心 → 1 日 1 回まで・煽らない設計）を [03] コアループ L2 (習慣カード) へ統合した。
 > #1622 R18 で [04] 機構ツアーを 5 → 4 カードに圧縮（[03] と重複する①おみくじを削除し、③コンボ系を「ルーティンチェックリスト」に再定義、用語を ADR-0012 整合へ刷新）。
@@ -157,6 +157,10 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 - **CTA 2 つ**: `無料で始める`（プライマリ）/ `デモを見る`（セカンダリ）
 - **補足テキスト**: 「家族何人でも無料ではじめられます / クレジットカード登録不要」
 - **ビジュアル**: ヒーローイラスト + アプリスクショ（モバイル/デスクトップで切替）
+- **PC 横長レイアウト** (#1617 R13 / Phase 5 P2):
+  - `<br>` 強制改行は使わず `text-wrap: balance; word-break: auto-phrase;` (ADR-0016) で自然折り返し
+  - `h1` の `max-width` は 1200px、PC (≥1024px) では `font-size: 2.9rem` / `padding: 80px 24px 64px` に拡大
+  - `hero-sub` は `max-width: 780px` / `font-size: 1.12rem` (PC のみ)
 
 #### [02] 年齢スイッチャー (改訂後: 2 パネル構成 #1320)
 
@@ -182,6 +186,11 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 - **訴求**: 親視点（プリセット設定 2 分・定量把握）と子供視点（活動→ポイント→ショップ交換）を同一セクション内で両面訴求
 - **ごほうびショップ唯一の出口**: ポイントは「欲しいものと交換できる経済通貨」として機能し、子供の自律的目標設定を促す
 - **禁句**: 「シールガチャ」(#1311 で撤回)、「UR を引く」等の射幸心文言 (ADR-0012 / ADR-0013)
+- **PC 横長 2 カラムレイアウト** (#1619 R15 / Phase 5 P2):
+  - `core-loop-2col` を 1024px+ で `grid-template-columns: minmax(0,1fr) 280px` に展開（左 text 8 / 右 aside 4）
+  - 右側 `core-loop-aside` に screenshot を `position: sticky; top: 24px` で配置（スクロール中も見え続ける）
+  - 1440px+ では aside 幅を 320px、`core-loop-section-inner` を 1360px max-width に拡張し screenshot を大きく訴求
+  - mobile (<1024px) では従来通り 1 カラム縦積み（aside は `display: none`）
 
 #### [04] 機構ツアー — 補足機構 4 つ（#1622 R18 で再定義）
 
@@ -196,6 +205,13 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 
 > 用語は `CHECKLIST_KIND_LABELS` (#1168) に同期し、**同じ段落内で「持ち物チェックリスト」「ルーティンチェックリスト」「やることリスト」を混在させない** こと。
 > #1629 R25 で「コンボ」「ゲーミフィケーション全開」「変動比率」「射幸」「メタ層」「シールくじ」は禁止語彙とし `scripts/measure-lp-dimensions.mjs` の FORBIDDEN_TERMS で CI 検出（#1637 R34 で TARGET_HTML 配列化）。
+
+**PC 横長レイアウト** (#1618 R14 / Phase 5 P2):
+
+- 1024px+ で `grid-template-columns: repeat(4, 1fr)` の 4 列固定 + `grid-auto-rows: 1fr` で行高を揃える（4+1 半端配置を排除）
+- 画像有無で高さがバラつかないよう `tour-shot` / `tour-shot-placeholder` ともに `min-height: 200px`、`tour-card` は `min-height: 480px`
+- 1440px+ では `max-width: 1320px` / `gap: 24px` に拡張しゆとりを確保
+- mobile (<1024px) は `grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))` で 1〜2 列フルード
 
 #### [05] ソフト機能（親の安心）— 4 カード構成（#1287 で 3→4 カードに拡張）
 
