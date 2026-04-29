@@ -82,6 +82,11 @@ function buildClient() {
 	});
 }
 
+/**
+ * @param {string} level
+ * @param {string} msg
+ * @param {Record<string, unknown>} [extra]
+ */
 function log(level, msg, extra) {
 	const line = `[migrate-push-role] ${level.toUpperCase()} ${msg}`;
 	if (extra) {
@@ -91,13 +96,22 @@ function log(level, msg, extra) {
 	}
 }
 
+/**
+ * @param {unknown} item
+ * @returns {boolean}
+ */
 function isPushSubscriptionItem(item) {
-	if (!item) return false;
-	if (item.entityType === PUSH_SUB_ENTITY_TYPE) return true;
-	if (typeof item.SK === 'string' && item.SK.startsWith(PUSH_SUB_SK_PREFIX)) return true;
+	if (!item || typeof item !== 'object') return false;
+	const record = /** @type {Record<string, unknown>} */ (item);
+	if (record.entityType === PUSH_SUB_ENTITY_TYPE) return true;
+	if (typeof record.SK === 'string' && record.SK.startsWith(PUSH_SUB_SK_PREFIX)) return true;
 	return false;
 }
 
+/**
+ * @param {{ subscriberRole?: unknown }} item
+ * @returns {boolean}
+ */
 function needsBackfill(item) {
 	const role = item.subscriberRole;
 	if (role == null || role === '') return true;
@@ -106,14 +120,23 @@ function needsBackfill(item) {
 	return false;
 }
 
+/**
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
 async function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * @param {() => Promise<unknown>} fn
+ * @param {number} [attempt]
+ * @returns {Promise<unknown>}
+ */
 async function withBackoff(fn, attempt = 0) {
 	try {
 		return await fn();
-	} catch (err) {
+	} catch (/** @type {any} */ err) {
 		const code = err?.name ?? err?.Code ?? '';
 		const isThrottle =
 			code === 'ProvisionedThroughputExceededException' ||
@@ -138,32 +161,37 @@ async function withBackoff(fn, attempt = 0) {
  * @returns {Promise<{total:number, needsBackfill: Array<{PK:string, SK:string, currentRole: unknown}>}>}
  */
 export async function scanPushSubscriptions(doc, tableName = TABLE_NAME) {
+	/** @type {{total: number, needsBackfill: Array<{PK: string, SK: string, currentRole: unknown}>}} */
 	const result = { total: 0, needsBackfill: [] };
+	/** @type {Record<string, unknown> | undefined} */
 	let lastKey;
 
 	do {
-		const page = await withBackoff(() =>
-			doc.send(
-				new ScanCommand({
-					TableName: tableName,
-					FilterExpression: 'begins_with(SK, :skPrefix) OR entityType = :entityType',
-					ExpressionAttributeValues: {
-						':skPrefix': PUSH_SUB_SK_PREFIX,
-						':entityType': PUSH_SUB_ENTITY_TYPE,
-					},
-					ExclusiveStartKey: lastKey,
-				}),
-			),
+		const page = /** @type {import('@aws-sdk/lib-dynamodb').ScanCommandOutput} */ (
+			await withBackoff(() =>
+				doc.send(
+					new ScanCommand({
+						TableName: tableName,
+						FilterExpression: 'begins_with(SK, :skPrefix) OR entityType = :entityType',
+						ExpressionAttributeValues: {
+							':skPrefix': PUSH_SUB_SK_PREFIX,
+							':entityType': PUSH_SUB_ENTITY_TYPE,
+						},
+						ExclusiveStartKey: lastKey,
+					}),
+				),
+			)
 		);
 
 		for (const item of page.Items ?? []) {
 			if (!isPushSubscriptionItem(item)) continue;
+			const record = /** @type {Record<string, unknown>} */ (item);
 			result.total += 1;
-			if (needsBackfill(item)) {
+			if (needsBackfill(/** @type {{ subscriberRole?: unknown }} */ (record))) {
 				result.needsBackfill.push({
-					PK: item.PK,
-					SK: item.SK,
-					currentRole: item.subscriberRole ?? null,
+					PK: /** @type {string} */ (record.PK),
+					SK: /** @type {string} */ (record.SK),
+					currentRole: record.subscriberRole ?? null,
 				});
 			}
 		}
@@ -197,7 +225,7 @@ export async function updateSubscriberRole(doc, key, tableName = TABLE_NAME) {
 				},
 			}),
 		),
-	).catch((err) => {
+	).catch((/** @type {any} */ err) => {
 		// ConditionalCheckFailedException = 既に valid role が設定済 → 期待通り skip
 		if (err?.name === 'ConditionalCheckFailedException') return;
 		throw err;
@@ -259,9 +287,9 @@ async function main() {
 // Entry point (only when invoked directly)
 // ------------------------------------------------------------
 
+const argv1 = process.argv[1] ?? '';
 const isDirectInvocation =
-	import.meta.url === `file://${process.argv[1]}` ||
-	import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+	import.meta.url === `file://${argv1}` || import.meta.url.endsWith(argv1.replace(/\\/g, '/'));
 
 if (isDirectInvocation) {
 	main()
@@ -269,7 +297,7 @@ if (isDirectInvocation) {
 			console.log(JSON.stringify({ status: 'ok', ...summary }, null, 2));
 			process.exit(0);
 		})
-		.catch((err) => {
+		.catch((/** @type {any} */ err) => {
 			log('error', 'migration failed', { message: err?.message, stack: err?.stack });
 			process.exit(1);
 		});
