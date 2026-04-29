@@ -216,6 +216,21 @@
 | POST | /api/v1/analytics | クライアント側イベント記録 | 不要（tenantIdは自動付与） |
 | GET | /api/v1/analytics/status | アナリティクス設定状態取得 | 全ロール |
 
+#### analytics-service 集計 API（service 層、HTTP 経由ではなく `+page.server.ts` から直接呼出）
+
+`/admin/analytics` 画面 (#1639) が消費する 4 種集計関数。Pre-PMF (ADR-0010) のため事前集計レコードは未導入で直接 query（~100 テナント想定）。
+
+| 関数 | 引数 | 戻り値 | 集計元 | キャッシュ |
+|------|------|--------|--------|---------|
+| `getActivationFunnel(period)` | `'7d' \| '30d'` | `ActivationFunnelResult { period, steps[4], scannedDates, fetchedAt }` | DynamoDB GSI2 (`GSI2PK=ANALYTICS#EVENT#<name>`、4 events × 期間内日付) | なし |
+| `getRetentionCohort(period)` | `'weekly' \| 'monthly'` | `RetentionCohortResult { period, dayPoints, cohorts[], fetchedAt }` | `cohort-analysis-service.getCohortAnalysis` を再利用（Day 1/7/14/30/60/90） | なし |
+| `getSeanEllisScore(round?)` | `'YYYY-H1' \| 'YYYY-H2' \| undefined` | `PmfSurveyAggregation` (既存型、totalResponses / seanEllisScore / pmfAchieved 等) | `pmf-survey-service.aggregateSurveyResponses` を再利用 | なし |
+| `getCancellationReasons(period)` | `'30d' \| '90d'` | `CancellationReasonResult { period, total, breakdown[], fetchedAt }` | `cancellation-service.getCancellationReasonAggregation` を再利用 | なし |
+
+**エラー方針**: 各関数の失敗は `+page.server.ts` 側で `Promise.allSettled` を使い部分縮退（1 セクションが落ちても他セクションは表示）。`getActivationFunnel` 内部の DynamoDB query 失敗時は zero counts で fallback（Pre-PMF: 個別エラーログのみ、画面全体は崩さない）。
+
+**Follow-up（事前集計）**: 集計頻度が高くなれば cron で `PK=ANALYTICS_AGG#<date>` を書く設計に移行する（別 Issue）。
+
 ---
 
 ## 3. エンドポイント詳細
