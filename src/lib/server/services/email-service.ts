@@ -4,7 +4,7 @@
 
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
-import { getLicensePlanLabel, LIFECYCLE_EMAIL_LABELS } from '$lib/domain/labels';
+import { getLicensePlanLabel, LIFECYCLE_EMAIL_LABELS, PMF_SURVEY_LABELS } from '$lib/domain/labels';
 import { logger } from '$lib/server/logger';
 import { generateUnsubscribeToken, type UnsubscribeKind } from './unsubscribe-token';
 
@@ -686,6 +686,69 @@ export async function sendDormantReactivationEmail(
 	return sendEmail({
 		to: email,
 		subject: labels.dormantSubject,
+		htmlBody: wrapLifecycleTemplate(htmlContent, unsubscribeUrl),
+		textBody,
+		listUnsubscribeUrl: unsubscribeUrl,
+	});
+}
+
+// ============================================================
+// PMF 判定アンケート (#1598 / ADR-0023 §3.6 §5 I7)
+// ============================================================
+
+export interface PmfSurveyEmailParams {
+	email: string;
+	tenantId: string;
+	ownerName: string;
+	round: string;
+	surveyUrl: string;
+}
+
+/**
+ * PMF 判定アンケート (Sean Ellis Test) メール (年 2 回・親宛)。
+ *
+ * Anti-engagement 整合: 「ぜひ」「お得な」等の煽り表現を含めない。
+ * 「ご回答ください」の中立トーン。年 6 回上限と List-Unsubscribe を共有。
+ */
+export async function sendPmfSurveyEmail(params: PmfSurveyEmailParams): Promise<boolean> {
+	const labels = PMF_SURVEY_LABELS;
+	const lifecycleLabels = LIFECYCLE_EMAIL_LABELS;
+	const { email, tenantId, ownerName, round, surveyUrl } = params;
+	const unsubscribeUrl = buildUnsubscribeUrl(tenantId, 'marketing');
+
+	const htmlContent = `
+      <h2>${labels.emailHeading}</h2>
+      <p>${labels.emailGreeting(ownerName)}</p>
+      <p>${labels.emailIntro}</p>
+      <p>${labels.emailBody}</p>
+      <div class="meta">
+        <div>${labels.emailRoundLabel(round)}</div>
+      </div>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="${surveyUrl}" class="button">${labels.emailCtaLabel}</a>
+      </p>
+      <p style="font-size: 13px; color: #718096;">${labels.emailNote}</p>
+    `;
+
+	const textBody = [
+		labels.emailGreeting(ownerName),
+		'',
+		labels.emailIntro,
+		'',
+		labels.emailBody,
+		'',
+		labels.emailRoundLabel(round),
+		'',
+		`${labels.emailCtaLabel}: ${surveyUrl}`,
+		'',
+		labels.emailNote,
+		'',
+		`${lifecycleLabels.unsubscribeFooter}: ${unsubscribeUrl}`,
+	].join('\n');
+
+	return sendEmail({
+		to: email,
+		subject: labels.emailSubject,
 		htmlBody: wrapLifecycleTemplate(htmlContent, unsubscribeUrl),
 		textBody,
 		listUnsubscribeUrl: unsubscribeUrl,

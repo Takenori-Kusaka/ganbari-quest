@@ -1868,6 +1868,111 @@ Push 通知の購読解除。
 
 ---
 
+### 3.27 PMF 判定アンケート API (#1598 ADR-0023 §5 I7)
+
+#### 1. 設計背景
+
+ADR-0023 §3.6 が定める PMF 達成度の客観的判定（Sean Ellis 40%）を実装するため、年 2 回（半期ごと）親宛にアンケートメールを送信し、回答 / 集計を提供する API 群。
+
+#### 2. 設計原則
+
+- HMAC トークンベース回答（認証なしでも回答可。鍵は `OPS_SECRET_KEY` を unsubscribe-token と共有、ADR-0010 鍵配布経路を増やさない）
+- 接触頻度上限は lifecycle-emails (#1601) と共有 (年 6 回上限カウンタ)
+- 半期 round 内重複防止（PO 承認 2026-04-29、Issue #1598 AC4 更新済 — 60 日カウンタは半期 round (180 日 cycle) 重複防止で代替、実質的により厳しい制約。実装は半期 round 内重複ガードのみで 60 日カウンタロジックは持たない）
+
+#### 3. エンドポイント一覧
+
+| メソッド | パス | 認証 | 用途 |
+|---------|------|------|------|
+| POST | `/api/cron/pmf-survey` | `verifyCronAuth` | 年 2 回 (6/1, 12/1 09:00 JST) 全テナント走査して owner email へ配信 |
+| GET | `/survey/sean-ellis/[token]` | HMAC トークン | 回答 UI レンダリング (SvelteKit `+page.server.ts` load) |
+| POST | `/survey/sean-ellis/[token]?/submit` | HMAC トークン | 回答送信 form action |
+| ops | `/ops/pmf-survey?round=<r>&q=<keyword>` | Cognito ops group | 集計表示 + 自由記述検索 (AC12) |
+
+#### POST /api/cron/pmf-survey
+
+EventBridge cron `cron(0 0 1 6,12 ? *)` (UTC) = 6/1 + 12/1 09:00 JST から起動される。
+
+**認証:** `verifyCronAuth`（`07-API設計書.md §5` cron 認証パターン）
+
+**リクエストボディ (任意):**
+```json
+{
+  "dryRun": false,
+  "round": "2026-H1"
+}
+```
+
+| フィールド | 型 | 既定 | 説明 |
+|-----------|----|------|------|
+| `dryRun` | boolean | `false` | true なら実送信せず件数のみ返却 |
+| `round` | string | `getCurrentRound(now)` | YYYY-H1 / YYYY-H2 形式。テスト用上書き |
+
+**処理フロー:**
+1. 全テナント走査（`auth.listAllTenants()`）
+2. テナントごとに分岐:
+   - 契約 14 日未満 → `skippedTenure++`
+   - 同一 round 既送信 (`pmf_survey_sent_<round>` settings KV) → `skippedAlreadySent++`
+   - owner email 取得不能 → `skippedNoOwner++`
+   - 年 6 回上限到達 (lifecycle-emails 共有) → `skippedRateLimit++`
+   - dryRun → `sent++` だけ計上
+   - 上記すべてクリア → SES 送信 + `incrementMarketingEmailCount` + `setSetting(sentKey, ISO ts)` + `sent++`
+
+**レスポンス (200):**
+```json
+{
+  "round": "2026-H1",
+  "scanned": 42,
+  "sent": 18,
+  "skippedTenure": 12,
+  "skippedAlreadySent": 8,
+  "skippedRateLimit": 0,
+  "skippedNoOwner": 4,
+  "errors": 0,
+  "dryRun": false
+}
+```
+
+#### GET /survey/sean-ellis/[token]
+
+**認証:** HMAC トークン検証 (`survey-token.ts` `verifySurveyToken`)。鍵は `OPS_SECRET_KEY`。
+
+**処理:**
+1. token を `verifySurveyToken` で検証 → `{ tenantId, round }` 取得
+2. 失敗 → `invalid: true` を返却（テンプレートで「無効なリンク」を表示）
+3. 既に同 round で回答済み (`hasAnsweredSurvey`) → `alreadyAnswered: true` を返却
+4. 正常 → 回答フォームをレンダリング
+
+**ガード:** `hooks.server.ts` の setup gate に `/survey/` を bypass 追加（認証なしで到達可能）。
+
+#### POST /survey/sean-ellis/[token]?/submit
+
+**入力バリデーション:**
+- `q1`: enum (`very` / `somewhat` / `not` / `na`) 必須
+- `q2`: 1000 文字以内（任意）
+- `q3`: enum (`lp` / `media` / `friend` / `google` / `sns` / `other`) 必須
+- `q4`: 1000 文字以内（任意）
+
+**処理:** `saveSurveyResponse({ tenantId, round, q1-q4, answeredAt: now })` で settings KV (`pmf_survey_response_<round>`) に JSON 永続化。
+
+#### ops 集計画面 (内部のみ、API 公開なし)
+
+- `src/routes/ops/pmf-survey/+page.server.ts` で `aggregateSurveyResponses(round)` を呼ぶ
+- クエリパラメータ:
+  - `round`: YYYY-H1 / YYYY-H2 (既定: 現在 round)
+  - `q`: 自由記述検索キーワード — Q2 / Q4 + tenantId 部分一致 (case-insensitive substring)、最大 100 文字。AC12 (PO 承認 2026-04-29) で本 PR 実装。実装は `pmf-survey-service.ts::filterFreeTextByQuery` 純粋関数
+- 認証: ops layout (`/ops/+layout.server.ts`) の Cognito ops group 所属チェック流用 (#820 PR-C)
+
+#### エラーコード
+
+| コード | HTTP | 説明 |
+|--------|------|------|
+| `INVALID_TOKEN` | 200 (テンプレート表示) | HMAC 検証失敗 / 形式不正 |
+| `ALREADY_ANSWERED` | 200 (テンプレート表示) | 同 round で回答済み |
+| 検証エラー | 400 | q1 / q3 enum 不正、q2 / q4 1000 文字超過 |
+
+---
+
 ### 3.X ライセンスキー API (#808)
 
 > **SSOT**: [license-key-lifecycle.md §4](./license-key-lifecycle.md#4-api-エンドポイント一覧) を参照。本セクションは要約。
@@ -2139,6 +2244,7 @@ if (authError) return authError;
 | `/api/cron/retention-cleanup` | POST / GET | 保持期間超過データの物理削除（ADR-0028） |
 | `/api/cron/trial-notifications` | POST | トライアル通知の日次送信 |
 | `/api/cron/grace-period-deletion` | POST / GET | グレースピリオド期限切れテナントの物理削除バッチ（#1648 R43, grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service deleteOwnerOnlyAccount/deleteOwnerFullDelete 経由）。プラン別猶予期間（standard:7 / family:30 日）後に soft-delete されたテナントを物理削除し、個人情報保護法 22 条遵守 + DB 肥大化リスクを解消する。EventBridge 02:00 JST 実行 |
+| `/api/cron/pmf-survey` | POST | PMF 判定アンケート（Sean Ellis Test）の半期一括送信バッチ（#1598 / ADR-0023 §3.6）。EventBridge cron `0 0 1 6,12 ? *` (UTC) = 6/1 + 12/1 09:00 JST 実行。`pmf-survey-service.ts processTenant` が契約 14 日超のテナントの owner ロール宛に SES でアンケ URL を送信。同一 half-year round 内の重複送信を `pmf_survey_sent_<round>` settings KV キーで防止。年 6 回上限の `marketing-email-counter` を共有 |
 | `/api/v1/admin/tenant-cleanup` | POST | テナントクリーンアップ |
 | `/api/v1/admin/cleanup-orphans` | POST | 孤立データクリーンアップ |
 | `/api/v1/admin/migration` | GET / POST | マイグレーション統計取得・実行 |
@@ -2175,3 +2281,5 @@ if (authError) return authError;
 | 2026-04-26 | 2.19 | #1337 §3.26 ごほうびショップ交換申請 API 追加（POST /api/v1/reward-redemption-requests, GET /api/v1/reward-redemption-requests, PATCH /api/v1/reward-redemption-requests/:id, POST /api/cron/expire-redemptions）。エラーコード・ポイント減算タイミング・承認/却下フロー仕様を定義 |
 | 2026-04-27 | 2.20 | #1591 §3.25 GET /api/v1/analytics/status のレスポンスを `providers: []` + `dynamoEnabled` 形式に更新。umami / Sentry プロバイダ削除に伴う ADR-0023 I2 対応。詳細は `docs/design/13-AWSサーバレスアーキテクチャ設計書.md §7.2` を参照 |
 | 2026-04-28 | 2.21 | #1648 R43 §5 cron 使用エンドポイント一覧に `/api/cron/grace-period-deletion` を追加。grace-period-service.ts findExpiredSoftDeletedTenants → account-deletion-service の物理削除フロー。EventBridge 02:00 JST 実行。プラン別猶予期間 (standard:7 / family:30) 後の物理削除を担保 |
+| 2026-04-29 | 2.22 | #1598 §5 cron 使用エンドポイント一覧に `/api/cron/pmf-survey` を追加。半期 (6/1 / 12/1 09:00 JST) PMF 判定アンケート (Sean Ellis Test) 一括送信バッチ。契約 14 日超 owner ロールが対象、round 内重複送信防止、`marketing-email-counter` 年 6 回上限と共有。ADR-0023 §3.6 PMF 判定 (40% 閾値) 連動 |
+| 2026-04-29 | 2.23 | #1598 §3.27 PMF 判定アンケート API 詳細追加 — POST /api/cron/pmf-survey (リクエスト/レスポンス仕様)、GET/POST /survey/sean-ellis/[token] (HMAC トークン回答 UI)、ops 集計画面の `q` 自由記述検索パラメータ仕様。AC4 文言整合 (60 日カウンタ→半期 round 内重複防止 PO 承認 2026-04-29)。AC12 自由記述検索を本 PR で実装 (Q2/Q4 + tenantId 部分一致 case-insensitive substring) |

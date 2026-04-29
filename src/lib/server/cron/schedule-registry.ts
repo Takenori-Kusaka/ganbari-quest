@@ -64,4 +64,14 @@ export const scheduleRegistry: CronJob[] = [
 		description:
 			'グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, grace-period-service.ts)',
 	},
+	{
+		name: 'pmf-survey',
+		endpoint: '/api/cron/pmf-survey',
+		// 6/1 と 12/1 の 09:00 JST のみ起動する (年 2 回)。
+		// pmf-survey-service は (tenantId × round) で重複送信ガードを持つため、
+		// 万が一同じ日に複数回起動しても 2 通目は送らない。
+		cronExpression: '0 9 1 6,12 *', // 6/1 と 12/1 の 09:00 JST
+		utcCronExpression: 'cron(0 0 1 6,12 ? *)', // 6/1 と 12/1 の 00:00 UTC = 09:00 JST
+		description: 'PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 I7)',
+	},
 ];
