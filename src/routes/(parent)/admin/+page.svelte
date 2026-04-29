@@ -21,4 +21,5 @@ let { data } = $props();
 	stripeEnabled={data.stripeEnabled}
 	todayUsage={data.todayUsage}
 	weeklyUsage={data.weeklyUsage}
+	valuePreview={data.valuePreview}
 />

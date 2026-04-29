@@ -16,6 +16,10 @@ import {
 	getTodayUsageSummary,
 	getWeeklyUsageSummary,
 } from '$lib/server/services/usage-log-service';
+import {
+	getTenantValuePreview,
+	type TenantValuePreview,
+} from '$lib/server/services/value-preview-service';
 import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -167,6 +171,15 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		logger.warn('[admin] 週次使用時間取得フォールバック', { context: { error: String(e) } });
 	}
 
+	// #1600 ADR-0023 I9: 初月価値プレビュー（マイルストーン + 30 日プレビュー）
+	// 取得失敗時はフォールバック（preview セクション非表示）で admin 全体は守る
+	let valuePreview: TenantValuePreview | null = null;
+	try {
+		valuePreview = await getTenantValuePreview(tenantId);
+	} catch (e) {
+		logger.warn('[admin] 価値プレビュー取得フォールバック', { context: { error: String(e) } });
+	}
+
 	return {
 		children: childrenWithStatus,
 		onboarding,
@@ -178,6 +191,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		stripeEnabled: isStripeEnabled(),
 		todayUsage,
 		weeklyUsage,
+		valuePreview,
 	};
 };
 

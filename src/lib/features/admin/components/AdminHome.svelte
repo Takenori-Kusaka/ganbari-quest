@@ -4,7 +4,9 @@ import { ADMIN_HOME_LABELS, TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/doma
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
+import MonthlyValuePreview from '$lib/features/value-preview/MonthlyValuePreview.svelte';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
+import type { TenantValuePreview } from '$lib/server/services/value-preview-service';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import {
@@ -95,6 +97,8 @@ interface Props {
 		childName: string;
 		dailySummary: { date: string; durationMin: number }[];
 	}[];
+	/** #1600: 初月価値プレビュー（マイルストーン + 30 日後親レポート） */
+	valuePreview?: TenantValuePreview | null;
 }
 
 let {
@@ -114,6 +118,7 @@ let {
 	stripeEnabled = false,
 	todayUsage = [],
 	weeklyUsage = [],
+	valuePreview = null,
 }: Props = $props();
 
 // svelte-ignore state_referenced_locally
@@ -355,6 +360,11 @@ function childLink(child: ChildSummary): string {
 				{/each}
 			</div>
 		</section>
+	{/if}
+
+	<!-- #1600 ADR-0023 I9: 初月価値プレビュー（マイルストーン + 30 日プレビュー） -->
+	{#if !isDemo && valuePreview}
+		<MonthlyValuePreview preview={valuePreview} />
 	{/if}
 
 	<!-- #1292: 本日の使用時間 -->

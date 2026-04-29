@@ -13,6 +13,7 @@ import {
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
+import MilestoneBanner from '$lib/features/value-preview/MilestoneBanner.svelte';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import StampCard from '$lib/ui/components/StampCard.svelte';
@@ -154,6 +155,12 @@ function handleStartChildTutorial() {
 				<div class="skeleton-block h-20 rounded-[var(--radius-md)]"></div>
 			</div>
 		{:else}
+			<!-- #1600 ADR-0023 I9: マイルストーン演出（baby モードは祝福 UI 非対象、ADR-0011 + ADR-0012） -->
+			{#if !isBaby && data.child && data.milestones && data.milestones.length > 0}
+				<div class="px-[var(--sp-md)]">
+					<MilestoneBanner milestones={data.milestones} childId={data.child.id} />
+				</div>
+			{/if}
 			{@render children()}
 		{/if}
 	</main>

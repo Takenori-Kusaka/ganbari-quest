@@ -15,7 +15,28 @@ import {
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getStampCardStatus } from '$lib/server/services/stamp-card-service';
 import { getChildStatus } from '$lib/server/services/status-service';
+import {
+	getTenantValuePreview,
+	type MilestoneAchievement,
+} from '$lib/server/services/value-preview-service';
 import type { LayoutServerLoad } from './$types';
+
+/**
+ * #1600 ADR-0023 I9: 指定 child のマイルストーン進捗を取得する。
+ * 取得失敗時は空配列フォールバック（バナー非表示）で child UI 全体を守る。
+ */
+async function loadMilestonesForChild(
+	tenantId: string,
+	childId: number,
+): Promise<MilestoneAchievement[]> {
+	try {
+		const preview = await getTenantValuePreview(tenantId);
+		const childPreview = preview.children.find((c) => c.childId === childId);
+		return childPreview?.milestones ?? [];
+	} catch {
+		return [];
+	}
+}
 
 export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	const tenantId = requireTenantId(locals);
@@ -66,6 +87,9 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 			getStampCardStatus(childId, tenantId),
 		]);
 
+	// #1600 ADR-0023 I9: マイルストーン進捗を child layout で取得
+	const milestones = await loadMilestonesForChild(tenantId, childId);
+
 	const balance = 'error' in balanceResult ? 0 : balanceResult.balance;
 	const level = 'error' in statusResult ? 1 : statusResult.level;
 	const levelTitle = 'error' in statusResult ? 'かけだし' : statusResult.levelTitle;
@@ -109,5 +133,6 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		isPremium,
 		planTier,
 		planLimits,
+		milestones,
 	};
 };
