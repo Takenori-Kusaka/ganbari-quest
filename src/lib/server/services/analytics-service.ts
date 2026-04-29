@@ -4,11 +4,20 @@
 //
 // #1639 (#1591 follow-up): /admin/analytics 可視化用の集計関数を追加
 // (activation funnel / cancellation reasons / Sean Ellis スコア / retention cohort)。
-// Pre-PMF (ADR-0010) 段階のため事前集計レコードは未導入。直接 query で十分（~100 テナント想定）。
-// 集計頻度が高くなれば cron で `PK=ANALYTICS_AGG#<date>` を書く設計に移行する (follow-up)。
+//
+// #1693 (#1639 follow-up): 「集計レコード優先 → ライブ計算 fallback」構造を導入。
+// EventBridge cron `gq-analytics-aggregator-daily` (03:00 JST) が前日分を
+// `PK=ANALYTICS_AGG#<YYYY-MM-DD>` に書き込み、本ファイルの read 関数が期間内日付の
+// レコードを取得して合算する。事前集計が無い日付分のみ従来のライブ query を実行する。
 
 import { analytics } from '$lib/analytics';
-import { queryAnalyticsEventTenants } from '$lib/analytics/providers/dynamo';
+import {
+	ANALYTICS_AGG_KIND,
+	type CancellationDailyAggregate,
+	type FunnelDailyAggregate,
+	queryAnalyticsAggregates,
+	queryAnalyticsEventTenantList,
+} from '$lib/analytics/providers/dynamo';
 import type { BusinessEventName, EventProperties } from '$lib/analytics/types';
 import type { CancellationReasonAggregation } from '$lib/server/db/interfaces/cancellation-reason-repo.interface';
 import { getCancellationReasonAggregation } from './cancellation-service';
@@ -193,32 +202,73 @@ const ACTIVATION_FUNNEL_EVENT_NAMES = [
 ] as const;
 
 /**
- * Activation funnel を取得する (#1639 AC1)。
+ * `YYYY-MM-DD` 文字列の今日 (UTC) との days 前を返す。
+ */
+function isoDateDaysAgo(daysAgo: number): string {
+	return new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * Activation funnel を取得する (#1639 AC1 / #1693 follow-up)。
  * 4 step (signup / first_child / first_activity / first_reward) のテナント単位 unique 件数。
  *
- * 各 step は DynamoDB GSI2 (`GSI2PK=ANALYTICS#EVENT#<name>`) を query 経由で取得する
- * (`queryAnalyticsEventTenants` ヘルパは services/ 層の DB 直接アクセス禁止 (#1021 アーキテクチャ
- * テスト) を回避するため `$lib/analytics/providers/dynamo.ts` に置いている)。
+ * #1693 集計レコード優先 → ライブ計算 fallback:
+ *   1. cron 事前集計レコード (`ANALYTICS_AGG#<date> SK=FUNNEL`) を期間内 (前日まで) 取得
+ *   2. 各日付の tenantsByEvent から union を取り unique 件数を合算
+ *   3. 当日分など集計レコードが無い日付については `queryAnalyticsEventTenants` で
+ *      個別ライブ計算し、結果を集計レコードと merge する
  *
- * Pre-PMF / ADR-0010: GSI 経路で 4 events × 期間内日付のスキャンで十分。
+ * Pre-PMF / ADR-0010: tenant 数が ~100 規模なので tenantId 一覧を持つ「正確な union」
+ * 方式を採用。Post-PMF で件数が増えたら HyperLogLog 近似に切替検討 (follow-up)。
  */
 export async function getActivationFunnel(
 	period: ActivationFunnelPeriod = '30d',
 ): Promise<ActivationFunnelResult> {
 	const days = period === '7d' ? 7 : 30;
-	const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
-	const sinceDate = new Date(sinceMs).toISOString().slice(0, 10);
+	const sinceDate = isoDateDaysAgo(days);
+	const yesterday = isoDateDaysAgo(1);
+	const today = isoDateDaysAgo(0);
 
-	const counts: number[] = [];
-	let scannedDates = 0;
+	// 1. 集計レコードを取得 (前日までの範囲)
+	const aggregates = (await queryAnalyticsAggregates(
+		ANALYTICS_AGG_KIND.FUNNEL,
+		sinceDate,
+		yesterday,
+	)) as FunnelDailyAggregate[];
+
+	const aggregatedDates = new Set<string>();
+	const tenantsByEventUnion: Record<string, Set<string>> = {};
 	for (const eventName of ACTIVATION_FUNNEL_EVENT_NAMES) {
-		const { uniqueTenants, scannedDates: dates } = await queryAnalyticsEventTenants(
-			eventName,
-			sinceDate,
-		);
-		counts.push(uniqueTenants);
-		scannedDates = Math.max(scannedDates, dates);
+		tenantsByEventUnion[eventName] = new Set<string>();
 	}
+	for (const agg of aggregates) {
+		aggregatedDates.add(agg.date);
+		for (const eventName of ACTIVATION_FUNNEL_EVENT_NAMES) {
+			const tenants = agg.tenantsByEvent?.[eventName] ?? [];
+			for (const t of tenants) tenantsByEventUnion[eventName]?.add(t);
+		}
+	}
+
+	// 2. 集計レコードが無い日付 (= 当日 / 期間内に cron 未実行な日) をライブで補う。
+	// Pre-PMF: ライブ補完対象は事実上「当日」のみ (cron が前日分を毎晩書く前提)。
+	// ただし cron 失敗で歯抜けになっても fallback で全期間を query する保険を入れる:
+	// 集計済み日付が「期間内 N 日 (前日まで N-1 日 + 当日)」を 1 件でも欠いていたら、
+	// 期間全体をライブ計算してから aggregate と union する。
+	const expectedAggregatedDays = days; // since から前日まで
+	let liveScannedDates = 0;
+	const aggregateMissed = aggregatedDates.size < expectedAggregatedDays;
+	const liveSinceDate = aggregateMissed || aggregates.length === 0 ? sinceDate : today;
+	for (const eventName of ACTIVATION_FUNNEL_EVENT_NAMES) {
+		const { tenants, scannedDates } = await queryAnalyticsEventTenantList(eventName, liveSinceDate);
+		const set = tenantsByEventUnion[eventName] ?? new Set<string>();
+		for (const t of tenants) set.add(t);
+		tenantsByEventUnion[eventName] = set;
+		liveScannedDates = Math.max(liveScannedDates, scannedDates);
+	}
+
+	const counts: number[] = ACTIVATION_FUNNEL_EVENT_NAMES.map(
+		(eventName) => tenantsByEventUnion[eventName]?.size ?? 0,
+	);
 
 	const steps: ActivationFunnelStep[] = ACTIVATION_FUNNEL_EVENT_NAMES.map((eventName, idx) => {
 		const count = counts[idx] ?? 0;
@@ -231,6 +281,8 @@ export async function getActivationFunnel(
 			conversionFromPrev,
 		};
 	});
+
+	const scannedDates = Math.max(aggregatedDates.size, liveScannedDates);
 
 	return {
 		period,
@@ -283,13 +335,48 @@ export async function getSeanEllisScore(round?: string): Promise<PmfSurveyAggreg
 }
 
 /**
- * 解約理由分布を取得する (#1639 AC4)。
- * 既存 cancellation-service.getCancellationReasonAggregation を再利用。
+ * 解約理由分布を取得する (#1639 AC4 / #1693 follow-up)。
+ *
+ * #1693 集計レコード優先 → ライブ計算 fallback:
+ *   1. 前日付の集計レコード `ANALYTICS_AGG#<yesterday> SK=CANCELLATION_<period>` を取得
+ *   2. 取れた場合: そのスナップショットを採用 (cron が毎日 30d / 90d window を再計算済)
+ *   3. 取れなかった場合: 既存ライブ計算 `getCancellationReasonAggregation(days)` で fallback
+ *
+ * cron `gq-analytics-aggregator-daily` (#1693) が毎日 30d / 90d 双方を 1 レコードずつ
+ * 書き込むため、cron 成功している限り read 側は DynamoDB 1 PutItem 分の rolling-window
+ * スナップショットを直接読むだけで済む (Pre-PMF: 解約集計のスキャンコスト削減)。
  */
 export async function getCancellationReasons(
 	period: CancellationReasonPeriod = '90d',
 ): Promise<CancellationReasonResult> {
 	const days = period === '30d' ? 30 : 90;
+	const yesterday = isoDateDaysAgo(1);
+	const kind =
+		period === '30d' ? ANALYTICS_AGG_KIND.CANCELLATION_30D : ANALYTICS_AGG_KIND.CANCELLATION_90D;
+
+	// 1. 集計レコード優先 (前日分の rolling-window スナップショット)
+	const aggregates = (await queryAnalyticsAggregates(
+		kind,
+		yesterday,
+		yesterday,
+	)) as CancellationDailyAggregate[];
+
+	if (aggregates.length > 0 && aggregates[0]) {
+		const agg = aggregates[0];
+		const breakdown = agg.breakdown.map((b) => ({
+			category: b.category as CancellationReasonAggregation['category'],
+			count: b.count,
+			percentage: agg.total > 0 ? (b.count / agg.total) * 100 : 0,
+		}));
+		return {
+			period,
+			total: agg.total,
+			breakdown,
+			fetchedAt: new Date().toISOString(),
+		};
+	}
+
+	// 2. fallback: 従来のライブ集計
 	const { total, breakdown } = await getCancellationReasonAggregation(days);
 	return {
 		period,

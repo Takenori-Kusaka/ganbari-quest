@@ -512,6 +512,31 @@ export function counterKey(entity: string, tenantId: string): DynamoKey {
 	};
 }
 
+/**
+ * Analytics aggregate (#1693 / #1639 follow-up):
+ *   PK = ANALYTICS_AGG#<YYYY-MM-DD>
+ *   SK = <kind>           (FUNNEL / CANCELLATION_30D / CANCELLATION_90D)
+ *
+ * 用途: cron (gq-analytics-aggregator-daily) が前日分の集計を 1 日 1 レコードとして書き込み、
+ * /admin/analytics 画面の `+page.server.ts` から query するときに優先取得する (#1693)。
+ *
+ * Pre-PMF / ADR-0010: GSI 不要 (date 範囲は PK の文字列範囲スキャンで取得可能)。
+ * 件数は 1 日あたり数レコード × 365 日 ≒ 数千件で済むため scan 負荷は無視できる。
+ *
+ * TTL: 365 日 (時系列 trend 確認のため event log 90 日より長く保持)。
+ *
+ * NOTE: SK 値の constants (`ANALYTICS_AGG_KIND`) と TTL 定数は services/ 層から参照する都合上、
+ *  no-direct-db-access テストの制約で `$lib/analytics/providers/dynamo.ts` 側に置いている。
+ */
+export const ANALYTICS_AGG_PK_PREFIX = 'ANALYTICS_AGG#';
+
+export function analyticsAggregateKey(date: string, kind: string): DynamoKey {
+	return {
+		PK: `${ANALYTICS_AGG_PK_PREFIX}${date}`,
+		SK: kind,
+	};
+}
+
 // ============================================================
 // Push subscription / notification log (#1689 / ADR-0023 I6)
 // ============================================================
