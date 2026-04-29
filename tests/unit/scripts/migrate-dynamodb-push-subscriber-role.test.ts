@@ -204,11 +204,7 @@ describe('migrate-dynamodb-push-subscriber-role', () => {
 
 			const { updateSubscriberRole } = await loadModule();
 			const doc = { send: mockSend } as unknown as Parameters<typeof updateSubscriberRole>[0];
-			await updateSubscriberRole(
-				doc,
-				{ PK: 'T#t1#PUSH_SUB', SK: 'PUSH_SUB#abc' },
-				'test-table',
-			);
+			await updateSubscriberRole(doc, { PK: 'T#t1#PUSH_SUB', SK: 'PUSH_SUB#abc' }, 'test-table');
 			expect(mockSend).toHaveBeenCalledTimes(1);
 			const cmd = mockSend.mock.calls[0]?.[0];
 			// MockUpdateCommand instance の input を取り出す
@@ -216,9 +212,7 @@ describe('migrate-dynamodb-push-subscriber-role', () => {
 			expect(input.TableName).toBe('test-table');
 			expect(input.Key).toEqual({ PK: 'T#t1#PUSH_SUB', SK: 'PUSH_SUB#abc' });
 			expect(input.UpdateExpression).toContain('subscriberRole');
-			expect(
-				(input.ExpressionAttributeValues as Record<string, unknown>)[':role'],
-			).toBe('parent');
+			expect((input.ExpressionAttributeValues as Record<string, unknown>)[':role']).toBe('parent');
 		});
 
 		it('ConditionalCheckFailedException は swallow する (既に valid role 設定済の race condition)', async () => {
@@ -244,11 +238,7 @@ describe('migrate-dynamodb-push-subscriber-role', () => {
 
 			const { updateSubscriberRole } = await loadModule();
 			const doc = { send: mockSend } as unknown as Parameters<typeof updateSubscriberRole>[0];
-			await updateSubscriberRole(
-				doc,
-				{ PK: 'T#t1#PUSH_SUB', SK: 'PUSH_SUB#abc' },
-				'test-table',
-			);
+			await updateSubscriberRole(doc, { PK: 'T#t1#PUSH_SUB', SK: 'PUSH_SUB#abc' }, 'test-table');
 			expect(mockSend).toHaveBeenCalledTimes(2);
 		});
 

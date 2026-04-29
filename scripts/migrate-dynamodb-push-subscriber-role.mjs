@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * scripts/migrate-dynamodb-push-subscriber-role.mjs
  *
@@ -44,9 +45,8 @@
  *   on-demand mode (本プロダクトの想定) では実質無制限。
  */
 
-import { ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 // ------------------------------------------------------------
 // CLI args
@@ -146,8 +146,7 @@ export async function scanPushSubscriptions(doc, tableName = TABLE_NAME) {
 			doc.send(
 				new ScanCommand({
 					TableName: tableName,
-					FilterExpression:
-						'begins_with(SK, :skPrefix) OR entityType = :entityType',
+					FilterExpression: 'begins_with(SK, :skPrefix) OR entityType = :entityType',
 					ExpressionAttributeValues: {
 						':skPrefix': PUSH_SUB_SK_PREFIX,
 						':entityType': PUSH_SUB_ENTITY_TYPE,
