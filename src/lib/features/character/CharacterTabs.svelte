@@ -115,7 +115,7 @@ const tabs = $derived(tabsByMode[uiMode] ?? tabsByMode.preschool);
 		white-space: nowrap;
 	}
 
-	/* baby/preschool はアイコンを大きめに */
+	/* baby/preschool: enlarge icons */
 	:global([data-age-tier='baby']) .character-tab__icon,
 	:global([data-age-tier='preschool']) .character-tab__icon {
 		font-size: 1.5rem;

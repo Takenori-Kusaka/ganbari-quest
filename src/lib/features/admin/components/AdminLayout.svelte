@@ -386,7 +386,7 @@ function isItemActive(itemHref: string): boolean {
 	.admin-header {
 		background: var(--plan-header-bg, rgba(255, 255, 255, 0.8));
 	}
-	/* Header badges — "保護者用" / "デモ" */
+	/* Header badges — parent / demo labels */
 	.header-badge {
 		display: inline-flex;
 		align-items: center;

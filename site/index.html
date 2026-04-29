@@ -183,7 +183,7 @@
 
 /* Machine tour (5-act, #1618 R14: PC 整然配置 + 画像有無の高さ揃え) */
 .machine-tour{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:1280px;margin:0 auto}
-.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;display:flex;flex-direction:column;min-height:380px}
+.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;display:flex;flex-direction:column;min-height:340px}
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
 .tour-card .tour-emoji{font-size:2rem;margin-bottom:8px;line-height:1}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
@@ -195,11 +195,12 @@
 /* 画像なし tour-card の plate (#1618 R14): 画像 tour-shot 同等の余白で高さを揃える */
 .tour-card .tour-shot-placeholder{margin-top:auto;min-height:160px;display:flex;align-items:center;justify-content:center;color:var(--gray-300);font-size:2.5rem;background:var(--gray-50);border-radius:8px;border:1px dashed var(--gray-200)}
 @media(min-width:1024px){
-  /* PC 整然配置: 5 カードを 5 列固定にすることで「4+1 半端」を回避 */
+  /* PC 整然配置: 5 カードを 5 列固定にすることで「4+1 半端」を回避
+     #1680: desktopHeight 削減のため min-height 460→400 / shot 200→160 / placeholder 180→140 */
   .machine-tour{grid-template-columns:repeat(5,1fr);gap:16px}
-  .tour-card{min-height:460px}
-  .tour-card .tour-shot{max-height:200px}
-  .tour-card .tour-shot-placeholder{min-height:180px}
+  .tour-card{min-height:400px}
+  .tour-card .tour-shot{max-height:160px}
+  .tour-card .tour-shot-placeholder{min-height:140px}
 }
 
 /* Soft features */

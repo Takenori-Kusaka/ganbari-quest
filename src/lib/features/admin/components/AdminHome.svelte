@@ -541,7 +541,7 @@ function childLink(child: ChildSummary): string {
 		white-space: nowrap;
 	}
 
-	/* #961 QA: 全チュートリアル導線カード */
+	/* #961 QA: All tutorial guide cards */
 	.tutorial-full-guide-card {
 		display: flex;
 		align-items: center;
@@ -572,7 +572,7 @@ function childLink(child: ChildSummary): string {
 		color: var(--color-text-tertiary);
 	}
 
-	/* #1292: 本日の使用時間 */
+	/* #1292: Today's usage time */
 	.usage-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
