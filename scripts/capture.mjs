@@ -118,6 +118,12 @@ QA / PR 用オプション:
                       lp       → npx serve site (port 5280)  LP (site/) 用
 
   --help            このヘルプを表示
+
+トラブルシュート:
+  撮影に失敗した / 期待した画面が撮れない場合は KB を参照:
+    docs/troubleshoot/screenshot_capture.md (SC-NNN)
+  既知の罠: MSYS_NO_PATHCONV 不在 / フル URL 二重結合 / /demo/* 不可 /
+            DB seed redirect / port 5173 衝突 / waitForTimeout flaky 等
 `);
 	process.exit(0);
 }
