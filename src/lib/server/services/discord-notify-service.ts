@@ -117,6 +117,54 @@ export async function notifyCancellation(tenantId: string, graceEndDate: string)
 	});
 }
 
+/**
+ * 解約理由付き解約通知 (#1596 / ADR-0023 §3.8 / I3)
+ *
+ * notifyCancellation との違い: 解約フロー入口で呼ばれるため、Discord に
+ * カテゴリ・自由記述・プランを含めて churn 分析の即時可視化を行う。
+ */
+export async function notifyCancellationWithReason(input: {
+	tenantId: string;
+	category: string;
+	freeText: string | null;
+	plan: string | null;
+}): Promise<void> {
+	const categoryEmoji: Record<string, string> = {
+		graduation: '🎓',
+		churn: '😞',
+		pause: '⏸️',
+	};
+	const categoryLabel: Record<string, string> = {
+		graduation: '卒業（子供が自律した）',
+		churn: '離反（不満があった）',
+		pause: '中断（一時停止）',
+	};
+
+	const emoji = categoryEmoji[input.category] ?? '📝';
+	const label = categoryLabel[input.category] ?? input.category;
+	const isGraduation = input.category === 'graduation';
+
+	await notifyDiscord('churn', {
+		title: `${emoji} 解約理由 — ${label}`,
+		// 卒業はポジティブ KPI なので緑、それ以外はオレンジ
+		color: isGraduation ? 0x2ecc71 : 0xe67e22,
+		fields: [
+			{ name: 'テナントID', value: input.tenantId, inline: true },
+			{ name: 'カテゴリ', value: label, inline: true },
+			{ name: 'プラン', value: input.plan ?? '(unknown)', inline: true },
+			...(input.freeText
+				? [
+						{
+							name: '自由記述',
+							value: input.freeText.slice(0, 1024),
+							inline: false,
+						},
+					]
+				: []),
+		],
+	});
+}
+
 /** 退会キャンセル通知 */
 export async function notifyCancellationReverted(tenantId: string): Promise<void> {
 	await notifyDiscord('churn', {

@@ -317,3 +317,9 @@ antipattern
 # ===== ライフサイクルメール (#1601) =====
 # healthcheck = cron-dispatcher の動作確認エンドポイント識別子
 healthcheck
+
+# ===== 解約フロー (#1596) =====
+# maxlength = HTML <textarea> 属性 (Playwright toHaveAttribute で検証)
+# freetext = 自由記述カラムの testid / CSS class 識別子 (cancellation_reasons.free_text)
+maxlength
+freetext

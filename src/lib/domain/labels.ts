@@ -1642,6 +1642,10 @@ export const BILLING_LABELS = {
 	navLinkTitle: 'プラン管理',
 	navLinkHint: 'プランの選択・変更・トライアル開始',
 
+	// 解約フローへの導線 (#1596)
+	cancelLinkTitle: '解約手続き',
+	cancelLinkHint: '解約理由をお聞かせください（必須）',
+
 	// Dialog
 	dialogTitle: '請求管理画面を開く',
 	dialogDesc:
@@ -1653,6 +1657,104 @@ export const BILLING_LABELS = {
 	dialogConfirmLoading: '確認中…',
 	dialogConfirmButton: '請求管理画面へ',
 } as const;
+
+// ============================================================
+// CANCELLATION_LABELS - 解約フロー (#1596 / ADR-0023 §3.8 / I3)
+// 全プラン強制の解約理由ヒアリング (3 分類 + 自由記述)
+// Anti-engagement 原則 (ADR-0012): 「離脱トリガー」にしない設計（煽り無し・引き止め無し）
+// ============================================================
+
+/** 解約理由カテゴリ ID (DB 保存値) */
+export const CANCELLATION_CATEGORY = {
+	GRADUATION: 'graduation', // 卒業: 子供が自律した
+	CHURN: 'churn', // 離反: 不満があった
+	PAUSE: 'pause', // 中断: 家庭事情等で一時停止
+} as const;
+
+export type CancellationCategory =
+	(typeof CANCELLATION_CATEGORY)[keyof typeof CANCELLATION_CATEGORY];
+
+export const CANCELLATION_CATEGORIES: ReadonlyArray<CancellationCategory> = [
+	CANCELLATION_CATEGORY.GRADUATION,
+	CANCELLATION_CATEGORY.CHURN,
+	CANCELLATION_CATEGORY.PAUSE,
+];
+
+export const CANCELLATION_LABELS = {
+	pageHeading: '解約手続き',
+	pageDesc: '解約の前に、ぜひ理由をお聞かせください。今後の改善に活用させていただきます（必須）。',
+
+	// Form fields
+	reasonSectionTitle: '解約理由',
+	reasonRequired: '必須',
+	freeTextLabel: 'ご意見・ご要望（任意）',
+	freeTextPlaceholder:
+		'差し支えなければ、もう少し詳しく教えていただけると嬉しいです（最大 1000 文字）',
+	freeTextMaxLength: 1000,
+	freeTextHint: (current: number, max: number) => `${current} / ${max} 文字`,
+
+	// 3 categories - radio button options
+	categoryGraduationLabel: '卒業',
+	categoryGraduationHint: '子供が自律した・がんばりクエストを使う必要がなくなった',
+	categoryChurnLabel: '離反',
+	categoryChurnHint: '機能が合わない・期待と違った',
+	categoryPauseLabel: '中断',
+	categoryPauseHint: '家庭事情・引っ越し・一時的に離れる（再開予定あり）',
+
+	// Plan-context messaging (free / standard / family 共通)
+	freePlanNotice:
+		'無料プランをご利用中です。解約後はアカウント自体を削除する必要がありますが、その前に理由をお聞かせください。',
+	paidPlanNotice:
+		'解約手続きを進めると、Stripe の管理画面で決済停止を行います。次回の請求は発生しません。',
+
+	// Submit
+	submitButton: '解約手続きへ進む',
+	submitLoading: '送信中…',
+	submitButtonNoStripe: '解約理由を送信する',
+	cancelButton: '前のページに戻る',
+
+	// Errors
+	errorCategoryRequired: '解約理由を選択してください',
+	errorFreeTextTooLong: 'ご意見は 1000 文字以内で入力してください',
+	errorSubmitFailed: '送信に失敗しました。時間をおいて再度お試しください',
+
+	// Success
+	successHeading: 'ご回答ありがとうございました',
+	successDesc:
+		'いただいたご意見は、サービス改善に活用させていただきます。続けて Stripe の管理画面で解約手続きを完了してください。',
+	successProceedButton: 'Stripe 管理画面で解約を完了する',
+	successProceedHint:
+		'Stripe の管理画面で「サブスクリプションをキャンセル」を選択すると解約が完了します',
+	successFreeProceed: 'アカウント削除はこちら',
+} as const satisfies Record<string, unknown>;
+
+/** 表示用ラベル取得 */
+export function getCancellationCategoryLabel(category: CancellationCategory): string {
+	switch (category) {
+		case CANCELLATION_CATEGORY.GRADUATION:
+			return CANCELLATION_LABELS.categoryGraduationLabel;
+		case CANCELLATION_CATEGORY.CHURN:
+			return CANCELLATION_LABELS.categoryChurnLabel;
+		case CANCELLATION_CATEGORY.PAUSE:
+			return CANCELLATION_LABELS.categoryPauseLabel;
+	}
+}
+
+/** ops dashboard 解約理由集計セクション */
+export const OPS_CANCELLATION_LABELS = {
+	sectionTitle: '解約理由集計（#1596）',
+	sectionHint: '直近 90 日の解約理由カテゴリ別比率と件数',
+	colCategory: 'カテゴリ',
+	colCount: '件数',
+	colPercentage: '比率',
+	noData: '直近 90 日の解約理由データはありません',
+	totalLabel: (n: number) => `合計: ${n} 件`,
+	freeTextSearchLabel: '自由記述検索',
+	freeTextSearchPlaceholder: 'キーワードで自由記述を絞り込み（最低限機能）',
+	freeTextEmpty: '自由記述はまだありません',
+	freeTextDate: (date: string) => `${date} 投稿`,
+	freeTextCategory: (category: string) => `カテゴリ: ${category}`,
+} as const satisfies Record<string, unknown>;
 
 export const OPS_LICENSE_ISSUE_LABELS = {
 	pageTitle: 'OPS - キャンペーンキー発行',
