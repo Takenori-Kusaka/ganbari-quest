@@ -426,7 +426,7 @@ function handleEnd() {
 		transform: scale(0.97);
 	}
 
-	/* 年齢帯別フォントサイズ調整 (G3) */
+	/* Age-tier font size adjustments (G3) */
 	:global([data-age-tier="baby"]) .tutorial-title,
 	:global([data-age-tier="preschool"]) .tutorial-title {
 		font-size: 1.25rem;

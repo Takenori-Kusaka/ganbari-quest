@@ -47,7 +47,7 @@ const { Story } = defineMeta({
 <style>
     :global(.sb-story) {
         max-width: 250px;
-		/* Positionerがはみ出さないように */
+		/* Prevent positioner overflow */
 		min-height: 250px;
     }
 </style>

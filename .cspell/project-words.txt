@@ -323,3 +323,7 @@ healthcheck
 # freetext = 自由記述カラムの testid / CSS class 識別子 (cancellation_reasons.free_text)
 maxlength
 freetext
+
+# ===== SSOT 完全化 (#1465 / #1683 PR #1680) =====
+# LICENSEKEY = LP_LICENSEKEY_LABELS export 名 (site/help/license-key.html ページ用)
+LICENSEKEY

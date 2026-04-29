@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Card from './Card.svelte';
 
 const { Story } = defineMeta({
@@ -9,9 +10,9 @@ const { Story } = defineMeta({
 });
 </script>
 
-<Story name="Default"><Card padding="md"><p>カードの内容です</p></Card></Story>
-<Story name="Elevated"><Card variant="elevated" padding="md"><p>影付きカード</p></Card></Story>
-<Story name="Outlined"><Card variant="outlined" padding="md"><p>枠線付きカード</p></Card></Story>
+<Story name="Default"><Card padding="md"><p>{STORYBOOK_LABELS.card.default}</p></Card></Story>
+<Story name="Elevated"><Card variant="elevated" padding="md"><p>{STORYBOOK_LABELS.card.elevated}</p></Card></Story>
+<Story name="Outlined"><Card variant="outlined" padding="md"><p>{STORYBOOK_LABELS.card.outlined}</p></Card></Story>
 
 <Story name="AllVariants">
   <div class="flex gap-4 flex-wrap">

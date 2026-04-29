@@ -1,5 +1,5 @@
 {
-	"count": 55,
+	"count": 0,
 	"rule": "local/no-hardcoded-jp-text",
 	"scope": "src/**/*.svelte (stories included)",
 	"note": "Issue #1452 Phase C: src/routes 0 violations. Issue #1465 Phase A: scope expanded to src/**/*.svelte including stories — baseline 500. Issue #1465 Phase B (primitives): migrated src/lib/ui/primitives/ hardcoded strings to labels.ts — baseline 498. Issue #1465 Phase B (components): migrated src/lib/ui/components/ hardcoded strings to labels.ts — baseline 450. Issue #1465 Phase B Priority 3 (features): migrated trunk of src/lib/features/ hardcoded strings to labels.ts (battle, birthday, certificate, character, challenge, child, demo, loyalty, admin small/medium components) — baseline 226. Issue #1465 Phase D: migrated admin/components 5 main files (ChildProfileCard / DowngradeResourceSelector / AdminHome / ActivityCreateForm / ActivityEditForm) — baseline 55 (171 件削減・76% 減). Remaining: stories ファイル群 + 単発 1 件物。Pre-PMF では妥当な水準。残りは続 PR で漸進削減。New code must not add violations."

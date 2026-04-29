@@ -159,7 +159,7 @@ const yTicks = $derived([0, Math.round(computedMax() / 2), computedMax()]);
 						rx="2"
 						opacity={barH > 0 ? 1 : 0.15}
 						role="img"
-						aria-label="{child.childName} {USAGE_TIME_LABELS.dayOfWeek(date)}曜日 {min}{USAGE_TIME_LABELS.minutesUnit}"
+						aria-label={USAGE_TIME_LABELS.chartBarAriaLabel(child.childName, date, min)}
 					/>
 				{/each}
 
@@ -174,7 +174,7 @@ const yTicks = $derived([0, Math.round(computedMax() / 2), computedMax()]);
 		</svg>
 
 		<!-- 縦軸単位テキスト（アクセシビリティ用可視ラベル） -->
-		<p class="weekly-chart__unit-label" aria-hidden="true">（{USAGE_TIME_LABELS.minutesUnit}）</p>
+		<p class="weekly-chart__unit-label" aria-hidden="true">{USAGE_TIME_LABELS.minutesUnitDisplay}</p>
 	{/if}
 </div>
 

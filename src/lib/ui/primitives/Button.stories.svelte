@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Button from './Button.svelte';
 
 const { Story } = defineMeta({
@@ -10,39 +11,39 @@ const { Story } = defineMeta({
 </script>
 
 <Story name="Primary">
-  <Button variant="primary">ボタン</Button>
+  <Button variant="primary">{STORYBOOK_LABELS.button.primary}</Button>
 </Story>
 
 <Story name="Secondary">
-  <Button variant="secondary">セカンダリ</Button>
+  <Button variant="secondary">{STORYBOOK_LABELS.button.secondary}</Button>
 </Story>
 
 <Story name="Danger">
-  <Button variant="danger">削除する</Button>
+  <Button variant="danger">{STORYBOOK_LABELS.button.danger}</Button>
 </Story>
 
 <Story name="Ghost">
-  <Button variant="ghost">キャンセル</Button>
+  <Button variant="ghost">{STORYBOOK_LABELS.button.ghost}</Button>
 </Story>
 
 <Story name="Success">
-  <Button variant="success">追加する</Button>
+  <Button variant="success">{STORYBOOK_LABELS.button.success}</Button>
 </Story>
 
 <Story name="Outline">
-  <Button variant="outline">もどる</Button>
+  <Button variant="outline">{STORYBOOK_LABELS.button.outline}</Button>
 </Story>
 
 <Story name="Small">
-  <Button variant="primary" size="sm">小さいボタン</Button>
+  <Button variant="primary" size="sm">{STORYBOOK_LABELS.button.small}</Button>
 </Story>
 
 <Story name="Large">
-  <Button variant="primary" size="lg">大きいボタン</Button>
+  <Button variant="primary" size="lg">{STORYBOOK_LABELS.button.large}</Button>
 </Story>
 
 <Story name="Disabled">
-  <Button variant="primary" disabled>無効</Button>
+  <Button variant="primary" disabled>{STORYBOOK_LABELS.button.disabled}</Button>
 </Story>
 
 <Story name="AllVariants">
