@@ -134,6 +134,10 @@
 .cta-bottom h2{font-size:1.6rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
 .cta-bottom p{color:var(--gray-500);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
 .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+/* #1626 R22: 不安解消 3 バッジ */
+.cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:18px auto 0;max-width:560px;font-size:.82rem;color:var(--gray-700)}
+.cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
+.cta-trust-badges li span{font-size:.95rem}
 
 /* #1658 R51: タブレット中間 1024px breakpoint (案 A: 2 列 + Family を下段中央) */
 @media(max-width:1024px) and (min-width:769px){
@@ -165,12 +169,11 @@
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
-      <a href="index.html" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
-      <a href="index.html#features" data-lp-key="nav.features" onclick="this.parentElement.classList.remove('open')">できること</a>
-      <a href="https://ganbari-quest.com/marketplace" data-testid="lp-nav-marketplace" data-lp-key="nav.marketplace" onclick="this.parentElement.classList.remove('open')">テンプレートを探す</a>
-      <a href="pricing.html" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
-      <a href="https://ganbari-quest.com/demo" class="btn btn-demo" data-lp-key="common.ctaDemo">デモ体験</a>
-      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="common.ctaSignup">無料ではじめる</a>
+      <a href="index.html" class="nav-text" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="pricing.html" class="nav-text" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="faq.html" class="nav-text" data-lp-key="nav.faq" onclick="this.parentElement.classList.remove('open')">よくあるご質問</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary nav-signup" data-lp-key="common.ctaSignup" onclick="this.parentElement.classList.remove('open')">無料で始める</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-lp-key="nav.login" onclick="this.parentElement.classList.remove('open')">ログイン</a>
     </nav>
   </div>
 </header>
@@ -216,7 +219,7 @@
           <li>プリセット活動の利用</li>
           <li>オリジナル活動の作成：3個まで</li>
           <li>レベル・ポイント・おみくじ・スタンプカード</li>
-          <li>ログインボーナス・コンボ</li>
+          <li>ログインボーナス・連続達成ボーナス</li>
           <li>チェックリスト（持ち物／朝夜の習慣 合計3個/子まで）</li>
           <li>90日間の履歴保持</li>
           <li>メールサポート（標準）</li>
@@ -277,7 +280,7 @@
 
     <!-- Note (#1650 R44 括弧書き軽減: 本文中で簡潔に説明) -->
     <p style="text-align:center;font-size:.85rem;color:var(--gray-500);margin-bottom:48px">
-      <span data-lp-key="pricing.allPlansNote">💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・コンボなど）は</span><strong data-lp-key="pricing.allPlansNoteStrong">全プラン共通</strong><span data-lp-key="pricing.allPlansNoteSuffix">で制限なし</span>
+      <span data-lp-key="pricing.allPlansNote">💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・連続達成ボーナスなど）は</span><strong data-lp-key="pricing.allPlansNoteStrong">全プラン共通</strong><span data-lp-key="pricing.allPlansNoteSuffix">で制限なし</span>
     </p>
   </div>
 </section>
@@ -445,7 +448,7 @@
   </div>
 </section>
 
-<!-- CTA -->
+<!-- CTA (#1626 R22: CTA 直下に不安解消 3 バッジを追加) -->
 <section class="cta-bottom">
   <h2 data-lp-key="pricing.ctaBottomTitle">お子さまの冒険を始めよう</h2>
   <p data-lp-key="pricing.ctaBottomDesc">まずは無料ではじめて、お子さまの反応を見てみませんか？</p>
@@ -453,6 +456,11 @@
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="pricing.ctaBottomPrimary">無料ではじめる</a>
     <a href="https://ganbari-quest.com/demo" class="btn btn-outline btn-lg" data-lp-key="pricing.ctaBottomSecondary">デモで体験する</a>
   </div>
+  <ul class="cta-trust-badges" aria-label="お申し込み前の安心ポイント">
+    <li data-lp-key="ctaTrustBadges.noCreditCard"><span aria-hidden="true">&#x1F4B3;</span> クレジットカード登録不要</li>
+    <li data-lp-key="ctaTrustBadges.noAds"><span aria-hidden="true">&#x1F6AB;</span> 広告なし</li>
+    <li data-lp-key="ctaTrustBadges.cancelAnytime"><span aria-hidden="true">&#x1F504;</span> いつでも解約 OK</li>
+  </ul>
 </section>
 
 <!-- Footer -->
