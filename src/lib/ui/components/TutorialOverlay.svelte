@@ -120,7 +120,7 @@ setupResizeScrollTracking();
 		}
 	}
 
-	/* A. チュートリアル中はナビ・ヘッダーのz-indexをオーバーレイ以下に抑制 */
+	/* A. During tutorial, suppress nav/header z-index below the overlay */
 	:global([data-tutorial-active]) :global(.z-30) {
 		z-index: 10 !important;
 	}

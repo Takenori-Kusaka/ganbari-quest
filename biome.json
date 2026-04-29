@@ -140,7 +140,9 @@
 			"!**/app.css",
 			"!**/.claude",
 			"!**/*.md",
-			"!**/lp-metrics.json"
+			"!**/lp-metrics.json",
+			"!**/tmp",
+			"!**/.tmp-screenshots"
 		]
 	}
 }

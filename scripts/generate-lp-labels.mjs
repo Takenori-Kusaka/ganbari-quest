@@ -128,6 +128,12 @@ function parseLabelsTs() {
 	const lpPricingLabels = parseBlock(src, 'LP_PRICING_LABELS');
 	// #1594 ADR-0023 I8: LP の founder 直接相談 CTA セクション
 	const lpFounderInquiryLabels = parseBlock(src, 'LP_FOUNDER_INQUIRY_LABELS');
+	const lpLicenseKeyLabels = parseBlock(src, 'LP_LICENSEKEY_LABELS');
+	const lpFaqLabels = parseBlock(src, 'LP_FAQ_LABELS');
+	const lpSelfhostLabels = parseBlock(src, 'LP_SELFHOST_LABELS');
+	const lpIndexExtraLabels = parseBlock(src, 'LP_INDEX_EXTRA_LABELS');
+	const lpPamphletLabels = parseBlock(src, 'LP_PAMPHLET_LABELS');
+	const lpPricingExtraLabels = parseBlock(src, 'LP_PRICING_EXTRA_LABELS');
 
 	return {
 		ageTierLabels,
@@ -143,6 +149,12 @@ function parseLabelsTs() {
 		lpGrowthRoadmapLabels,
 		lpPricingLabels,
 		lpFounderInquiryLabels,
+		lpLicenseKeyLabels,
+		lpFaqLabels,
+		lpSelfhostLabels,
+		lpIndexExtraLabels,
+		lpPamphletLabels,
+		lpPricingExtraLabels,
 	};
 }
 
@@ -190,6 +202,12 @@ function generateSharedLabelsJs() {
 		lpGrowthRoadmapLabels,
 		lpPricingLabels,
 		lpFounderInquiryLabels,
+		lpLicenseKeyLabels,
+		lpFaqLabels,
+		lpSelfhostLabels,
+		lpIndexExtraLabels,
+		lpPamphletLabels,
+		lpPricingExtraLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -227,6 +245,15 @@ function generateSharedLabelsJs() {
 		growthRoadmap: lpGrowthRoadmapLabels,
 		pricing: lpPricingLabels,
 		founderInquiry: lpFounderInquiryLabels,
+		licenseKey: lpLicenseKeyLabels,
+		faq: lpFaqLabels,
+		selfhost: lpSelfhostLabels,
+		indexExtra: lpIndexExtraLabels,
+		pamphlet: lpPamphletLabels,
+		pricingExtra: lpPricingExtraLabels,
+		lpLicenseKeyLabels,
+		lpFaqLabels,
+		lpSelfhostLabels,
 	};
 
 	const header = `/**

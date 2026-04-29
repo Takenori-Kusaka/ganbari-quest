@@ -37,7 +37,7 @@ let {
 				<ul class="space-y-1">
 					{#each lostItems as item}
 						<li class="text-xs text-[var(--color-feedback-error-text)] flex items-start gap-1">
-							<span class="text-[var(--color-action-danger)]">・</span>
+							<span class="text-[var(--color-action-danger)]">{FEATURES_LABELS.loyalty.churnListBullet}</span>
 							{item}
 						</li>
 					{/each}
