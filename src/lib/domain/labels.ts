@@ -4284,6 +4284,11 @@ export const LP_VERSUS_LABELS = {
 		'わかります。私たちもまずは紙で試しました。でも「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、デジタルだから届く差があります。',
 	tagAnalog: 'シール帳・紙',
 	tagDigital: 'がんばりクエスト',
+	// 各優位点アイコン (#1597 ADR-0023 I5 — 装飾的アクセント枠 / asset-catalog.md 準拠)
+	row1Icon: '📊',
+	row2Icon: '🌱',
+	row3Icon: '🎓',
+	row4Icon: '📍',
 	row1AnalogTitle: '集計が手作業で計算ミスが起きがち',
 	row1DigitalTitle: '自動集計でいつでもポイントが見える',
 	row1DigitalDesc: '子供が「あと 50 ポイントで欲しいごほうび」と自分で計画できます。',
