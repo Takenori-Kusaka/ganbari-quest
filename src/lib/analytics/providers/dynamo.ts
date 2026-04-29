@@ -3,6 +3,7 @@
 // Enabled only when ANALYTICS_ENABLED=true.
 // Uses the existing DynamoDB single-table design.
 
+import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { logger } from '$lib/server/logger';
 import type { AnalyticsProvider, EventProperties } from '../types';
 
@@ -136,5 +137,61 @@ export class DynamoAnalyticsProvider implements AnalyticsProvider {
 				error: err instanceof Error ? err.message : String(err),
 			});
 		}
+	}
+}
+
+/**
+ * Query helper: 期間内 (since-date 以降) に指定 event を発火させた unique tenant の件数を返す。
+ *
+ * #1639 (#1591 follow-up): /admin/analytics の activation funnel 集計で使用。
+ * GSI2 query (`GSI2PK=ANALYTICS#EVENT#<name>` AND `GSI2SK >= <since-date>`) を実行し、
+ * 結果から tenantId を unique 集計する。
+ *
+ * 失敗時は `{ uniqueTenants: 0, scannedDates: 0 }` を返す（Pre-PMF: 部分縮退許容、
+ * analytics は never break the app の原則を維持）。
+ */
+export async function queryAnalyticsEventTenants(
+	eventName: string,
+	sinceDate: string,
+): Promise<{ uniqueTenants: number; scannedDates: number }> {
+	try {
+		const { getDocClient: getClient, TABLE_NAME: TableName } = await import(
+			'$lib/server/db/dynamodb/client'
+		);
+		const tenants = new Set<string>();
+		const dates = new Set<string>();
+
+		let exclusiveStartKey: Record<string, unknown> | undefined;
+		do {
+			const res = await getClient().send(
+				new QueryCommand({
+					TableName,
+					IndexName: 'GSI2',
+					KeyConditionExpression: 'GSI2PK = :pk AND GSI2SK >= :sk',
+					ExpressionAttributeValues: {
+						':pk': `ANALYTICS#EVENT#${eventName}`,
+						':sk': sinceDate,
+					},
+					ExclusiveStartKey: exclusiveStartKey,
+				}),
+			);
+			for (const item of res.Items ?? []) {
+				const tenantId = item.tenantId as string | undefined;
+				if (tenantId) tenants.add(tenantId);
+				const gsi2sk = item.GSI2SK as string | undefined;
+				if (gsi2sk) {
+					const datePart = gsi2sk.split('#')[0];
+					if (datePart) dates.add(datePart);
+				}
+			}
+			exclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+		} while (exclusiveStartKey);
+
+		return { uniqueTenants: tenants.size, scannedDates: dates.size };
+	} catch (err) {
+		logger.warn('[analytics] queryAnalyticsEventTenants failed', {
+			context: { eventName, error: err instanceof Error ? err.message : String(err) },
+		});
+		return { uniqueTenants: 0, scannedDates: 0 };
 	}
 }

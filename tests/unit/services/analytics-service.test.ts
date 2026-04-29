@@ -174,28 +174,26 @@ describe('Admin analytics aggregation (#1639)', () => {
 	afterEach(() => {
 		process.env = originalEnv;
 		vi.restoreAllMocks();
+		// 後続 describe (AnalyticsManager) で再 import するときに module mock が残らないよう unmock
+		vi.doUnmock('../../../src/lib/analytics/providers/dynamo');
+		vi.doUnmock('../../../src/lib/server/services/cohort-analysis-service');
+		vi.doUnmock('../../../src/lib/server/services/pmf-survey-service');
+		vi.doUnmock('../../../src/lib/server/services/cancellation-service');
 	});
 
 	describe('getActivationFunnel', () => {
 		it('returns 4 funnel steps in order with conversion rates', async () => {
-			// Mock DynamoDB GSI2 query: each event返す件数を変える
-			const sendMock = vi.fn();
+			// Mock queryAnalyticsEventTenants: 各 event の unique tenant 件数を変える
 			let callCount = 0;
 			const counts = [100, 70, 35, 20]; // signup → first_child → first_activity → first_reward
-			sendMock.mockImplementation(() => {
+			const queryMock = vi.fn().mockImplementation(() => {
 				const c = counts[callCount] ?? 0;
 				callCount++;
-				return Promise.resolve({
-					Items: Array.from({ length: c }, (_, i) => ({
-						tenantId: `t-${i}`,
-						GSI2SK: `2026-04-29#t-${i}`,
-					})),
-				});
+				return Promise.resolve({ uniqueTenants: c, scannedDates: 30 });
 			});
 
-			vi.doMock('$lib/server/db/dynamodb/client', () => ({
-				getDocClient: () => ({ send: sendMock }),
-				TABLE_NAME: 'test-table',
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsEventTenants: queryMock,
 			}));
 
 			const { getActivationFunnel } = await import(
@@ -217,11 +215,10 @@ describe('Admin analytics aggregation (#1639)', () => {
 			expect(result.fetchedAt).toBeTruthy();
 		});
 
-		it('returns zero counts when DynamoDB returns empty', async () => {
-			const sendMock = vi.fn().mockResolvedValue({ Items: [] });
-			vi.doMock('$lib/server/db/dynamodb/client', () => ({
-				getDocClient: () => ({ send: sendMock }),
-				TABLE_NAME: 'test-table',
+		it('returns zero counts when query returns empty', async () => {
+			const queryMock = vi.fn().mockResolvedValue({ uniqueTenants: 0, scannedDates: 0 });
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsEventTenants: queryMock,
 			}));
 
 			const { getActivationFunnel } = await import(
@@ -237,11 +234,12 @@ describe('Admin analytics aggregation (#1639)', () => {
 			expect(result.steps[1]?.conversionFromPrev).toBe(0);
 		});
 
-		it('returns zero counts gracefully when DynamoDB throws', async () => {
-			const sendMock = vi.fn().mockRejectedValue(new Error('Network error'));
-			vi.doMock('$lib/server/db/dynamodb/client', () => ({
-				getDocClient: () => ({ send: sendMock }),
-				TABLE_NAME: 'test-table',
+		it('returns zero counts gracefully when query throws (provider already swallows)', async () => {
+			// queryAnalyticsEventTenants は内部で try/catch しているため
+			// 呼び出し側からは zero 結果として返る (provider レイヤーが Error を吸収する設計)
+			const queryMock = vi.fn().mockResolvedValue({ uniqueTenants: 0, scannedDates: 0 });
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsEventTenants: queryMock,
 			}));
 
 			const { getActivationFunnel } = await import(

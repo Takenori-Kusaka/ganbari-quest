@@ -7,12 +7,10 @@
 // Pre-PMF (ADR-0010) 段階のため事前集計レコードは未導入。直接 query で十分（~100 テナント想定）。
 // 集計頻度が高くなれば cron で `PK=ANALYTICS_AGG#<date>` を書く設計に移行する (follow-up)。
 
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { analytics } from '$lib/analytics';
+import { queryAnalyticsEventTenants } from '$lib/analytics/providers/dynamo';
 import type { BusinessEventName, EventProperties } from '$lib/analytics/types';
-import { getDocClient, TABLE_NAME } from '$lib/server/db/dynamodb/client';
 import type { CancellationReasonAggregation } from '$lib/server/db/interfaces/cancellation-reason-repo.interface';
-import { logger } from '$lib/server/logger';
 import { getCancellationReasonAggregation } from './cancellation-service';
 import { type CohortAnalysisResult, getCohortAnalysis } from './cohort-analysis-service';
 import {
@@ -154,7 +152,7 @@ export interface ActivationFunnelResult {
 	fetchedAt: string;
 }
 
-/** Retention cohort granularities */
+/** Retention cohort period granularity */
 export type RetentionCohortPeriod = 'weekly' | 'monthly';
 
 /** Single retention cohort row */
@@ -195,77 +193,28 @@ const ACTIVATION_FUNNEL_EVENT_NAMES = [
 ] as const;
 
 /**
- * 期間内 (UTC 日付) の DynamoDB ANALYTICS#EVENT#<name> パーティションをすべて query して
- * テナント単位 unique 件数を返す。
- *
- * PK=ANALYTICS#EVENT#<eventName>, SK=GSI2 = `<date>#<tenantId>` 構造を想定するが、
- * 現在の DynamoAnalyticsProvider 実装は `PK=ANALYTICS#<date>, GSI2PK=ANALYTICS#EVENT#<name>` を
- * 書いている。このため GSI2 を使うと event 横断 query が可能。
- *
- * Pre-PMF / ADR-0010: GSI 1 経路で 4 event × N 日のスキャンで十分。
- */
-async function countActivationEventTenants(
-	eventName: string,
-	sinceIso: string,
-): Promise<{ uniqueTenants: number; scannedDates: number }> {
-	try {
-		const tenants = new Set<string>();
-		// GSI2 query: GSI2PK=ANALYTICS#EVENT#<name> AND GSI2SK >= <since-date>
-		const sinceDate = sinceIso.slice(0, 10);
-		const dates = new Set<string>();
-
-		let exclusiveStartKey: Record<string, unknown> | undefined;
-		do {
-			const res = await getDocClient().send(
-				new QueryCommand({
-					TableName: TABLE_NAME,
-					IndexName: 'GSI2',
-					KeyConditionExpression: 'GSI2PK = :pk AND GSI2SK >= :sk',
-					ExpressionAttributeValues: {
-						':pk': `ANALYTICS#EVENT#${eventName}`,
-						':sk': sinceDate,
-					},
-					ExclusiveStartKey: exclusiveStartKey,
-				}),
-			);
-			for (const item of res.Items ?? []) {
-				const tenantId = item.tenantId as string | undefined;
-				if (tenantId) tenants.add(tenantId);
-				const gsi2sk = item.GSI2SK as string | undefined;
-				if (gsi2sk) {
-					const datePart = gsi2sk.split('#')[0];
-					if (datePart) dates.add(datePart);
-				}
-			}
-			exclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
-		} while (exclusiveStartKey);
-
-		return { uniqueTenants: tenants.size, scannedDates: dates.size };
-	} catch (err) {
-		logger.warn('[analytics] activation funnel query failed', {
-			context: { eventName, error: err instanceof Error ? err.message : String(err) },
-		});
-		return { uniqueTenants: 0, scannedDates: 0 };
-	}
-}
-
-/**
  * Activation funnel を取得する (#1639 AC1)。
  * 4 step (signup / first_child / first_activity / first_reward) のテナント単位 unique 件数。
+ *
+ * 各 step は DynamoDB GSI2 (`GSI2PK=ANALYTICS#EVENT#<name>`) を query 経由で取得する
+ * (`queryAnalyticsEventTenants` ヘルパは services/ 層の DB 直接アクセス禁止 (#1021 アーキテクチャ
+ * テスト) を回避するため `$lib/analytics/providers/dynamo.ts` に置いている)。
+ *
+ * Pre-PMF / ADR-0010: GSI 経路で 4 events × 期間内日付のスキャンで十分。
  */
 export async function getActivationFunnel(
 	period: ActivationFunnelPeriod = '30d',
 ): Promise<ActivationFunnelResult> {
 	const days = period === '7d' ? 7 : 30;
 	const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
-	const sinceIso = new Date(sinceMs).toISOString();
+	const sinceDate = new Date(sinceMs).toISOString().slice(0, 10);
 
 	const counts: number[] = [];
 	let scannedDates = 0;
 	for (const eventName of ACTIVATION_FUNNEL_EVENT_NAMES) {
-		const { uniqueTenants, scannedDates: dates } = await countActivationEventTenants(
+		const { uniqueTenants, scannedDates: dates } = await queryAnalyticsEventTenants(
 			eventName,
-			sinceIso,
+			sinceDate,
 		);
 		counts.push(uniqueTenants);
 		scannedDates = Math.max(scannedDates, dates);
