@@ -1096,3 +1096,33 @@ export const cancellationReasons = sqliteTable(
 		index('idx_cancellation_reasons_date').on(table.createdAt),
 	],
 );
+
+// ============================================================
+// graduation_consent - 卒業フロー (ADR-0023 §3.8 / §5 I10 / #1603)
+// 「卒業」選択時の事例公開承諾 + 利用期間記録。
+// PO の「ポジティブな解約」KPI 可視化 + PR 用事例蓄積に使う。
+// 公開時は実名禁止（親が任意指定する nickname のみ）。
+// ============================================================
+export const graduationConsent = sqliteTable(
+	'graduation_consent',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		tenantId: text('tenant_id').notNull(),
+		// 公開時の表示ニックネーム（実名禁止 — 親が任意指定）
+		nickname: text('nickname').notNull(),
+		// 公開承諾フラグ（true=事例として公開可、false=ポジティブ KPI のみ集計）
+		consented: integer('consented', { mode: 'boolean' }).notNull().default(false),
+		// 卒業時の残ポイント合計（参考値）
+		userPoints: integer('user_points').notNull().default(0),
+		// テナント作成日 → 卒業日 までの日数（平均利用期間 KPI 用）
+		usagePeriodDays: integer('usage_period_days').notNull().default(0),
+		// 卒業者の任意メッセージ（公開可能な「卒業の言葉」、最大 500 文字）
+		message: text('message'),
+		consentedAt: text('consented_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_graduation_consent_tenant').on(table.tenantId),
+		index('idx_graduation_consent_consented_date').on(table.consented, table.consentedAt),
+		index('idx_graduation_consent_date').on(table.consentedAt),
+	],
+);

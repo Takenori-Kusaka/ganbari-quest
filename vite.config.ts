@@ -13,6 +13,17 @@ const dirname =
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	server: {
+		fs: {
+			// git worktree (`tmp/wt-XXXX/`) で起動した時、Vite の dev server fs.allow が
+			// worktree 配下に絞られるため、親リポジトリ root の node_modules
+			// (`@sveltejs/kit/src/runtime/client/entry.js` 等) が読めず hydration JS が
+			// 落ちる。client hydration が動かないと bind:value も発火せず、ログイン
+			// フォーム等の disabled ボタンが永久に有効化されない (#1603 で発覚)。
+			// 親 1〜2 階層分 (tmp/wt-XXXX/ の場合 ../ と ../../) の node_modules を許可する。
+			allow: [path.join(dirname, '..'), path.join(dirname, '..', '..')],
+		},
+	},
 	ssr: {
 		// sharp はネイティブモジュール — バンドルせず node_modules から直接ロード
 		external: ['sharp'],

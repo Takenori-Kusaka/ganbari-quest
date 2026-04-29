@@ -202,6 +202,57 @@
 - `category` が 3 分類いずれでもない → 400 + `INVALID_CATEGORY`
 - `freeText` が 1000 文字超 → 400 + `FREE_TEXT_TOO_LONG`
 
+**`category='graduation'` 選択時の追加分岐（#1603 / ADR-0023 §5 I10）:**
+
+`submitCancellationReason()` 完了後、Stripe Portal リダイレクトの前に専用ページへ 303 redirect:
+- `redirect(303, '/admin/billing/cancel/graduation')`
+
+### 卒業フロー（#1603 / ADR-0023 §3.8 / §5 I10）
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| GET  | /admin/billing/cancel/graduation | 卒業専用ページ表示 | owner/parent |
+| POST | /admin/billing/cancel/graduation | 事例公開承諾送信 → 解約完了 | owner/parent |
+
+**load 戻り値:**
+- `totalPoints: number` — 全子供の getBalance() 合計
+- `yenAmount: number` — 還元提案表示用の現金換算想定額（pt × 1）
+- `usagePeriodDays: number` — テナント作成日からの利用日数
+- `isPaidPlan: boolean`, `hasStripeCustomer: boolean` — リダイレクト分岐用
+- `nicknameMaxLength: number = 30`, `messageMaxLength: number = 500`
+
+**form action body (form-data):**
+- `consented` (任意): チェックボックス値 `'on'` で承諾扱い
+- `nickname` (consented=true 時必須, 1〜30 文字): 公開時の表示名（実名禁止）
+- `message` (任意, 0〜500 文字): 任意の卒業メッセージ
+- `totalPoints` (hidden): load で取得した残ポイント値（保存用）
+- `usagePeriodDays` (hidden): load で取得した利用日数（保存用）
+
+**処理:**
+1. `graduation-service.recordGraduationConsent()` で graduation_consent テーブル / DynamoDB に保存
+2. 課金プラン（stripeCustomerId あり）→ `/admin/billing` に 303 redirect
+3. 無料プラン → `/admin/billing/cancel/thanks` に 303 redirect
+
+**バリデーション:**
+- nickname が空 (consented=true 時) → 400 + `errorKey='errorNicknameRequired'`
+- nickname > 30 文字 → 400 + `errorKey='errorNicknameTooLong'`
+- message > 500 文字 → 400 + `errorKey='errorMessageTooLong'`
+
+#### graduation-service 関数定義
+
+| 関数 | 引数 | 戻り値 | 副作用 |
+|------|------|--------|--------|
+| `recordGraduationConsent(input)` | `{ tenantId, nickname, consented, userPoints, usagePeriodDays, message? }` | `{ ok: true, record } \| { ok: false, error: 'NICKNAME_REQUIRED' \| 'NICKNAME_TOO_LONG' \| 'MESSAGE_TOO_LONG' }` | graduation_consent テーブルに insert |
+| `getGraduationStats(days=90)` | `days: number` | `GraduationStats { totalGraduations, consentedCount, avgUsagePeriodDays, totalCancellations, graduationRate, publicSamples[] }` | なし |
+| `calculateUsagePeriodDays(tenantCreatedAt, now?)` | `tenantCreatedAt: string, now?: Date` | `number` (日数) | なし（純関数） |
+
+#### ops-analytics-service 拡張
+
+`OpsAnalyticsData.graduation` フィールドを追加。`/ops/analytics` の load 時に
+`repos.graduationConsent.aggregateRecent(90)` を呼び、`cancellationReasons.total` を分母に
+`graduationRate` を計算する（循環 import 回避のため `getGraduationStats()` ではなく
+直接 repo を呼ぶ）。
+
 ### バトルアドベンチャー
 
 | メソッド | パス | 概要 | 認証 |
