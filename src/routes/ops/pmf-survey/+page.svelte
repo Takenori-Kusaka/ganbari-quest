@@ -498,7 +498,7 @@ function q3Pct(count: number): string {
 	word-break: break-word;
 }
 
-/* 自由記述検索 (AC12, PO 承認 2026-04-29) */
+/* AC12 free-text search (PO approved 2026-04-29) */
 .search-form {
 	display: flex;
 	flex-direction: column;
