@@ -363,9 +363,20 @@ Dockerfile.lambda        # Lambda Web Adapter用
 
 `hooks.server.ts` `buildCspHeader()` は外部送信先を一切ホワイトリストしない (`connect-src 'self'` 固定)。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと (ADR-0006 安全弁削除禁止)。
 
-### 可視化 (`/admin/analytics`)
+### 可視化 (`/admin/analytics`, #1639)
 
-`/admin/analytics` ページは #1591 時点では **Coming soon** 縮退。DynamoDB に蓄積されたイベントから activation funnel / retention cohort / Sean Ellis スコアを描画する実装は follow-up Issue で行う。
+`/admin/analytics` ページは **#1639 で 4 種可視化を実装済み**（Pre-PMF Bucket A 範囲）。
+
+| セクション | 実装方式 | データ源 |
+|-----------|---------|---------|
+| activation funnel (4 step) | DynamoDB GSI2 query (`GSI2PK=ANALYTICS#EVENT#<name>`、`GSI2SK >= <since-date>`) を 4 events 並列実行、テナント単位 unique 件数を集計 | `ANALYTICS#` partition |
+| retention cohort (週次/月次) | `cohort-analysis-service.getCohortAnalysis` を再利用 | tenant 一覧（`auth.listAllTenants()`） |
+| Sean Ellis スコア | `pmf-survey-service.aggregateSurveyResponses` を再利用 | settings KV (`pmf_survey_response_<round>`) |
+| 解約理由分布 | `cancellation-service.getCancellationReasonAggregation` を再利用 | `CANCEL_REASON` partition |
+
+**事前集計レコード（`PK=ANALYTICS_AGG#<date>`）は本 PR では未導入**。Pre-PMF (ADR-0010) のため直接 query で十分（~100 テナント想定、4 events × 期間内日付の GSI2 query で `O(N events × days)`）。集計頻度が高くなれば cron で `PK=ANALYTICS_AGG#<date>` を書く設計に移行する（別 Issue）。
+
+**部分縮退方式**: `+page.server.ts` で `Promise.allSettled` を使い、1 セクションが失敗しても他セクションは表示する。`getActivationFunnel` 内部の DynamoDB query 失敗時は zero counts で fallback（個別エラーログのみ、画面全体は崩さない）。
 
 ### 運営内部分析 (`/ops/analytics`, #1602 ADR-0023 I13)
 
@@ -456,3 +467,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-04-25 | #1376 §3.3 に CronDispatcherFn Lambda・EventBridge Rules 3件を追記。§3.4 に CronDispatcherErrors CloudWatch Alarm (P0, SNS 通知付き) を追記 |
 | 2026-04-27 | #1586 §3.3 に cron-dispatcher の CRON_SECRET / OPS_SECRET_KEY fallback と dryRun mode を追記。CDK synth 時の必須 secret throw + deploy.yml の Validate required secrets / Cron dispatcher smoke test step も合わせて整備 |
 | 2026-04-27 | #1591 §7.2 アナリティクス基盤を新設。DynamoDB 一本化 (umami / Sentry 削除)、CSP 単純化、Lambda env (ANALYTICS_ENABLED / ANALYTICS_TABLE_NAME) のハードコード注入を追記 |
+| 2026-04-29 | #1639 §7.2 可視化セクションを Coming soon から実装済みに更新。4 種可視化（activation funnel / retention cohort / Sean Ellis / 解約理由）の実装方式・データ源・部分縮退方式を追記 |

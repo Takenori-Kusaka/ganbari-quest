@@ -309,6 +309,8 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `CHECKLIST_KIND_ICONS` | const |  |
 | `ACTION_LABELS` | const |  |
 | `TRIAL_LABELS` | const |  |
+| `LIFECYCLE_EMAIL_LABELS` | const |  |
+| `PMF_SURVEY_LABELS` | const |  |
 | `PREMIUM_MODAL_LABELS` | const |  |
 | `MARKETPLACE_LABELS` | const |  |
 | `MARKETPLACE_FILTER_LABELS` | const |  |
@@ -325,6 +327,10 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `SIGNUP_LABELS` | const |  |
 | `ANALYTICS_LABELS` | const |  |
 | `BILLING_LABELS` | const |  |
+| `CANCELLATION_CATEGORY` | const |  |
+| `CANCELLATION_CATEGORIES` | const |  |
+| `CANCELLATION_LABELS` | const |  |
+| `OPS_CANCELLATION_LABELS` | const |  |
 | `OPS_LICENSE_ISSUE_LABELS` | const |  |
 | `OPS_REVENUE_LABELS` | const |  |
 | `OPS_BUSINESS_LABELS` | const |  |
@@ -336,6 +342,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `DEMO_TOP_LABELS` | const |  |
 | `GROWTH_BOOK_LABELS` | const |  |
 | `OPS_ANALYTICS_LABELS` | const |  |
+| `OPS_PRESET_DISTRIBUTION_LABELS` | const |  |
 | `DEMO_SETTINGS_LABELS` | const |  |
 | `ERROR_PAGE_LABELS` | const |  |
 | `OPS_LICENSE_KEY_LABELS` | const |  |
@@ -393,11 +400,19 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `DEMO_CHILD_ACHIEVEMENTS_LABELS` | const |  |
 | `LP_NAV_LABELS` | const |  |
 | `LP_FOOTER_LABELS` | const |  |
+| `LP_HERO_PRICE_BAND_LABELS` | const |  |
+| `LP_CTA_TRUST_BADGES_LABELS` | const |  |
+| `LP_HERO_SPEC_BADGES_LABELS` | const |  |
 | `LP_COMMON_LABELS` | const |  |
 | `LP_LEGAL_DISCLAIMER_LABELS` | const |  |
+| `LP_PRICING_LABELS` | const |  |
+| `LP_FOUNDER_INQUIRY_LABELS` | const |  |
+| `FOUNDER_INQUIRY_LABELS` | const |  |
 | `LP_RETENTION_LABELS` | const |  |
 | `BABY_HOME_LABELS` | const |  |
 | `ONBOARDING_LABELS` | const |  |
+| `LP_VERSUS_LABELS` | const |  |
+| `LP_GROWTH_ROADMAP_LABELS` | const |  |
 | `LP_CORELOOP_LABELS` | const |  |
 | `CHILD_SHOP_LABELS` | const |  |
 | `ADMIN_SHOP_REQUEST_LABELS` | const |  |
@@ -408,6 +423,15 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `FEATURES_LABELS` | const |  |
 | `LEGAL_LABELS` | const |  |
 | `PUSH_NOTIFICATION_LABELS` | const |  |
+| `LP_LICENSEKEY_LABELS` | const |  |
+| `LP_FAQ_LABELS` | const |  |
+| `LP_SELFHOST_LABELS` | const |  |
+| `LP_INDEX_EXTRA_LABELS` | const |  |
+| `LP_PAMPHLET_LABELS` | const |  |
+| `LP_PRICING_EXTRA_LABELS` | const |  |
+| `STORYBOOK_LABELS` | const |  |
+| `MILESTONE_LABELS` | const |  |
+| `VALUE_PREVIEW_LABELS` | const |  |
 | `formatCount` | function |  |
 | `formatAge` | function |  |
 | `formatAgeRange` | function |  |
@@ -423,13 +447,17 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `getThemeOptions` | function | テーマ選択肢一覧 |
 | `getChecklistKindLabel` | function |  |
 | `getChecklistKindShortLabel` | function |  |
+| `getCancellationCategoryLabel` | function |  |
 | `NavCategoryId` | type |  |
 | `PlanKey` | type |  |
 | `ThemeKey` | type |  |
 | `ChecklistKind` | type |  |
+| `PmfSurveyQ1` | type |  |
+| `PmfSurveyQ3` | type |  |
 | `MarketplaceGender` | type |  |
 | `MarketplaceSortKey` | type |  |
 | `ImportSkipReason` | type |  |
+| `CancellationCategory` | type |  |
 <!-- /AUTOGEN:labels -->
 
 ### ルール
