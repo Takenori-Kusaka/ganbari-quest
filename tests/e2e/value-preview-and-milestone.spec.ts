@@ -64,38 +64,40 @@ test.describe('#1600 マイルストーンバナー — child UI smoke', () => {
 		const switchResponse = await page.goto('/switch', { waitUntil: 'domcontentloaded' });
 		expect(switchResponse?.status()).toBeLessThan(400);
 
-		// 最初の child を選択（seed に最低 1 人いる前提）。
-		// child カード or リンクを探して click。
-		const childLink = page.locator('a[href^="/preschool"], a[href^="/elementary"], a[href^="/junior"], a[href^="/senior"], a[href^="/baby"]').first();
+		// 最初の child を選択（seed に child がいない場合は smoke として
+		// /switch が 200 で開けるところまで確認して終了）。
+		const childLink = page
+			.locator(
+				'a[href^="/preschool"], a[href^="/elementary"], a[href^="/junior"], a[href^="/senior"], a[href^="/baby"]',
+			)
+			.first();
 		const childCount = await childLink.count();
-		if (childCount === 0) {
-			// child が登録されていない seed の場合はスキップ（smoke として何もしない）
-			test.skip(true, 'No child registered in test seed; skip child UI smoke');
-			return;
+
+		if (childCount > 0) {
+			await Promise.all([
+				page.waitForURL(/\/(baby|preschool|elementary|junior|senior)\//, { timeout: 10_000 }),
+				childLink.click(),
+			]);
+
+			// マイルストーンバナーは pendingMilestone が無ければ描画されない仕様。
+			// 描画された場合は閉じるボタンで閉じれることを確認。
+			const banner = page.getByTestId('milestone-banner');
+			const bannerCount = await banner.count();
+			if (bannerCount > 0) {
+				await expect(banner.first()).toBeVisible();
+				// 閉じるボタンを押下できる（ARIA label = MILESTONE_LABELS.bannerCloseLabel）
+				const closeBtn = banner.getByRole('button').first();
+				await expect(closeBtn).toBeVisible();
+				await closeBtn.click();
+				await expect(banner.first()).toBeHidden({ timeout: 5_000 });
+			}
+
+			// localStorage に書かれていれば再描画されない（永続化）
+			const localStorageKeys = await context.storageState();
+			expect(localStorageKeys).toBeDefined();
 		}
 
-		await Promise.all([
-			page.waitForURL(/\/(baby|preschool|elementary|junior|senior)\//, { timeout: 10_000 }),
-			childLink.click(),
-		]);
-
-		// マイルストーンバナーは pendingMilestone が無ければ描画されない仕様。
-		// 描画された場合は閉じるボタンで閉じれることを確認。
-		const banner = page.getByTestId('milestone-banner');
-		const bannerCount = await banner.count();
-		if (bannerCount > 0) {
-			await expect(banner.first()).toBeVisible();
-			// 閉じるボタンを押下できる（ARIA label = MILESTONE_LABELS.bannerCloseLabel）
-			const closeBtn = banner.getByRole('button').first();
-			await expect(closeBtn).toBeVisible();
-			await closeBtn.click();
-			await expect(banner.first()).toBeHidden({ timeout: 5_000 });
-		}
-
-		// localStorage に書かれていれば再描画されない（永続化）
-		const localStorageKeys = await context.storageState();
-		expect(localStorageKeys).toBeDefined();
-
+		// child の有無に関わらず、child UI 系のページで JS エラーが出ていないこと
 		expect(
 			errors.filter(
 				(e) =>
