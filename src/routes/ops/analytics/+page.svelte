@@ -1,7 +1,10 @@
 <script lang="ts">
 import {
+	type CancellationCategory,
+	getCancellationCategoryLabel,
 	getPlanLabel,
 	OPS_ANALYTICS_LABELS,
+	OPS_CANCELLATION_LABELS,
 	OPS_PRESET_DISTRIBUTION_LABELS,
 } from '$lib/domain/labels';
 import type { PresetBucketKey } from '$lib/server/services/ops-analytics-service';
@@ -215,6 +218,63 @@ function barWidthPct(count: number): number {
 		</section>
 	{/if}
 
+	<!-- 解約理由集計 (#1596 / ADR-0023 §3.8 / I3) -->
+	<section data-testid="ops-cancellation-section">
+		<Card padding="lg">
+			<h2 class="ops-section-title m-0 mb-1">{OPS_CANCELLATION_LABELS.sectionTitle}</h2>
+			<p class="text-xs text-[var(--color-text-muted)] mb-4">
+				{OPS_CANCELLATION_LABELS.sectionHint} / {OPS_CANCELLATION_LABELS.totalLabel(a.cancellationReasons.total)}
+			</p>
+
+			{#if a.cancellationReasons.total === 0}
+				<p class="text-sm text-[var(--color-text-muted)]" data-testid="ops-cancellation-empty">
+					{OPS_CANCELLATION_LABELS.noData}
+				</p>
+			{:else}
+				<table class="ops-table" data-testid="ops-cancellation-breakdown">
+					<thead>
+						<tr>
+							<th>{OPS_CANCELLATION_LABELS.colCategory}</th>
+							<th class="ops-num">{OPS_CANCELLATION_LABELS.colCount}</th>
+							<th class="ops-num">{OPS_CANCELLATION_LABELS.colPercentage}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each a.cancellationReasons.breakdown as row}
+							<tr>
+								<td>{getCancellationCategoryLabel(row.category as CancellationCategory)}</td>
+								<td class="ops-num">{row.count}</td>
+								<td class="ops-num">{row.percentage}%</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+
+			<!-- 自由記述サンプル（最低限の検索機能 — 最新 20 件） -->
+			<h3 class="ops-section-title m-0 mt-6 mb-2 text-sm">
+				{OPS_CANCELLATION_LABELS.freeTextSearchLabel}
+			</h3>
+			{#if a.cancellationReasons.freeTextSamples.length === 0}
+				<p class="text-sm text-[var(--color-text-muted)]" data-testid="ops-cancellation-freetext-empty">
+					{OPS_CANCELLATION_LABELS.freeTextEmpty}
+				</p>
+			{:else}
+				<ul class="ops-freetext-list" data-testid="ops-cancellation-freetext-list">
+					{#each a.cancellationReasons.freeTextSamples as sample (sample.id)}
+						<li class="ops-freetext-item">
+							<div class="ops-freetext-meta">
+								<span>{OPS_CANCELLATION_LABELS.freeTextDate(new Date(sample.createdAt).toLocaleDateString('ja-JP'))}</span>
+								<span>{OPS_CANCELLATION_LABELS.freeTextCategory(getCancellationCategoryLabel(sample.category as CancellationCategory))}</span>
+							</div>
+							<p class="ops-freetext-body">{sample.freeText}</p>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</Card>
+	</section>
+
 	<!-- Stripe 状態 -->
 	<Card padding="lg">
 		<h2 class="ops-section-title m-0 mb-4">{OPS_ANALYTICS_LABELS.dataSourceTitle}</h2>
@@ -311,5 +371,37 @@ function barWidthPct(count: number): number {
 
 	.preset-bar-fill--none {
 		background: var(--color-border-strong);
+	}
+
+	/* #1596: cancellation reasons free-text list */
+	.ops-freetext-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.ops-freetext-item {
+		padding: 0.625rem 0.75rem;
+		background: var(--color-surface-muted);
+		border: 1px solid var(--color-border-light);
+		border-radius: var(--radius-md, 8px);
+	}
+
+	.ops-freetext-meta {
+		display: flex;
+		gap: 0.75rem;
+		font-size: 0.7rem;
+		color: var(--color-text-muted);
+		margin-bottom: 0.25rem;
+		flex-wrap: wrap;
+	}
+
+	.ops-freetext-body {
+		font-size: 0.85rem;
+		color: var(--color-text-primary);
+		white-space: pre-wrap;
+		word-break: break-word;
 	}
 </style>

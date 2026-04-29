@@ -785,6 +785,21 @@ export const SQL_TABLES = `
 	CREATE INDEX idx_usage_logs_child_date ON usage_logs(child_id, started_at);
 	CREATE INDEX idx_usage_logs_tenant ON usage_logs(tenant_id, started_at);
 
+	-- #1596 ADR-0023 §3.8 / I3: 解約理由ヒアリング
+	CREATE TABLE cancellation_reasons (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tenant_id TEXT NOT NULL,
+		category TEXT NOT NULL,
+		free_text TEXT,
+		plan_at_cancellation TEXT,
+		stripe_subscription_id TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX idx_cancellation_reasons_tenant ON cancellation_reasons(tenant_id);
+	CREATE INDEX idx_cancellation_reasons_category_date
+		ON cancellation_reasons(category, created_at);
+	CREATE INDEX idx_cancellation_reasons_date ON cancellation_reasons(created_at);
+
 `;
 
 // ============================================================
@@ -792,6 +807,7 @@ export const SQL_TABLES = `
 // ============================================================
 
 const ALL_TABLES = [
+	'cancellation_reasons',
 	'usage_logs',
 	'enemy_collection',
 	'daily_battles',
