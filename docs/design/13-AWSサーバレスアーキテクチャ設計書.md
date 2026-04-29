@@ -126,6 +126,8 @@
 | `ganbari-quest-cron-retention-cleanup` | `cron(0 16 * * ? *)` | 01:00 | retention-cleanup |
 | `ganbari-quest-cron-trial-notifications` | `cron(0 0 * * ? *)` | 09:00 | trial-notifications |
 | `ganbari-quest-cron-lifecycle-emails` (#1601) | `cron(30 0 * * ? *)` | 09:30 | lifecycle-emails (期限切れ前リマインド + 休眠復帰メール) |
+| `ganbari-quest-cron-pmf-survey` (#1598) | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | pmf-survey (Sean Ellis Test 配信) |
+| `ganbari-quest-cron-analytics-aggregator-daily` (#1693) | `cron(0 18 * * ? *)` | 03:00 | analytics-aggregator-daily (前日分 funnel + cancellation 事前集計) |
 
 - スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
 - ターゲット: `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`)
@@ -374,9 +376,26 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | Sean Ellis スコア | `pmf-survey-service.aggregateSurveyResponses` を再利用 | settings KV (`pmf_survey_response_<round>`) |
 | 解約理由分布 | `cancellation-service.getCancellationReasonAggregation` を再利用 | `CANCEL_REASON` partition |
 
-**事前集計レコード（`PK=ANALYTICS_AGG#<date>`）は本 PR では未導入**。Pre-PMF (ADR-0010) のため直接 query で十分（~100 テナント想定、4 events × 期間内日付の GSI2 query で `O(N events × days)`）。集計頻度が高くなれば cron で `PK=ANALYTICS_AGG#<date>` を書く設計に移行する（別 Issue）。
+**事前集計レコード（`PK=ANALYTICS_AGG#<YYYY-MM-DD>`, #1693 で導入）**: テナント数増加に備え、cron `gq-analytics-aggregator-daily` (毎日 03:00 JST = 18:00 UTC) で前日分の funnel + cancellation reason を集計し DynamoDB に書き込む。
 
-**部分縮退方式**: `+page.server.ts` で `Promise.allSettled` を使い、1 セクションが失敗しても他セクションは表示する。`getActivationFunnel` 内部の DynamoDB query 失敗時は zero counts で fallback（個別エラーログのみ、画面全体は崩さない）。
+| 集計種別 | PK | SK | 内容 | TTL |
+|---------|----|----|------|-----|
+| Activation Funnel | `ANALYTICS_AGG#<YYYY-MM-DD>` | `FUNNEL` | その日の event 別 unique tenantId 一覧（最大 4 events） | 365 日 |
+| Cancellation 30d | `ANALYTICS_AGG#<YYYY-MM-DD>` | `CANCELLATION_30D` | その日時点での過去 30 日 rolling-window 集計結果 | 365 日 |
+| Cancellation 90d | `ANALYTICS_AGG#<YYYY-MM-DD>` | `CANCELLATION_90D` | その日時点での過去 90 日 rolling-window 集計結果 | 365 日 |
+
+**Read 側のフォールバック構造（`analytics-service.ts`）:**
+1. 集計レコードを期間内日付分取得（`PK BETWEEN ANALYTICS_AGG#<since> AND ANALYTICS_AGG#<yesterday> AND SK=<kind>`）
+2. **Funnel**: 集計済み日付分の tenantId 一覧を union し、不足日付（当日 / cron 失敗で歯抜けの日）のみライブ計算で補う
+3. **Cancellation**: 前日分 rolling-window スナップショットがあれば即採用、無ければ既存ライブ集計 (`getCancellationReasonAggregation`) で fallback
+4. service の interface (`getActivationFunnel` / `getCancellationReasons`) は不変。呼出側 (`+page.server.ts`) は変更不要
+
+**Pre-PMF (ADR-0010) スコープ**:
+- Sean Ellis / retention cohort は集計頻度が低い（半年に 1 round / 月次）ため事前集計対象外
+- HyperLogLog 等の近似 sketch は post-PMF に持ち越し（~100 テナント規模では tenantId 一覧の保持が数 KB で十分）
+- DynamoDB TTL 属性 (`ttl`) を有効化し、365 日経過したレコードは自動失効
+
+**部分縮退方式**: `+page.server.ts` で `Promise.allSettled` を使い、1 セクションが失敗しても他セクションは表示する。`getActivationFunnel` / `getCancellationReasons` 内部の DynamoDB query 失敗時は zero counts / 空 breakdown で fallback（個別エラーログのみ、画面全体は崩さない）。
 
 ### 運営内部分析 (`/ops/analytics`, #1602 ADR-0023 I13)
 
@@ -468,3 +487,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-04-27 | #1586 §3.3 に cron-dispatcher の CRON_SECRET / OPS_SECRET_KEY fallback と dryRun mode を追記。CDK synth 時の必須 secret throw + deploy.yml の Validate required secrets / Cron dispatcher smoke test step も合わせて整備 |
 | 2026-04-27 | #1591 §7.2 アナリティクス基盤を新設。DynamoDB 一本化 (umami / Sentry 削除)、CSP 単純化、Lambda env (ANALYTICS_ENABLED / ANALYTICS_TABLE_NAME) のハードコード注入を追記 |
 | 2026-04-29 | #1639 §7.2 可視化セクションを Coming soon から実装済みに更新。4 種可視化（activation funnel / retention cohort / Sean Ellis / 解約理由）の実装方式・データ源・部分縮退方式を追記 |
+| 2026-04-29 | #1693 §3.3 EventBridge Rules に `pmf-survey` / `analytics-aggregator-daily` を追記。§7.2 に事前集計レコード `PK=ANALYTICS_AGG#<date>` のキー設計 + read 側フォールバック構造（集計優先 → ライブ計算 fallback）を追記。DynamoDB TTL `ttl` 属性を有効化し集計レコードは 365 日保持 |

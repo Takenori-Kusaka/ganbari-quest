@@ -35,6 +35,8 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	'grace-period-deletion': '/api/cron/grace-period-deletion',
 	// #1598 (ADR-0023 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	'pmf-survey': '/api/cron/pmf-survey',
+	// #1693 (#1639 follow-up): analytics 事前集計バッチ (前日分 funnel + cancellation を集計)
+	'analytics-aggregator-daily': '/api/cron/analytics-aggregate',
 };
 
 interface CronEvent {

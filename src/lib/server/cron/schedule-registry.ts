@@ -74,4 +74,15 @@ export const scheduleRegistry: CronJob[] = [
 		utcCronExpression: 'cron(0 0 1 6,12 ? *)', // 6/1 と 12/1 の 00:00 UTC = 09:00 JST
 		description: 'PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 I7)',
 	},
+	{
+		// #1693 (#1639 follow-up): /admin/analytics の DynamoDB 集計負荷削減のため、
+		// 前日分の activation funnel + cancellation reason を 1 日 1 回事前集計し、
+		// `PK=ANALYTICS_AGG#<date>` に書き込む (TTL 365 日)。read 側 (analytics-service) は
+		// 集計レコードを優先取得し、無い分のみライブ計算で補う設計。
+		name: 'analytics-aggregator-daily',
+		endpoint: '/api/cron/analytics-aggregate',
+		cronExpression: '0 3 * * *', // 毎日 03:00 JST
+		utcCronExpression: 'cron(0 18 * * ? *)', // 毎日 18:00 UTC = 翌日 03:00 JST
+		description: 'analytics 事前集計バッチ (#1693, #1639 follow-up — Pre-PMF 移行用)',
+	},
 ];

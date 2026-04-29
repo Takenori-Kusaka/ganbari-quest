@@ -24,6 +24,8 @@ const CRON_JOBS = [
 	{ name: 'lifecycle-emails', utcCronExpression: 'cron(30 0 * * ? *)' },
 	// #1598 (ADR-0023 §5 I7): PMF 判定アンケート (Sean Ellis Test) 年 2 回配信
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
+	// #1693 (#1639 follow-up): analytics 事前集計バッチ (前日分 funnel + cancellation を集計)
+	{ name: 'analytics-aggregator-daily', utcCronExpression: 'cron(0 18 * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {
