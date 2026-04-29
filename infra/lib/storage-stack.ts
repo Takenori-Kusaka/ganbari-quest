@@ -15,6 +15,10 @@ export class StorageStack extends cdk.Stack {
 		super(scope, id, props);
 
 		// --- DynamoDB: Single-table design ---
+		// timeToLiveAttribute='ttl': analytics event log (90 日 / DynamoAnalyticsProvider) と
+		// analytics 事前集計レコード (#1693, 365 日) の自動失効に使用。レコード側で `ttl` 属性に
+		// epoch seconds (UTC) を入れた行が DynamoDB バックグラウンドプロセスで自動削除される。
+		// TTL を持たないアプリケーションレコード (CHILD#... 等) は `ttl` 属性を持たないため影響なし。
 		this.table = new dynamodb.TableV2(this, 'MainTable', {
 			tableName: 'ganbari-quest',
 			partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
@@ -22,6 +26,7 @@ export class StorageStack extends cdk.Stack {
 			billing: dynamodb.Billing.onDemand(),
 			removalPolicy: cdk.RemovalPolicy.RETAIN,
 			pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: false },
+			timeToLiveAttribute: 'ttl',
 			globalSecondaryIndexes: [
 				{
 					indexName: 'GSI1',

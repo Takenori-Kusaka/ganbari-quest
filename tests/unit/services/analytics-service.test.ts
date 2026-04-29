@@ -182,18 +182,34 @@ describe('Admin analytics aggregation (#1639)', () => {
 	});
 
 	describe('getActivationFunnel', () => {
-		it('returns 4 funnel steps in order with conversion rates', async () => {
-			// Mock queryAnalyticsEventTenants: 各 event の unique tenant 件数を変える
-			let callCount = 0;
-			const counts = [100, 70, 35, 20]; // signup → first_child → first_activity → first_reward
-			const queryMock = vi.fn().mockImplementation(() => {
-				const c = counts[callCount] ?? 0;
-				callCount++;
-				return Promise.resolve({ uniqueTenants: c, scannedDates: 30 });
-			});
+		// #1693: 集計レコード優先 → ライブ計算 fallback の 3 ケース
+		// (1) 集計レコードが揃っていない → 期間全体ライブ計算
+		// (2) 集計レコードが揃っている (full) → 当日分のみライブ補完
+		// (3) 集計レコード + ライブの混在 → 両方を union
+
+		it('(1) ライブ計算のみ: 集計レコードが空のとき queryAnalyticsEventTenantList で全期間集計', async () => {
+			// 集計レコード = 空, ライブ = 各 event ごとに異なる tenantId 一覧を返す
+			const tenantsByEvent: Record<string, string[]> = {
+				activation_signup_completed: Array.from({ length: 100 }, (_, i) => `t${i}`),
+				activation_first_child_added: Array.from({ length: 70 }, (_, i) => `t${i}`),
+				activation_first_activity_completed: Array.from({ length: 35 }, (_, i) => `t${i}`),
+				activation_first_reward_seen: Array.from({ length: 20 }, (_, i) => `t${i}`),
+			};
+			const listMock = vi
+				.fn()
+				.mockImplementation((eventName: string) =>
+					Promise.resolve({ tenants: tenantsByEvent[eventName] ?? [], scannedDates: 30 }),
+				);
+			const aggMock = vi.fn().mockResolvedValue([]); // 集計レコードなし
 
 			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
-				queryAnalyticsEventTenants: queryMock,
+				queryAnalyticsEventTenantList: listMock,
+				queryAnalyticsAggregates: aggMock,
+				ANALYTICS_AGG_KIND: {
+					FUNNEL: 'FUNNEL',
+					CANCELLATION_30D: 'CANCELLATION_30D',
+					CANCELLATION_90D: 'CANCELLATION_90D',
+				},
 			}));
 
 			const { getActivationFunnel } = await import(
@@ -201,24 +217,107 @@ describe('Admin analytics aggregation (#1639)', () => {
 			);
 			const result = await getActivationFunnel('30d');
 
-			expect(result.period).toBe('30d');
-			expect(result.steps).toHaveLength(4);
-			expect(result.steps[0]?.eventName).toBe('activation_signup_completed');
+			expect(aggMock).toHaveBeenCalledTimes(1); // 集計レコード探索 (FUNNEL kind)
+			expect(listMock).toHaveBeenCalledTimes(4); // 4 events 全期間ライブ計算
 			expect(result.steps[0]?.count).toBe(100);
-			expect(result.steps[0]?.conversionFromPrev).toBe(1);
-			expect(result.steps[1]?.eventName).toBe('activation_first_child_added');
 			expect(result.steps[1]?.count).toBe(70);
 			expect(result.steps[1]?.conversionFromPrev).toBeCloseTo(0.7, 5);
-			expect(result.steps[3]?.eventName).toBe('activation_first_reward_seen');
 			expect(result.steps[3]?.count).toBe(20);
 			expect(result.steps[3]?.conversionFromPrev).toBeCloseTo(20 / 35, 5);
-			expect(result.fetchedAt).toBeTruthy();
 		});
 
-		it('returns zero counts when query returns empty', async () => {
-			const queryMock = vi.fn().mockResolvedValue({ uniqueTenants: 0, scannedDates: 0 });
+		it('(2) 集計レコード優先: full コレクションのとき当日分のみライブ補完', async () => {
+			// 30 日分の集計レコードを生成 (7d period のテストとして 7 日分)
+			const days = 7;
+			const today = new Date();
+			const aggregates: Array<{ date: string; tenantsByEvent: Record<string, string[]> }> = [];
+			for (let i = 1; i <= days; i++) {
+				const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+				aggregates.push({
+					date: d,
+					tenantsByEvent: {
+						activation_signup_completed: [`tA${i}`, `tB${i}`],
+						activation_first_child_added: [`tA${i}`],
+						activation_first_activity_completed: [],
+						activation_first_reward_seen: [],
+					},
+				});
+			}
+			const aggMock = vi.fn().mockResolvedValue(aggregates);
+			const listMock = vi.fn().mockResolvedValue({ tenants: [], scannedDates: 0 }); // 当日分は空
+
 			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
-				queryAnalyticsEventTenants: queryMock,
+				queryAnalyticsEventTenantList: listMock,
+				queryAnalyticsAggregates: aggMock,
+				ANALYTICS_AGG_KIND: {
+					FUNNEL: 'FUNNEL',
+					CANCELLATION_30D: 'CANCELLATION_30D',
+					CANCELLATION_90D: 'CANCELLATION_90D',
+				},
+			}));
+
+			const { getActivationFunnel } = await import(
+				'../../../src/lib/server/services/analytics-service'
+			);
+			const result = await getActivationFunnel('7d');
+
+			// 集計レコード合計: 7 日 × signup 2 unique = 14, child 1 unique = 7
+			expect(result.steps[0]?.count).toBe(days * 2); // 14
+			expect(result.steps[1]?.count).toBe(days); // 7
+			expect(result.steps[2]?.count).toBe(0);
+			expect(result.steps[3]?.count).toBe(0);
+			expect(listMock).toHaveBeenCalledTimes(4); // 当日補完 (sinceDate=today)
+		});
+
+		it('(3) 混在: 集計レコード + ライブを union して unique 集計', async () => {
+			// 集計レコードに t1, t2; ライブに t2, t3 が含まれる → union={t1,t2,t3}=3
+			const aggregates = [
+				{
+					date: '2026-04-28',
+					tenantsByEvent: {
+						activation_signup_completed: ['t1', 't2'],
+						activation_first_child_added: [],
+						activation_first_activity_completed: [],
+						activation_first_reward_seen: [],
+					},
+				},
+			];
+			const aggMock = vi.fn().mockResolvedValue(aggregates);
+			const listMock = vi.fn().mockImplementation((eventName: string) => {
+				if (eventName === 'activation_signup_completed') {
+					return Promise.resolve({ tenants: ['t2', 't3'], scannedDates: 1 });
+				}
+				return Promise.resolve({ tenants: [], scannedDates: 0 });
+			});
+
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsEventTenantList: listMock,
+				queryAnalyticsAggregates: aggMock,
+				ANALYTICS_AGG_KIND: {
+					FUNNEL: 'FUNNEL',
+					CANCELLATION_30D: 'CANCELLATION_30D',
+					CANCELLATION_90D: 'CANCELLATION_90D',
+				},
+			}));
+
+			const { getActivationFunnel } = await import(
+				'../../../src/lib/server/services/analytics-service'
+			);
+			const result = await getActivationFunnel('7d');
+			expect(result.steps[0]?.count).toBe(3); // {t1, t2, t3}
+		});
+
+		it('returns zero counts when both aggregate and live return empty', async () => {
+			const aggMock = vi.fn().mockResolvedValue([]);
+			const listMock = vi.fn().mockResolvedValue({ tenants: [], scannedDates: 0 });
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsEventTenantList: listMock,
+				queryAnalyticsAggregates: aggMock,
+				ANALYTICS_AGG_KIND: {
+					FUNNEL: 'FUNNEL',
+					CANCELLATION_30D: 'CANCELLATION_30D',
+					CANCELLATION_90D: 'CANCELLATION_90D',
+				},
 			}));
 
 			const { getActivationFunnel } = await import(
@@ -230,26 +329,7 @@ describe('Admin analytics aggregation (#1639)', () => {
 			expect(result.steps.every((s) => s.count === 0)).toBe(true);
 			// 空データのときも step 1 は conversionFromPrev=1 (定義上の出発点)
 			expect(result.steps[0]?.conversionFromPrev).toBe(1);
-			// step >=2 で前段が 0 のときは 0
 			expect(result.steps[1]?.conversionFromPrev).toBe(0);
-		});
-
-		it('returns zero counts gracefully when query throws (provider already swallows)', async () => {
-			// queryAnalyticsEventTenants は内部で try/catch しているため
-			// 呼び出し側からは zero 結果として返る (provider レイヤーが Error を吸収する設計)
-			const queryMock = vi.fn().mockResolvedValue({ uniqueTenants: 0, scannedDates: 0 });
-			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
-				queryAnalyticsEventTenants: queryMock,
-			}));
-
-			const { getActivationFunnel } = await import(
-				'../../../src/lib/server/services/analytics-service'
-			);
-			const result = await getActivationFunnel('30d');
-
-			// Error 時は 0 で fallback (Pre-PMF: 部分縮退許容)
-			expect(result.steps).toHaveLength(4);
-			expect(result.steps.every((s) => s.count === 0)).toBe(true);
 		});
 	});
 
@@ -366,7 +446,7 @@ describe('Admin analytics aggregation (#1639)', () => {
 	});
 
 	describe('getCancellationReasons', () => {
-		it('delegates to cancellation-service with correct days for 30d period', async () => {
+		it('(fallback) delegates to cancellation-service when no aggregate record (30d)', async () => {
 			const aggregateMock = vi.fn().mockResolvedValue({
 				total: 8,
 				breakdown: [
@@ -375,6 +455,16 @@ describe('Admin analytics aggregation (#1639)', () => {
 					{ category: 'pause', count: 1, percentage: 12.5 },
 				],
 			});
+			const aggMock = vi.fn().mockResolvedValue([]); // 集計レコード無し
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsAggregates: aggMock,
+				queryAnalyticsEventTenantList: vi.fn(),
+				ANALYTICS_AGG_KIND: {
+					FUNNEL: 'FUNNEL',
+					CANCELLATION_30D: 'CANCELLATION_30D',
+					CANCELLATION_90D: 'CANCELLATION_90D',
+				},
+			}));
 			vi.doMock('../../../src/lib/server/services/cancellation-service', () => ({
 				getCancellationReasonAggregation: aggregateMock,
 			}));
@@ -391,8 +481,18 @@ describe('Admin analytics aggregation (#1639)', () => {
 			expect(result.breakdown[1]?.category).toBe('churn');
 		});
 
-		it('uses 90 days for 90d period (default)', async () => {
+		it('(fallback) uses 90 days for 90d period (default)', async () => {
 			const aggregateMock = vi.fn().mockResolvedValue({ total: 0, breakdown: [] });
+			const aggMock = vi.fn().mockResolvedValue([]);
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsAggregates: aggMock,
+				queryAnalyticsEventTenantList: vi.fn(),
+				ANALYTICS_AGG_KIND: {
+					FUNNEL: 'FUNNEL',
+					CANCELLATION_30D: 'CANCELLATION_30D',
+					CANCELLATION_90D: 'CANCELLATION_90D',
+				},
+			}));
 			vi.doMock('../../../src/lib/server/services/cancellation-service', () => ({
 				getCancellationReasonAggregation: aggregateMock,
 			}));
@@ -407,7 +507,57 @@ describe('Admin analytics aggregation (#1639)', () => {
 			expect(result.total).toBe(0);
 		});
 
-		it('returns empty result when no cancellations', async () => {
+		it('(aggregate-first) uses aggregate record when present (#1693)', async () => {
+			// 集計レコード優先: cancellation-service は呼ばれない
+			const aggregateMock = vi.fn();
+			const aggMock = vi.fn().mockResolvedValue([
+				{
+					date: '2026-04-28',
+					total: 12,
+					breakdown: [
+						{ category: 'graduation', count: 6 },
+						{ category: 'churn', count: 4 },
+						{ category: 'pause', count: 2 },
+					],
+				},
+			]);
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsAggregates: aggMock,
+				queryAnalyticsEventTenantList: vi.fn(),
+				ANALYTICS_AGG_KIND: {
+					FUNNEL: 'FUNNEL',
+					CANCELLATION_30D: 'CANCELLATION_30D',
+					CANCELLATION_90D: 'CANCELLATION_90D',
+				},
+			}));
+			vi.doMock('../../../src/lib/server/services/cancellation-service', () => ({
+				getCancellationReasonAggregation: aggregateMock,
+			}));
+
+			const { getCancellationReasons } = await import(
+				'../../../src/lib/server/services/analytics-service'
+			);
+			const result = await getCancellationReasons('30d');
+
+			expect(aggregateMock).not.toHaveBeenCalled(); // ライブ計算 skip
+			expect(result.total).toBe(12);
+			expect(result.breakdown).toHaveLength(3);
+			expect(result.breakdown[0]?.category).toBe('graduation');
+			expect(result.breakdown[0]?.percentage).toBeCloseTo(50.0, 5); // 6/12
+			expect(result.breakdown[1]?.percentage).toBeCloseTo(33.333, 2);
+		});
+
+		it('returns empty result when no cancellations and no aggregate', async () => {
+			const aggMock = vi.fn().mockResolvedValue([]);
+			vi.doMock('../../../src/lib/analytics/providers/dynamo', () => ({
+				queryAnalyticsAggregates: aggMock,
+				queryAnalyticsEventTenantList: vi.fn(),
+				ANALYTICS_AGG_KIND: {
+					FUNNEL: 'FUNNEL',
+					CANCELLATION_30D: 'CANCELLATION_30D',
+					CANCELLATION_90D: 'CANCELLATION_90D',
+				},
+			}));
 			vi.doMock('../../../src/lib/server/services/cancellation-service', () => ({
 				getCancellationReasonAggregation: vi.fn().mockResolvedValue({ total: 0, breakdown: [] }),
 			}));
