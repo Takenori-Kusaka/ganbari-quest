@@ -317,6 +317,28 @@ function buildAggregation(round: string, acc: AggregationAccumulator): PmfSurvey
 }
 
 /**
+ * 自由記述リスト (Q2 / Q4) を query 文字列で絞り込む。
+ *
+ * - 大文字小文字を区別しない部分一致 (substring match)
+ * - 空文字 / 空白のみ → 元のリストをそのまま返す
+ * - text / tenantId 両方を検索対象 (ops が tenantId 先頭 8 文字で当たりをつけられるようにする)
+ *
+ * AC12 (Issue #1598, PO 承認 2026-04-29): Q2-Q4 自由記述の検索機能。
+ */
+export function filterFreeTextByQuery<
+	T extends { tenantId: string; text: string; answeredAt: string },
+>(items: T[], query: string): T[] {
+	const trimmed = query.trim();
+	if (trimmed.length === 0) return items;
+	const needle = trimmed.toLowerCase();
+	return items.filter((item) => {
+		if (item.text.toLowerCase().includes(needle)) return true;
+		if (item.tenantId.toLowerCase().includes(needle)) return true;
+		return false;
+	});
+}
+
+/**
  * 指定 round の集計結果を返す。
  *
  * Pre-PMF 規模 (~100 テナント) では全件 Scan でも数百ms。

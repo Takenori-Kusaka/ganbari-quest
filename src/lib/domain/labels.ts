@@ -618,6 +618,17 @@ export const PMF_SURVEY_LABELS = {
 	opsResponseEmpty: '回答なし',
 	opsResponseTenantLabel: 'テナント',
 	opsResponseDateLabel: '回答日時',
+
+	// 自由記述検索 (AC12, PO 承認 2026-04-29)
+	opsSearchHeading: '自由記述キーワード検索',
+	opsSearchLabel: '検索キーワード',
+	opsSearchPlaceholder: '例: 記録 / 続かない / テナント ID 先頭',
+	opsSearchHint: 'Q2 ベネフィット・Q4 離脱要因の本文とテナント ID を対象に部分一致検索します。',
+	opsSearchSubmitLabel: '検索',
+	opsSearchClearLabel: 'クリア',
+	opsSearchActiveLabel: (q: string) => `「${q}」で絞り込み中`,
+	opsSearchResultCount: (matched: number, total: number) => `${total} 件中 ${matched} 件表示`,
+	opsSearchNoMatch: '該当する回答がありません',
 } as const;
 
 /** PMF 判定アンケートの Q1 選択肢キー */

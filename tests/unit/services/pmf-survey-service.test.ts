@@ -54,6 +54,7 @@ vi.mock('../../../src/lib/server/services/email-service', () => ({
 import {
 	aggregateSurveyResponses,
 	daysSinceCreated,
+	filterFreeTextByQuery,
 	getCurrentRound,
 	hasAnsweredSurvey,
 	PMF_SURVEY_MIN_TENURE_DAYS,
@@ -359,5 +360,56 @@ describe('#1598 pmf-survey-service — aggregation', () => {
 		expect(agg.q2Texts).toHaveLength(2);
 		expect(agg.q4Texts).toHaveLength(1);
 		expect(agg.q4Texts[0]?.tenantId).toBe('t-2');
+	});
+});
+
+// ============================================================
+// 自由記述検索 (AC12, Issue #1598, PO 承認 2026-04-29)
+// ============================================================
+
+describe('filterFreeTextByQuery', () => {
+	const items = [
+		{ tenantId: 'tenant-alpha-001', text: '記録が続かない', answeredAt: '2026-06-15T05:00:00Z' },
+		{
+			tenantId: 'tenant-beta-002',
+			text: 'こどもが自分から記録するようになった',
+			answeredAt: '2026-06-15T06:00:00Z',
+		},
+		{ tenantId: 'tenant-gamma-003', text: 'UI が分かりやすい', answeredAt: '2026-06-15T07:00:00Z' },
+	];
+
+	it('空文字 / 空白のみのクエリは元の配列をそのまま返す', () => {
+		expect(filterFreeTextByQuery(items, '')).toEqual(items);
+		expect(filterFreeTextByQuery(items, '   ')).toEqual(items);
+	});
+
+	it('text の部分一致 (case-insensitive) で絞り込む', () => {
+		const result = filterFreeTextByQuery(items, '記録');
+		expect(result).toHaveLength(2);
+		expect(result.map((r) => r.tenantId)).toEqual(['tenant-alpha-001', 'tenant-beta-002']);
+	});
+
+	it('tenantId の部分一致でも絞り込める (ops が tenantId 先頭で当たりをつける用途)', () => {
+		const result = filterFreeTextByQuery(items, 'beta');
+		expect(result).toHaveLength(1);
+		expect(result[0]?.tenantId).toBe('tenant-beta-002');
+	});
+
+	it('英数字大文字小文字を区別しない', () => {
+		const result = filterFreeTextByQuery(items, 'UI');
+		expect(result).toHaveLength(1);
+		const result2 = filterFreeTextByQuery(items, 'ui');
+		expect(result2).toHaveLength(1);
+		expect(result[0]?.tenantId).toBe(result2[0]?.tenantId);
+	});
+
+	it('一致しないクエリは空配列を返す', () => {
+		expect(filterFreeTextByQuery(items, 'NOMATCH')).toHaveLength(0);
+	});
+
+	it('元の配列を破壊的に変更しない', () => {
+		const original = [...items];
+		filterFreeTextByQuery(items, '記録');
+		expect(items).toEqual(original);
 	});
 });

@@ -1,13 +1,21 @@
 <script lang="ts">
 import { PMF_SURVEY_LABELS } from '$lib/domain/labels';
 import Badge from '$lib/ui/primitives/Badge.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import FormField from '$lib/ui/primitives/FormField.svelte';
 import type { PageData } from './$types';
 
 let { data }: { data: PageData } = $props();
 
 const labels = PMF_SURVEY_LABELS;
 const aggregation = $derived(data.aggregation);
+// svelte-ignore state_referenced_locally — 初期値として data.searchQuery を参照、以降は $effect で同期
+let searchInput = $state(data.searchQuery ?? '');
+$effect(() => {
+	// URL の searchQuery が変わった (戻る/進む等) ら入力欄も同期
+	searchInput = data.searchQuery ?? '';
+});
 
 function fmtPct(value: number): string {
 	return `${(value * 100).toFixed(1)}%`;
@@ -160,11 +168,51 @@ function q3Pct(count: number): string {
 			</table>
 		</Card>
 
+		<!-- 自由記述検索 (AC12, PO 承認 2026-04-29) -->
+		<Card>
+			<h3 class="section-heading">{labels.opsSearchHeading}</h3>
+			<form method="get" class="search-form" data-testid="pmf-survey-search-form">
+				<input type="hidden" name="round" value={data.selectedRound} />
+				<div class="search-row">
+					<FormField
+						type="search"
+						label={labels.opsSearchLabel}
+						name="q"
+						bind:value={searchInput}
+						hint={labels.opsSearchHint}
+						placeholder={labels.opsSearchPlaceholder}
+						maxlength={100}
+						class="search-input"
+					/>
+					<div class="search-actions">
+						<Button type="submit" variant="primary">{labels.opsSearchSubmitLabel}</Button>
+						{#if data.searchQuery}
+							<Button type="submit" variant="ghost" name="q" value="">
+								{labels.opsSearchClearLabel}
+							</Button>
+						{/if}
+					</div>
+				</div>
+				{#if data.searchQuery}
+					<p class="search-active" data-testid="pmf-survey-search-active">
+						{labels.opsSearchActiveLabel(data.searchQuery)}
+					</p>
+				{/if}
+			</form>
+		</Card>
+
 		<!-- Q2 自由記述 -->
 		<Card>
 			<h3 class="section-heading">{labels.opsBenefitsHeading}</h3>
+			{#if data.searchQuery}
+				<p class="search-result-count" data-testid="pmf-survey-q2-count">
+					{labels.opsSearchResultCount(aggregation.q2Texts.length, data.q2TotalCount)}
+				</p>
+			{/if}
 			{#if aggregation.q2Texts.length === 0}
-				<p class="empty">{labels.opsResponseEmpty}</p>
+				<p class="empty">
+					{data.searchQuery ? labels.opsSearchNoMatch : labels.opsResponseEmpty}
+				</p>
 			{:else}
 				<ul class="text-list">
 					{#each aggregation.q2Texts as t (t.tenantId + t.answeredAt)}
@@ -183,8 +231,15 @@ function q3Pct(count: number): string {
 		<!-- Q4 自由記述 -->
 		<Card>
 			<h3 class="section-heading">{labels.opsDisappointmentHeading}</h3>
+			{#if data.searchQuery}
+				<p class="search-result-count" data-testid="pmf-survey-q4-count">
+					{labels.opsSearchResultCount(aggregation.q4Texts.length, data.q4TotalCount)}
+				</p>
+			{/if}
 			{#if aggregation.q4Texts.length === 0}
-				<p class="empty">{labels.opsResponseEmpty}</p>
+				<p class="empty">
+					{data.searchQuery ? labels.opsSearchNoMatch : labels.opsResponseEmpty}
+				</p>
 			{:else}
 				<ul class="text-list">
 					{#each aggregation.q4Texts as t (t.tenantId + t.answeredAt)}
@@ -441,5 +496,43 @@ function q3Pct(count: number): string {
 	line-height: 1.6;
 	white-space: pre-wrap;
 	word-break: break-word;
+}
+
+/* 自由記述検索 (AC12, PO 承認 2026-04-29) */
+.search-form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.search-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: flex-end;
+}
+
+.search-row :global(.search-input) {
+	flex: 1 1 240px;
+	min-width: 0;
+}
+
+.search-actions {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.search-active {
+	margin: 0;
+	font-size: 0.8rem;
+	color: var(--color-text-secondary);
+	font-weight: 600;
+}
+
+.search-result-count {
+	margin: 0 0 0.75rem;
+	font-size: 0.8rem;
+	color: var(--color-text-muted);
 }
 </style>
