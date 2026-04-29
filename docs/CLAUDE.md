@@ -191,6 +191,16 @@ npm run dev:cognito-signup
 - スクリーンショットを PR 本文に添付する際の撮影源（`npm run dev` で撮ると本来の画面が撮れない）
 - ログイン / サインアップ / パスワードリセット / ops group / プラン別 UI / 管理画面のどれかに触る場合は必ず起動
 
+## スクリーンショット撮影トラブルシュート
+
+PR スクリーンショット撮影 (`scripts/capture.mjs`) で頻発する問題の KB:
+
+- **SSOT**: `docs/troubleshoot/screenshot_capture.md` (SC-NNN 連番)
+- 既知の罠: `MSYS_NO_PATHCONV=1` 不在 / フル URL 二重結合 / `/demo/*` 不可 / worktree DB 空による `/setup/children` redirect / port 5173 衝突 / `waitForTimeout` flaky 等
+- 新規エラーに遭遇したら同 KB に追記する (`## SC-NNN — <タイトル>` で連番採番)
+
+`docs/troubleshoot/github_actions.md` (CI 失敗 KB) と同形式。
+
 ## 画像アセット
 
 画像アセットを絵文字で代替してはならない（コアゲーム体験に関わるもの）。

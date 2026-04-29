@@ -73,6 +73,8 @@ CI Agent に依頼する際は、以下を **必ずそのまま含める**：
 
 ### Screenshot Agentへの必須指示テンプレート
 
+> **頻発する問題は KB を参照**: `docs/troubleshoot/screenshot_capture.md` (SC-NNN 連番) に既知の罠 (`MSYS_NO_PATHCONV` 不在 / フル URL 二重結合 / `/demo/*` 不可 / DB seed redirect / port 衝突 等) の解決手順を集約。新規エラーに遭遇したら同 KB に追記する。
+
 Screenshot Agentに依頼する際は、以下を **必ずそのまま含める**：
 
 ```
