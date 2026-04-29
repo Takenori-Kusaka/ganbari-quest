@@ -43,9 +43,10 @@ Pool 再作成の **直前** に実行する（エクスポートとインポー
 
 ```bash
 # export
+# 注: 本番 Cognito User Pool は us-east-1 にある (CDK app.ts で region 'us-east-1' 固定)。
 node scripts/cognito/export-users.mjs \
   --pool-id <OLD_POOL_ID> \
-  --region ap-northeast-1 \
+  --region us-east-1 \
   --output /tmp/cognito-backup-$(date +%Y%m%d-%H%M%S).json
 
 # バックアップ確認
@@ -85,14 +86,14 @@ aws cognito-idp list-user-pools --max-results 20 \
 node scripts/cognito/import-users.mjs \
   --pool-id <NEW_POOL_ID> \
   --input /tmp/cognito-backup-YYYYMMDD-HHMMSS.json \
-  --region ap-northeast-1 \
+  --region us-east-1 \
   --dry-run
 
 # 問題なければ本番実行
 node scripts/cognito/import-users.mjs \
   --pool-id <NEW_POOL_ID> \
   --input /tmp/cognito-backup-YYYYMMDD-HHMMSS.json \
-  --region ap-northeast-1
+  --region us-east-1
 ```
 
 ---
