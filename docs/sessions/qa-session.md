@@ -124,6 +124,19 @@ gh issue view <X> --repo Takenori-Kusaka/ganbari-quest
 - 見ていない画像に所見を書いてはならない
 - **1 画像につき最低 1 行の具体的な所見を記録する**（「見ました」だけは不可）
 
+#### 「描画変化なし」主張の diff 検証（#1744）
+
+PR 本文に「描画変化なし」「pixel-perfect 同一」「視覚差分なし」等が書かれている場合、**そのまま信用せず** `gh pr diff <番号>` を実行し、以下のいずれかが含まれていないか確認する:
+
+- `.svelte` / `.css` / `site/**` / `labels.ts` の文字列定数 / アイコン / 絵文字 / 句読点 の置換
+- ラベルの短縮・表記揺れ統一（「アップグレード」→「プラン変更」等）
+- 改行位置の変更（`<br>` 削除 / `text-wrap` 変更）
+
+検出した場合:
+- PR 本文の「描画変化なし」セクションに微小変更が箇条書きで明記されているか確認
+- 明記されていなければ手順 5 で BLOCK し、`docs/sessions/dev-session.md §SS 添付ガイド §6` (#1744) の「描画変化なし主張時のルール」に従って明記するよう差し戻す
+- 明記されていても 1 文字でも UI 文字列が変わるなら、撮影 SS 1 枚以上の添付を必須とする（QA は実描画を視認する責務 — CI proxy 退行の防止）
+
 #### スクリーンショットが不足 / 撮り直しが必要な場合
 
 > **頻発する問題は KB を参照**: `docs/troubleshoot/screenshot_capture.md` (SC-NNN 連番) に既知の罠 (`MSYS_NO_PATHCONV` 不在 / フル URL 二重結合 / `/demo/*` 不可 / DB seed redirect / port 衝突 等) の解決手順を集約。Re-capture 依頼前に同 KB を grep で参照し、再現エラーが該当する場合は既存手順を踏襲する。
@@ -405,6 +418,7 @@ gh pr checks <番号> --watch=false
 | **独自フォーマットの approve body** | ADR-0022 — 手順 5 の定型フォーマットから外れない |
 | **`--admin` bypass** | ADR-0022 で完全禁止 |
 | **CI 失敗をゼロベースでトラブルシュートする** | `docs/troubleshoot/github_actions.md` を参照しないのは学習コストの無駄。KB 参照 → Fix Agent spawn が標準フロー |
+| **`ganbariquestsupport-lab` で PR を作成する**（#1728 / ADR-0022 amendment） | このアカウントは **QA レビュー専用**（approve / merge / pr comment のみ）。PR 作成は Takenori-Kusaka が担う Dev 責務。誤って QA アカウントで PR 作成した場合は `gh pr close --delete-branch` し、`gh auth switch --user Takenori-Kusaka` で切替えてから再作成する |
 
 ---
 
