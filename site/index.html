@@ -249,7 +249,8 @@
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
 /* #1707 R2: soft-card 内に親が観測できる 1 行ベネフィットと screenshot を追加 */
-.soft-card .soft-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:120px;margin:8px 0;background:var(--gray-50)}
+/* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
+.soft-card .soft-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:8px 0;background:var(--gray-50)}
 .soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .soft-card .soft-benefit{font-size:.78rem;color:var(--gray-700);line-height:1.5;margin-top:auto}
 .soft-card .soft-benefit strong{color:var(--brand-700)}
@@ -282,7 +283,8 @@
 .gr-body h3{font-size:.92rem;font-weight:700;margin-bottom:6px;color:var(--gray-900);line-height:1.4}
 .gr-body p{font-size:.8rem;color:var(--gray-600);line-height:1.55;margin:0 0 4px}
 /* #1707 R2 / #1712 R5: stage screenshot サムネ + 親視点 / 子供視点ベネフィット 1 行併記 */
-.gr-body .gr-shot{border-radius:6px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:120px;margin:4px 0;background:var(--gray-50)}
+/* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため mobile scrshot 高さを圧縮 */
+.gr-body .gr-shot{border-radius:6px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:4px 0;background:var(--gray-50)}
 .gr-body .gr-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .gr-body .gr-benefit{font-size:.72rem;line-height:1.4;margin:2px 0;color:var(--gray-700)}
 .gr-body .gr-benefit strong{color:var(--brand-700);font-weight:700}
