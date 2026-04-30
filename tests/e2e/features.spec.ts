@@ -62,8 +62,9 @@ test.describe('#0037: もちものチェックリスト', () => {
 		await dismissOverlays(page);
 
 		await page.goto('/checklist');
-		// テンプレート名 "あさのしたく" が表示される（デフォルトプリセット準拠）
-		await expect(page.getByText('あさのしたく')).toBeVisible();
+		// #1755 (#1709-A): kind 削除に伴い routine 系テンプレート (あさのしたく) を持ち物純化
+		// global-setup.ts では preschool 子供に「がっこうのもちもの」テンプレートを seed する
+		await expect(page.getByText('がっこうのもちもの')).toBeVisible();
 	});
 
 	test('ホーム画面からチェックリストへのリンクがある', async ({ page }) => {

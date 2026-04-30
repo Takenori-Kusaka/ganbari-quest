@@ -142,6 +142,15 @@ export async function restoreArchivedActivities(reason: string, tenantId: string
 	return getRepos().activity.restoreArchivedActivities(reason, tenantId);
 }
 
+// #1755 (#1709-A): 「今日のおやくそく」(priority='must') 集計
+export async function findMustActivitiesWithToday(
+	childId: number,
+	today: string,
+	tenantId: string,
+) {
+	return getRepos().activity.findMustActivitiesWithToday(childId, today, tenantId);
+}
+
 // Point Ledger
 export async function insertPointLedger(input: InsertPointLedgerInput, tenantId: string) {
 	return getRepos().activity.insertPointLedger(input, tenantId);

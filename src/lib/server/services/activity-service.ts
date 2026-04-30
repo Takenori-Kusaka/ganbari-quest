@@ -1,16 +1,19 @@
 import type { GradeLevel, Source } from '$lib/domain/validation/activity';
+import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import {
 	countMainQuestActivities as countMainQuestActivitiesRepo,
 	deleteActivity as deleteActivityRepo,
 	deleteDailyMissionsByActivity,
 	findActivities,
 	findActivityById,
+	findMustActivitiesWithToday,
 	getActivityLogCounts as getActivityLogCountsRepo,
 	hasActivityLogs as hasActivityLogsRepo,
 	insertActivity,
 	setActivityVisibility as setActivityVisibilityRepo,
 	updateActivity as updateActivityRepo,
 } from '$lib/server/db/activity-repo';
+import type { ActivityPriority } from '$lib/server/db/types';
 
 export interface CreateActivityInput {
 	name: string;
@@ -27,6 +30,8 @@ export interface CreateActivityInput {
 	nameKana?: string | null;
 	nameKanji?: string | null;
 	triggerHint?: string | null;
+	// #1755 (#1709-A): 「今日のおやくそく」優先度（既定 'optional'）
+	priority?: ActivityPriority;
 }
 
 export interface ActivityFilter {
@@ -96,4 +101,54 @@ export async function setMainQuest(
 
 export async function getMainQuestCount(tenantId: string): Promise<number> {
 	return await countMainQuestActivitiesRepo(tenantId);
+}
+
+// ============================================================
+// #1755 (#1709-A): 「今日のおやくそく」(activities.priority='must')
+// ============================================================
+
+/**
+ * 子供の today に対する「今日のおやくそく」達成状況を返す。
+ *
+ * @param childId 対象の子供 id
+ * @param today  YYYY-MM-DD（達成判定に使う日付）
+ * @returns logged: 今日達成した must 活動数 / total: must 活動の総数 /
+ *          activities: must 活動 + 今日記録済みフラグ
+ */
+export async function getMustActivitiesToday(
+	childId: number,
+	today: string,
+	tenantId: string,
+): Promise<{
+	logged: number;
+	total: number;
+	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+}> {
+	return await findMustActivitiesWithToday(childId, today, tenantId);
+}
+
+/**
+ * 「今日のおやくそく」全達成時のボーナスポイントを返す。
+ *
+ * - preschool: 5pt
+ * - elementary: 5pt
+ * - junior: 3pt
+ * - senior: 3pt
+ * - baby: 0pt（baby 準備モードはゲーミフィケーション不適用 — ADR-0011）
+ * - 全達成でない場合は 0pt
+ *
+ * 後続 sub-issue（1709-B/C）の UI 側 / hook 側がこの計算を呼ぶ。
+ */
+export function computeMustCompletionBonus(uiMode: UiMode, allComplete: boolean): number {
+	if (!allComplete) return 0;
+	switch (uiMode) {
+		case 'preschool':
+		case 'elementary':
+			return 5;
+		case 'junior':
+		case 'senior':
+			return 3;
+		default:
+			return 0;
+	}
 }

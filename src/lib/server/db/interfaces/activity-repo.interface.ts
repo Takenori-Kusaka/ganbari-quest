@@ -98,6 +98,25 @@ export interface IActivityRepo {
 		tenantId: string,
 	): Promise<number>;
 
+	// #1755 (#1709-A): 「今日のおやくそく」(priority='must') 集計
+	/**
+	 * priority='must' の活動全件と、`today` 当日に記録されたものを集計する。
+	 *
+	 * @param childId 対象の子供 id
+	 * @param today  YYYY-MM-DD（達成判定に使う日付）
+	 * @returns logged: 今日達成した must 活動数 / total: must 活動の総数 /
+	 *          activities: must 活動 + 今日記録済みフラグ
+	 */
+	findMustActivitiesWithToday(
+		childId: number,
+		today: string,
+		tenantId: string,
+	): Promise<{
+		logged: number;
+		total: number;
+		activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+	}>;
+
 	// #783: archive / restore
 	archiveActivities(ids: number[], reason: string, tenantId: string): Promise<void>;
 	restoreArchivedActivities(reason: string, tenantId: string): Promise<void>;

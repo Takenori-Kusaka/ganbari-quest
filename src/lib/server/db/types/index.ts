@@ -32,6 +32,17 @@ export interface Child {
 	updatedAt: string;
 }
 
+/**
+ * #1755 (#1709-A): activities.priority — 「今日のおやくそく」優先度。
+ *
+ * - `must`: 今日のおやくそく（保護者が「これは絶対やってほしい」とフラグ立てした活動）。
+ *   子供 UI の「今日のおやくそく」セクションに表示され、達成率に応じてボーナスポイントが付与される。
+ * - `optional`: ふつうの活動（既定）。通常の活動一覧に表示。
+ *
+ * 既存レコードは backfill で `'optional'` を設定する（schema default + migrate-local.ts）。
+ */
+export type ActivityPriority = 'must' | 'optional';
+
 export interface Activity {
 	id: number;
 	name: string;
@@ -56,6 +67,8 @@ export interface Activity {
 	createdAt: string;
 	// #1254 G1: プリセット非由来は NULL / 未設定
 	sourcePresetId?: string | null;
+	// #1755 (#1709-A): 「今日のおやくそく」優先度
+	priority: ActivityPriority;
 }
 
 export interface ActivityLog {
@@ -226,8 +239,7 @@ export interface ChecklistTemplate {
 	isActive: number;
 	isArchived: number;
 	archivedReason: string | null;
-	// #1168: 持ち物 ('item') / ルーティン ('routine') チェックリスト種別
-	kind: string;
+	// #1755 (#1709-A): kind 列削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
 	createdAt: string;
 	updatedAt: string;
 	// #1254 G1: プリセット非由来は NULL / 未設定
@@ -304,6 +316,8 @@ export interface InsertActivityInput {
 	triggerHint?: string | null;
 	isMainQuest?: number;
 	sourcePresetId?: string | null;
+	// #1755 (#1709-A): 「今日のおやくそく」優先度（省略時は schema default の 'optional'）
+	priority?: ActivityPriority;
 }
 
 export interface UpdateActivityInput {
@@ -315,6 +329,8 @@ export interface UpdateActivityInput {
 	ageMax?: number | null;
 	triggerHint?: string | null;
 	isMainQuest?: number;
+	// #1755 (#1709-A): 「今日のおやくそく」優先度の変更
+	priority?: ActivityPriority;
 }
 
 export interface InsertActivityLogInput {
@@ -401,8 +417,7 @@ export interface InsertChecklistTemplateInput {
 	completionBonus?: number;
 	timeSlot?: string;
 	isActive?: number;
-	// #1168: 'item' | 'routine' (default 'routine')
-	kind?: string;
+	// #1755 (#1709-A): kind 削除 — 持ち物純化
 	// #1254 G1: マーケットプレイスプリセット由来の識別子
 	sourcePresetId?: string | null;
 }
@@ -414,7 +429,6 @@ export interface UpdateChecklistTemplateInput {
 	completionBonus?: number;
 	timeSlot?: string;
 	isActive?: number;
-	kind?: string;
 }
 
 export interface InsertChecklistTemplateItemInput {

@@ -220,6 +220,14 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 **修正時チェック**:
 - DB テーブル追加 → `tests/e2e/global-setup.ts` + `test-db.ts` + `demo-data.ts` 全て更新
+- DB カラム追加 / 削除 → 上記 3 箇所 + 各種 integration テストの `CREATE TABLE` (`tests/integration/api/*.test.ts`, `tests/integration/services/*.test.ts`, `tests/unit/db/schema.test.ts`) 全て更新
+
+##### 既知の並行ペア（DB スキーマ）
+
+| 列 | SQLite schema | E2E setup ALTER | test-db.ts | demo-data.ts | 関連 Issue |
+|----|--------------|-----------------|------------|--------------|-----------|
+| `activities.priority` (#1755) | `src/lib/server/db/schema.ts` | `tests/e2e/global-setup.ts` (ALTER + must seed) | `tests/unit/helpers/test-db.ts` | `src/lib/server/demo/demo-data.ts` (must=はみがきした/おきがえした/おかたづけした) | #1755 (#1709-A) |
+| `checklist_templates.kind` 削除 (#1755) | 同上（列削除済） | 同上（DROP COLUMN + DELETE WHERE kind='routine'） | 同上（列なし） | 同上（kind プロパティ削除済 + routine テンプレート削除） | #1755 (#1709-A) |
 
 ---
 

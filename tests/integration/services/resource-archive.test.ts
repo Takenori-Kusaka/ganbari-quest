@@ -61,7 +61,9 @@ const SQL_TABLES = `
 		source_preset_id TEXT,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		is_archived INTEGER NOT NULL DEFAULT 0,
-		archived_reason TEXT
+		archived_reason TEXT,
+		-- #1755 (#1709-A): 「今日のおやくそく」優先度
+		priority TEXT NOT NULL DEFAULT 'optional'
 	);
 
 	CREATE TABLE checklist_templates (
@@ -77,8 +79,7 @@ const SQL_TABLES = `
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT,
-		-- #1168: 持ち物 ('item') / ルーティン ('routine') 種別
-		kind TEXT NOT NULL DEFAULT 'routine',
+		-- #1755 (#1709-A): kind 列削除 — 持ち物純化
 		source_preset_id TEXT
 	);
 `;
