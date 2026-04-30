@@ -141,6 +141,18 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs \
 - ファイル名と撮影URL
 - UIチェック項目の結果（OK/要確認/NG）
 - 気になった点があれば具体的に記述
+
+### 6. 「描画変化なし」を主張する場合のルール（#1744）
+
+PR テンプレート「スクリーンショット / ビジュアルデモ」セクションで「描画変化なし」「pixel-perfect 同一」を主張する場合、以下を **箇条書きで PR 本文に明記する**こと。1 文字でも目視差分が出る変更は「描画変化なし」ではない:
+
+- ラベルの **短縮 / 表記揺れ統一**（例: 「アップグレード」→「プラン変更」）
+- **文字数の増減**（折り返し位置 / レイアウトに影響しうる）
+- **改行位置の変更**（CSS / `<br>` / `text-wrap` 影響）
+- 不可視属性の付与（`aria-*` / `data-*`）でも、QA 側が「描画影響あるか」を diff で再検証できるよう列挙する
+- アイコン / 絵文字 / 句読点の置換
+
+ルールの理由: 「描画変化なし」と PR 本文に書いて screenshot 添付を省略したのに、実際には微小な UI 文字列が変わっており QA が気付けず main マージ後に違和感が顕在化するインシデントを防ぐため。QA Review Agent (qa-session.md 手順 2) が `gh pr diff` で同種変更を検出した時に、PR 本文の明記と整合しているか照合する前提。
 ```
 
 ---
@@ -261,6 +273,14 @@ gh issue list --state open --label "priority:high" --json number,title,labels \
    - `npx vitest run` — ユニットテスト全通過
    - `npx playwright test` — E2E テスト全通過
 5. **AC 検証マップを全行埋める（ADR-0004 必須）** — 実装完了後、PR 作成前に PR 本文の「AC 検証マップ」の全行を埋めること。空行がある場合は**実装未了と見なす**（コマンド結果 / スクリーンショットパス / grep 結果で埋める）
+5.5. **PR 作成前の gh アカウント確認（#1728 / ADR-0022 amendment 必須）** — `gh pr create` の直前に必ず実行:
+
+   ```bash
+   node scripts/check-gh-account-before-pr.mjs
+   ```
+
+   このスクリプトは `gh auth status` から active アカウントを取得し、`Takenori-Kusaka` 以外なら exit 1 + 警告で即停止する。
+   PR 作成は **必ず Takenori-Kusaka アカウント**で行う。`ganbariquestsupport-lab` は QA レビュー approve / merge 専用であり、PR 作成は禁止（誤って ganbariquestsupport-lab で PR を作成した場合は close → Takenori-Kusaka で再作成）。
 6. Draft PR で push: `gh pr create --draft`
 6.5. **UI 変更がある場合（`gh pr ready` 前に必須）**: スクリーンショットを取得して PR 本文「スクリーンショット / ビジュアルデモ」セクションに貼り付ける。
    ```bash
