@@ -132,12 +132,13 @@
 .age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-700);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
 .age-panel-desc{font-size:.92rem;color:var(--gray-600);line-height:1.7;margin-bottom:16px}
-.age-panel-cta{text-align:left}
+.age-panel-cta{text-align:left;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.age-panel-cta .btn{flex:0 0 auto}
 .age-switcher-prep-note{margin-top:24px;text-align:center;font-size:.9rem;color:var(--gray-600)}
 .age-switcher-prep-note a{color:var(--brand-700)}
 @media(max-width:640px){
   .age-panel.active{grid-template-columns:1fr;padding:24px 20px;gap:20px;text-align:center}
-  .age-panel-cta{text-align:center}
+  .age-panel-cta{text-align:center;flex-direction:column;align-items:stretch}
 }
 
 /* Core loop — 3層モデル (#1343) */
@@ -414,7 +415,7 @@
     <span data-lp-key="indexB.k3">3〜18 歳の毎日の習慣を、ポイント・スタンプ・称号で冒険に変える。声をかけなくても、自分から動きだす家族時間へ。</span>
   </p>
   <!-- #1625 R21: 価格 anchor 1 行バンド（30 秒で離脱判断する親 P1 向け） -->
-  <p class="hero-price-band" data-lp-key="heroPriceBand.container"><span class="hpb-item" data-lp-key="heroPriceBand.itemFree"><strong>基本無料</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemPrice">月 <strong>¥500〜</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemTrial">7 日間無料</span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemCancel">いつでも解約</span></p>
+  <p class="hero-price-band" data-lp-key="heroPriceBand.container"><span class="hpb-item" data-lp-key="heroPriceBand.itemFree"><strong>基本無料</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemPrice">月 <strong>¥500〜</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemTrial">有料は 7 日間無料</span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemCancel">いつでも解約</span></p>
   <div class="hero-cta">
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="common.ctaSignup">無料で始める</a>
     <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg" data-lp-key="common.ctaDemo">デモを見る</a>
@@ -429,7 +430,7 @@
   <!-- #1628 R24: 仕様起点の数字バッジ（PMF 後送り testimonial、現時点は仕様値のみ） -->
   <ul class="hero-spec-badges" aria-label="主な仕様">
     <li data-lp-key="heroSpecBadges.ageRange"><strong>3〜18 歳</strong> 対応</li>
-    <li data-lp-key="heroSpecBadges.presetCount"><strong>50+</strong> プリセット活動</li>
+    <li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動</li>
     <li data-lp-key="heroSpecBadges.setupTime"><strong>約 5 分</strong> で初期設定</li>
   </ul>
   <div class="hero-carousel">
@@ -551,7 +552,7 @@
           <h3 data-lp-key="indexB.k10">ひらがな中心・丸みのある大きなボタン</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k11">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
           <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣がプリセット済み。ログインボーナスで毎日おみくじが 1 回引けて、スタンプカードが週末に 1 枚完成します。</p>
-          <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
+          <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
       <div class="age-panel" data-panel="primary-plus" role="tabpanel" id="age-panel-primary-plus" aria-labelledby="age-tab-primary-plus">
@@ -560,7 +561,7 @@
           <h3 data-lp-key="indexB.k14">漢字 + 情報密度で 15 年継続できる UI</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k15">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
           <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。実績解放と称号で「次は何をクリアしよう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
-          <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
+          <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
     </div>
@@ -629,8 +630,8 @@
         <div class="core-loop-step">
           <div class="cls-num">STEP 1</div>
           <div class="cls-icon">&#x1F3B4;</div>
-          <h4 data-lp-key="coreloop.l2Step1Title">毎朝ログインしておみくじ</h4>
-          <p data-lp-key="coreloop.l2Step1Desc">1 日 1 回までのおみくじスタンプ。スタンプのレア度に応じてボーナスポイントが獲得でき、毎朝アプリを開く習慣につながります（1 日 1 回までで煽らない設計）。</p>
+          <h4 data-lp-key="coreloop.l2Step1Title">おみくじスタンプを引く</h4>
+          <p data-lp-key="coreloop.l2Step1Desc">1 日 1 回までのおみくじスタンプ。スタンプのレア度に応じてボーナスポイントが獲得でき、毎日記録する習慣が、自然に身につきます（1 日 1 回までで煽らない設計）。</p>
         </div>
         <div class="core-loop-step">
           <div class="cls-num">STEP 2</div>
@@ -833,7 +834,7 @@
 <section class="section bg-white" id="pricing">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k47">料金プラン</h2>
-    <p class="section-desc" data-lp-key="indexB.k48">子供向けアプリでよくある「月 3,000 円〜」とは違います。安心して始められる 4 つのお約束。</p>
+    <p class="section-desc" data-lp-key="indexB.k48">月 ¥500 から、家族全員が使える設計です。安心して始められる 4 つのお約束。</p>
     <div class="pricing-promise">
       <div class="pp-band">
         <span class="pp-item" data-lp-key="indexB.k49"><strong>基本無料</strong></span>
@@ -860,7 +861,7 @@
 <section class="section bg-white" id="trust">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k58">お子さまのデータは、家族だけのものです</h2>
-    <p class="section-desc" data-lp-key="indexB.k59">広告なし・家族だけで閉じた空間・仕組みを全て公開。「こっそり外に持ち出される」「勝手に操作される」不安をゼロにする 4 つの約束。</p>
+    <p class="section-desc" data-lp-key="indexB.k59">広告なし・家族だけで閉じた空間・データは家族の手元に。「こっそり外に持ち出される」「勝手に操作される」不安をゼロにする 4 つの約束。</p>
     <div class="trust-badges">
       <div class="trust-badge">
         <div class="tb-icon">&#x1F6AB;</div>
@@ -880,13 +881,13 @@
       </div>
       <div class="trust-badge">
         <div class="tb-icon">&#x1F50D;</div>
-        <h3 data-lp-key="indexB.k67">仕組みを全て公開</h3>
-        <p data-lp-key="indexB.k68">運営の内側（仕組み・データの扱い方）を全て見られる状態にしています。もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。</p>
+        <h3 data-lp-key="indexB.k67">広告ゼロ・データは家族の手元に</h3>
+        <p data-lp-key="indexB.k68">家族のデータが広告にも第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。</p>
         <a href="selfhost.html" data-lp-key="indexB.k69">仕組みを詳しく知りたい方へ &#8594;</a>
       </div>
     </div>
     <div class="trust-disclaimer" style="margin-top:32px;padding:16px 20px;background:var(--gray-50);border-radius:8px;border-left:4px solid var(--gray-300)">
-      <p style="font-size:.85rem;color:var(--gray-700);line-height:1.7;margin:0"><strong data-lp-key="legalDisclaimer.liabilityTitle">サービス利用に関する重要なご案内</strong><br><span data-lp-key="legalDisclaimer.liabilityBody">万一の障害・不具合等による損害賠償は、有料プランは「直近 3 ヶ月の支払額」を上限、無料プランは 0 円とさせていただいております（消費者契約法等の強行法規に基づく権利は対象外）。</span> [<a href="terms.html#article-12">利用規約 第 12 条</a> / <a href="faq.html#liability">FAQ</a>]</p>
+      <p style="font-size:.85rem;color:var(--gray-700);line-height:1.7;margin:0"><strong data-lp-key="legalDisclaimer.liabilityTitle">サービス利用に関する重要なご案内</strong> <span data-lp-key="legalDisclaimer.liabilityBody">万一の障害・不具合等による損害賠償は、有料プランは「直近 3 ヶ月の支払額」を上限、無料プランは 0 円とさせていただいております（消費者契約法等の強行法規に基づく権利は対象外）。</span> [<a href="terms.html#article-12">利用規約 第 12 条</a> / <a href="faq.html#liability">FAQ</a>]</p>
     </div>
   </div>
 </section>
@@ -895,8 +896,12 @@
 <section class="section bg-gray" id="faq">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k70">よくあるご質問</h2>
-    <p class="section-desc" data-lp-key="indexB.k71">保護者の皆さまから特によくいただく 3 つ。他のご質問は <a href="faq.html" class="nav-text">FAQ 専用ページ（24 項目）</a> をご覧ください。</p>
+    <p class="section-desc" data-lp-key="indexB.k87">保護者の皆さまから特によくいただく 4 つ。他のご質問は <a href="faq.html" class="nav-text">FAQ 専用ページ（24 項目）</a> をご覧ください。</p>
     <div class="faq-list">
+      <details class="faq-item">
+        <summary data-lp-key="indexB.k85">子供が自分から使ってくれるようになりますか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k86">多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。</p>
+      </details>
       <details class="faq-item">
         <summary data-lp-key="indexB.k72">無料トライアルにクレジットカードは必要ですか？</summary>
         <p class="faq-answer" data-lp-key="indexB.k73">不要です。メール認証だけで 7 日間すべての有料機能をお試しいただけます。期間終了時は自動で無料プランに戻るため、<strong>気付いたら課金されていた</strong>ということはありません。</p>
@@ -940,7 +945,7 @@
   <div class="footer-inner">
     <div class="footer-brand">
       <h3 data-lp-key="footer.brandName">がんばりクエスト</h3>
-      <p data-lp-key="footer.brandTagline">お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ</p>
+      <p data-lp-key="footer.brandTagline">お子さまの「がんばり」を冒険に変える家庭向けWebアプリ</p>
     </div>
     <div class="footer-links">
       <h4 data-lp-key="footer.linksHeading">リンク</h4>
@@ -960,7 +965,7 @@
     </div>
   </div>
   <div class="footer-copy">
-    <p data-lp-key="footer.copyright">&copy; 2026 がんばりクエスト. All rights reserved.</p>
+    <p data-lp-key="footer.copyright">&copy; 2026 がんばりクエスト（運営: 日下武紀／個人事業主）. All rights reserved.</p>
   </div>
 </footer>
 
