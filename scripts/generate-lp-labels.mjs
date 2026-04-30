@@ -134,6 +134,11 @@ function parseLabelsTs() {
 	const lpIndexExtraLabels = parseBlock(src, 'LP_INDEX_EXTRA_LABELS');
 	const lpPamphletLabels = parseBlock(src, 'LP_PAMPHLET_LABELS');
 	const lpPricingExtraLabels = parseBlock(src, 'LP_PRICING_EXTRA_LABELS');
+	// #1702: site/{index,pricing,faq,pamphlet}.html 339 件 SSOT 化用 phase B namespace
+	const lpIndexPhaseBLabels = parseBlock(src, 'LP_INDEX_PHASEB_LABELS');
+	const lpPricingPhaseBLabels = parseBlock(src, 'LP_PRICING_PHASEB_LABELS');
+	const lpFaqPhaseBLabels = parseBlock(src, 'LP_FAQ_PHASEB_LABELS');
+	const lpPamphletPhaseBLabels = parseBlock(src, 'LP_PAMPHLET_PHASEB_LABELS');
 
 	return {
 		ageTierLabels,
@@ -155,6 +160,10 @@ function parseLabelsTs() {
 		lpIndexExtraLabels,
 		lpPamphletLabels,
 		lpPricingExtraLabels,
+		lpIndexPhaseBLabels,
+		lpPricingPhaseBLabels,
+		lpFaqPhaseBLabels,
+		lpPamphletPhaseBLabels,
 	};
 }
 
@@ -208,6 +217,10 @@ function generateSharedLabelsJs() {
 		lpIndexExtraLabels,
 		lpPamphletLabels,
 		lpPricingExtraLabels,
+		lpIndexPhaseBLabels,
+		lpPricingPhaseBLabels,
+		lpFaqPhaseBLabels,
+		lpPamphletPhaseBLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -251,6 +264,11 @@ function generateSharedLabelsJs() {
 		indexExtra: lpIndexExtraLabels,
 		pamphlet: lpPamphletLabels,
 		pricingExtra: lpPricingExtraLabels,
+		// #1702: site/{index,pricing,faq,pamphlet}.html 339 件 SSOT 化用 phase B namespace
+		indexB: lpIndexPhaseBLabels,
+		pricingB: lpPricingPhaseBLabels,
+		faqB: lpFaqPhaseBLabels,
+		pamphletB: lpPamphletPhaseBLabels,
 		lpLicenseKeyLabels,
 		lpFaqLabels,
 		lpSelfhostLabels,

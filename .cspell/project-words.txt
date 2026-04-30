@@ -333,3 +333,7 @@ LICENSEKEY
 # Paraglide = inlang 製 i18n OSS、ADR-0014 で採用検討
 DOMPurify
 Paraglide
+
+# ===== #1702 LP-SSOT Phase B namespace =====
+# PHASEB = #1702 で導入した LP_INDEX/PRICING/FAQ/PAMPHLET _PHASEB_LABELS の suffix
+PHASEB
