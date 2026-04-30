@@ -37,15 +37,26 @@
 | `site/shared-labels.js` | LP 共通用語ラッパ（2026-04-07 新設、#561） | JavaScript |
 
 **同期メカニズム**:
-- **現状（手動）**: アプリ側 `labels.ts` 変更 → LP 側 HTML を `grep` で探して手動更新 → `site/shared-labels.js` も同期
-- **Tier 2（#565 で予定）**: `scripts/generate-lp-labels.mjs` で `labels.ts` から自動生成
+- **現状（半自動）**: `scripts/generate-lp-labels.mjs` で `labels.ts` から `site/shared-labels.js` を生成。`--check` モード (CI) で diff があれば fail
+- **CI 検出層 (#1739 R25)**: `scripts/check-ssot-parallel-impl.mjs` が **key-set 比較**で silent drift を検出。生成器 (`generate-lp-labels.mjs`) の parser が未対応な新規 `LP_*_LABELS` namespace を labels.ts に追加した瞬間に CI red になる。両者を CI に並べることで「parser バグ」と「反映漏れ」の両面を捕捉
 - **Tier 3（#566 で予定）**: LP ビルド時の Svelte から静的 HTML 生成（SSG 統合）
 
 **修正時チェック**:
 ```bash
 # アプリ側の用語変更が LP に影響していないか grep
 grep -rn "変更前の用語" site/ src/lib/domain/labels.ts
+
+# labels.ts に新規 LP_*_LABELS を追加した場合、shared-labels.js への反映を確認
+node scripts/generate-lp-labels.mjs        # shared-labels.js 再生成
+node scripts/check-ssot-parallel-impl.mjs  # 集合比較で整合検証
 ```
+
+**新規 LP_\*_LABELS namespace 追加時の手順**:
+1. `src/lib/domain/labels.ts` に `export const LP_FOO_LABELS = { ... }` を追加
+2. `scripts/generate-lp-labels.mjs` の `parseLabelsTs()` で `parseBlock(src, 'LP_FOO_LABELS')` を追加し、`lpLabels` ネストに組み込む
+3. `node scripts/generate-lp-labels.mjs` で `site/shared-labels.js` 再生成
+4. `node scripts/check-ssot-parallel-impl.mjs` で整合確認 (CI が同じ検証を実行)
+5. shared-labels.js に注入しない方針 (例: hero band は Svelte 化待ち) なら `check-ssot-parallel-impl.mjs` の `LABELS_TS_EXCLUDED_NAMESPACES` に追加
 
 ---
 
