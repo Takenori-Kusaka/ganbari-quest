@@ -23,6 +23,10 @@
 <link rel="stylesheet" href="shared.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide-core.min.css" integrity="sha384-UUMoBPww5zPuXpRJLHFTN+9x39lTnFOA9kj9q4HOVqv+aZH6G7jZwnXkrE5c18lX" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
+<!-- #1729 R14: ADR-0016 BudouX CDN Web Component（古いブラウザ / 長文段落フォールバック）。
+     第一選択は CSS の text-wrap: balance/pretty + word-break: auto-phrase（shared.css）。
+     CDN 1 file (~15KB gzipped) で <budoux-ja> custom element が利用可能。defer なので render 阻害しない。 -->
+<script src="https://cdn.jsdelivr.net/npm/budoux@latest/bundle/budoux-ja.min.js" defer></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -114,7 +118,8 @@
 /* #1634 R30 / ADR-0016: 強制改行 <br> を削除し text-wrap: balance に任せる */
 .section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:10px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
 /* #1759 PR Phase 3-B fix: desktopHeight 8003 > 8000 を回避するため section-desc 余白を 40 → 28px に圧縮 */
-.section-desc{text-align:center;color:var(--gray-600);margin-bottom:28px;font-size:.98rem;line-height:1.7;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
+/* #1726 R9: 長文 description は左寄せに変更（max-width:640px 中央配置は維持）。短い見出し h2.section-title は center 維持 */
+.section-desc{text-align:left;color:var(--gray-600);margin-bottom:28px;font-size:.98rem;line-height:1.7;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
@@ -243,20 +248,28 @@
 
 /* Soft features */
 .soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
-#soft-features .soft-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+#soft-features .soft-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 #soft-features.section{padding-bottom:40px}
+/* #1720 R4: 3 cards 圧縮レイアウト — PC は 1 行に 3 cards 並列、月次レポート featured を border + 微妙なシャドウで強調（縦伸び抑制のためフル幅は不採用） */
+@media(min-width:768px){
+  #soft-features .soft-grid--three{grid-template-columns:1.2fr 1fr 1fr;max-width:1080px}
+}
 .soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:20px 18px;display:flex;flex-direction:column}
+.soft-card.soft-card--featured{border:2px solid var(--brand-300);box-shadow:0 4px 16px rgba(56,120,184,.12)}
 .soft-card .soft-icon{font-size:1.7rem;margin-bottom:6px}
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
+.soft-card.soft-card--featured h3{font-size:1.15rem;color:var(--brand-700)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
 /* #1707 R2: soft-card 内に親が観測できる 1 行ベネフィットと screenshot を追加 */
 /* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
 .soft-card .soft-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:8px 0;background:var(--gray-50)}
+.soft-card.soft-card--featured .soft-shot{max-height:120px}
 .soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .soft-card .soft-benefit{font-size:.78rem;color:var(--gray-700);line-height:1.5;margin-top:auto}
 .soft-card .soft-benefit strong{color:var(--brand-700)}
 @media(min-width:1024px){
   .soft-card .soft-shot{max-height:160px}
+  .soft-card.soft-card--featured .soft-shot{max-height:180px}
 }
 
 /* Pricing promise band (#1293: freemium × 低価格帯の price disambiguation) */
@@ -393,6 +406,21 @@
   .hero-cta .btn{width:100%}
   #hero-carousel .splide__track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
 }
+
+/* #1726 R9: 長文 disclaimer / section-sub-note は左寄せ + balance/auto-phrase でモバイル可読性確保 */
+.section-sub-note{text-align:left;font-size:.88rem;color:var(--gray-500);margin-top:-.5rem;margin-bottom:1.5rem;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase;line-height:1.7}
+.section-sub-note a{color:var(--brand-700)}
+.pp-disclaimer{text-align:left;font-size:.8rem;color:var(--gray-600);margin-top:8px;line-height:1.7;max-width:640px;text-wrap:pretty;word-break:auto-phrase}
+.trust-disclaimer{margin-top:32px;padding:16px 20px;background:var(--gray-50);border-radius:8px;border-left:4px solid var(--gray-300)}
+.trust-disclaimer-text{font-size:.85rem;color:var(--gray-700);line-height:1.7;margin:0;text-align:left;text-wrap:pretty;word-break:auto-phrase}
+.cta-bottom-disclaimer{font-size:.8rem;opacity:.85;margin:8px auto 0;line-height:1.7;text-align:left;max-width:640px;text-wrap:pretty;word-break:auto-phrase}
+.cta-bottom-disclaimer-link{color:inherit;text-decoration:underline}
+
+/* #1726 R9: founder-inquiry のインラインスタイル除去 + class 化 (短い見出しは center 維持で OK) */
+.founder-inquiry{padding:6px 16px 8px;background:#fff}
+.founder-inquiry-inner{max-width:760px;margin:0 auto;text-align:center;font-size:.85rem;color:var(--gray-700);line-height:1.5;text-wrap:balance}
+.founder-inquiry-heading{font-weight:700}
+.founder-inquiry-cta{color:var(--brand-700);font-weight:600;margin-left:6px}
 
 /* #1632 R28: a11y — details/summary / faq-item / hamburger / 各種ボタンの focus-visible */
 .faq-item summary:focus-visible,
@@ -560,8 +588,8 @@
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k5">お子さまの年齢で、画面とむずかしさが変わります</h2>
     <p class="section-desc" data-lp-key="indexB.k6">3 歳から 18 歳まで、2 つの UI モードが対応。タップで「今のお子さまに合う UI」をご覧ください。</p>
-    <p class="section-sub-note" style="text-align:center;font-size:.88rem;color:var(--gray-500);margin-top:-.5rem;margin-bottom:1.5rem">
-      <span data-lp-key="indexB.k7">0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#baby-mode" style="color:var(--brand-700)">詳しくはこちら</a></span>
+    <p class="section-sub-note">
+      <span data-lp-key="indexB.k7">0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#baby-mode">詳しくはこちら</a></span>
     </p>
     <div class="age-switcher">
       <div class="age-tabs" role="tablist">
@@ -776,15 +804,16 @@
 
 <!-- LP-LANDMARK:machine-tour end -->
 
-<!-- LP-LANDMARK:soft-features start — 親向け安心機能 (成長記録/時間管理/おうえんメッセージ/設定自由度)
+<!-- LP-LANDMARK:soft-features start — 親向け安心機能 (月次レポート凸構成 + 家庭運用補助 + 設定自由度)
+     #1720 R4: 4 cards → 3 cards 圧縮、月次レポートを featured 凸構成（PC は 1 行に featured 単独 + 残 2 並列、モバイルは縦積み）
      変更時は docs/design/lp-content-map.md §soft-features を確認 -->
 <!-- [05] ソフト機能（親の安心） -->
 <section class="section bg-gray" id="soft-features">
   <div class="section-inner">
-    <h2 class="section-title" data-lp-key="indexB.k37">遊びだけで終わらせない、親のための機能</h2>
-    <p class="section-desc" data-lp-key="indexB.k38">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 4 つの機能です。</p>
-    <div class="soft-grid">
-      <div class="soft-card" data-testid="feature-monthly-report">
+    <h2 class="section-title" data-lp-key="indexB.k37">親が安心できる運用補助</h2>
+    <p class="section-desc" data-lp-key="indexB.k38">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 3 つの機能です。</p>
+    <div class="soft-grid soft-grid--three">
+      <div class="soft-card soft-card--featured" data-testid="feature-monthly-report">
         <div class="soft-icon">&#x1F4CA;</div>
         <h3 data-lp-key="indexB.k39">成長の記録（月次レポート）</h3>
         <p data-lp-key="indexB.k40">月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。</p>
@@ -798,27 +827,15 @@
       </div>
       <div class="soft-card" data-testid="feature-auto-sleep">
         <div class="soft-icon">&#x1F4A4;</div>
-        <h3 data-lp-key="indexB.k41">時間管理（使いすぎ防止）</h3>
-        <p data-lp-key="indexB.k42">設定時間が経過すると画面が自動スリープ。スクリーンタイムの心配なく使わせられます。</p>
+        <h3 data-lp-key="indexB.softFamilySupportTitle">家庭に寄り添う運用補助</h3>
+        <p data-lp-key="indexB.softFamilySupportDesc">設定時間で自動スリープし長時間利用を防止。必要な時だけ家族からおうえんメッセージを子供のホームへ届けられます。</p>
         <div class="soft-shot">
           <picture>
             <source srcset="screenshots/feature-auto-sleep-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/feature-auto-sleep.webp" alt="時間管理設定画面 — 自動スリープ時間の設定" loading="lazy" data-lightbox>
+            <img src="screenshots/feature-auto-sleep.webp" alt="自動スリープ + おうえんメッセージ設定画面" loading="lazy" data-lightbox>
           </picture>
         </div>
-        <p class="soft-benefit" data-lp-key="indexB.softBenefitAutoSleep"><strong>親が観測できること</strong>: 設定した時間で自動的に画面が閉じ、長時間利用が起きない</p>
-      </div>
-      <div class="soft-card" data-testid="feature-cheer-message">
-        <div class="soft-icon">&#x1F4AC;</div>
-        <h3 data-lp-key="indexB.k43">おうえんメッセージ</h3>
-        <p data-lp-key="indexB.k44">「よくがんばったね」の一言が子供のホーム画面に届きます。Family プランで家族全員から送れます。</p>
-        <div class="soft-shot">
-          <picture>
-            <source srcset="screenshots/feature-cheer-message-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/feature-cheer-message.webp" alt="おうえんメッセージ受信画面 — 子供のホームに届く家族の一言" loading="lazy" data-lightbox>
-          </picture>
-        </div>
-        <p class="soft-benefit" data-lp-key="indexB.softBenefitCheerMessage"><strong>親が観測できること</strong>: 家族から送ったメッセージを子供が読むと既読が付く</p>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitFamilySupport"><strong>親が観測できること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く</p>
       </div>
       <div class="soft-card" data-testid="feature-customization">
         <div class="soft-icon">&#x2699;&#xFE0F;</div>
@@ -948,7 +965,7 @@
         <span class="pp-item" data-lp-key="indexB.k55">いつでも解約 OK</span>
       </div>
       <p class="pp-footnote" data-lp-key="indexB.k56">お子さま 2 人までのご家庭なら、無料プランで冒険の仕組みをすべてお使いいただけます。3 人以上 / 長期履歴 / AI 自動提案は有料プランで。</p>
-      <p class="pp-disclaimer" style="font-size:.8rem;color:var(--gray-600);margin-top:8px;line-height:1.6"><span data-lp-key="legalDisclaimer.cancelDisclaimer">※「いつでも解約 OK」について: 解約申請後 30 日間は読み取り専用（閲覧・エクスポート可能）となり、その後すべてのデータが完全に削除されます。日割り返金はありません。</span> [<a href="faq.html#cancel">FAQ</a> / <a href="tokushoho.html">特商法表記</a>]</p>
+      <p class="pp-disclaimer"><span data-lp-key="legalDisclaimer.cancelDisclaimer">※解約後はプラン別の読み取り専用猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。日割り返金はありません。</span> [<a href="faq.html#cancel">FAQ</a> / <a href="tokushoho.html">特商法表記</a>]</p>
       <p class="pp-cta" data-lp-key="indexB.k57"><a href="pricing.html" class="btn btn-primary">料金の詳細を見る &#8594;</a></p>
     </div>
   </div>
@@ -988,8 +1005,8 @@
         <a href="selfhost.html" data-lp-key="indexB.k69">仕組みを詳しく知りたい方へ &#8594;</a>
       </div>
     </div>
-    <div class="trust-disclaimer" style="margin-top:32px;padding:16px 20px;background:var(--gray-50);border-radius:8px;border-left:4px solid var(--gray-300)">
-      <p style="font-size:.85rem;color:var(--gray-700);line-height:1.7;margin:0"><strong data-lp-key="legalDisclaimer.liabilityTitle">サービス利用に関する重要なご案内</strong> <span data-lp-key="legalDisclaimer.liabilityBody">万一の障害・不具合等による損害賠償は、有料プランは「直近 3 ヶ月の支払額」を上限、無料プランは 0 円とさせていただいております（消費者契約法等の強行法規に基づく権利は対象外）。</span> [<a href="terms.html#article-12">利用規約 第 12 条</a> / <a href="faq.html#liability">FAQ</a>]</p>
+    <div class="trust-disclaimer">
+      <p class="trust-disclaimer-text"><strong data-lp-key="legalDisclaimer.liabilityTitle">サービス利用に関する重要なご案内</strong> <span data-lp-key="legalDisclaimer.liabilityBody">本サービスは個人開発のため、利用規約にて賠償上限を定めております。詳しくは利用規約・FAQ をご確認ください。</span> [<a href="terms.html#article-12">利用規約 第 12 条</a> / <a href="faq.html#liability">FAQ</a>]</p>
     </div>
   </div>
 </section>
@@ -1022,12 +1039,12 @@
 </section>
 
 <!-- [08b] 開発者に直接相談 (#1594 ADR-0023 I8) -->
-<section id="founder-inquiry" data-testid="lp-founder-inquiry" style="padding:6px 16px 8px;background:#fff">
-  <div style="max-width:760px;margin:0 auto;text-align:center;font-size:.85rem;color:var(--gray-700);line-height:1.5">
-    <span style="font-weight:700" data-lp-key="founderInquiry.sectionHeading">👋 開発者に直接相談（無料）</span> — <span data-lp-key="founderInquiry.sectionLead">個人開発のため Pre-PMF 期は開発者本人が直接お返事します。導入前・使い方・解約検討前のご相談、お気軽に。</span>
-    <a href="https://ganbari-quest.com/inquiry/founder" style="color:var(--brand-700);font-weight:600;margin-left:6px" data-lp-key="founderInquiry.ctaButton" data-testid="lp-founder-inquiry-cta">直接相談する（無料）</a>
+<section id="founder-inquiry" class="founder-inquiry" data-testid="lp-founder-inquiry">
+  <div class="founder-inquiry-inner">
+    <span class="founder-inquiry-heading" data-lp-key="founderInquiry.sectionHeading">👋 開発者に直接相談（無料）</span> — <span data-lp-key="founderInquiry.sectionLead">個人開発のため Pre-PMF 期は開発者本人が直接お返事します。導入前・使い方・解約検討前のご相談、お気軽に。</span>
+    <a href="https://ganbari-quest.com/inquiry/founder" class="founder-inquiry-cta" data-lp-key="founderInquiry.ctaButton" data-testid="lp-founder-inquiry-cta">直接相談する（無料）</a>
     <span data-lp-key="founderInquiry.ctaSeparator">／</span>
-    <a href="mailto:ganbari.quest.support@gmail.com?subject=%E3%80%90%E3%81%8C%E3%82%93%E3%81%B0%E3%82%8A%E3%82%AF%E3%82%A8%E3%82%B9%E3%83%88%E3%80%91%E9%96%8B%E7%99%BA%E8%80%85%E3%81%AB%E7%9B%B4%E6%8E%A5%E7%9B%B8%E8%AB%87" style="color:var(--brand-700);font-weight:600" data-contact-context="LP founder inquiry" data-lp-key="founderInquiry.mailtoFallback">メールで送る</a>
+    <a href="mailto:ganbari.quest.support@gmail.com?subject=%E3%80%90%E3%81%8C%E3%82%93%E3%81%B0%E3%82%8A%E3%82%AF%E3%82%A8%E3%82%B9%E3%83%88%E3%80%91%E9%96%8B%E7%99%BA%E8%80%85%E3%81%AB%E7%9B%B4%E6%8E%A5%E7%9B%B8%E8%AB%87" class="founder-inquiry-cta" data-contact-context="LP founder inquiry" data-lp-key="founderInquiry.mailtoFallback">メールで送る</a>
   </div>
 </section>
 
@@ -1039,7 +1056,7 @@
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="indexB.k81">無料で始める</a>
   </div>
   <p class="cta-bottom-note" data-lp-key="indexB.k82">ご質問・ご要望は<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="LP CTA">メール</a>でお気軽にどうぞ</p>
-  <p class="cta-bottom-disclaimer" style="font-size:.8rem;opacity:.85;margin-top:8px;line-height:1.6"><span data-lp-key="legalDisclaimer.cancelDisclaimerCta">※「いつでもキャンセル可能」について: 解約申請後 30 日間は読み取り専用となり、その後すべてのデータが完全に削除されます。</span> [<a href="faq.html#cancel" style="color:inherit;text-decoration:underline">FAQ</a>]</p>
+  <p class="cta-bottom-disclaimer"><span data-lp-key="legalDisclaimer.cancelDisclaimerCta">※解約後はプラン別の猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。</span> [<a href="faq.html#cancel" class="cta-bottom-disclaimer-link">FAQ</a>]</p>
 </section>
 
 <!-- Footer -->
@@ -1094,7 +1111,12 @@
   });
   splide.on('mounted move',function(){
     var slide=splide.Components.Slides.getAt(splide.index);
-    if(label&&slide)label.innerHTML=slide.slide.getAttribute('data-label')||'';
+    if(label&&slide){
+      var text=slide.slide.getAttribute('data-label')||'';
+      // #1729 R14 ADR-0016: 動的更新 label を <budoux-ja> でラップして文節区切り改善
+      // CDN 未ロード時は plain text として描画されるため fallback safe（Web Component 未登録扱い）
+      label.innerHTML='<budoux-ja>'+text.replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;'})+'</budoux-ja>';
+    }
   });
   splide.mount();
 })();

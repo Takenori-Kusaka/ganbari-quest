@@ -445,6 +445,15 @@ Dev / Reviewer / PO の作業範囲を以下のとおり定める。Reviewer / P
 - 「Dev が忙しいから」と実装作業を肩代わりする（結果的に Dev の責任範囲が曖昧化するため）
 - PR の構成・scope を Dev 未同意で大幅変更する
 
+#### force push 全面禁止 (ADR-0026 / #1750)
+
+PR #1717 (1683-C Legal SSOT) で発覚した「force push による致命修正コミット消失」事故を受け、ADR-0026 を制定。Dev / Reviewer 共通ルール:
+
+- `git push --force` の使用は禁止。やむを得ない場合は `git push --force-with-lease` を使う
+- 致命修正コミット（QM Re-Review でブロックされた欠陥の修正）は PR 単位で `scripts/check-lp-innerhtml-tags.mjs` などの hard-fail CI で検出される
+- PR Re-Review 時は前回 BLOCK 検出箇所が PR HEAD に残存しているか機械チェックを通すこと
+- main ブランチおよび release 候補ブランチでは `require_last_push_approval: true` を Branch Ruleset で有効化済み（PO 操作）。force push 後は再 approve が必要となるため、意図せぬ消失をマージ前に検出可能
+
 #### 方向転換が必要になった場合のプロトコル
 
 PR レビュー中に「機能そのものが不要 / 設計前提が間違っていた」と判明した場合：
