@@ -182,6 +182,20 @@ export default async function globalSetup() {
 		).run();
 		console.log('[E2E Setup]   Suppressed PremiumWelcome dialog (premium_welcome_shown=true).');
 
+		// #1757 (#1709-C): must 活動 priority の冪等保証（E2E 全プロジェクトで毎回実行）
+		// 1755 では `if (!needsSchema)` ブランチでのみ UPDATE していたため、
+		// 新規 DB 作成 → seed.ts → priority='optional' が確定してしまうケースがあった。
+		// 子供 UI 「今日のおやくそく」E2E でバーが表示されないリグレッションを防ぐため、
+		// 子供作成と同タイミングで毎回 priority='must' を再設定する。
+		try {
+			db.exec(
+				"UPDATE activities SET priority = 'must' WHERE name IN ('はみがきした', 'おきがえした', 'おかたづけした')",
+			);
+			console.log("[E2E Setup]   Ensured priority='must' for 3 routine activities (#1757).");
+		} catch {
+			// priority カラムが未追加の旧 DB でも E2E を落とさない
+		}
+
 		// テスト用子供を冪等に作成（nickname ベースの存在チェック）
 		const TEST_CHILDREN = [
 			{ nickname: 'たろうくん', age: 4, theme: 'pink', ui_mode: 'preschool' },

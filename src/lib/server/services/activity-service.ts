@@ -2,6 +2,7 @@ import type { GradeLevel, Source } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import {
 	countMainQuestActivities as countMainQuestActivitiesRepo,
+	countPointLedgerEntriesByTypeAndDate,
 	deleteActivity as deleteActivityRepo,
 	deleteDailyMissionsByActivity,
 	findActivities,
@@ -10,6 +11,7 @@ import {
 	getActivityLogCounts as getActivityLogCountsRepo,
 	hasActivityLogs as hasActivityLogsRepo,
 	insertActivity,
+	insertPointLedger,
 	setActivityVisibility as setActivityVisibilityRepo,
 	updateActivity as updateActivityRepo,
 } from '$lib/server/db/activity-repo';
@@ -151,4 +153,84 @@ export function computeMustCompletionBonus(uiMode: UiMode, allComplete: boolean)
 		default:
 			return 0;
 	}
+}
+
+/**
+ * #1757 (#1709-C): point_ledger.type 識別子。
+ * 1 子供 × 1 日に 1 件のみ加算される（冪等性 — ADR-0012 連続演出禁止 / 重複加算禁止）。
+ */
+export const MUST_COMPLETION_BONUS_TYPE = 'must_completion_bonus';
+
+/**
+ * #1757 (#1709-C): 「今日のおやくそく」全達成時のボーナスを冪等に付与する。
+ *
+ * 動作:
+ * 1. `getMustActivitiesToday(childId, today, tenantId)` で達成状況を取得
+ * 2. `total === 0` または `logged < total` → 付与せず返却（granted=false, points=0）
+ * 3. `logged === total && total > 0`:
+ *    - 同日にすでに付与済み（`countPointLedgerEntriesByTypeAndDate` > 0）→ 付与せず返却
+ *    - 未付与かつ uiMode に応じた bonus > 0 → point_ledger に挿入
+ *
+ * 冪等性:
+ * - point_ledger を `(childId, type='must_completion_bonus', date(createdAt)=today)` で
+ *   1 行のみに保つ。同日 2 回目以降の呼び出しは加算しない。
+ *
+ * Anti-engagement (ADR-0012):
+ * - 連続演出禁止 → 同日 2 回目以降の達成判定で再演出しないよう、`granted=false` を返す。
+ * - 演出は呼び出し側 UI で 1 回のみ pulse + toast (1.5 秒以内) として実装する。
+ *
+ * 戻り値:
+ * - `logged` / `total` — 達成状況（UI バー描画用）
+ * - `allComplete` — `total > 0 && logged === total`
+ * - `granted` — 本呼び出しで実際に DB に書き込んだか（true なら toast 演出を出す）
+ * - `points` — 付与されたボーナス（granted=false なら 0）
+ * - `activities` — must 活動 + 今日記録済みフラグ（呼び出し側で UI 表示に使う場合）
+ */
+export async function tryGrantMustCompletionBonus(
+	childId: number,
+	today: string,
+	uiMode: UiMode,
+	tenantId: string,
+): Promise<{
+	logged: number;
+	total: number;
+	allComplete: boolean;
+	granted: boolean;
+	points: number;
+	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+}> {
+	const { logged, total, activities } = await getMustActivitiesToday(childId, today, tenantId);
+	const allComplete = total > 0 && logged === total;
+
+	if (!allComplete) {
+		return { logged, total, allComplete: false, granted: false, points: 0, activities };
+	}
+
+	const bonus = computeMustCompletionBonus(uiMode, true);
+	if (bonus <= 0) {
+		// baby 等ボーナス対象外モード → 達成のみ返す（演出はしない）
+		return { logged, total, allComplete: true, granted: false, points: 0, activities };
+	}
+
+	const existingCount = await countPointLedgerEntriesByTypeAndDate(
+		childId,
+		MUST_COMPLETION_BONUS_TYPE,
+		today,
+		tenantId,
+	);
+	if (existingCount > 0) {
+		return { logged, total, allComplete: true, granted: false, points: 0, activities };
+	}
+
+	await insertPointLedger(
+		{
+			childId,
+			amount: bonus,
+			type: MUST_COMPLETION_BONUS_TYPE,
+			description: `[${today}] きょうのおやくそく ぜんぶできた！`,
+		},
+		tenantId,
+	);
+
+	return { logged, total, allComplete: true, granted: true, points: bonus, activities };
 }

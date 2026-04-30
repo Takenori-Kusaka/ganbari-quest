@@ -9,6 +9,7 @@ import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity'
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
+import MustProgressBar from '$lib/features/child/MustProgressBar.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
@@ -29,6 +30,7 @@ import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
@@ -357,6 +359,26 @@ function handleBirthdayOpen() {
 	fsm.transition('birthday', data.birthdayBonus);
 }
 
+// #1757 (#1709-C): 「今日のおやくそく」全達成 bonus が**この load で初回付与された**ときだけ
+// toast を 1 回鳴らす。Anti-engagement (ADR-0012):
+// - granted === true の判定は server 側で point_ledger に書き込んだ瞬間のみ true。
+// - 同日 2 回目以降の load では granted=false が返るため toast 再演出なし。
+// - モーダルを出さず Toast (3s 自動消失) のみで完結 → タップ離脱阻害なし。
+let mustToastShown = $state(false);
+$effect(() => {
+	if (typeof window === 'undefined') return;
+	if (mustToastShown) return;
+	const must = data.mustStatus;
+	if (must?.granted && must.points > 0) {
+		mustToastShown = true;
+		showToast(
+			`${CHILD_HOME_LABELS.mustAllCompleteEmoji} ${CHILD_HOME_LABELS.mustAllComplete}`,
+			CHILD_HOME_LABELS.mustBonusGranted(must.points),
+			'success',
+		);
+	}
+});
+
 // --- Page load: enqueue auto-triggered dialogs via FSM (#671) ---
 $effect(() => {
 	if (typeof window === 'undefined') return;
@@ -473,6 +495,22 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 <BabyHomePage child={data.child ?? { nickname: '', age: 0 }} balance={data.balance} />
 {:else}
 <div class="px-[var(--sp-sm)] py-1" data-testid="{data.uiMode}-home-page">
+	<!--
+		#1757 (#1709-C): 「今日のおやくそく」N/M 進捗バー（最上部）
+		- baby は前段で BabyHomePage に分岐済みのため到達しない（バー非表示が保証される）
+		- mustStatus.total === 0 の場合は非表示（must 活動が 0 件 = 設定なし）
+		- 全達成 + 同日初回付与時は granted=true / points>0 で pulse + toast 演出（ADR-0012）
+	-->
+	{#if data.mustStatus && data.mustStatus.total > 0}
+		<MustProgressBar
+			logged={data.mustStatus.logged}
+			total={data.mustStatus.total}
+			uiMode={data.uiMode as UiMode}
+			bonusGranted={data.mustStatus.granted}
+			bonusPoints={data.mustStatus.points}
+		/>
+	{/if}
+
 	<!-- Birthday bonus banner -->
 	{#if data.birthdayBonus}
 		<BirthdayBanner

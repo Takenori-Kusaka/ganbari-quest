@@ -13,7 +13,7 @@ import {
 	sortActivitiesWithPreferences,
 	toggleActivityPin,
 } from '$lib/server/services/activity-pin-service';
-import { getActivities } from '$lib/server/services/activity-service';
+import { getActivities, tryGrantMustCompletionBonus } from '$lib/server/services/activity-service';
 import { trackActivationFirstRewardSeen } from '$lib/server/services/analytics-service';
 import {
 	claimBirthdayBonus,
@@ -84,9 +84,11 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			unshownCheers: [],
 			monthlyPremiumReward: null,
 			specialRewardProgress: null,
+			mustStatus: null,
 		};
 
 	// baby モードは親向け準備ツール — ゲーミフィケーション DB 呼び出しをスキップ (#1300)
+	// 「今日のおやくそく」バーも非表示 (#1757)
 	if (parentData.uiMode === 'baby') {
 		return {
 			activities: [],
@@ -111,6 +113,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			familyStreak: null,
 			monthlyPremiumReward: null,
 			specialRewardProgress: null,
+			mustStatus: null,
 		};
 	}
 
@@ -202,6 +205,28 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		// ランキング取得失敗はページ全体に影響させない
 	}
 
+	// #1757 (#1709-C): 「今日のおやくそく」N/M 集計 + 全達成ボーナス冪等付与
+	// - total === 0 → バー非表示（mustStatus.total === 0 を UI 側で条件分岐）
+	// - logged === total && total > 0 → 同日初回のみ point_ledger に bonus 加算
+	// - 同日 2 回目以降の load では granted=false（演出は 1 回限り）
+	// - baby は前段で早期 return しているため到達しない（バー非表示が保証される）
+	let mustStatus: Awaited<ReturnType<typeof tryGrantMustCompletionBonus>> | null = null;
+	try {
+		mustStatus = await tryGrantMustCompletionBonus(
+			child.id,
+			todayDate(),
+			parentData.uiMode as Parameters<typeof tryGrantMustCompletionBonus>[2],
+			tenantId,
+		);
+	} catch (error) {
+		// must 集計失敗はホーム全体を落とさない（バー非表示にフォールバック）
+		logger.error('[child-home] tryGrantMustCompletionBonus failed', {
+			error: String(error),
+			context: { childId: child.id },
+		});
+		mustStatus = null;
+	}
+
 	return {
 		activities: activitiesWithMission,
 		todayRecorded,
@@ -234,6 +259,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			parentData.isPremium ?? false,
 		).catch(() => null),
 		specialRewardProgress,
+		mustStatus,
 	};
 };
 
