@@ -126,19 +126,13 @@ describe('getTodayChecklist', () => {
 		expect(result.target).toBe('template');
 	});
 
-	// #1168 + ADR-0031: kind カラム未設定 / NULL 既存行は 'routine' として扱う
-	it('template.kind が undefined の既存行は TodayChecklist.kind を "routine" で返す', async () => {
-		mockFindTemplateById.mockResolvedValue({ ...baseTemplate, kind: undefined });
+	// #1755 (#1709-A): kind 削除 — TodayChecklist は kind を持たない（持ち物純化）
+	it('#1755: TodayChecklist は kind を返さない（持ち物純化）', async () => {
+		mockFindTemplateById.mockResolvedValue(baseTemplate);
 		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
 		const result = assertSuccess(await getTodayChecklist(CHILD_ID, TEMPLATE_ID, DATE, TENANT));
-		expect(result.kind).toBe('routine');
-	});
-
-	it('template.kind が "item" の場合は TodayChecklist.kind を "item" で返す', async () => {
-		mockFindTemplateById.mockResolvedValue({ ...baseTemplate, kind: 'item' });
-		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
-		const result = assertSuccess(await getTodayChecklist(CHILD_ID, TEMPLATE_ID, DATE, TENANT));
-		expect(result.kind).toBe('item');
+		// kind プロパティは存在しない
+		expect((result as { kind?: unknown }).kind).toBeUndefined();
 	});
 
 	it('childId が一致しない場合 NOT_FOUND を返す', async () => {

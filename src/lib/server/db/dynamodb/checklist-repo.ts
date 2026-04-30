@@ -117,8 +117,7 @@ export async function insertTemplate(
 		isActive: input.isActive ?? 1,
 		isArchived: 0,
 		archivedReason: null,
-		// #1168: default 'routine' (既存資産と互換)
-		kind: input.kind ?? 'routine',
+		// #1755 (#1709-A): kind 列削除 — 持ち物純化
 		createdAt: now,
 		updatedAt: now,
 		sourcePresetId: input.sourcePresetId ?? null,
@@ -149,6 +148,7 @@ export async function updateTemplate(
 	const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
 	const values: Record<string, unknown> = { ':updatedAt': new Date().toISOString() };
 
+	// #1755 (#1709-A): kind 削除済み（持ち物純化）
 	const fields = [
 		'name',
 		'icon',
@@ -156,7 +156,6 @@ export async function updateTemplate(
 		'completionBonus',
 		'timeSlot',
 		'isActive',
-		'kind',
 	] as const;
 	for (const field of fields) {
 		if (input[field] !== undefined) {

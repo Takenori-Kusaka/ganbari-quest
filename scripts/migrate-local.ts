@@ -38,6 +38,39 @@ if (
 	console.log('  → done');
 }
 
+// #1755 (#1709-A): activities.priority カラム追加 + checklist_templates.kind 列削除
+//   - 'must' = 今日のおやくそく / 'optional' = ふつうの活動（既定）
+//   - kind 列削除は破壊的変更（ADR-0010 Pre-PMF 利用者ゼロ前提）
+//   - 既存 kind='routine' レコードは drop（持ち物純化、旧 routine は priority='must' に役割移管）
+if (
+	db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='activities'").get() &&
+	!tableHasColumn('activities', 'priority')
+) {
+	console.log('Adding activities.priority column (#1755 / #1709-A)…');
+	db.exec(`
+		ALTER TABLE activities ADD COLUMN priority TEXT NOT NULL DEFAULT 'optional';
+		UPDATE activities SET priority = 'optional' WHERE priority IS NULL OR priority = '';
+	`);
+	console.log('  → done (existing rows backfilled to optional)');
+}
+
+if (
+	db
+		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='checklist_templates'")
+		.get() &&
+	tableHasColumn('checklist_templates', 'kind')
+) {
+	console.log('Dropping checklist_templates.kind column (#1755 / #1709-A)…');
+	// 旧 kind='routine' のテンプレートを先に削除（持ち物純化）
+	const droppedRoutines = db
+		.prepare("DELETE FROM checklist_templates WHERE kind = 'routine'")
+		.run();
+	console.log(`  → deleted ${droppedRoutines.changes} legacy 'routine' templates`);
+	// SQLite 3.35+ は ALTER TABLE DROP COLUMN を直接サポート
+	db.exec('ALTER TABLE checklist_templates DROP COLUMN kind;');
+	console.log('  → kind column dropped');
+}
+
 const tables = db
 	.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 	.all() as { name: string }[];

@@ -60,7 +60,9 @@ const SQL_TABLES = `
 		source_preset_id TEXT,
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		-- #1755 (#1709-A): 「今日のおやくそく」優先度
+		priority TEXT NOT NULL DEFAULT 'optional'
 	);
 	CREATE TABLE activity_logs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,14 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import {
-	APP_LABELS,
-	CHECKLIST_KIND_ICONS,
-	CHECKLIST_KIND_LABELS,
-	CHILD_CHECKLIST_LABELS,
-	type ChecklistKind,
-	PAGE_TITLES,
-} from '$lib/domain/labels';
+import { APP_LABELS, CHILD_CHECKLIST_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
@@ -64,16 +57,9 @@ function handleCompleteClose() {
 	invalidateAll();
 }
 
-// #1168: 種別ごとにグルーピング（ルーティンを先に表示）
-const kindOrder: ChecklistKind[] = ['routine', 'item'];
-const groupedChecklists = $derived(
-	kindOrder
-		.map((kind) => ({
-			kind,
-			lists: data.checklists.filter((cl) => (cl.kind ?? 'routine') === kind),
-		}))
-		.filter((g) => g.lists.length > 0),
-);
+// #1755 (#1709-A): kind 削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
+//   グルーピング解除。後続 sub-issue (#1709-C) で「今日のおやくそく」セクションを別途追加する。
+const flatChecklists = $derived(data.checklists);
 </script>
 
 <svelte:head>
@@ -97,15 +83,8 @@ const groupedChecklists = $derived(
 			<p class="text-sm">{CHILD_CHECKLIST_LABELS.emptyDesc}</p>
 		</div>
 	{:else}
-		{#each groupedChecklists as group (group.kind)}
-			<!-- #1168: 種別見出し -->
-			<h2
-				class="text-base font-bold mt-[var(--sp-md)] mb-[var(--sp-xs)] px-[var(--sp-xs)] text-[var(--color-text-secondary)]"
-				data-testid="checklist-group-{group.kind}"
-			>
-				{CHECKLIST_KIND_ICONS[group.kind]} {CHECKLIST_KIND_LABELS[group.kind]}
-			</h2>
-			{#each group.lists as checklist (checklist.templateId)}
+		<!-- #1755 (#1709-A): kind 削除 — グルーピング解除、持ち物として一覧表示 -->
+		{#each flatChecklists as checklist (checklist.templateId)}
 			<Card padding="none" class="mb-[var(--sp-md)] {isCurrentSlot(checklist.timeSlot) ? 'ring-2 ring-[var(--theme-primary)]' : 'opacity-70'}">
 				{#snippet children()}
 				<!-- Template header -->
@@ -191,7 +170,6 @@ const groupedChecklists = $derived(
 				</div>
 				{/snippet}
 			</Card>
-			{/each}
 		{/each}
 	{/if}
 

@@ -3,10 +3,7 @@
 // 書き込みは行わず、UI 操作はクライアント側の $state でのみ反映する。
 import {
 	APP_LABELS,
-	CHECKLIST_KIND_ICONS,
-	CHECKLIST_KIND_LABELS,
 	CHILD_CHECKLIST_LABELS,
-	type ChecklistKind,
 	DEMO_CHILD_CHECKLIST_LABELS,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
@@ -60,16 +57,9 @@ function isCurrentSlot(slot: string): boolean {
 	return slot === currentSlot || slot === 'anytime';
 }
 
-// #1168: kind ごとにグループ表示（ルーティン → 持ち物 の順）
-const kindOrder: ChecklistKind[] = ['routine', 'item'];
-const groupedChecklists = $derived(
-	kindOrder
-		.map((kind) => ({
-			kind,
-			lists: localChecklists.filter((cl) => (cl.kind ?? 'routine') === kind),
-		}))
-		.filter((g) => g.lists.length > 0),
-);
+// #1755 (#1709-A): kind 削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
+//   グルーピング解除。後続 sub-issue (#1709-C) で「今日のおやくそく」セクションを別途追加する。
+const flatChecklists = $derived(localChecklists);
 
 function toggleItem(templateId: number, itemId: number) {
 	localChecklists = localChecklists.map((cl) => {
@@ -116,14 +106,8 @@ function toggleItem(templateId: number, itemId: number) {
 			<p class="text-sm">{CHILD_CHECKLIST_LABELS.emptyDesc}</p>
 		</div>
 	{:else}
-		{#each groupedChecklists as group (group.kind)}
-			<h2
-				class="text-sm font-bold text-[var(--color-text-muted)] mb-[var(--sp-xs)] mt-[var(--sp-md)] first:mt-0"
-				data-testid="checklist-group-{group.kind}"
-			>
-				{CHECKLIST_KIND_ICONS[group.kind]} {CHECKLIST_KIND_LABELS[group.kind]}
-			</h2>
-			{#each group.lists as checklist (checklist.templateId)}
+		<!-- #1755 (#1709-A): kind 削除 — グルーピング解除、持ち物として一覧表示 -->
+		{#each flatChecklists as checklist (checklist.templateId)}
 			<Card padding="none" class="mb-[var(--sp-md)] {isCurrentSlot(checklist.timeSlot) ? 'ring-2 ring-[var(--theme-primary)]' : 'opacity-70'}">
 				{#snippet children()}
 				<!-- Template header -->
@@ -181,7 +165,6 @@ function toggleItem(templateId: number, itemId: number) {
 				</div>
 				{/snippet}
 			</Card>
-			{/each}
 		{/each}
 	{/if}
 

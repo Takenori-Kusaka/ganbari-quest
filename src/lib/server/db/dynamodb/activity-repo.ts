@@ -113,7 +113,14 @@ export async function findActivities(
 		},
 	});
 
-	let activities = items.map((item) => stripKeys(item) as unknown as Activity);
+	let activities = items.map((item) => {
+		const stripped = stripKeys(item) as unknown as Activity;
+		// #1755 (#1709-A): 既存レコード backfill — priority 未設定は 'optional' 扱い
+		if (stripped.priority !== 'must' && stripped.priority !== 'optional') {
+			stripped.priority = 'optional';
+		}
+		return stripped;
+	});
 
 	// #783: archive されたリソースをデフォルトで除外
 	activities = activities.filter((a) => !a.isArchived || a.isArchived === 0);
@@ -155,7 +162,12 @@ export async function findActivityById(
 	);
 
 	if (!result.Item) return undefined;
-	return stripKeys(result.Item) as unknown as Activity;
+	const activity = stripKeys(result.Item) as unknown as Activity;
+	// #1755 (#1709-A): 既存レコード backfill — priority 未設定は 'optional' 扱い
+	if (activity.priority !== 'must' && activity.priority !== 'optional') {
+		activity.priority = 'optional';
+	}
+	return activity;
 }
 
 /** 活動を作成 */
@@ -189,6 +201,8 @@ export async function insertActivity(
 		archivedReason: null,
 		createdAt: now,
 		sourcePresetId: input.sourcePresetId ?? null,
+		// #1755 (#1709-A): 「今日のおやくそく」優先度（既定 'optional'）
+		priority: input.priority ?? 'optional',
 	};
 
 	const keys = activityKeyWithGSI2(id, input.categoryId, activity.sortOrder, tenantId);
@@ -255,6 +269,12 @@ export async function updateActivity(
 		expressionParts.push('#isMainQuest = :isMainQuest');
 		expressionNames['#isMainQuest'] = 'isMainQuest';
 		expressionValues[':isMainQuest'] = input.isMainQuest;
+	}
+	// #1755 (#1709-A): 「今日のおやくそく」優先度
+	if (input.priority !== undefined) {
+		expressionParts.push('#priority = :priority');
+		expressionNames['#priority'] = 'priority';
+		expressionValues[':priority'] = input.priority;
 	}
 
 	if (expressionParts.length === 0) {
@@ -1043,6 +1063,57 @@ export async function deleteActivityLogsBeforeDate(
 	const keys = items.map((item) => ({ PK: item.PK as string, SK: item.SK as string }));
 	await batchDeleteKeys(keys);
 	return keys.length;
+}
+
+// ============================================================
+// #1755 (#1709-A): 「今日のおやくそく」(priority='must') 集計
+// ============================================================
+
+/**
+ * priority='must' の活動全件と、`today` 当日に記録されたものを集計する。
+ * - SQLite 実装と同じ契約 (logged / total / activities[]) を返す
+ * - DynamoDB 側もスタブではなく本実装（ADR-0010 #1021）
+ */
+export async function findMustActivitiesWithToday(
+	childId: number,
+	today: string,
+	tenantId: string,
+): Promise<{
+	logged: number;
+	total: number;
+	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+}> {
+	// must な活動を全件取得（findActivities が priority backfill 込みで返す）
+	const allActive = await findActivities(tenantId);
+	const mustList = allActive.filter((a) => a.priority === 'must');
+
+	if (mustList.length === 0) {
+		return { logged: 0, total: 0, activities: [] };
+	}
+
+	// 今日記録された activity id 集合
+	const todayItems = await queryAll({
+		TableName: TABLE_NAME,
+		KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+		FilterExpression: '#cancelled = :cancelled',
+		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
+		ExpressionAttributeValues: {
+			':pk': childPK(childId, tenantId),
+			':skPrefix': activityLogDatePrefix(today),
+			':cancelled': 0,
+		},
+		ProjectionExpression: 'activityId',
+	});
+	const loggedSet = new Set<number>(todayItems.map((it) => it.activityId as number));
+
+	const enriched = mustList.map((a) => ({
+		id: a.id,
+		name: a.name,
+		icon: a.icon,
+		loggedToday: loggedSet.has(a.id) ? 1 : 0,
+	}));
+	const logged = enriched.filter((a) => a.loggedToday === 1).length;
+	return { logged, total: enriched.length, activities: enriched };
 }
 
 // #783: archive / restore

@@ -122,8 +122,8 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 
 		expect(result).toEqual({ success: true });
 		expect(mockCreateTemplate).toHaveBeenCalledWith(
-			// #1168: kind デフォルトは 'routine'
-			{ childId: 1, name: 'あさの準備', icon: '☀️', timeSlot: 'morning', kind: 'routine' },
+			// #1755 (#1709-A): kind 削除 — 持ち物純化
+			{ childId: 1, name: 'あさの準備', icon: '☀️', timeSlot: 'morning' },
 			't-test',
 		);
 	});

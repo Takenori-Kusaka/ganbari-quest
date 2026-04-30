@@ -50,17 +50,41 @@ export default async function globalSetup() {
 				}
 			}
 
-			// #1168: checklist_templates.kind カラム追加 + NULL backfill (ADR-0031)
+			// #1755 (#1709-A): checklist_templates.kind 列削除 + activities.priority 列追加
+			//   - 旧 kind='routine' のテンプレート群を削除（持ち物純化、ADR-0010 Pre-PMF 利用者ゼロ前提）
+			//   - 新規 priority カラム ('must' | 'optional', default 'optional')
 			try {
-				db.exec("ALTER TABLE checklist_templates ADD COLUMN kind TEXT NOT NULL DEFAULT 'routine'");
-				console.log('[E2E Setup]   Added kind column to checklist_templates.');
+				const hasKind = (
+					db.prepare('PRAGMA table_info(checklist_templates)').all() as { name: string }[]
+				).some((c) => c.name === 'kind');
+				if (hasKind) {
+					db.exec("DELETE FROM checklist_templates WHERE kind = 'routine'");
+					db.exec('ALTER TABLE checklist_templates DROP COLUMN kind');
+					console.log('[E2E Setup]   Dropped checklist_templates.kind (#1755).');
+				}
+			} catch {
+				// カラム未存在 / すでに drop 済み
+			}
+			try {
+				db.exec("ALTER TABLE activities ADD COLUMN priority TEXT NOT NULL DEFAULT 'optional'");
+				console.log('[E2E Setup]   Added activities.priority column (#1755).');
 			} catch {
 				// カラムが既に存在する場合は無視
 			}
 			try {
-				db.exec("UPDATE checklist_templates SET kind = 'routine' WHERE kind IS NULL");
+				db.exec(
+					"UPDATE activities SET priority = 'optional' WHERE priority IS NULL OR priority = ''",
+				);
 			} catch {
-				// backfill 済み / カラム未適用
+				// backfill 済み
+			}
+			// #1755 (#1709-A): must 活動の seed (後続 1709-B/C E2E 用に最低 1 件は priority='must')
+			try {
+				db.exec(
+					"UPDATE activities SET priority = 'must' WHERE name IN ('はみがきした', 'おきがえした', 'おかたづけした')",
+				);
+			} catch {
+				// 該当 activity 未投入 / 既に must
 			}
 
 			// #1254 G1: source_preset_id カラム追加（nullable、プリセット非由来は NULL）
@@ -253,55 +277,41 @@ export default async function globalSetup() {
 			).run(key, past);
 		}
 
-		// チェックリストテンプレート作成（デフォルトプリセット準拠）
-		const kinderChild = db
+		// #1755 (#1709-A): チェックリストテンプレート — 持ち物純化（kind 削除済み）
+		//   旧 'あさのしたく' / 'よるのじゅんび' は routine 系のため削除。
+		//   ルーティン的なふるまいは後続 sub-issue (#1709-B/C) で activities.priority='must' に役割移管。
+		//   持ち物系として「がっこうのもちもの」だけ seed する（後続 E2E が template を参照するため）。
+		const preschoolChild = db
 			.prepare("SELECT id FROM children WHERE ui_mode = 'preschool' LIMIT 1")
 			.get() as { id: number } | undefined;
-		if (kinderChild) {
-			// 旧テンプレートをクリーンアップして最新プリセットで再作成
+		if (preschoolChild) {
+			// 旧テンプレートをクリーンアップして持ち物のみで再作成
 			const existingTmpls = db
 				.prepare('SELECT id FROM checklist_templates WHERE child_id = ?')
-				.all(kinderChild.id) as { id: number }[];
+				.all(preschoolChild.id) as { id: number }[];
 			for (const t of existingTmpls) {
 				db.prepare('DELETE FROM checklist_template_items WHERE template_id = ?').run(t.id);
 			}
-			db.prepare('DELETE FROM checklist_templates WHERE child_id = ?').run(kinderChild.id);
+			db.prepare('DELETE FROM checklist_templates WHERE child_id = ?').run(preschoolChild.id);
 
-			// あさのしたくプリセット（static/checklist-presets/morning-routine.json 準拠）
+			// 持ち物チェックリスト（kind なし — 1755 で純化）
 			db.prepare(
-				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES (?, 'あさのしたく', '☀️', 2, 5, 'morning')",
-			).run(kinderChild.id);
-			const morningId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
-			const morningItems: [string, string][] = [
-				['はみがき', '🪥'],
-				['かおをあらう', '🧼'],
-				['きがえ', '👕'],
-				['あさごはん', '🍚'],
-				['もちものチェック', '🎒'],
+				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES (?, 'がっこうのもちもの', '🎒', 2, 5, 'morning')",
+			).run(preschoolChild.id);
+			const itemTplId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
+			const itemPairs: [string, string][] = [
+				['ハンカチ', '🤧'],
+				['ティッシュ', '🧻'],
+				['すいとう', '🧴'],
+				['ぼうし', '🧢'],
+				['たいそうぎ', '👕'],
 			];
-			for (const [i, [itemName, itemIcon]] of morningItems.entries()) {
+			for (const [i, [itemName, itemIcon]] of itemPairs.entries()) {
 				db.prepare(
 					'INSERT INTO checklist_template_items (template_id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
-				).run(morningId, itemName, itemIcon, i + 1);
+				).run(itemTplId, itemName, itemIcon, i + 1);
 			}
-
-			// よるのじゅんびプリセット（static/checklist-presets/evening-routine.json 準拠）
-			db.prepare(
-				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES (?, 'よるのじゅんび', '🌙', 2, 5, 'evening')",
-			).run(kinderChild.id);
-			const eveningId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
-			const eveningItems: [string, string][] = [
-				['おふろ', '🛁'],
-				['はみがき', '🪥'],
-				['あしたのじゅんび', '📋'],
-				['おやすみのあいさつ', '😴'],
-			];
-			for (const [i, [itemName, itemIcon]] of eveningItems.entries()) {
-				db.prepare(
-					'INSERT INTO checklist_template_items (template_id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
-				).run(eveningId, itemName, itemIcon, i + 1);
-			}
-			console.log('[E2E Setup]   Created checklist templates (あさのしたく, よるのじゅんび).');
+			console.log('[E2E Setup]   Created checklist template (がっこうのもちもの, 持ち物純化).');
 		}
 
 		// child_activity_preferences テーブルが存在しなければ作成（#0115 ピン留め機能）

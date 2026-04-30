@@ -81,9 +81,7 @@ export const actions: Actions = {
 		if (!(VALID_TIME_SLOTS as readonly string[]).includes(timeSlot))
 			return fail(400, { error: '時間帯が不正です' });
 
-		// #1168: kind 選択（'item' | 'routine'、default 'routine'）
-		const kind = String(formData.get('kind') ?? 'routine').trim();
-		if (kind !== 'item' && kind !== 'routine') return fail(400, { error: '種別が不正です' });
+		// #1755 (#1709-A): kind 削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
 
 		// #723: Free プランの上限チェック（UI ゲートをバイパスした直接 POST を防ぐ）
 		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
@@ -101,7 +99,7 @@ export const actions: Actions = {
 			});
 		}
 
-		await createTemplate({ childId, name, icon, timeSlot, kind }, tenantId);
+		await createTemplate({ childId, name, icon, timeSlot }, tenantId);
 		return { success: true };
 	},
 
