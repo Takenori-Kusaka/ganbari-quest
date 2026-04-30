@@ -2227,6 +2227,20 @@ export const CHILD_HOME_LABELS = {
 	resultCancelButton: (s: number | string) => `とりけし (${s}s)`,
 	resultConfirmButton: 'やったね！',
 	crossComboBang: '！',
+
+	// #1757 (#1709-C) 「今日のおやくそく」N/M バー
+	// preschool は mustTitleKana（ひらがな）、それ以外は mustTitle（漢字）を出し分け
+	mustTitle: '今日のおやくそく',
+	mustTitleKana: 'きょうのおやくそく',
+	/** N/M 形式（labels 側で形成、コンポーネント側でテンプレ直書き禁止） */
+	mustProgressText: (logged: number | string, total: number | string) => `${logged}/${total}`,
+	/** 部分達成時の残数表示（preschool/それ以外で語彙差なし — 数 + 「こ」のみ） */
+	mustRemaining: (n: number | string) => `あと ${n}こ`,
+	mustAllComplete: 'ぜんぶできた！',
+	mustAllCompleteEmoji: '✨',
+	mustBonusGranted: (pts: number | string) => `+${pts}pt`,
+	mustBonusGrantedAriaLabel: (pts: number | string) =>
+		`今日のおやくそく ぜんぶできた ボーナス ${pts}ポイント`,
 } as const;
 
 export const DEMO_SIGNUP_LABELS = {
@@ -3286,6 +3300,15 @@ export const DEMO_CHILD_HOME_LABELS = {
 	demoDataNote: '（デモモード：データは保存されません）',
 	signupCta: 'お子さまの名前で はじめる →',
 	closeButton: 'とじる',
+
+	// #1757 (#1709-C) 「今日のおやくそく」N/M バー（demo 同期）
+	mustTitle: '今日のおやくそく',
+	mustTitleKana: 'きょうのおやくそく',
+	mustProgressText: (logged: number | string, total: number | string) => `${logged}/${total}`,
+	mustRemaining: (n: number | string) => `あと ${n}こ`,
+	mustAllComplete: 'ぜんぶできた！',
+	mustAllCompleteEmoji: '✨',
+	mustBonusGranted: (pts: number | string) => `+${pts}pt`,
 } as const;
 
 export const DEMO_ADMIN_HOME_LABELS = {

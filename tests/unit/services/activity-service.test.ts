@@ -1,6 +1,7 @@
 // tests/unit/services/activity-service.test.ts
 // activity-service ユニットテスト (UT-ACT-01 〜 UT-ACT-10)
 
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 import {
@@ -280,6 +281,8 @@ describe('activity-service', () => {
 import {
 	computeMustCompletionBonus,
 	getMustActivitiesToday,
+	MUST_COMPLETION_BONUS_TYPE,
+	tryGrantMustCompletionBonus,
 } from '../../../src/lib/server/services/activity-service';
 
 describe('#1755 activity-service priority', () => {
@@ -418,5 +421,138 @@ describe('#1755 activity-service priority', () => {
 		// baby は ADR-0011（baby = 親の準備モード、ゲーミフィケーション不適用）に従い常に 0
 		expect(computeMustCompletionBonus('baby', true)).toBe(0);
 		expect(computeMustCompletionBonus('baby', false)).toBe(0);
+	});
+});
+
+// ============================================================
+// #1757 (#1709-C): tryGrantMustCompletionBonus（冪等付与）
+// ============================================================
+
+describe('#1757 tryGrantMustCompletionBonus', () => {
+	const TODAY = '2026-04-30';
+
+	beforeEach(() => {
+		seedBase();
+	});
+
+	function createMustActivity(name: string) {
+		return createActivity(
+			{
+				name,
+				categoryId: 3,
+				icon: '⭐',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+				priority: 'must',
+			},
+			'test-tenant',
+		);
+	}
+
+	function recordMust(childId: number, activityId: number, hour = 8) {
+		testDb
+			.insert(schema.activityLogs)
+			.values({
+				childId,
+				activityId,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: TODAY,
+				recordedAt: `${TODAY}T0${hour}:00:00Z`,
+				cancelled: 0,
+			})
+			.run();
+	}
+
+	function pointLedgerCount(childId: number, type: string): number {
+		const rows = testDb
+			.select()
+			.from(schema.pointLedger)
+			.where(eq(schema.pointLedger.childId, childId))
+			.all();
+		return rows.filter((r) => r.type === type).length;
+	}
+
+	// UT-ACT-PRIORITY-BONUS-01: must=0 件 → granted=false / total=0
+	it('UT-ACT-PRIORITY-BONUS-01: must 活動が 0 件のときは付与せず total=0 を返す', async () => {
+		const result = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		expect(result.total).toBe(0);
+		expect(result.logged).toBe(0);
+		expect(result.allComplete).toBe(false);
+		expect(result.granted).toBe(false);
+		expect(result.points).toBe(0);
+		expect(pointLedgerCount(1, MUST_COMPLETION_BONUS_TYPE)).toBe(0);
+	});
+
+	// UT-ACT-PRIORITY-BONUS-02: 部分達成 → granted=false / points=0
+	it('UT-ACT-PRIORITY-BONUS-02: 部分達成では付与せず allComplete=false を返す', async () => {
+		const must1 = await createMustActivity('はみがき');
+		// must2 を作成して total=2、logged=1 (must1 のみ記録) の状態を作る
+		await createMustActivity('おきがえ');
+		recordMust(1, must1.id);
+
+		const result = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		expect(result.total).toBe(2);
+		expect(result.logged).toBe(1);
+		expect(result.allComplete).toBe(false);
+		expect(result.granted).toBe(false);
+		expect(result.points).toBe(0);
+		expect(pointLedgerCount(1, MUST_COMPLETION_BONUS_TYPE)).toBe(0);
+	});
+
+	// UT-ACT-PRIORITY-BONUS-03: preschool 全達成 → +5pt 付与
+	it('UT-ACT-PRIORITY-BONUS-03: preschool 全達成で +5pt 付与（point_ledger に 1 行）', async () => {
+		const must1 = await createMustActivity('はみがき');
+		const must2 = await createMustActivity('おきがえ');
+		recordMust(1, must1.id);
+		recordMust(1, must2.id, 9);
+
+		const result = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		expect(result.allComplete).toBe(true);
+		expect(result.granted).toBe(true);
+		expect(result.points).toBe(5);
+		expect(pointLedgerCount(1, MUST_COMPLETION_BONUS_TYPE)).toBe(1);
+	});
+
+	// UT-ACT-PRIORITY-BONUS-04: junior 全達成 → +3pt 付与
+	it('UT-ACT-PRIORITY-BONUS-04: junior 全達成で +3pt 付与', async () => {
+		const must1 = await createMustActivity('歯磨き');
+		recordMust(1, must1.id);
+
+		const result = await tryGrantMustCompletionBonus(1, TODAY, 'junior', 'test-tenant');
+		expect(result.allComplete).toBe(true);
+		expect(result.granted).toBe(true);
+		expect(result.points).toBe(3);
+	});
+
+	// UT-ACT-PRIORITY-BONUS-05: 同日 2 回目は granted=false（冪等）
+	it('UT-ACT-PRIORITY-BONUS-05: 同日 2 回目の呼び出しは granted=false / 重複加算なし', async () => {
+		const must1 = await createMustActivity('はみがき');
+		recordMust(1, must1.id);
+
+		const first = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		expect(first.granted).toBe(true);
+		expect(first.points).toBe(5);
+
+		const second = await tryGrantMustCompletionBonus(1, TODAY, 'preschool', 'test-tenant');
+		expect(second.allComplete).toBe(true);
+		expect(second.granted).toBe(false);
+		expect(second.points).toBe(0);
+		// point_ledger は 1 行のみ（重複加算なし）
+		expect(pointLedgerCount(1, MUST_COMPLETION_BONUS_TYPE)).toBe(1);
+	});
+
+	// UT-ACT-PRIORITY-BONUS-06: baby は granted=false / 0pt（ボーナス対象外）
+	it('UT-ACT-PRIORITY-BONUS-06: baby は全達成でも granted=false / 0pt（ADR-0011）', async () => {
+		const must1 = await createMustActivity('はみがき');
+		recordMust(1, must1.id);
+
+		const result = await tryGrantMustCompletionBonus(1, TODAY, 'baby', 'test-tenant');
+		expect(result.allComplete).toBe(true);
+		expect(result.granted).toBe(false);
+		expect(result.points).toBe(0);
+		expect(pointLedgerCount(1, MUST_COMPLETION_BONUS_TYPE)).toBe(0);
 	});
 });
