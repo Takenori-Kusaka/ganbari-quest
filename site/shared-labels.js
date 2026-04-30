@@ -1165,25 +1165,47 @@
 	}
 
 	/**
-	 * data-lp-key 属性を持つ要素を LP_LABELS 辞書値で上書きする (#1344)
+	 * data-lp-key 属性を持つ要素を LP_LABELS 辞書値で上書きする (#1344, #1701 ADR-0025)
 	 *
 	 * data-lp-key の形式: "section.key" (例: "retention.sectionTitle")
 	 * SEO のため HTML 側にはフォールバックテキストを残してよい。
 	 * JS ロード後に labels.ts の値で確認・置換する。
+	 *
+	 * #1701: nested HTML (<strong>/<em>/<a> 等) を保持できるよう innerHTML + DOMPurify sanitize に切替。
+	 * DOMPurify は site/*.html の <head> に CDN 経由で注入される (ADR-0025)。
+	 * 不在時は textContent fallback + console.warn する。
 	 */
 	function applyLpKeys() {
 		var elements = document.querySelectorAll('[data-lp-key]');
+		var Purify = (typeof window !== 'undefined') && window.DOMPurify;
+		var SANITIZE_CONFIG = {
+			ALLOWED_TAGS: ['strong','em','a','br','span','sup','sub','small','b','i'],
+			ALLOWED_ATTR: ['href','target','rel','class','aria-hidden','aria-label'],
+			ALLOW_DATA_ATTR: false,
+			ALLOW_UNKNOWN_PROTOCOLS: false,
+			ADD_ATTR: ['target']
+		};
+		if (Purify && !Purify.__gqHookInstalled) {
+			Purify.addHook('afterSanitizeAttributes', function(node) {
+				if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+					node.setAttribute('rel', 'noopener noreferrer');
+				}
+			});
+			Purify.__gqHookInstalled = true;
+		}
 		elements.forEach(function(el) {
 			var key = el.getAttribute('data-lp-key');
 			var parts = key.split('.');
 			if (parts.length !== 2) return;
-			var section = parts[0];
-			var field = parts[1];
-			var sectionData = LP_LABELS[section];
+			var sectionData = LP_LABELS[parts[0]];
 			if (!sectionData) return;
-			var value = sectionData[field];
-			if (value !== undefined) {
+			var value = sectionData[parts[1]];
+			if (value === undefined) return;
+			if (Purify) {
+				el.innerHTML = Purify.sanitize(value, SANITIZE_CONFIG);
+			} else {
 				el.textContent = value;
+				console.warn('[applyLpKeys] DOMPurify unavailable, fell back to textContent for', key);
 			}
 		});
 	}
