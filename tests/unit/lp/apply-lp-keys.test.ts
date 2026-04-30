@@ -19,18 +19,73 @@ import DOMPurify from 'dompurify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * scripts/generate-lp-labels.mjs L377-420 の applyLpKeys テンプレートと同一実装。
+ * scripts/generate-lp-labels.mjs L399 以降の applyLpKeys テンプレートと同一実装。
  * テンプレートが変更された場合は本実装も同期更新すること（手動同期）。
  *
  * window.DOMPurify を読みに行く点も含めてテンプレートと完全に一致させる。
+ *
+ * #1717: legal docs (privacy/terms/sla/tokushoho) が h1/h2/p/ul/ol/li/div/table 等の
+ * 構造タグを必要とするため、ALLOWED_TAGS / ALLOWED_ATTR を構造タグ/属性まで拡張済み。
+ * <table> 内の <tr> 等は HTML パーサのコンテキスト制約で strip されるため、
+ * 親要素が table 系で値が <tr|<thead|<tbody> 始まりの場合は XHTML パーサに切替える
+ * (PARSER_MEDIA_TYPE='application/xhtml+xml')。XHTML は void 要素 (<br>) 未閉じで
+ * parse error になるので、事前に <br/> 形式へ正規化する。
  */
 function applyLpKeys(LP_LABELS: Record<string, Record<string, string>>): void {
 	const elements = document.querySelectorAll('[data-lp-key]');
 	// biome-ignore lint/suspicious/noExplicitAny: window.DOMPurify は CDN 経由で注入されるため型は any
 	const Purify = (typeof window !== 'undefined' && (window as any).DOMPurify) || null;
 	const SANITIZE_CONFIG = {
-		ALLOWED_TAGS: ['strong', 'em', 'a', 'br', 'span', 'sup', 'sub', 'small', 'b', 'i'],
-		ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'aria-hidden', 'aria-label'],
+		ALLOWED_TAGS: [
+			// インライン装飾
+			'strong',
+			'em',
+			'a',
+			'br',
+			'span',
+			'sup',
+			'sub',
+			'small',
+			'b',
+			'i',
+			// 構造（見出し・段落・リスト・コンテナ）
+			'h1',
+			'h2',
+			'h3',
+			'h4',
+			'p',
+			'ul',
+			'ol',
+			'li',
+			'div',
+			// テーブル
+			'table',
+			'tr',
+			'th',
+			'td',
+			'thead',
+			'tbody',
+			// セマンティック / 定義リスト / コード
+			'code',
+			'header',
+			'section',
+			'dl',
+			'dt',
+			'dd',
+			// 図版
+			'figure',
+			'figcaption',
+		],
+		ALLOWED_ATTR: [
+			'href',
+			'target',
+			'rel',
+			'class',
+			'aria-hidden',
+			'aria-label',
+			'id',
+			'data-contact-context',
+		],
 		ALLOW_DATA_ATTR: false,
 		ALLOW_UNKNOWN_PROTOCOLS: false,
 		ADD_ATTR: ['target'],
@@ -44,6 +99,17 @@ function applyLpKeys(LP_LABELS: Record<string, Record<string, string>>): void {
 		});
 		Purify.__gqHookInstalled = true;
 	}
+	const TABLE_ROW_PARENT_TAGS = ['TABLE', 'THEAD', 'TBODY', 'TR'];
+	function needsXhtmlParse(parentEl: Element, value: string): boolean {
+		if (TABLE_ROW_PARENT_TAGS.indexOf(parentEl.tagName) === -1) return false;
+		return /^\s*<(tr|thead|tbody|th|td)\b/i.test(value);
+	}
+	function normalizeVoidElements(html: string): string {
+		return html
+			.replace(/<br(\s[^>]*?)?>/gi, '<br$1/>')
+			.replace(/<hr(\s[^>]*?)?>/gi, '<hr$1/>')
+			.replace(/<img(\s[^>]*?)?>/gi, '<img$1/>');
+	}
 	elements.forEach((el) => {
 		const key = el.getAttribute('data-lp-key');
 		if (!key) return;
@@ -55,7 +121,12 @@ function applyLpKeys(LP_LABELS: Record<string, Record<string, string>>): void {
 		const value = sectionData[fieldKey];
 		if (value === undefined) return;
 		if (Purify) {
-			el.innerHTML = Purify.sanitize(value, SANITIZE_CONFIG);
+			const useXhtml = needsXhtmlParse(el, value);
+			const input = useXhtml ? normalizeVoidElements(value) : value;
+			const cfg = useXhtml
+				? { ...SANITIZE_CONFIG, PARSER_MEDIA_TYPE: 'application/xhtml+xml' }
+				: SANITIZE_CONFIG;
+			el.innerHTML = Purify.sanitize(input, cfg);
 		} else {
 			el.textContent = value;
 			console.warn('[applyLpKeys] DOMPurify unavailable, fell back to textContent for', key);
@@ -282,6 +353,100 @@ describe('applyLpKeys (#1701 ADR-0025)', () => {
 			applyLpKeys({ x: { plain: 'シンプルなテキスト' } });
 			const el = document.querySelector('[data-lp-key="x.plain"]') as HTMLElement;
 			expect(el.textContent).toBe('シンプルなテキスト');
+		});
+	});
+
+	describe('(5) #1717 legal docs 構造タグの保持', () => {
+		beforeEach(() => {
+			// biome-ignore lint/suspicious/noExplicitAny: window stub
+			(window as any).DOMPurify = DOMPurify;
+		});
+
+		it('<h1> / <h2> / <h3> / <p> が保持される (privacy/terms/sla の articleHeader / section)', () => {
+			document.body.innerHTML = '<header data-lp-key="x.h">fallback</header>';
+			applyLpKeys({
+				x: {
+					h: '<h1>プライバシーポリシー</h1><p class="meta">最終更新日: 2026年4月28日</p>',
+				},
+			});
+			const el = document.querySelector('[data-lp-key="x.h"]') as HTMLElement;
+			expect(el.querySelector('h1')?.textContent).toBe('プライバシーポリシー');
+			const meta = el.querySelector('p.meta');
+			expect(meta?.textContent).toBe('最終更新日: 2026年4月28日');
+		});
+
+		it('<ul> / <ol> / <li> リスト構造が保持される', () => {
+			document.body.innerHTML = '<section data-lp-key="x.l">fallback</section>';
+			applyLpKeys({
+				x: {
+					l: '<h2>第2条</h2><ol><li>項目1</li><li>項目2</li></ol><ul><li>注釈A</li></ul>',
+				},
+			});
+			const el = document.querySelector('[data-lp-key="x.l"]') as HTMLElement;
+			expect(el.querySelector('h2')?.textContent).toBe('第2条');
+			expect(el.querySelectorAll('ol li').length).toBe(2);
+			expect(el.querySelectorAll('ul li').length).toBe(1);
+		});
+
+		it('<table> 内の <tr> / <th> / <td> 構造が保持される (tokushoho.html 用)', () => {
+			document.body.innerHTML = '<table data-lp-key="x.t">fallback</table>';
+			applyLpKeys({
+				x: {
+					t: '<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>東京</td></tr>',
+				},
+			});
+			const el = document.querySelector('[data-lp-key="x.t"]') as HTMLElement;
+			expect(el.querySelectorAll('tr').length).toBe(2);
+			expect(el.querySelectorAll('th').length).toBe(2);
+			expect(el.querySelectorAll('td').length).toBe(2);
+			expect(el.querySelectorAll('th')[0]?.textContent).toBe('販売業者');
+		});
+
+		it('<table> 内に <br> を含む <tr><td> でも切り捨てなく保持される (XHTML void 正規化)', () => {
+			document.body.innerHTML = '<table data-lp-key="x.tb">fallback</table>';
+			applyLpKeys({
+				x: {
+					tb: '<tr><th>A</th><td>foo<br>bar</td></tr><tr><th>B</th><td>baz</td></tr><tr><th>C</th><td>qux</td></tr>',
+				},
+			});
+			const el = document.querySelector('[data-lp-key="x.tb"]') as HTMLElement;
+			expect(el.querySelectorAll('tr').length).toBe(3);
+		});
+
+		it('id 属性 (#under-age 等の anchor) が保持される', () => {
+			document.body.innerHTML = '<section data-lp-key="x.id">fallback</section>';
+			applyLpKeys({
+				x: { id: '<h2 id="under-age">第9条</h2><p>本文</p>' },
+			});
+			const el = document.querySelector('[data-lp-key="x.id"]') as HTMLElement;
+			const h2 = el.querySelector('h2#under-age');
+			expect(h2?.textContent).toBe('第9条');
+		});
+
+		it('data-contact-context 属性が保持される (mailto 文脈識別)', () => {
+			document.body.innerHTML = '<section data-lp-key="x.mc">fallback</section>';
+			applyLpKeys({
+				x: {
+					mc: '<a href="mailto:test@example.com" data-contact-context="プライバシー">問い合わせ</a>',
+				},
+			});
+			const el = document.querySelector('[data-lp-key="x.mc"]') as HTMLElement;
+			const a = el.querySelector('a');
+			expect(a?.getAttribute('data-contact-context')).toBe('プライバシー');
+		});
+
+		it('XSS 防御維持: 拡張後も <script> / <iframe> / <object> は strip される', () => {
+			document.body.innerHTML = '<section data-lp-key="x.xss">fallback</section>';
+			applyLpKeys({
+				x: {
+					xss: '<h2>Title</h2><script>alert(1)</script><iframe src="evil"></iframe><object data="evil"></object>',
+				},
+			});
+			const el = document.querySelector('[data-lp-key="x.xss"]') as HTMLElement;
+			expect(el.querySelector('script')).toBeNull();
+			expect(el.querySelector('iframe')).toBeNull();
+			expect(el.querySelector('object')).toBeNull();
+			expect(el.querySelector('h2')?.textContent).toBe('Title');
 		});
 	});
 });
