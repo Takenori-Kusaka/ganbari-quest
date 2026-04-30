@@ -37,6 +37,8 @@ const KNOWN_ENDPOINTS: Record<string, string> = {
 	'pmf-survey': '/api/cron/pmf-survey',
 	// #1693 (#1639 follow-up): analytics 事前集計バッチ (前日分 funnel + cancellation を集計)
 	'analytics-aggregator-daily': '/api/cron/analytics-aggregate',
+	// #1742: challenge (preset distribution) 事前集計バッチ (#1602 N+1 GetItem 移行)
+	'challenge-aggregator-daily': '/api/cron/challenge-aggregate',
 };
 
 interface CronEvent {

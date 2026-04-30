@@ -364,6 +364,147 @@ export async function queryAnalyticsEventTenantList(
 	}
 }
 
+// ─── #1742: Challenge aggregate (preset distribution) read / write helpers ──
+// PK=CHALLENGE_AGG#<YYYY-MM-DD>, SK=AGGREGATE
+//
+// 集計は cron (gq-challenge-aggregator-daily) が前日分の全テナント
+// questionnaire_challenges 設定値スナップショットを 1 日 1 レコードずつ書く。
+// /ops/analytics の `fetchChallengesPerTenant` (preset distribution) は
+// 直近の集計レコードを優先取得し、無ければ既存ライブ集計 (settings repo 経由 N+1)
+// で fallback する設計。
+
+/** Challenge aggregate retention: 365 日 (ANALYTICS_AGG と同方針) */
+export const CHALLENGE_AGG_TTL_DAYS = 365;
+
+/**
+ * Challenge aggregate snapshot (1 日分)
+ *
+ * `challengesPerTenant` は当日時点で全テナントの `questionnaire_challenges` 設定値を
+ * 並べた配列 (CSV 文字列、未設定は空文字)。read 側は `computePresetDistribution`
+ * にそのまま渡せばよい (ライブ集計と同じ shape)。
+ *
+ * Pre-PMF (~100 テナント, ADR-0010): tenantId 一覧の保持は不要 (preset 分布計算上
+ * 必要なのは値の配列のみ — 同一 tenantId が複数行になることはない)。
+ * Post-PMF で件数増加時は HyperLogLog 等の近似 sketch に切替検討 (follow-up)。
+ */
+export interface ChallengeDailyAggregate {
+	date: string;
+	/** 当日時点での全テナントの questionnaire_challenges 値 (CSV 文字列、未設定は空文字) */
+	challengesPerTenant: string[];
+	/** 集計時のテナント総数 (== challengesPerTenant.length。整合性検証用) */
+	totalTenants: number;
+}
+
+export interface ChallengeAggregateRecord {
+	PK: string;
+	SK: string;
+	date: string;
+	payload: ChallengeDailyAggregate;
+	writtenAt: string;
+	ttl: number;
+}
+
+/** Challenge aggregate SK value (固定) */
+export const CHALLENGE_AGG_SK_VALUE = 'AGGREGATE' as const;
+
+/**
+ * Challenge aggregate レコードを 1 件 PutItem する (#1742)。
+ *
+ * TTL 365 日。冪等 (同じ date なら上書き)。
+ * 書込み失敗は warn ログを出して swallow (cron 全体は continue)。
+ */
+export async function putChallengeAggregate(
+	date: string,
+	payload: ChallengeDailyAggregate,
+): Promise<{ ok: boolean; error?: string }> {
+	try {
+		const { PutCommand } = await import('@aws-sdk/lib-dynamodb');
+		const { getDocClient: getClient, TABLE_NAME: TableName } = await import(
+			'$lib/server/db/dynamodb/client'
+		);
+		const writtenAt = new Date().toISOString();
+		const ttl = Math.floor(Date.now() / 1000) + CHALLENGE_AGG_TTL_DAYS * 24 * 60 * 60;
+
+		const item: ChallengeAggregateRecord = {
+			PK: `CHALLENGE_AGG#${date}`,
+			SK: CHALLENGE_AGG_SK_VALUE,
+			date,
+			payload,
+			writtenAt,
+			ttl,
+		};
+
+		await getClient().send(new PutCommand({ TableName, Item: item }));
+		return { ok: true };
+	} catch (err) {
+		const message = err instanceof Error ? err.message : String(err);
+		logger.warn('[analytics] putChallengeAggregate failed', {
+			context: { date, error: message },
+		});
+		return { ok: false, error: message };
+	}
+}
+
+/**
+ * 期間内日付の中で **最新** の challenge aggregate レコードを取得する (#1742)。
+ *
+ * 通常は前日分 1 件だけが書かれているため、`since=今日 - 7 日` 程度で `untilDate=今日`
+ * を渡し、最も新しい日付の集計を取り出す。見つからない場合は null 返却 → ライブ計算に fallback。
+ *
+ * Pre-PMF 規模 (~365 件 max) のため Scan で十分 (analytics-aggregate と同方針)。
+ * 失敗時は null を返す (ライブ計算 fallback に委ねる)。
+ */
+export async function queryLatestChallengeAggregate(
+	sinceDate: string,
+	untilDate: string,
+): Promise<ChallengeDailyAggregate | null> {
+	try {
+		const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
+		const { getDocClient: getClient, TABLE_NAME: TableName } = await import(
+			'$lib/server/db/dynamodb/client'
+		);
+
+		const sincePK = `CHALLENGE_AGG#${sinceDate}`;
+		const untilPK = `CHALLENGE_AGG#${untilDate}`;
+
+		let latest: ChallengeAggregateRecord | null = null;
+		let exclusiveStartKey: Record<string, unknown> | undefined;
+		do {
+			const res = await getClient().send(
+				new ScanCommand({
+					TableName,
+					FilterExpression: 'PK BETWEEN :since AND :until AND SK = :sk',
+					ExpressionAttributeValues: {
+						':since': sincePK,
+						':until': untilPK,
+						':sk': CHALLENGE_AGG_SK_VALUE,
+					},
+					ExclusiveStartKey: exclusiveStartKey,
+				}),
+			);
+			for (const item of res.Items ?? []) {
+				const record = item as unknown as ChallengeAggregateRecord;
+				if (!record.payload) continue;
+				if (!latest || record.date > latest.date) {
+					latest = record;
+				}
+			}
+			exclusiveStartKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+		} while (exclusiveStartKey);
+
+		return latest?.payload ?? null;
+	} catch (err) {
+		logger.warn('[analytics] queryLatestChallengeAggregate failed', {
+			context: {
+				sinceDate,
+				untilDate,
+				error: err instanceof Error ? err.message : String(err),
+			},
+		});
+		return null;
+	}
+}
+
 /**
  * Aggregate レコードを 1 件 PutItem する (#1693)。
  *
