@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Divider from './Divider.svelte';
 
 const { Story } = defineMeta({
@@ -14,6 +15,6 @@ const { Story } = defineMeta({
 </script>
 
 <Story name="Simple" args={{ spacing: 'md' }} />
-<Story name="WithLabel" args={{ label: 'または', spacing: 'md' }} />
+<Story name="WithLabel" args={{ label: STORYBOOK_LABELS.divider.labelOr, spacing: 'md' }} />
 <Story name="SmallSpacing" args={{ spacing: 'sm' }} />
 <Story name="LargeSpacing" args={{ spacing: 'lg' }} />

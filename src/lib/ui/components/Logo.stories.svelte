@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Logo from './Logo.svelte';
 
 const { Story } = defineMeta({
@@ -37,15 +38,15 @@ const { Story } = defineMeta({
   <div class="flex items-center gap-6 flex-wrap">
     <div class="flex flex-col items-center gap-2">
       <Logo variant="symbol" />
-      <span class="text-xs text-gray-500">symbol</span>
+      <span class="text-xs text-gray-500">{STORYBOOK_LABELS.logo.captionSymbol}</span>
     </div>
     <div class="flex flex-col items-center gap-2">
       <Logo variant="compact" />
-      <span class="text-xs text-gray-500">compact</span>
+      <span class="text-xs text-gray-500">{STORYBOOK_LABELS.logo.captionCompact}</span>
     </div>
     <div class="flex flex-col items-center gap-2">
       <Logo variant="full" />
-      <span class="text-xs text-gray-500">full</span>
+      <span class="text-xs text-gray-500">{STORYBOOK_LABELS.logo.captionFull}</span>
     </div>
   </div>
 </Story>

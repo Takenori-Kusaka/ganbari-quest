@@ -480,6 +480,27 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 
 過去事例: #498, #573
 
+### Storybook ラベル言語ポリシー（#1738、#1465 follow-up）
+
+`src/lib/ui/**/*.stories.svelte` のラベル運用ルール。PR #1680 (SSOT 100% 完全化) Re-Review で観察された日英混在（Badge は英語化、LoadingButton は日本語維持）の一貫性問題への決定:
+
+| 要素 | 言語 | 理由 |
+|------|------|------|
+| Story 名（サイドバー: `Primary` / `Default` / `AllVariants` 等） | 英語 | Storybook の慣習（`autodocs` 自動グルーピング・URL slug） |
+| `argTypes` の制御メタ情報（`control: 'select'` 等） | 英語のまま | Storybook が解釈する設定値 |
+| **コンポーネント表示テキスト**（子要素・`message` プロパティ・トースト本文・ボタンラベル・カードコンテンツ・フォームの `label`/`placeholder`/`error` 等） | **日本語** | アプリ本体 UI が日本語であり、Storybook の用途（実際の見た目検証）上日本語で揃える方が UI 折り返し（ADR-0016）・タイポ検証で有用 |
+
+#### 強制ルール
+
+- 表示テキストは `STORYBOOK_LABELS` 定数（`src/lib/domain/labels.ts`）経由で参照すること
+- stories.svelte 内で表示テキストを文字列リテラル直書きしない（既存 Story の表示テキストを変更する場合は labels.ts に値を追加してから差し替え）
+- 内部 namespace (`STORYBOOK_LABELS.button.primary` 等) は他の `LABELS` namespace と完全独立。LP / アプリ側 SSOT (ADR-0009) と用語が偶然一致してもリレーションは持たない（Storybook 自体は本番ビルド非搭載）
+
+#### 例外
+
+- `Logo` のように variant 名がそのまま視覚的識別子として意味を持つ場合（`symbol` / `compact` / `full` のキャプション等）は、ブランドコンポーネントの ID と一致させるため英語維持を許容（`STORYBOOK_LABELS.logo.captionXxx` で集約）
+- `ProgressFill` / `Skeleton` 等、表示テキストを持たない純粋な視覚プリミティブのみで構成される stories は対象外
+
 ---
 
 ## 7. 画像アセット方針
