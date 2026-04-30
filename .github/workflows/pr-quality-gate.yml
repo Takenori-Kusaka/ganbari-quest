@@ -14,7 +14,7 @@ jobs:
     # Draft PRは作業中なのでスキップ
     if: github.event.pull_request.draft == false
     steps:
-      - name: Check PR body for screenshots (legacy: 画像有無)
+      - name: "Check PR body for screenshots (legacy: 画像有無)"
         uses: actions/github-script@v9
         with:
           script: |
