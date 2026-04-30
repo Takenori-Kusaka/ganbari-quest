@@ -23,7 +23,7 @@ const OUTPUT_DIR = path.resolve('site/screenshots');
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 // Parse CLI args
-const VALID_GROUPS = new Set(['carousel', 'feature', 'age']);
+const VALID_GROUPS = new Set(['carousel', 'feature', 'age', 'growth']);
 const args = process.argv.slice(2);
 const doWebp = args.includes('--webp');
 const onlyIdx = args.indexOf('--only');
@@ -33,7 +33,7 @@ if (onlyIdx >= 0) {
 	if (!nextArg || !VALID_GROUPS.has(nextArg)) {
 		console.error(`Error: --only requires a valid group name: ${[...VALID_GROUPS].join(', ')}`);
 		console.error(
-			'Usage: node scripts/capture-hp-screenshots.mjs [--webp] [--only carousel|feature|age]',
+			'Usage: node scripts/capture-hp-screenshots.mjs [--webp] [--only carousel|feature|age|growth]',
 		);
 		process.exit(1);
 	}
@@ -122,6 +122,85 @@ const FEATURE_SCREENSHOTS = [
 		description: 'Features: 成長記録・管理画面',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
+	// #1707 R2: machine-tour ③ ルーティンチェックリスト（朝夜の習慣化）
+	{
+		name: 'feature-routine-checklist',
+		url: '/demo/checklist?childId=904',
+		description: 'Features: ルーティンチェックリスト (子供画面)',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+		scrollTo: '[data-testid="checklist-group-item"]',
+	},
+	// #1707 R2: machine-tour ④ RPG バトル（冒険のクライマックス）
+	{
+		name: 'feature-rpg-battle',
+		url: '/demo/lower/battle',
+		description: 'Features: RPG バトル画面（累積した努力でボスに挑戦）',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+	// #1707 R2: soft-features 月次レポート（成長の記録）
+	{
+		name: 'feature-monthly-report',
+		url: '/demo/admin/status',
+		description: 'Features: 月次レポート（活動・ポイント推移）',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+	// #1707 R2: soft-features 自動スリープ（時間管理・使いすぎ防止）
+	{
+		name: 'feature-auto-sleep',
+		url: '/demo/admin',
+		description: 'Features: 時間管理（自動スリープ設定）',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+	// #1707 R2: soft-features おうえんメッセージ
+	{
+		name: 'feature-cheer-message',
+		url: '/demo/lower/home',
+		description: 'Features: おうえんメッセージ受信',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+	// #1707 R2: soft-features 設定の自由度
+	{
+		name: 'feature-settings',
+		url: '/demo/admin/activities',
+		description: 'Features: 親管理の設定一覧',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+];
+
+// #1707 R2 / #1712 R5: 成長 stage サムネ 5 枚（5 stage 各々のホーム画面）
+// 撮影元 URL は /demo/<legacyMode>/home（legacyMode は LEGACY_UI_MODE_MAP で正規化される）。
+// graduate stage は卒業マイルストーン画面（実装上は achievements に集約されているため代替）。
+const GROWTH_STAGE_SCREENSHOTS = [
+	{
+		name: 'growth-stage-preschool',
+		url: '/demo/kinder/home',
+		description: 'Growth Stage: 幼児（preschool）— 大きな絵文字ボタンと達成スタンプ',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+	{
+		name: 'growth-stage-elementary',
+		url: '/demo/lower/home',
+		description: 'Growth Stage: 小学生（elementary）— 称号コレクションとデイリーミッション',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+	{
+		name: 'growth-stage-junior',
+		url: '/demo/upper/home',
+		description: 'Growth Stage: 中学生（junior）— 月次レポートと自己ペース可視化',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+	{
+		name: 'growth-stage-senior',
+		url: '/demo/teen/home',
+		description: 'Growth Stage: 高校生（senior）— 15 年分のログと進路素材',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
+	{
+		name: 'growth-stage-graduate',
+		url: '/demo/lower/achievements',
+		description: 'Growth Stage: 卒業（graduate）— 履歴エクスポートと家族の手元に残す記録',
+		viewports: { mobile: MOBILE, desktop: DESKTOP },
+	},
 ];
 
 const AGE_SCREENSHOTS = [
@@ -161,6 +240,7 @@ const ALL_SCREENSHOTS = [];
 if (!onlyGroup || onlyGroup === 'carousel') ALL_SCREENSHOTS.push(...CAROUSEL_SCREENSHOTS);
 if (!onlyGroup || onlyGroup === 'feature') ALL_SCREENSHOTS.push(...FEATURE_SCREENSHOTS);
 if (!onlyGroup || onlyGroup === 'age') ALL_SCREENSHOTS.push(...AGE_SCREENSHOTS);
+if (!onlyGroup || onlyGroup === 'growth') ALL_SCREENSHOTS.push(...GROWTH_STAGE_SCREENSHOTS);
 
 // ============================================================
 // Main capture function
