@@ -22,6 +22,30 @@
 	--radius-lg: 24px;
 	--radius-full: 9999px;
 
+	/* ---- Z-Index Hierarchy (#1722) ----
+	   階層的に「上に重ねるほど侵襲的な UI」とする。
+	   docs/DESIGN.md §10 z-index 階層 を SSOT として参照すること。
+	   - base (0)        : 通常 flow
+	   - sticky (10)     : 固定 header / sticky 要素
+	   - dropdown (20)   : メニュー・popover (画面の一部)
+	   - banner (30)     : Banner / FAB (情報通知レベル、Modal 配下に隠れる)
+	   - overlay (40)    : Dialog Backdrop (Ark UI primitive)
+	   - modal (50)      : Dialog Content (Ark UI primitive)
+	   - reward (90)     : Monthly Reward / Birthday Bonus 等の祝福 modal
+	   - tutorial (100)  : Tutorial / Page guide overlay (子供操作ガイド)
+	   - celebration (200): Sibling Celebration 等の最上位演出
+	   - debug (9999)    : Debug indicator (本番ビルドでは表示されない) */
+	--z-base: 0;
+	--z-sticky: 10;
+	--z-dropdown: 20;
+	--z-banner: 30;
+	--z-overlay: 40;
+	--z-modal: 50;
+	--z-reward: 90;
+	--z-tutorial: 100;
+	--z-celebration: 200;
+	--z-debug: 9999;
+
 	/* ---- Font Size (Major Third scale — see docs/design/22) ---- */
 	--font-size-hero: 3rem;
 	--font-size-2xl: 2rem;

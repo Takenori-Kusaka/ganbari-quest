@@ -563,7 +563,53 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 
 ---
 
-## 10. AI エージェント向け指示
+## 10. z-index 階層（#1722）
+
+オーバーレイ系 UI（Modal / Dialog / Banner / Tutorial / Celebration）の重畳順を一元管理するため、`app.css` に `--z-*` トークンを定義し、各コンポーネントから参照する。生数値（`z-index: 90` 等）の直書きは禁止。
+
+### 階層トークン
+
+| トークン | 値 | 階層 | 用途 / 代表例 |
+|---------|---|------|---------------|
+| `--z-base` | `0` | base | 通常 flow（指定なし相当） |
+| `--z-sticky` | `10` | sticky | 固定 header / sticky 要素 / 通常 stacking 内の前面要素 |
+| `--z-dropdown` | `20` | dropdown | menu / popover（画面の一部を覆う非モーダル） |
+| `--z-banner` | `30` | banner | FAB / inline banner（情報通知レベル、Modal 配下に隠れる）。`MilestoneBanner` は flow なので原則 z-index 不要だが、絶対配置にする派生では `--z-banner` を使う |
+| `--z-overlay` | `40` | overlay | Dialog Backdrop（Ark UI primitive） |
+| `--z-modal` | `50` | modal | Dialog Content（Ark UI primitive）／`AdminLayout` sidebar |
+| `--z-reward` | `90` | reward | 月替わりプレゼント / 誕生日ボーナス等の祝福 modal（`MonthlyRewardDialog`） |
+| `--z-tutorial` | `100` | tutorial | `TutorialOverlay` / `PageGuideOverlay` / `SiblingCheerOverlay` 等の操作ガイド系 |
+| `--z-celebration` | `200` | celebration | `SiblingCelebration` 等の最上位演出 |
+| `--z-debug` | `9999` | debug | `DebugPlanIndicator` / `NavigationProgress`（dev / 内部用、本番ビルドでは表示されない） |
+
+### 重畳ルール
+
+- **同時表示時の優先順位**: celebration > tutorial > reward > modal > overlay > banner > dropdown > sticky > base
+- **MilestoneBanner と MonthlyRewardDialog のシーケンス（#1722 AC2）**:
+  - 月初に reward modal（`--z-reward = 90`）が前面表示される
+  - 半透明 backdrop（`--color-surface-overlay`）により背面の `MilestoneBanner` は意図的に視認不可
+  - ユーザが reward を受け取って閉じると `showOpening = false` となり modal が即座に消える
+  - 背面に常時 mount されている `MilestoneBanner` がそのまま視認可能になる（追加の遷移 / 再 mount は不要）
+- **Anti-engagement 適合（ADR-0012）**: 重畳を増やすことで滞在時間を延伸しない。reward / tutorial / celebration は常時 1 件のみ表示され、連続演出を行わない
+
+### 禁忌
+
+| 禁止事項 | 理由 |
+|---------|------|
+| `z-index: 50;` 等の生数値直書き（`--z-*` 未使用） | 階層が散在し相互整合が壊れる。新規コンポーネントは必ずトークンから選ぶ |
+| 9999 を新規追加 | debug 専用枠。本番 UI で 9999 を使う前に階層トークンの追加可否を ADR で議論する |
+| reward と tutorial を同時表示 | 子供画面で侵襲的演出が重なる。どちらかを優先的に表示し他方を遅延させる |
+
+### 実体
+
+- トークン定義: `src/lib/ui/styles/app.css`（`@theme` ブロック）
+- 既存利用箇所（参考）:
+  - reward (`--z-reward`): `src/lib/ui/components/MonthlyRewardDialog.svelte`
+  - banner: `src/lib/features/value-preview/MilestoneBanner.svelte`（flow 配置のため z-index 未使用）
+
+---
+
+## 11. AI エージェント向け指示
 
 1. **新規画面作成時はこのファイルを最初に読む**
 2. 色を使う場合は §2 のセマンティックトークンから選ぶ
@@ -572,17 +618,19 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 5. 画像が必要かは §7 の判断基準に従う
 6. 年齢モードの差異は §8 を参照
 7. §9 の禁忌事項に違反しない
-8. **LP / pricing ページ文言を書く前に ADR-0013 の committed/aspirational 区別を確認する**（`docs/design/19-プライシング戦略書.md` 附則参照）。Aspirational は LP に記載しない
+8. **オーバーレイ / モーダル / バナーの z-index は §10 のトークンから選ぶ**（生数値直書き禁止）
+9. **LP / pricing ページ文言を書く前に ADR-0013 の committed/aspirational 区別を確認する**（`docs/design/19-プライシング戦略書.md` 附則参照）。Aspirational は LP に記載しない
 
 ---
 
-## 11. 更新ルール
+## 12. 更新ルール
 
 | 変更 | 更新すべきセクション | 方法 |
 |------|-------------------|------|
 | `app.css` の `@theme` に CSS 変数追加 | §2 カラートークン | `node scripts/generate-design-md-sections.mjs` |
 | `primitives/` にコンポーネント追加 | §5 プリミティブ | 同上 |
 | `labels.ts` に export 追加 | §6 用語辞書 | 同上 |
+| z-index トークン追加・新オーバーレイ階層追加 | §10 z-index 階層 | 手動（ADR で階層変更を議論したうえで） |
 | ブランド方針変更 | §1 | 手動 |
 | 禁忌事項追加 | §9 | 手動 |
 
