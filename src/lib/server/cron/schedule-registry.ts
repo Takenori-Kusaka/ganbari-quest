@@ -85,4 +85,16 @@ export const scheduleRegistry: CronJob[] = [
 		utcCronExpression: 'cron(0 18 * * ? *)', // 毎日 18:00 UTC = 翌日 03:00 JST
 		description: 'analytics 事前集計バッチ (#1693, #1639 follow-up — Pre-PMF 移行用)',
 	},
+	{
+		// #1742: ops/analytics の DynamoDB プリセット分布画面で fetchChallengesPerTenant の
+		// N+1 GetItem を集計テーブル方式 (`PK=CHALLENGE_AGG#<date>`, TTL 365 日) へ移行。
+		// read 側 (ops-analytics-service.fetchChallengesPerTenant) は集計を優先取得し、
+		// 無い場合のみライブ集計 (settings repo 経由 N+1) で fallback する設計。
+		// analytics-aggregator-daily (03:00 JST) と被らないよう 03:30 JST に固定。
+		name: 'challenge-aggregator-daily',
+		endpoint: '/api/cron/challenge-aggregate',
+		cronExpression: '30 3 * * *', // 毎日 03:30 JST
+		utcCronExpression: 'cron(30 18 * * ? *)', // 毎日 18:30 UTC = 翌日 03:30 JST
+		description: 'challenge (preset distribution) 事前集計バッチ (#1742, #1602 N+1 移行)',
+	},
 ];

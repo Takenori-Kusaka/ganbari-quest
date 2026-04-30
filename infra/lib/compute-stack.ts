@@ -26,6 +26,8 @@ const CRON_JOBS = [
 	{ name: 'pmf-survey', utcCronExpression: 'cron(0 0 1 6,12 ? *)' },
 	// #1693 (#1639 follow-up): analytics 事前集計バッチ (前日分 funnel + cancellation を集計)
 	{ name: 'analytics-aggregator-daily', utcCronExpression: 'cron(0 18 * * ? *)' },
+	// #1742: challenge (preset distribution) 事前集計バッチ (#1602 N+1 GetItem 移行)
+	{ name: 'challenge-aggregator-daily', utcCronExpression: 'cron(30 18 * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {

@@ -128,6 +128,7 @@
 | `ganbari-quest-cron-lifecycle-emails` (#1601) | `cron(30 0 * * ? *)` | 09:30 | lifecycle-emails (期限切れ前リマインド + 休眠復帰メール) |
 | `ganbari-quest-cron-pmf-survey` (#1598) | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | pmf-survey (Sean Ellis Test 配信) |
 | `ganbari-quest-cron-analytics-aggregator-daily` (#1693) | `cron(0 18 * * ? *)` | 03:00 | analytics-aggregator-daily (前日分 funnel + cancellation 事前集計) |
+| `ganbari-quest-cron-challenge-aggregator-daily` (#1742) | `cron(30 18 * * ? *)` | 03:30 | challenge-aggregator-daily (当日分の全テナント `questionnaire_challenges` スナップショット集計、`/ops/analytics` プリセット分布画面の N+1 移行用) |
 
 - スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
 - ターゲット: `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`)
@@ -407,12 +408,27 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 集計項目 | 集計元 | 取得方法 | 計算量 |
 |---------|--------|---------|--------|
 | LTV / 月次獲得 / コホート / プラン別 MRR | tenant 一覧 | `auth.listAllTenants()`（全 tenant scan） | O(N tenants) |
-| **setup チャレンジ選択分布**（#1602） | 全テナントの `T#<tenantId>#SETTING` パーティション | `settings.getSetting('questionnaire_challenges', tenantId)` を tenant ごと | O(N tenants), 各 1 GetItem |
+| **setup チャレンジ選択分布**（#1602 / #1742） | 集計レコード優先 → 不足時ライブ計算 | 二段構造 (下記) | 通常 O(1)、cron 未稼働時のみ O(N tenants) |
 
-**Pre-PMF YAGNI 判断**:
-- テナント数 ≦ 数百を想定 → tenant ごと N+1 GetItem で許容
-- テナント数 1,000+ で settings の事前集計テーブル / DynamoDB Streams 集計に移行を検討
-- 現時点では cron バッチ非採用（ライブ集計のみ）。ops 開く都度クエリだが、ops アクセス頻度は週数回未満なので DynamoDB RCU への影響は無視できる
+**setup チャレンジ選択分布の事前集計レコード（`PK=CHALLENGE_AGG#<YYYY-MM-DD>`, #1742 で導入）**:
+
+cron `gq-challenge-aggregator-daily` (毎日 03:30 JST = 18:30 UTC、analytics-aggregator-daily と被らないよう 30 分ずらし) で当日時点の全テナント `questionnaire_challenges` 設定値を CSV 配列に集約し、DynamoDB に書き込む。
+
+| 集計種別 | PK | SK | 内容 | TTL |
+|---------|----|----|------|-----|
+| Preset Distribution | `CHALLENGE_AGG#<YYYY-MM-DD>` | `AGGREGATE` | `payload.challengesPerTenant`: 全テナントの `questionnaire_challenges` CSV 配列。`payload.totalTenants`: 集計時のテナント総数 | 365 日 |
+
+**Read 側のフォールバック構造（`ops-analytics-service.fetchChallengesPerTenant`）:**
+1. 直近 7 日分の集計レコードを Scan (`PK BETWEEN CHALLENGE_AGG#<7日前> AND CHALLENGE_AGG#<今日> AND SK=AGGREGATE`) し、最新の `payload.challengesPerTenant` を採用
+2. 集計レコードが見つからない (cron 未稼働 / 障害 / 7 日以上停止) 場合のみ、テナントごと `settings.getSetting('questionnaire_challenges', tenantId)` を呼ぶ N+1 ライブ集計で fallback
+3. `getAnalyticsData` の interface (`presetDistribution`) は不変。呼出側 (`+page.server.ts`) は変更不要
+
+**Pre-PMF (ADR-0010) スコープ**:
+- テナント数 ≦ 数百を想定 → cron 未稼働段階でも N+1 fallback で動作する設計
+- テナント数 1,000+ で N+1 GetItem の表示遅延が顕在化する想定。cron が走り始めれば自然移行
+- DynamoDB TTL 属性 (`ttl`) 365 日で自動失効
+- HyperLogLog 等の近似 sketch は post-PMF (~10,000+ tenants) で再検討
+- 関連: PR #1696 (analytics 事前集計 cron) と同パターン
 
 ---
 
@@ -491,3 +507,4 @@ Dockerfile.lambda        # Lambda Web Adapter用
 | 2026-04-27 | #1591 §7.2 アナリティクス基盤を新設。DynamoDB 一本化 (umami / Sentry 削除)、CSP 単純化、Lambda env (ANALYTICS_ENABLED / ANALYTICS_TABLE_NAME) のハードコード注入を追記 |
 | 2026-04-29 | #1639 §7.2 可視化セクションを Coming soon から実装済みに更新。4 種可視化（activation funnel / retention cohort / Sean Ellis / 解約理由）の実装方式・データ源・部分縮退方式を追記 |
 | 2026-04-29 | #1693 §3.3 EventBridge Rules に `pmf-survey` / `analytics-aggregator-daily` を追記。§7.2 に事前集計レコード `PK=ANALYTICS_AGG#<date>` のキー設計 + read 側フォールバック構造（集計優先 → ライブ計算 fallback）を追記。DynamoDB TTL `ttl` 属性を有効化し集計レコードは 365 日保持 |
+| 2026-04-30 | #1742 §3.3 EventBridge Rules に `challenge-aggregator-daily` を追記 (cron(30 18 * * ? *) UTC = 03:30 JST)。§6.x 「運営内部分析」節の setup チャレンジ選択分布表を、ライブ集計（cron バッチ非採用）から事前集計レコード `PK=CHALLENGE_AGG#<date>` 優先 → ライブ集計 fallback の二段構造に更新。`ops-analytics-service.fetchChallengesPerTenant` を `queryLatestChallengeAggregate` 呼出 → 既存 N+1 fallback 構造に改修 (#1602 follow-up)。analytics-aggregate と同じ TTL 365 日方針 |

@@ -537,6 +537,39 @@ export function analyticsAggregateKey(date: string, kind: string): DynamoKey {
 	};
 }
 
+/**
+ * Challenge aggregate (#1742 — fetchChallengesPerTenant N+1 移行):
+ *   PK = CHALLENGE_AGG#<YYYY-MM-DD>
+ *   SK = AGGREGATE
+ *
+ * 用途: cron (gq-challenge-aggregator-daily) が前日分の全テナント
+ * `questionnaire_challenges` 設定値を集計し 1 日 1 レコードとして書き込む。
+ * `/ops/analytics` プリセット選択分布画面の `getAnalyticsData` 内
+ * `fetchChallengesPerTenant` から、集計レコードを優先取得し、無い場合のみ
+ * ライブ集計 (settings repo を tenant ごと N+1 で叩く既存実装) で fallback する。
+ *
+ * Pre-PMF / ADR-0010: GSI 不要 (date 範囲は PK の文字列範囲スキャンで取得可能)。
+ * 1 日 1 レコード × 365 日 ≒ 数百件で済むため scan 負荷は無視できる。
+ *
+ * TTL: 365 日 (時系列 trend 確認のため。ANALYTICS_AGG と同方針)。
+ *
+ * 関連: PR #1696 (analytics 事前集計 cron) と同じパターン。
+ */
+export const CHALLENGE_AGG_PK_PREFIX = 'CHALLENGE_AGG#';
+
+/** Challenge aggregate SK 値 (固定。kind 派生は不要 — 1 日 1 レコード) */
+export const CHALLENGE_AGG_SK = 'AGGREGATE' as const;
+
+/** Challenge aggregate retention: 365 日 */
+export const CHALLENGE_AGG_TTL_DAYS = 365;
+
+export function challengeAggregateKey(date: string): DynamoKey {
+	return {
+		PK: `${CHALLENGE_AGG_PK_PREFIX}${date}`,
+		SK: CHALLENGE_AGG_SK,
+	};
+}
+
 // ============================================================
 // Push subscription / notification log (#1689 / ADR-0023 I6)
 // ============================================================
