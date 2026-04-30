@@ -91,9 +91,10 @@ describe('#1164 LP terminology separation', () => {
 		for (const term of FORBIDDEN_TERMS) {
 			it(`pamphlet.html に廃止語「${term}」が出現しない`, () => {
 				const html = loadHtml('site/pamphlet.html');
-				expect(html.includes(term), `"${term}" は廃止語彙のため pamphlet に出現してはならない`).toBe(
-					false,
-				);
+				expect(
+					html.includes(term),
+					`"${term}" は廃止語彙のため pamphlet に出現してはならない`,
+				).toBe(false);
 			});
 		}
 	});
