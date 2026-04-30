@@ -112,7 +112,7 @@ const barColor = $derived(allComplete ? 'var(--color-success)' : 'var(--theme-pr
 		margin-left: 2px;
 	}
 
-	/* Anti-engagement (ADR-0012): pulse 1 回 / 1.5s 以内に完全消失 */
+	/* Anti-engagement (ADR-0012): pulse runs once and fully decays within 1.5s */
 	.must-bar--pulse {
 		animation: must-bar-pulse 1.2s ease-out 1;
 	}
