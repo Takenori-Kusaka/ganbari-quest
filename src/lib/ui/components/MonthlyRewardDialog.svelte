@@ -66,14 +66,19 @@ function handleOpen() {
 {/if}
 
 <style>
+	/* z-index: var(--z-reward) — see DESIGN.md section 10 z-index hierarchy (#1722).
+	   Reward modal sits above MilestoneBanner (banner layer = 30) so that the
+	   banner behind the half-transparent backdrop is intentionally hidden, and
+	   becomes visible again when the modal is dismissed. Tutorial / sibling
+	   celebration layers (100 / 200) take precedence when shown simultaneously. */
 	.reward-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 90;
+		z-index: var(--z-reward);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: rgba(0, 0, 0, 0.5);
+		background: var(--color-surface-overlay);
 		animation: fadeIn 0.3s ease;
 		padding: 1rem;
 	}
