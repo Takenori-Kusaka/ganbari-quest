@@ -26,7 +26,6 @@ const activityLimit = $derived(
 
 let filterCategoryId = $state(0);
 let searchQuery = $state('');
-let editingId = $state<number | null>(null);
 let actionMessage = $state('');
 let showClearConfirm = $state(false);
 let clearLoading = $state(false);
@@ -148,13 +147,8 @@ function acceptAiPreview(preview: AiPreviewData) {
 		{#each filteredActivities as activity (activity.id)}
 			<ActivityListItem
 				{activity}
-				categoryDefs={data.categoryDefs}
-				logCount={data.logCounts[activity.id] ?? 0}
-				isEditing={editingId === activity.id}
 				mainQuestCount={data.mainQuestCount ?? 0}
 				mainQuestMax={data.mainQuestMax ?? 3}
-				onedit={() => { editingId = activity.id; }}
-				oncanceledit={() => { editingId = null; }}
 			/>
 		{:else}
 			<ActivityEmptyState

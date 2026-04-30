@@ -393,6 +393,22 @@ export function getActivityPriorityLabel(priority: string): string {
 	);
 }
 
+// 活動編集画面 (admin/activities/[id]/edit) での must トグル関連 UI 文言
+export const ACTIVITY_PRIORITY_FORM_LABELS = {
+	toggleSectionTitle: '今日のおやくそく',
+	toggleLabel: '「今日のおやくそく」にする',
+	toggleHint:
+		'ON にすると、子供画面で「今日のおやくそく」セクションに表示され、毎日全達成でボーナスポイントが加算されます。',
+	mustBadge: '今日のおやくそく',
+	optionalBadge: 'ふつう',
+	editPageTitle: '活動を編集',
+	editBackButton: '一覧へもどる',
+	editSaveButton: '保存',
+	editSavedMessage: '保存しました',
+	editLoadFailed: '活動の読み込みに失敗しました',
+	editNotFound: '活動が見つかりません',
+} as const;
+
 // ============================================================
 // UI アクション共通ラベル（一括置換容易化のための SSOT）
 // ============================================================

@@ -23,6 +23,8 @@ export interface ActivityItem {
 	triggerHint: string | null;
 	isMainQuest: number;
 	createdAt: string;
+	// #1756 (#1709-B): 「今日のおやくそく」優先度（既定 'optional'）
+	priority?: 'must' | 'optional';
 }
 
 export interface ActivityPackInfo {

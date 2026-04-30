@@ -158,6 +158,8 @@ export const actions: Actions = {
 
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 	edit: async ({ request, locals }) => {
+		// #1756 (#1709-B): 編集 UI は /admin/activities/[id]/edit に分離済み。
+		//   本 action は API 互換性のため残し、priority も受理する。
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const id = Number(formData.get('id'));
@@ -172,6 +174,9 @@ export const actions: Actions = {
 		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
+		// #1756 (#1709-B): must トグル — checkbox の value="must"。未指定は 'optional'
+		const priorityRaw = formData.get('priority');
+		const priority: 'must' | 'optional' = priorityRaw === 'must' ? 'must' : 'optional';
 
 		if (!id) return fail(400, { error: 'IDが必要です' });
 		if (!name) return fail(400, { error: '名前を入力してください' });
@@ -193,6 +198,7 @@ export const actions: Actions = {
 					nameKana,
 					nameKanji,
 					triggerHint,
+					priority,
 				},
 				tenantId,
 			);
@@ -201,7 +207,7 @@ export const actions: Actions = {
 			logger.error('[admin/activities] 活動編集失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				stack: e instanceof Error ? e.stack : undefined,
-				context: { id, name },
+				context: { id, name, priority },
 			});
 			return fail(500, { error: '更新に失敗しました' });
 		}
