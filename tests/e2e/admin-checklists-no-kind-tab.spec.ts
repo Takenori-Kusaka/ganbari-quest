@@ -34,10 +34,7 @@ test.describe('#1756 (#1709-B) admin/checklists kind タブ削除', () => {
 		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
 		// 「持ち物チェックリスト」「持ち物」「テンプレート」のいずれかの文言が表示される
 		// （テストデータに依存しない strict な確認）
-		const hasItemContext = await page
-			.getByText(/持ち物|テンプレート/)
-			.first()
-			.isVisible();
-		expect(hasItemContext).toBe(true);
+		// #1768: isVisible() は同期評価で flake の原因。web-first assertion を使う
+		await expect(page.getByText(/持ち物|テンプレート/).first()).toBeVisible();
 	});
 });
