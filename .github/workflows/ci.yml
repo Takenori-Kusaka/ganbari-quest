@@ -135,7 +135,11 @@ jobs:
       - name: Biome lint (#1432 — warning=error)
         run: npx biome check --error-on-warnings .
 
-      - name: Parallel implementation sync check (#565)
+      - name: Parallel implementation sync check (#565 / #1739 SSOT key-set diff)
+        # #1739: scripts/check-ssot-parallel-impl.mjs が labels.ts ⇄ shared-labels.js の
+        # key-set 比較で silent drift (parser 未対応 namespace) を検出する。
+        # generate-lp-labels.mjs --check は full text 比較のため、両者を並べて
+        # 「parser バグ」と「反映漏れ」の両面を捕捉する。
         run: npm run lint:parallel
 
       - name: No plan/status literal direct write check (#972)
