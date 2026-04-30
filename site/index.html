@@ -127,7 +127,8 @@
 .age-tab:focus-visible{outline:3px solid var(--brand-700);outline-offset:2px}
 .age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:32px 28px}
 .age-panel.active{display:grid}
-.age-panel-shot{border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);max-width:280px;margin:0 auto;aspect-ratio:390/844}
+/* #1724 R8: 内側 .age-panel-shot の border を撤去（外側 .age-panel border に集約）。スクショ自体が主役になるよう装飾を最小化 */
+.age-panel-shot{border-radius:12px;overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:390/844}
 .age-panel-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
 .age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-700);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
@@ -213,14 +214,16 @@
 
 /* Machine tour (5-act, #1618 R14: PC 整然配置 + 画像有無の高さ揃え) */
 .machine-tour{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:1280px;margin:0 auto}
-.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;display:flex;flex-direction:column;min-height:380px}
+/* #1724 R8: 装飾枠 1 段階に圧縮 — tour-card 外枠 border のみで内側 .tour-shot の border を撤去 */
+.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:16px 14px;display:flex;flex-direction:column;min-height:380px}
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
 .tour-card .tour-emoji{font-size:2rem;margin-bottom:8px;line-height:1}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
 /* #1284: tour-shot も同様に全画面表示へ修正。称号画面などの主要要素が見えるように */
 /* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
-.tour-card .tour-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:360px;margin-top:auto;background:var(--gray-50)}
+/* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
+.tour-card .tour-shot{border-radius:8px;overflow:hidden;aspect-ratio:390/844;max-height:360px;margin-top:auto;background:var(--gray-50)}
 .tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 /* 画像なし tour-card の plate (#1618 R14): 画像 tour-shot 同等の余白で高さを揃える */
 .tour-card .tour-shot-placeholder{margin-top:auto;min-height:160px;display:flex;align-items:center;justify-content:center;color:var(--gray-300);font-size:2.5rem;background:var(--gray-50);border-radius:8px;border:1px dashed var(--gray-200)}
@@ -986,8 +989,9 @@
   var label=document.querySelector('.carousel-label');
   var splide=new Splide('#hero-carousel',{
     // R23: autoplay は完全停止（手動送りのみ）+ prefers-reduced-motion でも安全
+    // #1715 R12: arrows:false で Hero 視線阻害解消。pagination ドット + swipe + キーボード操作で代替
     type:'fade',rewind:true,autoplay:false,
-    arrows:true,pagination:true,speed:600,keyboard:true
+    arrows:false,pagination:true,speed:600,keyboard:true
   });
   splide.on('mounted move',function(){
     var slide=splide.Components.Slides.getAt(splide.index);
