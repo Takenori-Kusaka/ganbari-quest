@@ -266,9 +266,118 @@ describe('importActivities', () => {
 				ageMax: 10,
 				triggerHint: 'おかたづけの後',
 				sourcePresetId: null,
+				// #1758: applyMustDefault 未指定 / mustDefault 未指定 -> 'optional'
+				priority: 'optional',
 			},
 			TENANT,
 		);
+	});
+
+	// ==========================================================
+	// #1758 (#1709-D): mustDefault + applyMustDefault による priority 制御
+	// ==========================================================
+
+	describe('#1758 mustDefault / applyMustDefault による priority 設定', () => {
+		it('applyMustDefault=true かつ mustDefault=true -> priority=must で挿入', async () => {
+			const items = [
+				makeItem({
+					name: 'はみがきした',
+					categoryCode: 'seikatsu',
+					mustDefault: true,
+				}),
+			];
+
+			await importActivities(items, TENANT, { applyMustDefault: true });
+
+			expect(mockInsertActivity).toHaveBeenCalledWith(
+				expect.objectContaining({
+					name: 'はみがきした',
+					priority: 'must',
+				}),
+				TENANT,
+			);
+		});
+
+		it('applyMustDefault=true でも mustDefault=false の活動は priority=optional', async () => {
+			const items = [
+				makeItem({ name: 'はみがきした', categoryCode: 'seikatsu', mustDefault: true }),
+				makeItem({ name: 'なわとびした', categoryCode: 'undou', mustDefault: false }),
+			];
+
+			await importActivities(items, TENANT, { applyMustDefault: true });
+
+			expect(mockInsertActivity).toHaveBeenNthCalledWith(
+				1,
+				expect.objectContaining({ name: 'はみがきした', priority: 'must' }),
+				TENANT,
+			);
+			expect(mockInsertActivity).toHaveBeenNthCalledWith(
+				2,
+				expect.objectContaining({ name: 'なわとびした', priority: 'optional' }),
+				TENANT,
+			);
+		});
+
+		it('applyMustDefault=false なら mustDefault=true の活動でも priority=optional', async () => {
+			const items = [
+				makeItem({ name: 'はみがきした', categoryCode: 'seikatsu', mustDefault: true }),
+				makeItem({ name: 'おきがえした', categoryCode: 'seikatsu', mustDefault: true }),
+			];
+
+			await importActivities(items, TENANT, { applyMustDefault: false });
+
+			expect(mockInsertActivity).toHaveBeenCalledTimes(2);
+			for (const call of mockInsertActivity.mock.calls) {
+				expect(call[0].priority).toBe('optional');
+			}
+		});
+
+		it('options 未指定（既定）-> applyMustDefault=false 扱い -> 全て optional', async () => {
+			const items = [
+				makeItem({ name: 'はみがきした', categoryCode: 'seikatsu', mustDefault: true }),
+			];
+
+			await importActivities(items, TENANT);
+
+			expect(mockInsertActivity).toHaveBeenCalledWith(
+				expect.objectContaining({ priority: 'optional' }),
+				TENANT,
+			);
+		});
+
+		it('後方互換: 第3引数に文字列を渡すと presetId として扱われる', async () => {
+			const items = [makeItem({ name: 'テスト活動', categoryCode: 'undou', mustDefault: true })];
+
+			await importActivities(items, TENANT, 'kinder-starter');
+
+			expect(mockInsertActivity).toHaveBeenCalledWith(
+				expect.objectContaining({
+					sourcePresetId: 'kinder-starter',
+					// applyMustDefault は未指定なので false 扱い
+					priority: 'optional',
+				}),
+				TENANT,
+			);
+		});
+
+		it('options.presetId と applyMustDefault が両方反映される', async () => {
+			const items = [
+				makeItem({ name: 'はみがきした', categoryCode: 'seikatsu', mustDefault: true }),
+			];
+
+			await importActivities(items, TENANT, {
+				presetId: 'kinder-starter',
+				applyMustDefault: true,
+			});
+
+			expect(mockInsertActivity).toHaveBeenCalledWith(
+				expect.objectContaining({
+					sourcePresetId: 'kinder-starter',
+					priority: 'must',
+				}),
+				TENANT,
+			);
+		});
 	});
 
 	it('triggerHint が undefined の場合 null に変換される', async () => {

@@ -7,6 +7,16 @@ let { data } = $props();
 
 let expandedPack = $state<string | null>(null);
 let importing = $state<string | null>(null);
+// #1758 (#1709-D): must 推奨採用チェックボックス（既定 ON、パック単位の状態）
+const applyMustDefaultByPack = $state<Record<string, boolean>>({});
+
+function getApplyMustDefault(packId: string): boolean {
+	return applyMustDefaultByPack[packId] !== false;
+}
+
+function toggleApplyMustDefault(packId: string, checked: boolean): void {
+	applyMustDefaultByPack[packId] = checked;
+}
 
 const categoryLabels: Record<string, string> = {
 	undou: 'うんどう',
@@ -59,6 +69,11 @@ const categoryLabels: Record<string, string> = {
 										{pack.importedCount}/{pack.activityCount}{PACKS_PAGE_LABELS.partiallyImportedSuffix}
 									</span>
 								{/if}
+								{#if pack.mustDefaultCount > 0}
+									<span class="text-[10px] font-bold text-[var(--color-feedback-warning-text)] bg-[var(--color-feedback-warning-bg-strong)] rounded-full px-2 py-0.5">
+										{PACKS_PAGE_LABELS.mustDefaultCount(pack.mustDefaultCount)}
+									</span>
+								{/if}
 							</div>
 							<p class="text-sm text-[var(--color-text-muted)] mt-1">{pack.description}</p>
 							<div class="flex gap-1 mt-2">
@@ -82,6 +97,11 @@ const categoryLabels: Record<string, string> = {
 									{act.alreadyImported ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-primary)]'}">
 									<span>{act.icon}</span>
 									<span class="truncate flex-1">{act.name}</span>
+									{#if act.mustDefault}
+										<span class="text-[10px] font-bold text-[var(--color-feedback-warning-text)] bg-[var(--color-feedback-warning-bg-strong)] rounded px-1.5 py-0.5">
+											{PACKS_PAGE_LABELS.mustDefaultBadge}
+										</span>
+									{/if}
 									<span class="text-[10px] text-[var(--color-text-tertiary)]">{categoryLabels[act.categoryCode] ?? act.categoryCode}</span>
 									{#if act.alreadyImported}
 										<span class="text-[10px] text-[var(--color-feedback-success-text)]">&#10003;</span>
@@ -99,6 +119,21 @@ const categoryLabels: Record<string, string> = {
 								};
 							}}>
 								<input type="hidden" name="packId" value={pack.packId} />
+								{#if pack.mustDefaultCount > 0}
+									<label class="flex items-start gap-2 mt-3 p-3 rounded-lg bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] cursor-pointer">
+										<input
+											type="checkbox"
+											name="applyMustDefault"
+											checked={getApplyMustDefault(pack.packId)}
+											onchange={(e) => toggleApplyMustDefault(pack.packId, (e.currentTarget as HTMLInputElement).checked)}
+											class="mt-0.5 w-4 h-4 accent-[var(--color-action-primary)]"
+										/>
+										<span class="flex-1 text-xs text-[var(--color-text)]">
+											<span class="font-bold block">{PACKS_PAGE_LABELS.mustDefaultCheckboxLabel}</span>
+											<span class="text-[var(--color-text-muted)]">{PACKS_PAGE_LABELS.mustDefaultCheckboxHint}</span>
+										</span>
+									</label>
+								{/if}
 								<Button
 									type="submit"
 									variant="primary"

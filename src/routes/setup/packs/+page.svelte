@@ -9,6 +9,8 @@ let selectedPacks = $state<Set<string>>(new Set());
 let submitting = $state(false);
 let skipMode = $state(false);
 let expandedPack = $state<string | null>(null);
+// #1758 (#1709-D): must 推奨採用（既定 ON）
+let applyMustDefault = $state(true);
 
 function isRecommended(packAgeMin: number, packAgeMax: number): boolean {
 	return packAgeMin <= data.childAgeMax && packAgeMax >= data.childAgeMin;
@@ -129,7 +131,12 @@ $effect(() => {
 							{#each pack.activities as act}
 								<div class="flex items-center gap-1 text-xs text-[var(--color-text)] py-0.5">
 									<span>{act.icon}</span>
-									<span class="truncate">{act.name}</span>
+									<span class="truncate flex-1">{act.name}</span>
+									{#if act.mustDefault}
+										<span class="text-[9px] font-bold text-[var(--color-feedback-warning-text)] bg-[var(--color-feedback-warning-bg-strong)] rounded px-1 py-0.5 flex-shrink-0">
+											{SETUP_PACKS_LABELS.mustDefaultBadge}
+										</span>
+									{/if}
 								</div>
 							{/each}
 						</div>
@@ -141,6 +148,24 @@ $effect(() => {
 			</Button>
 		{/each}
 	</div>
+
+	<!-- #1758 (#1709-D): must 推奨採用チェックボックス（選択中のいずれかのパックに mustDefault 候補がある場合のみ表示） -->
+	{#if !skipMode && data.packs.some((p) => selectedPacks.has(p.packId) && p.mustDefaultCount > 0)}
+		<label
+			class="flex items-start gap-2 p-3 rounded-lg bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] mb-3 cursor-pointer"
+		>
+			<input
+				type="checkbox"
+				name="applyMustDefault"
+				bind:checked={applyMustDefault}
+				class="mt-0.5 w-4 h-4 accent-[var(--color-action-primary)]"
+			/>
+			<span class="flex-1 text-xs text-[var(--color-text)]">
+				<span class="font-bold block">{SETUP_PACKS_LABELS.mustDefaultCheckboxLabel}</span>
+				<span class="text-[var(--color-text-muted)]">{SETUP_PACKS_LABELS.mustDefaultCheckboxHint}</span>
+			</span>
+		</label>
+	{/if}
 
 	<!-- Skip option -->
 	<Button

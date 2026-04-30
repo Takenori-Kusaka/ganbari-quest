@@ -1,7 +1,8 @@
 # マーケットプレイス・持ち物プリセット監査
 
 **作成日**: 2026-04-21
-**対象**: `src/lib/data/marketplace/checklists/` 配下 18 ファイル (年齢×timing 15 + イベント系 3)
+**最終更新**: 2026-04-30 (#1758 / #1709-D)
+**対象**: `src/lib/data/marketplace/checklists/` 配下 **3 ファイル** (event-* イベント系のみ)
 **目的**: 各持ち物チェックリストを「プリセット顧客付加価値原則 (こんなの させたかった！)」に照らして監査し、活動/ごほうび監査で検出した構造的欠陥（メタ機能二重計上・件数非対称・漢字かな混在）が持ち物側にも存在するかを検証
 **先行資料**:
 - `marketplace-preset-activity-audit.md` (活動プリセット側の監査、task #103-104)
@@ -10,29 +11,35 @@
 
 ---
 
-## 要約 (TL;DR)
+## 2026-04-30 改訂サマリ (#1758 / #1709-D)
 
-1. **総チェックリスト項目数**: 121 (年齢別 15×平均 6.5 = 98 + イベント 3×平均 11 = 33)
-2. **CRITICAL 所見**: **0 件**（活動/ごほうびで見られた「アプリ内機能の二重計上」に相当するものは持ち物側にはない）
-3. **件数非対称**: baby 5 → elementary 8 の緩やかな段階的増加で、年齢の行動レパートリー拡大に即しており妥当。年齢別 vs イベント系の 5-8 vs 10-12 件差は「イベント特有の持ち物網羅性」として必要な差分
-4. **イベント系 3 件の扱い**: 活動/ごほうびのテーマ型 (screen-time 等、嗜好分岐型) とは**性質が異なる**。持ち物リストにおけるイベント型は「普段使わない特殊持ち物の可視化」に本質的価値があり、廃止/追加インポート分離は不適切
-5. **漢字/ひらがな遷移**: baby-elementary = ひらがな、junior-senior = 漢字中心、で一貫。遷移点は elementary (6-9) → junior (10-12) で小5-6 の漢字習得時期と一致し妥当
+#1755 で `activities.priority='must'`（今日のおやくそく）が導入されたことに伴い、チェックリストは**持ち物純化**された:
+
+- 旧 `morning-* / evening-* / weekend-*` × 4 年齢 (kinder/elementary/junior/senior) = **12 件削除**
+- 旧 routine 系 checklist の役割は `activity-pack mustDefault` → `activities.priority='must'` に移管 (#1758 / #1709-D)
+- 残るのは **event-* 3 件** (`event-field-trip` / `event-pool` / `event-school-start`) のみ
+- ChecklistPayload.timing は引き続き `'morning' | 'evening' | 'weekend' | 'daily' | 'weekly'` を受け付けるが、event-* は `'event'` 相当に解釈される（既存スキーマは互換維持）
+
+---
+
+## 要約 (TL;DR、2026-04-30 改訂版)
+
+1. **総チェックリスト項目数**: 33 (event-* 3 件×平均 11)
+2. **CRITICAL 所見**: **0 件**
+3. **持ち物純化の意義**: 「routine = 毎日の活動 = activities.priority='must'」、「持ち物 = 物理アイテム集合 = checklist」と意味境界が明確化
+4. **イベント系 3 件は維持**: 「普段使わない特殊持ち物の可視化」に本質的価値あり、廃止対象外
+5. **漢字/ひらがな遷移**: event-school-start (3-7 歳) はひらがな、event-field-trip / event-pool (4-12 歳) は段階的漢字、で一貫
 6. **LOW PRIORITY**: イベント系バリエーション不足（習い事/旅行/お泊り等）、persona 依存項目 (スマホ/SNS) の persona タグ精度
 
 ---
 
-## §1 インベントリ
+## §1 インベントリ (2026-04-30 改訂版)
 
-### §1.1 年齢×timing 15 セット
+### §1.1 年齢×timing routine 系 — 全廃止
 
-| timing | baby (0-2) | kinder (3-5) | elementary (6-9) | junior (10-12) | senior (13-18) |
-|---|---|---|---|---|---|
-| morning | 5 items | 7 items | 8 items | 7 items | 7 items |
-| evening | 5 items | 7 items | 8 items | 8 items | 7 items |
-| weekend | 5 items | 6 items | 7 items | 7 items | 7 items |
-
-- 件数は年齢の行動レパートリーに比例した緩やかな増加
-- 3 timing × 5 年齢 = 15 セットで生活導線を完全網羅
+`morning-* / evening-* / weekend-* × 4 年齢 = 12 件` は #1755/#1758 で削除。
+旧 routine の意味は `activity-pack` の `mustDefault: true` 候補（歯みがき/着替え/お片付け/宿題/明日の準備/部屋の片付け/22 時就寝 等）として吸収済み。
+親 setup フロー / admin/packs UI で「今日のおやくそく推奨を採用」チェックボックスを ON にすると、対応する活動が `priority='must'` で登録される。
 
 ### §1.2 イベント系 3 セット
 

@@ -20,4 +20,10 @@ export interface ActivityPackItem {
 	gradeLevel: GradeLevel | null;
 	triggerHint?: string;
 	description?: string;
+	/**
+	 * #1758 (#1709-D): 「今日のおやくそく（must 推奨）」候補フラグ。
+	 * `true` の活動は import 時に既定で `activities.priority='must'` として展開される。
+	 * 親側 UI のチェックボックスで OFF を選んだ場合は無視され、全活動が `'optional'` になる。
+	 */
+	mustDefault?: boolean;
 }

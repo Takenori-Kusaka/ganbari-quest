@@ -231,6 +231,44 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+#### 7b. marketplace プリセット → labels / import / setup フロー (#1758 / #1709-D)
+
+`src/lib/data/marketplace/activity-packs/*.json` の `mustDefault` 候補と、UI / import service / setup フローでの参照は同期させること。`mustDefault` の意味は #1755 で導入された `activities.priority='must'` と整合している必要がある。
+
+**並行実装ペア**:
+
+| 場所 | 内容 | 技術 |
+|------|------|------|
+| `src/lib/data/marketplace/activity-packs/*.json` (12 件) | `mustDefault: true/false` フラグを持つ活動 | JSON |
+| `src/lib/domain/activity-pack.ts` | `ActivityPackItem.mustDefault?: boolean` 型 | TypeScript |
+| `src/lib/domain/marketplace-item.ts` | `ActivityPackPayload.activities[].mustDefault?` 型 | TypeScript |
+| `src/lib/server/services/activity-import-service.ts` | `ImportActivitiesOptions.applyMustDefault` で `priority='must'` 制御 | TypeScript |
+| `src/routes/(parent)/admin/packs/+page.{svelte,server.ts}` | チェックボックス + must Badge + form action 受信 | Svelte / TS |
+| `src/routes/setup/packs/+page.{svelte,server.ts}` | setup フローのチェックボックス + must Badge | Svelte / TS |
+| `src/lib/domain/labels.ts` | `PACKS_PAGE_LABELS.mustDefault*` / `SETUP_PACKS_LABELS.mustDefault*` | TypeScript |
+
+**同期メカニズム**: 静的型チェック (`svelte-check`) と `tests/unit/services/activity-import-service.test.ts` の `#1758` セクション + E2E `tests/e2e/setup-marketplace-must.spec.ts` (3 シナリオ) で検証。
+
+**修正時チェック**:
+- 新しい mustDefault 候補を JSON に追加 → import-service テストで該当パターンが網羅されているか確認
+- mustDefault のラベル/Badge 文言を変更 → `labels.ts` の SSOT 経由で一元修正（admin と setup 両方）
+- `priority` enum を拡張するなら `activities.priority` schema (#1755) と整合チェック
+
+#### 7c. checklist 系 marketplace の純化 (#1758)
+
+`src/lib/data/marketplace/checklists/` は **持ち物純化** された:
+
+- 旧 `morning-* / evening-* / weekend-*` × 4 年齢 = 12 件削除
+- 残るのは `event-field-trip` / `event-pool` / `event-school-start` の **3 件のみ**
+- routine 系の役割は `activity-pack mustDefault` → `activities.priority='must'` に移管
+
+**同期するファイル**:
+- `src/lib/data/marketplace/index.ts` の import 文 / `allItems` 配列
+- `docs/design/marketplace-preset-checklist-audit.md` (3 件のみに整理済)
+- E2E spec: `tests/e2e/setup-marketplace-must.spec.ts` で 3 件のみ確認
+
+---
+
 #### 8. 設計書 vs 実装
 
 | 場所 | 内容 |

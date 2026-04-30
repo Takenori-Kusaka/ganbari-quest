@@ -35,9 +35,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 					categoryCode: a.categoryCode,
 					basePoints: a.basePoints,
 					alreadyImported: existingNames.has(a.name),
+					// #1758 (#1709-D): must 推奨候補フラグを UI へ
+					mustDefault: a.mustDefault === true,
 				}))
 			: [];
 		const importedCount = activities.filter((a) => a.alreadyImported).length;
+		const mustDefaultCount = activities.filter((a) => a.mustDefault).length;
 		const isRecommended = p.targetAgeMin <= maxAge && p.targetAgeMax >= minAge;
 
 		return {
@@ -51,6 +54,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			activityCount: p.itemCount,
 			activities,
 			importedCount,
+			mustDefaultCount,
 			isFullyImported: importedCount === activities.length,
 			isRecommended,
 		};
@@ -68,6 +72,11 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const packId = formData.get('packId')?.toString();
+		// #1758 (#1709-D): must 推奨採用チェックボックス。既定 ON、明示 OFF（hidden=off の規約）で false。
+		// HTML checkbox は ON のとき 'on' / 'true' を送り、OFF のとき何も送らない。
+		const applyMustDefaultRaw = formData.get('applyMustDefault')?.toString();
+		const applyMustDefault =
+			applyMustDefaultRaw === 'on' || applyMustDefaultRaw === 'true' || applyMustDefaultRaw === '1';
 
 		if (!packId) return fail(400, { error: 'パックIDが必要です' });
 
@@ -80,7 +89,7 @@ export const actions: Actions = {
 			return { success: true, imported: 0, message: 'すべての活動は登録済みです' };
 		}
 
-		await importActivities(activities, tenantId, packId);
+		await importActivities(activities, tenantId, { presetId: packId, applyMustDefault });
 		redirect(302, '/admin/packs');
 	},
 };

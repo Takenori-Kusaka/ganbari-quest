@@ -21,7 +21,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "ごはんのあと はみがきしよう！",
-				"description": "食後の歯磨き"
+				"description": "食後の歯磨き",
+				"mustDefault": true
 			},
 			{
 				"name": "おきがえした",
@@ -32,7 +33,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "じぶんで おきがえ してみよう！",
-				"description": "自分で着替え"
+				"description": "自分で着替え",
+				"mustDefault": true
 			},
 			{
 				"name": "おかたづけした",
@@ -43,7 +45,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "あそんだあと おかたづけ！",
-				"description": "おもちゃ・部屋の片付け"
+				"description": "おもちゃ・部屋の片付け",
+				"mustDefault": true
 			},
 			{
 				"name": "てをあらった",
@@ -54,7 +57,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おそとから かえったら てあらい！",
-				"description": "帰宅時・食前の手洗い"
+				"description": "帰宅時・食前の手洗い",
+				"mustDefault": false
 			},
 			{
 				"name": "はやおきした",
@@ -65,7 +69,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "あさ じかんどおりに おきよう！",
-				"description": "決まった時間に起床"
+				"description": "決まった時間に起床",
+				"mustDefault": false
 			},
 			{
 				"name": "おてつだいした",
@@ -76,7 +81,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おうちの おてつだい してみよう！",
-				"description": "食事の準備・配膳・しょっき運び等"
+				"description": "食事の準備・配膳・しょっき運び等",
+				"mustDefault": false
 			},
 			{
 				"name": "くつをそろえた",
@@ -87,7 +93,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "げんかんの くつを そろえよう！",
-				"description": "玄関の靴をきれいに揃える"
+				"description": "玄関の靴をきれいに揃える",
+				"mustDefault": false
 			},
 			{
 				"name": "ダンスした",
@@ -98,7 +105,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おんがくに あわせて おどろう！",
-				"description": "音楽に合わせたダンス"
+				"description": "音楽に合わせたダンス",
+				"mustDefault": false
 			},
 			{
 				"name": "からだをうごかした",
@@ -109,7 +117,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おそとで いっぱい あそぼう！",
-				"description": "外遊び・体操・かけっこ"
+				"description": "外遊び・体操・かけっこ",
+				"mustDefault": false
 			},
 			{
 				"name": "なわとびした",
@@ -120,7 +129,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "なわとび れんしゅう してみよう！",
-				"description": "縄跳びの練習"
+				"description": "縄跳びの練習",
+				"mustDefault": false
 			},
 			{
 				"name": "かけっこした",
@@ -131,7 +141,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "よーい、どん！ はしってみよう！",
-				"description": "走る・追いかけっこ"
+				"description": "走る・追いかけっこ",
+				"mustDefault": false
 			},
 			{
 				"name": "ボールであそんだ",
@@ -142,7 +153,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "ボールを ころがして あそぼう！",
-				"description": "ボール遊び・キャッチボール"
+				"description": "ボール遊び・キャッチボール",
+				"mustDefault": false
 			},
 			{
 				"name": "おえかきした",
@@ -153,7 +165,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "すきなものを かいてみよう！",
-				"description": "自由にお絵描き"
+				"description": "自由にお絵描き",
+				"mustDefault": false
 			},
 			{
 				"name": "こうさくした",
@@ -164,7 +177,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "はさみや のりで つくろう！",
-				"description": "折り紙・切り貼り・工作"
+				"description": "折り紙・切り貼り・工作",
+				"mustDefault": false
 			},
 			{
 				"name": "おうたをうたった",
@@ -175,7 +189,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おうたを うたおう！",
-				"description": "童謡やリズム遊び"
+				"description": "童謡やリズム遊び",
+				"mustDefault": false
 			},
 			{
 				"name": "おままごとした",
@@ -186,7 +201,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おりょうりごっこ しよう！",
-				"description": "ごっこ遊び・おままごと"
+				"description": "ごっこ遊び・おままごと",
+				"mustDefault": false
 			},
 			{
 				"name": "ねんどでつくった",
@@ -197,7 +213,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "ねんどで すきなもの つくろう！",
-				"description": "粘土・ブロックで造形"
+				"description": "粘土・ブロックで造形",
+				"mustDefault": false
 			},
 			{
 				"name": "えほんをよんだ",
@@ -208,7 +225,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "えほんを よんでみよう！",
-				"description": "絵本を読む・読み聞かせ"
+				"description": "絵本を読む・読み聞かせ",
+				"mustDefault": false
 			},
 			{
 				"name": "すうじをかぞえた",
@@ -219,7 +237,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "いち、に、さん… かぞえよう！",
-				"description": "1〜10の数を数える"
+				"description": "1〜10の数を数える",
+				"mustDefault": false
 			},
 			{
 				"name": "ひらがなれんしゅう",
@@ -230,7 +249,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "ひらがなを かいてみよう！",
-				"description": "ひらがなの読み書き練習"
+				"description": "ひらがなの読み書き練習",
+				"mustDefault": false
 			},
 			{
 				"name": "しぜんをかんさつした",
@@ -241,7 +261,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おはな や はっぱ みつけよう！",
-				"description": "虫・花・葉などの自然観察（環境領域）"
+				"description": "虫・花・葉などの自然観察（環境領域）",
+				"mustDefault": false
 			},
 			{
 				"name": "かたちをみつけた",
@@ -252,7 +273,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "まる・しかく・さんかく さがそう！",
-				"description": "図形の認識（環境領域）"
+				"description": "図形の認識（環境領域）",
+				"mustDefault": false
 			},
 			{
 				"name": "いっしょにあそんだ",
@@ -263,7 +285,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おともだちと あそぼう！",
-				"description": "お友達との協力遊び"
+				"description": "お友達との協力遊び",
+				"mustDefault": false
 			},
 			{
 				"name": "じゅんばんをまもった",
@@ -274,7 +297,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "じゅんばんこ できるかな？",
-				"description": "順番を守る・交代する"
+				"description": "順番を守る・交代する",
+				"mustDefault": false
 			},
 			{
 				"name": "あいさつした",
@@ -285,7 +309,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "おはよう、ありがとう！",
-				"description": "元気な挨拶・お礼"
+				"description": "元気な挨拶・お礼",
+				"mustDefault": false
 			},
 			{
 				"name": "ありがとうをいった",
@@ -296,7 +321,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "ありがとう って いえるかな？",
-				"description": "感謝の気持ちを伝える"
+				"description": "感謝の気持ちを伝える",
+				"mustDefault": false
 			},
 			{
 				"name": "ごめんなさいをいった",
@@ -307,7 +333,8 @@
 				"ageMax": 5,
 				"gradeLevel": "kinder",
 				"triggerHint": "「ごめんなさい」 いえたね！",
-				"description": "自分から謝れる"
+				"description": "自分から謝れる",
+				"mustDefault": false
 			}
 		]
 	}

@@ -34,6 +34,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const packsWithPreview = activityPackMetas.map((p) => {
 		const full = getMarketplaceItem('activity-pack', p.itemId);
 		const payload = full?.payload as ActivityPackPayload | undefined;
+		const activities = payload
+			? payload.activities.map((a) => ({
+					name: a.name,
+					icon: a.icon,
+					categoryCode: a.categoryCode,
+					// #1758 (#1709-D): must 推奨候補フラグを setup UI へ
+					mustDefault: a.mustDefault === true,
+				}))
+			: [];
 		return {
 			packId: p.itemId,
 			packName: p.name,
@@ -43,13 +52,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 			targetAgeMax: p.targetAgeMax,
 			tags: p.tags,
 			activityCount: p.itemCount,
-			activities: payload
-				? payload.activities.map((a) => ({
-						name: a.name,
-						icon: a.icon,
-						categoryCode: a.categoryCode,
-					}))
-				: [],
+			activities,
+			// #1758 (#1709-D): must 推奨候補件数（UI 表示用）
+			mustDefaultCount: activities.filter((a) => a.mustDefault).length,
 		};
 	});
 
@@ -65,6 +70,10 @@ export const actions: Actions = {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const packIds = formData.getAll('packIds').map((v) => v.toString());
+		// #1758 (#1709-D): setup フローでも must 推奨採用を選べる（既定 ON）
+		const applyMustDefaultRaw = formData.get('applyMustDefault')?.toString();
+		const applyMustDefault =
+			applyMustDefaultRaw === 'on' || applyMustDefaultRaw === 'true' || applyMustDefaultRaw === '1';
 
 		if (packIds.length === 0) {
 			// Skip selected — no packs to import
@@ -86,7 +95,10 @@ export const actions: Actions = {
 				const preview = await previewActivityImport(activities, tenantId);
 
 				if (preview.newActivities > 0) {
-					const result = await importActivities(activities, tenantId);
+					const result = await importActivities(activities, tenantId, {
+						presetId: packId,
+						applyMustDefault,
+					});
 					totalImported += result.imported;
 					totalSkipped += result.skipped;
 					allErrors.push(...result.errors);
@@ -123,7 +135,11 @@ export const actions: Actions = {
 					const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
 					const preview = await previewActivityImport(activities, tenantId);
 					if (preview.newActivities > 0) {
-						const result = await importActivities(activities, tenantId);
+						// #1758: スキップ動線でも must 推奨は ON（最短で「今日のおやくそく」が機能する）
+						const result = await importActivities(activities, tenantId, {
+							presetId: p.itemId,
+							applyMustDefault: true,
+						});
 						autoImported += result.imported;
 					}
 				} catch {

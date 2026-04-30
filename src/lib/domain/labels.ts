@@ -3619,6 +3619,12 @@ export const PACKS_PAGE_LABELS = {
 	activityCountSuffix: '件の活動',
 	importingLabel: 'インポート中...',
 	importButton: (count: number) => `${count}件の新しい活動をインポート`,
+	// #1758 (#1709-D): must 推奨採用チェックボックス
+	mustDefaultCheckboxLabel: '「今日のおやくそく」推奨を採用する',
+	mustDefaultCheckboxHint:
+		'歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。あとで親管理画面から個別に変更できます。',
+	mustDefaultBadge: 'おやくそく推奨',
+	mustDefaultCount: (count: number) => `おやくそく推奨 ${count}件`,
 } as const;
 
 export const OPS_LAYOUT_LABELS = {
@@ -3717,6 +3723,11 @@ export const SETUP_PACKS_LABELS = {
 	addPacksButton: (count: number) => `${count}件のパックを追加`,
 	processingLabel: '処理中...',
 	skipNextButton: 'おすすめで次へ',
+	// #1758 (#1709-D): must 推奨採用チェックボックス（setup フロー版）
+	mustDefaultCheckboxLabel: '「今日のおやくそく」推奨を採用する',
+	mustDefaultCheckboxHint:
+		'歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。',
+	mustDefaultBadge: 'おやくそく推奨',
 } as const;
 
 export const PARENT_LOGIN_LABELS = {
