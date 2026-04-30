@@ -163,7 +163,7 @@ describe('applyLpKeys (#1701 ADR-0025)', () => {
 		it.each([
 			['javascript:', '<a href="javascript:alert(1)">click</a>'],
 			['data:', '<a href="data:text/html,<script>alert(1)</script>">click</a>'],
-			['vbscript:', '<a href="vbscript:msgbox(1)">click</a>'],
+			['vbscript:', '<a href="vbscript:alert(1)">click</a>'],
 		])('危険な %s URL を escape する', (proto, payload) => {
 			document.body.innerHTML = '<p data-lp-key="x.j">fallback</p>';
 			applyLpKeys({ x: { j: payload } });
