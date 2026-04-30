@@ -12,8 +12,10 @@ import { convertToBattleStats, getAgeScaling } from '$lib/domain/battle-stat-cal
 import type { BattleStats, Enemy } from '$lib/domain/battle-types';
 import { DEFAULT_POINT_SETTINGS, type PointSettings } from '$lib/domain/point-display';
 import { CATEGORY_DEFS, getActivityDisplayName } from '$lib/domain/validation/activity';
+import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import { calcLevelFromXp, calcXpToNextLevel } from '$lib/domain/validation/status';
 import type { Activity, Child } from '$lib/server/db/types/index.js';
+import { computeMustCompletionBonus } from '$lib/server/services/activity-service';
 import type { TodayChecklist } from '$lib/server/services/checklist-service';
 import type { DailyMissionStatus } from '$lib/server/services/daily-mission-service';
 import type { LoginBonusStatus } from '$lib/server/services/login-bonus-service';
@@ -95,6 +97,19 @@ export interface DemoHomeData {
 	hasChecklists: boolean;
 	checklistProgress: { checkedCount: number; totalCount: number; allDone: boolean } | null;
 	dailyMissions: DailyMissionStatus | null;
+	/**
+	 * #1757 (#1709-C): 「今日のおやくそく」N/M 進捗（demo は in-memory 計算のみ。
+	 * granted は本番モード初回付与の可視化用なので demo では常に false）。
+	 * - total === 0 の場合は null（バー非表示判定は呼び出し側）
+	 * - baby は呼び出し側で除外
+	 */
+	mustStatus: {
+		logged: number;
+		total: number;
+		allComplete: boolean;
+		granted: boolean;
+		points: number;
+	} | null;
 }
 
 export function getDemoHomeData(childId: number): DemoHomeData {
@@ -108,6 +123,7 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 			hasChecklists: false,
 			checklistProgress: null,
 			dailyMissions: null,
+			mustStatus: null,
 		};
 	}
 
@@ -180,6 +196,35 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 		};
 	}
 
+	// #1757 (#1709-C): 「今日のおやくそく」N/M 集計（demo は in-memory 計算のみ）
+	// - baby は呼び出し側で UI 非表示にする（ここでは計算結果のみ返す）
+	// - DEMO_ACTIVITIES の priority='must' のうち、子供の age 範囲に合うものを母数とする
+	// - 達成 = todayRecorded に含まれる activityId
+	const mustActivities = DEMO_ACTIVITIES.filter((a) => {
+		if (a.priority !== 'must') return false;
+		if (a.isVisible !== 1) return false;
+		if (a.isArchived === 1) return false;
+		if (a.ageMin !== null && child.age < a.ageMin) return false;
+		if (a.ageMax !== null && child.age > a.ageMax) return false;
+		return true;
+	});
+	const recordedSet = new Set(todayRecorded.map((r) => r.activityId));
+	const mustLogged = mustActivities.filter((a) => recordedSet.has(a.id)).length;
+	const mustTotal = mustActivities.length;
+	const mustAllComplete = mustTotal > 0 && mustLogged === mustTotal;
+	const uiMode = (child.uiMode ?? 'preschool') as UiMode;
+	const mustStatus =
+		mustTotal > 0
+			? {
+					logged: mustLogged,
+					total: mustTotal,
+					allComplete: mustAllComplete,
+					// demo は DB 書き込みなし → granted は常に false（初回演出は本番のみ）
+					granted: false,
+					points: computeMustCompletionBonus(uiMode, mustAllComplete),
+				}
+			: null;
+
 	return {
 		activities: activitiesWithMission,
 		todayRecorded,
@@ -188,6 +233,7 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 		hasChecklists,
 		checklistProgress,
 		dailyMissions,
+		mustStatus,
 	};
 }
 
