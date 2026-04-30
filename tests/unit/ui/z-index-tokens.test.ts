@@ -34,6 +34,17 @@ const EXPECTED_Z_INDEX_TOKENS: Record<string, string> = {
 	'--z-debug': '9999',
 };
 
+/**
+ * RegExp メタ文字（`. * + ? ^ $ { } ( ) | [ ] \ -`）を完全にエスケープする。
+ * CodeQL js/incomplete-sanitization (#1752) 対策で、部分置換ではなく MDN 推奨の
+ * 完全エスケープ実装を使用する。
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions#escaping
+ */
+function escapeRegExp(value: string): string {
+	// biome-ignore lint/complexity/noUselessEscapeInRegex: `]` must be escaped inside a character class for portability with other regex parsers (CodeQL js/incomplete-sanitization #1752)
+	return value.replace(/[.*+?^${}()|[\]\\-]/gu, '\\$&');
+}
+
 describe('#1722 — z-index トークン階層 (DESIGN.md §10)', () => {
 	const appCss = fs.readFileSync(APP_CSS_PATH, 'utf8');
 
@@ -41,7 +52,10 @@ describe('#1722 — z-index トークン階層 (DESIGN.md §10)', () => {
 		Object.entries(EXPECTED_Z_INDEX_TOKENS),
 	)('app.css に %s: %s が定義されている', (token, expectedValue) => {
 		// 期待値: `--z-token: <value>;`（ホワイトスペース許容）
-		const pattern = new RegExp(`${token.replace(/-/g, '\\-')}\\s*:\\s*${expectedValue}\\s*;`, 'm');
+		const pattern = new RegExp(
+			`${escapeRegExp(token)}\\s*:\\s*${escapeRegExp(expectedValue)}\\s*;`,
+			'm',
+		);
 		expect(appCss, `app.css に ${token}: ${expectedValue}; が見つからない`).toMatch(pattern);
 	});
 
