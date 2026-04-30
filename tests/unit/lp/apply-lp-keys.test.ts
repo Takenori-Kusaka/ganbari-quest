@@ -160,18 +160,30 @@ describe('applyLpKeys (#1701 ADR-0025)', () => {
 			expect(el.innerHTML).not.toContain('<iframe');
 		});
 
-		it('javascript: URL を escape する', () => {
+		it.each([
+			['javascript:', '<a href="javascript:alert(1)">click</a>'],
+			['data:', '<a href="data:text/html,<script>alert(1)</script>">click</a>'],
+			['vbscript:', '<a href="vbscript:msgbox(1)">click</a>'],
+		])('危険な %s URL を escape する', (proto, payload) => {
 			document.body.innerHTML = '<p data-lp-key="x.j">fallback</p>';
-			applyLpKeys({
-				x: { j: '<a href="javascript:alert(1)">click</a>' },
-			});
+			applyLpKeys({ x: { j: payload } });
 			const el = document.querySelector('[data-lp-key="x.j"]') as HTMLElement;
 			const a = el.querySelector('a');
-			// DOMPurify は javascript: protocol を href から削除（または anchor を strip）する
+			// DOMPurify は dangerous protocol を href から削除（または anchor を strip）する
 			if (a) {
-				expect(a.getAttribute('href')?.startsWith('javascript:')).toBeFalsy();
+				const href = a.getAttribute('href') ?? '';
+				// URL parse して protocol を抽出する exhaustive check（CodeQL 推奨）
+				let parsedProtocol = '';
+				try {
+					parsedProtocol = new URL(href, 'https://example.com').protocol.toLowerCase();
+				} catch {
+					// 相対 URL や空 href は base 経由で解決される
+				}
+				expect(parsedProtocol).not.toBe('javascript:');
+				expect(parsedProtocol).not.toBe('data:');
+				expect(parsedProtocol).not.toBe('vbscript:');
 			}
-			expect(el.innerHTML).not.toContain('javascript:');
+			expect(el.innerHTML.toLowerCase()).not.toContain(proto);
 		});
 	});
 
