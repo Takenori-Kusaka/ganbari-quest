@@ -304,6 +304,19 @@ EOF
 
 BLOCK 後は Draft に戻すよう依頼するか、CI red の場合は修正コミットを待つ。
 
+#### Re-Review 時の前回 BLOCK 検出箇所機械チェック (ADR-0026 / #1750)
+
+PR #1717 (1683-C Legal SSOT) で発覚した「Fix Agent 修正が force push で消失し再 BLOCK」事故を受け、Re-Review では以下を必ず実行する:
+
+1. **前回 BLOCK の AC 番号**を該当 Issue / レビューコメントから抽出する
+2. AC ごとに該当ファイル / 行 / 設定値（例: `SANITIZE_CONFIG.ALLOWED_TAGS` の必須タグ集合）を PR HEAD で確認する
+3. **静的検査と E2E の両方をローカルで実行**する。例えば LP innerHTML 構造保持なら:
+   - 静的: `node scripts/check-lp-innerhtml-tags.mjs`
+   - E2E: `npx playwright test tests/e2e/lp-innerhtml-structure.spec.ts tests/e2e/lp-legal-docs-render.spec.ts`
+4. CI 緑だけで approve しない。1 → 2 → 3 を順に通すこと
+
+force push 自体の検出は Branch Ruleset の `require_last_push_approval: true` で行う（ADR-0026）。QM 側は「修正が消えていないか」を実機で再現検証する役割。
+
 ---
 
 ## Agent spawn プロンプトテンプレート（Orchestrator が使う定型文）

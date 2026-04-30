@@ -105,3 +105,15 @@ export function budoux(node: HTMLElement) {
 - #1353（本 Issue B8 吸収）
 - [CSS text-wrap: balance - Chrome Developers](https://developer.chrome.com/docs/css-ui/css-text-wrap-balance)
 - [google/budoux](https://github.com/google/budoux)
+
+## LP 側適用検証（#1729 R14, 2026-04-30 P5B2 bundle）
+
+`site/index.html` への適用結果:
+
+- **CSS 第一選択**: `site/shared.css` の `body` に `text-wrap: pretty; word-break: auto-phrase` を、`h1, h2, h3, h4` に `text-wrap: balance; word-break: auto-phrase` を適用
+- **Phase 3 BudouX CDN**: `site/index.html` `<head>` に `https://cdn.jsdelivr.net/npm/budoux@latest/bundle/budoux-ja.min.js` を defer 読み込み（追加 bundle ~15KB gzipped）
+- **動的更新の特例**: hero carousel-label は `splide.on('mounted move')` で動的に label.innerHTML を書き換えるため、textContent escape したうえで `<budoux-ja>...</budoux-ja>` でラップしてから注入する。CDN 未ロード時は plain custom element として描画されるため fallback safe（Web Component 未登録扱い）
+- **静的長文への適用は不要**: `section-desc` / `pp-disclaimer` / `trust-disclaimer-text` / `cta-bottom-disclaimer` 等の長文は `text-wrap: pretty + word-break: auto-phrase` で十分な品質が出ることを実機検証で確認したため、`<budoux-ja>` ラップを行わない
+- **メトリクス**: BudouX CDN 追加後も mobileHeight=14741 / desktopHeight=7868（`THRESHOLDS.mobileHeight=15000` / `desktopHeight=8000` 内）
+
+副次効果として #1737 (R18) で `THRESHOLDS.mobileHeight` を 15200 → 15000 に restore できた（ADR-0006 整合）。

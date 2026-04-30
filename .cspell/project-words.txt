@@ -158,6 +158,9 @@ scrollbar
 Lottie
 webp
 scrshot
+Budou
+budoux
+innerhtml
 pwa
 PWA
 favicon
