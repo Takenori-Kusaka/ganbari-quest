@@ -57,6 +57,9 @@ const LABELS_TS_EXCLUDED_NAMESPACES = new Set([
 /**
  * labels.ts から `export const LP_*_LABELS = { ... }` を抽出する。
  * 戻り値: Map<namespaceName, Set<keyName>>
+ *
+ * @param {string} src
+ * @returns {Map<string, Set<string>>}
  */
 export function extractLabelsTsLpNamespaces(src) {
 	const result = new Map();
@@ -82,8 +85,12 @@ export function extractLabelsTsLpNamespaces(src) {
 /**
  * オブジェクトリテラルの body 内から top-level key 名を抽出する。
  * (ネストは無視。 trailing comma あり / 改行 split 両対応)
+ *
+ * @param {string} body
+ * @returns {Set<string>}
  */
 function parseKeysFromBlock(body) {
+	/** @type {Set<string>} */
 	const keys = new Set();
 	const lines = body.split('\n');
 	let nestDepth = 0;
@@ -103,7 +110,7 @@ function parseKeysFromBlock(body) {
 
 		// `key: 'value',` (single-line) または `key:` (Biome multi-line; value next line)
 		const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*:/);
-		if (m) {
+		if (m?.[1]) {
 			keys.add(m[1]);
 		}
 	}
@@ -116,6 +123,9 @@ function parseKeysFromBlock(body) {
  *
  * 戻り値: Map<namespaceName, Set<keyName>>
  *   namespaceName は LP_LABELS の top-level key (例: "retention" → "LP_RETENTION_LABELS")
+ *
+ * @param {string} src
+ * @returns {Map<string | null, Set<string>>}
  */
 export function extractSharedLabelsJsLpNamespaces(src) {
 	const startMarker = 'const LP_LABELS = ';
@@ -140,10 +150,12 @@ export function extractSharedLabelsJsLpNamespaces(src) {
 	let lpLabels;
 	try {
 		lpLabels = JSON.parse(block);
-	} catch (e) {
-		throw new Error(`Failed to JSON.parse LP_LABELS from shared-labels.js: ${e.message}`);
+	} catch (/** @type {unknown} */ e) {
+		const message = e instanceof Error ? e.message : String(e);
+		throw new Error(`Failed to JSON.parse LP_LABELS from shared-labels.js: ${message}`);
 	}
 
+	/** @type {Map<string | null, Set<string>>} */
 	const result = new Map();
 	for (const [shortName, sectionData] of Object.entries(lpLabels)) {
 		// shortName ("retention" 等) → labels.ts 名前 ("LP_RETENTION_LABELS") に正規化
@@ -171,9 +183,13 @@ export function extractSharedLabelsJsLpNamespaces(src) {
  *   licenseKey → LP_LICENSEKEY_LABELS
  *   growthRoadmap → LP_GROWTH_ROADMAP_LABELS
  *   legalDisclaimer → LP_LEGAL_DISCLAIMER_LABELS
+ *
+ * @param {string} shortName
+ * @returns {string | null}
  */
 export function shortNameToLabelsTsName(shortName) {
 	// 特殊マッピング (camelCase → 正式 name)
+	/** @type {Record<string, string | null>} */
 	const overrides = {
 		founderInquiry: 'LP_FOUNDER_INQUIRY_LABELS',
 		licenseKey: 'LP_LICENSEKEY_LABELS',
@@ -192,7 +208,7 @@ export function shortNameToLabelsTsName(shortName) {
 		lpSelfhostLabels: null,
 	};
 	if (Object.hasOwn(overrides, shortName)) {
-		return overrides[shortName];
+		return overrides[shortName] ?? null;
 	}
 	// 一般則: snake_case 化 → 大文字化 → LP_<X>_LABELS
 	const upper = shortName.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
@@ -201,8 +217,14 @@ export function shortNameToLabelsTsName(shortName) {
 
 /**
  * 集合 A - B (A にあって B に無い)
+ *
+ * @template T
+ * @param {Set<T>} a
+ * @param {Set<T>} b
+ * @returns {Set<T>}
  */
 export function diffSet(a, b) {
+	/** @type {Set<T>} */
 	const result = new Set();
 	for (const item of a) {
 		if (!b.has(item)) result.add(item);
@@ -215,14 +237,14 @@ export function diffSet(a, b) {
  * テストから直接呼べるよう純粋関数にしている (main() からも使う)。
  *
  * @param {Map<string, Set<string>>} labelsTsNamespaces
- * @param {Map<string, Set<string>>} sharedLabelsJsNamespaces
+ * @param {Map<string | null, Set<string>>} sharedLabelsJsNamespaces
  * @param {Set<string>} excluded labels.ts 側で shared 注入を除外する namespace 一覧
  * @returns {string[]} 検出した不整合の説明 (空なら整合)
  */
 export function compareNamespaces(labelsTsNamespaces, sharedLabelsJsNamespaces, excluded) {
 	const labelsTsNames = new Set([...labelsTsNamespaces.keys()].filter((n) => !excluded.has(n)));
 	const sharedLabelsJsNames = new Set(
-		[...sharedLabelsJsNamespaces.keys()].filter((n) => n !== null),
+		/** @type {string[]} */ ([...sharedLabelsJsNamespaces.keys()].filter((n) => n !== null)),
 	);
 
 	const onlyInLabelsTs = diffSet(labelsTsNames, sharedLabelsJsNames);
@@ -245,7 +267,7 @@ export function compareNamespaces(labelsTsNamespaces, sharedLabelsJsNamespaces, 
 	for (const ns of common) {
 		const tsKeys = labelsTsNamespaces.get(ns);
 		const jsKeys = sharedLabelsJsNamespaces.get(ns);
-		if (!jsKeys) continue;
+		if (!tsKeys || !jsKeys) continue;
 		const onlyTs = diffSet(tsKeys, jsKeys);
 		const onlyJs = diffSet(jsKeys, tsKeys);
 		if (onlyTs.size > 0) {
