@@ -133,15 +133,9 @@ function detectMultiLineSsotTag(line) {
  */
 function countOpenTags(line, tagName) {
 	const re = new RegExp(`<${tagName}(\\s[^>]*)?>`, 'g');
-	let count = 0;
-	let m;
-	while ((m = re.exec(line)) !== null) {
-		// 自己終了 <tagName /> は除外（HTML だが念のため）
-		const fullMatch = m[0];
-		if (/\/>$/.test(fullMatch)) continue;
-		count++;
-	}
-	return count;
+	const matches = line.match(re) ?? [];
+	// 自己終了 <tagName /> は除外（HTML だが念のため）
+	return matches.filter((m) => !/\/>$/.test(m)).length;
 }
 
 /**
@@ -149,9 +143,8 @@ function countOpenTags(line, tagName) {
  */
 function countCloseTags(line, tagName) {
 	const re = new RegExp(`</${tagName}\\s*>`, 'g');
-	let count = 0;
-	while (re.exec(line) !== null) count++;
-	return count;
+	const matches = line.match(re) ?? [];
+	return matches.length;
 }
 
 /**
