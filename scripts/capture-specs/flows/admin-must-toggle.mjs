@@ -63,7 +63,7 @@ export default async (page, capture) => {
 
 	// 編集リンクが存在するか確認
 	const editLink = page.getByTestId('activity-edit-link').first();
-	if (await editLink.count() > 0) {
+	if ((await editLink.count()) > 0) {
 		await editLink.click();
 		await page.waitForURL(/\/admin\/activities\/\d+\/edit$/, { timeout: 10_000 });
 		// 編集画面 (must トグル UI)
