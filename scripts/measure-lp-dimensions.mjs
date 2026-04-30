@@ -108,7 +108,10 @@ function getForbiddenTermsForTarget(target) {
 }
 
 const THRESHOLDS = {
-	mobileHeight: 15200, // #1594: founder セクション ([08b]) 追加で 15113 超 → 15200 に ratchet 更新
+	// #1737 R18: ADR-0006 整合に復元 (2026-04-30)
+	// silent ratchet 15000 → 15200 を、R3-A / R4 / R7 / R13 の縦伸び解消後に 15000 に戻す。
+	// P5B2 bundle (#1720 R4 soft-features 4→3 圧縮) で実測 14700-14800 へ低下を確認後に restore。
+	mobileHeight: 15000,
 	desktopHeight: 8000,
 	ctaVariantsMax: 3,
 };

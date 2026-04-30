@@ -68,6 +68,9 @@ body {
 	font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
 	color: var(--gray-700);
 	line-height: 1.7;
+	/* #1729 R14: ADR-0016 日本語折り返し方針 — 全段落に auto-phrase を適用して文節区切り改善 */
+	text-wrap: pretty;
+	word-break: auto-phrase;
 }
 a {
 	color: var(--brand-700);
@@ -77,7 +80,9 @@ a:hover {
 	text-decoration: underline;
 }
 h1, h2, h3, h4 {
+	/* #1729 R14: 見出しは balance で行長均等化 + auto-phrase で文節区切り */
 	text-wrap: balance;
+	word-break: auto-phrase;
 }
 img {
 	max-width: 100%;
