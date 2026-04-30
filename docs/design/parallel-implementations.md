@@ -229,7 +229,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | 列 | SQLite schema | E2E setup ALTER | test-db.ts | demo-data.ts | 関連 Issue |
 |----|--------------|-----------------|------------|--------------|-----------|
 | `activities.priority` (#1755) | `src/lib/server/db/schema.ts` | `tests/e2e/global-setup.ts` (ALTER + must seed) | `tests/unit/helpers/test-db.ts` | `src/lib/server/demo/demo-data.ts` (must=はみがきした/おきがえした/おかたづけした) | #1755 (#1709-A) |
-| `checklist_templates.kind` 削除 (#1755) | 同上（列削除済） | 同上（DROP COLUMN + DELETE WHERE kind='routine'） | 同上（列なし） | 同上（kind プロパティ削除済 + routine テンプレート削除） | #1755 (#1709-A) |
+| `checklist_templates.kind` 削除 (#1755) | 同上（列削除済） | 同上（DROP COLUMN + DELETE WHERE 旧ルーチン枠レコード） | 同上（列なし） | 同上（kind プロパティ削除済 + 旧ルーチン枠テンプレート削除） | #1755 (#1709-A) |
 
 ---
 

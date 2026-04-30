@@ -77,6 +77,9 @@ const STRICT_FORBIDDEN_TERMS = [
 	// #1706 R1 運営者主語の押し付け禁止（StoryBrand リフレーム / 主語は「がんばりクエスト」または「保護者」）
 	'私たち',
 	'わたしたち',
+	// #1708 R3-A: kind=routine 廃止に伴い「ルーティンチェックリスト」語彙を LP / 設計書から完全排除
+	// （持ち物 = event-* プリセット / 毎日 must = 活動マスタ priority 属性 で責務分離）
+	'ルーティンチェックリスト',
 ];
 
 const IT_JARGON_FORBIDDEN_TERMS = [
