@@ -74,6 +74,9 @@ const STRICT_FORBIDDEN_TERMS = [
 	'L3',
 	// #1630 R26 用語 SSOT
 	'シールくじ',
+	// #1706 R1 運営者主語の押し付け禁止（StoryBrand リフレーム / 主語は「がんばりクエスト」または「保護者」）
+	'私たち',
+	'わたしたち',
 ];
 
 const IT_JARGON_FORBIDDEN_TERMS = [

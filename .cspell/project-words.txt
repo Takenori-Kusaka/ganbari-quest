@@ -157,6 +157,7 @@ multiline
 scrollbar
 Lottie
 webp
+scrshot
 pwa
 PWA
 favicon
