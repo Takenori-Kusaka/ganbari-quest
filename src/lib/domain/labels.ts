@@ -4011,7 +4011,7 @@ export const LP_PRICING_LABELS = {
 	heroSubtextStrong: '7日間の無料体験',
 	heroSubtextSuffix: '付き（クレジットカード登録不要）',
 	heroPriceBand: '基本無料 ・ 月 ¥500（税込）から ・ 有料は 7 日間無料体験 ・ いつでも解約 OK',
-	heroCtaPrimary: '7 日間無料で試す',
+	heroCtaPrimary: '7 日間無料トライアル',
 	heroCtaSecondary: 'プランを比較する',
 
 	// Plan card: Free (#1651 R45 + #1644 R39 + #1645 R40)
