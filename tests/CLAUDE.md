@@ -35,6 +35,7 @@
 - **`test.skip()` の安易な使用** — テストが通らないならアプリを直す。正当な理由（環境依存等）のみ許容
 - **`waitForTimeout()` の新規使用** — E2E テストで固定待機を使わない。`waitForSelector()` / `waitForResponse()` / `waitForURL()` / `waitForFunction()` / Web Animations API (`el.getAnimations({ subtree: true }).map(a => a.finished)`) を使う。**ESLint (`playwright/no-wait-for-timeout: error`) が自動拒否** (#1259 Phase 3)
 - **`{ waitUntil: 'networkidle' }` の新規使用** — Playwright 公式で DISCOURAGED。Single Page App では never idle になる。`domcontentloaded` + web-first assertion (`toBeVisible()` / `toHaveText()`) を使う。**ESLint (`playwright/no-networkidle: error`) が自動拒否** (#1259 Phase 3)
+- **`isVisible()` + `expect(...).toBe(true)` の assertion 用途** — `isVisible()` は同期評価で auto-retry が効かず、特に tablet viewport で hydration / レイアウト計算の競合により flake する (#1768)。assertion 用途では必ず web-first assertion (`await expect(locator).toBeVisible()`) を使う。`isVisible()` の許容用途は **条件分岐** (`if (await x.isVisible().catch(() => false))` で要素の存在を確認する場合) のみ
 - **サービスを呼ばないサービステスト** — `xxx-service.test.ts` は必ずサービスの公開 API を import して呼ぶ。DB 直接操作のみのテストは禁止
 - **テスト内で実装ロジックを再実装** — 実装の関数を呼んで結果を検証する。テスト内で同じロジックを書いて「一致した」は無意味
 
