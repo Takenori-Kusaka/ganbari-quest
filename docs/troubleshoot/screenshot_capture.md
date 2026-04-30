@@ -427,3 +427,56 @@ lsof -ti:5173 | xargs kill -9
 - VS Code / IDE のターミナルが node process を生かしている可能性をまず疑う
 
 ---
+
+## SC-010 — SS が PR 本文で表示されない（ローカル相対パス添付）
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-29 |
+| **PR 番号** | #1691（観察） / #1740 + #1741（再発防止策確立） |
+| **環境** | 全環境 |
+| **ステータス** | resolved |
+
+### 症状
+
+PR body にスクリーンショットを添付したつもりだが、GitHub Web 上で開くと画像が表示されず壊れたリンクのアイコンだけが見える。
+PR body のソースを見ると `![before](tmp/screenshots/pr-XXXX/before.png)` のようなローカル相対パスが書かれている。
+
+QM Re-Review 時に SS 視認不可で、QM 側で代替撮影することになる（PR #1691 で実発生）。
+
+### 根本原因
+
+- `tmp/` ディレクトリは `.gitignore` で除外されている（SC-008 参照）。リポジトリにコミットされていないファイルへの相対パスは、GitHub の renderer から解決できない。
+- PR 作成時に `scripts/capture.mjs --out tmp/screenshots/pr-XXXX` で撮影したファイルパスをそのまま貼り付けると、GitHub では表示されない。
+- ローカルの VS Code Markdown プレビュー等では「ファイルが手元にあるため」表示されてしまうため、本人の手元では問題に気付けない。
+
+### 解決手順
+
+PR body の SS 添付には **GitHub Web 上で表示できる URL のみ** を使う:
+
+```bash
+# 推奨 1: 撮影 → docs/screenshots/ にコピー → コミット → raw URL
+MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /admin/children --out tmp/screenshots/pr-XXXX --presets desktop,mobile
+mkdir -p docs/screenshots/pr-XXXX
+cp tmp/screenshots/pr-XXXX/*.png docs/screenshots/pr-XXXX/
+git add docs/screenshots/pr-XXXX/
+git commit -m "docs: pr-XXXX screenshots"
+# PR body に貼る:
+#   ![before-mobile](https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/<branch>/docs/screenshots/pr-XXXX/before-mobile.png)
+
+# 推奨 2: GitHub Web の PR 編集画面に画像をドラッグ&ドロップ → user-attachments URL が自動生成される
+#   ![after-pc](https://github.com/user-attachments/assets/<uuid>)
+
+# 推奨 3: bundle PR (SS 大量) は SC-007 の screenshots orphan branch を使う
+```
+
+**提出前の必須確認**: PR 本文を保存後、GitHub Web 上のプレビューで画像が表示されていることを目視確認する。表示されていなければ URL を直す。
+
+### 再発防止策
+
+- `scripts/check-pr-screenshot.mjs` (#1740 + #1741) が PR body 内の `tmp/` / `.tmp-screenshots/` 参照を検出し、CI (`pr-quality-gate.yml::screenshot-quality-check`) で警告/失敗する
+- 段階適用フラグ `SCREENSHOT_CHECK_MODE=warn|error` で運用。最初は warn-only で運用し、定着後に `error` に昇格する設計（ADR-0006 ratchet 原則）
+- `docs/sessions/dev-session.md` Screenshot Agent テンプレート §「URL 形式の制約」に明記済
+- `.github/PULL_REQUEST_TEMPLATE.md` の「添付ルール」「Ready for Review チェックリスト」にも記載
+
+---

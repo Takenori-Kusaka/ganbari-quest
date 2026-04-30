@@ -133,7 +133,21 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs \
 
 - スクリーンショットは docs/screenshots/ に配置してコミットする（tmp/ はgitignore対象）
 - PR bodyの「スクリーンショット / ビジュアルデモ」セクションに貼り付け（Before/After表形式）
-- GitHub raw URL形式: https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/[branch]/docs/screenshots/[file]
+
+#### URL 形式の制約（#1741 — ローカル相対パス禁止）
+
+PR body の SS 添付には **GitHub Web 上で表示できる URL のみ** 使用可。以下のいずれかを使う:
+
+- **user-attachments URL**: `https://github.com/user-attachments/assets/<uuid>`
+  （PR 本文編集画面に画像をドラッグ&ドロップで自動生成。Web UI からの編集が必須）
+- **screenshots branch raw URL**: `https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-XXXX/<file>.png`
+  （SC-007 の orphan branch 運用。bundle PR で SS が大量にある場合に推奨）
+- **docs/screenshots/ raw URL**: `https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/<branch>/docs/screenshots/<file>.png`
+  （単体 PR で SS が少数なら直 commit が簡単）
+
+⚠️ **禁止**: `tmp/screenshots/...` / `.tmp-screenshots/...` のローカル相対パス（`tmp/` は gitignore のため commit できない）。
+⚠️ **必須**: PR 提出前に GitHub Web 上のプレビューで画像が表示されていることを目視確認すること。
+URL を貼っただけで満足せず、自分の目で「見えていること」を確かめる。詳細は SC-010 / SC-008 参照。
 
 ### 5. レビュー結果の報告形式
 
@@ -292,6 +306,8 @@ gh issue list --state open --label "priority:high" --json number,title,labels \
    - 対象: `src/routes/**/*.svelte` / `src/lib/ui/**/*.svelte` / `src/lib/features/**/*.svelte` / `site/**/*.js` / `site/**/*.html` / `site/**/*.css` を変更した PR
    - 撮ったスクショを自分で見て、意図通りの表示になっていることを確認してから添付する（CI 通過のためではなく自己判定の証跡）
    - スクリーンショットは `docs/screenshots/` に配置してコミットし、GitHub raw URL を PR body に記載する（`tmp/` は gitignore のため不可）
+   - **#1741**: PR body には **user-attachments URL / screenshots branch raw URL / docs/screenshots/ raw URL** のいずれかのみ可。`tmp/screenshots/...` の相対パス参照は CI (`scripts/check-pr-screenshot.mjs`) が検出して警告（段階適用後 fail 化予定）
+   - **#1740**: 4 スロット (修正前 × モバイル / 修正前 × PC / 修正後 × モバイル / 修正後 × PC) の `![before-mobile](URL)` / `![after-pc](URL)` 形式で添付し、CI の `screenshot-quality-check` が両ラベルの存在を検証する
 7. CI 全通過後に Ready for Review: `gh pr ready <番号>`
 
 ### 新規実装時

@@ -211,20 +211,25 @@ closes #
 
 認証が絡む画面（login / signup / 管理画面 / ops / プラン別 UI）は `npm run dev`（自動認証モード）ではログインフォームが描画されないため、必ず `npm run dev:cognito` (#1026) を起動して実ブラウザで操作したスクリーンショットを使う。
 
-### 変更前後の比較
+### 添付ルール（#1741 — ローカル相対パス禁止）
 
-| Before | After |
-|--------|-------|
-|        |       |
+スクリーンショット URL は **GitHub 上で表示できるもののみ** 受け付ける。以下のいずれかを使うこと:
 
-<!-- モバイル/タブレットに影響する場合はビューポート別に提示 -->
-<!--
-| Viewport | Before | After |
-|----------|--------|-------|
-| Mobile   |        |       |
-| Tablet   |        |       |
-| Desktop  |        |       |
--->
+- **user-attachments URL** — `https://github.com/user-attachments/assets/...`（PR 本文編集画面に画像をドラッグ&ドロップで自動生成）
+- **screenshots branch raw URL** — `https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-XXXX/<file>.png`（SC-007 参照）
+- **docs/screenshots/ raw URL** — `https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/<branch>/docs/screenshots/<file>.png`
+
+⚠️ **禁止**: `tmp/screenshots/...` / `.tmp-screenshots/...` 等のローカル相対パス（`tmp/` は gitignore 対象 — SC-008 / SC-010 参照）。
+PR 提出前に GitHub Web 上のプレビューで画像が表示されていることを目視確認すること。
+
+### 4 スロット添付（#1740 — 修正前 / 修正後 × モバイル / PC）
+
+| | モバイル (375px) | PC (1440px) |
+|---|---|---|
+| **修正前** | `![before-mobile](URL)` | `![before-pc](URL)` |
+| **修正後** | `![after-mobile](URL)` | `![after-pc](URL)` |
+
+UI 変更を含まない PR (refactor / docs / chore のみ) は本セクションに「該当なし（refactor / docs / chore）」と明記する。
 
 ### Playwright スクリーンショット
 
@@ -396,6 +401,7 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] **Phase 分割が必要だった場合は着手前に PO と合意し、子 Issue を起票済みであること**（レビュー時に「Phase 1/2 分割提案」はしない）
 - [ ] UI 変更がある場合、**UI/UX デザイナー視点**で `docs/DESIGN.md` §9 禁忌事項 6 点 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超え) に該当しないことを**目視確認し、証跡としてスクリーンショットを添付**した
 - [ ] 認証が絡む画面を変更した場合、`npm run dev:cognito` (#1026) で実ブラウザ操作した結果のスクリーンショットを添付した
+- [ ] **SS の表示確認 (#1741)**: 添付したスクリーンショットが GitHub Web 上のプレビューで表示されることを確認した（ローカル相対パス `tmp/...` / `.tmp-screenshots/...` を貼っていない）
 - [ ] **hardcoded JP text (#1452 Phase A)**: `node scripts/check-hardcoded-strings.mjs` を実行して件数が baseline（1607件）以下であることを確認した（`src/routes/**/*.svelte` 内の日本語ハードコード増加ゼロ）
 
 ## Critical 修正の追加要件（#612）
