@@ -15,6 +15,8 @@
  *     --out tmp/screenshots/pr-XXXX/
  */
 
+import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5280';
 
 /**
@@ -33,8 +35,8 @@ async function captureSection(page, selector, capture, label) {
 	await el.scrollIntoViewIfNeeded();
 	// scroll-margin / sticky header を考慮し、少しスクロール戻して見出しが切れないようにする
 	await page.evaluate(() => window.scrollBy({ top: -80, left: 0, behavior: 'instant' }));
-	// scroll 後の reflow / lazy image 描画を待つ
-	await page.waitForTimeout(800);
+	// scroll 後の reflow / lazy image 描画を待つ (#1208 — waitForTimeout 不可)
+	await waitForStablePage(page, { skipNetworkIdle: true });
 	await capture(label);
 }
 
@@ -46,12 +48,13 @@ export default async (page, capture) => {
 	await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
 	// LP body が描画されるまで待機
 	await page.locator('body').waitFor({ state: 'visible', timeout: 15_000 });
-	// applyLpKeys() の data-lp-key 注入完了を待つ（LP は静的 HTML 後に JS で文言注入）
-	await page.waitForTimeout(1500);
+	// applyLpKeys() の data-lp-key 注入完了を待つ（DOMContentLoaded 後に同期実行）
+	// networkidle + フォント・rAF 安定で applyLpKeys 完了後を保証する
+	await waitForStablePage(page);
 
 	// 1. Hero（上から見える状態を確保）
 	await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-	await page.waitForTimeout(400);
+	await waitForStablePage(page, { skipNetworkIdle: true });
 	await capture('01-hero');
 
 	// 2. versus セクション (E→A→P 4 行)

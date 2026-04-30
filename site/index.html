@@ -113,7 +113,8 @@
 .section-inner{max-width:1080px;margin:0 auto}
 /* #1634 R30 / ADR-0016: 強制改行 <br> を削除し text-wrap: balance に任せる */
 .section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:10px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
-.section-desc{text-align:center;color:var(--gray-600);margin-bottom:40px;font-size:.98rem;line-height:1.7;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
+/* #1759 PR Phase 3-B fix: desktopHeight 8003 > 8000 を回避するため section-desc 余白を 40 → 28px に圧縮 */
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:28px;font-size:.98rem;line-height:1.7;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
