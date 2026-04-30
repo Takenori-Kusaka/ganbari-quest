@@ -118,7 +118,9 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 | 本番 | デモ | 備考 |
 |------|------|------|
 | `src/routes/(parent)/admin/+page.svelte` | `src/routes/demo/(parent)/admin/+page.svelte` | ホーム |
-| `src/routes/(parent)/admin/activities/` | `src/routes/demo/(parent)/admin/activities/` | 活動管理 |
+| `src/routes/(parent)/admin/activities/` | `src/routes/demo/(parent)/admin/activities/` | 活動管理。**#1756 (#1709-B)**: 一覧の must Badge 表示 / 編集は `[id]/edit` URL に分離（demo は read-only のため Badge のみ） |
+| `src/routes/(parent)/admin/activities/[id]/edit/` | (demo は無効) | **#1756 (#1709-B)**: 活動編集 + 「今日のおやくそく」(`priority='must'`) トグル。demo 側は read-only のため対応 URL なし |
+| `src/routes/(parent)/admin/checklists/` | `src/routes/demo/(parent)/admin/checklists/` | 持ち物チェックリスト管理。**#1755 / #1756 (#1709-A/B)**: kind タブ削除済（持ち物純化） |
 | `src/routes/(parent)/admin/children/` | `src/routes/demo/(parent)/admin/children/` | 子供管理 |
 | `src/routes/(parent)/admin/license/` | `src/routes/demo/(parent)/admin/license/` | プラン・お支払い（#790 でデモ追加）。デモは Stripe/ライセンスキー適用を全てモック化 |
 | `src/routes/(parent)/admin/rewards/` | `src/routes/demo/(parent)/admin/rewards/` | 報酬管理 |
