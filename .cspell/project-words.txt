@@ -327,3 +327,9 @@ freetext
 # ===== SSOT 完全化 (#1465 / #1683 PR #1680) =====
 # LICENSEKEY = LP_LICENSEKEY_LABELS export 名 (site/help/license-key.html ページ用)
 LICENSEKEY
+
+# ===== ADR-0025 (#1683) =====
+# DOMPurify = OSS HTML sanitizer (cure53)、ADR-0025 で採用
+# Paraglide = inlang 製 i18n OSS、ADR-0014 で採用検討
+DOMPurify
+Paraglide
