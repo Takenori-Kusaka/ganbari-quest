@@ -1,36 +1,20 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { FEATURES_LABELS } from '$lib/domain/labels';
-import {
-	type CategoryDef,
-	getActivityDisplayNameForAdult,
-	getCategoryById,
-} from '$lib/domain/validation/activity';
+import { ACTIVITY_PRIORITY_FORM_LABELS, FEATURES_LABELS } from '$lib/domain/labels';
+import { getActivityDisplayNameForAdult, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
-import ActivityEditForm from './ActivityEditForm.svelte';
+import Badge from '$lib/ui/primitives/Badge.svelte';
 import type { ActivityItem } from './activity-types';
 
+// #1756 (#1709-B): インライン編集を削除し、編集は /admin/activities/[id]/edit に独立 URL 分離。
+//   props categoryDefs / logCount / isEditing / onedit / oncanceledit は残骸を整理した。
 interface Props {
 	activity: ActivityItem;
-	categoryDefs: readonly CategoryDef[];
-	logCount: number;
-	isEditing: boolean;
 	mainQuestCount: number;
 	mainQuestMax: number;
-	onedit: () => void;
-	oncanceledit: () => void;
 }
 
-let {
-	activity,
-	categoryDefs,
-	logCount,
-	isEditing,
-	mainQuestCount,
-	mainQuestMax,
-	onedit,
-	oncanceledit,
-}: Props = $props();
+let { activity, mainQuestCount, mainQuestMax }: Props = $props();
 
 const category = $derived(getCategoryById(activity.categoryId));
 const L = FEATURES_LABELS.activityListItem;
@@ -52,6 +36,9 @@ function dailyLimitLabel(val: number | null): string {
 				{#if activity.isMainQuest}
 					<span class="main-quest-badge">{L.mainQuestBadge}</span>
 				{/if}
+				{#if activity.priority === 'must'}
+					<Badge variant="warning" size="sm" data-testid="must-badge">{ACTIVITY_PRIORITY_FORM_LABELS.mustBadge}</Badge>
+				{/if}
 			</div>
 			<div class="activity-meta">
 				{#if category}
@@ -68,13 +55,13 @@ function dailyLimitLabel(val: number | null): string {
 			</div>
 		</div>
 		<div class="flex gap-1">
-			<button
-				type="button"
+			<a
+				href="/admin/activities/{activity.id}/edit"
 				class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-neutral-100)] text-[var(--color-text-muted)] hover:bg-[var(--color-neutral-200)] transition-colors"
-				onclick={() => isEditing ? oncanceledit() : onedit()}
+				data-testid="activity-edit-link"
 			>
-				{isEditing ? L.closeBtn : L.editBtn}
-			</button>
+				{L.editBtn}
+			</a>
 			<form method="POST" action="?/toggleVisibility" use:enhance>
 				<input type="hidden" name="id" value={activity.id} />
 				<input type="hidden" name="visible" value={activity.isVisible ? 'false' : 'true'} />
@@ -103,16 +90,6 @@ function dailyLimitLabel(val: number | null): string {
 			{/if}
 		</div>
 	</div>
-
-	{#if isEditing}
-		<ActivityEditForm
-			{activity}
-			{categoryDefs}
-			{logCount}
-			onsaved={oncanceledit}
-			oncancel={oncanceledit}
-		/>
-	{/if}
 </div>
 
 <style>
