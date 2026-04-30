@@ -139,6 +139,11 @@ function parseLabelsTs() {
 	const lpPricingPhaseBLabels = parseBlock(src, 'LP_PRICING_PHASEB_LABELS');
 	const lpFaqPhaseBLabels = parseBlock(src, 'LP_FAQ_PHASEB_LABELS');
 	const lpPamphletPhaseBLabels = parseBlock(src, 'LP_PAMPHLET_PHASEB_LABELS');
+	// #1703 #1683-C: 法的文書 SSOT 化（ADR-0009 supersede / ADR-0025）
+	const lpLegalPrivacyLabels = parseBlock(src, 'LP_LEGAL_PRIVACY_LABELS');
+	const lpLegalTermsLabels = parseBlock(src, 'LP_LEGAL_TERMS_LABELS');
+	const lpLegalSlaLabels = parseBlock(src, 'LP_LEGAL_SLA_LABELS');
+	const lpLegalTokushohoLabels = parseBlock(src, 'LP_LEGAL_TOKUSHOHO_LABELS');
 
 	return {
 		ageTierLabels,
@@ -164,6 +169,10 @@ function parseLabelsTs() {
 		lpPricingPhaseBLabels,
 		lpFaqPhaseBLabels,
 		lpPamphletPhaseBLabels,
+		lpLegalPrivacyLabels,
+		lpLegalTermsLabels,
+		lpLegalSlaLabels,
+		lpLegalTokushohoLabels,
 	};
 }
 
@@ -221,6 +230,10 @@ function generateSharedLabelsJs() {
 		lpPricingPhaseBLabels,
 		lpFaqPhaseBLabels,
 		lpPamphletPhaseBLabels,
+		lpLegalPrivacyLabels,
+		lpLegalTermsLabels,
+		lpLegalSlaLabels,
+		lpLegalTokushohoLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -269,6 +282,11 @@ function generateSharedLabelsJs() {
 		pricingB: lpPricingPhaseBLabels,
 		faqB: lpFaqPhaseBLabels,
 		pamphletB: lpPamphletPhaseBLabels,
+		// #1703 #1683-C: 法的文書 SSOT 化
+		legalPrivacy: lpLegalPrivacyLabels,
+		legalTerms: lpLegalTermsLabels,
+		legalSla: lpLegalSlaLabels,
+		legalTokushoho: lpLegalTokushohoLabels,
 		lpLicenseKeyLabels,
 		lpFaqLabels,
 		lpSelfhostLabels,
@@ -399,9 +417,30 @@ function generateSharedLabelsJs() {
 	function applyLpKeys() {
 		var elements = document.querySelectorAll('[data-lp-key]');
 		var Purify = (typeof window !== 'undefined') && window.DOMPurify;
+		// #1717 致命的欠陥修正: legal docs (privacy/terms/sla/tokushoho) が h1/h2/p/ul/ol/li/div/table 等を必要とするため
+		// ALLOWED_TAGS / ALLOWED_ATTR を構造タグ/属性まで拡張する。
+		// XSS 防御は維持: <script>/<iframe>/<object>/<embed>/<style>/<svg>/<math> 等の危険タグは含めない（DOMPurify DEFAULT で deny）。
+		// インラインイベントハンドラ（onerror= 等）/ javascript: URL は引き続きブロックされる。
 		var SANITIZE_CONFIG = {
-			ALLOWED_TAGS: ['strong','em','a','br','span','sup','sub','small','b','i'],
-			ALLOWED_ATTR: ['href','target','rel','class','aria-hidden','aria-label'],
+			ALLOWED_TAGS: [
+				// 既存（インライン装飾）
+				'strong', 'em', 'a', 'br', 'span', 'sup', 'sub', 'small', 'b', 'i',
+				// 構造（見出し・段落・リスト・コンテナ）
+				'h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'li', 'div',
+				// テーブル（tokushoho.html の特商法表記など）
+				'table', 'tr', 'th', 'td', 'thead', 'tbody',
+				// セマンティック構造 / 定義リスト / コード
+				'code', 'header', 'section', 'dl', 'dt', 'dd',
+				// 図版
+				'figure', 'figcaption'
+			],
+			ALLOWED_ATTR: [
+				'href', 'target', 'rel', 'class', 'aria-hidden', 'aria-label',
+				// 内部リンク anchor (privacy.html#under-age 等) の整合性のため id を許可
+				'id',
+				// mailto 文脈識別 (data-contact-context="プライバシー" 等) を保持
+				'data-contact-context'
+			],
 			ALLOW_DATA_ATTR: false,
 			ALLOW_UNKNOWN_PROTOCOLS: false,
 			ADD_ATTR: ['target']
@@ -414,6 +453,29 @@ function generateSharedLabelsJs() {
 			});
 			Purify.__gqHookInstalled = true;
 		}
+		// 親要素が <table>/<thead>/<tbody>/<tr> で、かつ入力値が <tr>/<thead>/<tbody> から始まる場合、
+		// 通常の HTML パーサだとブラウザが table の row group context 外と判定し <tr> 等を捨てる。
+		// この場合は XHTML パーサ (PARSER_MEDIA_TYPE) で sanitize し、table row 構造を保持する。
+		// 参考: tokushoho.html の <table data-lp-key="legalTokushoho.tableContent"> + <tr>...<tr>...
+		var TABLE_ROW_PARENT_TAGS = ['TABLE', 'THEAD', 'TBODY', 'TR'];
+		function needsXhtmlParse(parentEl, value) {
+			if (TABLE_ROW_PARENT_TAGS.indexOf(parentEl.tagName) === -1) return false;
+			// 値が <tr|<thead|<tbody|<th|<td から始まれば XHTML モードが必要
+			// 注: 本ファイル全体が template literal で書かれているため、\\s/\\b と二重エスケープ
+			return /^\\s*<(tr|thead|tbody|th|td)\\b/i.test(value);
+		}
+
+		// XHTML パーサに渡す前に void HTML 要素 (<br>, <hr>, <img>) を self-closing 形式に正規化する。
+		// XHTML パーサは未閉じの void 要素で parse error を起こし、それ以降の要素を切り捨てるため
+		// (例: <tr><td>foo<br>bar</td></tr><tr>... が <br> で中断される)、事前に <br/> 形式に揃える。
+		// 注: 二重エスケープ — 本ファイル全体が template literal 内のため \\s/\\b/\\/ と書く
+		function normalizeVoidElements(html) {
+			return html
+				.replace(/<br(\\s[^>]*?)?>/gi, '<br$1/>')
+				.replace(/<hr(\\s[^>]*?)?>/gi, '<hr$1/>')
+				.replace(/<img(\\s[^>]*?)?>/gi, '<img$1/>');
+		}
+
 		elements.forEach(function(el) {
 			var key = el.getAttribute('data-lp-key');
 			var parts = key.split('.');
@@ -423,7 +485,12 @@ function generateSharedLabelsJs() {
 			var value = sectionData[parts[1]];
 			if (value === undefined) return;
 			if (Purify) {
-				el.innerHTML = Purify.sanitize(value, SANITIZE_CONFIG);
+				var useXhtml = needsXhtmlParse(el, value);
+				var input = useXhtml ? normalizeVoidElements(value) : value;
+				var cfg = useXhtml
+					? Object.assign({}, SANITIZE_CONFIG, { PARSER_MEDIA_TYPE: 'application/xhtml+xml' })
+					: SANITIZE_CONFIG;
+				el.innerHTML = Purify.sanitize(input, cfg);
 			} else {
 				el.textContent = value;
 				console.warn('[applyLpKeys] DOMPurify unavailable, fell back to textContent for', key);

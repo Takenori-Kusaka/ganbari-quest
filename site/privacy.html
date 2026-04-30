@@ -43,255 +43,52 @@ body{line-height:1.8;background:var(--gray-50)}
 
 <main class="main">
 <article class="doc">
-  <h1>プライバシーポリシー</h1>
-  <p class="meta">最終更新日: 2026年4月28日</p>
+  <header data-lp-key="legalPrivacy.articleHeader"></header>
 
-  <p class="intro">
-    個人開発者である日下武紀（以下「運営者」）は、Webアプリケーション「がんばりクエスト」（以下「本サービス」）における利用者の個人情報の取扱いについて、個人情報の保護に関する法律（以下「個人情報保護法」）その他関連法令に基づき、以下のとおりプライバシーポリシー（以下「本ポリシー」）を定めます。本サービスは家庭内でお子さまが利用することを想定しており、お子さまの個人情報の保護には特に配慮しています。
-  </p>
+  <p class="intro" data-lp-key="legalPrivacy.intro"></p>
 
-  <section>
-    <h2>第1条（収集する情報）</h2>
-    <p>運営者は、本サービスの提供にあたり、以下の情報を収集します。</p>
+  <section data-lp-key="legalPrivacy.section1"></section>
+  <section data-lp-key="legalPrivacy.section2"></section>
+  <section data-lp-key="legalPrivacy.section3"></section>
+  <section data-lp-key="legalPrivacy.section4"></section>
+  <section data-lp-key="legalPrivacy.section5"></section>
+  <section data-lp-key="legalPrivacy.section6"></section>
+  <section data-lp-key="legalPrivacy.section6_2"></section>
+  <section data-lp-key="legalPrivacy.section7"></section>
+  <section id="external-transmission" data-lp-key="legalPrivacy.section8"></section>
+  <section id="under-age" data-lp-key="legalPrivacy.section9"></section>
+  <section id="cross-border-transfer" data-lp-key="legalPrivacy.section10"></section>
+  <section data-lp-key="legalPrivacy.section11"></section>
+  <section data-lp-key="legalPrivacy.section12"></section>
+  <section data-lp-key="legalPrivacy.section13"></section>
 
-    <h3>1. アカウント情報</h3>
-    <p>認証および通知のためにメールアドレスを収集します。サービス内で表示する表示名をお預かりします。パスワードは不可逆のハッシュ化処理を施した状態で保存されます。これらの情報はご契約期間中保存されます。</p>
-
-    <h3>2. お子さまの情報</h3>
-    <p>サービス内表示のためにニックネーム、年齢区分（表示の最適化に使用）、表示設定（テーマ・UIモード等）をお預かりします。また、お誕生日のお祝い機能のために生年月日を任意でご登録いただけます。これらの情報はご契約期間中保存されます。</p>
-
-    <div class="highlight">
-      <strong>お子さまの個人情報保護について</strong>
-      <ul>
-        <li>お子さまの本名の入力は必須ではありません。ニックネームでご利用いただけます。</li>
-        <li>お子さまが直接個人情報を入力する機能はありません。全ての登録は保護者が行います。</li>
-        <li>学校名、住所等の個人を特定できる情報は収集しません。生年月日は任意登録であり、お誕生日のお祝い機能にのみ使用します。</li>
-      </ul>
-    </div>
-
-    <h3>3. 活動データ</h3>
-    <p>サービス機能を提供するために、活動記録（ポイント、レベル等）、チャレンジ、チェックリスト記録をお預かりします。これらの情報はご契約期間中保存されます。</p>
-
-    <h3>4. 利用ログ</h3>
-    <p>セキュリティの確保および不正アクセス防止のために、アクセス日時、IPアドレス、デバイス情報（ブラウザ種別等）を収集します。アクセスログはCloudWatch Logsに3日間保存した後、S3にアーカイブして長期保存します。セキュリティインシデント調査に必要な場合は、当該ログを調査完了まで保持することがあります。</p>
-
-    <h3>5. 決済情報</h3>
-    <p>クレジットカード番号等の決済情報は、運営者のサーバーには保存されません。決済処理は全て外部の決済サービス（Stripe）を通じて行われ、当該サービスのプライバシーポリシーが適用されます。</p>
-  </section>
-
-  <section>
-    <h2>第2条（情報の利用目的）</h2>
-    <p>運営者は、収集した情報を以下の目的で利用します。</p>
-    <ol>
-      <li>本サービスの提供・運営・維持</li>
-      <li>利用者の認証・本人確認</li>
-      <li>サービスの改善・新機能の開発</li>
-      <li>利用状況の分析・統計処理（個人を特定しない形式）</li>
-      <li>重要なお知らせ・サービス変更の通知</li>
-      <li>不正利用の防止・セキュリティの確保</li>
-      <li>利用者からの問い合わせへの対応</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第3条（情報の第三者提供）</h2>
-    <ol>
-      <li>運営者は、以下の場合を除き、利用者の個人情報を第三者に提供しません。
-        <ul>
-          <li>利用者の同意がある場合</li>
-          <li>法令に基づく場合</li>
-          <li>人の生命、身体または財産の保護のために必要がある場合であって、利用者の同意を得ることが困難な場合</li>
-        </ul>
-      </li>
-      <li>運営者は、サービス提供のために以下の外部サービスを利用しています。各サービスは、それぞれのプライバシーポリシーに基づきデータを取り扱います。
-        <ul>
-          <li><strong>Amazon Web Services (AWS)</strong> — サーバーインフラ（Lambda, DynamoDB）、認証基盤（Cognito）、メール送信（SES）。データは原則としてバージニア北部リージョン（us-east-1）に保存されます。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
-          <li><strong>Google LLC</strong> — OAuth認証（Googleアカウントによるログイン）。認証時にメールアドレスおよび表示名を取得します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
-          <li><strong>Stripe, Inc.</strong> — 決済処理（クレジットカード情報の安全な取扱い）。決済情報はStripeのサーバー（米国）で処理されます。<br>プライバシーポリシー: <a href="https://stripe.com/jp/privacy" target="_blank" rel="noopener">https://stripe.com/jp/privacy</a></li>
-          <li><strong>Discord Inc.</strong> — 運用監視通知（個人を特定できない形式のイベント情報の送信）<br>プライバシーポリシー: <a href="https://discord.com/privacy" target="_blank" rel="noopener">https://discord.com/privacy</a></li>
-          <li><strong>Amazon Web Services (AWS Bedrock)</strong> — 生成 AI（活動アイコン生成・テキスト補助）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://aws.amazon.com/jp/privacy/" target="_blank" rel="noopener">https://aws.amazon.com/jp/privacy/</a></li>
-          <li><strong>Google LLC (Gemini API)</strong> — 生成 AI（画像生成）。利用者識別子（家族内一意 ID）を含まないリクエストのみ送信します。<br>プライバシーポリシー: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">https://policies.google.com/privacy</a></li>
-        </ul>
-      </li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第4条（データの安全管理）</h2>
-    <p>運営者は、個人情報への不正アクセス、紛失、破壊、改ざん、漏洩の防止のため、以下の安全管理措置を講じています。</p>
-    <ul>
-      <li>通信は全て TLS 1.2 以上で暗号化されます。</li>
-      <li>保存データは AES-256 で暗号化されます。</li>
-      <li>パスワードは不可逆のハッシュ化処理を施して保存されます。</li>
-      <li>データベースは定期的に自動バックアップされます。</li>
-    </ul>
-  </section>
-
-  <section>
-    <h2>第5条（利用者の権利）</h2>
-    <p>利用者は、自己の個人情報について、以下の権利を有します。</p>
-    <ol>
-      <li><strong>開示請求</strong> — 運営者が保有する自己の個人情報の開示を請求できます。</li>
-      <li><strong>訂正請求</strong> — 個人情報の内容が事実でない場合、訂正を請求できます。</li>
-      <li><strong>削除請求</strong> — 個人情報の削除を請求できます。</li>
-      <li><strong>利用停止請求</strong> — 個人情報の利用停止を請求できます。</li>
-    </ol>
-    <p>上記の請求は、本サービスの設定画面から行うか、下記のお問い合わせ先までご連絡ください。</p>
-  </section>
-
-  <section>
-    <h2>第6条（データの削除）</h2>
-    <ol>
-      <li><strong>個別データの削除</strong>: 特定の活動記録やお子さまの情報の削除は、本サービスの管理画面から即時実行できます。</li>
-      <li><strong>アカウント全体の削除</strong>: アカウント削除を申請後、30日間の猶予期間を設けます。猶予期間中は削除の取消しが可能です。</li>
-      <li><strong>バックアップからの完全消去</strong>: アカウント削除後90日以内に、バックアップデータからも完全に消去されます。</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第6条の2（卒業フローと事例公開承諾）</h2>
-    <p>本サービスは「お子さまが自律して使う必要がなくなった」ことを「卒業」と定義し、ポジティブな解約として扱います。卒業選択時に表示される専用ページで、ご家庭が任意で「事例として公開してもよい」旨を承諾された場合、以下の情報を保管します。</p>
-    <ol>
-      <li><strong>保管する情報</strong>: ご家庭が任意指定したニックネーム（実名禁止）、卒業時点の残ポイント数、ご利用期間（日数）、任意の卒業メッセージ。</li>
-      <li><strong>利用目的</strong>: サービス紹介ページ等での事例として公開し、他のご家庭の参考となる卒業ストーリーの提示に活用します。</li>
-      <li><strong>公開時の取り扱い</strong>: 実名は使用せず、お預かりしたニックネームのみを表示します。お子さまが特定されない形でのみ公開します。</li>
-      <li><strong>承諾の撤回</strong>: 公開承諾の撤回は、サービス問い合わせ窓口からご連絡いただくことで対応します。撤回後は当該事例を 30 日以内に非公開化します。</li>
-      <li><strong>承諾なしの場合</strong>: 公開を承諾されない場合も「卒業者数」「平均利用期間」等の集計値（個人を特定しない形式）には含まれます。</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第7条（Cookieの使用）</h2>
-    <p>本サービスは、認証状態の維持のためにCookieを使用します。使用するCookieは機能に必須のもののみであり、広告目的のトラッキングCookieは使用しません。</p>
-    <ul>
-      <li><strong>認証Cookie</strong> — ログイン状態の維持（セッション終了時またはTTL経過時に削除）</li>
-      <li><strong>コンテキストCookie</strong> — 利用者のロール・テナント情報（セッション中のみ）</li>
-      <li><strong>セキュリティCookie</strong> — 認証フロー中のみ使用されるCookie（フロー完了後に自動削除）
-        <ul>
-          <li><code>oauth_state</code> — OAuth認証時のCSRF防止トークン</li>
-          <li><code>oauth_nonce</code> — OAuth認証時のリプレイ攻撃防止トークン</li>
-        </ul>
-      </li>
-      <li><strong>招待Cookie</strong> — 招待リンク経由のアクセス時に招待コードを一時保持（招待受理後に削除）</li>
-    </ul>
-    <p>ブラウザの設定によりCookieを無効にすることができますが、本サービスの一部機能が利用できなくなる場合があります。</p>
-  </section>
-
-  <section id="external-transmission">
-    <h2>第8条（外部送信規律 公表）</h2>
-    <p>電気通信事業法第27条の12に基づき、本サービスがサービス提供のために外部に送信する情報を公表します。<strong>送信されるのは技術的な情報のみで、お預かりしたデータの第三者への提供や広告利用は行いません。</strong></p>
-    <p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p>
-    <ol>
-      <li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報</li>
-      <li><strong>送信先</strong>:
-        <ul>
-          <li>Amazon Web Services, Inc.（自社アカウント内 DynamoDB / Lambda / Cognito）</li>
-          <li>Stripe, Inc.（課金処理）</li>
-          <li>Amazon Web Services (AWS Bedrock)（生成 AI）</li>
-          <li>Google LLC (Gemini API)（生成 AI）</li>
-        </ul>
-      </li>
-      <li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / コンテンツ生成（活動アイコン・テキスト補助等）</li>
-      <li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li>
-      <li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li>
-    </ol>
-  </section>
-
-  <section id="under-age">
-    <h2>第9条（未成年者の取扱い）</h2>
-    <p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p>
-    <ol>
-      <li><strong>全年齢で親同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li>
-      <li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li>
-      <li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li>
-      <li><strong>利用者データの域外送信ゼロ</strong>: お子さまの活動記録・プロフィール等のデータは、運営者が管理する自社 AWS アカウント内 DynamoDB のみで処理し、外部第三者（生成 AI 等を含む）への送信は行いません。</li>
-      <li><strong>親による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li>
-    </ol>
-  </section>
-
-  <section id="cross-border-transfer">
-    <h2>第10条（外国にある第三者への提供）</h2>
-    <p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p>
-    <ul>
-      <li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li>
-      <li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li>
-      <li><strong>機械学習・AI モデルの学習データへの流用はありません</strong></li>
-      <li>子供の識別情報（ニックネーム等）は <strong>Google Gemini API には送信しません</strong>（マスク済み）</li>
-    </ul>
-    <p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p>
-    <ol>
-      <li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li>
-      <li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li>
-      <li><strong>法的根拠</strong>: AWS との間で締結された Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</li>
-      <li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li>
-      <li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスのサインアップ時に、「サービス提供に必要な範囲でのデータ保存・処理に同意します」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li>
-      <li><strong>その他の外国にある第三者</strong>:
-        <ul>
-          <li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li>
-          <li><strong>Google LLC</strong>（米国） — OAuth 認証および Gemini API（生成 AI）。</li>
-        </ul>
-      </li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第11条（本ポリシーの変更）</h2>
-    <ol>
-      <li>運営者は、法令の改正、社会情勢の変化、またはサービス内容の変更に伴い、本ポリシーを変更することがあります。</li>
-      <li>重要な変更を行う場合は、本サービス上での通知またはメールにより、変更内容と施行日をお知らせします。</li>
-      <li>本ポリシーの重要な変更後に本サービスを継続して利用される場合、利用者には変更後のポリシーに対する再同意を求める場合があります。</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第12条（個人情報保護管理者）</h2>
-    <div class="contact">
-      <p><strong>個人情報保護管理者</strong></p>
-      <p>氏名: 日下武紀</p>
-      <p>連絡先: <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">ganbari.quest.support@gmail.com</a></p>
-    </div>
-  </section>
-
-  <section>
-    <h2>第13条（お問い合わせ）</h2>
-    <p>個人情報の取扱いに関するお問い合わせは、以下までご連絡ください。開示等の請求に対しては、ご本人確認のうえ、合理的な期間内に対応いたします。</p>
-    <div class="contact">
-      <p>がんばりクエスト運営者 日下武紀</p>
-      <p>お問い合わせ: <a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a> / <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシー">メール</a></p>
-    </div>
-  </section>
-
-  <div class="effective">
-    <p>以上</p>
-    <p>制定日: 2026年3月27日</p>
-    <p>最終改定日: 2026年4月28日</p>
-  </div>
+  <div class="effective" data-lp-key="legalPrivacy.effective"></div>
 </article>
 </main>
 
 <footer class="footer">
   <div class="footer-inner">
     <div class="footer-brand">
-      <h3>がんばりクエスト</h3>
-      <p>お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ</p>
+      <h3 data-lp-key="footer.brandName"></h3>
+      <p data-lp-key="footer.brandTagline"></p>
     </div>
     <div class="footer-links">
-      <h4>リンク</h4>
-      <a href="pricing.html">料金プラン</a>
-      <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
-      <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシーポリシー">お問い合わせ</a>
-      <a href="https://github.com/sponsors/Takenori-Kusaka">Sponsor</a>
+      <h4 data-lp-key="footer.linksHeading"></h4>
+      <a href="pricing.html" data-lp-key="footer.pricingLink"></a>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink"></a>
+      <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="プライバシーポリシー" data-lp-key="footer.contactLink"></a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka" data-lp-key="footer.sponsorLink"></a>
     </div>
     <div class="footer-links">
-      <h4>法的情報</h4>
-      <a href="terms.html">利用規約</a>
-      <a href="privacy.html">プライバシーポリシー</a>
-      <a href="sla.html">SLA</a>
-      <a href="tokushoho.html">特定商取引法に基づく表記</a>
+      <h4 data-lp-key="footer.legalHeading"></h4>
+      <a href="terms.html" data-lp-key="footer.termsLink"></a>
+      <a href="privacy.html" data-lp-key="footer.privacyLink"></a>
+      <a href="sla.html" data-lp-key="footer.slaLink"></a>
+      <a href="tokushoho.html" data-lp-key="footer.tokushohoLink"></a>
     </div>
   </div>
   <div class="footer-copy">
-    <p>&copy; 2026 がんばりクエスト. All rights reserved.</p>
+    <p data-lp-key="footer.copyright"></p>
   </div>
 </footer>
 
