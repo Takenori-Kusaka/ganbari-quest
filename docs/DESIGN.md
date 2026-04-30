@@ -304,9 +304,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `THEME_LABELS` | const | テーマ名 |
 | `THEME_EMOJIS` | const | テーマ絵文字 |
 | `FEATURE_LABELS` | const | 機能名ラベル |
-| `CHECKLIST_KIND_LABELS` | const |  |
-| `CHECKLIST_KIND_SHORT_LABELS` | const |  |
-| `CHECKLIST_KIND_ICONS` | const |  |
+| `ACTIVITY_PRIORITY_LABELS` | const |  |
 | `ACTION_LABELS` | const |  |
 | `TRIAL_LABELS` | const |  |
 | `LIFECYCLE_EMAIL_LABELS` | const |  |
@@ -434,6 +432,14 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `STORYBOOK_LABELS` | const |  |
 | `MILESTONE_LABELS` | const |  |
 | `VALUE_PREVIEW_LABELS` | const |  |
+| `LP_INDEX_PHASEB_LABELS` | const |  |
+| `LP_PRICING_PHASEB_LABELS` | const |  |
+| `LP_FAQ_PHASEB_LABELS` | const |  |
+| `LP_PAMPHLET_PHASEB_LABELS` | const |  |
+| `LP_LEGAL_PRIVACY_LABELS` | const |  |
+| `LP_LEGAL_TERMS_LABELS` | const |  |
+| `LP_LEGAL_SLA_LABELS` | const |  |
+| `LP_LEGAL_TOKUSHOHO_LABELS` | const |  |
 | `formatCount` | function |  |
 | `formatAge` | function |  |
 | `formatAgeRange` | function |  |
@@ -447,13 +453,12 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `getLicensePlanLabel` | function |  |
 | `getThemeLabel` | function | テーマラベル取得 |
 | `getThemeOptions` | function | テーマ選択肢一覧 |
-| `getChecklistKindLabel` | function |  |
-| `getChecklistKindShortLabel` | function |  |
+| `getActivityPriorityLabel` | function |  |
 | `getCancellationCategoryLabel` | function |  |
 | `NavCategoryId` | type |  |
 | `PlanKey` | type |  |
 | `ThemeKey` | type |  |
-| `ChecklistKind` | type |  |
+| `ActivityPriority` | type |  |
 | `PmfSurveyQ1` | type |  |
 | `PmfSurveyQ3` | type |  |
 | `MarketplaceGender` | type |  |

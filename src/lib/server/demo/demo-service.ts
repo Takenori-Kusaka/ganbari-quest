@@ -367,8 +367,7 @@ export function getDemoTodayChecklistsForChild(childId: number): TodayChecklist[
 			templateName: t.name,
 			templateIcon: t.icon,
 			timeSlot: t.timeSlot as 'morning' | 'afternoon' | 'evening' | 'anytime',
-			// #1168: 種別（'item' | 'routine'）
-			kind: t.kind ?? 'routine',
+			// #1755 (#1709-A): kind 削除 — 持ち物純化
 			pointsPerItem: t.pointsPerItem,
 			completionBonus: t.completionBonus,
 			items: checked,

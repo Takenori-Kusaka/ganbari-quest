@@ -370,32 +370,27 @@ export const FEATURE_LABELS = {
 } as const;
 
 // ============================================================
-// チェックリスト種別ラベル（#1168: 持ち物 / ルーティン分離）
+// 活動優先度ラベル（#1755 / #1709-A: 「今日のおやくそく」）
 // ============================================================
+//
+// activities.priority に対応するラベル定義。
+// - must: 「今日のおやくそく」（保護者がフラグ立てした活動 → 子供 UI 専用セクションで強調表示）
+// - optional: 「ふつうの活動」（既定）
+//
+// ※ #1168 で導入された CHECKLIST_KIND_LABELS（'item' / 'routine'）は本 Issue で削除。
+//   旧 'routine' は activities.priority='must' に役割移管され、チェックリストは「持ち物」純化。
 
-export const CHECKLIST_KIND_LABELS = {
-	item: '持ち物チェックリスト',
-	routine: 'ルーティン',
+export const ACTIVITY_PRIORITY_LABELS = {
+	must: '今日のおやくそく',
+	optional: 'ふつうの活動',
 } as const;
 
-export const CHECKLIST_KIND_SHORT_LABELS = {
-	item: '持ち物',
-	routine: 'ルーティン',
-} as const;
+export type ActivityPriority = keyof typeof ACTIVITY_PRIORITY_LABELS;
 
-export const CHECKLIST_KIND_ICONS = {
-	item: '🎒',
-	routine: '📋',
-} as const;
-
-export type ChecklistKind = keyof typeof CHECKLIST_KIND_LABELS;
-
-export function getChecklistKindLabel(kind: string): string {
-	return CHECKLIST_KIND_LABELS[kind as ChecklistKind] ?? CHECKLIST_KIND_LABELS.routine;
-}
-
-export function getChecklistKindShortLabel(kind: string): string {
-	return CHECKLIST_KIND_SHORT_LABELS[kind as ChecklistKind] ?? CHECKLIST_KIND_SHORT_LABELS.routine;
+export function getActivityPriorityLabel(priority: string): string {
+	return (
+		ACTIVITY_PRIORITY_LABELS[priority as ActivityPriority] ?? ACTIVITY_PRIORITY_LABELS.optional
+	);
 }
 
 // ============================================================
@@ -3771,8 +3766,15 @@ export const DEMO_CHILD_CHECKLIST_LABELS = {
 } as const;
 
 export const ADMIN_CHECKLISTS_PAGE_LABELS = {
+	// #1755 (#1709-A): kind 削除に伴い tabAriaLabel は本 sub では未使用化
+	//   後続 sub-issue (#1709-B) で他用途に流用 / 削除を検討
 	tabAriaLabel: 'チェックリスト種別',
+	// #1755 (#1709-A): kind 削除 — emptyChecklistMessage に統合
 	emptyKindSuffix: 'がまだありません',
+	emptyChecklistMessage: '持ち物チェックリストがまだありません',
+	// #1755 (#1709-A): kind 選択削除に伴うダイアログタイトル / プレースホルダ統合
+	addTemplateDialogTitle: '持ち物チェックリスト作成',
+	namePlaceholderItem: '例: がっこうのもちもの',
 	inactiveBadge: '無効',
 	deleteButton: '削除',
 	timeSlotLabel: '時間帯:',

@@ -272,3 +272,151 @@ describe('activity-service', () => {
 		expect(await getActivityById(1, 'test-tenant')).toBeUndefined();
 	});
 });
+
+// ============================================================
+// #1755 (#1709-A): activity priority — 「今日のおやくそく」
+// ============================================================
+
+import {
+	computeMustCompletionBonus,
+	getMustActivitiesToday,
+} from '../../../src/lib/server/services/activity-service';
+
+describe('#1755 activity-service priority', () => {
+	beforeEach(() => {
+		seedBase();
+	});
+
+	// 1. priority='must' で活動を create → list で priority='must' を返す
+	it("UT-ACT-PRIORITY-01: priority='must' で create した活動が list で 'must' で返る", async () => {
+		const created = await createActivity(
+			{
+				name: 'はみがきした',
+				categoryId: 3,
+				icon: '🪥',
+				basePoints: 3,
+				ageMin: null,
+				ageMax: null,
+				priority: 'must',
+			},
+			'test-tenant',
+		);
+		expect(created.priority).toBe('must');
+
+		const all = await getActivities('test-tenant', { includeHidden: true });
+		const found = all.find((a) => a.id === created.id);
+		expect(found?.priority).toBe('must');
+	});
+
+	// 2. getMustActivitiesToday が must 属性活動のみ返す（optional は除外）
+	it('UT-ACT-PRIORITY-02: getMustActivitiesToday は priority=must の活動のみ返す', async () => {
+		// seedBase() で投入されている activities (id=1..6) は全て priority='optional' (default)
+		// is the must を 1 件だけ作成
+		const must = await createActivity(
+			{
+				name: 'おやくそく活動',
+				categoryId: 3,
+				icon: '⭐',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+				priority: 'must',
+			},
+			'test-tenant',
+		);
+
+		const today = '2026-04-30';
+		const result = await getMustActivitiesToday(1, today, 'test-tenant');
+
+		expect(result.total).toBe(1);
+		expect(result.activities).toHaveLength(1);
+		expect(result.activities[0]?.id).toBe(must.id);
+		expect(result.activities[0]?.loggedToday).toBe(0);
+		expect(result.logged).toBe(0);
+	});
+
+	// 2b. 全 must が今日記録済みなら logged === total
+	it('UT-ACT-PRIORITY-02b: 全 must を今日記録すると logged が total に等しい', async () => {
+		const must1 = await createActivity(
+			{
+				name: 'はみがきした',
+				categoryId: 3,
+				icon: '🪥',
+				basePoints: 3,
+				ageMin: null,
+				ageMax: null,
+				priority: 'must',
+			},
+			'test-tenant',
+		);
+		const must2 = await createActivity(
+			{
+				name: 'おきがえした',
+				categoryId: 3,
+				icon: '👕',
+				basePoints: 3,
+				ageMin: null,
+				ageMax: null,
+				priority: 'must',
+			},
+			'test-tenant',
+		);
+
+		const today = '2026-04-30';
+		const childId = 1;
+		// 今日のログを 2 件投入
+		testDb
+			.insert(schema.activityLogs)
+			.values([
+				{
+					childId,
+					activityId: must1.id,
+					points: 3,
+					streakDays: 1,
+					streakBonus: 0,
+					recordedDate: today,
+					recordedAt: `${today}T08:00:00Z`,
+					cancelled: 0,
+				},
+				{
+					childId,
+					activityId: must2.id,
+					points: 3,
+					streakDays: 1,
+					streakBonus: 0,
+					recordedDate: today,
+					recordedAt: `${today}T08:30:00Z`,
+					cancelled: 0,
+				},
+			])
+			.run();
+
+		const result = await getMustActivitiesToday(childId, today, 'test-tenant');
+		expect(result.total).toBe(2);
+		expect(result.logged).toBe(2);
+		expect(result.activities.every((a) => a.loggedToday === 1)).toBe(true);
+	});
+
+	// 3. computeMustCompletionBonus('preschool', true) === 5
+	it('UT-ACT-PRIORITY-03: 全達成時 preschool は +5pt', () => {
+		expect(computeMustCompletionBonus('preschool', true)).toBe(5);
+		expect(computeMustCompletionBonus('elementary', true)).toBe(5);
+	});
+
+	// 4. computeMustCompletionBonus('junior', true) === 3
+	it('UT-ACT-PRIORITY-04: 全達成時 junior / senior は +3pt', () => {
+		expect(computeMustCompletionBonus('junior', true)).toBe(3);
+		expect(computeMustCompletionBonus('senior', true)).toBe(3);
+	});
+
+	// 5. computeMustCompletionBonus('preschool', false) === 0
+	it('UT-ACT-PRIORITY-05: 未達成時はどの年齢でも 0pt（baby は常に 0pt）', () => {
+		expect(computeMustCompletionBonus('preschool', false)).toBe(0);
+		expect(computeMustCompletionBonus('elementary', false)).toBe(0);
+		expect(computeMustCompletionBonus('junior', false)).toBe(0);
+		expect(computeMustCompletionBonus('senior', false)).toBe(0);
+		// baby は ADR-0011（baby = 親の準備モード、ゲーミフィケーション不適用）に従い常に 0
+		expect(computeMustCompletionBonus('baby', true)).toBe(0);
+		expect(computeMustCompletionBonus('baby', false)).toBe(0);
+	});
+});

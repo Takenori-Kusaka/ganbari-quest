@@ -69,6 +69,8 @@ function makeActivity(overrides: Partial<Activity> & { id: number; categoryId: n
 		isArchived: 0,
 		archivedReason: null,
 		createdAt: '2026-01-01T00:00:00.000Z',
+		// #1755 (#1709-A): 「今日のおやくそく」優先度
+		priority: 'optional',
 		...overrides,
 	};
 }

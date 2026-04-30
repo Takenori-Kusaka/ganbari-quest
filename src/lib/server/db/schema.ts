@@ -70,6 +70,11 @@ export const activities = sqliteTable('activities', {
 	archivedReason: text('archived_reason'),
 	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
 	sourcePresetId: text('source_preset_id'),
+	// #1755 (#1709-A): 「今日のおやくそく」優先度 — 'must' = 今日のおやくそく / 'optional' = ふつうの活動
+	// 既存レコードは backfill で 'optional' を設定する（global-setup.ts / migrate-local.ts / 本番マイグレーション）
+	priority: text('priority', { enum: ['must', 'optional'] })
+		.notNull()
+		.default('optional'),
 });
 
 // ============================================================
@@ -374,8 +379,7 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
 	archivedReason: text('archived_reason'),
-	// #1168: 持ち物チェックリスト (item) / ルーティンチェックリスト (routine) の種別分離
-	kind: text('kind').notNull().default('routine'),
+	// #1755 (#1709-A): kind 列削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
 	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
 	sourcePresetId: text('source_preset_id'),
 });

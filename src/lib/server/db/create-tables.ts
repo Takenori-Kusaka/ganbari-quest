@@ -59,7 +59,9 @@ export const SQL_CREATE_TABLES = `
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT,
 		-- #1254 G1: マーケットプレイスプリセット由来の識別子（NULL=プリセット非由来）
-		source_preset_id TEXT
+		source_preset_id TEXT,
+		-- #1755 (#1709-A): 「今日のおやくそく」優先度（'must' | 'optional'、default 'optional'）
+		priority TEXT NOT NULL DEFAULT 'optional'
 	);
 
 	CREATE TABLE IF NOT EXISTS activity_logs (
@@ -253,8 +255,7 @@ export const SQL_CREATE_TABLES = `
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT,
-		-- #1168: 持ち物 ('item') / ルーティン ('routine') 種別
-		kind TEXT NOT NULL DEFAULT 'routine',
+		-- #1755 (#1709-A): kind 列削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
 		-- #1254 G1: マーケットプレイスプリセット由来の識別子（NULL=プリセット非由来）
 		source_preset_id TEXT
 	);

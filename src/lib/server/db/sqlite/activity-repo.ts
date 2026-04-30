@@ -48,6 +48,8 @@ export async function insertActivity(
 		ageMax: number | null;
 		triggerHint?: string | null;
 		sourcePresetId?: string | null;
+		// #1755 (#1709-A): 「今日のおやくそく」優先度
+		priority?: 'must' | 'optional';
 	},
 	_tenantId: string,
 ) {
@@ -64,10 +66,74 @@ export async function updateActivity(
 		ageMin: number | null;
 		ageMax: number | null;
 		triggerHint: string | null;
+		// #1755 (#1709-A): 「今日のおやくそく」優先度
+		priority: 'must' | 'optional';
+		// updateActivity 経由で isMainQuest も更新できる必要がある（既存呼び出し維持）
+		isMainQuest: number;
 	}>,
 	_tenantId: string,
 ) {
 	return db.update(activities).set(input).where(eq(activities.id, id)).returning().get();
+}
+
+/**
+ * #1755 (#1709-A): 子供の今日の must 活動と達成状況を返す。
+ * - 今日 = recordedDate が `today` に一致するキャンセル除外ログを「達成」とみなす
+ * - 戻り値 `activities` は priority='must' かつ isVisible=1 / isArchived=0 の活動全件
+ *   （年齢フィルタは呼び出し側で適用する設計に揃え、本関数は schema 直結の最小実装に留める）
+ */
+export async function findMustActivitiesWithToday(
+	childId: number,
+	today: string,
+	_tenantId: string,
+): Promise<{
+	logged: number;
+	total: number;
+	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+}> {
+	const mustList = await db
+		.select({
+			id: activities.id,
+			name: activities.name,
+			icon: activities.icon,
+		})
+		.from(activities)
+		.where(
+			and(
+				eq(activities.priority, 'must'),
+				eq(activities.isVisible, 1),
+				or(eq(activities.isArchived, 0), isNull(activities.isArchived)),
+			),
+		)
+		.orderBy(activities.sortOrder)
+		.all();
+
+	if (mustList.length === 0) {
+		return { logged: 0, total: 0, activities: [] };
+	}
+
+	// 今日記録された activityId 集合を取得
+	const todayLogs = await db
+		.select({ activityId: activityLogs.activityId })
+		.from(activityLogs)
+		.where(
+			and(
+				eq(activityLogs.childId, childId),
+				eq(activityLogs.recordedDate, today),
+				eq(activityLogs.cancelled, 0),
+			),
+		)
+		.all();
+
+	const loggedSet = new Set<number>(todayLogs.map((l) => l.activityId));
+	const enriched = mustList.map((a) => ({
+		id: a.id,
+		name: a.name,
+		icon: a.icon,
+		loggedToday: loggedSet.has(a.id) ? 1 : 0,
+	}));
+	const logged = enriched.filter((a) => a.loggedToday === 1).length;
+	return { logged, total: enriched.length, activities: enriched };
 }
 
 export async function setActivityVisibility(id: number, visible: boolean, _tenantId: string) {
