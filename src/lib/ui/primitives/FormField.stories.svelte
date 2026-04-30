@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import FormField from './FormField.svelte';
 
 const { Story } = defineMeta({
@@ -34,19 +35,19 @@ const { Story } = defineMeta({
 });
 </script>
 
-<Story name="Text" args={{ label: 'ニックネーム', placeholder: 'たろうくん' }} />
-<Story name="Email" args={{ label: 'メールアドレス', type: 'email', placeholder: 'user@example.com' }} />
-<Story name="Password" args={{ label: 'パスワード', type: 'password' }} />
-<Story name="PasswordWithToggle" args={{ label: 'パスワード', type: 'password', showToggle: true }} />
-<Story name="Number" args={{ label: '年齢', type: 'number', min: 0, max: 18 }} />
-<Story name="Tel" args={{ label: '電話番号', type: 'tel', placeholder: '090-1234-5678' }} />
-<Story name="Date" args={{ label: '生年月日', type: 'date' }} />
-<Story name="Time" args={{ label: 'リマインダー時刻', type: 'time' }} />
-<Story name="Textarea" args={{ label: 'メモ', type: 'textarea', rows: 4, placeholder: '自由記入...' }} />
-<Story name="TextareaLarge" args={{ label: '長文メモ', type: 'textarea', rows: 8, placeholder: '8 行...' }} />
+<Story name="Text" args={{ label: STORYBOOK_LABELS.formField.labelNickname, placeholder: STORYBOOK_LABELS.formField.placeholderNickname }} />
+<Story name="Email" args={{ label: STORYBOOK_LABELS.formField.labelEmail, type: 'email', placeholder: STORYBOOK_LABELS.formField.placeholderEmail }} />
+<Story name="Password" args={{ label: STORYBOOK_LABELS.formField.labelPassword, type: 'password' }} />
+<Story name="PasswordWithToggle" args={{ label: STORYBOOK_LABELS.formField.labelPassword, type: 'password', showToggle: true }} />
+<Story name="Number" args={{ label: STORYBOOK_LABELS.formField.labelAge, type: 'number', min: 0, max: 18 }} />
+<Story name="Tel" args={{ label: STORYBOOK_LABELS.formField.labelTel, type: 'tel', placeholder: STORYBOOK_LABELS.formField.placeholderTel }} />
+<Story name="Date" args={{ label: STORYBOOK_LABELS.formField.labelBirthday, type: 'date' }} />
+<Story name="Time" args={{ label: STORYBOOK_LABELS.formField.labelReminderTime, type: 'time' }} />
+<Story name="Textarea" args={{ label: STORYBOOK_LABELS.formField.labelMemo, type: 'textarea', rows: 4, placeholder: STORYBOOK_LABELS.formField.placeholderMemo }} />
+<Story name="TextareaLarge" args={{ label: STORYBOOK_LABELS.formField.labelMemoLong, type: 'textarea', rows: 8, placeholder: STORYBOOK_LABELS.formField.placeholderMemoLong }} />
 
-<Story name="WithError" args={{ label: '名前', error: '入力が必要です', value: '' }} />
-<Story name="WithHint" args={{ label: '表示名', hint: '3〜20文字で入力してください' }} />
-<Story name="TextareaWithError" args={{ label: 'メモ', type: 'textarea', rows: 3, error: '500 文字以内で入力してください', value: '' }} />
-<Story name="Disabled" args={{ label: '無効なフィールド', disabled: true, value: '編集不可' }} />
-<Story name="TextareaDisabled" args={{ label: '無効メモ', type: 'textarea', disabled: true, value: '編集不可のテキスト' }} />
+<Story name="WithError" args={{ label: STORYBOOK_LABELS.formField.labelName, error: STORYBOOK_LABELS.formField.errorRequired, value: '' }} />
+<Story name="WithHint" args={{ label: STORYBOOK_LABELS.formField.labelDisplayName, hint: STORYBOOK_LABELS.formField.hintDisplayName }} />
+<Story name="TextareaWithError" args={{ label: STORYBOOK_LABELS.formField.labelMemo, type: 'textarea', rows: 3, error: STORYBOOK_LABELS.formField.errorMemoMax, value: '' }} />
+<Story name="Disabled" args={{ label: STORYBOOK_LABELS.formField.labelDisabled, disabled: true, value: STORYBOOK_LABELS.formField.valueDisabled }} />
+<Story name="TextareaDisabled" args={{ label: STORYBOOK_LABELS.formField.labelDisabledMemo, type: 'textarea', disabled: true, value: STORYBOOK_LABELS.formField.valueDisabledMemo }} />

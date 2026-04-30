@@ -1,11 +1,12 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import NativeSelect from './NativeSelect.svelte';
 
 const themeOptions = [
-	{ value: 'forest', label: 'もりのテーマ' },
-	{ value: 'ocean', label: 'うみのテーマ' },
-	{ value: 'space', label: 'うちゅうのテーマ' },
+	{ value: 'forest', label: STORYBOOK_LABELS.nativeSelect.optionThemeForest },
+	{ value: 'ocean', label: STORYBOOK_LABELS.nativeSelect.optionThemeOcean },
+	{ value: 'space', label: STORYBOOK_LABELS.nativeSelect.optionThemeSpace },
 ];
 
 const yearOptions = [
@@ -29,17 +30,17 @@ const { Story } = defineMeta({
 });
 </script>
 
-<Story name="Default" args={{ label: 'テーマ', options: themeOptions }} />
-<Story name="WithPlaceholder" args={{ label: '年', options: yearOptions, placeholder: '選択してください' }} />
-<Story name="WithValue" args={{ label: 'テーマ', options: themeOptions, value: 'ocean' }} />
-<Story name="WithError" args={{ label: 'テーマ', options: themeOptions, error: '選択してください' }} />
-<Story name="WithHint" args={{ label: 'テーマ', options: themeOptions, hint: '後で変更できます' }} />
-<Story name="Disabled" args={{ label: 'テーマ', options: themeOptions, disabled: true, value: 'forest' }} />
+<Story name="Default" args={{ label: STORYBOOK_LABELS.nativeSelect.labelTheme, options: themeOptions }} />
+<Story name="WithPlaceholder" args={{ label: STORYBOOK_LABELS.nativeSelect.labelYear, options: yearOptions, placeholder: STORYBOOK_LABELS.nativeSelect.placeholder }} />
+<Story name="WithValue" args={{ label: STORYBOOK_LABELS.nativeSelect.labelTheme, options: themeOptions, value: 'ocean' }} />
+<Story name="WithError" args={{ label: STORYBOOK_LABELS.nativeSelect.labelTheme, options: themeOptions, error: STORYBOOK_LABELS.nativeSelect.errorRequired }} />
+<Story name="WithHint" args={{ label: STORYBOOK_LABELS.nativeSelect.labelTheme, options: themeOptions, hint: STORYBOOK_LABELS.nativeSelect.hintLater }} />
+<Story name="Disabled" args={{ label: STORYBOOK_LABELS.nativeSelect.labelTheme, options: themeOptions, disabled: true, value: 'forest' }} />
 <Story name="WithDisabledOption" args={{
-	label: 'プラン',
+	label: STORYBOOK_LABELS.nativeSelect.labelPlan,
 	options: [
-		{ value: 'free', label: 'フリープラン' },
-		{ value: 'standard', label: 'スタンダードプラン' },
-		{ value: 'family', label: 'ファミリープラン (準備中)', disabled: true },
+		{ value: 'free', label: STORYBOOK_LABELS.nativeSelect.optionPlanFree },
+		{ value: 'standard', label: STORYBOOK_LABELS.nativeSelect.optionPlanStandard },
+		{ value: 'family', label: STORYBOOK_LABELS.nativeSelect.optionPlanFamily, disabled: true },
 	],
 }} />

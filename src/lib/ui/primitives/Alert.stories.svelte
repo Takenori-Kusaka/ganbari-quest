@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Alert from './Alert.svelte';
 
 const { Story } = defineMeta({
@@ -16,18 +17,18 @@ const { Story } = defineMeta({
 });
 </script>
 
-<Story name="Success" args={{ variant: 'success', message: '保存しました！' }} />
-<Story name="Warning" args={{ variant: 'warning', message: '入力内容を確認してください' }} />
-<Story name="Danger" args={{ variant: 'danger', message: 'エラーが発生しました' }} />
-<Story name="Info" args={{ variant: 'info', message: 'お知らせがあります' }} />
+<Story name="Success" args={{ variant: 'success', message: STORYBOOK_LABELS.alert.successMessage }} />
+<Story name="Warning" args={{ variant: 'warning', message: STORYBOOK_LABELS.alert.warningMessage }} />
+<Story name="Danger" args={{ variant: 'danger', message: STORYBOOK_LABELS.alert.dangerMessage }} />
+<Story name="Info" args={{ variant: 'info', message: STORYBOOK_LABELS.alert.infoMessage }} />
 
 <Story name="AllVariants">
   {#snippet children()}
     <div class="flex flex-col gap-2">
-      <Alert variant="success" message="保存しました！" />
-      <Alert variant="warning" message="入力内容を確認してください" />
-      <Alert variant="danger" message="エラーが発生しました" />
-      <Alert variant="info" message="お知らせがあります" />
+      <Alert variant="success" message={STORYBOOK_LABELS.alert.successMessage} />
+      <Alert variant="warning" message={STORYBOOK_LABELS.alert.warningMessage} />
+      <Alert variant="danger" message={STORYBOOK_LABELS.alert.dangerMessage} />
+      <Alert variant="info" message={STORYBOOK_LABELS.alert.infoMessage} />
     </div>
   {/snippet}
 </Story>

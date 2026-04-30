@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import IconButton from './IconButton.svelte';
 
 const { Story } = defineMeta({
@@ -9,28 +10,28 @@ const { Story } = defineMeta({
 });
 </script>
 
-<Story name="Primary"><IconButton variant="primary" label="編集">✏️</IconButton></Story>
-<Story name="Secondary"><IconButton variant="secondary" label="編集">✏️</IconButton></Story>
-<Story name="Danger"><IconButton variant="danger" label="削除">🗑️</IconButton></Story>
-<Story name="Ghost"><IconButton variant="ghost" label="閉じる">✕</IconButton></Story>
-<Story name="Outline"><IconButton variant="outline" label="編集">✏️</IconButton></Story>
+<Story name="Primary"><IconButton variant="primary" label={STORYBOOK_LABELS.iconButton.labelEdit}>✏️</IconButton></Story>
+<Story name="Secondary"><IconButton variant="secondary" label={STORYBOOK_LABELS.iconButton.labelEdit}>✏️</IconButton></Story>
+<Story name="Danger"><IconButton variant="danger" label={STORYBOOK_LABELS.iconButton.labelDelete}>🗑️</IconButton></Story>
+<Story name="Ghost"><IconButton variant="ghost" label={STORYBOOK_LABELS.iconButton.labelClose}>✕</IconButton></Story>
+<Story name="Outline"><IconButton variant="outline" label={STORYBOOK_LABELS.iconButton.labelEdit}>✏️</IconButton></Story>
 
 <Story name="AllVariants">
   <div class="flex gap-2 items-center">
-    <IconButton variant="primary" label="編集">✏️</IconButton>
-    <IconButton variant="secondary" label="編集">✏️</IconButton>
-    <IconButton variant="danger" label="削除">🗑️</IconButton>
-    <IconButton variant="ghost" label="閉じる">✕</IconButton>
-    <IconButton variant="warning" label="注意">⚠️</IconButton>
-    <IconButton variant="success" label="確認">✓</IconButton>
-    <IconButton variant="outline" label="編集">✏️</IconButton>
+    <IconButton variant="primary" label={STORYBOOK_LABELS.iconButton.labelEdit}>✏️</IconButton>
+    <IconButton variant="secondary" label={STORYBOOK_LABELS.iconButton.labelEdit}>✏️</IconButton>
+    <IconButton variant="danger" label={STORYBOOK_LABELS.iconButton.labelDelete}>🗑️</IconButton>
+    <IconButton variant="ghost" label={STORYBOOK_LABELS.iconButton.labelClose}>✕</IconButton>
+    <IconButton variant="warning" label={STORYBOOK_LABELS.iconButton.labelWarning}>⚠️</IconButton>
+    <IconButton variant="success" label={STORYBOOK_LABELS.iconButton.labelConfirm}>✓</IconButton>
+    <IconButton variant="outline" label={STORYBOOK_LABELS.iconButton.labelEdit}>✏️</IconButton>
   </div>
 </Story>
 
 <Story name="AllSizes">
   <div class="flex gap-2 items-center">
-    <IconButton variant="primary" label="小" size="sm">✏️</IconButton>
-    <IconButton variant="primary" label="中" size="md">✏️</IconButton>
-    <IconButton variant="primary" label="大" size="lg">✏️</IconButton>
+    <IconButton variant="primary" label={STORYBOOK_LABELS.iconButton.labelSmall} size="sm">✏️</IconButton>
+    <IconButton variant="primary" label={STORYBOOK_LABELS.iconButton.labelMedium} size="md">✏️</IconButton>
+    <IconButton variant="primary" label={STORYBOOK_LABELS.iconButton.labelLarge} size="lg">✏️</IconButton>
   </div>
 </Story>
