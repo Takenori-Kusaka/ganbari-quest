@@ -52,6 +52,7 @@ const { values, positionals } = parseArgs({
 		'base-url': { type: 'string', default: process.env.BASE_URL || 'http://localhost:5173' },
 		'storage-state': { type: 'string' },
 		'full-page': { type: 'boolean', default: false },
+		selector: { type: 'string' }, // (#1738) 表示完了を待つ CSS セレクタ。Storybook iframe など SPA レンダリング待ち用
 		format: { type: 'string', default: 'png' },
 		quality: { type: 'string', default: '85' },
 		'max-steps': { type: 'string', default: '12' },
@@ -101,6 +102,8 @@ QA レビュー用（--pr で全自動）:
   --base-url        サーバー URL（BASE_URL 環境変数でも指定可、デフォルト: http://localhost:5173）
   --storage-state   認証済みセッションの storageState ファイルパス
   --full-page       フルページキャプチャ（デフォルト: false）
+  --selector        表示完了を待つ CSS セレクタ（Storybook iframe SPA 等で
+                    レンダリング完了を待つ場合に指定。例: --selector "#storybook-root > *")
   --format          png / webp / jpeg（デフォルト: png）
   --quality         WebP 品質 0-100（デフォルト: 85）
   --max-steps       フローの最大ステップ数（デフォルト: 12）
@@ -588,6 +591,7 @@ async function runUrlMode() {
 			fullPage,
 			format,
 			quality,
+			selector: values.selector,
 			storageState,
 		});
 		if (result.ok) {

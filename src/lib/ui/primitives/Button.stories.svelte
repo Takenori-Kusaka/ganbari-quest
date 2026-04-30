@@ -48,19 +48,19 @@ const { Story } = defineMeta({
 
 <Story name="AllVariants">
   <div class="flex gap-2 flex-wrap items-center">
-    <Button variant="primary">Primary</Button>
-    <Button variant="secondary">Secondary</Button>
-    <Button variant="danger">Danger</Button>
-    <Button variant="ghost">Ghost</Button>
-    <Button variant="success">Success</Button>
-    <Button variant="outline">Outline</Button>
+    <Button variant="primary">{STORYBOOK_LABELS.button.primary}</Button>
+    <Button variant="secondary">{STORYBOOK_LABELS.button.secondary}</Button>
+    <Button variant="danger">{STORYBOOK_LABELS.button.danger}</Button>
+    <Button variant="ghost">{STORYBOOK_LABELS.button.ghost}</Button>
+    <Button variant="success">{STORYBOOK_LABELS.button.success}</Button>
+    <Button variant="outline">{STORYBOOK_LABELS.button.outline}</Button>
   </div>
 </Story>
 
 <Story name="AllSizes">
   <div class="flex gap-2 items-center">
-    <Button variant="primary" size="sm">Small</Button>
-    <Button variant="primary" size="md">Medium</Button>
-    <Button variant="primary" size="lg">Large</Button>
+    <Button variant="primary" size="sm">{STORYBOOK_LABELS.button.small}</Button>
+    <Button variant="primary" size="md">{STORYBOOK_LABELS.button.medium}</Button>
+    <Button variant="primary" size="lg">{STORYBOOK_LABELS.button.large}</Button>
   </div>
 </Story>

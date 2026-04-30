@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import BirthdayInput from './BirthdayInput.svelte';
 
 const { Story } = defineMeta({
@@ -20,14 +21,14 @@ const { Story } = defineMeta({
 <Story
 	name="Default"
 	args={{
-		label: 'おたんじょうび',
+		label: STORYBOOK_LABELS.birthdayInput.labelDefault,
 	}}
 />
 
 <Story
 	name="WithValue"
 	args={{
-		label: 'おたんじょうび',
+		label: STORYBOOK_LABELS.birthdayInput.labelDefault,
 		value: '2018-12-25',
 	}}
 />
@@ -35,7 +36,7 @@ const { Story } = defineMeta({
 <Story
 	name="LeapYear"
 	args={{
-		label: 'おたんじょうび',
+		label: STORYBOOK_LABELS.birthdayInput.labelDefault,
 		value: '2024-02-29',
 	}}
 />
@@ -43,9 +44,9 @@ const { Story } = defineMeta({
 <Story
 	name="WithError"
 	args={{
-		label: 'おたんじょうび',
-		value: '2024-02-30', // Invalid date
-		error: '有効な日付を入力してください。',
+		label: STORYBOOK_LABELS.birthdayInput.labelDefault,
+		value: '2024-02-30',
+		error: STORYBOOK_LABELS.birthdayInput.errorInvalid,
         required: true,
 	}}
 />

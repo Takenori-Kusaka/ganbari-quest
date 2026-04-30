@@ -16,17 +16,17 @@ const { Story } = defineMeta({
 
 <Story name="AllVariants">
   <div class="flex gap-4 flex-wrap">
-    <Card variant="default" padding="md"><p>Default</p></Card>
-    <Card variant="elevated" padding="md"><p>Elevated</p></Card>
-    <Card variant="outlined" padding="md"><p>Outlined</p></Card>
+    <Card variant="default" padding="md"><p>{STORYBOOK_LABELS.card.default}</p></Card>
+    <Card variant="elevated" padding="md"><p>{STORYBOOK_LABELS.card.elevated}</p></Card>
+    <Card variant="outlined" padding="md"><p>{STORYBOOK_LABELS.card.outlined}</p></Card>
   </div>
 </Story>
 
 <Story name="Paddings">
   <div class="flex gap-4 flex-wrap">
-    <Card variant="outlined" padding="none"><p>None</p></Card>
-    <Card variant="outlined" padding="sm"><p>Small</p></Card>
-    <Card variant="outlined" padding="md"><p>Medium</p></Card>
-    <Card variant="outlined" padding="lg"><p>Large</p></Card>
+    <Card variant="outlined" padding="none"><p>{STORYBOOK_LABELS.card.paddingNone}</p></Card>
+    <Card variant="outlined" padding="sm"><p>{STORYBOOK_LABELS.card.paddingSm}</p></Card>
+    <Card variant="outlined" padding="md"><p>{STORYBOOK_LABELS.card.paddingMd}</p></Card>
+    <Card variant="outlined" padding="lg"><p>{STORYBOOK_LABELS.card.paddingLg}</p></Card>
   </div>
 </Story>
