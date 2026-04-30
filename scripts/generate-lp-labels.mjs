@@ -139,6 +139,11 @@ function parseLabelsTs() {
 	const lpPricingPhaseBLabels = parseBlock(src, 'LP_PRICING_PHASEB_LABELS');
 	const lpFaqPhaseBLabels = parseBlock(src, 'LP_FAQ_PHASEB_LABELS');
 	const lpPamphletPhaseBLabels = parseBlock(src, 'LP_PAMPHLET_PHASEB_LABELS');
+	// #1703 #1683-C: 法的文書 SSOT 化（ADR-0009 supersede / ADR-0025）
+	const lpLegalPrivacyLabels = parseBlock(src, 'LP_LEGAL_PRIVACY_LABELS');
+	const lpLegalTermsLabels = parseBlock(src, 'LP_LEGAL_TERMS_LABELS');
+	const lpLegalSlaLabels = parseBlock(src, 'LP_LEGAL_SLA_LABELS');
+	const lpLegalTokushohoLabels = parseBlock(src, 'LP_LEGAL_TOKUSHOHO_LABELS');
 
 	return {
 		ageTierLabels,
@@ -164,6 +169,10 @@ function parseLabelsTs() {
 		lpPricingPhaseBLabels,
 		lpFaqPhaseBLabels,
 		lpPamphletPhaseBLabels,
+		lpLegalPrivacyLabels,
+		lpLegalTermsLabels,
+		lpLegalSlaLabels,
+		lpLegalTokushohoLabels,
 	};
 }
 
@@ -221,6 +230,10 @@ function generateSharedLabelsJs() {
 		lpPricingPhaseBLabels,
 		lpFaqPhaseBLabels,
 		lpPamphletPhaseBLabels,
+		lpLegalPrivacyLabels,
+		lpLegalTermsLabels,
+		lpLegalSlaLabels,
+		lpLegalTokushohoLabels,
 	} = parseLabelsTs();
 	const ageTierConfig = parseAgeTierTs();
 
@@ -269,6 +282,11 @@ function generateSharedLabelsJs() {
 		pricingB: lpPricingPhaseBLabels,
 		faqB: lpFaqPhaseBLabels,
 		pamphletB: lpPamphletPhaseBLabels,
+		// #1703 #1683-C: 法的文書 SSOT 化
+		legalPrivacy: lpLegalPrivacyLabels,
+		legalTerms: lpLegalTermsLabels,
+		legalSla: lpLegalSlaLabels,
+		legalTokushoho: lpLegalTokushohoLabels,
 		lpLicenseKeyLabels,
 		lpFaqLabels,
 		lpSelfhostLabels,

@@ -27,9 +27,9 @@ body{line-height:1.8;background:var(--gray-50)}
     </a>
     <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
     <nav id="main-nav" class="header-nav">
-      <a href="index.html" onclick="this.parentElement.classList.remove('open')">ホーム</a>
-      <a href="index.html#features" onclick="this.parentElement.classList.remove('open')">できること</a>
-      <a href="pricing.html" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="index.html" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="index.html#features" data-lp-key="nav.features" onclick="this.parentElement.classList.remove('open')">できること</a>
+      <a href="pricing.html" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
       <a href="https://ganbari-quest.com/demo" class="btn btn-demo" data-lp-key="common.ctaDemo">デモを見る</a>
       <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="common.ctaSignup">無料で始める</a>
     </nav>
@@ -38,126 +38,46 @@ body{line-height:1.8;background:var(--gray-50)}
 
 <main class="main">
 <article class="doc">
-  <h1>サービスレベル合意（SLA）</h1>
-  <p class="meta">最終更新日: 2026年4月17日</p>
+  <header data-lp-key="legalSla.articleHeader"></header>
 
-  <p class="intro">
-    本文書は、個人開発者である日下武紀が運営するがんばりクエスト（以下「本サービス」）のサービスレベル目標を定めるものです。本サービスは個人が開発・運営しているため、企業が提供するサービスとは運営体制が異なります。本SLAは、運営者が誠実に達成を目指す目標値を示すものであり、法的な保証ではありません。
-  </p>
+  <p class="intro" data-lp-key="legalSla.intro"></p>
 
-  <section>
-    <h2>第1条（適用範囲）</h2>
-    <ol>
-      <li>本SLAは、本サービスのSaaS版（https://ganbari-quest.com）に適用されます。</li>
-      <li>セルフホスト版（利用者自身の環境で動作するもの）には適用されません。</li>
-      <li>本SLAは、運営者が合理的な努力により達成を目指す目標であり、法的な保証を構成するものではありません。</li>
-    </ol>
-  </section>
+  <section data-lp-key="legalSla.section1"></section>
+  <section data-lp-key="legalSla.section2"></section>
+  <section data-lp-key="legalSla.section3"></section>
+  <section data-lp-key="legalSla.section4"></section>
+  <section data-lp-key="legalSla.section5"></section>
+  <section data-lp-key="legalSla.section6"></section>
+  <section data-lp-key="legalSla.section7"></section>
+  <section data-lp-key="legalSla.section8"></section>
 
-  <section>
-    <h2>第2条（サービス可用性）</h2>
-    <ol>
-      <li>運営者は、本サービスの月間可用性 <strong>99.5%</strong> を目標とします（月間約3.6時間の計画外ダウンタイムに相当）。</li>
-      <li>以下は計画外ダウンタイムに含みません。
-        <ul>
-          <li>事前に通知された計画メンテナンス</li>
-          <li>天災・戦争等の不可抗力による停止</li>
-          <li>クラウド基盤の障害</li>
-          <li>利用者側の環境に起因する接続障害</li>
-        </ul>
-      </li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第3条（デプロイおよび計画メンテナンス）</h2>
-    <ol>
-      <li>本サービスは継続的デプロイ（CI/CD）を採用しており、通常のコードデプロイはゼロダウンタイムで実施されます。通常のデプロイにおいてサービスの中断は発生しません。</li>
-      <li>インフラストラクチャの変更（CDKスタック更新、データベースマイグレーション等）により、サービスの一時的な中断が見込まれる場合は「計画メンテナンス」として扱い、以下の対応を行います。
-        <ul>
-          <li>事前通知: 24時間前までにDiscordステータスチャンネルにて告知</li>
-          <li>影響範囲および想定される中断時間の事前説明</li>
-        </ul>
-      </li>
-      <li>緊急のセキュリティパッチ等、事前通知なく実施する場合があります。この場合は可能な限り速やかに通知します。</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第4条（データ保護）</h2>
-    <p>運営者は、利用者のデータを保護するために以下の措置を講じています。</p>
-    <ul>
-      <li>日次の自動バックアップを実施しています。</li>
-      <li>全ての通信はTLS 1.2以上で暗号化されます。</li>
-      <li>保存データはAES-256で暗号化されます。</li>
-      <li>障害発生時の復旧目標時間は4時間以内です。</li>
-      <li>データの復旧時点目標は24時間以内（日次バックアップ間隔）です。</li>
-    </ul>
-  </section>
-
-  <section>
-    <h2>第5条（障害通知）</h2>
-    <ol>
-      <li>サービス障害が発生した場合、運営者はDiscordの公開ステータスチャンネルにて状況を通知します。継続的なダウンタイムが1時間を超える場合は、登録メールアドレスへの通知も行います。</li>
-      <li>障害の検知はデプロイ時の自動検証および定期的なヘルスチェック（準備中）により行われ、異常を検知した場合は速やかに対応を開始し通知します。</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第6条（サポート対応）</h2>
-    <p>お問い合わせは<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHub Issues</a>または<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA">メール</a>にて24時間受け付けています。初回応答は48時間以内（営業日ベース）を目標としています。対応言語は日本語です。</p>
-    <p>個人運営のため、応答が遅れる場合があります。ご理解をお願いいたします。</p>
-  </section>
-
-  <section>
-    <h2>第7条（SLA未達時の対応）</h2>
-    <ol>
-      <li>本SLAに定める目標値を達成できなかった場合、運営者は原因の調査と再発防止に努めます。</li>
-      <li>本SLAは法的な保証ではなく、目標未達に対するサービスクレジット（返金・減額）の提供は行いません。</li>
-      <li>重大な障害（連続24時間以上のサービス停止等）が発生した場合、有料プランの利用者は障害期間に相当する日数分のサービス期間延長を申請できます。延長の可否は運営者が判断します。</li>
-    </ol>
-  </section>
-
-  <section>
-    <h2>第8条（免責事項）</h2>
-    <ol>
-      <li>本サービスは個人開発によるものであり、エンタープライズ向けサービスと同等の可用性・冗長性を保証するものではありません。運営者1名での対応となるため、障害対応に時間を要する場合があります。</li>
-      <li>本SLAに定める目標値を達成できなかった場合でも、運営者は損害賠償義務を負いません。損害賠償については、<a href="terms.html">利用規約</a>第12条（免責事項）の定めに従います。</li>
-      <li>本SLAの内容は、サービスの改善に伴い変更される場合があります。重要な変更がある場合は14日前までに通知します。</li>
-    </ol>
-  </section>
-
-  <div class="effective">
-    <p>制定日: 2026年3月27日</p>
-    <p>最終改定日: 2026年4月17日</p>
-    <p>がんばりクエスト運営者 日下武紀</p>
-  </div>
+  <div class="effective" data-lp-key="legalSla.effective"></div>
 </article>
 </main>
 
 <footer class="footer">
   <div class="footer-inner">
     <div class="footer-brand">
-      <h3>がんばりクエスト</h3>
-      <p>お子さまの「がんばり」を冒険に変える<br>家庭向けWebアプリ</p>
+      <h3 data-lp-key="footer.brandName"></h3>
+      <p data-lp-key="footer.brandTagline"></p>
     </div>
     <div class="footer-links">
-      <h4>リンク</h4>
-      <a href="pricing.html">料金プラン</a>
-      <a href="https://github.com/Takenori-Kusaka/ganbari-quest">GitHub</a>
-      <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA">お問い合わせ</a>
-      <a href="https://github.com/sponsors/Takenori-Kusaka">Sponsor</a>
+      <h4 data-lp-key="footer.linksHeading"></h4>
+      <a href="pricing.html" data-lp-key="footer.pricingLink"></a>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink"></a>
+      <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="SLA" data-lp-key="footer.contactLink"></a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka" data-lp-key="footer.sponsorLink"></a>
     </div>
     <div class="footer-links">
-      <h4>法的情報</h4>
-      <a href="terms.html">利用規約</a>
-      <a href="privacy.html">プライバシーポリシー</a>
-      <a href="sla.html">SLA</a>
-      <a href="tokushoho.html">特定商取引法に基づく表記</a>
+      <h4 data-lp-key="footer.legalHeading"></h4>
+      <a href="terms.html" data-lp-key="footer.termsLink"></a>
+      <a href="privacy.html" data-lp-key="footer.privacyLink"></a>
+      <a href="sla.html" data-lp-key="footer.slaLink"></a>
+      <a href="tokushoho.html" data-lp-key="footer.tokushohoLink"></a>
     </div>
   </div>
   <div class="footer-copy">
-    <p>&copy; 2026 がんばりクエスト. All rights reserved.</p>
+    <p data-lp-key="footer.copyright"></p>
   </div>
 </footer>
 
