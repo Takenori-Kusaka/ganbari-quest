@@ -4,6 +4,8 @@ import { invalidateAll } from '$app/navigation';
 import { APP_LABELS, DEMO_CHILD_HOME_LABELS, formatStreak, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import type { UiMode } from '$lib/domain/validation/age-tier';
+import MustProgressBar from '$lib/features/child/MustProgressBar.svelte';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -85,6 +87,21 @@ function handleResultClose() {
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-1">
+	<!--
+		#1757 (#1709-C): 「今日のおやくそく」N/M 進捗バー（demo 同期）
+		- demo の uiMode が 'baby' の場合は別 layout に分岐するため到達しない
+		- demo は DB 書き込み無し → granted は常に false（初回付与演出は本番のみ）
+	-->
+	{#if data.mustStatus && data.mustStatus.total > 0 && data.uiMode !== 'baby'}
+		<MustProgressBar
+			logged={data.mustStatus.logged}
+			total={data.mustStatus.total}
+			uiMode={data.uiMode as UiMode}
+			bonusGranted={data.mustStatus.granted}
+			bonusPoints={data.mustStatus.points}
+		/>
+	{/if}
+
 	<!-- Checklist shortcut -->
 	{#if data.hasChecklists}
 		<div
