@@ -1,5 +1,10 @@
 <script lang="ts">
-import { APP_LABELS, DEMO_ACTIVITIES_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import {
+	ACTIVITY_PRIORITY_FORM_LABELS,
+	APP_LABELS,
+	DEMO_ACTIVITIES_LABELS,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { formatPointValue } from '$lib/domain/point-display';
 import {
 	CATEGORY_DEFS,
@@ -10,6 +15,7 @@ import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte
 import DemoBanner from '$lib/features/admin/components/DemoBanner.svelte';
 import DemoCta from '$lib/features/admin/components/DemoCta.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -25,12 +31,12 @@ let searchQuery = $state('');
 const filteredActivities = $derived.by(() => {
 	let result = data.activities;
 	if (filterCategoryId) {
-		result = result.filter((a: { categoryId: number }) => a.categoryId === filterCategoryId);
+		result = result.filter((a) => a.categoryId === filterCategoryId);
 	}
 	if (searchQuery.trim()) {
 		const q = searchQuery.trim().toLowerCase();
 		result = result.filter(
-			(a: { name: string; nameKanji?: string | null; nameKana?: string | null }) =>
+			(a) =>
 				a.name.toLowerCase().includes(q) ||
 				a.nameKanji?.toLowerCase().includes(q) ||
 				a.nameKana?.toLowerCase().includes(q),
@@ -117,6 +123,9 @@ function dailyLimitLabel(val: number | null): string {
 						<div class="flex items-center gap-2 flex-wrap">
 							<p class="text-sm font-bold truncate" style:color="var(--color-text)">{getActivityDisplayNameForAdult(activity)}</p>
 							<span class="activity-points">{fmtPts(activity.basePoints)}</span>
+							{#if activity.priority === 'must'}
+								<Badge variant="warning" size="sm" data-testid="must-badge">{ACTIVITY_PRIORITY_FORM_LABELS.mustBadge}</Badge>
+							{/if}
 						</div>
 						<div class="activity-meta">
 							{#if cat}
