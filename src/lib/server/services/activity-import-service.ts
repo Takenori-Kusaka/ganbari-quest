@@ -60,16 +60,38 @@ export async function previewActivityImport(
 }
 
 /**
+ * 活動インポートのオプション
+ *
+ * @property presetId マーケットプレイスプリセット由来の場合、パックID
+ *                    （#1254 G1: import 時の preset_duplicate 検知に利用）
+ * @property applyMustDefault 親側 UI のチェックボックスが ON のとき true。
+ *                            true の場合、`ActivityPackItem.mustDefault === true` の活動は
+ *                            `priority='must'` でインポートされる（#1758 / #1709-D）。
+ *                            false / 未指定の場合は全活動が `priority='optional'`。
+ */
+export interface ImportActivitiesOptions {
+	presetId?: string;
+	applyMustDefault?: boolean;
+}
+
+/**
  * 活動をインポート（mergeモード: 重複はスキップ）
  *
- * @param presetId マーケットプレイスプリセット由来の場合、パックID
- *                 （#1254 G1: import 時の preset_duplicate 検知に利用）
+ * @param activities インポート対象の活動配列（marketplace activity-pack の payload.activities など）
+ * @param tenantId   テナントID
+ * @param options    presetId（preset_duplicate 検知）と applyMustDefault（must 推奨採用）
+ *                   後方互換のため `string` を渡した場合は presetId として扱う。
  */
 export async function importActivities(
 	activities: ActivityPackItem[],
 	tenantId: string,
-	presetId?: string,
+	options?: ImportActivitiesOptions | string,
 ): Promise<ActivityImportResult> {
+	const opts: ImportActivitiesOptions =
+		typeof options === 'string' ? { presetId: options } : (options ?? {});
+	const presetId = opts.presetId;
+	const applyMustDefault = opts.applyMustDefault === true;
+
 	const existing = await findActivities(tenantId);
 	const existingNames = new Set(existing.map((a) => a.name));
 	const errors: string[] = [];
@@ -88,6 +110,10 @@ export async function importActivities(
 			continue;
 		}
 
+		// #1758 (#1709-D): mustDefault が true かつ親側で ON のとき priority='must'。
+		// それ以外（OFF / mustDefault undefined / false）は schema default の 'optional'。
+		const priority = applyMustDefault && a.mustDefault === true ? 'must' : 'optional';
+
 		try {
 			await insertActivity(
 				{
@@ -99,6 +125,7 @@ export async function importActivities(
 					ageMax: a.ageMax,
 					triggerHint: a.triggerHint ?? null,
 					sourcePresetId: presetId ?? null,
+					priority,
 				},
 				tenantId,
 			);
@@ -110,7 +137,14 @@ export async function importActivities(
 	}
 
 	logger.info('[activity-import] インポート完了', {
-		context: { tenantId, imported, skipped, errors: errors.length, presetId: presetId ?? null },
+		context: {
+			tenantId,
+			imported,
+			skipped,
+			errors: errors.length,
+			presetId: presetId ?? null,
+			applyMustDefault,
+		},
 	});
 
 	return { imported, skipped, errors };

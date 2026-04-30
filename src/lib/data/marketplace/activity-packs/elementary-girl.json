@@ -21,7 +21,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "きょうの しゅくだい おわらせよう！",
-				"description": "学校の宿題を完了"
+				"description": "学校の宿題を完了",
+				"mustDefault": true
 			},
 			{
 				"name": "どくしょした",
@@ -32,7 +33,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "ほんを よもう！",
-				"description": "本・図書を読む"
+				"description": "本・図書を読む",
+				"mustDefault": false
 			},
 			{
 				"name": "けいさんれんしゅう",
@@ -43,7 +45,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "けいさんドリルを やろう！",
-				"description": "計算ドリル・算数プリント"
+				"description": "計算ドリル・算数プリント",
+				"mustDefault": false
 			},
 			{
 				"name": "かんじれんしゅう",
@@ -54,7 +57,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "かんじを れんしゅうしよう！",
-				"description": "漢字の書き取り練習"
+				"description": "漢字の書き取り練習",
+				"mustDefault": false
 			},
 			{
 				"name": "自主学習した",
@@ -65,7 +69,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_upper",
 				"triggerHint": "苦手な科目を復習しよう！",
-				"description": "テスト対策・自主的な復習"
+				"description": "テスト対策・自主的な復習",
+				"mustDefault": false
 			},
 			{
 				"name": "じかんわりのじゅんび",
@@ -76,7 +81,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "あしたの じゅんび しておこう！",
-				"description": "翌日の持ち物・教科書の準備"
+				"description": "翌日の持ち物・教科書の準備",
+				"mustDefault": true
 			},
 			{
 				"name": "はやおきした",
@@ -87,7 +93,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "じかんどおりに おきよう！",
-				"description": "決まった時間に起床"
+				"description": "決まった時間に起床",
+				"mustDefault": false
 			},
 			{
 				"name": "はみがきした",
@@ -98,7 +105,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "ごはんのあと はみがき！",
-				"description": "食後の歯磨き"
+				"description": "食後の歯磨き",
+				"mustDefault": true
 			},
 			{
 				"name": "おてつだいした",
@@ -109,7 +117,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "おうちの おてつだい しよう！",
-				"description": "食事準備・洗濯畳み等"
+				"description": "食事準備・洗濯畳み等",
+				"mustDefault": false
 			},
 			{
 				"name": "じぶんのへやをそうじ",
@@ -120,7 +129,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "おへやを きれいに しよう！",
-				"description": "自分の部屋の片付け・掃除"
+				"description": "自分の部屋の片付け・掃除",
+				"mustDefault": true
 			},
 			{
 				"name": "おさらあらいした",
@@ -131,7 +141,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "おさらを あらおう！",
-				"description": "食器洗い"
+				"description": "食器洗い",
+				"mustDefault": false
 			},
 			{
 				"name": "ゴミだしした",
@@ -142,7 +153,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "ゴミを ゴミばこに！",
-				"description": "ゴミの分別・ゴミ出し"
+				"description": "ゴミの分別・ゴミ出し",
+				"mustDefault": false
 			},
 			{
 				"name": "ダンス・バレエした",
@@ -153,7 +165,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "おんがくに あわせて おどろう！",
-				"description": "ダンス・バレエ・新体操等"
+				"description": "ダンス・バレエ・新体操等",
+				"mustDefault": false
 			},
 			{
 				"name": "すいえいした",
@@ -164,7 +177,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "プールで およごう！",
-				"description": "水泳・プール練習"
+				"description": "水泳・プール練習",
+				"mustDefault": false
 			},
 			{
 				"name": "なわとびした",
@@ -175,7 +189,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "なわとび れんしゅう！",
-				"description": "縄跳びの練習"
+				"description": "縄跳びの練習",
+				"mustDefault": false
 			},
 			{
 				"name": "じてんしゃにのった",
@@ -186,7 +201,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "じてんしゃで おでかけ！",
-				"description": "自転車の練習・サイクリング"
+				"description": "自転車の練習・サイクリング",
+				"mustDefault": false
 			},
 			{
 				"name": "ボールうんどうした",
@@ -197,7 +213,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "ドッジボール・バスケ・サッカー！",
-				"description": "ドッジボール・バスケ・サッカー等（性別中立な球技）"
+				"description": "ドッジボール・バスケ・サッカー等（性別中立な球技）",
+				"mustDefault": false
 			},
 			{
 				"name": "おえかき・手芸した",
@@ -208,7 +225,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "すきなものを つくろう！",
-				"description": "お絵描き・ビーズ・手芸等の創作"
+				"description": "お絵描き・ビーズ・手芸等の創作",
+				"mustDefault": false
 			},
 			{
 				"name": "がっきのれんしゅう",
@@ -219,7 +237,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "がっき れんしゅう しよう！",
-				"description": "ピアノ・リコーダー等"
+				"description": "ピアノ・リコーダー等",
+				"mustDefault": false
 			},
 			{
 				"name": "プログラミングした",
@@ -230,7 +249,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_upper",
 				"triggerHint": "プログラミングに挑戦しよう！",
-				"description": "Scratch・ロボット教室等 (学習指導要領のプログラミング教育に対応)"
+				"description": "Scratch・ロボット教室等 (学習指導要領のプログラミング教育に対応)",
+				"mustDefault": false
 			},
 			{
 				"name": "おうたをうたった",
@@ -241,7 +261,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "すきな うたを うたおう！",
-				"description": "歌・合唱（表現）"
+				"description": "歌・合唱（表現）",
+				"mustDefault": false
 			},
 			{
 				"name": "にっきをかいた",
@@ -252,7 +273,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "きょうの できごと かいてみよう！",
-				"description": "絵日記・作文（表現活動）"
+				"description": "絵日記・作文（表現活動）",
+				"mustDefault": false
 			},
 			{
 				"name": "おりがみをした",
@@ -263,7 +285,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "すきな おりがみ おろう！",
-				"description": "折り紙で造形"
+				"description": "折り紙で造形",
+				"mustDefault": false
 			},
 			{
 				"name": "ともだちとあそんだ",
@@ -274,7 +297,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "おともだちと たのしくすごそう！",
-				"description": "友達との交流"
+				"description": "友達との交流",
+				"mustDefault": false
 			},
 			{
 				"name": "かぞくとはなした",
@@ -285,7 +309,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "きょうの できごとを はなそう！",
-				"description": "家族との会話・報告"
+				"description": "家族との会話・報告",
+				"mustDefault": false
 			},
 			{
 				"name": "とうばんかつどうした",
@@ -296,7 +321,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "きゅうしょく・そうじ とうばん おつかれさま！",
-				"description": "給食当番・掃除当番（特別活動）"
+				"description": "給食当番・掃除当番（特別活動）",
+				"mustDefault": false
 			},
 			{
 				"name": "いいんかいをした",
@@ -307,7 +333,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_upper",
 				"triggerHint": "いいんかい・かかりかつどう がんばろう！",
-				"description": "委員会・係活動（社会参画）"
+				"description": "委員会・係活動（社会参画）",
+				"mustDefault": false
 			},
 			{
 				"name": "ありがとうとつたえた",
@@ -318,7 +345,8 @@
 				"ageMax": 12,
 				"gradeLevel": "elementary_lower",
 				"triggerHint": "ありがとう って つたえよう！",
-				"description": "感謝を言葉で伝える"
+				"description": "感謝を言葉で伝える",
+				"mustDefault": false
 			}
 		]
 	}

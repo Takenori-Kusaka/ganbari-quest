@@ -22,22 +22,13 @@ import kinderStarter from './activity-packs/kinder-starter.json';
 import seniorBoy from './activity-packs/senior-boy.json';
 import seniorGirl from './activity-packs/senior-girl.json';
 import seniorHighChallenge from './activity-packs/senior-high-challenge.json';
-import eveningElementary from './checklists/evening-elementary.json';
-import eveningJunior from './checklists/evening-junior.json';
-import eveningKinder from './checklists/evening-kinder.json';
-import eveningSenior from './checklists/evening-senior.json';
 // ── Checklists ──────────────────────────────────────────────
+// #1758 (#1709-D): morning/evening/weekend × 4 年齢 = 12 件削除（持ち物純化）
+// 旧 routine 系 checklist は activities.priority='must'（#1755）に役割移管済み。
+// 残るのは event-* 3 件（持ち物リスト用途）のみ。
 import eventFieldTrip from './checklists/event-field-trip.json';
 import eventPool from './checklists/event-pool.json';
 import eventSchoolStart from './checklists/event-school-start.json';
-import morningElementary from './checklists/morning-elementary.json';
-import morningJunior from './checklists/morning-junior.json';
-import morningKinder from './checklists/morning-kinder.json';
-import morningSenior from './checklists/morning-senior.json';
-import weekendElementary from './checklists/weekend-elementary.json';
-import weekendJunior from './checklists/weekend-junior.json';
-import weekendKinder from './checklists/weekend-kinder.json';
-import weekendSenior from './checklists/weekend-senior.json';
 // ── Reward Sets ─────────────────────────────────────────────
 import creativeRewards from './reward-sets/creative-rewards.json';
 import elementaryRewards from './reward-sets/elementary-rewards.json';
@@ -89,19 +80,7 @@ const allItems: MarketplaceItem[] = [
 	creativeRewards,
 	foodRewards,
 	privilegeRewards,
-	// Checklists
-	morningKinder,
-	morningElementary,
-	morningJunior,
-	morningSenior,
-	eveningKinder,
-	eveningElementary,
-	eveningJunior,
-	eveningSenior,
-	weekendKinder,
-	weekendElementary,
-	weekendJunior,
-	weekendSenior,
+	// Checklists（#1758: routine 系 12 件削除済 → event-* 3 件のみ）
 	eventSchoolStart,
 	eventPool,
 	eventFieldTrip,

@@ -20,7 +20,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "今日も自主学習を頑張ろう！",
-				"description": "受験対策・参考書・問題集に取り組む"
+				"description": "受験対策・参考書・問題集に取り組む",
+				"mustDefault": true
 			},
 			{
 				"name": "英語学習した",
@@ -31,7 +32,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "英語力を伸ばそう！",
-				"description": "英検・TOEIC対策・リスニング・英会話"
+				"description": "英検・TOEIC対策・リスニング・英会話",
+				"mustDefault": false
 			},
 			{
 				"name": "プログラミング・IT学習した",
@@ -42,7 +44,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "スキルアップしよう！",
-				"description": "プログラミング・IT資格の勉強"
+				"description": "プログラミング・IT資格の勉強",
+				"mustDefault": false
 			},
 			{
 				"name": "読書・論文を読んだ",
@@ -53,7 +56,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "知識を広げよう！",
-				"description": "書籍・論文・専門書の読書"
+				"description": "書籍・論文・専門書の読書",
+				"mustDefault": false
 			},
 			{
 				"name": "進路について調べた",
@@ -64,7 +68,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "将来のことを考えよう！",
-				"description": "大学・専門学校・就職先のリサーチ"
+				"description": "大学・専門学校・就職先のリサーチ",
+				"mustDefault": false
 			},
 			{
 				"name": "朝活した",
@@ -75,7 +80,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "朝の時間を有効に使おう！",
-				"description": "早起きして勉強・運動・読書"
+				"description": "早起きして勉強・運動・読書",
+				"mustDefault": true
 			},
 			{
 				"name": "料理をした",
@@ -86,7 +92,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "自分で作ってみよう！",
-				"description": "食事の準備・自炊"
+				"description": "食事の準備・自炊",
+				"mustDefault": false
 			},
 			{
 				"name": "洗濯をした",
@@ -97,7 +104,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "自分の洗濯物を片付けよう！",
-				"description": "洗濯・干す・畳む"
+				"description": "洗濯・干す・畳む",
+				"mustDefault": false
 			},
 			{
 				"name": "家計簿をつけた",
@@ -108,7 +116,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "お金の管理をしよう！",
-				"description": "お小遣い帳・支出の記録"
+				"description": "お小遣い帳・支出の記録",
+				"mustDefault": false
 			},
 			{
 				"name": "買い物をした",
@@ -119,7 +128,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "必要なものを買ってこよう！",
-				"description": "食材・日用品の買い出し"
+				"description": "食材・日用品の買い出し",
+				"mustDefault": false
 			},
 			{
 				"name": "筋トレ・運動した",
@@ -130,7 +140,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "体を動かそう！",
-				"description": "ジム・自重トレーニング・ランニング"
+				"description": "ジム・自重トレーニング・ランニング",
+				"mustDefault": false
 			},
 			{
 				"name": "部活動に参加した",
@@ -141,7 +152,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "部活を頑張ろう！",
-				"description": "部活動・クラブ活動"
+				"description": "部活動・クラブ活動",
+				"mustDefault": false
 			},
 			{
 				"name": "ランニング・ウォーキングした",
@@ -152,7 +164,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "外で体を動かそう！",
-				"description": "ジョギング・散歩"
+				"description": "ジョギング・散歩",
+				"mustDefault": false
 			},
 			{
 				"name": "ストレッチ・ヨガした",
@@ -163,7 +176,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "体をほぐそう！",
-				"description": "ストレッチ・ヨガ・柔軟体操"
+				"description": "ストレッチ・ヨガ・柔軟体操",
+				"mustDefault": false
 			},
 			{
 				"name": "球技・ダンス等の運動した",
@@ -174,7 +188,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "好きなスポーツに打ち込もう！",
-				"description": "球技・ダンス・武道等の実技"
+				"description": "球技・ダンス・武道等の実技",
+				"mustDefault": false
 			},
 			{
 				"name": "創作活動をした",
@@ -185,7 +200,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "自分の作品を作ろう！",
-				"description": "絵・音楽・動画・文章などの創作"
+				"description": "絵・音楽・動画・文章などの創作",
+				"mustDefault": false
 			},
 			{
 				"name": "資格の勉強をした",
@@ -196,7 +212,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "資格取得を目指そう！",
-				"description": "簿記・ITパスポート・英検等の資格勉強"
+				"description": "簿記・ITパスポート・英検等の資格勉強",
+				"mustDefault": false
 			},
 			{
 				"name": "小論文・レポートを書いた",
@@ -207,7 +224,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "自分の考えを文章にまとめよう！",
-				"description": "小論文・探究レポート・エッセイ"
+				"description": "小論文・探究レポート・エッセイ",
+				"mustDefault": false
 			},
 			{
 				"name": "楽器・音楽活動した",
@@ -218,7 +236,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "楽器を演奏しよう！",
-				"description": "楽器の練習・バンド・作曲"
+				"description": "楽器の練習・バンド・作曲",
+				"mustDefault": false
 			},
 			{
 				"name": "動画・コンテンツ制作した",
@@ -229,7 +248,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "好きなテーマで発信しよう！",
-				"description": "動画編集・ブログ・SNS等での自己表現"
+				"description": "動画編集・ブログ・SNS等での自己表現",
+				"mustDefault": false
 			},
 			{
 				"name": "ボランティアに参加した",
@@ -240,7 +260,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "社会に貢献しよう！",
-				"description": "地域ボランティア・学校行事の手伝い"
+				"description": "地域ボランティア・学校行事の手伝い",
+				"mustDefault": false
 			},
 			{
 				"name": "家族と将来の話をした",
@@ -251,7 +272,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "将来のことを家族と話そう！",
-				"description": "進路・将来について家族と相談"
+				"description": "進路・将来について家族と相談",
+				"mustDefault": false
 			},
 			{
 				"name": "生徒会・委員会活動した",
@@ -262,7 +284,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "学校運営に関わろう！",
-				"description": "生徒会・委員会・特別活動"
+				"description": "生徒会・委員会・特別活動",
+				"mustDefault": false
 			},
 			{
 				"name": "アルバイト・職場体験した",
@@ -273,7 +296,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "社会で働く経験を積もう！",
-				"description": "アルバイト・インターン・職場体験"
+				"description": "アルバイト・インターン・職場体験",
+				"mustDefault": false
 			},
 			{
 				"name": "友人・先輩と相談した",
@@ -284,7 +308,8 @@
 				"ageMax": 18,
 				"gradeLevel": "high_school",
 				"triggerHint": "悩みや進路を相談しよう！",
-				"description": "友人・先輩・先生との相談"
+				"description": "友人・先輩・先生との相談",
+				"mustDefault": false
 			}
 		]
 	}
