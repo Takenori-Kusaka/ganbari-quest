@@ -2,11 +2,17 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | proposed |
+| ステータス | proposed (amended 2026-04-29) |
 | 日付 | 2026-04-29 |
 | 起票者 | PO |
 | 関連 Issue | #1683 / #1465 / #1346 |
 | 関連 ADR | ADR-0009（labels SSOT 原則） / ADR-0014（i18n 機構選定） / ADR-0008（設計ポリシー先行確認） |
+
+> **Amendment 履歴 (2026-04-29)**: 初版で曖昧だった 3 点を確定:
+>
+> 1. SSOT は `site/shared-labels.js` ではなく **`scripts/generate-lp-labels.mjs` (applyLpKeys template, L377-392)**。`shared-labels.js` は同 script からの **生成物** であり、ADR §決定の文言を「自動生成テンプレート改修 + 再生成」に修正
+> 2. DOMPurify の配信方法を **CDN 必須** に確定（`site/` は GitHub Pages 上の static アセットで、npm bundle 経路を持たない）。`<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js">` を `site/*.html` 全 8 ファイルの `<head>` に追加し、`window.DOMPurify` 経由で参照する
+> 3. `scripts/check-lp-ssot.mjs` L186-260 の **`LEGAL_LABELS` coverage check** との整合性を §結果 Migration Plan に明記（法的文書を `LP_LEGAL_*_LABELS` namespace で labels.ts 化した後、双方向同期ロジックを再設計する）
 
 ## コンテキスト
 
@@ -52,34 +58,77 @@ PO 判断 (#1683): **案 A** = architecture ADR 先行起票 → ADR 確定 → 
 
 ## 決定
 
-**選択肢 A: DOMPurify を採用**。`site/shared-labels.js#applyLpKeys()` を innerHTML + DOMPurify sanitize に切り替え、**LP 339 件 + Legal 354 件 = 693 件すべて**を `data-lp-key` SSOT 配下に統合する。
+**選択肢 A: DOMPurify を採用**。`scripts/generate-lp-labels.mjs` の `applyLpKeys()` テンプレート (L377-392) を innerHTML + DOMPurify sanitize に書換 → 再生成された `site/shared-labels.js` を deploy → **LP 339 件 + Legal 354 件 = 693 件すべて**を `data-lp-key` SSOT 配下に統合する。
+
+> **重要 (Amendment)**: `site/shared-labels.js` は **自動生成ファイル**である（`scripts/generate-lp-labels.mjs` 実行で再生成）。直接編集 → 上書き再生成で消失するため、SSOT は **generate-lp-labels.mjs の applyLpKeys template (L377-392)**。本 ADR の決定対象もそちらの template。
 
 ### 適用範囲（PO 方針: 例外なし）
 
 1. **LP**: `site/index.html` / `pricing.html` / `faq.html` / `selfhost.html` / `pamphlet.html` / `help/license-key.html`
 2. **Legal**: `site/privacy.html` / `terms.html` / `sla.html` / `tokushoho.html`（**ADR-0009 §例外「法的文書」を本 ADR が supersede**）
-3. **labels.ts namespace**: 既存 `LP_*_LABELS` に加え新規 `LP_PRIVACY_LABELS` / `LP_TERMS_LABELS` / `LP_SLA_LABELS` / `LP_TOKUSHOHO_LABELS` / `LP_PAMPHLET_LABELS` / `LP_FAQ_BODY_LABELS` を追加（Phase 4 多言語化時に PO/JSON へ抽出可能な flat 構造を維持）。
+3. **labels.ts namespace**: 既存 `LP_*_LABELS` に加え新規 `LP_LEGAL_PRIVACY_LABELS` / `LP_LEGAL_TERMS_LABELS` / `LP_LEGAL_SLA_LABELS` / `LP_LEGAL_TOKUSHOHO_LABELS` / `LP_PAMPHLET_LABELS` / `LP_FAQ_BODY_LABELS` を追加（Phase 4 多言語化時に PO/JSON へ抽出可能な flat 構造を維持）。
+4. **DOMPurify 配信**: site/ は GitHub Pages の static asset であり npm bundle 経路を持たないため **CDN 必須**:
+   ```html
+   <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+   <script src="shared-labels.js" defer></script>
+   ```
+   全 8 ファイル (`index.html` / `pricing.html` / `faq.html` / `selfhost.html` / `pamphlet.html` / `help/license-key.html` / `privacy.html` / `terms.html` / `sla.html` / `tokushoho.html`) の `<head>` に同様に追加。`applyLpKeys` は `window.DOMPurify` 参照で利用、DOMPurify が未ロードの場合は安全側で `textContent` フォールバック + console.warn (network 一時失敗時の劣化動作)。
 
 ### DOMPurify 設定値（実装 Agent 直参照）
 
+`scripts/generate-lp-labels.mjs` の applyLpKeys template に以下を埋め込む（生成後 `site/shared-labels.js` の同等位置に展開される）:
+
 ```js
-const SANITIZE_CONFIG = {
-  ALLOWED_TAGS: ['strong','em','a','br','span','sup','sub','small','b','i'],
-  ALLOWED_ATTR: ['href','target','rel','class','aria-hidden','aria-label'],
-  ALLOW_DATA_ATTR: false,
-  ALLOW_UNKNOWN_PROTOCOLS: false,
-  ADD_ATTR: ['target'], // a[target] 許可
-};
-DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
-    node.setAttribute('rel', 'noopener noreferrer');
+// generate-lp-labels.mjs L377-392 の applyLpKeys template 改修後イメージ
+function applyLpKeys() {
+  var elements = document.querySelectorAll('[data-lp-key]');
+  var Purify = (typeof window !== 'undefined') && window.DOMPurify;
+  var SANITIZE_CONFIG = {
+    ALLOWED_TAGS: ['strong','em','a','br','span','sup','sub','small','b','i'],
+    ALLOWED_ATTR: ['href','target','rel','class','aria-hidden','aria-label'],
+    ALLOW_DATA_ATTR: false,
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+    ADD_ATTR: ['target']
+  };
+  if (Purify && !Purify.__gqHookInstalled) {
+    Purify.addHook('afterSanitizeAttributes', function(node) {
+      if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+        node.setAttribute('rel', 'noopener noreferrer');
+      }
+    });
+    Purify.__gqHookInstalled = true;
   }
-});
+  elements.forEach(function(el) {
+    var key = el.getAttribute('data-lp-key');
+    var parts = key.split('.');
+    if (parts.length !== 2) return;
+    var sectionData = LP_LABELS[parts[0]];
+    if (!sectionData) return;
+    var value = sectionData[parts[1]];
+    if (value === undefined) return;
+    if (Purify) {
+      el.innerHTML = Purify.sanitize(value, SANITIZE_CONFIG);
+    } else {
+      el.textContent = value;
+      console.warn('[applyLpKeys] DOMPurify unavailable, fell back to textContent for', key);
+    }
+  });
+}
 ```
 
 ### pamphlet.html の印刷タイミング
 
 `<script src="shared-labels.js" defer>` で `DOMContentLoaded` までに注入完了を保証 + `window.print()` 直前に `applyAll()` 同期再実行（既に注入済みなら no-op）。テストは Playwright `emulateMedia({ media: 'print' })` で SS 検証。
+
+### LEGAL_LABELS coverage check との整合（Amendment 追記）
+
+`scripts/check-lp-ssot.mjs` L186-260 は現在「`LEGAL_LABELS` の値が `site/privacy.html` / `terms.html` に部分一致存在すること」を双方向同期で検証している。Legal docs を `LP_LEGAL_*_LABELS` namespace で labels.ts 化した後は:
+
+1. 既存 `LEGAL_LABELS` → `LP_LEGAL_PRIVACY_LABELS` / `LP_LEGAL_TERMS_LABELS` 等に **再分類** (用途別)。
+2. coverage check ロジックを「`LP_LEGAL_*_LABELS` の各キーが `data-lp-key="legal.*"` で 1 箇所以上参照されていること」を検証する**逆方向のチェック**に変更する。
+3. `EXCLUDED_LEGAL_FILES` 定数 (L32-37) を削除し、法的文書も baseline 0 件対象に追加する。
+
+詳細手順は §結果 Migration Plan の M4 に記載。
 
 ## 結果
 
@@ -94,18 +143,30 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 - ADR-0009 §例外「法的文書」項目を本 ADR が supersede（履歴は ADR-0009 内に追補）
 - 実装 PR は LP 339 + Legal 354 = 693 件の手作業移行で大規模（後述 §Migration Plan）
 
-### 移行計画（実装 Agent 引継ぎ）
+### 移行計画（実装 Agent 引継ぎ — Amendment 後版）
 
-| Phase | 作業 | 対象件数 | 想定 diff 規模 |
-|-------|------|----------|---------------|
-| M1 | `npm i dompurify` + `applyLpKeys()` を innerHTML+DOMPurify に書換 | shared-labels.js +50 行 | +50/-10 |
-| M2 | `LP_*_BODY_LABELS` namespace 5 種追加 + 既存 LP_LABELS 補完 | labels.ts | +4,000 行 |
-| M3 | site/*.html を順次 SSOT 化（**1 commit / file 推奨、1 PR 完遂**） | 6 LP + 4 Legal = 10 ファイル | HTML 約 5,000 行変更 |
-| M4 | `scripts/lp-ssot-baseline.json` を `count: 0` に更新 + `EXCLUDED_LEGAL_FILES` 削除 | 2 ファイル | +5/-10 |
-| M5 | 全画面 SS 撮影（`npm run capture`）で視覚回帰なし確認 | 10 ページ × mobile/desktop | docs/screenshots/ |
-| M6 | 設計書同期: `docs/design/22a-アイコン・ラベル統一規約.md` / `06-UI設計書.md` / ADR-0009 §例外節 supersede 追補 | 3 ファイル | +30 行 |
+PO 方針確認 (2026-04-29):
+- 「**partial PR 禁止 = 申し送り禁止 = AC 妥協禁止**」であって「**子 issue 分解禁止**」ではない
+- → **網羅的子 issue 分解 + 各子は単独完遂可能 + 全子 AC 合計が 100%** で進める
 
-**想定実装時間**: 8-16 時間（Agent 単独）。**partial PR 禁止 / follow-up Issue 起票禁止** (PO 方針)。
+#### 子 issue 分解（#1683 配下に 4 件起票）
+
+各 sub-issue は単独で 1 PR 完遂できる scope。「ここまでで OK / 残りは続 PR」表現は AC に含めない（申し送りなし）。
+
+| Sub | Scope | 完遂 AC（抜粋） | 依存 |
+|-----|-------|---------------|------|
+| **1683-A** | applyLpKeys template 刷新 + DOMPurify CDN 注入 | (1) generate-lp-labels.mjs L377-392 改修, (2) site/*.html 全 8 ファイルに DOMPurify CDN script 追加, (3) `node scripts/generate-lp-labels.mjs` で shared-labels.js 再生成, (4) DOMPurify 設定値が ADR §決定どおり, (5) unit test: `<strong>` `<a>` 保持 + `<script>onerror>` 等 XSS payload escape, (6) 既存 339 件のうち単純文字列の SS 視覚回帰なし | (なし) |
+| **1683-B** | LP HTML 339 件 SSOT 化 | (1) `site/index.html` 84 件 → 0、(2) `site/pricing.html` 50 件 → 0、(3) `site/faq.html` 123 件 → 0、(4) `site/pamphlet.html` 82 件 → 0（defer + print 直前 applyAll 再実行）、(5) namespace `LP_INDEX_*_LABELS` / `LP_PRICING_LABELS` 拡張 / `LP_FAQ_*_LABELS` 拡張 / `LP_PAMPHLET_LABELS` 拡張、(6) check-lp-ssot.mjs で LP 部分 0 件、(7) 4 ファイル × mobile/desktop = 8 SS 視覚回帰なし | 1683-A |
+| **1683-C** | Legal HTML 354 件 SSOT 化 + LEGAL coverage check rework | (1) `site/privacy.html` 133 件 → 0、(2) `site/terms.html` 118 件 → 0、(3) `site/sla.html` 58 件 → 0、(4) `site/tokushoho.html` 45 件 → 0、(5) namespace `LP_LEGAL_PRIVACY_LABELS` / `LP_LEGAL_TERMS_LABELS` / `LP_LEGAL_SLA_LABELS` / `LP_LEGAL_TOKUSHOHO_LABELS` 新設、(6) check-lp-ssot.mjs L186-260 を「`LP_LEGAL_*_LABELS` の各キーが `data-lp-key` で参照されていること」検証に変更、(7) `EXCLUDED_LEGAL_FILES` (L32-37) 削除、(8) ADR-0009 §例外「法的文書」項目に supersede 表記、(9) 4 ファイル × mobile/desktop = 8 SS 視覚回帰なし | 1683-A（1683-B と並列可） |
+| **1683-D** | 検証 / baseline 0 化 / 設計書同期 / pamphlet 印刷 SS テスト | (1) `scripts/lp-ssot-baseline.json` を `count: 0` に更新、(2) Playwright `emulateMedia({ media: 'print' })` SS テスト追加 (`tests/e2e/pamphlet-print-ssot.spec.ts`)、(3) `docs/design/22a-アイコン・ラベル統一規約.md` SSOT 100% 達成記載、(4) `docs/design/06-UI設計書.md` 関連節更新、(5) `docs/decisions/0009-labels-ssot-principle.md` §例外 supersede 追補、(6) 全 10 ページ × mobile/desktop = 20 SS 視覚回帰なし、(7) #1683 umbrella close | 1683-A + 1683-B + 1683-C 全完了 |
+
+#### 完遂判定
+
+- 1683-A/B/C/D の全 PR が main にマージされ、AC が `[x]` 化され、**`scripts/lp-ssot-baseline.json` の `count = 0` + `EXCLUDED_LEGAL_FILES = []`** が成立した時点で #1683 を close
+- 各 sub-issue は AC 100% 完遂時点で個別 close（partial close 禁止）
+- 全子完了後、本 ADR を `proposed` → `accepted` に昇格
+
+**想定実装時間**: 8-16 時間 / sub × 4 = 32-64 時間（Agent 単独 4 セッション）。**partial PR 禁止 / 申し送り禁止 / AC 妥協禁止** (PO 方針)。
 
 ## 関連
 - ADR-0009（labels.ts SSOT 原則）— 本 ADR 承認時に §例外「法的文書」を supersede 表記
