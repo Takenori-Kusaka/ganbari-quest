@@ -20,12 +20,38 @@
 // 使い方: node scripts/check-lp-innerhtml-tags.mjs
 //        npm run check:lp-innerhtml-tags  (package.json 経由)
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 
 const SHARED_LABELS_PATH = resolve('site/shared-labels.js');
+
+// #1750 AC2: 致命欠陥再発防止のため、必須 E2E spec ファイルの存在を CI で hard-fail で検証する。
+// 過去に PR #1717 で「force push により E2E spec / SANITIZE 拡張がまるごと消失」する事故が発生した。
+// 一度追加したら削除されないことを構造的に保証する（ADR-0026 多層防御の B 層）。
+const REQUIRED_E2E_SPECS = [
+	'tests/e2e/lp-legal-docs-render.spec.ts',
+	'tests/e2e/lp-innerhtml-structure.spec.ts',
+];
+
+function checkRequiredE2eSpecs() {
+	const missing = REQUIRED_E2E_SPECS.filter((p) => !existsSync(resolve(p)));
+	if (missing.length > 0) {
+		console.error(
+			`\n[FAIL] ${missing.length} 個の必須 E2E spec が消失しています (#1750 AC2 / ADR-0026 force push 防止):`,
+		);
+		for (const p of missing) {
+			console.error(`  - ${p}`);
+		}
+		console.error('\n[hint] PR #1717 同様の事故 (force push による致命修正消失) を防ぐため、');
+		console.error(
+			'       これらの spec は一度追加されたら削除禁止。誤って削除した場合は復元してください。',
+		);
+		process.exit(1);
+	}
+	console.log(`[OK] All ${REQUIRED_E2E_SPECS.length} required E2E specs exist.`);
+}
 
 // shared-labels.js / applyLpKeys() の SANITIZE_CONFIG と完全一致させる SSOT (#1717 fix 後)
 const SANITIZE_CONFIG = {
@@ -201,6 +227,10 @@ function checkValue(namespace, key, value) {
 }
 
 function main() {
+	// #1750 AC2: 必須 E2E spec の存在確認を最初に実行（force push 防止の B 層）
+	console.log('[check-lp-innerhtml-tags] Verifying required E2E specs...');
+	checkRequiredE2eSpecs();
+
 	console.log('[check-lp-innerhtml-tags] Loading shared-labels.js...');
 	const labels = loadLpLabels();
 
