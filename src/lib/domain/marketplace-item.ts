@@ -81,6 +81,8 @@ export interface ActivityPackPayload {
 		gradeLevel: GradeLevel | null;
 		triggerHint?: string;
 		description?: string;
+		/** #1758 (#1709-D): import 時に親が選べる「今日のおやくそく」推奨候補 */
+		mustDefault?: boolean;
 	}[];
 }
 

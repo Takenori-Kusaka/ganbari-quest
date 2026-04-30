@@ -20,7 +20,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "明日の授業の予習をしよう！",
-				"description": "教科書やノートで予習・復習"
+				"description": "教科書やノートで予習・復習",
+				"mustDefault": true
 			},
 			{
 				"name": "読書した",
@@ -31,7 +32,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "好きな本を読もう！",
-				"description": "本・小説・新書などの読書"
+				"description": "本・小説・新書などの読書",
+				"mustDefault": false
 			},
 			{
 				"name": "英語の勉強をした",
@@ -42,7 +44,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "英語の練習をしよう！",
-				"description": "英単語・英会話・リスニング練習"
+				"description": "英単語・英会話・リスニング練習",
+				"mustDefault": false
 			},
 			{
 				"name": "プログラミングをした",
@@ -53,7 +56,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "コードを書いてみよう！",
-				"description": "Scratch・Python等のプログラミング学習"
+				"description": "Scratch・Python等のプログラミング学習",
+				"mustDefault": false
 			},
 			{
 				"name": "テスト勉強をした",
@@ -64,7 +68,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "テストに向けて頑張ろう！",
-				"description": "定期テスト・模試の対策勉強"
+				"description": "定期テスト・模試の対策勉強",
+				"mustDefault": false
 			},
 			{
 				"name": "朝活した",
@@ -75,7 +80,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "早起きして朝の時間を有効に！",
-				"description": "早起きして勉強・運動・読書など"
+				"description": "早起きして勉強・運動・読書など",
+				"mustDefault": false
 			},
 			{
 				"name": "規則正しく寝た",
@@ -86,7 +92,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "決まった時間に寝よう！",
-				"description": "就寝時間を守る"
+				"description": "就寝時間を守る",
+				"mustDefault": true
 			},
 			{
 				"name": "お弁当箱を洗った",
@@ -97,7 +104,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "帰ったらお弁当箱を洗おう！",
-				"description": "帰宅後にお弁当箱を片付ける"
+				"description": "帰宅後にお弁当箱を片付ける",
+				"mustDefault": false
 			},
 			{
 				"name": "自分の部屋を掃除した",
@@ -108,7 +116,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "部屋をきれいに保とう！",
-				"description": "自分の部屋の整理整頓・掃除"
+				"description": "自分の部屋の整理整頓・掃除",
+				"mustDefault": true
 			},
 			{
 				"name": "簡単な料理をつくった",
@@ -119,7 +128,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "自分で一品つくってみよう！",
-				"description": "家庭科の調理実習・自立した調理"
+				"description": "家庭科の調理実習・自立した調理",
+				"mustDefault": false
 			},
 			{
 				"name": "筋トレ・ストレッチした",
@@ -130,7 +140,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "体を鍛えよう！",
-				"description": "腕立て・腹筋・ストレッチ等"
+				"description": "腕立て・腹筋・ストレッチ等",
+				"mustDefault": false
 			},
 			{
 				"name": "部活・習い事に行った",
@@ -141,7 +152,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "今日も頑張ろう！",
-				"description": "部活動や習い事への参加"
+				"description": "部活動や習い事への参加",
+				"mustDefault": false
 			},
 			{
 				"name": "ランニング・散歩した",
@@ -152,7 +164,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "外で体を動かそう！",
-				"description": "ジョギングやウォーキング"
+				"description": "ジョギングやウォーキング",
+				"mustDefault": false
 			},
 			{
 				"name": "60分以上うんどうした",
@@ -163,7 +176,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "中強度の運動を60分以上！",
-				"description": "スポーツ庁推奨の運動時間達成"
+				"description": "スポーツ庁推奨の運動時間達成",
+				"mustDefault": false
 			},
 			{
 				"name": "ダンス・表現うんどうした",
@@ -174,7 +188,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "ダンス・チアなど表現運動！",
-				"description": "ダンス・表現運動（中学校体育）"
+				"description": "ダンス・表現運動（中学校体育）",
+				"mustDefault": false
 			},
 			{
 				"name": "料理を手伝った",
@@ -185,7 +200,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "今日のごはんを一緒に作ろう！",
-				"description": "食事の準備・調理の手伝い"
+				"description": "食事の準備・調理の手伝い",
+				"mustDefault": false
 			},
 			{
 				"name": "楽器の練習をした",
@@ -196,7 +212,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "楽器の練習をしよう！",
-				"description": "ピアノ・ギター・吹奏楽等"
+				"description": "ピアノ・ギター・吹奏楽等",
+				"mustDefault": false
 			},
 			{
 				"name": "作文・レポートを書いた",
@@ -207,7 +224,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "自分の考えを文章にまとめよう！",
-				"description": "作文・レポート・感想文（国語・総合）"
+				"description": "作文・レポート・感想文（国語・総合）",
+				"mustDefault": false
 			},
 			{
 				"name": "美術作品をつくった",
@@ -218,7 +236,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "スケッチや工作に挑戦！",
-				"description": "美術・技術の作品制作"
+				"description": "美術・技術の作品制作",
+				"mustDefault": false
 			},
 			{
 				"name": "イラスト・マンガを描いた",
@@ -229,7 +248,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "好きなキャラを描こう！",
-				"description": "イラスト・マンガ制作（自己表現）"
+				"description": "イラスト・マンガ制作（自己表現）",
+				"mustDefault": false
 			},
 			{
 				"name": "家族会議に参加した",
@@ -240,7 +260,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "家族で話し合おう！",
-				"description": "家族との話し合い・相談"
+				"description": "家族との話し合い・相談",
+				"mustDefault": false
 			},
 			{
 				"name": "ニュースを読んだ",
@@ -251,7 +272,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "今日のニュースをチェック！",
-				"description": "新聞やニュースサイトで社会を知る"
+				"description": "新聞やニュースサイトで社会を知る",
+				"mustDefault": false
 			},
 			{
 				"name": "委員会・生徒会活動した",
@@ -262,7 +284,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "委員会・生徒会で活動しよう！",
-				"description": "特別活動・社会参画（委員会／生徒会）"
+				"description": "特別活動・社会参画（委員会／生徒会）",
+				"mustDefault": false
 			},
 			{
 				"name": "進路について調べた",
@@ -273,7 +296,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "将来やりたいことを考えよう！",
-				"description": "キャリア教育・進路調べ学習"
+				"description": "キャリア教育・進路調べ学習",
+				"mustDefault": false
 			},
 			{
 				"name": "ボランティア・地域活動した",
@@ -284,7 +308,8 @@
 				"ageMax": 14,
 				"gradeLevel": "middle_school",
 				"triggerHint": "地域に貢献しよう！",
-				"description": "地域清掃・ボランティア・職場体験"
+				"description": "地域清掃・ボランティア・職場体験",
+				"mustDefault": false
 			}
 		]
 	}
