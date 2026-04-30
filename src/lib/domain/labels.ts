@@ -5268,9 +5268,6 @@ export const LP_LICENSEKEY_LABELS = {
 	text39: 'ご登録のメールアドレス',
 	text40: 'ライセンスキーの最初の7文字（例: GQ-ABCD）',
 	text41: '表示されたエラーメッセージ',
-	text42: 'img src="../logo-compact.png" alt="がんばりクエスト" height="44"',
-	text43:
-		'button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle(\'open\');var o=n.classList.contains(\'open\');this.textContent=o?\'✕\':\'☰\';this.setAttribute(\'aria-expanded\',o)"',
 	text44: 'ライセンスキーは、がんばりクエストの有料プランを有効にするためのコードです。',
 	text45:
 		'購入後にメールでお届けするキーを、管理画面から入力するだけで有料機能が使えるようになります。',
@@ -5499,9 +5496,6 @@ export const LP_SELFHOST_LABELS = {
 	text52: 'まずは試してみませんか？',
 	text53: 'SaaS版ならアカウント登録だけですぐに始められます。セルフホスト版は GitHub からどうぞ。',
 	text54: 'SaaS版を無料ではじめる',
-	text55: 'img src="logo-compact.png" alt="がんばりクエスト" height="44"',
-	text56:
-		'button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle(\'open\');var o=n.classList.contains(\'open\');this.textContent=o?\'✕\':\'☰\';this.setAttribute(\'aria-expanded\',o)"',
 } as const;
 
 // ============================================================

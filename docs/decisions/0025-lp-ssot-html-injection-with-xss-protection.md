@@ -2,12 +2,14 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | proposed (amended 2026-04-29) |
-| 日付 | 2026-04-29 |
+| ステータス | **accepted (2026-04-30)** |
+| 日付 | 2026-04-29（accepted 昇格 2026-04-30） |
 | 起票者 | PO |
-| 関連 Issue | #1683 / #1465 / #1346 |
+| 関連 Issue | #1683 / #1465 / #1346 / #1704 (umbrella close) |
 | 関連 ADR | ADR-0009（labels SSOT 原則） / ADR-0014（i18n 機構選定） / ADR-0008（設計ポリシー先行確認） |
 
+> **Status 昇格履歴 (2026-04-30, #1704)**: `proposed (amended)` → **`accepted`**。1683 sub-A (#1701/#1705 機構刷新) + sub-B (#1702/#1718 LP 339件) + sub-C (#1703/#1717 Legal 354件) が全て main 反映され、`scripts/lp-ssot-baseline.json` が `count: 0` を達成。本 ADR の§決定（innerHTML + DOMPurify CDN + LP_LEGAL_*_LABELS namespace + check-lp-ssot.mjs depth-stack 免除 + LEGAL coverage check rework）は実装で全件成立済。pamphlet.html の印刷タイミング再注入は `tests/e2e/pamphlet-print-ssot.spec.ts` (#1704) で E2E 担保。
+>
 > **Amendment 履歴 (2026-04-29)**: 初版で曖昧だった 3 点を確定:
 >
 > 1. SSOT は `site/shared-labels.js` ではなく **`scripts/generate-lp-labels.mjs` (applyLpKeys template, L377-392)**。`shared-labels.js` は同 script からの **生成物** であり、ADR §決定の文言を「自動生成テンプレート改修 + 再生成」に修正

@@ -171,17 +171,59 @@ function updateSsotStack(line, ssotStack) {
 	return false;
 }
 
+/**
+ * #1763: HTML 構造破壊検出
+ *
+ * SSOT 化が HTML 属性まで丸ごと包括化することで、HTML タグ構造が破壊される事例
+ * （PR #1763 で license-key.html / selfhost.html 2 ページに発生）を検出する。
+ *
+ * 検出パターン:
+ *   - `<<span data-lp-key=...>...</span>>` — `<` の直後に span が来て、開始タグ全体を span で囲っている
+ *   - `</span>>` — 閉じ span の直後に閉じ山括弧が孤立している
+ *
+ * これらは ADR-0009 §例外節「HTML 属性は labels.ts SSOT 化対象外」に違反する。
+ */
+const BROKEN_HTML_PATTERNS = [
+	{
+		regex: /<<span\s+data-lp-key=/,
+		description:
+			'タグ開始 `<` の直後に SSOT span が来ている（HTML 属性を SSOT 化した結果の構造破壊）',
+	},
+	{
+		regex: /<\/span>>/,
+		description: '閉じ span の直後に孤立した `>` がある（HTML 属性を SSOT 化した結果の構造破壊）',
+	},
+];
+
+function detectBrokenHtmlStructure(line) {
+	for (const pattern of BROKEN_HTML_PATTERNS) {
+		if (pattern.regex.test(line)) {
+			return pattern.description;
+		}
+	}
+	return null;
+}
+
 function checkHtmlFile(filePath) {
 	const src = readFileSync(filePath, 'utf-8');
 	const lines = src.split('\n');
 	let state = { inStyle: false, inScript: false, inComment: false };
 	let violations = 0;
+	const brokenStructures = [];
 
 	// #1703: data-lp-key= を持つ複数行 element をスタック追跡
 	const ssotStack = [];
 
-	for (const rawLine of lines) {
+	for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+		const rawLine = lines[lineIdx];
 		const line = rawLine.trim();
+
+		// #1763: HTML 構造破壊検出（block state 判定前に行う）
+		const brokenReason = detectBrokenHtmlStructure(line);
+		if (brokenReason) {
+			brokenStructures.push({ lineNumber: lineIdx + 1, line, reason: brokenReason });
+		}
+
 		state = updateBlockState(line, state);
 		if (state.skip) continue;
 
@@ -199,7 +241,7 @@ function checkHtmlFile(filePath) {
 		}
 	}
 
-	return violations;
+	return { violations, brokenStructures };
 }
 
 function collectHtmlFiles(dir) {
@@ -220,16 +262,40 @@ const htmlFiles = collectHtmlFiles(siteDir);
 
 let totalCount = 0;
 const violationFiles = [];
+const brokenHtmlByFile = [];
 
 for (const file of htmlFiles) {
-	const count = checkHtmlFile(file);
-	if (count > 0) {
+	const { violations, brokenStructures } = checkHtmlFile(file);
+	if (violations > 0) {
 		violationFiles.push({
 			file: relative(root, file).replace(/\\/g, '/'),
-			count,
+			count: violations,
 		});
-		totalCount += count;
+		totalCount += violations;
 	}
+	if (brokenStructures.length > 0) {
+		brokenHtmlByFile.push({
+			file: relative(root, file).replace(/\\/g, '/'),
+			brokenStructures,
+		});
+	}
+}
+
+// #1763: HTML 構造破壊検出 — baseline 不要の HARD FAIL（CRITICAL バグ）
+if (brokenHtmlByFile.length > 0) {
+	console.error('\nERROR [LP-SSOT-HTML-STRUCTURE]: HTML structure broken by over-zealous SSOT.');
+	console.error(
+		'ADR-0009 §例外節: HTML 属性 (img src=, button onclick= 等) は labels.ts SSOT 化対象外。',
+	);
+	console.error('SSOT 化対象は HTML タグの「テキスト内容」のみ。');
+	for (const { file, brokenStructures } of brokenHtmlByFile) {
+		console.error(`\n  ${file}:`);
+		for (const { lineNumber, line, reason } of brokenStructures) {
+			console.error(`    L${lineNumber}: ${reason}`);
+			console.error(`      > ${line.slice(0, 120)}${line.length > 120 ? '...' : ''}`);
+		}
+	}
+	process.exit(1);
 }
 
 console.log(`[LP-SSOT] Hardcoded JP text violations: ${totalCount} (baseline: ${baselineCount})`);
