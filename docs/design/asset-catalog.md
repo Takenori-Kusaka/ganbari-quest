@@ -50,6 +50,49 @@ Claude Code がUI実装時に「絵文字で済ませるか、画像アセット
 
 ### 優先度: 中（体験向上）
 
+---
+
+## LP スクショ — site/index.html 内の機能画像 (#1707 / #1712)
+
+LP `site/index.html` の machine-tour / soft-features / growth-roadmap セクションで参照する実画面のスクリーンショット一覧。`scripts/capture-hp-screenshots.mjs` が `/demo/<mode>/<path>` のデモ画面から自動撮影し `site/screenshots/` に出力する。`.gitignore` で git 追跡対象外（GitHub Pages デプロイ時に CI が生成）。
+
+| ファイル名 | LP セクション | 撮影元 URL（routes） | サイズ（mobile / desktop） |
+|----------|------------|--------------------|--------------------------|
+| `feature-point-level{,-desktop}.webp` | machine-tour ① | `/demo/lower/home` | 780×1688 / 2880×1800 |
+| `feature-titles{,-desktop}.webp` | machine-tour ② | `/demo/lower/achievements` | 780×1688 / 2880×1800 |
+| `feature-belongings-checklist{,-desktop}.webp` | machine-tour ② | `/demo/checklist?childId=904` | 780×1688 / 2880×1800 |
+| **`feature-routine-checklist{,-desktop}.webp`** (#1707) | machine-tour ③（朝夜の習慣化） | `/demo/checklist?childId=904` | 780×1688 / 2880×1800 |
+| **`feature-rpg-battle{,-desktop}.webp`** (#1707) | machine-tour ④（冒険のクライマックス） | `/demo/lower/battle` | 780×1688 / 2880×1800 |
+| **`feature-monthly-report{,-desktop}.webp`** (#1707) | soft-features（月次レポート） | `/demo/admin/status` | 780×1688 / 2880×1800 |
+| **`feature-auto-sleep{,-desktop}.webp`** (#1707) | soft-features（時間管理） | `/demo/admin` | 780×1688 / 2880×1800 |
+| **`feature-cheer-message{,-desktop}.webp`** (#1707) | soft-features（おうえんメッセージ） | `/demo/lower/home` | 780×1688 / 2880×1800 |
+| **`feature-settings{,-desktop}.webp`** (#1707) | soft-features（設定の自由度） | `/demo/admin/activities` | 780×1688 / 2880×1800 |
+| **`growth-stage-preschool{,-desktop}.webp`** (#1712) | growth-roadmap preschool | `/demo/kinder/home` | 780×1688 / 2880×1800 |
+| **`growth-stage-elementary{,-desktop}.webp`** (#1712) | growth-roadmap elementary | `/demo/lower/home` | 780×1688 / 2880×1800 |
+| **`growth-stage-junior{,-desktop}.webp`** (#1712) | growth-roadmap junior | `/demo/upper/home` | 780×1688 / 2880×1800 |
+| **`growth-stage-senior{,-desktop}.webp`** (#1712) | growth-roadmap senior | `/demo/teen/home` | 780×1688 / 2880×1800 |
+| **`growth-stage-graduate{,-desktop}.webp`** (#1712) | growth-roadmap graduate | `/demo/lower/achievements` | 780×1688 / 2880×1800 |
+
+### 撮影方法
+
+```bash
+# ローカル開発: dev server を起動した状態で
+npm run dev
+
+# 別ターミナルで全グループ撮影
+npm run screenshots:lp
+
+# 特定グループのみ撮影
+node scripts/capture-hp-screenshots.mjs --webp --only feature
+node scripts/capture-hp-screenshots.mjs --webp --only growth
+```
+
+### 配置原則 (#1707 R2)
+
+- **placeholder 禁止**: `tour-shot-placeholder` クラスは廃止（`#1707` で全機能を実画面に置換済み）
+- **親が観測できること（1 行ベネフィット）併記**: 各 scrshot 直下に「親が観測できること: ...」を必ず併記し、機能の効果を保護者視点で言語化する
+- **撮影元は実装の事実から逸脱させない**: ADR-0013 LP truth 原則に従い、実装にない機能や別の画面を撮影して LP に貼ることは禁止
+
 | カテゴリ | 現状 | 目標 | 保存先 | サイズ | 数量 |
 |---------|------|------|--------|--------|------|
 | **おみくじ演出素材** | テキスト＋絵文字 | おみくじ札のイラスト | `static/assets/omikuji/` | 256×512 PNG | 5 |

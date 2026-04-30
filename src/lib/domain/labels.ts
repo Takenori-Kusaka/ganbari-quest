@@ -4011,7 +4011,7 @@ export const LP_PRICING_LABELS = {
 	heroSubtextStrong: '7日間の無料体験',
 	heroSubtextSuffix: '付き（クレジットカード登録不要）',
 	heroPriceBand: '基本無料 ・ 月 ¥500（税込）から ・ 有料は 7 日間無料体験 ・ いつでも解約 OK',
-	heroCtaPrimary: '7 日間無料で試す',
+	heroCtaPrimary: '7 日間無料トライアル',
 	heroCtaSecondary: 'プランを比較する',
 
 	// Plan card: Free (#1651 R45 + #1644 R39 + #1645 R40)
@@ -4281,7 +4281,7 @@ export const ONBOARDING_LABELS = {
 export const LP_VERSUS_LABELS = {
 	sectionTitle: 'シール帳・ホワイトボードでも、いいんじゃない？',
 	sectionDesc:
-		'わかります。私たちもまずは紙で試しました。でも「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、デジタルだから届く差があります。',
+		'多くのご家庭がまず紙で試して、続かずに諦めています。「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、がんばりクエストだから届く差があります。',
 	tagAnalog: 'シール帳・紙',
 	tagDigital: 'がんばりクエスト',
 	// 各優位点アイコン (#1597 ADR-0023 I5 — 装飾的アクセント枠 / asset-catalog.md 準拠)
@@ -4309,36 +4309,57 @@ export const LP_VERSUS_LABELS = {
 // SSOT: site/index.html [05b] セクション用ラベル
 // ============================================================
 
+// #1712 R5: 5 stage の H3 を「親主語ベネフィット」にリフレーム + 親視点 / 子供視点 1 行併記。
+//   開発者目線の「○○の特徴」型 → 保護者が観測できる行動変化（「○○が要らなくなる」「○○を聞かなくても」）
+//   へ書き換え、購入後の体験イメージを具体化する。
 export const LP_GROWTH_ROADMAP_LABELS = {
 	sectionTitle: '3 歳から 18 歳まで、そして「卒業」へ',
 	sectionDesc:
 		'お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。',
+	parentBenefitLabel: '親が観測できること',
+	childExperienceLabel: '子供が体験すること',
 	preschoolAge: '幼児',
 	preschoolRange: '3-5',
 	preschoolUnit: '歳',
-	preschoolTitle: 'はみがき・おかたづけを自分で',
+	preschoolTitle: '「はをみがいてー」「おかたづけしてー」が要らなくなる',
 	preschoolDesc: '大きなボタンとひらがな UI で「自分で押した！」の達成感を毎日体験。',
+	preschoolParentBenefit: '「やって」と言わなくても、子供が自分で動き始める',
+	preschoolChildExperience: '大きな絵文字ボタンを押すだけで褒められる達成感',
 	elementaryAge: '小学生',
 	elementaryRange: '6-12',
 	elementaryUnit: '歳',
-	elementaryTitle: '宿題・お手伝いを自分から',
+	elementaryTitle: '「宿題やった？」を聞かなくても、子供から見せてくれる',
 	elementaryDesc:
 		'漢字 UI に切替、称号で「次は何を達成しよう？」と自分で目標を立てる力が育ちます。',
+	elementaryParentBenefit: '声かけ回数が減り、子供から達成報告が来るようになる',
+	elementaryChildExperience: '称号や実績が増え、「次は何を狙おう」と自分で計画する楽しさ',
 	juniorAge: '中学生',
 	juniorRange: '13-15',
 	juniorUnit: '歳',
-	juniorTitle: '習い事・部活と勉強の両立',
+	juniorTitle: '部活と塾の両立を、子供が自分で計画する',
 	juniorDesc: '月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。',
+	juniorParentBenefit: '時間管理を子供任せにできて、過干渉を手放せる',
+	juniorChildExperience: '月次レポートで自分のペースを見える化し、無理せず続けられる',
 	seniorAge: '高校生',
 	seniorRange: '16-18',
 	seniorUnit: '歳',
-	seniorTitle: '受験・将来設計を自分の手で',
+	seniorTitle: '進路相談で「これだけやってきた」を子供自身が語れる',
 	seniorDesc: '15 年分の活動ログが「自分はこれだけやってきた」という自信に。',
+	seniorParentBenefit: '進路面談で子供自身が活動履歴を語れるようになる',
+	seniorChildExperience: '15 年分の積み重ねが履歴として残り、自分の自信になる',
 	graduateLabel: 'そして',
 	graduateAccent: '卒業',
-	graduateTitle: 'アプリが必要なくなる日へ',
+	graduateTitle: 'アプリを開かなくなった日 — それは家族の卒業式',
 	graduateDesc:
-		'「使わなくなる」ことが私たちの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。',
+		'「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。',
+	graduateParentBenefit: '子供が自律したことを、ログイン頻度の低下で確認できる',
+	graduateChildExperience: 'アプリを開かなくても自分で計画できる、大人になった実感',
+	// ベネフィット行 + screenshot alt #1707 / #1712
+	preschoolShotAlt: '幼児ホーム画面 — 大きな絵文字ボタンと達成スタンプ',
+	elementaryShotAlt: '小学生ホーム画面 — 称号コレクションとデイリーミッション',
+	juniorShotAlt: '中学生ホーム画面 — 月次レポートと自己ペース可視化',
+	seniorShotAlt: '高校生ホーム画面 — 15 年分のログと進路素材',
+	graduateShotAlt: '卒業画面 — 履歴エクスポートと家族の手元に残す記録',
 } as const;
 
 // ============================================================
@@ -6054,6 +6075,20 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k86: '多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。',
 	// #1736 m-MIN-7: section-desc を「Top 3」→「Top 4」に
 	k87: '保護者の皆さまから特によくいただく 4 つ。他のご質問は <a href="faq.html" class="nav-text">FAQ 専用ページ（24 項目）</a> をご覧ください。',
+	// #1707 R2: machine-tour 各カードの「親が観測できる」1 行ベネフィット
+	tourBenefitRoutine:
+		'<strong>親が観測できること</strong>: 朝晩の声かけ回数が減り、子供が自分でタップ完了する',
+	tourBenefitBattle:
+		'<strong>親が観測できること</strong>: 1 日の努力が「バトルで使えるエネルギー」として可視化される',
+	// #1707 R2: soft-features 各カードの「親が観測できる」1 行ベネフィット
+	softBenefitMonthlyReport:
+		'<strong>親が観測できること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる',
+	softBenefitAutoSleep:
+		'<strong>親が観測できること</strong>: 設定した時間で自動的に画面が閉じ、長時間利用が起きない',
+	softBenefitCheerMessage:
+		'<strong>親が観測できること</strong>: 家族から送ったメッセージを子供が読むと既読が付く',
+	softBenefitSettings:
+		'<strong>親が観測できること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる',
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {

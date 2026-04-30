@@ -113,7 +113,8 @@
 .section-inner{max-width:1080px;margin:0 auto}
 /* #1634 R30 / ADR-0016: 強制改行 <br> を削除し text-wrap: balance に任せる */
 .section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:10px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
-.section-desc{text-align:center;color:var(--gray-600);margin-bottom:40px;font-size:.98rem;line-height:1.7;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
+/* #1759 PR Phase 3-B fix: desktopHeight 8003 > 8000 を回避するため section-desc 余白を 40 → 28px に圧縮 */
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:28px;font-size:.98rem;line-height:1.7;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
@@ -223,17 +224,17 @@
 /* #1284: tour-shot も同様に全画面表示へ修正。称号画面などの主要要素が見えるように */
 /* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
 /* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
-.tour-card .tour-shot{border-radius:8px;overflow:hidden;aspect-ratio:390/844;max-height:360px;margin-top:auto;background:var(--gray-50)}
+/* #1707 R2: scrshot 9 枚追加で mobile 高が膨張するため max-height を 200px に圧縮（PC 整然配置 #1618 と整合） */
+.tour-card .tour-shot{border-radius:8px;overflow:hidden;aspect-ratio:390/844;max-height:200px;margin-top:auto;background:var(--gray-50)}
 .tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
-/* 画像なし tour-card の plate (#1618 R14): 画像 tour-shot 同等の余白で高さを揃える */
-.tour-card .tour-shot-placeholder{margin-top:auto;min-height:160px;display:flex;align-items:center;justify-content:center;color:var(--gray-300);font-size:2.5rem;background:var(--gray-50);border-radius:8px;border:1px dashed var(--gray-200)}
+/* #1707 R2: 親が観測できる 1 行ベネフィットを screenshot 直下に併記 */
+.tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
+.tour-card .tour-benefit strong{color:var(--brand-700)}
 @media(min-width:1024px){
   /* PC 整然配置 (#1618 R14 / Phase 5 P2): 4 列固定で半端なし、grid-auto-rows で行高を揃える */
   .machine-tour{grid-template-columns:repeat(4,1fr);gap:20px;grid-auto-rows:1fr}
   .tour-card{min-height:480px;padding:24px 22px}
-  /* 画像 / placeholder どちらでも同じ最終 panel サイズに揃える */
   .tour-card .tour-shot{max-height:200px;min-height:200px}
-  .tour-card .tour-shot-placeholder{min-height:200px}
 }
 @media(min-width:1440px){
   .machine-tour{max-width:1320px;gap:24px}
@@ -244,10 +245,19 @@
 .soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
 #soft-features .soft-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 #soft-features.section{padding-bottom:40px}
-.soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:28px 24px}
-.soft-card .soft-icon{font-size:2rem;margin-bottom:10px}
-.soft-card h3{font-size:1.1rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
-.soft-card p{font-size:.9rem;color:var(--gray-600);line-height:1.7}
+.soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:20px 18px;display:flex;flex-direction:column}
+.soft-card .soft-icon{font-size:1.7rem;margin-bottom:6px}
+.soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
+.soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
+/* #1707 R2: soft-card 内に親が観測できる 1 行ベネフィットと screenshot を追加 */
+/* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
+.soft-card .soft-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:8px 0;background:var(--gray-50)}
+.soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
+.soft-card .soft-benefit{font-size:.78rem;color:var(--gray-700);line-height:1.5;margin-top:auto}
+.soft-card .soft-benefit strong{color:var(--brand-700)}
+@media(min-width:1024px){
+  .soft-card .soft-shot{max-height:160px}
+}
 
 /* Pricing promise band (#1293: freemium × 低価格帯の price disambiguation) */
 .pricing-promise{max-width:760px;margin:0 auto;text-align:center}
@@ -268,20 +278,29 @@
 #growth-roadmap{padding:24px 16px}
 .growth-roadmap{max-width:1080px;margin:0 auto}
 .gr-track{display:flex;flex-direction:column;gap:8px;position:relative}
-.gr-stage{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:12px 14px}
+.gr-stage{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:start;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:10px 12px}
 .gr-age{font-size:.7rem;font-weight:700;color:var(--brand-700);background:var(--brand-50);border-radius:6px;padding:6px 4px;text-align:center;line-height:1.3}
 .gr-age strong{display:block;font-size:1.05rem;color:var(--brand-700)}
-.gr-body h3{font-size:.92rem;font-weight:700;margin-bottom:2px;color:var(--gray-900);line-height:1.4}
-.gr-body p{font-size:.8rem;color:var(--gray-600);line-height:1.55;margin:0}
+.gr-body h3{font-size:.92rem;font-weight:700;margin-bottom:6px;color:var(--gray-900);line-height:1.4}
+.gr-body p{font-size:.8rem;color:var(--gray-600);line-height:1.55;margin:0 0 4px}
+/* #1707 R2 / #1712 R5: stage screenshot サムネ + 親視点 / 子供視点ベネフィット 1 行併記 */
+/* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため mobile scrshot 高さを圧縮 */
+.gr-body .gr-shot{border-radius:6px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:4px 0;background:var(--gray-50)}
+.gr-body .gr-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
+.gr-body .gr-benefit{font-size:.72rem;line-height:1.4;margin:2px 0;color:var(--gray-700)}
+.gr-body .gr-benefit strong{color:var(--brand-700);font-weight:700}
+.gr-body .gr-benefit-child strong{color:var(--gray-800)}
 .gr-stage[data-stage="graduate"]{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);border-color:var(--brand-300)}
 .gr-stage[data-stage="graduate"] .gr-age{background:#fff;color:var(--brand-800)}
 .gr-stage[data-stage="graduate"] .gr-age strong{color:var(--brand-800)}
 @media(min-width:1024px){
-  .gr-track{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-  .gr-stage{grid-template-columns:1fr;text-align:center;padding:14px 10px}
+  .gr-track{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch}
+  .gr-stage{grid-template-columns:1fr;text-align:center;padding:12px 10px}
   .gr-age{padding:4px}
   .gr-body h3{font-size:.86rem}
   .gr-body p{font-size:.74rem;line-height:1.5}
+  .gr-body .gr-shot{max-height:120px}
+  .gr-body .gr-benefit{font-size:.7rem;line-height:1.4}
 }
 
 /* アナログ vs デジタル比較 (#1614 R10: シール帳 vs アプリ訴求)
@@ -479,7 +498,7 @@
 <section class="section bg-white" id="versus">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="versus.sectionTitle">シール帳・ホワイトボードでも、いいんじゃない？</h2>
-    <p class="section-desc" data-lp-key="versus.sectionDesc">わかります。私たちもまずは紙で試しました。でも「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、デジタルだから届く差があります。</p>
+    <p class="section-desc" data-lp-key="versus.sectionDesc">多くのご家庭がまず紙で試して、続かずに諦めています。「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、がんばりクエストだから届く差があります。</p>
     <div class="versus-grid">
       <div class="versus-row">
         <div class="versus-card vc-analog">
@@ -508,18 +527,6 @@
       <div class="versus-row">
         <div class="versus-card vc-analog">
           <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
-          <h3 data-lp-key="versus.row3AnalogTitle">続けることが目的になりがち</h3>
-        </div>
-        <div class="versus-arrow" aria-hidden="true">→</div>
-        <div class="versus-card vc-digital">
-          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row3Icon">&#x1F393;</span><span data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</span></h3>
-          <p data-lp-key="versus.row3DigitalDesc">「使わなくなる」が成功のゴール。卒業を最終地点として設計しています。</p>
-        </div>
-      </div>
-      <div class="versus-row">
-        <div class="versus-card vc-analog">
-          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
           <h3 data-lp-key="versus.row4AnalogTitle">家を離れると続けられない</h3>
         </div>
         <div class="versus-arrow" aria-hidden="true">→</div>
@@ -527,6 +534,18 @@
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row4Icon">&#x1F4CD;</span><span data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</span></h3>
           <p data-lp-key="versus.row4DigitalDesc">スマホ・タブレットで開けば連続記録が途切れません。</p>
+        </div>
+      </div>
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row3AnalogTitle">続けることが目的になりがち</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row3Icon">&#x1F393;</span><span data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</span></h3>
+          <p data-lp-key="versus.row3DigitalDesc">「使わなくなる」が成功のゴール。卒業を最終地点として設計しています。</p>
         </div>
       </div>
     </div>
@@ -730,14 +749,26 @@
         <h3 data-lp-key="indexB.k31">ルーティンチェックリスト</h3>
         <p data-lp-key="indexB.k32">朝・夜・週末のくり返しを子ども自身がタップ確認。</p>
         <p data-lp-key="indexB.k33">「歯みがいた？」「着替えた？」の声かけ負担を減らします。</p>
-        <div class="tour-shot-placeholder" aria-hidden="true">&#x1F31E;</div>
+        <div class="tour-shot">
+          <picture>
+            <source srcset="screenshots/feature-routine-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-routine-checklist.webp" alt="ルーティンチェックリスト画面 — 朝・夜の繰り返しタスク一覧" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+        <p class="tour-benefit" data-lp-key="indexB.tourBenefitRoutine"><strong>親が観測できること</strong>: 朝晩の声かけ回数が減り、子供が自分でタップ完了する</p>
       </div>
-      <div class="tour-card">
+      <div class="tour-card" data-testid="feature-rpg-battle">
         <div class="tour-phase" data-lp-key="indexB.k34">&#9315; 冒険のクライマックス</div>
         <div class="tour-emoji">&#x2694;&#xFE0F;</div>
         <h3 data-lp-key="indexB.k35">RPG バトル</h3>
         <p data-lp-key="indexB.k36">毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。</p>
-        <div class="tour-shot-placeholder" aria-hidden="true">&#x2694;&#xFE0F;</div>
+        <div class="tour-shot">
+          <picture>
+            <source srcset="screenshots/feature-rpg-battle-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-rpg-battle.webp" alt="RPG バトル画面 — 累積した努力でボスに挑戦" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+        <p class="tour-benefit" data-lp-key="indexB.tourBenefitBattle"><strong>親が観測できること</strong>: 1 日の努力が「バトルで使えるエネルギー」として可視化される</p>
       </div>
     </div>
   </div>
@@ -757,21 +788,49 @@
         <div class="soft-icon">&#x1F4CA;</div>
         <h3 data-lp-key="indexB.k39">成長の記録（月次レポート）</h3>
         <p data-lp-key="indexB.k40">月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。</p>
+        <div class="soft-shot">
+          <picture>
+            <source srcset="screenshots/feature-monthly-report-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-monthly-report.webp" alt="月次レポート画面 — 活動・ポイント推移グラフ" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitMonthlyReport"><strong>親が観測できること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる</p>
       </div>
       <div class="soft-card" data-testid="feature-auto-sleep">
         <div class="soft-icon">&#x1F4A4;</div>
         <h3 data-lp-key="indexB.k41">時間管理（使いすぎ防止）</h3>
         <p data-lp-key="indexB.k42">設定時間が経過すると画面が自動スリープ。スクリーンタイムの心配なく使わせられます。</p>
+        <div class="soft-shot">
+          <picture>
+            <source srcset="screenshots/feature-auto-sleep-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-auto-sleep.webp" alt="時間管理設定画面 — 自動スリープ時間の設定" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitAutoSleep"><strong>親が観測できること</strong>: 設定した時間で自動的に画面が閉じ、長時間利用が起きない</p>
       </div>
-      <div class="soft-card">
+      <div class="soft-card" data-testid="feature-cheer-message">
         <div class="soft-icon">&#x1F4AC;</div>
         <h3 data-lp-key="indexB.k43">おうえんメッセージ</h3>
         <p data-lp-key="indexB.k44">「よくがんばったね」の一言が子供のホーム画面に届きます。Family プランで家族全員から送れます。</p>
+        <div class="soft-shot">
+          <picture>
+            <source srcset="screenshots/feature-cheer-message-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-cheer-message.webp" alt="おうえんメッセージ受信画面 — 子供のホームに届く家族の一言" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitCheerMessage"><strong>親が観測できること</strong>: 家族から送ったメッセージを子供が読むと既読が付く</p>
       </div>
       <div class="soft-card" data-testid="feature-customization">
         <div class="soft-icon">&#x2699;&#xFE0F;</div>
         <h3 data-lp-key="indexB.k45">設定の自由度</h3>
         <p data-lp-key="indexB.k46">活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。</p>
+        <div class="soft-shot">
+          <picture>
+            <source srcset="screenshots/feature-settings-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-settings.webp" alt="親管理の設定一覧画面 — 活動・ポイント・ごほうびのカスタマイズ" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitSettings"><strong>親が観測できること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる</p>
       </div>
     </div>
   </div>
@@ -792,36 +851,76 @@
         <div class="gr-stage" data-stage="preschool">
           <div class="gr-age"><span data-lp-key="growthRoadmap.preschoolAge">幼児</span><strong data-lp-key="growthRoadmap.preschoolRange">3-5</strong><span data-lp-key="growthRoadmap.preschoolUnit">歳</span></div>
           <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.preschoolTitle">はみがき・おかたづけを自分で</h3>
+            <h3 data-lp-key="growthRoadmap.preschoolTitle">「はをみがいてー」「おかたづけしてー」が要らなくなる</h3>
+            <div class="gr-shot">
+              <picture>
+                <source srcset="screenshots/growth-stage-preschool-desktop.webp" media="(min-width:1024px)" type="image/webp">
+                <img src="screenshots/growth-stage-preschool.webp" alt="幼児ホーム画面 — 大きな絵文字ボタンと達成スタンプ" loading="lazy" data-lightbox>
+              </picture>
+            </div>
             <p data-lp-key="growthRoadmap.preschoolDesc">大きなボタンとひらがな UI で「自分で押した！」の達成感を毎日体験。</p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.preschoolParentBenefit">「やって」と言わなくても、子供が自分で動き始める</span></p>
+            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.preschoolChildExperience">大きな絵文字ボタンを押すだけで褒められる達成感</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="elementary">
           <div class="gr-age"><span data-lp-key="growthRoadmap.elementaryAge">小学生</span><strong data-lp-key="growthRoadmap.elementaryRange">6-12</strong><span data-lp-key="growthRoadmap.elementaryUnit">歳</span></div>
           <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.elementaryTitle">宿題・お手伝いを自分から</h3>
+            <h3 data-lp-key="growthRoadmap.elementaryTitle">「宿題やった？」を聞かなくても、子供から見せてくれる</h3>
+            <div class="gr-shot">
+              <picture>
+                <source srcset="screenshots/growth-stage-elementary-desktop.webp" media="(min-width:1024px)" type="image/webp">
+                <img src="screenshots/growth-stage-elementary.webp" alt="小学生ホーム画面 — 称号コレクションとデイリーミッション" loading="lazy" data-lightbox>
+              </picture>
+            </div>
             <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、称号で「次は何を達成しよう？」と自分で目標を立てる力が育ちます。</p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
+            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.elementaryChildExperience">称号や実績が増え、「次は何を狙おう」と自分で計画する楽しさ</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="junior">
           <div class="gr-age"><span data-lp-key="growthRoadmap.juniorAge">中学生</span><strong data-lp-key="growthRoadmap.juniorRange">13-15</strong><span data-lp-key="growthRoadmap.juniorUnit">歳</span></div>
           <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.juniorTitle">習い事・部活と勉強の両立</h3>
+            <h3 data-lp-key="growthRoadmap.juniorTitle">部活と塾の両立を、子供が自分で計画する</h3>
+            <div class="gr-shot">
+              <picture>
+                <source srcset="screenshots/growth-stage-junior-desktop.webp" media="(min-width:1024px)" type="image/webp">
+                <img src="screenshots/growth-stage-junior.webp" alt="中学生ホーム画面 — 月次レポートと自己ペース可視化" loading="lazy" data-lightbox>
+              </picture>
+            </div>
             <p data-lp-key="growthRoadmap.juniorDesc">月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。</p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.juniorParentBenefit">時間管理を子供任せにできて、過干渉を手放せる</span></p>
+            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.juniorChildExperience">月次レポートで自分のペースを見える化し、無理せず続けられる</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="senior">
           <div class="gr-age"><span data-lp-key="growthRoadmap.seniorAge">高校生</span><strong data-lp-key="growthRoadmap.seniorRange">16-18</strong><span data-lp-key="growthRoadmap.seniorUnit">歳</span></div>
           <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.seniorTitle">受験・将来設計を自分の手で</h3>
+            <h3 data-lp-key="growthRoadmap.seniorTitle">進路相談で「これだけやってきた」を子供自身が語れる</h3>
+            <div class="gr-shot">
+              <picture>
+                <source srcset="screenshots/growth-stage-senior-desktop.webp" media="(min-width:1024px)" type="image/webp">
+                <img src="screenshots/growth-stage-senior.webp" alt="高校生ホーム画面 — 15 年分のログと進路素材" loading="lazy" data-lightbox>
+              </picture>
+            </div>
             <p data-lp-key="growthRoadmap.seniorDesc">15 年分の活動ログが「自分はこれだけやってきた」という自信に。</p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.seniorParentBenefit">進路面談で子供自身が活動履歴を語れるようになる</span></p>
+            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.seniorChildExperience">15 年分の積み重ねが履歴として残り、自分の自信になる</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="graduate">
           <div class="gr-age"><span data-lp-key="growthRoadmap.graduateLabel">そして</span><strong data-lp-key="growthRoadmap.graduateAccent">卒業</strong></div>
           <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.graduateTitle">アプリが必要なくなる日へ</h3>
-            <p data-lp-key="growthRoadmap.graduateDesc">「使わなくなる」ことが私たちの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。</p>
+            <h3 data-lp-key="growthRoadmap.graduateTitle">アプリを開かなくなった日 — それは家族の卒業式</h3>
+            <div class="gr-shot">
+              <picture>
+                <source srcset="screenshots/growth-stage-graduate-desktop.webp" media="(min-width:1024px)" type="image/webp">
+                <img src="screenshots/growth-stage-graduate.webp" alt="卒業画面 — 履歴エクスポートと家族の手元に残す記録" loading="lazy" data-lightbox>
+              </picture>
+            </div>
+            <p data-lp-key="growthRoadmap.graduateDesc">「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。</p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.graduateParentBenefit">子供が自律したことを、ログイン頻度の低下で確認できる</span></p>
+            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.graduateChildExperience">アプリを開かなくても自分で計画できる、大人になった実感</span></p>
           </div>
         </div>
       </div>
