@@ -228,6 +228,27 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		reason: '/activity-packs 一覧 → マーケット一覧（activity-pack フィルタ）',
 		status: 301,
 	},
+	// #1782: 実績機能廃止に伴い /admin/achievements を /admin/challenges に統合
+	// ADR-0012 §6「収集目的の独立 UI / 称号コレクション閲覧ページ / ミッションリスト UI 駆動導線」
+	// 禁止に整合し、長期の達成感はチャレンジ機能 (/admin/challenges) に統合した。
+	// /admin/achievements を bookmark / 内部リンクから踏まれた場合の救済として 308 redirect。
+	// 注: /(child)/[uiMode]/(character)/achievements/ ルートは中身がチャレンジ表示で実体整合済みのため
+	//   ファイルパスはそのまま保持（CharacterTabs の path: 'achievements' も同様）。本件 redirect 対象外。
+	{
+		from: '/admin/achievements',
+		to: '/admin/challenges',
+		deletedAt: '2026-05-01',
+		issue: '#1782',
+		reason:
+			'実績機能廃止 + チャレンジ機能 (/admin/challenges) への統合（ADR-0012 §6 整合 / #404 廃止合意の revert 復活への対応）',
+	},
+	{
+		from: '/demo/admin/achievements',
+		to: '/demo/admin/challenges',
+		deletedAt: '2026-05-01',
+		issue: '#1782',
+		reason: '実績機能廃止に伴うデモ画面の同期 redirect',
+	},
 ] as const;
 
 /**

@@ -80,6 +80,15 @@ const STRICT_FORBIDDEN_TERMS = [
 	// #1708 R3-A: kind=routine 廃止に伴い「ルーティンチェックリスト」語彙を LP / 設計書から完全排除
 	// （持ち物 = event-* プリセット / 毎日 must = 活動マスタ priority 属性 で責務分離）
 	'ルーティンチェックリスト',
+	// #1782: ADR-0012 §6 整合 + #404 廃止合意の revert 復活への対応。
+	//   「実績 & 称号」機能は廃止（チャレンジ機能 /admin/challenges に統合）。
+	//   再混入を CI 自動検出するため LP / faq / pricing / pamphlet で禁止語彙化。
+	//   注: 「称号」単体は `levelTitleSectionTitle` 等のレベル称号システムで実装中であり、
+	//   「称号」「実績」を機能 SSOT 訴求として復活させる文脈（カード見出し / コレクション） のみ禁止。
+	'実績解放',
+	'実績 & 称号',
+	'実績 &amp; 称号',
+	'称号コレクション',
 ];
 
 const IT_JARGON_FORBIDDEN_TERMS = [

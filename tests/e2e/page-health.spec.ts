@@ -71,7 +71,8 @@ test.describe('ページヘルス: Admin', () => {
 		{ path: '/admin/activities/introduce', name: '活動紹介' },
 		{ path: '/admin/points', name: 'ポイント管理' },
 		{ path: '/admin/rewards', name: 'ごほうび管理' },
-		{ path: '/admin/achievements', name: 'チャレンジ管理' },
+		// #1782: /admin/achievements は廃止 → /admin/challenges に 308 redirect 統合（ADR-0012 §6 整合）
+		{ path: '/admin/challenges', name: 'チャレンジ管理' },
 		{ path: '/admin/checklists', name: 'チェックリスト管理' },
 		{ path: '/admin/messages', name: 'メッセージ管理' },
 		{ path: '/admin/status', name: 'ステータス管理' },

@@ -372,41 +372,12 @@ export async function recordActivity(
 		// 証明書発行失敗は記録フローを止めない
 	}
 
-	// カスタム実績・称号チェック
-	let customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[] = [];
-	try {
-		const { checkAndUnlockCustomItems } = await import(
-			'$lib/server/services/custom-achievement-service'
-		);
-		const progressData = {
-			totalActivityCount: await countActiveActivityLogs(childId, tenantId),
-			activityCounts: {
-				[activityId]: await countTodayActiveRecords(childId, activityId, today, tenantId),
-			},
-			categoryCounts: {},
-			maxStreakDays: streakDays,
-			activityStreaks: { [activityId]: streakDays },
-			currentLevel: levelUp ? levelUp.newLevel : xpGain.levelAfter,
-			achievementCount: unlockedAchievements.length,
-		};
-		customUnlocked = await checkAndUnlockCustomItems(childId, tenantId, progressData);
-		// カスタム実績ボーナスポイント付与
-		for (const item of customUnlocked) {
-			if (item.bonusPoints > 0) {
-				await insertPointLedger(
-					{
-						childId,
-						amount: item.bonusPoints,
-						type: 'custom_achievement',
-						description: `カスタム実績「${item.name}」達成ボーナス`,
-					},
-					tenantId,
-				);
-			}
-		}
-	} catch {
-		// カスタム実績チェック失敗は記録フローを止めない
-	}
+	// #1782: カスタム実績機能廃止（ADR-0012 §6 整合 / #404 廃止合意の revert 復活への対応）。
+	// 「収集目的の独立 UI / 称号コレクション閲覧ページ / ミッションリスト UI 駆動導線」禁止再宣言に伴い、
+	// カスタム実績の解除フック・ボーナスポイント付与 (`type: 'custom_achievement'`) を削除。
+	// 既存の point_ledger 履歴は保持される（ただし新規発行は行われない）。
+	// 後継機能: チャレンジ機能 (/admin/challenges) のチャレンジ達成 reward。
+	const customUnlocked: { type: string; name: string; icon: string; bonusPoints: number }[] = [];
 
 	// 固定間隔特別報酬チェック（予告型: 毎N回記録でごほうび）
 	let specialReward: { id: number; title: string; points: number; icon: string | null } | null =

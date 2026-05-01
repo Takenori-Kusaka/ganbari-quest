@@ -120,7 +120,7 @@ const navCategories: NavCategory[] = $derived([
     items: [
       { href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
       { href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
-      { href: `${basePath}/achievements`, label: NAV_ITEM_LABELS.achievements, icon: '🏅' },
+      // #1782: 「実績」ナビ削除（チャレンジ機能 /admin/challenges に統合、ADR-0012 §6 整合）
       { href: `${basePath}/analytics`, label: NAV_ITEM_LABELS.analytics, icon: '📈' },
       { href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },       // ← 移動
       { href: `${basePath}/messages`, label: NAV_ITEM_LABELS.messages, icon: '💌' },   // ← 移動
