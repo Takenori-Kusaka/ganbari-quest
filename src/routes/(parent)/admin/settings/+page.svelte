@@ -402,6 +402,54 @@ let deletionInfo = $state<{
 } | null>(null);
 let deletionInfoLoading = $state(false);
 
+// #1781: 削除後グレースピリオド復元
+let restoreSubmitting = $state(false);
+let restoreError = $state('');
+let restoreSuccess = $state(false);
+
+const gracePeriodStatus = $derived(
+	$page.data.gracePeriodStatus as
+		| {
+				isSoftDeleted: boolean;
+				softDeletedAt: string | null;
+				gracePeriodDays: number;
+				physicalDeletionDate: string | null;
+				daysRemaining: number;
+				isExpired: boolean;
+				planTier: string | null;
+		  }
+		| undefined,
+);
+
+const gracePeriodDeletionDateLabel = $derived.by(() => {
+	const iso = gracePeriodStatus?.physicalDeletionDate;
+	if (!iso) return '';
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) return '';
+	return date.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+});
+
+async function handleRestoreAccount() {
+	if (anyFormBusy || restoreSubmitting) return;
+	restoreSubmitting = true;
+	restoreError = '';
+	restoreSuccess = false;
+	try {
+		const res = await fetch('/api/v1/admin/account/restore', { method: 'POST' });
+		const d = await res.json();
+		if (!res.ok) {
+			throw new Error(d.message ?? d.error ?? SETTINGS_LABELS.deletionGraceRestoreError);
+		}
+		restoreSuccess = true;
+		// 復元後はサーバ load を再取得して banner を消す
+		window.location.reload();
+	} catch (err) {
+		restoreError = err instanceof Error ? err.message : SETTINGS_LABELS.deletionGraceRestoreError;
+	} finally {
+		restoreSubmitting = false;
+	}
+}
+
 /** Owner 削除時: 他メンバー情報を取得 */
 async function fetchDeletionInfo() {
 	if (anyFormBusy) return;
@@ -450,6 +498,8 @@ async function handleDeleteAccount() {
 		});
 		const d = await res.json();
 		if (!res.ok) throw new Error(d.error ?? 'アカウント削除に失敗しました');
+		// #1781: soft-delete の場合もログアウトする（再ログインで復元 UI が出る）。
+		// free プラン即時削除と同じ動線。grace 期間中であれば再ログイン可能。
 		window.location.href = '/auth/signout';
 	} catch (err) {
 		deleteError = err instanceof Error ? err.message : 'アカウント削除に失敗しました';
@@ -562,7 +612,8 @@ const anyFormBusy = $derived(
 		cancelSubmitting ||
 		reactivateSubmitting ||
 		deleteSubmitting ||
-		deletionInfoLoading,
+		deletionInfoLoading ||
+		restoreSubmitting,
 );
 </script>
 
@@ -589,6 +640,39 @@ const anyFormBusy = $derived(
 				onclick={handleReactivate}
 			>
 				{reactivateSubmitting ? SETTINGS_LABELS.reactivateSubmitting : SETTINGS_LABELS.reactivateAction}
+			</Button>
+		</div>
+	{/if}
+
+	<!-- #1781: 削除グレースピリオド (soft-delete) バナー -->
+	{#if gracePeriodStatus?.isSoftDeleted && !gracePeriodStatus.isExpired}
+		<div
+			data-testid="deletion-grace-banner"
+			class="bg-[var(--color-feedback-warning-bg)] border-2 border-[var(--color-feedback-warning-border)] rounded-xl p-6"
+		>
+			<h3 class="text-lg font-bold text-[var(--color-feedback-warning-text)] mb-2">
+				{SETTINGS_LABELS.deletionGraceTitle}
+			</h3>
+			<p class="text-sm text-[var(--color-feedback-warning-text)] mb-4">
+				{SETTINGS_LABELS.deletionGraceDesc(
+					gracePeriodStatus.daysRemaining,
+					gracePeriodDeletionDateLabel,
+				)}
+			</p>
+			{#if restoreError}
+				<ErrorAlert message={restoreError} severity="error" action="retry" />
+			{/if}
+			<Button
+				type="button"
+				variant="success"
+				size="md"
+				disabled={restoreSubmitting}
+				onclick={handleRestoreAccount}
+				data-testid="deletion-grace-restore-button"
+			>
+				{restoreSubmitting
+					? SETTINGS_LABELS.deletionGraceRestoreSubmitting
+					: SETTINGS_LABELS.deletionGraceRestoreAction}
 			</Button>
 		</div>
 	{/if}

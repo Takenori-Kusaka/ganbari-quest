@@ -96,19 +96,63 @@ deleteOwnerFullDelete(tenantId, ownerId)
 
 ---
 
-## 4. グレースピリオド（#742 連動）
+## 4. グレースピリオド（#742 / #1781 配線完了）
 
-**現状**: グレースピリオドは未実装。`fullTenantDeletion` は即時に物理削除する。
+### 4.1 仕様
 
-**#742 で導入予定（仕様は #742 で最終確定、以下は提案値）**:
+| プラン | グレースピリオド | データ保持 | 復元可否 |
+|--------|---------------|----------|---------|
+| free | 0 日（即時物理削除） | なし | × |
+| standard | 7 日 | あり | ○（grace 期間内のみ） |
+| family | 30 日 | あり | ○（grace 期間内のみ） |
 
-- free プラン: グレースピリオドなし（即時削除）
-- standard プラン: 7 日間の復元期間
-- family プラン: 30 日間の復元期間 + 削除前エクスポートメール送信
-- グレースピリオドがあるプランは、削除直後にテナントを `status=pending-delete` に遷移させ、`deletedAt+planRetentionDays` の cron で実体削除
-- 復元 API（`/api/v1/admin/account/restore`）を用意し、メールリンクから 1 クリック復元できるようにする
+定数: `DELETION_GRACE_PERIOD_DAYS` in `src/lib/server/services/grace-period-service.ts`
 
-実装時に本ドキュメントの §2 のマトリクスに「pending-delete 中の状態」列を追加すること。
+### 4.2 実装フロー（#1781 で `softDeleteTenant` を `+server.ts` に配線完了）
+
+```
+POST /api/v1/admin/account/delete  (pattern=owner-only / owner-full-delete)
+  └─ softDeleteTenant(tenantId, licenseStatus, planId)
+      ├─ resolveFullPlanTier → 'free' | 'standard' | 'family'
+      └─ DELETION_GRACE_PERIOD_DAYS[planTier]
+  ├─ requiresImmediateDeletion=true (free)  → deleteOwnerOnlyAccount / deleteOwnerFullDelete (即時物理削除)
+  └─ requiresImmediateDeletion=false (有料) → cancelSubscription (Stripe 即停止) + soft delete state を settings に記録
+                                            → 物理削除は cron が grace 期限到達後に実行
+```
+
+### 4.3 Soft delete 中の状態
+
+soft delete されたテナントは以下の状態になる:
+
+- `settings` テーブルに `soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date` が記録される
+- Stripe Subscription は **即時にキャンセル**（grace 期間中に再課金されない / #741、§3 参照）
+- DB のテナント本体・children・activities 等は **保持**（復元のため）
+- ユーザはサインアウトされる（`window.location.href = '/auth/signout'`）が、再ログインすれば admin 画面で復元 UI を見られる
+
+### 4.4 復元フロー
+
+`POST /api/v1/admin/account/restore` (owner のみ):
+
+1. `getGracePeriodStatus` で grace 期限内であることを確認
+2. settings の 3 キー (`soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date`) を空文字でクリア
+3. テナント通常状態に戻る（次の admin/+layout.server.ts load で `gracePeriodStatus.isSoftDeleted=false`）
+
+> **Stripe 再購読について**: Stripe Subscription は grace 期間中にキャンセル済みのため、復元しても自動再購読されない。ユーザは `/pricing` から再度購読する必要がある（admin 画面で誘導する）。
+
+### 4.5 物理削除（cron）
+
+`/api/cron/grace-period-deletion` が定期実行で `purgeExpiredSoftDeletedTenants` を呼ぶ:
+
+1. `findExpiredSoftDeletedTenants` で grace 期限切れのテナントを検出
+2. 各テナントの owner を特定
+3. `deleteOwnerOnlyAccount` (他メンバーなし) または `deleteOwnerFullDelete` (他メンバーあり) で物理削除
+4. Pattern 2b の場合、他メンバーへ `sendMemberRemovedEmail` 通知
+
+> Stripe キャンセルは soft delete 時に既に完了しているため、cron 経由の `cancelSubscription` 再実行は idempotent な no-op になる。
+
+### 4.6 §2 マトリクスへの影響
+
+soft-delete 中（grace 期間内）の各削除対象は **すべて保持**（チェックなし）。grace 期限切れで cron が物理削除を実行したタイミングで §2 の Pattern 1 / 2b と同じ範囲が削除される。
 
 ---
 
@@ -183,3 +227,4 @@ deleteOwnerFullDelete(tenantId, ownerId)
 | 日付 | 版数 | 内容 |
 |------|------|------|
 | 2026-04-11 | 1.0 | #746 初版作成（実装状態を反映） |
+| 2026-05-01 | 1.1 | #1781 グレースピリオド配線完了反映: §4 を「未実装」→「実装済」に書き換え、`softDeleteTenant` を `+server.ts` の `owner-only` / `owner-full-delete` パターンに配線、復元 API / cron 物理削除フローを追記 |

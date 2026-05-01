@@ -7,6 +7,7 @@ import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getDebugPlanSummary } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
+import { getGracePeriodStatus } from '$lib/server/services/grace-period-service';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	archiveExcessResources,
@@ -108,6 +109,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			? await getArchivedResourceSummary(tenantId)
 			: { archivedChildCount: 0, hasArchivedResources: false };
 
+	// #1781: 解約後グレースピリオド状態（settings 画面で「あと N 日 / 復元」UI を出すため）
+	const gracePeriodStatus = await getGracePeriodStatus(tenantId);
+
 	return {
 		pointSettings,
 		authMode,
@@ -125,5 +129,6 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 		trialJustExpired,
 		archivedSummary,
 		debugPlanSummary: getDebugPlanSummary(),
+		gracePeriodStatus,
 	};
 };
