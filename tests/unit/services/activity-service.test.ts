@@ -429,7 +429,13 @@ describe('#1755 activity-service priority', () => {
 // ============================================================
 
 describe('#1757 tryGrantMustCompletionBonus', () => {
-	const TODAY = '2026-04-30';
+	// 実装の冪等チェック (`countPointLedgerEntriesByTypeAndDate`) は SQLite の
+	// `date(created_at)` (CURRENT_TIMESTAMP 由来 — リアル時計) でフィルタするため、
+	// テスト側の TODAY を固定値にすると、システム時計の日付と乖離した日に二重加算
+	// される flake (#1757 UT-05 が 2026-05-01 で破綻)。
+	// vi.setSystemTime は JS Date のみ mock し SQLite の CURRENT_TIMESTAMP には
+	// 効かないため、TODAY を実時計の日付から動的に生成する。
+	const TODAY = new Date().toISOString().slice(0, 10);
 
 	beforeEach(() => {
 		seedBase();

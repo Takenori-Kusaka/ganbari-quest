@@ -69,7 +69,7 @@ test.afterAll(async () => {
 
 const PARAGRAPH_TESTIDS = [
 	'feature-monthly-report', // PR #1573 (#1287 soft-features 4カード拡張) で追加
-	'feature-routine-checklist',
+	// 'feature-routine-checklist' — #1708 で machine-tour ③ ルーティンチェックリスト削除に伴い対象外
 	'feature-belongings-checklist',
 ] as const;
 
