@@ -79,6 +79,7 @@
 - [ADR-0024](decisions/0024-infra-pr-required-baseline.md) — インフラ PR 必須要件: ENV silent skip 禁止 + secrets validation + post-deploy smoke test + alarm（accepted, #1586, 2026-04-27）
 - [ADR-0025](decisions/0025-lp-ssot-html-injection-with-xss-protection.md) — LP SSOT 注入機構の innerHTML 化 + XSS 設計（DOMPurify）（**accepted, #1683 完遂 + #1704, 2026-04-30**）— 693 件 (LP 339 + Legal 354) 全件 SSOT 化を達成、`scripts/lp-ssot-baseline.json` は `count: 0`
 - [ADR-0026](decisions/0026-force-push-protection.md) — 致命修正コミットの force push による消失防止（accepted, #1750, 2026-04-30）— Branch Ruleset + 静的検査 (#1747) + Re-Review 機械チェックの多層防御
+- [ADR-0029](decisions/0029-lp-csp-and-cdn-sri-strategy.md) — LP CSP 多層防御 + CDN SRI / pin 戦略マトリクス（accepted, #1719, 2026-05-01）— `site/**` 全 10 ページに CSP meta tag を付与し、DOMPurify サニタイズ (ADR-0025) と並ぶ第二層を確立。特定 pin ライブラリは SRI 必須、major pin (DOMPurify @3 等) は CSP allowlist で守る方針を確定
 
 > **注**: #1307 (B9) / #1298 (B3) / #1346 (labels/i18n) / #1353 (variant/text-wrap) / #1366 (Cognito email) 派生で ADR-0011〜0018 が同時期に提案されている。ADR-0017 は Rejected で 0018 に supersede 済み (active 件数には ADR-0017 は含めない扱い)。10 枠上限ルールの 1-in-1-out は、まとまって merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
 >

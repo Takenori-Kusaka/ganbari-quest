@@ -297,6 +297,7 @@ lookback
 # ===== ライブラリ名 =====
 splide
 Splide
+splidejs
 
 # ===== コード内略語・複合語 =====
 notif

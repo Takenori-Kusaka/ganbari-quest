@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title data-lp-key="faqB.k1">よくあるご質問 - がんばりクエスト</title>
 <meta name="description" content="がんばりクエストの保護者向けよくあるご質問。料金・トライアル・プライバシー・年齢・兄弟姉妹・データ管理について 24 項目にお答えします。">
 <meta property="og:title" content="よくあるご質問 - がんばりクエスト">
