@@ -15,6 +15,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
@@ -254,6 +255,38 @@ function countForbiddenTerms(html, terms = FORBIDDEN_TERMS) {
 	return counts;
 }
 
+/**
+ * LP HTML 内で参照している `screenshots/...` 画像の物理存在を検証する (#1783)。
+ *
+ * `<img src="screenshots/foo.webp">` および `<source srcset="screenshots/foo-desktop.webp">`
+ * を抽出し、`site/screenshots/` ディレクトリに実体ファイルが存在するか確認する。
+ *
+ * 1 件でも欠落している場合は CI を fail させる（ADR-0029 / #1783 — broken image を black-out しない）。
+ *
+ * @param {string} html - LP HTML 文字列
+ * @param {string} siteDir - site ルートディレクトリ絶対パス
+ * @returns {{ referenced: string[]; missing: string[] }}
+ */
+export function findMissingScreenshots(html, siteDir) {
+	const referenced = new Set();
+	// img src="screenshots/..."
+	const imgSrcRe = /\b(?:src|srcset)\s*=\s*["']([^"']*screenshots\/[^"']+)["']/g;
+	let m;
+	// biome-ignore lint/suspicious/noAssignInExpressions: 標準 regex iteration pattern
+	while ((m = imgSrcRe.exec(html)) !== null) {
+		// srcset は "url 2x, url2 1x" 形式があり得るが LP では単一 URL の運用 (#1783)
+		const candidate = m[1].split(/\s+/)[0];
+		if (candidate.includes('screenshots/')) {
+			// site/foo or screenshots/foo の両形式に対応
+			const rel = candidate.replace(/^.*?screenshots\//, 'screenshots/');
+			referenced.add(rel);
+		}
+	}
+	const referencedList = [...referenced].sort();
+	const missing = referencedList.filter((rel) => !existsSync(join(siteDir, rel)));
+	return { referenced: referencedList, missing };
+}
+
 async function extractCtaVariants(page) {
 	return await page.evaluate(() => {
 		const anchors = document.querySelectorAll('a[href], button');
@@ -290,6 +323,12 @@ async function measureSingleTarget(page, port, targetHtml) {
 	const desktopHeight = await measureHeight(page, url, 1280);
 	const html = readFileSync(join(SITE_DIR, targetHtml), 'utf8');
 	const forbiddenTerms = countForbiddenTerms(html, getForbiddenTermsForTarget(targetHtml));
+	// #1783: LP HTML が参照する screenshots/*.webp の物理存在を検証する。
+	// CI 環境では Pages workflow が直前に撮影しているはずなので、欠落 = 撮影失敗の検知になる。
+	const { referenced: screenshotRefs, missing: missingScreenshots } = findMissingScreenshots(
+		html,
+		SITE_DIR,
+	);
 	const isPrimary = targetHtml === 'index.html';
 	return {
 		target: targetHtml,
@@ -297,6 +336,8 @@ async function measureSingleTarget(page, port, targetHtml) {
 		desktopHeight,
 		forbiddenTerms,
 		ctaVariants,
+		screenshotRefs,
+		missingScreenshots,
 		thresholds: isPrimary ? THRESHOLDS : null,
 		enforceThresholds: isPrimary,
 	};
@@ -310,6 +351,18 @@ function collectViolations(allResults, presetCheck) {
 		if (forbidden.length > 0) {
 			violations.push(
 				`[${r.target}] forbiddenTerms: ${forbidden.map(([t, n]) => `${t}=${n}`).join(', ')}`,
+			);
+		}
+		// #1783: 全ページ共通 — `<img src="screenshots/...">` 物理欠落は 1 件でも fail
+		// （ADR-0029 / Issue #1783 — broken image を本番 LP に並べない）
+		// 環境変数 SKIP_SCREENSHOT_EXISTENCE_CHECK=1 で skip 可能（ローカル開発 / Issue 検証時の段階確認用）
+		if (
+			Array.isArray(r.missingScreenshots) &&
+			r.missingScreenshots.length > 0 &&
+			process.env.SKIP_SCREENSHOT_EXISTENCE_CHECK !== '1'
+		) {
+			violations.push(
+				`[${r.target}] missingScreenshots (${r.missingScreenshots.length} 件): ${r.missingScreenshots.join(', ')}`,
 			);
 		}
 		if (!r.enforceThresholds) continue;
@@ -388,6 +441,9 @@ async function main() {
 		desktopHeight: single.desktopHeight,
 		forbiddenTerms: single.forbiddenTerms,
 		ctaVariants: single.ctaVariants,
+		// #1783: 物理欠落 LP screenshot を CI で可視化する
+		screenshotRefs: single.screenshotRefs ?? [],
+		missingScreenshots: single.missingScreenshots ?? [],
 		thresholds: THRESHOLDS,
 		// #1637 R34: 全ターゲットの結果も併せて記録
 		all: allResults,
@@ -408,7 +464,10 @@ async function main() {
 	log('\n[OK] all LP metrics within thresholds');
 }
 
-main().catch((err) => {
-	logErr('[measure] error:', err);
-	process.exit(1);
-});
+// CLI として直接実行されたときのみ main() を起動 (#1783: テストで import しても副作用を出さない)
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+	main().catch((err) => {
+		logErr('[measure] error:', err);
+		process.exit(1);
+	});
+}

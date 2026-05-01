@@ -79,7 +79,8 @@ jobs:
       - name: Capture LP screenshots
         env:
           BASE_URL: http://localhost:5173
-        # 撮影失敗時は workflow を fail させる (ADR-0029: 無言で古い画像を残さない)
+        # 撮影失敗時は workflow を fail させる (ADR-0029 / #1783: 無言で古い画像を残さない)
+        # capture-hp-screenshots.mjs は 1 件でも撮影失敗があれば exit 1 する
         run: node scripts/capture-hp-screenshots.mjs --webp
 
       - name: Stop preview server
@@ -89,15 +90,10 @@ jobs:
             kill $PREVIEW_PID 2>/dev/null || true
           fi
 
-      - name: Verify screenshots exist
-        # AC: 撮影失敗時はワークフローを fail させる
-        run: |
-          count=$(ls site/screenshots/*.webp 2>/dev/null | wc -l)
-          echo "Captured $count WebP screenshots"
-          if [ "$count" -lt 20 ]; then
-            echo "::error::Expected at least 20 screenshots, got $count"
-            exit 1
-          fi
+      - name: Verify screenshots referenced in site/index.html all exist
+        # #1783 AC1: HTML 内 <img src="screenshots/..."> が全て site/screenshots/ に物理存在することを検証
+        # measure-lp-dimensions.mjs は missing screenshots を検知すると exit 1 する
+        run: node scripts/measure-lp-dimensions.mjs --site-dir=site --output=lp-metrics.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
