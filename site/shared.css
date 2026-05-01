@@ -215,14 +215,25 @@ img {
 /* #1290: ヘッダー常時 signup CTA (index.html のみ、floating-cta との二重表示回避)。
    デスクトップ: .nav-login ghost button と並列に新規登録導線を常時表示。
    モバイル: ハンバーガー展開時に floating-cta と重複するため非表示、floating-cta に集約。
-   pricing/terms/privacy 等は floating-cta を持たないため .nav-signup class を付けず通常表示。 */
+   pricing/terms/privacy 等は floating-cta を持たないため .nav-signup class を付けず通常表示。
+   #1795 R-MAJ-5: hero 可視中はヘッダー nav-signup を非表示 (hero 内 primary CTA との視線奪い合い回避)。
+   IntersectionObserver で .hero がビューポート内に留まる間 body[data-hero-visible="true"] が立ち、
+   nav-signup の opacity/visibility を制御する。 */
 .header-nav a.nav-signup {
 	padding: 8px 18px;
 	font-size: 0.9rem;
+	transition: opacity 0.25s ease, visibility 0.25s ease;
 }
 @media (max-width: 768px) {
 	.header-nav a.nav-signup {
 		display: none;
+	}
+}
+/* #1795 R-MAJ-5: hero 可視中は PC でも nav-signup を非表示。hero スクロール完了後に再表示 */
+@media (min-width: 769px) {
+	body[data-hero-visible='true'] .header-nav a.nav-signup {
+		opacity: 0;
+		visibility: hidden;
 	}
 }
 
