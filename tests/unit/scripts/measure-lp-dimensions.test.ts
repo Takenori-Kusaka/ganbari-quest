@@ -46,7 +46,11 @@ function runMeasure(siteDir: string, env: Record<string, string> = {}): MeasureR
 			'node',
 			[SCRIPT_PATH, `--site-dir=${siteDir}`, `--output=${outputPath}`, '--target=index.html'],
 			{
-				env: { ...process.env, ...env },
+				// #1783 follow-up: CI 環境に chromium が install されていないため、
+				// missing-image-gate の検証は MEASURE_SKIP_BROWSER=1 のブラウザレス経路で行う。
+				// height / cta 計測は別 job (lp-metrics.yml) が担保しているため
+				// unit test のスコープ外。
+				env: { ...process.env, MEASURE_SKIP_BROWSER: '1', ...env },
 				encoding: 'utf-8',
 				stdio: ['ignore', 'pipe', 'pipe'],
 			},

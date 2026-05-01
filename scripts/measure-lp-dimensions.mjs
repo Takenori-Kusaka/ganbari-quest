@@ -343,6 +343,40 @@ async function measureSingleTarget(page, port, targetHtml) {
 	};
 }
 
+/**
+ * #1783 follow-up: browser launch なしで forbidden terms / missing screenshots だけを検証する。
+ *
+ * unit test (CI で chromium 不在) 用の軽量経路。`MEASURE_SKIP_BROWSER=1` で起動。
+ * height / ctaVariants は計測されず 0 / [] になる（index.html の height ratchet 等は
+ * playwright 必須の lp-metrics.yml job 側で担保する）。
+ *
+ * @param {string} targetHtml
+ * @returns {object}
+ */
+function measureSingleTargetWithoutBrowser(targetHtml) {
+	log(`[measure] target (no-browser): ${targetHtml}`);
+	const html = readFileSync(join(SITE_DIR, targetHtml), 'utf8');
+	const forbiddenTerms = countForbiddenTerms(html, getForbiddenTermsForTarget(targetHtml));
+	const { referenced: screenshotRefs, missing: missingScreenshots } = findMissingScreenshots(
+		html,
+		SITE_DIR,
+	);
+	const isPrimary = targetHtml === 'index.html';
+	return {
+		target: targetHtml,
+		mobileHeight: 0,
+		desktopHeight: 0,
+		forbiddenTerms,
+		ctaVariants: [],
+		screenshotRefs,
+		missingScreenshots,
+		thresholds: isPrimary ? THRESHOLDS : null,
+		// no-browser モードでは height / cta 閾値は適用しない（測定値が偽の 0 のため）
+		// missing screenshots / forbidden terms はそれぞれの評価ロジックで検証される
+		enforceThresholds: false,
+	};
+}
+
 function collectViolations(allResults, presetCheck) {
 	const violations = [];
 	for (const r of allResults) {
@@ -406,20 +440,34 @@ function collectViolations(allResults, presetCheck) {
 }
 
 async function main() {
-	const { server, port } = await startStaticServer(SITE_DIR);
-	log(`[measure] serving ${SITE_DIR} on http://127.0.0.1:${port}/`);
-
-	const browser = await chromium.launch();
 	const allResults = [];
-	try {
-		const ctx = await browser.newContext();
-		const page = await ctx.newPage();
+	// #1783 follow-up: MEASURE_SKIP_BROWSER=1 でブラウザ launch を skip し、
+	// forbidden terms / missing screenshots gate のみを検証する軽量経路。
+	// CI で chromium が install されていない unit test 環境用。
+	if (process.env.MEASURE_SKIP_BROWSER === '1') {
+		log('[measure] MEASURE_SKIP_BROWSER=1 — skipping browser launch (height/cta not measured)');
 		for (const targetHtml of TARGET_HTML_LIST) {
-			allResults.push(await measureSingleTarget(page, port, targetHtml));
+			if (!existsSync(join(SITE_DIR, targetHtml))) {
+				log(`[measure] skip: ${targetHtml} (file not found in site dir)`);
+				continue;
+			}
+			allResults.push(measureSingleTargetWithoutBrowser(targetHtml));
 		}
-	} finally {
-		await browser.close();
-		server.close();
+	} else {
+		const { server, port } = await startStaticServer(SITE_DIR);
+		log(`[measure] serving ${SITE_DIR} on http://127.0.0.1:${port}/`);
+
+		const browser = await chromium.launch();
+		try {
+			const ctx = await browser.newContext();
+			const page = await ctx.newPage();
+			for (const targetHtml of TARGET_HTML_LIST) {
+				allResults.push(await measureSingleTarget(page, port, targetHtml));
+			}
+		} finally {
+			await browser.close();
+			server.close();
+		}
 	}
 
 	// #1803: marketplace 実 activity 数 + LP 訴求 claim を計算
