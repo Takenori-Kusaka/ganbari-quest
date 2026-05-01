@@ -1,8 +1,11 @@
-name: LP Metrics (dimensions / forbidden terms / CTA variants)
+name: LP Metrics (dimensions / forbidden terms / CTA variants / removal residue)
 
 # #1163: LP (site/index.html) のページ肥大化・開発者語彙・CTA 文言散乱を CI で自動検知
 # 閾値違反 / 禁止用語出現 / CTA バリエーション過多 を FAIL にする
 # ratchet ルール: 閾値は下げることのみ許可、上げるには ADR が必要
+#
+# #1790: LP 削除/圧縮 PR の残骸 (orphan reference) 検出 gate (check-lp-removal-residue.mjs)
+# #1803: hero spec-badges 「300+ プリセット活動」CI 裏取り gate (measure-lp-dimensions.mjs 内に統合)
 
 on:
   pull_request:
@@ -13,6 +16,9 @@ on:
     paths:
       - "site/**"
       - "scripts/measure-lp-dimensions.mjs"
+      - "scripts/check-lp-removal-residue.mjs"
+      - "scripts/lp-removal-residue-baseline.json"
+      - "src/lib/data/marketplace/activity-packs/**"
 
 permissions:
   contents: read
@@ -45,7 +51,7 @@ jobs:
               pull_number: context.issue.number,
               per_page: 100,
             });
-            const lpPattern = /^site\/|^scripts\/measure-lp-dimensions\.mjs$|^\.github\/workflows\/lp-metrics\.yml$/;
+            const lpPattern = /^site\/|^scripts\/measure-lp-dimensions\.mjs$|^\.github\/workflows\/lp-metrics\.yml$|^src\/lib\/data\/marketplace\/activity-packs\//;
             const changed = files.some(f => lpPattern.test(f.filename));
             if (!changed) {
               core.info('✅ LP関連ファイルの変更なし — LP メトリクス測定をスキップ');
@@ -77,4 +83,62 @@ jobs:
         with:
           name: lp-metrics
           path: lp-metrics.json
+          retention-days: 30
+
+  removal-residue:
+    name: Check LP removal residue (orphan refs)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    timeout-minutes: 5
+    # #1790: 削除/圧縮 PR が残した orphan reference (data-lp-key / 画像参照) を検出。
+    # baseline 設計: 既存 violation は scripts/lp-removal-residue-baseline.json に保存し、
+    # 新規 1 件でも追加されれば fail させる。bypass フラグなし。
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check if residue-relevant files changed
+        id: residue-changed
+        uses: actions/github-script@v9
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('changed', 'true');
+              return;
+            }
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const residuePattern = /^site\/|^scripts\/check-lp-removal-residue\.mjs$|^scripts\/lp-removal-residue-baseline\.json$|^\.github\/workflows\/lp-metrics\.yml$|^src\/lib\/domain\/labels\.ts$/;
+            const changed = files.some(f => residuePattern.test(f.filename));
+            if (!changed) {
+              core.info('✅ LP residue 関連ファイルの変更なし — スキップ');
+            }
+            core.setOutput('changed', changed ? 'true' : 'false');
+
+      - name: Setup Node.js
+        if: steps.residue-changed.outputs.changed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Run LP removal residue check
+        if: steps.residue-changed.outputs.changed == 'true'
+        run: node scripts/check-lp-removal-residue.mjs
+
+      - name: Run LP removal residue check (json artifact)
+        if: always() && steps.residue-changed.outputs.changed == 'true'
+        run: node scripts/check-lp-removal-residue.mjs --json > lp-removal-residue.json || true
+
+      - name: Upload residue artifact
+        if: always() && steps.residue-changed.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: lp-removal-residue
+          path: lp-removal-residue.json
           retention-days: 30

@@ -12,7 +12,7 @@
 // 終了コード:
 //   閾値違反があれば 1、問題なければ 0
 
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { chromium } from 'playwright';
@@ -117,7 +117,74 @@ const THRESHOLDS = {
 	mobileHeight: 15000,
 	desktopHeight: 8000,
 	ctaVariantsMax: 3,
+	// #1803: hero spec-badges 「300+ プリセット活動」CI 裏取り。
+	// site/index.html L480 `<li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動</li>`
+	// および site/shared-labels.js k96「300+ のテンプレート」が、実 marketplace data
+	// (src/lib/data/marketplace/activity-packs/*.json の payload.activities 合計) に裏付けられているかを
+	// CI で assert する。実数 < 訴求値 になれば ADR-0013 LP truth 違反として fail。
+	presetActivityCountClaimedMin: 300,
 };
+
+const ACTIVITY_PACKS_DIR = resolve('src/lib/data/marketplace/activity-packs');
+
+/**
+ * src/lib/data/marketplace/activity-packs/*.json から activity 総数を計算する。
+ * 各 pack の payload.activities[] の数を合算した値を返す。
+ *
+ * #1803 の AC:
+ *   - LP `heroSpecBadges.presetCount` (= '300+') が実 marketplace count >= 300 で裏付けられているか
+ *   - 実 marketplace data が 300 件以下になった場合 LP 訴求と乖離 → ADR-0013 違反
+ */
+function countActivityPackActivities() {
+	if (!existsSync(ACTIVITY_PACKS_DIR)) return { total: 0, breakdown: [], error: 'dir-not-found' };
+	const files = readdirSync(ACTIVITY_PACKS_DIR).filter((f) => f.endsWith('.json'));
+	let total = 0;
+	const breakdown = [];
+	for (const f of files) {
+		try {
+			const data = JSON.parse(readFileSync(join(ACTIVITY_PACKS_DIR, f), 'utf8'));
+			const n = Array.isArray(data?.payload?.activities) ? data.payload.activities.length : 0;
+			breakdown.push({ pack: f, activities: n });
+			total += n;
+		} catch (e) {
+			breakdown.push({ pack: f, activities: 0, error: e instanceof Error ? e.message : String(e) });
+		}
+	}
+	return { total, breakdown, packCount: files.length };
+}
+
+/**
+ * site/index.html / site/shared-labels.js から `<strong>NNN+</strong> プリセット活動` /
+ * 「NNN+ のテンプレート」表記の数値部分を抽出する。
+ *
+ * 戻り値: { source, claimed }[] — claimed は数値 (例: 300)
+ */
+function extractClaimedPresetCount(siteDir) {
+	const claims = [];
+	const indexHtml = join(siteDir, 'index.html');
+	if (existsSync(indexHtml)) {
+		const html = readFileSync(indexHtml, 'utf8');
+		// 例: <li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動</li>
+		const re = /<strong>\s*(\d+)\+\s*<\/strong>\s*プリセット活動/g;
+		let m;
+		// biome-ignore lint/suspicious/noAssignInExpressions: standard regex iteration
+		while ((m = re.exec(html)) !== null) {
+			claims.push({ source: 'site/index.html', claimed: Number.parseInt(m[1], 10) });
+		}
+	}
+	const sharedLabels = join(siteDir, 'shared-labels.js');
+	if (existsSync(sharedLabels)) {
+		const src = readFileSync(sharedLabels, 'utf8');
+		// 例: "k96": "...300+ のテンプレートから..."
+		const re = /(\d+)\+\s*の?\s*テンプレート/g;
+		let m;
+		// biome-ignore lint/suspicious/noAssignInExpressions: standard regex iteration
+		while ((m = re.exec(src)) !== null) {
+			claims.push({ source: 'site/shared-labels.js', claimed: Number.parseInt(m[1], 10) });
+		}
+	}
+	return claims;
+}
 
 const MIME = {
 	'.html': 'text/html; charset=utf-8',
@@ -226,7 +293,7 @@ async function measureSingleTarget(page, port, targetHtml) {
 	};
 }
 
-function collectViolations(allResults) {
+function collectViolations(allResults, presetCheck) {
 	const violations = [];
 	for (const r of allResults) {
 		// 全ページ共通: 禁止語は 1 件でも検出すれば fail
@@ -252,6 +319,27 @@ function collectViolations(allResults) {
 			);
 		}
 	}
+
+	// #1803: hero spec-badges presetCount 裏取り gate
+	if (presetCheck) {
+		const { actualCount, claims } = presetCheck;
+		for (const { source, claimed } of claims) {
+			if (actualCount < claimed) {
+				violations.push(
+					`[${source}] hero spec-badges presetCount: 訴求 ${claimed}+ ≦ 実 marketplace activity 数 ${actualCount} を満たしていません ` +
+						`(ADR-0013 LP truth 違反)`,
+				);
+			}
+		}
+		// 訴求 claim が 0 件でも、最低限 presetActivityCountClaimedMin は満たしているか確認
+		// (LP に明示的訴求がない場合でも、内部 SSOT として 300 を割らないかを ratchet 監視)
+		if (actualCount < THRESHOLDS.presetActivityCountClaimedMin) {
+			violations.push(
+				`[marketplace] activity-packs activities=${actualCount} < ${THRESHOLDS.presetActivityCountClaimedMin} ` +
+					`(LP hero spec-badges 訴求の最低水準を割っています)`,
+			);
+		}
+	}
 	return violations;
 }
 
@@ -272,6 +360,16 @@ async function main() {
 		server.close();
 	}
 
+	// #1803: marketplace 実 activity 数 + LP 訴求 claim を計算
+	const packCount = countActivityPackActivities();
+	const claims = extractClaimedPresetCount(SITE_DIR);
+	const presetCheck = {
+		actualCount: packCount.total,
+		claims,
+		breakdown: packCount.breakdown,
+		packCount: packCount.packCount,
+	};
+
 	// 後方互換: lp-metrics.json は index.html の結果（最初のターゲット）
 	const single = allResults.find((r) => r.enforceThresholds) || allResults[0];
 	const output = {
@@ -284,12 +382,14 @@ async function main() {
 		thresholds: THRESHOLDS,
 		// #1637 R34: 全ターゲットの結果も併せて記録
 		all: allResults,
+		// #1803: hero spec-badges 裏取り
+		presetCheck,
 	};
 	writeFileSync(OUTPUT_PATH, `${JSON.stringify(output, null, 2)}\n`);
 	log(JSON.stringify(output, null, 2));
 	log(`[measure] saved -> ${OUTPUT_PATH}`);
 
-	const violations = collectViolations(allResults);
+	const violations = collectViolations(allResults, presetCheck);
 
 	if (violations.length > 0) {
 		logErr('\n[FAIL] LP metrics violations:');
