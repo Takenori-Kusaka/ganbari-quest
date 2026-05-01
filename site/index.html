@@ -157,7 +157,6 @@
 .core-loop{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:900px;margin:0 auto 16px}
 .core-loop-step{background:#fff;border:2px solid var(--brand-200);border-radius:var(--radius);padding:16px 14px;text-align:center;position:relative}
 .core-loop-step .cls-num{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.12em;margin-bottom:4px}
-.core-loop-step .cls-icon{font-size:1.9rem;margin-bottom:6px;line-height:1}
 .core-loop-step h4{font-size:.93rem;font-weight:700;margin-bottom:5px;color:var(--gray-900)}
 .core-loop-step p{font-size:.82rem;color:var(--gray-600);line-height:1.52}
 /* 3層バッジ・タイトル (#1343) */
@@ -226,7 +225,6 @@
 /* #1724 R8: 装飾枠 1 段階に圧縮 — tour-card 外枠 border のみで内側 .tour-shot の border を撤去 */
 .tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:16px 14px;display:flex;flex-direction:column;min-height:380px}
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
-.tour-card .tour-emoji{font-size:2rem;margin-bottom:8px;line-height:1}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
 /* #1284: tour-shot も同様に全画面表示へ修正。称号画面などの主要要素が見えるように */
@@ -259,7 +257,6 @@
 }
 .soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:20px 18px;display:flex;flex-direction:column}
 .soft-card.soft-card--featured{border:2px solid var(--brand-300);box-shadow:0 4px 16px rgba(56,120,184,.12)}
-.soft-card .soft-icon{font-size:1.7rem;margin-bottom:6px}
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card.soft-card--featured h3{font-size:1.15rem;color:var(--brand-700)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
@@ -333,13 +330,11 @@
 .versus-card h3{font-size:.85rem;font-weight:700;margin-bottom:2px;color:var(--gray-900);line-height:1.4}
 .versus-card p{font-size:.74rem;color:var(--gray-700);line-height:1.5;margin:0}
 .versus-arrow{display:flex;align-items:center;justify-content:center;font-size:.95rem;color:var(--brand-700)}
-/* 各優位点アイコン (#1597 ADR-0023 I5 — 装飾的アクセント / asset-catalog.md 準拠) */
-.versus-card .vc-icon{display:inline-block;font-size:1.05rem;margin-right:4px;line-height:1;vertical-align:-2px}
+/* #1723 R10: versus 各優位点アイコン (.vc-icon) は装飾過多のため削除（タグ + タイトル + 説明で意味は伝わる） */
 @media(max-width:640px){
   .versus-row{grid-template-columns:1fr 18px 1.3fr;gap:6px}
   .versus-card{padding:8px 10px}
   .versus-card h3{font-size:.78rem}
-  .versus-card .vc-icon{font-size:.95rem}
   .versus-card p{font-size:.7rem}
 }
 
@@ -535,7 +530,7 @@
         <div class="versus-arrow" aria-hidden="true">→</div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row1Icon">&#x1F4CA;</span><span data-lp-key="versus.row1DigitalTitle">自動集計でいつでもポイントが見える</span></h3>
+          <h3><span data-lp-key="versus.row1DigitalTitle">自動集計でいつでもポイントが見える</span></h3>
           <p data-lp-key="versus.row1DigitalDesc">子供が「あと 50 ポイントで欲しいごほうび」と自分で計画できます。</p>
         </div>
       </div>
@@ -547,7 +542,7 @@
         <div class="versus-arrow" aria-hidden="true">→</div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row2Icon">&#x1F331;</span><span data-lp-key="versus.row2DigitalTitle">3 歳から 18 歳まで同じアプリで継続</span></h3>
+          <h3><span data-lp-key="versus.row2DigitalTitle">3 歳から 18 歳まで同じアプリで継続</span></h3>
           <p data-lp-key="versus.row2DigitalDesc">15 年分の成長履歴がひとつにまとまります。</p>
         </div>
       </div>
@@ -559,7 +554,7 @@
         <div class="versus-arrow" aria-hidden="true">→</div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row4Icon">&#x1F4CD;</span><span data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</span></h3>
+          <h3><span data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</span></h3>
           <p data-lp-key="versus.row4DigitalDesc">スマホ・タブレットで開けば連続記録が途切れません。</p>
         </div>
       </div>
@@ -571,7 +566,7 @@
         <div class="versus-arrow" aria-hidden="true">→</div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
-          <h3><span class="vc-icon" aria-hidden="true" data-lp-key="versus.row3Icon">&#x1F393;</span><span data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</span></h3>
+          <h3><span data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</span></h3>
           <p data-lp-key="versus.row3DigitalDesc">「使わなくなる」が成功のゴール。卒業を最終地点として設計しています。</p>
         </div>
       </div>
@@ -656,13 +651,11 @@
       <div class="core-loop">
         <div class="core-loop-step">
           <div class="cls-num">STEP 1</div>
-          <div class="cls-icon">&#x1F4DD;</div>
           <h4 data-lp-key="coreloop.l1Step1Title">活動を 2 タップで記録</h4>
           <p data-lp-key="coreloop.l1Step1Desc">「はみがきした」「宿題おわった」をタップするだけ。プリセット活動がそのまま使えるので設定は最小限です。</p>
         </div>
         <div class="core-loop-step">
           <div class="cls-num">STEP 2</div>
-          <div class="cls-icon">&#x1F4CA;</div>
           <h4 data-lp-key="coreloop.l1Step2Title">ポイントが獲得できる</h4>
           <p data-lp-key="coreloop.l1Step2Desc">記録した活動に応じてポイントが加算。「今日どれだけ頑張ったか」が数字で見えます。</p>
         </div>
@@ -678,13 +671,11 @@
       <div class="core-loop">
         <div class="core-loop-step">
           <div class="cls-num">STEP 1</div>
-          <div class="cls-icon">&#x1F3B4;</div>
           <h4 data-lp-key="coreloop.l2Step1Title">おみくじスタンプを引く</h4>
           <p data-lp-key="coreloop.l2Step1Desc">1 日 1 回までのおみくじスタンプ。スタンプのレア度に応じてボーナスポイントが獲得でき、毎日記録する習慣が、自然に身につきます（1 日 1 回までで煽らない設計）。</p>
         </div>
         <div class="core-loop-step">
           <div class="cls-num">STEP 2</div>
-          <div class="cls-icon">&#x1F4C7;</div>
           <h4 data-lp-key="coreloop.l2Step2Title">スタンプカードが完成する</h4>
           <p data-lp-key="coreloop.l2Step2Desc">1 週間続けるとスタンプカードが 1 枚完成。三日坊主を防ぐ「継続の見える化」です。</p>
         </div>
@@ -700,13 +691,11 @@
       <div class="core-loop">
         <div class="core-loop-step">
           <div class="cls-num">STEP 1</div>
-          <div class="cls-icon">&#x1F4B0;</div>
           <h4 data-lp-key="coreloop.l3Step1Title">ポイントを蓄積する</h4>
           <p data-lp-key="coreloop.l3Step1Desc">毎日の活動ポイントと習慣カードのボーナスポイントが積み上がります。ポイントは家庭内の通貨として機能します。</p>
         </div>
         <div class="core-loop-step">
           <div class="cls-num">STEP 2</div>
-          <div class="cls-icon">&#x1F381;</div>
           <h4 data-lp-key="coreloop.l3Step2Title">ごほうびショップで交換</h4>
           <p data-lp-key="coreloop.l3Step2Desc">貯めたポイントはごほうびショップが唯一の出口。実物のプレゼント・お小遣い・特権（夜ふかし権など）を親が設定し、子供が自分で選んで交換できます。</p>
         </div>
@@ -748,7 +737,6 @@
     <div class="machine-tour">
       <div class="tour-card">
         <div class="tour-phase" data-lp-key="indexB.k23">&#9312; 長期の達成感</div>
-        <div class="tour-emoji">&#x1F3C6;</div>
         <h3 data-lp-key="indexB.k24">実績 &amp; 称号</h3>
         <p data-lp-key="indexB.k25">「はじめのぼうけんしゃ」から「でんせつのゆうしゃ」へ。長期の積み重ねが称号として永久に刻まれ、子供の自己肯定感を支えます。</p>
         <div class="tour-shot">
@@ -760,7 +748,6 @@
       </div>
       <div class="tour-card" data-testid="feature-belongings-checklist">
         <div class="tour-phase" data-lp-key="indexB.k26">&#9313; 朝の準備をスムーズに</div>
-        <div class="tour-emoji">&#x1F392;</div>
         <h3 data-lp-key="indexB.k27">持ち物チェックリスト</h3>
         <p data-lp-key="indexB.k28">通学や習い事の持ち物を、子ども自身がタップ確認。</p>
         <p data-lp-key="indexB.k29">朝の「あれ持った？」を減らします。</p>
@@ -773,7 +760,6 @@
       </div>
       <div class="tour-card" data-testid="feature-rpg-battle">
         <div class="tour-phase" data-lp-key="indexB.k34">&#9314; 冒険のクライマックス</div>
-        <div class="tour-emoji">&#x2694;&#xFE0F;</div>
         <h3 data-lp-key="indexB.k35">RPG バトル</h3>
         <p data-lp-key="indexB.k36">毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。</p>
         <div class="tour-shot">
@@ -800,7 +786,6 @@
     <p class="section-desc" data-lp-key="indexB.k38">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 3 つの機能です。</p>
     <div class="soft-grid soft-grid--three">
       <div class="soft-card soft-card--featured" data-testid="feature-monthly-report">
-        <div class="soft-icon">&#x1F4CA;</div>
         <h3 data-lp-key="indexB.k39">成長の記録（月次レポート）</h3>
         <p data-lp-key="indexB.k40">月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。</p>
         <div class="soft-shot">
@@ -812,7 +797,6 @@
         <p class="soft-benefit" data-lp-key="indexB.softBenefitMonthlyReport"><strong>親が観測できること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる</p>
       </div>
       <div class="soft-card" data-testid="feature-auto-sleep">
-        <div class="soft-icon">&#x1F4A4;</div>
         <h3 data-lp-key="indexB.softFamilySupportTitle">家庭に寄り添う運用補助</h3>
         <p data-lp-key="indexB.softFamilySupportDesc">設定時間で自動スリープし長時間利用を防止。必要な時だけ家族からおうえんメッセージを子供のホームへ届けられます。</p>
         <div class="soft-shot">
@@ -824,7 +808,6 @@
         <p class="soft-benefit" data-lp-key="indexB.softBenefitFamilySupport"><strong>親が観測できること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く</p>
       </div>
       <div class="soft-card" data-testid="feature-customization">
-        <div class="soft-icon">&#x2699;&#xFE0F;</div>
         <h3 data-lp-key="indexB.k45">設定の自由度</h3>
         <p data-lp-key="indexB.k46">活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。</p>
         <div class="soft-shot">
