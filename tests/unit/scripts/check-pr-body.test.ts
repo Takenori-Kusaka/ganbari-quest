@@ -223,8 +223,9 @@ describe('findUncheckedReadyChecklist (#1481)', () => {
 `;
 		const result = findUncheckedReadyChecklist(body);
 		expect(result).toHaveLength(1);
-		expect(result[0].section).toBe('Ready for Review チェックリスト');
-		expect(result[0].uncheckedCount).toBe(2);
+		const first = result[0];
+		expect(first?.section).toBe('Ready for Review チェックリスト');
+		expect(first?.uncheckedCount).toBe(2);
 	});
 
 	it('全部チェック済みなら空配列', () => {

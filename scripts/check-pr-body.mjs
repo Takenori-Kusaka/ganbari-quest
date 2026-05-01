@@ -126,7 +126,7 @@ export function scanForbiddenTerms(body) {
 	const violations = [];
 	const lines = cleaned.split('\n');
 	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
+		const line = lines[i] ?? '';
 		for (const term of FORBIDDEN_TERMS) {
 			if (line.includes(term)) {
 				violations.push({ term, line: line.trim(), lineNo: i + 1 });
@@ -322,17 +322,22 @@ function fetchPrBody(prNumber) {
 // CLI 引数パース
 // ---------------------------------------------------------------------------
 
+/**
+ * @param {string[]} argv
+ * @returns {{ pr: string | null; bodyFile: string | null; skipMergeable: boolean; help: boolean }}
+ */
 function parseArgs(argv) {
-	const args = { pr: null, bodyFile: null, skipMergeable: false };
+	/** @type {{ pr: string | null; bodyFile: string | null; skipMergeable: boolean; help: boolean }} */
+	const args = { pr: null, bodyFile: null, skipMergeable: false, help: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--pr' || a === '-p') {
-			args.pr = argv[++i];
-		} else if (a.startsWith('--pr=')) {
+			args.pr = argv[++i] ?? null;
+		} else if (a?.startsWith('--pr=')) {
 			args.pr = a.slice('--pr='.length);
 		} else if (a === '--body-file') {
-			args.bodyFile = argv[++i];
-		} else if (a.startsWith('--body-file=')) {
+			args.bodyFile = argv[++i] ?? null;
+		} else if (a?.startsWith('--body-file=')) {
 			args.bodyFile = a.slice('--body-file='.length);
 		} else if (a === '--skip-mergeable') {
 			args.skipMergeable = true;
@@ -394,7 +399,8 @@ export async function main(argv = process.argv.slice(2)) {
 		try {
 			body = fetchPrBody(args.pr);
 		} catch (e) {
-			console.error(`[check-pr-body] ERROR: gh pr view で body 取得失敗: ${e.message}`);
+			const msg = e instanceof Error ? e.message : String(e);
+			console.error(`[check-pr-body] ERROR: gh pr view で body 取得失敗: ${msg}`);
 			return 2;
 		}
 	} else {
