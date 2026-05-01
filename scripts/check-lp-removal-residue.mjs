@@ -256,16 +256,27 @@ function isGitIgnoredScreenshot(relSrc) {
 /**
  * site/index.html 等の <h2>/<h3> テキストを抽出 (IA artefact 用)
  */
+function stripHtmlTags(input) {
+	// CodeQL alert "Incomplete multi-character sanitization" 対策として、
+	// 単一 pass の置換ではなく不動点に達するまで繰り返す (worst-case でも O(n) で収束)。
+	// 入力は site/*.html (信頼ソース) のみを想定するが、artefact 出力時の万一の
+	// HTML element injection を CodeQL も静的に許容する形にする。
+	let prev;
+	let out = String(input);
+	do {
+		prev = out;
+		out = out.replace(/<[^<>]*>/g, '');
+	} while (out !== prev);
+	return out;
+}
+
 function extractHeadings(html) {
 	const out = [];
 	const re = /<(h2|h3)[^>]*>([\s\S]*?)<\/\1>/g;
 	let m;
 	// biome-ignore lint/suspicious/noAssignInExpressions: standard regex iteration
 	while ((m = re.exec(html)) !== null) {
-		const text = m[2]
-			.replace(/<[^>]+>/g, '')
-			.replace(/\s+/g, ' ')
-			.trim();
+		const text = stripHtmlTags(m[2]).replace(/\s+/g, ' ').trim();
 		if (text) out.push({ tag: m[1], text });
 	}
 	return out;
