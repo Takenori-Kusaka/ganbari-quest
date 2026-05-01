@@ -187,6 +187,10 @@ async function extractCtaVariants(page) {
 			const href = el.getAttribute('href') || '';
 			const isCta = CTA_PATHS.some((p) => href.includes(p));
 			if (!isCta) continue;
+			// #1732: floating-cta は単一機能ユニットの中で深度別に文言切替する設計のため、
+			// ratchet 集計から除外する（lp-content-map.md §7.4）。
+			// data-floating-cta="container" を持つ祖先要素配下の anchor は集計しない。
+			if (el.closest?.('[data-floating-cta]')) continue;
 			const txt = (el.textContent || '').trim().replace(/\s+/g, ' ');
 			if (!txt) continue;
 			texts.set(txt, (texts.get(txt) || 0) + 1);
