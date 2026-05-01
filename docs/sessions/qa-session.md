@@ -123,6 +123,10 @@ gh issue view <X> --repo Takenori-Kusaka/ganbari-quest
 - PR body の `![...]()` / `<img>` / 外部 URL を **Read tool で実際に開いて見る**
 - 見ていない画像に所見を書いてはならない
 - **1 画像につき最低 1 行の具体的な所見を記録する**（「見ました」だけは不可）
+- **DOM HTML スナップショット（`<file>.dom.html`）が併記されているか確認**（#1747 AC4 / #1766）。SS と DOM が同一プロセスで取得されたことの構造的証跡。SS だけ添付されていて `.dom.html` 参照が無い UI PR は CI の `screenshot-quality-check` で検出されるが、QM 側でも以下を確認:
+  - SS 1 枚に対して同名 `.dom.html` リンクが PR body に存在するか
+  - `.dom.html` を Read tool で開き、SS で見える主要ラベル / 文字列が DOM HTML 内にも存在することを 1 件以上 grep で確認（PR #1717 で発覚した「SS と実機 DOM の乖離」を機械的に検知できる唯一の手段）
+  - DOM HTML が省略されている場合は PR body に省略理由が明記されているか確認。明記なければ手順 5 で BLOCK
 
 #### 「描画変化なし」主張の diff 検証（#1744）
 

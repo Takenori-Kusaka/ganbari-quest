@@ -1,14 +1,16 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
 	buildGridLayout,
+	captureDomSnapshot,
 	checkImageNotBlank,
 	checkStepLimit,
 	generateMarkdownSnippet,
 	PRESETS,
+	resolveDomSnapshotPath,
 	resolvePreset,
 } from '../../../scripts/lib/screenshot-helpers.mjs';
 
@@ -252,5 +254,121 @@ describe('checkImageNotBlank (#1424)', () => {
 		const result = await checkImageNotBlank(normalPng);
 		expect(result.blank).toBe(false);
 		expect(result.reason).toBe('');
+	});
+});
+
+describe('resolveDomSnapshotPath (#1766)', () => {
+	it('PNG → 同一ディレクトリ・同 basename + .dom.html', () => {
+		const result = resolveDomSnapshotPath('tmp/screenshots/pr-1770/admin-home.png');
+		// path 結果は実行 OS で区切り文字が変わるため、basename と dirname で検証
+		expect(result.endsWith('admin-home.dom.html')).toBe(true);
+		expect(result.includes('pr-1770')).toBe(true);
+	});
+
+	it('WebP → .dom.html', () => {
+		const result = resolveDomSnapshotPath('docs/screenshots/pr-1770/lp-top-mobile.webp');
+		expect(result.endsWith('lp-top-mobile.dom.html')).toBe(true);
+	});
+
+	it('JPEG → .dom.html', () => {
+		const result = resolveDomSnapshotPath('out/admin.jpeg');
+		expect(result.endsWith('admin.dom.html')).toBe(true);
+	});
+
+	it('複数ドット basename を保持する', () => {
+		const result = resolveDomSnapshotPath('out/admin-home-mobile.png');
+		expect(result.endsWith('admin-home-mobile.dom.html')).toBe(true);
+	});
+
+	it('絶対パスでも同一ディレクトリに DOM ファイルパスを返す', () => {
+		// macOS / Linux 形式のテストはそのまま、Windows でも path.join が補正してくれる
+		const input = '/tmp/screenshots/pr-1/admin.png';
+		const result = resolveDomSnapshotPath(input);
+		expect(result.endsWith('admin.dom.html')).toBe(true);
+	});
+});
+
+describe('captureDomSnapshot (#1766)', () => {
+	let tmpDir: string;
+
+	beforeAll(() => {
+		tmpDir = mkdtempSync(join(tmpdir(), 'dom-snapshot-test-'));
+	});
+
+	afterAll(() => {
+		rmSync(tmpDir, { recursive: true, force: true });
+	});
+
+	it('page.evaluate の文字列結果を UTF-8 で書き出す', async () => {
+		const html = '<!DOCTYPE html><html><head><title>テスト</title></head><body>本文</body></html>';
+		const fakePage = {
+			evaluate: async (_fn: () => string) => html,
+		};
+		const domPath = join(tmpDir, 'success.dom.html');
+		const result = await captureDomSnapshot(fakePage, domPath);
+		expect(result.ok).toBe(true);
+		if (result.ok) {
+			expect(result.filePath).toBe(domPath);
+			expect(result.size).toBeGreaterThan(0);
+			expect(existsSync(domPath)).toBe(true);
+			const content = readFileSync(domPath, 'utf8');
+			expect(content).toBe(html);
+			// マルチバイト文字の保全確認（同一プロセスで取得した DOM の不変性を担保）
+			expect(content).toContain('テスト');
+			expect(content).toContain('本文');
+		}
+	});
+
+	it('親ディレクトリが存在しなくても再帰作成して書き込める', async () => {
+		const html = '<html><body>nested</body></html>';
+		const fakePage = { evaluate: async () => html };
+		const domPath = join(tmpDir, 'nested', 'deep', 'page.dom.html');
+		const result = await captureDomSnapshot(fakePage, domPath);
+		expect(result.ok).toBe(true);
+		expect(existsSync(domPath)).toBe(true);
+	});
+
+	it('page.evaluate が string を返さない場合は ok=false', async () => {
+		const fakePage = {
+			evaluate: async () => 12345 as unknown as string,
+		};
+		const domPath = join(tmpDir, 'bad-type.dom.html');
+		const result = await captureDomSnapshot(fakePage, domPath);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error.message).toMatch(/document\.documentElement\.outerHTML/);
+		}
+	});
+
+	it('page.evaluate がエラーを投げた場合は ok=false で error を返す', async () => {
+		const fakePage = {
+			evaluate: async () => {
+				throw new Error('page closed');
+			},
+		};
+		const domPath = join(tmpDir, 'evaluate-fail.dom.html');
+		const result = await captureDomSnapshot(fakePage, domPath);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error).toBeInstanceOf(Error);
+			expect(result.error.message).toContain('page closed');
+		}
+		// 失敗時はファイルを書き出さない
+		expect(existsSync(domPath)).toBe(false);
+	});
+
+	it('Error 以外の throw も Error にラップされる', async () => {
+		const fakePage = {
+			evaluate: async () => {
+				throw 'string error';
+			},
+		};
+		const domPath = join(tmpDir, 'string-error.dom.html');
+		const result = await captureDomSnapshot(fakePage, domPath);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error).toBeInstanceOf(Error);
+			expect(result.error.message).toContain('string error');
+		}
 	});
 });
