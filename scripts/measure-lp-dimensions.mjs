@@ -377,64 +377,74 @@ function measureSingleTargetWithoutBrowser(targetHtml) {
 	};
 }
 
+function collectForbiddenTermViolations(r) {
+	const forbidden = Object.entries(r.forbiddenTerms).filter(([, n]) => n > 0);
+	if (forbidden.length === 0) return null;
+	return `[${r.target}] forbiddenTerms: ${forbidden.map(([t, n]) => `${t}=${n}`).join(', ')}`;
+}
+
+function collectMissingScreenshotViolations(r) {
+	// #1783: 全ページ共通 — `<img src="screenshots/...">` 物理欠落は 1 件でも fail
+	// （ADR-0029 / Issue #1783 — broken image を本番 LP に並べない）
+	// 環境変数 SKIP_SCREENSHOT_EXISTENCE_CHECK=1 で skip 可能（ローカル開発 / Issue 検証時の段階確認用）
+	if (process.env.SKIP_SCREENSHOT_EXISTENCE_CHECK === '1') return null;
+	if (!Array.isArray(r.missingScreenshots) || r.missingScreenshots.length === 0) return null;
+	return `[${r.target}] missingScreenshots (${r.missingScreenshots.length} 件): ${r.missingScreenshots.join(', ')}`;
+}
+
+function collectThresholdViolations(r) {
+	// index.html のみ height / ctaVariants 閾値を強制
+	const out = [];
+	if (r.mobileHeight > THRESHOLDS.mobileHeight) {
+		out.push(`[${r.target}] mobileHeight=${r.mobileHeight} > ${THRESHOLDS.mobileHeight}`);
+	}
+	if (r.desktopHeight > THRESHOLDS.desktopHeight) {
+		out.push(`[${r.target}] desktopHeight=${r.desktopHeight} > ${THRESHOLDS.desktopHeight}`);
+	}
+	if (r.ctaVariants.length > THRESHOLDS.ctaVariantsMax) {
+		out.push(
+			`[${r.target}] ctaVariants=${r.ctaVariants.length} > ${THRESHOLDS.ctaVariantsMax} (${r.ctaVariants.map((c) => c.text).join(' | ')})`,
+		);
+	}
+	return out;
+}
+
+function collectPresetViolations(presetCheck) {
+	// #1803: hero spec-badges presetCount 裏取り gate
+	const out = [];
+	const { actualCount, claims } = presetCheck;
+	for (const { source, claimed } of claims) {
+		if (actualCount < claimed) {
+			out.push(
+				`[${source}] hero spec-badges presetCount: 訴求 ${claimed}+ ≦ 実 marketplace activity 数 ${actualCount} を満たしていません ` +
+					`(ADR-0013 LP truth 違反)`,
+			);
+		}
+	}
+	// 訴求 claim が 0 件でも、最低限 presetActivityCountClaimedMin は満たしているか確認
+	// (LP に明示的訴求がない場合でも、内部 SSOT として 300 を割らないかを ratchet 監視)
+	if (actualCount < THRESHOLDS.presetActivityCountClaimedMin) {
+		out.push(
+			`[marketplace] activity-packs activities=${actualCount} < ${THRESHOLDS.presetActivityCountClaimedMin} ` +
+				`(LP hero spec-badges 訴求の最低水準を割っています)`,
+		);
+	}
+	return out;
+}
+
 function collectViolations(allResults, presetCheck) {
 	const violations = [];
 	for (const r of allResults) {
 		// 全ページ共通: 禁止語は 1 件でも検出すれば fail
-		const forbidden = Object.entries(r.forbiddenTerms).filter(([, n]) => n > 0);
-		if (forbidden.length > 0) {
-			violations.push(
-				`[${r.target}] forbiddenTerms: ${forbidden.map(([t, n]) => `${t}=${n}`).join(', ')}`,
-			);
-		}
-		// #1783: 全ページ共通 — `<img src="screenshots/...">` 物理欠落は 1 件でも fail
-		// （ADR-0029 / Issue #1783 — broken image を本番 LP に並べない）
-		// 環境変数 SKIP_SCREENSHOT_EXISTENCE_CHECK=1 で skip 可能（ローカル開発 / Issue 検証時の段階確認用）
-		if (
-			Array.isArray(r.missingScreenshots) &&
-			r.missingScreenshots.length > 0 &&
-			process.env.SKIP_SCREENSHOT_EXISTENCE_CHECK !== '1'
-		) {
-			violations.push(
-				`[${r.target}] missingScreenshots (${r.missingScreenshots.length} 件): ${r.missingScreenshots.join(', ')}`,
-			);
-		}
+		const forbidden = collectForbiddenTermViolations(r);
+		if (forbidden) violations.push(forbidden);
+		const missing = collectMissingScreenshotViolations(r);
+		if (missing) violations.push(missing);
 		if (!r.enforceThresholds) continue;
-		// index.html のみ height / ctaVariants 閾値を強制
-		if (r.mobileHeight > THRESHOLDS.mobileHeight) {
-			violations.push(`[${r.target}] mobileHeight=${r.mobileHeight} > ${THRESHOLDS.mobileHeight}`);
-		}
-		if (r.desktopHeight > THRESHOLDS.desktopHeight) {
-			violations.push(
-				`[${r.target}] desktopHeight=${r.desktopHeight} > ${THRESHOLDS.desktopHeight}`,
-			);
-		}
-		if (r.ctaVariants.length > THRESHOLDS.ctaVariantsMax) {
-			violations.push(
-				`[${r.target}] ctaVariants=${r.ctaVariants.length} > ${THRESHOLDS.ctaVariantsMax} (${r.ctaVariants.map((c) => c.text).join(' | ')})`,
-			);
-		}
+		violations.push(...collectThresholdViolations(r));
 	}
-
-	// #1803: hero spec-badges presetCount 裏取り gate
 	if (presetCheck) {
-		const { actualCount, claims } = presetCheck;
-		for (const { source, claimed } of claims) {
-			if (actualCount < claimed) {
-				violations.push(
-					`[${source}] hero spec-badges presetCount: 訴求 ${claimed}+ ≦ 実 marketplace activity 数 ${actualCount} を満たしていません ` +
-						`(ADR-0013 LP truth 違反)`,
-				);
-			}
-		}
-		// 訴求 claim が 0 件でも、最低限 presetActivityCountClaimedMin は満たしているか確認
-		// (LP に明示的訴求がない場合でも、内部 SSOT として 300 を割らないかを ratchet 監視)
-		if (actualCount < THRESHOLDS.presetActivityCountClaimedMin) {
-			violations.push(
-				`[marketplace] activity-packs activities=${actualCount} < ${THRESHOLDS.presetActivityCountClaimedMin} ` +
-					`(LP hero spec-badges 訴求の最低水準を割っています)`,
-			);
-		}
+		violations.push(...collectPresetViolations(presetCheck));
 	}
 	return violations;
 }
