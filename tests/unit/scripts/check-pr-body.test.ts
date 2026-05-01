@@ -15,6 +15,7 @@ import {
 	findMissingSections,
 	findUncheckedReadyChecklist,
 	scanForbiddenTerms,
+	stripCodeBlocks,
 	stripMarkdownComments,
 } from '../../../scripts/check-pr-body.mjs';
 
@@ -51,6 +52,22 @@ describe('findMissingSections', () => {
 	});
 });
 
+describe('stripCodeBlocks', () => {
+	it('fenced code block を除去', () => {
+		const body = 'before\n```\n禁止語: 予定\n```\nafter';
+		expect(stripCodeBlocks(body)).toBe('before\n\nafter');
+	});
+
+	it('言語指定付き fenced code block を除去', () => {
+		const body = 'A\n```bash\nnpm run x  # 予定\n```\nB';
+		expect(stripCodeBlocks(body)).toBe('A\n\nB');
+	});
+
+	it('inline code を除去', () => {
+		expect(stripCodeBlocks('text `予定` more')).toBe('text  more');
+	});
+});
+
 describe('stripMarkdownComments', () => {
 	it('単一行コメントを除去', () => {
 		expect(stripMarkdownComments('hello <!-- comment --> world')).toBe('hello  world');
@@ -81,6 +98,22 @@ follow-up は別 PR で対応する。
 		expect(violations.length).toBeGreaterThanOrEqual(2);
 		expect(violations.some((v) => v.term === '予定')).toBe(true);
 		expect(violations.some((v) => v.term === 'follow-up')).toBe(true);
+	});
+
+	it('コードブロック内の禁止語は除外する (Issue 引用 / メタ言及のケース)', () => {
+		const body = `
+## 設計方針
+
+実装方針は確定済み。
+
+\`\`\`
+禁止語: 予定 / TODO / follow-up
+\`\`\`
+
+inline \`予定\` も除外。
+`;
+		const violations = scanForbiddenTerms(body);
+		expect(violations).toEqual([]);
 	});
 
 	it('Markdown コメント内の禁止語は除外する (template の説明文に「予定」が含まれるケース)', () => {

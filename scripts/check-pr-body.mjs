@@ -104,12 +104,25 @@ export function stripMarkdownComments(body) {
 }
 
 /**
- * 禁止語を PR body 全体（コメント除外後）からスキャンする。
+ * Markdown コードブロック (``` fenced / `inline` ) を除外する。
+ * Issue 本文の引用 / メタ言及（禁止語そのものを「禁止語の例: 予定 / TODO / ...」と列挙する場面）が
+ * 本文意図ではないため除外する。`<!-- -->` と同様の SSOT 整合性を保つためのフィルタ。
+ * @param {string} body
+ * @returns {string}
+ */
+export function stripCodeBlocks(body) {
+	return body
+		.replace(/```[\s\S]*?```/g, '') // fenced code block
+		.replace(/`[^`\n]+`/g, ''); // inline code
+}
+
+/**
+ * 禁止語を PR body 全体（コメント・コードブロック除外後）からスキャンする。
  * @param {string} body
  * @returns {{ term: string; line: string; lineNo: number }[]}
  */
 export function scanForbiddenTerms(body) {
-	const cleaned = stripMarkdownComments(body);
+	const cleaned = stripCodeBlocks(stripMarkdownComments(body));
 	const violations = [];
 	const lines = cleaned.split('\n');
 	for (let i = 0; i < lines.length; i++) {
