@@ -93,6 +93,47 @@ node scripts/capture-hp-screenshots.mjs --webp --only growth
 - **親が観測できること（1 行ベネフィット）併記**: 各 scrshot 直下に「親が観測できること: ...」を必ず併記し、機能の効果を保護者視点で言語化する
 - **撮影元は実装の事実から逸脱させない**: ADR-0013 LP truth 原則に従い、実装にない機能や別の画面を撮影して LP に貼ることは禁止
 
+---
+
+## LP コアループ 1-shot summary 画像 (#1787)
+
+`site/index.html` [03] core-loop セクションで全体像を 1 枚に圧縮提示するための summary 図解。
+4 階層 (section → 2col → layer-grid → step) の旧構造を 1 階層 3 cards に圧縮した際に、
+全体像を視覚的に保持するために導入した（規範 B mid トーン整合）。
+
+| ファイル名 | 配置 | サイズ | 生成方法 |
+|----------|------|--------|---------|
+| `core-loop-summary.png` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1280×640 PNG | `npm run generate:coreloop-summary`（Gemini API）/ 暫定 SVG ベース PNG |
+| `core-loop-summary.svg` | `static/assets/lp/`（暫定再現用） | 640×320 viewBox | 手書き（Gemini API 鍵が無い環境用のフォールバック）|
+
+### 構図仕様
+
+- 中心: D3 warrior キャラクター（青兜 + 金マントの星紋章）
+- 周囲: 3 アイコンが等間隔（120 度刻み）で円環配置
+  - 活動: ノート + チェック（ブランド青）
+  - 習慣: スタンプカード + 星（ブランド青）
+  - ごほうび: ギフトボックス + リボン（ブランドオレンジ + 金）
+- 矢印: 3 つの円弧で「活動 → 習慣 → ごほうび → 活動」の循環を示す
+- **画像内テキストは置かない**（HTML 側 `figcaption` + `alt` が SSOT、ブランド A-1 整合）
+
+### 生成コマンド
+
+```bash
+# Gemini API 鍵があるとき（推奨）
+npm run generate:coreloop-summary
+#  → static/assets/lp/core-loop-summary.png + site/assets/lp/core-loop-summary.png に出力
+#  → docs/reference/gemini_image_generation_guide.md A-1 / A-3 character category 整合
+
+# Gemini API 鍵が無いとき（CI / Pages デプロイ時のフォールバック）
+node -e "require('sharp')('static/assets/lp/core-loop-summary.svg').resize(1280,640).png().toFile('static/assets/lp/core-loop-summary.png')"
+```
+
+### 配置原則
+
+- ADR-0013 LP truth: 画像は「実装の事実」を表現する（活動 → 習慣 → ごほうびは実機構と一致）
+- ADR-0012 Anti-engagement: 演出を煽らない（loop は静止画 1 枚のみ、アニメーションなし）
+- テキストオーバーレイは含めない（多言語対応・ブランド一貫性のため）
+
 | カテゴリ | 現状 | 目標 | 保存先 | サイズ | 数量 |
 |---------|------|------|--------|--------|------|
 | **おみくじ演出素材** | テキスト＋絵文字 | おみくじ札のイラスト | `static/assets/omikuji/` | 256×512 PNG | 5 |
