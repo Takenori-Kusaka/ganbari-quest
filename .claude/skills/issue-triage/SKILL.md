@@ -69,3 +69,21 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 - 事業推進: [Yes/No + 理由]
 - 技術負債: [Yes/No + 理由]
 ```
+
+## Issue 起票時の Write tool 例外（#1172 / #1804）
+
+`gh issue create` で本文を渡すときは **`--body-file` 必須**（HEREDOC 禁止 — #1172）。
+そのため Write tool / `cat > ... << 'EOF'` で **一時ファイル `tmp/issue-bodies/<slug>.md` を作成することが許容される**。
+これは sub-agent ハーネスの「report files / summary を書くな」一般原則の **明示的例外**。
+
+```bash
+# 1. 本文を Write tool または cat で tmp/issue-bodies/ に保存
+#    例: tmp/issue-bodies/cron-secret-rotation.md
+# 2. 起票
+gh issue create --title "..." --label "..." --body-file tmp/issue-bodies/<slug>.md
+# 3. 起票成功を確認してから削除（古い draft が混ざらないように）
+rm tmp/issue-bodies/<slug>.md
+```
+
+`tmp/` は `.gitignore` 配下のためコミットされない。findings / analysis の report file とは別物として扱う。
+詳細は `docs/sessions/po-session.md` §「Issue 起票の技術手順（HEREDOC 禁止 — #1172）」参照。

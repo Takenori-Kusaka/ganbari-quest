@@ -78,6 +78,25 @@ gh pr diff <番号>
 - **Copilot COMMENTED は承認扱いにしない** — 明示的な Approve / Request changes のみ有効
 - **独自フォーマットの self-review 投稿禁止（ADR-0022）** — `gh pr review --approve --body` の body に「13 観点テーブル」等の非標準フォーマットを書かない。`docs/sessions/qa-session.md` §「QM approve 前の必須実行手順」と同等の内容（SS 実視認所見 1 行/枚 + 各 AC 照合 + §9 禁忌確認）を記述すること
 
+## Write tool 例外（sub-agent ハーネス向け — #1804）
+
+sub-agent / 一部の prompt template には「report files / summary .md を書くな」一般原則がある。
+**ただし以下は例外として Write tool / `cat > ... << 'EOF'` の使用が許容される**:
+
+- `tmp/review-bodies/<pr-num>.md` — `gh pr review --approve --body-file` / `gh pr review --request-changes --body-file` のための approve / request-changes 本文 draft（長文の AC 照合所見・SS 実視認コメントは HEREDOC でエスケープ事故が起こりやすい）
+- `tmp/comment-bodies/<slug>.md` — `gh pr comment --body-file` / `gh issue comment --body-file` 用の long-form コメント draft
+
+これらは QA レビュー成果物の findings report ではなく、**GitHub への投稿前段の一時ファイル**として扱う。
+`tmp/` は `.gitignore` 配下なのでリポジトリ汚染は発生しない。**投稿完了後は速やかに削除すること**:
+
+```bash
+rm tmp/review-bodies/<pr-num>.md
+```
+
+**Write tool が拒否された場合のフォールバック**: `cat > tmp/review-bodies/<pr-num>.md << 'EOF' ... EOF`。
+
+詳細は `docs/sessions/po-session.md` §「Issue 起票の技術手順（HEREDOC 禁止 — #1172）」を参照（Issue / PR / Review 共通の運用規約）。
+
 ## 判断フレームワーク
 
 ### マージ可否の 5 条件
