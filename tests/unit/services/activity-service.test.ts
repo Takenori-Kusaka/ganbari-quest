@@ -431,6 +431,17 @@ describe('#1755 activity-service priority', () => {
 describe('#1757 tryGrantMustCompletionBonus', () => {
 	const TODAY = '2026-04-30';
 
+	// 実装の冪等チェック (`countPointLedgerEntriesByTypeAndDate`) は `date(createdAt)` で
+	// フィルタするため、システム時計が TODAY と異なる日付になると `createdAt` がズレて
+	// 過去日 (TODAY) のレコードが「無い」と判定され二重加算される。テスト時計を TODAY
+	// 08:00 UTC に固定し日付差を排除する (#1757 UT-05 が 2026-05-01 で破綻したのを修正)。
+	beforeAll(() => {
+		vi.setSystemTime(new Date(`${TODAY}T08:00:00Z`));
+	});
+	afterAll(() => {
+		vi.useRealTimers();
+	});
+
 	beforeEach(() => {
 		seedBase();
 	});
