@@ -14,6 +14,12 @@
  *   npx serve site -l 5280 &
  *   node scripts/capture.mjs --base-url http://localhost:5280 \
  *     --config scripts/capture-specs/lp.mjs --out tmp/screenshots/
+ *
+ * DOM スナップショット (#1747 AC4 / #1766):
+ *   各 SS と同じディレクトリに <name>.dom.html が同一プロセスで自動保存される。
+ *   LP は SSOT 注入 (ADR-0025) で innerHTML が動的に書き換わるため、QM Re-Review で
+ *   <article> / <h2> / <table> 等の構造タグ保持を機械的に grep 検証できる用途を想定。
+ *   無効化したい場合は --no-dom-snapshot を付与（推奨されない）。
  */
 
 /** @type {Array<{ url: string; name: string; presets?: string[]; fullPage?: boolean }>} */

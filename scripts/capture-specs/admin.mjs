@@ -8,6 +8,10 @@
  * 使用例:
  *   npm run capture:admin                          # tmp/screenshots/ に保存
  *   node scripts/capture.mjs --pr 123 --config scripts/capture-specs/admin.mjs
+ *
+ * DOM スナップショット (#1747 AC4 / #1766):
+ *   各 SS と同じディレクトリに <name>.dom.html が同一プロセスで自動保存される。
+ *   無効化したい場合は --no-dom-snapshot を付与（推奨されない）。
  */
 
 /** @type {Array<{ url: string; name: string; presets?: string[]; selector?: string }>} */

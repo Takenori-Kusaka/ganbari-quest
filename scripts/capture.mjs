@@ -63,6 +63,9 @@ const { values, positionals } = parseArgs({
 		pr: { type: 'string' }, // PR 番号 → 出力先自動化 + Markdown 生成
 		'start-server': { type: 'boolean' }, // 未起動なら自動起動（--pr 時デフォルト true）
 		'server-mode': { type: 'string', default: 'dev' }, // dev | cognito | lp
+		// #1766 (#1747 AC4): SS と DOM HTML スナップショットを同一プロセスで取得する。
+		// デフォルト有効。`--no-dom-snapshot` 指定時のみ無効化される。
+		'no-dom-snapshot': { type: 'boolean', default: false },
 		help: { type: 'boolean', default: false },
 	},
 });
@@ -120,6 +123,13 @@ QA / PR 用オプション:
                       cognito  → npm run dev:cognito (port 5174)  認証が必要な画面用
                       lp       → npx serve site (port 5280)  LP (site/) 用
 
+DOM スナップショット (#1747 AC4 / #1766):
+  デフォルトで撮影と同じ Playwright page から
+  document.documentElement.outerHTML を <name>.dom.html として保存します。
+  SS と DOM が同一プロセス・同一 page で取得されたことを構造的に保証し、
+  PR #1717 で発生した「SS と実機が乖離している」事故の再発を防ぎます。
+  --no-dom-snapshot DOM スナップショット保存を無効化（デフォルト: 有効）
+
   --help            このヘルプを表示
 
 トラブルシュート:
@@ -175,6 +185,9 @@ const storageState = values['storage-state'];
 
 // --start-server: --pr 指定時はデフォルト true、それ以外は false
 const shouldAutoStart = values['start-server'] ?? prNumber !== null;
+
+// #1766: DOM スナップショット取得有無（--no-dom-snapshot で opt-out）
+const domSnapshotEnabled = !values['no-dom-snapshot'];
 
 // プリセット検証（早期エラー）
 for (const name of presetNames) {
@@ -381,10 +394,11 @@ function pushToScreenshotsBranch(prNum, filePaths) {
 
 /**
  * @param {string} prNumber
- * @param {string[]} filePaths - 撮影されたファイルの絶対パス
+ * @param {string[]} filePaths - 撮影された SS ファイルの絶対パス
  * @param {boolean} pushedToScreenshots - screenshots ブランチへの push が成功したか
+ * @param {string[]} [domFiles] - 同時取得した DOM HTML ファイルの絶対パス (#1766)
  */
-function printPrMarkdown(prNumber, filePaths, pushedToScreenshots) {
+function printPrMarkdown(prNumber, filePaths, pushedToScreenshots, domFiles = []) {
 	if (filePaths.length === 0) return;
 
 	const screenshotsBase = `https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-${prNumber}`;
@@ -393,6 +407,15 @@ function printPrMarkdown(prNumber, filePaths, pushedToScreenshots) {
 
 	// push が成功した場合は raw.githubusercontent.com URL を使用、失敗時はフォールバック
 	const repoBase = pushedToScreenshots ? screenshotsBase : fallbackBase;
+
+	// SS basename → DOM HTML basename の対応マップ（#1766: SS と同じディレクトリ・同じ basename + .dom.html）
+	const ssBasenameToDom = new Map();
+	for (const dom of domFiles) {
+		const domBase = path.basename(dom);
+		// admin-home.dom.html → admin-home（拡張子 = .png/.webp と仮定して逆引きできるよう basename のみ保持）
+		const stripped = domBase.replace(/\.dom\.html$/, '');
+		ssBasenameToDom.set(stripped, domBase);
+	}
 
 	const sep = '='.repeat(60);
 	console.log(`\n${sep}`);
@@ -403,18 +426,30 @@ function printPrMarkdown(prNumber, filePaths, pushedToScreenshots) {
 	// ファイルをプリセット別にグループ化して表示
 	const grouped = new Map();
 	for (const fp of filePaths) {
-		const name = path.basename(fp, path.extname(fp));
+		const ext = path.extname(fp);
+		const name = path.basename(fp, ext);
 		// push 成功時はファイル名のみ、失敗時は相対パス
 		const urlPath = pushedToScreenshots
 			? path.basename(fp)
 			: path.relative(process.cwd(), fp).replace(/\\/g, '/');
+		// 対応する DOM HTML を探す
+		const domBase = ssBasenameToDom.get(name);
+		let domUrlPath;
+		if (domBase) {
+			if (pushedToScreenshots) {
+				domUrlPath = domBase;
+			} else {
+				const dir = path.dirname(fp);
+				domUrlPath = path.relative(process.cwd(), path.join(dir, domBase)).replace(/\\/g, '/');
+			}
+		}
 		// preset サフィックス（-mobile / -desktop / -tablet）を検出
 		const presetMatch = name.match(/-(mobile|desktop|tablet)$/);
 		const label = presetMatch
 			? presetMatch[1].charAt(0).toUpperCase() + presetMatch[1].slice(1)
 			: name;
 		const key = presetMatch ? presetMatch[1] : name;
-		grouped.set(key, { label, urlPath, name });
+		grouped.set(key, { label, urlPath, name, domUrlPath });
 	}
 
 	// desktop → mobile の順で表示
@@ -424,9 +459,20 @@ function printPrMarkdown(prNumber, filePaths, pushedToScreenshots) {
 		...[...grouped.entries()].filter(([k]) => !order.includes(k)).map(([, v]) => v),
 	];
 
-	for (const { label, urlPath, name } of sorted) {
+	for (const { label, urlPath, name, domUrlPath } of sorted) {
 		console.log(`### ${label}`);
-		console.log(`![${name}](${repoBase}/${urlPath})\n`);
+		console.log(`![${name}](${repoBase}/${urlPath})`);
+		// #1766: DOM HTML スナップショットへのリンクを SS の直下に併記する
+		if (domUrlPath) {
+			console.log(`[DOM HTML (${name}.dom.html)](${repoBase}/${domUrlPath})`);
+		}
+		console.log('');
+	}
+
+	if (domFiles.length > 0) {
+		console.log(
+			`> DOM スナップショット: ${domFiles.length} 件添付。SS と同一 page で取得 (#1747 AC4 / #1766)。\n`,
+		);
 	}
 
 	console.log(`${sep}\n`);
@@ -493,13 +539,35 @@ async function runFlowMode() {
 		if (result.compositePath) {
 			console.log(`合成 WebP: ${result.compositePath}`);
 			console.log(`Markdown: ${path.join(outputDir, `${values.flow}-flow.md`)}`);
-			return [result.compositePath];
+			return { screenshots: [result.compositePath], domFiles: [] };
 		}
 	} catch (err) {
 		console.error(`\nエラー: ${err.message}`);
 		process.exit(1);
 	}
-	return [];
+	return { screenshots: [], domFiles: [] };
+}
+
+/**
+ * `ScreenshotCapture.capture()` の結果をログ出力 + 配列に積む共通ロジック (#1766)。
+ * @param {{ ok: true; filePath: string; size: number; domPath?: string; domSize?: number } | { ok: false; error: Error }} result
+ * @param {string[]} capturedFiles
+ * @param {string[]} domFiles
+ * @returns {boolean} 成功時 true
+ */
+function recordCaptureResult(result, capturedFiles, domFiles) {
+	if (!result.ok) {
+		console.error(`  エラー: ${result.error.message}`);
+		return false;
+	}
+	console.log(`  -> ${result.filePath} (${(result.size / 1024).toFixed(0)} KB)`);
+	capturedFiles.push(result.filePath);
+	if (result.domPath) {
+		const kb = (result.domSize ?? 0) / 1024;
+		console.log(`  -> ${result.domPath} (DOM ${kb < 1 ? '<1' : Math.round(kb)} KB)`);
+		domFiles.push(result.domPath);
+	}
+	return true;
 }
 
 // ============================================================
@@ -525,10 +593,16 @@ async function runConfigMode() {
 		process.exit(1);
 	}
 
-	const capturer = new ScreenshotCapture({ baseUrl, outputDir, locale: 'ja-JP' });
+	const capturer = new ScreenshotCapture({
+		baseUrl,
+		outputDir,
+		locale: 'ja-JP',
+		domSnapshot: domSnapshotEnabled,
+	});
 	await capturer.setup();
 
 	const capturedFiles = [];
+	const domFiles = [];
 	let success = 0;
 	let total = 0;
 	for (const page of pages) {
@@ -548,19 +622,16 @@ async function runConfigMode() {
 				selector: page.selector,
 				storageState,
 			});
-			if (result.ok) {
-				console.log(`  -> ${result.filePath} (${(result.size / 1024).toFixed(0)} KB)`);
-				capturedFiles.push(result.filePath);
-				success++;
-			} else {
-				console.error(`  エラー: ${result.error.message}`);
-			}
+			if (recordCaptureResult(result, capturedFiles, domFiles)) success++;
 		}
 	}
 
 	await capturer.teardown();
 	console.log(`\n完了: ${success}/${total} キャプチャ`);
-	return capturedFiles;
+	if (domFiles.length > 0) {
+		console.log(`DOM スナップショット: ${domFiles.length} 件保存 (#1747 AC4 / #1766)`);
+	}
+	return { screenshots: capturedFiles, domFiles };
 }
 
 // ============================================================
@@ -574,11 +645,17 @@ async function runUrlMode() {
 		process.exit(1);
 	}
 
-	const capturer = new ScreenshotCapture({ baseUrl, outputDir, locale: 'ja-JP' });
+	const capturer = new ScreenshotCapture({
+		baseUrl,
+		outputDir,
+		locale: 'ja-JP',
+		domSnapshot: domSnapshotEnabled,
+	});
 	await capturer.setup();
 
 	const baseName = url.replace(/[^a-zA-Z0-9]/g, '-').replace(/^-+|-+$/g, '') || 'screenshot';
 	const capturedFiles = [];
+	const domFiles = [];
 
 	for (const presetName of presetNames) {
 		const viewport = resolvePreset(presetName);
@@ -594,17 +671,15 @@ async function runUrlMode() {
 			selector: values.selector,
 			storageState,
 		});
-		if (result.ok) {
-			console.log(`  -> ${result.filePath} (${(result.size / 1024).toFixed(0)} KB)`);
-			capturedFiles.push(result.filePath);
-		} else {
-			console.error(`  エラー: ${result.error.message}`);
-		}
+		recordCaptureResult(result, capturedFiles, domFiles);
 	}
 
 	await capturer.teardown();
 	console.log(`\n完了: ${capturedFiles.length}/${presetNames.length} キャプチャ`);
-	return capturedFiles;
+	if (domFiles.length > 0) {
+		console.log(`DOM スナップショット: ${domFiles.length} 件保存 (#1747 AC4 / #1766)`);
+	}
+	return { screenshots: capturedFiles, domFiles };
 }
 
 // ============================================================
@@ -634,21 +709,25 @@ if (serverChild) {
 }
 
 try {
-	let capturedFiles = [];
+	/** @type {{ screenshots: string[]; domFiles: string[] }} */
+	let result = { screenshots: [], domFiles: [] };
 
 	if (values.flow) {
-		capturedFiles = await runFlowMode();
+		result = await runFlowMode();
 	} else if (values.config) {
-		capturedFiles = await runConfigMode();
+		result = await runConfigMode();
 	} else {
-		capturedFiles = await runUrlMode();
+		result = await runUrlMode();
 	}
+
+	const { screenshots: capturedFiles, domFiles } = result;
 
 	// --pr 指定時: screenshots ブランチに push してから PR body 用 Markdown スニペットを出力
 	if (prNumber !== null && capturedFiles.length > 0) {
 		ensureScreenshotsBranch();
-		const pushed = pushToScreenshotsBranch(prNumber, capturedFiles);
-		printPrMarkdown(prNumber, capturedFiles, pushed);
+		// SS と DOM HTML を同じコミットで screenshots ブランチに push する (#1766)
+		const pushed = pushToScreenshotsBranch(prNumber, [...capturedFiles, ...domFiles]);
+		printPrMarkdown(prNumber, capturedFiles, pushed, domFiles);
 	}
 } finally {
 	// 自動起動したサーバーを確実に停止

@@ -1,8 +1,11 @@
 /**
- * scripts/lib/screenshot-helpers.mjs (#1206, #1424)
+ * scripts/lib/screenshot-helpers.mjs (#1206, #1424, #1766)
  *
  * `take-lp-screenshots.mjs` / `capture-hp-screenshots.mjs` 共通ユーティリティの SSOT。
  * #1424 で ScreenshotCapture / FlowRecorder クラスと純粋関数を追加。
+ * #1766 で DOM snapshot 機能 (#1747 AC4 follow-up) を追加。
+ *   PR #1717 で SS と実機が乖離していた事故の再発防止のため、SS と
+ *   `document.documentElement.outerHTML` を **同一プロセスで** 取得する。
  */
 
 import fs from 'node:fs';
@@ -197,6 +200,58 @@ export function generateMarkdownSnippet(flowName, steps, relativePath) {
 }
 
 // ============================================================
+// #1766: DOM snapshot 機能 (#1747 AC4)
+// ============================================================
+
+/**
+ * SS ファイルパスから対応する DOM HTML スナップショットファイルパスを導出する（純粋関数）。
+ *
+ * 例:
+ *   resolveDomSnapshotPath('tmp/screenshots/pr-1770/admin-home.png')
+ *     → 'tmp/screenshots/pr-1770/admin-home.dom.html'
+ *   resolveDomSnapshotPath('docs/screenshots/pr-1770/lp-top-mobile.webp')
+ *     → 'docs/screenshots/pr-1770/lp-top-mobile.dom.html'
+ *
+ * @param {string} screenshotPath - SS ファイルパス（拡張子は .png/.jpeg/.webp 等）
+ * @returns {string} 同一ディレクトリ・同一 basename + `.dom.html` の DOM ファイルパス
+ */
+export function resolveDomSnapshotPath(screenshotPath) {
+	const dir = path.dirname(screenshotPath);
+	const ext = path.extname(screenshotPath);
+	const base = path.basename(screenshotPath, ext);
+	return path.join(dir, `${base}.dom.html`);
+}
+
+/**
+ * Playwright page から DOM HTML スナップショットを保存する。
+ *
+ * `document.documentElement.outerHTML` を取得して指定パスに UTF-8 で書き込む。
+ * SS と DOM が **同一プロセス・同一 page インスタンス** で取得されたことを構造的に保証する
+ * (#1747 AC4 / #1766) ため、SS 撮影直後に同一 page を渡して呼ぶこと。
+ *
+ * @param {{ evaluate: (fn: () => string) => Promise<string> }} page -
+ *   Playwright Page インスタンス（テスト容易性のため evaluate のみを要求する duck-typed 受け取り）
+ * @param {string} domPath - 出力先ファイルパス（拡張子 `.dom.html` 推奨、`resolveDomSnapshotPath` 経由）
+ * @returns {Promise<{ ok: true; filePath: string; size: number } | { ok: false; error: Error }>}
+ */
+export async function captureDomSnapshot(page, domPath) {
+	try {
+		const html = await page.evaluate(() => document.documentElement.outerHTML);
+		if (typeof html !== 'string') {
+			throw new Error(
+				`document.documentElement.outerHTML が文字列でありません (typeof=${typeof html})`,
+			);
+		}
+		fs.mkdirSync(path.dirname(domPath), { recursive: true });
+		fs.writeFileSync(domPath, html, 'utf8');
+		const stat = fs.statSync(domPath);
+		return { ok: true, filePath: domPath, size: stat.size };
+	} catch (error) {
+		return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+	}
+}
+
+// ============================================================
 // #1424: ScreenshotCapture クラス
 // ============================================================
 
@@ -212,16 +267,21 @@ export class ScreenshotCapture {
 	#locale;
 	#defaultDeviceScaleFactor;
 
+	/** @type {boolean} */
+	#domSnapshotEnabled;
+
 	constructor({
 		baseUrl = 'http://localhost:5173',
 		outputDir = 'tmp/screenshots',
 		locale = 'ja-JP',
 		deviceScaleFactor = 2,
+		domSnapshot = true,
 	} = {}) {
 		this.#baseUrl = baseUrl;
 		this.#outputDir = outputDir;
 		this.#locale = locale;
 		this.#defaultDeviceScaleFactor = deviceScaleFactor;
+		this.#domSnapshotEnabled = domSnapshot;
 	}
 
 	async setup() {
@@ -245,7 +305,9 @@ export class ScreenshotCapture {
 	 * @param {number} [opts.quality=85] - WebP 品質 (0-100)
 	 * @param {string} [opts.selector] - 表示まで待つ要素
 	 * @param {import('playwright').BrowserContextOptions['storageState']} [opts.storageState] - 認証済みセッション
-	 * @returns {Promise<{ ok: true; filePath: string; size: number } | { ok: false; error: Error }>}
+	 * @param {boolean} [opts.domSnapshot] - DOM HTML を <name>.dom.html として保存するか (#1747 AC4 / #1766)。
+	 *   省略時はコンストラクタの `domSnapshot` 設定（デフォルト true）に従う
+	 * @returns {Promise<{ ok: true; filePath: string; size: number; domPath?: string; domSize?: number } | { ok: false; error: Error }>}
 	 */
 	async capture({
 		url,
@@ -256,6 +318,7 @@ export class ScreenshotCapture {
 		quality = 85,
 		selector,
 		storageState,
+		domSnapshot,
 	}) {
 		if (!this.#browser) throw new Error('setup() を先に呼び出してください。');
 
@@ -284,6 +347,13 @@ export class ScreenshotCapture {
 			const tmpPath = path.join(this.#outputDir, `${name}.${ext}`);
 			await page.screenshot({ path: tmpPath, fullPage, type: screenshotType });
 
+			// #1766: SS と同一プロセス・同一 page で DOM HTML を取得して保存する。
+			// PR #1717 で SS と実機 DOM が乖離していた事故の構造的再発防止。
+			const domEnabled = domSnapshot ?? this.#domSnapshotEnabled;
+			const domInfo = domEnabled
+				? await this.#tryCaptureDom(page, name, format, tmpPath)
+				: { domPath: undefined, domSize: undefined };
+
 			let filePath = tmpPath;
 			if (format === 'webp') {
 				filePath = path.join(this.#outputDir, `${name}.webp`);
@@ -293,12 +363,44 @@ export class ScreenshotCapture {
 			}
 
 			const stat = fs.statSync(filePath);
-			return { ok: true, filePath, size: stat.size };
+			return {
+				ok: true,
+				filePath,
+				size: stat.size,
+				...(domInfo.domPath !== undefined
+					? { domPath: domInfo.domPath, domSize: domInfo.domSize }
+					: {}),
+			};
 		} catch (error) {
 			return { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
 		} finally {
 			await context.close();
 		}
+	}
+
+	/**
+	 * #1766: 撮影直後の page から DOM HTML を取得する内部ヘルパ。
+	 * SS と同じ basename + `.dom.html` を SS と同じディレクトリに書き出す。
+	 * 失敗しても SS 撮影自体は成功扱いとし、警告ログのみ。
+	 *
+	 * @param {import('playwright').Page} page
+	 * @param {string} name
+	 * @param {'png'|'webp'|'jpeg'} format
+	 * @param {string} tmpPath - 撮影 PNG の一時パス（webp の場合は最終 webp パスから DOM パスを導出）
+	 * @returns {Promise<{ domPath: string | undefined; domSize: number | undefined }>}
+	 */
+	async #tryCaptureDom(page, name, format, tmpPath) {
+		const finalScreenshotPathForDom =
+			format === 'webp' ? path.join(this.#outputDir, `${name}.webp`) : tmpPath;
+		const targetDomPath = resolveDomSnapshotPath(finalScreenshotPathForDom);
+		const domResult = await captureDomSnapshot(page, targetDomPath);
+		if (!domResult.ok) {
+			console.warn(
+				`[capture] DOM snapshot 保存に失敗しました (${name}): ${domResult.error.message}`,
+			);
+			return { domPath: undefined, domSize: undefined };
+		}
+		return { domPath: domResult.filePath, domSize: domResult.size };
 	}
 
 	async teardown() {
