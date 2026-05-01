@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層。
+     SRI / pin 戦略マトリクス: 特定 pin (splidejs) は SRI 必須、major pin (DOMPurify @3 / budoux @latest) は CSP allowlist 経由で守る -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title data-lp-key="indexB.k1">がんばりクエスト — 「やりなさい」を「やりたい！」に変える</title>
 <meta name="description" content="がんばりクエストは、お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、チャレンジで「自分から動く力」を育てます。3歳から18歳までのお子さまに対応（0〜2歳のお子さまは保護者向けの準備モードでご利用いただけます）。">
 <meta property="og:title" content="がんばりクエスト — 「やりなさい」を「やりたい！」に変える">
