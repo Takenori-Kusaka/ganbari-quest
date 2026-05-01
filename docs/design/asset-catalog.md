@@ -47,6 +47,14 @@ Claude Code がUI実装時に「絵文字で済ませるか、画像アセット
 | **レベルアップ演出** | ✨🌟 絵文字パーティクル | エフェクト画像 or Lottie アニメ | `static/assets/effects/` | 可変 | 3-5 |
 | **特別報酬アイコン** | 🎓🏆🎤🎨🙏 | 報酬種別ごとのイラスト | `static/assets/rewards/` | 256×256 PNG | 6 |
 | **持ち物チェックリスト LP スクショ** (#1164) | `site/screenshots/feature-belongings-checklist{,-desktop}.webp` (`/demo/checklist` 撮影) | 高解像度の持ち物タブ実画面 | `site/screenshots/` | 780×1688 (mobile@2x) / 2880×1800 (desktop@2x) WebP | 2 |
+| **コアループ 1-shot summary 画像** (#1787) | 4 階層・6 STEP の入れ子表現 | 「活動 → 習慣 → ごほうび」3 アイコンが循環する 1 枚図解 | `site/assets/lp/core-loop-summary.png` + `static/assets/lp/core-loop-summary.png` | 960×640 PNG | 1 |
+
+#### コアループ 1-shot summary 画像の運用 (#1787)
+
+- 生成: `npm run generate:coreloop-summary`（`scripts/generate-coreloop-summary.mjs` が SVG → PNG で確定的に出力）
+- LP 配置: `site/assets/lp/core-loop-summary.png`（GitHub Pages から `assets/lp/...` で配信）
+- アプリ配置: `static/assets/lp/core-loop-summary.png`（asset-catalog 参照および将来のアプリ内表示）
+- 後日 Gemini で本格生成し直す場合: `scripts/generate-coreloop-summary.mjs` 先頭コメントの prompt を `docs/reference/gemini_image_generation_guide.md` §A-1 ブランドスタイルブロックと合体させて使う。SVG 版は決定的・軽量（122KB）なので CI / production の zero-API-key 環境でも 404 を出さないフォールバック
 
 ### 優先度: 中（体験向上）
 
