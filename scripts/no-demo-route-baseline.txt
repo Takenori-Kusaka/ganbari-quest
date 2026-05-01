@@ -18,8 +18,6 @@ src/routes/demo/(child)/checklist/+page.svelte
 src/routes/demo/(parent)/admin/+layout.svelte
 src/routes/demo/(parent)/admin/+page.server.ts
 src/routes/demo/(parent)/admin/+page.svelte
-src/routes/demo/(parent)/admin/achievements/+page.server.ts
-src/routes/demo/(parent)/admin/achievements/+page.svelte
 src/routes/demo/(parent)/admin/activities/+page.server.ts
 src/routes/demo/(parent)/admin/activities/+page.svelte
 src/routes/demo/(parent)/admin/challenges/+page.server.ts

@@ -227,7 +227,7 @@
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
-/* #1284: tour-shot も同様に全画面表示へ修正。称号画面などの主要要素が見えるように */
+/* #1284: tour-shot も同様に全画面表示へ修正。スクショの主要要素が見えるように */
 /* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
 /* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
 /* #1707 R2: scrshot 9 枚追加で mobile 高が膨張するため max-height を 200px に圧縮（PC 整然配置 #1618 と整合） */
@@ -459,7 +459,7 @@
 <section class="hero">
   <h1 data-lp-key="indexB.k2">「やりなさい」を <span>「やりたい！」</span> に変える家族 RPG</h1>
   <p class="hero-sub">
-    <span data-lp-key="indexB.k3">3〜18 歳の毎日の習慣を、ポイント・スタンプ・称号で冒険に変える。声をかけなくても、自分から動きだす家族時間へ。</span>
+    <span data-lp-key="indexB.k3">3〜18 歳の毎日の習慣を、ポイント・スタンプ・レベルで冒険に変える。声をかけなくても、自分から動きだす家族時間へ。</span>
   </p>
   <!-- #1625 R21: 価格 anchor 1 行バンド（30 秒で離脱判断する親 P1 向け） -->
   <p class="hero-price-band" data-lp-key="heroPriceBand.container"><span class="hpb-item" data-lp-key="heroPriceBand.itemFree"><strong>基本無料</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemPrice">月 <strong>¥500〜</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemTrial">有料は 7 日間無料</span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemCancel">いつでも解約</span></p>
@@ -607,7 +607,7 @@
         <div class="age-panel-body">
           <h3 data-lp-key="indexB.k14">漢字 + 情報密度で 15 年継続できる UI</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k15">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
-          <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。実績解放と称号で「次は何をクリアしよう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
+          <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
           <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
@@ -726,31 +726,24 @@
 
 <!-- LP-LANDMARK:core-loop end -->
 
-<!-- LP-LANDMARK:machine-tour start — [04] 補足機構（[03] では語られない 3 つの工夫）
+<!-- LP-LANDMARK:machine-tour start — [04] 補足機構（[03] では語られない 2 つの工夫）
      #1622 R18 (アプローチ A): [03] 3 つの仕組みと重複するカードを削除し
      長期 / 朝の習慣 / 冒険のクライマックスの 3 つに圧縮
      #1629 R25: ADR-0012 整合のため連続達成系の語彙を刷新
      #1708 R3-A: 旧 ③ カード削除（kind=routine 廃止 + 活動 must 属性化に伴い）
+     #1782: 旧 ① のカードを削除（#404 廃止合意の revert 復活への対応）。
+       ADR-0012 §6「収集目的の独立 UI / コレクション閲覧ページ / ミッションリスト UI 駆動導線」
+       禁止に整合し、長期の達成感はチャレンジ機能 (/admin/challenges) に統合。
+       3 cards → 2 cards に再圧縮。
      各幕の追加/削除は docs/design/lp-content-map.md §machine-tour を必ず更新 -->
-<!-- [04] 補足機構（[03] のコアループに加えて支える 3 つの工夫） -->
+<!-- [04] 補足機構（[03] のコアループに加えて支える 2 つの工夫） -->
 <section class="section bg-white" id="machine-tour" data-testid="feature-section">
   <div class="section-inner">
-    <h2 class="section-title" data-lp-key="indexB.k21">コアループを支える 3 つの工夫</h2>
-    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、長期の達成感・朝の準備・冒険のクライマックスから支える 3 つの工夫です。</p>
+    <h2 class="section-title" data-lp-key="indexB.k21">コアループを支える 2 つの工夫</h2>
+    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の準備と冒険のクライマックスから支える 2 つの工夫です。</p>
     <div class="machine-tour">
-      <div class="tour-card">
-        <div class="tour-phase" data-lp-key="indexB.k23">&#9312; 長期の達成感</div>
-        <h3 data-lp-key="indexB.k24">実績 &amp; 称号</h3>
-        <p data-lp-key="indexB.k25">「はじめのぼうけんしゃ」から「でんせつのゆうしゃ」へ。長期の積み重ねが称号として永久に刻まれ、子供の自己肯定感を支えます。</p>
-        <div class="tour-shot">
-          <picture>
-            <source srcset="screenshots/feature-titles-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/feature-titles.webp" alt="称号獲得画面" data-lightbox>
-          </picture>
-        </div>
-      </div>
       <div class="tour-card" data-testid="feature-belongings-checklist">
-        <div class="tour-phase" data-lp-key="indexB.k26">&#9313; 朝の準備をスムーズに</div>
+        <div class="tour-phase" data-lp-key="indexB.k26">&#9312; 朝の準備をスムーズに</div>
         <h3 data-lp-key="indexB.k27">持ち物チェックリスト</h3>
         <p data-lp-key="indexB.k28">通学や習い事の持ち物を、子ども自身がタップ確認。</p>
         <p data-lp-key="indexB.k29">朝の「あれ持った？」を減らします。</p>
@@ -762,7 +755,7 @@
         </div>
       </div>
       <div class="tour-card" data-testid="feature-rpg-battle">
-        <div class="tour-phase" data-lp-key="indexB.k34">&#9314; 冒険のクライマックス</div>
+        <div class="tour-phase" data-lp-key="indexB.k34">&#9313; 冒険のクライマックス</div>
         <h3 data-lp-key="indexB.k35">RPG バトル</h3>
         <p data-lp-key="indexB.k36">毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。</p>
         <div class="tour-shot">
@@ -859,12 +852,12 @@
             <div class="gr-shot">
               <picture>
                 <source srcset="screenshots/growth-stage-elementary-desktop.webp" media="(min-width:1024px)" type="image/webp">
-                <img src="screenshots/growth-stage-elementary.webp" alt="小学生ホーム画面 — 称号コレクションとデイリーミッション" loading="lazy" data-lightbox>
+                <img src="screenshots/growth-stage-elementary.webp" alt="小学生ホーム画面 — ポイント・レベル・チャレンジ" loading="lazy" data-lightbox>
               </picture>
             </div>
-            <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、称号で「次は何を達成しよう？」と自分で目標を立てる力が育ちます。</p>
+            <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、ウィークリーチャレンジで「次は何をやろう？」と自分で目標を立てる力が育ちます。</p>
             <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.elementaryChildExperience">称号や実績が増え、「次は何を狙おう」と自分で計画する楽しさ</span></p>
+            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.elementaryChildExperience">ポイントとチャレンジが積み重なり、「次は何をやろう」と自分で計画する楽しさ</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="junior">

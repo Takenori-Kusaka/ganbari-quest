@@ -207,15 +207,16 @@ test.describe('UC-04: ステータス確認', () => {
 });
 
 // ============================================================
-// 8. チャレンジきろく画面（実績システム廃止 #322 → チャレンジ管理に転用）
+// 8. チャレンジ管理画面（実績システム #322/#404/#1782 廃止 → チャレンジ管理に統合）
 // ============================================================
-test.describe('チャレンジきろく画面', () => {
+test.describe('チャレンジ管理画面', () => {
 	test('チャレンジ管理ページが表示される', async ({ page }) => {
 		await selectKinderChildAndDismiss(page);
-		await page.goto('/admin/achievements');
-		await expect(page).toHaveURL(/\/admin\/achievements/);
+		// #1782: /admin/achievements は 308 redirect で /admin/challenges に到達する
+		await page.goto('/admin/challenges');
+		await expect(page).toHaveURL(/\/admin\/challenges/);
 
-		await expect(page).toHaveTitle(/チャレンジ管理/);
+		await expect(page).toHaveTitle(/チャレンジ/);
 	});
 });
 

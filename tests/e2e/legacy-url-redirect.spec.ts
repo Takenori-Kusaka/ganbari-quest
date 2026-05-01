@@ -141,4 +141,30 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 			expect(response.headers().location).not.toMatch(/^\/preschool/);
 		}
 	});
+
+	// ============================================================
+	// #1782: 実績機能廃止 → チャレンジ機能 308 redirect
+	// ADR-0012 §6 整合 + #404 廃止合意の revert 復活への対応
+	// ============================================================
+	test('/admin/achievements → /admin/challenges (308, #1782)', async ({ request }) => {
+		await expectRedirect(request, '/admin/achievements', '/admin/challenges');
+	});
+
+	test('/admin/achievements/sub → /admin/challenges/sub (308, #1782 サブパス)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/admin/achievements/sub', '/admin/challenges/sub');
+	});
+
+	test('/demo/admin/achievements → /demo/admin/challenges (308, #1782 デモ)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/demo/admin/achievements', '/demo/admin/challenges');
+	});
+
+	test('/admin/achievements?childId=1 (クエリ保持) → /admin/challenges?childId=1', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/admin/achievements?childId=1', '/admin/challenges?childId=1');
+	});
 });
