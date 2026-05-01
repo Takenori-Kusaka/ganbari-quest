@@ -85,7 +85,23 @@ npm run screenshots:lp
 # 特定グループのみ撮影
 node scripts/capture-hp-screenshots.mjs --webp --only feature
 node scripts/capture-hp-screenshots.mjs --webp --only growth
+
+# 個別 screenshot 単体撮り直し (#1783)
+npm run capture:feature -- feature-belongings-checklist
+npm run capture:feature -- feature-routine-checklist
+# `npm run capture:feature -- <name>` は内部で
+# `node scripts/capture-hp-screenshots.mjs --webp --only <name>` を呼ぶ
 ```
+
+### CI gate（broken image 0 件保証 #1783）
+
+- **GitHub Pages デプロイ**: `.github/workflows/pages.yml` が main push 時に preview server を立て、
+  `capture-hp-screenshots.mjs --webp` で全 screenshots を撮影してから site/ を artifact 化する。
+  - 撮影 1 件でも失敗 → `capture-hp-screenshots.mjs` が exit 1 → workflow fail（古い画像を黙って残さない）
+  - 撮影完了後、`measure-lp-dimensions.mjs` が site/index.html 内の `<img src="screenshots/...">`
+    全参照に対し物理ファイル存在を検証 → 1 件でも欠落で exit 1
+- **lp-metrics ワークフロー**: PR 時にも `measure-lp-dimensions.mjs` を実行し、
+  `site/screenshots/` がコミットされていない PR では `SKIP_SCREENSHOT_EXISTENCE_CHECK=1` で skip 可能（pages.yml の撮影直後検証で担保）
 
 ### 配置原則 (#1707 R2)
 

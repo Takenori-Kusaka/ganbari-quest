@@ -59,6 +59,7 @@
 		"knip": "knip",
 		"jscpd": "jscpd .",
 		"screenshots:lp": "node scripts/capture-hp-screenshots.mjs --webp",
+		"capture:feature": "node scripts/capture-hp-screenshots.mjs --webp --only",
 		"screenshots:lp:compare": "node scripts/take-lp-screenshots.mjs",
 		"capture": "node scripts/capture.mjs",
 		"capture:admin": "node scripts/capture.mjs --start-server --config scripts/capture-specs/admin.mjs --out tmp/screenshots/",

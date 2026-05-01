@@ -15,6 +15,7 @@
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { waitForStablePage } from './lib/screenshot-helpers.mjs';
 
@@ -254,6 +255,38 @@ function countForbiddenTerms(html, terms = FORBIDDEN_TERMS) {
 	return counts;
 }
 
+/**
+ * LP HTML 内で参照している `screenshots/...` 画像の物理存在を検証する (#1783)。
+ *
+ * `<img src="screenshots/foo.webp">` および `<source srcset="screenshots/foo-desktop.webp">`
+ * を抽出し、`site/screenshots/` ディレクトリに実体ファイルが存在するか確認する。
+ *
+ * 1 件でも欠落している場合は CI を fail させる（ADR-0029 / #1783 — broken image を black-out しない）。
+ *
+ * @param {string} html - LP HTML 文字列
+ * @param {string} siteDir - site ルートディレクトリ絶対パス
+ * @returns {{ referenced: string[]; missing: string[] }}
+ */
+export function findMissingScreenshots(html, siteDir) {
+	const referenced = new Set();
+	// img src="screenshots/..."
+	const imgSrcRe = /\b(?:src|srcset)\s*=\s*["']([^"']*screenshots\/[^"']+)["']/g;
+	let m;
+	// biome-ignore lint/suspicious/noAssignInExpressions: 標準 regex iteration pattern
+	while ((m = imgSrcRe.exec(html)) !== null) {
+		// srcset は "url 2x, url2 1x" 形式があり得るが LP では単一 URL の運用 (#1783)
+		const candidate = m[1].split(/\s+/)[0];
+		if (candidate.includes('screenshots/')) {
+			// site/foo or screenshots/foo の両形式に対応
+			const rel = candidate.replace(/^.*?screenshots\//, 'screenshots/');
+			referenced.add(rel);
+		}
+	}
+	const referencedList = [...referenced].sort();
+	const missing = referencedList.filter((rel) => !existsSync(join(siteDir, rel)));
+	return { referenced: referencedList, missing };
+}
+
 async function extractCtaVariants(page) {
 	return await page.evaluate(() => {
 		const anchors = document.querySelectorAll('a[href], button');
@@ -290,6 +323,12 @@ async function measureSingleTarget(page, port, targetHtml) {
 	const desktopHeight = await measureHeight(page, url, 1280);
 	const html = readFileSync(join(SITE_DIR, targetHtml), 'utf8');
 	const forbiddenTerms = countForbiddenTerms(html, getForbiddenTermsForTarget(targetHtml));
+	// #1783: LP HTML が参照する screenshots/*.webp の物理存在を検証する。
+	// CI 環境では Pages workflow が直前に撮影しているはずなので、欠落 = 撮影失敗の検知になる。
+	const { referenced: screenshotRefs, missing: missingScreenshots } = findMissingScreenshots(
+		html,
+		SITE_DIR,
+	);
 	const isPrimary = targetHtml === 'index.html';
 	return {
 		target: targetHtml,
@@ -297,76 +336,148 @@ async function measureSingleTarget(page, port, targetHtml) {
 		desktopHeight,
 		forbiddenTerms,
 		ctaVariants,
+		screenshotRefs,
+		missingScreenshots,
 		thresholds: isPrimary ? THRESHOLDS : null,
 		enforceThresholds: isPrimary,
 	};
+}
+
+/**
+ * #1783 follow-up: browser launch なしで forbidden terms / missing screenshots だけを検証する。
+ *
+ * unit test (CI で chromium 不在) 用の軽量経路。`MEASURE_SKIP_BROWSER=1` で起動。
+ * height / ctaVariants は計測されず 0 / [] になる（index.html の height ratchet 等は
+ * playwright 必須の lp-metrics.yml job 側で担保する）。
+ *
+ * @param {string} targetHtml
+ * @returns {object}
+ */
+function measureSingleTargetWithoutBrowser(targetHtml) {
+	log(`[measure] target (no-browser): ${targetHtml}`);
+	const html = readFileSync(join(SITE_DIR, targetHtml), 'utf8');
+	const forbiddenTerms = countForbiddenTerms(html, getForbiddenTermsForTarget(targetHtml));
+	const { referenced: screenshotRefs, missing: missingScreenshots } = findMissingScreenshots(
+		html,
+		SITE_DIR,
+	);
+	const isPrimary = targetHtml === 'index.html';
+	return {
+		target: targetHtml,
+		mobileHeight: 0,
+		desktopHeight: 0,
+		forbiddenTerms,
+		ctaVariants: [],
+		screenshotRefs,
+		missingScreenshots,
+		thresholds: isPrimary ? THRESHOLDS : null,
+		// no-browser モードでは height / cta 閾値は適用しない（測定値が偽の 0 のため）
+		// missing screenshots / forbidden terms はそれぞれの評価ロジックで検証される
+		enforceThresholds: false,
+	};
+}
+
+function collectForbiddenTermViolations(r) {
+	const forbidden = Object.entries(r.forbiddenTerms).filter(([, n]) => n > 0);
+	if (forbidden.length === 0) return null;
+	return `[${r.target}] forbiddenTerms: ${forbidden.map(([t, n]) => `${t}=${n}`).join(', ')}`;
+}
+
+function collectMissingScreenshotViolations(r) {
+	// #1783: 全ページ共通 — `<img src="screenshots/...">` 物理欠落は 1 件でも fail
+	// （ADR-0029 / Issue #1783 — broken image を本番 LP に並べない）
+	// 環境変数 SKIP_SCREENSHOT_EXISTENCE_CHECK=1 で skip 可能（ローカル開発 / Issue 検証時の段階確認用）
+	if (process.env.SKIP_SCREENSHOT_EXISTENCE_CHECK === '1') return null;
+	if (!Array.isArray(r.missingScreenshots) || r.missingScreenshots.length === 0) return null;
+	return `[${r.target}] missingScreenshots (${r.missingScreenshots.length} 件): ${r.missingScreenshots.join(', ')}`;
+}
+
+function collectThresholdViolations(r) {
+	// index.html のみ height / ctaVariants 閾値を強制
+	const out = [];
+	if (r.mobileHeight > THRESHOLDS.mobileHeight) {
+		out.push(`[${r.target}] mobileHeight=${r.mobileHeight} > ${THRESHOLDS.mobileHeight}`);
+	}
+	if (r.desktopHeight > THRESHOLDS.desktopHeight) {
+		out.push(`[${r.target}] desktopHeight=${r.desktopHeight} > ${THRESHOLDS.desktopHeight}`);
+	}
+	if (r.ctaVariants.length > THRESHOLDS.ctaVariantsMax) {
+		out.push(
+			`[${r.target}] ctaVariants=${r.ctaVariants.length} > ${THRESHOLDS.ctaVariantsMax} (${r.ctaVariants.map((c) => c.text).join(' | ')})`,
+		);
+	}
+	return out;
+}
+
+function collectPresetViolations(presetCheck) {
+	// #1803: hero spec-badges presetCount 裏取り gate
+	const out = [];
+	const { actualCount, claims } = presetCheck;
+	for (const { source, claimed } of claims) {
+		if (actualCount < claimed) {
+			out.push(
+				`[${source}] hero spec-badges presetCount: 訴求 ${claimed}+ ≦ 実 marketplace activity 数 ${actualCount} を満たしていません ` +
+					`(ADR-0013 LP truth 違反)`,
+			);
+		}
+	}
+	// 訴求 claim が 0 件でも、最低限 presetActivityCountClaimedMin は満たしているか確認
+	// (LP に明示的訴求がない場合でも、内部 SSOT として 300 を割らないかを ratchet 監視)
+	if (actualCount < THRESHOLDS.presetActivityCountClaimedMin) {
+		out.push(
+			`[marketplace] activity-packs activities=${actualCount} < ${THRESHOLDS.presetActivityCountClaimedMin} ` +
+				`(LP hero spec-badges 訴求の最低水準を割っています)`,
+		);
+	}
+	return out;
 }
 
 function collectViolations(allResults, presetCheck) {
 	const violations = [];
 	for (const r of allResults) {
 		// 全ページ共通: 禁止語は 1 件でも検出すれば fail
-		const forbidden = Object.entries(r.forbiddenTerms).filter(([, n]) => n > 0);
-		if (forbidden.length > 0) {
-			violations.push(
-				`[${r.target}] forbiddenTerms: ${forbidden.map(([t, n]) => `${t}=${n}`).join(', ')}`,
-			);
-		}
+		const forbidden = collectForbiddenTermViolations(r);
+		if (forbidden) violations.push(forbidden);
+		const missing = collectMissingScreenshotViolations(r);
+		if (missing) violations.push(missing);
 		if (!r.enforceThresholds) continue;
-		// index.html のみ height / ctaVariants 閾値を強制
-		if (r.mobileHeight > THRESHOLDS.mobileHeight) {
-			violations.push(`[${r.target}] mobileHeight=${r.mobileHeight} > ${THRESHOLDS.mobileHeight}`);
-		}
-		if (r.desktopHeight > THRESHOLDS.desktopHeight) {
-			violations.push(
-				`[${r.target}] desktopHeight=${r.desktopHeight} > ${THRESHOLDS.desktopHeight}`,
-			);
-		}
-		if (r.ctaVariants.length > THRESHOLDS.ctaVariantsMax) {
-			violations.push(
-				`[${r.target}] ctaVariants=${r.ctaVariants.length} > ${THRESHOLDS.ctaVariantsMax} (${r.ctaVariants.map((c) => c.text).join(' | ')})`,
-			);
-		}
+		violations.push(...collectThresholdViolations(r));
 	}
-
-	// #1803: hero spec-badges presetCount 裏取り gate
 	if (presetCheck) {
-		const { actualCount, claims } = presetCheck;
-		for (const { source, claimed } of claims) {
-			if (actualCount < claimed) {
-				violations.push(
-					`[${source}] hero spec-badges presetCount: 訴求 ${claimed}+ ≦ 実 marketplace activity 数 ${actualCount} を満たしていません ` +
-						`(ADR-0013 LP truth 違反)`,
-				);
-			}
-		}
-		// 訴求 claim が 0 件でも、最低限 presetActivityCountClaimedMin は満たしているか確認
-		// (LP に明示的訴求がない場合でも、内部 SSOT として 300 を割らないかを ratchet 監視)
-		if (actualCount < THRESHOLDS.presetActivityCountClaimedMin) {
-			violations.push(
-				`[marketplace] activity-packs activities=${actualCount} < ${THRESHOLDS.presetActivityCountClaimedMin} ` +
-					`(LP hero spec-badges 訴求の最低水準を割っています)`,
-			);
-		}
+		violations.push(...collectPresetViolations(presetCheck));
 	}
 	return violations;
 }
 
 async function main() {
-	const { server, port } = await startStaticServer(SITE_DIR);
-	log(`[measure] serving ${SITE_DIR} on http://127.0.0.1:${port}/`);
-
-	const browser = await chromium.launch();
 	const allResults = [];
-	try {
-		const ctx = await browser.newContext();
-		const page = await ctx.newPage();
+	// #1783 follow-up: MEASURE_SKIP_BROWSER=1 でブラウザ launch を skip し、
+	// forbidden terms / missing screenshots gate のみを検証する軽量経路。
+	// CI で chromium が install されていない unit test 環境用。
+	if (process.env.MEASURE_SKIP_BROWSER === '1') {
+		log('[measure] MEASURE_SKIP_BROWSER=1 — skipping browser launch (height/cta not measured)');
 		for (const targetHtml of TARGET_HTML_LIST) {
-			allResults.push(await measureSingleTarget(page, port, targetHtml));
+			if (!existsSync(join(SITE_DIR, targetHtml))) {
+				log(`[measure] skip: ${targetHtml} (file not found in site dir)`);
+				continue;
+			}
+			allResults.push(measureSingleTargetWithoutBrowser(targetHtml));
 		}
-	} finally {
-		await browser.close();
-		server.close();
+	} else {
+		const { server, port } = await startStaticServer(SITE_DIR);
+		log(`[measure] serving ${SITE_DIR} on http://127.0.0.1:${port}/`);
+
+		const browser = await chromium.launch();
+		try {
+			const ctx = await browser.newContext();
+			const page = await ctx.newPage();
+			for (const targetHtml of TARGET_HTML_LIST) {
+				allResults.push(await measureSingleTarget(page, port, targetHtml));
+			}
+		} finally {
+			await browser.close();
+			server.close();
+		}
 	}
 
 	// #1803: marketplace 実 activity 数 + LP 訴求 claim を計算
@@ -388,6 +499,9 @@ async function main() {
 		desktopHeight: single.desktopHeight,
 		forbiddenTerms: single.forbiddenTerms,
 		ctaVariants: single.ctaVariants,
+		// #1783: 物理欠落 LP screenshot を CI で可視化する
+		screenshotRefs: single.screenshotRefs ?? [],
+		missingScreenshots: single.missingScreenshots ?? [],
 		thresholds: THRESHOLDS,
 		// #1637 R34: 全ターゲットの結果も併せて記録
 		all: allResults,
@@ -408,7 +522,10 @@ async function main() {
 	log('\n[OK] all LP metrics within thresholds');
 }
 
-main().catch((err) => {
-	logErr('[measure] error:', err);
-	process.exit(1);
-});
+// CLI として直接実行されたときのみ main() を起動 (#1783: テストで import しても副作用を出さない)
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+	main().catch((err) => {
+		logErr('[measure] error:', err);
+		process.exit(1);
+	});
+}

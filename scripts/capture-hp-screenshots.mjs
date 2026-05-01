@@ -2,12 +2,15 @@
 
 // scripts/capture-hp-screenshots.mjs
 // HP (site/index.html) 用のプロダクトスクリーンショットを自動取得
-// 使用法: node scripts/capture-hp-screenshots.mjs [--webp] [--only carousel|feature|age]
+// 使用法:
+//   node scripts/capture-hp-screenshots.mjs [--webp] [--only <group|name>]
 // 前提: npm run dev でローカルサーバーが起動していること
 //
 // オプション:
-//   --webp    PNG撮影後にWebPへ自動変換（sharp Node API を使用）
-//   --only X  指定グループのみ撮影 (carousel, feature, age)
+//   --webp        PNG撮影後にWebPへ自動変換（sharp Node API を使用）
+//   --only X      撮影対象を絞り込む。X はグループ名 (carousel, feature, age, growth)
+//                 もしくは個別の screenshot 名 (例: feature-belongings-checklist)
+//                 #1783: 個別撮り直し (`npm run capture:feature -- <name>`) で利用
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,16 +31,22 @@ const args = process.argv.slice(2);
 const doWebp = args.includes('--webp');
 const onlyIdx = args.indexOf('--only');
 let onlyGroup = null;
+let onlyName = null;
 if (onlyIdx >= 0) {
 	const nextArg = args[onlyIdx + 1];
-	if (!nextArg || !VALID_GROUPS.has(nextArg)) {
-		console.error(`Error: --only requires a valid group name: ${[...VALID_GROUPS].join(', ')}`);
+	if (!nextArg) {
+		console.error('Error: --only requires a value (group name or screenshot name)');
 		console.error(
-			'Usage: node scripts/capture-hp-screenshots.mjs [--webp] [--only carousel|feature|age|growth]',
+			'Usage: node scripts/capture-hp-screenshots.mjs [--webp] [--only carousel|feature|age|growth|<name>]',
 		);
 		process.exit(1);
 	}
-	onlyGroup = nextArg;
+	if (VALID_GROUPS.has(nextArg)) {
+		onlyGroup = nextArg;
+	} else {
+		// 個別 screenshot 名 (#1783): `--only feature-belongings-checklist` 等
+		onlyName = nextArg;
+	}
 }
 
 // ============================================================
@@ -114,7 +123,9 @@ const FEATURE_SCREENSHOTS = [
 		url: '/demo/checklist?childId=904',
 		description: 'Features: 持ち物チェックリスト (子供画面)',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
-		scrollTo: '[data-testid="checklist-group-item"]',
+		// #1783: kind 削除 (#1755 #1709-A) で旧 [data-testid="checklist-group-item"] が消滅し
+		// waitForSelector がタイムアウトしていた。現行 DOM の demo-checklist-item-* に追従する。
+		scrollTo: '[data-testid^="demo-checklist-item-"]',
 	},
 	{
 		name: 'feature-growth-record-admin',
@@ -123,12 +134,13 @@ const FEATURE_SCREENSHOTS = [
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	// #1707 R2: machine-tour ③ ルーティンチェックリスト（朝夜の習慣化）
+	// #1783: 旧 testid 廃止に伴い demo-checklist-item-* に追従。
 	{
 		name: 'feature-routine-checklist',
 		url: '/demo/checklist?childId=904',
 		description: 'Features: ルーティンチェックリスト (子供画面)',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
-		scrollTo: '[data-testid="checklist-group-item"]',
+		scrollTo: '[data-testid^="demo-checklist-item-"]',
 	},
 	// #1707 R2: machine-tour ④ RPG バトル（冒険のクライマックス）
 	{
@@ -237,10 +249,27 @@ const AGE_SCREENSHOTS = [
 ];
 
 const ALL_SCREENSHOTS = [];
-if (!onlyGroup || onlyGroup === 'carousel') ALL_SCREENSHOTS.push(...CAROUSEL_SCREENSHOTS);
-if (!onlyGroup || onlyGroup === 'feature') ALL_SCREENSHOTS.push(...FEATURE_SCREENSHOTS);
-if (!onlyGroup || onlyGroup === 'age') ALL_SCREENSHOTS.push(...AGE_SCREENSHOTS);
-if (!onlyGroup || onlyGroup === 'growth') ALL_SCREENSHOTS.push(...GROWTH_STAGE_SCREENSHOTS);
+if (onlyName) {
+	// #1783: 個別 screenshot 名指定。全 spec を平坦化して name で完全一致検索。
+	const allSpecs = [
+		...CAROUSEL_SCREENSHOTS,
+		...FEATURE_SCREENSHOTS,
+		...AGE_SCREENSHOTS,
+		...GROWTH_STAGE_SCREENSHOTS,
+	];
+	const found = allSpecs.find((s) => s.name === onlyName);
+	if (!found) {
+		const names = allSpecs.map((s) => s.name).sort();
+		console.error(`Error: --only ${onlyName} not found. Valid names:\n  ${names.join('\n  ')}`);
+		process.exit(1);
+	}
+	ALL_SCREENSHOTS.push(found);
+} else {
+	if (!onlyGroup || onlyGroup === 'carousel') ALL_SCREENSHOTS.push(...CAROUSEL_SCREENSHOTS);
+	if (!onlyGroup || onlyGroup === 'feature') ALL_SCREENSHOTS.push(...FEATURE_SCREENSHOTS);
+	if (!onlyGroup || onlyGroup === 'age') ALL_SCREENSHOTS.push(...AGE_SCREENSHOTS);
+	if (!onlyGroup || onlyGroup === 'growth') ALL_SCREENSHOTS.push(...GROWTH_STAGE_SCREENSHOTS);
+}
 
 // ============================================================
 // Main capture function
@@ -252,6 +281,7 @@ async function captureScreenshots() {
 	console.log(`Base URL: ${BASE_URL}`);
 	console.log(`Output: ${OUTPUT_DIR}`);
 	if (onlyGroup) console.log(`Group filter: ${onlyGroup}`);
+	if (onlyName) console.log(`Name filter: ${onlyName}`);
 	if (doWebp) console.log('WebP conversion: enabled');
 	console.log('');
 
@@ -294,6 +324,16 @@ async function captureScreenshots() {
 
 	await capturer.teardown();
 	console.log(`\n撮影完了: ${successCount}/${totalFiles} ファイル`);
+
+	// #1783: 撮影失敗ゼロ容認 — 1 件でも失敗したら exit 1（古い画像を黙って残さない / ADR-0029）
+	const failedCount = totalFiles - successCount;
+	if (failedCount > 0) {
+		console.error(`\n[FAIL] 撮影失敗 ${failedCount}/${totalFiles} 件`);
+		console.error(
+			'  → CI が無言で古い画像を残すのを防ぐため、失敗 1 件でも exit 1 します (ADR-0029 / #1783)',
+		);
+		process.exit(1);
+	}
 
 	// WebP conversion
 	if (doWebp && pngFiles.length > 0) {

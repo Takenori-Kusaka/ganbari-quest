@@ -75,6 +75,11 @@ jobs:
 
       - name: Run LP metrics
         if: steps.lp-changed.outputs.changed == 'true'
+        # #1783: PR 時は site/screenshots/ がコミットされていないため image existence check を skip。
+        # 物理欠落の検出は pages.yml の撮影直後検証 (#1783) と
+        # 本番 LP の HTTP 200 確認 (#1783 AC3) で担保する。
+        env:
+          SKIP_SCREENSHOT_EXISTENCE_CHECK: '1'
         run: node scripts/measure-lp-dimensions.mjs --site-dir=site --output=lp-metrics.json
 
       - name: Upload lp-metrics.json
