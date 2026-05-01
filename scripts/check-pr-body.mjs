@@ -381,44 +381,43 @@ Exit codes:
 // main
 // ---------------------------------------------------------------------------
 
-export async function main(argv = process.argv.slice(2)) {
-	const args = parseArgs(argv);
-	if (args.help) {
-		printHelp();
-		return 0;
-	}
-
-	let body;
+/**
+ * args に基づき PR body を取得する。失敗時は { body: null, exitCode } を返す。
+ * @param {{ bodyFile: string | null; pr: string | null }} args
+ * @returns {{ body: string | null; exitCode: number }}
+ */
+function loadPrBody(args) {
 	if (args.bodyFile) {
 		if (!existsSync(args.bodyFile)) {
 			console.error(`[check-pr-body] ERROR: --body-file が存在しません: ${args.bodyFile}`);
-			return 2;
+			return { body: null, exitCode: 2 };
 		}
-		body = readFileSync(args.bodyFile, 'utf-8');
-	} else if (args.pr) {
+		return { body: readFileSync(args.bodyFile, 'utf-8'), exitCode: 0 };
+	}
+	if (args.pr) {
 		try {
-			body = fetchPrBody(args.pr);
+			return { body: fetchPrBody(args.pr), exitCode: 0 };
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			console.error(`[check-pr-body] ERROR: gh pr view で body 取得失敗: ${msg}`);
-			return 2;
+			return { body: null, exitCode: 2 };
 		}
-	} else {
-		console.error('[check-pr-body] ERROR: --pr <number> または --body-file <path> が必要です');
-		printHelp();
-		return 2;
 	}
+	console.error('[check-pr-body] ERROR: --pr <number> または --body-file <path> が必要です');
+	printHelp();
+	return { body: null, exitCode: 2 };
+}
 
-	if (!existsSync(TEMPLATE_PATH)) {
-		console.error(`[check-pr-body] ERROR: PR template が見つかりません: ${TEMPLATE_PATH}`);
-		return 2;
-	}
-	const template = readFileSync(TEMPLATE_PATH, 'utf-8');
-	const requiredSections = extractRequiredSections(template);
-
+/**
+ * PR body と template から全違反リストを計算する。
+ * @param {string} body
+ * @param {string[]} requiredSections
+ * @param {{ pr: string | null; skipMergeable: boolean }} args
+ * @returns {{ id: string; issue: string; message: string }[]}
+ */
+function collectViolations(body, requiredSections, args) {
 	const violations = [];
 
-	// 1. 必須セクション
 	const missing = findMissingSections(body, requiredSections);
 	if (missing.length > 0) {
 		violations.push({
@@ -432,7 +431,6 @@ export async function main(argv = process.argv.slice(2)) {
 		});
 	}
 
-	// 2. 禁止語
 	const forbidden = scanForbiddenTerms(body);
 	if (forbidden.length > 0) {
 		const sample = forbidden
@@ -449,11 +447,9 @@ export async function main(argv = process.argv.slice(2)) {
 		});
 	}
 
-	// 3. AC マップ
 	const acMap = checkAcMap(body);
 	if (acMap) violations.push({ ...acMap, issue: '#1775 AC2' });
 
-	// 4. Ready for Review チェックリスト
 	const unchecked = findUncheckedReadyChecklist(body);
 	if (unchecked.length > 0) {
 		violations.push({
@@ -467,11 +463,32 @@ export async function main(argv = process.argv.slice(2)) {
 		});
 	}
 
-	// 5. mergeable
 	if (args.pr && !args.skipMergeable) {
 		const mergeable = checkMergeable(args.pr);
 		if (mergeable) violations.push({ ...mergeable, issue: '#1672/#1675/#1718/#1753' });
 	}
+
+	return violations;
+}
+
+export async function main(argv = process.argv.slice(2)) {
+	const args = parseArgs(argv);
+	if (args.help) {
+		printHelp();
+		return 0;
+	}
+
+	const { body, exitCode } = loadPrBody(args);
+	if (body === null) return exitCode;
+
+	if (!existsSync(TEMPLATE_PATH)) {
+		console.error(`[check-pr-body] ERROR: PR template が見つかりません: ${TEMPLATE_PATH}`);
+		return 2;
+	}
+	const template = readFileSync(TEMPLATE_PATH, 'utf-8');
+	const requiredSections = extractRequiredSections(template);
+
+	const violations = collectViolations(body, requiredSections, args);
 
 	if (violations.length === 0) {
 		console.log('[check-pr-body] OK — 違反なし');
