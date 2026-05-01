@@ -149,72 +149,33 @@
   .age-panel-cta{text-align:center;flex-direction:column;align-items:stretch}
 }
 
-/* Core loop — 3層モデル (#1343) */
+/* Core loop — 1 階層 3 cards + 1-shot summary 画像 (#1787)
+   旧 4 階層 (section → 2col → layer-grid → step) を 1 階層に圧縮。
+   旧クラス (.core-loop-step / .core-loop-layer / .core-loop-2col / .core-loop-aside /
+   .core-loop-perspectives / .clp-card / .cls-num / .core-loop-visual / .core-loop-note)
+   は廃止し、CSS / DOM ともに参照無し。再混入は #1790 LP 削除残骸検出 CI で検出される。 */
 #core-loop{padding:36px 16px}
-#core-loop .section-desc{margin-bottom:24px}
-.core-loop{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;max-width:900px;margin:0 auto 16px}
-.core-loop-step{background:#fff;border:2px solid var(--brand-200);border-radius:var(--radius);padding:16px 14px;text-align:center;position:relative}
-.core-loop-step .cls-num{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.12em;margin-bottom:4px}
-.core-loop-step h4{font-size:.93rem;font-weight:700;margin-bottom:5px;color:var(--gray-900)}
-.core-loop-step p{font-size:.82rem;color:var(--gray-600);line-height:1.52}
-/* 3層バッジ・タイトル (#1343) */
-.core-loop-layer{margin-bottom:20px}
-.cll-title{font-size:.98rem;font-weight:700;color:var(--gray-900);margin-bottom:10px;display:flex;align-items:center;gap:7px;max-width:900px;margin-left:auto;margin-right:auto}
-.cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:2px 7px;letter-spacing:.07em;flex-shrink:0}
-.core-loop-layer[data-layer="l1"] .cll-badge{background:var(--brand-500)}
-.core-loop-layer[data-layer="l2"] .cll-badge{background:var(--brand-700)}
-.core-loop-layer[data-layer="l3"] .cll-badge{background:var(--orange-500)}
-/* 親子両視点バナー (#1343) */
-.core-loop-perspectives{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:900px;margin:0 auto 20px}
-.clp-card{border-radius:var(--radius);padding:13px 16px;font-size:.86rem;line-height:1.52}
-.clp-parent{background:var(--brand-50);border:1px solid var(--brand-200)}
-.clp-child{background:var(--gold-100);border:1px solid var(--gold-300)}
-.clp-role{font-size:.74rem;font-weight:700;color:var(--brand-700);margin-bottom:4px;letter-spacing:.06em}
-.clp-child .clp-role{color:var(--gold-600)}
-.clp-card p{margin:0;color:var(--gray-700)}
-/* デスクトップ: 3 つの仕組みを横並びで省スペース (#1343) */
+#core-loop .section-desc{margin-bottom:20px}
+/* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
+.core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
+.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid var(--gray-200)}
+.core-loop-summary figcaption{margin-top:10px;font-size:.86rem;color:var(--gray-700);line-height:1.6;max-width:540px;margin-left:auto;margin-right:auto}
+/* 3 cards: モバイル縦積み / PC 横並び 3 カラム */
+.core-loop-cards{display:grid;grid-template-columns:1fr;gap:14px;max-width:1080px;margin:0 auto}
+.core-loop-card{background:#fff;border:2px solid var(--brand-200);border-radius:var(--radius);padding:18px 18px;display:flex;flex-direction:column;gap:8px}
+.core-loop-card .cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:3px 9px;letter-spacing:.07em;flex-shrink:0;align-self:flex-start}
+.core-loop-card[data-card="l1"] .cll-badge{background:var(--brand-500)}
+.core-loop-card[data-card="l2"] .cll-badge{background:var(--brand-700)}
+.core-loop-card[data-card="l3"] .cll-badge{background:var(--orange-500)}
+.core-loop-card h3{font-size:1.02rem;font-weight:700;margin:0;color:var(--gray-900);line-height:1.4}
+.core-loop-card p{font-size:.86rem;color:var(--gray-700);line-height:1.6;margin:0}
+@media(min-width:768px){
+  .core-loop-cards{grid-template-columns:repeat(3,1fr);gap:18px}
+}
 @media(min-width:1024px){
-  .core-loop-layer-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1080px;margin:0 auto 20px}
-  .core-loop-layer-grid .core-loop-layer{margin-bottom:0}
-  .core-loop-layer-grid .core-loop{grid-template-columns:1fr}
-  .core-loop-layer-grid .cll-title{justify-content:center}
-}
-
-/* PC 2 カラムレイアウト (#1619 R15: text 8 / aside 4 で screenshot を sticky 配置)
-   仕組みグリッドは 3 カラム維持（縦積みすると高さが伸びすぎるため）
-   Phase 5 P2: 1440px+ で aside を 320px に拡張、screenshot をより視認しやすく */
-.core-loop-2col{display:block}
-.core-loop-aside{display:none}
-@media(min-width:1024px){
-  .core-loop-section-inner{max-width:1280px}
-  .core-loop-2col{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;align-items:start}
-  .core-loop-aside{display:block;position:sticky;top:24px}
-  .core-loop-aside .core-loop-visual{max-width:260px;aspect-ratio:390/844;max-height:420px}
-  .core-loop-aside .core-loop-note{margin:10px 0 0;text-align:left;font-size:.78rem;line-height:1.5}
-  /* 2 カラム時の screenshot は縦長に戻す（モバイル UI を訴求するため） */
-  .core-loop-2col .core-loop-aside .core-loop-visual picture source[media*="1024"]{display:none}
-}
-@media(min-width:1440px){
-  .core-loop-section-inner{max-width:1360px}
-  .core-loop-2col{grid-template-columns:minmax(0,1fr) 320px;gap:32px}
-  .core-loop-aside .core-loop-visual{max-width:300px;max-height:480px}
-  .core-loop-aside .core-loop-note{font-size:.82rem}
-}
-/* #1284: aspect-ratio を維持しつつ画像全体を表示するため max-height 拡張 + object-fit:contain に変更 */
-.core-loop-visual{max-width:280px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:380px;background:var(--gray-50)}
-.core-loop-visual img{width:100%;height:100%;display:block;object-fit:contain;object-position:center}
-.core-loop-note{max-width:640px;margin:14px auto 0;text-align:center;font-size:.86rem;color:var(--gray-600);line-height:1.65}
-.core-loop-note strong{color:var(--brand-800)}
-@media(max-width:640px){
-  .core-loop{grid-template-columns:1fr;gap:10px}
-  .core-loop-perspectives{grid-template-columns:1fr}
-}
-
-/* #1284: desktop の picture source は 1280x800 の横長画像に切り替わるため
-   コンテナの aspect-ratio も横長にする（縦長コンテナに横長画像を contain すると
-   画像が小さく見えてしまうため） */
-@media(min-width:1024px){
-  .core-loop-visual{aspect-ratio:1280/800;max-width:560px;max-height:350px}
+  .core-loop-section-inner{max-width:1080px}
+  .core-loop-summary{max-width:720px}
+  .core-loop-cards{gap:20px}
   .tour-card .tour-shot{aspect-ratio:1280/800;max-height:200px}
 }
 
@@ -225,7 +186,7 @@
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
-/* #1284: tour-shot も同様に全画面表示へ修正。称号画面などの主要要素が見えるように */
+/* #1284: tour-shot も同様に全画面表示へ修正。スクショの主要要素が見えるように */
 /* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
 /* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
 /* #1707 R2: scrshot 9 枚追加で mobile 高が膨張するため max-height を 200px に圧縮（PC 整然配置 #1618 と整合） */
@@ -457,7 +418,7 @@
 <section class="hero">
   <h1 data-lp-key="indexB.k2">「やりなさい」を <span>「やりたい！」</span> に変える家族 RPG</h1>
   <p class="hero-sub">
-    <span data-lp-key="indexB.k3">3〜18 歳の毎日の習慣を、ポイント・スタンプ・称号で冒険に変える。声をかけなくても、自分から動きだす家族時間へ。</span>
+    <span data-lp-key="indexB.k3">3〜18 歳の毎日の習慣を、ポイント・スタンプ・レベルで冒険に変える。声をかけなくても、自分から動きだす家族時間へ。</span>
   </p>
   <!-- #1625 R21: 価格 anchor 1 行バンド（30 秒で離脱判断する親 P1 向け） -->
   <p class="hero-price-band" data-lp-key="heroPriceBand.container"><span class="hpb-item" data-lp-key="heroPriceBand.itemFree"><strong>基本無料</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemPrice">月 <strong>¥500〜</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemTrial">有料は 7 日間無料</span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemCancel">いつでも解約</span></p>
@@ -475,7 +436,7 @@
   <!-- #1628 R24: 仕様起点の数字バッジ（PMF 後送り testimonial、現時点は仕様値のみ） -->
   <ul class="hero-spec-badges" aria-label="主な仕様">
     <li data-lp-key="heroSpecBadges.ageRange"><strong>3〜18 歳</strong> 対応</li>
-    <li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動</li>
+    <li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動 の候補</li>
     <li data-lp-key="heroSpecBadges.setupTime"><strong>約 5 分</strong> で初期設定</li>
   </ul>
   <div class="hero-carousel">
@@ -596,7 +557,7 @@
         <div class="age-panel-body">
           <h3 data-lp-key="indexB.k10">ひらがな中心・丸みのある大きなボタン</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k11">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
-          <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣がプリセット済み。ログインボーナスで毎日おみくじが 1 回引けて、スタンプカードが週末に 1 枚完成します。</p>
+          <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。セットアップで好きなものを選ぶだけ。ログインボーナスで毎日おみくじが 1 回引けて、スタンプカードが週末に 1 枚完成します。</p>
           <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
@@ -605,7 +566,7 @@
         <div class="age-panel-body">
           <h3 data-lp-key="indexB.k14">漢字 + 情報密度で 15 年継続できる UI</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k15">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
-          <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。実績解放と称号で「次は何をクリアしよう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
+          <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
           <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
@@ -615,140 +576,67 @@
 </section>
 <!-- LP-LANDMARK:age-panel end -->
 
-<!-- LP-LANDMARK:core-loop start — コアループ 3 つの仕組み（毎日の活動 / 習慣カード / ごほうび交換）の描画 (#1343, #1615 R11 顧客語彙化)
-     変更時は docs/design/lp-content-map.md §コアループ原則を確認
-     用語 SSOT: src/lib/domain/labels.ts LP_CORELOOP_LABELS / FEATURE_LABELS -->
-<!-- [03] コアループ（3 つの仕組み: 毎日の活動 / 習慣カード / ごほうび交換） -->
+<!-- LP-LANDMARK:core-loop start — コアループ 3 つの仕組み（活動 / 習慣 / ごほうび）の描画 (#1343, #1615 R11 顧客語彙化, #1787 4 階層→1 階層 3 カード再構成)
+     変更時は docs/design/lp-content-map.md §3.5 魅せ方規範 / §コアループ原則を確認
+     用語 SSOT: src/lib/domain/labels.ts LP_CORELOOP_LABELS / FEATURE_LABELS
+     #1787: 4 階層 (section → 2col → layer-grid → step) → 1 階層 3 カードに圧縮。
+       1-shot summary 画像 (assets/lp/core-loop-summary.png) で全体像を提示し、
+       3 cards (活動 / 習慣 / ごほうび) は各 badge + h3 + 短文 1 行のみ。
+       廃止: .core-loop-perspectives / .cls-num / .core-loop-aside / STEP 1/2 構造
+     #1789: 「魅せ方規範 §」§3.5 規範 B (soft-features 並列 3 cards) に整合 -->
+<!-- [03] コアループ（3 つの仕組み: 活動 / 習慣 / ごほうび — 1 階層 3 cards） -->
 <section class="section bg-gray" id="core-loop">
   <div class="section-inner core-loop-section-inner">
     <h2 class="section-title" data-lp-key="coreloop.sectionTitle">3 つの仕組みで、毎日のがんばりが本物の報酬になる</h2>
-    <p class="section-desc" data-lp-key="coreloop.sectionDesc">毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。子供は本来、自分で動きたい力を持っています。シール帳で 3 日でやめてしまった経験のある方こそ、活動 → 習慣 → ごほうびの 3 つの仕組みでお試しください。</p>
+    <p class="section-desc" data-lp-key="coreloop.sectionDesc">毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。活動 → 習慣 → ごほうびの 3 つの仕組みで、子供が自分から動きだす毎日へ。</p>
 
-    <!-- R15: PC 2 カラムレイアウトラッパー (text + visual を横並び) -->
-    <div class="core-loop-2col">
-      <div class="core-loop-text">
+    <!-- 1-shot summary 画像（Gemini 生成、活動 → 習慣 → ごほうびの循環図） -->
+    <figure class="core-loop-summary">
+      <img src="assets/lp/core-loop-summary.png" alt="活動 → 習慣 → ごほうび の循環図 — D3 勇者キャラクターを中心に 3 要素が円環で結ばれる" data-lp-key="coreloop.summaryImageAlt" data-lp-attr="alt" width="640" height="320" loading="lazy" data-lightbox="">
+      <figcaption data-lp-key="coreloop.summaryCaption">活動を記録 → ポイントが貯まる → ごほうびと交換。子供が自分で計画する力を、3 つの仕組みで支えます。</figcaption>
+    </figure>
 
-    <!-- 親子両視点バナー -->
-    <div class="core-loop-perspectives">
-      <div class="clp-card clp-parent">
-        <div class="clp-role" data-lp-key="indexB.k19">🧑‍💻 親の視点</div>
-        <p data-lp-key="coreloop.parentPerspectiveDesc">プリセット活動で設定は 2 分。子供の取り組みをポイントで定量把握できます。</p>
-      </div>
-      <div class="clp-card clp-child">
-        <div class="clp-role" data-lp-key="indexB.k20">🧒 子供の視点</div>
-        <p data-lp-key="coreloop.childPerspectiveDesc">活動を重ねてポイントを貯め、ごほうびショップで欲しいものと交換できます。</p>
-      </div>
-    </div>
-
-    <!-- 3 つの仕組みグリッド: PC 2 カラム時は縦積み -->
-    <div class="core-loop-layer-grid">
-
-    <!-- 仕組み 1: 毎日の活動 -->
-    <div class="core-loop-layer" data-layer="l1">
-      <h3 class="cll-title">
+    <!-- 3 cards: 1 階層、各カード = badge + h3 + 短文 1 行 -->
+    <div class="core-loop-cards">
+      <div class="core-loop-card" data-card="l1">
         <span class="cll-badge" data-lp-key="coreloop.l1Badge">活動</span>
-        <span data-lp-key="coreloop.l1Title">毎日の活動 — がんばりを記録する</span>
-      </h3>
-      <div class="core-loop">
-        <div class="core-loop-step">
-          <div class="cls-num">STEP 1</div>
-          <h4 data-lp-key="coreloop.l1Step1Title">活動を 2 タップで記録</h4>
-          <p data-lp-key="coreloop.l1Step1Desc">「はみがきした」「宿題おわった」をタップするだけ。プリセット活動がそのまま使えるので設定は最小限です。</p>
-        </div>
-        <div class="core-loop-step">
-          <div class="cls-num">STEP 2</div>
-          <h4 data-lp-key="coreloop.l1Step2Title">ポイントが獲得できる</h4>
-          <p data-lp-key="coreloop.l1Step2Desc">記録した活動に応じてポイントが加算。「今日どれだけ頑張ったか」が数字で見えます。</p>
-        </div>
+        <h3 data-lp-key="coreloop.l1Title">毎日の活動を記録</h3>
+        <p data-lp-key="coreloop.l1Desc">「はみがきした」「宿題おわった」を 2 タップで記録。学年別に用意された候補から、家庭で必要なものを選んで設定できます。</p>
       </div>
-    </div>
-
-    <!-- 仕組み 2: 習慣カード -->
-    <div class="core-loop-layer" data-layer="l2">
-      <h3 class="cll-title">
+      <div class="core-loop-card" data-card="l2">
         <span class="cll-badge" data-lp-key="coreloop.l2Badge">習慣</span>
-        <span data-lp-key="coreloop.l2Title">習慣カード — 毎日の楽しみで続ける</span>
-      </h3>
-      <div class="core-loop">
-        <div class="core-loop-step">
-          <div class="cls-num">STEP 1</div>
-          <h4 data-lp-key="coreloop.l2Step1Title">おみくじスタンプを引く</h4>
-          <p data-lp-key="coreloop.l2Step1Desc">1 日 1 回までのおみくじスタンプ。スタンプのレア度に応じてボーナスポイントが獲得でき、毎日記録する習慣が、自然に身につきます（1 日 1 回までで煽らない設計）。</p>
-        </div>
-        <div class="core-loop-step">
-          <div class="cls-num">STEP 2</div>
-          <h4 data-lp-key="coreloop.l2Step2Title">スタンプカードが完成する</h4>
-          <p data-lp-key="coreloop.l2Step2Desc">1 週間続けるとスタンプカードが 1 枚完成。三日坊主を防ぐ「継続の見える化」です。</p>
-        </div>
+        <h3 data-lp-key="coreloop.l2Title">習慣カードで続ける</h3>
+        <p data-lp-key="coreloop.l2Desc">1 日 1 回までのおみくじスタンプ。1 週間続けるとスタンプカードが完成し、三日坊主を防ぐ「継続の見える化」になります（煽らない設計）。</p>
       </div>
-    </div>
-
-    <!-- 仕組み 3: ごほうび交換 -->
-    <div class="core-loop-layer" data-layer="l3">
-      <h3 class="cll-title">
+      <div class="core-loop-card" data-card="l3">
         <span class="cll-badge" data-lp-key="coreloop.l3Badge">ごほうび</span>
-        <span data-lp-key="coreloop.l3Title">ごほうび交換 — ポイントを欲しいものに換える</span>
-      </h3>
-      <div class="core-loop">
-        <div class="core-loop-step">
-          <div class="cls-num">STEP 1</div>
-          <h4 data-lp-key="coreloop.l3Step1Title">ポイントを蓄積する</h4>
-          <p data-lp-key="coreloop.l3Step1Desc">毎日の活動ポイントと習慣カードのボーナスポイントが積み上がります。ポイントは家庭内の通貨として機能します。</p>
-        </div>
-        <div class="core-loop-step">
-          <div class="cls-num">STEP 2</div>
-          <h4 data-lp-key="coreloop.l3Step2Title">ごほうびショップで交換</h4>
-          <p data-lp-key="coreloop.l3Step2Desc">貯めたポイントはごほうびショップが唯一の出口。実物のプレゼント・お小遣い・特権（夜ふかし権など）を親が設定し、子供が自分で選んで交換できます。</p>
-        </div>
+        <h3 data-lp-key="coreloop.l3Title">ごほうびショップで交換</h3>
+        <p data-lp-key="coreloop.l3Desc">貯めたポイントはごほうびショップが唯一の出口。実物のプレゼント・お小遣い・特権を親が設定し、子供が自分で選んで交換できます。</p>
       </div>
     </div>
-
-    </div><!-- /.core-loop-layer-grid -->
-
-      </div><!-- /.core-loop-text -->
-
-      <!-- R15: PC 2 カラム右側 — screenshot を sticky 配置 -->
-      <aside class="core-loop-aside">
-        <div class="core-loop-visual">
-          <picture>
-            <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/feature-point-level.webp" alt="ポイント・レベル・スタンプカード画面" data-lightbox="">
-          </picture>
-        </div>
-        <p class="core-loop-note" data-lp-key="coreloop.shopNote">ごほうびショップは唯一の出口。ポイントは「欲しいものと交換できる通貨」として機能するので、子供の自律的な目標設定を促します。</p>
-      </aside>
-
-    </div><!-- /.core-loop-2col -->
   </div>
 </section>
 
 <!-- LP-LANDMARK:core-loop end -->
 
-<!-- LP-LANDMARK:machine-tour start — [04] 補足機構（[03] では語られない 3 つの工夫）
+<!-- LP-LANDMARK:machine-tour start — [04] 補足機構（[03] では語られない 2 つの工夫）
      #1622 R18 (アプローチ A): [03] 3 つの仕組みと重複するカードを削除し
      長期 / 朝の習慣 / 冒険のクライマックスの 3 つに圧縮
      #1629 R25: ADR-0012 整合のため連続達成系の語彙を刷新
      #1708 R3-A: 旧 ③ カード削除（kind=routine 廃止 + 活動 must 属性化に伴い）
+     #1782: 旧 ① のカードを削除（#404 廃止合意の revert 復活への対応）。
+       ADR-0012 §6「収集目的の独立 UI / コレクション閲覧ページ / ミッションリスト UI 駆動導線」
+       禁止に整合し、長期の達成感はチャレンジ機能 (/admin/challenges) に統合。
+       3 cards → 2 cards に再圧縮。
      各幕の追加/削除は docs/design/lp-content-map.md §machine-tour を必ず更新 -->
-<!-- [04] 補足機構（[03] のコアループに加えて支える 3 つの工夫） -->
+<!-- [04] 補足機構（[03] のコアループに加えて支える 2 つの工夫） -->
 <section class="section bg-white" id="machine-tour" data-testid="feature-section">
   <div class="section-inner">
-    <h2 class="section-title" data-lp-key="indexB.k21">コアループを支える 3 つの工夫</h2>
-    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、長期の達成感・朝の準備・冒険のクライマックスから支える 3 つの工夫です。</p>
+    <h2 class="section-title" data-lp-key="indexB.k21">コアループを支える 2 つの工夫</h2>
+    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の準備と冒険のクライマックスから支える 2 つの工夫です。</p>
     <div class="machine-tour">
-      <div class="tour-card">
-        <div class="tour-phase" data-lp-key="indexB.k23">① 長期の達成感</div>
-        <h3 data-lp-key="indexB.k24">実績 &amp; 称号</h3>
-        <p data-lp-key="indexB.k25">「はじめのぼうけんしゃ」から「でんせつのゆうしゃ」へ。長期の積み重ねが称号として永久に刻まれ、子供の自己肯定感を支えます。</p>
-        <div class="tour-shot">
-          <picture>
-            <source srcset="screenshots/feature-titles-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/feature-titles.webp" alt="称号獲得画面" data-lightbox="">
-          </picture>
-        </div>
-      </div>
       <div class="tour-card" data-testid="feature-belongings-checklist">
-        <div class="tour-phase" data-lp-key="indexB.k26">② 朝の準備をスムーズに</div>
+        <div class="tour-phase" data-lp-key="indexB.k26">① 朝の準備をスムーズに</div>
         <h3 data-lp-key="indexB.k27">持ち物チェックリスト</h3>
         <p data-lp-key="indexB.k28">通学や習い事の持ち物を、子ども自身がタップ確認。</p>
         <p data-lp-key="indexB.k29">朝の「あれ持った？」を減らします。</p>
@@ -760,7 +648,7 @@
         </div>
       </div>
       <div class="tour-card" data-testid="feature-rpg-battle">
-        <div class="tour-phase" data-lp-key="indexB.k34">③ 冒険のクライマックス</div>
+        <div class="tour-phase" data-lp-key="indexB.k34">② 冒険のクライマックス</div>
         <h3 data-lp-key="indexB.k35">RPG バトル</h3>
         <p data-lp-key="indexB.k36">毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。</p>
         <div class="tour-shot">
@@ -857,12 +745,12 @@
             <div class="gr-shot">
               <picture>
                 <source srcset="screenshots/growth-stage-elementary-desktop.webp" media="(min-width:1024px)" type="image/webp">
-                <img src="screenshots/growth-stage-elementary.webp" alt="小学生ホーム画面 — 称号コレクションとデイリーミッション" loading="lazy" data-lightbox="">
+                <img src="screenshots/growth-stage-elementary.webp" alt="小学生ホーム画面 — ポイント・レベル・チャレンジ" loading="lazy" data-lightbox="">
               </picture>
             </div>
-            <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、称号で「次は何を達成しよう？」と自分で目標を立てる力が育ちます。</p>
+            <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、ウィークリーチャレンジで「次は何をやろう？」と自分で目標を立てる力が育ちます。</p>
             <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.elementaryChildExperience">称号や実績が増え、「次は何を狙おう」と自分で計画する楽しさ</span></p>
+            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.elementaryChildExperience">ポイントとチャレンジが積み重なり、「次は何をやろう」と自分で計画する楽しさ</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="junior">
