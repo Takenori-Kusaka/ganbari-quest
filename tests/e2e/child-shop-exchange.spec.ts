@@ -199,14 +199,23 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 
 		// 申請後は「申請中」バッジが表示されるか、交換ボタンが非表示になる
 		// どちらかの状態になることを確認（UIの実装に応じて）
+		// #1771: isVisible() 同期評価 + 論理合成 (hasA || !hasB).toBe(true) は auto-retry が
+		// 効かず flake する (#1768 admin-checklists 同類問題)。expect.poll() で web-first 化する。
 		const pendingBadge = affordableCard.getByText('申請中');
 		const exchangeBtnAfter = affordableCard.locator('button[data-testid^="exchange-btn-"]');
 
-		const hasPendingBadge = await pendingBadge.isVisible().catch(() => false);
-		const hasExchangeBtn = await exchangeBtnAfter.isVisible().catch(() => false);
-
-		// 申請後は「申請中」バッジが表示されるか交換ボタンが消えるかのどちらか
-		expect(hasPendingBadge || !hasExchangeBtn).toBe(true);
+		// 「申請中バッジが表示される」または「交換ボタンが消える」のどちらかになるまで poll
+		// (UI の実装により遷移タイミングが異なるが、いずれにせよ 5s 以内に確定する)
+		await expect
+			.poll(
+				async () => {
+					const hasPendingBadge = await pendingBadge.isVisible().catch(() => false);
+					const hasExchangeBtn = await exchangeBtnAfter.isVisible().catch(() => false);
+					return hasPendingBadge || !hasExchangeBtn;
+				},
+				{ timeout: 5000 },
+			)
+			.toBe(true);
 	});
 
 	test('キャンセルでダイアログが閉じる', async ({ page }) => {
