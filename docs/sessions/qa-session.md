@@ -481,6 +481,25 @@ diff にサービス層・リポジトリ層・ドメインモデルの変更が
 - スコープ外の発見を「別の修正によるもの」としてスルーしない — Issue 起票するか修正する
 - assertion を弱める修正を安易に受け入れない（ADR-0006）
 
+### Review body draft の Write tool 例外（#1804）
+
+`gh pr review --approve --body-file` / `--request-changes --body-file` で長文 review body を渡すときは、
+**HEREDOC 禁止** (ADR-0003 / #1172) のため Write tool / `cat > ... << 'EOF'` で **一時ファイル `tmp/review-bodies/<pr-num>.md` を作成することが許容される**。
+これは sub-agent ハーネスの「report files / summary を書くな」一般原則の **明示的例外**。
+
+```bash
+# 1. Review body 全文（AC 照合・SS 視認所見・§9 禁忌チェック等）を Write tool または cat で保存
+#    例: tmp/review-bodies/1804.md
+# 2. Review 投稿
+gh pr review <pr-num> --approve --body-file tmp/review-bodies/<pr-num>.md
+# 3. 完了後に削除
+rm tmp/review-bodies/<pr-num>.md
+```
+
+`tmp/` は `.gitignore` 配下のためコミットされない。findings / analysis の report file ではなく、GitHub Review 投稿前段の一時ファイル。
+`gh pr comment --body-file` / `gh issue comment --body-file` 用には `tmp/comment-bodies/<slug>.md` を同じ要領で使う。
+詳細運用規約は `docs/sessions/po-session.md` §「Issue 起票の技術手順（HEREDOC 禁止 — #1172）」参照（Issue / PR / Review 共通）。
+
 ---
 
 ## 参照すべきドキュメント（Review Agent が手順中に参照）
