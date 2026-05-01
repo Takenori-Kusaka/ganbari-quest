@@ -1219,11 +1219,13 @@
       var aria=labels['ariaLabel'+phase.charAt(0).toUpperCase()+phase.slice(1)];
       if(text!==undefined){
         // <small>/<strong> のみ想定。XSS 安全のため Purify があれば使う。
+        // Purify 未ロード時は textContent 直接代入（HTML タグはそのままテキスト表示されるが
+        // XSS 経路にはならない）。regex strip は incomplete sanitization のため使わない（CodeQL）。
         var Purify=window.DOMPurify;
         if(Purify){
           textEl.innerHTML=Purify.sanitize(text,{ALLOWED_TAGS:['small','strong','em','br'],ALLOWED_ATTR:[]});
         }else{
-          textEl.textContent=text.replace(/<[^>]+>/g,'');
+          textEl.textContent=text;
         }
       }
       if(btnText!==undefined)btnEl.textContent=btnText;
