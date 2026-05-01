@@ -5492,6 +5492,47 @@ export const LP_SELFHOST_LABELS = {
 } as const;
 
 // ============================================================
+// LP_FLOATING_CTA_LABELS (#1732)
+// ============================================================
+// floating-cta（モバイル下部追従 CTA）の深度別文言。
+// ADR-0009 (labels SSOT) + ADR-0012 (Anti-engagement) + ADR-0013 (LP truth) 整合。
+//
+// 深度切替仕様（site/index.html の floating-cta スクリプトが参照）:
+//   - 0% 〜 hero pass (≈ scrollY 500px 以下): 非表示（hero 領域には Hero CTA があるため）
+//   - hero pass 〜 midStart% (デフォルト 30%): phase=hero
+//       「全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>」+ CTA「無料で始める」/ href=/auth/signup
+//   - midStart% 〜 bottomStart% (デフォルト 70%): phase=mid
+//       「コアループは 1 分で体験できます」+ CTA「デモを見る」/ href=/demo
+//   - bottomStart% 〜 (デフォルト 70% 以上): phase=bottom
+//       「ここまで読まれた方へ」+ CTA「無料で始める」/ href=/auth/signup
+//
+// CTA テキスト 3 文言 (`無料で始める` x 2 + `デモを見る` x 1) は既に LP 内で許可されている
+// ctaVariants 3 種（無料で始める / デモを見る / ログイン）の範囲内に収まる（ratchet 維持）。
+// 補強コピー (text) のみが phase で 3 通りに変化する。
+//
+// Anti-engagement (ADR-0012): 文言は「煽る」表現を避け、状況提示型 / 共感型 / 軽い再訴求 にとどめる。
+// 「今すぐ始める」「あと X 人」「タイムセール」などの urgency 演出は使わない。
+
+export const LP_FLOATING_CTA_LABELS = {
+	// 各 phase の補強コピー（HTML 可、<small> + <strong> のみ想定）
+	heroText: '全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>',
+	midText: 'コアループは 1 分で体験できます<small>サインアップ前に動きを確認</small>',
+	bottomText: 'ここまで読まれた方へ<small>7 日間無料・クレジットカード不要</small>',
+	// 各 phase の CTA ボタン文言（既存 ctaVariants 3 種の範囲内）
+	heroButton: '無料で始める',
+	midButton: 'デモを見る',
+	bottomButton: '無料で始める',
+	// 各 phase の CTA href
+	heroHref: 'https://ganbari-quest.com/auth/signup',
+	midHref: 'https://ganbari-quest.com/demo',
+	bottomHref: 'https://ganbari-quest.com/auth/signup',
+	// aria-label（読み上げ用）
+	ariaLabelHero: '7 日間無料トライアルへのご案内',
+	ariaLabelMid: 'デモ画面で機能を体験',
+	ariaLabelBottom: '無料トライアル開始のご案内',
+} as const;
+
+// ============================================================
 // LP_INDEX_EXTRA_LABELS (#1465 SSOT Fixes)
 // ============================================================
 

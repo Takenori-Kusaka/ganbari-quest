@@ -378,9 +378,12 @@
 .floating-cta{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--gray-900);padding:10px 16px;transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -2px 12px rgba(0,0,0,.15)}
 .floating-cta.visible{transform:translateY(0)}
 .floating-cta-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between}
-.floating-cta-text{font-size:.82rem;color:#fff;font-weight:600;line-height:1.3}
+.floating-cta-text{font-size:.82rem;color:#fff;font-weight:600;line-height:1.3;transition:opacity .2s ease}
 .floating-cta-text small{display:block;font-size:.72rem;font-weight:400;color:var(--gray-400)}
-.floating-cta .btn{white-space:nowrap;padding:8px 16px;font-size:.82rem;flex-shrink:0}
+.floating-cta .btn{white-space:nowrap;padding:8px 16px;font-size:.82rem;flex-shrink:0;transition:background-color .2s ease,color .2s ease}
+/* #1732: phase 別のサブカラーアクセント（ボタン文言切替時の違和感緩和、Anti-engagement に整合する穏やかな差別化） */
+.floating-cta[data-floating-cta-phase="mid"] .btn-primary{background:var(--brand-700);}
+.floating-cta[data-floating-cta-phase="bottom"] .btn-primary{background:var(--brand-800);}
 @media(min-width:769px){.floating-cta{display:none!important}}
 
 /* NAV — text links (ログインの ghost button スタイルは shared.css .nav-login を参照、#1285) */
@@ -1065,11 +1068,16 @@
   </div>
 </footer>
 
-<!-- Floating CTA — mobile only (#583) -->
-<div class="floating-cta" id="floating-cta" aria-hidden="true">
+<!-- Floating CTA — mobile only (#583, #1732 深度別文言)
+     data-floating-cta="container" は scripts/measure-lp-dimensions.mjs の
+     extractCtaVariants で除外対象。深度切替で同一機能ユニット内の文言が
+     可変するため、ctaVariants ratchet（≤3）の集計に含めない（lp-content-map.md §7.4）。
+     初期 SSR は phase=hero の文言を表示し、JS load 後に scroll listener で書き換える。
+     SEO / no-JS 環境でも初期文言は読める。 -->
+<div class="floating-cta" id="floating-cta" data-floating-cta="container" aria-hidden="true" role="complementary" aria-label="ページ追従の登録案内">
   <div class="floating-cta-inner">
-    <div class="floating-cta-text" data-lp-key="indexB.k83">全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small></div>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="indexB.k84">無料で始める</a>
+    <div class="floating-cta-text" id="floating-cta-text" data-lp-key="floatingCta.heroText">全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small></div>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" id="floating-cta-button" data-lp-key="floatingCta.heroButton" aria-label="7 日間無料トライアルへのご案内">無料で始める</a>
   </div>
 </div>
 
@@ -1157,19 +1165,111 @@
 })();
 </script>
 <script>
-// Floating CTA — show after hero, hide near footer
+// Floating CTA — show after hero, hide near footer (#583)
+// #1732: スクロール深度に応じて文言を 3 phase で切替（hero / mid / bottom）。
+// phase 切替閾値はページ可スクロール量に対する % で計算する（端末高さ・コンテンツ長に対して頑健）。
+// 文言は shared-labels.js の floatingCta.{heroText|midText|bottomText} 等から data-lp-key 経由で注入されており、
+// JS は data-floating-cta-phase 属性を切替えるだけにとどめる。
+// CSS の transition (200ms) で文言切替時に短いフェードを入れる。
+//
+// passive listener + requestAnimationFrame で間引き（Anti-engagement: 過剰な layout 計算を避ける）。
+// IntersectionObserver は深度 % が必要で element 観察ではないため scroll event の方が素直に書ける。
 (()=> {
   var el=document.getElementById('floating-cta');
-  if(!el||window.innerWidth>=769)return;
+  var textEl=document.getElementById('floating-cta-text');
+  var btnEl=document.getElementById('floating-cta-button');
+  if(!el||!textEl||!btnEl||window.innerWidth>=769)return;
   el.style.display='block';
-  var shown=false;
-  function check(){
-    var y=window.scrollY;
-    var show=y>500&&y<document.body.scrollHeight-window.innerHeight-200;
-    if(show!==shown){shown=show;el.classList.toggle('visible',show);el.setAttribute('aria-hidden',!show)}
+
+  // 閾値 (%): hero pass=0% (scrollY > 500px で出現)、mid >=30%、bottom >=70%
+  var MID_START_PERCENT=30;
+  var BOTTOM_START_PERCENT=70;
+  var SHOW_AFTER_PX=500;
+  var HIDE_BEFORE_FOOTER_PX=200;
+
+  // shared-labels.js が GANBARI_LABELS.lp.floatingCta を提供する。
+  // 未ロード時は SSR 既定（hero）を維持する fail-safe。
+  function getLabels(){
+    var g=(typeof window!=='undefined')&&window.GANBARI_LABELS;
+    return (g&&g.lp&&g.lp.floatingCta)||null;
   }
-  window.addEventListener('scroll',check,{passive:true});
-  check();
+
+  // 初期 SSR 文言は heroText だが data-floating-cta-phase 属性は未設定。
+  // 最初の compute() で必ず属性を設定するため currentPhase は null から始める。
+  var currentPhase=null;
+  var visible=false;
+  var rafScheduled=false;
+
+  function applyPhase(phase){
+    if(phase===currentPhase)return;
+    currentPhase=phase;
+    el.setAttribute('data-floating-cta-phase',phase);
+    var labels=getLabels();
+    var key='floatingCta.'+phase+'Text';
+    var btnKey='floatingCta.'+phase+'Button';
+    var hrefKey='floatingCta.'+phase+'Href';
+    var ariaKey='floatingCta.ariaLabel'+phase.charAt(0).toUpperCase()+phase.slice(1);
+    // data-lp-key を切替えるだけだと shared-labels.js の applyLpKeys が再実行されないため、
+    // ここで直接 textContent / innerHTML / href を上書きする。innerHTML は labels.ts → DOMPurify 経由で
+    // 既に sanitize されているので二次注入は不要（floatingCta の値は <small>/<strong> のみ想定で安全）。
+    if(labels){
+      var text=labels[phase+'Text'];
+      var btnText=labels[phase+'Button'];
+      var href=labels[phase+'Href'];
+      var aria=labels['ariaLabel'+phase.charAt(0).toUpperCase()+phase.slice(1)];
+      if(text!==undefined){
+        // <small>/<strong> のみ想定。XSS 安全のため Purify があれば使う。
+        var Purify=window.DOMPurify;
+        if(Purify){
+          textEl.innerHTML=Purify.sanitize(text,{ALLOWED_TAGS:['small','strong','em','br'],ALLOWED_ATTR:[]});
+        }else{
+          textEl.textContent=text.replace(/<[^>]+>/g,'');
+        }
+      }
+      if(btnText!==undefined)btnEl.textContent=btnText;
+      if(href)btnEl.setAttribute('href',href);
+      if(aria)btnEl.setAttribute('aria-label',aria);
+    }
+    // data-lp-key も同期させて applyLpKeys 後の再実行に備える
+    textEl.setAttribute('data-lp-key',key);
+    btnEl.setAttribute('data-lp-key',btnKey);
+  }
+
+  function compute(){
+    rafScheduled=false;
+    var y=window.scrollY;
+    var docH=document.documentElement.scrollHeight||document.body.scrollHeight;
+    var winH=window.innerHeight;
+    var maxScroll=Math.max(1,docH-winH);
+    var percent=(y/maxScroll)*100;
+
+    var nextVisible=y>SHOW_AFTER_PX&&y<docH-winH-HIDE_BEFORE_FOOTER_PX;
+    if(nextVisible!==visible){
+      visible=nextVisible;
+      el.classList.toggle('visible',visible);
+      el.setAttribute('aria-hidden',!visible);
+    }
+
+    var phase='hero';
+    if(percent>=BOTTOM_START_PERCENT)phase='bottom';
+    else if(percent>=MID_START_PERCENT)phase='mid';
+    applyPhase(phase);
+  }
+
+  function onScroll(){
+    if(rafScheduled)return;
+    rafScheduled=true;
+    window.requestAnimationFrame(compute);
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  window.addEventListener('resize',onScroll,{passive:true});
+  // shared-labels.js の applyLpKeys 後に SSR 既定（hero）が確実に注入されてから phase=hero を確認する
+  // ため、DOMContentLoaded + 1 frame 後にも 1 回 compute する。
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){window.requestAnimationFrame(compute)});
+  }else{
+    window.requestAnimationFrame(compute);
+  }
 })();
 </script>
 <script src="shared-labels.js"></script>

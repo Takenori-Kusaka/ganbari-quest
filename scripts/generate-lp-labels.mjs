@@ -132,6 +132,8 @@ function parseLabelsTs() {
 	const lpFaqLabels = parseBlock(src, 'LP_FAQ_LABELS');
 	const lpSelfhostLabels = parseBlock(src, 'LP_SELFHOST_LABELS');
 	const lpIndexExtraLabels = parseBlock(src, 'LP_INDEX_EXTRA_LABELS');
+	// #1732: floating-cta 深度別文言
+	const lpFloatingCtaLabels = parseBlock(src, 'LP_FLOATING_CTA_LABELS');
 	const lpPamphletLabels = parseBlock(src, 'LP_PAMPHLET_LABELS');
 	const lpPricingExtraLabels = parseBlock(src, 'LP_PRICING_EXTRA_LABELS');
 	// #1702: site/{index,pricing,faq,pamphlet}.html 339 件 SSOT 化用 phase B namespace
@@ -163,6 +165,7 @@ function parseLabelsTs() {
 		lpFaqLabels,
 		lpSelfhostLabels,
 		lpIndexExtraLabels,
+		lpFloatingCtaLabels,
 		lpPamphletLabels,
 		lpPricingExtraLabels,
 		lpIndexPhaseBLabels,
@@ -224,6 +227,7 @@ function generateSharedLabelsJs() {
 		lpFaqLabels,
 		lpSelfhostLabels,
 		lpIndexExtraLabels,
+		lpFloatingCtaLabels,
 		lpPamphletLabels,
 		lpPricingExtraLabels,
 		lpIndexPhaseBLabels,
@@ -275,6 +279,8 @@ function generateSharedLabelsJs() {
 		faq: lpFaqLabels,
 		selfhost: lpSelfhostLabels,
 		indexExtra: lpIndexExtraLabels,
+		// #1732: floating-cta 深度別文言（site/index.html の floating-cta スクリプトが参照）
+		floatingCta: lpFloatingCtaLabels,
 		pamphlet: lpPamphletLabels,
 		pricingExtra: lpPricingExtraLabels,
 		// #1702: site/{index,pricing,faq,pamphlet}.html 339 件 SSOT 化用 phase B namespace

@@ -672,6 +672,20 @@
 			"k113": "無料で始める",
 			"k114": "&#10005;"
 		},
+		"floatingCta": {
+			"heroText": "全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>",
+			"midText": "コアループは 1 分で体験できます<small>サインアップ前に動きを確認</small>",
+			"bottomText": "ここまで読まれた方へ<small>7 日間無料・クレジットカード不要</small>",
+			"heroButton": "無料で始める",
+			"midButton": "デモを見る",
+			"bottomButton": "無料で始める",
+			"heroHref": "https://ganbari-quest.com/auth/signup",
+			"midHref": "https://ganbari-quest.com/demo",
+			"bottomHref": "https://ganbari-quest.com/auth/signup",
+			"ariaLabelHero": "7 日間無料トライアルへのご案内",
+			"ariaLabelMid": "デモ画面で機能を体験",
+			"ariaLabelBottom": "無料トライアル開始のご案内"
+		},
 		"pamphlet": {
 			"k1": "がんばりクエスト パンフレット",
 			"k2": "&#x1F5A8; 印刷 / PDF保存",

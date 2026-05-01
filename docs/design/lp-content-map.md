@@ -525,7 +525,47 @@ FAQ 専用ページ (`/faq`) のカテゴリ構成:
 - モバイルで `nav-signup` と `floating-cta` を同時表示しない（#1290、`.nav-signup` は ≤768px で `display:none`）
 - ヘッダー常時 signup CTA は `btn-primary` + **`無料で始める`** 固定（`ctaVariants` 閾値 3 を維持するため新たな文言バリエーションを追加しない）
 
-### 7.3 CTA 以外のリンク
+### 7.3 floating-cta 深度別文言（#1732）
+
+モバイル下部に追従する `#floating-cta` 要素は、Hero CTA と同じ文言「無料で始める」を単純コピーしたまま下スクロールに追従していたため、ページ深度に応じた読者心理（「もう少し情報が欲しい」「もう決めた」）に合った訴求が機能していなかった。`#1732` で深度別文言切替を導入した。
+
+#### 7.3.1 phase 仕様
+
+| phase | scroll percent (= scrollY / (docH - winH)) | 補強コピー | CTA 文言 | 遷移先 | 心理的ねらい |
+|-------|--------------------------------------------|------------|----------|--------|-------------|
+| (hidden) | scrollY ≤ 500px | — | — | — | hero 領域に既存 CTA があるため非表示 |
+| **hero** | 0% 〜 30% | `LP_FLOATING_CTA_LABELS.heroText` 「全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>」 | `無料で始める` | `/auth/signup` | 「即決派」のための初期訴求 |
+| **mid** | 30% 〜 70% | `LP_FLOATING_CTA_LABELS.midText` 「コアループは 1 分で体験できます<small>サインアップ前に動きを確認</small>」 | `デモを見る` | `/demo` | 「もう少し見たい派」へのデモ誘導 |
+| **bottom** | 70% 〜 (footer 手前 200px まで) | `LP_FLOATING_CTA_LABELS.bottomText` 「ここまで読まれた方へ<small>7 日間無料・クレジットカード不要</small>」 | `無料で始める` | `/auth/signup` | 「最後まで読み切った派」への背中押し |
+
+切替閾値・文言は `LP_FLOATING_CTA_LABELS`（`src/lib/domain/labels.ts`）→ `site/shared-labels.js` の `GANBARI_LABELS.lp.floatingCta` 経由で `data-lp-key="floatingCta.*"` で注入される。HTML / CSS / JS は文言を直書きしない（ADR-0009 SSOT）。
+
+#### 7.3.2 ctaVariants ratchet との関係
+
+floating-cta は **単一機能ユニット** として扱い、深度切替で同一要素の文言が可変するため `scripts/measure-lp-dimensions.mjs` の `extractCtaVariants` 集計から **除外**する（`closest('[data-floating-cta]')` でフィルタ）。これにより:
+
+- floating-cta 内の補強コピー / CTA 文言を 3 段階で動的に変えても `ctaVariants ≤ 3` ratchet は維持される
+- 既存の許可 CTA 3 種（`無料で始める` / `デモを見る` / `ログイン`）はそのまま閾値計算対象として維持
+
+floating-cta の CTA ボタン文言は、ratchet とは独立に **既存 CTA 3 種の組合せ内**（`無料で始める`x2 + `デモを見る`x1）に揃える。新たな文言（「今すぐ始める」「Sign up」等）を floating-cta にだけ追加することは禁止 — 全体の CTA 一貫性が崩れるため。
+
+#### 7.3.3 Anti-engagement 整合（ADR-0012）
+
+- 文言は「煽る」表現を避け、状況提示型 / 軽い再訴求 にとどめる（「今すぐ」「あと N 人」「タイムセール」「期間限定」は使用しない）
+- 切替は CSS `transition: opacity .2s ease` で穏やかにフェード。pulse / shake / 連続色変化等のアテンション奪取演出は使わない
+- 1 つの phase では文言は固定。スクロール往復のたびに文言がチカチカ変わる動作は許容しない（実装は data-floating-cta-phase 属性が変化したときのみ書き換え）
+
+#### 7.3.4 LP truth 整合（ADR-0013）
+
+- `mid` phase の「コアループは 1 分で体験できます」は `/demo` 画面が実装済みで現に体験可能（committed）であるため記載を許容
+- `bottom` phase の「7 日間無料」は trial 仕様 (#779 ファミリー / standard 加入) と整合する committed 機能
+
+#### 7.3.5 並行実装ペア
+
+- `src/lib/domain/labels.ts` `LP_FLOATING_CTA_LABELS` ←→ `site/shared-labels.js` `GANBARI_LABELS.lp.floatingCta`
+- 文言を変更するときは labels.ts を編集し `node scripts/generate-lp-labels.mjs` で再生成
+
+### 7.4 CTA 以外のリンク
 
 | 種類 | 配置 | スタイル |
 |---|---|---|
