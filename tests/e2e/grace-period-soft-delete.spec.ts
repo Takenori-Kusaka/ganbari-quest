@@ -93,20 +93,17 @@ test.describe('#1781 grace-period soft-delete API contract', () => {
 	});
 
 	test('owner-with-transfer は softDelete を経由しない（従来動作維持）', async ({ request }) => {
-		// transfer は他メンバーへの権限移譲のみで、テナント全体は残るため soft-delete 不要
+		// transfer は他メンバーへの権限移譲のみで、テナント全体は残るため soft-delete 不要。
+		// 存在しない newOwnerId を渡すため 200 にはならない（400 で contract 上はじかれる）。
+		// 認証/Cognito 状態に応じて 401 / 403 / 400 / 500 のいずれかになる。
 		const res = await request.post('/api/v1/admin/account/delete', {
 			headers: { 'Content-Type': 'application/json' },
 			data: { pattern: 'owner-with-transfer', newOwnerId: 'unknown-user-id' },
 		});
 		const status = res.status();
-		// 401 / 403 / 400 (移譲先存在せず) / 500 (Cognito 未設定) のいずれか
+		// 401 / 403 / 400 (移譲先存在せず) / 500 (Cognito 未設定) のいずれか。
+		// 200 は出ないため成功時の body 検証は不要（dead code 削除 / #1811 Re-Review）。
 		expect([400, 401, 403, 500]).toContain(status);
-
-		if (status === 200) {
-			const body = await res.json();
-			// transfer は soft-delete フィールドを持たない（従来動作）
-			expect(body.pattern).toBe('owner-with-transfer');
-		}
 	});
 
 	test('child / member パターンは soft-delete を経由しない（自分のメンバーシップのみ）', async ({

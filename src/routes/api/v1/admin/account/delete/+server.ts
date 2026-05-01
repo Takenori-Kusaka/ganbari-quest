@@ -1,6 +1,7 @@
 // src/routes/api/v1/admin/account/delete/+server.ts
 // 統一アカウント削除エンドポイント (#458, #1781)
-// pattern パラメータで4つの削除パターンを分岐
+// pattern パラメータで5つの削除パターンを分岐
+// (owner-only / owner-with-transfer / owner-full-delete / child / member)
 //
 // #1781: owner-only / owner-full-delete はプラン別グレースピリオドを適用する。
 //   - free       → 即時物理削除（従来動作）
@@ -8,6 +9,12 @@
 //   - family     → 30 日 soft-delete（同上）
 // 物理削除は cron `/api/cron/grace-period-deletion` が `purgeExpiredSoftDeletedTenants`
 // 経由で実行する。
+//
+// トランザクション順序（#1811 Re-Review 修正）:
+// 有料プランの soft-delete 経路では Stripe キャンセルを **先に** 実行し、成功した場合のみ
+// settings への soft-delete 記録を行う。Stripe 側のエラーで早期リターンすることで、
+// 「DB は soft-delete 済み + Stripe 側は課金継続」という不整合を防ぐ。
+// 詳細: docs/design/account-deletion-flow.md §3 / §4.2 (#741 Stripe キャンセル先行原則)。
 
 import type { RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
@@ -20,7 +27,11 @@ import {
 	deleteOwnerOnlyAccount,
 	transferOwnershipAndLeave,
 } from '$lib/server/services/account-deletion-service';
-import { softDeleteTenant } from '$lib/server/services/grace-period-service';
+import {
+	DELETION_GRACE_PERIOD_DAYS,
+	softDeleteTenant,
+} from '$lib/server/services/grace-period-service';
+import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { cancelSubscription } from '$lib/server/services/stripe-service';
 
 interface DeleteRequestBody {
@@ -61,17 +72,29 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				}
 
 				// #1781: プラン別グレースピリオド配線。
-				// soft-delete 経路に進むかは plan tier で決まる（free=即時 / standard=7d / family=30d）。
-				const soft = await softDeleteTenant(
+				// 経路選択は plan tier で決まる（free=即時 / standard=7d / family=30d）。
+				//
+				// #1811 Re-Review: トランザクション順序の整合性を維持するため、
+				// 有料プランでは Stripe キャンセル → soft-delete 記録の順序で実行する。
+				// Stripe 失敗時は settings への記録を行わず early return することで、
+				// 「DB soft-delete 済み + Stripe 課金継続」の不整合を防ぐ。
+				const planTier = await resolveFullPlanTier(
 					tenantId,
 					context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 					context.plan,
 				);
+				const graceDays = DELETION_GRACE_PERIOD_DAYS[planTier];
 
-				if (!soft.requiresImmediateDeletion) {
-					// 有料プラン: Stripe を即キャンセルして請求停止 (ADR-0022)、
-					// データはグレースピリオド期間中保持（cron が物理削除）。
+				if (graceDays > 0) {
+					// 有料プラン: Stripe を先にキャンセル（失敗時は throw され catch で 500）。
 					await cancelSubscription(tenantId);
+
+					// Stripe 成功後にのみ settings に soft-delete 状態を記録。
+					const soft = await softDeleteTenant(
+						tenantId,
+						context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+						context.plan,
+					);
 					logger.info('[account-delete] Pattern 1 soft-deleted (grace period)', {
 						context: {
 							tenantId,
@@ -88,7 +111,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					});
 				}
 
-				// free プラン: 即時物理削除
+				// free プラン: 即時物理削除（deleteOwnerOnlyAccount 内で cancelSubscription を呼ぶ）
 				const result = await deleteOwnerOnlyAccount(tenantId, identity.userId);
 				logger.info('[account-delete] Pattern 1 完了 (immediate deletion / free)', {
 					context: { tenantId },
@@ -118,16 +141,26 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				// #1781: 全削除パターンも同様にグレースピリオドを適用する。
 				// 有料プランでは soft-delete のみ実施し、cron が物理削除時に
 				// 全メンバーの Cognito 削除と他メンバーへのメール通知を行う。
-				const soft = await softDeleteTenant(
+				//
+				// #1811 Re-Review: owner-only と同じく、Stripe キャンセル先行で整合性を維持。
+				const planTier = await resolveFullPlanTier(
 					tenantId,
 					context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
 					context.plan,
 				);
+				const graceDays = DELETION_GRACE_PERIOD_DAYS[planTier];
 
-				if (!soft.requiresImmediateDeletion) {
-					// 有料プラン: Stripe を即キャンセルしてデータ保持（cron が物理削除）。
+				if (graceDays > 0) {
+					// 有料プラン: Stripe を先にキャンセル（失敗時は throw され catch で 500）。
 					// 他メンバーへのメール通知も物理削除時にまとめて行う（restore 可能性を残すため）。
 					await cancelSubscription(tenantId);
+
+					// Stripe 成功後にのみ settings に soft-delete 状態を記録。
+					const soft = await softDeleteTenant(
+						tenantId,
+						context.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+						context.plan,
+					);
 					logger.info('[account-delete] Pattern 2b soft-deleted (grace period)', {
 						context: {
 							tenantId,
@@ -144,7 +177,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					});
 				}
 
-				// free プラン: 即時物理削除
+				// free プラン: 即時物理削除（deleteOwnerFullDelete 内で cancelSubscription を呼ぶ）
 				const result = await deleteOwnerFullDelete(tenantId, identity.userId);
 				logger.info('[account-delete] Pattern 2b 完了 (immediate deletion / free)', {
 					context: { tenantId },

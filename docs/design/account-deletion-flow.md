@@ -125,7 +125,7 @@ POST /api/v1/admin/account/delete  (pattern=owner-only / owner-full-delete)
 soft delete されたテナントは以下の状態になる:
 
 - `settings` テーブルに `soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date` が記録される
-- Stripe Subscription は **即時にキャンセル**（grace 期間中に再課金されない / ADR-0022）
+- Stripe Subscription は **即時にキャンセル**（grace 期間中に再課金されない / #741、§3 参照）
 - DB のテナント本体・children・activities 等は **保持**（復元のため）
 - ユーザはサインアウトされる（`window.location.href = '/auth/signout'`）が、再ログインすれば admin 画面で復元 UI を見られる
 
