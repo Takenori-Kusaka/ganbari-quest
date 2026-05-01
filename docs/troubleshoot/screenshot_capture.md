@@ -480,3 +480,63 @@ git commit -m "docs: pr-XXXX screenshots"
 - `.github/PULL_REQUEST_TEMPLATE.md` の「添付ルール」「Ready for Review チェックリスト」にも記載
 
 ---
+
+## SC-011 — DOM スナップショット併記必須化（SS と実機の乖離防止）
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-04-30 |
+| **PR 番号 / Issue 番号** | #1717（事故）/ #1747 AC4（再発防止）/ #1766（実装） |
+| **環境** | 全環境 |
+| **ステータス** | resolved |
+
+### 症状
+
+PR #1717（Legal SSOT 化）で SS が PR body に添付されていたものの、実機 DOM とは乖離していた（DOMPurify が legal docs の構造タグを strip していたが、SS だけでは見抜けなかった）事例。QM Re-Review で構造タグの保持を grep 検証したくても、SS の中身を機械的に検査する手段が無かった。
+
+### 根本原因
+
+SS は画像であり、文字列としては検査できない。SS を撮ったタイミングと実機を別途確認するタイミングがずれると、撮影時の DOM 状態が後で再現できない。CI で構造タグの保持・ラベル文字列の存在確認をしたくても、PR body に添付された画像を OCR するのは非現実的。
+
+### 解決手順
+
+**`scripts/capture.mjs` のデフォルト動作で DOM HTML を併せて保存する** (#1766 で導入):
+
+1. SS と DOM HTML を **同一プロセス・同一 Playwright page インスタンス** で取得
+2. `<file>.png` / `<file>.webp` の隣に `<file>.dom.html` を保存
+3. `--pr` モードで出力される Markdown スニペットには SS の直下に `[DOM HTML](...)` リンクが自動併記される
+
+```bash
+# デフォルトで DOM スナップショット有効
+MSYS_NO_PATHCONV=1 node scripts/capture.mjs --pr 1766 --url /admin/children --presets desktop,mobile
+
+# 出力例:
+#   tmp/screenshots/pr-1766/admin-children-desktop.png
+#   tmp/screenshots/pr-1766/admin-children-desktop.dom.html
+#   tmp/screenshots/pr-1766/admin-children-mobile.png
+#   tmp/screenshots/pr-1766/admin-children-mobile.dom.html
+
+# 意図的に opt-out する場合（PR body に理由明記必須）
+MSYS_NO_PATHCONV=1 node scripts/capture.mjs --no-dom-snapshot --url /admin/children
+```
+
+**QM Re-Review での活用**:
+
+```bash
+# 構造タグの保持確認（PR #1717 のような事故の検知）
+grep -E '<(article|h[1-6]|table|thead|tbody|tr|td|ol|ul|li)\b' \
+  tmp/screenshots/pr-1766/admin-children-desktop.dom.html
+
+# 表示すべきラベルが DOM 上に存在するか（CI 自動拒否ルールの強化に使える）
+grep '保護者向けの管理画面' tmp/screenshots/pr-1766/admin-children-desktop.dom.html
+```
+
+### 再発防止策
+
+- `scripts/lib/screenshot-helpers.mjs` の `ScreenshotCapture.capture()` がデフォルトで DOM HTML を保存（opt-out フラグは `--no-dom-snapshot`）
+- `scripts/check-pr-screenshot.mjs` が UI PR で SS が添付されているのに `.dom.html` 参照が無い PR を CI で検出（#1766 / #1747 AC4）
+- `docs/sessions/dev-session.md` Screenshot Agent テンプレート §1 にデフォルト動作を明記
+- `docs/sessions/qa-session.md` 手順 2 で QM が DOM HTML を Read tool で開いて主要ラベル grep を実行するルールを追加
+- `.github/PULL_REQUEST_TEMPLATE.md` 「スクリーンショット / ビジュアルデモ」セクションで `.dom.html` 併記を必須化
+
+---

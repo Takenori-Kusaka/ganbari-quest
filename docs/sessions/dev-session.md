@@ -100,11 +100,20 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs \
   --out tmp/screenshots/pr-XXXX \
   --presets desktop,mobile
 
+撮影と同時に DOM HTML スナップショット (`<file>.dom.html`) が同一プロセスで自動保存される (#1747 AC4 / #1766)。
+これは PR #1717 で発生した「SS と実機が乖離していた」事故の再発防止のため、SS と DOM が
+**同一プロセス・同一 page インスタンス** で取得されたことを構造的に保証するもの。
+QM Re-Review 時に DOM HTML を grep して構造タグの保持を機械的に検証可能になる。
+
+`--no-dom-snapshot` で opt-out 可能だが、その場合は PR body に省略理由を明記する必要がある
+（CI の `screenshot-quality-check` で UI PR の場合に DOM 参照欠落が検出される）。
+
 ### 2. コマンドの禁止事項
 
 - /demo/* のURLは使用禁止（デモ画面は実アプリではない）
 - フルURL（http://...）を--urlに渡さない（内部で二重結合になり404になる既知バグ）
 - MSYS_NO_PATHCONV=1 なしで実行しない（パスがWindowsパスに変換されて404になる）
+- DOM スナップショットを `--no-dom-snapshot` で省略する場合は PR body に理由を必ず明記する（CI が DOM HTML 参照の欠落を検出する — #1766）
 
 ### 3. 撮影後のUI/UXセルフレビュー（Agentが自分で実施）
 
@@ -132,7 +141,9 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs \
 ### 4. 成果物の配置
 
 - スクリーンショットは docs/screenshots/ に配置してコミットする（tmp/ はgitignore対象）
+- DOM HTML スナップショット（`<file>.dom.html`）も SS と同じディレクトリに併せてコミットする (#1747 AC4 / #1766)
 - PR bodyの「スクリーンショット / ビジュアルデモ」セクションに貼り付け（Before/After表形式）
+- 各 SS の直下に対応する DOM HTML へのリンクを併記する（`scripts/capture.mjs --pr` の出力 Markdown スニペットに自動で含まれる）
 
 #### URL 形式の制約（#1741 — ローカル相対パス禁止）
 

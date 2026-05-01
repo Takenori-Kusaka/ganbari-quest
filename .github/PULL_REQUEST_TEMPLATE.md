@@ -222,6 +222,20 @@ closes #
 ⚠️ **禁止**: `tmp/screenshots/...` / `.tmp-screenshots/...` 等のローカル相対パス（`tmp/` は gitignore 対象 — SC-008 / SC-010 参照）。
 PR 提出前に GitHub Web 上のプレビューで画像が表示されていることを目視確認すること。
 
+### DOM スナップショット併記ルール（#1747 AC4 / #1766）
+
+UI 変更 PR で SS を添付する場合、**SS と同一プロセスで取得した DOM HTML スナップショット (`<file>.dom.html`) へのリンクを併記すること**。
+`scripts/capture.mjs` がデフォルトで DOM HTML を SS と同じディレクトリに保存し、`--pr` モードでは PR body 用 Markdown スニペットに自動併記される。
+
+| | スクリーンショット | DOM HTML スナップショット |
+|---|---|---|
+| 役割 | 視覚的確認 | 構造タグ / ラベルの機械的 grep 検証 |
+| 取得タイミング | `page.screenshot()` | 同一 page から `document.documentElement.outerHTML` |
+| ファイル名 | `<name>.png` / `<name>.webp` | `<name>.dom.html` |
+
+⚠️ **禁止**: SS だけ添付して `.dom.html` 参照を省略する（CI の `screenshot-quality-check` が UI PR で検出して警告/失敗する）。
+`--no-dom-snapshot` で意図的に省略する場合は **本セクションに省略理由を明記**すること（背景: PR #1717 で SS と実機 DOM が乖離していた事故の構造的再発防止）。
+
 ### 4 スロット添付（#1740 — 修正前 / 修正後 × モバイル / PC）
 
 | | モバイル (375px) | PC (1440px) |
@@ -402,6 +416,7 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - [ ] UI 変更がある場合、**UI/UX デザイナー視点**で `docs/DESIGN.md` §9 禁忌事項 6 点 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超え) に該当しないことを**目視確認し、証跡としてスクリーンショットを添付**した
 - [ ] 認証が絡む画面を変更した場合、`npm run dev:cognito` (#1026) で実ブラウザ操作した結果のスクリーンショットを添付した
 - [ ] **SS の表示確認 (#1741)**: 添付したスクリーンショットが GitHub Web 上のプレビューで表示されることを確認した（ローカル相対パス `tmp/...` / `.tmp-screenshots/...` を貼っていない）
+- [ ] **DOM スナップショット併記 (#1747 AC4 / #1766)**: UI 変更 PR で SS を添付している場合、対応する `<file>.dom.html` リンクが PR body に含まれていることを確認した（`--no-dom-snapshot` で省略する場合は理由を本文に明記済み）
 - [ ] **hardcoded JP text (#1452 Phase A)**: `node scripts/check-hardcoded-strings.mjs` を実行して件数が baseline（1607件）以下であることを確認した（`src/routes/**/*.svelte` 内の日本語ハードコード増加ゼロ）
 
 ## Critical 修正の追加要件（#612）
