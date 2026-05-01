@@ -408,8 +408,12 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 
 ## Ready for Review チェックリスト
 
-<!-- Draft → Ready for Review に変更する前に全て確認すること -->
-- [ ] CI が全て通過している
+<!-- Draft → Ready for Review に変更する前に全て確認すること。
+     旧 "CI が全て通過している" 項目 (#1775 で削除) は self-referential な循環依存を生んでいた
+     (CI 通過しないと [x] にできないが、この項目自体が CI ゲート対象 → Fix Agent が項目埋めだけのために動く事故が PR #1746/#1751/#1754/#1759/#1765/#1770 で発生)。
+     CI 通過は GitHub Status Checks 側で別途検証されるため、本チェックリストからは除外する。
+     代わりに `npm run pre-ready -- --pr <num>` でローカル一括セルフチェックを実行すること。 -->
+- [ ] **`npm run pre-ready -- --pr <num>` を実行して全 Step PASS を確認した (#1775)** — biome / svelte-check / vitest / hardcoded-strings / lp-dimensions (LP 変更時) / check-pr-body をローカル一括検証
 - [ ] セルフレビュー済み（不要な差分・デバッグコードがないこと）
 - [ ] **全 AC が実装済みであること**（TODO / 予定 のまま残っている AC がないこと）
 - [ ] **Phase 分割が必要だった場合は着手前に PO と合意し、子 Issue を起票済みであること**（レビュー時に「Phase 1/2 分割提案」はしない）

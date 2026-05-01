@@ -2,6 +2,12 @@ name: PR Merge Gate
 
 # #1481: PR チェックリスト未完了 / AC 検証マップ未記入を CI でブロックする
 # Required status checks に `pr-merge-gate / checklist-check` を追加すること（デプロイ後に手動設定）
+#
+# #1775 改訂 (2026-05-01):
+#   PR template から「CI が全て通過している」項目を削除し、`npm run pre-ready` 実行項目に置換。
+#   旧項目は self-referential な循環依存 (CI 通過しないと [x] にできないがこの項目自体が CI ゲート対象)
+#   を生んでおり、PR #1746/#1751/#1754/#1759/#1765/#1770 で Fix Agent が項目埋めだけのために動く事故が頻発。
+#   CI 通過確認は GitHub Status Checks 側に委ね、本 workflow はチェックリスト未完了のみを検出する。
 
 on:
   pull_request:

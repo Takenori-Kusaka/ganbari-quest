@@ -292,12 +292,32 @@ gh issue list --state open --label "priority:high" --json number,title,labels \
 1. `git fetch origin && git pull` で最新化
 2. 対象 PR・Issue・レビューコメントを確認: `gh pr view <番号>`, `gh issue view <番号>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応は禁止）
-4. コミット前チェック（全て通過必須）:
-   - `npx biome check .` — lint エラーなし
-   - `npx svelte-check` — 型エラーなし
-   - `npx vitest run` — ユニットテスト全通過
-   - `npx playwright test` — E2E テスト全通過
-5. **AC 検証マップを全行埋める（ADR-0004 必須）** — 実装完了後、PR 作成前に PR 本文の「AC 検証マップ」の全行を埋めること。空行がある場合は**実装未了と見なす**（コマンド結果 / スクリーンショットパス / grep 結果で埋める）
+4. **Ready 化前一括セルフチェック (`npm run pre-ready` — 必須、#1775)**:
+
+   ```bash
+   # PR 作成済みの場合
+   npm run pre-ready -- --pr <PR番号>
+
+   # PR 未作成 (Draft 前) の場合 — Step 6 PR body / mergeable 検証はスキップ
+   npm run pre-ready
+   ```
+
+   `scripts/pre-ready.mjs` が以下 7 Step を順次実行し、いずれかが fail したら**即停止 + 修正方針を表示**する。
+   従来は個別コマンドの実行漏れが Re-Review サイクルを引き起こしていた (PR #1746/#1751/#1754/#1759/#1765/#1770) ため、この一括検査を必須化する。
+
+   | Step | 内容 | 用途 |
+   |------|------|------|
+   | 1 | `npx biome check .` | lint |
+   | 2 | `npx svelte-check` | TS strict 型 |
+   | 3 | `npx vitest run` | unit test |
+   | 4 | `check-hardcoded-strings.mjs` | JP ハードコード baseline (#1452) |
+   | 5 | `measure-lp-dimensions.mjs` | LP 寸法 / 禁止語 (LP 変更時のみ) |
+   | 6 | `check-pr-body.mjs --pr <num>` | PR body 必須セクション / 禁止語 / AC マップ / mergeable |
+   | 7 | `capture.mjs --pr <num>` | UI 変更時の撮影ガイダンス |
+
+   個別 step を skip する `--skip-vitest` 等のオプションはあるが、Ready 化時点では**全 step PASS 必須**。
+   E2E (`npx playwright test`) と Storybook (`npm run test:storybook`) は重いため pre-ready 対象外。Ready 化前に別途実行すること。
+5. **AC 検証マップを全行埋める（ADR-0004 必須）** — 実装完了後、PR 作成前に PR 本文の「AC 検証マップ」の全行を埋めること。空行がある場合は**実装未了と見なす**（コマンド結果 / スクリーンショットパス / grep 結果で埋める）。Step 6 (`check-pr-body.mjs`) が 4 列未記入を検出する
 5.5. **PR 作成前の gh アカウント確認（#1728 / ADR-0022 amendment 必須）** — `gh pr create` の直前に必ず実行:
 
    ```bash
