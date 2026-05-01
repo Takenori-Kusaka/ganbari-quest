@@ -95,3 +95,6 @@ docs/design/logo-candidates/
 # PR証跡スクリーンショット（GitHub PR に直接アップロードすること。git管理不要）
 docs/pr-screenshots/
 
+# PR# プレフィックスの screenshots は screenshots ブランチに push（main 追跡禁止）
+pr-*/
+
