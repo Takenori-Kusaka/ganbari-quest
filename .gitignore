@@ -98,3 +98,8 @@ docs/pr-screenshots/
 # PR# プレフィックスの screenshots は screenshots ブランチに push（main 追跡禁止）
 pr-*/
 
+# 一時 screenshots / 旧 PR アセット / 孤児 sound は履歴から filter-repo で抹消済み（main 追跡禁止）
+tmp-screenshots/
+docs/pr-assets/
+/sound/
+
