@@ -7,7 +7,7 @@
 - Date: 2026-04-20
 - Issue: #1212 (#1212-A 子 Issue)
 - 起票者 / 決定者: Takenori Kusaka (PO)
-- 関連 ADR: ADR-0001 (リネーム時の後方互換必須), ADR-0023 (Pre-PMF Issue 優先度), ADR-0035 (設計ポリシー先行確認フロー)
+- 関連 ADR: ADR-0001 (リネーム時の後方互換必須), ADR-0010 (Pre-PMF スコープ判断、旧 ADR-0023 統合先 — ADR-0031 帰属マップ参照), ADR-0035 (設計ポリシー先行確認フロー)
 - 一次資料: `docs/design/gender-segmentation-market-research.md` (150+ 出典 / 日本の実家庭データ)
 
 ## 改訂履歴
