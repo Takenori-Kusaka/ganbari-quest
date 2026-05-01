@@ -4330,11 +4330,7 @@ export const LP_VERSUS_LABELS = {
 		'多くのご家庭がまず紙で試して、続かずに諦めています。「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、がんばりクエストだから届く差があります。',
 	tagAnalog: 'シール帳・紙',
 	tagDigital: 'がんばりクエスト',
-	// 各優位点アイコン (#1597 ADR-0023 I5 — 装飾的アクセント枠 / asset-catalog.md 準拠)
-	row1Icon: '📊',
-	row2Icon: '🌱',
-	row3Icon: '🎓',
-	row4Icon: '📍',
+	// #1723 R10: row*Icon (📊 🌱 🎓 📍) は装飾過多のため削除。比較表の構造（タグ + タイトル + 説明）で十分意味が伝わる
 	row1AnalogTitle: '集計が手作業で計算ミスが起きがち',
 	row1DigitalTitle: '自動集計でいつでもポイントが見える',
 	row1DigitalDesc: '子供が「あと 50 ポイントで欲しいごほうび」と自分で計画できます。',
