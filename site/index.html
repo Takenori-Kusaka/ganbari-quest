@@ -416,11 +416,7 @@
 .cta-bottom-disclaimer{font-size:.8rem;opacity:.85;margin:8px auto 0;line-height:1.7;text-align:left;max-width:640px;text-wrap:pretty;word-break:auto-phrase}
 .cta-bottom-disclaimer-link{color:inherit;text-decoration:underline}
 
-/* #1726 R9: founder-inquiry のインラインスタイル除去 + class 化 (短い見出しは center 維持で OK) */
-.founder-inquiry{padding:6px 16px 8px;background:#fff}
-.founder-inquiry-inner{max-width:760px;margin:0 auto;text-align:center;font-size:.85rem;color:var(--gray-700);line-height:1.5;text-wrap:balance}
-.founder-inquiry-heading{font-weight:700}
-.founder-inquiry-cta{color:var(--brand-700);font-weight:600;margin-left:6px}
+/* #1726 R9: 旧 founder セクションの CSS — #1713 R7 / ADR-0028 で対応セクション削除に伴い CSS も削除 */
 
 /* #1632 R28: a11y — details/summary / faq-item / hamburger / 各種ボタンの focus-visible */
 .faq-item summary:focus-visible,
@@ -739,12 +735,13 @@
      #1622 R18 (アプローチ A): [03] 3 つの仕組みと重複するカードを削除し
      長期 / 朝の習慣 / 冒険のクライマックスの 3 つに圧縮
      #1629 R25: ADR-0012 整合のため連続達成系の語彙を刷新
+     #1708 R3-A: 旧 ③ カード削除（kind=routine 廃止 + 活動 must 属性化に伴い）
      各幕の追加/削除は docs/design/lp-content-map.md §machine-tour を必ず更新 -->
 <!-- [04] 補足機構（[03] のコアループに加えて支える 3 つの工夫） -->
 <section class="section bg-white" id="machine-tour" data-testid="feature-section">
   <div class="section-inner">
-    <h2 class="section-title" data-lp-key="indexB.k21">コアループを支える 4 つの工夫</h2>
-    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、長期の達成感・朝の準備・夜の習慣・冒険のクライマックスから支える 4 つの工夫です。</p>
+    <h2 class="section-title" data-lp-key="indexB.k21">コアループを支える 3 つの工夫</h2>
+    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、長期の達成感・朝の準備・冒険のクライマックスから支える 3 つの工夫です。</p>
     <div class="machine-tour">
       <div class="tour-card">
         <div class="tour-phase" data-lp-key="indexB.k23">&#9312; 長期の達成感</div>
@@ -771,22 +768,8 @@
           </picture>
         </div>
       </div>
-      <div class="tour-card" data-testid="feature-routine-checklist">
-        <div class="tour-phase" data-lp-key="indexB.k30">&#9314; 朝夜の習慣化</div>
-        <div class="tour-emoji">&#x1F31E;</div>
-        <h3 data-lp-key="indexB.k31">ルーティンチェックリスト</h3>
-        <p data-lp-key="indexB.k32">朝・夜・週末のくり返しを子ども自身がタップ確認。</p>
-        <p data-lp-key="indexB.k33">「歯みがいた？」「着替えた？」の声かけ負担を減らします。</p>
-        <div class="tour-shot">
-          <picture>
-            <source srcset="screenshots/feature-routine-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp">
-            <img src="screenshots/feature-routine-checklist.webp" alt="ルーティンチェックリスト画面 — 朝・夜の繰り返しタスク一覧" loading="lazy" data-lightbox>
-          </picture>
-        </div>
-        <p class="tour-benefit" data-lp-key="indexB.tourBenefitRoutine"><strong>親が観測できること</strong>: 朝晩の声かけ回数が減り、子供が自分でタップ完了する</p>
-      </div>
       <div class="tour-card" data-testid="feature-rpg-battle">
-        <div class="tour-phase" data-lp-key="indexB.k34">&#9315; 冒険のクライマックス</div>
+        <div class="tour-phase" data-lp-key="indexB.k34">&#9314; 冒険のクライマックス</div>
         <div class="tour-emoji">&#x2694;&#xFE0F;</div>
         <h3 data-lp-key="indexB.k35">RPG バトル</h3>
         <p data-lp-key="indexB.k36">毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。</p>
@@ -1038,15 +1021,9 @@
   </div>
 </section>
 
-<!-- [08b] 開発者に直接相談 (#1594 ADR-0023 I8) -->
-<section id="founder-inquiry" class="founder-inquiry" data-testid="lp-founder-inquiry">
-  <div class="founder-inquiry-inner">
-    <span class="founder-inquiry-heading" data-lp-key="founderInquiry.sectionHeading">👋 開発者に直接相談（無料）</span> — <span data-lp-key="founderInquiry.sectionLead">個人開発のため Pre-PMF 期は開発者本人が直接お返事します。導入前・使い方・解約検討前のご相談、お気軽に。</span>
-    <a href="https://ganbari-quest.com/inquiry/founder" class="founder-inquiry-cta" data-lp-key="founderInquiry.ctaButton" data-testid="lp-founder-inquiry-cta">直接相談する（無料）</a>
-    <span data-lp-key="founderInquiry.ctaSeparator">／</span>
-    <a href="mailto:ganbari.quest.support@gmail.com?subject=%E3%80%90%E3%81%8C%E3%82%93%E3%81%B0%E3%82%8A%E3%82%AF%E3%82%A8%E3%82%B9%E3%83%88%E3%80%91%E9%96%8B%E7%99%BA%E8%80%85%E3%81%AB%E7%9B%B4%E6%8E%A5%E7%9B%B8%E8%AB%87" class="founder-inquiry-cta" data-contact-context="LP founder inquiry" data-lp-key="founderInquiry.mailtoFallback">メールで送る</a>
-  </div>
-</section>
+<!-- [08b] 開発者に直接相談 — #1713 R7 / ADR-0028 で削除 (ADR-0023 §I8 supersede)
+     理由: 「Pre-PMF」内部用語の LP 露出 (ADR-0013 違反) + 最終 CTA 分散 + PO 対応キャパ超過。
+     連絡導線は footer の mailto に集約。詳細は ADR-0028 参照。 -->
 
 <!-- [09] 最終 CTA -->
 <section class="cta-bottom">

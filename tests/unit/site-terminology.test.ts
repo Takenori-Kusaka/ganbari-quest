@@ -1,18 +1,22 @@
 // tests/unit/site-terminology.test.ts
-// #1164: LP で「持ち物チェックリスト」「ルーティンチェックリスト」の
-//        2 語が出現し、**同じ段落内で複数の語を混在させない** ことを保証。
+// #1164: LP で「持ち物チェックリスト」が出現し、**同じ段落内で複数の語を混在させない** ことを保証。
 //
 // ADR-0037 (labels.ts SSOT) + #1168 (CL 種別分離) と同期。
 // 乱雑な混在が再発した #162 系問題の再発防止。
 // Note: 「やることリスト」は #1287/#1573 のLP改訂（soft-features 4カード拡張）で
 //       LP から削除されたため、存在チェックの対象から除外（2026-04-27）。
+// Note 2: 「ルーティンチェックリスト」は #1708 R3-A / ADR-0027 で LP から削除され、
+//       FORBIDDEN_TERMS にも追加された。出現すべきでない語として扱う（2026-04-30）。
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 
-const TERMS = ['持ち物チェックリスト', 'ルーティンチェックリスト'] as const;
+// 出現すべき語（LP の現行訴求と一致）
+const TERMS = ['持ち物チェックリスト'] as const;
+// 出現すべきでない語（廃止語彙）
+const FORBIDDEN_TERMS = ['ルーティンチェックリスト'] as const;
 
 function loadHtml(relPath: string): string {
 	return readFileSync(resolve(relPath), 'utf8');
@@ -46,7 +50,17 @@ describe('#1164 LP terminology separation', () => {
 			});
 		}
 
-		it('同じ段落内で 3 語のうち複数を混在させない', () => {
+		// #1708 R3-A: 廃止語彙が LP に再混入していないか
+		for (const term of FORBIDDEN_TERMS) {
+			it(`廃止語「${term}」が出現しない（#1708 R3-A / ADR-0027）`, () => {
+				expect(
+					html.includes(term),
+					`"${term}" は廃止語彙のため LP に出現してはならない (kind=routine 削除 + 活動 priority='must' 移管)`,
+				).toBe(false);
+			});
+		}
+
+		it('同じ段落内で対象語のうち複数を混在させない', () => {
 			const paragraphs = extractParagraphTexts(html);
 			const violations: string[] = [];
 			for (const para of paragraphs) {
@@ -72,5 +86,16 @@ describe('#1164 LP terminology separation', () => {
 			}
 			expect(violations, `混在違反:\n${violations.join('\n')}`).toEqual([]);
 		});
+
+		// #1708 R3-A: pamphlet.html にも廃止語彙が混入していないか
+		for (const term of FORBIDDEN_TERMS) {
+			it(`pamphlet.html に廃止語「${term}」が出現しない`, () => {
+				const html = loadHtml('site/pamphlet.html');
+				expect(
+					html.includes(term),
+					`"${term}" は廃止語彙のため pamphlet に出現してはならない`,
+				).toBe(false);
+			});
+		}
 	});
 });
