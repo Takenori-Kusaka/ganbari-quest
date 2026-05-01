@@ -186,7 +186,11 @@
 			"row3DigitalDesc": "「使わなくなる」が成功のゴール。卒業を最終地点として設計しています。",
 			"row4AnalogTitle": "家を離れると続けられない",
 			"row4DigitalTitle": "旅行先・祖父母宅でも続けられる",
-			"row4DigitalDesc": "スマホ・タブレットで開けば連続記録が途切れません。"
+			"row4DigitalDesc": "スマホ・タブレットで開けば連続記録が途切れません。",
+			"row1ShotAlt": "自動集計でポイントが見えるホーム画面",
+			"row2ShotAlt": "幼児（3-5 歳）の大ボタン UI 例",
+			"row3ShotAlt": "卒業マイルストーンと履歴エクスポート画面",
+			"row4ShotAlt": "スマホで開ける子供ホーム画面"
 		},
 		"growthRoadmap": {
 			"sectionTitle": "3 歳から 18 歳まで、そして「卒業」へ",
@@ -232,6 +236,17 @@
 			"juniorShotAlt": "中学生ホーム画面 — 月次レポートと自己ペース可視化",
 			"seniorShotAlt": "高校生ホーム画面 — 15 年分のログと進路素材",
 			"graduateShotAlt": "卒業画面 — 履歴エクスポートと家族の手元に残す記録"
+		},
+		"guide": {
+			"sectionTitle": "なぜがんばりクエストは「卒業」を成功と呼ぶのか",
+			"sectionDesc": "長く使ってもらうためのアプリではなく、子供が自律したら卒業するアプリとして設計しています。",
+			"pointAntiEngagementTitle": "滞在時間を伸ばさない設計",
+			"pointAntiEngagementDesc": "連続演出や通知連打は採用しません。記録は数秒で終わるのが正しい使い方です。",
+			"pointCoreTargetTitle": "3-18 歳のコアターゲット",
+			"pointCoreTargetDesc": "年齢が上がるほど自分でペースを決められるよう、UI と機能が段階的に変わります。",
+			"pointFamilyOnlyTitle": "家族だけの閉じた空間",
+			"pointFamilyOnlyDesc": "広告も他家庭との比較もありません。子供のがんばりは家族にしか見えません。",
+			"shotAlt": "がんばりクエストの代表画面 — ポイントとカテゴリの可視化"
 		},
 		"pricing": {
 			"pageTitle": "料金プラン - がんばりクエスト",

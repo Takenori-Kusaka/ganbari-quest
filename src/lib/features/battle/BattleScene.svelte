@@ -1,10 +1,27 @@
 <script lang="ts">
-import type { BattleResult, BattleStats, Enemy } from '$lib/domain/battle-types';
+import type { BattleResult, BattleStats, Enemy, StatName } from '$lib/domain/battle-types';
 import { STAT_LABELS } from '$lib/domain/battle-types';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import BattleHPBar from './BattleHPBar.svelte';
 import BattleLog from './BattleLog.svelte';
+
+// #1791: ステータス 5 軸 → 活動カテゴリ対応表（PO 指摘: ステータスと活動カテゴリの関連性が画面内で訴求できていない）
+// 表示順は HP, ATK, DEF, SPD, REC（BattleStats key 順）に揃え、stats-grid と alignment を一致させる
+const STAT_CATEGORY_LABELS: Record<StatName, string> = {
+	hp: FEATURES_LABELS.battle.statCategoryHpLabel,
+	atk: FEATURES_LABELS.battle.statCategoryAtkLabel,
+	def: FEATURES_LABELS.battle.statCategoryDefLabel,
+	spd: FEATURES_LABELS.battle.statCategorySpdLabel,
+	rec: FEATURES_LABELS.battle.statCategoryRecLabel,
+};
+const STAT_CATEGORY_ICONS: Record<StatName, string> = {
+	hp: '🏃',
+	atk: '📚',
+	def: '🤝',
+	spd: '🏠',
+	rec: '🎨',
+};
 
 let {
 	enemy,
@@ -139,36 +156,9 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 
 <div class="battle-scene" class:critical-flash={criticalFlash} data-testid="battle-scene">
 	<!-- バトルフィールド -->
+	<!-- #1791: 自キャラを画面左 / 敵キャラを画面右に配置（FF・ドラクエ・ポケモン等の RPG 慣習に整合） -->
 	<div class="battle-field" data-testid="battle-field">
-		<!-- 敵サイド -->
-		<div class="combatant enemy-side" data-testid="enemy-side">
-			<BattleHPBar
-				current={enemyHp}
-				max={scaledEnemyMaxHp}
-				label={enemy.name}
-				variant="enemy"
-			/>
-			<div class="sprite-wrap">
-				<div class="sprite" class:shake={enemyShake} class:defeated={enemyHp <= 0}>
-					<img class="sprite-img" src={enemy.image} alt={enemy.name} />
-				</div>
-				{#if enemyDamageFloat}
-					<span
-						class="damage-float"
-						class:critical={enemyDamageFloat.critical}
-						aria-hidden="true"
-					>
-						{enemyDamageFloat.critical ? '💥' : ''}{enemyDamageFloat.value}
-					</span>
-				{/if}
-			</div>
-			<div class="combatant-name" data-testid="enemy-name">{enemy.name}</div>
-		</div>
-
-		<!-- VS 表示 -->
-		<div class="vs-label">VS</div>
-
-		<!-- プレイヤーサイド -->
+		<!-- プレイヤーサイド（画面左） -->
 		<div class="combatant player-side" data-testid="player-side">
 			<BattleHPBar
 				current={playerHp}
@@ -192,20 +182,55 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 			</div>
 			<div class="combatant-name">{FEATURES_LABELS.battle.playerName}</div>
 		</div>
+
+		<!-- VS 表示 -->
+		<div class="vs-label">VS</div>
+
+		<!-- 敵サイド（画面右） -->
+		<div class="combatant enemy-side" data-testid="enemy-side">
+			<BattleHPBar
+				current={enemyHp}
+				max={scaledEnemyMaxHp}
+				label={enemy.name}
+				variant="enemy"
+			/>
+			<div class="sprite-wrap">
+				<div class="sprite" class:shake={enemyShake} class:defeated={enemyHp <= 0}>
+					<img class="sprite-img" src={enemy.image} alt={enemy.name} />
+				</div>
+				{#if enemyDamageFloat}
+					<span
+						class="damage-float"
+						class:critical={enemyDamageFloat.critical}
+						aria-hidden="true"
+					>
+						{enemyDamageFloat.critical ? '💥' : ''}{enemyDamageFloat.value}
+					</span>
+				{/if}
+			</div>
+			<div class="combatant-name" data-testid="enemy-name">{enemy.name}</div>
+		</div>
 	</div>
 
 	<!-- ステータス表示 -->
 	{#if !battleResult && !completed}
 		<div class="stats-panel" data-testid="stats-panel">
 			<h3 class="stats-title">{FEATURES_LABELS.battle.statsTitle}</h3>
-			<div class="stats-grid">
-				{#each statEntries as [stat, value]}
-					<div class="stat-item">
+			<div class="stats-grid" data-testid="stats-grid">
+				{#each statEntries as [stat, value] (stat)}
+					<!-- #1791: ステータス値の直下に対応カテゴリ（活動 5 軸）を表示し、
+					     「直近 7 日のがんばりがステータスに反映される」関係を画面内で訴求する -->
+					<div class="stat-item" data-testid="stat-item-{stat}">
 						<span class="stat-label">{STAT_LABELS[stat]}</span>
 						<span class="stat-value">{value}</span>
+						<span class="stat-category" aria-label="対応するカテゴリ">
+							<span class="stat-category-icon" aria-hidden="true">{STAT_CATEGORY_ICONS[stat]}</span>
+							<span class="stat-category-name">{STAT_CATEGORY_LABELS[stat]}</span>
+						</span>
 					</div>
 				{/each}
 			</div>
+			<p class="stats-note">{FEATURES_LABELS.battle.statCategoryNote}</p>
 		</div>
 	{/if}
 
@@ -363,6 +388,32 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		font-size: 0.9rem;
 		font-weight: 700;
 		color: var(--color-text-primary);
+	}
+	/* #1791: ステータス → 活動カテゴリ対応表示 */
+	.stat-category {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1px;
+		margin-top: 2px;
+		padding-top: 4px;
+		border-top: 1px dashed var(--color-border-light);
+	}
+	.stat-category-icon {
+		font-size: 0.85rem;
+		line-height: 1;
+	}
+	.stat-category-name {
+		font-size: 0.6rem;
+		color: var(--color-text-secondary);
+		font-weight: 600;
+	}
+	.stats-note {
+		font-size: 0.65rem;
+		color: var(--color-text-tertiary);
+		margin: 0.5rem 0 0;
+		text-align: center;
+		line-height: 1.4;
 	}
 
 	.result-banner {

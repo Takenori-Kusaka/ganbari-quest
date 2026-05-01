@@ -4349,6 +4349,33 @@ export const LP_VERSUS_LABELS = {
 	row4AnalogTitle: '家を離れると続けられない',
 	row4DigitalTitle: '旅行先・祖父母宅でも続けられる',
 	row4DigitalDesc: 'スマホ・タブレットで開けば連続記録が途切れません。',
+	// #1784: 各 row の scrshot alt テキスト（PO 指摘: vc-digital カードに scrshot ゼロ → 4 scrshot 配置）
+	row1ShotAlt: '自動集計でポイントが見えるホーム画面',
+	row2ShotAlt: '幼児（3-5 歳）の大ボタン UI 例',
+	row3ShotAlt: '卒業マイルストーンと履歴エクスポート画面',
+	row4ShotAlt: 'スマホで開ける子供ホーム画面',
+} as const;
+
+// ============================================================
+// LP Hero 直後 StoryBrand Guide ブロック — #1784
+// 「なぜがんばりクエストは『卒業』を成功と呼ぶのか」を 1 scrshot + 3 行で訴求
+// StoryBrand 7 要素の Guide（信頼できる導き手）に該当
+// SSOT: site/index.html [01b] guide セクション用ラベル
+// ============================================================
+
+export const LP_GUIDE_LABELS = {
+	sectionTitle: 'なぜがんばりクエストは「卒業」を成功と呼ぶのか',
+	sectionDesc:
+		'長く使ってもらうためのアプリではなく、子供が自律したら卒業するアプリとして設計しています。',
+	pointAntiEngagementTitle: '滞在時間を伸ばさない設計',
+	pointAntiEngagementDesc:
+		'連続演出や通知連打は採用しません。記録は数秒で終わるのが正しい使い方です。',
+	pointCoreTargetTitle: '3-18 歳のコアターゲット',
+	pointCoreTargetDesc:
+		'年齢が上がるほど自分でペースを決められるよう、UI と機能が段階的に変わります。',
+	pointFamilyOnlyTitle: '家族だけの閉じた空間',
+	pointFamilyOnlyDesc: '広告も他家庭との比較もありません。子供のがんばりは家族にしか見えません。',
+	shotAlt: 'がんばりクエストの代表画面 — ポイントとカテゴリの可視化',
 } as const;
 
 // ============================================================
@@ -4827,6 +4854,13 @@ export const FEATURES_LABELS = {
 		playerName: 'きみ',
 		playerSpriteAlt: 'きみ',
 		statsTitle: 'きみのステータス',
+		// #1791: ステータス 5 軸とカテゴリ 5 軸の対応表（自キャラ左 + 対応表で「直近の活動が攻撃力になる」を可視化）
+		statCategoryHpLabel: 'うんどう',
+		statCategoryAtkLabel: 'べんきょう',
+		statCategoryDefLabel: 'こうりゅう',
+		statCategorySpdLabel: 'せいかつ',
+		statCategoryRecLabel: 'そうぞう',
+		statCategoryNote: '※ 直近 7 日間の各カテゴリの累積ポイントが、ステータスに反映されます',
 		startBtn: '⚔️ バトル かいし！',
 		alreadyDone: 'きょうの バトルは おわったよ！',
 		resultWin: '🎉 かった！',
