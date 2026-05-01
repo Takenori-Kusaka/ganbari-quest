@@ -1013,6 +1013,16 @@ export const SETTINGS_LABELS = {
 	reactivateSubmitting: 'キャンセル中...',
 	reactivateAction: '解約をキャンセルして通常利用に戻る',
 
+	// #1781: 削除グレースピリオド（soft-delete）バナー
+	deletionGraceTitle: 'アカウント削除のお手続き中です',
+	deletionGraceDesc: (days: number, date: string) =>
+		`お手続きから ${days} 日後（${date}）に完全に削除されます。それまでであれば「復元」ボタンで取り消せます。`,
+	deletionGraceRestoreAction: 'アカウントを復元する',
+	deletionGraceRestoreSubmitting: '復元中...',
+	deletionGraceRestoreSuccess: 'アカウントを復元しました。通常通りご利用いただけます。',
+	deletionGraceRestoreError:
+		'アカウントの復元に失敗しました。猶予期間が終了している可能性があります。',
+
 	// ステータス減少設定
 	decaySectionTitle: '📊 ステータス減少設定',
 	decaySectionDesc:
