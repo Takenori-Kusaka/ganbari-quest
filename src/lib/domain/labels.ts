@@ -4192,18 +4192,10 @@ export const LP_PRICING_LABELS = {
 	ctaBottomSecondary: 'デモで体験する',
 } as const;
 
-/**
- * #1594 ADR-0023 I8: LP の「開発者に直接相談」セクション専用ラベル。
- * #1713 R7 / ADR-0028: LP `#founder-inquiry` セクションは削除（最終 CTA 分散 + Pre-PMF 内部用語露出 + PO 対応キャパ超過）。
- * 連絡導線は footer の mailto (`LP_FOOTER_LABELS.contactLink`) に集約された。
- *
- * 本定数は generate-lp-labels.mjs の parseBlock 互換性のため空オブジェクトとして残置。
- * shared-labels.js には `founderInquiry: {}` が生成されるが、site/index.html に対応セクションが存在しないため使用されない。
- *
- * **削除しないこと**: parseBlock が `LP_FOUNDER_INQUIRY_LABELS` 不在時に `throw new Error` を投げるため、
- * generate-lp-labels.mjs 側を修正するまで本定数自体は残置する（generate 側は本コミットで同時に修正）。
- */
-export const LP_FOUNDER_INQUIRY_LABELS = {} as const;
+// #1594 ADR-0023 I8 で導入された LP「開発者に直接相談」セクションは、
+// ADR-0028 (#1713 R7) で LP セクション削除 → #1770 で空オブジェクト化 → #1772 で完全削除済み。
+// 連絡導線は footer の mailto (`LP_FOOTER_LABELS.contactLink`) に集約済み。
+// generate-lp-labels.mjs の parseBlock は当該定数不在時に空オブジェクトを返すよう修正されている。
 
 /**
  * #1594 ADR-0023 I8: founder 1:1 ヒアリング動線

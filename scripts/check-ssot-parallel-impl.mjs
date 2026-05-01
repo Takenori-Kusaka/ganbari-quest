@@ -179,7 +179,6 @@ export function extractSharedLabelsJsLpNamespaces(src) {
  *   indexB / pricingB / faqB / pamphletB → LP_<X>_PHASEB_LABELS
  *   indexExtra → LP_INDEX_EXTRA_LABELS
  *   pricingExtra → LP_PRICING_EXTRA_LABELS
- *   founderInquiry → LP_FOUNDER_INQUIRY_LABELS
  *   licenseKey → LP_LICENSEKEY_LABELS
  *   growthRoadmap → LP_GROWTH_ROADMAP_LABELS
  *   legalDisclaimer → LP_LEGAL_DISCLAIMER_LABELS
@@ -191,7 +190,6 @@ export function shortNameToLabelsTsName(shortName) {
 	// 特殊マッピング (camelCase → 正式 name)
 	/** @type {Record<string, string | null>} */
 	const overrides = {
-		founderInquiry: 'LP_FOUNDER_INQUIRY_LABELS',
 		licenseKey: 'LP_LICENSEKEY_LABELS',
 		growthRoadmap: 'LP_GROWTH_ROADMAP_LABELS',
 		legalDisclaimer: 'LP_LEGAL_DISCLAIMER_LABELS',

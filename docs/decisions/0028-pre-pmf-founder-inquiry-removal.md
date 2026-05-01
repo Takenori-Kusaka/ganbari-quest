@@ -23,7 +23,7 @@
 
 - `site/index.html:1041-1049` の `<section id="founder-inquiry">` を全削除
 - 関連 CSS (`.founder-inquiry` / `.founder-inquiry-inner` / `.founder-inquiry-heading` / `.founder-inquiry-cta`) も削除
-- `LP_FOUNDER_INQUIRY_LABELS` (labels.ts) は generate-lp-labels.mjs の parseBlock 互換性のため空オブジェクト `{}` として残置（後続 PR で完全削除予定）
+- `LP_FOUNDER_INQUIRY_LABELS` (labels.ts) は #1770 で空オブジェクト化 → #1772 で完全削除（parseBlock を「定数不在時に空オブジェクトを返す」よう改修）
 
 ### 2. 連絡導線の集約
 
