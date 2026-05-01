@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="trust-lock-title">
+  <title id="trust-lock-title">保護者専用カギ付きアイコン</title>
+  <!-- 鍵付き南京錠 (#1796 trust-badges SVG 化) -->
+  <!-- shackle (上半円) -->
+  <path d="M10 14V11c0-3.3 2.7-6 6-6s6 2.7 6 6v3" fill="none" stroke="#1f4f7e" stroke-width="2.4" stroke-linecap="round" />
+  <!-- body -->
+  <rect x="6.5" y="14" width="19" height="13.5" rx="2.2" fill="#1f4f7e" />
+  <!-- keyhole -->
+  <circle cx="16" cy="20" r="1.6" fill="#fff" />
+  <rect x="15.3" y="20" width="1.4" height="3.8" fill="#fff" rx="0.5" />
+</svg>

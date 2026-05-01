@@ -50,6 +50,25 @@ Claude Code がUI実装時に「絵文字で済ませるか、画像アセット
 
 ### 優先度: 中（体験向上）
 
+| カテゴリ | 現状 | 目標 | 保存先 | サイズ | 数量 |
+|---------|------|------|--------|--------|------|
+| **trust-badges 信頼系 SVG** (#1796) | OS 依存絵文字 (🚫👪🔑🔍 を `font-size:2rem`) を実装中、Safari/iOS と Android で見た目が大きく異なる | ブランド `--brand-700` 単色のフラット SVG 4 種 | `site/assets/ui/` (LP 直接参照) と `static/assets/ui/` (アプリ側で参照したい場合の二重配置、現状は LP 専用) | 32×32 SVG | 4 |
+
+#### trust-* SVG 一覧（#1796 で導入済み）
+
+| ファイル | 用途 | LP 配置 (`site/index.html` `.trust-badge`) |
+|---------|------|-----|
+| `trust-no-ads.svg` | 広告ブロック (円 + 斜線 + AD 文字) | #1「広告なし」 |
+| `trust-family-circle.svg` | 家族の輪 (4 人シルエット + 中央ハート) | #2「家族限定」 |
+| `trust-lock.svg` | 南京錠 (鍵穴付き) | #3「保護者専用のカギ付き」 |
+| `trust-data-local.svg` | 家のシルエット + データレイヤー 3 段 + 鍵穴 | #4「データを家族の手元に」（旧「広告ゼロ・データは家族の手元に」を #1 と訴求重複していたため `広告` を外しリフレーム） |
+
+LP は GitHub Pages で `site/` がドキュメントルート扱い。`site/index.html` から `assets/ui/trust-*.svg` の相対パスで参照する。
+アプリ側 (SvelteKit) で同じ SVG を使いたくなった場合は `static/assets/ui/` 配下を参照する想定（現時点で参照箇所は無し、二重配置は将来 ADR で整理）。
+
+CSS では `.trust-badge .tb-icon{display:flex;...;height:32px}` + `.tb-icon img{width:32px;height:32px}` で配置。
+旧来の `font-size:2rem` 絵文字依存は `site/index.html` 内 `.trust-badge .tb-icon` 定義から撤去済（#1796 R-MAJ-6）。
+
 ---
 
 ## LP スクショ — site/index.html 内の機能画像 (#1707 / #1712)

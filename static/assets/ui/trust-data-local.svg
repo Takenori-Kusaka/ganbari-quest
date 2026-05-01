@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="trust-data-local-title">
+  <title id="trust-data-local-title">データを家族の手元にアイコン</title>
+  <!-- 家のシルエット + データレイヤー (#1796 trust-badges SVG 化) -->
+  <!-- 屋根 -->
+  <path d="M16 4 L4 13.5 L7 13.5 L7 27 L25 27 L25 13.5 L28 13.5 Z" fill="#1f4f7e" />
+  <!-- 内側のデータ層を示す 3 本の横線 -->
+  <g fill="#fff">
+    <rect x="11" y="14.8" width="10" height="1.5" rx="0.5" />
+    <rect x="11" y="18" width="10" height="1.5" rx="0.5" />
+    <rect x="11" y="21.2" width="10" height="1.5" rx="0.5" />
+  </g>
+  <!-- 中心の鍵穴小マーク (家族だけ) -->
+  <circle cx="16" cy="24.4" r="1" fill="#d97706" />
+</svg>

@@ -111,9 +111,16 @@
 .cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
 .cta-trust-badges li span{font-size:.95rem}
 /* #1628 R24: 仕様起点の数字バッジ */
+/* #1795 R7: モバイルで「2 + 1」変則表示を回避するため、375px viewport で gap/font-size を圧縮し 1 行 3 バッジを目指す。
+   横が足りない場合は flex-direction:column で縦 3 段 (整然配置) に切替 */
 .hero-spec-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;list-style:none;padding:0;margin:0 auto;max-width:560px}
 .hero-spec-badges li{font-size:.84rem;color:var(--gray-700);background:#fff;border:1px solid var(--gray-300);border-radius:999px;padding:5px 12px}
 .hero-spec-badges li strong{color:var(--brand-700);font-weight:700}
+@media(max-width:480px){
+  /* 375px viewport で 3 バッジを縦 3 段に整列。flex-wrap の「2 + 1」変則を排除 */
+  .hero-spec-badges{flex-direction:column;align-items:center;gap:6px;max-width:280px}
+  .hero-spec-badges li{font-size:.78rem;padding:4px 10px;width:fit-content}
+}
 
 /* Section */
 .section{padding:56px 16px}
@@ -136,8 +143,9 @@
 .age-tab:focus-visible{outline:3px solid var(--brand-700);outline-offset:2px}
 .age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:32px 28px}
 .age-panel.active{display:grid}
-/* #1724 R8: 内側 .age-panel-shot の border を撤去（外側 .age-panel border に集約）。スクショ自体が主役になるよう装飾を最小化 */
-.age-panel-shot{border-radius:12px;overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:390/844}
+/* #1724 R8 / #1785 R-CRT-2: 内側 scrshot コンテナから border / background / border-radius を全撤去。
+   外側 .age-panel border に集約し、スクショ自体だけが浮かぶ「白背景 + アプリ scrshot」状態を実現 */
+.age-panel-shot{overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:390/844}
 .age-panel-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
 .age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-700);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
@@ -160,11 +168,14 @@
 #core-loop .section-desc{margin-bottom:20px}
 /* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
 .core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
-.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid var(--gray-200)}
+/* #1785 R-CRT-2: summary 画像も装飾枠統一系列に追従 — border:1px solid var(--gray-300) で他の card 装飾と同一の外観 */
+.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid var(--gray-300)}
 .core-loop-summary figcaption{margin-top:10px;font-size:.86rem;color:var(--gray-700);line-height:1.6;max-width:540px;margin-left:auto;margin-right:auto}
 /* 3 cards: モバイル縦積み / PC 横並び 3 カラム */
 .core-loop-cards{display:grid;grid-template-columns:1fr;gap:14px;max-width:1080px;margin:0 auto}
-.core-loop-card{background:#fff;border:2px solid var(--brand-200);border-radius:var(--radius);padding:18px 18px;display:flex;flex-direction:column;gap:8px}
+/* #1785 R-CRT-2: 5 系統 → 1 種統一 — core-loop card も共通枠 (#fff + 1 px var(--gray-300)) に集約。
+   旧 border:2px solid var(--brand-200) を撤去し、差別化は cll-badge の色のみ */
+.core-loop-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:18px 18px;display:flex;flex-direction:column;gap:8px}
 .core-loop-card .cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:3px 9px;letter-spacing:.07em;flex-shrink:0;align-self:flex-start}
 .core-loop-card[data-card="l1"] .cll-badge{background:var(--brand-500)}
 .core-loop-card[data-card="l2"] .cll-badge{background:var(--brand-700)}
@@ -192,7 +203,8 @@
 /* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
 /* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
 /* #1707 R2: scrshot 9 枚追加で mobile 高が膨張するため max-height を 200px に圧縮（PC 整然配置 #1618 と整合） */
-.tour-card .tour-shot{border-radius:8px;overflow:hidden;aspect-ratio:390/844;max-height:200px;margin-top:auto;background:var(--gray-50)}
+/* #1785 R-CRT-2: tour-shot からも background / border-radius を撤去。外側 .tour-card の枠に集約 */
+.tour-card .tour-shot{overflow:hidden;aspect-ratio:390/844;max-height:200px;margin-top:auto}
 .tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 /* #1707 R2: 親が観測できる 1 行ベネフィットを screenshot 直下に併記 */
 .tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
@@ -216,14 +228,16 @@
 @media(min-width:768px){
   #soft-features .soft-grid--three{grid-template-columns:1.2fr 1fr 1fr;max-width:1080px}
 }
+/* #1785 R-CRT-2: 5 系統 → 1 種統一 — featured の box-shadow / 太枠 border 撤去。
+   featured 強調はタイトル文字色 (--brand-700) のみで実現（box-shadow 0 件、grep `box-shadow.*rgba.*120` 0 件） */
 .soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:20px 18px;display:flex;flex-direction:column}
-.soft-card.soft-card--featured{border:2px solid var(--brand-300);box-shadow:0 4px 16px rgba(56,120,184,.12)}
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card.soft-card--featured h3{font-size:1.15rem;color:var(--brand-700)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
 /* #1707 R2: soft-card 内に親が観測できる 1 行ベネフィットと screenshot を追加 */
 /* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
-.soft-card .soft-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:8px 0;background:var(--gray-50)}
+/* #1785 R-CRT-2: soft-shot からも border / background / border-radius を撤去 */
+.soft-card .soft-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:8px 0}
 .soft-card.soft-card--featured .soft-shot{max-height:120px}
 .soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .soft-card .soft-benefit{font-size:.78rem;color:var(--gray-700);line-height:1.5;margin-top:auto}
@@ -252,6 +266,7 @@
 #growth-roadmap{padding:24px 16px}
 .growth-roadmap{max-width:1080px;margin:0 auto}
 .gr-track{display:flex;flex-direction:column;gap:8px;position:relative}
+/* #1785 R-CRT-2: 5 系統 → 1 種統一。すべてのカードが #fff + 1px var(--gray-300) で統一 */
 .gr-stage{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:start;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:10px 12px}
 .gr-age{font-size:.7rem;font-weight:700;color:var(--brand-700);background:var(--brand-50);border-radius:6px;padding:6px 4px;text-align:center;line-height:1.3}
 .gr-age strong{display:block;font-size:1.05rem;color:var(--brand-700)}
@@ -259,13 +274,14 @@
 .gr-body p{font-size:.8rem;color:var(--gray-600);line-height:1.55;margin:0 0 4px}
 /* #1707 R2 / #1712 R5: stage screenshot サムネ + 親視点 / 子供視点ベネフィット 1 行併記 */
 /* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため mobile scrshot 高さを圧縮 */
-.gr-body .gr-shot{border-radius:6px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:4px 0;background:var(--gray-50)}
+/* #1785 R-CRT-2: gr-shot からも border / background / border-radius を撤去 */
+.gr-body .gr-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:4px 0}
 .gr-body .gr-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .gr-body .gr-benefit{font-size:.72rem;line-height:1.4;margin:2px 0;color:var(--gray-700)}
 .gr-body .gr-benefit strong{color:var(--brand-700);font-weight:700}
 .gr-body .gr-benefit-child strong{color:var(--gray-800)}
-.gr-stage[data-stage="graduate"]{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);border-color:var(--brand-300)}
-.gr-stage[data-stage="graduate"] .gr-age{background:#fff;color:var(--brand-800)}
+/* #1785 R-CRT-2: graduate ステージ独自グラデーション撤去 — 全 gr-stage 共通枠に統一。
+   卒業の特別感は .gr-age の文字色 + h3 強調のみで表現 */
 .gr-stage[data-stage="graduate"] .gr-age strong{color:var(--brand-800)}
 @media(min-width:1024px){
   .gr-track{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch}
@@ -282,9 +298,9 @@
 #versus{padding:20px 16px}
 .versus-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px}
 .versus-row{display:grid;grid-template-columns:1fr 22px 1.4fr;gap:8px;align-items:stretch}
+/* #1785 R-CRT-2: versus 5 系統 → 1 種統一。analog/digital の background-color / グラデーション全廃。
+   差別化は左上 .vc-tag の色のみで実現（紙＝灰色 / アプリ＝brand-700） */
 .versus-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;justify-content:center}
-.versus-card.vc-analog{background:var(--gray-50);border-color:var(--gray-300)}
-.versus-card.vc-digital{background:linear-gradient(135deg,var(--brand-50) 0%,#fef9e7 100%);border-color:var(--brand-200)}
 .versus-card .vc-tag{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;margin-bottom:3px;align-self:flex-start}
 .versus-card.vc-analog .vc-tag{background:var(--gray-200);color:var(--gray-700)}
 .versus-card.vc-digital .vc-tag{background:var(--brand-700);color:#fff}
@@ -309,7 +325,10 @@
   .trust-badge p{font-size:.8rem}
 }
 .trust-badge{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;text-align:center}
-.trust-badge .tb-icon{font-size:2rem;margin-bottom:10px;line-height:1}
+/* #1796 R-MAJ-6: 絵文字依存 (font-size:2rem) を撤去 — 4 種の SVG (static/assets/ui/trust-*.svg) に置換。
+   docs/DESIGN.md §7「OS/ブラウザ間で見た目が変わると困る要素」に整合。Safari/Chrome/Firefox で同一表示 */
+.trust-badge .tb-icon{display:flex;justify-content:center;align-items:center;margin-bottom:10px;line-height:1;height:32px}
+.trust-badge .tb-icon img{width:32px;height:32px;display:block}
 .trust-badge h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .trust-badge p{font-size:.85rem;color:var(--gray-600);line-height:1.6;margin-bottom:8px}
 .trust-badge a{color:var(--brand-700);text-decoration:none;font-size:.82rem;font-weight:600}
@@ -349,7 +368,9 @@
 .header-nav a.nav-text{padding:8px 12px;color:var(--gray-700);font-size:.92rem;font-weight:500}
 .header-nav a.nav-text:hover{color:var(--brand-700)}
 
-/* Hero carousel — Splide */
+/* Hero carousel — Splide
+   #1795 R-MAJ-4: PC は黒スマホ枠を撤去（横長 680×425 と「スマホ枠」がミスマッチ → デバイスフォームを曖昧にしていた）。
+   モバイルのみ縦長スマホ枠で「実機イメージ」を残し、PC は薄いグレー枠 + ドロップシャドウで「画像」として中立的に提示 */
 .hero-carousel{margin-top:20px;display:flex;flex-direction:column;align-items:center}
 #hero-carousel .splide__track{width:260px;height:562px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
 #hero-carousel .splide__slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px;cursor:zoom-in}
@@ -358,7 +379,9 @@
 #hero-carousel .splide__pagination__page.is-active{background:var(--brand-700);width:24px;border-radius:4px}
 .carousel-label{margin-top:8px;font-size:.82rem;color:var(--gray-500);min-height:1.5em;transition:opacity .3s;text-align:center}
 @media(min-width:1024px){
-  #hero-carousel .splide__track{width:680px;height:425px;border-radius:12px;box-shadow:0 20px 60px rgba(56,120,184,.2),0 0 0 4px var(--gray-900)}
+  /* #1795 R-MAJ-4: PC は黒スマホ枠 (0 0 0 4px var(--gray-900)) を撤去。
+     border:1px solid var(--gray-300) + 軽量 box-shadow で「画像」として中立提示 */
+  #hero-carousel .splide__track{width:680px;height:425px;border-radius:12px;border:1px solid var(--gray-300);box-shadow:0 12px 36px rgba(56,120,184,.12);background:#fff}
   #hero-carousel .splide__slide img{border-radius:8px}
 }
 
@@ -841,27 +864,29 @@
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k58">お子さまのデータは、家族だけのものです</h2>
     <p class="section-desc" data-lp-key="indexB.k59">広告なし・家族だけで閉じた空間・データは家族の手元に。「こっそり外に持ち出される」「勝手に操作される」不安をゼロにする 4 つの約束。</p>
+    <!-- #1796 R-MAJ-6 / docs/DESIGN.md §7: trust-badges を 4 個 SVG 化 (OS 依存絵文字撤去)。
+         #4 タイトルから「広告」を外し「データを家族の手元に」へリフレーム (#1 との重複訴求解消) -->
     <div class="trust-badges">
       <div class="trust-badge">
-        <div class="tb-icon">&#x1F6AB;</div>
+        <div class="tb-icon"><img src="assets/ui/trust-no-ads.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k60">広告なし</h3>
         <p data-lp-key="indexB.k61">子供の画面に広告を出しません。行動データを広告に利用することもありません。</p>
         <a href="privacy.html" data-lp-key="indexB.k62">プライバシーポリシー &#8594;</a>
       </div>
       <div class="trust-badge">
-        <div class="tb-icon">&#x1F46A;</div>
+        <div class="tb-icon"><img src="assets/ui/trust-family-circle.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k63">家族限定</h3>
         <p data-lp-key="indexB.k64">家族メンバー以外はお子さまのデータを閲覧できません。招待制で閉じた空間を維持します。</p>
       </div>
       <div class="trust-badge">
-        <div class="tb-icon">&#x1F511;</div>
+        <div class="tb-icon"><img src="assets/ui/trust-lock.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k65">保護者専用のカギ付き</h3>
         <p data-lp-key="indexB.k66">管理画面は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。</p>
       </div>
       <div class="trust-badge">
-        <div class="tb-icon">&#x1F50D;</div>
-        <h3 data-lp-key="indexB.k67">広告ゼロ・データは家族の手元に</h3>
-        <p data-lp-key="indexB.k68">家族のデータが広告にも第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。</p>
+        <div class="tb-icon"><img src="assets/ui/trust-data-local.svg" alt="" aria-hidden="true" width="32" height="32"></div>
+        <h3 data-lp-key="indexB.k67">データを家族の手元に</h3>
+        <p data-lp-key="indexB.k68">家族のデータが第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。</p>
         <a href="selfhost.html" data-lp-key="indexB.k69">仕組みを詳しく知りたい方へ &#8594;</a>
       </div>
     </div>
@@ -1146,6 +1171,36 @@
   }else{
     window.requestAnimationFrame(compute);
   }
+})();
+</script>
+<script>
+// #1795 R-MAJ-5: hero 可視中は PC ヘッダー nav-signup を非表示にして、
+// hero 内 primary CTA「無料で始める」との視線奪い合いを回避する。
+// IntersectionObserver で .hero がビューポートと交差している間 body[data-hero-visible="true"] を立て、
+// shared.css の `body[data-hero-visible="true"] .header-nav a.nav-signup{opacity:0;visibility:hidden}` で hide。
+// PC のみ動作 (mobile は CSS で .nav-signup display:none、floating-cta に集約済み)。
+// 採用根拠: 純 IntersectionObserver は modern browser 全対応 (CanIUse 95%+)、外部ライブラリ不要。
+(()=>{
+  if(window.innerWidth<769)return;
+  var hero=document.querySelector('.hero');
+  if(!hero||typeof IntersectionObserver==='undefined')return;
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      // hero がまだ少しでも見えていれば隠す、完全に通り過ぎたら復帰
+      if(e.isIntersecting){
+        document.body.setAttribute('data-hero-visible','true');
+      }else{
+        document.body.removeAttribute('data-hero-visible');
+      }
+    });
+  },{
+    // hero 上端が画面外に 40% 以上はみ出たら「hero スクロール完了」と判定
+    threshold:0,
+    rootMargin:'0px 0px -40% 0px'
+  });
+  io.observe(hero);
+  // 初期描画時 (まだ scroll していない) は hero 可視として扱う
+  document.body.setAttribute('data-hero-visible','true');
 })();
 </script>
 <script src="shared-labels.js"></script>

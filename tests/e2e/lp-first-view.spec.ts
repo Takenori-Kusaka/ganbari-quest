@@ -86,7 +86,7 @@ test.describe('#1163 LP 1st view 要件', () => {
 		await ctx.close();
 	});
 
-	test('#1290 Desktop ヘッダーに常時 `.nav-signup` primary CTA が表示される (PC persistent)', async ({
+	test('#1290 / #1795 Desktop ヘッダー `.nav-signup` は hero 可視中は非表示、hero スクロール完了後に表示', async ({
 		browser,
 	}) => {
 		const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -94,14 +94,20 @@ test.describe('#1163 LP 1st view 要件', () => {
 		await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
 
 		const headerSignup = page.locator('.header-nav a.nav-signup');
-		await expect(headerSignup, 'PC ヘッダーに `.nav-signup` が存在する').toBeVisible();
+		// 属性は常に存在（DOM 上は描画される、CSS で opacity/visibility 制御）
 		await expect(headerSignup).toHaveAttribute('href', /\/auth\/signup/);
 		await expect(headerSignup).toHaveText('無料で始める');
 		await expect(headerSignup).toHaveAttribute('data-testid', 'lp-nav-signup');
 
-		// スクロール後もヘッダーごと sticky で追従し、CTA が見え続ける
+		// #1795 R-MAJ-5: hero 可視中 (scroll 0) は nav-signup が非表示
+		// IntersectionObserver が body[data-hero-visible="true"] を立て、CSS で opacity:0;visibility:hidden
+		await expect(page.locator('body')).toHaveAttribute('data-hero-visible', 'true');
+		await expect(headerSignup, 'hero 可視中は visible:hidden で隠れる').toBeHidden();
+
+		// hero スクロール完了後 (3000px 下) は nav-signup が再表示される
 		await page.evaluate(() => window.scrollTo(0, 3000));
-		await expect(headerSignup, 'スクロール後もヘッダーの signup CTA が可視').toBeVisible();
+		await expect(page.locator('body')).not.toHaveAttribute('data-hero-visible', 'true');
+		await expect(headerSignup, 'hero 通過後はヘッダー signup CTA が可視').toBeVisible();
 
 		await ctx.close();
 	});
