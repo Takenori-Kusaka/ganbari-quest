@@ -95,25 +95,45 @@ export function findMissingSections(body, requiredSections) {
 /**
  * Markdown コメント `<!-- ... -->` をテンプレート由来の説明文として除外して、
  * 開発者が実際に書いた本文だけを対象にする。
+ *
+ * CodeQL js/incomplete-multi-character-sanitization 対策として、
+ * 1 回 replace するだけでは入れ子コメント `<!-- <!-- x --> -->` の外側 `-->` 後に
+ * `<!--` が残る可能性があるため、変化が無くなるまで反復する。
+ *
  * @param {string} body
  * @returns {string}
  */
 export function stripMarkdownComments(body) {
-	// `<!--` から `-->` までを最短マッチで削除（複数行対応）
-	return body.replace(/<!--[\s\S]*?-->/g, '');
+	let prev;
+	let curr = body;
+	do {
+		prev = curr;
+		curr = curr.replace(/<!--[\s\S]*?-->/g, '');
+	} while (curr !== prev);
+	return curr;
 }
 
 /**
  * Markdown コードブロック (``` fenced / `inline` ) を除外する。
  * Issue 本文の引用 / メタ言及（禁止語そのものを「禁止語の例: 予定 / TODO / ...」と列挙する場面）が
  * 本文意図ではないため除外する。`<!-- -->` と同様の SSOT 整合性を保つためのフィルタ。
+ *
+ * CodeQL js/incomplete-multi-character-sanitization 対策として、
+ * 入れ子コードブロック ``` ``` ``` ``` のような構造でも残存しないよう反復する。
+ *
  * @param {string} body
  * @returns {string}
  */
 export function stripCodeBlocks(body) {
-	return body
-		.replace(/```[\s\S]*?```/g, '') // fenced code block
-		.replace(/`[^`\n]+`/g, ''); // inline code
+	let prev;
+	let curr = body;
+	do {
+		prev = curr;
+		curr = curr
+			.replace(/```[\s\S]*?```/g, '') // fenced code block
+			.replace(/`[^`\n]+`/g, ''); // inline code
+	} while (curr !== prev);
+	return curr;
 }
 
 /**

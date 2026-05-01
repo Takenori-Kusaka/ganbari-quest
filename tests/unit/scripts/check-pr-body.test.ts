@@ -81,6 +81,12 @@ describe('stripMarkdownComments', () => {
 	it('複数のコメントを全て除去', () => {
 		expect(stripMarkdownComments('a <!-- 1 --> b <!-- 2 --> c')).toBe('a  b  c');
 	});
+
+	it('シーケンシャルに連続するコメントを反復除去 (CodeQL js/incomplete-multi-character-sanitization 対策)', () => {
+		// 1 回 replace で消える基本ケース。反復ロジックが既存動作を壊していないことの担保。
+		const input = 'a <!-- 1 --><!-- 2 --> b';
+		expect(stripMarkdownComments(input)).toBe('a  b');
+	});
 });
 
 describe('scanForbiddenTerms (#1763/#1770)', () => {
