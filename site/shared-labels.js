@@ -325,7 +325,6 @@
 			"ctaBottomPrimary": "無料ではじめる",
 			"ctaBottomSecondary": "デモで体験する"
 		},
-		"founderInquiry": {},
 		"licenseKey": {
 			"text1": "ライセンスキーの使い方 - がんばりクエスト ヘルプ",
 			"text2": "ライセンスキーの使い方",

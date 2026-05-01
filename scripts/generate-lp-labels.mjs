@@ -35,28 +35,35 @@ const CHECK_MODE = args.includes('--check');
 
 /**
  * labels.ts の単純な `key: 'value'` ブロックを行単位でパース
+ *
+ * @param {string} src
+ * @param {string} constName
+ * @returns {Record<string, string>}
  */
 function parseSimpleBlock(src, constName) {
 	const pattern = new RegExp(`export const ${constName}[^{]*{([^}]+)}`, 's');
 	const match = src.match(pattern);
-	if (!match) throw new Error(`${constName} not found in labels.ts`);
+	if (!match || match[1] === undefined) throw new Error(`${constName} not found in labels.ts`);
+	/** @type {Record<string, string>} */
 	const result = {};
 	for (const line of match[1].split('\n')) {
 		const m = line.match(/(\w+):\s*'([^']+)'/);
-		if (m) result[m[1]] = m[2];
+		if (m && m[1] !== undefined && m[2] !== undefined) result[m[1]] = m[2];
 	}
 	return result;
 }
 
 /**
- * labels.ts のブロックを行単位でパース
- * Biome が key: / 'value' と 2 行に分割する場合にも対応
+ * 文字列内の指定位置から始まるブロック `{ ... }` の本文（中括弧を除く）を返す。
+ * ブロックが見つからない場合は null。
+ *
+ * @param {string} src
+ * @param {number} startIdx
+ * @returns {string | null}
  */
-function parseBlock(src, constName) {
-	const startIdx = src.indexOf(`export const ${constName}`);
-	if (startIdx === -1) throw new Error(`${constName} not found in labels.ts`);
-
+function extractBraceBlock(src, startIdx) {
 	const blockStart = src.indexOf('{', startIdx);
+	if (blockStart === -1) return null;
 	let depth = 0;
 	let i = blockStart;
 	while (i < src.length) {
@@ -67,41 +74,77 @@ function parseBlock(src, constName) {
 		}
 		i++;
 	}
-	const block = src.slice(blockStart + 1, i);
+	return src.slice(blockStart + 1, i);
+}
 
+/**
+ * labels.ts のブロックを行単位でパース
+ * Biome が key: / 'value' と 2 行に分割する場合にも対応
+ *
+ * #1772: 定数が存在しない場合は空オブジェクト `{}` を返す（throw しない）。
+ * これにより、後続 PR で空の LP_*_LABELS export を完全削除しても generate-lp-labels.mjs
+ * が壊れなくなる。`shared-labels.js` には対応 namespace が空オブジェクトとして残るため
+ * site/*.html 側の `data-lp-key` 参照は no-op となり、SEO フォールバックテキストが
+ * そのまま残る。
+ *
+ * @param {string} src
+ * @param {string} constName
+ * @returns {Record<string, string>}
+ */
+function parseBlock(src, constName) {
+	const startIdx = src.indexOf(`export const ${constName}`);
+	if (startIdx === -1) {
+		// 定数が見つからない場合は空オブジェクトを返す（#1772 完全削除対応）
+		return {};
+	}
+
+	const block = extractBraceBlock(src, startIdx);
+	if (block === null) return {};
+
+	/** @type {Record<string, string>} */
 	const result = {};
-	const lines = block.split('\n');
+	/** @type {string | null} */
 	let pendingKey = null;
 
-	for (const line of lines) {
-		const trimmed = line.trim();
-
-		// key: 'value', — same line
-		const sameLine = trimmed.match(/^(\w+):\s*'((?:[^'\\]|\\.)*)',?$/);
-		if (sameLine) {
-			result[sameLine[1]] = sameLine[2];
-			pendingKey = null;
-			continue;
-		}
-
-		// key: — key only, value on next line (Biome multi-line format)
-		const keyOnly = trimmed.match(/^(\w+):$/);
-		if (keyOnly) {
-			pendingKey = keyOnly[1];
-			continue;
-		}
-
-		// 'value', — continuation of pending key
-		if (pendingKey) {
-			const valueOnly = trimmed.match(/^'((?:[^'\\]|\\.)*)',?$/);
-			if (valueOnly) {
-				result[pendingKey] = valueOnly[1];
-				pendingKey = null;
-			}
-		}
+	for (const line of block.split('\n')) {
+		pendingKey = parseBlockLine(line.trim(), result, pendingKey);
 	}
 
 	return result;
+}
+
+/**
+ * parseBlock の 1 行分の処理。result を変異させ、後続行で値を待つキーを返す。
+ *
+ * @param {string} trimmed
+ * @param {Record<string, string>} result
+ * @param {string | null} pendingKey
+ * @returns {string | null}
+ */
+function parseBlockLine(trimmed, result, pendingKey) {
+	// key: 'value', — same line
+	const sameLine = trimmed.match(/^(\w+):\s*'((?:[^'\\]|\\.)*)',?$/);
+	if (sameLine && sameLine[1] !== undefined && sameLine[2] !== undefined) {
+		result[sameLine[1]] = sameLine[2];
+		return null;
+	}
+
+	// key: — key only, value on next line (Biome multi-line format)
+	const keyOnly = trimmed.match(/^(\w+):$/);
+	if (keyOnly && keyOnly[1] !== undefined) {
+		return keyOnly[1];
+	}
+
+	// 'value', — continuation of pending key
+	if (pendingKey) {
+		const valueOnly = trimmed.match(/^'((?:[^'\\]|\\.)*)',?$/);
+		if (valueOnly && valueOnly[1] !== undefined) {
+			result[pendingKey] = valueOnly[1];
+			return null;
+		}
+	}
+
+	return pendingKey;
 }
 
 /**
@@ -126,8 +169,10 @@ function parseLabelsTs() {
 	const lpGrowthRoadmapLabels = parseBlock(src, 'LP_GROWTH_ROADMAP_LABELS');
 	// Phase 5 R44 (#1650): pricing.html SSOT 同期
 	const lpPricingLabels = parseBlock(src, 'LP_PRICING_LABELS');
-	// #1594 ADR-0023 I8: LP の founder 直接相談 CTA セクション
-	const lpFounderInquiryLabels = parseBlock(src, 'LP_FOUNDER_INQUIRY_LABELS');
+	// 注: #1594 ADR-0023 I8 → ADR-0028 (#1713 R7) で LP の founder 直接相談セクションは削除済み。
+	// 関連 namespace は #1772 で labels.ts export + shared-labels.js namespace ともに完全撤去。
+	// （parseBlock 自体は #1772 で「定数不在時に空オブジェクトを返す」よう修正済みなので、
+	//  将来同様に空オブジェクト化された LP_*_LABELS を削除しても本スクリプトは壊れない）
 	const lpLicenseKeyLabels = parseBlock(src, 'LP_LICENSEKEY_LABELS');
 	const lpFaqLabels = parseBlock(src, 'LP_FAQ_LABELS');
 	const lpSelfhostLabels = parseBlock(src, 'LP_SELFHOST_LABELS');
@@ -160,7 +205,6 @@ function parseLabelsTs() {
 		lpVersusLabels,
 		lpGrowthRoadmapLabels,
 		lpPricingLabels,
-		lpFounderInquiryLabels,
 		lpLicenseKeyLabels,
 		lpFaqLabels,
 		lpSelfhostLabels,
@@ -181,6 +225,8 @@ function parseLabelsTs() {
 
 /**
  * age-tier.ts から AGE_TIER_CONFIG（ageMin, ageMax）を抽出
+ *
+ * @returns {Record<string, { ageMin: number; ageMax: number }>}
  */
 function parseAgeTierTs() {
 	const src = fs.readFileSync(AGE_TIER_TS, 'utf-8');
@@ -190,6 +236,7 @@ function parseAgeTierTs() {
 	if (startIdx === -1) throw new Error('AGE_TIER_CONFIG not found in age-tier.ts');
 	const configSrc = src.slice(startIdx);
 
+	/** @type {Record<string, { ageMin: number; ageMax: number }>} */
 	const config = {};
 	const modes = ['baby', 'preschool', 'elementary', 'junior', 'senior'];
 	for (const mode of modes) {
@@ -222,7 +269,6 @@ function generateSharedLabelsJs() {
 		lpVersusLabels,
 		lpGrowthRoadmapLabels,
 		lpPricingLabels,
-		lpFounderInquiryLabels,
 		lpLicenseKeyLabels,
 		lpFaqLabels,
 		lpSelfhostLabels,
@@ -243,16 +289,20 @@ function generateSharedLabelsJs() {
 
 	// 各年齢区分の name / range / formal / ageMin / ageMax を統合
 	// #1304: AGE_TIER_LABELS.baby が「準備モード（0〜2歳）」に更新済みのため LP_FORMAL_OVERRIDES 不要
+	/** @type {Record<string, { name: string; range: string; formal: string; ageMin: number; ageMax: number }>} */
 	const ageTiers = {};
 	for (const mode of ['baby', 'preschool', 'elementary', 'junior', 'senior']) {
 		const formal = ageTierLabels[mode];
 		const config = ageTierConfig[mode];
+		if (formal === undefined || config === undefined) {
+			throw new Error(`age tier mode '${mode}' missing in labels.ts or age-tier.ts`);
+		}
 		// name は formal の括弧より前の部分 + 'モード'（既に 'モード' で終わる場合は付けない）
-		const baseName = formal.split('（')[0];
+		const baseName = formal.split('（')[0] ?? '';
 		const name = baseName.endsWith('モード') ? baseName : `${baseName}モード`;
 		// range は formal の括弧内の年齢範囲（AGE_TIER_SHORT_LABELS が年齢範囲でない場合に備えて formal から取得）
 		const range = formal.includes('（')
-			? formal.split('（')[1].replace('）', '')
+			? (formal.split('（')[1] ?? '').replace('）', '')
 			: `${config.ageMin}〜${config.ageMax}歳`;
 		ageTiers[mode] = {
 			name,
@@ -274,7 +324,7 @@ function generateSharedLabelsJs() {
 		versus: lpVersusLabels,
 		growthRoadmap: lpGrowthRoadmapLabels,
 		pricing: lpPricingLabels,
-		founderInquiry: lpFounderInquiryLabels,
+		// 注: ADR-0028 (#1713 R7) で LP の founder 直接相談セクション削除 → #1772 で namespace 完全撤去
 		licenseKey: lpLicenseKeyLabels,
 		faq: lpFaqLabels,
 		selfhost: lpSelfhostLabels,
@@ -546,4 +596,11 @@ function main() {
 	console.log(`✓ ${OUTPUT_JS} を生成しました`);
 }
 
-main();
+// CLI 実行時のみ main() を呼ぶ。テストから import される場合は副作用なし
+const invokedAsCli = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+if (invokedAsCli) {
+	main();
+}
+
+// #1772: 単体テスト用に parseBlock / parseSimpleBlock をエクスポート
+export { parseBlock, parseSimpleBlock };

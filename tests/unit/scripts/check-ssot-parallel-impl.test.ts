@@ -99,7 +99,6 @@ export const LP_NESTED_LABELS = {
 			['retention', 'LP_RETENTION_LABELS'],
 			['coreloop', 'LP_CORELOOP_LABELS'],
 			['nav', 'LP_NAV_LABELS'],
-			['founderInquiry', 'LP_FOUNDER_INQUIRY_LABELS'],
 			['licenseKey', 'LP_LICENSEKEY_LABELS'],
 			['growthRoadmap', 'LP_GROWTH_ROADMAP_LABELS'],
 			['legalDisclaimer', 'LP_LEGAL_DISCLAIMER_LABELS'],

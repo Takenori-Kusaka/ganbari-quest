@@ -305,6 +305,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `THEME_EMOJIS` | const | テーマ絵文字 |
 | `FEATURE_LABELS` | const | 機能名ラベル |
 | `ACTIVITY_PRIORITY_LABELS` | const |  |
+| `ACTIVITY_PRIORITY_FORM_LABELS` | const |  |
 | `ACTION_LABELS` | const |  |
 | `TRIAL_LABELS` | const |  |
 | `LIFECYCLE_EMAIL_LABELS` | const |  |
@@ -406,7 +407,6 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `LP_COMMON_LABELS` | const |  |
 | `LP_LEGAL_DISCLAIMER_LABELS` | const |  |
 | `LP_PRICING_LABELS` | const |  |
-| `LP_FOUNDER_INQUIRY_LABELS` | const |  |
 | `FOUNDER_INQUIRY_LABELS` | const |  |
 | `LP_RETENTION_LABELS` | const |  |
 | `BABY_HOME_LABELS` | const |  |
@@ -426,6 +426,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `LP_LICENSEKEY_LABELS` | const |  |
 | `LP_FAQ_LABELS` | const |  |
 | `LP_SELFHOST_LABELS` | const |  |
+| `LP_FLOATING_CTA_LABELS` | const |  |
 | `LP_INDEX_EXTRA_LABELS` | const |  |
 | `LP_PAMPHLET_LABELS` | const |  |
 | `LP_PRICING_EXTRA_LABELS` | const |  |
