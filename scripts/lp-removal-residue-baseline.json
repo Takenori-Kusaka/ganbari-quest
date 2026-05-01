@@ -1,0 +1,101 @@
+{
+	"updatedAt": "2026-05-01T15:28:55.661Z",
+	"note": "#1790: LP 削除残骸 baseline。新規 violation のみ CI で fail させる ratchet。 baseline を増やす変更は ADR で議論すること。",
+	"violations": [
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/faq.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.noCreditCard\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/faq.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.noAds\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/faq.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.cancelAnytime\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"heroPriceBand.container\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"heroPriceBand.itemFree\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"heroPriceBand.itemPrice\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"heroPriceBand.itemTrial\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"heroPriceBand.itemCancel\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.noCreditCard\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.noAds\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.cancelAnytime\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"hero.noteSignup\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"heroSpecBadges.ageRange\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"heroSpecBadges.presetCount\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/index.html",
+			"detail": "data-lp-key=\"heroSpecBadges.setupTime\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/pricing.html",
+			"detail": "data-lp-key=\"pricing.heroCancelDisclaimer\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/pricing.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.noCreditCard\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/pricing.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.noAds\" が shared-labels.js (LP_LABELS) に存在しません"
+		},
+		{
+			"kind": "orphan-lp-key",
+			"file": "site/pricing.html",
+			"detail": "data-lp-key=\"ctaTrustBadges.cancelAnytime\" が shared-labels.js (LP_LABELS) に存在しません"
+		}
+	]
+}

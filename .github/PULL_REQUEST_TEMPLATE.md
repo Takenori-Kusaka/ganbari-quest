@@ -376,6 +376,20 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
   - 「Pre-PMF だから」という言い訳付きで載せていないか？
   - 代替として、使い方・使い心地が伝わるスクリーンショット・デモ動画の方が効果的ではないか？
 
+### LP 削除/圧縮 PR 必須チェックリスト（#1790）
+
+<!-- site/** の要素（セクション / カード / 画像 / data-lp-key）を削除・圧縮する PR のみ記入。
+     該当しない場合は「N/A」。「要素削除 PR」は「追加」より検出されにくく IA 破綻 / scrshot 漏れ /
+     レイアウトずれの残骸を生むため、削除専用ゲートで構造的に再発防止する。詳細は
+     [`docs/design/lp-content-map.md` §「LP 削除/圧縮 PR 必須チェックリスト」](../docs/design/lp-content-map.md) 参照。 -->
+
+- [ ] **N/A** — LP 要素の削除・圧縮を含まない
+- [ ] 要素削除がある場合、PR 本文に Before/After スクリーンショットを添付した（fullpage で削除前後の高さ差・隣接要素の見え方を確認可能）
+- [ ] 削除した label key (`data-lp-key="..."`) / 画像参照 / class が他箇所 (`shared-labels.js` / `labels.ts` / `site/**` / `tutorial-chapters.ts`) に残骸として残っていないことを `npm run check:lp-residue` で確認した（CI でも自動検査）
+- [ ] 削除した要素に対応する `docs/design/lp-content-map.md §4` の IA 構造を同期更新した
+- [ ] 削除によりレイアウトずれが生じる場合、`npm run screenshots:lp:compare` で fullpage 差分を確認した
+- [ ] CI: `LP Metrics / Check LP removal residue (orphan refs)` ジョブが pass した (新規違反 0 件)
+
 ### LP / 販促文言変更時の実装パス明示（ADR-0013 / #1314）
 
 <!-- LP (`site/**`) / pricing page / `plan-features.ts` / `pricing-strategy.md` / `docs/design/19-*.md` の

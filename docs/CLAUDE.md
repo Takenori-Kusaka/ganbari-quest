@@ -31,8 +31,10 @@
 | `desktopHeight` | 8000 px | 同上 |
 | `forbiddenTerms` | 全 0 | 新規の開発者語彙 (`git clone` / `docker compose` / `SaaS版` / `TLS` / `AES-256` / `AWS`) や射幸性語彙 (`ガチャ` / `抽選` / `コンプリート`) を追加しない |
 | `ctaVariants` | 3 以下 | CTA 文言は `無料で始める` / `デモを見る` + NAV の `ログイン` の 3 種のみ |
+| `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP `<strong>300+</strong> プリセット活動` 訴求が `src/lib/data/marketplace/activity-packs/` の合計 activity 数で裏付けられていること（ADR-0013 LP truth）。実数を 300 未満に減らすか、訴求値を引き上げる場合は同 PR で実数 ≧ 訴求値となるよう揃える |
+| `lp-removal-residue` (#1790) | 新規違反 0 件 | `scripts/check-lp-removal-residue.mjs` で削除済み `data-lp-key` / 画像参照の orphan 検出。既存 19 件は baseline 化済（`scripts/lp-removal-residue-baseline.json`）。新規 1 件でも追加されれば fail。bypass フラグなし |
 
-閾値を緩める変更は ADR で合意を得てから `scripts/measure-lp-dimensions.mjs` の `THRESHOLDS` を更新する。
+閾値を緩める変更は ADR で合意を得てから `scripts/measure-lp-dimensions.mjs` の `THRESHOLDS` / `scripts/lp-removal-residue-baseline.json` を更新する。
 
 ### 絶対にやってはいけないこと
 - 会話で仕様が決まったのに設計書に反映しないまま実装を進めること
