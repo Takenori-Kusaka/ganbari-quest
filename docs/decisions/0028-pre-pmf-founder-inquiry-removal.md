@@ -39,7 +39,7 @@
 ### 4. ADR-0023 §I8 supersede
 
 - 本 ADR-0028 が ADR-0023 §I8 を supersede する
-- ADR-0023 ファイル自体は archive 済み（参照のみ）。本 ADR-0028 を新たな SSOT とする
+- ADR-0023 は ADR-0031 (#1780) で Deprecated 化され、`docs/decisions/archive/0023-marketing-policy-pre-pmf.md` にプレースホルダが配置済み。本 ADR-0028 を新たな SSOT とする
 - 「Pre-PMF 期 founder 直対応動線は LP に出さない」を明示的方針として確立
 
 ## 検討した選択肢

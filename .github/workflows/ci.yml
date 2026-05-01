@@ -556,7 +556,9 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/check-new-required-env.mjs
 
-  # ADR-0031 / #963: スキーマ変更時のテスト追加 warn チェック
+  # archive ADR-0031 (旧 schema-change-compat-testing) / #963: スキーマ変更時のテスト追加 warn チェック
+  # 注: 本ジョブが参照する旧 ADR-0031 は archive 済 (`docs/decisions/archive/0031-schema-change-compat-testing.md`)。
+  # 現役 ADR-0031 は ADR-0023 廃案 + 帰属マップ (#1780) で番号が再採番されている。
   # src/lib/server/db/schema.ts が変更された PR で、tests/unit/db|services/ に
   # テスト追加/変更が無い場合 warn を出す (exit 0 で blocker にはしない)。
   # Issue #962 (is_archived NULL 混在で本番全停止) の再発防止。
@@ -578,7 +580,7 @@ jobs:
       - name: Fetch base ref
         run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
 
-      - name: Check schema change has tests (ADR-0031, warn only)
+      - name: Check schema change has tests (archive ADR-0031 schema-change-compat-testing, warn only)
         env:
           BASE_REF: origin/${{ github.base_ref }}
           PR_BODY: ${{ github.event.pull_request.body }}
