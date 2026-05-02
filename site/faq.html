@@ -60,9 +60,10 @@
 .faq-bottom p{font-size:.95rem;color:var(--gray-500);margin-bottom:24px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7}
 .faq-bottom-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 /* #1626 R22: 不安解消 3 バッジ */
+/* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、16×16 表示、line-height 内に収めるよう vertical-align:middle) */
 .cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:18px auto 0;max-width:560px;font-size:.82rem;color:var(--gray-700)}
 .cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
-.cta-trust-badges li span{font-size:.95rem}
+.cta-trust-badges li img{width:16px;height:16px;flex-shrink:0;vertical-align:middle}
 .faq-contact{margin-top:24px;font-size:.9rem;color:var(--gray-500)}
 .faq-contact a{color:var(--brand-700);font-weight:600}
 
@@ -422,9 +423,9 @@
   </div>
   <!-- #1626 R22: 不安解消 3 バッジ -->
   <ul class="cta-trust-badges" aria-label="お申し込み前の安心ポイント">
-    <li data-lp-key="ctaTrustBadges.noCreditCard"><span aria-hidden="true">&#x1F4B3;</span> クレジットカード登録不要</li>
-    <li data-lp-key="ctaTrustBadges.noAds"><span aria-hidden="true">&#x1F6AB;</span> 広告なし</li>
-    <li data-lp-key="ctaTrustBadges.cancelAnytime"><span aria-hidden="true">&#x1F504;</span> いつでも解約 OK</li>
+    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> クレジットカード登録不要</li>
+    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> 広告なし</li>
+    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> いつでも解約 OK</li>
   </ul>
   <p class="faq-contact"><a href="mailto:ganbari.quest.support@gmail.com?subject=FAQページからのお問い合わせ" data-contact-context="FAQ bottom">ganbari.quest.support@gmail.com</a></p>
 </section>

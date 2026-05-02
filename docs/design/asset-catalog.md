@@ -69,6 +69,18 @@ LP は GitHub Pages で `site/` がドキュメントルート扱い。`site/ind
 CSS では `.trust-badge .tb-icon{display:flex;...;height:32px}` + `.tb-icon img{width:32px;height:32px}` で配置。
 旧来の `font-size:2rem` 絵文字依存は `site/index.html` 内 `.trust-badge .tb-icon` 定義から撤去済（#1796 R-MAJ-6）。
 
+#### cta-trust-* SVG 一覧（#1824 で導入）
+
+`#trust` 4 badges と並ぶ第 2 系統。hero CTA 直下の `.cta-trust-badges` 3 pill (旧絵文字 💳 🚫 🔄) を SVG に置換した。同じ `site/assets/ui/` ディレクトリ配下に配置し、命名で `cta-trust-*` を接頭辞として `#trust` 系統 (`trust-*`) と区別する。
+
+| ファイル | 用途 | LP 配置 (`.cta-trust-badges li`) |
+|---------|------|-----|
+| `cta-trust-credit-card.svg` | カード本体 + マグネットストライプ + 数字行 + 不要を示す斜線 | #1「クレジットカード登録不要」 |
+| `cta-trust-ad-free.svg` | 円 + 斜線 + AD 文字（`trust-no-ads.svg` と同モチーフ、CTA 系統用に独立配置） | #2「広告なし」 |
+| `cta-trust-cancel-anytime.svg` | 循環矢印（recycle / refresh）で「いつでも切替・解約」を表現 | #3「いつでも解約 OK」 |
+
+CSS では `.cta-trust-badges li img{width:18px;height:18px;display:block;flex-shrink:0}` で配置（テキスト `font-size:.82rem` と並ぶよう 18×18 表示、SVG viewBox は 32×32 を維持）。3 ファイル `site/index.html` / `site/faq.html` / `site/pricing.html` で同期参照。`docs/DESIGN.md` §7「OS/ブラウザ間で見た目が変わると困る要素」整合。
+
 ---
 
 ## LP スクショ — site/index.html 内の機能画像 (#1707 / #1712)
@@ -150,6 +162,7 @@ npm run capture:feature -- feature-routine-checklist
   - ごほうび: ギフトボックス + リボン（ブランドオレンジ + 金）
 - 矢印: 3 つの円弧で「活動 → 習慣 → ごほうび → 活動」の循環を示す
 - **画像内テキストは置かない**（HTML 側 `figcaption` + `alt` が SSOT、ブランド A-1 整合）
+  - `static/assets/lp/core-loop-summary.svg` に存在していた `<text>` 3 要素（活動 / 習慣 / ごほうび）は #1821 で全削除済（ごほうびラベルが D3 キャラ星章 cy=160 r=56 領域と重なっていたため）
 
 ### 生成コマンド
 
