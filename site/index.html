@@ -90,7 +90,7 @@
 </script>
 <style>
 /* Hero (#1617 R13: max-width 拡張 + text-wrap balance + auto-phrase / Phase 5 P2: PC 横長で h1 を拡大しゆとり padding) */
-.hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:64px 16px 48px;text-align:center}
+.hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:48px 16px 36px;text-align:center}
 .hero h1{font-size:2.4rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3;max-width:1200px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
 /* #1800 U-MIN-1: hero h1 span の色強調を h2 (--brand-700) と差別化。
    --brand-900 (#1a3a5c) で明度を落とし、+ gold-300 マーカー風背景でアクセント強化。
@@ -98,7 +98,7 @@
 .hero h1 span{color:var(--brand-900);font-weight:900;background:linear-gradient(transparent 60%,var(--gold-300) 60%);padding:0 .15em;border-radius:4px}
 .hero-sub{font-size:1.05rem;color:var(--gray-600);margin-bottom:28px;max-width:720px;margin-left:auto;margin-right:auto;line-height:1.7;text-wrap:balance;word-break:auto-phrase}
 @media(min-width:1024px){
-  .hero{padding:80px 24px 64px}
+  .hero{padding:60px 24px 48px}
   .hero h1{font-size:2.9rem;margin-bottom:20px}
   .hero-sub{font-size:1.12rem;max-width:780px}
 }
@@ -128,7 +128,8 @@
 
 /* Section */
 /* #1831: desktopHeight 8103 > 8000 を解消するため section padding を 56→40 に圧縮 (Linux CI 環境) */
-.section{padding:40px 16px}
+/* #1836: 再度 desktopHeight 8058 > 8000 を回避するため 40→28 (LP deploy ratchet 維持) */
+.section{padding:28px 16px}
 .section-inner{max-width:1080px;margin:0 auto}
 /* #1634 R30 / ADR-0016: 強制改行 <br> を削除し text-wrap: balance に任せる */
 /* #1831: desktopHeight 圧縮のため section-title margin-bottom を 10→4 に圧縮 */
@@ -138,7 +139,8 @@
 /* #1799 U-MIN-2: 中央寄せの h2.section-title と縦軸を揃えるため text-align:center に変更 + max-width 720px に拡張。
    短文 desc は中央寄せが自然、長文も balance/auto-phrase で読みづらくはならない */
 /* #1831: desktopHeight 圧縮のため section-desc margin-bottom を 28→20 にさらに圧縮 */
-.section-desc{text-align:center;color:var(--gray-600);margin-bottom:20px;font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
+/* #1836: section-desc margin-bottom を 20→14 に再圧縮 */
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:14px;font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
@@ -239,7 +241,7 @@
 /* Soft features */
 .soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
 #soft-features .soft-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-#soft-features.section{padding-bottom:40px}
+#soft-features.section{padding-bottom:28px}
 /* #1720 R4: 3 cards 圧縮レイアウト — PC は 1 行に 3 cards 並列、月次レポート featured を border + 微妙なシャドウで強調（縦伸び抑制のためフル幅は不採用） */
 @media(min-width:768px){
   #soft-features .soft-grid--three{grid-template-columns:1.2fr 1fr 1fr;max-width:1080px}
@@ -409,7 +411,8 @@
 /* #1798 U-MIN-8: cta-bottom と footer の境界を明示化。
    padding-bottom を 56→80px に増やし、footer 上辺に inset box-shadow で 1px の薄い区切り線を追加 */
 /* #1831: desktopHeight 圧縮のため cta-bottom padding を 56→40 (top) / 80→56 (bottom) に圧縮 */
-.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:40px 16px 56px;text-align:center;box-shadow:inset 0 -1px 0 var(--gray-300)}
+/* #1836: cta-bottom padding を 40→28 (top) / 56→36 (bottom) に再圧縮 */
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:28px 16px 36px;text-align:center;box-shadow:inset 0 -1px 0 var(--gray-300)}
 /* #1798 U-MIN-8: cta-bottom 直下の footer 上辺にハイライトラインを追加し境界を明示。
    --gray-900 (#1e293b) BG 上で box-shadow inset の薄いハイライトで「区切り」を伝える */
 .cta-bottom + .footer{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
