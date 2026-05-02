@@ -304,6 +304,9 @@ export class ScreenshotCapture {
 	 * @param {'png'|'webp'|'jpeg'} [opts.format='png']
 	 * @param {number} [opts.quality=85] - WebP 品質 (0-100)
 	 * @param {string} [opts.selector] - 表示まで待つ要素
+	 * @param {string} [opts.section] - セクション要素単位の撮影 CSS セレクタ (#1827 fix2)。
+	 *   指定すると `page.locator(section).screenshot()` でその要素のみ切り出す。
+	 *   `fullPage` と排他（同時指定時は呼び出し側で弾く想定）。
 	 * @param {import('playwright').BrowserContextOptions['storageState']} [opts.storageState] - 認証済みセッション
 	 * @param {boolean} [opts.domSnapshot] - DOM HTML を <name>.dom.html として保存するか (#1747 AC4 / #1766)。
 	 *   省略時はコンストラクタの `domSnapshot` 設定（デフォルト true）に従う
@@ -317,6 +320,7 @@ export class ScreenshotCapture {
 		format = 'png',
 		quality = 85,
 		selector,
+		section,
 		storageState,
 		domSnapshot,
 	}) {
@@ -345,7 +349,22 @@ export class ScreenshotCapture {
 			const screenshotType = format === 'jpeg' ? 'jpeg' : 'png';
 			const ext = format === 'webp' ? 'png' : screenshotType;
 			const tmpPath = path.join(this.#outputDir, `${name}.${ext}`);
-			await page.screenshot({ path: tmpPath, fullPage, type: screenshotType });
+
+			// #1827 fix2: section が指定された場合は要素単位の撮影を行う。
+			// PR #1827 Re-Review (a8d053d) で全 desktop SS が hero (fullpage 冒頭) を
+			// 撮ってしまい MD5 衝突 + ファイル名/内容の不一致を発生させた事故への構造的対応。
+			if (section) {
+				const locator = page.locator(section).first();
+				// セクションが mount されていない / 表示されていない場合は早期に fail
+				await locator.waitFor({ state: 'visible', timeout: 10000 });
+				// scrollIntoView してから撮影（lazy 画像の load 待機含む）
+				await locator.scrollIntoViewIfNeeded();
+				// 画像 lazy-load を待つため短い idle 待機
+				await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+				await locator.screenshot({ path: tmpPath, type: screenshotType });
+			} else {
+				await page.screenshot({ path: tmpPath, fullPage, type: screenshotType });
+			}
 
 			// #1766: SS と同一プロセス・同一 page で DOM HTML を取得して保存する。
 			// PR #1717 で SS と実機 DOM が乖離していた事故の構造的再発防止。
