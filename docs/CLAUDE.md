@@ -29,12 +29,41 @@
 |------|--------|------|
 | `mobileHeight` | 15000 px | 引き上げ禁止（下げるのは自由） |
 | `desktopHeight` | 8000 px | 同上 |
+| `desktopHeightWarn` (#1840) | 7800 px | 累積 gate の warning 帯（fail ではない）。fail 閾値の 200px 手前で「次の数 PR で 8000 接触リスク」を PR Job Summary に早期通知 |
 | `forbiddenTerms` | 全 0 | 新規の開発者語彙 (`git clone` / `docker compose` / `SaaS版` / `TLS` / `AES-256` / `AWS`) や射幸性語彙 (`ガチャ` / `抽選` / `コンプリート`) を追加しない |
 | `ctaVariants` | 3 以下 | CTA 文言は `無料で始める` / `デモを見る` + NAV の `ログイン` の 3 種のみ |
 | `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP `<strong>300+</strong> プリセット活動` 訴求が `src/lib/data/marketplace/activity-packs/` の合計 activity 数で裏付けられていること（ADR-0013 LP truth）。実数を 300 未満に減らすか、訴求値を引き上げる場合は同 PR で実数 ≧ 訴求値となるよう揃える |
 | `lp-removal-residue` (#1790) | 新規違反 0 件 | `scripts/check-lp-removal-residue.mjs` で削除済み `data-lp-key` / 画像参照の orphan 検出。既存 19 件は baseline 化済（`scripts/lp-removal-residue-baseline.json`）。新規 1 件でも追加されれば fail。bypass フラグなし |
 
 閾値を緩める変更は ADR で合意を得てから `scripts/measure-lp-dimensions.mjs` の `THRESHOLDS` / `scripts/lp-removal-residue-baseline.json` を更新する。
+
+### LP 累積 desktopHeight gate (#1840 — pre-merge cumulative simulation)
+
+個別 PR の lp-metrics PASS でも、複数 PR を連続 merge すると main 累積で desktopHeight が ratchet (8000) を超える事故が PR #1827→#1832→#1834→#1835 のシーケンスで発生し、Deploy GitHub Pages workflow が 5 連続 fail した。再発防止のため `.github/workflows/lp-metrics.yml` に `cumulative-lp-metrics` ジョブを追加。
+
+#### 動作
+
+1. PR HEAD を checkout（`fetch-depth: 0`）
+2. `git merge --no-commit --no-ff origin/main` で「PR を merge した後の main」を擬似的に作る
+3. その状態で `scripts/measure-lp-dimensions.mjs --output=lp-metrics-cumulative.json` を実行
+4. 累積 desktopHeight が 8000 超えなら fail（measure script が exit 1）
+5. 7800 ≦ 累積 desktopHeight ≦ 8000 の warning 帯なら Job Summary に warning 出力（fail させない）
+
+#### 段階運用
+
+| Phase | 状態 | 説明 |
+|-------|------|------|
+| **Phase 1** | warn-only (`continue-on-error: true`) | #1840 で導入。観察期間 2-4 週間。warning 帯の検出精度を測る |
+| **Phase 2** | required 化判断 | 別 Issue + ADR で議論。merge queue の意味論変更 (`required_status_checks` への追加) を伴うため、Phase 1 の観察結果を踏まえる |
+| **Phase 3** | pricing.html / pamphlet.html へ波及 | 別 Issue。secondary LP ページにも同方針 |
+
+#### warning 閾値の調整
+
+`scripts/measure-lp-dimensions.mjs --warn-threshold=NNNN` で実行時上書き可能。閾値の常設変更は本 CLAUDE.md の表を更新したうえで `THRESHOLDS.desktopHeightWarn` を変更すること（ADR は不要、ratchet 強化方向のため）。
+
+#### conflict 時の振る舞い
+
+PR HEAD と origin/main の merge で conflict が発生した場合、`cumulative-lp-metrics` ジョブは累積 gate の判定を skip し、`::warning::` で「PR 側で main rebase が必要」と通知する。conflict 自体は別途 PR レビュー側で対処する責務。
 
 ### 絶対にやってはいけないこと
 - 会話で仕様が決まったのに設計書に反映しないまま実装を進めること

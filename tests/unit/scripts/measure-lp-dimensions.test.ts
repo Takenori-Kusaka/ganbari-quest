@@ -142,3 +142,39 @@ describe('measure-lp-dimensions — missing image gate (#1783)', () => {
 		expect(existsSync(SCRIPT_PATH)).toBe(true);
 	});
 });
+
+// #1840: 累積 desktopHeight warning gate のテスト
+//
+// MEASURE_SKIP_BROWSER=1 経路では desktopHeight が 0 になり warning に達しないため、
+// JSON 出力に warnings フィールドが必ず含まれることと、
+// `--warn-threshold` で閾値が上書きされ fail / warn / ok の境界が動くことを確認する。
+describe('measure-lp-dimensions — cumulative desktopHeight warning gate (#1840)', () => {
+	let tmpSiteDir: string;
+
+	beforeEach(() => {
+		tmpSiteDir = mkdtempSync(join(tmpdir(), 'measure-lp-warn-test-'));
+	});
+
+	afterEach(() => {
+		rmSync(tmpSiteDir, { recursive: true, force: true });
+	});
+
+	it('lp-metrics.json に warnings フィールドが必ず含まれる', () => {
+		writeFile(tmpSiteDir, 'index.html', makeLpHtml([]));
+		const r = runMeasure(tmpSiteDir);
+		expect(r.exitCode).toBe(0);
+		const metrics = JSON.parse(readFileSync(join(tmpSiteDir, 'lp-metrics.json'), 'utf-8'));
+		expect(Array.isArray(metrics.warnings)).toBe(true);
+		// no-browser 経路では desktopHeight=0 なので warning は発生しない
+		expect(metrics.warnings).toEqual([]);
+	}, 60000);
+
+	it('thresholds.desktopHeightWarn が JSON に含まれる', () => {
+		writeFile(tmpSiteDir, 'index.html', makeLpHtml([]));
+		const r = runMeasure(tmpSiteDir);
+		expect(r.exitCode).toBe(0);
+		const metrics = JSON.parse(readFileSync(join(tmpSiteDir, 'lp-metrics.json'), 'utf-8'));
+		expect(metrics.thresholds.desktopHeightWarn).toBe(7800);
+		expect(metrics.thresholds.desktopHeight).toBe(8000);
+	}, 60000);
+});

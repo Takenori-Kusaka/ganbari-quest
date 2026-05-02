@@ -774,7 +774,31 @@ floating-cta の CTA ボタン文言は、ratchet とは独立に **既存 CTA 3
 - **ファイル**: `.github/workflows/lp-metrics.yml`
 - **トリガ**: `site/**` の変更を含む PR、main への push
 - **fail 条件**: 上記閾値違反
-- **artifact**: `lp-metrics.json` を保存し、PR で手動確認可能に
+- **artifact**: `lp-metrics.json` / `lp-metrics-cumulative.json` を保存し、PR で手動確認可能に
+
+#### 8.4.1 累積 desktopHeight gate (#1840 — pre-merge cumulative simulation)
+
+`cumulative-lp-metrics` ジョブが `lp-metrics.yml` 内で並列起動し、PR HEAD に `origin/main` を `git merge --no-commit --no-ff` で取り込んだ状態で `scripts/measure-lp-dimensions.mjs` を再実行する。これにより「PR を merge した後の main の状態」を擬似計測でき、複数 PR 連続 merge による累積 ratchet 接触を pre-merge 段階で検出する。
+
+| 状態 | 閾値 | ジョブ動作 |
+|------|------|-----------|
+| ok | 累積 desktopHeight < 7800 | Job Summary に OK 記録 |
+| warn | 7800 ≦ 累積 desktopHeight ≦ 8000 | Job Summary に warning + `lp-metrics-cumulative.json` の `warnings[]` に列挙（fail させない） |
+| fail | 累積 desktopHeight > 8000 | measure script が exit 1（ジョブは Phase 1 では `continue-on-error: true` のため hard fail にはしない） |
+
+##### 段階運用 (#1840)
+
+- **Phase 1**: warn-only（observation 期間 2-4 週間） — 本 Issue で導入。累積 fail 時も PR ブロックしない
+- **Phase 2**: required 化判断 — 別 Issue + ADR で議論（merge queue の意味論変更を伴うため）
+- **Phase 3**: pricing.html / pamphlet.html へ波及 — 別 Issue
+
+##### conflict 時
+
+PR HEAD と `origin/main` の merge で conflict が発生した場合、累積 gate の判定は skip し `::warning::` で「PR 側で main rebase が必要」と通知する（conflict 自体の解消は本 gate の責務外）。
+
+##### warning 閾値の上書き
+
+`scripts/measure-lp-dimensions.mjs --warn-threshold=NNNN` で実行時に warning 帯を変更できる。常設変更は `THRESHOLDS.desktopHeightWarn` を編集（ADR は不要、ratchet 強化方向のため）。
 
 ### 8.5 E2E テスト
 

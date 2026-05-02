@@ -134,6 +134,10 @@ const THRESHOLDS = {
 	mobileHeight: 15000,
 	desktopHeight: 8000,
 	ctaVariantsMax: 3,
+	// #1840: pre-merge 累積 desktopHeight gate のための warning 閾値。
+	// fail 閾値 (8000) の 200px 手前に warning 帯を置き、PR で「次の数 PR で 8000 接触リスク」を
+	// 早期通知する。ratchet (8000) は据え置き。warn-threshold は --warn-threshold で上書き可能。
+	desktopHeightWarn: 7800,
 	// #1803: hero spec-badges 「300+ プリセット活動」CI 裏取り。
 	// site/index.html L480 `<li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動</li>`
 	// および site/shared-labels.js k96「300+ のテンプレート」が、実 marketplace data
@@ -141,6 +145,14 @@ const THRESHOLDS = {
 	// CI で assert する。実数 < 訴求値 になれば ADR-0013 LP truth 違反として fail。
 	presetActivityCountClaimedMin: 300,
 };
+
+// #1840: --warn-threshold=NNNN で上書き可能（CI 累積 gate での warning 帯調整用）
+if (args['warn-threshold']) {
+	const v = Number.parseInt(args['warn-threshold'], 10);
+	if (Number.isFinite(v) && v > 0) {
+		THRESHOLDS.desktopHeightWarn = v;
+	}
+}
 
 const ACTIVITY_PACKS_DIR = resolve('src/lib/data/marketplace/activity-packs');
 
@@ -416,6 +428,31 @@ function collectThresholdViolations(r) {
 	return out;
 }
 
+/**
+ * #1840: 累積 desktopHeight warning（fail ではない）を収集する。
+ * fail 閾値 (THRESHOLDS.desktopHeight) を超えていない場合のみ、
+ * warning 閾値 (THRESHOLDS.desktopHeightWarn) を超えているかを判定する。
+ *
+ * pre-merge cumulative gate (lp-metrics.yml の cumulative-lp-metrics ジョブ) で
+ * 「累積で 8000 ratchet 接触リスク」を PR コメントに早期通知するために使用する。
+ *
+ * @param {object} r - measureSingleTarget の戻り値
+ * @returns {string[]} warning メッセージ配列（空なら warning なし）
+ */
+function collectThresholdWarnings(r) {
+	const out = [];
+	if (!r.enforceThresholds) return out;
+	// fail 域に達している場合は warning 不要（fail メッセージで十分）
+	if (r.desktopHeight > THRESHOLDS.desktopHeight) return out;
+	if (r.desktopHeight >= THRESHOLDS.desktopHeightWarn) {
+		out.push(
+			`[${r.target}] desktopHeight=${r.desktopHeight} ≧ warn-threshold ${THRESHOLDS.desktopHeightWarn} ` +
+				`(fail 閾値 ${THRESHOLDS.desktopHeight} の ${THRESHOLDS.desktopHeight - r.desktopHeight}px 手前)`,
+		);
+	}
+	return out;
+}
+
 function collectPresetViolations(presetCheck) {
 	// #1803: hero spec-badges presetCount 裏取り gate
 	const out = [];
@@ -497,6 +534,12 @@ async function main() {
 		packCount: packCount.packCount,
 	};
 
+	// #1840: warning（fail ではない）も収集して JSON / stdout に出力する
+	const warnings = [];
+	for (const r of allResults) {
+		warnings.push(...collectThresholdWarnings(r));
+	}
+
 	// 後方互換: lp-metrics.json は index.html の結果（最初のターゲット）
 	const single = allResults.find((r) => r.enforceThresholds) || allResults[0];
 	const output = {
@@ -510,6 +553,8 @@ async function main() {
 		screenshotRefs: single.screenshotRefs ?? [],
 		missingScreenshots: single.missingScreenshots ?? [],
 		thresholds: THRESHOLDS,
+		// #1840: 累積 gate 用の warning（fail に至らないが ratchet 接触リスク域）
+		warnings,
 		// #1637 R34: 全ターゲットの結果も併せて記録
 		all: allResults,
 		// #1803: hero spec-badges 裏取り
@@ -525,6 +570,11 @@ async function main() {
 		logErr('\n[FAIL] LP metrics violations:');
 		for (const v of violations) logErr(`  - ${v}`);
 		process.exit(1);
+	}
+	// #1840: warning は fail させずに stderr へ出力する（CI 側で PR コメント等に活用）
+	if (warnings.length > 0) {
+		logErr('\n[WARN] LP metrics warnings (cumulative ratchet 接触リスク):');
+		for (const w of warnings) logErr(`  - ${w}`);
 	}
 	log('\n[OK] all LP metrics within thresholds');
 }
