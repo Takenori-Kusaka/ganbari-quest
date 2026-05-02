@@ -98,9 +98,10 @@ export class AuthStack extends cdk.Stack {
 		});
 
 		// --- CustomMessage Lambda Trigger (日本語HTML メールテンプレート) ---
+		// #1828: AWS Lambda Node.js 20.x EOL (2026-04-30) 対応で 22.x へ migration
 		const customMessageFn = new lambda.Function(this, 'CustomMessageFn', {
 			functionName: 'ganbari-quest-cognito-custom-message',
-			runtime: lambda.Runtime.NODEJS_20_X,
+			runtime: lambda.Runtime.NODEJS_22_X,
 			handler: 'index.handler',
 			timeout: cdk.Duration.seconds(5),
 			memorySize: 128,

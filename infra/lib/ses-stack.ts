@@ -111,11 +111,12 @@ export class SesStack extends cdk.Stack {
 		);
 
 		// 9. メール受信処理 Lambda
+		// #1828: AWS Lambda Node.js 20.x EOL (2026-04-30) 対応で 22.x へ migration
 		const receiveHandler = new lambdaNode.NodejsFunction(this, 'SesReceiveHandler', {
 			functionName: 'ganbari-quest-ses-receive',
 			entry: path.join(__dirname, '..', 'lambda', 'ses-receive', 'index.ts'),
 			handler: 'handler',
-			runtime: lambda.Runtime.NODEJS_20_X,
+			runtime: lambda.Runtime.NODEJS_22_X,
 			architecture: lambda.Architecture.ARM_64,
 			memorySize: 256,
 			timeout: cdk.Duration.seconds(30),

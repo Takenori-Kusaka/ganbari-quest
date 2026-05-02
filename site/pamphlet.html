@@ -318,16 +318,18 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
   grid-template-columns:1fr 1fr 1fr;
   gap:4mm;
 }
+/* #1823 (#1820 波及): pamphlet 内側装飾枠廃止 — recommended の二重枠 (1.5px border + 1.5px box-shadow)
+   を撤去し、border-color のみで recommended 強調を実現。index.html / pricing.html と同方針 */
 .plan-card{
-  border:1.5px solid var(--gray-200);
+  border:1px solid var(--gray-300);
   border-radius:var(--radius);
   padding:4mm 3.5mm;
   text-align:center;
   position:relative;
+  background:#fff;
 }
 .plan-card.recommended{
   border-color:var(--brand-500);
-  box-shadow:0 0 0 1.5px var(--brand-500);
 }
 .plan-badge{
   position:absolute;

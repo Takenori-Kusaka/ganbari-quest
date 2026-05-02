@@ -154,14 +154,27 @@ npm run capture:feature -- feature-routine-checklist
 ### 生成コマンド
 
 ```bash
-# Gemini API 鍵があるとき（推奨）
+# Gemini API 鍵があるとき（推奨）— #1822 で Gemini 3 Pro Image (gemini-2.5-pro) で本格生成
 npm run generate:coreloop-summary
+#  → scripts/generate-coreloop-summary.mjs 経由
+#  → 内部的に scripts/generate-image.mjs --category character --model pro を呼ぶ
+#  → docs/reference/gemini_image_generation_guide.md A-1 BRAND STYLE BLOCK 自動付与
+#  → 参照画像: static/assets/brand/master-character-sheet.png（D3 warrior 整合）
 #  → static/assets/lp/core-loop-summary.png + site/assets/lp/core-loop-summary.png に出力
-#  → docs/reference/gemini_image_generation_guide.md A-1 / A-3 character category 整合
 
 # Gemini API 鍵が無いとき（CI / Pages デプロイ時のフォールバック）
 node -e "require('sharp')('static/assets/lp/core-loop-summary.svg').resize(1280,640).png().toFile('static/assets/lp/core-loop-summary.png')"
 ```
+
+#### 生成後レビューチェックポイント (#1822 AC3)
+
+`docs/design/asset-catalog.md`「画像アセット追加時のレビューチェックリスト」を全項目満たすこと:
+
+- [ ] `docs/reference/gemini_image_generation_guide.md` A-1 BRAND STYLE BLOCK が冒頭付与されている (`scripts/generate-image.mjs` 経由なら自動)
+- [ ] 参照画像 `static/assets/brand/master-character-sheet.png` を渡した
+- [ ] 頭身比 1:1.5 / 目 35-40% / ブランドカラー (#5BA3E6 / #FFE44D) 整合
+- [ ] 透過 PNG（character category デフォルト）
+- [ ] テキスト・透かしなし
 
 ### 配置原則
 

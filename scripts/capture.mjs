@@ -69,6 +69,9 @@ const { values, positionals } = parseArgs({
 		// #1766 (#1747 AC4): SS と DOM HTML スナップショットを同一プロセスで取得する。
 		// デフォルト有効。`--no-dom-snapshot` 指定時のみ無効化される。
 		'no-dom-snapshot': { type: 'boolean', default: false },
+		// #1825: Splide.js carousel 初期化完了を待機する。
+		// `--server-mode lp` 指定時は自動的に有効化される。
+		'wait-splide': { type: 'boolean', default: false },
 		help: { type: 'boolean', default: false },
 	},
 });
@@ -137,6 +140,11 @@ DOM スナップショット (#1747 AC4 / #1766):
   PR #1717 で発生した「SS と実機が乖離している」事故の再発を防ぎます。
   --no-dom-snapshot DOM スナップショット保存を無効化（デフォルト: 有効）
 
+Splide.js 初期化待機 (#1825):
+  --wait-splide     hero carousel 等の Splide.js 初期化完了 (.splide__slide.is-active 出現) を待ってから撮影。
+                    LP 撮影で carousel が黒ブロック化する問題への対処。--server-mode lp 指定時は自動有効化。
+                    Splide が存在しないページでは silent skip するため副作用なし
+
   --help            このヘルプを表示
 
 トラブルシュート:
@@ -195,6 +203,10 @@ const shouldAutoStart = values['start-server'] ?? prNumber !== null;
 
 // #1766: DOM スナップショット取得有無（--no-dom-snapshot で opt-out）
 const domSnapshotEnabled = !values['no-dom-snapshot'];
+
+// #1825: Splide.js 初期化完了待機。`--server-mode lp` 指定時は自動有効化（LP 撮影で hero carousel
+// が黒ブロック化する問題への対処）。明示的に `--wait-splide` 指定時も有効化。
+const waitSplideEnabled = values['wait-splide'] || serverMode === 'lp';
 
 // プリセット検証（早期エラー）
 for (const name of presetNames) {
@@ -628,6 +640,7 @@ async function runConfigMode() {
 				quality,
 				selector: page.selector,
 				storageState,
+				waitSplide: waitSplideEnabled,
 			});
 			if (recordCaptureResult(result, capturedFiles, domFiles)) success++;
 		}
@@ -688,6 +701,7 @@ async function runUrlMode() {
 			selector: values.selector,
 			section: values.section,
 			storageState,
+			waitSplide: waitSplideEnabled,
 		});
 		recordCaptureResult(result, capturedFiles, domFiles);
 	}

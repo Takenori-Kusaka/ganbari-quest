@@ -300,7 +300,10 @@ async function captureScreenshots() {
 
 			console.log(`Capturing ${shot.description} [${sizeName}] ...`);
 
-			// For scrollTo, we use a custom selector option
+			// #1825: carousel-* shots は LP /demo 画面ではあるが、index.html の hero carousel と同じ
+			// Splide.js を使う場合に SS が黒ブロック化する問題への対策として全 LP shot で waitSplide を有効化。
+			// Splide が存在しないページでは silent skip するため副作用なし。
+			const isCarouselShot = shot.name.startsWith('carousel-');
 			const result = await capturer.capture({
 				url: withScreenshotParam(shot.url),
 				name: filename,
@@ -308,6 +311,7 @@ async function captureScreenshots() {
 				fullPage: false,
 				format: 'png',
 				selector: shot.scrollTo,
+				waitSplide: isCarouselShot,
 			});
 
 			if (result.ok) {

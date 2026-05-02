@@ -93,6 +93,15 @@ Cost Explorer API (`ce:GetCostAndUsage` 等) には以下の制約がある。
 - CI/CD パイプラインからの CE API 呼び出しは原則禁止（コスト肥大化リスク）
 - コスト監視は **AWS Budgets アラート** (無料) を優先し、CE API は月次レポート等に限定する
 
+## Lambda Runtime ポリシー (#1828)
+
+- 本プロジェクトの Lambda は 2 種類:
+  - **メインアプリ** (`ganbari-quest-app`): `DockerImageFunction` で `Dockerfile.lambda` が `FROM node:22-alpine` を pin。Node 版数の追従は Dockerfile 側で行う
+  - **インライン / NodejsFunction Lambda** (auth/compute/ops/ses 4 stack 内): CDK の `lambda.Runtime.NODEJS_22_X` を SSOT として参照
+- AWS Lambda Node.js EOL 通知が来たら、上記 4 stack の `lambda.Runtime.NODEJS_*_X` 定数を一括置換 + `Dockerfile.lambda` の `FROM node:*-alpine` を同 LTS に揃える運用とする
+- 直近の対応:
+  - 2026-05-01 (#1828): NODEJS_20_X → NODEJS_22_X（Node 20.x EOL 2026-04-30 への対応）。CDK 2.252.0 で 22.x サポート済み
+
 ## AWS Lambda 本番（ganbari-quest.com）
 
 - **自動デプロイ**: main ブランチへの push で GitHub Actions が自動実行
