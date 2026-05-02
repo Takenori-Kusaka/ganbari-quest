@@ -110,9 +110,10 @@
 .hero-price-band .hpb-dot{color:var(--gray-400)}
 @media(max-width:640px){.hero-price-band{font-size:.88rem;border-radius:14px;padding:10px 14px;gap:4px 10px}.hero-price-band .hpb-dot{display:none}}
 /* #1626 R22: CTA 直下の不安解消 3 バッジ */
+/* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、16×16 表示、line-height 内に収めるよう vertical-align:middle) */
 .cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:0 auto 14px;max-width:560px;font-size:.82rem;color:var(--gray-700)}
 .cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
-.cta-trust-badges li span{font-size:.95rem}
+.cta-trust-badges li img{width:16px;height:16px;flex-shrink:0;vertical-align:middle}
 /* #1628 R24: 仕様起点の数字バッジ */
 /* #1795 R7: モバイルで「2 + 1」変則表示を回避するため、375px viewport で gap/font-size を圧縮し 1 行 3 バッジを目指す。
    横が足りない場合は flex-direction:column で縦 3 段 (整然配置) に切替 */
@@ -522,9 +523,9 @@
   </div>
   <!-- #1626 R22: CTA 直下の不安解消 3 バッジ -->
   <ul class="cta-trust-badges" aria-label="お申し込み前の安心ポイント">
-    <li data-lp-key="ctaTrustBadges.noCreditCard"><span aria-hidden="true">&#x1F4B3;</span> クレジットカード登録不要</li>
-    <li data-lp-key="ctaTrustBadges.noAds"><span aria-hidden="true">&#x1F6AB;</span> 広告なし</li>
-    <li data-lp-key="ctaTrustBadges.cancelAnytime"><span aria-hidden="true">&#x1F504;</span> いつでも解約 OK</li>
+    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> クレジットカード登録不要</li>
+    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> 広告なし</li>
+    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> いつでも解約 OK</li>
   </ul>
   <p class="hero-note" data-lp-key="hero.noteSignup">家族何人でも無料ではじめられます / クレジットカード登録不要</p>
   <!-- #1628 R24: 仕様起点の数字バッジ（PMF 後送り testimonial、現時点は仕様値のみ） -->

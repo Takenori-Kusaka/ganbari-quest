@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="cta-trust-credit-card-title">
+  <title id="cta-trust-credit-card-title">クレジットカード登録不要アイコン</title>
+  <!-- クレジットカード本体 (#1824 cta-trust-badges SVG 化) -->
+  <g fill="none" stroke="#1f4f7e" stroke-width="2" stroke-linejoin="round">
+    <rect x="3" y="7" width="26" height="18" rx="2" ry="2" />
+  </g>
+  <!-- 上部マグネットストライプ -->
+  <rect x="3" y="11" width="26" height="3" fill="#1f4f7e" />
+  <!-- 中央の数字行プレースホルダー -->
+  <g fill="#1f4f7e">
+    <rect x="6" y="17" width="4" height="2" rx="0.5" />
+    <rect x="11" y="17" width="4" height="2" rx="0.5" />
+    <rect x="16" y="17" width="4" height="2" rx="0.5" />
+    <rect x="21" y="17" width="4" height="2" rx="0.5" />
+  </g>
+  <!-- 不要を示す斜線 -->
+  <line x1="6" y1="6" x2="26" y2="26" stroke="#d97706" stroke-width="2.4" stroke-linecap="round" />
+</svg>

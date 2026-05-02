@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="cta-trust-ad-free-title">
+  <title id="cta-trust-ad-free-title">広告なしアイコン</title>
+  <!-- 広告ブロックを表す: 円 + 斜線 + AD 文字 (#1824 cta-trust-badges SVG 化、trust-no-ads.svg と同系統) -->
+  <g fill="none" stroke="#1f4f7e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="16" cy="16" r="12" />
+    <line x1="7.6" y1="7.6" x2="24.4" y2="24.4" />
+  </g>
+  <!-- 中央の AD 文字（広告を意味）-->
+  <text x="16" y="20" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="700" fill="#1f4f7e" letter-spacing="0.5">AD</text>
+</svg>
