@@ -1,6 +1,7 @@
 <script lang="ts">
 import { DEMO_ADMIN_HOME_LABELS, getPlanLabel } from '$lib/domain/labels';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
+import { getScreenshotMode } from '$lib/features/demo/screenshot-mode.js';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data } = $props();
@@ -14,6 +15,8 @@ const retentionLabel = $derived(
 
 <div class="demo-admin-plan space-y-4">
 	<!-- プラン切替トグル (#791, #760): デモ用にクエリパラメータで全プランを体験できる -->
+	<!-- #1792: LP scrshot 撮影時 (?screenshot=1) はデモ独自のプラン切替 UI を隠し、本番画面と同じ見た目で撮影する -->
+	{#if !getScreenshotMode()}
 	<div class="plan-switcher" role="group" aria-label={DEMO_ADMIN_HOME_LABELS.planSwitcherAriaLabel}>
 		<span class="plan-switcher__label">{DEMO_ADMIN_HOME_LABELS.planSwitcherLabel}</span>
 		<div class="plan-switcher__buttons">
@@ -43,6 +46,7 @@ const retentionLabel = $derived(
 			</a>
 		</div>
 	</div>
+	{/if}
 
 	<!-- プラン利用状況（デモ版: PlanStatusCard は CTA が /admin/license にハードコードされているため使わない — PR #854 と同じ対応） -->
 	{#if planStats}
@@ -72,7 +76,8 @@ const retentionLabel = $derived(
 	{/if}
 
 	<!-- デモでは実際のトライアル状態が無いため、free プランの時のみ CTA を表示 (#731 TrialBanner の "not-started" ステートと同等) -->
-	{#if planTier === 'free'}
+	<!-- #1792: LP scrshot 撮影時 (?screenshot=1) はデモ独自の trial CTA も隠す -->
+	{#if planTier === 'free' && !getScreenshotMode()}
 		<div class="demo-trial-cta" data-testid="demo-trial-cta">
 			<div class="demo-trial-cta__icon">🎁</div>
 			<div class="demo-trial-cta__content">

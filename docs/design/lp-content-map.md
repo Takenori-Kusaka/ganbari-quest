@@ -255,7 +255,41 @@ LP 9 セクションを 4 トーンに分類し、各トーンに「規範のど
   - `h1` の `max-width` は 1200px、PC (≥1024px) では `font-size: 2.9rem` / `padding: 80px 24px 64px` に拡大
   - `hero-sub` は `max-width: 780px` / `font-size: 1.12rem` (PC のみ)
 
-#### [02] アナログ vs デジタル — シール帳・ホワイトボードと何が違うのか（#1597 ADR-0023 I5 / #1614 R10）
+#### [01b] StoryBrand Guide — なぜ「卒業」を成功と呼ぶのか（#1784）
+
+##### §1. 設計背景（why）
+
+PO-R-1（魅力伝わらない）の構造原因として「StoryBrand Guide（信頼できる導き手）が IA 上ほぼ不在」を解消するために、**Hero 直後・versus 直前**に Guide 専用のミニセクションを追加する。
+versus は Plan の役割（解決策の提示）を担うため、その前段で「なぜ私たちを信用してよいか」を明示しておかないと、比較表だけでは態度反転に必要な権威性が不足する。
+Pre-PMF（ADR-0010）で testimonial を出せない制約下でも、**設計哲学による credibility（Anti-engagement / コアターゲット / 家族限定）**は表明できる。これを 1 scrshot + 3 行で簡潔に表す。
+
+##### §2. 設計原則（rules）
+
+1. **Hero 直後・versus 直前に固定配置**: `[01] Hero` の終了直後・`[02] versus` の直前に挿入する（`<section id="guide">`）。
+2. **1 scrshot + 3 行に圧縮、追加要素禁止**: 3 つの設計哲学（Anti-engagement / コアターゲット / 家族限定）を Title + 1 文の Description で表現し、4 行以上に拡張しない。FAQ 寄りの細かい条項や testimonial 風の文章は本セクションに置かない。
+3. **CTA 非設置**: 本セクション内に CTA を配置しない（最終 CTA [09] / Hero に集約）。`ctaVariants ≤ 3` 制限を侵食しない。
+4. **scrshot は実画面のみ**（ADR-0013 LP truth）: 「ポイントとカテゴリの可視化」を表す代表画面 (`feature-point-level{,-desktop}.webp`) を流用し、専用画像を新規撮影しない（撮影元 = `/demo/lower/home`）。
+5. **ラベル SSOT 準拠 (ADR-0009)**: 全文言は `LP_GUIDE_LABELS`（`src/lib/domain/labels.ts`）→ `site/shared-labels.js` 経由で `data-lp-key="guide.*"` で注入。本 HTML 内に日本語直書きを残さない。
+6. **メトリクス維持**: 本セクション追加で `mobileHeight ≤ 15000` / `desktopHeight ≤ 8000` / `forbiddenTerms = 0` / `ctaVariants ≤ 3` を維持する。
+
+##### §3. 仕様（what）
+
+- **配置**: `<section id="guide" class="section bg-white">` を `[01] Hero` 直後・`[02] versus` 直前に配置（`site/index.html` `LP-LANDMARK:guide`）
+- **H2**: 「なぜがんばりクエストは「卒業」を成功と呼ぶのか」（`data-lp-key="guide.sectionTitle"`）
+- **構造**: `.guide-grid > .guide-shot + .guide-points (ul > li.guide-point × 3)` の 2 カラム + 3 行構造（PC 横長 / モバイル縦積み）
+- **3 行内訳**:
+
+| Title | Description（1 文） |
+|------|-------------------|
+| 滞在時間を伸ばさない設計 | 連続ガチャや通知連打は採用しません。記録は数秒で終わるのが正しい使い方です。 |
+| 3-18 歳のコアターゲット | 年齢が上がるほど自分でペースを決められるよう、UI と機能が段階的に変わります。 |
+| 家族だけの閉じた空間 | 広告も他家庭との比較もありません。子供のがんばりは家族にしか見えません。 |
+
+- **scrshot**: `screenshots/feature-point-level{,-desktop}.webp`（撮影元 = `/demo/lower/home`、core-loop の aside scrshot と共有）
+- **CSS スタイル** (実装が SSOT — `site/index.html` `.guide-shot` 定義が一次情報): `#guide` は `padding:12px 16px` / PC (≥1024px) で `padding:12px 16px`。`.guide-grid` は PC (≥768px) で `0.9fr 1.6fr` 2 カラム、`.guide-shot` は `aspect-ratio:16/9` / max-height 120/140/150px (mobile/≥768px/≥1024px)。`.guide-point` は brand 色のグラデ背景 + brand-200 border
+- **同期対象**: `site/pamphlet.html` には現時点で本セクションを反映しない（pamphlet は evaluate モード用 / A4 印刷前提のため要約版を維持）
+
+#### [02] アナログ vs デジタル — シール帳・ホワイトボードと何が違うのか（#1597 ADR-0023 I5 / #1614 R10 / #1784 vc-digital scrshot 配置）
 
 ##### §1. 設計背景（why）
 
@@ -294,6 +328,13 @@ ADR-0013 LP 実装 SSOT（Committed のみ訴求）/ ADR-0012 Anti-engagement（
 - **ラベル管理**: 全 H2 / サブ / 4 行 × (analog title / digital title / digital desc) は `LP_VERSUS_LABELS`（`src/lib/domain/labels.ts`）→ `shared-labels.js` 経由で `data-lp-key="versus.*"` で注入
 - **CSS スタイル**: `#versus` セクション全体は `padding:20px 16px`、`.versus-card.vc-analog` は `var(--gray-50)` 背景、`.vc-digital` は `linear-gradient(135deg, var(--brand-50) 0%, #fef9e7 100%)` でブランドカラーへのグラデーション、`.versus-arrow` は `var(--brand-700)` 色の `→`。モバイル (`<640px`) は `grid-template-columns: 1fr 18px 1.3fr`、デスクトップは `1fr 22px 1.4fr`
 - **アイコン配置**: 廃止 (#1723 R10) — `vc-icon` 要素は site/index.html / labels.ts / shared-labels.js から削除。比較表は `vc-tag` + タイトル + 説明の 3 要素構成のみで対比を成立させる
+- **vc-digital scrshot 配置 (#1784)**: 各 4 row の `.vc-digital` 内にテキスト直下で `.versus-shot` (`<picture>` + WebP) を縦積み配置し、各行で別々のアプリ画面 scrshot を表示する。撮影元の対応:
+  - row1（自動集計）: `feature-point-level{,-desktop}.webp` (`/demo/lower/home`)
+  - row2（年齢継続）: `age-kinder{,-desktop}.webp` (`/demo/kinder/home`)
+  - row3（卒業）: `growth-stage-graduate{,-desktop}.webp` (`/demo/lower/achievements`)
+  - row4（場所自由）: `feature-cheer-message{,-desktop}.webp` (`/demo/lower/home` — モバイル portable scrshot)
+
+  `.versus-shot` は **実装が SSOT** (`site/index.html` `.versus-shot` 定義が一次情報): `aspect-ratio: 16/9` 固定 + `max-height: 70/80/90px` (≤640px/default/≥1024px) で行高さを揃え、新規撮影はせず既存 9 種から流用する（ADR-0013 LP truth）。`alt` 属性は `LP_VERSUS_LABELS.row{1..4}ShotAlt`（`src/lib/domain/labels.ts`）を SSOT として持つが、現状の `site/index.html` は `<img alt="...">` 直書きで同一文字列を保持している（`data-lp-key-attr` 機構は本 LP では未導入。labels.ts 側が SSOT、HTML 側が同期コピーの 2 系統管理）
 - **CTA 非設置**: 本セクションには CTA を配置しない（最終 CTA [09] / Hero / NAV に集約）。`ctaVariants ≤ 3` 制限を侵食しない
 - **同期対象**: `site/pamphlet.html` には現時点で本セクションを反映しない（pamphlet は evaluate モード用 / A4 印刷前提のため要約版を維持。LP 本体の versus 比較は discover モード用）
 
