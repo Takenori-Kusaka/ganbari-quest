@@ -126,15 +126,18 @@
 }
 
 /* Section */
-.section{padding:56px 16px}
+/* #1831: desktopHeight 8103 > 8000 を解消するため section padding を 56→40 に圧縮 (Linux CI 環境) */
+.section{padding:40px 16px}
 .section-inner{max-width:1080px;margin:0 auto}
 /* #1634 R30 / ADR-0016: 強制改行 <br> を削除し text-wrap: balance に任せる */
-.section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:10px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
+/* #1831: desktopHeight 圧縮のため section-title margin-bottom を 10→4 に圧縮 */
+.section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:4px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
 /* #1759 PR Phase 3-B fix: desktopHeight 8003 > 8000 を回避するため section-desc 余白を 40 → 28px に圧縮 */
 /* #1726 R9: 長文 description は左寄せに変更（max-width:640px 中央配置は維持）。短い見出し h2.section-title は center 維持 */
 /* #1799 U-MIN-2: 中央寄せの h2.section-title と縦軸を揃えるため text-align:center に変更 + max-width 720px に拡張。
    短文 desc は中央寄せが自然、長文も balance/auto-phrase で読みづらくはならない */
-.section-desc{text-align:center;color:var(--gray-600);margin-bottom:28px;font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
+/* #1831: desktopHeight 圧縮のため section-desc margin-bottom を 28→20 にさらに圧縮 */
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:20px;font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
@@ -172,7 +175,8 @@
    旧クラス (.core-loop-step / .core-loop-layer / .core-loop-2col / .core-loop-aside /
    .core-loop-perspectives / .clp-card / .cls-num / .core-loop-visual / .core-loop-note)
    は廃止し、CSS / DOM ともに参照無し。再混入は #1790 LP 削除残骸検出 CI で検出される。 */
-#core-loop{padding:36px 16px}
+/* #1831: desktopHeight 圧縮の追加調整 — core-loop padding を 36→28 に */
+#core-loop{padding:28px 16px}
 #core-loop .section-desc{margin-bottom:20px}
 /* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
 .core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
@@ -391,7 +395,8 @@
 
 /* FAQ */
 .faq-list{max-width:720px;margin:0 auto}
-.faq-item{border-bottom:1px solid var(--gray-300);padding:18px 0}
+/* #1831: desktopHeight 圧縮のため faq-item padding を 18→14 に */
+.faq-item{border-bottom:1px solid var(--gray-300);padding:14px 0}
 .faq-item summary{font-size:.98rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
 .faq-item summary::before{content:"Q.";color:var(--brand-700);font-weight:700;font-size:1.05rem;flex-shrink:0}
 .faq-item[open] summary{margin-bottom:10px}
@@ -402,7 +407,8 @@
 /* Final CTA */
 /* #1798 U-MIN-8: cta-bottom と footer の境界を明示化。
    padding-bottom を 56→80px に増やし、footer 上辺に inset box-shadow で 1px の薄い区切り線を追加 */
-.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:56px 16px 80px;text-align:center;box-shadow:inset 0 -1px 0 var(--gray-300)}
+/* #1831: desktopHeight 圧縮のため cta-bottom padding を 56→40 (top) / 80→56 (bottom) に圧縮 */
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:40px 16px 56px;text-align:center;box-shadow:inset 0 -1px 0 var(--gray-300)}
 /* #1798 U-MIN-8: cta-bottom 直下の footer 上辺にハイライトラインを追加し境界を明示。
    --gray-900 (#1e293b) BG 上で box-shadow inset の薄いハイライトで「区切り」を伝える */
 .cta-bottom + .footer{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
