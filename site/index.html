@@ -92,7 +92,10 @@
 /* Hero (#1617 R13: max-width 拡張 + text-wrap balance + auto-phrase / Phase 5 P2: PC 横長で h1 を拡大しゆとり padding) */
 .hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:64px 16px 48px;text-align:center}
 .hero h1{font-size:2.4rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3;max-width:1200px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
-.hero h1 span{color:var(--brand-700)}
+/* #1800 U-MIN-1: hero h1 span の色強調を h2 (--brand-700) と差別化。
+   --brand-900 (#1a3a5c) で明度を落とし、+ gold-300 マーカー風背景でアクセント強化。
+   AA: --brand-900 on hero グラデ最暗 (#e8f4fd) = 8.9:1 PASS / gold-300 (#ffed80) も背面に十分透ける */
+.hero h1 span{color:var(--brand-900);font-weight:900;background:linear-gradient(transparent 60%,var(--gold-300) 60%);padding:0 .15em;border-radius:4px}
 .hero-sub{font-size:1.05rem;color:var(--gray-600);margin-bottom:28px;max-width:720px;margin-left:auto;margin-right:auto;line-height:1.7;text-wrap:balance;word-break:auto-phrase}
 @media(min-width:1024px){
   .hero{padding:80px 24px 64px}
@@ -129,7 +132,9 @@
 .section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:10px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
 /* #1759 PR Phase 3-B fix: desktopHeight 8003 > 8000 を回避するため section-desc 余白を 40 → 28px に圧縮 */
 /* #1726 R9: 長文 description は左寄せに変更（max-width:640px 中央配置は維持）。短い見出し h2.section-title は center 維持 */
-.section-desc{text-align:left;color:var(--gray-600);margin-bottom:28px;font-size:.98rem;line-height:1.7;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
+/* #1799 U-MIN-2: 中央寄せの h2.section-title と縦軸を揃えるため text-align:center に変更 + max-width 720px に拡張。
+   短文 desc は中央寄せが自然、長文も balance/auto-phrase で読みづらくはならない */
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:28px;font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
@@ -148,7 +153,10 @@
 .age-panel-shot{overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:390/844}
 .age-panel-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
 .age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
-.age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-700);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
+/* #1799 U-MIN-4: WCAG AA (4.5:1) 対応。
+   旧 --brand-700 (#3878b8) on --brand-50 (#f2f9ff) = 4.35:1 (AA わずかに不足)
+   → 文字を --brand-800 (#2a5f9e) に上げ、--brand-50 上で 5.95:1 確保 */
+.age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-800);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
 .age-panel-desc{font-size:.92rem;color:var(--gray-600);line-height:1.7;margin-bottom:16px}
 .age-panel-cta{text-align:left;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 .age-panel-cta .btn{flex:0 0 auto}
@@ -189,7 +197,8 @@
   .core-loop-section-inner{max-width:1080px}
   .core-loop-summary{max-width:720px}
   .core-loop-cards{gap:20px}
-  .tour-card .tour-shot{aspect-ratio:1280/800;max-height:200px}
+  /* #1799 U-MIN-3: tour-shot 高さは下方の machine-tour @media (min-width:1024px) に集約 (max-height:280px)。
+     ここでは aspect-ratio のみ維持（縦長スマホ枠 → 横長画像への切替は不要、後段の max/min-height が支配） */
 }
 
 /* Machine tour (5-act, #1618 R14: PC 整然配置 + 画像有無の高さ揃え) */
@@ -212,8 +221,10 @@
 @media(min-width:1024px){
   /* PC 整然配置 (#1618 R14 / Phase 5 P2): 4 列固定で半端なし、grid-auto-rows で行高を揃える */
   .machine-tour{grid-template-columns:repeat(4,1fr);gap:20px;grid-auto-rows:1fr}
-  .tour-card{min-height:480px;padding:24px 22px}
-  .tour-card .tour-shot{max-height:200px;min-height:200px}
+  .tour-card{min-height:520px;padding:24px 22px}
+  /* #1799 U-MIN-3: scrshot 高さを 200px → 280px (1.4 倍) に拡大。
+     画像 alt と aspect-ratio (390/844) は維持し、card min-height も 480→520px に拡張 */
+  .tour-card .tour-shot{max-height:280px;min-height:240px}
 }
 @media(min-width:1440px){
   .machine-tour{max-width:1320px;gap:24px}
@@ -256,8 +267,11 @@
 .pp-footnote{font-size:.9rem;color:var(--gray-600);line-height:1.7;margin:0 auto 22px;max-width:560px}
 .pp-cta{text-align:center;margin-top:8px}
 .pp-cta .btn{min-width:220px}
+/* #1798 U-MAJ-8: モバイルで 4 約束を「独立した項目」として提示するため 2×2 grid 化。
+   旧 flex-direction:column;gap:8px の単純縦積みは 4 項目の独立性が伝わらなかった */
 @media (max-width:640px){
-	.pp-band{font-size:.98rem;flex-direction:column;gap:8px}
+	.pp-band{font-size:.92rem;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:18px 14px;align-items:stretch}
+	.pp-band .pp-item{display:flex;align-items:center;justify-content:center;text-align:center;background:#fff;border:1px solid var(--gray-300);border-radius:10px;padding:10px 8px;line-height:1.4;min-height:56px}
 	.pp-dot{display:none}
 }
 
@@ -282,6 +296,10 @@
 .gr-body .gr-benefit-child strong{color:var(--gray-800)}
 /* #1785 R-CRT-2: graduate ステージ独自グラデーション撤去 — 全 gr-stage 共通枠に統一。
    卒業の特別感は .gr-age の文字色 + h3 強調のみで表現 */
+/* #1801 U-MIN-6: graduate stage は他 4 stage との「装飾統一」を保ちつつ、
+   border のみ --gold-500 (2px) に置換することで「特別」を 1 段差分で表現。
+   背景・padding・layout は完全同一 → PO-A-1 統一感視点を満たす */
+.gr-stage[data-stage="graduate"]{border:2px solid var(--gold-500)}
 .gr-stage[data-stage="graduate"] .gr-age strong{color:var(--brand-800)}
 @media(min-width:1024px){
   .gr-track{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch}
@@ -345,7 +363,12 @@
 .faq-footnote a{color:var(--brand-700);font-weight:600}
 
 /* Final CTA */
-.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:56px 16px;text-align:center}
+/* #1798 U-MIN-8: cta-bottom と footer の境界を明示化。
+   padding-bottom を 56→80px に増やし、footer 上辺に inset box-shadow で 1px の薄い区切り線を追加 */
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:56px 16px 80px;text-align:center;box-shadow:inset 0 -1px 0 var(--gray-300)}
+/* #1798 U-MIN-8: cta-bottom 直下の footer 上辺にハイライトラインを追加し境界を明示。
+   --gray-900 (#1e293b) BG 上で box-shadow inset の薄いハイライトで「区切り」を伝える */
+.cta-bottom + .footer{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 .cta-bottom h2{font-size:1.7rem;font-weight:700;color:var(--gray-900);margin-bottom:12px;line-height:1.4}
 .cta-bottom p{color:var(--gray-600);margin-bottom:28px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.7}
 .cta-bottom .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
@@ -357,7 +380,10 @@
 .floating-cta.visible{transform:translateY(0)}
 .floating-cta-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between}
 .floating-cta-text{font-size:.82rem;color:#fff;font-weight:600;line-height:1.3;transition:opacity .2s ease}
-.floating-cta-text small{display:block;font-size:.72rem;font-weight:400;color:var(--gray-400)}
+/* #1800 U-MIN-5: dark BG (--gray-900) 上 small のコントラスト改善。
+   旧 --gray-400 は site/shared.css 未定義かつ AA 不足の可能性 → --gray-300 (#cbd5e1) に引き上げ。
+   AA: #cbd5e1 on #1e293b = 11.6:1 PASS */
+.floating-cta-text small{display:block;font-size:.72rem;font-weight:400;color:var(--gray-300)}
 .floating-cta .btn{white-space:nowrap;padding:8px 16px;font-size:.82rem;flex-shrink:0;transition:background-color .2s ease,color .2s ease}
 /* #1732: phase 別のサブカラーアクセント（ボタン文言切替時の違和感緩和、Anti-engagement に整合する穏やかな差別化） */
 .floating-cta[data-floating-cta-phase="mid"] .btn-primary{background:var(--brand-700);}
@@ -390,6 +416,12 @@
   .hero-cta{flex-direction:column;align-items:stretch}
   .hero-cta .btn{width:100%}
   #hero-carousel .splide__track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
+}
+/* #1800 U-MIN-7: 480px / 375px / 320px viewport で hero-cta は必ず縦積み。
+   flex-wrap の「中間幅で見栄え悪い」状態を排除 */
+@media(max-width:480px){
+  .hero-cta{flex-direction:column;align-items:stretch;flex-wrap:nowrap}
+  .hero-cta .btn{width:100%}
 }
 
 /* #1726 R9: 長文 disclaimer / section-sub-note は左寄せ + balance/auto-phrase でモバイル可読性確保 */
@@ -583,7 +615,8 @@
           <h3 data-lp-key="indexB.k10">ひらがな中心・丸みのある大きなボタン</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k11">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
           <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。セットアップで好きなものを選ぶだけ。ログインボーナスで毎日おみくじが 1 回引けて、スタンプカードが週末に 1 枚完成します。</p>
-          <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
+          <!-- #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化 -->
+          <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
       <div class="age-panel" data-panel="primary-plus" role="tabpanel" id="age-panel-primary-plus" aria-labelledby="age-tab-primary-plus">
@@ -592,7 +625,8 @@
           <h3 data-lp-key="indexB.k14">漢字 + 情報密度で 15 年継続できる UI</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k15">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
           <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
-          <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
+          <!-- #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化 -->
+          <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
     </div>
@@ -934,7 +968,9 @@
   <div class="cta-buttons">
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="indexB.k81">無料で始める</a>
   </div>
-  <p class="cta-bottom-note" data-lp-key="indexB.k82">ご質問・ご要望は<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="LP CTA">メール</a>でお気軽にどうぞ</p>
+  <!-- #1801 M-MIN-3: cta-bottom-note の mailto を削除し footer に集約。
+       2 重提示を解消し、最終 CTA 直下は signup ボタンに集中させる -->
+  <p class="cta-bottom-note" data-lp-key="indexB.k82">ご質問・ご要望は<a href="#contact-footer" data-contact-context="LP CTA">こちらから</a>お気軽にどうぞ</p>
   <p class="cta-bottom-disclaimer"><span data-lp-key="legalDisclaimer.cancelDisclaimerCta">※解約後はプラン別の猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。</span> [<a href="faq.html#cancel" class="cta-bottom-disclaimer-link">FAQ</a>]</p>
 </section>
 
@@ -951,7 +987,7 @@
       <a href="faq.html" data-lp-key="footer.faqLink">よくあるご質問</a>
       <a href="selfhost.html" data-lp-key="footer.selfhostLink">仕組みを公開（開発者向け）</a>
       <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink">GitHub</a>
-      <a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="トップページ" data-lp-key="footer.contactLink">お問い合わせ</a>
+      <a href="mailto:ganbari.quest.support@gmail.com" id="contact-footer" data-contact-context="トップページ" data-lp-key="footer.contactLink">お問い合わせ</a>
       <a href="https://github.com/sponsors/Takenori-Kusaka" data-lp-key="footer.sponsorLink">Sponsor</a>
     </div>
     <div class="footer-links">
