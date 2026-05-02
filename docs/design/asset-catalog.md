@@ -150,8 +150,36 @@ npm run capture:feature -- feature-routine-checklist
 
 | ファイル名 | 配置 | サイズ | 生成方法 |
 |----------|------|--------|---------|
-| `core-loop-summary.png` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1280×640 PNG | `npm run generate:coreloop-summary`（Gemini API）/ 暫定 SVG ベース PNG |
+| `core-loop-summary.png` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1280×640 PNG | `npm run generate:coreloop-summary`（Gemini API）/ 暫定 SVG ベース PNG（Gemini 鍵未配備環境では本暫定が SSOT、#1845 で fallback 運用を確定）|
 | `core-loop-summary.svg` | `static/assets/lp/`（暫定再現用） | 640×320 viewBox | 手書き（Gemini API 鍵が無い環境用のフォールバック）|
+
+#### #1845: Gemini Pro 3.1 image での再生成手順（API 鍵配備環境）
+
+PO 指示（PO-N-3）で「Gemini Pro 3.1 image (gemini-2.5-pro) による本格生成画像への置換」が
+要求されている。鍵配備済み環境では以下の順序で再生成を実行すること。Issue #1845 完遂時に
+SVG は `static/assets/lp/_archive/core-loop-summary.svg.bak` へ退避する想定（履歴保全）。
+
+```bash
+# 1. .env.local に GEMINI_API_KEY を配備（https://aistudio.google.com/apikey で取得）
+echo 'GEMINI_API_KEY=<your-key>' >> .env.local
+
+# 2. Gemini Pro 3.1 image での再生成
+npm run generate:coreloop-summary
+#   → static/assets/lp/core-loop-summary.png (1280×640) 出力
+#   → site/assets/lp/core-loop-summary.png にも自動配備
+
+# 3. 画像アセット追加時のレビューチェックリスト 6 項目を全件目視確認
+#   （「画像アセット追加時のレビューチェックリスト」§ を参照）
+
+# 4. 暫定 SVG を archive へ退避（再生成成功後のみ）
+mkdir -p static/assets/lp/_archive
+git mv static/assets/lp/core-loop-summary.svg \
+       static/assets/lp/_archive/core-loop-summary.svg.bak
+```
+
+**鍵未配備環境の動作**: `scripts/generate-coreloop-summary.mjs` は GEMINI_API_KEY 不在時に
+exit 2 で停止し、上記手順 1（鍵取得 + 配備）と暫定 SVG → PNG 決定的変換コマンドを案内する。
+このとき暫定 PNG（SVG ベース）が SSOT として運用される。
 
 ### 構図仕様
 

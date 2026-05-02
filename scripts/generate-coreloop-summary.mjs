@@ -60,6 +60,49 @@ const isDryRun = args.includes('--dry-run');
 // 出力先: 開発側は static/assets/lp/、デプロイ側は site/assets/lp/ (CI / Pages 配備時にコピー)
 const OUTPUT_PATH = 'static/assets/lp/core-loop-summary.png';
 
+// #1845: GEMINI_API_KEY 早期検出 — wrapper 段階で鍵未配備を検出し、fallback コマンドを案内する
+//   (内部で呼ぶ generate-image.mjs も同様の検出を行うが、wrapper 段階で
+//    coreloop summary 固有の fallback パス案内を表示することで開発者の判断を早める)
+function loadEnvFile(filePath) {
+	if (!fs.existsSync(filePath)) return;
+	const content = fs.readFileSync(filePath, 'utf-8');
+	for (const line of content.split('\n')) {
+		const trimmed = line.trim();
+		if (!trimmed || trimmed.startsWith('#')) continue;
+		const eq = trimmed.indexOf('=');
+		if (eq === -1) continue;
+		const key = trimmed.slice(0, eq).trim();
+		const value = trimmed
+			.slice(eq + 1)
+			.trim()
+			.replace(/^["']|["']$/g, '');
+		if (!process.env[key]) process.env[key] = value;
+	}
+}
+loadEnvFile(path.resolve(REPO_ROOT, '.env.local'));
+loadEnvFile(path.resolve(REPO_ROOT, '.env'));
+
+if (!isDryRun && !process.env.GEMINI_API_KEY) {
+	console.error('エラー: GEMINI_API_KEY が設定されていません。');
+	console.error('');
+	console.error('  Gemini API での再生成には以下の手順で .env.local に鍵を配備してください:');
+	console.error('    1. https://aistudio.google.com/apikey で API key を取得');
+	console.error('    2. リポジトリルートの .env.local に  GEMINI_API_KEY=<key>  を記載');
+	console.error('    3. npm run generate:coreloop-summary を再実行');
+	console.error('');
+	console.error('  鍵が配備できない場合のフォールバック (SVG → PNG 決定的変換):');
+	console.error("    node -e \"require('sharp')('static/assets/lp/core-loop-summary.svg')\\");
+	console.error("      .resize(1280,640).png().toFile('static/assets/lp/core-loop-summary.png')\"");
+	console.error(
+		'    cp static/assets/lp/core-loop-summary.png site/assets/lp/core-loop-summary.png',
+	);
+	console.error('');
+	console.error(
+		'  詳細: docs/design/asset-catalog.md「LP コアループ 1-shot summary 画像 (#1787)」セクション',
+	);
+	process.exit(2);
+}
+
 const childArgs = [
 	path.join(REPO_ROOT, 'scripts/generate-image.mjs'),
 	'--prompt',
