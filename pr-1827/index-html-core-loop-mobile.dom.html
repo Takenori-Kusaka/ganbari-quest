@@ -109,9 +109,16 @@
 .cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
 .cta-trust-badges li span{font-size:.95rem}
 /* #1628 R24: 仕様起点の数字バッジ */
+/* #1795 R7: モバイルで「2 + 1」変則表示を回避するため、375px viewport で gap/font-size を圧縮し 1 行 3 バッジを目指す。
+   横が足りない場合は flex-direction:column で縦 3 段 (整然配置) に切替 */
 .hero-spec-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;list-style:none;padding:0;margin:0 auto;max-width:560px}
 .hero-spec-badges li{font-size:.84rem;color:var(--gray-700);background:#fff;border:1px solid var(--gray-300);border-radius:999px;padding:5px 12px}
 .hero-spec-badges li strong{color:var(--brand-700);font-weight:700}
+@media(max-width:480px){
+  /* 375px viewport で 3 バッジを縦 3 段に整列。flex-wrap の「2 + 1」変則を排除 */
+  .hero-spec-badges{flex-direction:column;align-items:center;gap:6px;max-width:280px}
+  .hero-spec-badges li{font-size:.78rem;padding:4px 10px;width:fit-content}
+}
 
 /* Section */
 .section{padding:56px 16px}
@@ -134,8 +141,9 @@
 .age-tab:focus-visible{outline:3px solid var(--brand-700);outline-offset:2px}
 .age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:32px 28px}
 .age-panel.active{display:grid}
-/* #1724 R8: 内側 .age-panel-shot の border を撤去（外側 .age-panel border に集約）。スクショ自体が主役になるよう装飾を最小化 */
-.age-panel-shot{border-radius:12px;overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:390/844}
+/* #1724 R8 / #1785 R-CRT-2: 内側 scrshot コンテナから border / background / border-radius を全撤去。
+   外側 .age-panel border に集約し、スクショ自体だけが浮かぶ「白背景 + アプリ scrshot」状態を実現 */
+.age-panel-shot{overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:390/844}
 .age-panel-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
 .age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-700);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
@@ -158,11 +166,14 @@
 #core-loop .section-desc{margin-bottom:20px}
 /* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
 .core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
-.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid var(--gray-200)}
+/* #1785 R-CRT-2: summary 画像も装飾枠統一系列に追従 — border:1px solid var(--gray-300) で他の card 装飾と同一の外観 */
+.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid var(--gray-300)}
 .core-loop-summary figcaption{margin-top:10px;font-size:.86rem;color:var(--gray-700);line-height:1.6;max-width:540px;margin-left:auto;margin-right:auto}
 /* 3 cards: モバイル縦積み / PC 横並び 3 カラム */
 .core-loop-cards{display:grid;grid-template-columns:1fr;gap:14px;max-width:1080px;margin:0 auto}
-.core-loop-card{background:#fff;border:2px solid var(--brand-200);border-radius:var(--radius);padding:18px 18px;display:flex;flex-direction:column;gap:8px}
+/* #1785 R-CRT-2: 5 系統 → 1 種統一 — core-loop card も共通枠 (#fff + 1 px var(--gray-300)) に集約。
+   旧 border:2px solid var(--brand-200) を撤去し、差別化は cll-badge の色のみ */
+.core-loop-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:18px 18px;display:flex;flex-direction:column;gap:8px}
 .core-loop-card .cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:3px 9px;letter-spacing:.07em;flex-shrink:0;align-self:flex-start}
 .core-loop-card[data-card="l1"] .cll-badge{background:var(--brand-500)}
 .core-loop-card[data-card="l2"] .cll-badge{background:var(--brand-700)}
@@ -190,9 +201,10 @@
 /* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
 /* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
 /* #1707 R2: scrshot 9 枚追加で mobile 高が膨張するため max-height を 200px に圧縮（PC 整然配置 #1618 と整合） */
-.tour-card .tour-shot{border-radius:8px;overflow:hidden;aspect-ratio:390/844;max-height:200px;margin-top:auto;background:var(--gray-50)}
+/* #1785 R-CRT-2: tour-shot からも background / border-radius を撤去。外側 .tour-card の枠に集約 */
+.tour-card .tour-shot{overflow:hidden;aspect-ratio:390/844;max-height:200px;margin-top:auto}
 .tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
-/* #1707 R2: 親が観測できる 1 行ベネフィットを screenshot 直下に併記 */
+/* #1707 R2 / #1793: 家庭で起きる / 楽になる / 家族で実感できる 1 行ベネフィットを screenshot 直下に併記 */
 .tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
 .tour-card .tour-benefit strong{color:var(--brand-700)}
 @media(min-width:1024px){
@@ -214,14 +226,16 @@
 @media(min-width:768px){
   #soft-features .soft-grid--three{grid-template-columns:1.2fr 1fr 1fr;max-width:1080px}
 }
+/* #1785 R-CRT-2: 5 系統 → 1 種統一 — featured の box-shadow / 太枠 border 撤去。
+   featured 強調はタイトル文字色 (--brand-700) のみで実現（box-shadow 0 件、grep `box-shadow.*rgba.*120` 0 件） */
 .soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:20px 18px;display:flex;flex-direction:column}
-.soft-card.soft-card--featured{border:2px solid var(--brand-300);box-shadow:0 4px 16px rgba(56,120,184,.12)}
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card.soft-card--featured h3{font-size:1.15rem;color:var(--brand-700)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
-/* #1707 R2: soft-card 内に親が観測できる 1 行ベネフィットと screenshot を追加 */
+/* #1707 R2 / #1793: soft-card 内に家庭で楽になる / 家庭ごとにカスタマイズできる 1 行ベネフィットと screenshot を追加 */
 /* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
-.soft-card .soft-shot{border-radius:8px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:8px 0;background:var(--gray-50)}
+/* #1785 R-CRT-2: soft-shot からも border / background / border-radius を撤去 */
+.soft-card .soft-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:8px 0}
 .soft-card.soft-card--featured .soft-shot{max-height:120px}
 .soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .soft-card .soft-benefit{font-size:.78rem;color:var(--gray-700);line-height:1.5;margin-top:auto}
@@ -250,6 +264,7 @@
 #growth-roadmap{padding:24px 16px}
 .growth-roadmap{max-width:1080px;margin:0 auto}
 .gr-track{display:flex;flex-direction:column;gap:8px;position:relative}
+/* #1785 R-CRT-2: 5 系統 → 1 種統一。すべてのカードが #fff + 1px var(--gray-300) で統一 */
 .gr-stage{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:start;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:10px 12px}
 .gr-age{font-size:.7rem;font-weight:700;color:var(--brand-700);background:var(--brand-50);border-radius:6px;padding:6px 4px;text-align:center;line-height:1.3}
 .gr-age strong{display:block;font-size:1.05rem;color:var(--brand-700)}
@@ -257,13 +272,14 @@
 .gr-body p{font-size:.8rem;color:var(--gray-600);line-height:1.55;margin:0 0 4px}
 /* #1707 R2 / #1712 R5: stage screenshot サムネ + 親視点 / 子供視点ベネフィット 1 行併記 */
 /* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため mobile scrshot 高さを圧縮 */
-.gr-body .gr-shot{border-radius:6px;overflow:hidden;border:1px solid var(--gray-200);aspect-ratio:390/844;max-height:96px;margin:4px 0;background:var(--gray-50)}
+/* #1785 R-CRT-2: gr-shot からも border / background / border-radius を撤去 */
+.gr-body .gr-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:4px 0}
 .gr-body .gr-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .gr-body .gr-benefit{font-size:.72rem;line-height:1.4;margin:2px 0;color:var(--gray-700)}
 .gr-body .gr-benefit strong{color:var(--brand-700);font-weight:700}
 .gr-body .gr-benefit-child strong{color:var(--gray-800)}
-.gr-stage[data-stage="graduate"]{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);border-color:var(--brand-300)}
-.gr-stage[data-stage="graduate"] .gr-age{background:#fff;color:var(--brand-800)}
+/* #1785 R-CRT-2: graduate ステージ独自グラデーション撤去 — 全 gr-stage 共通枠に統一。
+   卒業の特別感は .gr-age の文字色 + h3 強調のみで表現 */
 .gr-stage[data-stage="graduate"] .gr-age strong{color:var(--brand-800)}
 @media(min-width:1024px){
   .gr-track{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch}
@@ -280,9 +296,9 @@
 #versus{padding:20px 16px}
 .versus-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px}
 .versus-row{display:grid;grid-template-columns:1fr 22px 1.4fr;gap:8px;align-items:stretch}
+/* #1785 R-CRT-2: versus 5 系統 → 1 種統一。analog/digital の background-color / グラデーション全廃。
+   差別化は左上 .vc-tag の色のみで実現（紙＝灰色 / アプリ＝brand-700） */
 .versus-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;justify-content:center}
-.versus-card.vc-analog{background:var(--gray-50);border-color:var(--gray-300)}
-.versus-card.vc-digital{background:linear-gradient(135deg,var(--brand-50) 0%,#fef9e7 100%);border-color:var(--brand-200)}
 .versus-card .vc-tag{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;margin-bottom:3px;align-self:flex-start}
 .versus-card.vc-analog .vc-tag{background:var(--gray-200);color:var(--gray-700)}
 .versus-card.vc-digital .vc-tag{background:var(--brand-700);color:#fff}
@@ -307,7 +323,10 @@
   .trust-badge p{font-size:.8rem}
 }
 .trust-badge{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;text-align:center}
-.trust-badge .tb-icon{font-size:2rem;margin-bottom:10px;line-height:1}
+/* #1796 R-MAJ-6: 絵文字依存 (font-size:2rem) を撤去 — 4 種の SVG (static/assets/ui/trust-*.svg) に置換。
+   docs/DESIGN.md §7「OS/ブラウザ間で見た目が変わると困る要素」に整合。Safari/Chrome/Firefox で同一表示 */
+.trust-badge .tb-icon{display:flex;justify-content:center;align-items:center;margin-bottom:10px;line-height:1;height:32px}
+.trust-badge .tb-icon img{width:32px;height:32px;display:block}
 .trust-badge h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .trust-badge p{font-size:.85rem;color:var(--gray-600);line-height:1.6;margin-bottom:8px}
 .trust-badge a{color:var(--brand-700);text-decoration:none;font-size:.82rem;font-weight:600}
@@ -347,7 +366,9 @@
 .header-nav a.nav-text{padding:8px 12px;color:var(--gray-700);font-size:.92rem;font-weight:500}
 .header-nav a.nav-text:hover{color:var(--brand-700)}
 
-/* Hero carousel — Splide */
+/* Hero carousel — Splide
+   #1795 R-MAJ-4: PC は黒スマホ枠を撤去（横長 680×425 と「スマホ枠」がミスマッチ → デバイスフォームを曖昧にしていた）。
+   モバイルのみ縦長スマホ枠で「実機イメージ」を残し、PC は薄いグレー枠 + ドロップシャドウで「画像」として中立的に提示 */
 .hero-carousel{margin-top:20px;display:flex;flex-direction:column;align-items:center}
 #hero-carousel .splide__track{width:260px;height:562px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
 #hero-carousel .splide__slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px;cursor:zoom-in}
@@ -356,7 +377,9 @@
 #hero-carousel .splide__pagination__page.is-active{background:var(--brand-700);width:24px;border-radius:4px}
 .carousel-label{margin-top:8px;font-size:.82rem;color:var(--gray-500);min-height:1.5em;transition:opacity .3s;text-align:center}
 @media(min-width:1024px){
-  #hero-carousel .splide__track{width:680px;height:425px;border-radius:12px;box-shadow:0 20px 60px rgba(56,120,184,.2),0 0 0 4px var(--gray-900)}
+  /* #1795 R-MAJ-4: PC は黒スマホ枠 (0 0 0 4px var(--gray-900)) を撤去。
+     border:1px solid var(--gray-300) + 軽量 box-shadow で「画像」として中立提示 */
+  #hero-carousel .splide__track{width:680px;height:425px;border-radius:12px;border:1px solid var(--gray-300);box-shadow:0 12px 36px rgba(56,120,184,.12);background:#fff}
   #hero-carousel .splide__slide img{border-radius:8px}
 }
 
@@ -482,7 +505,7 @@
 <section class="section bg-white" id="versus">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="versus.sectionTitle">シール帳・ホワイトボードでも、いいんじゃない？</h2>
-    <p class="section-desc" data-lp-key="versus.sectionDesc">多くのご家庭がまず紙で試して、続かずに諦めています。「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、がんばりクエストだから届く差があります。</p>
+    <p class="section-desc" data-lp-key="versus.sectionDesc" data-budoux-applied="true">多くのご家庭がまず紙で試して、続かずに諦めています。「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」には、がんばりクエストだから届く差があります。</p>
     <div class="versus-grid">
       <div class="versus-row">
         <div class="versus-card vc-analog">
@@ -493,7 +516,7 @@
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span data-lp-key="versus.row1DigitalTitle">自動集計でいつでもポイントが見える</span></h3>
-          <p data-lp-key="versus.row1DigitalDesc">子供が「あと 50 ポイントで欲しいごほうび」と自分で計画できます。</p>
+          <p data-lp-key="versus.row1DigitalDesc" data-budoux-applied="true">子供が「あと 50 ポイントで欲しいごほうび」と自分で計画できます。</p>
         </div>
       </div>
       <div class="versus-row">
@@ -505,7 +528,7 @@
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span data-lp-key="versus.row2DigitalTitle">3 歳から 18 歳まで同じアプリで継続</span></h3>
-          <p data-lp-key="versus.row2DigitalDesc">15 年分の成長履歴がひとつにまとまります。</p>
+          <p data-lp-key="versus.row2DigitalDesc" data-budoux-applied="true">15 年分の成長履歴がひとつにまとまります。</p>
         </div>
       </div>
       <div class="versus-row">
@@ -517,7 +540,7 @@
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</span></h3>
-          <p data-lp-key="versus.row4DigitalDesc">スマホ・タブレットで開けば連続記録が途切れません。</p>
+          <p data-lp-key="versus.row4DigitalDesc" data-budoux-applied="true">スマホ・タブレットで開けば連続記録が途切れません。</p>
         </div>
       </div>
       <div class="versus-row">
@@ -529,7 +552,7 @@
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</span></h3>
-          <p data-lp-key="versus.row3DigitalDesc">「使わなくなる」が成功のゴール。卒業を最終地点として設計しています。</p>
+          <p data-lp-key="versus.row3DigitalDesc" data-budoux-applied="true">「使わなくなる」が成功のゴール。卒業を最終地点として設計しています。</p>
         </div>
       </div>
     </div>
@@ -543,8 +566,8 @@
 <section class="section bg-white" id="age-panel">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k5">お子さまの年齢で、画面とむずかしさが変わります</h2>
-    <p class="section-desc" data-lp-key="indexB.k6">3 歳から 18 歳まで、2 つの UI モードが対応。タップで「今のお子さまに合う UI」をご覧ください。</p>
-    <p class="section-sub-note">
+    <p class="section-desc" data-lp-key="indexB.k6" data-budoux-applied="true">3 歳から 18 歳まで、2 つの UI モードが対応。タップで「今のお子さまに合う UI」をご覧ください。</p>
+    <p class="section-sub-note" data-budoux-applied="true">
       <span data-lp-key="indexB.k7">0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#baby-mode">詳しくはこちら</a></span>
     </p>
     <div class="age-switcher">
@@ -557,7 +580,7 @@
         <div class="age-panel-body">
           <h3 data-lp-key="indexB.k10">ひらがな中心・丸みのある大きなボタン</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k11">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
-          <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。セットアップで好きなものを選ぶだけ。ログインボーナスで毎日おみくじが 1 回引けて、スタンプカードが週末に 1 枚完成します。</p>
+          <p class="age-panel-desc" data-lp-key="indexB.k12" data-budoux-applied="true">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。セットアップで好きなものを選ぶだけ。ログインボーナスで毎日おみくじが 1 回引けて、週 5 日タップでスタンプカード 1 枚分のポイントに自動交換できます。</p>
           <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
@@ -566,7 +589,7 @@
         <div class="age-panel-body">
           <h3 data-lp-key="indexB.k14">漢字 + 情報密度で 15 年継続できる UI</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k15">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
-          <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
+          <p class="age-panel-desc" data-lp-key="indexB.k16" data-budoux-applied="true">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
           <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary">無料で始める</a><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
       </div>
@@ -588,12 +611,12 @@
 <section class="section bg-gray" id="core-loop">
   <div class="section-inner core-loop-section-inner">
     <h2 class="section-title" data-lp-key="coreloop.sectionTitle">3 つの仕組みで、毎日のがんばりが本物の報酬になる</h2>
-    <p class="section-desc" data-lp-key="coreloop.sectionDesc">毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。活動 → 習慣 → ごほうびの 3 つの仕組みで、子供が自分から動きだす毎日へ。</p>
+    <p class="section-desc" data-lp-key="coreloop.sectionDesc" data-budoux-applied="true">毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。活動 → 習慣 → ごほうびの 3 つの仕組みで、子供が自分から動きだす毎日へ。</p>
 
     <!-- 1-shot summary 画像（Gemini 生成、活動 → 習慣 → ごほうびの循環図） -->
     <figure class="core-loop-summary">
       <img src="assets/lp/core-loop-summary.png" alt="活動 → 習慣 → ごほうび の循環図 — D3 勇者キャラクターを中心に 3 要素が円環で結ばれる" data-lp-key="coreloop.summaryImageAlt" data-lp-attr="alt" width="640" height="320" loading="lazy" data-lightbox="">
-      <figcaption data-lp-key="coreloop.summaryCaption">活動を記録 → ポイントが貯まる → ごほうびと交換。子供が自分で計画する力を、3 つの仕組みで支えます。</figcaption>
+      <figcaption data-lp-key="coreloop.summaryCaption" data-budoux-applied="true">活動を記録 → ポイントが貯まる → ごほうびと交換。子供が自分で計画する力を、3 つの仕組みで支えます。</figcaption>
     </figure>
 
     <!-- 3 cards: 1 階層、各カード = badge + h3 + 短文 1 行 -->
@@ -601,17 +624,17 @@
       <div class="core-loop-card" data-card="l1">
         <span class="cll-badge" data-lp-key="coreloop.l1Badge">活動</span>
         <h3 data-lp-key="coreloop.l1Title">毎日の活動を記録</h3>
-        <p data-lp-key="coreloop.l1Desc">「はみがきした」「宿題おわった」を 2 タップで記録。学年別に用意された候補から、家庭で必要なものを選んで設定できます。</p>
+        <p data-lp-key="coreloop.l1Desc" data-budoux-applied="true">「はみがきした」「宿題おわった」を 2 タップで記録。学年別に用意された候補から、家庭で必要なものを選んで設定できます。</p>
       </div>
       <div class="core-loop-card" data-card="l2">
         <span class="cll-badge" data-lp-key="coreloop.l2Badge">習慣</span>
         <h3 data-lp-key="coreloop.l2Title">習慣カードで続ける</h3>
-        <p data-lp-key="coreloop.l2Desc">1 日 1 回までのおみくじスタンプ。1 週間続けるとスタンプカードが完成し、三日坊主を防ぐ「継続の見える化」になります（煽らない設計）。</p>
+        <p data-lp-key="coreloop.l2Desc" data-budoux-applied="true">1 日 1 回までのおみくじスタンプ。週 7 日中 5 日タップでスタンプカード 1 枚分のポイントに自動交換できます。三日坊主を防ぐ「継続の見える化」（煽らない設計）。</p>
       </div>
       <div class="core-loop-card" data-card="l3">
         <span class="cll-badge" data-lp-key="coreloop.l3Badge">ごほうび</span>
         <h3 data-lp-key="coreloop.l3Title">ごほうびショップで交換</h3>
-        <p data-lp-key="coreloop.l3Desc">貯めたポイントはごほうびショップが唯一の出口。実物のプレゼント・お小遣い・特権を親が設定し、子供が自分で選んで交換できます。</p>
+        <p data-lp-key="coreloop.l3Desc" data-budoux-applied="true">貯めたポイントはごほうびショップが唯一の出口。実物のプレゼント・お小遣い・特権を親が設定し、子供が自分で選んで交換できます。</p>
       </div>
     </div>
   </div>
@@ -632,14 +655,14 @@
 <!-- [04] 補足機構（[03] のコアループに加えて支える 2 つの工夫） -->
 <section class="section bg-white" id="machine-tour" data-testid="feature-section">
   <div class="section-inner">
-    <h2 class="section-title" data-lp-key="indexB.k21">コアループを支える 2 つの工夫</h2>
-    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の準備と冒険のクライマックスから支える 2 つの工夫です。</p>
+    <h2 class="section-title" data-lp-key="indexB.k21">コアループに加えて — 朝の準備とクライマックスを支える機構</h2>
+    <p class="section-desc" data-lp-key="indexB.k22" data-budoux-applied="true">毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の持ち物確認と夜の RPG バトルの 2 つから支える補足機構です。</p>
     <div class="machine-tour">
       <div class="tour-card" data-testid="feature-belongings-checklist">
         <div class="tour-phase" data-lp-key="indexB.k26">① 朝の準備をスムーズに</div>
         <h3 data-lp-key="indexB.k27">持ち物チェックリスト</h3>
-        <p data-lp-key="indexB.k28">通学や習い事の持ち物を、子ども自身がタップ確認。</p>
-        <p data-lp-key="indexB.k29">朝の「あれ持った？」を減らします。</p>
+        <p data-lp-key="indexB.k28" data-budoux-applied="true">通学や習い事の持ち物を、子ども自身がタップ確認。</p>
+        <p data-lp-key="indexB.k29" data-budoux-applied="true">朝の「あれ持った？」を減らします。</p>
         <div class="tour-shot">
           <picture>
             <source srcset="screenshots/feature-belongings-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp">
@@ -650,14 +673,14 @@
       <div class="tour-card" data-testid="feature-rpg-battle">
         <div class="tour-phase" data-lp-key="indexB.k34">② 冒険のクライマックス</div>
         <h3 data-lp-key="indexB.k35">RPG バトル</h3>
-        <p data-lp-key="indexB.k36">毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。</p>
+        <p data-lp-key="indexB.k36" data-budoux-applied="true">毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。</p>
         <div class="tour-shot">
           <picture>
             <source srcset="screenshots/feature-rpg-battle-desktop.webp" media="(min-width:1024px)" type="image/webp">
             <img src="screenshots/feature-rpg-battle.webp" alt="RPG バトル画面 — 累積した努力でボスに挑戦" loading="lazy" data-lightbox="">
           </picture>
         </div>
-        <p class="tour-benefit" data-lp-key="indexB.tourBenefitBattle"><strong>親が観測できること</strong>: 1 日の努力が「バトルで使えるエネルギー」として可視化される</p>
+        <p class="tour-benefit" data-lp-key="indexB.tourBenefitBattle" data-budoux-applied="true"><strong>家庭で起きること</strong>: 1 日の努力が「バトルで使えるエネルギー」として可視化される</p>
       </div>
     </div>
   </div>
@@ -672,40 +695,40 @@
 <section class="section bg-gray" id="soft-features">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k37">親が安心できる運用補助</h2>
-    <p class="section-desc" data-lp-key="indexB.k38">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 3 つの機能です。</p>
+    <p class="section-desc" data-lp-key="indexB.k38" data-budoux-applied="true">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 3 つの機能です。</p>
     <div class="soft-grid soft-grid--three">
       <div class="soft-card soft-card--featured" data-testid="feature-monthly-report">
         <h3 data-lp-key="indexB.k39">成長の記録（月次レポート）</h3>
-        <p data-lp-key="indexB.k40">月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。</p>
+        <p data-lp-key="indexB.k40" data-budoux-applied="true">月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。</p>
         <div class="soft-shot">
           <picture>
             <source srcset="screenshots/feature-monthly-report-desktop.webp" media="(min-width:1024px)" type="image/webp">
             <img src="screenshots/feature-monthly-report.webp" alt="月次レポート画面 — 活動・ポイント推移グラフ" loading="lazy" data-lightbox="">
           </picture>
         </div>
-        <p class="soft-benefit" data-lp-key="indexB.softBenefitMonthlyReport"><strong>親が観測できること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる</p>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitMonthlyReport" data-budoux-applied="true"><strong>家庭で楽になること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる</p>
       </div>
       <div class="soft-card" data-testid="feature-auto-sleep">
         <h3 data-lp-key="indexB.softFamilySupportTitle">家庭に寄り添う運用補助</h3>
-        <p data-lp-key="indexB.softFamilySupportDesc">設定時間で自動スリープし長時間利用を防止。必要な時だけ家族からおうえんメッセージを子供のホームへ届けられます。</p>
+        <p data-lp-key="indexB.softFamilySupportDesc" data-budoux-applied="true">設定時間で自動スリープし長時間利用を防止。必要な時だけ家族からおうえんメッセージを子供のホームへ届けられます。</p>
         <div class="soft-shot">
           <picture>
             <source srcset="screenshots/feature-auto-sleep-desktop.webp" media="(min-width:1024px)" type="image/webp">
             <img src="screenshots/feature-auto-sleep.webp" alt="自動スリープ + おうえんメッセージ設定画面" loading="lazy" data-lightbox="">
           </picture>
         </div>
-        <p class="soft-benefit" data-lp-key="indexB.softBenefitFamilySupport"><strong>親が観測できること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く</p>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitFamilySupport" data-budoux-applied="true"><strong>家庭ごとにカスタマイズできること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く</p>
       </div>
       <div class="soft-card" data-testid="feature-customization">
         <h3 data-lp-key="indexB.k45">設定の自由度</h3>
-        <p data-lp-key="indexB.k46">活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。</p>
+        <p data-lp-key="indexB.k46" data-budoux-applied="true">活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。</p>
         <div class="soft-shot">
           <picture>
             <source srcset="screenshots/feature-settings-desktop.webp" media="(min-width:1024px)" type="image/webp">
             <img src="screenshots/feature-settings.webp" alt="親管理の設定一覧画面 — 活動・ポイント・ごほうびのカスタマイズ" loading="lazy" data-lightbox="">
           </picture>
         </div>
-        <p class="soft-benefit" data-lp-key="indexB.softBenefitSettings"><strong>親が観測できること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる</p>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitSettings" data-budoux-applied="true"><strong>家庭で楽になること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる</p>
       </div>
     </div>
   </div>
@@ -720,7 +743,7 @@
 <section class="section bg-gray" id="growth-roadmap">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="growthRoadmap.sectionTitle">3 歳から 18 歳まで、そして「卒業」へ</h2>
-    <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。</p>
+    <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc" data-budoux-applied="true">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。</p>
     <div class="growth-roadmap">
       <div class="gr-track">
         <div class="gr-stage" data-stage="preschool">
@@ -733,9 +756,9 @@
                 <img src="screenshots/growth-stage-preschool.webp" alt="幼児ホーム画面 — 大きな絵文字ボタンと達成スタンプ" loading="lazy" data-lightbox="">
               </picture>
             </div>
-            <p data-lp-key="growthRoadmap.preschoolDesc">大きなボタンとひらがな UI で「自分で押した！」の達成感を毎日体験。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.preschoolParentBenefit">「やって」と言わなくても、子供が自分で動き始める</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.preschoolChildExperience">大きな絵文字ボタンを押すだけで褒められる達成感</span></p>
+            <p data-lp-key="growthRoadmap.preschoolDesc" data-budoux-applied="true">大きなボタンとひらがな UI で「自分で押した！」の達成感を毎日体験。</p>
+            <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.preschoolParentBenefit">「やって」と言わなくても、子供が自分で動き始める</span></p>
+            <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.preschoolChildExperience">大きな絵文字ボタンを押すだけで褒められる達成感</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="elementary">
@@ -748,9 +771,9 @@
                 <img src="screenshots/growth-stage-elementary.webp" alt="小学生ホーム画面 — ポイント・レベル・チャレンジ" loading="lazy" data-lightbox="">
               </picture>
             </div>
-            <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、ウィークリーチャレンジで「次は何をやろう？」と自分で目標を立てる力が育ちます。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.elementaryChildExperience">ポイントとチャレンジが積み重なり、「次は何をやろう」と自分で計画する楽しさ</span></p>
+            <p data-lp-key="growthRoadmap.elementaryDesc" data-budoux-applied="true">漢字 UI に切替、ウィークリーチャレンジで「次は何をやろう？」と自分で目標を立てる力が育ちます。</p>
+            <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
+            <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.elementaryChildExperience">ポイントとチャレンジが積み重なり、「次は何をやろう」と自分で計画する楽しさ</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="junior">
@@ -763,9 +786,9 @@
                 <img src="screenshots/growth-stage-junior.webp" alt="中学生ホーム画面 — 月次レポートと自己ペース可視化" loading="lazy" data-lightbox="">
               </picture>
             </div>
-            <p data-lp-key="growthRoadmap.juniorDesc">月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.juniorParentBenefit">時間管理を子供任せにできて、過干渉を手放せる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.juniorChildExperience">月次レポートで自分のペースを見える化し、無理せず続けられる</span></p>
+            <p data-lp-key="growthRoadmap.juniorDesc" data-budoux-applied="true">月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。</p>
+            <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.juniorParentBenefit">時間管理を子供任せにできて、過干渉を手放せる</span></p>
+            <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.juniorChildExperience">月次レポートで自分のペースを見える化し、無理せず続けられる</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="senior">
@@ -778,9 +801,9 @@
                 <img src="screenshots/growth-stage-senior.webp" alt="高校生ホーム画面 — 15 年分のログと進路素材" loading="lazy" data-lightbox="">
               </picture>
             </div>
-            <p data-lp-key="growthRoadmap.seniorDesc">15 年分の活動ログが「自分はこれだけやってきた」という自信に。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.seniorParentBenefit">進路面談で子供自身が活動履歴を語れるようになる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.seniorChildExperience">15 年分の積み重ねが履歴として残り、自分の自信になる</span></p>
+            <p data-lp-key="growthRoadmap.seniorDesc" data-budoux-applied="true">15 年分の活動ログが「自分はこれだけやってきた」という自信に。</p>
+            <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.seniorParentBenefit">進路面談で子供自身が活動履歴を語れるようになる</span></p>
+            <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.seniorChildExperience">15 年分の積み重ねが履歴として残り、自分の自信になる</span></p>
           </div>
         </div>
         <div class="gr-stage" data-stage="graduate">
@@ -793,9 +816,9 @@
                 <img src="screenshots/growth-stage-graduate.webp" alt="卒業画面 — 履歴エクスポートと家族の手元に残す記録" loading="lazy" data-lightbox="">
               </picture>
             </div>
-            <p data-lp-key="growthRoadmap.graduateDesc">「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.graduateParentBenefit">子供が自律したことを、ログイン頻度の低下で確認できる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.graduateChildExperience">アプリを開かなくても自分で計画できる、大人になった実感</span></p>
+            <p data-lp-key="growthRoadmap.graduateDesc" data-budoux-applied="true">「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。</p>
+            <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.graduateParentBenefit">子供が自律したことを、ログイン頻度の低下で確認できる</span></p>
+            <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">: </budoux-ja><span data-lp-key="growthRoadmap.graduateChildExperience">アプリを開かなくても自分で計画できる、大人になった実感</span></p>
           </div>
         </div>
       </div>
@@ -811,7 +834,7 @@
 <section class="section bg-white" id="pricing">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k47">料金プラン</h2>
-    <p class="section-desc" data-lp-key="indexB.k48">月 ¥500 から、家族全員が使える設計です。安心して始められる 4 つのお約束。</p>
+    <p class="section-desc" data-lp-key="indexB.k48" data-budoux-applied="true">月 ¥500 から、家族全員が使える設計です。安心して始められる 4 つのお約束。</p>
     <div class="pricing-promise">
       <div class="pp-band">
         <span class="pp-item" data-lp-key="indexB.k49"><strong>基本無料</strong></span>
@@ -822,7 +845,7 @@
         <span class="pp-dot" data-lp-key="indexB.k54">・</span>
         <span class="pp-item" data-lp-key="indexB.k55">いつでも解約 OK</span>
       </div>
-      <p class="pp-footnote" data-lp-key="indexB.k56">お子さま 2 人までのご家庭なら、無料プランで冒険の仕組みをすべてお使いいただけます。3 人以上 / 長期履歴 / AI 自動提案は有料プランで。</p>
+      <p class="pp-footnote" data-lp-key="indexB.k56" data-budoux-applied="true">お子さま 2 人までのご家庭なら、無料プランで冒険の仕組みをすべてお使いいただけます。3 人以上 / 長期履歴 / AI 自動提案は有料プランで。</p>
       <p class="pp-disclaimer"><span data-lp-key="legalDisclaimer.cancelDisclaimer">※解約後はプラン別の読み取り専用猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。日割り返金はありません。</span> [<a href="faq.html#cancel">FAQ</a> / <a href="tokushoho.html">特商法表記</a>]</p>
       <p class="pp-cta" data-lp-key="indexB.k57"><a href="pricing.html" class="btn btn-primary">料金の詳細を見る →</a></p>
     </div>
@@ -838,28 +861,30 @@
 <section class="section bg-white" id="trust">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k58">お子さまのデータは、家族だけのものです</h2>
-    <p class="section-desc" data-lp-key="indexB.k59">広告なし・家族だけで閉じた空間・データは家族の手元に。「こっそり外に持ち出される」「勝手に操作される」不安をゼロにする 4 つの約束。</p>
+    <p class="section-desc" data-lp-key="indexB.k59" data-budoux-applied="true">広告なし・家族だけで閉じた空間・データは家族の手元に。「こっそり外に持ち出される」「勝手に操作される」不安をゼロにする 4 つの約束。</p>
+    <!-- #1796 R-MAJ-6 / docs/DESIGN.md §7: trust-badges を 4 個 SVG 化 (OS 依存絵文字撤去)。
+         #4 タイトルから「広告」を外し「データを家族の手元に」へリフレーム (#1 との重複訴求解消) -->
     <div class="trust-badges">
       <div class="trust-badge">
-        <div class="tb-icon">🚫</div>
+        <div class="tb-icon"><img src="assets/ui/trust-no-ads.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k60">広告なし</h3>
-        <p data-lp-key="indexB.k61">子供の画面に広告を出しません。行動データを広告に利用することもありません。</p>
+        <p data-lp-key="indexB.k61" data-budoux-applied="true">子供の画面に広告を出しません。行動データを広告に利用することもありません。</p>
         <a href="privacy.html" data-lp-key="indexB.k62">プライバシーポリシー →</a>
       </div>
       <div class="trust-badge">
-        <div class="tb-icon">👪</div>
+        <div class="tb-icon"><img src="assets/ui/trust-family-circle.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k63">家族限定</h3>
-        <p data-lp-key="indexB.k64">家族メンバー以外はお子さまのデータを閲覧できません。招待制で閉じた空間を維持します。</p>
+        <p data-lp-key="indexB.k64" data-budoux-applied="true">家族メンバー以外はお子さまのデータを閲覧できません。招待制で閉じた空間を維持します。</p>
       </div>
       <div class="trust-badge">
-        <div class="tb-icon">🔑</div>
+        <div class="tb-icon"><img src="assets/ui/trust-lock.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k65">保護者専用のカギ付き</h3>
-        <p data-lp-key="indexB.k66">管理画面は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。</p>
+        <p data-lp-key="indexB.k66" data-budoux-applied="true">管理画面は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。</p>
       </div>
       <div class="trust-badge">
-        <div class="tb-icon">🔍</div>
-        <h3 data-lp-key="indexB.k67">広告ゼロ・データは家族の手元に</h3>
-        <p data-lp-key="indexB.k68">家族のデータが広告にも第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。</p>
+        <div class="tb-icon"><img src="assets/ui/trust-data-local.svg" alt="" aria-hidden="true" width="32" height="32"></div>
+        <h3 data-lp-key="indexB.k67">データを家族の手元に</h3>
+        <p data-lp-key="indexB.k68" data-budoux-applied="true">家族のデータが第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。</p>
         <a href="selfhost.html" data-lp-key="indexB.k69">仕組みを詳しく知りたい方へ →</a>
       </div>
     </div>
@@ -873,23 +898,23 @@
 <section class="section bg-gray" id="faq">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k70">よくあるご質問</h2>
-    <p class="section-desc" data-lp-key="indexB.k87">保護者の皆さまから特によくいただく 4 つ。他のご質問は <a href="faq.html" class="nav-text">FAQ 専用ページ（24 項目）</a> をご覧ください。</p>
+    <p class="section-desc" data-lp-key="indexB.k87" data-budoux-applied="true">保護者の皆さまから特によくいただく 4 つ。他のご質問は <a href="faq.html" class="nav-text">FAQ 専用ページ（24 項目）</a> をご覧ください。</p>
     <div class="faq-list">
       <details class="faq-item">
-        <summary data-lp-key="indexB.k85">子供が自分から使ってくれるようになりますか？</summary>
-        <p class="faq-answer" data-lp-key="indexB.k86">多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。</p>
+        <summary data-lp-key="indexB.k85" data-budoux-applied="true">子供が自分から使ってくれるようになりますか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k86" data-budoux-applied="true">多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。</p>
       </details>
       <details class="faq-item">
-        <summary data-lp-key="indexB.k72">無料トライアルにクレジットカードは必要ですか？</summary>
-        <p class="faq-answer" data-lp-key="indexB.k73">不要です。メール認証だけで 7 日間すべての有料機能をお試しいただけます。期間終了時は自動で無料プランに戻るため、<strong>気付いたら課金されていた</strong>ということはありません。</p>
+        <summary data-lp-key="indexB.k72" data-budoux-applied="true">無料トライアルにクレジットカードは必要ですか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k73" data-budoux-applied="true">不要です。メール認証だけで 7 日間すべての有料機能をお試しいただけます。期間終了時は自動で無料プランに戻るため、<strong>気付いたら課金されていた</strong>ということはありません。</p>
       </details>
       <details class="faq-item">
-        <summary data-lp-key="indexB.k74">子供が勝手に課金してしまう心配はありませんか？</summary>
-        <p class="faq-answer" data-lp-key="indexB.k75">ありません。課金操作は保護者権限のアカウントからのみ実行できる設計です。お子さまアカウントにはプラン変更ボタン自体が表示されません。<a href="faq.html#pricing">詳しくはこちら</a></p>
+        <summary data-lp-key="indexB.k74" data-budoux-applied="true">子供が勝手に課金してしまう心配はありませんか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k75" data-budoux-applied="true">ありません。課金操作は保護者権限のアカウントからのみ実行できる設計です。お子さまアカウントにはプラン変更ボタン自体が表示されません。<a href="faq.html#pricing">詳しくはこちら</a></p>
       </details>
       <details class="faq-item">
-        <summary data-lp-key="indexB.k76">サービスが終了したらデータはどうなりますか？</summary>
-        <p class="faq-answer" data-lp-key="indexB.k77">終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。<a href="faq.html#privacy">詳しくはこちら</a></p>
+        <summary data-lp-key="indexB.k76" data-budoux-applied="true">サービスが終了したらデータはどうなりますか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k77" data-budoux-applied="true">終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。<a href="faq.html#privacy">詳しくはこちら</a></p>
       </details>
     </div>
     <p class="faq-footnote" data-lp-key="indexB.k78">料金・兄弟姉妹・年齢モード・エクスポート等、他のご質問は <a href="faq.html">FAQ 専用ページ</a> へ。</p>
@@ -902,13 +927,13 @@
 
 <!-- [09] 最終 CTA -->
 <section class="cta-bottom">
-  <h2 data-lp-key="indexB.k79">家族で全部使ってから、続けるか決める</h2>
-  <p data-lp-key="indexB.k80">7 日間無料・クレジットカード登録不要 / いつでもキャンセル可能。今日からお子さまの「やりたい！」を育てませんか？</p>
+  <h2 data-lp-key="indexB.k79">「アプリを開かなくなった日」が、家族の最大の成功です。</h2>
+  <p data-lp-key="indexB.k80" data-budoux-applied="true">3 歳から 18 歳までの 15 年。最後は子供が自分で計画できる自律へ。今日の 7 日間が、その第一歩です。</p>
   <div class="cta-buttons">
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="indexB.k81">無料で始める</a>
   </div>
-  <p class="cta-bottom-note" data-lp-key="indexB.k82">ご質問・ご要望は<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="LP CTA">メール</a>でお気軽にどうぞ</p>
-  <p class="cta-bottom-disclaimer"><span data-lp-key="legalDisclaimer.cancelDisclaimerCta">※解約後はプラン別の猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。</span> [<a href="faq.html#cancel" class="cta-bottom-disclaimer-link">FAQ</a>]</p>
+  <p class="cta-bottom-note" data-lp-key="indexB.k82" data-budoux-applied="true">ご質問・ご要望は<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="LP CTA">メール</a>でお気軽にどうぞ</p>
+  <p class="cta-bottom-disclaimer" data-budoux-applied="true"><span data-lp-key="legalDisclaimer.cancelDisclaimerCta">※解約後はプラン別の猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。</span><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;"> [</budoux-ja><a href="faq.html#cancel" class="cta-bottom-disclaimer-link"><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">FAQ</budoux-ja></a><budoux-ja style="word-break: keep-all; overflow-wrap: anywhere;">]</budoux-ja></p>
 </section>
 
 <!-- Footer -->
@@ -946,10 +971,10 @@
      可変するため、ctaVariants ratchet（≤3）の集計に含めない（lp-content-map.md §7.4）。
      初期 SSR は phase=hero の文言を表示し、JS load 後に scroll listener で書き換える。
      SEO / no-JS 環境でも初期文言は読める。 -->
-<div class="floating-cta visible" id="floating-cta" data-floating-cta="container" aria-hidden="false" role="complementary" aria-label="ページ追従の登録案内" data-floating-cta-phase="hero" style="display: block;">
+<div class="floating-cta visible" id="floating-cta" data-floating-cta="container" aria-hidden="false" role="complementary" aria-label="ページ追従の登録案内" data-floating-cta-phase="mid" style="display: block;">
   <div class="floating-cta-inner">
-    <div class="floating-cta-text" id="floating-cta-text" data-lp-key="floatingCta.heroText">全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small></div>
-    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" id="floating-cta-button" data-lp-key="floatingCta.heroButton" aria-label="7 日間無料トライアルへのご案内">無料で始める</a>
+    <div class="floating-cta-text" id="floating-cta-text" data-lp-key="floatingCta.midText">コアループは 1 分で体験できます<small>サインアップ前に動きを確認</small></div>
+    <a href="https://ganbari-quest.com/demo" class="btn btn-primary" id="floating-cta-button" data-lp-key="floatingCta.midButton" aria-label="デモ画面で機能を体験">デモを見る</a>
   </div>
 </div>
 
@@ -1146,8 +1171,40 @@
   }
 })();
 </script>
+<script>
+// #1795 R-MAJ-5: hero 可視中は PC ヘッダー nav-signup を非表示にして、
+// hero 内 primary CTA「無料で始める」との視線奪い合いを回避する。
+// IntersectionObserver で .hero がビューポートと交差している間 body[data-hero-visible="true"] を立て、
+// shared.css の `body[data-hero-visible="true"] .header-nav a.nav-signup{opacity:0;visibility:hidden}` で hide。
+// PC のみ動作 (mobile は CSS で .nav-signup display:none、floating-cta に集約済み)。
+// 採用根拠: 純 IntersectionObserver は modern browser 全対応 (CanIUse 95%+)、外部ライブラリ不要。
+(()=>{
+  if(window.innerWidth<769)return;
+  var hero=document.querySelector('.hero');
+  if(!hero||typeof IntersectionObserver==='undefined')return;
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      // hero がまだ少しでも見えていれば隠す、完全に通り過ぎたら復帰
+      if(e.isIntersecting){
+        document.body.setAttribute('data-hero-visible','true');
+      }else{
+        document.body.removeAttribute('data-hero-visible');
+      }
+    });
+  },{
+    // hero 上端が画面外に 40% 以上はみ出たら「hero スクロール完了」と判定
+    threshold:0,
+    rootMargin:'0px 0px -40% 0px'
+  });
+  io.observe(hero);
+  // 初期描画時 (まだ scroll していない) は hero 可視として扱う
+  document.body.setAttribute('data-hero-visible','true');
+})();
+</script>
 <script src="shared-labels.js"></script>
 <script src="js/contact.js"></script>
+<!-- #1786: BudouX 全長文セクション自動 wrap (ADR-0016 整合) — section-desc / faq-answer / cta-bottom / gr-body 等 -->
+<script src="js/auto-budoux.js" defer=""></script>
 
 
 </body></html>
