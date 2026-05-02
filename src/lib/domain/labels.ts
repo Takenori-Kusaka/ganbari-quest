@@ -4860,6 +4860,7 @@ export const FEATURES_LABELS = {
 		statCategoryDefLabel: 'こうりゅう',
 		statCategorySpdLabel: 'せいかつ',
 		statCategoryRecLabel: 'そうぞう',
+		statCategoryAriaLabel: '対応するカテゴリ',
 		statCategoryNote: '※ 直近 7 日間の各カテゴリの累積ポイントが、ステータスに反映されます',
 		startBtn: '⚔️ バトル かいし！',
 		alreadyDone: 'きょうの バトルは おわったよ！',

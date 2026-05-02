@@ -223,7 +223,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 					<div class="stat-item" data-testid="stat-item-{stat}">
 						<span class="stat-label">{STAT_LABELS[stat]}</span>
 						<span class="stat-value">{value}</span>
-						<span class="stat-category" aria-label="対応するカテゴリ">
+						<span class="stat-category" aria-label={FEATURES_LABELS.battle.statCategoryAriaLabel}>
 							<span class="stat-category-icon" aria-hidden="true">{STAT_CATEGORY_ICONS[stat]}</span>
 							<span class="stat-category-name">{STAT_CATEGORY_LABELS[stat]}</span>
 						</span>
