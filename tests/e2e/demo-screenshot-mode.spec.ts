@@ -45,3 +45,51 @@ test.describe('#1209 demo screenshot mode', () => {
 		await expect(notice).toBeVisible();
 	});
 });
+
+// #1792: /demo/admin 配下のデモ独自 UI (plan-switcher / trial-cta / DemoBanner / DemoCta)
+// が ?screenshot=1 で全て非表示になることを担保。LP scrshot 撮影で本番画面と同じ
+// 見た目を保つために必要なガード（PR #1826 BLOCK 修正）。
+test.describe('#1792 /demo/admin screenshot mode', () => {
+	test('?screenshot=1 で /demo/admin の plan-switcher / trial-cta が非表示', async ({ page }) => {
+		// ?plan=free で trial-cta を発火させた上で screenshot=1 を併用
+		await page.goto('/demo/admin?plan=free&screenshot=1', { waitUntil: 'domcontentloaded' });
+		// admin page 内の plan switcher 3 ボタン（layout 側の同名 testid と区別するため count=0 で
+		// strict mode 違反を回避しつつ「全て非表示」を保証する）
+		await expect(page.getByTestId('demo-plan-switch-free')).toHaveCount(0);
+		await expect(page.getByTestId('demo-plan-switch-standard')).toHaveCount(0);
+		await expect(page.getByTestId('demo-plan-switch-family')).toHaveCount(0);
+		// trial CTA（free プラン時のみ表示）も消えていること
+		await expect(page.getByTestId('demo-trial-cta')).toHaveCount(0);
+		// layout 由来の demo-plan-switcher も同期して非表示
+		await expect(page.getByTestId('demo-plan-switcher')).toHaveCount(0);
+	});
+
+	test('?screenshot なしで /demo/admin の plan-switcher / trial-cta は表示される', async ({
+		page,
+	}) => {
+		await page.goto('/demo/admin?plan=free', { waitUntil: 'domcontentloaded' });
+		// layout 側 (`demo-plan-switcher`) と admin page 側の `.plan-switcher` が両方 demo-plan-switch-free
+		// testid を持つため、admin page の `.plan-switcher__button` クラスで絞り込んで strict mode 違反を回避する
+		const adminSwitchFree = page.locator(
+			'.plan-switcher__button[data-testid="demo-plan-switch-free"]',
+		);
+		await expect(adminSwitchFree).toBeVisible();
+		await expect(page.getByTestId('demo-trial-cta')).toBeVisible();
+	});
+
+	test('?screenshot=1 で /demo/admin/checklists の DemoBanner / DemoCta が非表示', async ({
+		page,
+	}) => {
+		await page.goto('/demo/admin/checklists?screenshot=1', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('demo-banner')).toHaveCount(0);
+		await expect(page.getByTestId('demo-cta')).toHaveCount(0);
+	});
+
+	test('?screenshot なしで /demo/admin/checklists の DemoBanner / DemoCta は表示される', async ({
+		page,
+	}) => {
+		await page.goto('/demo/admin/checklists', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('demo-banner')).toBeVisible();
+		await expect(page.getByTestId('demo-cta')).toBeVisible();
+	});
+});

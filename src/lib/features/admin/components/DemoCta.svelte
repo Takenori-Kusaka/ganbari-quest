@@ -18,7 +18,7 @@ let {
 
 <!-- #1792: LP scrshot 撮影時 (`?screenshot=1`) はデモ独自 CTA を非表示にし、本番画面と同じ見た目で撮影する -->
 {#if !getScreenshotMode()}
-<div class="bg-gradient-to-r from-[var(--color-gold-100)] to-[var(--color-gold-100)] border border-[var(--color-gold-300)] rounded-xl p-4 text-center">
+<div data-testid="demo-cta" class="bg-gradient-to-r from-[var(--color-gold-100)] to-[var(--color-gold-100)] border border-[var(--color-gold-300)] rounded-xl p-4 text-center">
 	<p class="text-sm font-bold text-[var(--color-text)] mb-1">{title}</p>
 	<p class="text-xs text-[var(--color-text-muted)] mb-3">{description}</p>
 	<a
