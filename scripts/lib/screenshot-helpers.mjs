@@ -59,14 +59,37 @@ export async function convertToWebP(filePath, options = {}) {
  * @param {string} [options.selector]
  * @param {number} [options.networkIdleTimeout=5000]
  * @param {boolean} [options.skipNetworkIdle=false]
+ * @param {boolean} [options.waitSplide=false]
+ *   `true` の場合、Splide.js carousel (`#hero-carousel .splide__slide.is-active`) の
+ *   初期化完了を最大 10s 待機する。LP 撮影で Splide が黒ブロックのまま記録される問題への対処 (#1825 SC-012)。
  */
 export async function waitForStablePage(page, options = {}) {
-	const { selector, networkIdleTimeout = 5000, skipNetworkIdle = false } = options;
+	const {
+		selector,
+		networkIdleTimeout = 5000,
+		skipNetworkIdle = false,
+		waitSplide = false,
+	} = options;
 	if (!skipNetworkIdle) {
 		await page.waitForLoadState('networkidle', { timeout: networkIdleTimeout }).catch(() => {});
 	}
 	if (selector) {
 		await page.waitForSelector(selector, { state: 'visible', timeout: 10000 });
+	}
+	if (waitSplide) {
+		// #1825: Splide.js mount 完了を `.is-active` slide の出現で検知する。
+		// 初期化前は <ul class="splide__list"> しか存在せず slide が空のため、`.is-active` が出現した時点で
+		// CSS 適用 + 1 枚目の slide が前面に来た状態になる。
+		// Splide が存在しないページ (pricing.html / pamphlet.html 等) では即タイムアウトを許容するため
+		// timeout を短めに設定し、catch して進める。
+		await page
+			.waitForFunction(
+				() => document.querySelector('#hero-carousel .splide__slide.is-active') !== null,
+				{ timeout: 10000 },
+			)
+			.catch(() => {
+				// Splide が存在しない / CDN 未ロードの場合は無視して進める
+			});
 	}
 	await page.evaluate(
 		() =>
@@ -310,6 +333,9 @@ export class ScreenshotCapture {
 	 * @param {import('playwright').BrowserContextOptions['storageState']} [opts.storageState] - 認証済みセッション
 	 * @param {boolean} [opts.domSnapshot] - DOM HTML を <name>.dom.html として保存するか (#1747 AC4 / #1766)。
 	 *   省略時はコンストラクタの `domSnapshot` 設定（デフォルト true）に従う
+	 * @param {boolean} [opts.waitSplide=false] - Splide.js carousel 初期化完了を待機するか (#1825)。
+	 *   LP の `site/index.html` 等の hero carousel 撮影で「黒ブロック」状態を回避する目的。
+	 *   Splide が存在しないページでは silent skip するため副作用なし
 	 * @returns {Promise<{ ok: true; filePath: string; size: number; domPath?: string; domSize?: number } | { ok: false; error: Error }>}
 	 */
 	async capture({
@@ -323,6 +349,7 @@ export class ScreenshotCapture {
 		section,
 		storageState,
 		domSnapshot,
+		waitSplide = false,
 	}) {
 		if (!this.#browser) throw new Error('setup() を先に呼び出してください。');
 
@@ -344,7 +371,7 @@ export class ScreenshotCapture {
 					`サーバーに接続できません: ${targetUrl}\nnpm run dev または npm run dev:cognito でサーバーを起動してください。`,
 				);
 			});
-			await waitForStablePage(page, { selector, skipNetworkIdle: true });
+			await waitForStablePage(page, { selector, skipNetworkIdle: true, waitSplide });
 
 			const screenshotType = format === 'jpeg' ? 'jpeg' : 'png';
 			const ext = format === 'webp' ? 'png' : screenshotType;

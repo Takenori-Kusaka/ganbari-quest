@@ -26,8 +26,10 @@
 .hero-price-band{display:inline-block;margin:18px auto 8px;padding:10px 20px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;font-size:.95rem;font-weight:600;color:var(--brand-700)}
 .hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:18px}
 .hero-cta .btn{padding:12px 28px;font-size:.95rem;font-weight:600;border-radius:2rem;text-decoration:none;display:inline-block;transition:all .2s}
+/* #1823 (#1820 波及): hover 時の box-shadow rgba(56,120,184) を撤去。
+   インタラクション feedback は opacity / transform / background の hover で実現 */
 .hero-cta .btn-primary{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff;border:0}
-.hero-cta .btn-primary:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);transform:translateY(-1px)}
+.hero-cta .btn-primary:hover{transform:translateY(-1px);opacity:.92}
 .hero-cta .btn-secondary{background:#fff;color:var(--brand-700);border:2px solid var(--brand-300)}
 .hero-cta .btn-secondary:hover{background:var(--brand-50)}
 
@@ -35,8 +37,11 @@
 .plans-section{padding:48px 16px 64px}
 .plans-inner{max-width:960px;margin:0 auto}
 .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:48px}
-.plan-card{background:#fff;border:2px solid var(--gray-300);border-radius:var(--radius);padding:32px 24px;display:flex;flex-direction:column;position:relative}
-.plan-card.recommended{border-color:var(--brand-600);box-shadow:0 4px 20px rgba(56,120,184,.15)}
+/* #1823 (#1820 波及): 5 系統 → 1 種統一 — 全 plan-card を共通枠 (#fff + 1px var(--gray-300)) に揃え、
+   recommended の box-shadow rgba(56,120,184) は撤去。差別化は border-color (--brand-600) と
+   .plan-badge の背景色のみで実現（index.html versus / soft-card と同方式） */
+.plan-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:32px 24px;display:flex;flex-direction:column;position:relative}
+.plan-card.recommended{border-color:var(--brand-600)}
 .plan-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--brand-600);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
 /* #1657 R50 B-2: Free カードに「永久無料」バッジ */
 .plan-badge-free{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--green-500);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
@@ -50,10 +55,12 @@
 .plan-cta{display:block;text-align:center;padding:12px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none;margin-bottom:12px}
 .plan-cta-free{background:var(--gray-100);color:var(--gray-700)}
 .plan-cta-free:hover{background:var(--gray-200);text-decoration:none}
+/* #1823 (#1820 波及): plan-cta hover の box-shadow rgba(56,120,184) を撤去。
+   インタラクション feedback は opacity / transform で実現 */
 .plan-cta-standard{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff}
-.plan-cta-standard:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);text-decoration:none;transform:translateY(-1px)}
+.plan-cta-standard:hover{text-decoration:none;transform:translateY(-1px);opacity:.92}
 .plan-cta-family{background:linear-gradient(135deg,var(--brand-600),var(--brand-800));color:#fff}
-.plan-cta-family:hover{box-shadow:0 4px 16px rgba(56,120,184,.3);text-decoration:none;transform:translateY(-1px)}
+.plan-cta-family:hover{text-decoration:none;transform:translateY(-1px);opacity:.92}
 /* #1646 R41: CTA 直下打消し表示 */
 .cta-disclaimer{font-size:.72rem;color:var(--gray-700);background:var(--green-50,#f0fdf4);border:1px solid var(--green-200,#bbf7d0);border-radius:8px;padding:8px 10px;margin-bottom:18px;line-height:1.6;text-align:center}
 .cta-disclaimer .badges{font-weight:600;color:var(--green-700,#15803d);display:block;margin-bottom:2px}

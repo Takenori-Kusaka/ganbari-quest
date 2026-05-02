@@ -417,11 +417,12 @@ export class OpsStack extends cdk.Stack {
 			tier: ssm.ParameterTier.STANDARD,
 		});
 
+		// #1828: AWS Lambda Node.js 20.x EOL (2026-04-30) 対応で 22.x へ migration
 		const healthCheckFn = new lambdaNode.NodejsFunction(this, 'HealthCheckFn', {
 			functionName: 'ganbari-quest-health-check',
 			entry: path.join(__dirname, '..', 'lambda', 'health-check', 'index.ts'),
 			handler: 'handler',
-			runtime: lambda.Runtime.NODEJS_20_X,
+			runtime: lambda.Runtime.NODEJS_22_X,
 			architecture: lambda.Architecture.ARM_64,
 			memorySize: 128,
 			timeout: cdk.Duration.seconds(30),

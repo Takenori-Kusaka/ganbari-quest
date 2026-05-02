@@ -481,6 +481,60 @@ git commit -m "docs: pr-XXXX screenshots"
 
 ---
 
+## SC-012 — LP hero carousel が SS で「真っ黒なブロック」化（Splide.js 初期化未完待ち）
+
+| フィールド | 値 |
+|-----------|-----|
+| **発生日** | 2026-05-01 |
+| **PR 番号 / Issue 番号** | #1819 / #1820 観察 → #1825（再発防止） |
+| **環境** | 全環境 |
+| **ステータス** | resolved |
+
+### 症状
+
+`scripts/capture-hp-screenshots.mjs` または `scripts/capture.mjs` で `site/index.html`（LP）の hero
+carousel を含む領域を撮影すると、carousel が真っ黒なブロック / 空のままの状態で記録される。
+QM Re-Review で AC 達成を実視認できず観察ノイズとなる。
+
+### 根本原因
+
+`scripts/capture-hp-screenshots.mjs` および `scripts/capture.mjs` は `page.goto` 後に networkidle と
+font ready を待つが、Splide.js の初期化（DOMContentLoaded → CDN script 読込 → `splide.mount()` →
+`.splide__slide.is-active` クラス付与）は networkidle と非同期で進行することがある。CSS 適用前の
+`<ul class="splide__list"></ul>` だけ存在する瞬間に screenshot が走ると、`.splide__track` の
+`background:var(--gray-900)` が出っ放しで子要素が空という状態 = 真っ黒なブロックが記録される。
+
+### 解決手順
+
+`waitForStablePage` の `waitSplide` オプションを使う:
+
+```javascript
+// scripts/lib/screenshot-helpers.mjs
+await waitForStablePage(page, { waitSplide: true });
+//   → document.querySelector('#hero-carousel .splide__slide.is-active') が現れるまで最大 10s 待機
+//   → Splide が存在しないページでは silent skip
+```
+
+CLI から:
+
+```bash
+# capture.mjs: --wait-splide フラグまたは --server-mode lp で自動有効化
+MSYS_NO_PATHCONV=1 node scripts/capture.mjs --pr 1825 --server-mode lp --url /index.html
+MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /index.html --wait-splide
+
+# capture-hp-screenshots.mjs: carousel-* shot で自動有効化
+node scripts/capture-hp-screenshots.mjs --webp --only carousel
+```
+
+### 再発防止策
+
+- `scripts/lib/screenshot-helpers.mjs::waitForStablePage` に `waitSplide` オプションを実装し SSOT 化（#1825）
+- `scripts/capture-hp-screenshots.mjs` の `carousel-*` 撮影で `waitSplide: true` を自動指定
+- `scripts/capture.mjs` の `--server-mode lp` で `waitSplide` を自動有効化
+- 撮影 1 件でも失敗すれば `capture-hp-screenshots.mjs` が exit 1（#1783 / ADR-0029）するため CI で黒画像のまま push されることはない（ただし「撮影成功 + 中身が黒」のケースは別途 `scripts/measure-lp-dimensions.mjs` で参照存在検証）
+
+---
+
 ## SC-011 — DOM スナップショット併記必須化（SS と実機の乖離防止）
 
 | フィールド | 値 |

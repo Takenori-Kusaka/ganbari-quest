@@ -236,11 +236,12 @@ export class ComputeStack extends cdk.Stack {
 			);
 		}
 
+		// #1828: AWS Lambda Node.js 20.x EOL (2026-04-30) 対応で 22.x へ migration
 		this.cronDispatcherFn = new lambdaNode.NodejsFunction(this, 'CronDispatcherFn', {
 			functionName: 'ganbari-quest-cron-dispatcher',
 			entry: path.join(__dirname, '..', 'lambda', 'cron-dispatcher', 'index.ts'),
 			handler: 'handler',
-			runtime: lambda.Runtime.NODEJS_20_X,
+			runtime: lambda.Runtime.NODEJS_22_X,
 			architecture: lambda.Architecture.ARM_64,
 			memorySize: 128,
 			timeout: cdk.Duration.minutes(5),
