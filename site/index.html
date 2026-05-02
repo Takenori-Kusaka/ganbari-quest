@@ -126,15 +126,18 @@
 }
 
 /* Section */
-.section{padding:56px 16px}
+/* #1831: desktopHeight 8103 > 8000 を解消するため section padding を 56→40 に圧縮 (Linux CI 環境) */
+.section{padding:40px 16px}
 .section-inner{max-width:1080px;margin:0 auto}
 /* #1634 R30 / ADR-0016: 強制改行 <br> を削除し text-wrap: balance に任せる */
-.section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:10px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
+/* #1831: desktopHeight 圧縮のため section-title margin-bottom を 10→4 に圧縮 */
+.section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:4px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
 /* #1759 PR Phase 3-B fix: desktopHeight 8003 > 8000 を回避するため section-desc 余白を 40 → 28px に圧縮 */
 /* #1726 R9: 長文 description は左寄せに変更（max-width:640px 中央配置は維持）。短い見出し h2.section-title は center 維持 */
 /* #1799 U-MIN-2: 中央寄せの h2.section-title と縦軸を揃えるため text-align:center に変更 + max-width 720px に拡張。
    短文 desc は中央寄せが自然、長文も balance/auto-phrase で読みづらくはならない */
-.section-desc{text-align:center;color:var(--gray-600);margin-bottom:28px;font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
+/* #1831: desktopHeight 圧縮のため section-desc margin-bottom を 28→20 にさらに圧縮 */
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:20px;font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
@@ -172,7 +175,8 @@
    旧クラス (.core-loop-step / .core-loop-layer / .core-loop-2col / .core-loop-aside /
    .core-loop-perspectives / .clp-card / .cls-num / .core-loop-visual / .core-loop-note)
    は廃止し、CSS / DOM ともに参照無し。再混入は #1790 LP 削除残骸検出 CI で検出される。 */
-#core-loop{padding:36px 16px}
+/* #1831: desktopHeight 圧縮の追加調整 — core-loop padding を 36→28 に */
+#core-loop{padding:28px 16px}
 #core-loop .section-desc{margin-bottom:20px}
 /* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
 .core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
@@ -215,7 +219,7 @@
 /* #1785 R-CRT-2: tour-shot からも background / border-radius を撤去。外側 .tour-card の枠に集約 */
 .tour-card .tour-shot{overflow:hidden;aspect-ratio:390/844;max-height:200px;margin-top:auto}
 .tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
-/* #1707 R2: 親が観測できる 1 行ベネフィットを screenshot 直下に併記 */
+/* #1707 R2 / #1793: 家庭で起きる / 楽になる / 家族で実感できる 1 行ベネフィットを screenshot 直下に併記 */
 .tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
 .tour-card .tour-benefit strong{color:var(--brand-700)}
 @media(min-width:1024px){
@@ -245,7 +249,7 @@
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card.soft-card--featured h3{font-size:1.15rem;color:var(--brand-700)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
-/* #1707 R2: soft-card 内に親が観測できる 1 行ベネフィットと screenshot を追加 */
+/* #1707 R2 / #1793: soft-card 内に家庭で楽になる / 家庭ごとにカスタマイズできる 1 行ベネフィットと screenshot を追加 */
 /* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
 /* #1785 R-CRT-2: soft-shot からも border / background / border-radius を撤去 */
 .soft-card .soft-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:8px 0}
@@ -391,7 +395,8 @@
 
 /* FAQ */
 .faq-list{max-width:720px;margin:0 auto}
-.faq-item{border-bottom:1px solid var(--gray-300);padding:18px 0}
+/* #1831: desktopHeight 圧縮のため faq-item padding を 18→14 に */
+.faq-item{border-bottom:1px solid var(--gray-300);padding:14px 0}
 .faq-item summary{font-size:.98rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
 .faq-item summary::before{content:"Q.";color:var(--brand-700);font-weight:700;font-size:1.05rem;flex-shrink:0}
 .faq-item[open] summary{margin-bottom:10px}
@@ -402,7 +407,8 @@
 /* Final CTA */
 /* #1798 U-MIN-8: cta-bottom と footer の境界を明示化。
    padding-bottom を 56→80px に増やし、footer 上辺に inset box-shadow で 1px の薄い区切り線を追加 */
-.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:56px 16px 80px;text-align:center;box-shadow:inset 0 -1px 0 var(--gray-300)}
+/* #1831: desktopHeight 圧縮のため cta-bottom padding を 56→40 (top) / 80→56 (bottom) に圧縮 */
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:40px 16px 56px;text-align:center;box-shadow:inset 0 -1px 0 var(--gray-300)}
 /* #1798 U-MIN-8: cta-bottom 直下の footer 上辺にハイライトラインを追加し境界を明示。
    --gray-900 (#1e293b) BG 上で box-shadow inset の薄いハイライトで「区切り」を伝える */
 .cta-bottom + .footer{box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
@@ -711,7 +717,7 @@
         <div class="age-panel-body">
           <h3 data-lp-key="indexB.k10">ひらがな中心・丸みのある大きなボタン</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k11">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
-          <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。セットアップで好きなものを選ぶだけ。ログインボーナスで毎日おみくじが 1 回引けて、スタンプカードが週末に 1 枚完成します。</p>
+          <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。セットアップで好きなものを選ぶだけ。ログインボーナスで毎日おみくじが 1 回引けて、週 5 日タップでスタンプカード 1 枚分のポイントに自動交換できます。</p>
           <!-- #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化 -->
           <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
@@ -762,7 +768,7 @@
       <div class="core-loop-card" data-card="l2">
         <span class="cll-badge" data-lp-key="coreloop.l2Badge">習慣</span>
         <h3 data-lp-key="coreloop.l2Title">習慣カードで続ける</h3>
-        <p data-lp-key="coreloop.l2Desc">1 日 1 回までのおみくじスタンプ。1 週間続けるとスタンプカードが完成し、三日坊主を防ぐ「継続の見える化」になります（煽らない設計）。</p>
+        <p data-lp-key="coreloop.l2Desc">1 日 1 回までのおみくじスタンプ。週 7 日中 5 日タップでスタンプカード 1 枚分のポイントに自動交換できます。三日坊主を防ぐ「継続の見える化」（煽らない設計）。</p>
       </div>
       <div class="core-loop-card" data-card="l3">
         <span class="cll-badge" data-lp-key="coreloop.l3Badge">ごほうび</span>
@@ -788,8 +794,8 @@
 <!-- [04] 補足機構（[03] のコアループに加えて支える 2 つの工夫） -->
 <section class="section bg-white" id="machine-tour" data-testid="feature-section">
   <div class="section-inner">
-    <h2 class="section-title" data-lp-key="indexB.k21">コアループを支える 2 つの工夫</h2>
-    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の準備と冒険のクライマックスから支える 2 つの工夫です。</p>
+    <h2 class="section-title" data-lp-key="indexB.k21">コアループに加えて — 朝の準備とクライマックスを支える機構</h2>
+    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の持ち物確認と夜の RPG バトルの 2 つから支える補足機構です。</p>
     <div class="machine-tour">
       <div class="tour-card" data-testid="feature-belongings-checklist">
         <div class="tour-phase" data-lp-key="indexB.k26">&#9312; 朝の準備をスムーズに</div>
@@ -813,7 +819,7 @@
             <img src="screenshots/feature-rpg-battle.webp" alt="RPG バトル画面 — 累積した努力でボスに挑戦" loading="lazy" data-lightbox>
           </picture>
         </div>
-        <p class="tour-benefit" data-lp-key="indexB.tourBenefitBattle"><strong>親が観測できること</strong>: 1 日の努力が「バトルで使えるエネルギー」として可視化される</p>
+        <p class="tour-benefit" data-lp-key="indexB.tourBenefitBattle"><strong>家庭で起きること</strong>: 1 日の努力が「バトルで使えるエネルギー」として可視化される</p>
       </div>
     </div>
   </div>
@@ -839,7 +845,7 @@
             <img src="screenshots/feature-monthly-report.webp" alt="月次レポート画面 — 活動・ポイント推移グラフ" loading="lazy" data-lightbox>
           </picture>
         </div>
-        <p class="soft-benefit" data-lp-key="indexB.softBenefitMonthlyReport"><strong>親が観測できること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる</p>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitMonthlyReport"><strong>家庭で楽になること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる</p>
       </div>
       <div class="soft-card" data-testid="feature-auto-sleep">
         <h3 data-lp-key="indexB.softFamilySupportTitle">家庭に寄り添う運用補助</h3>
@@ -850,7 +856,7 @@
             <img src="screenshots/feature-auto-sleep.webp" alt="自動スリープ + おうえんメッセージ設定画面" loading="lazy" data-lightbox>
           </picture>
         </div>
-        <p class="soft-benefit" data-lp-key="indexB.softBenefitFamilySupport"><strong>親が観測できること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く</p>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitFamilySupport"><strong>家庭ごとにカスタマイズできること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く</p>
       </div>
       <div class="soft-card" data-testid="feature-customization">
         <h3 data-lp-key="indexB.k45">設定の自由度</h3>
@@ -861,7 +867,7 @@
             <img src="screenshots/feature-settings.webp" alt="親管理の設定一覧画面 — 活動・ポイント・ごほうびのカスタマイズ" loading="lazy" data-lightbox>
           </picture>
         </div>
-        <p class="soft-benefit" data-lp-key="indexB.softBenefitSettings"><strong>親が観測できること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる</p>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitSettings"><strong>家庭で楽になること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる</p>
       </div>
     </div>
   </div>
@@ -890,7 +896,7 @@
               </picture>
             </div>
             <p data-lp-key="growthRoadmap.preschoolDesc">大きなボタンとひらがな UI で「自分で押した！」の達成感を毎日体験。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.preschoolParentBenefit">「やって」と言わなくても、子供が自分で動き始める</span></p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.preschoolParentBenefit">「やって」と言わなくても、子供が自分で動き始める</span></p>
             <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.preschoolChildExperience">大きな絵文字ボタンを押すだけで褒められる達成感</span></p>
           </div>
         </div>
@@ -905,7 +911,7 @@
               </picture>
             </div>
             <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、ウィークリーチャレンジで「次は何をやろう？」と自分で目標を立てる力が育ちます。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
             <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.elementaryChildExperience">ポイントとチャレンジが積み重なり、「次は何をやろう」と自分で計画する楽しさ</span></p>
           </div>
         </div>
@@ -920,7 +926,7 @@
               </picture>
             </div>
             <p data-lp-key="growthRoadmap.juniorDesc">月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.juniorParentBenefit">時間管理を子供任せにできて、過干渉を手放せる</span></p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.juniorParentBenefit">時間管理を子供任せにできて、過干渉を手放せる</span></p>
             <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.juniorChildExperience">月次レポートで自分のペースを見える化し、無理せず続けられる</span></p>
           </div>
         </div>
@@ -935,7 +941,7 @@
               </picture>
             </div>
             <p data-lp-key="growthRoadmap.seniorDesc">15 年分の活動ログが「自分はこれだけやってきた」という自信に。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.seniorParentBenefit">進路面談で子供自身が活動履歴を語れるようになる</span></p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.seniorParentBenefit">進路面談で子供自身が活動履歴を語れるようになる</span></p>
             <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.seniorChildExperience">15 年分の積み重ねが履歴として残り、自分の自信になる</span></p>
           </div>
         </div>
@@ -950,7 +956,7 @@
               </picture>
             </div>
             <p data-lp-key="growthRoadmap.graduateDesc">「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">親が観測できること</strong>: <span data-lp-key="growthRoadmap.graduateParentBenefit">子供が自律したことを、ログイン頻度の低下で確認できる</span></p>
+            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.graduateParentBenefit">子供が自律したことを、ログイン頻度の低下で確認できる</span></p>
             <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.graduateChildExperience">アプリを開かなくても自分で計画できる、大人になった実感</span></p>
           </div>
         </div>
@@ -1060,8 +1066,8 @@
 
 <!-- [09] 最終 CTA -->
 <section class="cta-bottom">
-  <h2 data-lp-key="indexB.k79">家族で全部使ってから、続けるか決める</h2>
-  <p data-lp-key="indexB.k80">7 日間無料・クレジットカード登録不要 / いつでもキャンセル可能。今日からお子さまの「やりたい！」を育てませんか？</p>
+  <h2 data-lp-key="indexB.k79">「アプリを開かなくなった日」が、家族の最大の成功です。</h2>
+  <p data-lp-key="indexB.k80">3 歳から 18 歳までの 15 年。最後は子供が自分で計画できる自律へ。今日の 7 日間が、その第一歩です。</p>
   <div class="cta-buttons">
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="indexB.k81">無料で始める</a>
   </div>
@@ -1338,5 +1344,7 @@
 </script>
 <script src="shared-labels.js"></script>
 <script src="js/contact.js"></script>
+<!-- #1786: BudouX 全長文セクション自動 wrap (ADR-0016 整合) — section-desc / faq-answer / cta-bottom / gr-body 等 -->
+<script src="js/auto-budoux.js" defer></script>
 </body>
 </html>

@@ -53,6 +53,9 @@ const { values, positionals } = parseArgs({
 		'storage-state': { type: 'string' },
 		'full-page': { type: 'boolean', default: false },
 		selector: { type: 'string' }, // (#1738) 表示完了を待つ CSS セレクタ。Storybook iframe など SPA レンダリング待ち用
+		// (#1827 fix2) セクション要素単位の撮影。指定すると page.locator(section).screenshot() で
+		// その要素のみを切り出す。--full-page と排他。LP の各 #section の見た目検証に使う。
+		section: { type: 'string' },
 		format: { type: 'string', default: 'png' },
 		quality: { type: 'string', default: '85' },
 		'max-steps': { type: 'string', default: '12' },
@@ -107,6 +110,10 @@ QA レビュー用（--pr で全自動）:
   --full-page       フルページキャプチャ（デフォルト: false）
   --selector        表示完了を待つ CSS セレクタ（Storybook iframe SPA 等で
                     レンダリング完了を待つ場合に指定。例: --selector "#storybook-root > *")
+  --section         セクション要素単位の撮影 CSS セレクタ (#1827 fix2)。
+                    指定すると page.locator(section).screenshot() で要素のみ切り出す。
+                    --full-page と排他。LP セクション別撮影に使用。
+                    例: --section "#core-loop", --section "section.hero"
   --format          png / webp / jpeg（デフォルト: png）
   --quality         WebP 品質 0-100（デフォルト: 85）
   --max-steps       フローの最大ステップ数（デフォルト: 12）
@@ -645,6 +652,14 @@ async function runUrlMode() {
 		process.exit(1);
 	}
 
+	// #1827 fix2: --section と --full-page の排他チェック（playwright を起動する前に弾く）
+	if (values.section && fullPage) {
+		console.error(
+			'エラー: --section と --full-page は排他です。セクション切り出し時は fullPage を無効にしてください。',
+		);
+		process.exit(1);
+	}
+
 	const capturer = new ScreenshotCapture({
 		baseUrl,
 		outputDir,
@@ -660,7 +675,9 @@ async function runUrlMode() {
 	for (const presetName of presetNames) {
 		const viewport = resolvePreset(presetName);
 		const name = presetNames.length > 1 ? `${baseName}-${presetName}` : baseName;
-		console.log(`Capturing ${url} [${presetName}] ...`);
+		console.log(
+			`Capturing ${url} [${presetName}]${values.section ? ` section=${values.section}` : ''} ...`,
+		);
 		const result = await capturer.capture({
 			url,
 			name,
@@ -669,6 +686,7 @@ async function runUrlMode() {
 			format,
 			quality,
 			selector: values.selector,
+			section: values.section,
 			storageState,
 		});
 		recordCaptureResult(result, capturedFiles, domFiles);
