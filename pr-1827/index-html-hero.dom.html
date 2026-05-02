@@ -416,7 +416,7 @@
 }
 </style>
 </head>
-<body data-hero-visible="true">
+<body>
 
 <!-- Header -->
 <header class="header">
@@ -971,7 +971,7 @@
      可変するため、ctaVariants ratchet（≤3）の集計に含めない（lp-content-map.md §7.4）。
      初期 SSR は phase=hero の文言を表示し、JS load 後に scroll listener で書き換える。
      SEO / no-JS 環境でも初期文言は読める。 -->
-<div class="floating-cta" id="floating-cta" data-floating-cta="container" aria-hidden="true" role="complementary" aria-label="ページ追従の登録案内">
+<div class="floating-cta" id="floating-cta" data-floating-cta="container" aria-hidden="true" role="complementary" aria-label="ページ追従の登録案内" data-floating-cta-phase="hero" style="display: block;">
   <div class="floating-cta-inner">
     <div class="floating-cta-text" id="floating-cta-text" data-lp-key="floatingCta.heroText">全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small></div>
     <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" id="floating-cta-button" data-lp-key="floatingCta.heroButton" aria-label="7 日間無料トライアルへのご案内">無料で始める</a>
