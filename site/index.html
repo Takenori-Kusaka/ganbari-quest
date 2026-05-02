@@ -287,41 +287,14 @@
 	.pp-dot{display:none}
 }
 
-/* 年齢別成長ロードマップ (#1613 R9: 卒業を最終地点として位置付ける)
-   StoryBrand 7 要素 Success — 4 ステージ + 卒業 (自律) */
+/* #1848: 年齢別成長ロードマップ詳細を graduation.html に切り出した。
+   LP 本体は CTA 1 行のみで、5 ステージの詳細展開は graduation.html を参照する。
+   旧 .gr-stage / .gr-track / .gr-shot / .gr-benefit 系 CSS は graduation.html に移管済み。 */
 #growth-roadmap{padding:24px 16px}
-.growth-roadmap{max-width:1080px;margin:0 auto}
-.gr-track{display:flex;flex-direction:column;gap:8px;position:relative}
-/* #1785 R-CRT-2: 5 系統 → 1 種統一。すべてのカードが #fff + 1px var(--gray-300) で統一 */
-.gr-stage{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:start;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:10px 12px}
-.gr-age{font-size:.7rem;font-weight:700;color:var(--brand-700);background:var(--brand-50);border-radius:6px;padding:6px 4px;text-align:center;line-height:1.3}
-.gr-age strong{display:block;font-size:1.05rem;color:var(--brand-700)}
-.gr-body h3{font-size:.92rem;font-weight:700;margin-bottom:6px;color:var(--gray-900);line-height:1.4}
-.gr-body p{font-size:.8rem;color:var(--gray-600);line-height:1.55;margin:0 0 4px}
-/* #1707 R2 / #1712 R5: stage screenshot サムネ + 親視点 / 子供視点ベネフィット 1 行併記 */
-/* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため mobile scrshot 高さを圧縮 */
-/* #1785 R-CRT-2: gr-shot からも border / background / border-radius を撤去 */
-.gr-body .gr-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:4px 0}
-.gr-body .gr-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
-.gr-body .gr-benefit{font-size:.72rem;line-height:1.4;margin:2px 0;color:var(--gray-700)}
-.gr-body .gr-benefit strong{color:var(--brand-700);font-weight:700}
-.gr-body .gr-benefit-child strong{color:var(--gray-800)}
-/* #1785 R-CRT-2: graduate ステージ独自グラデーション撤去 — 全 gr-stage 共通枠に統一。
-   卒業の特別感は .gr-age の文字色 + h3 強調のみで表現 */
-/* #1801 U-MIN-6: graduate stage は他 4 stage との「装飾統一」を保ちつつ、
-   border のみ --gold-500 (2px) に置換することで「特別」を 1 段差分で表現。
-   背景・padding・layout は完全同一 → PO-A-1 統一感視点を満たす */
-.gr-stage[data-stage="graduate"]{border:2px solid var(--gold-500)}
-.gr-stage[data-stage="graduate"] .gr-age strong{color:var(--brand-800)}
-@media(min-width:1024px){
-  .gr-track{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch}
-  .gr-stage{grid-template-columns:1fr;text-align:center;padding:12px 10px}
-  .gr-age{padding:4px}
-  .gr-body h3{font-size:.86rem}
-  .gr-body p{font-size:.74rem;line-height:1.5}
-  .gr-body .gr-shot{max-height:120px}
-  .gr-body .gr-benefit{font-size:.7rem;line-height:1.4}
-}
+.growth-roadmap-cta{text-align:center}
+.growth-roadmap-cta .growth-roadmap-link{margin:18px 0 0;font-size:1rem}
+.growth-roadmap-cta .growth-roadmap-link a{display:inline-block;padding:10px 24px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;color:var(--brand-700);font-weight:600;text-decoration:none;transition:opacity .2s,transform .2s}
+.growth-roadmap-cta .growth-roadmap-link a:hover{opacity:.92;transform:translateY(-1px);text-decoration:none}
 
 /* アナログ vs デジタル比較 (#1614 R10: シール帳 vs アプリ訴求)
    モバイル/PC ともに 1 行 = analog → digital 横並びにして縦の伸びを抑える */
@@ -876,96 +849,17 @@
 
 <!-- LP-LANDMARK:soft-features end -->
 
-<!-- LP-LANDMARK:growth-roadmap start — 年齢別成長ロードマップ（最終地点として「卒業」を自然に位置付ける）(#1613 R9)
-     StoryBrand 7 要素「Success（成功した未来像）」と整合
-     PO 判断: 「卒業セクション」は単独設置せず、年齢別成長物語の最終地点として描く -->
-<!-- [05b] 年齢別成長ロードマップ — お子さまの 15 年と、その先 -->
+<!-- LP-LANDMARK:growth-roadmap-cta start — #1848: LP 本体は CTA 1 行のみ。5 ステージ詳細は graduation.html へ集約
+     #1613 R9 の 5 stage 構造は graduation.html に移管。LP 本体では成長物語の最終地点（卒業）を別ページ動線として提示する -->
+<!-- [05b] 年齢別成長ロードマップ CTA — 詳細は graduation.html -->
 <section class="section bg-gray" id="growth-roadmap">
-  <div class="section-inner">
+  <div class="section-inner growth-roadmap-cta">
     <h2 class="section-title" data-lp-key="growthRoadmap.sectionTitle">3 歳から 18 歳まで、そして「卒業」へ</h2>
     <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。</p>
-    <div class="growth-roadmap">
-      <div class="gr-track">
-        <div class="gr-stage" data-stage="preschool">
-          <div class="gr-age"><span data-lp-key="growthRoadmap.preschoolAge">幼児</span><strong data-lp-key="growthRoadmap.preschoolRange">3-5</strong><span data-lp-key="growthRoadmap.preschoolUnit">歳</span></div>
-          <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.preschoolTitle">「はをみがいてー」「おかたづけしてー」が要らなくなる</h3>
-            <div class="gr-shot">
-              <picture>
-                <source srcset="screenshots/growth-stage-preschool-desktop.webp" media="(min-width:1024px)" type="image/webp">
-                <img src="screenshots/growth-stage-preschool.webp" alt="幼児ホーム画面 — 大きな絵文字ボタンと達成スタンプ" loading="lazy" data-lightbox>
-              </picture>
-            </div>
-            <p data-lp-key="growthRoadmap.preschoolDesc">大きなボタンとひらがな UI で「自分で押した！」の達成感を毎日体験。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.preschoolParentBenefit">「やって」と言わなくても、子供が自分で動き始める</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.preschoolChildExperience">大きな絵文字ボタンを押すだけで褒められる達成感</span></p>
-          </div>
-        </div>
-        <div class="gr-stage" data-stage="elementary">
-          <div class="gr-age"><span data-lp-key="growthRoadmap.elementaryAge">小学生</span><strong data-lp-key="growthRoadmap.elementaryRange">6-12</strong><span data-lp-key="growthRoadmap.elementaryUnit">歳</span></div>
-          <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.elementaryTitle">「宿題やった？」を聞かなくても、子供から見せてくれる</h3>
-            <div class="gr-shot">
-              <picture>
-                <source srcset="screenshots/growth-stage-elementary-desktop.webp" media="(min-width:1024px)" type="image/webp">
-                <img src="screenshots/growth-stage-elementary.webp" alt="小学生ホーム画面 — ポイント・レベル・チャレンジ" loading="lazy" data-lightbox>
-              </picture>
-            </div>
-            <p data-lp-key="growthRoadmap.elementaryDesc">漢字 UI に切替、ウィークリーチャレンジで「次は何をやろう？」と自分で目標を立てる力が育ちます。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.elementaryChildExperience">ポイントとチャレンジが積み重なり、「次は何をやろう」と自分で計画する楽しさ</span></p>
-          </div>
-        </div>
-        <div class="gr-stage" data-stage="junior">
-          <div class="gr-age"><span data-lp-key="growthRoadmap.juniorAge">中学生</span><strong data-lp-key="growthRoadmap.juniorRange">13-15</strong><span data-lp-key="growthRoadmap.juniorUnit">歳</span></div>
-          <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.juniorTitle">部活と塾の両立を、子供が自分で計画する</h3>
-            <div class="gr-shot">
-              <picture>
-                <source srcset="screenshots/growth-stage-junior-desktop.webp" media="(min-width:1024px)" type="image/webp">
-                <img src="screenshots/growth-stage-junior.webp" alt="中学生ホーム画面 — 月次レポートと自己ペース可視化" loading="lazy" data-lightbox>
-              </picture>
-            </div>
-            <p data-lp-key="growthRoadmap.juniorDesc">月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.juniorParentBenefit">時間管理を子供任せにできて、過干渉を手放せる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.juniorChildExperience">月次レポートで自分のペースを見える化し、無理せず続けられる</span></p>
-          </div>
-        </div>
-        <div class="gr-stage" data-stage="senior">
-          <div class="gr-age"><span data-lp-key="growthRoadmap.seniorAge">高校生</span><strong data-lp-key="growthRoadmap.seniorRange">16-18</strong><span data-lp-key="growthRoadmap.seniorUnit">歳</span></div>
-          <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.seniorTitle">進路相談で「これだけやってきた」を子供自身が語れる</h3>
-            <div class="gr-shot">
-              <picture>
-                <source srcset="screenshots/growth-stage-senior-desktop.webp" media="(min-width:1024px)" type="image/webp">
-                <img src="screenshots/growth-stage-senior.webp" alt="高校生ホーム画面 — 15 年分のログと進路素材" loading="lazy" data-lightbox>
-              </picture>
-            </div>
-            <p data-lp-key="growthRoadmap.seniorDesc">15 年分の活動ログが「自分はこれだけやってきた」という自信に。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.seniorParentBenefit">進路面談で子供自身が活動履歴を語れるようになる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.seniorChildExperience">15 年分の積み重ねが履歴として残り、自分の自信になる</span></p>
-          </div>
-        </div>
-        <div class="gr-stage" data-stage="graduate">
-          <div class="gr-age"><span data-lp-key="growthRoadmap.graduateLabel">そして</span><strong data-lp-key="growthRoadmap.graduateAccent">卒業</strong></div>
-          <div class="gr-body">
-            <h3 data-lp-key="growthRoadmap.graduateTitle">アプリを開かなくなった日 — それは家族の卒業式</h3>
-            <div class="gr-shot">
-              <picture>
-                <source srcset="screenshots/growth-stage-graduate-desktop.webp" media="(min-width:1024px)" type="image/webp">
-                <img src="screenshots/growth-stage-graduate.webp" alt="卒業画面 — 履歴エクスポートと家族の手元に残す記録" loading="lazy" data-lightbox>
-              </picture>
-            </div>
-            <p data-lp-key="growthRoadmap.graduateDesc">「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。</p>
-            <p class="gr-benefit gr-benefit-parent"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong>: <span data-lp-key="growthRoadmap.graduateParentBenefit">子供が自律したことを、ログイン頻度の低下で確認できる</span></p>
-            <p class="gr-benefit gr-benefit-child"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong>: <span data-lp-key="growthRoadmap.graduateChildExperience">アプリを開かなくても自分で計画できる、大人になった実感</span></p>
-          </div>
-        </div>
-      </div>
-    </div>
+    <p class="growth-roadmap-link"><a href="graduation.html" data-lp-key="growthRoadmap.linkLabel">5 ステージの詳細を見る →</a></p>
   </div>
 </section>
-<!-- LP-LANDMARK:growth-roadmap end -->
+<!-- LP-LANDMARK:growth-roadmap-cta end -->
 
 <!-- LP-LANDMARK:pricing start — 料金プロミスバンド。CTA は「無料で始める」のみ
      価格帯の変更は docs/design/19-プライシング戦略書.md + lp-content-map.md §pricing を確認
@@ -1082,6 +976,7 @@
       <h4 data-lp-key="footer.linksHeading">リンク</h4>
       <a href="pricing.html" data-lp-key="footer.pricingLink">料金プラン</a>
       <a href="faq.html" data-lp-key="footer.faqLink">よくあるご質問</a>
+      <a href="graduation.html" data-lp-key="footer.graduationLink">成長ロードマップ</a>
       <a href="selfhost.html" data-lp-key="footer.selfhostLink">仕組みを公開（開発者向け）</a>
       <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink">GitHub</a>
       <a href="mailto:ganbari.quest.support@gmail.com" id="contact-footer" data-contact-context="トップページ" data-lp-key="footer.contactLink">お問い合わせ</a>
