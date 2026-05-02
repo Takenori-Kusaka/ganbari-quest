@@ -359,7 +359,6 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `OPS_COHORT_LABELS` | const |  |
 | `SETUP_FIRST_ADVENTURE_LABELS` | const |  |
 | `DEMO_POINTS_LABELS` | const |  |
-| `ACHIEVEMENTS_LABELS` | const |  |
 | `ACTIVITIES_INTRODUCE_LABELS` | const |  |
 | `DEMO_MESSAGES_LABELS` | const |  |
 | `EVENTS_LABELS` | const |  |
@@ -383,7 +382,6 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `SETUP_QUESTIONNAIRE_LABELS` | const |  |
 | `CHILD_STATUS_LABELS` | const |  |
 | `AUTH_INVITE_LABELS` | const |  |
-| `DEMO_ACHIEVEMENTS_LABELS` | const |  |
 | `DEMO_LAYOUT_LABELS` | const |  |
 | `SETUP_PACKS_LABELS` | const |  |
 | `PARENT_LOGIN_LABELS` | const |  |
@@ -412,6 +410,7 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `BABY_HOME_LABELS` | const |  |
 | `ONBOARDING_LABELS` | const |  |
 | `LP_VERSUS_LABELS` | const |  |
+| `LP_GUIDE_LABELS` | const |  |
 | `LP_GROWTH_ROADMAP_LABELS` | const |  |
 | `LP_CORELOOP_LABELS` | const |  |
 | `CHILD_SHOP_LABELS` | const |  |

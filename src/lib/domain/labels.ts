@@ -3170,29 +3170,7 @@ export const DEMO_POINTS_LABELS = {
 // 実績ページ (#1452 Phase B)
 // ============================================================
 
-export const ACHIEVEMENTS_LABELS = {
-	challengeEmptyTitle: 'チャレンジきろくはまだありません',
-	challengeEmptyDesc: 'チャレンジ機能は今後リリース予定です',
-	customSectionTitle: '🏅 カスタム実績',
-	toggleOpen: '閉じる',
-	toggleCreate: '+ 作成',
-	fieldNameLabel: '実績名',
-	fieldNamePlaceholder: 'ピアノ100回マスター',
-	fieldDescLabel: '説明（任意）',
-	fieldDescPlaceholder: 'ピアノの練習を100回がんばった！',
-	fieldIconLabel: 'アイコン',
-	fieldBonusLabel: 'ボーナスPT',
-	fieldCondTypeLabel: '条件タイプ',
-	fieldCondValueLabel: '目標値',
-	createButton: '作成する',
-	noCustomAchievements: 'カスタム実績はまだありません',
-	achievedLabel: '達成済み ✅',
-	deleteButton: '削除',
-	upgradeTitle: 'カスタム実績・称号',
-	upgradeDesc: 'お子さまだけのオリジナル実績を作成できます',
-	upgradeLink: 'スタンダードプラン以上で利用可能 →',
-	noChildrenMessage: '子供が登録されていません',
-} as const;
+// ACHIEVEMENTS_LABELS: 実績機能廃止 (#1782 / #1816) で全 keys 参照ゼロのため namespace 削除 (#1833)
 
 // ============================================================
 // 活動紹介ページ (#1452 Phase B)
@@ -3741,16 +3719,7 @@ export const AUTH_INVITE_LABELS = {
 	loginButton: '既存アカウントでログインして参加',
 } as const;
 
-export const DEMO_ACHIEVEMENTS_LABELS = {
-	pageTitle: '🏅 チャレンジ履歴',
-	pageDesc: '過去に完了したチャレンジの記録です。',
-	allClearedBadge: '全員クリア！',
-	completedBadge: '完了',
-	dateSeparator: '〜',
-	targetPrefix: '· 目標',
-	targetUnit: '回',
-	rewardPrefix: '· 報酬',
-} as const;
+// DEMO_ACHIEVEMENTS_LABELS: 実績機能廃止 (#1782 / #1816) で参照ゼロのため namespace 削除 (#1833)
 
 export const DEMO_LAYOUT_LABELS = {
 	backToHpLink: 'HPに戻る',
