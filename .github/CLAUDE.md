@@ -39,6 +39,18 @@
 - Draft PR はマージできない（GitHub ルールセットで保護）
 - Dependabot PR は自動的に non-draft で作成されるため、従来通りレビュー → auto-merge
 
+### Dependabot PR の CI exempt（#1808）
+
+Dependabot / Renovate などの依存更新 bot が起こす PR は、以下の PR template / AC 系チェックジョブを **自動 skip** する（毎回手動で `<!-- ac-verification-skip: ... -->` コメントを追加する運用負担を解消）:
+
+| ジョブ | exempt 条件 | 実装 |
+|--------|------------|------|
+| `pr-template-gate.yml` の 5 ジョブ全て | `github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'` + `dependencies` ラベル | job 先頭の `if:` 条件 |
+| `pr-ac-verification-check.yml` (AC 検証マップ) | 同上 (#1808 で追加) | job レベル `if:` + step 内 `dependencies` ラベル二重防御 |
+| `pr-merge-gate.yml` (Ready チェックリスト) | 同上 (#1808 で追加) | 同上 |
+
+依存更新 PR は本体コードのレビューサイクルとは異なる（実装は upstream library 側、こちらは version bump の追従のみ）。AC マップ・Ready チェックリスト・顧客価値などは本来的に該当しないため、機械的に skip する方が運用整合性が高い。
+
 ## PR テンプレート必須ゲート（`.github/workflows/pr-template-gate.yml`）
 
 Ready for Review 済みの全 PR（Draft / bot PR 除外）に対し、以下 5 つのチェックが **並列・hard-fail** で実行される。

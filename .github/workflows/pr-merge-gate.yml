@@ -21,16 +21,25 @@ jobs:
   checklist-check:
     name: PR チェックリスト完了確認
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    # #1808: Dependabot / Renovate は依存更新 PR で PR template チェックリストを持たないため job レベルで skip
+    if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
     timeout-minutes: 3
     steps:
       - name: チェックリストの未完了項目を検証
         uses: actions/github-script@v9
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
         with:
           script: |
             const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+
+            // #1808: dependencies ラベルでも skip (Dependabot exempt 二重防御)
+            if (labels.some(l => l.includes('dependencies'))) {
+              core.info('PR has dependencies label, skipping merge gate checklist check');
+              return;
+            }
 
             // 対象セクション: Ready for Review チェックリスト / 完了チェックリスト
             // "- [ ]" が残っていれば fail

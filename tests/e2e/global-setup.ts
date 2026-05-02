@@ -534,23 +534,7 @@ export default async function globalSetup() {
 			);
 			CREATE INDEX IF NOT EXISTS idx_certificates_child ON certificates(child_id, tenant_id);
 
-			CREATE TABLE IF NOT EXISTS custom_achievements (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				tenant_id TEXT NOT NULL,
-				child_id INTEGER NOT NULL REFERENCES children(id),
-				name TEXT NOT NULL,
-				description TEXT,
-				icon TEXT NOT NULL DEFAULT '🏅',
-				condition_type TEXT NOT NULL,
-				condition_activity_id INTEGER,
-				condition_category_id INTEGER,
-				condition_value INTEGER NOT NULL,
-				bonus_points INTEGER NOT NULL DEFAULT 100,
-				unlocked_at TEXT,
-				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-			);
-			CREATE INDEX IF NOT EXISTS idx_custom_achievements_tenant_child
-				ON custom_achievements(tenant_id, child_id);
+			-- #1816: custom_achievements テーブルは #1782 で service 削除、本 Issue で物理削除済み（2026-05-01）
 
 			CREATE TABLE IF NOT EXISTS trial_history (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,

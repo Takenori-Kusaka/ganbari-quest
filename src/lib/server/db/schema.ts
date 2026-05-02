@@ -813,30 +813,11 @@ export const reportDailySummaries = sqliteTable(
 // Certificates
 // ============================================================
 
-// ============================================================
-// custom_achievements - カスタム実績
-// ============================================================
-export const customAchievements = sqliteTable(
-	'custom_achievements',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		tenantId: text('tenant_id').notNull(),
-		childId: integer('child_id')
-			.notNull()
-			.references(() => children.id),
-		name: text('name').notNull(),
-		description: text('description'),
-		icon: text('icon').notNull().default('🏅'),
-		conditionType: text('condition_type').notNull(), // total_count, activity_count, category_count, streak_days, activity_streak
-		conditionActivityId: integer('condition_activity_id'), // for activity_count / activity_streak
-		conditionCategoryId: integer('condition_category_id'), // for category_count
-		conditionValue: integer('condition_value').notNull(), // target value
-		bonusPoints: integer('bonus_points').notNull().default(100),
-		unlockedAt: text('unlocked_at'), // null = not yet unlocked
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [index('idx_custom_achievements_tenant_child').on(table.tenantId, table.childId)],
-);
+// #1816 (2026-05-01): custom_achievements テーブル定義削除
+// #1782 (2026-04-30) で実績機能の service / 呼び出し元を全廃済み。
+// 物理 schema 定義も dead code として削除（Pre-PMF 利用者ゼロ前提で破壊的変更を許容、ADR-0010 整合）。
+// 並行実装ペア: tests/unit/helpers/test-db.ts / tests/e2e/global-setup.ts /
+// src/lib/server/db/create-tables.ts も同期削除済み。
 
 // ============================================================
 // certificates - がんばり証明書

@@ -891,44 +891,8 @@ export interface InsertReportDailySummaryInput {
 	newAchievements: number;
 }
 
-// ============================================================
-// Custom Achievements
-// ============================================================
-
-export type CustomAchievementConditionType =
-	| 'total_count'
-	| 'activity_count'
-	| 'category_count'
-	| 'streak_days'
-	| 'activity_streak';
-
-export interface CustomAchievement {
-	id: number;
-	tenantId: string;
-	childId: number;
-	name: string;
-	description: string | null;
-	icon: string;
-	conditionType: CustomAchievementConditionType;
-	conditionActivityId: number | null;
-	conditionCategoryId: number | null;
-	conditionValue: number;
-	bonusPoints: number;
-	unlockedAt: string | null;
-	createdAt: string;
-}
-
-export interface InsertCustomAchievementInput {
-	childId: number;
-	name: string;
-	description?: string;
-	icon?: string;
-	conditionType: CustomAchievementConditionType;
-	conditionActivityId?: number;
-	conditionCategoryId?: number;
-	conditionValue: number;
-	bonusPoints?: number;
-}
+// #1816 (2026-05-01): CustomAchievement / InsertCustomAchievementInput / CustomAchievementConditionType を削除
+// #1782 で service 層削除済み、本 Issue で type も dead code として削除。
 
 // ============================================================
 // Certificates
