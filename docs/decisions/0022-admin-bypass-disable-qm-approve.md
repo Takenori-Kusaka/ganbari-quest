@@ -83,3 +83,51 @@ ganbariquestsupport-lab で PR を作成すると以下の問題が起きる:
 - [x] `scripts/check-gh-account-before-pr.mjs` を新設し、`gh auth status` の active アカウントが `Takenori-Kusaka` でない場合 exit 1 で停止する
 - [x] `docs/sessions/dev-session.md §PR 作業時 §5.5` で `gh pr create` 直前にスクリプト実行を必須化
 - [x] Pre-push hook 採否を本 amendment 内で判断（**不採用** — 理由は上記 4）
+
+---
+
+## Amendment 2 (#1809, 2026-05-01): Dependabot auto-merge は admin bypass に該当しない
+
+### 背景
+
+PR #1805 で `dependabot` job が `Auto merge is not allowed for this repository` エラーで fail した。リポジトリ Settings > General > Pull Requests > "Allow auto-merge" が無効化されているのが直接原因。
+
+ADR-0022 本文では「admin bypass を完全に禁止する」と決めているため、PO / QA から「Dependabot の auto-merge は admin bypass の一形態ではないか」という疑念が起き得る。本 Amendment で両者の関係を明確化する。
+
+### 決定（追加）
+
+1. **GitHub の auto-merge 機能は admin bypass に該当しない**
+   - auto-merge は「approve + 全 required checks 通過時に自動で squash merge する」だけの機能で、required reviewers / required status checks は引き続き **enforce** される
+   - admin bypass（`bypass_actors`）は「required reviewers / required checks をスキップする」機能であり、別物
+   - したがって ADR-0022 本文「決定 1」の "admin bypass 完全禁止" は auto-merge を禁止するものではない
+2. **Dependabot PR の auto-merge は許可する**（運用負担削減のため）
+   - `dependabot-auto-merge.yml` workflow が `dependabot/fetch-metadata` で minor / patch update を判定し、`gh pr merge --auto --squash` で auto-merge を有効化する
+   - approve → 全 CI 緑 → 自動 squash merge の流れで運用する
+3. **リポジトリ設定の `allow_auto_merge=true` は PO 操作で有効化する**
+   - Settings > General > Pull Requests > "Allow auto-merge" にチェック
+   - or: `gh api repos/:owner/:repo --method PATCH -f allow_auto_merge=true`
+   - 本 Amendment 文書化時点（2026-05-01）では `allow_auto_merge=false`。PO がリポジトリ owner 権限で有効化する必要あり
+4. **#1808 (Dependabot exempt CI) と組み合わせて Dependabot 完全自動化を確立する**
+   - #1808: `pr-template-gate.yml` / `pr-ac-verification-check.yml` / `pr-merge-gate.yml` を Dependabot exempt 化
+   - 本 Amendment (#1809): `allow_auto_merge=true` を有効化
+   - 両方が揃って初めて、Dependabot PR が「approve のみで自動 merge 完走」する状態になる
+
+### 受入基準（#1809 AC）
+
+- [x] AC3: `.github/CLAUDE.md` の Dependabot 運用方針記述を auto-merge 前提に揃える（本 PR で auto-merge が「ADR-0022 違反ではない」を明記）
+- [x] AC4: ADR-0022 文中に「Dependabot auto-merge は admin bypass に該当しない」を明記（本 Amendment 2）
+- [ ] AC1: リポジトリ Settings > "Allow auto-merge" 有効化 — **PO 操作必須**（Agent では実行不可。本 PR merge 後に PO が `gh api repos/Takenori-Kusaka/ganbari-quest --method PATCH -f allow_auto_merge=true` を実行する）
+- [ ] AC2: 次回 Dependabot PR で `dependabot` job が PASS — AC1 完了後に自然検証
+
+### PO 操作手順
+
+```bash
+# 必須: repo owner 権限のアカウントで実行
+gh api repos/Takenori-Kusaka/ganbari-quest \
+  --method PATCH \
+  -f allow_auto_merge=true
+
+# 確認
+gh api repos/Takenori-Kusaka/ganbari-quest --jq '.allow_auto_merge'
+# → true
+```
