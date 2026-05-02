@@ -6,6 +6,10 @@ name: LP Metrics (dimensions / forbidden terms / CTA variants / removal residue)
 #
 # #1790: LP 削除/圧縮 PR の残骸 (orphan reference) 検出 gate (check-lp-removal-residue.mjs)
 # #1803: hero spec-badges 「300+ プリセット活動」CI 裏取り gate (measure-lp-dimensions.mjs 内に統合)
+# #1840: PR ごとの累積 desktopHeight 監視機構 (cumulative-lp-metrics ジョブ)
+#   個別 PR の lp-metrics PASS でも、複数 PR 連続 merge で main 累積 fail を予防する。
+#   PR HEAD に origin/main を merge した状態で measure-lp-dimensions.mjs を走らせ、
+#   累積後の desktopHeight が 8000 を超えていれば fail (warn-only 段階運用、AC2 段階適用)。
 
 on:
   pull_request:
@@ -147,3 +151,131 @@ jobs:
           name: lp-removal-residue
           path: lp-removal-residue.json
           retention-days: 30
+
+  cumulative-lp-metrics:
+    # #1840: pre-merge 累積 desktopHeight gate
+    #
+    # 背景:
+    #   PR #1827 直後 main で desktopHeight=7646 だったものが、PR #1832 / #1834 / #1835 を
+    #   連続 merge した結果 main で 8058 まで膨張、Deploy GitHub Pages workflow が 5 連続 fail。
+    #   個別 PR では lp-metrics PASS だったため事前検知できなかった。
+    #
+    # 設計（Issue #1840 案 A）:
+    #   PR HEAD に origin/main を `git merge --no-commit --no-ff` で取り込み、
+    #   その HEAD 上で `scripts/measure-lp-dimensions.mjs` を走らせて
+    #   「PR を merge した後の main を擬似的に計測」する。
+    #
+    # 段階運用:
+    #   Phase 1 (本 Issue): warn-only (continue-on-error: true) で観察期間 2-4 週間
+    #   Phase 2 (別 Issue): required 化判断（merge queue の意味論変更のため別 ADR で議論）
+    name: Cumulative LP dimensions (pre-merge simulation)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    timeout-minutes: 10
+    # #1840 Phase 1: 段階適用 — warn-only で運用し観察期間を経たうえで required 化を別 Issue で議論
+    continue-on-error: true
+    steps:
+      - name: Checkout PR branch with full history
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Check if LP-relevant files changed
+        id: lp-changed
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const lpPattern = /^site\/|^scripts\/measure-lp-dimensions\.mjs$|^\.github\/workflows\/lp-metrics\.yml$/;
+            const changed = files.some(f => lpPattern.test(f.filename));
+            if (!changed) {
+              core.info('LP関連ファイルの変更なし — 累積 LP メトリクス測定をスキップ');
+            }
+            core.setOutput('changed', changed ? 'true' : 'false');
+
+      - name: Setup Node.js
+        if: steps.lp-changed.outputs.changed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.lp-changed.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        if: steps.lp-changed.outputs.changed == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Merge origin/main into PR HEAD (dry-run simulation)
+        # #1840 案 A: 「PR が main に merge された後の状態」を擬似的に作る。
+        # conflict が発生した場合は merge を諦めて baseline 計測にフォールバック
+        # (PR 側で main rebase が必要だが、それ自体は本 gate の責務ではない)。
+        if: steps.lp-changed.outputs.changed == 'true'
+        id: merge-main
+        run: |
+          git config user.email "ci-cumulative-lp@example.com"
+          git config user.name "ci-cumulative-lp"
+          git fetch origin main --depth=50
+          if git merge --no-commit --no-ff origin/main; then
+            echo "merge_status=success" >> "$GITHUB_OUTPUT"
+            echo "PR HEAD と origin/main の merge に成功（累積状態を計測する）"
+          else
+            echo "merge_status=conflict" >> "$GITHUB_OUTPUT"
+            echo "::warning::origin/main との merge conflict が発生したため累積 gate を skip。PR 側で rebase してください"
+            git merge --abort || true
+          fi
+
+      - name: Run LP metrics on cumulative state
+        if: steps.lp-changed.outputs.changed == 'true' && steps.merge-main.outputs.merge_status == 'success'
+        # #1840: 累積 gate でも screenshot existence は PR 時 skip (lp-metrics.yml measure ジョブと同じ理由)
+        env:
+          SKIP_SCREENSHOT_EXISTENCE_CHECK: '1'
+        run: |
+          node scripts/measure-lp-dimensions.mjs --site-dir=site --output=lp-metrics-cumulative.json
+          echo "[cumulative] desktopHeight measured on (PR HEAD + origin/main) state"
+
+      - name: Upload cumulative metrics artifact
+        if: always() && steps.lp-changed.outputs.changed == 'true' && steps.merge-main.outputs.merge_status == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: lp-metrics-cumulative
+          path: lp-metrics-cumulative.json
+          retention-days: 30
+
+      - name: Comment cumulative warning on PR
+        # #1840: warning 域 (>=7800) 検出時に PR にコメントで早期通知。
+        # fail 域 (>8000) は measure script が exit 1 で fail させるため別途扱い。
+        if: always() && steps.lp-changed.outputs.changed == 'true' && steps.merge-main.outputs.merge_status == 'success'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('lp-metrics-cumulative.json')) return;
+            const m = JSON.parse(fs.readFileSync('lp-metrics-cumulative.json', 'utf8'));
+            const warnings = m.warnings || [];
+            const desktopHeight = m.desktopHeight;
+            const failThreshold = m.thresholds?.desktopHeight ?? 8000;
+            const warnThreshold = m.thresholds?.desktopHeightWarn ?? 7800;
+            // 累積 desktopHeight 観測値を Job Summary に出力（fail/warn/ok 問わず常に出す）
+            const status = desktopHeight > failThreshold
+              ? 'FAIL'
+              : desktopHeight >= warnThreshold
+                ? 'WARN'
+                : 'OK';
+            await core.summary
+              .addHeading('Cumulative LP metrics (pre-merge simulation) — #1840')
+              .addRaw(`status: **${status}**\n`)
+              .addRaw(`PR HEAD + origin/main merge 後の desktopHeight: **${desktopHeight}**\n`)
+              .addRaw(`fail 閾値: ${failThreshold} / warn 閾値: ${warnThreshold}\n`)
+              .addRaw(warnings.length > 0
+                ? `\n**warnings:**\n${warnings.map(w => `- ${w}`).join('\n')}\n`
+                : '')
+              .write();
