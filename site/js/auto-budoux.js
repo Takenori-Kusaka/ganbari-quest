@@ -10,7 +10,7 @@
 // 対象セレクタ:
 //   .section-desc        — 各 section の H2 直下の説明文
 //   .section-sub-note    — 各 section の補足注記
-//   .cta-bottom p        — 最終 CTA セクションの段落
+//   (.cta-bottom p は #1838 で cta-bottom セクション削除に伴いセレクタからも撤去)
 //   .faq-answer          — FAQ Q&A の回答段落
 //   .faq-item summary    — FAQ Q&A の質問テキスト
 //   .gr-body p           — growth-roadmap 各 stage の説明文 + ベネフィット行
@@ -38,7 +38,7 @@
 	const SELECTORS = [
 		'.section-desc',
 		'.section-sub-note',
-		'.cta-bottom p',
+		// '.cta-bottom p' は #1838 で削除
 		'.faq-answer',
 		'.faq-item summary',
 		'.gr-body p',

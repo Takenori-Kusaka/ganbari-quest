@@ -125,7 +125,7 @@ test.describe('#1163 LP 1st view 要件', () => {
 		await ctx.close();
 	});
 
-	test('料金プロミスバンドがドキュメント高さの 75% 以内（最終 CTA の前）に存在する (#1293)', async ({
+	test('料金プロミスバンドがドキュメント高さの 80% 以内（faq/footer の前）に存在する (#1293, #1838)', async ({
 		browser,
 	}) => {
 		const ctx = await browser.newContext({ viewport: { width: 375, height: 812 } });
@@ -145,8 +145,8 @@ test.describe('#1163 LP 1st view 要件', () => {
 		const ratio = bandTop / docHeight;
 		expect(
 			ratio,
-			`料金プロミスバンド Y=${bandTop}/docHeight=${docHeight} (=${(ratio * 100).toFixed(1)}%) が 75% 以内`,
-		).toBeLessThanOrEqual(0.75);
+			`料金プロミスバンド Y=${bandTop}/docHeight=${docHeight} (=${(ratio * 100).toFixed(1)}%) が 80% 以内`,
+		).toBeLessThanOrEqual(0.8);
 
 		await ctx.close();
 	});
