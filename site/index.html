@@ -90,7 +90,8 @@
 </script>
 <style>
 /* Hero (#1617 R13: max-width 拡張 + text-wrap balance + auto-phrase / Phase 5 P2: PC 横長で h1 を拡大しゆとり padding) */
-.hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:48px 16px 36px;text-align:center}
+/* #1839: Spacing トークン経由 (Base/Semantic → Component) */
+.hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:var(--lp-hero-padding-top) var(--lp-section-padding-x) var(--lp-hero-padding-bottom);text-align:center}
 .hero h1{font-size:2.4rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3;max-width:1200px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
 /* #1800 U-MIN-1: hero h1 span の色強調を h2 (--brand-700) と差別化。
    --brand-900 (#1a3a5c) で明度を落とし、+ gold-300 マーカー風背景でアクセント強化。
@@ -129,18 +130,21 @@
 /* Section */
 /* #1831: desktopHeight 8103 > 8000 を解消するため section padding を 56→40 に圧縮 (Linux CI 環境) */
 /* #1836: 再度 desktopHeight 8058 > 8000 を回避するため 40→28 (LP deploy ratchet 維持) */
-.section{padding:28px 16px}
-.section-inner{max-width:1080px;margin:0 auto}
+/* #1839: 上記 5 PR 多層化を解消、--lp-section-padding-y / -x の Semantic トークンに集約 */
+.section{padding:var(--lp-section-padding-y) var(--lp-section-padding-x)}
+.section-inner{max-width:var(--lp-container-max);margin:0 auto}
 /* #1634 R30 / ADR-0016: 強制改行 <br> を削除し text-wrap: balance に任せる */
 /* #1831: desktopHeight 圧縮のため section-title margin-bottom を 10→4 に圧縮 */
-.section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:4px;line-height:1.4;text-wrap:balance;word-break:auto-phrase}
+/* #1839: --lp-section-title-mb 経由 */
+.section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:var(--lp-section-title-mb);line-height:1.4;text-wrap:balance;word-break:auto-phrase}
 /* #1759 PR Phase 3-B fix: desktopHeight 8003 > 8000 を回避するため section-desc 余白を 40 → 28px に圧縮 */
 /* #1726 R9: 長文 description は左寄せに変更（max-width:640px 中央配置は維持）。短い見出し h2.section-title は center 維持 */
 /* #1799 U-MIN-2: 中央寄せの h2.section-title と縦軸を揃えるため text-align:center に変更 + max-width 720px に拡張。
    短文 desc は中央寄せが自然、長文も balance/auto-phrase で読みづらくはならない */
 /* #1831: desktopHeight 圧縮のため section-desc margin-bottom を 28→20 にさらに圧縮 */
 /* #1836: section-desc margin-bottom を 20→14 に再圧縮 */
-.section-desc{text-align:center;color:var(--gray-600);margin-bottom:14px;font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
+/* #1839: --lp-section-desc-mb-default 経由 (4px グリッド外の 14px) */
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:var(--lp-section-desc-mb-default);font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
 
@@ -179,8 +183,9 @@
    .core-loop-perspectives / .clp-card / .cls-num / .core-loop-visual / .core-loop-note)
    は廃止し、CSS / DOM ともに参照無し。再混入は #1790 LP 削除残骸検出 CI で検出される。 */
 /* #1831: desktopHeight 圧縮の追加調整 — core-loop padding を 36→28 に */
-#core-loop{padding:28px 16px}
-#core-loop .section-desc{margin-bottom:20px}
+/* #1839: --lp-section-padding-y / -x を共有 (28px / 16px) */
+#core-loop{padding:var(--lp-section-padding-y) var(--lp-section-padding-x)}
+#core-loop .section-desc{margin-bottom:var(--space-5)}
 /* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
 .core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
 /* #1785 R-CRT-2: summary 画像も装飾枠統一系列に追従 — border:1px solid var(--gray-300) で他の card 装飾と同一の外観 */
@@ -399,7 +404,8 @@
 /* FAQ */
 .faq-list{max-width:720px;margin:0 auto}
 /* #1831: desktopHeight 圧縮のため faq-item padding を 18→14 に */
-.faq-item{border-bottom:1px solid var(--gray-300);padding:14px 0}
+/* #1839: --lp-faq-item-padding-y に集約 (14px) */
+.faq-item{border-bottom:1px solid var(--gray-300);padding:var(--lp-faq-item-padding-y) 0}
 .faq-item summary{font-size:.98rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
 .faq-item summary::before{content:"Q.";color:var(--brand-700);font-weight:700;font-size:1.05rem;flex-shrink:0}
 .faq-item[open] summary{margin-bottom:10px}
@@ -409,7 +415,10 @@
 
 /* Final CTA — #1838 で .cta-bottom 系統 CSS を削除 (選択肢 A: cta-bottom セクション全削除)
    削除前は cta-bottom 本体 / cta-bottom-note / cta-bottom-disclaimer / cta-bottom + .footer の
-   4 セレクタが存在。Success 像は hero / growth-roadmap に内在化、mailto は footer mailto に集約済。 */
+   4 セレクタが存在。Success 像は hero / growth-roadmap に内在化、mailto は footer mailto に集約済。
+   #1839: 当初 .cta-bottom 関連を Semantic トークン化していたが、上記 #1838 で section ごと
+   削除されたため、本 PR では .cta-bottom 用 Semantic トークン (--lp-cta-bottom-padding-top/-bottom)
+   も併せて削除。 */
 
 /* Floating CTA */
 .floating-cta{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--gray-900);padding:10px 16px;transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -2px 12px rgba(0,0,0,.15)}

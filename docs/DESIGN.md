@@ -178,6 +178,73 @@ SSR 二重適用は `data-budoux-applied` フラグで回避。詳細は [ADR-00
   - senior: 44px (Material Design 最小推奨)
 - **実体**: `src/lib/domain/validation/age-tier.ts`
 
+### LP Spacing/Layout 3 層トークン (#1839、ADR-0042)
+
+LP (`site/index.html`) の section padding / margin / heading / faq-item など Layout 系設計値は、§2 カラートークンと同じ **Base → Semantic → Component** の 3 層で管理する。過去 5 PR (#1759 / #1798 / #1827 / #1831 / #1836) で section padding を多層的に圧縮 (40→28 等) してきた状態を SSOT 化し、再圧縮時の散在修正を不要にする。
+
+**ADR-0042**: 本トークン体系の意思決定根拠は [docs/decisions/0042-lp-spacing-layout-tokens.md](decisions/0042-lp-spacing-layout-tokens.md) を参照。
+
+**累積監視機構との相補関係 (#1840)**: 本リファクタは [#1840 累積 desktopHeight 監視機構](https://github.com/Takenori-Kusaka/ganbari-quest/pull/1841)（`cumulative-lp-metrics` ジョブ）と相補的に機能する。**実装側 (本ガイドライン) で多層化を防ぎ、CI 側 (#1840) で累積膨張を検出**する 2 層防御。Phase 1 は実装側ガード、Phase 2 (stylelint hard-fail) は両者を橋渡しする CI 強化となる。
+
+#### 設計原則
+
+| 層 | 使用可能場所 | 例 |
+|----|------------|------|
+| **Component** | `site/index.html` `<style>` 等の class セレクタ | `.section{padding-block: var(--lp-section-padding-y)}` |
+| **Semantic** | `site/shared.css` の `:root` 定義のみ | `--lp-section-padding-y: var(--space-7);` |
+| **Base** | 同上 | `--space-7: 28px;` |
+
+#### Base Spacing トークン (4px グリッド)
+
+| トークン | 値 |
+|---------|----|
+| `--space-0` | `0` |
+| `--space-1` | `4px` |
+| `--space-2` | `8px` |
+| `--space-3` | `12px` |
+| `--space-4` | `16px` |
+| `--space-5` | `20px` |
+| `--space-6` | `24px` |
+| `--space-7` | `28px` |
+| `--space-8` | `32px` |
+| `--space-9` | `36px` |
+| `--space-10` | `40px` |
+| `--space-12` | `48px` |
+| `--space-14` | `56px` |
+| `--space-16` | `64px` |
+
+#### Semantic LP Spacing トークン
+
+| トークン | 値 | 用途 |
+|---------|----|------|
+| `--lp-section-padding-y` | `var(--space-7)` | `.section` 縦 padding (28px、#1836 で圧縮済み) |
+| `--lp-section-padding-x` | `var(--space-4)` | `.section` 横 padding (16px) |
+| `--lp-section-title-mb` | `var(--space-1)` | `.section-title` 下マージン (4px、#1831 で圧縮済み) |
+| `--lp-section-desc-mb-default` | `14px` | `.section-desc` 下マージン (#1836 で 14px、4px グリッド外のため直値) |
+| `--lp-faq-item-padding-y` | `14px` | `.faq-item` 上下 padding (#1831、4px グリッド外のため直値) |
+| `--lp-hero-padding-top` | `var(--space-12)` | `.hero` 上 padding (48px) |
+| `--lp-hero-padding-bottom` | `var(--space-9)` | `.hero` 下 padding (36px) |
+| `--lp-card-padding-y` | `var(--space-5)` | card 系 (`.tour-card` / `.soft-card` 等) 縦 padding 標準値 (20px) |
+| `--lp-card-padding-x` | `var(--space-4)` | card 系 横 padding 標準値 (16px) |
+| `--lp-card-gap` | `var(--space-5)` | `.machine-tour` / `.soft-grid` のグリッド間隔 (20px) |
+| `--lp-container-max` | `1080px` | section-inner / header-inner / footer-inner の最大幅 |
+| `--lp-container-max-wide` | `1280px` | hero / machine-tour / guide 用ワイド版 |
+
+#### 禁忌
+
+- **`site/index.html` `<style>` 内に padding/margin の数値直書き禁止** (例: `padding:40px 16px`、`margin-bottom:14px`) — Semantic トークン経由で参照する
+- **Semantic トークン (`--lp-*`) を `:root` 以外で定義しない** (`site/shared.css` の SSOT 1 箇所のみ)
+- **値を変更したいときは Component (class) を触らず Semantic / Base 値を更新する** — desktopHeight ratchet 違反のたびに散在 padding を手動で削るのではなく、`--lp-section-padding-y` 等を 1 行更新して全箇所に反映させる
+
+#### 実体
+
+- 定義: `site/shared.css` の `:root` ブロック (`--space-*` Base + `--lp-*` Semantic)
+- 参照: `site/index.html` `<style>` ブロック (Component セレクタ)
+- 段階適用 (Issue #1839):
+  - Phase 1: `:root` トークン整備 + 主要 6 セレクタ (`.section` / `.section-title` / `.section-desc` / `.hero` / `.faq-item` / `#core-loop`) の置換 (本 PR)。当初 `.cta-bottom` も対象だったが PR #1842 (#1838) で section ごと削除されたため Phase 1 範囲外
+  - Phase 2 (別 Issue): stylelint で hard-fail 化、残りの直書き値を全置換
+  - Phase 3 (別 Issue): pricing.html / pamphlet.html / faq.html へ波及
+
 ---
 
 ## 5. コンポーネントプリミティブ（再実装禁止）
