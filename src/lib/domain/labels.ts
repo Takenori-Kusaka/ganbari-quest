@@ -3988,9 +3988,8 @@ export const LP_LEGAL_DISCLAIMER_LABELS = {
 	cancelDisclaimer:
 		'※解約後はプラン別の読み取り専用猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。日割り返金はありません。',
 	cancelDisclaimerLinks: 'FAQ / 特定商取引法に基づく表記',
-	cancelDisclaimerCta:
-		'※解約後はプラン別の猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。',
-	cancelDisclaimerCtaLink: 'FAQ',
+	// #1838: cta-bottom セクション全削除に伴い cancelDisclaimerCta / cancelDisclaimerCtaLink を削除。
+	//        他箇所（pricing.html / pamphlet.html 等）の disclaimer は cancelDisclaimer + cancelDisclaimerLinks を使用。
 	liabilityTitle: 'サービス利用に関する重要なご案内',
 	// #1721 R6: LP 本体は具体数字を除去し規約 / FAQ にリンク誘導。詳細記述は faqLiability* / 利用規約第 12 条で残存
 	liabilityBody:
@@ -6181,15 +6180,10 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k76: 'サービスが終了したらデータはどうなりますか？',
 	k77: '終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。<a href="faq.html#privacy">詳しくはこちら</a>',
 	k78: '料金・兄弟姉妹・年齢モード・エクスポート等、他のご質問は <a href="faq.html">FAQ 専用ページ</a> へ。',
-	// #1797: hero と最終 CTA の役割分離。
-	//   hero (k1〜) = Problem 提示 + Plan の入口（「7 日間無料・クレカ不要」訴求は hero / pricing に集約）
-	//   最終 CTA (k79〜) = Success（成功した未来像）。卒業 = 「使わなくなった日」が家族の最大の成功という Anti-engagement (ADR-0012) 整合の Success 像で離脱を防ぐ。
-	//   重複していた「7 日間無料・クレカ不要」系 Plan 文言は最終 CTA から外し、hero / pricing への一本化を維持。
-	k79: '「アプリを開かなくなった日」が、家族の最大の成功です。',
-	k80: '3 歳から 18 歳までの 15 年。最後は子供が自分で計画できる自律へ。今日の 7 日間が、その第一歩です。',
-	k81: '無料で始める',
-	// #1801 M-MIN-3: cta-bottom-note の mailto を削除し footer に集約 — アンカー導線で 1 mailto に統一
-	k82: 'ご質問・ご要望は<a href="#contact-footer" data-contact-context="LP CTA">こちらから</a>お気軽にどうぞ',
+	// #1838: 旧 indexB.k79/k80/k81/k82 (最終 CTA cta-bottom セクション) を削除 (選択肢 A 採用)。
+	//   #1797 で導入した「アプリを開かなくなった日」Success 像は hero 主訴求 + growth-roadmap 達成体験に内在化。
+	//   旧 k79 = h2 / k80 = p / k81 = signup ボタン / k82 = mailto 注記。
+	//   k83 以降のキー番号は HTML 側参照なし or 別箇所参照のため番号は保持（リネームによる連鎖変更を避ける）。
 	k83: '全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>',
 	k84: '無料で始める',
 	// #1736 m-MIN-7: 体験軸 FAQ Q4 (Top 3 → Top 4)
