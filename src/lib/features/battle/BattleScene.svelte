@@ -389,7 +389,7 @@ const statEntries = $derived(Object.entries(playerStats) as [keyof BattleStats, 
 		font-weight: 700;
 		color: var(--color-text-primary);
 	}
-	/* #1791: ステータス → 活動カテゴリ対応表示 */
+	/* #1791: stat-category — stat row + category label/icon below */
 	.stat-category {
 		display: flex;
 		flex-direction: column;
