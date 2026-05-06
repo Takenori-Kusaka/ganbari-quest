@@ -36,9 +36,10 @@ const SITE_DIR = resolve(args['site-dir'] || 'site');
 const OUTPUT_PATH = resolve(args.output || 'lp-metrics.json');
 // #1637 R34: TARGET_HTML を配列化し全 site/ HTML をスキャン対象に
 // --target=index.html で単一指定も可能（後方互換）
+// #1848: graduation.html を追加（5 ステージ成長ロードマップの別ページ集約）
 const TARGET_HTML_LIST = args.target
 	? args.target.split(',')
-	: ['index.html', 'pamphlet.html', 'pricing.html', 'faq.html', 'privacy.html'];
+	: ['index.html', 'pamphlet.html', 'pricing.html', 'faq.html', 'privacy.html', 'graduation.html'];
 
 // #1088 / #1163 の禁止語（開発者向け語彙を LP に残さない）
 // #1212-H / ADR-0041: 「マーケットプレイス」「マケプレ」→「みんなのテンプレート」「テンプレート」へ移行済。再混入を CI 検出

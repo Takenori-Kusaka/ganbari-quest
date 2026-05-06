@@ -3907,6 +3907,8 @@ export const LP_FOOTER_LABELS = {
 	linksHeading: 'リンク',
 	pricingLink: '料金プラン',
 	faqLink: 'よくあるご質問',
+	// #1848: graduation.html 別ページ動線
+	graduationLink: '成長ロードマップ',
 	selfhostLink: '仕組みを公開（開発者向け）',
 	githubLink: 'GitHub',
 	contactLink: 'お問い合わせ',
@@ -4359,6 +4361,18 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	sectionTitle: '3 歳から 18 歳まで、そして「卒業」へ',
 	sectionDesc:
 		'お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。',
+	// #1848: LP 本体は CTA 1 行に短縮。5 ステージ詳細は graduation.html で展開。
+	linkLabel: '5 ステージの詳細を見る →',
+	pageTitle: '成長ロードマップ - がんばりクエスト',
+	pageHeroTitle: '3 歳から 18 歳まで、そして「卒業」へ',
+	pageHeroLead:
+		'お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。',
+	pageMetaDescription:
+		'がんばりクエストの 5 ステージ成長ロードマップ。幼児（3-5歳）から高校生（16-18歳）、そして「卒業」まで、UI と機能が成長に合わせて変化していく様子を実画面付きで紹介。',
+	breadcrumbHome: 'ホーム',
+	breadcrumbCurrent: '成長ロードマップ',
+	ctaBottomTitle: '家族で全部使ってから、続けるか決める',
+	ctaBottomDesc: '7 日間の無料体験で、お子さまに合うかを家族でゆっくり試せます。',
 	// #1793: 「親が観測できること」(計測・実験用語 / 監視連想で permission marketing 毀損) を
 	//   文脈別語彙に刷新。growth-roadmap 5 stages は親子の長期成長物語のため
 	//   「家族で実感できること」(家族主体・実感ベース) に統一する。
