@@ -352,12 +352,13 @@ ADR-0013 LP 実装 SSOT（Committed のみ訴求）/ ADR-0012 Anti-engagement（
 > #1629 R25 で「コンボ」「ゲーミフィケーション全開」「変動比率」「射幸」「メタ層」「シールくじ」は禁止語彙とし `scripts/measure-lp-dimensions.mjs` の FORBIDDEN_TERMS で CI 検出（#1637 R34 で TARGET_HTML 配列化）。
 > #1708 R3-A で旧ルーチン-CL の語彙も `FORBIDDEN_TERMS` に追加（旧ルーチン枠廃止に伴う再発防止）。
 
-**PC 横長レイアウト** (#1618 R14 / Phase 5 P2):
+**PC 横長レイアウト** (#1618 R14 / Phase 5 P2 → #1846 PO-N-4 で 2 列中央配置に是正):
 
-- 1024px+ で `grid-template-columns: repeat(4, 1fr)` の 4 列固定 + `grid-auto-rows: 1fr` で行高を揃える（4+1 半端配置を排除）
-- 画像有無で高さがバラつかないよう `tour-shot` / `tour-shot-placeholder` ともに `min-height: 200px`、`tour-card` は `min-height: 480px`
-- 1440px+ では `max-width: 1320px` / `gap: 24px` に拡張しゆとりを確保
-- mobile (<1024px) は `grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))` で 1〜2 列フルード
+- 1024px+ で `grid-template-columns: repeat(2, 1fr)` の 2 列 + `grid-auto-rows: 1fr` で行高を揃える + `max-width: 960px; margin-inline: auto` で中央寄せ
+  - 旧 `repeat(4, 1fr)` 4 列固定は PR #1812（実績削除）/ #1827（スタンプ移動）で 2 cards 化したあとの残骸として左寄り表示を引き起こしていたため #1846 で是正
+- 画像有無で高さがバラつかないよう `tour-shot` / `tour-shot-placeholder` ともに `min-height: 200px`、`tour-card` は `min-height: 480px`（1024px+ では `min-height: 520px`）
+- 1440px+ では `max-width: 1320px` / `gap: 24px` に拡張しゆとりを確保（2 列でも横幅を活用）
+- mobile (<1024px) は `grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))` で 1〜2 列フルード（mobile 縦積み / tablet 横並び）
 
 #### [05] ソフト機能（親の安心）— 3 カード構成（#1720 R4 で 4→3 圧縮、月次レポート featured 凸構成）
 
