@@ -138,20 +138,21 @@ LP 9 セクションが独立に最適化されて scrshot 配置・ベネフィ
 
 「短文 + 大 scrshot で意思決定を駆動する」原型。ペルソナ訴求セクション（[02][02b][05][05b]）はこの規範に整合させる。
 
-### 3.5.2 規範 B: [05] soft-features — featured 1 + 並列 2 cards
+### 3.5.2 規範 B: [05] soft-features — 並列 3 cards 完全均質化 (#1847 PO-N-5)
 
 | 項目 | 規範値 |
 |------|--------|
-| 構造 | featured card 1 (大 scrshot + 短文) + 並列 cards 3 (各 scrshot + h3 + 1 文) |
+| 構造 | 並列 cards 3 (各 scrshot + h3 + 1 文) — featured 強調なし、3 cards 視覚均質 |
 | 情報密度 | **mid** |
 | scrshot 占有率 | **高** (≥ 30%) |
 | 主語 | 親 (「親が安心できる運用補助」明示) |
-| ブロック数 / カード数 | 4 cards (featured 1 + 並列 3) |
+| ブロック数 / カード数 | 3 cards (並列 3 / 均等幅) |
 | ベネフィット行数 | 各 1 文 (≤ 2 行) |
 | 文字 px 占有率 | 35-45% |
-| 色面積 | featured のみアクセントカラー、並列 cards は中性面 |
+| 色面積 | 全 cards 中性面 (featured アクセント撤廃、視覚均質化) |
 
-「3-4 cards の並列で機構を整然と提示する」原型。機構説明セクション（[03][04]）はこの規範に整合させる。
+「3 cards の並列で機構を整然と提示する」原型。機構説明セクション（[03][04]）はこの規範に整合させる。
+過去の featured 強調 (1 枚目だけ h3 拡大 + brand-700 色 / soft-shot max-height 拡大 / grid 1.2fr) は #1847 PO-N-5 (解釈 B 完全均質化) で完全撤去された。
 
 ### 3.5.3 4 トーンマップ
 
@@ -360,13 +361,14 @@ ADR-0013 LP 実装 SSOT（Committed のみ訴求）/ ADR-0012 Anti-engagement（
 - 1440px+ では `max-width: 1320px` / `gap: 24px` に拡張しゆとりを確保（2 列でも横幅を活用）
 - mobile (<1024px) は `grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))` で 1〜2 列フルード（mobile 縦積み / tablet 横並び）
 
-#### [05] ソフト機能（親の安心）— 3 カード構成（#1720 R4 で 4→3 圧縮、月次レポート featured 凸構成）
+#### [05] ソフト機能（親の安心）— 3 カード構成（#1720 R4 で 4→3 圧縮、#1847 PO-N-5 で featured 強調完全撤去・3 cards 視覚均質化）
 
-1. **成長の記録（月次レポート）** (`data-testid="feature-monthly-report"`, `soft-card--featured`): 月次レポートで活動・ポイント推移を可視化（`/admin/reports` 実装済み）。featured カードとして 1.2fr の幅で border + 微妙なシャドウで強調
+1. **成長の記録（月次レポート）** (`data-testid="feature-monthly-report"`): 月次レポートで活動・ポイント推移を可視化（`/admin/reports` 実装済み）
 2. **家庭に寄り添う運用補助** (`data-testid="feature-auto-sleep"`): 自動スリープ + おうえんメッセージを統合した 1 カード。設定時間超過で自動スリープ（`src/lib/features/auto-sleep.ts` 実装済み, #1292）+ 必要時に親→子のおうえんメッセージ（Family プランで家族全員から送信可）
 3. **設定の自由度** (`data-testid="feature-customization"`): 活動・ポイント配分・ごほうびをカスタマイズ可能
 - → **意図的にゲーム要素を挟まない**。親が「これは遊びだけでは終わらない」と判断するセクション
-- PC は 1 行 3 cards 並列（`grid-template-columns: 1.2fr 1fr 1fr`、max-width 1080px）。モバイルは 1 列縦積み
+- PC は 1 行 3 cards 並列（`grid-template-columns: repeat(3,1fr)`、max-width 1080px、#1847 PO-N-5 で `1.2fr 1fr 1fr` から完全均等幅化）。モバイルは 1 列縦積み
+- 全 cards で h3 サイズ・色・soft-shot max-height が完全に同一（#1847 で `.soft-card--featured` class とその関連 CSS 4 ルールを撤去、視覚均質化）
 - 旧カード「みんなのテンプレート」「親の作業は 1 日 5 分」は削除（[04] / 設定自由度カードに統合）。旧カード「おうえんメッセージ」は #1720 で「家庭に寄り添う運用補助」に統合
 
 #### [05b] 年齢別成長ロードマップ — 卒業を最終地点として位置付ける (#1613 R9 / #1848)
