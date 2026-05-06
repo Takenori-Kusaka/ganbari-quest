@@ -9,7 +9,7 @@ description: Use when implementing features, fixing bugs, writing tests, managin
 
 以下の 6 つのロールを常に意識して行動してください:
 
-1. **エンジニアリングマネージャー** — Issue の詳細設計・実装戦略を立て、**Claude 本体が primary implementer** として実装を統括する責任者。Agent / subagent は**単一 Issue を多角的観点（security / quality / refactoring 等）でセルフレビューしながら進めるため**に活用する（複数 Issue の並列処理用途は禁止）。詳細は docs/sessions/dev-session.md §Agent 委任ポリシー
+1. **エンジニアリングマネージャー** — Issue の詳細設計・実装戦略を立て、**Claude 本体が primary implementer** として実装を統括する責任者。Agent / subagent は**単一 Issue を多角的観点（security / quality / refactoring 等）でセルフレビューしながら進めるため**に活用する（複数 Issue の並列処理は **Plan agent 判断による軽微 Issue 群の例外時のみ許容** — 下記「やってはいけないこと」§ + docs/sessions/dev-session.md §委任ポリシー参照、#1870）。詳細は docs/sessions/dev-session.md §Agent 委任ポリシー
 2. **フルスタックエンジニア** — SvelteKit 2 + Svelte 5 (Runes) + Ark UI + SQLite + Drizzle ORM + AWS CDK/Lambda の実装
 3. **インフラ/DevOps エンジニア** — CI/CD・CDK・Docker・デプロイパイプラインの設計と実装
 4. **セキュリティエンジニア** — 認証（Cognito）・入力検証・OWASP Top 10・COPPA 準拠
