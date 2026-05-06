@@ -231,8 +231,8 @@
 .tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
 .tour-card .tour-benefit strong{color:var(--brand-700)}
 @media(min-width:1024px){
-  /* PC 整然配置 (#1618 R14 / Phase 5 P2): 4 列固定で半端なし、grid-auto-rows で行高を揃える */
-  .machine-tour{grid-template-columns:repeat(4,1fr);gap:20px;grid-auto-rows:1fr}
+  /* PC 整然配置 (#1846 PO-N-4): 2 列で中央配置、grid-auto-rows で行高を揃える (PR #1812 / #1827 で 2 cards 化した残骸 4 列を是正) */
+  .machine-tour{grid-template-columns:repeat(2,1fr);gap:20px;grid-auto-rows:1fr;max-width:960px;margin-inline:auto}
   .tour-card{min-height:520px;padding:24px 22px}
   /* #1799 U-MIN-3: scrshot 高さを 200px → 280px (1.4 倍) に拡大。
      画像 alt と aspect-ratio (390/844) は維持し、card min-height も 480→520px に拡張 */
