@@ -3,178 +3,87 @@
 がんばりクエスト - 子供の活動をゲーミフィケーションで動機付けする家庭内専用Webアプリ。
 SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScript strict。
 
+**SSOT**: デザイン → @docs/DESIGN.md / 設計書 → @docs/CLAUDE.md / ADR 一覧 → @docs/decisions/README.md
+
 ## Key Directories
 
-- `src/routes/` - SvelteKit ファイルベースルーティング
-- `src/lib/ui/` - Ark UI ラッパ・共通UIコンポーネント
-- `src/lib/features/` - 機能単位のコンポーネント・ロジック
-- `src/lib/domain/` - ドメインモデル・バリデーション
-- `src/lib/server/` - DB・外部API・サービス層（server only）
-- `docs/design/` - 設計ドキュメント（企画書〜テスト設計書）
-- `docs/decisions/` - ADR（Architecture Decision Records）
+- `src/routes/` - ファイルベースルーティング / `src/lib/ui/` - UI コンポーネント / `src/lib/features/` - 機能ロジック
+- `src/lib/domain/` - ドメイン / `src/lib/server/` - DB・サービス層
+- `docs/design/` - 設計ドキュメント / `docs/decisions/` - ADR / `docs/sessions/` - PO/Dev/QA ロール定義
 
 ## Coding Guidelines
 
-- 型は必須。新規コードはすべて TypeScript strict で型付き。
-- データ取得は `+page.ts` / `+layout.ts` の `load` を使用。コンポーネント内の直接 fetch 禁止。
-- 状態管理は `$state` / `$derived` / `$effect` を基本。stores は最小限。
-- UI は `$lib/ui/primitives`（Ark UI ラッパ）と `$lib/ui/components` からのみ利用。
-- `+server.ts` から直接 ORM クライアントを呼び出さない。必ず `$lib/server/services` 経由。
-- API エラーは `@sveltejs/kit` の `error`, `json` で一貫したレスポンスを返す。
+- TypeScript strict 必須。新規コードは全て型付き
+- データ取得は `+page.ts` / `+layout.ts` の `load`。コンポーネント内 fetch 禁止
+- 状態管理は `$state` / `$derived` / `$effect` 基本。stores は最小限。Svelte 4 / SvelteKit 1 構文 (`$:` 等) 禁止
+- UI は `$lib/ui/primitives` (Ark UI ラッパ) と `$lib/ui/components` のみ
+- `+server.ts` から ORM 直呼び禁止。`$lib/server/services` 経由
+- API エラーは `@sveltejs/kit` の `error`, `json` で一貫レスポンス
 
 ## Build & Test
 
-- 開発: `npm run dev`
-- ビルド: `npm run build`
-- テスト: `npx vitest run`
-- E2E: `npx playwright test`
-- E2E mode × plan マトリクス (ADR-0040（archive） P5, #1221): `npm run test:e2e:matrix` — 5 projects (demo-free / local-debug-family / aws-prod-trial-expired / nuc-prod-license-valid / nuc-prod-license-expired) を port 5201-5205 で並行起動し smoke 検証。デフォルト CI には含めない（P5.1 で別途 CI 組込予定）
-- Lint: `npx biome check .`
-- スペルチェック: `npm run cspell`（任意。CI では warn-only）
-- DB マイグレーション: `npx drizzle-kit push`
+`npm run dev` / `dev:cognito` (#1026, 認証画面) / `build` / `biome check .` / `drizzle-kit push` / `vitest run` / `playwright test` / `test:storybook` / `test:e2e:matrix` (port 5201-5205, CI 未組込)
 
-### 開発中のプラン切替（#758、dev only）
+### 開発プラン切替 (#758、dev only)
 
-`npm run dev` 実行時に `.env.local`（またはシェル env）で以下を設定すると、
-`locals.context.plan` / `licenseStatus` / トライアル状態を上書きできる。
-**本番ビルドでは無効**（`dev === false` でガード）。
+`.env.local` で `DEBUG_PLAN` / `DEBUG_TRIAL` / `DEBUG_TRIAL_TIER` / `DEBUG_LICENSE_KEY_VALID` 上書き（本番ビルド無効）。詳細: `.env.example` / `src/lib/server/debug-plan.ts`
 
-- `DEBUG_PLAN=free|standard|family` — プランを直接指定
-- `DEBUG_TRIAL=active|expired|not-started` — トライアル状態を上書き
-- `DEBUG_TRIAL_TIER=standard|family` — `DEBUG_TRIAL=active` 時のティア
-- `DEBUG_LICENSE_KEY_VALID=true|false` — nuc-prod モード時のライセンスキー有効/無効を上書き（ADR-0040（archive） P5 matrix 用、#1221）
+### Ready 化前チェック（必須）
 
-admin 画面右下に「DEBUG: plan=family」等のインジケータが表示される。
-詳細は `.env.example` および `src/lib/server/debug-plan.ts` を参照。
+`npm run pre-ready -- --pr <num>` 一括実行 (ADR-0030 / #1775)。biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / check-pr-body を順次実行。E2E / Storybook は別途。
 
-### コミット前チェック（必須）
-
-#### Ready for Review 化前: `npm run pre-ready -- --pr <num>` 一括実行 (#1775)
-
-`scripts/pre-ready.mjs` が以下 7 Step を順次実行し、各 fail で即停止 + 修正方針を表示する。
-個別コマンドを 1 つずつ実行する代わりに、これ 1 本でローカル一括セルフチェックが完了する。
-
-1. `npx biome check .` — lint エラーなし
-2. `npx svelte-check` — 型エラーなし
-3. `npx vitest run` — ユニットテスト全通過（Storybook 以外）
-4. `node scripts/check-hardcoded-strings.mjs` — JP ハードコード baseline 監視 (#1452)
-5. `node scripts/measure-lp-dimensions.mjs` — LP 寸法 / 禁止語 (LP 変更検知時のみ自動実行)
-6. `node scripts/check-pr-body.mjs --pr <num>` — PR body 必須セクション / 禁止語 (`予定` `follow-up` `PENDING` `DEFERRED` `別途` `個別起票` `TODO`) / AC マップ 4 列 / Ready チェックリスト未チェック / `mergeable: CONFLICTING` を一括検証
-7. `npm run capture -- --url <path> --pr <num>` — UI 変更検知時のみ実行ガイダンス表示 (実機 dev server 起動は手動)
-
-#### コミット前チェック（個別）
-
-E2E / Storybook テストは pre-ready の対象外。Ready 化前に別途実行すること:
-
-- `npm run test:storybook` — Storybook コンポーネントテスト全通過（Playwright Chromium 必要、CI でも同ジョブを必須化済み #1168）
-- `npx playwright test` — E2Eテスト全通過
-- 新ルール warn（noExcessiveCognitiveComplexity / noConsole / useMaxParams / noBarrelFile）は PR で 0 件増えないこと
-
-### コミット前チェック（任意・推奨）
-
-- `npx eslint "src/**/*.ts"` — SonarJS ルール（文字列重複・認知複雑度等）の検出（#977）
-- `npm run type-coverage` — 型カバレッジが閾値以上（CI では必須、ローカルはメモリ消費大のため任意）
-- `npm run knip` — 未使用 export / ファイル / 依存の検出（#970）
-
-## CI 自動検出（CLAUDE.md に詳細説明不要 — CI が自動拒否）
-
-biome（noExplicitAny, 未使用import）, svelte-check（TS strict）, stylelint（hex color）,
-vitest --coverage（カバレッジ閾値）, playwright（E2E）, ESLint（svelte/no-inline-styles, インラインスタイル検出）。
-`local/no-hardcoded-jp-text` 警告が PR で 0 件増加しないこと（#1452 Phase A — `scripts/check-hardcoded-strings.mjs` で監視）。
-詳細: `.github/workflows/ci.yml`
+任意: `npx eslint "src/**/*.ts"` (#977) / `npm run type-coverage` / `npm run knip` (#970)。CI 自動拒否は `.github/workflows/ci.yml` 参照。
 
 ## 並行実装チェックリスト（修正前必須）
 
-本プロジェクトは 8 カテゴリ以上の並行実装ペアを抱えている（同期漏れが頻発）。
-修正前に必ず `docs/design/parallel-implementations.md` を参照し、以下のチェックを行うこと:
+修正前に `docs/design/parallel-implementations.md` を確認:
 
-- [ ] **UI ラベル・用語** → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts`
-- [ ] **年齢モード** → `src/routes/(child)/[uiMode=uiMode]/` 統合済み。年齢別バリアント設定は `src/lib/domain/validation/age-tier.ts`
-- [ ] **本番画面 → デモ画面** も同等変更 (`src/routes/demo/`)
-- [ ] **アプリ機能 → LP** の文言 (`site/`) も同期
-- [ ] **ナビゲーション** → デスクトップ (`AdminLayout`) + モバイル (`AdminMobileNav`) + ボトムナビ (`BottomNav`)
-- [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
-- [ ] **チュートリアル** → 本番 + デモガイド両方 (`tutorial-chapters.ts` + `demo-guide-state.svelte.ts`)
+- UI ラベル・用語 → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts`
+- 年齢モード → `src/routes/(child)/[uiMode=uiMode]/` + `src/lib/domain/validation/age-tier.ts`
+- 本番画面 → デモ画面 (`src/routes/demo/`)
+- ナビ → `AdminLayout` + `AdminMobileNav` + `BottomNav`
+- DB スキーマ → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
+- チュートリアル → `tutorial-chapters.ts` + `demo-guide-state.svelte.ts`
 
 ## Things Not To Do
 
-- `src/routes` 配下のページコンポーネントにビジネスロジックを書かない
-- DB への直接アクセスは禁止。必ず `$lib/server/db` 経由
-- `.env` ファイル、`node_modules/`、`*.db` ファイルをコミットしない
-- 古い Svelte 4 / SvelteKit 1 の書き方（`$:` リアクティブ宣言等）を使わない
-- チケットのゴールを実態なく完了（`[x]`）にしない。成果物が存在しないものを Done にしない
-- `docs/tickets/` にチケットファイルを新規作成しない（GitHub Issues で管理）
-- UI デザイン禁忌事項は `docs/DESIGN.md` §9 参照（hex直書き禁止、プリミティブ再実装禁止、インラインスタイル禁止 等）
-- URL をリネーム・廃止した際に、個別の `+page.server.ts` や `+page.ts` に `redirect()` を書かない → `src/routes/CLAUDE.md` の旧 URL 廃止ルール参照
-- `vite.config.ts` のカバレッジ閾値（thresholds）を引き下げない → CI が自動拒否（`scripts/check-coverage-threshold.js`）
-- E2E テストで `clearDialogGhosts` を新規使用しない → アプリ側のダイアログバグを隠蔽するため
-- `assert*Configured()` / `throw new Error('XXX is required')` / `process.env.X || (() => { throw ... })()` を新規追加するときに、PR 本文へ「配布済み: ENV」証跡を書かない → CI の `new-env-distribution-check` が red になる（ADR-0006、`scripts/check-new-required-env.mjs`）
-- ADR-0006 禁止 5 項目（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加）を行わない → 例外手続きは別 ADR で当該 ADR を supersede すること
-- ライセンスプラン / 購読ステータス / ライセンスキー状態の値を文字列リテラルで直書きしない（#972）→ `$lib/domain/constants/{license-plan,subscription-status,license-key-status,auth-license-status}.ts` の定数経由で参照すること。`'family-monthly'` / `'family-yearly'` / `'grace_period'` は CI (`scripts/check-no-plan-literals.mjs`) が自動拒否
-- Pre-PMF で過剰防衛設計（汎用監査ログ DynamoDB テーブル / S3+Athena / AWS WAF / IP 単位ブルートフォース検知 等）を新規追加しない（ADR-0010）→ HMAC 鍵強度 + API Gateway スロットリング + AWS Budgets + 既存 state カラムで Pre-PMF 段階は十分。採用するには ADR-0010 を supersede する新 ADR を先に起票すること
-- **認証が絡む UI 画面** (login / signup / 管理画面 / ops / プラン別 UI) を `npm run dev` の自動認証モードだけで検証した状態で PR を Ready にしない（#1026）→ `npm run dev` は `/auth/login` を 302 redirect するためログインフォームが描画されず UI 検証ができない。必ず `npm run dev:cognito` で Cognito モックモード (port 5174) を起動し、`DEV_USERS` の該当アカウントでログインした上で `docs/DESIGN.md` §9 禁忌事項のセルフチェックを行うこと
-- **スクリーンショットは CI を通すためではなく UI/UX デザイナー視点の自己判定証跡**として貼る（#1026）→ PR 本文に `![...](...)` さえあれば screenshot-check は通るが、それは目的ではない。撮った画像を自分で見て違和感があれば修正すること。PR template の「スクリーンショット / ビジュアルデモ」セクション冒頭の目的説明に従うこと
-- jscpd を PR の hard-fail に昇格させない（別 ADR なしには）（#971）→ jscpd は週次レポートとして T3 階層で運用。PR ゲートに含めると開発体験が悪化する
-- **OSS / 確立パターンを見もしないまま独自実装を始めない（#1350）** → 独自実装が 10 行超えそうなら先に npm / GitHub で既存 OSS / 確立パターンを 2 件以上探す。見つかれば Issue / ADR に比較を書き加え選定理由を残す。ADR テンプレ「検討した選択肢」節と Issue テンプレ「OSS / 確立パターン調査結果」節が空のまま起票・起案しない。半完成機構の放置（#1346 / #566 / #1126 / #1150）を繰り返さない
-- **LP・設計書に「ガチャ」「抽選」「コンプリート」等のギャンブル語彙を書かない（#1312/#1313）** → `scripts/measure-lp-dimensions.mjs` の `FORBIDDEN_TERMS` に追加済みで CI が自動拒否。ゲーミフィケーション要素を説明する際は「おみくじ」「ランダム報酬」等の代替語を使うこと。LP や `site/index.html` の文言を変更する前に `FORBIDDEN_TERMS` リストを確認すること
-- **LP・プライシング設計書に未実装機能を「実装済み」として書かない（ADR-0013、#1312）** → `docs/decisions/0013-lp-truth-from-implementation.md` の Committed/Aspirational 区分を確認し、実装パスが存在しない機能は LP に記載禁止。`docs/design/19-プライシング戦略書.md` の附則「Committed / Aspirational 機能区分」を参照すること
-- **`scripts/` に使い捨てスクリプトを追加しない（#1442）** → `scripts/` への新規ファイル追加は「A: CI/CD から参照あり」「B: `package.json` の `scripts` セクションに定義された `npm run <name>` で呼べる手動ツール」のいずれかに必ず属すること。Issue 番号付き使い捨てスクリーンショットスクリプト（`capture-XXXX-*.mjs` 等）は禁止 — `npm run capture` (`scripts/capture.mjs`) を使用・拡充すること
+CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / プリミティブ再実装 / インラインスタイル (@docs/DESIGN.md §9) / プラン文字列直書き (`check-no-plan-literals.mjs` #972) / カバレッジ閾値引下げ (`check-coverage-threshold.js`) / assertion 弱体化 (ADR-0006) / 新規 env 配布証跡欠落 (`check-new-required-env.mjs`) / LP 禁止語 (`measure-lp-dimensions.mjs` #1312/#1313) / hardcoded JP text 増加 (`check-hardcoded-strings.mjs` #1452)
 
-## Critical バグ修正の必須要件（ADR-0005）
+その他禁忌:
+- `src/routes` ページにビジネスロジック直書き / DB 直接アクセス（必ず `$lib/server/db` 経由）
+- `.env` / `node_modules/` / `*.db` コミット / 成果物のない `[x]` Done / `docs/tickets/` 新規ファイル
+- `+page.server.ts` の旧 URL `redirect()` 直書き → @src/routes/CLAUDE.md
+- E2E で `clearDialogGhosts` 新規使用（ダイアログバグ隠蔽）
+- Pre-PMF 過剰防衛設計 (汎用監査ログ / S3+Athena / WAF 等) → ADR-0010
+- 認証画面を `npm run dev` だけで Ready 化 → `npm run dev:cognito` (#1026)
+- SS を CI 通過のためだけに添付 → UI/UX 自己判定証跡 (@docs/DESIGN.md §9)
+- jscpd を PR hard-fail 昇格 (#971) / OSS 未調査で 10 行超独自実装 (ADR-0014 / #1350)
+- LP / pricing に未実装機能を「実装済み」と記載 → ADR-0013
+- `scripts/` に使い捨てスクリプト追加 → `npm run capture` 等 generic ツール拡充 (#1442)
 
-`priority:critical` のバグ修正は以下を全て満たすこと（詳細は ADR-0005 参照）:
+## Critical バグ修正（ADR-0002）
 
-1. 回帰テスト（E2E）を同一 PR 内で追加
-2. Issue の Acceptance Criteria を全項目完了（部分実装で closes 禁止）
-3. Issue で提案された対策を全て実装（部分実装は対症療法であり根本解決ではない）
-4. 全 4 年齢コアモード（preschool/elementary/junior/senior）で実機検証 + スクリーンショット（baby 準備モードは成長待機画面の目視確認）
-5. 直近30日に同じファイルを変更した PR がないかチェック（リネーム/リファクタリングとの依存関係確認）
-
-## 機能実装時の必須チェック
-
-- 設計書の更新を忘れていないか → `docs/CLAUDE.md` の更新ルール表を確認
-- テストを同梱しているか → `tests/CLAUDE.md` のテスト要件を確認
-- UI 変更時のデザインシステム準拠 → `src/routes/CLAUDE.md` を確認
+`priority:critical` は ADR-0002 の 5 要件全て充足必須（E2E 回帰 / AC 全完了 / 提案全実装 / 5 年齢モード検証 / 直近 30 日重複変更チェック）。
 
 ## Session Agents & Skills
 
-セッション起動時は `.claude/agents/` のファイルでロール自動活性化:
-- `po-session.md` — PO: Issue 起票・優先度・事業判断（5ロール + フェーズゲート）
-- `dev-session.md` — Dev: 実装・CI/CD・設計書同期（6ロール + 並行実装チェック）
-- `qa-session.md` — QA: PR レビュー・品質ゲート（5ロール + 8項目チェックリスト）
+セッション起動時 `.claude/agents/` がロール自動活性化:
+- `po-session.md` — PO（Issue 起票・優先度・事業判断、ロール定義は @docs/sessions/po-session.md）
+- `dev-session.md` — Dev（実装・CI/CD・設計書同期、@docs/sessions/dev-session.md）
+- `qa-session.md` — QA（PR レビュー・品質ゲート、@docs/sessions/qa-session.md）
 
-タスク固有ワークフローは `.claude/skills/` でオンデマンド発火（11 Skills 定義済み）。
-
-## Context-specific Rules（フォルダ作業時に自動ロード）
-
-| ファイル | 内容 |
-|---------|------|
-| `src/routes/CLAUDE.md` | UI実装ルール、デザインシステム、用語管理、チュートリアル、Done基準 |
-| `tests/CLAUDE.md` | テスト品質ルール（ADR-0005）、E2E固有ガイダンス |
-| `docs/CLAUDE.md` | 設計書更新ルール、ADR管理・一覧、画像アセットルール |
-| `.github/CLAUDE.md` | チケット管理、Draft PR運用、Issue起票ルール（ADR-0003） |
-| `infra/CLAUDE.md` | AWS Lambda / NUC デプロイ手順 |
+タスク固有: `.claude/skills/` (11 Skills、オンデマンド発火)
 
 ## Further Context
 
-- **デザインシステム SSOT**: @docs/DESIGN.md ← デザイン関連の実装は**まずこのファイルを読む**
-- UI フレームワーク設計: @docs/reference/ui_framwork.md
-- バックエンド設計: @docs/reference/backend_framework.md
-- Gemini API 画像生成ガイド: @docs/reference/gemini_image_generation_guide.md
-- 画像アセット仕様: @docs/design/asset-catalog.md
-- 家族情報（サブモジュール）: @personal/data/family.yml
+- @docs/DESIGN.md（デザイン SSOT、必読）/ @docs/reference/ui_framwork.md / @docs/reference/backend_framework.md
+- @docs/reference/gemini_image_generation_guide.md / @docs/design/asset-catalog.md
+- @personal/data/family.yml (サブモジュール)
 
 ## Compaction Rules
 
-- コンパクション時は「変更ファイル一覧」「実行したテストコマンドと結果」「現在作業中のチケット番号」を必ず要約に残す。
+コンパクション時は「変更ファイル一覧 / 実行テストコマンドと結果 / 作業中チケット番号」を要約に必ず残す。
 
 ## Auto Mode ガイドライン
 
-Auto mode 使用時でも以下は必ず確認を求めること:
-
-- `git push` / `git push --force` など本番リポジトリへの反映
-- 本番サーバーへのデプロイ（ssh 経由の操作）
-- DB のスキーマ変更（`drizzle-kit push`）やデータ削除
-- `.env` や認証情報に関わるファイルの変更
-- `rm -rf` 等の破壊的なファイル操作
-
+以下は必ず確認を求める: `git push --force` / 本番デプロイ / DB スキーマ変更 / `.env` / `rm -rf` 等の破壊的操作。
