@@ -35,23 +35,26 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
 
-// 1-shot summary 画像のプロンプト (#1787 設計指針)
+// 1-shot summary 画像のプロンプト (#1787 設計指針 / #1845 テキストなし強化)
 //   - D3 warrior キャラクターを中心配置
 //   - 3 アイコン（活動 / 習慣 / ごほうび）を円環で結ぶ循環図
 //   - kawaii chibi flat illustration（A-1 ブランドスタイル）
-//   - 透過背景 PNG
-//   - テキスト・ロゴは含めない（HTML 側で alt + figcaption が SSOT）
+//   - テキスト一切なし（HTML 側で alt + figcaption が SSOT、ブランド A-1 整合）
+//   - 透過背景 PNG（DESIGN.md §11-7 / asset-catalog.md チェックリスト整合）
+//   - 横長 16:9 構図（LP 640x320 想定の 2:1 に近い、character category デフォルト 1:1 から override）
 const PROMPT = [
 	'A 1-shot summary illustration showing the core loop of a children gamification family RPG app.',
 	'D3 warrior character at the visual center (blue helmet + cape + gold magic wand + star emblem on chest).',
-	'Three icons orbiting around the warrior in a circular flow connected by curved arrows:',
-	'  (1) "活動" — a small notepad icon with a checkmark (recording daily activity),',
-	'  (2) "習慣" — a small stamp card icon with stars (forming a habit),',
-	'  (3) "ごほうび" — a small gift box icon with a ribbon (reward shop exchange).',
+	'Three iconic objects orbiting around the warrior in a circular flow connected by curved arrows:',
+	'  (1) a small notepad icon with a checkmark (representing recording daily activity),',
+	'  (2) a small stamp card icon with stars (representing forming a habit),',
+	'  (3) a small gift box icon with a ribbon (representing reward exchange).',
 	'The three icons should be visually distinct, each in its own pastel circle, equally spaced 120 degrees apart.',
-	'Curved arrows between icons indicate the cycle: activity → habit → reward → activity.',
-	'No Japanese text overlay in the image (alt / caption text is rendered by surrounding HTML).',
-	'Composition is centered and balanced, suitable for a 640x320 LP figure.',
+	'Curved arrows between icons indicate the cycle: notepad → stamp card → gift box → notepad.',
+	'CRITICAL: Absolutely NO text, NO letters, NO Japanese characters, NO English words, NO labels anywhere in the image.',
+	'CRITICAL: The image must be entirely text-free. Caption text is rendered by surrounding HTML alt / figcaption.',
+	'Transparent background (no color background fill, alpha channel preserved).',
+	'Wide landscape composition with 2:1 aspect ratio (1280x640 pixels), warrior centered, icons orbiting in horizontal ellipse.',
 ].join(' ');
 
 const args = process.argv.slice(2);
@@ -90,8 +93,12 @@ if (!isDryRun && !process.env.GEMINI_API_KEY) {
 	console.error('    2. リポジトリルートの .env.local に  GEMINI_API_KEY=<key>  を記載');
 	console.error('    3. npm run generate:coreloop-summary を再実行');
 	console.error('');
-	console.error('  鍵が配備できない場合のフォールバック (SVG → PNG 決定的変換):');
-	console.error("    node -e \"require('sharp')('static/assets/lp/core-loop-summary.svg')\\");
+	console.error(
+		'  鍵が配備できない場合のフォールバック (#1845 完遂後は archive SVG → PNG 決定的変換):',
+	);
+	console.error(
+		"    node -e \"require('sharp')('static/assets/lp/_archive/core-loop-summary.svg.bak')\\",
+	);
 	console.error("      .resize(1280,640).png().toFile('static/assets/lp/core-loop-summary.png')\"");
 	console.error(
 		'    cp static/assets/lp/core-loop-summary.png site/assets/lp/core-loop-summary.png',

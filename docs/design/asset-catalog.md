@@ -150,52 +150,58 @@ npm run capture:feature -- feature-routine-checklist
 
 | ファイル名 | 配置 | サイズ | 生成方法 |
 |----------|------|--------|---------|
-| `core-loop-summary.png` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1280×640 PNG | `npm run generate:coreloop-summary`（Gemini API）/ 暫定 SVG ベース PNG（Gemini 鍵未配備環境では本暫定が SSOT、#1845 で fallback 運用を確定）|
-| `core-loop-summary.svg` | `static/assets/lp/`（暫定再現用） | 640×320 viewBox | 手書き（Gemini API 鍵が無い環境用のフォールバック）|
+| `core-loop-summary.png` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1456×720 PNG (Gemini 出力) | `npm run generate:coreloop-summary`（Gemini API、`gemini-3-pro-image-preview`）|
+| `_archive/core-loop-summary.svg.bak` | `static/assets/lp/_archive/`（履歴保全） | 640×320 viewBox | #1845 で archive 移動済（Gemini 鍵未配備時のフォールバック起点としても利用可） |
 
-#### #1845: Gemini Pro 3.1 image での再生成手順（API 鍵配備環境）
+#### #1845: Gemini Pro 3 image での再生成手順（実装履歴）
 
-PO 指示（PO-N-3）で「Gemini Pro 3.1 image (gemini-2.5-pro) による本格生成画像への置換」が
-要求されている。鍵配備済み環境では以下の順序で再生成を実行すること。Issue #1845 完遂時に
-SVG は `static/assets/lp/_archive/core-loop-summary.svg.bak` へ退避する想定（履歴保全）。
+PO 指示（PO-N-3）で「Gemini Pro 3.1 image による本格生成画像への置換」が要求された。Issue #1845
+で `gemini-3-pro-image-preview` モデル（API key 認証で動作する画像生成モデル、PO 指示の Gemini Pro 3
+系の実体）を使った本格生成 + SVG archive 移動を完遂済。再生成が必要になった場合は以下の手順:
 
 ```bash
 # 1. .env.local に GEMINI_API_KEY を配備（https://aistudio.google.com/apikey で取得）
 echo 'GEMINI_API_KEY=<your-key>' >> .env.local
 
-# 2. Gemini Pro 3.1 image での再生成
+# 2. Gemini Pro 3 image での再生成
 npm run generate:coreloop-summary
-#   → static/assets/lp/core-loop-summary.png (1280×640) 出力
+#   → static/assets/lp/core-loop-summary.png 出力（gemini-3-pro-image-preview、約 1456×720）
 #   → site/assets/lp/core-loop-summary.png にも自動配備
 
 # 3. 画像アセット追加時のレビューチェックリスト 6 項目を全件目視確認
 #   （「画像アセット追加時のレビューチェックリスト」§ を参照）
-
-# 4. 暫定 SVG を archive へ退避（再生成成功後のみ）
-mkdir -p static/assets/lp/_archive
-git mv static/assets/lp/core-loop-summary.svg \
-       static/assets/lp/_archive/core-loop-summary.svg.bak
 ```
 
+**モデル選定（#1845 で確定）**:
+- `gemini-2.5-pro` / `gemini-3-pro-image-preview` / `imagen-3` 等は SDK のデフォルト経路
+  （`@google/genai` の `vertexai:true`）で Vertex AI (`aiplatform.googleapis.com`) に投げられ、
+  API key 単独では 401 UNAUTHENTICATED となる。
+- `scripts/generate-image.mjs` では `new GoogleGenAI({ apiKey, vertexai: false })` を明示し
+  `generativelanguage.googleapis.com` 経路（API key 認証）に強制する。
+- `MODEL_IDS.pro = 'gemini-3-pro-image-preview'` / `MODEL_IDS.flash = 'gemini-2.5-flash-image'`
+  （いずれも generate-marketing-images.mjs / generate-stamp-images.mjs で API key 経由稼働実績あり）。
+
 **鍵未配備環境の動作**: `scripts/generate-coreloop-summary.mjs` は GEMINI_API_KEY 不在時に
-exit 2 で停止し、上記手順 1（鍵取得 + 配備）と暫定 SVG → PNG 決定的変換コマンドを案内する。
-このとき暫定 PNG（SVG ベース）が SSOT として運用される。
+exit 2 で停止し、archive SVG → PNG 決定的変換コマンド (`_archive/core-loop-summary.svg.bak`
+を sharp で 1280×640 PNG に変換) を案内する。本格生成画像は適切に保護されているため、
+鍵未配備環境ではこの fallback が暫定 SSOT になる。
 
 ### 構図仕様
 
-- 中心: D3 warrior キャラクター（青兜 + 金マントの星紋章）
+- 中心: D3 warrior キャラクター（青兜 + 金マントの星紋章 + 金の魔法の杖）
 - 周囲: 3 アイコンが等間隔（120 度刻み）で円環配置
   - 活動: ノート + チェック（ブランド青）
-  - 習慣: スタンプカード + 星（ブランド青）
+  - 習慣: スタンプカード + 星（ブランド黄）
   - ごほうび: ギフトボックス + リボン（ブランドオレンジ + 金）
 - 矢印: 3 つの円弧で「活動 → 習慣 → ごほうび → 活動」の循環を示す
 - **画像内テキストは置かない**（HTML 側 `figcaption` + `alt` が SSOT、ブランド A-1 整合）
-  - `static/assets/lp/core-loop-summary.svg` に存在していた `<text>` 3 要素（活動 / 習慣 / ごほうび）は #1821 で全削除済（ごほうびラベルが D3 キャラ星章 cy=160 r=56 領域と重なっていたため）
+  - 旧 SVG (`_archive/core-loop-summary.svg.bak`) に存在していた `<text>` 3 要素（活動 / 習慣 / ごほうび）は #1821 で全削除済（ごほうびラベルが D3 キャラ星章 cy=160 r=56 領域と重なっていたため）
+  - #1845 の Gemini 本格生成版でもプロンプトで「Absolutely NO text, NO letters, NO Japanese characters」を強調し画像内テキストゼロを実現
 
 ### 生成コマンド
 
 ```bash
-# Gemini API 鍵があるとき（推奨）— #1822 で Gemini 3 Pro Image (gemini-2.5-pro) で本格生成
+# Gemini API 鍵があるとき（推奨）— #1845 で Gemini 3 Pro Image (gemini-3-pro-image-preview) で本格生成
 npm run generate:coreloop-summary
 #  → scripts/generate-coreloop-summary.mjs 経由
 #  → 内部的に scripts/generate-image.mjs --category character --model pro を呼ぶ
@@ -203,8 +209,8 @@ npm run generate:coreloop-summary
 #  → 参照画像: static/assets/brand/master-character-sheet.png（D3 warrior 整合）
 #  → static/assets/lp/core-loop-summary.png + site/assets/lp/core-loop-summary.png に出力
 
-# Gemini API 鍵が無いとき（CI / Pages デプロイ時のフォールバック）
-node -e "require('sharp')('static/assets/lp/core-loop-summary.svg').resize(1280,640).png().toFile('static/assets/lp/core-loop-summary.png')"
+# Gemini API 鍵が無いとき（CI / Pages デプロイ時のフォールバック、archive SVG 起点）
+node -e "require('sharp')('static/assets/lp/_archive/core-loop-summary.svg.bak').resize(1280,640).png().toFile('static/assets/lp/core-loop-summary.png')"
 ```
 
 #### 生成後レビューチェックポイント (#1822 AC3)
@@ -214,7 +220,7 @@ node -e "require('sharp')('static/assets/lp/core-loop-summary.svg').resize(1280,
 - [ ] `docs/reference/gemini_image_generation_guide.md` A-1 BRAND STYLE BLOCK が冒頭付与されている (`scripts/generate-image.mjs` 経由なら自動)
 - [ ] 参照画像 `static/assets/brand/master-character-sheet.png` を渡した
 - [ ] 頭身比 1:1.5 / 目 35-40% / ブランドカラー (#5BA3E6 / #FFE44D) 整合
-- [ ] 透過 PNG（character category デフォルト）
+- [ ] 透過 PNG（character category デフォルト、Gemini が JPEG bytes を返す場合は HTML 側 `background:#fff` で吸収）
 - [ ] テキスト・透かしなし
 
 ### 配置原則

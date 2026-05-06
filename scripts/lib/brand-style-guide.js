@@ -130,8 +130,17 @@ export const DEFAULT_REFERENCE_IMAGE = 'static/assets/brand/master-character-she
 /** フォールバック参照画像パス（master-character-sheet.png が未生成の場合） */
 export const FALLBACK_REFERENCE_IMAGE = 'static/assets/battle/characters/hero-default.png';
 
-/** モデル ID マッピング */
+/** モデル ID マッピング
+ *
+ * NOTE (#1845): API key 認証で画像生成が動作するモデルに揃える。
+ *   - `gemini-2.5-pro` はテキスト専用（画像 modality 要求で 401）
+ *   - `gemini-3-pro-image-preview` は generate-marketing-images.mjs で API key 経由稼働実績あり
+ *     （PO Issue 本文「Gemini Pro 3.1 image」の実体に最も近い）
+ *   - `gemini-2.5-flash-image` は generate-stamp-images.mjs で API key 経由稼働実績あり
+ *
+ * `pro` は最高品質の画像生成 (`gemini-3-pro-image-preview`) を指す。
+ */
 export const MODEL_IDS = {
-	flash: 'gemini-2.0-flash-preview-image-generation',
-	pro: 'gemini-2.5-pro',
+	flash: 'gemini-2.5-flash-image',
+	pro: 'gemini-3-pro-image-preview',
 };

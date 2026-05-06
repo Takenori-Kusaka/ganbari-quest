@@ -176,7 +176,11 @@ if (!API_KEY) {
 
 // ── 生成 ─────────────────────────────────────────────────────
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// #1845: SDK のデフォルトは vertexai:true (Vertex AI 経路) に変わっており、
+// API key 単独では aiplatform.googleapis.com で 401 UNAUTHENTICATED になる。
+// API key 認証で動作する generativelanguage.googleapis.com 経路を明示するため
+// vertexai:false を指定する（既存 generate-stamp-images.mjs の実動作と整合）。
+const ai = new GoogleGenAI({ apiKey: API_KEY, vertexai: false });
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
