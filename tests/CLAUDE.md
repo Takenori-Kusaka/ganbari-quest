@@ -1,217 +1,118 @@
-# tests/ — テスト品質ルール（ADR-0005）
+# tests/ — テスト品質ルール
 
-テスト品質の劣化を許容しない。カバレッジ閾値の引き下げ・テスト回避パターンは CI で自動拒否する。
+**SSOT**: ADR-0005（テスト品質 ratchet）/ ADR-0006（assertion 弱体化禁止）
+
+テスト品質劣化は許容しない。カバレッジ閾値引き下げ・テスト回避は CI 自動拒否。
 
 ## テスト分類（#1500）
 
 | 分類 | 置き場所 | 特徴 |
 |------|---------|------|
-| **Unit** | `tests/unit/` | モック可、単一関数/モジュール単位 |
-| **Integration** | `tests/unit/` または `tests/integration/` | `page.route()` / HMAC モック / DB in-memory。実サーバー不要 |
-| **E2E** | `tests/e2e/` | モックなし、実アプリ全体（`npm run dev` / `npm run preview` が必要） |
+| **Unit** | `tests/unit/` | モック可、単一関数/モジュール |
+| **Integration** | `tests/unit/` or `tests/integration/` | `page.route()` / DB in-memory。実サーバー不要 |
+| **E2E** | `tests/e2e/` | モックなし、実アプリ全体 (`npm run dev` / `preview` 必要) |
 
-### 配置判断フロー
-
-```
-実サーバーが必要？
-  No  → モック(page.route/fetch mock)だけで完結？
-          Yes → Integration（tests/unit/ または tests/integration/）
-          No  → Unit（tests/unit/）
-  Yes → E2E（tests/e2e/）
-```
-
-### Integration テスト注意事項
-
-- `page.route()` でネットワークをモックする spec は Integration に分類する
-- ただし cognito-dev 設定（`playwright.cognito-dev.config.ts`）で実行する場合、
-  実サーバーが起動するため E2E の設定ファイルに含めることもある（詳細は各 spec ヘッダーコメントを参照）
-- `tests/e2e/upgrade-checkout.spec.ts` は `page.route()` で Stripe を完全モックしており
-  **Integration** 相当だが、cognito-dev 認証が必要なため `playwright.cognito-dev.config.ts` で管理する
+判断: 実サーバー必要 → E2E / 不要 + モックで完結 → Integration / それ以外 → Unit。
+`tests/e2e/upgrade-checkout.spec.ts` は `page.route()` で Stripe モック (Integration 相当) だが cognito-dev 認証必要のため `playwright.cognito-dev.config.ts` 管理。
 
 ## 禁止事項
 
-- **カバレッジ閾値の引き下げ** — `vite.config.ts` の `thresholds` を下げる PR はマージ不可。引き下げが必要な場合は ADR に理由と復元計画を同時にコミット
-- **バグ隠蔽ヘルパー（ダイアログゴースト除去等）** — アプリのバグをテスト側で隠すのは禁止。アプリ側を修正する
-- **`test.skip()` の安易な使用** — テストが通らないならアプリを直す。正当な理由（環境依存等）のみ許容
-- **`waitForTimeout()` の新規使用** — E2E テストで固定待機を使わない。`waitForSelector()` / `waitForResponse()` / `waitForURL()` / `waitForFunction()` / Web Animations API (`el.getAnimations({ subtree: true }).map(a => a.finished)`) を使う。**ESLint (`playwright/no-wait-for-timeout: error`) が自動拒否** (#1259 Phase 3)
-- **`{ waitUntil: 'networkidle' }` の新規使用** — Playwright 公式で DISCOURAGED。Single Page App では never idle になる。`domcontentloaded` + web-first assertion (`toBeVisible()` / `toHaveText()`) を使う。**ESLint (`playwright/no-networkidle: error`) が自動拒否** (#1259 Phase 3)
-- **`isVisible()` + `expect(...).toBe(true)` の assertion 用途** — `isVisible()` は同期評価で auto-retry が効かず、特に tablet viewport で hydration / レイアウト計算の競合により flake する (#1768)。assertion 用途では必ず web-first assertion (`await expect(locator).toBeVisible()`) を使う。`isVisible()` の許容用途は **条件分岐** (`if (await x.isVisible().catch(() => false))` で要素の存在を確認する場合) のみ
-- **サービスを呼ばないサービステスト** — `xxx-service.test.ts` は必ずサービスの公開 API を import して呼ぶ。DB 直接操作のみのテストは禁止
-- **テスト内で実装ロジックを再実装** — 実装の関数を呼んで結果を検証する。テスト内で同じロジックを書いて「一致した」は無意味
+- **カバレッジ閾値の引き下げ** — `vite.config.ts` `thresholds` 引き下げ PR は CI 自動拒否（`scripts/check-coverage-threshold.js`）。引き下げ必要なら ADR で復元計画と同時コミット
+- **バグ隠蔽ヘルパー（ダイアログゴースト除去等）** — アプリ側を修正
+- **`test.skip()` 安易使用** — 通らないならアプリを直す
+- **`waitForTimeout()` 新規使用** — `waitForSelector()` / `waitForResponse()` / `waitForURL()` / `waitForFunction()` / Web Animations API を使う。**ESLint `playwright/no-wait-for-timeout: error` 自動拒否** (#1259 Phase 3)
+- **`{ waitUntil: 'networkidle' }`** — Playwright 公式 DISCOURAGED。`domcontentloaded` + web-first assertion を使う。**ESLint `playwright/no-networkidle: error` 自動拒否**
+- **`isVisible()` + `expect(...).toBe(true)` の assertion** — 同期評価で auto-retry が効かず flake (#1768)。`await expect(locator).toBeVisible()` を使う。`isVisible()` 許容用途は条件分岐 (`if (await x.isVisible().catch(() => false))`) のみ
+- **サービスを呼ばないサービステスト** — `xxx-service.test.ts` は公開 API を import して呼ぶ
+- **テスト内で実装ロジック再実装** — 実装の関数を呼んで結果検証
 
 ## 機能追加 PR のテスト要件
 
-- 新規サービスファイル追加時は、同 PR 内に対応するテストファイルを含めること
-- 「テストは後で追加」は禁止。テストなしの機能追加 PR はドラフトのまま据え置き
+新規サービスファイル追加時は同 PR 内に対応テストファイル必須。「テストは後で」禁止。テストなし機能追加 PR は Draft 据え置き。
 
-## スキーマ変更 PR のテスト要件（ADR-0031（archive））
+## スキーマ変更 PR のテスト要件（#962 教訓）
 
-`src/lib/server/db/schema.ts` を変更する PR は以下を必須とする。#962 (`is_archived` NULL 混在で本番全停止) の再発防止。
+`src/lib/server/db/schema.ts` 変更 PR の必須事項:
 
 ### カラム追加時
-
-- [ ] 新カラムに `default()` を必ず設定する（NULL を業務的意味で使う場合を除く）
-- [ ] マイグレーション script (`scripts/add-*.cjs` / `scripts/migrate-*.cjs`) の `ALTER TABLE ADD COLUMN` に **対応する `UPDATE table SET col = <default> WHERE col IS NULL`** を同 script 内に書くこと
-- [ ] 新カラムを `WHERE` / `eq()` / `and()` に使うクエリが 1 つでもあるなら、**NULL 混在行**での動作を検証するテストを `tests/unit/db/` または `tests/unit/services/` に 1 件追加すること
+- 新カラムに `default()` 設定（NULL を業務的意味で使う場合を除く）
+- マイグレーション script の `ALTER TABLE ADD COLUMN` に対応する `UPDATE table SET col = <default> WHERE col IS NULL` を同 script 内に書く
+- 新カラムを `WHERE` / `eq()` / `and()` に使うクエリがあるなら **NULL 混在行**動作の検証テストを `tests/unit/db|services/` に 1 件追加
 
 ```ts
-// 例: is_archived が NULL の既存行がクエリ結果から不当に除外されないか
 it('is_archived が NULL の既存行もアクティブとして返される', () => {
   sqlite.exec(`INSERT INTO children (tenant_id, nickname, age, is_archived) VALUES ('t1', 'legacy', 5, NULL)`);
-  const result = findAllChildren('t1');
-  expect(result.map((c) => c.nickname)).toContain('legacy');
+  expect(findAllChildren('t1').map((c) => c.nickname)).toContain('legacy');
 });
 ```
 
-### クエリ側の NULL 安全性
+### クエリ側 NULL 安全性
 
-新カラム + 既存テーブルの組み合わせで、「NULL = 既定値と同じ扱いにしたい」セマンティクスなら
-`or(eq(col, default), isNull(col))` を使うか、**マイグレーション側で backfill** するかのどちらかを選ぶこと。
-片側だけでは不十分（backfill が走る前にクエリが走るケースがある）。
+「NULL = 既定値扱い」セマンティクスなら `or(eq(col, default), isNull(col))` または **マイグレーションで backfill**。片側だけは不十分。
 
-### CI 自動チェック（warn）
-
-`scripts/check-schema-change-tests.mjs` が PR 差分を走査し、`schema.ts` に diff があるのに
-`tests/unit/db|services/` に diff が無い場合は警告を出す。blocker ではないが、
-PR レビュー側で `[must]` 指摘判断の材料に使う。skip が必要なときは PR 本文に `[skip-schema-test-check]` を含める。
+CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.ts` diff があるのに `tests/unit/db|services/` diff が無い場合警告。skip 必要時は PR 本文に `[skip-schema-test-check]`。
 
 ### DynamoDB 並行実装の整合性
 
-`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dynamodb/*.ts` に同じエンティティの repo
-があるペアは、新カラム追加時に undefined / null / 既定値のハンドリングを両実装で一致させる。
+`src/lib/server/db/sqlite/*.ts` と `src/lib/server/db/dynamodb/*.ts` のペアは新カラム追加時に undefined / null / 既定値ハンドリングを両実装で一致させる。
 
-## E2E 固有ガイダンス
+## E2E 固有
 
-- DB スキーマ変更時は `tests/e2e/global-setup.ts` のテストデータ投入も更新すること
-- 全 4 年齢コアモード（preschool/elementary/junior/senior）のテストデータが必要（baby 準備モードは成長待機画面の E2E を含む）
-- 活動記録の完全フロー（確認→記録→コンボ→スタンプ→レベルアップ→ホーム復帰）を検証すること
+- DB スキーマ変更時は `tests/e2e/global-setup.ts` のテストデータ投入も更新
+- 全 4 年齢コアモード (preschool/elementary/junior/senior) のテストデータ必要
+- 活動記録の完全フロー (確認→記録→コンボ→スタンプ→レベルアップ→ホーム復帰) を検証
 
 ## プラン別 seed fixture（#759）
 
-プランティア（free / standard / family）やトライアル状態を持ったテストを書く場合、
-`tests/helpers/plan-fixtures.ts` のヘルパを使う。ローカル SQLite には `licenses`
-テーブルが存在しないため、プラン状態は `AuthContext` + `trial_history` テーブルの
-組み合わせで表現する（詳しい経緯はファイル冒頭の設計メモを参照）。
+`tests/helpers/plan-fixtures.ts` を使用。ローカル SQLite に `licenses` テーブルが存在しないため、プラン状態は `AuthContext` + `trial_history` 組み合わせで表現（詳細はファイル冒頭の設計メモ）。
 
-### unit テスト（vitest）での使い方
+### Unit (vitest)
 
 ```ts
-import { createTestDb, closeDb } from '../helpers/test-db';
-import {
-  makeFreeContext,
-  makeStandardContext,
-  makeFamilyContext,
-  seedTrialActive,
-  seedTrialExpired,
-  seedTrialActiveContext,
-} from '../helpers/plan-fixtures';
+import { makeFreeContext, makeStandardContext, makeFamilyContext, seedTrialActiveContext, seedTrialExpired } from '../helpers/plan-fixtures';
 
-const { sqlite, db } = createTestDb();
-
-// 1. 純粋な AuthContext を組み立てる（DB I/O なし）
-const freeCtx     = makeFreeContext({ tenantId: 't-1' });
-const standardCtx = makeStandardContext({ tenantId: 't-2' });
-const familyCtx   = makeFamilyContext({ tenantId: 't-3', role: 'parent', childId: 10 });
-
-// 2. トライアル中のテナントを用意（licenseStatus=none のまま、trial_history で解決）
-const { context, trial } = seedTrialActiveContext(sqlite, {
-  tenantId: 't-trial',
-  tier: 'family',
-  daysOffset: 5,
-});
-// → resolveFullPlanTier('t-trial', 'none') が 'family' を返す
-
-// 3. トライアル終了済み（再開始不可）
+const freeCtx = makeFreeContext({ tenantId: 't-1' });
+const { context } = seedTrialActiveContext(sqlite, { tenantId: 't-trial', tier: 'family', daysOffset: 5 });
 seedTrialExpired(sqlite, { tenantId: 't-used' });
-
-closeDb(sqlite);
 ```
 
-### E2E テスト（Playwright）での使い方
+### E2E (Playwright)
 
-E2E のローカル認証モードは常に `plan=family` を返すため、本 seeder を呼んでも
-プラン切替にはならない。E2E からプラン状態を切り替えたいときは
-**`DEBUG_PLAN` / `DEBUG_TRIAL` 環境変数（#758）**を使うこと。
-
+E2E ローカル認証モードは常に `plan=family` を返すため seeder ではプラン切替不可。`DEBUG_PLAN` / `DEBUG_TRIAL` env (#758) を使う:
 ```bash
-# 例: free プランで任意の E2E テストを実行
 DEBUG_PLAN=free npx playwright test tests/e2e/some-spec.ts
 DEBUG_PLAN=standard DEBUG_TRIAL=active DEBUG_TRIAL_TIER=family npx playwright test ...
 ```
 
 詳細: `src/lib/server/debug-plan.ts` / `.env.example`
 
-## cron E2E テストの書き方
+## cron E2E テスト
 
-`/api/cron/*` エンドポイントの E2E テストでは、`tests/e2e/helpers.ts` の cron ヘルパーを使う。
-
-### ヘルパー
+`/api/cron/*` エンドポイントは `tests/e2e/helpers.ts` の cron ヘルパー必須:
 
 | 関数 | 用途 |
 |------|------|
-| `getCronHeaders()` | cron 認証用ヘッダーを返す（`CRON_SECRET` 設定時のみ `x-cron-secret` を含む） |
-| `isCronAuthSkipped()` | cron 認証がスキップされる環境か判定（`CRON_SECRET` 未設定 + `AUTH_MODE=local`） |
+| `getCronHeaders()` | cron 認証用ヘッダー（`CRON_SECRET` 設定時のみ `x-cron-secret` を含む） |
+| `isCronAuthSkipped()` | cron 認証スキップ環境判定（`CRON_SECRET` 未設定 + `AUTH_MODE=local`） |
 
-### 認証の 3 パターン
-
-`verifyCronAuth`（`src/lib/server/auth/cron-auth.ts`）は環境変数に応じて 3 通りの動作をする。
-テストでは `getCronHeaders()` と `isCronAuthSkipped()` でこの分岐を吸収する。
-
-| 条件 | 動作 | テストでの期待値 |
-|------|------|----------------|
-| `CRON_SECRET` 設定済み + ヘッダー一致 | 認証成功 | `200` |
-| `CRON_SECRET` 設定済み + ヘッダー不一致/なし | 認証失敗 | `401` |
-| `CRON_SECRET` 未設定 + `AUTH_MODE=local` | 認証スキップ | `[200, 500]`（DB 未初期化で 500 の場合あり） |
-| `CRON_SECRET` 未設定 + `AUTH_MODE≠local` | 設定ミス | `500` |
-
-### 使用例
+3 パターン分岐: ① `CRON_SECRET` 設定 + ヘッダー一致 → 200 / ② 設定 + 不一致 → 401 / ③ 未設定 + `AUTH_MODE=local` → `[200, 500]`（DB 未初期化で 500 あり）/ ④ 未設定 + その他 → 500。
 
 ```ts
-import { expect, test } from '@playwright/test';
-import { getCronHeaders, isCronAuthSkipped } from './helpers';
-
 const cronSecret = process.env.CRON_SECRET;
 const authSkipped = isCronAuthSkipped();
 
 test('正常リクエスト', async ({ request }) => {
-  // 認証不可能な環境では早期リターン
   if (!cronSecret && !authSkipped) {
-    const res = await request.post('/api/cron/my-endpoint');
-    expect(res.status()).toBe(500);
+    expect((await request.post('/api/cron/my-endpoint')).status()).toBe(500);
     return;
   }
-
-  // getCronHeaders() が環境に応じた認証ヘッダーを返す
-  const res = await request.post('/api/cron/my-endpoint', {
-    headers: getCronHeaders(),
-    data: { dryRun: true },
-  });
-
+  const res = await request.post('/api/cron/my-endpoint', { headers: getCronHeaders(), data: { dryRun: true } });
   if (!cronSecret && authSkipped) {
     expect([200, 500]).toContain(res.status());
-    if (res.status() !== 200) return;
   } else {
     expect(res.status()).toBe(200);
-  }
-
-  const body = await res.json();
-  expect(body.ok).toBe(true);
-});
-
-test('認証エラー', async ({ request }) => {
-  const res = await request.post('/api/cron/my-endpoint');
-  if (cronSecret) {
-    expect(res.status()).toBe(401);
-  } else if (authSkipped) {
-    expect([200, 500]).toContain(res.status());
-  } else {
-    expect(res.status()).toBe(500);
   }
 });
 ```
 
-### 注意事項
-
-- インラインで `process.env.CRON_SECRET` / `AUTH_MODE` を直接参照してヘッダーを組み立てない。必ずヘルパーを使う
-- `isCronAuthSkipped()` の判定ロジックは `verifyCronAuth` と同期している。cron-auth.ts のロジック変更時はヘルパーも更新すること
-- ローカル開発環境（`AUTH_MODE=local`）では DB が未初期化で 500 を返す場合があるため、`[200, 500]` を許容する
+注意: インライン `process.env` 参照禁止、必ずヘルパー使用。`cron-auth.ts` ロジック変更時はヘルパーも更新。

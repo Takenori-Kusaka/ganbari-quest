@@ -1,246 +1,88 @@
 # docs/ — 設計書・ADR・画像アセット管理
 
-## 設計書更新ルール（CRITICAL — Done 基準に含む）
+**SSOT**: ADR 一覧 → @docs/decisions/README.md / 画像アセット → @docs/design/asset-catalog.md / 撮影 KB → @docs/troubleshoot/screenshot_capture.md / CI 失敗 KB → @docs/troubleshoot/github_actions.md
 
-設計書は実装の Single Source of Truth。書かれていない仕様は「存在しない仕様」と同じ。
-会話で決まった仕様は必ず設計書に反映する（Issue 起票だけでは不十分）。
+## 設計書更新ルール（ADR-0001、Done 基準に含む）
 
-### 更新が必須なケース
+設計書は実装の SSOT。書かれていない仕様は「存在しない仕様」と同じ。会話で決まった仕様は必ず設計書に反映する（Issue 起票だけでは不十分）。
 
 | 変更種別 | 更新すべき設計書 |
-|---------|---------------|
-| API エンドポイントの追加・変更 | `07-API設計書.md` |
-| DB テーブル・カラムの追加・変更 | `08-データベース設計書.md` |
-| UI 機能・画面・オーバーレイの追加・変更 | `06-UI設計書.md` |
-| **UI プラン仕様の追加・変更**（FeatureGate / TrialBanner / PlanStatusCard / PremiumWelcome / disabled パターン） | `06-UI設計書.md §10` (#743) |
-| **アカウント削除フローの追加・変更**（5 パターン分岐 / fullTenantDeletion 順序 / Stripe 連動） | `account-deletion-flow.md` (#746) |
-| **プラン変更フロー（アップグレード/ダウングレード/解約/月年額切替）** | `plan-change-flow.md` (#747) |
-| AWS インフラ構成の変更 | `13-AWSサーバレスアーキテクチャ設計書.md` |
-| 認証・セキュリティ関連の変更 | `14-セキュリティ設計書.md` |
-| デザイン・ビジュアル変更 | `15-ブランドガイドライン.md` |
-| **LP (`site/**`) の情報アーキテクチャ変更** | `docs/design/lp-content-map.md` (#1163) |
-| 会話で確定した機能仕様 | 該当する設計書（なければ新設） |
+|---|---|
+| API エンドポイント | `07-API設計書.md` |
+| DB テーブル・カラム | `08-データベース設計書.md` |
+| UI 機能・画面・オーバーレイ | `06-UI設計書.md` |
+| UI プラン仕様 (#743) | `06-UI設計書.md §10` |
+| アカウント削除フロー (#746) | `account-deletion-flow.md` |
+| プラン変更フロー (#747) | `plan-change-flow.md` |
+| AWS インフラ | `13-AWSサーバレスアーキテクチャ設計書.md` |
+| 認証・セキュリティ | `14-セキュリティ設計書.md` |
+| デザイン・ビジュアル | `15-ブランドガイドライン.md` |
+| LP IA (#1163) | `lp-content-map.md` |
 
-### LP メトリクス ratchet ルール (#1163)
+**禁忌**: 会話で確定した仕様を反映せずに実装進行 / 「設計書は後で」と先送り / 設計書更新を別 Issue 切出しで本体 Done。アーキ図は drawio (`docs/design/diagrams/`)、ASCII 図禁止。
 
-`site/**` を変更する PR は、`scripts/measure-lp-dimensions.mjs` が以下の閾値を破らないこと。CI (`.github/workflows/lp-metrics.yml`) が自動 FAIL する。
+## LP メトリクス ratchet (#1163)
 
-| 指標 | 現閾値 | 方針 |
-|------|--------|------|
-| `mobileHeight` | 15000 px | 引き上げ禁止（下げるのは自由） |
+`site/**` 変更 PR は `scripts/measure-lp-dimensions.mjs` の閾値必達。CI (`lp-metrics.yml`) 自動 FAIL:
+
+| 指標 | 閾値 | 方針 |
+|---|---|---|
+| `mobileHeight` | 15000 px | 引上げ禁止 |
 | `desktopHeight` | 8000 px | 同上 |
-| `desktopHeightWarn` (#1840) | 7800 px | 累積 gate の warning 帯（fail ではない）。fail 閾値の 200px 手前で「次の数 PR で 8000 接触リスク」を PR Job Summary に早期通知 |
-| `forbiddenTerms` | 全 0 | 新規の開発者語彙 (`git clone` / `docker compose` / `SaaS版` / `TLS` / `AES-256` / `AWS`) や射幸性語彙 (`ガチャ` / `抽選` / `コンプリート`) を追加しない |
-| `ctaVariants` | 3 以下 | CTA 文言は `無料で始める` / `デモを見る` + NAV の `ログイン` の 3 種のみ |
-| `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP `<strong>300+</strong> プリセット活動` 訴求が `src/lib/data/marketplace/activity-packs/` の合計 activity 数で裏付けられていること（ADR-0013 LP truth）。実数を 300 未満に減らすか、訴求値を引き上げる場合は同 PR で実数 ≧ 訴求値となるよう揃える |
-| `lp-removal-residue` (#1790) | 新規違反 0 件 | `scripts/check-lp-removal-residue.mjs` で削除済み `data-lp-key` / 画像参照の orphan 検出。既存 19 件は baseline 化済（`scripts/lp-removal-residue-baseline.json`）。新規 1 件でも追加されれば fail。bypass フラグなし |
+| `desktopHeightWarn` (#1840) | 7800 px | 累積 gate warning 帯 |
+| `forbiddenTerms` | 0 | 開発者語彙 / 射幸性語彙の追加禁止 |
+| `ctaVariants` | 3 以下 | `無料で始める` / `デモを見る` / `ログイン` の 3 種のみ |
+| `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP 訴求 ≤ 実数 (ADR-0013 LP truth) |
+| `lp-removal-residue` (#1790) | 新規違反 0 | baseline 19 件、新規 1 件で fail |
 
-閾値を緩める変更は ADR で合意を得てから `scripts/measure-lp-dimensions.mjs` の `THRESHOLDS` / `scripts/lp-removal-residue-baseline.json` を更新する。
+閾値緩和は ADR 合意後に `THRESHOLDS` / `lp-removal-residue-baseline.json` 更新。
 
-### LP 累積 desktopHeight gate (#1840 — pre-merge cumulative simulation)
+### LP 累積 desktopHeight gate (#1840)
 
-個別 PR の lp-metrics PASS でも、複数 PR を連続 merge すると main 累積で desktopHeight が ratchet (8000) を超える事故が PR #1827→#1832→#1834→#1835 のシーケンスで発生し、Deploy GitHub Pages workflow が 5 連続 fail した。再発防止のため `.github/workflows/lp-metrics.yml` に `cumulative-lp-metrics` ジョブを追加。
+`cumulative-lp-metrics` ジョブ: PR HEAD checkout → `git merge --no-commit --no-ff origin/main` → `measure-lp-dimensions.mjs` で擬似 main 累積を計測。8000 超で fail / 7800-8000 で warning。Phase 1 は warn-only (`continue-on-error: true`)、Phase 2 で required 化判断。
 
-#### 動作
+conflict 時は判定 skip + warning 通知（PR 側で main rebase 必要）。詳細は ADR-0042 / `lp-metrics.yml`。
 
-1. PR HEAD を checkout（`fetch-depth: 0`）
-2. `git merge --no-commit --no-ff origin/main` で「PR を merge した後の main」を擬似的に作る
-3. その状態で `scripts/measure-lp-dimensions.mjs --output=lp-metrics-cumulative.json` を実行
-4. 累積 desktopHeight が 8000 超えなら fail（measure script が exit 1）
-5. 7800 ≦ 累積 desktopHeight ≦ 8000 の warning 帯なら Job Summary に warning 出力（fail させない）
+## ADR 管理
 
-#### 段階運用
+- 作成: `docs/decisions/NNNN-kebab-case-title.md`（テンプレート: `docs/decisions/README.md`）
+- 記録対象: 技術選定根拠 / インシデント教訓 / 機能仕様の正仕様 / 品質プロセス決定
+- Claude Code memory はユーザーローカル。**チーム共有知識は必ず ADR に置く**
+- ADR 追加/変更時は CLAUDE.md / `.github/copilot-instructions.md` も同時更新
 
-| Phase | 状態 | 説明 |
-|-------|------|------|
-| **Phase 1** | warn-only (`continue-on-error: true`) | #1840 で導入。観察期間 2-4 週間。warning 帯の検出精度を測る |
-| **Phase 2** | required 化判断 | 別 Issue + ADR で議論。merge queue の意味論変更 (`required_status_checks` への追加) を伴うため、Phase 1 の観察結果を踏まえる |
-| **Phase 3** | pricing.html / pamphlet.html へ波及 | 別 Issue。secondary LP ページにも同方針 |
-
-#### warning 閾値の調整
-
-`scripts/measure-lp-dimensions.mjs --warn-threshold=NNNN` で実行時上書き可能。閾値の常設変更は本 CLAUDE.md の表を更新したうえで `THRESHOLDS.desktopHeightWarn` を変更すること（ADR は不要、ratchet 強化方向のため）。
-
-#### conflict 時の振る舞い
-
-PR HEAD と origin/main の merge で conflict が発生した場合、`cumulative-lp-metrics` ジョブは累積 gate の判定を skip し、`::warning::` で「PR 側で main rebase が必要」と通知する。conflict 自体は別途 PR レビュー側で対処する責務。
-
-### 絶対にやってはいけないこと
-- 会話で仕様が決まったのに設計書に反映しないまま実装を進めること
-- Issue 本文に仕様を書いて「設計書は後で」と先送りすること
-- 設計書の更新を別 Issue に切り出して本体を Done にすること
-
-### アーキテクチャ図
-- drawio 形式（`.drawio`）で `docs/design/diagrams/` に保存
-- テキストベースの ASCII 図やマークダウン内の疑似図は禁止
-
-## ADR (Architecture Decision Records)
-
-重要な意思決定・教訓・仕様は `docs/decisions/` に ADR として記録する。
-
-- 新規作成: `docs/decisions/NNNN-kebab-case-title.md`（テンプレートは `docs/decisions/README.md` 参照）
-- 記録すべきもの: 技術選定の根拠、過去のインシデントの教訓、機能仕様の正仕様、品質プロセスの決定
-- Claude Code の memory はユーザーローカル。チームで共有すべき知識は必ず ADR に置く
-- ADR 追加/変更時は CLAUDE.md と `.github/copilot-instructions.md` も同時更新すること
-
-### 現在の ADR 一覧（#1262 sub-A + sub-B 完了時点 + #1307 umbrella 派生で追加中）
-
-- [ADR-0001](decisions/0001-design-doc-as-source-of-truth.md) — 設計書は Single Source of Truth
-- [ADR-0002](decisions/0002-critical-fix-quality-gate.md) — Critical 修正の品質ゲート
-- [ADR-0003](decisions/0003-issue-quality-standard.md) — Issue 起票・クローズ品質（根本原因 + 構造的解決）
-- [ADR-0004](decisions/0004-review-and-ac-verification.md) — レビュー & AC 検証品質
-- [ADR-0005](decisions/0005-test-quality-ratchet.md) — テスト品質 ratchet
-- [ADR-0006](decisions/0006-safety-assertion-erosion-ban.md) — Safety Assertion Erosion Ban
-- [ADR-0007](decisions/0007-static-analysis-tier-policy.md) — 静的解析 tier ポリシー (T1/T2/T3/T4)
-- [ADR-0008](decisions/0008-design-policy-pre-approval.md) — 設計ポリシー先行確認フロー
-- [ADR-0009](decisions/0009-labels-ssot-principle.md) — labels.ts SSOT 化原則
-- [ADR-0010](decisions/0010-pre-pmf-scope-judgment.md) — Pre-PMF スコープ判断（3 バケット + セキュリティ最小化 + 優先度）
-- [ADR-0011](decisions/0011-baby-mode-as-parent-preparation.md) — 0-2 歳 baby モードは「親の準備モード」（コアターゲット 3-18 歳に再定義）（#1299）
-- [ADR-0012](decisions/0012-anti-engagement-principle.md) — Anti-engagement 原則（滞在時間 = 価値毀損）（#1309）
-- [ADR-0013](decisions/0013-lp-truth-from-implementation.md) — LP 文言は実装の事実を SSOT とする（Committed/Aspirational 分離）（#1310）
-- [ADR-0014](decisions/0014-labels-i18n-mechanism.md) — labels / i18n 機構選定（OSS 先調査）（proposed, #1346）
-- [ADR-0015](decisions/0015-age-tier-variant-architecture.md) — 年齢帯 variant 管理アーキテクチャ（proposed, #1353）
-- [ADR-0016](decisions/0016-japanese-text-wrap.md) — 日本語テキスト折り返し方針（proposed, #1353）
-- [ADR-0017](decisions/0017-cognito-pool-recreation-email-mutable.md) — Cognito User Pool 再作成による email mutable 化（**rejected — deploy failed 2026-04-21**, superseded by ADR-0018）
-- [ADR-0018](decisions/0018-cognito-user-pool-logical-id-replacement.md) — Cognito User Pool 論理 ID 変更による明示的 Replacement（accepted, #1366 再設計, 2026-04-21）
-- [ADR-0019](decisions/0019-cdk-replacement-detection-gate.md) — CDK Replacement Detection Gate（accepted）
-- [ADR-0020](decisions/0020-nuc-scheduler-choice.md) — NUC スケジューラ方式選定（node-cron + 専用コンテナ）（accepted, #1375, 2026-04-24）
-- [ADR-0021](decisions/0021-cognito-pool-migration-user-preservation.md) — Cognito Pool 移行におけるユーザー保全戦略（email natural key + export/import scripts）（accepted, #1399, 2026-04-24）
-- [ADR-0022](decisions/0022-admin-bypass-disable-qm-approve.md) — admin bypass 禁止と ganbariquestsupport-lab QM Approve 体制の確立（accepted, #1481, 2026-04-25）
-- [ADR-0024](decisions/0024-infra-pr-required-baseline.md) — インフラ PR 必須要件: ENV silent skip 禁止 + secrets validation + post-deploy smoke test + alarm（accepted, #1586, 2026-04-27）
-- [ADR-0025](decisions/0025-lp-ssot-html-injection-with-xss-protection.md) — LP SSOT 注入機構の innerHTML 化 + XSS 設計（DOMPurify）（**accepted, #1683 完遂 + #1704, 2026-04-30**）— 693 件 (LP 339 + Legal 354) 全件 SSOT 化を達成、`scripts/lp-ssot-baseline.json` は `count: 0`
-- [ADR-0026](decisions/0026-force-push-protection.md) — 致命修正コミットの force push による消失防止（accepted, #1750, 2026-04-30）— Branch Ruleset + 静的検査 (#1747) + Re-Review 機械チェックの多層防御
-- [ADR-0029](decisions/0029-lp-csp-and-cdn-sri-strategy.md) — LP CSP 多層防御 + CDN SRI / pin 戦略マトリクス（accepted, #1719, 2026-05-01）— `site/**` 全 10 ページに CSP meta tag を付与し、DOMPurify サニタイズ (ADR-0025) と並ぶ第二層を確立。特定 pin ライブラリは SRI 必須、major pin (DOMPurify @3 等) は CSP allowlist で守る方針を確定
-- [ADR-0030](decisions/0030-pre-ready-cli-and-no-pre-push-hook.md) — `npm run pre-ready` CLI 採用と pre-push hook 非採用（accepted, #1775, 2026-05-01）— Ready 化前の局所一括セルフチェックを新設し CI 自己言及循環 / PR body 禁止語混入 / 必須セクション欠落 / mergeable: CONFLICTING / ローカルチェック忘れの 5 パターン事故を解消。Husky / lefthook 等は Pre-PMF 段階で非採用
-- [ADR-0031](decisions/0031-adr-0023-deprecation-and-attribution-map.md) — ADR-0023 廃案 + sub-Issue 7 件帰属マップ（accepted, #1780, 2026-05-01）— ADR-0023 (LP マーケティングポリシー / LP SSOT 注入機構 第 2 世代) を Deprecated 化し、sub-Issue 7 件 (#1591/#1597/#1593/#1600/#1602/#1603/#1595) を ADR-0010 / 0011 / 0012 / 0013 / 0016 に分割帰属。新規ドキュメントが ADR-0023 を参照する場合は本 ADR §2 帰属マップで帰属先 ADR を確認すること
-- [ADR-0032](decisions/0032-lp-static-content-component-design.md) — LP 静的コンテンツ コンポーネント設計原則 (SOLID 監査 + 共通化方針)（accepted, #1849, 2026-05-02）— `site/**` の card / button / grid / section heading の重複 (5 ファイル / 9 箇所 card 直書き等) を audit し、BEM base + CSS 変数 variant を採用。`#1820` (R-CRT-2 装飾枠 5→1) / `#1846` / `#1847` の中途半端統一 symptom の構造的原因に「base class 不在」を特定。Phase 2 派生 refactor Issue は visual diff ゼロを AC 必須とし、別 ADR-0033 で Phase 2 ロードマップを管理する
-- [ADR-0042](decisions/0042-lp-spacing-layout-tokens.md) — LP CSS Spacing/Layout 3 層トークン化 (Base → Semantic → Component SSOT)（accepted, #1839 / #1850, 2026-05-02）— 過去 5 PR (#1759 / #1798 / #1827 / #1831 / #1836) で多層的に圧縮されてきた section padding / margin / faq-item padding を `site/shared.css` の `:root` に Base spacing 14 段階 (4px グリッド) + Semantic LP トークン 12 種で SSOT 化。`site/index.html` の主要 6 セレクタを Semantic 経由参照に置換 (Phase 1)。**#1840 累積監視機構 (PR #1841)** と相補的に機能し、実装側で多層化を防ぎ CI 側で累積膨張を検出する 2 層防御。ADR-0032 の SOLID 原則 + CSS 変数 variant の Spacing 軸具体化
-
-> **注**: #1307 (B9) / #1298 (B3) / #1346 (labels/i18n) / #1353 (variant/text-wrap) / #1366 (Cognito email) 派生で ADR-0011〜0018 が同時期に提案されている。ADR-0017 は Rejected で 0018 に supersede 済み (active 件数には ADR-0017 は含めない扱い)。10 枠上限ルールの 1-in-1-out は、まとまって merge されるタイミングでまとめて棚卸する（PO 判断）。本 CLAUDE.md の 10-active 表現は一時的に 11+ に膨らむ可能性がある。
->
-> 旧 0001-0044 のうち 25 件は `docs/decisions/archive/` に移動済み（archive ヘッダで supersede 先を明示）、5 件（旧 0002 / 0008 / 0009 / 0016 / 0027）は supersede chain 終端のため削除済み。詳細は `docs/decisions/README.md` と [adr-inventory-2026-04-20.md](decisions/adr-inventory-2026-04-20.md) を参照。
-
-## ADR 棚卸レポート
-
-- [adr-inventory-2026-04-19.md](decisions/adr-inventory-2026-04-19.md) — 旧 0001〜0039 の棚卸。0008 / 0009 / 0016 を supersede、active-primary 12 件特定
-- [adr-inventory-2026-04-20.md](decisions/adr-inventory-2026-04-20.md) — 新体系 0001-0010 + archive 25 件の最終棚卸（#1262 sub-7 完了）
-
-
-## 機能別設計経緯 (rationale) ドキュメント
-
-`docs/rationale/` は ADR（全プロダクト横断の哲学）と設計書（結論・仕様）の間にある「**なぜそう決めたか**」を保存する層。複数の代替案を比較検討した経緯・棄却理由・残された懸念など、設計書には収まらない narrative を記録する。ファイル命名: `NN-機能名-rationale.md`（NN は 2 桁連番）。テンプレートは `docs/rationale/_template.md`、運用ルール詳細は `docs/rationale/01-README.md` を参照。
-
-**いつ rationale を書くか**: (1) 複雑な新機能を実装するとき / (2) 既存機能の大きな方向転換時 / (3) 過去議論が再発する兆しが見えたとき。軽微な変更（バグ修正・設定値調整等）には不要。
-
-**ADR / 設計書 / memory との使い分け**: 全プロダクト横断のポリシー = ADR / 機能仕様の結論 = 設計書 / **機能設計の経緯・理由** = rationale / ユーザーローカル作業メモ = memory（チーム共有不可）
+**ADR 一覧の SSOT**: [`docs/decisions/README.md`](decisions/README.md)（インベントリ + supersede 関係）。本ファイルでは個別の ADR 番号は列挙しない。
 
 ## 設計書 3 部構成化原則 (#1329)
 
-設計書は「結論（what）」だけでなく「なぜこう設計されたか（why）」を含む 3 部構成を標準とする。この原則は B1-B9 で同じ議論が複数回再発した構造的原因の解消を目的として制定した。
+新規・改訂設計書は §1 設計背景 / §2 設計原則 / §3 仕様以降 の 3 部構成必須。背景には「この設計がなかった場合に何が困るか」を記述。`docs/design/_template.md` を骨格に使用。既存設計書も改訂時に §1-§2 を追加（後回し禁止）。
 
-### 3 部構成の定義
+適用済み: `01-企画書.md` / `26-ゲーミフィケーション設計書.md` / `34-V2MOM.md`。漸進適用: `06-UI設計書.md` / `07-API設計書.md` / `08-データベース設計書.md` / `15-ブランドガイドライン.md`。
 
-| 章 | 内容 | 目的 |
-|----|------|------|
-| **§1. 設計背景** | なぜこの機能/設計書が必要か、過去経緯、顧客ペルソナとの関係 | 新規参加者・時間経過した PO が設計経緯を復元できる |
-| **§2. 設計原則** | 基準となる原則（例: ポイント統一、Anti-engagement、ポジティブのみ） | 実装者が「これをやっていいか」を判断する SSOT |
-| **§3. 仕様以降** | 従来の「what」レベルの仕様（既存の章内容） | 具体的な実装・動作の定義 |
+## 機能別 rationale (`docs/rationale/`)
 
-### 新規設計書を作成するとき
+ADR (横断ポリシー) と設計書 (結論) の間に「なぜそう決めたか」を保存する層。複数代替案の比較・棄却理由・残懸念など narrative を記録。命名: `NN-機能名-rationale.md`。テンプレート / 運用ルール: `docs/rationale/01-README.md`。
 
-- `docs/design/_template.md` を骨格として使用する
-- §1〜§3 の 3 部構成を初版から含める
-- 背景章には「この設計がなかった場合に何が困るか」を必ず記述する
+書くタイミング: ① 複雑な新機能実装 / ② 既存機能の大方向転換 / ③ 過去議論再発の兆し。軽微変更には不要。
 
-### 既存設計書を改訂するとき
-
-- §1. 設計背景 が存在しない場合は、改訂と同時に追加してから仕様を更新する（背景章の追加を別 Issue に後回しにしない）
-- 設計原則の変更は Background + Rationale と共に記述し、既存コードへの影響を明記する
-
-### good/bad 例
-
-bad: `## 仕様` のみで構成され、なぜその仕様になったかの記述がない設計書
-
-good:
-```
-## 1. 設計背景
-既存の○○という問題を解決するために設計した。ペルソナ P1 が直面していた △△ という課題が出発点。
-
-## 2. 設計原則
-1. [原則名] — [判断基準になる説明]
-
-## 3. 仕様
-...
-```
-
-### 適用対象
-
-- `docs/design/01-企画書.md` — 適用済み（#1329）
-- `docs/design/26-ゲーミフィケーション設計書.md` — 適用済み（#1329）
-- `docs/design/34-V2MOM.md` — 適用済み（#1329）
-- `docs/design/06-UI設計書.md` — 漸進的に適用（改訂時に §1〜§2 を追加）
-- `docs/design/07-API設計書.md` — 漸進的に適用
-- `docs/design/08-データベース設計書.md` — 漸進的に適用
-- `docs/design/15-ブランドガイドライン.md` — 漸進的に適用
-
-## Issue 起票・チケット運用ルール
-
-Issue の起票運用・テンプレート（Blocked by / Blocks / Related / 工程区分 phase dropdown）・admin bypass 証跡等のルールは [`.github/CLAUDE.md`](../.github/CLAUDE.md) を SSOT とする。特に以下は設計書更新と密接に関わるため押さえておくこと:
-
-- **依存関係 3 分割フィールド** (`blocked_by` / `blocks` / `related`) — 起票時に「待つべき Issue」「自分が詰まるとブロックする Issue」「参考のみ」を分離する（#1261）
-- **工程区分 dropdown** (P0-P7 / N/A) — 下流 Phase は上流 Phase が閉じるまで着手しない（ADR / 企画 / アーキ未確定のまま実装に進まない）
-- Pre-PMF スコープ判断（ADR-0010）/ レビュー & AC 検証品質（ADR-0004）/ Issue 起票・クローズ品質（ADR-0003）
+**使い分け**: 横断ポリシー → ADR / 機能仕様の結論 → 設計書 / 機能設計の経緯・理由 → rationale / ユーザーローカル作業メモ → memory（チーム共有不可）
 
 ## ローカル Cognito 認証検証環境 (#1026)
 
-認証が絡む画面（login / signup / 管理画面 / ops / プラン別 UI）を目視検証するには `npm run dev:cognito` を使う。
-`npm run dev` の自動認証モードでは `/auth/login` が 302 redirect されてログインフォームが描画されず、UI 検証に使えない。
-
-### 起動
+認証画面 (login / signup / 管理 / ops / プラン別 UI) は `npm run dev:cognito` を使う（`npm run dev` は `/auth/login` を 302 redirect）。
 
 ```bash
-npm run dev:cognito
-# → AUTH_MODE=cognito COGNITO_DEV_MODE=true vite dev --port 5174 --strictPort
-# → http://localhost:5174 で Cognito モック認証が有効
-# → 既に 5174 が使用中だと即 fail する（--strictPort: #1168 で 5175 fallback の 500 回避）
-
-# signup ページは AUTH_MODE=cognito 単独起動が必要（COGNITO_DEV_MODE=true だと /auth/login にリダイレクトされるため）
-npm run dev:cognito-signup
+npm run dev:cognito         # AUTH_MODE=cognito + COGNITO_DEV_MODE=true、port 5174 (--strictPort)
+npm run dev:cognito-signup  # signup ページは COGNITO_DEV_MODE 無しが必要
 ```
 
-### DEV_USERS 一覧
+`DEV_USERS` SSOT: `src/lib/server/auth/providers/cognito-dev.ts`。owner / parent / child / free / standard / family / trial-expired / ops の 8 アカウントが定義されている（password / role / プラン状態は SSOT 参照）。
 
-| email | password | role | licenseStatus | plan | groups | 用途 |
-|-------|----------|------|---------------|------|--------|------|
-| `owner@example.com` | `Gq!Dev#Owner2026x` | owner | default (active) | - | - | 親管理画面の標準動作確認 |
-| `parent@example.com` | `Gq!Dev#Parent2026` | parent | default | - | - | 親ロール (非オーナー) 動作確認 |
-| `child@example.com` | `Gq!Dev#Child2026x` | child | default | - | - | 子供画面動作確認 |
-| `free@example.com` | `Gq!Dev#Free2026xy` | owner | `none` | なし | - | Free プランの機能ゲート確認 (#751) |
-| `standard@example.com` | `Gq!Dev#Std2026xyz` | owner | `active` | `standard_monthly` | - | Standard プラン機能疎通確認 (#779) |
-| `family@example.com` | `Gq!Dev#Fam2026xyz` | owner | `active` | `family_monthly` | - | Family プラン機能疎通確認 (#779) |
-| `trial-expired@example.com` | `Gq!Dev#TrialExp26` | owner | `none` | なし | - | トライアル期限切れフロー確認 (#752) |
-| `ops@example.com` | `Gq!Dev#Ops2026xyz` | owner | default | - | `ops` | /ops ダッシュボード認可確認 (#820) |
+使用必須: 認証画面変更 PR の Ready 前 / SS 撮影 / login / signup / ops group / プラン別 UI / 管理画面の変更時。
 
-(SSOT: `src/lib/server/auth/providers/cognito-dev.ts` の `DEV_USERS` 定義。追加・変更時は本表も更新すること)
+## Issue 運用 SSOT
 
-### いつ使うか
+Issue 起票運用・依存 3 分割 / 工程 phase / admin bypass 等は [.github/CLAUDE.md](../.github/CLAUDE.md) が SSOT。特に設計書同期に直結:
 
-- 認証が絡む画面を変更する PR の **Ready for Review 前のセルフチェック必須**
-- スクリーンショットを PR 本文に添付する際の撮影源（`npm run dev` で撮ると本来の画面が撮れない）
-- ログイン / サインアップ / パスワードリセット / ops group / プラン別 UI / 管理画面のどれかに触る場合は必ず起動
-
-## スクリーンショット撮影トラブルシュート
-
-PR スクリーンショット撮影 (`scripts/capture.mjs`) で頻発する問題の KB:
-
-- **SSOT**: `docs/troubleshoot/screenshot_capture.md` (SC-NNN 連番)
-- 既知の罠: `MSYS_NO_PATHCONV=1` 不在 / フル URL 二重結合 / `/demo/*` 不可 / worktree DB 空による `/setup/children` redirect / port 5173 衝突 / `waitForTimeout` flaky 等
-- 新規エラーに遭遇したら同 KB に追記する (`## SC-NNN — <タイトル>` で連番採番)
-
-`docs/troubleshoot/github_actions.md` (CI 失敗 KB) と同形式。
-
-## 画像アセット
-
-画像アセットを絵文字で代替してはならない（コアゲーム体験に関わるもの）。
-判断基準・アセットカタログ・生成方法は `docs/design/asset-catalog.md` を参照。
-Gemini API 画像生成ガイド: `docs/reference/gemini_image_generation_guide.md`
+- 依存 3 分割 (`blocked_by` / `blocks` / `related`) — #1261
+- 工程 phase (P0-P7 / N/A) — 下流は上流 close まで着手しない
+- ADR-0010 Pre-PMF / ADR-0004 AC 検証 / ADR-0003 Issue 品質
