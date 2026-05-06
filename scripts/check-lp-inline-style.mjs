@@ -2,8 +2,8 @@
 /**
  * scripts/check-lp-inline-style.mjs (#1851 Phase 2)
  *
- * site/*.html の <style>...</style> 内 / インライン style="" 内に存在する
- * 直書き padding / margin (= var(--*) 経由でない数値 px / em / rem) を検出する。
+ * site/*.html の <style>...</style> 内に存在する直書き padding / margin
+ * (= var(--*) 経由でない数値 px / em / rem) を検出する。
  *
  * 目的:
  *   #1839 / #1850 (Phase 1) で `--lp-*` Semantic トークンを整備した。
@@ -27,7 +27,7 @@
  * 検出対象外 (= 直書きを許容):
  *   - var(--*) 経由の参照 (例: `padding: var(--lp-section-padding-y)`)
  *   - 0 / auto 等の特殊値 (`padding:0` / `margin:0 auto`)
- *   - インライン style=""  (#1851 Phase 2 では対象外、Phase 3 で検討)
+ *   - インライン style="" (#1851 Phase 2 では対象外、Phase 3 で検討)
  *   - calc() 経由の値
  *
  * Exit code: baseline 超過違反 1 件以上で 1, 問題なければ 0
@@ -67,6 +67,16 @@ const BASELINE_PATH = resolve(REPO_ROOT, 'scripts/lp-inline-style-baseline.json'
 const JSON_OUTPUT = args.json === 'true';
 const UPDATE_BASELINE = args['update-baseline'] === 'true';
 
+const STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
+const DECL_RE = /(padding|margin)(?:-(?:block|inline|top|right|bottom|left))?\s*:\s*([^;}\n]+)/gi;
+const NUMERIC_UNIT_RE = /^-?\d+(\.\d+)?(px|em|rem|%)$/;
+const VAR_TOKEN_RE = /^var\(--[\w-]+\)$/;
+const VAR_LEADING_RE = /^var\(--/;
+const VAR_ONLY_VALUE_RE = /^[\s]*var\(--[\w-]+\)([\s]+(var\(--[\w-]+\)|[0]+|auto))*[\s]*$/;
+const ZERO_AUTO_ONLY_RE = /^(\s*(0|auto)\s*)+$/;
+const CALC_LEADING_RE = /^calc\(/;
+const SPECIAL_VALUES = new Set(['0', 'auto', 'inherit', 'unset', 'initial']);
+
 /**
  * site/ 直下の .html を列挙 (subdir は対象外、Phase 3 で help/ / legal 等に拡張可)
  */
@@ -83,13 +93,11 @@ function listSiteHtmlFiles() {
 }
 
 /**
- * <style>...</style> ブロックを抽出 (複数ある場合は連結)
+ * <style>...</style> ブロックを抽出 (複数ある場合はリスト化)
  */
 function extractStyleBlocks(html) {
 	const blocks = [];
-	const re = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
-	let m;
-	while ((m = re.exec(html)) !== null) {
+	for (const m of html.matchAll(STYLE_BLOCK_RE)) {
 		blocks.push({
 			content: m[1],
 			startOffset: m.index + m[0].indexOf('>') + 1,
@@ -110,6 +118,50 @@ function offsetToLine(html, offset) {
 }
 
 /**
+ * 値が許容パターン (0 / auto / var() のみ / calc() / 0+auto 組合せ) かを判定
+ */
+function isAllowedValue(value) {
+	if (SPECIAL_VALUES.has(value)) return true;
+	if (CALC_LEADING_RE.test(value)) return true;
+	if (ZERO_AUTO_ONLY_RE.test(value)) return true;
+	if (VAR_LEADING_RE.test(value) && VAR_ONLY_VALUE_RE.test(value)) return true;
+	const tokens = value.split(/\s+/);
+	const hasNumericUnit = tokens.some((t) => NUMERIC_UNIT_RE.test(t));
+	if (!hasNumericUnit) return true;
+	const allTokensAllowed = tokens.every((t) => VAR_TOKEN_RE.test(t) || t === '0' || t === 'auto');
+	return allTokensAllowed;
+}
+
+/**
+ * <style> ブロック 1 個から違反を抽出
+ */
+function findViolationsInBlock(block, html, sourceFile) {
+	const violations = [];
+	const lines = block.content.split('\n');
+	const relPath = relative(REPO_ROOT, sourceFile).replace(/\\/g, '/');
+	let lineOffset = 0;
+	for (const line of lines) {
+		for (const m of line.matchAll(DECL_RE)) {
+			const [full, prop, valueRaw] = m;
+			const value = valueRaw.trim();
+			if (isAllowedValue(value)) continue;
+			const lineInBlock = block.content.indexOf(line);
+			const absoluteOffset = block.startOffset + (lineInBlock >= 0 ? lineInBlock : 0);
+			const lineNumber = offsetToLine(html, absoluteOffset) + lineOffset;
+			violations.push({
+				file: relPath,
+				line: lineNumber,
+				property: prop,
+				declaration: full.trim(),
+				value,
+			});
+		}
+		lineOffset++;
+	}
+	return violations;
+}
+
+/**
  * <style> ブロック内の直書き padding/margin を検出
  *
  * 許容パターン:
@@ -127,61 +179,7 @@ function findInlineStyleViolations(html, sourceFile) {
 	const violations = [];
 	const blocks = extractStyleBlocks(html);
 	for (const block of blocks) {
-		const lines = block.content.split('\n');
-		let lineOffset = 0;
-		for (const line of lines) {
-			// 1 行内に複数 declaration がありうる (CSS の慣習: `;` で区切る)
-			// 行頭から行末まで走査し、padding/margin declaration を抽出
-			const declRe =
-				/(padding|margin)(?:-(?:block|inline|top|right|bottom|left))?\s*:\s*([^;}\n]+)/gi;
-			let m;
-			while ((m = declRe.exec(line)) !== null) {
-				const [full, prop, valueRaw] = m;
-				const value = valueRaw.trim();
-				// 許容パターン判定
-				if (
-					value === '0' ||
-					value === 'auto' ||
-					value === 'inherit' ||
-					value === 'unset' ||
-					value === 'initial'
-				)
-					continue;
-				if (/^var\(--/.test(value)) {
-					// var(--*) のみで構成 (multiple values も含む)
-					if (/^[\s]*var\(--[\w-]+\)([\s]+(var\(--[\w-]+\)|[0]+|auto))*[\s]*$/.test(value))
-						continue;
-				}
-				if (/^calc\(/.test(value)) continue;
-				// Multi-token value: var() と直値混在 (e.g., "var(--x) 16px") → 違反扱い
-				// auto + 0 のみの組合せは許容 (例: "0 auto")
-				if (/^(\s*(0|auto)\s*)+$/.test(value)) continue;
-				// 全 token を分解して、数値+単位 (px/em/rem/%) が 1 個でも含まれれば違反
-				const tokens = value.split(/\s+/);
-				const hasNumericUnit = tokens.some((t) => /^-?\d+(\.\d+)?(px|em|rem|%)$/.test(t));
-				if (!hasNumericUnit) continue;
-
-				// 全 token が var() または 0/auto のみであれば許容 (上で漏れたケース対応)
-				const allTokensAllowed = tokens.every(
-					(t) => /^var\(--[\w-]+\)$/.test(t) || /^(0|auto)$/.test(t),
-				);
-				if (allTokensAllowed) continue;
-
-				// 違反として記録
-				const lineNumberInBlock = lineOffset;
-				const absoluteOffset =
-					block.startOffset + (block.content.indexOf(line) >= 0 ? block.content.indexOf(line) : 0);
-				const lineNumber = offsetToLine(html, absoluteOffset) + lineNumberInBlock;
-				violations.push({
-					file: relative(REPO_ROOT, sourceFile).replace(/\\/g, '/'),
-					line: lineNumber,
-					property: prop,
-					declaration: full.trim(),
-					value,
-				});
-			}
-			lineOffset++;
-		}
+		violations.push(...findViolationsInBlock(block, html, sourceFile));
 	}
 	return violations;
 }
@@ -204,11 +202,14 @@ function saveBaseline(totals) {
 		totals,
 		generatedAt: new Date().toISOString(),
 	};
-	writeFileSync(BASELINE_PATH, JSON.stringify(data, null, '\t') + '\n', 'utf-8');
+	const json = JSON.stringify(data, null, '\t');
+	writeFileSync(BASELINE_PATH, `${json}\n`, 'utf-8');
 }
 
-function main() {
-	const files = listSiteHtmlFiles();
+/**
+ * ファイル一覧を走査し、各ファイルの violation 数 + 全 violation 詳細を返す
+ */
+function collectViolations(files) {
 	const allViolations = [];
 	const fileTotals = {};
 	for (const file of files) {
@@ -218,18 +219,13 @@ function main() {
 		fileTotals[rel] = v.length;
 		allViolations.push(...v);
 	}
+	return { allViolations, fileTotals };
+}
 
-	if (UPDATE_BASELINE) {
-		saveBaseline(fileTotals);
-		if (!JSON_OUTPUT) {
-			console.log(`[update-baseline] saved ${BASELINE_PATH}`);
-			console.log(`[update-baseline] totals:`, fileTotals);
-		}
-		return 0;
-	}
-
-	const baseline = loadBaseline();
-	const baselineTotals = baseline.totals || {};
+/**
+ * baseline と現状 totals を比較して exceedances を計算
+ */
+function calculateExceedances(fileTotals, baselineTotals) {
 	const exceedances = [];
 	for (const [file, count] of Object.entries(fileTotals)) {
 		const allowed = baselineTotals[file] ?? 0;
@@ -237,6 +233,50 @@ function main() {
 			exceedances.push({ file, baseline: allowed, current: count, delta: count - allowed });
 		}
 	}
+	return exceedances;
+}
+
+function printHumanReport(fileTotals, baselineTotals, exceedances) {
+	console.log('[check-lp-inline-style] file totals:');
+	for (const [file, count] of Object.entries(fileTotals).sort()) {
+		const allowed = baselineTotals[file] ?? 0;
+		let marker = ' [BELOW]';
+		if (count > allowed) marker = ' [EXCEEDS]';
+		else if (count === allowed) marker = ' [OK]';
+		console.log(`  ${file}: ${count} (baseline: ${allowed})${marker}`);
+	}
+	if (exceedances.length > 0) {
+		console.log('\n[FAIL] baseline exceeded:');
+		for (const e of exceedances) {
+			console.log(`  ${e.file}: ${e.current} > ${e.baseline} (delta +${e.delta})`);
+		}
+		console.log(
+			'\nFix:\n' +
+				'  1. 新規追加した padding/margin が構造的なら --lp-* Semantic トークン (site/shared.css) 経由で参照する\n' +
+				'  2. ローカル装飾値で意図的に増加させる場合は --update-baseline で baseline 更新 (PR レビューで合意必須)\n' +
+				'  3. ADR-0042 / docs/DESIGN.md §4 LP Spacing/Layout 章を参照',
+		);
+	} else {
+		console.log('\n[OK] all files within baseline');
+	}
+}
+
+function main() {
+	const files = listSiteHtmlFiles();
+	const { allViolations, fileTotals } = collectViolations(files);
+
+	if (UPDATE_BASELINE) {
+		saveBaseline(fileTotals);
+		if (!JSON_OUTPUT) {
+			console.log(`[update-baseline] saved ${BASELINE_PATH}`);
+			console.log('[update-baseline] totals:', fileTotals);
+		}
+		return 0;
+	}
+
+	const baseline = loadBaseline();
+	const baselineTotals = baseline.totals || {};
+	const exceedances = calculateExceedances(fileTotals, baselineTotals);
 
 	if (JSON_OUTPUT) {
 		console.log(
@@ -252,26 +292,7 @@ function main() {
 			),
 		);
 	} else {
-		console.log('[check-lp-inline-style] file totals:');
-		for (const [file, count] of Object.entries(fileTotals).sort()) {
-			const allowed = baselineTotals[file] ?? 0;
-			const marker = count > allowed ? ' [EXCEEDS]' : count === allowed ? ' [OK]' : ' [BELOW]';
-			console.log(`  ${file}: ${count} (baseline: ${allowed})${marker}`);
-		}
-		if (exceedances.length > 0) {
-			console.log('\n[FAIL] baseline exceeded:');
-			for (const e of exceedances) {
-				console.log(`  ${e.file}: ${e.current} > ${e.baseline} (delta +${e.delta})`);
-			}
-			console.log(
-				'\nFix:\n' +
-					'  1. 新規追加した padding/margin が構造的なら --lp-* Semantic トークン (site/shared.css) 経由で参照する\n' +
-					'  2. ローカル装飾値で意図的に増加させる場合は --update-baseline で baseline 更新 (PR レビューで合意必須)\n' +
-					'  3. ADR-0042 / docs/DESIGN.md §4 LP Spacing/Layout 章を参照',
-			);
-		} else {
-			console.log('\n[OK] all files within baseline');
-		}
+		printHumanReport(fileTotals, baselineTotals, exceedances);
 	}
 
 	return exceedances.length > 0 ? 1 : 0;
