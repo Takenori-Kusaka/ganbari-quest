@@ -4327,28 +4327,6 @@ export const LP_VERSUS_LABELS = {
 } as const;
 
 // ============================================================
-// LP Hero 直後 StoryBrand Guide ブロック — #1784
-// 「なぜがんばりクエストは『卒業』を成功と呼ぶのか」を 1 scrshot + 3 行で訴求
-// StoryBrand 7 要素の Guide（信頼できる導き手）に該当
-// SSOT: site/index.html [01b] guide セクション用ラベル
-// ============================================================
-
-export const LP_GUIDE_LABELS = {
-	sectionTitle: 'なぜがんばりクエストは「卒業」を成功と呼ぶのか',
-	sectionDesc:
-		'長く使ってもらうためのアプリではなく、子供が自律したら卒業するアプリとして設計しています。',
-	pointAntiEngagementTitle: '滞在時間を伸ばさない設計',
-	pointAntiEngagementDesc:
-		'連続演出や通知連打は採用しません。記録は数秒で終わるのが正しい使い方です。',
-	pointCoreTargetTitle: '3-18 歳のコアターゲット',
-	pointCoreTargetDesc:
-		'年齢が上がるほど自分でペースを決められるよう、UI と機能が段階的に変わります。',
-	pointFamilyOnlyTitle: '家族だけの閉じた空間',
-	pointFamilyOnlyDesc: '広告も他家庭との比較もありません。子供のがんばりは家族にしか見えません。',
-	shotAlt: 'がんばりクエストの代表画面 — ポイントとカテゴリの可視化',
-} as const;
-
-// ============================================================
 // LP [05b] 年齢別成長ロードマップ — 卒業を最終地点に (#1613 R9)
 // StoryBrand 7 要素「Success」と整合
 // SSOT: site/index.html [05b] セクション用ラベル

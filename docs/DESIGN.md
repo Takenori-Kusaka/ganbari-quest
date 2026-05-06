@@ -477,7 +477,6 @@ UI に表示されるラベル・用語は `src/lib/domain/labels.ts` を Single
 | `BABY_HOME_LABELS` | const |  |
 | `ONBOARDING_LABELS` | const |  |
 | `LP_VERSUS_LABELS` | const |  |
-| `LP_GUIDE_LABELS` | const |  |
 | `LP_GROWTH_ROADMAP_LABELS` | const |  |
 | `LP_CORELOOP_LABELS` | const |  |
 | `CHILD_SHOP_LABELS` | const |  |

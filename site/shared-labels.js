@@ -245,17 +245,6 @@
 			"seniorShotAlt": "高校生ホーム画面 — 15 年分のログと進路素材",
 			"graduateShotAlt": "卒業画面 — 履歴エクスポートと家族の手元に残す記録"
 		},
-		"guide": {
-			"sectionTitle": "なぜがんばりクエストは「卒業」を成功と呼ぶのか",
-			"sectionDesc": "長く使ってもらうためのアプリではなく、子供が自律したら卒業するアプリとして設計しています。",
-			"pointAntiEngagementTitle": "滞在時間を伸ばさない設計",
-			"pointAntiEngagementDesc": "連続演出や通知連打は採用しません。記録は数秒で終わるのが正しい使い方です。",
-			"pointCoreTargetTitle": "3-18 歳のコアターゲット",
-			"pointCoreTargetDesc": "年齢が上がるほど自分でペースを決められるよう、UI と機能が段階的に変わります。",
-			"pointFamilyOnlyTitle": "家族だけの閉じた空間",
-			"pointFamilyOnlyDesc": "広告も他家庭との比較もありません。子供のがんばりは家族にしか見えません。",
-			"shotAlt": "がんばりクエストの代表画面 — ポイントとカテゴリの可視化"
-		},
 		"pricing": {
 			"pageTitle": "料金プラン - がんばりクエスト",
 			"metaDescription": "がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円（税込）、ファミリー月額780円（税込）。すべての有料プランに7日間の無料体験付き。",
