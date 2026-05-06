@@ -34,6 +34,7 @@ const TMP_DIR = join(REPO_ROOT, 'tmp', 'pr-bodies');
 
 const VALID_KINDS = /** @type {const} */ (['default', 'lp', 'critical-fix', 'refactor-ssot']);
 
+/** @type {Record<string, string>} */
 const TYPE_LABEL_TO_CHECKBOX = {
 	'type:feat': 'feat: 新機能',
 	'type:fix': 'fix: バグ修正',
@@ -57,22 +58,24 @@ const ALL_TYPE_CHECKBOX_LINES = [
 ];
 
 /**
- * @returns {{ issue: string; kind: string; force: boolean; help: boolean }}
+ * @returns {{ issue: string | null; kind: string; force: boolean; help: boolean }}
  */
 function parseArgs() {
 	const args = process.argv.slice(2);
+	/** @type {string | null} */
 	let issue = null;
+	/** @type {string} */
 	let kind = 'default';
 	let force = false;
 	let help = false;
 	for (let i = 0; i < args.length; i++) {
 		const a = args[i];
 		if (a === '--issue' && i + 1 < args.length) {
-			issue = args[++i];
+			issue = args[++i] ?? null;
 		} else if (a?.startsWith('--issue=')) {
 			issue = a.slice('--issue='.length);
 		} else if (a === '--kind' && i + 1 < args.length) {
-			kind = args[++i];
+			kind = args[++i] ?? 'default';
 		} else if (a?.startsWith('--kind=')) {
 			kind = a.slice('--kind='.length);
 		} else if (a === '--force' || a === '-f') {
@@ -118,7 +121,7 @@ Placeholder replacement:
 export function toSlug(title) {
 	if (!title) return 'pr';
 	// Issue title から ASCII 部分を優先抽出。日本語タイトルでも `:`・`#` 後の英数字を拾う
-	let normalized = title
+	const normalized = title
 		.replace(/[#:]/g, ' ')
 		.replace(/[^\x20-\x7E぀-ヿ一-龯]/g, ' ')
 		.trim();
@@ -151,7 +154,9 @@ function fetchIssue(num) {
 	return {
 		title: data.title || '',
 		body: data.body || '',
-		labels: Array.isArray(data.labels) ? data.labels.map((l) => l.name) : [],
+		labels: Array.isArray(data.labels)
+			? data.labels.map((/** @type {{ name: string }} */ l) => l.name)
+			: [],
 	};
 }
 
@@ -198,12 +203,12 @@ export function extractAcTable(body) {
 
 	const dataRows = acLines.map((line, idx) => {
 		// `- [ ] **AC1**: 内容` / `- [x] AC1 内容` / `- [ ] 内容` の三型を吸収
-		let content = line.replace(/^[-*]\s+\[[x ]\]\s*/i, '');
+		const content = line.replace(/^[-*]\s+\[[x ]\]\s*/i, '');
 		// `**AC1**:` のような bold 番号付き形式を抽出
 		const acIdMatch = content.match(/^\*{0,2}(AC\d+|AC-\d+|\d+\.?)\*{0,2}\s*[:：]?\s*/i);
 		let acId;
 		let acBody;
-		if (acIdMatch) {
+		if (acIdMatch && acIdMatch[1]) {
 			acId = acIdMatch[1].replace(/^\d+\.?$/, (s) => `AC${s.replace(/\.$/, '')}`);
 			acBody = content.slice(acIdMatch[0].length).trim();
 		} else {
@@ -226,6 +231,7 @@ export function extractAcTable(body) {
  * @returns {string}
  */
 export function buildTypeCheckboxes(labels) {
+	/** @type {Set<string>} */
 	const matchedDescriptions = new Set();
 	for (const label of labels) {
 		const desc = TYPE_LABEL_TO_CHECKBOX[label];
@@ -262,16 +268,18 @@ async function main() {
 		printHelp();
 		return 1;
 	}
-	if (!/^\d+$/.test(args.issue)) {
-		console.error(`エラー: --issue は数値のみ。受信: ${args.issue}`);
+	const issueArg = args.issue;
+	if (!/^\d+$/.test(issueArg)) {
+		console.error(`エラー: --issue は数値のみ。受信: ${issueArg}`);
 		return 1;
 	}
-	if (!VALID_KINDS.includes(args.kind)) {
+	if (!VALID_KINDS.includes(/** @type {(typeof VALID_KINDS)[number]} */ (args.kind))) {
 		console.error(`エラー: --kind は ${VALID_KINDS.join(' / ')} のいずれか。受信: ${args.kind}`);
 		return 1;
 	}
+	const kind = /** @type {(typeof VALID_KINDS)[number]} */ (args.kind);
 
-	const templatePath = join(TEMPLATES_DIR, `pr-body-${args.kind}.md`);
+	const templatePath = join(TEMPLATES_DIR, `pr-body-${kind}.md`);
 	if (!existsSync(templatePath)) {
 		console.error(`エラー: 雛形ファイルが見つかりません: ${templatePath}`);
 		return 2;
@@ -279,7 +287,7 @@ async function main() {
 
 	let issueData;
 	try {
-		issueData = fetchIssue(args.issue);
+		issueData = fetchIssue(issueArg);
 	} catch (err) {
 		console.error('エラー: gh issue view 失敗:', err instanceof Error ? err.message : err);
 		console.error('gh が認証済みであることを確認してください: gh auth status');
@@ -287,7 +295,7 @@ async function main() {
 	}
 
 	const slug = toSlug(issueData.title);
-	const outputPath = join(TMP_DIR, `${args.issue}-${slug}.md`);
+	const outputPath = join(TMP_DIR, `${issueArg}-${slug}.md`);
 
 	if (existsSync(outputPath) && !args.force) {
 		console.error(`エラー: 既存ファイルを上書きしません: ${relative(REPO_ROOT, outputPath)}`);
@@ -298,7 +306,7 @@ async function main() {
 	mkdirSync(TMP_DIR, { recursive: true });
 	const template = readFileSync(templatePath, 'utf-8');
 	const rendered = renderTemplate(template, {
-		issueNumber: args.issue,
+		issueNumber: issueArg,
 		issueTitle: issueData.title,
 		acTable: extractAcTable(issueData.body),
 		typeCheckboxes: buildTypeCheckboxes(issueData.labels),
@@ -307,8 +315,8 @@ async function main() {
 	writeFileSync(outputPath, rendered, 'utf-8');
 
 	console.log(`✓ PR body 雛形を生成しました`);
-	console.log(`  Issue: #${args.issue} ${issueData.title}`);
-	console.log(`  Kind: ${args.kind}`);
+	console.log(`  Issue: #${issueArg} ${issueData.title}`);
+	console.log(`  Kind: ${kind}`);
 	console.log(`  Labels: ${issueData.labels.join(', ') || '(none)'}`);
 	console.log(`  出力先: ${relative(REPO_ROOT, outputPath)}`);
 	console.log('');
@@ -319,7 +327,7 @@ async function main() {
 	);
 	console.log(`  3. node scripts/check-gh-account-before-pr.mjs で gh アカウント確認`);
 	console.log(
-		`  4. gh pr create --draft --title "<type>: #${args.issue} <subject>" --body-file ${relative(REPO_ROOT, outputPath)}`,
+		`  4. gh pr create --draft --title "<type>: #${issueArg} <subject>" --body-file ${relative(REPO_ROOT, outputPath)}`,
 	);
 	console.log(`  5. 完了後: rm ${relative(REPO_ROOT, outputPath)}`);
 	return 0;
