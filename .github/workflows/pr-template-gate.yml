@@ -123,12 +123,19 @@ jobs:
             }
 
             // テンプレートから 'closes #' を含むセクション見出しを動的取得
+            // (#1855) lookahead は次の `## ` 見出しまでで打ち切る (change-type 検出と同じ理由)
             const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
             const templateLines = template.split('\n');
             let issueSectionHeading = '## 関連 Issue';
             for (let i = 0; i < templateLines.length; i++) {
               if (/^## /.test(templateLines[i])) {
-                const lookahead = templateLines.slice(i + 1, i + 15);
+                const sectionEndIdx = templateLines.findIndex(
+                  (l, idx) => idx > i && /^## /.test(l)
+                );
+                const lookaheadEnd = sectionEndIdx === -1
+                  ? Math.min(i + 15, templateLines.length)
+                  : sectionEndIdx;
+                const lookahead = templateLines.slice(i + 1, lookaheadEnd);
                 if (lookahead.some(l => /closes\s+#/.test(l))) {
                   issueSectionHeading = templateLines[i].trim();
                   break;
@@ -222,12 +229,22 @@ jobs:
 
             // テンプレートから複数の - [ ] チェックボックスを持つ最初のセクション見出しを動的取得
             // 変更タイプセクションの判定: 3 行以上の - [ ] が連続するセクション
+            // (#1855) lookahead は次の `## ` 見出しまでで打ち切る。固定 19 行 lookahead
+            // だと境界を跨いで次セクションの `- [ ]` を拾い「## 関連 Issue」等を
+            // 変更タイプ section として誤検出する事故を防ぐ。
             const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
             const templateLines = template.split('\n');
             let changeTypeSectionHeading = '## 変更タイプ';
             for (let i = 0; i < templateLines.length; i++) {
               if (/^## /.test(templateLines[i])) {
-                const lookahead = templateLines.slice(i + 1, i + 20);
+                // 次の `## ` 見出しまでを section の範囲とする (最大 50 行までで打ち切り)
+                const sectionEndIdx = templateLines.findIndex(
+                  (l, idx) => idx > i && /^## /.test(l)
+                );
+                const lookaheadEnd = sectionEndIdx === -1
+                  ? Math.min(i + 50, templateLines.length)
+                  : sectionEndIdx;
+                const lookahead = templateLines.slice(i + 1, lookaheadEnd);
                 if (lookahead.filter(l => /^- \[ \]/.test(l)).length >= 3) {
                   changeTypeSectionHeading = templateLines[i].trim();
                   break;
