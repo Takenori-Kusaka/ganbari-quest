@@ -160,7 +160,7 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 - **CI 緑 = approve**（#1197 / #1198）/ SS 未視認で approve / Issue を開かず approve / 「見ました」だけの所見
 - 1 Agent で複数 PR / 独自フォーマットの approve body / `--admin` bypass（ADR-0022 完全禁止）
 - CI 失敗のゼロベーストラブルシュート（KB 参照 → Fix Agent spawn が標準）
-- **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）
+- **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は機械強制機構（#1879、`.claude/settings.json` PreToolUse hook + `.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`）で abort される — ADR-0022 amendment 3 参照。
 
 ## Dependabot / 品質基準
 

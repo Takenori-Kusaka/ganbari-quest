@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+# .husky/pre-push (#1879)
+#
+# git push 直前に active gh アカウントが Takenori-Kusaka であることを検証する。
+# QA アカウント (ganbariquestsupport-lab) のままでの push を機械的に防止し、
+# その後の `gh pr create` での起票アカウント違反を構造的に発生させない。
+#
+# 既存ガード scripts/check-gh-account-before-pr.mjs を再利用 (二重定義回避)。
+#
+# 関連: ADR-0022 amendment 1 / amendment 3 (#1879) / docs/sessions/qa-session.md
+#
+# bypass: --no-verify は禁止 (ADR-0026 に追記予定 / 本 hook の存在意義を毀損)。
+
+node scripts/check-gh-account-before-pr.mjs

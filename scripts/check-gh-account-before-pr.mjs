@@ -15,6 +15,13 @@
  * 使用法:
  *   node scripts/check-gh-account-before-pr.mjs
  *
+ * 呼出経路 (#1879 で機械的強制機構を 2 経路に拡張):
+ *   1. 手動: PR 作成 Agent / Dev が `gh pr create` 直前に明示実行
+ *   2. `.husky/pre-push`: `git push` 直前に husky hook 経由で自動実行 (#1879)
+ *
+ * Claude Code セッション経由の `gh pr create` には別経路の hook が併設されている:
+ *   - `.claude/settings.json` PreToolUse → `scripts/claude-hook-prevent-qa-account-pr.mjs`
+ *
  * 終了コード:
  *   0 = active アカウントが ALLOWED_PR_AUTHOR と一致 (PR 作成可)
  *   1 = active アカウントが不一致 / 未ログイン / gh コマンド失敗 (PR 作成不可)
