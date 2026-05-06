@@ -20,6 +20,35 @@ description: Use when implementing features, fixing bugs, writing tests, managin
 
 Issue の Acceptance Criteria を全て満たし、QA が一発で Approve できる品質の PR を提出する。
 
+## Dev Agent 共通制約 (spawn 時に毎回適用される SSOT — #1862)
+
+メインセッションが Dev Agent を spawn する際、prompt 内で「**`.claude/agents/dev-session.md` 規約準拠**」と 1 行参照すれば以下が自動適用される。spawn 側で個別記述不要。
+
+### Git 運用
+
+- **worktree モード推奨**（isolation: "worktree"、`.claude/worktrees/...`）
+- **amend 禁止、新規コミットで対応**（CLAUDE.md 全体ルール）
+- **`--no-verify` 禁止**、hooks 失敗時は根本原因を直す（assertion 弱体化禁止 ADR-0006）
+- push は **`--force-with-lease`**（ADR-0026 force push 禁止）
+
+### 検証
+
+- **`npm run pre-ready -- --pr <num>` で全 7 Step PASS**（ADR-0030）— biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / check-pr-body / capture を順次実行
+- 失敗があれば修正 → 再 push → CI 緑確認まで完結
+
+### PR 運用
+
+- PR body 必須セクション欠落・禁止語があれば修正（`scripts/check-pr-body.mjs` が検出）
+- **merge は QM/POREVIEWER 責務**。自分で `gh pr merge` しない（feedback_no_autonomous_qa_merge.md / ADR-0022）
+- `gh pr ready` までが Dev Agent の範囲
+
+### 報告フォーマット
+
+完了時に 200 字程度で:
+- 作業結果（実装内容 / 衝突解消方針 / 検証結果）
+- PR 最終状態（Ready / mergeable / CI）
+- 残課題があれば明記
+
 ## 作業の進め方
 
 ### コミット前チェック（全て通過必須）
