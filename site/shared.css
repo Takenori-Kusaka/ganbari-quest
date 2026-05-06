@@ -97,6 +97,71 @@
 	--lp-card-padding-y: var(--space-5); /* card 系 (.tour-card / .soft-card 等) 縦 padding 標準値 */
 	--lp-card-padding-x: var(--space-4); /* card 系 横 padding 標準値 */
 	--lp-card-gap: var(--space-5); /* .machine-tour / .soft-grid のグリッド間隔 */
+	/* #1851 Phase 2: 残り構造的 padding/margin の Semantic トークン化。
+	   tour-card / soft-card / trust-badge / versus-card / plan-card / floating-cta /
+	   faq / pp-band / hero h1 等の構造的 spacing を SSOT 化する。値は Phase 1 と同じく
+	   過去 PR (#1759 / #1798 / #1827 / #1831 / #1836) で圧縮されている値を踏襲。
+	   ローカル装飾値 (gap / 微小余白等) は SSOT 肥大化回避のため対象外。 */
+	--lp-tour-card-padding-y: var(--space-4); /* .tour-card 縦 padding 既定 (16px) */
+	--lp-tour-card-padding-x: 14px; /* .tour-card 横 padding 既定 (4px グリッド外、直値) */
+	--lp-tour-card-padding-y-md: var(--space-6); /* .tour-card @≥1024px (24px) */
+	--lp-tour-card-padding-x-md: 22px; /* .tour-card @≥1024px (4px グリッド外、直値) */
+	--lp-tour-card-padding-y-lg: var(--space-7); /* .tour-card @≥1440px (28px) */
+	--lp-tour-card-padding-x-lg: var(--space-6); /* .tour-card @≥1440px (24px) */
+	--lp-soft-card-padding-y: var(--space-5); /* .soft-card 縦 padding (20px) */
+	--lp-soft-card-padding-x: 18px; /* .soft-card 横 padding (4px グリッド外、直値) */
+	--lp-trust-badge-padding-y: var(--space-6); /* .trust-badge 縦 padding (24px) */
+	--lp-trust-badge-padding-x: var(--space-5); /* .trust-badge 横 padding (20px) */
+	--lp-trust-badge-padding-y-lg: var(--space-5); /* .trust-badge @≥1024px (20px) */
+	--lp-trust-badge-padding-x-lg: var(--space-4); /* .trust-badge @≥1024px (16px) */
+	--lp-trust-disclaimer-margin-top: var(--space-8); /* .trust-disclaimer 上マージン (32px) */
+	--lp-trust-disclaimer-padding-y: var(--space-4); /* .trust-disclaimer 上下 padding (16px) */
+	--lp-trust-disclaimer-padding-x: var(--space-5); /* .trust-disclaimer 横 padding (20px) */
+	--lp-versus-card-padding-y: 10px; /* .versus-card 縦 padding (4px グリッド外、PR #1614 R10) */
+	--lp-versus-card-padding-x: var(--space-3); /* .versus-card 横 padding (12px) */
+	--lp-versus-card-padding-y-sm: var(--space-2); /* .versus-card @≤640px (8px) */
+	--lp-versus-card-padding-x-sm: 10px; /* .versus-card @≤640px (4px グリッド外) */
+	--lp-pp-band-padding-y: var(--space-6); /* .pp-band 縦 padding (24px) */
+	--lp-pp-band-padding-x: 22px; /* .pp-band 横 padding (4px グリッド外) */
+	--lp-pp-band-padding-y-sm: 18px; /* .pp-band @≤640px 縦 padding (4px グリッド外) */
+	--lp-pp-band-padding-x-sm: 14px; /* .pp-band @≤640px 横 padding (4px グリッド外) */
+	--lp-floating-cta-padding-y: 10px; /* .floating-cta 縦 padding (4px グリッド外) */
+	--lp-floating-cta-padding-x: var(--space-4); /* .floating-cta 横 padding (16px) */
+	--lp-floating-cta-btn-padding-y: var(--space-2); /* .floating-cta .btn 縦 padding (8px) */
+	--lp-floating-cta-btn-padding-x: var(--space-4); /* .floating-cta .btn 横 padding (16px) */
+	--lp-age-panel-padding-y: var(--space-8); /* .age-panel 縦 padding (32px) */
+	--lp-age-panel-padding-x: var(--space-7); /* .age-panel 横 padding (28px) */
+	--lp-age-panel-padding-y-sm: var(--space-6); /* .age-panel @≤640px 縦 padding (24px) */
+	--lp-age-panel-padding-x-sm: var(--space-5); /* .age-panel @≤640px 横 padding (20px) */
+	--lp-core-loop-card-padding: 18px; /* .core-loop-card 上下左右 (4px グリッド外) */
+	--lp-growth-roadmap-padding-y: var(--space-6); /* #growth-roadmap 縦 padding (24px) */
+	--lp-growth-roadmap-padding-x: var(--space-4); /* #growth-roadmap 横 padding (16px) */
+	--lp-versus-section-padding-y: var(--space-4); /* #versus 縦 padding (16px) */
+	--lp-versus-section-padding-x: var(--space-4); /* #versus 横 padding (16px) */
+	/* pricing.html (#1851 AC3): plan-card / pricing-hero / trial-box 等の構造的 spacing */
+	--lp-pricing-hero-padding-top: 80px; /* 4px グリッド (16×5)、Base 未定義のため直値 */
+	--lp-pricing-hero-padding-bottom: 60px; /* 4px グリッド (4×15)、Base 未定義のため直値 */
+	--lp-pricing-hero-padding-x: var(--space-4); /* 16px */
+	--lp-plans-section-padding-y-top: var(--space-12); /* 48px */
+	--lp-plans-section-padding-y-bottom: var(--space-16); /* 64px */
+	--lp-plans-section-padding-x: var(--space-4); /* 16px */
+	--lp-plan-card-padding-y: var(--space-8); /* 32px */
+	--lp-plan-card-padding-x: var(--space-6); /* 24px */
+	--lp-trial-section-padding-y: var(--space-16); /* 64px */
+	--lp-trial-section-padding-x: var(--space-4); /* 16px */
+	--lp-trial-box-padding-y: var(--space-10); /* 40px */
+	--lp-trial-box-padding-x: var(--space-8); /* 32px */
+	--lp-trial-box-padding-y-sm: var(--space-7); /* 28px @≤640px */
+	--lp-trial-box-padding-x-sm: var(--space-5); /* 20px @≤640px */
+	--lp-faq-section-padding-y: var(--space-16); /* 64px */
+	--lp-faq-section-padding-x: var(--space-4); /* 16px */
+	--lp-cta-bottom-padding-y: var(--space-16); /* 64px */
+	--lp-cta-bottom-padding-x: var(--space-4); /* 16px */
+	--lp-family-patterns-padding-y: var(--space-16); /* 64px */
+	--lp-family-patterns-padding-x: var(--space-4); /* 16px */
+	--lp-pattern-card-padding: var(--space-6); /* 24px */
+	--lp-comparison-section-padding-x: var(--space-4); /* 16px */
+	--lp-comparison-section-padding-bottom: var(--space-16); /* 64px */
 	/* Layout */
 	--lp-container-max: 1080px; /* セクション内の最大幅 (header-inner / footer-inner / section-inner 共通) */
 	--lp-container-max-wide: 1280px; /* hero / machine-tour / guide 用ワイド版 */

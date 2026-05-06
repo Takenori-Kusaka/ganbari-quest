@@ -240,10 +240,10 @@ LP (`site/index.html`) の section padding / margin / heading / faq-item など 
 
 - 定義: `site/shared.css` の `:root` ブロック (`--space-*` Base + `--lp-*` Semantic)
 - 参照: `site/index.html` `<style>` ブロック (Component セレクタ)
-- 段階適用 (Issue #1839):
-  - Phase 1: `:root` トークン整備 + 主要 6 セレクタ (`.section` / `.section-title` / `.section-desc` / `.hero` / `.faq-item` / `#core-loop`) の置換 (本 PR)。当初 `.cta-bottom` も対象だったが PR #1842 (#1838) で section ごと削除されたため Phase 1 範囲外
-  - Phase 2 (別 Issue): stylelint で hard-fail 化、残りの直書き値を全置換
-  - Phase 3 (別 Issue): pricing.html / pamphlet.html / faq.html へ波及
+- 段階適用 (Issue #1839 / #1851):
+  - **Phase 1 (PR #1850、完了 2026-05-02)**: `:root` トークン整備 + 主要 6 セレクタ (`.section` / `.section-title` / `.section-desc` / `.hero` / `.faq-item` / `#core-loop`) の置換。当初 `.cta-bottom` も対象だったが PR #1842 (#1838) で section ごと削除されたため Phase 1 範囲外
+  - **Phase 2 (#1851 PR、完了 2026-05-06)**: 残構造的 padding/margin の Semantic 化 (`.tour-card` / `.soft-card` / `.versus-card` / `.trust-badge` / `.floating-cta` / `.pp-band` / `.age-panel` / `.core-loop-card` / `#growth-roadmap` / `#versus` / `.trust-disclaimer` 等) + `pricing.html` への波及 (`.plan-card` / `.pricing-hero` / `.trial-box` / `.faq-section` / `.cta-bottom` / `.family-patterns` / `.pattern-card` / `.comparison-section` / `.plans-section` 等) + `scripts/check-lp-inline-style.mjs` baseline pin 機構の導入。残ローカル装飾値 (gap / 微小余白 / 絵文字 padding 等) は `scripts/lp-inline-style-baseline.json` で pin され、新規 violation 1 件で CI fail (`.github/workflows/lp-metrics.yml` `inline-style-check` ジョブ)
+  - **Phase 3 (別 Issue 起票予定)**: `pamphlet.html` / `faq.html` / `selfhost.html` / `graduation.html` へ同パターンで波及 + baseline 縮小
 
 ---
 

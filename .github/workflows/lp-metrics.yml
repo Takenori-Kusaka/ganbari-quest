@@ -10,6 +10,12 @@ name: LP Metrics (dimensions / forbidden terms / CTA variants / removal residue)
 #   個別 PR の lp-metrics PASS でも、複数 PR 連続 merge で main 累積 fail を予防する。
 #   PR HEAD に origin/main を merge した状態で measure-lp-dimensions.mjs を走らせ、
 #   累積後の desktopHeight が 8000 を超えていれば fail (warn-only 段階運用、AC2 段階適用)。
+#
+# #1851 Phase 2: LP CSS Spacing/Layout 直書き padding/margin の baseline pin gate
+#   (inline-style-check ジョブ)
+#   `--lp-*` Semantic トークン経由で参照されるべき構造的 spacing が直書きに戻るのを防ぐ。
+#   既存ローカル装飾値 (gap / 微小余白) は scripts/lp-inline-style-baseline.json に pin。
+#   新規 1 件で fail。意図的増加時のみ --update-baseline で更新。
 
 on:
   pull_request:
@@ -22,6 +28,8 @@ on:
       - "scripts/measure-lp-dimensions.mjs"
       - "scripts/check-lp-removal-residue.mjs"
       - "scripts/lp-removal-residue-baseline.json"
+      - "scripts/check-lp-inline-style.mjs"
+      - "scripts/lp-inline-style-baseline.json"
       - "src/lib/data/marketplace/activity-packs/**"
 
 permissions:
@@ -279,3 +287,67 @@ jobs:
                 ? `\n**warnings:**\n${warnings.map(w => `- ${w}`).join('\n')}\n`
                 : '')
               .write();
+
+  inline-style-check:
+    # #1851 Phase 2: site/*.html <style> ブロック内の直書き padding/margin baseline pin
+    #
+    # 目的:
+    #   #1839 / PR #1850 (Phase 1) で `--lp-*` Semantic トークンを整備した。
+    #   本ジョブは「次回 LP 改修で新たに直書き padding/margin を増やすこと」を検出する。
+    #   構造的 spacing は Semantic 経由で参照されるべき (ADR-0042)。
+    #
+    # 設計:
+    #   既存ローカル装飾値 (gap / 微小余白 / 絵文字 padding 等) は
+    #   scripts/lp-inline-style-baseline.json に pin。
+    #   新規 violation 1 件で fail。意図的増加時のみ --update-baseline で更新。
+    name: Check LP inline style (--lp-* trespass detection)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check if inline-style-relevant files changed
+        id: inline-changed
+        uses: actions/github-script@v9
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('changed', 'true');
+              return;
+            }
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const inlinePattern = /^site\/.+\.html$|^site\/shared\.css$|^scripts\/check-lp-inline-style\.mjs$|^scripts\/lp-inline-style-baseline\.json$|^\.github\/workflows\/lp-metrics\.yml$/;
+            const changed = files.some(f => inlinePattern.test(f.filename));
+            if (!changed) {
+              core.info('LP inline-style 関連ファイルの変更なし — スキップ');
+            }
+            core.setOutput('changed', changed ? 'true' : 'false');
+
+      - name: Setup Node.js
+        if: steps.inline-changed.outputs.changed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Run LP inline-style check
+        if: steps.inline-changed.outputs.changed == 'true'
+        run: node scripts/check-lp-inline-style.mjs
+
+      - name: Run LP inline-style check (json artifact)
+        if: always() && steps.inline-changed.outputs.changed == 'true'
+        run: node scripts/check-lp-inline-style.mjs --json > lp-inline-style.json || true
+
+      - name: Upload inline-style artifact
+        if: always() && steps.inline-changed.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: lp-inline-style
+          path: lp-inline-style.json
+          retention-days: 30

@@ -156,7 +156,7 @@
 .age-tab.active{background:var(--brand-700);color:#fff;border-color:var(--brand-700)}
 /* #1632 R28: a11y — キーボード操作時の focus-visible 強調表示 */
 .age-tab:focus-visible{outline:3px solid var(--brand-700);outline-offset:2px}
-.age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:32px 28px}
+.age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:var(--lp-age-panel-padding-y) var(--lp-age-panel-padding-x)}
 .age-panel.active{display:grid}
 /* #1724 R8 / #1785 R-CRT-2: 内側 scrshot コンテナから border / background / border-radius を全撤去。
    外側 .age-panel border に集約し、スクショ自体だけが浮かぶ「白背景 + アプリ scrshot」状態を実現 */
@@ -173,7 +173,7 @@
 .age-switcher-prep-note{margin-top:24px;text-align:center;font-size:.9rem;color:var(--gray-600)}
 .age-switcher-prep-note a{color:var(--brand-700)}
 @media(max-width:640px){
-  .age-panel.active{grid-template-columns:1fr;padding:24px 20px;gap:20px;text-align:center}
+  .age-panel.active{grid-template-columns:1fr;padding:var(--lp-age-panel-padding-y-sm) var(--lp-age-panel-padding-x-sm);gap:20px;text-align:center}
   .age-panel-cta{text-align:center;flex-direction:column;align-items:stretch}
 }
 
@@ -195,7 +195,7 @@
 .core-loop-cards{display:grid;grid-template-columns:1fr;gap:14px;max-width:1080px;margin:0 auto}
 /* #1785 R-CRT-2: 5 系統 → 1 種統一 — core-loop card も共通枠 (#fff + 1 px var(--gray-300)) に集約。
    旧 border:2px solid var(--brand-200) を撤去し、差別化は cll-badge の色のみ */
-.core-loop-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:18px 18px;display:flex;flex-direction:column;gap:8px}
+.core-loop-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-core-loop-card-padding) var(--lp-core-loop-card-padding);display:flex;flex-direction:column;gap:8px}
 .core-loop-card .cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:3px 9px;letter-spacing:.07em;flex-shrink:0;align-self:flex-start}
 .core-loop-card[data-card="l1"] .cll-badge{background:var(--brand-500)}
 .core-loop-card[data-card="l2"] .cll-badge{background:var(--brand-700)}
@@ -216,7 +216,7 @@
 /* Machine tour (5-act, #1618 R14: PC 整然配置 + 画像有無の高さ揃え) */
 .machine-tour{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:1280px;margin:0 auto}
 /* #1724 R8: 装飾枠 1 段階に圧縮 — tour-card 外枠 border のみで内側 .tour-shot の border を撤去 */
-.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:16px 14px;display:flex;flex-direction:column;min-height:380px}
+.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-tour-card-padding-y) var(--lp-tour-card-padding-x);display:flex;flex-direction:column;min-height:380px}
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
@@ -233,14 +233,14 @@
 @media(min-width:1024px){
   /* PC 整然配置 (#1846 PO-N-4): 2 列で中央配置、grid-auto-rows で行高を揃える (PR #1812 / #1827 で 2 cards 化した残骸 4 列を是正) */
   .machine-tour{grid-template-columns:repeat(2,1fr);gap:20px;grid-auto-rows:1fr;max-width:960px;margin-inline:auto}
-  .tour-card{min-height:520px;padding:24px 22px}
+  .tour-card{min-height:520px;padding:var(--lp-tour-card-padding-y-md) var(--lp-tour-card-padding-x-md)}
   /* #1799 U-MIN-3: scrshot 高さを 200px → 280px (1.4 倍) に拡大。
      画像 alt と aspect-ratio (390/844) は維持し、card min-height も 480→520px に拡張 */
   .tour-card .tour-shot{max-height:280px;min-height:240px}
 }
 @media(min-width:1440px){
   .machine-tour{max-width:1320px;gap:24px}
-  .tour-card{padding:28px 24px}
+  .tour-card{padding:var(--lp-tour-card-padding-y-lg) var(--lp-tour-card-padding-x-lg)}
 }
 
 /* Soft features */
@@ -254,7 +254,7 @@
 }
 /* #1785 R-CRT-2: 5 系統 → 1 種統一 — featured の box-shadow / 太枠 border 撤去。
    #1847 PO-N-5: featured 強調 (h3 拡大 + 文字色変更 / soft-shot max-height 拡大) も完全撤去し 3 cards 視覚均質化 */
-.soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:20px 18px;display:flex;flex-direction:column}
+.soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-soft-card-padding-y) var(--lp-soft-card-padding-x);display:flex;flex-direction:column}
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
 /* #1707 R2 / #1793: soft-card 内に家庭で楽になる / 家庭ごとにカスタマイズできる 1 行ベネフィットと screenshot を追加 */
@@ -270,7 +270,7 @@
 
 /* Pricing promise band (#1293: freemium × 低価格帯の price disambiguation) */
 .pricing-promise{max-width:760px;margin:0 auto;text-align:center}
-.pp-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;padding:24px 22px;background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:1px solid var(--gray-300);border-radius:var(--radius);margin:0 auto 20px;font-size:1.05rem;color:var(--gray-900);line-height:1.6}
+.pp-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;padding:var(--lp-pp-band-padding-y) var(--lp-pp-band-padding-x);background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:1px solid var(--gray-300);border-radius:var(--radius);margin:0 auto 20px;font-size:1.05rem;color:var(--gray-900);line-height:1.6}
 .pp-item{display:inline-flex;align-items:center}
 .pp-item strong{color:#8b5cf6;font-size:1.1rem}
 .pp-dot{color:var(--gray-400);font-weight:400}
@@ -280,7 +280,7 @@
 /* #1798 U-MAJ-8: モバイルで 4 約束を「独立した項目」として提示するため 2×2 grid 化。
    旧 flex-direction:column;gap:8px の単純縦積みは 4 項目の独立性が伝わらなかった */
 @media (max-width:640px){
-	.pp-band{font-size:.92rem;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:18px 14px;align-items:stretch}
+	.pp-band{font-size:.92rem;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:var(--lp-pp-band-padding-y-sm) var(--lp-pp-band-padding-x-sm);align-items:stretch}
 	.pp-band .pp-item{display:flex;align-items:center;justify-content:center;text-align:center;background:#fff;border:1px solid var(--gray-300);border-radius:10px;padding:10px 8px;line-height:1.4;min-height:56px}
 	.pp-dot{display:none}
 }
@@ -288,7 +288,7 @@
 /* #1848: 年齢別成長ロードマップ詳細を graduation.html に切り出した。
    LP 本体は CTA 1 行のみで、5 ステージの詳細展開は graduation.html を参照する。
    旧 .gr-stage / .gr-track / .gr-shot / .gr-benefit 系 CSS は graduation.html に移管済み。 */
-#growth-roadmap{padding:24px 16px}
+#growth-roadmap{padding:var(--lp-growth-roadmap-padding-y) var(--lp-growth-roadmap-padding-x)}
 .growth-roadmap-cta{text-align:center}
 .growth-roadmap-cta .growth-roadmap-link{margin:18px 0 0;font-size:1rem}
 .growth-roadmap-cta .growth-roadmap-link a{display:inline-block;padding:10px 24px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;color:var(--brand-700);font-weight:600;text-decoration:none;transition:opacity .2s,transform .2s}
@@ -296,12 +296,12 @@
 
 /* アナログ vs デジタル比較 (#1614 R10: シール帳 vs アプリ訴求)
    モバイル/PC ともに 1 行 = analog → digital 横並びにして縦の伸びを抑える */
-#versus{padding:16px 16px}
+#versus{padding:var(--lp-versus-section-padding-y) var(--lp-versus-section-padding-x)}
 .versus-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px}
 .versus-row{display:grid;grid-template-columns:1fr 22px 1.4fr;gap:8px;align-items:stretch}
 /* #1785 R-CRT-2: versus 5 系統 → 1 種統一。analog/digital の background-color / グラデーション全廃。
    差別化は左上 .vc-tag の色のみで実現（紙＝灰色 / アプリ＝brand-700） */
-.versus-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;justify-content:center}
+.versus-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-versus-card-padding-y) var(--lp-versus-card-padding-x);display:flex;flex-direction:column;justify-content:center}
 .versus-card .vc-tag{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;margin-bottom:3px;align-self:flex-start}
 .versus-card.vc-analog .vc-tag{background:var(--gray-200);color:var(--gray-700)}
 .versus-card.vc-digital .vc-tag{background:var(--brand-700);color:#fff}
@@ -318,7 +318,7 @@
 .versus-shot picture{display:block;width:100%;height:100%}
 @media(max-width:640px){
   .versus-row{grid-template-columns:1fr 18px 1.3fr;gap:6px}
-  .versus-card{padding:8px 10px}
+  .versus-card{padding:var(--lp-versus-card-padding-y-sm) var(--lp-versus-card-padding-x-sm)}
   .versus-card h3{font-size:.78rem}
   .versus-card p{font-size:.7rem}
   .versus-shot{max-height:70px}
@@ -333,11 +333,11 @@
 @media(max-width:640px){.trust-badges{gap:12px}}
 @media(min-width:1024px){
   .trust-badges{grid-template-columns:repeat(4,1fr);max-width:1200px;gap:18px}
-  .trust-badge{padding:20px 16px}
+  .trust-badge{padding:var(--lp-trust-badge-padding-y-lg) var(--lp-trust-badge-padding-x-lg)}
   .trust-badge h3{font-size:.95rem}
   .trust-badge p{font-size:.8rem}
 }
-.trust-badge{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:24px 20px;text-align:center}
+.trust-badge{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-trust-badge-padding-y) var(--lp-trust-badge-padding-x);text-align:center}
 /* #1796 R-MAJ-6: 絵文字依存 (font-size:2rem) を撤去 — 4 種の SVG (static/assets/ui/trust-*.svg) に置換。
    docs/DESIGN.md §7「OS/ブラウザ間で見た目が変わると困る要素」に整合。Safari/Chrome/Firefox で同一表示 */
 .trust-badge .tb-icon{display:flex;justify-content:center;align-items:center;margin-bottom:10px;line-height:1;height:32px}
@@ -367,7 +367,7 @@
    も併せて削除。 */
 
 /* Floating CTA */
-.floating-cta{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--gray-900);padding:10px 16px;transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -2px 12px rgba(0,0,0,.15)}
+.floating-cta{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--gray-900);padding:var(--lp-floating-cta-padding-y) var(--lp-floating-cta-padding-x);transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -2px 12px rgba(0,0,0,.15)}
 .floating-cta.visible{transform:translateY(0)}
 .floating-cta-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between}
 .floating-cta-text{font-size:.82rem;color:#fff;font-weight:600;line-height:1.3;transition:opacity .2s ease}
@@ -375,7 +375,7 @@
    旧 --gray-400 は site/shared.css 未定義かつ AA 不足の可能性 → --gray-300 (#cbd5e1) に引き上げ。
    AA: #cbd5e1 on #1e293b = 11.6:1 PASS */
 .floating-cta-text small{display:block;font-size:.72rem;font-weight:400;color:var(--gray-300)}
-.floating-cta .btn{white-space:nowrap;padding:8px 16px;font-size:.82rem;flex-shrink:0;transition:background-color .2s ease,color .2s ease}
+.floating-cta .btn{white-space:nowrap;padding:var(--lp-floating-cta-btn-padding-y) var(--lp-floating-cta-btn-padding-x);font-size:.82rem;flex-shrink:0;transition:background-color .2s ease,color .2s ease}
 /* #1732: phase 別のサブカラーアクセント（ボタン文言切替時の違和感緩和、Anti-engagement に整合する穏やかな差別化） */
 .floating-cta[data-floating-cta-phase="mid"] .btn-primary{background:var(--brand-700);}
 .floating-cta[data-floating-cta-phase="bottom"] .btn-primary{background:var(--brand-800);}
@@ -419,7 +419,7 @@
 .section-sub-note{text-align:left;font-size:.88rem;color:var(--gray-500);margin-top:-.5rem;margin-bottom:1.5rem;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase;line-height:1.7}
 .section-sub-note a{color:var(--brand-700)}
 .pp-disclaimer{text-align:left;font-size:.8rem;color:var(--gray-600);margin-top:8px;line-height:1.7;max-width:640px;text-wrap:pretty;word-break:auto-phrase}
-.trust-disclaimer{margin-top:32px;padding:16px 20px;background:var(--gray-50);border-radius:8px;border-left:4px solid var(--gray-300)}
+.trust-disclaimer{margin-top:var(--lp-trust-disclaimer-margin-top);padding:var(--lp-trust-disclaimer-padding-y) var(--lp-trust-disclaimer-padding-x);background:var(--gray-50);border-radius:8px;border-left:4px solid var(--gray-300)}
 .trust-disclaimer-text{font-size:.85rem;color:var(--gray-700);line-height:1.7;margin:0;text-align:left;text-wrap:pretty;word-break:auto-phrase}
 /* #1838: .cta-bottom-disclaimer / .cta-bottom-disclaimer-link は cta-bottom セクション削除に伴い撤去 */
 

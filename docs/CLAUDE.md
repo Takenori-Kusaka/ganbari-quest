@@ -34,8 +34,9 @@
 | `ctaVariants` | 3 以下 | `無料で始める` / `デモを見る` / `ログイン` の 3 種のみ |
 | `presetActivityCountClaimedMin` (#1803) | 300 以上 | LP 訴求 ≤ 実数 (ADR-0013 LP truth) |
 | `lp-removal-residue` (#1790) | 新規違反 0 | baseline 19 件、新規 1 件で fail |
+| `lp-inline-style` (#1851) | baseline 超過 0 | `--lp-*` Semantic トークン未経由の padding/margin 直書き、新規 1 件で fail (ADR-0042 Phase 2) |
 
-閾値緩和は ADR 合意後に `THRESHOLDS` / `lp-removal-residue-baseline.json` 更新。
+閾値緩和は ADR 合意後に `THRESHOLDS` / `lp-removal-residue-baseline.json` / `lp-inline-style-baseline.json` 更新。
 
 ### LP 累積 desktopHeight gate (#1840)
 
