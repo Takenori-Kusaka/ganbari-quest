@@ -3,6 +3,8 @@ name: LP Review
 description: Use when conducting LP (Landing Page) review rounds. Initializes templates for materials/findings/integration/issue-list, spawns 3 specialist agents in parallel, and enforces SSOT for PO screenshots. Replaces ad-hoc per-round file creation.
 ---
 
+> **親 SSOT**: [PO Session — Goal 2](../../../docs/sessions/po-session.md) / **関連 Skill**: [Issue Triage (Goal 1)](../issue-triage/SKILL.md)
+
 # LP レビューワークフロー
 
 LP (`site/**`) の re-review を行う際の 6 ステップ手順。各ラウンド開始時に `node .claude/skills/lp-review/scripts/init-round.mjs --round YYYY-MM-DD` でテンプレを `tmp/reviews/lp-YYYY-MM-DD/` に展開してから開始する。

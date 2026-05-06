@@ -3,6 +3,8 @@ name: Issue Triage
 description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, marketing/legal/finance/customer perspectives, and root cause analysis before submission.
 ---
 
+> **親 SSOT**: [PO Session — Goal 1](../../../docs/sessions/po-session.md) / **関連 Skill**: [LP Review (Goal 2)](../lp-review/SKILL.md)
+
 # Issue 起票フェーズゲート
 
 新しい Issue を起票する前に、以下の 6 ステップを順番に実行してください。
