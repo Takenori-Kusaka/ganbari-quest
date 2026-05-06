@@ -124,10 +124,7 @@ test.describe('#1848 graduation.html 別ページ', () => {
 		// LP 本体には .gr-stage が 0 件 (graduation.html に移管済み)
 		const stages = page.locator('#growth-roadmap .gr-stage');
 		const count = await stages.count();
-		expect(
-			count,
-			`LP 本体 #growth-roadmap.gr-stage 件数 (found=${count}, 期待=0)`,
-		).toBe(0);
+		expect(count, `LP 本体 #growth-roadmap.gr-stage 件数 (found=${count}, 期待=0)`).toBe(0);
 	});
 
 	test('LP 主要 4 ページの footer に graduation.html リンクがある (navigable 担保)', async ({
@@ -136,10 +133,7 @@ test.describe('#1848 graduation.html 別ページ', () => {
 		for (const path of ['/index.html', '/pricing.html', '/faq.html', '/graduation.html']) {
 			await page.goto(`${baseUrl}${path}`, { waitUntil: 'domcontentloaded' });
 			const footerLink = page.locator('.footer a[href="graduation.html"]');
-			await expect(
-				footerLink,
-				`${path} の footer に graduation.html リンクが存在`,
-			).toBeVisible();
+			await expect(footerLink, `${path} の footer に graduation.html リンクが存在`).toBeVisible();
 		}
 	});
 });
