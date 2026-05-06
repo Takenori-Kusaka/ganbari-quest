@@ -1,38 +1,28 @@
 ## 顧客価値・目的
 
-<!-- このPRが達成する顧客価値を明確に記述してください -->
-<!-- 「何を変更したか」ではなく「なぜこの変更がユーザーにとって必要か」を先に書く -->
+<!-- 「何を変更したか」ではなく「なぜこの変更がユーザーにとって必要か」を書く -->
 
 **対象ユーザー**: <!-- 子供 / 親（管理者） / 運営 / システム全体 -->
 
 **解決する課題**:
-<!-- ユーザーが抱えている問題、または実現したい体験を1-2文で -->
+<!-- ユーザーが抱えている問題、または実現したい体験を 1-2 文で -->
 
 **期待される効果**:
 <!-- この変更により、ユーザー体験がどう改善されるか -->
 
 ## 関連 Issue
 
-<!-- closes #123 で自動クローズ。複数の場合は全て列挙 -->
+<!-- closes #123 で自動クローズ。複数の場合は全て列挙。Issue がない場合は理由を明記 -->
 closes #
 
 ## AC 検証マップ (ADR-0004)
 
-<!-- ⚠️ 必須: このチェックリストは自己確認用で全部 [x] を狙うものではありませんが、
-     **AC 検証マップは必ず全行を埋めること**。空欄のまま Ready for Review にできません。
-
-     Issue の Acceptance Criteria 1 行ごとに 1 行。検証手段は機械検証可能なコマンド / ファイルパス / スクリーンショット番号で書く。
-     目視確認のみは不可。-->
+<!-- ⚠️ 必須: Issue の Acceptance Criteria 1 行ごとに 1 行。検証手段は機械検証可能なコマンド / ファイルパス / スクリーンショット番号で書く。
+     例外: ac-verification-skip コメントで対象外化（監査ログに記録）→ <!-- ac-verification-skip: 理由 --> -->
 
 | AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
 |---------|--------|---------|------------------|
-| AC1 | <!-- 例: Mobile 高 ≤ 15000px --> | <!-- 例: `node scripts/measure-lp-dimensions.mjs` --> | <!-- 例: mobile=11469px (閾値以下 PASS) --> |
-| AC2 | <!-- --> | <!-- --> | <!-- --> |
-
-<!-- 例外: 本 PR を AC 検証マップの対象外にする場合、以下のコメントを記載（監査ログに記録される）
-     <!-- ac-verification-skip: 理由 (例: type:docs のみの変更) --> -->
-
-
+| AC1 | <!-- 例: Mobile 高 ≤ 15000px --> | <!-- 例: `node scripts/measure-lp-dimensions.mjs` --> | <!-- 例: mobile=11469px PASS --> |
 
 ## 変更タイプ
 
@@ -46,8 +36,6 @@ closes #
 - [ ] marketing: マーケティング・LP
 
 ## 影響範囲・変更コンポーネント
-
-<!-- システム設計に対する影響範囲を明確にしてください -->
 
 **変更レイヤー**:
 - [ ] DB スキーマ (`$lib/server/db/`)
@@ -63,402 +51,99 @@ closes #
 **影響を受ける画面・機能**:
 <!-- 例: 子供ホーム画面（全年齢モード）、親管理画面のレポートタブ -->
 
-## 既存実装との比較
+## テスト & 安全装置セルフチェック
 
-<!-- 類似する既存実装がある場合、今回の変更との関係を示してください -->
-<!-- 新規実装の場合、参考にした既存パターンを記載 -->
+<!-- biome / svelte-check / vitest / playwright の個別申告は不要 — pre-ready CLI が一括検証 + CI ci.yml が同 4 コマンドを別途実行するため二重申告は冗長。 -->
 
-| 観点 | 既存実装 | 今回の変更 |
-|------|---------|-----------|
-| 実装パターン | | |
-| 一貫性 | | |
-
-## スクラップ&ビルド検討
-
-<!-- はりぼて・継ぎ足し実装を避けるため、以下を検討した結果を記載 -->
-
-- **今回のスコープでリファクタリングした箇所**: <!-- なしの場合は「なし」 -->
-- **リファクタリングが必要だが今回見送った箇所と理由**: <!-- なしの場合は「なし」 -->
-- **削除したコード・機能**: <!-- なしの場合は「なし」 -->
-
-## 設計方針・将来性
-
-<!-- どのような設計ポリシー・考え方で実装し、どこまでの将来性や拡張性を想定したか -->
-
-**採用した設計方針**:
-<!-- 例: サービス層を経由するファクトリパターン、CSS変数によるテーマ対応 -->
-
-**想定する将来の拡張**:
-<!-- 例: 新しい活動カテゴリ追加時にマスタデータ追加のみで対応可能 -->
-
-**意図的に対応しなかった範囲とその理由**:
-<!-- YAGNI原則に基づき、現時点で不要と判断したもの -->
-
-## 設計ポリシー確認（新機能 / 新 interface の場合 — #1023 / ADR-0008）
-
-<!-- 新テーブル / 新スキーマ / 新 interface / セキュリティ機能 / 課金変更 / AWS リソース追加 / 3人日以上の工数 に該当する場合のみ記入 -->
-
-- [ ] **該当なし** — 既存機能の bug fix / refactor / docs のため設計ポリシー確認不要
-
-<!-- 該当する場合、以下を全て埋めること -->
-- [ ] 着手前 PO 合意: ( [ ] Issue の「PO 設計承認済み」ラベル / [ ] ADR リンク / [ ] Issue コメント )
-- [ ] 合意の根拠リンク: <!-- URL を記載 -->
-
-## テスト戦略
-
-<!-- 何をテストし、その網羅性で十分とした理由を記載 -->
-
-### 追加・変更したテスト
-
-**単体テスト**:
-- 追加/変更したテスト: <!-- 例: activity-service.test.ts に3ケース追加 -->
-- カバーしたシナリオ: <!-- 正常系/異常系/境界値 -->
-
-**E2Eテスト**:
-- 追加/変更したテスト: <!-- 例: features.spec.ts の活動入力フロー更新 -->
-- カバーしたユーザーフロー: <!-- 例: 子供ログイン→活動入力→ポイント確認 -->
-
-### テスト実行結果
-
-<!-- ⚠️ 必須: PRをレビューに回す前に、どのテストを実行して何が通ったかの証跡を記載 -->
-
-| テスト種別 | コマンド | 結果 | 備考 |
-|-----------|---------|------|------|
-| Lint | `npx biome check .` | <!-- PASS / FAIL --> | |
-| 型チェック | `npx svelte-check` | <!-- PASS / FAIL --> | |
-| 単体テスト | `npx vitest run` | <!-- 例: 245 tests passed --> | |
-| E2E テスト | `npx playwright test` | <!-- 例: 32 tests passed --> | |
-
-**追加した E2E テストの詳細**:
-<!-- 追加した E2E テストがある場合、テストファイル名・テスト名・カバーするシナリオを記載 -->
-<!-- 例:
-- `tests/e2e/combo-bonus.spec.ts`
-  - ダイアログ表示 → スクリーンショット取得 → 閉じるボタンで元画面に戻れる
-  - 2回連続で活動記録 → コンボボーナス表示 → 閉じた後に再表示されない
--->
-
-**網羅性の判断根拠**:
-<!-- なぜこのテスト範囲で十分と判断したか。カバーしていないリスクがあれば明記 -->
-
-### DynamoDB 実装完成度（#1021 — 段階的対応禁止 / ADR-0010）
-
-<!-- `src/lib/server/db/dynamodb/*.ts` の新規追加・変更がある PR は必須。無い場合は「N/A」 -->
-
-- [ ] **N/A** — DynamoDB 実装の追加・変更なし
-
-<!-- 該当する場合、以下を全てチェック -->
-- [ ] ADR-0010（Pre-PMF セキュリティ最小化方針）の採用マトリクスで **interface を追加すべき機能** と判定した
-- [ ] interface を追加した PR で **SQLite + DynamoDB 両実装を完成**させた（stub / no-op / TODO なし）
-- [ ] `scripts/check-dynamodb-stub.mjs` がローカルで PASS する
-- [ ] CDK (`infra/lib/storage-stack.ts`) の DynamoDB テーブル / GSI 定義も同じ PR に含めた（新規テーブル / GSI の場合）
-- [ ] `DATA_SOURCE=dynamodb` 相当（staging）で実機動作確認した（critical / 監査 / 認可 / 課金関連の場合）
-- [ ] DynamoDB コンソールで当該テーブルに書込みが発生することを確認した（critical / 監査 / 認可 / 課金関連の場合）
-- [ ] Lambda CloudWatch Logs に想定イベントが出ることを確認した（critical / 監査 / 認可 / 課金関連の場合）
-
-詳細: docs/sessions/dev-session.md 「段階的リリース禁止」セクション、ADR-0010（docs/decisions/0010-pre-pmf-scope-judgment.md）
-
-## 品質観点チェック
-
-<!-- 該当する項目のみ記載。該当しない場合は「対象外」と明記 -->
-
-| 観点 | 対応内容 | 備考 |
-|------|---------|------|
-| セキュリティ | | <!-- 認証・認可・入力検証・OWASP Top 10 --> |
-| パフォーマンス | | <!-- クエリ最適化・バンドルサイズ・レンダリング --> |
-| アクセシビリティ | | <!-- ARIA属性・キーボード操作・スクリーンリーダー --> |
-| ロギング・モニタリング | | <!-- エラーログ・監査ログ・メトリクス --> |
-| ドキュメント | | <!-- 設計書の同期更新が必要な場合に記載 --> |
-
-## コード品質・セキュリティ セルフレビュー（#1481）
-
-### SOLID / コード品質
-- [ ] **単一責任（S）**: 変更したクラス/関数は単一の責務を持つ。複数の責務が混在する場合はリファクタリング済みか理由を記載した
-- [ ] **依存性逆転（D）**: 具体的なリポジトリ実装に直接依存せず、インターフェースや DI を活用している（または N/A）
-- [ ] **インターフェース分離（I）**: 必要最小限の interface/型に依存している（巨大な interface 全体への依存を避けている、または N/A）
-- [ ] **DRY / 横展開**: 今回の変更と同一ロジック・同一バグが**他のファイルにないか** `grep` / `Glob` で調査した。見つかった場合は同 PR 内で修正済み（または別 Issue 起票済み）
-- [ ] **YAGNI**: 現在の要件に不要な抽象化・汎用化を追加していない
-
-### セキュリティ（OSS 公開前提）
-- [ ] ソースコードが **GitHub Public リポジトリに公開される**前提で、秘密情報（API キー・内部 URL・管理エンドポイント・ユーザーデータ）がハードコードされていないことを確認した
-- [ ] Security by obscurity（難読化による秘匿）に依存したロジックがない — 攻撃者がコードを読める前提での設計になっているか
-- [ ] 入力バリデーション・認可チェックがシステム境界（API エンドポイント / フォーム入力）で実施されている（OWASP Top 10 — Injection / Broken Auth / XSS / IDOR）
-- [ ] **N/A** — セキュリティ関連の変更なし
-
-### アクセシビリティ
-- [ ] キーボード操作（Tab / Enter / Escape）で主要フローを操作できる
-- [ ] インタラクティブ要素に適切な ARIA ラベル / role が付与されている
-- [ ] カラーコントラスト比が WCAG AA 基準を満たしている（`docs/DESIGN.md` §2 セマンティックトークン使用で自動担保）
-- [ ] **N/A** — UI 変更なし
-
-### パフォーマンス
-- [ ] N+1 クエリが発生していない（ループ内で DB クエリを呼ぶパターンがない）
-- [ ] バンドルサイズへの影響を確認した（大きなライブラリ追加がある場合は代替を検討した）
-- [ ] **N/A** — パフォーマンスへの影響なし
+- [ ] **`npm run pre-ready -- --pr <num>` 全 Step PASS**（#1775 / ADR-0030）— biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / check-pr-body をローカル一括検証
+- [ ] 追加・変更したテストの概要を以下に記載（テスト追加なしなら「N/A」）:
+  <!-- 例: tests/e2e/combo-bonus.spec.ts に「ダイアログ表示→閉じる→再表示なし」を追加 -->
+- [ ] **新規 env / secret 追加時**（ADR-0006）: 末尾の「配布済み env / secret」セクションに証跡を記載。該当なければ「N/A」
+- [ ] **DynamoDB 実装変更時**（ADR-0010 / #1021）: SQLite + DynamoDB 両実装完成 + `scripts/check-dynamodb-stub.mjs` PASS。該当なければ「N/A」
+- [ ] **Critical バグ修正の場合**（ADR-0002）: 5 要件（E2E 回帰 / AC 全項目 / 提案全実装 / 5 年齢モード検証 / 直近 30 日重複変更チェック）確認済み。該当なければ「N/A」
 
 ## スクリーンショット / ビジュアルデモ
 
-<!-- ⚠️ UI変更がある場合は必須。スクリーンショットなしのUI PRはマージ不可 -->
+<!-- ⚠️ UI 変更がある場合は必須。SS は CI を通すための添付ではなく、起票者自身が UI/UX デザイナー視点で
+     docs/DESIGN.md §9 禁忌事項 6 点（hex 直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード /
+     インラインスタイル / <style> 50 行超え）に違反していないかを自己判定した証跡。
+     撮った後、自分で見返して違和感があれば Ready 前に直すこと。 -->
 
-### 目的（誤解防止）
+**添付ルール（要約）**:
+- URL は GitHub 上で表示可能なもの（user-attachments / screenshots branch raw URL / `docs/screenshots/` raw URL）
+- ローカル相対パス（`tmp/...` / `.tmp-screenshots/...`）禁止（#1741）
+- **DOM HTML スナップショット併記必須**（#1747 / #1766）— `scripts/capture.mjs` がデフォルトで `<file>.dom.html` を同ディレクトリに生成
+- 認証画面（login / signup / 管理画面 / ops / プラン別 UI）は `npm run dev:cognito` (#1026) で撮影
+- 撮影方法・トラブルシュートは `docs/troubleshoot/screenshot_capture.md` を参照
 
-スクリーンショットは **CI の screenshot-check を通すために貼るものではない**。
-起票者自身が **UI/UX デザイナー視点** で `docs/DESIGN.md` §9 禁忌事項
-(色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超え)
-に違反していないか、年齢帯 (`baby/preschool/elementary/junior/senior`) のタップサイズや fontScale が破綻していないか、
-他画面と用語・色・形の一貫性が保たれているか、を **自分の目で判定した結果の証跡** として残すもの。
-
-撮った後、自分で見返して「何か違和感がある」と感じたら、Ready for Review に進める前に直すこと。
-
-認証が絡む画面（login / signup / 管理画面 / ops / プラン別 UI）は `npm run dev`（自動認証モード）ではログインフォームが描画されないため、必ず `npm run dev:cognito` (#1026) を起動して実ブラウザで操作したスクリーンショットを使う。
-
-### 添付ルール（#1741 — ローカル相対パス禁止）
-
-スクリーンショット URL は **GitHub 上で表示できるもののみ** 受け付ける。以下のいずれかを使うこと:
-
-- **user-attachments URL** — `https://github.com/user-attachments/assets/...`（PR 本文編集画面に画像をドラッグ&ドロップで自動生成）
-- **screenshots branch raw URL** — `https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-XXXX/<file>.png`（SC-007 参照）
-- **docs/screenshots/ raw URL** — `https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/<branch>/docs/screenshots/<file>.png`
-
-⚠️ **禁止**: `tmp/screenshots/...` / `.tmp-screenshots/...` 等のローカル相対パス（`tmp/` は gitignore 対象 — SC-008 / SC-010 参照）。
-PR 提出前に GitHub Web 上のプレビューで画像が表示されていることを目視確認すること。
-
-### DOM スナップショット併記ルール（#1747 AC4 / #1766）
-
-UI 変更 PR で SS を添付する場合、**SS と同一プロセスで取得した DOM HTML スナップショット (`<file>.dom.html`) へのリンクを併記すること**。
-`scripts/capture.mjs` がデフォルトで DOM HTML を SS と同じディレクトリに保存し、`--pr` モードでは PR body 用 Markdown スニペットに自動併記される。
-
-| | スクリーンショット | DOM HTML スナップショット |
-|---|---|---|
-| 役割 | 視覚的確認 | 構造タグ / ラベルの機械的 grep 検証 |
-| 取得タイミング | `page.screenshot()` | 同一 page から `document.documentElement.outerHTML` |
-| ファイル名 | `<name>.png` / `<name>.webp` | `<name>.dom.html` |
-
-⚠️ **禁止**: SS だけ添付して `.dom.html` 参照を省略する（CI の `screenshot-quality-check` が UI PR で検出して警告/失敗する）。
-`--no-dom-snapshot` で意図的に省略する場合は **本セクションに省略理由を明記**すること（背景: PR #1717 で SS と実機 DOM が乖離していた事故の構造的再発防止）。
-
-### 4 スロット添付（#1740 — 修正前 / 修正後 × モバイル / PC）
+**4 スロット添付**（#1740）:
 
 | | モバイル (375px) | PC (1440px) |
 |---|---|---|
-| **修正前** | `![before-mobile](URL)` | `![before-pc](URL)` |
-| **修正後** | `![after-mobile](URL)` | `![after-pc](URL)` |
+| **修正前** | <!-- ![before-mobile](URL) --> | <!-- ![before-pc](URL) --> |
+| **修正後** | <!-- ![after-mobile](URL) --> | <!-- ![after-pc](URL) --> |
 
-UI 変更を含まない PR (refactor / docs / chore のみ) は本セクションに「該当なし（refactor / docs / chore）」と明記する。
+UI 変更を含まない PR (refactor / docs / infra のみ) は本セクションに「**該当なし（理由）**」と明記。
 
-### Playwright スクリーンショット
+**インタラクティブ状態**: disabled / readonly フィールドの値が見える / エラー状態 / 空状態の SS が必要なら追加（#1462 / #1481）。該当なければ「N/A」。
 
-<!-- UI変更を伴うPRでは、Playwright ヘッドレスブラウザで撮影したスクリーンショットを添付してください -->
-<!-- レビュアーが実機確認せずとも、デザイン性・レイアウト妥当性を判断できるようにする目的です -->
-<!--
-撮影例:
-```typescript
-await page.goto('/admin/home');
-await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true });
-```
--->
+## コード品質セルフレビュー (#1481)
 
-| 画面 | ビューポート | スクリーンショット |
-|------|------------|------------------|
-| <!-- 例: 管理画面ホーム --> | <!-- Desktop / Mobile --> | <!-- 画像を貼付 --> |
+<!-- SOLID / セキュリティ / A11y / Performance を統合。該当なしは N/A で可 -->
 
-### インタラクティブ状態の確認（#1481）
-
-<!-- UI の状態変化がある場合、以下の状態のスクリーンショットを追加すること -->
-
-- [ ] disabled / readonly フィールドは**値が見える**こと（空欄は「未設定」と区別がつかない — #1462 教訓）
-- [ ] エラー / バリデーション失敗状態のスクリーンショットを添付した（バリデーション変更がある場合）
-- [ ] 空 / 初期状態のスクリーンショットを添付した（空状態レイアウト変更がある場合）
-- [ ] **N/A** — インタラクティブ状態変化なし
-
-### モバイルビューポート（#1481）
-
-- [ ] デスクトップ（1280px 以上）のスクリーンショットを添付した
-- [ ] モバイル（375px）のスクリーンショットを添付した（`src/routes/(parent)/` または `src/routes/(child)/` の変更時）
-- [ ] **N/A** — LP / infra / 設定ファイルのみの変更
-
-## 実機操作検証
-
-<!-- UI/UX変更の場合は必須。「コードを書いて終わり」ではなく、実際に画面で操作した結果を報告 -->
-
-- [ ] 対象画面をブラウザで開き、修正箇所が期待通りに表示されることを**目視確認した**
-- [ ] 認証が絡む画面の場合: `npm run dev:cognito` (#1026) で実ブラウザでログイン経由で確認した（`npm run dev` の自動認証モードではなく）
-- [ ] 撮ったスクリーンショットを**もう一度自分で見て** `docs/DESIGN.md` §9 禁忌事項 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル) のどれにも該当しないことを確認した
-- [ ] UI/UX デザイナー視点セルフレビュー: 色・形・用語・間隔・タップサイズ・ローディング/エラー/空/認証前後の全ての状態で違和感がないことを確認した
-- [ ] チュートリアル関連の変更がある場合: **全ステップ（1〜最後）を通しで操作**し、以下を確認した
-  - [ ] フォーカスリングが正しい要素を囲んでいる
-  - [ ] 説明文のテキストが画面の実態と一致している
-  - [ ] ナビゲーション（ヘッダー/ボトムナビ）がバブルに被っていない
-  - [ ] ページ遷移後にフォーカスが正しく表示される
-- [ ] 用語変更がある場合: `grep` で全件確認し、同一用語の全出現箇所を修正した
-
-## ダイアログ・オーバーレイ検証
-
-<!-- ダイアログ・モーダル・オーバーレイを追加/変更した場合は必須。該当しない場合は「N/A」 -->
-<!-- コンボボーナスダイアログ無限ループ（#672背景）のような不具合を防止するための検証項目 -->
-
-- [ ] **N/A** — ダイアログ・オーバーレイの変更なし
-
-<!-- 該当する場合、以下を全てチェック -->
-- [ ] ダイアログが正しい条件で表示される
-- [ ] 閉じるボタン（×ボタン / OKボタン等）で確実に閉じられる
-- [ ] 閉じた後にダイアログが再表示されない（無限ループなし）
-- [ ] backdrop クリックまたは Escape キーでの閉じ動作が期待通り（意図的に無効化している場合はその理由を記載）
-- [ ] 複数ダイアログが連続する場合（レベルアップ→コンボ→実績等）、キュー制御が正しく動作する
-- [ ] E2E テストで「ダイアログ表示 → スクリーンショット → 閉じる → 元画面に戻れる」を検証済み
-
-**対象ダイアログ一覧**:
-<!-- 例:
-| ダイアログ | 表示条件 | 閉じ方 | E2Eテスト |
-|-----------|---------|--------|----------|
-| ResultDialog | 活動記録完了時 | OKボタン | features.spec.ts |
-| LevelUpOverlay | レベルアップ時 | 自動消去(3秒) | level-up.spec.ts |
-| ComboBonus | 2回連続記録時 | OKボタン | combo.spec.ts |
--->
-
-## 破壊的変更
-
-- [ ] このPRに破壊的変更は**含まれない**
-- [ ] このPRに破壊的変更が**含まれる**（以下に詳細を記載）
-
-<!-- 破壊的変更がある場合:
-**影響範囲**: 
-**マイグレーション手順**: 
-**既存データへの影響**: 
--->
-
-## レビュー依頼事項・QA
-
-<!-- レビュアーに特に確認してほしい観点や、設計判断で迷った点を記載 -->
-<!-- 設計ポリシー的に複数の選択肢がある場合や、顧客価値の優先順位が不明確な場合は必ず記載 -->
-
-<!-- 例:
-| # | 質問・確認事項 | 選択肢A | 選択肢B | 推奨 | 理由 |
-|---|--------------|---------|---------|------|------|
-| 1 | ランキング表示のデフォルト | 表示 | 非表示 | 非表示 | 兄弟間競争の懸念 |
--->
+- [ ] **SOLID**: 単一責任（S）/ 依存性逆転（D, interface 経由）/ インターフェース分離（I, 必要最小依存）
+- [ ] **DRY**: 同一ロジック / 同一バグが他ファイルにないか `grep` / `Glob` で調査済み（見つかれば同 PR or 別 Issue）
+- [ ] **YAGNI**: 現要件に不要な抽象化を追加していない
+- [ ] **Security（OSS 公開前提）**: 秘密情報・内部 URL の hardcode なし / Security by obscurity に依存しない / OWASP Top 10 (Injection / Auth / XSS / IDOR) を境界で検証 / N/A 可
+- [ ] **アクセシビリティ**: キーボード操作可 / ARIA 適切 / コントラスト WCAG AA（セマンティックトークンで自動担保） / N/A 可
+- [ ] **パフォーマンス**: N+1 なし / バンドルサイズ確認 / N/A 可
 
 ## 横展開・影響波及チェック
 
-<!-- 変更の影響範囲を漏れなく確認するためのチェック項目。該当しない場合は「N/A」と記入 -->
+**並行実装ペア**（`docs/design/parallel-implementations.md` 参照、該当するペアにチェック）:
 
-### 並行実装影響確認（必須）
+- [ ] 本番アプリ (`src/routes/(child)/`, `src/routes/(parent)/`) + デモ版 (`src/routes/demo/`) を同期
+- [ ] **LP ↔ アプリ双方向整合**（#1481 / ADR-0013）: LP 記載がアプリ実装と一致 / アプリの新規機能・用語が LP に未記載のままでない（Committed/Aspirational 確認）
+- [ ] 全年齢モード 5 種（baby/preschool/elementary/junior/senior）に横展開
+- [ ] ナビゲーション 3 種（`AdminLayout` + `AdminMobileNav` + `BottomNav`）に反映
+- [ ] E2E / ユニットシード（`tests/e2e/global-setup.ts` / `tests/unit/helpers/test-db.ts` / `src/lib/server/demo/demo-data.ts`）と チュートリアル (`tutorial-chapters.ts` / `demo-guide-state.svelte.ts`) を同期
+- [ ] **labels SSOT** (ADR-0009): 新規ユーザー向け文言は `src/lib/domain/labels.ts` 経由 / LP 側は `data-label` 属性経由 / リテラル直書きなし
+- [ ] **設計書同期** (ADR-0001): 影響を受ける `docs/design/` の設計書を同 PR で更新（DB→08 / API→07 / UI→06 / インフラ→13 / セキュリティ→14）
+- [ ] **並行 PR overlap** (#1200): 本 PR が変更するファイルを同時期に変更する open PR が他に無い、または合意済み
+- [ ] N/A — 並行実装の影響範囲外
 
-<!-- docs/design/parallel-implementations.md の並行実装マップを参照し、該当するペアすべてに対応したか確認 -->
-
-- [ ] **本番アプリ** (`src/routes/(child)/`, `src/routes/(parent)/`) — 該当する場合対応済み
-- [ ] **デモ版** (`src/routes/demo/`) — 同等変更が必要な場合対応済み
-- [ ] **LP ↔ アプリ整合（双方向）（#1481）**:
-  - [ ] **LP → アプリ**: LP に記載されている機能・文言がアプリ実装と一致している（ADR-0013 Committed/Aspirational 確認済み）
-  - [ ] **アプリ → LP**: 今回追加/変更した機能・用語が LP に**未記載のまま**でないことを確認した — 記載すべき場合は同 PR または別 Issue で対応済み
-  - [ ] **N/A** — LP / アプリの文言・機能に影響しない変更
-- [ ] **全年齢モード** (`baby/preschool/elementary/junior/senior` の 5 ディレクトリ) — 5 モード全てに横展開済み
-- [ ] **ナビゲーション** (`AdminLayout` + `AdminMobileNav` + `BottomNav`) — 3 種全てに反映済み
-- [ ] **E2E/ユニットシード** (`tests/e2e/global-setup.ts`, `tests/unit/helpers/test-db.ts`, `src/lib/server/demo/demo-data.ts`) — スキーマ変更時に同期済み
-- [ ] **チュートリアル + デモガイド** (`tutorial-chapters.ts`, `demo-guide-state.svelte.ts`) — UI 構造変更時に同期済み
-- [ ] **該当なし** — 並行実装の影響範囲外の変更
-
-### 並行 PR 影響確認 (#1200)
-
-- [ ] 本 PR が変更するファイルを **同時期に変更する open PR が他に無い** ことを確認した
-  - CI の `pr-file-overlap.yml` が overlap を検出して警告コメントを貼る
-  - overlap がある場合: マージ順序と rebase 方針を **両 PR 作者間で合意** した上で Ready にする
-  - 特に `site/index.html` などの UI full rewrite 系は先行の小粒 PR を待つ
-  - 参考: PR #1143/#1144/#1178 の上書き事故（Issue #1200）
-
-### LP 変更時の追加チェック（#1282 / ADR-0010 Pre-PMF）
-
-<!-- site/**` を変更する PR のみ記入。該当しない場合は「N/A」 -->
-
-- [ ] **N/A** — LP (`site/**`) の変更なし
-- [ ] LP セクション / 数値 / ロゴを追加した場合、[`docs/design/lp-content-map.md §4.3`](../docs/design/lp-content-map.md) の「LP コンテンツ追加時の顧客価値 gate」を通過したことを確認した
-  - このコンテンツは「見込み顧客の不安を減らす」「課題への解像度を上げる」「サインアップ動機を強める」のいずれかに直接つながるか？
-  - 数値を載せる場合、顧客にとって意味のある社会的証明か？（自己言及的メタデータになっていないか？）
-  - 「Pre-PMF だから」という言い訳付きで載せていないか？
-  - 代替として、使い方・使い心地が伝わるスクリーンショット・デモ動画の方が効果的ではないか？
-
-### LP 削除/圧縮 PR 必須チェックリスト（#1790）
-
-<!-- site/** の要素（セクション / カード / 画像 / data-lp-key）を削除・圧縮する PR のみ記入。
-     該当しない場合は「N/A」。「要素削除 PR」は「追加」より検出されにくく IA 破綻 / scrshot 漏れ /
-     レイアウトずれの残骸を生むため、削除専用ゲートで構造的に再発防止する。詳細は
-     [`docs/design/lp-content-map.md` §「LP 削除/圧縮 PR 必須チェックリスト」](../docs/design/lp-content-map.md) 参照。 -->
-
-- [ ] **N/A** — LP 要素の削除・圧縮を含まない
-- [ ] 要素削除がある場合、PR 本文に Before/After スクリーンショットを添付した（fullpage で削除前後の高さ差・隣接要素の見え方を確認可能）
-- [ ] 削除した label key (`data-lp-key="..."`) / 画像参照 / class が他箇所 (`shared-labels.js` / `labels.ts` / `site/**` / `tutorial-chapters.ts`) に残骸として残っていないことを `npm run check:lp-residue` で確認した（CI でも自動検査）
-- [ ] 削除した要素に対応する `docs/design/lp-content-map.md §4` の IA 構造を同期更新した
-- [ ] 削除によりレイアウトずれが生じる場合、`npm run screenshots:lp:compare` で fullpage 差分を確認した
-- [ ] CI: `LP Metrics / Check LP removal residue (orphan refs)` ジョブが pass した (新規違反 0 件)
-
-### LP / 販促文言変更時の実装パス明示（ADR-0013 / #1314）
+**LP / 販促文言変更時** (ADR-0013 / #1314):
 
 <!-- LP (`site/**`) / pricing page / `plan-features.ts` / `pricing-strategy.md` / `docs/design/19-*.md` の
-     文言を変更・追加した場合のみ記入。該当しない場合は「N/A」 -->
-
-- [ ] **N/A** — LP / 販促文言を変更していない
-- [ ] または、変更した文言と対応する実装コードパスを以下に列挙した（[ADR-0013](../docs/decisions/0013-lp-truth-from-implementation.md) Committed/Aspirational 区分確認済み）:
+     文言を変更・追加した場合のみ記入。Aspirational 機能の LP 新規追加は禁止。 -->
 
 | 変更した文言 | 実装コードパス | Committed/Aspirational |
 |------------|---------------|----------------------|
-| 例: 「毎日のおみくじシール」 | `src/lib/server/services/stamp-card-service.ts::stampToday` | Committed |
+| <!-- 例: 「毎日のおみくじシール」 --> | <!-- 例: `src/lib/server/services/stamp-card-service.ts::stampToday` --> | <!-- Committed --> |
 
-<!-- Aspirational 機能（未実装）を LP に新規追加・変更することは禁止（ADR-0013）。
-     既存 Aspirational 表記の削除・修正のみ可。 -->
+該当なしの場合は「N/A」と明記。
 
-### その他
+## レビュー依頼事項・破壊的変更
 
-- [ ] **用語変更**: 変更した用語が他の画面・コンポーネントにも存在しないか `grep` で全件確認した
-- [ ] **labels SSOT (ADR-0009)**: 追加/変更したユーザー向け文言 (プラン名・年齢モード名・機能名・固有名詞) が以下を満たすか確認した
-  - [ ] 文字列は `src/lib/domain/labels.ts` に定数/関数として定義されている (新規追加時)
-  - [ ] アプリ側 (`src/**`) は `labels.ts` から import して使用 (リテラル直書きなし)
-  - [ ] LP 側 (`site/**`) は `site/shared-labels.js` の `data-label` 属性経由で注入 (HTML 直書きなし)
-  - [ ] 新規 label 追加時: `node scripts/generate-lp-labels.mjs` を実行して `site/shared-labels.js` を再生成した
-  - [ ] SEO 用 `<meta>` タグなど SSOT 例外ケースは ADR-0009 の例外条件に合致し、`labels.ts` の値と完全一致することを手動確認した
-  - [ ] N/A — ユーザー向け文言の追加/変更なし
-- [ ] **UI構造変更**: チュートリアル（`tutorial-chapters.ts`）の説明文・セレクタが変更と整合しているか確認した
-- [ ] **カラー・スタイル**: hex カラー直書き・Tailwind デフォルト色クラスの新規追加をしていない（`docs/reference/color-mapping.md` 参照）
-- [ ] **プリミティブ**: Button/Card/FormField 等の共通コンポーネントを使用し、生の `<button>`/`<div>` でUI要素を作っていない
-- [ ] **設計書（CRITICAL）**: 変更で影響を受ける設計書を**同一PR内で**更新した（UI→06, API→07, DB→08, インフラ→13, セキュリティ→14, ブランド→15）。対象一覧は `docs/CLAUDE.md` の設計書更新ルール表を参照。設計書未更新の PR は Done にできない
+**破壊的変更**:
+- [ ] このPRに破壊的変更は**含まれない**
+- [ ] 含まれる → 影響範囲・マイグレーション手順・既存データへの影響を以下に記載
 
-## Ready for Review チェックリスト
+<!-- 含まれる場合:
+**影響範囲**:
+**マイグレーション手順**:
+**既存データへの影響**:
+-->
 
-<!-- Draft → Ready for Review に変更する前に全て確認すること。
-     旧 "CI が全て通過している" 項目 (#1775 で削除) は self-referential な循環依存を生んでいた
-     (CI 通過しないと [x] にできないが、この項目自体が CI ゲート対象 → Fix Agent が項目埋めだけのために動く事故が PR #1746/#1751/#1754/#1759/#1765/#1770 で発生)。
-     CI 通過は GitHub Status Checks 側で別途検証されるため、本チェックリストからは除外する。
-     代わりに `npm run pre-ready -- --pr <num>` でローカル一括セルフチェックを実行すること。 -->
-- [ ] **`npm run pre-ready -- --pr <num>` を実行して全 Step PASS を確認した (#1775)** — biome / svelte-check / vitest / hardcoded-strings / lp-dimensions (LP 変更時) / check-pr-body をローカル一括検証
-- [ ] セルフレビュー済み（不要な差分・デバッグコードがないこと）
-- [ ] **全 AC が実装済みであること**（TODO / 予定 のまま残っている AC がないこと）
-- [ ] **Phase 分割が必要だった場合は着手前に PO と合意し、子 Issue を起票済みであること**（レビュー時に「Phase 1/2 分割提案」はしない）
-- [ ] UI 変更がある場合、**UI/UX デザイナー視点**で `docs/DESIGN.md` §9 禁忌事項 6 点 (色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超え) に該当しないことを**目視確認し、証跡としてスクリーンショットを添付**した
-- [ ] 認証が絡む画面を変更した場合、`npm run dev:cognito` (#1026) で実ブラウザ操作した結果のスクリーンショットを添付した
-- [ ] **SS の表示確認 (#1741)**: 添付したスクリーンショットが GitHub Web 上のプレビューで表示されることを確認した（ローカル相対パス `tmp/...` / `.tmp-screenshots/...` を貼っていない）
-- [ ] **DOM スナップショット併記 (#1747 AC4 / #1766)**: UI 変更 PR で SS を添付している場合、対応する `<file>.dom.html` リンクが PR body に含まれていることを確認した（`--no-dom-snapshot` で省略する場合は理由を本文に明記済み）
-- [ ] **hardcoded JP text (#1452 Phase A)**: `node scripts/check-hardcoded-strings.mjs` を実行して件数が baseline（1607件）以下であることを確認した（`src/routes/**/*.svelte` 内の日本語ハードコード増加ゼロ）
+**レビュー依頼事項・QA**:
+<!-- レビュアーに特に確認してほしい観点や、設計判断で迷った点があれば記載。なければ空欄で OK -->
 
-## Critical 修正の追加要件（#612）
+## 配布済み env / secret (ADR-0006)
 
-<!-- priority:critical のバグ修正の場合のみ記入。それ以外は「N/A」 -->
+<!-- 新規 env / secret を追加した場合のみ記入。CI の new-env-distribution-check が
+     「配布済み: <ENV>」行を検出する。該当なければ「N/A」 -->
 
-- [ ] E2E 回帰テストを**同一 PR 内で**追加済み
-- [ ] Issue の Acceptance Criteria **全項目**にチェック済み
-- [ ] Issue の「提案」の対策を**全て実装**、または未実装分を別 Issue に切り出し済み
-- [ ] 5年齢モード全てで実機検証しスクリーンショット添付済み（該当する場合）
-- [ ] **N/A** — Critical 修正ではない
-
-## 新規 env / secret 追加チェック（ADR-0006 / #914）
-
-<!-- 本 PR で `assert*Configured()` / `throw new Error('XXX is required')` /
-     `process.env.XXX || (() => { throw ... })()` のような production guard を新規追加した場合のみ記入。
-     `scripts/check-new-required-env.mjs` が CI で同じ検出を行う。 -->
-
-- [ ] **N/A** — 新規 env / secret の追加なし
-
-<!-- 新規 env / secret を追加した場合、以下を全て埋めること。
-     CI の new-env-distribution-check が「配布済み: <ENV>」行を検出できないと red になる -->
-
-### 配布済み env / secret (ADR-0006)
+- [ ] N/A — 新規 env / secret の追加なし
 
 <!-- 例:
 - 配布済み: AWS_LICENSE_SECRET → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)
@@ -466,69 +151,20 @@ await page.screenshot({ path: 'screenshots/admin-home-after.png', fullPage: true
 - 配布済み: AWS_LICENSE_SECRET → NUC .env (本機 + バックアップ機)
 -->
 
-- [ ] GitHub Actions Secrets に登録済み（deploy.yml / deploy-nuc.yml が参照する場合）
-- [ ] SSM Parameter Store に登録済み（Lambda 本番が参照する場合）
-- [ ] NUC `.env` に登録済み（本機 + バックアップ機の両方）
-- [ ] ADR-0006 の禁止 5 項目（warn 化 / NODE_ENV skip / `ALLOW_*=true` / retry 延長 / .skip 等）に該当しないことを確認した
+## Ready for Review チェックリスト
 
-詳細: [docs/decisions/0006-safety-assertion-erosion-ban.md](../docs/decisions/0006-safety-assertion-erosion-ban.md)
+<!-- Draft → Ready 前に確認。CI 全緑は GitHub Status Checks 側で別途検証されるため本リストには含めない（#1775 自己言及循環の解消） -->
 
-## デプロイリスク事前評価（#1481）
+- [ ] **`npm run pre-ready -- --pr <num>` 全 Step PASS** をローカル確認した
+- [ ] セルフレビュー済み（不要な差分・デバッグコードなし）
+- [ ] 全 AC が実装済み（TODO / 「予定」のまま残っている AC がない）
+- [ ] Phase 分割した場合: 着手前に PO と合意し、子 Issue を起票済み
+- [ ] UI 変更時: SS が GitHub 上で表示確認 + DOM HTML 併記（#1741 / #1747）+ DESIGN.md §9 禁忌 6 点を目視確認
+- [ ] 認証画面変更時: `npm run dev:cognito` (#1026) で実ブラウザ操作した SS を添付
 
-<!-- マージ後は自動で本番デプロイされる。以下を事前に評価すること -->
+## QM レビュー結果
 
-### DB / データ影響
-- [ ] DB スキーマ変更がある場合: **マイグレーション適用中・適用後に Lambda が起動不可になるリスク**を評価した
-  - 例: NOT NULL カラム追加 + デフォルト値なし → 既存行で制約違反 → 起動失敗
-  - 例: カラム削除 → ORM が存在しないカラムを参照 → 起動時エラー
-  - 評価結果: <!-- RISK: high/medium/low + 理由 -->
-- [ ] マイグレーション失敗時のロールバック手順を確認または不要であることを確認した
-- [ ] 既存データへの破壊的変更（データ削除・型変更・リネーム）がある場合、バックアップ/復旧手順を明記した
-- [ ] **N/A** — DB スキーマ変更なし
+<!-- QM が記入。フォーマット・必須手順は docs/sessions/qa-session.md「Tier 2 手順 5」を参照。
+     CI 緑 = approve ではない。Issue AC 照合と SS 目視が必須（ADR-0022）。 -->
 
-### 本番起動確認項目
-- [ ] 新規 env / secret がある場合: `infra/CLAUDE.md` の必須 env チェックリスト参照で 4 経路（GitHub Secrets / SSM / NUC 本機 / NUC バックアップ）への配布を確認した
-- [ ] Lambda の cold start に影響する大きな依存追加がある場合、`DEGRADED_THRESHOLD_MS`（現在 8000ms）以内に収まることを確認または調整した
-- [ ] **N/A** — 本番起動に影響する変更なし
-
-### スコープ完全性
-- [ ] **見落とし確認**: Issue に記載はないが今回の変更に関連してやるべきことを見落としていないか確認した（類似コード・類似バグ・ドキュメント更新漏れ・設計書同期漏れ等）。見落としがあれば別 Issue 起票済み
-
-## デプロイ検証（#710 — マージ後必須）
-
-<!-- PRがmainにマージされた後、以下を確認すること。確認前にIssueをcloseしない -->
-
-- [ ] `gh run list --branch main --workflow deploy.yml` でデプロイワークフローが**成功**していることを確認
-- [ ] site/ の変更がある場合: 本番URL（ganbari-quest.com）で変更が反映されていることを確認
-- [ ] **N/A** — デプロイ検証不要（ドキュメントのみの変更等）
-
-## 完了チェックリスト
-
-- [ ] `npx biome check .` — lint エラーなし
-- [ ] `npx svelte-check` — 型エラーなし
-- [ ] `npx vitest run` — ユニットテスト全通過
-- [ ] `npx playwright test` — E2Eテスト全通過
-- [ ] PRのサイズが適切（目安: 500行/10ファイル以内。超える場合は分割を検討）
-
-## Quality Manager レビュー結果（QM が記入 — #1197 / #1198）
-
-<!-- QM が approve するときに記入。PR 作者は空欄のままでよい。
-     CI 緑 = approve ではない。Issue AC 照合と SS 目視が必須（docs/sessions/qa-session.md「QM approve 前の必須実行手順」参照）。 -->
-
-- [ ] Issue AC 全項目が PR diff で達成されていることを確認した（`gh issue view <番号>` で開いて 1 対 1 突合）
-- [ ] 添付スクリーンショットを **全て Read tool で開いて目視** し、UI/UX デザイナー観点で違和感が無いことを確認した
-- [ ] `docs/DESIGN.md` §9 禁忌事項 6 点（色直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超え）のいずれにも該当しないことを確認した
-- [ ] 並行実装（デモ / 5 年齢モード / LP / ナビ 3 種）の同期漏れが無いことを確認した
-- [ ] スコープ外の気付きがあれば Issue 起票済み（スルー禁止）
-- [ ] CI 全緑を **上記チェック後の補助情報として** 確認した（先に CI を見ると proxy 退行が再発する）
-
-### QM 所見（スクリーンショット 1 枚ごとに 1 行以上）
-
-<!-- 「見ました」とだけ書くのは禁止。色・形・tapSize・violate の有無など具体所見を残す。
-例:
-- `marketplace-desktop-viewport.png`: フィルタチップが `var(--color-action-primary)` 使用 / Button primitive 利用 / hex 直書き無し
-- `marketplace-mobile-dialog.png`: bottom sheet 高さ 60% で親指操作圏 (#1171 AC3) を満たす / elementary tapSize=56px 相当
-- `free-plan-status.png`: プラン表記 `フリープラン` が `labels.ts` 定数経由 (ADR-0009) / 内部コード `free_trial` の露出無し
--->
-
-
+[QM 5 手順 approve body は `docs/sessions/qa-session.md` を参照](../docs/sessions/qa-session.md)
