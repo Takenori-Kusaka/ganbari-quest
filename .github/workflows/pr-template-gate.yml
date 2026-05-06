@@ -40,7 +40,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          # PR の HEAD を SSOT として template を読み込む (#1855)。
+          # 設計意図「テンプレートを変更しても本ファイルの修正は不要」に整合させるため、
+          # base.ref ではなく head.sha を読む。これにより template refactor PR で
+          # PR body に旧 template の見出しを placeholder として残すはりぼて運用を排除。
+          # トレードオフ: PR が `## 見出し` 削除と PR body 内の該当文字列削除を同時に行った
+          # 場合の検出力は低下するが、code review で diff が可視のため運用上の損失は軽微。
+          ref: ${{ github.event.pull_request.head.sha }}
           sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
           sparse-checkout-cone-mode: false
       - name: Verify required sections exist
@@ -91,7 +97,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          # PR の HEAD を SSOT として template を読み込む (#1855)。
+          # 設計意図「テンプレートを変更しても本ファイルの修正は不要」に整合させるため、
+          # base.ref ではなく head.sha を読む。これにより template refactor PR で
+          # PR body に旧 template の見出しを placeholder として残すはりぼて運用を排除。
+          # トレードオフ: PR が `## 見出し` 削除と PR body 内の該当文字列削除を同時に行った
+          # 場合の検出力は低下するが、code review で diff が可視のため運用上の損失は軽微。
+          ref: ${{ github.event.pull_request.head.sha }}
           sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
           sparse-checkout-cone-mode: false
       - name: Verify issue reference
@@ -183,7 +195,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          # PR の HEAD を SSOT として template を読み込む (#1855)。
+          # 設計意図「テンプレートを変更しても本ファイルの修正は不要」に整合させるため、
+          # base.ref ではなく head.sha を読む。これにより template refactor PR で
+          # PR body に旧 template の見出しを placeholder として残すはりぼて運用を排除。
+          # トレードオフ: PR が `## 見出し` 削除と PR body 内の該当文字列削除を同時に行った
+          # 場合の検出力は低下するが、code review で diff が可視のため運用上の損失は軽微。
+          ref: ${{ github.event.pull_request.head.sha }}
           sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
           sparse-checkout-cone-mode: false
       - name: Verify change type selected
@@ -252,7 +270,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          # PR の HEAD を SSOT として template を読み込む (#1855)。
+          # 設計意図「テンプレートを変更しても本ファイルの修正は不要」に整合させるため、
+          # base.ref ではなく head.sha を読む。これにより template refactor PR で
+          # PR body に旧 template の見出しを placeholder として残すはりぼて運用を排除。
+          # トレードオフ: PR が `## 見出し` 削除と PR body 内の該当文字列削除を同時に行った
+          # 場合の検出力は低下するが、code review で diff が可視のため運用上の損失は軽微。
+          ref: ${{ github.event.pull_request.head.sha }}
           sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
           sparse-checkout-cone-mode: false
       - name: Verify customer value section filled
@@ -337,7 +361,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          # PR の HEAD を SSOT として template を読み込む (#1855)。
+          # 設計意図「テンプレートを変更しても本ファイルの修正は不要」に整合させるため、
+          # base.ref ではなく head.sha を読む。これにより template refactor PR で
+          # PR body に旧 template の見出しを placeholder として残すはりぼて運用を排除。
+          # トレードオフ: PR が `## 見出し` 削除と PR body 内の該当文字列削除を同時に行った
+          # 場合の検出力は低下するが、code review で diff が可視のため運用上の損失は軽微。
+          ref: ${{ github.event.pull_request.head.sha }}
           sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
           sparse-checkout-cone-mode: false
       - name: Verify test results filled
