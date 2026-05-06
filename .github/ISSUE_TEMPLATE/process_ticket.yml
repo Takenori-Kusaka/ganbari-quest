@@ -1,0 +1,125 @@
+name: プロセス・ドキュメント Issue（PO 起票系）
+description: LP / マーケ / プロセス改善 / refactor-SSOT / docs 系の起票テンプレ。実装系は dev_ticket.yml
+title: ""
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        実装系 Issue（feat / fix / 新機能・新 API / DB スキーマ変更等）は [dev_ticket.yml](?template=dev_ticket.yml) を使ってください。
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: kind（PO 起票系 5 区分）
+      options:
+        - "refactor-SSOT: SSOT 整理・重複削除"
+        - "docs: ドキュメント / ADR / 設計書"
+        - "marketing: マーケ / Growth"
+        - "process: プロセス改善 / CI / Issue テンプレ"
+        - "lp-content: LP 文言 / IA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      options:
+        - "critical: 最優先"
+        - "high: 高"
+        - "medium: 中"
+        - "low: 低"
+    validations:
+      required: true
+
+  - type: textarea
+    id: customer-value
+    attributes:
+      label: 顧客価値・目的
+      description: 「なぜこの変更がユーザー / 運営 / 開発チームにとって必要か」を 1-2 文で。
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: 関連 Issue / ADR
+      description: Blocked by / Blocks / Related の 3 分割（#1261）+ 関連 ADR
+      placeholder: |
+        - Blocked by: #123 / Blocks: #456 / Related: ADR-0003 / ADR-0010
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 設計背景
+      description: 過去経緯 / この改善がなかった場合に何が困るか
+    validations:
+      required: true
+
+  - type: textarea
+    id: design-policy
+    attributes:
+      label: 設計方針
+      description: 採用設計 / 将来拡張 / 意図的に対応しない範囲（YAGNI）
+    validations:
+      required: true
+
+  - type: textarea
+    id: oss-research
+    attributes:
+      label: OSS / 確立パターン調査結果（refactor-SSOT 時に必須、#1350）
+      description: 10 行超独自実装は 2 件以上比較必須。lp-content / marketing / docs では N/A 可。
+
+  - type: textarea
+    id: goals
+    attributes:
+      label: ゴール（Acceptance Criteria）
+      description: 測定可能な数値・文字列・ファイルパス・SS で書く（ADR-0004）。曖昧な「修正する」禁止。
+      value: |
+        - [ ] **AC1**: <!-- 測定可能な完了条件 -->
+        - [ ] **AC2**:
+    validations:
+      required: true
+
+  - type: textarea
+    id: ac-verification-plan
+    attributes:
+      label: AC 検証計画（ADR-0004 必須）
+      description: 各 AC をどの機械手段（コマンド / ファイルパス / 期待文字列）で検証するか。
+      value: |
+        - AC1: <!-- 例: `wc -l <file>` <= N -->
+        - AC2:
+    validations:
+      required: true
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: 工程区分
+      description: 下流 Phase は上流 Phase が閉じるまで着手しない。
+      options:
+        - "P0: インフラ・プロセス更改"
+        - "P1: ポリシー・判断基準 (ADR)"
+        - "P2: プロダクト定義・顧客範囲"
+        - "N/A（独立タスク）"
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影響範囲
+      description: 変更ファイル / 影響を受ける運用 / dogfood 観察期間など。実装系の重い検証項目は本 template 対象外（dev_ticket.yml を使用）。
+
+  - type: checkboxes
+    id: done-checklist
+    attributes:
+      label: 完了チェックリスト
+      options:
+        - label: "AC 全項目 [x]（ADR-0005）"
+        - label: "`npm run pre-ready -- --pr <num>` PASS（PR 系の場合）"
+        - label: "GitHub Actions 全 green"
+        - label: "dogfood 観察期間中の異常なし（Phase 2 を持つ Issue のみ）"
