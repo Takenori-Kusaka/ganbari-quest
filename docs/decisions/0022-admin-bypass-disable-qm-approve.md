@@ -84,6 +84,8 @@ ganbariquestsupport-lab で PR を作成すると以下の問題が起きる:
 - [x] `docs/sessions/dev-session.md §PR 作業時 §5.5` で `gh pr create` 直前にスクリプト実行を必須化
 - [x] Pre-push hook 採否を本 amendment 内で判断（**不採用** — 理由は上記 4）
 
+**機械的強制機構** (#1879): 本 amendment §決定 4 の「pre-push hook 不採用」は **amendment 3 (#1879) で supersede**。Claude Code hook (`.claude/settings.json` PreToolUse) + git pre-push hook (`.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`) を併設。Dev / Agent / 手動 push の 3 経路全てで QA アカウントによる `gh pr create` / `git push` を機械的に abort する。
+
 ---
 
 ## Amendment 2 (#1809, 2026-05-01): Dependabot auto-merge は admin bypass に該当しない
@@ -131,3 +133,52 @@ gh api repos/Takenori-Kusaka/ganbari-quest \
 gh api repos/Takenori-Kusaka/ganbari-quest --jq '.allow_auto_merge'
 # → true
 ```
+
+---
+
+## Amendment 3 (#1879, 2026-05-06): PR 起票アカウント違反の機械的強制機構を 2 経路で導入
+
+### 背景
+
+amendment 1 で「PR 作成前に `scripts/check-gh-account-before-pr.mjs` を必須実行」と定めたが、これは **手順書 (人間 / Agent の規律) に依存** しており、忘却・スキップが構造的に発生し得た。実際 PR #1875 で `ganbariquestsupport-lab` による起票違反が発生 (`gh auth switch` 漏れ + script 未実行)。**GitHub PR author は事後変更不可** であり、merge 直前 CI で止めても作り直しコスト (履歴・コメント・review 履歴消失) が高すぎるため、**事前防止 (PR 作成前 / push 前) の機械的強制機構** を導入する。
+
+### 決定（追加）
+
+amendment 1 §決定 4 の「Pre-push hook **不採用**」を **本 amendment で supersede** する。理由:
+
+- amendment 1 当時の懸念「ganbariquestsupport-lab の正当な commit / push (KB 追記) も誤検知」は、QA セッションでの commit / push が **そもそも禁止運用** (PR 作成は Takenori-Kusaka 専用) であるため誤検知ではなく **検出すべき正規シグナル** であると再評価
+- `--no-verify` 常用インセンティブ懸念は、ADR-0026 で `--no-verify` 禁止を明記して別途対応する
+
+採用する 2 経路:
+
+1. **Claude Code hook** (`.claude/settings.json` `PreToolUse`):
+   - `Bash` ツール実行直前に `scripts/claude-hook-prevent-qa-account-pr.mjs` が stdin から `tool_input.command` を受取り、`gh pr create` を含むかつ active gh account が `Takenori-Kusaka` 以外なら exit 2 で abort
+   - 守備範囲: Claude / Agent 経由の `gh pr create` 全経路 (Dev session / Auto Mode / 手動 prompt 全て)
+
+2. **git pre-push hook** (`.husky/pre-push`):
+   - `git push` 直前に `node scripts/check-gh-account-before-pr.mjs` を呼出し、active gh account が `Takenori-Kusaka` 以外なら exit 1 で abort
+   - 守備範囲: 手動 git push (Claude を介さない CLI 直接実行 / `git push` だけで PR 自動作成される flow も将来カバー)
+   - husky 導入: `package.json` に `prepare: husky` を追加 (既存 `svelte-kit sync` と併設)、`npm install` 後の `npm run prepare` で hook が自動配備
+
+### OSS 選定
+
+| 案 | 採否 | 理由 |
+|---|---|---|
+| husky (~3M weekly DL, MIT) | **採用** | デファクト OSS、bundle 影響なし (devDep)、Pre-PMF コスト極小 |
+| simple-git-hooks (~500K weekly DL, MIT) | 不採用 | 採用実績で husky に劣る、機能差は本件で無関係 |
+| Claude Code 公式 hook (`.claude/settings.json`) | **採用** | Claude / Agent 経由保護の唯一の正規手段 |
+| 独自 git hook (`.git/hooks/pre-push`) | 不採用 | git clone で配布されないため新規 clone 環境で保護が抜ける |
+
+### 既知制約
+
+- `git push --no-verify` で hook を skip 可能 (ADR-0026 で `--no-verify` 禁止を明記して運用側でカバー)
+- Claude Code hook は **Claude セッション内のみ** 有効。ターミナル直接実行の `gh pr create` には pre-push hook (push 直前) または手動 script 実行で対応
+
+### 受入基準（#1879 AC、本 PR で全件達成）
+
+- [x] `.claude/settings.json` に `PreToolUse` hook 追加
+- [x] `.husky/pre-push` で `node scripts/check-gh-account-before-pr.mjs` 呼出
+- [x] 自テスト 3 ケース (PR body に明記)
+- [x] 双方向リンク (本 ADR / qa-session.md / check-gh-account-before-pr.mjs)
+- [x] `package.json` に `prepare: husky` 統合
+

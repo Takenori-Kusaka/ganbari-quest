@@ -1,0 +1,16 @@
+{
+  "$comment": "Claude Code session settings (#1879). PreToolUse hook prevents QA account (ganbariquestsupport-lab) from running 'gh pr create'. See ADR-0022 amendment / docs/sessions/qa-session.md.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-hook-prevent-qa-account-pr.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}
