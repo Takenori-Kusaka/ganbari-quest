@@ -50,24 +50,19 @@ body:
     attributes:
       label: ゴール（Acceptance Criteria）
       description: |
-        「何が・どう表示/動作したら完了か」を具体的に書く。
-        ⚠️ 「修正する」「改善する」等の曖昧な記述は禁止。
-        AC は**測定可能な数値・文字列・ファイルパス**で書くこと（ADR-0004）。
-        スクリーンショット・操作手順・期待結果のセットで書くこと。
-        📌 **1 PR = 全 AC 完了を原則**とし、できない場合は子 Issue に分割して本 Issue を親 Issue とする。
+        測定可能な数値・文字列・ファイルパス・スクリーンショットで書く（ADR-0004）。「修正する」「改善する」等の曖昧な記述は禁止。
+        AC が 7 件を超える場合は子 Issue に分割し、本 Issue を親として「Blocks」に子番号を記載すること（着手前に PO と合意）。
       value: |
         **現状（Before）**: <!-- スクリーンショット or 具体的な表示テキスト -->
 
         **期待結果（After）**: <!-- 修正後に画面で確認できる具体的な状態 -->
 
         **完了条件**:
-        - [ ] <!-- 例: 「ナビラベルが『みまもり・はげまし・カスタマイズ・設定』の4つで表示される」 -->
-        - [ ] <!-- 例: 「チュートリアル step X でフォーカスリングが対象要素を囲んでいる（スクリーンショット添付）」 -->
-        - [ ] <!-- 例: 「同一用語の全出現箇所を grep で確認し、漏れなく修正済み」 -->
+        - [ ] <!-- 例: ナビラベルが「みまもり・はげまし・カスタマイズ・設定」の 4 つで表示される -->
+        - [ ] <!-- 例: 同一用語の全出現箇所を grep で確認し漏れなく修正済み -->
 
         **実機検証手順**:
-        1. <!-- 例: 「/admin にアクセスし、チュートリアルを最初から開始」 -->
-        2. <!-- 例: 「ステップ1〜18を全て通して操作し、ナビ被り・フォーカスずれがないことを確認」 -->
+        1. <!-- 例: /admin にアクセスし、チュートリアルを最初から開始 -->
     validations:
       required: true
 
@@ -76,28 +71,17 @@ body:
     attributes:
       label: AC 検証計画（ADR-0004 必須）
       description: |
-        上記ゴールの各 AC を**どの機械手段で検証するか**を列挙する。
-        PR 作成時に「AC 検証マップ」として転記されるため、ここで曖昧だと PR も曖昧になる。
-        ⚠️ 「目視確認」だけでは不可。コマンド・ファイルパス・期待文字列を書くこと。
+        各 AC をどの機械手段（コマンド・ファイルパス・期待文字列）で検証するか列挙する。「目視確認」だけでは不可。
       value: |
-        <!-- 例:
-        - AC1 「Mobile 高 <= 15000px」: `node scripts/measure-lp-dimensions.mjs` で mobileHeight を assert
-        - AC2 「禁止用語 0 件」: `node scripts/check-forbidden-terms.mjs` が exit 0
-        - AC3 「CTA 文言 3 種以下」: measure script の `ctaVariants.length <= 3`
-        - AC4 「Playwright スクリーンショットが存在」: `tests/e2e/lp-first-view.spec.ts` が緑、`docs/screenshots/1163-lp-redesign/mobile-fold.png` が repo に追加
-        -->
-        - AC1: <!-- 検証手段 -->
-        - AC2: <!-- 検証手段 -->
+        - AC1: <!-- 例: `node scripts/measure-lp-dimensions.mjs` で mobileHeight ≤ 15000 を assert -->
+        - AC2: <!-- 例: `tests/e2e/lp-first-view.spec.ts` が PASS、SS が `docs/screenshots/<id>/mobile-fold.png` に存在 -->
     validations:
       required: true
 
   - type: dropdown
     id: static_analysis_tier
     attributes:
-      label: 静的解析階層（infra/lint/静的解析ツール導入時のみ必須、ADR-0007）
-      description: |
-        静的解析ツール・lint ルール・コード品質チェックを導入する Issue では想定階層を指定すること。
-        階層の判断基準は `docs/decisions/0007-static-analysis-tier-policy.md` を参照。
+      label: 静的解析階層（infra/lint/静的解析ツール導入時のみ、ADR-0007）
       options:
         - "N/A（静的解析ツール導入ではない）"
         - "T1 PR ゲート（< 30s、merge block）"
@@ -107,165 +91,88 @@ body:
         - "未定（PR で実測後に決定）"
 
   - type: textarea
-    id: task-planning
-    attributes:
-      label: 着手前タスクプランニング
-      description: |
-        着手前に AC 数とスコープを確認し、1 PR で全 AC を完了できるかを判断すること。
-        ⚠️ AC が 7 件を超える場合は、子 Issue への分割を強く検討すること。
-        分割する場合は本 Issue を親 Issue とし、子 Issue 番号を「Blocks」欄に記載する。
-        Phase 分割が必要と判断した場合は、**着手前に PO と合意**してから子 Issue を起票すること（レビュー時に提案するのは遅い）。
-      value: |
-        **AC 数**: <!-- 上記「ゴール」で列挙した AC の合計件数 -->
-
-        **分割判断**:
-        - [ ] AC が 7 件以下 → 1 PR で全 AC を完了できる見通しあり
-        - [ ] AC が 7 件超 → 子 Issue に分割し、本 Issue を親 Issue として「Blocks」欄に子 Issue 番号を記載（または分割不要な理由を記載）
-
-        **分割する場合の子 Issue 一覧**（分割不要なら「N/A」）:
-        - <!-- #子Issue1番号 (AC1: 〇〇〇) -->
-        - <!-- #子Issue2番号 (AC2: 〇〇〇) -->
-
-  - type: textarea
     id: oss-research
     attributes:
-      label: OSS / 確立パターン調査結果（#1350 / type:feat・type:refactor・type:infra の新規実装で必須）
+      label: OSS / 確立パターン調査結果（type:feat/refactor/infra で独自実装 10 行超時に必須、#1350）
       description: |
-        独自実装 (10 行超見込み) を含む Issue では、**OSS / 確立パターンを最低 2 件**調査すること。
-        「世間が使っているものを見もしないまま独自実装」「半完成機構の放置」を構造的に防ぐ (#1346 再発防止)。
-        該当が無い場合は「探した範囲」を書くこと（どのキーワードで探し、なぜ該当がなかったか）。
-        type:docs / type:fix / type:test 等の純粋な保守タスクでは「N/A（独自実装なし）」で可。
+        OSS / 確立パターンを 2 件以上調査し採用判断を残すこと。docs/fix/test 等保守は「N/A」可。
       placeholder: |
-        例:
-        - 候補 A: zod (https://github.com/colinhacks/zod) — stars 34k / 採用実績 / bundle 14KB / TS 型推論。△ i18n メッセージは別途必要
-        - 候補 B: valibot (https://github.com/fabian-hiller/valibot) — bundle 1KB / tree-shake / 学習コスト低。△ エコシステムまだ小さい
-        - 決定: 候補 A を採用（理由: 既にエコシステム内で標準、既存コードから移行が容易）
-        - Pre-PMF コスト (ADR-0010): bundle +14KB は許容範囲、学習コスト既習
+        - 候補 A: zod — stars 34k / bundle 14KB / TS 型推論。△ i18n は別途
+        - 候補 B: valibot — bundle 1KB。△ エコシステム小
+        - 決定: A（標準）/ Pre-PMF コスト (ADR-0010): +14KB 許容
 
   - type: textarea
     id: technical
     attributes:
       label: 技術メモ
-      description: 実装方針・影響範囲・注意点など
+      description: 実装方針・影響範囲・注意点
 
   - type: textarea
     id: test
     attributes:
       label: テスト観点
-      description: 確認すべきテストケース。ダイアログ・オーバーレイが関係する場合は開閉サイクルの検証を含めること。
+      description: テストケース。ダイアログ・オーバーレイ変更時は開閉サイクル検証を含める。
       value: |
-        **単体テスト**:
+        **単体 / E2E**:
         - [ ]
 
-        **E2Eテスト**:
-        - [ ]
-
-        **ダイアログ・オーバーレイ検証**（該当する場合）:
-        - [ ] ダイアログが正しい条件で表示される
-        - [ ] 閉じるボタンで確実に閉じられる
-        - [ ] 閉じた後に再表示されない（無限ループなし）
-        - [ ] 複数ダイアログの連続表示時、キュー制御が正しく動作する
-        - [ ] E2Eテストで表示→スクリーンショット→閉じる→元画面復帰を検証
+        **ダイアログ・オーバーレイ検証**（該当時）: 表示条件 / 閉じる / 再表示なし / キュー制御 / E2E 表示→閉じる→元画面復帰
 
   - type: textarea
     id: quality-policy
     attributes:
       label: 品質ポリシー（スクラップ&ビルド時 必読）
-      description: 機能削除・根本的修正を含むチケットでは特に厳守すること。
+      description: 機能削除・根本改修時、はりぼて修正（コメントアウト等の応急処置）禁止。
       value: |
-        以下に該当する作業がある場合、はりぼて修正（表示だけ変更・コメントアウト・unused変数放置等）は禁止。
-        作業が肥大化してでも、設計思想・コーディングポリシーに準拠した丁寧な対応を行うこと。
-
-        **機能削除時:**
-        - [ ] 関連コンポーネント・ページ・ルートを完全削除（コメントアウトではなく削除）
-        - [ ] 関連するサービス層・API エンドポイントも削除
-        - [ ] 関連するDBテーブル・カラムのマイグレーション対応
-        - [ ] 関連するテスト（unit/E2E）を削除または更新
-        - [ ] 関連するシードデータ・テストデータを更新
-        - [ ] 他コンポーネントからの参照（import/props/型定義）を全て除去
-        - [ ] 不要になった型定義・インターフェースを削除
-
-        **機能改修時:**
-        - [ ] 既存コードの上に条件分岐を重ねるのではなく、設計から見直す
-        - [ ] 一時的な互換レイヤー（_旧変数名、re-export等）を残さない
-        - [ ] UIの配置変更は関連コンポーネント全体のレイアウトを再検討する
-
-    validations:
-      required: true
+        **機能削除時**: 関連コンポーネント / ページ / ルート / サービス / API / DB / テスト / シードを完全削除（コメントアウト不可）。型定義・参照も全除去。
+        **機能改修時**: 既存コードに条件分岐を重ねず設計から見直す。一時的互換レイヤー（`_旧変数名` / re-export 等）を残さない。
+        **削除対象 / 置き換え / 互換性考慮**:
 
   - type: textarea
     id: impact-check
     attributes:
       label: 影響範囲・並行実装チェック
       description: |
-        この変更が他の画面やシステムに及ぼす影響を事前に確認すること。
-        並行実装ペアの全リスト: `docs/design/parallel-implementations.md`
+        並行実装ペア全リスト: `docs/design/parallel-implementations.md`
       value: |
-        **並行実装ペア（該当するものすべてチェック）**:
-        - [ ] 本番アプリ (`src/routes/(child)/`, `src/routes/(parent)/`)
-        - [ ] デモ (`src/routes/demo/`)
-        - [ ] LP (`site/index.html`, `site/pamphlet.html`, `site/shared-labels.js`)
-        - [ ] 全年齢モード (`baby/preschool/elementary/junior/senior` の 5 ディレクトリ)
-        - [ ] デスクトップナビ + モバイルナビ + ボトムナビ
-        - [ ] E2E/ユニットシード (`tests/e2e/global-setup.ts`, `tests/unit/helpers/test-db.ts`, `src/lib/server/demo/demo-data.ts`)
-        - [ ] 本番チュートリアル + デモガイド (`tutorial-chapters.ts`, `demo-guide-state.svelte.ts`)
+        **並行実装ペア**（該当するものすべて）:
+        - [ ] 本番アプリ + デモ
+        - [ ] LP（`site/**` / `shared-labels.js` 含む、ADR-0013 Committed/Aspirational 確認）
+        - [ ] 全年齢モード 5 種（baby/preschool/elementary/junior/senior）
+        - [ ] ナビ 3 種（デスクトップ + モバイル + ボトムナビ）
+        - [ ] E2E/ユニットシード + チュートリアル + デモガイド
 
-        **横展開チェック**:
-        - [ ] 用語変更がある場合: `grep` で全件確認し、漏れなく更新した
-        - [ ] UI構造変更がある場合: チュートリアル（`tutorial-chapters.ts`）のセレクタ・説明文を更新した
-        - [ ] カラー・スタイル: hex 直書き・Tailwind デフォルト色の新規追加をしていない（`docs/reference/color-mapping.md` 参照）
-        - [ ] Button/Card/FormField 等のプリミティブコンポーネントを使用した
-        - [ ] 影響する設計書（`docs/design/`）を更新した
-    validations:
-      required: true
-
-  - type: textarea
-    id: done-checklist
-    attributes:
-      label: 完了チェックリスト（共通）
-      description: チケット完了時に全項目を満たすこと。省略不可。
-      value: |
-        - [ ] `npx biome check .` — lint エラーなし
-        - [ ] `npx svelte-check` — 型エラーなし
-        - [ ] `npx vitest run` — ユニットテスト全通過
-        - [ ] `npx playwright test` — E2Eテスト全通過
-        - [ ] git commit & push 完了
-        - [ ] GitHub Actions デプロイ成功（`gh run list` で確認）
-        - [ ] ローカルNUCデプロイ & 動作確認
-        - [ ] 影響する設計書（docs/design/）を更新済み
-    validations:
-      required: true
+        **横展開**:
+        - [ ] 用語変更がある場合: `grep` で全件確認・漏れなく更新
+        - [ ] UI 構造変更時: `tutorial-chapters.ts` のセレクタ・説明文を更新
+        - [ ] hex 直書き / Tailwind デフォルト色の新規追加なし
+        - [ ] Button / Card / FormField 等のプリミティブ使用
+        - [ ] 影響する設計書（`docs/design/`）を更新（DB→08 / API→07 / UI→06 / インフラ→13 / セキュリティ→14）
 
   - type: textarea
     id: blocked_by
     attributes:
       label: Blocked by（上流依存）
       description: |
-        このIssue を着手する前に完了すべき**上流 Issue 番号**を列挙する。
-        全ての上流 Issue が closed になるまで本 Issue は in-progress にしない。
-        工程区分（phase）が自分より上流の Issue は候補。
+        このIssue着手前に完了すべき上流 Issue 番号を列挙。全て closed になるまで in-progress にしない（#1261）。
       placeholder: |
         #123 (ADR: Pre-PMF 判断基準)
-        #456 (企画: 顧客範囲確定)
 
   - type: textarea
     id: blocks
     attributes:
       label: Blocks（下流への影響）
       description: |
-        このIssue 完了後にアンブロックされる**下流 Issue 番号**を列挙する。
-        このIssue を途中で scope 変更・close する場合、ここに挙げた Issue の再見積が必要。
+        このIssue完了後にアンブロックされる下流 Issue 番号。途中で scope 変更・close する場合、ここに挙げた Issue の再見積が必要。
       placeholder: |
-        #789 (設計: アーキテクチャ)
-        #790 (実装: 画面)
+        #789 (実装: 画面)
 
   - type: textarea
     id: related
     attributes:
       label: Related（参考のみ・依存関係なし）
       description: |
-        関連するが**依存関係を持たない** Issue / ADR / ドキュメントを列挙。
-        「Blocked by / Blocks」に該当しないもののみここに書く（関連の意味を薄めないため）。
+        関連するが依存関係を持たない Issue / ADR / ドキュメント。「Blocked by / Blocks」に該当しないもののみ。
       placeholder: |
         #234 (類似実装の参考)
         ADR-0003
@@ -275,8 +182,7 @@ body:
     attributes:
       label: 工程区分（P0-P7 / N/A）
       description: |
-        下流 Phase の Issue は上流 Phase が閉じるまで着手しない（例: P5 実装は P2 企画・P3 アーキ 未確定では始めない）。
-        該当する工程が複数ある場合は最も上流のものを選ぶ。
+        下流 Phase は上流 Phase が閉じるまで着手しない（例: P5 実装は P2 企画・P3 アーキ未確定では始めない）。複数該当時は最も上流。
       options:
         - "P0: インフラ・プロセス更改"
         - "P1: ポリシー・判断基準 (ADR)"
@@ -290,79 +196,25 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: scrap_and_build
-    attributes:
-      label: 品質ポリシー（スクラップ&ビルド時）
-      description: |
-        機能削除・根本改修を伴う場合は必ず記載。
-        はりぼて実装（コメントアウト・表示非表示だけの応急処置）は禁止。
-      value: |
-        - 削除対象のコード・機能:
-        - 新規実装で置き換えるもの:
-        - 互換性の考慮:
-
   - type: markdown
     attributes:
       value: |
         ---
-        ## 📋 チケット作業プロセス（全開発者・ツール共通）
-
-        以下のプロセスに従って作業を進めてください:
-
-        1. **チケット内容の確認** — ゴール・背景・技術メモを読み、スコープを把握
-        2. **ブランチ作成** — `feature/{issue番号}-{slug}` または `fix/{issue番号}-{slug}` 形式（例: `feature/123-add-rewards`）
-        3. **影響範囲の調査** — 関連ファイル・テスト・設計書を事前に確認
-        4. **実装** — CLAUDE.md のコーディングガイドラインに従う
-        5. **lint チェック** — `npx biome check .` でエラーなし確認
-        6. **型チェック** — `npx svelte-check` でエラーなし確認
-        7. **ユニットテスト** — `npx vitest run` で全通過確認
-        8. **E2E テスト** — `npx playwright test` で全通過確認
-        9. **設計書同期** — DB・API・UI・インフラ変更時は `docs/design/` の該当設計書を更新
-        10. **UI 変更時のビジュアル検証** — 対象画面をブラウザで確認、スクリーンショット提示
-        11. **Draft PR 発行** — `gh pr create --draft` でDraft PRとして作成（PRテンプレートに従って記載）
-        12. **CI 確認** — GitHub Actions のテスト・デプロイが成功することを確認
-        13. **Ready for Review** — CI通過・コンフリクト解消後に `gh pr ready` で Ready に変更
-        14. **マージ** — レビュー承認後にマージ、`closes #番号` で自動クローズ
-        15. **本番動作確認** — デプロイ後に本番環境で動作を確認
-
-  - type: markdown
-    attributes:
-      value: |
-        ## ⚠️ 重要事項・注意点
-
-        - **UI実装ルール**: ボタンは `$lib/ui/primitives/Button.svelte`、カードは `$lib/ui/primitives/Card.svelte` を使用。routes 配下で hex カラー直書き禁止、CSS変数を使用すること
-        - **サービス層経由必須**: `+server.ts` から直接 ORM を呼び出さない。`$lib/server/services` 経由で実装
-        - **データ取得**: `+page.ts` / `+layout.ts` の `load` を使用。コンポーネント内の直接 fetch 禁止
-        - **スクラップ&ビルド**: 機能削除時にコメントアウト・表示変更だけの応急処置禁止。根本から削除・再構築すること
-        - **画像アセット**: シール/バッジ/実績等のゲーム報酬は絵文字で代替禁止。Gemini生成またはチケット化必須
-        - **テスト・デモデータ**: 実在の子供名を使用禁止。「たろうくん」「はなこちゃん」のようなダミー名を使用
-        - **チケット管理**: 開発チケットの起票・管理は GitHub Issues に統一すること。`docs/tickets/` は新規チケット管理には使用しない
-
-  - type: checkboxes
-    id: close_checklist
-    attributes:
-      label: クローズ前チェック（#612）
-      description: Issue クローズ前に全項目を確認すること。省略不可。
-      options:
-        - label: "Acceptance Criteria の**全項目**にチェックが入っている"
-        - label: "「提案」セクションの対策が**全て実装されている**、または未実装分を別 Issue に切り出した"
-        - label: "テストが追加されている（テスト不要の場合はその理由を記載）"
-        - label: "Critical 修正の場合: E2E 回帰テストを同一 PR 内で追加済み"
-        - label: "Critical 修正の場合: 5年齢モード全てで実機検証しスクリーンショット添付済み"
+        **チケット作業プロセス・コーディングガイドライン・禁止事項**:
+        - [`docs/sessions/dev-session.md`](../../docs/sessions/dev-session.md) — 開発セッション手順 / 並行実装チェックリスト
+        - [`CLAUDE.md`](../../CLAUDE.md) — Things Not To Do / コーディングガイドライン / Build & Test
+        - [`.github/CLAUDE.md`](../CLAUDE.md) — PR 運用 / Draft / QM Approve 体制（ADR-0022）
 
   - type: checkboxes
     id: done_checklist
     attributes:
       label: 完了チェックリスト
-      description: チケット完了時にすべてチェックすること
+      description: チケット完了時に全項目チェック必須。
       options:
-        - label: "lint: `npx biome check .` エラーなし"
-        - label: "型: `npx svelte-check` エラーなし"
-        - label: "ユニットテスト: `npx vitest run` 全通過"
-        - label: "E2E: `npx playwright test` 全通過"
-        - label: "PR テンプレートに従って Draft PR を発行"
-        - label: "CI 通過後、PR を Draft → Ready for Review に変更"
-        - label: "GitHub Actions デプロイ成功確認"
-        - label: "UI 変更がある場合: ビジュアル検証・スクリーンショット提示済み"
-        - label: "設計書の同期更新が必要な場合: docs/design/ 更新済み"
+        - label: "AC 全項目に [x] が入っている（部分実装で closes 禁止 — ADR-0005）"
+        - label: "`npm run pre-ready -- --pr <num>` 全 Step PASS（ADR-0030）"
+        - label: "Draft PR → CI 全緑 → `gh pr ready` で Ready 化"
+        - label: "GitHub Actions デプロイ成功確認（`gh run list`）"
+        - label: "UI 変更時: SS 添付 + DESIGN.md §9 セルフチェック済み"
+        - label: "影響する設計書（docs/design/）を同 PR 内で更新済み"
+        - label: "Critical 修正の場合: ADR-0002 5 要件確認済み（E2E 回帰 + AC 全項目 + 提案全実装 + 5 年齢モード検証 + 直近 30 日重複変更チェック）"
