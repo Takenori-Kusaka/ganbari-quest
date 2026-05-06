@@ -330,31 +330,6 @@
   .versus-shot{max-height:90px}
 }
 
-/* #1784: StoryBrand Guide ブロック (Hero 直後 / versus 直前) — 1 scrshot + 3 points
-   PC では scrshot 左 + 3 points 右の左右 2 column にして高さを抑え、desktopHeight ≤ 8000 を侵食しない */
-#guide{padding:10px 16px}
-.guide-inner{max-width:1280px;margin:0 auto}
-#guide .section-title{font-size:1.15rem;margin-bottom:2px}
-#guide .section-desc{font-size:.8rem;margin-bottom:6px;line-height:1.5}
-.guide-grid{display:grid;grid-template-columns:1fr;gap:6px;align-items:stretch}
-.guide-shot{border-radius:var(--radius);overflow:hidden;background:#fff;border:1px solid var(--brand-200);box-shadow:0 2px 8px rgba(0,0,0,.06);aspect-ratio:16/9;max-height:120px}
-.guide-shot picture,.guide-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top center}
-.guide-points{list-style:none;padding:0;margin:0;display:grid;gap:4px}
-.guide-point{background:linear-gradient(135deg,var(--brand-50) 0%,#fef9e7 100%);border:1px solid var(--brand-200);border-radius:var(--radius);padding:5px 10px}
-.guide-point h3{font-size:.8rem;font-weight:700;color:var(--brand-700);margin:0 0 1px;line-height:1.3}
-.guide-point p{font-size:.7rem;color:var(--gray-700);margin:0;line-height:1.4}
-@media(min-width:768px){
-  .guide-grid{grid-template-columns:0.9fr 1.6fr;gap:12px;align-items:center}
-  .guide-shot{max-height:140px}
-}
-@media(min-width:1024px){
-  #guide{padding:12px 16px}
-  #guide .section-title{font-size:1.3rem}
-  .guide-shot{max-height:150px}
-  .guide-point h3{font-size:.86rem}
-  .guide-point p{font-size:.76rem}
-}
-
 /* Trust badges (#1620 R16: PC 4 列化、モバイル 2×2 維持) */
 .trust-badges{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:900px;margin:0 auto}
 @media(max-width:640px){.trust-badges{gap:12px}}
@@ -548,41 +523,6 @@
   </div>
 </section>
 <!-- LP-LANDMARK:hero end -->
-
-<!-- LP-LANDMARK:guide start — #1784 StoryBrand Guide（信頼できる導き手）ブロック
-     Hero 直後・versus 直前に配置し、「なぜがんばりクエストを信用してよいか」を 1 scrshot + 3 行で訴求
-     ADR-0010 (Pre-PMF) / ADR-0012 (Anti-engagement) / ADR-0013 (LP truth) と整合
-     設計書: docs/design/lp-content-map.md §[01b] guide -->
-<!-- [01b] StoryBrand Guide — なぜがんばりクエストは「卒業」を成功と呼ぶのか -->
-<section class="section bg-white" id="guide" data-testid="guide-section">
-  <div class="section-inner guide-inner">
-    <h2 class="section-title" data-lp-key="guide.sectionTitle">なぜがんばりクエストは「卒業」を成功と呼ぶのか</h2>
-    <p class="section-desc" data-lp-key="guide.sectionDesc">長く使ってもらうためのアプリではなく、子供が自律したら卒業するアプリとして設計しています。</p>
-    <div class="guide-grid">
-      <div class="guide-shot">
-        <picture>
-          <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
-          <img src="screenshots/feature-point-level.webp" alt="がんばりクエストの代表画面 — ポイントとカテゴリの可視化" loading="lazy" data-lightbox>
-        </picture>
-      </div>
-      <ul class="guide-points">
-        <li class="guide-point">
-          <h3 data-lp-key="guide.pointAntiEngagementTitle">滞在時間を伸ばさない設計</h3>
-          <p data-lp-key="guide.pointAntiEngagementDesc">連続演出や通知連打は採用しません。記録は数秒で終わるのが正しい使い方です。</p>
-        </li>
-        <li class="guide-point">
-          <h3 data-lp-key="guide.pointCoreTargetTitle">3-18 歳のコアターゲット</h3>
-          <p data-lp-key="guide.pointCoreTargetDesc">年齢が上がるほど自分でペースを決められるよう、UI と機能が段階的に変わります。</p>
-        </li>
-        <li class="guide-point">
-          <h3 data-lp-key="guide.pointFamilyOnlyTitle">家族だけの閉じた空間</h3>
-          <p data-lp-key="guide.pointFamilyOnlyDesc">広告も他家庭との比較もありません。子供のがんばりは家族にしか見えません。</p>
-        </li>
-      </ul>
-    </div>
-  </div>
-</section>
-<!-- LP-LANDMARK:guide end -->
 
 <!-- LP-LANDMARK:versus start — シール帳・ホワイトボードでもいいんじゃない？に対する優位訴求 (#1614 R10)
      親 P1 が「30 秒で離脱判断」する直前に「アナログでは届かない 5 つの差」を比較表で提示

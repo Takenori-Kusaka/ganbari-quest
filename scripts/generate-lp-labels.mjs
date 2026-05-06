@@ -167,8 +167,8 @@ function parseLabelsTs() {
 	// Phase 4 R9/R10 (#1613/#1614): 年齢別成長ロードマップ + アナログ vs デジタル
 	const lpVersusLabels = parseBlock(src, 'LP_VERSUS_LABELS');
 	const lpGrowthRoadmapLabels = parseBlock(src, 'LP_GROWTH_ROADMAP_LABELS');
-	// #1784: Hero 直後 StoryBrand Guide ブロック
-	const lpGuideLabels = parseBlock(src, 'LP_GUIDE_LABELS');
+	// 注: #1784 Hero 直後 StoryBrand Guide ブロック (LP_GUIDE_LABELS) は #1843 で完全 revert
+	//   PO-N-1 指摘で「タイトルと内容が乖離した一番上にくるセクション不適切」のため Hero → versus 直行に戻した
 	// Phase 5 R44 (#1650): pricing.html SSOT 同期
 	const lpPricingLabels = parseBlock(src, 'LP_PRICING_LABELS');
 	// 注: #1594 ADR-0023 I8 → ADR-0028 (#1713 R7) で LP の founder 直接相談セクションは削除済み。
@@ -206,7 +206,6 @@ function parseLabelsTs() {
 		lpLegalDisclaimerLabels,
 		lpVersusLabels,
 		lpGrowthRoadmapLabels,
-		lpGuideLabels,
 		lpPricingLabels,
 		lpLicenseKeyLabels,
 		lpFaqLabels,
@@ -271,7 +270,6 @@ function generateSharedLabelsJs() {
 		lpLegalDisclaimerLabels,
 		lpVersusLabels,
 		lpGrowthRoadmapLabels,
-		lpGuideLabels,
 		lpPricingLabels,
 		lpLicenseKeyLabels,
 		lpFaqLabels,
@@ -327,8 +325,7 @@ function generateSharedLabelsJs() {
 		legalDisclaimer: lpLegalDisclaimerLabels,
 		versus: lpVersusLabels,
 		growthRoadmap: lpGrowthRoadmapLabels,
-		// #1784: Hero 直後 StoryBrand Guide ブロック（site/index.html [01b] guide セクション）
-		guide: lpGuideLabels,
+		// 注: #1784 guide: lpGuideLabels は #1843 で完全 revert（PO-N-1 指摘で Hero → versus 直行へ復帰）
 		pricing: lpPricingLabels,
 		// 注: ADR-0028 (#1713 R7) で LP の founder 直接相談セクション削除 → #1772 で namespace 完全撤去
 		licenseKey: lpLicenseKeyLabels,
