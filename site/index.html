@@ -247,27 +247,25 @@
 .soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
 #soft-features .soft-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 #soft-features.section{padding-bottom:28px}
-/* #1720 R4: 3 cards 圧縮レイアウト — PC は 1 行に 3 cards 並列、月次レポート featured を border + 微妙なシャドウで強調（縦伸び抑制のためフル幅は不採用） */
+/* #1847 PO-N-5: 3 cards CSS 完全均質化 — featured 強調差分（grid 1.2fr / h3 拡大色変更 / soft-shot max-height 拡大）撤去、
+   PC でも均等幅 + 全 cards 同一 h3 サイズ + 同一 soft-shot 高さに統一 */
 @media(min-width:768px){
-  #soft-features .soft-grid--three{grid-template-columns:1.2fr 1fr 1fr;max-width:1080px}
+  #soft-features .soft-grid--three{grid-template-columns:repeat(3,1fr);max-width:1080px}
 }
 /* #1785 R-CRT-2: 5 系統 → 1 種統一 — featured の box-shadow / 太枠 border 撤去。
-   featured 強調はタイトル文字色 (--brand-700) のみで実現（box-shadow 0 件、grep `box-shadow.*rgba.*120` 0 件） */
+   #1847 PO-N-5: featured 強調 (h3 拡大 + 文字色変更 / soft-shot max-height 拡大) も完全撤去し 3 cards 視覚均質化 */
 .soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:20px 18px;display:flex;flex-direction:column}
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
-.soft-card.soft-card--featured h3{font-size:1.15rem;color:var(--brand-700)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
 /* #1707 R2 / #1793: soft-card 内に家庭で楽になる / 家庭ごとにカスタマイズできる 1 行ベネフィットと screenshot を追加 */
 /* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
 /* #1785 R-CRT-2: soft-shot からも border / background / border-radius を撤去 */
 .soft-card .soft-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:8px 0}
-.soft-card.soft-card--featured .soft-shot{max-height:120px}
 .soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .soft-card .soft-benefit{font-size:.78rem;color:var(--gray-700);line-height:1.5;margin-top:auto}
 .soft-card .soft-benefit strong{color:var(--brand-700)}
 @media(min-width:1024px){
   .soft-card .soft-shot{max-height:160px}
-  .soft-card.soft-card--featured .soft-shot{max-height:180px}
 }
 
 /* Pricing promise band (#1293: freemium × 低価格帯の price disambiguation) */
@@ -750,7 +748,7 @@
     <h2 class="section-title" data-lp-key="indexB.k37">親が安心できる運用補助</h2>
     <p class="section-desc" data-lp-key="indexB.k38">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 3 つの機能です。</p>
     <div class="soft-grid soft-grid--three">
-      <div class="soft-card soft-card--featured" data-testid="feature-monthly-report">
+      <div class="soft-card" data-testid="feature-monthly-report">
         <h3 data-lp-key="indexB.k39">成長の記録（月次レポート）</h3>
         <p data-lp-key="indexB.k40">月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。</p>
         <div class="soft-shot">
