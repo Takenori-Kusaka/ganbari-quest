@@ -4,6 +4,7 @@
 
 import { error, json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { createViewerToken, listViewerTokens } from '$lib/server/services/viewer-token-service';
 import type { RequestHandler } from './$types';
@@ -20,7 +21,7 @@ async function requireFamily(locals: App.Locals): Promise<string> {
 		locals.context?.plan,
 	);
 	if (tier !== 'family') {
-		throw error(403, { message: 'ファミリープラン限定の機能です' });
+		throw error(403, { message: PLAN_GATE_LABELS.viewerTokenFamilyOnly });
 	}
 	return tenantId;
 }
