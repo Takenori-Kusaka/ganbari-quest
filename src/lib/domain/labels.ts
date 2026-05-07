@@ -5,7 +5,8 @@
 
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
-import { PLAN_FULL_TERMS, PLAN_TERMS, PRICE_TERMS, TRIAL_TERMS } from './terms';
+// #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
+import { FREE_TERMS, PLAN_FULL_TERMS, PLAN_TERMS, PRICE_TERMS, TRIAL_TERMS } from './terms';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
@@ -1137,7 +1138,8 @@ export const SETTINGS_LABELS = {
 	siblingSaved: 'きょうだい設定を保存しました',
 	siblingChallengeMode: 'チャレンジモード',
 	siblingRankingLabel: 'きょうだいランキングを表示する',
-	siblingRankingUpsell: 'きょうだいランキングはファミリープラン限定の機能です。',
+	// #1960 Phase 7 H3: terms.ts atom 参照化
+	siblingRankingUpsell: `きょうだいランキングは${PLAN_FULL_TERMS.family}限定の機能です。`,
 	siblingRankingUpsellLink: 'プランのアップグレード',
 	siblingRankingUpsellSuffix: 'で利用できます。',
 	siblingSaveAction: '設定を保存',
@@ -1174,7 +1176,8 @@ export const SETTINGS_LABELS = {
 	dataExportItem3: 'チェックリスト・誕生日振り返り',
 	dataExportItem4: '活動マスタ・きせかえアイテム',
 	dataExportUpsellTitle: '🔒 データエクスポートは ',
-	dataExportUpsellPlan: 'スタンダードプラン',
+	// #1960 Phase 7 H3: terms.ts atom 参照化
+	dataExportUpsellPlan: `${PLAN_FULL_TERMS.standard}`,
 	dataExportUpsellSuffix: ' 以上でご利用いただけます。',
 	dataExportUpsellDesc:
 		'家族のデータをJSON/ZIP形式でダウンロードして、バックアップや引っ越しに利用できます。',
@@ -1229,10 +1232,10 @@ export const SETTINGS_LABELS = {
 	cloudSectionTitle: '☁️ クラウド共有',
 	cloudSlotCounter: (current: number, max: number) => `保管枠 ${current} / ${max}`,
 	cloudUpsellTitle: '🔒 クラウド共有は ',
-	cloudUpsellPlan: 'スタンダードプラン',
+	// #1960 Phase 7 H3: terms.ts atom 参照化
+	cloudUpsellPlan: `${PLAN_FULL_TERMS.standard}`,
 	cloudUpsellSuffix: ' 以上でご利用いただけます。',
-	cloudUpsellDesc:
-		'家族のデータをクラウドに保管して、PINコードで別端末や他のアカウントと共有できます（スタンダード: 3枠 / ファミリー: 10枠）。',
+	cloudUpsellDesc: `家族のデータをクラウドに保管して、PINコードで別端末や他のアカウントと共有できます（${PLAN_TERMS.standard}: 3枠 / ${PLAN_TERMS.family}: 10枠）。`,
 	cloudUpsellCta: 'プランを見る',
 	cloudExportDesc: '設定やデータをクラウドに保管してPINコードで他のアカウントと共有できます。',
 	cloudExportType: 'エクスポートタイプ',
@@ -2984,15 +2987,16 @@ export const STATUS_LABELS = {
 
 export const PRICING_PAGE_LABELS = {
 	heading: '料金プラン',
-	subtitle1: '基本無料ではじめられます。スタンダード・ファミリープランはすべて',
-	subtitleTrialDays: '7日間の無料体験',
+	// #1960 Phase 7 H3: terms.ts atom 参照化 (FREE_TERMS / PLAN_TERMS / TRIAL_TERMS / PLAN_FULL_TERMS)
+	subtitle1: `${FREE_TERMS.base}ではじめられます。${PLAN_TERMS.standard}・${PLAN_TERMS.family}プランはすべて`,
+	subtitleTrialDays: `${TRIAL_TERMS.duration}の無料体験`,
 	subtitle2: '付き',
 	featureNote:
 		'お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・連続達成ボーナスなど）は',
 	featureNoteStrong: '全プラン共通',
 	featureNoteSuffix: 'で制限なし',
 	faqTitle: 'よくある質問',
-	faqFreePlanQ: '無料プランでも十分使えますか？',
+	faqFreePlanQ: `${PLAN_FULL_TERMS.free}でも十分使えますか？`,
 	faqFreePlanA:
 		'はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。',
 	faqCancelTrialQ: '無料体験中にキャンセルできますか？',
@@ -3000,8 +3004,8 @@ export const PRICING_PAGE_LABELS = {
 	faqCancelQ: '解約したらデータはすぐに削除されますか？',
 	// #1647 R42 + #1643 R38 + #1733 R16: 実装 grace-period-service.ts の {free:0, standard:7, family:30} に合わせる
 	// アプリ内 /pricing と LP /site/pricing.html / faq.html / index.html の全てで同一表現を返す SSOT
-	faqCancelA:
-		'プランによって猶予期間が異なります。無料プラン: 解約申請後すべてのデータが即時削除されます（猶予期間なし）。スタンダードプラン: 解約申請から 7 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。ファミリープラン: 解約申請から 30 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。猶予期間中はログインしてエクスポート可能です。',
+	// #1960 Phase 7 H3: PLAN_FULL_TERMS atom 参照化（grace 日数 7/30 は server SSOT grace-period-service.ts と整合）
+	faqCancelA: `プランによって猶予期間が異なります。${PLAN_FULL_TERMS.free}: 解約申請後すべてのデータが即時削除されます（猶予期間なし）。${PLAN_FULL_TERMS.standard}: 解約申請から 7 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。${PLAN_FULL_TERMS.family}: 解約申請から 30 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。猶予期間中はログインしてエクスポート可能です。`,
 	faqBillingDateQ: '課金日はいつですか？',
 	faqBillingDateA: 'お申し込み日を起算日として毎月（または毎年）自動更新されます。',
 	faqPaymentQ: '支払い方法は？',
