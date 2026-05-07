@@ -313,60 +313,77 @@ function parseTermsTs() {
 }
 
 /**
- * labels.ts から定数を抽出する簡易パーサ（TS コンパイラなしで読み取る）
+ * LP 用 namespace 名 ↔ 戻り値 key の対応表。
  *
- * #1917: parseLabelsTs は以下の 2 段階で動作する。
+ * #1917 のリファクタで parseLabelsTs() の cognitive complexity を 27 → 安全圏に下げるため、
+ * 多数の parseBlock 呼び出しと namespaces map / return マッピングを data table に外出しした。
+ * 過去 PR 由来のコメント（どの Issue で追加したか）はキー単位で保持。
+ *
+ * @type {Array<{constName: string, returnKey: string, note?: string}>}
+ */
+const LP_NAMESPACE_TABLE = [
+	{ constName: 'LP_RETENTION_LABELS', returnKey: 'lpRetentionLabels' },
+	{ constName: 'LP_CORELOOP_LABELS', returnKey: 'lpCoreloopLabels' },
+	// #1465 Phase C: LP 共通ナビ・フッター・CTA
+	{ constName: 'LP_NAV_LABELS', returnKey: 'lpNavLabels', note: '#1465 Phase C' },
+	{ constName: 'LP_FOOTER_LABELS', returnKey: 'lpFooterLabels', note: '#1465 Phase C' },
+	{ constName: 'LP_COMMON_LABELS', returnKey: 'lpCommonLabels', note: '#1465 Phase C' },
+	// Phase 2 R5/R6 (#1609/#1610): 法務系打消し表示
+	{ constName: 'LP_LEGAL_DISCLAIMER_LABELS', returnKey: 'lpLegalDisclaimerLabels' },
+	// Phase 4 R9/R10 (#1613/#1614): 年齢別成長ロードマップ + アナログ vs デジタル
+	{ constName: 'LP_VERSUS_LABELS', returnKey: 'lpVersusLabels' },
+	{ constName: 'LP_GROWTH_ROADMAP_LABELS', returnKey: 'lpGrowthRoadmapLabels' },
+	// 注: #1784 Hero 直後 StoryBrand Guide ブロック (LP_GUIDE_LABELS) は #1843 で完全 revert
+	// Phase 5 R44 (#1650): pricing.html SSOT 同期
+	{ constName: 'LP_PRICING_LABELS', returnKey: 'lpPricingLabels' },
+	// 注: ADR-0028 (#1713 R7) で LP の founder 直接相談 namespace は #1772 で完全撤去済
+	{ constName: 'LP_LICENSEKEY_LABELS', returnKey: 'lpLicenseKeyLabels' },
+	{ constName: 'LP_FAQ_LABELS', returnKey: 'lpFaqLabels' },
+	{ constName: 'LP_SELFHOST_LABELS', returnKey: 'lpSelfhostLabels' },
+	{ constName: 'LP_INDEX_EXTRA_LABELS', returnKey: 'lpIndexExtraLabels' },
+	// #1732: floating-cta 深度別文言
+	{ constName: 'LP_FLOATING_CTA_LABELS', returnKey: 'lpFloatingCtaLabels' },
+	{ constName: 'LP_PAMPHLET_LABELS', returnKey: 'lpPamphletLabels' },
+	{ constName: 'LP_PRICING_EXTRA_LABELS', returnKey: 'lpPricingExtraLabels' },
+	// #1702: site/{index,pricing,faq,pamphlet}.html 339 件 SSOT 化用 phase B namespace
+	{ constName: 'LP_INDEX_PHASEB_LABELS', returnKey: 'lpIndexPhaseBLabels' },
+	{ constName: 'LP_PRICING_PHASEB_LABELS', returnKey: 'lpPricingPhaseBLabels' },
+	{ constName: 'LP_FAQ_PHASEB_LABELS', returnKey: 'lpFaqPhaseBLabels' },
+	{ constName: 'LP_PAMPHLET_PHASEB_LABELS', returnKey: 'lpPamphletPhaseBLabels' },
+	// #1703 #1683-C: 法的文書 SSOT 化（ADR-0009 supersede / ADR-0025）
+	{ constName: 'LP_LEGAL_PRIVACY_LABELS', returnKey: 'lpLegalPrivacyLabels' },
+	{ constName: 'LP_LEGAL_TERMS_LABELS', returnKey: 'lpLegalTermsLabels' },
+	{ constName: 'LP_LEGAL_SLA_LABELS', returnKey: 'lpLegalSlaLabels' },
+	{ constName: 'LP_LEGAL_TOKUSHOHO_LABELS', returnKey: 'lpLegalTokushohoLabels' },
+];
+
+/**
+ * labels.ts の全 namespace を template literal 解決済みで取得する内部実装。
+ *
+ * #1917: 以下の 3 段階で動作する。
  *   Phase 1: 全 namespace を raw (template literal は marker で保持) でパース
  *   Phase 2: terms.ts を読み込み、namespaces map に統合
  *   Phase 3: resolveAllTemplates で interpolation を解決
  * 解決失敗時は throw + 詳細表示 (Unresolved ${ns}.${key} in ${owner})
+ *
+ * @returns {Record<string, Record<string, string>>} namespace 名 → key/value マップ (全て解決済み)
  */
-function parseLabelsTs() {
+function parseAllNamespacesResolved() {
 	const src = fs.readFileSync(LABELS_TS, 'utf-8');
 
+	// AGE / PLAN は year-based name で固定 + 既存 simple block 保持 (#1772)
 	const ageTierLabels = parseSimpleBlock(src, 'AGE_TIER_LABELS');
 	const ageTierShort = parseSimpleBlock(src, 'AGE_TIER_SHORT_LABELS');
 	const planLabels = parseSimpleBlock(src, 'PLAN_LABELS');
-	const lpRetentionLabels = parseBlock(src, 'LP_RETENTION_LABELS');
-	const lpCoreloopLabels = parseBlock(src, 'LP_CORELOOP_LABELS');
-	// #1465 Phase C: LP 共通ナビ・フッター・CTA
-	const lpNavLabels = parseBlock(src, 'LP_NAV_LABELS');
-	const lpFooterLabels = parseBlock(src, 'LP_FOOTER_LABELS');
-	const lpCommonLabels = parseBlock(src, 'LP_COMMON_LABELS');
-	// Phase 2 R5/R6 (#1609/#1610): 法務系打消し表示
-	const lpLegalDisclaimerLabels = parseBlock(src, 'LP_LEGAL_DISCLAIMER_LABELS');
-	// Phase 4 R9/R10 (#1613/#1614): 年齢別成長ロードマップ + アナログ vs デジタル
-	const lpVersusLabels = parseBlock(src, 'LP_VERSUS_LABELS');
-	const lpGrowthRoadmapLabels = parseBlock(src, 'LP_GROWTH_ROADMAP_LABELS');
-	// 注: #1784 Hero 直後 StoryBrand Guide ブロック (LP_GUIDE_LABELS) は #1843 で完全 revert
-	//   PO-N-1 指摘で「タイトルと内容が乖離した一番上にくるセクション不適切」のため Hero → versus 直行に戻した
-	// Phase 5 R44 (#1650): pricing.html SSOT 同期
-	const lpPricingLabels = parseBlock(src, 'LP_PRICING_LABELS');
-	// 注: #1594 ADR-0023 I8 → ADR-0028 (#1713 R7) で LP の founder 直接相談セクションは削除済み。
-	// 関連 namespace は #1772 で labels.ts export + shared-labels.js namespace ともに完全撤去。
-	// （parseBlock 自体は #1772 で「定数不在時に空オブジェクトを返す」よう修正済みなので、
-	//  将来同様に空オブジェクト化された LP_*_LABELS を削除しても本スクリプトは壊れない）
-	const lpLicenseKeyLabels = parseBlock(src, 'LP_LICENSEKEY_LABELS');
-	const lpFaqLabels = parseBlock(src, 'LP_FAQ_LABELS');
-	const lpSelfhostLabels = parseBlock(src, 'LP_SELFHOST_LABELS');
-	const lpIndexExtraLabels = parseBlock(src, 'LP_INDEX_EXTRA_LABELS');
-	// #1732: floating-cta 深度別文言
-	const lpFloatingCtaLabels = parseBlock(src, 'LP_FLOATING_CTA_LABELS');
-	const lpPamphletLabels = parseBlock(src, 'LP_PAMPHLET_LABELS');
-	const lpPricingExtraLabels = parseBlock(src, 'LP_PRICING_EXTRA_LABELS');
-	// #1702: site/{index,pricing,faq,pamphlet}.html 339 件 SSOT 化用 phase B namespace
-	const lpIndexPhaseBLabels = parseBlock(src, 'LP_INDEX_PHASEB_LABELS');
-	const lpPricingPhaseBLabels = parseBlock(src, 'LP_PRICING_PHASEB_LABELS');
-	const lpFaqPhaseBLabels = parseBlock(src, 'LP_FAQ_PHASEB_LABELS');
-	const lpPamphletPhaseBLabels = parseBlock(src, 'LP_PAMPHLET_PHASEB_LABELS');
-	// #1703 #1683-C: 法的文書 SSOT 化（ADR-0009 supersede / ADR-0025）
-	const lpLegalPrivacyLabels = parseBlock(src, 'LP_LEGAL_PRIVACY_LABELS');
-	const lpLegalTermsLabels = parseBlock(src, 'LP_LEGAL_TERMS_LABELS');
-	const lpLegalSlaLabels = parseBlock(src, 'LP_LEGAL_SLA_LABELS');
-	const lpLegalTokushohoLabels = parseBlock(src, 'LP_LEGAL_TOKUSHOHO_LABELS');
+
+	// #1917: LP 系 namespace は data table 駆動で一括 parse + namespaces map 構築
+	/** @type {Record<string, Record<string, string | TemplateLiteralValue>>} */
+	const lpRaw = {};
+	for (const { constName } of LP_NAMESPACE_TABLE) {
+		lpRaw[constName] = parseBlock(src, constName);
+	}
 
 	// #1917: terms.ts (atom) を取り込み、template literal を解決
-	// 全 namespace を一つの map に束ね、resolveAllTemplates で interpolation を済ませる。
 	// 解決失敗時は throw され、CLI / --check が exit 1 で停止する。
 	const termsNamespaces = parseTermsTs();
 	/** @type {Record<string, Record<string, string | TemplateLiteralValue>>} */
@@ -375,64 +392,38 @@ function parseLabelsTs() {
 		AGE_TIER_LABELS: ageTierLabels,
 		AGE_TIER_SHORT_LABELS: ageTierShort,
 		PLAN_LABELS: planLabels,
-		LP_RETENTION_LABELS: lpRetentionLabels,
-		LP_CORELOOP_LABELS: lpCoreloopLabels,
-		LP_NAV_LABELS: lpNavLabels,
-		LP_FOOTER_LABELS: lpFooterLabels,
-		LP_COMMON_LABELS: lpCommonLabels,
-		LP_LEGAL_DISCLAIMER_LABELS: lpLegalDisclaimerLabels,
-		LP_VERSUS_LABELS: lpVersusLabels,
-		LP_GROWTH_ROADMAP_LABELS: lpGrowthRoadmapLabels,
-		LP_PRICING_LABELS: lpPricingLabels,
-		LP_LICENSEKEY_LABELS: lpLicenseKeyLabels,
-		LP_FAQ_LABELS: lpFaqLabels,
-		LP_SELFHOST_LABELS: lpSelfhostLabels,
-		LP_INDEX_EXTRA_LABELS: lpIndexExtraLabels,
-		LP_FLOATING_CTA_LABELS: lpFloatingCtaLabels,
-		LP_PAMPHLET_LABELS: lpPamphletLabels,
-		LP_PRICING_EXTRA_LABELS: lpPricingExtraLabels,
-		LP_INDEX_PHASEB_LABELS: lpIndexPhaseBLabels,
-		LP_PRICING_PHASEB_LABELS: lpPricingPhaseBLabels,
-		LP_FAQ_PHASEB_LABELS: lpFaqPhaseBLabels,
-		LP_PAMPHLET_PHASEB_LABELS: lpPamphletPhaseBLabels,
-		LP_LEGAL_PRIVACY_LABELS: lpLegalPrivacyLabels,
-		LP_LEGAL_TERMS_LABELS: lpLegalTermsLabels,
-		LP_LEGAL_SLA_LABELS: lpLegalSlaLabels,
-		LP_LEGAL_TOKUSHOHO_LABELS: lpLegalTokushohoLabels,
+		...lpRaw,
 	};
-	const resolved = resolveAllTemplates(allNamespaces);
+	return resolveAllTemplates(allNamespaces);
+}
 
-	// 全 namespace は resolveAllTemplates で必ず entry を持つ (Object.entries で全件処理)
-	// が、TS 型上は Record<string, ...> なので index access が optional 扱い。
-	// `?? {}` で defensive fallback を付与。
+/**
+ * labels.ts から定数を抽出し、generateSharedLabelsJs で使う形に整える。
+ * 既存呼出元への破壊的変更を避けるため戻り値 key は従来どおり (ageTierLabels / lp* 形式)。
+ *
+ * @returns {{
+ *   ageTierLabels: Record<string, string>;
+ *   ageTierShort: Record<string, string>;
+ *   planLabels: Record<string, string>;
+ *   [lpKey: string]: Record<string, string>;
+ * }}
+ */
+function parseLabelsTs() {
+	const resolved = parseAllNamespacesResolved();
+
+	// data table を経由して resolved → 戻り値 key へマッピング
+	// 全 namespace は resolveAllTemplates で必ず entry を持つが、TS 型上 optional なので `?? {}` で defensive fallback。
+	/** @type {Record<string, Record<string, string>>} */
+	const lpResolved = {};
+	for (const { constName, returnKey } of LP_NAMESPACE_TABLE) {
+		lpResolved[returnKey] = resolved[constName] ?? {};
+	}
+
 	return {
 		ageTierLabels: resolved.AGE_TIER_LABELS ?? {},
 		ageTierShort: resolved.AGE_TIER_SHORT_LABELS ?? {},
 		planLabels: resolved.PLAN_LABELS ?? {},
-		lpRetentionLabels: resolved.LP_RETENTION_LABELS ?? {},
-		lpCoreloopLabels: resolved.LP_CORELOOP_LABELS ?? {},
-		lpNavLabels: resolved.LP_NAV_LABELS ?? {},
-		lpFooterLabels: resolved.LP_FOOTER_LABELS ?? {},
-		lpCommonLabels: resolved.LP_COMMON_LABELS ?? {},
-		lpLegalDisclaimerLabels: resolved.LP_LEGAL_DISCLAIMER_LABELS ?? {},
-		lpVersusLabels: resolved.LP_VERSUS_LABELS ?? {},
-		lpGrowthRoadmapLabels: resolved.LP_GROWTH_ROADMAP_LABELS ?? {},
-		lpPricingLabels: resolved.LP_PRICING_LABELS ?? {},
-		lpLicenseKeyLabels: resolved.LP_LICENSEKEY_LABELS ?? {},
-		lpFaqLabels: resolved.LP_FAQ_LABELS ?? {},
-		lpSelfhostLabels: resolved.LP_SELFHOST_LABELS ?? {},
-		lpIndexExtraLabels: resolved.LP_INDEX_EXTRA_LABELS ?? {},
-		lpFloatingCtaLabels: resolved.LP_FLOATING_CTA_LABELS ?? {},
-		lpPamphletLabels: resolved.LP_PAMPHLET_LABELS ?? {},
-		lpPricingExtraLabels: resolved.LP_PRICING_EXTRA_LABELS ?? {},
-		lpIndexPhaseBLabels: resolved.LP_INDEX_PHASEB_LABELS ?? {},
-		lpPricingPhaseBLabels: resolved.LP_PRICING_PHASEB_LABELS ?? {},
-		lpFaqPhaseBLabels: resolved.LP_FAQ_PHASEB_LABELS ?? {},
-		lpPamphletPhaseBLabels: resolved.LP_PAMPHLET_PHASEB_LABELS ?? {},
-		lpLegalPrivacyLabels: resolved.LP_LEGAL_PRIVACY_LABELS ?? {},
-		lpLegalTermsLabels: resolved.LP_LEGAL_TERMS_LABELS ?? {},
-		lpLegalSlaLabels: resolved.LP_LEGAL_SLA_LABELS ?? {},
-		lpLegalTokushohoLabels: resolved.LP_LEGAL_TOKUSHOHO_LABELS ?? {},
+		...lpResolved,
 	};
 }
 
