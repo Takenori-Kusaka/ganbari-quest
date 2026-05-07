@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  LP [03] core-loop 1-shot summary 図解 (#1787)
-  暫定 SVG（Gemini API 鍵が利用できる環境では `npm run generate:coreloop-summary` で
-  ブランドキャラクター付きの PNG に置き換える）
+  LP [03] core-loop 1-shot summary 図解 (#1787 / #1889 で正本化)
   色: ブランド青 #5BA3E6 / 金 #FFE44D / オレンジ accent
+
+  #1889: 透過 PNG 化のため背景 rect (fill=url(#bgGrad)) を撤去。
+    LP 側 (.core-loop-summary img) も `background:#fff` を撤去したため、
+    section 背景に自然に溶け込む。
+    `npm run generate:coreloop-summary` で本 SVG → sharp PNG (1280x640, transparent)
+    に変換され `static/assets/lp/core-loop-summary.png` / `site/assets/lp/` に配備される。
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320" width="640" height="320" role="img" aria-label="活動 → 習慣 → ごほうび の循環図">
   <defs>
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#FFFAF0"/>
-      <stop offset="100%" stop-color="#F0F8FF"/>
-    </linearGradient>
+    <!-- #1889: bgGrad は背景 rect 撤去に伴い不要となったため削除 -->
     <linearGradient id="badgeBlue" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#7BB7E8"/>
       <stop offset="100%" stop-color="#3878B8"/>
@@ -28,8 +29,7 @@
     </marker>
   </defs>
 
-  <!-- 背景 -->
-  <rect width="640" height="320" rx="14" fill="url(#bgGrad)"/>
+  <!-- #1889: 背景 rect を撤去 (透過 PNG 化、LP 側 background:#fff も撤去) -->
 
   <!-- 中央キャラクタープレースホルダー（円 + 星 emblem） -->
   <g transform="translate(320 160)">

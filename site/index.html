@@ -189,7 +189,8 @@
 /* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
 .core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
 /* #1785 R-CRT-2: summary 画像も装飾枠統一系列に追従 — border:1px solid var(--gray-300) で他の card 装飾と同一の外観 */
-.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid var(--gray-300)}
+/* #1889: background:#fff を撤去 — SVG/PNG が透過化されたため LP section 背景に自然に溶け込む */
+.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--gray-300)}
 .core-loop-summary figcaption{margin-top:10px;font-size:.86rem;color:var(--gray-700);line-height:1.6;max-width:540px;margin-left:auto;margin-right:auto}
 /* 3 cards: モバイル縦積み / PC 横並び 3 カラム */
 .core-loop-cards{display:grid;grid-template-columns:1fr;gap:14px;max-width:1080px;margin:0 auto}
