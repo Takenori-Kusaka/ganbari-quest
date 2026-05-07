@@ -19,8 +19,9 @@
 //   TRIAL_TERMS      — トライアル atom（7日間 / カード登録）
 //   CANCEL_TERMS     — 解約 atom
 //   FREE_TERMS       — 無料訴求 atom
+//   CTA_TERMS        — CTA / トライアル動詞句 atom（無料体験 / 無料で試す / 無料で試せます、#1958）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser)
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -64,6 +65,10 @@ export const TRIAL_TERMS = {
 	durationDays: 7,
 	noCreditCard: 'クレジットカード登録不要',
 	noCreditCardShort: 'クレカ登録不要',
+	// #1958 Phase 7 H1: TRIAL_LABELS.bannerDescNotStarted の文末「カード登録不要。」用 atom。
+	// 既存の noCreditCard (12 文字) / noCreditCardShort (8 文字) と異なる中間長 (7 文字) であり、
+	// 文字列差分ゼロ維持のため新 atom として独立させる。
+	noCreditCardMid: 'カード登録不要',
 } as const;
 
 // ============================================================
@@ -83,4 +88,23 @@ export const FREE_TERMS = {
 	base: '基本無料',
 	start: 'まずは無料',
 	tryFree: '無料で始める',
+} as const;
+
+// ============================================================
+// CTA_TERMS — CTA / トライアル訴求の動詞句 atom (#1958 Phase 7 H1)
+// ============================================================
+//
+// 「無料体験」「無料で試す」「無料で試せます」等、トライアル CTA で頻出する
+// 動詞句・名詞句を atom として集約。labels.ts ACTION_LABELS / TRIAL_LABELS の
+// compound はこの atom を参照する。
+//
+// 設計指針:
+//   - freeTrialNoun: 名詞「無料体験」（「〜中」「〜は明日で終了します」「〜が終了しました」）
+//   - freeTrialVerb: 終止形「無料で試す」（CTA ボタン文末）
+//   - freeTrialDesc: 可能形「無料で試せます」（タイトル文脈、#1383 で個別定数化済）
+
+export const CTA_TERMS = {
+	freeTrialNoun: '無料体験',
+	freeTrialVerb: '無料で試す',
+	freeTrialDesc: '無料で試せます',
 } as const;
