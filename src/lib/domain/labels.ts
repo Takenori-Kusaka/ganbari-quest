@@ -4,7 +4,8 @@
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
-import { PLAN_FULL_TERMS, PLAN_TERMS, TRIAL_TERMS } from './terms';
+// #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
+import { PLAN_FULL_TERMS, PLAN_TERMS, PRICE_TERMS, TRIAL_TERMS } from './terms';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
@@ -558,6 +559,15 @@ export const TRIAL_LABELS = {
 // （「今すぐアップグレード」「失効します」等）を含めない中立的トーンとする。
 //
 // 親宛のみ送信されるため、敬語ベース（「ご利用ありがとうございます」「ご確認ください」）。
+//
+// #1961 (Phase 7 H4) atom 直書き監査:
+//   - planLabel は呼び出し側 (renewal-reminder service) から引数注入され、PLAN_LABELS / PLAN_FULL_TERMS
+//     経由で解決済みの compound を渡す設計のため本 namespace に直書きしない。
+//   - daysRemaining / days / expiresAt も全て引数注入で計算ロジック側の責務。
+//   - 件名・heading・本文は「次回更新予定日」「お元気でいらっしゃいますか」等の独自用語のみで
+//     構成され、プラン名・価格・トライアル日数・解約期間の atom には依存しない。
+//   - 検証: 範囲内に '無料' / 'スタンダード' / 'ファミリー' / '7日間' / '7 日間' / '¥\d+' /
+//     '無料プラン' / 'スタンダードプラン' / 'ファミリープラン' リテラル 0 件。
 // ============================================================
 
 export const LIFECYCLE_EMAIL_LABELS = {
@@ -729,7 +739,7 @@ export type PmfSurveyQ1 = keyof typeof PMF_SURVEY_LABELS.q1Options;
 export type PmfSurveyQ3 = keyof typeof PMF_SURVEY_LABELS.q3Options;
 
 // ============================================================
-// PremiumModal 用ラベル（#1166 labels.ts SSOT 化）
+// PremiumModal 用ラベル（#1166 labels.ts SSOT 化 / #1961 Phase 7 H4: 価格 atom を terms.ts 参照化）
 // ============================================================
 
 export const PREMIUM_MODAL_LABELS = {
@@ -748,8 +758,9 @@ export const PREMIUM_MODAL_LABELS = {
 		'✅ きょうだいの比較',
 		'✅ 年間サマリーレポート',
 	],
-	priceStandard: '¥500',
-	priceFamily: '¥780',
+	// #1961: 価格 atom は terms.ts (PRICE_TERMS) を SSOT として参照
+	priceStandard: `${PRICE_TERMS.standard}`,
+	priceFamily: `${PRICE_TERMS.family}`,
 	priceUnit: '/月〜',
 	ctaUpgrade: `${ACTION_LABELS.upgrade}する`,
 	ctaLater: ACTION_LABELS.later,
@@ -2020,6 +2031,14 @@ export function getCancellationCategoryLabel(category: CancellationCategory): st
 // GRADUATION_LABELS - 卒業フロー (#1603 / ADR-0023 §3.8 / §5 I10)
 // 解約フローで「卒業」を選んだ親向けの専用ページ。
 // Anti-engagement 原則 (ADR-0012): ポジティブだが煽らない。引き止め CTA 禁止。
+//
+// #1961 (Phase 7 H4) atom 直書き監査:
+//   - 卒業フローは「卒業」「ご利用期間」「事例公開」「ニックネーム」等の独自用語のみで構成され、
+//     プラン名 (PLAN_TERMS / PLAN_FULL_TERMS) / 価格 (PRICE_TERMS) / トライアル日数 (TRIAL_TERMS) /
+//     解約期間 (CANCEL_TERMS) / 無料訴求 (FREE_TERMS) の atom には依存しない。
+//   - yenAmount / days / current / max は全て引数注入で計算ロジック側の責務。
+//   - 検証: 範囲内に '無料' / 'スタンダード' / 'ファミリー' / '7日間' / '7 日間' / '¥\d+' /
+//     '無料プラン' / 'スタンダードプラン' / 'ファミリープラン' リテラル 0 件。
 // ============================================================
 
 export const GRADUATION_LABELS = {
