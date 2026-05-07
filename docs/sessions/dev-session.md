@@ -109,7 +109,8 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
    gh pr create --draft --body-file tmp/pr-bodies/<num>-<slug>.md
    ```
 8. **UI 変更時、Ready 化前に SS 撮影必須**（次節参照）
-9. CI 全通過後 Ready: `gh pr ready <num>`
+9. **Ready 化前に 4 必須 CI gate チェック**（[Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md)）— AC 検証マップ / 必須セクション / `[x]` 完了 / SS 4 スロット を機械的に確認
+10. CI 全通過後 Ready: `gh pr ready <num>`
 
 ## 新規実装時
 
@@ -244,6 +245,7 @@ gh pr create --draft --title "<type>: #<num> <subject>" --body-file tmp/pr-bodie
 | ドキュメント | 用途 |
 |---|---|
 | [Skill: dev-open-pr](../../.claude/skills/dev-open-pr/SKILL.md) | PR 起票雛形（#1863、4 kind 対応） |
+| [Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md) | Ready 化前 4 必須 CI gate チェックリスト（Wave 1 知見） |
 | @docs/DESIGN.md | UI 実装（最初に読む） |
 | @docs/design/parallel-implementations.md | 全修正前 |
 | @src/routes/CLAUDE.md | UI 実装ルール |
