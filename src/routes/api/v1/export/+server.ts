@@ -4,6 +4,7 @@ import { json } from '@sveltejs/kit';
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
@@ -27,10 +28,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
 	);
 	if (!limits.canExport) {
-		return apiError(
-			'PLAN_LIMIT_EXCEEDED',
-			'エクスポート機能はスタンダードプラン以上でご利用いただけます',
-		);
+		return apiError('PLAN_LIMIT_EXCEEDED', PLAN_GATE_LABELS.standardOrAboveFor('エクスポート機能'));
 	}
 
 	const childIdsParam = url.searchParams.get('childIds');
