@@ -3,6 +3,7 @@
 
 import { error } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { apiError } from '$lib/server/errors';
 import { resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 
@@ -41,10 +42,7 @@ export async function validateSuggestRequest(
 	if (tier !== 'family') {
 		return {
 			ok: false,
-			response: apiError(
-				'PLAN_LIMIT_EXCEEDED',
-				`${featureLabel}はファミリープランでご利用いただけます`,
-			),
+			response: apiError('PLAN_LIMIT_EXCEEDED', PLAN_GATE_LABELS.familyOnlyFor(featureLabel)),
 		};
 	}
 
