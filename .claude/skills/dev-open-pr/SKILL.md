@@ -1,13 +1,24 @@
 ---
 name: Dev Open PR
-description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari-quest. Initializes PR body from a kind-specific template, auto-populates fields extracted from the linked Issue (title / AC list / labels), and enforces SSOT alignment with .github/PULL_REQUEST_TEMPLATE.md. Replaces ad-hoc per-PR boilerplate re-invention.
+description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari-quest, or when transitioning a Draft PR to Ready for Review. Initializes PR body from a kind-specific template, auto-populates fields extracted from the linked Issue (title / AC list / labels), enforces SSOT alignment with .github/PULL_REQUEST_TEMPLATE.md, and provides a 4 必須 CI gate チェックリスト for Ready 化 (AC 検証マップ / 必須セクション / `[x]` 完了 / SS 4 スロット). Replaces ad-hoc per-PR boilerplate re-invention.
 ---
 
 > **親 SSOT**: [Dev Session](../../../docs/sessions/dev-session.md) / **対称 Skill**: [LP Review (PO Goal 2)](../lp-review/SKILL.md) / [Issue Triage (PO Goal 1)](../issue-triage/SKILL.md)
 
 # Dev PR 起票ワークフロー
 
-Dev Agent が PR を `gh pr create --draft --body-file` で起票する際の **4 ステップ手順**。各 PR 起票前に `node .claude/skills/dev-open-pr/scripts/init-pr-body.mjs --issue <num> --kind <type>` で `tmp/pr-bodies/<slug>.md` に雛形を展開してから穴埋めする。
+Dev Agent が PR を `gh pr create --draft --body-file` で起票する際の **4 ステップ手順** + Ready 化前の **4 必須 CI gate チェックリスト**。
+
+## 構造
+
+| ファイル | 役割 |
+|---|---|
+| **SKILL.md** (本ファイル) | PR 起票 4 ステップ (雛形展開 / 穴埋め / 検証 / Draft → Ready) |
+| [ready-gate-checklist.md](./ready-gate-checklist.md) | Ready 化前の 4 必須 CI gate 通過チェックリスト (Wave 1 知見) |
+| `templates/pr-body-{default,lp,critical-fix,refactor-ssot}.md` | kind 別 PR body 雛形 |
+| `scripts/init-pr-body.mjs` | Issue から `{{ISSUE_TITLE}}` `{{AC_TABLE}}` 等を自動穴埋め |
+
+各 PR 起票前に `node .claude/skills/dev-open-pr/scripts/init-pr-body.mjs --issue <num> --kind <type>` で `tmp/pr-bodies/<slug>.md` に雛形を展開してから穴埋めする。Ready 化直前に [ready-gate-checklist.md](./ready-gate-checklist.md) で 4 gate を順に確認する。
 
 **SSOT**: ADR-0004（AC 検証）/ ADR-0030（pre-ready CLI）/ ADR-0026（force push 禁止）/ `.github/PULL_REQUEST_TEMPLATE.md`（PR template SSOT）
 
@@ -91,13 +102,26 @@ gh pr create --draft \
   --title "<type>: #<num> <subject>" \
   --body-file tmp/pr-bodies/<num>-<slug>.md
 
-# CI 全通過後 Ready
+# CI 全通過後 Ready (← 直前に ready-gate-checklist.md の 4 gate 通過を確認)
 gh pr checks <PR番号> --watch
 gh pr ready <PR番号>
 
 # tmp/pr-bodies/ クリーンアップ（一時ファイル運用、#1804）
 rm tmp/pr-bodies/<num>-<slug>.md
 ```
+
+### Ready 化前の 4 必須 CI gate (Wave 1 知見)
+
+`gh pr ready <num>` する直前に [ready-gate-checklist.md](./ready-gate-checklist.md) を確認:
+
+| # | Gate | ローカル検証 |
+|---|---|---|
+| 1 | AC 検証マップ全行埋め | `node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable` |
+| 2 | 必須セクション 12 個 全存在 | 同上 |
+| 3 | Ready チェックリスト `[x]` 完了 (虚偽禁止) | 同上 |
+| 4 | UI 変更時 SS 4 スロット添付 | 修正前 × Mobile/PC + 修正後 × Mobile/PC を `docs/screenshots/pr-<num>/` または screenshots branch に配置 |
+
+一括検証: `npm run pre-ready -- --pr <num>` (Step 6 = `check-pr-body.mjs` で gate 1+2+3 検出、Step 7 = capture が gate 4 補助)。Wave 1 で 4 Agent が同じ初回 fail を踏んだため、本チェックリストを必ず通してから Ready 化する。
 
 ## kind 別 template 選択ガイド
 
@@ -120,9 +144,12 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 | ドキュメント | 用途 |
 |---|---|
+| [ready-gate-checklist.md](./ready-gate-checklist.md) | **Ready 化前 4 必須 CI gate チェックリスト (Wave 1 知見)** |
 | @docs/sessions/dev-session.md | Dev Session 親 SSOT（PR 作業手順） |
 | @.github/PULL_REQUEST_TEMPLATE.md | PR template SSOT（雛形の見出しを完全一致させる対象） |
 | @scripts/check-pr-body.mjs | PR body セルフチェック CLI（#1775 / ADR-0030） |
+| @scripts/check-pr-screenshot.mjs | SS 4 スロット / ローカルパス検証 CLI（#1740 / #1741） |
 | @scripts/pre-ready.mjs | pre-ready 7 step CLI |
-| @docs/decisions/0004-review-and-ac-verification.md | AC 検証マップ義務 |
+| @docs/troubleshoot/screenshot_capture.md | SS 撮影 KB（SC-007 screenshots branch 運用 / SC-008 tmp gitignore） |
+| @docs/decisions/0004-review-and-ac-verification.md | AC 検証マップ義務（gate 1） |
 | @docs/decisions/0030-pre-ready-cli.md | pre-ready 全 Step PASS 必須 |
