@@ -1978,8 +1978,8 @@ export const CANCELLATION_LABELS = {
 	categoryPauseHint: '家庭事情・引っ越し・一時的に離れる（再開予定あり）',
 
 	// Plan-context messaging (free / standard / family 共通)
-	freePlanNotice:
-		'無料プランをご利用中です。解約後はアカウント自体を削除する必要がありますが、その前に理由をお聞かせください。',
+	// #1959: 無料プラン → PLAN_FULL_TERMS.free 参照化 (atom 直書き撤廃)
+	freePlanNotice: `${PLAN_FULL_TERMS.free}をご利用中です。解約後はアカウント自体を削除する必要がありますが、その前に理由をお聞かせください。`,
 	paidPlanNotice:
 		'解約手続きを進めると、Stripe の管理画面で決済停止を行います。次回の請求は発生しません。',
 
