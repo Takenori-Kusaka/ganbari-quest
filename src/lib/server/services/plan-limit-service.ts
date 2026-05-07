@@ -15,9 +15,9 @@ export interface PlanLimits {
 	maxFamilyMembers: number | null; // null = 無制限, 招待によるメンバー上限（owner含む） (#1111)
 	historyRetentionDays: number | null;
 	canExport: boolean;
-	canFreeTextMessage: boolean; // 自由テキストメッセージ（ファミリープラン限定）
+	canFreeTextMessage: boolean; // 自由テキストメッセージ（PLAN_LABELS.family 限定）
 	canCustomReward: boolean; // 特別なごほうび設定（スタンダード以上） #728
-	canSiblingRanking: boolean; // きょうだいランキング（ファミリープラン限定） #782
+	canSiblingRanking: boolean; // きょうだいランキング（PLAN_LABELS.family 限定） #782
 	maxCloudExports: number; // クラウド保管の同時保管数上限
 }
 
@@ -57,7 +57,7 @@ const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 		maxChildren: null,
 		maxActivities: null,
 		maxChecklistTemplates: null,
-		// #1111: ファミリープランは無制限
+		// #1111: PLAN_LABELS.family は無制限
 		maxFamilyMembers: null,
 		historyRetentionDays: null,
 		canExport: true,
