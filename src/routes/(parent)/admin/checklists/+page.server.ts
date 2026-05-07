@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	findOverrides,
@@ -206,7 +207,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					tier,
 					'family',
-					'AI チェックリスト提案はファミリープランでご利用いただけます',
+					PLAN_GATE_LABELS.familyOnlyFor('AI チェックリスト提案'),
 				),
 			});
 		}
