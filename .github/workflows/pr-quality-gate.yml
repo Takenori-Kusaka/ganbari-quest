@@ -97,6 +97,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      # #1985: 判定ロジックは scripts/check-design-doc-sync.mjs (純粋関数 + unit test 完備) に集約。
+      # 旧 inline script は廃止し、ファイルパターン exempt + label exempt (refactor:internal-no-doc-impact)
+      # の OR 結合判定を 1 ファイルで管理する。
       - name: Check for design doc updates
         uses: actions/github-script@v9
         with:
@@ -113,34 +116,23 @@ jobs:
             );
             const files = diffOutput.trim().split('\n').filter(Boolean);
 
-            // src/routes/ の変更があるか
-            const hasRouteChanges = files.some(f => f.startsWith('src/routes/'));
-            // docs/design/ の変更があるか
-            const hasDesignDocChanges = files.some(f => f.startsWith('docs/design/'));
+            // PR ラベル一覧 (#1985: refactor:internal-no-doc-impact による exempt 判定用)
+            const labels = (context.payload.pull_request.labels || []).map((l) => l.name);
 
-            // 変更ファイルが全て「設計書更新不要なパターン」に合致するか判定
-            // (PR 本文テキストによる免除は廃止 — ファイルパターンのみで判定)
-            const allFilesExempt = files.every(f =>
-              /(?:^|\/|\\)CLAUDE\.md$/.test(f) || // **/CLAUDE.md（任意の階層）
-              f.startsWith('scripts/') ||           // scripts/ 配下（CI/CD スクリプト）
-              f.startsWith('docs/') ||              // docs/ 配下（docs 自体が設計書）
-              f.startsWith('infra/') ||             // infra/ 配下（インフラ設定のみ）
-              f.startsWith('.github/') ||           // .github/ 配下（CI 設定等）
-              f.startsWith('site/')                 // LP ファイル（設計書の管轄外）
+            // scripts/check-design-doc-sync.mjs の純粋関数を直接呼ぶ
+            // (CLI subprocess を経由しないことで stderr / stdout の改行 / encoding 起因の誤検知を回避)
+            const { checkDesignDocSync } = await import(
+              `${process.env.GITHUB_WORKSPACE}/scripts/check-design-doc-sync.mjs`
             );
-            const hasDesignDocExemption = allFilesExempt;
+            const result = checkDesignDocSync({ files, labels });
 
-            if (hasRouteChanges && !hasDesignDocChanges) {
-              if (hasDesignDocExemption) {
-                core.info(
-                  '✅ 変更ファイルが全て設計書更新不要なパターン（CLAUDE.md / scripts/ / docs/ / infra/ / .github/ / site/）のみです — チェックをスキップします (ADR-0003)'
-                );
-              } else {
-                core.setFailed(
-                  '❌ src/routes/ に変更がありますが、docs/design/ の更新がありません。\n' +
-                  '設計書の同期更新が必要な場合は同一PR内で更新してください（ADR-0003）。\n' +
-                  '設計書の更新が不要なパターン（CLAUDE.md のみ / scripts/ のみ / docs/ のみ等）でも\n' +
-                  'このメッセージが出た場合は、設計書更新が必要な変更を含んでいます。'
-                );
-              }
+            if (result.status === 'skip') {
+              core.info(`✅ ${result.reason}`);
+              return;
             }
+            if (result.status === 'pass') {
+              core.info(`✅ ${result.reason}`);
+              return;
+            }
+            // status === 'fail'
+            core.setFailed(`❌ ${result.reason}`);
