@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
-import { OYAKAGI_LABELS } from '$lib/domain/labels';
+import { OYAKAGI_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES } from '$lib/domain/point-display';
 import { requireTenantId } from '$lib/server/auth/factory';
@@ -275,7 +275,7 @@ export const actions = {
 				siblingError: createPlanLimitError(
 					planTier,
 					'family',
-					'きょうだいランキングはファミリープラン限定です。アップグレードすると利用できます。',
+					PLAN_GATE_LABELS.familyLimitedWithUpgradeFor('きょうだいランキング'),
 				),
 				upgradeRequired: true,
 			});
