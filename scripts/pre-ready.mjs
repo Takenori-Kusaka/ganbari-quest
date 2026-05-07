@@ -48,6 +48,7 @@ const SKIP_FLAGS = {
 	'--skip-vitest': 'skipVitest',
 	'--skip-hardcoded': 'skipHardcoded',
 	'--skip-lp-dimensions': 'skipLpDimensions',
+	'--skip-lp-fallback': 'skipLpFallback',
 	'--skip-pr-body': 'skipPrBody',
 	'--skip-capture': 'skipCapture',
 };
@@ -60,6 +61,7 @@ function parseArgs(argv) {
 		skipVitest: false,
 		skipHardcoded: false,
 		skipLpDimensions: false,
+		skipLpFallback: false,
 		skipPrBody: false,
 		skipCapture: false,
 		help: false,
@@ -94,8 +96,9 @@ Options:
   --skip-vitest          Step 3 vitest をスキップ (重いので高速確認時のみ)
   --skip-hardcoded       Step 4 hardcoded JP text 検査をスキップ
   --skip-lp-dimensions   Step 5 LP 寸法・禁止語検査をスキップ (LP 変更時のみ自動実行)
-  --skip-pr-body         Step 6 PR body 検査をスキップ
-  --skip-capture         Step 7 capture (UI 変更時のみ) をスキップ
+  --skip-lp-fallback     Step 6 LP fallback 同期検査をスキップ (LP / labels.ts 変更時のみ自動実行)
+  --skip-pr-body         Step 7 PR body 検査をスキップ
+  --skip-capture         Step 8 capture (UI 変更時のみ) をスキップ
   --help, -h             このヘルプ
 
 Steps:
@@ -104,8 +107,9 @@ Steps:
   3. vitest run                  — unit test (storybook 以外)
   4. check-hardcoded-strings.mjs — JP ハードコード baseline 監視 (#1452)
   5. measure-lp-dimensions.mjs   — LP 寸法 / 禁止語 (LP 変更時のみ)
-  6. check-pr-body.mjs           — PR body 必須セクション / 禁止語 / AC マップ / mergeable (PR 番号必須)
-  7. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
+  6. sync-lp-fallback.mjs        — LP fallback テキスト同期検査 (LP / labels.ts 変更時のみ、#1945)
+  7. check-pr-body.mjs           — PR body 必須セクション / 禁止語 / AC マップ / mergeable (PR 番号必須)
+  8. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
 
 Exit codes:
   0 = 全 Step PASS
@@ -177,6 +181,11 @@ async function getChangedFiles() {
  */
 function buildSteps(args, changedFiles) {
 	const lpChanged = changedFiles.some((f) => f.startsWith('site/'));
+	const labelsChanged = changedFiles.some(
+		(f) => f === 'src/lib/domain/labels.ts' || f === 'src/lib/domain/terms.ts',
+	);
+	// LP fallback 同期は LP / labels.ts どちらかが変わると影響を受ける
+	const lpFallbackTrigger = lpChanged || labelsChanged;
 	const uiChanged = changedFiles.some(
 		(f) => /\.(svelte|css|scss)$/.test(f) || f.startsWith('site/'),
 	);
@@ -184,7 +193,7 @@ function buildSteps(args, changedFiles) {
 	return [
 		{
 			name: 'biome',
-			label: 'Step 1/7: biome check',
+			label: 'Step 1/8: biome check',
 			skip: args.skipBiome,
 			runner: () => run('biome check', ['npx', 'biome', 'check', '.']),
 			fixHint:
@@ -193,14 +202,14 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'svelte-check',
-			label: 'Step 2/7: svelte-check (TS strict)',
+			label: 'Step 2/8: svelte-check (TS strict)',
 			skip: args.skipSvelteCheck,
 			runner: () => run('svelte-check', ['npx', 'svelte-check', '--tsconfig', './tsconfig.json']),
 			fixHint: '  型エラー箇所を修正。`as any` / `// @ts-expect-error` の追加は禁止 (ADR-0006)。',
 		},
 		{
 			name: 'vitest',
-			label: 'Step 3/7: vitest run (unit test)',
+			label: 'Step 3/8: vitest run (unit test)',
 			skip: args.skipVitest,
 			runner: () => run('vitest', ['npx', 'vitest', 'run']),
 			fixHint:
@@ -209,7 +218,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'hardcoded-strings',
-			label: 'Step 4/7: check-hardcoded-strings.mjs (#1452 Phase A)',
+			label: 'Step 4/8: check-hardcoded-strings.mjs (#1452 Phase A)',
 			skip: args.skipHardcoded,
 			runner: () => run('check-hardcoded-strings', ['node', 'scripts/check-hardcoded-strings.mjs']),
 			fixHint:
@@ -218,7 +227,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-dimensions',
-			label: `Step 5/7: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step 5/8: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpDimensions || !lpChanged,
 			runner: () => run('measure-lp-dimensions', ['node', 'scripts/measure-lp-dimensions.mjs']),
 			fixHint:
@@ -228,10 +237,20 @@ function buildSteps(args, changedFiles) {
 				'  - CTA は 3 種以下',
 		},
 		{
+			name: 'lp-fallback',
+			label: `Step 6/8: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
+			skip: args.skipLpFallback || !lpFallbackTrigger,
+			runner: () => run('sync-lp-fallback', ['node', 'scripts/sync-lp-fallback.mjs', '--check']),
+			fixHint:
+				'  site/*.html の data-lp-key fallback テキストが labels.ts と乖離しています (#1945)。\n' +
+				'  修正: `node scripts/sync-lp-fallback.mjs` を実行して fallback を再生成し、\n' +
+				'        生成された site/*.html の差分をコミットしてください。',
+		},
+		{
 			name: 'pr-body',
 			label: args.pr
-				? `Step 6/7: check-pr-body.mjs --pr ${args.pr}`
-				: 'Step 6/7: check-pr-body.mjs (--pr 未指定 — skip)',
+				? `Step 7/8: check-pr-body.mjs --pr ${args.pr}`
+				: 'Step 7/8: check-pr-body.mjs (--pr 未指定 — skip)',
 			skip: args.skipPrBody || !args.pr,
 			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
 			fixHint:
@@ -240,7 +259,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'capture',
-			label: `Step 7/7: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step 8/8: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipCapture || !uiChanged || !args.pr,
 			runner: async () => {
 				console.log(
