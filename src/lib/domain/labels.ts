@@ -6,6 +6,7 @@
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
 // #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
+// #1963 (Phase 7 H6): LICENSE_PAGE_LABELS で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
 import { FREE_TERMS, PLAN_FULL_TERMS, PLAN_TERMS, PRICE_TERMS, TRIAL_TERMS } from './terms';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
@@ -1376,12 +1377,13 @@ export const LICENSE_PAGE_LABELS = {
 	licenseKeyApplyConfirm: '適用する',
 
 	// プランラベル
-	planLabelMonthly: 'スタンダード月額（¥500/月）',
-	planLabelYearly: 'スタンダード年額（¥5,000/年）',
-	planLabelFamilyMonthly: 'ファミリー月額（¥780/月）',
-	planLabelFamilyYearly: 'ファミリー年額（¥7,800/年）',
+	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
+	planLabelMonthly: `${PLAN_TERMS.standard}月額（${PRICE_TERMS.standard}/月）`,
+	planLabelYearly: `${PLAN_TERMS.standard}年額（¥5,000/年）`,
+	planLabelFamilyMonthly: `${PLAN_TERMS.family}月額（${PRICE_TERMS.family}/月）`,
+	planLabelFamilyYearly: `${PLAN_TERMS.family}年額（¥7,800/年）`,
 	planLabelLifetime: '永久ライセンス',
-	planLabelFree: '無料プラン',
+	planLabelFree: `${PLAN_FULL_TERMS.free}`,
 
 	// ステータスラベル
 	statusActive: '有効',
@@ -1390,11 +1392,12 @@ export const LICENSE_PAGE_LABELS = {
 	statusTerminated: '解約済み',
 
 	// 無料トライアル
-	trialActiveTitle: 'スタンダードプラン トライアル中',
+	// #1963: atom (PLAN_FULL_TERMS / TRIAL_TERMS) を terms.ts から参照
+	trialActiveTitle: `${PLAN_FULL_TERMS.standard} トライアル中`,
 	trialActiveDays: (days: number | string) => `残り ${days}日`,
 	trialActiveUntil: (date: string | null) => `${date ?? ''} まで`,
-	trialStartTitle: '7日間 無料でお試し',
-	trialStartDesc: 'スタンダードプランの全機能を体験できます',
+	trialStartTitle: `${TRIAL_TERMS.duration} 無料でお試し`,
+	trialStartDesc: `${PLAN_FULL_TERMS.standard}の全機能を体験できます`,
 	trialStartButton: '無料トライアルを開始する',
 	trialStartNote: 'クレジットカード不要 — 自動で課金されることはありません',
 	trialUsed: '無料トライアルは使用済みです',
@@ -1421,23 +1424,28 @@ export const LICENSE_PAGE_LABELS = {
 	billingYearly: '年額（17% OFF）',
 
 	// スタンダードプラン
-	standardPlanName: 'スタンダード',
+	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
+	standardPlanName: `${PLAN_TERMS.standard}`,
 	standardPlanDesc: '子供無制限・活動無制限・1年保持',
-	standardPriceMonthly: '¥500',
+	standardPriceMonthly: `${PRICE_TERMS.standard}`,
 	standardPriceYearly: '¥5,000',
 	standardPerMonth: '/月',
 	standardPerYear: '/年',
 
 	// ファミリープラン
-	familyPlanName: 'ファミリー',
+	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
+	familyPlanName: `${PLAN_TERMS.family}`,
 	familyPlanDesc: '家族みんなで見守る+永久保持',
-	familyPriceMonthly: '¥780',
+	familyPriceMonthly: `${PRICE_TERMS.family}`,
 	familyPriceYearly: '¥7,800',
 	familyRecommendBadge: 'おすすめ',
 
 	// 購入ボタン
+	// #1963: tier 分岐内 atom (PLAN_TERMS) を terms.ts から参照
 	checkoutButton: (tier: string, loading: boolean) =>
-		loading ? '処理中...' : `${tier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`,
+		loading
+			? '処理中...'
+			: `${tier === 'family' ? PLAN_TERMS.family : PLAN_TERMS.standard}プランで始める`,
 	checkoutNote: 'いつでもキャンセル・プラン変更可能',
 
 	// 支払い履歴
@@ -1502,8 +1510,9 @@ export const LICENSE_PAGE_LABELS = {
 	demoLicenseKeyMockNote: 'これはデモの模擬操作です。実際のキー消費やプラン変更は行われません。',
 	demoLicenseKeyAgreeDesc:
 		'であり、\n\t\t\t\t\t\t\t\t他のアカウントでは使えなくなることに同意します',
+	// #1963: tier 分岐内 atom (PLAN_TERMS) を terms.ts から参照
 	demoCheckoutButton: (tier: string) =>
-		`${tier === 'family' ? 'ファミリー' : 'スタンダード'}プランで始める`,
+		`${tier === 'family' ? PLAN_TERMS.family : PLAN_TERMS.standard}プランで始める`,
 	demoCheckoutNote: 'デモでは実際の決済は行われません',
 	demoPlanManagementTitle: 'プラン管理',
 	demoPaymentHistoryTitle: '支払い履歴',
