@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
@@ -31,7 +32,7 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 
 	const childList = children.map((c) => ({ id: c.id, nickname: c.nickname }));
 
-	// ランキングデータ取得（ファミリープラン用、#373）
+	// ランキングデータ取得（PLAN_LABELS.family 用、#373）
 	const parentData = await parent();
 	const isFamily = parentData.planTier === 'family';
 	// #735: 週次メールレポートは standard+ 特典。free はプレビューのみ、設定不可
@@ -138,7 +139,7 @@ export const actions: Actions = {
 				error: createPlanLimitError(
 					planTier,
 					'standard',
-					'週次メールレポートはスタンダードプラン以上でご利用いただけます',
+					PLAN_GATE_LABELS.standardOrAboveFor('週次メールレポート'),
 				),
 			});
 		}
