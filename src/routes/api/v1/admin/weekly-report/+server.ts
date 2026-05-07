@@ -1,13 +1,16 @@
 // src/routes/api/v1/admin/weekly-report/+server.ts
 // 週次活動レポートメール送信（EventBridge / 手動トリガー用）
 //
-// #735: 週次メールレポートはスタンダードプラン以上の特典。
+// #735: 週次メールレポートは PLAN_LABELS.standard 以上の特典。
 // /pricing の features で「週次メールレポート」と明示しているにもかかわらず、
-// 旧実装は全テナント（無料プラン含む）に配信しており、
+// 旧実装は全テナント（PLAN_LABELS.free 含む）に配信しており、
 //   - 課金動機を削ぐ（有料プラン特典の価値毀損）
 //   - SES 送信コストが想定比率を超過する
 //   - HP と実装の乖離で課金ユーザーが不公平感を持つ
 // という三重の問題があった。本エンドポイントでプラン解決→free は早期 return する。
+//
+// プラン名 SSOT: src/lib/domain/labels.ts PLAN_LABELS / src/lib/domain/terms.ts PLAN_FULL_TERMS
+// 関連: #1937 Phase 2 C12 / ADR-0045 (terms.ts 2 階層 SSOT)
 
 import { json } from '@sveltejs/kit';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';
@@ -29,7 +32,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			children: WeeklyReportData[];
 		};
 
-		// #735: プランゲート — 無料プランは送信スキップ
+		// #735: プランゲート — PLAN_LABELS.free は送信スキップ
 		// licenseInfo が取得できない場合は安全側に倒してスキップ（未知のテナントには送らない）
 		const licenseInfo = await getLicenseInfo(body.tenantId);
 		if (!licenseInfo) {
