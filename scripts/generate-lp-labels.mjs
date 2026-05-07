@@ -371,10 +371,13 @@ const LP_NAMESPACE_TABLE = [
 function parseAllNamespacesResolved() {
 	const src = fs.readFileSync(LABELS_TS, 'utf-8');
 
-	// AGE / PLAN は year-based name で固定 + 既存 simple block 保持 (#1772)
+	// AGE は year-based name で固定 + 既存 simple block 保持 (#1772)
 	const ageTierLabels = parseSimpleBlock(src, 'AGE_TIER_LABELS');
 	const ageTierShort = parseSimpleBlock(src, 'AGE_TIER_SHORT_LABELS');
-	const planLabels = parseSimpleBlock(src, 'PLAN_LABELS');
+	// #1916: PLAN_LABELS は terms.ts (PLAN_FULL_TERMS) を template literal 参照する compound に
+	// なったため、parseSimpleBlock (single quote 専用) では空になる。parseBlock 経由で
+	// raw を取得し resolveAllTemplates で解決する。
+	const planLabels = parseBlock(src, 'PLAN_LABELS');
 
 	// #1917: LP 系 namespace は data table 駆動で一括 parse + namespaces map 構築
 	/** @type {Record<string, Record<string, string | TemplateLiteralValue>>} */
