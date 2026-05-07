@@ -3,6 +3,8 @@
 // 全てのUIラベルはこのファイルからインポートすること。ハードコード禁止。
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
+// #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
+import { PLAN_FULL_TERMS, PLAN_TERMS, TRIAL_TERMS } from './terms';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
@@ -262,16 +264,18 @@ export function getAgeTierShortLabel(mode: string | null | undefined): string {
 // プラン名
 // ============================================================
 
+// #1916: atom (プラン名) は terms.ts (PLAN_FULL_TERMS / PLAN_TERMS) に移譲
+// 本 namespace は compound として terms.ts を template literal 参照する。
 export const PLAN_LABELS = {
-	free: '無料プラン',
-	standard: 'スタンダードプラン',
-	family: 'ファミリープラン',
+	free: `${PLAN_FULL_TERMS.free}`,
+	standard: `${PLAN_FULL_TERMS.standard}`,
+	family: `${PLAN_FULL_TERMS.family}`,
 } as const;
 
 export const PLAN_SHORT_LABELS = {
-	free: '無料',
-	standard: 'スタンダード',
-	family: 'ファミリー',
+	free: `${PLAN_TERMS.free}`,
+	standard: `${PLAN_TERMS.standard}`,
+	family: `${PLAN_TERMS.family}`,
 } as const;
 
 export type PlanKey = keyof typeof PLAN_LABELS;
@@ -454,15 +458,16 @@ export const ACTION_LABELS = {
  * 登録・購入系 CTA には「付帯」「付き」などの表記を書かないこと。
  * CI: scripts/check-forbidden-terms.mjs が完全一致禁止語を検出する。
  */
+// #1916: atom (トライアル日数) は terms.ts (TRIAL_TERMS) に移譲
 export const TRIAL_LABELS = {
-	durationDays: 7,
+	durationDays: TRIAL_TERMS.durationDays,
 	bannerTitleActive: (days: number) => `${ACTION_LABELS.freeTrial}中（残り${days}日）`,
 	bannerTitleUrgent: `${ACTION_LABELS.freeTrial}は明日で終了します`,
 	bannerDescActive: '全機能をお試しいただけます。',
-	bannerTitleNotStarted: `7日間、全機能を${ACTION_LABELS.freeTrialDesc}`,
+	bannerTitleNotStarted: `${TRIAL_TERMS.duration}、全機能を${ACTION_LABELS.freeTrialDesc}`,
 	bannerDescNotStarted: `${PLAN_LABELS.standard}のすべての機能をお使いいただけます。カード登録不要。`,
 	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
-	bannerCtaStart: `7日間 ${ACTION_LABELS.freeTrialWord}`,
+	bannerCtaStart: `${TRIAL_TERMS.duration} ${ACTION_LABELS.freeTrialWord}`,
 	bannerCtaSubmitting: ACTION_LABELS.submitting,
 	bannerTitleExpired: `${ACTION_LABELS.freeTrial}が終了しました`,
 	bannerDescExpired: `${ACTION_LABELS.upgrade}で全機能をご利用いただけます。`,
