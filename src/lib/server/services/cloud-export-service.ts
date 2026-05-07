@@ -2,6 +2,7 @@
 // クラウドエクスポート共有サービス（PIN付きS3保管 + インポート）
 
 import { randomInt } from 'node:crypto';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
@@ -142,7 +143,7 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 	const tier: PlanTier = await resolveFullPlanTier(tenantId, licenseStatus, planId);
 	const limits = getPlanLimits(tier);
 	if (limits.maxCloudExports === 0) {
-		throw new Error('クラウドエクスポートはスタンダードプラン以上でご利用いただけます');
+		throw new Error(PLAN_GATE_LABELS.standardOrAboveFor('クラウドエクスポート'));
 	}
 
 	// 保管数上限チェック
