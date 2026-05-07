@@ -4,10 +4,11 @@
 // #1304: baby=準備モード に表記変更済み（AGE_TIER_LABELS / AGE_TIER_SHORT_LABELS）
 
 // #1916: 用語集（atom）は terms.ts に集約。labels.ts は compound 専用とする SSOT 2 階層化基盤。
-// #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
+// #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
+// #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
 // #1963 (Phase 7 H6): LICENSE_PAGE_LABELS で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
-import { FREE_TERMS, PLAN_FULL_TERMS, PLAN_TERMS, PRICE_TERMS, TRIAL_TERMS } from './terms';
+import { CTA_TERMS, FREE_TERMS, PLAN_FULL_TERMS, PLAN_TERMS, PRICE_TERMS, TRIAL_TERMS } from './terms';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
@@ -504,16 +505,18 @@ export const ACTIVITY_PRIORITY_FORM_LABELS = {
  * 将来「アップグレード → プラン変更」等の一括置換がこのファイル 1 行の
  * 変更で済むようにする（#1166 + #1174）。
  */
+// #1958 Phase 7 H1: freeTrial / freeTrialWord / freeTrialDesc は CTA atom (terms.ts CTA_TERMS) を参照。
+// upgrade / viewPlans / later / submitting / viewDetail は本 Issue scope 外 (動詞 atom が未確立のため留保)。
 export const ACTION_LABELS = {
 	upgrade: 'アップグレード',
 	viewPlans: 'プランを見る',
 	later: 'あとで',
-	freeTrial: '無料体験',
-	freeTrialWord: '無料で試す',
+	freeTrial: CTA_TERMS.freeTrialNoun,
+	freeTrialWord: CTA_TERMS.freeTrialVerb,
 	// #1383: タイトル文脈用の可能形 (「7日間、全機能を無料で試せます」)。
 	// freeTrialWord (終止形) を「〜ます」に連結すると「試すます」と非文法になるため、
 	// 完全活用済みの文言を個別定数化する。
-	freeTrialDesc: '無料で試せます',
+	freeTrialDesc: CTA_TERMS.freeTrialDesc,
 	submitting: '開始中...',
 	// #1167: 詳細ページへの誘導 CTA。活動パック / マーケット一覧の「中身を確認する」導線に使用
 	viewDetail: 'くわしく見る',
@@ -537,13 +540,14 @@ export const ACTION_LABELS = {
  * CI: scripts/check-forbidden-terms.mjs が完全一致禁止語を検出する。
  */
 // #1916: atom (トライアル日数) は terms.ts (TRIAL_TERMS) に移譲
+// #1958 Phase 7 H1: bannerDescNotStarted の文末「カード登録不要。」を TRIAL_TERMS.noCreditCardMid 参照に統一。
 export const TRIAL_LABELS = {
 	durationDays: TRIAL_TERMS.durationDays,
 	bannerTitleActive: (days: number) => `${ACTION_LABELS.freeTrial}中（残り${days}日）`,
 	bannerTitleUrgent: `${ACTION_LABELS.freeTrial}は明日で終了します`,
 	bannerDescActive: '全機能をお試しいただけます。',
 	bannerTitleNotStarted: `${TRIAL_TERMS.duration}、全機能を${ACTION_LABELS.freeTrialDesc}`,
-	bannerDescNotStarted: `${PLAN_LABELS.standard}のすべての機能をお使いいただけます。カード登録不要。`,
+	bannerDescNotStarted: `${PLAN_LABELS.standard}のすべての機能をお使いいただけます。${TRIAL_TERMS.noCreditCardMid}。`,
 	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
 	bannerCtaStart: `${TRIAL_TERMS.duration} ${ACTION_LABELS.freeTrialWord}`,
 	bannerCtaSubmitting: ACTION_LABELS.submitting,
