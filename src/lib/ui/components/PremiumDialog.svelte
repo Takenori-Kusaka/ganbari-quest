@@ -22,7 +22,7 @@ function handleOpenChange(details: { open: boolean }) {
 		{PREMIUM_MODAL_LABELS.description}
 	</p>
 
-	<!-- スタンダードプラン -->
+	<!-- PLAN_LABELS.standard -->
 	<div class="plan-card">
 		<div class="plan-header">
 			<h3 class="plan-name">{PLAN_SHORT_LABELS.standard}</h3>
@@ -35,7 +35,7 @@ function handleOpenChange(details: { open: boolean }) {
 		</ul>
 	</div>
 
-	<!-- ファミリープラン -->
+	<!-- PLAN_LABELS.family -->
 	<div class="plan-card plan-card--family">
 		<div class="plan-header">
 			<h3 class="plan-name">{PLAN_SHORT_LABELS.family}</h3>
