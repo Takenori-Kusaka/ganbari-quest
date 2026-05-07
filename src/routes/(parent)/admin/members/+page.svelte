@@ -400,7 +400,7 @@ const roleLabel = (role: string) => {
 		</Card>
 	{/if}
 
-	<!-- 閲覧リンク（ファミリープラン限定） -->
+	<!-- 閲覧リンク（PLAN_LABELS.family 限定） -->
 	{#if data.isFamily}
 		<Card variant="default" padding="md">
 			{#snippet children()}
