@@ -6715,6 +6715,23 @@ export const LP_LEGAL_TERMS_LABELS = {
 // LP /site/sla.html SSOT (#1703 / #1683-C / ADR-0009 supersede / ADR-0025)
 // 命名規則: legalSla.<key>
 //   - articleHeader / intro / section1〜section8 / effective
+//
+// #1950 Phase 4 E3: terms.ts 参照化対象ゼロの記録
+// ----------------------------------------------------------
+// 本 namespace は法的文書（SLA）として、PLAN 名・価格・期間・解約・無料訴求の
+// 具体的表現を**意図的に避け**、抽象的な「有料プラン」「月間可用性」「日次バックアップ」等の
+// 一般訴求語に留めている。現 terms.ts (PLAN_TERMS / PLAN_FULL_TERMS / PRICE_TERMS /
+// TRIAL_TERMS / CANCEL_TERMS / FREE_TERMS / CTA_TERMS) の各 atom と char-by-char 一致する
+// 直書きは本 namespace 内に**1 件も存在しない**ことを #1950 で確認済（atom 突合表は PR 本文参照）。
+//
+// 将来 SLA 条文を改訂し、PLAN 名・価格・期間表現が直書きとして本 namespace に
+// 現れた場合は terms.ts 経由で参照化すること（PLAN_FULL_TERMS.standard 等）。
+// 改訂時は site/sla.html との char-by-char 一致厳守（法的文書のため）。
+//
+// 関連:
+//   - #1948 LP_LEGAL_PRIVACY_LABELS (Phase 4 E1, terms.ts 参照化対象あり)
+//   - #1949 LP_LEGAL_TERMS_LABELS (Phase 4 E2, 同上)
+//   - #1951 LP_LEGAL_TOKUSHOHO_LABELS (Phase 4 E4, 同上)
 // ============================================================
 export const LP_LEGAL_SLA_LABELS = {
 	articleHeader: '<h1>サービスレベル合意（SLA）</h1><p class="meta">最終更新日: 2026年4月17日</p>',
