@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { logger } from '$lib/server/logger';
 
 export type ErrorCode =
@@ -88,8 +89,7 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 	},
 	PLAN_LIMIT_EXCEEDED: {
 		status: 403,
-		userMessage:
-			'この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。',
+		userMessage: PLAN_GATE_LABELS.standardOrAboveGenericWithUpgrade,
 		severity: 'info',
 		action: 'none',
 	},

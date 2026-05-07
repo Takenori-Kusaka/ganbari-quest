@@ -4,6 +4,7 @@ import { fail } from '@sveltejs/kit';
 import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
@@ -25,7 +26,7 @@ import {
 } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
-const UPGRADE_MESSAGE = '特別なごほうび設定はスタンダードプラン以上でご利用いただけます';
+const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor('特別なごほうび設定');
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
