@@ -15,11 +15,14 @@ import type { PlanTier } from '$lib/server/services/plan-limit-service';
  *
  * ## レスポンス例
  *
+ * `message` は `PLAN_GATE_LABELS.standardOrAboveFor('AI 活動提案')` 等で組み立てる
+ * （プラン名直書き禁止、SSOT は `src/lib/domain/labels.ts` PLAN_GATE_LABELS / #1925 / #1926）。
+ *
  * ```json
  * {
  *   "error": {
  *     "code": "PLAN_LIMIT_EXCEEDED",
- *     "message": "AI 活動提案はスタンダードプラン以上でご利用いただけます",
+ *     "message": "<PLAN_GATE_LABELS.standardOrAboveFor('AI 活動提案') の戻り値>",
  *     "currentTier": "free",
  *     "requiredTier": "standard",
  *     "upgradeUrl": "/admin/license"
@@ -39,6 +42,7 @@ import type { PlanTier } from '$lib/server/services/plan-limit-service';
  *
  * @see docs/design/07-API設計書.md §4.2 プラン制限エラー
  * @see ADR-0024 plan-tier-resolution-pattern
+ * @see PLAN_GATE_LABELS in src/lib/domain/labels.ts (プラン制限メッセージ SSOT)
  */
 export interface PlanLimitError {
 	/** 常に 'PLAN_LIMIT_EXCEEDED' */
@@ -59,10 +63,21 @@ export type PlanLimitErrorBody = PlanLimitError;
 /**
  * PlanLimitError を組み立てるヘルパー。
  *
+ * `message` は `PLAN_GATE_LABELS` のテンプレートメソッド経由で組み立てること
+ * （プラン名直書き禁止、SSOT は `src/lib/domain/labels.ts` PLAN_GATE_LABELS / #1925 / #1926）。
+ *
  * @example
  * ```ts
+ * import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+ *
  * return json(
- *   { error: createPlanLimitError('free', 'standard', 'AI 活動提案はスタンダードプラン以上でご利用いただけます') },
+ *   {
+ *     error: createPlanLimitError(
+ *       'free',
+ *       'standard',
+ *       PLAN_GATE_LABELS.standardOrAboveFor('AI 活動提案'),
+ *     ),
+ *   },
  *   { status: 403 },
  * );
  * ```
