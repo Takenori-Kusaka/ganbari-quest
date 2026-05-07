@@ -283,6 +283,81 @@ export type PlanKey = keyof typeof PLAN_LABELS;
 /** プラン制限メッセージで使う共通ラベル（「スタンダードプラン以上」） */
 export const PAID_PLAN_LABEL = 'スタンダードプラン以上' as const;
 
+// ============================================================
+// PLAN_GATE_LABELS — プラン制限メッセージテンプレート (#1925 Phase 2 C0)
+// ============================================================
+//
+// アプリ本体に直書きされた「機能 X はプラン Y 以上で…」エラーメッセージを
+// 共通テンプレート化する compound 層。後続 C1-C15 の各実装箇所で本 namespace
+// を import してリテラル置換する際に「char-by-char 変化ゼロ」を保証するため、
+// 既存メッセージと完全一致するよう PLAN_FULL_TERMS から組み立てる。
+//
+// テンプレート選択指針 (既存 11+ 箇所のカバレッジ):
+//   - standardOrAboveFor(feature)            : "{feature}はスタンダードプラン以上でご利用いただけます"
+//   - familyOnlyFor(feature)                 : "{feature}はファミリープランでご利用いただけます"
+//   - familyLimitedFor(feature)              : "{feature}はファミリープラン限定です"
+//   - standardOrAboveGenericWithUpgrade      : "この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。"
+//   - familyLimitedWithUpgradeFor(feature)   : "{feature}はファミリープラン限定です。アップグレードすると利用できます。"
+//   - viewerTokenFamilyOnly                  : "ファミリープラン限定の機能です"
+//
+// 参照: docs/DESIGN.md §6 / Issue #1925 / terms.ts (PLAN_FULL_TERMS atom)
+export const PLAN_GATE_LABELS = {
+	/**
+	 * "{feature}はスタンダードプラン以上でご利用いただけます"
+	 *
+	 * カバー対象 (C1-C15 リテラル置換):
+	 *   - errors.ts: 'AI 活動提案はスタンダードプラン以上でご利用いただけます'
+	 *   - cloud-export-service.ts: 'クラウドエクスポートはスタンダードプラン以上でご利用いただけます'
+	 *   - admin/reports/+page.server.ts: '週次メールレポートはスタンダードプラン以上でご利用いただけます'
+	 *   - admin/rewards/+page.server.ts: '特別なごほうび設定はスタンダードプラン以上でご利用いただけます'
+	 *   - api/v1/export/+server.ts: 'エクスポート機能はスタンダードプラン以上でご利用いただけます'
+	 */
+	standardOrAboveFor: (feature: string) =>
+		`${feature}は${PLAN_FULL_TERMS.standard}以上でご利用いただけます`,
+
+	/**
+	 * "{feature}はファミリープランでご利用いただけます"
+	 *
+	 * カバー対象:
+	 *   - suggest-plan-gate.ts: '${featureLabel}はファミリープランでご利用いただけます'
+	 *   - admin/checklists/+page.server.ts: 'AI チェックリスト提案はファミリープランでご利用いただけます'
+	 */
+	familyOnlyFor: (feature: string) => `${feature}は${PLAN_FULL_TERMS.family}でご利用いただけます`,
+
+	/**
+	 * "{feature}はファミリープラン限定です"
+	 *
+	 * カバー対象:
+	 *   - admin/messages/+page.server.ts: '自由テキストメッセージはファミリープラン限定です'
+	 */
+	familyLimitedFor: (feature: string) => `${feature}は${PLAN_FULL_TERMS.family}限定です`,
+
+	/**
+	 * "この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。"
+	 *
+	 * カバー対象:
+	 *   - server/errors.ts: 'この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。'
+	 */
+	standardOrAboveGenericWithUpgrade: `この機能は${PLAN_FULL_TERMS.standard}以上でご利用いただけます。プランをアップグレードしてください。`,
+
+	/**
+	 * "{feature}はファミリープラン限定です。アップグレードすると利用できます。"
+	 *
+	 * カバー対象:
+	 *   - admin/settings/+page.server.ts: 'きょうだいランキングはファミリープラン限定です。アップグレードすると利用できます。'
+	 */
+	familyLimitedWithUpgradeFor: (feature: string) =>
+		`${feature}は${PLAN_FULL_TERMS.family}限定です。アップグレードすると利用できます。`,
+
+	/**
+	 * "ファミリープラン限定の機能です"
+	 *
+	 * カバー対象:
+	 *   - api/v1/admin/viewer-tokens/+server.ts: 'ファミリープラン限定の機能です'
+	 */
+	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.family}限定の機能です`,
+} as const;
+
 export const LICENSE_PLAN_LABELS: Record<string, string> = {
 	monthly: 'スタンダード月額',
 	yearly: 'スタンダード年額',
