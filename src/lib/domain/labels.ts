@@ -8,7 +8,14 @@
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
 // #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
 // #1963 (Phase 7 H6): LICENSE_PAGE_LABELS で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
-import { CTA_TERMS, FREE_TERMS, PLAN_FULL_TERMS, PLAN_TERMS, PRICE_TERMS, TRIAL_TERMS } from './terms';
+import {
+	CTA_TERMS,
+	FREE_TERMS,
+	PLAN_FULL_TERMS,
+	PLAN_TERMS,
+	PRICE_TERMS,
+	TRIAL_TERMS,
+} from './terms';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
 import { normalizeUiMode } from './validation/age-tier-types';
