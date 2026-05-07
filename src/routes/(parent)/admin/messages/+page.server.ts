@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import {
 	MESSAGE_TEXT_MAX_LENGTH,
 	SENDABLE_MESSAGE_TYPES,
@@ -59,17 +60,17 @@ export const actions: Actions = {
 			return fail(400, { error: 'スタンプを選択してください' });
 		}
 		if (validType === 'text') {
-			// ファミリープラン限定チェック（トライアル状態も考慮）
+			// PLAN_LABELS.family 限定チェック（トライアル状態も考慮）
 			const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
 			const limits = getPlanLimits(tier);
 			if (!limits.canFreeTextMessage) {
-				// #787: PlanLimitError 形式に統一
+				// #787: PlanLimitError 形式に統一 / #1932: PLAN_GATE_LABELS 経由で SSOT 化
 				return fail(403, {
 					error: createPlanLimitError(
 						tier,
 						'family',
-						'自由テキストメッセージはファミリープラン限定です',
+						PLAN_GATE_LABELS.familyLimitedFor('自由テキストメッセージ'),
 					),
 				});
 			}
