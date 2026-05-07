@@ -27,6 +27,7 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 const LABELS_TS = path.join(REPO_ROOT, 'src/lib/domain/labels.ts');
+const TERMS_TS = path.join(REPO_ROOT, 'src/lib/domain/terms.ts');
 const AGE_TIER_TS = path.join(REPO_ROOT, 'src/lib/domain/validation/age-tier.ts');
 const OUTPUT_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
 
@@ -87,9 +88,13 @@ function extractBraceBlock(src, startIdx) {
  * site/*.html 側の `data-lp-key` 参照は no-op となり、SEO フォールバックテキストが
  * そのまま残る。
  *
+ * #1917: template literal 値を含む可能性があるため、戻り値は文字列または
+ * TemplateLiteralValue (`{ __template: true, raw: string }`) のレコードとなる。
+ * 解決 (interpolation) は resolveTemplateLiterals() で別途行う。
+ *
  * @param {string} src
  * @param {string} constName
- * @returns {Record<string, string>}
+ * @returns {Record<string, string | TemplateLiteralValue>}
  */
 function parseBlock(src, constName) {
 	const startIdx = src.indexOf(`export const ${constName}`);
@@ -101,7 +106,7 @@ function parseBlock(src, constName) {
 	const block = extractBraceBlock(src, startIdx);
 	if (block === null) return {};
 
-	/** @type {Record<string, string>} */
+	/** @type {Record<string, string | TemplateLiteralValue>} */
 	const result = {};
 	/** @type {string | null} */
 	let pendingKey = null;
@@ -114,18 +119,54 @@ function parseBlock(src, constName) {
 }
 
 /**
+ * Template literal 値を表す内部マーカー (#1917)。
+ * raw に元の `...` 内側 (バッククォート除く) を保持し、後段の resolveTemplateLiterals で
+ * `${NS.key}` 参照を解決する。同名マーカーで判別する。
+ *
+ * @typedef {{ __template: true; raw: string }} TemplateLiteralValue
+ */
+
+/**
+ * @param {unknown} v
+ * @returns {v is TemplateLiteralValue}
+ */
+function isTemplateLiteral(v) {
+	return (
+		typeof v === 'object' &&
+		v !== null &&
+		/** @type {TemplateLiteralValue} */ (v).__template === true
+	);
+}
+
+/**
  * parseBlock の 1 行分の処理。result を変異させ、後続行で値を待つキーを返す。
  *
+ * #1917: 以下 3 形式に対応:
+ *   1. `key: 'simple string',`         (single quote)
+ *   2. `key: \`Hello ${NS.foo}\`,`     (template literal、interpolation 1+)
+ *   3. `key:` + 次行 `'value',` または `\`value\`,` (Biome multi-line)
+ *
+ * Template literal 値は `{ __template: true, raw: '...' }` で保持し、
+ * resolveTemplateLiterals() で interpolation を解決する。
+ *
  * @param {string} trimmed
- * @param {Record<string, string>} result
+ * @param {Record<string, string | TemplateLiteralValue>} result
  * @param {string | null} pendingKey
  * @returns {string | null}
  */
 function parseBlockLine(trimmed, result, pendingKey) {
-	// key: 'value', — same line
-	const sameLine = trimmed.match(/^(\w+):\s*'((?:[^'\\]|\\.)*)',?$/);
-	if (sameLine && sameLine[1] !== undefined && sameLine[2] !== undefined) {
-		result[sameLine[1]] = sameLine[2];
+	// key: 'value', — single quote, same line
+	const sameLineSingle = trimmed.match(/^(\w+):\s*'((?:[^'\\]|\\.)*)',?$/);
+	if (sameLineSingle && sameLineSingle[1] !== undefined && sameLineSingle[2] !== undefined) {
+		result[sameLineSingle[1]] = sameLineSingle[2];
+		return null;
+	}
+
+	// key: `...${X.foo}...`, — template literal, same line (#1917)
+	// バッククォートは `[^`\\]` で表現し、エスケープシーケンスをサポート
+	const sameLineTemplate = trimmed.match(/^(\w+):\s*`((?:[^`\\]|\\.)*)`,?$/);
+	if (sameLineTemplate && sameLineTemplate[1] !== undefined && sameLineTemplate[2] !== undefined) {
+		result[sameLineTemplate[1]] = { __template: true, raw: sameLineTemplate[2] };
 		return null;
 	}
 
@@ -135,11 +176,18 @@ function parseBlockLine(trimmed, result, pendingKey) {
 		return keyOnly[1];
 	}
 
-	// 'value', — continuation of pending key
+	// continuation of pending key
 	if (pendingKey) {
-		const valueOnly = trimmed.match(/^'((?:[^'\\]|\\.)*)',?$/);
-		if (valueOnly && valueOnly[1] !== undefined) {
-			result[pendingKey] = valueOnly[1];
+		// 'value', — single quote
+		const valueOnlySingle = trimmed.match(/^'((?:[^'\\]|\\.)*)',?$/);
+		if (valueOnlySingle && valueOnlySingle[1] !== undefined) {
+			result[pendingKey] = valueOnlySingle[1];
+			return null;
+		}
+		// `value`, — template literal (#1917)
+		const valueOnlyTemplate = trimmed.match(/^`((?:[^`\\]|\\.)*)`,?$/);
+		if (valueOnlyTemplate && valueOnlyTemplate[1] !== undefined) {
+			result[pendingKey] = { __template: true, raw: valueOnlyTemplate[1] };
 			return null;
 		}
 	}
@@ -148,7 +196,130 @@ function parseBlockLine(trimmed, result, pendingKey) {
 }
 
 /**
+ * Template literal の `${NS.key}` または `${NS["key"]}` / `${NS['key']}` 参照を
+ * 解決済み文字列に置換する (#1917)。
+ *
+ * 解決の流れ:
+ *   1. `${...}` 部分を抽出し `NS.key` 形式と照合
+ *   2. namespaces[NS] の対応 key を引き、文字列なら埋め込み、再度 template ならネスト解決
+ *   3. ネスト最大深度 (DEFAULT 8) を超えた場合は循環参照とみなして throw
+ *   4. namespace / key が不在なら "Unresolved ${NS}.${key} in ${owner}" で throw
+ *
+ * @param {string} raw - template literal 内側 (バッククォート除く)
+ * @param {Record<string, Record<string, string | TemplateLiteralValue>>} namespaces - NS 名 → key/value マップ
+ * @param {string} ownerLabel - エラーメッセージ用 (例: "LP_HERO_PRICE_BAND_LABELS.itemFree")
+ * @param {number} [depth=0] - 再帰深度
+ * @returns {string}
+ */
+function resolveTemplateLiteralValue(raw, namespaces, ownerLabel, depth = 0) {
+	const MAX_DEPTH = 8;
+	if (depth > MAX_DEPTH) {
+		throw new Error(
+			`Template literal resolution exceeded max depth (${MAX_DEPTH}) at ${ownerLabel}. ` +
+				'Possible circular reference.',
+		);
+	}
+	// `${ ... }` を非貪欲マッチ。エスケープ ($ → \$) は対象外 (labels.ts では使わない想定)。
+	return raw.replace(/\$\{([^}]+)\}/g, (_match, expr) => {
+		const trimmed = expr.trim();
+		// "NS.key" / "NS['key']" / 'NS["key"]' の 3 形式に対応
+		const dotMatch = trimmed.match(/^(\w+)\.(\w+)$/);
+		const bracketMatch = trimmed.match(/^(\w+)\[\s*['"]([^'"]+)['"]\s*\]$/);
+		const ns = dotMatch ? dotMatch[1] : bracketMatch ? bracketMatch[1] : null;
+		const key = dotMatch ? dotMatch[2] : bracketMatch ? bracketMatch[2] : null;
+		if (!ns || !key) {
+			throw new Error(
+				`Unsupported template literal expression "${trimmed}" in ${ownerLabel}. ` +
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: 意図的に literal "${NS.key}" を含むメッセージ
+					'Only ${NS.key} / ${NS["key"]} / ${NS[\'key\']} are supported.',
+			);
+		}
+		const nsRecord = namespaces[ns];
+		if (!nsRecord) {
+			throw new Error(`Unresolved ${ns}.${key} in ${ownerLabel}: namespace ${ns} not found.`);
+		}
+		const value = nsRecord[key];
+		if (value === undefined) {
+			throw new Error(`Unresolved ${ns}.${key} in ${ownerLabel}: key ${key} not in ${ns}.`);
+		}
+		if (isTemplateLiteral(value)) {
+			// ネスト解決
+			return resolveTemplateLiteralValue(value.raw, namespaces, `${ns}.${key}`, depth + 1);
+		}
+		return value;
+	});
+}
+
+/**
+ * すべての namespace を template literal 解決済み文字列レコードに変換する (#1917)。
+ * 解決失敗時は throw する (caller 側で詳細エラーが伝播)。
+ *
+ * 動作:
+ *   - 文字列値はそのまま
+ *   - TemplateLiteralValue は resolveTemplateLiteralValue で文字列化
+ *
+ * @param {Record<string, Record<string, string | TemplateLiteralValue>>} namespaces
+ * @returns {Record<string, Record<string, string>>}
+ */
+function resolveAllTemplates(namespaces) {
+	/** @type {Record<string, Record<string, string>>} */
+	const resolved = {};
+	for (const [nsName, nsRecord] of Object.entries(namespaces)) {
+		/** @type {Record<string, string>} */
+		const resolvedNs = {};
+		for (const [key, value] of Object.entries(nsRecord)) {
+			if (typeof value === 'string') {
+				resolvedNs[key] = value;
+			} else if (isTemplateLiteral(value)) {
+				resolvedNs[key] = resolveTemplateLiteralValue(value.raw, namespaces, `${nsName}.${key}`);
+			}
+		}
+		resolved[nsName] = resolvedNs;
+	}
+	return resolved;
+}
+
+/**
+ * terms.ts (将来導入予定) から atom 定数を抽出する。
+ * ファイルが存在しない場合は空オブジェクトを返す (本 PR 単独では terms.ts 未導入のため)。
+ *
+ * #1917: template literal 解決のための atom 参照元。
+ * 探索対象: ファイル内の全 `export const X_TERMS = { ... }` ブロック。
+ *
+ * @returns {Record<string, Record<string, string | TemplateLiteralValue>>}
+ */
+function parseTermsTs() {
+	if (!fs.existsSync(TERMS_TS)) {
+		return {};
+	}
+	const src = fs.readFileSync(TERMS_TS, 'utf-8');
+	/** @type {Record<string, Record<string, string | TemplateLiteralValue>>} */
+	const result = {};
+	// `export const FOO_TERMS = {` パターンを全て抽出
+	// 名前: 大文字スネークケースの定数名のみ対象 (atom 専用慣習)
+	const constPattern = /export const (\w+)\s*[:=]/g;
+	const seen = new Set();
+	const matches = src.matchAll(constPattern);
+	for (const m of matches) {
+		const name = m[1];
+		if (!name || seen.has(name)) continue;
+		seen.add(name);
+		const block = parseBlock(src, name);
+		if (Object.keys(block).length > 0) {
+			result[name] = block;
+		}
+	}
+	return result;
+}
+
+/**
  * labels.ts から定数を抽出する簡易パーサ（TS コンパイラなしで読み取る）
+ *
+ * #1917: parseLabelsTs は以下の 2 段階で動作する。
+ *   Phase 1: 全 namespace を raw (template literal は marker で保持) でパース
+ *   Phase 2: terms.ts を読み込み、namespaces map に統合
+ *   Phase 3: resolveAllTemplates で interpolation を解決
+ * 解決失敗時は throw + 詳細表示 (Unresolved ${ns}.${key} in ${owner})
  */
 function parseLabelsTs() {
 	const src = fs.readFileSync(LABELS_TS, 'utf-8');
@@ -194,34 +365,74 @@ function parseLabelsTs() {
 	const lpLegalSlaLabels = parseBlock(src, 'LP_LEGAL_SLA_LABELS');
 	const lpLegalTokushohoLabels = parseBlock(src, 'LP_LEGAL_TOKUSHOHO_LABELS');
 
+	// #1917: terms.ts (atom) を取り込み、template literal を解決
+	// 全 namespace を一つの map に束ね、resolveAllTemplates で interpolation を済ませる。
+	// 解決失敗時は throw され、CLI / --check が exit 1 で停止する。
+	const termsNamespaces = parseTermsTs();
+	/** @type {Record<string, Record<string, string | TemplateLiteralValue>>} */
+	const allNamespaces = {
+		...termsNamespaces,
+		AGE_TIER_LABELS: ageTierLabels,
+		AGE_TIER_SHORT_LABELS: ageTierShort,
+		PLAN_LABELS: planLabels,
+		LP_RETENTION_LABELS: lpRetentionLabels,
+		LP_CORELOOP_LABELS: lpCoreloopLabels,
+		LP_NAV_LABELS: lpNavLabels,
+		LP_FOOTER_LABELS: lpFooterLabels,
+		LP_COMMON_LABELS: lpCommonLabels,
+		LP_LEGAL_DISCLAIMER_LABELS: lpLegalDisclaimerLabels,
+		LP_VERSUS_LABELS: lpVersusLabels,
+		LP_GROWTH_ROADMAP_LABELS: lpGrowthRoadmapLabels,
+		LP_PRICING_LABELS: lpPricingLabels,
+		LP_LICENSEKEY_LABELS: lpLicenseKeyLabels,
+		LP_FAQ_LABELS: lpFaqLabels,
+		LP_SELFHOST_LABELS: lpSelfhostLabels,
+		LP_INDEX_EXTRA_LABELS: lpIndexExtraLabels,
+		LP_FLOATING_CTA_LABELS: lpFloatingCtaLabels,
+		LP_PAMPHLET_LABELS: lpPamphletLabels,
+		LP_PRICING_EXTRA_LABELS: lpPricingExtraLabels,
+		LP_INDEX_PHASEB_LABELS: lpIndexPhaseBLabels,
+		LP_PRICING_PHASEB_LABELS: lpPricingPhaseBLabels,
+		LP_FAQ_PHASEB_LABELS: lpFaqPhaseBLabels,
+		LP_PAMPHLET_PHASEB_LABELS: lpPamphletPhaseBLabels,
+		LP_LEGAL_PRIVACY_LABELS: lpLegalPrivacyLabels,
+		LP_LEGAL_TERMS_LABELS: lpLegalTermsLabels,
+		LP_LEGAL_SLA_LABELS: lpLegalSlaLabels,
+		LP_LEGAL_TOKUSHOHO_LABELS: lpLegalTokushohoLabels,
+	};
+	const resolved = resolveAllTemplates(allNamespaces);
+
+	// 全 namespace は resolveAllTemplates で必ず entry を持つ (Object.entries で全件処理)
+	// が、TS 型上は Record<string, ...> なので index access が optional 扱い。
+	// `?? {}` で defensive fallback を付与。
 	return {
-		ageTierLabels,
-		ageTierShort,
-		planLabels,
-		lpRetentionLabels,
-		lpCoreloopLabels,
-		lpNavLabels,
-		lpFooterLabels,
-		lpCommonLabels,
-		lpLegalDisclaimerLabels,
-		lpVersusLabels,
-		lpGrowthRoadmapLabels,
-		lpPricingLabels,
-		lpLicenseKeyLabels,
-		lpFaqLabels,
-		lpSelfhostLabels,
-		lpIndexExtraLabels,
-		lpFloatingCtaLabels,
-		lpPamphletLabels,
-		lpPricingExtraLabels,
-		lpIndexPhaseBLabels,
-		lpPricingPhaseBLabels,
-		lpFaqPhaseBLabels,
-		lpPamphletPhaseBLabels,
-		lpLegalPrivacyLabels,
-		lpLegalTermsLabels,
-		lpLegalSlaLabels,
-		lpLegalTokushohoLabels,
+		ageTierLabels: resolved.AGE_TIER_LABELS ?? {},
+		ageTierShort: resolved.AGE_TIER_SHORT_LABELS ?? {},
+		planLabels: resolved.PLAN_LABELS ?? {},
+		lpRetentionLabels: resolved.LP_RETENTION_LABELS ?? {},
+		lpCoreloopLabels: resolved.LP_CORELOOP_LABELS ?? {},
+		lpNavLabels: resolved.LP_NAV_LABELS ?? {},
+		lpFooterLabels: resolved.LP_FOOTER_LABELS ?? {},
+		lpCommonLabels: resolved.LP_COMMON_LABELS ?? {},
+		lpLegalDisclaimerLabels: resolved.LP_LEGAL_DISCLAIMER_LABELS ?? {},
+		lpVersusLabels: resolved.LP_VERSUS_LABELS ?? {},
+		lpGrowthRoadmapLabels: resolved.LP_GROWTH_ROADMAP_LABELS ?? {},
+		lpPricingLabels: resolved.LP_PRICING_LABELS ?? {},
+		lpLicenseKeyLabels: resolved.LP_LICENSEKEY_LABELS ?? {},
+		lpFaqLabels: resolved.LP_FAQ_LABELS ?? {},
+		lpSelfhostLabels: resolved.LP_SELFHOST_LABELS ?? {},
+		lpIndexExtraLabels: resolved.LP_INDEX_EXTRA_LABELS ?? {},
+		lpFloatingCtaLabels: resolved.LP_FLOATING_CTA_LABELS ?? {},
+		lpPamphletLabels: resolved.LP_PAMPHLET_LABELS ?? {},
+		lpPricingExtraLabels: resolved.LP_PRICING_EXTRA_LABELS ?? {},
+		lpIndexPhaseBLabels: resolved.LP_INDEX_PHASEB_LABELS ?? {},
+		lpPricingPhaseBLabels: resolved.LP_PRICING_PHASEB_LABELS ?? {},
+		lpFaqPhaseBLabels: resolved.LP_FAQ_PHASEB_LABELS ?? {},
+		lpPamphletPhaseBLabels: resolved.LP_PAMPHLET_PHASEB_LABELS ?? {},
+		lpLegalPrivacyLabels: resolved.LP_LEGAL_PRIVACY_LABELS ?? {},
+		lpLegalTermsLabels: resolved.LP_LEGAL_TERMS_LABELS ?? {},
+		lpLegalSlaLabels: resolved.LP_LEGAL_SLA_LABELS ?? {},
+		lpLegalTokushohoLabels: resolved.LP_LEGAL_TOKUSHOHO_LABELS ?? {},
 	};
 }
 
@@ -606,4 +817,12 @@ if (invokedAsCli) {
 }
 
 // #1772: 単体テスト用に parseBlock / parseSimpleBlock をエクスポート
-export { parseBlock, parseSimpleBlock };
+// #1917: template literal 解決ロジックも追加 (parseBlockLine / resolveTemplateLiteralValue / resolveAllTemplates / isTemplateLiteral)
+export {
+	isTemplateLiteral,
+	parseBlock,
+	parseBlockLine,
+	parseSimpleBlock,
+	resolveAllTemplates,
+	resolveTemplateLiteralValue,
+};
