@@ -4107,11 +4107,14 @@ export const LP_COMMON_LABELS = {
 // LP 法務系打消し表示 (#1609 R5 / #1610 R6)
 // 景表法 第 5 条 + 消費者庁 打消し表示ガイドライン準拠
 // data-lp-key で site/index.html / site/faq.html に注入
+// #1952 (Phase 4 E5): cancelDisclaimer の 3 PLAN 名 (無料 / スタンダード / ファミリー) を terms.ts (PLAN_TERMS) 参照に。
+//                     faqLiabilityFree の「無料プラン」は PLAN_FULL_TERMS.free を参照。
+//                     既存テキストとの char-by-char 一致を保ちつつ、プラン名 atom の SSOT を terms.ts に統一。
 export const LP_LEGAL_DISCLAIMER_LABELS = {
 	// #1643 R38 + #1733 R16 整合: 実装 grace-period-service.ts の {free: 0, standard: 7, family: 30} に合わせプラン別表記
 	// LP メトリクス desktopHeight ratchet 維持のため可読性確保しつつ簡潔に
-	cancelDisclaimer:
-		'※解約後はプラン別の読み取り専用猶予期間（無料 即時 / スタンダード 7 日 / ファミリー 30 日）後にすべてのデータが完全に削除されます。日割り返金はありません。',
+	// #1952: PLAN 名 atom (PLAN_TERMS) を terms.ts から参照。解約期間数値 (0/7/30) は grace-period-service.ts SSOT との対応で直書き維持
+	cancelDisclaimer: `※解約後はプラン別の読み取り専用猶予期間（${PLAN_TERMS.free} 即時 / ${PLAN_TERMS.standard} 7 日 / ${PLAN_TERMS.family} 30 日）後にすべてのデータが完全に削除されます。日割り返金はありません。`,
 	cancelDisclaimerLinks: 'FAQ / 特定商取引法に基づく表記',
 	// #1838: cta-bottom セクション全削除に伴い cancelDisclaimerCta / cancelDisclaimerCtaLink を削除。
 	//        他箇所（pricing.html / pamphlet.html 等）の disclaimer は cancelDisclaimer + cancelDisclaimerLinks を使用。
@@ -4124,7 +4127,8 @@ export const LP_LEGAL_DISCLAIMER_LABELS = {
 		'本サービスは個人開発者が運営する小規模サービスであり、利用規約 第 12 条（免責事項）に基づき、賠償額には上限を設けております。',
 	faqLiabilityPaid:
 		'有料プランをご利用の方: 損害発生月を含む直近 3 ヶ月間に実際にお支払いいただいた利用料の総額を上限とします',
-	faqLiabilityFree: '無料プランをご利用の方: 賠償額の上限は 0 円とさせていただきます',
+	// #1952: 「無料プラン」は PLAN_FULL_TERMS.free を参照（PLAN_TERMS.free + 'プラン' の組合わせと等価）
+	faqLiabilityFree: `${PLAN_FULL_TERMS.free}をご利用の方: 賠償額の上限は 0 円とさせていただきます`,
 	faqLiabilityNote:
 		'※ 消費者契約法その他の強行法規が適用される場合は、その範囲で当該規定が優先されます。重要事項のため、ご契約前に 利用規約 第 12 条 全文をご確認のうえ、ご納得いただいた方のみご利用ください。',
 	faqLiabilityQuestion: 'サービスの不具合等で損害が発生した場合、賠償の上限はありますか？',
