@@ -150,29 +150,50 @@ npm run capture:feature -- feature-routine-checklist
 
 | ファイル名 | 配置 | サイズ | 生成方法 |
 |----------|------|--------|---------|
-| `core-loop-summary.png` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1456×720 PNG (Gemini 出力) | `npm run generate:coreloop-summary`（Gemini API、`gemini-3-pro-image-preview`）|
-| `_archive/core-loop-summary.svg.bak` | `static/assets/lp/_archive/`（履歴保全） | 640×320 viewBox | #1845 で archive 移動済（Gemini 鍵未配備時のフォールバック起点としても利用可） |
+| `core-loop-summary.svg` (#1889 で正本化) | `static/assets/lp/`（git tracked、SSOT） | 640×320 viewBox（透過） | 手動編集（ベクター + 透過ネイティブ） |
+| `core-loop-summary.png` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1280×640 透過 PNG | `npm run generate:coreloop-summary`（デフォルト: SVG → sharp PNG 変換、決定的、Gemini 鍵不要）|
+| (Gemini 再生成、任意) | 同上 | 1456×720 (Gemini 出力) | `npm run generate:coreloop-summary -- --regenerate`（Gemini API、`gemini-3-pro-image-preview`、鍵必要、本格生成画像のリフレッシュ用） |
 
-#### #1845: Gemini Pro 3 image での再生成手順（実装履歴）
+#### #1889: SVG 正本化 + 透過 PNG 化（推奨パス）
 
-PO 指示（PO-N-3）で「Gemini Pro 3.1 image による本格生成画像への置換」が要求された。Issue #1845
-で `gemini-3-pro-image-preview` モデル（API key 認証で動作する画像生成モデル、PO 指示の Gemini Pro 3
-系の実体）を使った本格生成 + SVG archive 移動を完遂済。再生成が必要になった場合は以下の手順:
+PO レビュー（PO-4-3）で「core-loop-summary.png の白背景が LP に浮いて見える」違和感が露出。
+技術調査で **PNG 拡張子だが実体 JPEG**（Gemini API 応答 MIME 検証なし）+ CSS `background:#fff` 強制
+という二重の構造的問題が判明。Issue #1889 で以下に再構成:
+
+1. **archive SVG (`_archive/core-loop-summary.svg.bak`) を `static/assets/lp/core-loop-summary.svg` に正本化**
+   - 背景 rect（`fill="url(#bgGrad)"`）を撤去し透過化（SVG はベクター + 透過ネイティブ）
+2. **デフォルトを SVG → sharp PNG 変換に変更**（`npm run generate:coreloop-summary`、決定的、Gemini 鍵不要）
+   - `sharp.metadata().hasAlpha === true` で透過 PNG を assert（AC1 違反時 exit 1）
+3. **`site/index.html` `.core-loop-summary img{...}` から `background:#fff` を撤去**
+   - LP section 背景に自然に溶け込む
+
+```bash
+# 推奨: SVG → sharp PNG (決定的、Gemini 鍵不要、透過保証)
+npm run generate:coreloop-summary
+#   → static/assets/lp/core-loop-summary.svg を読み込み
+#   → sharp で 1280×640 透過 PNG に変換
+#   → static/assets/lp/core-loop-summary.png + site/assets/lp/core-loop-summary.png に出力
+#   → hasAlpha === true を assert (#1889 AC1)
+```
+
+#### #1845 → #1889 移行: Gemini Pro 3 image での再生成（任意・--regenerate 経路）
+
+PO 指示（PO-N-3）で「Gemini Pro 3.1 image による本格生成画像への置換」が要求された経緯あり。
+本格生成画像のリフレッシュは引き続き可能だが、出力が JPEG bytes で透過保証されないため、
+**運用上は SVG（正本）を手動更新する形に統一**する。
 
 ```bash
 # 1. .env.local に GEMINI_API_KEY を配備（https://aistudio.google.com/apikey で取得）
 echo 'GEMINI_API_KEY=<your-key>' >> .env.local
 
-# 2. Gemini Pro 3 image での再生成
-npm run generate:coreloop-summary
+# 2. Gemini Pro 3 image で再生成（opt-in、任意）
+npm run generate:coreloop-summary -- --regenerate
 #   → static/assets/lp/core-loop-summary.png 出力（gemini-3-pro-image-preview、約 1456×720）
-#   → site/assets/lp/core-loop-summary.png にも自動配備
-
-# 3. 画像アセット追加時のレビューチェックリスト 6 項目を全件目視確認
-#   （「画像アセット追加時のレビューチェックリスト」§ を参照）
+#   → 出力は JPEG bytes の可能性があるため、PR レビューで透過チェック必要
+#   → 透過保証が必要なら SVG（正本）を手動編集する運用に切り替えること
 ```
 
-**モデル選定（#1845 で確定）**:
+**モデル選定（#1845 で確定、#1889 で --regenerate 経路に格納）**:
 - `gemini-2.5-pro` / `gemini-3-pro-image-preview` / `imagen-3` 等は SDK のデフォルト経路
   （`@google/genai` の `vertexai:true`）で Vertex AI (`aiplatform.googleapis.com`) に投げられ、
   API key 単独では 401 UNAUTHENTICATED となる。
@@ -181,10 +202,8 @@ npm run generate:coreloop-summary
 - `MODEL_IDS.pro = 'gemini-3-pro-image-preview'` / `MODEL_IDS.flash = 'gemini-2.5-flash-image'`
   （いずれも generate-marketing-images.mjs / generate-stamp-images.mjs で API key 経由稼働実績あり）。
 
-**鍵未配備環境の動作**: `scripts/generate-coreloop-summary.mjs` は GEMINI_API_KEY 不在時に
-exit 2 で停止し、archive SVG → PNG 決定的変換コマンド (`_archive/core-loop-summary.svg.bak`
-を sharp で 1280×640 PNG に変換) を案内する。本格生成画像は適切に保護されているため、
-鍵未配備環境ではこの fallback が暫定 SSOT になる。
+**鍵未配備環境の動作（#1889 で改善）**: デフォルトの SVG → sharp PNG ルートが鍵不要で動作するため、
+CI / Pages デプロイ時のフォールバックが本流に統合された。
 
 ### 構図仕様
 
@@ -195,22 +214,26 @@ exit 2 で停止し、archive SVG → PNG 決定的変換コマンド (`_archive
   - ごほうび: ギフトボックス + リボン（ブランドオレンジ + 金）
 - 矢印: 3 つの円弧で「活動 → 習慣 → ごほうび → 活動」の循環を示す
 - **画像内テキストは置かない**（HTML 側 `figcaption` + `alt` が SSOT、ブランド A-1 整合）
-  - 旧 SVG (`_archive/core-loop-summary.svg.bak`) に存在していた `<text>` 3 要素（活動 / 習慣 / ごほうび）は #1821 で全削除済（ごほうびラベルが D3 キャラ星章 cy=160 r=56 領域と重なっていたため）
+  - 旧 SVG（archive）に存在していた `<text>` 3 要素（活動 / 習慣 / ごほうび）は #1821 で全削除済（ごほうびラベルが D3 キャラ星章 cy=160 r=56 領域と重なっていたため）
   - #1845 の Gemini 本格生成版でもプロンプトで「Absolutely NO text, NO letters, NO Japanese characters」を強調し画像内テキストゼロを実現
+  - #1889 で SVG 正本化（`static/assets/lp/core-loop-summary.svg`）+ 背景 rect 撤去で透過化済
 
 ### 生成コマンド
 
 ```bash
-# Gemini API 鍵があるとき（推奨）— #1845 で Gemini 3 Pro Image (gemini-3-pro-image-preview) で本格生成
+# 推奨（#1889、決定的、Gemini 鍵不要、透過保証）
 npm run generate:coreloop-summary
-#  → scripts/generate-coreloop-summary.mjs 経由
-#  → 内部的に scripts/generate-image.mjs --category character --model pro を呼ぶ
+#  → scripts/generate-coreloop-summary.mjs SVG → sharp PNG ルート (デフォルト)
+#  → static/assets/lp/core-loop-summary.svg を読み込み
+#  → sharp で 1280×640 透過 PNG に変換 + site/assets/lp/ に同期配備
+#  → hasAlpha === true を assert (AC1)
+
+# 任意（#1845 経路、本格生成画像のリフレッシュ用、鍵必要）
+npm run generate:coreloop-summary -- --regenerate
+#  → scripts/generate-image.mjs --category character --model pro を呼ぶ
 #  → docs/reference/gemini_image_generation_guide.md A-1 BRAND STYLE BLOCK 自動付与
 #  → 参照画像: static/assets/brand/master-character-sheet.png（D3 warrior 整合）
-#  → static/assets/lp/core-loop-summary.png + site/assets/lp/core-loop-summary.png に出力
-
-# Gemini API 鍵が無いとき（CI / Pages デプロイ時のフォールバック、archive SVG 起点）
-node -e "require('sharp')('static/assets/lp/_archive/core-loop-summary.svg.bak').resize(1280,640).png().toFile('static/assets/lp/core-loop-summary.png')"
+#  → 出力は JPEG bytes の可能性あり、透過保証必要なら SVG 手動更新ルートへ
 ```
 
 #### 生成後レビューチェックポイント (#1822 AC3)
@@ -220,7 +243,7 @@ node -e "require('sharp')('static/assets/lp/_archive/core-loop-summary.svg.bak')
 - [ ] `docs/reference/gemini_image_generation_guide.md` A-1 BRAND STYLE BLOCK が冒頭付与されている (`scripts/generate-image.mjs` 経由なら自動)
 - [ ] 参照画像 `static/assets/brand/master-character-sheet.png` を渡した
 - [ ] 頭身比 1:1.5 / 目 35-40% / ブランドカラー (#5BA3E6 / #FFE44D) 整合
-- [ ] 透過 PNG（character category デフォルト、Gemini が JPEG bytes を返す場合は HTML 側 `background:#fff` で吸収）
+- [ ] 透過 PNG（#1889 以降は SVG → sharp PNG 変換ルートで `hasAlpha === true` を assert。`--regenerate` 経由の Gemini 出力は JPEG bytes 可能性ありのため SVG 手動更新を推奨）
 - [ ] テキスト・透かしなし
 
 ### 配置原則
