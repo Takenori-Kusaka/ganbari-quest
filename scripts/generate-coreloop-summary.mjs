@@ -111,7 +111,9 @@ async function generateFromSvg() {
 
 	// 透過 PNG であることを assert (#1889 AC1)
 	const meta = await sharp(PNG_PATH).metadata();
-	console.log(`  format: ${meta.format} | hasAlpha: ${meta.hasAlpha} | size: ${meta.width}x${meta.height}`);
+	console.log(
+		`  format: ${meta.format} | hasAlpha: ${meta.hasAlpha} | size: ${meta.width}x${meta.height}`,
+	);
 	if (meta.format !== 'png' || meta.hasAlpha !== true) {
 		console.error('エラー: 出力が透過 PNG になっていません (AC1 違反)');
 		process.exit(1);
@@ -128,7 +130,9 @@ async function generateFromSvg() {
 function regenerateWithGemini() {
 	if (!isDryRun && !process.env.GEMINI_API_KEY) {
 		console.error('エラー: --regenerate には GEMINI_API_KEY が必要です。');
-		console.error('  デフォルト (SVG → sharp PNG) ルートを使う場合は --regenerate を外してください。');
+		console.error(
+			'  デフォルト (SVG → sharp PNG) ルートを使う場合は --regenerate を外してください。',
+		);
 		process.exit(2);
 	}
 
@@ -150,7 +154,9 @@ function regenerateWithGemini() {
 	console.log('LP [03] core-loop summary 画像生成 (#1845 Gemini --regenerate ルート)');
 	console.log(`  出力先: ${path.relative(REPO_ROOT, PNG_PATH)}`);
 	console.log(`  モデル: gemini-3-pro-image-preview`);
-	console.log(`  注意: Gemini 出力は JPEG bytes の可能性あり。透過保証は SVG ルート (デフォルト) を使用してください。`);
+	console.log(
+		`  注意: Gemini 出力は JPEG bytes の可能性あり。透過保証は SVG ルート (デフォルト) を使用してください。`,
+	);
 	console.log('');
 
 	const result = spawnSync(process.execPath, childArgs, {
