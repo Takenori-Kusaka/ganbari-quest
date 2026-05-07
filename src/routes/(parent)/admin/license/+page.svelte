@@ -654,7 +654,7 @@ async function openPortal() {
 					</button>
 				</div>
 
-				<!-- スタンダードプラン -->
+				<!-- PLAN_LABELS.standard -->
 				<div
 					class="plan-card"
 					class:selected={selectedTier === 'standard'}
@@ -682,7 +682,7 @@ async function openPortal() {
 					</ul>
 				</div>
 
-				<!-- ファミリープラン -->
+				<!-- PLAN_LABELS.family -->
 				<div
 					class="plan-card"
 					class:selected={selectedTier === 'family'}

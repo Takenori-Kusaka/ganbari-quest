@@ -342,7 +342,7 @@ function handleMockApply() {
 					</button>
 				</div>
 
-				<!-- スタンダードプラン -->
+				<!-- PLAN_LABELS.standard -->
 				<div
 					class="plan-card"
 					class:selected={selectedTier === 'standard'}
@@ -373,7 +373,7 @@ function handleMockApply() {
 					</ul>
 				</div>
 
-				<!-- ファミリープラン -->
+				<!-- PLAN_LABELS.family -->
 				<div
 					class="plan-card recommended"
 					class:selected={selectedTier === 'family'}
