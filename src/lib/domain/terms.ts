@@ -99,6 +99,13 @@ export const FREE_TERMS = {
 	// PLAN_TERMS.free = '無料' とは意味文脈が異なる (プラン名 vs. 価格訴求 suffix) ため
 	// 文字列値が同一でも独立 atom として保持し、ADR-0045 の compound 組立で参照する。
 	suffix: '無料',
+	// #1903 (PERS-CRT-6): 「基本無料」と「月 ¥500〜」を価格バンドに並べると田中ゆかり P1 が
+	// 「結局いくら払うの?」と離脱級認知ギャップを起こす（freemium × 低価格帯特有の混乱）。
+	// 「必要なら」を上位プラン提示の前置として挟むことで「無料先 + 条件付き上位プラン」
+	// 構造を視覚化し、選択肢の階層を明示する。
+	// 用例: `${FREE_TERMS.priceGate} ${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard}${PRICE_TERMS.fromSuffix}`
+	// → '必要なら 月 ¥500〜'
+	priceGate: '必要なら',
 } as const;
 
 // ============================================================

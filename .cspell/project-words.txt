@@ -82,6 +82,9 @@ Prefs
 cust
 coeff
 dflt
+# Persona-critical findings prefix (PO Wave レビュー #1888 / #1892 / #1894 / #1899 / #1903 等で
+# 「PERS-CRT-N」形式の persona 検証由来 critical 識別子を comment に残す運用)
+PERS
 
 # ===== Svelte 5 イベントハンドラプロパティ =====
 onaccept
