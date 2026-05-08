@@ -150,9 +150,6 @@
 			"trialPeriodLabel": "7 日間無料トライアル",
 			"trialPeriodShort": "7 日間無料",
 			"trialPeriodFull": "7 日間の無料トライアル",
-			"priceStandardMonthly": "月 ¥500",
-			"priceFamilyMonthly": "月 ¥780",
-			"priceMinFrom": "月 ¥500〜",
 			"noCreditCardNote": "クレジットカード登録不要",
 			"cancelAnytime": "いつでも解約 OK",
 			"bulletPoint": "・"

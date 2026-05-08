@@ -4012,6 +4012,9 @@ export const DEMO_CHILD_ACHIEVEMENTS_LABELS = {
 // SSOT: site/*.html の <header> / <footer> 共通部分
 // ============================================================
 
+// #1957 (Phase 3 D12): signup を FREE_TERMS.tryFree atom 参照化。
+//                     他 key (hamburgerAriaLabel / logoAlt / home / marketplace / pricing / faq /
+//                     selfhost / login / features) は LP ナビ専用文言で terms.ts atom 該当なし。
 export const LP_NAV_LABELS = {
 	hamburgerAriaLabel: 'メニュー',
 	logoAlt: 'がんばりクエスト',
@@ -4020,11 +4023,15 @@ export const LP_NAV_LABELS = {
 	pricing: '料金プラン',
 	faq: 'よくあるご質問',
 	selfhost: '仕組みを公開（開発者向け）',
-	signup: '無料で始める',
+	signup: `${FREE_TERMS.tryFree}`,
 	login: 'ログイン',
 	features: 'できること',
 } as const;
 
+// #1957 (Phase 3 D12): atom 化対象ゼロをコメント注記で記録。
+//                     LP_FOOTER_LABELS はブランド名 / リンクラベル / コピーライト等
+//                     LP フッター専用文言で構成され、PLAN/PRICE/TRIAL/CANCEL/FREE/CTA いずれの
+//                     terms.ts atom にも該当しない。
 export const LP_FOOTER_LABELS = {
 	brandName: 'がんばりクエスト',
 	brandTagline: 'お子さまの「がんばり」を冒険に変える家庭向けWebアプリ',
@@ -4087,12 +4094,26 @@ export const LP_HERO_SPEC_BADGES_LABELS = {
 	setupSuffix: 'で初期設定',
 } as const;
 
-// LP CTA / 価格 / 期間表記 SSOT (#1616 R12)
+// LP CTA / 期間表記 SSOT (#1616 R12)
 // PM 優先 J 節裁定 2: 「無料で始める」（漢字統一）
 // site/ 配下では本定数を data-lp-key で参照し、表記揺れを排除する
+//
+// #1957 (Phase 3 D12): LP_COMMON_LABELS を縮小 + terms.ts 参照化。
+//   - 価格 atom (priceStandardMonthly / priceFamilyMonthly / priceMinFrom) を削除。
+//     これらは PRICE_TERMS atom (¥500 / ¥780) と「月 」prefix の連結で表現可能だが、
+//     site/*.html 内の data-lp-key=common.priceStandardMonthly 等の参照箇所はゼロであり、
+//     LP_HERO_PRICE_BAND_LABELS / LP_PRICING_LABELS 等の他 namespace が独自に terms.ts atom を
+//     直接参照しているため重複定義となっていた。本 PR で dead code として撤去し、
+//     価格 atom の SSOT を terms.ts (PRICE_TERMS) のみに統一する。
+//   - ctaSignup / noCreditCardNote / cancelAnytime を terms.ts atom 参照化。
+//   - trialPeriodLabel / trialPeriodShort / trialPeriodFull は TRIAL_TERMS.duration ('7日間'
+//     空白なし) と LP の表記 ('7 日間無料' 空白あり) で揺れがあるため、文字列差分ゼロ維持を
+//     優先しリテラル維持 (atom 化は別 Issue で表記統一後に再検討)。
+//   - bulletPoint / contactEmail / contactHint / ctaDemo / ctaPricing / ctaContact /
+//     ctaPricingDetail は LP 連結フレーズ / 連絡先で terms.ts atom 該当なし。
 export const LP_COMMON_LABELS = {
 	// CTA 動詞（site/ 全ページで本値に統一）
-	ctaSignup: '無料で始める',
+	ctaSignup: `${FREE_TERMS.tryFree}`,
 	ctaDemo: 'デモを見る',
 	ctaPricing: '料金プラン',
 	ctaContact: 'お問い合わせ',
@@ -4103,14 +4124,10 @@ export const LP_COMMON_LABELS = {
 	trialPeriodLabel: '7 日間無料トライアル',
 	trialPeriodShort: '7 日間無料',
 	trialPeriodFull: '7 日間の無料トライアル',
-	// 価格表記
-	priceStandardMonthly: '月 ¥500',
-	priceFamilyMonthly: '月 ¥780',
-	priceMinFrom: '月 ¥500〜',
 	// クレカ不要訴求
-	noCreditCardNote: 'クレジットカード登録不要',
+	noCreditCardNote: `${TRIAL_TERMS.noCreditCard}`,
 	// 解約訴求
-	cancelAnytime: 'いつでも解約 OK',
+	cancelAnytime: `${CANCEL_TERMS.anytimeOk}`,
 	bulletPoint: '・',
 } as const;
 
@@ -5419,6 +5436,10 @@ export const PUSH_NOTIFICATION_LABELS = {
 // LP Pages added dynamically
 // ============================================================
 
+// #1957 (Phase 3 D12): LP_LICENSEKEY_LABELS atom 化対象は text125 ('無料で始める') のみ。
+//                     既に `${FREE_TERMS.tryFree}` 参照済 (#1916/#1917 系)。他 text* は
+//                     ライセンスキー仕様 / FAQ / お問い合わせ連絡用文言で terms.ts atom 該当なし。
+//                     PLAN/PRICE/TRIAL/CANCEL/CTA いずれの atom にも合致するリテラルを含まない。
 export const LP_LICENSEKEY_LABELS = {
 	text1: 'ライセンスキーの使い方 - がんばりクエスト ヘルプ',
 	text2: 'ライセンスキーの使い方',
@@ -5634,6 +5655,10 @@ export const LP_FAQ_LABELS = {
 		'a href="mailto:ganbari.quest.support@gmail.com?subject=FAQページからのお問い合わせ" data-contact-context="FAQ bottom"',
 } as const;
 
+// #1957 (Phase 3 D12): LP_SELFHOST_LABELS は atom 化対象ゼロ。
+//                     セルフホスト版仕様 / Docker / 動作要件 / OSS コントリビュート関連の専用文言で
+//                     terms.ts atom (PLAN/PRICE/TRIAL/CANCEL/FREE/CTA) いずれにも該当しない。
+//                     text54 ('SaaS版を無料ではじめる') の「無料」も部分一致のため atom 化不可。
 export const LP_SELFHOST_LABELS = {
 	text1: 'セルフホスト版ガイド - がんばりクエスト',
 	text2: '&#x1F4E6; セルフホスト版ガイド',
@@ -5715,15 +5740,21 @@ export const LP_SELFHOST_LABELS = {
 // Anti-engagement (ADR-0012): 文言は「煽る」表現を避け、状況提示型 / 共感型 / 軽い再訴求 にとどめる。
 // 「今すぐ始める」「あと X 人」「タイムセール」などの urgency 演出は使わない。
 
+// #1957 (Phase 3 D12): heroButton / bottomButton を FREE_TERMS.tryFree atom 参照化。
+//                     midButton ('デモを見る') / heroText / midText / bottomText / *Href / aria* は
+//                     terms.ts atom と表記が異なる連結フレーズや URL/連絡用 aria 文のため atom 化対象外。
+//                     - heroText の「7 日間無料」「クレジットカード不要」(短縮形) は TRIAL_TERMS atom と表記揺れあり
+//                     - bottomText / ariaLabelHero の「7 日間無料」も同様
+//                     文字列差分ゼロ維持を優先しリテラル維持。
 export const LP_FLOATING_CTA_LABELS = {
 	// 各 phase の補強コピー（HTML 可、<small> + <strong> のみ想定）
 	heroText: '全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>',
 	midText: 'コアループは 1 分で体験できます<small>サインアップ前に動きを確認</small>',
 	bottomText: 'ここまで読まれた方へ<small>7 日間無料・クレジットカード不要</small>',
 	// 各 phase の CTA ボタン文言（既存 ctaVariants 3 種の範囲内）
-	heroButton: '無料で始める',
+	heroButton: `${FREE_TERMS.tryFree}`,
 	midButton: 'デモを見る',
-	bottomButton: '無料で始める',
+	bottomButton: `${FREE_TERMS.tryFree}`,
 	// 各 phase の CTA href
 	heroHref: 'https://ganbari-quest.com/auth/signup',
 	midHref: 'https://ganbari-quest.com/demo',
