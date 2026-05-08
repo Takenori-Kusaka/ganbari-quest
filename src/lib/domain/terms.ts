@@ -62,6 +62,11 @@ export const PRICE_TERMS = {
 
 export const TRIAL_TERMS = {
 	duration: '7日間',
+	// #1944 Phase 3 D4: LP 系 namespace (LP_PAMPHLET_PHASEB / LP_GROWTH_ROADMAP) で
+	// 「7 日間」（半角空白入り）として頻出するため、半角空白付き variant を独立 atom として追加。
+	// duration ('7日間' 空白なし) と durationSpaced ('7 日間' 空白あり) は表示文字列レベルで
+	// 別物として扱い、char-by-char 一致を維持する（過去 namespace で揺らぎを解消できなかった経緯あり）。
+	durationSpaced: '7 日間',
 	durationDays: 7,
 	noCreditCard: 'クレジットカード登録不要',
 	noCreditCardShort: 'クレカ登録不要',
