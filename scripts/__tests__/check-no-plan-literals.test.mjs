@@ -78,6 +78,30 @@ describe('TERM_LITERAL_RULES (Issue #1918 AC1)', () => {
 		}
 	});
 
+	it('trial 系 constant 列で案内する atom 組合わせが pattern を char-by-char で完全再現可能 (Copilot R2 [must] #3)', async () => {
+		// 修正前: '7 日間無料' → 'TRIAL_TERMS.durationSpaced + FREE_TERMS.start' は
+		//   '7 日間' + 'まずは無料' = '7 日間まずは無料' で元 pattern '7 日間無料' を再現できなかった。
+		// 修正後: FREE_TERMS.suffix = '無料' atom を追加し、案内文字列が pattern と一致する組合わせ
+		//   を提示できるようになった。本 test は terms.ts の atom と pattern の char-by-char 再現性を保証する。
+		const { TRIAL_TERMS, FREE_TERMS } = await import(
+			path.resolve(REPO_ROOT, 'src/lib/domain/terms.ts')
+		).catch(async () => {
+			// .ts は node が直接 import できないため動的 read で代替
+			const text = fs.readFileSync(path.join(REPO_ROOT, 'src/lib/domain/terms.ts'), 'utf8');
+			const extract = (name) => {
+				const m = text.match(new RegExp(`${name}:\\s*'([^']+)'`));
+				return m ? m[1] : null;
+			};
+			return {
+				TRIAL_TERMS: { duration: extract('duration'), durationSpaced: extract('durationSpaced') },
+				FREE_TERMS: { suffix: extract('suffix') },
+			};
+		});
+		assert.equal(`${TRIAL_TERMS.durationSpaced}${FREE_TERMS.suffix}`, '7 日間無料');
+		assert.equal(`${TRIAL_TERMS.duration}${FREE_TERMS.suffix}`, '7日間無料');
+		assert.equal(`${TRIAL_TERMS.durationSpaced}の${FREE_TERMS.suffix}`, '7 日間の無料');
+	});
+
 	it('VALUE_LITERAL_RULES (#972) は kind=value で別系統', () => {
 		for (const rule of VALUE_LITERAL_RULES) {
 			assert.equal(rule.kind, 'value');
@@ -248,6 +272,35 @@ describe('checkFile (Issue #1918 AC5 — エラーメッセージに atom 名)',
 				' */',
 				'export const ok = true;',
 			].join('\n'),
+			'utf8',
+		);
+		const findings = checkFile(tmpFile);
+		assert.equal(findings.length, 0);
+	});
+
+	it('シングル行ブロックコメント + 後続コード `/* foo */ const bad = ...` は後続コードのリテラルを検出する (Copilot R2 [must])', () => {
+		// 修正前: isCommentLine() が `^\s*\/\*` のみで無条件 true → 行全体スキップ →
+		// 後続コードのリテラル直書きが検出されず CI 回避できてしまう問題。
+		// 修正後: tail にコードがある場合は行全体を検査ループに渡し、リテラルを検出する。
+		const tmpFile = path.join(tmpDir, 'inline-block-comment.ts');
+		fs.writeFileSync(
+			tmpFile,
+			["/* note */ export const bad = 'スタンダードプランへようこそ';"].join('\n'),
+			'utf8',
+		);
+		const findings = checkFile(tmpFile);
+		assert.ok(
+			findings.some((f) => f.pattern === 'スタンダードプラン'),
+			'`/* foo */ const bad = "スタンダードプラン..."` の後続コードを検出すべき',
+		);
+	});
+
+	it('シングル行ブロックコメントのみ `/* スタンダードプラン */` は検出対象外', () => {
+		// tail が空の場合は従来通りコメント扱いで除外。
+		const tmpFile = path.join(tmpDir, 'inline-block-comment-only.ts');
+		fs.writeFileSync(
+			tmpFile,
+			['/* スタンダードプラン */', 'export const ok = true;'].join('\n'),
 			'utf8',
 		);
 		const findings = checkFile(tmpFile);

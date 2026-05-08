@@ -51,8 +51,10 @@ const VALUE_LITERAL_RULES = [
 // 設計指針:
 //  - terms.ts atom を SSOT として参照させる (ADR-0045)
 //  - 互換 variant (空白あり / なし) はそれぞれ別 atom として独立させる (#1944 / #1958 経緯)
-//  - 短縮形「スタンダード」「ファミリー」は文脈判定が必要なため `requiresContext: true` で
-//    プラン名以外の文脈 (例: スタンダードな〜 / ファミリーレストラン) を誤検知しない判定にする
+//  - 短縮形「スタンダード」「ファミリー」は文脈判定が必要なため本 Phase 5 F1 では検出対象外
+//    （プラン名以外の文脈 = 「スタンダードな〜」「ファミリーレストラン」を誤検知するため）。
+//    フル形「スタンダードプラン」「ファミリープラン」のみを検出する。短縮形を検出する場合は
+//    別 Phase で AST ベース判定 (例: identifier 直前の文字が 「<」 や 「'」 等の文脈) を要する。
 // ---------------------------------------------------------------------------
 
 const TERM_LITERAL_RULES = [
@@ -71,20 +73,21 @@ const TERM_LITERAL_RULES = [
 	{ pattern: '¥780/月', constant: 'PRICE_TERMS.family + "/月"', kind: 'term' },
 	{ pattern: '¥500（税込）', constant: 'PRICE_TERMS.standard + PRICE_TERMS.taxNote', kind: 'term' },
 	{ pattern: '¥780（税込）', constant: 'PRICE_TERMS.family + PRICE_TERMS.taxNote', kind: 'term' },
-	// トライアル
+	// トライアル — 案内する atom 組合わせは char-by-char で元 pattern を完全再現すること
+	// (再現不可能な案内は Copilot [must] 指摘 #3 で BLOCK 対象)
 	{
 		pattern: '7 日間無料',
-		constant: 'TRIAL_TERMS.durationSpaced + FREE_TERMS.start (or atom 組合わせ)',
+		constant: 'TRIAL_TERMS.durationSpaced + FREE_TERMS.suffix',
 		kind: 'term',
 	},
 	{
 		pattern: '7日間無料',
-		constant: 'TRIAL_TERMS.duration + FREE_TERMS.start (or atom 組合わせ)',
+		constant: 'TRIAL_TERMS.duration + FREE_TERMS.suffix',
 		kind: 'term',
 	},
 	{
 		pattern: '7 日間の無料',
-		constant: 'TRIAL_TERMS.durationSpaced + "の無料" (#1944 atom)',
+		constant: "TRIAL_TERMS.durationSpaced + 'の' + FREE_TERMS.suffix",
 		kind: 'term',
 	},
 	{ pattern: 'クレジットカード登録不要', constant: 'TRIAL_TERMS.noCreditCard', kind: 'term' },
@@ -189,8 +192,10 @@ function makeTermMatcher(pattern) {
  * 行がコメント行であれば true を返す (TS / Svelte 共通)。
  *  - 行頭 `//`
  *  - 行頭 `*` (JSDoc / ブロックコメント中行)
- *  - 行頭 `/*`
- *  - 行頭 `<!--` (Svelte / HTML コメント)
+ *  - 行頭 `/*` で行末まで `*\/` で閉じ、後続コードがない場合のみ
+ *    （`/* foo *\/ const bad = '...';` のような後続コード続きはコメント扱いしない —
+ *      後続コード内のリテラル直書きを隠蔽させないため。Copilot R2 [must] 指摘）
+ *  - 行頭 `<!--` (Svelte / HTML コメント、open のみ)
  *  - 行内が `<!-- ... -->` で完結 (シングル行 HTML コメント)
  * 行中の `// ...` 末尾コメントは検出対象外にしない (リテラル直書き隠蔽防止)。
  *
@@ -204,11 +209,25 @@ function makeTermMatcher(pattern) {
  *       展開も防ぐ。
  */
 function isCommentLine(line) {
-	if (/^\s*(\/\/|\/\*|\*|<!--)/.test(line)) return true;
-	// シングル行 HTML コメント: `   <!-- 無料プラン ... -->   `
-	// regex を避けて文字列前後一致で判定 (CodeQL js/bad-tag-filter 回避)
+	// `//` / `*` (JSDoc 中行) / `<!--` (open) のみで判定する単純ケース
+	if (/^\s*(\/\/|\*|<!--)/.test(line)) return true;
 	const trimmed = line.trim();
+	// シングル行 HTML コメント: `<!-- 無料プラン ... -->`（後続コードがない場合のみ）
 	if (trimmed.startsWith('<!--') && trimmed.endsWith('-->') && trimmed.length >= 7) return true;
+	// `/*` で始まる行: 同一行内で `*/` で閉じ、その後にコードが無い場合のみコメント扱い。
+	// `/* ... */ const bad = '...';` のような後続コード続きは検出続行（Copilot R2 [must]）。
+	if (trimmed.startsWith('/*')) {
+		const closeIdx = trimmed.indexOf('*/');
+		if (closeIdx === -1) {
+			// 単一行で閉じない multi-line コメントの開始行は呼び出し元の inBlockComment
+			// 追跡 (line 239 周辺) で扱うため、ここでは「コメント行として処理」を返す。
+			return true;
+		}
+		const tail = trimmed.slice(closeIdx + 2).trim();
+		if (tail.length === 0) return true;
+		// tail にコードがある場合は「コメント行」とせず検出続行
+		return false;
+	}
 	return false;
 }
 

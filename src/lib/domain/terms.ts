@@ -93,6 +93,12 @@ export const FREE_TERMS = {
 	base: '基本無料',
 	start: 'まずは無料',
 	tryFree: '無料で始める',
+	// #1918 Phase 5 F1 追記: 「7 日間無料」「7日間無料」のような〈期間 + 無料〉compound を
+	// terms.ts の atom 組合わせ (TRIAL_TERMS.duration[Spaced] + FREE_TERMS.suffix) で
+	// char-by-char 再現可能にするための独立 suffix atom。
+	// PLAN_TERMS.free = '無料' とは意味文脈が異なる (プラン名 vs. 価格訴求 suffix) ため
+	// 文字列値が同一でも独立 atom として保持し、ADR-0045 の compound 組立で参照する。
+	suffix: '無料',
 } as const;
 
 // ============================================================
