@@ -5738,6 +5738,11 @@ export const LP_FLOATING_CTA_LABELS = {
 // LP_INDEX_EXTRA_LABELS (#1465 SSOT Fixes)
 // ============================================================
 
+// #1956 (Phase 3 D11): terms.ts atom 参照化対象（PLAN_FULL_TERMS / PRICE_TERMS / TRIAL_TERMS /
+//   CANCEL_TERMS / FREE_TERMS / CTA_TERMS）。 char-by-char 一致厳守。
+//   '7 日間' (半角スペース有り) は TRIAL_TERMS.duration ('7日間' スペース無し) と一致しないため
+//   直書き継続（#2007 / #2008 / #2009 と同方針）。
+//   '&#165;' (HTML エンティティ) は PRICE_TERMS の '¥' (U+00A5) と一致しないため直書き継続。
 export const LP_INDEX_EXTRA_LABELS = {
 	k1: 'がんばりクエスト — 「やりなさい」を「やりたい！」に変える',
 	k2: '☰',
@@ -5745,9 +5750,9 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k4: '「やりたい！」',
 	k5: ' に変える家族 RPG',
 	k6: '    3〜18 歳の毎日の習慣を、ポイント・シール・レベルで冒険に変える。声をかけなくても、自分から動きだす家族時間へ。',
-	k7: '無料で始める',
+	k7: `${FREE_TERMS.tryFree}`,
 	k8: 'デモを見る',
-	k9: '家族何人でも無料ではじめられます / クレジットカード登録不要',
+	k9: `家族何人でも無料ではじめられます / ${TRIAL_TERMS.noCreditCard}`,
 	k10: '子供のホーム画面 — 活動を記録してポイントゲット',
 	k11: 'お子さまの年齢で、画面とむずかしさが変わります',
 	k12: '3 歳から 18 歳まで、2 つの UI モードが対応。',
@@ -5799,14 +5804,18 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k60: '設定の自由度',
 	k61: '活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。',
 	k62: '料金プラン',
-	k63: '月 ¥500 から、家族全員が使える設計です。',
+	// #1956 (Phase 3 D11): k63 '月 ¥500' = monthlyPrefix + standard、k65 '基本無料' = FREE_TERMS.base、
+	//   k68 '無料体験' = CTA_TERMS.freeTrialNoun、k69 'いつでも解約 OK' = CANCEL_TERMS.anytimeOk、
+	//   k70 '無料プラン' = PLAN_FULL_TERMS.free。
+	//   k67 '月 &#165;500（税込）〜' は HTML エンティティのため char-by-char 一致せず直書き維持。
+	k63: `${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard} から、家族全員が使える設計です。`,
 	k64: '安心して始められる 4 つのお約束。',
-	k65: '基本無料',
+	k65: `${FREE_TERMS.base}`,
 	k66: '有料は',
 	k67: '月 &#165;500（税込）〜',
-	k68: '7 日間無料体験',
-	k69: 'いつでも解約 OK',
-	k70: 'お子さま 2 人までのご家庭なら、無料プランで冒険の仕組みをすべてお使いいただけます。',
+	k68: `7 日間${CTA_TERMS.freeTrialNoun}`,
+	k69: `${CANCEL_TERMS.anytimeOk}`,
+	k70: `お子さま 2 人までのご家庭なら、${PLAN_FULL_TERMS.free}で冒険の仕組みをすべてお使いいただけます。`,
 	k71: '3 人以上 / 長期履歴 / AI 自動提案は有料プランで。',
 	k72: '料金の詳細を見る &#8594;',
 	k73: 'お子さまのデータは、家族だけのものです',
@@ -5828,7 +5837,8 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k89: 'FAQ 専用ページ（24 項目）',
 	k90: ' をご覧ください。',
 	k91: '無料トライアルにクレジットカードは必要ですか？',
-	k92: '不要です。メール認証だけで 7 日間すべての有料機能をお試しいただけます。期間終了時は自動で無料プランに戻るため、',
+	// #1956 (Phase 3 D11): '無料プラン' = PLAN_FULL_TERMS.free 参照化（'7 日間' は半角スペース有りで直書き継続）
+	k92: `不要です。メール認証だけで 7 日間すべての有料機能をお試しいただけます。期間終了時は自動で${PLAN_FULL_TERMS.free}に戻るため、`,
 	k93: '気付いたら課金されていた',
 	k94: 'ということはありません。',
 	k95: '子供が勝手に課金してしまう心配はありませんか？',
@@ -5841,20 +5851,28 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k102: 'FAQ 専用ページ',
 	k103: ' へ。',
 	k104: '家族で全部使ってから、続けるか決める',
-	k105: '7 日間無料・クレジットカード登録不要 / いつでもキャンセル可能。',
+	// #1956 (Phase 3 D11): 'クレジットカード登録不要' = TRIAL_TERMS.noCreditCard 参照化、
+	//   '無料で始める' (k107 / k113) = FREE_TERMS.tryFree 参照化。
+	//   '7 日間' は半角スペース有りで直書き継続。
+	k105: `7 日間無料・${TRIAL_TERMS.noCreditCard} / いつでもキャンセル可能。`,
 	k106: '今日からお子さまの「やりたい！」を育てませんか？',
-	k107: '無料で始める',
+	k107: `${FREE_TERMS.tryFree}`,
 	k108: 'ご質問・ご要望は',
 	k109: 'メール',
 	k110: 'でお気軽にどうぞ',
 	k111: '全機能を家族で試せる（7 日間無料）',
 	k112: 'クレジットカード不要',
-	k113: '無料で始める',
+	k113: `${FREE_TERMS.tryFree}`,
 	k114: '&#10005;',
 } as const;
 
 // ============================================================
 // LP_PAMPHLET_LABELS (#1465 SSOT Fixes)
+//
+// #1956 (Phase 3 D11): terms.ts atom (PLAN_TERMS / PLAN_FULL_TERMS / FREE_TERMS / CTA_TERMS /
+//   TRIAL_TERMS) 参照化対象。char-by-char 一致厳守。
+//   '7 日間' (半角スペース有り) は TRIAL_TERMS.duration ('7日間' スペース無し) と一致しないため
+//   直書き継続（#2007 / #2008 / #2009 と同方針）。
 // ============================================================
 
 export const LP_PAMPHLET_LABELS = {
@@ -5882,7 +5900,8 @@ export const LP_PAMPHLET_LABELS = {
 	k22: '&#x1F476; 0〜2歳のお子様は「準備モード」でご登録いただけます',
 	k23: '小学生以上',
 	k24: '6&#x301C;18歳',
-	k25: '&#x1F3AE; まずは無料で始めよう！',
+	// #1956 (Phase 3 D11): 'まずは無料' = FREE_TERMS.start 部分参照化（PR-2008 ctaBottomDesc と同パターン）
+	k25: `&#x1F3AE; ${FREE_TERMS.start}で始めよう！`,
 	k26: '登録は1分。お子さまの名前と年齢を入れるだけで、今日から冒険が始まります。',
 	k27: '&#x1F310; アクセスはこちら',
 	k28: 'がんばりクエスト &#x2014; &#x6599;&#x91D1;&#x30D7;&#x30E9;&#x30F3; &amp; &#x59CB;&#x3081;&#x65B9;',
@@ -5899,9 +5918,11 @@ export const LP_PAMPHLET_LABELS = {
 	k38: '持ち物チェックリスト 3個/子まで',
 	k39: '90日間の履歴保持',
 	k40: '&#x2B50; おすすめ',
-	k41: 'スタンダード',
+	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、
+	//   '7日間無料体験' = TRIAL_TERMS.duration + CTA_TERMS.freeTrialNoun
+	k41: `${PLAN_TERMS.standard}`,
 	k42: '/月（税込）',
-	k43: '7日間無料体験',
+	k43: `${TRIAL_TERMS.duration}${CTA_TERMS.freeTrialNoun}`,
 	k44: '子供の登録：無制限',
 	k45: 'オリジナル活動：無制限',
 	k46: '家族メンバー招待：4人まで',
@@ -5909,10 +5930,13 @@ export const LP_PAMPHLET_LABELS = {
 	k48: 'データのダウンロード',
 	k49: '1年間の履歴保持',
 	k50: 'メールサポート',
-	k51: 'ファミリー',
+	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.family、
+	//   '7日間無料体験' = TRIAL_TERMS.duration + CTA_TERMS.freeTrialNoun、
+	//   'スタンダードの全機能' = PLAN_TERMS.standard + 'の全機能'（#1947 LP_PRICING_EXTRA_LABELS k19 と同パターン）
+	k51: `${PLAN_TERMS.family}`,
 	k52: '/月（税込）',
-	k53: '7日間無料体験',
-	k54: 'スタンダードの全機能',
+	k53: `${TRIAL_TERMS.duration}${CTA_TERMS.freeTrialNoun}`,
+	k54: `${PLAN_TERMS.standard}の全機能`,
 	k55: '家族メンバー招待：無制限',
 	k56: 'AI 自動提案（活動・ごほうび・チェックリスト）',
 	k57: 'きょうだいランキング',
@@ -5932,7 +5956,9 @@ export const LP_PAMPHLET_LABELS = {
 	k71: 'ポイント獲得 &amp; レベルアップ！',
 	k72: '&#x2753; よくある質問',
 	k73: '料金はかかりますか？',
-	k74: '基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。スタンダード・ファミリープランは 7 日間無料トライアル付きです。',
+	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、'ファミリープラン' = PLAN_FULL_TERMS.family。
+	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration と一致しないため直書き継続。
+	k74: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.family}は 7 日間無料トライアル付きです。`,
 	k75: '何歳から使えますか？',
 	k76: '3歳から18歳までのお子さま向けに設計しています。3歳からはお子さま自身がタップして記録、年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。0〜2歳のお子さまは「準備モード」（保護者が記録するモード）で記録のみご利用いただけます（お子さま向けゲーミフィケーションは適用されません）。',
 	k77: '子供のデータは安全ですか？',
@@ -6594,6 +6620,11 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k123: 'デモを見る',
 } as const;
 
+// #1956 (Phase 3 D11): terms.ts atom 参照化対象（PLAN_TERMS / PLAN_FULL_TERMS / FREE_TERMS）。
+//   char-by-char 一致厳守。
+//   '7 日間' (半角スペース有り) は TRIAL_TERMS.duration ('7日間' スペース無し) と一致しないため
+//   直書き継続。'&#xA5;500' / '&#xA5;780' (HTML エンティティ) は PRICE_TERMS.standard / family
+//   ('¥500' / '¥780', U+00A5) と char-by-char 一致しないため直書き継続（#2007 と同方針）。
 export const LP_PAMPHLET_PHASEB_LABELS = {
 	k1: 'がんばりクエスト パンフレット',
 	k2: '&#x1F5A8; 印刷 / PDF保存',
@@ -6615,7 +6646,8 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k18: '&#x1F476; 0〜2歳のお子さまは「準備モード」でご登録いただけます',
 	k19: '小学生以上',
 	k20: '6&#x301C;18歳',
-	k21: '&#x1F3AE; まずは無料で始めよう！',
+	// #1956 (Phase 3 D11): 'まずは無料' = FREE_TERMS.start 部分参照化
+	k21: `&#x1F3AE; ${FREE_TERMS.start}で始めよう！`,
 	k22: '登録は1分。お子さまの名前と年齢を入れるだけで、今日から冒険が始まります。',
 	k23: '&#x1F310; アクセスはこちら',
 	k24: 'がんばりクエスト &#x2014; &#x6599;&#x91D1;&#x30D7;&#x30E9;&#x30F3; &amp; &#x59CB;&#x3081;&#x65B9;',
@@ -6632,7 +6664,9 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k34: '<span class="check">&#x2713;</span>持ち物チェックリスト 3個/子まで',
 	k35: '<span class="check">&#x2713;</span>90日間の履歴保持',
 	k36: '&#x2B50; おすすめ',
-	k37: 'スタンダード',
+	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard 参照化。
+	//   '&#xA5;500' / '7 日間無料トライアル' は char-by-char 一致しないため直書き継続。
+	k37: `${PLAN_TERMS.standard}`,
 	k38: '&#xA5;500<small>/月（税込）</small>',
 	k39: '7 日間無料トライアル',
 	k40: '<span class="check">&#x2713;</span>子供の登録：無制限',
@@ -6642,10 +6676,13 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k44: '<span class="check">&#x2713;</span>データのダウンロード',
 	k45: '<span class="check">&#x2713;</span>1年間の履歴保持',
 	k46: '<span class="check">&#x2713;</span>メールサポート',
-	k47: 'ファミリー',
+	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.family、
+	//   'スタンダードの全機能' = PLAN_TERMS.standard + 'の全機能' 部分参照化。
+	//   '&#xA5;780' / '7 日間無料トライアル' は char-by-char 一致しないため直書き継続。
+	k47: `${PLAN_TERMS.family}`,
 	k48: '&#xA5;780<small>/月（税込）</small>',
 	k49: '7 日間無料トライアル',
-	k50: '<span class="check">&#x2713;</span>スタンダードの全機能',
+	k50: `<span class="check">&#x2713;</span>${PLAN_TERMS.standard}の全機能`,
 	k51: '<span class="check">&#x2713;</span>家族メンバー招待：無制限',
 	k52: '<span class="check">&#x2713;</span>AI 自動提案（活動・ごほうび・チェックリスト）',
 	k53: '<span class="check">&#x2713;</span>きょうだいランキング',
@@ -6662,7 +6699,9 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k64: '活動を記録するたびにポイント獲得 &amp; レベルアップ！',
 	k65: '&#x2753; よくある質問',
 	k66: '料金はかかりますか？',
-	k67: '基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。スタンダード・ファミリープランは 7 日間無料トライアル付きです。',
+	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、'ファミリープラン' = PLAN_FULL_TERMS.family。
+	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration と一致しないため直書き継続。
+	k67: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.family}は 7 日間無料トライアル付きです。`,
 	k68: '何歳から使えますか？',
 	k69: '3歳から18歳までのお子さま向けに設計しています。3歳からはお子さま自身がタップして記録、年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。0〜2歳のお子さまは「準備モード」（保護者が記録するモード）で記録のみご利用いただけます（お子さま向けゲーミフィケーションは適用されません）。',
 	k70: '子供のデータは安全ですか？',
