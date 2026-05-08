@@ -122,7 +122,8 @@ test.describe('#1732 floating-cta スクロール深度別文言', () => {
 		await expect(floatingCta).toHaveAttribute('data-floating-cta-phase', 'mid');
 
 		const text = page.locator('#floating-cta-text');
-		await expect(text).toContainText('コアループは 1 分で体験');
+		// #1892 (PO-4-6 2 回目指摘): 「コアループ」内部用語撤廃で midText を「3 つの仕組みは 1 分で体験」に置換
+		await expect(text).toContainText('3 つの仕組みは 1 分で体験');
 
 		const button = page.locator('#floating-cta-button');
 		await expect(button).toHaveText('デモを見る');
