@@ -4525,10 +4525,12 @@ export const LP_VERSUS_LABELS = {
 //   原則登場せず、ctaBottomDesc 1 件のみが「無料体験」atom (CTA_TERMS.freeTrialNoun) と
 //   char-by-char 一致するため参照化する。
 //   トライアル期間表現 '7 日間' は半角スペース有り、TRIAL_TERMS.duration ('7日間' スペース無し)
-//   と char-by-char 一致しないため文字列差分ゼロ厳守原則により直書き継続（#2004 / #1950 と同方針）。
+//   と char-by-char 一致しないため、#1944 Phase 3 D4 で TRIAL_TERMS.durationSpaced atom を独立追加し
+//   ctaBottomDesc を参照化（'7 日間'＋'無料体験' の 2 atom 構成）。
 //   検証: 本 namespace 範囲内に PLAN_TERMS / PLAN_FULL_TERMS / PRICE_TERMS / CANCEL_TERMS /
 //         FREE_TERMS / CTA_TERMS.freeTrialVerb / freeTrialDesc の atom と char-by-char 一致する
-//         直書きは ctaBottomDesc の '無料体験' (CTA_TERMS.freeTrialNoun) のみ。
+//         直書きは ctaBottomDesc の '無料体験' (CTA_TERMS.freeTrialNoun) と
+//         '7 日間' (TRIAL_TERMS.durationSpaced) — 両方とも参照化済み。
 export const LP_GROWTH_ROADMAP_LABELS = {
 	sectionTitle: '3 歳から 18 歳まで、そして「卒業」へ',
 	sectionDesc:
@@ -4545,8 +4547,8 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	breadcrumbCurrent: '成長ロードマップ',
 	ctaBottomTitle: '家族で全部使ってから、続けるか決める',
 	// #1954 (Phase 3 D9): '無料体験' atom を CTA_TERMS.freeTrialNoun 参照化。
-	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration ('7日間') と一致しないため直書き継続。
-	ctaBottomDesc: `7 日間の${CTA_TERMS.freeTrialNoun}で、お子さまに合うかを家族でゆっくり試せます。`,
+	// #1944 Phase 3 D4: '7 日間' (半角空白入り) を TRIAL_TERMS.durationSpaced atom として独立 + 参照化。
+	ctaBottomDesc: `${TRIAL_TERMS.durationSpaced}の${CTA_TERMS.freeTrialNoun}で、お子さまに合うかを家族でゆっくり試せます。`,
 	// #1793: 「親が観測できること」(計測・実験用語 / 監視連想で permission marketing 毀損) を
 	//   文脈別語彙に刷新。growth-roadmap 5 stages は親子の長期成長物語のため
 	//   「家族で実感できること」(家族主体・実感ベース) に統一する。
@@ -5654,10 +5656,12 @@ export const LP_FAQ_LABELS = {
 		'a href="mailto:ganbari.quest.support@gmail.com?subject=FAQページからのお問い合わせ" data-contact-context="FAQ bottom"',
 } as const;
 
-// #1957 (Phase 3 D12): LP_SELFHOST_LABELS は atom 化対象ゼロ。
-//                     セルフホスト版仕様 / Docker / 動作要件 / OSS コントリビュート関連の専用文言で
-//                     terms.ts atom (PLAN/PRICE/TRIAL/CANCEL/FREE/CTA) いずれにも該当しない。
-//                     text54 ('SaaS版を無料ではじめる') の「無料」も部分一致のため atom 化不可。
+// #1944 Phase 3 D4: '基本無料' (FREE_TERMS.base) と 'ファミリープラン' (PLAN_FULL_TERMS.family) を atom 参照化。
+//   text32 '基本無料 / 有料プランあり' / text44 'ファミリープランで利用可' の 2 件。
+//   その他のラベルは「セルフホスト版独自の運用語彙」（Docker / GitHub / SaaS版 / RAM 等）が中心で
+//   plan / 価格 / 期間 / 解約 / 無料訴求の atom 群とは交わらない構造。
+// #1957 (Phase 3 D12 補足): text54 ('SaaS版を無料ではじめる') の「無料」は部分一致のため atom 化不可。
+//                     ※ heroButton / bottomButton 系の atom 化は LP_FLOATING_CTA_LABELS で完了。
 export const LP_SELFHOST_LABELS = {
 	text1: 'セルフホスト版ガイド - がんばりクエスト',
 	text2: '&#x1F4E6; セルフホスト版ガイド',
@@ -5691,7 +5695,8 @@ export const LP_SELFHOST_LABELS = {
 	text29: '&#x2705; アカウント登録だけ',
 	text30: 'Docker のインストールが必要',
 	text31: '料金',
-	text32: '基本無料 / 有料プランあり',
+	// #1944 Phase 3 D4: '基本無料' を FREE_TERMS.base 参照化。
+	text32: `${FREE_TERMS.base} / 有料プランあり`,
 	text33: '&#x2705; 完全無料',
 	text34: 'データ管理',
 	text35: 'AWS 上に暗号化保存',
@@ -5703,7 +5708,8 @@ export const LP_SELFHOST_LABELS = {
 	text41: '&#x2705; どこからでも',
 	text42: 'VPN や外部公開の設定が必要',
 	text43: 'AI 機能',
-	text44: '&#x2705; ファミリープランで利用可',
+	// #1944 Phase 3 D4: 'ファミリープラン' を PLAN_FULL_TERMS.family 参照化。
+	text44: `&#x2705; ${PLAN_FULL_TERMS.family}で利用可`,
 	text45: 'API キーの自前設定が必要',
 	text46: '迷ったら SaaS版がおすすめ',
 	text47: '&#x1F91D; コントリビュート',
@@ -6653,11 +6659,16 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k123: 'デモを見る',
 } as const;
 
-// #1956 (Phase 3 D11): terms.ts atom 参照化対象（PLAN_TERMS / PLAN_FULL_TERMS / FREE_TERMS）。
+// #1956 (Phase 3 D11) + #1944 (Phase 3 D4) 統合:
+//   terms.ts atom 参照化対象（PLAN_TERMS / PLAN_FULL_TERMS / FREE_TERMS / TRIAL_TERMS）。
 //   char-by-char 一致厳守。
-//   '7 日間' (半角スペース有り) は TRIAL_TERMS.duration ('7日間' スペース無し) と一致しないため
-//   直書き継続。'&#xA5;500' / '&#xA5;780' (HTML エンティティ) は PRICE_TERMS.standard / family
-//   ('¥500' / '¥780', U+00A5) と char-by-char 一致しないため直書き継続（#2007 と同方針）。
+//   - #1956 D11: PLAN_TERMS.standard / PLAN_FULL_TERMS.family / FREE_TERMS.start を atom 化。
+//   - #1944 D4: '7 日間' (半角空白入り) を TRIAL_TERMS.durationSpaced 独立 atom として追加し、
+//               k39 / k49 / k67 の 3 キー（計 4 occurrence、7 日間 x3 + ファミリープラン x1）を atom 化。
+//               k47 'ファミリー' (短縮形) は PLAN_TERMS.family と char-by-char 一致するが、
+//               pamphlet.html プラン比較表ヘッダの短縮ラベルとして「ファミリー」表記設計のため別 Issue 扱い。
+//   - 直書き継続: '&#xA5;500' / '&#xA5;780' (HTML エンティティ) は PRICE_TERMS.standard / family
+//                 ('¥500' / '¥780', U+00A5) と char-by-char 一致しないため直書き継続（#2007 と同方針）。
 export const LP_PAMPHLET_PHASEB_LABELS = {
 	k1: 'がんばりクエスト パンフレット',
 	k2: '&#x1F5A8; 印刷 / PDF保存',
@@ -6701,7 +6712,8 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	//   '&#xA5;500' / '7 日間無料トライアル' は char-by-char 一致しないため直書き継続。
 	k37: `${PLAN_TERMS.standard}`,
 	k38: '&#xA5;500<small>/月（税込）</small>',
-	k39: '7 日間無料トライアル',
+	// #1944 Phase 3 D4: '7 日間' を TRIAL_TERMS.durationSpaced 参照化。
+	k39: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
 	k40: '<span class="check">&#x2713;</span>子供の登録：無制限',
 	k41: '<span class="check">&#x2713;</span>オリジナル活動：無制限',
 	k42: '<span class="check">&#x2713;</span>家族メンバー招待：4人まで',
@@ -6714,7 +6726,9 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	//   '&#xA5;780' / '7 日間無料トライアル' は char-by-char 一致しないため直書き継続。
 	k47: `${PLAN_TERMS.family}`,
 	k48: '&#xA5;780<small>/月（税込）</small>',
-	k49: '7 日間無料トライアル',
+	// #1944 Phase 3 D4: '7 日間' を TRIAL_TERMS.durationSpaced 参照化。
+	// #1956 Phase 3 D11: 'スタンダード' を PLAN_TERMS.standard 参照化。
+	k49: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
 	k50: `<span class="check">&#x2713;</span>${PLAN_TERMS.standard}の全機能`,
 	k51: '<span class="check">&#x2713;</span>家族メンバー招待：無制限',
 	k52: '<span class="check">&#x2713;</span>AI 自動提案（活動・ごほうび・チェックリスト）',
@@ -6732,9 +6746,10 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k64: '活動を記録するたびにポイント獲得 &amp; レベルアップ！',
 	k65: '&#x2753; よくある質問',
 	k66: '料金はかかりますか？',
-	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、'ファミリープラン' = PLAN_FULL_TERMS.family。
-	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration と一致しないため直書き継続。
-	k67: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.family}は 7 日間無料トライアル付きです。`,
+	// #1956 (Phase 3 D11) + #1944 (Phase 3 D4) 統合:
+	//   'スタンダード' = PLAN_TERMS.standard / 'ファミリープラン' = PLAN_FULL_TERMS.family /
+	//   '7 日間' = TRIAL_TERMS.durationSpaced（D4 で独立 atom 追加済）。
+	k67: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.family}は ${TRIAL_TERMS.durationSpaced}無料トライアル付きです。`,
 	k68: '何歳から使えますか？',
 	k69: '3歳から18歳までのお子さま向けに設計しています。3歳からはお子さま自身がタップして記録、年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。0〜2歳のお子さまは「準備モード」（保護者が記録するモード）で記録のみご利用いただけます（お子さま向けゲーミフィケーションは適用されません）。',
 	k70: '子供のデータは安全ですか？',
