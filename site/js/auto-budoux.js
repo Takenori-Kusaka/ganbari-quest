@@ -16,7 +16,7 @@
 //   .gr-body p           — growth-roadmap 各 stage の説明文 + ベネフィット行
 //   .gr-benefit          — growth-roadmap ベネフィット行 span 全体
 //   .age-panel-desc      — 年齢パネル説明文
-//   .core-loop-card p    — コアループ 3 card の本文
+//   .core-loop-card p    — core-loop 3 card の本文
 //   .versus-card p       — versus 比較カードの補足文
 //   .soft-card p         — soft-features 各カードの本文 + ベネフィット
 //   .tour-card p         — machine-tour 各カードの本文 + ベネフィット

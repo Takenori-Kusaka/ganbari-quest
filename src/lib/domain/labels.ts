@@ -4600,8 +4600,9 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 } as const;
 
 // ============================================================
-// LP [03] コアループ 3 層モデル (#1343)
+// LP [03] core-loop 3 層モデル (#1343)
 // SSOT: site/index.html [03] セクション用ラベル
+// 用語注: 内部 section ID は "core-loop" を維持（anchor 互換）。顧客向けは「3 つの仕組み」(#1615 / #1892)。
 // ============================================================
 
 // #1624 R20: StoryBrand 7 要素のうち Internal Problem / Philosophical / Avoiding Failure
@@ -4613,7 +4614,7 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 // #1788 (P-MAJ-3): 「プリセット活動で設定は 2 分」(parentPerspectiveDesc) と
 //   「プリセット活動がそのまま使える」(l1Step1Desc) を honest 表現へ刷新（候補から選ぶ運用を明示）。
 // #1954 (Phase 3 D9): terms.ts atom 参照化対象ゼロの恒久記録。
-//   本 namespace は「活動 → 習慣 → ごほうび」の 3 つの仕組み（コアループ）を説明する構造。
+//   本 namespace は「活動 → 習慣 → ごほうび」の 3 つの仕組み（core-loop）を説明する構造。
 //   訴求軸が「ループ全体の動詞句」（記録する / 続ける / 交換する / 計画する）にあり、
 //   PLAN 名 (PLAN_TERMS / PLAN_FULL_TERMS) / 価格 (PRICE_TERMS) / トライアル期間 (TRIAL_TERMS) /
 //   解約 (CANCEL_TERMS) / 無料訴求 (FREE_TERMS) / CTA 動詞句 (CTA_TERMS) のいずれの atom にも
@@ -5734,7 +5735,7 @@ export const LP_SELFHOST_LABELS = {
 //   - hero pass 〜 midStart% (デフォルト 30%): phase=hero
 //       「全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>」+ CTA「無料で始める」/ href=/auth/signup
 //   - midStart% 〜 bottomStart% (デフォルト 70%): phase=mid
-//       「コアループは 1 分で体験できます」+ CTA「デモを見る」/ href=/demo
+//       「3 つの仕組みは 1 分で体験できます」+ CTA「デモを見る」/ href=/demo (#1892 で内部用語撤廃)
 //   - bottomStart% 〜 (デフォルト 70% 以上): phase=bottom
 //       「ここまで読まれた方へ」+ CTA「無料で始める」/ href=/auth/signup
 //
@@ -5754,7 +5755,8 @@ export const LP_SELFHOST_LABELS = {
 export const LP_FLOATING_CTA_LABELS = {
 	// 各 phase の補強コピー（HTML 可、<small> + <strong> のみ想定）
 	heroText: '全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>',
-	midText: 'コアループは 1 分で体験できます<small>サインアップ前に動きを確認</small>',
+	// #1892 (PO-4-6 2 回目指摘): 旧表現の内部 IA 用語撤廃。前段 [03] 顧客語彙「3 つの仕組み」と整合。
+	midText: '3 つの仕組みは 1 分で体験できます<small>サインアップ前に動きを確認</small>',
 	bottomText: 'ここまで読まれた方へ<small>7 日間無料・クレジットカード不要</small>',
 	// 各 phase の CTA ボタン文言（既存 ctaVariants 3 種の範囲内）
 	heroButton: `${FREE_TERMS.tryFree}`,
@@ -5813,11 +5815,12 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k31: '&#x1F9D2; 子供の視点',
 	// #1708 R3-A / #1710 R3-C: 「5 つの工夫」→「3 つの工夫」、ルーティン関連語彙削除、習慣エンジンは活動 must 属性へ移管（kind=routine 廃止）
 	// #1782: 「3 つの工夫」→「2 つの工夫」、実績 & 称号カード削除（ADR-0012 §6 整合 + #404 廃止合意の revert 復活への対応）
-	// #1802: [03]/[04] 連続「Nつの〜」H2 解消のため [04] H2 を「コアループに加えて〜」へリフレーム（IA sub-section 化）
+	// #1802: [03]/[04] 連続「Nつの〜」H2 解消のため [04] H2 を IA sub-section 化（旧表現は #1892 で撤廃済）
 	// 旧 k32-k51 を再構成: 旧 5 工夫 → 3 工夫 → 2 工夫（朝準備 / RPG）に圧縮、indexExtra namespace は新 LP では未参照だが SSOT 一貫性のため整合
-	// #1802: [03]/[04] H2「Nつの〜」連続解消のため、[04] machine-tour 系 H2 を「コアループに加えて〜」階層化
-	k32: 'コアループに加えて — 朝の準備とクライマックスを支える機構',
-	k33: '毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の持ち物確認と夜の RPG バトルの 2 つから支える補足機構です。',
+	// #1892 (PO-4-6 2 回目指摘): 旧 H2/リードの内部 IA 用語を撤廃し顧客語彙化
+	//   (詳細は LP_INDEX_PHASEB_LABELS.k21 / k22 のコメント参照)。indexExtra namespace は未参照だが SSOT 一貫性のため整合。
+	k32: '毎日の冒険をもっと楽しくする 2 つの工夫',
+	k33: '朝の持ち物確認と、夜の RPG バトル。子供が朝から夜まで「次のごほうび」を楽しみに待てるしかけです。',
 	k34: '朝の準備と冒険のクライマックスの 2 つから、日々のがんばりを支えます。',
 	// #1782: k35/k36/k37 (旧 ① 長期の達成感 / 実績 & 称号) は削除済み（empty string で再混入検出）
 	k35: '',
@@ -6365,11 +6368,12 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// #1708 R3-A: 4 → 3 圧縮（旧 ③ 旧ルーチン-CLカード削除、kind=routine 廃止 + 活動 must 属性化に伴い）
 	// #1782: 3 → 2 圧縮（旧 ① 「実績 & 称号」削除、ADR-0012 §6 整合 + #404 廃止合意の revert 復活への対応）
 	//   k23/k24/k25 は削除（実績 & 称号カード）。k38/k39/k40/k41/k42/k43 を新たに使用（持ち物 / RPG バトル）
-	// #1802: [03] core-loop H2「3 つの仕組み〜」と [04] machine-tour H2「N つの〜」の連続が
-	//   IA 階層誤読を生むため、[04] は「コアループに加えて — 朝の準備とクライマックスを支える機構」と
-	//   sub-section 的階層を明示する文言にリフレーム（[03] の延長であることを冒頭で示す）。
-	k21: 'コアループに加えて — 朝の準備とクライマックスを支える機構',
-	k22: '毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の持ち物確認と夜の RPG バトルの 2 つから支える補足機構です。',
+	// #1892 (PO-4-6 2 回目指摘): 旧 H2/リードの内部 IA 用語を撤廃し、
+	//   顧客語彙「2 つの工夫」「しかけ」へ完全置換。前段 [03] core-loop が「3 つの仕組みで…」と
+	//   顧客語彙化済みなのに、ここで旧表現が逆戻りして離脱級違和感を生んでいた問題の解消。
+	//   PO 確定 C 案 (UI/UX 候補 B): 「2 つの工夫」で範囲明示、主婦語彙圏「しかけ」「楽しみに待てる」採用。
+	k21: '毎日の冒険をもっと楽しくする 2 つの工夫',
+	k22: '朝の持ち物確認と、夜の RPG バトル。子供が朝から夜まで「次のごほうび」を楽しみに待てるしかけです。',
 	// #1782: k23/k24/k25 (旧 ① 実績 & 称号) は削除済み（empty string で SSOT 整合維持、再混入時の検出のため key 自体は残す）
 	k23: '',
 	k24: '',
@@ -6772,7 +6776,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 //
 // 法的文書 (privacy.html) を data-lp-key 経由で SSOT 化。
 // section 単位（h1 + intro + 13 sections + effective）でキー化し、
-// applyLpKeys() の innerHTML + DOMPurify sanitize 機構で nested HTML
+// applyLpKeys() の innerHTML + DOMPurify sanitize 経路で nested HTML
 // (h2 / ol / li / strong / a / div.highlight 等) を保持して注入する。
 //
 // 命名規則: legalPrivacy.<key>

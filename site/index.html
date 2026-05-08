@@ -651,15 +651,17 @@
 </section>
 <!-- LP-LANDMARK:age-panel end -->
 
-<!-- LP-LANDMARK:core-loop start — コアループ 3 つの仕組み（活動 / 習慣 / ごほうび）の描画 (#1343, #1615 R11 顧客語彙化, #1787 4 階層→1 階層 3 カード再構成)
-     変更時は docs/design/lp-content-map.md §3.5 魅せ方規範 / §コアループ原則を確認
+<!-- LP-LANDMARK:core-loop start — 3 つの仕組み（活動 / 習慣 / ごほうび）の描画 (#1343, #1615 R11 顧客語彙化, #1787 4 階層→1 階層 3 カード再構成)
+     変更時は docs/design/lp-content-map.md §3.5 魅せ方規範 / §core-loop 原則を確認
      用語 SSOT: src/lib/domain/labels.ts LP_CORELOOP_LABELS / FEATURE_LABELS
      #1787: 4 階層 (section → 2col → layer-grid → step) → 1 階層 3 カードに圧縮。
        1-shot summary 画像 (assets/lp/core-loop-summary.png) で全体像を提示し、
        3 cards (活動 / 習慣 / ごほうび) は各 badge + h3 + 短文 1 行のみ。
        廃止: .core-loop-perspectives / .cls-num / .core-loop-aside / STEP 1/2 構造
-     #1789: 「魅せ方規範 §」§3.5 規範 B (soft-features 並列 3 cards) に整合 -->
-<!-- [03] コアループ（3 つの仕組み: 活動 / 習慣 / ごほうび — 1 階層 3 cards） -->
+     #1789: 「魅せ方規範 §」§3.5 規範 B (soft-features 並列 3 cards) に整合
+     #1892 (PO-4-6 2 回目指摘): HTML コメント内の旧内部用語を顧客語彙「3 つの仕組み」/
+       英語 section 名 "core-loop" に揃え、grep で 0 件化。section id="core-loop" は anchor 互換のため維持。 -->
+<!-- [03] 3 つの仕組み（活動 / 習慣 / ごほうび — 1 階層 3 cards） -->
 <section class="section bg-gray" id="core-loop">
   <div class="section-inner core-loop-section-inner">
     <h2 class="section-title" data-lp-key="coreloop.sectionTitle">3 つの仕組みで、毎日のがんばりが本物の報酬になる</h2>
@@ -694,7 +696,7 @@
 
 <!-- LP-LANDMARK:core-loop end -->
 
-<!-- LP-LANDMARK:machine-tour start — [04] 補足機構（[03] では語られない 2 つの工夫）
+<!-- LP-LANDMARK:machine-tour start — [04] 毎日の冒険をもっと楽しくする 2 つの工夫
      #1622 R18 (アプローチ A): [03] 3 つの仕組みと重複するカードを削除し
      長期 / 朝の習慣 / 冒険のクライマックスの 3 つに圧縮
      #1629 R25: ADR-0012 整合のため連続達成系の語彙を刷新
@@ -703,12 +705,15 @@
        ADR-0012 §6「収集目的の独立 UI / コレクション閲覧ページ / ミッションリスト UI 駆動導線」
        禁止に整合し、長期の達成感はチャレンジ機能 (/admin/challenges) に統合。
        3 cards → 2 cards に再圧縮。
+     #1892 (PO-4-6 2 回目指摘): 旧 H2/リードの内部 IA 用語を顧客語彙
+       「2 つの工夫」「しかけ」へ置換。前段 [03] が顧客語彙化済みなのに [04] で逆戻りして
+       離脱級違和感を生んでいた問題の解消。詳細経緯は labels.ts indexB.k21/k22 コメント参照。
      各幕の追加/削除は docs/design/lp-content-map.md §machine-tour を必ず更新 -->
-<!-- [04] 補足機構（[03] のコアループに加えて支える 2 つの工夫） -->
+<!-- [04] 毎日の冒険をもっと楽しくする 2 つの工夫 ([03] core-loop の延長） -->
 <section class="section bg-white" id="machine-tour" data-testid="feature-section">
   <div class="section-inner">
-    <h2 class="section-title" data-lp-key="indexB.k21">コアループに加えて — 朝の準備とクライマックスを支える機構</h2>
-    <p class="section-desc" data-lp-key="indexB.k22">毎日の「活動 → 習慣 → ごほうび」の冒険を、朝の持ち物確認と夜の RPG バトルの 2 つから支える補足機構です。</p>
+    <h2 class="section-title" data-lp-key="indexB.k21">毎日の冒険をもっと楽しくする 2 つの工夫</h2>
+    <p class="section-desc" data-lp-key="indexB.k22">朝の持ち物確認と、夜の RPG バトル。子供が朝から夜まで「次のごほうび」を楽しみに待てるしかけです。</p>
     <div class="machine-tour">
       <div class="tour-card" data-testid="feature-belongings-checklist">
         <div class="tour-phase" data-lp-key="indexB.k26">&#9312; 朝の準備をスムーズに</div>
