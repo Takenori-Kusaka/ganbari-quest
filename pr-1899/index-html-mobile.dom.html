@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title data-lp-key="indexB.k1">がんばりクエスト — 「やりなさい」を「やりたい！」に変える</title>
 <meta name="description" content="がんばりクエストは、お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、チャレンジで「自分から動く力」を育てます。3歳から18歳までのお子さまに対応（0〜2歳のお子さまは保護者向けの準備モードでご利用いただけます）。">
-<meta property="og:title" content="がんばりクエスト — 「やりなさい」を「やりたい！」に変える">
+<meta property="og:title" content="がんばりクエスト — 「やりなさい」を「やりたい！」に変える家族の冒険アプリ">
 <meta property="og:description" content="お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、チャレンジで「自分から動く力」を育てます。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.ganbari-quest.com/">
@@ -15,7 +15,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="がんばりクエスト — 「やりなさい」を「やりたい！」に変える">
+<meta name="twitter:title" content="がんばりクエスト — 「やりなさい」を「やりたい！」に変える家族の冒険アプリ">
 <meta name="twitter:description" content="お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、チャレンジで「自分から動く力」を育てます。">
 <meta name="twitter:image" content="https://www.ganbari-quest.com/ogp.png">
 <link rel="canonical" href="https://www.ganbari-quest.com/">
@@ -52,7 +52,7 @@
       "name": "フリー",
       "price": "0",
       "priceCurrency": "JPY",
-      "description": "無料プラン。子供2人まで、活動3個まで、履歴90日",
+      "description": "ずっと無料で利用可能。子供2人まで、活動3個まで、履歴90日",
       "availability": "https://schema.org/InStock"
     },
     {
@@ -187,7 +187,8 @@
 /* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
 .core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
 /* #1785 R-CRT-2: summary 画像も装飾枠統一系列に追従 — border:1px solid var(--gray-300) で他の card 装飾と同一の外観 */
-.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;background:#fff;border:1px solid var(--gray-300)}
+/* #1889: background:#fff を撤去 — SVG/PNG が透過化されたため LP section 背景に自然に溶け込む */
+.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--gray-300)}
 .core-loop-summary figcaption{margin-top:10px;font-size:.86rem;color:var(--gray-700);line-height:1.6;max-width:540px;margin-left:auto;margin-right:auto}
 /* 3 cards: モバイル縦積み / PC 横並び 3 カラム */
 .core-loop-cards{display:grid;grid-template-columns:1fr;gap:14px;max-width:1080px;margin:0 auto}
@@ -461,9 +462,9 @@
      変更時は docs/design/lp-content-map.md §hero を確認 -->
 <!-- [01] Hero (#1617 R13: <br> 削除 + balance で自然な折り返し / #1625 R21: 価格 anchor 1 行バンド / #1626 R22: 不安解消 3 バッジ / #1628 R24: 仕様起点の数字バッジ) -->
 <section class="hero">
-  <h1 data-lp-key="indexB.k2">「やりなさい」を <span>「やりたい！」</span> に変える家族 RPG</h1>
+  <h1 data-lp-key="indexB.k2">「やりなさい」を <span>「やりたい！」</span> に変える家族の冒険アプリ</h1>
   <p class="hero-sub">
-    <span data-lp-key="indexB.k3">3〜18 歳の毎日の習慣を、ポイント・スタンプ・レベルで冒険に変える。声をかけなくても、自分から動きだす家族時間へ。</span>
+    <span data-lp-key="indexB.k3">3〜18 歳の毎日の習慣を、ゲームのように楽しめる仕組みに変える。声をかけなくても、自分から動きだす家族時間へ。</span>
   </p>
   <!-- #1625 R21: 価格 anchor 1 行バンド（30 秒で離脱判断する親 P1 向け） -->
   <p class="hero-price-band" data-lp-key="heroPriceBand.container"><span class="hpb-item" data-lp-key="heroPriceBand.itemFree"><strong>基本無料</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemPrice">月 <strong>¥500〜</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemTrial">有料は 7 日間無料</span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemCancel">いつでも解約</span></p>
@@ -744,7 +745,7 @@
 <section class="section bg-gray" id="soft-features">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k37">親が安心できる運用補助</h2>
-    <p class="section-desc" data-lp-key="indexB.k38" data-budoux-applied="true">ゲーミフィケーションの裏で、親がちゃんと伴走できる設計。「遊ばせっぱなし」「設定が大変そう」の不安を取り除く 3 つの機能です。</p>
+    <p class="section-desc" data-lp-key="indexB.k38" data-budoux-applied="true">冒険の裏で、親がちゃんと伴走できる仕組み。「遊ばせっぱなし」「うちの子に合わなさそう」の不安をなくし、ご家庭に合わせて自由にカスタマイズできます。</p>
     <div class="soft-grid soft-grid--three">
       <div class="soft-card" data-testid="feature-monthly-report">
         <h3 data-lp-key="indexB.k39">成長の記録（月次レポート）</h3>
@@ -770,7 +771,7 @@
       </div>
       <div class="soft-card" data-testid="feature-customization">
         <h3 data-lp-key="indexB.k45">設定の自由度</h3>
-        <p data-lp-key="indexB.k46" data-budoux-applied="true">活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。</p>
+        <p data-lp-key="indexB.k46" data-budoux-applied="true"><strong>ご家庭ごとに自由なカスタマイズ</strong>。活動の種類・ポイント配分・ごほうびを、お子さまに合わせて細かく調整できます。</p>
         <div class="soft-shot">
           <picture>
             <source srcset="screenshots/feature-settings-desktop.webp" media="(min-width:1024px)" type="image/webp">
