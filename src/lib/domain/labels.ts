@@ -9,6 +9,7 @@
 // #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
 // #1963 (Phase 7 H6): LICENSE_PAGE_LABELS で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
 import {
+	CANCEL_TERMS,
 	CTA_TERMS,
 	FREE_TERMS,
 	PLAN_FULL_TERMS,
@@ -4046,12 +4047,16 @@ export const LP_FOOTER_LABELS = {
 
 // LP Hero 価格 anchor バンド (#1625 R21)
 // site/index.html hero 直下に配置する 1 行価格プロミスバンド
+// #1946 (Phase 3 D6): terms.ts 参照化。文字列差分ゼロを維持しつつ FREE_TERMS / PRICE_TERMS / CANCEL_TERMS 経由で atom SSOT に統一。
+//   - itemPriceLabel ('月') / itemTrial ('有料は 7 日間無料') は terms.ts atom と表記揺れ
+//     (PRICE_TERMS.monthlyPrefix が '月 ' 末尾空白あり / TRIAL_TERMS.duration が '7日間' 空白なし)
+//     のため、文字列差分ゼロを優先しリテラル維持 (atom 化は別 Issue で表記統一後に再検討)
 export const LP_HERO_PRICE_BAND_LABELS = {
-	itemFree: '基本無料',
+	itemFree: FREE_TERMS.base,
 	itemPriceLabel: '月',
-	itemPriceValue: '¥500〜',
+	itemPriceValue: `${PRICE_TERMS.standard}${PRICE_TERMS.fromSuffix}`,
 	itemTrial: '有料は 7 日間無料',
-	itemCancel: 'いつでも解約',
+	itemCancel: CANCEL_TERMS.anytime,
 } as const;
 
 // LP CTA 直下の不安解消 3 バッジ (#1626 R22)
@@ -6273,10 +6278,14 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k45: '設定の自由度',
 	k46: '活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。',
 	k47: '料金プラン',
-	k48: '月 ¥500 から、家族全員が使える設計です。安心して始められる 4 つのお約束。',
-	k49: '<strong>基本無料</strong>',
+	// #1946 (Phase 3 D6): k48/k49/k51 (price 系) を terms.ts (PRICE_TERMS / FREE_TERMS) 参照に。
+	//   k48 '月 ¥500' = monthlyPrefix + standard
+	//   k49 '基本無料' = FREE_TERMS.base
+	//   k51 '月 ¥500（税込）〜' = monthlyPrefix + standard + taxNote + fromSuffix
+	k48: `${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard} から、家族全員が使える設計です。安心して始められる 4 つのお約束。`,
+	k49: `<strong>${FREE_TERMS.base}</strong>`,
 	k50: '・',
-	k51: '有料は<strong>月 ¥500（税込）〜</strong>',
+	k51: `有料は<strong>${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard}${PRICE_TERMS.taxNote}${PRICE_TERMS.fromSuffix}</strong>`,
 	k52: '・',
 	k53: '<strong>7 日間無料トライアル</strong>',
 	k54: '・',
