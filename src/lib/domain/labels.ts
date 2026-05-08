@@ -4061,10 +4061,12 @@ export const LP_HERO_PRICE_BAND_LABELS = {
 
 // LP CTA 直下の不安解消 3 バッジ (#1626 R22)
 // site/index.html / pricing.html / faq.html の CTA 直下に配置
+// #1953 (Phase 3 D8): noCreditCard を TRIAL_TERMS、cancelAnytime を CANCEL_TERMS から参照。
+//                     noAds は terms.ts atom 該当なしで据置き。char-by-char 一致を維持。
 export const LP_CTA_TRUST_BADGES_LABELS = {
-	noCreditCard: 'クレジットカード登録不要',
+	noCreditCard: `${TRIAL_TERMS.noCreditCard}`,
 	noAds: '広告なし',
-	cancelAnytime: 'いつでも解約 OK',
+	cancelAnytime: `${CANCEL_TERMS.anytimeOk}`,
 } as const;
 
 // LP Hero 仕様起点の数字バッジ (#1628 R24 / #1788 honest 刷新)
@@ -4073,6 +4075,9 @@ export const LP_CTA_TRUST_BADGES_LABELS = {
 //   （実態は「親がセットアップで選択する 300+ 候補プール」であり、訴求から「自動で揃う」誤認を排除）
 //   CI `measure-lp-dimensions.mjs` の正規表現 `<strong>(\d+)\+</strong>\s*プリセット活動` は
 //   「プリセット活動」リテラルが残っていれば検出されるため、honest 表現でも CI 裏取りは継続して機能する
+// #1953 (Phase 3 D8): atom 化対象ゼロ。年齢レンジ（3〜18 歳）/ プリセット数（300+）/ セットアップ時間（約 5 分）
+//   は本 LP 専用の仕様値であり terms.ts に対応 atom が存在しない（PLAN/PRICE/TRIAL/CANCEL/FREE/CTA いずれも該当なし）。
+//   将来 SETUP_TERMS / SPEC_TERMS 等を新設する判断は別 Issue で検討。
 export const LP_HERO_SPEC_BADGES_LABELS = {
 	ageRange: '3〜18 歳',
 	ageRangeSuffix: '対応',
