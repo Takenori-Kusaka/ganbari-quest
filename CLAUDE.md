@@ -30,9 +30,11 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 
 ### Ready 化前チェック（必須）
 
-`npm run pre-ready -- --pr <num>` 一括実行 (ADR-0030 / #1775)。biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / check-pr-body を順次実行。E2E / Storybook は別途。
+`npm run pre-ready -- --pr <num>` 一括実行 (ADR-0030 / #1775 / #1920 で SSOT 検証 step 拡張)。10 step を順次実行し各 fail で即停止 + 修正方針表示:
 
-任意: `npx eslint "src/**/*.ts"` (#977) / `npm run type-coverage` / `npm run knip` (#970)。CI 自動拒否は `.github/workflows/ci.yml` 参照。
+1. biome check / 2. svelte-check / 3. vitest run / 4. check-hardcoded-strings (#1452) / 5. measure-lp-dimensions (#1163, LP 変更時のみ) / 6. sync-lp-fallback --check (#1945, LP / labels.ts 変更時のみ) / **7. check-no-plan-literals (#972 / Phase 5 F1)** / **8. generate-lp-labels --check (Phase 1 B1 / #1917, labels.ts / terms.ts / age-tier.ts 変更時のみ)** / 9. check-pr-body (PR 番号必須) / 10. capture (UI 変更時のみガイダンス)
+
+E2E / Storybook は別途 (`npx playwright test` / `npm run test:storybook`)。任意: `npx eslint "src/**/*.ts"` (#977) / `npm run type-coverage` / `npm run knip` (#970)。CI 自動拒否は `.github/workflows/ci.yml` 参照。
 
 ## 並行実装チェックリスト（修正前必須）
 

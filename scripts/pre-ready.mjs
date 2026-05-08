@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scripts/pre-ready.mjs — Issue #1775 AC1
+ * scripts/pre-ready.mjs — Issue #1775 AC1 + Issue #1920 (Phase 5 F3 SSOT 検証 step 組込)
  *
  * `npm run pre-ready -- --pr <num>` で呼ばれる Ready 化前ローカル一括セルフチェック CLI。
  *
@@ -8,7 +8,12 @@
  * mergeable: CONFLICTING / ローカル biome / svelte-check / vitest 忘れ を、
  * Ready 化前に開発者がローカルで一括検出できるようにする。
  *
- * Step 1-7 を順次実行し、各 fail で即 exit 1 + 修正方針を表示する。
+ * Issue #1920 で SSOT 検証 3 step を追加 (1 step は既存): check-no-plan-literals (#972 /
+ * Phase 5 F1) / sync-lp-fallback (#1945 / Phase 5 F2、既存) / generate-lp-labels --check
+ * (#1917 / Phase 1 B1)。F1 #1918 未 merge でも graceful degradation で skip + warning とし、
+ * 本 PR を独立に Ready 化可能にする。
+ *
+ * Step 1-10 を順次実行し、各 fail で即 exit 1 + 修正方針を表示する。
  * 各 Step は既存の `scripts/*.mjs` / `npm run *` を子プロセスで呼ぶラッパー（独自実装は最小化）。
  *
  * 設計選定 (Issue #1775 / OSS 比較):
@@ -21,8 +26,8 @@
  *       既存の `lint`, `lint:parallel` 系 npm scripts と同じ世界観。`.husky/pre-push` 連携は AC6 で別 ADR 化。
  *
  * Usage:
- *   npm run pre-ready -- --pr 1775
- *   npm run pre-ready -- --pr 1775 --skip-vitest          # 重い vitest をスキップして高速確認
+ *   npm run pre-ready -- --pr 1920
+ *   npm run pre-ready -- --pr 1920 --skip-vitest          # 重い vitest をスキップして高速確認
  *   npm run pre-ready                                      # PR 未作成時 (PR body / mergeable 検証はスキップ)
  *
  * exit:
@@ -32,6 +37,7 @@
  */
 
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -49,6 +55,8 @@ const SKIP_FLAGS = {
 	'--skip-hardcoded': 'skipHardcoded',
 	'--skip-lp-dimensions': 'skipLpDimensions',
 	'--skip-lp-fallback': 'skipLpFallback',
+	'--skip-plan-literals': 'skipPlanLiterals',
+	'--skip-lp-labels': 'skipLpLabels',
 	'--skip-pr-body': 'skipPrBody',
 	'--skip-capture': 'skipCapture',
 };
@@ -62,6 +70,8 @@ function parseArgs(argv) {
 		skipHardcoded: false,
 		skipLpDimensions: false,
 		skipLpFallback: false,
+		skipPlanLiterals: false,
+		skipLpLabels: false,
 		skipPrBody: false,
 		skipCapture: false,
 		help: false,
@@ -87,29 +97,33 @@ pre-ready — Ready for Review 前のローカル一括セルフチェック (Is
 
 Usage:
   npm run pre-ready -- --pr <number>
-  npm run pre-ready                                # PR 未作成時 (Step 6/7 はスキップ)
+  npm run pre-ready                                # PR 未作成時 (Step 9/10 はスキップ)
 
 Options:
-  --pr <num>             GitHub PR 番号 (Step 6 PR body / mergeable 検証用)
+  --pr <num>             GitHub PR 番号 (Step 9 PR body / mergeable 検証用)
   --skip-biome           Step 1 biome check をスキップ
   --skip-svelte-check    Step 2 svelte-check をスキップ
   --skip-vitest          Step 3 vitest をスキップ (重いので高速確認時のみ)
   --skip-hardcoded       Step 4 hardcoded JP text 検査をスキップ
   --skip-lp-dimensions   Step 5 LP 寸法・禁止語検査をスキップ (LP 変更時のみ自動実行)
   --skip-lp-fallback     Step 6 LP fallback 同期検査をスキップ (LP / labels.ts 変更時のみ自動実行)
-  --skip-pr-body         Step 7 PR body 検査をスキップ
-  --skip-capture         Step 8 capture (UI 変更時のみ) をスキップ
+  --skip-plan-literals   Step 7 plan/status リテラル直書き検査をスキップ (#972 / Phase 5 F1)
+  --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
+  --skip-pr-body         Step 9 PR body 検査をスキップ
+  --skip-capture         Step 10 capture (UI 変更時のみ) をスキップ
   --help, -h             このヘルプ
 
 Steps:
-  1. biome check                 — lint
-  2. svelte-check                — TS strict 型チェック
-  3. vitest run                  — unit test (storybook 以外)
-  4. check-hardcoded-strings.mjs — JP ハードコード baseline 監視 (#1452)
-  5. measure-lp-dimensions.mjs   — LP 寸法 / 禁止語 (LP 変更時のみ)
-  6. sync-lp-fallback.mjs        — LP fallback テキスト同期検査 (LP / labels.ts 変更時のみ、#1945)
-  7. check-pr-body.mjs           — PR body 必須セクション / 禁止語 / AC マップ / mergeable (PR 番号必須)
-  8. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
+  1.  biome check                 — lint
+  2.  svelte-check                — TS strict 型チェック
+  3.  vitest run                  — unit test (storybook 以外)
+  4.  check-hardcoded-strings.mjs — JP ハードコード baseline 監視 (#1452)
+  5.  measure-lp-dimensions.mjs   — LP 寸法 / 禁止語 (LP 変更時のみ)
+  6.  sync-lp-fallback.mjs        — LP fallback テキスト同期検査 (LP / labels.ts 変更時のみ、#1945)
+  7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972 / Phase 5 F1 / #1918)
+  8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
+  9.  check-pr-body.mjs           — PR body 必須セクション / 禁止語 / AC マップ / mergeable (PR 番号必須)
+  10. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
 
 Exit codes:
   0 = 全 Step PASS
@@ -184,16 +198,25 @@ function buildSteps(args, changedFiles) {
 	const labelsChanged = changedFiles.some(
 		(f) => f === 'src/lib/domain/labels.ts' || f === 'src/lib/domain/terms.ts',
 	);
+	const ageTierChanged = changedFiles.some((f) => f === 'src/lib/domain/validation/age-tier.ts');
 	// LP fallback 同期は LP / labels.ts どちらかが変わると影響を受ける
 	const lpFallbackTrigger = lpChanged || labelsChanged;
+	// LP labels (site/shared-labels.js) 同期は labels.ts / terms.ts / age-tier.ts いずれかが変わると影響を受ける
+	const lpLabelsTrigger = labelsChanged || ageTierChanged;
 	const uiChanged = changedFiles.some(
 		(f) => /\.(svelte|css|scss)$/.test(f) || f.startsWith('site/'),
 	);
 
+	// graceful degradation: 未実装 / 移動済の検査 script は skip + warning に倒す (Issue #1920 設計判断)
+	const planLiteralsScript = resolve(repoRoot, 'scripts/check-no-plan-literals.mjs');
+	const lpLabelsScript = resolve(repoRoot, 'scripts/generate-lp-labels.mjs');
+	const planLiteralsScriptExists = existsSync(planLiteralsScript);
+	const lpLabelsScriptExists = existsSync(lpLabelsScript);
+
 	return [
 		{
 			name: 'biome',
-			label: 'Step 1/8: biome check',
+			label: 'Step 1/10: biome check',
 			skip: args.skipBiome,
 			runner: () => run('biome check', ['npx', 'biome', 'check', '.']),
 			fixHint:
@@ -202,14 +225,14 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'svelte-check',
-			label: 'Step 2/8: svelte-check (TS strict)',
+			label: 'Step 2/10: svelte-check (TS strict)',
 			skip: args.skipSvelteCheck,
 			runner: () => run('svelte-check', ['npx', 'svelte-check', '--tsconfig', './tsconfig.json']),
 			fixHint: '  型エラー箇所を修正。`as any` / `// @ts-expect-error` の追加は禁止 (ADR-0006)。',
 		},
 		{
 			name: 'vitest',
-			label: 'Step 3/8: vitest run (unit test)',
+			label: 'Step 3/10: vitest run (unit test)',
 			skip: args.skipVitest,
 			runner: () => run('vitest', ['npx', 'vitest', 'run']),
 			fixHint:
@@ -218,7 +241,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'hardcoded-strings',
-			label: 'Step 4/8: check-hardcoded-strings.mjs (#1452 Phase A)',
+			label: 'Step 4/10: check-hardcoded-strings.mjs (#1452 Phase A)',
 			skip: args.skipHardcoded,
 			runner: () => run('check-hardcoded-strings', ['node', 'scripts/check-hardcoded-strings.mjs']),
 			fixHint:
@@ -227,7 +250,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-dimensions',
-			label: `Step 5/8: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step 5/10: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpDimensions || !lpChanged,
 			runner: () => run('measure-lp-dimensions', ['node', 'scripts/measure-lp-dimensions.mjs']),
 			fixHint:
@@ -238,7 +261,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-fallback',
-			label: `Step 6/8: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
+			label: `Step 6/10: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpFallback || !lpFallbackTrigger,
 			runner: () => run('sync-lp-fallback', ['node', 'scripts/sync-lp-fallback.mjs', '--check']),
 			fixHint:
@@ -246,11 +269,43 @@ function buildSteps(args, changedFiles) {
 				'  修正: `node scripts/sync-lp-fallback.mjs` を実行して fallback を再生成し、\n' +
 				'        生成された site/*.html の差分をコミットしてください。',
 		},
+		// Step 7: check-no-plan-literals (#972 / Phase 5 F1 / #1918)
+		// Issue #1920 graceful degradation: 検査 script が未配備 (F1 #1918 未 merge 等) なら skip + warning。
+		// scripts/check-no-plan-literals.mjs 自体は #972 で main 取込済 (本 step は無条件で実行する)
+		{
+			name: 'plan-literals',
+			label: planLiteralsScriptExists
+				? 'Step 7/10: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
+				: 'Step 7/10: check-no-plan-literals.mjs (script 未配備 — skip)',
+			skip: args.skipPlanLiterals || !planLiteralsScriptExists,
+			runner: () => run('check-no-plan-literals', ['node', 'scripts/check-no-plan-literals.mjs']),
+			fixHint:
+				'  プラン / ステータスのリテラル直書きが検出されました (#972)。\n' +
+				'  - 修正: $lib/domain/constants/license-plan.ts 等の定数経由に置換\n' +
+				"  - 例: 'family-monthly' → LICENSE_PLAN.FAMILY_MONTHLY\n" +
+				"  - 例: 'grace_period' → SUBSCRIPTION_STATUS.GRACE_PERIOD",
+		},
+		// Step 8: generate-lp-labels --check (Phase 1 B1 / #1917)
+		// Issue #1920 graceful degradation: 検査 script が未配備なら skip + warning。
+		// labels.ts / terms.ts / age-tier.ts いずれかの変更検知時のみ実行 (LP shared-labels.js への波及)
+		{
+			name: 'lp-labels',
+			label: !lpLabelsScriptExists
+				? 'Step 8/10: generate-lp-labels --check (script 未配備 — skip)'
+				: `Step 8/10: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
+			skip: args.skipLpLabels || !lpLabelsScriptExists || !lpLabelsTrigger,
+			runner: () =>
+				run('generate-lp-labels --check', ['node', 'scripts/generate-lp-labels.mjs', '--check']),
+			fixHint:
+				'  site/shared-labels.js が labels.ts / terms.ts / age-tier.ts と同期していません (Phase 1 B1 / #1917)。\n' +
+				'  修正: `node scripts/generate-lp-labels.mjs` を実行して再生成し、\n' +
+				'        site/shared-labels.js の差分をコミットしてください。',
+		},
 		{
 			name: 'pr-body',
 			label: args.pr
-				? `Step 7/8: check-pr-body.mjs --pr ${args.pr}`
-				: 'Step 7/8: check-pr-body.mjs (--pr 未指定 — skip)',
+				? `Step 9/10: check-pr-body.mjs --pr ${args.pr}`
+				: 'Step 9/10: check-pr-body.mjs (--pr 未指定 — skip)',
 			skip: args.skipPrBody || !args.pr,
 			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
 			fixHint:
@@ -259,7 +314,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'capture',
-			label: `Step 8/8: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step 10/10: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipCapture || !uiChanged || !args.pr,
 			runner: async () => {
 				console.log(
@@ -289,7 +344,7 @@ async function main() {
 	}
 
 	console.log('[pre-ready] Ready for Review 前のローカル一括セルフチェック (Issue #1775)');
-	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 6/7 はスキップ)'}`);
+	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 9/10 はスキップ)'}`);
 
 	// 変更ファイル取得 (LP / UI 変更検知用)
 	const changedFiles = await getChangedFiles();

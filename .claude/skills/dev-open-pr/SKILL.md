@@ -149,7 +149,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 | @.github/PULL_REQUEST_TEMPLATE.md | PR template SSOT（雛形の見出しを完全一致させる対象） |
 | @scripts/check-pr-body.mjs | PR body セルフチェック CLI（#1775 / ADR-0030） |
 | @scripts/check-pr-screenshot.mjs | SS 4 スロット / ローカルパス検証 CLI（#1740 / #1741） |
-| @scripts/pre-ready.mjs | pre-ready 7 step CLI |
+| @scripts/pre-ready.mjs | pre-ready 10 step CLI（#1920 で SSOT 検証 step 3 件追加） |
 | @docs/troubleshoot/screenshot_capture.md | SS 撮影 KB（SC-007 screenshots branch 運用 / SC-008 tmp gitignore） |
 | @docs/decisions/0004-review-and-ac-verification.md | AC 検証マップ義務（gate 1） |
 | @docs/decisions/0030-pre-ready-cli.md | pre-ready 全 Step PASS 必須 |
