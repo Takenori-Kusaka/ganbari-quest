@@ -85,7 +85,8 @@ const FEATURE_SCREENSHOTS = [
 		file: 'feature-growth-record-admin',
 		label: '機能: 成長記録(管理)',
 	},
-	{ url: '/demo/elementary/achievements', file: 'feature-titles', label: '機能: 称号' },
+	// #1901: feature-titles は LP HTML から参照削除済 (#1708 / #1755)。撮影対象から除外し
+	//        capture-hp-screenshots.mjs (SSOT) と整合させる。
 	{
 		url: '/demo/checklist',
 		file: 'feature-belongings-checklist',
