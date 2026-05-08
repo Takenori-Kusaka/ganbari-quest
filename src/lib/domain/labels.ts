@@ -4426,6 +4426,19 @@ export const ONBOARDING_LABELS = {
 // SSOT: site/index.html [02] セクション用ラベル
 // 親 P1 が「シール帳・ホワイトボードでも続けばよいのでは」と離脱する直前の優位訴求
 // ============================================================
+// #1954 (Phase 3 D9): terms.ts atom 参照化対象ゼロの恒久記録。
+//   本 namespace は「シール帳・ホワイトボード（紙）」と「がんばりクエスト（デジタル）」を
+//   並べる比較表のため、PLAN 名 (PLAN_TERMS / PLAN_FULL_TERMS) / 価格 (PRICE_TERMS) /
+//   トライアル期間 (TRIAL_TERMS) / 解約 (CANCEL_TERMS) / 無料訴求 (FREE_TERMS) /
+//   CTA 動詞句 (CTA_TERMS) のいずれの atom にも触れない構造で意図的に組まれている。
+//   訴求軸は「自動集計 / 年齢継続 / 卒業 / 端末非依存」の 4 観点であり、料金・期間・解約条件
+//   といった具体的な terms に依存しない普遍的な優位性を提示する設計。
+//   このため char-by-char 突合の結果、参照化対象は **0 件**。
+//   将来 PLAN 名・価格・期間表現等が現れた場合は terms.ts 経由で参照化すること（#1916 SSOT 階層）。
+//   検証: 本 namespace 範囲内に '無料' / 'スタンダード' / 'ファミリー' / '7日間' / '7 日間' /
+//         '¥500' / '¥780' / '¥0' / '無料プラン' / 'スタンダードプラン' / 'ファミリープラン' /
+//         'いつでも解約' / 'クレジットカード登録不要' / '基本無料' / 'まずは無料' /
+//         '無料で始める' / '無料体験' / '無料で試す' / '無料で試せます' リテラル 0 件。
 
 export const LP_VERSUS_LABELS = {
 	// #1844 (PO-N-2): タイトルの投げかけ撤去 + 4 行 Desc を「体言止め」へ完全統一
@@ -4468,6 +4481,18 @@ export const LP_VERSUS_LABELS = {
 // #1712 R5: 5 stage の H3 を「親主語ベネフィット」にリフレーム + 親視点 / 子供視点 1 行併記。
 //   開発者目線の「○○の特徴」型 → 保護者が観測できる行動変化（「○○が要らなくなる」「○○を聞かなくても」）
 //   へ書き換え、購入後の体験イメージを具体化する。
+// #1954 (Phase 3 D9): terms.ts atom 参照化スコープ。
+//   本 namespace は 5 ステージ（幼児 / 小学生 / 中学生 / 高校生 / 卒業）の長期成長物語を
+//   提示する設計。年齢区分文字列（'幼児' / '小学生' / '中学生' / '高校生'）は AGE_TIER_TERMS
+//   atom が terms.ts に未定義のため Phase 3 では参照化対象外（将来 atom 化時に再走査）。
+//   PLAN 名 / 価格 / 解約 / 無料訴求等は本セクションが「成長過程の語り」を主眼とするため
+//   原則登場せず、ctaBottomDesc 1 件のみが「無料体験」atom (CTA_TERMS.freeTrialNoun) と
+//   char-by-char 一致するため参照化する。
+//   トライアル期間表現 '7 日間' は半角スペース有り、TRIAL_TERMS.duration ('7日間' スペース無し)
+//   と char-by-char 一致しないため文字列差分ゼロ厳守原則により直書き継続（#2004 / #1950 と同方針）。
+//   検証: 本 namespace 範囲内に PLAN_TERMS / PLAN_FULL_TERMS / PRICE_TERMS / CANCEL_TERMS /
+//         FREE_TERMS / CTA_TERMS.freeTrialVerb / freeTrialDesc の atom と char-by-char 一致する
+//         直書きは ctaBottomDesc の '無料体験' (CTA_TERMS.freeTrialNoun) のみ。
 export const LP_GROWTH_ROADMAP_LABELS = {
 	sectionTitle: '3 歳から 18 歳まで、そして「卒業」へ',
 	sectionDesc:
@@ -4483,7 +4508,9 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	breadcrumbHome: 'ホーム',
 	breadcrumbCurrent: '成長ロードマップ',
 	ctaBottomTitle: '家族で全部使ってから、続けるか決める',
-	ctaBottomDesc: '7 日間の無料体験で、お子さまに合うかを家族でゆっくり試せます。',
+	// #1954 (Phase 3 D9): '無料体験' atom を CTA_TERMS.freeTrialNoun 参照化。
+	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration ('7日間') と一致しないため直書き継続。
+	ctaBottomDesc: `7 日間の${CTA_TERMS.freeTrialNoun}で、お子さまに合うかを家族でゆっくり試せます。`,
 	// #1793: 「親が観測できること」(計測・実験用語 / 監視連想で permission marketing 毀損) を
 	//   文脈別語彙に刷新。growth-roadmap 5 stages は親子の長期成長物語のため
 	//   「家族で実感できること」(家族主体・実感ベース) に統一する。
@@ -4547,6 +4574,18 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 //   既存 keys は SSOT 整合のため一部空文字保持で再混入を CI 検出可能に。
 // #1788 (P-MAJ-3): 「プリセット活動で設定は 2 分」(parentPerspectiveDesc) と
 //   「プリセット活動がそのまま使える」(l1Step1Desc) を honest 表現へ刷新（候補から選ぶ運用を明示）。
+// #1954 (Phase 3 D9): terms.ts atom 参照化対象ゼロの恒久記録。
+//   本 namespace は「活動 → 習慣 → ごほうび」の 3 つの仕組み（コアループ）を説明する構造。
+//   訴求軸が「ループ全体の動詞句」（記録する / 続ける / 交換する / 計画する）にあり、
+//   PLAN 名 (PLAN_TERMS / PLAN_FULL_TERMS) / 価格 (PRICE_TERMS) / トライアル期間 (TRIAL_TERMS) /
+//   解約 (CANCEL_TERMS) / 無料訴求 (FREE_TERMS) / CTA 動詞句 (CTA_TERMS) のいずれの atom にも
+//   触れない構造で意図的に組まれている。料金や期間に依存しない普遍的な仕組み説明として設計。
+//   このため char-by-char 突合の結果、参照化対象は **0 件**。
+//   将来 PLAN 名・価格・期間表現等が現れた場合は terms.ts 経由で参照化すること（#1916 SSOT 階層）。
+//   検証: 本 namespace 範囲内に '無料' / 'スタンダード' / 'ファミリー' / '7日間' / '7 日間' /
+//         '¥500' / '¥780' / '¥0' / '無料プラン' / 'スタンダードプラン' / 'ファミリープラン' /
+//         'いつでも解約' / 'クレジットカード登録不要' / '基本無料' / 'まずは無料' /
+//         '無料で始める' / '無料体験' / '無料で試す' / '無料で試せます' リテラル 0 件。
 export const LP_CORELOOP_LABELS = {
 	sectionTitle: '3 つの仕組みで、毎日のがんばりが本物の報酬になる',
 	sectionDesc:
