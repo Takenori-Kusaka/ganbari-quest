@@ -193,11 +193,22 @@ function makeTermMatcher(pattern) {
  *  - 行頭 `<!--` (Svelte / HTML コメント)
  *  - 行内が `<!-- ... -->` で完結 (シングル行 HTML コメント)
  * 行中の `// ...` 末尾コメントは検出対象外にしない (リテラル直書き隠蔽防止)。
+ *
+ * NOTE: HTML コメント判定は regex (`<!--.*-->`) ではなく文字列前後一致で実装する。
+ *       理由: CodeQL `js/bad-tag-filter` (Bad HTML filtering regexp) のように
+ *       「HTML タグを regex でフィルタする」パターンは複数行コメントを取りこぼす
+ *       セキュリティリスク pattern として警告対象になる。本スクリプトは
+ *       `lines = text.split(/\r?\n/)` で行単位処理しているため `line` に newline が
+ *       含まれることは構造的に無いが、HTML サニタイザ regex を書かずに済む文字列
+ *       前後一致で判定することで CodeQL の指摘自体を構造的に消し、将来の同種パターン
+ *       展開も防ぐ。
  */
 function isCommentLine(line) {
 	if (/^\s*(\/\/|\/\*|\*|<!--)/.test(line)) return true;
 	// シングル行 HTML コメント: `   <!-- 無料プラン ... -->   `
-	if (/^\s*<!--.*-->\s*$/.test(line)) return true;
+	// regex を避けて文字列前後一致で判定 (CodeQL js/bad-tag-filter 回避)
+	const trimmed = line.trim();
+	if (trimmed.startsWith('<!--') && trimmed.endsWith('-->') && trimmed.length >= 7) return true;
 	return false;
 }
 

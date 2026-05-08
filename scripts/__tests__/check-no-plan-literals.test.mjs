@@ -254,6 +254,28 @@ describe('checkFile (Issue #1918 AC5 — エラーメッセージに atom 名)',
 		assert.equal(findings.length, 0);
 	});
 
+	it('HTML コメント (Svelte 単一行 <!-- ... -->) は検出対象外 (CodeQL js/bad-tag-filter 回避後も維持)', () => {
+		// PR-2021 CodeQL fix: regex `/^\s*<!--.*-->\s*$/` を文字列前後一致 (startsWith/endsWith) に
+		// 置き換えた後も、行頭/行末空白あり / 内部に term 含む / 短小ケースで等価性を維持する保証。
+		const tmpFile = path.join(tmpDir, 'html-comment.svelte');
+		fs.writeFileSync(
+			tmpFile,
+			[
+				'<script>let x = 1;</script>',
+				'<!-- 無料プラン向け案内 (検出されない) -->',
+				'   <!-- スタンダードプラン以上で利用可能 -->   ',
+				'<!---->',
+				'<p>スタンダードプラン以上で利用可能</p>',
+			].join('\n'),
+			'utf8',
+		);
+		const findings = checkFile(tmpFile);
+		// 最終 <p> の 1 行のみ違反。HTML コメント 3 行は除外されるべき。
+		assert.equal(findings.length, 1);
+		assert.equal(findings[0].pattern, 'スタンダードプラン');
+		assert.equal(findings[0].line, 5);
+	});
+
 	it('JSDoc 内の * 行は検出対象外 (行頭 *)', () => {
 		const tmpFile = path.join(tmpDir, 'jsdoc.ts');
 		fs.writeFileSync(
