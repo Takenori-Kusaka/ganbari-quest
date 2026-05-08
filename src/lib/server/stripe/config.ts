@@ -1,7 +1,11 @@
 // src/lib/server/stripe/config.ts
 // Stripe 決済設定・プラン定義 (#0131, #0271)
+//
+// プラン名 / 価格 atom SSOT: src/lib/domain/terms.ts (PLAN_TERMS / PRICE_TERMS)
+// 関連: #1918 Phase 5 F1 (リテラル直書き禁止 CI 強化) / ADR-0045 terms.ts 2 階層 SSOT
 
 import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
+import { PLAN_TERMS, PRICE_TERMS } from '$lib/domain/terms';
 
 /** Stripe で購入可能なプラン (lifetime は Stripe サブスク対象外) */
 export type PlanId = Exclude<LicensePlan, typeof LICENSE_PLAN.LIFETIME>;
@@ -22,28 +26,28 @@ function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 			amount: 500,
 			interval: 'month',
 			tier: 'standard',
-			label: 'スタンダード月額（¥500/月）',
+			label: `${PLAN_TERMS.standard}月額（${PRICE_TERMS.standard}/月）`,
 		},
 		[LICENSE_PLAN.YEARLY]: {
 			priceId: process.env.STRIPE_PRICE_YEARLY ?? '',
 			amount: 5000,
 			interval: 'year',
 			tier: 'standard',
-			label: 'スタンダード年額（¥5,000/年）',
+			label: `${PLAN_TERMS.standard}年額（¥5,000/年）`,
 		},
 		[LICENSE_PLAN.FAMILY_MONTHLY]: {
 			priceId: process.env.STRIPE_PRICE_FAMILY_MONTHLY ?? '',
 			amount: 780,
 			interval: 'month',
 			tier: 'family',
-			label: 'ファミリー月額（¥780/月）',
+			label: `${PLAN_TERMS.family}月額（${PRICE_TERMS.family}/月）`,
 		},
 		[LICENSE_PLAN.FAMILY_YEARLY]: {
 			priceId: process.env.STRIPE_PRICE_FAMILY_YEARLY ?? '',
 			amount: 7800,
 			interval: 'year',
 			tier: 'family',
-			label: 'ファミリー年額（¥7,800/年）',
+			label: `${PLAN_TERMS.family}年額（¥7,800/年）`,
 		},
 	};
 }

@@ -13,6 +13,7 @@
 // 関連: #1937 Phase 2 C12 / ADR-0045 (terms.ts 2 階層 SSOT)
 
 import { json } from '@sveltejs/kit';
+import { PLAN_FULL_TERMS } from '$lib/domain/terms';
 import { verifyCronAuth } from '$lib/server/auth/cron-auth';
 import { logger } from '$lib/server/logger';
 import type { WeeklyReportData } from '$lib/server/services/email-service';
@@ -50,7 +51,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const planTier = await resolveFullPlanTier(body.tenantId, licenseInfo.status, licenseInfo.plan);
 
 		if (planTier === 'free') {
-			logger.info('[weekly-report] 無料プランのため送信スキップ', {
+			logger.info(`[weekly-report] ${PLAN_FULL_TERMS.free}のため送信スキップ`, {
 				context: { tenantId: body.tenantId, total: body.children.length },
 			});
 			return json({ success: true, sent: 0, total: body.children.length, skipped: 'free_plan' });
