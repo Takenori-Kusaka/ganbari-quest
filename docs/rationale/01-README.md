@@ -109,6 +109,8 @@ cp docs/rationale/_template.md docs/rationale/NN-機能名-rationale.md
 |---------|------|--------|-----------|
 | [02-core-loop-rationale.md](02-core-loop-rationale.md) | コアループ L1/L2/L3 モデル + 親子ポイント経済 | 2026-04-25 | #1328, #1334 |
 | [03-stamp-card-audit-2026-04.md](03-stamp-card-audit-2026-04.md) | スタンプカード L2 逸脱調査 (4 項目) | 2026-04-26 | #1339 |
+| [04-stamp-card-spec-rationale.md](04-stamp-card-spec-rationale.md) | スタンプカード正仕様 | — | — |
+| [05-textlint-prh-evaluation.md](05-textlint-prh-evaluation.md) | textlint-rule-prh 必要性評価 (Phase 5 F4) | 2026-05-08 | #1921, #1909, #1918 |
 
 ---
 
