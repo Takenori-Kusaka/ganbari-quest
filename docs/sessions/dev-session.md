@@ -92,7 +92,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 1. `git fetch origin && git pull` で最新化
 2. PR / Issue / レビューコメント確認: `gh pr view <num>`, `gh issue view <num>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応禁止）
-4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775)。7 step (biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / check-pr-body / capture) を順次実行、fail で即停止 + 修正方針表示。E2E / Storybook は別途
+4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #1920 で SSOT 検証 step 拡張)。10 step (biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / lp-fallback / **check-no-plan-literals** (#972 / Phase 5 F1) / **generate-lp-labels --check** (#1917 / Phase 1 B1) / check-pr-body / capture) を順次実行、fail で即停止 + 修正方針表示。E2E / Storybook は別途
 5. **AC 検証マップ全行埋める** (ADR-0004) — 空行 = 実装未了。コマンド結果 / SS パス / grep 結果で埋める
 6. **gh アカウント確認** (#1728 / ADR-0022)：
    ```bash
