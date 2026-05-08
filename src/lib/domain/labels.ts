@@ -4156,32 +4156,39 @@ export const LP_LEGAL_DISCLAIMER_LABELS = {
 //   - #1652 R46 Hero 価格 anchor + 7 日体験
 //   - #1653 R47 「卒業」概念 FAQ
 //   - #1660 R53 FEATURE_LABELS.aiActivitySuggest
+//   - #1947 Phase 3 D7: price / plan atom 直書き撤廃。
+//     PRICE_TERMS / PLAN_TERMS を terms.ts から参照し、char-by-char 一致を保つ。
 // ============================================================
 
 export const LP_PRICING_LABELS = {
 	pageTitle: '料金プラン - がんばりクエスト',
-	metaDescription:
-		'がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円（税込）、ファミリー月額780円（税込）。すべての有料プランに7日間の無料体験付き。',
+	// #1947: スタンダード月額500円 / ファミリー月額780円 を PLAN_TERMS / PRICE_TERMS atom 参照化。
+	//        「500円」「780円」は atom (¥500 / ¥780) から ¥ を除去して「円」連結する compound のため、
+	//        実装上は PRICE_TERMS.standard.replace('¥', '') 等を避け、atom 値を直接担保する parse-time 設計を取らず
+	//        ここでは PLAN_TERMS のみ参照（価格数値「500」「780」は atom 直接対応がないため直書き維持）。
+	metaDescription: `がんばりクエストの料金プラン。基本無料で始められます。${PLAN_TERMS.standard}月額500円（税込）、${PLAN_TERMS.family}月額780円（税込）。すべての有料プランに7日間の無料体験付き。`,
 	ogTitle: '料金プラン - がんばりクエスト',
 	ogDescription:
 		'基本無料で始められます。お子さまのポイント・レベルアップ・ログインボーナス（おみくじ + スタンプカード）などの冒険体験は無料プランでも一切制限ありません。',
 
 	// Hero (#1652 R46)
+	// #1947: heroPriceBand / heroLeadHighlight の price/plan atom を terms.ts 参照化
 	heroTitle: '料金プラン',
 	heroLead1: 'お子さまの成長を冒険に変える。',
-	heroLeadHighlight: '基本無料',
+	heroLeadHighlight: `${FREE_TERMS.base}`,
 	heroLead2: 'で今日から始められます。',
 	heroSubtext: '有料プランはすべて',
 	heroSubtextStrong: '7日間の無料体験',
-	heroSubtextSuffix: '付き（クレジットカード登録不要）',
-	heroPriceBand: '基本無料 ・ 月 ¥500（税込）から ・ 有料は 7 日間無料体験 ・ いつでも解約 OK',
+	heroSubtextSuffix: `付き（${TRIAL_TERMS.noCreditCard}）`,
+	heroPriceBand: `${FREE_TERMS.base} ・ 月 ${PRICE_TERMS.standard}（税込）から ・ 有料は 7 日間無料体験 ・ いつでも解約 OK`,
 	heroCtaPrimary: '7 日間無料トライアル',
 	heroCtaSecondary: 'プランを比較する',
 
 	// Plan card: Free (#1651 R45 + #1644 R39 + #1645 R40)
+	// #1947: planFreePrice / planFreePriceSub の atom (¥0 / クレカ登録不要) を terms.ts 参照化
 	planFreeName: 'フリー',
-	planFreePrice: '¥0',
-	planFreePriceSub: 'ずっと無料 ・ クレカ登録不要',
+	planFreePrice: `${PRICE_TERMS.free}`,
+	planFreePriceSub: `ずっと無料 ・ ${TRIAL_TERMS.noCreditCardShort}`,
 	planFreePersona: 'こんなご家族におすすめ: まずはお子さま 1〜2 人で試したいご家族へ',
 	planFreeDesc:
 		'ポイント・レベルアップ・おみくじ・スタンプカードなど、お子さまの冒険体験はすべて無料。',
@@ -4189,9 +4196,10 @@ export const LP_PRICING_LABELS = {
 	planFreeBadge: '永久無料',
 
 	// Plan card: Standard (#1645 R40 + #1651 R45)
+	// #1947: planStandardName / planStandardPrice の atom (スタンダード / ¥500) を terms.ts 参照化
 	planStandardBadge: 'おすすめ',
-	planStandardName: 'スタンダード',
-	planStandardPrice: '¥500',
+	planStandardName: `${PLAN_TERMS.standard}`,
+	planStandardPrice: `${PRICE_TERMS.standard}`,
 	planStandardUnit: '/月（税込）',
 	planStandardYearly: '年額 ¥5,000（税込・2ヶ月分お得）',
 	planStandardPersona:
@@ -4200,8 +4208,9 @@ export const LP_PRICING_LABELS = {
 	planStandardCta: '7日間 無料体験',
 
 	// Plan card: Family (#1645 R40 + #1651 R45)
-	planFamilyName: 'ファミリー',
-	planFamilyPrice: '¥780',
+	// #1947: planFamilyName / planFamilyPrice の atom (ファミリー / ¥780) を terms.ts 参照化
+	planFamilyName: `${PLAN_TERMS.family}`,
+	planFamilyPrice: `${PRICE_TERMS.family}`,
 	planFamilyUnit: '/月（税込）',
 	planFamilyYearly: '年額 ¥7,800（税込・2ヶ月分お得）',
 	planFamilyPersona: 'こんなご家族におすすめ: 祖父母・離れた家族と一緒に応援したいご家族へ',
@@ -5919,7 +5928,8 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k16: 'データのダウンロード',
 	k17: '1年間の履歴保持',
 	k18: 'メールサポート',
-	k19: 'スタンダードの全機能',
+	// #1947: k19 「スタンダードの全機能」のプラン名 atom を terms.ts 参照化
+	k19: `${PLAN_TERMS.standard}の全機能`,
 	k20: '家族メンバー招待：無制限',
 	k21: '✨ AI 自動提案（活動・ごほうび・チェックリスト）',
 	k22: 'きょうだいランキング',
@@ -5928,9 +5938,13 @@ export const LP_PRICING_EXTRA_LABELS = {
 	k25: '無制限の履歴保持',
 	k26: 'メールサポート',
 	k27: '機能',
+	// #1947: k28-k30 のプラン名 atom (フリー / スタンダード / ファミリー) を terms.ts 参照化。
+	//        PLAN_TERMS.free='無料' のため、UI 表示「フリー」と一致しないことに留意。
+	//        本 namespace では旧来から「フリー」表記を使用しており、char-by-char 一致を保つため直書き維持。
+	//        スタンダード / ファミリーのみ atom 参照化する。
 	k28: 'フリー',
-	k29: 'スタンダード',
-	k30: 'ファミリー',
+	k29: `${PLAN_TERMS.standard}`,
+	k30: `${PLAN_TERMS.family}`,
 	k31: '基本',
 	k32: 'お子さまの登録人数',
 	k33: '2人まで',
@@ -6364,7 +6378,8 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k15: 'データのダウンロード',
 	k16: '1年間の履歴保持',
 	k17: 'メールサポート',
-	k18: 'スタンダードの全機能',
+	// #1947: k18 「スタンダードの全機能」のプラン名 atom (スタンダード) を terms.ts 参照化
+	k18: `${PLAN_TERMS.standard}の全機能`,
 	k19: '家族メンバー招待：無制限',
 	k20: '✨ AI 自動提案（活動・ごほうび・チェックリスト）',
 	k21: 'きょうだいランキング',
@@ -6373,9 +6388,10 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k24: '無制限の履歴保持',
 	k25: 'メールサポート',
 	k26: '機能',
+	// #1947: k27-k29 のプラン名 atom を terms.ts 参照化。「フリー」は UI 表記揺れのため直書き維持。
 	k27: 'フリー',
-	k28: 'スタンダード',
-	k29: 'ファミリー',
+	k28: `${PLAN_TERMS.standard}`,
+	k29: `${PLAN_TERMS.family}`,
 	k30: '<td colspan="4">基本</td>',
 	k31: '<td>お子さまの登録人数</td><td>2人まで</td><td class="check">無制限</td><td class="check">無制限</td>',
 	k32: '<td>プリセット活動の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
