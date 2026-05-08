@@ -34,6 +34,20 @@ jobs:
               return;
             }
 
+            // #2017: 内部 refactor (atom-compound 階層化、visual diff ゼロ) の label exempt。
+            // I1 (#1985) design-doc-check と同パターン。判定基準は ADR-0003 §4.1 (4 条件).
+            const labels = (context.payload.pull_request.labels || []).map((l) => l.name);
+            const INTERNAL_REFACTOR_LABEL = 'refactor:internal-no-doc-impact';
+            const hasInternalRefactorLabel = labels.some(
+              (l) => l.trim().toLowerCase() === INTERNAL_REFACTOR_LABEL,
+            );
+            if (hasInternalRefactorLabel) {
+              core.info(
+                `✅ PR ラベル '${INTERNAL_REFACTOR_LABEL}' により内部 refactor として exempt (#2017 / ADR-0003 §4) — SS 添付不要`,
+              );
+              return;
+            }
+
             // UI変更あり: PR本文にスクリーンショットがあるか確認
             const body = context.payload.pull_request.body || '';
 
@@ -50,6 +64,9 @@ jobs:
                   '2. Playwrightで取得したスクリーンショットを添付',
                   '',
                   '対象ファイル: src/routes/**, src/lib/ui/**, src/lib/features/**, site/**',
+                  '',
+                  '機能仕様変化なしの内部 refactor (atom-compound 階層化等) で SS 不要の場合は',
+                  `PR ラベル '${INTERNAL_REFACTOR_LABEL}' を付与してください (#2017 / ADR-0003 §4)。`,
                   '',
                   'Draft PRではスキップされます。Ready for Review に変更する前に添付してください。',
                 ].join('\n')
@@ -87,6 +104,11 @@ jobs:
             --repo "${{ github.repository }}" \
             --json files --jq '.files[].path' | tr '\r' ' ')
           export PR_FILES
+          # #2017: PR ラベル一覧を取得 (refactor:internal-no-doc-impact による exempt 判定用)
+          PR_LABELS=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --json labels --jq '[.labels[].name] | join(",")')
+          export PR_LABELS
           node scripts/check-pr-screenshot.mjs
 
   design-doc-check:

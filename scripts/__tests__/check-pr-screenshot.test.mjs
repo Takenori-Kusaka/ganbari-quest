@@ -1,7 +1,7 @@
 /**
  * scripts/__tests__/check-pr-screenshot.test.mjs
  *
- * #1740 + #1741 — PR スクリーンショットチェッカーのユニットテスト。
+ * #1740 + #1741 + #2017 — PR スクリーンショットチェッカーのユニットテスト。
  *
  * 実行: node --test scripts/__tests__/check-pr-screenshot.test.mjs
  */
@@ -11,7 +11,9 @@ import { describe, it } from 'node:test';
 import {
 	detectBeforeAfterLabels,
 	detectLocalPaths,
+	hasInternalRefactorLabel,
 	hasUiNotApplicableMarker,
+	INTERNAL_REFACTOR_LABEL,
 	isUiPr,
 } from '../check-pr-screenshot.mjs';
 
@@ -179,5 +181,53 @@ describe('hasUiNotApplicableMarker', () => {
 
 	it('該当語句なしなら false', () => {
 		assert.equal(hasUiNotApplicableMarker('普通の PR 本文'), false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// hasInternalRefactorLabel (#2017) — label exempt 判定
+// ---------------------------------------------------------------------------
+
+describe('hasInternalRefactorLabel (#2017)', () => {
+	it('ラベル定数が design-doc-check と同一値で運用統一されている', () => {
+		// I1 (#1985) で導入されたラベルを screenshot-check でも併用するため、
+		// 値が変わると両 workflow の整合が壊れる。回帰検出のため明示的に固定値検証する。
+		assert.equal(INTERNAL_REFACTOR_LABEL, 'refactor:internal-no-doc-impact');
+	});
+
+	it('refactor:internal-no-doc-impact ラベルあり → true', () => {
+		assert.equal(hasInternalRefactorLabel(['refactor:internal-no-doc-impact']), true);
+	});
+
+	it('他ラベルと共存していても検出', () => {
+		assert.equal(
+			hasInternalRefactorLabel([
+				'area: frontend',
+				'refactor:internal-no-doc-impact',
+				'priority:medium',
+			]),
+			true,
+		);
+	});
+
+	it('ラベルなし → false', () => {
+		assert.equal(hasInternalRefactorLabel([]), false);
+		assert.equal(hasInternalRefactorLabel(['area: frontend']), false);
+	});
+
+	it('case-insensitive: REFACTOR:INTERNAL-NO-DOC-IMPACT', () => {
+		assert.equal(hasInternalRefactorLabel(['REFACTOR:INTERNAL-NO-DOC-IMPACT']), true);
+		assert.equal(hasInternalRefactorLabel(['Refactor:Internal-No-Doc-Impact']), true);
+	});
+
+	it('前後空白を許容', () => {
+		assert.equal(hasInternalRefactorLabel(['  refactor:internal-no-doc-impact  ']), true);
+	});
+
+	it('部分一致は禁止 (悪用防止)', () => {
+		// プレフィクスや拡張ラベルは別物として扱う
+		assert.equal(hasInternalRefactorLabel(['refactor:internal-no-doc-impact-extra']), false);
+		assert.equal(hasInternalRefactorLabel(['x-refactor:internal-no-doc-impact']), false);
+		assert.equal(hasInternalRefactorLabel(['refactor:internal']), false);
 	});
 });

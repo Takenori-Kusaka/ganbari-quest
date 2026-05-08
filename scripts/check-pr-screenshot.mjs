@@ -2,7 +2,7 @@
 /**
  * scripts/check-pr-screenshot.mjs
  *
- * #1740 + #1741 + #1766 (#1747 AC4): PR スクリーンショット添付の品質ゲート。
+ * #1740 + #1741 + #1766 (#1747 AC4) + #2017: PR スクリーンショット添付の品質ゲート。
  *
  * 1. **ローカルパス禁止検証 (#1741)**
  *    PR body 内の `tmp/screenshots/...` / `.tmp-screenshots/...` 等のローカル相対パス参照を検知して fail。
@@ -19,11 +19,19 @@
  *    1 つ以上含まれることを検証。SS と同一プロセスで取得した DOM が併記されることで、
  *    PR #1717 で発生した「SS と実機が乖離している」事故の再発を機械的に検出可能にする。
  *
- * 4. **スキップ判定**
+ * 4. **スキップ判定 (#2017 拡張)**
  *    docs only / refactor 系の PR (UI 関連ファイルを含まない) は全検証ともスキップ。
+ *    加えて以下も skip:
+ *    - PR body に「該当なし（refactor / docs / chore）」「UI 変更なし」明示記述
+ *    - **PR ラベル `refactor:internal-no-doc-impact` 付与 (#2017)**
+ *      → I1 (#1985) design-doc-check label exempt と同パターン。
+ *      shared-labels.js / svelte の atom 化 refactor (visual diff ゼロ) で screenshot-check が
+ *      毎回 fail し SS 補完 Agent 工数を消費する構造課題を解消 (Wave 5-8 で 5+ PR が遭遇)。
+ *      ラベル付与の責任・悪用防止運用は ADR-0003 §4.1-§4.3 に統合。
+ *
  *    ファイルパターンは scripts/check-pr-screenshot.mjs::isUiPr() 参照。
  *
- * 4. **段階適用フラグ (#1740 — 「最初は警告のみで開始 → 1-2 週間 dogfooding → エラー化」要件)**
+ * 5. **段階適用フラグ (#1740 — 「最初は警告のみで開始 → 1-2 週間 dogfooding → エラー化」要件)**
  *    env `SCREENSHOT_CHECK_MODE` で動作切替:
  *    - `warn` (default): すべての違反を warning として記録、exit 0
  *    - `error`: 違反があれば exit 1 (CI を red にする)
@@ -35,11 +43,13 @@
  *   env:
  *     PR_BODY:   ${{ github.event.pull_request.body }}
  *     PR_FILES:  改行区切りの変更ファイル一覧（gh pr view --json files で取得）
+ *     PR_LABELS: カンマ区切りの PR ラベル一覧 (#2017)
  *     SCREENSHOT_CHECK_MODE: 'warn' (default) | 'error'
  *
  * ローカル実行例:
  *   PR_BODY="$(gh pr view 1740 --json body --jq .body)" \
  *   PR_FILES="$(gh pr view 1740 --json files --jq '.files[].path' | tr '\n' '\n')" \
+ *   PR_LABELS="$(gh pr view 1740 --json labels --jq '[.labels[].name] | join(",")')" \
  *     node scripts/check-pr-screenshot.mjs
  *
  * exit:
@@ -52,6 +62,10 @@ const MODE = (process.env.SCREENSHOT_CHECK_MODE || 'warn').toLowerCase();
 const PR_BODY = process.env.PR_BODY || '';
 const PR_FILES = (process.env.PR_FILES || '')
 	.split('\n')
+	.map((s) => s.trim())
+	.filter(Boolean);
+const PR_LABELS = (process.env.PR_LABELS || '')
+	.split(',')
 	.map((s) => s.trim())
 	.filter(Boolean);
 
@@ -126,6 +140,27 @@ export function detectBeforeAfterLabels(body) {
  */
 export function hasUiNotApplicableMarker(body) {
 	return /該当なし\s*[（(](?:refactor|docs|chore)/i.test(body) || /UI\s*変更\s*なし/i.test(body);
+}
+
+/**
+ * 内部 refactor exempt のラベル名 (#2017、#1985 と同一値で運用統一)。
+ *
+ * I1 (#1985) で design-doc-check に導入されたラベルを screenshot-check でも併用する。
+ * ラベル付与の判断基準・悪用防止運用は ADR-0003 §4.1-§4.3 に集約 (4 条件すべて満たす:
+ * 機能仕様変化なし / atom-compound 階層化 / リテラル置換のみ / import 追加 + literal removal の diff)。
+ */
+export const INTERNAL_REFACTOR_LABEL = 'refactor:internal-no-doc-impact';
+
+/**
+ * PR ラベル一覧に `refactor:internal-no-doc-impact` が含まれるかを判定 (#2017)。
+ *
+ * 大文字小文字無視 + 部分一致禁止 (悪用防止)。
+ *
+ * @param {string[]} labels
+ * @returns {boolean}
+ */
+export function hasInternalRefactorLabel(labels) {
+	return labels.some((l) => l.trim().toLowerCase() === INTERNAL_REFACTOR_LABEL);
 }
 
 // 画像参照: ![alt](url) / <img src="url">  → URL 部分を抽出
@@ -259,11 +294,19 @@ function main() {
 	// UI PR かどうかで以降の検証をゲート
 	const isUi = isUiPr(PR_FILES);
 	const optOut = hasUiNotApplicableMarker(PR_BODY);
+	const labelExempt = hasInternalRefactorLabel(PR_LABELS);
 
-	if (!isUi || optOut) {
-		console.log(
-			`[screenshot-check] UI 関連ファイル変更なし${optOut ? '（または「該当なし」明示）' : ''} — before/after / DOM 検証をスキップ`,
-		);
+	let skipReason = null;
+	if (!isUi) {
+		skipReason = 'UI 関連ファイル変更なし';
+	} else if (optOut) {
+		skipReason = '「該当なし」明示記述あり';
+	} else if (labelExempt) {
+		skipReason = `PR ラベル '${INTERNAL_REFACTOR_LABEL}' により内部 refactor として exempt (#2017 / ADR-0003 §4)`;
+	}
+
+	if (skipReason) {
+		console.log(`[screenshot-check] ${skipReason} — before/after / DOM 検証をスキップ`);
 	} else {
 		// 検証 2: before/after ラベル検証 (#1740)
 		const beforeAfterViolation = checkBeforeAfterViolation(PR_BODY);
