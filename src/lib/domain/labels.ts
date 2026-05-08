@@ -4058,9 +4058,14 @@ export const LP_FOOTER_LABELS = {
 //   - itemPriceLabel ('月') / itemTrial ('有料は 7 日間無料') は terms.ts atom と表記揺れ
 //     (PRICE_TERMS.monthlyPrefix が '月 ' 末尾空白あり / TRIAL_TERMS.duration が '7日間' 空白なし)
 //     のため、文字列差分ゼロを優先しリテラル維持 (atom 化は別 Issue で表記統一後に再検討)
+// #1903 (PERS-CRT-6): itemPriceLabel に FREE_TERMS.priceGate を前置し「必要なら 月」に変更。
+//   freemium × 低価格帯（¥500/月）併記で田中ゆかり P1 が「結局いくら払うの?」と離脱級認知
+//   ギャップを起こすため、「基本無料」と「月 ¥500〜」が等価選択肢に見える構造を
+//   「無料先 + 必要なら上位プラン」の階層構造に並び替える。memory `feedback_lp_pricing_placement_principle`
+//   「freemium × 低価格帯は 1 行価格プロミスバンド」原則は維持（セクション再設計はせず文言レベル）。
 export const LP_HERO_PRICE_BAND_LABELS = {
 	itemFree: FREE_TERMS.base,
-	itemPriceLabel: '月',
+	itemPriceLabel: `${FREE_TERMS.priceGate} 月`,
 	itemPriceValue: `${PRICE_TERMS.standard}${PRICE_TERMS.fromSuffix}`,
 	itemTrial: '有料は 7 日間無料',
 	itemCancel: CANCEL_TERMS.anytime,
@@ -6413,12 +6418,21 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//   旧: 「活動の種類・ポイント配分・ごほうびは自由にカスタマイズ。お子さまに合わせて調整できます。」
 	//   PO 期待: 「個別ご家庭向けの自由なカスタマイズ」を card 3 で明示（リード k38 と呼応）
 	k46: '<strong>ご家庭ごとに自由なカスタマイズ</strong>。活動の種類・ポイント配分・ごほうびを、お子さまに合わせて細かく調整できます。',
-	k47: '料金プラン',
+	// #1903 (PERS-CRT-6): k47 / k48 を「無料先 + 必要なら上位プラン」の階層構造に並び替え。
+	//   旧 k47 '料金プラン' は単独で並ぶ「月 ¥500〜」と同じく中立的だが、田中ゆかり P1 が
+	//   「結局いくら払うの?」と離脱級認知ギャップを起こす。「まずは無料、必要なら月 ¥500〜」
+	//   形式で「無料優先 + 条件付き上位プラン」を H2 で明示する。
+	//   k48 リードも「家族みんなで基本無料 + 必要なら月 ¥500〜の有料プラン」順に書き直し、
+	//   freemium × 低価格帯併記の認知ギャップを文言レベルで解消する（セクション再設計なし）。
+	//   FREE_TERMS.start ('まずは無料') / FREE_TERMS.priceGate ('必要なら') / FREE_TERMS.base ('基本無料')
+	//   / PRICE_TERMS atom を組み合わせて compound を組み立て、char-by-char SSOT を維持。
+	k47: `${FREE_TERMS.start}、${FREE_TERMS.priceGate}${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard}${PRICE_TERMS.fromSuffix}`,
 	// #1946 (Phase 3 D6): k48/k49/k51 (price 系) を terms.ts (PRICE_TERMS / FREE_TERMS) 参照に。
 	//   k48 '月 ¥500' = monthlyPrefix + standard
 	//   k49 '基本無料' = FREE_TERMS.base
 	//   k51 '月 ¥500（税込）〜' = monthlyPrefix + standard + taxNote + fromSuffix
-	k48: `${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard} から、家族全員が使える設計です。安心して始められる 4 つのお約束。`,
+	// #1903 (PERS-CRT-6): k48 を「家族みんなで基本無料 + 必要なら月 ¥500〜の有料プラン」順に再構成。
+	k48: `家族みんなで${FREE_TERMS.base}で使えます。家族構成や使い方に合わせて、${FREE_TERMS.priceGate}${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard}${PRICE_TERMS.fromSuffix}の有料プランも選べます。安心して始められる 4 つのお約束。`,
 	k49: `<strong>${FREE_TERMS.base}</strong>`,
 	k50: '・',
 	k51: `有料は<strong>${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard}${PRICE_TERMS.taxNote}${PRICE_TERMS.fromSuffix}</strong>`,
