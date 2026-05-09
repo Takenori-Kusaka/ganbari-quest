@@ -64,6 +64,24 @@ const CHECK_MODE = args.includes('--check');
 const VERBOSE = args.includes('--verbose');
 
 /**
+ * テスト専用: `SYNC_LP_FALLBACK_TARGETS` 環境変数で TARGET_HTML_FILES を override する。
+ * 本番運用では使用されず、`scripts/__tests__/sync-lp-fallback.test.mjs` の `--check`
+ * exit code 検証 (#1974) のみで使用。
+ *
+ * フォーマット: カンマ区切りの相対パス (`relA.html,sub/relB.html`)
+ *
+ * @returns {string[]} override 配列。未指定なら空配列
+ */
+function loadTargetOverridesFromEnv() {
+	const raw = process.env.SYNC_LP_FALLBACK_TARGETS;
+	if (!raw || raw.trim() === '') return [];
+	return raw
+		.split(',')
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0);
+}
+
+/**
  * shared-labels.js 内の `const LP_LABELS = { ... };` ブロックを抽出し JSON parse する。
  *
  * shared-labels.js は generate-lp-labels.mjs 経由で `JSON.stringify(lpLabels, null, '\t')` 形式で
@@ -248,22 +266,56 @@ function uniq(arr) {
  * 1 ファイル分の処理 (read → sync → optional write) を行い、サマリ情報を返す。
  * main() の cognitive complexity を下げるため切り出し。
  *
+ * **#1974: --check モードでの error 伝播強化**
+ *   - 対象 HTML 不存在時: `--check` モードでは failure 扱い (errorsCount += 1) で exit code 1 へ伝播
+ *     させる。`--write` モードでは従来通り WARN + skip (open issue ではなく、
+ *     新規 LP ファイル追加時の bootstrap UX を維持するため)
+ *   - 想定外 error (read / parse 失敗) は両モードで failure 扱い + ファイル名 + error message 明示
+ *   - 根拠: Copilot `[must]` (PR #1970, line 261) — TARGET_HTML_FILES の網羅性検査が `--check`
+ *     モードの責務であり、silent skip は ADR-0006 (assertion 弱体化禁止) 違反
+ *
  * @param {string} relPath
  * @param {Record<string, Record<string, string>>} lpLabels
  * @returns {{
  *   summary: { path: string; count: number; changes: Array<{ dottedKey: string; oldInner: string; newInner: string; line: number }> } | null;
  *   errorsCount: number;
  *   missingKeys: string[];
- * } | null} ファイル不存在時は null
+ * }} ファイル不存在 / 読込み失敗時は summary: null + errorsCount > 0 (--check モード時)
  */
 function processFile(relPath, lpLabels) {
 	const absPath = path.join(REPO_ROOT, relPath);
 	if (!fs.existsSync(absPath)) {
+		// #1974: --check モードでは「TARGET_HTML_FILES の網羅性検査」責務のため failure 扱い。
+		// --write モードでは新規 LP ファイル追加時の bootstrap UX 維持のため WARN + skip 継続。
+		if (CHECK_MODE) {
+			console.error(
+				`[sync-lp-fallback] ✗ ${relPath} が存在しません — TARGET_HTML_FILES に列挙されていますが実ファイルが見つかりません。SSOT 整合のため --check 失敗扱いとします。`,
+			);
+			return { summary: null, errorsCount: 1, missingKeys: [] };
+		}
 		console.warn(`[sync-lp-fallback] WARN: ${relPath} が存在しません — スキップ`);
-		return null;
+		return { summary: null, errorsCount: 0, missingKeys: [] };
 	}
-	const html = fs.readFileSync(absPath, 'utf-8');
-	const result = syncFallbackInFile(relPath, html, lpLabels);
+	let html;
+	try {
+		html = fs.readFileSync(absPath, 'utf-8');
+	} catch (err) {
+		// #1974: read 失敗は両モードで failure 扱い (--check / --write 共通)
+		console.error(
+			`[sync-lp-fallback] ✗ ${relPath} 読込エラー: ${err instanceof Error ? err.message : String(err)}`,
+		);
+		return { summary: null, errorsCount: 1, missingKeys: [] };
+	}
+	let result;
+	try {
+		result = syncFallbackInFile(relPath, html, lpLabels);
+	} catch (err) {
+		// #1974: parse / 内部処理失敗も両モードで failure 扱い
+		console.error(
+			`[sync-lp-fallback] ✗ ${relPath} 処理エラー: ${err instanceof Error ? err.message : String(err)}`,
+		);
+		return { summary: null, errorsCount: 1, missingKeys: [] };
+	}
 
 	if (result.errorsNestedReplace.length > 0) {
 		console.error(`\n[sync-lp-fallback] ✗ ${relPath} — nested data-lp-key 上書きエラー:`);
@@ -325,9 +377,14 @@ function main() {
 	let totalErrors = 0;
 	const fileSummaries = [];
 
-	for (const relPath of TARGET_HTML_FILES) {
+	// #1974: テスト専用 env override (本番では空配列のため通常 TARGET_HTML_FILES を使用)
+	const overrides = loadTargetOverridesFromEnv();
+	const targetFiles = overrides.length > 0 ? overrides : TARGET_HTML_FILES;
+
+	for (const relPath of targetFiles) {
 		const r = processFile(relPath, lpLabels);
-		if (!r) continue;
+		// #1974: processFile は常に object を返す (null skip 廃止)。
+		// missing target / read error / parse error 全てが errorsCount に伝播する。
 		totalErrors += r.errorsCount;
 		if (r.summary) {
 			fileSummaries.push(r.summary);
@@ -343,7 +400,9 @@ function main() {
 	}
 
 	if (totalErrors > 0) {
-		console.error(`\n[sync-lp-fallback] FAIL — nested エラー ${totalErrors} 件。`);
+		// #1974: nested エラー / missing target / read / parse 失敗を全て errorsCount に集計し
+		// exit code 1 に伝播させる (Copilot [must] 指摘 — silent skip による検証経路握り潰し回避)
+		console.error(`\n[sync-lp-fallback] FAIL — エラー ${totalErrors} 件。`);
 		process.exit(1);
 	}
 
@@ -379,5 +438,7 @@ export {
 	collectLpKeyElements,
 	loadLpLabels,
 	lookupLpLabel,
+	processFile,
 	syncFallbackInFile,
+	TARGET_HTML_FILES,
 };
