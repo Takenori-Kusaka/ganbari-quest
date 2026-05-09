@@ -6422,6 +6422,14 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k16: '宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。',
 	// #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化
 	k17: '<a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a>',
+	// #1910 AC6 (UIUX-A-6): age-panel scrshot vs body 高低差を埋める body 内チェックリスト 6 件
+	// 各年齢 UI モードの代表機能 3 件を ✓ で列挙、age-panel-feature span との重複を避け具体例で訴求
+	kinderCheck1: '大きなタップ領域 (80px) で押しやすい',
+	kinderCheck2: 'ひらがな表示で読みやすい',
+	kinderCheck3: '300+ プリセット活動からタップで選ぶだけ',
+	primaryCheck1: '漢字 + 情報密度で 15 年継続できる UI',
+	primaryCheck2: '学年別プリセット (宿題 / 部活 / 受験) 対応',
+	primaryCheck3: 'ポイント履歴で子供自身が次の計画を立てる',
 	k18: '&#x1F476; 0〜2 歳のお子さまは「<strong>準備モード</strong>」でご登録いただけます — <a href="https://ganbari-quest.com/demo">デモを見る</a>',
 	k19: '&#x1F9D1;&#x200D;&#x1F4BB; 親の視点',
 	k20: '&#x1F9D2; 子供の視点',

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="versus-arrow-title">
+  <title id="versus-arrow-title">アナログからデジタルへの移行を示す矢印</title>
+  <!-- analog → digital を示す右向き矢印 (#1910 AC5: PC で過剰に小さい絵文字 → を SVG 化、OS/ブラウザ間整合) -->
+  <g fill="none" stroke="#1f4f7e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 矢印の軸 -->
+    <line x1="6" y1="16" x2="24" y2="16" />
+    <!-- 矢印の先端 (上の線) -->
+    <line x1="18" y1="10" x2="24" y2="16" />
+    <!-- 矢印の先端 (下の線) -->
+    <line x1="18" y1="22" x2="24" y2="16" />
+  </g>
+</svg>

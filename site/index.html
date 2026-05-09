@@ -106,25 +106,32 @@
 .hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
 .hero-note{font-size:.85rem;color:var(--gray-500);margin-bottom:14px}
 /* #1625 R21: 価格 anchor 1 行バンド */
-.hero-price-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;max-width:680px;margin:0 auto 20px;padding:10px 16px;font-size:.95rem;color:var(--gray-800);background:rgba(255,255,255,.65);border:1px solid var(--gray-300);border-radius:999px;line-height:1.4}
+/* #1910 AC2 (UIUX-A-2): hero-cta (gap:16px / flex-wrap) と縦軸を揃えるため padding を 10px 16px → 8px 14px に圧縮。
+   左右非対称感を解消、hero-cta の左右内寸 (gap+btn-padding) と整合 */
+.hero-price-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;max-width:680px;margin:0 auto 20px;padding:8px 14px;font-size:.95rem;color:var(--gray-800);background:rgba(255,255,255,.65);border:1px solid var(--gray-300);border-radius:999px;line-height:1.4}
 .hero-price-band .hpb-item strong{color:var(--brand-700);font-weight:700}
 /* #1906 a11y bundle (Re-Review broader audit): gray-400 (#94a3b8) on white = 2.8:1 fail (WCAG 1.4.11 3:1)。
    `・` 区切り字は price-band の項目分割を視覚的に伝える機能を持つため gray-500 (4.6:1 PASS) に統一。*/
 .hero-price-band .hpb-dot{color:var(--gray-500)}
-@media(max-width:640px){.hero-price-band{font-size:.88rem;border-radius:14px;padding:10px 14px;gap:4px 10px}.hero-price-band .hpb-dot{display:none}}
+/* #1910 AC2 (UIUX-A-2): mobile (max-width:640px) でも hero-price-band の padding を 10px 14px → 8px 14px に圧縮し、
+   PC 側 .hero-price-band の padding (8px 14px) と縦軸整合 */
+@media(max-width:640px){.hero-price-band{font-size:.88rem;border-radius:14px;padding:8px 14px;gap:4px 10px}.hero-price-band .hpb-dot{display:none}}
 /* #1626 R22: CTA 直下の不安解消 3 バッジ */
-/* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、16×16 表示、line-height 内に収めるよう vertical-align:middle) */
+/* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、line-height 内に収めるよう vertical-align:middle) */
+/* #1910 AC3 (UIUX-A-3): SVG を 16→18px に拡大。docs/design/asset-catalog.md「width/height:18px」既定値整合 */
 .cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:0 auto 14px;max-width:560px;font-size:.82rem;color:var(--gray-700)}
 .cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
-.cta-trust-badges li img{width:16px;height:16px;flex-shrink:0;vertical-align:middle}
+.cta-trust-badges li img{width:18px;height:18px;flex-shrink:0;vertical-align:middle}
 /* #1628 R24: 仕様起点の数字バッジ */
 /* #1795 R7: モバイルで「2 + 1」変則表示を回避するため、375px viewport で gap/font-size を圧縮し 1 行 3 バッジを目指す。
    横が足りない場合は flex-direction:column で縦 3 段 (整然配置) に切替 */
-.hero-spec-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;list-style:none;padding:0;margin:0 auto;max-width:560px}
+/* #1910 AC1 (UIUX-A-1): max-width:560px → 720px に拡大、PC〜タブレット中間幅でも常時 1 行 3 列を保証。
+   旧: 中間幅で flex-wrap が「2+1」変則を生む / 新: 720px なら 3 バッジ横並びの余裕がある (実測 3×140px ≈ 420px + gap 16px = 436px、16:9 想定の 480px+ 端末で 1 行確定) */
+.hero-spec-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;list-style:none;padding:0;margin:0 auto;max-width:720px}
 .hero-spec-badges li{font-size:.84rem;color:var(--gray-700);background:#fff;border:1px solid var(--gray-300);border-radius:999px;padding:5px 12px}
 .hero-spec-badges li strong{color:var(--brand-700);font-weight:700}
-@media(max-width:480px){
-  /* 375px viewport で 3 バッジを縦 3 段に整列。flex-wrap の「2 + 1」変則を排除 */
+@media(max-width:375px){
+  /* 375px 以下でのみ縦 3 段に切替。中間幅 (376-480px / 481px+) は max-width:720px の 1 行 3 列を維持 */
   .hero-spec-badges{flex-direction:column;align-items:center;gap:6px;max-width:280px}
   .hero-spec-badges li{font-size:.78rem;padding:4px 10px;width:fit-content}
 }
@@ -158,7 +165,10 @@
 .age-tab.active{background:var(--brand-700);color:#fff;border-color:var(--brand-700)}
 /* #1632 R28: a11y — キーボード操作時の focus-visible 強調表示 */
 .age-tab:focus-visible{outline:3px solid var(--brand-700);outline-offset:2px}
-.age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:var(--lp-age-panel-padding-y) var(--lp-age-panel-padding-x)}
+/* #1910 AC6 (UIUX-A-6): align-items:center → start に変更。
+   旧: scrshot 高 vs body 高の差で align-items:center が body を中央に押し下げ、上下に空白が発生
+   新: align-items:start + body 内チェックリスト追加で「上端揃え + body 高 ≈ scrshot 高」を実現 */
+.age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:start;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:var(--lp-age-panel-padding-y) var(--lp-age-panel-padding-x)}
 .age-panel.active{display:grid}
 /* #1724 R8 / #1785 R-CRT-2: 内側 scrshot コンテナから border / background / border-radius を全撤去。
    外側 .age-panel border に集約し、スクショ自体だけが浮かぶ「白背景 + アプリ scrshot」状態を実現 */
@@ -170,6 +180,12 @@
    → 文字を --brand-800 (#2a5f9e) に上げ、--brand-50 上で 5.95:1 確保 */
 .age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-800);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
 .age-panel-desc{font-size:.92rem;color:var(--gray-600);line-height:1.7;margin-bottom:16px}
+/* #1910 AC6 (UIUX-A-6): body 内チェックリスト追加で scrshot 高との空白を埋める。
+   各年齢 UI モードの代表機能 3 件を ✓ で列挙、age-panel-feature span との重複を避け具体例で訴求。
+   ADR-0042 整合: padding/margin は --lp-* Semantic トークン経由 */
+.age-panel-checklist{list-style:none;padding:0;margin:0 0 var(--lp-age-panel-checklist-mb);display:flex;flex-direction:column;gap:6px}
+.age-panel-checklist li{font-size:.86rem;color:var(--gray-700);line-height:1.55;padding-left:var(--lp-age-panel-checklist-item-pl);position:relative}
+.age-panel-checklist li::before{content:"✓";position:absolute;left:0;top:0;color:var(--brand-700);font-weight:700;font-size:.95rem}
 .age-panel-cta{text-align:left;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 .age-panel-cta .btn{flex:0 0 auto}
 .age-switcher-prep-note{margin-top:24px;text-align:center;font-size:.9rem;color:var(--gray-600)}
@@ -234,14 +250,19 @@
 .tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
 .tour-card .tour-benefit strong{color:var(--brand-700)}
 @media(min-width:1024px){
-  /* PC 整然配置 (#1846 PO-N-4): 2 列で中央配置、grid-auto-rows で行高を揃える (PR #1812 / #1827 で 2 cards 化した残骸 4 列を是正) */
-  .machine-tour{grid-template-columns:repeat(2,1fr);gap:20px;grid-auto-rows:1fr;max-width:960px;margin-inline:auto}
+  /* PC 整然配置 (#1846 PO-N-4 / #1910 AC4 UIUX-A-4):
+     2 列で中央配置、grid-auto-rows で行高を揃える (PR #1812 / #1827 で 2 cards 化した残骸 4 列を是正)
+     #1910 AC4: 旧 grid-template-columns:repeat(2,1fr) は viewport 幅に応じて 2 cards を画面幅いっぱいまで引き伸ばし
+     desktop 余白が左右に偏る問題を生んでいた。
+     repeat(2,minmax(0,420px)) + justify-content:center で各 card を 420px 上限に固定し、両側の余白を均等化 */
+  .machine-tour{grid-template-columns:repeat(2,minmax(0,420px));justify-content:center;gap:20px;grid-auto-rows:1fr;max-width:960px;margin-inline:auto}
   .tour-card{min-height:520px;padding:var(--lp-tour-card-padding-y-md) var(--lp-tour-card-padding-x-md)}
   /* #1799 U-MIN-3: scrshot 高さを 200px → 280px (1.4 倍) に拡大。
      画像 alt と aspect-ratio (390/844) は維持し、card min-height も 480→520px に拡張 */
   .tour-card .tour-shot{max-height:280px;min-height:240px}
 }
 @media(min-width:1440px){
+  /* #1910 AC4: 1440px+ でも 420px 上限を維持し中央寄せ。max-width:1320px は不要 (justify-content:center が 2 cards を中央に配置) */
   .machine-tour{max-width:1320px;gap:24px}
   .tour-card{padding:var(--lp-tour-card-padding-y-lg) var(--lp-tour-card-padding-x-lg)}
 }
@@ -312,7 +333,12 @@
 .versus-card.vc-digital .vc-tag{background:var(--brand-700);color:#fff}
 .versus-card h3{font-size:.85rem;font-weight:700;margin-bottom:2px;color:var(--gray-900);line-height:1.4}
 .versus-card p{font-size:.74rem;color:var(--gray-700);line-height:1.5;margin:0}
-.versus-arrow{display:flex;align-items:center;justify-content:center;font-size:.95rem;color:var(--brand-700)}
+/* #1910 AC5 (UIUX-A-5): 絵文字 → を SVG 32×32 化 (PC で過剰に小さい問題解消、OS/ブラウザ間整合)。
+   docs/design/asset-catalog.md §7「OS/ブラウザ間で見た目が変わると困る要素」整合。SVG は viewBox 32×32 を維持し、
+   表示サイズはモバイル 18px / PC 28px で grid 列幅 (22px / 18px) と整合 */
+.versus-arrow{display:flex;align-items:center;justify-content:center;color:var(--brand-700)}
+.versus-arrow img{width:18px;height:18px;display:block}
+@media(min-width:1024px){.versus-arrow img{width:24px;height:24px}}
 /* #1723 R10: versus 各優位点アイコン (.vc-icon) は装飾過多のため削除（タグ + タイトル + 説明で意味は伝わる） */
 /* #1784: versus row 内 vc-digital に小型 scrshot を縦積み配置（PO 指摘: vc-digital に scrshot ゼロ → 4 行に scrshot 配置）
    #versus セクションを左右 2 column 配置にした上で、各 row の scrshot は aspect-ratio 16/9 で行高を揃える
@@ -374,8 +400,12 @@
 /* Floating CTA */
 .floating-cta{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--gray-900);padding:var(--lp-floating-cta-padding-y) var(--lp-floating-cta-padding-x);transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -2px 12px rgba(0,0,0,.15)}
 .floating-cta.visible{transform:translateY(0)}
-.floating-cta-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between}
-.floating-cta-text{font-size:.82rem;color:#fff;font-weight:600;line-height:1.3;transition:opacity .2s ease}
+/* #1910 AC7 (UIUX-A-7): floating-cta-inner に min-height を設定し phase 切替時の縦寸ジャンプを排除。
+   3 phase 全てが <strong> 主文 + <small> 補足 の 2 段構成のため、min-height:42px (= 主文 1.3em ≈ 17px + small 1.3em ≈ 14px + gap) で固定。
+   旧: phase 切替で text 段数差により inner 高が変わり button 位置が揺れる
+   新: min-height で text 領域固定、button 位置は不動 */
+.floating-cta-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between;min-height:42px}
+.floating-cta-text{font-size:.82rem;color:#fff;font-weight:600;line-height:1.3;transition:opacity .2s ease;flex:1}
 /* #1800 U-MIN-5: dark BG (--gray-900) 上 small のコントラスト改善。
    旧 --gray-400 は site/shared.css 未定義かつ AA 不足の可能性 → --gray-300 (#cbd5e1) に引き上げ。
    AA: #cbd5e1 on #1e293b = 11.6:1 PASS */
@@ -486,9 +516,9 @@
   </div>
   <!-- #1626 R22: CTA 直下の不安解消 3 バッジ -->
   <ul class="cta-trust-badges" aria-label="お申し込み前の安心ポイント">
-    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> 無料体験中もカード情報は不要。有料プラン切替時に初めて入力します</li>
-    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> 広告なし</li>
-    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> いつでも解約できます（契約期間の縛りなし）</li>
+    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" aria-hidden="true" width="18" height="18" loading="lazy" decoding="async"> 無料体験中もカード情報は不要。有料プラン切替時に初めて入力します</li>
+    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" aria-hidden="true" width="18" height="18" loading="lazy" decoding="async"> 広告なし</li>
+    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" aria-hidden="true" width="18" height="18" loading="lazy" decoding="async"> いつでも解約できます（契約期間の縛りなし）</li>
   </ul>
   <p class="hero-note" data-lp-key="hero.noteSignup">家族何人でも無料ではじめられます</p>
   <!-- #1628 R24: 仕様起点の数字バッジ（PMF 後送り testimonial、現時点は仕様値のみ） -->
@@ -560,7 +590,7 @@
           <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
           <h3 data-lp-key="versus.row1AnalogTitle">集計が手作業で計算ミスが起きがち</h3>
         </div>
-        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-arrow" aria-hidden="true"><img src="assets/ui/versus-arrow.svg" alt="" width="32" height="32" loading="lazy" decoding="async"></div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span data-lp-key="versus.row1DigitalTitle">自動集計でいつでもポイントが見える</span></h3>
@@ -579,7 +609,7 @@
           <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
           <h3 data-lp-key="versus.row2AnalogTitle">年齢が変わるたびに冊子を買い替え</h3>
         </div>
-        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-arrow" aria-hidden="true"><img src="assets/ui/versus-arrow.svg" alt="" width="32" height="32" loading="lazy" decoding="async"></div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span data-lp-key="versus.row2DigitalTitle">3 歳から 18 歳まで同じアプリで継続</span></h3>
@@ -597,7 +627,7 @@
           <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
           <h3 data-lp-key="versus.row4AnalogTitle">家を離れると続けられない</h3>
         </div>
-        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-arrow" aria-hidden="true"><img src="assets/ui/versus-arrow.svg" alt="" width="32" height="32" loading="lazy" decoding="async"></div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</span></h3>
@@ -615,7 +645,7 @@
           <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
           <h3 data-lp-key="versus.row3AnalogTitle">続けることが目的になりがち</h3>
         </div>
-        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-arrow" aria-hidden="true"><img src="assets/ui/versus-arrow.svg" alt="" width="32" height="32" loading="lazy" decoding="async"></div>
         <div class="versus-card vc-digital">
           <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
           <h3><span data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</span></h3>
@@ -654,6 +684,12 @@
           <h3 data-lp-key="indexB.k10">ひらがな中心・丸みのある大きなボタン</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k11">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
           <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。セットアップで好きなものを選ぶだけ。ログインボーナスで毎日おみくじが 1 回引けて、週 5 日タップでスタンプカード 1 枚分のポイントに自動交換できます。</p>
+          <!-- #1910 AC6 (UIUX-A-6): scrshot vs body 高低差の空白を埋める body 内チェックリスト -->
+          <ul class="age-panel-checklist" aria-label="幼児 UI の特徴">
+            <li data-lp-key="indexB.kinderCheck1">大きなタップ領域 (80px) で押しやすい</li>
+            <li data-lp-key="indexB.kinderCheck2">ひらがな表示で読みやすい</li>
+            <li data-lp-key="indexB.kinderCheck3">300+ プリセット活動からタップで選ぶだけ</li>
+          </ul>
           <!-- #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化 -->
           <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
@@ -664,6 +700,12 @@
           <h3 data-lp-key="indexB.k14">漢字 + 情報密度で 15 年継続できる UI</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k15">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
           <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
+          <!-- #1910 AC6 (UIUX-A-6): scrshot vs body 高低差の空白を埋める body 内チェックリスト -->
+          <ul class="age-panel-checklist" aria-label="小学生以降 UI の特徴">
+            <li data-lp-key="indexB.primaryCheck1">漢字 + 情報密度で 15 年継続できる UI</li>
+            <li data-lp-key="indexB.primaryCheck2">学年別プリセット (宿題 / 部活 / 受験) 対応</li>
+            <li data-lp-key="indexB.primaryCheck3">ポイント履歴で子供自身が次の計画を立てる</li>
+          </ul>
           <!-- #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化 -->
           <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
         </div>
