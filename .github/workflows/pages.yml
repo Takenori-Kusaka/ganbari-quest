@@ -37,6 +37,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Regenerate sitemap.xml (#1908)
+        # main push 毎に site/*.html / site/help/*.html を走査し sitemap.xml を再生成。
+        # generate-sitemap.mjs は <lastmod> を git log から取得するため、過去ページも
+        # 直近の意味のある変更日に追従する (手動編集時代の stale 解消)。
+        run: node scripts/generate-sitemap.mjs
+
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@v5

@@ -74,6 +74,8 @@
 		"generate:stamps:regenerate-all": "node scripts/regenerate-all-stamps.mjs",
 		"generate:image": "node scripts/generate-image.mjs",
 		"generate:coreloop-summary": "node scripts/generate-coreloop-summary.mjs",
+		"generate:sitemap": "node scripts/generate-sitemap.mjs",
+		"generate:sitemap:check": "node scripts/generate-sitemap.mjs --check",
 		"generate:stripe-product-images": "node scripts/generate-stripe-product-images.mjs",
 		"optimize:lp-images": "node scripts/optimize-lp-images.mjs",
 		"optimize:lp-images:check": "node scripts/optimize-lp-images.mjs --check",
