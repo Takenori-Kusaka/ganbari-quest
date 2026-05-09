@@ -444,6 +444,9 @@
 </head>
 <body>
 
+<!-- #1906 TECH-D-4: skip-to-content link (キーボード/SR ユーザー向け) -->
+<a href="#main-content" class="skip-link">本文へスキップ</a>
+
 <!-- Header -->
 <header class="header">
   <div class="header-inner">
@@ -461,6 +464,9 @@
   </div>
 </header>
 
+<!-- #1906 TECH-D-4: <main> ラッパー (skip-link target) -->
+<main id="main-content" tabindex="-1">
+
 <!-- LP-LANDMARK:hero start — ファーストビュー。CTA は「無料で始める」「デモを見る」の 2 種のみ (#1293)
      変更時は docs/design/lp-content-map.md §hero を確認 -->
 <!-- [01] Hero (#1617 R13: <br> 削除 + balance で自然な折り返し / #1625 R21: 価格 anchor 1 行バンド / #1626 R22: 不安解消 3 バッジ / #1628 R24: 仕様起点の数字バッジ) -->
@@ -477,9 +483,9 @@
   </div>
   <!-- #1626 R22: CTA 直下の不安解消 3 バッジ -->
   <ul class="cta-trust-badges" aria-label="お申し込み前の安心ポイント">
-    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> クレジットカード登録不要</li>
-    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> 広告なし</li>
-    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> いつでも解約 OK</li>
+    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> クレジットカード登録不要</li>
+    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> 広告なし</li>
+    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> いつでも解約 OK</li>
   </ul>
   <p class="hero-note" data-lp-key="hero.noteSignup">家族何人でも無料ではじめられます / クレジットカード登録不要</p>
   <!-- #1628 R24: 仕様起点の数字バッジ（PMF 後送り testimonial、現時点は仕様値のみ） -->
@@ -924,6 +930,9 @@
      最終 CTA の機能は floating-cta (常時追従) と footer mailto / signup-link に集約。
      詳細: PO 直接判断 (2026-05-02) + lp-content-map.md [09] 章削除記録 + ADR-0013 LP truth 整合。 -->
 
+</main>
+<!-- /#1906 TECH-D-4: <main> ラッパー終了 -->
+
 <!-- Footer -->
 <footer class="footer">
   <div class="footer-inner">
@@ -993,16 +1002,42 @@
 })();
 </script>
 <script>
-// Age switcher tabs
+// Age switcher tabs (#1906 TECH-D-1: ArrowLeft/Right + Home/End キーボード操作対応)
+// WAI-ARIA Authoring Practices Tabs Pattern 準拠:
+//   - role=tablist 内の role=tab を Arrow キーで巡回
+//   - 巡回時は active tab を自動切替 (automatic activation)
+//   - tabindex は active tab のみ 0、他は -1 (roving tabindex)
+//   - Home / End で先頭 / 末尾へジャンプ
 (()=> {
-  var tabs=document.querySelectorAll('.age-tab');
+  var tabs=Array.prototype.slice.call(document.querySelectorAll('.age-tab'));
   var panels=document.querySelectorAll('.age-panel');
   if(!tabs.length)return;
-  tabs.forEach(function(tab){
-    tab.addEventListener('click',function(){
-      var age=tab.getAttribute('data-age');
-      tabs.forEach(function(t){t.classList.toggle('active',t===tab);t.setAttribute('aria-selected',t===tab)});
-      panels.forEach(function(p){p.classList.toggle('active',p.getAttribute('data-panel')===age)});
+  function activate(tab){
+    var age=tab.getAttribute('data-age');
+    tabs.forEach(function(t){
+      var isActive=(t===tab);
+      t.classList.toggle('active',isActive);
+      t.setAttribute('aria-selected',isActive?'true':'false');
+      t.setAttribute('tabindex',isActive?'0':'-1');
+    });
+    panels.forEach(function(p){p.classList.toggle('active',p.getAttribute('data-panel')===age)});
+  }
+  // 初期 tabindex 設定 (roving tabindex)
+  tabs.forEach(function(t){t.setAttribute('tabindex',t.classList.contains('active')?'0':'-1')});
+  tabs.forEach(function(tab,idx){
+    tab.addEventListener('click',function(){activate(tab)});
+    tab.addEventListener('keydown',function(e){
+      var newIdx=null;
+      if(e.key==='ArrowLeft'){newIdx=(idx-1+tabs.length)%tabs.length}
+      else if(e.key==='ArrowRight'){newIdx=(idx+1)%tabs.length}
+      else if(e.key==='Home'){newIdx=0}
+      else if(e.key==='End'){newIdx=tabs.length-1}
+      if(newIdx!==null){
+        e.preventDefault();
+        var next=tabs[newIdx];
+        activate(next);
+        next.focus();
+      }
     });
   });
 })();
@@ -1024,10 +1059,11 @@
 })();
 </script>
 
-<!-- Lightbox (#297) -->
-<div class="lightbox-overlay" id="lightbox" aria-hidden="true">
+<!-- Lightbox (#297, #1906 TECH-D-2: alt 空のままだと SR で「unlabeled image」読み上げ。
+     非表示時は aria-hidden=true で a11y tree から外す。表示時に JS で alt を動的注入する） -->
+<div class="lightbox-overlay" id="lightbox" aria-hidden="true" role="dialog" aria-label="拡大画像表示">
   <button class="lightbox-close" aria-label="閉じる">&#10005;</button>
-  <img src="" alt="">
+  <img src="" alt="" role="presentation">
 </div>
 <script>
 (()=> {
@@ -1037,10 +1073,12 @@
   var closeBtn=overlay.querySelector('.lightbox-close');
   function open(src,alt){
     lbImg.src=src;lbImg.alt=alt||'';
+    // #1906 TECH-D-2: alt 注入時は role を presentation → img に切替て SR に説明させる
+    if(alt){lbImg.setAttribute('role','img')}else{lbImg.setAttribute('role','presentation')}
     overlay.classList.add('active');overlay.setAttribute('aria-hidden','false');
   }
   function close(){
-    overlay.classList.remove('active');overlay.setAttribute('aria-hidden','true');lbImg.src='';
+    overlay.classList.remove('active');overlay.setAttribute('aria-hidden','true');lbImg.src='';lbImg.alt='';lbImg.setAttribute('role','presentation');
   }
   document.querySelectorAll('img[data-lightbox]').forEach((img)=> {
     img.addEventListener('click',function(){open(this.currentSrc||this.src,this.alt)});
