@@ -116,6 +116,7 @@
 	--lp-trust-badge-padding-x: var(--space-5); /* .trust-badge 横 padding (20px) */
 	--lp-trust-badge-padding-y-lg: var(--space-5); /* .trust-badge @≥1024px (20px) */
 	--lp-trust-badge-padding-x-lg: var(--space-4); /* .trust-badge @≥1024px (16px) */
+	--lp-trust-badge-tech-note-margin-top: var(--space-2); /* .trust-badge-tech-note 上マージン (8px、#1905 PERS-MAJ-11) */
 	--lp-trust-disclaimer-margin-top: var(--space-8); /* .trust-disclaimer 上マージン (32px) */
 	--lp-trust-disclaimer-padding-y: var(--space-4); /* .trust-disclaimer 上下 padding (16px) */
 	--lp-trust-disclaimer-padding-x: var(--space-5); /* .trust-disclaimer 横 padding (20px) */

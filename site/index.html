@@ -381,6 +381,11 @@
 .trust-badge p{font-size:.85rem;color:var(--gray-600);line-height:1.6;margin-bottom:8px}
 .trust-badge a{color:var(--brand-700);text-decoration:none;font-size:.82rem;font-weight:600}
 .trust-badge a:hover{text-decoration:underline}
+/* #1905 (PERS-MAJ-11): 親向け本文 (.trust-badge p) と技術者向け補足 (.trust-badge-tech-note) を視覚分離。
+   親ペルソナが selfhost.html に直接誘導されないよう小文字 + muted 色 + 上余白で「補足」感を出す。
+   margin-top は ADR-0042 LP Spacing 3 層トークン経由 (--lp-trust-badge-tech-note-margin-top = 8px) */
+.trust-badge .trust-badge-tech-note{font-size:.75rem;color:var(--gray-500);margin-top:var(--lp-trust-badge-tech-note-margin-top);margin-bottom:0;line-height:1.5}
+.trust-badge .trust-badge-tech-note a{font-size:.75rem;font-weight:500}
 
 /* FAQ */
 .faq-list{max-width:720px;margin:0 auto}
@@ -936,8 +941,11 @@
       <div class="trust-badge">
         <div class="tb-icon"><img src="assets/ui/trust-data-local.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k67">データを家族の手元に</h3>
-        <p data-lp-key="indexB.k68">家族のデータが第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。</p>
-        <a href="selfhost.html" data-lp-key="indexB.k69">仕組みを詳しく知りたい方へ &#8594;</a>
+        <p data-lp-key="indexB.k68">家族のデータが第三者にも使われない設計です。サービス停止時は事前にお知らせ + データの書き出しができます。お子さまの記録は確実に手元に残せます。</p>
+        <!-- #1905 (PERS-MAJ-11): 親向け本文 (k68) と技術者向け補足 (k69) を視覚的に分離。
+             `.trust-badge-tech-note` クラスで小文字 + muted 色にし、親ペルソナが selfhost.html に
+             直接誘導されないようリーダー本文と区別する -->
+        <p class="trust-badge-tech-note" data-lp-key="indexB.k69">（技術に詳しい方は）ご自宅で同じアプリを動かす方法もあります。<a href="selfhost.html">詳しくはこちら &#8594;</a></p>
       </div>
     </div>
     <div class="trust-disclaimer">
