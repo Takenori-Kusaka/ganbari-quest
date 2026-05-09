@@ -75,6 +75,8 @@
 		"generate:image": "node scripts/generate-image.mjs",
 		"generate:coreloop-summary": "node scripts/generate-coreloop-summary.mjs",
 		"generate:stripe-product-images": "node scripts/generate-stripe-product-images.mjs",
+		"optimize:lp-images": "node scripts/optimize-lp-images.mjs",
+		"optimize:lp-images:check": "node scripts/optimize-lp-images.mjs --check",
 		"check:no-demo-route-dup": "node scripts/check-no-demo-route-duplication.mjs",
 		"check:cron-observability": "node scripts/check-cron-observability.mjs",
 		"ops:reconcile-stripe": "npx tsx scripts/reconcile-stripe-subscriptions.ts",
