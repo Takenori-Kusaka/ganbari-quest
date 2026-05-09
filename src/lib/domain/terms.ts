@@ -21,8 +21,12 @@
 //   FREE_TERMS       — 無料訴求 atom
 //   CTA_TERMS        — CTA / トライアル動詞句 atom（無料体験 / 無料で試す / 無料で試せます、#1958）
 //   LP_FAQ_TERMS     — LP「FAQ / よくある(ご)質問」atom（PO-4-10、#1896 + PO-4-12、#1898）
+//   AGE_RANGE_TERMS  — 年齢レンジ atom（3〜18 歳 / 3 歳から 18 歳まで、UIUX-E-1、#1913）
+//   POINT_TERMS      — ポイント単位 atom（pt / ポイント / P、UIUX-E-3、#1913）
+//   CURRENCY_TERMS   — 通貨 atom（¥ / 円、UIUX-E-5、#1913）
+//   FREE_PLAN_TERMS  — 無料プラン訴求 atom（永久無料 バッジ語、UIUX-E-7、#1913）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -177,4 +181,91 @@ export const LP_FAQ_TERMS = {
 	// generate-design-md-sections.mjs の multi-line aware parser が対応 (#1896)。
 	inlineCtaSentence:
 		'他のご質問は <a href="faq.html" class="nav-text">よくあるご質問</a> をご覧ください。',
+} as const;
+
+// ============================================================
+// AGE_RANGE_TERMS — 年齢レンジ atom (UIUX-E-1、#1913)
+// ============================================================
+//
+// LP 全体で「3〜18 歳」「3 歳から 18 歳まで」「3-18 歳」「13-18 歳」の表記揺れが PO 4 表記混在で
+// 検出されたため (#1913 E-1)、波ダッシュ短縮形 / 自然形 / 数値部分のみ の 3 系統 atom に集約。
+//
+// 設計指針:
+//   - short            : '3〜18 歳' （波ダッシュ + 半角空白 + 「歳」、見出し / バッジ等の短縮形）
+//   - long             : '3 歳から 18 歳まで' （自然形、本文・概要訴求向け）
+//   - numericShort     : '3〜18' （波ダッシュのみ、表組み / メタ情報用、後置で「歳」を別途付与）
+//   - juniorShort      : '13〜18 歳' （carousel-3 alt 等の中高生レンジ表示、半角ハイフン排除）
+//   - juniorNumericShort: '13〜18' （carousel-3 系 alt 内 numeric 部）
+//
+// 半角ハイフン形 ('3-18 歳' / '13-18 歳') は AC2 で 0 件にする対象。本 atom 経由で全箇所を
+// 波ダッシュ統一する。
+
+export const AGE_RANGE_TERMS = {
+	short: '3〜18 歳',
+	long: '3 歳から 18 歳まで',
+	numericShort: '3〜18',
+	juniorShort: '13〜18 歳',
+	juniorNumericShort: '13〜18',
+} as const;
+
+// ============================================================
+// POINT_TERMS — ポイント単位 atom (UIUX-E-3、#1913)
+// ============================================================
+//
+// アプリ全体で「ポイント」「P」「pt」が混在し、子供 SS では P / 説明文では「ポイント」と
+// 文脈別に揃えるべきところを単に揺れていた状態 (#1913 E-3)。
+// AC5 = 子供 SS 以外の説明文で「P」（半角アルファベット単独）が 0 件であり、
+// 「pt」は単位短縮形として shop / status 系で運用継続（AC5 対象外）。
+//
+// 設計指針:
+//   - unit       : 'pt' （単位短縮形、shop / status / weeklyChallenge 等の数値直後）
+//   - unitFull   : 'ポイント' （説明文・LP 訴求文の標準形）
+//   - unitSymbol : 'P' （子供 SS 内の単位記号、shop 内 manualHint / manualMin 等の限定的短縮形）
+
+export const POINT_TERMS = {
+	unit: 'pt',
+	unitFull: 'ポイント',
+	unitSymbol: 'P',
+} as const;
+
+// ============================================================
+// CURRENCY_TERMS — 通貨 atom (UIUX-E-5、#1913)
+// ============================================================
+//
+// 「¥」「&#165;」「&#xA5;」「円」が混在し、HTML エンティティ表記 (&#xA5; / &#165;) が
+// pamphlet.html / shared-labels.js / labels.ts 内に残っていた (#1913 E-5)。
+// AC7 = `&#xA5;` / `&#165;` HTML entity が 0 件、「¥」直書き統一。
+//
+// 設計指針:
+//   - yen     : '¥' （直書き U+00A5、全箇所統一）
+//   - yenFull : '円' （文末用、「500円」「780円」等の数値後置形）
+//
+// 「¥500」「¥780」「¥0」の compound は PRICE_TERMS で先に集約済のため、CURRENCY_TERMS は
+// 単体記号として PRICE_TERMS や labels.ts compound 内で「¥」を直書きする際の atom 参照源。
+
+export const CURRENCY_TERMS = {
+	yen: '¥',
+	yenFull: '円',
+} as const;
+
+// ============================================================
+// FREE_PLAN_TERMS — 無料プラン訴求 atom (UIUX-E-7、#1913)
+// ============================================================
+//
+// LP 全体で「フリー」「ずっと無料」「永久無料」「無料プラン」が訴求文脈で混在し、
+// PO 指摘 (UIUX-E-7) で「ずっと無料」撤去 + 「永久無料」訴求バッジ + 「無料プラン」説明
+// に統一する方針が確定 (#1913 E-7)。AC8 = 「ずっと無料」が 0 件。
+//
+// 設計指針:
+//   - forever     : '永久無料' （バッジ語、planFreeBadge / planFreePriceSub 等で使用）
+//   - foreverDot  : '永久無料 ・ ' （bullet 連結 prefix、planFreePriceSub 等で使用）
+//   - planSelfNoun: 'フリー' （プラン名カード見出し / pricing 表 row 名、PLAN_TERMS.free と
+//                   等価だが planFreeName 文脈で短縮表記を維持するため独立 atom 化）
+//
+// 「ずっと無料」は撤去対象のため atom には含めない（再混入防止）。
+
+export const FREE_PLAN_TERMS = {
+	forever: '永久無料',
+	foreverDot: '永久無料 ・ ',
+	planSelfNoun: 'フリー',
 } as const;
