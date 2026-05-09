@@ -119,4 +119,15 @@ test.describe('#1782 実績機能廃止後の LP 再混入防止', () => {
 		const titlesImgs = page.locator('img[src*="feature-titles"]');
 		await expect(titlesImgs).toHaveCount(0);
 	});
+
+	// #1901: feature-routine-checklist は #1708 で machine-tour ③ ルーティンセクション削除に
+	//        伴い LP 参照ゼロ。撮影定義のみ残存し feature-belongings-checklist と URL/ETag 完全一致
+	//        だったため capture-hp-screenshots.mjs から削除。LP 再混入を回帰防止する。
+	test('feature-routine-checklist.webp 参照が LP から削除されている (#1901 dead asset)', async ({
+		page,
+	}) => {
+		await page.goto(`${baseUrl}/index.html`, { waitUntil: 'domcontentloaded' });
+		const routineImgs = page.locator('img[src*="feature-routine-checklist"]');
+		await expect(routineImgs).toHaveCount(0);
+	});
 });

@@ -90,19 +90,21 @@ LP `site/index.html` の machine-tour / soft-features / growth-roadmap セクシ
 | ファイル名 | LP セクション | 撮影元 URL（routes） | サイズ（mobile / desktop） |
 |----------|------------|--------------------|--------------------------|
 | `feature-point-level{,-desktop}.webp` | machine-tour ① | `/demo/lower/home` | 780×1688 / 2880×1800 |
-| `feature-titles{,-desktop}.webp` | machine-tour ② | `/demo/lower/achievements` | 780×1688 / 2880×1800 |
-| `feature-belongings-checklist{,-desktop}.webp` | machine-tour ② | `/demo/checklist?childId=904` | 780×1688 / 2880×1800 |
-| **`feature-routine-checklist{,-desktop}.webp`** (#1707) | machine-tour ③（朝夜の習慣化） | `/demo/checklist?childId=904` | 780×1688 / 2880×1800 |
+| `feature-belongings-checklist{,-desktop}.webp` | machine-tour ② | `/demo/checklist?childId=904` (scrollTo: `[data-testid^="demo-checklist-item-"]`) | 780×1688 / 2880×1800 |
 | **`feature-rpg-battle{,-desktop}.webp`** (#1707) | machine-tour ④（冒険のクライマックス） | `/demo/lower/battle` | 780×1688 / 2880×1800 |
 | **`feature-monthly-report{,-desktop}.webp`** (#1707) | soft-features（月次レポート） | `/demo/admin/status` | 780×1688 / 2880×1800 |
-| **`feature-auto-sleep{,-desktop}.webp`** (#1707) | soft-features（時間管理） | `/demo/admin` | 780×1688 / 2880×1800 |
-| **`feature-cheer-message{,-desktop}.webp`** (#1707) | soft-features（おうえんメッセージ） | `/demo/lower/home` | 780×1688 / 2880×1800 |
+| **`feature-auto-sleep{,-desktop}.webp`** (#1707 / #1901) | soft-features（時間管理 + おうえんメッセージ設定） | `/demo/admin/settings` | 780×1688 / 2880×1800 |
+| **`feature-cheer-message{,-desktop}.webp`** (#1707 / #1901) | soft-features（おうえんメッセージ受信、子供ホーム下部） | `/demo/lower/home` (scrollTo: `[data-testid^="activity-card-"]`) | 780×1688 / 2880×1800 |
 | **`feature-settings{,-desktop}.webp`** (#1707) | soft-features（設定の自由度） | `/demo/admin/activities` | 780×1688 / 2880×1800 |
 | **`growth-stage-preschool{,-desktop}.webp`** (#1712) | growth-roadmap preschool | `/demo/kinder/home` | 780×1688 / 2880×1800 |
 | **`growth-stage-elementary{,-desktop}.webp`** (#1712) | growth-roadmap elementary | `/demo/lower/home` | 780×1688 / 2880×1800 |
 | **`growth-stage-junior{,-desktop}.webp`** (#1712) | growth-roadmap junior | `/demo/upper/home` | 780×1688 / 2880×1800 |
 | **`growth-stage-senior{,-desktop}.webp`** (#1712) | growth-roadmap senior | `/demo/teen/home` | 780×1688 / 2880×1800 |
-| **`growth-stage-graduate{,-desktop}.webp`** (#1712) | growth-roadmap graduate | `/demo/lower/achievements` | 780×1688 / 2880×1800 |
+| **`growth-stage-graduate{,-desktop}.webp`** (#1712) | graduation.html / growth-roadmap graduate | `/demo/lower/achievements` | 780×1688 / 2880×1800 |
+
+> **#1901 削除済 dead 撮影定義**: `feature-titles{,-desktop}.webp` (旧: machine-tour ② 称号セクション、#1708 で LP 削除済) と `feature-routine-checklist{,-desktop}.webp` (旧: machine-tour ③ ルーティン、#1708 で LP 削除済) は LP HTML 参照ゼロ + ETag 重複ペアの根本原因のため `capture-hp-screenshots.mjs` から削除。
+>
+> **#1901 carousel SS の URL 同期**: `carousel-4-admin-sub` の撮影元 URL を旧 `/demo/admin/activities` から `/demo/admin/children` に振り替え。`feature-settings` との URL/ETag 重複を解消。LP `site/index.html` の data-label / alt も「子供管理 ― 家族メンバーの登録と切替」に同期。
 
 ### 撮影方法
 
@@ -119,7 +121,7 @@ node scripts/capture-hp-screenshots.mjs --webp --only growth
 
 # 個別 screenshot 単体撮り直し (#1783)
 npm run capture:feature -- feature-belongings-checklist
-npm run capture:feature -- feature-routine-checklist
+npm run capture:feature -- feature-cheer-message
 # `npm run capture:feature -- <name>` は内部で
 # `node scripts/capture-hp-screenshots.mjs --webp --only <name>` を呼ぶ
 ```
