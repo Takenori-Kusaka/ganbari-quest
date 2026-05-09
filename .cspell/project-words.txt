@@ -8,6 +8,13 @@ Ganbari
 GANBARI
 ganba
 ganbatta
+ganbariquestsupport
+# ↑ ADR-0022 で定めた QA 専用 GitHub アカウント名 (ganbariquestsupport-lab)。
+# scripts/check-gh-account-before-pr.mjs / claude-hook-prevent-qa-account-pr.mjs
+# のテスト・docs で多数登場。
+subresource
+# ↑ REST API のサブリソース (例: /pulls/123/comments) を指す技術用語。
+# claude-hook-prevent-qa-account-pr.test.ts の false-positive 設計判断コメントで使用。
 
 # ===== ドメイン用語（ローマ字 — 活動カテゴリ / 機能名） =====
 omikuji
