@@ -1,0 +1,836 @@
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title data-lp-key="pamphletB.k1">がんばりクエスト パンフレット</title>
+<meta property="og:title" content="がんばりクエスト パンフレット">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.ganbari-quest.com/pamphlet.html">
+<meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
+<link rel="canonical" href="https://www.ganbari-quest.com/pamphlet.html">
+<style>
+/* === Reset & Variables === */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --brand-900:#1a3a5c;--brand-800:#2a5f9e;--brand-700:#3878B8;--brand-600:#4a90d9;--brand-500:#5BA3E6;--brand-400:#7db8ed;--brand-300:#a3cef3;--brand-200:#c9e2f8;--brand-100:#e8f4fd;--brand-50:#f2f9ff;
+  --gold-600:#d4ad00;--gold-500:#FFCC00;--gold-400:#FFE44D;--gold-300:#ffed80;--gold-100:#fffbe6;
+  --green-500:#4caf50;--green-100:#e8f5e9;
+  --orange-500:#ff9800;--orange-100:#fff3e0;
+  --gray-900:#1e293b;--gray-700:#334155;--gray-500:#64748b;--gray-300:#cbd5e1;--gray-200:#e2e8f0;--gray-100:#f1f5f9;--gray-50:#f8fafc;
+  --radius:12px;
+}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif;color:var(--gray-700);line-height:1.6;background:#f0f4f8}
+
+/* === Print Settings === */
+@page{
+  size:A4;
+  margin:0;
+}
+@media print{
+  body{background:#fff}
+  .page{box-shadow:none;margin:0;border-radius:0}
+  .page-break{page-break-after:always;break-after:page}
+  .screen-controls{display:none!important}
+}
+
+/* === Page Container === */
+.page{
+  width:210mm;
+  min-height:297mm;
+  margin:20px auto;
+  background:#fff;
+  box-shadow:0 4px 24px rgba(0,0,0,.12);
+  overflow:hidden;
+  position:relative;
+}
+.page-break{page-break-after:always;break-after:page}
+
+/* === Screen Controls === */
+.screen-controls{
+  text-align:center;
+  padding:20px;
+  background:var(--gray-900);
+  color:#fff;
+  font-size:.9rem;
+}
+.screen-controls button{
+  background:linear-gradient(135deg,var(--brand-500),var(--brand-700));
+  color:#fff;
+  border:none;
+  padding:12px 32px;
+  border-radius:2rem;
+  font-size:1rem;
+  font-weight:600;
+  cursor:pointer;
+  font-family:inherit;
+  margin:0 8px;
+}
+.screen-controls button:hover{opacity:.9}
+.screen-controls p{margin-top:8px;color:#94a3b8;font-size:.8rem}
+
+/* =============================================
+   FRONT PAGE (omote)
+   ============================================= */
+
+.front{
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  min-height:297mm;
+}
+
+/* -- Front: Hero Area -- */
+.front-hero{
+  background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 40%,#fef9e7 100%);
+  padding:14mm 16mm 8mm;
+  text-align:center;
+  position:relative;
+  flex-shrink:0;
+}
+.front-hero::after{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:4px;
+  background:linear-gradient(90deg,var(--brand-500),var(--gold-400),var(--brand-500));
+}
+.front-logo{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  margin-bottom:4mm;
+}
+.front-logo img{height:44px;width:auto}
+.front-logo .service-name{
+  font-size:1.4rem;
+  font-weight:800;
+  color:var(--gray-900);
+  letter-spacing:.02em;
+}
+.front-tagline{
+  font-size:.9rem;
+  color:var(--brand-700);
+  font-weight:600;
+  margin-bottom:5mm;
+  letter-spacing:.06em;
+}
+.front-catchcopy{
+  font-size:1.8rem;
+  font-weight:800;
+  color:var(--gray-900);
+  line-height:1.3;
+  margin-bottom:2mm;
+}
+.front-catchcopy span{
+  color:var(--brand-700);
+}
+.front-sub{
+  font-size:.85rem;
+  color:var(--gray-500);
+  max-width:440px;
+  margin:0 auto;
+  line-height:1.6;
+}
+
+/* -- Front: Character -- */
+.front-character{
+  position:absolute;
+  right:12mm;
+  top:6mm;
+  width:60px;
+  height:auto;
+  opacity:.85;
+}
+/* -- Front: Hero Illustration -- */
+.front-hero-illustration{
+  max-width:100%;
+  margin:4mm auto 0;
+  border-radius:8px;
+  overflow:hidden;
+}
+.front-hero-illustration img{
+  width:100%;
+  height:auto;
+  display:block;
+}
+
+/* -- Front: Features -- */
+.front-features{
+  padding:8mm 14mm 6mm;
+  flex-shrink:0;
+}
+.front-features h2{
+  text-align:center;
+  font-size:1.05rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:4mm;
+}
+.feature-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:4mm;
+}
+.feature-item{
+  background:var(--gray-50);
+  border:1px solid var(--gray-200);
+  border-radius:var(--radius);
+  padding:4mm 3.5mm;
+  text-align:center;
+}
+.feature-item .fi-icon{font-size:1.6rem;margin-bottom:1.5mm}
+.feature-item h3{font-size:.82rem;font-weight:700;color:var(--gray-900);margin-bottom:1mm}
+.feature-item p{font-size:.68rem;color:var(--gray-500);line-height:1.5}
+.fi-layer-badge{display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:3px;padding:1px 4px;letter-spacing:.04em;vertical-align:middle;margin-right:2px}
+
+/* -- Front: Age Modes -- */
+.front-ages{
+  padding:5mm 14mm 5mm;
+  flex-shrink:0;
+}
+.front-ages h2{
+  text-align:center;
+  font-size:.95rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:2mm;
+}
+.ages-prep-note{
+  text-align:center;
+  font-size:.65rem;
+  color:var(--gray-600);
+  margin-bottom:4mm;
+}
+.age-row{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:3mm;
+}
+.age-item{
+  text-align:center;
+  background:#fff;
+  border:1px solid var(--gray-200);
+  border-radius:10px;
+  padding:3.5mm 2mm;
+}
+.age-item .ai-emoji{font-size:1.5rem;margin-bottom:1mm}
+.age-item .ai-name{font-size:.68rem;font-weight:700;color:var(--gray-900);margin-bottom:.5mm}
+.age-item .ai-range{font-size:.62rem;color:var(--brand-700);font-weight:600}
+
+/* -- Front: CTA -- */
+.front-cta{
+  margin-top:auto;
+  background:linear-gradient(135deg,var(--brand-700),var(--brand-800));
+  padding:6mm 14mm;
+  text-align:center;
+  color:#fff;
+  flex-shrink:0;
+}
+.front-cta h2{
+  font-size:1.1rem;
+  font-weight:700;
+  margin-bottom:2mm;
+  color:#fff;
+}
+.front-cta p{
+  font-size:.8rem;
+  margin-bottom:3mm;
+  color:var(--brand-200);
+}
+.cta-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8mm;
+}
+.cta-url-box{
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.3);
+  border-radius:10px;
+  padding:4mm 6mm;
+  text-align:center;
+}
+.cta-url-box .url-label{font-size:.7rem;color:var(--brand-200);margin-bottom:1mm}
+.cta-url-box .url-text{font-size:.85rem;font-weight:700;color:#fff;letter-spacing:.02em}
+.qr-space{
+  width:28mm;
+  height:28mm;
+  background:rgba(255,255,255,.95);
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:.6rem;
+  color:var(--gray-500);
+  text-align:center;
+  line-height:1.3;
+  flex-shrink:0;
+}
+
+/* =============================================
+   BACK PAGE (ura)
+   ============================================= */
+
+.back{
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  min-height:297mm;
+}
+
+/* -- Back: Header -- */
+.back-header{
+  background:linear-gradient(135deg,var(--brand-700),var(--brand-800));
+  padding:4mm 14mm;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+}
+.back-header img{height:28px;width:auto}
+.back-header .bh-text{color:#fff;font-size:.9rem;font-weight:700}
+
+/* -- Back: Pricing -- */
+.back-pricing{
+  padding:5mm 12mm 4mm;
+  flex-shrink:0;
+}
+.back-pricing h2{
+  text-align:center;
+  font-size:1.05rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:1.5mm;
+}
+.back-pricing .pricing-sub{
+  text-align:center;
+  font-size:.72rem;
+  color:var(--gray-500);
+  margin-bottom:4mm;
+}
+.pricing-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:4mm;
+}
+/* #1823 (#1820 波及): pamphlet 内側装飾枠廃止 — recommended の二重枠 (1.5px border + 1.5px box-shadow)
+   を撤去し、border-color のみで recommended 強調を実現。index.html / pricing.html と同方針 */
+.plan-card{
+  border:1px solid var(--gray-300);
+  border-radius:var(--radius);
+  padding:4mm 3.5mm;
+  text-align:center;
+  position:relative;
+  background:#fff;
+}
+.plan-card.recommended{
+  border-color:var(--brand-500);
+}
+.plan-badge{
+  position:absolute;
+  top:-3mm;
+  left:50%;
+  transform:translateX(-50%);
+  background:linear-gradient(135deg,var(--brand-500),var(--brand-700));
+  color:#fff;
+  font-size:.6rem;
+  font-weight:700;
+  padding:1mm 3mm;
+  border-radius:2rem;
+  white-space:nowrap;
+}
+.plan-card h3{font-size:.85rem;font-weight:700;color:var(--gray-900);margin-bottom:1mm;margin-top:1mm}
+.plan-price{font-size:1.3rem;font-weight:800;color:var(--brand-700);margin-bottom:1mm}
+.plan-price small{font-size:.65rem;font-weight:500;color:var(--gray-500)}
+.plan-price .free-label{color:var(--green-500)}
+.plan-trial{font-size:.65rem;color:var(--brand-600);font-weight:600;margin-bottom:2mm}
+.plan-features{
+  list-style:none;
+  text-align:left;
+  padding:0;
+}
+.plan-features li{
+  font-size:.65rem;
+  color:var(--gray-700);
+  padding:.7mm 0;
+  display:flex;
+  gap:1.5mm;
+  align-items:flex-start;
+  line-height:1.4;
+}
+.plan-features li .check{color:var(--green-500);flex-shrink:0;font-size:.75rem}
+.plan-features li .cross{color:var(--gray-300);flex-shrink:0;font-size:.75rem}
+
+/* -- Back: Steps -- */
+.back-steps{
+  padding:4mm 14mm;
+  background:var(--gray-50);
+  flex-shrink:0;
+}
+.back-steps h2{
+  text-align:center;
+  font-size:.95rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:4mm;
+}
+.steps-row{
+  display:grid;
+  grid-template-columns:1fr auto 1fr auto 1fr;
+  gap:3mm;
+  align-items:center;
+}
+.step-card{
+  text-align:center;
+  background:#fff;
+  border:1px solid var(--gray-200);
+  border-radius:var(--radius);
+  padding:3mm 2.5mm;
+}
+.step-card .sc-num{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:20px;height:20px;
+  border-radius:50%;
+  background:var(--brand-700);
+  color:#fff;
+  font-size:.65rem;
+  font-weight:700;
+  margin-bottom:1.5mm;
+}
+.step-card .sc-icon{font-size:1.3rem;margin-bottom:1mm}
+.step-card h3{font-size:.75rem;font-weight:700;color:var(--gray-900);margin-bottom:1mm}
+.step-card p{font-size:.62rem;color:var(--gray-500);line-height:1.45}
+.step-arrow{font-size:1.2rem;color:var(--brand-400)}
+
+/* -- Back: FAQ -- */
+.back-faq{
+  padding:4mm 14mm;
+  flex-shrink:0;
+}
+.back-faq h2{
+  text-align:center;
+  font-size:.95rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:3mm;
+}
+.faq-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:3mm;
+}
+.faq-card{
+  background:var(--gray-50);
+  border:1px solid var(--gray-200);
+  border-radius:10px;
+  padding:3mm 4mm;
+}
+.faq-card .fq-q{
+  font-size:.73rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:1mm;
+  display:flex;
+  gap:2mm;
+  align-items:flex-start;
+}
+.faq-card .fq-q .q-label{
+  color:var(--brand-700);
+  font-weight:800;
+  flex-shrink:0;
+}
+.faq-card .fq-a{
+  font-size:.65rem;
+  color:var(--gray-500);
+  line-height:1.45;
+  padding-left:5mm;
+}
+
+/* -- Back: Retention note (#1344) -- */
+.back-retention{
+  margin:3mm 12mm;
+  padding:3mm 4mm;
+  background:var(--brand-50);
+  border-left:3px solid var(--brand-700);
+  border-radius:8px;
+  flex-shrink:0;
+}
+.back-retention .ret-title{
+  font-size:.68rem;
+  font-weight:700;
+  color:var(--gray-900);
+  margin-bottom:1mm;
+}
+.back-retention .ret-note{
+  font-size:.62rem;
+  color:var(--gray-700);
+  line-height:1.5;
+}
+
+/* -- Back: Footer -- */
+.back-footer{
+  margin-top:auto;
+  background:var(--gray-900);
+  padding:4mm 14mm;
+  color:#94a3b8;
+  flex-shrink:0;
+}
+.footer-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:4mm;
+  margin-bottom:3mm;
+}
+.footer-brand-col h3{color:#fff;font-size:.78rem;margin-bottom:1mm}
+.footer-brand-col p{font-size:.65rem;line-height:1.4}
+.footer-contact{text-align:right}
+.footer-contact h4{color:#e2e8f0;font-size:.68rem;margin-bottom:1.5mm}
+.footer-contact a,.footer-contact span{
+  display:block;
+  font-size:.62rem;
+  color:#94a3b8;
+  text-decoration:none;
+  margin-bottom:1mm;
+}
+.footer-divider{
+  border:none;
+  border-top:1px solid #334155;
+  margin-bottom:3mm;
+}
+.footer-bottom{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:.6rem;
+}
+.footer-bottom .links a{
+  color:#94a3b8;
+  text-decoration:none;
+  margin-left:3mm;
+}
+.footer-bottom .links a:hover{color:#fff}
+
+/* === Responsive for screen viewing === */
+@media screen and (max-width:220mm){
+  .page{
+    width:100%;
+    min-height:auto;
+    margin:0;
+    border-radius:0;
+  }
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer=""></script>
+</head>
+<body>
+
+<!-- Screen Controls -->
+<div class="screen-controls">
+  <button onclick="window.print()" data-lp-key="pamphletB.k2">🖨 印刷 / PDF保存</button>
+  <p data-lp-key="pamphletB.k3">ブラウザの「印刷」からPDFとして保存できます。用紙サイズはA4を選択してください。</p>
+</div>
+
+<!-- =============================================
+     FRONT PAGE (表面)
+     ============================================= -->
+<div class="page page-break front">
+
+  <!-- Character decoration -->
+  <img src="icon-character.png" alt="" class="front-character" aria-hidden="true">
+
+  <!-- Hero -->
+  <div class="front-hero">
+    <div class="front-logo">
+      <img src="logo-compact.png" alt="がんばりクエスト">
+      <span class="service-name" data-lp-key="pamphletB.k4">がんばりクエスト</span>
+    </div>
+    <div class="front-tagline" data-lp-key="pamphletB.k5">こどもの がんばりを ぼうけんに</div>
+    <h1 class="front-catchcopy">
+      <span data-lp-key="pamphletB.k6">「やりなさい」を</span>
+      <span data-lp-key="pamphletB.k7"><span>「やりたい！」</span>に変える</span>
+    </h1>
+    <p class="front-sub">
+      <span data-lp-key="pamphletB.k8">お子さまの毎日のがんばりをRPG風の冒険に変えて、</span>
+      <span data-lp-key="pamphletB.k9">ポイント、レベルアップ、チャレンジで</span>
+      <span data-lp-key="pamphletB.k10">「自分から動く力」を育てる家庭向けWebアプリです。</span>
+    </p>
+    <div class="front-hero-illustration">
+      <img src="hero-illustration.webp" alt="冒険の旅に出る勇者キャラクター" loading="eager">
+    </div>
+  </div>
+
+  <!-- Features (3 つの仕組み #1343 / #1615 R11 顧客語彙化) -->
+  <div class="front-features">
+    <h2 data-lp-key="pamphletB.k11">✨ 3 つの仕組みで、毎日のがんばりが本物の報酬になる</h2>
+    <div class="feature-row">
+      <div class="feature-item">
+        <div class="fi-icon">📝</div>
+        <h3 data-lp-key="pamphletB.k12"><span class="fi-layer-badge">活動</span> 毎日の活動 → ポイント</h3>
+        <p data-lp-key="pamphletB.k13">「はみがきした」「宿題おわった」をタップするだけ。プリセット活動がそのまま使えるので設定は最小限。記録のたびにポイントが積み上がります。</p>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">🎴</div>
+        <h3 data-lp-key="pamphletB.k14"><span class="fi-layer-badge">習慣</span> おみくじスタンプ → 習慣</h3>
+        <p data-lp-key="pamphletB.k15">1 日 1 回までのおみくじスタンプ。週 5 日タップで 1 枚分のポイントに自動交換できます。三日坊主を防ぐ「毎日記録する習慣」を作ります。</p>
+      </div>
+      <div class="feature-item">
+        <div class="fi-icon">🎁</div>
+        <h3 data-lp-key="pamphletB.k16"><span class="fi-layer-badge">ごほうび</span> ごほうびショップ → 交換</h3>
+        <p data-lp-key="coreloop.pamphletNote">毎日の活動でポイント / 習慣カードのおみくじスタンプ（習慣形成）/ ごほうびショップ（唯一の出口）の 3 つの仕組みで、毎日のがんばりが本物の報酬になります。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Age Modes -->
+  <div class="front-ages">
+    <h2 data-lp-key="pamphletB.k17">🌈 3歳から18歳まで — 2つの UI モード</h2>
+    <p class="ages-prep-note" data-lp-key="pamphletB.k18">👶 0〜2歳のお子さまは「準備モード」でご登録いただけます</p>
+    <div class="age-row">
+      <div class="age-item" data-age-tier="preschool">
+        <div class="ai-emoji">🧒</div>
+        <div class="ai-name" data-label="age-tier-name">幼児モード</div>
+        <div class="ai-range" data-label="age-tier-range">3〜5歳</div>
+      </div>
+      <div class="age-item">
+        <div class="ai-emoji">📚</div>
+        <div class="ai-name" data-lp-key="pamphletB.k19">小学生以上</div>
+        <div class="ai-range" data-lp-key="pamphletB.k20">6〜18歳</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="front-cta">
+    <h2 data-lp-key="pamphletB.k21">🎮 まずは無料で始めよう！</h2>
+    <p data-lp-key="pamphletB.k22">登録は1分。お子さまの名前と年齢を入れるだけで、今日から冒険が始まります。</p>
+    <div class="cta-row">
+      <div class="cta-url-box">
+        <div class="url-label" data-lp-key="pamphletB.k23">🌐 アクセスはこちら</div>
+        <div class="url-text">https://www.ganbari-quest.com</div>
+      </div>
+      <div class="qr-space">
+        QRコードを<br>貼り付け
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- =============================================
+     BACK PAGE (裏面)
+     ============================================= -->
+<div class="page back">
+
+  <!-- Header -->
+  <div class="back-header">
+    <img src="logo-compact.png" alt="" height="32">
+    <span class="bh-text" data-lp-key="pamphletB.k24">がんばりクエスト — 料金プラン &amp; 始め方</span>
+  </div>
+
+  <!-- Pricing -->
+  <div class="back-pricing">
+    <h2 data-lp-key="pamphletB.k25">💰 料金プラン</h2>
+    <p class="pricing-sub" data-lp-key="pamphletB.k26">すべてのプランで冒険の仕組み（レベル・おみくじ・スタンプカード等）が使えます</p>
+    <div class="pricing-grid">
+      <!-- Free -->
+      <div class="plan-card">
+        <h3 data-lp-key="pamphletB.k27">フリー</h3>
+        <div class="plan-price"><span class="free-label">¥0</span></div>
+        <div class="plan-trial" data-lp-key="pamphletB.k28">ずっと無料</div>
+        <ul class="plan-features">
+          <li data-lp-key="pamphletB.k29"><span class="check">✓</span>お子さまの登録：2人まで</li>
+          <li data-lp-key="pamphletB.k30"><span class="check">✓</span>プリセット活動の利用</li>
+          <li data-lp-key="pamphletB.k31"><span class="check">✓</span>オリジナル活動の作成：3個まで</li>
+          <li data-lp-key="pamphletB.k32"><span class="check">✓</span>レベル・ポイント・おみくじ・スタンプカード</li>
+          <li data-lp-key="pamphletB.k33"><span class="check">✓</span>ログインボーナス・連続達成ボーナス</li>
+          <li data-lp-key="pamphletB.k34"><span class="check">✓</span>持ち物チェックリスト 3個/子まで</li>
+          <li data-lp-key="pamphletB.k35"><span class="check">✓</span>90日間の履歴保持</li>
+        </ul>
+      </div>
+      <!-- Standard -->
+      <div class="plan-card recommended">
+        <div class="plan-badge" data-lp-key="pamphletB.k36">⭐ おすすめ</div>
+        <h3 data-lp-key="pamphletB.k37">スタンダード</h3>
+        <div class="plan-price" data-lp-key="pamphletB.k38">¥500<small>/月（税込）</small></div>
+        <div class="plan-trial" data-lp-key="pamphletB.k39">7 日間無料トライアル</div>
+        <ul class="plan-features">
+          <li data-lp-key="pamphletB.k40"><span class="check">✓</span>子供の登録：無制限</li>
+          <li data-lp-key="pamphletB.k41"><span class="check">✓</span>オリジナル活動：無制限</li>
+          <li data-lp-key="pamphletB.k42"><span class="check">✓</span>家族メンバー招待：4人まで</li>
+          <li data-lp-key="pamphletB.k43"><span class="check">✓</span>特別なごほうび設定</li>
+          <li data-lp-key="pamphletB.k44"><span class="check">✓</span>データのダウンロード</li>
+          <li data-lp-key="pamphletB.k45"><span class="check">✓</span>1年間の履歴保持</li>
+          <li data-lp-key="pamphletB.k46"><span class="check">✓</span>メールサポート</li>
+        </ul>
+      </div>
+      <!-- Family -->
+      <div class="plan-card">
+        <h3 data-lp-key="pamphletB.k47">ファミリー</h3>
+        <div class="plan-price" data-lp-key="pamphletB.k48">¥780<small>/月（税込）</small></div>
+        <div class="plan-trial" data-lp-key="pamphletB.k49">7 日間無料トライアル</div>
+        <ul class="plan-features">
+          <li data-lp-key="pamphletB.k50"><span class="check">✓</span>スタンダードの全機能</li>
+          <li data-lp-key="pamphletB.k51"><span class="check">✓</span>家族メンバー招待：無制限</li>
+          <li data-lp-key="pamphletB.k52"><span class="check">✓</span>AI 自動提案（活動・ごほうび・チェックリスト）</li>
+          <li data-lp-key="pamphletB.k53"><span class="check">✓</span>きょうだいランキング</li>
+          <li data-lp-key="pamphletB.k54"><span class="check">✓</span>ひとことメッセージ（自由テキスト）</li>
+          <li data-lp-key="pamphletB.k55"><span class="check">✓</span>クラウド保管枠（同時保管 10 個・手動エクスポート）</li>
+          <li data-lp-key="pamphletB.k56"><span class="check">✓</span>無制限の履歴保持</li>
+          <li data-lp-key="pamphletB.k57"><span class="check">✓</span>メールサポート</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Steps -->
+  <div class="back-steps">
+    <h2 data-lp-key="pamphletB.k58">🚀 かんたん3ステップで始められます</h2>
+    <div class="steps-row">
+      <div class="step-card">
+        <div class="sc-num">1</div>
+        <div class="sc-icon">📝</div>
+        <h3 data-lp-key="pamphletB.k59">アカウント登録（無料）</h3>
+        <p data-lp-key="pamphletB.k60">メールまたはGoogleアカウントで。1分で完了します。</p>
+      </div>
+      <div class="step-arrow">▶</div>
+      <div class="step-card">
+        <div class="sc-num">2</div>
+        <div class="sc-icon">⚙️</div>
+        <h3 data-lp-key="pamphletB.k61">お子さまの年齢と性別を設定</h3>
+        <p data-lp-key="pamphletB.k62">年齢に合わせた活動が自動でセットアップ。</p>
+      </div>
+      <div class="step-arrow">▶</div>
+      <div class="step-card">
+        <div class="sc-num">3</div>
+        <div class="sc-icon">⚔️</div>
+        <h3 data-lp-key="pamphletB.k63">冒険スタート！</h3>
+        <p data-lp-key="pamphletB.k64">活動を記録するたびにポイント獲得 &amp; レベルアップ！</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="back-faq">
+    <h2 data-lp-key="pamphletB.k65">❓ よくある質問</h2>
+    <div class="faq-grid">
+      <div class="faq-card">
+        <div class="fq-q">
+          <span class="q-label">Q.</span>
+          <span data-lp-key="pamphletB.k66">料金はかかりますか？</span>
+        </div>
+        <div class="fq-a" data-lp-key="pamphletB.k67">基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。スタンダード・ファミリープランは 7 日間無料トライアル付きです。</div>
+      </div>
+      <div class="faq-card">
+        <div class="fq-q">
+          <span class="q-label">Q.</span>
+          <span data-lp-key="pamphletB.k68">何歳から使えますか？</span>
+        </div>
+        <div class="fq-a" data-lp-key="pamphletB.k69">3歳から18歳までのお子さま向けに設計しています。3歳からはお子さま自身がタップして記録、年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。0〜2歳のお子さまは「準備モード」（保護者が記録するモード）で記録のみご利用いただけます（お子さま向けゲーミフィケーションは適用されません）。</div>
+      </div>
+      <div class="faq-card">
+        <div class="fq-q">
+          <span class="q-label">Q.</span>
+          <span data-lp-key="pamphletB.k70">子供のデータは安全ですか？</span>
+        </div>
+        <div class="fq-a" data-lp-key="pamphletB.k71">はい。通信は常に暗号化し、データはお預かり時にも保護した状態で保管しています。お子さまの本名は不要で、ニックネームでご利用いただけます。データの第三者への販売・共有は一切行いません。</div>
+      </div>
+      <div class="faq-card">
+        <div class="fq-q">
+          <span class="q-label">Q.</span>
+          <span data-lp-key="pamphletB.k72">有料プランへの切り替えはどうしますか？</span>
+        </div>
+        <div class="fq-a" data-lp-key="pamphletB.k73">管理画面の「プラン・お支払い」からアップグレードしていただくと、その場で有料機能が有効になります。クレジットカード（Visa / Mastercard / JCB / American Express）に対応し、Stripe による安全な決済処理を使用しています。詳しくは <a href="https://www.ganbari-quest.com/pricing.html">料金プラン</a> をご覧ください。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retention note (#1344 C1-LP-RETENTION) -->
+  <!-- 用語 SSOT: src/lib/domain/labels.ts LP_RETENTION_LABELS -->
+  <div class="back-retention">
+    <p class="ret-title" data-lp-key="retention.sectionTitle">三日坊主にならない設計</p>
+    <p class="ret-note" data-lp-key="retention.pamphletNote">スタンプカードのレア度分散（N/R/SR/UR）と毎日 1 回のおみくじスタンプが「明日もやろう」を支える習慣形成のエンジン。連続演出を持たない静かな仕組みで、三日坊主を防ぎます。</p>
+  </div>
+
+  <!-- Footer -->
+  <div class="back-footer">
+    <div class="footer-top">
+      <div class="footer-brand-col">
+        <h3 data-lp-key="pamphletB.k74">⚔️ がんばりクエスト</h3>
+        <p data-lp-key="pamphletB.k75">お子さまの「がんばり」を冒険に変える家庭向けWebアプリ</p>
+      </div>
+      <div class="footer-contact">
+        <h4 data-lp-key="pamphletB.k76">お問い合わせ・コミュニティ</h4>
+        <a href="mailto:ganbari.quest.support@gmail.com?subject=%5B%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%5D&amp;body=%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E7%A8%AE%E5%88%A5%3A%20%0A%E3%81%94%E5%88%A9%E7%94%A8%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%20(%E7%99%BB%E9%8C%B2%E3%83%A1%E3%83%BC%E3%83%AB%E3%82%A2%E3%83%89%E3%83%AC%E3%82%B9)%3A%20%0A%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E5%86%85%E5%AE%B9%3A%20%0A%0A%0A---%0A%E5%8F%82%E7%85%A7%E3%83%9A%E3%83%BC%E3%82%B8%3A%20pamphlet%0A%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%3A%20Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20HeadlessChrome%2F147.0.7727.15%20Safari%2F537.36" data-contact-context="" data-lp-key="pamphletB.k77">✉️ メール: ganbari.quest.support@gmail.com</a>
+        <a href="https://github.com/Takenori-Kusaka/ganbari-quest">📦 GitHub: Takenori-Kusaka/ganbari-quest</a>
+      </div>
+    </div>
+    <hr class="footer-divider">
+    <div class="footer-bottom">
+      <span data-lp-key="pamphletB.k78">© 2026 がんばりクエスト（運営: 日下武紀／個人事業主）. All rights reserved.</span>
+      <span class="links">
+        <a href="https://www.ganbari-quest.com/terms.html" data-lp-key="pamphletB.k79">利用規約</a>
+        <a href="https://www.ganbari-quest.com/privacy.html" data-lp-key="pamphletB.k80">プライバシーポリシー</a>
+        <a href="https://www.ganbari-quest.com/tokushoho.html" data-lp-key="pamphletB.k81">特定商取引法に基づく表記</a>
+        <a href="mailto:ganbari.quest.support@gmail.com?subject=%5Bpamphlet%20footer%5D%20%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B&amp;body=%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E7%A8%AE%E5%88%A5%3A%20%0A%E3%81%94%E5%88%A9%E7%94%A8%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%20(%E7%99%BB%E9%8C%B2%E3%83%A1%E3%83%BC%E3%83%AB%E3%82%A2%E3%83%89%E3%83%AC%E3%82%B9)%3A%20%0A%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E5%86%85%E5%AE%B9%3A%20%0A%0A%0A---%0A%E5%8F%82%E7%85%A7%E3%83%9A%E3%83%BC%E3%82%B8%3A%20pamphlet%0A%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%3A%20Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20HeadlessChrome%2F147.0.7727.15%20Safari%2F537.36" data-contact-context="pamphlet footer" data-lp-key="pamphletB.k82">お問い合わせ</a>
+      </span>
+    </div>
+  </div>
+
+</div>
+
+<script src="shared-labels.js"></script>
+<script src="js/contact.js"></script>
+<!-- #1702 Phase C: 印刷時に data-lp-key の置換が完了していないと SSOT 化された文言が
+     fallback で表示される可能性があるため、印刷直前に再適用する。
+     shared-labels.js が GANBARI_LABELS を expose した時点で applyLpKeys 関数の再実行は
+     window.print() 直前 / Ctrl+P で発火する beforeprint イベントで行う。 -->
+<script>
+(function() {
+	'use strict';
+	function reapplyLpKeys() {
+		var Purify = (typeof window !== 'undefined') && window.DOMPurify;
+		var SANITIZE_CONFIG = {
+			ALLOWED_TAGS: ['strong','em','a','br','span','sup','sub','small','b','i'],
+			ALLOWED_ATTR: ['href','target','rel','class','aria-hidden','aria-label'],
+			ALLOW_DATA_ATTR: false,
+			ALLOW_UNKNOWN_PROTOCOLS: false,
+			ADD_ATTR: ['target']
+		};
+		if (Purify && !Purify.__gqHookInstalled) {
+			Purify.addHook('afterSanitizeAttributes', function(node) {
+				if (node.tagName === 'A' && node.getAttribute('target') === '_blank') {
+					node.setAttribute('rel', 'noopener noreferrer');
+				}
+			});
+			Purify.__gqHookInstalled = true;
+		}
+		var labels = window.GANBARI_LABELS && window.GANBARI_LABELS.lp;
+		if (!labels) return;
+		var elements = document.querySelectorAll('[data-lp-key]');
+		elements.forEach(function(el) {
+			var key = el.getAttribute('data-lp-key');
+			var parts = key.split('.');
+			if (parts.length !== 2) return;
+			var sectionData = labels[parts[0]];
+			if (!sectionData) return;
+			var value = sectionData[parts[1]];
+			if (value === undefined) return;
+			if (Purify) {
+				el.innerHTML = Purify.sanitize(value, SANITIZE_CONFIG);
+			} else {
+				el.textContent = value;
+			}
+		});
+	}
+	window.addEventListener('beforeprint', reapplyLpKeys);
+})();
+</script>
+
+
+</body></html>
