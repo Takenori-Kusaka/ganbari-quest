@@ -6,9 +6,9 @@
 <!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層 -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <title data-lp-key="growthRoadmap.pageTitle">成長ロードマップ - がんばりクエスト</title>
-<meta name="description" content="がんばりクエストの 5 ステージ成長ロードマップ。幼児（3-5歳）から高校生（16-18歳）、そして「卒業」まで、UI と機能が成長に合わせて変化していく様子を実画面付きで紹介。">
+<meta name="description" content="がんばりクエストの成長ロードマップ。幼児（3-5歳）から高校生（16-18歳）、そして「卒業」まで、お子さまの成長に合わせて UI と機能が変化していく様子を実画面付きで紹介。">
 <meta property="og:title" content="成長ロードマップ - がんばりクエスト">
-<meta property="og:description" content="3 歳から 18 歳まで、そして「卒業」へ。お子さまの成長に合わせて UI と機能が変化していく 5 ステージを実画面付きで紹介。">
+<meta property="og:description" content="3 歳から 18 歳まで、そして「卒業」へ。お子さまの成長に合わせて UI と機能が変化していく成長ストーリーを実画面付きで紹介。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.ganbari-quest.com/graduation.html">
 <meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
@@ -27,7 +27,7 @@
 .graduation-breadcrumb a:hover{text-decoration:underline}
 .graduation-breadcrumb .sep{margin:0 8px;color:var(--gray-300)}
 
-/* 5 ステージ詳細 (#1848: LP から graduation.html へ移管。
+/* 成長ステージ詳細 (#1848: LP から graduation.html へ移管 / #1895: 「5 ステージ」表現リフレーム済。
    gr-shot は LP 本体の max-height:96px から専用ページの 240px に拡張。
    その他 gr-* スタイルは LP 本体 #growth-roadmap (#1613 R9 / #1785 R-CRT-2 / #1801 U-MIN-6) と同等を維持 */
 .graduation-detail{padding:48px 16px 64px;background:var(--gray-50)}
@@ -103,7 +103,7 @@
   <span data-lp-key="growthRoadmap.breadcrumbCurrent">成長ロードマップ</span>
 </nav>
 
-<!-- 5 ステージ詳細 -->
+<!-- 成長ステージ詳細 (#1895: 「5 ステージ」表現リフレーム済) -->
 <section class="graduation-detail" id="growth-roadmap-detail">
   <div class="graduation-detail-inner">
     <div class="gr-track">
