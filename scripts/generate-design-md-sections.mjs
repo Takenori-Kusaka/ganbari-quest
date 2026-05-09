@@ -9,7 +9,8 @@
  * 対象:
  *   - AUTOGEN:colors    — app.css @theme ブロックからセマンティックトークン抽出
  *   - AUTOGEN:primitives — src/lib/ui/primitives/*.svelte 一覧
- *   - AUTOGEN:labels     — src/lib/domain/labels.ts の export 定数
+ *   - AUTOGEN:terms      — src/lib/domain/terms.ts の atom 定数 (#1923 / ADR-0045)
+ *   - AUTOGEN:labels     — src/lib/domain/labels.ts の compound export 定数
  */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -75,6 +76,65 @@ function listPrimitives() {
 	return md.trimEnd();
 }
 
+// --- Terms (atom) — #1923 / ADR-0045 ---
+//
+// terms.ts は atom 専用ファイル (≈86 行)。labels.ts (compound) と並列の SSOT として
+// DESIGN.md §6 に独立セクションで掲載する。
+//
+// 抽出ルール:
+//   - `export const <NAMESPACE>_TERMS = { ... } as const;` をブロック単位で抽出
+//   - 各 namespace の key/value pair を 1 行 1 entry で table 化
+//   - 数値 atom (例: TRIAL_TERMS.durationDays = 7) は数値のまま掲載
+//   - atom 値そのものを表に出すことで「直書き禁止対象 (ADR-0045)」を可視化
+function parseTermEntry(rawLine) {
+	const line = rawLine.trim();
+	if (!line || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) {
+		return null;
+	}
+	const stringMatch = line.match(/^(\w+):\s*['"]([^'"]*)['"],?\s*(?:\/\/.*)?$/);
+	if (stringMatch) {
+		return { key: stringMatch[1], value: stringMatch[2], type: 'string' };
+	}
+	const numberMatch = line.match(/^(\w+):\s*(-?\d+(?:\.\d+)?),?\s*(?:\/\/.*)?$/);
+	if (numberMatch) {
+		return { key: numberMatch[1], value: numberMatch[2], type: 'number' };
+	}
+	return null;
+}
+
+function parseTermNamespace(body) {
+	const entries = [];
+	for (const rawLine of body.split('\n')) {
+		const entry = parseTermEntry(rawLine);
+		if (entry) entries.push(entry);
+	}
+	return entries;
+}
+
+function renderTermNamespace(ns) {
+	if (ns.entries.length === 0) return '';
+	let md = `#### ${ns.name}\n\n`;
+	md += '| key | 値 |\n|-----|----|\n';
+	for (const e of ns.entries) {
+		const valueCell = e.type === 'string' ? `\`'${e.value}'\`` : `\`${e.value}\``;
+		md += `| \`${e.key}\` | ${valueCell} |\n`;
+	}
+	md += '\n';
+	return md;
+}
+
+function extractTerms() {
+	const src = readFileSync(resolve(ROOT, 'src/lib/domain/terms.ts'), 'utf-8');
+	const namespacePattern = /export const (\w+_TERMS) = \{([\s\S]*?)\} as const;/g;
+	const namespaces = [];
+
+	for (const match of src.matchAll(namespacePattern)) {
+		namespaces.push({ name: match[1], entries: parseTermNamespace(match[2]) });
+	}
+
+	return namespaces.map(renderTermNamespace).join('').trimEnd();
+}
+
 // --- Labels ---
 function extractLabels() {
 	const src = readFileSync(resolve(ROOT, 'src/lib/domain/labels.ts'), 'utf-8');
@@ -129,6 +189,7 @@ function main() {
 	const sections = {
 		colors: extractSemanticTokens(),
 		primitives: listPrimitives(),
+		terms: extractTerms(),
 		labels: extractLabels(),
 	};
 
@@ -143,6 +204,7 @@ function main() {
 	console.log('DESIGN.md updated successfully.');
 	console.log(`  - colors: ${sections.colors.split('\n').length} lines`);
 	console.log(`  - primitives: ${sections.primitives.split('\n').length} lines`);
+	console.log(`  - terms: ${sections.terms.split('\n').length} lines`);
 	console.log(`  - labels: ${sections.labels.split('\n').length} lines`);
 }
 
