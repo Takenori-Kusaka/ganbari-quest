@@ -53,7 +53,7 @@ describe('demo data integrity (#562)', () => {
 				mustExclude: [13, 16, 17, 18], // しゅくだい / 自主学習 / 受験勉強 / 資格検定
 			},
 			{
-				nickname: 'はなこ (5歳/preschool)',
+				nickname: 'ゆうきちゃん (5歳/preschool)',
 				age: 5,
 				mustInclude: [4, 6, 10, 12], // からだ / ダンス / えほん / ひらがな
 				mustExclude: [1, 13, 17], // はいはい / しゅくだい / 受験勉強

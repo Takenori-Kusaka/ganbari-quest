@@ -11,7 +11,10 @@ import {
 import DemoGuideBar from '$lib/features/demo/DemoGuideBar.svelte';
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte.js';
-import { setScreenshotModeContext } from '$lib/features/demo/screenshot-mode.js';
+import {
+	resolveScreenshotMode,
+	setScreenshotModeContext,
+} from '$lib/features/demo/screenshot-mode.js';
 import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -26,8 +29,17 @@ const PLAN_KEYS: PlanKey[] = ['free', 'standard', 'family'];
 // LP スクリーンショット撮影用モード。`?screenshot=1` でデモ固有 UI（バナー・プラン切替・
 // ガイドバー・フローティング CTA）を全て非表示にし、実アプリと同じ画面を取得できるようにする。
 // デモ配下の page からは `$lib/features/demo/screenshot-mode` の `getScreenshotMode()` で取得する（#1209）。
-const isScreenshotMode = $derived($page.url.searchParams.get('screenshot') === '1');
-setScreenshotModeContext(() => isScreenshotMode);
+//
+// #1893 (PO-4-7、8 回目指摘): `?screenshot=all` で本番一致演出強制 ON モード追加。
+// `?screenshot=1` は noise-only (後方互換)、`?screenshot=all` は本番 UI 演出 (MilestoneBanner 等) も強制表示。
+const screenshotModeKind = $derived(
+	resolveScreenshotMode($page.url.searchParams.get('screenshot')),
+);
+const isScreenshotMode = $derived(screenshotModeKind !== 'off');
+setScreenshotModeContext(
+	() => isScreenshotMode,
+	() => screenshotModeKind,
+);
 
 /** 現在の URL の searchParams に plan だけ差し替えた URL 文字列を生成 */
 function planSwitchHref(key: string): string {

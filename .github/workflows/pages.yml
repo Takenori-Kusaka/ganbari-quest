@@ -95,6 +95,12 @@ jobs:
         # measure-lp-dimensions.mjs は missing screenshots を検知すると exit 1 する
         run: node scripts/measure-lp-dimensions.mjs --site-dir=site --output=lp-metrics.json
 
+      - name: Verify screenshot freshness (#1893)
+        # #1893 AC4-5 (PO-4-7、8 回目指摘): 「撮影が黙ってスキップされて古い WebP が GitHub Pages に
+        # 配信される」事故への構造的対策。直前の "Capture LP screenshots" step 完了直後なので、
+        # 全 webp の mtime が 30 分以内であるべき。1 件でも古ければ撮影スキップ疑いで fail。
+        run: node scripts/check-screenshot-freshness.mjs --max-age-minutes 30
+
       - name: Setup Pages
         uses: actions/configure-pages@v6
 

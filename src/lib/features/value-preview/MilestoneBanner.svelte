@@ -25,9 +25,14 @@ interface MilestoneAchievement {
 interface Props {
 	milestones: MilestoneAchievement[];
 	childId: number;
+	/**
+	 * #1893: localStorage の `seen` 判定をバイパスする。LP screenshot 撮影時 (`?screenshot=all`)
+	 * のように毎回確実に表示したい場合に true を渡す。通常運用では false (default)。
+	 */
+	bypassSeenCheck?: boolean;
 }
 
-let { milestones, childId }: Props = $props();
+let { milestones, childId, bypassSeenCheck = false }: Props = $props();
 
 const STORAGE_KEY_PREFIX = 'gq:milestone-seen:';
 
@@ -36,6 +41,7 @@ function buildStorageKey(id: MilestoneId): string {
 }
 
 function readSeen(id: MilestoneId): boolean {
+	if (bypassSeenCheck) return false;
 	if (!browser) return false;
 	try {
 		return window.localStorage.getItem(buildStorageKey(id)) === '1';
