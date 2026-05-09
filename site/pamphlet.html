@@ -364,11 +364,11 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
   line-height:1.4;
 }
 .plan-features li .check{color:var(--green-500);flex-shrink:0;font-size:.75rem}
-/* #1906 a11y bundle (Re-Review broader audit): gray-300 (#cbd5e1) on white = 1.6:1 (WCAG 1.4.11
-   non-text contrast 3:1 fail)。"✕" は「機能未対応」を示す essential graphics で、視認できないと
-   feature 比較表として機能不全になる。gray-500 (#64748b) on white = 4.6:1 PASS に統一。
-   `.dash` (pricing.html L98) と同種の修正。*/
-.plan-features li .cross{color:var(--gray-500);flex-shrink:0;font-size:.75rem}
+/* #1906 Re-Review #2: `.cross` セレクタは pamphlet.html 全体で実利用ゼロ (`class="cross"` HTML 要素 0 件)。
+   plan-features は `<span class="check">✓</span>` のみで構成されるプラン別「利用可能機能リスト」構造で、
+   機能未対応マーク (✕) を表示する設計ではないため、本セレクタは dead CSS。
+   PR #2047 の `.disabled` (pricing.html L74) と同様に保持するが、a11y 修正対象から除外する。*/
+.plan-features li .cross{color:var(--gray-300);flex-shrink:0;font-size:.75rem}
 
 /* -- Back: Steps -- */
 .back-steps{
