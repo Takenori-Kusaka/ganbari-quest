@@ -75,6 +75,12 @@ export const TRIAL_TERMS = {
 	// 既存の noCreditCard (12 文字) / noCreditCardShort (8 文字) と異なる中間長 (7 文字) であり、
 	// 文字列差分ゼロ維持のため新 atom として独立させる。
 	noCreditCardMid: 'カード登録不要',
+	// #1904 (PERS-CRT-5): hero cta-trust-badges 用の動詞ベース詳細訴求 atom。
+	// 「クレジットカード登録不要」を 6 箇所連発から hero 1 箇所のみに絞り、その 1 箇所では
+	// 「いつ入力するか」を明示することで田中ゆかり P1 の「後で登録しろって言われるんでしょ?」
+	// サブスク被害連想を断つ。短縮形 (noCreditCard) / 体言止め (noCreditCardMid) と意味文脈が
+	// 異なるため独立 atom として保持し、cta-trust-badges 1 箇所限定で使用する。
+	noCreditCardDetailed: '無料体験中もカード情報は不要。有料プラン切替時に初めて入力します',
 } as const;
 
 // ============================================================
@@ -83,7 +89,12 @@ export const TRIAL_TERMS = {
 
 export const CANCEL_TERMS = {
 	anytime: 'いつでも解約',
-	anytimeOk: 'いつでも解約 OK',
+	// #1904 (PERS-CRT-5): 旧値 'いつでも解約 OK' は田中ゆかり P1 が
+	// 「OK って書いてあるけど本当に違約金とかないの?」とサブスク被害連想で警戒。
+	// 動詞ベース + 契約期間明示で軽さを排除し、不安の根本（解約の縛り）に直接答える。
+	// 文字数は 6 → 19 文字に増えるが LP `cta-trust-badges` / `pricing.html ctaDisclaimerBadges`
+	// 等の表示コンテキストでは行内収まる範囲で許容（必要に応じて CSS 側で改行調整）。
+	anytimeOk: 'いつでも解約できます（契約期間の縛りなし）',
 } as const;
 
 // ============================================================
