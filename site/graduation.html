@@ -25,7 +25,10 @@
 .graduation-breadcrumb{max-width:1080px;margin:0 auto;padding:14px 16px;font-size:.85rem;color:var(--gray-500)}
 .graduation-breadcrumb a{color:var(--brand-700);text-decoration:none}
 .graduation-breadcrumb a:hover{text-decoration:underline}
-.graduation-breadcrumb .sep{margin:0 8px;color:var(--gray-300)}
+/* #1906 a11y bundle (Re-Review broader audit): gray-300 (#cbd5e1) on white = 1.6:1 fail。
+   "›" は breadcrumb の階層関係を示す情報付き graphic で、WCAG 1.4.11 (非テキスト 3:1) を満たすべき。
+   gray-500 (#64748b) = 4.6:1 PASS に統一。*/
+.graduation-breadcrumb .sep{margin:0 8px;color:var(--gray-500)}
 
 /* 成長ステージ詳細 (#1848: LP から graduation.html へ移管 / #1895: 「5 ステージ」表現リフレーム済。
    gr-shot は LP 本体の max-height:96px から専用ページの 240px に拡張。
