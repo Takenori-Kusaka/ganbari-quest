@@ -104,8 +104,8 @@ Tailwind / Material Design 系列に整合。4px グリッド外の値（14px = 
 | `--lp-faq-item-padding-y` | `14px` | `.faq-item` 上下 padding (#1831、4px グリッド外のため直値) |
 | `--lp-hero-padding-top` | `var(--space-12)` | `.hero` 上 padding (48px) |
 | `--lp-hero-padding-bottom` | `var(--space-9)` | `.hero` 下 padding (36px) |
-| `--lp-card-padding-y` | `var(--space-5)` | card 系 (`.tour-card` / `.soft-card` 等) 縦 padding 標準値 (20px) |
-| `--lp-card-padding-x` | `var(--space-4)` | card 系 横 padding 標準値 (16px) |
+| `--lp-card-padding-y` | `var(--space-4)` | card 系統合 (`.tour-card` / `.soft-card` / `.core-loop-card`) 縦 padding 既定 (16px、#1911 B-1 で `var(--space-5)` から圧縮) — 詳細は §3.5 |
+| `--lp-card-padding-x` | `14px` | card 系統合 横 padding 既定 (14px、4px グリッド外のため直値、#1911 B-1 で `var(--space-4)` から圧縮) — 詳細は §3.5 |
 | `--lp-card-gap` | `var(--space-5)` | grid 間隔 (20px) |
 | `--lp-container-max` | `1080px` | section-inner / header-inner / footer-inner の最大幅 |
 | `--lp-container-max-wide` | `1280px` | hero / machine-tour / guide 用ワイド版 |
