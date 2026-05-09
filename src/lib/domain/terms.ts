@@ -126,3 +126,29 @@ export const CTA_TERMS = {
 	freeTrialVerb: '無料で試す',
 	freeTrialDesc: '無料で試せます',
 } as const;
+
+// ============================================================
+// LP_FAQ_TERMS — LP「FAQ / よくあるご質問」用語 atom (#1898 PO-4-12)
+// ============================================================
+//
+// 「FAQ」「よくあるご質問」等、LP 法的注記 / FAQ 導線 / nav リンクで頻出する
+// 名詞句を atom として集約。labels.ts LP_LEGAL_DISCLAIMER_LABELS / LP_FAQ_LABELS /
+// LP_NAV_LABELS 等の compound はこの atom を参照する。
+//
+// 設計指針:
+//   - canonicalShort: 短縮形「FAQ」（法的注記 / 賠償リンク / 解約 disclaimer の inline link 文末）
+//   - canonicalLong:  長形「よくあるご質問」（nav / 専用ページ見出し等の独立表示）
+//
+// PO-4-12 (4 回目指摘) で `LP_LEGAL_DISCLAIMER_LABELS.liabilityBody` /
+// `liabilityLinks` / `cancelDisclaimerLinks` の値内に「FAQ」リテラルが
+// 直接混入していた構造を、本 atom 経由の template literal 参照に置換する
+// （ADR-0045 §3.3 atom / compound 責務分離）。
+//
+// canonicalShort の値「FAQ」は本 atom 定義の 1 箇所のみとし、labels.ts 値内の
+// 文字列リテラル「FAQ」直書きは scripts/check-no-plan-literals.mjs 等で
+// 段階的に取り締まる方針（中期 follow-up #1909 textlint-rule-prh）。
+
+export const LP_FAQ_TERMS = {
+	canonicalShort: 'FAQ',
+	canonicalLong: 'よくあるご質問',
+} as const;

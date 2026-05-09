@@ -8,10 +8,12 @@
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
 // #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
 // #1963 (Phase 7 H6): LICENSE_PAGE_LABELS で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
+// #1898 (PO-4-12): LP_FAQ_TERMS を LP_LEGAL_DISCLAIMER_LABELS から参照（liabilityBody / liabilityLinks / cancelDisclaimerLinks の「FAQ」直書きを atom 経由に置換）
 import {
 	CANCEL_TERMS,
 	CTA_TERMS,
 	FREE_TERMS,
+	LP_FAQ_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
 	PRICE_TERMS,
@@ -4142,19 +4144,25 @@ export const LP_COMMON_LABELS = {
 // #1952 (Phase 4 E5): cancelDisclaimer の 3 PLAN 名 (無料 / スタンダード / ファミリー) を terms.ts (PLAN_TERMS) 参照に。
 //                     faqLiabilityFree の「無料プラン」は PLAN_FULL_TERMS.free を参照。
 //                     既存テキストとの char-by-char 一致を保ちつつ、プラン名 atom の SSOT を terms.ts に統一。
+// #1898 (PO-4-12, 4 回目指摘): liabilityBody / liabilityLinks / cancelDisclaimerLinks の値内に
+//                     文字列リテラル「FAQ」が直書きされていた構造を、LP_FAQ_TERMS atom 参照に置換。
+//                     ADR-0045 §3.3 atom / compound 責務分離原則に整合。
+//                     値内に「FAQ」リテラルが残らないため、用語変更時は LP_FAQ_TERMS の 1 箇所のみ更新で全箇所反映。
 export const LP_LEGAL_DISCLAIMER_LABELS = {
 	// #1643 R38 + #1733 R16 整合: 実装 grace-period-service.ts の {free: 0, standard: 7, family: 30} に合わせプラン別表記
 	// LP メトリクス desktopHeight ratchet 維持のため可読性確保しつつ簡潔に
 	// #1952: PLAN 名 atom (PLAN_TERMS) を terms.ts から参照。解約期間数値 (0/7/30) は grace-period-service.ts SSOT との対応で直書き維持
 	cancelDisclaimer: `※解約後はプラン別の読み取り専用猶予期間（${PLAN_TERMS.free} 即時 / ${PLAN_TERMS.standard} 7 日 / ${PLAN_TERMS.family} 30 日）後にすべてのデータが完全に削除されます。日割り返金はありません。`,
-	cancelDisclaimerLinks: 'FAQ / 特定商取引法に基づく表記',
+	// #1898: 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換（4 回目指摘の構造的再発ブロック）
+	cancelDisclaimerLinks: `${LP_FAQ_TERMS.canonicalShort} / 特定商取引法に基づく表記`,
 	// #1838: cta-bottom セクション全削除に伴い cancelDisclaimerCta / cancelDisclaimerCtaLink を削除。
 	//        他箇所（pricing.html / pamphlet.html 等）の disclaimer は cancelDisclaimer + cancelDisclaimerLinks を使用。
 	liabilityTitle: 'サービス利用に関する重要なご案内',
 	// #1721 R6: LP 本体は具体数字を除去し規約 / FAQ にリンク誘導。詳細記述は faqLiability* / 利用規約第 12 条で残存
-	liabilityBody:
-		'本サービスは個人開発のため、利用規約にて賠償上限を定めております。詳しくは利用規約・FAQ をご確認ください。',
-	liabilityLinks: '利用規約 第 12 条 / FAQ「賠償について」',
+	// #1898: 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換
+	liabilityBody: `本サービスは個人開発のため、利用規約にて賠償上限を定めております。詳しくは利用規約・${LP_FAQ_TERMS.canonicalShort} をご確認ください。`,
+	// #1898: 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換
+	liabilityLinks: `利用規約 第 12 条 / ${LP_FAQ_TERMS.canonicalShort}「賠償について」`,
 	faqLiabilityIntro:
 		'本サービスは個人開発者が運営する小規模サービスであり、利用規約 第 12 条（免責事項）に基づき、賠償額には上限を設けております。',
 	faqLiabilityPaid:
@@ -5881,7 +5889,8 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k86: 'よくあるご質問',
 	k87: '保護者の皆さまから特によくいただく 3 つ。',
 	k88: '他のご質問は ',
-	k89: 'FAQ 専用ページ（24 項目）',
+	// #1898 (PO-4-12): 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換（LP_LEGAL_DISCLAIMER_LABELS と統一）
+	k89: `${LP_FAQ_TERMS.canonicalShort} 専用ページ（24 項目）`,
 	k90: ' をご覧ください。',
 	k91: '無料トライアルにクレジットカードは必要ですか？',
 	// #1956 (Phase 3 D11): '無料プラン' = PLAN_FULL_TERMS.free 参照化（'7 日間' は半角スペース有りで直書き継続）
@@ -5895,7 +5904,8 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k99: '終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。',
 	k100: '詳しくはこちら',
 	k101: '料金・兄弟姉妹・年齢モード・エクスポート等、他のご質問は ',
-	k102: 'FAQ 専用ページ',
+	// #1898 (PO-4-12): 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換（LP_LEGAL_DISCLAIMER_LABELS と統一）
+	k102: `${LP_FAQ_TERMS.canonicalShort} 専用ページ`,
 	k103: ' へ。',
 	k104: '家族で全部使ってから、続けるか決める',
 	// #1956 (Phase 3 D11): 'クレジットカード登録不要' = TRIAL_TERMS.noCreditCard 参照化、
