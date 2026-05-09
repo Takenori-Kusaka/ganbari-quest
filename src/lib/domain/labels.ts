@@ -6502,6 +6502,17 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//   カスタマイズ性」を訴求するため「家庭ごとにカスタマイズできること」を採用。
 	softBenefitFamilySupport:
 		'<strong>家庭ごとにカスタマイズできること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く',
+	// #1900 (UIUX-C-1): hero carousel 4 枚を年齢帯 3 系統 (preschool / elementary / junior) + 管理画面に再構成。
+	//   旧構成は 4 枚すべて lower (elementary) 固定で alt「3〜18 歳の代表」と実体が乖離 (ADR-0013 LP truth 違反)。
+	//   田中ゆかり persona 受容性検証「うちの幼児・小学生の画面が見えれば自分向けと判断できる」を踏まえ、
+	//   carousel-1 = 幼児 (3-5 歳代表) / carousel-2 = 小学生 (6-12 歳代表) / carousel-3 = 中高生 (13-18 歳代表)
+	//   / carousel-4 = ご家族の見守り画面 (管理画面) の 4 枚に再構成する。
+	//   alt と data-label (carousel-label aria-live) は同一テキストを参照することで、可視テキスト・SR
+	//   の両者で年齢帯整合を保つ。旧 k4 はリテラル維持（HTML 側参照なし、後方互換のため namespace 整合用に保持）。
+	carouselSlide1Alt: '幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン',
+	carouselSlide2Alt: '小学生（6-12 歳代表）のホーム画面 — 活動記録とポイント獲得',
+	carouselSlide3Alt: '中高生（13-18 歳代表）のホーム画面 — 自己管理ダッシュボード',
+	carouselSlide4Alt: 'ご家族の見守り画面（管理画面）— 子供の様子を確認',
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {

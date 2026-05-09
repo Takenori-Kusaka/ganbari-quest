@@ -83,12 +83,16 @@ CSS では `.cta-trust-badges li img{width:18px;height:18px;display:block;flex-s
 
 ---
 
-## LP スクショ — site/index.html 内の機能画像 (#1707 / #1712)
+## LP スクショ — site/index.html 内の機能画像 (#1707 / #1712 / #1900)
 
-LP `site/index.html` の machine-tour / soft-features / growth-roadmap セクションで参照する実画面のスクリーンショット一覧。`scripts/capture-hp-screenshots.mjs` が `/demo/<mode>/<path>` のデモ画面から自動撮影し `site/screenshots/` に出力する。`.gitignore` で git 追跡対象外（GitHub Pages デプロイ時に CI が生成）。
+LP `site/index.html` の hero carousel / machine-tour / soft-features / growth-roadmap セクションで参照する実画面のスクリーンショット一覧。`scripts/capture-hp-screenshots.mjs` が `/demo/<mode>/<path>` のデモ画面から自動撮影し `site/screenshots/` に出力する。`.gitignore` で git 追跡対象外（GitHub Pages デプロイ時に CI が生成）。
 
 | ファイル名 | LP セクション | 撮影元 URL（routes） | サイズ（mobile / desktop） |
 |----------|------------|--------------------|--------------------------|
+| **`carousel-1-child-home{,-desktop}.webp`** (#1900) | hero carousel slide 1（幼児 3-5 歳代表） | `/demo/kinder/home` | 780×1688 / 2880×1800 |
+| **`carousel-2-child-status{,-desktop}.webp`** (#1900) | hero carousel slide 2（小学生 6-12 歳代表） | `/demo/lower/home` | 780×1688 / 2880×1800 |
+| **`carousel-3-admin-main{,-desktop}.webp`** (#1900) | hero carousel slide 3（中高生 13-18 歳代表） | `/demo/upper/home` | 780×1688 / 2880×1800 |
+| **`carousel-4-admin-sub{,-desktop}.webp`** (#1900) | hero carousel slide 4（ご家族の見守り画面 / 管理画面） | `/demo/admin` | 780×1688 / 2880×1800 |
 | `feature-point-level{,-desktop}.webp` | machine-tour ① | `/demo/lower/home` | 780×1688 / 2880×1800 |
 | `feature-titles{,-desktop}.webp` | machine-tour ② | `/demo/lower/achievements` | 780×1688 / 2880×1800 |
 | `feature-belongings-checklist{,-desktop}.webp` | machine-tour ② | `/demo/checklist?childId=904` | 780×1688 / 2880×1800 |

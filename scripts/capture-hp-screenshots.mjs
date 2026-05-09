@@ -61,32 +61,41 @@ const DESKTOP = { width: 1440, height: 900, deviceScaleFactor: 2 };
 // Screenshot definitions
 // ============================================================
 
+// #1900 (UIUX-C-1): hero carousel 4 枚を年齢帯 3 系統 + 管理画面に再構成。
+//   旧構成は 4 枚すべて /demo/lower/* 固定で alt「3〜18 歳の代表」と実体が乖離していた
+//   (ADR-0013 LP truth 違反)。本リファクタで以下の 4 枚に組み替える:
+//     carousel-1 = 幼児 (preschool 互換 = legacy `kinder` mode) ホーム
+//     carousel-2 = 小学生 (elementary 互換 = legacy `lower` mode) ホーム
+//     carousel-3 = 中高生 (junior 互換 = legacy `upper` mode) ホーム
+//     carousel-4 = ご家族の見守り画面 (管理画面)
+//   `name` は HTML 側 <img src="screenshots/<name>-mobile.webp"> と一致するため後方互換維持。
+//   alt / data-label の SSOT は `LP_INDEX_PHASEB_LABELS.carouselSlide{1..4}Alt` (#1900 で追加)。
 const CAROUSEL_SCREENSHOTS = [
 	{
 		name: 'carousel-1-child-home',
-		url: '/demo/lower/home',
-		description: 'Carousel 1: 子供ホーム画面（冒険スタートモード）',
+		url: '/demo/kinder/home',
+		description: 'Carousel 1: 幼児（3-5 歳代表）ホーム画面 — ひらがな・大きなボタン',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
 	{
 		name: 'carousel-2-child-status',
-		url: '/demo/lower/status',
-		description: 'Carousel 2: 成長レーダーチャート',
+		url: '/demo/lower/home',
+		description: 'Carousel 2: 小学生（6-12 歳代表）ホーム画面 — 活動記録とポイント獲得',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
 	{
 		name: 'carousel-3-admin-main',
-		url: '/demo/admin',
-		description: 'Carousel 3: 親の管理ダッシュボード',
+		url: '/demo/upper/home',
+		description: 'Carousel 3: 中高生（13-18 歳代表）ホーム画面 — 自己管理ダッシュボード',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
 	{
 		name: 'carousel-4-admin-sub',
-		url: '/demo/admin/activities',
-		description: 'Carousel 4: 活動管理画面（プリセット活動表示）',
+		url: '/demo/admin',
+		description: 'Carousel 4: ご家族の見守り画面（管理画面）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
