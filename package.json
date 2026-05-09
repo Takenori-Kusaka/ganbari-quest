@@ -74,6 +74,8 @@
 		"generate:stamps:regenerate-all": "node scripts/regenerate-all-stamps.mjs",
 		"generate:image": "node scripts/generate-image.mjs",
 		"generate:coreloop-summary": "node scripts/generate-coreloop-summary.mjs",
+		"generate:sitemap": "node scripts/generate-sitemap.mjs",
+		"generate:sitemap:check": "node scripts/generate-sitemap.mjs --check",
 		"generate:stripe-product-images": "node scripts/generate-stripe-product-images.mjs",
 		"check:no-demo-route-dup": "node scripts/check-no-demo-route-duplication.mjs",
 		"check:cron-observability": "node scripts/check-cron-observability.mjs",
