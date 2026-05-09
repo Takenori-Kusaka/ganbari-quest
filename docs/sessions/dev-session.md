@@ -112,6 +112,16 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 9. **Ready 化前に 4 必須 CI gate チェック**（[Skill: dev-open-pr ready-gate-checklist](../../.claude/skills/dev-open-pr/ready-gate-checklist.md)）— AC 検証マップ / 必須セクション / `[x]` 完了 / SS 4 スロット を機械的に確認
 10. CI 全通過後 Ready: `gh pr ready <num>`
 
+### PR 起票アカウント違反からの復旧 (#1994)
+
+server side gate (`.github/workflows/pr-author-guard.yml`) で違反 PR が即時 close + 違反コメント投稿された場合の再起票手順:
+
+1. `gh auth switch --user Takenori-Kusaka` で Dev アカウントに切替え
+2. `gh auth status` で `Active account: true` が `Takenori-Kusaka` であることを確認
+3. `node scripts/check-gh-account-before-pr.mjs` が exit 0 で通過することを確認
+4. 同じブランチから `gh pr create --draft ...` で再起票（既存 commit 履歴は再利用、新ブランチ不要）
+5. 旧 PR (closed) は 違反コメント保全のため reopen / 削除しない (ADR-0022 監査証跡)
+
 ## 新規実装時
 
 1. AC を読む。不明点は Issue にコメント確認

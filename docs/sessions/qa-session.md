@@ -160,7 +160,12 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 - **CI 緑 = approve**（#1197 / #1198）/ SS 未視認で approve / Issue を開かず approve / 「見ました」だけの所見
 - 1 Agent で複数 PR / 独自フォーマットの approve body / `--admin` bypass（ADR-0022 完全禁止）
 - CI 失敗のゼロベーストラブルシュート（KB 参照 → Fix Agent spawn が標準）
-- **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は機械強制機構（#1879、`.claude/settings.json` PreToolUse hook + `.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`）で abort される — ADR-0022 amendment 3 参照。
+- **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は **3 層機械強制機構** で abort される:
+    - L1: `.claude/settings.json` PreToolUse hook (`scripts/claude-hook-prevent-qa-account-pr.mjs`、Claude / Agent 経由の `gh pr create` / `gh api .../pulls` を捕捉、#1879)
+    - L2: `.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`（`git push` 直前検査、#1879）
+    - L3: `.github/workflows/pr-author-guard.yml` server side gate (`pull_request: opened/reopened/ready_for_review` で発火、Web UI / 別 client / API 直叩きを含む全経路を捕捉して PR を即時 close + 違反コメント投稿、#1994)
+    - L1/L2 が事前防止層、L3 が事後 close 層。違反 PR が L3 で close された場合の再起票手順は `docs/sessions/dev-session.md §PR 起票アカウント違反からの復旧` を参照
+    - 詳細: ADR-0022 amendment 3 (#1879 / #1994)
 
 ## Dependabot / 品質基準
 
