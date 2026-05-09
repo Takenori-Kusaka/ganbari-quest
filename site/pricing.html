@@ -68,8 +68,11 @@
 .plan-features{list-style:none;padding:0;flex:1}
 .plan-features li{font-size:.85rem;color:var(--gray-700);padding:6px 0 6px 24px;position:relative;line-height:1.5}
 .plan-features li::before{content:'\2713';position:absolute;left:0;color:var(--green-500);font-weight:700}
-.plan-features li.disabled{color:var(--gray-300)}
-.plan-features li.disabled::before{content:'\2014';color:var(--gray-300)}
+/* #1906 TECH-D-5: gray-300 (#cbd5e1) on white = 1.6:1 (WCAG AA fail)。
+   gray-500 (#64748b) on white = 4.6:1 PASS。disabled feature も SR で「未対応」と
+   読み上げられるよう visually distinguish はそのまま (line-through) で十分。 */
+.plan-features li.disabled{color:var(--gray-500);text-decoration:line-through;text-decoration-color:var(--gray-300)}
+.plan-features li.disabled::before{content:'\2014';color:var(--gray-500)}
 .plan-divider{border-top:1px solid var(--gray-200);margin:12px 0;padding:0}
 
 /* Comparison Table (#1657 R50 B-1: tbody 列強調 / #1659 R52: モバイル可読性) */
@@ -172,6 +175,9 @@
 </head>
 <body>
 
+<!-- #1906 TECH-D-4: skip-to-content link -->
+<a href="#main-content" class="skip-link">本文へスキップ</a>
+
 <!-- Header -->
 <header class="header">
   <div class="header-inner">
@@ -188,6 +194,9 @@
     </nav>
   </div>
 </header>
+
+<!-- #1906 TECH-D-4: <main> ラッパー (skip-link target) -->
+<main id="main-content" tabindex="-1">
 
 <!-- Hero (#1652 R46) -->
 <section class="pricing-hero">
@@ -469,11 +478,14 @@
     <a href="https://ganbari-quest.com/demo" class="btn btn-outline btn-lg" data-lp-key="common.ctaDemo">デモを見る</a>
   </div>
   <ul class="cta-trust-badges" aria-label="お申し込み前の安心ポイント">
-    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> クレジットカード登録不要</li>
-    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> 広告なし</li>
-    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> いつでも解約 OK</li>
+    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> クレジットカード登録不要</li>
+    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> 広告なし</li>
+    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async"> いつでも解約 OK</li>
   </ul>
 </section>
+
+</main>
+<!-- /#1906 TECH-D-4 -->
 
 <!-- Footer -->
 <footer class="footer">
