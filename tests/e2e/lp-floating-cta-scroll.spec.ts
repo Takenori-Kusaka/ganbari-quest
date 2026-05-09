@@ -99,7 +99,8 @@ test.describe('#1732 floating-cta スクロール深度別文言', () => {
 
 		const text = page.locator('#floating-cta-text');
 		await expect(text).toContainText('全機能を家族で試せる');
-		await expect(text).toContainText('クレジットカード不要');
+		// #1904 (PERS-CRT-5): heroText から「クレジットカード不要」削除。「7 日間無料」のみ残す。
+		await expect(text).toContainText('7 日間無料');
 
 		const button = page.locator('#floating-cta-button');
 		await expect(button).toHaveText('無料で始める');

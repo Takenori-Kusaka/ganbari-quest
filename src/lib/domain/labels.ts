@@ -4032,6 +4032,8 @@ export const LP_NAV_LABELS = {
 	signup: `${FREE_TERMS.tryFree}`,
 	login: 'ログイン',
 	features: 'できること',
+	// #1906 TECH-D-4: skip-to-content link (a11y) — site/*.html 全 10 ファイルで参照
+	skipToContent: '本文へスキップ',
 } as const;
 
 // #1957 (Phase 3 D12): atom 化対象ゼロをコメント注記で記録（PLAN 系）。
@@ -4081,8 +4083,11 @@ export const LP_HERO_PRICE_BAND_LABELS = {
 // site/index.html / pricing.html / faq.html の CTA 直下に配置
 // #1953 (Phase 3 D8): noCreditCard を TRIAL_TERMS、cancelAnytime を CANCEL_TERMS から参照。
 //                     noAds は terms.ts atom 該当なしで据置き。char-by-char 一致を維持。
+// #1904 (PERS-CRT-5): noCreditCard を TRIAL_TERMS.noCreditCardDetailed (動詞ベース + 切替時説明)
+//                     に切替。hero 領域で「クレジットカード登録不要」関連表記を本 badge 1 箇所のみに
+//                     絞り、サブスク被害連想 (田中ゆかり P1) を断つ。
 export const LP_CTA_TRUST_BADGES_LABELS = {
-	noCreditCard: `${TRIAL_TERMS.noCreditCard}`,
+	noCreditCard: `${TRIAL_TERMS.noCreditCardDetailed}`,
 	noAds: '広告なし',
 	cancelAnytime: `${CANCEL_TERMS.anytimeOk}`,
 } as const;
@@ -4224,7 +4229,9 @@ export const LP_PRICING_LABELS = {
 	heroSubtext: '有料プランはすべて',
 	heroSubtextStrong: '7日間の無料体験',
 	heroSubtextSuffix: `付き（${TRIAL_TERMS.noCreditCard}）`,
-	heroPriceBand: `${FREE_TERMS.base} ・ 月 ${PRICE_TERMS.standard}（税込）から ・ 有料は 7 日間無料体験 ・ いつでも解約 OK`,
+	// #1904 (PERS-CRT-5): 文末「いつでも解約 OK」を CANCEL_TERMS.anytimeOk atom 参照に変更し、
+	//                     atom 1 行更新で全コンテンツに伝播するよう SSOT 化（旧値直書き解消）。
+	heroPriceBand: `${FREE_TERMS.base} ・ 月 ${PRICE_TERMS.standard}（税込）から ・ 有料は 7 日間無料体験 ・ ${CANCEL_TERMS.anytimeOk}`,
 	heroCtaPrimary: '7 日間無料トライアル',
 	heroCtaSecondary: 'プランを比較する',
 
@@ -4262,7 +4269,10 @@ export const LP_PRICING_LABELS = {
 	planFamilyCta: '7日間 無料体験',
 
 	// CTA disclaimer (#1646 R41)
-	ctaDisclaimerBadges: '✅ クレジットカード登録不要 ✅ 自動課金なし ✅ いつでも解約 OK',
+	// #1904 (PERS-CRT-5): 各 atom (TRIAL_TERMS.noCreditCard / CANCEL_TERMS.anytimeOk) を terms.ts から参照。
+	//                     pricing.html L226 / L251 / L276 の 3 plan card disclaimer は同 key 参照済 (SSOT)。
+	//                     atom 1 行更新で全 badge に伝播する。
+	ctaDisclaimerBadges: `✅ ${TRIAL_TERMS.noCreditCard} ✅ 自動課金なし ✅ ${CANCEL_TERMS.anytimeOk}`,
 	ctaDisclaimerNote: '※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。',
 
 	// Plan note (below cards) — #1650 R44 (括弧書き一掃) / #1629 R25 (「コンボ」→「連続達成ボーナス」へ)
@@ -5784,12 +5794,15 @@ export const LP_SELFHOST_LABELS = {
 //                     - heroText の「7 日間無料」「クレジットカード不要」(短縮形) は TRIAL_TERMS atom と表記揺れあり
 //                     - bottomText / ariaLabelHero の「7 日間無料」も同様
 //                     文字列差分ゼロ維持を優先しリテラル維持。
+// #1904 (PERS-CRT-5): heroText / bottomText から「クレジットカード不要」削除。
+//                     LP 全体で「クレジットカード登録不要」関連表記を hero cta-trust-badges 1 箇所のみに
+//                     絞り、3 連発による不信感増幅 (田中ゆかり P1 サブスク被害連想) を解消。
 export const LP_FLOATING_CTA_LABELS = {
 	// 各 phase の補強コピー（HTML 可、<small> + <strong> のみ想定）
-	heroText: '全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small>',
+	heroText: '全機能を家族で試せる<small>7 日間無料</small>',
 	// #1892 (PO-4-6 2 回目指摘): 旧表現の内部 IA 用語撤廃。前段 [03] 顧客語彙「3 つの仕組み」と整合。
 	midText: '3 つの仕組みは 1 分で体験できます<small>サインアップ前に動きを確認</small>',
-	bottomText: 'ここまで読まれた方へ<small>7 日間無料・クレジットカード不要</small>',
+	bottomText: 'ここまで読まれた方へ<small>7 日間無料</small>',
 	// 各 phase の CTA ボタン文言（既存 ctaVariants 3 種の範囲内）
 	heroButton: `${FREE_TERMS.tryFree}`,
 	midButton: 'デモを見る',
@@ -5822,7 +5835,10 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k6: '    3〜18 歳の毎日の習慣を、ポイント・シール・レベルで冒険に変える。声をかけなくても、自分から動きだす家族時間へ。',
 	k7: `${FREE_TERMS.tryFree}`,
 	k8: 'デモを見る',
-	k9: `家族何人でも無料ではじめられます / ${TRIAL_TERMS.noCreditCard}`,
+	// #1904 (PERS-CRT-5): hero L483 hero-note の「クレジットカード登録不要」削除。
+	//                     hero 領域では cta-trust-badges (LP_CTA_TRUST_BADGES_LABELS.noCreditCard)
+	//                     の 1 箇所のみで訴求し、3 連発による不信感増幅を解消。
+	k9: '家族何人でも無料ではじめられます',
 	k10: '子供のホーム画面 — 活動を記録してポイントゲット',
 	k11: 'お子さまの年齢で、画面とむずかしさが変わります',
 	k12: '3 歳から 18 歳まで、2 つの UI モードが対応。',
@@ -6478,7 +6494,9 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k52: '・',
 	k53: '<strong>7 日間無料トライアル</strong>',
 	k54: '・',
-	k55: 'いつでも解約 OK',
+	// #1904 (PERS-CRT-5): リテラル直書きを CANCEL_TERMS.anytimeOk atom 参照に切替。
+	//                     atom 1 行更新で全コンテンツに伝播するよう SSOT 化。
+	k55: `${CANCEL_TERMS.anytimeOk}`,
 	k56: 'お子さま 2 人までのご家庭なら、無料プランで冒険の仕組みをすべてお使いいただけます。3 人以上 / 長期履歴 / AI 自動提案は有料プランで。',
 	k57: '<a href="pricing.html" class="btn btn-primary">料金の詳細を見る &#8594;</a>',
 	k58: 'お子さまのデータは、家族だけのものです',

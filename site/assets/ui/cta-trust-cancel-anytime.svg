@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-labelledby="cta-trust-cancel-anytime-title">
-  <title id="cta-trust-cancel-anytime-title">いつでも解約 OK アイコン</title>
+  <title id="cta-trust-cancel-anytime-title">いつでも解約できます アイコン</title>
   <!-- 循環矢印 (recycle / refresh モチーフ) で「いつでも切替・解約」を表現 (#1824 cta-trust-badges SVG 化) -->
   <g fill="none" stroke="#1f4f7e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
     <!-- 上半分の弧 (右回り) -->
