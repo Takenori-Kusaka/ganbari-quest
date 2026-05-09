@@ -41,15 +41,41 @@ const BASE_URL = 'https://www.ganbari-quest.com';
 /**
  * URL prefix → priority/changefreq ルール表。
  * 配列順で最初に match した entry を採用する (top-down resolve)。
+ *
+ * @type {Array<{match: (url: string) => boolean, priority: string, changefreq: string}>}
  */
 const PRIORITY_RULES = [
-	{ match: (url) => url === '/', priority: '1.0', changefreq: 'weekly' },
-	{ match: (url) => url === '/pricing.html', priority: '0.9', changefreq: 'monthly' },
-	{ match: (url) => url === '/faq.html', priority: '0.8', changefreq: 'monthly' },
-	{ match: (url) => url === '/graduation.html', priority: '0.8', changefreq: 'monthly' },
-	{ match: (url) => url === '/pamphlet.html', priority: '0.7', changefreq: 'monthly' },
-	{ match: (url) => url === '/selfhost.html', priority: '0.6', changefreq: 'monthly' },
-	{ match: (url) => url.startsWith('/help/'), priority: '0.5', changefreq: 'monthly' },
+	{ match: (/** @type {string} */ url) => url === '/', priority: '1.0', changefreq: 'weekly' },
+	{
+		match: (/** @type {string} */ url) => url === '/pricing.html',
+		priority: '0.9',
+		changefreq: 'monthly',
+	},
+	{
+		match: (/** @type {string} */ url) => url === '/faq.html',
+		priority: '0.8',
+		changefreq: 'monthly',
+	},
+	{
+		match: (/** @type {string} */ url) => url === '/graduation.html',
+		priority: '0.8',
+		changefreq: 'monthly',
+	},
+	{
+		match: (/** @type {string} */ url) => url === '/pamphlet.html',
+		priority: '0.7',
+		changefreq: 'monthly',
+	},
+	{
+		match: (/** @type {string} */ url) => url === '/selfhost.html',
+		priority: '0.6',
+		changefreq: 'monthly',
+	},
+	{
+		match: (/** @type {string} */ url) => url.startsWith('/help/'),
+		priority: '0.5',
+		changefreq: 'monthly',
+	},
 	{ match: () => true, priority: '0.4', changefreq: 'yearly' }, // terms / privacy / tokushoho / sla 等
 ];
 
@@ -193,9 +219,10 @@ function main() {
 }
 
 // ESM の直接実行判定 (import 経由ではテスト時 main() を呼ばない)
+const entryArg = process.argv[1] ?? '';
 const isDirectRun =
-	import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}` ||
-	import.meta.url.endsWith(path.basename(process.argv[1] ?? ''));
+	import.meta.url === `file://${entryArg.replace(/\\/g, '/')}` ||
+	import.meta.url.endsWith(path.basename(entryArg));
 if (isDirectRun) {
 	main();
 }
