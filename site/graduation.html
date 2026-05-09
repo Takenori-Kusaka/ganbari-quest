@@ -73,6 +73,9 @@
 </head>
 <body>
 
+<!-- #1906 TECH-D-4: skip-to-content link -->
+<a href="#main-content" class="skip-link">本文へスキップ</a>
+
 <!-- Header -->
 <header class="header">
   <div class="header-inner">
@@ -89,6 +92,9 @@
     </nav>
   </div>
 </header>
+
+<!-- #1906 TECH-D-4: <main> ラッパー (skip-link target) -->
+<main id="main-content" tabindex="-1">
 
 <!-- Hero -->
 <section class="graduation-hero">
@@ -195,6 +201,9 @@
     <a href="index.html" class="btn btn-secondary" data-lp-key="nav.home">ホーム</a>
   </div>
 </section>
+
+</main>
+<!-- /#1906 TECH-D-4 -->
 
 <!-- Footer -->
 <footer class="footer">

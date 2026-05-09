@@ -50,6 +50,9 @@ body{line-height:1.8;background:var(--gray-50)}
 </head>
 <body>
 
+<!-- #1906 TECH-D-4: skip-to-content link -->
+<a href="#main-content" class="skip-link">本文へスキップ</a>
+
 <header class="header">
   <div class="header-inner">
     <a href="index.html" class="logo">
@@ -65,6 +68,9 @@ body{line-height:1.8;background:var(--gray-50)}
     </nav>
   </div>
 </header>
+
+<!-- #1906 TECH-D-4: <main> ラッパー -->
+<main id="main-content" tabindex="-1">
 
 <!-- Hero -->
 <section class="selfhost-hero">
@@ -204,6 +210,9 @@ body{line-height:1.8;background:var(--gray-50)}
     <a href="https://github.com/Takenori-Kusaka/ganbari-quest" class="btn btn-outline btn-lg">&#x1F4BB; GitHub</a>
   </div>
 </section>
+
+</main>
+<!-- /#1906 TECH-D-4 -->
 
 <!-- Footer -->
 <footer class="footer">
