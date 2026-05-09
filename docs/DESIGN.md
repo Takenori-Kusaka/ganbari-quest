@@ -224,8 +224,11 @@ LP (`site/index.html`) の section padding / margin / heading / faq-item など 
 | `--lp-faq-item-padding-y` | `14px` | `.faq-item` 上下 padding (#1831、4px グリッド外のため直値) |
 | `--lp-hero-padding-top` | `var(--space-12)` | `.hero` 上 padding (48px) |
 | `--lp-hero-padding-bottom` | `var(--space-9)` | `.hero` 下 padding (36px) |
-| `--lp-card-padding-y` | `var(--space-5)` | card 系 (`.tour-card` / `.soft-card` 等) 縦 padding 標準値 (20px) |
-| `--lp-card-padding-x` | `var(--space-4)` | card 系 横 padding 標準値 (16px) |
+| `--lp-card-padding-y` (#1911 B-1) | `var(--space-4)` | card 系統合 (`.tour-card` / `.soft-card` / `.core-loop-card`) 縦 padding 既定 (16px) |
+| `--lp-card-padding-x` (#1911 B-1) | `14px` | card 系統合 横 padding 既定 (4px グリッド外、直値) |
+| `--lp-card-padding-y-md` / `-x-md` (#1911 B-1) | `var(--space-6)` / `22px` | card 系統合 @≥1024px (24px / 22px) |
+| `--lp-card-padding-y-lg` / `-x-lg` (#1911 B-1) | `var(--space-7)` / `var(--space-6)` | card 系統合 @≥1440px (28px / 24px) |
+| `--lp-card-shot-aspect-ratio` (#1911 B-3) | `390/844` | card 系 scrshot 枠 (`.tour-shot` / `.soft-shot` / `.age-panel-shot`) aspect-ratio 統一値 |
 | `--lp-card-gap` | `var(--space-5)` | `.machine-tour` / `.soft-grid` のグリッド間隔 (20px) |
 | `--lp-container-max` | `1080px` | section-inner / header-inner / footer-inner の最大幅 |
 | `--lp-container-max-wide` | `1280px` | hero / machine-tour / guide 用ワイド版 |

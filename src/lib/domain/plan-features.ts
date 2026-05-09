@@ -62,6 +62,9 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 		// #1644 R39: 実装は cloud-export-service.ts の手動エクスポート + 同時保管数上限のみ。
 		// 「自動」要素が実装に 0 件のため、景表法 5 条 1 号 (優良誤認) 回避のため表記を実態へ合致
 		'クラウド保管枠（同時保管 10 個・手動エクスポート）',
+		// #1911 (B-5): plan-card 3 種で項目数 8/9/8 不揃い (Family が standard より少ない違和感) の解消。
+		// データのダウンロードは standard から継承する機能だが、family の家族間データ共有訴求と密接なため明示掲載で揃える。
+		'データのダウンロード',
 		'無制限の履歴保持',
 		'メールサポート',
 	],

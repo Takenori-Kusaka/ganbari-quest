@@ -172,7 +172,7 @@
 .age-panel.active{display:grid}
 /* #1724 R8 / #1785 R-CRT-2: 内側 scrshot コンテナから border / background / border-radius を全撤去。
    外側 .age-panel border に集約し、スクショ自体だけが浮かぶ「白背景 + アプリ scrshot」状態を実現 */
-.age-panel-shot{overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:390/844}
+.age-panel-shot{overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:var(--lp-card-shot-aspect-ratio)}
 .age-panel-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
 .age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 /* #1799 U-MIN-4: WCAG AA (4.5:1) 対応。
@@ -214,7 +214,8 @@
 .core-loop-cards{display:grid;grid-template-columns:1fr;gap:14px;max-width:1080px;margin:0 auto}
 /* #1785 R-CRT-2: 5 系統 → 1 種統一 — core-loop card も共通枠 (#fff + 1 px var(--gray-300)) に集約。
    旧 border:2px solid var(--brand-200) を撤去し、差別化は cll-badge の色のみ */
-.core-loop-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-core-loop-card-padding) var(--lp-core-loop-card-padding);display:flex;flex-direction:column;gap:8px}
+/* #1911 (B-1): card 系統合トークン --lp-card-padding-* に集約。tour-card / soft-card と padding 揃え */
+.core-loop-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-card-padding-y) var(--lp-card-padding-x);display:flex;flex-direction:column;gap:8px}
 .core-loop-card .cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:3px 9px;letter-spacing:.07em;flex-shrink:0;align-self:flex-start}
 .core-loop-card[data-card="l1"] .cll-badge{background:var(--brand-500)}
 .core-loop-card[data-card="l2"] .cll-badge{background:var(--brand-700)}
@@ -235,7 +236,8 @@
 /* Machine tour (5-act, #1618 R14: PC 整然配置 + 画像有無の高さ揃え) */
 .machine-tour{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:1280px;margin:0 auto}
 /* #1724 R8: 装飾枠 1 段階に圧縮 — tour-card 外枠 border のみで内側 .tour-shot の border を撤去 */
-.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-tour-card-padding-y) var(--lp-tour-card-padding-x);display:flex;flex-direction:column;min-height:380px}
+/* #1911 (B-1 / B-2): card 系統合トークン --lp-card-padding-* に集約 + min-height:380px 撤去（自然高、soft-card と整合） */
+.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-card-padding-y) var(--lp-card-padding-x);display:flex;flex-direction:column}
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
 .tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
@@ -244,19 +246,20 @@
 /* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
 /* #1707 R2: scrshot 9 枚追加で mobile 高が膨張するため max-height を 200px に圧縮（PC 整然配置 #1618 と整合） */
 /* #1785 R-CRT-2: tour-shot からも background / border-radius を撤去。外側 .tour-card の枠に集約 */
-.tour-card .tour-shot{overflow:hidden;aspect-ratio:390/844;max-height:200px;margin-top:auto}
+.tour-card .tour-shot{overflow:hidden;aspect-ratio:var(--lp-card-shot-aspect-ratio);max-height:200px;margin-top:auto}
 .tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 /* #1707 R2 / #1793: 家庭で起きる / 楽になる / 家族で実感できる 1 行ベネフィットを screenshot 直下に併記 */
 .tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
 .tour-card .tour-benefit strong{color:var(--brand-700)}
 @media(min-width:1024px){
-  /* PC 整然配置 (#1846 PO-N-4 / #1910 AC4 UIUX-A-4):
+  /* PC 整然配置 (#1846 PO-N-4 / #1910 AC4 UIUX-A-4 / #1911 B-2):
      2 列で中央配置、grid-auto-rows で行高を揃える (PR #1812 / #1827 で 2 cards 化した残骸 4 列を是正)
      #1910 AC4: 旧 grid-template-columns:repeat(2,1fr) は viewport 幅に応じて 2 cards を画面幅いっぱいまで引き伸ばし
      desktop 余白が左右に偏る問題を生んでいた。
-     repeat(2,minmax(0,420px)) + justify-content:center で各 card を 420px 上限に固定し、両側の余白を均等化 */
+     repeat(2,minmax(0,420px)) + justify-content:center で各 card を 420px 上限に固定し、両側の余白を均等化
+     #1911 B-1/B-2: padding を card 統合 token (--lp-card-padding-*) に統一、min-height:520px 撤去（自然高統一） */
   .machine-tour{grid-template-columns:repeat(2,minmax(0,420px));justify-content:center;gap:20px;grid-auto-rows:1fr;max-width:960px;margin-inline:auto}
-  .tour-card{min-height:520px;padding:var(--lp-tour-card-padding-y-md) var(--lp-tour-card-padding-x-md)}
+  .tour-card{padding:var(--lp-card-padding-y-md) var(--lp-card-padding-x-md)}
   /* #1799 U-MIN-3: scrshot 高さを 200px → 280px (1.4 倍) に拡大。
      画像 alt と aspect-ratio (390/844) は維持し、card min-height も 480→520px に拡張 */
   .tour-card .tour-shot{max-height:280px;min-height:240px}
@@ -264,7 +267,7 @@
 @media(min-width:1440px){
   /* #1910 AC4: 1440px+ でも 420px 上限を維持し中央寄せ。max-width:1320px は不要 (justify-content:center が 2 cards を中央に配置) */
   .machine-tour{max-width:1320px;gap:24px}
-  .tour-card{padding:var(--lp-tour-card-padding-y-lg) var(--lp-tour-card-padding-x-lg)}
+  .tour-card{padding:var(--lp-card-padding-y-lg) var(--lp-card-padding-x-lg)}
 }
 
 /* Soft features */
@@ -278,13 +281,14 @@
 }
 /* #1785 R-CRT-2: 5 系統 → 1 種統一 — featured の box-shadow / 太枠 border 撤去。
    #1847 PO-N-5: featured 強調 (h3 拡大 + 文字色変更 / soft-shot max-height 拡大) も完全撤去し 3 cards 視覚均質化 */
-.soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-soft-card-padding-y) var(--lp-soft-card-padding-x);display:flex;flex-direction:column}
+/* #1911 (B-1): card 系統合トークン --lp-card-padding-* に集約 (旧 --lp-soft-card-padding-* は廃止) */
+.soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-card-padding-y) var(--lp-card-padding-x);display:flex;flex-direction:column}
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
 /* #1707 R2 / #1793: soft-card 内に家庭で楽になる / 家庭ごとにカスタマイズできる 1 行ベネフィットと screenshot を追加 */
 /* #1707 PR Phase 3-B fix: 料金セクション (#pricing) を docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
 /* #1785 R-CRT-2: soft-shot からも border / background / border-radius を撤去 */
-.soft-card .soft-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:8px 0}
+.soft-card .soft-shot{overflow:hidden;aspect-ratio:var(--lp-card-shot-aspect-ratio);max-height:96px;margin:8px 0}
 .soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 .soft-card .soft-benefit{font-size:.78rem;color:var(--gray-700);line-height:1.5;margin-top:auto}
 .soft-card .soft-benefit strong{color:var(--brand-700)}
@@ -919,11 +923,15 @@
         <div class="tb-icon"><img src="assets/ui/trust-family-circle.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k63">家族限定</h3>
         <p data-lp-key="indexB.k64">家族メンバー以外はお子さまのデータを閲覧できません。招待制で閉じた空間を維持します。</p>
+        <!-- #1911 (B-4): trust-badge #2 にリンク追加 (4 件中 2 件のみリンクありの不揃いを是正) -->
+        <a href="pricing.html#family-patterns" data-lp-key="indexB.k64Link">家族での使い方を詳しく見る &#8594;</a>
       </div>
       <div class="trust-badge">
         <div class="tb-icon"><img src="assets/ui/trust-lock.svg" alt="" aria-hidden="true" width="32" height="32"></div>
         <h3 data-lp-key="indexB.k65">保護者専用のカギ付き</h3>
         <p data-lp-key="indexB.k66">管理画面は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。</p>
+        <!-- #1911 (B-4): trust-badge #3 にリンク追加 (4 件中 2 件のみリンクありの不揃いを是正) -->
+        <a href="faq.html#privacy" data-lp-key="indexB.k66Link">FAQ で詳しく見る &#8594;</a>
       </div>
       <div class="trust-badge">
         <div class="tb-icon"><img src="assets/ui/trust-data-local.svg" alt="" aria-hidden="true" width="32" height="32"></div>

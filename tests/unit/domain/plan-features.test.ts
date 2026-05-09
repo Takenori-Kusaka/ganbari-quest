@@ -31,10 +31,11 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_FEATURES.standard).toHaveLength(9);
 		});
 
-		it('family プランは 8 項目（#1655 R49 家族メンバー招待無制限を明示）', () => {
+		it('family プランは 9 項目（#1911 B-5 plan-card 3 種揃え）', () => {
 			// #722: AI 自動提案をファミリー限定機能として追加
 			// #1655 R49: 家族メンバー招待: 無制限を明示で 7→8 項目
-			expect(PRICING_PAGE_FEATURES.family).toHaveLength(8);
+			// #1911 (B-5): plan-card 3 種で項目数 8/9/8 不揃い解消、データのダウンロード明示で 8→9 項目
+			expect(PRICING_PAGE_FEATURES.family).toHaveLength(9);
 		});
 
 		it('free には「90日間の履歴保持」が含まれる', () => {
