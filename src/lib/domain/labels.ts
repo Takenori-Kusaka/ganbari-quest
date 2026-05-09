@@ -3018,7 +3018,10 @@ export const PRICING_PAGE_LABELS = {
 		'お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・ログインボーナス・連続達成ボーナスなど）は',
 	featureNoteStrong: '全プラン共通',
 	featureNoteSuffix: 'で制限なし',
-	faqTitle: 'よくある質問',
+	// #1896 PO-4-10: 旧 'faqTitle: よくある質問' は LP_FAQ_TERMS.faqHtmlTitle 経由に統一
+	//   ('よくあるご質問' に長形式化)。key 名も compound 役割を明示する 'faqHeading' に rename
+	//   し atom と key 名の混同を防ぐ（src/routes/pricing/+page.svelte 参照を同期更新）。
+	faqHeading: `${LP_FAQ_TERMS.faqHtmlTitle}`,
 	faqFreePlanQ: `${PLAN_FULL_TERMS.free}でも十分使えますか？`,
 	faqFreePlanA:
 		'はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。',
@@ -4015,7 +4018,8 @@ export const DEMO_CHILD_ACHIEVEMENTS_LABELS = {
 // ============================================================
 
 // #1957 (Phase 3 D12): signup を FREE_TERMS.tryFree atom 参照化。
-//                     他 key (hamburgerAriaLabel / logoAlt / home / marketplace / pricing / faq /
+// #1896 (PO-4-10): faq を LP_FAQ_TERMS.canonicalLong 参照化（用語 SSOT 集約）。
+//                     他 key (hamburgerAriaLabel / logoAlt / home / marketplace / pricing /
 //                     selfhost / login / features) は LP ナビ専用文言で terms.ts atom 該当なし。
 export const LP_NAV_LABELS = {
 	hamburgerAriaLabel: 'メニュー',
@@ -4023,23 +4027,23 @@ export const LP_NAV_LABELS = {
 	home: 'ホーム',
 	marketplace: 'テンプレートを探す',
 	pricing: '料金プラン',
-	faq: 'よくあるご質問',
+	faq: `${LP_FAQ_TERMS.canonicalLong}`,
 	selfhost: '仕組みを公開（開発者向け）',
 	signup: `${FREE_TERMS.tryFree}`,
 	login: 'ログイン',
 	features: 'できること',
 } as const;
 
-// #1957 (Phase 3 D12): atom 化対象ゼロをコメント注記で記録。
-//                     LP_FOOTER_LABELS はブランド名 / リンクラベル / コピーライト等
-//                     LP フッター専用文言で構成され、PLAN/PRICE/TRIAL/CANCEL/FREE/CTA いずれの
-//                     terms.ts atom にも該当しない。
+// #1957 (Phase 3 D12): atom 化対象ゼロをコメント注記で記録（PLAN 系）。
+// #1896 (PO-4-10): faqLink を LP_FAQ_TERMS.canonicalLong 参照化（用語 SSOT 集約）。
+//                     他 key はブランド名 / リンクラベル / コピーライト等 LP フッター専用文言で
+//                     PLAN/PRICE/TRIAL/CANCEL/FREE/CTA いずれの terms.ts atom にも該当しない。
 export const LP_FOOTER_LABELS = {
 	brandName: 'がんばりクエスト',
 	brandTagline: 'お子さまの「がんばり」を冒険に変える家庭向けWebアプリ',
 	linksHeading: 'リンク',
 	pricingLink: '料金プラン',
-	faqLink: 'よくあるご質問',
+	faqLink: `${LP_FAQ_TERMS.canonicalLong}`,
 	// #1848: graduation.html 別ページ動線
 	graduationLink: '成長ロードマップ',
 	selfhostLink: '仕組みを公開（開発者向け）',
@@ -4310,7 +4314,10 @@ export const LP_PRICING_LABELS = {
 		'家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードは4人まで、ファミリープランは無制限で招待できます。',
 
 	// FAQ (#1647 R42 — labels.ts PRICING_PAGE_LABELS と整合 / #1643 R38 / #1653 R47)
-	faqTitle: 'よくある質問',
+	// #1896 PO-4-10: 旧 'faqTitle: よくある質問' は LP_FAQ_TERMS.faqHtmlTitle 経由に統一
+	//   ('よくあるご質問' に長形式化)。key 名は compound 役割を明示する 'faqHeading' に rename
+	//   し atom と key 名の混同を防ぐ（site/pricing.html data-lp-key 参照を同期更新）。
+	faqHeading: `${LP_FAQ_TERMS.faqHtmlTitle}`,
 	faqFreeQ: '無料プランでも十分使えますか？',
 	faqFreeA:
 		'はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のログインボーナス）は無料プランでも一切制限ありません。',
@@ -5483,7 +5490,9 @@ export const LP_LICENSEKEY_LABELS = {
 	text14: '1回限りの使用',
 	text15: '有効期限',
 	text16: '第三者への共有禁止',
-	text17: 'よくある質問',
+	// #1896 (PO-4-10): 旧 text17: 'よくある質問' を LP_FAQ_TERMS.canonicalLong 参照化
+	//   ('よくあるご質問' に統一)。本 namespace は selfhost.html license key 管理 FAQ 見出し。
+	text17: `${LP_FAQ_TERMS.canonicalLong}`,
 	text18: 'メールが届きません',
 	text19: '迷惑メールフォルダをご確認ください。',
 	text20: ' からのメールが届いていない場合、以下をお試しください。',
@@ -5522,9 +5531,10 @@ export const LP_LICENSEKEY_LABELS = {
 	text50: '画面に「適用完了」と表示されれば成功です。',
 } as const;
 
+// #1896 (PO-4-10): text1 / text2 を LP_FAQ_TERMS.canonicalLong 参照化（用語 SSOT 集約）。
 export const LP_FAQ_LABELS = {
-	text1: 'よくあるご質問 - がんばりクエスト',
-	text2: 'よくあるご質問',
+	text1: `${LP_FAQ_TERMS.canonicalLong} - がんばりクエスト`,
+	text2: `${LP_FAQ_TERMS.canonicalLong}`,
 	text3: 'お気軽にメール',
 	text4: 'カテゴリ一覧',
 	text5: '1. トライアル・解約',
@@ -5892,11 +5902,18 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k83: '広告ゼロ・データは家族の手元に',
 	k84: '家族のデータが広告にも第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。',
 	k85: '仕組みを詳しく知りたい方へ &#8594;',
-	k86: 'よくあるご質問',
+	// #1896 (PO-4-10): k86 を LP_FAQ_TERMS.canonicalLong 参照化。
+	//   旧 k89 = 'FAQ 専用ページ（24 項目）' は項目数の経時変動 (24/26/28 …) で
+	//   disclaimer 整合が破綻するため当 namespace から削除（HTML 側で参照ゼロ確認済）。
+	//   誘導文の SSOT は LP_FAQ_TERMS.inlineCtaSentence を新規誘導箇所で参照する。
+	k86: `${LP_FAQ_TERMS.canonicalLong}`,
 	k87: '保護者の皆さまから特によくいただく 3 つ。',
 	k88: '他のご質問は ',
-	// #1898 (PO-4-12): 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換（LP_LEGAL_DISCLAIMER_LABELS と統一）
-	k89: `${LP_FAQ_TERMS.canonicalShort} 専用ページ（24 項目）`,
+	// #1896 (PO-4-10) AC2: k89 完全削除。
+	//   旧値 'FAQ 専用ページ（24 項目）' は項目数の経時変動 (24/26/28 …) で
+	//   disclaimer 整合が破綻するため namespace から削除（HTML 側参照ゼロ確認済）。
+	//   誘導文の SSOT は LP_FAQ_TERMS.inlineCtaSentence。#1898 PO-4-12 で導入された
+	//   atom 参照版も AC2 厳密遵守のため最終的に削除する。
 	k90: ' をご覧ください。',
 	k91: '無料トライアルにクレジットカードは必要ですか？',
 	// #1956 (Phase 3 D11): '無料プラン' = PLAN_FULL_TERMS.free 参照化（'7 日間' は半角スペース有りで直書き継続）
@@ -5910,8 +5927,9 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k99: '終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。',
 	k100: '詳しくはこちら',
 	k101: '料金・兄弟姉妹・年齢モード・エクスポート等、他のご質問は ',
-	// #1898 (PO-4-12): 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換（LP_LEGAL_DISCLAIMER_LABELS と統一）
-	k102: `${LP_FAQ_TERMS.canonicalShort} 専用ページ`,
+	// #1896 (PO-4-10) AC2: k102 完全削除。
+	//   旧値 'FAQ 専用ページ'、HTML 側参照ゼロ。誘導文 SSOT は LP_FAQ_TERMS.inlineCtaSentence。
+	//   #1898 PO-4-12 で導入された atom 参照版も AC2 厳密遵守のため最終的に削除する。
 	k103: ' へ。',
 	k104: '家族で全部使ってから、続けるか決める',
 	// #1956 (Phase 3 D11): 'クレジットカード登録不要' = TRIAL_TERMS.noCreditCard 参照化、
@@ -6017,7 +6035,9 @@ export const LP_PAMPHLET_LABELS = {
 	k69: '冒険スタート！',
 	k70: '活動を記録するたびに',
 	k71: 'ポイント獲得 &amp; レベルアップ！',
-	k72: '&#x2753; よくある質問',
+	// #1896 (PO-4-10): 旧 k72: '&#x2753; よくある質問' を LP_FAQ_TERMS.canonicalLong 参照化
+	//   ('&#x2753; よくあるご質問' に統一)。本 namespace は pamphlet.html FAQ 見出し。
+	k72: `&#x2753; ${LP_FAQ_TERMS.canonicalLong}`,
 	k73: '料金はかかりますか？',
 	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、'ファミリープラン' = PLAN_FULL_TERMS.family。
 	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration と一致しないため直書き継続。
@@ -6471,15 +6491,24 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k67: 'データを家族の手元に',
 	k68: '家族のデータが第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。',
 	k69: '仕組みを詳しく知りたい方へ &#8594;',
-	k70: 'よくあるご質問',
-	k71: '保護者の皆さまから特によくいただく 3 つ。他のご質問は <a href="faq.html" class="nav-text">FAQ 専用ページ（24 項目）</a> をご覧ください。',
+	// #1896 (PO-4-10): k70 = LP_FAQ_TERMS.canonicalLong / k71 = 'よくあるご質問' 誘導文に統一。
+	//   旧 k71 リテラル「FAQ 専用ページ（24 項目）」は項目数の経時変動 (24/26/28…) で
+	//   disclaimer 整合が破綻するため `LP_FAQ_TERMS.inlineCtaSentence` を経由する形に再構成。
+	//   `保護者の皆さまから特によくいただく 3 つ。` は当 namespace の文脈固有 prefix で、
+	//   atom 化対象には該当しない（数値 3/4 は HTML 側 section-desc の Top 3 / Top 4 に紐づく文脈数）。
+	k70: `${LP_FAQ_TERMS.canonicalLong}`,
+	k71: `保護者の皆さまから特によくいただく 3 つ。${LP_FAQ_TERMS.inlineCtaSentence}`,
 	k72: '無料トライアルにクレジットカードは必要ですか？',
 	k73: '不要です。メール認証だけで 7 日間すべての有料機能をお試しいただけます。期間終了時は自動で無料プランに戻るため、<strong>気付いたら課金されていた</strong>ということはありません。',
 	k74: '子供が勝手に課金してしまう心配はありませんか？',
 	k75: 'ありません。課金操作は保護者権限のアカウントからのみ実行できる設計です。お子さまアカウントにはプラン変更ボタン自体が表示されません。<a href="faq.html#pricing">詳しくはこちら</a>',
 	k76: 'サービスが終了したらデータはどうなりますか？',
 	k77: '終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。<a href="faq.html#privacy">詳しくはこちら</a>',
-	k78: '料金・兄弟姉妹・年齢モード・エクスポート等、他のご質問は <a href="faq.html">FAQ 専用ページ</a> へ。',
+	// #1896 (PO-4-10): k78 footnote を 'よくあるご質問' に統一（LP_FAQ_TERMS.linkLabel 参照）。
+	//   旧リテラル 'FAQ 専用ページ' を撤去し、項目数表記を持たない誘導文に統一する。
+	//   末尾は当該 footnote の文脈で 'へ。' (簡潔な誘導) を維持し、k71/k87 の inlineCtaSentence
+	//   ('をご覧ください。') とは別の文型として保持する。
+	k78: `料金・兄弟姉妹・年齢モード・エクスポート等、他のご質問は <a href="faq.html">${LP_FAQ_TERMS.linkLabel}</a> へ。`,
 	// #1838: 旧 indexB.k79/k80/k81/k82 (最終 CTA cta-bottom セクション) を削除 (選択肢 A 採用)。
 	//   #1797 で導入した「アプリを開かなくなった日」Success 像は hero 主訴求 + growth-roadmap 達成体験に内在化。
 	//   旧 k79 = h2 / k80 = p / k81 = signup ボタン / k82 = mailto 注記。
@@ -6490,7 +6519,10 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k85: '子供が自分から使ってくれるようになりますか？',
 	k86: '多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。',
 	// #1736 m-MIN-7: section-desc を「Top 3」→「Top 4」に
-	k87: '保護者の皆さまから特によくいただく 4 つ。他のご質問は <a href="faq.html" class="nav-text">FAQ 専用ページ（24 項目）</a> をご覧ください。',
+	// #1896 (PO-4-10): 旧リテラル「FAQ 専用ページ（24 項目）」は項目数の経時変動で disclaimer
+	//   整合が破綻するため LP_FAQ_TERMS.inlineCtaSentence 参照に統一。`Top 4` 数値 prefix は当
+	//   namespace 固有の文脈で atom 化対象外（HTML 側 section-desc 数 Top 3/Top 4 と紐づく）。
+	k87: `保護者の皆さまから特によくいただく 4 つ。${LP_FAQ_TERMS.inlineCtaSentence}`,
 	// #1707 R2: machine-tour 各カードの 1 行ベネフィット
 	// #1708 R3-A: tourBenefitRoutine は削除（旧ルーチン-CLカード廃止に伴い）
 	// #1793: 「親が観測できること」(計測・実験用語) を文脈別 4 語彙に刷新。
@@ -6591,9 +6623,10 @@ export const LP_PRICING_PHASEB_LABELS = {
 	k50: '<td>メールサポート</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
 } as const;
 
+// #1896 (PO-4-10): k1 / k2 を LP_FAQ_TERMS.canonicalLong 参照化（用語 SSOT 集約）。
 export const LP_FAQ_PHASEB_LABELS = {
-	k1: 'よくあるご質問 - がんばりクエスト',
-	k2: 'よくあるご質問',
+	k1: `${LP_FAQ_TERMS.canonicalLong} - がんばりクエスト`,
+	k2: `${LP_FAQ_TERMS.canonicalLong}`,
 	k3: '保護者の皆さまから多くいただくご質問に、カテゴリ別にお答えします。ここにないご質問は、<a href="mailto:ganbari.quest.support@gmail.com?subject=FAQページからのお問い合わせ" data-contact-context="FAQ hero">お気軽にメール</a>でお問い合わせください。',
 	k4: 'カテゴリ一覧',
 	k5: '<a href="#trial">1. トライアル・解約</a>',
@@ -6806,7 +6839,9 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k62: '年齢に合わせた活動が自動でセットアップ。',
 	k63: '冒険スタート！',
 	k64: '活動を記録するたびにポイント獲得 &amp; レベルアップ！',
-	k65: '&#x2753; よくある質問',
+	// #1896 (PO-4-10): 旧 k65: '&#x2753; よくある質問' を LP_FAQ_TERMS.canonicalLong 参照化
+	//   ('&#x2753; よくあるご質問' に統一)。本 namespace は pamphlet.html Phase B FAQ 見出し。
+	k65: `&#x2753; ${LP_FAQ_TERMS.canonicalLong}`,
 	k66: '料金はかかりますか？',
 	// #1956 (Phase 3 D11) + #1944 (Phase 3 D4) 統合:
 	//   'スタンダード' = PLAN_TERMS.standard / 'ファミリープラン' = PLAN_FULL_TERMS.family /

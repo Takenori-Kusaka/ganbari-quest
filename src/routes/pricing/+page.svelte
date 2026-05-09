@@ -71,7 +71,7 @@ const plans = getPricingPagePlans().map((meta) => ({
 
 	<Card padding="lg" class="bg-[var(--color-surface-muted)]">
 		{#snippet children()}
-		<h2 class="text-[1.1rem] font-semibold text-[var(--color-neutral-700)] mb-4">{PRICING_PAGE_LABELS.faqTitle}</h2>
+		<h2 class="text-[1.1rem] font-semibold text-[var(--color-neutral-700)] mb-4">{PRICING_PAGE_LABELS.faqHeading}</h2>
 		<dl>
 			<dt class="text-[0.9rem] font-semibold text-[var(--color-neutral-700)] mt-4">{PRICING_PAGE_LABELS.faqFreePlanQ}</dt>
 			<dd class="text-[0.85rem] text-[var(--color-neutral-500)] mt-1">{PRICING_PAGE_LABELS.faqFreePlanA}</dd>
