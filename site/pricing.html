@@ -91,7 +91,11 @@
 .comparison-table .cat-row td{background:var(--gray-50);font-weight:700;font-size:.8rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em}
 .comparison-table .cat-row td:nth-child(3){background:var(--gray-50)}
 .check{color:var(--green-500);font-weight:700}
-.dash{color:var(--gray-300)}
+/* #1906 TECH-D-5 (#2047 Re-Review fix): gray-300 (#cbd5e1) on white = 1.6:1 (WCAG AA fail)。
+   gray-500 (#64748b) on white = 4.6:1 PASS。実態の 11 dash セル (k39/k40/k43/k44/k45/k47/k48 等)
+   が white 背景に乗っているため、L74 の `.plan-features li.disabled`（dead CSS、disabled class
+   要素 0 件）ではなく `.dash` セレクタ側を実態的に修正する。Option A 採用。 */
+.dash{color:var(--gray-500)}
 
 /* Trial Info */
 .trial-section{padding:var(--lp-trial-section-padding-y) var(--lp-trial-section-padding-x)}

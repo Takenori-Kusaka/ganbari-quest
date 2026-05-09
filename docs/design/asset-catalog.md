@@ -83,6 +83,60 @@ CSS では `.cta-trust-badges li img{width:18px;height:18px;display:block;flex-s
 
 ---
 
+## LP 巨大画像最適化 SSOT (#1907)
+
+LP の中核 4 画像 (`logo-compact.png` / `ogp.png` / `icon-character.png` / `hero-illustration.png`) について、サイズ閾値と最適化方法を定義する。LCP（Largest Contentful Paint）改善 + SEO + 直帰率改善目的（Pre-PMF 重点項目、ADR-0010 Bucket A）。
+
+### サイズ閾値
+
+| ファイル | 閾値 | 備考 |
+|---------|------|------|
+| `site/logo-compact.png` | ≤ 100 KB | LP 全 11 ページ + Logo.svelte 参照 (header `height=44px` 表示) |
+| `site/ogp.png` | ≤ 200 KB | OG meta image 専用 (1200×630 SNS 表示固定) |
+| `site/icon-character.png` | ≤ 200 KB | Logo.svelte symbol + AdventureStartOverlay + pamphlet 参照 |
+| `site/hero-illustration.png` | 削除 | dead asset (LP は `.webp` のみ参照) |
+
+### 圧縮方法
+
+```bash
+npm run optimize:lp-images           # 圧縮実行 + dead asset 削除
+npm run optimize:lp-images:check     # サイズ閾値検証のみ (CI 用)
+```
+
+`scripts/optimize-lp-images.mjs` が sharp 経由で以下を実行:
+
+1. `logo-compact.png`: 1316×535 RGBA → 320×130 PNG palette (header 表示 88px の 2x retina 対応)
+2. `ogp.png`: 1200×630 RGB → 同サイズ palette PNG (`colors=128`、SNS 表示用途には十分)
+3. `icon-character.png`: 639×675 RGBA → 480×507 PNG palette (display 48-300px 程度の余裕)
+4. `hero-illustration.png`: 削除 (`.webp` のみ参照、`.png` は未参照)
+
+site/ と static/ の双方を同期更新する SSOT パターン。
+
+### 達成実績 (PR #1907 時点)
+
+| ファイル | Before | After | 削減 | 削減率 |
+|---------|--------|-------|------|--------|
+| logo-compact.png | 757.6 KB | 19.2 KB | 738.5 KB | 97.5% |
+| ogp.png | 794.6 KB | 82.1 KB | 712.5 KB | 89.7% |
+| icon-character.png | 482.4 KB | 67.8 KB | 414.6 KB | 85.9% |
+| hero-illustration.png (dead) | 558.4 KB | 削除 | 558.4 KB | 100.0% |
+| **合計** | **2,593 KB** | **169 KB** | **2,424 KB** | **93.5%** |
+
+### 禁忌
+
+- **新規 LP 画像追加時は閾値検証必須**: `npm run optimize:lp-images:check` を実行し PASS を確認
+- **dead asset 削除前に全文検索必須**: `grep` で参照ゼロを確認後に削除（Glob `**/*.{html,svelte,ts,js,mjs,cjs,css}` 推奨）
+- **画像コンテンツ変更時は再最適化必須**: 元 RGBA をそのまま commit せず、`npm run optimize:lp-images` を経由する
+- **og:image meta tag 変更禁止**: PNG 維持で palette 化のみ。JPEG 化は SNS Cache 整合確認が必要なため別 Issue
+
+### 配置原則
+
+- **SSOT**: `site/<file>.png` と `static/<file>.png` の双方を同期更新（SvelteKit `static/` は app build に同梱）
+- **アプリ側参照**: `Logo.svelte` / `AdventureStartOverlay.svelte` / `image-service.ts` は `/<file>.png` パス経由で `static/` を参照
+- **LP 側参照**: `site/*.html` は同ディレクトリの相対パス `<file>.png` で `site/` を参照
+
+---
+
 ## LP スクショ — site/index.html 内の機能画像 (#1707 / #1712 / #1900)
 
 LP `site/index.html` の hero carousel / machine-tour / soft-features / growth-roadmap セクションで参照する実画面のスクリーンショット一覧。`scripts/capture-hp-screenshots.mjs` が `/demo/<mode>/<path>` のデモ画面から自動撮影し `site/screenshots/` に出力する。`.gitignore` で git 追跡対象外（GitHub Pages デプロイ時に CI が生成）。

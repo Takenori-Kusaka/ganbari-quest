@@ -259,7 +259,7 @@
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
 /* #1707 R2 / #1793: soft-card 内に家庭で楽になる / 家庭ごとにカスタマイズできる 1 行ベネフィットと screenshot を追加 */
-/* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
+/* #1707 PR Phase 3-B fix: 料金セクション (#pricing) を docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
 /* #1785 R-CRT-2: soft-shot からも border / background / border-radius を撤去 */
 .soft-card .soft-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:8px 0}
 .soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
@@ -287,15 +287,16 @@
 }
 
 /* #1848: 年齢別成長ロードマップ詳細を graduation.html に切り出した。
-   LP 本体は CTA 1 行のみで、5 ステージの詳細展開は graduation.html を参照する。
-   旧 .gr-stage / .gr-track / .gr-shot / .gr-benefit 系 CSS は graduation.html に移管済み。 */
+   LP 本体は CTA 1 行のみで、成長ロードマップの詳細展開は graduation.html を参照する。
+   旧 .gr-stage / .gr-track / .gr-shot / .gr-benefit 系 CSS は graduation.html に移管済み。
+   #1895 (PO-4-9): CTA は「3 歳から 18 歳までの成長ストーリーを見る →」+ btn-secondary ボタン化で動線強度確保。 */
 #growth-roadmap{padding:var(--lp-growth-roadmap-padding-y) var(--lp-growth-roadmap-padding-x)}
 .growth-roadmap-cta{text-align:center}
 .growth-roadmap-cta .growth-roadmap-link{margin:18px 0 0;font-size:1rem}
 .growth-roadmap-cta .growth-roadmap-link a{display:inline-block;padding:10px 24px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;color:var(--brand-700);font-weight:600;text-decoration:none;transition:opacity .2s,transform .2s}
 .growth-roadmap-cta .growth-roadmap-link a:hover{opacity:.92;transform:translateY(-1px);text-decoration:none}
 
-/* アナログ vs デジタル比較 (#1614 R10: シール帳 vs アプリ訴求)
+/* 紙のシール帳との比較 (#1614 R10: シール帳 vs アプリ訴求)
    モバイル/PC ともに 1 行 = analog → digital 横並びにして縦の伸びを抑える */
 #versus{padding:var(--lp-versus-section-padding-y) var(--lp-versus-section-padding-x)}
 .versus-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px}
@@ -545,7 +546,7 @@
 <!-- LP-LANDMARK:versus start — シール帳・ホワイトボードではできない 4 つのことを提示 (#1614 R10 / #1844 / #1888)
      親 P1 が「30 秒で離脱判断」する直前に「アナログではできない 4 つのこと」を比較表で提示
      ヒーロー直下〜2 スクロール目 (#1597 で確定した設計位置) -->
-<!-- [02] アナログ vs デジタル — シール帳・ホワイトボードと何が違うのか -->
+<!-- [02] 紙のシール帳との比較 — シール帳・ホワイトボードと何が違うのか -->
 <section class="section bg-white" id="versus">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="versus.sectionTitle">シール帳・ホワイトボードではできない 4 つのこと</h2>
@@ -767,7 +768,7 @@
 <!-- LP-LANDMARK:soft-features start — 親向け安心機能 (月次レポート凸構成 + 家庭運用補助 + 設定自由度)
      #1720 R4: 4 cards → 3 cards 圧縮、月次レポートを featured 凸構成（PC は 1 行に featured 単独 + 残 2 並列、モバイルは縦積み）
      変更時は docs/design/lp-content-map.md §soft-features を確認 -->
-<!-- [05] ソフト機能（親の安心） -->
+<!-- [05] 親が安心できる運用補助 -->
 <section class="section bg-gray" id="soft-features">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k37">親が安心できる運用補助</h2>
@@ -812,22 +813,23 @@
 
 <!-- LP-LANDMARK:soft-features end -->
 
-<!-- LP-LANDMARK:growth-roadmap-cta start — #1848: LP 本体は CTA 1 行のみ。5 ステージ詳細は graduation.html へ集約
-     #1613 R9 の 5 stage 構造は graduation.html に移管。LP 本体では成長物語の最終地点（卒業）を別ページ動線として提示する -->
+<!-- LP-LANDMARK:growth-roadmap-cta start — #1848: LP 本体は CTA 1 行のみ。詳細は graduation.html へ集約
+     #1613 R9 の 5 stage 構造は graduation.html に移管。LP 本体では成長物語の最終地点（卒業）を別ページ動線として提示する。
+     #1895 (PO-4-9): CTA を「3 歳から 18 歳までの成長ストーリーを見る →」+ btn-secondary ボタン化（H2 直接接続で認知ジャンプ解消） -->
 <!-- [05b] 年齢別成長ロードマップ CTA — 詳細は graduation.html -->
 <section class="section bg-gray" id="growth-roadmap">
   <div class="section-inner growth-roadmap-cta">
     <h2 class="section-title" data-lp-key="growthRoadmap.sectionTitle">3 歳から 18 歳まで、そして「卒業」へ</h2>
     <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。</p>
-    <p class="growth-roadmap-link"><a href="graduation.html" data-lp-key="growthRoadmap.linkLabel">5 ステージの詳細を見る →</a></p>
+    <p class="growth-roadmap-link"><a href="graduation.html" class="btn btn-secondary" data-lp-key="growthRoadmap.linkLabel">3 歳から 18 歳までの成長ストーリーを見る →</a></p>
   </div>
 </section>
 <!-- LP-LANDMARK:growth-roadmap-cta end -->
 
-<!-- LP-LANDMARK:pricing start — 料金プロミスバンド。CTA は「無料で始める」のみ
+<!-- LP-LANDMARK:pricing start — 料金（基本無料）バンド。CTA は「無料で始める」のみ
      価格帯の変更は docs/design/19-プライシング戦略書.md + lp-content-map.md §pricing を確認
      3 カード比較は pricing.html へ集約 (#1293) -->
-<!-- [06] 料金プロミスバンド (#1293: freemium × 低価格帯の price disambiguation。3 カード比較は pricing.html へ集約) -->
+<!-- [06] 料金（基本無料） (#1293: freemium × 低価格帯の price disambiguation。3 カード比較は pricing.html へ集約) -->
 <section class="section bg-white" id="pricing">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k47">まずは無料、必要なら月 ¥500〜</h2>
@@ -854,7 +856,7 @@
 <!-- [06b] retention セクションは #1621 R17 で削除し [03] 習慣カード へ統合。
      pamphlet.html / 旧 LP_RETENTION_LABELS は短文として保持（コア訴求は習慣カードに集約）。 -->
 
-<!-- [07] 安心訴求 -->
+<!-- [07] 信頼・データの守り（trust） -->
 <section class="section bg-white" id="trust">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k58">お子さまのデータは、家族だけのものです</h2>
@@ -895,7 +897,7 @@
 <section class="section bg-gray" id="faq">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k70">よくあるご質問</h2>
-    <p class="section-desc" data-lp-key="indexB.k87">保護者の皆さまから特によくいただく 4 つ。他のご質問は <a href="faq.html" class="nav-text">よくあるご質問</a> をご覧ください。</p>
+    <p class="section-desc" data-lp-key="indexB.k87"><strong>特に重要なよくあるご質問。</strong> <a href="faq.html" class="nav-text">その他のご質問はこちら</a></p>
     <div class="faq-list">
       <details class="faq-item">
         <summary data-lp-key="indexB.k85">子供が自分から使ってくれるようになりますか？</summary>
@@ -914,7 +916,7 @@
         <p class="faq-answer" data-lp-key="indexB.k77">終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。<a href="faq.html#privacy">詳しくはこちら</a></p>
       </details>
     </div>
-    <p class="faq-footnote" data-lp-key="indexB.k78">料金・兄弟姉妹・年齢モード・エクスポート等、他のご質問は <a href="faq.html">よくあるご質問</a> へ。</p>
+    <!-- #1897 PO-4-11: 旧 faq-footnote (indexB.k78 「他のご質問は…FAQ 専用ページへ」) は section-desc (k87) と訴求重複のため削除。リードで 1 行案内に集約。 -->
   </div>
 </section>
 

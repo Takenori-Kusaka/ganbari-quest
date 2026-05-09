@@ -323,6 +323,19 @@ textarea:focus-visible,
 	background: var(--brand-100);
 	text-decoration: none;
 }
+/* #1895 (PO-4-9): growth-roadmap CTA / graduation CTA / pricing hero secondary CTA で
+   共通利用される白背景 + brand-300 outline ボタン。各ページのローカル定義
+   (graduation.html / pricing.html) と一致するため共通化。 */
+.btn-secondary {
+	background: #fff;
+	color: var(--brand-700);
+	border: 2px solid var(--brand-300);
+}
+.btn-secondary:hover {
+	background: var(--brand-50);
+	text-decoration: none;
+	transform: translateY(-1px);
+}
 .btn-demo {
 	background: linear-gradient(135deg, var(--gold-400), var(--gold-500));
 	color: var(--gray-900);
