@@ -9,13 +9,18 @@
 // #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
 // #1963 (Phase 7 H6): LICENSE_PAGE_LABELS で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
 // #1898 (PO-4-12): LP_FAQ_TERMS を LP_LEGAL_DISCLAIMER_LABELS から参照（liabilityBody / liabilityLinks / cancelDisclaimerLinks の「FAQ」直書きを atom 経由に置換）
+// #1913 (UIUX-E): AGE_RANGE_TERMS / POINT_TERMS / CURRENCY_TERMS / FREE_PLAN_TERMS 追加（年齢レンジ / ポイント / 通貨 / 無料プラン訴求 atom 集約）
 import {
+	AGE_RANGE_TERMS,
 	CANCEL_TERMS,
 	CTA_TERMS,
+	CURRENCY_TERMS,
+	FREE_PLAN_TERMS,
 	FREE_TERMS,
 	LP_FAQ_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
+	POINT_TERMS,
 	PRICE_TERMS,
 	TRIAL_TERMS,
 } from './terms';
@@ -4093,11 +4098,12 @@ export const LP_CTA_TRUST_BADGES_LABELS = {
 //   （実態は「親がセットアップで選択する 300+ 候補プール」であり、訴求から「自動で揃う」誤認を排除）
 //   CI `measure-lp-dimensions.mjs` の正規表現 `<strong>(\d+)\+</strong>\s*プリセット活動` は
 //   「プリセット活動」リテラルが残っていれば検出されるため、honest 表現でも CI 裏取りは継続して機能する
-// #1953 (Phase 3 D8): atom 化対象ゼロ。年齢レンジ（3〜18 歳）/ プリセット数（300+）/ セットアップ時間（約 5 分）
-//   は本 LP 専用の仕様値であり terms.ts に対応 atom が存在しない（PLAN/PRICE/TRIAL/CANCEL/FREE/CTA いずれも該当なし）。
-//   将来 SETUP_TERMS / SPEC_TERMS 等を新設する判断は別 Issue で検討。
+// #1953 (Phase 3 D8): atom 化対象ゼロ → #1913 (UIUX-E-1) で AGE_RANGE_TERMS を新設、ageRange を atom 参照化。
+// プリセット数（300+）/ セットアップ時間（約 5 分）は引き続き本 LP 専用の仕様値であり terms.ts に対応 atom 不在。
+// 将来 SETUP_TERMS / SPEC_TERMS 等を新設する判断は別 Issue で検討。
 export const LP_HERO_SPEC_BADGES_LABELS = {
-	ageRange: '3〜18 歳',
+	// #1913: AGE_RANGE_TERMS.short = '3〜18 歳' を参照（波ダッシュ短縮形 atom）
+	ageRange: `${AGE_RANGE_TERMS.short}`,
 	ageRangeSuffix: '対応',
 	presetCount: '300+',
 	presetSuffix: 'プリセット活動 の候補',
@@ -4132,9 +4138,25 @@ export const LP_COMMON_LABELS = {
 	contactHint: 'メールでお気軽にお問い合わせください',
 	contactEmail: 'ganbari.quest.support@gmail.com',
 	// 期間表記（「7 日間無料トライアル」に統一）
-	trialPeriodLabel: '7 日間無料トライアル',
-	trialPeriodShort: '7 日間無料',
-	trialPeriodFull: '7 日間の無料トライアル',
+	// #1913 (UIUX-E-2): trialPeriodShort を全角統一形「7 日間無料トライアル」に集約。
+	//   AC4 = 「7 日間無料$」末尾 anchor が 0 件、「7 日間無料トライアル」統一形に整合。
+	//   trialPeriodLabel と value 同一だが文脈上の責務が異なるため key は維持。
+	trialPeriodLabel: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
+	trialPeriodShort: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
+	trialPeriodFull: `${TRIAL_TERMS.durationSpaced}の無料トライアル`,
+	// 年齢レンジ表記（#1913 UIUX-E-1: AGE_RANGE_TERMS atom 経由で 2 系統 SSOT 化）
+	//   ageRange     : 短縮形「3〜18 歳」（バッジ / 見出し用）
+	//   ageRangeLong : 自然形「3 歳から 18 歳まで」（本文・段落用）
+	ageRange: `${AGE_RANGE_TERMS.short}`,
+	ageRangeLong: `${AGE_RANGE_TERMS.long}`,
+	// 通貨記号（#1913 UIUX-E-5: CURRENCY_TERMS atom 経由で「¥」直書き統一、HTML エンティティ撤去）
+	//   yenSymbol  : '¥' 単体（compound から PRICE_TERMS 以外で参照する場合の atom 経路）
+	yenSymbol: `${CURRENCY_TERMS.yen}`,
+	// ポイント単位（#1913 UIUX-E-3: POINT_TERMS atom 経由で「ポイント / pt / P」を文脈別に SSOT 化）
+	//   pointUnitFull : 'ポイント'（説明文・LP 訴求文の標準形）
+	//   pointUnit     : 'pt'（数値直後の単位短縮形）
+	pointUnitFull: `${POINT_TERMS.unitFull}`,
+	pointUnit: `${POINT_TERMS.unit}`,
 	// クレカ不要訴求
 	noCreditCardNote: `${TRIAL_TERMS.noCreditCard}`,
 	// 解約訴求
@@ -4230,14 +4252,18 @@ export const LP_PRICING_LABELS = {
 
 	// Plan card: Free (#1651 R45 + #1644 R39 + #1645 R40)
 	// #1947: planFreePrice / planFreePriceSub の atom (¥0 / クレカ登録不要) を terms.ts 参照化
-	planFreeName: 'フリー',
+	// #1913 (UIUX-E-7): planFreeName を FREE_PLAN_TERMS.planSelfNoun 参照化、
+	//                  planFreePriceSub の「ずっと無料」を FREE_PLAN_TERMS.forever (= '永久無料') に統一
+	//                  （AC8 = 「ずっと無料」が 0 件、訴求バッジ語と説明 sub の整合）。
+	//                  planFreeBadge の「永久無料」も同 atom 経由に集約。
+	planFreeName: `${FREE_PLAN_TERMS.planSelfNoun}`,
 	planFreePrice: `${PRICE_TERMS.free}`,
-	planFreePriceSub: `ずっと無料 ・ ${TRIAL_TERMS.noCreditCardShort}`,
+	planFreePriceSub: `${FREE_PLAN_TERMS.forever} ・ ${TRIAL_TERMS.noCreditCardShort}`,
 	planFreePersona: 'こんなご家族におすすめ: まずはお子さま 1〜2 人で試したいご家族へ',
 	planFreeDesc:
 		'ポイント・レベルアップ・おみくじ・スタンプカードなど、お子さまの冒険体験はすべて無料。',
 	planFreeCta: '無料ではじめる',
-	planFreeBadge: '永久無料',
+	planFreeBadge: `${FREE_PLAN_TERMS.forever}`,
 
 	// Plan card: Standard (#1645 R40 + #1651 R45)
 	// #1947: planStandardName / planStandardPrice の atom (スタンダード / ¥500) を terms.ts 参照化
@@ -4276,9 +4302,14 @@ export const LP_PRICING_LABELS = {
 	comparisonSubtitle: '冒険の仕組みは全プラン共通で制限なく楽しめます',
 
 	// Trial section (#1641 R36 + #1642 R37)
-	trialHeading: '7日間の無料体験',
+	// #1913 (UIUX-E-2): trialHeading / trialSubheading を「7 日間無料トライアル」表記に統一。
+	//   AC3 = trialPeriodLabel 系を全箇所「7 日間無料トライアル」（半角空白あり）統一、
+	//   AC4 = 「7 日間の無料体験」（半角空白あり）が 0 件。
+	//   trialSubheading は「7 日間の無料体験では」リテラルが grep で引っ掛かるため
+	//   「7 日間無料トライアル期間中は」リフレームで撤去（UI 表示変更を伴うため AC9 PO 確認対象）。
+	trialHeading: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
 	// #1642 R37: 経路汎用化（standard / family どちらの trial も同文言で説明）
-	trialSubheading: '7 日間の無料体験では、選択したプランの全機能を制限なくお試しいただけます',
+	trialSubheading: `${TRIAL_TERMS.durationSpaced}無料トライアル期間中は、選択したプランの全機能を制限なくお試しいただけます`,
 	trialStep1Title: 'いつでも好きなタイミングで開始',
 	trialStep1Desc:
 		'アカウント登録後、管理画面からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。',
@@ -5878,12 +5909,13 @@ export const LP_INDEX_EXTRA_LABELS = {
 	// #1956 (Phase 3 D11): k63 '月 ¥500' = monthlyPrefix + standard、k65 '基本無料' = FREE_TERMS.base、
 	//   k68 '無料体験' = CTA_TERMS.freeTrialNoun、k69 'いつでも解約 OK' = CANCEL_TERMS.anytimeOk、
 	//   k70 '無料プラン' = PLAN_FULL_TERMS.free。
-	//   k67 '月 &#165;500（税込）〜' は HTML エンティティのため char-by-char 一致せず直書き維持。
+	// #1913 (UIUX-E-5): k67 を HTML エンティティ「&#165;」直書きから「¥」直書き (CURRENCY_TERMS.yen) に統一。
+	//   AC7 = `&#165;` HTML entity が 0 件、「¥」直書き統一。表示文字は同一 (U+00A5) で UI 影響ゼロ。
 	k63: `${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard} から、家族全員が使える設計です。`,
 	k64: '安心して始められる 4 つのお約束。',
 	k65: `${FREE_TERMS.base}`,
 	k66: '有料は',
-	k67: '月 &#165;500（税込）〜',
+	k67: `${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard}${PRICE_TERMS.taxNote}${PRICE_TERMS.fromSuffix}`,
 	k68: `7 日間${CTA_TERMS.freeTrialNoun}`,
 	k69: `${CANCEL_TERMS.anytimeOk}`,
 	k70: `お子さま 2 人までのご家庭なら、${PLAN_FULL_TERMS.free}で冒険の仕組みをすべてお使いいただけます。`,
@@ -5988,8 +6020,10 @@ export const LP_PAMPHLET_LABELS = {
 	k28: 'がんばりクエスト &#x2014; &#x6599;&#x91D1;&#x30D7;&#x30E9;&#x30F3; &amp; &#x59CB;&#x3081;&#x65B9;',
 	k29: '&#x1F4B0; 料金プラン',
 	k30: 'すべてのプランで冒険の仕組み（レベル・おみくじ・スタンプカード等）が使えます',
-	k31: 'フリー',
-	k32: 'ずっと無料',
+	// #1913 (UIUX-E-7): k31 = FREE_PLAN_TERMS.planSelfNoun, k32 「ずっと無料」→「永久無料」(FREE_PLAN_TERMS.forever) で
+	//                   AC8 統一（pricing card price sub bullet）。
+	k31: `${FREE_PLAN_TERMS.planSelfNoun}`,
+	k32: `${FREE_PLAN_TERMS.forever}`,
 	k33: 'お子さまの登録：2人まで',
 	k34: 'プリセット活動の利用',
 	k35: 'オリジナル活動の作成：3個まで',
@@ -6555,9 +6589,11 @@ export const LP_INDEX_PHASEB_LABELS = {
 	//   も「子供管理 — 家族メンバーの登録と切替」で統一する。
 	//   alt と data-label (carousel-label aria-live) は同一テキストを参照することで、可視テキスト・SR
 	//   の両者で年齢帯整合を保つ。旧 k4 はリテラル維持（HTML 側参照なし、後方互換のため namespace 整合用に保持）。
-	carouselSlide1Alt: '幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン',
-	carouselSlide2Alt: '小学生（6-12 歳代表）のホーム画面 — 活動記録とポイント獲得',
-	carouselSlide3Alt: '中高生（13-18 歳代表）のホーム画面 — 自己管理ダッシュボード',
+	// #1913 (UIUX-E-1): 半角ハイフン (3-5 / 6-12 / 13-18) を波ダッシュ形に統一（AC2 = 「3-18」が 0 件）。
+	//                   carouselSlide3Alt は AGE_RANGE_TERMS.juniorShort (= '13〜18 歳') を経由し全文一致を維持。
+	carouselSlide1Alt: '幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン',
+	carouselSlide2Alt: '小学生（6〜12 歳代表）のホーム画面 — 活動記録とポイント獲得',
+	carouselSlide3Alt: `中高生（${AGE_RANGE_TERMS.juniorShort}代表）のホーム画面 — 自己管理ダッシュボード`,
 	carouselSlide4Alt: '子供管理画面 — 家族メンバーの登録と切替',
 } as const;
 
@@ -6787,8 +6823,10 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k24: 'がんばりクエスト &#x2014; &#x6599;&#x91D1;&#x30D7;&#x30E9;&#x30F3; &amp; &#x59CB;&#x3081;&#x65B9;',
 	k25: '&#x1F4B0; 料金プラン',
 	k26: 'すべてのプランで冒険の仕組み（レベル・おみくじ・スタンプカード等）が使えます',
-	k27: 'フリー',
-	k28: 'ずっと無料',
+	// #1913 (UIUX-E-7): k27 = FREE_PLAN_TERMS.planSelfNoun, k28 「ずっと無料」→「永久無料」(FREE_PLAN_TERMS.forever) で
+	//                   AC8 統一（pamphlet pricing card 同パターン）。
+	k27: `${FREE_PLAN_TERMS.planSelfNoun}`,
+	k28: `${FREE_PLAN_TERMS.forever}`,
 	k29: '<span class="check">&#x2713;</span>お子さまの登録：2人まで',
 	k30: '<span class="check">&#x2713;</span>プリセット活動の利用',
 	k31: '<span class="check">&#x2713;</span>オリジナル活動の作成：3個まで',
@@ -6799,9 +6837,10 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k35: '<span class="check">&#x2713;</span>90日間の履歴保持',
 	k36: '&#x2B50; おすすめ',
 	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard 参照化。
-	//   '&#xA5;500' / '7 日間無料トライアル' は char-by-char 一致しないため直書き継続。
+	// #1913 (UIUX-E-5): k38 を「&#xA5;500」HTML エンティティから「¥500」(PRICE_TERMS.standard) に統一。
+	//   AC7 = `&#xA5;` HTML entity が 0 件、「¥」直書き統一。表示文字は同一 (U+00A5) で UI 影響ゼロ。
 	k37: `${PLAN_TERMS.standard}`,
-	k38: '&#xA5;500<small>/月（税込）</small>',
+	k38: `${PRICE_TERMS.standard}<small>/月（税込）</small>`,
 	// #1944 Phase 3 D4: '7 日間' を TRIAL_TERMS.durationSpaced 参照化。
 	k39: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
 	k40: '<span class="check">&#x2713;</span>子供の登録：無制限',
@@ -6813,9 +6852,10 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k46: '<span class="check">&#x2713;</span>メールサポート',
 	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.family、
 	//   'スタンダードの全機能' = PLAN_TERMS.standard + 'の全機能' 部分参照化。
-	//   '&#xA5;780' / '7 日間無料トライアル' は char-by-char 一致しないため直書き継続。
+	// #1913 (UIUX-E-5): k48 を「&#xA5;780」HTML エンティティから「¥780」(PRICE_TERMS.family) に統一。
+	//   AC7 = `&#xA5;` HTML entity が 0 件、「¥」直書き統一。表示文字は同一 (U+00A5) で UI 影響ゼロ。
 	k47: `${PLAN_TERMS.family}`,
-	k48: '&#xA5;780<small>/月（税込）</small>',
+	k48: `${PRICE_TERMS.family}<small>/月（税込）</small>`,
 	// #1944 Phase 3 D4: '7 日間' を TRIAL_TERMS.durationSpaced 参照化。
 	// #1956 Phase 3 D11: 'スタンダード' を PLAN_TERMS.standard 参照化。
 	k49: `${TRIAL_TERMS.durationSpaced}無料トライアル`,

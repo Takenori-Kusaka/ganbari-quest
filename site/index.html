@@ -54,7 +54,7 @@
       "name": "フリー",
       "price": "0",
       "priceCurrency": "JPY",
-      "description": "ずっと無料で利用可能。子供2人まで、活動3個まで、履歴90日",
+      "description": "永久無料で利用可能。子供2人まで、活動3個まで、履歴90日",
       "availability": "https://schema.org/InStock"
     },
     {
@@ -492,8 +492,9 @@
     <div class="splide" id="hero-carousel" aria-label="アプリのスクリーンショット">
       <!--
         #1900 (UIUX-C-1): hero carousel 4 枚を年齢帯 3 系統 + 管理画面に再構成。
-          slide 1 = 幼児 (3-5 歳代表) / slide 2 = 小学生 (6-12 歳代表) /
-          slide 3 = 中高生 (13-18 歳代表) / slide 4 = ご家族の見守り画面 (管理画面)
+          slide 1 = 幼児 (3〜5 歳代表) / slide 2 = 小学生 (6〜12 歳代表) /
+          slide 3 = 中高生 (13〜18 歳代表) / slide 4 = ご家族の見守り画面 (管理画面)
+          (#1913 UIUX-E-1: 半角ハイフン → 波ダッシュ統一、AC2 整合)
         data-label / img alt は LP_INDEX_PHASEB_LABELS.carouselSlide{1..4}Alt (labels.ts) と
           char-by-char で一致させる char-by-char SSOT 運用 (LP_HERO_SPEC_BADGES_LABELS と同パターン)。
           data-lp-key 注入機構は innerHTML 専用で属性 (alt / data-label) には注入できないため、
@@ -502,22 +503,22 @@
       -->
       <div class="splide__track">
         <ul class="splide__list">
-          <li class="splide__slide" data-label="幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン">
+          <li class="splide__slide" data-label="幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン">
             <picture>
               <source srcset="screenshots/carousel-1-child-home-desktop.webp" media="(min-width:1024px)" type="image/webp">
-              <img src="screenshots/carousel-1-child-home-mobile.webp" alt="幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン" width="390" height="844" data-lightbox>
+              <img src="screenshots/carousel-1-child-home-mobile.webp" alt="幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン" width="390" height="844" data-lightbox>
             </picture>
           </li>
-          <li class="splide__slide" data-label="小学生（6-12 歳代表）のホーム画面 — 活動記録とポイント獲得">
+          <li class="splide__slide" data-label="小学生（6〜12 歳代表）のホーム画面 — 活動記録とポイント獲得">
             <picture>
               <source srcset="screenshots/carousel-2-child-status-desktop.webp" media="(min-width:1024px)" type="image/webp">
-              <img src="screenshots/carousel-2-child-status-mobile.webp" alt="小学生（6-12 歳代表）のホーム画面 — 活動記録とポイント獲得" width="390" height="844" data-lightbox>
+              <img src="screenshots/carousel-2-child-status-mobile.webp" alt="小学生（6〜12 歳代表）のホーム画面 — 活動記録とポイント獲得" width="390" height="844" data-lightbox>
             </picture>
           </li>
-          <li class="splide__slide" data-label="中高生（13-18 歳代表）のホーム画面 — 自己管理ダッシュボード">
+          <li class="splide__slide" data-label="中高生（13〜18 歳代表）のホーム画面 — 自己管理ダッシュボード">
             <picture>
               <source srcset="screenshots/carousel-3-admin-main-desktop.webp" media="(min-width:1024px)" type="image/webp">
-              <img src="screenshots/carousel-3-admin-main-mobile.webp" alt="中高生（13-18 歳代表）のホーム画面 — 自己管理ダッシュボード" width="390" height="844" data-lightbox>
+              <img src="screenshots/carousel-3-admin-main-mobile.webp" alt="中高生（13〜18 歳代表）のホーム画面 — 自己管理ダッシュボード" width="390" height="844" data-lightbox>
             </picture>
           </li>
           <li class="splide__slide" data-label="子供管理画面 — 家族メンバーの登録と切替">
@@ -532,7 +533,7 @@
     <!-- carousel-label は splide.on('mounted move') で active slide の data-label 属性値に動的更新される。
          初期値も labels.ts (carouselSlide1Alt) と一致させる。data-lp-key="indexB.carouselSlide1Alt" は
          shared-labels.js で innerHTML 上書きされ、SSR / 静的 HTML 値と動的注入値が一致する。 -->
-    <div class="carousel-label" aria-live="polite" data-lp-key="indexB.carouselSlide1Alt">幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン</div>
+    <div class="carousel-label" aria-live="polite" data-lp-key="indexB.carouselSlide1Alt">幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン</div>
   </div>
 </section>
 <!-- LP-LANDMARK:hero end -->
