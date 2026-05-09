@@ -4032,6 +4032,8 @@ export const LP_NAV_LABELS = {
 	signup: `${FREE_TERMS.tryFree}`,
 	login: 'ログイン',
 	features: 'できること',
+	// #1906 TECH-D-4: skip-to-content link (a11y) — site/*.html 全 10 ファイルで参照
+	skipToContent: '本文へスキップ',
 } as const;
 
 // #1957 (Phase 3 D12): atom 化対象ゼロをコメント注記で記録（PLAN 系）。

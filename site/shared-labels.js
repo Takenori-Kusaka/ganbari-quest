@@ -119,7 +119,8 @@
 			"selfhost": "仕組みを公開（開発者向け）",
 			"signup": "無料で始める",
 			"login": "ログイン",
-			"features": "できること"
+			"features": "できること",
+			"skipToContent": "本文へスキップ"
 		},
 		"footer": {
 			"brandName": "がんばりクエスト",
