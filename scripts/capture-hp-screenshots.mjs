@@ -92,10 +92,14 @@ const CAROUSEL_SCREENSHOTS = [
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
+	// #1900 (UIUX-C-1) + #1901 統合: hero carousel 4 枚を年齢帯 3 系統 + 管理画面に再構成する文脈で、
+	//   slide 4 = ご家族の見守り (管理画面) を担う。main #1901 の物理重複解消 (旧 /demo/admin/activities は
+	//   feature-settings と URL/ETag 完全一致だった) を尊重し URL は /demo/admin/children を採用、
+	//   ADR-0013 LP truth 整合のため alt / data-label も「子供管理 — 家族メンバーの登録と切替」で統一する。
 	{
 		name: 'carousel-4-admin-sub',
-		url: '/demo/admin',
-		description: 'Carousel 4: ご家族の見守り画面（管理画面）',
+		url: '/demo/admin/children',
+		description: 'Carousel 4: 子供管理画面（家族メンバーの登録と切替）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
@@ -121,12 +125,8 @@ const FEATURE_SCREENSHOTS = [
 		description: 'Features: 成長レーダーチャート',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
-	{
-		name: 'feature-titles',
-		url: '/demo/lower/achievements',
-		description: 'Features: 称号＆実績コレクション',
-		viewports: { mobile: MOBILE, desktop: DESKTOP },
-	},
+	// #1901: feature-titles は LP HTML から参照削除済 (#1708 / #1755 で machine-tour ② の称号セクション撤去)。
+	//        撮影定義のみ残存し growth-stage-graduate と URL/ETag が完全一致していたため削除。
 	{
 		name: 'feature-belongings-checklist',
 		url: '/demo/checklist?childId=904',
@@ -142,15 +142,9 @@ const FEATURE_SCREENSHOTS = [
 		description: 'Features: 成長記録・管理画面',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
-	// #1707 R2: machine-tour ③ ルーティンチェックリスト（朝夜の習慣化）
-	// #1783: 旧 testid 廃止に伴い demo-checklist-item-* に追従。
-	{
-		name: 'feature-routine-checklist',
-		url: '/demo/checklist?childId=904',
-		description: 'Features: ルーティンチェックリスト (子供画面)',
-		viewports: { mobile: MOBILE, desktop: DESKTOP },
-		scrollTo: '[data-testid^="demo-checklist-item-"]',
-	},
+	// #1901: feature-routine-checklist は LP HTML から参照削除済 (#1708 で machine-tour ③ ルーティン
+	//        セクション撤去)。撮影定義のみ残存し feature-belongings-checklist と URL/ETag が完全一致して
+	//        いたため削除。
 	// #1707 R2: machine-tour ④ RPG バトル（冒険のクライマックス）
 	{
 		name: 'feature-rpg-battle',
@@ -165,25 +159,32 @@ const FEATURE_SCREENSHOTS = [
 		description: 'Features: 月次レポート（活動・ポイント推移）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
-	// #1707 R2: soft-features 自動スリープ（時間管理・使いすぎ防止）
+	// #1707 R2 / #1901: soft-features 自動スリープ（時間管理・使いすぎ防止）
+	// #1901: 旧 /demo/admin (top) は carousel-3-admin-main と URL/ETag 完全一致だったため
+	//        /demo/admin/settings (auto-sleep + おうえんメッセージ設定画面) に変更。
 	{
 		name: 'feature-auto-sleep',
-		url: '/demo/admin',
-		description: 'Features: 時間管理（自動スリープ設定）',
+		url: '/demo/admin/settings',
+		description: 'Features: 時間管理（自動スリープ設定 + おうえんメッセージ設定）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
-	// #1707 R2: soft-features おうえんメッセージ
+	// #1707 R2 / #1901: soft-features おうえんメッセージ受信（子供ホーム画面下部）
+	// #1901: growth-stage-elementary と URL が同じ /demo/lower/home のため、scrollTo で
+	//        画面下部の activity-card 領域を撮影し物理的に異なる SS を生成する。
 	{
 		name: 'feature-cheer-message',
 		url: '/demo/lower/home',
-		description: 'Features: おうえんメッセージ受信',
+		description: 'Features: おうえんメッセージ受信（子供ホーム下部）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
+		scrollTo: '[data-testid^="activity-card-"]',
 	},
-	// #1707 R2: soft-features 設定の自由度
+	// #1707 R2: soft-features 設定の自由度（活動・ポイント・ごほうびのカスタマイズ）
+	// #1901: carousel-4-admin-sub が /demo/admin/children に振り替えられたため、本撮影は
+	//        /demo/admin/activities を維持しても URL 重複しない。
 	{
 		name: 'feature-settings',
 		url: '/demo/admin/activities',
-		description: 'Features: 親管理の設定一覧',
+		description: 'Features: 親管理の設定一覧（活動・ポイント・ごほうびのカスタマイズ）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 ];
