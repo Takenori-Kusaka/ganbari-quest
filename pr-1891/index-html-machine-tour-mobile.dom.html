@@ -285,9 +285,8 @@
 }
 
 /* #1848: 年齢別成長ロードマップ詳細を graduation.html に切り出した。
-   LP 本体は CTA 1 行のみで、成長ロードマップの詳細展開は graduation.html を参照する。
-   旧 .gr-stage / .gr-track / .gr-shot / .gr-benefit 系 CSS は graduation.html に移管済み。
-   #1895 (PO-4-9): CTA は「3 歳から 18 歳までの成長ストーリーを見る →」+ btn-secondary ボタン化で動線強度確保。 */
+   LP 本体は CTA 1 行のみで、5 ステージの詳細展開は graduation.html を参照する。
+   旧 .gr-stage / .gr-track / .gr-shot / .gr-benefit 系 CSS は graduation.html に移管済み。 */
 #growth-roadmap{padding:var(--lp-growth-roadmap-padding-y) var(--lp-growth-roadmap-padding-x)}
 .growth-roadmap-cta{text-align:center}
 .growth-roadmap-cta .growth-roadmap-link{margin:18px 0 0;font-size:1rem}
@@ -742,7 +741,7 @@
       <div class="tour-card" data-testid="feature-rpg-battle">
         <div class="tour-phase" data-lp-key="indexB.k34">② 冒険のクライマックス</div>
         <h3 data-lp-key="indexB.k35">RPG バトル</h3>
-        <p data-lp-key="indexB.k36" data-budoux-applied="true">毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。</p>
+        <p data-lp-key="indexB.k36" data-budoux-applied="true">毎日の努力で貯めたエネルギーで、ボスに挑戦。小学生から全年齢で使える冒険の締めくくり。</p>
         <div class="tour-shot">
           <picture>
             <source srcset="screenshots/feature-rpg-battle-desktop.webp" media="(min-width:1024px)" type="image/webp">
@@ -805,15 +804,14 @@
 
 <!-- LP-LANDMARK:soft-features end -->
 
-<!-- LP-LANDMARK:growth-roadmap-cta start — #1848: LP 本体は CTA 1 行のみ。詳細は graduation.html へ集約
-     #1613 R9 の 5 stage 構造は graduation.html に移管。LP 本体では成長物語の最終地点（卒業）を別ページ動線として提示する。
-     #1895 (PO-4-9): CTA を「3 歳から 18 歳までの成長ストーリーを見る →」+ btn-secondary ボタン化（H2 直接接続で認知ジャンプ解消） -->
+<!-- LP-LANDMARK:growth-roadmap-cta start — #1848: LP 本体は CTA 1 行のみ。5 ステージ詳細は graduation.html へ集約
+     #1613 R9 の 5 stage 構造は graduation.html に移管。LP 本体では成長物語の最終地点（卒業）を別ページ動線として提示する -->
 <!-- [05b] 年齢別成長ロードマップ CTA — 詳細は graduation.html -->
 <section class="section bg-gray" id="growth-roadmap">
   <div class="section-inner growth-roadmap-cta">
     <h2 class="section-title" data-lp-key="growthRoadmap.sectionTitle">3 歳から 18 歳まで、そして「卒業」へ</h2>
     <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc" data-budoux-applied="true">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。</p>
-    <p class="growth-roadmap-link"><a href="graduation.html" class="btn btn-secondary" data-lp-key="growthRoadmap.linkLabel">3 歳から 18 歳までの成長ストーリーを見る →</a></p>
+    <p class="growth-roadmap-link"><a href="graduation.html" data-lp-key="growthRoadmap.linkLabel">5 ステージの詳細を見る →</a></p>
   </div>
 </section>
 <!-- LP-LANDMARK:growth-roadmap-cta end -->
@@ -958,10 +956,10 @@
      可変するため、ctaVariants ratchet（≤3）の集計に含めない（lp-content-map.md §7.4）。
      初期 SSR は phase=hero の文言を表示し、JS load 後に scroll listener で書き換える。
      SEO / no-JS 環境でも初期文言は読める。 -->
-<div class="floating-cta visible" id="floating-cta" data-floating-cta="container" aria-hidden="false" role="complementary" aria-label="ページ追従の登録案内" data-floating-cta-phase="mid" style="display: block;">
+<div class="floating-cta" id="floating-cta" data-floating-cta="container" aria-hidden="true" role="complementary" aria-label="ページ追従の登録案内" data-floating-cta-phase="hero" style="display: block;">
   <div class="floating-cta-inner">
-    <div class="floating-cta-text" id="floating-cta-text" data-lp-key="floatingCta.midText">3 つの仕組みは 1 分で体験できます<small>サインアップ前に動きを確認</small></div>
-    <a href="https://ganbari-quest.com/demo" class="btn btn-primary" id="floating-cta-button" data-lp-key="floatingCta.midButton" aria-label="デモ画面で機能を体験">デモを見る</a>
+    <div class="floating-cta-text" id="floating-cta-text" data-lp-key="floatingCta.heroText">全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small></div>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" id="floating-cta-button" data-lp-key="floatingCta.heroButton" aria-label="7 日間無料トライアルへのご案内">無料で始める</a>
   </div>
 </div>
 
