@@ -1,0 +1,1197 @@
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層。
+     SRI / pin 戦略マトリクス: 特定 pin (splidejs) は SRI 必須、major pin (DOMPurify @3 / budoux @latest) は CSP allowlist 経由で守る -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title data-lp-key="indexB.k1">がんばりクエスト — 「やりなさい」を「やりたい！」に変える家族の冒険アプリ</title>
+<meta name="description" content="がんばりクエストは、お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、チャレンジで「自分から動く力」を育てます。3歳から18歳までのお子さまに対応（0〜2歳のお子さまは保護者向けの準備モードでご利用いただけます）。">
+<meta property="og:title" content="がんばりクエスト — 「やりなさい」を「やりたい！」に変える家族の冒険アプリ">
+<meta property="og:description" content="お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、チャレンジで「自分から動く力」を育てます。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.ganbari-quest.com/">
+<meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="がんばりクエスト — 「やりなさい」を「やりたい！」に変える家族の冒険アプリ">
+<meta name="twitter:description" content="お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、チャレンジで「自分から動く力」を育てます。">
+<meta name="twitter:image" content="https://www.ganbari-quest.com/ogp.png">
+<link rel="canonical" href="https://www.ganbari-quest.com/">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide-core.min.css" integrity="sha384-UUMoBPww5zPuXpRJLHFTN+9x39lTnFOA9kj9q4HOVqv+aZH6G7jZwnXkrE5c18lX" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer=""></script>
+<!-- #1729 R14: ADR-0016 BudouX CDN Web Component（古いブラウザ / 長文段落フォールバック）。
+     第一選択は CSS の text-wrap: balance/pretty + word-break: auto-phrase（shared.css）。
+     CDN 1 file (~15KB gzipped) で <budoux-ja> custom element が利用可能。defer なので render 阻害しない。 -->
+<script src="https://cdn.jsdelivr.net/npm/budoux@latest/bundle/budoux-ja.min.js" defer=""></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "がんばりクエスト",
+  "alternateName": "Ganbari Quest",
+  "url": "https://www.ganbari-quest.com/",
+  "image": "https://www.ganbari-quest.com/ogp.png",
+  "description": "お子さまの毎日のがんばりをRPG風の冒険に変える家庭向けWebアプリ。ポイント、レベルアップ、チャレンジで「自分から動く力」を育てます。3歳から18歳までのお子さまに対応（0〜2歳のお子さまは保護者向けの準備モードでご利用いただけます）。",
+  "applicationCategory": "GameApplication",
+  "applicationSubCategory": "EducationalGame",
+  "operatingSystem": "Web (PWA)",
+  "inLanguage": "ja-JP",
+  "audience": {
+    "@type": "PeopleAudience",
+    "suggestedMinAge": 3,
+    "suggestedMaxAge": 18
+  },
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "フリー",
+      "price": "0",
+      "priceCurrency": "JPY",
+      "description": "ずっと無料で利用可能。子供2人まで、活動3個まで、履歴90日",
+      "availability": "https://schema.org/InStock"
+    },
+    {
+      "@type": "Offer",
+      "name": "スタンダード",
+      "price": "500",
+      "priceCurrency": "JPY",
+      "description": "月額500円。フル機能、子供無制限、データエクスポート",
+      "availability": "https://schema.org/InStock",
+      "priceSpecification": {
+        "@type": "UnitPriceSpecification",
+        "price": "500",
+        "priceCurrency": "JPY",
+        "unitText": "MONTH"
+      }
+    },
+    {
+      "@type": "Offer",
+      "name": "ファミリー",
+      "price": "780",
+      "priceCurrency": "JPY",
+      "description": "月額780円。子供無制限、AI 自動提案、メールサポート",
+      "availability": "https://schema.org/InStock",
+      "priceSpecification": {
+        "@type": "UnitPriceSpecification",
+        "price": "780",
+        "priceCurrency": "JPY",
+        "unitText": "MONTH"
+      }
+    }
+  ]
+}
+</script>
+<style>
+/* Hero (#1617 R13: max-width 拡張 + text-wrap balance + auto-phrase / Phase 5 P2: PC 横長で h1 を拡大しゆとり padding) */
+/* #1839: Spacing トークン経由 (Base/Semantic → Component) */
+.hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:var(--lp-hero-padding-top) var(--lp-section-padding-x) var(--lp-hero-padding-bottom);text-align:center}
+.hero h1{font-size:2.4rem;font-weight:800;color:var(--gray-900);margin-bottom:16px;line-height:1.3;max-width:1200px;margin-left:auto;margin-right:auto;text-wrap:balance;word-break:auto-phrase}
+/* #1800 U-MIN-1: hero h1 span の色強調を h2 (--brand-700) と差別化。
+   --brand-900 (#1a3a5c) で明度を落とし、+ gold-300 マーカー風背景でアクセント強化。
+   AA: --brand-900 on hero グラデ最暗 (#e8f4fd) = 8.9:1 PASS / gold-300 (#ffed80) も背面に十分透ける */
+.hero h1 span{color:var(--brand-900);font-weight:900;background:linear-gradient(transparent 60%,var(--gold-300) 60%);padding:0 .15em;border-radius:4px}
+.hero-sub{font-size:1.05rem;color:var(--gray-600);margin-bottom:28px;max-width:720px;margin-left:auto;margin-right:auto;line-height:1.7;text-wrap:balance;word-break:auto-phrase}
+@media(min-width:1024px){
+  .hero{padding:60px 24px 48px}
+  .hero h1{font-size:2.9rem;margin-bottom:20px}
+  .hero-sub{font-size:1.12rem;max-width:780px}
+}
+.hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+.hero-note{font-size:.85rem;color:var(--gray-500);margin-bottom:14px}
+/* #1625 R21: 価格 anchor 1 行バンド */
+.hero-price-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;max-width:680px;margin:0 auto 20px;padding:10px 16px;font-size:.95rem;color:var(--gray-800);background:rgba(255,255,255,.65);border:1px solid var(--gray-300);border-radius:999px;line-height:1.4}
+.hero-price-band .hpb-item strong{color:var(--brand-700);font-weight:700}
+.hero-price-band .hpb-dot{color:var(--gray-400)}
+@media(max-width:640px){.hero-price-band{font-size:.88rem;border-radius:14px;padding:10px 14px;gap:4px 10px}.hero-price-band .hpb-dot{display:none}}
+/* #1626 R22: CTA 直下の不安解消 3 バッジ */
+/* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、16×16 表示、line-height 内に収めるよう vertical-align:middle) */
+.cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:0 auto 14px;max-width:560px;font-size:.82rem;color:var(--gray-700)}
+.cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
+.cta-trust-badges li img{width:16px;height:16px;flex-shrink:0;vertical-align:middle}
+/* #1628 R24: 仕様起点の数字バッジ */
+/* #1795 R7: モバイルで「2 + 1」変則表示を回避するため、375px viewport で gap/font-size を圧縮し 1 行 3 バッジを目指す。
+   横が足りない場合は flex-direction:column で縦 3 段 (整然配置) に切替 */
+.hero-spec-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;list-style:none;padding:0;margin:0 auto;max-width:560px}
+.hero-spec-badges li{font-size:.84rem;color:var(--gray-700);background:#fff;border:1px solid var(--gray-300);border-radius:999px;padding:5px 12px}
+.hero-spec-badges li strong{color:var(--brand-700);font-weight:700}
+@media(max-width:480px){
+  /* 375px viewport で 3 バッジを縦 3 段に整列。flex-wrap の「2 + 1」変則を排除 */
+  .hero-spec-badges{flex-direction:column;align-items:center;gap:6px;max-width:280px}
+  .hero-spec-badges li{font-size:.78rem;padding:4px 10px;width:fit-content}
+}
+
+/* Section */
+/* #1831: desktopHeight 8103 > 8000 を解消するため section padding を 56→40 に圧縮 (Linux CI 環境) */
+/* #1836: 再度 desktopHeight 8058 > 8000 を回避するため 40→28 (LP deploy ratchet 維持) */
+/* #1839: 上記 5 PR 多層化を解消、--lp-section-padding-y / -x の Semantic トークンに集約 */
+.section{padding:var(--lp-section-padding-y) var(--lp-section-padding-x)}
+.section-inner{max-width:var(--lp-container-max);margin:0 auto}
+/* #1634 R30 / ADR-0016: 強制改行 <br> を削除し text-wrap: balance に任せる */
+/* #1831: desktopHeight 圧縮のため section-title margin-bottom を 10→4 に圧縮 */
+/* #1839: --lp-section-title-mb 経由 */
+.section-title{font-size:1.7rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:var(--lp-section-title-mb);line-height:1.4;text-wrap:balance;word-break:auto-phrase}
+/* #1759 PR Phase 3-B fix: desktopHeight 8003 > 8000 を回避するため section-desc 余白を 40 → 28px に圧縮 */
+/* #1726 R9: 長文 description は左寄せに変更（max-width:640px 中央配置は維持）。短い見出し h2.section-title は center 維持 */
+/* #1799 U-MIN-2: 中央寄せの h2.section-title と縦軸を揃えるため text-align:center に変更 + max-width 720px に拡張。
+   短文 desc は中央寄せが自然、長文も balance/auto-phrase で読みづらくはならない */
+/* #1831: desktopHeight 圧縮のため section-desc margin-bottom を 28→20 にさらに圧縮 */
+/* #1836: section-desc margin-bottom を 20→14 に再圧縮 */
+/* #1839: --lp-section-desc-mb-default 経由 (4px グリッド外の 14px) */
+.section-desc{text-align:center;color:var(--gray-600);margin-bottom:var(--lp-section-desc-mb-default);font-size:.98rem;line-height:1.7;max-width:720px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase}
+.bg-white{background:#fff}
+.bg-gray{background:var(--gray-50)}
+
+/* Age switcher tabs */
+.age-switcher{max-width:900px;margin:0 auto}
+.age-tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:28px}
+.age-tab{padding:10px 18px;background:#fff;border:1.5px solid var(--gray-300);border-radius:2rem;cursor:pointer;font-size:.92rem;color:var(--gray-700);font-weight:600;transition:all .2s}
+.age-tab:hover{border-color:var(--brand-300)}
+.age-tab.active{background:var(--brand-700);color:#fff;border-color:var(--brand-700)}
+/* #1632 R28: a11y — キーボード操作時の focus-visible 強調表示 */
+.age-tab:focus-visible{outline:3px solid var(--brand-700);outline-offset:2px}
+.age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:center;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:var(--lp-age-panel-padding-y) var(--lp-age-panel-padding-x)}
+.age-panel.active{display:grid}
+/* #1724 R8 / #1785 R-CRT-2: 内側 scrshot コンテナから border / background / border-radius を全撤去。
+   外側 .age-panel border に集約し、スクショ自体だけが浮かぶ「白背景 + アプリ scrshot」状態を実現 */
+.age-panel-shot{overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:390/844}
+.age-panel-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
+.age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
+/* #1799 U-MIN-4: WCAG AA (4.5:1) 対応。
+   旧 --brand-700 (#3878b8) on --brand-50 (#f2f9ff) = 4.35:1 (AA わずかに不足)
+   → 文字を --brand-800 (#2a5f9e) に上げ、--brand-50 上で 5.95:1 確保 */
+.age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-800);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
+.age-panel-desc{font-size:.92rem;color:var(--gray-600);line-height:1.7;margin-bottom:16px}
+.age-panel-cta{text-align:left;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.age-panel-cta .btn{flex:0 0 auto}
+.age-switcher-prep-note{margin-top:24px;text-align:center;font-size:.9rem;color:var(--gray-600)}
+.age-switcher-prep-note a{color:var(--brand-700)}
+@media(max-width:640px){
+  .age-panel.active{grid-template-columns:1fr;padding:var(--lp-age-panel-padding-y-sm) var(--lp-age-panel-padding-x-sm);gap:20px;text-align:center}
+  .age-panel-cta{text-align:center;flex-direction:column;align-items:stretch}
+}
+
+/* Core loop — 1 階層 3 cards + 1-shot summary 画像 (#1787)
+   旧 4 階層 (section → 2col → layer-grid → step) を 1 階層に圧縮。
+   旧クラス (.core-loop-step / .core-loop-layer / .core-loop-2col / .core-loop-aside /
+   .core-loop-perspectives / .clp-card / .cls-num / .core-loop-visual / .core-loop-note)
+   は廃止し、CSS / DOM ともに参照無し。再混入は #1790 LP 削除残骸検出 CI で検出される。 */
+/* #1831: desktopHeight 圧縮の追加調整 — core-loop padding を 36→28 に */
+/* #1839: --lp-section-padding-y / -x を共有 (28px / 16px) */
+#core-loop{padding:var(--lp-section-padding-y) var(--lp-section-padding-x)}
+#core-loop .section-desc{margin-bottom:var(--space-5)}
+/* 1-shot summary 画像 (Gemini 生成、活動 → 習慣 → ごほうびの循環図) */
+.core-loop-summary{max-width:640px;margin:0 auto 24px;text-align:center}
+/* #1785 R-CRT-2: summary 画像も装飾枠統一系列に追従 — border:1px solid var(--gray-300) で他の card 装飾と同一の外観 */
+/* #1889: background:#fff を撤去 — SVG/PNG が透過化されたため LP section 背景に自然に溶け込む */
+.core-loop-summary img{width:100%;height:auto;display:block;border-radius:12px;border:1px solid var(--gray-300)}
+.core-loop-summary figcaption{margin-top:10px;font-size:.86rem;color:var(--gray-700);line-height:1.6;max-width:540px;margin-left:auto;margin-right:auto}
+/* 3 cards: モバイル縦積み / PC 横並び 3 カラム */
+.core-loop-cards{display:grid;grid-template-columns:1fr;gap:14px;max-width:1080px;margin:0 auto}
+/* #1785 R-CRT-2: 5 系統 → 1 種統一 — core-loop card も共通枠 (#fff + 1 px var(--gray-300)) に集約。
+   旧 border:2px solid var(--brand-200) を撤去し、差別化は cll-badge の色のみ */
+.core-loop-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-core-loop-card-padding) var(--lp-core-loop-card-padding);display:flex;flex-direction:column;gap:8px}
+.core-loop-card .cll-badge{display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:5px;padding:3px 9px;letter-spacing:.07em;flex-shrink:0;align-self:flex-start}
+.core-loop-card[data-card="l1"] .cll-badge{background:var(--brand-500)}
+.core-loop-card[data-card="l2"] .cll-badge{background:var(--brand-700)}
+.core-loop-card[data-card="l3"] .cll-badge{background:var(--orange-500)}
+.core-loop-card h3{font-size:1.02rem;font-weight:700;margin:0;color:var(--gray-900);line-height:1.4}
+.core-loop-card p{font-size:.86rem;color:var(--gray-700);line-height:1.6;margin:0}
+@media(min-width:768px){
+  .core-loop-cards{grid-template-columns:repeat(3,1fr);gap:18px}
+}
+@media(min-width:1024px){
+  .core-loop-section-inner{max-width:1080px}
+  .core-loop-summary{max-width:720px}
+  .core-loop-cards{gap:20px}
+  /* #1799 U-MIN-3: tour-shot 高さは下方の machine-tour @media (min-width:1024px) に集約 (max-height:280px)。
+     ここでは aspect-ratio のみ維持（縦長スマホ枠 → 横長画像への切替は不要、後段の max/min-height が支配） */
+}
+
+/* Machine tour (5-act, #1618 R14: PC 整然配置 + 画像有無の高さ揃え) */
+.machine-tour{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:1280px;margin:0 auto}
+/* #1724 R8: 装飾枠 1 段階に圧縮 — tour-card 外枠 border のみで内側 .tour-shot の border を撤去 */
+.tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-tour-card-padding-y) var(--lp-tour-card-padding-x);display:flex;flex-direction:column;min-height:380px}
+.tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
+.tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
+.tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
+/* #1284: tour-shot も同様に全画面表示へ修正。スクショの主要要素が見えるように */
+/* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
+/* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
+/* #1707 R2: scrshot 9 枚追加で mobile 高が膨張するため max-height を 200px に圧縮（PC 整然配置 #1618 と整合） */
+/* #1785 R-CRT-2: tour-shot からも background / border-radius を撤去。外側 .tour-card の枠に集約 */
+.tour-card .tour-shot{overflow:hidden;aspect-ratio:390/844;max-height:200px;margin-top:auto}
+.tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
+/* #1707 R2 / #1793: 家庭で起きる / 楽になる / 家族で実感できる 1 行ベネフィットを screenshot 直下に併記 */
+.tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
+.tour-card .tour-benefit strong{color:var(--brand-700)}
+@media(min-width:1024px){
+  /* PC 整然配置 (#1846 PO-N-4): 2 列で中央配置、grid-auto-rows で行高を揃える (PR #1812 / #1827 で 2 cards 化した残骸 4 列を是正) */
+  .machine-tour{grid-template-columns:repeat(2,1fr);gap:20px;grid-auto-rows:1fr;max-width:960px;margin-inline:auto}
+  .tour-card{min-height:520px;padding:var(--lp-tour-card-padding-y-md) var(--lp-tour-card-padding-x-md)}
+  /* #1799 U-MIN-3: scrshot 高さを 200px → 280px (1.4 倍) に拡大。
+     画像 alt と aspect-ratio (390/844) は維持し、card min-height も 480→520px に拡張 */
+  .tour-card .tour-shot{max-height:280px;min-height:240px}
+}
+@media(min-width:1440px){
+  .machine-tour{max-width:1320px;gap:24px}
+  .tour-card{padding:var(--lp-tour-card-padding-y-lg) var(--lp-tour-card-padding-x-lg)}
+}
+
+/* Soft features */
+.soft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:900px;margin:0 auto}
+#soft-features .soft-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+#soft-features.section{padding-bottom:28px}
+/* #1847 PO-N-5: 3 cards CSS 完全均質化 — featured 強調差分（grid 1.2fr / h3 拡大色変更 / soft-shot max-height 拡大）撤去、
+   PC でも均等幅 + 全 cards 同一 h3 サイズ + 同一 soft-shot 高さに統一 */
+@media(min-width:768px){
+  #soft-features .soft-grid--three{grid-template-columns:repeat(3,1fr);max-width:1080px}
+}
+/* #1785 R-CRT-2: 5 系統 → 1 種統一 — featured の box-shadow / 太枠 border 撤去。
+   #1847 PO-N-5: featured 強調 (h3 拡大 + 文字色変更 / soft-shot max-height 拡大) も完全撤去し 3 cards 視覚均質化 */
+.soft-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-soft-card-padding-y) var(--lp-soft-card-padding-x);display:flex;flex-direction:column}
+.soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
+.soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
+/* #1707 R2 / #1793: soft-card 内に家庭で楽になる / 家庭ごとにカスタマイズできる 1 行ベネフィットと screenshot を追加 */
+/* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
+/* #1785 R-CRT-2: soft-shot からも border / background / border-radius を撤去 */
+.soft-card .soft-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:8px 0}
+.soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
+.soft-card .soft-benefit{font-size:.78rem;color:var(--gray-700);line-height:1.5;margin-top:auto}
+.soft-card .soft-benefit strong{color:var(--brand-700)}
+@media(min-width:1024px){
+  .soft-card .soft-shot{max-height:160px}
+}
+
+/* Pricing promise band (#1293: freemium × 低価格帯の price disambiguation) */
+.pricing-promise{max-width:760px;margin:0 auto;text-align:center}
+.pp-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;padding:var(--lp-pp-band-padding-y) var(--lp-pp-band-padding-x);background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:1px solid var(--gray-300);border-radius:var(--radius);margin:0 auto 20px;font-size:1.05rem;color:var(--gray-900);line-height:1.6}
+.pp-item{display:inline-flex;align-items:center}
+.pp-item strong{color:#8b5cf6;font-size:1.1rem}
+.pp-dot{color:var(--gray-400);font-weight:400}
+.pp-footnote{font-size:.9rem;color:var(--gray-600);line-height:1.7;margin:0 auto 22px;max-width:560px}
+.pp-cta{text-align:center;margin-top:8px}
+.pp-cta .btn{min-width:220px}
+/* #1798 U-MAJ-8: モバイルで 4 約束を「独立した項目」として提示するため 2×2 grid 化。
+   旧 flex-direction:column;gap:8px の単純縦積みは 4 項目の独立性が伝わらなかった */
+@media (max-width:640px){
+	.pp-band{font-size:.92rem;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:var(--lp-pp-band-padding-y-sm) var(--lp-pp-band-padding-x-sm);align-items:stretch}
+	.pp-band .pp-item{display:flex;align-items:center;justify-content:center;text-align:center;background:#fff;border:1px solid var(--gray-300);border-radius:10px;padding:10px 8px;line-height:1.4;min-height:56px}
+	.pp-dot{display:none}
+}
+
+/* #1848: 年齢別成長ロードマップ詳細を graduation.html に切り出した。
+   LP 本体は CTA 1 行のみで、成長ロードマップの詳細展開は graduation.html を参照する。
+   旧 .gr-stage / .gr-track / .gr-shot / .gr-benefit 系 CSS は graduation.html に移管済み。
+   #1895 (PO-4-9): CTA は「3 歳から 18 歳までの成長ストーリーを見る →」+ btn-secondary ボタン化で動線強度確保。 */
+#growth-roadmap{padding:var(--lp-growth-roadmap-padding-y) var(--lp-growth-roadmap-padding-x)}
+.growth-roadmap-cta{text-align:center}
+.growth-roadmap-cta .growth-roadmap-link{margin:18px 0 0;font-size:1rem}
+.growth-roadmap-cta .growth-roadmap-link a{display:inline-block;padding:10px 24px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;color:var(--brand-700);font-weight:600;text-decoration:none;transition:opacity .2s,transform .2s}
+.growth-roadmap-cta .growth-roadmap-link a:hover{opacity:.92;transform:translateY(-1px);text-decoration:none}
+
+/* アナログ vs デジタル比較 (#1614 R10: シール帳 vs アプリ訴求)
+   モバイル/PC ともに 1 行 = analog → digital 横並びにして縦の伸びを抑える */
+#versus{padding:var(--lp-versus-section-padding-y) var(--lp-versus-section-padding-x)}
+.versus-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px}
+.versus-row{display:grid;grid-template-columns:1fr 22px 1.4fr;gap:8px;align-items:stretch}
+/* #1785 R-CRT-2: versus 5 系統 → 1 種統一。analog/digital の background-color / グラデーション全廃。
+   差別化は左上 .vc-tag の色のみで実現（紙＝灰色 / アプリ＝brand-700） */
+.versus-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-versus-card-padding-y) var(--lp-versus-card-padding-x);display:flex;flex-direction:column;justify-content:center}
+.versus-card .vc-tag{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;margin-bottom:3px;align-self:flex-start}
+.versus-card.vc-analog .vc-tag{background:var(--gray-200);color:var(--gray-700)}
+.versus-card.vc-digital .vc-tag{background:var(--brand-700);color:#fff}
+.versus-card h3{font-size:.85rem;font-weight:700;margin-bottom:2px;color:var(--gray-900);line-height:1.4}
+.versus-card p{font-size:.74rem;color:var(--gray-700);line-height:1.5;margin:0}
+.versus-arrow{display:flex;align-items:center;justify-content:center;font-size:.95rem;color:var(--brand-700)}
+/* #1723 R10: versus 各優位点アイコン (.vc-icon) は装飾過多のため削除（タグ + タイトル + 説明で意味は伝わる） */
+/* #1784: versus row 内 vc-digital に小型 scrshot を縦積み配置（PO 指摘: vc-digital に scrshot ゼロ → 4 行に scrshot 配置）
+   #versus セクションを左右 2 column 配置にした上で、各 row の scrshot は aspect-ratio 16/9 で行高を揃える
+   desktopHeight ≤ 8000 ratchet を守りつつ scrshot 占有率 30% 以上を達成するため
+   PC (≥1024px) では .versus-grid を 2 column に並べて 4 row → 2 row 表示にして縦の伸びを抑える */
+.versus-shot{margin-top:4px;border-radius:6px;overflow:hidden;background:#fff;aspect-ratio:16/9;max-height:80px;border:1px solid var(--brand-200)}
+.versus-shot img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.versus-shot picture{display:block;width:100%;height:100%}
+@media(max-width:640px){
+  .versus-row{grid-template-columns:1fr 18px 1.3fr;gap:6px}
+  .versus-card{padding:var(--lp-versus-card-padding-y-sm) var(--lp-versus-card-padding-x-sm)}
+  .versus-card h3{font-size:.78rem}
+  .versus-card p{font-size:.7rem}
+  .versus-shot{max-height:70px}
+}
+@media(min-width:1024px){
+  .versus-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .versus-shot{max-height:90px}
+}
+
+/* Trust badges (#1620 R16: PC 4 列化、モバイル 2×2 維持) */
+.trust-badges{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;max-width:900px;margin:0 auto}
+@media(max-width:640px){.trust-badges{gap:12px}}
+@media(min-width:1024px){
+  .trust-badges{grid-template-columns:repeat(4,1fr);max-width:1200px;gap:18px}
+  .trust-badge{padding:var(--lp-trust-badge-padding-y-lg) var(--lp-trust-badge-padding-x-lg)}
+  .trust-badge h3{font-size:.95rem}
+  .trust-badge p{font-size:.8rem}
+}
+.trust-badge{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-trust-badge-padding-y) var(--lp-trust-badge-padding-x);text-align:center}
+/* #1796 R-MAJ-6: 絵文字依存 (font-size:2rem) を撤去 — 4 種の SVG (static/assets/ui/trust-*.svg) に置換。
+   docs/DESIGN.md §7「OS/ブラウザ間で見た目が変わると困る要素」に整合。Safari/Chrome/Firefox で同一表示 */
+.trust-badge .tb-icon{display:flex;justify-content:center;align-items:center;margin-bottom:10px;line-height:1;height:32px}
+.trust-badge .tb-icon img{width:32px;height:32px;display:block}
+.trust-badge h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
+.trust-badge p{font-size:.85rem;color:var(--gray-600);line-height:1.6;margin-bottom:8px}
+.trust-badge a{color:var(--brand-700);text-decoration:none;font-size:.82rem;font-weight:600}
+.trust-badge a:hover{text-decoration:underline}
+
+/* FAQ */
+.faq-list{max-width:720px;margin:0 auto}
+/* #1831: desktopHeight 圧縮のため faq-item padding を 18→14 に */
+/* #1839: --lp-faq-item-padding-y に集約 (14px) */
+.faq-item{border-bottom:1px solid var(--gray-300);padding:var(--lp-faq-item-padding-y) 0}
+.faq-item summary{font-size:.98rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:flex-start;gap:8px;line-height:1.5}
+.faq-item summary::before{content:"Q.";color:var(--brand-700);font-weight:700;font-size:1.05rem;flex-shrink:0}
+.faq-item[open] summary{margin-bottom:10px}
+.faq-answer{font-size:.88rem;color:var(--gray-600);padding-left:24px;line-height:1.75}
+.faq-footnote{max-width:640px;margin:28px auto 0;text-align:center;font-size:.85rem;color:var(--gray-500)}
+.faq-footnote a{color:var(--brand-700);font-weight:600}
+
+/* Final CTA — #1838 で .cta-bottom 系統 CSS を削除 (選択肢 A: cta-bottom セクション全削除)
+   削除前は cta-bottom 本体 / cta-bottom-note / cta-bottom-disclaimer / cta-bottom + .footer の
+   4 セレクタが存在。Success 像は hero / growth-roadmap に内在化、mailto は footer mailto に集約済。
+   #1839: 当初 .cta-bottom 関連を Semantic トークン化していたが、上記 #1838 で section ごと
+   削除されたため、本 PR では .cta-bottom 用 Semantic トークン (--lp-cta-bottom-padding-top/-bottom)
+   も併せて削除。 */
+
+/* Floating CTA */
+.floating-cta{display:none;position:fixed;bottom:0;left:0;right:0;z-index:40;background:var(--gray-900);padding:var(--lp-floating-cta-padding-y) var(--lp-floating-cta-padding-x);transform:translateY(100%);transition:transform .3s ease;box-shadow:0 -2px 12px rgba(0,0,0,.15)}
+.floating-cta.visible{transform:translateY(0)}
+.floating-cta-inner{max-width:480px;margin:0 auto;display:flex;align-items:center;gap:10px;justify-content:space-between}
+.floating-cta-text{font-size:.82rem;color:#fff;font-weight:600;line-height:1.3;transition:opacity .2s ease}
+/* #1800 U-MIN-5: dark BG (--gray-900) 上 small のコントラスト改善。
+   旧 --gray-400 は site/shared.css 未定義かつ AA 不足の可能性 → --gray-300 (#cbd5e1) に引き上げ。
+   AA: #cbd5e1 on #1e293b = 11.6:1 PASS */
+.floating-cta-text small{display:block;font-size:.72rem;font-weight:400;color:var(--gray-300)}
+.floating-cta .btn{white-space:nowrap;padding:var(--lp-floating-cta-btn-padding-y) var(--lp-floating-cta-btn-padding-x);font-size:.82rem;flex-shrink:0;transition:background-color .2s ease,color .2s ease}
+/* #1732: phase 別のサブカラーアクセント（ボタン文言切替時の違和感緩和、Anti-engagement に整合する穏やかな差別化） */
+.floating-cta[data-floating-cta-phase="mid"] .btn-primary{background:var(--brand-700);}
+.floating-cta[data-floating-cta-phase="bottom"] .btn-primary{background:var(--brand-800);}
+@media(min-width:769px){.floating-cta{display:none!important}}
+
+/* NAV — text links (ログインの ghost button スタイルは shared.css .nav-login を参照、#1285) */
+.header-nav a.nav-text{padding:8px 12px;color:var(--gray-700);font-size:.92rem;font-weight:500}
+.header-nav a.nav-text:hover{color:var(--brand-700)}
+
+/* Hero carousel — Splide
+   #1795 R-MAJ-4: PC は黒スマホ枠を撤去（横長 680×425 と「スマホ枠」がミスマッチ → デバイスフォームを曖昧にしていた）。
+   モバイルのみ縦長スマホ枠で「実機イメージ」を残し、PC は薄いグレー枠 + ドロップシャドウで「画像」として中立的に提示 */
+.hero-carousel{margin-top:20px;display:flex;flex-direction:column;align-items:center}
+#hero-carousel .splide__track{width:260px;height:562px;border-radius:32px;overflow:hidden;box-shadow:0 20px 60px rgba(56,120,184,.25),0 0 0 8px var(--gray-900);background:var(--gray-900)}
+#hero-carousel .splide__slide img{display:block;width:100%;height:100%;object-fit:cover;object-position:top;border-radius:24px;cursor:zoom-in}
+#hero-carousel .splide__pagination{display:flex;gap:8px;margin-top:14px;position:static;padding:0;bottom:auto}
+#hero-carousel .splide__pagination__page{width:8px;height:8px;border-radius:50%;background:var(--gray-300);border:none;cursor:pointer;padding:0;transition:background .3s,width .3s,border-radius .3s;opacity:1;margin:0}
+#hero-carousel .splide__pagination__page.is-active{background:var(--brand-700);width:24px;border-radius:4px}
+.carousel-label{margin-top:8px;font-size:.82rem;color:var(--gray-500);min-height:1.5em;transition:opacity .3s;text-align:center}
+@media(min-width:1024px){
+  /* #1795 R-MAJ-4: PC は黒スマホ枠 (0 0 0 4px var(--gray-900)) を撤去。
+     border:1px solid var(--gray-300) + 軽量 box-shadow で「画像」として中立提示 */
+  #hero-carousel .splide__track{width:680px;height:425px;border-radius:12px;border:1px solid var(--gray-300);box-shadow:0 12px 36px rgba(56,120,184,.12);background:#fff}
+  #hero-carousel .splide__slide img{border-radius:8px}
+}
+
+@media(max-width:640px){
+  .hero h1{font-size:1.85rem}
+  .hero-cta{flex-direction:column;align-items:stretch}
+  .hero-cta .btn{width:100%}
+  #hero-carousel .splide__track{width:220px;height:476px;border-radius:24px;box-shadow:0 12px 40px rgba(56,120,184,.2),0 0 0 6px var(--gray-900)}
+}
+/* #1800 U-MIN-7: 480px / 375px / 320px viewport で hero-cta は必ず縦積み。
+   flex-wrap の「中間幅で見栄え悪い」状態を排除 */
+@media(max-width:480px){
+  .hero-cta{flex-direction:column;align-items:stretch;flex-wrap:nowrap}
+  .hero-cta .btn{width:100%}
+}
+
+/* #1726 R9: 長文 disclaimer / section-sub-note は左寄せ + balance/auto-phrase でモバイル可読性確保 */
+.section-sub-note{text-align:left;font-size:.88rem;color:var(--gray-500);margin-top:-.5rem;margin-bottom:1.5rem;max-width:640px;margin-left:auto;margin-right:auto;text-wrap:pretty;word-break:auto-phrase;line-height:1.7}
+.section-sub-note a{color:var(--brand-700)}
+.pp-disclaimer{text-align:left;font-size:.8rem;color:var(--gray-600);margin-top:8px;line-height:1.7;max-width:640px;text-wrap:pretty;word-break:auto-phrase}
+.trust-disclaimer{margin-top:var(--lp-trust-disclaimer-margin-top);padding:var(--lp-trust-disclaimer-padding-y) var(--lp-trust-disclaimer-padding-x);background:var(--gray-50);border-radius:8px;border-left:4px solid var(--gray-300)}
+.trust-disclaimer-text{font-size:.85rem;color:var(--gray-700);line-height:1.7;margin:0;text-align:left;text-wrap:pretty;word-break:auto-phrase}
+/* #1838: .cta-bottom-disclaimer / .cta-bottom-disclaimer-link は cta-bottom セクション削除に伴い撤去 */
+
+/* #1726 R9: 旧 founder セクションの CSS — #1713 R7 / ADR-0028 で対応セクション削除に伴い CSS も削除 */
+
+/* #1632 R28: a11y — details/summary / faq-item / hamburger / 各種ボタンの focus-visible */
+.faq-item summary:focus-visible,
+.hamburger:focus-visible,
+.btn:focus-visible,
+.nav-text:focus-visible,
+#hero-carousel .splide__pagination__page:focus-visible,
+#hero-carousel .splide__arrow:focus-visible{outline:3px solid var(--brand-700);outline-offset:2px}
+
+/* #1632 R28 / #1627 R23: prefers-reduced-motion 尊重 — animation/transition を最小化 */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  /* Splide carousel の auto-play は #1627 R23 で既に停止済み */
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+    </a>
+    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
+    <nav id="main-nav" class="header-nav">
+      <a href="index.html" class="nav-text" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="pricing.html" class="nav-text" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="faq.html" class="nav-text" data-lp-key="nav.faq" onclick="this.parentElement.classList.remove('open')">よくあるご質問</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary nav-signup" data-testid="lp-nav-signup" data-lp-key="nav.signup" onclick="this.parentElement.classList.remove('open')">無料で始める</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-testid="lp-nav-login" data-lp-key="nav.login" onclick="this.parentElement.classList.remove('open')">ログイン</a>
+    </nav>
+  </div>
+</header>
+
+<!-- LP-LANDMARK:hero start — ファーストビュー。CTA は「無料で始める」「デモを見る」の 2 種のみ (#1293)
+     変更時は docs/design/lp-content-map.md §hero を確認 -->
+<!-- [01] Hero (#1617 R13: <br> 削除 + balance で自然な折り返し / #1625 R21: 価格 anchor 1 行バンド / #1626 R22: 不安解消 3 バッジ / #1628 R24: 仕様起点の数字バッジ) -->
+<section class="hero">
+  <h1 data-lp-key="indexB.k2">「やりなさい」を <span>「やりたい！」</span> に変える家族の冒険アプリ</h1>
+  <p class="hero-sub">
+    <span data-lp-key="indexB.k3">3〜18 歳の毎日の習慣を、ゲームのように楽しめる仕組みに変える。声をかけなくても、自分から動きだす家族時間へ。</span>
+  </p>
+  <!-- #1625 R21: 価格 anchor 1 行バンド（30 秒で離脱判断する親 P1 向け） -->
+  <p class="hero-price-band" data-lp-key="heroPriceBand.container"><span class="hpb-item" data-lp-key="heroPriceBand.itemFree"><strong>基本無料</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemPrice">必要なら 月 <strong>¥500〜</strong></span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemTrial">有料は 7 日間無料</span><span class="hpb-dot">・</span><span class="hpb-item" data-lp-key="heroPriceBand.itemCancel">いつでも解約</span></p>
+  <div class="hero-cta">
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="common.ctaSignup">無料で始める</a>
+    <a href="https://ganbari-quest.com/demo" class="btn btn-demo btn-lg" data-lp-key="common.ctaDemo">デモを見る</a>
+  </div>
+  <!-- #1626 R22: CTA 直下の不安解消 3 バッジ -->
+  <ul class="cta-trust-badges" aria-label="お申し込み前の安心ポイント">
+    <li data-lp-key="ctaTrustBadges.noCreditCard"><img src="assets/ui/cta-trust-credit-card.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> クレジットカード登録不要</li>
+    <li data-lp-key="ctaTrustBadges.noAds"><img src="assets/ui/cta-trust-ad-free.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> 広告なし</li>
+    <li data-lp-key="ctaTrustBadges.cancelAnytime"><img src="assets/ui/cta-trust-cancel-anytime.svg" alt="" width="16" height="16" loading="lazy" decoding="async"> いつでも解約 OK</li>
+  </ul>
+  <p class="hero-note" data-lp-key="hero.noteSignup">家族何人でも無料ではじめられます / クレジットカード登録不要</p>
+  <!-- #1628 R24: 仕様起点の数字バッジ（PMF 後送り testimonial、現時点は仕様値のみ） -->
+  <ul class="hero-spec-badges" aria-label="主な仕様">
+    <li data-lp-key="heroSpecBadges.ageRange"><strong>3〜18 歳</strong> 対応</li>
+    <li data-lp-key="heroSpecBadges.presetCount"><strong>300+</strong> プリセット活動 の候補</li>
+    <li data-lp-key="heroSpecBadges.setupTime"><strong>約 5 分</strong> で初期設定</li>
+  </ul>
+  <div class="hero-carousel">
+    <div class="splide splide--fade splide--ltr splide--draggable is-active is-overflow is-initialized" id="hero-carousel" aria-label="アプリのスクリーンショット" role="region" aria-roledescription="carousel">
+      <!--
+        #1900 (UIUX-C-1): hero carousel 4 枚を年齢帯 3 系統 + 管理画面に再構成。
+          slide 1 = 幼児 (3-5 歳代表) / slide 2 = 小学生 (6-12 歳代表) /
+          slide 3 = 中高生 (13-18 歳代表) / slide 4 = ご家族の見守り画面 (管理画面)
+        data-label / img alt は LP_INDEX_PHASEB_LABELS.carouselSlide{1..4}Alt (labels.ts) と
+          char-by-char で一致させる char-by-char SSOT 運用 (LP_HERO_SPEC_BADGES_LABELS と同パターン)。
+          data-lp-key 注入機構は innerHTML 専用で属性 (alt / data-label) には注入できないため、
+          値を変更する際は labels.ts と本 HTML の両方を同時に更新すること。
+        画像 src は scripts/capture-hp-screenshots.mjs CAROUSEL_SCREENSHOTS で年齢帯別に撮影される。
+      -->
+      <div class="splide__track splide__track--fade splide__track--ltr splide__track--draggable" id="hero-carousel-track" style="padding-left: 0px; padding-right: 0px;" aria-live="polite" aria-atomic="true">
+        <ul class="splide__list" id="hero-carousel-list" role="presentation">
+          <li class="splide__slide is-active is-visible" data-label="幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン" id="hero-carousel-slide01" role="tabpanel" aria-roledescription="slide" aria-label="1 of 4" style="width: calc(100%); transform: translateX(0%);">
+            <picture>
+              <source srcset="screenshots/carousel-1-child-home-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/carousel-1-child-home-mobile.webp" alt="幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン" width="390" height="844" data-lightbox="">
+            </picture>
+          </li>
+          <li class="splide__slide is-next" data-label="小学生（6-12 歳代表）のホーム画面 — 活動記録とポイント獲得" id="hero-carousel-slide02" role="tabpanel" aria-roledescription="slide" aria-label="2 of 4" style="width: calc(100%); transform: translateX(-100%);" aria-hidden="true">
+            <picture>
+              <source srcset="screenshots/carousel-2-child-status-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/carousel-2-child-status-mobile.webp" alt="小学生（6-12 歳代表）のホーム画面 — 活動記録とポイント獲得" width="390" height="844" data-lightbox="">
+            </picture>
+          </li>
+          <li class="splide__slide" data-label="中高生（13-18 歳代表）のホーム画面 — 自己管理ダッシュボード" id="hero-carousel-slide03" role="tabpanel" aria-roledescription="slide" aria-label="3 of 4" style="width: calc(100%); transform: translateX(-200%);" aria-hidden="true">
+            <picture>
+              <source srcset="screenshots/carousel-3-admin-main-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/carousel-3-admin-main-mobile.webp" alt="中高生（13-18 歳代表）のホーム画面 — 自己管理ダッシュボード" width="390" height="844" data-lightbox="">
+            </picture>
+          </li>
+          <li class="splide__slide" data-label="子供管理画面 — 家族メンバーの登録と切替" id="hero-carousel-slide04" role="tabpanel" aria-roledescription="slide" aria-label="4 of 4" style="width: calc(100%); transform: translateX(-300%);" aria-hidden="true">
+            <picture>
+              <source srcset="screenshots/carousel-4-admin-sub-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/carousel-4-admin-sub-mobile.webp" alt="子供管理画面 — 家族メンバーの登録と切替" width="390" height="844" data-lightbox="">
+            </picture>
+          </li>
+        </ul>
+      </div>
+    <ul class="splide__pagination splide__pagination--ltr" role="tablist" aria-label="Select a slide to show"><li role="presentation"><button class="splide__pagination__page is-active" type="button" role="tab" aria-controls="hero-carousel-slide01" aria-label="Go to slide 1" aria-selected="true"></button></li><li role="presentation"><button class="splide__pagination__page" type="button" role="tab" aria-controls="hero-carousel-slide02" aria-label="Go to slide 2" tabindex="-1"></button></li><li role="presentation"><button class="splide__pagination__page" type="button" role="tab" aria-controls="hero-carousel-slide03" aria-label="Go to slide 3" tabindex="-1"></button></li><li role="presentation"><button class="splide__pagination__page" type="button" role="tab" aria-controls="hero-carousel-slide04" aria-label="Go to slide 4" tabindex="-1"></button></li></ul></div>
+    <!-- carousel-label は splide.on('mounted move') で active slide の data-label 属性値に動的更新される。
+         初期値も labels.ts (carouselSlide1Alt) と一致させる。data-lp-key="indexB.carouselSlide1Alt" は
+         shared-labels.js で innerHTML 上書きされ、SSR / 静的 HTML 値と動的注入値が一致する。 -->
+    <div class="carousel-label" aria-live="polite" data-lp-key="indexB.carouselSlide1Alt">幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン</div>
+  </div>
+</section>
+<!-- LP-LANDMARK:hero end -->
+
+<!-- LP-LANDMARK:versus start — シール帳・ホワイトボードではできない 4 つのことを提示 (#1614 R10 / #1844 / #1888)
+     親 P1 が「30 秒で離脱判断」する直前に「アナログではできない 4 つのこと」を比較表で提示
+     ヒーロー直下〜2 スクロール目 (#1597 で確定した設計位置) -->
+<!-- [02] アナログ vs デジタル — シール帳・ホワイトボードと何が違うのか -->
+<section class="section bg-white" id="versus">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="versus.sectionTitle">シール帳・ホワイトボードではできない 4 つのこと</h2>
+    <p class="section-desc" data-lp-key="versus.sectionDesc" data-budoux-applied="true">多くのご家庭がまず紙で試して、続かずに諦めています。「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」を叶えるのが、がんばりクエストです。</p>
+    <div class="versus-grid">
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row1AnalogTitle">集計が手作業で計算ミスが起きがち</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3><span data-lp-key="versus.row1DigitalTitle">自動集計でいつでもポイントが見える</span></h3>
+          <p data-lp-key="versus.row1DigitalDesc" data-budoux-applied="true">「あと 50 ポイントでごほうび」を子供自身が計画</p>
+          <!-- #1784: vc-digital scrshot 配置（PO 指摘: scrshot ゼロ → アプリの見た目を訴求） -->
+          <div class="versus-shot">
+            <picture>
+              <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/feature-point-level.webp" alt="自動集計でポイントが見えるホーム画面" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+        </div>
+      </div>
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row2AnalogTitle">年齢が変わるたびに冊子を買い替え</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3><span data-lp-key="versus.row2DigitalTitle">3 歳から 18 歳まで同じアプリで継続</span></h3>
+          <p data-lp-key="versus.row2DigitalDesc" data-budoux-applied="true">15 年分の成長履歴がひとつに</p>
+          <div class="versus-shot">
+            <picture>
+              <source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/age-kinder.webp" alt="幼児（3-5 歳）の大ボタン UI 例" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+        </div>
+      </div>
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row4AnalogTitle">家を離れると続けられない</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3><span data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</span></h3>
+          <p data-lp-key="versus.row4DigitalDesc" data-budoux-applied="true">スマホ・タブレットで連続記録が途切れない</p>
+          <div class="versus-shot">
+            <picture>
+              <source srcset="screenshots/feature-cheer-message-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/feature-cheer-message.webp" alt="スマホで開ける子供ホーム画面" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+        </div>
+      </div>
+      <div class="versus-row">
+        <div class="versus-card vc-analog">
+          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+          <h3 data-lp-key="versus.row3AnalogTitle">続けることが目的になりがち</h3>
+        </div>
+        <div class="versus-arrow" aria-hidden="true">→</div>
+        <div class="versus-card vc-digital">
+          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+          <h3><span data-lp-key="versus.row3DigitalTitle">子供が自律したらアプリは不要</span></h3>
+          <p data-lp-key="versus.row3DigitalDesc" data-budoux-applied="true">「使わなくなる」が成功のゴール — 卒業を最終地点として設計</p>
+          <div class="versus-shot">
+            <picture>
+              <source srcset="screenshots/growth-stage-graduate-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/growth-stage-graduate.webp" alt="卒業マイルストーンと履歴エクスポート画面" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- LP-LANDMARK:versus end -->
+
+<!-- LP-LANDMARK:age-panel start — 年齢差別化軸ポリシー (docs/design/lp-content-map.md) に準拠
+     UI 軸の差別化のみ掲載: kinder=幼児UI(ひらがな/大タップ) / primary-plus=小学生以降(漢字/情報密度)
+     機能差別化が実装された際は該当パネルに「代表機能」バッジを追加すること (#1322) -->
+<section class="section bg-white" id="age-panel">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="indexB.k5">お子さまの年齢で、画面とむずかしさが変わります</h2>
+    <p class="section-desc" data-lp-key="indexB.k6" data-budoux-applied="true">3 歳から 18 歳まで、2 つの UI モードが対応。タップで「今のお子さまに合う UI」をご覧ください。</p>
+    <p class="section-sub-note" data-budoux-applied="true">
+      <span data-lp-key="indexB.k7">0-2 歳のお子さまは「準備モード」でご登録いただけます。<a href="faq.html#baby-mode">詳しくはこちら</a></span>
+    </p>
+    <div class="age-switcher">
+      <div class="age-tabs" role="tablist">
+        <button type="button" class="age-tab active" data-age="kinder" role="tab" aria-selected="true" aria-controls="age-panel-kinder" id="age-tab-kinder" data-lp-key="indexB.k8">幼児 (3-5)</button>
+        <button type="button" class="age-tab" data-age="primary-plus" role="tab" aria-selected="false" aria-controls="age-panel-primary-plus" id="age-tab-primary-plus" data-lp-key="indexB.k9">小学生以上 (6-18)</button>
+      </div>
+      <div class="age-panel active" data-panel="kinder" role="tabpanel" id="age-panel-kinder" aria-labelledby="age-tab-kinder">
+        <div class="age-panel-shot"><img src="screenshots/age-kinder.webp" alt="幼児向け画面" data-lightbox=""></div>
+        <div class="age-panel-body">
+          <h3 data-lp-key="indexB.k10">ひらがな中心・丸みのある大きなボタン</h3>
+          <span class="age-panel-feature" data-lp-key="indexB.k11">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
+          <p class="age-panel-desc" data-lp-key="indexB.k12" data-budoux-applied="true">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。最初の準備で好きなものを選ぶだけ。毎日のごほうびでおみくじが 1 回引けて、週 5 日タップでスタンプカード 1 枚分のポイントに自動交換できます。</p>
+          <!-- #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化 -->
+          <p class="age-panel-cta" data-lp-key="indexB.k13"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
+        </div>
+      </div>
+      <div class="age-panel" data-panel="primary-plus" role="tabpanel" id="age-panel-primary-plus" aria-labelledby="age-tab-primary-plus">
+        <div class="age-panel-shot"><img src="screenshots/age-lower.webp" alt="小学生以上向け画面" data-lightbox=""></div>
+        <div class="age-panel-body">
+          <h3 data-lp-key="indexB.k14">漢字 + 情報密度で 15 年継続できる UI</h3>
+          <span class="age-panel-feature" data-lp-key="indexB.k15">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
+          <p class="age-panel-desc" data-lp-key="indexB.k16" data-budoux-applied="true">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
+          <!-- #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化 -->
+          <p class="age-panel-cta" data-lp-key="indexB.k17"><a href="https://ganbari-quest.com/demo" class="btn btn-demo">デモを見る</a></p>
+        </div>
+      </div>
+    </div>
+    <p class="age-switcher-prep-note" data-lp-key="indexB.k18">👶 0〜2 歳のお子さまは「<strong>準備モード</strong>」でご登録いただけます — <a href="https://ganbari-quest.com/demo">デモを見る</a></p>
+  </div>
+</section>
+<!-- LP-LANDMARK:age-panel end -->
+
+<!-- LP-LANDMARK:core-loop start — 3 つの仕組み（活動 / 習慣 / ごほうび）の描画 (#1343, #1615 R11 顧客語彙化, #1787 4 階層→1 階層 3 カード再構成)
+     変更時は docs/design/lp-content-map.md §3.5 魅せ方規範 / §core-loop 原則を確認
+     用語 SSOT: src/lib/domain/labels.ts LP_CORELOOP_LABELS / FEATURE_LABELS
+     #1787: 4 階層 (section → 2col → layer-grid → step) → 1 階層 3 カードに圧縮。
+       1-shot summary 画像 (assets/lp/core-loop-summary.png) で全体像を提示し、
+       3 cards (活動 / 習慣 / ごほうび) は各 badge + h3 + 短文 1 行のみ。
+       廃止: .core-loop-perspectives / .cls-num / .core-loop-aside / STEP 1/2 構造
+     #1789: 「魅せ方規範 §」§3.5 規範 B (soft-features 並列 3 cards) に整合
+     #1892 (PO-4-6 2 回目指摘): HTML コメント内の旧内部用語を顧客語彙「3 つの仕組み」/
+       英語 section 名 "core-loop" に揃え、grep で 0 件化。section id="core-loop" は anchor 互換のため維持。 -->
+<!-- [03] 3 つの仕組み（活動 / 習慣 / ごほうび — 1 階層 3 cards） -->
+<section class="section bg-gray" id="core-loop">
+  <div class="section-inner core-loop-section-inner">
+    <h2 class="section-title" data-lp-key="coreloop.sectionTitle">3 つの仕組みで、毎日のがんばりが本物の報酬になる</h2>
+    <p class="section-desc" data-lp-key="coreloop.sectionDesc" data-budoux-applied="true">毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。活動 → 習慣 → ごほうびの 3 つの仕組みで、子供が自分から動きだす毎日へ。</p>
+
+    <!-- 1-shot summary 画像（Gemini 生成、活動 → 習慣 → ごほうびの循環図） -->
+    <figure class="core-loop-summary">
+      <img src="assets/lp/core-loop-summary.png" alt="活動 → 習慣 → ごほうび の循環図 — D3 勇者キャラクターを中心に 3 要素が円環で結ばれる" data-lp-key="coreloop.summaryImageAlt" data-lp-attr="alt" width="640" height="320" loading="lazy" data-lightbox="">
+      <figcaption data-lp-key="coreloop.summaryCaption" data-budoux-applied="true">活動を記録 → ポイントが貯まる → ごほうびと交換。子供が自分で計画する力を、3 つの仕組みで支えます。</figcaption>
+    </figure>
+
+    <!-- 3 cards: 1 階層、各カード = badge + h3 + 短文 1 行 -->
+    <div class="core-loop-cards">
+      <div class="core-loop-card" data-card="l1">
+        <span class="cll-badge" data-lp-key="coreloop.l1Badge">活動</span>
+        <h3 data-lp-key="coreloop.l1Title">毎日の活動を記録</h3>
+        <p data-lp-key="coreloop.l1Desc" data-budoux-applied="true">「はみがきした」「宿題おわった」を 2 タップで記録。学年別に用意された候補から、家庭で必要なものを選んで設定できます。</p>
+      </div>
+      <div class="core-loop-card" data-card="l2">
+        <span class="cll-badge" data-lp-key="coreloop.l2Badge">習慣</span>
+        <h3 data-lp-key="coreloop.l2Title">習慣カードで続ける</h3>
+        <p data-lp-key="coreloop.l2Desc" data-budoux-applied="true">毎日 1 回引けるおみくじスタンプで、子供が「明日もやろう」と自分から続けたくなります。</p>
+      </div>
+      <div class="core-loop-card" data-card="l3">
+        <span class="cll-badge" data-lp-key="coreloop.l3Badge">ごほうび</span>
+        <h3 data-lp-key="coreloop.l3Title">ごほうびショップで交換</h3>
+        <p data-lp-key="coreloop.l3Desc" data-budoux-applied="true">貯めたポイントはごほうびショップが唯一の出口。実物のプレゼント・お小遣い・特権を親が設定し、子供が自分で選んで交換できます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LP-LANDMARK:core-loop end -->
+
+<!-- LP-LANDMARK:machine-tour start — [04] 毎日の冒険をもっと楽しくする 2 つの工夫
+     #1622 R18 (アプローチ A): [03] 3 つの仕組みと重複するカードを削除し
+     長期 / 朝の習慣 / 冒険のクライマックスの 3 つに圧縮
+     #1629 R25: ADR-0012 整合のため連続達成系の語彙を刷新
+     #1708 R3-A: 旧 ③ カード削除（kind=routine 廃止 + 活動 must 属性化に伴い）
+     #1782: 旧 ① のカードを削除（#404 廃止合意の revert 復活への対応）。
+       ADR-0012 §6「収集目的の独立 UI / コレクション閲覧ページ / ミッションリスト UI 駆動導線」
+       禁止に整合し、長期の達成感はチャレンジ機能 (/admin/challenges) に統合。
+       3 cards → 2 cards に再圧縮。
+     #1892 (PO-4-6 2 回目指摘): 旧 H2/リードの内部 IA 用語を顧客語彙
+       「2 つの工夫」「しかけ」へ置換。前段 [03] が顧客語彙化済みなのに [04] で逆戻りして
+       離脱級違和感を生んでいた問題の解消。詳細経緯は labels.ts indexB.k21/k22 コメント参照。
+     各幕の追加/削除は docs/design/lp-content-map.md §machine-tour を必ず更新 -->
+<!-- [04] 毎日の冒険をもっと楽しくする 2 つの工夫 ([03] core-loop の延長） -->
+<section class="section bg-white" id="machine-tour" data-testid="feature-section">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="indexB.k21">毎日の冒険をもっと楽しくする 2 つの工夫</h2>
+    <p class="section-desc" data-lp-key="indexB.k22" data-budoux-applied="true">朝の持ち物確認と、夜のボスバトル。子供が朝から夜まで「次のごほうび」を楽しみに待てるしかけです。</p>
+    <div class="machine-tour">
+      <div class="tour-card" data-testid="feature-belongings-checklist">
+        <div class="tour-phase" data-lp-key="indexB.k26">① 朝の準備をスムーズに</div>
+        <h3 data-lp-key="indexB.k27">持ち物チェックリスト</h3>
+        <p data-lp-key="indexB.k28" data-budoux-applied="true">通学や習い事の持ち物を、子ども自身がタップ確認。</p>
+        <p data-lp-key="indexB.k29" data-budoux-applied="true">朝の「あれ持った？」を減らします。</p>
+        <div class="tour-shot">
+          <picture>
+            <source srcset="screenshots/feature-belongings-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-belongings-checklist.webp" alt="持ち物チェックリスト画面" data-lightbox="">
+          </picture>
+        </div>
+      </div>
+      <div class="tour-card" data-testid="feature-rpg-battle">
+        <div class="tour-phase" data-lp-key="indexB.k34">② 冒険のクライマックス</div>
+        <h3 data-lp-key="indexB.k35">ボスバトル</h3>
+        <p data-lp-key="indexB.k36" data-budoux-applied="true">毎日の努力で貯めたエネルギーで、ボスに挑戦。小学生から全年齢で使える冒険の締めくくり。</p>
+        <div class="tour-shot">
+          <picture>
+            <source srcset="screenshots/feature-rpg-battle-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-rpg-battle.webp" alt="ボスバトル画面 — 累積した努力でボスに挑戦" loading="lazy" data-lightbox="">
+          </picture>
+        </div>
+        <p class="tour-benefit" data-lp-key="indexB.tourBenefitBattle" data-budoux-applied="true"><strong>家庭で起きること</strong>: 1 日の努力が「バトルで使えるエネルギー」として可視化される</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LP-LANDMARK:machine-tour end -->
+
+<!-- LP-LANDMARK:soft-features start — 親向け安心機能 (月次レポート凸構成 + 家庭運用補助 + 設定自由度)
+     #1720 R4: 4 cards → 3 cards 圧縮、月次レポートを featured 凸構成（PC は 1 行に featured 単独 + 残 2 並列、モバイルは縦積み）
+     変更時は docs/design/lp-content-map.md §soft-features を確認 -->
+<!-- [05] ソフト機能（親の安心） -->
+<section class="section bg-gray" id="soft-features">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="indexB.k37">親が安心できる運用補助</h2>
+    <p class="section-desc" data-lp-key="indexB.k38" data-budoux-applied="true">冒険の裏で、親がちゃんと伴走できる仕組み。「遊ばせっぱなし」「うちの子に合わなさそう」の不安をなくし、ご家庭に合わせて自由にカスタマイズできます。</p>
+    <div class="soft-grid soft-grid--three">
+      <div class="soft-card" data-testid="feature-monthly-report">
+        <h3 data-lp-key="indexB.k39">成長の記録（月次レポート）</h3>
+        <p data-lp-key="indexB.k40" data-budoux-applied="true">月次レポートで活動・ポイント推移をひと目で把握。子供の成長を記録として残せます。</p>
+        <div class="soft-shot">
+          <picture>
+            <source srcset="screenshots/feature-monthly-report-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-monthly-report.webp" alt="月次レポート画面 — 活動・ポイント推移グラフ" loading="lazy" data-lightbox="">
+          </picture>
+        </div>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitMonthlyReport" data-budoux-applied="true"><strong>家庭で楽になること</strong>: 1 ヶ月の頑張り合計と前月比が一目でわかる</p>
+      </div>
+      <div class="soft-card" data-testid="feature-auto-sleep">
+        <h3 data-lp-key="indexB.softFamilySupportTitle">家庭に寄り添う運用補助</h3>
+        <p data-lp-key="indexB.softFamilySupportDesc" data-budoux-applied="true">設定時間で画面が自動で閉じる使いすぎ防止タイマーで長時間利用を防止。必要な時だけ家族からおうえんメッセージを子供のホームへ届けられます。</p>
+        <div class="soft-shot">
+          <picture>
+            <source srcset="screenshots/feature-auto-sleep-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-auto-sleep.webp" alt="使いすぎ防止タイマー + おうえんメッセージ設定画面" loading="lazy" data-lightbox="">
+          </picture>
+        </div>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitFamilySupport" data-budoux-applied="true"><strong>家庭ごとにカスタマイズできること</strong>: 設定時間で使いすぎ防止タイマーが働き、おうえんメッセージは子供が読むと既読が付く</p>
+      </div>
+      <div class="soft-card" data-testid="feature-customization">
+        <h3 data-lp-key="indexB.k45">設定の自由度</h3>
+        <p data-lp-key="indexB.k46" data-budoux-applied="true"><strong>ご家庭ごとに自由なカスタマイズ</strong>。活動の種類・ポイント配分・ごほうびを、お子さまに合わせて細かく調整できます。</p>
+        <div class="soft-shot">
+          <picture>
+            <source srcset="screenshots/feature-settings-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-settings.webp" alt="親管理の設定一覧画面 — 活動・ポイント・ごほうびのカスタマイズ" loading="lazy" data-lightbox="">
+          </picture>
+        </div>
+        <p class="soft-benefit" data-lp-key="indexB.softBenefitSettings" data-budoux-applied="true"><strong>家庭で楽になること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- LP-LANDMARK:soft-features end -->
+
+<!-- LP-LANDMARK:growth-roadmap-cta start — #1848: LP 本体は CTA 1 行のみ。詳細は graduation.html へ集約
+     #1613 R9 の 5 stage 構造は graduation.html に移管。LP 本体では成長物語の最終地点（卒業）を別ページ動線として提示する。
+     #1895 (PO-4-9): CTA を「3 歳から 18 歳までの成長ストーリーを見る →」+ btn-secondary ボタン化（H2 直接接続で認知ジャンプ解消） -->
+<!-- [05b] 年齢別成長ロードマップ CTA — 詳細は graduation.html -->
+<section class="section bg-gray" id="growth-roadmap">
+  <div class="section-inner growth-roadmap-cta">
+    <h2 class="section-title" data-lp-key="growthRoadmap.sectionTitle">3 歳から 18 歳まで、そして「卒業」へ</h2>
+    <p class="section-desc" data-lp-key="growthRoadmap.sectionDesc" data-budoux-applied="true">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。</p>
+    <p class="growth-roadmap-link"><a href="graduation.html" class="btn btn-secondary" data-lp-key="growthRoadmap.linkLabel">3 歳から 18 歳までの成長ストーリーを見る →</a></p>
+  </div>
+</section>
+<!-- LP-LANDMARK:growth-roadmap-cta end -->
+
+<!-- LP-LANDMARK:pricing start — 料金プロミスバンド。CTA は「無料で始める」のみ
+     価格帯の変更は docs/design/19-プライシング戦略書.md + lp-content-map.md §pricing を確認
+     3 カード比較は pricing.html へ集約 (#1293) -->
+<!-- [06] 料金プロミスバンド (#1293: freemium × 低価格帯の price disambiguation。3 カード比較は pricing.html へ集約) -->
+<section class="section bg-white" id="pricing">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="indexB.k47">まずは無料、必要なら月 ¥500〜</h2>
+    <p class="section-desc" data-lp-key="indexB.k48" data-budoux-applied="true">家族みんなで基本無料で使えます。家族構成や使い方に合わせて、必要なら月 ¥500〜の有料プランも選べます。安心して始められる 4 つのお約束。</p>
+    <div class="pricing-promise">
+      <div class="pp-band">
+        <span class="pp-item" data-lp-key="indexB.k49"><strong>基本無料</strong></span>
+        <span class="pp-dot" data-lp-key="indexB.k50">・</span>
+        <span class="pp-item" data-lp-key="indexB.k51">有料は<strong>月 ¥500（税込）〜</strong></span>
+        <span class="pp-dot" data-lp-key="indexB.k52">・</span>
+        <span class="pp-item" data-lp-key="indexB.k53"><strong>7 日間無料トライアル</strong></span>
+        <span class="pp-dot" data-lp-key="indexB.k54">・</span>
+        <span class="pp-item" data-lp-key="indexB.k55">いつでも解約 OK</span>
+      </div>
+      <p class="pp-footnote" data-lp-key="indexB.k56" data-budoux-applied="true">お子さま 2 人までのご家庭なら、無料プランで冒険の仕組みをすべてお使いいただけます。3 人以上 / 長期履歴 / AI 自動提案は有料プランで。</p>
+      <p class="pp-disclaimer"><span data-lp-key="legalDisclaimer.cancelDisclaimer">※解約後、スタンダードは 7 日間、ファミリーは 30 日間はデータを見られます（無料は即時）。その後すべてのデータが完全に削除されます。日割り返金はありません。</span> [<a href="faq.html#cancel">FAQ</a> / <a href="tokushoho.html">特商法表記</a>]</p>
+      <p class="pp-cta" data-lp-key="indexB.k57"><a href="pricing.html" class="btn btn-primary">料金の詳細を見る →</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- LP-LANDMARK:pricing end -->
+
+<!-- [06b] retention セクションは #1621 R17 で削除し [03] 習慣カード へ統合。
+     pamphlet.html / 旧 LP_RETENTION_LABELS は短文として保持（コア訴求は習慣カードに集約）。 -->
+
+<!-- [07] 安心訴求 -->
+<section class="section bg-white" id="trust">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="indexB.k58">お子さまのデータは、家族だけのものです</h2>
+    <p class="section-desc" data-lp-key="indexB.k59" data-budoux-applied="true">広告なし・家族だけで閉じた空間・データは家族の手元に。「こっそり外に持ち出される」「勝手に操作される」不安をゼロにする 4 つの約束。</p>
+    <!-- #1796 R-MAJ-6 / docs/DESIGN.md §7: trust-badges を 4 個 SVG 化 (OS 依存絵文字撤去)。
+         #4 タイトルから「広告」を外し「データを家族の手元に」へリフレーム (#1 との重複訴求解消) -->
+    <div class="trust-badges">
+      <div class="trust-badge">
+        <div class="tb-icon"><img src="assets/ui/trust-no-ads.svg" alt="" aria-hidden="true" width="32" height="32"></div>
+        <h3 data-lp-key="indexB.k60">広告なし</h3>
+        <p data-lp-key="indexB.k61" data-budoux-applied="true">子供の画面に広告を出しません。行動データを広告に利用することもありません。</p>
+        <a href="privacy.html" data-lp-key="indexB.k62">プライバシーポリシー →</a>
+      </div>
+      <div class="trust-badge">
+        <div class="tb-icon"><img src="assets/ui/trust-family-circle.svg" alt="" aria-hidden="true" width="32" height="32"></div>
+        <h3 data-lp-key="indexB.k63">家族限定</h3>
+        <p data-lp-key="indexB.k64" data-budoux-applied="true">家族メンバー以外はお子さまのデータを閲覧できません。招待制で閉じた空間を維持します。</p>
+      </div>
+      <div class="trust-badge">
+        <div class="tb-icon"><img src="assets/ui/trust-lock.svg" alt="" aria-hidden="true" width="32" height="32"></div>
+        <h3 data-lp-key="indexB.k65">保護者専用のカギ付き</h3>
+        <p data-lp-key="indexB.k66" data-budoux-applied="true">管理画面は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。</p>
+      </div>
+      <div class="trust-badge">
+        <div class="tb-icon"><img src="assets/ui/trust-data-local.svg" alt="" aria-hidden="true" width="32" height="32"></div>
+        <h3 data-lp-key="indexB.k67">データを家族の手元に</h3>
+        <p data-lp-key="indexB.k68" data-budoux-applied="true">家族のデータが第三者にも使われない設計です。エクスポートでいつでも家族の手元に持ち出せ、もし運営が止まっても、ご家庭で別の動かし方を続けられる準備も用意しています。</p>
+        <a href="selfhost.html" data-lp-key="indexB.k69">仕組みを詳しく知りたい方へ →</a>
+      </div>
+    </div>
+    <div class="trust-disclaimer">
+      <p class="trust-disclaimer-text"><strong data-lp-key="legalDisclaimer.liabilityTitle">サービス利用に関する重要なご案内</strong> <span data-lp-key="legalDisclaimer.liabilityBody">本サービスは個人開発のため、利用規約にて賠償上限を定めております。詳しくは利用規約・FAQ をご確認ください。</span> [<a href="terms.html#article-12">利用規約 第 12 条</a> / <a href="faq.html#liability">FAQ</a>]</p>
+    </div>
+  </div>
+</section>
+
+<!-- [08] FAQ (#1291: トップは 3 件に絞り、faq.html へ誘導) -->
+<section class="section bg-gray" id="faq">
+  <div class="section-inner">
+    <h2 class="section-title" data-lp-key="indexB.k70">よくあるご質問</h2>
+    <p class="section-desc" data-lp-key="indexB.k87" data-budoux-applied="true"><strong>特に重要なよくあるご質問。</strong> <a href="faq.html" class="nav-text">その他のご質問はこちら</a></p>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary data-lp-key="indexB.k85" data-budoux-applied="true">子供が自分から使ってくれるようになりますか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k86" data-budoux-applied="true">多くの保護者から「ガミガミ言わなくても、子供から見せに来るようになった」とのお声をいただいています。ただし、最初の 1 週間は親子で一緒に楽しむ時間を取ることをおすすめします。</p>
+      </details>
+      <details class="faq-item">
+        <summary data-lp-key="indexB.k72" data-budoux-applied="true">無料トライアルにクレジットカードは必要ですか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k73" data-budoux-applied="true">不要です。メール認証だけで 7 日間すべての有料機能をお試しいただけます。期間終了時は自動で無料プランに戻るため、<strong>気付いたら課金されていた</strong>ということはありません。</p>
+      </details>
+      <details class="faq-item">
+        <summary data-lp-key="indexB.k74" data-budoux-applied="true">子供が勝手に課金してしまう心配はありませんか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k75" data-budoux-applied="true">ありません。課金操作は保護者権限のアカウントからのみ実行できる設計です。お子さまアカウントにはプラン変更ボタン自体が表示されません。<a href="faq.html#pricing">詳しくはこちら</a></p>
+      </details>
+      <details class="faq-item">
+        <summary data-lp-key="indexB.k76" data-budoux-applied="true">サービスが終了したらデータはどうなりますか？</summary>
+        <p class="faq-answer" data-lp-key="indexB.k77" data-budoux-applied="true">終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。<a href="faq.html#privacy">詳しくはこちら</a></p>
+      </details>
+    </div>
+    <!-- #1897 PO-4-11: 旧 faq-footnote (indexB.k78 「他のご質問は…FAQ 専用ページへ」) は section-desc (k87) と訴求重複のため削除。リードで 1 行案内に集約。 -->
+  </div>
+</section>
+
+<!-- [08b] 開発者に直接相談 — #1713 R7 / ADR-0028 で削除 (ADR-0023 §I8 supersede)
+     理由: 「Pre-PMF」内部用語の LP 露出 (ADR-0013 違反) + 最終 CTA 分散 + PO 対応キャパ超過。
+     連絡導線は footer の mailto に集約。詳細は ADR-0028 参照。 -->
+
+<!-- [09] 最終 CTA — #1838 で削除 (選択肢 A 採用)
+     理由: hero CTA / floating CTA と訴求が重複し最終 CTA としての価値が分散していた。
+     Success 像 (旧 indexB.k79/k80) は hero 主訴求 + growth-roadmap 達成体験に内在化済。
+     最終 CTA の機能は floating-cta (常時追従) と footer mailto / signup-link に集約。
+     詳細: PO 直接判断 (2026-05-02) + lp-content-map.md [09] 章削除記録 + ADR-0013 LP truth 整合。 -->
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h3 data-lp-key="footer.brandName">がんばりクエスト</h3>
+      <p data-lp-key="footer.brandTagline">お子さまの「がんばり」を冒険に変える家庭向けWebアプリ</p>
+    </div>
+    <div class="footer-links">
+      <h4 data-lp-key="footer.linksHeading">リンク</h4>
+      <a href="pricing.html" data-lp-key="footer.pricingLink">料金プラン</a>
+      <a href="faq.html" data-lp-key="footer.faqLink">よくあるご質問</a>
+      <a href="graduation.html" data-lp-key="footer.graduationLink">成長ロードマップ</a>
+      <a href="selfhost.html" data-lp-key="footer.selfhostLink">仕組みを公開（開発者向け）</a>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink">GitHub</a>
+      <a href="mailto:ganbari.quest.support@gmail.com?subject=%5B%E3%83%88%E3%83%83%E3%83%97%E3%83%9A%E3%83%BC%E3%82%B8%5D%20%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B&amp;body=%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E7%A8%AE%E5%88%A5%3A%20%0A%E3%81%94%E5%88%A9%E7%94%A8%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%20(%E7%99%BB%E9%8C%B2%E3%83%A1%E3%83%BC%E3%83%AB%E3%82%A2%E3%83%89%E3%83%AC%E3%82%B9)%3A%20%0A%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E5%86%85%E5%AE%B9%3A%20%0A%0A%0A---%0A%E5%8F%82%E7%85%A7%E3%83%9A%E3%83%BC%E3%82%B8%3A%20index.html%0A%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%3A%20Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20HeadlessChrome%2F147.0.7727.15%20Safari%2F537.36" id="contact-footer" data-contact-context="トップページ" data-lp-key="footer.contactLink">お問い合わせ</a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka" data-lp-key="footer.sponsorLink">Sponsor</a>
+    </div>
+    <div class="footer-links">
+      <h4 data-lp-key="footer.legalHeading">法的情報</h4>
+      <a href="terms.html" data-lp-key="footer.termsLink">利用規約</a>
+      <a href="privacy.html" data-lp-key="footer.privacyLink">プライバシーポリシー</a>
+      <a href="sla.html" data-lp-key="footer.slaLink">SLA</a>
+      <a href="tokushoho.html" data-lp-key="footer.tokushohoLink">特定商取引法に基づく表記</a>
+    </div>
+  </div>
+  <div class="footer-copy">
+    <p data-lp-key="footer.copyright">© 2026 がんばりクエスト（運営: 日下武紀／個人事業主）. All rights reserved.</p>
+  </div>
+</footer>
+
+<!-- Floating CTA — mobile only (#583, #1732 深度別文言)
+     data-floating-cta="container" は scripts/measure-lp-dimensions.mjs の
+     extractCtaVariants で除外対象。深度切替で同一機能ユニット内の文言が
+     可変するため、ctaVariants ratchet（≤3）の集計に含めない（lp-content-map.md §7.4）。
+     初期 SSR は phase=hero の文言を表示し、JS load 後に scroll listener で書き換える。
+     SEO / no-JS 環境でも初期文言は読める。 -->
+<div class="floating-cta" id="floating-cta" data-floating-cta="container" aria-hidden="true" role="complementary" aria-label="ページ追従の登録案内" data-floating-cta-phase="hero" style="display: block;">
+  <div class="floating-cta-inner">
+    <div class="floating-cta-text" id="floating-cta-text" data-lp-key="floatingCta.heroText">全機能を家族で試せる（7 日間無料）<small>クレジットカード不要</small></div>
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" id="floating-cta-button" data-lp-key="floatingCta.heroButton" aria-label="7 日間無料トライアルへのご案内">無料で始める</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/js/splide.min.js" integrity="sha384-RbYB5yr9jD1p+2OHlV3KzOBLAY48CbFsJ87bXEFYINGgOlQJNE4cEjTUf+Q2fygb" crossorigin="anonymous"></script>
+<script>
+// Hero Splide carousel — #1627 R23: 自動再生停止 + prefers-reduced-motion 尊重
+(()=> {
+  var el=document.getElementById('hero-carousel');
+  if(!el)return;
+  var label=document.querySelector('.carousel-label');
+  var splide=new Splide('#hero-carousel',{
+    // R23: autoplay は完全停止（手動送りのみ）+ prefers-reduced-motion でも安全
+    // #1715 R12: arrows:false で Hero 視線阻害解消。pagination ドット + swipe + キーボード操作で代替
+    type:'fade',rewind:true,autoplay:false,
+    arrows:false,pagination:true,speed:600,keyboard:true
+  });
+  splide.on('mounted move',function(){
+    var slide=splide.Components.Slides.getAt(splide.index);
+    if(label&&slide){
+      var text=slide.slide.getAttribute('data-label')||'';
+      // #1729 R14 ADR-0016: 動的更新 label を <budoux-ja> でラップして文節区切り改善
+      // CDN 未ロード時は plain text として描画されるため fallback safe（Web Component 未登録扱い）
+      label.innerHTML='<budoux-ja>'+text.replace(/[<>&]/g,function(c){return c==='<'?'&lt;':c==='>'?'&gt;':'&amp;'})+'</budoux-ja>';
+    }
+  });
+  splide.mount();
+})();
+</script>
+<script>
+// Age switcher tabs
+(()=> {
+  var tabs=document.querySelectorAll('.age-tab');
+  var panels=document.querySelectorAll('.age-panel');
+  if(!tabs.length)return;
+  tabs.forEach(function(tab){
+    tab.addEventListener('click',function(){
+      var age=tab.getAttribute('data-age');
+      tabs.forEach(function(t){t.classList.toggle('active',t===tab);t.setAttribute('aria-selected',t===tab)});
+      panels.forEach(function(p){p.classList.toggle('active',p.getAttribute('data-panel')===age)});
+    });
+  });
+})();
+</script>
+<script>
+// #1632 R28: Hamburger menu ESC キーで閉じる + フォーカスマネジメント
+(()=> {
+  var btn=document.querySelector('.hamburger');
+  var nav=document.getElementById('main-nav');
+  if(!btn||!nav)return;
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape')return;
+    if(!nav.classList.contains('open'))return;
+    nav.classList.remove('open');
+    btn.textContent='☰';
+    btn.setAttribute('aria-expanded','false');
+    btn.focus();
+  });
+})();
+</script>
+
+<!-- Lightbox (#297) -->
+<div class="lightbox-overlay" id="lightbox" aria-hidden="true">
+  <button class="lightbox-close" aria-label="閉じる">✕</button>
+  <img src="" alt="">
+</div>
+<script>
+(()=> {
+  var overlay=document.getElementById('lightbox');
+  if(!overlay)return;
+  var lbImg=overlay.querySelector('img');
+  var closeBtn=overlay.querySelector('.lightbox-close');
+  function open(src,alt){
+    lbImg.src=src;lbImg.alt=alt||'';
+    overlay.classList.add('active');overlay.setAttribute('aria-hidden','false');
+  }
+  function close(){
+    overlay.classList.remove('active');overlay.setAttribute('aria-hidden','true');lbImg.src='';
+  }
+  document.querySelectorAll('img[data-lightbox]').forEach((img)=> {
+    img.addEventListener('click',function(){open(this.currentSrc||this.src,this.alt)});
+  });
+  overlay.addEventListener('click',(e)=> {if(e.target===overlay)close()});
+  closeBtn.addEventListener('click',close);
+  document.addEventListener('keydown',(e)=> {if(e.key==='Escape')close()});
+})();
+</script>
+<script>
+// Floating CTA — show after hero, hide near footer (#583)
+// #1732: スクロール深度に応じて文言を 3 phase で切替（hero / mid / bottom）。
+// phase 切替閾値はページ可スクロール量に対する % で計算する（端末高さ・コンテンツ長に対して頑健）。
+// 文言は shared-labels.js の floatingCta.{heroText|midText|bottomText} 等から data-lp-key 経由で注入されており、
+// JS は data-floating-cta-phase 属性を切替えるだけにとどめる。
+// CSS の transition (200ms) で文言切替時に短いフェードを入れる。
+//
+// passive listener + requestAnimationFrame で間引き（Anti-engagement: 過剰な layout 計算を避ける）。
+// IntersectionObserver は深度 % が必要で element 観察ではないため scroll event の方が素直に書ける。
+(()=> {
+  var el=document.getElementById('floating-cta');
+  var textEl=document.getElementById('floating-cta-text');
+  var btnEl=document.getElementById('floating-cta-button');
+  if(!el||!textEl||!btnEl||window.innerWidth>=769)return;
+  el.style.display='block';
+
+  // 閾値 (%): hero pass=0% (scrollY > 500px で出現)、mid >=30%、bottom >=70%
+  var MID_START_PERCENT=30;
+  var BOTTOM_START_PERCENT=70;
+  var SHOW_AFTER_PX=500;
+  var HIDE_BEFORE_FOOTER_PX=200;
+
+  // shared-labels.js が GANBARI_LABELS.lp.floatingCta を提供する。
+  // 未ロード時は SSR 既定（hero）を維持する fail-safe。
+  function getLabels(){
+    var g=(typeof window!=='undefined')&&window.GANBARI_LABELS;
+    return (g&&g.lp&&g.lp.floatingCta)||null;
+  }
+
+  // 初期 SSR 文言は heroText だが data-floating-cta-phase 属性は未設定。
+  // 最初の compute() で必ず属性を設定するため currentPhase は null から始める。
+  var currentPhase=null;
+  var visible=false;
+  var rafScheduled=false;
+
+  function applyPhase(phase){
+    if(phase===currentPhase)return;
+    currentPhase=phase;
+    el.setAttribute('data-floating-cta-phase',phase);
+    var labels=getLabels();
+    var key='floatingCta.'+phase+'Text';
+    var btnKey='floatingCta.'+phase+'Button';
+    var hrefKey='floatingCta.'+phase+'Href';
+    var ariaKey='floatingCta.ariaLabel'+phase.charAt(0).toUpperCase()+phase.slice(1);
+    // data-lp-key を切替えるだけだと shared-labels.js の applyLpKeys が再実行されないため、
+    // ここで直接 textContent / innerHTML / href を上書きする。innerHTML は labels.ts → DOMPurify 経由で
+    // 既に sanitize されているので二次注入は不要（floatingCta の値は <small>/<strong> のみ想定で安全）。
+    if(labels){
+      var text=labels[phase+'Text'];
+      var btnText=labels[phase+'Button'];
+      var href=labels[phase+'Href'];
+      var aria=labels['ariaLabel'+phase.charAt(0).toUpperCase()+phase.slice(1)];
+      if(text!==undefined){
+        // <small>/<strong> のみ想定。XSS 安全のため Purify があれば使う。
+        // Purify 未ロード時は textContent 直接代入（HTML タグはそのままテキスト表示されるが
+        // XSS 経路にはならない）。regex strip は incomplete sanitization のため使わない（CodeQL）。
+        var Purify=window.DOMPurify;
+        if(Purify){
+          textEl.innerHTML=Purify.sanitize(text,{ALLOWED_TAGS:['small','strong','em','br'],ALLOWED_ATTR:[]});
+        }else{
+          textEl.textContent=text;
+        }
+      }
+      if(btnText!==undefined)btnEl.textContent=btnText;
+      if(href)btnEl.setAttribute('href',href);
+      if(aria)btnEl.setAttribute('aria-label',aria);
+    }
+    // data-lp-key も同期させて applyLpKeys 後の再実行に備える
+    textEl.setAttribute('data-lp-key',key);
+    btnEl.setAttribute('data-lp-key',btnKey);
+  }
+
+  function compute(){
+    rafScheduled=false;
+    var y=window.scrollY;
+    var docH=document.documentElement.scrollHeight||document.body.scrollHeight;
+    var winH=window.innerHeight;
+    var maxScroll=Math.max(1,docH-winH);
+    var percent=(y/maxScroll)*100;
+
+    var nextVisible=y>SHOW_AFTER_PX&&y<docH-winH-HIDE_BEFORE_FOOTER_PX;
+    if(nextVisible!==visible){
+      visible=nextVisible;
+      el.classList.toggle('visible',visible);
+      el.setAttribute('aria-hidden',!visible);
+    }
+
+    var phase='hero';
+    if(percent>=BOTTOM_START_PERCENT)phase='bottom';
+    else if(percent>=MID_START_PERCENT)phase='mid';
+    applyPhase(phase);
+  }
+
+  function onScroll(){
+    if(rafScheduled)return;
+    rafScheduled=true;
+    window.requestAnimationFrame(compute);
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  window.addEventListener('resize',onScroll,{passive:true});
+  // shared-labels.js の applyLpKeys 後に SSR 既定（hero）が確実に注入されてから phase=hero を確認する
+  // ため、DOMContentLoaded + 1 frame 後にも 1 回 compute する。
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){window.requestAnimationFrame(compute)});
+  }else{
+    window.requestAnimationFrame(compute);
+  }
+})();
+</script>
+<script>
+// #1795 R-MAJ-5: hero 可視中は PC ヘッダー nav-signup を非表示にして、
+// hero 内 primary CTA「無料で始める」との視線奪い合いを回避する。
+// IntersectionObserver で .hero がビューポートと交差している間 body[data-hero-visible="true"] を立て、
+// shared.css の `body[data-hero-visible="true"] .header-nav a.nav-signup{opacity:0;visibility:hidden}` で hide。
+// PC のみ動作 (mobile は CSS で .nav-signup display:none、floating-cta に集約済み)。
+// 採用根拠: 純 IntersectionObserver は modern browser 全対応 (CanIUse 95%+)、外部ライブラリ不要。
+(()=>{
+  if(window.innerWidth<769)return;
+  var hero=document.querySelector('.hero');
+  if(!hero||typeof IntersectionObserver==='undefined')return;
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      // hero がまだ少しでも見えていれば隠す、完全に通り過ぎたら復帰
+      if(e.isIntersecting){
+        document.body.setAttribute('data-hero-visible','true');
+      }else{
+        document.body.removeAttribute('data-hero-visible');
+      }
+    });
+  },{
+    // hero 上端が画面外に 40% 以上はみ出たら「hero スクロール完了」と判定
+    threshold:0,
+    rootMargin:'0px 0px -40% 0px'
+  });
+  io.observe(hero);
+  // 初期描画時 (まだ scroll していない) は hero 可視として扱う
+  document.body.setAttribute('data-hero-visible','true');
+})();
+</script>
+<script src="shared-labels.js"></script>
+<script src="js/contact.js"></script>
+<!-- #1786: BudouX 全長文セクション自動 wrap (ADR-0016 整合) — section-desc / faq-answer / gr-body 等 (#1838 で cta-bottom 削除) -->
+<script src="js/auto-budoux.js" defer=""></script>
+
+
+</body></html>
