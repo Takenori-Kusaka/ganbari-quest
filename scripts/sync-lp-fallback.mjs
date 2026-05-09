@@ -70,15 +70,48 @@ const VERBOSE = args.includes('--verbose');
  *
  * フォーマット: カンマ区切りの相対パス (`relA.html,sub/relB.html`)
  *
+ * **セキュリティガード (#1974 QM Review M-1, Copilot [must])**:
+ *   env override は CI / シェル経由で誰でも有効化できるため、以下 2 段の path validation を強制。
+ *   ADR-0010 Pre-PMF security minimization 趣旨で「テスト backdoor を本番バイナリに残すなら
+ *   最低限のガードが必須」。
+ *
+ *   1. **REPO_ROOT 配下強制** — `path.resolve(REPO_ROOT, relPath)` の結果が REPO_ROOT で
+ *      始まらないエントリは throw (`../../etc/passwd.html` 等の path traversal 拒否)
+ *   2. **`.html` 拡張子限定** — fallback テキスト同期対象は HTML のみ。任意拡張子 read/write を防ぐ
+ *
+ *   違反時は process.exit せず Error throw し main() の catch から呼び出し側 (テスト spawn) に
+ *   非ゼロ exit code で通知する。
+ *
  * @returns {string[]} override 配列。未指定なら空配列
+ * @throws {Error} 不正パス (REPO_ROOT 外 / 非 .html 拡張子) を含む場合
  */
 function loadTargetOverridesFromEnv() {
 	const raw = process.env.SYNC_LP_FALLBACK_TARGETS;
 	if (!raw || raw.trim() === '') return [];
-	return raw
+	const entries = raw
 		.split(',')
 		.map((s) => s.trim())
 		.filter((s) => s.length > 0);
+
+	// REPO_ROOT prefix を比較する際は trailing separator を付けて部分一致による偽 OK を防ぐ
+	// (例: REPO_ROOT='/repo' / '/repo-evil/x.html' を弾けるように)
+	const repoRootPrefix = REPO_ROOT.endsWith(path.sep) ? REPO_ROOT : REPO_ROOT + path.sep;
+	for (const entry of entries) {
+		// 1. .html 拡張子限定
+		if (!entry.toLowerCase().endsWith('.html')) {
+			throw new Error(
+				`SYNC_LP_FALLBACK_TARGETS: '.html' 拡張子のみ許可されます (got: ${JSON.stringify(entry)})`,
+			);
+		}
+		// 2. REPO_ROOT 配下強制 (path traversal 防止)
+		const resolved = path.resolve(REPO_ROOT, entry);
+		if (resolved !== REPO_ROOT && !resolved.startsWith(repoRootPrefix)) {
+			throw new Error(
+				`SYNC_LP_FALLBACK_TARGETS: REPO_ROOT (${REPO_ROOT}) の外側を指定できません (got: ${JSON.stringify(entry)} → ${resolved})`,
+			);
+		}
+	}
+	return entries;
 }
 
 /**
@@ -378,7 +411,14 @@ function main() {
 	const fileSummaries = [];
 
 	// #1974: テスト専用 env override (本番では空配列のため通常 TARGET_HTML_FILES を使用)
-	const overrides = loadTargetOverridesFromEnv();
+	// path validation (M-1) で Error throw された場合は stderr に明示しつつ exit 1 で終了
+	let overrides;
+	try {
+		overrides = loadTargetOverridesFromEnv();
+	} catch (err) {
+		console.error(`[sync-lp-fallback] FAIL — ${err instanceof Error ? err.message : String(err)}`);
+		process.exit(1);
+	}
 	const targetFiles = overrides.length > 0 ? overrides : TARGET_HTML_FILES;
 
 	for (const relPath of targetFiles) {

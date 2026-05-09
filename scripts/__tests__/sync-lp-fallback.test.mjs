@@ -31,7 +31,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -386,8 +385,12 @@ describe('sync-lp-fallback.mjs --check モード exit code 伝播 (#1974)', () =
 	});
 
 	it('--check モードで存在する同期済 target なら exit code 0 (regression なし)', () => {
-		// tmp dir に同期済 HTML を作成し、それを target に指定
-		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sync-lp-fallback-'));
+		// #1974 QM Review M-2: REPO_ROOT 配下に tmp dir を作成 (path validation 整合)。
+		// 旧実装は os.tmpdir() (= repo 外) を使い `path.relative(REPO_ROOT, ...)` で `..` 含み
+		// 相対パスを target に渡していたため、M-1 path validation を通らなかった。
+		const tmpRoot = path.join(REPO_ROOT, 'scripts', '__tests__', '__tmp__');
+		fs.mkdirSync(tmpRoot, { recursive: true });
+		const tmpDir = fs.mkdtempSync(path.join(tmpRoot, 'sync-lp-fallback-'));
 		try {
 			// shared-labels.js の LP_LABELS から実際の値を取得して、それを fallback に書く
 			const sharedLabelsSrc = fs.readFileSync(
@@ -416,8 +419,12 @@ describe('sync-lp-fallback.mjs --check モード exit code 伝播 (#1974)', () =
 				`<!DOCTYPE html><html><body><a data-lp-key="${dotted}">${canonical}</a></body></html>`,
 				'utf-8',
 			);
-			// REPO_ROOT 起点の相対 path を計算
+			// REPO_ROOT 起点の相対 path を計算 (REPO_ROOT 配下に作成しているため `..` を含まない)
 			const relPath = path.relative(REPO_ROOT, tmpHtml).replace(/\\/g, '/');
+			assert.ok(
+				!relPath.includes('..'),
+				`tmp HTML must be REPO_ROOT 配下 (path validation 整合), got: ${relPath}`,
+			);
 			const { status, stderr, stdout } = runScriptWithTargets([relPath], { check: true });
 			assert.equal(
 				status,
@@ -427,5 +434,62 @@ describe('sync-lp-fallback.mjs --check モード exit code 伝播 (#1974)', () =
 		} finally {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #1974 QM Review M-1: SYNC_LP_FALLBACK_TARGETS path validation (security)
+// ---------------------------------------------------------------------------
+//
+// 検証目的:
+//   env override は CI / シェル経由で誰でも有効化できるため、以下 2 段の path validation を強制:
+//     1. .html 拡張子限定 (任意拡張子 read/write 防止)
+//     2. REPO_ROOT 配下強制 (path traversal 防止 — `../../etc/passwd.html` 等を拒否)
+//   違反時は exit code 1 + stderr に明示メッセージ。ADR-0010 Pre-PMF security minimization。
+// ---------------------------------------------------------------------------
+describe('sync-lp-fallback.mjs SYNC_LP_FALLBACK_TARGETS path validation (#1974 QM M-1)', () => {
+	it('REPO_ROOT 外の絶対 / 相対パスを拒否 (path traversal 防止)', () => {
+		// `../` を多段含めて確実に REPO_ROOT 外を指す path
+		const traversalPath = '../../etc/passwd.html';
+		const { status, stderr } = runScriptWithTargets([traversalPath], { check: true });
+		assert.equal(
+			status,
+			1,
+			`expected exit code 1 for path-traversal target, got ${status}\nstderr: ${stderr}`,
+		);
+		assert.match(
+			stderr,
+			/REPO_ROOT|外側|traversal|許可/,
+			`stderr should explain REPO_ROOT enforcement, got: ${stderr}`,
+		);
+	});
+
+	it('.html 以外の拡張子を拒否', () => {
+		// REPO_ROOT 内であっても .html 以外は不可
+		const nonHtml = 'README.md';
+		const { status, stderr } = runScriptWithTargets([nonHtml], { check: true });
+		assert.equal(
+			status,
+			1,
+			`expected exit code 1 for non-.html target, got ${status}\nstderr: ${stderr}`,
+		);
+		assert.match(
+			stderr,
+			/\.html|拡張子/,
+			`stderr should explain .html-only restriction, got: ${stderr}`,
+		);
+	});
+
+	it('正規の REPO_ROOT 配下 .html (存在しない) は path validation 通過 → missing 扱いで exit 1', () => {
+		// path validation は通るが存在しないため missing target として exit 1 (M-1 と既存 #1974 AC 両方)
+		const fakePath = `site/__nonexistent_validation_${Date.now()}.html`;
+		const { status, stderr } = runScriptWithTargets([fakePath], { check: true });
+		assert.equal(status, 1, `expected exit code 1 for missing valid path, got ${status}`);
+		// path validation エラーではなく missing エラーであることを確認
+		assert.match(
+			stderr,
+			/存在しません|missing/,
+			`stderr should be missing-target error (not path-validation), got: ${stderr}`,
+		);
 	});
 });

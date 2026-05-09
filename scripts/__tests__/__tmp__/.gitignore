@@ -1,0 +1,5 @@
+# #1974 QM M-2: テスト中に作成される一時 HTML ファイルの dropbox。
+# REPO_ROOT 配下に置くことで sync-lp-fallback.mjs の path validation (M-1) を通す目的。
+# .gitignore 自体だけ git に残し、配下の生成物は全て無視する。
+*
+!.gitignore
