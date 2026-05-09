@@ -108,7 +108,9 @@
 /* #1625 R21: 価格 anchor 1 行バンド */
 .hero-price-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;max-width:680px;margin:0 auto 20px;padding:10px 16px;font-size:.95rem;color:var(--gray-800);background:rgba(255,255,255,.65);border:1px solid var(--gray-300);border-radius:999px;line-height:1.4}
 .hero-price-band .hpb-item strong{color:var(--brand-700);font-weight:700}
-.hero-price-band .hpb-dot{color:var(--gray-400)}
+/* #1906 a11y bundle (Re-Review broader audit): gray-400 (#94a3b8) on white = 2.8:1 fail (WCAG 1.4.11 3:1)。
+   `・` 区切り字は price-band の項目分割を視覚的に伝える機能を持つため gray-500 (4.6:1 PASS) に統一。*/
+.hero-price-band .hpb-dot{color:var(--gray-500)}
 @media(max-width:640px){.hero-price-band{font-size:.88rem;border-radius:14px;padding:10px 14px;gap:4px 10px}.hero-price-band .hpb-dot{display:none}}
 /* #1626 R22: CTA 直下の不安解消 3 バッジ */
 /* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、16×16 表示、line-height 内に収めるよう vertical-align:middle) */
@@ -274,7 +276,8 @@
 .pp-band{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px;padding:var(--lp-pp-band-padding-y) var(--lp-pp-band-padding-x);background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:1px solid var(--gray-300);border-radius:var(--radius);margin:0 auto 20px;font-size:1.05rem;color:var(--gray-900);line-height:1.6}
 .pp-item{display:inline-flex;align-items:center}
 .pp-item strong{color:#8b5cf6;font-size:1.1rem}
-.pp-dot{color:var(--gray-400);font-weight:400}
+/* #1906 a11y bundle (Re-Review broader audit): gray-400 → gray-500 (.hpb-dot と同種、price promise band 区切り) */
+.pp-dot{color:var(--gray-500);font-weight:400}
 .pp-footnote{font-size:.9rem;color:var(--gray-600);line-height:1.7;margin:0 auto 22px;max-width:560px}
 .pp-cta{text-align:center;margin-top:8px}
 .pp-cta .btn{min-width:220px}
