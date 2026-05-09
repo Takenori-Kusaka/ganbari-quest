@@ -146,7 +146,7 @@ export const CTA_TERMS = {
 //
 // canonicalShort の値「FAQ」は本 atom 定義の 1 箇所のみとし、labels.ts 値内の
 // 文字列リテラル「FAQ」直書きは scripts/check-no-plan-literals.mjs 等で
-// 段階的に取り締まる方針（中期 follow-up #1909 textlint-rule-prh）。
+// 段階的に取り締まる方針（中期 follow-up #1909 用語白リスト CI）。
 
 export const LP_FAQ_TERMS = {
 	canonicalShort: 'FAQ',
