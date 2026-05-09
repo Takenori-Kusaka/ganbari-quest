@@ -8,10 +8,10 @@ import { describe, expect, it } from 'vitest';
 import { getDemoTodayChecklistsForChild } from '../../../src/lib/server/demo/demo-service';
 
 // #703 + #1755: 5 人構成
-// 901(baby たろう), 902(preschool はなこ), 903(elementary けんた), 904(junior さくら), 906(senior ゆうき)
+// 901(baby たろう), 902(preschool ゆうきちゃん), 903(elementary けんた), 904(junior さくら), 906(senior ゆうき)
 //
 // #1755 (#1709-A): kind 削除に伴い、旧 routine テンプレートを持っていた以下 child は demo data から除外:
-// - 902 (はなこ → routine 'あさのしたく')
+// - 902 (ゆうきちゃん → routine 'あさのしたく')
 // - 903 (けんた → routine 'よるのじゅんび')
 // 残存テンプレートを持つ child は 901 / 904 / 906（全て持ち物系）。
 // items / 整合性チェックは template を持つ全 child 共通で走らせる。

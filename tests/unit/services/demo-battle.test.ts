@@ -7,7 +7,7 @@ describe('getDemoBattleData', () => {
 		expect(result.battle).toBeNull();
 	});
 
-	it('returns valid battle data for はなこ (preschool)', () => {
+	it('returns valid battle data for ゆうきちゃん (preschool)', () => {
 		const result = getDemoBattleData(902);
 		expect(result.battle).not.toBeNull();
 		if (!result.battle) return;

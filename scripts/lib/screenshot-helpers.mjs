@@ -16,16 +16,31 @@ import path from 'node:path';
 // ============================================================
 
 /**
- * `?screenshot=1` で demo 固有 UI を非表示化する URL パラメータ。
+ * `?screenshot=all` で demo 固有 UI を非表示化 + 本番一致演出 (MilestoneBanner 等) を強制表示する
+ * URL パラメータ (#1893)。`?screenshot=1` (旧 noise-only モード) は後方互換のため維持。
+ *
+ * LP 配信 SS が本番 NUC ユーザの実画面と一致するよう、`all` を default とする。
  */
-export const SCREENSHOT_QUERY = 'screenshot=1';
+export const SCREENSHOT_QUERY = 'screenshot=all';
+
+/**
+ * `?screenshot=1` (noise-only、旧挙動) を表す定数。テスト・後方互換用途のみ使用すべき。
+ * 通常は `SCREENSHOT_QUERY` (= `screenshot=all`) を使う。
+ */
+export const SCREENSHOT_QUERY_NOISE_ONLY = 'screenshot=1';
 
 /**
  * パスに screenshot パラメータを追加する。
  * @param {string} urlPath - 例: `/demo/lower/home`
+ * @param {object} [options]
+ * @param {('all'|'noise-only')} [options.mode='all'] - screenshot mode (#1893)
+ *   - 'all': 本番一致演出強制 ON (default)
+ *   - 'noise-only': demo 固有 UI のみ非表示 (旧挙動、後方互換)
  */
-export function withScreenshotParam(urlPath) {
-	return `${urlPath}${urlPath.includes('?') ? '&' : '?'}${SCREENSHOT_QUERY}`;
+export function withScreenshotParam(urlPath, options = {}) {
+	const mode = options.mode ?? 'all';
+	const queryValue = mode === 'noise-only' ? SCREENSHOT_QUERY_NOISE_ONLY : SCREENSHOT_QUERY;
+	return `${urlPath}${urlPath.includes('?') ? '&' : '?'}${queryValue}`;
 }
 
 /**
