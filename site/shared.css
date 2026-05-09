@@ -189,6 +189,11 @@ h1, h2, h3, h4 {
 	text-wrap: balance;
 	word-break: auto-phrase;
 }
+/* #1891 (PO-4-5): machine-tour `.tour-card` 領域は body / h1-4 既定の上に明示適用し
+   widow (1 行 1-2 文字残り) を抑止する。`.tour-card h3` は balance、`.tour-card p` は pretty。
+   ADR-0016 日本語折り返し方針 (CSS 第一選択) 整合。 */
+.tour-card h3 { text-wrap: balance; word-break: auto-phrase; }
+.tour-card p { text-wrap: pretty; word-break: auto-phrase; }
 img {
 	max-width: 100%;
 	height: auto;
