@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * scripts/check-gh-account-before-pr.mjs (#1728 / ADR-0022 amendment 1)
  *
@@ -33,13 +34,16 @@
  * 関連:
  *   - ADR-0022 amendment 1 (docs/decisions/0022-admin-bypass-disable-qm-approve.md)
  *   - docs/sessions/dev-session.md §PR 作業時 §5.5
- *   - #1728
+ *   - #1728 / #1994 (server side gate との 3 層防御)
  */
 
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const ALLOWED_PR_AUTHOR = process.env.ALLOWED_PR_AUTHOR ?? 'Takenori-Kusaka';
-const QA_ACCOUNT = 'ganbariquestsupport-lab';
+export const ALLOWED_PR_AUTHOR_DEFAULT = 'Takenori-Kusaka';
+export const QA_ACCOUNT = 'ganbariquestsupport-lab';
+
+const ALLOWED_PR_AUTHOR = process.env.ALLOWED_PR_AUTHOR ?? ALLOWED_PR_AUTHOR_DEFAULT;
 
 /**
  * `gh auth status` を実行して標準出力を返す。
@@ -84,9 +88,12 @@ function runGhAuthStatus() {
  *     - Active account: false
  *
  * 戻り値: アクティブな login 名 / 見つからない場合は null
+ *
+ * @param {string} output  gh auth status の標準出力 + 標準エラー出力を結合したもの
+ * @returns {string|null}
  */
-function extractActiveAccount(output) {
-	const lines = output.split(/\r?\n/);
+export function extractActiveAccount(output) {
+	const lines = String(output ?? '').split(/\r?\n/);
 	let lastLogin = null;
 	for (const line of lines) {
 		const loginMatch = line.match(/Logged in to github\.com account ([\w-]+)/);
@@ -95,11 +102,39 @@ function extractActiveAccount(output) {
 			continue;
 		}
 		const activeMatch = line.match(/Active account:\s*(true|false)/i);
-		if (activeMatch && activeMatch[1].toLowerCase() === 'true' && lastLogin) {
+		if (activeMatch && activeMatch[1]?.toLowerCase() === 'true' && lastLogin) {
 			return lastLogin;
 		}
 	}
 	return null;
+}
+
+/**
+ * active アカウント名を入力に取り、許可リストへの適合判定を返す純粋関数。
+ *
+ * @param {string|null} activeAccount  extractActiveAccount() の戻り値
+ * @param {object} [opts]
+ * @param {string} [opts.allowed]      許可するアカウント名 (default: ALLOWED_PR_AUTHOR_DEFAULT)
+ * @returns {{ok: boolean, isQa: boolean, reason: string|null}}
+ */
+export function evaluateActiveAccount(activeAccount, opts = {}) {
+	const allowed = opts.allowed ?? ALLOWED_PR_AUTHOR_DEFAULT;
+	if (activeAccount === null || activeAccount === undefined) {
+		return {
+			ok: false,
+			isQa: false,
+			reason: 'gh auth status の出力から active アカウントを判定できませんでした。',
+		};
+	}
+	if (activeAccount === allowed) {
+		return { ok: true, isQa: false, reason: null };
+	}
+	const isQa = activeAccount === QA_ACCOUNT;
+	return {
+		ok: false,
+		isQa,
+		reason: `active=${activeAccount} は PR 作成許可リスト (${allowed}) に含まれていません。`,
+	};
 }
 
 function main() {
@@ -113,24 +148,18 @@ function main() {
 	}
 
 	const activeAccount = extractActiveAccount(status.output);
-	if (!activeAccount) {
-		process.stderr.write(
-			'[check-gh-account-before-pr] FAIL: gh auth status の出力から active アカウントを判定できませんでした。\n',
-		);
-		process.stderr.write(`  raw output:\n${status.output}\n`);
-		process.exit(1);
-	}
+	const verdict = evaluateActiveAccount(activeAccount, { allowed: ALLOWED_PR_AUTHOR });
 
-	if (activeAccount === ALLOWED_PR_AUTHOR) {
+	if (verdict.ok) {
 		process.stdout.write(`[check-gh-account-before-pr] OK: active=${activeAccount} (PR 作成可)\n`);
 		process.exit(0);
 	}
 
-	const isQa = activeAccount === QA_ACCOUNT;
-	process.stderr.write(
-		`[check-gh-account-before-pr] FAIL: active=${activeAccount} は PR 作成許可リスト (${ALLOWED_PR_AUTHOR}) に含まれていません。\n`,
-	);
-	if (isQa) {
+	process.stderr.write(`[check-gh-account-before-pr] FAIL: ${verdict.reason}\n`);
+	if (activeAccount === null) {
+		process.stderr.write(`  raw output:\n${status.output}\n`);
+	}
+	if (verdict.isQa) {
 		process.stderr.write(
 			`  ${QA_ACCOUNT} は QA レビュー (approve / merge) 専用アカウントです。PR 作成は禁止 (ADR-0022 amendment 1, #1728)。\n`,
 		);
@@ -141,4 +170,9 @@ function main() {
 	process.exit(1);
 }
 
-main();
+// CLI として直接実行されたときのみ main() を呼ぶ。`import` 経由 (unit test 等) では実行されない。
+const isDirectInvocation =
+	process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+if (isDirectInvocation) {
+	main();
+}

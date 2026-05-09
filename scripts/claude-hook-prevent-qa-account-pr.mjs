@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * scripts/claude-hook-prevent-qa-account-pr.mjs (#1879)
  *
@@ -30,9 +31,12 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const ALLOWED_PR_AUTHOR = process.env.ALLOWED_PR_AUTHOR ?? 'Takenori-Kusaka';
-const QA_ACCOUNT = 'ganbariquestsupport-lab';
+export const ALLOWED_PR_AUTHOR_DEFAULT = 'Takenori-Kusaka';
+export const QA_ACCOUNT = 'ganbariquestsupport-lab';
+
+const ALLOWED_PR_AUTHOR = process.env.ALLOWED_PR_AUTHOR ?? ALLOWED_PR_AUTHOR_DEFAULT;
 
 /**
  * stdin (Claude Code が渡す JSON) を全部読み取る。
@@ -47,15 +51,53 @@ async function readStdin() {
 
 /**
  * Bash command 文字列が `gh pr create` を含むか判定。
+ *
+ * #1994 で検出範囲を拡張: `gh api repos/.../pulls` 等の REST API 直接呼び出しも
+ * PR 作成相当の操作として捕捉する。`gh pr create` だけを見ると Claude / Agent が
+ * 同等操作を `gh api` 経由で行った場合 hook をすり抜けるため。
+ *
  * 単純な部分一致で誤検知を許容（誤検知側に倒す方が安全）。
+ *
+ * @param {unknown} command  Bash tool_input.command 文字列
+ * @returns {boolean}        対象操作なら true
  */
-function containsGhPrCreate(command) {
+export function containsGhPrCreate(command) {
 	if (typeof command !== 'string') return false;
-	return /\bgh\s+pr\s+create\b/.test(command);
+	if (/\bgh\s+pr\s+create\b/.test(command)) return true;
+	// `gh api repos/<owner>/<repo>/pulls` で POST する経路 (#1994)
+	// `--method POST` 明示 / `-X POST` / 明示なしの POST default を全て捕捉する。
+	// false-positive: `gh api repos/.../pulls/123/comments` 等の subresource にも match するが、
+	// QA セッションで PR 作成系操作以外で QA アカウントから `gh api .../pulls` を叩く合理的経路は無く、
+	// 過剰停止のコストは「違反 PR 起票による品質ゲート崩壊コスト」より十分小さい。
+	if (/\bgh\s+api\b[^\n]*\/pulls\b/.test(command)) return true;
+	return false;
 }
 
 /**
- * `gh auth status` で active アカウントを取得。
+ * `gh auth status` 出力から active アカウントを抽出する純粋関数。
+ *
+ * @param {string} output  spawnSync('gh', ['auth', 'status']).stdout + stderr
+ * @returns {string|null}  active な login 名、または見つからない場合 null
+ */
+export function parseActiveAccount(output) {
+	const lines = String(output ?? '').split(/\r?\n/);
+	let lastLogin = null;
+	for (const line of lines) {
+		const loginMatch = line.match(/Logged in to github\.com account ([\w-]+)/);
+		if (loginMatch) {
+			lastLogin = loginMatch[1];
+			continue;
+		}
+		const activeMatch = line.match(/Active account:\s*(true|false)/i);
+		if (activeMatch && activeMatch[1]?.toLowerCase() === 'true' && lastLogin) {
+			return lastLogin;
+		}
+	}
+	return null;
+}
+
+/**
+ * `gh auth status` を実行し active アカウントを取得 (副作用あり)。
  * scripts/check-gh-account-before-pr.mjs と同等のロジック (DRY 維持)。
  */
 function extractActiveAccount() {
@@ -66,21 +108,7 @@ function extractActiveAccount() {
 	if (result.error || result.status !== 0) {
 		return null;
 	}
-	const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
-	const lines = output.split(/\r?\n/);
-	let lastLogin = null;
-	for (const line of lines) {
-		const loginMatch = line.match(/Logged in to github\.com account ([\w-]+)/);
-		if (loginMatch) {
-			lastLogin = loginMatch[1];
-			continue;
-		}
-		const activeMatch = line.match(/Active account:\s*(true|false)/i);
-		if (activeMatch && activeMatch[1].toLowerCase() === 'true' && lastLogin) {
-			return lastLogin;
-		}
-	}
-	return null;
+	return parseActiveAccount(`${result.stdout ?? ''}\n${result.stderr ?? ''}`);
 }
 
 async function main() {
@@ -126,4 +154,9 @@ async function main() {
 	process.exit(2);
 }
 
-main();
+// CLI として直接実行されたときのみ main() を呼ぶ。`import` 経由 (unit test 等) では実行されない。
+const isDirectInvocation =
+	process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1];
+if (isDirectInvocation) {
+	main();
+}

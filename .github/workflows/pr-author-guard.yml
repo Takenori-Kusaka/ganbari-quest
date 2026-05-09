@@ -1,0 +1,122 @@
+name: PR Author Guard
+
+# PR 起票アカウント違反の server side gate (#1994 / ADR-0022 amendment 4 相当)
+#
+# 背景:
+#   ADR-0022 (#1481) で「Takenori-Kusaka が PR 作成 / ganbariquestsupport-lab が approve・merge」
+#   の役割分担を機械強制するため、Issue #1879 で 2 経路の事前 hook を導入した:
+#     - L1: Claude Code PreToolUse hook (.claude/settings.json)
+#     - L2: husky pre-push hook (.husky/pre-push)
+#
+#   しかし両 hook とも特定 client / 特定タイミング依存で、以下の経路を捕捉できない:
+#     - Claude Code 以外の CLI / シェル (WSL / Docker / CI ランナー)
+#     - GitHub Web UI からの PR 作成
+#     - `gh api repos/.../pulls` 等の REST 直叩き
+#     - `git push` 通過後に `gh auth switch` → `gh pr create`
+#
+#   PR #1875 (1 回目) / PR #1982 (2 回目) で実際に違反が再発したため、
+#   server side で全経路を捕捉する gate を導入する。pull_request:opened は
+#   client / 経路を問わず必ず発火するイベントである。
+#
+# 動作:
+#   PR が opened / reopened / ready_for_review した瞬間、author を検査:
+#     - 許可 (Takenori-Kusaka)              → ジョブ skip 相当 (success)
+#     - 不許可 (ganbariquestsupport-lab 等) → PR を即時 close + 違反コメント投稿 + 自体 fail
+#
+# 関連:
+#   - ADR-0022 amendment (docs/decisions/0022-admin-bypass-disable-qm-approve.md)
+#   - Issue #1994 (本 workflow を導入する Issue) / #1982 / #1875 / #1879 / #1728
+#   - scripts/check-gh-account-before-pr.mjs (L2: pre-push 同等チェック)
+#   - scripts/claude-hook-prevent-qa-account-pr.mjs (L1: Claude PreToolUse hook)
+#
+# 設計判断:
+#   - actions/github-script@v9 を採用 (公式 action、stars 4k+、PR close + comment 標準パターン)
+#   - peter-evans/close-pull は close 専用で comment 投稿に別 action が必要なため不採用
+#   - branch protection の "Restrict who can create pull request" は GitHub の標準
+#     UI で細粒度 author allowlist が設定不可のため不採用 (#1994 OSS 調査結果)
+#
+# 既知制約:
+#   - PR が一度 open される (作者の通知が届く) 副作用はある。事前 hook (L1/L2) と本 gate (L3)
+#     を併設することで、規律ベースの事前防止 + server side 事後 close の二段構えとする
+#   - merged 済の違反 PR (#1875 / #1982) は対象外 (本 gate は新規 open に発火、merged は
+#     ADR-0022 が事後監査許容)
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+  issues: write
+
+jobs:
+  enforce-pr-author:
+    name: PR 起票アカウント検証
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify PR author
+        uses: actions/github-script@v9
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 許可リスト。将来 contributor を追加する場合は本 list を更新する。
+          ALLOWED_AUTHORS: 'Takenori-Kusaka'
+          # 明示的に拒否するアカウント (役割分離の対象)。コメント文言の出し分けにのみ使う。
+          QA_ACCOUNT: 'ganbariquestsupport-lab'
+        with:
+          script: |
+            const author = process.env.PR_AUTHOR;
+            const allowed = process.env.ALLOWED_AUTHORS.split(',').map(s => s.trim()).filter(Boolean);
+            const qaAccount = process.env.QA_ACCOUNT;
+            const prNumber = Number(process.env.PR_NUMBER);
+
+            if (allowed.includes(author)) {
+              core.info(`PR 起票アカウント検証 PASS: author=${author}`);
+              return;
+            }
+
+            const isQa = author === qaAccount;
+            const violationLine = isQa
+              ? `\`@${author}\` は QA レビュー (approve / merge) 専用アカウントのため PR を作成できません (ADR-0022 / #1728 / #1879 / #1994)。`
+              : `\`@${author}\` は PR 作成許可リスト (${allowed.join(', ')}) に含まれていません (ADR-0022)。`;
+
+            const body = [
+              '## 自動 close: PR 起票アカウント違反 (#1994)',
+              '',
+              violationLine,
+              '',
+              '本リポジトリでは ADR-0022 で次の役割分担を機械強制しています:',
+              '',
+              `- PR 作成: \`Takenori-Kusaka\` のみ`,
+              `- approve / merge: \`${qaAccount}\` のみ`,
+              '',
+              '### 再起票手順',
+              '',
+              '1. ローカルで \`gh auth switch --user Takenori-Kusaka\` で Dev アカウントに切替え',
+              '2. \`gh auth status\` で \`Active account: true\` が \`Takenori-Kusaka\` であることを確認',
+              '3. \`node scripts/check-gh-account-before-pr.mjs\` が exit 0 で通過することを確認',
+              '4. 同じブランチから \`gh pr create --draft ...\` で PR を再起票',
+              '',
+              '関連: ADR-0022 / Issue #1994 / Issue #1879 / Issue #1728 / PR #1875 / PR #1982',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body,
+            });
+
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: prNumber,
+              state: 'closed',
+            });
+
+            core.setFailed(
+              `PR 起票アカウント違反: author=${author} は許可リスト (${allowed.join(', ')}) に含まれていません。PR を自動 close しました。`,
+            );
