@@ -61,31 +61,41 @@ const DESKTOP = { width: 1440, height: 900, deviceScaleFactor: 2 };
 // Screenshot definitions
 // ============================================================
 
+// #1900 (UIUX-C-1): hero carousel 4 枚を年齢帯 3 系統 + 管理画面に再構成。
+//   旧構成は 4 枚すべて /demo/lower/* 固定で alt「3〜18 歳の代表」と実体が乖離していた
+//   (ADR-0013 LP truth 違反)。本リファクタで以下の 4 枚に組み替える:
+//     carousel-1 = 幼児 (preschool 互換 = legacy `kinder` mode) ホーム
+//     carousel-2 = 小学生 (elementary 互換 = legacy `lower` mode) ホーム
+//     carousel-3 = 中高生 (junior 互換 = legacy `upper` mode) ホーム
+//     carousel-4 = ご家族の見守り画面 (管理画面)
+//   `name` は HTML 側 <img src="screenshots/<name>-mobile.webp"> と一致するため後方互換維持。
+//   alt / data-label の SSOT は `LP_INDEX_PHASEB_LABELS.carouselSlide{1..4}Alt` (#1900 で追加)。
 const CAROUSEL_SCREENSHOTS = [
 	{
 		name: 'carousel-1-child-home',
-		url: '/demo/lower/home',
-		description: 'Carousel 1: 子供ホーム画面（冒険スタートモード）',
+		url: '/demo/kinder/home',
+		description: 'Carousel 1: 幼児（3-5 歳代表）ホーム画面 — ひらがな・大きなボタン',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
 	{
 		name: 'carousel-2-child-status',
-		url: '/demo/lower/status',
-		description: 'Carousel 2: 成長レーダーチャート',
+		url: '/demo/lower/home',
+		description: 'Carousel 2: 小学生（6-12 歳代表）ホーム画面 — 活動記録とポイント獲得',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
 	{
 		name: 'carousel-3-admin-main',
-		url: '/demo/admin',
-		description: 'Carousel 3: 親の管理ダッシュボード',
+		url: '/demo/upper/home',
+		description: 'Carousel 3: 中高生（13-18 歳代表）ホーム画面 — 自己管理ダッシュボード',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
-	// #1901: 旧 /demo/admin/activities は feature-settings と URL/ETag が完全一致していたため
-	//        /demo/admin/children (子供管理画面) に振り替え。LP carousel-4 alt も「子供管理 ―
-	//        家族メンバーの登録と切替」へ同期更新。
+	// #1900 (UIUX-C-1) + #1901 統合: hero carousel 4 枚を年齢帯 3 系統 + 管理画面に再構成する文脈で、
+	//   slide 4 = ご家族の見守り (管理画面) を担う。main #1901 の物理重複解消 (旧 /demo/admin/activities は
+	//   feature-settings と URL/ETag 完全一致だった) を尊重し URL は /demo/admin/children を採用、
+	//   ADR-0013 LP truth 整合のため alt / data-label も「子供管理 — 家族メンバーの登録と切替」で統一する。
 	{
 		name: 'carousel-4-admin-sub',
 		url: '/demo/admin/children',

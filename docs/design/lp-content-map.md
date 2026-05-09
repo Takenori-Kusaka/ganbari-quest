@@ -237,6 +237,7 @@ LP 9 セクションを 4 トーンに分類し、各トーンに「規範のど
 > #1708 R3-A で [04] 機構ツアーを 4 → 3 カードに再圧縮（旧 ③ ルーチン-CL カードを削除）。`activities.priority='must'`（今日のおやくそく）に役割移管したため LP 訴求を分離（ADR-0027 参照）。
 > #1625 R21 / #1626 R22 / #1628 R24 で Hero に価格 anchor 1 行バンド + 不安解消 3 バッジ + 仕様起点 3 バッジを追加（PMF 後送り testimonial の代替）。
 > #1627 R23 で Hero carousel の autoplay を停止し、`prefers-reduced-motion` を尊重。
+> #1900 (UIUX-C-1) で Hero carousel 4 枚を年齢帯 3 系統 + 管理画面に再構成（旧構成は 4 枚すべて lower 固定で alt「3〜18 歳の代表」と実体が乖離 = ADR-0013 LP truth 違反）。slide 1 = 幼児（3-5 歳代表 / `/demo/kinder/home`）/ slide 2 = 小学生（6-12 歳代表 / `/demo/lower/home`）/ slide 3 = 中高生（13-18 歳代表 / `/demo/upper/home`）/ slide 4 = ご家族の見守り画面（管理画面 / `/demo/admin`）。alt / data-label の SSOT は `LP_INDEX_PHASEB_LABELS.carouselSlide{1..4}Alt`（`src/lib/domain/labels.ts`）。撮影定義は `scripts/capture-hp-screenshots.mjs` `CAROUSEL_SCREENSHOTS`、出力ファイル名は後方互換維持（`carousel-{1..4}-*-{mobile,desktop}.webp`）。
 
 > 旧 [06] 社会的証明 (Pre-PMF 4 点セット) は **#1282 で削除** した。β / 0-18 / 36+ / OSS の 4 数値は「自己言及的メタデータ」であり顧客にとっての社会的証明として成立せず、「使われていないサービス」という否定的シグナルを逆に強調していたため。PMF 到達後に「利用家族数 / 星評価 / 累計達成数 / 受賞」の 4 点セットを §4.3 の顧客価値 gate を通したうえで再投入する（§4.2 の旧 [06] 仕様をアーカイブとして残す）。
 

@@ -943,7 +943,11 @@
 			"softBenefitSettings": "<strong>家庭で楽になること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる",
 			"softFamilySupportTitle": "家庭に寄り添う運用補助",
 			"softFamilySupportDesc": "設定時間で自動スリープし長時間利用を防止。必要な時だけ家族からおうえんメッセージを子供のホームへ届けられます。",
-			"softBenefitFamilySupport": "<strong>家庭ごとにカスタマイズできること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く"
+			"softBenefitFamilySupport": "<strong>家庭ごとにカスタマイズできること</strong>: 設定時間で自動スリープが働き、おうえんメッセージは子供が読むと既読が付く",
+			"carouselSlide1Alt": "幼児（3-5 歳代表）のホーム画面 — ひらがな・大きなボタン",
+			"carouselSlide2Alt": "小学生（6-12 歳代表）のホーム画面 — 活動記録とポイント獲得",
+			"carouselSlide3Alt": "中高生（13-18 歳代表）のホーム画面 — 自己管理ダッシュボード",
+			"carouselSlide4Alt": "子供管理画面 — 家族メンバーの登録と切替"
 		},
 		"pricingB": {
 			"k1": "お子さまの登録：2人まで",
