@@ -20,8 +20,9 @@
 //   CANCEL_TERMS     — 解約 atom
 //   FREE_TERMS       — 無料訴求 atom
 //   CTA_TERMS        — CTA / トライアル動詞句 atom（無料体験 / 無料で試す / 無料で試せます、#1958）
+//   LP_FAQ_TERMS     — LP「FAQ / よくある(ご)質問」atom（PO-4-10、#1896 + PO-4-12、#1898）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -128,27 +129,41 @@ export const CTA_TERMS = {
 } as const;
 
 // ============================================================
-// LP_FAQ_TERMS — LP「FAQ / よくあるご質問」用語 atom (#1898 PO-4-12)
+// LP_FAQ_TERMS — LP「FAQ / よくある(ご)質問」atom (#1896 PO-4-10、4 回目指摘 + #1898 PO-4-12)
 // ============================================================
 //
-// 「FAQ」「よくあるご質問」等、LP 法的注記 / FAQ 導線 / nav リンクで頻出する
-// 名詞句を atom として集約。labels.ts LP_LEGAL_DISCLAIMER_LABELS / LP_FAQ_LABELS /
-// LP_NAV_LABELS 等の compound はこの atom を参照する。
+// LP 内で「FAQ」「FAQ 専用ページ」「FAQ 専用ページ（24 項目）」「よくあるご質問」
+// 「よくある質問」が 5 表記混在し、PO 指摘 4 回連続再発の構造的問題が発生していた (#1896)。
+// 同概念の string リテラルが labels.ts の独立 const (k71/k78/k87/k89/k102 / faqTitle)
+// に分散し key 名が意味を持たなかったため、本 namespace に正準形 SSOT を集約。
+//
+// #1898 PO-4-12 では `LP_LEGAL_DISCLAIMER_LABELS.liabilityBody` /
+// `liabilityLinks` / `cancelDisclaimerLinks` の値内に「FAQ」リテラルが
+// 直接混入していた構造を、本 atom 経由の template literal 参照に置換した
+// （ADR-0045 §3.3 atom / compound 責務分離）。
 //
 // 設計指針:
-//   - canonicalShort: 短縮形「FAQ」（法的注記 / 賠償リンク / 解約 disclaimer の inline link 文末）
-//   - canonicalLong:  長形「よくあるご質問」（nav / 専用ページ見出し等の独立表示）
+//   - canonicalLong    : 「よくあるご質問」(LP nav / footer / heading 全箇所統一)
+//   - canonicalShort   : 「FAQ」(法的注記 / aria-label / mailto subject 等の限定的短縮形のみ)
+//   - linkLabel        : インライン a タグ内のリンクラベル（canonicalLong と同値）
+//   - faqHtmlTitle     : faq.html / pricing.html FAQ section の見出し（canonicalLong と同値）
+//   - inlineCtaSentence: index.html 「他のご質問は <a>FAQ ページ</a> をご覧ください」誘導文
 //
-// PO-4-12 (4 回目指摘) で `LP_LEGAL_DISCLAIMER_LABELS.liabilityBody` /
-// `liabilityLinks` / `cancelDisclaimerLinks` の値内に「FAQ」リテラルが
-// 直接混入していた構造を、本 atom 経由の template literal 参照に置換する
-// （ADR-0045 §3.3 atom / compound 責務分離）。
+// 旧文言「FAQ 専用ページ（24 項目）」「FAQ 専用ページ」は項目数の経時変動 (24/26/28 …)
+// で disclaimer 整合が破綻するため、誘導文では「よくあるご質問」単独に統一する。
 //
 // canonicalShort の値「FAQ」は本 atom 定義の 1 箇所のみとし、labels.ts 値内の
 // 文字列リテラル「FAQ」直書きは scripts/check-no-plan-literals.mjs 等で
 // 段階的に取り締まる方針（中期 follow-up #1909 用語白リスト CI）。
 
 export const LP_FAQ_TERMS = {
-	canonicalShort: 'FAQ',
 	canonicalLong: 'よくあるご質問',
+	canonicalShort: 'FAQ',
+	linkLabel: 'よくあるご質問',
+	faqHtmlTitle: 'よくあるご質問',
+	// 値は `${LP_FAQ_TERMS.inlineCtaSentence}` で labels.ts compound から参照。
+	// HTML 属性に " を含むため JS 側は ' で囲む。Biome formatter による自動折り返しは
+	// generate-design-md-sections.mjs の multi-line aware parser が対応 (#1896)。
+	inlineCtaSentence:
+		'他のご質問は <a href="faq.html" class="nav-text">よくあるご質問</a> をご覧ください。',
 } as const;
