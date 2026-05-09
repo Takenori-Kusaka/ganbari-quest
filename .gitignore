@@ -100,6 +100,11 @@ pr-*/
 
 # 一時 screenshots / 旧 PR アセット / 孤児 sound は履歴から filter-repo で抹消済み（main 追跡禁止）
 tmp-screenshots/
+.tmp-screenshots/
+.tmp-ss/
+.tmp-ss-*/
+.tmp-pr*/
+.tmp-pr*-ss/
 docs/pr-assets/
 /sound/
 
