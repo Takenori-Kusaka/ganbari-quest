@@ -91,9 +91,16 @@ function parseTermEntry(rawLine) {
 	if (!line || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*')) {
 		return null;
 	}
-	const stringMatch = line.match(/^(\w+):\s*['"]([^'"]*)['"],?\s*(?:\/\/.*)?$/);
-	if (stringMatch) {
-		return { key: stringMatch[1], value: stringMatch[2], type: 'string' };
+	// #1896 PO-4-10: HTML markup を含む atom (内部 `"` あり) も AUTOGEN 表に拾えるよう
+	//   引用符マッチを「同じ引用符が値内に出現しないこと」のみで縛る (反対の引用符は許容)。
+	//   先頭が ' のとき内部に ' を含まない / 先頭が " のとき内部に " を含まない。
+	const singleQuotedMatch = line.match(/^(\w+):\s*'([^']*)',?\s*(?:\/\/.*)?$/);
+	if (singleQuotedMatch) {
+		return { key: singleQuotedMatch[1], value: singleQuotedMatch[2], type: 'string' };
+	}
+	const doubleQuotedMatch = line.match(/^(\w+):\s*"([^"]*)",?\s*(?:\/\/.*)?$/);
+	if (doubleQuotedMatch) {
+		return { key: doubleQuotedMatch[1], value: doubleQuotedMatch[2], type: 'string' };
 	}
 	const numberMatch = line.match(/^(\w+):\s*(-?\d+(?:\.\d+)?),?\s*(?:\/\/.*)?$/);
 	if (numberMatch) {
@@ -104,8 +111,24 @@ function parseTermEntry(rawLine) {
 
 function parseTermNamespace(body) {
 	const entries = [];
-	for (const rawLine of body.split('\n')) {
-		const entry = parseTermEntry(rawLine);
+	// #1896 PO-4-10: Biome formatter が長い文字列値を自動的に次行に折り返すため、
+	//   `key:` 単独行 + 次行 `'value',` の 2 行パターンも 1 entry として連結して扱う。
+	const rawLines = body.split('\n');
+	for (let i = 0; i < rawLines.length; i++) {
+		const merged = rawLines[i];
+		const next = rawLines[i + 1];
+		// `<key>:` 行のみ (値なし) かつ次行が `'value',` 形式の場合は連結試行。
+		const keyOnlyMatch = merged.trim().match(/^(\w+):\s*$/);
+		if (keyOnlyMatch && next?.trim().match(/^['"][\s\S]*['"],?$/)) {
+			const combined = `${keyOnlyMatch[1]}: ${next.trim()}`;
+			const entry = parseTermEntry(combined);
+			if (entry) {
+				entries.push(entry);
+				i += 1; // 値行を消費
+				continue;
+			}
+		}
+		const entry = parseTermEntry(merged);
 		if (entry) entries.push(entry);
 	}
 	return entries;
