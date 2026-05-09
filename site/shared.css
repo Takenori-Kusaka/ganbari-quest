@@ -94,22 +94,24 @@
 	--lp-faq-item-padding-y: 14px; /* .faq-item 上下 padding (#1831 で 14px、Base 4px グリッドに乗らないため直値) */
 	--lp-hero-padding-top: var(--space-12); /* .hero 上 padding (48px) */
 	--lp-hero-padding-bottom: var(--space-9); /* .hero 下 padding (36px) */
-	--lp-card-padding-y: var(--space-5); /* card 系 (.tour-card / .soft-card 等) 縦 padding 標準値 */
-	--lp-card-padding-x: var(--space-4); /* card 系 横 padding 標準値 */
+	/* #1911 (B-1): tour-card / soft-card / core-loop-card で内部 padding がバラバラだった (16/14 vs 20/18 vs 18/18)
+	   不揃いを Semantic 統合トークンで SSOT 化。値は #1851 で確定済の tour-card mobile (16px/14px) に揃え、
+	   ≥1024px / ≥1440px は段階的拡張。soft-card / core-loop-card の旧個別 token は本トークンに集約 */
+	--lp-card-padding-y: var(--space-4); /* card 系 (.tour-card / .soft-card / .core-loop-card) 縦 padding 既定 (16px) */
+	--lp-card-padding-x: 14px; /* card 系 横 padding 既定 (4px グリッド外、直値) */
+	--lp-card-padding-y-md: var(--space-6); /* card 系 @≥1024px (24px) */
+	--lp-card-padding-x-md: 22px; /* card 系 @≥1024px (4px グリッド外、直値) */
+	--lp-card-padding-y-lg: var(--space-7); /* card 系 @≥1440px (28px) */
+	--lp-card-padding-x-lg: var(--space-6); /* card 系 @≥1440px (24px) */
+	--lp-card-shot-aspect-ratio: 390/844; /* card 系 scrshot 枠 aspect-ratio 統一値 (#1911 B-3、縦長スマホ実画像対応) */
 	--lp-card-gap: var(--space-5); /* .machine-tour / .soft-grid のグリッド間隔 */
 	/* #1851 Phase 2: 残り構造的 padding/margin の Semantic トークン化。
 	   tour-card / soft-card / trust-badge / versus-card / plan-card / floating-cta /
 	   faq / pp-band / hero h1 等の構造的 spacing を SSOT 化する。値は Phase 1 と同じく
 	   過去 PR (#1759 / #1798 / #1827 / #1831 / #1836) で圧縮されている値を踏襲。
 	   ローカル装飾値 (gap / 微小余白等) は SSOT 肥大化回避のため対象外。 */
-	--lp-tour-card-padding-y: var(--space-4); /* .tour-card 縦 padding 既定 (16px) */
-	--lp-tour-card-padding-x: 14px; /* .tour-card 横 padding 既定 (4px グリッド外、直値) */
-	--lp-tour-card-padding-y-md: var(--space-6); /* .tour-card @≥1024px (24px) */
-	--lp-tour-card-padding-x-md: 22px; /* .tour-card @≥1024px (4px グリッド外、直値) */
-	--lp-tour-card-padding-y-lg: var(--space-7); /* .tour-card @≥1440px (28px) */
-	--lp-tour-card-padding-x-lg: var(--space-6); /* .tour-card @≥1440px (24px) */
-	--lp-soft-card-padding-y: var(--space-5); /* .soft-card 縦 padding (20px) */
-	--lp-soft-card-padding-x: 18px; /* .soft-card 横 padding (4px グリッド外、直値) */
+	/* #1911 (B-1): .tour-card / .soft-card 個別 token は --lp-card-padding-* に統合済 (本ファイル l.97-103)。
+	   旧 --lp-tour-card-padding-* / --lp-soft-card-padding-* は削除し、参照箇所を統合トークンに置換 */
 	--lp-trust-badge-padding-y: var(--space-6); /* .trust-badge 縦 padding (24px) */
 	--lp-trust-badge-padding-x: var(--space-5); /* .trust-badge 横 padding (20px) */
 	--lp-trust-badge-padding-y-lg: var(--space-5); /* .trust-badge @≥1024px (20px) */
@@ -136,7 +138,7 @@
 	/* #1910 AC6 (UIUX-A-6): age-panel body 内チェックリスト */
 	--lp-age-panel-checklist-mb: var(--space-4); /* .age-panel-checklist 下マージン (16px) */
 	--lp-age-panel-checklist-item-pl: 22px; /* .age-panel-checklist li 左 padding (✓ 用、22px = ✓ 16px + 6px gap) */
-	--lp-core-loop-card-padding: 18px; /* .core-loop-card 上下左右 (4px グリッド外) */
+	/* #1911 (B-1): .core-loop-card 個別 padding token は --lp-card-padding-* に統合済 */
 	--lp-growth-roadmap-padding-y: var(--space-6); /* #growth-roadmap 縦 padding (24px) */
 	--lp-growth-roadmap-padding-x: var(--space-4); /* #growth-roadmap 横 padding (16px) */
 	--lp-versus-section-padding-y: var(--space-4); /* #versus 縦 padding (16px) */
