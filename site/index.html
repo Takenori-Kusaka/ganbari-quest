@@ -259,7 +259,7 @@
 .soft-card h3{font-size:1.05rem;font-weight:700;margin-bottom:6px;color:var(--gray-900)}
 .soft-card p{font-size:.86rem;color:var(--gray-600);line-height:1.6}
 /* #1707 R2 / #1793: soft-card 内に家庭で楽になる / 家庭ごとにカスタマイズできる 1 行ベネフィットと screenshot を追加 */
-/* #1707 PR Phase 3-B fix: 料金プロミスバンドを docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
+/* #1707 PR Phase 3-B fix: 料金セクション (#pricing) を docHeight 75% 以内に収めるため scrshot 高さを圧縮 */
 /* #1785 R-CRT-2: soft-shot からも border / background / border-radius を撤去 */
 .soft-card .soft-shot{overflow:hidden;aspect-ratio:390/844;max-height:96px;margin:8px 0}
 .soft-card .soft-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
@@ -296,7 +296,7 @@
 .growth-roadmap-cta .growth-roadmap-link a{display:inline-block;padding:10px 24px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;color:var(--brand-700);font-weight:600;text-decoration:none;transition:opacity .2s,transform .2s}
 .growth-roadmap-cta .growth-roadmap-link a:hover{opacity:.92;transform:translateY(-1px);text-decoration:none}
 
-/* アナログ vs デジタル比較 (#1614 R10: シール帳 vs アプリ訴求)
+/* 紙のシール帳との比較 (#1614 R10: シール帳 vs アプリ訴求)
    モバイル/PC ともに 1 行 = analog → digital 横並びにして縦の伸びを抑える */
 #versus{padding:var(--lp-versus-section-padding-y) var(--lp-versus-section-padding-x)}
 .versus-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px}
@@ -540,7 +540,7 @@
 <!-- LP-LANDMARK:versus start — シール帳・ホワイトボードではできない 4 つのことを提示 (#1614 R10 / #1844 / #1888)
      親 P1 が「30 秒で離脱判断」する直前に「アナログではできない 4 つのこと」を比較表で提示
      ヒーロー直下〜2 スクロール目 (#1597 で確定した設計位置) -->
-<!-- [02] アナログ vs デジタル — シール帳・ホワイトボードと何が違うのか -->
+<!-- [02] 紙のシール帳との比較 — シール帳・ホワイトボードと何が違うのか -->
 <section class="section bg-white" id="versus">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="versus.sectionTitle">シール帳・ホワイトボードではできない 4 つのこと</h2>
@@ -762,7 +762,7 @@
 <!-- LP-LANDMARK:soft-features start — 親向け安心機能 (月次レポート凸構成 + 家庭運用補助 + 設定自由度)
      #1720 R4: 4 cards → 3 cards 圧縮、月次レポートを featured 凸構成（PC は 1 行に featured 単独 + 残 2 並列、モバイルは縦積み）
      変更時は docs/design/lp-content-map.md §soft-features を確認 -->
-<!-- [05] ソフト機能（親の安心） -->
+<!-- [05] 親が安心できる運用補助 -->
 <section class="section bg-gray" id="soft-features">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k37">親が安心できる運用補助</h2>
@@ -820,10 +820,10 @@
 </section>
 <!-- LP-LANDMARK:growth-roadmap-cta end -->
 
-<!-- LP-LANDMARK:pricing start — 料金プロミスバンド。CTA は「無料で始める」のみ
+<!-- LP-LANDMARK:pricing start — 料金（基本無料）バンド。CTA は「無料で始める」のみ
      価格帯の変更は docs/design/19-プライシング戦略書.md + lp-content-map.md §pricing を確認
      3 カード比較は pricing.html へ集約 (#1293) -->
-<!-- [06] 料金プロミスバンド (#1293: freemium × 低価格帯の price disambiguation。3 カード比較は pricing.html へ集約) -->
+<!-- [06] 料金（基本無料） (#1293: freemium × 低価格帯の price disambiguation。3 カード比較は pricing.html へ集約) -->
 <section class="section bg-white" id="pricing">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k47">まずは無料、必要なら月 ¥500〜</h2>
@@ -850,7 +850,7 @@
 <!-- [06b] retention セクションは #1621 R17 で削除し [03] 習慣カード へ統合。
      pamphlet.html / 旧 LP_RETENTION_LABELS は短文として保持（コア訴求は習慣カードに集約）。 -->
 
-<!-- [07] 安心訴求 -->
+<!-- [07] 信頼・データの守り（trust） -->
 <section class="section bg-white" id="trust">
   <div class="section-inner">
     <h2 class="section-title" data-lp-key="indexB.k58">お子さまのデータは、家族だけのものです</h2>
