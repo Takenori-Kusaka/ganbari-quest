@@ -45,7 +45,7 @@
 		'.gr-benefit',
 		'.age-panel-desc',
 		'.core-loop-card p',
-		'.versus-card p',
+		'.versus-text p',
 		'.soft-card p',
 		'.tour-card p',
 		'.trust-badge p',

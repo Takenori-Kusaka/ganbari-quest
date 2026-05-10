@@ -324,43 +324,26 @@
 .growth-roadmap-cta .growth-roadmap-link a{display:inline-block;padding:10px 24px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;color:var(--brand-700);font-weight:600;text-decoration:none;transition:opacity .2s,transform .2s}
 .growth-roadmap-cta .growth-roadmap-link a:hover{opacity:.92;transform:translateY(-1px);text-decoration:none}
 
-/* 紙のシール帳との比較 (#1614 R10: シール帳 vs アプリ訴求)
-   モバイル/PC ともに 1 行 = analog → digital 横並びにして縦の伸びを抑える */
+/* 紙のシール帳との比較 (Redesigned) */
 #versus{padding:var(--lp-versus-section-padding-y) var(--lp-versus-section-padding-x)}
-.versus-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:8px}
-.versus-row{display:grid;grid-template-columns:1fr 22px 1.4fr;gap:8px;align-items:stretch}
-/* #1785 R-CRT-2: versus 5 系統 → 1 種統一。analog/digital の background-color / グラデーション全廃。
-   差別化は左上 .vc-tag の色のみで実現（紙＝灰色 / アプリ＝brand-700） */
-.versus-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-versus-card-padding-y) var(--lp-versus-card-padding-x);display:flex;flex-direction:column;justify-content:center}
-.versus-card .vc-tag{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;padding:1px 5px;border-radius:4px;margin-bottom:3px;align-self:flex-start}
-.versus-card.vc-analog .vc-tag{background:var(--gray-200);color:var(--gray-700)}
-.versus-card.vc-digital .vc-tag{background:var(--brand-700);color:#fff}
-.versus-card h3{font-size:.85rem;font-weight:700;margin-bottom:2px;color:var(--gray-900);line-height:1.4}
-.versus-card p{font-size:.74rem;color:var(--gray-700);line-height:1.5;margin:0}
-/* #1910 AC5 (UIUX-A-5): 絵文字 → を SVG 32×32 化 (PC で過剰に小さい問題解消、OS/ブラウザ間整合)。
-   docs/design/asset-catalog.md §7「OS/ブラウザ間で見た目が変わると困る要素」整合。SVG は viewBox 32×32 を維持し、
-   表示サイズはモバイル 18px / PC 28px で grid 列幅 (22px / 18px) と整合 */
-.versus-arrow{display:flex;align-items:center;justify-content:center;color:var(--brand-700)}
-.versus-arrow img{width:18px;height:18px;display:block}
-@media(min-width:1024px){.versus-arrow img{width:24px;height:24px}}
-/* #1723 R10: versus 各優位点アイコン (.vc-icon) は装飾過多のため削除（タグ + タイトル + 説明で意味は伝わる） */
-/* #1784: versus row 内 vc-digital に小型 scrshot を縦積み配置（PO 指摘: vc-digital に scrshot ゼロ → 4 行に scrshot 配置）
-   #versus セクションを左右 2 column 配置にした上で、各 row の scrshot は aspect-ratio 16/9 で行高を揃える
-   desktopHeight ≤ 8000 ratchet を守りつつ scrshot 占有率 30% 以上を達成するため
-   PC (≥1024px) では .versus-grid を 2 column に並べて 4 row → 2 row 表示にして縦の伸びを抑える */
-.versus-shot{margin-top:4px;border-radius:6px;overflow:hidden;background:#fff;aspect-ratio:16/9;max-height:80px;border:1px solid var(--brand-200)}
-.versus-shot img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
-.versus-shot picture{display:block;width:100%;height:100%}
-@media(max-width:640px){
-  .versus-row{grid-template-columns:1fr 18px 1.3fr;gap:6px}
-  .versus-card{padding:var(--lp-versus-card-padding-y-sm) var(--lp-versus-card-padding-x-sm)}
-  .versus-card h3{font-size:.78rem}
-  .versus-card p{font-size:.7rem}
-  .versus-shot{max-height:70px}
+.versus-grid{display:grid;gap:var(--space-6);max-width:1080px;margin:0 auto}
+.versus-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);align-items:center;padding:var(--space-5);background:#fff;border:1px solid var(--gray-300);border-radius:28px}
+.versus-row.reverse .versus-text{order:2}
+.versus-row.reverse .versus-visual{order:1}
+.versus-label{display:inline-block;margin:16px 0 8px;padding:6px 10px;background:var(--brand-700);color:#fff;border-radius:10px;font-size:.85rem;font-weight:700}
+.versus-text > .versus-label:first-child{margin-top:0}
+.versus-label.versus-label-muted{background:var(--gray-100);color:var(--gray-700)}
+.versus-text h3{margin:0 0 10px;font-size:clamp(1.2rem, 2vw, 1.6rem);line-height:1.4;color:var(--gray-900)}
+.versus-text p{margin:0 0 var(--space-4);color:var(--gray-700);font-size:.95rem;line-height:1.6}
+.versus-visual img{border-radius:16px;border:1px solid var(--gray-200);background:#f8fafc;width:100%;height:auto;display:block}
+@media(max-width:960px){
+  .versus-row,.versus-row.reverse{grid-template-columns:1fr;gap:var(--space-5)}
+  .versus-row.reverse .versus-text,.versus-row.reverse .versus-visual{order:initial}
 }
-@media(min-width:1024px){
-  .versus-grid{grid-template-columns:repeat(2,1fr);gap:10px}
-  .versus-shot{max-height:90px}
+@media(max-width:640px){
+  .versus-row{padding:20px;border-radius:18px}
+  .versus-text h3{font-size:1.3rem}
+  .versus-text p{font-size:.9rem}
 }
 
 /* Trust badges (#1620 R16: PC 4 列化、モバイル 2×2 維持) */
@@ -589,61 +572,56 @@
     <h2 class="section-title" data-lp-key="versus.sectionTitle">シール帳・ホワイトボードではできない 4 つのこと</h2>
     <p class="section-desc" data-lp-key="versus.sectionDesc">多くのご家庭がまず紙で試して、続かずに諦めています。「3 歳から 18 歳まで」「家族みんなで」「ずっと続ける」を叶えるのが、がんばりクエストです。</p>
     <div class="versus-grid">
-      <div class="versus-row">
-        <div class="versus-card vc-analog">
-          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+      <article class="versus-row">
+        <div class="versus-text">
+          <span class="versus-label versus-label-muted" data-lp-key="versus.tagAnalog">シール帳・紙</span>
           <h3 data-lp-key="versus.row1AnalogTitle">お手伝いの種類が増えたり貼る場所がなくなっちゃう</h3>
-        </div>
-        <div class="versus-arrow" aria-hidden="true"><img src="assets/ui/versus-arrow.svg" alt="" width="32" height="32" loading="lazy" decoding="async"></div>
-        <div class="versus-card vc-digital">
-          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+
+          <span class="versus-label" data-lp-key="versus.tagDigital">がんばりクエスト</span>
           <h3><span data-lp-key="versus.row1DigitalTitle">自由に子供の活動をカスタマイズ</span></h3>
           <p data-lp-key="versus.row1DigitalDesc">子どものフェーズに合わせた活動を予めご用意</p>
-          <!-- #1784: vc-digital scrshot 配置（PO 指摘: scrshot ゼロ → アプリの見た目を訴求） -->
-          <div class="versus-shot">
-            <picture>
-              <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
-              <img src="screenshots/feature-point-level.webp" alt="親管理画面の活動カスタマイズ画面" loading="lazy" data-lightbox>
-            </picture>
-          </div>
         </div>
-      </div>
-      <div class="versus-row">
-        <div class="versus-card vc-analog">
-          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+        <div class="versus-visual">
+          <picture>
+            <source srcset="screenshots/feature-point-level-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-point-level.webp" alt="親管理画面の活動カスタマイズ画面" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+      </article>
+
+      <article class="versus-row reverse">
+        <div class="versus-text">
+          <span class="versus-label versus-label-muted" data-lp-key="versus.tagAnalog">シール帳・紙</span>
           <h3 data-lp-key="versus.row2AnalogTitle">どれだけ頑張ってきたか振り返るのが大変！</h3>
-        </div>
-        <div class="versus-arrow" aria-hidden="true"><img src="assets/ui/versus-arrow.svg" alt="" width="32" height="32" loading="lazy" decoding="async"></div>
-        <div class="versus-card vc-digital">
-          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+
+          <span class="versus-label" data-lp-key="versus.tagDigital">がんばりクエスト</span>
           <h3><span data-lp-key="versus.row2DigitalTitle">日々の活動実績をポイントでわかりやすく</span></h3>
           <p data-lp-key="versus.row2DigitalDesc">3 歳から 18 歳まで同じアプリで継続</p>
-          <div class="versus-shot">
-            <picture>
-              <source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp">
-              <img src="screenshots/age-kinder.webp" alt="子ども入力画面の過去の記録画面" loading="lazy" data-lightbox>
-            </picture>
-          </div>
         </div>
-      </div>
-      <div class="versus-row">
-        <div class="versus-card vc-analog">
-          <div class="vc-tag" data-lp-key="versus.tagAnalog">シール帳・紙</div>
+        <div class="versus-visual">
+          <picture>
+            <source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/age-kinder.webp" alt="子ども入力画面の過去の記録画面" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+      </article>
+
+      <article class="versus-row">
+        <div class="versus-text">
+          <span class="versus-label versus-label-muted" data-lp-key="versus.tagAnalog">シール帳・紙</span>
           <h3 data-lp-key="versus.row4AnalogTitle">家を離れると続けられない</h3>
-        </div>
-        <div class="versus-arrow" aria-hidden="true"><img src="assets/ui/versus-arrow.svg" alt="" width="32" height="32" loading="lazy" decoding="async"></div>
-        <div class="versus-card vc-digital">
-          <div class="vc-tag" data-lp-key="versus.tagDigital">がんばりクエスト</div>
+
+          <span class="versus-label" data-lp-key="versus.tagDigital">がんばりクエスト</span>
           <h3><span data-lp-key="versus.row4DigitalTitle">旅行先・祖父母宅でも続けられる</span></h3>
           <p data-lp-key="versus.row4DigitalDesc">スマホ・タブレットで連続記録が途切れない</p>
-          <div class="versus-shot">
-            <picture>
-              <source srcset="screenshots/feature-cheer-message-desktop.webp" media="(min-width:1024px)" type="image/webp">
-              <img src="screenshots/feature-cheer-message.webp" alt="スマホで開ける子供ホーム画面" loading="lazy" data-lightbox>
-            </picture>
-          </div>
         </div>
-      </div>
+        <div class="versus-visual">
+          <picture>
+            <source srcset="screenshots/feature-cheer-message-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/feature-cheer-message.webp" alt="スマホで開ける子供ホーム画面" loading="lazy" data-lightbox>
+          </picture>
+        </div>
+      </article>
     </div>
   </div>
 </section>
