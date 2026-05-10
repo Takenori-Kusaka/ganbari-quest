@@ -240,13 +240,13 @@
 .tour-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-card-padding-y) var(--lp-card-padding-x);display:flex;flex-direction:column}
 .tour-card .tour-phase{font-size:.72rem;font-weight:700;color:var(--brand-700);letter-spacing:.1em;margin-bottom:6px}
 .tour-card h3{font-size:1.05rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
-.tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px;flex:1}
+.tour-card p{font-size:.88rem;color:var(--gray-600);line-height:1.65;margin-bottom:12px}
 /* #1284: tour-shot も同様に全画面表示へ修正。スクショの主要要素が見えるように */
 /* #1618 R14: 画像有無で高さがバラバラだった問題を修正。.tour-shot の min-height で揃える */
 /* #1724 R8: 内側 .tour-shot の border を撤去（外側 .tour-card border に集約）。スクショ自体が主役になるよう装飾を最小化 */
 /* #1707 R2: scrshot 9 枚追加で mobile 高が膨張するため max-height を 200px に圧縮（PC 整然配置 #1618 と整合） */
 /* #1785 R-CRT-2: tour-shot からも background / border-radius を撤去。外側 .tour-card の枠に集約 */
-.tour-card .tour-shot{overflow:hidden;aspect-ratio:var(--lp-card-shot-aspect-ratio);max-height:200px;margin-top:auto}
+.tour-card .tour-shot{overflow:hidden;aspect-ratio:var(--lp-card-shot-aspect-ratio);max-height:200px}
 .tour-card .tour-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
 /* #1707 R2 / #1793: 家庭で起きる / 楽になる / 家族で実感できる 1 行ベネフィットを screenshot 直下に併記 */
 .tour-card .tour-benefit{font-size:.82rem;color:var(--gray-700);margin-top:8px;line-height:1.5}
@@ -787,8 +787,7 @@
       <div class="tour-card" data-testid="feature-belongings-checklist">
         <div class="tour-phase" data-lp-key="indexB.k26">&#9312; 朝の準備をスムーズに</div>
         <h3 data-lp-key="indexB.k27">持ち物チェックリスト</h3>
-        <p data-lp-key="indexB.k28">通学や習い事の持ち物を、子ども自身がタップ確認。</p>
-        <p data-lp-key="indexB.k29">朝の「あれ持った？」を減らします。</p>
+        <p data-lp-key="indexB.k28">通学や習い事の持ち物を、子ども自身がタップ確認。<br>朝の「あれ持った？」を減らします。</p>
         <div class="tour-shot">
           <picture>
             <source srcset="screenshots/feature-belongings-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp">

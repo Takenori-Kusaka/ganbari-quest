@@ -4275,7 +4275,7 @@ export const LP_PRICING_LABELS = {
 	planFreeName: `${FREE_PLAN_TERMS.planSelfNoun}`,
 	planFreePrice: `${PRICE_TERMS.free}`,
 	planFreePriceSub: `${FREE_PLAN_TERMS.forever} ・ ${TRIAL_TERMS.noCreditCardShort}`,
-	planFreePersona: 'こんなご家族におすすめ: まずはお子さま 1〜2 人で試したいご家族へ',
+	planFreePersona: 'まずはお子さま 1〜2 人で試したいご家族へ',
 	planFreeDesc:
 		'ポイント・レベルアップ・おみくじ・スタンプカードなど、お子さまの冒険体験はすべて無料。',
 	planFreeCta: '無料ではじめる',
@@ -4289,7 +4289,7 @@ export const LP_PRICING_LABELS = {
 	planStandardUnit: '/月（税込）',
 	planStandardYearly: '年額 ¥5,000（税込・2ヶ月分お得）',
 	planStandardPersona:
-		'こんなご家族におすすめ: お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ',
+		'お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ',
 	planStandardDesc: 'カスタマイズ自由自在。お子さまにぴったりの環境を作れます。',
 	planStandardCta: '7日間 無料体験',
 
@@ -4299,7 +4299,7 @@ export const LP_PRICING_LABELS = {
 	planFamilyPrice: `${PRICE_TERMS.family}`,
 	planFamilyUnit: '/月（税込）',
 	planFamilyYearly: '年額 ¥7,800（税込・2ヶ月分お得）',
-	planFamilyPersona: 'こんなご家族におすすめ: 祖父母・離れた家族と一緒に応援したいご家族へ',
+	planFamilyPersona: '祖父母・離れた家族と一緒に応援したいご家族へ',
 	planFamilyDesc: '家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。',
 	planFamilyCta: '7日間 無料体験',
 
