@@ -4569,31 +4569,21 @@ export const LP_VERSUS_LABELS = {
 	tagAnalog: 'シール帳・紙',
 	tagDigital: 'がんばりクエスト',
 	// #1723 R10: row*Icon (📊 🌱 🎓 📍) は装飾過多のため削除。比較表の構造（タグ + タイトル + 説明）で十分意味が伝わる
-	row1AnalogTitle: '集計が手作業で計算ミスが起きがち',
-	row1DigitalTitle: '自動集計でいつでもポイントが見える',
+	row1AnalogTitle: 'お手伝いの種類が増えたり貼る場所がなくなっちゃう',
+	row1DigitalTitle: '自由に子供の活動をカスタマイズ',
 	// #1844: ですます → 体言止め
-	row1DigitalDesc: '「あと 50 ポイントでごほうび」を子供自身が計画',
-	row2AnalogTitle: '年齢が変わるたびに冊子を買い替え',
-	row2DigitalTitle: '3 歳から 18 歳まで同じアプリで継続',
+	row1DigitalDesc: '子どものフェーズに合わせた活動を予めご用意',
+	row2AnalogTitle: 'どれだけ頑張ってきたか振り返るのが大変！',
+	row2DigitalTitle: '日々の活動実績をポイントでわかりやすく',
 	// #1844: ですます → 体言止め
-	row2DigitalDesc: '15 年分の成長履歴がひとつに',
-	row3AnalogTitle: '続けることが目的になりがち',
-	// #2058 (UIUX-F-16): 「自律」→「自分から動きだす」リフレーム。
-	// 旧「子供が自律したらアプリは不要」(15 字) は IT リテラシー親目線の硬い語彙で
-	// 子供向けプロダクトトーンと不整合（PR #2054 / #1912 deferred）。
-	// AUTONOMY_TERMS.selfMotivatedPast atom（「自分から動きだした」、過去形・条件形 prefix）
-	// に「らアプリは不要」を後置することで、子育て文脈の親しみやすい語彙へ統一
-	// （旧字数 15 → 新字数 19、row1/2/4 の 17/18/19 字内に収まる）。
-	row3DigitalTitle: `子供が${AUTONOMY_TERMS.selfMotivatedPast}らアプリは不要`,
-	// #1844: ですます → 体言止め
-	row3DigitalDesc: '「使わなくなる」が成功のゴール — 卒業を最終地点として設計',
+	row2DigitalDesc: '3 歳から 18 歳まで同じアプリで継続',
 	row4AnalogTitle: '家を離れると続けられない',
 	row4DigitalTitle: '旅行先・祖父母宅でも続けられる',
 	// #1844: ですます → 体言止め
 	row4DigitalDesc: 'スマホ・タブレットで連続記録が途切れない',
 	// #1784: 各 row の scrshot alt テキスト（PO 指摘: vc-digital カードに scrshot ゼロ → 4 scrshot 配置）
-	row1ShotAlt: '自動集計でポイントが見えるホーム画面',
-	row2ShotAlt: '幼児（3-5 歳）の大ボタン UI 例',
+	row1ShotAlt: '親管理画面の活動カスタマイズ画面',
+	row2ShotAlt: '子ども入力画面の過去の記録画面',
 	row3ShotAlt: '卒業マイルストーンと履歴エクスポート画面',
 	row4ShotAlt: 'スマホで開ける子供ホーム画面',
 } as const;
