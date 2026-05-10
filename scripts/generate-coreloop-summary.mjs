@@ -6,7 +6,7 @@
  * LP [03] core-loop セクションの 1-shot summary 画像（活動 → 習慣 → ごほうびの循環図）を
  * 生成する。出力先は `static/assets/lp/core-loop-summary.webp` 固定 + `site/assets/lp/` に配備。
  *
- * #1889 で正本を SVG (`static/assets/lp/core-loop-summary.svg`) に変更:
+ * #1889 で正本を SVG (`static/assets/lp/core-loop-summary.webp`) に変更:
  *   - **デフォルト**: SVG → sharp で透過 PNG (1280x640) に変換 (決定的、Gemini 鍵不要、透過保証)
  *   - **--regenerate**: Gemini API で SVG 自体を再生成 (鍵必要、本格生成画像のリフレッシュ用)
  *
@@ -56,7 +56,7 @@ const isDryRun = args.includes('--dry-run');
 const isRegenerate = args.includes('--regenerate');
 
 // 出力先: 開発側は static/assets/lp/、デプロイ側は site/assets/lp/ (CI / Pages 配備時にコピー)
-const SVG_PATH = path.resolve(REPO_ROOT, 'static/assets/lp/core-loop-summary.svg');
+const SVG_PATH = path.resolve(REPO_ROOT, 'static/assets/lp/core-loop-summary.webp');
 const PNG_PATH = path.resolve(REPO_ROOT, 'static/assets/lp/core-loop-summary.webp');
 const SITE_PNG_PATH = path.resolve(REPO_ROOT, 'site/assets/lp/core-loop-summary.webp');
 
