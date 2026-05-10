@@ -1,4 +1,6 @@
 import { OYAKAGI_LABELS } from '$lib/domain/labels';
+// #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
+import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 export const SETTINGS_GUIDE: PageGuide = {
@@ -10,7 +12,7 @@ export const SETTINGS_GUIDE: PageGuide = {
 			id: 'settings-pin',
 			selector: '[data-tutorial="pin-settings"]',
 			title: OYAKAGI_LABELS.sectionTitle,
-			what: `管理画面へのアクセスを保護する${OYAKAGI_LABELS.name}（4桁の数字）を変更できます。お子さまが誤って管理画面に入るのを防ぎます。${OYAKAGI_LABELS.defaultValueHint}。`,
+			what: `${ADMIN_VIEW_TERMS.canonical}へのアクセスを保護する${OYAKAGI_LABELS.name}（4桁の数字）を変更できます。お子さまが誤って${ADMIN_VIEW_TERMS.canonical}に入るのを防ぎます。${OYAKAGI_LABELS.defaultValueHint}。`,
 			how: `1. 現在の${OYAKAGI_LABELS.name}を入力\n2. 新しい${OYAKAGI_LABELS.name}（4桁）を入力\n3. 確認のためもう一度入力\n4. 「変更する」をタップ`,
 			goal: `${OYAKAGI_LABELS.name}が更新され、次回のログインから新しいコードが必要になります。`,
 			tips: [

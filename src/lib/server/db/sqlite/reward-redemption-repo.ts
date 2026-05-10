@@ -38,7 +38,7 @@ export async function findRedemptionRequestsByChild(childId: number, _tenantId: 
 		.all();
 }
 
-/** 親が管理画面で見る申請一覧（子供名・報酬名を含む） */
+/** 親がご家族の見守り画面で見る申請一覧（子供名・報酬名を含む） */
 export async function findRedemptionRequestsByTenant(
 	_tenantId: string,
 	opts?: { status?: string; childId?: number; limit?: number },

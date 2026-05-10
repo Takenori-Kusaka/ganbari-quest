@@ -22,7 +22,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const authMode = getAuthMode();
 	// local モードは認証不要なので直接 /admin、cognito モードは /auth/login
 	const adminLink = authMode === 'cognito' ? '/auth/login' : '/admin';
-	// child ロールには管理画面リンクを非表示（local モードでは常に表示）
+	// child ロールにはご家族の見守り画面リンクを非表示（local モードでは常に表示）
 	const showAdminLink = authMode === 'local' || locals.context?.role !== 'child';
 	return { children, adminLink, showAdminLink, reason };
 };

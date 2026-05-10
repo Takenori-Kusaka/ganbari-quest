@@ -93,6 +93,8 @@ export const actions = {
 			return fail(400, { error: '平均は0以上、標準偏差は0より大きい値を入力してください' });
 		}
 
+		// #2057: 内部 source identifier (DB 保存値、UI 表示なし)。既存レコードとの履歴整合のため
+		// 「管理画面」リテラルを保持。UI 表記は ADMIN_VIEW_TERMS.canonical で別途集約済。
 		await upsertBenchmark(age, categoryId, mean, stdDev, '管理画面', tenantId);
 		return { success: true, benchmarkUpdated: true };
 	},

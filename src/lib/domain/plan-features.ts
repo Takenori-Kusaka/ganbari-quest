@@ -82,7 +82,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 // - ひとことメッセージ（自由テキスト）は #772、きょうだいランキングは #782 で family 専用化済み
 
 /**
- * 管理画面のプラン選択カード（/admin/license/+page.svelte）に表示する
+ * ご家族の見守り画面のプラン選択カード（/admin/license/+page.svelte）に表示する
  * 短い機能ハイライトリスト。料金ページよりも簡潔な 4〜5 項目に絞る。
  */
 export const LICENSE_PAGE_HIGHLIGHTS: Record<'standard' | 'family', readonly string[]> = {
@@ -213,7 +213,7 @@ export function getPricingPagePlans(): readonly PricingPageMeta[] {
 	return [PRICING_PAGE_META.free, PRICING_PAGE_META.standard, PRICING_PAGE_META.family];
 }
 
-/** 管理画面のプランハイライトを取得 */
+/** ご家族の見守り画面のプランハイライトを取得 */
 export function getLicenseHighlights(plan: 'standard' | 'family'): readonly string[] {
 	return LICENSE_PAGE_HIGHLIGHTS[plan];
 }

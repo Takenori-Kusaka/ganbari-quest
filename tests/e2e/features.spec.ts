@@ -592,7 +592,7 @@ test.describe('API 正常系: 週次評価', () => {
 });
 
 test.describe('API 正常系: 認証', () => {
-	test('管理画面にアクセスできる', async ({ request }) => {
+	test('ご家族の見守り画面にアクセスできる', async ({ request }) => {
 		const res = await request.get('/admin');
 		expect(res.ok()).toBe(true);
 	});
@@ -662,8 +662,8 @@ test.describe('API 正常系: 活動サジェスト', () => {
 // #0129: 招待リンクによるメンバー追加
 // ============================================================
 
-test.describe('#0129: メンバー管理画面', () => {
-	test('メンバー管理画面が表示される', async ({ page }) => {
+test.describe('#0129: メンバーご家族の見守り画面', () => {
+	test('メンバーご家族の見守り画面が表示される', async ({ page }) => {
 		await page.goto('/admin/members');
 		await expect(page.getByText('現在のメンバー')).toBeVisible();
 		await expect(page.getByText('メンバーを招待')).toBeVisible();
@@ -718,11 +718,11 @@ test.describe('#0129: 招待 API', () => {
 });
 
 // ============================================================
-// #0130: ライセンス管理画面
+// #0130: ライセンスご家族の見守り画面
 // ============================================================
 
-test.describe('#0130: ライセンス管理画面', () => {
-	test('ライセンス管理画面が表示される', async ({ page }) => {
+test.describe('#0130: ライセンスご家族の見守り画面', () => {
+	test('ライセンスご家族の見守り画面が表示される', async ({ page }) => {
 		await page.goto('/admin/license');
 		// #796 の確認ダイアログに「現在のプランが上書きされます」という警告文があり、
 		// getByText('現在のプラン') だと strict-mode 違反になるため role で一意化

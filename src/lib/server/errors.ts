@@ -1,5 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+// #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
+import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
 
 export type ErrorCode =
@@ -71,7 +73,7 @@ const ERROR_DEFINITIONS: Record<ErrorCode, ErrorDefinition> = {
 	},
 	UNAUTHORIZED: {
 		status: 401,
-		userMessage: 'ログインが必要です。管理画面からログインしてください。',
+		userMessage: `ログインが必要です。${ADMIN_VIEW_TERMS.canonical}からログインしてください。`,
 		severity: 'warning',
 		action: 'fix_input',
 	},

@@ -8,11 +8,11 @@ import { expect, test } from '@playwright/test';
 import { isAwsEnv } from './helpers';
 
 // ============================================================
-// 管理画面・APIアクセス（認証モード共通）
+// ご家族の見守り画面・APIアクセス（認証モード共通）
 // ============================================================
 
-test.describe('管理画面・API アクセス', () => {
-	test('管理画面にアクセスできる', async ({ request }) => {
+test.describe('ご家族の見守り画面・API アクセス', () => {
+	test('ご家族の見守り画面にアクセスできる', async ({ request }) => {
 		const res = await request.get('/admin');
 		expect(res.ok()).toBe(true);
 	});

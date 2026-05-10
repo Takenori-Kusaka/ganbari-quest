@@ -85,7 +85,7 @@ export async function createSiblingChallenge(
 	return challenge;
 }
 
-/** 管理画面用: 全チャレンジ（進捗付き） */
+/** ご家族の見守り画面用: 全チャレンジ（進捗付き） */
 export async function getAllChallengesWithProgress(
 	tenantId: string,
 ): Promise<SiblingChallengeWithProgress[]> {

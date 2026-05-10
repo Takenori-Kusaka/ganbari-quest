@@ -198,7 +198,7 @@ function generateAdvice(categories: CategoryReport[], totalActivities: number): 
 	};
 }
 
-/** 前週のレポートを全子供分生成する（管理画面用） */
+/** 前週のレポートを全子供分生成する（ご家族の見守り画面用） */
 export async function generateReportsForChildren(
 	children: { id: number; nickname: string }[],
 	tenantId: string,

@@ -1,4 +1,4 @@
-// /admin/license — ライセンス管理画面 (#0130, #0131, #314, #796)
+// /admin/license — ライセンス管理ページ (#0130, #0131, #314, #796)
 
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';

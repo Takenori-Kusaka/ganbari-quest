@@ -288,7 +288,7 @@ export class CognitoAuthProvider implements AuthProvider {
 			});
 
 			// #314: サインアップ時の自動トライアル開始を廃止
-			// トライアルはユーザーが管理画面から明示的に開始する
+			// トライアルはユーザーがご家族の見守り画面から明示的に開始する
 
 			logger.info('[AUTH] Auto-provisioned new user', {
 				context: {

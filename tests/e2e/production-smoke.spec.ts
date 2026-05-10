@@ -187,7 +187,7 @@ test.describe('本番環境 - 認証後ページテスト', () => {
 		await page.waitForURL(/\/(preschool|baby)\/home/, { timeout: 30000 });
 	});
 
-	test('管理画面が表示される（ログイン後）', async ({ page }) => {
+	test('ご家族の見守り画面が表示される（ログイン後）', async ({ page }) => {
 		test.skip(!TEST_EMAIL || !TEST_PASSWORD, 'E2E テスト認証情報が未設定');
 		const ok = await loginAsOwner(page);
 		test.skip(!ok, '本番Cognitoへのログインに失敗');

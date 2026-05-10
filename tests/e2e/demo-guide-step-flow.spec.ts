@@ -67,7 +67,7 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		await expect(page).toHaveURL(/\/demo\/preschool\/status/);
 
 		// Step 3 → Step 4 (matchPath: /demo/admin)
-		// #1323: バトルステップ削除により、ステータス → 管理画面へ直接遷移
+		// #1323: バトルステップ削除により、ステータス → ご家族の見守り画面へ直接遷移
 		await page.getByTestId('demo-guide-next').click();
 		await expect(stepIndicator).toHaveText('4');
 		await expect(guideBar).toContainText('おやの画面をみよう');
