@@ -4,7 +4,7 @@
  * scripts/generate-coreloop-summary.mjs (#1787 / #1889)
  *
  * LP [03] core-loop セクションの 1-shot summary 画像（活動 → 習慣 → ごほうびの循環図）を
- * 生成する。出力先は `static/assets/lp/core-loop-summary.png` 固定 + `site/assets/lp/` に配備。
+ * 生成する。出力先は `static/assets/lp/core-loop-summary.webp` 固定 + `site/assets/lp/` に配備。
  *
  * #1889 で正本を SVG (`static/assets/lp/core-loop-summary.svg`) に変更:
  *   - **デフォルト**: SVG → sharp で透過 PNG (1280x640) に変換 (決定的、Gemini 鍵不要、透過保証)
@@ -57,8 +57,8 @@ const isRegenerate = args.includes('--regenerate');
 
 // 出力先: 開発側は static/assets/lp/、デプロイ側は site/assets/lp/ (CI / Pages 配備時にコピー)
 const SVG_PATH = path.resolve(REPO_ROOT, 'static/assets/lp/core-loop-summary.svg');
-const PNG_PATH = path.resolve(REPO_ROOT, 'static/assets/lp/core-loop-summary.png');
-const SITE_PNG_PATH = path.resolve(REPO_ROOT, 'site/assets/lp/core-loop-summary.png');
+const PNG_PATH = path.resolve(REPO_ROOT, 'static/assets/lp/core-loop-summary.webp');
+const SITE_PNG_PATH = path.resolve(REPO_ROOT, 'site/assets/lp/core-loop-summary.webp');
 
 // #1845: GEMINI_API_KEY 早期検出 (--regenerate 時のみ必須)
 function loadEnvFile(filePath) {
@@ -119,7 +119,7 @@ async function generateFromSvg() {
 		process.exit(1);
 	}
 	console.log(`✓ 透過 PNG を生成しました (hasAlpha === true)`);
-	console.log(`✓ site/assets/lp/core-loop-summary.png にも配備しました（GitHub Pages 配信用）`);
+	console.log(`✓ site/assets/lp/core-loop-summary.webp にも配備しました（GitHub Pages 配信用）`);
 }
 
 /**
@@ -169,7 +169,7 @@ function regenerateWithGemini() {
 		const siteDir = path.dirname(SITE_PNG_PATH);
 		if (!fs.existsSync(siteDir)) fs.mkdirSync(siteDir, { recursive: true });
 		fs.copyFileSync(PNG_PATH, SITE_PNG_PATH);
-		console.log(`✓ site/assets/lp/core-loop-summary.png にも配備しました（GitHub Pages 配信用）`);
+		console.log(`✓ site/assets/lp/core-loop-summary.webp にも配備しました（GitHub Pages 配信用）`);
 	}
 	process.exit(result.status ?? 1);
 }

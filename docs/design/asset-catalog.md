@@ -211,12 +211,12 @@ npm run capture:feature -- feature-cheer-message
 | ファイル名 | 配置 | サイズ | 生成方法 |
 |----------|------|--------|---------|
 | `core-loop-summary.svg` (#1889 で正本化) | `static/assets/lp/`（git tracked、SSOT） | 640×320 viewBox（透過） | 手動編集（ベクター + 透過ネイティブ） |
-| `core-loop-summary.png` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1280×640 透過 PNG | `npm run generate:coreloop-summary`（デフォルト: SVG → sharp PNG 変換、決定的、Gemini 鍵不要）|
+| `core-loop-summary.webp` | `site/assets/lp/` (配信) + `static/assets/lp/` (アプリ側) | 1280×640 透過 PNG | `npm run generate:coreloop-summary`（デフォルト: SVG → sharp PNG 変換、決定的、Gemini 鍵不要）|
 | (Gemini 再生成、任意) | 同上 | 1456×720 (Gemini 出力) | `npm run generate:coreloop-summary -- --regenerate`（Gemini API、`gemini-3-pro-image-preview`、鍵必要、本格生成画像のリフレッシュ用） |
 
 #### #1889: SVG 正本化 + 透過 PNG 化（推奨パス）
 
-PO レビュー（PO-4-3）で「core-loop-summary.png の白背景が LP に浮いて見える」違和感が露出。
+PO レビュー（PO-4-3）で「core-loop-summary.webp の白背景が LP に浮いて見える」違和感が露出。
 技術調査で **PNG 拡張子だが実体 JPEG**（Gemini API 応答 MIME 検証なし）+ CSS `background:#fff` 強制
 という二重の構造的問題が判明。Issue #1889 で以下に再構成:
 
@@ -232,7 +232,7 @@ PO レビュー（PO-4-3）で「core-loop-summary.png の白背景が LP に浮
 npm run generate:coreloop-summary
 #   → static/assets/lp/core-loop-summary.svg を読み込み
 #   → sharp で 1280×640 透過 PNG に変換
-#   → static/assets/lp/core-loop-summary.png + site/assets/lp/core-loop-summary.png に出力
+#   → static/assets/lp/core-loop-summary.webp + site/assets/lp/core-loop-summary.webp に出力
 #   → hasAlpha === true を assert (#1889 AC1)
 ```
 
@@ -248,7 +248,7 @@ echo 'GEMINI_API_KEY=<your-key>' >> .env.local
 
 # 2. Gemini Pro 3 image で再生成（opt-in、任意）
 npm run generate:coreloop-summary -- --regenerate
-#   → static/assets/lp/core-loop-summary.png 出力（gemini-3-pro-image-preview、約 1456×720）
+#   → static/assets/lp/core-loop-summary.webp 出力（gemini-3-pro-image-preview、約 1456×720）
 #   → 出力は JPEG bytes の可能性があるため、PR レビューで透過チェック必要
 #   → 透過保証が必要なら SVG（正本）を手動編集する運用に切り替えること
 ```
