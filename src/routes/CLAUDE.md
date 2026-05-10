@@ -77,6 +77,18 @@ const isScreenshotAll = $derived(kind === 'all');
 - preschool モード: `node scripts/capture.mjs --flow child-home-preschool --url /switch --presets mobile`
 - デモ Cookie (`gq_demo=1`) 残存で `isDemo=true` になり子供一覧が空になる → `/demo/exit` または `clearCookies()`
 
+#### rebase 後の screenshots branch push 必須（#2063）
+
+実装 branch を `git push --force` で rebase した場合、**`screenshots` branch は独立 branch のため自動更新されない**。修正後 SS は必ず別途撮影し screenshots branch に push すること。push を怠ると Before / After SS が完全同一画像のまま PR body に残り、CI gate (`pr-quality-gate.yml` `ss-blob-sha-uniqueness-check`) が **Blob SHA 一致 = 偽装** として hard-fail する (#2063 / 起因事例: PR-2054 で 3 ラウンド連続偽装発生 → user 判断 close)。
+
+```bash
+# rebase 後の正しい流れ
+git push --force-with-lease origin <branch>
+node scripts/capture.mjs --pr <N>            # 修正後 SS を撮り直す
+# scripts/capture.mjs が screenshots branch への push まで担当する場合はここで完結
+# 手動運用時は capture 結果を screenshots branch にコミット & push
+```
+
 ## 絶対にやってはいけないこと
 
 - 実画面未確認でゴールに `[x]`（検証偽装）

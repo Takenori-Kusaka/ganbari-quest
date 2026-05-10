@@ -111,6 +111,45 @@ jobs:
           export PR_LABELS
           node scripts/check-pr-screenshot.mjs
 
+  # ============================================================
+  # #2063 — Before/After SS Blob SHA 同一性検証
+  #   PR-2054 (#1912) で発生した「force-push rebase で実装 branch は更新されたが
+  #   screenshots branch は更新されず Before/After SS が完全同一画像のまま」
+  #   という偽装パターン (3 ラウンド連続) への構造的対策。
+  #
+  #   `gh api repos/.../contents/<path>?ref=screenshots` で Blob SHA を取得し
+  #   before-* / after-* ペアの SHA が一致 (= 1 byte も違わない完全同一画像) なら fail。
+  #
+  #   選択肢 A (確立パターン: GitHub API + SHA 比較) を採用 (Issue #2063 OSS 先調査済)。
+  #   段階適用: SS_BLOB_SHA_CHECK_MODE=error で初期から hard-fail (偽装は致命的なため
+  #   warn 段階を経ずに即 hard-fail を採用、AC2 で false positive ゼロ確認済)。
+  # ============================================================
+  ss-blob-sha-uniqueness-check:
+    name: "SS Blob SHA 同一性検証 (Before/After 偽装防止 #2063)"
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: scripts/check-ss-blob-sha-uniqueness.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Run check-ss-blob-sha-uniqueness.mjs
+        env:
+          # #2063: 偽装は致命的なため warn 段階を経ずに即 hard-fail (initial error 採用)。
+          # false positive ゼロは Issue #2063 AC2 で 5 PR (PR-2050/2051/2053/2055/2056) 空走確認済。
+          CHECK_MODE: error
+          PR_BODY: ${{ github.event.pull_request.body }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          # #2063 AC3: PR ラベル一覧を取得 (refactor:internal-no-doc-impact による exempt 判定用)
+          PR_LABELS=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --json labels --jq '[.labels[].name] | join(",")')
+          export PR_LABELS
+          node scripts/check-ss-blob-sha-uniqueness.mjs
+
   design-doc-check:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
