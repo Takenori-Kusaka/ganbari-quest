@@ -25,8 +25,9 @@
 //   POINT_TERMS      — ポイント単位 atom（pt / ポイント / P、UIUX-E-3、#1913）
 //   CURRENCY_TERMS   — 通貨 atom（¥ / 円、UIUX-E-5、#1913）
 //   FREE_PLAN_TERMS  — 無料プラン訴求 atom（永久無料 バッジ語、UIUX-E-7、#1913）
+//   AUTONOMY_TERMS   — 自律 / 自走 リフレーム atom（UIUX-F-16、#2058）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -268,4 +269,42 @@ export const FREE_PLAN_TERMS = {
 	forever: '永久無料',
 	foreverDot: '永久無料 ・ ',
 	planSelfNoun: 'フリー',
+} as const;
+
+// ============================================================
+// AUTONOMY_TERMS — 自律 / 自走 リフレーム atom (UIUX-F-16、#2058)
+// ============================================================
+//
+// 「自律」「自走」は IT リテラシー親目線の硬い語彙で子供向けプロダクトトーンと不整合
+// （PR #2054 / #1912 UIUX-F-16 deferred）。LP マーケティング面では親しみやすい
+// 「自分から動きだす」「自分で計画する」へリフレームする。
+//
+// 設計指針:
+//   - selfMotivated     : 「自分から動きだす」（自発性、旧「自走」の言い換え、終止形）
+//   - selfMotivatedPast : 「自分から動きだした」（過去形・条件形 prefix、versus row3DigitalTitle で
+//                          「〜たら」接続用。連用形「動きだし」+「た」で文法的に自然な接続を保証）
+//   - selfPlanning      : 「自分で計画する」（計画性・自立性、旧「自律」の言い換え、終止形）
+//   - selfPlanningAble  : 「自分で計画できる」（可能形、growth-roadmap sectionDesc 等で使用）
+//
+// スコープ範囲（AC2 法務確認の保守的判断、Issue #2058 タスクコンテキスト指示）:
+//   - LP マーケティング面（LP_VERSUS_LABELS / LP_GROWTH_ROADMAP_LABELS）はリフレーム対象
+//   - 法務文書（LP_LEGAL_TERMS_LABELS.section14 / LP_LEGAL_PRIVACY_LABELS.section6_2）は
+//     法務承認後の別 PR で対応（契約用語「自律」が「卒業 = サービス終了 trigger」定義の
+//     根拠語彙となっており、用語変更が契約意図に影響する可能性があるため、本 PR では未変更）
+//   - CANCELLATION_LABELS / GRADUATION_LABELS / discord-notify-service.ts も同上
+//     （カテゴリ ID 'graduation' の hint / Discord 内部通知 / 卒業フロー UI は法的文脈と接続）
+//
+// 法務 review 必要事項（PR body に明示）:
+//   - 利用規約第 14 条（卒業 — ポジティブな解約について）の「自律的に行えるようになった時点」
+//     の用語変更可否
+//   - プライバシーポリシー第 6 条の 2（卒業フローと事例公開承諾）の「自律して使う必要が
+//     なくなった」の用語変更可否
+//   - 法務承認取得後、LP_LEGAL_*_LABELS / CANCELLATION_LABELS / GRADUATION_LABELS の
+//     atom 化を別 PR で実施（#2058 follow-up）
+
+export const AUTONOMY_TERMS = {
+	selfMotivated: '自分から動きだす',
+	selfMotivatedPast: '自分から動きだした',
+	selfPlanning: '自分で計画する',
+	selfPlanningAble: '自分で計画できる',
 } as const;

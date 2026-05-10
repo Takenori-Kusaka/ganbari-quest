@@ -10,8 +10,10 @@
 // #1963 (Phase 7 H6): LICENSE_PAGE_LABELS で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
 // #1898 (PO-4-12): LP_FAQ_TERMS を LP_LEGAL_DISCLAIMER_LABELS から参照（liabilityBody / liabilityLinks / cancelDisclaimerLinks の「FAQ」直書きを atom 経由に置換）
 // #1913 (UIUX-E): AGE_RANGE_TERMS / POINT_TERMS / CURRENCY_TERMS / FREE_PLAN_TERMS 追加（年齢レンジ / ポイント / 通貨 / 無料プラン訴求 atom 集約）
+// #2058 (UIUX-F-16): AUTONOMY_TERMS 追加（「自律」「自走」→「自分から動きだす」「自分で計画する」LP リフレーム atom、法務文書は法務 review 後の別 PR で対応）
 import {
 	AGE_RANGE_TERMS,
+	AUTONOMY_TERMS,
 	CANCEL_TERMS,
 	CTA_TERMS,
 	CURRENCY_TERMS,
@@ -4561,7 +4563,13 @@ export const LP_VERSUS_LABELS = {
 	// #1844: ですます → 体言止め
 	row2DigitalDesc: '15 年分の成長履歴がひとつに',
 	row3AnalogTitle: '続けることが目的になりがち',
-	row3DigitalTitle: '子供が自律したらアプリは不要',
+	// #2058 (UIUX-F-16): 「自律」→「自分から動きだす」リフレーム。
+	// 旧「子供が自律したらアプリは不要」(15 字) は IT リテラシー親目線の硬い語彙で
+	// 子供向けプロダクトトーンと不整合（PR #2054 / #1912 deferred）。
+	// AUTONOMY_TERMS.selfMotivatedPast atom（「自分から動きだした」、過去形・条件形 prefix）
+	// に「らアプリは不要」を後置することで、子育て文脈の親しみやすい語彙へ統一
+	// （旧字数 15 → 新字数 19、row1/2/4 の 17/18/19 字内に収まる）。
+	row3DigitalTitle: `子供が${AUTONOMY_TERMS.selfMotivatedPast}らアプリは不要`,
 	// #1844: ですます → 体言止め
 	row3DigitalDesc: '「使わなくなる」が成功のゴール — 卒業を最終地点として設計',
 	row4AnalogTitle: '家を離れると続けられない',
@@ -4600,8 +4608,12 @@ export const LP_VERSUS_LABELS = {
 //         '7 日間' (TRIAL_TERMS.durationSpaced) — 両方とも参照化済み。
 export const LP_GROWTH_ROADMAP_LABELS = {
 	sectionTitle: '3 歳から 18 歳まで、そして「卒業」へ',
-	sectionDesc:
-		'お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。',
+	// #2058 (UIUX-F-16): 「自律」リフレーム。
+	// 旧「…『アプリを使わなくても自分で計画できる』自律へ。」は同一文内で「自分で計画できる」と
+	// 「自律」が重複し冗長。AUTONOMY_TERMS.selfPlanningAble atom を引用句として残し、
+	// 文末「自律へ」を「子育てステージへ」に変更（卒業を最終地点とする growth-roadmap の
+	// 物語整合を保ちつつ、IT リテラシー語彙を撤去）。
+	sectionDesc: `お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても${AUTONOMY_TERMS.selfPlanningAble}」子育てステージへ。`,
 	// #1848: LP 本体は CTA 1 行に短縮。5 ステージ詳細は graduation.html で展開。
 	// #1895 (PO-4-9): 「5 ステージの詳細を見る →」は section-desc に「5」の予告がなく
 	//   認知ジャンプを誘発（田中ゆかりペルソナ「5 ステージ?なんのステージ?」）。
@@ -4609,8 +4621,8 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	linkLabel: '3 歳から 18 歳までの成長ストーリーを見る →',
 	pageTitle: '成長ロードマップ - がんばりクエスト',
 	pageHeroTitle: '3 歳から 18 歳まで、そして「卒業」へ',
-	pageHeroLead:
-		'お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。',
+	// #2058 (UIUX-F-16): sectionDesc と同じリフレーム（同文 SSOT）。
+	pageHeroLead: `お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても${AUTONOMY_TERMS.selfPlanningAble}」子育てステージへ。`,
 	pageMetaDescription:
 		'がんばりクエストの成長ロードマップ。幼児（3-5歳）から高校生（16-18歳）、そして「卒業」まで、お子さまの成長に合わせて UI と機能が変化していく様子を実画面付きで紹介。',
 	breadcrumbHome: 'ホーム',
@@ -4645,7 +4657,10 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	juniorRange: '13-15',
 	juniorUnit: '歳',
 	juniorTitle: '部活と塾の両立を、子供が自分で計画する',
-	juniorDesc: '月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。',
+	// #2058 (UIUX-F-16): 「自律的な」→「自分で計画する」リフレーム。
+	// AUTONOMY_TERMS.selfPlanning atom 経由で IT リテラシー語彙を撤去し、
+	// juniorTitle の「自分で計画する」と整合（同 stage 内の語彙統一）。
+	juniorDesc: `月次レポートで「自分のペース」を客観視し、${AUTONOMY_TERMS.selfPlanning}リズム調整が可能に。`,
 	// #1911 (B-6): 15 字以内に圧縮
 	juniorParentBenefit: '時間管理を子供任せに',
 	juniorChildExperience: '月次レポートで自己ペース可視化',
@@ -4663,7 +4678,11 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 	graduateDesc:
 		'「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。',
 	// #1911 (B-6): 15 字以内に圧縮
-	graduateParentBenefit: '子供の自律を頻度低下で確認',
+	// #2058 (UIUX-F-16): 「子供の自律」→「自分で動く姿」リフレーム。
+	// AUTONOMY_TERMS atom 直接参照ではなく、graduate stage 文脈で「動詞 → 名詞」転置した
+	// 「自分で動く姿」(7 字) で表現。旧「子供の自律を頻度低下で確認」(13 字) と同尺の
+	// 「自分で動く姿を頻度低下で確認」(14 字) で 15 字制限内維持。
+	graduateParentBenefit: '自分で動く姿を頻度低下で確認',
 	graduateChildExperience: 'アプリ無しで計画できる実感',
 	// ベネフィット行 + screenshot alt #1707 / #1712
 	preschoolShotAlt: '幼児ホーム画面 — 大きな絵文字ボタンと達成スタンプ',
@@ -4699,16 +4718,19 @@ export const LP_GROWTH_ROADMAP_LABELS = {
 //         '¥500' / '¥780' / '¥0' / '無料プラン' / 'スタンダードプラン' / 'ファミリープラン' /
 //         'いつでも解約' / 'クレジットカード登録不要' / '基本無料' / 'まずは無料' /
 //         '無料で始める' / '無料体験' / '無料で試す' / '無料で試せます' リテラル 0 件。
+// #2058 (UIUX-F-16): AUTONOMY_TERMS atom 追加に伴い、本 namespace 内の
+//   「子供が自分から動きだす」(AUTONOMY_TERMS.selfMotivated) と
+//   「子供が自分で計画する」(AUTONOMY_TERMS.selfPlanning) を template literal 参照化。
 export const LP_CORELOOP_LABELS = {
 	sectionTitle: '3 つの仕組みで、毎日のがんばりが本物の報酬になる',
-	sectionDesc:
-		'毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。活動 → 習慣 → ごほうびの 3 つの仕組みで、子供が自分から動きだす毎日へ。',
+	// #2058 (UIUX-F-16): AUTONOMY_TERMS.selfMotivated atom 参照化（旧文言と完全一致）
+	sectionDesc: `毎日「歯みがいた？」「宿題は？」と繰り返し声をかけるのは、親も子も疲れます。活動 → 習慣 → ごほうびの 3 つの仕組みで、子供が${AUTONOMY_TERMS.selfMotivated}毎日へ。`,
 	// 1-shot summary 画像 alt (#1787)
 	summaryImageAlt:
 		'活動 → 習慣 → ごほうび の循環図 — D3 勇者キャラクターを中心に 3 要素が円環で結ばれる',
 	// 1-shot summary キャプション (#1787 — 親主語 1 行)
-	summaryCaption:
-		'活動を記録 → ポイントが貯まる → ごほうびと交換。子供が自分で計画する力を、3 つの仕組みで支えます。',
+	// #2058 (UIUX-F-16): AUTONOMY_TERMS.selfPlanning atom 参照化（旧文言と完全一致）
+	summaryCaption: `活動を記録 → ポイントが貯まる → ごほうびと交換。子供が${AUTONOMY_TERMS.selfPlanning}力を、3 つの仕組みで支えます。`,
 	// 仕組み 1: 毎日の活動 — 1 階層短文化
 	l1Badge: '活動',
 	l1Title: '毎日の活動を記録',
