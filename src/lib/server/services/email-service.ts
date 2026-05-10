@@ -5,6 +5,8 @@
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
 import { getLicensePlanLabel, LIFECYCLE_EMAIL_LABELS, PMF_SURVEY_LABELS } from '$lib/domain/labels';
+// #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
+import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
 import { generateUnsubscribeToken, type UnsubscribeKind } from './unsubscribe-token';
 
@@ -267,11 +269,11 @@ export async function sendWelcomeEmail(email: string, familyName?: string): Prom
       <p>がんばりクエストへのご登録ありがとうございます。</p>
       <p>お子さまの毎日のがんばりを記録して、成長を見守りましょう！</p>
       <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin" class="button">管理画面を開く</a>
+        <a href="https://ganbari-quest.com/admin" class="button">${ADMIN_VIEW_TERMS.canonical}を開く</a>
       </p>
-      <p>ご不明な点がございましたら、管理画面の「せってい」からお気軽にお問い合わせください。</p>
+      <p>ご不明な点がございましたら、${ADMIN_VIEW_TERMS.canonical}の「せってい」からお気軽にお問い合わせください。</p>
     `),
-		textBody: `${greeting}ようこそ！\n\nがんばりクエストへのご登録ありがとうございます。\nお子さまの毎日のがんばりを記録して、成長を見守りましょう！\n\n管理画面: https://ganbari-quest.com/admin`,
+		textBody: `${greeting}ようこそ！\n\nがんばりクエストへのご登録ありがとうございます。\nお子さまの毎日のがんばりを記録して、成長を見守りましょう！\n\n${ADMIN_VIEW_TERMS.canonical}: https://ganbari-quest.com/admin`,
 	});
 }
 
@@ -303,7 +305,7 @@ export async function sendCancellationEmail(email: string, graceEndDate: string)
       <p><strong>${graceEndDate}</strong> まではデータの閲覧・エクスポートが可能です。</p>
       <p>この期間中に解約をキャンセルすることもできます。</p>
       <p>期間終了後、すべてのデータが完全に削除されます。削除後の復旧はできません。</p>
-      <p>データのバックアップが必要な場合は、管理画面の「せってい」からエクスポートしてください。</p>
+      <p>データのバックアップが必要な場合は、${ADMIN_VIEW_TERMS.canonical}の「せってい」からエクスポートしてください。</p>
       <p style="text-align: center; margin: 24px 0;">
         <a href="https://ganbari-quest.com/admin/settings" class="button">設定画面を開く</a>
       </p>
@@ -398,7 +400,7 @@ export async function sendLicenseKeyEmail(
 
       <h3 style="color: #4f46e5; font-size: 16px; margin: 24px 0 12px 0;">適用手順（3ステップ）</h3>
       <ol style="padding-left: 20px; margin: 0 0 24px 0;">
-        <li style="margin-bottom: 8px;">がんばりクエストにログインし、管理画面の「ライセンス」ページを開きます</li>
+        <li style="margin-bottom: 8px;">がんばりクエストにログインし、${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページを開きます</li>
         <li style="margin-bottom: 8px;">「ライセンスキーを入力」欄に上記のキーをコピー＆ペーストします</li>
         <li style="margin-bottom: 8px;">「適用する」ボタンを押すと、有料プランが即座に有効になります</li>
       </ol>
@@ -412,7 +414,7 @@ export async function sendLicenseKeyEmail(
         <ul style="padding-left: 20px; margin: 0; font-size: 13px; color: #666;">
           <li>このキーは1回限り使用できます。適用後は再利用できません。</li>
           <li>キーは第三者に共有しないでください。</li>
-          <li>管理画面の「ライセンス」ページでいつでもキーを確認できます。</li>
+          <li>${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページでいつでもキーを確認できます。</li>
         </ul>
       </div>
 
@@ -422,7 +424,7 @@ export async function sendLicenseKeyEmail(
         をご覧ください。
       </p>
       <p style="font-size: 13px; color: #666;">
-        お困りの際は管理画面の「せってい」→「お問い合わせ」からご連絡ください。
+        お困りの際は${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からご連絡ください。
       </p>
     `),
 		textBody: [
@@ -435,7 +437,7 @@ export async function sendLicenseKeyEmail(
 			...(expiresLabel ? [`有効期限: ${expiresLabel}`] : []),
 			'',
 			'■ 適用手順（3ステップ）',
-			'1. がんばりクエストにログインし、管理画面の「ライセンス」ページを開きます',
+			`1. がんばりクエストにログインし、${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページを開きます`,
 			'2. 「ライセンスキーを入力」欄に上記のキーをコピー＆ペーストします',
 			'3. 「適用する」ボタンを押すと、有料プランが即座に有効になります',
 			'',
@@ -446,7 +448,7 @@ export async function sendLicenseKeyEmail(
 			'- キーは第三者に共有しないでください。',
 			'',
 			'使い方ガイド: https://www.ganbari-quest.com/help/license-key',
-			'お困りの際は管理画面の「せってい」→「お問い合わせ」からご連絡ください。',
+			`お困りの際は${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からご連絡ください。`,
 		].join('\n'),
 	});
 }

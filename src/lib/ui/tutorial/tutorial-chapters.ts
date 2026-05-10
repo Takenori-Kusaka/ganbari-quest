@@ -5,6 +5,8 @@ import {
 	PLAN_LABELS,
 	TUTORIAL_CHAPTER_LABELS,
 } from '$lib/domain/labels';
+// #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
+import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import type { PlanTier, TutorialChapter } from './tutorial-types';
 
 const TIER_ORDER: Record<PlanTier, number> = { free: 0, standard: 1, family: 2 };
@@ -226,7 +228,7 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 				chapterId: 8,
 				selector: '[data-tutorial="switch-to-child"]',
 				title: L.steps['settings-1'].title,
-				description: `こどもにタブレットやスマホを渡す時に使います。こども専用のゲーム画面に切り替わり、自分で活動を記録できるようになります。管理画面に戻るには${OYAKAGI_LABELS.name}が必要です。\n\n💡 こども画面にも「❓」ボタンからアクセスできる操作ガイドがあります。お子さまが自分で使い方を確認できるので安心です。`,
+				description: `こどもにタブレットやスマホを渡す時に使います。こども専用のゲーム画面に切り替わり、自分で活動を記録できるようになります。${ADMIN_VIEW_TERMS.canonical}に戻るには${OYAKAGI_LABELS.name}が必要です。\n\n💡 こども画面にも「❓」ボタンからアクセスできる操作ガイドがあります。お子さまが自分で使い方を確認できるので安心です。`,
 				position: 'bottom',
 				page: '/admin',
 			},

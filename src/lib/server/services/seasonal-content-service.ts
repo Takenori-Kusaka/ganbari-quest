@@ -47,7 +47,7 @@ export interface SeasonPassData {
 	remainingDays: number;
 }
 
-/** 管理画面向けの軽量シーズンパスサマリー（ペイロード削減） */
+/** ご家族の見守り画面向けの軽量シーズンパスサマリー（ペイロード削減） */
 export interface SeasonPassSummary {
 	eventName: string;
 	bannerIcon: string;
@@ -155,7 +155,7 @@ export async function getSeasonPassForChild(
 }
 
 /**
- * 読み取り専用でシーズンパス進捗を取得（管理画面用）。
+ * 読み取り専用でシーズンパス進捗を取得（ご家族の見守り画面用）。
  * auto-join をスキップするため、閲覧だけで参加レコードが作られない。
  * passEvent を外部から渡すことで findActiveEvents の N+1 呼び出しを回避する。
  */

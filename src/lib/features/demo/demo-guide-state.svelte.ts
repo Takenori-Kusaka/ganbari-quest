@@ -3,6 +3,9 @@
  * Persists across navigations within the SPA session.
  */
 
+// #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
+import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
+
 export interface GuideStep {
 	id: number;
 	title: string;
@@ -44,7 +47,7 @@ export const GUIDE_STEPS: GuideStep[] = [
 	{
 		id: 4,
 		title: 'おやの画面をみよう',
-		description: 'おやの 管理画面も たいけんできます',
+		description: `おやの ${ADMIN_VIEW_TERMS.canonical}も たいけんできます`,
 		matchPath: '/demo/admin',
 		href: '/demo/admin',
 	},

@@ -35,7 +35,7 @@ const ROUTE_RULES: RouteRule[] = [
 		unauthRedirect: '/auth/login',
 		forbiddenRedirect: '/admin',
 	},
-	// 管理画面全般 — owner + parent
+	// ご家族の見守り画面全般 — owner + parent
 	{
 		pattern: '/admin',
 		roles: ['owner', 'parent'],

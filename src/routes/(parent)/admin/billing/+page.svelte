@@ -236,8 +236,8 @@ const statusLabel = $derived.by(() => {
 	</div>
 </div>
 
-<!-- #771: 請求管理画面を開く前の PIN / 確認フレーズ確認ダイアログ -->
-<Dialog bind:open={showPortalConfirm} title="請求管理画面を開く">
+<!-- #771: 請求管理ページを開く前の PIN / 確認フレーズ確認ダイアログ (#2057: BILLING_LABELS.dialogTitle 経由 SSOT 化) -->
+<Dialog bind:open={showPortalConfirm} title={BILLING_LABELS.dialogTitle}>
 	{#snippet children()}
 	<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
 		<p>

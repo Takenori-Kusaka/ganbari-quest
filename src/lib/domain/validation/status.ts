@@ -245,7 +245,7 @@ export function calcCharacterType(avgDeviationScore: number): string {
 	return 'ganbari';
 }
 
-/** 偏差値から比較ラベル（管理画面用） */
+/** 偏差値から比較ラベル（ご家族の見守り画面用） */
 export function getComparisonLabel(deviationScore: number): { text: string; emoji: string } {
 	if (deviationScore >= 65) return { text: 'みんなよりすっごくすごい！', emoji: '🌟' };
 	if (deviationScore >= 58) return { text: 'みんなよりすごい！', emoji: '✨' };

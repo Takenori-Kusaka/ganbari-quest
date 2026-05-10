@@ -1,5 +1,5 @@
 // tests/e2e/usage-log.spec.ts
-// #1292 使用時間ログ記録 + 管理画面ダッシュボード表示の E2E テスト
+// #1292 使用時間ログ記録 + ご家族の見守り画面ダッシュボード表示の E2E テスト
 // #1576 週次使用時間 bar chart の E2E テスト
 
 import { expect, test } from '@playwright/test';
@@ -25,7 +25,7 @@ test.describe('#1292 使用時間ログ', () => {
 		await expect.poll(() => requests.length, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
 	});
 
-	test('管理画面ダッシュボードに使用時間セクションが表示される', async ({ page }) => {
+	test('ご家族の見守り画面ダッシュボードに使用時間セクションが表示される', async ({ page }) => {
 		// onMount の fire-and-forget fetch を待つため事前登録
 		const usageRecordedPromise = page
 			.waitForResponse(
@@ -41,7 +41,7 @@ test.describe('#1292 使用時間ログ', () => {
 		// セッション記録 API のレスポンス完了を待つ（fire-and-forget のため null も許容）
 		await usageRecordedPromise;
 
-		// 管理画面に遷移
+		// ご家族の見守り画面に遷移
 		await page.goto('/admin');
 
 		// ページが表示されるのを確認
@@ -62,8 +62,8 @@ test.describe('#1292 使用時間ログ', () => {
 });
 
 test.describe('#1576 週次使用時間 bar chart', () => {
-	test('管理画面ダッシュボードに週次使用時間セクションが表示される', async ({ page }) => {
-		// 管理画面に直接遷移
+	test('ご家族の見守り画面ダッシュボードに週次使用時間セクションが表示される', async ({ page }) => {
+		// ご家族の見守り画面に直接遷移
 		await page.goto('/admin');
 
 		// ページが表示されるのを確認
@@ -82,7 +82,7 @@ test.describe('#1576 週次使用時間 bar chart', () => {
 	});
 
 	test('週次チャートはデータなし時に「まだデータがありません」を表示する', async ({ page }) => {
-		// 管理画面に直接遷移（データなし状態はチャート内部で判定）
+		// ご家族の見守り画面に直接遷移（データなし状態はチャート内部で判定）
 		await page.goto('/admin');
 
 		await expect(page.locator('h1')).toContainText('管理ダッシュボード');
@@ -111,7 +111,7 @@ test.describe('#1576 週次使用時間 bar chart', () => {
 
 	test('週次チャートはデモモードでは非表示', async ({ page }) => {
 		// デモページは /demo/admin 相当の画面が存在しないため、
-		// 通常の管理画面でデモ状態をシミュレートせず、
+		// 通常のご家族の見守り画面でデモ状態をシミュレートせず、
 		// AdminHome の isDemo 条件が機能していることをコードレベルで確認済み。
 		// この test は回帰防止のためのスモーク test として残す。
 		await page.goto('/admin');

@@ -46,7 +46,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			setRefreshCookie(cookies, tokens.refreshToken);
 		}
 
-		// 認証成功 → 管理画面へ（resolveContext で自動的にテナント選択される）
+		// 認証成功 → ご家族の見守り画面へ（resolveContext で自動的にテナント選択される）
 		redirect(302, '/admin');
 	} catch (e) {
 		logger.error('[AUTH] OAuth callback token exchange failed', {

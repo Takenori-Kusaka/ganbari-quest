@@ -130,7 +130,7 @@ export default async function globalSetup() {
 		}
 
 		// ============================================================
-		// Step 3: 子供がいなければ管理画面から追加
+		// Step 3: 子供がいなければご家族の見守り画面から追加
 		// ============================================================
 		{
 			// /switch に行って子供がいるか確認
@@ -140,7 +140,7 @@ export default async function globalSetup() {
 			const childCount = await childButtons.count();
 
 			if (childCount === 0) {
-				console.log('[AWS E2E Setup] 子供が未登録。管理画面から追加中...');
+				console.log('[AWS E2E Setup] 子供が未登録。ご家族の見守り画面から追加中...');
 				await page.goto(`${BASE_URL}/admin/children`);
 
 				// たろうくん（4歳、preschool、pink）
@@ -332,7 +332,7 @@ async function seedActivities(
 	console.log(`[AWS E2E Setup] 活動 ${created}/${activities.length} 件を投入しました`);
 }
 
-/** 管理画面（/admin/children）から子供を追加するヘルパー */
+/** ご家族の見守り画面（/admin/children）から子供を追加するヘルパー */
 async function addChildViaAdmin(
 	page: import('@playwright/test').Page,
 	nickname: string,

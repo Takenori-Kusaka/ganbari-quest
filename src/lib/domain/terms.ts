@@ -308,3 +308,47 @@ export const AUTONOMY_TERMS = {
 	selfPlanning: '自分で計画する',
 	selfPlanningAble: '自分で計画できる',
 } as const;
+
+// ============================================================
+// ADMIN_VIEW_TERMS — 「管理画面」 → 「ご家族の見守り画面」 rename atom (#2057)
+// ============================================================
+//
+// 本サービスにおける管理者向け画面 (旧称「管理画面」) の正式名称 atom。
+// LP / アプリ本体 UI / 利用規約 第14条 / プライバシーポリシー 第6条の2 / FAQ /
+// E2E test の期待値で 1 行修正で全箇所伝播させるため、SSOT として独立 atom 化。
+//
+// ADR-0045 (terms.ts SSOT 2 階層化) に従い、labels.ts compound はこの atom を
+// `${ADMIN_VIEW_TERMS.canonical}` の template literal で参照する。
+//
+// 設計指針:
+//   - canonical: 正式名称（UI / 法務文書 / FAQ で第一選択。「ご家族の見守り画面」）
+//   - short:     短縮形（ナビ・ボタン等の文字数制約箇所。「見守り画面」）
+//   - parent:    所有者を強調する文脈用（旧「親管理画面」相当。「保護者の見守り画面」）
+//
+// 「Stripe の管理画面」のような外部サービスの「管理画面」用語とは意味文脈が異なるため、
+// 別 atom (STRIPE_PORTAL_TERMS) として分離する。
+//
+// 参照: docs/DESIGN.md §6 / Issue #2057 / Issue #1912 (UIUX-F-13)
+
+export const ADMIN_VIEW_TERMS = {
+	canonical: 'ご家族の見守り画面',
+	short: '見守り画面',
+	parent: '保護者の見守り画面',
+} as const;
+
+// ============================================================
+// STRIPE_PORTAL_TERMS — Stripe billing portal の用語 atom (#2057)
+// ============================================================
+//
+// 本サービスの「管理画面 → ご家族の見守り画面」リネームに伴い、Stripe billing portal
+// 側の「Stripeの管理画面」「請求管理画面」等の表現も同 atom 経由で集約する。
+//
+// Stripe 自身は portal を「カスタマーポータル」と呼ぶが、日本語 UI では
+// 「請求管理ページ」「Stripe の請求管理ページ」が定着しているためこちらを採用。
+// 本サービスの canonical 「ご家族の見守り画面」と意味衝突しない別語彙として保つ。
+
+export const STRIPE_PORTAL_TERMS = {
+	canonical: 'Stripe の請求管理ページ',
+	short: '請求管理ページ',
+	billingPortal: '請求管理ページ',
+} as const;

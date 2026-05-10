@@ -1,5 +1,5 @@
 // tests/e2e/billing-portal.spec.ts
-// #768: /admin/billing — 請求書・支払い管理画面の E2E テスト
+// #768: /admin/billing — 請求書・支払いご家族の見守り画面の E2E テスト
 //
 // Stripe Customer Portal への導線が正しく表示されることを検証する。
 // 実際の Stripe Portal セッション作成はテスト環境では動作しないため、

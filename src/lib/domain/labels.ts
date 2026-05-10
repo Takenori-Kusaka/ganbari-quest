@@ -11,7 +11,9 @@
 // #1898 (PO-4-12): LP_FAQ_TERMS を LP_LEGAL_DISCLAIMER_LABELS から参照（liabilityBody / liabilityLinks / cancelDisclaimerLinks の「FAQ」直書きを atom 経由に置換）
 // #1913 (UIUX-E): AGE_RANGE_TERMS / POINT_TERMS / CURRENCY_TERMS / FREE_PLAN_TERMS 追加（年齢レンジ / ポイント / 通貨 / 無料プラン訴求 atom 集約）
 // #2058 (UIUX-F-16): AUTONOMY_TERMS 追加（「自律」「自走」→「自分から動きだす」「自分で計画する」LP リフレーム atom、法務文書は法務 review 後の別 PR で対応）
+// #2057 (UIUX-F-13): ADMIN_VIEW_TERMS / STRIPE_PORTAL_TERMS 追加（「管理画面」→「ご家族の見守り画面」rename + Stripe portal 用語分離）
 import {
+	ADMIN_VIEW_TERMS,
 	AGE_RANGE_TERMS,
 	AUTONOMY_TERMS,
 	CANCEL_TERMS,
@@ -24,6 +26,7 @@ import {
 	PLAN_TERMS,
 	POINT_TERMS,
 	PRICE_TERMS,
+	STRIPE_PORTAL_TERMS,
 	TRIAL_TERMS,
 } from './terms';
 import type { UiMode } from './validation/age-tier-types';
@@ -49,7 +52,7 @@ export const APP_LABELS = {
 // ============================================================
 
 export const PAGE_TITLES = {
-	// 管理画面
+	// ご家族の見守り画面 (#2057, 旧称: 管理画面)
 	activities: '活動管理',
 	activitiesIntroduce: '活動紹介スライド',
 	reports: 'レポート',
@@ -88,7 +91,7 @@ export const PAGE_TITLES = {
 	demoChildBattle: 'バトル',
 	demoChildHome: 'ホーム',
 	demoChildChecklist: 'もちものチェック (デモ)',
-	// デモ管理画面
+	// デモ ご家族の見守り画面 (#2057)
 	demoAdminAchievements: 'チャレンジ履歴（デモ）',
 	demoAdminActivities: '活動管理',
 	demoAdminChallenges: 'きょうだいチャレンジ（デモ）',
@@ -213,7 +216,7 @@ export type NavCategoryId = keyof typeof NAV_CATEGORIES;
 // ============================================================
 
 export const NAV_ITEM_LABELS = {
-	// #1396: 管理画面ホームタブ（直接遷移・dropdown なし）
+	// #1396: ご家族の見守り画面 ホームタブ（直接遷移・dropdown なし）
 	home: 'ホーム',
 	reports: 'レポート',
 	growthBook: 'グロースブック',
@@ -239,10 +242,10 @@ export const NAV_ITEM_LABELS = {
 } as const;
 
 // ============================================================
-// 年齢区分ラベル（管理画面用）
+// 年齢区分ラベル（ご家族の見守り画面用）
 // ============================================================
 
-/** 管理画面で保護者に表示する年齢区分ラベル（#537: 日本の学校制度に準拠） */
+/** ご家族の見守り画面で保護者に表示する年齢区分ラベル（#537: 日本の学校制度に準拠） */
 export const AGE_TIER_LABELS: Record<UiMode, string> = {
 	baby: '準備モード（0〜2歳）',
 	preschool: '幼児（3〜5歳）',
@@ -607,8 +610,8 @@ export const LIFECYCLE_EMAIL_LABELS = {
 	renewalDateLine: (expiresAt: string, daysRemaining: number) =>
 		`次回更新予定日: ${expiresAt}（残り ${daysRemaining} 日）`,
 	renewalContinue: 'サービスを継続される場合は、お支払い情報をご確認ください。',
-	renewalGraduate: '卒業（解約）をご希望の場合は、管理画面から手続きできます。',
-	renewalCtaLabel: 'プラン管理画面を開く',
+	renewalGraduate: `卒業（解約）をご希望の場合は、${ADMIN_VIEW_TERMS.canonical}から手続きできます。`,
+	renewalCtaLabel: 'プラン管理ページを開く',
 
 	// ---- 休眠復帰（dormant-reactivation） ----
 	dormantSubject: 'お元気でいらっしゃいますか',
@@ -817,7 +820,7 @@ export const MARKETPLACE_LABELS = {
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
 	ctaHeading: 'テンプレートを使うには',
-	ctaSubheading: 'アカウント登録後、管理画面からワンタップで使ってみることができます',
+	ctaSubheading: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで使ってみることができます`,
 	ctaStart: '無料で はじめる',
 	backToHome: 'トップページへ',
 	backToDemo: 'デモを体験',
@@ -1018,7 +1021,7 @@ export const TUTORIAL_CHAPTER_LABELS = {
 			title: 'こども画面へ切替',
 		},
 		'settings-2': {
-			description: '管理画面へのアクセスを保護する',
+			description: `${ADMIN_VIEW_TERMS.canonical}へのアクセスを保護する`,
 			descriptionSuffix:
 				'を変更できます。こどもに勝手にポイントを変えられないよう、定期的に変更するのがおすすめです。',
 		},
@@ -1068,7 +1071,7 @@ export const DEMO_LABELS = {
 // ============================================================
 
 /**
- * 親向け管理画面ロック（旧称「PINコード」→「おやカギコード」）の UI 文言 SSOT。
+ * 保護者の見守り画面ロック（旧称「PINコード」→「おやカギコード」）の UI 文言 SSOT。
  * ロジック定数（DEFAULT_PIN）は `$lib/domain/constants/oyakagi` を参照。
  */
 export const OYAKAGI_LABELS = {
@@ -1442,7 +1445,7 @@ export const LICENSE_PAGE_LABELS = {
 	planManagementTitle: 'プラン管理',
 	planManagementUnavailable: '決済機能は現在準備中です',
 	portalButton: (loading: boolean) => (loading ? '読み込み中...' : 'プラン変更・支払い管理'),
-	portalNote: 'Stripeの管理画面でプラン変更・支払い方法の更新・解約ができます',
+	portalNote: `Stripeの${STRIPE_PORTAL_TERMS.short}でプラン変更・支払い方法の更新・解約ができます`,
 	portalPinNote: (usesPin: boolean) =>
 		`⚠️ プラン変更には${usesPin ? '親 PIN' : '確認フレーズ'}の入力が必要です`,
 	billingMonthly: '月額',
@@ -1475,15 +1478,14 @@ export const LICENSE_PAGE_LABELS = {
 
 	// 支払い履歴
 	paymentHistoryTitle: '支払い履歴',
-	paymentHistoryPortalNote: '支払い履歴はStripeの管理画面でご確認いただけます',
+	paymentHistoryPortalNote: `支払い履歴はStripeの${STRIPE_PORTAL_TERMS.short}でご確認いただけます`,
 	paymentHistoryPortalButton: '支払い履歴を確認',
 	paymentHistoryEmpty: '支払い履歴はまだありません',
 	paymentHistoryBillingLink: '🧾 請求書・支払い方法の管理',
 
 	// Portal 確認ダイアログ
 	portalConfirmTitle: 'プラン変更の確認',
-	portalConfirmDesc:
-		'Stripeの管理画面に移動します。この画面からプラン変更・解約・ダウングレードが可能です。',
+	portalConfirmDesc: `Stripeの${STRIPE_PORTAL_TERMS.short}に移動します。この画面からプラン変更・解約・ダウングレードが可能です。`,
 	portalConfirmWarning: '⚠️ 誤操作による解約・ダウングレードを防ぐため、',
 	portalConfirmWarningPin: 'を入力してください。',
 	portalConfirmWarningPhrase: '確認フレーズ',
@@ -1862,7 +1864,7 @@ export const SIGNUP_LABELS = {
 } as const;
 
 export const ANALYTICS_LABELS = {
-	pageTitle: 'アナリティクス - 管理画面',
+	pageTitle: `アナリティクス - ${ADMIN_VIEW_TERMS.canonical}`,
 	pageHeading: 'アナリティクス',
 	pageDescription:
 		'DynamoDB に蓄積された業務イベントから 4 つの主要指標を可視化します（Pre-PMF Bucket A 範囲）。',
@@ -1944,16 +1946,16 @@ export const BILLING_LABELS = {
 
 	// Billing portal section
 	billingPortalTitle: '請求書・支払い方法',
-	billingPortalDesc: 'Stripe の管理画面で以下の操作ができます:',
+	billingPortalDesc: `Stripe の${STRIPE_PORTAL_TERMS.short}で以下の操作ができます:`,
 	featureInvoices: '過去の請求書の確認・ダウンロード',
 	featurePaymentMethod: '支払い方法（クレジットカード）の変更',
 	featurePlanSwitch: '月額 / 年額プランの切り替え',
 	featureNextBilling: '次回請求日の確認',
 	notReadyAlert: '決済機能は現在準備中です',
-	openPortalError: '請求管理画面を開けませんでした',
+	openPortalError: `${STRIPE_PORTAL_TERMS.short}を開けませんでした`,
 	openPortalLoading: '読み込み中...',
-	openPortalButton: '請求管理画面を開く',
-	openPortalNote: 'Stripe の安全な管理画面に移動します',
+	openPortalButton: `${STRIPE_PORTAL_TERMS.short}を開く`,
+	openPortalNote: `Stripe の安全な${STRIPE_PORTAL_TERMS.short}に移動します`,
 	openPortalPinRequired: (label: string) => `⚠️ ${label}の入力が必要です`,
 	openPortalPinRequiredPin: '親 PIN',
 	openPortalPinRequiredPhrase: '確認フレーズ',
@@ -1971,15 +1973,14 @@ export const BILLING_LABELS = {
 	cancelLinkHint: '解約理由をお聞かせください（必須）',
 
 	// Dialog
-	dialogTitle: '請求管理画面を開く',
-	dialogDesc:
-		'Stripeの管理画面に移動します。この画面から支払い方法の変更・プラン切り替えが可能です。',
+	dialogTitle: `${STRIPE_PORTAL_TERMS.short}を開く`,
+	dialogDesc: `Stripeの${STRIPE_PORTAL_TERMS.short}に移動します。この画面から支払い方法の変更・プラン切り替えが可能です。`,
 	dialogPinRequired: (label: string) => `⚠️ 誤操作を防ぐため、${label}を入力してください。`,
 	dialogPinOrPhrase: '確認フレーズ',
 	dialogConfirmPhraseLabel: (phrase: string) => `確認のため「${phrase}」と入力してください`,
 	dialogCancelButton: 'キャンセル',
 	dialogConfirmLoading: '確認中…',
-	dialogConfirmButton: '請求管理画面へ',
+	dialogConfirmButton: `${STRIPE_PORTAL_TERMS.short}へ`,
 } as const;
 
 // ============================================================
@@ -2028,8 +2029,7 @@ export const CANCELLATION_LABELS = {
 	// Plan-context messaging (free / standard / family 共通)
 	// #1959: 無料プラン → PLAN_FULL_TERMS.free 参照化 (atom 直書き撤廃)
 	freePlanNotice: `${PLAN_FULL_TERMS.free}をご利用中です。解約後はアカウント自体を削除する必要がありますが、その前に理由をお聞かせください。`,
-	paidPlanNotice:
-		'解約手続きを進めると、Stripe の管理画面で決済停止を行います。次回の請求は発生しません。',
+	paidPlanNotice: `解約手続きを進めると、Stripe の${STRIPE_PORTAL_TERMS.short}で決済停止を行います。次回の請求は発生しません。`,
 
 	// Submit
 	submitButton: '解約手続きへ進む',
@@ -2044,11 +2044,9 @@ export const CANCELLATION_LABELS = {
 
 	// Success
 	successHeading: 'ご回答ありがとうございました',
-	successDesc:
-		'いただいたご意見は、サービス改善に活用させていただきます。続けて Stripe の管理画面で解約手続きを完了してください。',
-	successProceedButton: 'Stripe 管理画面で解約を完了する',
-	successProceedHint:
-		'Stripe の管理画面で「サブスクリプションをキャンセル」を選択すると解約が完了します',
+	successDesc: `いただいたご意見は、サービス改善に活用させていただきます。続けて Stripe の${STRIPE_PORTAL_TERMS.short}で解約手続きを完了してください。`,
+	successProceedButton: `Stripe ${STRIPE_PORTAL_TERMS.short}で解約を完了する`,
+	successProceedHint: `Stripe の${STRIPE_PORTAL_TERMS.short}で「サブスクリプションをキャンセル」を選択すると解約が完了します`,
 	successFreeProceed: 'アカウント削除はこちら',
 } as const satisfies Record<string, unknown>;
 
@@ -2143,7 +2141,7 @@ export const GRADUATION_LABELS = {
 	successConsentThanks:
 		'事例公開のご快諾ありがとうございました。サービス改善・他のご家庭への参考に活用させていただきます。',
 	successProceedButton: '解約手続きへ進む',
-	successProceedFreeButton: '管理画面に戻る',
+	successProceedFreeButton: `${ADMIN_VIEW_TERMS.canonical}に戻る`,
 } as const satisfies Record<string, unknown>;
 
 /** ops dashboard 卒業統計セクション (#1603) */
@@ -2695,9 +2693,9 @@ export const DEMO_TOP_LABELS = {
 	modeSenior: 'みらい設計',
 
 	// Admin link section
-	adminTitle: 'おやの管理画面',
+	adminTitle: `おやの${ADMIN_VIEW_TERMS.canonical}`,
 	adminDesc: '活動の追加、こどもの管理、ポイント確認などの管理機能を体験できます。',
-	adminButton: '管理画面をみる',
+	adminButton: `${ADMIN_VIEW_TERMS.canonical}をみる`,
 
 	// Feature highlights
 	featuresTitle: '体験できる機能',
@@ -2854,7 +2852,7 @@ export const DEMO_SETTINGS_LABELS = {
 	pageTitle: '設定',
 
 	// おやカギ section
-	oyakagiDesc1: '管理画面にアクセスするための',
+	oyakagiDesc1: `${ADMIN_VIEW_TERMS.canonical}にアクセスするための`,
 	oyakagiDesc2: 'を変更できます。',
 	oyakagiDesc3: '。',
 	oyakagiConfirmLabel: '確認',
@@ -3052,8 +3050,7 @@ export const PRICING_PAGE_LABELS = {
 	faqPaymentA:
 		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しています。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA:
-		'はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。管理画面の「プラン・お支払い」から変更できます。',
+	faqPlanChangeA: `はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から変更できます。`,
 	faqSelfHostQ: 'セルフホスト版はありますか？',
 	faqSelfHostA:
 		'はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。',
@@ -3279,7 +3276,7 @@ export const SETUP_FIRST_ADVENTURE_LABELS = {
 	selectActivityTitle: 'はじめてのぼうけん！',
 	selectActivityDescPart1: 'さいしょのがんばりを',
 	selectActivityDescPart2: 'いっしょにきろくしよう！',
-	noActivitiesMsg: 'まだ活動が登録されていません。あとから管理画面で追加できます。',
+	noActivitiesMsg: `まだ活動が登録されていません。あとから${ADMIN_VIEW_TERMS.canonical}で追加できます。`,
 	nextButton: '次へすすむ',
 	recordingLabel: 'きろくちゅう...',
 	recordButton: 'タップしてきろく！',
@@ -3415,7 +3412,7 @@ export const SETUP_COMPLETE_LABELS = {
 	nextMissionText: '「きょうの がんばりを 3つ きろくしよう！」',
 	ctaPrimary: 'こどもがめんをひらく',
 	ctaSecondary: 'おやのせっていをみる',
-	pinHintPrefix: '💡 管理画面の「せってい」から',
+	pinHintPrefix: `💡 ${ADMIN_VIEW_TERMS.canonical}の「せってい」から`,
 	pinHintMiddle: 'を変更すると、おやの画面を守れるよ。',
 } as const;
 
@@ -3565,7 +3562,7 @@ export const ACTIVITY_FORM_LABELS = {
  * AdminHome ダッシュボード用ラベル (#1465 Phase D)
  */
 export const ADMIN_HOME_LABELS = {
-	pageTitle: '管理画面 - がんばりクエスト',
+	pageTitle: `${ADMIN_VIEW_TERMS.canonical} - がんばりクエスト`,
 	pageTitleDemoSuffix: ' デモ',
 	heading: '管理ダッシュボード',
 	headingDemoSuffix: '（デモ）',
@@ -3791,8 +3788,7 @@ export const PACKS_PAGE_LABELS = {
 	importButton: (count: number) => `${count}件の新しい活動をインポート`,
 	// #1758 (#1709-D): must 推奨採用チェックボックス
 	mustDefaultCheckboxLabel: '「今日のおやくそく」推奨を採用する',
-	mustDefaultCheckboxHint:
-		'歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。あとで親管理画面から個別に変更できます。',
+	mustDefaultCheckboxHint: `歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。あとで${ADMIN_VIEW_TERMS.parent}から個別に変更できます。`,
 	mustDefaultBadge: 'おやくそく推奨',
 	mustDefaultCount: (count: number) => `おやくそく推奨 ${count}件`,
 } as const;
@@ -4339,8 +4335,7 @@ export const LP_PRICING_LABELS = {
 	// #1642 R37: 経路汎用化（standard / family どちらの trial も同文言で説明）
 	trialSubheading: `${TRIAL_TERMS.durationSpaced}無料トライアル期間中は、選択したプランの全機能を制限なくお試しいただけます`,
 	trialStep1Title: 'いつでも好きなタイミングで開始',
-	trialStep1Desc:
-		'アカウント登録後、管理画面からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。',
+	trialStep1Desc: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。`,
 	trialStep2Title: '7日間、選択したプランの全機能が使い放題',
 	// #1642 R37: 経路依存（?plan=standard / ?plan=family / admin/license 手動）すべてに対応
 	trialStep2Desc:
@@ -4386,8 +4381,8 @@ export const LP_PRICING_LABELS = {
 	faqAfterTrialQ: '無料体験後はどうなりますか？',
 	// #1641 R36 整合: 並列構造で「保持」と「90 日で削除」を両方明記
 	// #1912 (F-6): LP FAQ の「ログインボーナス履歴」→「毎日のごほうび履歴」へ日本語化
-	faqAfterTrialA:
-		'7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、管理画面からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したオリジナル活動・ごほうび・チェックリスト・シール・レベルは保持されますが、活動履歴・ポイント獲得履歴・毎日のごほうび履歴は無料プランの保持期間（90 日）を超えたものから順次削除されます。',
+	// #2057 (UIUX-F-13): 「管理画面」→ ${ADMIN_VIEW_TERMS.canonical} 経由化
+	faqAfterTrialA: `7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、${ADMIN_VIEW_TERMS.canonical}からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したオリジナル活動・ごほうび・チェックリスト・シール・レベルは保持されますが、活動履歴・ポイント獲得履歴・毎日のごほうび履歴は無料プランの保持期間（90 日）を超えたものから順次削除されます。`,
 	// #1643 R38 + #1647 R42: プラン別猶予期間（実装 grace-period-service.ts 準拠）
 	faqCancelQ: '解約したらデータはすぐに削除されますか？',
 	// #1912 (F-9): 「読み取り専用猶予期間」を顧客語彙化（SaaS 業界用語のため）。
@@ -4403,8 +4398,7 @@ export const LP_PRICING_LABELS = {
 	faqPaymentA:
 		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA:
-		'はい。スタンダード↔ファミリー、月額↔年額の切り替えが可能です。管理画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。',
+	faqPlanChangeA: `はい。スタンダード↔ファミリー、月額↔年額の切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
 	faqAdsQ: '子供の画面に広告は出ますか？',
 	faqAdsA:
 		'いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。',
@@ -4517,7 +4511,7 @@ export const BABY_HOME_LABELS = {
 	initialPointsDesc: '3歳以降に使えるポイントを今から積み立てられます',
 	initialPointsLinkLabel: '初期ポイントを設定する',
 	currentPoints: (pts: number) => `現在のポイント: ${pts} pt`,
-	goToAdmin: '管理画面へ',
+	goToAdmin: `${ADMIN_VIEW_TERMS.canonical}へ`,
 	initialPointsPageTitle: '初期ポイント設定',
 	initialPointsAmountLabel: 'ポイント数',
 	initialPointsAmountHint: '3歳以降のスタートポイントとして追加されます',
@@ -4824,7 +4818,7 @@ export const CHILD_SHOP_LABELS = {
 } as const;
 
 // ============================================================
-// ごほうびショップ 親管理画面 申請タブ (#1337)
+// ごほうびショップ 保護者の見守り画面 申請タブ (#1337 / #2057)
 // ============================================================
 
 export const ADMIN_SHOP_REQUEST_LABELS = {
@@ -5567,10 +5561,9 @@ export const LP_LICENSEKEY_LABELS = {
 	text4: 'ライセンスキーとは',
 	text5: 'ライセンスキーは ',
 	text6: ' から始まる英数字のコードで、以下のような形式です。',
-	text7:
-		'購入完了後、ご登録のメールアドレスに自動で送信されます。管理画面の「ライセンス」ページでもいつでも確認できます。',
+	text7: `購入完了後、ご登録のメールアドレスに自動で送信されます。${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページでもいつでも確認できます。`,
 	text8: '適用手順（3ステップ）',
-	text9: '管理画面にログイン',
+	text9: `${ADMIN_VIEW_TERMS.canonical}にログイン`,
 	text10: 'ライセンスキーを入力',
 	text11: '「適用する」を押す',
 	text12: 'ライセンス管理を開く',
@@ -5584,8 +5577,8 @@ export const LP_LICENSEKEY_LABELS = {
 	text18: 'メールが届きません',
 	text19: '迷惑メールフォルダをご確認ください。',
 	text20: ' からのメールが届いていない場合、以下をお試しください。',
-	text21: '管理画面の「ライセンス」ページでキーを直接確認する',
-	text22: '管理画面の「せってい」→「お問い合わせ」からサポートに連絡する',
+	text21: `${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページでキーを直接確認する`,
+	text22: `${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からサポートに連絡する`,
 	text23: '「ライセンスキーが不正です」と表示されます',
 	text24: 'キーの入力ミスの可能性があります。以下を確認してください。',
 	text25: 'メールからコピー＆ペーストで入力する（手入力だとミスが起きやすいです）',
@@ -5593,24 +5586,21 @@ export const LP_LICENSEKEY_LABELS = {
 	text27: '大文字・小文字は自動で変換されるので気にしなくて大丈夫です',
 	text28: '「このライセンスキーは既に使用されています」と表示されます',
 	text29: 'キーは1回限り有効です。既に別のアカウントで使用済みの場合は再利用できません。',
-	text30:
-		'身に覚えがない場合は、管理画面の「せってい」→「お問い合わせ」からサポートにご連絡ください。',
+	text30: `身に覚えがない場合は、${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からサポートにご連絡ください。`,
 	text31: '「このライセンスキーは有効期限が切れています」と表示されます',
 	text32: 'ライセンスキーには有効期限（通常90日）があり、期限を過ぎると使用できなくなります。',
-	text33:
-		'新しいキーの発行が必要な場合は、管理画面の「せってい」→「お問い合わせ」からサポートにご連絡ください。',
+	text33: `新しいキーの発行が必要な場合は、${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からサポートにご連絡ください。`,
 	text34: '別のデバイスでもキーを使えますか？',
 	text35:
 		'ライセンスキーは1つのアカウント（家族グループ）に対して有効です。同じアカウントでログインすれば、どのデバイスからでも有料機能をご利用いただけます。',
 	text36: 'お問い合わせ',
-	text37: '上記で解決しない場合は、管理画面の「せってい」→「お問い合わせ」からご連絡ください。',
+	text37: `上記で解決しない場合は、${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からご連絡ください。`,
 	text38: 'お問い合わせの際は、以下の情報を添えていただけるとスムーズです。',
 	text39: 'ご登録のメールアドレス',
 	text40: 'ライセンスキーの最初の7文字（例: GQ-ABCD）',
 	text41: '表示されたエラーメッセージ',
 	text44: 'ライセンスキーは、がんばりクエストの有料プランを有効にするためのコードです。',
-	text45:
-		'購入後にメールでお届けするキーを、管理画面から入力するだけで有料機能が使えるようになります。',
+	text45: `購入後にメールでお届けするキーを、${ADMIN_VIEW_TERMS.canonical}から入力するだけで有料機能が使えるようになります。`,
 	text46:
 		'がんばりクエストにログインし、左メニューまたはナビゲーションから「ライセンス」ページを開きます。',
 	text47: '「ライセンスキーを入力」欄に、メールで届いたキーをコピー＆ペーストします。',
@@ -5635,23 +5625,21 @@ export const LP_FAQ_LABELS = {
 	text12: '無料トライアルの申込にクレジットカードは必要ですか？',
 	text13: 'いいえ、不要です。',
 	// #1943 (Phase 3 D3): 「無料プラン」atom を PLAN_FULL_TERMS.free 参照化 (LP_FAQ_LABELS 4 件)。
-	text14: `トライアル期間終了時は自動で${PLAN_FULL_TERMS.free}に戻ります。課金への切り替えは必ず管理画面からお客さまご自身の操作で行っていただきます。`,
+	text14: `トライアル期間終了時は自動で${PLAN_FULL_TERMS.free}に戻ります。課金への切り替えは必ず${ADMIN_VIEW_TERMS.canonical}からお客さまご自身の操作で行っていただきます。`,
 	text15: 'トライアル後は自動で課金されますか？',
 	text16: '自動課金はされません。',
-	text17:
-		'有料プランを継続したい場合のみ、管理画面の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。',
+	text17: `有料プランを継続したい場合のみ、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。`,
 	text18: '途中でキャンセルするとどうなりますか？',
 	// #1955 (Phase 3 D10): プラン名 atom (PLAN_TERMS) を terms.ts 参照化。猶予期間は data deletion 文脈で TRIAL_TERMS と意味が異なるため文字列直書き維持。
 	text19: `プラン別の猶予期間（読み取り専用）— ${PLAN_TERMS.free}: 即時削除 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日`,
 	text20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
 	text21: '猶予期間終了後: すべてのデータが完全に削除',
-	text22:
-		'バックアップが必要な場合は、猶予期間中に管理画面からデータエクスポート（JSON / CSV）をお願いします。',
+	text22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータエクスポート（JSON / CSV）をお願いします。`,
 	text23: 'トライアル中に作ったデータは残りますか？',
 	text24: 'はい、残ります。',
 	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	text26: '解約後に再開することはできますか？',
-	text27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日）であれば、管理画面から解約申請を取り消して有料プランを継続できます。`,
+	text27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
 	text28:
 		'猶予期間終了後にデータが完全に削除された場合は、新規サインアップからのやり直しとなります（過去のデータ復旧はできません）。',
 	text29: '料金・課金について',
@@ -5685,8 +5673,7 @@ export const LP_FAQ_LABELS = {
 		'年額プランを途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	text56: '特定商取引法に基づく表記',
 	text57: 'プランの変更（月額↔年額、スタンダード↔ファミリー）はできますか？',
-	text58:
-		'はい。管理画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。',
+	text58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。`,
 	text59:
 		'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
 	text60: 'プライバシー・データについて',
@@ -5706,8 +5693,7 @@ export const LP_FAQ_LABELS = {
 	text73: '終了後: すべてのデータを完全削除',
 	text74: '利用規約',
 	text75: '退会・アカウント削除はすぐにできますか？',
-	text76:
-		'管理画面から退会（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。',
+	text76: `${ADMIN_VIEW_TERMS.canonical}から退会（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。`,
 	text77: '猶予期間終了後、全データは完全に削除されます（復旧はできません）。',
 	text78: 'データはどこに保存されていますか？',
 	text79: 'プライバシーポリシー',
@@ -5722,7 +5708,7 @@ export const LP_FAQ_LABELS = {
 	text87: '小学生（6-12 歳）',
 	text88: '中学生（13-15 歳）',
 	text89: '高校生（16-18 歳）',
-	text90: 'お子さまが成長したら、管理画面から年齢モードを切り替えるだけで UI が自動で変わります。',
+	text90: `お子さまが成長したら、${ADMIN_VIEW_TERMS.canonical}から年齢モードを切り替えるだけで UI が自動で変わります。`,
 	text91: 'お子さまが成長して年齢モードが変わる時、データはどうなりますか？',
 	text92: 'ポイント・シール・レベル称号・履歴はすべて引き継がれます',
 	text93:
@@ -5998,7 +5984,7 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k79: '家族限定',
 	k80: '家族メンバー以外はお子さまのデータを閲覧できません。招待制で閉じた空間を維持します。',
 	k81: '保護者専用のカギ付き',
-	k82: '管理画面は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。',
+	k82: `${ADMIN_VIEW_TERMS.canonical}は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。`,
 	// #1905 (PERS-MAJ-11): k84/k85 を positive framing にリライト（indexB.k68/k69 と整合）。
 	//   `LP_INDEX_EXTRA_LABELS` は HTML 参照ゼロの legacy だが SSOT 一貫性のため同期更新。
 	k83: '広告ゼロ・データは家族の手元に',
@@ -6155,7 +6141,7 @@ export const LP_PAMPHLET_LABELS = {
 	k77: '子供のデータは安全ですか？',
 	k78: 'はい。通信は常に暗号化し、データはお預かり時にも保護した状態で保管しています。お子さまの本名は不要で、ニックネームでご利用いただけます。データの第三者への販売・共有は一切行いません。',
 	k79: '有料プランへの切り替えはどうしますか？',
-	k80: '管理画面の「プラン・お支払い」からアップグレードしていただくと、その場で有料機能が有効になります。クレジットカード（Visa / Mastercard / JCB / American Express）に対応し、Stripe による安全な決済処理を使用しています。詳しくは ',
+	k80: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からアップグレードしていただくと、その場で有料機能が有効になります。クレジットカード（Visa / Mastercard / JCB / American Express）に対応し、Stripe による安全な決済処理を使用しています。詳しくは `,
 	k81: '料金プラン',
 	k82: ' をご覧ください。',
 	k83: '&#x2694;&#xFE0F; がんばりクエスト',
@@ -6612,7 +6598,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// #1911 (B-4): trust-badge #2 / #3 にもリンク追加 (4 件中 2 件のみリンクありの不揃いを是正)
 	k64Link: '家族での使い方を詳しく見る &#8594;',
 	k65: '保護者専用のカギ付き',
-	k66: '管理画面は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。',
+	k66: `${ADMIN_VIEW_TERMS.canonical}は保護者だけが開けるカギ（おやカギコード）でロックできます。お子さまが自分でポイントを増やしたり設定を変えたりすることができません。`,
 	// #1911 (B-4): trust-badge #3 のリンク先 (FAQ プライバシー section へ誘導)
 	k66Link: 'FAQ で詳しく見る &#8594;',
 	// #1796 R-MAJ-6: #1「広告なし」と訴求が重複していたため「広告」を外し「データを家族の手元に」へリフレーム
@@ -6677,11 +6663,11 @@ export const LP_INDEX_PHASEB_LABELS = {
 	softBenefitFamilySupport:
 		// #1912 (F-14): 「自動スリープ」→「使いすぎ防止タイマー」
 		'<strong>家庭ごとにカスタマイズできること</strong>: 設定時間で使いすぎ防止タイマーが働き、おうえんメッセージは子供が読むと既読が付く',
-	// #1900 (UIUX-C-1) + #1901 統合: hero carousel 4 枚を年齢帯 3 系統 (preschool / elementary / junior) + 管理画面に再構成。
+	// #1900 (UIUX-C-1) + #1901 統合 + #2057 (UIUX-F-13): hero carousel 4 枚を年齢帯 3 系統 (preschool / elementary / junior) + ご家族の見守り画面に再構成。
 	//   旧構成は 4 枚すべて lower (elementary) 固定で alt「3〜18 歳の代表」と実体が乖離 (ADR-0013 LP truth 違反)。
 	//   田中ゆかり persona 受容性検証「うちの幼児・小学生の画面が見えれば自分向けと判断できる」を踏まえ、
 	//   carousel-1 = 幼児 (3-5 歳代表) / carousel-2 = 小学生 (6-12 歳代表) / carousel-3 = 中高生 (13-18 歳代表)
-	//   / carousel-4 = 管理画面 (子供管理 = /demo/admin/children) の 4 枚に再構成する。
+	//   / carousel-4 = ご家族の見守り画面 (子供管理 = /demo/admin/children) の 4 枚に再構成する。
 	//   carousel-4 の URL は #1901 の物理重複解消で /demo/admin/children に確定済 (旧 /demo/admin/activities は
 	//   feature-settings と URL/ETag 完全一致だったため)。ADR-0013 LP truth 整合のため alt / data-label
 	//   も「子供管理 — 家族メンバーの登録と切替」で統一する。
@@ -6692,7 +6678,9 @@ export const LP_INDEX_PHASEB_LABELS = {
 	carouselSlide1Alt: '幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン',
 	carouselSlide2Alt: '小学生（6〜12 歳代表）のホーム画面 — 活動記録とポイント獲得',
 	carouselSlide3Alt: `中高生（${AGE_RANGE_TERMS.juniorShort}代表）のホーム画面 — 自己管理ダッシュボード`,
-	carouselSlide4Alt: '子供管理画面 — 家族メンバーの登録と切替',
+	// #2057: 「子供管理画面」は文脈上「お子さま管理タブ」を指すため、ADMIN_VIEW_TERMS をそのまま
+	// 適用すると「子供ご家族の見守り画面」と不自然になる。原文意図 (家族メンバー管理) を保つ表現に書換。
+	carouselSlide4Alt: 'お子さま管理タブ — 家族メンバーの登録と切替',
 } as const;
 
 export const LP_PRICING_PHASEB_LABELS = {
@@ -6773,23 +6761,23 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k11: '7 日間無料トライアルと、いつでもキャンセルできる仕組みについて。',
 	k12: '無料トライアルの申込にクレジットカードは必要ですか？',
 	k13: '<strong>いいえ、不要です。</strong>メールアドレスと Google アカウント（またはメール認証）でサインアップするだけで、クレジットカード情報を入力せずに 7 日間すべての有料機能をお試しいただけます。',
-	k14: `トライアル期間終了時は自動で${PLAN_FULL_TERMS.free}に戻ります。課金への切り替えは必ず管理画面からお客さまご自身の操作で行っていただきます。`,
+	k14: `トライアル期間終了時は自動で${PLAN_FULL_TERMS.free}に戻ります。課金への切り替えは必ず${ADMIN_VIEW_TERMS.canonical}からお客さまご自身の操作で行っていただきます。`,
 	k15: 'トライアル後は自動で課金されますか？',
 	k16: `<strong>自動課金はされません。</strong>7 日間のトライアル終了時は、自動的に${PLAN_FULL_TERMS.free}へ戻ります。`,
-	k17: '有料プランを継続したい場合のみ、管理画面の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。',
+	k17: `有料プランを継続したい場合のみ、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。`,
 	k18: '途中でキャンセルするとどうなりますか？',
 	// #1943 (Phase 3 D3): 「いつでも解約」atom を CANCEL_TERMS.anytime 参照化。
 	//   注: 「解約」(単独) / 「7 日間」(半角空白あり、TRIAL_TERMS.duration='7日間' と不一致) は char-by-char
 	//   一致を維持するため直書き継続 (#1949 section13 / #1954 ctaBottomDesc と同方針)。
-	k19: `管理画面の「プラン・お支払い」→「解約」から${CANCEL_TERMS.anytime}できます。解約を申請すると、ご利用プランに応じた読み取り専用の<strong>猶予期間</strong>に入ります（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7 日間 / ${PLAN_FULL_TERMS.family}: 30 日間）。`,
+	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「解約」から${CANCEL_TERMS.anytime}できます。解約を申請すると、ご利用プランに応じた読み取り専用の<strong>猶予期間</strong>に入ります（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7 日間 / ${PLAN_FULL_TERMS.family}: 30 日間）。`,
 	k20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
 	k21: '猶予期間終了後: すべてのデータが完全に削除',
-	k22: 'バックアップが必要な場合は、猶予期間中に管理画面からデータエクスポート（JSON / CSV）をお願いします。',
+	k22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータエクスポート（JSON / CSV）をお願いします。`,
 	k23: 'トライアル中に作ったデータは残りますか？',
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
 	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	k26: '解約後に再開することはできますか？',
-	k27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日）であれば、管理画面から解約申請を取り消して有料プランを継続できます。`,
+	k27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
 	k28: '猶予期間終了後にデータが完全に削除された場合は、新規サインアップからのやり直しとなります（過去のデータ復旧はできません）。',
 	k29: '<span class="faq-category-num">2</span>料金・課金について',
 	k30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
@@ -6821,7 +6809,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k55: '年額プランを途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	k56: '日割りでの返金は行っておりません。詳細は <a href="tokushoho.html">特定商取引法に基づく表記</a> をご確認ください。',
 	k57: 'プランの変更（月額↔年額、スタンダード↔ファミリー）はできますか？',
-	k58: 'はい。管理画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。',
+	k58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。`,
 	k59: 'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
 	k60: '<span class="faq-category-num">3</span>プライバシー・データについて',
 	k61: 'お子さまのデータの取り扱いと、サービス終了時の保証について。',
@@ -6829,7 +6817,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k63: '<strong>ありません。</strong>広告配信自体を一切行っておらず、お子さまの行動データを第三者に提供することもありません。',
 	k64: 'データは「お子さまの成長を家族内で共有する」目的のみに使用されます。詳細は <a href="privacy.html">プライバシーポリシー</a> をご参照ください。',
 	k65: 'データのエクスポート（書き出し）はできますか？',
-	k66: `はい。<strong>${PLAN_FULL_TERMS.standard}以上</strong>で、管理画面から JSON / CSV 形式でデータをエクスポートできます。`,
+	k66: `はい。<strong>${PLAN_FULL_TERMS.standard}以上</strong>で、${ADMIN_VIEW_TERMS.canonical}から JSON / CSV 形式でデータをエクスポートできます。`,
 	// #1815: 「シール、称号、」を削除（export-service.ts に実装がなく ADR-0013 LP truth 違反のため）
 	k67: 'エクスポート対象: お子さま情報、活動、ポイント履歴、チェックリスト。',
 	k68: 'お引越しや他のサービスへの移行、ご自身でのバックアップにご利用いただけます。',
@@ -6840,7 +6828,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k73: '終了後: すべてのデータを完全削除',
 	k74: '詳しくは <a href="terms.html">利用規約</a> 第 14 条をご覧ください。',
 	k75: '退会・アカウント削除はすぐにできますか？',
-	k76: '管理画面から退会（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。',
+	k76: `${ADMIN_VIEW_TERMS.canonical}から退会（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。`,
 	k77: '猶予期間終了後、全データは完全に削除されます（復旧はできません）。',
 	k78: 'データはどこに保存されていますか？',
 	k79: 'AWS 米国バージニア北部リージョン（us-east-1）のデータベースに暗号化して保存しています。AWS DPA および標準契約条項（SCC）に基づき、改正個人情報保護法第 28 条に整合する形で適切に管理しています。詳細は<a href="privacy.html">プライバシーポリシー</a>第8条（データの国外移転）をご覧ください。',
@@ -6854,7 +6842,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k87: '<strong>小学生（6-12 歳）</strong>: 標準モード。漢字・情報密度を保ちつつ、ポイント・レベル称号・チャレンジで「自分から動く力」を育てます',
 	k88: '<strong>中学生（13-15 歳）</strong>: 情報密度やや高め、漢字あり',
 	k89: '<strong>高校生（16-18 歳）</strong>: 大人に近い UI、自己管理中心',
-	k90: 'お子さまが成長したら、管理画面から年齢モードを切り替えるだけで UI が自動で変わります。',
+	k90: `お子さまが成長したら、${ADMIN_VIEW_TERMS.canonical}から年齢モードを切り替えるだけで UI が自動で変わります。`,
 	k91: 'お子さまが成長して年齢モードが変わる時、データはどうなりますか？',
 	k92: '年齢モードを切り替えても、<strong>ポイント・シール・レベル称号・履歴はすべて引き継がれます</strong>。見た目（UI）だけが切り替わる設計です。',
 	k93: '例: 幼児モードで貯めた「ドラゴン」シールは、小学生モードに切り替えても同じコレクションに残ります。連続ログイン日数・レベルも継続します。',
@@ -6862,8 +6850,9 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k95: '初回セットアップ（5 分）と、日々の運用（1 日 30 秒〜）で回せるよう設計されています。',
 	// #1912 (F-12): FAQ 本文「年齢に応じたプリセット活動を選ぶ」→
 	//   「年齢に応じた、あらかじめ用意された活動を選ぶ」へ顧客語彙化（IT 用語「テンプレート」も含めて精査）。
+	// #2057 (UIUX-F-13): 「管理画面」→ ${ADMIN_VIEW_TERMS.canonical} 経由化
 	k96: '<strong>初日</strong>: サインアップ → お子さま登録 → 年齢に応じた、あらかじめ用意された活動を選ぶ（300+ の中から）',
-	k97: '<strong>毎日</strong>: お子さまが自分で活動を記録 → 保護者は管理画面で結果を確認（所要時間 30 秒〜）',
+	k97: `<strong>毎日</strong>: お子さまが自分で活動を記録 → 保護者は${ADMIN_VIEW_TERMS.canonical}で結果を確認（所要時間 30 秒〜）`,
 	k98: '<strong>週 1 回</strong>: レベルアップ・チャレンジ達成を家族で共有（お楽しみタイム）',
 	k99: '親が毎日新しい活動を作る必要はありません。プリセットをそのまま使うか、年齢が変わった時にテンプレートを切り替えるだけで運用できます。',
 	k100: 'スクリーンタイムが長くなる心配はありませんか？',
@@ -6997,7 +6986,7 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k70: '子供のデータは安全ですか？',
 	k71: 'はい。通信は常に暗号化し、データはお預かり時にも保護した状態で保管しています。お子さまの本名は不要で、ニックネームでご利用いただけます。データの第三者への販売・共有は一切行いません。',
 	k72: '有料プランへの切り替えはどうしますか？',
-	k73: '管理画面の「プラン・お支払い」からアップグレードしていただくと、その場で有料機能が有効になります。クレジットカード（Visa / Mastercard / JCB / American Express）に対応し、Stripe による安全な決済処理を使用しています。詳しくは <a href="https://www.ganbari-quest.com/pricing.html">料金プラン</a> をご覧ください。',
+	k73: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」からアップグレードしていただくと、その場で有料機能が有効になります。クレジットカード（Visa / Mastercard / JCB / American Express）に対応し、Stripe による安全な決済処理を使用しています。詳しくは <a href="https://www.ganbari-quest.com/pricing.html">料金プラン</a> をご覧ください。`,
 	k74: '&#x2694;&#xFE0F; がんばりクエスト',
 	k75: 'お子さまの「がんばり」を冒険に変える家庭向けWebアプリ',
 	k76: 'お問い合わせ・コミュニティ',
@@ -7040,7 +7029,7 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 		'<h2>第5条（利用者の権利）</h2><p>利用者は、自己の個人情報について、以下の権利を有します。</p><ol><li><strong>開示請求</strong> — 運営者が保有する自己の個人情報の開示を請求できます。</li><li><strong>訂正請求</strong> — 個人情報の内容が事実でない場合、訂正を請求できます。</li><li><strong>削除請求</strong> — 個人情報の削除を請求できます。</li><li><strong>利用停止請求</strong> — 個人情報の利用停止を請求できます。</li></ol><p>上記の請求は、本サービスの設定画面から行うか、下記のお問い合わせ先までご連絡ください。</p>',
 	// #1948 Phase 4 E1: PLAN 名 / トライアル期間 atom を terms.ts 参照に統一
 	// （文字列差分ゼロ維持、法的文書 char-by-char 一致厳守）
-	section6: `<h2>第6条（データの削除）</h2><ol><li><strong>個別データの削除</strong>: 特定の活動記録やお子さまの情報の削除は、本サービスの管理画面から即時実行できます。</li><li><strong>アカウント全体の削除</strong>: アカウント削除を申請後、ご利用プランに応じた猶予期間を設けます（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: ${TRIAL_TERMS.duration} / ${PLAN_FULL_TERMS.family}: 30日間）。猶予期間中は削除の取消しが可能です。</li><li><strong>バックアップからの完全消去</strong>: アカウント削除後90日以内に、バックアップデータからも完全に消去されます。</li></ol>`,
+	section6: `<h2>第6条（データの削除）</h2><ol><li><strong>個別データの削除</strong>: 特定の活動記録やお子さまの情報の削除は、本サービスの${ADMIN_VIEW_TERMS.canonical}から即時実行できます。</li><li><strong>アカウント全体の削除</strong>: アカウント削除を申請後、ご利用プランに応じた猶予期間を設けます（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: ${TRIAL_TERMS.duration} / ${PLAN_FULL_TERMS.family}: 30日間）。猶予期間中は削除の取消しが可能です。</li><li><strong>バックアップからの完全消去</strong>: アカウント削除後90日以内に、バックアップデータからも完全に消去されます。</li></ol>`,
 	section6_2:
 		'<h2>第6条の2（卒業フローと事例公開承諾）</h2><p>本サービスは「お子さまが自律して使う必要がなくなった」ことを「卒業」と定義し、ポジティブな解約として扱います。卒業選択時に表示される専用ページで、ご家庭が任意で「事例として公開してもよい」旨を承諾された場合、以下の情報を保管します。</p><ol><li><strong>保管する情報</strong>: ご家庭が任意指定したニックネーム（実名禁止）、卒業時点の残ポイント数、ご利用期間（日数）、任意の卒業メッセージ。</li><li><strong>利用目的</strong>: サービス紹介ページ等での事例として公開し、他のご家庭の参考となる卒業ストーリーの提示に活用します。</li><li><strong>公開時の取り扱い</strong>: 実名は使用せず、お預かりしたニックネームのみを表示します。お子さまが特定されない形でのみ公開します。</li><li><strong>承諾の撤回</strong>: 公開承諾の撤回は、サービス問い合わせ窓口からご連絡いただくことで対応します。撤回後は当該事例を 30 日以内に非公開化します。</li><li><strong>承諾なしの場合</strong>: 公開を承諾されない場合も「卒業者数」「平均利用期間」等の集計値（個人を特定しない形式）には含まれます。</li></ol>',
 	section7:
@@ -7088,7 +7077,7 @@ export const LP_LEGAL_TERMS_LABELS = {
 		'<h2>第6条（未成年者の利用）</h2><ol><li>本サービスは、保護者の管理のもとでこどもが利用することを前提として設計されています。</li><li>未成年者が本サービスを利用する場合、法定代理人（保護者）の同意が必要です。</li><li>保護者は、こどもの本サービスの利用に関して一切の責任を負うものとします。</li><li>保護者が本規約に同意してアカウントを作成した時点で、こどもの本サービスの利用についても同意したものとみなします。</li><li>未成年者の個人情報の取扱いについて、運営者は<a href="privacy.html#under-age">プライバシーポリシー第9条（未成年者の取扱い）</a>に定める特別な保護措置を講じています。</li></ol>',
 	section7:
 		'<h2>第7条（料金および支払い）</h2><ol><li>本サービスの基本機能は無料でご利用いただけます。一部の機能は有料プランへの加入が必要です。料金の詳細は本サービス内の料金ページに記載します。</li><li>有料プランの支払いは、運営者が指定する決済サービスを通じて行われます。</li><li>有料プランは契約期間ごとに自動更新されます。自動更新の停止（解約）は、次回更新日の前日までに本サービスの設定画面から行うことができます。</li><li>解約後も、支払い済み期間の終了日まで有料プランの機能をご利用いただけます。</li><li>日割り計算による返金は行いません。</li></ol>',
-	section8: `<h2>第8条（無料トライアル）</h2><ol><li>有料プランには無料トライアル期間が含まれる場合があります。期間の詳細は本サービス内に記載します。</li><li>無料トライアル期間中に解約した場合、料金は発生しません。</li><li>無料トライアル期間終了後、自動的に${PLAN_FULL_TERMS.free}に移行します。有料プランへの移行はお客さまご自身で管理画面より手続きしていただく必要があります。</li><li>無料トライアルは、1アカウントにつき1回のみご利用いただけます。</li></ol>`,
+	section8: `<h2>第8条（無料トライアル）</h2><ol><li>有料プランには無料トライアル期間が含まれる場合があります。期間の詳細は本サービス内に記載します。</li><li>無料トライアル期間中に解約した場合、料金は発生しません。</li><li>無料トライアル期間終了後、自動的に${PLAN_FULL_TERMS.free}に移行します。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。</li><li>無料トライアルは、1アカウントにつき1回のみご利用いただけます。</li></ol>`,
 	section9:
 		'<h2>第9条（知的財産権）</h2><ol><li>本サービスに関する知的財産権は全て運営者または正当な権利者に帰属します。</li><li>利用者が本サービスに登録したコンテンツの著作権は利用者に帰属しますが、運営者はサービスの提供および改善に必要な範囲で当該コンテンツを利用できるものとします。</li></ol>',
 	section10:
@@ -7097,8 +7086,7 @@ export const LP_LEGAL_TERMS_LABELS = {
 		'<h2>第11条（サービスの中断・停止）</h2><ol><li>運営者は、以下の場合、事前の通知なく本サービスの全部または一部を中断・停止することがあります。<ul><li>システムの保守・点検・更新を行う場合</li><li>地震、落雷、火災、停電、天災等の不可抗力により本サービスの提供が困難な場合</li><li>その他、運営者がサービスの中断・停止が必要と判断した場合</li></ul></li><li>サービスの中断・停止により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、運営者は責任を負いません。</li></ol>',
 	section12: `<h2>第12条（免責事項）</h2><ol><li>本サービスは個人開発者が運営するものであり、「現状有姿（AS IS）」で提供されます。運営者は、本サービスの正確性、完全性、信頼性、適時性、安全性、特定目的への適合性について、明示的または黙示的を問わず一切の保証をしません。</li><li>本サービスはこどもの教育効果や行動変容を保証するものではなく、結果について運営者は責任を負いません。</li><li>運営者は、本サービスの利用により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、一切の責任を負いません。</li><li>運営者は、以下に起因する損害について、一切の責任を負いません。<ul><li>データの消失、破損、改ざん、または復旧の不能</li><li>サービスの中断、遅延、停止、または終了</li><li>第三者サービス（AWS、Stripe、Google等）の障害、仕様変更、またはサービス停止</li><li>不正アクセス、コンピュータウイルス、その他のセキュリティ侵害</li><li>利用者間のトラブルまたは紛争</li><li>利用者の操作ミスまたはアカウント管理の不備</li></ul></li><li>運営者は、間接損害、特別損害、偶発的損害、結果的損害、逸失利益、およびデータの喪失について、たとえその可能性を事前に告知されていた場合であっても、責任を負いません。</li><li>前各項の規定にかかわらず、消費者契約法その他の強行法規の適用により運営者の責任が認められる場合、運営者が利用者に対して賠償する金額は、当該利用者が損害発生月を含む直近3ヶ月間に本サービスに対して実際に支払った利用料の総額を上限とします。${PLAN_FULL_TERMS.free}の利用者については、運営者の賠償額の上限は0円とします。</li></ol>`,
 	section13: `<h2>第13条（利用者データの取扱い）</h2><ol><li>利用者は、自己のコンテンツについて、いつでも削除を申請することができます。</li><li>アカウント削除を申請した場合、ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7日間 / ${PLAN_FULL_TERMS.family}: 30日間）の後、全データが完全に削除されます。猶予期間中は削除の取消しが可能です。</li><li>運営者はデータのバックアップを実施していますが、データの復旧を保証するものではありません。</li></ol>`,
-	section14:
-		'<h2>第14条（卒業 — ポジティブな解約について）</h2><ol><li><strong>哲学</strong>: 本サービスは、お子さまが日常活動を自律的に行えるようになった時点で、本サービスの継続利用を推奨しません。これを「卒業」と呼びます。卒業は、お子さまが成長し、本サービスの動機づけがなくても自分の力で日々の活動に取り組めるようになった、ポジティブな節目です。</li><li><strong>卒業時の手続き</strong>: 利用者は、本サービスの管理画面から「卒業手続き」を行うことで、本契約を終了し、データのエクスポートまたは削除を選択することができます。具体的な手続き UI は別途提供します（実装は今後のリリースで提供予定）。</li><li><strong>残ポイントの還元</strong>: 卒業時に保有しているポイントについて、現金または物品での還元を希望される場合は、別途運営者までご連絡ください。還元の対象範囲・方法については、運営者が個別に案内します。</li><li><strong>通常の解約との関係</strong>: 卒業は、利用者の意思による契約終了の一形態であり、本規約第7条に定める通常の解約手続きと並存します。利用者は、卒業手続きの代わりに通常の解約手続きを選択することもできます。</li></ol>',
+	section14: `<h2>第14条（卒業 — ポジティブな解約について）</h2><ol><li><strong>哲学</strong>: 本サービスは、お子さまが日常活動を自律的に行えるようになった時点で、本サービスの継続利用を推奨しません。これを「卒業」と呼びます。卒業は、お子さまが成長し、本サービスの動機づけがなくても自分の力で日々の活動に取り組めるようになった、ポジティブな節目です。</li><li><strong>卒業時の手続き</strong>: 利用者は、本サービスの${ADMIN_VIEW_TERMS.canonical}から「卒業手続き」を行うことで、本契約を終了し、データのエクスポートまたは削除を選択することができます。具体的な手続き UI は別途提供します（実装は今後のリリースで提供予定）。</li><li><strong>残ポイントの還元</strong>: 卒業時に保有しているポイントについて、現金または物品での還元を希望される場合は、別途運営者までご連絡ください。還元の対象範囲・方法については、運営者が個別に案内します。</li><li><strong>通常の解約との関係</strong>: 卒業は、利用者の意思による契約終了の一形態であり、本規約第7条に定める通常の解約手続きと並存します。利用者は、卒業手続きの代わりに通常の解約手続きを選択することもできます。</li></ol>`,
 	section15:
 		'<h2>第15条（サービスの終了）</h2><ol><li>運営者は、運営者の判断により、本サービスの全部または一部を終了することがあります。</li><li>本サービスを終了する場合、運営者は終了日の30日前までに本サービス上または登録メールアドレスへの通知により利用者にお知らせします。</li><li>サービス終了時、利用者は終了日までに自己のデータをエクスポートすることができます。</li><li>サービスの終了により利用者に生じた損害について、運営者は一切の責任を負いません。</li></ol>',
 	section16:
@@ -7176,6 +7164,6 @@ export const LP_LEGAL_SLA_LABELS = {
 // ============================================================
 export const LP_LEGAL_TOKUSHOHO_LABELS = {
 	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p>',
-	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込） / 年額5,000円（税込）<br>${PLAN_FULL_TERMS.family}: 月額780円（税込） / 年額7,800円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で管理画面より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金<br>年額プラン: 毎年契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、管理画面の「プラン変更・支払い管理」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.family}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
+	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込） / 年額5,000円（税込）<br>${PLAN_FULL_TERMS.family}: 月額780円（税込） / 年額7,800円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金<br>年額プラン: 毎年契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${STRIPE_PORTAL_TERMS.short}の「プラン変更・支払い管理」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.family}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
 	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
 } as const;

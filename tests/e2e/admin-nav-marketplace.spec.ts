@@ -3,7 +3,7 @@
 //
 // 検証対象:
 // 1. /marketplace は認証不要のパブリックルート (ADR-0036) として 200 で開ける
-// 2. 管理画面 (/admin) の「活動」カテゴリ submenu に nav-marketplace が含まれる (#1396 で customize→activity に変更)
+// 2. ご家族の見守り画面 (/admin) の「活動」カテゴリ submenu に nav-marketplace が含まれる (#1396 で customize→activity に変更)
 //    (Desktop: hover で dropdown を開く / Mobile 375x667: category button tap で submenu を開く)
 //
 // 履歴:
@@ -30,12 +30,14 @@ test.describe('#1170 マケプレ グローバルナビ導線', () => {
 	});
 
 	// ============================================================
-	// 2. 管理画面 Desktop: 活動 dropdown に nav-marketplace が含まれる
+	// 2. ご家族の見守り画面 Desktop: 活動 dropdown に nav-marketplace が含まれる
 	// AdminLayout は md:block / md:hidden で Desktop/Mobile を切り替えているため、
 	// mobile project のデフォルト viewport では `nav[data-tutorial="nav-desktop"]` が hidden。
 	// `browser.newContext` で明示的に 1280x800 を作ることで、どの project でも Desktop viewport を保証する。
 	// ============================================================
-	test('Desktop 管理画面: 活動 dropdown に nav-marketplace が visible', async ({ browser }) => {
+	test('Desktop ご家族の見守り画面: 活動 dropdown に nav-marketplace が visible', async ({
+		browser,
+	}) => {
 		test.slow(); // Vite dev cold compile
 		const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
 		const page = await ctx.newPage();
@@ -61,9 +63,9 @@ test.describe('#1170 マケプレ グローバルナビ導線', () => {
 	});
 
 	// ============================================================
-	// 3. 管理画面 Mobile (375x667): 活動 submenu に nav-marketplace-mobile が含まれる
+	// 3. ご家族の見守り画面 Mobile (375x667): 活動 submenu に nav-marketplace-mobile が含まれる
 	// ============================================================
-	test('Mobile 375x667 管理画面: 活動 submenu に nav-marketplace-mobile が visible', async ({
+	test('Mobile 375x667 ご家族の見守り画面: 活動 submenu に nav-marketplace-mobile が visible', async ({
 		browser,
 	}) => {
 		test.slow();

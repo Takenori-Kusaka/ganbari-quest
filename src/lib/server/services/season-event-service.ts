@@ -21,7 +21,7 @@ import type {
 } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
 
-/** 全イベント一覧（管理画面用） */
+/** 全イベント一覧（ご家族の見守り画面用） */
 export async function getAllEvents(tenantId: string): Promise<SeasonEvent[]> {
 	return findAllEvents(tenantId);
 }
