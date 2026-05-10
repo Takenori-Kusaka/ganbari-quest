@@ -165,34 +165,36 @@
 .age-tab.active{background:var(--brand-700);color:#fff;border-color:var(--brand-700)}
 /* #1632 R28: a11y — キーボード操作時の focus-visible 強調表示 */
 .age-tab:focus-visible{outline:3px solid var(--brand-700);outline-offset:2px}
-/* #1910 AC6 (UIUX-A-6): align-items:center → start に変更。
-   旧: scrshot 高 vs body 高の差で align-items:center が body を中央に押し下げ、上下に空白が発生
-   新: align-items:start + body 内チェックリスト追加で「上端揃え + body 高 ≈ scrshot 高」を実現 */
-.age-panel{display:none;grid-template-columns:1fr 1fr;gap:32px;align-items:start;background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:var(--lp-age-panel-padding-y) var(--lp-age-panel-padding-x)}
+.age-panel{display:none;grid-template-columns:minmax(280px, 420px) 1fr;gap:var(--space-6);align-items:center;background:#fff;border:1px solid var(--gray-300);border-radius:28px;padding:var(--space-5);box-shadow:0 16px 40px rgba(29, 43, 63, 0.08)}
 .age-panel.active{display:grid}
-/* #1724 R8 / #1785 R-CRT-2: 内側 scrshot コンテナから border / background / border-radius を全撤去。
-   外側 .age-panel border に集約し、スクショ自体だけが浮かぶ「白背景 + アプリ scrshot」状態を実現 */
-.age-panel-shot{overflow:hidden;max-width:280px;margin:0 auto;aspect-ratio:var(--lp-card-shot-aspect-ratio)}
-.age-panel-shot img{width:100%;height:100%;display:block;object-fit:cover;object-position:top}
-.age-panel-body h3{font-size:1.15rem;font-weight:700;margin-bottom:8px;color:var(--gray-900)}
-/* #1799 U-MIN-4: WCAG AA (4.5:1) 対応。
-   旧 --brand-700 (#3878b8) on --brand-50 (#f2f9ff) = 4.35:1 (AA わずかに不足)
-   → 文字を --brand-800 (#2a5f9e) に上げ、--brand-50 上で 5.95:1 確保 */
-.age-panel-feature{display:inline-block;font-size:.8rem;color:var(--brand-800);font-weight:700;background:var(--brand-50);padding:3px 10px;border-radius:4px;margin-bottom:10px}
-.age-panel-desc{font-size:.92rem;color:var(--gray-600);line-height:1.7;margin-bottom:16px}
-/* #1910 AC6 (UIUX-A-6): body 内チェックリスト追加で scrshot 高との空白を埋める。
-   各年齢 UI モードの代表機能 3 件を ✓ で列挙、age-panel-feature span との重複を避け具体例で訴求。
-   ADR-0042 整合: padding/margin は --lp-* Semantic トークン経由 */
-.age-panel-checklist{list-style:none;padding:0;margin:0 0 var(--lp-age-panel-checklist-mb);display:flex;flex-direction:column;gap:6px}
-.age-panel-checklist li{font-size:.86rem;color:var(--gray-700);line-height:1.55;padding-left:var(--lp-age-panel-checklist-item-pl);position:relative}
-.age-panel-checklist li::before{content:"✓";position:absolute;left:0;top:0;color:var(--brand-700);font-weight:700;font-size:.95rem}
-.age-panel-cta{text-align:left;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-.age-panel-cta .btn{flex:0 0 auto}
+.age-panel-shot{align-self:stretch}
+.age-panel-shot img{width:100%;height:100%;max-height:680px;object-fit:contain;border-radius:20px;border:1px solid var(--gray-200);background:#f9fbfe;display:block}
+.age-panel-shot picture{display:block;width:100%;height:100%}
+.age-panel-body{display:flex;flex-direction:column;align-items:flex-start}
+.age-panel-feature{margin:0 0 var(--space-3);padding:8px 12px;border-radius:999px;background:var(--brand-50);color:var(--brand-700);font-size:14px;font-weight:700;display:inline-block}
+.age-panel-body h3{margin:0 0 var(--space-3);font-size:clamp(30px, 4vw, 46px);line-height:1.2;letter-spacing:-0.02em;color:var(--gray-900)}
+.age-panel-desc{margin:0 0 var(--space-4);color:var(--gray-600);font-size:18px;max-width:34rem;line-height:1.6}
+.age-panel-checklist{display:grid;gap:var(--space-2);margin:0 0 var(--space-5);padding:0;list-style:none}
+.age-panel-checklist li{position:relative;padding-left:28px;color:var(--gray-900);font-size:18px;font-weight:500;line-height:1.5}
+.age-panel-checklist li::before{content:"✓";position:absolute;left:0;top:0;color:var(--brand-700);font-weight:800}
+.age-panel-cta{margin-top:auto;width:100%}
 .age-switcher-prep-note{margin-top:24px;text-align:center;font-size:.9rem;color:var(--gray-600)}
 .age-switcher-prep-note a{color:var(--brand-700)}
+@media(max-width:960px){
+  .age-panel.active{grid-template-columns:1fr;gap:var(--space-4);padding:var(--space-4)}
+  .age-panel-shot img{max-height:none}
+  .age-panel-body h3{font-size:34px}
+  .age-panel-desc,.age-panel-checklist li{font-size:17px}
+}
 @media(max-width:640px){
-  .age-panel.active{grid-template-columns:1fr;padding:var(--lp-age-panel-padding-y-sm) var(--lp-age-panel-padding-x-sm);gap:20px;text-align:center}
-  .age-panel-cta{text-align:center;flex-direction:column;align-items:stretch}
+  .age-panel.active{padding:20px;border-radius:20px;gap:20px;text-align:left}
+  .age-panel-feature{font-size:13px;margin-bottom:12px}
+  .age-panel-body h3{margin-bottom:12px;font-size:28px}
+  .age-panel-desc{margin-bottom:16px;font-size:16px}
+  .age-panel-checklist{gap:10px;margin-bottom:20px}
+  .age-panel-checklist li{padding-left:24px;font-size:16px}
+  .age-panel-cta,.age-panel-cta .btn{width:100%}
+  .age-panel-cta .btn{min-height:52px;font-size:17px;display:flex;justify-content:center}
 }
 
 /* Core loop — 1 階層 3 cards + 1-shot summary 画像 (#1787)
@@ -643,11 +645,16 @@
         <button type="button" class="age-tab" data-age="primary-plus" role="tab" aria-selected="false" aria-controls="age-panel-primary-plus" id="age-tab-primary-plus" data-lp-key="indexB.k9">小学生以上 (6-18)</button>
       </div>
       <div class="age-panel active" data-panel="kinder" role="tabpanel" id="age-panel-kinder" aria-labelledby="age-tab-kinder">
-        <div class="age-panel-shot"><img src="screenshots/age-kinder.webp" alt="幼児向け画面" data-lightbox></div>
+        <div class="age-panel-shot">
+          <picture>
+            <source srcset="screenshots/age-kinder-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/age-kinder.webp" alt="幼児向け画面" loading="lazy" data-lightbox>
+          </picture>
+        </div>
         <div class="age-panel-body">
           <h3 data-lp-key="indexB.k10">ひらがな中心・丸みのある大きなボタン</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k11">幼児 UI: ひらがな / 大タップ / 絵文字演出</span>
-          <p class="age-panel-desc" data-lp-key="indexB.k12">「はをみがく」「おかたづけ」など、幼児期に身につけたい習慣の候補が 300 件以上用意されています。最初の準備で好きなものを選ぶだけ。毎日のごほうびでおみくじが 1 回引けて、週 5 日タップでスタンプカード 1 枚分のポイントに自動交換できます。</p>
+          <p class="age-panel-desc" data-lp-key="indexB.k12">幼児期に身につけたい習慣を、読める・押せる・選べる形で始められます。</p>
           <!-- #1910 AC6 (UIUX-A-6): scrshot vs body 高低差の空白を埋める body 内チェックリスト -->
           <ul class="age-panel-checklist" aria-label="幼児 UI の特徴">
             <li data-lp-key="indexB.kinderCheck1">大きなタップ領域 (80px) で押しやすい</li>
@@ -659,11 +666,16 @@
         </div>
       </div>
       <div class="age-panel" data-panel="primary-plus" role="tabpanel" id="age-panel-primary-plus" aria-labelledby="age-tab-primary-plus">
-        <div class="age-panel-shot"><img src="screenshots/age-lower.webp" alt="小学生以上向け画面" data-lightbox></div>
+        <div class="age-panel-shot">
+          <picture>
+            <source srcset="screenshots/age-lower-desktop.webp" media="(min-width:1024px)" type="image/webp">
+            <img src="screenshots/age-lower.webp" alt="小学生以上向け画面" loading="lazy" data-lightbox>
+          </picture>
+        </div>
         <div class="age-panel-body">
           <h3 data-lp-key="indexB.k14">漢字 + 情報密度で 15 年継続できる UI</h3>
           <span class="age-panel-feature" data-lp-key="indexB.k15">小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット</span>
-          <p class="age-panel-desc" data-lp-key="indexB.k16">宿題・習い事・部活・受験まで、学年が上がるにつれて情報密度が増す設計。ポイント履歴とウィークリーチャレンジで「次は何をやろう？」と子供自身が計画を立て、3 歳から 18 歳まで 15 年間、同じアプリで成長を記録できます。</p>
+          <p class="age-panel-desc" data-lp-key="indexB.k16">小学校以降はより自律的により多くの活動をより楽しく</p>
           <!-- #1910 AC6 (UIUX-A-6): scrshot vs body 高低差の空白を埋める body 内チェックリスト -->
           <ul class="age-panel-checklist" aria-label="小学生以降 UI の特徴">
             <li data-lp-key="indexB.primaryCheck1">漢字 + 情報密度で 15 年継続できる UI</li>
@@ -747,7 +759,7 @@
       <div class="tour-card" data-testid="feature-belongings-checklist">
         <div class="tour-phase" data-lp-key="indexB.k26">&#9312; 朝の準備をスムーズに</div>
         <h3 data-lp-key="indexB.k27">持ち物チェックリスト</h3>
-        <p data-lp-key="indexB.k28">通学や習い事の持ち物を、子ども自身がタップ確認。<br>朝の「あれ持った？」を減らします。</p>
+        <p data-lp-key="indexB.k28">子どもが自分で確認でき、朝の声かけを減らせます。</p>
         <div class="tour-shot">
           <picture>
             <source srcset="screenshots/feature-belongings-checklist-desktop.webp" media="(min-width:1024px)" type="image/webp">
@@ -758,7 +770,7 @@
       <div class="tour-card" data-testid="feature-rpg-battle">
         <div class="tour-phase" data-lp-key="indexB.k34">&#9313; 冒険のクライマックス</div>
         <h3 data-lp-key="indexB.k35">ボスバトル</h3>
-        <p data-lp-key="indexB.k36">毎日の努力で貯めたエネルギーで、ボスに挑戦。小学生から全年齢で使える冒険の締めくくり。</p>
+        <p data-lp-key="indexB.k36">毎日のがんばりを力にしてボスバトル！</p>
         <div class="tour-shot">
           <picture>
             <source srcset="screenshots/feature-rpg-battle-desktop.webp" media="(min-width:1024px)" type="image/webp">

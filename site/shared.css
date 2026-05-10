@@ -128,13 +128,6 @@
 	--lp-floating-cta-padding-x: var(--space-4); /* .floating-cta 横 padding (16px) */
 	--lp-floating-cta-btn-padding-y: var(--space-2); /* .floating-cta .btn 縦 padding (8px) */
 	--lp-floating-cta-btn-padding-x: var(--space-4); /* .floating-cta .btn 横 padding (16px) */
-	--lp-age-panel-padding-y: var(--space-8); /* .age-panel 縦 padding (32px) */
-	--lp-age-panel-padding-x: var(--space-7); /* .age-panel 横 padding (28px) */
-	--lp-age-panel-padding-y-sm: var(--space-6); /* .age-panel @≤640px 縦 padding (24px) */
-	--lp-age-panel-padding-x-sm: var(--space-5); /* .age-panel @≤640px 横 padding (20px) */
-	/* #1910 AC6 (UIUX-A-6): age-panel body 内チェックリスト */
-	--lp-age-panel-checklist-mb: var(--space-4); /* .age-panel-checklist 下マージン (16px) */
-	--lp-age-panel-checklist-item-pl: 22px; /* .age-panel-checklist li 左 padding (✓ 用、22px = ✓ 16px + 6px gap) */
 	/* #1911 (B-1): .core-loop-card 個別 padding token は --lp-card-padding-* に統合済 */
 	--lp-growth-roadmap-padding-y: var(--space-6); /* #growth-roadmap 縦 padding (24px) */
 	--lp-growth-roadmap-padding-x: var(--space-4); /* #growth-roadmap 横 padding (16px) */
