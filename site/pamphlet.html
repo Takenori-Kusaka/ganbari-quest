@@ -647,8 +647,9 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
       <!-- Free -->
       <div class="plan-card">
         <h3 data-lp-key="pamphletB.k27">フリー</h3>
-        <div class="plan-price"><span class="free-label">&#xA5;0</span></div>
-        <div class="plan-trial" data-lp-key="pamphletB.k28">ずっと無料</div>
+        <!-- #1913 (UIUX-E-5 / E-7): &#xA5; → ¥ 直書き、ずっと無料 → 永久無料 (CURRENCY_TERMS / FREE_PLAN_TERMS atom 整合) -->
+        <div class="plan-price"><span class="free-label">¥0</span></div>
+        <div class="plan-trial" data-lp-key="pamphletB.k28">永久無料</div>
         <ul class="plan-features">
           <li data-lp-key="pamphletB.k29"><span class="check">&#x2713;</span>お子さまの登録：2人まで</li>
           <li data-lp-key="pamphletB.k30"><span class="check">&#x2713;</span>プリセット活動の利用</li>
@@ -663,7 +664,8 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
       <div class="plan-card recommended">
         <div class="plan-badge" data-lp-key="pamphletB.k36">&#x2B50; おすすめ</div>
         <h3 data-lp-key="pamphletB.k37">スタンダード</h3>
-        <div class="plan-price" data-lp-key="pamphletB.k38">&#xA5;500<small>/月（税込）</small></div>
+        <!-- #1913 (UIUX-E-5): &#xA5; → ¥ 直書き (CURRENCY_TERMS.yen atom 整合) -->
+        <div class="plan-price" data-lp-key="pamphletB.k38">¥500<small>/月（税込）</small></div>
         <div class="plan-trial" data-lp-key="pamphletB.k39">7 日間無料トライアル</div>
         <ul class="plan-features">
           <li data-lp-key="pamphletB.k40"><span class="check">&#x2713;</span>子供の登録：無制限</li>
@@ -678,7 +680,8 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
       <!-- Family -->
       <div class="plan-card">
         <h3 data-lp-key="pamphletB.k47">ファミリー</h3>
-        <div class="plan-price" data-lp-key="pamphletB.k48">&#xA5;780<small>/月（税込）</small></div>
+        <!-- #1913 (UIUX-E-5): &#xA5; → ¥ 直書き (CURRENCY_TERMS.yen atom 整合) -->
+        <div class="plan-price" data-lp-key="pamphletB.k48">¥780<small>/月（税込）</small></div>
         <div class="plan-trial" data-lp-key="pamphletB.k49">7 日間無料トライアル</div>
         <ul class="plan-features">
           <li data-lp-key="pamphletB.k50"><span class="check">&#x2713;</span>スタンダードの全機能</li>
