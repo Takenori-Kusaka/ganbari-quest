@@ -4303,16 +4303,6 @@ export const LP_PRICING_LABELS = {
 	planFamilyDesc: '家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。',
 	planFamilyCta: '7日間 無料体験',
 
-	// CTA disclaimer (#1646 R41)
-	// #1904 (PERS-CRT-5): 各 atom (TRIAL_TERMS.noCreditCard / CANCEL_TERMS.anytimeOk) を terms.ts から参照。
-	//                     pricing.html L226 / L251 / L276 の 3 plan card disclaimer は同 key 参照済 (SSOT)。
-	//                     atom 1 行更新で全 badge に伝播する。
-	// #1912 (F-10): 「自動課金なし」の「課金」がゲーム連想（B-6 と整合）。
-	//   「勝手にお金がかかりません」へ日本語化（IT リテラシーなし親 P1 の認知ジャンプ防止）。
-	//   特商法 (tokushoho.html) と FAQ legal text の「自動課金」は法的精度のため維持。
-	ctaDisclaimerBadges: `✅ ${TRIAL_TERMS.noCreditCard} ✅ 勝手にお金がかかりません ✅ ${CANCEL_TERMS.anytimeOk}`,
-	ctaDisclaimerNote: '※ 7 日間無料体験は初回お申込み時のみ。価格はすべて税込表示です。',
-
 	// Plan note (below cards) — #1650 R44 (括弧書き一掃) / #1629 R25 (「コンボ」→「連続達成ボーナス」へ)
 	// #1912 (F-6): 「ログインボーナス」「連続達成ボーナス」→ 「毎日のごほうび」「続けるごほうび」へ
 	//   日本語化（PRICING_PAGE_LABELS.featureNote と同方針）。
