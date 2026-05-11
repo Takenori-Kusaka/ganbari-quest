@@ -4277,7 +4277,7 @@ export const LP_PRICING_LABELS = {
 	planFreePriceSub: `${FREE_PLAN_TERMS.forever} ・ ${TRIAL_TERMS.noCreditCardShort}`,
 	planFreePersona: 'まずはお子さま 1〜2 人で試したいご家族へ',
 	planFreeDesc:
-		'ポイント・レベルアップ・おみくじ・スタンプカードなど、お子さまの冒険体験はすべて無料。',
+		'デフォルト提供の活動プリセットを使って無料で始められます。',
 	planFreeCta: '無料ではじめる',
 	planFreeBadge: `${FREE_PLAN_TERMS.forever}`,
 
