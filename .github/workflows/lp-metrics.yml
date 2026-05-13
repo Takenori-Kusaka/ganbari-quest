@@ -16,6 +16,13 @@ name: LP Metrics (dimensions / forbidden terms / CTA variants / removal residue)
 #   `--lp-*` Semantic トークン経由で参照されるべき構造的 spacing が直書きに戻るのを防ぐ。
 #   既存ローカル装飾値 (gap / 微小余白) は scripts/lp-inline-style-baseline.json に pin。
 #   新規 1 件で fail。意図的増加時のみ --update-baseline で更新。
+#
+# #1919 Phase 5 F2: LP fallback テキスト整合 CI (lp-fallback-check ジョブ)
+#   site/*.html の `<TAG data-lp-key="ns.k">FALLBACK</TAG>` 内側 fallback テキストが
+#   src/lib/domain/labels.ts (compound) と char-by-char 一致しているかを検証する。
+#   SEO クローラ / JS 失敗時表示で labels.ts と乖離した古い文言が露出するのを防ぐ。
+#   AC1-AC3 / AC5 は #1945 (sync-lp-fallback.mjs --check) + pre-ready Step 6 で実装済み、
+#   本ジョブは AC4 (workflow 組込) を担う。
 
 on:
   pull_request:
@@ -30,6 +37,9 @@ on:
       - "scripts/lp-removal-residue-baseline.json"
       - "scripts/check-lp-inline-style.mjs"
       - "scripts/lp-inline-style-baseline.json"
+      - "scripts/sync-lp-fallback.mjs"
+      - "src/lib/domain/labels.ts"
+      - "src/lib/domain/terms.ts"
       - "src/lib/data/marketplace/activity-packs/**"
 
 permissions:
@@ -351,3 +361,74 @@ jobs:
           name: lp-inline-style
           path: lp-inline-style.json
           retention-days: 30
+
+  lp-fallback-check:
+    # #1919 Phase 5 F2: LP fallback テキスト整合 CI
+    #
+    # 背景:
+    #   site/*.html の `<TAG data-lp-key="ns.k">FALLBACK</TAG>` 内側 fallback テキストは
+    #   SEO クローラ / JS 失敗時にユーザーに見えるテキストとして残る (`site/shared-labels.js`
+    #   による runtime 注入が成功するまでの fallback)。labels.ts (compound) を更新したのに
+    #   この fallback を手動同期し忘れると、SEO クローラに古い情報が表示される。
+    #
+    # 設計:
+    #   AC1-AC3 (検査スクリプト): scripts/sync-lp-fallback.mjs --check で実装済み (#1945)。
+    #     parse5 で source location 取得し char-by-char 比較、不一致時 exit 1 + 該当ファイル/
+    #     行/期待値/実値を表示。
+    #   AC4 (本ジョブ): site/**, scripts/sync-lp-fallback.mjs, src/lib/domain/labels.ts,
+    #     src/lib/domain/terms.ts の変更時のみ実行 (paths filter 相当を github-script で判定)。
+    #   AC5 (pre-ready 統合): scripts/pre-ready.mjs Step 6 で実装済み (#1920)。
+    #
+    # 修正方法:
+    #   `node scripts/sync-lp-fallback.mjs` を実行して fallback を再生成し、
+    #   生成された site/*.html の差分をコミットする。
+    name: Check LP fallback text sync (labels.ts <-> site/*.html data-lp-key)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check if fallback-relevant files changed
+        id: fallback-changed
+        uses: actions/github-script@v9
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('changed', 'true');
+              return;
+            }
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            // site/**.html / shared-labels.js (生成物) / labels.ts (compound SSOT) /
+            // terms.ts (atom SSOT) / sync-lp-fallback.mjs (検査スクリプト本体) /
+            // 本 workflow yaml のいずれかが変更されたときに発火。
+            const fallbackPattern = /^site\/.+\.html$|^site\/shared-labels\.js$|^src\/lib\/domain\/labels\.ts$|^src\/lib\/domain\/terms\.ts$|^scripts\/sync-lp-fallback\.mjs$|^\.github\/workflows\/lp-metrics\.yml$/;
+            const changed = files.some(f => fallbackPattern.test(f.filename));
+            if (!changed) {
+              core.info('LP fallback 関連ファイルの変更なし — スキップ');
+            }
+            core.setOutput('changed', changed ? 'true' : 'false');
+
+      - name: Setup Node.js
+        if: steps.fallback-changed.outputs.changed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.fallback-changed.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Run LP fallback sync check
+        if: steps.fallback-changed.outputs.changed == 'true'
+        # 不一致時は exit 1 + 該当ファイル/行/期待値/実値を表示 (AC3)。
+        # 修正は `node scripts/sync-lp-fallback.mjs` (no --check) を実行して
+        # site/*.html を再生成 -> commit すれば PASS する。
+        run: node scripts/sync-lp-fallback.mjs --check
