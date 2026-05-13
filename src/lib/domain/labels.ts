@@ -4276,8 +4276,7 @@ export const LP_PRICING_LABELS = {
 	planFreePrice: `${PRICE_TERMS.free}`,
 	planFreePriceSub: `${FREE_PLAN_TERMS.forever} ・ ${TRIAL_TERMS.noCreditCardShort}`,
 	planFreePersona: 'まずはお子さま 1〜2 人で試したいご家族へ',
-	planFreeDesc:
-		'デフォルト提供の活動プリセットを使って無料で始められます。',
+	planFreeDesc: 'デフォルト提供の活動プリセットを使って無料で始められます。',
 	planFreeCta: '無料ではじめる',
 	planFreeBadge: `${FREE_PLAN_TERMS.forever}`,
 
@@ -4288,8 +4287,7 @@ export const LP_PRICING_LABELS = {
 	planStandardPrice: `${PRICE_TERMS.standard}`,
 	planStandardUnit: '/月（税込）',
 	planStandardYearly: '年額 ¥5,000（税込・2ヶ月分お得）',
-	planStandardPersona:
-		'お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ',
+	planStandardPersona: 'お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ',
 	planStandardDesc: 'カスタマイズ自由自在。お子さまにぴったりの環境を作れます。',
 	planStandardCta: '7日間 無料体験',
 
