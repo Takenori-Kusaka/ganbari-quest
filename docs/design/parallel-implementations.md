@@ -107,7 +107,8 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 
 **同期メカニズム**:
 - **現状（手動）**: 本番コード変更 → デモ画面を手動で追従
-- **Tier 3（#566 で予定）**: デモアダプタパターンで本番コードを流用
+- **Tier 2 (Issue #2069 / ADR-0046、2026-05-14 POC 完了)**: Service Interface + Svelte 5 Context DI 機構を `$lib/services/` に整備。child home の demo ページが `DashboardView` 経由で共通化された (POC 1 ページ)。残ページは follow-up Issue で段階適用 (#2069 follow-ups)
+- **Tier 3（#566 で予定）**: 本番側 `+page.svelte` も `DashboardView` 経由に統合し、本ペアを根絶する
 
 **修正時チェック**:
 - 新しいページを追加したら `src/routes/demo/(child)/[mode]/<新ページ>` も作ること

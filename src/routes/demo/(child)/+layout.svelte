@@ -10,10 +10,26 @@ import {
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode.js';
 import MilestoneBanner from '$lib/features/value-preview/MilestoneBanner.svelte';
 import type { MilestoneId } from '$lib/server/services/value-preview-service';
+// Issue #2069 POC: DemoDashboardService を Context に配備する。
+// layout 段階では home 専用の todayRecorded を持たない (page.svelte 階層で上書き)。
+import { setDashboardService } from '$lib/services/context';
+import { createDemoDashboardService } from '$lib/services/demo/DashboardService';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 
 let { data, children } = $props();
+
+// Issue #2069 POC: demo 配下の Context 配備。home page で seed を上書きする
+// (この階層では home 固有の todayRecorded を持たないため空配列で初期化)。
+// getter 関数を渡すことで data 変化 (mode 切替 navigation 等) に追従できる
+// (Svelte 5 state_referenced_locally 警告を回避)。
+setDashboardService(
+	createDemoDashboardService(() => ({
+		child: data.child ?? null,
+		todayRecorded: [],
+		pointSettings: data.pointSettings,
+	})),
+);
 
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'preschool');

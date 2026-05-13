@@ -14,6 +14,11 @@ import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
 import MilestoneBanner from '$lib/features/value-preview/MilestoneBanner.svelte';
+// Issue #2069 POC: ProductionDashboardService を Context に配備する。
+// 本 PR では既存 +page.svelte の挙動を変更せず Context インフラのみ noisy なく追加。
+// follow-up Issue で各子供ページが getDashboardService() 経由でデータ参照する。
+import { setDashboardService } from '$lib/services/context';
+import { createProductionDashboardService } from '$lib/services/production/DashboardService';
 import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import StampCard from '$lib/ui/components/StampCard.svelte';
@@ -24,6 +29,19 @@ import { CHILD_TUTORIAL_CHAPTERS } from '$lib/ui/tutorial/tutorial-chapters-chil
 import { resetChapters, setChapters, startTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 let { data, children } = $props();
+
+// Issue #2069 POC: 本番側 ProductionDashboardService を Context に注入。
+// 既存 +page.svelte は本 service を未使用 (UI 等価性保護のため)。
+// follow-up で page 内 logic を順次 service 経由に置き換える。
+// getter 関数を渡すことで data 変化 (navigation 等) に追従できる
+// (Svelte 5 state_referenced_locally 警告を回避)。
+setDashboardService(
+	createProductionDashboardService(() => ({
+		child: data.child ?? null,
+		todayRecorded: [],
+		pointSettings: data.pointSettings,
+	})),
+);
 
 const theme = $derived(data.child?.theme ?? 'pink');
 const uiMode = $derived(data.uiMode ?? 'preschool');
