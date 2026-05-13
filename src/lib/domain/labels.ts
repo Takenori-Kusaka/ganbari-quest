@@ -12,20 +12,25 @@
 // #1913 (UIUX-E): AGE_RANGE_TERMS / POINT_TERMS / CURRENCY_TERMS / FREE_PLAN_TERMS 追加（年齢レンジ / ポイント / 通貨 / 無料プラン訴求 atom 集約）
 // #2058 (UIUX-F-16): AUTONOMY_TERMS 追加（「自律」「自走」→「自分から動きだす」「自分で計画する」LP リフレーム atom、法務文書は法務 review 後の別 PR で対応）
 // #2057 (UIUX-F-13): ADMIN_VIEW_TERMS / STRIPE_PORTAL_TERMS 追加（「管理画面」→「ご家族の見守り画面」rename + Stripe portal 用語分離）
+// #1914 (TECH-F): CHILD_TERMS / PARENT_TERMS / SIGNUP_TERMS / LOGIN_TERMS / CANCEL_TERMS 拡張 — 5 ドメイン用語多重表記 SSOT 集約
 import {
 	ADMIN_VIEW_TERMS,
 	AGE_RANGE_TERMS,
 	AUTONOMY_TERMS,
 	CANCEL_TERMS,
+	CHILD_TERMS,
 	CTA_TERMS,
 	CURRENCY_TERMS,
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
+	LOGIN_TERMS,
 	LP_FAQ_TERMS,
+	PARENT_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
 	PRICE_TERMS,
+	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
 	TRIAL_TERMS,
 } from './terms';
@@ -74,8 +79,8 @@ export const PAGE_TITLES = {
 	statusBenchmark: 'ベンチマーク管理',
 	packs: '活動パック',
 	// 認証
-	login: 'ログイン',
-	signup: 'アカウント登録',
+	login: `${LOGIN_TERMS.canonical}`,
+	signup: `${SIGNUP_TERMS.canonical}`,
 	invite: '招待',
 	forgotPassword: 'パスワードリセット',
 	// セットアップ
@@ -1343,7 +1348,7 @@ export const SETTINGS_LABELS = {
 	accountDeleteTransferTitle: '家族グループに他のメンバーがいます',
 	accountDeleteTransferDesc:
 		'オーナー権限を別のメンバーに移譲するか、家族グループを全て削除するか選択してください。',
-	accountDeleteTransferOption: 'オーナー権限を移譲して退会する',
+	accountDeleteTransferOption: `オーナー権限を移譲して${CANCEL_TERMS.account}する`,
 	accountDeleteFullOption: '家族グループを全て削除する',
 	accountDeleteFullOptionDesc: '全メンバーの所属が解除され、全データが削除されます。',
 	accountDeleteCancelAction: 'キャンセル',
@@ -1474,7 +1479,7 @@ export const LICENSE_PAGE_LABELS = {
 		loading
 			? '処理中...'
 			: `${tier === 'family' ? PLAN_TERMS.family : PLAN_TERMS.standard}プランで始める`,
-	checkoutNote: 'いつでもキャンセル・プラン変更可能',
+	checkoutNote: `いつでも${CANCEL_TERMS.canonical}・プラン変更可能`,
 
 	// 支払い履歴
 	paymentHistoryTitle: '支払い履歴',
@@ -1594,7 +1599,7 @@ export const REPORTS_LABELS = {
 
 	// 週次レポート - 空状態
 	weeklyEmpty: 'レポートがありません',
-	weeklyEmptyNote: '子どもを登録すると、毎週レポートが生成されます',
+	weeklyEmptyNote: `${CHILD_TERMS.honorific}を登録すると、毎週レポートが生成されます`,
 
 	// 週次レポート - カード
 	weeklyChildReport: (childName: string) => `${childName}の 週間レポート`,
@@ -1634,7 +1639,7 @@ export const OPS_LABELS = {
 	kpiLabelActive: 'アクティブ',
 	kpiLabelGracePeriod: '猶予期間',
 	kpiLabelSuspended: '停止中',
-	kpiLabelTerminated: '退会済み',
+	kpiLabelTerminated: `${CANCEL_TERMS.account}済み`,
 	kpiNewThisMonth: (n: number | string) => `+${n} 今月`,
 
 	// プラン別内訳
@@ -1901,8 +1906,7 @@ export const ANALYTICS_LABELS = {
 
 	// AC2: Retention cohort
 	retentionCohortHeading: 'リテンションコホート',
-	retentionCohortDesc:
-		'サインアップ月別のテナント残存率（Day 1 / 7 / 14 / 30 / 60 / 90 時点）。サンプルが少ない月はサンプル不足として表示されます。',
+	retentionCohortDesc: `${SIGNUP_TERMS.canonical}月別のテナント残存率（Day 1 / 7 / 14 / 30 / 60 / 90 時点）。サンプルが少ない月はサンプル不足として表示されます。`,
 	retentionCohortHeading_cohort: 'コホート',
 	retentionCohortHeading_size: 'サイズ',
 	retentionCohortInsufficientSample: 'サンプル不足',
@@ -2089,8 +2093,7 @@ export const GRADUATION_LABELS = {
 
 	// 還元提案セクション
 	rewardSuggestionTitle: 'お子さまへのポイント還元アイデア',
-	rewardSuggestionHint:
-		'子どもががんばって貯めたポイントを、ご家庭で意味のある形に変えていただくための参考例です。',
+	rewardSuggestionHint: `${CHILD_TERMS.honorific}ががんばって貯めたポイントを、ご家庭で意味のある形に変えていただくための参考例です。`,
 	rewardCashLabel: '現金換算の目安',
 	rewardCashDesc: (yenAmount: number) =>
 		`100 pt = 100 円換算 (目安) で、約 ${yenAmount.toLocaleString('ja-JP')} 円相当`,
@@ -2413,7 +2416,7 @@ export const DEMO_SIGNUP_LABELS = {
 	trialHeading: '7日間の無料トライアル',
 	trialSubheading: 'クレジットカード登録不要で今すぐ始められます',
 	ctaStartFree: '無料で はじめる',
-	ctaCancelNote: 'いつでもキャンセルOK・違約金なし',
+	ctaCancelNote: `いつでも${CANCEL_TERMS.canonical}OK・違約金なし`,
 
 	// Value propositions
 	featuresHeading: 'がんばりクエストでできること',
@@ -2448,7 +2451,7 @@ export const DEMO_SIGNUP_LABELS = {
 
 	// Secondary CTA
 	ctaStartTrial: '無料トライアルを はじめる',
-	ctaTrialNote: '7日間無料 ・ いつでもキャンセルOK',
+	ctaTrialNote: `7日間無料 ・ いつでも${CANCEL_TERMS.canonical}OK`,
 
 	// Back to demo
 	backToDemo: 'デモに戻る',
@@ -2710,7 +2713,7 @@ export const DEMO_TOP_LABELS = {
 
 	// Conversion CTA
 	ctaTitle: 'お子さまの冒険、はじめませんか？',
-	ctaNote: '7日間無料 ・ いつでもキャンセルOK',
+	ctaNote: `7日間無料 ・ いつでも${CANCEL_TERMS.canonical}OK`,
 	ctaButton: '無料で はじめる',
 } as const;
 
@@ -3037,8 +3040,8 @@ export const PRICING_PAGE_LABELS = {
 	faqFreePlanQ: `${PLAN_FULL_TERMS.free}でも十分使えますか？`,
 	faqFreePlanA:
 		'はい。プリセットの活動とチェックリストで基本的な機能はお使いいただけます。お子さまの冒険体験は無料でも一切制限ありません。',
-	faqCancelTrialQ: '無料体験中にキャンセルできますか？',
-	faqCancelTrialA: 'はい。無料体験期間中にキャンセルすれば一切課金されません。',
+	faqCancelTrialQ: `無料体験中に${CANCEL_TERMS.canonical}できますか？`,
+	faqCancelTrialA: `はい。無料体験期間中に${CANCEL_TERMS.canonical}すれば一切課金されません。`,
 	faqCancelQ: '解約したらデータはすぐに削除されますか？',
 	// #1647 R42 + #1643 R38 + #1733 R16: 実装 grace-period-service.ts の {free:0, standard:7, family:30} に合わせる
 	// アプリ内 /pricing と LP /site/pricing.html / faq.html / index.html の全てで同一表現を返す SSOT
@@ -3392,8 +3395,8 @@ export const DEMO_REWARDS_LABELS = {
 	selectTemplateTitleDemo: '2. テンプレートを選択（またはカスタム）',
 	confirmGrantTitleDemo: '3. 内容を確認して付与',
 	demoGrantDisabled: 'デモでは報酬を付与できません',
-	ctaTitle: '特別報酬で子どもをもっと応援しませんか？',
-	ctaDesc: '登録すると、テンプレートやカスタム報酬を自由に付与できます。',
+	ctaTitle: `特別報酬で${CHILD_TERMS.honorific}をもっと応援しませんか？`,
+	ctaDesc: `${SIGNUP_TERMS.canonical}すると、テンプレートやカスタム報酬を自由に付与できます。`,
 } as const;
 
 // ============================================================
@@ -3866,7 +3869,7 @@ export const DEMO_LAYOUT_LABELS = {
 	tryRealButton: '本番で使ってみる',
 	planSwitcherLabel: 'プラン体験:',
 	floatingCtaTitle: 'お子さまの ぼうけん、はじめよう！',
-	floatingCtaDesc: '7日間無料・いつでもキャンセルOK',
+	floatingCtaDesc: `7日間無料・いつでも${CANCEL_TERMS.canonical}OK`,
 	floatingCtaButton: '無料で はじめる →',
 } as const;
 
@@ -4486,7 +4489,7 @@ export const LP_RETENTION_LABELS = {
 
 export const BABY_HOME_LABELS = {
 	pageTitle: '準備モード',
-	parentNote: '保護者の方向けの準備ツールです',
+	parentNote: `${PARENT_TERMS.honorific}の方向けの準備ツールです`,
 	waitingTitle: '3歳になるまでもう少し！',
 	waitingDesc: '自分で入力できるようになるまで、楽しみに待っていてね。',
 	ageMonthsLabel: (months: number) => `${months} ヶ月`,
@@ -4560,7 +4563,7 @@ export const LP_VERSUS_LABELS = {
 	row1AnalogTitle: 'お手伝いの種類が増えたり貼る場所がなくなっちゃう',
 	row1DigitalTitle: '自由に子供の活動をカスタマイズ',
 	// #1844: ですます → 体言止め
-	row1DigitalDesc: '子どものフェーズに合わせた活動を予めご用意',
+	row1DigitalDesc: `${CHILD_TERMS.honorific}のフェーズに合わせた活動を予めご用意`,
 	row2AnalogTitle: 'どれだけ頑張ってきたか振り返るのが大変！',
 	row2DigitalTitle: '日々の活動実績をポイントでわかりやすく',
 	// #1844: ですます → 体言止め
@@ -4571,7 +4574,7 @@ export const LP_VERSUS_LABELS = {
 	row4DigitalDesc: 'スマホ・タブレットで連続記録が途切れない',
 	// #1784: 各 row の scrshot alt テキスト（PO 指摘: vc-digital カードに scrshot ゼロ → 4 scrshot 配置）
 	row1ShotAlt: '親管理画面の活動カスタマイズ画面',
-	row2ShotAlt: '子ども入力画面の過去の記録画面',
+	row2ShotAlt: `${CHILD_TERMS.neutral}入力画面の過去の記録画面`,
 	row3ShotAlt: '卒業マイルストーンと履歴エクスポート画面',
 	row4ShotAlt: 'スマホで開ける子供ホーム画面',
 } as const;
@@ -5599,7 +5602,7 @@ export const LP_FAQ_LABELS = {
 	text8: '4. 対応年齢・使い方',
 	text9: '5. 技術的なご質問',
 	text10: 'トライアル・解約について',
-	text11: '7 日間無料トライアルと、いつでもキャンセルできる仕組みについて。',
+	text11: `7 日間無料トライアルと、いつでも${CANCEL_TERMS.canonical}できる仕組みについて。`,
 	text12: '無料トライアルの申込にクレジットカードは必要ですか？',
 	text13: 'いいえ、不要です。',
 	// #1943 (Phase 3 D3): 「無料プラン」atom を PLAN_FULL_TERMS.free 参照化 (LP_FAQ_LABELS 4 件)。
@@ -5607,7 +5610,7 @@ export const LP_FAQ_LABELS = {
 	text15: 'トライアル後は自動で課金されますか？',
 	text16: '自動課金はされません。',
 	text17: `有料プランを継続したい場合のみ、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。`,
-	text18: '途中でキャンセルするとどうなりますか？',
+	text18: `途中で${CANCEL_TERMS.canonical}するとどうなりますか？`,
 	// #1955 (Phase 3 D10): プラン名 atom (PLAN_TERMS) を terms.ts 参照化。猶予期間は data deletion 文脈で TRIAL_TERMS と意味が異なるため文字列直書き維持。
 	text19: `プラン別の猶予期間（読み取り専用）— ${PLAN_TERMS.free}: 即時削除 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日`,
 	text20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
@@ -5618,8 +5621,7 @@ export const LP_FAQ_LABELS = {
 	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	text26: '解約後に再開することはできますか？',
 	text27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
-	text28:
-		'猶予期間終了後にデータが完全に削除された場合は、新規サインアップからのやり直しとなります（過去のデータ復旧はできません）。',
+	text28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
 	text29: '料金・課金について',
 	text30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
 	text31: `${PLAN_FULL_TERMS.free}と有料プランは何が違いますか？`,
@@ -5670,8 +5672,8 @@ export const LP_FAQ_LABELS = {
 	text72: 'エクスポート期間: 通知から終了日まで継続',
 	text73: '終了後: すべてのデータを完全削除',
 	text74: '利用規約',
-	text75: '退会・アカウント削除はすぐにできますか？',
-	text76: `${ADMIN_VIEW_TERMS.canonical}から退会（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。`,
+	text75: `${CANCEL_TERMS.account}・アカウント削除はすぐにできますか？`,
+	text76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。`,
 	text77: '猶予期間終了後、全データは完全に削除されます（復旧はできません）。',
 	text78: 'データはどこに保存されていますか？',
 	text79: 'プライバシーポリシー',
@@ -5719,8 +5721,7 @@ export const LP_FAQ_LABELS = {
 	text114:
 		'PWA（Progressive Web App）としてホーム画面にも追加できます。iOS / Android どちらもサポートしています。',
 	text115: 'オフラインでも使えますか？',
-	text116:
-		'基本的な活動記録はオフラインでも動作します（PWA のキャッシュ機能）。ただしデータ同期・新規アカウント作成・決済などはオンライン接続が必要です。',
+	text116: `基本的な活動記録はオフラインでも動作します（PWA のキャッシュ機能）。ただしデータ同期・新規${SIGNUP_TERMS.canonical}・決済などはオンライン接続が必要です。`,
 	text117:
 		'旅行中や電波の弱い場所でも、お子さまが活動を記録 → ネット復帰時に自動同期、という使い方ができます。',
 	text118: 'ソースコードは公開されていますか？',
@@ -5843,7 +5844,7 @@ export const LP_FLOATING_CTA_LABELS = {
 	// 各 phase の補強コピー（HTML 可、<small> + <strong> のみ想定）
 	heroText: '全機能を家族で試せる<small>7 日間無料</small>',
 	// #1892 (PO-4-6 2 回目指摘): 旧表現の内部 IA 用語撤廃。前段 [03] 顧客語彙「3 つの仕組み」と整合。
-	midText: '3 つの仕組みは 1 分で体験できます<small>サインアップ前に動きを確認</small>',
+	midText: `3 つの仕組みは 1 分で体験できます<small>${SIGNUP_TERMS.canonical}前に動きを確認</small>`,
 	bottomText: 'ここまで読まれた方へ<small>7 日間無料</small>',
 	// 各 phase の CTA ボタン文言（既存 ctaVariants 3 種の範囲内）
 	heroButton: `${FREE_TERMS.tryFree}`,
@@ -5923,7 +5924,7 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k37: '',
 	k38: '&#9312; 朝の準備をスムーズに',
 	k39: '持ち物チェックリスト',
-	k40: '子どもが自分で確認でき、朝の声かけを減らせます。',
+	k40: `${CHILD_TERMS.honorific}が自分で確認でき、朝の声かけを減らせます。`,
 	k41: '&#9313; 冒険のクライマックス',
 	k42: 'ボスバトル',
 	k43: '毎日の努力で貯めたエネルギーでボスに挑戦。小学生から全年齢で使える、冒険の締めくくりです。',
@@ -6001,7 +6002,7 @@ export const LP_INDEX_EXTRA_LABELS = {
 	// #1956 (Phase 3 D11): 'クレジットカード登録不要' = TRIAL_TERMS.noCreditCard 参照化、
 	//   '無料で始める' (k107 / k113) = FREE_TERMS.tryFree 参照化。
 	//   '7 日間' は半角スペース有りで直書き継続。
-	k105: `7 日間無料・${TRIAL_TERMS.noCreditCard} / いつでもキャンセル可能。`,
+	k105: `7 日間無料・${TRIAL_TERMS.noCreditCard} / いつでも${CANCEL_TERMS.canonical}可能。`,
 	k106: '今日からお子さまの「やりたい！」を育てませんか？',
 	k107: `${FREE_TERMS.tryFree}`,
 	k108: 'ご質問・ご要望は',
@@ -6508,7 +6509,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	// #1782: 旧 ① (実績 & 称号 = k23/k24/k25) を削除し、旧 ② (持ち物) を ① にシフト → k26 のままで番号 ① 化
 	k26: '&#9312; 朝の準備をスムーズに',
 	k27: '持ち物チェックリスト',
-	k28: '通学や習い事の持ち物を、子ども自身がタップ確認。',
+	k28: `通学や習い事の持ち物を、${CHILD_TERMS.honorific}自身がタップ確認。`,
 	k29: '朝の「あれ持った？」を減らします。',
 	// #1708 R3-A: k30/k31/k32/k33 (旧 ③ 旧ルーチン-CL) は削除済み
 	// #1782: 旧 ③ (RPG バトル = k34/k35/k36) を ② にシフト → 番号 ② 化
@@ -6736,14 +6737,14 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k8: '<a href="#usage">4. 対応年齢・使い方</a>',
 	k9: '<a href="#technical">5. 技術的なご質問</a>',
 	k10: '<span class="faq-category-num">1</span>トライアル・解約について',
-	k11: '7 日間無料トライアルと、いつでもキャンセルできる仕組みについて。',
+	k11: `7 日間無料トライアルと、いつでも${CANCEL_TERMS.canonical}できる仕組みについて。`,
 	k12: '無料トライアルの申込にクレジットカードは必要ですか？',
-	k13: '<strong>いいえ、不要です。</strong>メールアドレスと Google アカウント（またはメール認証）でサインアップするだけで、クレジットカード情報を入力せずに 7 日間すべての有料機能をお試しいただけます。',
+	k13: `<strong>いいえ、不要です。</strong>メールアドレスと Google アカウント（またはメール認証）で${SIGNUP_TERMS.canonical}するだけで、クレジットカード情報を入力せずに 7 日間すべての有料機能をお試しいただけます。`,
 	k14: `トライアル期間終了時は自動で${PLAN_FULL_TERMS.free}に戻ります。課金への切り替えは必ず${ADMIN_VIEW_TERMS.canonical}からお客さまご自身の操作で行っていただきます。`,
 	k15: 'トライアル後は自動で課金されますか？',
 	k16: `<strong>自動課金はされません。</strong>7 日間のトライアル終了時は、自動的に${PLAN_FULL_TERMS.free}へ戻ります。`,
 	k17: `有料プランを継続したい場合のみ、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。`,
-	k18: '途中でキャンセルするとどうなりますか？',
+	k18: `途中で${CANCEL_TERMS.canonical}するとどうなりますか？`,
 	// #1943 (Phase 3 D3): 「いつでも解約」atom を CANCEL_TERMS.anytime 参照化。
 	//   注: 「解約」(単独) / 「7 日間」(半角空白あり、TRIAL_TERMS.duration='7日間' と不一致) は char-by-char
 	//   一致を維持するため直書き継続 (#1949 section13 / #1954 ctaBottomDesc と同方針)。
@@ -6756,7 +6757,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	k26: '解約後に再開することはできますか？',
 	k27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
-	k28: '猶予期間終了後にデータが完全に削除された場合は、新規サインアップからのやり直しとなります（過去のデータ復旧はできません）。',
+	k28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
 	k29: '<span class="faq-category-num">2</span>料金・課金について',
 	k30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
 	k31: `${PLAN_FULL_TERMS.free}と有料プランは何が違いますか？`,
@@ -6805,8 +6806,8 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k72: 'エクスポート期間: 通知から終了日まで継続',
 	k73: '終了後: すべてのデータを完全削除',
 	k74: '詳しくは <a href="terms.html">利用規約</a> 第 14 条をご覧ください。',
-	k75: '退会・アカウント削除はすぐにできますか？',
-	k76: `${ADMIN_VIEW_TERMS.canonical}から退会（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。`,
+	k75: `${CANCEL_TERMS.account}・アカウント削除はすぐにできますか？`,
+	k76: `${ADMIN_VIEW_TERMS.canonical}から${CANCEL_TERMS.account}（アカウント削除）を申請できます。申請後 30 日間の猶予期間があり、その間に申請を取り消すこともデータをエクスポートすることもできます。`,
 	k77: '猶予期間終了後、全データは完全に削除されます（復旧はできません）。',
 	k78: 'データはどこに保存されていますか？',
 	k79: 'AWS 米国バージニア北部リージョン（us-east-1）のデータベースに暗号化して保存しています。AWS DPA および標準契約条項（SCC）に基づき、改正個人情報保護法第 28 条に整合する形で適切に管理しています。詳細は<a href="privacy.html">プライバシーポリシー</a>第8条（データの国外移転）をご覧ください。',
@@ -6829,7 +6830,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	// #1912 (F-12): FAQ 本文「年齢に応じたプリセット活動を選ぶ」→
 	//   「年齢に応じた、あらかじめ用意された活動を選ぶ」へ顧客語彙化（IT 用語「テンプレート」も含めて精査）。
 	// #2057 (UIUX-F-13): 「管理画面」→ ${ADMIN_VIEW_TERMS.canonical} 経由化
-	k96: '<strong>初日</strong>: サインアップ → お子さま登録 → 年齢に応じた、あらかじめ用意された活動を選ぶ（300+ の中から）',
+	k96: `<strong>初日</strong>: ${SIGNUP_TERMS.canonical} → ${CHILD_TERMS.honorific}登録 → 年齢に応じた、あらかじめ用意された活動を選ぶ（300+ の中から）`,
 	k97: `<strong>毎日</strong>: お子さまが自分で活動を記録 → 保護者は${ADMIN_VIEW_TERMS.canonical}で結果を確認（所要時間 30 秒〜）`,
 	k98: '<strong>週 1 回</strong>: レベルアップ・チャレンジ達成を家族で共有（お楽しみタイム）',
 	k99: '親が毎日新しい活動を作る必要はありません。プリセットをそのまま使うか、年齢が変わった時にテンプレートを切り替えるだけで運用できます。',
@@ -6848,7 +6849,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k112: 'デバイス数の制限はありません。Web ブラウザ（Chrome / Safari / Edge など）があれば、どのデバイスからでもログインしてお使いいただけます。',
 	k113: 'PWA（Progressive Web App）としてホーム画面にも追加できます。iOS / Android どちらもサポートしています。',
 	k114: 'オフラインでも使えますか？',
-	k115: '基本的な活動記録はオフラインでも動作します（PWA のキャッシュ機能）。ただしデータ同期・新規アカウント作成・決済などはオンライン接続が必要です。',
+	k115: `基本的な活動記録はオフラインでも動作します（PWA のキャッシュ機能）。ただしデータ同期・新規${SIGNUP_TERMS.canonical}・決済などはオンライン接続が必要です。`,
 	k116: '旅行中や電波の弱い場所でも、お子さまが活動を記録 → ネット復帰時に自動同期、という使い方ができます。',
 	k117: 'ソースコードは公開されていますか？',
 	k118: 'はい。本サービスのアプリ部分は GitHub で <a href="https://github.com/Takenori-Kusaka/ganbari-quest">ソースコードを公開</a> しています。技術に詳しい方はご自宅のパソコンで同じアプリを動かすこともできます（<a href="selfhost.html">自前運用ガイド</a>）。',
@@ -7016,8 +7017,7 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 		'<h2>第8条（外部送信規律 公表）</h2><p>電気通信事業法第27条の12に基づき、本サービスがサービス提供のために外部に送信する情報を公表します。<strong>送信されるのは技術的な情報のみで、お預かりしたデータの第三者への提供や広告利用は行いません。</strong></p><p>運営者は、電気通信事業法第27条の12（外部送信規律）に基づき、利用者の端末から外部の第三者に送信される情報について、以下のとおり公表します。</p><ol><li><strong>送信される情報</strong>: ページ URL、リファラ、訪問時刻、画面解像度、ブラウザ言語、ユーザーエージェント等の通信ヘッダ情報</li><li><strong>送信先</strong>:<ul><li>Amazon Web Services, Inc.（自社アカウント内 DynamoDB / Lambda / Cognito）</li><li>Stripe, Inc.（課金処理）</li><li>Amazon Web Services (AWS Bedrock)（生成 AI）</li><li>Google LLC (Gemini API)（生成 AI）</li></ul></li><li><strong>利用目的</strong>: ウェブサイトの機能提供および改善 / 課金処理 / コンテンツ生成（活動アイコン・テキスト補助等）</li><li><strong>個人を識別する情報</strong>: 上記の外部送信に際して、運営者は利用者本人を直接識別する情報（氏名・住所・電話番号等）を取得しません。利用者識別子は家族内一意 ID のみであり、外部第三者には送信しません。</li><li><strong>利用者の選択肢</strong>: 利用者は、ブラウザの設定により Cookie をブロックすることで、一部の外部送信を停止することができます。ただし、本サービスの一部機能が利用できなくなる場合があります。</li></ol>',
 	section9:
 		'<h2>第9条（未成年者の取扱い）</h2><p>本サービスは、お子さま（未成年者）が利用することを前提として設計されており、未成年者の保護のために以下の特別な措置を講じています。</p><ol><li><strong>全年齢で親同意フレームワーク運用</strong>: 年齢を問わず、すべてのお子さまの本サービス利用について、保護者（法定代理人）が本利用規約・本ポリシーに同意した上でアカウントを作成・管理します。お子さま本人がアカウントを作成することはできません。</li><li><strong>利用者識別子は家族内一意 ID のみ</strong>: お子さまを識別する情報は、家族グループ内でのみ一意に割り振られる ID であり、学校名・氏名・住所・電話番号等の本人を特定する情報は取得しません。</li><li><strong>利用者本人への直接接触の禁止</strong>: 運営者から、お子さま本人に対するアンケート・通知・メールマガジン等の直接的な接触は一切行いません。本サービスに関する連絡は、すべて保護者宛に行います。</li><li><strong>利用者データの域外送信ゼロ</strong>: お子さまの活動記録・プロフィール等のデータは、運営者が管理する自社 AWS アカウント内 DynamoDB のみで処理し、外部第三者（生成 AI 等を含む）への送信は行いません。</li><li><strong>親による削除請求の優先処理</strong>: 保護者からのお子さまデータ削除請求は、本ポリシー第5条・第6条の手続きに従って優先的に処理します。</li></ol>',
-	section10:
-		'<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>機械学習・AI モデルの学習データへの流用はありません</strong></li><li>子供の識別情報（ニックネーム等）は <strong>Google Gemini API には送信しません</strong>（マスク済み）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>法的根拠</strong>: AWS との間で締結された Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスのサインアップ時に、「サービス提供に必要な範囲でのデータ保存・処理に同意します」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証および Gemini API（生成 AI）。</li></ul></li></ol>',
+	section10: `<h2>第10条（外国にある第三者への提供）</h2><p>本サービスは、AWS（米国バージニア北部リージョン）/ Stripe / Google の各データセンターを利用してサービスを提供しています。これらは「外国にある第三者への提供」（個人情報保護法 §28）に該当しますが、以下の方針を厳守しています:</p><ul><li>お預かりしたデータは <strong>サービス提供のためだけに使用</strong> します</li><li><strong>広告利用・トラッキング・第三者への販売は一切行いません</strong></li><li><strong>機械学習・AI モデルの学習データへの流用はありません</strong></li><li>${CHILD_TERMS.neutral}の識別情報（ニックネーム等）は <strong>Google Gemini API には送信しません</strong>（マスク済み）</li></ul><p>運営者は、個人情報保護法第28条に基づき、利用者の個人データを外国にある第三者へ提供することについて、以下のとおり情報を提供し、利用者の同意を取得します。</p><ol><li><strong>移転先国</strong>: 米国（AWS バージニア北部リージョン: us-east-1）</li><li><strong>第三者の名称</strong>: Amazon Web Services, Inc.（米国デラウェア州法人）</li><li><strong>法的根拠</strong>: AWS との間で締結された Data Processing Addendum (DPA) および標準契約条項 (Standard Contractual Clauses, SCC) に基づき、個人情報の保護に関して日本と同等の水準にあると認められる体制を整備しています。</li><li><strong>移転される情報の範囲</strong>: 利用者識別子（家族内一意 ID）、活動記録、課金関連情報（決済情報そのものは Stripe で処理され、運営者および AWS のサーバーには保存されません）</li><li><strong>本人同意の取得</strong>: 上記の外国にある第三者への提供については、本サービスの${SIGNUP_TERMS.canonical}時に、「サービス提供に必要な範囲でのデータ保存・処理に同意します」のチェックボックス（広告利用・第三者への販売・機械学習への流用を行わない旨の説明とともに表示）により、利用者から明示的に同意を取得します。同意されない場合、本サービスをご利用いただくことができません。</li><li><strong>その他の外国にある第三者</strong>:<ul><li><strong>Stripe, Inc.</strong>（米国） — 決済情報の処理。Stripe は PCI DSS Level 1 認証を取得しています。</li><li><strong>Google LLC</strong>（米国） — OAuth 認証および Gemini API（生成 AI）。</li></ul></li></ol>`,
 	section11:
 		'<h2>第11条（本ポリシーの変更）</h2><ol><li>運営者は、法令の改正、社会情勢の変化、またはサービス内容の変更に伴い、本ポリシーを変更することがあります。</li><li>重要な変更を行う場合は、本サービス上での通知またはメールにより、変更内容と施行日をお知らせします。</li><li>本ポリシーの重要な変更後に本サービスを継続して利用される場合、利用者には変更後のポリシーに対する再同意を求める場合があります。</li></ol>',
 	section12:
