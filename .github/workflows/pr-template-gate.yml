@@ -29,8 +29,10 @@ permissions:
 jobs:
   # ============================================================
   # Job 1: 必須セクション存在確認
-  # PULL_REQUEST_TEMPLATE.md から ## 見出しを動的抽出し、
-  # PR 本文に全て含まれているかを確認する。
+  # `.github/PR_TEMPLATE_SECTIONS.json` (Issue #2060 SSOT) を読み込み、
+  # PR 本文に全 `## ` 見出しが含まれているかを確認する。
+  # JSON が無い場合は PULL_REQUEST_TEMPLATE.md からの動的抽出にフォールバックする。
+  # JSON と template の同期は別 workflow (check-pr-template-sections-sync) が検証する。
   # ============================================================
   check-section-presence:
     name: "必須セクションの存在確認"
@@ -40,14 +42,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          # PR の HEAD を SSOT として template を読み込む (#1855)。
+          # PR の HEAD を SSOT として template / JSON を読み込む (#1855 / #2060)。
           # 設計意図「テンプレートを変更しても本ファイルの修正は不要」に整合させるため、
           # base.ref ではなく head.sha を読む。これにより template refactor PR で
           # PR body に旧 template の見出しを placeholder として残すはりぼて運用を排除。
           # トレードオフ: PR が `## 見出し` 削除と PR body 内の該当文字列削除を同時に行った
           # 場合の検出力は低下するが、code review で diff が可視のため運用上の損失は軽微。
           ref: ${{ github.event.pull_request.head.sha }}
-          sparse-checkout: .github/PULL_REQUEST_TEMPLATE.md
+          sparse-checkout: |
+            .github/PULL_REQUEST_TEMPLATE.md
+            .github/PR_TEMPLATE_SECTIONS.json
           sparse-checkout-cone-mode: false
       - name: Verify required sections exist
         uses: actions/github-script@v9
@@ -65,23 +69,43 @@ jobs:
               return;
             }
 
-            // テンプレートから ## 見出しを動的抽出
-            const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
-            const sections = template.split('\n')
-              .filter(l => /^## /.test(l))
-              .map(l => l.trim());
+            // Issue #2060: SSOT JSON を優先読み込み (template との同期は別 workflow で検証)。
+            // JSON 不在時は template から動的抽出にフォールバックして互換性を担保。
+            let sections = [];
+            let sourceLabel = '';
+            const ssotPath = '.github/PR_TEMPLATE_SECTIONS.json';
+            if (fs.existsSync(ssotPath)) {
+              try {
+                const ssot = JSON.parse(fs.readFileSync(ssotPath, 'utf-8'));
+                if (Array.isArray(ssot.sections)) {
+                  sections = ssot.sections.map(String);
+                  sourceLabel = 'PR_TEMPLATE_SECTIONS.json (SSOT)';
+                }
+              } catch (err) {
+                core.warning(`SSOT JSON parse 失敗: ${err.message}. template fallback します`);
+              }
+            }
+            if (sections.length === 0) {
+              const template = fs.readFileSync('.github/PULL_REQUEST_TEMPLATE.md', 'utf-8');
+              sections = template.split('\n')
+                .filter(l => /^## /.test(l))
+                .map(l => l.trim());
+              sourceLabel = 'PULL_REQUEST_TEMPLATE.md (fallback)';
+            }
 
             const missing = sections.filter(s => !body.includes(s));
 
             if (missing.length > 0) {
               core.setFailed(
                 `❌ PR テンプレートの必須セクションが ${missing.length} 件削除されています。\n\n` +
+                `参照 SSOT: ${sourceLabel}\n\n` +
                 `削除されたセクション:\n${missing.map(s => `  • ${s}`).join('\n')}\n\n` +
                 'PR テンプレート (.github/PULL_REQUEST_TEMPLATE.md) のセクション見出し (## ...) を削除しないでください。\n' +
-                '内容が該当しない場合は「N/A」または「該当なし」と記載してください。'
+                '内容が該当しない場合は「N/A」または「該当なし」と記載してください。\n\n' +
+                'ローカル検証: `node scripts/check-pr-body.mjs --body-file <path> --skip-mergeable`'
               );
             } else {
-              core.info(`✅ 必須セクション ${sections.length} 件 — 全て存在`);
+              core.info(`✅ 必須セクション ${sections.length} 件 — 全て存在 (source: ${sourceLabel})`);
             }
 
   # ============================================================

@@ -1,0 +1,43 @@
+name: PR template SSOT 同期検証
+
+# Issue #2060: .github/PULL_REQUEST_TEMPLATE.md と
+# .github/PR_TEMPLATE_SECTIONS.json (SSOT) の整合性を検証する drift gate。
+#
+# 設計背景:
+#   PR #2039 / #2043 で「必須セクション 12 件全欠落」が連続再発。
+#   pr-template-gate.yml の `必須セクションの存在確認` job が SSOT JSON を読むようになったが、
+#   template だけ更新して JSON を更新し忘れる drift を防ぐ必要がある。
+#
+# 検証対象:
+#   PR で `.github/PULL_REQUEST_TEMPLATE.md` または `.github/PR_TEMPLATE_SECTIONS.json` が
+#   変更された場合に、両者の `## ` 見出し配列が完全一致するかを検証する。
+#
+# 修正方法:
+#   `node scripts/check-pr-template-sections-sync.mjs --fix` で JSON を template から再生成する。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/PR_TEMPLATE_SECTIONS.json'
+      - 'scripts/check-pr-template-sections-sync.mjs'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-sync:
+    name: "PR template ↔ SSOT JSON 整合性"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Run sync check
+        run: node scripts/check-pr-template-sections-sync.mjs

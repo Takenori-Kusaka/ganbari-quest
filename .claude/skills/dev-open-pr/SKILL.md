@@ -1,6 +1,6 @@
 ---
 name: Dev Open PR
-description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari-quest, or when transitioning a Draft PR to Ready for Review. Initializes PR body from a kind-specific template, auto-populates fields extracted from the linked Issue (title / AC list / labels), enforces SSOT alignment with .github/PULL_REQUEST_TEMPLATE.md, and provides a 4 必須 CI gate チェックリスト for Ready 化 (AC 検証マップ / 必須セクション / `[x]` 完了 / SS 4 スロット). Replaces ad-hoc per-PR boilerplate re-invention.
+description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari-quest, or when transitioning a Draft PR to Ready for Review. Initializes PR body from a kind-specific template, auto-populates fields extracted from the linked Issue (title / AC list / labels), enforces SSOT alignment with .github/PULL_REQUEST_TEMPLATE.md + .github/PR_TEMPLATE_SECTIONS.json (#2060), and provides a 4 必須 CI gate チェックリスト for Ready 化 (AC 検証マップ / 必須セクション / `[x]` 完了 / SS 4 スロット). Before Ready 化, verify all 13 required sections are present via check-pr-body.mjs (PR #2039 / #2043 連続再発防止). Replaces ad-hoc per-PR boilerplate re-invention.
 ---
 
 > **親 SSOT**: [Dev Session](../../../docs/sessions/dev-session.md) / **対称 Skill**: [LP Review (PO Goal 2)](../lp-review/SKILL.md) / [Issue Triage (PO Goal 1)](../issue-triage/SKILL.md)
@@ -84,12 +84,35 @@ npm run pre-ready -- --pr <PR番号後で発番>
 ```
 
 `check-pr-body.mjs` は以下を検出:
-- 必須セクション欠落（PR template SSOT との完全一致）
+- 必須セクション欠落（PR template / SSOT JSON との完全一致、#2060 で SSOT 化）
 - 禁止語混入（`予定` / `follow-up` / `PENDING` / `DEFERRED` / `別途` / `個別起票` / `TODO`）
 - AC 検証マップの 4 列空セル / コメントのみセル
 - Ready チェックリスト未チェック残置
 
-検証 PASS まで雛形を更新する。Skill 雛形は **PR template SSOT に完全準拠** した状態で提供されるが、雛形時点では「AC 検証マップの検証手段 / 結果列」「Ready for Review チェックリスト」が空のため `check-pr-body.mjs` は fail する。**Agent がステップ 2 の穴埋めを完了してから検証 PASS する**設計。穴埋め完了の signal として、本検証 CLI の PASS を使用する。
+検証 PASS まで雛形を更新する。Skill 雛形は **PR template SSOT (`.github/PR_TEMPLATE_SECTIONS.json` 経由) に完全準拠** した状態で提供されるが、雛形時点では「AC 検証マップの検証手段 / 結果列」「Ready for Review チェックリスト」が空のため `check-pr-body.mjs` は fail する。**Agent がステップ 2 の穴埋めを完了してから検証 PASS する**設計。穴埋め完了の signal として、本検証 CLI の PASS を使用する。
+
+### Ready 化前必須 step: 必須セクション全件存在確認 (#2060)
+
+`gh pr ready <num>` の**直前**に、SSOT JSON との完全一致を必ず確認すること。PR #2039 / #2043 で「必須セクション 12 件全欠落」が連続再発した教訓 (#2060):
+
+```bash
+# 既存 PR の body を取得して SSOT JSON と diff
+gh pr view <num> --json body --jq .body > /tmp/pr-body-check.md
+node scripts/check-pr-body.mjs --body-file /tmp/pr-body-check.md --skip-mergeable
+# missing-required-sections 違反が出たら .github/PR_TEMPLATE_SECTIONS.json から逐語コピーして補完
+```
+
+不足セクションがある場合の修正フロー:
+1. `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列から不足見出しを **逐語コピー**
+2. 該当する内容は `## <見出し>` 形式で追加し、書く内容がない場合は `N/A` または `「該当なし（理由）」` を明記
+3. `gh pr edit <num> --body-file <修正後 body>` で更新
+4. 再度 `check-pr-body.mjs` を実行して 0 違反を確認
+
+**SSOT JSON drift 検出 (#2060)**: `.github/PULL_REQUEST_TEMPLATE.md` を更新したら `.github/PR_TEMPLATE_SECTIONS.json` も同期更新が必要。`check-pr-template-sections-sync.yml` workflow が drift を CI で hard-fail させる。手動修正コマンド:
+
+```bash
+node scripts/check-pr-template-sections-sync.mjs --fix
+```
 
 ## ステップ 4: Draft PR 起票 → CI 通過後 Ready 化
 
@@ -137,7 +160,8 @@ rm tmp/pr-bodies/<num>-<slug>.md
 ## SSOT alignment 原則
 
 - **PR template (`.github/PULL_REQUEST_TEMPLATE.md`) が SSOT**。Skill 雛形は template の章立て・チェック項目を完全に踏襲する
-- **template 改訂時は Skill 雛形も同 PR で更新**（`scripts/check-pr-body.mjs` が template から見出しを runtime 抽出するため、見出し追加・削除は Skill 雛形にも追従が必要）
+- **派生 SSOT (`.github/PR_TEMPLATE_SECTIONS.json`) — #2060**: `## ` 見出し配列を JSON 化し、CI workflow / `check-pr-body.mjs` / skill が共通参照する。template と JSON は `check-pr-template-sections-sync.yml` で drift 検出 (hard-fail)
+- **template 改訂時は Skill 雛形 + SSOT JSON も同 PR で更新**（`scripts/check-pr-body.mjs` が template から見出しを runtime 抽出 + SSOT JSON 経由のチェックも行うため、見出し追加・削除は Skill 雛形にも追従が必要。JSON は `node scripts/check-pr-template-sections-sync.mjs --fix` で再生成可）
 - **kind 別追加セクションは template 共通セクションの後ろに append**（template 順序を破壊しない）
 
 ## 関連ドキュメント
@@ -147,7 +171,9 @@ rm tmp/pr-bodies/<num>-<slug>.md
 | [ready-gate-checklist.md](./ready-gate-checklist.md) | **Ready 化前 4 必須 CI gate チェックリスト (Wave 1 知見)** |
 | @docs/sessions/dev-session.md | Dev Session 親 SSOT（PR 作業手順） |
 | @.github/PULL_REQUEST_TEMPLATE.md | PR template SSOT（雛形の見出しを完全一致させる対象） |
+| @.github/PR_TEMPLATE_SECTIONS.json | **#2060: PR template `## ` 見出し SSOT JSON**。CI / skill / check-pr-body.mjs 共通参照 |
 | @scripts/check-pr-body.mjs | PR body セルフチェック CLI（#1775 / ADR-0030） |
+| @scripts/check-pr-template-sections-sync.mjs | **#2060: template ↔ SSOT JSON drift 検出 CLI** (`--fix` で JSON 再生成) |
 | @scripts/check-pr-screenshot.mjs | SS 4 スロット / ローカルパス検証 CLI（#1740 / #1741） |
 | @scripts/pre-ready.mjs | pre-ready 10 step CLI（#1920 で SSOT 検証 step 3 件追加） |
 | @docs/troubleshoot/screenshot_capture.md | SS 撮影 KB（SC-007 screenshots branch 運用 / SC-008 tmp gitignore） |

@@ -1,0 +1,20 @@
+{
+	"$schema": "./PR_TEMPLATE_SECTIONS.schema.json",
+	"description": "Issue #2060 SSOT: PR body 必須セクション (## 見出し) 一覧。.github/PULL_REQUEST_TEMPLATE.md からこの JSON を生成し、CI workflow / dev-open-pr skill / scripts/check-pr-body.mjs が共通参照する。template 更新時は本 JSON も同時更新が必要 (CI gate: scripts/check-pr-template-sections-sync.mjs)。",
+	"source": ".github/PULL_REQUEST_TEMPLATE.md",
+	"sections": [
+		"## 顧客価値・目的",
+		"## 関連 Issue",
+		"## AC 検証マップ (ADR-0004)",
+		"## 変更タイプ",
+		"## 影響範囲・変更コンポーネント",
+		"## テスト & 安全装置セルフチェック",
+		"## スクリーンショット / ビジュアルデモ",
+		"## コード品質セルフレビュー (#1481)",
+		"## 横展開・影響波及チェック",
+		"## レビュー依頼事項・破壊的変更",
+		"## 配布済み env / secret (ADR-0006)",
+		"## Ready for Review チェックリスト",
+		"## QM レビュー結果"
+	]
+}
