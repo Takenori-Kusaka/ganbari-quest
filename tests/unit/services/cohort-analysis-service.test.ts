@@ -246,15 +246,17 @@ describe('getCohortAnalysis', () => {
 	});
 
 	it('リテンションが Day N ごとに返される', async () => {
+		// #2078: 120 日前のコホートを使い、Day 90 経過判定が確実に true になるよう余裕を持たせる。
+		// 旧実装は 100 日前を `monthDate(oldMonth)` (day=15) に丸めていたため、暦の組合せで
+		// 実際の経過日数が ~88 日になり Day 90 で eligibleTenants が空 → retention[90] = null になっていた。
 		const now = new Date();
-		// 90日以上前のコホート
-		const oldDate = new Date(now.getTime() - 100 * 24 * 60 * 60 * 1000);
+		const oldDate = new Date(now.getTime() - 120 * 24 * 60 * 60 * 1000);
 		const oldMonth = `${oldDate.getFullYear()}-${String(oldDate.getMonth() + 1).padStart(2, '0')}`;
 
 		mockListAllTenants.mockResolvedValue([
 			makeTenant({
 				tenantId: 't1',
-				createdAt: monthDate(oldMonth),
+				createdAt: oldDate.toISOString(),
 				status: SUBSCRIPTION_STATUS.ACTIVE,
 			}),
 		]);
@@ -263,11 +265,10 @@ describe('getCohortAnalysis', () => {
 		const result = await getCohortAnalysis(6);
 
 		const oldCohort = result.cohorts.find((c) => c.month === oldMonth);
-		if (oldCohort) {
-			// 90日以上前なので全 Day N が計算されるはず
-			for (const dayN of RETENTION_DAYS) {
-				expect(oldCohort.retention[dayN]).not.toBeNull();
-			}
+		expect(oldCohort).toBeDefined();
+		// 120 日以上前なので全 Day N が計算されるはず (ADR-0006 assertion 強化、#2078)
+		for (const dayN of RETENTION_DAYS) {
+			expect(oldCohort?.retention[dayN]).not.toBeNull();
 		}
 	});
 
