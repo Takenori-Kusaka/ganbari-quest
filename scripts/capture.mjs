@@ -33,7 +33,12 @@ import { createConnection } from 'node:net';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { FlowRecorder, resolvePreset, ScreenshotCapture } from './lib/screenshot-helpers.mjs';
+import {
+	checkBeforeAfterIdentical,
+	FlowRecorder,
+	resolvePreset,
+	ScreenshotCapture,
+} from './lib/screenshot-helpers.mjs';
 
 // ============================================================
 // CLI オプション定義
@@ -146,6 +151,33 @@ Splide.js 初期化待機 (#1825):
                     Splide が存在しないページでは silent skip するため副作用なし
 
   --help            このヘルプを表示
+
+Before / After SS 撮影手順 (#2059 — SS 偽装 5 件連続再発の構造的対策):
+  撮影直後に Before / After sha256 同一検出ガードが走り、完全一致時は exit 1。
+  これは PR #2024 / #2025 / #2040 / #2043 / #2054 で連続発生した
+  「Before SS と After SS が 1 byte も違わない完全同一画像のまま PR body に
+  貼られる」偽装事例への capture script 側ガード (#2063 CI gate と相補)。
+
+  正しい撮影フロー:
+    1. **Before SS は別 worktree で main HEAD を強制 checkout** してから撮影:
+         git worktree add ../gq-main-head main
+         cd ../gq-main-head
+         MSYS_NO_PATHCONV=1 node scripts/capture.mjs --pr <N> --url <path>
+       撮影後に basename を 'before-' prefix に手動 rename し、PR ブランチ側
+       (元の worktree) の同じ出力 dir に移動する
+    2. **After SS は PR HEAD (作業中ブランチ) で撮影**:
+         MSYS_NO_PATHCONV=1 node scripts/capture.mjs --pr <N> --url <path>
+       basename を 'after-' prefix にリネーム
+    3. 同一 dir に before-X.png / after-X.png が揃った状態で再度 capture を実行
+       (または、後段のローカルチェックとして node -e で sha256 を確認) — 同一なら
+       本ガードが exit 1 で停止する
+
+MSYS_NO_PATHCONV=1 必須 (Git Bash on Windows):
+  Git Bash は引数の '/index.html' を 'C:/Program Files/Git/index.html' に
+  自動変換するため、--url や --base-url が壊れる (#2043 で実際に発覚)。
+  必ず以下を先頭に付けて実行する:
+    MSYS_NO_PATHCONV=1 node scripts/capture.mjs ...
+  cmd.exe / PowerShell / Linux / macOS では不要。
 
 トラブルシュート:
   撮影に失敗した / 期待した画面が撮れない場合は KB を参照:
@@ -753,6 +785,17 @@ try {
 	}
 
 	const { screenshots: capturedFiles, domFiles } = result;
+
+	// #2059: Before / After sha256 同一検出ガード
+	// 撮影完了直後にローカル file hash で完全一致を検出し、screenshots branch push 前に
+	// fail-fast する。PR #2024 / #2025 / #2040 / #2043 / #2054 で 5 件連続発生した
+	// SS 偽装事例 (Before SS と After SS が 1 byte も違わない) への構造的対策。
+	// CI gate (#2063, scripts/check-ss-blob-sha-uniqueness.mjs) と相補。
+	const identicalCheck = checkBeforeAfterIdentical(capturedFiles);
+	if (identicalCheck) {
+		console.error(`\n${identicalCheck.message}\n`);
+		process.exit(1);
+	}
 
 	// --pr 指定時: screenshots ブランチに push してから PR body 用 Markdown スニペットを出力
 	if (prNumber !== null && capturedFiles.length > 0) {
