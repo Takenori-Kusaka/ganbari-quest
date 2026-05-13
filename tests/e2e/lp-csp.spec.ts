@@ -105,6 +105,11 @@ test.describe('#1719 / ADR-0029 LP CSP 多層防御', () => {
 			expect(cspContent, 'script-src に jsdelivr を allowlist').toMatch(
 				/script-src[^;]*https:\/\/cdn\.jsdelivr\.net/,
 			);
+			// #2068: connect-src にも jsdelivr を allowlist する必要がある
+			// (ブラウザ DevTools が jsdelivr 配信 JS の sourcemap を connect-src 経由で取得するため)
+			expect(cspContent, 'connect-src に jsdelivr を allowlist (#2068)').toMatch(
+				/connect-src[^;]*https:\/\/cdn\.jsdelivr\.net/,
+			);
 			expect(cspContent, 'style-src に self を含む').toMatch(/style-src[^;]*'self'/);
 			expect(cspContent, "object-src 'none' で <object>/<embed> 禁止").toMatch(
 				/object-src\s+'none'/,
