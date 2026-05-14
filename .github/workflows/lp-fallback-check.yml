@@ -1,0 +1,83 @@
+name: LP fallback check (labels.ts <-> site/*.html data-lp-key)
+
+# #1919 Phase 5 F2: LP fallback テキスト整合 CI
+#
+# 背景:
+#   site/*.html の `<TAG data-lp-key="ns.k">FALLBACK</TAG>` 内側 fallback テキストは
+#   SEO クローラ / JS 失敗時にユーザーに見えるテキストとして残る (`site/shared-labels.js`
+#   による runtime 注入が成功するまでの fallback)。labels.ts (compound) を更新したのに
+#   この fallback を手動同期し忘れると、SEO クローラに古い情報が表示される。
+#
+# 設計:
+#   AC1-AC3 (検査スクリプト): scripts/sync-lp-fallback.mjs --check で実装済み (#1945)。
+#     parse5 で source location 取得し char-by-char 比較、不一致時 exit 1 + 該当ファイル/
+#     行/期待値/実値を表示。
+#   AC4 (本 workflow): site/**, scripts/sync-lp-fallback.mjs, src/lib/domain/labels.ts,
+#     src/lib/domain/terms.ts の変更時のみ実行。GitHub Actions native `paths:` filter で
+#     trigger 自体を絞るため、pulls.listFiles() の pagination 制限 (101+ ファイルで
+#     fallback 関連が 2 ページ目に来ると silent skip) を構造的に回避する。
+#   AC5 (pre-ready 統合): scripts/pre-ready.mjs Step 6 で実装済み (#1920)。
+#
+# 修正方法:
+#   `node scripts/sync-lp-fallback.mjs` を実行して fallback を再生成し、
+#   生成された site/*.html の差分をコミットする。
+#
+# 設計判断 (QA 指摘対応、PR #2073):
+#   旧実装は lp-metrics.yml に統合され、各 job 内の `github-script` で
+#   `pulls.listFiles({per_page: 100})` 1 回呼出により changed file を判定していた。
+#   この方式は 101+ ファイルの rename PR で fallback 関連が 2 ページ目に来た場合に
+#   `changed=false` で silent skip となり、本 job が防ぎたい乖離自体を見逃す致命的な
+#   抜け穴があった。
+#
+#   別 workflow に切り出し、`on: pull_request: paths:` の GitHub Actions native 機能で
+#   trigger を絞ることで、pagination 影響なしに構造的解決とした。
+#   step 内 if ガードロジック (changed 変数) も不要となり設計が単純化された。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'site/**/*.html'
+      - 'site/shared-labels.js'
+      - 'src/lib/domain/labels.ts'
+      - 'src/lib/domain/terms.ts'
+      - 'scripts/sync-lp-fallback.mjs'
+      - '.github/workflows/lp-fallback-check.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'site/**/*.html'
+      - 'site/shared-labels.js'
+      - 'src/lib/domain/labels.ts'
+      - 'src/lib/domain/terms.ts'
+      - 'scripts/sync-lp-fallback.mjs'
+      - '.github/workflows/lp-fallback-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lp-fallback-check:
+    name: Check LP fallback text sync
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run LP fallback sync check
+        # 不一致時は exit 1 + 該当ファイル/行/期待値/実値を表示 (AC3)。
+        # 修正は `node scripts/sync-lp-fallback.mjs` (no --check) を実行して
+        # site/*.html を再生成 -> commit すれば PASS する。
+        run: node scripts/sync-lp-fallback.mjs --check
