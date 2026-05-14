@@ -49,9 +49,12 @@ gh pr checks <num> --watch
 
 ### Gate 2: 必須セクションの存在確認 (`pr-template-gate.yml` 5 ジョブ並列)
 
-**条件**: `.github/PULL_REQUEST_TEMPLATE.md` の `## ` 全見出し (12 セクション) を PR body に**全て含める**こと。
+**条件**: `.github/PR_TEMPLATE_SECTIONS.json` (#2060 SSOT) の `sections` 配列にある `## ` 全見出しを PR body に**全て含める**こと。SSOT JSON が template と同期しているかは `check-pr-template-sections-sync.yml` が別途検証する。
 
-**必須セクション (削除禁止)**:
+**必須セクション (削除禁止、#2060 で 12 → 13 に拡張、`## QM レビュー結果` も SSOT 内)**:
+
+SSOT: `.github/PR_TEMPLATE_SECTIONS.json` の `sections` 配列を**逐語コピー**すること。現時点では以下 13 件 (template 更新時は本ファイル `--fix` で再生成、`scripts/check-pr-template-sections-sync.mjs`):
+
 1. `## 顧客価値・目的`
 2. `## 関連 Issue`
 3. `## AC 検証マップ (ADR-0004)`
@@ -64,24 +67,28 @@ gh pr checks <num> --watch
 10. `## レビュー依頼事項・破壊的変更`
 11. `## 配布済み env / secret (ADR-0006)`
 12. `## Ready for Review チェックリスト`
-
-(`## QM レビュー結果` は QM 記入欄、Dev は雛形のまま残す)
+13. `## QM レビュー結果` (QM 記入欄、Dev は雛形のまま残す)
 
 **確認方法**:
 ```bash
+# SSOT JSON 経由でローカル検証 (#2060)
 node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
-# CI: pr-template-gate.yml「必須セクションの存在確認」ジョブ
+# template ↔ SSOT JSON 同期検証
+node scripts/check-pr-template-sections-sync.mjs
+# CI: pr-template-gate.yml「必須セクションの存在確認」ジョブ + check-pr-template-sections-sync.yml
 ```
 
-**典型的失敗パターン**:
-- Skill 雛形 (`init-pr-body.mjs`) を使わず手書きしてセクションを 1 つ抜かす
+**典型的失敗パターン (#2039 / #2043 教訓)**:
+- Skill 雛形 (`init-pr-body.mjs`) を使わず手書きしてセクションを **12 件全欠落** (#2039 / #2043 連続再発)
 - 「該当なしなのでセクションごと削除」 → fail (該当なしは「N/A」明記が正解)
 - セクション名の表記揺れ (`## AC検証マップ` のように半角空白を消す) → SSOT 不一致で fail
+- template だけ更新して `.github/PR_TEMPLATE_SECTIONS.json` を更新し忘れる → drift gate で fail (#2060)
 
 **修正方法**:
 - **第一選択**: `npm run dev:open-pr -- --issue <num> --kind default` で雛形再生成
 - 該当なしの場合は `「該当なし（理由）」` または `N/A` を本文に明記してセクション自体は残す
-- セクション見出しは `.github/PULL_REQUEST_TEMPLATE.md` から **逐語コピー**
+- セクション見出しは `.github/PR_TEMPLATE_SECTIONS.json` (#2060 SSOT) から **逐語コピー**
+- template 更新時は `node scripts/check-pr-template-sections-sync.mjs --fix` で JSON を再生成
 
 ### Gate 3: PR チェックリスト `[x]` 完了確認
 
