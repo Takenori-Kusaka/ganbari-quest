@@ -7,13 +7,37 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 
 # Issue 起票フェーズゲート
 
-新しい Issue を起票する前に、以下の 6 ステップを順番に実行してください。
+新しい Issue を起票する前に、以下の 7 ステップを順番に実行してください。
 
 ## ステップ 1: 根本原因の特定（ADR-0003）
 
 - 症状ではなく原因を特定する
 - 「X が壊れている」ではなく「Y の処理で Z が考慮されていないため X が発生」
 - 再現手順を明記
+
+## ステップ 1.5: SSOT namespace 重複検査（#2061、ADR-0045）
+
+Issue body draft 内に `XXX_LABELS` / `XXX_TERMS` 形式の namespace 名が含まれる場合、
+`src/lib/domain/{terms,labels}.ts` および open Issue との scope 重複を機械的に検査する。
+
+**起票事故の前例**: PR #2041 (#1898) / PR #2044 (#1896) で同名 `LP_FAQ_TERMS` を別 scope で
+2 回 export しようとして TypeScript duplicate identifier conflict が発生 (Issue #2061)。
+
+```bash
+# Issue body を tmp/issue-bodies/<slug>.md に Write tool で保存した直後に実行
+node scripts/check-namespace-duplicate.mjs tmp/issue-bodies/<slug>.md
+
+# open Issue も同時に検索 (gh CLI 認証済みが前提)
+node scripts/check-namespace-duplicate.mjs tmp/issue-bodies/<slug>.md --check-open-issues
+```
+
+衝突検出時の対応指針 (script 出力にも含まれる):
+
+- **A) scope 統合**: 既存 namespace を superset として採用、本 Issue を既存 Issue にマージ
+  (重複側を close / `blocked_by` で関連付け)
+- **B) 命名衝突回避**: 新 namespace 名を変更 (例: `LP_FAQ_TERMS` → `LP_FAQ_DISCLAIMER_TERMS`)
+- **C) 意図的な拡張**: 既存 namespace に key を追加するだけなら scope 重複は誤検知。
+  Issue body に「既存 `XXX_TERMS` の key 追加のみ」と明記して進める
 
 ## ステップ 2: Pre-PMF バイアスチェック（ADR-0010）
 
@@ -81,9 +105,11 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 ```bash
 # 1. 本文を Write tool または cat で tmp/issue-bodies/ に保存
 #    例: tmp/issue-bodies/cron-secret-rotation.md
-# 2. 起票
+# 2. (#2061) SSOT namespace 重複検査 — body 内に XXX_LABELS / XXX_TERMS があれば実行
+node scripts/check-namespace-duplicate.mjs tmp/issue-bodies/<slug>.md --check-open-issues
+# 3. 起票
 gh issue create --title "..." --label "..." --body-file tmp/issue-bodies/<slug>.md
-# 3. 起票成功を確認してから削除（古い draft が混ざらないように）
+# 4. 起票成功を確認してから削除（古い draft が混ざらないように）
 rm tmp/issue-bodies/<slug>.md
 ```
 
