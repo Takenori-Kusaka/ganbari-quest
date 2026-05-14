@@ -2,10 +2,10 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | **accepted (2026-05-01)** |
+| ステータス | **accepted (2026-05-01、2026-05-14 connect-src amendment #2068)** |
 | 日付 | 2026-05-01 |
 | 起票者 | PO |
-| 関連 Issue | #1719 / #1683 / #1701 / #1705 |
+| 関連 Issue | #1719 / #1683 / #1701 / #1705 / #2068 (connect-src amendment) |
 | 関連 ADR | ADR-0010 (Pre-PMF スコープ) / ADR-0024 (インフラ PR baseline) / ADR-0025 (LP SSOT 注入機構 + DOMPurify) |
 
 ## コンテキスト
@@ -70,7 +70,7 @@ GitHub Pages では HTTP レスポンスヘッダー（`Content-Security-Policy:
 CSP 内容（全 10 ファイル共通）:
 
 ```html
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self'">
 ```
 
 各指令の根拠:
@@ -82,7 +82,7 @@ CSP 内容（全 10 ファイル共通）:
 | `style-src` | `'self' 'unsafe-inline' https://cdn.jsdelivr.net` | `'unsafe-inline'`: 一部 inline `style="..."` 属性 (13 件 / 3 ファイル) と JSDOM 互換用。`https://cdn.jsdelivr.net`: splide-core CSS (index.html) |
 | `img-src` | `'self' data: blob:` | LP 内画像 + favicon (PNG) + OGP + 開発時の data: URI |
 | `font-src` | `'self'` | 外部フォント未使用（system-ui のみ） |
-| `connect-src` | `'self'` | 動的 fetch / XHR は無し（LP は完全静的） |
+| `connect-src` | `'self' https://cdn.jsdelivr.net` | 動的 fetch / XHR は無いが、ブラウザ DevTools が読み込んだ jsDelivr 配信 JS の sourcemap (`.map`) を connect-src 経由で取得しようとする (#2068)。`'self'` のみだと Chrome console に CSP violation 3 件 (splidejs / DOMPurify / budoux の sourcemap) が常時表示される。jsDelivr は既に `script-src` で許可済の origin なので sourcemap も同許可で揃える（OWASP CSP Cheat Sheet 整合）。実害となる動的 fetch / XHR は LP に無し、ホワイトリストは sourcemap 取得のみ |
 | `object-src` | `'none'` | プラグイン (`<object>` / `<embed>`) 一切禁止 |
 | `base-uri` | `'self'` | `<base>` 経由の URL 書き換え攻撃を防止 |
 | `form-action` | `'self'` | フォーム submit 先を同 origin に限定（contact form は `mailto:` なので `'self'` で問題なし、ブラウザ側で `mailto:` は除外扱い） |
