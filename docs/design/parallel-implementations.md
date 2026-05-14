@@ -108,7 +108,8 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 **同期メカニズム**:
 - **現状（手動）**: 本番コード変更 → デモ画面を手動で追従
 - **Tier 2 (Issue #2069 / ADR-0046、2026-05-14 POC 完了)**: Service Interface + Svelte 5 Context DI 機構を `$lib/services/` に整備。child home の demo ページが `DashboardView` 経由で共通化された (POC 1 ページ)。残ページは follow-up Issue で段階適用 (#2069 follow-ups)
-- **Tier 3（#566 で予定）**: 本番側 `+page.svelte` も `DashboardView` 経由に統合し、本ペアを根絶する
+- **Tier 2.5 (Issue #2084 / ADR-0046 follow-up、2026-05-14 完了)**: 本番 child home `+page.svelte` (1093 行) を `getDashboardService().getHomeData()` 経由 + 派生コンポーネント `ProdDashboardSections.svelte` への共通 UI 集約 (MustProgressBar / activity grid / SiblingRanking / ActivityEmptyState) で統合完了。本番固有のオーバーレイ / FSM / xp animation は page 側に残す。`+page.svelte` は 1093 → 986 行 (-107 行)、`ProdDashboardSections.svelte` 322 行新設
+- **Tier 3（#566 で予定）**: 本番側と demo 側で完全同一の `DashboardView` を使うところまで統合し、本ペアを根絶する。本派生 `ProdDashboardSections` が demo / 本番共通 SSOT 化する設計を継承予定
 
 **修正時チェック**:
 - 新しいページを追加したら `src/routes/demo/(child)/[mode]/<新ページ>` も作ること

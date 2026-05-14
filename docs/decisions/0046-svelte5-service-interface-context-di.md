@@ -2,10 +2,10 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted (POC: child home 1 ページ + write API 拡張) |
-| 日付 | 2026-05-14 (#2069) / 2026-05-14 #2085 で write API 追加 |
-| 起票者 | Dev Agent (Issue #2069 / #2085) |
-| 関連 Issue | #2069 / #2085 |
+| ステータス | accepted (POC: child home 1 ページ + write API 拡張 + 本番 child home 統合 #2084 完了) |
+| 日付 | 2026-05-14 (#2069 / #2085 / #2084) |
+| 起票者 | Dev Agent (Issue #2069 / #2085 / #2084) |
+| 関連 Issue | #2069 / #2085 / #2084 |
 
 ## コンテキスト
 
@@ -46,7 +46,12 @@ LP 撮影用デモ画面 (`/demo/`) と本番アプリ画面 (`/(child)/`) は U
 
 - 並行実装ペア (本番 vs demo child home) のうち demo 側が共通 `DashboardView` を使うようになり、機構レベルの SSOT が確立
 - `ChildDashboardService` interface に write API (`recordActivity` / `cancelRecord` / `claimLoginBonus` / `toggleActivityPin`) を **Issue #2085 で追加済**。本番側は既存 REST `/api/v1/...` を fetch で呼ぶ thin wrapper、demo 側は sessionStorage 経由で in-memory state を書き戻す。両実装の動作差は discriminated union (`{ok, error}`) で型レベルに整列
-- POC scope のため本番 UI は完全に保持され (1094 行 +page.svelte 未変更)、リグレッション リスクが最小化される
+- **Issue #2084 (2026-05-14 follow-up)**: 本番 `(child)/[uiMode=uiMode]/home/+page.svelte` を以下に refactor:
+  - page 内で `setDashboardService(createProductionDashboardService(() => ({ child, todayRecorded, pointSettings })))` を再注入 (layout 側は `todayRecorded: []` で初期化済のため home page の load 由来 todayRecorded を上書き)
+  - 派生コンポーネント `ProdDashboardSections.svelte` (322 行) を新設し、`MustProgressBar` / activity grid / `SiblingRanking` / `ActivityEmptyState` の共通 render を集約。本派生は内部で `getDashboardService().getHomeData()` を呼び `child` / `todayRecorded` / `pointSettings` を Service 経由参照する
+  - 本番固有のオーバーレイ / FSM / xp animation / 確認 dialog は page 側に残し、本番固有 feature の汚染を回避
+  - 結果: `+page.svelte` 1093 → 986 行 (-107 行)、共通 UI 描画ロジック ~200 行を `ProdDashboardSections` に集約
+- Issue #2085 の write API 拡張により、本番 form action 経由動線も interface 越しに統一できる足場が完成済
 - Pre-PMF (ADR-0010) Bucket A: 二重実装 SSOT 化はメンテ負債削減で適格
 - POC が確立した DI パターンで Pre-PMF 中の各 follow-up Issue (admin / その他 child pages) を起票済 (#2069 follow-ups)
 - Issue #2085 で interface + 実装 + テスト (33 件 PASS) は完備、`DashboardView` の form action 切替 (write API への UI 配線) は #2084 / 別 follow-up で扱う段階導入
