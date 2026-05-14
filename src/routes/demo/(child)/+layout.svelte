@@ -7,6 +7,8 @@ import {
 	ICON_STATUS,
 	ICON_SWITCH,
 } from '$lib/domain/icons';
+// #2097: 本番 +layout.svelte と同じく ショップタブを表示する (PO 8 回目指摘の構造的修正)
+import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode.js';
 import MilestoneBanner from '$lib/features/value-preview/MilestoneBanner.svelte';
 import type { MilestoneId } from '$lib/server/services/value-preview-service';
@@ -58,7 +60,9 @@ const screenshotMilestones = $derived.by(() => {
 	];
 });
 
-// #0289: 本番と同じナビ構成（3項目）に統一
+// #2097: 本番 (`/(child)/+layout.svelte` line 51-57) と完全に同じ 5 ナビ構成
+// (ホーム / 持ち物チェック / ショップ / つよさ / かぞく)。
+// ショップタブを欠落させない (PO 8 回目指摘の構造的修正)。
 const modeLabels = $derived(getModeLabels(uiMode));
 const navItems = $derived([
 	{
@@ -70,6 +74,11 @@ const navItems = $derived([
 		href: `/demo/checklist?childId=${data.child?.id ?? ''}`,
 		icon: ICON_CHECKLIST,
 		label: modeLabels.checklist,
+	},
+	{
+		href: `/demo/${uiMode}/shop?childId=${data.child?.id ?? ''}`,
+		icon: CHILD_SHOP_LABELS.navIcon,
+		label: CHILD_SHOP_LABELS.navLabel,
 	},
 	{
 		href: `/demo/${uiMode}/status?childId=${data.child?.id ?? ''}`,
