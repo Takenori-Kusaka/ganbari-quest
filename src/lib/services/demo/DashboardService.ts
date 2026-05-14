@@ -1,15 +1,24 @@
 /**
- * DemoDashboardService — ADR-0046 (Issue #2069)
+ * DemoDashboardService — ADR-0046 (Issue #2069 + #2085)
  *
  * 未認証 demo 画面用の ChildDashboardService 実装。
  *
- * 設計:
+ * Issue #2069 POC scope:
  *   - SSR 時はサーバ load (`/demo/(child)/[mode]/home/+page.server.ts`) が
  *     `getDemoHomeData()` (`$lib/server/demo/demo-service.ts`) でシード
  *     データを構築する。そのスナップショットを seed として保持。
  *   - クライアント (browser) ではタブ単位の `sessionStorage` から
- *     `record` 等の累積結果を復元できる構造を持つ。POC scope では
- *     read-only `getHomeData()` のみ実装し、write API は follow-up。
+ *     `record` 等の累積結果を復元できる構造を持つ。
+ *
+ * Issue #2085 拡張 scope:
+ *   - write API (recordActivity / cancelRecord / claimLoginBonus /
+ *     toggleActivityPin) を追加。
+ *   - 各 write API は sessionStorage に書き戻し、ページ再 load 後も累積
+ *     結果が維持される。
+ *   - **server-side 経路は呼ばない** (Things Not To Do)。代わりに
+ *     `$lib/server/demo/demo-service.ts` の `demoRecordActivity()` 等が
+ *     返す固定値ロジックを **import せず参照値だけ揃える** (server-only
+ *     module を client から import すると SvelteKit が build エラーを出す)。
  *
  * Reactive 設計:
  *   - SvelteKit の `data` (PageData) は navigation 時に再生成されるため、
@@ -22,20 +31,76 @@
  *   - sessionStorage は SSR では undefined。必ず `typeof window` で
  *     ガードする。SSR で誤って参照すると "window is not defined" で
  *     hydration が壊れる (Issue #2069 Things Not To Do)。
- *   - 現状 demo は単方向 (server load → 表示) のため sessionStorage
- *     書き戻しは行わない。POC 完了後の follow-up で write API を
- *     追加した際に hooks を足す。
+ *   - write API は SSR (window 不在) 環境では in-memory のみで完了し、
+ *     sessionStorage への persist は skip する (best-effort)。
  */
 
-import type { ChildDashboardHomeData, ChildDashboardService } from '../types';
+import type {
+	CancelRecordInput,
+	CancelRecordResult,
+	ChildDashboardHomeData,
+	ChildDashboardService,
+	ClaimLoginBonusResult,
+	RecordActivityInput,
+	RecordActivityWriteResult,
+	ToggleActivityPinInput,
+	ToggleActivityPinResult,
+} from '../types';
 
 /** タブ単位の demo state 隔離キー */
 const DEMO_STORAGE_KEY = 'gq:demo:child-dashboard-home-v1';
+
+/**
+ * Demo 専用の固定戻り値定数。
+ *
+ * 本来は `$lib/server/demo/demo-service.ts` の `demoRecordActivity()` 等が
+ * 同じ値を返すが、client から server-only module を import すると build
+ * 失敗するため、ここで in-line に再定義する (DRY 違反だが境界が明確)。
+ * 数値変更時は `demo-service.ts` 側と同期更新が必要。
+ */
+const DEMO_RECORD_TOTAL_POINTS_BASE = 15; // basePoints(10) + streakBonus(5) 相当
+const DEMO_RECORD_STREAK_DAYS = 3;
+const DEMO_RECORD_STREAK_BONUS = 2;
+const DEMO_CANCEL_REFUNDED_POINTS = 10;
+const DEMO_LOGIN_BONUS_BASE = 5;
+const DEMO_LOGIN_BONUS_MULTIPLIER = 1.5;
+const DEMO_LOGIN_BONUS_TOTAL = 8; // base * multiplier 近似値（demo-service.ts と同期）
+const DEMO_LOGIN_BONUS_CONSECUTIVE = 3;
+const DEMO_LOGIN_BONUS_RANK = 'kichi';
+
+/**
+ * sessionStorage の write 補助関数。
+ * SSR / private mode 等で例外を投げない (best-effort persist)。
+ */
+function safeWriteStorage(data: ChildDashboardHomeData): void {
+	if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
+	try {
+		sessionStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(data));
+	} catch {
+		// QuotaExceeded / private mode 等は黙って諦める
+	}
+}
 
 export class DemoDashboardService implements ChildDashboardService {
 	readonly kind = 'demo' as const;
 
 	readonly #getSeed: () => ChildDashboardHomeData;
+
+	/**
+	 * In-memory pin state (demo 限定)。pin は server-side persist の代わりに
+	 * 本サービスインスタンス内で保持する。ページ navigation で reset しても
+	 * 良い (demo は best-effort)。
+	 */
+	#pinnedActivities = new Set<number>();
+
+	/**
+	 * 直近の record logId。`cancelRecord(input)` の `logId` は demo では
+	 * 検証用途で受け取るのみで、実際は最後の record をキャンセル動作で
+	 * decrement する (demo は activity_log 個別管理を持たない)。
+	 */
+	#lastRecordedActivityId: number | null = null;
+
+	#loginBonusClaimedToday = false;
 
 	constructor(getSeed: () => ChildDashboardHomeData) {
 		this.#getSeed = getSeed;
@@ -70,6 +135,93 @@ export class DemoDashboardService implements ChildDashboardService {
 			return seed;
 		}
 	}
+
+	async recordActivity(input: RecordActivityInput): Promise<RecordActivityWriteResult> {
+		// 現在の home data (seed もしくは restored) を取得
+		const current = this.getHomeData();
+		const recorded = [...current.todayRecorded];
+		const idx = recorded.findIndex((r) => r.activityId === input.activityId);
+		const existing = idx >= 0 ? recorded[idx] : undefined;
+		if (existing) {
+			recorded[idx] = { activityId: input.activityId, count: existing.count + 1 };
+		} else {
+			recorded.push({ activityId: input.activityId, count: 1 });
+		}
+
+		const next: ChildDashboardHomeData = {
+			child: current.child,
+			todayRecorded: recorded,
+			pointSettings: current.pointSettings,
+		};
+		safeWriteStorage(next);
+		this.#lastRecordedActivityId = input.activityId;
+
+		// demo は activity 名前を持たないため、generic な戻り値を返す。
+		// UI 側で `activityName` を補完したい場合は pageData から引く想定。
+		return Promise.resolve({
+			ok: true,
+			logId: Date.now(), // demo 限定の合成 ID (cancelRecord 側は無視)
+			activityName: 'デモ活動',
+			totalPoints: DEMO_RECORD_TOTAL_POINTS_BASE,
+			streakDays: DEMO_RECORD_STREAK_DAYS,
+			streakBonus: DEMO_RECORD_STREAK_BONUS,
+			cancelableUntil: new Date(Date.now() + 30 * 60_000).toISOString(),
+		});
+	}
+
+	async cancelRecord(_input: CancelRecordInput): Promise<CancelRecordResult> {
+		const current = this.getHomeData();
+		if (this.#lastRecordedActivityId === null) {
+			return { ok: false, error: 'NOT_FOUND' };
+		}
+		const recorded = [...current.todayRecorded];
+		const idx = recorded.findIndex((r) => r.activityId === this.#lastRecordedActivityId);
+		const target = idx >= 0 ? recorded[idx] : undefined;
+		if (!target || target.count <= 0) {
+			return { ok: false, error: 'NOT_FOUND' };
+		}
+		// 1 件だけ減算 (count - 1)。0 になったらエントリ削除。
+		const nextCount = target.count - 1;
+		if (nextCount === 0) {
+			recorded.splice(idx, 1);
+		} else {
+			recorded[idx] = { activityId: target.activityId, count: nextCount };
+		}
+
+		const next: ChildDashboardHomeData = {
+			child: current.child,
+			todayRecorded: recorded,
+			pointSettings: current.pointSettings,
+		};
+		safeWriteStorage(next);
+		this.#lastRecordedActivityId = null;
+
+		return Promise.resolve({ ok: true, refundedPoints: DEMO_CANCEL_REFUNDED_POINTS });
+	}
+
+	async claimLoginBonus(): Promise<ClaimLoginBonusResult> {
+		if (this.#loginBonusClaimedToday) {
+			return { ok: false, error: 'ALREADY_CLAIMED' };
+		}
+		this.#loginBonusClaimedToday = true;
+		return Promise.resolve({
+			ok: true,
+			rank: DEMO_LOGIN_BONUS_RANK,
+			basePoints: DEMO_LOGIN_BONUS_BASE,
+			multiplier: DEMO_LOGIN_BONUS_MULTIPLIER,
+			totalPoints: DEMO_LOGIN_BONUS_TOTAL,
+			consecutiveLoginDays: DEMO_LOGIN_BONUS_CONSECUTIVE,
+		});
+	}
+
+	async toggleActivityPin(input: ToggleActivityPinInput): Promise<ToggleActivityPinResult> {
+		if (input.pinned) {
+			this.#pinnedActivities.add(input.activityId);
+		} else {
+			this.#pinnedActivities.delete(input.activityId);
+		}
+		return Promise.resolve({ ok: true, isPinned: input.pinned });
+	}
 }
 
 /**
@@ -86,14 +238,9 @@ export function createDemoDashboardService(
 	return new DemoDashboardService(getSeed);
 }
 
-/** Demo state を sessionStorage に保存する (follow-up write API 用 helper、現状未使用) */
+/** Demo state を sessionStorage に保存する (公開 helper、外部からも使えるよう export) */
 export function persistDemoHomeData(data: ChildDashboardHomeData): void {
-	if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') return;
-	try {
-		sessionStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(data));
-	} catch {
-		// QuotaExceeded / private mode 等は黙って諦める (demo は best-effort)
-	}
+	safeWriteStorage(data);
 }
 
 /** Demo state を sessionStorage からクリアする (テスト / リセットボタン用) */
