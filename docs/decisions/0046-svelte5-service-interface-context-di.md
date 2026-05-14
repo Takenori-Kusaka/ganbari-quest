@@ -2,10 +2,10 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted (POC: child home 1 ページのみ) |
-| 日付 | 2026-05-14 |
-| 起票者 | Dev Agent (Issue #2069) |
-| 関連 Issue | #2069 |
+| ステータス | accepted (POC: child home 1 ページ + write API 拡張) |
+| 日付 | 2026-05-14 (#2069) / 2026-05-14 #2085 で write API 追加 |
+| 起票者 | Dev Agent (Issue #2069 / #2085) |
+| 関連 Issue | #2069 / #2085 |
 
 ## コンテキスト
 
@@ -45,10 +45,11 @@ LP 撮影用デモ画面 (`/demo/`) と本番アプリ画面 (`/(child)/`) は U
 ## 結果
 
 - 並行実装ペア (本番 vs demo child home) のうち demo 側が共通 `DashboardView` を使うようになり、機構レベルの SSOT が確立
-- `ChildDashboardService` interface 拡張で write API (record / cancel / claimBonus) を追加すれば、本番 form action 経由動線も interface 越しに統一できる足場が完成
+- `ChildDashboardService` interface に write API (`recordActivity` / `cancelRecord` / `claimLoginBonus` / `toggleActivityPin`) を **Issue #2085 で追加済**。本番側は既存 REST `/api/v1/...` を fetch で呼ぶ thin wrapper、demo 側は sessionStorage 経由で in-memory state を書き戻す。両実装の動作差は discriminated union (`{ok, error}`) で型レベルに整列
 - POC scope のため本番 UI は完全に保持され (1094 行 +page.svelte 未変更)、リグレッション リスクが最小化される
 - Pre-PMF (ADR-0010) Bucket A: 二重実装 SSOT 化はメンテ負債削減で適格
 - POC が確立した DI パターンで Pre-PMF 中の各 follow-up Issue (admin / その他 child pages) を起票済 (#2069 follow-ups)
+- Issue #2085 で interface + 実装 + テスト (33 件 PASS) は完備、`DashboardView` の form action 切替 (write API への UI 配線) は #2084 / 別 follow-up で扱う段階導入
 
 ## 関連
 
