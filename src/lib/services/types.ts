@@ -172,3 +172,308 @@ export interface ChildDashboardService {
 	 */
 	toggleActivityPin(input: ToggleActivityPinInput): Promise<ToggleActivityPinResult>;
 }
+
+// ============================================================================
+// ADR-0047: UI Contract SSOT (Phase 1 — 型定義のみ、Phase 2 で toViewModel() 実装)
+// ============================================================================
+//
+// 本 section は ADR-0047 で確定した「UI Contract 層」の型定義を提供する。
+// ADR-0046 (Service Interface + Context DI) の上に乗る、追加層であり、
+// DashboardView 等の UI コンポーネントは Phase 2 以降で本 ViewModel のみを受け取る
+// (`PageData as never` キャスト排除)。
+//
+// 設計原則 (ADR-0047 §決定):
+//   1. production / demo 両 Service が `toViewModel()` で同じ shape を生成
+//   2. DashboardView は `ChildHomeViewModel` 以外の型を一切受け取らない (型強制)
+//   3. divergence (進捗 UI / shop tab 等) は ViewModel field として明示化、隠蔽しない
+//   4. type union (`progressDisplay.type`) は demo / production の identity ではなく
+//      「子供の年齢 / プラン状態」コンテキストに紐付ける (深層調査 §5 案 B 失敗回避策)
+//
+// 関連:
+//   - ADR-0047: Demo / 本番 UI Contract SSOT
+//   - 深層調査: docs/research/2097-demo-prod-unification-architecture-deep-research.md
+//   - 禁止語 SSOT: docs/decisions/forbidden-escape-language.md
+//   - PO 13 質問回答: Issue #2097 本文 §更新 2026-05-14
+
+// ---------------------------------------------------------------------------
+// 子供画面 ViewModel (`ChildHomeViewModel`)
+// ---------------------------------------------------------------------------
+
+/**
+ * 子供画面 (child home) で必要となる UI Contract。
+ *
+ * production / demo 両 Service が `toViewModel()` で本型と完全一致する shape を生成し、
+ * `DashboardView` は本型以外を受け取らない (型強制 SSOT)。
+ *
+ * 機能セット parity (Q5 = B 子供は買える / Q6 = B 51+ Activity / Q7 = C 5 年齢モード全提供) を
+ * field レベルで明示化することで、divergence を contract 違反として検出可能にする。
+ */
+export interface ChildHomeViewModel {
+	/** 表示中の子供 (header / profile area で表示)。null は SSR 初期状態のみ許容 */
+	child: ChildHomeChild;
+
+	/**
+	 * 通貨表示 (Q4 = A demo 固定 P、production は設定追従)。
+	 *
+	 * - demo: 常に `{ symbol: 'P', code: 'POINTS' }`
+	 * - production: PointSettings から導出 (将来円対応時は `symbol: '¥', code: 'JPY'` も追加可能)
+	 */
+	currency: ChildHomeCurrency;
+
+	/**
+	 * 進捗表示 (年齢モード / プラン状態で type 切替、demo / production の identity 固定 NG)。
+	 *
+	 * 深層調査 §5 案 B 失敗リスク回避: type union は「demo は今日のおやくそく、本番は Lv 表示」
+	 * のような identity 固定ではなく、「baby / 親プラン → today-missions、elementary 以上で
+	 * standard プラン → category-level」のようなコンテキスト法則で切替わる。
+	 */
+	progressDisplay: ChildHomeProgressDisplay;
+
+	/**
+	 * Activity grid (51+ 件、5 カテゴリ × 各複数件、マーケットプレイス pack SSOT)。
+	 *
+	 * - demo: `src/lib/data/marketplace/activity-packs/*.json` (12 pack) から年齢 / 性別で seed
+	 * - production: 家族別の DB データを Drizzle から取得
+	 * - 件数 contract: Q6 = B (51+、本番同等)
+	 */
+	activities: readonly ChildHomeActivity[];
+
+	/**
+	 * 9 feature の表示可否 contract。demo / production で異なる feature を ViewModel field で
+	 * 明示化することで、`<DashboardView>` 内に `if (service.kind === 'demo')` 分岐を書かない (ADR-0046 整合)。
+	 *
+	 * Phase 1 では全 feature の boolean field のみ定義。Phase 2 で各 feature の実装に配線する。
+	 */
+	features: ChildHomeFeatureFlags;
+
+	/** 5 年齢モード (Q7 = C 全モード提供、baby = ADR-0011 親準備モード) */
+	uiMode: 'baby' | 'preschool' | 'elementary' | 'junior' | 'senior';
+
+	/**
+	 * 年齢 / プラン状態コンテキスト。
+	 *
+	 * `progressDisplay.type` 切替判定や、baby モードでの ADR-0011 親準備モード判定に使う。
+	 * UI が「年齢を見て分岐」するのではなく、ViewModel が事前に分岐済み状態を渡す方針。
+	 */
+	ageContext: ChildHomeAgeContext;
+}
+
+/** child header / profile に必要なフィールド (subset of Child) */
+export interface ChildHomeChild {
+	id: number;
+	nickname: string;
+	pointBalance: number;
+	level: number;
+	xpToNextLevel: number;
+	xpInLevel: number;
+	streakDays: number;
+	uiMode: 'baby' | 'preschool' | 'elementary' | 'junior' | 'senior';
+}
+
+/** 通貨表示 contract (Q4) */
+export interface ChildHomeCurrency {
+	/** 表示記号 (UI 用、'P' or '¥' 等) */
+	symbol: string;
+	/** internal code (将来円対応時に使う、現状は 'POINTS' 固定) */
+	code: 'POINTS' | 'JPY';
+}
+
+/**
+ * 進捗表示 type union (深層調査 §5 案 B core)。
+ *
+ * **identity 固定 NG**: demo / production を identity で固定すると、deep research §5 案 B の
+ * 失敗リスクが発現する。type 切替は **コンテキスト法則** (年齢 / プラン状態) に従わせる。
+ */
+export type ChildHomeProgressDisplay =
+	| {
+			/**
+			 * カテゴリ別レベル表示 (5 カテゴリそれぞれの level + XP bar)。
+			 *
+			 * 適用コンテキスト: elementary 以上 + standard プラン以上 (production / demo 両方で発現可能)
+			 */
+			type: 'category-level';
+			categories: readonly {
+				id: number;
+				name: string;
+				level: number;
+				xpPercent: number; // 0-100
+			}[];
+	  }
+	| {
+			/**
+			 * 今日のおやくそく / ミッション表示 (must / daily の status)。
+			 *
+			 * 適用コンテキスト: baby / preschool / または free プラン (production / demo 両方で発現可能)
+			 */
+			type: 'today-missions';
+			mustStatus: {
+				completed: number;
+				total: number;
+			};
+			dailyMissions: {
+				completed: number;
+				total: number;
+			};
+	  };
+
+/** Activity grid 1 件分 */
+export interface ChildHomeActivity {
+	id: number;
+	name: string;
+	icon: string; // emoji or asset path
+	categoryId: number;
+	categoryName: string;
+	pointReward: number;
+	streakBonus: number;
+	isPinned: boolean;
+	/** 今日記録済み件数 (UI: badge 表示) */
+	todayRecorded: number;
+	/** 必須活動かどうか (must / daily mission) */
+	isMust: boolean;
+}
+
+/**
+ * 9 feature の表示可否 contract。
+ *
+ * - 各 field は **boolean のみ** で表現 (action signature は含めない、ADR-0047 §決定 Q5)。
+ * - demo / production で異なる場合は 必ず field レベル divergence として現れる (隠蔽不可)。
+ */
+export interface ChildHomeFeatureFlags {
+	/** Shop タブ表示 (Q5 = B 子供 = 常に true、demo でも実購入動作 sessionStorage) */
+	showShopTab: boolean;
+	/** 活動記録時の XP アニメーション */
+	showXpAnimation: boolean;
+	/** Mission badge (today / streak) 表示 */
+	showMissionBadge: boolean;
+	/** Pin (ピン留め) ボタン表示 */
+	showPinButton: boolean;
+	/** Event badge (期間限定イベント) 表示 */
+	showEventBadge: boolean;
+	/** Sibling ranking (兄弟ランキング) 表示 */
+	showSiblingRanking: boolean;
+	/** Birthday bonus 表示 */
+	showBirthdayBonus: boolean;
+	/** Monthly reward 表示 */
+	showMonthlyReward: boolean;
+	/** Stamp card 表示 (おみくじスタンプ) */
+	showStampCard: boolean;
+}
+
+/**
+ * 年齢 / プラン状態コンテキスト。
+ *
+ * `progressDisplay.type` の切替判定および baby モード判定の SSOT。
+ * UI 層で `if (uiMode === 'baby')` を書かない (ADR-0015 アンチパターン A1 回避)。
+ */
+export interface ChildHomeAgeContext {
+	/** baby (0-2 歳) = ADR-0011 親準備モード (子供画面ではなく親 UI 表示) */
+	isBabyParentMode: boolean;
+	/** ageTier コード (`age-tier.ts` から取得) */
+	ageTier: 'baby' | 'preschool' | 'elementary' | 'junior' | 'senior';
+	/** plan tier (production = 実プラン / demo = 'standard' 固定) */
+	planTier: 'free' | 'standard' | 'family';
+	/** trial 中フラグ (demo = false 固定) */
+	isTrialActive: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// 親画面 ViewModel (`ParentAdminViewModel`)
+// ---------------------------------------------------------------------------
+
+/**
+ * 親画面 (parent admin) 「見せるだけ」UI Contract (Q11 = D)。
+ *
+ * 設計原則 (ADR-0047 §決定 Q11=D + Q5):
+ *   - **action signature を持たない** (read-only fields のみ): 親画面は demo では「クリックできるが
+ *     書込み発生しない」状態をデフォルトとする。型レベルで action callback を含めないことで、
+ *     demo 実装が誤って書込み logic を埋め込まないように構造的阻止
+ *   - production = `isPreviewOnly: false` で同じ ViewModel を使うが、page 側で action handler を
+ *     別途配線する (Phase 4 で page 側に薄ラッパを設置)
+ *   - demo = `isPreviewOnly: true` で notice バナー表示 + 全 button click no-op
+ *
+ * UI divergence は contract レベルで意図的に許容 (Q11 = D: 親画面は LP 訴求 + 見るだけ)。
+ */
+export interface ParentAdminViewModel {
+	/**
+	 * プレビュー専用モードフラグ (demo / production 識別の唯一の SSOT)。
+	 *
+	 * - demo: `true` → notice バナー表示 + 全 action no-op
+	 * - production: `false` → page 側で action handler 配線
+	 */
+	isPreviewOnly: boolean;
+
+	/**
+	 * プレビュー notice メッセージ (demo only)。
+	 *
+	 * `isPreviewOnly: true` の時のみ含まれる。文言は `PARENT_ADMIN_LABELS.previewNotice` 経由 (ADR-0045)。
+	 * 例: 「これは見るだけのプレビューです。実際のアカウントでお試しいただくにはサインアップしてください。」
+	 */
+	previewNoticeMessage?: string;
+
+	/**
+	 * プリセット (activity packs) 一覧。
+	 *
+	 * 親画面ではプリセット選択 / 追加 / 削除を行うが、demo では visible のみ (action no-op)。
+	 * field は read-only (display 用) のみ含み、action callback signature は ViewModel に含めない。
+	 */
+	presets: readonly ParentAdminReadonlyPreset[];
+
+	/**
+	 * ごほうび (rewards) 一覧。同じく display only。
+	 */
+	rewards: readonly ParentAdminReadonlyReward[];
+
+	/**
+	 * 家族メンバー (children + parents) 一覧。同じく display only。
+	 */
+	members: readonly ParentAdminReadonlyMember[];
+
+	/**
+	 * 親管理画面で表示する追加要素 (Phase 4 で詳細化、Phase 1 では拡張余地として field 定義のみ)。
+	 *
+	 * - reports: 月次レポート (display only、demo はサンプルデータ)
+	 * - settings: 各種設定 (display only)
+	 */
+	reports: readonly ParentAdminReadonlyReport[];
+	settings: ParentAdminReadonlySettings;
+}
+
+/** プリセット (display only) */
+export interface ParentAdminReadonlyPreset {
+	id: number;
+	name: string;
+	activitiesCount: number;
+	description?: string;
+}
+
+/** ごほうび (display only) */
+export interface ParentAdminReadonlyReward {
+	id: number;
+	name: string;
+	pointCost: number;
+	icon: string;
+}
+
+/** 家族メンバー (display only) */
+export interface ParentAdminReadonlyMember {
+	id: number;
+	name: string;
+	role: 'parent' | 'child';
+	uiMode?: 'baby' | 'preschool' | 'elementary' | 'junior' | 'senior';
+	birthday?: string;
+}
+
+/** 月次レポート (display only) */
+export interface ParentAdminReadonlyReport {
+	month: string; // YYYY-MM
+	totalActivities: number;
+	totalPoints: number;
+	topCategoryName: string;
+}
+
+/** 各種設定 (display only) */
+export interface ParentAdminReadonlySettings {
+	notificationEnabled: boolean;
+	cheerMessage: string;
+	autoSleepEnabled: boolean;
+}
