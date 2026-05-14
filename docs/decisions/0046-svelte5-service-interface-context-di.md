@@ -56,9 +56,31 @@ LP 撮影用デモ画面 (`/demo/`) と本番アプリ画面 (`/(child)/`) は U
 - POC が確立した DI パターンで Pre-PMF 中の各 follow-up Issue (admin / その他 child pages) を起票済 (#2069 follow-ups)
 - Issue #2085 で interface + 実装 + テスト (33 件 PASS) は完備、`DashboardView` の form action 切替 (write API への UI 配線) は #2084 / 別 follow-up で扱う段階導入
 
+## ADR-0047 による UI Contract 層追加 (2026-05-14、Issue #2097 Phase 1)
+
+本 ADR (ADR-0046) は Service Interface + Context DI による **データ取得層** の SSOT 化に成功したが、
+`ChildDashboardHomeData` の Drizzle 推論型 `as never` キャストや、`DashboardView.svelte` /
+`ProdDashboardSections.svelte` の **2 ファイル並走** が解消されず、過去 5-7 回失敗 (#531 / #561 /
+#562 / #563 / #566 / #2069 / PR #2099) の haribote 完了報告が #2097 で再発した。
+
+**ADR-0047 (Demo / 本番 UI Contract SSOT)** が本 ADR の上に **UI Contract 層** を追加する:
+
+- `ChildHomeViewModel` / `ParentAdminViewModel` を新規定義 (Phase 1)
+- production / demo 両 Service が `toViewModel()` で同じ shape を生成 (Phase 2-3)
+- `DashboardView` は `ChildHomeViewModel` のみ受け取り、`as never` キャストを排除 (Phase 2)
+- 親画面は read-only contract で「見せるだけ」状態を型強制 (Phase 4)
+- 禁止語 SSOT + Phase 5 機械検証で過去 7 回失敗パターンを構造的阻止
+
+本 ADR-0046 は破壊されず、UI Contract 層が「ADR-0046 が解決した範囲を保全しつつ、UI 設計 divergence /
+機能セット divergence を型レベル SSOT 化」する関係。Phase 2-5 は別 PR で順次着手 (PO 動作確認 →
+Ready 化、auto-merge / Dev 自律 Ready 禁止)。
+
+詳細: [ADR-0047](0047-demo-prod-ui-contract-ssot.md) / 深層調査: `docs/research/2097-demo-prod-unification-architecture-deep-research.md`
+
 ## 関連
 
 - `parallel-implementations.md` §3 (本番 vs demo)
 - ADR-0010 Pre-PMF scope (Bucket A: 二重実装 SSOT 化は適格)
 - ADR-0045 terms.ts SSOT 2 階層化 (同じ「atom / compound 責務分離」の発想を services 層にも適用)
+- **ADR-0047 (2026-05-14 追加): Demo / 本番 UI Contract SSOT — 本 ADR の上に UI Contract 層を追加**
 - 1-in-1-out: 本 PR で active ADR を 21 → 22 に増やす。既存 33 件超過の整理は #1924 系で別途扱う (本 PR の scope ではない)
