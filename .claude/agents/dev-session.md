@@ -112,7 +112,7 @@ sub-agent / 一部の prompt template には「report files / summary .md を書
 - `tmp/issue-bodies/<slug>.md` への Issue body draft 保存（PO セッション側の運用と一致）
 
 これらは findings / analysis / summary の report file **ではなく** GitHub PR / Issue 作成の前段一時ファイル。
-ADR-0003 (HEREDOC 禁止) を満たすために物理的に必須であり、`tmp/` は `.gitignore` 配下なのでリポジトリ汚染は発生しない。
+ADR-0003 (`--body-file` 必須運用) を満たすために物理的に必須であり、`tmp/` は `.gitignore` 配下なのでリポジトリ汚染は発生しない。
 **PR 作成完了後は速やかに削除すること**:
 
 ```bash
@@ -121,7 +121,7 @@ rm tmp/pr-bodies/<slug>.md
 
 **Write tool が拒否された場合のフォールバック**: `cat > tmp/pr-bodies/<slug>.md << 'EOF' ... EOF`。
 
-詳細は `docs/sessions/po-session.md` §「Issue 起票の技術手順（HEREDOC 禁止 — #1172）」を参照（Issue / PR 共通の運用規約）。
+Issue body 起票の技術手順詳細 → [Skill: issue-triage SSOT](../skills/issue-triage/SKILL.md) §「`--body-file` 運用」(#2089、Issue / PR 共通の運用規約)。
 
 ## 実装パターン集
 

@@ -57,7 +57,7 @@ rm tmp/issue-bodies/<slug>.md
 
 **Write tool が拒否された場合のフォールバック**: `cat > tmp/issue-bodies/<slug>.md << 'EOF' ... EOF`。
 
-詳細手順は `docs/sessions/po-session.md` §「Issue 起票の技術手順（HEREDOC 禁止 — #1172）」を参照。
+詳細手順は [Skill: issue-triage SSOT](../skills/issue-triage/SKILL.md) §「`--body-file` 運用」を参照 (#2089)。
 
 ## Issue の品質基準
 
