@@ -5,20 +5,21 @@ import { invalidateAll } from '$app/navigation';
 import { parseDisplayConfig } from '$lib/domain/display-config';
 import { APP_LABELS, CHILD_HOME_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
-import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
+import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
-import MustProgressBar from '$lib/features/child/MustProgressBar.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
+// Issue #2084 (ADR-0046 follow-up): 本番 child home の共通 UI を派生コンポーネントに集約
+import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import { getModeVariant } from '$lib/features/child-home/variants';
-import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
-import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
+// Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
+import { setDashboardService } from '$lib/services/context';
+import { createProductionDashboardService } from '$lib/services/production/DashboardService';
 import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
-import CategorySection from '$lib/ui/components/CategorySection.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
@@ -27,13 +28,26 @@ import EventBanner from '$lib/ui/components/EventBanner.svelte';
 import MonthlyRewardDialog from '$lib/ui/components/MonthlyRewardDialog.svelte';
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
-import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
+
+// Issue #2084 (ADR-0046 follow-up): 本番側で getDashboardService().getHomeData() 経由で
+// child / todayRecorded / pointSettings を参照するため、page スコープで Service を再注入する。
+// (child)/+layout.svelte で配備済みの service は todayRecorded を空配列で持つため、
+// home page のみが取得できる todayRecorded を含めて上書きする。
+// getter 関数を渡すことで invalidateAll() / form action 完了後の data 変化に追従できる
+// (Svelte 5 state_referenced_locally 警告を回避)。
+setDashboardService(
+	createProductionDashboardService(() => ({
+		child: data.child ?? null,
+		todayRecorded: data.todayRecorded ?? [],
+		pointSettings: data.pointSettings,
+	})),
+);
 
 const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode));
 const f = $derived(variant.features);
@@ -182,7 +196,9 @@ let xpGainData = $state<{
 let xpAnimatingCategoryId = $state<number | null>(null);
 
 /** categoryXp にアニメーション用の上書き値を適用 */
-function getCategoryXpWithAnim(categoryId: number) {
+function getCategoryXpWithAnim(
+	categoryId: number,
+): import('$lib/server/services/status-service').CategoryXpInfo | null {
 	const base = data.categoryXp?.[categoryId] ?? null;
 	if (!base) return null;
 	if (xpGainData && xpGainData.categoryId === categoryId && xpAnimatingCategoryId === categoryId) {
@@ -196,6 +212,9 @@ function getCategoryXpWithAnim(categoryId: number) {
 }
 
 // Build recorded counts map: activityId → count
+// Issue #2084: ProdDashboardSections は service 経由で参照するが、page 内のオーバーレイ
+// (result dialog 内の todayTotalCount / xp animation 等) で同じ値を使うため、page 側でも
+// data.todayRecorded から派生値を計算する (ADR-0046 reactive 設計と一致)。
 const recordedMap = $derived(new Map(data.todayRecorded.map((r) => [r.activityId, r.count])));
 const todayTotalCount = $derived(data.todayRecorded.reduce((sum, r) => sum + r.count, 0));
 
@@ -216,15 +235,7 @@ const activeEventBadge = $derived(
 		: null,
 );
 
-// Group activities by category
-const activitiesByCategory = $derived(
-	CATEGORY_DEFS.map((catDef) => ({
-		categoryId: catDef.id,
-		items: data.activities.filter((a) => a.categoryId === catDef.id),
-	})).filter((g) => g.items.length > 0),
-);
-
-// Per-category mission counts
+// Per-category mission counts (ProdDashboardSections で props として渡す)
 function getCategoryMissionCount(categoryId: number) {
 	return data.activities.filter((a) => a.categoryId === categoryId && a.isMission).length;
 }
@@ -240,7 +251,11 @@ function handleActivityTap(activity: { id: number; name: string; icon: string })
 	confirmOpen = true;
 }
 
-function handleActivityLongPress(activity: { id: number; name: string; isPinned?: boolean }) {
+function handleActivityLongPress(activity: {
+	id: number;
+	name: string;
+	isPinned?: boolean | number;
+}) {
 	if (!f.showPin) return;
 	soundService.play('tap');
 	pinMenuActivity = { id: activity.id, name: activity.name, isPinned: !!activity.isPinned };
@@ -495,22 +510,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 <BabyHomePage child={data.child ?? { nickname: '', age: 0 }} balance={data.balance} />
 {:else}
 <div class="px-[var(--sp-sm)] py-1" data-testid="{data.uiMode}-home-page">
-	<!--
-		#1757 (#1709-C): 「今日のおやくそく」N/M 進捗バー（最上部）
-		- baby は前段で BabyHomePage に分岐済みのため到達しない（バー非表示が保証される）
-		- mustStatus.total === 0 の場合は非表示（must 活動が 0 件 = 設定なし）
-		- 全達成 + 同日初回付与時は granted=true / points>0 で pulse + toast 演出（ADR-0012）
-	-->
-	{#if data.mustStatus && data.mustStatus.total > 0}
-		<MustProgressBar
-			logged={data.mustStatus.logged}
-			total={data.mustStatus.total}
-			uiMode={data.uiMode as UiMode}
-			bonusGranted={data.mustStatus.granted}
-			bonusPoints={data.mustStatus.points}
-		/>
-	{/if}
-
 	<!-- Birthday bonus banner -->
 	{#if data.birthdayBonus}
 		<BirthdayBanner
@@ -564,147 +563,41 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<!-- Tutorial hint banner (one-time) -->
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
 
-	<!-- Activity grid by category -->
-	{#each activitiesByCategory as group, groupIdx (group.categoryId)}
-		<CategorySection
-			categoryId={group.categoryId}
-			cardSize={displayConfig.cardSize}
-			itemsPerCategory={displayConfig.itemsPerCategory}
-			collapsible={displayConfig.collapsible}
-			itemCount={group.items.length}
-			xpInfo={getCategoryXpWithAnim(group.categoryId)}
-			xpAnimating={xpAnimatingCategoryId === group.categoryId}
-			missionCount={getCategoryMissionCount(group.categoryId)}
-			completedMissionCount={getCategoryCompletedMissionCount(group.categoryId)}
-		>
-			{#each group.items as activity, i (activity.id)}
-				{#if f.showPin && i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
-					<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
-						<div class="flex-1 border-t border-dashed border-[var(--color-border-strong)]"></div>
-					</div>
-				{/if}
-				{#if f.showConfirmDialog}
-					<!-- Non-baby: ActivityCard + confirm dialog -->
-					{#if groupIdx === 0 && i === 0}
-					<div data-tutorial="activity-card">
-					<ActivityCard
-						activityId={activity.id}
-						icon={activity.icon}
-						name={activity.displayName}
-						categoryId={activity.categoryId}
-						cardSize={displayConfig.cardSize}
-						completed={isCompleted(activity)}
-						count={getCount(activity.id)}
-						isMission={activity.isMission}
-						isPinned={activity.isPinned}
-						frozen={!data.isPremium && activity.source === 'custom'}
-						triggerHint={activity.triggerHint}
-						eventBadge={activeEventBadge}
-						onclick={() => handleActivityTap(activity)}
-						onlongpress={() => handleActivityLongPress(activity)}
-					/>
-					</div>
-					{:else}
-					<ActivityCard
-						activityId={activity.id}
-						icon={activity.icon}
-						name={activity.displayName}
-						categoryId={activity.categoryId}
-						cardSize={displayConfig.cardSize}
-						completed={isCompleted(activity)}
-						count={getCount(activity.id)}
-						isMission={activity.isMission}
-						isPinned={activity.isPinned}
-						frozen={!data.isPremium && activity.source === 'custom'}
-						triggerHint={activity.triggerHint}
-						eventBadge={activeEventBadge}
-						onclick={() => handleActivityTap(activity)}
-						onlongpress={() => handleActivityLongPress(activity)}
-					/>
-					{/if}
-				{:else}
-					<!-- Baby: inline form recording (no confirm dialog) -->
-					{@const completed = isCompleted(activity)}
-					{@const borderColor = getCategoryById(activity.categoryId)?.color ?? 'var(--theme-primary)'}
-					{@const actCount = getCount(activity.id)}
-					{@const showMission = activity.isMission && !completed}
-					{@const showMainQuest = !!activity.isMainQuest && !completed}
-					{#if completed}
-						<div
-							class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-[var(--color-gold-400)] bg-[var(--color-gold-100)] shadow-[0_0_0_2px_rgba(251,191,36,0.3)] transition-all duration-150 ease-out tap-target"
-							data-testid="activity-card-{activity.id}"
-							data-tutorial={groupIdx === 0 && i === 0 ? 'activity-card' : undefined}
-							aria-label={CHILD_HOME_LABELS.completedAriaLabel(activity.displayName)}
-						>
-							<span class="absolute inset-0 flex items-center justify-center text-3xl opacity-80 z-1 animate-bounce-in">💮</span>
-							<CompoundIcon icon={activity.icon} size="lg" faded={true} />
-							<span class="text-[10px] font-bold leading-tight text-center line-clamp-2 opacity-40">{activity.displayName}</span>
-						</div>
-					{:else}
-						<form
-							method="POST"
-							action="?/record"
-							data-tutorial={groupIdx === 0 && i === 0 ? 'activity-card' : undefined}
-							use:enhance={() => {
-								if (submitting || resultOpen) return ({ update }) => update();
-								submitting = true;
-								pendingActivityId = activity.id;
-								soundService.ensureContext();
-								soundService.play('tap');
-								return async ({ result }) => {
-									handleRecordResult(result);
-								};
-							}}
-						>
-							<input type="hidden" name="activityId" value={activity.id} />
-							<Button
-								type="submit"
-								disabled={submitting}
-								variant="outline"
-								size="sm"
-								class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] border-2 border-solid bg-white shadow-sm cursor-pointer duration-150 ease-out hover:shadow-md active:scale-95 {pendingActivityId === activity.id ? 'baby-card-pending' : ''} {showMission ? 'baby-card-mission' : ''} {showMainQuest ? 'baby-card-main-quest' : ''}"
-								data-testid="activity-card-{activity.id}"
-								style="border-color: {showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : borderColor}"
-								aria-label="{CHILD_HOME_LABELS.babyCardRecordAriaLabel(activity.displayName)}{showMainQuest ? CHILD_HOME_LABELS.babyCardRecordMainQuestSuffix : ''}{showMission ? CHILD_HOME_LABELS.babyCardRecordMissionSuffix : ''}"
-							>
-								{#if showMission}
-									<span class="absolute -top-1.5 -left-1.5 z-10 text-sm baby-card__mission-star" aria-hidden="true">⭐</span>
-								{/if}
-								{#if showMainQuest}
-									<span class="baby-main-quest-badge" aria-hidden="true">{CHILD_HOME_LABELS.babyCardMainQuestBadge}</span>
-								{/if}
-								{#if pendingActivityId === activity.id}
-									<span class="baby-card__spinner" aria-hidden="true"></span>
-									<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{CHILD_HOME_LABELS.babyCardPendingText}</span>
-								{:else}
-									{#if actCount > 0}
-										<span class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-brand-600)] text-white text-[10px] font-bold shadow-sm">{actCount}</span>
-									{/if}
-									<CompoundIcon icon={activity.icon} size="lg" />
-									<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{activity.displayName}</span>
-									{#if activity.triggerHint}
-										<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{activity.triggerHint}</span>
-									{/if}
-								{/if}
-							</Button>
-						</form>
-					{/if}
-				{/if}
-			{/each}
-		</CategorySection>
-	{/each}
-
-	<!-- Sibling ranking (non-baby) -->
-	{#if f.showSiblingFeatures && data.siblingRanking && data.siblingRanking.rankings.length > 1}
-		<SiblingRanking
-			rankings={data.siblingRanking.rankings}
-			childId={data.child?.id ?? 0}
-		/>
-	{/if}
-
-	{#if data.activities.length === 0}
-		<ActivityEmptyState uiMode={data.uiMode} />
-	{/if}
+	<!--
+		Issue #2084 (ADR-0046 follow-up): 共通 dashboard sections は派生コンポーネント
+		ProdDashboardSections に集約。MustProgressBar / activity grid / SiblingRanking /
+		ActivityEmptyState の render を含む (約 200 行)。
+		本派生は getDashboardService() 経由で child / todayRecorded / pointSettings を参照。
+	-->
+	<ProdDashboardSections
+		uiMode={data.uiMode as UiMode}
+		activities={data.activities}
+		mustStatus={data.mustStatus}
+		siblingRanking={data.siblingRanking}
+		{activeEventBadge}
+		{displayConfig}
+		features={{
+			showPin: f.showPin,
+			showConfirmDialog: f.showConfirmDialog,
+			showSiblingFeatures: f.showSiblingFeatures,
+			showEvents: f.showEvents,
+		}}
+		isPremium={data.isPremium}
+		childId={data.child?.id ?? 0}
+		{submitting}
+		{pendingActivityId}
+		{getCategoryXpWithAnim}
+		{xpAnimatingCategoryId}
+		{getCategoryMissionCount}
+		{getCategoryCompletedMissionCount}
+		onActivityTap={handleActivityTap}
+		onActivityLongPress={handleActivityLongPress}
+		onRecordSubmit={(activityId) => {
+			submitting = true;
+			pendingActivityId = activityId;
+		}}
+		onRecordResult={handleRecordResult}
+	/>
 
 	<!-- Season event banners (non-baby) -->
 	{#if f.showEvents && data.activeEvents && data.activeEvents.length > 0}
@@ -1043,7 +936,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		0%, 100% { box-shadow: 0 0 8px rgba(255, 200, 0, 0.4); }
 		50% { box-shadow: 0 0 20px rgba(255, 200, 0, 0.8); }
 	}
-	.baby-card__mission-star {
+	:global(.baby-card__mission-star) {
 		animation: star-twinkle 1.5s ease-in-out infinite;
 	}
 	@keyframes star-twinkle {
@@ -1054,7 +947,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
 		background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
 	}
-	.baby-main-quest-badge {
+	:global(.baby-main-quest-badge) {
 		position: absolute;
 		top: -0.375rem;
 		right: -0.375rem;
@@ -1077,7 +970,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		0%, 100% { transform: scale(1); }
 		50% { transform: scale(0.97); }
 	}
-	.baby-card__spinner {
+	:global(.baby-card__spinner) {
 		display: inline-block;
 		width: 2rem;
 		height: 2rem;
