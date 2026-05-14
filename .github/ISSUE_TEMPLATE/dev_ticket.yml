@@ -102,6 +102,76 @@ body:
         - 決定: A（標準）/ Pre-PMF コスト (ADR-0010): +14KB 許容
 
   - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives + Prior art（Rust RFC 抜粋、#2090）
+      description: |
+        検討した他案 + 不採用理由を列挙。Prior art (採用 OSS / 競合の同等機能) を含めること。
+        該当が無い場合は「探した範囲」を書く（どのキーワードで探し、なぜ該当がなかったか）。
+      value: |
+        <!-- 例:
+        - 案 A: 既存 hook を拡張 — メリット: 0 行追加 / デメリット: 副作用増（不採用）
+        - 案 B: 新規 service 層 — メリット: 単一責務 / デメリット: 工数 +2h（採用）
+        - Prior art: kubernetes/kube-aggregator の同等パターン
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: no-gos
+    attributes:
+      label: No-gos / 今回スコープ外（Shape Up 抜粋、#2090）
+      description: |
+        今回意図的にスコープ外とする範囲を明示する（YAGNI 適用 / 将来 Issue 候補）。
+        該当が無い場合は「特になし」と明記すること（空欄不可）。
+      value: |
+        <!-- 例:
+        - 既存 open Issue への retroactive 適用（新規のみ）
+        - i18n 対応（別 Issue 候補）
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: research-link
+    attributes:
+      label: research-link（Deep Research 結果リンク、#2090）
+      description: |
+        `docs/reference/NN-research-*.md` への link を貼る、または "N/A" を明記。
+        OSS 比較 / 競合調査 / 学術参照などの調査記録のリンク先。
+      value: |
+        <!-- 例:
+        - docs/reference/01-research-issue-templating-and-doc-consolidation.md §2.1
+        - または: N/A（既存パターン適用のため新規調査不要）
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: pre-pmf-check
+    attributes:
+      label: Pre-PMF check（ADR-0010 §3、#2090）
+      description: |
+        Pre-PMF 段階での起票バイアスを防ぐため、ADR-0010 §3 の 5 質問に回答する。
+        `priority:critical` bug fix / 法務・セキュリティ対応はチェック不要（その旨明記）。
+      value: |
+        <!--
+        Q1: どのペルソナ (P1/P2) のどの課題を解決するか？
+        →
+        Q2: V2MOM Method (M1〜M4) のどれに紐づくか？
+        →
+        Q3: この機能なしで Pre-PMF サインアップ 20 名/月 (V2MOM Q2) に到達できるか？ (可能→medium 以下 / 不可能→high 以上 + 根拠)
+        →
+        Q4: 直近に Growth / Marketing / Onboarding 系 Issue を 1 本以上起票したか？
+        →
+        Q5: 工数と Year 1 KPI (MAU 500 / MRR ¥12,000) への寄与が釣り合っているか？
+        →
+        または: 免除 (priority:critical bug fix / 法務 / セキュリティ)
+        -->
+    validations:
+      required: true
+
+  - type: textarea
     id: technical
     attributes:
       label: 技術メモ
