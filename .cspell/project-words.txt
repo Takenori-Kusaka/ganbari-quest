@@ -357,3 +357,9 @@ PHASEB
 # UIUX = PO Issue グルーピング略号 (UI/UX 改善 Critical track)。
 # Issue タイトル / コミットメッセージ / コードコメント内で参照される。
 UIUX
+
+# ===== #1915 SSOT 用語多重表記正規化 atom namespace =====
+# LIFESTAGE = ライフステージ (幼児期 / 学童期 / 思春期等) を表す atom namespace。
+# terms.ts の LIFESTAGE_TERMS / labels.ts / site/shared-labels.js で参照される造語。
+LIFESTAGE
+lifestage
