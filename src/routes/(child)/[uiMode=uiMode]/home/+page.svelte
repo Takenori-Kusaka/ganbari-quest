@@ -11,12 +11,12 @@ import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
 import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
 import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
+// Issue #2097 Phase 2 (ADR-0047): DashboardView を ViewModel 経路で呼ぶ (ProdDashboardSections を孤児化)
+import DashboardView from '$lib/features/child-home/components/DashboardView.svelte';
 import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
-// Issue #2084 (ADR-0046 follow-up): 本番 child home の共通 UI を派生コンポーネントに集約
-import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import { getModeVariant } from '$lib/features/child-home/variants';
-// Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
+// Issue #2097 Phase 2: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
 import { setDashboardService } from '$lib/services/context';
 import { createProductionDashboardService } from '$lib/services/production/DashboardService';
 import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
@@ -35,19 +35,17 @@ import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
-// Issue #2084 (ADR-0046 follow-up): 本番側で getDashboardService().getHomeData() 経由で
-// child / todayRecorded / pointSettings を参照するため、page スコープで Service を再注入する。
+// Issue #2097 Phase 2 (ADR-0047): 本番 ProductionDashboardService を Context に再注入。
 // (child)/+layout.svelte で配備済みの service は todayRecorded を空配列で持つため、
 // home page のみが取得できる todayRecorded を含めて上書きする。
 // getter 関数を渡すことで invalidateAll() / form action 完了後の data 変化に追従できる
 // (Svelte 5 state_referenced_locally 警告を回避)。
-setDashboardService(
-	createProductionDashboardService(() => ({
-		child: data.child ?? null,
-		todayRecorded: data.todayRecorded ?? [],
-		pointSettings: data.pointSettings,
-	})),
-);
+const dashboardService = createProductionDashboardService(() => ({
+	child: data.child ?? null,
+	todayRecorded: data.todayRecorded ?? [],
+	pointSettings: data.pointSettings,
+}));
+setDashboardService(dashboardService);
 
 const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode));
 const f = $derived(variant.features);
@@ -212,7 +210,7 @@ function getCategoryXpWithAnim(
 }
 
 // Build recorded counts map: activityId → count
-// Issue #2084: ProdDashboardSections は service 経由で参照するが、page 内のオーバーレイ
+// Issue #2097 Phase 2: DashboardView は service 経由で参照するが、page 内のオーバーレイ
 // (result dialog 内の todayTotalCount / xp animation 等) で同じ値を使うため、page 側でも
 // data.todayRecorded から派生値を計算する (ADR-0046 reactive 設計と一致)。
 const recordedMap = $derived(new Map(data.todayRecorded.map((r) => [r.activityId, r.count])));
@@ -235,7 +233,29 @@ const activeEventBadge = $derived(
 		: null,
 );
 
-// Per-category mission counts (ProdDashboardSections で props として渡す)
+// Issue #2097 Phase 2 (ADR-0047): toViewModel() で ChildHomeViewModel を構築。
+// DashboardView は本 ViewModel + page-local callbacks を受け取り、
+// ProdDashboardSections と同等の dashboard sections を render する。
+const viewModel = $derived(
+	dashboardService.toViewModel({
+		uiMode: (data.uiMode ?? 'preschool') as
+			| 'baby'
+			| 'preschool'
+			| 'elementary'
+			| 'junior'
+			| 'senior',
+		planTier: (data.planTier ?? 'free') as 'free' | 'standard' | 'family',
+		isTrialActive: false,
+		isPremium: data.isPremium ?? false,
+		activities: data.activities,
+		mustStatus: data.mustStatus,
+		dailyMissions: data.dailyMissions,
+		categoryXp: data.categoryXp,
+		activeEventBadge,
+	}),
+);
+
+// Per-category mission counts (DashboardView で props として渡す)
 function getCategoryMissionCount(categoryId: number) {
 	return data.activities.filter((a) => a.categoryId === categoryId && a.isMission).length;
 }
@@ -564,25 +584,24 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
 
 	<!--
-		Issue #2084 (ADR-0046 follow-up): 共通 dashboard sections は派生コンポーネント
-		ProdDashboardSections に集約。MustProgressBar / activity grid / SiblingRanking /
-		ActivityEmptyState の render を含む (約 200 行)。
-		本派生は getDashboardService() 経由で child / todayRecorded / pointSettings を参照。
+		Issue #2097 Phase 2 (ADR-0047): DashboardView を ViewModel 経路で呼ぶ。
+		`viewModel` が ChildHomeViewModel SSOT (型強制)、`auxiliaryActivities` は
+		Drizzle 詳細 (displayName / frozen / triggerHint / isMainQuest) を一時的に
+		補助 props として渡す互換ブリッジ (Phase 4 で ChildHomeActivity に統合予定)。
+		ProdDashboardSections.svelte は本 Phase で呼ばれなくなり孤児化 (Phase 3 で git rm)。
 	-->
-	<ProdDashboardSections
-		uiMode={data.uiMode as UiMode}
-		activities={data.activities}
+	<DashboardView
+		{viewModel}
+		auxiliaryActivities={data.activities.map((a: { id: number; displayName: string; source?: string; triggerHint?: string | null; isMainQuest?: boolean | number }) => ({
+			id: a.id,
+			displayName: a.displayName,
+			frozen: !data.isPremium && a.source === 'custom',
+			triggerHint: a.triggerHint ?? null,
+			isMainQuest: a.isMainQuest ?? 0,
+		}))}
 		mustStatus={data.mustStatus}
 		siblingRanking={data.siblingRanking}
-		{activeEventBadge}
 		{displayConfig}
-		features={{
-			showPin: f.showPin,
-			showConfirmDialog: f.showConfirmDialog,
-			showSiblingFeatures: f.showSiblingFeatures,
-			showEvents: f.showEvents,
-		}}
-		isPremium={data.isPremium}
 		childId={data.child?.id ?? 0}
 		{submitting}
 		{pendingActivityId}
@@ -590,6 +609,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		{xpAnimatingCategoryId}
 		{getCategoryMissionCount}
 		{getCategoryCompletedMissionCount}
+		{activeEventBadge}
 		onActivityTap={handleActivityTap}
 		onActivityLongPress={handleActivityLongPress}
 		onRecordSubmit={(activityId) => {

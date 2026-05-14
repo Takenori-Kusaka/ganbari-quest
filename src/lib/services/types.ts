@@ -477,3 +477,88 @@ export interface ParentAdminReadonlySettings {
 	cheerMessage: string;
 	autoSleepEnabled: boolean;
 }
+
+// ============================================================================
+// ADR-0047 Phase 2: toViewModel() 用補助型
+// ============================================================================
+
+/**
+ * Production Dashboard Service `toViewModel()` に渡す追加 context。
+ *
+ * `ChildDashboardHomeData` (child / todayRecorded / pointSettings) だけでは
+ * UI 描画に必要な情報 (activities / mustStatus / siblingRanking 等) が不足するため、
+ * SvelteKit の `+page.server.ts` load 結果から抽出した補助情報をここに集約する。
+ *
+ * - production: `+page.svelte` の `data` 経由で読み取って渡す
+ * - demo (Phase 3): `getDemoHomeData()` の seed 結果から組み立てて渡す
+ *
+ * 設計原則 (ADR-0047 §決定):
+ *   - UI 描画に必要な情報を field 単位で contract 化 (ViewModel 構築の責務を service に集中)
+ *   - production / demo の divergence は本 context の値で吸収 (ViewModel field の有無で表現)
+ */
+export interface ToViewModelContext {
+	/** 現在の UI mode (5 年齢モード) */
+	uiMode: 'baby' | 'preschool' | 'elementary' | 'junior' | 'senior';
+	/** プランティア (production: 実値 / demo: 'standard' 固定) */
+	planTier: 'free' | 'standard' | 'family';
+	/** trial 中フラグ (demo: false 固定) */
+	isTrialActive: boolean;
+	/** premium プラン (paid tier) フラグ */
+	isPremium: boolean;
+	/**
+	 * 活動一覧 (`+page.server.ts` の activities load 結果)。
+	 * Drizzle 生レコード型を緩く受け入れ、ViewModel 構築側で正規化する。
+	 */
+	activities: ReadonlyArray<{
+		id: number;
+		name: string;
+		displayName?: string;
+		icon: string;
+		categoryId: number;
+		dailyLimit: number | null;
+		isMission?: boolean;
+		isMainQuest?: boolean | number;
+		isPinned?: boolean | number;
+		basePoints?: number;
+	}>;
+	/** must status (#1757 「今日のおやくそく」) */
+	mustStatus: {
+		logged: number;
+		total: number;
+		granted: boolean;
+		points: number;
+	} | null;
+	/** daily missions (子供向け day-target) */
+	dailyMissions: {
+		missions: { id: number; activityIcon: string; activityName: string; completed: boolean }[];
+		completedCount: number;
+		allComplete: boolean;
+		bonusAwarded: number;
+	} | null;
+	/** category XP (status-service) */
+	categoryXp: Record<
+		number,
+		{ value: number; level: number; levelTitle: string; progressPct: number; maxValue: number }
+	> | null;
+	/** 現在アクティブな season event の bannerIcon (1 件目のみ) */
+	activeEventBadge: string | null;
+}
+
+/**
+ * Production Dashboard Service の拡張契約 (Phase 2)。
+ *
+ * 基本 (read/write) は `ChildDashboardService` で SSOT 化済みだが、
+ * `toViewModel()` で `ChildHomeViewModel` を構築する責務を追加する。
+ *
+ * Phase 2 では Production 側のみ実装する。demo 側は Phase 3 で実装。
+ */
+export interface ToViewModelCapable {
+	/**
+	 * UI Contract である `ChildHomeViewModel` を構築する。
+	 *
+	 * - 引数 `ctx` は `+page.server.ts` から渡される追加情報
+	 * - 戻り値 `ChildHomeViewModel` は DashboardView 等の UI コンポーネントが直接受け取る
+	 * - production / demo 両 service が同じ shape を返すことが ADR-0047 §決定 の SSOT 核心
+	 */
+	toViewModel(ctx: ToViewModelContext): ChildHomeViewModel;
+}

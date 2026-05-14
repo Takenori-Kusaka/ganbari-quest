@@ -32,11 +32,20 @@ import type {
 	CancelRecordResult,
 	ChildDashboardHomeData,
 	ChildDashboardService,
+	ChildHomeActivity,
+	ChildHomeAgeContext,
+	ChildHomeChild,
+	ChildHomeCurrency,
+	ChildHomeFeatureFlags,
+	ChildHomeProgressDisplay,
+	ChildHomeViewModel,
 	ClaimLoginBonusResult,
 	RecordActivityInput,
 	RecordActivityWriteResult,
 	ToggleActivityPinInput,
 	ToggleActivityPinResult,
+	ToViewModelCapable,
+	ToViewModelContext,
 } from '../types';
 
 /**
@@ -46,7 +55,7 @@ import type {
  */
 export type FetchFn = typeof fetch;
 
-export class ProductionDashboardService implements ChildDashboardService {
+export class ProductionDashboardService implements ChildDashboardService, ToViewModelCapable {
 	readonly kind = 'production' as const;
 
 	readonly #getHomeData: () => ChildDashboardHomeData;
@@ -165,6 +174,189 @@ export class ProductionDashboardService implements ChildDashboardService {
 		} catch {
 			return { ok: false, error: 'NETWORK' };
 		}
+	}
+
+	/**
+	 * UI Contract `ChildHomeViewModel` を構築する (ADR-0047 Phase 2)。
+	 *
+	 * 設計原則:
+	 *   - DashboardView (UI コンポーネント) は本メソッドの戻り値のみを受け取る。
+	 *     Drizzle 生レコード型 (`as never` キャスト) は一切露出しない。
+	 *   - `progressDisplay.type` は **コンテキスト法則** で切替わる:
+	 *     `baby` / `preschool` / `free` プラン → `today-missions` (mustStatus / dailyMissions ベース)
+	 *     `elementary` 以上 + `standard` 以上 → `category-level` (categoryXp ベース)
+	 *     identity (demo / production の固定) で切替えない (ADR-0047 §決定 + 深層調査 §5 案 B 失敗回避)
+	 *   - `features` は production の plan / age 状態から導出。demo (Phase 3) は別ロジックで同じ shape を返す。
+	 *   - `currency` は production の `pointSettings.mode` を反映 (currency mode 時のみ ¥ + JPY)
+	 *
+	 * @param ctx `+page.server.ts` load 結果から抽出した補助 context (activities / mustStatus 等)
+	 * @returns DashboardView が直接受け取る UI Contract
+	 */
+	toViewModel(ctx: ToViewModelContext): ChildHomeViewModel {
+		const home = this.#getHomeData();
+		const child = this.#buildChild(home, ctx);
+		const currency = this.#buildCurrency(home);
+		const progressDisplay = this.#buildProgressDisplay(ctx);
+		const activities = this.#buildActivities(home, ctx);
+		const features = this.#buildFeatures(ctx);
+		const ageContext = this.#buildAgeContext(ctx);
+
+		return {
+			child,
+			currency,
+			progressDisplay,
+			activities,
+			features,
+			uiMode: ctx.uiMode,
+			ageContext,
+		};
+	}
+
+	/**
+	 * `ChildHomeChild` を構築。
+	 *
+	 * 注意: Drizzle の `Child` 型は `level` / `xpToNextLevel` / `xpInLevel` / `streakDays` を
+	 * 持たない (これらは別 service / layout で計算される)。Phase 2 段階では、本 service が直接
+	 * 把握しているのは `home.child` (Drizzle Child) のみのため、不足 field は 0 fallback とする
+	 * (本番 page 側で overall level を直接 UI 表示する箇所がないため degrade 影響なし。
+	 * カテゴリ別 level / XP は `progressDisplay.type === 'category-level'` 経路で表現される)。
+	 */
+	#buildChild(home: ChildDashboardHomeData, ctx: ToViewModelContext): ChildHomeChild {
+		const c = home.child;
+		if (!c) {
+			// SSR 初期 / 子供未選択時の fallback (UI 層で child null 判定がないことを ViewModel で吸収)
+			return {
+				id: 0,
+				nickname: '',
+				pointBalance: 0,
+				level: 1,
+				xpToNextLevel: 0,
+				xpInLevel: 0,
+				streakDays: 0,
+				uiMode: ctx.uiMode,
+			};
+		}
+		return {
+			id: c.id,
+			nickname: c.nickname,
+			pointBalance: 0, // layout 経由で balance を持つ。Phase 2 では ViewModel 直接表示なし
+			level: 1, // overall level は廃止 (status-service §38-43 deprecated)
+			xpToNextLevel: 0,
+			xpInLevel: 0,
+			streakDays: 0,
+			uiMode: ctx.uiMode,
+		};
+	}
+
+	/** `pointSettings.mode` を反映した currency contract */
+	#buildCurrency(home: ChildDashboardHomeData): ChildHomeCurrency {
+		const ps = home.pointSettings;
+		if (ps.mode === 'currency') {
+			// 通貨モードでは JPY のみを公式サポート (point-display.ts CURRENCY_DEFS)
+			// 他通貨は表記 symbol だけ替わるが ViewModel code としては 'JPY' 一本化
+			return { symbol: '¥', code: 'JPY' };
+		}
+		return { symbol: 'P', code: 'POINTS' };
+	}
+
+	/**
+	 * `progressDisplay` type union 判定 (ADR-0047 核心ロジック)。
+	 *
+	 * コンテキスト法則:
+	 *   - baby / preschool: `today-missions` (年齢が低いほどミッション中心 UX)
+	 *   - free プラン: `today-missions` (free プランは categoryXp 表示なし)
+	 *   - elementary 以上 + standard / family: `category-level`
+	 */
+	#buildProgressDisplay(ctx: ToViewModelContext): ChildHomeProgressDisplay {
+		const useToday = ctx.uiMode === 'baby' || ctx.uiMode === 'preschool' || ctx.planTier === 'free';
+
+		if (useToday) {
+			return {
+				type: 'today-missions',
+				mustStatus: {
+					completed: ctx.mustStatus?.logged ?? 0,
+					total: ctx.mustStatus?.total ?? 0,
+				},
+				dailyMissions: {
+					completed: ctx.dailyMissions?.completedCount ?? 0,
+					total: ctx.dailyMissions?.missions.length ?? 0,
+				},
+			};
+		}
+
+		// category-level: categoryXp を 5 カテゴリ分マップ
+		const categories: { id: number; name: string; level: number; xpPercent: number }[] = [];
+		if (ctx.categoryXp) {
+			for (const [idStr, info] of Object.entries(ctx.categoryXp)) {
+				categories.push({
+					id: Number(idStr),
+					name: info.levelTitle,
+					level: info.level,
+					xpPercent: info.progressPct,
+				});
+			}
+		}
+		return { type: 'category-level', categories };
+	}
+
+	/** Activity grid 用 ViewModel field を構築 */
+	#buildActivities(
+		home: ChildDashboardHomeData,
+		ctx: ToViewModelContext,
+	): readonly ChildHomeActivity[] {
+		const recordedMap = new Map(home.todayRecorded.map((r) => [r.activityId, r.count]));
+		return ctx.activities.map((a) => ({
+			id: a.id,
+			name: a.name,
+			icon: a.icon,
+			categoryId: a.categoryId,
+			categoryName: '', // category 名は UI 層 (CategorySection) が CATEGORY_DEFS から解決
+			pointReward: a.basePoints ?? 0,
+			streakBonus: 0, // record 結果から導出 (UI 側 result dialog で扱う)
+			isPinned: !!a.isPinned,
+			todayRecorded: recordedMap.get(a.id) ?? 0,
+			isMust: !!a.isMission,
+		}));
+	}
+
+	/**
+	 * 9 feature flag を production の plan / age 状態から導出。
+	 *
+	 * - `showShopTab`: production では always true (有料プラン / 無料プラン両方で shop タブ表示)
+	 * - `showXpAnimation` / `showMissionBadge` / `showPinButton` 等: baby は ADR-0011 で抑制
+	 * - `showSiblingRanking`: family プランのみ (production の plan-limit-service と一致)
+	 * - `showBirthdayBonus` / `showMonthlyReward` / `showStampCard` / `showEventBadge`:
+	 *   premium 限定 or season-event 在否で表示判定 (本 Phase では feature flag のみ。UI 配線は page 側)
+	 */
+	#buildFeatures(ctx: ToViewModelContext): ChildHomeFeatureFlags {
+		const isBaby = ctx.uiMode === 'baby';
+		return {
+			showShopTab: true, // production: shop タブは常時表示 (free / standard / family 共通)
+			showXpAnimation: !isBaby,
+			showMissionBadge: !isBaby,
+			showPinButton: !isBaby,
+			showEventBadge: !isBaby && ctx.activeEventBadge !== null,
+			showSiblingRanking: !isBaby && ctx.planTier === 'family',
+			showBirthdayBonus: !isBaby,
+			showMonthlyReward: !isBaby && ctx.isPremium,
+			showStampCard: !isBaby,
+		};
+	}
+
+	/**
+	 * 年齢 / プラン状態コンテキストを構築 (UI 層が age tier を再判定しないように)。
+	 *
+	 * `isBabyParentMode`: baby は ADR-0011 で「親の準備モード」として扱う。
+	 * 本番 page 側で `data.uiMode === 'baby'` を判定して `BabyHomePage` に分岐済みのため、
+	 * 本 field は ViewModel 経由で同じ判定を提供するインフラ (Phase 3 demo 側でも同じ法則を適用)。
+	 */
+	#buildAgeContext(ctx: ToViewModelContext): ChildHomeAgeContext {
+		return {
+			isBabyParentMode: ctx.uiMode === 'baby',
+			ageTier: ctx.uiMode,
+			planTier: ctx.planTier,
+			isTrialActive: ctx.isTrialActive,
+		};
 	}
 
 	async toggleActivityPin(input: ToggleActivityPinInput): Promise<ToggleActivityPinResult> {
