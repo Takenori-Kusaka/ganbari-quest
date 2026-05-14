@@ -13,8 +13,11 @@
 // #2058 (UIUX-F-16): AUTONOMY_TERMS 追加（「自律」「自走」→「自分から動きだす」「自分で計画する」LP リフレーム atom、法務文書は法務 review 後の別 PR で対応）
 // #2057 (UIUX-F-13): ADMIN_VIEW_TERMS / STRIPE_PORTAL_TERMS 追加（「管理画面」→「ご家族の見守り画面」rename + Stripe portal 用語分離）
 // #1914 (TECH-F): CHILD_TERMS / PARENT_TERMS / SIGNUP_TERMS / LOGIN_TERMS / CANCEL_TERMS 拡張 — 5 ドメイン用語多重表記 SSOT 集約
+// #1915 (TECH-F 中頻度 8 ドメイン): TRIAL_PERIOD_TERMS / UPGRADE_TERMS / GRADUATION_TERMS / ADVENTURE_TERMS / MECHANISM_TERMS / LIFESTAGE_TERMS 追加
+// （「7 日間無料トライアル」「アップグレード/プラン変更」「卒業/最終ゴール」「冒険/メインクエスト」「仕組み/設計/工夫」「年齢/年齢区分/学年」の atom 集約）
 import {
 	ADMIN_VIEW_TERMS,
+	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
 	AUTONOMY_TERMS,
 	CANCEL_TERMS,
@@ -23,8 +26,11 @@ import {
 	CURRENCY_TERMS,
 	FREE_PLAN_TERMS,
 	FREE_TERMS,
+	GRADUATION_TERMS,
+	LIFESTAGE_TERMS,
 	LOGIN_TERMS,
 	LP_FAQ_TERMS,
+	MECHANISM_TERMS,
 	PARENT_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
@@ -32,7 +38,9 @@ import {
 	PRICE_TERMS,
 	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
+	TRIAL_PERIOD_TERMS,
 	TRIAL_TERMS,
+	UPGRADE_TERMS,
 } from './terms';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
@@ -157,7 +165,10 @@ export const UI_LABELS = {
 	next: '次へ',
 	prev: '前へ',
 	skip: 'スキップ',
-	upgrade: 'アップグレード',
+	// #1915 (TECH-F 中頻度 D-2): UPGRADE_TERMS atom 経由参照。
+	//   admin UI / FAQ 既存「アップグレード」ボタン文言は確立した UX 用語のため UPGRADE_TERMS.actionVerb
+	//   (= 'アップグレード') を維持。「プラン変更」canonical 化は別 Issue で段階移行。
+	upgrade: `${UPGRADE_TERMS.actionVerb}`,
 	points: 'ポイント',
 	level: 'レベル',
 	status: 'ステータス',
@@ -536,8 +547,11 @@ export const ACTIVITY_PRIORITY_FORM_LABELS = {
  */
 // #1958 Phase 7 H1: freeTrial / freeTrialWord / freeTrialDesc は CTA atom (terms.ts CTA_TERMS) を参照。
 // upgrade / viewPlans / later / submitting / viewDetail は本 Issue scope 外 (動詞 atom が未確立のため留保)。
+// #1915 (TECH-F 中頻度 D-2): upgrade を UPGRADE_TERMS.actionVerb 経由参照に変更。
+//   admin UI / FAQ 既存ボタン文言は確立 UX 用語のため「アップグレード」表記維持、canonical
+//   「プラン変更」化は別 Issue で段階移行。
 export const ACTION_LABELS = {
-	upgrade: 'アップグレード',
+	upgrade: `${UPGRADE_TERMS.actionVerb}`,
 	viewPlans: 'プランを見る',
 	later: 'あとで',
 	freeTrial: CTA_TERMS.freeTrialNoun,
@@ -4154,8 +4168,11 @@ export const LP_COMMON_LABELS = {
 	// #1913 (UIUX-E-2): trialPeriodShort を全角統一形「7 日間無料トライアル」に集約。
 	//   AC4 = 「7 日間無料$」末尾 anchor が 0 件、「7 日間無料トライアル」統一形に整合。
 	//   trialPeriodLabel と value 同一だが文脈上の責務が異なるため key は維持。
-	trialPeriodLabel: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
-	trialPeriodShort: `${TRIAL_TERMS.durationSpaced}無料トライアル`,
+	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由参照に置換。
+	//   旧 `${TRIAL_TERMS.durationSpaced}無料トライアル` (2 atom 結合) を
+	//   `${TRIAL_PERIOD_TERMS.full}` (1 atom 参照) に統一し、SSOT 集約度を高める。
+	trialPeriodLabel: `${TRIAL_PERIOD_TERMS.full}`,
+	trialPeriodShort: `${TRIAL_PERIOD_TERMS.full}`,
 	trialPeriodFull: `${TRIAL_TERMS.durationSpaced}の無料トライアル`,
 	// 年齢レンジ表記（#1913 UIUX-E-1: AGE_RANGE_TERMS atom 経由で 2 系統 SSOT 化）
 	//   ageRange     : 短縮形「3〜18 歳」（バッジ / 見出し用）
@@ -4175,6 +4192,18 @@ export const LP_COMMON_LABELS = {
 	// 解約訴求
 	cancelAnytime: `${CANCEL_TERMS.anytimeOk}`,
 	bulletPoint: '・',
+	// #1915 (TECH-F 中頻度 8 ドメイン): atom 経由 canonical 表現の参照源を提供。
+	//   既存 compound への適用は段階移行（AC scope 調整は PR 本文参照）。
+	//   - upgradeCanonical: 'プラン変更' (UPGRADE_TERMS.canonical、admin UI 「アップグレード」表記は別 Issue で移行)
+	//   - graduationCanonical: '卒業' (GRADUATION_TERMS.canonical、本サービスのアイデンティティ用語)
+	//   - adventureCanonical: '冒険' (ADVENTURE_TERMS.canonical、商品名「がんばりクエスト」「メインクエスト」は brand identity / ゲームメカニクスのため維持)
+	//   - mechanismCanonical: '仕組み' (MECHANISM_TERMS.canonical、LP 顧客語彙、「2 つの工夫」「煽らない設計」等の連語は PO 確定済の独立保持)
+	//   - lifestageCanonical: '年齢' (LIFESTAGE_TERMS.canonical、概念用語、「年齢区分」「学年」は意味分離で独立保持)
+	upgradeCanonical: `${UPGRADE_TERMS.canonical}`,
+	graduationCanonical: `${GRADUATION_TERMS.canonical}`,
+	adventureCanonical: `${ADVENTURE_TERMS.canonical}`,
+	mechanismCanonical: `${MECHANISM_TERMS.canonical}`,
+	lifestageCanonical: `${LIFESTAGE_TERMS.canonical}`,
 } as const;
 
 // LP 法務系打消し表示 (#1609 R5 / #1610 R6)
@@ -4266,7 +4295,8 @@ export const LP_PRICING_LABELS = {
 	// #1904 (PERS-CRT-5): 文末「いつでも解約 OK」を CANCEL_TERMS.anytimeOk atom 参照に変更し、
 	//                     atom 1 行更新で全コンテンツに伝播するよう SSOT 化（旧値直書き解消）。
 	heroPriceBand: `${FREE_TERMS.base} ・ 月 ${PRICE_TERMS.standard}（税込）から ・ 有料は 7 日間無料体験 ・ ${CANCEL_TERMS.anytimeOk}`,
-	heroCtaPrimary: '7 日間無料トライアル',
+	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由
+	heroCtaPrimary: `${TRIAL_PERIOD_TERMS.full}`,
 	heroCtaSecondary: 'プランを比較する',
 
 	// Plan card: Free (#1651 R45 + #1644 R39 + #1645 R40)
@@ -4397,9 +4427,10 @@ export const LP_PRICING_LABELS = {
 	faqMultiDeviceA:
 		'はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランは4人まで、ファミリープランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。',
 	// #1653 R47: 「卒業」概念訴求（FAQ 文脈・機能訴求は禁止）
+	// #1915 (TECH-F 中頻度 D-4): GRADUATION_TERMS atom 経由参照（「卒業」「最終ゴール」を SSOT 化）
+	//   ※APP_LABELS は LP labels generator の cross-namespace 参照対象外のため product 名「がんばりクエスト」は直書き維持。
 	faqGraduationQ: 'ずっと使い続ける必要がありますか？',
-	faqGraduationA:
-		'いいえ、お子さまが自立して習慣化できたら「卒業」していただいて構いません。がんばりクエストは「子供の自立」を最終ゴールとして設計されており、ずっと依存して使い続けることを想定していません。卒業の目安は小学校高学年〜中学生頃です。',
+	faqGraduationA: `いいえ、お子さまが自立して習慣化できたら「${GRADUATION_TERMS.canonical}」していただいて構いません。がんばりクエストは「子供の自立」を${GRADUATION_TERMS.finalGoal}として設計されており、ずっと依存して使い続けることを想定していません。${GRADUATION_TERMS.canonical}の目安は小学校高学年〜中学生頃です。`,
 
 	// CTA bottom
 	ctaBottomTitle: 'お子さまの冒険を始めよう',
@@ -5602,7 +5633,8 @@ export const LP_FAQ_LABELS = {
 	text8: '4. 対応年齢・使い方',
 	text9: '5. 技術的なご質問',
 	text10: 'トライアル・解約について',
-	text11: `7 日間無料トライアルと、いつでも${CANCEL_TERMS.canonical}できる仕組みについて。`,
+	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由 + #1914 (TECH-F): CANCEL_TERMS.canonical 経由
+	text11: `${TRIAL_PERIOD_TERMS.full}と、いつでも${CANCEL_TERMS.canonical}できる仕組みについて。`,
 	text12: '無料トライアルの申込にクレジットカードは必要ですか？',
 	text13: 'いいえ、不要です。',
 	// #1943 (Phase 3 D3): 「無料プラン」atom を PLAN_FULL_TERMS.free 参照化 (LP_FAQ_LABELS 4 件)。
@@ -5855,7 +5887,8 @@ export const LP_FLOATING_CTA_LABELS = {
 	midHref: 'https://ganbari-quest.com/demo',
 	bottomHref: 'https://ganbari-quest.com/auth/signup',
 	// aria-label（読み上げ用）
-	ariaLabelHero: '7 日間無料トライアルへのご案内',
+	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由
+	ariaLabelHero: `${TRIAL_PERIOD_TERMS.full}へのご案内`,
 	ariaLabelMid: 'デモ画面で機能を体験',
 	ariaLabelBottom: '無料トライアル開始のご案内',
 } as const;
@@ -6114,7 +6147,8 @@ export const LP_PAMPHLET_LABELS = {
 	k73: '料金はかかりますか？',
 	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、'ファミリープラン' = PLAN_FULL_TERMS.family。
 	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration と一致しないため直書き継続。
-	k74: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.family}は 7 日間無料トライアル付きです。`,
+	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由
+	k74: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.family}は ${TRIAL_PERIOD_TERMS.full}付きです。`,
 	k75: '何歳から使えますか？',
 	k76: '3歳から18歳までのお子さま向けに設計しています。3歳からはお子さま自身がタップして記録、年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。0〜2歳のお子さまは「準備モード」（保護者が記録するモード）で記録のみご利用いただけます（お子さま向けゲーミフィケーションは適用されません）。',
 	k77: '子供のデータは安全ですか？',
@@ -6560,7 +6594,8 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k50: '・',
 	k51: `有料は<strong>${PRICE_TERMS.monthlyPrefix}${PRICE_TERMS.standard}${PRICE_TERMS.taxNote}${PRICE_TERMS.fromSuffix}</strong>`,
 	k52: '・',
-	k53: '<strong>7 日間無料トライアル</strong>',
+	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由
+	k53: `<strong>${TRIAL_PERIOD_TERMS.full}</strong>`,
 	k54: '・',
 	// #1904 (PERS-CRT-5): リテラル直書きを CANCEL_TERMS.anytimeOk atom 参照に切替。
 	//                     atom 1 行更新で全コンテンツに伝播するよう SSOT 化。
@@ -6737,7 +6772,8 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k8: '<a href="#usage">4. 対応年齢・使い方</a>',
 	k9: '<a href="#technical">5. 技術的なご質問</a>',
 	k10: '<span class="faq-category-num">1</span>トライアル・解約について',
-	k11: `7 日間無料トライアルと、いつでも${CANCEL_TERMS.canonical}できる仕組みについて。`,
+	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由 + #1914 (TECH-F): CANCEL_TERMS.canonical 経由
+	k11: `${TRIAL_PERIOD_TERMS.full}と、いつでも${CANCEL_TERMS.canonical}できる仕組みについて。`,
 	k12: '無料トライアルの申込にクレジットカードは必要ですか？',
 	k13: `<strong>いいえ、不要です。</strong>メールアドレスと Google アカウント（またはメール認証）で${SIGNUP_TERMS.canonical}するだけで、クレジットカード情報を入力せずに 7 日間すべての有料機能をお試しいただけます。`,
 	k14: `トライアル期間終了時は自動で${PLAN_FULL_TERMS.free}に戻ります。課金への切り替えは必ず${ADMIN_VIEW_TERMS.canonical}からお客さまご自身の操作で行っていただきます。`,
