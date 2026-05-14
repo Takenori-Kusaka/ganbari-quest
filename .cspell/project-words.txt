@@ -1,365 +1,332 @@
-# がんばりクエスト プロジェクト辞書
-# 新語追加時は PR レビューで正当性を必ず確認すること
-# cspell:disable-next-line の使用は禁止。辞書で解決する。
-
-# ===== プロジェクト固有名詞 =====
-ganbari
-Ganbari
-GANBARI
-ganba
-ganbatta
-ganbariquestsupport
+# 「PERS-CRT-N」形式の persona 検証由来 critical 識別子を comment に残す運用)
 # ↑ ADR-0022 で定めた QA 専用 GitHub アカウント名 (ganbariquestsupport-lab)。
-# scripts/check-gh-account-before-pr.mjs / claude-hook-prevent-qa-account-pr.mjs
-# のテスト・docs で多数登場。
-subresource
 # ↑ REST API のサブリソース (例: /pulls/123/comments) を指す技術用語。
-# claude-hook-prevent-qa-account-pr.test.ts の false-positive 設計判断コメントで使用。
-
-# ===== ドメイン用語（ローマ字 — 活動カテゴリ / 機能名） =====
-omikuji
-Omikuji
-OMIKUJI
-undou
-benkyou
-seikatsu
-souzou
-kouryuu
-otetsudai
-kichi
-nikonikoSmile
-
+# ===== #1702 LP-SSOT Phase B namespace =====
+# ===== #1900 (UIUX-C-1) =====
+# ===== #1915 SSOT 用語多重表記正規化 atom namespace =====
+# ===== ADR-0025 (#1683) =====
+# ===== AWS =====
+# ===== infra / AWS 用語 =====
+# ===== site（LP）用語 =====
+# ===== SQL / DB =====
+# ===== SSOT 完全化 (#1465 / #1683 PR #1680) =====
+# ===== Svelte 5 イベントハンドラプロパティ =====
+# ===== UI / デザイン =====
+# ===== Web/UI 技術用語 =====
 # ===== おみくじ運勢 =====
-daikichi
-daidaikichi
-chukichi
-shokichi
-suekichi
-
-# ===== 日本語ローマ字（メッセージ / UI / デモデータ） =====
-ganbare
-sugoi
-issho
-omedeto
-omedetou
-daisuki
-ureshii
-miteruyo
-arigatou
-kodomo
-sakura
-setsubun
-hinamatsuri
-ouen
-gohubi
-gohoubi
-chibi
-
+# ===== おやカギコード (#1360) =====
+# ===== コード内略語・複合語 =====
+# ===== コード内略語（プロジェクト固有） =====
+# ===== テストデータ / ダミー =====
+# ===== テスト用ライセンスキーフラグメント =====
+# ===== テスト用日本語ローマ字 =====
+# ===== テスト用語 =====
+# ===== ドメイン用語（ローマ字 — 活動カテゴリ / 機能名） =====
 # ===== ドメイン用語（英語由来） =====
-coreloop
-CORELOOP
-Unshown
-unshown
-Unblended
-unblended
-upsell
-Upsell
-gamification
-levelup
+# ===== ビジネス指標 =====
+# ===== プラン / コンプライアンス =====
+# ===== プロジェクト固有名詞 =====
+# ===== メディア / バイナリフォーマット =====
+# ===== ライフサイクルメール (#1601) =====
+# ===== ライブラリ名 =====
+# ===== 外部サービス =====
+# ===== 年齢モード =====
+# ===== 技術用語 / ライブラリ =====
+# ===== 日本語ローマ字（メッセージ / UI / デモデータ） =====
+# ===== 法令・データ保護 (#1638 / #1590) =====
+# ===== 解約フロー (#1596) =====
+# claude-hook-prevent-qa-account-pr.test.ts の false-positive 設計判断コメントで使用。
+# cspell:disable-next-line の使用は禁止。辞書で解決する。
+# DOMPurify = OSS HTML sanitizer (cure53)、ADR-0025 で採用
+# DPIA = Data Protection Impact Assessment（個情法 §28 域外移転 / GDPR §35）
+# freetext = 自由記述カラムの testid / CSS class 識別子 (cancellation_reasons.free_text)
+# healthcheck = cron-dispatcher の動作確認エンドポイント識別子
+# Issue タイトル / コミットメッセージ / コードコメント内で参照される。
+# LICENSEKEY = LP_LICENSEKEY_LABELS export 名 (site/help/license-key.html ページ用)
+# LIFESTAGE = ライフステージ (幼児期 / 学童期 / 思春期等) を表す atom namespace。
+# maxlength = HTML <textarea> 属性 (Playwright toHaveAttribute で検証)
+# Paraglide = inlang 製 i18n OSS、ADR-0014 で採用検討
+# Persona-critical findings prefix (PO Wave レビュー #1888 / #1892 / #1894 / #1899 / #1903 等で
+# PHASEB = #1702 で導入した LP_INDEX/PRICING/FAQ/PAMPHLET _PHASEB_LABELS の suffix
+# scripts/check-gh-account-before-pr.mjs / claude-hook-prevent-qa-account-pr.mjs
+# terms.ts の LIFESTAGE_TERMS / labels.ts / site/shared-labels.js で参照される造語。
+# UIUX = PO Issue グルーピング略号 (UI/UX 改善 Critical track)。
+# がんばりクエスト プロジェクト辞書
+# のテスト・docs で多数登場。
+# 新語追加時は PR レビューで正当性を必ず確認すること
+ABCDEFGHJKLMNPQRSTUVWXYZ
+achv
+ACHV
+ACTPREF
+ACTV
+adminhome
+ADR
+antipattern
+antipatterns
+arigatou
+arpu
+Arpu
+ARPU
+autocheckpoint
+autocomplete
+autodocs
+AUTOINCREMENT
+autoreply
+backfill
+bedrock
+Bedrock
+benkyou
+bfcache
+biome
+Biome
+biomejs
+browsable
+Budou
+budoux
+BusyKid
+catchcopy
+certificatemanager
+chibi
+chukichi
+CKLOG
+CKOVER
+CKTPL
+Cloudflare
+cloudwatch
+CloudWatch
+codegen
+coeff
+cognito
+Cognito
+convertable
+Convertable
 cooldown
 Cooldown
 COOLDOWN
-dedup
-recalc
-writeback
-syncsafe
-browsable
-convertable
-Convertable
-
-# ===== コード内略語（プロジェクト固有） =====
-CKOVER
-CKLOG
-STATHIST
-ACTPREF
-ACHV
-achv
-prefs
-Prefs
+copilot
+Copilot
+COPPA
+coreloop
+CORELOOP
+creds
+cspell
 cust
-coeff
+daidaikichi
+daikichi
+daisuki
+dedup
+dependabot
+Dependabot
+describedby
 dflt
-# Persona-critical findings prefix (PO Wave レビュー #1888 / #1892 / #1894 / #1899 / #1903 等で
-# 「PERS-CRT-N」形式の persona 検証由来 critical 識別子を comment に残す運用)
-PERS
-
-# ===== Svelte 5 イベントハンドラプロパティ =====
+dmarc
+Dmarc
+DMARC
+domainkey
+domcontentloaded
+DOMPurify
+DPIA
+drizzle
+Drizzle
+drizzleorm
+dropdown
+dynamodb
+DynamoDB
+EBML
+EFGH
+ehon
+epool
+EXIF
+favicon
+fflate
+freetext
+froms
+ftyp
+fullscreen
+FUTR
+gamification
+ganba
+ganbare
+ganbari
+Ganbari
+GANBARI
+ganbariquestsupport
+ganbatta
+genai
+gohoubi
+gohubi
+greenlight
+Greenlight
+hamigaki
+hanako
+hanami
+healthcheck
+hinamatsuri
+HSTS
+innerhtml
+issho
+JKLM
+jscpd
+Kaku
+kichi
+kinder
+kinesisfirehose
+knip
+kodomo
+kokor
+kouryuu
+Kusaka
+latm
+LEGC
+levelup
+LICENSEKEY
+LIFESTAGE
+lifestage
+localde
+localdev
+localtime
+lookback
+Lottie
+lowr
+LOWR
+maxlength
+Metas
+microticks
+miteruyo
+mozjpeg
+multiline
+navigations
+networkidle
+nikonikoSmile
+noopener
+NOPQR
+noreferrer
+noreply
+nosniff
+notif
+notnull
+NPRST
+oekaki
+okataduke
+omedeto
+omedetou
+omikuji
+Omikuji
+OMIKUJI
+omote
 onaccept
 oncanceledit
 oncreated
+oneclick
 onedit
 onimported
 onlongpress
 onretry
 onsaved
-
-# ===== 年齢モード =====
-preschool
-kinder
-
-# ===== SQL / DB =====
-AUTOINCREMENT
-drizzle
-Drizzle
-backfill
-upsert
-notnull
-
-# ===== 技術用語 / ライブラリ =====
-networkidle
-domcontentloaded
-autodocs
-svelte
-Svelte
-sveltekit
-SvelteKit
-tailwindcss
-Tailwind
-vitest
-Vitest
-biome
-Biome
-stylelint
-Stylelint
-biomejs
-drizzleorm
-umami
-Umami
-vite
-Vite
-plainto
-tsquery
-signin
-signup
-signout
-subrouter
-Cloudflare
-prerender
-prerendered
-sveltejs
-genai
-fflate
-nosniff
-HSTS
-noreply
-SSOT
-ADR
-knip
-cspell
-jscpd
-semgrep
-sonarjs
+osoto
+osouji
 osv
-codegen
-autocomplete
-fullscreen
-multiline
-scrollbar
-Lottie
-webp
-scrshot
-Budou
-budoux
-innerhtml
-pwa
-PWA
-favicon
-webpush
-qrcode
-mozjpeg
-microticks
-autocheckpoint
-bfcache
-navigations
-TOTP
-VOICEID
-whsec
-
-# ===== メディア / バイナリフォーマット =====
-EXIF
-ftyp
-latm
-EBML
-Vorbis
-vorbis
-
-# ===== AWS =====
-Bedrock
-bedrock
-DynamoDB
-dynamodb
-CloudWatch
-cloudwatch
-SES
-cognito
-Cognito
-
-# ===== 外部サービス =====
-Reconsent
-reconsent
-Dependabot
-dependabot
-Copilot
-copilot
-Snyk
-Greenlight
-greenlight
-BusyKid
-
-# ===== テストデータ / ダミー =====
-JKLM
-EFGH
-CKTPL
-ABCDEFGHJKLMNPQRSTUVWXYZ
-
-# ===== UI / デザイン =====
-Segoe
-Roboto
-noopener
-noreferrer
-dropdown
-popover
-tooltip
-
-# ===== プラン / コンプライアンス =====
+otetsudai
+otomodachi
+ouen
+oyakagi
+Oyakagi
+OYAKAGI
+Paraglide
+PERS
+PHASEB
+PITR
+plainto
 pmf
 PMF
-COPPA
-
-# ===== テスト用語 =====
-unstub
-selfhost
-localdev
-localde
-localtime
-adminhome
+popover
+prefs
+Prefs
+prerender
+prerendered
+preschool
+pwa
+PWA
+qrcode
 quickmode
-wrongpassword
-upserts
-froms
-Tmpls
-epool
-creds
-
-# ===== テスト用ライセンスキーフラグメント =====
-WXYZ
-NPRST
+recalc
+reconsent
+Reconsent
 REVD
-LOWR
-lowr
-LEGC
-FUTR
-ACTV
-wxyz
-
-# ===== テスト用日本語ローマ字 =====
-hamigaki
-taisou
-osouji
-ehon
-hanako
-otomodachi
-osoto
-okataduke
-oekaki
-tokushoho
-
-# ===== infra / AWS 用語 =====
-domainkey
-DMARC
-Dmarc
-dmarc
-PITR
-autoreply
-certificatemanager
-kinesisfirehose
-kokor
-
-# ===== site（LP）用語 =====
-catchcopy
-Takenori
-Kusaka
-Kaku
-omote
-
-# ===== ビジネス指標 =====
-ARPU
-arpu
-Arpu
-
-# ===== Web/UI 技術用語 =====
-describedby
-Signups
+Roboto
+sakura
+scrollbar
+scrshot
+Segoe
+seikatsu
+selfhost
+semgrep
+SES
+setsubun
+shokichi
+signin
+signout
+signup
 signups
-oneclick
-lookback
-
-# ===== ライブラリ名 =====
+Signups
+Snyk
+sonarjs
+souzou
 splide
 Splide
 splidejs
-
-# ===== コード内略語・複合語 =====
-notif
+SSOT
+STATHIST
+stylelint
+Stylelint
+subresource
+subrouter
+suekichi
+sugoi
+svelte
+Svelte
+sveltejs
+sveltekit
+SvelteKit
+syncsafe
+Tailwind
+tailwindcss
+taisou
+Takenori
 TESTIDS
-Metas
+textareas
+Tmpls
+tokushoho
+tooltip
 totaltime
-xlabel
-NOPQR
-hanami
-
-# ===== おやカギコード (#1360) =====
-oyakagi
-OYAKAGI
-Oyakagi
-
-# ===== 法令・データ保護 (#1638 / #1590) =====
-# DPIA = Data Protection Impact Assessment（個情法 §28 域外移転 / GDPR §35）
-DPIA
-antipatterns
-antipattern
-
-# ===== ライフサイクルメール (#1601) =====
-# healthcheck = cron-dispatcher の動作確認エンドポイント識別子
-healthcheck
-
-# ===== 解約フロー (#1596) =====
-# maxlength = HTML <textarea> 属性 (Playwright toHaveAttribute で検証)
-# freetext = 自由記述カラムの testid / CSS class 識別子 (cancellation_reasons.free_text)
-maxlength
-freetext
-
-# ===== SSOT 完全化 (#1465 / #1683 PR #1680) =====
-# LICENSEKEY = LP_LICENSEKEY_LABELS export 名 (site/help/license-key.html ページ用)
-LICENSEKEY
-
-# ===== ADR-0025 (#1683) =====
-# DOMPurify = OSS HTML sanitizer (cure53)、ADR-0025 で採用
-# Paraglide = inlang 製 i18n OSS、ADR-0014 で採用検討
-DOMPurify
-Paraglide
-
-# ===== #1702 LP-SSOT Phase B namespace =====
-# PHASEB = #1702 で導入した LP_INDEX/PRICING/FAQ/PAMPHLET _PHASEB_LABELS の suffix
-PHASEB
-
-# ===== #1900 (UIUX-C-1) =====
-# UIUX = PO Issue グルーピング略号 (UI/UX 改善 Critical track)。
-# Issue タイトル / コミットメッセージ / コードコメント内で参照される。
+TOTP
+tsquery
 UIUX
-
-# ===== #1915 SSOT 用語多重表記正規化 atom namespace =====
-# LIFESTAGE = ライフステージ (幼児期 / 学童期 / 思春期等) を表す atom namespace。
-# terms.ts の LIFESTAGE_TERMS / labels.ts / site/shared-labels.js で参照される造語。
-LIFESTAGE
-lifestage
+umami
+Umami
+unblended
+Unblended
+undou
+unshown
+Unshown
+unstub
+upsell
+Upsell
+upsert
+upserts
+ureshii
+vite
+Vite
+vitest
+Vitest
+VOICEID
+vorbis
+Vorbis
+webp
+webpush
+whsec
+writeback
+wrongpassword
+wxyz
+WXYZ
+xlabel

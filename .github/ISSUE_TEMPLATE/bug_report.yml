@@ -31,12 +31,12 @@ body:
     validations:
       required: true
 
-  - type: dropdown
+  - type: textarea
     id: environment
     attributes:
       label: 環境
-      description: アプリをどの環境で実行していますか?
-      options:
+      description: |
+        どの環境で実行していますか? 以下のいずれかを記載（dropdown 既知不具合回避のため textarea 化 #2090）:
         - AWS Lambda 本番 (ganbari-quest.com)
         - Docker (NUC / セルフホスト)
         - ローカル開発 (npm run dev)
@@ -50,34 +50,27 @@ body:
       description: "例: Chrome 120 / iPhone Safari / iPad"
       placeholder: "Chrome 120 (Android)"
 
-  - type: dropdown
+  - type: textarea
     id: screen
     attributes:
       label: 発生画面
-      description: どの画面で発生しましたか?
-      options:
-        - "子供画面 (baby: 0-2歳)"
-        - "子供画面 (preschool: 3-5歳)"
-        - "子供画面 (elementary: 6-9歳)"
-        - "子供画面 (junior: 10-12歳)"
-        - "子供画面 (senior: 13-15歳)"
-        - "親 管理画面"
-        - "デモ画面"
-        - "LP / マーケティングサイト"
-        - "その他"
+      description: |
+        どの画面で発生しましたか? 以下のいずれかを記載（dropdown 既知不具合回避のため textarea 化 #2090）:
+        - 子供画面 (baby/preschool/elementary/junior/senior)
+        - 親 管理画面 / デモ画面 / LP / マーケティングサイト / その他
     validations:
       required: true
 
-  - type: dropdown
+  - type: textarea
     id: priority
     attributes:
       label: 深刻度
-      description: ユーザーへの影響度
-      options:
-        - "critical: アプリが使えない / データ消失"
-        - "high: 主要機能が使えない"
-        - "medium: 回避策あり"
-        - "low: 見た目の問題 / 軽微"
+      description: |
+        ユーザーへの影響度（dropdown 既知不具合回避のため textarea 化 #2090）:
+        - critical: アプリが使えない / データ消失
+        - high: 主要機能が使えない
+        - medium: 回避策あり
+        - low: 見た目の問題 / 軽微
     validations:
       required: true
 
@@ -111,21 +104,91 @@ body:
       description: "関連するが依存関係を持たない Issue / ADR / 過去インシデントを列挙"
       placeholder: "#234 (類似バグ)"
 
-  - type: dropdown
+  - type: textarea
     id: phase
     attributes:
       label: 工程区分（P0-P7 / N/A）
-      description: "バグ修正は通常 P7 だが、ポリシーや仕様の見直しが必要な場合は該当工程を選択"
-      options:
-        - "P0: インフラ・プロセス更改"
-        - "P1: ポリシー・判断基準 (ADR)"
-        - "P2: プロダクト定義・顧客範囲（企画）"
-        - "P3: アーキテクチャ・技術選定 (ADR)"
-        - "P4: 戦略・構造設計"
-        - "P5: 実装・コンテンツ"
-        - "P6: 機能実装"
-        - "P7: バグ修正・クリーンアップ"
-        - "N/A（独立タスク）"
+      description: |
+        バグ修正は通常 P7 だが、ポリシーや仕様の見直しが必要な場合は該当工程を選択（dropdown 既知不具合回避のため textarea 化 #2090）:
+        - P0: インフラ・プロセス更改
+        - P1: ポリシー・判断基準 (ADR)
+        - P2: プロダクト定義・顧客範囲（企画）
+        - P3: アーキテクチャ・技術選定 (ADR)
+        - P4: 戦略・構造設計
+        - P5: 実装・コンテンツ
+        - P6: 機能実装
+        - P7: バグ修正・クリーンアップ
+        - N/A（独立タスク）
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives + Prior art（Rust RFC 抜粋、#2090）
+      description: |
+        検討した他案 + 不採用理由を列挙。Prior art (採用 OSS / 競合の同等機能) を含めること。
+        該当が無い場合は「探した範囲」を書く（どのキーワードで探し、なぜ該当がなかったか）。
+      value: |
+        <!-- 例:
+        - 案 A: 既存 fallback 経路の再利用 — メリット: 0 行追加 / デメリット: 副作用増（不採用）
+        - 案 B: 新規 error boundary 追加 — メリット: 単一責務 / デメリット: 工数 +1h（採用）
+        - Prior art: react-error-boundary / sentry hook パターン
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: no-gos
+    attributes:
+      label: No-gos / 今回スコープ外（Shape Up 抜粋、#2090）
+      description: |
+        今回意図的にスコープ外とする範囲を明示する（YAGNI 適用 / 将来 Issue 候補）。
+        該当が無い場合は「特になし」と明記すること（空欄不可）。
+      value: |
+        <!-- 例:
+        - 過去発生済 incident への retroactive 再現テスト（新規のみ）
+        - 同類似 bug の横展開修正（別 Issue 起票）
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: research-link
+    attributes:
+      label: research-link（Deep Research 結果リンク、#2090）
+      description: |
+        `docs/reference/NN-research-*.md` への link を貼る、または "N/A" を明記。
+        OSS 比較 / 競合調査 / 学術参照などの調査記録のリンク先。
+      value: |
+        <!-- 例:
+        - docs/reference/NN-research-error-boundary-patterns.md
+        - または: N/A（既存 fix パターン適用のため新規調査不要）
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: pre-pmf-check
+    attributes:
+      label: Pre-PMF check（ADR-0010 §3、#2090）
+      description: |
+        Pre-PMF 段階での起票バイアスを防ぐため、ADR-0010 §3 の 5 質問に回答する。
+        `priority:critical` bug fix / 法務・セキュリティ対応はチェック不要（その旨明記）。
+      value: |
+        <!--
+        Q1: どのペルソナ (P1/P2) のどの課題を解決するか？
+        →
+        Q2: V2MOM Method (M1〜M4) のどれに紐づくか？
+        →
+        Q3: このバグ修正なしで Pre-PMF サインアップ 20 名/月 (V2MOM Q2) に到達できるか？ (可能→medium 以下 / 不可能→high 以上 + 根拠)
+        →
+        Q4: 直近に Growth / Marketing / Onboarding 系 Issue を 1 本以上起票したか？
+        →
+        Q5: 工数と Year 1 KPI (MAU 500 / MRR ¥12,000) への寄与が釣り合っているか？
+        →
+        または: 免除 (priority:critical bug fix / 法務 / セキュリティ)
+        -->
     validations:
       required: true
 

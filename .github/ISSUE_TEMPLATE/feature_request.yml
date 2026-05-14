@@ -147,8 +147,73 @@ body:
   - type: textarea
     id: alternatives
     attributes:
-      label: 検討した代替案
-      description: 他の解決策やワークアラウンドを検討しましたか?
+      label: Alternatives + Prior art（Rust RFC 抜粋、#2090）
+      description: |
+        検討した他案 + 不採用理由を列挙。Prior art (採用 OSS / 競合の同等機能) を含めること。
+        該当が無い場合は「探した範囲」を書く（どのキーワードで探し、なぜ該当がなかったか）。
+      value: |
+        <!-- 例:
+        - 案 A: 既存設定画面に option 追加 — メリット: 既存統合 / デメリット: 既存 UI 圧迫（不採用）
+        - 案 B: 新規 dedicated 画面 — メリット: 単一責務 / デメリット: 工数 +4h（採用）
+        - Prior art: 競合 Bedrock の同等機能 / iOS Screen Time 設定パターン
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: no-gos
+    attributes:
+      label: No-gos / 今回スコープ外（Shape Up 抜粋、#2090）
+      description: |
+        今回意図的にスコープ外とする範囲を明示する（YAGNI 適用 / 将来 Issue 候補）。
+        該当が無い場合は「特になし」と明記すること（空欄不可）。
+      value: |
+        <!-- 例:
+        - i18n 対応（別 Issue 候補）
+        - mobile 横向き対応（usage 1% 未満のため別 Issue）
+        - PMF 後 A/B test 実装（Pre-PMF では不要）
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: research-link
+    attributes:
+      label: research-link（Deep Research 結果リンク、#2090）
+      description: |
+        `docs/reference/NN-research-*.md` への link を貼る、または "N/A" を明記。
+        OSS 比較 / 競合調査 / 学術参照などの調査記録のリンク先。
+      value: |
+        <!-- 例:
+        - docs/reference/NN-research-feature-name.md
+        - または: N/A（既存パターン適用のため新規調査不要）
+        -->
+    validations:
+      required: true
+
+  - type: textarea
+    id: pre-pmf-check
+    attributes:
+      label: Pre-PMF check（ADR-0010 §3 自由記述、#2090）
+      description: |
+        上記 checkboxes 版に加え、ADR-0010 §3 の 5 質問への具体回答を自由記述で残す。
+        checkboxes は機械的チェック、textarea は根拠記述用（2 段階防御）。
+      value: |
+        <!--
+        Q1: どのペルソナ (P1/P2) のどの課題を解決するか？
+        →
+        Q2: V2MOM Method (M1〜M4) のどれに紐づくか？
+        →
+        Q3: この機能なしで Pre-PMF サインアップ 20 名/月 (V2MOM Q2) に到達できるか？ (可能→medium 以下 / 不可能→high 以上 + 根拠)
+        →
+        Q4: 直近に Growth / Marketing / Onboarding 系 Issue を 1 本以上起票したか？
+        →
+        Q5: 工数と Year 1 KPI (MAU 500 / MRR ¥12,000) への寄与が釣り合っているか？
+        →
+        または: 免除 (priority:critical bug fix / 法務 / セキュリティ)
+        -->
+    validations:
+      required: true
 
   - type: textarea
     id: blocked_by
