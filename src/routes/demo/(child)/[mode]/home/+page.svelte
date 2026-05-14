@@ -1,17 +1,18 @@
 <!--
-  Demo Child Home — Issue #2069 POC (Service Interface + Context DI)
+  Demo child home — Issue #2097 真の共通化 (6 回目指摘)
 
-  POC 実装方針:
-    - 本ページ自身は薄いラッパに留め、DashboardView (`$lib/features/child-home/components/DashboardView.svelte`)
-      に UI 描画を委譲する。
-    - `setDashboardService(createDemoDashboardService(...))` で
-      DemoDashboardService を Context に注入し、配下の DashboardView から
-      `getDashboardService()` で取得させる (ADR-0046)。
+  薄ラッパに刷新。dashboard 描画は本番側と**全く同じ**
+  `$lib/features/child-home/components/DashboardView.svelte` (1 ファイル) を呼ぶ。
 
-  follow-up (Issue #2069 残り):
-    - 本番 `(child)/[uiMode=uiMode]/home/+page.svelte` も同じ DashboardView に
-      移行する。本 PR では本番側を触らず、demo のみで Service DI 機構を実証する
-      (UI 等価性を SS で証明するため)。
+  本ファイルの責務:
+    - page スコープで `DemoDashboardService` を再注入 (`todayRecorded` 込み snapshot)
+    - DashboardView に data をそのまま渡す
+
+  demo は sessionStorage + $state でブラウザタブ単位の隔離状態を維持。
+  pin / mission badge / xp animation / baby inline form / event badge 等の
+  本番固有 feature も demo に表示される (DemoDashboardService が mock データで対応)。
+  これは Issue #2097 §統合方針「本番固有 feature を demo に逆輸入しない誘惑を排除」の
+  期待動作 — LP SS が本番 SS に寄って見えるのが正常。
 -->
 <script lang="ts">
 import { APP_LABELS, PAGE_TITLES } from '$lib/domain/labels';
@@ -21,11 +22,9 @@ import { createDemoDashboardService } from '$lib/services/demo/DashboardService'
 
 let { data } = $props();
 
-// Service 注入: SSR / CSR の両環境で 1 回だけ実行される
-// (Svelte 5 の setContext はコンポーネント初期化中のみ呼び出し可能、
-//  $effect の中で呼ぶと動作しないため top-level で実行する)。
-// getter 関数を渡すことで form action 完了後の todayRecorded 更新にも追従する
-// (Svelte 5 state_referenced_locally 警告を回避)。
+// #2097 ADR-0046: page スコープで DemoDashboardService を再注入。
+// layout 側で配備済の service は `todayRecorded: []` で初期化されているため、
+// home page の load 由来 todayRecorded を含む snapshot で上書きする。
 setDashboardService(
 	createDemoDashboardService(() => ({
 		child: data.child ?? null,
@@ -39,13 +38,8 @@ setDashboardService(
 	<title>{PAGE_TITLES.childHome}{APP_LABELS.demoPageTitleSuffix}</title>
 </svelte:head>
 
-<DashboardView
-	pageData={{
-		activities: data.activities,
-		uiMode: data.uiMode,
-		hasChecklists: data.hasChecklists,
-		checklistProgress: data.checklistProgress,
-		dailyMissions: data.dailyMissions,
-		mustStatus: data.mustStatus,
-	}}
-/>
+<!--
+  #2097: 本番側と同じく、Drizzle 推論型を持つ PageData を共通 DashboardData 契約に
+  橋渡しするため as never キャストを使う。
+-->
+<DashboardView data={data as never} />

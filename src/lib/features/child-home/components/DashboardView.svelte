@@ -1,73 +1,341 @@
 <!--
-  DashboardView.svelte — ADR-0046 / Issue #2069 POC
+  DashboardView.svelte — Issue #2097 真の共通化 (6 回目指摘)
 
-  Child Home の共通 UI コンポーネント。
+  child home の **SSOT 描画コンポーネント**。本番 (`/(child)/[uiMode]/home`) と
+  demo (`/demo/(child)/[mode]/home`) の両 `+page.svelte` から同じファイルが
+  呼ばれる。並行実装 2 系統 (`ProdDashboardSections.svelte` + 旧 `DashboardView`)
+  を本ファイルに統合し、`ProdDashboardSections.svelte` は削除した。
 
-  POC scope:
-    - demo (`/demo/(child)/[mode]/home/+page.svelte`) から呼び出される。
-    - データ取得は **Context 経由** で注入された ChildDashboardService から行う。
-    - 表示要素は demo 側 `+page.svelte` (移行前) と同等 (UI 等価性証明のため)。
+  ## 統合範囲
 
-  follow-up scope (Issue #2069 残り):
-    - 本番側 `+page.svelte` (1094 行) を順次本 View に集約。
-    - 完了 / 確認 dialog の write 動詞 (record / cancel / claimBonus) を
-      service interface に追加し、demo / 本番のどちらでも同じ form を使う。
+  - 5 年齢モード分岐 (baby は inline form / non-baby は ActivityCard + confirm dialog)
+  - Birthday banner / Tutorial hint banner / Error toast
+  - Login stamp 自動 claim form
+  - MustProgressBar (今日のおやくそく N/M 進捗)
+  - Activity grid by category (pin / mission badge / event badge / xp animation 対応)
+  - Sibling ranking (家族プラン + 有効時のみ)
+  - Sibling challenge banner / Season event banner
+  - Pin context menu (long press) / Confirm dialog / Result dialog (cancel countdown 付)
+  - OverlaysSection (LevelUp / SpecialReward / StampPress / Birthday)
+  - Adventure start overlay (初回ユーザ)
+  - Parent message overlay
+  - Sibling celebration / Sibling cheer overlay
+  - Monthly premium reward modal
+  - Dialog FSM (single source of truth for overlay state)
+  - XP gain animation (categoryXp 上書き)
+
+  ## ADR-0046 Service Interface + Context DI
+
+  - `getDashboardService().getHomeData()` で child / todayRecorded / pointSettings を参照
+  - 本番: `ProductionDashboardService` (page スコープで再注入、todayRecorded 込み)
+  - demo: `DemoDashboardService` (sessionStorage + $state、タブ単位隔離)
+
+  ## 本番固有 feature を demo に逆輸入しない誘惑を排除
+
+  Issue #2097: 「逆方向 (本番を demo に寄せる) は機能退行のため禁止」。
+  本ファイルで描画する全 feature は demo にも表示される (DemoDashboardService が
+  mock データで対応)。LP SS が本番 SS に寄って見えるのは期待動作。
 -->
 <script lang="ts">
+import { tick } from 'svelte';
 import { enhance } from '$app/forms';
-import { DEMO_CHILD_HOME_LABELS, formatStreak } from '$lib/domain/labels';
+import { invalidateAll } from '$app/navigation';
+import { parseDisplayConfig } from '$lib/domain/display-config';
+import { CHILD_HOME_LABELS, DEMO_CHILD_HOME_LABELS } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
-import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
+import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
+import SiblingCelebration from '$lib/features/challenge/SiblingCelebration.svelte';
 import MustProgressBar from '$lib/features/child/MustProgressBar.svelte';
+import TutorialHintBanner from '$lib/features/child/TutorialHintBanner.svelte';
+import BabyHomePage from '$lib/features/child-home/BabyHomePage.svelte';
+import OverlaysSection from '$lib/features/child-home/components/OverlaysSection.svelte';
+import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
+import { getModeVariant } from '$lib/features/child-home/variants';
+import type { CategoryXpInfo } from '$lib/server/services/status-service';
 import { getDashboardService } from '$lib/services/context';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
+import ActivityEmptyState from '$lib/ui/components/ActivityEmptyState.svelte';
+import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
+import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
+import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
+import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
+import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
+import EventBanner from '$lib/ui/components/EventBanner.svelte';
+import MonthlyRewardDialog from '$lib/ui/components/MonthlyRewardDialog.svelte';
+import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
+import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
+import SiblingRanking from '$lib/ui/components/SiblingRanking.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
+import { soundService } from '$lib/ui/sound';
 
 /**
- * Props
+ * Props — `+page.svelte` から `data` をそのまま受け取る。
  *
- * - `pageData`: SvelteKit `+page.server.ts` の load 戻り値そのまま。
- *   demo 側で form action 結果や mustStatus / checklist など Context に
- *   含まない既存スキーマフィールドを引き続き使えるよう、原形を維持する。
- *   POC では Service interface (`getDashboardService`) が
- *   `todayRecorded` / `pointSettings` / `child` を提供する。
+ * data の構造は本番 / demo の `+page.server.ts` load 戻り値と一致するため、
+ * 共通の型契約として広めの構造で受ける。Drizzle 推論 Child や子コンポーネントの
+ * private interface との整合性のため、いくつかのフィールドは `unknown` で受け、
+ * 描画時に最小限のフィールドにアクセスする (アクセスする property は all optional)。
  */
-const {
-	pageData,
-}: {
-	pageData: {
-		activities: {
-			id: number;
-			name: string;
-			displayName: string;
-			icon: string;
-			categoryId: number;
-			dailyLimit: number | null;
-			isMission: boolean;
-		}[];
-		uiMode: string;
-		hasChecklists: boolean;
-		checklistProgress: { checkedCount: number; totalCount: number; allDone: boolean } | null;
-		dailyMissions: {
-			missions: { id: number; activityIcon: string; activityName: string; completed: boolean }[];
-			completedCount: number;
-			allComplete: boolean;
-			bonusAwarded: number;
-		} | null;
-		mustStatus: { logged: number; total: number; granted: boolean; points: number } | null;
+/**
+ * DashboardData は本番 / demo の +page.server.ts load 戻り値の **共通な subset** のみを表す。
+ * page 側で `data as unknown as DashboardData` でキャストして渡す (server load 由来の
+ * Drizzle 推論型 (Child / Activity 等) が strict object のため、index signature 経由で受けると
+ * 互換性 error になる)。
+ */
+type DashboardData = {
+	child: {
+		id: number;
+		nickname: string;
+		age: number;
+		theme?: string | null;
+		displayConfig?: string | null;
+	} | null;
+	balance?: number;
+	uiMode: string;
+	isPremium?: boolean;
+	activities: Array<{
+		id: number;
+		name: string;
+		displayName: string;
+		icon: string;
+		categoryId: number;
+		dailyLimit: number | null;
+		isMission: boolean;
+		isMainQuest?: boolean | number;
+		isPinned?: boolean | number;
+		source?: string;
+		triggerHint?: string | null;
+	}>;
+	todayRecorded: { activityId: number; count: number }[];
+	mustStatus: { logged: number; total: number; granted: boolean; points: number } | null;
+	hasChecklists?: boolean;
+	checklistProgress?: { checkedCount: number; totalCount: number; allDone: boolean } | null;
+	dailyMissions?: {
+		missions: { id: number; activityIcon: string; activityName: string; completed: boolean }[];
+		completedCount: number;
+		allComplete: boolean;
+		bonusAwarded: number;
+	} | null;
+	categoryXp?: Record<number, CategoryXpInfo> | null;
+	isFirstTime?: boolean;
+	birthdayBonus?: { newAge: number | null; totalPoints: number | null } | null;
+	activeEvents?: Array<Record<string, unknown>> | null;
+	activeChallenges?: Array<{
+		id: number;
+		title: string;
+		allCompleted?: boolean;
+		progress: Array<{ childId: number; rewardClaimed: number; completed?: number }>;
+		[k: string]: unknown;
+	}> | null;
+	siblingRanking?: {
+		rankings: Array<{
+			childId: number;
+			childName: string;
+			totalCount: number;
+			categoryCounts: Record<number, number>;
+		}>;
+	} | null;
+	unshownCheers?: unknown[] | null;
+	latestReward?: { title: string; points: number; icon: string | null } | null;
+	latestMessage?: {
+		id: number;
+		messageType: string;
+		stampLabel?: string | null;
+		body?: string | null;
+		icon?: string | null;
+		[k: string]: unknown;
+	} | null;
+	loginBonusStatus?: { claimedToday: boolean; consecutiveLoginDays: number } | null;
+	monthlyPremiumReward?: {
+		event: { id: number };
+		config: { name: string; icon: string; description: string };
+		claimed: boolean;
+	} | null;
+	specialRewardProgress?: { remaining: number } | null;
+	allChildren?: Array<{ id: number; nickname: string }> | null;
+	pointSettings: {
+		mode: string;
+		currency: string;
+		rate: number;
 	};
-} = $props();
+	[k: string]: unknown;
+};
 
+const { data }: { data: DashboardData } = $props();
+
+const variant = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode));
+const f = $derived(variant.features);
+
+// ADR-0046 / #2097: Service interface 経由で home data (child / todayRecorded / pointSettings) を参照
 const service = getDashboardService();
 const homeData = $derived(service.getHomeData());
-
-const ps = $derived(homeData.pointSettings);
+const ps = $derived(homeData.pointSettings ?? data.pointSettings);
 const fmtPts = (pts: number) => formatPointValueWithSign(pts, ps.mode, ps.currency, ps.rate);
 
+const displayConfig = $derived(
+	parseDisplayConfig(data.child?.displayConfig ?? null, data.child?.age ?? 4),
+);
+
+// --- Dialog FSM: single source of truth for overlay state (#671) ---
+let fsm = $state(new DialogFSM());
+
+// First record special celebration
+let isFirstRecord = $state(false);
+
+const celebEffect = $derived(
+	isFirstRecord ? ('legend' as CelebrationType) : ('default' as CelebrationType),
+);
+
+// Tutorial hint banner (one-time, localStorage)
+// svelte-ignore state_referenced_locally
+const tutorialHintKey = `child_tutorial_hint_shown_${data.child?.id ?? 0}`;
+let showTutorialHint = $state(false);
+$effect(() => {
+	if (typeof window !== 'undefined') {
+		showTutorialHint = !localStorage.getItem(tutorialHintKey);
+	}
+});
+function dismissTutorialHint() {
+	showTutorialHint = false;
+	if (typeof window !== 'undefined') localStorage.setItem(tutorialHintKey, '1');
+}
+
+// Sibling cheer overlay
+let showCheerOverlay = $state(true);
+
+// Sibling celebration (all siblings complete)
+const celebrationChallenge = $derived(
+	data.activeChallenges?.find(
+		(c: { allCompleted?: boolean; progress: Array<{ childId: number; rewardClaimed: number }> }) =>
+			c.allCompleted === true &&
+			c.progress.some(
+				(p: { childId: number; rewardClaimed: number }) =>
+					p.childId === (data.child?.id ?? 0) && p.rewardClaimed === 0,
+			),
+	) ?? null,
+);
+let showCelebration = $state(true);
+
+// Pin context menu state
+let pinMenuOpen = $state(false);
+let pinMenuActivity = $state<{ id: number; name: string; isPinned: boolean } | null>(null);
+let pinSubmitting = $state(false);
+
+// Confirm dialog state (non-baby modes)
+let confirmOpen = $state(false);
+let selectedActivity = $state<{
+	id: number;
+	name: string;
+	displayName?: string;
+	icon: string;
+} | null>(null);
+
+// Baby mode: pending activity for inline form
+let pendingActivityId = $state<number | null>(null);
+
+// Record result overlay
+let resultOpen = $state(false);
+let resultData = $state<{
+	logId: number;
+	activityName: string;
+	totalPoints: number;
+	streakDays: number;
+	streakBonus: number;
+	masteryBonus: number;
+	masteryLevel: number;
+	masteryLeveledUp: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
+	cancelableUntil: string;
+	comboBonus: {
+		categoryCombo: { categoryId: number; name: string; bonus: number }[];
+		crossCategoryCombo: { name: string; bonus: number } | null;
+		miniCombo: { uniqueCount: number; bonus: number } | null;
+		hints: { message: string }[];
+		totalNewBonus: number;
+	} | null;
+} | null>(null);
+
+// Error state
+let errorMessage = $state('');
+
+// Submitting state (多重送信防止)
+let submitting = $state(false);
+
+// Cancel state
+let cancelCountdown = $state(0);
+let cancelTimerId = $state<ReturnType<typeof setInterval> | null>(null);
+let cancelledMessage = $state(false);
+
+// Login stamp data (populated by form action result)
+let stampPressData = $state<{
+	stampRarity: string;
+	stampName: string;
+	stampOmikujiRank: string | null;
+	instantPoints: number;
+	consecutiveDays: number;
+	multiplier: number;
+	cardFilledSlots: number;
+	cardTotalSlots: number;
+	cardEntries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[];
+	weeklyRedeem: {
+		points: number;
+		filledSlots: number;
+		totalSlots: number;
+		completeBonus: number;
+	} | null;
+} | null>(null);
+let bonusClaiming = $state(false);
+
+// Mission complete result state
+let missionResult = $state<{
+	missionCompleted: boolean;
+	allComplete: boolean;
+	bonusAwarded: number;
+} | null>(null);
+
+// Level up overlay state
+let levelUpData = $state<{
+	oldLevel: number;
+	oldTitle: string;
+	newLevel: number;
+	newTitle: string;
+	categoryId?: number;
+	categoryName?: string;
+} | null>(null);
+
+// XP gain animation state
+let xpGainData = $state<{
+	categoryId: number;
+	categoryName: string;
+	xpBefore: number;
+	xpAfter: number;
+	maxValue: number;
+	levelBefore: number;
+	levelAfter: number;
+} | null>(null);
+let xpAnimatingCategoryId = $state<number | null>(null);
+
+/** categoryXp にアニメーション用の上書き値を適用 */
+function getCategoryXpWithAnim(categoryId: number): CategoryXpInfo | null {
+	const base = data.categoryXp?.[categoryId] ?? null;
+	if (!base) return null;
+	if (xpGainData && xpGainData.categoryId === categoryId && xpAnimatingCategoryId === categoryId) {
+		return {
+			...base,
+			value: xpGainData.xpAfter,
+			level: xpGainData.levelAfter,
+		};
+	}
+	return base;
+}
+
+// Build recorded counts map: activityId → count
 const recordedMap = $derived(new Map(homeData.todayRecorded.map((r) => [r.activityId, r.count])));
+const todayTotalCount = $derived(homeData.todayRecorded.reduce((sum, r) => sum + r.count, 0));
 
 function getCount(activityId: number): number {
 	return recordedMap.get(activityId) ?? 0;
@@ -79,25 +347,32 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 	return getCount(activity.id) >= limit;
 }
 
+// Event badge: show first active event's icon on activity cards
+const activeEventBadge = $derived<string | null>(
+	f.showEvents && data.activeEvents && data.activeEvents.length > 0
+		? ((data.activeEvents[0]?.bannerIcon as string | undefined) ?? null)
+		: null,
+);
+
+// Per-category mission counts
+function getCategoryMissionCount(categoryId: number) {
+	return data.activities.filter(
+		(a: { categoryId: number; isMission: boolean }) => a.categoryId === categoryId && a.isMission,
+	).length;
+}
+function getCategoryCompletedMissionCount(categoryId: number) {
+	return data.activities.filter(
+		(a: { categoryId: number; isMission: boolean; id: number; dailyLimit: number | null }) =>
+			a.categoryId === categoryId && a.isMission && isCompleted(a),
+	).length;
+}
+
+// Group activities by category
 const activitiesByCategory = $derived(
 	CATEGORY_DEFS.map((catDef) => ({
 		categoryId: catDef.id,
-		items: pageData.activities.filter((a) => a.categoryId === catDef.id),
+		items: data.activities.filter((a: { categoryId: number }) => a.categoryId === catDef.id),
 	})).filter((g) => g.items.length > 0),
-);
-
-// Confirm / result dialog state
-let confirmOpen = $state(false);
-let selectedActivity = $state<{
-	id: number;
-	name: string;
-	displayName?: string;
-	icon: string;
-} | null>(null);
-let submitting = $state(false);
-let resultOpen = $state(false);
-let resultData = $state<{ activityName: string; totalPoints: number; streakDays: number } | null>(
-	null,
 );
 
 const anyDialogOpen = $derived(confirmOpen || resultOpen);
@@ -105,12 +380,37 @@ const anyDialogOpen = $derived(confirmOpen || resultOpen);
 function handleActivityTap(activity: {
 	id: number;
 	name: string;
-	displayName?: string;
 	icon: string;
+	displayName?: string;
 }) {
 	if (anyDialogOpen || submitting) return;
+	soundService.play('tap');
 	selectedActivity = activity;
 	confirmOpen = true;
+}
+
+function handleActivityLongPress(activity: {
+	id: number;
+	name: string;
+	isPinned?: boolean | number;
+}) {
+	if (!f.showPin) return;
+	soundService.play('tap');
+	pinMenuActivity = { id: activity.id, name: activity.name, isPinned: !!activity.isPinned };
+	pinMenuOpen = true;
+}
+
+async function handlePinToggle() {
+	if (!pinMenuActivity) return;
+	pinSubmitting = true;
+	const formData = new FormData();
+	formData.set('activityId', String(pinMenuActivity.id));
+	formData.set('pinned', String(!pinMenuActivity.isPinned));
+	await fetch('?/togglePin', { method: 'POST', body: formData });
+	pinSubmitting = false;
+	pinMenuOpen = false;
+	pinMenuActivity = null;
+	await invalidateAll();
 }
 
 function handleConfirmClose() {
@@ -118,24 +418,288 @@ function handleConfirmClose() {
 	selectedActivity = null;
 }
 
+function startCancelCountdown(until: string) {
+	const remaining = Math.max(0, Math.floor((new Date(until).getTime() - Date.now()) / 1000));
+	cancelCountdown = remaining;
+	if (cancelTimerId) clearInterval(cancelTimerId);
+	cancelTimerId = setInterval(() => {
+		cancelCountdown--;
+		if (cancelCountdown <= 0) {
+			if (cancelTimerId) clearInterval(cancelTimerId);
+			cancelTimerId = null;
+		}
+	}, 1000);
+}
+
 function handleResultClose() {
+	if (cancelTimerId) clearInterval(cancelTimerId);
+	cancelTimerId = null;
 	resultOpen = false;
+	missionResult = null;
+
+	// XPバーアニメーションを開始
+	if (xpGainData) {
+		xpAnimatingCategoryId = xpGainData.categoryId;
+		setTimeout(() => {
+			xpAnimatingCategoryId = null;
+		}, 900);
+	}
+
+	// レベルアップがあれば FSM 経由で表示
+	if (levelUpData) {
+		fsm.transition('levelUp', levelUpData);
+	} else {
+		isFirstRecord = false;
+		resultData = null;
+		xpGainData = null;
+		invalidateAll();
+	}
+}
+
+function handleLevelUpClose() {
+	fsm.close();
+	levelUpData = null;
+	isFirstRecord = false;
 	resultData = null;
+	xpGainData = null;
+	invalidateAll();
+}
+
+function handleStampPressClose() {
+	fsm.close();
+	invalidateAll();
+}
+
+async function handleMessageClose() {
+	if (data.latestMessage) {
+		try {
+			await fetch(`/api/v1/messages/${data.latestMessage.id}/shown`, { method: 'POST' });
+		} catch {
+			// ignore
+		}
+	}
+	fsm.close();
+	invalidateAll();
+}
+
+async function handleRewardClose() {
+	if (data.latestReward) {
+		try {
+			await fetch(`/api/v1/special-rewards/shown`, { method: 'POST' });
+		} catch {
+			// ignore
+		}
+	}
+	fsm.close();
+}
+
+function handleAdventureClose() {
+	fsm.close();
+	triggerLoginBonus();
+}
+
+function triggerLoginBonus() {
+	if (data.loginBonusStatus && !data.loginBonusStatus.claimedToday && !bonusClaiming) {
+		bonusClaiming = true;
+		tick().then(() => {
+			document.getElementById('claim-bonus-btn')?.click();
+		});
+	}
+}
+
+function handleBirthdayOpen() {
+	fsm.transition('birthday', data.birthdayBonus);
+}
+
+// 「今日のおやくそく」全達成 bonus toast (一回限り)
+let mustToastShown = $state(false);
+$effect(() => {
+	if (typeof window === 'undefined') return;
+	if (mustToastShown) return;
+	const must = data.mustStatus;
+	if (must?.granted && must.points > 0) {
+		mustToastShown = true;
+		showToast(
+			`${CHILD_HOME_LABELS.mustAllCompleteEmoji} ${CHILD_HOME_LABELS.mustAllComplete}`,
+			CHILD_HOME_LABELS.mustBonusGranted(must.points),
+			'success',
+		);
+	}
+});
+
+// --- Page load: enqueue auto-triggered dialogs via FSM (#671) ---
+$effect(() => {
+	if (typeof window === 'undefined') return;
+
+	const shouldShowAdventure = f.showAdventureStart && data.isFirstTime === true;
+	const shouldShowReward = data.latestReward && !bonusClaiming;
+	const shouldShowMessage = f.showParentMessages && data.latestMessage;
+
+	fsm.onDataLoad({
+		adventure: shouldShowAdventure ? { childName: data.child?.nickname ?? '' } : undefined,
+		specialReward: shouldShowReward ? (data.latestReward ?? undefined) : undefined,
+		parentMessage: shouldShowMessage ? (data.latestMessage ?? undefined) : undefined,
+	});
+
+	if (
+		!shouldShowAdventure &&
+		data.loginBonusStatus &&
+		!data.loginBonusStatus.claimedToday &&
+		!bonusClaiming
+	) {
+		triggerLoginBonus();
+	}
+});
+
+/** Record result handler */
+function handleRecordResult(result: { type: string; data?: Record<string, unknown> }) {
+	submitting = false;
+	pendingActivityId = null;
+	confirmOpen = false;
+	if (result.type === 'success' && result.data && 'success' in result.data) {
+		const d = result.data as {
+			logId: number;
+			activityName: string;
+			totalPoints: number;
+			streakDays: number;
+			streakBonus: number;
+			masteryBonus?: number;
+			masteryLevel?: number;
+			masteryLeveledUp?: { oldLevel: number; newLevel: number; isMilestone: boolean } | null;
+			cancelableUntil: string;
+			comboBonus: {
+				categoryCombo: { categoryId: number; name: string; bonus: number }[];
+				crossCategoryCombo: { name: string; bonus: number } | null;
+				miniCombo: { uniqueCount: number; bonus: number } | null;
+				hints: { message: string }[];
+				totalNewBonus: number;
+			} | null;
+			missionComplete: {
+				missionCompleted: boolean;
+				allComplete: boolean;
+				bonusAwarded: number;
+			} | null;
+			levelUp: {
+				oldLevel: number;
+				oldTitle: string;
+				newLevel: number;
+				newTitle: string;
+				categoryId?: number;
+				categoryName?: string;
+				spGranted?: number;
+			} | null;
+			xpGain?: {
+				categoryId: number;
+				categoryName: string;
+				xpBefore: number;
+				xpAfter: number;
+				maxValue: number;
+				levelBefore: number;
+				levelAfter: number;
+			};
+		};
+		resultData = {
+			logId: d.logId,
+			activityName: d.activityName,
+			totalPoints: d.totalPoints,
+			streakDays: d.streakDays,
+			streakBonus: d.streakBonus,
+			masteryBonus: d.masteryBonus ?? 0,
+			masteryLevel: d.masteryLevel ?? 1,
+			masteryLeveledUp: d.masteryLeveledUp ?? null,
+			cancelableUntil: d.cancelableUntil,
+			comboBonus: d.comboBonus ?? null,
+		};
+		missionResult = d.missionComplete ?? null;
+		levelUpData = d.levelUp ?? null;
+		xpGainData = d.xpGain ?? null;
+		startCancelCountdown(d.cancelableUntil);
+		soundService.playRecordComplete();
+		setTimeout(() => soundService.play('point-gain'), 300);
+		resultOpen = true;
+	} else if (result.type === 'failure' && result.data && 'error' in result.data) {
+		errorMessage = String(result.data.error);
+		soundService.play('error');
+		setTimeout(() => {
+			errorMessage = '';
+		}, 3000);
+		invalidateAll();
+	} else {
+		invalidateAll();
+	}
+	selectedActivity = null;
 }
 </script>
 
-<div class="px-[var(--sp-sm)] py-1">
-	{#if pageData.mustStatus && pageData.mustStatus.total > 0 && pageData.uiMode !== 'baby'}
-		<MustProgressBar
-			logged={pageData.mustStatus.logged}
-			total={pageData.mustStatus.total}
-			uiMode={pageData.uiMode as UiMode}
-			bonusGranted={pageData.mustStatus.granted}
-			bonusPoints={pageData.mustStatus.points}
+{#if data.uiMode === 'baby'}
+	<BabyHomePage child={data.child ?? { nickname: '', age: 0 }} balance={data.balance ?? 0} />
+{:else}
+<div class="px-[var(--sp-sm)] py-1" data-testid="{data.uiMode}-home-page">
+	{#if data.birthdayBonus}
+		<BirthdayBanner
+			nickname={data.child?.nickname ?? ''}
+			newAge={data.birthdayBonus.newAge ?? 0}
+			totalPoints={data.birthdayBonus.totalPoints ?? 0}
+			onclick={handleBirthdayOpen}
 		/>
 	{/if}
 
-	{#if pageData.hasChecklists}
+	<!-- Error toast -->
+	{#if errorMessage}
+		<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[var(--color-stat-red)] text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold animate-bounce-in">
+			{errorMessage}
+		</div>
+	{/if}
+
+	<!-- Login stamp auto-claim form (hidden) — unified bonus + stamp -->
+	{#if bonusClaiming && fsm.current !== 'stampPress'}
+		<form
+			method="POST"
+			action="?/loginStamp"
+			use:enhance={() => {
+				return async ({ result }) => {
+					if (result.type === 'success' && result.data && 'loginStamp' in result.data) {
+						const d = result.data as Record<string, unknown>;
+						const cardData = d.cardData as { filledSlots: number; totalSlots: number; entries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[] } | null;
+						stampPressData = {
+							stampRarity: (d.stampRarity as string) || 'N',
+							stampName: (d.stampName as string) || '',
+							stampOmikujiRank: (d.omikujiRank as string) ?? null,
+							instantPoints: (d.instantPoints as number) || 0,
+							consecutiveDays: (d.consecutiveLoginDays as number) || 0,
+							multiplier: (d.multiplier as number) || 1,
+							cardFilledSlots: cardData?.filledSlots ?? 0,
+							cardTotalSlots: cardData?.totalSlots ?? 5,
+							cardEntries: cardData?.entries ?? [],
+							weeklyRedeem: d.weeklyRedeem as { points: number; filledSlots: number; totalSlots: number; completeBonus: number } | null,
+						};
+						fsm.transition('stampPress', stampPressData);
+					}
+					bonusClaiming = false;
+				};
+			}}
+			class="hidden"
+		>
+			<Button type="submit" id="claim-bonus-btn" variant="ghost" size="sm">claim</Button>
+		</form>
+	{/if}
+
+	<!-- Tutorial hint banner (one-time) -->
+	<TutorialHintBanner visible={showTutorialHint} onDismiss={dismissTutorialHint} />
+
+	<!-- 「今日のおやくそく」進捗バー -->
+	{#if data.mustStatus && data.mustStatus.total > 0}
+		<MustProgressBar
+			logged={data.mustStatus.logged}
+			total={data.mustStatus.total}
+			uiMode={data.uiMode as UiMode}
+			bonusGranted={data.mustStatus.granted}
+			bonusPoints={data.mustStatus.points}
+		/>
+	{/if}
+
+	<!-- Checklist summary (demo / preschool レベルで checkboxes 表示) -->
+	{#if data.hasChecklists}
 		<div
 			class="flex items-center justify-between w-full px-[var(--sp-md)] py-[var(--sp-sm)] mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)]"
 		>
@@ -143,13 +707,13 @@ function handleResultClose() {
 				<span class="text-2xl">📋</span>
 				<span class="font-bold">{DEMO_CHILD_HOME_LABELS.checklistTitle}</span>
 			</div>
-			{#if pageData.checklistProgress}
+			{#if data.checklistProgress}
 				<div class="flex items-center gap-[var(--sp-xs)]">
-					{#if pageData.checklistProgress.allDone}
+					{#if data.checklistProgress.allDone}
 						<span class="text-sm font-bold text-[var(--theme-accent)]">{DEMO_CHILD_HOME_LABELS.checklistDone}</span>
 					{:else}
 						<span class="text-sm text-[var(--color-text-muted)]">
-							{pageData.checklistProgress.checkedCount}/{pageData.checklistProgress.totalCount}
+							{data.checklistProgress.checkedCount}/{data.checklistProgress.totalCount}
 						</span>
 					{/if}
 				</div>
@@ -157,17 +721,18 @@ function handleResultClose() {
 		</div>
 	{/if}
 
-	{#if pageData.dailyMissions && pageData.dailyMissions.missions.length > 0}
+	<!-- Daily missions summary -->
+	{#if data.dailyMissions && data.dailyMissions.missions.length > 0}
 		<div class="mb-[var(--sp-sm)] rounded-[var(--radius-lg)] bg-white shadow-sm border border-[var(--color-border)] overflow-hidden">
 			<div class="flex items-center gap-[var(--sp-xs)] px-[var(--sp-md)] pt-[var(--sp-sm)] pb-1">
 				<span class="text-lg">🎯</span>
 				<span class="font-bold text-sm">{DEMO_CHILD_HOME_LABELS.dailyMissionTitle}</span>
 				<span class="text-xs text-[var(--color-text-muted)] ml-auto">
-					{pageData.dailyMissions.completedCount}/{pageData.dailyMissions.missions.length}
+					{data.dailyMissions.completedCount}/{data.dailyMissions.missions.length}
 				</span>
 			</div>
 			<div class="px-[var(--sp-md)] pb-[var(--sp-sm)]">
-				{#each pageData.dailyMissions.missions as mission (mission.id)}
+				{#each data.dailyMissions.missions as mission (mission.id)}
 					<div class="flex items-center gap-[var(--sp-sm)] py-1">
 						<span class="text-lg w-6 text-center">{mission.completed ? '✅' : '⬜'}</span>
 						<span class="text-lg">{mission.activityIcon}</span>
@@ -176,105 +741,538 @@ function handleResultClose() {
 						</span>
 					</div>
 				{/each}
-				{#if pageData.dailyMissions.allComplete}
+				{#if data.dailyMissions.allComplete}
 					<div class="text-center mt-1 py-1 rounded-[var(--radius-md)] bg-[var(--theme-bg)]">
-						<span class="text-sm font-bold text-[var(--theme-accent)]">{DEMO_CHILD_HOME_LABELS.missionComplete(fmtPts(pageData.dailyMissions.bonusAwarded))}</span>
+						<span class="text-sm font-bold text-[var(--theme-accent)]">{DEMO_CHILD_HOME_LABELS.missionComplete(fmtPts(data.dailyMissions.bonusAwarded))}</span>
 					</div>
 				{/if}
 			</div>
 		</div>
 	{/if}
 
-	{#each activitiesByCategory as group (group.categoryId)}
-		<CategorySection categoryId={group.categoryId} itemCount={group.items.length}>
-			{#each group.items as activity (activity.id)}
-				<ActivityCard
-					activityId={activity.id}
-					icon={activity.icon}
-					name={activity.displayName}
-					categoryId={activity.categoryId}
-					completed={isCompleted(activity)}
-					count={getCount(activity.id)}
-					isMission={activity.isMission}
-					onclick={() => handleActivityTap(activity)}
-				/>
+	<!-- Activity grid by category -->
+	{#each activitiesByCategory as group, groupIdx (group.categoryId)}
+		<CategorySection
+			categoryId={group.categoryId}
+			cardSize={displayConfig.cardSize}
+			itemsPerCategory={displayConfig.itemsPerCategory}
+			collapsible={displayConfig.collapsible}
+			itemCount={group.items.length}
+			xpInfo={getCategoryXpWithAnim(group.categoryId)}
+			xpAnimating={xpAnimatingCategoryId === group.categoryId}
+			missionCount={getCategoryMissionCount(group.categoryId)}
+			completedMissionCount={getCategoryCompletedMissionCount(group.categoryId)}
+		>
+			{#each group.items as activity, i (activity.id)}
+				{#if f.showPin && i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}
+					<div class="col-span-full flex items-center gap-2 my-0.5" aria-hidden="true" data-testid="pin-separator">
+						<div class="flex-1 border-t border-dashed border-[var(--color-border-strong)]"></div>
+					</div>
+				{/if}
+				{#if f.showConfirmDialog}
+					<!-- Non-baby: ActivityCard + confirm dialog -->
+					{#if groupIdx === 0 && i === 0}
+						<div data-tutorial="activity-card">
+							<ActivityCard
+								activityId={activity.id}
+								icon={activity.icon}
+								name={activity.displayName}
+								categoryId={activity.categoryId}
+								cardSize={displayConfig.cardSize}
+								completed={isCompleted(activity)}
+								count={getCount(activity.id)}
+								isMission={activity.isMission}
+								isPinned={!!activity.isPinned}
+								frozen={!data.isPremium && activity.source === 'custom'}
+								triggerHint={activity.triggerHint}
+								eventBadge={activeEventBadge}
+								onclick={() => handleActivityTap(activity)}
+								onlongpress={() => handleActivityLongPress(activity)}
+							/>
+						</div>
+					{:else}
+						<ActivityCard
+							activityId={activity.id}
+							icon={activity.icon}
+							name={activity.displayName}
+							categoryId={activity.categoryId}
+							cardSize={displayConfig.cardSize}
+							completed={isCompleted(activity)}
+							count={getCount(activity.id)}
+							isMission={activity.isMission}
+							isPinned={!!activity.isPinned}
+							frozen={!data.isPremium && activity.source === 'custom'}
+							triggerHint={activity.triggerHint}
+							eventBadge={activeEventBadge}
+							onclick={() => handleActivityTap(activity)}
+							onlongpress={() => handleActivityLongPress(activity)}
+						/>
+					{/if}
+				{:else}
+					<!-- Baby preschool: inline form recording (no confirm dialog) -->
+					{@const completed = isCompleted(activity)}
+					{@const borderColor = getCategoryById(activity.categoryId)?.color ?? 'var(--theme-primary)'}
+					{@const actCount = getCount(activity.id)}
+					{@const showMission = activity.isMission && !completed}
+					{@const showMainQuest = !!activity.isMainQuest && !completed}
+					{#if completed}
+						<div
+							class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] rounded-[var(--radius-md)] border-2 border-[var(--color-gold-400)] bg-[var(--color-gold-100)] shadow-[0_0_0_2px_rgba(251,191,36,0.3)] transition-all duration-150 ease-out tap-target"
+							data-testid="activity-card-{activity.id}"
+							data-tutorial={groupIdx === 0 && i === 0 ? 'activity-card' : undefined}
+							aria-label={CHILD_HOME_LABELS.completedAriaLabel(activity.displayName)}
+						>
+							<span class="absolute inset-0 flex items-center justify-center text-3xl opacity-80 z-1 animate-bounce-in">💮</span>
+							<CompoundIcon icon={activity.icon} size="lg" faded={true} />
+							<span class="text-[10px] font-bold leading-tight text-center line-clamp-2 opacity-40">{activity.displayName}</span>
+						</div>
+					{:else}
+						<form
+							method="POST"
+							action="?/record"
+							data-tutorial={groupIdx === 0 && i === 0 ? 'activity-card' : undefined}
+							use:enhance={() => {
+								if (submitting) return ({ update }) => update();
+								submitting = true;
+								pendingActivityId = activity.id;
+								soundService.ensureContext();
+								soundService.play('tap');
+								return async ({ result }) => {
+									handleRecordResult(result);
+								};
+							}}
+						>
+							<input type="hidden" name="activityId" value={activity.id} />
+							<Button
+								type="submit"
+								disabled={submitting}
+								variant="outline"
+								size="sm"
+								class="relative flex flex-col items-center justify-center gap-0.5 w-full aspect-[4/5] min-h-[60px] border-2 border-solid bg-white shadow-sm cursor-pointer duration-150 ease-out hover:shadow-md active:scale-95 {pendingActivityId === activity.id ? 'baby-card-pending' : ''} {showMission ? 'baby-card-mission' : ''} {showMainQuest ? 'baby-card-main-quest' : ''}"
+								data-testid="activity-card-{activity.id}"
+								style="border-color: {showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : borderColor}"
+								aria-label="{CHILD_HOME_LABELS.babyCardRecordAriaLabel(activity.displayName)}{showMainQuest ? CHILD_HOME_LABELS.babyCardRecordMainQuestSuffix : ''}{showMission ? CHILD_HOME_LABELS.babyCardRecordMissionSuffix : ''}"
+							>
+								{#if showMission}
+									<span class="absolute -top-1.5 -left-1.5 z-10 text-sm baby-card__mission-star" aria-hidden="true">⭐</span>
+								{/if}
+								{#if showMainQuest}
+									<span class="baby-main-quest-badge" aria-hidden="true">{CHILD_HOME_LABELS.babyCardMainQuestBadge}</span>
+								{/if}
+								{#if pendingActivityId === activity.id}
+									<span class="baby-card__spinner" aria-hidden="true"></span>
+									<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{CHILD_HOME_LABELS.babyCardPendingText}</span>
+								{:else}
+									{#if actCount > 0}
+										<span class="absolute -top-1 -right-1 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-[var(--color-brand-600)] text-white text-[10px] font-bold shadow-sm">{actCount}</span>
+									{/if}
+									<CompoundIcon icon={activity.icon} size="lg" />
+									<span class="text-[10px] font-bold leading-tight text-center line-clamp-2">{activity.displayName}</span>
+									{#if activity.triggerHint}
+										<span class="text-[9px] font-bold text-orange-500 leading-tight text-center line-clamp-1 px-0.5">{activity.triggerHint}</span>
+									{/if}
+								{/if}
+							</Button>
+						</form>
+					{/if}
+				{/if}
 			{/each}
 		</CategorySection>
 	{/each}
 
-	{#if pageData.activities.length === 0}
-		<div class="flex flex-col items-center justify-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]">
-			<span class="text-4xl mb-[var(--sp-md)]">📋</span>
-			<p class="text-[var(--font-md)]">{DEMO_CHILD_HOME_LABELS.activitiesEmpty}</p>
-		</div>
+	<!-- Sibling ranking (non-baby, family プラン + 設定有効時のみ) -->
+	{#if f.showSiblingFeatures && data.siblingRanking && data.siblingRanking.rankings.length > 1}
+		<SiblingRanking
+			rankings={data.siblingRanking.rankings}
+			childId={data.child?.id ?? 0}
+		/>
+	{/if}
+
+	{#if data.activities.length === 0}
+		<ActivityEmptyState uiMode={data.uiMode as UiMode} />
+	{/if}
+
+	<!-- Season event banners (non-baby) -->
+	{#if f.showEvents && data.activeEvents && data.activeEvents.length > 0}
+		<EventBanner events={data.activeEvents as never} />
+	{/if}
+
+	<!-- Sibling challenge banners -->
+	{#if data.activeChallenges && data.activeChallenges.length > 0}
+		<ChallengeBanner
+			challenges={data.activeChallenges as never}
+			childId={data.child?.id ?? 0}
+			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
+		/>
 	{/if}
 </div>
 
-<!-- Confirm dialog -->
-<Dialog bind:open={confirmOpen} title="きろくする？" onOpenChange={({ open }) => { if (!open) handleConfirmClose(); }}>
-	{#if selectedActivity}
-		<div class="text-center py-4">
-			<span class="text-5xl block mb-3">{selectedActivity.icon}</span>
-			<p class="text-lg font-bold mb-4">{selectedActivity.displayName ?? selectedActivity.name}</p>
-			<form
-				method="POST"
-				action="?/record"
-				use:enhance={() => {
-					submitting = true;
-					return async ({ result }) => {
-						submitting = false;
-						confirmOpen = false;
-						if (result.type === 'success' && result.data) {
-							const d = result.data as { activityName: string; totalPoints: number; streakDays: number };
-							resultData = d;
-							resultOpen = true;
-						}
-					};
-				}}
-			>
-				<input type="hidden" name="activityId" value={selectedActivity.id} />
-				<Button
-					type="submit"
-					variant="primary"
-					size="lg"
-					disabled={submitting}
-					class="w-full bg-[var(--theme-accent)] disabled:opacity-50"
-				>
-					{submitting ? DEMO_CHILD_HOME_LABELS.recordingLabel : DEMO_CHILD_HOME_LABELS.recordButton}
-				</Button>
-			</form>
-		</div>
-	{/if}
-</Dialog>
-
-<!-- Result dialog -->
-<Dialog bind:open={resultOpen} title="きろくしたよ！" onOpenChange={({ open }) => { if (!open) handleResultClose(); }}>
-	{#if resultData}
-		<div class="text-center py-4">
-			<p class="text-3xl font-bold text-[var(--color-point)] mb-2">
-				{fmtPts(resultData.totalPoints)}
-			</p>
-			<p class="text-sm text-[var(--color-text-muted)]">
-				{formatStreak(resultData.streakDays)}{DEMO_CHILD_HOME_LABELS.resultStreakSuffix}
-			</p>
-			<p class="text-xs text-[var(--color-text-muted)] mt-1">{DEMO_CHILD_HOME_LABELS.resultTodayPrefix} {homeData.todayRecorded.reduce((sum, r) => sum + r.count, 0) + 1}{DEMO_CHILD_HOME_LABELS.resultTodaySuffix}</p>
-			<p class="text-xs text-[var(--color-feedback-warning-text)] mt-3">
-				{DEMO_CHILD_HOME_LABELS.demoDataNote}
-			</p>
-			<a
-				href="/demo/signup"
-				class="mt-3 block w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-[var(--radius-lg)] text-center text-sm"
-			>
-				{DEMO_CHILD_HOME_LABELS.signupCta}
-			</a>
+<!-- Pin context menu (non-baby) -->
+{#if f.showPin}
+<Dialog bind:open={pinMenuOpen} closable={true} title="">
+	{#if pinMenuActivity}
+		<div class="flex flex-col items-center gap-3 text-center py-2">
+			<p class="text-base font-bold">{pinMenuActivity.name}</p>
 			<Button
-				variant="primary"
+				variant={pinMenuActivity.isPinned ? 'ghost' : 'warning'}
 				size="md"
-				class="mt-2 w-full bg-[var(--theme-accent)]"
-				onclick={handleResultClose}
+				class="w-full {pinMenuActivity.isPinned ? 'bg-[var(--color-surface-tertiary)] text-[var(--color-text-primary)]' : 'bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]'}"
+				disabled={pinSubmitting}
+				onclick={handlePinToggle}
 			>
-				{DEMO_CHILD_HOME_LABELS.closeButton}
+				{#if pinSubmitting}
+					<span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" aria-hidden="true"></span>
+				{:else if pinMenuActivity.isPinned}
+					{CHILD_HOME_LABELS.pinActionUnpin}
+				{:else}
+					{CHILD_HOME_LABELS.pinActionPin}
+				{/if}
+			</Button>
+			<Button
+				variant="ghost"
+				size="sm"
+				class="w-full text-[var(--color-text-muted)]"
+				onclick={() => { pinMenuOpen = false; pinMenuActivity = null; }}
+			>
+				{CHILD_HOME_LABELS.pinCloseButton}
 			</Button>
 		</div>
 	{/if}
 </Dialog>
+{/if}
+
+<!-- Confirm dialog (non-baby) -->
+{#if f.showConfirmDialog}
+<Dialog bind:open={confirmOpen} closable={false} title="" testid="confirm-dialog">
+	{#if selectedActivity}
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center">
+			<CompoundIcon icon={selectedActivity.icon} size="xl" />
+			<p class="text-lg font-bold">{CHILD_HOME_LABELS.confirmTitleBr(selectedActivity.displayName ?? selectedActivity.name)}<br />{CHILD_HOME_LABELS.confirmTitleBrLine2}</p>
+			<div class="flex gap-[var(--sp-sm)] w-full">
+				<Button
+					variant="ghost"
+					size="md"
+					class="flex-1 bg-[var(--color-surface-tertiary)]"
+					data-testid="confirm-cancel-btn"
+					disabled={submitting}
+					onclick={handleConfirmClose}
+				>
+					{CHILD_HOME_LABELS.confirmCancelButton}
+				</Button>
+				<form
+					method="POST"
+					action="?/record"
+					class="flex-1"
+					use:enhance={() => {
+						if (submitting) return ({ update }) => update();
+						submitting = true;
+						soundService.ensureContext();
+						soundService.play('tap');
+						return async ({ result }) => {
+							handleRecordResult(result);
+						};
+					}}
+				>
+					<input type="hidden" name="activityId" value={selectedActivity.id} />
+					<Button
+						type="submit"
+						disabled={submitting}
+						variant="primary"
+						size="md"
+						data-testid="confirm-record-btn"
+						class="w-full {submitting ? 'animate-btn-pulse' : ''}"
+					>
+						{#if submitting}
+							<span class="pending-dot" aria-hidden="true"></span>
+							{CHILD_HOME_LABELS.confirmSubmitLoading}
+						{:else}
+							{CHILD_HOME_LABELS.confirmSubmitButton}
+						{/if}
+					</Button>
+				</form>
+			</div>
+		</div>
+	{/if}
+</Dialog>
+{/if}
+
+<!-- Record result overlay -->
+<Dialog bind:open={resultOpen} closable={false} title="">
+	{#if resultData}
+		<div class="flex flex-col items-center gap-[var(--sp-md)] text-center py-[var(--sp-md)]">
+			{#if cancelledMessage}
+				<span class="text-5xl">{CHILD_HOME_LABELS.resultCancelledIcon}</span>
+				<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultCancelledTitle}</p>
+				<Button
+					variant="ghost"
+					size="md"
+					class="w-full bg-[var(--color-surface-tertiary)] mt-[var(--sp-sm)]"
+					onclick={() => {
+						cancelledMessage = false;
+						resultOpen = false;
+						resultData = null;
+						invalidateAll();
+					}}
+				>
+					{CHILD_HOME_LABELS.resultCancelledClose}
+				</Button>
+			{:else}
+				<div class="relative w-24 h-24 flex items-center justify-center">
+					<CelebrationEffect type={celebEffect} />
+				</div>
+				{#if isFirstRecord}
+					<p class="text-lg font-bold text-[var(--theme-accent)]">{CHILD_HOME_LABELS.resultFirstRecord}</p>
+					<p class="text-sm font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
+				{:else}
+					<p class="text-lg font-bold">{CHILD_HOME_LABELS.resultActivityRecorded(resultData.activityName)}</p>
+				{/if}
+				<div class="animate-point-pop">
+					<p class="text-2xl font-bold text-[var(--color-point)]">{fmtPts(resultData.totalPoints)}</p>
+				</div>
+				{#if resultData.streakDays >= 2}
+					<p class="text-sm text-[var(--theme-accent)]">
+						{CHILD_HOME_LABELS.resultStreakBonus(resultData.streakDays, resultData.streakBonus)}
+					</p>
+				{/if}
+				{#if resultData.masteryBonus > 0}
+					<p class="text-sm text-[var(--color-stat-purple)]">
+						{CHILD_HOME_LABELS.resultMasteryBonus(resultData.masteryBonus, resultData.masteryLevel)}
+					</p>
+				{/if}
+				{#if resultData.masteryLeveledUp}
+					<div class="bg-[var(--color-stat-purple-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+						<p class="text-sm font-bold text-[var(--color-stat-purple)]">
+							{CHILD_HOME_LABELS.resultMasteryLevelUp(resultData.activityName, resultData.masteryLeveledUp.newLevel)}
+						</p>
+					</div>
+				{/if}
+				{#if resultData.comboBonus}
+					<div class="bg-[var(--theme-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+						{#each resultData.comboBonus.categoryCombo as cc}
+							<p class="text-sm font-bold text-[var(--theme-accent)]">
+								{CHILD_HOME_LABELS.resultComboCategoryCombo(cc.name, getCategoryById(cc.categoryId)?.name ?? '')} {fmtPts(cc.bonus)}
+							</p>
+						{/each}
+						{#if resultData.comboBonus.crossCategoryCombo}
+							<p class="text-sm font-bold text-[var(--color-point)]">
+								{resultData.comboBonus.crossCategoryCombo.name + CHILD_HOME_LABELS.crossComboBang} {fmtPts(resultData.comboBonus.crossCategoryCombo.bonus)}
+							</p>
+						{/if}
+					</div>
+				{/if}
+				{#if missionResult}
+					<div class="bg-[var(--color-feedback-warning-bg)] rounded-[var(--radius-md)] px-3 py-2 w-full">
+						<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">
+							{CHILD_HOME_LABELS.resultMissionComplete}
+							{#if missionResult.bonusAwarded > 0}
+								{fmtPts(missionResult.bonusAwarded)}
+							{/if}
+						</p>
+						{#if missionResult.allComplete}
+							<p class="text-xs font-bold text-[var(--color-feedback-warning-text)]">{CHILD_HOME_LABELS.resultMissionAllClear}</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if xpGainData}
+					{@const catDef = getCategoryById(xpGainData.categoryId)}
+					<div class="mt-1 text-center text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border-light)] pt-2 w-full">
+						<span style:color={catDef?.color ?? 'inherit'}>{xpGainData.categoryName}</span>
+						{CHILD_HOME_LABELS.resultXpLabel}
+						<span class="font-bold text-[var(--color-text)]">+0.3</span>
+						{#if xpGainData.levelAfter > xpGainData.levelBefore}
+							<span class="font-bold text-[var(--color-feedback-warning-text)]"> → Lv.{xpGainData.levelAfter} ↑</span>
+						{/if}
+					</div>
+				{/if}
+
+				<p class="text-xs text-[var(--color-text-muted)]">{CHILD_HOME_LABELS.resultTodayCount(todayTotalCount + 1)}</p>
+				{#if data.specialRewardProgress && data.specialRewardProgress.remaining > 0}
+					<p class="text-xs text-[var(--color-text-muted)]">
+						{CHILD_HOME_LABELS.resultSpecialRewardRemaining(Math.max(data.specialRewardProgress.remaining - 1, 0))}
+					</p>
+				{/if}
+
+				<div class="flex gap-[var(--sp-sm)] w-full mt-[var(--sp-sm)]">
+					<!-- Cancel button with countdown -->
+					{#if cancelCountdown > 0}
+						<form
+							method="POST"
+							action="?/cancelRecord"
+							class="flex-1"
+							use:enhance={() => {
+								return async ({ result }) => {
+									if (result.type === 'success' && result.data && 'cancelled' in result.data) {
+										if (cancelTimerId) clearInterval(cancelTimerId);
+										cancelTimerId = null;
+										cancelledMessage = true;
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="logId" value={resultData.logId} />
+							<Button
+								type="submit"
+								variant="ghost"
+								size="sm"
+								data-testid="activity-cancel-btn"
+								class="w-full bg-[var(--color-surface-tertiary)] text-[var(--color-text-muted)]"
+							>
+								{CHILD_HOME_LABELS.resultCancelButton(cancelCountdown)}
+							</Button>
+						</form>
+					{/if}
+					<Button
+						variant="primary"
+						size="md"
+						class="flex-1"
+						data-testid="activity-confirm-btn"
+						onclick={handleResultClose}
+					>
+						{CHILD_HOME_LABELS.resultConfirmButton}
+					</Button>
+				</div>
+			{/if}
+		</div>
+	{/if}
+</Dialog>
+
+<OverlaysSection
+	{fsm}
+	{levelUpData}
+	onLevelUpClose={handleLevelUpClose}
+	latestReward={data.latestReward ?? null}
+	onRewardClose={handleRewardClose}
+	{stampPressData}
+	onStampPressClose={handleStampPressClose}
+	birthdayBonus={data.birthdayBonus ?? null}
+	onBirthdayClose={() => fsm.close()}
+	nickname={data.child?.nickname ?? ''}
+	uiMode={data.uiMode}
+/>
+
+<!-- Adventure start overlay (first-time users, non-baby) -->
+{#if f.showAdventureStart && data.isFirstTime === true && fsm.current === 'adventure'}
+	<AdventureStartOverlay
+		open={true}
+		childName={data.child?.nickname ?? ''}
+		onClose={handleAdventureClose}
+	/>
+{/if}
+
+<!-- Parent message overlay (non-baby) -->
+{#if f.showParentMessages && data.latestMessage && fsm.current === 'parentMessage'}
+	<ParentMessageOverlay
+		open={true}
+		messageType={data.latestMessage.messageType}
+		stampLabel={data.latestMessage.stampLabel ?? ''}
+		body={data.latestMessage.body ?? ''}
+		icon={data.latestMessage.icon ?? ''}
+		onClose={handleMessageClose}
+	/>
+{/if}
+
+<!-- Sibling celebration (all siblings complete, non-baby) -->
+{#if f.showSiblingFeatures && showCelebration && celebrationChallenge}
+	<SiblingCelebration
+		challengeTitle={celebrationChallenge.title}
+		challengeId={celebrationChallenge.id}
+		rewardClaimed={false}
+		siblings={celebrationChallenge.progress.map((p: { childId: number; completed?: number }) => ({
+			name: data.allChildren?.find((c: { id: number }) => c.id === p.childId)?.nickname ?? `#${p.childId}`,
+			completed: p.completed === 1,
+		}))}
+		onDismiss={() => { showCelebration = false; }}
+	/>
+{/if}
+
+<!-- Sibling cheer overlay (non-baby) -->
+{#if f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0}
+	<SiblingCheerOverlay
+		cheers={data.unshownCheers as never}
+		onDismiss={() => { showCheerOverlay = false; }}
+	/>
+{/if}
+
+<!-- Monthly premium reward modal -->
+{#if data.monthlyPremiumReward && !data.monthlyPremiumReward.claimed}
+	<MonthlyRewardDialog
+		eventId={data.monthlyPremiumReward.event.id}
+		rewardName={data.monthlyPremiumReward.config.name}
+		rewardIcon={data.monthlyPremiumReward.config.icon}
+		rewardDescription={data.monthlyPremiumReward.config.description}
+		claimed={data.monthlyPremiumReward.claimed}
+	/>
+{/if}
+{/if}
+
+<style>
+	.pending-dot {
+		display: inline-block;
+		width: 0.7em;
+		height: 0.7em;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+		vertical-align: middle;
+		margin-right: 4px;
+	}
+
+	/* Baby mode card animations */
+	:global(.baby-card-mission) {
+		box-shadow: 0 0 12px rgba(255, 200, 0, 0.5);
+		animation: pulse-gold 2s ease-in-out infinite;
+	}
+	@keyframes pulse-gold {
+		0%, 100% { box-shadow: 0 0 8px rgba(255, 200, 0, 0.4); }
+		50% { box-shadow: 0 0 20px rgba(255, 200, 0, 0.8); }
+	}
+	:global(.baby-card__mission-star) {
+		animation: star-twinkle 1.5s ease-in-out infinite;
+	}
+	@keyframes star-twinkle {
+		0%, 100% { opacity: 0.7; transform: scale(1); }
+		50% { opacity: 1; transform: scale(1.2); }
+	}
+	:global(.baby-card-main-quest) {
+		box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
+		background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+	}
+	:global(.baby-main-quest-badge) {
+		position: absolute;
+		top: -0.375rem;
+		right: -0.375rem;
+		z-index: 10;
+		padding: 0.125rem 0.375rem;
+		border-radius: 9999px;
+		background: linear-gradient(135deg, #f59e0b, #d97706);
+		color: white;
+		font-size: 0.625rem;
+		font-weight: 700;
+		line-height: 1;
+		white-space: nowrap;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+	}
+	:global(.baby-card-pending) {
+		animation: card-pulse 0.8s ease-in-out infinite;
+		opacity: 0.7;
+	}
+	@keyframes card-pulse {
+		0%, 100% { transform: scale(1); }
+		50% { transform: scale(0.97); }
+	}
+	:global(.baby-card__spinner) {
+		display: inline-block;
+		width: 2rem;
+		height: 2rem;
+		border: 3px solid var(--theme-primary, #6366f1);
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+</style>

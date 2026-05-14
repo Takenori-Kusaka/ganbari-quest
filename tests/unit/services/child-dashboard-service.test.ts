@@ -476,3 +476,81 @@ describe('DemoDashboardService — toggleActivityPin', () => {
 		expect(r2).toEqual({ ok: true, isPinned: false });
 	});
 });
+
+/**
+ * Issue #2097: 真の共通化 — 同時操作 / 隔離検証
+ *
+ * 研究資料 §4-1 「sessionStorage によるブラウザタブ単位の隔離」を担保する
+ * テスト群。複数 service インスタンスが並走しても互いに干渉しないこと
+ * (= ストレージ層には書き戻すが in-memory state は独立) を検証する。
+ */
+describe('DemoDashboardService — sessionStorage 隔離 (#2097)', () => {
+	beforeEach(() => {
+		if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+	});
+
+	it('2 つの service インスタンスは互いの in-memory pin state を共有しない', async () => {
+		const svcA = createDemoDashboardService(() => SEED_WITH_CHILD);
+		const svcB = createDemoDashboardService(() => SEED_WITH_CHILD);
+		await svcA.toggleActivityPin({ activityId: 42, pinned: true });
+		// svcB は別インスタンスなので pin state を持っていない
+		const r = await svcB.toggleActivityPin({ activityId: 42, pinned: false });
+		expect(r).toEqual({ ok: true, isPinned: false });
+	});
+
+	it('2 つの service インスタンスは互いの loginBonus claimed を共有しない', async () => {
+		const svcA = createDemoDashboardService(() => SEED_WITH_CHILD);
+		const svcB = createDemoDashboardService(() => SEED_WITH_CHILD);
+		const r1 = await svcA.claimLoginBonus();
+		expect(r1.ok).toBe(true);
+		// svcB は新規インスタンスなので 1 回目として ok を返す
+		const r2 = await svcB.claimLoginBonus();
+		expect(r2.ok).toBe(true);
+	});
+
+	it('record は sessionStorage に書き戻され、新規 service が同じ snapshot を復元できる', async () => {
+		const svcA = createDemoDashboardService(() => SEED_WITH_CHILD);
+		await svcA.recordActivity({ activityId: 7 });
+		// 新規 service が同じ sessionStorage を読む
+		const svcB = createDemoDashboardService(() => SEED_WITH_CHILD);
+		const data = svcB.getHomeData();
+		expect(data.todayRecorded).toContainEqual({ activityId: 7, count: 1 });
+	});
+
+	it('clearDemoHomeData で sessionStorage がクリアされ seed に戻る', async () => {
+		const svc = createDemoDashboardService(() => SEED_WITH_CHILD);
+		await svc.recordActivity({ activityId: 99 });
+		expect(svc.getHomeData().todayRecorded).toContainEqual({ activityId: 99, count: 1 });
+		clearDemoHomeData();
+		// 新規 service は seed を返す
+		const svc2 = createDemoDashboardService(() => SEED_WITH_CHILD);
+		expect(svc2.getHomeData().todayRecorded).toEqual(SEED_WITH_CHILD.todayRecorded);
+	});
+});
+
+/**
+ * Issue #2097: ChildDashboardService interface 整合性
+ *
+ * 本番 / demo の両 service が同じ interface を満たすことを型レベルで保証する
+ * ためのテスト。実装変更時に契約が壊れないことを担保する。
+ */
+describe('ChildDashboardService interface 整合性 (#2097)', () => {
+	it('両 service は kind / getHomeData / recordActivity / cancelRecord / claimLoginBonus / toggleActivityPin を備える', () => {
+		const prod = createProductionDashboardService(() => SAMPLE_SEED);
+		const demo = createDemoDashboardService(() => SAMPLE_SEED);
+
+		for (const svc of [prod, demo]) {
+			expect(typeof svc.kind).toBe('string');
+			expect(typeof svc.getHomeData).toBe('function');
+			expect(typeof svc.recordActivity).toBe('function');
+			expect(typeof svc.cancelRecord).toBe('function');
+			expect(typeof svc.claimLoginBonus).toBe('function');
+			expect(typeof svc.toggleActivityPin).toBe('function');
+		}
+	});
+
+	it('kind は production / demo の判別が取れる', () => {
+		expect(createProductionDashboardService(() => SAMPLE_SEED).kind).toBe('production');
+		expect(createDemoDashboardService(() => SAMPLE_SEED).kind).toBe('demo');
+	});
+});

@@ -107,12 +107,14 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 
 **同期メカニズム**:
 - **現状（手動）**: 本番コード変更 → デモ画面を手動で追従
-- **Tier 2 (Issue #2069 / ADR-0046、2026-05-14 POC 完了)**: Service Interface + Svelte 5 Context DI 機構を `$lib/services/` に整備。child home の demo ページが `DashboardView` 経由で共通化された (POC 1 ページ)。残ページは follow-up Issue で段階適用 (#2069 follow-ups)
-- **Tier 2.5 (Issue #2084 / ADR-0046 follow-up、2026-05-14 完了)**: 本番 child home `+page.svelte` (1093 行) を `getDashboardService().getHomeData()` 経由 + 派生コンポーネント `ProdDashboardSections.svelte` への共通 UI 集約 (MustProgressBar / activity grid / SiblingRanking / ActivityEmptyState) で統合完了。本番固有のオーバーレイ / FSM / xp animation は page 側に残す。`+page.svelte` は 1093 → 986 行 (-107 行)、`ProdDashboardSections.svelte` 322 行新設
-- **Tier 3（#566 で予定）**: 本番側と demo 側で完全同一の `DashboardView` を使うところまで統合し、本ペアを根絶する。本派生 `ProdDashboardSections` が demo / 本番共通 SSOT 化する設計を継承予定
+- **Tier 2 (Issue #2069 / ADR-0046、2026-05-14 POC 完了)**: Service Interface + Svelte 5 Context DI 機構を `$lib/services/` に整備
+- **Tier 2.5 (Issue #2084、2026-05-14 完了)**: 本番 child home に派生コンポーネント `ProdDashboardSections.svelte` を導入 (shim 状態)
+- **Tier 3 (Issue #2097、2026-05-14 完了、真の共通化)**: **child home** の本番 / demo を**完全同一**の `DashboardView.svelte` で描画する 1 ファイル SSOT 化を完遂。`ProdDashboardSections.svelte` を `git rm` で削除し、本番 / demo 両 `+page.svelte` が同じファイルを参照する状態に到達。並行実装 2 系統問題は本ページについて根絶 (本リストから child home を撤去)
+- **残ページ**: admin / その他 child pages (status / battle 等) は `(parent) admin ⇔ demo admin` の表に従い段階適用が続く
 
 **修正時チェック**:
-- 新しいページを追加したら `src/routes/demo/(child)/[mode]/<新ページ>` も作ること
+- **child home に関しては 1 ファイル SSOT** (`$lib/features/child-home/components/DashboardView.svelte`) を編集すれば本番 / demo 両方に反映される
+- 新しいページを追加したら `src/routes/demo/(child)/[mode]/<新ページ>` も作ること (admin / status 等 child home 以外は引き続き手動同期)
 - デモシードのデータ構造がスキーマと整合しているか `tests/unit/demo/demo-data-integrity.test.ts` で検証
 
 **本番 admin ⇔ デモ admin の既知の並行ペア**:

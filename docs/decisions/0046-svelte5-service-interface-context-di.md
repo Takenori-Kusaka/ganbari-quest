@@ -2,10 +2,10 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted (POC: child home 1 ページ + write API 拡張 + 本番 child home 統合 #2084 完了) |
-| 日付 | 2026-05-14 (#2069 / #2085 / #2084) |
-| 起票者 | Dev Agent (Issue #2069 / #2085 / #2084) |
-| 関連 Issue | #2069 / #2085 / #2084 |
+| ステータス | accepted (child home 1 ファイル描画 SSOT 完遂、#2097 で真の共通化完了) |
+| 日付 | 2026-05-14 (#2069 / #2085 / #2084 / #2097) |
+| 起票者 | Dev Agent (Issue #2069 / #2085 / #2084 / #2097) |
+| 関連 Issue | #2069 / #2085 / #2084 / **#2097 (真の共通化、6 回目指摘の構造的解決)** |
 
 ## コンテキスト
 
@@ -46,15 +46,18 @@ LP 撮影用デモ画面 (`/demo/`) と本番アプリ画面 (`/(child)/`) は U
 
 - 並行実装ペア (本番 vs demo child home) のうち demo 側が共通 `DashboardView` を使うようになり、機構レベルの SSOT が確立
 - `ChildDashboardService` interface に write API (`recordActivity` / `cancelRecord` / `claimLoginBonus` / `toggleActivityPin`) を **Issue #2085 で追加済**。本番側は既存 REST `/api/v1/...` を fetch で呼ぶ thin wrapper、demo 側は sessionStorage 経由で in-memory state を書き戻す。両実装の動作差は discriminated union (`{ok, error}`) で型レベルに整列
-- **Issue #2084 (2026-05-14 follow-up)**: 本番 `(child)/[uiMode=uiMode]/home/+page.svelte` を以下に refactor:
-  - page 内で `setDashboardService(createProductionDashboardService(() => ({ child, todayRecorded, pointSettings })))` を再注入 (layout 側は `todayRecorded: []` で初期化済のため home page の load 由来 todayRecorded を上書き)
-  - 派生コンポーネント `ProdDashboardSections.svelte` (322 行) を新設し、`MustProgressBar` / activity grid / `SiblingRanking` / `ActivityEmptyState` の共通 render を集約。本派生は内部で `getDashboardService().getHomeData()` を呼び `child` / `todayRecorded` / `pointSettings` を Service 経由参照する
-  - 本番固有のオーバーレイ / FSM / xp animation / 確認 dialog は page 側に残し、本番固有 feature の汚染を回避
-  - 結果: `+page.svelte` 1093 → 986 行 (-107 行)、共通 UI 描画ロジック ~200 行を `ProdDashboardSections` に集約
-- Issue #2085 の write API 拡張により、本番 form action 経由動線も interface 越しに統一できる足場が完成済
+- **Issue #2084 (2026-05-14 follow-up)**: 本番 `(child)/[uiMode=uiMode]/home/+page.svelte` を派生コンポーネント `ProdDashboardSections.svelte` に共通 UI 集約まで実施。ただし demo `DashboardView.svelte` と 2 系統並行のまま残った (shim 状態) — **#2097 で構造的解決**
+- **Issue #2097 (2026-05-14、6 回目指摘の構造的解決)**: 真の 1 ファイル描画 SSOT 化を完遂:
+  - `DashboardView.svelte` を本番 + demo 両方の SSOT に昇格。本番固有の全 feature (5 年齢モード分岐 / pin / mission badge / xp animation / baby inline form / event badge / sibling ranking / sibling challenge / login stamp 自動 claim / dialog FSM / OverlaysSection 等) を 1 ファイルに統合
+  - `ProdDashboardSections.svelte` (322 行) を `git rm` で**削除**。並行実装 2 系統の構造的問題を根絶
+  - 本番 `+page.svelte` を 986 → 49 行の薄ラッパに刷新。dialog FSM / xp animation / 各種 overlay は全て DashboardView 内に移動
+  - demo `+page.svelte` も 51 → 33 行の薄ラッパに刷新。本番と**全く同じ** `DashboardView.svelte` を呼ぶ
+  - demo `+layout.server.ts` + `home/+page.server.ts` を拡張し、本番 layout / load 戻り値と同等のフィールド (`planLimits` / `isPremium` / `categoryXp` / `activeEvents` / `activeChallenges` / `siblingRanking` 等) を null / 既定値 / 空配列で mock 提供
+  - **結果**: AC1 (並行ファイル 1) / AC2 (`<DashboardView` 参照 2) / AC3 (`ProdDashboardSections` 不在) を機械検証 PASS
+  - **逆方向統合 (本番を demo に寄せる) は機能退行のため禁止** — demo に本番固有 feature が表示されるのが期待動作 (LP SS が本番 SS に寄って見える)
+  - sessionStorage 隔離テスト (研究資料 §4-1) + interface 整合性テストを追加 (33 → 39 件 PASS)
+- 過去 5 回の同種要求 (#531 / #561 / #562 / #563 / #566 / #2069) で繰り返された「Tier N で統合 / scope 外 / 等価性維持 / shim 実装」を構造的に解消
 - Pre-PMF (ADR-0010) Bucket A: 二重実装 SSOT 化はメンテ負債削減で適格
-- POC が確立した DI パターンで Pre-PMF 中の各 follow-up Issue (admin / その他 child pages) を起票済 (#2069 follow-ups)
-- Issue #2085 で interface + 実装 + テスト (33 件 PASS) は完備、`DashboardView` の form action 切替 (write API への UI 配線) は #2084 / 別 follow-up で扱う段階導入
 
 ## 関連
 
