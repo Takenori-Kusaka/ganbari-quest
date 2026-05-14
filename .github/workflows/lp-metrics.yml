@@ -16,6 +16,13 @@ name: LP Metrics (dimensions / forbidden terms / CTA variants / removal residue)
 #   `--lp-*` Semantic トークン経由で参照されるべき構造的 spacing が直書きに戻るのを防ぐ。
 #   既存ローカル装飾値 (gap / 微小余白) は scripts/lp-inline-style-baseline.json に pin。
 #   新規 1 件で fail。意図的増加時のみ --update-baseline で更新。
+#
+# #1919 Phase 5 F2: LP fallback テキスト整合 CI (lp-fallback-check ジョブ)
+#   別 workflow `.github/workflows/lp-fallback-check.yml` に切り出し済 (PR #2073)。
+#   旧実装は本 workflow 内に統合され、`github-script` で `pulls.listFiles({per_page: 100})`
+#   による changed-file 判定をしていたが、101+ ファイルの rename PR で fallback 関連が
+#   2 ページ目に入ると silent skip する致命的抜け穴があったため、`on: pull_request: paths:`
+#   GitHub Actions native filter で trigger 自体を絞る方式に再構成した。
 
 on:
   pull_request:
@@ -31,6 +38,8 @@ on:
       - "scripts/check-lp-inline-style.mjs"
       - "scripts/lp-inline-style-baseline.json"
       - "src/lib/data/marketplace/activity-packs/**"
+      # NOTE: scripts/sync-lp-fallback.mjs / labels.ts / terms.ts は
+      # lp-fallback-check.yml の paths filter 側で trigger される (PR #2073)。
 
 permissions:
   contents: read
@@ -351,3 +360,6 @@ jobs:
           name: lp-inline-style
           path: lp-inline-style.json
           retention-days: 30
+
+  # lp-fallback-check ジョブは別 workflow に切り出し済 (PR #2073)。
+  # → .github/workflows/lp-fallback-check.yml を参照
