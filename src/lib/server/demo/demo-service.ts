@@ -19,19 +19,23 @@ import { computeMustCompletionBonus } from '$lib/server/services/activity-servic
 import type { TodayChecklist } from '$lib/server/services/checklist-service';
 import type { DailyMissionStatus } from '$lib/server/services/daily-mission-service';
 import type { LoginBonusStatus } from '$lib/server/services/login-bonus-service';
-import type { ChildStatus, StatusDetail } from '$lib/server/services/status-service';
+import type {
+	CategoryXpInfo,
+	ChildStatus,
+	StatusDetail,
+} from '$lib/server/services/status-service';
 import {
 	DEMO_ACTIVITIES,
 	DEMO_ACTIVITY_LOGS,
 	DEMO_CHILDREN,
 	DEMO_LOGIN_BONUSES,
 	DEMO_POINT_BALANCES,
-	getDemoActivitiesForChild,
 	getDemoChecklistsForChild,
 	getDemoLogsForChild,
 	getDemoMissionsForChild,
 	getDemoPointBalance,
 	getDemoStatusesForChild,
+	getMarketplaceActivitiesForChild,
 	TODAY,
 } from './demo-data.js';
 
@@ -89,11 +93,21 @@ export function getDemoChildLayoutData(childId: number): DemoChildLayoutData {
 // Home page data
 // ============================================================
 
+/**
+ * Demo Home Data (ADR-0047 Phase 3 拡張版).
+ *
+ * 本番 `+page.server.ts` の return shape と等価。Phase 3 で `DemoDashboardService.toViewModel()`
+ * が本フィールドを使って `ChildHomeViewModel` を構築できるよう、本番と同等の field を mock 値で提供する。
+ *
+ * - categoryXp / activeEvents / siblingRanking / 等は本番固有 feature の入力。
+ *   本番 page が提供する shape をそのまま返すことで DashboardView (ViewModel 経路) が degrade なく描画できる。
+ */
 export interface DemoHomeData {
 	activities: (Activity & { displayName: string; isMission: boolean })[];
 	todayRecorded: { activityId: number; count: number }[];
 	loginBonusStatus: LoginBonusStatus | null;
 	latestReward: null;
+	latestMessage: null;
 	hasChecklists: boolean;
 	checklistProgress: { checkedCount: number; totalCount: number; allDone: boolean } | null;
 	dailyMissions: DailyMissionStatus | null;
@@ -110,24 +124,60 @@ export interface DemoHomeData {
 		granted: boolean;
 		points: number;
 	} | null;
+	// ADR-0047 Phase 3: 本番互換 fields (#2097)
+	stampCard: null;
+	categoryXp: Record<number, CategoryXpInfo> | null;
+	gameLoopHints: null;
+	isFirstTime: boolean;
+	focusMode: boolean;
+	recommendedActivityIds: number[];
+	birthdayBonus: null;
+	activeEvents: never[];
+	activeChallenges: never[];
+	siblingRanking: null;
+	unshownCheers: never[];
+	familyStreak: null;
+	monthlyPremiumReward: null;
+	specialRewardProgress: null;
+}
+
+function emptyDemoHomeData(): DemoHomeData {
+	return {
+		activities: [],
+		todayRecorded: [],
+		loginBonusStatus: null,
+		latestReward: null,
+		latestMessage: null,
+		hasChecklists: false,
+		checklistProgress: null,
+		dailyMissions: null,
+		mustStatus: null,
+		stampCard: null,
+		categoryXp: null,
+		gameLoopHints: null,
+		isFirstTime: true,
+		focusMode: false,
+		recommendedActivityIds: [],
+		birthdayBonus: null,
+		activeEvents: [],
+		activeChallenges: [],
+		siblingRanking: null,
+		unshownCheers: [],
+		familyStreak: null,
+		monthlyPremiumReward: null,
+		specialRewardProgress: null,
+	};
 }
 
 export function getDemoHomeData(childId: number): DemoHomeData {
 	const child = DEMO_CHILDREN.find((c) => c.id === childId);
 	if (!child) {
-		return {
-			activities: [],
-			todayRecorded: [],
-			loginBonusStatus: null,
-			latestReward: null,
-			hasChecklists: false,
-			checklistProgress: null,
-			dailyMissions: null,
-			mustStatus: null,
-		};
+		return emptyDemoHomeData();
 	}
 
-	const activities = getDemoActivitiesForChild(child.age);
+	// ADR-0047 Phase 3: marketplace pack 由来の活動セットを使う (51+ 件)
+	// 既存 DEMO_ACTIVITIES (50 件 mock) は legacy fallback として残置 (history / battle 等他経路で参照)
+	const activities = getMarketplaceActivitiesForChild(child);
 	const missions = getDemoMissionsForChild(childId);
 	const missionActivityIds = new Set(missions.map((m) => m.activityId));
 
@@ -225,15 +275,49 @@ export function getDemoHomeData(childId: number): DemoHomeData {
 				}
 			: null;
 
+	// ADR-0047 Phase 3 (#2097): categoryXp を mock 値で構築 (本番 status-service.CategoryXpInfo と同じ shape)。
+	const statuses = getDemoStatusesForChild(childId);
+	const categoryXp: DemoHomeData['categoryXp'] = {};
+	for (const s of statuses) {
+		const xpInfo = calcXpToNextLevel(s.totalXp);
+		const { title } = calcLevelFromXp(s.totalXp);
+		categoryXp[s.categoryId] = {
+			value: s.totalXp,
+			level: s.level,
+			levelTitle: title,
+			expToNextLevel: xpInfo.xpNeeded,
+			progressPct: xpInfo.progressPct,
+			maxValue: 100000,
+		};
+	}
+
+	// 初回判定: ログがあるかどうか
+	const hasAnyLogs = DEMO_ACTIVITY_LOGS.some((l) => l.childId === childId && l.cancelled === 0);
+
 	return {
 		activities: activitiesWithMission,
 		todayRecorded,
 		loginBonusStatus,
 		latestReward: null,
+		latestMessage: null,
 		hasChecklists,
 		checklistProgress,
 		dailyMissions,
 		mustStatus,
+		stampCard: null,
+		categoryXp: Object.keys(categoryXp).length > 0 ? categoryXp : null,
+		gameLoopHints: null,
+		isFirstTime: !hasAnyLogs,
+		focusMode: false,
+		recommendedActivityIds: [],
+		birthdayBonus: null,
+		activeEvents: [],
+		activeChallenges: [],
+		siblingRanking: null,
+		unshownCheers: [],
+		familyStreak: null,
+		monthlyPremiumReward: null,
+		specialRewardProgress: null,
 	};
 }
 

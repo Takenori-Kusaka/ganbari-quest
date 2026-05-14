@@ -40,11 +40,20 @@ import type {
 	CancelRecordResult,
 	ChildDashboardHomeData,
 	ChildDashboardService,
+	ChildHomeActivity,
+	ChildHomeAgeContext,
+	ChildHomeChild,
+	ChildHomeCurrency,
+	ChildHomeFeatureFlags,
+	ChildHomeProgressDisplay,
+	ChildHomeViewModel,
 	ClaimLoginBonusResult,
 	RecordActivityInput,
 	RecordActivityWriteResult,
 	ToggleActivityPinInput,
 	ToggleActivityPinResult,
+	ToViewModelCapable,
+	ToViewModelContext,
 } from '../types';
 
 /** タブ単位の demo state 隔離キー */
@@ -81,7 +90,7 @@ function safeWriteStorage(data: ChildDashboardHomeData): void {
 	}
 }
 
-export class DemoDashboardService implements ChildDashboardService {
+export class DemoDashboardService implements ChildDashboardService, ToViewModelCapable {
 	readonly kind = 'demo' as const;
 
 	readonly #getSeed: () => ChildDashboardHomeData;
@@ -221,6 +230,166 @@ export class DemoDashboardService implements ChildDashboardService {
 			this.#pinnedActivities.delete(input.activityId);
 		}
 		return Promise.resolve({ ok: true, isPinned: input.pinned });
+	}
+
+	/**
+	 * ADR-0047 Phase 3 (#2097): UI Contract `ChildHomeViewModel` を構築する。
+	 *
+	 * 設計原則:
+	 *   - ProductionDashboardService.toViewModel() と同じ shape を生成 (型強制 SSOT)。
+	 *   - `progressDisplay.type` 切替は **コンテキスト法則** に従う:
+	 *       - baby / preschool / free プラン → `today-missions`
+	 *       - elementary 以上 + standard 以上 → `category-level`
+	 *     (demo / production の identity 固定 NG、深層調査 §5 案 B 失敗回避策)。
+	 *   - `currency` は demo 固定 `{ symbol: 'P', code: 'POINTS' }` (PO Q4 = A)。
+	 *   - `features.showShopTab` は demo でも `true` (PO Q5 = B 子供は買える、Phase 5 で
+	 *     shop mock 商品買い flow 配線)。
+	 *   - `activities` は marketplace pack 由来の 51+ 件 (PO Q6 = B、本番同等)。
+	 *
+	 * @param ctx demo `+page.server.ts` load 結果から抽出した補助 context
+	 *            (activities / mustStatus / categoryXp 等は本 service 側で seed に
+	 *            事前注入済みのため、ctx 経由でも参照可能)
+	 * @returns DashboardView が直接受け取る UI Contract (本番と同じ shape)
+	 */
+	toViewModel(ctx: ToViewModelContext): ChildHomeViewModel {
+		const home = this.getHomeData();
+		const child = this.#buildChild(home, ctx);
+		const currency = this.#buildCurrency();
+		const progressDisplay = this.#buildProgressDisplay(ctx);
+		const activities = this.#buildActivities(home, ctx);
+		const features = this.#buildFeatures(ctx);
+		const ageContext = this.#buildAgeContext(ctx);
+
+		return {
+			child,
+			currency,
+			progressDisplay,
+			activities,
+			features,
+			uiMode: ctx.uiMode,
+			ageContext,
+		};
+	}
+
+	#buildChild(home: ChildDashboardHomeData, ctx: ToViewModelContext): ChildHomeChild {
+		const c = home.child;
+		if (!c) {
+			return {
+				id: 0,
+				nickname: '',
+				pointBalance: 0,
+				level: 1,
+				xpToNextLevel: 0,
+				xpInLevel: 0,
+				streakDays: 0,
+				uiMode: ctx.uiMode,
+			};
+		}
+		return {
+			id: c.id,
+			nickname: c.nickname,
+			pointBalance: 0, // demo は layout balance を直接表示するため ViewModel 経由しない
+			level: 1, // overall level は廃止
+			xpToNextLevel: 0,
+			xpInLevel: 0,
+			streakDays: 0,
+			uiMode: ctx.uiMode,
+		};
+	}
+
+	/** demo は通貨固定 P (PO Q4 = A) */
+	#buildCurrency(): ChildHomeCurrency {
+		return { symbol: 'P', code: 'POINTS' };
+	}
+
+	/**
+	 * `progressDisplay` type union 判定 (ProductionDashboardService と同じ判定法則)。
+	 *
+	 * - baby / preschool / free プラン → `today-missions`
+	 * - elementary 以上 + standard 以上 → `category-level`
+	 *
+	 * demo の planTier は基本的に `standard` (PO Q4 等) で渡されるが、
+	 * ctx.planTier 経由で `free` が渡された場合も正しく対応する。
+	 */
+	#buildProgressDisplay(ctx: ToViewModelContext): ChildHomeProgressDisplay {
+		const useToday = ctx.uiMode === 'baby' || ctx.uiMode === 'preschool' || ctx.planTier === 'free';
+
+		if (useToday) {
+			return {
+				type: 'today-missions',
+				mustStatus: {
+					completed: ctx.mustStatus?.logged ?? 0,
+					total: ctx.mustStatus?.total ?? 0,
+				},
+				dailyMissions: {
+					completed: ctx.dailyMissions?.completedCount ?? 0,
+					total: ctx.dailyMissions?.missions.length ?? 0,
+				},
+			};
+		}
+
+		const categories: { id: number; name: string; level: number; xpPercent: number }[] = [];
+		if (ctx.categoryXp) {
+			for (const [idStr, info] of Object.entries(ctx.categoryXp)) {
+				categories.push({
+					id: Number(idStr),
+					name: info.levelTitle,
+					level: info.level,
+					xpPercent: info.progressPct,
+				});
+			}
+		}
+		return { type: 'category-level', categories };
+	}
+
+	#buildActivities(
+		home: ChildDashboardHomeData,
+		ctx: ToViewModelContext,
+	): readonly ChildHomeActivity[] {
+		const recordedMap = new Map(home.todayRecorded.map((r) => [r.activityId, r.count]));
+		return ctx.activities.map((a) => ({
+			id: a.id,
+			name: a.name,
+			icon: a.icon,
+			categoryId: a.categoryId,
+			categoryName: '', // category 名は UI 層 (CategorySection) が CATEGORY_DEFS から解決
+			pointReward: a.basePoints ?? 0,
+			streakBonus: 0,
+			isPinned: this.#pinnedActivities.has(a.id) || !!a.isPinned,
+			todayRecorded: recordedMap.get(a.id) ?? 0,
+			isMust: !!a.isMission,
+		}));
+	}
+
+	/**
+	 * demo の 9 feature flag。本番と同じ shape を生成し、demo 固有の divergence は
+	 * 個別 field 値で明示化する (隠蔽せず contract で表現)。
+	 *
+	 * PO Q5 = B: `showShopTab` は demo でも `true` (子供は買える、Phase 5 で mock 商品買い flow)。
+	 * baby は ADR-0011 で gamification 抑制。
+	 */
+	#buildFeatures(ctx: ToViewModelContext): ChildHomeFeatureFlags {
+		const isBaby = ctx.uiMode === 'baby';
+		return {
+			showShopTab: true,
+			showXpAnimation: !isBaby,
+			showMissionBadge: !isBaby,
+			showPinButton: !isBaby,
+			showEventBadge: !isBaby && ctx.activeEventBadge !== null,
+			showSiblingRanking: !isBaby && ctx.planTier === 'family',
+			showBirthdayBonus: !isBaby,
+			showMonthlyReward: !isBaby && ctx.isPremium,
+			showStampCard: !isBaby,
+		};
+	}
+
+	#buildAgeContext(ctx: ToViewModelContext): ChildHomeAgeContext {
+		return {
+			isBabyParentMode: ctx.uiMode === 'baby',
+			ageTier: ctx.uiMode,
+			planTier: ctx.planTier,
+			isTrialActive: ctx.isTrialActive,
+		};
 	}
 }
 

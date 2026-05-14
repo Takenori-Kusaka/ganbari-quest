@@ -23,7 +23,23 @@
  *   既に活動ログ ≥ 14 件あり、`?screenshot=1` モードで MilestoneBanner 強制表示できる
  */
 
-import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
+// ADR-0047 Phase 3 (Issue #2097): marketplace pack を demo seed として import する。
+// 12 pack × 25-35 件で 325 件のカタログを保持し、子供の age + gender variant に応じて
+// fetch / 並び替え / dedup する。
+import elementaryBoy from '$lib/data/marketplace/activity-packs/elementary-boy.json';
+import elementaryChallenge from '$lib/data/marketplace/activity-packs/elementary-challenge.json';
+import elementaryGirl from '$lib/data/marketplace/activity-packs/elementary-girl.json';
+import juniorBoy from '$lib/data/marketplace/activity-packs/junior-boy.json';
+import juniorGirl from '$lib/data/marketplace/activity-packs/junior-girl.json';
+import juniorHighChallenge from '$lib/data/marketplace/activity-packs/junior-high-challenge.json';
+import kinderBoy from '$lib/data/marketplace/activity-packs/kinder-boy.json';
+import kinderGirl from '$lib/data/marketplace/activity-packs/kinder-girl.json';
+import kinderStarter from '$lib/data/marketplace/activity-packs/kinder-starter.json';
+import seniorBoy from '$lib/data/marketplace/activity-packs/senior-boy.json';
+import seniorGirl from '$lib/data/marketplace/activity-packs/senior-girl.json';
+import seniorHighChallenge from '$lib/data/marketplace/activity-packs/senior-high-challenge.json';
+import { getCategoryByCode } from '$lib/domain/validation/activity';
+import { getDefaultUiMode, type UiMode } from '$lib/domain/validation/age-tier';
 import type {
 	Activity,
 	ActivityLog,
@@ -1779,6 +1795,221 @@ export function getDemoChecklistsForChild(childId: number): {
 
 export function getDemoPointBalance(childId: number): number {
 	return DEMO_POINT_BALANCES[childId] ?? 0;
+}
+
+// ============================================================
+// Marketplace pack import (Issue #2097 Phase 3 / ADR-0047)
+// ============================================================
+//
+// 本番 NUC では 5 年齢モード × 性別 variant の活動セットを家族別に DB から取得するが、
+// demo では本番と同じ「カタログ感」を再現するため `src/lib/data/marketplace/activity-packs/*.json`
+// をそのまま import し、子供の age + theme で適切な pack を組み合わせる。
+//
+// 設計原則 (ADR-0047 §決定 Q6 = B):
+//   - 表示件数は 51+ 件を確保（pack 単体で 25-35 件、複数 pack 組合せで 51+ 件達成）
+//   - 性別 variant: theme から推定（pink → girl / blue / green / orange → boy / その他 → neutral pack）
+//   - DEMO_ACTIVITIES (現行 50 件 mock) は legacy fallback として残す。新規呼び出しは
+//     `getMarketplaceActivitiesForChild()` を優先する
+
+interface PackActivityJson {
+	name: string;
+	categoryCode: string;
+	icon: string;
+	basePoints: number;
+	ageMin: number;
+	ageMax: number;
+	gradeLevel: string;
+	triggerHint?: string;
+	description?: string;
+	mustDefault?: boolean;
+	isMainQuest?: boolean;
+}
+
+interface ActivityPackJson {
+	itemId: string;
+	gender?: string;
+	payload: {
+		activities: PackActivityJson[];
+	};
+}
+
+const ALL_PACKS: ActivityPackJson[] = [
+	kinderStarter as unknown as ActivityPackJson,
+	kinderBoy as unknown as ActivityPackJson,
+	kinderGirl as unknown as ActivityPackJson,
+	elementaryChallenge as unknown as ActivityPackJson,
+	elementaryBoy as unknown as ActivityPackJson,
+	elementaryGirl as unknown as ActivityPackJson,
+	juniorHighChallenge as unknown as ActivityPackJson,
+	juniorBoy as unknown as ActivityPackJson,
+	juniorGirl as unknown as ActivityPackJson,
+	seniorHighChallenge as unknown as ActivityPackJson,
+	seniorBoy as unknown as ActivityPackJson,
+	seniorGirl as unknown as ActivityPackJson,
+];
+
+/**
+ * 子供の theme から性別 variant を推定する。
+ *
+ * - `pink` / `purple` → `girl`
+ * - `blue` / `green` / `orange` → `boy`
+ * - その他 → `neutral` (gender variant なし pack を選ぶ)
+ *
+ * Issue #2097 Phase 3: PO 確認済 (demo は LP 用 representative persona と一致)
+ */
+function inferGenderFromTheme(theme: string | null | undefined): 'boy' | 'girl' | 'neutral' {
+	if (theme === 'pink' || theme === 'purple') return 'girl';
+	if (theme === 'blue' || theme === 'green' || theme === 'orange') return 'boy';
+	return 'neutral';
+}
+
+/**
+ * 5 年齢モード + 性別 variant に対する pack itemId を解決する。
+ *
+ * 各 ui mode で base pack (neutral or challenge) + gender pack の 2 件を組み合わせ、
+ * Activity 件数を 50+ 件に確保する。
+ *
+ * data table 形式 (UI_MODE_PACK_MAP) で table-driven にすることで複雑度を下げ、
+ * ADR-0007 静的解析 tier ポリシー (cognitive complexity ≤ 20) を満たす。
+ */
+const UI_MODE_PACK_MAP: Record<UiMode, { base: string; boy: string; girl: string }> = {
+	baby: {
+		// baby (0-2 歳) は ADR-0011 親準備モード。kinder-starter (neutral) のみを seed として使う。
+		base: 'kinder-starter',
+		boy: 'kinder-starter',
+		girl: 'kinder-starter',
+	},
+	preschool: {
+		base: 'kinder-starter',
+		boy: 'kinder-boy',
+		girl: 'kinder-girl',
+	},
+	elementary: {
+		base: 'elementary-challenge',
+		boy: 'elementary-boy',
+		girl: 'elementary-girl',
+	},
+	junior: {
+		base: 'junior-high-challenge',
+		boy: 'junior-boy',
+		girl: 'junior-girl',
+	},
+	senior: {
+		base: 'senior-high-challenge',
+		boy: 'senior-boy',
+		girl: 'senior-girl',
+	},
+};
+
+function resolvePackItemIdsForChild(
+	uiMode: UiMode,
+	gender: 'boy' | 'girl' | 'neutral',
+): readonly string[] {
+	const entry = UI_MODE_PACK_MAP[uiMode];
+	if (gender === 'neutral') return [entry.base];
+	return [entry.base, entry[gender]];
+}
+
+/**
+ * pack の Activity JSON を `Activity` 型 (Drizzle 互換) に正規化する。
+ *
+ * `id` は pack itemId + name の hash で決定論的に生成する (demo 内で重複しないよう
+ * pack ごとに base offset を加える)。
+ */
+function packActivityToActivity(
+	packItemId: string,
+	idx: number,
+	packAct: PackActivityJson,
+	baseId: number,
+): Activity {
+	const cat = getCategoryByCode(packAct.categoryCode);
+	return {
+		id: baseId + idx,
+		name: packAct.name,
+		categoryId: cat?.id ?? 1,
+		icon: packAct.icon,
+		basePoints: packAct.basePoints,
+		ageMin: packAct.ageMin,
+		ageMax: packAct.ageMax,
+		isVisible: 1,
+		dailyLimit: null,
+		sortOrder: idx,
+		source: 'pack',
+		gradeLevel: packAct.gradeLevel,
+		subcategory: null,
+		description: packAct.description ?? null,
+		nameKana: packAct.name,
+		nameKanji: null,
+		triggerHint: packAct.triggerHint ?? null,
+		isMainQuest: packAct.isMainQuest ? 1 : 0,
+		isArchived: 0,
+		archivedReason: null,
+		createdAt: NOW,
+		sourcePresetId: packItemId,
+		priority: packAct.mustDefault ? 'must' : 'optional',
+	};
+}
+
+/** pack itemId に対応する開始 id を割り当てる (重複しないよう pack ごとに 1000 ずつオフセット) */
+const PACK_BASE_IDS: Record<string, number> = {
+	'kinder-starter': 10000,
+	'kinder-boy': 11000,
+	'kinder-girl': 12000,
+	'elementary-challenge': 20000,
+	'elementary-boy': 21000,
+	'elementary-girl': 22000,
+	'junior-high-challenge': 30000,
+	'junior-boy': 31000,
+	'junior-girl': 32000,
+	'senior-high-challenge': 40000,
+	'senior-boy': 41000,
+	'senior-girl': 42000,
+};
+
+/**
+ * 子供に対する marketplace pack 由来 Activity を取得する (Issue #2097 Phase 3)。
+ *
+ * 同名活動 (e.g. 「はみがきした」) は複数 pack に出現するが、
+ * 子供視点では 1 件として扱いたい → name + categoryId で dedup する (最初の pack の Activity を採用)。
+ *
+ * @param child demo child (theme で gender variant を推定)
+ * @returns Activity 配列 (50+ 件、age に合致するもののみ)
+ */
+export function getMarketplaceActivitiesForChild(child: Child): Activity[] {
+	const uiMode = (child.uiMode ?? 'preschool') as UiMode;
+	const gender = inferGenderFromTheme(child.theme);
+	const packIds = resolvePackItemIdsForChild(uiMode, gender);
+
+	const collected: Activity[] = [];
+	const seenNames = new Set<string>();
+
+	for (const packId of packIds) {
+		const pack = ALL_PACKS.find((p) => p.itemId === packId);
+		if (!pack) continue;
+		const baseId = PACK_BASE_IDS[packId] ?? 50000;
+		const acts = pack.payload.activities.map((pa, idx) =>
+			packActivityToActivity(pack.itemId, idx, pa, baseId),
+		);
+		for (const act of acts) {
+			// 年齢で filter (pack 内の ageMin / ageMax)
+			if (act.ageMin !== null && child.age < act.ageMin) continue;
+			if (act.ageMax !== null && child.age > act.ageMax) continue;
+			// 同名 + 同カテゴリで dedup
+			const key = `${act.name}::${act.categoryId}`;
+			if (seenNames.has(key)) continue;
+			seenNames.add(key);
+			collected.push(act);
+		}
+	}
+
+	// 5 カテゴリ別にソート → 各カテゴリ内で must を先頭に
+	collected.sort((a, b) => {
+		if (a.categoryId !== b.categoryId) return a.categoryId - b.categoryId;
+		if (a.priority !== b.priority) return a.priority === 'must' ? -1 : 1;
+		return a.sortOrder - b.sortOrder;
+	});
+
+	return collected;
 }
 
 export { DEMO_TENANT_ID, NOW, TODAY };
