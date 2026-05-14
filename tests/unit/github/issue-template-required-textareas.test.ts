@@ -54,7 +54,7 @@ function extractFieldBlock(content: string, id: string): string | null {
 
 function getFieldType(block: string): string | null {
 	const m = block.match(/^\s*-?\s*type:\s+(\S+)/m);
-	return m && m[1] ? m[1] : null;
+	return m?.[1] ?? null;
 }
 
 function hasRequiredTrue(block: string): boolean {
