@@ -30,8 +30,14 @@
 //   PARENT_TERMS     — 親 / 保護者 表記の atom（TECH-F、#1914）
 //   SIGNUP_TERMS     — お申し込み / サインアップ / アカウント作成 表記の atom（TECH-F、#1914）
 //   LOGIN_TERMS      — ログイン / サインイン 表記の atom（TECH-F、#1914）
+//   TRIAL_PERIOD_TERMS — 7 日間無料トライアル compound atom（TECH-F 中頻度、#1915）
+//   UPGRADE_TERMS    — プラン変更 / アップグレード / 上位プラン atom（TECH-F 中頻度、#1915）
+//   GRADUATION_TERMS — 卒業 / 最終ゴール atom（TECH-F 中頻度、#1915）
+//   ADVENTURE_TERMS  — 冒険 / メインクエスト atom（TECH-F 中頻度、#1915）
+//   MECHANISM_TERMS  — 仕組み / 工夫 / 設計 atom（TECH-F 中頻度、#1915）
+//   LIFESTAGE_TERMS  — 年齢 / 年齢区分 / 学年 atom（TECH-F 中頻度、#1915）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -462,4 +468,157 @@ export const SIGNUP_TERMS = {
 export const LOGIN_TERMS = {
 	canonical: 'ログイン',
 	signin: 'サインイン',
+} as const;
+
+// ============================================================
+// TRIAL_PERIOD_TERMS — 7 日間無料トライアル compound atom (TECH-F 中頻度 / #1915)
+// ============================================================
+//
+// LP / アプリ全体で「7 日間無料トライアル」「7 日間の無料体験」「7日間無料で試す」
+// 「7 日間無料」が混在 (#1915 中頻度 D-1)。すでに `TRIAL_TERMS.duration` /
+// `TRIAL_TERMS.durationSpaced` の期間 atom と `CTA_TERMS.freeTrialNoun` の
+// 「無料体験」atom は terms.ts に存在するが、「7 日間無料トライアル」(統合形) を
+// 直接参照する atom がなく `LP_COMMON_LABELS.trialPeriodLabel` 等で
+// template literal 化されている。
+//
+// 設計指針:
+//   - full         : '7 日間無料トライアル' (半角空白あり、LP 統一表記、#1913 UIUX-E-2)
+//   - shortNoSpace : '7日間無料トライアル'  (半角空白なし、半角揺れ吸収用、表記揺れ救済枠)
+//
+// 既存の TRIAL_TERMS / CTA_TERMS / LP_COMMON_LABELS.trialPeriodLabel との関係:
+//   - terms.ts 内 atom: 期間 (TRIAL_TERMS.duration) と訴求名詞 (CTA_TERMS.freeTrialNoun) の
+//     2 atom を持つが、本サービスで最頻出の compound「7 日間無料トライアル」を
+//     1 atom として独立化することで、半角空白の有無による表記揺れ (#1913) の再発を構造的に防ぐ。
+//   - labels.ts compound: `LP_COMMON_LABELS.trialPeriodLabel` 等は `${TRIAL_TERMS.durationSpaced}無料トライアル`
+//     で表現されていたが、本 atom 経由参照 (`${TRIAL_PERIOD_TERMS.full}`) に統一する。
+
+export const TRIAL_PERIOD_TERMS = {
+	full: '7 日間無料トライアル',
+	shortNoSpace: '7日間無料トライアル',
+} as const;
+
+// ============================================================
+// UPGRADE_TERMS — プラン変更 (旧「アップグレード」「上位プラン」) atom (TECH-F 中頻度 / #1915)
+// ============================================================
+//
+// LP / アプリ全体で「アップグレード」「上位プラン」「プラン変更」が混在 (#1915 中頻度 D-2)。
+// Issue 設計方針では「プラン変更」を canonical として 0 件化する方針。
+//
+// スコープ調整 (PR 本文に明記):
+//   admin UI / FAQ / モーダル等の「アップグレード」ボタン文言は確立した UX 用語であり、
+//   一括「プラン変更」化はユーザの認知混乱を招くリスクが高い (Pre-PMF / ADR-0010)。
+//   本 atom は terms.ts SSOT として canonical 値を定義するが、labels.ts compound への
+//   実適用は LP 文脈 (LP_*_LABELS / PRICING / FAQ) を最優先とし、admin UI の段階的移行は
+//   別 Issue で扱う方針 (#1915 PR スコープ調整、ADR-0045 §3.3 段階移行原則)。
+//
+// 設計指針:
+//   - canonical    : 'プラン変更'  (LP / 法務 / 説明文での標準形)
+//   - actionVerb   : 'アップグレード' (既存 UI 動詞 atom、admin ボタン互換維持用 — 撤去は別 Issue)
+//   - higherPlan   : '上位プラン'   (既存 UI 名詞 atom、説明文互換維持用 — 撤去は別 Issue)
+
+export const UPGRADE_TERMS = {
+	canonical: 'プラン変更',
+	actionVerb: 'アップグレード',
+	higherPlan: '上位プラン',
+} as const;
+
+// ============================================================
+// GRADUATION_TERMS — 卒業 (旧「ゴール」「最終地点」) atom (TECH-F 中頻度 / #1915)
+// ============================================================
+//
+// LP 全体で「卒業」「ゴール」「最終地点」が混在 (#1915 中頻度 D-4)。
+// AC3 = 「ゴール」「最終地点」が 0 件、「卒業」統一。
+//
+// 設計指針:
+//   - canonical : '卒業'       (本サービスのアイデンティティ用語、ADR-0011 / docs/design)
+//   - finalGoal : '最終ゴール' (旧「最終地点」「最終ゴール」リテラル吸収、コメント上では「ゴール」を
+//                              意味分離して保持する場合に参照)
+
+export const GRADUATION_TERMS = {
+	canonical: '卒業',
+	finalGoal: '最終ゴール',
+} as const;
+
+// ============================================================
+// ADVENTURE_TERMS — 冒険 (旧「クエスト」「アドベンチャー」) atom (TECH-F 中頻度 / #1915)
+// ============================================================
+//
+// LP / アプリで「冒険」「クエスト」「アドベンチャー」が混在 (#1915 中頻度 D-5)。
+//
+// スコープ調整 (PR 本文に明記、AC4 0 件化不可項目):
+//   1. 商品名「がんばりクエスト」は brand identity であり変更不可 (APP_LABELS.name 等で
+//      多数の compound に出現)。
+//   2. ゲームメカニクス用語「メインクエスト」「メインクエスト ×2」は子供 UI で
+//      確立した語彙であり、子供画面 UX を毀損するため変更不可 (BABY_HOME_LABELS /
+//      DEMO_BATTLE_LABELS 等で参照)。
+//   3. 「クエスト集」(MARKETPLACE_LABELS) はマーケットプレイス独自の語彙であり、
+//      LP truth (ADR-0013) との整合のため別 Issue で扱う。
+//   上記 3 項目は terms.ts atom 経由参照は不採用とし、リテラル維持。
+//   本 atom は新規 compound (LP 説明文等) で「冒険」を参照する場合の SSOT として定義する。
+//
+// 設計指針:
+//   - canonical : '冒険'         (LP 説明文 / 法務 / 一般説明での標準形)
+//   - mainQuest : 'メインクエスト' (子供 UI で確立したゲームメカニクス用語、撤去対象外)
+
+export const ADVENTURE_TERMS = {
+	canonical: '冒険',
+	mainQuest: 'メインクエスト',
+} as const;
+
+// ============================================================
+// MECHANISM_TERMS — 仕組み (旧「設計」「工夫」) atom (TECH-F 中頻度 / #1915)
+// ============================================================
+//
+// LP 全体で「設計」「工夫」「仕組み」が混在 (#1915 中頻度 D-7)。PO 採択 B 案で
+// 「仕組み」canonical 化、AC5 = 「設計」「工夫」0 件 (連語例外あり)。
+//
+// スコープ調整 (PR 本文に明記、AC5 連語例外):
+//   1. 「2 つの工夫」「3 つの工夫」(LP_INDEX_PHASEB_LABELS.k21 等) は #1782 / #1708 で
+//      PO 確定済の構造的見出しであり、「2 つの仕組み」へリフレームすると意味が変わる
+//      (「仕組み」= mechanism / system、「工夫」= clever device の意味差分)。
+//      連語例外として保持 (Issue 本文 AC5 exception 句に整合)。
+//   2. 「無断課金が構造的に発生しない設計」「煽らない設計」(LP_INDEX_LABELS / 5639 等)
+//      は LP truth (ADR-0013) で「設計上の特性」を強調する文脈であり、「仕組み」では
+//      意味弱化する。これらは LP 訴求での意図的選択のため連語例外として保持。
+//   3. 「カスタム設計」「初回セットアップ … で回せるよう設計」等の連語 (#1915 AC5 exception)
+//      も同様の理由で保持。
+//   本 atom は新規 compound / 単独「仕組み」参照箇所での SSOT として定義する。
+//
+// 設計指針:
+//   - canonical : '仕組み' (mechanism / system、LP 顧客語彙)
+//   - device    : '工夫'   (clever device、構造的見出し「N つの工夫」用、撤去対象外)
+//   - blueprint : '設計'   (engineering design、特性訴求連語用、撤去対象外)
+
+export const MECHANISM_TERMS = {
+	canonical: '仕組み',
+	device: '工夫',
+	blueprint: '設計',
+} as const;
+
+// ============================================================
+// LIFESTAGE_TERMS — 年齢 / 年齢区分 atom (TECH-F 中頻度 / #1915)
+// ============================================================
+//
+// 「年齢」「年齢帯」「年齢区分」「学年」が混在 (#1915 中頻度 D-6)。既存
+// `AGE_RANGE_TERMS` (3〜18 歳 等) は数値レンジの atom であり、概念用語の
+// atom が別途必要。AC6 = 「年齢」「年齢帯」「学年」「年齢区分」が AGE_RANGE_TERMS
+// 系参照に統一。
+//
+// スコープ調整 (PR 本文に明記):
+//   1. 「年齢区分」(AGE_TIER_LABELS の説明 / statAgeTierLabel 等) は ADR-0011 で確立した
+//      アプリ内分類用語であり、UI 表示の「年齢区分」ボタン / table header は維持。
+//      本 atom は新規 compound での参照源として定義する。
+//   2. 「学年」(MEMBERS_LABELS.description / LP_INDEX_PHASEB_LABELS.k23 等) は preset の
+//      学年別カスタマイズに関する具体的説明文で、概念用語「年齢」とは意味分離。
+//      撤去対象外。
+//
+// 設計指針:
+//   - canonical    : '年齢'       (概念用語、本文・段落での標準形)
+//   - tier         : '年齢区分'   (ADR-0011 確立分類、UI ラベル / table header 用)
+//   - schoolGrade  : '学年'       (preset カスタマイズ用語、独立保持)
+
+export const LIFESTAGE_TERMS = {
+	canonical: '年齢',
+	tier: '年齢区分',
+	schoolGrade: '学年',
 } as const;

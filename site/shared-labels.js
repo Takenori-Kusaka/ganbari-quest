@@ -158,7 +158,12 @@
 			"pointUnit": "pt",
 			"noCreditCardNote": "クレジットカード登録不要",
 			"cancelAnytime": "いつでも解約できます（契約期間の縛りなし）",
-			"bulletPoint": "・"
+			"bulletPoint": "・",
+			"upgradeCanonical": "プラン変更",
+			"graduationCanonical": "卒業",
+			"adventureCanonical": "冒険",
+			"mechanismCanonical": "仕組み",
+			"lifestageCanonical": "年齢"
 		},
 		"legalDisclaimer": {
 			"cancelDisclaimer": "※解約後、スタンダードは 7 日間、ファミリーは 30 日間はデータを見られます（無料は即時）。その後すべてのデータが完全に削除されます。日割り返金はありません。",
