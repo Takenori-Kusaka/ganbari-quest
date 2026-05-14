@@ -8,12 +8,143 @@
  *   `document.documentElement.outerHTML` を **同一プロセスで** 取得する。
  */
 
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
 // ============================================================
 // 既存エクスポート（維持）
 // ============================================================
+
+// ============================================================
+// SS 偽装検出 (#2059): Before / After sha256 同一性ガード
+// ============================================================
+//
+// 設計背景: PR #2024 / #2025 / #2040 / #2043 / #2054 で 5 件連続発生した
+// 「Before / After SS が完全同一画像 (sha256 一致) のまま PR body に貼られる」
+// SS 偽装事例への capture script 側ガード (#2063 CI gate と相補)。
+//
+// 撮影直後にローカル file hash で同一を検出することで、PR body 貼付前に
+// 「Before SS は main HEAD で撮影 / After SS は PR HEAD で撮影」運用ミスを
+// 検知する。CI gate (#2063) は screenshots branch push 後の Blob SHA 比較で
+// 検出するが、本ガードは push 前のローカル段階で fail-fast する。
+
+/**
+ * ファイルの sha256 hex digest を返す。
+ *
+ * Node 標準 `crypto.createHash('sha256')` を使用 (Issue #2059 選択肢 C 採用、
+ * pixelmatch / Playwright snapshot は overkill のため不採用)。
+ *
+ * @param {string} filePath - 絶対 or 相対パス
+ * @returns {string} 64 hex chars
+ */
+export function sha256OfFile(filePath) {
+	const data = fs.readFileSync(filePath);
+	return createHash('sha256').update(data).digest('hex');
+}
+
+/**
+ * ファイルパス配列から `before-<key>.<ext>` / `after-<key>.<ext>` のペアを抽出する。
+ *
+ * 命名規則 (CI gate #2063 と同一):
+ * - `<dir>/before-<key>.<ext>` <-> `<dir>/after-<key>.<ext>`
+ * - 例: `tmp/screenshots/pr-2059/before-index-mobile.png` <-> `.../after-index-mobile.png`
+ *
+ * basename の prefix 一致のみで判定し dir も key の一部に含めるため、
+ * 異なる dir の `before-x` / `after-x` はペアにならない (誤検知防止)。
+ *
+ * @param {string[]} filePaths - SS ファイルパス一覧 (絶対 or 相対)
+ * @returns {Array<{ key: string; before: string; after: string }>}
+ */
+export function findBeforeAfterPairs(filePaths) {
+	/** @type {Map<string, string>} */
+	const beforeMap = new Map();
+	/** @type {Map<string, string>} */
+	const afterMap = new Map();
+
+	for (const fp of filePaths) {
+		const dir = path.dirname(fp);
+		const basename = path.basename(fp);
+		const beforeMatch = basename.match(/^before-(.+)$/i);
+		const afterMatch = basename.match(/^after-(.+)$/i);
+		if (beforeMatch) {
+			const key = `${dir}${path.sep}${beforeMatch[1]}`;
+			beforeMap.set(key, fp);
+		} else if (afterMatch) {
+			const key = `${dir}${path.sep}${afterMatch[1]}`;
+			afterMap.set(key, fp);
+		}
+	}
+
+	const pairs = [];
+	for (const [key, before] of beforeMap) {
+		const after = afterMap.get(key);
+		if (after) pairs.push({ key, before, after });
+	}
+	return pairs;
+}
+
+/**
+ * Before / After ペアの sha256 が同一なものを検出する。
+ *
+ * @param {Array<{ key: string; before: string; after: string }>} pairs
+ * @param {(path: string) => string} [hasher=sha256OfFile] - DI 用 (test で mock)
+ * @returns {Array<{ key: string; before: string; after: string; sha: string }>}
+ */
+export function detectIdenticalBeforeAfterPairs(pairs, hasher = sha256OfFile) {
+	/** @type {Array<{ key: string; before: string; after: string; sha: string }>} */
+	const violations = [];
+	for (const pair of pairs) {
+		const beforeSha = hasher(pair.before);
+		const afterSha = hasher(pair.after);
+		if (beforeSha === afterSha) {
+			violations.push({ ...pair, sha: beforeSha });
+		}
+	}
+	return violations;
+}
+
+/**
+ * 撮影ファイル一覧から Before/After 偽装を検出し、違反があれば fail 用 message を返す。
+ * 違反 0 件 (またはペア 0 件) なら null。
+ *
+ * capture.mjs から呼ばれ、戻り値が non-null なら process.exit(1) する想定。
+ *
+ * @param {string[]} capturedFiles - 今回 capture session で書き出した全ファイルパス
+ * @param {(path: string) => string} [hasher=sha256OfFile]
+ * @returns {{ violations: Array<{ key: string; before: string; after: string; sha: string }>; message: string } | null}
+ */
+export function checkBeforeAfterIdentical(capturedFiles, hasher = sha256OfFile) {
+	const pairs = findBeforeAfterPairs(capturedFiles);
+	if (pairs.length === 0) return null;
+	const violations = detectIdenticalBeforeAfterPairs(pairs, hasher);
+	if (violations.length === 0) return null;
+
+	const lines = [
+		`SS 偽装検出 (#2059): ${violations.length} ペアの Before/After sha256 が完全一致しています。`,
+		'',
+		'検出された同一ペア:',
+		...violations.map((v) => `  - ${v.before} == ${v.after}\n    sha256: ${v.sha}`),
+		'',
+		'考えられる原因:',
+		'  1. Before SS を撮影せず、After SS のファイル名を変えて Before として貼った',
+		'  2. main HEAD と PR HEAD の両方が同じ commit を指している (rebase 直後等)',
+		'  3. 修正が DOM 差分を生まない (CSS / 画像差し替えのみで撮影箇所に変化なし)',
+		'',
+		'対応方法:',
+		'  - Before SS は **別 worktree で main HEAD を強制 checkout** してから撮影してください:',
+		'      git worktree add ../gq-main-head main',
+		'      cd ../gq-main-head',
+		'      MSYS_NO_PATHCONV=1 node scripts/capture.mjs --pr <N> --url <path>',
+		"      # 撮影後 'before-' prefix にリネームして PR ブランチ側に戻す",
+		'  - After SS は PR HEAD (作業中ブランチ) で撮影してください',
+		'  - 変化のない箇所であれば SS 提示を取りやめ、refactor:internal-no-doc-impact label を付ける',
+		'',
+		'参考: docs/sessions/qa-session.md / scripts/check-ss-blob-sha-uniqueness.mjs (#2063 CI gate)',
+	];
+
+	return { violations, message: lines.join('\n') };
+}
 
 /**
  * `?screenshot=all` で demo 固有 UI を非表示化 + 本番一致演出 (MilestoneBanner 等) を強制表示する
