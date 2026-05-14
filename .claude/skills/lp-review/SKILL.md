@@ -50,6 +50,8 @@ node .claude/skills/lp-review/scripts/init-round.mjs --round 2026-06-01
 
 ## ステップ 5: Issue 起票
 
+Issue 起票手順詳細 → [Skill: issue-triage](../issue-triage/SKILL.md) (Pre-PMF check / HEREDOC 禁止 / OSS 先調査 / research 添付 の SSOT、#2089)。LP レビュー特有事項のみ以下:
+
 - 各 Issue を `process_ticket.yml` (#1859) 経由で起票
 - `issue-list.md` に N（finding 番号）→ #（Issue 番号）対応表を記録
 - Issue 本文に「PO 指摘 SSOT 1 行リンク」を必ず含める（画像二重貼り禁止）

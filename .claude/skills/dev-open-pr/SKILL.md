@@ -120,7 +120,7 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 # gh アカウント確認 (ADR-0022 / #1728)
 node scripts/check-gh-account-before-pr.mjs
 
-# Draft PR 起票（HEREDOC 禁止 #1172、必ず --body-file）
+# Draft PR 起票（`--body-file` 必須、#1172 / [Skill: issue-triage SSOT](../issue-triage/SKILL.md) §「`--body-file` 運用」）
 gh pr create --draft \
   --title "<type>: #<num> <subject>" \
   --body-file tmp/pr-bodies/<num>-<slug>.md

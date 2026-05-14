@@ -95,7 +95,7 @@ rm tmp/review-bodies/<pr-num>.md
 
 **Write tool が拒否された場合のフォールバック**: `cat > tmp/review-bodies/<pr-num>.md << 'EOF' ... EOF`。
 
-詳細は `docs/sessions/po-session.md` §「Issue 起票の技術手順（HEREDOC 禁止 — #1172）」を参照（Issue / PR / Review 共通の運用規約）。
+詳細は [Skill: issue-triage SSOT](../skills/issue-triage/SKILL.md) §「`--body-file` 運用」を参照 (#2089、Issue / PR / Review 共通の運用規約)。
 
 ## 判断フレームワーク
 
