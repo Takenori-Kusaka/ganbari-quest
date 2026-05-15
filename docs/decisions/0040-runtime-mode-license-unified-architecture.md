@@ -1,6 +1,7 @@
 # 0040. 実行モード × ライセンス統括アーキテクチャ (Typed env + EvaluationContext + Policy Gate)
 
-> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+> **re-activated (2026-05-15、#2097)**: archived (2026-04-20) → active 復帰。
+> ADR-0039 の active 復帰に伴い、本 ADR (Typed env / EvaluationContext / Policy Gate) も #2097 Phase 2 完遂の base として再参照される必要があるため。
 
 
 | 項目 | 内容 |

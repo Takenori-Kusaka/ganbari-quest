@@ -1,6 +1,7 @@
 # 0039. デモモードを「実行モード」として本番ルート上で駆動する
 
-> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+> **re-activated (2026-05-15、#2097)**: archived (2026-04-20) → active 復帰。
+> #2097 product audit (`docs/research/2097-product-audit.md`) で、本 ADR の **Phase 2 (`src/routes/demo/**` 48 ファイル削除) が未完遂** であり、#2097 demo / production UI 統合の真のゴールが本 ADR Phase 2 完遂であると判明したため。
 
 
 | 項目 | 内容 |
