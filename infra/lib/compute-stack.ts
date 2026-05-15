@@ -42,14 +42,15 @@ export class ComputeStack extends cdk.Stack {
 	public readonly cronDispatcherFn: lambda.Function;
 
 	// --- ADR-0048 Multi-Lambda Demo (#2097 week 4) ---
-	// demo Fn / FunctionUrl / IAM role / Alias (live) を本番と完全分離する。
+	// demo Fn / FunctionUrl / IAM role を本番と完全分離する。
+	// (Provisioned Concurrency は AWS アカウントの Lambda concurrent execution quota
+	//  不足で割り当て不可、かつ予算制約のため本構成では未採用。cold start ~1-2s で運用)
 	// IAM role には CloudWatch Logs write (`AWSLambdaBasicExecutionRole`) のみを付与し、
 	// DynamoDB / Cognito / Secrets Manager / SES / S3 へのアクセスは付与しない。
 	// 検証: tests/unit/infra/multi-lambda-cdk.test.ts (C-1 IAM isolation regression test)
 	public readonly demoFn: lambda.Function;
 	public readonly demoFunctionUrl: lambda.FunctionUrl;
 	public readonly demoLambdaRole: iam.Role;
-	public readonly demoAlias: lambda.Alias;
 
 	constructor(scope: Construct, id: string, props: ComputeStackProps) {
 		super(scope, id, props);
@@ -372,15 +373,11 @@ export class ComputeStack extends cdk.Stack {
 			invokeMode: lambda.InvokeMode.BUFFERED,
 		});
 
-		// 5. Provisioned Concurrency: 1 unit (cost ~$2.74/month on ARM64 256MB us-east-1)
-		//    cold start 体験劣化を避けるため version + alias 'live' に 1 unit 固定。
-		//    image 更新時は CDK が new Version を作って alias を切り替える (CDK 標準動作)。
-		const demoVersion = this.demoFn.currentVersion;
-		this.demoAlias = new lambda.Alias(this, 'DemoFnLiveAlias', {
-			aliasName: 'live',
-			version: demoVersion,
-			provisionedConcurrentExecutions: 1,
-		});
+		// 5. Provisioned Concurrency は AWS アカウント Lambda concurrent execution quota
+		//    不足で割り当て不可 (1 unit でも UnreservedConcurrentExecution が最低 10 を下回る)。
+		//    かつ予算制約のため未採用 (PO 判断 2026-05-15)。cold start ~1-2s で運用。
+		//    必要になったら AWS Service Quotas で増額申請後に lambda.Alias + provisionedConcurrentExecutions=1
+		//    を追加する (cost ~$2.74/月)。
 
 		// --- Outputs ---
 		new cdk.CfnOutput(this, 'FunctionUrl', { value: this.functionUrl.url });

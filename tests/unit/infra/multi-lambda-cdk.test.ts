@@ -314,13 +314,18 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 			});
 		});
 
-		it('demo Fn Alias live + Provisioned Concurrency 1 unit', () => {
+		it('demo Fn は Provisioned Concurrency を持たない (AWS quota 不足 + 予算制約により未採用、PO 判断 2026-05-15)', () => {
 			const template = computeTemplate;
 
-			template.hasResourceProperties('AWS::Lambda::Alias', {
-				Name: 'live',
-				ProvisionedConcurrencyConfig: { ProvisionedConcurrentExecutions: 1 },
-			});
+			// Lambda Alias リソース自体が存在しないことを assert
+			// (cron-dispatcher 等で Alias を使うようになった場合は filter 条件を限定すること)
+			const aliases = template.findResources('AWS::Lambda::Alias');
+			const demoLiveAliases = Object.entries(aliases).filter(
+				([_, def]) =>
+					(def as { Properties?: { Name?: string; FunctionName?: unknown } }).Properties?.Name ===
+					'live',
+			);
+			expect(demoLiveAliases.length).toBe(0);
 		});
 	});
 
