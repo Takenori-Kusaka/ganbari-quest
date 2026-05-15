@@ -6,7 +6,7 @@ import type { AuthLicenseStatus } from '$lib/domain/constants/auth-license-statu
 import type { SubscriptionStatus } from '$lib/domain/constants/subscription-status';
 
 /** 認証モードの切り替え（DATA_SOURCE パターンと同様） */
-export type AuthMode = 'local' | 'cognito';
+export type AuthMode = 'local' | 'cognito' | 'anonymous';
 
 /** テナント内ロール（#0123: viewer 廃止） */
 export type Role = 'owner' | 'parent' | 'child';
@@ -14,6 +14,8 @@ export type Role = 'owner' | 'parent' | 'child';
 /** Layer 1: Identity（誰であるか）
  * - local: LAN内認証なし（NUC/Docker）
  * - cognito: Cognito Email/Password + MFA（AWS SaaS）
+ * - anonymous: ADR-0048 Multi-Lambda demo deployment。dummy user `anon-{requestId}` を返し、
+ *   production DB / Cognito へのアクセス権を持たない demo Lambda 環境で動作する。
  *
  * #820: Cognito `cognito:groups` claim を surfaces する `groups` フィールドを追加。
  * /ops のような group ベース認可は `groups.includes('ops')` で判定する。
@@ -21,7 +23,8 @@ export type Role = 'owner' | 'parent' | 'child';
  */
 export type Identity =
 	| { type: 'local' }
-	| { type: 'cognito'; userId: string; email: string; groups?: string[] };
+	| { type: 'cognito'; userId: string; email: string; groups?: string[] }
+	| { type: 'anonymous'; userId: string; email: string };
 
 /** Layer 2: Context（何として操作しているか）
  *

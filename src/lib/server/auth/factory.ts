@@ -1,6 +1,8 @@
 // src/lib/server/auth/factory.ts
 // AUTH_MODE 環境変数による AuthProvider 切り替え
+// ADR-0048: AUTH_MODE=anonymous は Multi-Lambda demo deployment 専用
 
+import { AnonymousAuthProvider } from './providers/anonymous';
 import { CognitoAuthProvider } from './providers/cognito';
 import { DevCognitoAuthProvider } from './providers/cognito-dev';
 import { LocalAuthProvider } from './providers/local';
@@ -27,7 +29,10 @@ export function getAuthProvider(): AuthProvider {
 
 	const mode = (process.env.AUTH_MODE ?? 'local') as AuthMode;
 
-	if (mode === 'cognito') {
+	if (mode === 'anonymous') {
+		// ADR-0048 §決定 P-1.6: Multi-Lambda demo deployment 用 anonymous provider
+		_provider = new AnonymousAuthProvider();
+	} else if (mode === 'cognito') {
 		_provider = isCognitoDevMode() ? new DevCognitoAuthProvider() : new CognitoAuthProvider();
 	} else {
 		_provider = new LocalAuthProvider();

@@ -1,6 +1,42 @@
 // src/lib/server/db/factory.ts
-// DATA_SOURCE 環境変数による SQLite / DynamoDB バックエンド切り替え
+// DATA_SOURCE 環境変数による SQLite / DynamoDB / Demo バックエンド切り替え
+// ADR-0048: DATA_SOURCE=demo は Multi-Lambda Demo Deployment (demo.ganbari-quest.com) で使用
+// される stateless fixture provider。production DB / S3 / Cognito へのアクセス権を持たない。
 
+import * as demoAccountLockoutRepo from './demo/account-lockout-repo';
+import * as demoActivityMasteryRepo from './demo/activity-mastery-repo';
+import * as demoActivityPrefRepo from './demo/activity-pref-repo';
+import * as demoActivityRepo from './demo/activity-repo';
+import * as demoAuthRepo from './demo/auth-repo';
+import * as demoAutoChallengeRepo from './demo/auto-challenge-repo';
+import * as demoBattleRepo from './demo/battle-repo';
+import * as demoCancellationReasonRepo from './demo/cancellation-reason-repo';
+import * as demoChecklistRepo from './demo/checklist-repo';
+import * as demoChildRepo from './demo/child-repo';
+import * as demoCloudExportRepo from './demo/cloud-export-repo';
+import * as demoDailyMissionRepo from './demo/daily-mission-repo';
+import * as demoEvaluationRepo from './demo/evaluation-repo';
+import * as demoGraduationConsentRepo from './demo/graduation-consent-repo';
+import * as demoImageRepo from './demo/image-repo';
+import * as demoInquiryRepo from './demo/inquiry-repo';
+import * as demoLoginBonusRepo from './demo/login-bonus-repo';
+import * as demoMessageRepo from './demo/message-repo';
+import * as demoPointRepo from './demo/point-repo';
+import * as demoPushSubscriptionRepo from './demo/push-subscription-repo';
+import * as demoReportDailySummaryRepo from './demo/report-daily-summary-repo';
+import * as demoRewardRedemptionRepo from './demo/reward-redemption-repo';
+import * as demoSeasonEventRepo from './demo/season-event-repo';
+import * as demoSettingsRepo from './demo/settings-repo';
+import * as demoSiblingChallengeRepo from './demo/sibling-challenge-repo';
+import * as demoSiblingCheerRepo from './demo/sibling-cheer-repo';
+import * as demoSpecialRewardRepo from './demo/special-reward-repo';
+import * as demoStampCardRepo from './demo/stamp-card-repo';
+import * as demoStatusRepo from './demo/status-repo';
+import * as demoStorageRepo from './demo/storage-repo';
+import * as demoTenantEventRepo from './demo/tenant-event-repo';
+import * as demoTrialHistoryRepo from './demo/trial-history-repo';
+import * as demoViewerTokenRepo from './demo/viewer-token-repo';
+import * as demoVoiceRepo from './demo/voice-repo';
 import * as dynamoAccountLockoutRepo from './dynamodb/account-lockout-repo';
 import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
@@ -147,6 +183,50 @@ export function getRepos(): Repositories {
 	if (_repos) return _repos;
 
 	const dataSource = process.env.DATA_SOURCE ?? 'sqlite';
+	if (dataSource === 'demo') {
+		// ADR-0048: Multi-Lambda Demo Deployment
+		// 全 Repository が stateless fixture provider (read = Fake / write = Stub no-op)。
+		// AWS Lambda Best Practices 公式 anti-pattern (module-level user-specific mutable state) を
+		// 物理的に発生不可能にする。
+		const repos: Repositories = {
+			accountLockout: demoAccountLockoutRepo,
+			autoChallenge: demoAutoChallengeRepo,
+			battle: demoBattleRepo,
+			cancellationReason: demoCancellationReasonRepo,
+			auth: demoAuthRepo,
+			activity: demoActivityRepo,
+			activityMastery: demoActivityMasteryRepo,
+			activityPref: demoActivityPrefRepo,
+			checklist: demoChecklistRepo,
+			child: demoChildRepo,
+			cloudExport: demoCloudExportRepo,
+			dailyMission: demoDailyMissionRepo,
+			evaluation: demoEvaluationRepo,
+			graduationConsent: demoGraduationConsentRepo,
+			image: demoImageRepo,
+			inquiry: demoInquiryRepo,
+			loginBonus: demoLoginBonusRepo,
+			message: demoMessageRepo,
+			point: demoPointRepo,
+			pushSubscription: demoPushSubscriptionRepo,
+			reportDailySummary: demoReportDailySummaryRepo,
+			seasonEvent: demoSeasonEventRepo,
+			siblingChallenge: demoSiblingChallengeRepo,
+			siblingCheer: demoSiblingCheerRepo,
+			settings: demoSettingsRepo,
+			rewardRedemption: demoRewardRedemptionRepo,
+			specialReward: demoSpecialRewardRepo,
+			stampCard: demoStampCardRepo,
+			status: demoStatusRepo,
+			storage: demoStorageRepo,
+			tenantEvent: demoTenantEventRepo,
+			trialHistory: demoTrialHistoryRepo,
+			viewerToken: demoViewerTokenRepo,
+			voice: demoVoiceRepo,
+		};
+		_repos = repos;
+		return repos;
+	}
 	if (dataSource === 'dynamodb') {
 		const repos: Repositories = {
 			accountLockout: dynamoAccountLockoutRepo,
