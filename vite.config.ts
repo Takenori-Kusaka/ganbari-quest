@@ -13,6 +13,17 @@ const dirname =
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	resolve: {
+		alias: {
+			// #2097 ADR-0048 week 4: CDK 関連は infra/node_modules 配下のみに置き、
+			// root devDeps への重複導入は lockfile 不整合を起こす (jsonschema 1.4.1 vs 1.5.0)。
+			// tests/unit/infra/*.ts から `aws-cdk-lib` / `constructs` を import する際は
+			// infra/node_modules/ にエイリアス解決。CI npm ci の整合性を保ち、root の
+			// 1300+ package を CDK のためだけに膨らませない。
+			'aws-cdk-lib': path.join(dirname, 'infra', 'node_modules', 'aws-cdk-lib'),
+			constructs: path.join(dirname, 'infra', 'node_modules', 'constructs'),
+		},
+	},
 	server: {
 		fs: {
 			// git worktree (`tmp/wt-XXXX/`) で起動した時、Vite の dev server fs.allow が
