@@ -3,6 +3,7 @@
 // を返す。production Cognito UserPool には IAM 上アクセスできない。
 
 import { describe, expect, it } from 'vitest';
+import { SUBSCRIPTION_STATUS } from '../../../../../src/lib/domain/constants/subscription-status';
 import * as authRepo from '../../../../../src/lib/server/db/demo/auth-repo';
 
 describe('demo/auth-repo', () => {
@@ -26,7 +27,9 @@ describe('demo/auth-repo', () => {
 		});
 
 		it('updateTenantStatus / deleteTenant は no-op で例外を投げない', async () => {
-			await expect(authRepo.updateTenantStatus('demo', 'cancelled')).resolves.toBeUndefined();
+			await expect(
+				authRepo.updateTenantStatus('demo', SUBSCRIPTION_STATUS.TERMINATED),
+			).resolves.toBeUndefined();
 			await expect(authRepo.deleteTenant('demo')).resolves.toBeUndefined();
 		});
 	});
