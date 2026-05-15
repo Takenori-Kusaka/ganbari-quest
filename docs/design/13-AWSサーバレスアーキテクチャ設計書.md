@@ -8,17 +8,25 @@
 ## 2. アーキテクチャ構成図
 
 ```
-[ユーザー]
-    │
-    ▼
-[CloudFront CDN] ─── キャッシュ ─── [Lambda Function URL (SvelteKit SSR)]
-    │                                     │
-    │                                     ├── [DynamoDB (メインDB)]
-    │                                     ├── [S3 (アバター・バックアップ)]
-    │                                     └── [Cognito (認証)]
-    │
-[Route 53] → CloudFront（独自ドメイン + ACM証明書）
+[ユーザー (本番)]                              [ユーザー (デモ — anonymous)]
+    │                                                │
+    ▼                                                ▼
+[CloudFront CDN (prod)] ── [Lambda (SvelteKitFn)]   [CloudFront CDN (demo)] ── [Lambda (SvelteKitDemoFn)]
+    │                            │                       │                              │
+    │                            ├── DynamoDB           │                              └── (CloudWatch Logs のみ、本番リソースアクセスなし)
+    │                            ├── S3                 │
+    │                            ├── Cognito           │
+    │                            ├── Secrets Manager  │
+    │                            └── SES              │
+    │                                                   │
+[Route 53] ─ ganbari-quest.com                [Route 53] ─ demo.ganbari-quest.com
 ```
+
+**Multi-Lambda Demo トポロジ (ADR-0048 / #2097 week 4)**:
+- 本番と demo は**完全に独立した CloudFront Distribution + Lambda Function + IAM Role**
+- 同じ ECR Docker image を共有 (`DATA_SOURCE` / `AUTH_MODE` 環境変数で動作切替)
+- demo Lambda の IAM Role は CloudWatch Logs write 権限のみ — DynamoDB / Cognito / Secrets Manager / SES へのアクセス権限を一切持たない (blast radius 最小化)
+- 詳細は §3.7 (DemoStack コンポーネント) 参照
 
 ## 3. スタック構成（AWS CDK）
 
@@ -247,6 +255,94 @@
 - スパム/ウイルス判定FAIL → スキップ
 - 自動応答ループ防止（Auto-Reply/noreply検出）
 
+### 3.7 Multi-Lambda Demo Deployment (ADR-0048 / #2097 week 4)
+
+#### 設計背景
+
+過去 8 回の demo/prod UI 統一試行が shim ベースのアプローチで全て regression していた (feedback_demo_prod_ui_unification_blocker.md)。9 回目として、UI レイヤーではなく**インフラレイヤーで分離する** multi-Lambda 構成を採用する。
+
+| 課題 | 解決方針 |
+|------|---------|
+| shim による UI 分岐が複雑化 | DATA_SOURCE 環境変数 1 つで全ファイル切替 (PR #2120 で 34 demo Repository + AnonymousAuthProvider 完備) |
+| デモが本番 DynamoDB を汚染するリスク | IAM Role を物理分離 — demo Fn は本番リソースに**アクセス権限が無い** |
+| 1 人運用でセキュリティインシデント対応不可 | demo URL が本番 secret を返す事故を IAM レイヤーで構造的に不可能にする |
+| demo 用のサブセット機能維持コスト | demo は**本番と機能 100% 同等**。差は AUTH (anonymous) + DATA (in-memory fixture) のみ |
+
+#### ComputeStack 追加リソース
+
+**Lambda (SvelteKitDemoFn):**
+- 関数名: `ganbari-quest-app-demo`
+- ランタイム: Docker (`Dockerfile.lambda` を本番 Fn と共有)
+- メモリ: 256MB (本番 512MB の半分、anonymous + stateless fixture で十分)
+- タイムアウト: 30 秒
+- アーキテクチャ: ARM64
+- Function URL: `authType: NONE`, `invokeMode: BUFFERED` (本番と同一)
+- Provisioned Concurrency: 1 unit (Alias `live` 経由)
+
+**環境変数 (本番との差分):**
+
+| キー | 本番 Fn | demo Fn | 用途 |
+|------|--------|--------|------|
+| `DATA_SOURCE` | `dynamodb` | `demo` | PR #2120 demo Repository / Auth Provider 起動 trigger |
+| `AUTH_MODE` | `cognito` | `anonymous` | AnonymousAuthProvider 起動 |
+| `ORIGIN` | `https://ganbari-quest.com` | `https://demo.ganbari-quest.com` | absolute URL 解決 |
+| `DYNAMODB_TABLE` / `TABLE_NAME` | (注入) | **未注入** | demo は in-memory fixture |
+| `COGNITO_*` / `CONTEXT_TOKEN_SECRET` | (注入) | **未注入** | demo は anonymous |
+| `STRIPE_*` / `GEMINI_API_KEY` / `AWS_LICENSE_SECRET` | (注入) | **未注入** | demo は課金/外部 API なし |
+| `CRON_SECRET` / `OPS_SECRET_KEY` / `DISCORD_WEBHOOK_*` / `SES_*` | (注入) | **未注入** | demo は ops / 通知系なし |
+
+**IAM Role (DemoLambdaRole):**
+- Role 名: `ganbari-quest-app-demo-role`
+- Managed Policies: `service-role/AWSLambdaBasicExecutionRole` のみ
+- Inline Policies: 0
+- 付与しない権限 (synth-time に test で assertion):
+  - DynamoDB (`dynamodb:*`)
+  - Cognito (`cognito-idp:*` / `cognito-identity:*`)
+  - Secrets Manager (`secretsmanager:*`)
+  - SES (`ses:*`)
+  - S3 (CloudWatch Logs 用 S3 を除く)
+
+#### NetworkStack 追加リソース
+
+**CloudFront Distribution (DemoCDN):**
+- Origin: demo Function URL (HTTPS_ONLY)
+- 別名: `demo.ganbari-quest.com`
+- ACM 証明書: `props.demoCertificateArn` (未指定時は本番 `certificateArn` を fallback、wildcard `*.ganbari-quest.com` が apex と sub-domain 双方をカバー)
+- キャッシュポリシー: 本番と同一 (`CACHING_DISABLED` 本系 + `/_app/*` 365 日キャッシュ)
+- セキュリティヘッダ: 本番と同一 (`SECURITY_HEADERS` policy)
+- CloudFront Function: query slash encode のみ (admin IP 制限は demo に適用しない、anonymous public demo のため)
+- geoRestriction: `JP` (本番と同一、Pre-PMF 段階)
+
+**Route 53:**
+- A レコード: `demo.ganbari-quest.com` → DemoCDN (ALIAS)
+- AAAA レコード: 同上
+
+#### IAM 分離検証
+
+`tests/unit/infra/multi-lambda-cdk.test.ts` が CDK synth 時点で以下を強制:
+
+1. **C-1 (load-bearing security control)**: DemoLambdaRole の `Policy.PolicyDocument` に DynamoDB / Cognito / Secrets Manager / SES の action が一切含まれない
+2. **C-2**: NetworkStack に CloudFront Distribution が 2 本ある (alias `ganbari-quest.com` と `demo.ganbari-quest.com`)
+3. **C-3**: demo Fn の env に DATA_SOURCE='demo' + AUTH_MODE='anonymous' が含まれる、本番 secret が含まれない
+
+将来「demo に DynamoDB アクセスを追加した方が楽」と誤って `props.table.grantReadData(this.demoFn)` を追加した瞬間に CI が落ちる構造になっている。これがこの設計の最大の load-bearing 保証。
+
+#### コスト試算
+
+- Provisioned Concurrency 1 unit (ARM64 256MB, us-east-1): ~$2.74/月
+- demo Function URL: 無料 (Lambda Function URL は追加料金なし)
+- CloudFront Distribution 追加: ~$0/月 (Free tier 内、リクエストごと従量)
+- Route 53 ALIAS レコード追加: $0 (ALIAS は同一 hosted zone 内無料)
+- demo 経由のリクエスト: anonymous demo のためトラフィックは限定的 (~$0.10/月)
+
+**合計増分: ~$2.84/月** (本番 $0.50/月 → 合計 $3.34/月)
+
+#### 本番 / demo の関係
+
+- 本番 deploy 時に `cdk deploy --all` が両 Fn を同時更新 (同じ ECR image、tag は本番デプロイで `latest` に push される)
+- 本番 Lambda 環境変数を変更しても demo Fn の env には影響しない (CDK 上で別オブジェクト)
+- IAM Role は完全分離。本番 Role の権限を増減しても demo Role には影響しない
+
 ## 4. デプロイパイプライン
 
 ```
@@ -302,26 +398,33 @@
 | S3 | $0 | $0 | ~$0.01 |
 | ECR | $0 | $0 | ~$0.01 |
 | ACM | $0 | $0 | $0 |
-| **合計** | **~$0.50（≈75円）** | **~$0.50** | **~$0.70** |
+| **Lambda Demo (Provisioned Concurrency 1 unit, ADR-0048)** | **~$2.74** | **~$2.74** | **~$2.74** |
+| **合計** | **~$3.24（≈486円）** | **~$3.24** | **~$3.44** |
 
-ドメイン費用（年額÷12 = ~117円/月）を加えて、実質月額 **~192円〜222円**。
+ドメイン費用（年額÷12 = ~117円/月）を加えて、実質月額 **~603円〜633円**。
+
+**ADR-0048 増分内訳 (#2097 week 4)**: demo Lambda の Provisioned Concurrency 1 unit が約 $2.74/月。anonymous demo の cold start 体験劣化を避けるため必須投資 (ADR-0010 Pre-PMF cost gate: 顧客流入導線価値で正当化、Bucket A)。
 
 ## 7. ファイル構成
 
 ```
 infra/
-├── bin/app.ts           # CDKエントリポイント
+├── bin/app.ts           # CDKエントリポイント (demoDomainName / demoCertificateArn context 追加 #2097)
 ├── lib/
 │   ├── storage-stack.ts  # DynamoDB + S3 + ECR + AWS Backup
 │   ├── auth-stack.ts     # Cognito User Pool + SSM Parameters
-│   ├── compute-stack.ts  # Lambda + Function URL
-│   ├── network-stack.ts  # CloudFront + Route53 + ACM + S3エラーページ
+│   ├── compute-stack.ts  # Lambda (本番 + demo #2097) + Function URL + IAM Role 分離
+│   ├── network-stack.ts  # CloudFront (本番 + demo #2097) + Route53 + ACM + S3エラーページ
 │   ├── ops-stack.ts      # CloudWatch Alarms/Dashboard + Budgets + Cost Anomaly + Health通知
 │   └── ses-stack.ts      # SES Email Identity + Configuration Set + メール受信パイプライン
 ├── error-pages/            # CloudFrontカスタムエラーページHTML（S3にデプロイ）
 ├── package.json
 ├── tsconfig.json
 └── cdk.json
+
+tests/unit/infra/
+├── health-check-lambda.test.ts        # #1257 / #1469 Health Check Lambda 通知品質
+└── multi-lambda-cdk.test.ts           # #2097 ADR-0048 IAM 分離回帰テスト (load-bearing)
 
 Dockerfile.lambda        # Lambda Web Adapter用
 .github/

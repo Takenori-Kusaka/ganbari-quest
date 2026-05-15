@@ -132,6 +132,13 @@ jobs:
 
       - run: npm ci
 
+      # #2097 ADR-0048 week 4: infra/ 配下も install。
+      # root devDeps は aws-cdk-lib を持たず (lockfile 不整合回避)、
+      # vite.config.ts alias で infra/node_modules/aws-cdk-lib にエイリアス解決する。
+      # tests/unit/infra/multi-lambda-cdk.test.ts が CDK Template assertion を実行するために必須。
+      - name: Install infra dependencies (#2097 ADR-0048)
+        run: cd infra && npm ci
+
       - name: Biome lint (#1432 — warning=error)
         run: npx biome check --error-on-warnings .
 
@@ -223,6 +230,11 @@ jobs:
 
       - run: npm ci
 
+      # #2097 ADR-0048 week 4: tests/unit/infra/multi-lambda-cdk.test.ts が
+      # vite.config.ts alias 経由で infra/node_modules/aws-cdk-lib を import する。
+      - name: Install infra dependencies (#2097 ADR-0048)
+        run: cd infra && npm ci
+
       - name: Unit tests with coverage (shard ${{ matrix.shard }}/2)
         # shard 単体では全テストの一部しか走らないため coverage threshold は必ず未達になる。
         # threshold は unit-test-merge の --merge-reports 時に vite.config.ts の値で検証する。
@@ -264,6 +276,11 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # #2097 ADR-0048 week 4: merge 時の coverage 再評価で multi-lambda-cdk.test.ts が
+      # 再 import 解決される可能性があるため、infra/ 依存も install して整合させる。
+      - name: Install infra dependencies (#2097 ADR-0048)
+        run: cd infra && npm ci
 
       - name: Download vitest blob reports
         uses: actions/download-artifact@v8

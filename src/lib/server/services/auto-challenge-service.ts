@@ -13,6 +13,7 @@ import {
 } from '$lib/server/db/auto-challenge-repo';
 import type { AutoChallenge } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
+import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-log-aggregation';
 
 /** Category IDs from the categories master table */
 const ALL_CATEGORY_IDS = [1, 2, 3, 4, 5];
@@ -74,9 +75,9 @@ export async function analyzeWeakCategory(
 	childId: number,
 	tenantId: string,
 ): Promise<AutoChallengeProposal> {
-	// Dynamically import to avoid circular dependency
-	const { getActivityLogs } = await import('$lib/server/services/activity-log-service');
-
+	// #2097 Fix 2: 循環依存解消のため activity-log-aggregation (純粋集計層) を直接使う。
+	// 旧実装は activity-log-service.getActivityLogs を dynamic import していたが、
+	// それは双方向依存を build-time に隠す形で biome noImportCycles を fail させていた。
 	const now = new Date();
 	const twoWeeksAgo = new Date(now);
 	twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -84,7 +85,7 @@ export async function analyzeWeakCategory(
 	const fromDate = twoWeeksAgo.toISOString().slice(0, 10);
 	const toDate = now.toISOString().slice(0, 10);
 
-	const { summary } = await getActivityLogs(childId, tenantId, {
+	const { summary } = await aggregateActivityLogsByCategory(childId, tenantId, {
 		from: fromDate,
 		to: toDate,
 	});

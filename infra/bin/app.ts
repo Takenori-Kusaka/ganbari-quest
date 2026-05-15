@@ -21,6 +21,14 @@ const appName = 'GanbariQuest';
 const domainName = app.node.tryGetContext('domainName') as string | undefined;
 const certificateArn = app.node.tryGetContext('certificateArn') as string | undefined;
 
+// --- ADR-0048 Multi-Lambda Demo (#2097 week 4) ---
+// demo Lambda 用の追加 context:
+//   - demoDomainName: default `demo.${domainName}` (例: demo.ganbari-quest.com)
+//   - demoCertificateArn: default `certificateArn` (本番が wildcard 証明書なら同 ARN で OK)
+// PR body の "cert situation" として、本番 certificateArn が wildcard か apex 専用か明記する。
+const demoDomainName = app.node.tryGetContext('demoDomainName') as string | undefined;
+const demoCertificateArn = app.node.tryGetContext('demoCertificateArn') as string | undefined;
+
 const storage = new StorageStack(app, `${appName}Storage`, {
 	env,
 	description: 'DynamoDB + S3 for Ganbari Quest',
@@ -54,6 +62,10 @@ const network = new NetworkStack(app, `${appName}Network`, {
 	functionUrl: compute.functionUrl,
 	domainName,
 	certificateArn,
+	// ADR-0048 Multi-Lambda Demo (#2097 week 4)
+	demoFunctionUrl: compute.demoFunctionUrl,
+	demoDomainName,
+	demoCertificateArn,
 });
 
 // SES Stack: メール送信基盤 + 受信パイプライン（support@ganbari-quest.com）

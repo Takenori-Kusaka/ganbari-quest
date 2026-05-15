@@ -41,6 +41,16 @@ export class ComputeStack extends cdk.Stack {
 	public readonly functionUrl: lambda.FunctionUrl;
 	public readonly cronDispatcherFn: lambda.Function;
 
+	// --- ADR-0048 Multi-Lambda Demo (#2097 week 4) ---
+	// demo Fn / FunctionUrl / IAM role / Alias (live) を本番と完全分離する。
+	// IAM role には CloudWatch Logs write (`AWSLambdaBasicExecutionRole`) のみを付与し、
+	// DynamoDB / Cognito / Secrets Manager / SES / S3 へのアクセスは付与しない。
+	// 検証: tests/unit/infra/multi-lambda-cdk.test.ts (C-1 IAM isolation regression test)
+	public readonly demoFn: lambda.Function;
+	public readonly demoFunctionUrl: lambda.FunctionUrl;
+	public readonly demoLambdaRole: iam.Role;
+	public readonly demoAlias: lambda.Alias;
+
 	constructor(scope: Construct, id: string, props: ComputeStackProps) {
 		super(scope, id, props);
 
@@ -280,12 +290,107 @@ export class ComputeStack extends cdk.Stack {
 			);
 		}
 
+		// --- ADR-0048 Multi-Lambda Demo Fn (#2097 week 4) ---
+		// 本番 Fn と同じ Docker image を共有しつつ、IAM role + 環境変数で完全分離する。
+		// load-bearing 制約 (1 人運用、セキュリティインシデント対応不可) のため、
+		// demo Fn は CloudWatch Logs write 以外の AWS リソースに一切アクセスできない。
+		//
+		// 設計判断:
+		//   - 同じ ECR image を共有: tag 同期 + 別 image 維持の運用負荷を回避
+		//   - 同 region (us-east-1): ACM 証明書 / Cognito region (#1606) と整合
+		//   - 同 memory/timeout/arch: 想定外の冷却差分を作らない
+		//   - IAM role 完全分離: granular blast radius 制御 (本番 DynamoDB / Cognito 漏洩防止)
+		//   - 環境変数 DATA_SOURCE=demo + AUTH_MODE=anonymous: PR #2120 の demo Repository + AnonymousAuthProvider を起動
+		//   - 本番 secret (Stripe / Gemini / Cognito / License / Discord) 注入禁止
+		//   - Provisioned Concurrency 1 unit (cost ~$2.74/mo): 初回 cold start 体験劣化を避ける
+		//
+		// 検証: tests/unit/infra/multi-lambda-cdk.test.ts
+		//   - C-1 IAM isolation: DynamoDB / Cognito / Secrets Manager / SES へのアクセスなし
+		//   - C-2 CloudFront distribution count: prod + demo = 2 本
+		//   - C-3 demo Fn env: DATA_SOURCE='demo' + AUTH_MODE='anonymous'
+
+		// 1. 独立 LogGroup (3-day retention、prod と同じ運用)
+		const demoLogGroup = new logs.LogGroup(this, 'DemoAppLogGroup', {
+			logGroupName: '/aws/lambda/ganbari-quest-app-demo',
+			retention: logs.RetentionDays.THREE_DAYS,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+
+		// 2. 独立 IAM role: AWSLambdaBasicExecutionRole (CloudWatch Logs write) のみ
+		//    NO grants for: DynamoDB tables / Cognito User Pool / Secrets Manager / SES / S3 (logs 以外)
+		//    本番 Fn と共有しない (cross-tenancy 防止 + blast radius 最小化)。
+		this.demoLambdaRole = new iam.Role(this, 'DemoLambdaRole', {
+			roleName: 'ganbari-quest-app-demo-role',
+			assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+			managedPolicies: [
+				iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+			],
+			description:
+				'Demo Lambda execution role — ADR-0048. CloudWatch Logs only. No DynamoDB/Cognito/Secrets/SES grants.',
+		});
+
+		// 3. demo Fn: prod と同じ Docker image を共有しつつ env / role で隔離
+		this.demoFn = new lambda.DockerImageFunction(this, 'SvelteKitDemoFn', {
+			functionName: 'ganbari-quest-app-demo',
+			code: lambda.DockerImageCode.fromEcr(props.repository, {
+				tagOrDigest: 'latest',
+			}),
+			memorySize: 256, // 本番 512MB の半分 (anonymous + stateless fixture で十分)
+			timeout: cdk.Duration.seconds(30),
+			architecture: lambda.Architecture.ARM_64,
+			role: this.demoLambdaRole,
+			environment: {
+				// ADR-0048 + PR #2120: demo Repository + AnonymousAuthProvider が起動する trigger
+				DATA_SOURCE: 'demo',
+				AUTH_MODE: 'anonymous',
+				// 本番と一致させる起動環境変数 (NODE_ENV / PORT / HOST / LWA)
+				NODE_ENV: 'production',
+				AWS_LWA_PORT: '3000',
+				PORT: '3000',
+				HOST: '0.0.0.0',
+				BODY_SIZE_LIMIT: '10485760',
+				ORIGIN: 'https://demo.ganbari-quest.com',
+				MAINTENANCE_MODE: 'false',
+				// 本番 secret は意図的に NO INJECT:
+				//   - DYNAMODB_TABLE / TABLE_NAME / ASSETS_BUCKET (DynamoDB / S3)
+				//   - COGNITO_* / CONTEXT_TOKEN_SECRET (Cognito)
+				//   - STRIPE_* (Stripe)
+				//   - GEMINI_API_KEY (Gemini)
+				//   - AWS_LICENSE_SECRET (License HMAC)
+				//   - CRON_SECRET / OPS_SECRET_KEY (cron / ops)
+				//   - DISCORD_WEBHOOK_* (Discord)
+				//   - SES_SENDER_EMAIL / SES_CONFIG_SET_NAME (SES)
+				// PR #2120 で demo Repository が DATA_SOURCE='demo' を見て in-memory fixture で完結する設計のため、
+				// これらの secret は demo Fn のランタイム動作に一切不要。
+			},
+		});
+		this.demoFn.node.addDependency(demoLogGroup);
+
+		// 4. Function URL (auth=NONE、本番と同じ。前段 CloudFront で配信する)
+		this.demoFunctionUrl = this.demoFn.addFunctionUrl({
+			authType: lambda.FunctionUrlAuthType.NONE,
+			invokeMode: lambda.InvokeMode.BUFFERED,
+		});
+
+		// 5. Provisioned Concurrency: 1 unit (cost ~$2.74/month on ARM64 256MB us-east-1)
+		//    cold start 体験劣化を避けるため version + alias 'live' に 1 unit 固定。
+		//    image 更新時は CDK が new Version を作って alias を切り替える (CDK 標準動作)。
+		const demoVersion = this.demoFn.currentVersion;
+		this.demoAlias = new lambda.Alias(this, 'DemoFnLiveAlias', {
+			aliasName: 'live',
+			version: demoVersion,
+			provisionedConcurrentExecutions: 1,
+		});
+
 		// --- Outputs ---
 		new cdk.CfnOutput(this, 'FunctionUrl', { value: this.functionUrl.url });
 		new cdk.CfnOutput(this, 'FunctionName', { value: this.fn.functionName });
 		new cdk.CfnOutput(this, 'CronDispatcherFunctionName', {
 			value: this.cronDispatcherFn.functionName,
 		});
+		new cdk.CfnOutput(this, 'DemoFunctionUrl', { value: this.demoFunctionUrl.url });
+		new cdk.CfnOutput(this, 'DemoFunctionName', { value: this.demoFn.functionName });
+		new cdk.CfnOutput(this, 'DemoLambdaRoleArn', { value: this.demoLambdaRole.roleArn });
 	}
 
 	private setupLogArchiving(logGroup: logs.LogGroup, bucket: s3.Bucket): void {

@@ -14,10 +14,21 @@ export interface NetworkStackProps extends cdk.StackProps {
 	functionUrl: lambda.FunctionUrl;
 	domainName?: string;
 	certificateArn?: string;
+	// --- ADR-0048 Multi-Lambda Demo (#2097 week 4) ---
+	// demo Lambda の Function URL。本番と独立した CloudFront Distribution の origin にする。
+	demoFunctionUrl?: lambda.FunctionUrl;
+	// demo 用 sub-domain (default: `demo.${domainName}`)。
+	demoDomainName?: string;
+	// demo 用 ACM 証明書 ARN。
+	//   - 本番 `certificateArn` が wildcard (`*.ganbari-quest.com`) を含む場合は同じ ARN を渡せる
+	//   - apex 専用証明書の場合は demo 専用証明書 ARN を新規発行して渡す
+	//   - 未指定 (undefined) の場合は本番 `certificateArn` を fallback する
+	demoCertificateArn?: string;
 }
 
 export class NetworkStack extends cdk.Stack {
 	public readonly distribution: cloudfront.Distribution;
+	public readonly demoDistribution?: cloudfront.Distribution;
 
 	constructor(scope: Construct, id: string, props: NetworkStackProps) {
 		super(scope, id, props);
@@ -282,6 +293,115 @@ function handler(event) {
 				zone: hostedZone,
 				recordName: 'bounce',
 				domainName: 'custom-email-domain.stripe.com.',
+			});
+		}
+
+		// --- ADR-0048 Multi-Lambda Demo Distribution (#2097 week 4) ---
+		// 本番と独立した CloudFront Distribution を `demo.ganbari-quest.com` に配置する。
+		//   - Origin = demo Lambda の Function URL
+		//   - 同じ cache policy / origin request policy / security headers / CF function (query slash encode)
+		//   - admin IP 制限は demo には適用しない (anonymous public demo のため)
+		//   - geoRestriction も本番と同じ JP 限定 (Pre-PMF 段階)
+		if (props.demoFunctionUrl && props.domainName) {
+			const demoDomainName = props.demoDomainName ?? `demo.${props.domainName}`;
+			const demoCertArn = props.demoCertificateArn ?? props.certificateArn;
+
+			const demoCertificate = demoCertArn
+				? acm.Certificate.fromCertificateArn(this, 'DemoCertificate', demoCertArn)
+				: undefined;
+
+			const demoFnUrlDomain = cdk.Fn.select(2, cdk.Fn.split('/', props.demoFunctionUrl.url));
+			const demoLambdaOrigin = new origins.HttpOrigin(demoFnUrlDomain, {
+				protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+			});
+
+			// demo 用 CloudFront Function: query slash encode のみ (admin IP 制限なし)。
+			const demoQueryFixFn = new cloudfront.Function(this, 'DemoQuerySlashEncodeFn', {
+				functionName: 'ganbari-quest-demo-query-slash-encode',
+				code: cloudfront.FunctionCode.fromInline(`
+function handler(event) {
+  var request = event.request;
+  var qs = request.querystring;
+  var newQs = {};
+  for (var key in qs) {
+    var encodedKey = key.replace(/\\//g, '%2F');
+    newQs[encodedKey] = qs[key];
+  }
+  request.querystring = newQs;
+  return request;
+}
+`),
+				runtime: cloudfront.FunctionRuntime.JS_2_0,
+			});
+
+			this.demoDistribution = new cloudfront.Distribution(this, 'DemoCDN', {
+				comment: 'Ganbari Quest Demo (ADR-0048)',
+				defaultBehavior: {
+					origin: demoLambdaOrigin,
+					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+					cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+					originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+					allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+					responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
+					functionAssociations: [
+						{
+							function: demoQueryFixFn,
+							eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+						},
+					],
+				},
+				additionalBehaviors: {
+					'/_app/*': {
+						origin: demoLambdaOrigin,
+						viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+						cachePolicy: new cloudfront.CachePolicy(this, 'DemoStaticAssetsCachePolicy', {
+							cachePolicyName: 'GanbariQuestDemoStaticAssets',
+							defaultTtl: cdk.Duration.days(365),
+							maxTtl: cdk.Duration.days(365),
+							minTtl: cdk.Duration.days(1),
+							enableAcceptEncodingGzip: true,
+							enableAcceptEncodingBrotli: true,
+						}),
+					},
+				},
+				...(demoCertificate
+					? {
+							domainNames: [demoDomainName],
+							certificate: demoCertificate,
+						}
+					: {}),
+				priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+				httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+				geoRestriction: cloudfront.GeoRestriction.allowlist('JP'),
+			});
+
+			// Route 53 ALIAS A + AAAA レコード: demo.ganbari-quest.com → demoDistribution
+			if (hostedZone) {
+				new route53.ARecord(this, 'DemoAliasRecord', {
+					zone: hostedZone,
+					recordName: demoDomainName,
+					target: route53.RecordTarget.fromAlias(
+						new targets.CloudFrontTarget(this.demoDistribution),
+					),
+				});
+
+				new route53.AaaaRecord(this, 'DemoAliasRecordAAAA', {
+					zone: hostedZone,
+					recordName: demoDomainName,
+					target: route53.RecordTarget.fromAlias(
+						new targets.CloudFrontTarget(this.demoDistribution),
+					),
+				});
+			}
+
+			new cdk.CfnOutput(this, 'DemoDistributionDomainName', {
+				value: this.demoDistribution.distributionDomainName,
+			});
+			new cdk.CfnOutput(this, 'DemoDistributionId', {
+				value: this.demoDistribution.distributionId,
+			});
+			new cdk.CfnOutput(this, 'DemoAppUrl', {
+				value: `https://${demoDomainName}`,
 			});
 		}
 

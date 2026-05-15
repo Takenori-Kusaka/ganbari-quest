@@ -17,7 +17,7 @@
 		"version:generate": "tsx scripts/generate-version.ts",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "(svelte-kit sync || echo '') && (husky || echo '')",
+		"prepare": "(svelte-kit sync || echo '') && (husky || echo '') && (cd infra && npm ci --no-audit --no-fund || echo '')",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
