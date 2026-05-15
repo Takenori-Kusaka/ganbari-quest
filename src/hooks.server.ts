@@ -251,13 +251,15 @@ export const handle: Handle = ({ event, resolve }) =>
 			redirect(legacyEntry.status ?? 308, newUrl);
 		}
 
-		// 1) デモ実行モード判定（ADR-0039 / #1180）
+		// 1) デモ実行モード判定（ADR-0039 Phase 2 完遂、#2097）
 		//
-		// `?mode=demo` クエリ → cookie `gq_demo=1` → `/demo/*` パス（Phase 1 backward compat）
-		// の順でデモ状態を解決。event.locals.isDemo を server-side SSOT として設定する。
+		// `?mode=demo` クエリ → cookie `gq_demo=1` の 2 段でデモ状態を解決。
+		// event.locals.isDemo を server-side SSOT として設定する。
 		// 本番ルートツリー上で同一コードパスを流すことで、
-		// `src/routes/demo/**` 別ツリー起因の乖離 (#296/#1129/#1147/#1180) を構造解消する。
-		// Phase 2 で /demo/* が削除されたら `fromLegacyPath` 経路も除去する。
+		// `src/routes/demo/**` 別ツリー起因の乖離 (#296/#1129/#1147/#1180) を構造解消した。
+		//
+		// Phase 1 までの `path.startsWith('/demo')` backward compat は Phase 2 で撤去済。
+		// `/demo/exit` のみ `/api/demo/exit` への 302 redirect として下流で処理する。
 		//
 		// prerender 中は SvelteKit が url.searchParams へのアクセスを禁ずる
 		// （deterministic でなくなるため）。building 時はデモ判定をスキップして
@@ -267,15 +269,13 @@ export const handle: Handle = ({ event, resolve }) =>
 		} else {
 			const modeQuery = event.url.searchParams.get('mode');
 			const demoCookie = event.cookies.get(DEMO_MODE_COOKIE);
-			const {
-				isDemo: demoActive,
-				fromQuery: demoFromQuery,
-				fromLegacyPath: demoFromLegacyPath,
-			} = resolveDemoActive(modeQuery, demoCookie, path);
+			const { isDemo: demoActive, fromQuery: demoFromQuery } = resolveDemoActive(
+				modeQuery,
+				demoCookie,
+			);
 
 			// cookie 未設定でデモ入口を踏んだ場合のみ発行する（毎リクエスト発行しない）。
-			const shouldIssueCookie =
-				(demoFromQuery || demoFromLegacyPath) && demoCookie !== '1' && !path.startsWith('/_app/');
+			const shouldIssueCookie = demoFromQuery && demoCookie !== '1' && !path.startsWith('/_app/');
 			if (shouldIssueCookie) {
 				event.cookies.set(DEMO_MODE_COOKIE, '1', {
 					path: '/',
@@ -300,11 +300,12 @@ export const handle: Handle = ({ event, resolve }) =>
 		});
 
 		// 2) デモ入口/退出ルート
-		// /demo/exit: cookie を消して本番に戻す
+		// /demo/exit: ADR-0039 Phase 2 (#2097) で /demo/** 全削除と同期して
+		// 退出エンドポイントを `/api/demo/exit/+server.ts` に正式移行した。
+		// ここでは旧 path `/demo/exit` に対して 302 redirect で互換性を保つ
+		// (LP / SS script / ブックマーク経路の保護)。
 		if (path === '/demo/exit') {
-			event.cookies.delete(DEMO_MODE_COOKIE, { path: '/' });
-			event.cookies.delete(DEMO_PLAN_COOKIE, { path: '/' });
-			redirect(302, '/');
+			redirect(302, '/api/demo/exit');
 		}
 
 		// 3) デモ状態なら書き込みを 200 no-op で抑止

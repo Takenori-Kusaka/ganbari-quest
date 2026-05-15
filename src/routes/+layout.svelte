@@ -8,15 +8,14 @@ import Toast from '$lib/ui/primitives/Toast.svelte';
 
 let { children, data } = $props();
 
-// ADR-0039 / #1180: `hooks.server.ts` で `?mode=demo` / cookie から判定された
-// `locals.isDemo` を `+layout.server.ts` が `data.isDemo` として配布。
+// ADR-0039 Phase 2 完遂 (#2097): `hooks.server.ts` で `?mode=demo` / cookie から
+// 判定された `locals.isDemo` を `+layout.server.ts` が `data.isDemo` として配布。
 // root layout 上部に DemoBanner を常時マウントし、デモ状態を全ページで可視化する。
 //
-// Phase 1 backward compat: `/demo/*` 配下は従来の `src/routes/demo/+layout.svelte` が
-// 独自の橙バナーを描画するため、二重表示を避けるために root DemoBanner を抑止する。
-// Phase 2 で `/demo/**` 削除時にこの条件は不要になる。
-const isLegacyDemoPath = $derived($page.url?.pathname?.startsWith('/demo') ?? false);
-const isDemo = $derived(!isLegacyDemoPath && (data?.isDemo ?? $page.data?.isDemo ?? false));
+// Phase 1 までは `/demo/**` 別ツリーが独自バナーを描画していたため backward compat
+// で root DemoBanner を抑止していたが、Phase 2 で `/demo/**` を削除済 (47 ファイル)。
+// 本番ルートで `?mode=demo` 駆動時に root DemoBanner のみ表示する。
+const isDemo = $derived(data?.isDemo ?? $page.data?.isDemo ?? false);
 
 // #702: E2E hydration marker. $effect は SSR では走らずクライアント mount 後にのみ
 // 走るため、ここで window.__APP_HYDRATED__ を立てると Playwright から

@@ -1079,8 +1079,9 @@ export const DEMO_LABELS = {
 	ctaStart: 'ほんとうに始める',
 	/** 退出ボタン */
 	ctaExit: 'おためしをやめる',
-	/** 退出先（ログイン誘導ではなく LP に戻す） */
-	exitHref: '/demo/exit',
+	/** 退出先（ログイン誘導ではなく LP に戻す）。ADR-0039 Phase 2 (#2097) で
+	 * `/demo/exit` → `/api/demo/exit` に移行。旧 path も hooks で 302 redirect 互換。 */
+	exitHref: '/api/demo/exit',
 	/** サインアップ CTA 先 */
 	signupHref: '/auth/signup',
 } as const;
