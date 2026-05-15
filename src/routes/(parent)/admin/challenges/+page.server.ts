@@ -12,6 +12,23 @@ import {
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		return {
+			challenges: [],
+			children: demoChildren,
+			planTier: 'free' as const,
+			familyStreak: {
+				currentStreak: 0,
+				hasRecordedToday: false,
+				todayRecorders: [] as number[],
+				lastRecordedDate: null,
+				nextMilestone: getNextMilestone(0),
+			},
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const planTier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);

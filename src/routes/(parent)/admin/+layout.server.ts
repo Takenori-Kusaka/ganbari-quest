@@ -19,7 +19,44 @@ import type { LayoutServerLoad } from './$types';
 const TRIAL_WAS_ACTIVE_COOKIE = 'trial_was_active';
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
-export const load: LayoutServerLoad = async ({ locals, cookies }) => {
+export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo 用 layout data を返す。
+	// 親管理画面は ?plan= で free/standard/family を切替体験できる。
+	// write 系は hooks.server.ts の shouldReturnDemoNoop が 200 no-op 化済。
+	if (locals.isDemo) {
+		const { DEMO_PLAN_COOKIE: cookieName, resolveDemoPlan: resolvePlan } = await import(
+			'$lib/server/demo/demo-plan'
+		);
+		const planQuery = url.searchParams.get('plan');
+		const planCookie = cookies.get(cookieName);
+		const demoPlan = resolvePlan(planQuery, planCookie);
+		const planTier: 'free' | 'standard' | 'family' =
+			demoPlan === 'family' ? 'family' : demoPlan === 'standard' ? 'standard' : 'free';
+
+		const pointSettings: PointSettings = DEFAULT_POINT_SETTINGS;
+
+		return {
+			pointSettings,
+			authMode: getAuthMode(),
+			tenantStatus: SUBSCRIPTION_STATUS.ACTIVE,
+			isPremium: planTier !== 'free',
+			planTier,
+			tutorialStarted: false,
+			userRole: 'owner' as const,
+			trialStatus: {
+				isTrialActive: false,
+				daysRemaining: 0,
+				trialUsed: false,
+				trialEndDate: null,
+			},
+			trialJustExpired: false,
+			archivedSummary: { archivedChildCount: 0, hasArchivedResources: false },
+			debugPlanSummary: null,
+			gracePeriodStatus: null,
+			demoPlan,
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const authMode = getAuthMode();
 

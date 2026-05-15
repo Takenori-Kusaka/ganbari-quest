@@ -9,10 +9,17 @@ import {
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
-	const tenantId = requireTenantId(locals);
 	const { child } = await parent();
 	if (!child) return { checklists: [] };
 
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo-service の in-memory data。
+	if (locals.isDemo) {
+		const { getDemoTodayChecklistsForChild } = await import('$lib/server/demo/demo-service');
+		const checklists = getDemoTodayChecklistsForChild(child.id);
+		return { checklists, currentTimeSlot: getCurrentTimeSlot() };
+	}
+
+	const tenantId = requireTenantId(locals);
 	const today = todayDateJST();
 	const checklists = await getChecklistsForChild(child.id, today, tenantId);
 

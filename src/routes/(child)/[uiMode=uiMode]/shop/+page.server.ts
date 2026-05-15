@@ -13,10 +13,15 @@ import { getChildSpecialRewards } from '$lib/server/services/special-reward-serv
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
-	const tenantId = requireTenantId(locals);
 	const parentData = await parent();
 	const { child } = parentData;
 
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は空の rewards / balance。
+	if (locals.isDemo) {
+		return { rewards: [], balance: 0, redemptionRequests: [] };
+	}
+
+	const tenantId = requireTenantId(locals);
 	if (!child) {
 		return { rewards: [], balance: 0, redemptionRequests: [] };
 	}

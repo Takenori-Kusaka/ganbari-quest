@@ -5,6 +5,9 @@ import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { UI_MODES } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getSettings } from '$lib/server/db/settings-repo';
+import { DEMO_CHILDREN } from '$lib/server/demo/demo-data';
+import { DEMO_PLAN_COOKIE, resolveDemoPlan } from '$lib/server/demo/demo-plan';
+import { getDemoChildLayoutData } from '$lib/server/demo/demo-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { markChildScreenVisited } from '$lib/server/services/onboarding-service';
 import {
@@ -38,7 +41,54 @@ async function loadMilestonesForChild(
 	}
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: ADR-0039 Phase 2 (#2097) で demo data 経路を入れたため複雑度上昇。本番ルートと demo data の 2 経路を 1 layout に統合する設計上避けられない。別 Issue でリファクタ予定。
 export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は本番ルートで動きつつ
+	// demo-service の in-memory data を返す。本番 service は無改変
+	// (write は hooks の shouldReturnDemoNoop で 200 no-op 化済)。
+	if (locals.isDemo) {
+		const childIdParam = url.searchParams.get('childId');
+		const pathSegment = url.pathname.split('/')[1];
+		const pathMode = UI_MODES.includes(pathSegment as (typeof UI_MODES)[number])
+			? pathSegment
+			: undefined;
+
+		// childId 優先順位: ?childId= → uiMode から対応する demo child を選択 → 902 (LP 代表)
+		let demoChildId: number | null = childIdParam ? Number(childIdParam) : null;
+		if (!demoChildId && pathMode) {
+			const child = DEMO_CHILDREN.find((c) => c.uiMode === pathMode);
+			demoChildId = child?.id ?? null;
+		}
+		if (!demoChildId) {
+			// /switch 等の uiMode 無し pathの場合、902 (preschool, LP 代表) をデフォルト
+			demoChildId = 902;
+		}
+
+		const demoData = getDemoChildLayoutData(demoChildId);
+		const planQuery = url.searchParams.get('plan');
+		const planCookie = cookies.get(DEMO_PLAN_COOKIE);
+		const demoPlan = resolveDemoPlan(planQuery, planCookie);
+		const planTier =
+			demoPlan === 'family' ? 'family' : demoPlan === 'standard' ? 'standard' : 'free';
+
+		return {
+			child: demoData.child,
+			balance: demoData.balance,
+			level: demoData.level,
+			levelTitle: demoData.levelTitle,
+			allChildren: demoData.allChildren,
+			uiMode: demoData.uiMode,
+			pointSettings: demoData.pointSettings,
+			stampProgress: null,
+			stampCard: null,
+			isPremium: planTier !== 'free',
+			planTier,
+			planLimits: getPlanLimits(planTier),
+			milestones: [] as MilestoneAchievement[],
+			demoPlan,
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	let childIdStr = cookies.get('selectedChildId');
 

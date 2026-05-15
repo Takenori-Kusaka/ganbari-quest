@@ -571,9 +571,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	-->
 	<ProdDashboardSections
 		uiMode={data.uiMode as UiMode}
-		activities={data.activities}
+		activities={data.activities as never}
 		mustStatus={data.mustStatus}
-		siblingRanking={data.siblingRanking}
+		siblingRanking={data.siblingRanking as never}
 		{activeEventBadge}
 		{displayConfig}
 		features={{

@@ -29,6 +29,20 @@ import type { Actions, PageServerLoad } from './$types';
 const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor('特別なごほうび設定');
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		return {
+			children: demoChildren.map((c) => ({ ...c, rewardCount: 0, totalRewardPoints: 0 })),
+			templates: [],
+			presetGroups: PRESET_REWARD_GROUPS,
+			isPremium: false,
+			planTier: 'free' as const,
+			pendingRequests: [],
+			historyRequests: [],
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);

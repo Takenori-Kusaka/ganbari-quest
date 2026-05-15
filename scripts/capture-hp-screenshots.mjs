@@ -73,21 +73,21 @@ const DESKTOP = { width: 1440, height: 900, deviceScaleFactor: 2 };
 const CAROUSEL_SCREENSHOTS = [
 	{
 		name: 'carousel-1-child-home',
-		url: '/demo/kinder/home',
+		url: '/kinder/home?mode=demo',
 		description: 'Carousel 1: 幼児（3-5 歳代表）ホーム画面 — ひらがな・大きなボタン',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
 	{
 		name: 'carousel-2-child-status',
-		url: '/demo/lower/home',
+		url: '/lower/home?mode=demo',
 		description: 'Carousel 2: 小学生（6-12 歳代表）ホーム画面 — 活動記録とポイント獲得',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
 	},
 	{
 		name: 'carousel-3-admin-main',
-		url: '/demo/upper/home',
+		url: '/upper/home?mode=demo',
 		description: 'Carousel 3: 中高生（13-18 歳代表）ホーム画面 — 自己管理ダッシュボード',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
@@ -98,7 +98,7 @@ const CAROUSEL_SCREENSHOTS = [
 	//   ADR-0013 LP truth 整合のため alt / data-label も「子供管理 — 家族メンバーの登録と切替」で統一する。
 	{
 		name: 'carousel-4-admin-sub',
-		url: '/demo/admin/children',
+		url: '/admin/children?mode=demo',
 		description: 'Carousel 4: 子供管理画面（家族メンバーの登録と切替）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		mobileSuffix: '-mobile',
@@ -108,20 +108,20 @@ const CAROUSEL_SCREENSHOTS = [
 const FEATURE_SCREENSHOTS = [
 	{
 		name: 'feature-point-level',
-		url: '/demo/lower/home',
+		url: '/lower/home?mode=demo',
 		description: 'Features: ポイント＆レベルアップ',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	{
 		name: 'feature-combo-mission',
-		url: '/demo/lower/home',
+		url: '/lower/home?mode=demo',
 		description: 'Features: コンボ＆デイリーミッション',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		scrollTo: '[data-testid="category-header-1"]',
 	},
 	{
 		name: 'feature-radar-chart',
-		url: '/demo/lower/status',
+		url: '/lower/status?mode=demo',
 		description: 'Features: 成長レーダーチャート',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
@@ -129,7 +129,7 @@ const FEATURE_SCREENSHOTS = [
 	//        撮影定義のみ残存し growth-stage-graduate と URL/ETag が完全一致していたため削除。
 	{
 		name: 'feature-belongings-checklist',
-		url: '/demo/checklist?childId=904',
+		url: '/checklist?childId=904&mode=demo',
 		description: 'Features: 持ち物チェックリスト (子供画面)',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		// #1783: kind 削除 (#1755 #1709-A) で旧 [data-testid="checklist-group-item"] が消滅し
@@ -138,7 +138,7 @@ const FEATURE_SCREENSHOTS = [
 	},
 	{
 		name: 'feature-growth-record-admin',
-		url: '/demo/admin/status',
+		url: '/admin/status?mode=demo',
 		description: 'Features: 成長記録・管理画面',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
@@ -148,14 +148,14 @@ const FEATURE_SCREENSHOTS = [
 	// #1707 R2: machine-tour ④ RPG バトル（冒険のクライマックス）
 	{
 		name: 'feature-rpg-battle',
-		url: '/demo/lower/battle',
+		url: '/lower/battle?mode=demo',
 		description: 'Features: RPG バトル画面（累積した努力でボスに挑戦）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	// #1707 R2: soft-features 月次レポート（成長の記録）
 	{
 		name: 'feature-monthly-report',
-		url: '/demo/admin/status',
+		url: '/admin/status?mode=demo',
 		description: 'Features: 月次レポート（活動・ポイント推移）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
@@ -164,7 +164,7 @@ const FEATURE_SCREENSHOTS = [
 	//        /demo/admin/settings (auto-sleep + おうえんメッセージ設定画面) に変更。
 	{
 		name: 'feature-auto-sleep',
-		url: '/demo/admin/settings',
+		url: '/admin/settings?mode=demo',
 		description: 'Features: 時間管理（自動スリープ設定 + おうえんメッセージ設定）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
@@ -173,7 +173,7 @@ const FEATURE_SCREENSHOTS = [
 	//        画面下部の activity-card 領域を撮影し物理的に異なる SS を生成する。
 	{
 		name: 'feature-cheer-message',
-		url: '/demo/lower/home',
+		url: '/lower/home?mode=demo',
 		description: 'Features: おうえんメッセージ受信（子供ホーム下部）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		scrollTo: '[data-testid^="activity-card-"]',
@@ -183,7 +183,7 @@ const FEATURE_SCREENSHOTS = [
 	//        /demo/admin/activities を維持しても URL 重複しない。
 	{
 		name: 'feature-settings',
-		url: '/demo/admin/activities',
+		url: '/admin/activities?mode=demo',
 		description: 'Features: 親管理の設定一覧（活動・ポイント・ごほうびのカスタマイズ）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
@@ -195,31 +195,31 @@ const FEATURE_SCREENSHOTS = [
 const GROWTH_STAGE_SCREENSHOTS = [
 	{
 		name: 'growth-stage-preschool',
-		url: '/demo/kinder/home',
+		url: '/kinder/home?mode=demo',
 		description: 'Growth Stage: 幼児（preschool）— 大きな絵文字ボタンと達成スタンプ',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	{
 		name: 'growth-stage-elementary',
-		url: '/demo/lower/home',
+		url: '/lower/home?mode=demo',
 		description: 'Growth Stage: 小学生（elementary）— 称号コレクションとデイリーミッション',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	{
 		name: 'growth-stage-junior',
-		url: '/demo/upper/home',
+		url: '/upper/home?mode=demo',
 		description: 'Growth Stage: 中学生（junior）— 月次レポートと自己ペース可視化',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	{
 		name: 'growth-stage-senior',
-		url: '/demo/teen/home',
+		url: '/teen/home?mode=demo',
 		description: 'Growth Stage: 高校生（senior）— 15 年分のログと進路素材',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
 	{
 		name: 'growth-stage-graduate',
-		url: '/demo/lower/achievements',
+		url: '/lower/achievements?mode=demo',
 		description: 'Growth Stage: 卒業（graduate）— 履歴エクスポートと家族の手元に残す記録',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
@@ -228,31 +228,31 @@ const GROWTH_STAGE_SCREENSHOTS = [
 const AGE_SCREENSHOTS = [
 	{
 		name: 'age-baby',
-		url: '/demo/baby/home',
+		url: '/baby/home?mode=demo',
 		description: 'Age Modes: はじめの一歩（0-2歳）',
 		viewports: { mobile: MOBILE, tablet: TABLET, desktop: DESKTOP },
 	},
 	{
 		name: 'age-kinder',
-		url: '/demo/kinder/home',
+		url: '/kinder/home?mode=demo',
 		description: 'Age Modes: じぶんでタップ（3-5歳）',
 		viewports: { mobile: MOBILE, tablet: TABLET, desktop: DESKTOP },
 	},
 	{
 		name: 'age-lower',
-		url: '/demo/lower/home',
+		url: '/lower/home?mode=demo',
 		description: 'Age Modes: 冒険スタート（6-9歳）',
 		viewports: { mobile: MOBILE, tablet: TABLET, desktop: DESKTOP },
 	},
 	{
 		name: 'age-upper',
-		url: '/demo/upper/home',
+		url: '/upper/home?mode=demo',
 		description: 'Age Modes: チャレンジ（10-14歳）',
 		viewports: { mobile: MOBILE, tablet: TABLET, desktop: DESKTOP },
 	},
 	{
 		name: 'age-teen',
-		url: '/demo/teen/home',
+		url: '/teen/home?mode=demo',
 		description: 'Age Modes: みらい設計（15-18歳）',
 		viewports: { mobile: MOBILE, tablet: TABLET, desktop: DESKTOP },
 	},

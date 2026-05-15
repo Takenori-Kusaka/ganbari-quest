@@ -15,6 +15,24 @@ import {
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		const { getDemoStatusData } = await import('$lib/server/demo/demo-service');
+		const childrenWithStatus = demoChildren.map((c) => ({
+			...c,
+			status: getDemoStatusData(c.id),
+			monthlyComparison: null,
+			benchmarkValues: {},
+		}));
+		return {
+			children: childrenWithStatus,
+			categoryDefs: CATEGORY_DEFS,
+			benchmarks: [],
+			levelTitles: [],
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const [children, benchmarks, levelTitles] = await Promise.all([
 		getAllChildren(tenantId),

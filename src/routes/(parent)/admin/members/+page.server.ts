@@ -8,11 +8,32 @@ import { listViewerTokens } from '$lib/server/services/viewer-token-service';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
+	const parentData = await parent();
+	const isFamily = parentData.planTier === 'family';
+
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		return {
+			members: [
+				{
+					userId: 'demo-owner',
+					role: 'owner' as const,
+					joinedAt: new Date().toISOString(),
+					email: 'demo@example.com',
+				},
+			],
+			invites: [],
+			children: demoChildren.map((c) => ({ id: c.id, nickname: c.nickname, userId: null })),
+			currentUserId: 'demo-owner',
+			currentRole: 'owner' as const,
+			isFamily,
+			viewerTokens: [],
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const repos = getRepos();
-	const parentData = await parent();
-
-	const isFamily = parentData.planTier === 'family';
 
 	const [members, invites, children, viewerTokens] = await Promise.all([
 		repos.auth.findTenantMembers(tenantId),

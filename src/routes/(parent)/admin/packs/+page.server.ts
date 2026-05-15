@@ -12,6 +12,51 @@ import { getAllChildren } from '$lib/server/services/child-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren, DEMO_ACTIVITIES } = await import(
+			'$lib/server/demo/demo-data'
+		);
+		const ages = demoChildren.map((c) => c.age);
+		const minAge = Math.min(...ages);
+		const maxAge = Math.max(...ages);
+		const existingNames = new Set(DEMO_ACTIVITIES.map((a) => a.name));
+		const activityPackMetas = getMarketplaceIndex().filter((m) => m.type === 'activity-pack');
+		const packsWithStatus = activityPackMetas.map((p) => {
+			const full = getMarketplaceItem('activity-pack', p.itemId);
+			const payload = full?.payload as ActivityPackPayload | undefined;
+			const activities = payload
+				? payload.activities.map((a) => ({
+						name: a.name,
+						icon: a.icon,
+						categoryCode: a.categoryCode,
+						basePoints: a.basePoints,
+						alreadyImported: existingNames.has(a.name),
+						mustDefault: a.mustDefault === true,
+					}))
+				: [];
+			const importedCount = activities.filter((a) => a.alreadyImported).length;
+			const mustDefaultCount = activities.filter((a) => a.mustDefault).length;
+			const isRecommended = p.targetAgeMin <= maxAge && p.targetAgeMax >= minAge;
+			return {
+				packId: p.itemId,
+				packName: p.name,
+				description: p.description,
+				icon: p.icon,
+				targetAgeMin: p.targetAgeMin,
+				targetAgeMax: p.targetAgeMax,
+				tags: p.tags,
+				activityCount: p.itemCount,
+				activities,
+				importedCount,
+				mustDefaultCount,
+				isFullyImported: importedCount === activities.length,
+				isRecommended,
+			};
+		});
+		return { packs: packsWithStatus, childAgeMin: minAge, childAgeMax: maxAge };
+	}
+
 	const tenantId = requireTenantId(locals);
 
 	const [children, existingActivities] = await Promise.all([

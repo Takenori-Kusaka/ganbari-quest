@@ -11,8 +11,23 @@ import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
-	const tenantId = requireTenantId(locals);
 	const parentData = await parent();
+
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		return {
+			planTier: parentData.planTier,
+			stripeEnabled: false,
+			hasSubscription: false,
+			hasCustomer: false,
+			pinConfigured: false,
+			plan: 'free' as const,
+			status: 'active' as const,
+			planExpiresAt: null,
+		};
+	}
+
+	const tenantId = requireTenantId(locals);
 
 	const [license, pinConfigured] = await Promise.all([
 		getLicenseInfo(tenantId),

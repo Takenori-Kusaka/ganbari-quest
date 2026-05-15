@@ -24,13 +24,47 @@ import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
+	const parentData = await parent();
+	const tier = parentData.planTier;
+
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo-service の in-memory data。
+	if (locals.isDemo) {
+		const { getDemoAdminData } = await import('$lib/server/demo/demo-service');
+		const demoAdmin = getDemoAdminData();
+		const now = new Date();
+		const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+		const childrenWithStatus = demoAdmin.children.map((c) => ({
+			...c,
+			balance: 0,
+			level: 1,
+			levelTitle: '',
+		}));
+		return {
+			children: childrenWithStatus,
+			onboarding: null,
+			monthlySummaries: {},
+			currentMonth: yearMonth,
+			showPremiumWelcome: false,
+			seasonalInfo: null,
+			planStats: {
+				activityCount: demoAdmin.activities.length,
+				activityMax: getPlanLimits(tier).maxActivities,
+				childCount: demoAdmin.children.length,
+				childMax: getPlanLimits(tier).maxChildren,
+				retentionDays: getPlanLimits(tier).historyRetentionDays,
+			},
+			stripeEnabled: false,
+			todayUsage: [],
+			weeklyUsage: [],
+			valuePreview: null,
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 
 	// #726: 親 layout で解決済みの planTier をそのまま継承する。
 	// ここで独自に resolvePlanTier を呼ぶとトライアル情報を渡し忘れ、
 	// トライアル中でも free と判定される（歓迎画面が出ない）バグにつながる。
-	const parentData = await parent();
-	const tier = parentData.planTier;
 
 	const [children, onboarding] = await Promise.all([
 		getAllChildren(tenantId),

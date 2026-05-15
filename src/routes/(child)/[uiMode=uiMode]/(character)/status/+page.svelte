@@ -37,7 +37,7 @@ const radarCategories = $derived(
 					categoryId: catDef.id,
 					name: catDef.name,
 					value: s?.value ?? 0,
-					maxValue: data.status?.maxValue,
+					maxValue: data.status?.maxValue ?? 100000,
 					level: s?.level ?? 1,
 					deviationScore: s?.deviationScore ?? 50,
 					stars: s?.stars ?? 0,
@@ -96,7 +96,7 @@ const radarCategories = $derived(
 			{#snippet children()}
 			<div class="flex flex-col gap-[var(--sp-md)]">
 				{#each CATEGORY_DEFS as catDef (catDef.id)}
-					{@const status = data.status.statuses[catDef.id]}
+					{@const status = data.status?.statuses[catDef.id]}
 					{#if status}
 						<div>
 							<StatusBar

@@ -64,12 +64,32 @@ function parseRound(value: string | null): string {
 }
 
 export const load: PageServerLoad = async ({ locals, url }): Promise<AdminAnalyticsLoadResult> => {
-	requireTenantId(locals);
-
 	const funnelPeriod = parseFunnelPeriod(url.searchParams.get('funnelPeriod'));
 	const cohortPeriod = parseCohortPeriod(url.searchParams.get('cohortPeriod'));
 	const cancelPeriod = parseCancelPeriod(url.searchParams.get('cancelPeriod'));
 	const round = parseRound(url.searchParams.get('round'));
+
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		return {
+			funnel: null,
+			cohort: null,
+			seanEllis: null,
+			cancellation: null,
+			funnelPeriod,
+			cohortPeriod,
+			cancelPeriod,
+			round,
+			errors: {
+				funnel: null,
+				cohort: null,
+				seanEllis: null,
+				cancellation: null,
+			},
+		};
+	}
+
+	requireTenantId(locals);
 
 	// 4 つの集計関数を並列取得。1 つが失敗しても他は表示する (Pre-PMF: 部分縮退許容)。
 	const [funnelResult, cohortResult, seanEllisResult, cancellationResult] =

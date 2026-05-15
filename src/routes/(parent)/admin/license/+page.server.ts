@@ -20,6 +20,40 @@ import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		const planLimits = getPlanLimits('free');
+		return {
+			license: {
+				plan: 'free' as const,
+				status: SUBSCRIPTION_STATUS.ACTIVE,
+				tenantName: 'がんばり家',
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+			},
+			stripeEnabled: false,
+			loyaltyInfo: null,
+			planTier: 'free' as const,
+			planStats: {
+				activityCount: 0,
+				activityMax: planLimits.maxActivities,
+				childCount: demoChildren.length,
+				childMax: planLimits.maxChildren,
+				retentionDays: planLimits.historyRetentionDays,
+			},
+			downgradeRetentionDays: getPlanLimits('free').historyRetentionDays,
+			pinConfigured: false,
+			trialStatus: {
+				isTrialActive: false,
+				trialUsed: false,
+				daysRemaining: 0,
+				trialEndDate: null,
+				trialTier: null,
+			},
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const [license, loyaltyInfo, children, trialStatus, pinConfigured] = await Promise.all([
 		getLicenseInfo(tenantId),

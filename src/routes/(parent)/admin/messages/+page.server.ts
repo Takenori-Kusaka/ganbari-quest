@@ -18,11 +18,23 @@ import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-li
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
-	const tenantId = requireTenantId(locals);
-	const children = await getAllChildren(tenantId);
 	const parentData = await parent();
 	const planTier = parentData.planTier ?? 'free';
 	const limits = getPlanLimits(planTier);
+
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		return {
+			children: demoChildren.map((c) => ({ ...c, recentMessages: [] })),
+			stamps: STAMP_PRESETS,
+			canFreeTextMessage: limits.canFreeTextMessage,
+			planTier,
+		};
+	}
+
+	const tenantId = requireTenantId(locals);
+	const children = await getAllChildren(tenantId);
 
 	const childrenWithMessages = await Promise.all(
 		children.map(async (child) => {

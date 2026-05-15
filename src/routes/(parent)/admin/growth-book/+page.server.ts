@@ -13,13 +13,25 @@ function currentFiscalYear(): string {
 }
 
 export const load: PageServerLoad = async ({ url, locals }) => {
+	const fiscalYear = url.searchParams.get('year') ?? currentFiscalYear();
+
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		return {
+			children: demoChildren.map((c) => ({ id: c.id, nickname: c.nickname })),
+			book: null,
+			isPremium: false,
+			fiscalYear,
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const children = await getAllChildren(tenantId);
 	if (children.length === 0) {
-		return { children: [], book: null, isPremium: false, fiscalYear: currentFiscalYear() };
+		return { children: [], book: null, isPremium: false, fiscalYear };
 	}
 
-	const fiscalYear = url.searchParams.get('year') ?? currentFiscalYear();
 	const childIdParam = url.searchParams.get('childId');
 	const selectedChildId = childIdParam ? Number(childIdParam) : (children[0]?.id ?? 0);
 

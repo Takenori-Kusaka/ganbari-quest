@@ -18,6 +18,40 @@ import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-li
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。設定 UI は表示するが
+	// write 系は hooks.shouldReturnDemoNoop で 200 no-op (Stripe test mode 同設計)。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		return {
+			dataSummary: {
+				children: demoChildren.length,
+				activityLogs: 0,
+				pointLedger: 0,
+				statuses: 0,
+				achievements: 0,
+				loginBonuses: 0,
+				checklistTemplates: 0,
+				voices: 0,
+			},
+			decayIntensity: 'normal',
+			siblingMode: 'both',
+			siblingRankingEnabled: 'false',
+			canSiblingRanking: false,
+			canExport: false,
+			maxCloudExports: 0,
+			notificationSettings: {
+				remindersEnabled: true,
+				reminderTime: '09:00',
+				streakEnabled: true,
+				achievementsEnabled: true,
+				quietStart: '21:00',
+				quietEnd: '07:00',
+			},
+			children: demoChildren.map((c) => ({ id: c.id, nickname: c.nickname })),
+			defaultChildId: null,
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 
 	// 各データ取得を個別にエラーハンドリング（1つの失敗でページ全体が500にならないように）

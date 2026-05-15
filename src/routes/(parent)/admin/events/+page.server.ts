@@ -5,6 +5,11 @@ import { createEvent, editEvent, getAllEvents } from '$lib/server/services/seaso
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は空のイベント配列。
+	if (locals.isDemo) {
+		return { events: [] };
+	}
+
 	const tenantId = requireTenantId(locals);
 	const events = await getAllEvents(tenantId);
 	return { events };

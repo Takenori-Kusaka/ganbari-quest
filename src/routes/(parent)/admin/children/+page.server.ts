@@ -43,6 +43,24 @@ function calculateAge(birthDate: string): number {
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export const load: PageServerLoad = async ({ url, locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo-service の in-memory data。
+	if (locals.isDemo) {
+		const { DEMO_CHILDREN: demoChildren } = await import('$lib/server/demo/demo-data');
+		const childrenSummary = demoChildren.map((c) => ({
+			...c,
+			balance: 0,
+			level: 1,
+			levelTitle: '',
+		}));
+		return {
+			children: childrenSummary,
+			selectedChild: null,
+			childLimit: { allowed: true, current: demoChildren.length, max: 99 },
+			categoryDefs: CATEGORY_DEFS,
+			archiveInfo: { hasArchived: false, retentionDays: null },
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const children = await getAllChildren(tenantId);

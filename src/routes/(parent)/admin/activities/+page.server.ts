@@ -31,6 +31,39 @@ import {
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		const { DEMO_ACTIVITIES } = await import('$lib/server/demo/demo-data');
+		const logCounts: Record<number, number> = {};
+		for (const a of DEMO_ACTIVITIES) {
+			logCounts[a.id] = 0;
+		}
+		// activityPacks は marketplace SSOT (静的) なので demo でもそのまま使う
+		const activityPacks = getMarketplaceIndex()
+			.filter((m) => m.type === 'activity-pack')
+			.map((m) => ({
+				packId: m.itemId,
+				packName: m.name,
+				description: m.description,
+				icon: m.icon,
+				targetAgeMin: m.targetAgeMin,
+				targetAgeMax: m.targetAgeMax,
+				tags: m.tags,
+				activityCount: m.itemCount,
+			}));
+		const mainQuestCount = DEMO_ACTIVITIES.filter((a) => a.priority === 'must').length;
+		return {
+			activities: DEMO_ACTIVITIES,
+			categoryDefs: CATEGORY_DEFS,
+			logCounts,
+			activityLimit: { allowed: true, current: DEMO_ACTIVITIES.length, max: 99 },
+			activityPacks,
+			isPremium: false,
+			mainQuestCount,
+			mainQuestMax: MAIN_QUEST_MAX,
+		};
+	}
+
 	const tenantId = requireTenantId(locals);
 	const activities = await getActivities(tenantId, { includeHidden: true });
 	const logCounts = await getActivityLogCounts(tenantId);

@@ -30,10 +30,17 @@ async function ensureStatusUpToDate(childId: number, tenantId: string) {
 }
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
-	const tenantId = requireTenantId(locals);
 	const { child } = await parent();
 	if (!child) return { status: null };
 
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo-service の in-memory data。
+	if (locals.isDemo) {
+		const { getDemoStatusData } = await import('$lib/server/demo/demo-service');
+		const demoStatus = getDemoStatusData(child.id);
+		return { status: demoStatus, monthlyComparison: null };
+	}
+
+	const tenantId = requireTenantId(locals);
 	await ensureStatusUpToDate(child.id, tenantId);
 
 	const [result, monthlyComparison] = await Promise.all([

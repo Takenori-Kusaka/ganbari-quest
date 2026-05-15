@@ -18,12 +18,33 @@ import { generateReportsForChildren } from '$lib/server/services/weekly-report-s
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url, parent }) => {
-	const tenantId = requireTenantId(locals);
+	const parentData = await parent();
+	const planTier = parentData.planTier;
+	const isFamily = planTier === 'family';
+	const canReceiveWeeklyEmail = planTier !== 'free';
 
-	// 月パラメータ（デフォルト: 今月）
 	const now = new Date();
 	const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 	const selectedMonth = url.searchParams.get('month') ?? defaultMonth;
+
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo data。
+	if (locals.isDemo) {
+		return {
+			reports: [],
+			monthlyReports: [],
+			prevMonthlyReports: [],
+			selectedMonth,
+			settings: { enabled: true, day: 'monday' },
+			rankingData: null,
+			monthlyRankingData: null,
+			trendData: null,
+			isFamily,
+			planTier,
+			canReceiveWeeklyEmail,
+		};
+	}
+
+	const tenantId = requireTenantId(locals);
 
 	const [children, reportSettings] = await Promise.all([
 		getAllChildren(tenantId),
@@ -31,13 +52,6 @@ export const load: PageServerLoad = async ({ locals, url, parent }) => {
 	]);
 
 	const childList = children.map((c) => ({ id: c.id, nickname: c.nickname }));
-
-	// ランキングデータ取得（PLAN_LABELS.family 用、#373）
-	const parentData = await parent();
-	const isFamily = parentData.planTier === 'family';
-	// #735: 週次メールレポートは standard+ 特典。free はプレビューのみ、設定不可
-	const planTier = parentData.planTier;
-	const canReceiveWeeklyEmail = planTier !== 'free';
 
 	let rankingData: Awaited<ReturnType<typeof getWeeklyRanking>> | null = null;
 	let monthlyRankingData: Awaited<ReturnType<typeof getMonthlyRanking>> | null = null;

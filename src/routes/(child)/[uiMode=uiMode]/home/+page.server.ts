@@ -59,9 +59,43 @@ function todayDate(): string {
 }
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
-	const tenantId = requireTenantId(locals);
 	const parentData = await parent();
 	const { child } = parentData;
+
+	// ADR-0039 Phase 2 (#2097): デモ実行モード時は demo-service の in-memory data を返す。
+	// 本番ルートで `?mode=demo` 駆動時、ここで data 経路を切り替える。
+	// 本番 return shape に揃え (siblingRanking / activeEvents / monthlyPremiumReward 等)、
+	// type union によるラッパー svelte 側の型エラーを防ぐ。
+	if (locals.isDemo && child) {
+		const { getDemoHomeData } = await import('$lib/server/demo/demo-service');
+		const demoHome = getDemoHomeData(child.id);
+		return {
+			activities: demoHome.activities,
+			todayRecorded: demoHome.todayRecorded,
+			loginBonusStatus: demoHome.loginBonusStatus,
+			latestReward: demoHome.latestReward,
+			latestMessage: null,
+			hasChecklists: demoHome.hasChecklists,
+			checklistProgress: demoHome.checklistProgress,
+			dailyMissions: demoHome.dailyMissions,
+			stampCard: null,
+			categoryXp: null,
+			gameLoopHints: null,
+			focusMode: false,
+			recommendedActivityIds: [],
+			birthdayBonus: null,
+			activeEvents: [],
+			activeChallenges: [],
+			siblingRanking: null,
+			unshownCheers: [],
+			familyStreak: null,
+			monthlyPremiumReward: null,
+			specialRewardProgress: null,
+			mustStatus: demoHome.mustStatus,
+		};
+	}
+
+	const tenantId = requireTenantId(locals);
 	if (!child)
 		return {
 			activities: [],
