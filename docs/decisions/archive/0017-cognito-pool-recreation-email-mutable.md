@@ -1,6 +1,8 @@
 # 0017. Cognito User Pool 再作成による email mutable 化（Pre-PMF 破壊的変更許容） — **Rejected**
 
-- **Status**: Rejected (deployment failed 2026-04-21) — superseded by [ADR-0018](0018-cognito-user-pool-logical-id-replacement.md)
+> **archived (2026-05-15、#2097 ADR-0048 起票に伴う 1-in-1-out)**: ADR-0017 は rejected (deploy failed) で superseded by ADR-0018。active 一覧に置く必要なし。docs/decisions/README.md の 1-in-1-out ルール (TOP10 active 維持) に従い、本 ADR を archive 送り、ADR-0048 (Multi-Lambda Demo Deployment) を active に登録する。
+
+- **Status**: Rejected (deployment failed 2026-04-21) — superseded by [ADR-0018](../0018-cognito-user-pool-logical-id-replacement.md)
 - **Date**: 2026-04-21
 - **Related Issue**: #1366 (ADR-0018 で再設計して解決)
 
