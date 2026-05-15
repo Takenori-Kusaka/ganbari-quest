@@ -326,7 +326,7 @@ export class ComputeStack extends cdk.Stack {
 				iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
 			],
 			description:
-				'Demo Lambda execution role — ADR-0048. CloudWatch Logs only. No DynamoDB/Cognito/Secrets/SES grants.',
+				'Demo Lambda execution role (ADR-0048). CloudWatch Logs only. No DynamoDB/Cognito/Secrets/SES grants.',
 		});
 
 		// 3. demo Fn: prod と同じ Docker image を共有しつつ env / role で隔離
