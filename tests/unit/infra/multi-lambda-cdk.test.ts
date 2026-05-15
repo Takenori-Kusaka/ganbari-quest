@@ -20,10 +20,14 @@
 
 import * as cdk from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { ComputeStack } from '../../../infra/lib/compute-stack';
 import { NetworkStack } from '../../../infra/lib/network-stack';
 import { StorageStack } from '../../../infra/lib/storage-stack';
+
+// CDK synth は重い (1 stack あたり ~1.5s)。テストごとに synth すると 5s タイムアウト超過するため、
+// suite 全体で 1 回のみ synth してテンプレートを共有する。
+// テストは Template (read-only) の assertion のみなので相互干渉しない。
 
 // cspell:ignore hostedzone TESTPOOL
 // Pre-populated cdk context: route53 + acm の fromLookup が credentials を要求するため、
@@ -103,11 +107,19 @@ function extractActions(props: Record<string, unknown>): string[] {
 	return actions;
 }
 
+let computeTemplate: Template;
+let networkTemplate: Template;
+
+beforeAll(() => {
+	const { compute, network } = buildStacks();
+	computeTemplate = Template.fromStack(compute as unknown as cdk.Stack);
+	networkTemplate = Template.fromStack(network as unknown as cdk.Stack);
+}, 60_000); // CDK synth は重い (Compute + Network で 3-5s)
+
 describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 	describe('C-1: demo IAM role isolation (load-bearing security control)', () => {
 		it('demo Lambda role の ManagedPolicy は AWSLambdaBasicExecutionRole のみ', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			// IAM Role リソースから ManagedPolicyArns を取り出して文字列化検証する。
 			// (Match.anyValue() は arrayWith 内では使えない CDK assertions 制約のため、findResources で直接確認する)
@@ -128,8 +140,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('demo IAM role に DynamoDB / Cognito / Secrets Manager / SES への inline policy が無い', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			// demo Fn が利用する Role の論理 ID は DemoLambdaRole<hash>
 			// すべての AWS::IAM::Policy 資源を走査し、demo Role に attach されていないことを確認する。
@@ -158,8 +169,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('demo Lambda の Role property は DemoLambdaRole を参照する (prod Role を共有しない)', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			template.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-app-demo',
@@ -172,14 +182,12 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 
 	describe('C-2: CloudFront distribution count (prod + demo)', () => {
 		it('NetworkStack に CloudFront Distribution が 2 本ある', () => {
-			const { network } = buildStacks();
-			const template = Template.fromStack(network as unknown as cdk.Stack);
+			const template = networkTemplate;
 			template.resourceCountIs('AWS::CloudFront::Distribution', 2);
 		});
 
 		it('1 本は alias ganbari-quest.com を含む (本番)', () => {
-			const { network } = buildStacks();
-			const template = Template.fromStack(network as unknown as cdk.Stack);
+			const template = networkTemplate;
 
 			const distributions = template.findResources('AWS::CloudFront::Distribution');
 			const aliases = Object.values(distributions).flatMap((d) => {
@@ -192,8 +200,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('1 本は alias demo.ganbari-quest.com を含む (demo)', () => {
-			const { network } = buildStacks();
-			const template = Template.fromStack(network as unknown as cdk.Stack);
+			const template = networkTemplate;
 
 			const distributions = template.findResources('AWS::CloudFront::Distribution');
 			const aliases = Object.values(distributions).flatMap((d) => {
@@ -206,8 +213,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('Route 53 ALIAS A record demo.ganbari-quest.com が demo distribution を指す', () => {
-			const { network } = buildStacks();
-			const template = Template.fromStack(network as unknown as cdk.Stack);
+			const template = networkTemplate;
 
 			template.hasResourceProperties('AWS::Route53::RecordSet', {
 				Type: 'A',
@@ -223,8 +229,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 
 	describe('C-3: demo Fn environment variables', () => {
 		it('DATA_SOURCE=demo + AUTH_MODE=anonymous が注入される', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			template.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-app-demo',
@@ -238,8 +243,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('demo Fn の env に本番 secret (STRIPE / GEMINI / COGNITO / LICENSE / DYNAMODB) が含まれない', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			const functions = template.findResources('AWS::Lambda::Function', {
 				Properties: { FunctionName: 'ganbari-quest-app-demo' },
@@ -290,8 +294,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('demo Fn は ARM64 + 256MB memory', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			template.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-app-demo',
@@ -301,8 +304,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('demo Fn URL は authType=NONE', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			template.hasResourceProperties('AWS::Lambda::Url', {
 				AuthType: 'NONE',
@@ -313,8 +315,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('demo Fn Alias live + Provisioned Concurrency 1 unit', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			template.hasResourceProperties('AWS::Lambda::Alias', {
 				Name: 'live',
@@ -325,8 +326,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 
 	describe('production Lambda preservation (zero regression on prod Fn)', () => {
 		it('production Fn は DATA_SOURCE=dynamodb + AUTH_MODE=cognito を維持する', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			template.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-app',
@@ -340,8 +340,7 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 
 		it('production Fn と demo Fn は別 IAM role を使う', () => {
-			const { compute } = buildStacks();
-			const template = Template.fromStack(compute as unknown as cdk.Stack);
+			const template = computeTemplate;
 
 			const functions = template.findResources('AWS::Lambda::Function');
 			let prodRoleRef: unknown;
