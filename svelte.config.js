@@ -8,6 +8,12 @@ const config = {
 		}),
 		alias: {
 			$lib: 'src/lib',
+			// #2097 ADR-0048 week 4: CDK 依存は infra/node_modules にのみ存在し
+			// root devDeps に重複導入すると lockfile 不整合 (jsonschema 1.4.1 vs 1.5.0)。
+			// kit.alias 経由で tests/unit/infra/ から `aws-cdk-lib` を resolve させる
+			// (SvelteKit が .svelte-kit/tsconfig.json paths と vite alias の両方に同期反映)。
+			'aws-cdk-lib': 'infra/node_modules/aws-cdk-lib',
+			constructs: 'infra/node_modules/constructs',
 		},
 		csrf: {
 			// Docker(NUC LAN) ビルドでは DISABLE_CSRF_ORIGIN_CHECK=true を build arg で渡し、

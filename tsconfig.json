@@ -12,16 +12,6 @@
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
 		"noImplicitOverride": true,
-		"moduleResolution": "bundler",
-		"baseUrl": ".",
-		"ignoreDeprecations": "6.0",
-		"paths": {
-			"$lib": ["./src/lib"],
-			"$lib/*": ["./src/lib/*"],
-			"$app/types": [".svelte-kit/types/index.d.ts"],
-			"aws-cdk-lib": ["./infra/node_modules/aws-cdk-lib"],
-			"aws-cdk-lib/*": ["./infra/node_modules/aws-cdk-lib/*"],
-			"constructs": ["./infra/node_modules/constructs"]
-		}
+		"moduleResolution": "bundler"
 	}
 }
