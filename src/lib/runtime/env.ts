@@ -43,7 +43,8 @@ const envSchema = z.object({
 	MAINTENANCE_MODE: booleanStringSchema,
 
 	// ----- Auth -----
-	AUTH_MODE: z.enum(['local', 'cognito']).default('local'),
+	// #2097 ADR-0048: AUTH_MODE='anonymous' を追加 (demo Lambda 用、AnonymousAuthProvider 選択)
+	AUTH_MODE: z.enum(['local', 'cognito', 'anonymous']).default('local'),
 	COGNITO_DEV_MODE: booleanStringSchema,
 	COGNITO_USER_POOL_ID: z.string().optional(),
 	COGNITO_CLIENT_ID: z.string().optional(),
@@ -63,7 +64,8 @@ const envSchema = z.object({
 
 	// ----- Database -----
 	DATABASE_URL: z.string().default('./data/ganbari-quest.db'),
-	DATA_SOURCE: z.enum(['sqlite', 'dynamodb']).default('sqlite'),
+	// #2097 ADR-0048: DATA_SOURCE='demo' を追加 (demo Lambda 用、stateless fixture Repository 選択)
+	DATA_SOURCE: z.enum(['sqlite', 'dynamodb', 'demo']).default('sqlite'),
 	SCHEMA_VALIDATION_MODE: z.enum(['warn', 'strict']).optional(),
 
 	// ----- Stripe -----
