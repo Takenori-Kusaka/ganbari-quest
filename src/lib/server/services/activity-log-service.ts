@@ -18,7 +18,6 @@ import {
 	countTodayActiveRecords,
 	findActivityById,
 	findActivityLogById,
-	findActivityLogs,
 	findChildById,
 	findStreakLogs,
 	getTodayActivityCountsByChild,
@@ -26,10 +25,19 @@ import {
 	insertPointLedger,
 	markActivityLogCancelled,
 } from '$lib/server/db/activity-repo';
+import {
+	type ActivityLogEntry,
+	type ActivityLogSummary,
+	aggregateActivityLogsByCategory,
+} from '$lib/server/services/activity-log-aggregation';
 import { trackActivationFirstActivityCompleted } from '$lib/server/services/analytics-service';
+import { incrementChallengeProgress } from '$lib/server/services/auto-challenge-service';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
+
+// Re-export for backward compatibility with existing callers.
+export type { ActivityLogEntry, ActivityLogSummary };
 
 /**
  * XP = ポイント統合: 活動で得るポイントがそのままXPとしてカテゴリに蓄積される。
@@ -91,22 +99,8 @@ export interface RecordActivityResult {
 	specialReward: { id: number; title: string; points: number; icon: string | null } | null;
 }
 
-export interface ActivityLogEntry {
-	id: number;
-	activityName: string;
-	activityIcon: string;
-	categoryId: number;
-	points: number;
-	streakDays: number;
-	streakBonus: number;
-	recordedAt: string;
-}
-
-export interface ActivityLogSummary {
-	totalCount: number;
-	totalPoints: number;
-	byCategory: Record<number, { count: number; points: number }>;
-}
+// ActivityLogEntry / ActivityLogSummary types are defined in activity-log-aggregation.ts
+// and re-exported from the module header (see imports above).
 
 /** Record an activity for a child. Enforces daily limit and streak calculation. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
@@ -284,11 +278,9 @@ export async function recordActivity(
 	}
 
 	// 自動チャレンジ進捗チェック
+	// #2097 Fix 2: 循環依存解消 (activity-log-aggregation 抽出) により dynamic import 撤廃。
 	let autoChallengeCompleted = false;
 	try {
-		const { incrementChallengeProgress } = await import(
-			'$lib/server/services/auto-challenge-service'
-		);
 		const challengeResult = await incrementChallengeProgress(
 			childId,
 			activity.categoryId,
@@ -482,32 +474,8 @@ export async function getActivityLogs(
 	tenantId: string,
 	options: { from?: string; to?: string } = {},
 ): Promise<{ logs: ActivityLogEntry[]; summary: ActivityLogSummary }> {
-	const rows = await findActivityLogs(childId, tenantId, options);
-
-	// Build summary
-	const byCategory: Record<number, { count: number; points: number }> = {};
-	let totalCount = 0;
-	let totalPoints = 0;
-
-	for (const row of rows) {
-		totalCount++;
-		const rowTotal = row.points + row.streakBonus;
-		totalPoints += rowTotal;
-
-		if (!byCategory[row.categoryId]) {
-			byCategory[row.categoryId] = { count: 0, points: 0 };
-		}
-		const cat = byCategory[row.categoryId];
-		if (cat) {
-			cat.count++;
-			cat.points += rowTotal;
-		}
-	}
-
-	return {
-		logs: rows,
-		summary: { totalCount, totalPoints, byCategory },
-	};
+	// #2097 Fix 2: 集計ロジックは activity-log-aggregation.ts (循環依存解消のため抽出済) に委譲。
+	return aggregateActivityLogsByCategory(childId, tenantId, options);
 }
 
 /** Get today's recorded activity counts for a child (for UI completed/badge state). */

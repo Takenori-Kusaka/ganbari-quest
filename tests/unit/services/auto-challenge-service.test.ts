@@ -17,10 +17,12 @@ vi.mock('$lib/server/db/auto-challenge-repo', () => ({
 	expireOldChallenges: (...args: unknown[]) => mockExpireOldChallenges(...args),
 }));
 
-// Mock activity-log-service for analyzeWeakCategory
+// Mock activity-log-aggregation (純粋集計層、#2097 Fix 2 で循環依存解消のため抽出)。
+// 旧テストは activity-log-service.getActivityLogs を mock していたが、auto-challenge-service は
+// aggregateActivityLogsByCategory を直接呼ぶ実装に変わった (循環依存解消)。
 const mockGetActivityLogs = vi.fn();
-vi.mock('$lib/server/services/activity-log-service', () => ({
-	getActivityLogs: (...args: unknown[]) => mockGetActivityLogs(...args),
+vi.mock('$lib/server/services/activity-log-aggregation', () => ({
+	aggregateActivityLogsByCategory: (...args: unknown[]) => mockGetActivityLogs(...args),
 }));
 
 vi.mock('$lib/server/logger', () => ({
