@@ -313,6 +313,7 @@ unstub
 upsell
 Upsell
 upsert
+upserted
 upserts
 ureshii
 vite
@@ -322,6 +323,7 @@ Vitest
 VOICEID
 vorbis
 Vorbis
+wakeup
 webp
 webpush
 whsec
