@@ -115,14 +115,14 @@ test.describe('#839 フィードバックフォーム', () => {
 	});
 
 	test('デモ版でも FAB が表示される', async ({ page }) => {
-		await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
+		await page.goto('/admin?mode=demo', { waitUntil: 'domcontentloaded' });
 
 		const fab = page.getByTestId('feedback-fab');
 		await expect(fab).toBeVisible();
 	});
 
 	test('デモ版は送信時にモック成功表示', async ({ page }) => {
-		await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
+		await page.goto('/admin?mode=demo', { waitUntil: 'domcontentloaded' });
 
 		await page.getByTestId('feedback-fab').click();
 		await expect(page.getByTestId('feedback-dialog')).toBeVisible();

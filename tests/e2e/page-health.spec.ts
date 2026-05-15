@@ -144,10 +144,10 @@ test.describe('ページヘルス: Baby 子供画面', () => {
 // ============================================================
 test.describe('ページヘルス: Demo', () => {
 	const demoPages = [
-		{ path: '/demo/preschool/home?childId=902', name: 'デモ ホーム' },
-		{ path: '/demo/preschool/status?childId=902', name: 'デモ ステータス' },
-		{ path: '/demo/preschool/battle?childId=902', name: 'デモ バトル' },
-		{ path: '/demo/admin/license', name: 'デモ プラン・お支払い (#790)' },
+		{ path: '/preschool/home?childId=902&mode=demo', name: 'デモ ホーム' },
+		{ path: '/preschool/status?childId=902&mode=demo', name: 'デモ ステータス' },
+		{ path: '/preschool/battle?childId=902&mode=demo', name: 'デモ バトル' },
+		{ path: '/admin/license?mode=demo', name: 'デモ プラン・お支払い (#790)' },
 	];
 
 	for (const { path, name } of demoPages) {

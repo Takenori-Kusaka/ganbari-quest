@@ -128,7 +128,8 @@ test.describe('#1732 floating-cta スクロール深度別文言', () => {
 
 		const button = page.locator('#floating-cta-button');
 		await expect(button).toHaveText('デモを見る');
-		await expect(button).toHaveAttribute('href', /\/demo/);
+		// ADR-0039 Phase 2 (#2097): demo リンクは `/switch?mode=demo` に統一
+		await expect(button).toHaveAttribute('href', /mode=demo/);
 
 		// mid は hero と異なる文言であることを担保（Issue AC: hero と完全一致しない）
 		await expect(text).not.toContainText('全機能を家族で試せる');

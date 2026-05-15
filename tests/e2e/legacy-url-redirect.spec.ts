@@ -51,13 +51,12 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 	// ============================================================
 	// デモページ（長いプレフィックス優先）
 	// ============================================================
-	test('/demo/kinder → /demo/preschool (308) — 長いプレフィックス優先', async ({ request }) => {
-		await expectRedirect(request, '/demo/kinder', '/demo/preschool');
-	});
-
-	test('/demo/kinder/home → /demo/preschool/home (308)', async ({ request }) => {
-		await expectRedirect(request, '/demo/kinder/home', '/demo/preschool/home');
-	});
+	// ADR-0039 Phase 2 (#2097): /demo/** 全削除済のため、legacy URL map の
+	// /demo/kinder → /demo/preschool redirect は両側存在しない URL となり意味を失った。
+	// 旧 /demo/kinder にアクセスしたユーザは 404 となる。LP リンクは /switch?mode=demo
+	// に統一されたため、外部リンク経由の遭遇確率は低い。
+	test.skip('/demo/kinder → /demo/preschool (308) — ADR-0039 Phase 2 廃止', async () => {});
+	test.skip('/demo/kinder/home → /demo/preschool/home (308) — ADR-0039 Phase 2 廃止', async () => {});
 
 	// ============================================================
 	// クエリ文字列・ハッシュの保持
@@ -156,11 +155,8 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/admin/achievements/sub', '/admin/challenges/sub');
 	});
 
-	test('/demo/admin/achievements → /demo/admin/challenges (308, #1782 デモ)', async ({
-		request,
-	}) => {
-		await expectRedirect(request, '/demo/admin/achievements', '/demo/admin/challenges');
-	});
+	// ADR-0039 Phase 2 (#2097): /demo/** 全削除済 — 旧 /demo/admin/achievements redirect は意味を失った。
+	test.skip('/demo/admin/achievements → /demo/admin/challenges (308) — ADR-0039 Phase 2 廃止', async () => {});
 
 	test('/admin/achievements?childId=1 (クエリ保持) → /admin/challenges?childId=1', async ({
 		request,
