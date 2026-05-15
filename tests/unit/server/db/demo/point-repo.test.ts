@@ -23,11 +23,7 @@ describe('demo/point-repo', () => {
 	});
 
 	it('findPointHistory は空配列を返す (fixture なし)', async () => {
-		const history = await pointRepo.findPointHistory(
-			902,
-			{ limit: 10, offset: 0 },
-			'demo',
-		);
+		const history = await pointRepo.findPointHistory(902, { limit: 10, offset: 0 }, 'demo');
 		expect(history).toEqual([]);
 	});
 

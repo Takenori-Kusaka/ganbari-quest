@@ -48,10 +48,7 @@ describe('demo/child-repo', () => {
 	describe('write API (Stub — no-op、fixture mutation なし)', () => {
 		it('insertChild は input から minimal Child を返すが fixture を変更しない', async () => {
 			const before = DEMO_CHILDREN.length;
-			const created = await childRepo.insertChild(
-				{ nickname: 'テスト太郎', age: 7 },
-				'demo',
-			);
+			const created = await childRepo.insertChild({ nickname: 'テスト太郎', age: 7 }, 'demo');
 			expect(created.nickname).toBe('テスト太郎');
 			expect(created.age).toBe(7);
 			// ADR-0048 §決定 §2: fixture は immutable

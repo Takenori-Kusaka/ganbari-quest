@@ -3,10 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import * as activityRepo from '../../../../../src/lib/server/db/demo/activity-repo';
-import {
-	DEMO_ACTIVITIES,
-	DEMO_ACTIVITY_LOGS,
-} from '../../../../../src/lib/server/demo/demo-data';
+import { DEMO_ACTIVITIES, DEMO_ACTIVITY_LOGS } from '../../../../../src/lib/server/demo/demo-data';
 
 describe('demo/activity-repo', () => {
 	describe('read API', () => {
@@ -26,8 +23,7 @@ describe('demo/activity-repo', () => {
 			const filtered = await activityRepo.findActivities('demo', { childAge: 8 });
 			expect(
 				filtered.every(
-					(a) =>
-						(a.ageMin === null || a.ageMin <= 8) && (a.ageMax === null || a.ageMax >= 8),
+					(a) => (a.ageMin === null || a.ageMin <= 8) && (a.ageMax === null || a.ageMax >= 8),
 				),
 			).toBe(true);
 		});
@@ -102,17 +98,11 @@ describe('demo/activity-repo', () => {
 				),
 			).resolves.toBeUndefined();
 			await expect(activityRepo.deleteActivity(99999, 'demo')).resolves.toBeUndefined();
-			await expect(
-				activityRepo.archiveActivities([1], 'test', 'demo'),
-			).resolves.toBeUndefined();
+			await expect(activityRepo.archiveActivities([1], 'test', 'demo')).resolves.toBeUndefined();
 		});
 
 		it('deleteActivityLogsBeforeDate は 0 件削除を返す (stateless)', async () => {
-			const result = await activityRepo.deleteActivityLogsBeforeDate(
-				902,
-				'2020-01-01',
-				'demo',
-			);
+			const result = await activityRepo.deleteActivityLogsBeforeDate(902, '2020-01-01', 'demo');
 			expect(result).toBe(0);
 		});
 	});

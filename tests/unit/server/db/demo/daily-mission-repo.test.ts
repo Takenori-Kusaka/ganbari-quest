@@ -2,9 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import * as dailyMissionRepo from '../../../../../src/lib/server/db/demo/daily-mission-repo';
-import {
-	DEMO_DAILY_MISSIONS,
-} from '../../../../../src/lib/server/demo/demo-data';
+import { DEMO_DAILY_MISSIONS } from '../../../../../src/lib/server/demo/demo-data';
 
 describe('demo/daily-mission-repo', () => {
 	it('findTodayMissions は当該日 + child のミッションを返し、activityName/activityIcon を含む', async () => {

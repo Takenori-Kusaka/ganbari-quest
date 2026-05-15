@@ -49,9 +49,7 @@ describe('demo/account-lockout-repo', () => {
 describe('demo/activity-mastery-repo', () => {
 	it('findAllByChild / findByChildAndActivity は空', async () => {
 		expect(await activityMasteryRepo.findAllByChild(902, 'demo')).toEqual([]);
-		expect(
-			await activityMasteryRepo.findByChildAndActivity(902, 1, 'demo'),
-		).toBeUndefined();
+		expect(await activityMasteryRepo.findByChildAndActivity(902, 1, 'demo')).toBeUndefined();
 	});
 	it('upsert は input から ActivityMastery を返す (no-op)', async () => {
 		const r = await activityMasteryRepo.upsert(902, 1, 10, 2, 'demo');
@@ -123,9 +121,7 @@ describe('demo/graduation-consent-repo', () => {
 
 describe('demo/image-repo', () => {
 	it('findCachedImage は undefined', async () => {
-		expect(
-			await imageRepo.findCachedImage(902, 'avatar', 'hash', 'demo'),
-		).toBeUndefined();
+		expect(await imageRepo.findCachedImage(902, 'avatar', 'hash', 'demo')).toBeUndefined();
 	});
 	it('findChildForImage は demo Child を返す', async () => {
 		const child = await imageRepo.findChildForImage(902, 'demo');
@@ -186,21 +182,14 @@ describe('demo/push-subscription-repo', () => {
 describe('demo/report-daily-summary-repo', () => {
 	it('findByChildAndDateRange は空', async () => {
 		expect(
-			await reportDailySummaryRepo.findByChildAndDateRange(
-				902,
-				'2026-01-01',
-				'2026-12-31',
-				'demo',
-			),
+			await reportDailySummaryRepo.findByChildAndDateRange(902, '2026-01-01', '2026-12-31', 'demo'),
 		).toEqual([]);
 	});
 });
 
 describe('demo/reward-redemption-repo', () => {
 	it('findRedemptionRequestsByChild / Tenant は空', async () => {
-		expect(await rewardRedemptionRepo.findRedemptionRequestsByChild(902, 'demo')).toEqual(
-			[],
-		);
+		expect(await rewardRedemptionRepo.findRedemptionRequestsByChild(902, 'demo')).toEqual([]);
 		expect(await rewardRedemptionRepo.findRedemptionRequestsByTenant('demo')).toEqual([]);
 	});
 });
@@ -215,9 +204,7 @@ describe('demo/season-event-repo', () => {
 describe('demo/sibling-challenge-repo', () => {
 	it('findAllChallenges / findActiveChallenges は空', async () => {
 		expect(await siblingChallengeRepo.findAllChallenges('demo')).toEqual([]);
-		expect(
-			await siblingChallengeRepo.findActiveChallenges('2026-04-01', 'demo'),
-		).toEqual([]);
+		expect(await siblingChallengeRepo.findActiveChallenges('2026-04-01', 'demo')).toEqual([]);
 	});
 });
 
@@ -238,9 +225,7 @@ describe('demo/special-reward-repo', () => {
 describe('demo/stamp-card-repo', () => {
 	it('findEnabledStampMasters / findCardByChildAndWeek は空 / undefined', async () => {
 		expect(await stampCardRepo.findEnabledStampMasters('demo')).toEqual([]);
-		expect(
-			await stampCardRepo.findCardByChildAndWeek(902, '2026-04-01', 'demo'),
-		).toBeUndefined();
+		expect(await stampCardRepo.findCardByChildAndWeek(902, '2026-04-01', 'demo')).toBeUndefined();
 	});
 });
 
