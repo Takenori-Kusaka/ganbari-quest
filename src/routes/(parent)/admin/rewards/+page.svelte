@@ -292,14 +292,16 @@ function acceptAiReward(preview: RewardPreviewData) {
 
 		<!-- #2136 MP-1: マーケットプレイスから一括追加 -->
 		<section data-testid="marketplace-reward-import-section">
-			<button
+			<Button
 				type="button"
-				class="text-sm font-bold text-[var(--color-text-link)] cursor-pointer bg-transparent border-none p-0 hover:underline"
+				variant="ghost"
+				size="sm"
+				class="text-sm font-bold text-[var(--color-text-link)] hover:underline px-0"
 				onclick={() => { showMarketplace = !showMarketplace; }}
 				data-testid="marketplace-reward-import-toggle"
 			>
 				{REWARDS_LABELS.marketplaceImportToggle(showMarketplace)}
-			</button>
+			</Button>
 
 			{#if showMarketplace}
 				<div class="mt-2 space-y-2">

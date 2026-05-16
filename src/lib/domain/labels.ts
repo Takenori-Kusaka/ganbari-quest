@@ -865,6 +865,8 @@ export const MARKETPLACE_LABELS = {
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
 	/** #2136 MP-1: reward-set 一括追加 CTA */
 	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
+	/** #2136 MP-1: 件数付き一括追加 CTA */
+	detailCtaImportRewardWithCount: (count: number) => `🎁 このごほうびセットを一括追加 (${count}件)`,
 	/** #2136 MP-1: ログイン後の reward 取込誘導 */
 	detailCtaImportRewardSignedOut: '一括追加するには登録 / ログインが必要です',
 	/** #2136 MP-1: 取込先の子供選択ラベル */

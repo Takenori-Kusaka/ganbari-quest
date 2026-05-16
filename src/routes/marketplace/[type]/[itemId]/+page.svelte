@@ -242,7 +242,7 @@ const rewardCount = $derived(isRewardSet ? (item.payload as RewardSetPayload).re
 							class="w-full"
 							data-testid="reward-import-submit"
 						>
-							{MARKETPLACE_LABELS.detailCtaImportReward} ({rewardCount}件)
+							{MARKETPLACE_LABELS.detailCtaImportRewardWithCount(rewardCount)}
 						</Button>
 					</form>
 					{/snippet}
