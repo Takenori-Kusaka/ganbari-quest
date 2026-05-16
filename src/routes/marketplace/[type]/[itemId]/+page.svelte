@@ -1,5 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { invalidateAll } from '$app/navigation';
 import { APP_LABELS, formatAgeRange, MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type {
 	ActivityPackPayload,
@@ -52,6 +53,20 @@ const rewardImport = $derived(
 );
 
 const rewardCount = $derived(isRewardSet ? (item.payload as RewardSetPayload).rewards.length : 0);
+
+// #2137 (MP-2): checklist 一括追加用 state
+//   selectedChildIdStr は NativeSelect bind:value 互換のため string 保持。
+//   form 送信時は string → number 変換せず name="childId" の value 文字列を直接送る。
+// svelte-ignore state_referenced_locally
+let selectedChildIdStr = $state<string>(
+	// svelte-ignore state_referenced_locally
+	data.children && data.children.length > 0 ? String(data.children[0]?.id ?? '') : '',
+);
+let importing = $state(false);
+
+const childOptions = $derived(
+	(data.children ?? []).map((c) => ({ value: String(c.id), label: c.nickname })),
+);
 </script>
 
 <svelte:head>
@@ -295,8 +310,91 @@ const rewardCount = $derived(isRewardSet ? (item.payload as RewardSetPayload).re
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailCtaImportRewardSignedOut}
 				</p>
+			{:else if isChecklist && data.isLoggedIn && data.children && data.children.length > 0}
+				<!-- #2137 (MP-2): ログイン済 → 直接「一括追加」 -->
+				<p class="text-xs text-[var(--color-text-tertiary)]">
+					{MARKETPLACE_LABELS.detailCtaImportChecklistDesc}
+				</p>
+
+				{#if form?.importResult}
+					{#if form.alreadyImported}
+						<div
+							class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-warning-bg)] text-[var(--color-feedback-warning-text)]"
+							data-testid="marketplace-import-result-duplicate"
+						>
+							{MARKETPLACE_LABELS.detailImportDuplicate(form.existingTemplateName ?? form.presetName)}
+						</div>
+					{:else}
+						<div
+							class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
+							data-testid="marketplace-import-result-success"
+						>
+							{MARKETPLACE_LABELS.detailImportSuccess(form.importedItems ?? 0)}
+						</div>
+					{/if}
+				{:else if form?.error}
+					<div
+						class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)]"
+						data-testid="marketplace-import-result-error"
+					>
+						{form.error}
+					</div>
+				{/if}
+
+				<form
+					method="POST"
+					action="?/importChecklist"
+					use:enhance={() => {
+						importing = true;
+						return async ({ update }) => {
+							await update();
+							importing = false;
+							await invalidateAll();
+						};
+					}}
+					class="space-y-3"
+					data-testid="marketplace-import-form"
+				>
+					{#if data.children.length > 1}
+						<label class="block text-xs font-medium text-[var(--color-text-secondary)]">
+							{MARKETPLACE_LABELS.detailChildSelectLabel}
+							<NativeSelect
+								name="childId"
+								bind:value={selectedChildIdStr}
+								options={childOptions}
+							/>
+						</label>
+					{:else}
+						<input type="hidden" name="childId" value={selectedChildIdStr} />
+					{/if}
+
+					<Button
+						type="submit"
+						variant="primary"
+						size="lg"
+						class="w-full"
+						disabled={importing || !selectedChildIdStr}
+						data-testid="marketplace-import-button"
+					>
+						{MARKETPLACE_LABELS.detailCtaImportChecklist}
+					</Button>
+				</form>
+			{:else if isChecklist && !data.isLoggedIn}
+				<!-- #2137 (MP-2): 未ログイン → signup 経由 redirect -->
+				<p class="text-xs text-[var(--color-text-tertiary)]">
+					{MARKETPLACE_LABELS.detailCtaImportChecklistDesc}
+				</p>
+				<a
+					href="/auth/signup?next=/marketplace/{item.type}/{item.itemId}"
+					class="block"
+					data-testid="marketplace-signup-redirect"
+				>
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailCtaSignupToImport}
+					</Button>
+				</a>
 			{:else}
-				<!-- 他 type は従来通り signup 動線 -->
+				<!-- 他 type (activity-pack / rule-preset) は従来通り signup 動線 -->
 				<a href="/auth/signup" class="block">
 					<Button variant="primary" size="lg" class="w-full">
 						{MARKETPLACE_LABELS.detailCtaSignup}

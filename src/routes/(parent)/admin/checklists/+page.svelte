@@ -11,7 +11,7 @@ import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
-let { data } = $props();
+let { data, form } = $props();
 
 let selectedChildId = $state(0);
 
@@ -152,6 +152,16 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 		aiFormEl?.requestSubmit();
 	});
 }
+
+// #2137 (MP-2): マーケットプレイス checklist preset の取込済判定
+//   selectedChild.templates の sourcePresetId と突き合わせる
+const importedPresetIds = $derived(
+	new Set(
+		(selectedChild?.templates ?? [])
+			.map((t) => t.sourcePresetId)
+			.filter((id): id is string => Boolean(id)),
+	),
+);
 </script>
 
 <svelte:head>
@@ -196,6 +206,101 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 			<input type="hidden" name="templateIcon" value={aiTemplateIcon} />
 			<input type="hidden" name="items" value={aiItemsJson} />
 		</form>
+
+		<!-- #2137 (MP-2): マーケットプレイスから一括追加セクション -->
+		{#if data.marketplaceChecklists.length > 0}
+			<Card variant="elevated" padding="lg">
+				{#snippet children()}
+				<div class="space-y-3" data-testid="marketplace-import-section">
+					<div class="flex items-center justify-between">
+						<h2 class="text-sm font-bold text-[var(--color-text-primary)]">
+							{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSectionTitle}
+						</h2>
+						<a
+							href="/marketplace?type=checklist"
+							class="text-xs text-[var(--color-action-primary)] hover:underline"
+						>
+							{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
+						</a>
+					</div>
+					<p class="text-xs text-[var(--color-text-tertiary)]">
+						{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSectionDesc}
+					</p>
+
+					{#if form?.marketplaceImportResult}
+						{#if form.alreadyImported}
+							<div
+								class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-warning-bg)] text-[var(--color-feedback-warning-text)]"
+								data-testid="marketplace-admin-result-duplicate"
+							>
+								{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceImportDuplicate(form.presetName ?? '')}
+							</div>
+						{:else}
+							<div
+								class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
+								data-testid="marketplace-admin-result-success"
+							>
+								{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceImportSuccess(
+									form.presetName ?? '',
+									form.importedItems ?? 0,
+								)}
+							</div>
+						{/if}
+					{/if}
+
+					<div class="space-y-2">
+						{#each data.marketplaceChecklists as preset (preset.itemId)}
+							{@const alreadyImported = importedPresetIds.has(preset.itemId)}
+							<div
+								class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--color-surface-muted)]"
+								data-testid="marketplace-preset-row-{preset.itemId}"
+							>
+								<span class="text-2xl">{preset.icon}</span>
+								<div class="flex-1 min-w-0">
+									<div class="flex items-center gap-2">
+										<span class="text-sm font-medium text-[var(--color-text-primary)] truncate">
+											{preset.name}
+										</span>
+										{#if alreadyImported}
+											<span
+												class="text-[10px] px-1.5 py-0.5 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] rounded"
+												data-testid="marketplace-preset-imported-{preset.itemId}"
+											>
+												{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceImportedBadge}
+											</span>
+										{/if}
+									</div>
+									<p class="text-xs text-[var(--color-text-tertiary)] truncate">
+										{preset.description}
+									</p>
+									<p class="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">
+										{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceItemCount(preset.itemCount)}
+									</p>
+								</div>
+								<form
+									method="POST"
+									action="?/importMarketplace"
+									use:enhance={() => async () => invalidateAll()}
+								>
+									<input type="hidden" name="childId" value={selectedChildId} />
+									<input type="hidden" name="presetId" value={preset.itemId} />
+									<Button
+										type="submit"
+										variant={alreadyImported ? 'outline' : 'primary'}
+										size="sm"
+										disabled={alreadyImported}
+										data-testid="marketplace-preset-import-{preset.itemId}"
+									>
+										{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceImportButton}
+									</Button>
+								</form>
+							</div>
+						{/each}
+					</div>
+				</div>
+				{/snippet}
+			</Card>
+		{/if}
 
 		<!-- #1755 (#1709-A): kind 削除 — 全テンプレート一覧表示 -->
 		{#if filteredTemplates.length === 0}

@@ -882,6 +882,16 @@ export const MARKETPLACE_LABELS = {
 	detailRewardImportAllDuplicates: 'このごほうびセットは既に追加済みです',
 	/** #2136 MP-1: お子さま未登録時の誘導 */
 	detailRewardImportNoChildren: 'まずはお子さまを登録してください',
+	// #2137 (MP-2): event-checklist 一括追加 CTA
+	detailCtaImportChecklist: '一括追加',
+	detailCtaImportChecklistDesc:
+		'お子さまの「持ち物リスト」へまとめて追加します（重複時はスキップ）',
+	detailCtaSignupToImport: 'がんばりクエストに登録して 一括追加',
+	detailChildSelectLabel: 'どのお子さまに追加しますか？',
+	detailImportSuccess: (n: number) => `${n}件のチェック項目を追加しました`,
+	detailImportDuplicate: (templateName: string) =>
+		`「${templateName}」は既に取込済みのためスキップしました`,
+	detailImportError: 'インポートに失敗しました',
 	backToTypeListSuffix: '一覧に戻る',
 	typeCountSuffix: '種',
 } as const;
@@ -4008,6 +4018,18 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	addItemDialogTitle: 'アイテム追加',
 	overrideDialogTitle: 'ワンオフ追加/除外',
 	premiumBadgeLabel: 'スタンダード以上',
+	// #2137 (MP-2): マーケットプレイス checklist 一括追加セクション
+	marketplaceSectionTitle: '🏪 マーケットプレイスから一括追加',
+	marketplaceSectionDesc:
+		'季節やイベント時の持ち物リストをワンタップで取込めます（重複時はスキップ）',
+	marketplaceItemCount: (n: number) => `${n}項目`,
+	marketplaceImportButton: '一括追加',
+	marketplaceImportedBadge: '取込済',
+	marketplaceImportSuccess: (presetName: string, items: number) =>
+		`✅ 「${presetName}」: ${items}項目を追加しました`,
+	marketplaceImportDuplicate: (presetName: string) =>
+		`⚠️ 「${presetName}」は既に取込済みのためスキップしました`,
+	marketplaceSeeMore: 'すべてのチェックリストを見る →',
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {
