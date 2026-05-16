@@ -165,6 +165,13 @@ let stampPressData = $state<{
 	} | null;
 } | null>(null);
 let bonusClaiming = $state(false);
+// Issue #2097 B-14a: single-attempt guard for loginStamp form auto-claim.
+// `bonusClaiming` is cleared unconditionally on form completion (success / failure),
+// and `data.loginBonusStatus.claimedToday` is loaded from server (not reactive to form result).
+// Without this guard, a failed loginStamp action triggers `$effect` re-evaluation →
+// `triggerLoginBonus()` → form re-submit → another failure → infinite retry storm
+// (observed 17-52 consecutive HTTP 500 on demo Lambda, ISSUE-002).
+let loginStampAttempted = $state(false);
 
 // Mission complete result state
 let missionResult = $state<{
@@ -362,7 +369,13 @@ function handleAdventureClose() {
 }
 
 function triggerLoginBonus() {
+	// Issue #2097 B-14a: enforce single-attempt per page mount.
+	// If the loginStamp action fails, `bonusClaiming` is reset to false and
+	// `data.loginBonusStatus.claimedToday` remains false (no invalidate on failure),
+	// so without this guard the auto-claim would retry indefinitely.
+	if (loginStampAttempted) return;
 	if (data.loginBonusStatus && !data.loginBonusStatus.claimedToday && !bonusClaiming) {
+		loginStampAttempted = true;
 		bonusClaiming = true;
 		tick().then(() => {
 			document.getElementById('claim-bonus-btn')?.click();
@@ -534,7 +547,10 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			action="?/loginStamp"
 			use:enhance={() => {
 				return async ({ result }) => {
-					if (result.type === 'success' && result.data && 'loginStamp' in result.data) {
+					// Issue #2097 B-14a: gate stampPress transition on truthy `loginStamp` field.
+					// Server may return `{ success: false, loginStamp: false, reason: 'no-child-selected' }`
+					// for anonymous/demo flow without selectedChildId (previously HTTP 400 → client retry storm).
+					if (result.type === 'success' && result.data && result.data.loginStamp === true) {
 						const d = result.data as Record<string, unknown>;
 						const cardData = d.cardData as { filledSlots: number; totalSlots: number; entries: { slot: number; emoji: string; rarity: string; omikujiRank: string | null }[] } | null;
 						stampPressData = {
