@@ -15,6 +15,7 @@ import {
 	DEMO_MODE_COOKIE_MAX_AGE,
 	DEMO_WRITE_ALLOWLIST,
 	DEMO_WRITE_METHODS,
+	isDemoLambda,
 	resolveDemoActive,
 } from '$lib/server/demo/demo-mode';
 import {
@@ -253,13 +254,20 @@ export const handle: Handle = ({ event, resolve }) =>
 			redirect(legacyEntry.status ?? 308, newUrl);
 		}
 
-		// 1) デモ実行モード判定（ADR-0039 / #1180）
+		// 1) デモ実行モード判定（ADR-0039 / #1180、ADR-0048 / #2097）
 		//
 		// `?mode=demo` クエリ → cookie `gq_demo=1` → `/demo/*` パス（Phase 1 backward compat）
 		// の順でデモ状態を解決。event.locals.isDemo を server-side SSOT として設定する。
 		// 本番ルートツリー上で同一コードパスを流すことで、
 		// `src/routes/demo/**` 別ツリー起因の乖離 (#296/#1129/#1147/#1180) を構造解消する。
 		// Phase 2 で /demo/* が削除されたら `fromLegacyPath` 経路も除去する。
+		//
+		// ADR-0048 Phase B-1 (#2097): Multi-Lambda demo deployment
+		// (demo.ganbari-quest.com) は AUTH_MODE=anonymous の Lambda 専用デプロイで、
+		// 上記 3 経路が必ずセットされない (素の `/admin` アクセス等)。フォールバックとして
+		// `isDemoLambda(env.AUTH_MODE)` を OR 合流させ、demo Lambda 上の全リクエストを
+		// `isDemo=true` として扱う。これにより 38 箇所の `data.isDemo` 分岐 UI が正しく
+		// demo として動作する (A-6 ISSUE-003 構造解消)。
 		//
 		// prerender 中は SvelteKit が url.searchParams へのアクセスを禁ずる
 		// （deterministic でなくなるため）。building 時はデモ判定をスキップして
@@ -287,7 +295,9 @@ export const handle: Handle = ({ event, resolve }) =>
 				});
 			}
 
-			event.locals.isDemo = demoActive;
+			// ADR-0048 Phase B-1 (#2097): AUTH_MODE=anonymous は demo Lambda 専用のため
+			// 強制的に isDemo=true とする。legacy 3 経路は backward compat のため保持。
+			event.locals.isDemo = demoActive || isDemoLambda(env.AUTH_MODE);
 		}
 
 		// ADR-0040 P2: 実行モードをリクエスト単位で解決。以降のガード／UI 出力は

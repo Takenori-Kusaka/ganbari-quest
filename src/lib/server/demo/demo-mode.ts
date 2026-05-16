@@ -57,6 +57,22 @@ export function resolveDemoActive(
 }
 
 /**
+ * Multi-Lambda demo deployment (demo.ganbari-quest.com) の判定。
+ *
+ * ADR-0048 §Phase B-1 / Issue #2097: `AUTH_MODE=anonymous` の Lambda は demo Lambda
+ * 専用デプロイのため、リクエストのクエリ・cookie・パスに関係なく `isDemo=true` として
+ * 扱う必要がある。`resolveDemoActive()` の従来の 3 経路（query / cookie / `/demo/*`）の
+ * いずれもセットされない素のアクセス（例: `/admin`）で onboarding が表示される問題
+ * (A-6 ISSUE-003) の構造的解消。
+ *
+ * 既存の legacy 3 経路（cookie / `/demo/*`）は NUC local モード等の運用維持のため
+ * そのまま保持し、本関数は OR 演算でフォールバックとして合流させる。
+ */
+export function isDemoLambda(authMode: string | undefined): boolean {
+	return authMode === 'anonymous';
+}
+
+/**
  * 書き込みパスがガード例外に該当するか。
  */
 export function isDemoWriteAllowed(path: string): boolean {
