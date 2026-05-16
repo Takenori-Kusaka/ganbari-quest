@@ -277,7 +277,7 @@
 - タイムアウト: 30 秒
 - アーキテクチャ: ARM64
 - Function URL: `authType: NONE`, `invokeMode: BUFFERED` (本番と同一)
-- Provisioned Concurrency: 1 unit (Alias `live` 経由)
+- Provisioned Concurrency: **未採用** (AWS アカウント Lambda concurrent execution quota 不足 + 予算制約、PO 判断 2026-05-15)。cold start ~1-2s で運用。Quota 増額後に `lambda.Alias` + `provisionedConcurrentExecutions: 1` 追加で +$2.74/月
 
 **環境変数 (本番との差分):**
 
@@ -329,7 +329,7 @@
 
 #### コスト試算
 
-- Provisioned Concurrency 1 unit (ARM64 256MB, us-east-1): ~$2.74/月
+- Provisioned Concurrency: **$0** (PO 判断で未採用、cold start ~1-2s で運用。将来採用時 ~$2.74/月)
 - demo Function URL: 無料 (Lambda Function URL は追加料金なし)
 - CloudFront Distribution 追加: ~$0/月 (Free tier 内、リクエストごと従量)
 - Route 53 ALIAS レコード追加: $0 (ALIAS は同一 hosted zone 内無料)
@@ -398,12 +398,12 @@
 | S3 | $0 | $0 | ~$0.01 |
 | ECR | $0 | $0 | ~$0.01 |
 | ACM | $0 | $0 | $0 |
-| **Lambda Demo (Provisioned Concurrency 1 unit, ADR-0048)** | **~$2.74** | **~$2.74** | **~$2.74** |
-| **合計** | **~$3.24（≈486円）** | **~$3.24** | **~$3.44** |
+| **Lambda Demo (on-demand のみ、Provisioned Concurrency 未採用、ADR-0048)** | **~$0.10** | **~$0.10** | **~$0.10** |
+| **合計** | **~$0.60（≈90円）** | **~$0.60** | **~$0.80** |
 
-ドメイン費用（年額÷12 = ~117円/月）を加えて、実質月額 **~603円〜633円**。
+ドメイン費用（年額÷12 = ~117円/月）を加えて、実質月額 **~207円〜237円**。
 
-**ADR-0048 増分内訳 (#2097 week 4)**: demo Lambda の Provisioned Concurrency 1 unit が約 $2.74/月。anonymous demo の cold start 体験劣化を避けるため必須投資 (ADR-0010 Pre-PMF cost gate: 顧客流入導線価値で正当化、Bucket A)。
+**ADR-0048 増分内訳 (#2097 week 4)**: demo Lambda はリクエスト課金のみ (~$0.10/月)。Provisioned Concurrency は AWS アカウント Lambda concurrent execution quota 不足 + 予算制約により未採用 (PO 判断 2026-05-15)。cold start ~1-2s で運用、demo 訪問頻度が増えた段階で AWS Service Quotas 経由で増額申請 → Provisioned Concurrency 1 unit (+$2.74/月) 追加の運用切替を検討。
 
 ## 7. ファイル構成
 
