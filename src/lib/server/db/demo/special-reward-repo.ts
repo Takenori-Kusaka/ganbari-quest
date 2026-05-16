@@ -1,6 +1,7 @@
 // Demo ISpecialRewardRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
+import { getDemoMarketplaceSpecialRewardsByChild } from '$lib/server/demo/demo-data';
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
 
 export async function insertSpecialReward(
@@ -23,16 +24,18 @@ export async function insertSpecialReward(
 }
 
 export async function findSpecialRewards(
-	_childId: number,
+	childId: number,
 	_tenantId: string,
 ): Promise<SpecialReward[]> {
-	return [];
+	// #2097 Phase B-7: marketplace reward-set 由来の pre-granted rewards を返す
+	return getDemoMarketplaceSpecialRewardsByChild(childId);
 }
 
 export async function findUnshownReward(
 	_childId: number,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
+	// 全 special rewards は shownAt=daysAgoISO(...) で「既読」扱い、新規 unshown はなし
 	return undefined;
 }
 

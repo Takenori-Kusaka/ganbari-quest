@@ -1,7 +1,12 @@
 // Demo IActivityRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
-import { DEMO_ACTIVITIES, DEMO_ACTIVITY_LOGS, DEMO_CHILDREN } from '$lib/server/demo/demo-data';
+import {
+	DEMO_ACTIVITIES,
+	DEMO_ACTIVITY_LOGS,
+	DEMO_CHILDREN,
+	DEMO_MARKETPLACE_ACTIVITIES,
+} from '$lib/server/demo/demo-data';
 import type {
 	Activity,
 	ActivityFilter,
@@ -13,6 +18,24 @@ import type {
 	InsertPointLedgerInput,
 	UpdateActivityInput,
 } from '../types';
+
+/**
+ * #2097 Phase B-7: DEMO_ACTIVITIES (hand-curated baby/baseline) + DEMO_MARKETPLACE_ACTIVITIES
+ * (marketplace pack 由来、子供別 902/903/904/906) のマージ済み配列。
+ * `name` で dedup し、hand-curated 側を優先する。
+ */
+const ALL_DEMO_ACTIVITIES: Activity[] = (() => {
+	const byName = new Map<string, Activity>();
+	for (const a of DEMO_ACTIVITIES) {
+		byName.set(a.name, a);
+	}
+	for (const a of DEMO_MARKETPLACE_ACTIVITIES) {
+		if (!byName.has(a.name)) {
+			byName.set(a.name, a);
+		}
+	}
+	return Array.from(byName.values());
+})();
 
 function filterActivity(a: Activity, filter?: ActivityFilter): boolean {
 	if (!filter) return a.isVisible === 1;
@@ -31,14 +54,14 @@ export async function findActivities(
 	_tenantId: string,
 	filter?: ActivityFilter,
 ): Promise<Activity[]> {
-	return DEMO_ACTIVITIES.filter((a) => filterActivity(a, filter));
+	return ALL_DEMO_ACTIVITIES.filter((a) => filterActivity(a, filter));
 }
 
 export async function findActivityById(
 	id: number,
 	_tenantId: string,
 ): Promise<Activity | undefined> {
-	return DEMO_ACTIVITIES.find((a) => a.id === id);
+	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
 }
 
 export async function insertActivity(
@@ -80,7 +103,7 @@ export async function updateActivity(
 	_tenantId: string,
 ): Promise<Activity | undefined> {
 	// Stub: 既存 fixture をそのまま返す (mutation なし)
-	return DEMO_ACTIVITIES.find((a) => a.id === id);
+	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
 }
 
 export async function setActivityVisibility(
@@ -88,11 +111,11 @@ export async function setActivityVisibility(
 	_visible: boolean,
 	_tenantId: string,
 ): Promise<Activity | undefined> {
-	return DEMO_ACTIVITIES.find((a) => a.id === id);
+	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
 }
 
 export async function deleteActivity(id: number, _tenantId: string): Promise<Activity | undefined> {
-	return DEMO_ACTIVITIES.find((a) => a.id === id);
+	return ALL_DEMO_ACTIVITIES.find((a) => a.id === id);
 }
 
 export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
@@ -109,7 +132,7 @@ export async function getActivityLogCounts(_tenantId: string): Promise<Record<nu
 }
 
 export async function countMainQuestActivities(_tenantId: string): Promise<number> {
-	return DEMO_ACTIVITIES.filter((a) => a.isMainQuest === 1).length;
+	return ALL_DEMO_ACTIVITIES.filter((a) => a.isMainQuest === 1).length;
 }
 
 export async function deleteDailyMissionsByActivity(
@@ -189,7 +212,7 @@ export async function findActivityLogs(
 		if (options?.to && l.recordedDate > options.to) return false;
 		return true;
 	}).map((l) => {
-		const activity = DEMO_ACTIVITIES.find((a) => a.id === l.activityId);
+		const activity = ALL_DEMO_ACTIVITIES.find((a) => a.id === l.activityId);
 		return {
 			id: l.id,
 			activityName: activity?.name ?? 'unknown',
@@ -269,7 +292,7 @@ export async function getCategoryCountsByDate(
 	const byDate = new Map<string, Set<number>>();
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.childId !== childId || log.cancelled !== 0) continue;
-		const activity = DEMO_ACTIVITIES.find((a) => a.id === log.activityId);
+		const activity = ALL_DEMO_ACTIVITIES.find((a) => a.id === log.activityId);
 		if (!activity) continue;
 		if (!byDate.has(log.recordedDate)) byDate.set(log.recordedDate, new Set());
 		byDate.get(log.recordedDate)?.add(activity.categoryId);
@@ -284,7 +307,7 @@ export async function countDistinctCategories(childId: number, _tenantId: string
 	const categories = new Set<number>();
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.childId !== childId || log.cancelled !== 0) continue;
-		const activity = DEMO_ACTIVITIES.find((a) => a.id === log.activityId);
+		const activity = ALL_DEMO_ACTIVITIES.find((a) => a.id === log.activityId);
 		if (activity) categories.add(activity.categoryId);
 	}
 	return categories.size;
@@ -299,7 +322,7 @@ export async function findTodayLogsWithCategory(
 		(l) => l.childId === childId && l.recordedDate === date && l.cancelled === 0,
 	)
 		.map((l) => {
-			const activity = DEMO_ACTIVITIES.find((a) => a.id === l.activityId);
+			const activity = ALL_DEMO_ACTIVITIES.find((a) => a.id === l.activityId);
 			return activity ? { activityId: l.activityId, categoryId: activity.categoryId } : null;
 		})
 		.filter((x): x is { activityId: number; categoryId: number } => x !== null);
@@ -321,7 +344,7 @@ export async function countActiveActivityLogsByCategory(
 	let count = 0;
 	for (const log of DEMO_ACTIVITY_LOGS) {
 		if (log.childId !== childId || log.cancelled !== 0) continue;
-		const activity = DEMO_ACTIVITIES.find((a) => a.id === log.activityId);
+		const activity = ALL_DEMO_ACTIVITIES.find((a) => a.id === log.activityId);
 		if (activity?.categoryId === categoryId) count++;
 	}
 	return count;
@@ -355,7 +378,9 @@ export async function findMustActivitiesWithToday(
 	total: number;
 	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
 }> {
-	const mustActivities = DEMO_ACTIVITIES.filter((a) => a.priority === 'must' && a.isVisible === 1);
+	const mustActivities = ALL_DEMO_ACTIVITIES.filter(
+		(a) => a.priority === 'must' && a.isVisible === 1,
+	);
 	const todayRecorded = new Set(
 		DEMO_ACTIVITY_LOGS.filter(
 			(l) => l.childId === childId && l.recordedDate === today && l.cancelled === 0,
