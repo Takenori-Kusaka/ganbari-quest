@@ -15,6 +15,9 @@ on:
       - 'infra/**'
       - 'drizzle/**'
       - 'scripts/**'
+      # #2097 hotfix #7: deploy.yml 自身の変更でも deploy が走るようにする
+      # (PR #2133 で発覚: deploy.yml 単独 PR は trigger されずに demo Lambda 反映遅延)
+      - '.github/workflows/deploy.yml'
     tags:
       - 'v*.*.*'
   workflow_dispatch:
