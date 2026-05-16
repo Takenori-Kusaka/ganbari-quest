@@ -216,8 +216,19 @@ describe('demo/sibling-cheer-repo', () => {
 });
 
 describe('demo/special-reward-repo', () => {
-	it('findSpecialRewards / findUnshownReward は空 / undefined', async () => {
-		expect(await specialRewardRepo.findSpecialRewards(902, 'demo')).toEqual([]);
+	// #2097 Phase B-7: findSpecialRewards は marketplace 由来の pre-granted rewards を返す
+	it('findSpecialRewards は 902 (kinder-rewards) で 5 件返す', async () => {
+		const rewards = await specialRewardRepo.findSpecialRewards(902, 'demo');
+		expect(rewards.length).toBe(5);
+		expect(rewards.every((r) => r.childId === 902)).toBe(true);
+		expect(rewards.every((r) => r.sourcePresetId === 'kinder-rewards')).toBe(true);
+	});
+
+	it('findSpecialRewards は 901 (baby、marketplace 対象外) で空配列', async () => {
+		expect(await specialRewardRepo.findSpecialRewards(901, 'demo')).toEqual([]);
+	});
+
+	it('findUnshownReward は undefined (全 pre-granted は shownAt 既設定)', async () => {
 		expect(await specialRewardRepo.findUnshownReward(902, 'demo')).toBeUndefined();
 	});
 });

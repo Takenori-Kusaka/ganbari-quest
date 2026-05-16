@@ -23,7 +23,16 @@
  *   既に活動ログ ≥ 14 件あり、`?screenshot=1` モードで MilestoneBanner 強制表示できる
  */
 
+import { getMarketplaceItem } from '$lib/data/marketplace';
+import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import type {
+	ActivityPackPayload,
+	ChecklistPayload,
+	RewardSetPayload,
+} from '$lib/domain/marketplace-item';
+import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
+import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import type {
 	Activity,
 	ActivityLog,
@@ -33,6 +42,7 @@ import type {
 	ChildAchievement,
 	DailyMission,
 	LoginBonus,
+	SpecialReward,
 	Status,
 } from '$lib/server/db/types/index.js';
 
@@ -1744,6 +1754,318 @@ export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
 		createdAt: NOW,
 	},
 ];
+
+// ============================================================
+// Marketplace integration (#2097 Phase B-7)
+// ============================================================
+// 製品公式マーケットプレイス JSON (src/lib/data/marketplace/) を demo Lambda の
+// baseline content として取り込む。本番の新規 tenant が setup wizard skip 動線で
+// 受け取る default import 体験と parity を実現する。
+//
+// MARKETPLACE SNAPSHOT: 2026-03-27
+// 子供別 default pack 仕様 (docs/research/2097-marketplace-default-import-spec.md §3):
+//   902 (5歳 preschool F)   : kinder-starter (30 activities) + kinder-rewards (10 rewards)
+//   903 (8歳 elementary M)  : elementary-boy (28) + elementary-rewards (10) + event-pool (10)
+//   904 (14歳 junior F)     : junior-girl (25) + junior-rewards (10) + event-school-start (11)
+//   906 (17歳 senior M)     : senior-boy (25) + senior-rewards (10)
+//   901 (1歳 baby M)        : 既存 DEMO_ACTIVITIES (baby-first 由来) のみ（marketplace 対象外）
+// ============================================================
+
+// Synthetic ID ranges (5000+ で既存 DEMO_* と衝突しない):
+//   activities      : 5000-5999  (順序: pack 出現順)
+//   templates       : 5000+      (per child checklist preset)
+//   template items  : 6000+      (per template item 順)
+//   special rewards : 5000+      (per child reward-set 上位 5 件)
+const SYN_ACTIVITY_ID_BASE = 5000;
+const SYN_TEMPLATE_ID_BASE = 5000;
+const SYN_TEMPLATE_ITEM_ID_BASE = 6000;
+const SYN_SPECIAL_REWARD_ID_BASE = 5000;
+
+// Category code → numeric ID (activity-import-service.ts の CATEGORY_CODE_TO_ID と同義)
+const CATEGORY_CODE_TO_ID: Record<string, number> = {};
+for (const [i, code] of CATEGORY_CODES.entries()) {
+	CATEGORY_CODE_TO_ID[code] = i + 1;
+}
+
+/** Marketplace ActivityPackItem → Domain Activity への変換 (production の importActivities と同型) */
+function convertMarketplaceActivitiesToDomain(
+	items: ActivityPackItem[],
+	presetId: string,
+	idOffset: number,
+): Activity[] {
+	return items.map((item, idx) => {
+		const categoryId = CATEGORY_CODE_TO_ID[item.categoryCode] ?? 3; // fallback: seikatsu
+		return {
+			id: SYN_ACTIVITY_ID_BASE + idOffset + idx,
+			name: item.name,
+			categoryId,
+			icon: item.icon,
+			basePoints: item.basePoints,
+			ageMin: item.ageMin,
+			ageMax: item.ageMax,
+			isVisible: 1,
+			dailyLimit: null,
+			sortOrder: idOffset + idx,
+			source: 'marketplace',
+			gradeLevel: item.gradeLevel ?? null,
+			subcategory: null,
+			description: item.description ?? null,
+			nameKana: null,
+			nameKanji: null,
+			triggerHint: item.triggerHint ?? null,
+			// #1758 (#1709-D) と同等: mustDefault=true なら 'must'、それ以外 'optional'
+			priority: item.mustDefault === true ? 'must' : 'optional',
+			isMainQuest: 0,
+			isArchived: 0,
+			archivedReason: null,
+			createdAt: NOW,
+			sourcePresetId: presetId,
+		} satisfies Activity;
+	});
+}
+
+// ── Per-child preset mapping (A-4 §3 spec) ────────────────────
+
+const ACTIVITY_PACKS_BY_CHILD: Record<number, string[]> = {
+	902: ['kinder-starter'],
+	903: ['elementary-boy'],
+	904: ['junior-girl'],
+	906: ['senior-boy'],
+};
+
+const REWARD_SETS_BY_CHILD: Record<number, string[]> = {
+	902: ['kinder-rewards'],
+	903: ['elementary-rewards'],
+	904: ['junior-rewards'],
+	906: ['senior-rewards'],
+};
+
+const CHECKLISTS_BY_CHILD: Record<number, string[]> = {
+	903: ['event-pool'],
+	904: ['event-school-start'],
+};
+
+// ── Module-load factory builders ──────────────────────────────
+
+const MARKETPLACE_ACTIVITIES_BY_CHILD: Record<number, Activity[]> = (() => {
+	const map: Record<number, Activity[]> = {};
+	let idOffset = 0;
+	for (const [childIdStr, packIds] of Object.entries(ACTIVITY_PACKS_BY_CHILD)) {
+		const childId = Number(childIdStr);
+		const collected: Activity[] = [];
+		for (const packId of packIds) {
+			const pack = getMarketplaceItem('activity-pack', packId);
+			if (!pack) continue;
+			const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
+			const converted = convertMarketplaceActivitiesToDomain(activities, packId, idOffset);
+			collected.push(...converted);
+			idOffset += converted.length;
+		}
+		map[childId] = collected;
+	}
+	return map;
+})();
+
+const MARKETPLACE_REWARD_TEMPLATES_BY_CHILD: Record<
+	number,
+	Array<{ title: string; points: number; icon: string; category: RewardCategory }>
+> = (() => {
+	const map: Record<
+		number,
+		Array<{ title: string; points: number; icon: string; category: RewardCategory }>
+	> = {};
+	for (const [childIdStr, setIds] of Object.entries(REWARD_SETS_BY_CHILD)) {
+		const childId = Number(childIdStr);
+		const collected: Array<{
+			title: string;
+			points: number;
+			icon: string;
+			category: RewardCategory;
+		}> = [];
+		for (const setId of setIds) {
+			const set = getMarketplaceItem('reward-set', setId);
+			if (!set) continue;
+			const payload = set.payload as RewardSetPayload;
+			collected.push(
+				...payload.rewards.map((r) => ({
+					title: r.title,
+					points: r.points,
+					icon: r.icon,
+					category: r.category,
+				})),
+			);
+		}
+		map[childId] = collected;
+	}
+	return map;
+})();
+
+const MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD: Record<number, ChecklistTemplate[]> = (() => {
+	const map: Record<number, ChecklistTemplate[]> = {};
+	let tplIdOffset = 0;
+	for (const [childIdStr, listIds] of Object.entries(CHECKLISTS_BY_CHILD)) {
+		const childId = Number(childIdStr);
+		const collected: ChecklistTemplate[] = [];
+		for (const listId of listIds) {
+			const item = getMarketplaceItem('checklist', listId);
+			if (!item) continue;
+			collected.push({
+				id: SYN_TEMPLATE_ID_BASE + tplIdOffset,
+				childId,
+				name: item.name,
+				icon: item.icon,
+				pointsPerItem: 2,
+				completionBonus: 10,
+				timeSlot: (item.payload as ChecklistPayload).timing ?? 'daily',
+				isActive: 1,
+				isArchived: 0,
+				archivedReason: null,
+				createdAt: NOW,
+				updatedAt: NOW,
+				sourcePresetId: listId,
+			} satisfies ChecklistTemplate);
+			tplIdOffset++;
+		}
+		map[childId] = collected;
+	}
+	return map;
+})();
+
+const MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE: Record<number, ChecklistTemplateItem[]> = (() => {
+	const map: Record<number, ChecklistTemplateItem[]> = {};
+	let itemIdOffset = 0;
+	for (const [childIdStr, listIds] of Object.entries(CHECKLISTS_BY_CHILD)) {
+		const childId = Number(childIdStr);
+		const templates = MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD[childId] ?? [];
+		for (let i = 0; i < listIds.length; i++) {
+			const listId = listIds[i];
+			const template = templates[i];
+			if (!listId || !template) continue;
+			const item = getMarketplaceItem('checklist', listId);
+			if (!item) continue;
+			const payload = item.payload as ChecklistPayload;
+			map[template.id] = payload.items.map((it, idx) => ({
+				id: SYN_TEMPLATE_ITEM_ID_BASE + itemIdOffset + idx,
+				templateId: template.id,
+				name: it.label,
+				icon: it.icon,
+				frequency: 'daily',
+				direction: 'positive',
+				sortOrder: it.order ?? idx + 1,
+				createdAt: NOW,
+			}));
+			itemIdOffset += payload.items.length;
+		}
+	}
+	return map;
+})();
+
+// ── SpecialReward fixture (child reward shop 用) ───────────────
+//
+// Demo Lambda の子供側ごほうびショップ (`/(child)/[uiMode]/shop`) は
+// `getChildSpecialRewards` 経由で `findSpecialRewards(childId, tenantId)` を呼ぶ。
+// marketplace reward-set から各子供に上位 5 件を pre-granted (visible) として配置。
+const MARKETPLACE_SPECIAL_REWARDS_BY_CHILD: Record<number, SpecialReward[]> = (() => {
+	const map: Record<number, SpecialReward[]> = {};
+	let idOffset = 0;
+	for (const [childIdStr, templates] of Object.entries(MARKETPLACE_REWARD_TEMPLATES_BY_CHILD)) {
+		const childId = Number(childIdStr);
+		const presetId = REWARD_SETS_BY_CHILD[childId]?.[0] ?? null;
+		// 上位 5 件を pre-granted として配置（child shop で「いくつか並んだ棚」を再現）
+		const top5 = templates.slice(0, 5);
+		map[childId] = top5.map((tpl, idx) => ({
+			id: SYN_SPECIAL_REWARD_ID_BASE + idOffset + idx,
+			childId,
+			grantedBy: null,
+			title: tpl.title,
+			description: null,
+			points: tpl.points,
+			icon: tpl.icon,
+			category: tpl.category,
+			grantedAt: daysAgoISO(idx + 1),
+			shownAt: daysAgoISO(idx + 1),
+			sourcePresetId: presetId,
+		}));
+		idOffset += top5.length;
+	}
+	return map;
+})();
+
+// ── Flat union exports (Repository read methods 用) ────────────
+
+/** 全 marketplace 由来 activities の flat 配列 (findActivities 用) */
+export const DEMO_MARKETPLACE_ACTIVITIES: Activity[] = Object.values(
+	MARKETPLACE_ACTIVITIES_BY_CHILD,
+).flat();
+
+/** 全 marketplace 由来 checklist templates の flat 配列 */
+export const DEMO_MARKETPLACE_CHECKLIST_TEMPLATES: ChecklistTemplate[] = Object.values(
+	MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD,
+).flat();
+
+/** 全 marketplace 由来 checklist items の flat 配列 */
+export const DEMO_MARKETPLACE_CHECKLIST_ITEMS: ChecklistTemplateItem[] = Object.values(
+	MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE,
+).flat();
+
+/** 全 marketplace 由来 special rewards の flat 配列 */
+export const DEMO_MARKETPLACE_SPECIAL_REWARDS: SpecialReward[] = Object.values(
+	MARKETPLACE_SPECIAL_REWARDS_BY_CHILD,
+).flat();
+
+// ── Per-child getter API ──────────────────────────────────────
+
+export function getDemoMarketplaceActivitiesByChild(childId: number): Activity[] {
+	return MARKETPLACE_ACTIVITIES_BY_CHILD[childId] ?? [];
+}
+
+export function getDemoMarketplaceRewardTemplatesByChild(
+	childId: number,
+): Array<{ title: string; points: number; icon: string; category: RewardCategory }> {
+	return MARKETPLACE_REWARD_TEMPLATES_BY_CHILD[childId] ?? [];
+}
+
+/**
+ * テナント全体の reward templates を返す（Demo Lambda は単一テナント 'demo'）。
+ * Settings repo の 'reward_templates' キー fixture として使用される。
+ * 全子供分の reward-set を集合化、`title` 重複排除。
+ */
+export function getDemoMarketplaceRewardTemplatesForTenant(): Array<{
+	title: string;
+	points: number;
+	icon: string;
+	category: RewardCategory;
+}> {
+	const seen = new Set<string>();
+	const collected: Array<{
+		title: string;
+		points: number;
+		icon: string;
+		category: RewardCategory;
+	}> = [];
+	for (const templates of Object.values(MARKETPLACE_REWARD_TEMPLATES_BY_CHILD)) {
+		for (const tpl of templates) {
+			if (seen.has(tpl.title)) continue;
+			seen.add(tpl.title);
+			collected.push(tpl);
+		}
+	}
+	return collected;
+}
+
+export function getDemoMarketplaceChecklistTemplatesByChild(childId: number): ChecklistTemplate[] {
+	return MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD[childId] ?? [];
+}
+
+export function getDemoMarketplaceChecklistItemsByTemplate(
+	templateId: number,
+): ChecklistTemplateItem[] {
+	return MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE[templateId] ?? [];
+}
+
+export function getDemoMarketplaceSpecialRewardsByChild(childId: number): SpecialReward[] {
+	return MARKETPLACE_SPECIAL_REWARDS_BY_CHILD[childId] ?? [];
+}
 
 // ============================================================
 // Helper: Get demo data for a specific child

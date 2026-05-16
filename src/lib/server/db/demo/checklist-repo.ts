@@ -1,7 +1,12 @@
 // Demo IChecklistRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
-import { DEMO_CHECKLIST_ITEMS, DEMO_CHECKLIST_TEMPLATES } from '$lib/server/demo/demo-data';
+import {
+	DEMO_CHECKLIST_ITEMS,
+	DEMO_CHECKLIST_TEMPLATES,
+	DEMO_MARKETPLACE_CHECKLIST_ITEMS,
+	DEMO_MARKETPLACE_CHECKLIST_TEMPLATES,
+} from '$lib/server/demo/demo-data';
 import type {
 	ChecklistLog,
 	ChecklistOverride,
@@ -14,6 +19,35 @@ import type {
 	UpsertChecklistLogInput,
 } from '../types';
 
+/**
+ * #2097 Phase B-7: hand-curated DEMO_CHECKLIST_TEMPLATES + marketplace 由来 (903 event-pool / 904 event-school-start)
+ * のマージ済み配列。`childId + name` 組合せで dedup する。
+ */
+const ALL_DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = (() => {
+	const seen = new Set<string>();
+	const result: ChecklistTemplate[] = [];
+	for (const t of DEMO_CHECKLIST_TEMPLATES) {
+		const key = `${t.childId}::${t.name}`;
+		if (!seen.has(key)) {
+			seen.add(key);
+			result.push(t);
+		}
+	}
+	for (const t of DEMO_MARKETPLACE_CHECKLIST_TEMPLATES) {
+		const key = `${t.childId}::${t.name}`;
+		if (!seen.has(key)) {
+			seen.add(key);
+			result.push(t);
+		}
+	}
+	return result;
+})();
+
+const ALL_DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
+	...DEMO_CHECKLIST_ITEMS,
+	...DEMO_MARKETPLACE_CHECKLIST_ITEMS,
+];
+
 // ---------- Templates ----------
 
 export async function findTemplatesByChild(
@@ -21,7 +55,7 @@ export async function findTemplatesByChild(
 	_tenantId: string,
 	includeInactive?: boolean,
 ): Promise<ChecklistTemplate[]> {
-	return DEMO_CHECKLIST_TEMPLATES.filter(
+	return ALL_DEMO_CHECKLIST_TEMPLATES.filter(
 		(t) =>
 			t.childId === childId && (includeInactive === true || t.isActive === 1) && t.isArchived === 0,
 	);
@@ -31,7 +65,7 @@ export async function findTemplateById(
 	id: number,
 	_tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
-	return DEMO_CHECKLIST_TEMPLATES.find((t) => t.id === id);
+	return ALL_DEMO_CHECKLIST_TEMPLATES.find((t) => t.id === id);
 }
 
 export async function insertTemplate(
@@ -61,7 +95,7 @@ export async function updateTemplate(
 	_input: UpdateChecklistTemplateInput,
 	_tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
-	return DEMO_CHECKLIST_TEMPLATES.find((t) => t.id === id);
+	return ALL_DEMO_CHECKLIST_TEMPLATES.find((t) => t.id === id);
 }
 
 export async function deleteTemplate(_id: number, _tenantId: string): Promise<void> {
@@ -74,7 +108,7 @@ export async function findTemplateItems(
 	templateId: number,
 	_tenantId: string,
 ): Promise<ChecklistTemplateItem[]> {
-	return DEMO_CHECKLIST_ITEMS.filter((i) => i.templateId === templateId);
+	return ALL_DEMO_CHECKLIST_ITEMS.filter((i) => i.templateId === templateId);
 }
 
 export async function insertTemplateItem(
