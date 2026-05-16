@@ -103,7 +103,7 @@ demo (`/demo/**`) 配下に 3 段階の `?screenshot` mode を導入。SSOT は 
 ### `?screenshot=all` の責務
 
 - `MilestoneBanner` を `bypassSeenCheck` prop で localStorage 無視で強制表示（demo (child) layout で `records_10` 達成済 milestone を生成）
-- demo seed (`src/lib/server/demo/demo-data.ts`) の 902 番ペルソナは「ゆうきちゃん」（13 日分活動ログ ≥ 10 件で `records_10` マイルストーン達成済）に固定し、本番 NUC ユーザ視覚と一致させる
+- demo seed (`src/lib/server/demo/demo-data.ts`) の 902 番ペルソナは「ひなちゃん」（旧「ゆうきちゃん」、13 日分活動ログ ≥ 10 件で `records_10` マイルストーン達成済）に固定し、本番 NUC ユーザ視覚と一致させる
 - `scripts/capture-hp-screenshots.mjs` の `withScreenshotParam(path)` のデフォルトは `screenshot=all` (#1893 で変更)。後方互換で `?screenshot=1` (noise-only) が必要な場合は `withScreenshotParam(path, { mode: 'noise-only' })` を使う
 
 ### 並行実装
@@ -176,7 +176,7 @@ pages.yml
 
 | AC | 対応 |
 |----|------|
-| AC1 demo seed が「ゆうきちゃん」「テーマ pink」「マイルストーン進行中 (records_10 達成済)」「活動数 ≥ 10 件」 | `src/lib/server/demo/demo-data.ts` 902 番ペルソナを `はなこ` → `ゆうきちゃん` に変更、13 日分活動ログ (DEMO_ACTIVITY_LOGS 902 行) で 36 件達成済 |
+| AC1 demo seed が「ひなちゃん」「テーマ pink」「マイルストーン進行中 (records_10 達成済)」「活動数 ≥ 10 件」 | `src/lib/server/demo/demo-data.ts` 902 番ペルソナを `はなこ` → `ひなちゃん` (旧 `ゆうきちゃん`、2026-05-16 リネーム) に変更、13 日分活動ログ (DEMO_ACTIVITY_LOGS 902 行) で 36 件達成済 |
 | AC2 `?screenshot=all` 訪問時にマイルストーン演出が表示 | §6.5 参照。demo (child) layout で `getScreenshotModeKind() === 'all'` 時に `MilestoneBanner` を `bypassSeenCheck` prop で強制表示 |
 | AC3 / AC6 視覚 baseline diff < 10% | §6.6 参照。Phase 2 (別 Issue) で対応。本 PR で運用 README + ディレクトリ + pixelmatch dev 依存を tracked |
 | AC4 SS 鮮度 CI 新設、stale 時 exit 1 | §6.6 参照。`scripts/check-screenshot-freshness.mjs` 新規 + 18 unit tests |

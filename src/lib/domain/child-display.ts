@@ -8,9 +8,9 @@
 
 /** 名前の表示コンテキスト */
 export type NameContext =
-	| 'possessive' // 「〜の」（例: ゆうきの がんばり記録）
-	| 'vocative' // 呼びかけ（例: ゆうき、すごい！）
-	| 'subject' // 主語（例: ゆうきが レベル5に なったよ！）
+	| 'possessive' // 「〜の」（例: たろうの がんばり記録）
+	| 'vocative' // 呼びかけ（例: たろう、すごい！）
+	| 'subject' // 主語（例: たろうが レベル5に なったよ！）
 	| 'label'; //  単純表示（例: 一覧の名前列）
 
 /**
@@ -21,10 +21,10 @@ export type NameContext =
  * @returns フォーマット済み文字列
  *
  * @example
- * formatChildName('ゆうき', 'possessive') // => 'ゆうきの'
- * formatChildName('ゆうき', 'vocative')   // => 'ゆうき、'
- * formatChildName('ゆうき', 'subject')    // => 'ゆうきが'
- * formatChildName('ゆうき', 'label')      // => 'ゆうき'
+ * formatChildName('たろう', 'possessive') // => 'たろうの'
+ * formatChildName('たろう', 'vocative')   // => 'たろう、'
+ * formatChildName('たろう', 'subject')    // => 'たろうが'
+ * formatChildName('たろう', 'label')      // => 'たろう'
  * formatChildName('', 'possessive')       // => ''
  * formatChildName(null, 'vocative')       // => ''
  */
@@ -54,7 +54,7 @@ export function formatChildName(
  * @returns フォーマット済み文字列。空配列の場合は空文字列
  *
  * @example
- * formatChildNames(['ゆうき', 'はな'], 'possessive') // => 'ゆうき、はなの'
+ * formatChildNames(['たろう', 'はな'], 'possessive') // => 'たろう、はなの'
  * formatChildNames([], 'possessive')                  // => ''
  */
 export function formatChildNames(names: string[], context: NameContext = 'label'): string {

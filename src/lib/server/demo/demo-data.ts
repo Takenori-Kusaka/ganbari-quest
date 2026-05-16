@@ -7,15 +7,15 @@
  *       かつ男女のバリエーションも表現する。
  *
  * - Parent: がんばり太郎
- * - Child 1 (901): たろう (1歳, baby M, blue)            — Level 2
- * - Child 2 (902): ゆうきちゃん (5歳, preschool F, pink) — Level 4 (#1893: LP 用代表ペルソナ)
- * - Child 3 (903): けんた (8歳, elementary M, green)     — Level 7
- * - Child 4 (904): さくら (14歳, junior F, purple)       — Level 15+
- * - Child 5 (906): ゆうき (17歳, senior M, orange)       — Level 20+
+ * - Child 1 (901): たろうくん (1歳, baby M, blue)        — Level 2
+ * - Child 2 (902): ひなちゃん (5歳, preschool F, pink) — Level 4 (#1893: LP 用代表ペルソナ)
+ * - Child 3 (903): けんたくん (8歳, elementary M, green) — Level 7
+ * - Child 4 (904): さくらちゃん (14歳, junior F, purple) — Level 15+
+ * - Child 5 (906): けいすけくん (17歳, senior M, orange) — Level 20+
  *
  * #1893 (PO-4-7、8 回目指摘) — LP 配信 SS が本番 NUC ユーザの実画面と乖離する問題への
  * 構造的対策の一部:
- * - 902 はなこ → ゆうきちゃん (PO 期待値「ゆうきちゃん」、theme=pink で本番 NUC 整合)
+ * - 902 はなこ → ひなちゃん (旧 PO 期待値「ゆうきちゃん」だったが user 家族実名のため 2026-05-16 リネーム)
  *   注: PO 期待値「テーマ sakura」は THEME_LABELS に sakura が未定義のため、
  *       現行 5 themes 中で本番 NUC 実態と最も近い pink を維持する
  * - 902 活動ログ ≥ 10 件 + records_10 マイルストーン達成済 (MilestoneBanner 表示用)
@@ -64,7 +64,7 @@ export const DEMO_CHILDREN: Child[] = [
 	// 901 — 乳幼児 (男): blue テーマ
 	{
 		id: 901,
-		nickname: 'たろう',
+		nickname: 'たろうくん',
 		age: 1,
 		birthDate: '2025-01-15',
 		theme: 'blue',
@@ -80,10 +80,11 @@ export const DEMO_CHILDREN: Child[] = [
 		createdAt: '2026-01-01T00:00:00.000Z',
 		updatedAt: NOW,
 	},
-	// 902 — 幼児 (女): pink テーマ (#1893: LP 用代表ペルソナ「ゆうきちゃん」)
+	// 902 — 幼児 (女): pink テーマ (#1893: LP 用代表ペルソナ。
+	//        旧 'ゆうきちゃん' は user 家族実名 'ゆうき' を含むため 'ひな' に変更 2026-05-16)
 	{
 		id: 902,
-		nickname: 'ゆうきちゃん',
+		nickname: 'ひなちゃん',
 		age: 5,
 		birthDate: '2020-06-10',
 		theme: 'pink',
@@ -102,7 +103,7 @@ export const DEMO_CHILDREN: Child[] = [
 	// 903 — 小学生 (男): green テーマ
 	{
 		id: 903,
-		nickname: 'けんた',
+		nickname: 'けんたくん',
 		age: 8,
 		birthDate: '2018-03-22',
 		theme: 'green',
@@ -121,7 +122,7 @@ export const DEMO_CHILDREN: Child[] = [
 	// 904 — 中学生 (女): purple テーマ
 	{
 		id: 904,
-		nickname: 'さくら',
+		nickname: 'さくらちゃん',
 		age: 14,
 		birthDate: '2011-08-05',
 		theme: 'purple',
@@ -137,10 +138,10 @@ export const DEMO_CHILDREN: Child[] = [
 		createdAt: '2025-04-01T00:00:00.000Z',
 		updatedAt: NOW,
 	},
-	// 906 — 高校生 (男): orange テーマ
+	// 906 — 高校生 (男): orange テーマ (旧 'ゆうき' は user 家族実名のため 'けいすけ' に変更 2026-05-16)
 	{
 		id: 906,
-		nickname: 'ゆうき',
+		nickname: 'けいすけくん',
 		age: 17,
 		birthDate: '2008-11-20',
 		theme: 'orange',
@@ -1157,7 +1158,7 @@ export const DEMO_ACTIVITIES: Activity[] = [
 
 // Use fixed seed approach for deterministic data
 export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
-	// 901 たろう (baby, age 1) — simple logs
+	// 901 たろうくん (baby, age 1) — simple logs
 	...[0, 1, 2, 3, 5, 7, 10].flatMap((d, i) => [
 		{
 			id: 901001 + i * 2,
@@ -1182,7 +1183,7 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 	]),
-	// 902 ゆうきちゃん (preschool, age 5) — moderate activity
+	// 902 ひなちゃん (preschool, age 5) — moderate activity
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13].flatMap((d, i) => [
 		{
 			id: 902001 + i * 3,
@@ -1222,7 +1223,7 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 				]
 			: []),
 	]),
-	// 903 けんた (elementary, age 8) — active with variety
+	// 903 けんたくん (elementary, age 8) — active with variety
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].flatMap((d, i) => [
 		{
 			id: 903001 + i * 4,
@@ -1273,7 +1274,7 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 				]
 			: []),
 	]),
-	// 904 さくら (junior, age 14) — very active, all categories
+	// 904 さくらちゃん (junior, age 14) — very active, all categories
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].flatMap((d, i) => [
 		{
 			id: 904001 + i * 5,
@@ -1331,7 +1332,7 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 			cancelled: 0,
 		},
 	]),
-	// 906 ゆうき (senior, age 17) — very active, senior 専用活動中心
+	// 906 けいすけくん (senior, age 17) — very active, senior 専用活動中心
 	...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].flatMap((d, i) => [
 		{
 			id: 906001 + i * 5,
@@ -1396,31 +1397,31 @@ export const DEMO_ACTIVITY_LOGS: ActivityLog[] = [
 // ============================================================
 
 export const DEMO_STATUSES: Status[] = [
-	// 901 たろう (baby, Lv.2) — 15 XP 程度
+	// 901 たろうくん (baby, Lv.2) — 15 XP 程度
 	{ id: 9011, childId: 901, categoryId: 1, totalXp: 20, level: 2, peakXp: 20, updatedAt: NOW },
 	{ id: 9012, childId: 901, categoryId: 2, totalXp: 10, level: 1, peakXp: 10, updatedAt: NOW },
 	{ id: 9013, childId: 901, categoryId: 3, totalXp: 25, level: 2, peakXp: 25, updatedAt: NOW },
 	{ id: 9014, childId: 901, categoryId: 4, totalXp: 12, level: 1, peakXp: 12, updatedAt: NOW },
 	{ id: 9015, childId: 901, categoryId: 5, totalXp: 18, level: 2, peakXp: 18, updatedAt: NOW },
-	// 902 ゆうきちゃん (preschool, Lv.4) — 80-140 XP
+	// 902 ひなちゃん (preschool, Lv.4) — 80-140 XP
 	{ id: 9021, childId: 902, categoryId: 1, totalXp: 120, level: 4, peakXp: 120, updatedAt: NOW },
 	{ id: 9022, childId: 902, categoryId: 2, totalXp: 90, level: 4, peakXp: 90, updatedAt: NOW },
 	{ id: 9023, childId: 902, categoryId: 3, totalXp: 75, level: 3, peakXp: 75, updatedAt: NOW },
 	{ id: 9024, childId: 902, categoryId: 4, totalXp: 55, level: 3, peakXp: 55, updatedAt: NOW },
 	{ id: 9025, childId: 902, categoryId: 5, totalXp: 100, level: 4, peakXp: 100, updatedAt: NOW },
-	// 903 けんた (elementary, Lv.7) — 275-500 XP
+	// 903 けんたくん (elementary, Lv.7) — 275-500 XP
 	{ id: 9031, childId: 903, categoryId: 1, totalXp: 450, level: 9, peakXp: 450, updatedAt: NOW },
 	{ id: 9032, childId: 903, categoryId: 2, totalXp: 350, level: 8, peakXp: 350, updatedAt: NOW },
 	{ id: 9033, childId: 903, categoryId: 3, totalXp: 300, level: 7, peakXp: 300, updatedAt: NOW },
 	{ id: 9034, childId: 903, categoryId: 4, totalXp: 200, level: 6, peakXp: 200, updatedAt: NOW },
 	{ id: 9035, childId: 903, categoryId: 5, totalXp: 280, level: 7, peakXp: 280, updatedAt: NOW },
-	// 904 さくら (junior, Lv.15+) — 1200-2500 XP
+	// 904 さくらちゃん (junior, Lv.15+) — 1200-2500 XP
 	{ id: 9041, childId: 904, categoryId: 1, totalXp: 2000, level: 18, peakXp: 2000, updatedAt: NOW },
 	{ id: 9042, childId: 904, categoryId: 2, totalXp: 2500, level: 20, peakXp: 2500, updatedAt: NOW },
 	{ id: 9043, childId: 904, categoryId: 3, totalXp: 1200, level: 15, peakXp: 1200, updatedAt: NOW },
 	{ id: 9044, childId: 904, categoryId: 4, totalXp: 800, level: 10, peakXp: 800, updatedAt: NOW },
 	{ id: 9045, childId: 904, categoryId: 5, totalXp: 1800, level: 17, peakXp: 1800, updatedAt: NOW },
-	// 906 ゆうき (senior, Lv.20+) — 2000-3000 XP
+	// 906 けいすけくん (senior, Lv.20+) — 2000-3000 XP
 	{ id: 9061, childId: 906, categoryId: 1, totalXp: 2800, level: 22, peakXp: 2800, updatedAt: NOW },
 	{ id: 9062, childId: 906, categoryId: 2, totalXp: 3000, level: 23, peakXp: 3000, updatedAt: NOW },
 	{ id: 9063, childId: 906, categoryId: 3, totalXp: 2200, level: 19, peakXp: 2200, updatedAt: NOW },
@@ -1433,11 +1434,11 @@ export const DEMO_STATUSES: Status[] = [
 // ============================================================
 
 export const DEMO_POINT_BALANCES: Record<number, number> = {
-	901: 180, // たろう (baby) — low
-	902: 1250, // はなこ (preschool) — moderate
+	901: 180, // たろうくん (baby) — low
+	902: 1250, // ひなちゃん (preschool) — moderate
 	903: 3400, // けんた (elementary) — active
 	904: 8500, // さくら (junior) — very active
-	906: 12000, // ゆうき (senior) — most active
+	906: 12000, // けいすけくん (senior) — most active
 };
 
 // ============================================================
@@ -1445,7 +1446,7 @@ export const DEMO_POINT_BALANCES: Record<number, number> = {
 // ============================================================
 
 export const DEMO_CHILD_ACHIEVEMENTS: ChildAchievement[] = [
-	// 902 ゆうきちゃん (preschool)
+	// 902 ひなちゃん (preschool)
 	{ id: 1, childId: 902, achievementId: 1, milestoneValue: null, unlockedAt: daysAgoISO(20) },
 	{ id: 2, childId: 902, achievementId: 2, milestoneValue: 10, unlockedAt: daysAgoISO(15) },
 	// 903 けんた (elementary)
@@ -1469,7 +1470,7 @@ export const DEMO_CHILD_ACHIEVEMENTS: ChildAchievement[] = [
 // ============================================================
 
 export const DEMO_DAILY_MISSIONS: DailyMission[] = [
-	// 902 ゆうきちゃん (preschool, age 5) — 3 missions, 1 done
+	// 902 ひなちゃん (preschool, age 5) — 3 missions, 1 done
 	{ id: 1, childId: 902, missionDate: TODAY, activityId: 4, completed: 1, completedAt: NOW }, // からだをうごかした
 	{ id: 2, childId: 902, missionDate: TODAY, activityId: 10, completed: 0, completedAt: null }, // えほんをよんだ
 	{ id: 3, childId: 902, missionDate: TODAY, activityId: 30, completed: 0, completedAt: null }, // あいさつした
@@ -1481,7 +1482,7 @@ export const DEMO_DAILY_MISSIONS: DailyMission[] = [
 	{ id: 7, childId: 904, missionDate: TODAY, activityId: 7, completed: 1, completedAt: NOW }, // うんどうした
 	{ id: 8, childId: 904, missionDate: TODAY, activityId: 17, completed: 1, completedAt: NOW }, // 受験勉強した
 	{ id: 9, childId: 904, missionDate: TODAY, activityId: 43, completed: 1, completedAt: NOW }, // ピアノれんしゅう
-	// 906 ゆうき (senior, age 17) — 3 missions, 2 done (senior 専用: 大学受験 + アルバイト)
+	// 906 けいすけくん (senior, age 17) — 3 missions, 2 done (senior 専用: 大学受験 + アルバイト)
 	{ id: 13, childId: 906, missionDate: TODAY, activityId: 50, completed: 1, completedAt: NOW }, // 大学受験勉強した
 	{ id: 14, childId: 906, missionDate: TODAY, activityId: 51, completed: 1, completedAt: NOW }, // アルバイトした
 	{ id: 15, childId: 906, missionDate: TODAY, activityId: 52, completed: 0, completedAt: null }, // 自動車学校
@@ -1498,7 +1499,7 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 	// 残存パターン (持ち物系のみ):
 	// baby (901 たろう) → おでかけのじゅんび
 	// junior (904 さくら) → 中学生の登校準備
-	// senior (906 ゆうき) → 高校生の登校準備
+	// senior (906 けいすけくん) → 高校生の登校準備
 	{
 		id: 900,
 		childId: 901,
@@ -1648,7 +1649,7 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 		sortOrder: 5,
 		createdAt: NOW,
 	},
-	// #703: 高校生の登校準備（ゆうき・高校生）
+	// #703: 高校生の登校準備（けいすけくん・高校生）
 	{
 		id: 40,
 		templateId: 905,
@@ -1706,7 +1707,7 @@ export const DEMO_CHECKLIST_ITEMS: ChecklistTemplateItem[] = [
 // ============================================================
 
 export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
-	// 902 ゆうきちゃん (preschool)
+	// 902 ひなちゃん (preschool)
 	{
 		id: 1,
 		childId: 902,
