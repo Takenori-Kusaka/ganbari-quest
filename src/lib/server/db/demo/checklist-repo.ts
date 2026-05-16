@@ -108,7 +108,11 @@ export async function findTemplateItems(
 	templateId: number,
 	_tenantId: string,
 ): Promise<ChecklistTemplateItem[]> {
-	return ALL_DEMO_CHECKLIST_ITEMS.filter((i) => i.templateId === templateId);
+	// 本番 sqlite (src/lib/server/db/sqlite/checklist-repo.ts:67-73) と整合させるため
+	// sortOrder 昇順で返す。サービス層が repo の順序保証を前提にしている箇所がある。
+	return ALL_DEMO_CHECKLIST_ITEMS.filter((i) => i.templateId === templateId).sort(
+		(a, b) => a.sortOrder - b.sortOrder,
+	);
 }
 
 export async function insertTemplateItem(

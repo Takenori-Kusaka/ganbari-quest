@@ -1794,7 +1794,17 @@ function convertMarketplaceActivitiesToDomain(
 	idOffset: number,
 ): Activity[] {
 	return items.map((item, idx) => {
-		const categoryId = CATEGORY_CODE_TO_ID[item.categoryCode] ?? 3; // fallback: seikatsu
+		// 本番 (activity-import-service.ts line 107-111) と同様、未知 categoryCode は
+		// silent fallback せず明示的に error を投げる。
+		// 旧実装の `?? 3` は (a) marketplace JSON の入力不正を黙って隠蔽し
+		// (b) test が「fallback=3 になる」を assert するトートロジーを生む元凶だった。
+		const categoryId: number | undefined = CATEGORY_CODE_TO_ID[item.categoryCode];
+		if (categoryId === undefined) {
+			throw new Error(
+				`[demo-data] 未知 categoryCode: "${item.categoryCode}" (pack=${presetId}, item.name=${item.name}). ` +
+					`CATEGORY_CODES (src/lib/domain/validation/activity.ts) を更新するか marketplace JSON を修正してください。`,
+			);
+		}
 		return {
 			id: SYN_ACTIVITY_ID_BASE + idOffset + idx,
 			name: item.name,

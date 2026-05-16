@@ -54,7 +54,12 @@ export async function findActivities(
 	_tenantId: string,
 	filter?: ActivityFilter,
 ): Promise<Activity[]> {
-	return ALL_DEMO_ACTIVITIES.filter((a) => filterActivity(a, filter));
+	// 本番 sqlite (src/lib/server/db/sqlite/activity-repo.ts:34) /
+	// dynamodb (src/lib/server/db/dynamodb/activity-repo.ts:146-149) と整合させるため
+	// sortOrder 昇順で返す。呼び出し側 (サービス層 / UI) は repo の順序保証を前提にしている箇所がある。
+	return ALL_DEMO_ACTIVITIES.filter((a) => filterActivity(a, filter)).sort(
+		(a, b) => a.sortOrder - b.sortOrder,
+	);
 }
 
 export async function findActivityById(

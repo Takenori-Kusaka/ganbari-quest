@@ -11,7 +11,7 @@
 //     その pack を意図的に demo に含めない判断を comment で残す。
 //   - 現状: warn (console.warn) で release blocker にしない (#2097 A-7 §5)。
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { getMarketplaceIndex } from '../../../src/lib/data/marketplace';
 
 // 現在 demo seed に取り込まれている official pack ID 集合 (docs/research/2097-marketplace-default-import-spec.md §3)
@@ -74,14 +74,15 @@ describe('demo seed × marketplace sync (#2097 B-7 M-2)', () => {
 			unclassified.push(`${pack.type}/${pack.itemId}`);
 		}
 
-		// warn-only: 新 pack 追加時のシグナルとして console.warn を出すが test は fail させない (#2097 A-7 §5)
+		// warn-only: 新 pack 追加時のシグナルとして console.warn を出すが test は fail させない (#2097 A-7 §5)。
+		// 旧実装は vi.spyOn で console.warn を no-op mock していたが、それでは A-7 §5 の
+		// "CI ログにシグナルを残す" 目的に矛盾するため mock を撤廃 (Copilot [must] PR #2145)。
+		// console.warn は実際に CI / test runner stdout に出力させる。
 		if (unclassified.length > 0) {
-			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 			console.warn(
 				`[marketplace-sync] 新 official pack が KNOWN_DEMO_PACK_IDS / INTENTIONALLY_EXCLUDED_PACK_IDS のどちらにも分類されていません: ${unclassified.join(', ')}\n` +
 					`対応: tests/unit/demo/marketplace-sync.test.ts の集合を更新してください。`,
 			);
-			warnSpy.mockRestore();
 		}
 
 		// hard-fail にはしない (#2097 A-7 §5)。集合の自己整合性のみ assert
