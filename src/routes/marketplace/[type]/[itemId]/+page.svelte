@@ -1,4 +1,5 @@
 <script lang="ts">
+import { enhance } from '$app/forms';
 import { APP_LABELS, formatAgeRange, MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type {
 	ActivityPackPayload,
@@ -16,8 +17,9 @@ import {
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
-let { data } = $props();
+let { data, form } = $props();
 // svelte-ignore state_referenced_locally
 const item: MarketplaceItem = data.item;
 
@@ -25,6 +27,31 @@ const isActivityPack = $derived(item.type === 'activity-pack');
 const isRewardSet = $derived(item.type === 'reward-set');
 const isChecklist = $derived(item.type === 'checklist');
 const isRulePreset = $derived(item.type === 'rule-preset');
+
+// #2136 MP-1: reward-set 一括追加 UI 状態
+let selectedChildId = $state<number>(0);
+
+$effect(() => {
+	const first = data.children[0];
+	if (selectedChildId === 0 && first) {
+		selectedChildId = first.id;
+	}
+});
+
+const rewardImport = $derived(
+	(
+		form as {
+			rewardImport?: {
+				imported?: number;
+				skipped?: number;
+				allDuplicates?: boolean;
+				errors?: string[];
+			};
+		} | null
+	)?.rewardImport,
+);
+
+const rewardCount = $derived(isRewardSet ? (item.payload as RewardSetPayload).rewards.length : 0);
 </script>
 
 <svelte:head>
@@ -183,12 +210,99 @@ const isRulePreset = $derived(item.type === 'rule-preset');
 		</Card>
 
 		<!-- CTA -->
-		<div class="mt-6 space-y-3">
-			<a href="/auth/signup" class="block">
-				<Button variant="primary" size="lg" class="w-full">
-					{MARKETPLACE_LABELS.detailCtaSignup}
-				</Button>
-			</a>
+		<div class="mt-6 space-y-3" data-testid="marketplace-detail-cta">
+			{#if isRewardSet && data.isAuthenticated && data.children.length > 0}
+				<!-- #2136 MP-1: reward-set 一括追加 CTA（ログイン済み + 子供登録済み） -->
+				<Card padding="md">
+					{#snippet children()}
+					<form
+						method="POST"
+						action="?/importRewardSet"
+						use:enhance
+						class="space-y-3"
+						data-testid="reward-import-form"
+					>
+						<label class="block">
+							<span class="text-xs font-bold text-[var(--color-text-secondary)] block mb-1">
+								{MARKETPLACE_LABELS.detailCtaSelectChild}
+							</span>
+							<NativeSelect
+								name="childId"
+								bind:value={selectedChildId}
+								options={data.children.map((c) => ({
+									value: c.id,
+									label: c.nickname,
+								}))}
+							/>
+						</label>
+						<Button
+							type="submit"
+							variant="primary"
+							size="lg"
+							class="w-full"
+							data-testid="reward-import-submit"
+						>
+							{MARKETPLACE_LABELS.detailCtaImportRewardWithCount(rewardCount)}
+						</Button>
+					</form>
+					{/snippet}
+				</Card>
+
+				{#if rewardImport}
+					{#if rewardImport.allDuplicates}
+						<div
+							class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm text-center"
+							data-testid="reward-import-result"
+						>
+							{MARKETPLACE_LABELS.detailRewardImportAllDuplicates}
+						</div>
+					{:else if (rewardImport.imported ?? 0) > 0}
+						<div
+							class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm text-center"
+							data-testid="reward-import-result"
+						>
+							{MARKETPLACE_LABELS.detailRewardImportSuccess(rewardImport.imported ?? 0)}
+							<div class="text-xs mt-1">
+								<a href="/admin/rewards" class="underline">{MARKETPLACE_LABELS.detailCtaSignup}</a>
+							</div>
+						</div>
+					{/if}
+				{/if}
+			{:else if isRewardSet && data.isAuthenticated && data.children.length === 0}
+				<!-- #2136 MP-1: ログイン済みだが子供未登録 -->
+				<div
+					class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)] rounded-xl p-3 text-sm text-center"
+					data-testid="reward-import-no-children"
+				>
+					{MARKETPLACE_LABELS.detailRewardImportNoChildren}
+				</div>
+				<a href="/setup/children" class="block">
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailRewardImportNoChildren}
+					</Button>
+				</a>
+			{:else if isRewardSet}
+				<!-- #2136 MP-1: 未ログイン -> signup へ誘導（redirect で同じページに戻す） -->
+				<a
+					href="/auth/signup?redirect=/marketplace/{item.type}/{item.itemId}"
+					class="block"
+					data-testid="reward-import-signup-cta"
+				>
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailCtaImportReward}
+					</Button>
+				</a>
+				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
+					{MARKETPLACE_LABELS.detailCtaImportRewardSignedOut}
+				</p>
+			{:else}
+				<!-- 他 type は従来通り signup 動線 -->
+				<a href="/auth/signup" class="block">
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailCtaSignup}
+					</Button>
+				</a>
+			{/if}
 		</div>
 
 		<!-- Back -->

@@ -271,6 +271,29 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - `docs/design/marketplace-preset-checklist-audit.md` (3 件のみに整理済)
 - E2E spec: `tests/e2e/setup-marketplace-must.spec.ts` で 3 件のみ確認
 
+#### 7d. marketplace reward-set 一括追加 (#2136 MP-1)
+
+`src/lib/data/marketplace/reward-sets/*.json` の reward-set 10 件は **マーケットプレイス詳細ページ + admin/rewards 画面の両方**から一括取込でき、`special_rewards.sourcePresetId` (#1254 G1) で重複検知される。`activity-import-service.ts` を template として横展開した実装。
+
+**並行実装ペア**:
+
+| 場所 | 内容 | 技術 |
+|------|------|------|
+| `src/lib/data/marketplace/reward-sets/*.json` (10 件) | reward-set preset (title / points / icon / category / description) | JSON |
+| `src/lib/domain/marketplace-item.ts` | `RewardSetPayload` 型 | TypeScript |
+| `src/lib/server/services/reward-set-import-service.ts` | `previewRewardSetImport` / `importRewardSet` (`sourcePresetId` で重複検知) | TypeScript |
+| `src/routes/marketplace/[type]/[itemId]/+page.{svelte,server.ts}` | reward-set 詳細ページ CTA（ログイン済み = form / 未ログイン = signup 誘導） | Svelte / TS |
+| `src/routes/(parent)/admin/rewards/+page.{svelte,server.ts}` | 「マーケットプレイスから一括追加」セクション (reward-set 10 件 preview + form) | Svelte / TS |
+| `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailCtaImportReward*` / `REWARDS_LABELS.marketplace*` | TypeScript |
+| `src/lib/server/db/schema.ts` | `special_rewards.sourcePresetId` (#1254 G1) | Drizzle |
+
+**同期メカニズム**: `tests/unit/services/reward-set-import-service.test.ts` (15 シナリオ) + E2E `tests/e2e/marketplace-reward-set-import.spec.ts` (5 シナリオ) で検証。
+
+**修正時チェック**:
+- 新しい reward-set を追加 → import-service テスト + E2E で itemId を網羅
+- 重複検知ロジック (`sameSourceTitles`) 変更 → unit テスト 3 件 (「同一 preset 同一 title」/「別 preset 同名」/「sourcePresetId=null 手動 reward」) で誤検知ガード
+- reward の即時付与（grant）と一括取込（import）の区別: 一括取込は **point 加算しない**（"候補登録"）。grant は `insertPointEntry` を呼ぶ
+
 ---
 
 #### 8. 設計書 vs 実装
