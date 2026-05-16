@@ -1,10 +1,12 @@
-// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一, #1337 申請タブ追加）
+// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一, #1337 申請タブ追加, #2136 MP-1 マーケットプレイス一括追加）
 
 import { fail } from '@sveltejs/kit';
+import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import type { RewardSetPayload } from '$lib/domain/marketplace-item';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
@@ -17,6 +19,10 @@ import {
 	getRedemptionRequestsForParent,
 	rejectRedemption,
 } from '$lib/server/services/reward-redemption-service';
+import {
+	importRewardSet,
+	previewRewardSetImport,
+} from '$lib/server/services/reward-set-import-service';
 import {
 	getChildSpecialRewards,
 	getRewardTemplates,
@@ -56,6 +62,18 @@ export const load: PageServerLoad = async ({ locals }) => {
 		),
 	]);
 
+	// #2136 MP-1: マーケットプレイス reward-set 一覧（preview 用）
+	const rewardSetMetas = getMarketplaceIndex().filter((m) => m.type === 'reward-set');
+	const rewardSets = rewardSetMetas.map((m) => ({
+		itemId: m.itemId,
+		name: m.name,
+		description: m.description,
+		icon: m.icon,
+		targetAgeMin: m.targetAgeMin,
+		targetAgeMax: m.targetAgeMax,
+		itemCount: m.itemCount,
+	}));
+
 	return {
 		children: childrenWithRewards,
 		templates,
@@ -64,6 +82,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		planTier: tier,
 		pendingRequests,
 		historyRequests,
+		rewardSets,
 	};
 };
 
@@ -162,6 +181,51 @@ export const actions: Actions = {
 		}
 
 		return { redemptionApproved: true };
+	},
+
+	// #2136 MP-1: マーケットプレイス reward-set 一括追加
+	importMarketplaceRewardSet: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		// プランゲート: 無料プランは特別ごほうび設定不可（grant と同等）
+		const tier = await resolveTier(locals, tenantId);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
+			});
+		}
+
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const presetId = String(formData.get('presetId') ?? '').trim();
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!presetId) return fail(400, { error: 'プリセットが指定されていません' });
+
+		const item = getMarketplaceItem('reward-set', presetId);
+		if (!item) {
+			return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
+		}
+
+		const rewards = (item.payload as RewardSetPayload).rewards;
+		const preview = await previewRewardSetImport(rewards, presetId, childId, tenantId);
+
+		if (preview.newRewards === 0) {
+			return { marketplaceImport: { allDuplicates: true } };
+		}
+
+		const result = await importRewardSet(rewards, tenantId, {
+			presetId,
+			childId,
+		});
+
+		return {
+			marketplaceImport: {
+				imported: result.imported,
+				skipped: result.skipped,
+				errors: result.errors,
+				presetId,
+			},
+		};
 	},
 
 	rejectRedemption: async ({ request, locals }) => {

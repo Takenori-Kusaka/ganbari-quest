@@ -863,6 +863,23 @@ export const MARKETPLACE_LABELS = {
 	detailRulePointCost: '必要ポイント',
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
+	/** #2136 MP-1: reward-set 一括追加 CTA */
+	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
+	/** #2136 MP-1: ログイン後の reward 取込誘導 */
+	detailCtaImportRewardSignedOut: '一括追加するには登録 / ログインが必要です',
+	/** #2136 MP-1: 取込先の子供選択ラベル */
+	detailCtaSelectChild: 'お子さまを選択',
+	/** #2136 MP-1: 重複ありの preview 文言 */
+	detailRewardImportPreview: (newCount: number, dup: number) =>
+		dup > 0
+			? `新規 ${newCount} 件 / 重複 ${dup} 件（重複はスキップされます）`
+			: `${newCount} 件のごほうびを追加します`,
+	/** #2136 MP-1: 取込完了メッセージ */
+	detailRewardImportSuccess: (count: number) => `✨ ${count} 件のごほうびを追加しました`,
+	/** #2136 MP-1: 取込時に全件重複 */
+	detailRewardImportAllDuplicates: 'このごほうびセットは既に追加済みです',
+	/** #2136 MP-1: お子さま未登録時の誘導 */
+	detailRewardImportNoChildren: 'まずはお子さまを登録してください',
 	backToTypeListSuffix: '一覧に戻る',
 	typeCountSuffix: '種',
 } as const;
@@ -3185,6 +3202,16 @@ export const REWARDS_LABELS = {
 	grantButton: (icon: string, title: string, points: number) =>
 		`${icon} ${title || '報酬'} (${points}P) を付与する`,
 	grantSuccess: '特別報酬を付与しました！',
+	/** #2136 MP-1: マーケットプレイス一括追加セクション */
+	marketplaceSectionTitle: 'マーケットプレイスから一括追加',
+	marketplaceSectionDesc:
+		'おすすめのごほうびセットを子供のごほうび履歴に一括追加できます（重複はスキップ）',
+	marketplaceImportButton: (count: number) => `${count} 件を一括追加`,
+	marketplaceImportSuccess: (count: number) => `✨ ${count} 件のごほうびを追加しました`,
+	marketplaceImportAllDuplicates: 'このごほうびセットは既に追加済みです',
+	marketplaceImportError: 'インポートに失敗しました',
+	marketplaceItemCountSuffix: '件',
+	marketplaceImportToggle: (open: boolean) => `${open ? '▼' : '▶'} マーケットプレイスから一括追加`,
 } as const;
 
 // ============================================================
