@@ -336,7 +336,7 @@ export class ComputeStack extends cdk.Stack {
 			code: lambda.DockerImageCode.fromEcr(props.repository, {
 				tagOrDigest: 'latest',
 			}),
-			memorySize: 256, // 本番 512MB の半分 (anonymous + stateless fixture で十分)
+			memorySize: 512, // 本番と同値 (256MB だと SvelteKit + Node 22 cold start で OOM 起き 502、PR #2129 deploy 後に発覚)
 			timeout: cdk.Duration.seconds(30),
 			architecture: lambda.Architecture.ARM_64,
 			role: this.demoLambdaRole,
