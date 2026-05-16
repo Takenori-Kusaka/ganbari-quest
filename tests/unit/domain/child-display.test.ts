@@ -3,20 +3,20 @@ import { formatChildName, formatChildNames, type NameContext } from '$lib/domain
 
 describe('formatChildName', () => {
 	it('label: 名前をそのまま返す', () => {
-		expect(formatChildName('ゆうき')).toBe('ゆうき');
-		expect(formatChildName('ゆうき', 'label')).toBe('ゆうき');
+		expect(formatChildName('たろう')).toBe('たろう');
+		expect(formatChildName('たろう', 'label')).toBe('たろう');
 	});
 
 	it('possessive: 「〜の」を付ける', () => {
-		expect(formatChildName('ゆうき', 'possessive')).toBe('ゆうきの');
+		expect(formatChildName('たろう', 'possessive')).toBe('たろうの');
 	});
 
 	it('vocative: 「〜、」を付ける', () => {
-		expect(formatChildName('ゆうき', 'vocative')).toBe('ゆうき、');
+		expect(formatChildName('たろう', 'vocative')).toBe('たろう、');
 	});
 
 	it('subject: 「〜が」を付ける', () => {
-		expect(formatChildName('ゆうき', 'subject')).toBe('ゆうきが');
+		expect(formatChildName('たろう', 'subject')).toBe('たろうが');
 	});
 
 	it('null/undefined/空文字は空文字を返す', () => {
@@ -37,13 +37,13 @@ describe('formatChildName', () => {
 
 describe('formatChildNames', () => {
 	it('複数名を読点で結合し context を適用', () => {
-		expect(formatChildNames(['ゆうき', 'はな'], 'possessive')).toBe('ゆうき、はなの');
-		expect(formatChildNames(['ゆうき', 'はな'], 'subject')).toBe('ゆうき、はなが');
+		expect(formatChildNames(['たろう', 'はな'], 'possessive')).toBe('たろう、はなの');
+		expect(formatChildNames(['たろう', 'はな'], 'subject')).toBe('たろう、はなが');
 	});
 
 	it('1名のみ', () => {
-		expect(formatChildNames(['ゆうき'], 'possessive')).toBe('ゆうきの');
-		expect(formatChildNames(['ゆうき'], 'label')).toBe('ゆうき');
+		expect(formatChildNames(['たろう'], 'possessive')).toBe('たろうの');
+		expect(formatChildNames(['たろう'], 'label')).toBe('たろう');
 	});
 
 	it('空配列は空文字', () => {
@@ -52,7 +52,7 @@ describe('formatChildNames', () => {
 	});
 
 	it('空文字を含む配列はフィルタされる', () => {
-		expect(formatChildNames(['ゆうき', '', 'はな'], 'possessive')).toBe('ゆうき、はなの');
+		expect(formatChildNames(['たろう', '', 'はな'], 'possessive')).toBe('たろう、はなの');
 		expect(formatChildNames(['', ''], 'possessive')).toBe('');
 	});
 });

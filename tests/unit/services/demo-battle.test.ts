@@ -7,7 +7,7 @@ describe('getDemoBattleData', () => {
 		expect(result.battle).toBeNull();
 	});
 
-	it('returns valid battle data for ゆうきちゃん (preschool)', () => {
+	it('returns valid battle data for ひなちゃん (preschool)', () => {
 		const result = getDemoBattleData(902);
 		expect(result.battle).not.toBeNull();
 		if (!result.battle) return;
@@ -40,7 +40,7 @@ describe('getDemoBattleData', () => {
 	});
 
 	it('returns valid battle data for all demo children', () => {
-		// #703: 5 人構成 — 905 を廃止し、906 (ゆうき/senior) を追加
+		// #703: 5 人構成 — 905 を廃止し、906 (けいすけくん/senior) を追加
 		const childIds = [901, 902, 903, 904, 906];
 		for (const id of childIds) {
 			const result = getDemoBattleData(id);

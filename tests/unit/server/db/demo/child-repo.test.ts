@@ -21,10 +21,10 @@ describe('demo/child-repo', () => {
 			expect(ids).toContain(906);
 		});
 
-		it('findChildById で 902 (ゆうきちゃん) が見つかる', async () => {
+		it('findChildById で 902 (ひなちゃん) が見つかる', async () => {
 			const child = await childRepo.findChildById(902, 'demo');
 			expect(child).toBeDefined();
-			expect(child?.nickname).toBe('ゆうきちゃん');
+			expect(child?.nickname).toBe('ひなちゃん');
 			expect(child?.age).toBe(5);
 			expect(child?.theme).toBe('pink');
 		});
