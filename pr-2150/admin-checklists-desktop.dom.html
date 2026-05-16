@@ -11,12 +11,13 @@
 		<meta property="og:type" content="website">
 		<meta property="og:image" content="/icons/icon-512.png">
 		<meta property="og:locale" content="ja_JP">
-		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
-		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
-		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+		<link rel="icon" type="image/png" sizes="32x32" href="http://127.0.0.1:5180/favicon-32x32.png?v=2">
+		<link rel="icon" type="image/png" sizes="16x16" href="http://127.0.0.1:5180/favicon-16x16.png?v=2">
+		<link rel="apple-touch-icon" sizes="180x180" href="http://127.0.0.1:5180/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1mzz4hy--><!----><title>がんばりクエスト</title>
-		<style data-sveltekit="">/*! tailwindcss v4.3.0 | MIT License | https://tailwindcss.com */
+		<meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!----><title>チェックリスト管理 - がんばりクエスト</title>
+		
+	<style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/styles/app.css">/*! tailwindcss v4.3.0 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
 @layer theme {
@@ -4273,8 +4274,7 @@ h1, h2, h3, h4 {
     }
   }
 }
-
-
+</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/NavigationProgress.svelte?svelte&amp;type=style&amp;lang.css">
 	.navigation-progress.svelte-1p67wbu {
 		position: fixed;
 		top: 0;
@@ -4306,417 +4306,248 @@ h1, h2, h3, h4 {
 			opacity: 0;
 		}
 	}
- .svelte-1p67wbu{}
-
-	.admin-shell.svelte-wncecx {
-		min-height: 100dvh;
-		background: linear-gradient(to bottom, var(--plan-page-from, #eff6ff), var(--plan-page-to, #dbeafe));
-	}
-	.admin-header.svelte-wncecx {
-		background: var(--plan-header-bg, rgba(255, 255, 255, 0.8));
-	}
-	/* Header badges — parent / demo labels */
-	.header-badge.svelte-wncecx {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.125rem 0.5rem;
-		font-size: 0.6875rem;
-		font-weight: 600;
-		border-radius: var(--radius-sm, 0.25rem);
-		white-space: nowrap;
-	}
-	.header-badge--admin.svelte-wncecx {
-		color: var(--color-brand-700);
-		background: var(--color-brand-100);
-	}
-	.header-badge--demo.svelte-wncecx {
-		color: var(--color-warning);
-		background: color-mix(in srgb, var(--color-warning) 15%, transparent);
-	}
-	/* Upgrade link */
-	.upgrade-btn.svelte-wncecx {
-		display: inline-flex;
-		align-items: center;
-		gap: 4px;
-		padding: 4px 12px;
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--color-premium);
-		background: var(--color-premium-bg);
-		border-radius: var(--radius-full);
-		text-decoration: none;
-		transition: all 0.15s ease;
-		white-space: nowrap;
-	}
-	.upgrade-btn.svelte-wncecx:hover {
-		background: var(--color-premium);
-		color: var(--color-text-inverse);
-	}
-	/* Plan badge — single instance (#490) */
-	.plan-badge.svelte-wncecx {
-		display: inline-flex;
-		align-items: center;
-		gap: 2px;
-		padding: 3px 10px;
-		font-size: 0.7rem;
-		font-weight: 700;
-		border-radius: 9999px;
-		white-space: nowrap;
-	}
-	.plan-badge--standard.svelte-wncecx {
-		background: var(--plan-badge-bg, #f3e8ff);
-		color: var(--plan-badge-text, #6d28d9);
-	}
-	.plan-badge--family.svelte-wncecx {
-		background: var(--plan-badge-bg, #fef3c7);
-		color: var(--plan-badge-text, #92400e);
-	}
-	/* Tutorial button override for small size (#497) */
-	.header-tutorial-btn {
-		width: 2rem !important;
-		height: 2rem !important;
-		min-height: unset !important;
-		padding: 0 !important;
-		border-radius: var(--radius-full) !important;
-		font-weight: 700 !important;
-	}
-	/* Switch link (#497) — uses CSS variables instead of Tailwind colors */
-	.header-switch-link.svelte-wncecx {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0.25rem 0.75rem;
-		font-size: 0.875rem;
-		color: var(--color-text-muted);
-		background: var(--color-surface-muted);
-		border-radius: var(--radius-md, 0.5rem);
-		transition: background 0.15s ease;
-		text-decoration: none;
-		white-space: nowrap;
-	}
-	.header-switch-link.svelte-wncecx:hover {
-		background: var(--color-border-default);
-	}
-	/* Desktop nav — category buttons */
-	.nav-item.svelte-wncecx {
+ .svelte-1p67wbu{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/routes/+error.svelte?svelte&amp;type=style&amp;lang.css">
+	.error-page.svelte-1j96wlh {
 		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 1rem;
-		border-radius: 0.5rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-		transition: all 0.15s;
-		white-space: nowrap;
-		color: var(--color-text-secondary, #4b5563);
-		cursor: pointer;
-		border: none;
-		background: none;
-	}
-	.nav-item.svelte-wncecx:hover {
-		background: var(--plan-nav-bg, #e8f4fd);
-		color: var(--plan-nav-text, var(--color-brand-600));
-	}
-	.nav-item--active.svelte-wncecx {
-		background: var(--plan-nav-active, #dbeafe);
-		color: var(--plan-nav-text, var(--color-brand-700));
-	}
-	/* Desktop dropdown */
-	.desktop-dropdown.svelte-wncecx {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		min-width: 180px;
-		background: var(--color-surface-card);
-		border: 1px solid var(--color-border-default);
-		border-radius: 0.5rem;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-		padding: 0.25rem;
-		z-index: 50;
-		margin-top: 0.25rem;
-	}
-	.dropdown-item.svelte-wncecx {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		border-radius: 0.375rem;
-		font-size: 0.8125rem;
-		color: var(--color-text-secondary, #4b5563);
-		transition: all 0.1s;
-		white-space: nowrap;
-	}
-	.dropdown-item.svelte-wncecx:hover {
-		background: var(--plan-nav-bg, #e8f4fd);
-		color: var(--plan-nav-text, var(--color-brand-600));
-	}
-	.dropdown-item--active.svelte-wncecx {
-		background: var(--plan-nav-active, #dbeafe);
-		color: var(--plan-nav-text, var(--color-brand-700));
-		font-weight: 600;
-	}
-	/* Mobile nav — category buttons */
-	.mobile-nav-item.svelte-wncecx {
-		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 2px;
-		width: 4.5rem;
-		height: 100%;
-		transition: color 0.15s;
-		color: var(--color-text-tertiary, #9ca3af);
-		border: none;
-		background: none;
-		cursor: pointer;
-		padding: 0;
+		min-height: 100vh;
+		background: var(--color-surface-base);
+		padding: 1rem;
 	}
-	.mobile-nav-item.svelte-wncecx:hover {
-		color: var(--color-text-secondary, #4b5563);
+
+	.error-container.svelte-1j96wlh {
+		text-align: center;
+		max-width: 480px;
 	}
-	.mobile-nav-item--active.svelte-wncecx {
-		color: var(--plan-primary, var(--color-brand-600));
-	}
-	.mobile-nav-item--expanded.svelte-wncecx {
-		color: var(--plan-primary, var(--color-brand-600));
-	}
-	/* Mobile submenu panel */
-	.mobile-submenu.svelte-wncecx {
-		background: var(--color-surface-card);
-		border-top: 1px solid var(--color-border-default);
-		padding: 12px 16px;
-		animation: svelte-wncecx-slideUp 0.15s ease-out;
-	}
-	.mobile-submenu-label.svelte-wncecx {
-		font-size: 0.75rem;
+
+	.error-status.svelte-1j96wlh {
+		font-size: 4rem;
 		font-weight: 700;
-		color: var(--color-text-muted);
-		margin-bottom: 0.5rem;
-		padding-left: 0.25rem;
+		color: var(--color-action-primary);
+		margin: 0 0 0.5rem;
+		line-height: 1;
 	}
-	@keyframes svelte-wncecx-slideUp {
+
+	.error-title.svelte-1j96wlh {
+		font-size: 1.25rem;
+		margin: 0 0 1rem;
+		color: var(--color-text);
+	}
+
+	.error-description.svelte-1j96wlh {
+		color: var(--color-text-muted);
+		line-height: 1.6;
+		margin: 0 0 1.5rem;
+	}
+
+	.countdown.svelte-1j96wlh {
+		font-size: 3rem;
+		font-weight: 700;
+		color: var(--color-action-primary);
+		margin: 1rem 0;
+		line-height: 1;
+	}
+
+	.actions.svelte-1j96wlh {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin: 1.5rem 0;
+	}
+
+	.btn.svelte-1j96wlh {
+		display: inline-block;
+		padding: 0.75rem 1.5rem;
+		border-radius: var(--radius-md);
+		text-decoration: none;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		font-size: 1rem;
+	}
+
+	.btn-primary.svelte-1j96wlh {
+		background: var(--color-action-primary);
+		color: var(--color-text-inverse);
+	}
+
+	.btn-primary.svelte-1j96wlh:hover {
+		opacity: 0.9;
+	}
+
+	.btn-secondary.svelte-1j96wlh {
+		background: var(--color-surface-card);
+		color: var(--color-text);
+		border: 1px solid var(--color-border);
+	}
+
+	/* child role: larger tap target + simple single action */
+	.error-page[data-role='child'].svelte-1j96wlh .error-title:where(.svelte-1j96wlh) {
+		font-size: 1.75rem;
+	}
+	.error-page[data-role='child'].svelte-1j96wlh .error-description:where(.svelte-1j96wlh) {
+		font-size: 1.125rem;
+	}
+	.btn-child.svelte-1j96wlh {
+		padding: 1.25rem 2rem;
+		font-size: 1.25rem;
+		min-height: 60px;
+	}
+
+	.error-id.svelte-1j96wlh {
+		margin-top: 2rem;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+	.error-id.svelte-1j96wlh code:where(.svelte-1j96wlh) {
+		font-family: monospace;
+		background: var(--color-surface-card);
+		padding: 0.125rem 0.375rem;
+		border-radius: 4px;
+	}
+ .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/ProgressMessage.svelte?svelte&amp;type=style&amp;lang.css">
+	.progress-message.svelte-1u7s47l {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 0.875rem;
+		color: #6b7280;
+	}
+
+	.progress-message__dot.svelte-1u7s47l {
+		display: inline-flex;
+		gap: 3px;
+	}
+
+	.progress-message__dot.svelte-1u7s47l::before,
+	.progress-message__dot.svelte-1u7s47l::after,
+	.progress-message__dot.svelte-1u7s47l {
+		content: '';
+	}
+
+	/* Three bouncing dots */
+	.progress-message__dot.svelte-1u7s47l {
+		width: 6px;
+		height: 6px;
+		background: currentColor;
+		border-radius: 50%;
+		animation: svelte-1u7s47l-dot-bounce 1.2s ease-in-out infinite;
+	}
+
+	.progress-message__text.svelte-1u7s47l {
+		animation: svelte-1u7s47l-fade-in 0.3s ease-out;
+	}
+
+	@keyframes svelte-1u7s47l-dot-bounce {
+		0%,
+		80%,
+		100% {
+			transform: scale(0.6);
+			opacity: 0.4;
+		}
+		40% {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
+	@keyframes svelte-1u7s47l-fade-in {
 		from {
 			opacity: 0;
-			transform: translateY(8px);
+			transform: translateY(4px);
 		}
 		to {
 			opacity: 1;
 			transform: translateY(0);
 		}
 	}
-	.mobile-submenu-item.svelte-wncecx {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 4px;
-		padding: 10px 4px;
-		border-radius: 0.5rem;
-		color: var(--color-text-secondary, #4b5563);
-		transition: all 0.1s;
-	}
-	.mobile-submenu-item.svelte-wncecx:hover {
-		background: var(--plan-nav-bg, #e8f4fd);
-	}
-	.mobile-submenu-item--active.svelte-wncecx {
-		background: var(--plan-nav-active, #dbeafe);
-		color: var(--plan-nav-text, var(--color-brand-700));
-		font-weight: 600;
-	}
-	/* Page Guide help button */
-	.page-guide-btn.svelte-wncecx {
-		position: relative;
-		width: 2rem;
-		height: 2rem;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 9999px;
-		background: var(--color-surface-card, #e0f2fe);
-		border: 2px solid var(--color-action-primary, #3b82f6);
-		cursor: pointer;
-		font-size: 0.875rem;
-		transition: all 0.15s;
-	}
-	.page-guide-btn.svelte-wncecx:hover {
-		background: var(--color-action-primary, #3b82f6);
-		filter: brightness(1.1);
-	}
-	.page-guide-badge.svelte-wncecx {
-		position: absolute;
-		top: -2px;
-		right: -2px;
-		width: 8px;
-		height: 8px;
-		border-radius: 9999px;
-		background: var(--color-danger, #ef4444);
-		border: 2px solid white;
-	}
- .svelte-wncecx{}
-
-	.trial-banner.svelte-7ep5mg {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 12px 16px;
-		border: 1px solid var(--color-border-trial);
-		border-radius: 12px;
-		background: var(--gradient-surface-trial);
+ .svelte-1u7s47l{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/features/admin/components/AiSuggestChecklistPanel.svelte?svelte&amp;type=style&amp;lang.css">
+	.ai-spinner.svelte-a8po0o {
+		display: inline-block;
+		width: 1em;
+		height: 1em;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: svelte-a8po0o-spin 0.6s linear infinite;
+		vertical-align: middle;
 	}
 
-	.trial-banner.urgent.svelte-7ep5mg {
-		border-color: var(--color-border-trial-urgent);
-		background: var(--gradient-surface-trial-urgent);
+	@keyframes svelte-a8po0o-spin {
+		to { transform: rotate(360deg); }
 	}
-
-	.trial-banner.not-started.svelte-7ep5mg {
-		border-color: var(--color-border-trial);
-		background: var(--gradient-surface-trial);
-	}
-
-	.trial-banner.expired.svelte-7ep5mg {
-		border-color: var(--color-border-trial-expired);
-		background: var(--color-surface-trial-expired);
-	}
-
-	.trial-icon.svelte-7ep5mg {
-		font-size: 1.5rem;
-		flex-shrink: 0;
-	}
-
-	.trial-content.svelte-7ep5mg {
-		flex: 1;
-	}
-
-	.trial-title.svelte-7ep5mg {
-		font-size: 0.85rem;
-		font-weight: 600;
-		color: var(--color-text-primary);
-		margin: 0;
-	}
-
-	.trial-desc.svelte-7ep5mg {
-		font-size: 0.75rem;
-		color: var(--color-text-secondary);
-		margin: 4px 0 0;
-	}
-
-	.trial-cta.svelte-7ep5mg {
-		flex-shrink: 0;
-		padding: 6px 12px;
-		background: var(--color-action-trial);
-		color: var(--color-text-inverse);
-		font-size: 0.75rem;
-		font-weight: 600;
-		border: none;
-		border-radius: 8px;
-		text-decoration: none;
-		cursor: pointer;
-		transition: background 0.15s;
-	}
-
-	.trial-cta.svelte-7ep5mg:hover:not(:disabled) {
-		background: var(--color-action-trial-hover);
-	}
-
-	.trial-cta.svelte-7ep5mg:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	.trial-cta.upgrade.svelte-7ep5mg {
-		background: var(--color-action-trial-upgrade);
-	}
-
-	.trial-cta.upgrade.svelte-7ep5mg:hover {
-		background: var(--color-action-trial-upgrade-hover);
-	}
-
-	form.svelte-7ep5mg {
-		margin: 0;
-	}
- .svelte-7ep5mg{}
-
-	.trial-ended-body.svelte-d5o3di {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		text-align: center;
-		gap: 12px;
-	}
-
-	.trial-ended-icon.svelte-d5o3di {
-		font-size: 2.5rem;
-	}
-
-	.trial-ended-message.svelte-d5o3di {
-		font-size: 0.875rem;
-		color: var(--color-text-primary);
-		line-height: 1.6;
-		margin: 0;
-	}
-
-	.trial-ended-notes.svelte-d5o3di {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		width: 100%;
-		text-align: left;
-	}
-
-	.trial-ended-notes.svelte-d5o3di li:where(.svelte-d5o3di) {
-		position: relative;
-		padding-left: 1.25em;
-		font-size: 0.8rem;
-		color: var(--color-text-secondary);
-		line-height: 1.5;
-		margin-bottom: 4px;
-	}
-
-	.trial-ended-notes.svelte-d5o3di li:where(.svelte-d5o3di)::before {
-		content: '•';
-		position: absolute;
-		left: 0.25em;
-		color: var(--color-text-tertiary);
-	}
-
-	.trial-ended-actions.svelte-d5o3di {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-		width: 100%;
-		margin-top: 4px;
-	}
- .svelte-d5o3di{}
-
-	.debug-plan-indicator.svelte-h6xk8m {
-		position: fixed;
-		bottom: 0.75rem;
-		right: 0.75rem;
-		z-index: 9999;
+ .svelte-a8po0o{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/PremiumBadge.svelte?svelte&amp;type=style&amp;lang.css">
+	.premium-badge.svelte-1682l8b {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.375rem;
-		padding: 0.375rem 0.625rem;
-		background: var(--color-feedback-warning-bg-strong);
-		color: var(--color-feedback-warning-text);
-		border: 1px solid var(--color-feedback-warning-border);
-		border-radius: 0.5rem;
-		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-		font-size: 0.6875rem;
-		font-weight: 600;
-		box-shadow: 0 2px 8px color-mix(in srgb, var(--color-surface-overlay) 30%, transparent);
-		pointer-events: none;
+		gap: 4px;
+		border: 1px solid var(--color-premium-bg);
+		border-radius: var(--radius-full);
+		background: linear-gradient(135deg, var(--color-premium-bg), var(--color-surface-card, white));
+		color: var(--color-premium);
+		font-weight: 700;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		white-space: nowrap;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 	}
-	.debug-plan-indicator__label.svelte-h6xk8m {
-		padding: 0.0625rem 0.25rem;
-		background: var(--color-feedback-warning-text);
-		color: var(--color-feedback-warning-bg);
-		border-radius: 0.25rem;
-		letter-spacing: 0.05em;
-	}
- .svelte-h6xk8m{}
 
+	.premium-badge.svelte-1682l8b:hover {
+		background: var(--color-premium);
+		color: white;
+		border-color: var(--color-premium);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+	}
+
+	.premium-badge--sm.svelte-1682l8b {
+		padding: 3px 10px;
+		font-size: 0.72rem;
+	}
+
+	.premium-badge--sm.svelte-1682l8b .premium-badge__icon:where(.svelte-1682l8b) {
+		font-size: 0.72rem;
+	}
+
+	.premium-badge--md.svelte-1682l8b {
+		padding: 5px 14px;
+		font-size: 0.82rem;
+	}
+
+	.premium-badge--md.svelte-1682l8b .premium-badge__icon:where(.svelte-1682l8b) {
+		font-size: 0.88rem;
+	}
+
+	.premium-badge__label.svelte-1682l8b {
+		letter-spacing: 0.03em;
+	}
+ .svelte-1682l8b{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/primitives/FormField.svelte?svelte&amp;type=style&amp;lang.css">
+	.password-toggle.svelte-pwdxgn {
+		position: absolute;
+		top: 50%;
+		right: 8px;
+		transform: translateY(-50%);
+		padding: 4px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition: color 0.15s;
+	}
+
+	.password-toggle.svelte-pwdxgn:hover {
+		color: var(--color-text);
+	}
+
+	.password-toggle.svelte-pwdxgn:focus-visible {
+		outline: 2px solid var(--color-brand-500);
+		outline-offset: 2px;
+	}
+ .svelte-pwdxgn{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/Logo.svelte?svelte&amp;type=style&amp;lang.css">
 	.logo-wrapper.svelte-1n7r250 {
 		display: inline-flex;
 		align-items: center;
@@ -4744,8 +4575,7 @@ h1, h2, h3, h4 {
 		background: var(--plan-badge-bg, #fef3c7);
 		color: var(--plan-badge-text, #92400e);
 	}
- .svelte-1n7r250{}
-
+ .svelte-1n7r250{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/PageGuideOverlay.svelte?svelte&amp;type=style&amp;lang.css">
 	.guide-overlay.svelte-y136gw {
 		position: fixed;
 		inset: 0;
@@ -4991,54 +4821,7 @@ h1, h2, h3, h4 {
 	.guide-nav-next.svelte-y136gw:active {
 		transform: scale(0.97);
 	}
- .svelte-y136gw{}
-
-	.tutorial-overlay.svelte-c315ht {
-		position: fixed;
-		inset: 0;
-		z-index: 100;
-	}
-
-	.tutorial-overlay-svg.svelte-c315ht {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-	}
-
-	.tutorial-overlay-bg.svelte-c315ht {
-		pointer-events: auto;
-		cursor: default;
-	}
-
-	.tutorial-spotlight-ring.svelte-c315ht {
-		position: absolute;
-		border: 2px solid rgba(59, 130, 246, 0.6);
-		border-radius: 12px;
-		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-		pointer-events: none;
-		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
-	}
-
-	@keyframes svelte-c315ht-ring-pulse {
-		0%, 100% {
-			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
-		}
-		50% {
-			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
-		}
-	}
-
-	/* A. During tutorial, suppress nav/header z-index below the overlay */
-	[data-tutorial-active] .z-30 {
-		z-index: 10 !important;
-	}
-	[data-tutorial-active] .desktop-dropdown {
-		z-index: 10 !important;
-	}
- .svelte-c315ht{}
-
+ .svelte-y136gw{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/TutorialBubble.svelte?svelte&amp;type=style&amp;lang.css">
 	.tutorial-bubble.svelte-9wfq4r {
 		position: fixed;
 		z-index: 110;
@@ -5239,8 +5022,7 @@ h1, h2, h3, h4 {
 	[data-age-tier="elementary"] .tutorial-description.svelte-9wfq4r {
 		font-size: 0.95rem;
 	}
- .svelte-9wfq4r{}
-
+ .svelte-9wfq4r{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/TutorialQuickCompleteDialog.svelte?svelte&amp;type=style&amp;lang.css">
 	.dialog-body.svelte-1hkj8k9 p:where(.svelte-1hkj8k9) {
 		margin: 0;
 		color: var(--color-text-primary);
@@ -5260,155 +5042,459 @@ h1, h2, h3, h4 {
 		margin-top: var(--sp-md);
 		flex-wrap: wrap;
 	}
- .svelte-1hkj8k9{}
-
-	.ai-spinner.svelte-a8po0o {
-		display: inline-block;
-		width: 1em;
-		height: 1em;
-		border: 2px solid currentColor;
-		border-right-color: transparent;
-		border-radius: 50%;
-		animation: svelte-a8po0o-spin 0.6s linear infinite;
-		vertical-align: middle;
+ .svelte-1hkj8k9{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/TutorialOverlay.svelte?svelte&amp;type=style&amp;lang.css">
+	.tutorial-overlay.svelte-c315ht {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
 	}
 
-	@keyframes svelte-a8po0o-spin {
-		to { transform: rotate(360deg); }
+	.tutorial-overlay-svg.svelte-c315ht {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
 	}
- .svelte-a8po0o{}
 
-	.premium-badge.svelte-1682l8b {
+	.tutorial-overlay-bg.svelte-c315ht {
+		pointer-events: auto;
+		cursor: default;
+	}
+
+	.tutorial-spotlight-ring.svelte-c315ht {
+		position: absolute;
+		border: 2px solid rgba(59, 130, 246, 0.6);
+		border-radius: 12px;
+		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+		pointer-events: none;
+		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes svelte-c315ht-ring-pulse {
+		0%, 100% {
+			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+		}
+		50% {
+			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
+		}
+	}
+
+	/* A. During tutorial, suppress nav/header z-index below the overlay */
+	[data-tutorial-active] .z-30 {
+		z-index: 10 !important;
+	}
+	[data-tutorial-active] .desktop-dropdown {
+		z-index: 10 !important;
+	}
+ .svelte-c315ht{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/features/admin/components/AdminLayout.svelte?svelte&amp;type=style&amp;lang.css">
+	.admin-shell.svelte-wncecx {
+		min-height: 100dvh;
+		background: linear-gradient(to bottom, var(--plan-page-from, #eff6ff), var(--plan-page-to, #dbeafe));
+	}
+	.admin-header.svelte-wncecx {
+		background: var(--plan-header-bg, rgba(255, 255, 255, 0.8));
+	}
+	/* Header badges — parent / demo labels */
+	.header-badge.svelte-wncecx {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.5rem;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		border-radius: var(--radius-sm, 0.25rem);
+		white-space: nowrap;
+	}
+	.header-badge--admin.svelte-wncecx {
+		color: var(--color-brand-700);
+		background: var(--color-brand-100);
+	}
+	.header-badge--demo.svelte-wncecx {
+		color: var(--color-warning);
+		background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+	}
+	/* Upgrade link */
+	.upgrade-btn.svelte-wncecx {
 		display: inline-flex;
 		align-items: center;
 		gap: 4px;
-		border: 1px solid var(--color-premium-bg);
-		border-radius: var(--radius-full);
-		background: linear-gradient(135deg, var(--color-premium-bg), var(--color-surface-card, white));
+		padding: 4px 12px;
+		font-size: 0.75rem;
+		font-weight: 600;
 		color: var(--color-premium);
-		font-weight: 700;
-		cursor: pointer;
-		transition: all 0.2s ease;
+		background: var(--color-premium-bg);
+		border-radius: var(--radius-full);
+		text-decoration: none;
+		transition: all 0.15s ease;
 		white-space: nowrap;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 	}
-
-	.premium-badge.svelte-1682l8b:hover {
+	.upgrade-btn.svelte-wncecx:hover {
 		background: var(--color-premium);
-		color: white;
-		border-color: var(--color-premium);
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+		color: var(--color-text-inverse);
 	}
-
-	.premium-badge--sm.svelte-1682l8b {
+	/* Plan badge — single instance (#490) */
+	.plan-badge.svelte-wncecx {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
 		padding: 3px 10px;
-		font-size: 0.72rem;
+		font-size: 0.7rem;
+		font-weight: 700;
+		border-radius: 9999px;
+		white-space: nowrap;
 	}
-
-	.premium-badge--sm.svelte-1682l8b .premium-badge__icon:where(.svelte-1682l8b) {
-		font-size: 0.72rem;
+	.plan-badge--standard.svelte-wncecx {
+		background: var(--plan-badge-bg, #f3e8ff);
+		color: var(--plan-badge-text, #6d28d9);
 	}
-
-	.premium-badge--md.svelte-1682l8b {
-		padding: 5px 14px;
-		font-size: 0.82rem;
+	.plan-badge--family.svelte-wncecx {
+		background: var(--plan-badge-bg, #fef3c7);
+		color: var(--plan-badge-text, #92400e);
 	}
-
-	.premium-badge--md.svelte-1682l8b .premium-badge__icon:where(.svelte-1682l8b) {
-		font-size: 0.88rem;
+	/* Tutorial button override for small size (#497) */
+	.header-tutorial-btn {
+		width: 2rem !important;
+		height: 2rem !important;
+		min-height: unset !important;
+		padding: 0 !important;
+		border-radius: var(--radius-full) !important;
+		font-weight: 700 !important;
 	}
-
-	.premium-badge__label.svelte-1682l8b {
-		letter-spacing: 0.03em;
-	}
- .svelte-1682l8b{}
-
-	.password-toggle.svelte-pwdxgn {
-		position: absolute;
-		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 4px;
-		background: none;
-		border: none;
-		cursor: pointer;
+	/* Switch link (#497) — uses CSS variables instead of Tailwind colors */
+	.header-switch-link.svelte-wncecx {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.75rem;
+		font-size: 0.875rem;
 		color: var(--color-text-muted);
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-md, 0.5rem);
+		transition: background 0.15s ease;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.header-switch-link.svelte-wncecx:hover {
+		background: var(--color-border-default);
+	}
+	/* Desktop nav — category buttons */
+	.nav-item.svelte-wncecx {
 		display: flex;
 		align-items: center;
-		justify-content: center;
-		border-radius: 4px;
-		transition: color 0.15s;
-	}
-
-	.password-toggle.svelte-pwdxgn:hover {
-		color: var(--color-text);
-	}
-
-	.password-toggle.svelte-pwdxgn:focus-visible {
-		outline: 2px solid var(--color-brand-500);
-		outline-offset: 2px;
-	}
- .svelte-pwdxgn{}
-
-	.progress-message.svelte-1u7s47l {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
+		gap: 0.375rem;
+		padding: 0.5rem 1rem;
+		border-radius: 0.5rem;
 		font-size: 0.875rem;
-		color: #6b7280;
+		font-weight: 500;
+		transition: all 0.15s;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #4b5563);
+		cursor: pointer;
+		border: none;
+		background: none;
 	}
-
-	.progress-message__dot.svelte-1u7s47l {
-		display: inline-flex;
-		gap: 3px;
+	.nav-item.svelte-wncecx:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+		color: var(--plan-nav-text, var(--color-brand-600));
 	}
-
-	.progress-message__dot.svelte-1u7s47l::before,
-	.progress-message__dot.svelte-1u7s47l::after,
-	.progress-message__dot.svelte-1u7s47l {
-		content: '';
+	.nav-item--active.svelte-wncecx {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
 	}
-
-	/* Three bouncing dots */
-	.progress-message__dot.svelte-1u7s47l {
-		width: 6px;
-		height: 6px;
-		background: currentColor;
-		border-radius: 50%;
-		animation: svelte-1u7s47l-dot-bounce 1.2s ease-in-out infinite;
+	/* Desktop dropdown */
+	.desktop-dropdown.svelte-wncecx {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		min-width: 180px;
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
+		border-radius: 0.5rem;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		padding: 0.25rem;
+		z-index: 50;
+		margin-top: 0.25rem;
 	}
-
-	.progress-message__text.svelte-1u7s47l {
-		animation: svelte-1u7s47l-fade-in 0.3s ease-out;
+	.dropdown-item.svelte-wncecx {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.375rem;
+		font-size: 0.8125rem;
+		color: var(--color-text-secondary, #4b5563);
+		transition: all 0.1s;
+		white-space: nowrap;
 	}
-
-	@keyframes svelte-1u7s47l-dot-bounce {
-		0%,
-		80%,
-		100% {
-			transform: scale(0.6);
-			opacity: 0.4;
-		}
-		40% {
-			transform: scale(1);
-			opacity: 1;
-		}
+	.dropdown-item.svelte-wncecx:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+		color: var(--plan-nav-text, var(--color-brand-600));
 	}
-
-	@keyframes svelte-1u7s47l-fade-in {
+	.dropdown-item--active.svelte-wncecx {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
+		font-weight: 600;
+	}
+	/* Mobile nav — category buttons */
+	.mobile-nav-item.svelte-wncecx {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 2px;
+		width: 4.5rem;
+		height: 100%;
+		transition: color 0.15s;
+		color: var(--color-text-tertiary, #9ca3af);
+		border: none;
+		background: none;
+		cursor: pointer;
+		padding: 0;
+	}
+	.mobile-nav-item.svelte-wncecx:hover {
+		color: var(--color-text-secondary, #4b5563);
+	}
+	.mobile-nav-item--active.svelte-wncecx {
+		color: var(--plan-primary, var(--color-brand-600));
+	}
+	.mobile-nav-item--expanded.svelte-wncecx {
+		color: var(--plan-primary, var(--color-brand-600));
+	}
+	/* Mobile submenu panel */
+	.mobile-submenu.svelte-wncecx {
+		background: var(--color-surface-card);
+		border-top: 1px solid var(--color-border-default);
+		padding: 12px 16px;
+		animation: svelte-wncecx-slideUp 0.15s ease-out;
+	}
+	.mobile-submenu-label.svelte-wncecx {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+		margin-bottom: 0.5rem;
+		padding-left: 0.25rem;
+	}
+	@keyframes svelte-wncecx-slideUp {
 		from {
 			opacity: 0;
-			transform: translateY(4px);
+			transform: translateY(8px);
 		}
 		to {
 			opacity: 1;
 			transform: translateY(0);
 		}
 	}
- .svelte-1u7s47l{}</style>
-	</head>
+	.mobile-submenu-item.svelte-wncecx {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		padding: 10px 4px;
+		border-radius: 0.5rem;
+		color: var(--color-text-secondary, #4b5563);
+		transition: all 0.1s;
+	}
+	.mobile-submenu-item.svelte-wncecx:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+	}
+	.mobile-submenu-item--active.svelte-wncecx {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
+		font-weight: 600;
+	}
+	/* Page Guide help button */
+	.page-guide-btn.svelte-wncecx {
+		position: relative;
+		width: 2rem;
+		height: 2rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px;
+		background: var(--color-surface-card, #e0f2fe);
+		border: 2px solid var(--color-action-primary, #3b82f6);
+		cursor: pointer;
+		font-size: 0.875rem;
+		transition: all 0.15s;
+	}
+	.page-guide-btn.svelte-wncecx:hover {
+		background: var(--color-action-primary, #3b82f6);
+		filter: brightness(1.1);
+	}
+	.page-guide-badge.svelte-wncecx {
+		position: absolute;
+		top: -2px;
+		right: -2px;
+		width: 8px;
+		height: 8px;
+		border-radius: 9999px;
+		background: var(--color-danger, #ef4444);
+		border: 2px solid white;
+	}
+ .svelte-wncecx{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/features/admin/components/TrialBanner.svelte?svelte&amp;type=style&amp;lang.css">
+	.trial-banner.svelte-7ep5mg {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 16px;
+		border: 1px solid var(--color-border-trial);
+		border-radius: 12px;
+		background: var(--gradient-surface-trial);
+	}
+
+	.trial-banner.urgent.svelte-7ep5mg {
+		border-color: var(--color-border-trial-urgent);
+		background: var(--gradient-surface-trial-urgent);
+	}
+
+	.trial-banner.not-started.svelte-7ep5mg {
+		border-color: var(--color-border-trial);
+		background: var(--gradient-surface-trial);
+	}
+
+	.trial-banner.expired.svelte-7ep5mg {
+		border-color: var(--color-border-trial-expired);
+		background: var(--color-surface-trial-expired);
+	}
+
+	.trial-icon.svelte-7ep5mg {
+		font-size: 1.5rem;
+		flex-shrink: 0;
+	}
+
+	.trial-content.svelte-7ep5mg {
+		flex: 1;
+	}
+
+	.trial-title.svelte-7ep5mg {
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
+		margin: 0;
+	}
+
+	.trial-desc.svelte-7ep5mg {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+		margin: 4px 0 0;
+	}
+
+	.trial-cta.svelte-7ep5mg {
+		flex-shrink: 0;
+		padding: 6px 12px;
+		background: var(--color-action-trial);
+		color: var(--color-text-inverse);
+		font-size: 0.75rem;
+		font-weight: 600;
+		border: none;
+		border-radius: 8px;
+		text-decoration: none;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+
+	.trial-cta.svelte-7ep5mg:hover:not(:disabled) {
+		background: var(--color-action-trial-hover);
+	}
+
+	.trial-cta.svelte-7ep5mg:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.trial-cta.upgrade.svelte-7ep5mg {
+		background: var(--color-action-trial-upgrade);
+	}
+
+	.trial-cta.upgrade.svelte-7ep5mg:hover {
+		background: var(--color-action-trial-upgrade-hover);
+	}
+
+	form.svelte-7ep5mg {
+		margin: 0;
+	}
+ .svelte-7ep5mg{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/features/admin/components/TrialEndedDialog.svelte?svelte&amp;type=style&amp;lang.css">
+	.trial-ended-body.svelte-d5o3di {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		gap: 12px;
+	}
+
+	.trial-ended-icon.svelte-d5o3di {
+		font-size: 2.5rem;
+	}
+
+	.trial-ended-message.svelte-d5o3di {
+		font-size: 0.875rem;
+		color: var(--color-text-primary);
+		line-height: 1.6;
+		margin: 0;
+	}
+
+	.trial-ended-notes.svelte-d5o3di {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		width: 100%;
+		text-align: left;
+	}
+
+	.trial-ended-notes.svelte-d5o3di li:where(.svelte-d5o3di) {
+		position: relative;
+		padding-left: 1.25em;
+		font-size: 0.8rem;
+		color: var(--color-text-secondary);
+		line-height: 1.5;
+		margin-bottom: 4px;
+	}
+
+	.trial-ended-notes.svelte-d5o3di li:where(.svelte-d5o3di)::before {
+		content: '•';
+		position: absolute;
+		left: 0.25em;
+		color: var(--color-text-tertiary);
+	}
+
+	.trial-ended-actions.svelte-d5o3di {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		width: 100%;
+		margin-top: 4px;
+	}
+ .svelte-d5o3di{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a8ad14fc242f1cf5a/src/lib/ui/components/DebugPlanIndicator.svelte?svelte&amp;type=style&amp;lang.css">
+	.debug-plan-indicator.svelte-h6xk8m {
+		position: fixed;
+		bottom: 0.75rem;
+		right: 0.75rem;
+		z-index: 9999;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.625rem;
+		background: var(--color-feedback-warning-bg-strong);
+		color: var(--color-feedback-warning-text);
+		border: 1px solid var(--color-feedback-warning-border);
+		border-radius: 0.5rem;
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--color-surface-overlay) 30%, transparent);
+		pointer-events: none;
+	}
+	.debug-plan-indicator__label.svelte-h6xk8m {
+		padding: 0.0625rem 0.25rem;
+		background: var(--color-feedback-warning-text);
+		color: var(--color-feedback-warning-bg);
+		border-radius: 0.25rem;
+		letter-spacing: 0.05em;
+	}
+ .svelte-h6xk8m{}</style></head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="admin" data-plan="family" class="admin-shell svelte-wncecx"><header class="admin-header sticky top-0 z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3 svelte-wncecx"><div class="max-w-4xl mx-auto flex items-center justify-between svelte-wncecx"><div class="flex items-center gap-2 svelte-wncecx"><a href="/admin" class="flex items-center svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="140" height="57" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></a> <!--[-1--><!--]--></div> <div class="flex items-center gap-2 svelte-wncecx"><!--[1--><span class="plan-badge plan-badge--family svelte-wncecx">ファミリープラン</span><!--]--> <!--[1--><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] header-tutorial-btn" title="チュートリアルを開始" data-tutorial="tutorial-restart"><!---->?<!----></button><!--]--><!----><!--]--> <a href="/switch" class="header-switch-link svelte-wncecx" data-tutorial="switch-to-child"><span aria-hidden="true" class="svelte-wncecx">←</span> 子供画面へ</a></div></div></header> <nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2 svelte-wncecx" aria-label="管理メニュー" data-tutorial="nav-desktop"><div class="max-w-4xl mx-auto flex gap-1 svelte-wncecx"><a href="/admin" class="nav-item  svelte-wncecx"><span aria-hidden="true" class="svelte-wncecx">🏠</span> ホーム</a> <!--[--><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item nav-item--active svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">🎮</span> 活動 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">📊</span> 記録 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">⚙️</span> 設定 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><!--]--></div></nav> <main class="max-w-4xl mx-auto p-4 pb-24 md:pb-4 svelte-wncecx"><!--[-1--><!--[-1--><!--]--> <!--[-1--><!--[--><div class="space-y-4"><!--[-1--><!--]--> <!--[-1--><!--]--></div> <!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--><!--]--><!----><!----><!--]--></main> <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom svelte-wncecx" aria-label="メインナビゲーション" data-tutorial="nav-primary"><!--[-1--><!--]--> <div class="flex justify-around items-center h-16 svelte-wncecx"><a href="/admin" class="mobile-nav-item  svelte-wncecx"><span class="text-xl svelte-wncecx" aria-hidden="true">🏠</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">ホーム</span></a> <!--[--><button type="button" class="mobile-nav-item mobile-nav-item--active  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">🎮</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">活動</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">📊</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">記録</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">⚙️</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">設定</span></button><!--]--></div></nav> <!--[0--><!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s5--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s6--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----><!--]--></div><!----> <!--[--><!--$s7--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <div class="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-20"><button class="tap-target inline-flex items-center justify-center gap-1 font-medium transition-colors bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 p-2 text-base rounded-lg !rounded-full shadow-lg !p-3" aria-label="ご意見・不具合報告" title="ご意見・不具合報告" data-testid="feedback-fab"><span class="text-xl">💬</span><!----></button><!----></div><!----> <!--[--><!--$s8--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----><!--]--><!--]--><!----><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="admin" data-plan="family" class="admin-shell svelte-wncecx"><header class="admin-header sticky top-0 z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3 svelte-wncecx"><div class="max-w-4xl mx-auto flex items-center justify-between svelte-wncecx"><div class="flex items-center gap-2 svelte-wncecx"><a href="/admin" class="flex items-center svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="140" height="57" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></a> <!--[-1--><!--]--></div> <div class="flex items-center gap-2 svelte-wncecx"><!--[1--><span class="plan-badge plan-badge--family svelte-wncecx">ファミリープラン</span><!--]--> <!--[1--><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] header-tutorial-btn" title="チュートリアルを開始" data-tutorial="tutorial-restart"><!---->?<!----></button><!--]--><!----><!--]--> <a href="/switch" class="header-switch-link svelte-wncecx" data-tutorial="switch-to-child"><span aria-hidden="true" class="svelte-wncecx">←</span> 子供画面へ</a></div></div></header> <nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2 svelte-wncecx" aria-label="管理メニュー" data-tutorial="nav-desktop"><div class="max-w-4xl mx-auto flex gap-1 svelte-wncecx"><a href="/admin" class="nav-item  svelte-wncecx"><span aria-hidden="true" class="svelte-wncecx">🏠</span> ホーム</a> <!--[--><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item nav-item--active svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">🎮</span> 活動 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">📊</span> 記録 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">⚙️</span> 設定 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><!--]--></div></nav> <main class="max-w-4xl mx-auto p-4 pb-24 md:pb-4 svelte-wncecx"><!--[-1--><!--[-1--><!--]--> <!--[-1--><!--[--><div class="space-y-4"><!--[-1--><!--]--> <!--[-1--><!----><div class="bg-[var(--color-premium-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-premium)] svelte-a8po0o" data-testid="ai-suggest-checklist-panel" data-plan-locked="false"><h3 class="font-bold text-[var(--color-premium)] svelte-a8po0o">✨ どんなもちものが必要？ <!----></h3> <p class="text-xs text-[var(--color-premium-light)] svelte-a8po0o">シーンや学年を入力すると、持ち物リストを自動で提案します</p> <!----> <div class="flex gap-2 svelte-a8po0o"><input type="text" class="flex-1 px-3 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed svelte-a8po0o" placeholder="例: 小学3年生の月曜日の持ち物、えんそく、プール" style=""> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " type="button" disabled=""><!---->提案する<!----></button><!----></div> <!----> <!----> <!----></div><!----> <form method="POST" action="?/createFromAi" class="hidden"><input type="hidden" name="childId" value="1" style=""> <input type="hidden" name="templateName" style=""> <input type="hidden" name="templateIcon" style=""> <input type="hidden" name="items" style=""></form> <!----><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] "><!----> <div class="p-6"><div class="space-y-3" data-testid="marketplace-import-section"><div class="flex items-center justify-between"><h2 class="text-sm font-bold text-[var(--color-text-primary)]">🏪 マーケットプレイスから一括追加</h2> <a href="/marketplace?type=checklist" class="text-xs text-[var(--color-action-primary)] hover:underline">すべてのチェックリストを見る →</a></div> <p class="text-xs text-[var(--color-text-tertiary)]">季節やイベント時の持ち物リストをワンタップで取込めます（重複時はスキップ）</p> <!----> <div class="space-y-2"><div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--color-surface-muted)]" data-testid="marketplace-preset-row-event-school-start"><span class="text-2xl">🎒</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-2"><span class="text-sm font-medium text-[var(--color-text-primary)] truncate">にゅうえん・にゅうがく じゅんび</span> <!----></div> <p class="text-xs text-[var(--color-text-tertiary)] truncate">入園・入学の直前に家族でそろえておきたい持ち物を、最大公約数でまとめたチェックリスト。</p> <p class="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">11項目</p></div> <form method="POST" action="?/importMarketplace"><input type="hidden" name="childId" value="1" style=""> <input type="hidden" name="presetId" value="event-school-start" style=""> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " type="submit" data-testid="marketplace-preset-import-event-school-start">一括追加<!----></button><!----></form></div><div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--color-surface-muted)]" data-testid="marketplace-preset-row-event-pool"><span class="text-2xl">🏊</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-2"><span class="text-sm font-medium text-[var(--color-text-primary)] truncate">プールの もちもの</span> <!----></div> <p class="text-xs text-[var(--color-text-tertiary)] truncate">小学校・幼稚園のプール授業・習い事の水泳教室で忘れがちな持ち物をカバーします。</p> <p class="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">10項目</p></div> <form method="POST" action="?/importMarketplace"><input type="hidden" name="childId" value="1" style=""> <input type="hidden" name="presetId" value="event-pool" style=""> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " type="submit" data-testid="marketplace-preset-import-event-pool">一括追加<!----></button><!----></form></div><div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--color-surface-muted)]" data-testid="marketplace-preset-row-event-field-trip"><span class="text-2xl">🗺️</span> <div class="flex-1 min-w-0"><div class="flex items-center gap-2"><span class="text-sm font-medium text-[var(--color-text-primary)] truncate">えんそく・こうがいがくしゅう もちもの</span> <!----></div> <p class="text-xs text-[var(--color-text-tertiary)] truncate">遠足・校外学習・社会科見学の前日に親子で確認したい持ち物リストです。</p> <p class="text-[10px] text-[var(--color-text-tertiary)] mt-0.5">12項目</p></div> <form method="POST" action="?/importMarketplace"><input type="hidden" name="childId" value="1" style=""> <input type="hidden" name="presetId" value="event-field-trip" style=""> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " type="submit" data-testid="marketplace-preset-import-event-field-trip">一括追加<!----></button><!----></form></div></div></div><!----></div> <!----></section><!----> <!----><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] "><!----> <div class="p-6"><div class="text-center text-[var(--color-text-tertiary)]"><p class="text-3xl mb-2">🎒</p> <p>持ち物チェックリストがまだありません</p></div><!----></div> <!----></section><!----> <!----> <!----> <div class="flex gap-2 items-center"><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 flex-1">+ テンプレート作成<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--theme-primary)] border-2 border-[var(--theme-primary)] hover:bg-[color-mix(in_srgb,var(--theme-primary)_10%,transparent)] active:bg-[color-mix(in_srgb,var(--theme-primary)_20%,transparent)] px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 flex-1">📅 ワンオフ追加<!----></button><!----> <!----></div> <!----><!--]--></div> <!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!--]--><!--]--><!----><!----><!--]--></main> <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom svelte-wncecx" aria-label="メインナビゲーション" data-tutorial="nav-primary"><!--[-1--><!--]--> <div class="flex justify-around items-center h-16 svelte-wncecx"><a href="/admin" class="mobile-nav-item  svelte-wncecx"><span class="text-xl svelte-wncecx" aria-hidden="true">🏠</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">ホーム</span></a> <!--[--><button type="button" class="mobile-nav-item mobile-nav-item--active  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">🎮</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">活動</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">📊</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">記録</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">⚙️</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">設定</span></button><!--]--></div></nav> <!--[0--><!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s5--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s6--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----><!--]--></div><!----> <!--[--><!--$s7--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <div class="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-20"><button class="tap-target inline-flex items-center justify-center gap-1 font-medium transition-colors bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 p-2 text-base rounded-lg !rounded-full shadow-lg !p-3" aria-label="ご意見・不具合報告" title="ご意見・不具合報告" data-testid="feedback-fab"><span class="text-xl">💬</span><!----></button><!----></div><!----> <!--[--><!--$s8--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----><!--]--><!--]--><!----><!--]--><!--]--> <!--[-1--><div id="svelte-announcer" aria-live="assertive" aria-atomic="true" style="position: absolute; left: 0; top: 0; clip: rect(0 0 0 0); clip-path: inset(50%); overflow: hidden; white-space: nowrap; width: 1px; height: 1px"><!----></div><!--]--><!--]-->
 			
 			<script>
 				{
@@ -5425,7 +5511,7 @@ h1, h2, h3, h4 {
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 4, 31],
-							data: [{type:"data",data:{role:"owner",requestId:"7cff9752-d169-4efe-89b6-ca883ebd09a3",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"local",tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null}},uses:{}},{type:"data",data:{children:[{id:1,nickname:"test",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-16 23:26:38",updatedAt:"2026-05-16 23:26:38",_sv:3,isArchived:0,archivedReason:null,templates:[],overrides:[]}],today:"2026-05-17",isPremium:true,checklistTemplateMax:null,marketplaceChecklists:[{itemId:"event-school-start",name:"にゅうえん・にゅうがく じゅんび",description:"入園・入学の直前に家族でそろえておきたい持ち物を、最大公約数でまとめたチェックリスト。",icon:"🎒",targetAgeMin:3,targetAgeMax:7,tags:["イベント","春","入園","入学"],itemCount:11},{itemId:"event-pool",name:"プールの もちもの",description:"小学校・幼稚園のプール授業・習い事の水泳教室で忘れがちな持ち物をカバーします。",icon:"🏊",targetAgeMin:4,targetAgeMax:12,tags:["イベント","夏","プール","水泳"],itemCount:10},{itemId:"event-field-trip",name:"えんそく・こうがいがくしゅう もちもの",description:"遠足・校外学習・社会科見学の前日に親子で確認したい持ち物リストです。",icon:"🗺️",targetAgeMin:4,targetAgeMax:12,tags:["イベント","遠足","校外学習"],itemCount:12}]},uses:{}}],
+							data: [{type:"data",data:{role:"owner",requestId:"c1546165-b541-456d-903a-2240d19959af",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"local",tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null}},uses:{}},{type:"data",data:{children:[{id:1,nickname:"test",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-16 23:26:38",updatedAt:"2026-05-16 23:26:38",_sv:3,isArchived:0,archivedReason:null,templates:[],overrides:[]}],today:"2026-05-17",isPremium:true,checklistTemplateMax:null,marketplaceChecklists:[{itemId:"event-school-start",name:"にゅうえん・にゅうがく じゅんび",description:"入園・入学の直前に家族でそろえておきたい持ち物を、最大公約数でまとめたチェックリスト。",icon:"🎒",targetAgeMin:3,targetAgeMax:7,tags:["イベント","春","入園","入学"],itemCount:11},{itemId:"event-pool",name:"プールの もちもの",description:"小学校・幼稚園のプール授業・習い事の水泳教室で忘れがちな持ち物をカバーします。",icon:"🏊",targetAgeMin:4,targetAgeMax:12,tags:["イベント","夏","プール","水泳"],itemCount:10},{itemId:"event-field-trip",name:"えんそく・こうがいがくしゅう もちもの",description:"遠足・校外学習・社会科見学の前日に親子で確認したい持ち物リストです。",icon:"🗺️",targetAgeMin:4,targetAgeMax:12,tags:["イベント","遠足","校外学習"],itemCount:12}]},uses:{}}],
 							form: null,
 							error: null
 						});
@@ -5447,4 +5533,49 @@ h1, h2, h3, h4 {
 		</div>
 	
 
-</body></html>
+<!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s1:backdrop" data-state="closed" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s1:positioner" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s1:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s1:title" aria-describedby="dialog:s1:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s1:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->持ち物チェックリスト作成</h2><!----> <form method="POST" action="?/createTemplate" class="space-y-4"><input type="hidden" name="childId" value="1" style=""> <div class="flex flex-col gap-1  svelte-pwdxgn"><label class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn" for="field-名前">名前</label> <div class="relative svelte-pwdxgn"><input type="text" id="field-名前" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+					border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+					focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+					 svelte-pwdxgn" name="name" placeholder="例: がっこうのもちもの" required="" style=""> <!----></div><!----> <!----></div><!----> <div><span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span> <div class="flex gap-1 flex-wrap"><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl ring-2 ring-[var(--color-border-focus)] bg-[var(--color-feedback-info-bg)]" type="button">📋<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🎒<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🏫<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">📚<!----></button></div> <input type="hidden" name="icon" value="📋" style=""></div> <div class="flex flex-col gap-1  svelte-pwdxgn"><label class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn" for="field-時間帯">時間帯</label> <!----><!----><div class="flex flex-col gap-1 "><!----> <select id="native-select-field-b4z7jz" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+			border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+			focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+			disabled:opacity-50 disabled:cursor-not-allowed" name="timeSlot"><!----><option value="anytime">🕐 いつでも</option><option value="morning">☀️ あさ</option><option value="afternoon">🌤️ ひる</option><option value="evening">🌙 よる</option><!----></select> <!----></div><!----> <!----></div><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" type="submit">作成<!----></button><!----></form><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s1:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s2:backdrop" data-state="closed" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s2:positioner" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s2:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s2:title" aria-describedby="dialog:s2:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s2:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->アイテム追加</h2><!----> <form method="POST" action="?/addItem" class="space-y-4"><input type="hidden" name="templateId" value="0" style=""> <div class="flex flex-col gap-1  svelte-pwdxgn"><label class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn" for="field-名前">名前</label> <div class="relative svelte-pwdxgn"><input type="text" id="field-名前" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+					border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+					focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+					 svelte-pwdxgn" name="name" placeholder="例: ハンカチ" required="" style=""> <!----></div><!----> <!----></div><!----> <div><span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span> <div class="flex gap-1 flex-wrap"><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl ring-2 ring-[var(--color-border-focus)] bg-[var(--color-feedback-info-bg)]" type="button">🏫<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">👕<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">👟<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🎨<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🎵<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">📚<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🧹<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🍱<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">💧<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">📦<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🎒<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">✏️<!----></button></div> <input type="hidden" name="icon" value="🏫" style=""></div> <div class="flex flex-col gap-1  svelte-pwdxgn"><label class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn" for="field-頻度">頻度</label> <!----><!----><div class="flex flex-col gap-1 "><!----> <select id="native-select-field-0earx5" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+			border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+			focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+			disabled:opacity-50 disabled:cursor-not-allowed" name="frequency"><!----><option value="daily">まいにち</option><option value="weekday:月">月よう</option><option value="weekday:火">火よう</option><option value="weekday:水">水よう</option><option value="weekday:木">木よう</option><option value="weekday:金">金よう</option><option value="weekday:土">土よう</option><!----></select> <!----></div><!----> <!----></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn" for="field-方向">方向</label> <!----><!----><div class="flex flex-col gap-1 "><!----> <select id="native-select-field-mzs3dl" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+			border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+			focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+			disabled:opacity-50 disabled:cursor-not-allowed" name="direction"><!----><option value="bring">持参</option><option value="return">持帰</option><option value="both">往復</option><!----></select> <!----></div><!----> <!----></div><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" type="submit">追加<!----></button><!----></form><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s2:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s3:backdrop" data-state="closed" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s3:positioner" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s3:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s3:title" aria-describedby="dialog:s3:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s3:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->ワンオフ追加/除外</h2><!----> <form method="POST" action="?/addOverride" class="space-y-4"><input type="hidden" name="childId" value="1" style=""> <div class="flex flex-col gap-1  svelte-pwdxgn"><label class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn" for="field-日付">日付</label> <div class="relative svelte-pwdxgn"><input type="date" id="field-日付" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+					border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+					focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+					 svelte-pwdxgn" name="targetDate" required="" style=""> <!----></div><!----> <!----></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn" for="field-操作">操作</label> <!----><!----><div class="flex flex-col gap-1 "><!----> <select id="native-select-field-ps1wbp" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+			border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+			focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+			disabled:opacity-50 disabled:cursor-not-allowed" name="action"><!----><option value="add">追加</option><option value="remove">除外</option><!----></select> <!----></div><!----> <!----></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn" for="field-アイテム名">アイテム名</label> <div class="relative svelte-pwdxgn"><input type="text" id="field-アイテム名" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm
+					border-[var(--input-border)] focus:border-[var(--input-border-focus)]
+					focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors
+					 svelte-pwdxgn" name="itemName" placeholder="例: リュック（遠足）" required="" style=""> <!----></div><!----> <!----></div><!----> <div><span class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">アイコン</span> <div class="flex gap-1 flex-wrap"><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🏫<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">👕<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">👟<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🎨<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🎵<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">📚<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🧹<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🍱<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">💧<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl ring-2 ring-[var(--color-border-focus)] bg-[var(--color-feedback-info-bg)]" type="button">📦<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">🎒<!----></button><!----><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] w-10 h-10 text-xl bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface-secondary)]" type="button">✏️<!----></button></div> <input type="hidden" name="icon" value="📦" style=""></div> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" type="submit">追加<!----></button><!----></form><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s3:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s4:backdrop" data-state="closed" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s4:positioner" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s4:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s4:title" aria-describedby="dialog:s4:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]" data-testid="tutorial-resume-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s4:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->チュートリアルの続き</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">前回の途中から続けますか？</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] ">キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] ">最初から<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] ">続きから<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s5:backdrop" data-state="closed" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s5:positioner" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s5:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s5:title" aria-describedby="dialog:s5:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]" data-testid="tutorial-quick-complete-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s5:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->基本の使い方を確認しました！</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">ここからは実際にお子さまを登録して使い始めましょう。</p> <p class="dialog-hint svelte-1hkj8k9">残りのガイド（活動管理・報酬・レポートなど）は、いつでもヘッダーの「❓」ボタンから確認できます。</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] ">もっと詳しく見る<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] ">使い始める<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s6:backdrop" data-state="closed" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s6:positioner" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s6:content" tabindex="-1" data-state="closed" aria-modal="true" aria-label="チュートリアル終了確認" aria-labelledby="dialog:s6:title" aria-describedby="dialog:s6:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]" data-testid="tutorial-exit-confirm-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s6:title" class="sr-only"><!---->チュートリアル終了確認</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">チュートリアルを終了しますか？</p> <p class="dialog-hint svelte-1hkj8k9">進捗は保存されるので、後から続きを再開できます。</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] ">続ける<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--color-danger)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] ">終了する<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s6:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s7:backdrop" data-state="closed" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s7:positioner" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s7:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s7:title" aria-describedby="dialog:s7:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]" data-testid="trial-ended-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s7:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->無料体験が終了しました</h2><!----> <div class="trial-ended-body svelte-d5o3di"><div class="trial-ended-icon svelte-d5o3di" aria-hidden="true">📦</div> <p class="trial-ended-message svelte-d5o3di">無料体験期間が終了しました。<br class="svelte-d5o3di"> フリープランの範囲内で引き続きご利用いただけます。</p> <ul class="trial-ended-notes svelte-d5o3di"><li class="svelte-d5o3di">オリジナル活動やチェックリストの超過分は一時的に非表示になります</li> <li class="svelte-d5o3di">データは削除されません — アップグレードで復活します</li></ul> <div class="trial-ended-actions svelte-d5o3di"><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--color-warning)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" data-testid="trial-ended-upgrade-cta">⭐ プランを見る<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " data-testid="trial-ended-dismiss">あとで<!----></button><!----></div></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s7:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s8:backdrop" data-state="closed" class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity"><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s8:positioner" class="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s8:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s8:title" aria-describedby="dialog:s8:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)]" data-testid="feedback-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s8:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->ご意見・不具合報告</h2><!----> <!----><form class="space-y-4" data-testid="feedback-form"><!----> <!----><!----><!----><!----><div data-scope="select" data-part="root" dir="ltr" id="select:c1"><!----><div class="flex flex-col gap-1 "><!----><!----><!----><label dir="ltr" id="select:c1:label" data-scope="select" data-part="label" for="select:c1:select" class="text-sm font-medium text-[var(--color-text)]"><!---->種別</label><!----> <!----><!----><!----><div data-scope="select" data-part="control" dir="ltr" id="select:c1:control" data-state="closed"><!----><!----><!----><!----><!----><button id="select:c1:trigger" dir="ltr" type="button" role="combobox" aria-controls="select:c1:content" aria-expanded="false" aria-haspopup="listbox" data-state="closed" aria-invalid="false" aria-required="false" aria-labelledby="select:c1:label" data-scope="select" data-part="trigger" data-placeholder-shown="" class="w-full flex items-center justify-between px-3 py-2 border rounded-[var(--input-radius)]
+					bg-[var(--input-bg)] text-sm transition-colors
+					border-[var(--input-border)] hover:border-[var(--color-border-strong)]
+					disabled:opacity-50 disabled:cursor-not-allowed"><!----><!----><!----><!----><!----><span data-scope="select" data-part="value-text" dir="ltr" placeholder="選択してください" class="truncate"><!----><!---->選択してください</span><!----> <span class="text-[var(--color-text-muted)] text-xs ml-2">▼</span></button></div><!----> <!----></div> <!----><!----></div><!----> <div class="flex flex-col gap-1"><label for="feedback-text" class="text-sm font-medium text-[var(--color-text)]">内容</label> <textarea id="feedback-text" data-testid="feedback-text" rows="5" placeholder="お気づきの点やご要望をお聞かせください" class="w-full px-3 py-2 border rounded-lg text-sm resize-y
+						border-[var(--color-border-default)]
+						focus:outline-none focus:ring-2 focus:ring-[var(--color-border-focus)]
+						" style=""></textarea> <div class="flex justify-end text-xs text-[var(--color-text-disabled)]">0 / 1000</div></div> <div class="flex flex-col gap-1"><span class="text-sm font-medium text-[var(--color-text)]">スクリーンショット（任意）</span> <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed cursor-pointer
+						border-[var(--color-border-default)] hover:border-[var(--color-border-strong)]
+						text-sm text-[var(--color-text-secondary)]"><span>📷</span> <span>画像を選択（最大 2MB）</span> <input type="file" accept="image/*" class="hidden" data-testid="feedback-screenshot-input" style=""></label><!----></div> <!----> <div class="flex gap-2 justify-end"><!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] ">キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " type="submit" disabled="" data-testid="feedback-submit"><!---->送信する<!----></button><!----></div></form><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s8:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="select" data-part="positioner" dir="ltr" id="select:c1:positioner" style="position: absolute; isolation: isolate; width: var(--reference-width); pointer-events: none; top: 0px; left: 0px; transform: translate3d(0px, -100vh, 0px); z-index: var(--z-index);"><!----><!----><!----><!----><!----><!----><div hidden="" dir="ltr" id="select:c1:content" role="listbox" data-scope="select" data-part="content" data-state="closed" aria-labelledby="select:c1:label" tabindex="0" class="bg-white border border-[var(--color-border-default)] rounded-[var(--input-radius)]
+					shadow-lg py-1 max-h-60 overflow-auto z-50"><!----><!----><!----><!----><!----><!----><div id="select:c1:option:opinion" role="option" data-scope="select" data-part="item" dir="ltr" data-value="opinion" aria-selected="false" data-state="unchecked" class="flex items-center px-3 py-2 text-sm cursor-pointer
+							hover:bg-[var(--color-surface-muted)] transition-colors
+							data-[highlighted]:bg-[var(--color-surface-muted)]
+							data-[state=checked]:text-[var(--theme-primary)] data-[state=checked]:font-bold"><!----><!----><!----><!----><!----><span data-scope="select" data-part="item-text" data-state="unchecked"><!---->ご意見</span><!----> <!----><!----><!----><div aria-hidden="true" data-scope="select" data-part="item-indicator" data-state="unchecked" hidden="" class="ml-auto text-[var(--theme-primary)]"><!---->✓</div><!----></div><!----><!----><!----><!----><div id="select:c1:option:bug" role="option" data-scope="select" data-part="item" dir="ltr" data-value="bug" aria-selected="false" data-state="unchecked" class="flex items-center px-3 py-2 text-sm cursor-pointer
+							hover:bg-[var(--color-surface-muted)] transition-colors
+							data-[highlighted]:bg-[var(--color-surface-muted)]
+							data-[state=checked]:text-[var(--theme-primary)] data-[state=checked]:font-bold"><!----><!----><!----><!----><!----><span data-scope="select" data-part="item-text" data-state="unchecked"><!---->不具合報告</span><!----> <!----><!----><!----><div aria-hidden="true" data-scope="select" data-part="item-indicator" data-state="unchecked" hidden="" class="ml-auto text-[var(--theme-primary)]"><!---->✓</div><!----></div><!----><!----><!----><!----><div id="select:c1:option:feature" role="option" data-scope="select" data-part="item" dir="ltr" data-value="feature" aria-selected="false" data-state="unchecked" class="flex items-center px-3 py-2 text-sm cursor-pointer
+							hover:bg-[var(--color-surface-muted)] transition-colors
+							data-[highlighted]:bg-[var(--color-surface-muted)]
+							data-[state=checked]:text-[var(--theme-primary)] data-[state=checked]:font-bold"><!----><!----><!----><!----><!----><span data-scope="select" data-part="item-text" data-state="unchecked"><!---->機能要望</span><!----> <!----><!----><!----><div aria-hidden="true" data-scope="select" data-part="item-indicator" data-state="unchecked" hidden="" class="ml-auto text-[var(--theme-primary)]"><!---->✓</div><!----></div><!----><!----><!----><!----><div id="select:c1:option:other" role="option" data-scope="select" data-part="item" dir="ltr" data-value="other" aria-selected="false" data-state="unchecked" class="flex items-center px-3 py-2 text-sm cursor-pointer
+							hover:bg-[var(--color-surface-muted)] transition-colors
+							data-[highlighted]:bg-[var(--color-surface-muted)]
+							data-[state=checked]:text-[var(--theme-primary)] data-[state=checked]:font-bold"><!----><!----><!----><!----><!----><span data-scope="select" data-part="item-text" data-state="unchecked"><!---->その他</span><!----> <!----><!----><!----><div aria-hidden="true" data-scope="select" data-part="item-indicator" data-state="unchecked" hidden="" class="ml-auto text-[var(--theme-primary)]"><!---->✓</div><!----></div></div></div></body></html>
