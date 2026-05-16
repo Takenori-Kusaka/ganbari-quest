@@ -293,13 +293,13 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 			}
 		});
 
-		it('demo Fn は ARM64 + 256MB memory', () => {
+		it('demo Fn は ARM64 + 512MB memory (本番と同値、cold start OOM 回避、hotfix #4 2026-05-16)', () => {
 			const template = computeTemplate;
 
 			template.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-app-demo',
 				Architectures: ['arm64'],
-				MemorySize: 256,
+				MemorySize: 512,
 			});
 		});
 
