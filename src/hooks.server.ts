@@ -38,7 +38,9 @@ import { isSetupRequired } from '$lib/server/services/setup-service';
 // #806: production で AWS_LICENSE_SECRET が未設定だと署名付きキーの偽造が可能になる。
 // モジュールロード時に明示的に失敗させることで、誤デプロイを早期検知する。
 // `building` は vite build / prerender 中のみ true。ビルド時は env が無くても通す。
-if (!building) {
+// ADR-0048: AUTH_MODE=anonymous (demo Lambda) はライセンスキー機能を持たないため assert 不要
+// (AnonymousAuthProvider が licenseStatus=ACTIVE を返すスタブで、署名検証は走らない)。
+if (!building && env.AUTH_MODE !== 'anonymous') {
 	assertLicenseKeyConfigured();
 }
 
