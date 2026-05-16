@@ -246,7 +246,7 @@ jobs:
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}
 
       # Phase 4: Update Lambda to use the new image
-      - name: Update Lambda function image
+      - name: Update Lambda function image (production)
         env:
           ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
@@ -256,11 +256,33 @@ jobs:
             --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             --region $AWS_REGION
 
-      - name: Wait for Lambda update
+      - name: Wait for Lambda update (production)
         run: |
           aws lambda wait function-updated \
             --function-name $LAMBDA_FUNCTION \
             --region $AWS_REGION
+
+      # ADR-0048 hotfix #6 (2026-05-16): demo Lambda は `latest` タグで CDK 管理されるため
+      # CloudFormation が新しい image push を検知できない (production と同じ問題)。
+      # production と同じく aws lambda update-function-code で SHA タグ image に明示更新する。
+      # 該当しない時のスキップ条件: demo Lambda がまだ存在しない (初回 deploy 前)。
+      - name: Update Lambda function image (demo)
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          if aws lambda get-function --function-name ganbari-quest-app-demo --region $AWS_REGION > /dev/null 2>&1; then
+            aws lambda update-function-code \
+              --function-name ganbari-quest-app-demo \
+              --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+              --region $AWS_REGION
+            aws lambda wait function-updated \
+              --function-name ganbari-quest-app-demo \
+              --region $AWS_REGION
+            echo "::notice::demo Lambda image updated to $IMAGE_TAG"
+          else
+            echo "::notice::demo Lambda not yet deployed; skipping image update"
+          fi
 
       # #1586: cron-dispatcher Lambda の env 注入が正しいか dryRun で検証する。
       # Issue #1586 では PR#1509 マージ後 2 日間 dispatcher が CRON_SECRET 未注入のまま
