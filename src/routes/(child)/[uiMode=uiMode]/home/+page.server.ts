@@ -362,7 +362,12 @@ export const actions: Actions = {
 	loginStamp: async ({ cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const childId = Number(cookies.get('selectedChildId'));
-		if (Number.isNaN(childId)) return fail(400, { error: 'パラメータが不正です' });
+		// Issue #2097 B-14a: anonymous / demo flow without selectedChildId cookie is expected.
+		// Previously returned fail(400) which triggered client retry storm (17-52 retries observed).
+		// Return a successful no-op shape so client skips stampPress transition without retrying.
+		if (Number.isNaN(childId)) {
+			return { success: false, loginStamp: false, reason: 'no-child-selected' as const };
+		}
 
 		// 1. Record login (for consecutive day tracking + multiplier)
 		const bonusResult = await claimLoginBonus(childId, tenantId);
