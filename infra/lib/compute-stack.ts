@@ -352,6 +352,11 @@ export class ComputeStack extends cdk.Stack {
 				BODY_SIZE_LIMIT: '10485760',
 				ORIGIN: 'https://demo.ganbari-quest.com',
 				MAINTENANCE_MODE: 'false',
+				// hotfix #5 (2026-05-16): src/lib/server/db/client.ts L12 が `new Database(DATABASE_URL)` を
+				// 無条件にモジュールロード時に呼ぶ。DATA_SOURCE=demo でも実行され、defaults `./data/ganbari-quest.db`
+				// は Lambda の cwd `/var/task` (read-only) で失敗 → Lambda 起動 502。本番と同じ `/tmp` 配置で
+				// 空 SQLite ファイル作成、demo Repository は factory.ts で別途選択されるためアプリ層では使わない。
+				DATABASE_URL: '/tmp/ganbari-quest.db',
 				// 本番 secret は意図的に NO INJECT:
 				//   - DYNAMODB_TABLE / TABLE_NAME / ASSETS_BUCKET (DynamoDB / S3)
 				//   - COGNITO_* / CONTEXT_TOKEN_SECRET (Cognito)
