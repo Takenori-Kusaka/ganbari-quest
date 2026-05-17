@@ -111,7 +111,8 @@
 - `src/routes/demo/**` 並行実装が構造的に発生しない (demo Lambda は同 codebase + env 駆動)
 - production schema 変更時、demo Lambda は ECR 同 image を共有するため **再 build で自動追従**
 - 過去 8 回失敗の構造原因 (並行実装 / cookie 漏れ / auth bypass 混入) が **物理的に発生不可能**
-- **legacy `/demo` 完全撤去 (#2097 PR-B2 + PR-B3、2026-05-17)**: `src/routes/demo/**` 配下 47 file (PR-B2: child 14 + PR-B3: parent admin 29 + root 5 - DashboardView 1 = 47) を物理削除完了。`legacy-url-map.ts` に 30+ entries (child 11 + admin 17 + root 3) を永久保持で追加し、bookmark / 外部リンクからの旧 URL アクセスは全件 308 で本番 path に救済。本撤去で「demo Lambda は本番 routes のみ稼働 + env 駆動で振る舞いを切替」の理想形が達成され、`/demo` 経路の cookie 機構 (`gq_demo` / `gq_demo_plan`) も PR-B4 (#2189) で env-only 化により完全撤去予定 (本決定の最終 milestone)
+- **legacy `/demo` 完全撤去 (#2097 PR-B2 + PR-B3、2026-05-17)**: `src/routes/demo/**` 配下 47 file (PR-B2: child 14 + PR-B3: parent admin 29 + root 5 - DashboardView 1 = 47) を物理削除完了。`legacy-url-map.ts` に 30+ entries (child 11 + admin 17 + root 3) を永久保持で追加し、bookmark / 外部リンクからの旧 URL アクセスは全件 308 で本番 path に救済
+- **demo 検出 env-only 単一化完了 (#2097 PR-B4、2026-05-17、本 ADR の最終 milestone)**: `src/hooks.server.ts` の `resolveDemoActive()` から legacy 3 signal (query `?mode=demo` / cookie `gq_demo=1` / path `/demo/*`) を全撤去し、`resolveDemoActive(env)` = `AUTH_MODE=anonymous && DATA_SOURCE=demo` の env-only 純関数 1 行に統一。`isDemoLambda()` / `DEMO_MODE_COOKIE` / `DEMO_MODE_COOKIE_MAX_AGE` / `/demo/exit` 専用ハンドラ全削除。これで「demo Lambda は本番 routes のみ稼働 + env 駆動で振る舞いを切替」の理想形が達成され、cookie / query / path のいずれも `event.locals.isDemo` 判定経路として残らない構造保証となる。`?plan=` クエリ + `demo_plan` cookie (#760 demo 内プラン切替) は demo Lambda 上で意味があるため維持
 
 ### リスク
 
@@ -124,7 +125,7 @@
 1. **週 1**: ADR-0048 起票 (本 PR、`ADR-0017 → archive` 1-in-1-out 同梱)、Issue #2097 を Multi-Lambda 方向に書き換え
 2. **週 2-3**: `factory.ts` `DATA_SOURCE=demo` 拡張 + 35 demo Repository 実装 (`src/lib/server/db/demo/*.ts`) + `AnonymousAuthProvider` 実装
 3. **週 4**: CDK `ComputeStack` に `SvelteKitDemoFn` + `demo-lambda-role` 追加、CloudFront alt domain + Route 53 record
-4. **週 5**: hooks.server.ts から demo cookie / `locals.isDemo` 検出を削除 (env 駆動になるため不要)、LP demo リンクを `demo.ganbari-quest.com` に再変更
+4. **週 5**: hooks.server.ts から demo cookie / `locals.isDemo` 検出を削除 (env 駆動になるため不要、PR-B4 #2189 で完了)、LP demo リンクを `demo.ganbari-quest.com` に再変更
 5. **週 6**: E2E test 更新、5 年齢モード SS 視覚等価性検証、PR Ready 化
 
 ## 関連 Issue

@@ -77,7 +77,7 @@ const isScreenshotAll = $derived(kind === 'all');
 
 - 子供 routes: `npm run capture:child` / 管理画面: `npm run capture:admin` / LP: `npm run capture:lp`
 - preschool モード: `node scripts/capture.mjs --flow child-home-preschool --url /switch --presets mobile`
-- デモ Cookie (`gq_demo=1`) 残存で `isDemo=true` になり子供一覧が空になる → `/demo/exit` または `clearCookies()`
+- demo モードは **env で起動** する (ADR-0048 / #2189 PR-B4 で cookie/query signal 撤去済): `AUTH_MODE=anonymous DATA_SOURCE=demo npm run preview` 等。ローカル開発で誤って demo に入った場合は env を unset して再起動するだけで本番モードに戻る
 
 #### rebase 後の screenshots branch push 必須（#2063）
 

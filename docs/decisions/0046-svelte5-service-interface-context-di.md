@@ -77,6 +77,16 @@ Ready 化、auto-merge / Dev 自律 Ready 禁止)。
 
 詳細: [ADR-0047](0047-demo-prod-ui-contract-ssot.md) / 深層調査: `docs/research/2097-demo-prod-unification-architecture-deep-research.md`
 
+## POC scope の最終 milestone — Multi-Lambda + env-only 統一 (2026-05-17、Issue #2097 PR-B2/B3/B4)
+
+本 ADR の POC (child home 1 ページの DI 統合) は **ADR-0048 Multi-Lambda Demo Deployment 採用 + #2097 EPIC 完遂** により最終形態に到達した。
+
+- **PR-B2 (#2202 merged)**: `DashboardView` 撤廃 + `src/routes/demo/(child)/**` 14 file 削除。Service Interface + Context DI は本番 routes (`(child)/[uiMode=uiMode]/`) でそのまま生き、demo Lambda は env (`DATA_SOURCE=demo`) で `DemoDashboardService` を選択して同じ本番 UI を駆動する形に純化
+- **PR-B3 (#2188 merged)**: `src/routes/demo/(parent)/admin/**` 29 file + `src/routes/demo/+layout.{server,svelte}` + `+page.{server,svelte}` + `signup/+page.svelte` 全 33 file 削除。`legacy-url-map.ts` に永久 308 redirect を追加し bookmark / 外部リンクを救済
+- **PR-B4 (#2189 merged、本 ADR の最終 milestone)**: `src/hooks.server.ts` の demo 判定を env-only (`AUTH_MODE=anonymous && DATA_SOURCE=demo`) に単一化。legacy 3 signal (query `?mode=demo` / cookie `gq_demo=1` / path `/demo/*`) と `isDemoLambda()` / `DEMO_MODE_COOKIE` / `/demo/exit` 専用ハンドラ全撤去。POC で確立した「Service Interface 越しに本番 / demo を切替」の上に「env 1 軸で Lambda レベル切替」が完成し、`if (isDemo)` 散在を構造的に発生不可能化
+
+POC scope (child home 1 ページの DI 統合) は当初 follow-up Issue で admin / 他 child pages に段階展開する予定だったが、ADR-0048 Multi-Lambda 採用により **本番 routes のみが SSOT、demo Lambda は同 codebase を env 駆動で host** という更にクリーンな分離が達成されたため、Service Interface + Context DI 機構は本番 routes 内で継続活用 (write API 拡張 / プロダクション内 SSR/CSR 整合性) という位置付けに更新される。
+
 ## 関連
 
 - `parallel-implementations.md` §3 (本番 vs demo)

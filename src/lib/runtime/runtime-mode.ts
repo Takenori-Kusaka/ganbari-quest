@@ -18,7 +18,8 @@
  * 優先順位:
  * 1. `env.APP_MODE` が明示設定されていれば、無条件でそれを返す（override）
  * 2. `isBuilding === true` なら `'build'`
- * 3. `isDemoRequest === true`（hooks.server.ts で resolveDemoActive から決まる）なら `'demo'`
+ * 3. `isDemoRequest === true`（hooks.server.ts で env-only `resolveDemoActive(env)` から
+ *    決まる、ADR-0048 / #2189）なら `'demo'`
  * 4. `isDemoRequest` 未指定 + pathname が `/demo` / `/demo/...` なら `'demo'`（後方互換）
  * 5. `env.IS_NUC_DEPLOY === true` なら `'nuc-prod'`
  * 6. `env.AWS_LAMBDA_FUNCTION_NAME` が設定されていれば `'aws-prod'`
@@ -30,9 +31,10 @@
  *   nuc-prod の本番環境でデモを公開するユースケースがあり得るため。
  * - `APP_MODE` が最優先なのは、テスト／デバッグで意図的にモードを固定したい場合に
  *   他の条件（Lambda か否か等）と戦わずに済むようにするため。
- * - `isDemoRequest` は ADR-0039 / #1199 準拠。hooks.server.ts が `?mode=demo` /
- *   cookie `gq_demo=1` / `/demo/*` から解決した `event.locals.isDemo` を渡す想定。
- *   pathname フォールバックは非 HTTP コンテキスト（テスト、build script）用。
+ * - `isDemoRequest` は ADR-0048 / #2189 準拠。hooks.server.ts が env-only
+ *   `resolveDemoActive(env)` (`AUTH_MODE=anonymous && DATA_SOURCE=demo`) から解決した
+ *   `event.locals.isDemo` を渡す想定。pathname フォールバックは非 HTTP コンテキスト
+ *   （テスト、build script）用。
  */
 
 import type { TypedEnv } from './env';
@@ -51,7 +53,8 @@ export interface ResolveRuntimeModeInput {
 	/** `$app/environment` の `building` フラグ。Node scripts からは false でよい */
 	isBuilding?: boolean;
 	/**
-	 * ADR-0039 / #1199: hooks.server.ts で resolveDemoActive から決まる isDemo 結果。
+	 * ADR-0048 / #2189 PR-B4: hooks.server.ts で env-only `resolveDemoActive(env)` から
+	 * 決まる isDemo 結果 (`AUTH_MODE=anonymous && DATA_SOURCE=demo`)。
 	 * 指定された場合は pathname の `/demo` フォールバックよりも優先される。
 	 */
 	isDemoRequest?: boolean;

@@ -11,11 +11,8 @@ import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode'
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride, getDebugLicenseKeyOverride } from '$lib/server/debug-plan';
 import {
-	DEMO_MODE_COOKIE,
-	DEMO_MODE_COOKIE_MAX_AGE,
 	DEMO_WRITE_ALLOWLIST,
 	DEMO_WRITE_METHODS,
-	isDemoLambda,
 	resolveDemoActive,
 } from '$lib/server/demo/demo-mode';
 import {
@@ -254,56 +251,30 @@ export const handle: Handle = ({ event, resolve }) =>
 			redirect(legacyEntry.status ?? 308, newUrl);
 		}
 
-		// 1) デモ実行モード判定（ADR-0039 / #1180、ADR-0048 / #2097）
+		// 1) デモ実行モード判定 — env-only (ADR-0048 / PR-B4 / #2189)
 		//
-		// `?mode=demo` クエリ → cookie `gq_demo=1` → `/demo/*` パス（Phase 1 backward compat）
-		// の順でデモ状態を解決。event.locals.isDemo を server-side SSOT として設定する。
-		// 本番ルートツリー上で同一コードパスを流すことで、
-		// `src/routes/demo/**` 別ツリー起因の乖離 (#296/#1129/#1147/#1180) を構造解消する。
-		// Phase 2 で /demo/* が削除されたら `fromLegacyPath` 経路も除去する。
+		// Multi-Lambda demo deployment (demo.ganbari-quest.com) は AUTH_MODE=anonymous +
+		// DATA_SOURCE=demo の Lambda 専用デプロイ (ADR-0048 §設計)。本番 Lambda
+		// (ganbari-quest.com) は AUTH_MODE=cognito + DATA_SOURCE=sqlite|dynamodb。
+		// demo 判定は env 1 軸のみで完結する。
 		//
-		// ADR-0048 Phase B-1 (#2097): Multi-Lambda demo deployment
-		// (demo.ganbari-quest.com) は AUTH_MODE=anonymous の Lambda 専用デプロイで、
-		// 上記 3 経路が必ずセットされない (素の `/admin` アクセス等)。フォールバックとして
-		// `isDemoLambda(env.AUTH_MODE)` を OR 合流させ、demo Lambda 上の全リクエストを
-		// `isDemo=true` として扱う。これにより 38 箇所の `data.isDemo` 分岐 UI が正しく
-		// demo として動作する (A-6 ISSUE-003 構造解消)。
+		// 経緯:
+		// - ADR-0039 (#1180) 当初: query (`?mode=demo`) / cookie (`gq_demo=1`) / path (`/demo/*`)
+		//   の 3 signal で `src/routes/demo/**` を本番ルート上にホイスト
+		// - PR-B1 (#2143 merged): Pattern A (env-only fallback) として `isDemoLambda(authMode)` を
+		//   OR 合流追加。legacy 3 signal は backward compat 維持
+		// - PR-B3 (#2188 merged): `src/routes/demo/**` 物理撤去 → path signal が dead
+		// - PR-B4 (本 commit, #2189): cookie / query signal も demo Lambda subdomain で
+		//   代替済のため撤去 → env-only に単一化完了
 		//
 		// prerender 中は SvelteKit が url.searchParams へのアクセスを禁ずる
 		// （deterministic でなくなるため）。building 時はデモ判定をスキップして
 		// false 固定にする — 静的ページは常に非デモ状態で生成される。
-		if (building) {
-			event.locals.isDemo = false;
-		} else {
-			const modeQuery = event.url.searchParams.get('mode');
-			const demoCookie = event.cookies.get(DEMO_MODE_COOKIE);
-			const {
-				isDemo: demoActive,
-				fromQuery: demoFromQuery,
-				fromLegacyPath: demoFromLegacyPath,
-			} = resolveDemoActive(modeQuery, demoCookie, path);
-
-			// cookie 未設定でデモ入口を踏んだ場合のみ発行する（毎リクエスト発行しない）。
-			const shouldIssueCookie =
-				(demoFromQuery || demoFromLegacyPath) && demoCookie !== '1' && !path.startsWith('/_app/');
-			if (shouldIssueCookie) {
-				event.cookies.set(DEMO_MODE_COOKIE, '1', {
-					path: '/',
-					sameSite: 'lax',
-					httpOnly: true,
-					maxAge: DEMO_MODE_COOKIE_MAX_AGE,
-				});
-			}
-
-			// ADR-0048 Phase B-1 (#2097): AUTH_MODE=anonymous は demo Lambda 専用のため
-			// 強制的に isDemo=true とする。legacy 3 経路は backward compat のため保持。
-			event.locals.isDemo = demoActive || isDemoLambda(env.AUTH_MODE);
-		}
+		event.locals.isDemo = building ? false : resolveDemoActive(env);
 
 		// ADR-0040 P2: 実行モードをリクエスト単位で解決。以降のガード／UI 出力は
 		// 本モードを起点に判断する想定（P4 で capability gate に昇格予定）。
-		// isDemo 解決より後に呼ぶことで、`?mode=demo` / cookie / `/demo/*` すべて
-		// を 'demo' に正しく落とし込む。
+		// isDemo 解決より後に呼ぶことで、env-only demo 判定を 'demo' に落とし込む。
 		event.locals.runtimeMode = resolveRuntimeMode({
 			env,
 			pathname: path,
@@ -311,13 +282,8 @@ export const handle: Handle = ({ event, resolve }) =>
 			isDemoRequest: event.locals.isDemo,
 		});
 
-		// 2) デモ入口/退出ルート
-		// #2097 PR-B3 (#2188): /demo/exit は legacy-url-map 経由で / に redirect されるため
-		// 専用ハンドラは不要。demo cookie (`gq_demo` / `gq_demo_plan`) は production Lambda で
-		// は `DATA_SOURCE=dynamodb` 経路で読まれず害なし (isDemo の OR 評価に AUTH_MODE=anonymous
-		// が含まれるため cookie 単独で demo モードが復活しない、ADR-0048)。cookie 機構自体は
-		// PR-B4 (#2189) で hooks.server.ts demo 検出を env-only 化する際に撤去予定。
-		// (旧 cookie 削除ロジックは `legacy-url-map.ts` の `/demo/exit → /` entry で代替)
+		// PR-B4 (#2189): demo cookie 機構 + 専用 `/demo/exit` ハンドラは env-only 化により撤去済。
+		// 旧 `/demo/exit` の bookmark 救済は `legacy-url-map.ts` の `/demo/exit → /` entry で代替。
 
 		// 3) デモ状態なら書き込みを 200 no-op で抑止
 		//

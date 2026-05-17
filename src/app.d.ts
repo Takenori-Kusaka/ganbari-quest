@@ -18,9 +18,9 @@ declare global {
 			authenticated: boolean;
 			identity: import('$lib/server/auth/types').Identity | null;
 			context: import('$lib/server/auth/types').AuthContext | null;
-			// #1180 / ADR-0039: デモ実行モード判定。hooks.server.ts で `?mode=demo` or
-			// cookie `gq_demo=1` から確定。`+layout.server.ts` が `data.isDemo` として
-			// client に配布する。
+			// ADR-0048 / #2189 PR-B4: デモ実行モード判定 (env-only)。hooks.server.ts で
+			// `AUTH_MODE=anonymous && DATA_SOURCE=demo` から確定 (Multi-Lambda demo Lambda)。
+			// `+layout.server.ts` が `data.isDemo` として client に配布する。
 			isDemo: boolean;
 			/** ADR-0040 P2: リクエストごとの実行モード（hooks.server.ts で解決） */
 			runtimeMode: import('$lib/runtime/runtime-mode').RuntimeMode;

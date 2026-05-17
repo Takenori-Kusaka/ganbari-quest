@@ -1,18 +1,26 @@
 /**
- * Demo execution mode — entry/exit resolver.
+ * Demo execution mode — env-only resolver (ADR-0048 PR-B4 / #2189).
  *
- * ADR-0039: `src/routes/demo/**` の別ルートツリーを廃止し、本番ルート上で
- * `?mode=demo` クエリ → `gq_demo` cookie → `event.locals.isDemo` の 3 段で
- * デモ実行モードを判定する。
+ * Multi-Lambda demo deployment (demo.ganbari-quest.com) は AUTH_MODE=anonymous +
+ * DATA_SOURCE=demo の Lambda 専用デプロイ (ADR-0048 §設計)。本番 Lambda
+ * (ganbari-quest.com) は AUTH_MODE=cognito + DATA_SOURCE=sqlite|dynamodb。
+ * demo 判定は env 1 軸のみで完結し、cookie / path / query などの request signal は
+ * 不要 (PR-B3 で `src/routes/demo/**` 物理撤去済 → path signal は dead、
+ * cookie / query signal は Multi-Lambda subdomain で代替済)。
  *
- * #296 / #1129 / #1147 / #1180 の 4 連続デザイン乖離の構造的解消が目的。
+ * ## 経緯
+ *
+ * - ADR-0039 (#1180): `src/routes/demo/**` 撤廃 + 3 signal (query / cookie / `/demo/*`)
+ *   で本番 routes 上に demo を hoist。8 回のデザイン乖離 (#296 / #1129 / #1147 / #1180) を
+ *   構造的に解消する設計
+ * - ADR-0048 §Phase B-1 (#2143 merged): Multi-Lambda 設計の Pattern A (env-only fallback) を
+ *   `isDemoLambda(authMode)` として OR 合流追加。legacy 3 signal は backward compat 維持
+ * - ADR-0048 §Phase B-4 (#2189, 本 commit): `/demo/**` route 物理撤去 (PR-B3 / #2188 merged) で
+ *   path signal は dead、cookie signal も demo Lambda 上では Lambda 切替に依存しないため不要、
+ *   query signal は Lambda subdomain で代替済 → env-only に単一化完了
  */
 
-/** Cookie 名。4h 失効（短命デフォルト）で誤持続を防ぐ。 */
-export const DEMO_MODE_COOKIE = 'gq_demo';
-
-/** cookie 有効期限（秒）。4 時間。 */
-export const DEMO_MODE_COOKIE_MAX_AGE = 60 * 60 * 4;
+import type { TypedEnv } from '$lib/runtime/env';
 
 /** デモモードで書き込みを no-op 化する HTTP メソッド。 */
 export const DEMO_WRITE_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -23,12 +31,7 @@ export const DEMO_WRITE_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', '
  *
  * - `/api/feedback`: デモユーザーからのフィードバック受付（Discord 通知）
  * - `/api/demo-analytics`: デモファネル分析（funnel tracking）
- * - `/api/demo/exit`: デモ退出（cookie 削除）
  * - `/api/health`: ヘルスチェック
- * - `/demo/`: Phase 1 backward compat。legacy /demo/** 配下の form actions は
- *   すでに demo-service 経由で in-memory に閉じている（実 DB を叩かない）ため
- *   guard で no-op 化すると結果データが返らず UI が壊れる。Phase 2 で /demo/**
- *   を削除した際に本エントリも削除する。
  * - `/switch`: 子供切替の form action (`?/select`)。実 DB に書き込まず cookie
  *   `selectedChildId` を set + redirect するだけのため demo 安全。no-op で
  *   `{ ok: true, demo: true }` を返すと SvelteKit form action が成功と認識せず
@@ -36,48 +39,41 @@ export const DEMO_WRITE_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', '
  *   動かない (#2097 Phase B Bug 4)。本パス追加で本番ルートを通常駆動する。
  *   demo context は `tenantId: 'demo'` で hooks に注入済みなので
  *   `requireTenantId` も通る。
+ *
+ * #2189 PR-B4 で `/api/demo/exit` (旧 cookie 削除 endpoint) / `/demo/` (legacy /demo/** 配下
+ * form actions) を撤去 — PR-B3 で `/demo/**` route 物理削除済のため到達経路がない。
  */
 export const DEMO_WRITE_ALLOWLIST: readonly string[] = [
 	'/api/feedback',
 	'/api/demo-analytics',
-	'/api/demo/exit',
 	'/api/health',
-	'/demo/',
 	'/switch',
 ];
 
 /**
- * デモ実行中か判定する。
+ * Demo Lambda 判定 — env-only (ADR-0048 / PR-B4 / #2189).
  *
- * - `?mode=demo` クエリ（入口専用）
- * - cookie `gq_demo=1`（モード維持）
- * - `/demo/*` プレフィックス（Phase 1 の backward compat。Phase 2 で削除予定）
+ * Multi-Lambda demo deployment (demo.ganbari-quest.com) は AUTH_MODE=anonymous +
+ * DATA_SOURCE=demo の Lambda 専用デプロイ。両 env が demo を示せば demo Lambda、
+ * いずれかが本番値なら本番 Lambda として扱う。
+ *
+ * 開発者が誤って AUTH_MODE=anonymous + DATA_SOURCE=sqlite で起動した場合は
+ * **demo 扱いしない**。AnonymousAuthProvider が licenseStatus=ACTIVE を返すスタブと
+ * sqlite 実 DB の組合せは本番想定外であり、demo 扱いすると実 DB を read-only にして
+ * ローカル開発を壊すリスクがある。env を厳密 AND する。
+ *
+ * @example
+ * ```ts
+ * // demo Lambda
+ * resolveDemoActive({ AUTH_MODE: 'anonymous', DATA_SOURCE: 'demo' }) // true
+ * // 本番 Lambda
+ * resolveDemoActive({ AUTH_MODE: 'cognito',   DATA_SOURCE: 'sqlite' }) // false
+ * // 開発者 設定ミス
+ * resolveDemoActive({ AUTH_MODE: 'anonymous', DATA_SOURCE: 'sqlite' }) // false
+ * ```
  */
-export function resolveDemoActive(
-	query: string | null,
-	cookie: string | undefined,
-	path?: string,
-): { isDemo: boolean; fromQuery: boolean; fromLegacyPath: boolean } {
-	const fromQuery = query === 'demo';
-	const fromCookie = cookie === '1';
-	const fromLegacyPath = path?.startsWith('/demo') ?? false;
-	return { isDemo: fromQuery || fromCookie || fromLegacyPath, fromQuery, fromLegacyPath };
-}
-
-/**
- * Multi-Lambda demo deployment (demo.ganbari-quest.com) の判定。
- *
- * ADR-0048 §Phase B-1 / Issue #2097: `AUTH_MODE=anonymous` の Lambda は demo Lambda
- * 専用デプロイのため、リクエストのクエリ・cookie・パスに関係なく `isDemo=true` として
- * 扱う必要がある。`resolveDemoActive()` の従来の 3 経路（query / cookie / `/demo/*`）の
- * いずれもセットされない素のアクセス（例: `/admin`）で onboarding が表示される問題
- * (A-6 ISSUE-003) の構造的解消。
- *
- * 既存の legacy 3 経路（cookie / `/demo/*`）は NUC local モード等の運用維持のため
- * そのまま保持し、本関数は OR 演算でフォールバックとして合流させる。
- */
-export function isDemoLambda(authMode: string | undefined): boolean {
-	return authMode === 'anonymous';
+export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE'>): boolean {
+	return env.AUTH_MODE === 'anonymous' && env.DATA_SOURCE === 'demo';
 }
 
 /**
