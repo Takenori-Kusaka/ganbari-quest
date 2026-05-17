@@ -3,6 +3,7 @@ import '$lib/ui/styles/app.css';
 import { page } from '$app/stores';
 import { APP_LABELS } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/demo/DemoBanner.svelte';
+import { resolveScreenshotMode } from '$lib/features/demo/screenshot-mode';
 import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 import Toast from '$lib/ui/primitives/Toast.svelte';
 
@@ -16,7 +17,19 @@ let { children, data } = $props();
 // 独自の橙バナーを描画するため、二重表示を避けるために root DemoBanner を抑止する。
 // Phase 2 で `/demo/**` 削除時にこの条件は不要になる。
 const isLegacyDemoPath = $derived($page.url?.pathname?.startsWith('/demo') ?? false);
-const isDemo = $derived(!isLegacyDemoPath && (data?.isDemo ?? $page.data?.isDemo ?? false));
+
+// #2097 EPIC PR-B1 (2026-05-17): LP SS 撮影時 (`?screenshot=all` / `?screenshot=1`) は
+// DemoBanner を抑止する。Multi-Lambda demo Lambda 上で本番ルートを撮影する際に
+// 「これはデモアプリです」表示が映り込み LP 訴求を毀損する事故への対策 (PO 2026-05-17 指摘)。
+// page 側の `?screenshot` 再呼出禁止ルール (src/routes/CLAUDE.md) は **page** が対象であり、
+// root layout は SSOT helper `resolveScreenshotMode` を経由する限り抵触しない。
+const isScreenshotMode = $derived(
+	resolveScreenshotMode($page.url?.searchParams?.get('screenshot') ?? null) !== 'off',
+);
+
+const isDemo = $derived(
+	!isLegacyDemoPath && !isScreenshotMode && (data?.isDemo ?? $page.data?.isDemo ?? false),
+);
 
 // #702: E2E hydration marker. $effect は SSR では走らずクライアント mount 後にのみ
 // 走るため、ここで window.__APP_HYDRATED__ を立てると Playwright から
