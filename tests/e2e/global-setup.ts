@@ -218,7 +218,7 @@ export default async function globalSetup() {
 					ORDER BY sort_order ASC LIMIT 2
 				)
 			`);
-			console.log("[E2E Setup]   Added must coverage for elementary / junior / senior (#2146).");
+			console.log('[E2E Setup]   Added must coverage for elementary / junior / senior (#2146).');
 		} catch {
 			// priority カラムが未追加の旧 DB でも E2E を落とさない
 		}
