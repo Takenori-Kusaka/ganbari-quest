@@ -152,9 +152,9 @@ LP `site/index.html` の hero carousel / machine-tour / soft-features / growth-r
 | `feature-point-level{,-desktop}.webp` (#2097) | machine-tour ① | `/elementary/home` | 780×1688 / 2880×1800 |
 | `feature-belongings-checklist{,-desktop}.webp` (#2097) | machine-tour ② | `/checklist?childId=903` (scrollTo: `[data-testid^="demo-checklist-item-"]`) | 780×1688 / 2880×1800 |
 | **`feature-rpg-battle{,-desktop}.webp`** (#1707 / #2097) | machine-tour ④（冒険のクライマックス） | `/elementary/battle` | 780×1688 / 2880×1800 |
-| **`feature-monthly-report{,-desktop}.webp`** (#1707 / #2097) | soft-features（月次レポート） | `/admin/status` | 780×1688 / 2880×1800 |
-| **`feature-auto-sleep{,-desktop}.webp`** (#1707 / #1901 / #2097) | soft-features（時間管理 + おうえんメッセージ設定） | `/admin/settings` | 780×1688 / 2880×1800 |
-| **`feature-cheer-message{,-desktop}.webp`** (#1707 / #1901 / #2097) | soft-features（おうえんメッセージ受信、子供ホーム下部） | `/elementary/home` (scrollTo: `[data-testid^="activity-card-"]`) | 780×1688 / 2880×1800 |
+| **`feature-monthly-report{,-desktop}.webp`** (#1707 / #2097 / #2200) | soft-features（月次レポート） | `/admin/status?childId=903` (elementary fixture けんたくん 8 歳・3,400P でレーダーチャート 5 軸を埋める) | 780×1688 / 2880×1800 |
+| **`feature-auto-sleep{,-desktop}.webp`** (#1707 / #1901 / #2097 / #2201) | soft-features（ステータス減少設定 — 習慣化サポート） | `/admin/settings` (scrollTo: `[data-testid="settings-decay-section"]`、ADR-0013 LP truth に従い実画面 = decay 強度 4 段階 UI に rename) | 780×1688 / 2880×1800 |
+| **`feature-cheer-message{,-desktop}.webp`** (#1707 / #1901 / #2097 / #2199) | versus-row4（旅行先・祖父母宅でも続けられる — 家族からおうえんメッセージを送る） | `/admin/messages` (親→子メッセージ送信フォーム + 過去履歴) | 780×1688 / 2880×1800 |
 | **`feature-settings{,-desktop}.webp`** (#1707 / #2097) | soft-features（設定の自由度） | `/admin/activities` | 780×1688 / 2880×1800 |
 | **`growth-stage-preschool{,-desktop}.webp`** (#1712 / #2097) | growth-roadmap preschool | `/preschool/home` | 780×1688 / 2880×1800 |
 | **`growth-stage-elementary{,-desktop}.webp`** (#1712 / #2097) | growth-roadmap elementary | `/elementary/home` | 780×1688 / 2880×1800 |
