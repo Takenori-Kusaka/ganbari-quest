@@ -1,4 +1,5 @@
 import { fail } from '@sveltejs/kit';
+import { getMarketplaceIndex } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
@@ -9,6 +10,7 @@ import {
 	findTemplateItems,
 	findTemplatesByChild,
 } from '$lib/server/db/checklist-repo';
+import { logger } from '$lib/server/logger';
 import {
 	addOverride,
 	addTemplateItem,
@@ -19,6 +21,10 @@ import {
 	removeTemplateItem,
 	VALID_TIME_SLOTS,
 } from '$lib/server/services/checklist-service';
+import {
+	importChecklistTemplate,
+	previewChecklistImport,
+} from '$lib/server/services/checklist-template-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	checkChecklistTemplateLimit,
@@ -59,11 +65,27 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// #723: UI 側で「残り何個作れるか」を表示するための上限情報
 	const checklistTemplateMax = getPlanLimits(tier).maxChecklistTemplates;
 
+	// #2137 (MP-2): マーケットプレイス checklist preset (event-* 3 件) を一覧化
+	// childrenWithChecklists.sourcePresetId と突き合わせて「取込済」判定を UI で行う
+	const marketplaceChecklists = getMarketplaceIndex()
+		.filter((m) => m.type === 'checklist')
+		.map((m) => ({
+			itemId: m.itemId,
+			name: m.name,
+			description: m.description,
+			icon: m.icon,
+			targetAgeMin: m.targetAgeMin,
+			targetAgeMax: m.targetAgeMax,
+			tags: m.tags,
+			itemCount: m.itemCount,
+		}));
+
 	return {
 		children: childrenWithChecklists,
 		today: todayDateJST(),
 		isPremium,
 		checklistTemplateMax,
+		marketplaceChecklists,
 	};
 };
 
@@ -263,5 +285,63 @@ export const actions: Actions = {
 		}
 
 		return { success: true, aiCreated: true };
+	},
+
+	// #2137 (MP-2): マーケットプレイス event-checklist の一括追加
+	// admin/checklists 画面の「マーケットプレイスから一括追加」セクションから POST される。
+	// 同一 (childId × presetId) で取込済なら何もせず onlyAlreadyImported=true を返す。
+	importMarketplace: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const presetId = String(formData.get('presetId') ?? '').trim();
+
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
+
+		// プラン制限 (Free プランのテンプレート数)
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
+		if (!limit.allowed) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				),
+				upgradeRequired: true,
+			});
+		}
+
+		try {
+			const preview = await previewChecklistImport(presetId, childId, tenantId);
+			if (!preview) {
+				return fail(404, { error: 'プリセットが見つかりません' });
+			}
+			if (preview.alreadyImported) {
+				return {
+					marketplaceImportResult: true,
+					alreadyImported: true,
+					presetName: preview.presetName,
+					existingTemplateName: preview.existingTemplateName,
+				};
+			}
+
+			const result = await importChecklistTemplate(presetId, childId, tenantId);
+			return {
+				marketplaceImportResult: true,
+				alreadyImported: false,
+				presetName: preview.presetName,
+				importedItems: result.importedItems,
+				errors: result.errors,
+			};
+		} catch (e) {
+			logger.error('[admin/checklists] マーケットプレイスインポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { presetId, childId },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
 	},
 };

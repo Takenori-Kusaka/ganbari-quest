@@ -2172,6 +2172,7 @@ export interface PlanLimitError {
 | `POST /admin/children ?/addChild` | 上限付き | `free` は `maxChildren=2` まで | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/activities ?/create` | 上限付き | `free` は `maxActivities=3` まで | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/checklists ?/createTemplate` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#723) | `createPlanLimitError()` 済 (#787) |
+| `POST /admin/checklists ?/importMarketplace` | 上限付き | `free` は `maxChecklistTemplates=3` まで (#2137) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/grant` | standard | 特別なごほうび (`canCustomReward`, #728) | `createPlanLimitError()` 済 (#787) |
 | `POST /admin/rewards ?/addPreset` | standard | 特別なごほうび取り込み (#728) | `createPlanLimitError()` 済 (#787) |
 | `POST /api/v1/special-rewards/suggest` | family | AI ごほうび提案 (`tier !== 'family'`, #719) | `apiError()` 済 |
