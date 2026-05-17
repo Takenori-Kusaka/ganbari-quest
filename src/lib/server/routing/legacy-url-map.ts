@@ -425,7 +425,7 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
 	},
 	// 親 fallback: 明示エントリにない admin sub path も /admin/* に救済する。
-	// 例: 将来追加された /demo/admin/newpage は本 entry でカバー (前方一致)。
+	// 例: 将来追加された /demo/admin/some-future-page は本 entry でカバー (前方一致)。
 	{
 		from: '/demo/admin',
 		to: '/admin',

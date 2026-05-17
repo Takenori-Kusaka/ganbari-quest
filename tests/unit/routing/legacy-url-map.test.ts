@@ -106,7 +106,7 @@ describe('legacy-url-map', () => {
 			// 親 fallback (`/demo/admin`) — 未登録 sub path も救済
 			['/demo/admin', '/demo/admin'],
 			['/demo/admin/billing', '/demo/admin'], // 未登録 sub path は親 fallback にマッチ
-			['/demo/admin/newpage', '/demo/admin'],
+			['/demo/admin/some-future-page', '/demo/admin'],
 			// /demo, /demo/exit, /demo/signup
 			['/demo', '/demo'],
 			['/demo/exit', '/demo/exit'],
@@ -211,7 +211,7 @@ describe('legacy-url-map', () => {
 			// 親 fallback: 明示 entry に無い sub path も /admin/* に救済
 			['/demo/admin', '/admin'],
 			['/demo/admin/billing', '/admin/billing'],
-			['/demo/admin/newpage', '/admin/newpage'],
+			['/demo/admin/some-future-page', '/admin/some-future-page'],
 			// landing / exit / signup
 			['/demo', '/'],
 			['/demo/exit', '/'],
