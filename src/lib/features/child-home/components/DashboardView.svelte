@@ -18,8 +18,6 @@ import { enhance } from '$app/forms';
 import { DEMO_CHILD_HOME_LABELS, formatStreak } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
-import type { UiMode } from '$lib/domain/validation/age-tier';
-import MustProgressBar from '$lib/features/child/MustProgressBar.svelte';
 import { getDashboardService } from '$lib/services/context';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
 import CategorySection from '$lib/ui/components/CategorySection.svelte';
@@ -47,6 +45,8 @@ const {
 			categoryId: number;
 			dailyLimit: number | null;
 			isMission: boolean;
+			// #2146: priority='must' は ActivityCard 自身の ribbon badge で表示
+			priority?: 'must' | 'optional';
 		}[];
 		uiMode: string;
 		hasChecklists: boolean;
@@ -57,6 +57,10 @@ const {
 			allComplete: boolean;
 			bonusAwarded: number;
 		} | null;
+		/**
+		 * #2146: must 集計 API は demo 側でも後方互換維持（test 利用継続）。
+		 * UI は ActivityCard 自身に統合されたため本 component では直接参照しない。
+		 */
 		mustStatus: { logged: number; total: number; granted: boolean; points: number } | null;
 	};
 } = $props();
@@ -125,15 +129,11 @@ function handleResultClose() {
 </script>
 
 <div class="px-[var(--sp-sm)] py-1">
-	{#if pageData.mustStatus && pageData.mustStatus.total > 0 && pageData.uiMode !== 'baby'}
-		<MustProgressBar
-			logged={pageData.mustStatus.logged}
-			total={pageData.mustStatus.total}
-			uiMode={pageData.uiMode as UiMode}
-			bonusGranted={pageData.mustStatus.granted}
-			bonusPoints={pageData.mustStatus.points}
-		/>
-	{/if}
+	<!--
+		#2146: 「今日のおやくそく」専用セクション (MustProgressBar) は廃止。
+		priority='must' の活動は ActivityCard 自身に ribbon badge + gold border で表示する。
+		mustStatus 集計 API は demo-must-status.test 等で後方互換維持（unit test 参照）。
+	-->
 
 	{#if pageData.hasChecklists}
 		<div
@@ -196,6 +196,7 @@ function handleResultClose() {
 					completed={isCompleted(activity)}
 					count={getCount(activity.id)}
 					isMission={activity.isMission}
+					isMust={activity.priority === 'must'}
 					onclick={() => handleActivityTap(activity)}
 				/>
 			{/each}

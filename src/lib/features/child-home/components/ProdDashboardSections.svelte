@@ -8,8 +8,9 @@
 
   本番 page から以下を集約描画する:
 
-    - 「今日のおやくそく」進捗バー (`MustProgressBar`)
     - カテゴリ別アクティビティグリッド (`CategorySection` + `ActivityCard`/baby inline form)
+      （#2146: priority='must' のカードは ActivityCard 自身に ribbon badge を表示。
+        旧 MustProgressBar 専用セクションは廃止）
     - 空状態 (`ActivityEmptyState`)
     - きょうだいランキング (`SiblingRanking`)
 
@@ -37,7 +38,6 @@ import type { parseDisplayConfig } from '$lib/domain/display-config';
 import { CHILD_HOME_LABELS } from '$lib/domain/labels';
 import { CATEGORY_DEFS, getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
-import MustProgressBar from '$lib/features/child/MustProgressBar.svelte';
 import type { CategoryXpInfo } from '$lib/server/services/status-service';
 import { getDashboardService } from '$lib/services/context';
 import ActivityCard from '$lib/ui/components/ActivityCard.svelte';
@@ -70,7 +70,6 @@ interface SiblingRankingRow {
 const {
 	uiMode,
 	activities,
-	mustStatus,
 	siblingRanking,
 	activeEventBadge,
 	displayConfig,
@@ -93,6 +92,9 @@ const {
 	 * 本番 `+page.server.ts` から渡される活動配列。Drizzle の生レコード
 	 * (isPinned/isMainQuest が 0|1 の number, source が string 等) を緩く受ける形。
 	 * UI 描画箇所でのみ boolean 評価 / cast する。
+	 *
+	 * #2146: priority (`'must' | 'optional'`) は ActivityCard / baby inline form で
+	 * 「今日のおやくそく」ribbon badge を出すために参照する。
 	 */
 	activities: Array<{
 		id: number;
@@ -106,9 +108,9 @@ const {
 		isPinned?: boolean | number;
 		source?: string;
 		triggerHint?: string | null;
+		priority?: 'must' | 'optional';
 		[key: string]: unknown;
 	}>;
-	mustStatus: { logged: number; total: number; granted: boolean; points: number } | null;
 	siblingRanking: { rankings: SiblingRankingRow[] } | null;
 	activeEventBadge: string | null;
 	displayConfig: ReturnType<typeof parseDisplayConfig>;
@@ -166,19 +168,10 @@ const activitiesByCategory = $derived(
 </script>
 
 <!--
-	#1757 (#1709-C): 「今日のおやくそく」N/M 進捗バー（最上部）
-	- baby は前段で BabyHomePage に分岐済みのため到達しない
-	- mustStatus.total === 0 の場合は非表示
+	#2146: 「今日のおやくそく」専用セクション (MustProgressBar) は廃止。
+	priority='must' の活動は ActivityCard 自身に ribbon badge + gold border で表示する。
+	全達成 bonus 通知 (mustStatus.granted) は呼び出し側 (+page.svelte) で Toast 演出を継続。
 -->
-{#if mustStatus && mustStatus.total > 0}
-	<MustProgressBar
-		logged={mustStatus.logged}
-		total={mustStatus.total}
-		{uiMode}
-		bonusGranted={mustStatus.granted}
-		bonusPoints={mustStatus.points}
-	/>
-{/if}
 
 <!-- Activity grid by category -->
 {#each activitiesByCategory as group, groupIdx (group.categoryId)}
@@ -216,6 +209,7 @@ const activitiesByCategory = $derived(
 					frozen={!isPremium && activity.source === 'custom'}
 					triggerHint={activity.triggerHint}
 					eventBadge={activeEventBadge}
+					isMust={activity.priority === 'must'}
 					onclick={() => onActivityTap(activity)}
 					onlongpress={() => onActivityLongPress(activity)}
 				/>
@@ -234,6 +228,7 @@ const activitiesByCategory = $derived(
 					frozen={!isPremium && activity.source === 'custom'}
 					triggerHint={activity.triggerHint}
 					eventBadge={activeEventBadge}
+					isMust={activity.priority === 'must'}
 					onclick={() => onActivityTap(activity)}
 					onlongpress={() => onActivityLongPress(activity)}
 				/>
