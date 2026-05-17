@@ -89,24 +89,23 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 		await page.goto('/marketplace/rule-preset/streak-bonus', { waitUntil: 'domcontentloaded' });
 
 		const importBtn = page.getByTestId('rule-import-submit');
-		const isVisible = await importBtn.isVisible().catch(() => false);
-		if (!isVisible) {
-			// 未ログイン環境 (signup redirect) なら skip
-			test.skip();
-			return;
+		// AUTH_MODE=local では import 可能。ログイン環境 / 未ログイン環境のいずれでも assertion を切り替える。
+		const isLoggedIn = (await importBtn.count()) > 0;
+		if (isLoggedIn) {
+			await importBtn.click();
+			const result = page.getByTestId('rule-import-result-success');
+			await expect(result).toBeVisible({ timeout: 30_000 });
+
+			// /admin/settings/rules で取込済 preset が見える
+			await page.goto('/admin/settings/rules', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('admin-rules-page')).toBeVisible();
+			await expect(page.getByTestId('rules-bonus-preset-streak-bonus')).toBeVisible({
+				timeout: 30_000,
+			});
+		} else {
+			// 未ログイン: signup CTA が見える (回帰防止のため最低限の assertion)
+			await expect(page.getByTestId('rule-import-signup-redirect')).toBeVisible();
 		}
-		await importBtn.click();
-
-		// 取込成功 result
-		const result = page.getByTestId('rule-import-result-success');
-		await expect(result).toBeVisible({ timeout: 30_000 });
-
-		// /admin/settings/rules で取込済 preset が見える
-		await page.goto('/admin/settings/rules', { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('admin-rules-page')).toBeVisible();
-		await expect(page.getByTestId('rules-bonus-preset-streak-bonus')).toBeVisible({
-			timeout: 30_000,
-		});
 	});
 
 	// ============================================================
@@ -114,23 +113,25 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 	// ============================================================
 	test('bonus 同 preset を 2 回目追加 → alreadyImported メッセージが出る', async ({ page }) => {
 		test.slow();
-		// 1 回目
 		await page.goto('/marketplace/rule-preset/early-bird', { waitUntil: 'domcontentloaded' });
 		const importBtn = page.getByTestId('rule-import-submit');
-		const visible1 = await importBtn.isVisible().catch(() => false);
-		if (!visible1) {
-			test.skip();
-			return;
-		}
-		await importBtn.click();
-		await expect(page.getByTestId('rule-import-result-success')).toBeVisible({ timeout: 30_000 });
+		const isLoggedIn = (await importBtn.count()) > 0;
+		if (isLoggedIn) {
+			// 1 回目
+			await importBtn.click();
+			await expect(page.getByTestId('rule-import-result-success')).toBeVisible({
+				timeout: 30_000,
+			});
 
-		// 2 回目 (reload で form reset)
-		await page.goto('/marketplace/rule-preset/early-bird', { waitUntil: 'domcontentloaded' });
-		await page.getByTestId('rule-import-submit').click();
-		await expect(page.getByTestId('rule-import-result-duplicate')).toBeVisible({
-			timeout: 30_000,
-		});
+			// 2 回目 (reload で form reset)
+			await page.goto('/marketplace/rule-preset/early-bird', { waitUntil: 'domcontentloaded' });
+			await page.getByTestId('rule-import-submit').click();
+			await expect(page.getByTestId('rule-import-result-duplicate')).toBeVisible({
+				timeout: 30_000,
+			});
+		} else {
+			await expect(page.getByTestId('rule-import-signup-redirect')).toBeVisible();
+		}
 	});
 
 	// ============================================================
@@ -141,22 +142,24 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 		// 事前に 1 件取込
 		await page.goto('/marketplace/rule-preset/weekend-special', { waitUntil: 'domcontentloaded' });
 		const importBtn = page.getByTestId('rule-import-submit');
-		const visible = await importBtn.isVisible().catch(() => false);
-		if (!visible) {
-			test.skip();
-			return;
+		const isLoggedIn = (await importBtn.count()) > 0;
+		if (isLoggedIn) {
+			await importBtn.click();
+			await expect(page.getByTestId('rule-import-result-success')).toBeVisible({
+				timeout: 30_000,
+			});
+
+			// 管理画面で toggle
+			await page.goto('/admin/settings/rules', { waitUntil: 'domcontentloaded' });
+			const toggleBtn = page.getByTestId('rules-bonus-toggle-weekend-special');
+			await expect(toggleBtn).toBeVisible({ timeout: 30_000 });
+			await toggleBtn.click();
+
+			// 切替成功
+			await expect(page.getByTestId('rules-action-success')).toBeVisible({ timeout: 30_000 });
+		} else {
+			await expect(page.getByTestId('rule-import-signup-redirect')).toBeVisible();
 		}
-		await importBtn.click();
-		await expect(page.getByTestId('rule-import-result-success')).toBeVisible({ timeout: 30_000 });
-
-		// 管理画面で toggle
-		await page.goto('/admin/settings/rules', { waitUntil: 'domcontentloaded' });
-		const toggleBtn = page.getByTestId('rules-bonus-toggle-weekend-special');
-		await expect(toggleBtn).toBeVisible({ timeout: 30_000 });
-		await toggleBtn.click();
-
-		// 切替成功
-		await expect(page.getByTestId('rules-action-success')).toBeVisible({ timeout: 30_000 });
 	});
 
 	// ============================================================
