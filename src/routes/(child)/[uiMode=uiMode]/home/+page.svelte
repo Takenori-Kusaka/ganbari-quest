@@ -16,6 +16,7 @@ import OverlaysSection from '$lib/features/child-home/components/OverlaysSection
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import { getModeVariant } from '$lib/features/child-home/variants';
+import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
 import { setDashboardService } from '$lib/services/context';
 import { createProductionDashboardService } from '$lib/services/production/DashboardService';
@@ -34,6 +35,12 @@ import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
+
+// #2097 EPIC PR-B1 hotfix (2026-05-17): LP SS 撮影時 (`?screenshot=*`) は本番 UI 内の
+// auto-open dialog (SiblingCheerOverlay / MonthlyRewardDialog 等) を抑止する。
+// 子供画面の demo data には常に pending cheer が 1 件含まれるため、撮影タイミングで
+// dialog が画面中央に被って主要 UI が隠れる事故が発生 (PO 2026-05-17 指摘)。
+const isScreenshotMode = $derived(getScreenshotMode());
 
 // Issue #2084 (ADR-0046 follow-up): 本番側で getDashboardService().getHomeData() 経由で
 // child / todayRecorded / pointSettings を参照するため、page スコープで Service を再注入する。
@@ -885,7 +892,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {/if}
 
 <!-- Parent message overlay (non-baby) -->
-{#if f.showParentMessages && data.latestMessage && fsm.current === 'parentMessage'}
+<!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (FSM-gated だが安全側で抑止) -->
+{#if !isScreenshotMode && f.showParentMessages && data.latestMessage && fsm.current === 'parentMessage'}
 	<ParentMessageOverlay
 		open={true}
 		messageType={data.latestMessage.messageType}
@@ -911,7 +919,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {/if}
 
 <!-- Sibling cheer overlay (non-baby) -->
-{#if f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0}
+<!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (LP SS の overlay 被り対策) -->
+{#if !isScreenshotMode && f.showSiblingFeatures && showCheerOverlay && data.unshownCheers && data.unshownCheers.length > 0}
 	<SiblingCheerOverlay
 		cheers={data.unshownCheers}
 		onDismiss={() => { showCheerOverlay = false; }}
@@ -919,7 +928,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {/if}
 
 <!-- Monthly premium reward modal -->
-{#if data.monthlyPremiumReward && !data.monthlyPremiumReward.claimed}
+<!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (LP SS の modal 被り対策) -->
+{#if !isScreenshotMode && data.monthlyPremiumReward && !data.monthlyPremiumReward.claimed}
 	<MonthlyRewardDialog
 		eventId={data.monthlyPremiumReward.event.id}
 		rewardName={data.monthlyPremiumReward.config.name}

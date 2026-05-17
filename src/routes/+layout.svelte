@@ -3,7 +3,10 @@ import '$lib/ui/styles/app.css';
 import { page } from '$app/stores';
 import { APP_LABELS } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/demo/DemoBanner.svelte';
-import { resolveScreenshotMode } from '$lib/features/demo/screenshot-mode';
+import {
+	resolveScreenshotMode,
+	setScreenshotModeContext,
+} from '$lib/features/demo/screenshot-mode';
 import NavigationProgress from '$lib/ui/components/NavigationProgress.svelte';
 import Toast from '$lib/ui/primitives/Toast.svelte';
 
@@ -23,8 +26,20 @@ const isLegacyDemoPath = $derived($page.url?.pathname?.startsWith('/demo') ?? fa
 // 「これはデモアプリです」表示が映り込み LP 訴求を毀損する事故への対策 (PO 2026-05-17 指摘)。
 // page 側の `?screenshot` 再呼出禁止ルール (src/routes/CLAUDE.md) は **page** が対象であり、
 // root layout は SSOT helper `resolveScreenshotMode` を経由する限り抵触しない。
-const isScreenshotMode = $derived(
-	resolveScreenshotMode($page.url?.searchParams?.get('screenshot') ?? null) !== 'off',
+const screenshotKind = $derived(
+	resolveScreenshotMode($page.url?.searchParams?.get('screenshot') ?? null),
+);
+const isScreenshotMode = $derived(screenshotKind !== 'off');
+
+// #2097 EPIC PR-B1 hotfix (2026-05-17): 全 route で screenshot mode context を共有する。
+// 旧 `src/routes/demo/+layout.svelte` でのみ context 提供されていたため、PR-B1 で本番ルート
+// 撮影に切替後、本番 child home の SiblingCheerOverlay / MonthlyRewardDialog が SS に
+// 被って LP 訴求を毀損する事故が発生 (PO 2026-05-17 指摘)。本 context を root layout で
+// 提供することで全 route の page/component が `getScreenshotMode()` / `getScreenshotModeKind()`
+// 経由で抑止判定できるようになる。
+setScreenshotModeContext(
+	() => isScreenshotMode,
+	() => screenshotKind,
 );
 
 const isDemo = $derived(
