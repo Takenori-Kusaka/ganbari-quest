@@ -45,13 +45,13 @@ describe('resolveDemoActive(env) — ADR-0048 PR-B4 / #2189 env-only signature',
 		expect(resolveDemoActive(makeEnv('local', 'sqlite'))).toBe(false);
 	});
 
-	it('AUTH_MODE=anonymous + DATA_SOURCE=sqlite → false (開発者 misconfiguration 防止)', () => {
+	it('AUTH_MODE=anonymous + DATA_SOURCE=sqlite → false (開発者 設定ミス 防止)', () => {
 		// 重要: AnonymousAuthProvider + 実 sqlite DB の組合せは本番想定外。demo 扱いすると
 		// 実 DB への書き込みが no-op になりローカル開発を壊すため env を厳密 AND する。
 		expect(resolveDemoActive(makeEnv('anonymous', 'sqlite'))).toBe(false);
 	});
 
-	it('AUTH_MODE=anonymous + DATA_SOURCE=dynamodb → false (開発者 misconfiguration 防止)', () => {
+	it('AUTH_MODE=anonymous + DATA_SOURCE=dynamodb → false (開発者 設定ミス 防止)', () => {
 		// 実 DynamoDB に対する no-op writer 化を防ぐ (同上)。
 		expect(resolveDemoActive(makeEnv('anonymous', 'dynamodb'))).toBe(false);
 	});
