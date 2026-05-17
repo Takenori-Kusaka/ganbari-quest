@@ -54,6 +54,31 @@ const rewardImport = $derived(
 
 const rewardCount = $derived(isRewardSet ? (item.payload as RewardSetPayload).rewards.length : 0);
 
+// #2138 (MP-3): rule-preset 件数 + ruleType 別 CTA 分岐
+const rulePayload = $derived(isRulePreset ? (item.payload as RulePresetPayload) : null);
+const ruleCount = $derived(rulePayload ? rulePayload.rules.length : 0);
+const ruleType = $derived(rulePayload?.ruleType ?? null);
+const isRuleExchange = $derived(isRulePreset && ruleType === 'exchange');
+const isRuleBonus = $derived(isRulePreset && ruleType === 'bonus');
+const isRulePenalty = $derived(isRulePreset && ruleType === 'penalty');
+const isRuleSpecial = $derived(isRulePreset && ruleType === 'special');
+
+const ruleImport = $derived(
+	(
+		form as {
+			ruleImport?: {
+				alreadyImported?: boolean;
+				presetName?: string;
+				ruleType?: string;
+				imported?: number;
+				skipped?: number;
+				warnings?: string[];
+				errors?: string[];
+			};
+		} | null
+	)?.ruleImport,
+);
+
 // #2137 (MP-2): checklist 一括追加用 state
 //   selectedChildIdStr は NativeSelect bind:value 互換のため string 保持。
 //   form 送信時は string → number 変換せず name="childId" の value 文字列を直接送る。
@@ -63,6 +88,14 @@ let selectedChildIdStr = $state<string>(
 	data.children && data.children.length > 0 ? String(data.children[0]?.id ?? '') : '',
 );
 let importing = $state(false);
+
+// #2138 (MP-3): rule-preset 一括追加用 state (childId は exchange のみ必須)
+// svelte-ignore state_referenced_locally
+let selectedChildIdForRule = $state<number>(
+	// svelte-ignore state_referenced_locally
+	data.children && data.children.length > 0 ? (data.children[0]?.id ?? 0) : 0,
+);
+let importingRule = $state(false);
 
 const childOptions = $derived(
 	(data.children ?? []).map((c) => ({ value: String(c.id), label: c.nickname })),
@@ -393,8 +426,140 @@ const childOptions = $derived(
 						{MARKETPLACE_LABELS.detailCtaSignupToImport}
 					</Button>
 				</a>
+			{:else if isRulePreset && data.isAuthenticated && (isRuleBonus || (isRuleExchange && data.children.length > 0))}
+				<!-- #2138 (MP-3): rule-preset 一括追加 CTA -->
+				<!-- bonus は childId 不要 (tenant スコープ)、exchange は childId 必須 -->
+				<Card padding="md">
+					{#snippet children()}
+					<p class="text-xs text-[var(--color-text-tertiary)]">
+						{#if isRuleBonus}
+							{MARKETPLACE_LABELS.detailCtaImportRuleDescBonus}
+						{:else if isRuleExchange}
+							{MARKETPLACE_LABELS.detailCtaImportRuleDescExchange}
+						{/if}
+					</p>
+
+					{#if ruleImport}
+						{#if ruleImport.alreadyImported}
+							<div
+								class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)] rounded-xl p-3 text-sm text-center mt-3"
+								data-testid="rule-import-result-duplicate"
+							>
+								{MARKETPLACE_LABELS.detailRuleImportDuplicate(ruleImport.presetName ?? '')}
+							</div>
+						{:else if (ruleImport.imported ?? 0) > 0}
+							<div
+								class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm text-center mt-3"
+								data-testid="rule-import-result-success"
+							>
+								{#if ruleImport.ruleType === 'bonus'}
+									{MARKETPLACE_LABELS.detailRuleImportSuccessBonus(ruleImport.presetName ?? '')}
+								{:else if ruleImport.ruleType === 'exchange'}
+									{MARKETPLACE_LABELS.detailRuleImportSuccessExchange(
+										ruleImport.presetName ?? '',
+										ruleImport.imported ?? 0,
+									)}
+								{/if}
+								{#if isRuleBonus}
+									<div class="text-xs mt-1">
+										<a href="/admin/settings/rules" class="underline">
+											{MARKETPLACE_LABELS.detailRuleImportLinkToBonusList}
+										</a>
+									</div>
+								{:else if isRuleExchange}
+									<div class="text-xs mt-1">
+										<a href="/admin/rewards" class="underline">
+											{MARKETPLACE_LABELS.detailRuleImportLinkToRewardsList}
+										</a>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					{/if}
+
+					<form
+						method="POST"
+						action="?/importRulePreset"
+						use:enhance={() => {
+							importingRule = true;
+							return async ({ update }) => {
+								await update();
+								importingRule = false;
+								await invalidateAll();
+							};
+						}}
+						class="space-y-3 mt-3"
+						data-testid="rule-import-form"
+					>
+						{#if isRuleExchange}
+							<label class="block">
+								<span class="text-xs font-bold text-[var(--color-text-secondary)] block mb-1">
+									{MARKETPLACE_LABELS.detailCtaSelectChild}
+								</span>
+								<NativeSelect
+									name="childId"
+									bind:value={selectedChildIdForRule}
+									options={data.children.map((c) => ({
+										value: c.id,
+										label: c.nickname,
+									}))}
+								/>
+							</label>
+						{/if}
+						<Button
+							type="submit"
+							variant="primary"
+							size="lg"
+							class="w-full"
+							disabled={importingRule}
+							data-testid="rule-import-submit"
+						>
+							{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
+						</Button>
+					</form>
+					{/snippet}
+				</Card>
+			{:else if isRulePreset && data.isAuthenticated && isRuleExchange && data.children.length === 0}
+				<!-- #2138 (MP-3): exchange ruleType だがお子さま未登録 -->
+				<div
+					class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)] rounded-xl p-3 text-sm text-center"
+					data-testid="rule-import-no-children"
+				>
+					{MARKETPLACE_LABELS.detailRuleImportNoChildrenExchange}
+				</div>
+				<a href="/setup/children" class="block">
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailRuleImportNoChildrenExchange}
+					</Button>
+				</a>
+			{:else if isRulePreset && data.isAuthenticated && (isRulePenalty || isRuleSpecial)}
+				<!-- #2138 (MP-3): penalty / special は ADR-0012 細則により取込試行を warning 表示のみ -->
+				<div
+					class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)] rounded-xl p-3 text-sm"
+					data-testid="rule-import-penalty-warning"
+				>
+					{#if isRulePenalty}
+						{MARKETPLACE_LABELS.detailCtaImportRuleDescPenalty}
+					{:else}
+						{MARKETPLACE_LABELS.detailCtaImportRuleDescSpecial}
+					{/if}
+				</div>
+			{:else if isRulePreset && !data.isAuthenticated}
+				<!-- #2138 (MP-3): 未ログイン → signup 経由 redirect -->
+				<a
+					href="/auth/signup?next=/marketplace/rule-preset/{item.itemId}"
+					class="block"
+					data-testid="rule-import-signup-redirect"
+				>
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailCtaImportRule}
+					</Button>
+				</a>
+				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
+					{MARKETPLACE_LABELS.detailCtaImportRuleSignedOut}
+				</p>
 			{:else}
-				<!-- 他 type (activity-pack / rule-preset) は従来通り signup 動線 -->
+				<!-- 残りの type (activity-pack) は従来通り signup 動線 -->
 				<a href="/auth/signup" class="block">
 					<Button variant="primary" size="lg" class="w-full">
 						{MARKETPLACE_LABELS.detailCtaSignup}

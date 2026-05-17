@@ -32,6 +32,8 @@ import {
 } from '$lib/server/services/activity-log-aggregation';
 import { trackActivationFirstActivityCompleted } from '$lib/server/services/analytics-service';
 import { incrementChallengeProgress } from '$lib/server/services/auto-challenge-service';
+// #2138 MP-3: bonus-hook-service - マーケットプレイス取込済 bonus preset 6 件評価
+import { evaluateBonusHooks } from '$lib/server/services/bonus-hook-service';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
 import { checkMissionCompletion } from '$lib/server/services/daily-mission-service';
 import { type LevelUpInfo, updateStatus } from '$lib/server/services/status-service';
@@ -138,15 +140,64 @@ export async function recordActivity(
 	// Streak: only award on first record of the day
 	const isFirstToday = todayCount === 0;
 	const streakDays = isFirstToday ? await calculateStreak(childId, activityId, today, tenantId) : 1;
-	const streakBonus = isFirstToday ? calcStreakBonus(streakDays) : 0;
+	const defaultStreakBonus = isFirstToday ? calcStreakBonus(streakDays) : 0;
 
 	// 習熟度ボーナス
 	const mastery = await findMastery(childId, activityId, tenantId);
 	const currentLevel = mastery?.level ?? 1;
 	const masteryBonus = calcMasteryBonus(currentLevel);
 
+	// #2138 MP-3: bonus-hook-service による 6 件マーケットプレイス bonus 評価
+	// (取込済 preset が無ければ totalBonus=0 / pointsMultiplier=1.0 で regression なし)
+	let todayDistinctCategoryCount = 0;
+	try {
+		const todayCounts = await getTodayActivityCountsByChild(childId, today, tenantId);
+		const todayActivityIds = new Set(todayCounts.map((c) => c.activityId));
+		// 今回記録する activity も含めて distinct カテゴリを数える
+		todayActivityIds.add(activityId);
+		const { findActivities } = await import('$lib/server/db/activity-repo');
+		const allActivities = await findActivities(tenantId, {});
+		const todayCategoryIds = new Set<number>();
+		for (const a of allActivities) {
+			if (todayActivityIds.has(a.id)) {
+				todayCategoryIds.add(a.categoryId);
+			}
+		}
+		todayDistinctCategoryCount = todayCategoryIds.size;
+	} catch {
+		// distinct カテゴリ計算失敗は bonus hook を no-op で続行
+	}
+
+	let hookResult: Awaited<ReturnType<typeof evaluateBonusHooks>> = {
+		totalBonus: 0,
+		pointsMultiplier: 1.0,
+		hits: [],
+	};
+	try {
+		hookResult = await evaluateBonusHooks(
+			{
+				consecutiveDays: streakDays,
+				recordedAt: new Date(),
+				todayDistinctCategoryCount,
+				isFirstToday,
+				categoryId: activity.categoryId,
+				// sibling-coop / weekend-special family の判定は上位計算が必要、
+				// 本 phase では false 固定 (将来 sibling-challenge-service と統合)
+				allSiblingsActiveToday: false,
+			},
+			tenantId,
+		);
+	} catch {
+		// bonus-hook 失敗は活動記録フローを止めない (regression なし)
+	}
+
+	// 合計 streakBonus = default + bonus-hook
+	const streakBonus = defaultStreakBonus + hookResult.totalBonus;
 	const mainQuestMultiplier = activity.isMainQuest ? 2 : 1;
-	const effectiveBasePoints = activity.basePoints * mainQuestMultiplier;
+	const weekendMultiplier = hookResult.pointsMultiplier; // weekend-special で 2.0 等
+	const effectiveBasePoints = Math.floor(
+		activity.basePoints * mainQuestMultiplier * weekendMultiplier,
+	);
 	const totalPoints = effectiveBasePoints + streakBonus + masteryBonus;
 
 	// Insert activity log

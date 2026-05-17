@@ -1,8 +1,8 @@
 # 0012. Anti-engagement 原則（滞在時間 = 価値毀損）
 
 - **Status**: Accepted
-- **Date**: 2026-04-21（#1345 で機能別細則 §6 を追記）
-- **Related Issue**: #1309 (#1307 umbrella 派生 B9-ADR-ENGAGEMENT) / #1345 (#1328 umbrella C1-ANTIENGAGE-DETAIL)
+- **Date**: 2026-04-21（#1345 で機能別細則 §6 を追記、2026-05-17 #2138 で rule-preset (penalty) 行を追記）
+- **Related Issue**: #1309 (#1307 umbrella 派生 B9-ADR-ENGAGEMENT) / #1345 (#1328 umbrella C1-ANTIENGAGE-DETAIL) / #2138 (MP-3 マーケットプレイス rule-preset 完全実装)
 
 ## コンテキスト
 
@@ -55,6 +55,8 @@
 | レベル・称号・実績 | ポイント履歴・現実活動の結果表現（受動的表示） | 収集目的の独立 UI / 称号コレクション閲覧ページ / ミッションリストから UI を駆動する導線 |
 | ごほうびショップ | 交換動線（ポイント → ごほうび）のみ / 必要時のみ入る | ウィンドウショッピング滞在 / おすすめ表示による回遊 / 在庫変動のアニメ演出濫用 |
 | Web Push 通知 (#1593) | **親端末のみ**送信 (parent / owner role の subscription)。日次 3 通 cap + 21:00-07:00 quiet hours。リマインダー・ストリーク警告・達成通知の 3 種のみ | **子端末への送信は構造的禁止**（`push_subscriptions.subscriber_role` カラムで subscribe API が child を 403 拒否 + notification-service 側で送信時に二重防御）。再入店誘導目的の通知連打 / 4 通目以降の cap 突破 / quiet hours 違反 |
+| **rule-preset (penalty)** (#2138 MP-3) | **インフラのみ保持** — 取込時に warning 表示 + `settings.rule_preset_import_warnings` に audit log。実 preset 投入は本 ADR を supersede する個別 ADR 合意後の別 Issue でのみ許容。`/admin/settings/rules` に表示しない（既定 disable）。Octalysis Drive 8 (black hat)、子供のミス・遅刻・忘れ物に対する**減点 / ペナルティ系ルール** | **子供側 UI への penalty 表示・通知の構造的禁止**（`rule-preset-import-service.ts` で penalty ruleType を no-op warning にし、子供画面に reach するパス無し）。累積ペナルティ / quiet hours 違反通知 / 兄弟比較によるペナルティ / 失敗体験の連打表示 / 親のミス連動ペナルティ |
+| **rule-preset (special)** (#2138 MP-3) | **将来枠** — 仕様未確定。取込時に warning 表示のみ (penalty と同形の no-op) | 仕様確定前の preset 投入 / 子供側 UI への露出 |
 
 #### 適用範囲
 
@@ -64,7 +66,31 @@
 
 #### レビュー時の運用
 
-新機能 PR / LP コピー変更 PR で上記 5 機能に該当する UI を追加・変更する場合、レビュアーは「禁止 UX」列に該当しないか明示確認する。該当する場合は本 ADR を supersede する新 ADR を先に起票する（個別 PR で原則を崩さない）。
+新機能 PR / LP コピー変更 PR で上記 5 機能 + rule-preset (penalty/special) 2 行に該当する UI を追加・変更する場合、レビュアーは「禁止 UX」列に該当しないか明示確認する。該当する場合は本 ADR を supersede する新 ADR を先に起票する（個別 PR で原則を崩さない）。
+
+#### rule-preset (penalty) — 採用条件 / 既定 disable / opt-in 設定経路 (#2138)
+
+**penalty ruleType を将来採用する場合の必須条件** (本 ADR §6 表の禁止 UX 列を満たさないかは別途審査):
+
+1. **採用条件 (全件必須)**:
+   - 親が**明示的に ON 操作**しない限り発火しない（既定値 `enabled: false`）
+   - **子供 UI に penalty 文言を露出しない**（ポイント減算のみ、減算理由の通知禁止）
+   - 累積ペナルティ禁止（同一日に複数 penalty rule が複合発火する設計を取らない）
+   - quiet hours (21:00-07:00) 中は判定を行わない（リマインダー連打との合算を防ぐ）
+   - 兄弟比較を含む rule は無条件で却下
+
+2. **既定 disable の構造的強制**:
+   - `rule-preset-import-service.ts` で penalty ruleType を no-op warning にし、import 操作だけでは active 状態にならない
+   - 親が `/admin/settings/rules` 画面で**明示 ON 切替を行わない限り**、`bonus-hook-service.ts` 相当の penalty-hook (将来) は発火しない
+
+3. **opt-in 設定経路**:
+   - 親管理画面 (`/admin/settings/rules`) で個別 penalty preset の ON/OFF を切替
+   - opt-in 前に**警告モーダル必須** (ADR-0012 §6 細則に該当する文言で「子供の失敗体験を強化する設計です」を表示し親同意 chip を取る)
+   - 1 件 ON → 即時反映ではなく **24h 待機期間** を設ける（親が冷静になる時間。Pre-PMF では未実装、本格採用時に追加）
+
+4. **ADR supersede 必要**:
+   - 上記 1-3 を満たす penalty preset 実装は本 ADR の射程内だが、**実 penalty preset JSON 投入**は本 ADR を supersede する新 ADR で個別合意（preset ごとに）
+   - 「N 件以内なら本 ADR の範囲内」のような数量例外を作らない
 
 ## 結果
 
