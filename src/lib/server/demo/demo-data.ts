@@ -33,6 +33,7 @@ import type {
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import type { RewardCategory } from '$lib/domain/validation/special-reward';
+import type { DailyBattleRow } from '$lib/server/db/interfaces/battle-repo.interface';
 import type {
 	Activity,
 	ActivityLog,
@@ -42,7 +43,11 @@ import type {
 	Child,
 	ChildAchievement,
 	DailyMission,
+	Evaluation,
 	LoginBonus,
+	SiblingChallenge,
+	SiblingChallengeProgress,
+	SiblingCheer,
 	SpecialReward,
 	Status,
 } from '$lib/server/db/types/index.js';
@@ -1933,6 +1938,821 @@ export const DEMO_LOGIN_BONUSES: LoginBonus[] = [
 		totalPoints: 6,
 		consecutiveDays: 14,
 		createdAt: NOW,
+	},
+];
+
+// ============================================================
+// Sibling Cheers (#2097 Phase B-5b)
+// ============================================================
+// きょうだい間で送受信した「おうえんスタンプ」履歴。
+// 子供画面の SiblingCheerOverlay 等で表示される。
+// fixture immutability 原則 (ADR-0048 §決定 §2) に従い shownAt は固定値。
+
+// stampCode は services/sibling-cheer-service.ts の CHEER_STAMPS と整合:
+// ganbare / sugoi / issho / omedeto / nice / fight
+export const DEMO_SIBLING_CHEERS: SiblingCheer[] = [
+	// ── 過去履歴 (shownAt 設定済み) ──
+	// 903 けんた → 902 ひな (兄から妹へ)
+	{
+		id: 1,
+		fromChildId: 903,
+		toChildId: 902,
+		stampCode: 'ganbare',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(2),
+		shownAt: daysAgoISO(2),
+	},
+	// 904 さくら → 902 ひな (姉から妹へ)
+	{
+		id: 2,
+		fromChildId: 904,
+		toChildId: 902,
+		stampCode: 'omedeto',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(2),
+		shownAt: daysAgoISO(2),
+	},
+	// 902 ひな → 903 けんた (妹から兄へ)
+	{
+		id: 3,
+		fromChildId: 902,
+		toChildId: 903,
+		stampCode: 'sugoi',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(3),
+		shownAt: daysAgoISO(3),
+	},
+	// 904 さくら → 903 けんた (姉から弟へ)
+	{
+		id: 4,
+		fromChildId: 904,
+		toChildId: 903,
+		stampCode: 'nice',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(3),
+		shownAt: daysAgoISO(3),
+	},
+	// 906 けいすけ → 904 さくら (兄から妹へ)
+	{
+		id: 5,
+		fromChildId: 906,
+		toChildId: 904,
+		stampCode: 'fight',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(4),
+		shownAt: daysAgoISO(4),
+	},
+	// ── 未表示 (shownAt: null) — demo 子供画面でおうえん受信演出が確認可能 ──
+	// 903 → 902 (直近)
+	{
+		id: 6,
+		fromChildId: 903,
+		toChildId: 902,
+		stampCode: 'issho',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(0),
+		shownAt: null,
+	},
+	// 906 → 903 (直近)
+	{
+		id: 7,
+		fromChildId: 906,
+		toChildId: 903,
+		stampCode: 'sugoi',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(0),
+		shownAt: null,
+	},
+	// 902 → 904 (直近)
+	{
+		id: 8,
+		fromChildId: 902,
+		toChildId: 904,
+		stampCode: 'ganbare',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(0),
+		shownAt: null,
+	},
+	// 903 → 906 (直近)
+	{
+		id: 9,
+		fromChildId: 903,
+		toChildId: 906,
+		stampCode: 'nice',
+		tenantId: DEMO_TENANT_ID,
+		sentAt: daysAgoISO(0),
+		shownAt: null,
+	},
+];
+
+// ============================================================
+// Sibling Challenges (#2097 Phase B-5b)
+// ============================================================
+// きょうだい全員で取り組む協力チャレンジ + 完了済み実績。
+// targetConfig / rewardConfig は services/sibling-challenge-service.ts の
+// TargetConfig / RewardConfig 型と整合する JSON 文字列。
+
+export const DEMO_SIBLING_CHALLENGES: SiblingChallenge[] = [
+	// active: 今週のチャレンジ「みんなで合計 100 pt 達成」
+	{
+		id: 1,
+		title: 'みんなで 100 ポイントチャレンジ',
+		description: 'きょうだい全員のポイントを合算して 100 pt を目指そう！',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: daysAgo(2),
+		endDate: daysAgo(-4), // 4 日後まで
+		targetConfig: JSON.stringify({
+			metric: 'count',
+			baseTarget: 25,
+			ageAdjustments: { '3': 15, '6': 25, '13': 30, '16': 30 },
+		}),
+		rewardConfig: JSON.stringify({
+			points: 50,
+			message: 'みんなでがんばったね！',
+		}),
+		status: 'active',
+		isActive: 1,
+		createdAt: daysAgoISO(2),
+		updatedAt: daysAgoISO(2),
+	},
+	// active: 「うんどう週間」カテゴリ縛り
+	{
+		id: 2,
+		title: 'うんどう週間チャレンジ',
+		description: '今週はみんなでうんどうカテゴリ 5 回ずつ達成しよう',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: daysAgo(1),
+		endDate: daysAgo(-5),
+		targetConfig: JSON.stringify({
+			metric: 'count',
+			categoryId: 1, // うんどう
+			baseTarget: 5,
+		}),
+		rewardConfig: JSON.stringify({
+			points: 30,
+			message: 'みんなで体力アップ！',
+		}),
+		status: 'active',
+		isActive: 1,
+		createdAt: daysAgoISO(1),
+		updatedAt: daysAgoISO(1),
+	},
+	// completed: 先週のチャレンジ
+	{
+		id: 3,
+		title: '先週のべんきょうチャレンジ',
+		description: 'べんきょう 30 回達成チャレンジ',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: daysAgo(10),
+		endDate: daysAgo(3),
+		targetConfig: JSON.stringify({
+			metric: 'count',
+			categoryId: 2, // べんきょう
+			baseTarget: 10,
+		}),
+		rewardConfig: JSON.stringify({
+			points: 40,
+			message: 'みんなで物知り博士！',
+		}),
+		status: 'completed',
+		isActive: 0,
+		createdAt: daysAgoISO(10),
+		updatedAt: daysAgoISO(3),
+	},
+];
+
+/** Sibling Challenge 進捗 (challenge × child) */
+export const DEMO_SIBLING_CHALLENGE_PROGRESSES: SiblingChallengeProgress[] = [
+	// Challenge 1 (active, baseTarget 25): 902/903/904/906 が enrolled
+	{
+		id: 1,
+		challengeId: 1,
+		childId: 902,
+		currentValue: 12,
+		targetValue: 15, // age-adjusted (5歳)
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		progressJson: null,
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 2,
+		challengeId: 1,
+		childId: 903,
+		currentValue: 20,
+		targetValue: 25, // age-adjusted (8歳)
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		progressJson: null,
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 3,
+		challengeId: 1,
+		childId: 904,
+		currentValue: 25,
+		targetValue: 30, // age-adjusted (14歳)
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		progressJson: null,
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 4,
+		challengeId: 1,
+		childId: 906,
+		currentValue: 28,
+		targetValue: 30, // age-adjusted (17歳)
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		progressJson: null,
+		updatedAt: daysAgoISO(1),
+	},
+	// Challenge 2 (active うんどう、baseTarget 5)
+	{
+		id: 5,
+		challengeId: 2,
+		childId: 902,
+		currentValue: 2,
+		targetValue: 5,
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		progressJson: null,
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 6,
+		challengeId: 2,
+		childId: 903,
+		currentValue: 3,
+		targetValue: 5,
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		progressJson: null,
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 7,
+		challengeId: 2,
+		childId: 904,
+		currentValue: 5,
+		targetValue: 5,
+		completed: 1,
+		completedAt: daysAgoISO(1),
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		progressJson: null,
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 8,
+		challengeId: 2,
+		childId: 906,
+		currentValue: 4,
+		targetValue: 5,
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		progressJson: null,
+		updatedAt: daysAgoISO(1),
+	},
+	// Challenge 3 (completed): 全員達成済み
+	{
+		id: 9,
+		challengeId: 3,
+		childId: 903,
+		currentValue: 10,
+		targetValue: 10,
+		completed: 1,
+		completedAt: daysAgoISO(3),
+		rewardClaimed: 1,
+		rewardClaimedAt: daysAgoISO(3),
+		progressJson: null,
+		updatedAt: daysAgoISO(3),
+	},
+	{
+		id: 10,
+		challengeId: 3,
+		childId: 904,
+		currentValue: 12,
+		targetValue: 10,
+		completed: 1,
+		completedAt: daysAgoISO(4),
+		rewardClaimed: 1,
+		rewardClaimedAt: daysAgoISO(3),
+		progressJson: null,
+		updatedAt: daysAgoISO(3),
+	},
+	{
+		id: 11,
+		challengeId: 3,
+		childId: 906,
+		currentValue: 15,
+		targetValue: 10,
+		completed: 1,
+		completedAt: daysAgoISO(5),
+		rewardClaimed: 1,
+		rewardClaimedAt: daysAgoISO(3),
+		progressJson: null,
+		updatedAt: daysAgoISO(3),
+	},
+];
+
+// ============================================================
+// Battles (#2097 Phase B-5b + battle fixture)
+// ============================================================
+// 日次バトル履歴。battle UI 対象の elementary/junior/senior 年齢 (903/904/906) を中心に
+// 過去 5-7 日分の戦績 + 当日 active battle を持たせる。
+// 902 (preschool) はバトル UI 対象外のため fixture なし。
+// 901 (baby) も同様に対象外。
+
+const DEFAULT_BATTLE_STATS_JSON = JSON.stringify({
+	hp: 100,
+	atk: 30,
+	def: 20,
+	spd: 25,
+	rec: 15,
+});
+
+const STRONGER_BATTLE_STATS_JSON = JSON.stringify({
+	hp: 150,
+	atk: 45,
+	def: 30,
+	spd: 30,
+	rec: 20,
+});
+
+const STRONGEST_BATTLE_STATS_JSON = JSON.stringify({
+	hp: 200,
+	atk: 60,
+	def: 40,
+	spd: 35,
+	rec: 25,
+});
+
+export const DEMO_BATTLES: DailyBattleRow[] = [
+	// ── 903 けんた (elementary) ──
+	// 当日 (TODAY): pending
+	{
+		id: 9030,
+		childId: 903,
+		enemyId: 1,
+		date: TODAY,
+		status: 'pending',
+		outcome: null,
+		rewardPoints: 0,
+		turnsUsed: 0,
+		playerStatsJson: DEFAULT_BATTLE_STATS_JSON,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	// 過去 5 日: completed 履歴
+	{
+		id: 9031,
+		childId: 903,
+		enemyId: 1,
+		date: daysAgo(1),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 20,
+		turnsUsed: 5,
+		playerStatsJson: DEFAULT_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(1),
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 9032,
+		childId: 903,
+		enemyId: 2,
+		date: daysAgo(2),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 25,
+		turnsUsed: 6,
+		playerStatsJson: DEFAULT_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(2),
+		updatedAt: daysAgoISO(2),
+	},
+	{
+		id: 9033,
+		childId: 903,
+		enemyId: 3,
+		date: daysAgo(3),
+		status: 'completed',
+		outcome: 'lose',
+		rewardPoints: 5,
+		turnsUsed: 8,
+		playerStatsJson: DEFAULT_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(3),
+		updatedAt: daysAgoISO(3),
+	},
+	{
+		id: 9034,
+		childId: 903,
+		enemyId: 1,
+		date: daysAgo(4),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 20,
+		turnsUsed: 4,
+		playerStatsJson: DEFAULT_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(4),
+		updatedAt: daysAgoISO(4),
+	},
+	{
+		id: 9035,
+		childId: 903,
+		enemyId: 2,
+		date: daysAgo(5),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 25,
+		turnsUsed: 5,
+		playerStatsJson: DEFAULT_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(5),
+		updatedAt: daysAgoISO(5),
+	},
+	// ── 904 さくら (junior) ──
+	{
+		id: 9040,
+		childId: 904,
+		enemyId: 4,
+		date: TODAY,
+		status: 'pending',
+		outcome: null,
+		rewardPoints: 0,
+		turnsUsed: 0,
+		playerStatsJson: STRONGER_BATTLE_STATS_JSON,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 9041,
+		childId: 904,
+		enemyId: 4,
+		date: daysAgo(1),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 40,
+		turnsUsed: 4,
+		playerStatsJson: STRONGER_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(1),
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 9042,
+		childId: 904,
+		enemyId: 5,
+		date: daysAgo(2),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 45,
+		turnsUsed: 6,
+		playerStatsJson: STRONGER_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(2),
+		updatedAt: daysAgoISO(2),
+	},
+	{
+		id: 9043,
+		childId: 904,
+		enemyId: 6,
+		date: daysAgo(3),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 50,
+		turnsUsed: 5,
+		playerStatsJson: STRONGER_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(3),
+		updatedAt: daysAgoISO(3),
+	},
+	{
+		id: 9044,
+		childId: 904,
+		enemyId: 4,
+		date: daysAgo(4),
+		status: 'completed',
+		outcome: 'lose',
+		rewardPoints: 8,
+		turnsUsed: 7,
+		playerStatsJson: STRONGER_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(4),
+		updatedAt: daysAgoISO(4),
+	},
+	{
+		id: 9045,
+		childId: 904,
+		enemyId: 5,
+		date: daysAgo(5),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 45,
+		turnsUsed: 5,
+		playerStatsJson: STRONGER_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(5),
+		updatedAt: daysAgoISO(5),
+	},
+	// ── 906 けいすけ (senior) ──
+	{
+		id: 9060,
+		childId: 906,
+		enemyId: 7,
+		date: TODAY,
+		status: 'pending',
+		outcome: null,
+		rewardPoints: 0,
+		turnsUsed: 0,
+		playerStatsJson: STRONGEST_BATTLE_STATS_JSON,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 9061,
+		childId: 906,
+		enemyId: 7,
+		date: daysAgo(1),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 60,
+		turnsUsed: 3,
+		playerStatsJson: STRONGEST_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(1),
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 9062,
+		childId: 906,
+		enemyId: 8,
+		date: daysAgo(2),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 70,
+		turnsUsed: 4,
+		playerStatsJson: STRONGEST_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(2),
+		updatedAt: daysAgoISO(2),
+	},
+	{
+		id: 9063,
+		childId: 906,
+		enemyId: 9,
+		date: daysAgo(3),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 80,
+		turnsUsed: 5,
+		playerStatsJson: STRONGEST_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(3),
+		updatedAt: daysAgoISO(3),
+	},
+	{
+		id: 9064,
+		childId: 906,
+		enemyId: 7,
+		date: daysAgo(4),
+		status: 'completed',
+		outcome: 'win',
+		rewardPoints: 60,
+		turnsUsed: 4,
+		playerStatsJson: STRONGEST_BATTLE_STATS_JSON,
+		createdAt: daysAgoISO(4),
+		updatedAt: daysAgoISO(4),
+	},
+];
+
+// ============================================================
+// Evaluations (#2097 Phase B-5b)
+// ============================================================
+// 週次評価レポート (週次サマリー)。
+// 全 5 子供 (901-906) の過去 4 週分。グラフ表示・推移確認用。
+// scoresJson は services/evaluation-service.ts の categoryScores 型と整合する JSON 文字列:
+//   Record<categoryId, { count, points, statusIncrease }>
+//
+// 週の区切り: 2026-03-27 (Friday) の週は 2026-03-23 (Mon) - 2026-03-29 (Sun)
+// 過去 4 週: 当週 / -1 週 / -2 週 / -3 週
+
+function weekStartDate(weeksAgo: number): string {
+	// daysAgo(0) = 2026-03-27 (Fri). 当週月曜は 4 日前 = 2026-03-23
+	const monOffset = weeksAgo * 7 + 4;
+	return daysAgo(monOffset);
+}
+
+function weekEndDate(weeksAgo: number): string {
+	// 当週日曜は 2 日後だが TODAY 基準で過去のみ扱うため、その週の月曜+6 日
+	const monOffset = weeksAgo * 7 + 4;
+	return daysAgo(monOffset - 6); // 月曜 + 6 = 日曜
+}
+
+function makeScoresJson(c1: number, c2: number, c3: number, c4: number, c5: number): string {
+	return JSON.stringify({
+		1: { count: c1, points: c1 * 10, statusIncrease: Math.floor(c1 / 2) },
+		2: { count: c2, points: c2 * 10, statusIncrease: Math.floor(c2 / 2) },
+		3: { count: c3, points: c3 * 10, statusIncrease: Math.floor(c3 / 2) },
+		4: { count: c4, points: c4 * 10, statusIncrease: Math.floor(c4 / 2) },
+		5: { count: c5, points: c5 * 10, statusIncrease: Math.floor(c5 / 2) },
+	});
+}
+
+export const DEMO_EVALUATIONS: Evaluation[] = [
+	// ── 901 たろうくん (baby) — 低頻度活動 ──
+	{
+		id: 9011,
+		childId: 901,
+		weekStart: weekStartDate(0),
+		weekEnd: weekEndDate(0),
+		scoresJson: makeScoresJson(2, 1, 3, 1, 2),
+		bonusPoints: 5,
+		createdAt: daysAgoISO(0),
+	},
+	{
+		id: 9012,
+		childId: 901,
+		weekStart: weekStartDate(1),
+		weekEnd: weekEndDate(1),
+		scoresJson: makeScoresJson(1, 1, 2, 1, 1),
+		bonusPoints: 3,
+		createdAt: daysAgoISO(7),
+	},
+	{
+		id: 9013,
+		childId: 901,
+		weekStart: weekStartDate(2),
+		weekEnd: weekEndDate(2),
+		scoresJson: makeScoresJson(2, 0, 2, 1, 2),
+		bonusPoints: 3,
+		createdAt: daysAgoISO(14),
+	},
+	{
+		id: 9014,
+		childId: 901,
+		weekStart: weekStartDate(3),
+		weekEnd: weekEndDate(3),
+		scoresJson: makeScoresJson(1, 1, 1, 0, 1),
+		bonusPoints: 2,
+		createdAt: daysAgoISO(21),
+	},
+	// ── 902 ひなちゃん (preschool) ──
+	{
+		id: 9021,
+		childId: 902,
+		weekStart: weekStartDate(0),
+		weekEnd: weekEndDate(0),
+		scoresJson: makeScoresJson(5, 4, 3, 2, 4),
+		bonusPoints: 15,
+		createdAt: daysAgoISO(0),
+	},
+	{
+		id: 9022,
+		childId: 902,
+		weekStart: weekStartDate(1),
+		weekEnd: weekEndDate(1),
+		scoresJson: makeScoresJson(4, 3, 3, 2, 3),
+		bonusPoints: 12,
+		createdAt: daysAgoISO(7),
+	},
+	{
+		id: 9023,
+		childId: 902,
+		weekStart: weekStartDate(2),
+		weekEnd: weekEndDate(2),
+		scoresJson: makeScoresJson(3, 2, 2, 1, 3),
+		bonusPoints: 8,
+		createdAt: daysAgoISO(14),
+	},
+	{
+		id: 9024,
+		childId: 902,
+		weekStart: weekStartDate(3),
+		weekEnd: weekEndDate(3),
+		scoresJson: makeScoresJson(2, 2, 2, 1, 2),
+		bonusPoints: 6,
+		createdAt: daysAgoISO(21),
+	},
+	// ── 903 けんたくん (elementary) — 高頻度 ──
+	{
+		id: 9031,
+		childId: 903,
+		weekStart: weekStartDate(0),
+		weekEnd: weekEndDate(0),
+		scoresJson: makeScoresJson(10, 8, 6, 4, 7),
+		bonusPoints: 30,
+		createdAt: daysAgoISO(0),
+	},
+	{
+		id: 9032,
+		childId: 903,
+		weekStart: weekStartDate(1),
+		weekEnd: weekEndDate(1),
+		scoresJson: makeScoresJson(9, 7, 5, 4, 6),
+		bonusPoints: 28,
+		createdAt: daysAgoISO(7),
+	},
+	{
+		id: 9033,
+		childId: 903,
+		weekStart: weekStartDate(2),
+		weekEnd: weekEndDate(2),
+		scoresJson: makeScoresJson(8, 6, 5, 3, 5),
+		bonusPoints: 25,
+		createdAt: daysAgoISO(14),
+	},
+	{
+		id: 9034,
+		childId: 903,
+		weekStart: weekStartDate(3),
+		weekEnd: weekEndDate(3),
+		scoresJson: makeScoresJson(7, 5, 4, 3, 5),
+		bonusPoints: 22,
+		createdAt: daysAgoISO(21),
+	},
+	// ── 904 さくらちゃん (junior) — 高頻度 ──
+	{
+		id: 9041,
+		childId: 904,
+		weekStart: weekStartDate(0),
+		weekEnd: weekEndDate(0),
+		scoresJson: makeScoresJson(12, 14, 8, 5, 10),
+		bonusPoints: 45,
+		createdAt: daysAgoISO(0),
+	},
+	{
+		id: 9042,
+		childId: 904,
+		weekStart: weekStartDate(1),
+		weekEnd: weekEndDate(1),
+		scoresJson: makeScoresJson(11, 13, 7, 5, 9),
+		bonusPoints: 42,
+		createdAt: daysAgoISO(7),
+	},
+	{
+		id: 9043,
+		childId: 904,
+		weekStart: weekStartDate(2),
+		weekEnd: weekEndDate(2),
+		scoresJson: makeScoresJson(10, 12, 7, 4, 8),
+		bonusPoints: 38,
+		createdAt: daysAgoISO(14),
+	},
+	{
+		id: 9044,
+		childId: 904,
+		weekStart: weekStartDate(3),
+		weekEnd: weekEndDate(3),
+		scoresJson: makeScoresJson(9, 11, 6, 4, 7),
+		bonusPoints: 35,
+		createdAt: daysAgoISO(21),
+	},
+	// ── 906 けいすけくん (senior) — 最頻度 ──
+	{
+		id: 9061,
+		childId: 906,
+		weekStart: weekStartDate(0),
+		weekEnd: weekEndDate(0),
+		scoresJson: makeScoresJson(14, 16, 12, 10, 13),
+		bonusPoints: 60,
+		createdAt: daysAgoISO(0),
+	},
+	{
+		id: 9062,
+		childId: 906,
+		weekStart: weekStartDate(1),
+		weekEnd: weekEndDate(1),
+		scoresJson: makeScoresJson(13, 15, 11, 10, 12),
+		bonusPoints: 55,
+		createdAt: daysAgoISO(7),
+	},
+	{
+		id: 9063,
+		childId: 906,
+		weekStart: weekStartDate(2),
+		weekEnd: weekEndDate(2),
+		scoresJson: makeScoresJson(12, 14, 10, 9, 11),
+		bonusPoints: 50,
+		createdAt: daysAgoISO(14),
+	},
+	{
+		id: 9064,
+		childId: 906,
+		weekStart: weekStartDate(3),
+		weekEnd: weekEndDate(3),
+		scoresJson: makeScoresJson(11, 13, 10, 8, 10),
+		bonusPoints: 45,
+		createdAt: daysAgoISO(21),
 	},
 ];
 

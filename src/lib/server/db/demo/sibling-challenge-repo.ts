@@ -1,6 +1,11 @@
 // Demo ISiblingChallengeRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
+// #2097 Phase B-5b: fixture を返すことで「きょうだいチャレンジ画面が空」のバグを解消。
 
+import {
+	DEMO_SIBLING_CHALLENGE_PROGRESSES,
+	DEMO_SIBLING_CHALLENGES,
+} from '$lib/server/demo/demo-data';
 import type {
 	InsertSiblingChallengeInput,
 	SiblingChallenge,
@@ -9,21 +14,24 @@ import type {
 } from '../types';
 
 export async function findAllChallenges(_tenantId: string): Promise<SiblingChallenge[]> {
-	return [];
+	return DEMO_SIBLING_CHALLENGES;
 }
 
 export async function findActiveChallenges(
-	_today: string,
+	today: string,
 	_tenantId: string,
 ): Promise<SiblingChallenge[]> {
-	return [];
+	// active 判定: isActive=1 AND startDate <= today <= endDate
+	return DEMO_SIBLING_CHALLENGES.filter(
+		(c) => c.isActive === 1 && c.startDate <= today && today <= c.endDate,
+	);
 }
 
 export async function findChallengeById(
-	_id: number,
+	id: number,
 	_tenantId: string,
 ): Promise<SiblingChallenge | undefined> {
-	return undefined;
+	return DEMO_SIBLING_CHALLENGES.find((c) => c.id === id);
 }
 
 export async function insertChallenge(
@@ -61,25 +69,27 @@ export async function deleteChallenge(_id: number, _tenantId: string): Promise<v
 }
 
 export async function findProgressByChallenge(
-	_challengeId: number,
+	challengeId: number,
 	_tenantId: string,
 ): Promise<SiblingChallengeProgress[]> {
-	return [];
+	return DEMO_SIBLING_CHALLENGE_PROGRESSES.filter((p) => p.challengeId === challengeId);
 }
 
 export async function findProgressByChild(
-	_childId: number,
+	childId: number,
 	_tenantId: string,
 ): Promise<SiblingChallengeProgress[]> {
-	return [];
+	return DEMO_SIBLING_CHALLENGE_PROGRESSES.filter((p) => p.childId === childId);
 }
 
 export async function findProgress(
-	_challengeId: number,
-	_childId: number,
+	challengeId: number,
+	childId: number,
 	_tenantId: string,
 ): Promise<SiblingChallengeProgress | undefined> {
-	return undefined;
+	return DEMO_SIBLING_CHALLENGE_PROGRESSES.find(
+		(p) => p.challengeId === challengeId && p.childId === childId,
+	);
 }
 
 export async function upsertProgress(
