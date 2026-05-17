@@ -1960,18 +1960,22 @@ const MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE: Record<number, ChecklistTemplateI
 	return map;
 })();
 
-// ── SpecialReward fixture (child reward shop 用) ───────────────
+// ── SpecialReward fixture (child reward shop 用 + 達成プレゼント modal 演出用) ───────────────
 //
 // Demo Lambda の子供側ごほうびショップ (`/(child)/[uiMode]/shop`) は
 // `getChildSpecialRewards` 経由で `findSpecialRewards(childId, tenantId)` を呼ぶ。
-// marketplace reward-set から各子供に上位 5 件を pre-granted (visible) として配置。
+// marketplace reward-set から各子供に上位 5 件を pre-granted として配置:
+//
+// - idx 0 (最新): **未表示** (shownAt = null) — `findUnshownReward` で取得され
+//   子供ホームで `SpecialRewardOverlay` (おうかん演出 / 達成プレゼント modal) を発火させる (B-5a)
+// - idx 1-4 (古い): 既表示 (shownAt 設定済み) — child shop 棚の履歴として表示される
 const MARKETPLACE_SPECIAL_REWARDS_BY_CHILD: Record<number, SpecialReward[]> = (() => {
 	const map: Record<number, SpecialReward[]> = {};
 	let idOffset = 0;
 	for (const [childIdStr, templates] of Object.entries(MARKETPLACE_REWARD_TEMPLATES_BY_CHILD)) {
 		const childId = Number(childIdStr);
 		const presetId = REWARD_SETS_BY_CHILD[childId]?.[0] ?? null;
-		// 上位 5 件を pre-granted として配置（child shop で「いくつか並んだ棚」を再現）
+		// 上位 5 件を pre-granted として配置（child shop で「いくつか並んだ棚」を再現 + 1 件未表示）
 		const top5 = templates.slice(0, 5);
 		map[childId] = top5.map((tpl, idx) => ({
 			id: SYN_SPECIAL_REWARD_ID_BASE + idOffset + idx,
@@ -1983,7 +1987,9 @@ const MARKETPLACE_SPECIAL_REWARDS_BY_CHILD: Record<number, SpecialReward[]> = ((
 			icon: tpl.icon,
 			category: tpl.category,
 			grantedAt: daysAgoISO(idx + 1),
-			shownAt: daysAgoISO(idx + 1),
+			// idx 0: shownAt=null (達成プレゼント modal 発火、B-5a)
+			// idx 1-4: shownAt 設定済み (履歴表示)
+			shownAt: idx === 0 ? null : daysAgoISO(idx + 1),
 			sourcePresetId: presetId,
 		}));
 		idOffset += top5.length;

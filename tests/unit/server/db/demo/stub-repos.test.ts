@@ -228,8 +228,15 @@ describe('demo/special-reward-repo', () => {
 		expect(await specialRewardRepo.findSpecialRewards(901, 'demo')).toEqual([]);
 	});
 
-	it('findUnshownReward は undefined (全 pre-granted は shownAt 既設定)', async () => {
-		expect(await specialRewardRepo.findUnshownReward(902, 'demo')).toBeUndefined();
+	it('findUnshownReward は marketplace 由来 idx 0 (shownAt=null) を返す (#2097 B-5a)', async () => {
+		const unshown = await specialRewardRepo.findUnshownReward(902, 'demo');
+		expect(unshown).toBeDefined();
+		expect(unshown?.childId).toBe(902);
+		expect(unshown?.shownAt).toBeNull();
+	});
+
+	it('findUnshownReward は 901 (baby、marketplace 対象外) で undefined', async () => {
+		expect(await specialRewardRepo.findUnshownReward(901, 'demo')).toBeUndefined();
 	});
 });
 
