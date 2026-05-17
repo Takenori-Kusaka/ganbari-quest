@@ -14,14 +14,15 @@ import Toast from '$lib/ui/primitives/Toast.svelte';
 
 let { children, data } = $props();
 
-// ADR-0039 / #1180: `hooks.server.ts` で `?mode=demo` / cookie から判定された
-// `locals.isDemo` を `+layout.server.ts` が `data.isDemo` として配布。
-// root layout 上部に DemoBanner を常時マウントし、デモ状態を全ページで可視化する。
+// ADR-0048 / #2189 PR-B4: `hooks.server.ts` で env-only (`AUTH_MODE=anonymous &&
+// DATA_SOURCE=demo`) から判定された `locals.isDemo` を `+layout.server.ts` が
+// `data.isDemo` として配布。root layout 上部に DemoBanner を常時マウントし、
+// デモ状態を全ページで可視化する。
 //
-// #2097 PR-B3 (#2188): `src/routes/demo/**` は全削除済、`/demo/*` 全アクセスは
-// `legacy-url-map.ts` 経由で本番 path に 308 redirect される。よって本判定は通常
-// false に評価されるが、redirect 失敗時 (例: 未登録 sub path) の防御として残す。
-// PR-B4 (#2189) で hooks.server.ts demo 検出を env-only 化する際に dead code として削除予定。
+// `isLegacyDemoPath` 抑止条件: PR-B3 (#2188) で `src/routes/demo/**` 物理撤去 +
+// legacy-url-map redirect (308 to 本番 path) 完了済のため通常 false に評価されるが、
+// redirect 失敗時 (例: 未登録 sub path) の防御 + アクセスログ等で `/demo/*` URL が
+// 出る期間の保険として残置 (cleanup は別 Issue)。
 const isLegacyDemoPath = $derived($page.url?.pathname?.startsWith('/demo') ?? false);
 
 // #2097 EPIC PR-B1 (2026-05-17): LP SS 撮影時 (`?screenshot=all` / `?screenshot=1`) は

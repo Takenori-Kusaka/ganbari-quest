@@ -343,6 +343,34 @@
 - 本番 Lambda 環境変数を変更しても demo Fn の env には影響しない (CDK 上で別オブジェクト)
 - IAM Role は完全分離。本番 Role の権限を増減しても demo Role には影響しない
 
+#### demo 検出ロジック — env-only 単一化 (PR-B4 / #2189)
+
+`src/hooks.server.ts` の `event.locals.isDemo` 判定は **env 1 軸のみ** で決定される:
+
+```typescript
+// src/lib/server/demo/demo-mode.ts
+export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE'>): boolean {
+  return env.AUTH_MODE === 'anonymous' && env.DATA_SOURCE === 'demo';
+}
+```
+
+| Lambda | `AUTH_MODE` | `DATA_SOURCE` | `event.locals.isDemo` |
+|---|---|---|---|
+| Production (`ganbari-quest.com`) | `cognito` | `dynamodb` (本番) / `sqlite` (NUC) | `false` |
+| Demo (`demo.ganbari-quest.com`) | `anonymous` | `demo` | `true` |
+| 開発者 misconfig 防御 | `anonymous` | `sqlite` | `false` (実 DB を no-op writer 化しない) |
+
+**経緯 (legacy 3 signal の撤去)**:
+
+- ADR-0039 (2026-04-18 #1180) 当初: cookie `gq_demo=1` / query `?mode=demo` / path `/demo/*` の 3 signal で single Lambda 上に demo を hoist
+- ADR-0048 PR-B1 (#2143 merged): Pattern A (env-only fallback) として `isDemoLambda(authMode)` を OR 合流追加
+- ADR-0048 PR-B3 (#2188 merged): `src/routes/demo/**` 物理撤去 → path signal が dead
+- ADR-0048 PR-B4 (本セクション、#2189): cookie / query signal も demo Lambda subdomain で代替済のため撤去、`resolveDemoActive(env)` 1 行に単一化。`DEMO_MODE_COOKIE` / `DEMO_MODE_COOKIE_MAX_AGE` / `isDemoLambda()` / `/demo/exit` 専用ハンドラ全削除
+
+**維持される機構**: `?plan=` クエリ + `demo_plan` cookie (#760 demo 内プラン切替 UI) は demo Lambda 上で意味があるため維持。`?screenshot=*` (LP capture 用、`src/routes/CLAUDE.md` 参照) も独立した別概念で維持。
+
+**legacy URL 救済**: `/demo/exit` / `/demo` / `/demo/admin/*` 等の bookmark / 外部リンクは `src/lib/server/routing/legacy-url-map.ts` の 308 redirect entries で本番 path に救済 (永久保持)。
+
 ## 4. デプロイパイプライン
 
 ```
