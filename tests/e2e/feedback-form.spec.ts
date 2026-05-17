@@ -114,43 +114,13 @@ test.describe('#839 フィードバックフォーム', () => {
 		await expect(submitBtn).toBeDisabled();
 	});
 
-	test('デモ版でも FAB が表示される', async ({ page }) => {
-		await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
-
-		const fab = page.getByTestId('feedback-fab');
-		await expect(fab).toBeVisible();
-	});
-
-	test('デモ版は送信時にモック成功表示', async ({ page }) => {
-		await page.goto('/demo/admin', { waitUntil: 'domcontentloaded' });
-
-		await page.getByTestId('feedback-fab').click();
-		await expect(page.getByTestId('feedback-dialog')).toBeVisible();
-
-		// デモ版の注意表示があることを確認
-		await expect(page.getByText('デモ版のため、実際には送信されません')).toBeVisible();
-
-		// 種別を選択
-		const selectTrigger = page.locator(
-			'[data-testid="feedback-form"] [data-scope="select"][data-part="trigger"]',
-		);
-		await selectTrigger.click();
-		const selectContent = page.locator(
-			'[data-scope="select"][data-part="content"][data-state="open"]',
-		);
-		await selectContent.waitFor({ state: 'visible', timeout: 3000 });
-		const opinionItem = selectContent.locator('[data-scope="select"][data-part="item"]', {
-			hasText: 'ご意見',
-		});
-		await opinionItem.click();
-
-		// テキスト入力
-		await page.getByTestId('feedback-text').fill('デモのテストフィードバック');
-
-		// 送信（API は呼ばれない）
-		await page.getByTestId('feedback-submit').click();
-
-		// 成功メッセージが表示される
-		await expect(page.getByTestId('feedback-success')).toBeVisible();
-	});
+	// #2097 PR-B3 (#2188): `/demo/admin` 撤去 + legacy redirect 化に伴い、デモ版固有の
+	// FAB / Dialog (isDemo=true) テスト 2 件を削除。
+	// LOCAL_AUTH E2E 環境では `/demo/admin → /admin` redirect で `isDemo=false` の本番 FAB が
+	// 動作するため、上の本番 FAB テスト (test('FAB ボタンが表示される') / test('FAB クリックで
+	// ダイアログが開く')) で実質的にカバーされる。
+	// デモ Dialog 固有 UI (`isDemo` prop, '送信されません' 表示) は demo Lambda 環境
+	// (AUTH_MODE=anonymous + DATA_SOURCE=demo、ADR-0048) で `data.isDemo=true` 経路を踏むため、
+	// demo Lambda の preview server 上で manual SS 確認 + 別 spec で env 駆動テスト追加を
+	// PR-B4 (#2189) で検討。本 spec scope では本番 FAB テストのみ維持する。
 });

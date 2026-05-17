@@ -15,13 +15,16 @@
 ## §1 ファイル inventory
 
 ### Demo Root (5 file)
-| Path | Type | Diverges | Action |
-|------|------|----------|--------|
-| /demo/+layout.server.ts | layout | YES | migrate plan-switcher logic to prod、その後削除 |
-| /demo/+layout.svelte | layout | YES (demo navbar, plan switcher, floating CTA, screenshot mode) | keep transitional |
-| /demo/+page.server.ts | page | N/A | delete after demo → prod auth migration |
-| /demo/+page.svelte | page | YES (demo landing) | keep transitional (delete after LP migration) |
-| /demo/signup/+page.svelte | page | YES vs /auth/signup | delete after LP URL update |
+
+**全 5 file DELETED in PR #2188 (#2097 PR-B3, 2026-05-17)**: demo Lambda は本番 root `/` を直接 host する設計 (ADR-0048) に統合済。LP CTA は #2181 で `demo.ganbari-quest.com` 切替済のため `/demo` landing 不要。`legacy-url-map.ts` の `/demo → /` redirect で URL 救済 (永久保持)。
+
+| Path | Type | Diverges | Action | Status |
+|------|------|----------|--------|--------|
+| /demo/+layout.server.ts | layout | YES | migrate plan-switcher logic to prod、その後削除 | **DELETED #2188** |
+| /demo/+layout.svelte | layout | YES (demo navbar, plan switcher, floating CTA, screenshot mode) | keep transitional | **DELETED #2188** (screenshot-mode context は root +layout.svelte に hoist 済) |
+| /demo/+page.server.ts | page | N/A | delete after demo → prod auth migration | **DELETED #2188** |
+| /demo/+page.svelte | page | YES (demo landing) | keep transitional (delete after LP migration) | **DELETED #2188** |
+| /demo/signup/+page.svelte | page | YES vs /auth/signup | delete after LP URL update | **DELETED #2188** (legacy redirect `/demo/signup → /auth/signup`) |
 
 ### Demo (child) Routes (14 file)
 
@@ -47,9 +50,19 @@
 - `scripts/capture-specs/admin.mjs` / `scripts/take-lp-screenshots.mjs`: 子供画面 SS spec を本番 path に切替
 
 ### Demo (parent) Routes (29 file)
-全て同パターン: `.server.ts` → demo-service.ts 経由 (YES diverges)、`.svelte` → 本番コンポーネント再利用 (NO diverges)。
 
-対象 admin pages: `+layout.svelte`, `+page.{server.ts,svelte}`, `activities`, `challenges`, `checklists`, `children`, `events`, `license`, `members`, `messages`, `points`, `reports`, `rewards`, `settings`, `status`。各 page で server.ts は delete after prod-fix、svelte は delete。
+**全 29 file DELETED in PR #2188 (#2097 PR-B3, 2026-05-17)**: demo Lambda は本番 admin routes (`/admin/*`) を `AnonymousAuth` + `DATA_SOURCE=demo` env (ADR-0048) で直接 host する設計に統合済。`legacy-url-map.ts` に 14 明示 admin entries + 親 fallback `/demo/admin → /admin` を追加 (前方一致で未登録 sub path も救済、永久保持)。
+
+旧構成: 全て同パターン — `.server.ts` → demo-service.ts 経由 (YES diverges)、`.svelte` → 本番コンポーネント再利用 (NO diverges)。
+
+対象 admin pages: `+layout.svelte`, `+page.{server.ts,svelte}`, `activities`, `challenges`, `checklists`, `children`, `events`, `license`, `members`, `messages`, `points`, `reports`, `rewards`, `settings`, `status`。各 page で server.ts は delete after prod-fix、svelte は delete → **全 29 file 一括 DELETED #2188**。
+
+**併せて修正済 (#2188)**:
+- `src/lib/features/demo/demo-guide-state.svelte.ts`: Step 4-6 の matchPath / href を本番 routes (`/admin` / `/admin/license` / `/auth/signup`) に切替
+- `src/lib/features/demo/DemoGuideBar.svelte`: 最終 CTA を `/demo/signup` → `/auth/signup` に切替
+- `src/hooks.server.ts`: `/demo/exit` 専用ハンドラ削除 (legacy-url-map 経由で `/` redirect に統合)
+- `src/routes/+layout.svelte`: `isLegacyDemoPath` 判定の comment 更新 (全 redirect 化で通常 false 評価、dead code 削除予定 #2189)
+- `tests/e2e/`: `demo-back-to-lp.spec.ts` / `demo-admin-license.spec.ts` / `demo-screenshot-mode.spec.ts` 削除、`demo-guide-step-flow.spec.ts` skip 化 (PR-B4 #2189 で UI 再設計後に再活性化)、`page-health.spec.ts` / `feedback-form.spec.ts` / `usage-log.spec.ts` を本番 path に書き換え、`legacy-url-redirect.spec.ts` に新 17 entries の test 追加
 
 ## §2 Key 差異詳細
 

@@ -18,9 +18,10 @@ let { children, data } = $props();
 // `locals.isDemo` を `+layout.server.ts` が `data.isDemo` として配布。
 // root layout 上部に DemoBanner を常時マウントし、デモ状態を全ページで可視化する。
 //
-// Phase 1 backward compat: `/demo/*` 配下は従来の `src/routes/demo/+layout.svelte` が
-// 独自の橙バナーを描画するため、二重表示を避けるために root DemoBanner を抑止する。
-// Phase 2 で `/demo/**` 削除時にこの条件は不要になる。
+// #2097 PR-B3 (#2188): `src/routes/demo/**` は全削除済、`/demo/*` 全アクセスは
+// `legacy-url-map.ts` 経由で本番 path に 308 redirect される。よって本判定は通常
+// false に評価されるが、redirect 失敗時 (例: 未登録 sub path) の防御として残す。
+// PR-B4 (#2189) で hooks.server.ts demo 検出を env-only 化する際に dead code として削除予定。
 const isLegacyDemoPath = $derived($page.url?.pathname?.startsWith('/demo') ?? false);
 
 // #2097 EPIC PR-B1 (2026-05-17): LP SS 撮影時 (`?screenshot=all` / `?screenshot=1`) は

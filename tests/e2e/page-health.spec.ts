@@ -141,19 +141,20 @@ test.describe('ページヘルス: Baby 子供画面', () => {
 
 // ============================================================
 // Demo pages — デモ版ページ
-// #2097 PR-B2 (#2187): /demo/(child)/* 撤去に伴い、子供画面 demo URL は本番 (child) routes に
-// 308 redirect される。`page.goto()` は redirect を自動追尾するため、ここでは redirect 先の
-// 本番 path に直接アクセスして 500 を防御する。
-// /demo/admin/* (parent routes) は PR-B3 (#2188) で本番 path に再集約予定 (本 PR scope 外)。
+// #2097 PR-B2 (#2187) + PR-B3 (#2188): /demo/(child)/* + /demo/(parent)/admin/* + /demo/signup
+// 全撤去に伴い、demo URL は全件 legacy-url-map 経由で本番 path に 308 redirect される。
+// `page.goto()` は redirect を自動追尾するため、ここでは redirect 先の本番 path に直接
+// アクセスして 500 を防御する。/demo/* の redirect 動作自体は `legacy-url-redirect.spec.ts`
+// でカバー (本 spec は健全性スモークのみ担当)。
 // ============================================================
-test.describe('ページヘルス: Demo', () => {
+test.describe('ページヘルス: Demo (本番 path で代替)', () => {
 	const demoPages = [
 		// 子供画面 (#2097 PR-B2 で本番 path に切替)
 		{ path: '/preschool/home', name: 'デモ ホーム (preschool)' },
 		{ path: '/preschool/status', name: 'デモ ステータス (preschool)' },
 		{ path: '/preschool/battle', name: 'デモ バトル (preschool)' },
-		// 管理画面 (PR-B3 で本番 path 化予定、本 PR では demo path のまま)
-		{ path: '/demo/admin/license', name: 'デモ プラン・お支払い (#790)' },
+		// 管理画面 (#2097 PR-B3 で本番 path に切替)
+		{ path: '/admin/license', name: 'デモ プラン・お支払い (旧 /demo/admin/license #790)' },
 	];
 
 	for (const { path, name } of demoPages) {
