@@ -49,6 +49,9 @@ import type {
 	SiblingChallengeProgress,
 	SiblingCheer,
 	SpecialReward,
+	StampCard,
+	StampEntry,
+	StampMaster,
 	Status,
 } from '$lib/server/db/types/index.js';
 
@@ -3073,6 +3076,614 @@ export function getDemoMarketplaceChecklistItemsByTemplate(
 export function getDemoMarketplaceSpecialRewardsByChild(childId: number): SpecialReward[] {
 	return MARKETPLACE_SPECIAL_REWARDS_BY_CHILD[childId] ?? [];
 }
+
+// ============================================================
+// Stamp Cards (#2097 Phase B-2)
+// ============================================================
+// production seed (src/lib/server/db/seed.ts) と同じ 16 種を fixture 化。
+// rarity 別出現確率: N 60% / R 25% / SR 12% / UR 3% (stamp-card-service.ts §RARITY_WEIGHTS)
+//
+// baby (901) は ADR-0011 によりスタンプカード非表示。
+// preschool/elementary/junior/senior の 4 子供に対し、
+// - 当週 (weekStart=2026-03-23, demo TODAY=2026-03-27 Fri):
+//   active "collecting" card + 子供の活動レベルに応じた filled stamp 2-4 個
+// - 前週 (weekStart=2026-03-16): 5/5 filled + status='redeemed' の完了カード
+//
+// 当週カード ID = 7xx, 前週カード ID = 8xx, entry ID = card_id * 10 + slot
+// child 別 fillCount (当週): 902=2, 903=3, 904=4, 906=4 (年齢/活発度に応じて段階)
+
+export const DEMO_STAMP_MASTERS: StampMaster[] = [
+	// Normal (5)
+	{
+		id: 1,
+		name: 'にこにこ',
+		emoji: '😊',
+		rarity: 'N',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 2,
+		name: 'グッジョブ',
+		emoji: '👍',
+		rarity: 'N',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 3,
+		name: 'スター',
+		emoji: '⭐',
+		rarity: 'N',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 4,
+		name: 'ハート',
+		emoji: '❤️',
+		rarity: 'N',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 5,
+		name: 'がんばった',
+		emoji: '💪',
+		rarity: 'N',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	// Rare (5)
+	{
+		id: 6,
+		name: 'ロケット',
+		emoji: '🚀',
+		rarity: 'R',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 7,
+		name: 'おうかん',
+		emoji: '👑',
+		rarity: 'R',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 8,
+		name: 'トロフィー',
+		emoji: '🏆',
+		rarity: 'R',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 9,
+		name: 'にじ',
+		emoji: '🌈',
+		rarity: 'R',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 10,
+		name: 'たいよう',
+		emoji: '☀️',
+		rarity: 'R',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	// Super Rare (4)
+	{
+		id: 11,
+		name: 'ドラゴン',
+		emoji: '🐉',
+		rarity: 'SR',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 12,
+		name: 'ユニコーン',
+		emoji: '🦄',
+		rarity: 'SR',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 13,
+		name: 'たからばこ',
+		emoji: '📦',
+		rarity: 'SR',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 14,
+		name: 'まほうのつえ',
+		emoji: '🪄',
+		rarity: 'SR',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	// Ultra Rare (2)
+	{
+		id: 15,
+		name: 'でんせつのけん',
+		emoji: '⚔️',
+		rarity: 'UR',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+	{
+		id: 16,
+		name: 'きせきのほし',
+		emoji: '🌟',
+		rarity: 'UR',
+		isDefault: 1,
+		isEnabled: 1,
+		createdAt: NOW,
+		updatedAt: NOW,
+	},
+];
+
+// 週境界: demo TODAY=2026-03-27 (Fri) → weekStart=2026-03-23 / weekEnd=2026-03-29
+// 前週: weekStart=2026-03-16 / weekEnd=2026-03-22
+const CURRENT_WEEK_START = '2026-03-23';
+const CURRENT_WEEK_END = '2026-03-29';
+const PREV_WEEK_START = '2026-03-16';
+const PREV_WEEK_END = '2026-03-22';
+
+// 当週 active "collecting" card: card.id = 7xx (子供ごと固定)
+// 前週 5/5 完了 "redeemed" card: card.id = 8xx
+export const DEMO_STAMP_CARDS: StampCard[] = [
+	// 902 ひなちゃん (preschool) — 当週 2 枚 (月火)
+	{
+		id: 702,
+		childId: 902,
+		weekStart: CURRENT_WEEK_START,
+		weekEnd: CURRENT_WEEK_END,
+		status: 'collecting',
+		redeemedPoints: null,
+		redeemedAt: null,
+		createdAt: daysAgoISO(4),
+		updatedAt: daysAgoISO(3),
+	},
+	{
+		id: 802,
+		childId: 902,
+		weekStart: PREV_WEEK_START,
+		weekEnd: PREV_WEEK_END,
+		status: 'redeemed',
+		redeemedPoints: 100, // 5*10 + 50 complete bonus
+		redeemedAt: daysAgoISO(5),
+		createdAt: daysAgoISO(11),
+		updatedAt: daysAgoISO(5),
+	},
+	// 903 けんたくん (elementary) — 当週 3 枚 (月火水)
+	{
+		id: 703,
+		childId: 903,
+		weekStart: CURRENT_WEEK_START,
+		weekEnd: CURRENT_WEEK_END,
+		status: 'collecting',
+		redeemedPoints: null,
+		redeemedAt: null,
+		createdAt: daysAgoISO(4),
+		updatedAt: daysAgoISO(2),
+	},
+	{
+		id: 803,
+		childId: 903,
+		weekStart: PREV_WEEK_START,
+		weekEnd: PREV_WEEK_END,
+		status: 'redeemed',
+		redeemedPoints: 100,
+		redeemedAt: daysAgoISO(5),
+		createdAt: daysAgoISO(11),
+		updatedAt: daysAgoISO(5),
+	},
+	// 904 さくらちゃん (junior) — 当週 4 枚 (月火水木)
+	{
+		id: 704,
+		childId: 904,
+		weekStart: CURRENT_WEEK_START,
+		weekEnd: CURRENT_WEEK_END,
+		status: 'collecting',
+		redeemedPoints: null,
+		redeemedAt: null,
+		createdAt: daysAgoISO(4),
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 804,
+		childId: 904,
+		weekStart: PREV_WEEK_START,
+		weekEnd: PREV_WEEK_END,
+		status: 'redeemed',
+		redeemedPoints: 100,
+		redeemedAt: daysAgoISO(5),
+		createdAt: daysAgoISO(11),
+		updatedAt: daysAgoISO(5),
+	},
+	// 906 けいすけくん (senior) — 当週 4 枚 (月火水木)
+	{
+		id: 706,
+		childId: 906,
+		weekStart: CURRENT_WEEK_START,
+		weekEnd: CURRENT_WEEK_END,
+		status: 'collecting',
+		redeemedPoints: null,
+		redeemedAt: null,
+		createdAt: daysAgoISO(4),
+		updatedAt: daysAgoISO(1),
+	},
+	{
+		id: 806,
+		childId: 906,
+		weekStart: PREV_WEEK_START,
+		weekEnd: PREV_WEEK_END,
+		status: 'redeemed',
+		redeemedPoints: 100,
+		redeemedAt: daysAgoISO(5),
+		createdAt: daysAgoISO(11),
+		updatedAt: daysAgoISO(5),
+	},
+];
+
+// stamp_entries: cardId * 10 + slot
+// loginDate は当週: weekStart 起点 (Mon=2026-03-23) で slot-1 日後
+//                  前週: weekStart 起点 (Mon=2026-03-16) で slot-1 日後
+function currentWeekDate(slot: number): string {
+	const d = new Date(`${CURRENT_WEEK_START}T00:00:00Z`);
+	d.setUTCDate(d.getUTCDate() + (slot - 1));
+	return d.toISOString().slice(0, 10);
+}
+function prevWeekDate(slot: number): string {
+	const d = new Date(`${PREV_WEEK_START}T00:00:00Z`);
+	d.setUTCDate(d.getUTCDate() + (slot - 1));
+	return d.toISOString().slice(0, 10);
+}
+
+export const DEMO_STAMP_ENTRIES: StampEntry[] = [
+	// === 902 ひな 当週 (cardId=702) — slot 1-2, masters 1(N)+3(N) ===
+	{
+		id: 7021,
+		cardId: 702,
+		stampMasterId: 1,
+		omikujiRank: 'sho-kichi',
+		slot: 1,
+		loginDate: currentWeekDate(1),
+		earnedAt: daysAgoISO(4),
+	},
+	{
+		id: 7022,
+		cardId: 702,
+		stampMasterId: 3,
+		omikujiRank: 'kichi',
+		slot: 2,
+		loginDate: currentWeekDate(2),
+		earnedAt: daysAgoISO(3),
+	},
+	// === 902 ひな 前週 (cardId=802) — 5/5 完了, N×3 + R×1 + SR×1 ===
+	{
+		id: 8021,
+		cardId: 802,
+		stampMasterId: 1,
+		omikujiRank: 'sho-kichi',
+		slot: 1,
+		loginDate: prevWeekDate(1),
+		earnedAt: daysAgoISO(11),
+	},
+	{
+		id: 8022,
+		cardId: 802,
+		stampMasterId: 4,
+		omikujiRank: 'sho-kichi',
+		slot: 2,
+		loginDate: prevWeekDate(2),
+		earnedAt: daysAgoISO(10),
+	},
+	{
+		id: 8023,
+		cardId: 802,
+		stampMasterId: 5,
+		omikujiRank: 'kichi',
+		slot: 3,
+		loginDate: prevWeekDate(3),
+		earnedAt: daysAgoISO(9),
+	},
+	{
+		id: 8024,
+		cardId: 802,
+		stampMasterId: 9,
+		omikujiRank: 'chu-kichi',
+		slot: 4,
+		loginDate: prevWeekDate(4),
+		earnedAt: daysAgoISO(8),
+	},
+	{
+		id: 8025,
+		cardId: 802,
+		stampMasterId: 12,
+		omikujiRank: 'dai-kichi',
+		slot: 5,
+		loginDate: prevWeekDate(5),
+		earnedAt: daysAgoISO(7),
+	},
+	// === 903 けんた 当週 (cardId=703) — 3 個, N+N+R ===
+	{
+		id: 7031,
+		cardId: 703,
+		stampMasterId: 2,
+		omikujiRank: 'sho-kichi',
+		slot: 1,
+		loginDate: currentWeekDate(1),
+		earnedAt: daysAgoISO(4),
+	},
+	{
+		id: 7032,
+		cardId: 703,
+		stampMasterId: 5,
+		omikujiRank: 'kichi',
+		slot: 2,
+		loginDate: currentWeekDate(2),
+		earnedAt: daysAgoISO(3),
+	},
+	{
+		id: 7033,
+		cardId: 703,
+		stampMasterId: 8,
+		omikujiRank: 'chu-kichi',
+		slot: 3,
+		loginDate: currentWeekDate(3),
+		earnedAt: daysAgoISO(2),
+	},
+	// === 903 けんた 前週 (cardId=803) — 5/5 完了, N×2 + R×2 + SR×1 ===
+	{
+		id: 8031,
+		cardId: 803,
+		stampMasterId: 1,
+		omikujiRank: 'sho-kichi',
+		slot: 1,
+		loginDate: prevWeekDate(1),
+		earnedAt: daysAgoISO(11),
+	},
+	{
+		id: 8032,
+		cardId: 803,
+		stampMasterId: 5,
+		omikujiRank: 'kichi',
+		slot: 2,
+		loginDate: prevWeekDate(2),
+		earnedAt: daysAgoISO(10),
+	},
+	{
+		id: 8033,
+		cardId: 803,
+		stampMasterId: 6,
+		omikujiRank: 'chu-kichi',
+		slot: 3,
+		loginDate: prevWeekDate(3),
+		earnedAt: daysAgoISO(9),
+	},
+	{
+		id: 8034,
+		cardId: 803,
+		stampMasterId: 7,
+		omikujiRank: 'chu-kichi',
+		slot: 4,
+		loginDate: prevWeekDate(4),
+		earnedAt: daysAgoISO(8),
+	},
+	{
+		id: 8035,
+		cardId: 803,
+		stampMasterId: 13,
+		omikujiRank: 'dai-kichi',
+		slot: 5,
+		loginDate: prevWeekDate(5),
+		earnedAt: daysAgoISO(7),
+	},
+	// === 904 さくら 当週 (cardId=704) — 4 個, N+R+SR+R ===
+	{
+		id: 7041,
+		cardId: 704,
+		stampMasterId: 3,
+		omikujiRank: 'sho-kichi',
+		slot: 1,
+		loginDate: currentWeekDate(1),
+		earnedAt: daysAgoISO(4),
+	},
+	{
+		id: 7042,
+		cardId: 704,
+		stampMasterId: 8,
+		omikujiRank: 'chu-kichi',
+		slot: 2,
+		loginDate: currentWeekDate(2),
+		earnedAt: daysAgoISO(3),
+	},
+	{
+		id: 7043,
+		cardId: 704,
+		stampMasterId: 11,
+		omikujiRank: 'dai-kichi',
+		slot: 3,
+		loginDate: currentWeekDate(3),
+		earnedAt: daysAgoISO(2),
+	},
+	{
+		id: 7044,
+		cardId: 704,
+		stampMasterId: 9,
+		omikujiRank: 'chu-kichi',
+		slot: 4,
+		loginDate: currentWeekDate(4),
+		earnedAt: daysAgoISO(1),
+	},
+	// === 904 さくら 前週 (cardId=804) — 5/5 完了, R×2 + SR×2 + UR×1 ===
+	{
+		id: 8041,
+		cardId: 804,
+		stampMasterId: 6,
+		omikujiRank: 'chu-kichi',
+		slot: 1,
+		loginDate: prevWeekDate(1),
+		earnedAt: daysAgoISO(11),
+	},
+	{
+		id: 8042,
+		cardId: 804,
+		stampMasterId: 10,
+		omikujiRank: 'chu-kichi',
+		slot: 2,
+		loginDate: prevWeekDate(2),
+		earnedAt: daysAgoISO(10),
+	},
+	{
+		id: 8043,
+		cardId: 804,
+		stampMasterId: 11,
+		omikujiRank: 'dai-kichi',
+		slot: 3,
+		loginDate: prevWeekDate(3),
+		earnedAt: daysAgoISO(9),
+	},
+	{
+		id: 8044,
+		cardId: 804,
+		stampMasterId: 14,
+		omikujiRank: 'dai-kichi',
+		slot: 4,
+		loginDate: prevWeekDate(4),
+		earnedAt: daysAgoISO(8),
+	},
+	{
+		id: 8045,
+		cardId: 804,
+		stampMasterId: 16,
+		omikujiRank: 'dai-kichi',
+		slot: 5,
+		loginDate: prevWeekDate(5),
+		earnedAt: daysAgoISO(7),
+	},
+	// === 906 けいすけ 当週 (cardId=706) — 4 個, R+SR+R+SR ===
+	{
+		id: 7061,
+		cardId: 706,
+		stampMasterId: 7,
+		omikujiRank: 'chu-kichi',
+		slot: 1,
+		loginDate: currentWeekDate(1),
+		earnedAt: daysAgoISO(4),
+	},
+	{
+		id: 7062,
+		cardId: 706,
+		stampMasterId: 12,
+		omikujiRank: 'dai-kichi',
+		slot: 2,
+		loginDate: currentWeekDate(2),
+		earnedAt: daysAgoISO(3),
+	},
+	{
+		id: 7063,
+		cardId: 706,
+		stampMasterId: 10,
+		omikujiRank: 'chu-kichi',
+		slot: 3,
+		loginDate: currentWeekDate(3),
+		earnedAt: daysAgoISO(2),
+	},
+	{
+		id: 7064,
+		cardId: 706,
+		stampMasterId: 13,
+		omikujiRank: 'dai-kichi',
+		slot: 4,
+		loginDate: currentWeekDate(4),
+		earnedAt: daysAgoISO(1),
+	},
+	// === 906 けいすけ 前週 (cardId=806) — 5/5 完了, R×1 + SR×2 + UR×2 ===
+	{
+		id: 8061,
+		cardId: 806,
+		stampMasterId: 8,
+		omikujiRank: 'chu-kichi',
+		slot: 1,
+		loginDate: prevWeekDate(1),
+		earnedAt: daysAgoISO(11),
+	},
+	{
+		id: 8062,
+		cardId: 806,
+		stampMasterId: 12,
+		omikujiRank: 'dai-kichi',
+		slot: 2,
+		loginDate: prevWeekDate(2),
+		earnedAt: daysAgoISO(10),
+	},
+	{
+		id: 8063,
+		cardId: 806,
+		stampMasterId: 14,
+		omikujiRank: 'dai-kichi',
+		slot: 3,
+		loginDate: prevWeekDate(3),
+		earnedAt: daysAgoISO(9),
+	},
+	{
+		id: 8064,
+		cardId: 806,
+		stampMasterId: 15,
+		omikujiRank: 'dai-kichi',
+		slot: 4,
+		loginDate: prevWeekDate(4),
+		earnedAt: daysAgoISO(8),
+	},
+	{
+		id: 8065,
+		cardId: 806,
+		stampMasterId: 16,
+		omikujiRank: 'dai-kichi',
+		slot: 5,
+		loginDate: prevWeekDate(5),
+		earnedAt: daysAgoISO(7),
+	},
+];
 
 // ============================================================
 // Helper: Get demo data for a specific child

@@ -22,7 +22,6 @@ import * as seasonEventRepo from '../../../../../src/lib/server/db/demo/season-e
 import * as siblingChallengeRepo from '../../../../../src/lib/server/db/demo/sibling-challenge-repo';
 import * as siblingCheerRepo from '../../../../../src/lib/server/db/demo/sibling-cheer-repo';
 import * as specialRewardRepo from '../../../../../src/lib/server/db/demo/special-reward-repo';
-import * as stampCardRepo from '../../../../../src/lib/server/db/demo/stamp-card-repo';
 import * as storageRepo from '../../../../../src/lib/server/db/demo/storage-repo';
 import * as tenantEventRepo from '../../../../../src/lib/server/db/demo/tenant-event-repo';
 import * as trialHistoryRepo from '../../../../../src/lib/server/db/demo/trial-history-repo';
@@ -253,12 +252,8 @@ describe('demo/special-reward-repo', () => {
 	});
 });
 
-describe('demo/stamp-card-repo', () => {
-	it('findEnabledStampMasters / findCardByChildAndWeek は空 / undefined', async () => {
-		expect(await stampCardRepo.findEnabledStampMasters('demo')).toEqual([]);
-		expect(await stampCardRepo.findCardByChildAndWeek(902, '2026-04-01', 'demo')).toBeUndefined();
-	});
-});
+// NOTE: demo/stamp-card-repo は #2097 Phase B-2 で fixture 化したため、
+// 固有テストを tests/unit/server/db/demo/stamp-card-repo.test.ts に移管。
 
 describe('demo/storage-repo (S3 等への write 権限なし)', () => {
 	it('readFile / fileExists / listFiles は空 / false', async () => {

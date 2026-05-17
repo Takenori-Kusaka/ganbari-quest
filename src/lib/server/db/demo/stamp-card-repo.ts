@@ -1,6 +1,12 @@
 // Demo IStampCardRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
+// #2097 Phase B-2: 当週 active card + 前週 redeemed card の fixture を返す。
 
+import {
+	DEMO_STAMP_CARDS,
+	DEMO_STAMP_ENTRIES,
+	DEMO_STAMP_MASTERS,
+} from '$lib/server/demo/demo-data';
 import type {
 	InsertStampCardInput,
 	InsertStampEntryInput,
@@ -11,15 +17,15 @@ import type {
 } from '../types';
 
 export async function findEnabledStampMasters(_tenantId: string): Promise<StampMaster[]> {
-	return [];
+	return DEMO_STAMP_MASTERS.filter((m) => m.isEnabled === 1);
 }
 
 export async function findCardByChildAndWeek(
-	_childId: number,
-	_weekStart: string,
+	childId: number,
+	weekStart: string,
 	_tenantId: string,
 ): Promise<StampCard | undefined> {
-	return undefined;
+	return DEMO_STAMP_CARDS.find((c) => c.childId === childId && c.weekStart === weekStart);
 }
 
 export async function insertCard(
@@ -41,10 +47,22 @@ export async function insertCard(
 }
 
 export async function findEntriesWithMasterByCardId(
-	_cardId: number,
+	cardId: number,
 	_tenantId: string,
 ): Promise<StampEntryWithMaster[]> {
-	return [];
+	const entries = DEMO_STAMP_ENTRIES.filter((e) => e.cardId === cardId);
+	return entries.map((e) => {
+		const master = DEMO_STAMP_MASTERS.find((m) => m.id === e.stampMasterId);
+		return {
+			slot: e.slot,
+			stampMasterId: e.stampMasterId,
+			omikujiRank: e.omikujiRank,
+			loginDate: e.loginDate,
+			name: master?.name ?? null,
+			emoji: master?.emoji ?? null,
+			rarity: master?.rarity ?? null,
+		};
+	});
 }
 
 export async function insertEntry(_input: InsertStampEntryInput, _tenantId: string): Promise<void> {
