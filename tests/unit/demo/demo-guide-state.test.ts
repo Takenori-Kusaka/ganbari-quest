@@ -43,8 +43,8 @@ describe('demo-guide-state (#702)', () => {
 		});
 
 		it('Step 1 と Step 2 は同一 matchPath を共有する（活動記録は同じ画面で行う）', () => {
-			expect(GUIDE_STEPS[0]?.matchPath).toBe('/demo/preschool/home');
-			expect(GUIDE_STEPS[1]?.matchPath).toBe('/demo/preschool/home');
+			expect(GUIDE_STEPS[0]?.matchPath).toBe('/preschool/home');
+			expect(GUIDE_STEPS[1]?.matchPath).toBe('/preschool/home');
 		});
 
 		it('Step 2 以降は requiresAction を持たない（つぎへ ボタンで進める）', () => {
@@ -90,25 +90,25 @@ describe('demo-guide-state (#702)', () => {
 	});
 
 	describe('checkAutoAdvance — 同一 matchPath 連続ステップ間でスキップしない', () => {
-		it('Step 1 (currentStep=0) で /demo/preschool/home パスを受けても Step 2 へ進まない', () => {
+		it('Step 1 (currentStep=0) で /preschool/home パスを受けても Step 2 へ進まない', () => {
 			startGuide();
-			checkAutoAdvance('/demo/preschool/home');
+			checkAutoAdvance('/preschool/home');
 			// Step 1 と Step 2 は同一 matchPath なので auto-advance してはならない
 			expect(guide.currentStep).toBe(0);
 		});
 
-		it('Step 2 (currentStep=1) で /demo/preschool/home パスを受けても Step 3 へ進まない', () => {
+		it('Step 2 (currentStep=1) で /preschool/home パスを受けても Step 3 へ進まない', () => {
 			startGuide();
 			advanceStep(); // → Step 2
-			checkAutoAdvance('/demo/preschool/home');
-			// pathname は Step 3 の matchPath (/demo/preschool/status) ではないので動かない
+			checkAutoAdvance('/preschool/home');
+			// pathname は Step 3 の matchPath (/preschool/status) ではないので動かない
 			expect(guide.currentStep).toBe(1);
 		});
 
-		it('Step 1 (currentStep=0) で /demo/preschool/status パスを受けても Step 2 へ進まない', () => {
-			// nextStep (Step 2) の matchPath は /demo/preschool/home なので一致しない
+		it('Step 1 (currentStep=0) で /preschool/status パスを受けても Step 2 へ進まない', () => {
+			// nextStep (Step 2) の matchPath は /preschool/home なので一致しない
 			startGuide();
-			checkAutoAdvance('/demo/preschool/status');
+			checkAutoAdvance('/preschool/status');
 			expect(guide.currentStep).toBe(0);
 		});
 	});
@@ -116,7 +116,7 @@ describe('demo-guide-state (#702)', () => {
 	describe('checkAutoAdvance — guideActive 制御', () => {
 		it('startGuide していない状態では何もしない', () => {
 			// active=false から開始
-			checkAutoAdvance('/demo/preschool/status');
+			checkAutoAdvance('/preschool/status');
 			expect(guide.currentStep).toBe(0);
 			expect(guide.active).toBe(false);
 		});
@@ -127,7 +127,7 @@ describe('demo-guide-state (#702)', () => {
 			advanceStep();
 			dismissGuide();
 			expect(guide.active).toBe(false);
-			checkAutoAdvance('/demo/preschool/admin');
+			checkAutoAdvance('/preschool/admin');
 			// dismiss されたら currentStep は固定される
 			expect(guide.currentStep).toBe(2);
 		});
@@ -135,15 +135,15 @@ describe('demo-guide-state (#702)', () => {
 
 	describe('#702 回帰: 手動 advance 後に新しい pathname で checkAutoAdvance しても 2 段飛ばしにならない', () => {
 		// このシナリオは「Step 1 で つぎへ 押下 → handleAdvance で currentStep=1 → ブラウザが
-		// Step 2 の href (/demo/preschool/home?childId=902) にナビゲート → $page 変化 →
-		// $effect が checkAutoAdvance('/demo/preschool/home') を実行」をシミュレートする。
+		// Step 2 の href (/preschool/home?childId=902) にナビゲート → $page 変化 →
+		// $effect が checkAutoAdvance('/preschool/home') を実行」をシミュレートする。
 		// 修正後は Step 2 のままであるべき（Step 3 にスキップしてはならない）。
 		it('Step 1 → Step 2: 手動 advance 後の同一 pathname で動かない', () => {
 			startGuide();
 			advanceStep(); // つぎへ クリック相当
 			expect(guide.currentStep).toBe(1);
 			// ブラウザナビゲーション後の $effect 相当
-			checkAutoAdvance('/demo/preschool/home');
+			checkAutoAdvance('/preschool/home');
 			expect(guide.currentStep).toBe(1); // Step 2 のまま
 		});
 
@@ -153,7 +153,7 @@ describe('demo-guide-state (#702)', () => {
 			advanceStep(); // つぎへ クリック → Step 3
 			expect(guide.currentStep).toBe(2);
 			// ブラウザナビゲーション後の $effect 相当
-			checkAutoAdvance('/demo/preschool/status');
+			checkAutoAdvance('/preschool/status');
 			expect(guide.currentStep).toBe(2); // Step 3 のまま (Step 4 にスキップしない)
 		});
 
@@ -174,10 +174,10 @@ describe('demo-guide-state (#702)', () => {
 			const visited: number[] = [];
 			visited.push(guide.currentStep + 1); // 1
 			advanceStep();
-			checkAutoAdvance('/demo/preschool/home'); // step 2 nav
+			checkAutoAdvance('/preschool/home'); // step 2 nav
 			visited.push(guide.currentStep + 1); // 2
 			advanceStep();
-			checkAutoAdvance('/demo/preschool/status'); // step 3 nav
+			checkAutoAdvance('/preschool/status'); // step 3 nav
 			visited.push(guide.currentStep + 1); // 3
 			advanceStep();
 			checkAutoAdvance('/demo/admin'); // step 4 nav

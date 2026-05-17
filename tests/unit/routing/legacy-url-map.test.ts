@@ -75,6 +75,17 @@ describe('legacy-url-map', () => {
 			// デモ（より長いプレフィックスが優先されること）
 			['/demo/kinder', '/demo/kinder'],
 			['/demo/kinder/home', '/demo/kinder'],
+			// #2097 PR-B2 (#2187): /demo/(child)/* 撤去に伴う本番ルート直接 redirect
+			['/demo/preschool', '/demo/preschool'],
+			['/demo/preschool/home', '/demo/preschool'],
+			['/demo/elementary/status', '/demo/elementary'],
+			['/demo/junior/battle', '/demo/junior'],
+			['/demo/senior/achievements', '/demo/senior'],
+			['/demo/baby/home', '/demo/baby'],
+			['/demo/checklist', '/demo/checklist'],
+			['/demo/lower/home', '/demo/lower'],
+			['/demo/upper/home', '/demo/upper'],
+			['/demo/teen/home', '/demo/teen'],
 			// #1167 / #1212: 活動パック → マーケットプレイス 301 — 完全一致（15 詳細 + 廃止 1）
 			['/activity-packs/baby-first', '/activity-packs/baby-first'],
 			['/activity-packs/baby-boy', '/activity-packs/baby-boy'],
@@ -99,7 +110,8 @@ describe('legacy-url-map', () => {
 			['/elementary/home', null],
 			['/junior/home', null],
 			['/senior/home', null],
-			['/demo/preschool/home', null],
+			// 注: #2097 PR-B2 (#2187) で /demo/preschool/home は本番 /preschool/home へ
+			//   redirect されるようになったため null 期待ではなくなる (上の「デモ」ブロックでテスト済)。
 			['/marketplace/activity-pack/baby-first', null],
 			// 部分文字列のみ一致する偽陽性はマッチしない
 			['/kindergarten', null], // /kinder で始まるが境界が違う
@@ -136,8 +148,24 @@ describe('legacy-url-map', () => {
 			['/upper/home', '/junior/home'],
 			['/teen/home', '/senior/home'],
 			// デモ（長いプレフィックス優先）
-			['/demo/kinder', '/demo/preschool'],
-			['/demo/kinder/home', '/demo/preschool/home'],
+			// 注: #2097 PR-B2 (#2187) で `/demo/kinder` は `/demo/preschool` ではなく `/preschool` 直行に変更済
+			['/demo/kinder', '/preschool'],
+			['/demo/kinder/home', '/preschool/home'],
+			// #2097 PR-B2 (#2187): /demo/(child)/* 撤去に伴う本番ルート直接 redirect
+			['/demo/preschool', '/preschool'],
+			['/demo/preschool/home', '/preschool/home'],
+			['/demo/elementary', '/elementary'],
+			['/demo/elementary/status', '/elementary/status'],
+			['/demo/junior', '/junior'],
+			['/demo/junior/battle', '/junior/battle'],
+			['/demo/senior', '/senior'],
+			['/demo/senior/achievements', '/senior/achievements'],
+			['/demo/baby', '/baby'],
+			['/demo/baby/home', '/baby/home'],
+			['/demo/checklist', '/checklist'],
+			['/demo/lower/home', '/elementary/home'],
+			['/demo/upper/home', '/junior/home'],
+			['/demo/teen/home', '/senior/home'],
 			// #1167 / #1212: 活動パック → マーケットプレイス 301
 			// #1301: baby 系は削除されマーケット一覧へフォールバック
 			['/activity-packs/baby-first', '/marketplace?type=activity-pack'],
@@ -173,11 +201,21 @@ describe('legacy-url-map', () => {
 	});
 
 	describe('優先順位（長いプレフィックスが先に評価される）', () => {
-		it('/demo/kinder は /demo/preschool に書き換えられる（/kinder にマッチしない）', () => {
+		it('/demo/kinder は /preschool に書き換えられる（/kinder にマッチしない、#2187 で 1 段 redirect 化）', () => {
 			const entry = findLegacyRedirect('/demo/kinder/home');
 			expect(entry?.from).toBe('/demo/kinder');
 			if (entry) {
-				expect(rewriteLegacyPath('/demo/kinder/home', entry)).toBe('/demo/preschool/home');
+				expect(rewriteLegacyPath('/demo/kinder/home', entry)).toBe('/preschool/home');
+			}
+		});
+
+		// #2097 PR-B2 (#2187): /demo/preschool/home は新規 entry にマッチし /preschool/home に飛ぶ。
+		// `/preschool` 自体は legacy ではないため自己再帰 redirect は起きない。
+		it('/demo/preschool/home は /preschool/home に書き換えられる', () => {
+			const entry = findLegacyRedirect('/demo/preschool/home');
+			expect(entry?.from).toBe('/demo/preschool');
+			if (entry) {
+				expect(rewriteLegacyPath('/demo/preschool/home', entry)).toBe('/preschool/home');
 			}
 		});
 	});

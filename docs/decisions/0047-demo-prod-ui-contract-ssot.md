@@ -101,7 +101,8 @@ ParentAdminViewModel = {
 ## 結果
 
 - **過去 7 回失敗 80%** (深層調査 §4.3 / §6 Q8) の構造的原因「UI Contract が型として存在しない」が Phase 1-5 完遂で解消
-- DashboardView は型レベルで `ChildHomeViewModel` のみ受け取り、`as never` キャスト消失。「snapshot+patch」は型違反になり構造的に書けない
+- #2097 PR-B2 (#2187, 2026-05-17): demo POC `DashboardView.svelte` を撤廃完了。child home UI は `ProdDashboardSections.svelte` 単独構成へ統合済。`src/routes/demo/(child)/**` 14 file 撤去 + legacy redirect (`/demo/<5-mode>/<path>` → `/<uiMode>/<path>` / `/demo/checklist` → `/checklist`) で URL 救済。demo Lambda は本番 routes を AnonymousAuth + DATA_SOURCE=demo で host する設計に統一 (ADR-0048 整合)。型強制対象は `DashboardView` から `ProdDashboardSections` へ移行
+- 旧 DashboardView は `as never` キャスト消失目標の対象であったが、撤廃により目標自体が消滅。今後の Phase 2-5 (toViewModel 実装) は `ProdDashboardSections.svelte` で実施
 - 禁止語 SSOT (`docs/decisions/forbidden-escape-language.md`) + 救済策 (ADR 起票 or Issue 起票 + due date) で「逃げ語による完了報告」を機械検証 (Phase 5 で `scripts/check-no-escape-language.mjs`)
 - `progressDisplay.type` の union 切替は「**子供の年齢 / プラン状態に応じて切替わる**」UX 法則に従わせ、demo / production の identity ではなく **コンテキスト** に紐付けることで案 B 失敗リスク (深層調査 §5 案 B) を回避
 - Pre-PMF (ADR-0010) Bucket A 適合、二重実装メンテ負債を削減

@@ -2,8 +2,12 @@
  * Service Interface 定義 — ADR-0046 (Issue #2069 + #2085 follow-up)
  *
  * 本番 (Cognito + Drizzle) / demo (sessionStorage + $state) の両実装が
- * 満たすべき契約をここに集約する。UI コンポーネント (DashboardView 等) は
+ * 満たすべき契約をここに集約する。UI コンポーネント (ProdDashboardSections 等) は
  * このインターフェース越しにのみサービスを参照する。
+ *
+ * #2097 PR-B2 (#2187): demo POC で使われていた `DashboardView.svelte` は撤廃済。
+ * UI 系統は `ProdDashboardSections.svelte` (本番) 単独構成となり、demo Lambda は
+ * 本番 routes (`/<uiMode>/home` 等) を AnonymousAuth + DATA_SOURCE=demo で経由する。
  *
  * POC scope (Issue #2069 / PR #2079):
  *   - ChildDashboardService の read-only 観点 (getHomeData)
@@ -15,8 +19,9 @@
  *     services と二重実装しない、DRY)
  *   - demo 側: sessionStorage に in-memory state を書き戻し、ページ再 load
  *     後も累積結果を保持できるようにする
- *   - 本 Issue では UI 配線 (DashboardView の form action 切替) は対象外
+ *   - 本 Issue では UI 配線 (form action 切替) は対象外
  *     (#2084 / 別 follow-up で扱う)
+ *   - #2097 PR-B2: 旧 DashboardView は撤廃、ProdDashboardSections 単独構成へ統合済
  *
  * 設計原則:
  *   - 本 interface は SSR / CSR 両環境で呼び出される可能性がある
@@ -179,12 +184,12 @@ export interface ChildDashboardService {
 //
 // 本 section は ADR-0047 で確定した「UI Contract 層」の型定義を提供する。
 // ADR-0046 (Service Interface + Context DI) の上に乗る、追加層であり、
-// DashboardView 等の UI コンポーネントは Phase 2 以降で本 ViewModel のみを受け取る
-// (`PageData as never` キャスト排除)。
+// ProdDashboardSections 等の UI コンポーネントは Phase 2 以降で本 ViewModel のみを受け取る
+// (`PageData as never` キャスト排除)。#2097 PR-B2 (#2187) で DashboardView は撤廃済。
 //
 // 設計原則 (ADR-0047 §決定):
 //   1. production / demo 両 Service が `toViewModel()` で同じ shape を生成
-//   2. DashboardView は `ChildHomeViewModel` 以外の型を一切受け取らない (型強制)
+//   2. ProdDashboardSections は `ChildHomeViewModel` 以外の型を一切受け取らない (型強制)
 //   3. divergence (進捗 UI / shop tab 等) は ViewModel field として明示化、隠蔽しない
 //   4. type union (`progressDisplay.type`) は demo / production の identity ではなく
 //      「子供の年齢 / プラン状態」コンテキストに紐付ける (深層調査 §5 案 B 失敗回避策)
@@ -203,7 +208,8 @@ export interface ChildDashboardService {
  * 子供画面 (child home) で必要となる UI Contract。
  *
  * production / demo 両 Service が `toViewModel()` で本型と完全一致する shape を生成し、
- * `DashboardView` は本型以外を受け取らない (型強制 SSOT)。
+ * `ProdDashboardSections` は本型以外を受け取らない (型強制 SSOT)。
+ * (#2097 PR-B2 (#2187) で旧 `DashboardView` を撤廃、本番 UI 単独構成に統合)
  *
  * 機能セット parity (Q5 = B 子供は買える / Q6 = B 51+ Activity / Q7 = C 5 年齢モード全提供) を
  * field レベルで明示化することで、divergence を contract 違反として検出可能にする。
@@ -240,7 +246,7 @@ export interface ChildHomeViewModel {
 
 	/**
 	 * 9 feature の表示可否 contract。demo / production で異なる feature を ViewModel field で
-	 * 明示化することで、`<DashboardView>` 内に `if (service.kind === 'demo')` 分岐を書かない (ADR-0046 整合)。
+	 * 明示化することで、`<ProdDashboardSections>` 内に `if (service.kind === 'demo')` 分岐を書かない (ADR-0046 整合)。
 	 *
 	 * Phase 1 では全 feature の boolean field のみ定義。Phase 2 で各 feature の実装に配線する。
 	 */

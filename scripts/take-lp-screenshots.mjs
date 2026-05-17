@@ -57,14 +57,16 @@ const VIEWPORTS = {
 	desktop: { width: 1280, height: 800 },
 };
 
+// #2097 PR-B2 (#2187): /demo/(child)/* 撤去に伴い本番 (child) routes に切替。
+// /demo/admin/* 系は PR-B3 (#2188) で本番 path に再集約予定 (本 PR scope 外)。
 const HERO_SCREENSHOTS = [
-	{ url: '/demo/preschool/home', file: 'hero-child-home', label: 'ヒーロー: 子供ホーム' },
+	{ url: '/preschool/home', file: 'hero-child-home', label: 'ヒーロー: 子供ホーム' },
 ];
 
 const CAROUSEL_SCREENSHOTS = [
-	{ url: '/demo/preschool/home', file: 'carousel-1-child-home', label: 'カルーセル1: 子供ホーム' },
+	{ url: '/preschool/home', file: 'carousel-1-child-home', label: 'カルーセル1: 子供ホーム' },
 	{
-		url: '/demo/preschool/status',
+		url: '/preschool/status',
 		file: 'carousel-2-child-status',
 		label: 'カルーセル2: 子供ステータス',
 	},
@@ -77,9 +79,9 @@ const CAROUSEL_SCREENSHOTS = [
 ];
 
 const FEATURE_SCREENSHOTS = [
-	{ url: '/demo/preschool/home', file: 'feature-point-level', label: '機能: ポイント・レベル' },
-	{ url: '/demo/preschool/home', file: 'feature-combo-mission', label: '機能: コンボ・ミッション' },
-	{ url: '/demo/elementary/status', file: 'feature-radar-chart', label: '機能: レーダーチャート' },
+	{ url: '/preschool/home', file: 'feature-point-level', label: '機能: ポイント・レベル' },
+	{ url: '/preschool/home', file: 'feature-combo-mission', label: '機能: コンボ・ミッション' },
+	{ url: '/elementary/status', file: 'feature-radar-chart', label: '機能: レーダーチャート' },
 	{
 		url: '/demo/admin/reports',
 		file: 'feature-growth-record-admin',
@@ -88,7 +90,7 @@ const FEATURE_SCREENSHOTS = [
 	// #1901: feature-titles は LP HTML から参照削除済 (#1708 / #1755)。撮影対象から除外し
 	//        capture-hp-screenshots.mjs (SSOT) と整合させる。
 	{
-		url: '/demo/checklist',
+		url: '/checklist',
 		file: 'feature-belongings-checklist',
 		label: '機能: 持ち物チェックリスト',
 	},

@@ -2,7 +2,12 @@
   ProdDashboardSections.svelte — ADR-0046 / Issue #2084 follow-up
 
   本番 child home (`src/routes/(child)/[uiMode=uiMode]/home/+page.svelte`) の
-  共通 dashboard sections を `DashboardView.svelte` の派生として抽出したもの。
+  共通 dashboard sections。child home UI の SSOT。
+
+  #2097 PR-B2 (#2187) で旧 demo POC `DashboardView.svelte` を撤廃したため、
+  child home の UI 経路は本コンポーネント単独構成となる。demo Lambda は本番
+  routes (`/<uiMode>/home`) を AnonymousAuth + DATA_SOURCE=demo 経由で表示する
+  (ADR-0048)。
 
   ## 役割
 
@@ -19,18 +24,19 @@
 
   ## Issue #2084 AC との整合
 
-    - AC1 「共通 UI 描画ロジックの少なくとも 50% を DashboardView (もしくは派生コンポーネント) に集約」
-      → 本派生コンポーネントが該当 (約 200 行を本ファイルに移行)
+    - AC1 「共通 UI 描画ロジックの少なくとも 50% を派生コンポーネントに集約」
+      → 本コンポーネントが該当 (約 200 行を本ファイルに移行)
     - AC2 「本番側で `getDashboardService().getHomeData()` 経由で
       child / todayRecorded / pointSettings を参照する」
       → 本コンポーネント内で `getDashboardService()` を呼ぶ
 
-  ## demo 側 `DashboardView.svelte` との関係
+  ## 統合履歴
 
-  demo 側 (`DashboardView.svelte`) は POC のシンプル UI で完結。本派生は本番固有
-  feature (pin / mission badge / event badge / xp animation / baby inline form) を
-  含むため demo に逆輸入はしない (POC scope 厳守)。
-  Tier 3 (#566) で demo / 本番統合時に本派生を SSOT 化するロードマップ。
+  - 当初 (Issue #2069): demo 側 `DashboardView.svelte` で POC 実装
+  - 本派生 (Issue #2084): 本番側で同じ Service 経由パターンを実装
+  - #2097 PR-B2 (#2187): demo POC `DashboardView.svelte` を撤廃。child home の
+    UI 系統は本コンポーネント単独構成に集約。demo Lambda は本番 routes を
+    AnonymousAuth + DATA_SOURCE=demo 経由で表示する設計に統一 (ADR-0048)。
 -->
 <script lang="ts">
 import { enhance } from '$app/forms';

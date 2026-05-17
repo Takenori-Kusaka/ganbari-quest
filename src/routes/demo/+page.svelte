@@ -29,14 +29,14 @@ $effect(() => {
 // 失われる（URL が /demo のまま残る）ケースが Playwright で再現する。
 // state 変更前にターゲット URL を確定し、明示的に goto() する。
 function handleGuideStart() {
-	const targetHref = GUIDE_STEPS[0]?.href ?? '/demo/preschool/home?childId=902';
+	const targetHref = GUIDE_STEPS[0]?.href ?? '/preschool/home?childId=902';
 	startGuide();
 	trackDemoEvent('demo_guide_start');
 	goto(targetHref);
 }
 
 function handleGuideRestart() {
-	const targetHref = GUIDE_STEPS[0]?.href ?? '/demo/preschool/home?childId=902';
+	const targetHref = GUIDE_STEPS[0]?.href ?? '/preschool/home?childId=902';
 	restartGuide();
 	trackDemoEvent('demo_guide_start', { restart: true });
 	goto(targetHref);
@@ -106,8 +106,9 @@ const modeLabels: Record<string, string> = {
 					{@const mode = child.uiMode ?? 'preschool'}
 					{@const label = modeLabels[mode] ?? mode}
 					{@const theme = child.theme ?? 'admin'}
+					<!-- #2097 PR-B2 (#2187): /demo/(child)/* 撤去に伴い本番 (child) routes に直接遷移 -->
 					<a
-						href="/demo/{mode}/home?childId={child.id}"
+						href="/{mode}/home?childId={child.id}"
 						data-theme={theme}
 						class="block rounded-xl p-4 bg-gradient-to-br from-[var(--theme-400)] to-[var(--theme-300)] text-white shadow-sm hover:shadow-md transition-shadow"
 					>

@@ -76,13 +76,83 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		issue: '#571',
 		reason: '年齢区分リネーム: teen (中学生) → senior (中高生)',
 	},
-	// デモページも同様にリネームされている
+	// #2097 PR-B2 (#2187): /demo/(child)/* 14 file 撤去に伴い、demo (child) routes へのアクセスは
+	// 本番 (child) routes に直接 redirect する。demo Lambda 環境 (AnonymousAuth/DATA_SOURCE=demo)
+	// では本番ルートが demo データで稼働するため、demo path を恒久的にホスト不要となる。
+	// 旧 demo (child) URL (kinder/lower/upper/teen 含む) は永久保持で本番 path に飛ばす。
+	// #571 の `/demo/kinder` → `/demo/preschool` entry は本 PR で `/preschool` 直行に書き換え（2 段 redirect 回避）。
+	{
+		from: '/demo/preschool',
+		to: '/preschool',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/elementary',
+		to: '/elementary',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/junior',
+		to: '/junior',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/senior',
+		to: '/senior',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/baby',
+		to: '/baby',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/checklist',
+		to: '/checklist',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/checklist 撤去に伴う本番ルート直接 redirect',
+	},
+	// 旧 legacy mode 名 (kinder/lower/upper/teen) を demo path 経由で踏んだ場合も
+	// 本番 path に直行する (2 段 redirect 回避 + ブックマーク救済)。
+	// 旧 `/demo/kinder → /demo/preschool` (#571) は本 PR で書き換え。
 	{
 		from: '/demo/kinder',
-		to: '/demo/preschool',
-		deletedAt: '2026-04-06',
-		issue: '#571',
-		reason: 'デモページ年齢区分リネーム',
+		to: '/preschool',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去 + 年齢区分リネーム連鎖を 1 段 redirect で吸収',
+	},
+	{
+		from: '/demo/lower',
+		to: '/elementary',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去 + 年齢区分リネーム連鎖を 1 段 redirect で吸収',
+	},
+	{
+		from: '/demo/upper',
+		to: '/junior',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去 + 年齢区分リネーム連鎖を 1 段 redirect で吸収',
+	},
+	{
+		from: '/demo/teen',
+		to: '/senior',
+		deletedAt: '2026-05-17',
+		issue: '#2187',
+		reason: '#2097 PR-B2: /demo/(child)/* 撤去 + 年齢区分リネーム連鎖を 1 段 redirect で吸収',
 	},
 	// #1167: 活動パック詳細 → マーケットプレイス詳細に集約
 	// /activity-packs/[packId] は /marketplace/activity-pack/[itemId] の二重実装だった。

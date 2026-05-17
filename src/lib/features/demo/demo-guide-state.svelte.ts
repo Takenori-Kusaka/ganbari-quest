@@ -22,27 +22,31 @@ export interface GuideStep {
 	requiresAction?: boolean;
 }
 
+// #2097 PR-B2 (#2187): /demo/(child)/* 14 file を撤去したため、ガイド step 1-3 の
+// matchPath / href を本番 (child) routes に切り替え。demo Lambda は本番 routes を
+// AnonymousAuth + DATA_SOURCE=demo 経由で表示する設計に統一 (ADR-0048)。
+// Step 4 以降 (/demo/admin / /demo/signup) は PR-B3 (#2188) で本番 path に再集約予定。
 export const GUIDE_STEPS: GuideStep[] = [
 	{
 		id: 1,
 		title: 'こどもの画面をみよう',
 		description: '5さいの ひなちゃんで ためしてみましょう',
-		matchPath: '/demo/preschool/home',
-		href: '/demo/preschool/home?childId=902',
+		matchPath: '/preschool/home',
+		href: '/preschool/home?childId=902',
 	},
 	{
 		id: 2,
 		title: 'かつどうを きろくしよう',
 		description: 'かつどうカードをタップして きろくしてみましょう（スキップもできます）',
-		matchPath: '/demo/preschool/home',
-		href: '/demo/preschool/home?childId=902',
+		matchPath: '/preschool/home',
+		href: '/preschool/home?childId=902',
 	},
 	{
 		id: 3,
 		title: 'ステータスを みよう',
 		description: 'ひなちゃんの つよさを チェック！',
-		matchPath: '/demo/preschool/status',
-		href: '/demo/preschool/status?childId=902',
+		matchPath: '/preschool/status',
+		href: '/preschool/status?childId=902',
 	},
 	{
 		id: 4,
@@ -149,7 +153,7 @@ export function getGuideState() {
  * Called on page navigation to auto-advance the guide
  * when the user has navigated to the expected page for the next step.
  *
- * 同一 matchPath が連続するステップ（例: ステップ1→2は共に /demo/preschool/home）では
+ * 同一 matchPath が連続するステップ（例: ステップ1→2は共に /preschool/home）では
  * URL遷移だけでは区別できないため auto-advance をスキップする。
  * そのようなステップは advanceStep() で明示的に進める。
  *

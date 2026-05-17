@@ -11,6 +11,10 @@
 //
 // #1323: /demo/preschool/battle を廃止し 307 リダイレクト（→ /demo/preschool/home）を
 // 追加したため、バトルステップをデモガイドから削除して 6 ステップ構成に変更。
+//
+// #2097 PR-B2 (#2187): /demo/(child)/* 14 file 撤去に伴い、ガイド Step 1-3 の matchPath
+// / href を本番 (child) routes に切替。Step 4-6 (/demo/admin / /demo/signup) は PR-B3
+// (#2188) で本番 path に再集約予定。
 
 import { expect, type Page, test } from '@playwright/test';
 
@@ -45,7 +49,7 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		// Step 1: こどもの画面をみよう
 		// `.fixed.bottom-0` は BottomNav と DemoGuideBar の両方にマッチするので、
 		// 必ず data-testid="demo-guide-bar" でスコープすること（strict mode 違反回避）。
-		await expect(page).toHaveURL(/\/demo\/preschool\/home/);
+		await expect(page).toHaveURL(/\/preschool\/home/);
 		const guideBar = page.getByTestId('demo-guide-bar');
 		const stepIndicator = guideBar
 			.locator('div.rounded-full.bg-\\[var\\(--color-brand-500\\)\\]')
@@ -53,18 +57,18 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		await expect(stepIndicator).toHaveText('1');
 		await expect(guideBar).toContainText('こどもの画面をみよう');
 
-		// Step 1 → Step 2 (同一 matchPath: /demo/preschool/home)
+		// Step 1 → Step 2 (同一 matchPath: /preschool/home)
 		await page.getByTestId('demo-guide-next').click();
 		await expect(stepIndicator).toHaveText('2');
 		await expect(guideBar).toContainText('かつどうを きろくしよう');
-		// Step 2 でも /demo/preschool/home のままであることを確認
-		await expect(page).toHaveURL(/\/demo\/preschool\/home/);
+		// Step 2 でも /preschool/home のままであることを確認
+		await expect(page).toHaveURL(/\/preschool\/home/);
 
-		// Step 2 → Step 3 (matchPath: /demo/preschool/status)
+		// Step 2 → Step 3 (matchPath: /preschool/status)
 		await page.getByTestId('demo-guide-next').click();
 		await expect(stepIndicator).toHaveText('3');
 		await expect(guideBar).toContainText('ステータスを みよう');
-		await expect(page).toHaveURL(/\/demo\/preschool\/status/);
+		await expect(page).toHaveURL(/\/preschool\/status/);
 
 		// Step 3 → Step 4 (matchPath: /demo/admin)
 		// #1323: バトルステップ削除により、ステータス → ご家族の見守り画面へ直接遷移
@@ -110,11 +114,11 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		// Step 3 → 2
 		await page.getByTestId('demo-guide-back').click();
 		await expect(stepIndicator).toHaveText('2');
-		await expect(page).toHaveURL(/\/demo\/preschool\/home/);
+		await expect(page).toHaveURL(/\/preschool\/home/);
 
 		// Step 2 → 1 (同一 matchPath)
 		await page.getByTestId('demo-guide-back').click();
 		await expect(stepIndicator).toHaveText('1');
-		await expect(page).toHaveURL(/\/demo\/preschool\/home/);
+		await expect(page).toHaveURL(/\/preschool\/home/);
 	});
 });
