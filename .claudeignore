@@ -1,0 +1,38 @@
+# Claude Code session ignore (PO 承認 2026-05-17、Phase Claude-Code-Best-Practices-Adoption PR-1)
+# Reference: https://claude.com/blog/how-claude-code-works-in-large-codebases-best-practices-and-where-to-start
+# 大規模リポジトリで session 初期スキャン時の context 消費を削減し、不要ノイズを除外
+
+# Build artifacts (再生成可能、Claude が読む必要なし)
+node_modules/
+.svelte-kit/
+build/
+dist/
+.cache/
+
+# Generated screenshots (LP 配信 / Playwright 撮影、コード理解と無関係)
+docs/screenshots/
+docs/screenshots-*/
+site/screenshots/
+
+# Temp & local working files (補佐セッションの中間生成物)
+tmp/
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+.playwright-mcp/
+
+# Test outputs (実行毎に再生成)
+playwright-report/
+test-results/
+coverage/
+
+# Database files (binary、grep 不可)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.db.bak.*
+
+# Lock files (大規模 JSON、シンボル参照不要)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
