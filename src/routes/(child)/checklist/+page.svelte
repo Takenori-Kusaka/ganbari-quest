@@ -114,6 +114,7 @@ const flatChecklists = $derived(data.checklists);
 				<div class="divide-y divide-[var(--color-border)]">
 					{#each checklist.items as item (item.id)}
 						<form
+							data-testid="checklist-item-{item.id}"
 							method="POST"
 							action="?/toggle"
 							use:enhance={() => {

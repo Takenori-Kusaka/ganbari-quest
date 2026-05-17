@@ -203,12 +203,13 @@ const FEATURE_SCREENSHOTS = [
 		description: 'Features: 持ち物チェックリスト (子供画面)',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		// #1783: kind 削除 (#1755 #1709-A) で旧 [data-testid="checklist-group-item"] が消滅し
-		// waitForSelector がタイムアウトしていた。現行 DOM の demo-checklist-item-* に追従する。
-		// #2097 EPIC PR-B1: childId=904 → 903 (elementary fixture) に振り替え。
-		//   旧 904 (demo fixture では junior=14歳) では本番ルートの `(child)/+layout` が
-		//   uiMode=junior に redirect してしまうため。checklist は uiMode 配下ではないが
+		// waitForSelector がタイムアウトしていた。
+		// #2097 EPIC PR-B1: 本番ルート `/checklist` は `data-testid="checklist-item-{id}"` を使う。
+		//   旧 demo route 専用 testid `demo-checklist-item-` ではなくこちらに追従する。
+		//   childId=904 → 903 (elementary fixture) 振り替え理由: 904 (demo junior=14歳) では
+		//   本番 `(child)/+layout` が uiMode=junior に redirect、checklist は uiMode 配下ではないが
 		//   selectedChildId cookie の整合のため elementary 子を選択。
-		scrollTo: '[data-testid^="demo-checklist-item-"]',
+		scrollTo: '[data-testid^="checklist-item-"]',
 	},
 	{
 		name: 'feature-growth-record-admin',
