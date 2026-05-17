@@ -3,6 +3,8 @@ import '$lib/ui/styles/app.css';
 import { page } from '$app/stores';
 import { APP_LABELS } from '$lib/domain/labels';
 import DemoBanner from '$lib/features/demo/DemoBanner.svelte';
+import DemoGuideBar from '$lib/features/demo/DemoGuideBar.svelte';
+import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte';
 import {
 	resolveScreenshotMode,
 	setScreenshotModeContext,
@@ -46,6 +48,15 @@ const isDemo = $derived(
 	!isLegacyDemoPath && !isScreenshotMode && (data?.isDemo ?? $page.data?.isDemo ?? false),
 );
 
+// #2097 PR-B2 (#2187): demo guide bar を root layout で mount する。
+// `/demo/(child)/*` 撤去に伴い demo guide が本番 (child) routes (`/preschool/home` 等) に
+// redirect されるため、`/demo/+layout.svelte` 配下にしか mount されない構成では guide bar
+// が消失してしまう。root layout で active 時のみ表示することで、step 1-3 (`/preschool/*`) と
+// step 4-6 (`/demo/admin/*` / `/demo/signup`) を跨いで guide bar が persist する。
+// screenshot mode (`?screenshot=*`) では従来通り抑止 (LP 撮影 SS への被り対策)。
+const guide = $derived(getGuideState());
+const showDemoGuideBar = $derived(!isScreenshotMode && guide.active);
+
 // #702: E2E hydration marker. $effect は SSR では走らずクライアント mount 後にのみ
 // 走るため、ここで window.__APP_HYDRATED__ を立てると Playwright から
 // 「Svelte 5 onclick ハンドラがバインド済みであること」を確認できる。
@@ -66,3 +77,8 @@ $effect(() => {
 <DemoBanner {isDemo} />
 <Toast />
 {@render children()}
+
+<!-- #2097 PR-B2 (#2187): demo guide bar を root layout に hoist (詳細は script の comment) -->
+{#if showDemoGuideBar}
+	<DemoGuideBar />
+{/if}
