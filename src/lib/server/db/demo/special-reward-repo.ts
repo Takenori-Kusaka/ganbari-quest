@@ -32,17 +32,23 @@ export async function findSpecialRewards(
 }
 
 export async function findUnshownReward(
-	_childId: number,
+	childId: number,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
-	// 全 special rewards は shownAt=daysAgoISO(...) で「既読」扱い、新規 unshown はなし
-	return undefined;
+	// #2097 Phase B-5a: marketplace 由来 rewards のうち shownAt=null の最初の 1 件を返す
+	// (子供ホームで SpecialRewardOverlay = おうかん演出 / 達成プレゼント modal を発火させる)
+	const rewards = getDemoMarketplaceSpecialRewardsByChild(childId);
+	return rewards.find((r) => r.shownAt === null);
 }
 
 export async function markRewardShown(
 	_rewardId: number,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
+	// Stateless: fixture を mutate せず success として undefined (sqlite repo の returning().get()
+	// と整合: 該当行が無いと undefined)。demo 用途では子供ホーム再 reload 時に同じ unshown
+	// reward が再度 modal 表示されても UX 上問題なし (anti-engagement 原則 ADR-0012: 子供が
+	// modal を閉じる動作で十分体験は完結する)
 	return undefined;
 }
 

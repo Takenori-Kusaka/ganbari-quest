@@ -68,9 +68,11 @@ describe('demo/reward — marketplace integration (#2097 B-7)', () => {
 			expect(rewards.length).toBe(5);
 			expect(rewards.every((r) => r.childId === 902)).toBe(true);
 			expect(rewards.every((r) => r.sourcePresetId === 'kinder-rewards')).toBe(true);
-			// 全 reward が pre-granted (grantedAt + shownAt 既設定)
+			// 全 reward が pre-granted (grantedAt 設定済み)
 			expect(rewards.every((r) => r.grantedAt !== null)).toBe(true);
-			expect(rewards.every((r) => r.shownAt !== null)).toBe(true);
+			// #2097 Phase B-5a: idx 0 は未表示 (shownAt=null) で達成プレゼント modal 発火、idx 1-4 は既表示
+			expect(rewards.filter((r) => r.shownAt === null).length).toBe(1);
+			expect(rewards.filter((r) => r.shownAt !== null).length).toBe(4);
 		});
 
 		it('903 で elementary-rewards 由来 5 件', async () => {
