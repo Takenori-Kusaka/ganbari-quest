@@ -1,7 +1,8 @@
 // Demo IEvaluationRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
+// #2097 Phase B-5b: 週次評価 fixture を返すことで「週次レポート / グラフ用集計が空」のバグを解消。
 
-import { DEMO_CHILDREN } from '$lib/server/demo/demo-data';
+import { DEMO_CHILDREN, DEMO_EVALUATIONS } from '$lib/server/demo/demo-data';
 import type {
 	CategoryActivityCount,
 	CategoryLastDate,
@@ -40,11 +41,15 @@ export async function findAllChildren(_tenantId: string): Promise<Child[]> {
 }
 
 export async function findEvaluationsByChild(
-	_childId: number,
-	_limit: number,
+	childId: number,
+	limit: number,
 	_tenantId: string,
 ): Promise<Evaluation[]> {
-	return [];
+	// 新しい順 (weekStart DESC) で返す
+	return DEMO_EVALUATIONS.filter((e) => e.childId === childId)
+		.slice()
+		.sort((a, b) => (a.weekStart < b.weekStart ? 1 : a.weekStart > b.weekStart ? -1 : 0))
+		.slice(0, limit);
 }
 
 export async function hasDecayRunToday(
@@ -56,11 +61,12 @@ export async function hasDecayRunToday(
 }
 
 export async function findWeekEvaluation(
-	_childId: number,
-	_weekStart: string,
+	childId: number,
+	weekStart: string,
 	_tenantId: string,
 ): Promise<{ id: number } | undefined> {
-	return undefined;
+	const found = DEMO_EVALUATIONS.find((e) => e.childId === childId && e.weekStart === weekStart);
+	return found ? { id: found.id } : undefined;
 }
 
 export async function findLastActivityDateByCategory(

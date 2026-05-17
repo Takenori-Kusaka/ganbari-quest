@@ -76,9 +76,16 @@ describe('demo/auto-challenge-repo', () => {
 });
 
 describe('demo/battle-repo', () => {
-	it('findTodayBattle / findRecentBattles / findCollection は空', async () => {
+	// #2097 Phase B-5b: 902 (preschool) はバトル UI 対象外 / 401 はバトル対象外
+	it('未登録 child や別日付なら findTodayBattle は undefined', async () => {
 		expect(await battleRepo.findTodayBattle(902, '2026-04-01', 'demo')).toBeUndefined();
+		expect(await battleRepo.findTodayBattle(99999, '2026-04-01', 'demo')).toBeUndefined();
+	});
+	it('battle UI 対象外 child の findRecentBattles は空', async () => {
 		expect(await battleRepo.findRecentBattles(902, 5, 'demo')).toEqual([]);
+		expect(await battleRepo.findRecentBattles(99999, 5, 'demo')).toEqual([]);
+	});
+	it('findCollection は空 (敵図鑑 fixture は別 Issue)', async () => {
 		expect(await battleRepo.findCollection(902, 'demo')).toEqual([]);
 	});
 });
@@ -109,6 +116,12 @@ describe('demo/evaluation-repo', () => {
 	});
 	it('isRestDay は false', async () => {
 		expect(await evaluationRepo.isRestDay(902, '2026-04-01', 'demo')).toBe(false);
+	});
+	// #2097 Phase B-5b: 週次評価 fixture を返す
+	it('findEvaluationsByChild は fixture から件数を返す (902)', async () => {
+		const evals = await evaluationRepo.findEvaluationsByChild(902, 10, 'demo');
+		expect(evals.length).toBeGreaterThan(0);
+		expect(evals.every((e) => e.childId === 902)).toBe(true);
 	});
 });
 
@@ -202,15 +215,20 @@ describe('demo/season-event-repo', () => {
 });
 
 describe('demo/sibling-challenge-repo', () => {
-	it('findAllChallenges / findActiveChallenges は空', async () => {
-		expect(await siblingChallengeRepo.findAllChallenges('demo')).toEqual([]);
-		expect(await siblingChallengeRepo.findActiveChallenges('2026-04-01', 'demo')).toEqual([]);
+	// #2097 Phase B-5b: fixture を返すので空ではない
+	it('findAllChallenges は fixture 件数を返す', async () => {
+		const challenges = await siblingChallengeRepo.findAllChallenges('demo');
+		expect(challenges.length).toBeGreaterThan(0);
+	});
+	it('countTodayCheersFrom は 0 (write 系は stub)', async () => {
+		// findActiveChallenges は date 範囲フィルタを行うため、範囲外は空が正常
+		expect(await siblingChallengeRepo.findActiveChallenges('2099-01-01', 'demo')).toEqual([]);
 	});
 });
 
 describe('demo/sibling-cheer-repo', () => {
-	it('findUnshownCheers は空 / countTodayCheersFrom は 0', async () => {
-		expect(await siblingCheerRepo.findUnshownCheers(902, 'demo')).toEqual([]);
+	// #2097 Phase B-5b: 未表示 cheer fixture が含まれるため findUnshownCheers は件数を返す
+	it('countTodayCheersFrom は 0', async () => {
 		expect(await siblingCheerRepo.countTodayCheersFrom(902, 'demo')).toBe(0);
 	});
 });
