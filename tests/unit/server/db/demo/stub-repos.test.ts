@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 import * as accountLockoutRepo from '../../../../../src/lib/server/db/demo/account-lockout-repo';
 import * as activityMasteryRepo from '../../../../../src/lib/server/db/demo/activity-mastery-repo';
 import * as activityPrefRepo from '../../../../../src/lib/server/db/demo/activity-pref-repo';
-import * as autoChallengeRepo from '../../../../../src/lib/server/db/demo/auto-challenge-repo';
 import * as battleRepo from '../../../../../src/lib/server/db/demo/battle-repo';
 import * as cancellationReasonRepo from '../../../../../src/lib/server/db/demo/cancellation-reason-repo';
 import * as cloudExportRepo from '../../../../../src/lib/server/db/demo/cloud-export-repo';
@@ -68,12 +67,8 @@ describe('demo/activity-pref-repo', () => {
 	});
 });
 
-describe('demo/auto-challenge-repo', () => {
-	it('findActiveByChild は undefined / findByChild は空', async () => {
-		expect(await autoChallengeRepo.findActiveByChild(902, 'demo')).toBeUndefined();
-		expect(await autoChallengeRepo.findByChild(902, 'demo')).toEqual([]);
-	});
-});
+// demo/auto-challenge-repo is fixture-backed (DEMO_AUTO_CHALLENGES) — covered in
+// tests/unit/server/db/demo/auto-challenge-repo.test.ts (#2097 Phase B-4)
 
 describe('demo/battle-repo', () => {
 	it('findTodayBattle / findRecentBattles / findCollection は空', async () => {
