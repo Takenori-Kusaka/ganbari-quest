@@ -68,7 +68,7 @@ export const DEMO_WRITE_ALLOWLIST: readonly string[] = [
  * resolveDemoActive({ AUTH_MODE: 'anonymous', DATA_SOURCE: 'demo' }) // true
  * // 本番 Lambda
  * resolveDemoActive({ AUTH_MODE: 'cognito',   DATA_SOURCE: 'sqlite' }) // false
- * // 開発者 misconfig
+ * // 開発者 misconfiguration
  * resolveDemoActive({ AUTH_MODE: 'anonymous', DATA_SOURCE: 'sqlite' }) // false
  * ```
  */

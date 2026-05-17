@@ -358,7 +358,7 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 |---|---|---|---|
 | Production (`ganbari-quest.com`) | `cognito` | `dynamodb` (本番) / `sqlite` (NUC) | `false` |
 | Demo (`demo.ganbari-quest.com`) | `anonymous` | `demo` | `true` |
-| 開発者 misconfig 防御 | `anonymous` | `sqlite` | `false` (実 DB を no-op writer 化しない) |
+| 開発者 misconfiguration 防御 | `anonymous` | `sqlite` | `false` (実 DB を no-op writer 化しない) |
 
 **経緯 (legacy 3 signal の撤去)**:
 
