@@ -16,6 +16,7 @@ Issue 起票手順 SSOT → [Skill: issue-triage](../.claude/skills/issue-triage
 最低限の絶対ルール (詳細は SKILL.md):
 - 根本原因特定 / 同一領域の過去 Issue 確認 / 解決策は 1 つに絞る / AC に全境界条件列挙 / 再発問題はスクラップ&ビルド前提
 - **4 textarea (alternatives / no-gos / research-link / pre-pmf-check) 必須化** — Issue Forms (`*.yml`) で `required: true` 機構強制（#2090、Rust RFC + Shape Up + ADR-0010 §3）。補佐の `gh issue create --body-file` 経由起票も同 4 見出しを markdown body に含める
+- **補助機能 UX 完成度 checklist** — permission 系 (Notification / Geolocation 等) / **marketplace 系は 4 層完成度 (表示 / import / アプリ反映 / setup 連携) を AC で必須化**（#2117 / #2139）。Issue Template `auxiliary-feature-ux-checklist` textarea を AC に複製。「JSON + UI 表示のみで import 未実装」状態の起票は ADR-0013 (LP truth) 違反として禁止
 
 ## 依存関係 3 分割と工程区分（#1261）
 

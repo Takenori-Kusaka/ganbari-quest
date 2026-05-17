@@ -13,7 +13,7 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 ステップ間で必要に応じて **補助手順 A〜D** を参照します:
 
 - **7 ステップ (順次実行)**: 1 根本原因 → 2 Pre-PMF check → 3 マーケ/Growth 視点 → 4 法務/コンプライアンス視点 → 5 財務視点 → 6 仮想顧客レビュー → 7 Issue テンプレート
-- **補助手順 (該当時のみ実行)**: A SSOT namespace 重複検査 / B OSS 先調査 / C research 添付 / D HEREDOC 禁止 / `--body-file` 運用
+- **補助手順 (該当時のみ実行)**: A SSOT namespace 重複検査 / B OSS 先調査 / C research 添付 / D HEREDOC 禁止 / `--body-file` 運用 / **E 補助機能 UX 完成度 checklist (permission 系 / marketplace 系)**
 
 ## ステップ 1: 根本原因の特定（ADR-0003）
 
@@ -188,6 +188,42 @@ PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep re
 
 詳細プロセス・補佐降格背景は #2088 / memory `feedback_role_demotion_to_po_assistant.md` 参照。
 
+## 手順 E: 補助機能 UX 完成度 checklist (permission 系 / marketplace 系のみ、#2117 / #2139)
+
+> 本手順は補助機能 (Web Platform API permission 系 / marketplace 系) を扱う Issue 起票時のみ実行する補助手順。SSOT: ADR-0010 §7 / Issue Template `auxiliary-feature-ux-checklist` textarea。
+
+Issue 起票時、対象機能が以下に該当する場合は Issue Template の `auxiliary-feature-ux-checklist` textarea を **AC に複製**すること:
+
+### permission 系 5 項目 (#2117)
+
+Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard / Bluetooth / NFC 等) を扱う場合:
+
+1. **Loading state**: 非同期処理中の UI 状態 (spinner / disabled)
+2. **Failure handling**: 失敗時の try/catch + ユーザーフィードバック (Toast / inline error / 設定画面誘導)
+3. **Informed consent**: 許可リクエスト前の説明 (頻度 / 内容 / 送信先 / quiet hours 等)
+4. **State feedback**: 成功時 / 失敗時 / pending 中の UI 状態フィードバック
+5. **Settings fallback**: 後から ON/OFF できる設定画面 link
+
+### marketplace 系 4 層 (#2139)
+
+マーケットプレイス (一覧 + 詳細 + import + アプリ反映) 系機能を扱う場合:
+
+1. **表示層**: マーケットプレイス一覧 + 詳細ページで preview 可能
+2. **import 層**: import service / DB 反映機構 / 重複検出
+3. **アプリ反映層**: 取込後に既存機能 (special_rewards / checklist_templates / settings 等) と整合動作
+4. **setup 連携層**: 新規ユーザー setup フローで一括追加経路あり
+
+**「JSON + UI 表示のみ + import 未実装」状態の Issue 起票は禁止** (ADR-0013 LP truth 違反、過去経緯: #585 / #1162 / #1167 / #1758 で marketplace 4 type 中途半端実装が再発)。
+
+### 起票時の判定フロー
+
+1. 対象機能が permission 系 (Web Platform API) → 5 項目を AC に複製
+2. 対象機能が marketplace 系 (取込 → アプリ反映) → 4 層を AC に複製
+3. 両方該当 → 9 項目すべて複製 (実例: marketplace UI で permission 要求も伴う場合)
+4. どちらにも該当しない → Template `auxiliary-feature-ux-checklist` textarea に「N/A」と明記
+
+判定不明な場合は手順 C (research 添付) で業界 prior art を 3-5 件調査して判定する。
+
 ## ステップ 7: Issue テンプレート
 
 ```markdown
@@ -203,6 +239,7 @@ PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep re
 ## Acceptance Criteria
 - [ ] [検証可能な条件 1]
 - [ ] [検証可能な条件 2]
+- [ ] [permission/marketplace 系の場合は手順 E checklist を AC に複製]
 
 ## Pre-PMF チェック結果
 - ペルソナ紐付け: [P1/P2 + 課題]
@@ -212,6 +249,9 @@ PO 補佐 (Claude Code) が起票時に競合・OSS・design pattern の deep re
 
 ## OSS / 確立パターン調査結果
 [10 行超の独自実装を含む場合は必須、§「OSS 先調査」テンプレ参照]
+
+## 補助機能 UX 完成度 checklist (該当時のみ、#2117 / #2139)
+[permission 系 5 項目 / marketplace 系 4 層を AC に複製、または「N/A」]
 
 ## Deep Research 添付 (補佐起票時必須、#2088 / 本 SKILL §research 添付)
 - 規模: [軽量 / 中規模 / 大規模]
