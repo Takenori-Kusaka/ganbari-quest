@@ -91,6 +91,32 @@ body:
         - "未定（PR で実測後に決定）"
 
   - type: textarea
+    id: auxiliary-feature-ux-checklist
+    attributes:
+      label: 補助機能 UX 完成度 checklist（permission 系 / marketplace 系のみ必須、#2117 / #2139）
+      description: |
+        Web Platform API (permission 系: Notification / Geolocation / Camera / Microphone / Clipboard 等)、または marketplace 系 (一覧 + 詳細 + import + アプリ反映) を扱う Issue は以下 checklist を AC として複製する。
+        該当しない Issue は「N/A（permission/marketplace 系ではない）」と明記。
+        SSOT: ADR-0010 §7 / `.claude/skills/issue-triage/SKILL.md`。
+      value: |
+        <!-- permission 系 5 項目 (#2117): 該当する場合 AC に複製 -->
+        - [ ] **Loading state**: 非同期処理中の UI 状態 (spinner / disabled)
+        - [ ] **Failure handling**: 失敗時の try/catch + ユーザーフィードバック (Toast / inline error / 設定画面誘導)
+        - [ ] **Informed consent**: 許可リクエスト前の説明 (頻度 / 内容 / 送信先 / quiet hours 等)
+        - [ ] **State feedback**: 成功時 / 失敗時 / pending 中の UI 状態フィードバック
+        - [ ] **Settings fallback**: 後から ON/OFF できる設定画面 link
+
+        <!-- marketplace 系 4 層 (#2139): 該当する場合 AC に複製 -->
+        - [ ] **表示層**: マーケットプレイス一覧 + 詳細ページで preview 可能
+        - [ ] **import 層**: import service / DB 反映機構 / 重複検出
+        - [ ] **アプリ反映層**: 取込後に既存機能 (special_rewards / checklist_templates / settings 等) と整合動作
+        - [ ] **setup 連携層**: 新規ユーザー setup フローで一括追加経路あり
+
+        または: N/A（permission/marketplace 系ではない補助機能ではない Issue）
+    validations:
+      required: false
+
+  - type: textarea
     id: oss-research
     attributes:
       label: OSS / 確立パターン調査結果（type:feat/refactor/infra で独自実装 10 行超時に必須、#1350）
