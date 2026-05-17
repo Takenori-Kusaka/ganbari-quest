@@ -36,7 +36,9 @@ test.describe('#2140 MP-5 — setup wizard 3 step route 存在確認 (AC1)', () 
 
 test.describe('#2140 MP-5 — admin 画面の取込先確認 (AC3 4 type 反映)', () => {
 	// 4 type の取込先 admin 画面が 200 で開けることを確認 (route 配線確認)
-	test('/admin/activities にアクセス可能 (activity-pack 取込先 = MP existing)', async ({ page }) => {
+	test('/admin/activities にアクセス可能 (activity-pack 取込先 = MP existing)', async ({
+		page,
+	}) => {
 		await page.goto('/admin/activities');
 		await expect(page).toHaveURL(/\/admin\/activities/);
 		// admin/activities が 200 で開ける時点で配線 OK
