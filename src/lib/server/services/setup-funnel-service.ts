@@ -11,6 +11,11 @@ export type SetupFunnelEvent =
 	| 'setup_questionnaire_skipped'
 	| 'setup_packs_selected'
 	| 'setup_packs_skipped'
+	// #2140 MP-5: setup wizard β 採用 (3 step 分割) — reward / rule step イベント
+	| 'setup_rewards_selected'
+	| 'setup_rewards_skipped'
+	| 'setup_rules_selected'
+	| 'setup_rules_skipped'
 	| 'setup_first_adventure_completed'
 	| 'setup_first_adventure_skipped'
 	| 'setup_completed'

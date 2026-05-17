@@ -127,6 +127,9 @@ export const PAGE_TITLES = {
 	setupChildren: '子供登録',
 	setupFirstAdventure: 'はじめてのぼうけん',
 	setupPacks: '活動パック選択',
+	// #2140 MP-5: setup wizard β 採用
+	setupRewards: 'ごほうびセット選択',
+	setupRules: 'おうちのルール選択',
 	// ユーザー切替
 	switchUser: 'だれがつかう？',
 	// その他
@@ -3961,6 +3964,46 @@ export const SETUP_PACKS_LABELS = {
 	mustDefaultCheckboxHint:
 		'歯みがき・お片付け・宿題などのおやくそく候補が、優先度「今日のおやくそく」として登録されます。',
 	mustDefaultBadge: 'おやくそく推奨',
+} as const;
+
+// #2140 MP-5: setup wizard β step 2「ごほうび一括追加」labels
+export const SETUP_REWARDS_LABELS = {
+	pageTitle: 'ごほうびセットをえらぼう',
+	pageDesc:
+		'お子さまのモチベーションになるごほうびを一括で追加できます。あとから追加・変更できます。',
+	recommendedBadge: 'おすすめ',
+	autoAddOption: 'おすすめセットを自動で追加してすすむ',
+	backButton: 'もどる',
+	importingLabel: 'インポート中...',
+	addRewardsButton: (count: number) => `${count}件のセットを追加`,
+	processingLabel: '処理中...',
+	skipNextButton: 'スキップして次へ',
+	childPickerLabel: 'どのお子さまに追加しますか？',
+	rewardsCountSuffix: '件のごほうび',
+	emptyChildrenNotice: 'お子さまが登録されていないため、このステップはスキップされます。',
+} as const;
+
+// #2140 MP-5: setup wizard β step 3「ルール一括追加」labels
+export const SETUP_RULES_LABELS = {
+	pageTitle: 'おうちのルールをえらぼう',
+	pageDesc:
+		'家族のがんばりを応援するボーナスルールや交換ルールを一括で追加できます。あとから追加・変更できます。',
+	recommendedBadge: 'おすすめ',
+	autoAddOption: 'おすすめルールを自動で追加してすすむ',
+	backButton: 'もどる',
+	importingLabel: 'インポート中...',
+	addRulesButton: (count: number) => `${count}件のルールを追加`,
+	processingLabel: '処理中...',
+	skipNextButton: 'スキップして次へ',
+	childPickerLabel: '交換ルールを追加するお子さま（任意）',
+	childPickerNone: '選択しない（ボーナスルールのみ追加）',
+	rulesCountSuffix: '件のルール',
+	ruleTypeBonus: 'ボーナス',
+	ruleTypeExchange: '交換',
+	ruleTypePenalty: 'ペナルティ（取込未対応）',
+	ruleTypeSpecial: 'スペシャル（取込未対応）',
+	bonusOnlyNotice:
+		'ボーナスルールは家族全体に適用されます。交換ルールはお子さまごとのごほうびとして登録されます。',
 } as const;
 
 export const PARENT_LOGIN_LABELS = {

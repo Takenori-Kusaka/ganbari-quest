@@ -114,7 +114,8 @@ export const actions: Actions = {
 			packCount: packIds.length,
 			imported: totalImported,
 		});
-		redirect(302, `/setup/first-adventure?imported=${totalImported}&skipped=${totalSkipped}`);
+		// #2140 MP-5: 次は /setup/rewards へ (β 3 step 分割)
+		redirect(302, `/setup/rewards?packsImported=${totalImported}&packsSkipped=${totalSkipped}`);
 	},
 
 	skip: async ({ locals }) => {
@@ -151,6 +152,7 @@ export const actions: Actions = {
 		trackSetupFunnel('setup_packs_skipped', tenantId, {
 			autoImported,
 		});
-		redirect(302, `/setup/first-adventure?imported=${autoImported}&skipped=0`);
+		// #2140 MP-5: 次は /setup/rewards へ (β 3 step 分割)
+		redirect(302, `/setup/rewards?packsImported=${autoImported}&packsSkipped=0`);
 	},
 };
