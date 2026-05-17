@@ -14,8 +14,8 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 	it('DEMO_EVALUATIONS は全アクティブ child を網羅', () => {
 		const activeChildIds = DEMO_CHILDREN.filter((c) => c.isArchived === 0).map((c) => c.id);
 		for (const childId of activeChildIds) {
-			const childEvals = DEMO_EVALUATIONS.filter((e) => e.childId === childId);
-			expect(childEvals.length).toBeGreaterThanOrEqual(4);
+			const childEvaluations = DEMO_EVALUATIONS.filter((e) => e.childId === childId);
+			expect(childEvaluations.length).toBeGreaterThanOrEqual(4);
 		}
 	});
 
@@ -26,13 +26,13 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 	});
 
 	it('findEvaluationsByChild は 904 (junior) で 4 週分を新しい順に返す', async () => {
-		const evals = await evaluationRepo.findEvaluationsByChild(904, 10, 'demo');
-		expect(evals.length).toBeGreaterThanOrEqual(4);
-		expect(evals.every((e) => e.childId === 904)).toBe(true);
+		const result = await evaluationRepo.findEvaluationsByChild(904, 10, 'demo');
+		expect(result.length).toBeGreaterThanOrEqual(4);
+		expect(result.every((e) => e.childId === 904)).toBe(true);
 		// weekStart DESC 順
-		for (let i = 0; i < evals.length - 1; i++) {
-			const current = evals[i];
-			const next = evals[i + 1];
+		for (let i = 0; i < result.length - 1; i++) {
+			const current = result[i];
+			const next = result[i + 1];
 			if (current && next) {
 				expect(current.weekStart >= next.weekStart).toBe(true);
 			}
@@ -40,8 +40,8 @@ describe('demo/evaluation-repo (Phase B-5b)', () => {
 	});
 
 	it('findEvaluationsByChild は limit で件数を絞る', async () => {
-		const evals = await evaluationRepo.findEvaluationsByChild(904, 2, 'demo');
-		expect(evals.length).toBe(2);
+		const result = await evaluationRepo.findEvaluationsByChild(904, 2, 'demo');
+		expect(result.length).toBe(2);
 	});
 
 	it('findEvaluationsByChild は未登録 child で空配列', async () => {

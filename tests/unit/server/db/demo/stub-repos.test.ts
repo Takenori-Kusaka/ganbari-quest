@@ -119,9 +119,9 @@ describe('demo/evaluation-repo', () => {
 	});
 	// #2097 Phase B-5b: 週次評価 fixture を返す
 	it('findEvaluationsByChild は fixture から件数を返す (902)', async () => {
-		const evals = await evaluationRepo.findEvaluationsByChild(902, 10, 'demo');
-		expect(evals.length).toBeGreaterThan(0);
-		expect(evals.every((e) => e.childId === 902)).toBe(true);
+		const result = await evaluationRepo.findEvaluationsByChild(902, 10, 'demo');
+		expect(result.length).toBeGreaterThan(0);
+		expect(result.every((e) => e.childId === 902)).toBe(true);
 	});
 });
 
