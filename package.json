@@ -27,6 +27,7 @@
 		"test:e2e": "playwright test",
 		"test:e2e:ui": "playwright test --ui",
 		"test:e2e:matrix": "playwright test --config playwright.matrix.config.ts",
+		"test:e2e:demo": "playwright test --config playwright.demo.config.ts",
 		"test:all": "vitest run && npm run test:storybook && playwright test",
 		"quality-gate": "biome check . && svelte-check --tsconfig ./tsconfig.json && vitest run --coverage && npm run test:storybook && playwright test",
 		"pre-ready": "node scripts/pre-ready.mjs",

@@ -4,6 +4,10 @@ import { defineConfig, devices } from '@playwright/test';
 // （Playwright は project 側 testIgnore が top-level を override するため、
 //  mobile 側でこの配列を include してから追加除外ファイルを足す必要がある）。
 const BASE_TEST_IGNORE = [
+	// #2205: demo Lambda 専用 spec (AUTH_MODE=anonymous + DATA_SOURCE=demo 必須)。
+	// 本 config (local モード) では認証フローが異なり、`/switch` POST が demo no-op 化されないため
+	// 全 spec FAIL する。必ず `playwright.demo.config.ts` 経由で起動する。
+	'**/demo-lambda/**',
 	'**/cognito-auth.spec.ts',
 	// #776, #779, #751, #778: プラン別ゲート E2E は cognito-dev モード専用
 	// （playwright.cognito-dev.config.ts でのみ実行する）
