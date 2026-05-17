@@ -26,6 +26,13 @@ interface Props {
 	triggerHint?: string | null;
 	isMainQuest?: boolean;
 	eventBadge?: string | null;
+	/**
+	 * #2146: priority='must' (今日のおやくそく) のカード演出統合フラグ。
+	 * true のとき gold border + 左上「⭐ おやくそく」riboon badge を表示する。
+	 * 旧 MustProgressBar 専用セクションの代替（ADR-0012 anti-engagement 準拠で
+	 * 完了時の追加アニメーションは行わず、既存 completed 演出のみ）。
+	 */
+	isMust?: boolean;
 	onclick?: () => void;
 	onlongpress?: () => void;
 }
@@ -45,6 +52,7 @@ let {
 	triggerHint,
 	isMainQuest = false,
 	eventBadge = null,
+	isMust = false,
 	onclick,
 	onlongpress,
 }: Props = $props();
@@ -54,6 +62,9 @@ const textSize = $derived(CARD_SIZE_CSS[cardSize].textSize);
 
 const showMission = $derived(isMission && !completed);
 const showMainQuest = $derived(isMainQuest && !completed);
+// #2146: must badge は完了済みでも表示せず riboon を撤去する（達成後は
+// 通常カードと同じ完了演出のみ。anti-engagement 準拠で連続演出禁止）
+const showMust = $derived(isMust && !completed);
 
 const borderColor = $derived(getCategoryById(categoryId)?.color ?? 'var(--theme-primary)');
 
@@ -99,10 +110,12 @@ function handleClick(e: Event) {
 		{frozen ? 'card-frozen' : ''}"
 	class:card-mission={showMission}
 	class:card-main-quest={showMainQuest}
-	style:border-color={completed ? undefined : (showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : (frozen ? 'var(--color-neutral-300)' : borderColor))}
+	class:card-must={showMust}
+	style:border-color={completed ? undefined : (showMainQuest ? 'var(--color-gold-500, #d97706)' : showMission ? 'gold' : (showMust ? 'var(--color-gold-400, #f59e0b)' : (frozen ? 'var(--color-neutral-300)' : borderColor)))}
 	disabled={completed}
 	data-testid={activityId != null ? `activity-card-${activityId}` : undefined}
-	aria-label="{name}{completed ? UI_COMPONENTS_LABELS.activityCardCompleted : ''}{showMainQuest ? UI_COMPONENTS_LABELS.activityCardMainQuest : ''}{showMission ? UI_COMPONENTS_LABELS.activityCardMission : ''}{isPinned ? UI_COMPONENTS_LABELS.activityCardPinned : ''}{frozen ? UI_COMPONENTS_LABELS.activityCardFrozen : ''}"
+	data-must={showMust ? '1' : undefined}
+	aria-label="{name}{completed ? UI_COMPONENTS_LABELS.activityCardCompleted : ''}{showMainQuest ? UI_COMPONENTS_LABELS.activityCardMainQuest : ''}{showMission ? UI_COMPONENTS_LABELS.activityCardMission : ''}{showMust ? UI_COMPONENTS_LABELS.activityCardMust : ''}{isPinned ? UI_COMPONENTS_LABELS.activityCardPinned : ''}{frozen ? UI_COMPONENTS_LABELS.activityCardFrozen : ''}"
 	onclick={handleClick}
 	onpointerdown={handlePointerDown}
 	onpointerup={handlePointerUp}
@@ -113,6 +126,10 @@ function handleClick(e: Event) {
 		<div class="absolute -top-1.5 -right-1.5 z-10" aria-hidden="true">
 			<span class="text-xs">📌</span>
 		</div>
+	{/if}
+
+	{#if showMust}
+		<span class="must-ribbon" aria-hidden="true" data-testid={activityId != null ? `must-ribbon-${activityId}` : undefined}>{UI_COMPONENTS_LABELS.activityCardMustBadge}</span>
 	{/if}
 
 	{#if showMission}
@@ -261,6 +278,31 @@ function handleClick(e: Event) {
 		padding: 0.125rem 0.375rem;
 		border-radius: 9999px;
 		background: linear-gradient(135deg, #f59e0b, #d97706);
+		color: white;
+		font-size: 0.625rem;
+		font-weight: 700;
+		line-height: 1;
+		white-space: nowrap;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+	}
+
+	/* #2146: 「今日のおやくそく」 (priority='must') カード演出 ──
+	   MustProgressBar 専用セクション撤去に伴い、border + 左上 riboon の 2 要素で
+	   旧バー機能を吸収する。anti-engagement 原則 (ADR-0012) 準拠で動的アニメーション
+	   は持たない（mission の breathing-glow とは独立、静的演出のみ）。
+	   main-quest が同時に立った場合は main-quest の box-shadow/gradient が優先される。 */
+	.card-must:not(.card-main-quest):not(.card-mission) {
+		box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35), 0 1px 3px rgba(0, 0, 0, 0.06);
+		background: linear-gradient(135deg, #fffdf5, #fef9e7) !important;
+	}
+	.must-ribbon {
+		position: absolute;
+		top: -0.375rem;
+		left: -0.375rem;
+		z-index: 10;
+		padding: 0.125rem 0.375rem;
+		border-radius: 9999px;
+		background: linear-gradient(135deg, #fbbf24, #f59e0b);
 		color: white;
 		font-size: 0.625rem;
 		font-weight: 700;

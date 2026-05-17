@@ -581,14 +581,15 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 
 	<!--
 		Issue #2084 (ADR-0046 follow-up): 共通 dashboard sections は派生コンポーネント
-		ProdDashboardSections に集約。MustProgressBar / activity grid / SiblingRanking /
-		ActivityEmptyState の render を含む (約 200 行)。
+		ProdDashboardSections に集約。activity grid / SiblingRanking / ActivityEmptyState
+		の render を含む。
+		(#2146: 旧 MustProgressBar 専用セクションは撤廃。priority='must' は ActivityCard
+		自身の isMust prop で riboon badge 表示する設計に統合済み)。
 		本派生は getDashboardService() 経由で child / todayRecorded / pointSettings を参照。
 	-->
 	<ProdDashboardSections
 		uiMode={data.uiMode as UiMode}
 		activities={data.activities}
-		mustStatus={data.mustStatus}
 		siblingRanking={data.siblingRanking}
 		{activeEventBadge}
 		{displayConfig}

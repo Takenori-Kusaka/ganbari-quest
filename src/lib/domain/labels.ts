@@ -5118,6 +5118,10 @@ export const UI_COMPONENTS_LABELS = {
 	activityCardCountAriaLabel: (count: number) => `${count}かいきろくずみ`,
 	activityCardMainQuestBadge: '⚔️ 2ばい!',
 	activityCardStreakAriaLabel: (days: number) => `${days}にちれんぞく`,
+	// #2146: priority='must' (今日のおやくそく) のカード演出統合用ラベル
+	// 旧 MustProgressBar 専用セクションを廃止し、ActivityCard 自身に riboon badge を付ける
+	activityCardMustBadge: '⭐ おやくそく',
+	activityCardMust: '（今日のおやくそく）',
 
 	// ---- ActivityEmptyState ----
 	activityEmptyTitle: 'ぼうけんの じゅんびちゅう...',

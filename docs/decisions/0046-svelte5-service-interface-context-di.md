@@ -48,7 +48,7 @@ LP 撮影用デモ画面 (`/demo/`) と本番アプリ画面 (`/(child)/`) は U
 - `ChildDashboardService` interface に write API (`recordActivity` / `cancelRecord` / `claimLoginBonus` / `toggleActivityPin`) を **Issue #2085 で追加済**。本番側は既存 REST `/api/v1/...` を fetch で呼ぶ thin wrapper、demo 側は sessionStorage 経由で in-memory state を書き戻す。両実装の動作差は discriminated union (`{ok, error}`) で型レベルに整列
 - **Issue #2084 (2026-05-14 follow-up)**: 本番 `(child)/[uiMode=uiMode]/home/+page.svelte` を以下に refactor:
   - page 内で `setDashboardService(createProductionDashboardService(() => ({ child, todayRecorded, pointSettings })))` を再注入 (layout 側は `todayRecorded: []` で初期化済のため home page の load 由来 todayRecorded を上書き)
-  - 派生コンポーネント `ProdDashboardSections.svelte` (322 行) を新設し、`MustProgressBar` / activity grid / `SiblingRanking` / `ActivityEmptyState` の共通 render を集約。本派生は内部で `getDashboardService().getHomeData()` を呼び `child` / `todayRecorded` / `pointSettings` を Service 経由参照する
+  - 派生コンポーネント `ProdDashboardSections.svelte` (322 行) を新設し、`MustProgressBar` / activity grid / `SiblingRanking` / `ActivityEmptyState` の共通 render を集約（`MustProgressBar` は #2146 で撤廃し `ActivityCard.isMust` に統合）。本派生は内部で `getDashboardService().getHomeData()` を呼び `child` / `todayRecorded` / `pointSettings` を Service 経由参照する
   - 本番固有のオーバーレイ / FSM / xp animation / 確認 dialog は page 側に残し、本番固有 feature の汚染を回避
   - 結果: `+page.svelte` 1093 → 986 行 (-107 行)、共通 UI 描画ロジック ~200 行を `ProdDashboardSections` に集約
 - Issue #2085 の write API 拡張により、本番 form action 経由動線も interface 越しに統一できる足場が完成済
