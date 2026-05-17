@@ -286,11 +286,9 @@ function handleClick(e: Event) {
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 	}
 
-	/* #2146: 「今日のおやくそく」 (priority='must') カード演出 ──
-	   MustProgressBar 専用セクション撤去に伴い、border + 左上 riboon の 2 要素で
-	   旧バー機能を吸収する。anti-engagement 原則 (ADR-0012) 準拠で動的アニメーション
-	   は持たない（mission の breathing-glow とは独立、静的演出のみ）。
-	   main-quest が同時に立った場合は main-quest の box-shadow/gradient が優先される。 */
+	/* #2146: priority='must' card decoration (replaces removed MustProgressBar bar).
+	   border + top-left riboon, no animation per ADR-0012 anti-engagement.
+	   main-quest precedes (box-shadow/gradient wins) when both flags are set. */
 	.card-must:not(.card-main-quest):not(.card-mission) {
 		box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35), 0 1px 3px rgba(0, 0, 0, 0.06);
 		background: linear-gradient(135deg, #fffdf5, #fef9e7) !important;
