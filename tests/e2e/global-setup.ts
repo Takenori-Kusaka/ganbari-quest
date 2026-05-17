@@ -192,6 +192,33 @@ export default async function globalSetup() {
 				"UPDATE activities SET priority = 'must' WHERE name IN ('はみがきした', 'おきがえした', 'おかたづけした')",
 			);
 			console.log("[E2E Setup]   Ensured priority='must' for 3 routine activities (#1757).");
+			// #2146: elementary / junior / senior 子供にも must 活動が見えるよう、各 ageMin 範囲ごとに
+			// せいかつカテゴリ (categoryId=3) の上位 1 件を must 指定する（age 帯共通カバレッジ）
+			db.exec(`
+				UPDATE activities SET priority = 'must'
+				WHERE id IN (
+					SELECT id FROM activities
+					WHERE category_id = 3 AND age_min >= 6 AND age_min <= 8
+					ORDER BY sort_order ASC LIMIT 2
+				)
+			`);
+			db.exec(`
+				UPDATE activities SET priority = 'must'
+				WHERE id IN (
+					SELECT id FROM activities
+					WHERE category_id = 3 AND age_min >= 13 AND age_min <= 14
+					ORDER BY sort_order ASC LIMIT 2
+				)
+			`);
+			db.exec(`
+				UPDATE activities SET priority = 'must'
+				WHERE id IN (
+					SELECT id FROM activities
+					WHERE category_id = 3 AND age_min >= 16 AND age_min <= 17
+					ORDER BY sort_order ASC LIMIT 2
+				)
+			`);
+			console.log("[E2E Setup]   Added must coverage for elementary / junior / senior (#2146).");
 		} catch {
 			// priority カラムが未追加の旧 DB でも E2E を落とさない
 		}
