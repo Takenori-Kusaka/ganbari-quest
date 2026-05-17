@@ -312,12 +312,12 @@ export const handle: Handle = ({ event, resolve }) =>
 		});
 
 		// 2) デモ入口/退出ルート
-		// /demo/exit: cookie を消して本番に戻す
-		if (path === '/demo/exit') {
-			event.cookies.delete(DEMO_MODE_COOKIE, { path: '/' });
-			event.cookies.delete(DEMO_PLAN_COOKIE, { path: '/' });
-			redirect(302, '/');
-		}
+		// #2097 PR-B3 (#2188): /demo/exit は legacy-url-map 経由で / に redirect されるため
+		// 専用ハンドラは不要。demo cookie (`gq_demo` / `gq_demo_plan`) は production Lambda で
+		// は `DATA_SOURCE=dynamodb` 経路で読まれず害なし (isDemo の OR 評価に AUTH_MODE=anonymous
+		// が含まれるため cookie 単独で demo モードが復活しない、ADR-0048)。cookie 機構自体は
+		// PR-B4 (#2189) で hooks.server.ts demo 検出を env-only 化する際に撤去予定。
+		// (旧 cookie 削除ロジックは `legacy-url-map.ts` の `/demo/exit → /` entry で代替)
 
 		// 3) デモ状態なら書き込みを 200 no-op で抑止
 		//

@@ -110,10 +110,11 @@ test.describe('#1576 週次使用時間 bar chart', () => {
 	});
 
 	test('週次チャートはデモモードでは非表示', async ({ page }) => {
-		// デモページは /demo/admin 相当の画面が存在しないため、
-		// 通常のご家族の見守り画面でデモ状態をシミュレートせず、
-		// AdminHome の isDemo 条件が機能していることをコードレベルで確認済み。
-		// この test は回帰防止のためのスモーク test として残す。
+		// #2097 PR-B3 (#2188): /demo/admin 自体が撤去され、デモモード判定は demo Lambda
+		// 環境 (AUTH_MODE=anonymous、ADR-0048) でのみ起動する。LOCAL_AUTH E2E では
+		// `data.isDemo=false` 経路で本番 admin が render されるため、本 test は
+		// `AdminHome` の `isDemo` 条件が機能していることをコードレベルで確認済の
+		// 回帰防止スモーク test として維持する (実体的なデモ非表示検証は demo Lambda 環境で行う)。
 		await page.goto('/admin');
 		await expect(page.locator('h1')).toContainText('管理ダッシュボード');
 		// isDemo=false のため weekly-usage-section が children > 0 なら表示されることを確認

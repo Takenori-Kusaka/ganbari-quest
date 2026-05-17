@@ -111,6 +111,7 @@
 - `src/routes/demo/**` 並行実装が構造的に発生しない (demo Lambda は同 codebase + env 駆動)
 - production schema 変更時、demo Lambda は ECR 同 image を共有するため **再 build で自動追従**
 - 過去 8 回失敗の構造原因 (並行実装 / cookie 漏れ / auth bypass 混入) が **物理的に発生不可能**
+- **legacy `/demo` 完全撤去 (#2097 PR-B2 + PR-B3、2026-05-17)**: `src/routes/demo/**` 配下 47 file (PR-B2: child 14 + PR-B3: parent admin 29 + root 5 - DashboardView 1 = 47) を物理削除完了。`legacy-url-map.ts` に 30+ entries (child 11 + admin 17 + root 3) を永久保持で追加し、bookmark / 外部リンクからの旧 URL アクセスは全件 308 で本番 path に救済。本撤去で「demo Lambda は本番 routes のみ稼働 + env 駆動で振る舞いを切替」の理想形が達成され、`/demo` 経路の cookie 機構 (`gq_demo` / `gq_demo_plan`) も PR-B4 (#2189) で env-only 化により完全撤去予定 (本決定の最終 milestone)
 
 ### リスク
 

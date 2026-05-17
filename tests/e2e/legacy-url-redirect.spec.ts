@@ -212,15 +212,103 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/admin/achievements/sub', '/admin/challenges/sub');
 	});
 
-	test('/demo/admin/achievements → /demo/admin/challenges (308, #1782 デモ)', async ({
+	// #2097 PR-B3 (#2188): /demo/admin/achievements は 1 段 redirect で /admin/challenges に直行
+	// (旧 #1782 で /demo/admin/achievements → /demo/admin/challenges だったが、PR-B3 で
+	// /demo/admin/* 全削除のため /demo/admin/challenges 経由を回避し本番 path に統合)
+	test('/demo/admin/achievements → /admin/challenges (308, #2188 で 1 段化)', async ({
 		request,
 	}) => {
-		await expectRedirect(request, '/demo/admin/achievements', '/demo/admin/challenges');
+		await expectRedirect(request, '/demo/admin/achievements', '/admin/challenges');
 	});
 
 	test('/admin/achievements?childId=1 (クエリ保持) → /admin/challenges?childId=1', async ({
 		request,
 	}) => {
 		await expectRedirect(request, '/admin/achievements?childId=1', '/admin/challenges?childId=1');
+	});
+
+	// ============================================================
+	// #2097 PR-B3 (#2188): /demo/admin/* + /demo/+layout + /demo/+page + /demo/signup 全撤去 → 本番 path 直接 redirect
+	// ============================================================
+	test('/demo/admin → /admin (308) — 親 fallback', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin', '/admin');
+	});
+
+	test('/demo/admin/activities → /admin/activities (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/activities', '/admin/activities');
+	});
+
+	test('/demo/admin/challenges → /admin/challenges (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/challenges', '/admin/challenges');
+	});
+
+	test('/demo/admin/checklists → /admin/checklists (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/checklists', '/admin/checklists');
+	});
+
+	test('/demo/admin/children → /admin/children (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/children', '/admin/children');
+	});
+
+	test('/demo/admin/events → /admin/events (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/events', '/admin/events');
+	});
+
+	test('/demo/admin/license → /admin/license (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/license', '/admin/license');
+	});
+
+	test('/demo/admin/members → /admin/members (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/members', '/admin/members');
+	});
+
+	test('/demo/admin/messages → /admin/messages (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/messages', '/admin/messages');
+	});
+
+	test('/demo/admin/points → /admin/points (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/points', '/admin/points');
+	});
+
+	test('/demo/admin/reports → /admin/reports (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/reports', '/admin/reports');
+	});
+
+	test('/demo/admin/rewards → /admin/rewards (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/rewards', '/admin/rewards');
+	});
+
+	test('/demo/admin/settings → /admin/settings (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/settings', '/admin/settings');
+	});
+
+	test('/demo/admin/status → /admin/status (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/status', '/admin/status');
+	});
+
+	test('/demo/signup → /auth/signup (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/signup', '/auth/signup');
+	});
+
+	test('/demo/exit → / (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/exit', '/');
+	});
+
+	test('/demo → / (308) — landing 撤去', async ({ request }) => {
+		await expectRedirect(request, '/demo', '/');
+	});
+
+	// /demo/admin/* + クエリ保持
+	test('/demo/admin/license?plan=family → /admin/license?plan=family (308 + クエリ保持)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/demo/admin/license?plan=family', '/admin/license?plan=family');
+	});
+
+	// 親 fallback: 未登録 sub path も /admin に救済
+	test('/demo/admin/billing → /admin/billing (308) — 親 fallback (未登録 sub path)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/demo/admin/billing', '/admin/billing');
 	});
 });

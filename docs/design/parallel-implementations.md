@@ -102,8 +102,9 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 |------|------|
 | `src/routes/(child)/`, `src/routes/(parent)/` | 本番コード |
 | ~~`src/routes/demo/(child)/[mode]/`~~ | **削除済 (#2097 PR-B2 / #2187, 2026-05-17)** — 本番 (child) routes に統合 |
-| `src/routes/demo/(parent)/admin/` | デモの親画面 (PR-B3 #2188 で削除予定) |
-| `src/lib/server/demo/demo-data.ts` | デモ用シードデータ（静的） |
+| ~~`src/routes/demo/(parent)/admin/`~~ | **削除済 (#2097 PR-B3 / #2188, 2026-05-17)** — 本番 admin routes に統合 |
+| ~~`src/routes/demo/+layout.{server,svelte}` / `+page.{server,svelte}` / `signup/`~~ | **削除済 (#2097 PR-B3 / #2188, 2026-05-17)** — landing / signup は legacy redirect で本番 path に救済 |
+| `src/lib/server/demo/demo-data.ts` | デモ用シードデータ（静的、`src/lib/server/db/demo/*.ts` factory pattern 経由で本番 routes に注入予定 ADR-0048） |
 
 **同期メカニズム**:
 - **現状（手動）**: 本番コード変更 → デモ画面を手動で追従
@@ -111,28 +112,22 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 - **Tier 2.5 (Issue #2084 / ADR-0046 follow-up、2026-05-14 完了)**: 本番 child home `+page.svelte` (1093 行) を `getDashboardService().getHomeData()` 経由 + 派生コンポーネント `ProdDashboardSections.svelte` への共通 UI 集約 (MustProgressBar / activity grid / SiblingRanking / ActivityEmptyState) で統合完了。本番固有のオーバーレイ / FSM / xp animation は page 側に残す。`+page.svelte` は 1093 → 986 行 (-107 行)、`ProdDashboardSections.svelte` 322 行新設
 - **#2146 (2026-05-17 完了)**: 上記 Tier 2.5 で統合した `MustProgressBar` 専用セクションを撤廃し、`ActivityCard.isMust` (ribbon badge + gold border) に統合。`ProdDashboardSections.svelte` で `priority='must'` の活動カードに直接 badge を付与する設計に変更（本番 SSOT 1 箇所修正で反映）
 - **#2097 PR-B2 / #2187 (2026-05-17 完了)**: demo POC `DashboardView.svelte` を撤廃し `ProdDashboardSections.svelte` 単独構成へ統合。`src/routes/demo/(child)/**` 14 file 削除 + legacy redirect (`/demo/<5-mode>/<path>` → `/<uiMode>/<path>` / `/demo/checklist` → `/checklist`) で URL 救済 (永久保持)。demo Lambda は AnonymousAuth + DATA_SOURCE=demo で本番 routes を host する設計に統一 (ADR-0048)。child home UI の本番 / demo 並行は本 PR で完全解消
-- **Tier 3 残スコープ**: `(parent)/admin` 系統 (`/demo/(parent)/admin/**` 29 file) は PR-B3 (#2188) で同様に撤廃予定
+- **#2097 PR-B3 / #2188 (2026-05-17 完了)**: 残 33 file (`src/routes/demo/(parent)/admin/` 29 file + `src/routes/demo/+layout.{server,svelte}` + `+page.{server,svelte}` + `signup/+page.svelte` の 5 file - `(parent)/admin/+layout.svelte` 1 重複 = 33) を全削除。`legacy-url-map.ts` に admin 14 明示 entries + 親 fallback (`/demo/admin → /admin`) + `/demo → /` + `/demo/signup → /auth/signup` + `/demo/exit → /` + `/demo/admin/achievements → /admin/challenges` (1 段化) の **計 18 entries** 永久保持で追加。`demo-guide-state.svelte.ts` Step 4-6 を本番 path に切替、`DemoGuideBar.svelte` 最終 CTA を `/auth/signup` に切替。本 PR で `src/routes/demo/**` 配下 **0 file 達成**、ADR-0048 §結果 「legacy /demo 完全撤去」マイルストーン到達
 
 **修正時チェック**:
 - 本番 (child) routes (`src/routes/(child)/[uiMode=uiMode]/`) のみが UI SSOT。`src/routes/demo/(child)/**` は #2187 で撤去済み、デモ専用 child ページの新規追加は禁止
 - デモシードのデータ構造がスキーマと整合しているか `tests/unit/demo/demo-data-integrity.test.ts` で検証
 
-**本番 admin ⇔ デモ admin の既知の並行ペア**:
+**本番 admin ⇔ デモ admin の並行ペア (#2097 PR-B3 / #2188 で全削除完了、2026-05-17)**:
 
-| 本番 | デモ | 備考 |
+| 本番 | デモ | 状態 |
 |------|------|------|
-| `src/routes/(parent)/admin/+page.svelte` | `src/routes/demo/(parent)/admin/+page.svelte` | ホーム |
-| `src/routes/(parent)/admin/activities/` | `src/routes/demo/(parent)/admin/activities/` | 活動管理。**#1756 (#1709-B)**: 一覧の must Badge 表示 / 編集は `[id]/edit` URL に分離（demo は read-only のため Badge のみ） |
-| `src/routes/(parent)/admin/activities/[id]/edit/` | (demo は無効) | **#1756 (#1709-B)**: 活動編集 + 「今日のおやくそく」(`priority='must'`) トグル。demo 側は read-only のため対応 URL なし |
-| `src/routes/(parent)/admin/checklists/` | `src/routes/demo/(parent)/admin/checklists/` | 持ち物チェックリスト管理。**#1755 / #1756 (#1709-A/B)**: kind タブ削除済（持ち物純化） |
-| `src/routes/(parent)/admin/children/` | `src/routes/demo/(parent)/admin/children/` | 子供管理 |
-| `src/routes/(parent)/admin/license/` | `src/routes/demo/(parent)/admin/license/` | プラン・お支払い（#790 でデモ追加）。デモは Stripe/ライセンスキー適用を全てモック化 |
-| `src/routes/(parent)/admin/rewards/` | `src/routes/demo/(parent)/admin/rewards/` | 報酬管理 |
-| `src/routes/(parent)/admin/settings/` | `src/routes/demo/(parent)/admin/settings/` | 設定 |
+| `src/routes/(parent)/admin/**` | ~~`src/routes/demo/(parent)/admin/**`~~ | **デモ側 29 file 全削除済 #2188**。本番 admin routes のみが SSOT。`legacy-url-map.ts` 14 明示 entries + 親 fallback `/demo/admin → /admin` で旧 URL 救済 (永久保持) |
 
-> ⚠️ `AdminLayout.svelte` の `navCategories` はナビ項目を `${basePath}/<slug>` で生成するため、
-> 本番に admin ページを追加したら必ず同じスラッグでデモ側にも実装を追加すること。
-> さもなければ `/demo/admin/<slug>` が 404 を返し、デモ上の導線が破壊される。
+> 本 PR (#2188) 完了で `AdminLayout.svelte` の `basePath` は `/admin` 単一系統に統合済。
+> demo 側に新規 admin ページを追加することは禁止（demo Lambda は本番 routes を直接 host、
+> ADR-0048）。本番 admin にページを追加した際は通常通り `(parent)/admin/<slug>/` を作成し、
+> demo Lambda は ECR 同 image で自動追従する。
 
 ---
 
@@ -184,11 +179,12 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | 場所 | 内容 |
 |------|------|
 | 本番 admin | `src/routes/(parent)/admin/` |
-| デモ admin | `src/routes/demo/(parent)/admin/` |
+| ~~デモ admin~~ | **削除済 (#2097 PR-B3 / #2188, 2026-05-17)** — demo Lambda は本番 admin routes を直接 host (ADR-0048) |
 
 **同期メカニズム**:
-- **現状（手動）**
-- **Tier 3（#566 で予定）**: デモアダプタで統合
+- **#2097 PR-B3 / #2188 で完全統合**: デモ admin 並行ナビ撤廃。本番 `AdminLayout` のみが唯一の admin ナビ SSOT
+- **demo Lambda 環境**: `AnonymousAuth` + `DATA_SOURCE=demo` env で本番 admin routes が demo データで稼働 (ADR-0048)
+- **Tier 3 (旧 #566)**: 不要 (デモアダプタは Multi-Lambda 構成で代替された)
 
 ---
 
@@ -320,8 +316,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/server/services/plan-limit-service.ts` | 機能制限のブール値フラグ定義（`PLAN_LIMITS`） |
 | `src/lib/domain/labels.ts` | `FEATURE_LABELS`（機能名の SSOT） |
 | `src/routes/pricing/+page.svelte` | 料金プラン画面 |
-| `src/routes/(parent)/admin/license/+page.svelte` | 管理画面プラン購入カード |
-| `src/routes/demo/(parent)/admin/license/+page.svelte` | デモ版プラン購入カード |
+| `src/routes/(parent)/admin/license/+page.svelte` | 管理画面プラン購入カード (デモ Lambda 環境では `DATA_SOURCE=demo` env でモック動作、ADR-0048) |
 | `src/lib/features/admin/components/PremiumWelcome.svelte` | アップグレード完了ダイアログ |
 | `site/index.html`, `site/pricing.html`, `site/pamphlet.html` | LP のプラン情報（手動同期） |
 
@@ -415,7 +410,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 - [ ] **UI ラベル・用語** → `src/lib/domain/labels.ts` + `site/index.html` + `site/pamphlet.html` + `site/shared-labels.js` + `tutorial-chapters.ts`
 - [ ] **年齢モード** → `src/routes/(child)/{baby,preschool,elementary,junior,senior}/` の 5 ディレクトリ全て
-- [ ] **本番画面** → 同等機能が `src/routes/demo/` にも存在しないか確認
+- [ ] **本番画面** → **#2097 PR-B3 #2188 完了で `src/routes/demo/` 並行実装は 0 file**。本番 routes のみが SSOT (demo Lambda は env 駆動で本番 routes を直接 host、ADR-0048)。新規 `src/routes/demo/` の追加は禁止
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期
 - [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`

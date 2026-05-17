@@ -312,12 +312,154 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		reason:
 			'実績機能廃止 + チャレンジ機能 (/admin/challenges) への統合（ADR-0012 §6 整合 / #404 廃止合意の revert 復活への対応）',
 	},
+	// #2097 PR-B3 (#2188): /demo/admin/* 29 file 撤去に伴う本番 admin ルート直接 redirect。
+	// PR-B2 で /demo/(child)/* を撤去したのに続き、本 PR で /demo/(parent)/admin/* と
+	// /demo/+layout.{server,svelte} + /demo/+page.{server,svelte} + /demo/signup を全削除。
+	// demo Lambda は AnonymousAuth + DATA_SOURCE=demo で本番 admin routes を直接 host する。
+	// 旧 /demo/admin/<sub> URL は bookmark / 内部リンク救済のため永久保持で本番 /admin/<sub> へ 308。
+	//
+	// 注: `findLegacyRedirect()` は length 降順評価のため、`/demo/admin/license` (長) →
+	// `/demo/admin` (中) → `/demo` (短) の順でヒット候補となる。明示エントリは可読性 +
+	// test 網羅性のために追加するが、`/demo/admin` 親エントリでも prefix match で同じ
+	// 本番 path に到達する (前方一致のため `/demo/admin/foo → /admin/foo`)。
+	// 旧 `/demo/admin/achievements → /demo/admin/challenges` (#1782) は本 PR で
+	// `/admin/achievements → /admin/challenges` に統合 1 段化される (parent `/demo/admin`
+	// entry より長い `/demo/admin/achievements` が先にヒットするため明示エントリで保持)。
 	{
 		from: '/demo/admin/achievements',
-		to: '/demo/admin/challenges',
-		deletedAt: '2026-05-01',
-		issue: '#1782',
-		reason: '実績機能廃止に伴うデモ画面の同期 redirect',
+		to: '/admin/challenges',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason:
+			'#2097 PR-B3: /demo/admin/* 撤去 + #1782 実績廃止 redirect を 1 段化 (旧 /demo/admin/challenges 経由を回避)',
+	},
+	{
+		from: '/demo/admin/activities',
+		to: '/admin/activities',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/challenges',
+		to: '/admin/challenges',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/checklists',
+		to: '/admin/checklists',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/children',
+		to: '/admin/children',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/events',
+		to: '/admin/events',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/license',
+		to: '/admin/license',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/members',
+		to: '/admin/members',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/messages',
+		to: '/admin/messages',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/points',
+		to: '/admin/points',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/reports',
+		to: '/admin/reports',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/rewards',
+		to: '/admin/rewards',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/settings',
+		to: '/admin/settings',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	{
+		from: '/demo/admin/status',
+		to: '/admin/status',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+	},
+	// 親 fallback: 明示エントリにない admin sub path も /admin/* に救済する。
+	// 例: 将来追加された /demo/admin/newpage は本 entry でカバー (前方一致)。
+	{
+		from: '/demo/admin',
+		to: '/admin',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/admin 親 fallback (明示エントリ未登録 sub path の救済)',
+	},
+	// /demo/signup → /auth/signup (本番 signup flow に直接遷移、demo flow 廃止)
+	{
+		from: '/demo/signup',
+		to: '/auth/signup',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason: '#2097 PR-B3: /demo/signup 撤去 — demo flow 廃止により本番 signup へ直行',
+	},
+	// /demo/exit (旧 demo cookie clear endpoint) は demo Lambda 構成では不要、root に救済
+	{
+		from: '/demo/exit',
+		to: '/',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason:
+			'#2097 PR-B3: /demo/exit は Multi-Lambda 構成 (ADR-0048) では不要 — root LP に redirect',
+	},
+	// /demo (landing) → root (LP). LP CTA は #2181 で demo.ganbari-quest.com に切替済のため
+	// 旧 LP リンクからの直接訪問のみが本 entry で救済される。`from: '/demo'` は短い prefix
+	// だが length 降順評価のため `/demo/admin/*` 等の長い entry が先にヒットするので衝突なし。
+	{
+		from: '/demo',
+		to: '/',
+		deletedAt: '2026-05-17',
+		issue: '#2188',
+		reason:
+			'#2097 PR-B3: /demo landing 撤去 — LP CTA は #2181 で demo.ganbari-quest.com 切替済、root LP fallback',
 	},
 ] as const;
 

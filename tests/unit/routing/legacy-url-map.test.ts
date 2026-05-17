@@ -86,6 +86,31 @@ describe('legacy-url-map', () => {
 			['/demo/lower/home', '/demo/lower'],
 			['/demo/upper/home', '/demo/upper'],
 			['/demo/teen/home', '/demo/teen'],
+			// #2097 PR-B3 (#2188): /demo/admin/* + /demo/signup + /demo + /demo/exit 撤去 → 本番 path redirect
+			// 明示 14 admin entries
+			['/demo/admin/activities', '/demo/admin/activities'],
+			['/demo/admin/challenges', '/demo/admin/challenges'],
+			['/demo/admin/checklists', '/demo/admin/checklists'],
+			['/demo/admin/children', '/demo/admin/children'],
+			['/demo/admin/events', '/demo/admin/events'],
+			['/demo/admin/license', '/demo/admin/license'],
+			['/demo/admin/members', '/demo/admin/members'],
+			['/demo/admin/messages', '/demo/admin/messages'],
+			['/demo/admin/points', '/demo/admin/points'],
+			['/demo/admin/reports', '/demo/admin/reports'],
+			['/demo/admin/rewards', '/demo/admin/rewards'],
+			['/demo/admin/settings', '/demo/admin/settings'],
+			['/demo/admin/status', '/demo/admin/status'],
+			// #2188 で 1 段化された achievements entry
+			['/demo/admin/achievements', '/demo/admin/achievements'],
+			// 親 fallback (`/demo/admin`) — 未登録 sub path も救済
+			['/demo/admin', '/demo/admin'],
+			['/demo/admin/billing', '/demo/admin'], // 未登録 sub path は親 fallback にマッチ
+			['/demo/admin/newpage', '/demo/admin'],
+			// /demo, /demo/exit, /demo/signup
+			['/demo', '/demo'],
+			['/demo/exit', '/demo/exit'],
+			['/demo/signup', '/demo/signup'],
 			// #1167 / #1212: 活動パック → マーケットプレイス 301 — 完全一致（15 詳細 + 廃止 1）
 			['/activity-packs/baby-first', '/activity-packs/baby-first'],
 			['/activity-packs/baby-boy', '/activity-packs/baby-boy'],
@@ -166,6 +191,31 @@ describe('legacy-url-map', () => {
 			['/demo/lower/home', '/elementary/home'],
 			['/demo/upper/home', '/junior/home'],
 			['/demo/teen/home', '/senior/home'],
+			// #2097 PR-B3 (#2188): /demo/admin/* + /demo/signup + /demo + /demo/exit 撤去 → 本番 path
+			['/demo/admin/activities', '/admin/activities'],
+			['/demo/admin/activities/sub', '/admin/activities/sub'],
+			['/demo/admin/challenges', '/admin/challenges'],
+			['/demo/admin/checklists', '/admin/checklists'],
+			['/demo/admin/children', '/admin/children'],
+			['/demo/admin/events', '/admin/events'],
+			['/demo/admin/license', '/admin/license'],
+			['/demo/admin/members', '/admin/members'],
+			['/demo/admin/messages', '/admin/messages'],
+			['/demo/admin/points', '/admin/points'],
+			['/demo/admin/reports', '/admin/reports'],
+			['/demo/admin/rewards', '/admin/rewards'],
+			['/demo/admin/settings', '/admin/settings'],
+			['/demo/admin/status', '/admin/status'],
+			// #2188 で 1 段化 (旧 #1782 の /demo/admin/achievements → /demo/admin/challenges 経由を回避)
+			['/demo/admin/achievements', '/admin/challenges'],
+			// 親 fallback: 明示 entry に無い sub path も /admin/* に救済
+			['/demo/admin', '/admin'],
+			['/demo/admin/billing', '/admin/billing'],
+			['/demo/admin/newpage', '/admin/newpage'],
+			// landing / exit / signup
+			['/demo', '/'],
+			['/demo/exit', '/'],
+			['/demo/signup', '/auth/signup'],
 			// #1167 / #1212: 活動パック → マーケットプレイス 301
 			// #1301: baby 系は削除されマーケット一覧へフォールバック
 			['/activity-packs/baby-first', '/marketplace?type=activity-pack'],

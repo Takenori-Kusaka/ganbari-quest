@@ -119,8 +119,11 @@ function handleDismiss() {
 						>
 							{FEATURES_LABELS.demo.guideSeePricing}
 						</a>
+						<!-- #2097 PR-B3 (#2188): /demo/signup 撤去に伴い、本番 /auth/signup に直接遷移。
+						     ガイド完了後の最終 CTA — demo Lambda (AnonymousAuth) 環境では /auth/signup
+						     も本番 path で動作するため UI 上の挙動差はない。 -->
 						<a
-							href="/demo/signup"
+							href="/auth/signup"
 							class="px-3 py-1.5 bg-gradient-to-r from-[var(--color-warning)] to-[var(--color-orange-500)] text-white text-xs font-bold rounded-lg"
 							data-testid="demo-guide-start"
 						>
