@@ -16,6 +16,7 @@ import OverlaysSection from '$lib/features/child-home/components/OverlaysSection
 import ProdDashboardSections from '$lib/features/child-home/components/ProdDashboardSections.svelte';
 import { DialogFSM } from '$lib/features/child-home/dialog-state-machine';
 import { getModeVariant } from '$lib/features/child-home/variants';
+import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 // Issue #2084: 本番 ProductionDashboardService を Context に再注入 (todayRecorded を含む正しい snapshot)
 import { setDashboardService } from '$lib/services/context';
 import { createProductionDashboardService } from '$lib/services/production/DashboardService';
@@ -32,7 +33,6 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import { soundService } from '$lib/ui/sound';
-import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
 
 let { data } = $props();
 
