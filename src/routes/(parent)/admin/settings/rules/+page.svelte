@@ -203,7 +203,7 @@ function formatImportedAt(iso: string): string {
 			href="/admin/rewards"
 			class="text-xs text-[var(--color-action-primary)] hover:underline"
 		>
-			/admin/rewards へ →
+			{ADMIN_RULES_PAGE_LABELS.rewardsLinkLabel}
 		</a>
 		{/snippet}
 	</Card>

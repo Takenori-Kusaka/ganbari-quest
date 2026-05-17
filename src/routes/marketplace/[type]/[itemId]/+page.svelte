@@ -463,13 +463,13 @@ const childOptions = $derived(
 								{#if isRuleBonus}
 									<div class="text-xs mt-1">
 										<a href="/admin/settings/rules" class="underline">
-											取込済ルール一覧へ →
+											{MARKETPLACE_LABELS.detailRuleImportLinkToBonusList}
 										</a>
 									</div>
 								{:else if isRuleExchange}
 									<div class="text-xs mt-1">
 										<a href="/admin/rewards" class="underline">
-											ごほうび一覧へ →
+											{MARKETPLACE_LABELS.detailRuleImportLinkToRewardsList}
 										</a>
 									</div>
 								{/if}

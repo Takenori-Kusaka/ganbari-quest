@@ -910,6 +910,8 @@ export const MARKETPLACE_LABELS = {
 	detailRuleImportWarning: (msg: string) => `⚠️ ${msg}`,
 	detailRuleImportNoChildrenExchange: 'まずはお子さまを登録してください',
 	detailCtaImportRuleSignedOut: '一括追加するには登録 / ログインが必要です',
+	detailRuleImportLinkToBonusList: '取込済ルール一覧へ →',
+	detailRuleImportLinkToRewardsList: 'ごほうび一覧へ →',
 	backToTypeListSuffix: '一覧に戻る',
 	typeCountSuffix: '種',
 } as const;
@@ -4078,6 +4080,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	updateSuccess: 'ルールを更新しました',
 	removeSuccess: 'ルールを削除しました',
 	updateError: '更新に失敗しました',
+	rewardsLinkLabel: '/admin/rewards へ →',
 	penaltyNotImplementedTitle: 'ℹ️ penalty / special タイプについて',
 	penaltyNotImplementedDesc:
 		'penalty / special タイプは ADR-0012 anti-engagement 細則により慎重審査中のため、本画面には表示されません。取込試行は audit log に記録されます。',
