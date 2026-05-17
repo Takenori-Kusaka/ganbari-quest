@@ -19,8 +19,11 @@
  *   注: PO 期待値「テーマ sakura」は THEME_LABELS に sakura が未定義のため、
  *       現行 5 themes 中で本番 NUC 実態と最も近い pink を維持する
  * - 902 活動ログ ≥ 10 件 + records_10 マイルストーン達成済 (MilestoneBanner 表示用)
- * - LP `feature-belongings-checklist` 等の SS 撮影元 `/demo/checklist?childId=904` は
- *   既に活動ログ ≥ 14 件あり、`?screenshot=1` モードで MilestoneBanner 強制表示できる
+ * - LP `feature-belongings-checklist` 等の SS 撮影元は #2097 PR-B1 で本番 routes
+ *   `/checklist?childId=903` に切替、本 PR-B2 (#2187) で `/demo/checklist` 自体を撤去 →
+ *   本番 path に 308 redirect。child 903 は既に活動ログ ≥ 14 件あり、`?screenshot=all`
+ *   モード + demo Lambda env (`AUTH_MODE=anonymous` + `DATA_SOURCE=demo`) で MilestoneBanner
+ *   強制表示できる
  */
 
 import { getMarketplaceItem } from '$lib/data/marketplace';

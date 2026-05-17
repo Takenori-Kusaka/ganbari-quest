@@ -101,19 +101,20 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 | 場所 | 内容 |
 |------|------|
 | `src/routes/(child)/`, `src/routes/(parent)/` | 本番コード |
-| `src/routes/demo/(child)/[mode]/` | デモの子供画面 |
-| `src/routes/demo/(parent)/admin/` | デモの親画面 |
+| ~~`src/routes/demo/(child)/[mode]/`~~ | **削除済 (#2097 PR-B2 / #2187, 2026-05-17)** — 本番 (child) routes に統合 |
+| `src/routes/demo/(parent)/admin/` | デモの親画面 (PR-B3 #2188 で削除予定) |
 | `src/lib/server/demo/demo-data.ts` | デモ用シードデータ（静的） |
 
 **同期メカニズム**:
 - **現状（手動）**: 本番コード変更 → デモ画面を手動で追従
 - **Tier 2 (Issue #2069 / ADR-0046、2026-05-14 POC 完了)**: Service Interface + Svelte 5 Context DI 機構を `$lib/services/` に整備。child home の demo ページが `DashboardView` 経由で共通化された (POC 1 ページ)。残ページは follow-up Issue で段階適用 (#2069 follow-ups)
 - **Tier 2.5 (Issue #2084 / ADR-0046 follow-up、2026-05-14 完了)**: 本番 child home `+page.svelte` (1093 行) を `getDashboardService().getHomeData()` 経由 + 派生コンポーネント `ProdDashboardSections.svelte` への共通 UI 集約 (MustProgressBar / activity grid / SiblingRanking / ActivityEmptyState) で統合完了。本番固有のオーバーレイ / FSM / xp animation は page 側に残す。`+page.svelte` は 1093 → 986 行 (-107 行)、`ProdDashboardSections.svelte` 322 行新設
-- **#2146 (2026-05-17 完了)**: 上記 Tier 2.5 で統合した `MustProgressBar` 専用セクションを撤廃し、`ActivityCard.isMust` (ribbon badge + gold border) に統合。`ProdDashboardSections.svelte` / `DashboardView.svelte` の両方で `priority='must'` の活動カードに直接 badge を付与する設計に変更（本番 + demo 同期 SSOT 1 箇所修正で両方反映）
-- **Tier 3（#566 で予定）**: 本番側と demo 側で完全同一の `DashboardView` を使うところまで統合し、本ペアを根絶する。本派生 `ProdDashboardSections` が demo / 本番共通 SSOT 化する設計を継承予定
+- **#2146 (2026-05-17 完了)**: 上記 Tier 2.5 で統合した `MustProgressBar` 専用セクションを撤廃し、`ActivityCard.isMust` (ribbon badge + gold border) に統合。`ProdDashboardSections.svelte` で `priority='must'` の活動カードに直接 badge を付与する設計に変更（本番 SSOT 1 箇所修正で反映）
+- **#2097 PR-B2 / #2187 (2026-05-17 完了)**: demo POC `DashboardView.svelte` を撤廃し `ProdDashboardSections.svelte` 単独構成へ統合。`src/routes/demo/(child)/**` 14 file 削除 + legacy redirect (`/demo/<5-mode>/<path>` → `/<uiMode>/<path>` / `/demo/checklist` → `/checklist`) で URL 救済 (永久保持)。demo Lambda は AnonymousAuth + DATA_SOURCE=demo で本番 routes を host する設計に統一 (ADR-0048)。child home UI の本番 / demo 並行は本 PR で完全解消
+- **Tier 3 残スコープ**: `(parent)/admin` 系統 (`/demo/(parent)/admin/**` 29 file) は PR-B3 (#2188) で同様に撤廃予定
 
 **修正時チェック**:
-- 新しいページを追加したら `src/routes/demo/(child)/[mode]/<新ページ>` も作ること
+- 本番 (child) routes (`src/routes/(child)/[uiMode=uiMode]/`) のみが UI SSOT。`src/routes/demo/(child)/**` は #2187 で撤去済み、デモ専用 child ページの新規追加は禁止
 - デモシードのデータ構造がスキーマと整合しているか `tests/unit/demo/demo-data-integrity.test.ts` で検証
 
 **本番 admin ⇔ デモ admin の既知の並行ペア**:

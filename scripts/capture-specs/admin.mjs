@@ -47,32 +47,33 @@ export default [
 		presets: ['desktop', 'mobile'],
 	},
 	// ---- 子供ホーム（幼児モード） ----
+	// #2097 PR-B2 (#2187): /demo/(child)/* 撤去に伴い本番 (child) routes に切替
 	{
-		url: '/demo/preschool/home',
+		url: '/preschool/home',
 		name: 'child-home-preschool',
 		presets: ['mobile'],
 	},
 	// ---- 子供ホーム（小学生モード） ----
 	{
-		url: '/demo/elementary/home',
+		url: '/elementary/home',
 		name: 'child-home-elementary',
 		presets: ['mobile'],
 	},
 	// ---- 子供ステータス ----
 	{
-		url: '/demo/elementary/status',
+		url: '/elementary/status',
 		name: 'child-status-elementary',
 		presets: ['mobile'],
 	},
 	// ---- 実績 ----
 	{
-		url: '/demo/elementary/achievements',
+		url: '/elementary/achievements',
 		name: 'child-achievements-elementary',
 		presets: ['mobile'],
 	},
 	// ---- 持ち物チェックリスト ----
 	{
-		url: '/demo/checklist',
+		url: '/checklist',
 		name: 'checklist',
 		presets: ['desktop', 'mobile'],
 	},

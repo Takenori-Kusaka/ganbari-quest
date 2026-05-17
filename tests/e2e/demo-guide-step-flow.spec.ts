@@ -11,8 +11,23 @@
 //
 // #1323: /demo/preschool/battle を廃止し 307 リダイレクト（→ /demo/preschool/home）を
 // 追加したため、バトルステップをデモガイドから削除して 6 ステップ構成に変更。
+//
+// #2097 PR-B2 (#2187): /demo/(child)/* 14 file 撤去 + legacy redirect 化により、demo guide
+// step 1-3 の matchPath / href は本番 (child) routes (`/preschool/home` 等) に切り替わった。
+// (child) layout は cookie `selectedChildId` を読み tenant 検証するため、guide URL 内の
+// `?childId=902` (demo fixture) は LOCAL_AUTH E2E では valid でない。
+//
+// LOCAL_AUTH E2E 対応: 各テスト冒頭で `selectChildByName('たろうくん')` (preschool test child) を
+// 呼び `selectedChildId` cookie を test tenant の valid child に pre-set してから demo guide
+// を起動する。本番 (child) layout は cookie 値を優先するため、guide URL の `?childId=902` は
+// 無視され、test tenant の preschool 子供で正常 render される。
+//
+// demo Lambda 本番環境 (AUTH_MODE=anonymous + DATA_SOURCE=demo) では demo fixture (902) が
+// tenant 透過に解決されるため、cookie pre-set 不要で動作する。本 spec は LOCAL_AUTH E2E /
+// demo Lambda 両方をカバーする。
 
 import { expect, type Page, test } from '@playwright/test';
+import { selectChildByName } from './helpers';
 
 /**
  * Svelte 5 onclick ハンドラは hydration 完了後にのみ DOM にバインドされる。
@@ -31,6 +46,11 @@ test.describe.configure({ timeout: 120_000 });
 
 test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 	test('「つぎへ」ボタンで Step 1 → 2 → 3 → 4 → 5 → 6 を順番に踏める', async ({ page }) => {
+		// #2187: 本番 (child) routes は cookie `selectedChildId` を tenant 検証する。
+		// guide URL の `?childId=902` (demo fixture) は LOCAL_AUTH では valid でないため、
+		// たろうくん (preschool test child) を pre-select して有効な cookie を立てる。
+		await selectChildByName(page, 'たろうくん');
+
 		// Step 1: /demo トップから「ガイド付きデモを はじめる」をクリック
 		await page.goto('/demo');
 		// Hydrationが終わるまで待つ。dev mode では最初の /demo コンパイルが
@@ -45,7 +65,7 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		// Step 1: こどもの画面をみよう
 		// `.fixed.bottom-0` は BottomNav と DemoGuideBar の両方にマッチするので、
 		// 必ず data-testid="demo-guide-bar" でスコープすること（strict mode 違反回避）。
-		await expect(page).toHaveURL(/\/demo\/preschool\/home/);
+		await expect(page).toHaveURL(/\/preschool\/home/);
 		const guideBar = page.getByTestId('demo-guide-bar');
 		const stepIndicator = guideBar
 			.locator('div.rounded-full.bg-\\[var\\(--color-brand-500\\)\\]')
@@ -53,18 +73,18 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		await expect(stepIndicator).toHaveText('1');
 		await expect(guideBar).toContainText('こどもの画面をみよう');
 
-		// Step 1 → Step 2 (同一 matchPath: /demo/preschool/home)
+		// Step 1 → Step 2 (同一 matchPath: /preschool/home)
 		await page.getByTestId('demo-guide-next').click();
 		await expect(stepIndicator).toHaveText('2');
 		await expect(guideBar).toContainText('かつどうを きろくしよう');
-		// Step 2 でも /demo/preschool/home のままであることを確認
-		await expect(page).toHaveURL(/\/demo\/preschool\/home/);
+		// Step 2 でも /preschool/home のままであることを確認
+		await expect(page).toHaveURL(/\/preschool\/home/);
 
-		// Step 2 → Step 3 (matchPath: /demo/preschool/status)
+		// Step 2 → Step 3 (matchPath: /preschool/status)
 		await page.getByTestId('demo-guide-next').click();
 		await expect(stepIndicator).toHaveText('3');
 		await expect(guideBar).toContainText('ステータスを みよう');
-		await expect(page).toHaveURL(/\/demo\/preschool\/status/);
+		await expect(page).toHaveURL(/\/preschool\/status/);
 
 		// Step 3 → Step 4 (matchPath: /demo/admin)
 		// #1323: バトルステップ削除により、ステータス → ご家族の見守り画面へ直接遷移
@@ -93,6 +113,9 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 	});
 
 	test('「もどる」ボタンで Step 3 → 2 → 1 を順番に戻れる', async ({ page }) => {
+		// #2187: 本番 (child) routes は cookie `selectedChildId` を tenant 検証する
+		await selectChildByName(page, 'たろうくん');
+
 		// Step 3 まで進む
 		await page.goto('/demo');
 		await expect(page.getByTestId('demo-guide-start-link')).toBeVisible();
@@ -110,11 +133,11 @@ test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 		// Step 3 → 2
 		await page.getByTestId('demo-guide-back').click();
 		await expect(stepIndicator).toHaveText('2');
-		await expect(page).toHaveURL(/\/demo\/preschool\/home/);
+		await expect(page).toHaveURL(/\/preschool\/home/);
 
 		// Step 2 → 1 (同一 matchPath)
 		await page.getByTestId('demo-guide-back').click();
 		await expect(stepIndicator).toHaveText('1');
-		await expect(page).toHaveURL(/\/demo\/preschool\/home/);
+		await expect(page).toHaveURL(/\/preschool\/home/);
 	});
 });

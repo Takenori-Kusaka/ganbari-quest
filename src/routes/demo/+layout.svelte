@@ -8,7 +8,9 @@ import {
 	PLAN_SHORT_LABELS,
 	type PlanKey,
 } from '$lib/domain/labels';
-import DemoGuideBar from '$lib/features/demo/DemoGuideBar.svelte';
+// #2097 PR-B2 (#2187): DemoGuideBar を root +layout.svelte に hoist 済。
+// demo guide step 1-3 が本番 (child) routes (`/preschool/home` 等) に redirect されても
+// guide bar が persist するように root mount に移行。本 layout からは import 撤去。
 import { trackDemoEvent } from '$lib/features/demo/demo-analytics.js';
 import { getGuideState } from '$lib/features/demo/demo-guide-state.svelte.js';
 import {
@@ -127,10 +129,7 @@ $effect(() => {
 	{@render children()}
 </div>
 
-<!-- ガイド付きデモバー -->
-{#if !isScreenshotMode}
-	<DemoGuideBar />
-{/if}
+<!-- #2097 PR-B2 (#2187): DemoGuideBar は root +layout.svelte に hoist 済 -->
 
 <!-- 5分後に表示されるフローティングCTA（ガイドが非アクティブ時のみ） -->
 {#if !isScreenshotMode && showFloatingCta && !floatingCtaDismissed && !guide.active}

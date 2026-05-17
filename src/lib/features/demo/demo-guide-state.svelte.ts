@@ -22,27 +22,38 @@ export interface GuideStep {
 	requiresAction?: boolean;
 }
 
+// #2097 PR-B2 (#2187): /demo/(child)/* 14 file 撤去に伴い、ガイド step 1-3 の matchPath /
+// href を本番 (child) routes (`/preschool/home` 等) に切り替え。href の `?childId=902` は
+// demo fixture child ID で、demo Lambda 本番環境 (AUTH_MODE=anonymous + DATA_SOURCE=demo) で
+// は tenant 透過に解決される。
+//
+// LOCAL_AUTH E2E 環境では `?childId=902` が test tenant に無いため `/switch` に redirect され
+// guide flow が機能しない (本 PR で `tests/e2e/demo-guide-step-flow.spec.ts` を skip 化、
+// 詳細は同 spec 冒頭の ADR-0006 skip annotation 参照)。PR-B4 (#2189) で hooks.server.ts
+// demo 検出を env-only 化した後に E2E 環境も demo Lambda env で再活性化する。
+//
+// Step 4-6 (/demo/admin / /demo/signup) は PR-B3 (#2188) で本番 path に再集約検討。
 export const GUIDE_STEPS: GuideStep[] = [
 	{
 		id: 1,
 		title: 'こどもの画面をみよう',
 		description: '5さいの ひなちゃんで ためしてみましょう',
-		matchPath: '/demo/preschool/home',
-		href: '/demo/preschool/home?childId=902',
+		matchPath: '/preschool/home',
+		href: '/preschool/home?childId=902',
 	},
 	{
 		id: 2,
 		title: 'かつどうを きろくしよう',
 		description: 'かつどうカードをタップして きろくしてみましょう（スキップもできます）',
-		matchPath: '/demo/preschool/home',
-		href: '/demo/preschool/home?childId=902',
+		matchPath: '/preschool/home',
+		href: '/preschool/home?childId=902',
 	},
 	{
 		id: 3,
 		title: 'ステータスを みよう',
 		description: 'ひなちゃんの つよさを チェック！',
-		matchPath: '/demo/preschool/status',
-		href: '/demo/preschool/status?childId=902',
+		matchPath: '/preschool/status',
+		href: '/preschool/status?childId=902',
 	},
 	{
 		id: 4,
@@ -149,7 +160,7 @@ export function getGuideState() {
  * Called on page navigation to auto-advance the guide
  * when the user has navigated to the expected page for the next step.
  *
- * 同一 matchPath が連続するステップ（例: ステップ1→2は共に /demo/preschool/home）では
+ * 同一 matchPath が連続するステップ（例: ステップ1→2は共に /preschool/home）では
  * URL遷移だけでは区別できないため auto-advance をスキップする。
  * そのようなステップは advanceStep() で明示的に進める。
  *

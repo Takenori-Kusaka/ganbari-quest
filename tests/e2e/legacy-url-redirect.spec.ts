@@ -50,13 +50,58 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 
 	// ============================================================
 	// デモページ（長いプレフィックス優先）
+	// #2097 PR-B2 (#2187): /demo/(child)/* を撤去し、本番 (child) routes に直接 redirect。
+	//   旧 #571 で `/demo/kinder → /demo/preschool` だった 2 段 redirect を 1 段化。
 	// ============================================================
-	test('/demo/kinder → /demo/preschool (308) — 長いプレフィックス優先', async ({ request }) => {
-		await expectRedirect(request, '/demo/kinder', '/demo/preschool');
+	test('/demo/kinder → /preschool (308) — 1 段 redirect 化 (#2187)', async ({ request }) => {
+		await expectRedirect(request, '/demo/kinder', '/preschool');
 	});
 
-	test('/demo/kinder/home → /demo/preschool/home (308)', async ({ request }) => {
-		await expectRedirect(request, '/demo/kinder/home', '/demo/preschool/home');
+	test('/demo/kinder/home → /preschool/home (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/kinder/home', '/preschool/home');
+	});
+
+	test('/demo/lower/home → /elementary/home (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/lower/home', '/elementary/home');
+	});
+
+	test('/demo/upper/home → /junior/home (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/upper/home', '/junior/home');
+	});
+
+	test('/demo/teen/home → /senior/home (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/teen/home', '/senior/home');
+	});
+
+	// #2097 PR-B2 (#2187): demo new-naming も本番 (child) routes に redirect
+	test('/demo/preschool/home → /preschool/home (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/preschool/home', '/preschool/home');
+	});
+
+	test('/demo/elementary/status → /elementary/status (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/elementary/status', '/elementary/status');
+	});
+
+	test('/demo/junior/battle → /junior/battle (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/junior/battle', '/junior/battle');
+	});
+
+	test('/demo/senior/achievements → /senior/achievements (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/senior/achievements', '/senior/achievements');
+	});
+
+	test('/demo/baby/home → /baby/home (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/baby/home', '/baby/home');
+	});
+
+	test('/demo/checklist → /checklist (308)', async ({ request }) => {
+		await expectRedirect(request, '/demo/checklist', '/checklist');
+	});
+
+	test('/demo/checklist?childId=902 → /checklist?childId=902 (308 + クエリ保持)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/demo/checklist?childId=902', '/checklist?childId=902');
 	});
 
 	// ============================================================
@@ -71,6 +116,17 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 			request,
 			'/lower/status?tab=history&sort=desc',
 			'/elementary/status?tab=history&sort=desc',
+		);
+	});
+
+	// #2097 PR-B2 (#2187): demo (child) からのクエリ保持
+	test('/demo/preschool/home?childId=902 → /preschool/home?childId=902 (クエリ保持)', async ({
+		request,
+	}) => {
+		await expectRedirect(
+			request,
+			'/demo/preschool/home?childId=902',
+			'/preschool/home?childId=902',
 		);
 	});
 
