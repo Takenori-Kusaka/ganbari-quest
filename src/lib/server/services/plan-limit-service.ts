@@ -85,8 +85,15 @@ export function resolvePlanTier(
 	trialEndDate?: string | null,
 	trialTier?: TrialTier | null,
 ): PlanTier {
+	const mode = getAuthMode();
 	// ローカル版（セルフホスト）は常に全機能解放
-	if (getAuthMode() === 'local') return 'family';
+	if (mode === 'local') return 'family';
+	// #2198: Multi-Lambda demo deployment (`AUTH_MODE=anonymous`) は LP 経由の評価者向け
+	// stateless demo Lambda。AnonymousAuthProvider が licenseStatus=ACTIVE / 全画面 allow
+	// を返す設計と整合させ、plan 制限を「unlimited demo」として family tier 相当で表示する。
+	// これにより `/admin/children` 5 子供 fixture が「上限警告 + アップグレード CTA」を出さず、
+	// LP SS carousel-4 で訴求が毀損しなくなる (ADR-0048 §決定 P-1.6 / P-1.7 / P-1.8 整合)。
+	if (mode === 'anonymous') return 'family';
 	// アクティブな有料プラン
 	if (licenseStatus === AUTH_LICENSE_STATUS.ACTIVE) {
 		return planId?.startsWith('family') ? 'family' : 'standard';

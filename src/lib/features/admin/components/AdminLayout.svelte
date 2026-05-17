@@ -29,11 +29,15 @@ interface Props {
 	basePath: string;
 	isPremium?: boolean;
 	planTier?: 'free' | 'standard' | 'family';
+	/** #2198: Multi-Lambda demo deployment (`AUTH_MODE=anonymous`) — upgrade CTA / plan badge を抑止する。
+	 *   LP SS carousel-4 で「demo なのにアップグレード強要」訴求毀損を防ぐ (ADR-0048 §決定 P-1.8 整合)。 */
+	authMode?: string;
 }
 
-let { children, mode, basePath, isPremium = false, planTier = 'free' }: Props = $props();
+let { children, mode, basePath, isPremium = false, planTier = 'free', authMode }: Props = $props();
 
 const isDemo = $derived(mode === 'demo');
+const isAnonymousLambda = $derived(authMode === 'anonymous');
 
 async function handleStartTutorial() {
 	await markTutorialStarted();
@@ -194,7 +198,7 @@ function isItemActive(itemHref: string): boolean {
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
-				{#if !isDemo && !isPremium}
+				{#if !isDemo && !isAnonymousLambda && !isPremium}
 					<a
 						href="{basePath}/license"
 						class="upgrade-btn"
@@ -202,7 +206,7 @@ function isItemActive(itemHref: string): boolean {
 					>
 						{FEATURES_LABELS.adminLayout.upgradeBtn}
 					</a>
-				{:else if !isDemo && isPremium}
+				{:else if !isDemo && !isAnonymousLambda && isPremium}
 					<span class="plan-badge plan-badge--{planTier}">{planLabel}</span>
 				{/if}
 				{#if !isDemo && hasPageGuide}

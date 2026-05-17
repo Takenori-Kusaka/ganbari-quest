@@ -85,6 +85,26 @@ describe('plan-limit-service', () => {
 			expect(resolvePlanTier('none')).toBe('family');
 		});
 
+		// #2198: Multi-Lambda demo deployment (anonymous Lambda) は plan 制限なし
+		// (ADR-0048 §決定 P-1.6/P-1.7/P-1.8、AnonymousAuthProvider が ACTIVE/all-allow と整合)
+		it('anonymous mode: none → family (demo Lambda = unlimited)', () => {
+			process.env.AUTH_MODE = 'anonymous';
+			expect(resolvePlanTier('none')).toBe('family');
+		});
+
+		it('anonymous mode: active → family (license/plan に関わらず family 固定)', () => {
+			process.env.AUTH_MODE = 'anonymous';
+			expect(resolvePlanTier('active')).toBe('family');
+			expect(resolvePlanTier('active', 'monthly')).toBe('family');
+			expect(resolvePlanTier('active', 'family-monthly')).toBe('family');
+		});
+
+		it('anonymous mode: expired/suspended でも family (demo は plan 制限を持たない)', () => {
+			process.env.AUTH_MODE = 'anonymous';
+			expect(resolvePlanTier('expired')).toBe('family');
+			expect(resolvePlanTier('suspended')).toBe('family');
+		});
+
 		it('cognito mode: none → free', () => {
 			process.env.AUTH_MODE = 'cognito';
 			expect(resolvePlanTier('none')).toBe('free');
@@ -444,6 +464,33 @@ describe('plan-limit-service', () => {
 
 		it('local: always allowed (selfhost)', async () => {
 			process.env.AUTH_MODE = 'local';
+			const result = await checkChildLimit('tenant1', 'none');
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
+		});
+
+		// #2198: anonymous Lambda は family tier 相当で limit bypass
+		// 5 子供 fixture (たろう/ひな/けんた/さくら/けいすけ) が「上限警告 + アップグレード CTA」を
+		// 表示せず、LP SS carousel-4 が訴求毀損しないことを保証する (ADR-0048 §決定 P-1.6)
+		it('anonymous: always allowed (demo Lambda = family tier, max=null)', async () => {
+			process.env.AUTH_MODE = 'anonymous';
+			const result = await checkChildLimit('tenant1', 'none');
+			expect(result.allowed).toBe(true);
+			expect(result.max).toBeNull();
+			// resolvePlanTier 早期 return により findAllChildren は呼ばれない
+			expect(mockFindAllChildren).not.toHaveBeenCalled();
+		});
+
+		it('anonymous: 5 子供 fixture でも allowed (limit bypass、demo の content parity 保護)', async () => {
+			process.env.AUTH_MODE = 'anonymous';
+			// 仮に findAllChildren が 5 件返す状況でも family tier 早期 return で limit=null
+			mockFindAllChildren.mockResolvedValue([
+				{ id: 1, nickname: 'たろう' },
+				{ id: 2, nickname: 'ひな' },
+				{ id: 3, nickname: 'けんた' },
+				{ id: 4, nickname: 'さくら' },
+				{ id: 5, nickname: 'けいすけ' },
+			]);
 			const result = await checkChildLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
 			expect(result.max).toBeNull();
