@@ -2,7 +2,7 @@
 // #2146 — ActivityCard `isMust` prop (priority='must' のカード演出統合) の検証
 //
 // 旧 `MustProgressBar.svelte` 専用セクションを撤去し、ActivityCard 自身に
-// 「⭐ おやくそく」riboon badge + gold border を表示する設計（#2146 AC2）。
+// 「⭐ おやくそく」ribbon badge + gold border を表示する設計（#2146 AC2）。
 // ADR-0012 anti-engagement 原則準拠で、完了時の追加アニメーションは行わない。
 
 import { cleanup, render, screen } from '@testing-library/svelte';
@@ -21,19 +21,19 @@ describe('#2146 ActivityCard isMust prop', () => {
 	afterEach(() => cleanup());
 
 	describe('badge / class 表示判定', () => {
-		it('isMust=false (default) のとき riboon badge は描画されない', () => {
+		it('isMust=false (default) のとき ribbon badge は描画されない', () => {
 			render(ActivityCard, { ...BASE_PROPS });
 			expect(screen.queryByTestId('must-ribbon-100')).toBeNull();
 		});
 
-		it('isMust=true && completed=false のとき riboon badge が表示される', () => {
+		it('isMust=true && completed=false のとき ribbon badge が表示される', () => {
 			render(ActivityCard, { ...BASE_PROPS, isMust: true });
 			const ribbon = screen.getByTestId('must-ribbon-100');
 			expect(ribbon).not.toBeNull();
 			expect(ribbon.textContent?.trim()).toBe(UI_COMPONENTS_LABELS.activityCardMustBadge);
 		});
 
-		it('isMust=true && completed=true のとき riboon badge は非表示（anti-engagement 準拠）', () => {
+		it('isMust=true && completed=true のとき ribbon badge は非表示（anti-engagement 準拠）', () => {
 			render(ActivityCard, { ...BASE_PROPS, isMust: true, completed: true });
 			expect(screen.queryByTestId('must-ribbon-100')).toBeNull();
 		});

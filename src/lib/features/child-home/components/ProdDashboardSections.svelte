@@ -9,7 +9,7 @@
   本番 page から以下を集約描画する:
 
     - カテゴリ別アクティビティグリッド (`CategorySection` + `ActivityCard`/baby inline form)
-      （#2146: priority='must' のカードは ActivityCard 自身に riboon badge を表示。
+      （#2146: priority='must' のカードは ActivityCard 自身に ribbon badge を表示。
         旧 MustProgressBar 専用セクションは廃止）
     - 空状態 (`ActivityEmptyState`)
     - きょうだいランキング (`SiblingRanking`)
@@ -94,7 +94,7 @@ const {
 	 * UI 描画箇所でのみ boolean 評価 / cast する。
 	 *
 	 * #2146: priority (`'must' | 'optional'`) は ActivityCard / baby inline form で
-	 * 「今日のおやくそく」riboon badge を出すために参照する。
+	 * 「今日のおやくそく」ribbon badge を出すために参照する。
 	 */
 	activities: Array<{
 		id: number;
@@ -169,7 +169,7 @@ const activitiesByCategory = $derived(
 
 <!--
 	#2146: 「今日のおやくそく」専用セクション (MustProgressBar) は廃止。
-	priority='must' の活動は ActivityCard 自身に riboon badge + gold border で表示する。
+	priority='must' の活動は ActivityCard 自身に ribbon badge + gold border で表示する。
 	全達成 bonus 通知 (mustStatus.granted) は呼び出し側 (+page.svelte) で Toast 演出を継続。
 -->
 

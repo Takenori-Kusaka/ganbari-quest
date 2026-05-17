@@ -45,7 +45,7 @@ const {
 			categoryId: number;
 			dailyLimit: number | null;
 			isMission: boolean;
-			// #2146: priority='must' は ActivityCard 自身の riboon badge で表示
+			// #2146: priority='must' は ActivityCard 自身の ribbon badge で表示
 			priority?: 'must' | 'optional';
 		}[];
 		uiMode: string;
@@ -131,7 +131,7 @@ function handleResultClose() {
 <div class="px-[var(--sp-sm)] py-1">
 	<!--
 		#2146: 「今日のおやくそく」専用セクション (MustProgressBar) は廃止。
-		priority='must' の活動は ActivityCard 自身に riboon badge + gold border で表示する。
+		priority='must' の活動は ActivityCard 自身に ribbon badge + gold border で表示する。
 		mustStatus 集計 API は demo-must-status.test 等で後方互換維持（unit test 参照）。
 	-->
 

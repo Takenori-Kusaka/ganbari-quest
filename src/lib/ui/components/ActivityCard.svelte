@@ -28,7 +28,7 @@ interface Props {
 	eventBadge?: string | null;
 	/**
 	 * #2146: priority='must' (今日のおやくそく) のカード演出統合フラグ。
-	 * true のとき gold border + 左上「⭐ おやくそく」riboon badge を表示する。
+	 * true のとき gold border + 左上「⭐ おやくそく」ribbon badge を表示する。
 	 * 旧 MustProgressBar 専用セクションの代替（ADR-0012 anti-engagement 準拠で
 	 * 完了時の追加アニメーションは行わず、既存 completed 演出のみ）。
 	 */
@@ -62,7 +62,7 @@ const textSize = $derived(CARD_SIZE_CSS[cardSize].textSize);
 
 const showMission = $derived(isMission && !completed);
 const showMainQuest = $derived(isMainQuest && !completed);
-// #2146: must badge は完了済みでも表示せず riboon を撤去する（達成後は
+// #2146: must badge は完了済みでも表示せず ribbon を撤去する（達成後は
 // 通常カードと同じ完了演出のみ。anti-engagement 準拠で連続演出禁止）
 const showMust = $derived(isMust && !completed);
 
@@ -287,7 +287,7 @@ function handleClick(e: Event) {
 	}
 
 	/* #2146: priority='must' card decoration (replaces removed MustProgressBar bar).
-	   border + top-left riboon, no animation per ADR-0012 anti-engagement.
+	   border + top-left ribbon, no animation per ADR-0012 anti-engagement.
 	   main-quest precedes (box-shadow/gradient wins) when both flags are set. */
 	.card-must:not(.card-main-quest):not(.card-mission) {
 		box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35), 0 1px 3px rgba(0, 0, 0, 0.06);

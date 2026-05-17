@@ -584,7 +584,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		ProdDashboardSections に集約。activity grid / SiblingRanking / ActivityEmptyState
 		の render を含む。
 		(#2146: 旧 MustProgressBar 専用セクションは撤廃。priority='must' は ActivityCard
-		自身の isMust prop で riboon badge 表示する設計に統合済み)。
+		自身の isMust prop で ribbon badge 表示する設計に統合済み)。
 		本派生は getDashboardService() 経由で child / todayRecorded / pointSettings を参照。
 	-->
 	<ProdDashboardSections
