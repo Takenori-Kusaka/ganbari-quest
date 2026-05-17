@@ -65,8 +65,20 @@ jobs:
         # vite preview は NODE_ENV=production で起動するため、
         # hooks.server.ts の assertLicenseKeyConfigured() が AWS_LICENSE_SECRET を要求する。
         # LP スクリーンショット撮影用のダミー値（本番シークレットとは別物）。
+        #
+        # #2097 EPIC PR-B1 (2026-05-17): AUTH_MODE=anonymous + DATA_SOURCE=demo を指定し、
+        # capture-hp-screenshots.mjs が本番ルート `/(child)/[uiMode]/home` を demo fixture data
+        # で撮影できるようにする (Multi-Lambda demo Lambda と同型の env、ADR-0048)。
+        #   - AUTH_MODE=anonymous: hooks.server.ts が AnonymousAuthProvider を選択 →
+        #       tenantId='demo' / role='owner' / licenseStatus=ACTIVE で全画面を許可
+        #   - DATA_SOURCE=demo: db/factory.ts が demo Repository (in-memory fixture) を選択 →
+        #       SQLite / DynamoDB に書き込みせず demo-data.ts のみで完結
+        # assertLicenseKeyConfigured() は AUTH_MODE=anonymous の場合 skip されるため
+        # AWS_LICENSE_SECRET は不要だが、後方互換のため引き続き設定する。
         env:
           AWS_LICENSE_SECRET: pages-capture-secret-do-not-use-in-production
+          AUTH_MODE: anonymous
+          DATA_SOURCE: demo
         run: |
           npm run preview -- --port 5173 --host 0.0.0.0 > /tmp/preview.log 2>&1 &
           echo "PREVIEW_PID=$!" >> $GITHUB_ENV

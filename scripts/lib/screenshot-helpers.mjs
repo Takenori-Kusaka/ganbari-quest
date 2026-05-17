@@ -482,6 +482,11 @@ export class ScreenshotCapture {
 	 * @param {boolean} [opts.waitSplide=false] - Splide.js carousel 初期化完了を待機するか (#1825)。
 	 *   LP の `site/index.html` 等の hero carousel 撮影で「黒ブロック」状態を回避する目的。
 	 *   Splide が存在しないページでは silent skip するため副作用なし
+	 * @param {Array<{ name: string; value: string; path?: string; httpOnly?: boolean; sameSite?: 'Strict' | 'Lax' | 'None' }>} [opts.cookies] -
+	 *   撮影前に設定する cookie 一覧 (#2097 EPIC PR-B1)。本番ルート (`/(child)/[uiMode]/home` 等) を
+	 *   demo モード (AUTH_MODE=anonymous + DATA_SOURCE=demo) で撮影する際、`selectedChildId` cookie を
+	 *   pre-set して `/(child)/+layout.server.ts` の `/switch` redirect をバイパスする目的。
+	 *   各 cookie の `path` 既定値は `/`、`httpOnly` は `false`、`sameSite` は `'Lax'`。
 	 * @returns {Promise<{ ok: true; filePath: string; size: number; domPath?: string; domSize?: number } | { ok: false; error: Error }>}
 	 */
 	async capture({
@@ -496,6 +501,7 @@ export class ScreenshotCapture {
 		storageState,
 		domSnapshot,
 		waitSplide = false,
+		cookies,
 	}) {
 		if (!this.#browser) throw new Error('setup() を先に呼び出してください。');
 
@@ -506,6 +512,23 @@ export class ScreenshotCapture {
 			locale: this.#locale,
 			...(storageState ? { storageState } : {}),
 		});
+
+		// #2097 EPIC PR-B1: 本番ルートを demo Lambda 想定で撮影する際に `selectedChildId` を pre-set する。
+		// `baseUrl` の URL から host を抽出して cookie domain として設定する。
+		if (cookies && cookies.length > 0) {
+			const baseUrl = new URL(this.#baseUrl);
+			await context.addCookies(
+				cookies.map((c) => ({
+					name: c.name,
+					value: c.value,
+					domain: baseUrl.hostname,
+					path: c.path ?? '/',
+					httpOnly: c.httpOnly ?? false,
+					sameSite: c.sameSite ?? 'Lax',
+				})),
+			);
+		}
+
 		const page = await context.newPage();
 
 		try {
