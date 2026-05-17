@@ -227,31 +227,50 @@ const FEATURE_SCREENSHOTS = [
 		description: 'Features: RPG バトル画面（累積した努力でボスに挑戦）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
-	// #1707 R2: soft-features 月次レポート（成長の記録）
+	// #1707 R2 / #2200: soft-features 月次レポート（成長の記録）
+	// #2200: `/admin/status` は selectedChildId 依存。URL 自動推論では admin path に対し
+	//   cookie 未設定（全 child 横断）となり、demo の default child = baby たろうくん 1 歳が
+	//   選択されてレーダーチャート 5 軸が全て 0 / 分析サマリ「平均的なペースで成長しています」
+	//   のみという empty 状態の SS となっていた (Issue #2200 で発覚)。
+	//   `?childId=903` クエリで elementary fixture けんたくん (8 歳・3,400P) を明示し、
+	//   `deriveChildIdCookieFromUrl()` の queryMatch 経路で selectedChildId=903 cookie が
+	//   pre-set されるようにする。LP 訴求「月次レポートで活動・ポイント推移をひと目で把握」
+	//   と SS の内容（実データのあるレーダー + 分析）を一致させる (ADR-0013 LP truth)。
 	{
 		name: 'feature-monthly-report',
-		url: '/admin/status',
+		url: '/admin/status?childId=903',
 		description: 'Features: 月次レポート（活動・ポイント推移）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},
-	// #1707 R2 / #1901: soft-features 自動スリープ（時間管理・使いすぎ防止）
-	// #1901: 旧 /demo/admin (top) は carousel-3-admin-main と URL/ETag 完全一致だったため
-	//        /admin/settings (auto-sleep + おうえんメッセージ設定画面) に変更。
+	// #1707 R2 / #1901 / #2201: soft-features 「家庭に寄り添う運用補助」
+	// #2201: 旧 LP 文言「時間管理 + おうえんメッセージ設定」は `/admin/settings` 画面の実体
+	//   （おやカギコード変更 / ステータス減少設定 / 既定の子供 / 兄弟設定 / 通知設定）と乖離
+	//   していた (時間管理 / おうえん設定 UI は実在しない → 自動スリープは `(child)/+layout`
+	//   の runtime ロジック / メッセージは `/admin/messages` の独立画面)。
+	//   ADR-0013 LP truth に従い:
+	//     - LP h3/desc/alt を「ステータス減少設定（習慣化サポート）」に rename
+	//     - 撮影元 URL は `/admin/settings` 維持 + scrollTo で decay セクションを映す
+	//     - 「家族からおうえんメッセージを送る」訴求は feature-cheer-message に集約 (URL は
+	//       `/admin/messages` に振替、視点 = 親の送信側) し、本カードと差別化する
 	{
 		name: 'feature-auto-sleep',
 		url: '/admin/settings',
-		description: 'Features: 時間管理（自動スリープ設定 + おうえんメッセージ設定）',
+		description: 'Features: ステータス減少設定（習慣化サポート）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
+		scrollTo: '[data-testid="settings-decay-section"]',
 	},
-	// #1707 R2 / #1901: soft-features おうえんメッセージ受信（子供ホーム画面下部）
-	// #1901: growth-stage-elementary と URL が同じ /elementary/home のため、scrollTo で
-	//        画面下部の activity-card 領域を撮影し物理的に異なる SS を生成する。
+	// #1707 R2 / #1901 / #2199: soft-features 「家族からおうえんメッセージを送る」
+	// #2199: 旧撮影元 `/elementary/home` (scrollTo: activity-card) では SiblingCheerOverlay が
+	//   `?screenshot=*` で抑止される (PR-B1 hotfix #2 / #2197) ため、LP 訴求「おうえんメッセージ
+	//   受信 UI」が実際に映らず子供 home の活動カード一覧と区別不能だった。
+	//   ADR-0013 LP truth に従い、撮影元を `/admin/messages` (親→子メッセージ送信フォーム +
+	//   過去履歴) に変更し、「家族が子供に応援を送る」シーンを LP の事実として映す。
+	//   視点は「親（送信側）」、feature-auto-sleep と URL/視点を完全分離 (重複なし)。
 	{
 		name: 'feature-cheer-message',
-		url: '/elementary/home',
-		description: 'Features: おうえんメッセージ受信（子供ホーム下部）',
+		url: '/admin/messages',
+		description: 'Features: 家族からおうえんメッセージを送る（親管理画面）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
-		scrollTo: '[data-testid^="activity-card-"]',
 	},
 	// #1707 R2: soft-features 設定の自由度（活動・ポイント・ごほうびのカスタマイズ）
 	// #1901: carousel-4-admin-sub が /admin/children に振り替えられたため、本撮影は

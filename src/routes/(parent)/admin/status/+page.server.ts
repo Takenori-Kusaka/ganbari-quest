@@ -14,7 +14,7 @@ import {
 } from '$lib/server/services/status-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
 	const [children, benchmarks, levelTitles] = await Promise.all([
 		getAllChildren(tenantId),
@@ -38,7 +38,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	return { children: childrenWithStatus, categoryDefs: CATEGORY_DEFS, benchmarks, levelTitles };
+	// #2200: `?childId=N` クエリで指定された child を先頭に配置する。
+	//   実画面で「`/admin/status?childId=903` を bookmark」した時の挙動と一致 (URL 不変式)。
+	//   LP 撮影では `feature-monthly-report` SS で elementary fixture けんたくん (903・3,400P) を
+	//   先頭に映してレーダー 5 軸を埋める用途 (ADR-0013 LP truth 整合)。
+	//   不正な childId / 該当 child なしの場合は何もしない (デフォルト children[0])。
+	const requestedChildIdRaw = url.searchParams.get('childId');
+	const requestedChildId = requestedChildIdRaw ? Number.parseInt(requestedChildIdRaw, 10) : NaN;
+	const sortedChildren = Number.isFinite(requestedChildId)
+		? [
+				...childrenWithStatus.filter((c) => c.id === requestedChildId),
+				...childrenWithStatus.filter((c) => c.id !== requestedChildId),
+			]
+		: childrenWithStatus;
+
+	return { children: sortedChildren, categoryDefs: CATEGORY_DEFS, benchmarks, levelTitles };
 };
 
 export const actions = {

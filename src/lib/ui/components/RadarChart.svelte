@@ -2,6 +2,14 @@
 import { cubicOut } from 'svelte/easing';
 import { tweened } from 'svelte/motion';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { getScreenshotMode } from '$lib/features/demo/screenshot-mode';
+
+// #2200: ?screenshot=* mode で tweened animation を skip し最終値を即時表示する。
+//   LP `feature-monthly-report` SS で animation 開始直後 (値 0) のスナップショットが
+//   キャプチャされ、けんたくん 8 歳 (totalXp 200-450、レベル 6-9) のレーダー 5 軸が
+//   全て中心点に潰れていた問題への対策。ADR-0013 LP truth: animation 完了後の真の値
+//   こそが「実画面」であり、SS でも同じ視覚状態を映すべき。
+const RADAR_ANIMATION_DURATION = getScreenshotMode() ? 0 : 800;
 
 interface CategoryData {
 	categoryId: number;
@@ -72,13 +80,14 @@ const compNormalized = $derived(
 );
 
 // Animated values — tweened は初期値のみ使用。$effect で正しい値に更新する
+// #2200: screenshot mode 時は duration=0 で animation skip し最終値を即時描画
 const animatedValues = tweened([0, 0, 0, 0, 0], {
-	duration: 800,
+	duration: RADAR_ANIMATION_DURATION,
 	easing: cubicOut,
 });
 
 const animatedComp = tweened([0, 0, 0, 0, 0], {
-	duration: 800,
+	duration: RADAR_ANIMATION_DURATION,
 	easing: cubicOut,
 });
 
@@ -91,6 +100,13 @@ $effect(() => {
 		animatedComp.set(compNormalized);
 	}
 });
+
+// #2200: screenshot mode 時は tweened の `requestAnimationFrame` 跨ぎでの初期値 [0,0,0,0,0]
+//   状態のまま LP SS が撮影される問題を回避するため、polygon 描画値を `normalizedValues` /
+//   `compNormalized` 直接参照に切替える。実画面 (通常 mode) では従来通り tweened animation。
+const isScreenshotForRadar = getScreenshotMode();
+const polygonValues = $derived(isScreenshotForRadar ? normalizedValues : $animatedValues);
+const polygonCompValues = $derived(isScreenshotForRadar ? compNormalized : $animatedComp);
 
 // SVG coordinate helpers
 function getAngle(index: number): number {
@@ -158,9 +174,9 @@ function gridPolygon(pct: number): string {
 	{/each}
 
 	<!-- Comparison polygon (previous month) -->
-	{#if compNormalized}
+	{#if polygonCompValues}
 		<polygon
-			points={polygonPoints($animatedComp, maxRadius)}
+			points={polygonPoints(polygonCompValues, maxRadius)}
 			fill="none"
 			stroke="var(--color-text-muted, #999)"
 			stroke-width="1.5"
@@ -172,7 +188,7 @@ function gridPolygon(pct: number): string {
 
 	<!-- Filled area -->
 	<polygon
-		points={polygonPoints($animatedValues, maxRadius)}
+		points={polygonPoints(polygonValues, maxRadius)}
 		fill="var(--theme-primary, #ff69b4)"
 		fill-opacity="0.25"
 		stroke="var(--theme-primary, #ff69b4)"
@@ -181,7 +197,7 @@ function gridPolygon(pct: number): string {
 	/>
 
 	<!-- Data points -->
-	{#each $animatedValues as val, i}
+	{#each polygonValues as val, i}
 		{@const p = getPoint(i, val, maxRadius)}
 		{@const color = chartColors[categories[i]?.categoryId ?? 0] ?? 'var(--theme-primary)'}
 		<circle cx={p.x} cy={p.y} r="5" fill={color} stroke="white" stroke-width="2" />

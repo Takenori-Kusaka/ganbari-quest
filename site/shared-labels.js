@@ -194,7 +194,7 @@
 			"row1ShotAlt": "親管理画面の活動カスタマイズ画面",
 			"row2ShotAlt": "子供入力画面の過去の記録画面",
 			"row3ShotAlt": "卒業マイルストーンと履歴エクスポート画面",
-			"row4ShotAlt": "スマホで開ける子供ホーム画面"
+			"row4ShotAlt": "家族からおうえんメッセージを送る親管理画面 — 離れていても家族で繋がれる"
 		},
 		"growthRoadmap": {
 			"sectionTitle": "3 歳から 18 歳まで、そして「卒業」へ",
@@ -951,9 +951,9 @@
 			"softBenefitAutoSleep": "<strong>家庭で楽になること</strong>: 設定した時間で自動的に画面が閉じ、長時間利用が起きない",
 			"softBenefitCheerMessage": "<strong>家族で実感できること</strong>: 家族から送ったメッセージを子供が読むと既読が付く",
 			"softBenefitSettings": "<strong>家庭で楽になること</strong>: 子供の年齢・興味に合わせて活動とポイント配分を細かく調整できる",
-			"softFamilySupportTitle": "家庭に寄り添う運用補助",
-			"softFamilySupportDesc": "設定時間で画面が自動で閉じる使いすぎ防止タイマーで長時間利用を防止。必要な時だけ家族からおうえんメッセージを子供のホームへ届けられます。",
-			"softBenefitFamilySupport": "<strong>家庭ごとにカスタマイズできること</strong>: 設定時間で使いすぎ防止タイマーが働き、おうえんメッセージは子供が読むと既読が付く",
+			"softFamilySupportTitle": "ステータス減少設定（習慣化サポート）",
+			"softFamilySupportDesc": "ご家庭のリズムに合わせて、ステータス（やる気・体力など）が時間とともに少しずつ減る強さを調整できます。「毎日少しずつでも続けるとお得」な仕組みで、習慣化を後押しします。",
+			"softBenefitFamilySupport": "<strong>家庭ごとにカスタマイズできること</strong>: ステータス減少の強さを 4 段階から選んで、習慣化のペースを家庭に合わせられる",
 			"carouselSlide1Alt": "幼児（3〜5 歳代表）のホーム画面 — ひらがな・大きなボタン",
 			"carouselSlide2Alt": "小学生（6〜12 歳代表）のホーム画面 — 活動記録とポイント獲得",
 			"carouselSlide3Alt": "中高生（13〜18 歳代表）のホーム画面 — 自己管理ダッシュボード",

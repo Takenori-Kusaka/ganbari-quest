@@ -767,7 +767,9 @@ const anyFormBusy = $derived(
 	</Card>
 
 	<!-- ステータス減少設定 -->
-	<Card padding="lg">
+	<!-- data-testid: #2201 で LP feature-auto-sleep の scrollTo ターゲットとして追加。
+	     ADR-0013 LP truth: LP「ステータス減少設定（習慣化サポート）」訴求と実画面の一致点。 -->
+	<Card padding="lg" data-testid="settings-decay-section">
 		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">{SETTINGS_LABELS.decaySectionTitle}</h3>
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">
 			{SETTINGS_LABELS.decaySectionDesc}
