@@ -13,21 +13,21 @@
 // 追加したため、バトルステップをデモガイドから削除して 6 ステップ構成に変更。
 //
 // #2097 PR-B2 (#2187): /demo/(child)/* 14 file 撤去 + legacy redirect 化により、demo guide
-// step 1-3 は本番 (child) routes に redirect される。本番 routes は tenant 検証付きの
-// `?childId=N` を要求するため、demo fixture child ID (902) では LOCAL_AUTH E2E 環境で
-// 不正となり `/switch` に redirect される。
+// step 1-3 の matchPath / href は本番 (child) routes (`/preschool/home` 等) に切り替わった。
+// (child) layout は cookie `selectedChildId` を読み tenant 検証するため、guide URL 内の
+// `?childId=902` (demo fixture) は LOCAL_AUTH E2E では valid でない。
 //
-// 解決の方向性:
-//   - demo Lambda (AUTH_MODE=anonymous + DATA_SOURCE=demo) では demo fixture が tenant 透過
-//     に解決されるため、本番 deploy 環境ではこのテストフローが動作する
-//   - LOCAL_AUTH E2E では demo fixture と test tenant の不整合により redirect 連鎖
-//   - 本テストは PR-B4 (#2189、hooks.server.ts demo 検出 env-only 化) と PR-B3 で demo
-//     guide flow が本番 path に完全統合された後に再活性化する想定
+// LOCAL_AUTH E2E 対応: 各テスト冒頭で `selectChildByName('たろうくん')` (preschool test child) を
+// 呼び `selectedChildId` cookie を test tenant の valid child に pre-set してから demo guide
+// を起動する。本番 (child) layout は cookie 値を優先するため、guide URL の `?childId=902` は
+// 無視され、test tenant の preschool 子供で正常 render される。
 //
-// 暫定対応: LOCAL_AUTH E2E では skip (deadline: PR-B4 #2189 merge 後)。
-// demo Lambda deploy 後の AC5 verification では実機で本フローを検証する (本 PR Issue 参照)。
+// demo Lambda 本番環境 (AUTH_MODE=anonymous + DATA_SOURCE=demo) では demo fixture (902) が
+// tenant 透過に解決されるため、cookie pre-set 不要で動作する。本 spec は LOCAL_AUTH E2E /
+// demo Lambda 両方をカバーする。
 
 import { expect, type Page, test } from '@playwright/test';
+import { selectChildByName } from './helpers';
 
 /**
  * Svelte 5 onclick ハンドラは hydration 完了後にのみ DOM にバインドされる。
@@ -44,16 +44,13 @@ async function waitForHydration(page: Page): Promise<void> {
 // dev mode の最初の /demo コンパイルは数十秒かかるため、ファイル単位で timeout を延長
 test.describe.configure({ timeout: 120_000 });
 
-// ADR-0006 skip annotation:
-//   Issue: #2187 (本 PR で skip 化) → 再活性化先 #2189 (PR-B4 hooks.server.ts demo 検出統合)
-//   owner: @Takenori-Kusaka
-//   deadline: 2026-06-15 (PR-B4 merge 想定 + 1 週間バッファ)
-//   理由: /demo/(child)/* 撤去に伴い demo guide URL が本番 (child) routes に redirect され、
-//        LOCAL_AUTH E2E では tenant 検証 mismatch で /switch に飛ぶ。demo Lambda 本番環境
-//        (AUTH_MODE=anonymous + DATA_SOURCE=demo) では正常動作するため、PR-B4 で hooks.server.ts
-//        demo 検出を env-only 化した後に E2E 環境も demo Lambda env で再活性化する。
-test.describe.skip('#702 デモガイド: 全ステップ順次遷移 (#2187 で LOCAL_AUTH skip、#2189 で再活性化予定)', () => {
+test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
 	test('「つぎへ」ボタンで Step 1 → 2 → 3 → 4 → 5 → 6 を順番に踏める', async ({ page }) => {
+		// #2187: 本番 (child) routes は cookie `selectedChildId` を tenant 検証する。
+		// guide URL の `?childId=902` (demo fixture) は LOCAL_AUTH では valid でないため、
+		// たろうくん (preschool test child) を pre-select して有効な cookie を立てる。
+		await selectChildByName(page, 'たろうくん');
+
 		// Step 1: /demo トップから「ガイド付きデモを はじめる」をクリック
 		await page.goto('/demo');
 		// Hydrationが終わるまで待つ。dev mode では最初の /demo コンパイルが
@@ -116,6 +113,9 @@ test.describe.skip('#702 デモガイド: 全ステップ順次遷移 (#2187 で
 	});
 
 	test('「もどる」ボタンで Step 3 → 2 → 1 を順番に戻れる', async ({ page }) => {
+		// #2187: 本番 (child) routes は cookie `selectedChildId` を tenant 検証する
+		await selectChildByName(page, 'たろうくん');
+
 		// Step 3 まで進む
 		await page.goto('/demo');
 		await expect(page.getByTestId('demo-guide-start-link')).toBeVisible();
