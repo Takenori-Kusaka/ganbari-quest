@@ -96,6 +96,7 @@
 | P-1.5 AWS Sandbox account | **同 account + role 分離** |
 | P-1.6 `AnonymousAuthProvider` | dummy user `anon-{requestId}` + role='owner' + tenantId='demo' |
 | P-1.7 demo write API | **200 `{ ok: true, demo: true }` no-op response** (既存 hooks の `shouldReturnDemoNoop` 流用) |
+| P-1.8 demo Lambda plan tier (#2198) | **`resolvePlanTier` で `getAuthMode() === 'anonymous'` を `family` 固定**。`AnonymousAuthProvider` の licenseStatus=ACTIVE / 全画面 allow 設計と整合。`checkChildLimit` / `checkActivityLimit` / `checkChecklistTemplateLimit` 全てで `max=null` 早期 return。`AdminLayout` の upgrade-btn / plan-badge は `authMode === 'anonymous'` で抑止 (LP SS carousel-4 で「demo なのに上限警告 + アップグレード CTA」が出ない、ADR-0013 LP truth 整合) |
 | P-2.1 observability | X-Ray 無効、CloudWatch Logs 7 日 retention |
 | P-2.2 DR 戦略 | 不要 (demo は state 持たない) |
 | P-2.3 CI/CD pipeline 分離度 | 同 CDK stack 内並列定義 |

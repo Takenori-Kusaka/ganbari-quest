@@ -54,7 +54,7 @@ $effect(() => {
 let showFeedback = $state(false);
 </script>
 
-<AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'}>
+<AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode}>
 	{#if showTrialBanner && trial}
 		<div style:margin-bottom="16px">
 			<TrialBanner
