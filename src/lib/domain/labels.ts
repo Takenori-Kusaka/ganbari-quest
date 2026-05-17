@@ -1122,19 +1122,34 @@ export const TUTORIAL_CHAPTER_LABELS = {
  * デモモード（`?mode=demo`）関連の文言 SSOT。
  * ハードコードせず本定数を介して参照すること（ADR-0037 準拠）。
  * baby / preschool モードではひらがな併記を優先する。
+ *
+ * #2097 Phase B (PO 報告 2026-05-17 12:00 JST): DemoBanner は demo Lambda
+ * (demo.ganbari-quest.com) 上で大人 (保護者) 向けに表示されるため、漢字表記が適切。
+ * リンク先は本番ドメイン (ganbari-quest.com) への absolute URL に変更し、
+ * demo Lambda 上で /auth/signup や /demo/exit を叩いて 404 / 認証エラーになるのを防ぐ。
  */
 export const DEMO_LABELS = {
 	/** 上部バナーのメイン文言 */
 	bannerTitle: 'おためしモード',
 	bannerDescription: 'これはおためしです。記録やせっていはほぞんされません。',
-	/** 「ほんとうに始める」CTA */
-	ctaStart: 'ほんとうに始める',
+	/** 「本当に始める」CTA — 大人 (保護者) 向けバナーなので漢字表記 (#2097 Phase B Bug 1) */
+	ctaStart: '本当に始める',
 	/** 退出ボタン */
 	ctaExit: 'おためしをやめる',
-	/** 退出先（ログイン誘導ではなく LP に戻す） */
-	exitHref: '/demo/exit',
-	/** サインアップ CTA 先 */
-	signupHref: '/auth/signup',
+	/**
+	 * 退出先 (LP に戻す)。
+	 * #2097 Phase B Bug 3: demo Lambda には `/demo/exit` route が存在しないため
+	 * 本番 LP (https://ganbari-quest.com/) への absolute URL とする。
+	 * NUC 本番 (local mode) からも同じ absolute URL でアクセス可能。
+	 */
+	exitHref: 'https://ganbari-quest.com/',
+	/**
+	 * サインアップ CTA 先 (本当に始める)。
+	 * #2097 Phase B Bug 2: demo Lambda では Cognito 未注入のため /auth/signup を
+	 * relative で叩くと中途半端な signup 画面 (失敗確定) が表示される。本番 (Cognito)
+	 * への absolute URL に固定する。
+	 */
+	signupHref: 'https://ganbari-quest.com/auth/signup',
 } as const;
 
 // ============================================================

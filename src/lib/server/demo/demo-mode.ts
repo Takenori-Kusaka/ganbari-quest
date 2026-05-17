@@ -29,6 +29,13 @@ export const DEMO_WRITE_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', '
  *   すでに demo-service 経由で in-memory に閉じている（実 DB を叩かない）ため
  *   guard で no-op 化すると結果データが返らず UI が壊れる。Phase 2 で /demo/**
  *   を削除した際に本エントリも削除する。
+ * - `/switch`: 子供切替の form action (`?/select`)。実 DB に書き込まず cookie
+ *   `selectedChildId` を set + redirect するだけのため demo 安全。no-op で
+ *   `{ ok: true, demo: true }` を返すと SvelteKit form action が成功と認識せず
+ *   redirect が発火しないため、demo Lambda で `/switch` の子供クリックが
+ *   動かない (#2097 Phase B Bug 4)。本パス追加で本番ルートを通常駆動する。
+ *   demo context は `tenantId: 'demo'` で hooks に注入済みなので
+ *   `requireTenantId` も通る。
  */
 export const DEMO_WRITE_ALLOWLIST: readonly string[] = [
 	'/api/feedback',
@@ -36,6 +43,7 @@ export const DEMO_WRITE_ALLOWLIST: readonly string[] = [
 	'/api/demo/exit',
 	'/api/health',
 	'/demo/',
+	'/switch',
 ];
 
 /**
