@@ -70,12 +70,9 @@ test.describe('Demo Lambda marketplace seed (#2131 PR-B7)', () => {
 
 	test('marketplace 由来の活動は source=marketplace 属性で識別できる', async ({ request }) => {
 		// API 経由で 902 の活動一覧を取得し、source=marketplace の activity が存在することを検証
+		// `/api/v1/activities` は本番ルート (src/routes/api/v1/activities/+server.ts) のため
+		// demo Lambda 環境でも 200 を返すことを期待する。
 		const res = await request.get('/api/v1/activities?childId=902');
-		if (res.status() === 404) {
-			// API path が異なる環境では skip
-			test.skip();
-			return;
-		}
 		expect(res.status()).toBe(200);
 		const body = (await res.json()) as {
 			activities?: Array<{ source?: string; name?: string }>;
