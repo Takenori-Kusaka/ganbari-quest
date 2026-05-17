@@ -892,6 +892,24 @@ export const MARKETPLACE_LABELS = {
 	detailImportDuplicate: (templateName: string) =>
 		`「${templateName}」は既に取込済みのためスキップしました`,
 	detailImportError: 'インポートに失敗しました',
+	// #2138 (MP-3): rule-preset 一括追加 CTA
+	detailCtaImportRule: '一括追加',
+	detailCtaImportRuleWithCount: (count: number) => `📜 このルールセットを一括追加 (${count}件)`,
+	detailCtaImportRuleDescBonus:
+		'親管理画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
+	detailCtaImportRuleDescExchange:
+		'お子さまの「ごほうび」一覧にポイント交換アイテムとして追加されます',
+	detailCtaImportRuleDescPenalty:
+		'⚠️ penalty タイプは ADR-0012 anti-engagement 細則により慎重審査中です。取込試行は警告として記録されます。',
+	detailCtaImportRuleDescSpecial: '⚠️ special タイプは将来枠です。本取込は記録のみで no-op です。',
+	detailRuleImportSuccessBonus: (presetName: string) =>
+		`✨ 「${presetName}」を追加しました。親管理画面の「ルール」で ON/OFF できます。`,
+	detailRuleImportSuccessExchange: (presetName: string, count: number) =>
+		`✨ 「${presetName}」: ${count} 件のポイント交換アイテムを追加しました`,
+	detailRuleImportDuplicate: (presetName: string) => `⚠️ 「${presetName}」は既に取込済みです`,
+	detailRuleImportWarning: (msg: string) => `⚠️ ${msg}`,
+	detailRuleImportNoChildrenExchange: 'まずはお子さまを登録してください',
+	detailCtaImportRuleSignedOut: '一括追加するには登録 / ログインが必要です',
 	backToTypeListSuffix: '一覧に戻る',
 	typeCountSuffix: '種',
 } as const;
@@ -4030,6 +4048,39 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	marketplaceImportDuplicate: (presetName: string) =>
 		`⚠️ 「${presetName}」は既に取込済みのためスキップしました`,
 	marketplaceSeeMore: 'すべてのチェックリストを見る →',
+} as const;
+
+// ============================================================
+// #2138 MP-3: /admin/settings/rules — 取込済 rule-preset 管理画面
+// ============================================================
+
+export const ADMIN_RULES_PAGE_LABELS = {
+	pageTitle: '取込済ルール一覧',
+	pageDescription:
+		'マーケットプレイスから取込んだ bonus / exchange 系ルールを管理します。bonus は ON/OFF で有効化を切り替えられます。',
+	emptyTitle: '取込済のルールがありません',
+	emptyDesc: 'マーケットプレイスから bonus / exchange ルールを取込むとここに表示されます',
+	browseLink: '🏪 マーケットプレイスを見る →',
+	sectionBonusTitle: '🎯 ボーナスルール',
+	sectionBonusDesc:
+		'活動記録時に発火するボーナスポイント。enabled な preset のみが活動記録時に評価されます。',
+	sectionExchangeDesc:
+		'exchange タイプ (ポイント交換アイテム) はお子さまの「ごほうび」一覧から確認できます。',
+	enabledBadge: '有効',
+	disabledBadge: '無効',
+	enableButton: '有効化',
+	disableButton: '無効化',
+	removeButton: '削除',
+	removeConfirm: '本当に削除しますか？取込済の rule は失われます。',
+	importedAtLabel: '取込日時',
+	rulesLabel: '含まれるルール',
+	pointBonusSuffix: 'pt',
+	updateSuccess: 'ルールを更新しました',
+	removeSuccess: 'ルールを削除しました',
+	updateError: '更新に失敗しました',
+	penaltyNotImplementedTitle: 'ℹ️ penalty / special タイプについて',
+	penaltyNotImplementedDesc:
+		'penalty / special タイプは ADR-0012 anti-engagement 細則により慎重審査中のため、本画面には表示されません。取込試行は audit log に記録されます。',
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {

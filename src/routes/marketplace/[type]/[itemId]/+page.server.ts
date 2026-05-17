@@ -1,6 +1,10 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
-import type { MarketplaceItemType, RewardSetPayload } from '$lib/domain/marketplace-item';
+import type {
+	MarketplaceItemType,
+	RewardSetPayload,
+	RulePresetPayload,
+} from '$lib/domain/marketplace-item';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -12,6 +16,11 @@ import {
 	importRewardSet,
 	previewRewardSetImport,
 } from '$lib/server/services/reward-set-import-service';
+// #2138 (MP-3): rule-preset 4 ruleType 全対応の一括取込
+import {
+	importRulePreset,
+	previewRulePresetImport,
+} from '$lib/server/services/rule-preset-import-service';
 import type { Actions, PageServerLoad } from './$types';
 
 const VALID_TYPES: MarketplaceItemType[] = [
@@ -160,6 +169,85 @@ export const actions: Actions = {
 			logger.error('[marketplace/checklist] インポート失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				context: { itemId: params.itemId, childId },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
+
+	// #2138 (MP-3): rule-preset 4 ruleType 全対応 の一括取込 action
+	// CTA「一括追加」ボタンの form action。
+	// - exchange: childId 必須 (special_rewards に挿入)
+	// - bonus:    childId 不要 (settings KVS に tenant スコープで保存)
+	// - penalty / special: 取込試行を warning として返却 + audit log 記録
+	importRulePreset: async ({ params, request, locals }) => {
+		const tenantId = locals.context?.tenantId;
+		if (!tenantId) {
+			redirect(302, `/auth/signup?next=/marketplace/rule-preset/${params.itemId}`);
+		}
+
+		if (params.type !== 'rule-preset') {
+			return fail(400, { error: 'ルールセットではありません' });
+		}
+
+		const item = getMarketplaceItem('rule-preset', params.itemId);
+		if (!item) {
+			return fail(404, { error: 'プリセットが見つかりません' });
+		}
+
+		const payload = item.payload as RulePresetPayload;
+		const formData = await request.formData();
+		const childIdRaw = formData.get('childId');
+		const childId = childIdRaw ? Number(childIdRaw) : undefined;
+
+		// exchange は childId 必須
+		if (payload.ruleType === 'exchange') {
+			if (!childId || Number.isNaN(childId)) {
+				return fail(400, { error: 'お子さまを選択してください' });
+			}
+			const children = await getAllChildren(tenantId);
+			if (!children.some((c) => c.id === childId)) {
+				return fail(400, { error: 'お子さまが見つかりません' });
+			}
+		}
+
+		try {
+			const preview = await previewRulePresetImport(
+				item.itemId,
+				item.name,
+				item.icon,
+				payload,
+				tenantId,
+				childId,
+			);
+
+			if (preview.alreadyImported) {
+				return {
+					ruleImport: {
+						alreadyImported: true,
+						presetName: preview.presetName,
+						ruleType: preview.ruleType,
+					},
+				};
+			}
+
+			const result = await importRulePreset(item.itemId, item.name, item.icon, payload, tenantId, {
+				childId,
+			});
+			return {
+				ruleImport: {
+					alreadyImported: false,
+					presetName: preview.presetName,
+					ruleType: preview.ruleType,
+					imported: result.imported,
+					skipped: result.skipped,
+					warnings: result.warnings,
+					errors: result.errors,
+				},
+			};
+		} catch (e) {
+			logger.error('[marketplace/rule-preset] インポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { itemId: params.itemId, childId, ruleType: payload.ruleType },
 			});
 			return fail(500, { error: 'インポートに失敗しました' });
 		}
