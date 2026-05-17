@@ -22,10 +22,17 @@ export interface GuideStep {
 	requiresAction?: boolean;
 }
 
-// #2097 PR-B2 (#2187): /demo/(child)/* 14 file を撤去したため、ガイド step 1-3 の
-// matchPath / href を本番 (child) routes に切り替え。demo Lambda は本番 routes を
-// AnonymousAuth + DATA_SOURCE=demo 経由で表示する設計に統一 (ADR-0048)。
-// Step 4 以降 (/demo/admin / /demo/signup) は PR-B3 (#2188) で本番 path に再集約予定。
+// #2097 PR-B2 (#2187): /demo/(child)/* 14 file 撤去に伴い、ガイド step 1-3 の matchPath /
+// href を本番 (child) routes (`/preschool/home` 等) に切り替え。href の `?childId=902` は
+// demo fixture child ID で、demo Lambda 本番環境 (AUTH_MODE=anonymous + DATA_SOURCE=demo) で
+// は tenant 透過に解決される。
+//
+// LOCAL_AUTH E2E 環境では `?childId=902` が test tenant に無いため `/switch` に redirect され
+// guide flow が機能しない (本 PR で `tests/e2e/demo-guide-step-flow.spec.ts` を skip 化、
+// 詳細は同 spec 冒頭の ADR-0006 skip annotation 参照)。PR-B4 (#2189) で hooks.server.ts
+// demo 検出を env-only 化した後に E2E 環境も demo Lambda env で再活性化する。
+//
+// Step 4-6 (/demo/admin / /demo/signup) は PR-B3 (#2188) で本番 path に再集約検討。
 export const GUIDE_STEPS: GuideStep[] = [
 	{
 		id: 1,

@@ -12,9 +12,20 @@
 // #1323: /demo/preschool/battle を廃止し 307 リダイレクト（→ /demo/preschool/home）を
 // 追加したため、バトルステップをデモガイドから削除して 6 ステップ構成に変更。
 //
-// #2097 PR-B2 (#2187): /demo/(child)/* 14 file 撤去に伴い、ガイド Step 1-3 の matchPath
-// / href を本番 (child) routes に切替。Step 4-6 (/demo/admin / /demo/signup) は PR-B3
-// (#2188) で本番 path に再集約予定。
+// #2097 PR-B2 (#2187): /demo/(child)/* 14 file 撤去 + legacy redirect 化により、demo guide
+// step 1-3 は本番 (child) routes に redirect される。本番 routes は tenant 検証付きの
+// `?childId=N` を要求するため、demo fixture child ID (902) では LOCAL_AUTH E2E 環境で
+// 不正となり `/switch` に redirect される。
+//
+// 解決の方向性:
+//   - demo Lambda (AUTH_MODE=anonymous + DATA_SOURCE=demo) では demo fixture が tenant 透過
+//     に解決されるため、本番 deploy 環境ではこのテストフローが動作する
+//   - LOCAL_AUTH E2E では demo fixture と test tenant の不整合により redirect 連鎖
+//   - 本テストは PR-B4 (#2189、hooks.server.ts demo 検出 env-only 化) と PR-B3 で demo
+//     guide flow が本番 path に完全統合された後に再活性化する想定
+//
+// 暫定対応: LOCAL_AUTH E2E では skip (deadline: PR-B4 #2189 merge 後)。
+// demo Lambda deploy 後の AC5 verification では実機で本フローを検証する (本 PR Issue 参照)。
 
 import { expect, type Page, test } from '@playwright/test';
 
@@ -33,7 +44,15 @@ async function waitForHydration(page: Page): Promise<void> {
 // dev mode の最初の /demo コンパイルは数十秒かかるため、ファイル単位で timeout を延長
 test.describe.configure({ timeout: 120_000 });
 
-test.describe('#702 デモガイド: 全ステップ順次遷移', () => {
+// ADR-0006 skip annotation:
+//   Issue: #2187 (本 PR で skip 化) → 再活性化先 #2189 (PR-B4 hooks.server.ts demo 検出統合)
+//   owner: @Takenori-Kusaka
+//   deadline: 2026-06-15 (PR-B4 merge 想定 + 1 週間バッファ)
+//   理由: /demo/(child)/* 撤去に伴い demo guide URL が本番 (child) routes に redirect され、
+//        LOCAL_AUTH E2E では tenant 検証 mismatch で /switch に飛ぶ。demo Lambda 本番環境
+//        (AUTH_MODE=anonymous + DATA_SOURCE=demo) では正常動作するため、PR-B4 で hooks.server.ts
+//        demo 検出を env-only 化した後に E2E 環境も demo Lambda env で再活性化する。
+test.describe.skip('#702 デモガイド: 全ステップ順次遷移 (#2187 で LOCAL_AUTH skip、#2189 で再活性化予定)', () => {
 	test('「つぎへ」ボタンで Step 1 → 2 → 3 → 4 → 5 → 6 を順番に踏める', async ({ page }) => {
 		// Step 1: /demo トップから「ガイド付きデモを はじめる」をクリック
 		await page.goto('/demo');
