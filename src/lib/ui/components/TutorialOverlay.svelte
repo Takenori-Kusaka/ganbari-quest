@@ -40,7 +40,8 @@ setupResizeScrollTracking();
 	onCancelExit={cancelExit}
 />
 
-{#if active && step && targetRect && !showQuickComplete}
+<!-- #2105: showExitConfirm 表示中も TutorialBubble を隠し二重ダイアログ状態を防止 (Dialog FSM 排他原則、archive ADR-0019) -->
+{#if active && step && targetRect && !showQuickComplete && !showExitConfirm}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="tutorial-overlay" onclick={handleOverlayClick}>
