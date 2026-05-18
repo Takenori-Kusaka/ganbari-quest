@@ -36,6 +36,7 @@ Thumbs.db
 # Test
 coverage/
 playwright-report/
+playwright-report-demo/
 test-results/
 test-results.json
 tests/e2e/.auth/

@@ -161,7 +161,10 @@ hamigaki
 hanako
 hanami
 healthcheck
+hina
 hinamatsuri
+keisuke
+kenta
 HSTS
 innerhtml
 issho

@@ -11,9 +11,31 @@
 | **Unit** | `tests/unit/` | モック可、単一関数/モジュール |
 | **Integration** | `tests/unit/` or `tests/integration/` | `page.route()` / DB in-memory。実サーバー不要 |
 | **E2E** | `tests/e2e/` | モックなし、実アプリ全体 (`npm run dev` / `preview` 必要) |
+| **Demo Lambda E2E** | `tests/e2e/demo-lambda/` | demo Lambda 環境専用 (#2205、`playwright.demo.config.ts`) |
 
 判断: 実サーバー必要 → E2E / 不要 + モックで完結 → Integration / それ以外 → Unit。
 `tests/e2e/upgrade-checkout.spec.ts` は `page.route()` で Stripe モック (Integration 相当) だが cognito-dev 認証必要のため `playwright.cognito-dev.config.ts` 管理。
+
+## demo Lambda E2E (`tests/e2e/demo-lambda/`、#2205)
+
+ADR-0048 Multi-Lambda Demo Deployment で導入された demo Lambda (`demo.ganbari-quest.com`、
+`AUTH_MODE=anonymous + DATA_SOURCE=demo`) 固有の動作 (匿名認証 / Bug 4 `/switch` クリック動作 /
+marketplace seed 等) を検証する専用 spec 群。本番 cognito E2E では再現不可なため別 config で分離。
+
+- **ローカル実行** (preview server 自動起動、port 5180):
+  ```bash
+  npm run test:e2e:demo
+  ```
+- **deploy 済 demo Lambda 検証** (preview server 起動せず prod URL を叩く):
+  ```bash
+  DEMO_BASE_URL=https://demo.ganbari-quest.com npm run test:e2e:demo
+  ```
+- **CI 実行条件** (`.github/workflows/ci.yml` §`e2e-demo-lambda` ジョブ):
+  - `area:demo` ラベル付きの PR
+  - main 押し up (`push` トリガー)
+  - 手動実行 (`gh workflow run ci.yml`)
+- **追加対象**: 新規 demo Lambda 固有動作 / `AnonymousAuthProvider` 仕様変更 / DEMO_WRITE_ALLOWLIST 増減 /
+  `src/lib/server/demo/demo-data.ts` 仕様変更 を伴う PR は本ディレクトリに回帰テスト追加
 
 ## 禁止事項
 
