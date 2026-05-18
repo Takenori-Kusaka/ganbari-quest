@@ -2,10 +2,12 @@
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
+type AddMode = 'manual' | 'import';
+
 interface Props {
 	hasFilter: boolean;
 	canAdd: boolean;
-	onAdd: () => void;
+	onAdd: (mode: AddMode) => void;
 }
 
 let { hasFilter, canAdd, onAdd }: Props = $props();
@@ -18,8 +20,21 @@ const L = FEATURES_LABELS.activityEmptyState;
 	<p class="empty-state__text">
 		{hasFilter ? L.filteredText : L.noActivities}
 	</p>
-	{#if canAdd}
-		<Button variant="primary" size="sm" onclick={onAdd}>
+	{#if canAdd && !hasFilter}
+		<Button variant="primary" size="sm" onclick={() => onAdd('manual')}>
+			{L.addBtn}
+		</Button>
+		<!-- bulk import bridge (EPIC #2253 / #2256) -->
+		<button
+			type="button"
+			class="empty-state__import-link"
+			data-testid="empty-state-import-link"
+			onclick={() => onAdd('import')}
+		>
+			{L.secondaryImportLink}
+		</button>
+	{:else if canAdd && hasFilter}
+		<Button variant="primary" size="sm" onclick={() => onAdd('manual')}>
 			{L.addBtn}
 		</Button>
 	{/if}
@@ -38,5 +53,19 @@ const L = FEATURES_LABELS.activityEmptyState;
 		font-size: 0.875rem;
 		color: var(--color-text-tertiary);
 		margin-bottom: 0.75rem;
+	}
+	.empty-state__import-link {
+		display: inline-block;
+		margin-top: 0.75rem;
+		font-size: 0.8125rem;
+		color: var(--color-text-link);
+		background: transparent;
+		border: none;
+		text-decoration: underline;
+		cursor: pointer;
+		padding: 0.25rem 0.5rem;
+	}
+	.empty-state__import-link:hover {
+		filter: brightness(0.85);
 	}
 </style>
