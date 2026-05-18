@@ -179,6 +179,17 @@ npx textlint "docs/zenn/**/*.md"
 - **Error**: 文体の混在（である/ですます）や明確なルール違反。原則として修正必須です。
 - **Warning**: （今後設定される場合）文脈によっては許容される可能性があるもの。ノイズであれば無視するか、ルール調整を検討してください。
 
+#### `--fix` 一括適用の禁止 (#2223 / #2243 教訓)
+
+**`textlint --fix` および `prh` の一括書換は使用禁止**。PR #2223 (Epic 2 / 142 files) で機械的誤変換 (`ユーザーローカル` → `ユーザーーローカル` の長音重複) と CommonMark 仕様外の `- - text` ネストが混入し、QM Tier 2 Review で BLOCK / Close 済の構造的事故が発生したため。
+
+**運用ルール**:
+
+1. **dry-run 必須**: `--fix` 適用前に常に `npx textlint "docs/zenn/**/*.md"` を実行し、提案された修正候補を目視確認する
+2. **ファイルごとの手動レビュー**: prh / preset-ja-spacing の自動補正は文脈次第で破壊的。**修正候補 1 件ずつ目視で受容判断**してから手動編集する
+3. **commit 前 diff 全件確認**: 機械生成を受け入れた場合でも commit 前に `git diff` で全件目視し、長音記号の重複・不正なネスト・意図しない置換を検知する
+4. **50 ファイル超は分割必須**: `docs/CLAUDE.md` §「巨大 docs refactor PR 分割ガイドライン」(#2225) に従い、50 files 超で警告 / 100 files 超で BLOCK。textlint 由来の大規模修正は同ガイドラインの対象
+
 #### CI 統合方針
 GitHub Actions (`zenn-lint.yml`) により、`docs/zenn/**` への変更時に自動で lint が実行されます。
 - 現在は導入初期のため `continue-on-error: true` (warning レベルの運用) としており、CI は失敗しません。
