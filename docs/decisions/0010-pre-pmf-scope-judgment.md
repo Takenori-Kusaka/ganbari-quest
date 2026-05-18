@@ -69,7 +69,7 @@
 - 法務・セキュリティ・コンプライアンス対応（選択の余地なし）
 - `type:fix` の既存機能保守
 
-### 7. OSS / UX prior art 先調査 + 機能完成度 8 層 15 項目判定 (#1350 / #2117 / #2139 / #2159 / #2171)
+### 7. OSS / UX prior art 先調査 + 機能完成度 9 層 17 項目判定 (#1350 / #2117 / #2139 / #2159 / #2171 / #2180)
 
 #### 7.1 OSS 先調査と Pre-PMF 導入コスト判断 (#1350)
 
@@ -132,16 +132,36 @@ Web Platform API (permission 系: Notification API / Geolocation API / Camera/Mi
 | **類似 component grep (SSOT 確認)** | 新規 component 実装前に `grep -rE "<.*Banner\|<.*Overlay" src/lib/ui/components/` 等で重複検出、既存統合 or 新規分離の判断 | PR 本文に grep 結果 + 判断ロジック記載 |
 | **語彙統一の年齢整合 (ADR-0015)** | ひらがな / 漢字混在は ADR-0015 `getLabel(key, ctx)` 整合確認、年齢別 variant 化 | labels.ts diff + 全年齢モード 5 種 SS 添付 |
 
-#### 7.6 機能完成度の定義 (permission 系 / marketplace 系 / 子供向け機能の境界)
+#### 7.6 ナビ / 情報アーキテクチャ系の 2 必須項目 (#2180 AN-5 由来)
+
+ナビ / 情報アーキテクチャ系 (NAV_CATEGORIES / admin-ia.md / 親管理画面ナビ / 子供画面ナビ 等の階層変更) を扱う Issue は以下 **2 必須項目** を AC に複製必須。Phase Admin-Nav-Restructure (#2176 EPIC) で発覚した「過去設計 SSOT 確認漏れ / ナビ 3 種同期変更漏れ」の構造的再発防止:
+
+| 項目 | 内容 | 確認手段 |
+|---|------|---------|
+| **過去設計整合性確認 (closed Issue / 設計書 / ADR の SSOT 突合)** | 起票時点で関連する過去 closed Issue / ADR / `docs/design/admin-ia.md` 等の設計書を grep で全件確認、「現状 SSOT」と「本 Issue 提案」の差分を明示。subject-first 等の業界 prior art 整合根拠も併記 | Issue 本文に過去 SSOT 差分表 + prior art 引用 (Family Link / iOS HIG / Material 3 等) |
+| **ナビ 3 種 (デスクトップ + モバイル + ボトムナビ) 統合変更時の SSOT 確認** | `AdminLayout.svelte` + `AdminMobileNav.svelte` + `BottomNav.svelte` の 3 種を grep で網羅、1-2 種だけ変更する漏れがないか確認。labels.ts SSOT 経由で 3 種同期反映を担保 | PR 本文に grep 結果 + 3 種への反映確認 |
+
+Phase Admin-Nav-Restructure 由来の累積観察 6 件目 (Push-3 #2117 / MP-4 #2139 / Phase Category-Collapsible #2148 / Phase Reward-Shop-UX #2154 / Phase Milestone-Notification-UX #2167 / Phase Admin-Nav-Restructure #2176) と同型の「設計優先度変更」パターン。本項目で「subject-first 等の業界 prior art を見もしないまま頻度ベース分類で確定」の再発を防ぐ。
+
+#### 7.7 機能完成度の定義 (permission 系 / marketplace 系 / 子供向け機能 / ナビ系の境界)
 
 | カテゴリ | 該当例 | 判定基準 | 必須項目数 |
 |---------|--------|---------|---------|
 | **permission 系** | Web Push / Notification / Geolocation / Camera / Microphone / Clipboard / Bluetooth | Web Platform API + ブラウザ permission ダイアログ介在 | 5 項目 (§7.2) |
 | **marketplace 系** | activity-pack / reward-set / event-checklist / rule-preset | 取込 → アプリ機能反映 の 2 hop 構造 | 4 項目 (§7.3) |
 | **子供向け機能** | 子供画面で表示 / 操作 / 通知される機能 (ごほうび / バッジ / ミルストン / 通知 等) | 子供画面 (`/(child)/[uiMode=uiMode]/*`) で UI 露出 | 3+3 = 6 項目 (§7.4 + §7.5) |
-| **対象外** | 単一画面の CRUD / 内部設定変更 / refactor | 上記 3 カテゴリのいずれにも該当しない | 0 項目 |
+| **ナビ / 情報アーキテクチャ系** | NAV_CATEGORIES 改訂 / admin-ia.md / 親管理画面ナビ階層 / 子供画面ナビ階層 | ナビカテゴリ追加・削除・上位下位移動 | 2 項目 (§7.6) |
+| **対象外** | 単一画面の CRUD / 内部設定変更 / refactor | 上記 4 カテゴリのいずれにも該当しない | 0 項目 |
 
-複数カテゴリ該当時は全該当層を AC に列挙 (例: 子供向け + permission 系 = 5+3+3 = 11 項目、最大 8 層 15 項目)。
+複数カテゴリ該当時は全該当層を AC に列挙 (例: 子供向け + permission 系 + ナビ系 = 5+3+3+2 = 13 項目、最大 9 層 17 項目)。
+
+#### 7.8 retroactive 検証 (#2180 AC4)
+
+Phase Admin-Nav-Restructure 完了時の retroactive 検証で「過去 closed Issue (#337 / #1396 / #1395) で本 §7.6 の 2 項目があれば、補佐の前回『過去設計乖離』誤判定 (実は admin-ia.md v1.0 と整合) が回避できたか」を確認する。
+
+- **#337 (2026-04-04)**: 4 カテゴリ設計時、subject-first 等の業界 prior art 引用なし → §7.6 ①「過去設計整合性確認」+ Family Link 等 prior art 引用が AC にあれば、起票時に subject-first 採否を議論できた
+- **#1395 / #1396 (2026-04-26-27)**: admin-ia.md v1.0 + 5 tab 実装、ナビ 3 種同期は実施済だが「将来 family グループ拡張視点」未言及 → §7.6 ② 自体は実施済だが、subject-first 観点での将来設計余白が AC 不在
+- **結論**: 本 §7.6 の 2 項目があれば、本 Phase Admin-Nav-Restructure で発生した「補佐誤判定」+「PO 違和感の構造的素早検出」が起票時点で達成可能。今後 retroactive 適用は新規 Issue のみ対象 (closed Issue は git 履歴で保全、修正なし)。
 
 判定不明な場合は補佐の deep research (`.claude/skills/issue-triage/SKILL.md` 手順 C) で業界 prior art を 3-5 件調査して判定する。
 

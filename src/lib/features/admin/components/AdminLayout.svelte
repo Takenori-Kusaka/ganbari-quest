@@ -86,7 +86,18 @@ const planLabel = $derived.by(() => {
 	return '';
 });
 
+// #2178 (EPIC #2176 / admin-ia.md v2.0): 5 tab 構成 (ホーム + 家族 + 活動 + 記録 + 設定)。
+// こども・メンバーを family カテゴリに移動 (subject-first 上位化、Family Link 流)。
 const navCategories: NavCategory[] = $derived([
+	{
+		id: 'family',
+		label: NAV_CATEGORIES.family.label,
+		icon: NAV_CATEGORIES.family.icon,
+		items: [
+			{ href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },
+			{ href: `${basePath}/members`, label: NAV_ITEM_LABELS.members, icon: '👥' },
+		],
+	},
 	{
 		id: 'activity',
 		label: NAV_CATEGORIES.activity.label,
@@ -98,7 +109,7 @@ const navCategories: NavCategory[] = $derived([
 			{ href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
 			// #1170: マケプレをグローバルナビ昇格（activity の一員として導線短縮）
 			{ href: '/marketplace', label: NAV_ITEM_LABELS.marketplace, icon: '🛍️' },
-			{ href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },
+			// #2178: こども → family カテゴリへ移動済
 		],
 	},
 	{
@@ -123,7 +134,7 @@ const navCategories: NavCategory[] = $derived([
 			{ href: `${basePath}/settings`, label: NAV_ITEM_LABELS.settings, icon: '⚙️' },
 			{ href: `${basePath}/license`, label: NAV_ITEM_LABELS.license, icon: '💎' },
 			{ href: `${basePath}/billing`, label: NAV_ITEM_LABELS.billing, icon: '🧾' },
-			{ href: `${basePath}/members`, label: NAV_ITEM_LABELS.members, icon: '👥' },
+			// #2178: メンバー → family カテゴリへ移動済
 		],
 	},
 ]);
@@ -239,7 +250,7 @@ function isItemActive(itemHref: string): boolean {
 		</div>
 	</header>
 
-	<!-- Desktop Navigation (>=768px) — ホーム + 3カテゴリ + ドロップダウン -->
+	<!-- Desktop Navigation (>=768px) — ホーム + 4カテゴリ (家族/活動/記録/設定) + ドロップダウン (#2178) -->
 	<nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2" aria-label={FEATURES_LABELS.adminLayout.desktopNavAriaLabel} data-tutorial="nav-desktop">
 		<div class="max-w-4xl mx-auto flex gap-1">
 			<!-- ホームリンク（dropdown なし） -->
@@ -311,7 +322,7 @@ function isItemActive(itemHref: string): boolean {
 		{/if}
 	</main>
 
-	<!-- Mobile Bottom Navigation (<768px) — 4カテゴリ -->
+	<!-- Mobile Bottom Navigation (<768px) — 5 tab (ホーム + 家族/活動/記録/設定) (#2178) -->
 	<nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom" aria-label={FEATURES_LABELS.adminLayout.mobileNavAriaLabel} data-tutorial="nav-primary">
 		<!-- Expanded submenu panel -->
 		{#if mobileExpandedCategory}
@@ -523,21 +534,21 @@ function isItemActive(itemHref: string): boolean {
 		color: var(--plan-nav-text, var(--color-brand-700));
 		font-weight: 600;
 	}
-	/* Mobile nav — category buttons */
+	/* Mobile nav — category buttons (#2178: 5-tab width tightened 4.5rem -> 3.75rem to fit iPhone SE 375px) */
 	.mobile-nav-item {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: 2px;
-		width: 4.5rem;
+		width: 3.75rem;
 		height: 100%;
 		transition: color 0.15s;
 		color: var(--color-text-tertiary, #9ca3af);
 		border: none;
 		background: none;
 		cursor: pointer;
-		padding: 0;
+		padding: 0 2px;
 	}
 	.mobile-nav-item:hover {
 		color: var(--color-text-secondary, #4b5563);
