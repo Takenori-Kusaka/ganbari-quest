@@ -93,15 +93,16 @@ body:
   - type: textarea
     id: auxiliary-feature-ux-checklist
     attributes:
-      label: 機能完成度 checklist 8 層 15 項目（permission / marketplace / 子供向け機能のみ必須、#2117 / #2139 / #2159 / #2171）
+      label: 機能完成度 checklist 9 層 17 項目（permission / marketplace / 子供向け機能 / ナビ・情報アーキテクチャ系のみ必須、#2117 / #2139 / #2159 / #2171 / #2180）
       description: |
         以下のいずれかに該当する Issue は該当層の checklist を AC として複製する。
-        該当しない Issue は「N/A（permission / marketplace / 子供向け機能ではない）」と明記。
+        該当しない Issue は「N/A（permission / marketplace / 子供向け機能 / ナビ系ではない）」と明記。
         SSOT: ADR-0010 §7 / `.claude/skills/issue-triage/SKILL.md`。
 
         - permission 系: Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard 等)
         - marketplace 系: 一覧 + 詳細 + import + アプリ反映の 2 hop 構造
         - 子供向け機能 (#2159 RS-5 由来 3 項目 + #2171 MN-4 由来 3 項目): 子供画面で表示 / 操作 / 通知される機能
+        - **ナビ / 情報アーキテクチャ系 (#2180 AN-5 由来 2 項目)**: NAV_CATEGORIES / admin-ia.md / 親管理画面ナビ / 子供画面ナビ 等 ナビ階層変更
       value: |
         <!-- permission 系 5 項目 (#2117): 該当する場合 AC に複製 -->
         - [ ] **Loading state**: 非同期処理中の UI 状態 (spinner / disabled)
@@ -126,7 +127,11 @@ body:
         - [ ] **類似 component grep (SSOT 確認)**: 新規 component 実装前に `grep -rE "<.*Banner\|<.*Overlay" src/lib/ui/components/` 等で重複検出、既存統合 or 新規分離の判断
         - [ ] **語彙統一の年齢整合 (ADR-0015)**: ひらがな / 漢字混在は ADR-0015 `getLabel(key, ctx)` 整合確認、年齢別 variant 化
 
-        または: N/A（permission / marketplace / 子供向け機能ではない Issue）
+        <!-- ナビ / 情報アーキテクチャ系 2 項目 (#2180 AN-5): 該当する場合 AC に複製 -->
+        - [ ] **過去設計整合性確認 (closed Issue / 設計書 / ADR の SSOT 突合)**: 起票時点で関連する過去 closed Issue / ADR / `docs/design/admin-ia.md` 等の設計書を grep で全件確認、「現状 SSOT」と「本 Issue 提案」の差分を明示。subject-first 等の業界 prior art 整合根拠も併記
+        - [ ] **ナビ 3 種 (デスクトップ + モバイル + ボトムナビ) 統合変更時の SSOT 確認**: `AdminLayout.svelte` + `AdminMobileNav.svelte` + `BottomNav.svelte` の 3 種を grep で網羅、1-2 種だけ変更する漏れがないか確認。labels.ts SSOT 経由で 3 種同期反映を担保
+
+        または: N/A（permission / marketplace / 子供向け機能 / ナビ系ではない Issue）
     validations:
       required: false
 
