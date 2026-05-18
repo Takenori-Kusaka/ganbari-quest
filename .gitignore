@@ -19,7 +19,11 @@ dist/
 *.db.bak.*
 
 # IDE
-.vscode/
+# #2183: .vscode/ は team 共有設定 (settings.json / extensions.json) のみ追跡。
+# 個人 keybindings / launch.json / theme 等は ignore で個別除外
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo

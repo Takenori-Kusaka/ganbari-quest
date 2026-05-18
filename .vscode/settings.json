@@ -1,0 +1,65 @@
+{
+	"// SSOT": "リポジトリ共有 VSCode 設定 (#2183、Anthropic Claude Code best practices LSP 統合推奨)",
+	"// 個人設定": "keybindings.json / theme 等は .gitignore で個別除外。本ファイルは team 共有値のみ",
+
+	"// TypeScript LSP": "node_modules/typescript を使う (project-pinned 版で TS バージョン揺れ防止)",
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"typescript.enablePromptUseWorkspaceTsdk": true,
+
+	"// Svelte LSP": "TS Plugin を有効化 (Anthropic 公式記事推奨: シンボル解決を text grep より優先)",
+	"svelte.enable-ts-plugin": true,
+	"svelte.plugin.svelte.compilerWarnings": {
+		"css-unused-selector": "ignore"
+	},
+
+	"// Format on save": "CI で biome 一括整形 + check するためエディタ自動 format は無効化",
+	"editor.formatOnSave": false,
+
+	"// Biome default formatter": "Svelte / TS / JSON は Biome に統一",
+	"[typescript]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[javascript]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[json]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[jsonc]": {
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[svelte]": {
+		"editor.defaultFormatter": "svelte.svelte-vscode"
+	},
+
+	"// File associations": "*.svelte は svelte.svelte-vscode に解決",
+	"files.associations": {
+		"*.svelte": "svelte"
+	},
+
+	"// Search / file excludes": "node_modules / build artifacts を grep 対象外にして高速化",
+	"files.exclude": {
+		"**/node_modules": true,
+		"**/.svelte-kit": true,
+		"**/build": true,
+		"**/dist": true,
+		"**/.vitest-reports": true,
+		"**/playwright-report": true,
+		"**/test-results": true,
+		"**/coverage": true
+	},
+	"search.exclude": {
+		"**/node_modules": true,
+		"**/.svelte-kit": true,
+		"**/build": true,
+		"**/dist": true,
+		"**/coverage": true,
+		"**/storybook-static": true,
+		"**/*.lock": true,
+		"**/package-lock.json": true
+	},
+
+	"// Eslint / Stylelint validate": "playwright ファイルは ts として lint",
+	"eslint.validate": ["typescript", "javascript", "svelte"],
+	"stylelint.validate": ["css", "svelte"]
+}
