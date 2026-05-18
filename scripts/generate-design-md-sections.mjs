@@ -17,7 +17,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const DESIGN_MD = resolve(ROOT, 'docs/DESIGN.md');
+const DESIGN_MD = resolve(ROOT, 'DESIGN.md');
 
 // --- Color Tokens ---
 function extractSemanticTokens() {
