@@ -164,6 +164,9 @@ jobs:
       - name: Hardcoded JP text baseline check (#1452 Phase A / #1465 Phase A)
         run: node scripts/check-hardcoded-strings.mjs
 
+      - name: Document code references check (#2215)
+        run: node scripts/check-doc-code-references.mjs
+
       - name: LP SSOT HTML baseline check (#1465 Phase A)
         run: node scripts/check-lp-ssot.mjs
 
