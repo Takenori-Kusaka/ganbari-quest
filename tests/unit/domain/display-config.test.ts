@@ -9,9 +9,12 @@ import {
 
 describe('DisplayConfig', () => {
 	describe('getDefaultDisplayConfig', () => {
-		test('Baby (0-2歳) は large カード + 6件 + 折りたたみ', () => {
+		// #2148 (γ 採用): 子供画面では collapsible は全年齢で false 固定。
+		// 業界 prior art 7/7 整合、ADR-0012 Anti-engagement 整合。
+		// 詳細: docs/reference/07-research-child-collapsible-prior-art.md
+		test('Baby (0-2歳) は large カード + 6件 + 折りたたみなし (#2148)', () => {
 			const config = getDefaultDisplayConfig(1);
-			expect(config).toEqual({ cardSize: 'large', itemsPerCategory: 6, collapsible: true });
+			expect(config).toEqual({ cardSize: 'large', itemsPerCategory: 6, collapsible: false });
 		});
 
 		test('Kinder (3-5歳) は medium カード + 無制限 + 折りたたみなし', () => {
@@ -19,9 +22,9 @@ describe('DisplayConfig', () => {
 			expect(config).toEqual({ cardSize: 'medium', itemsPerCategory: 0, collapsible: false });
 		});
 
-		test('Elementary (6歳以上) は small カード + 8件 + 折りたたみ', () => {
+		test('Elementary (6歳以上) は small カード + 8件 + 折りたたみなし (#2148)', () => {
 			const config = getDefaultDisplayConfig(7);
-			expect(config).toEqual({ cardSize: 'small', itemsPerCategory: 8, collapsible: true });
+			expect(config).toEqual({ cardSize: 'small', itemsPerCategory: 8, collapsible: false });
 		});
 
 		test('0歳は Baby デフォルト', () => {
@@ -91,7 +94,8 @@ describe('DisplayConfig', () => {
 		test('不正な collapsible はデフォルトにフォールバック', () => {
 			const json = JSON.stringify({ cardSize: 'small', itemsPerCategory: 5, collapsible: 'yes' });
 			const config = parseDisplayConfig(json, 7);
-			expect(config.collapsible).toBe(true); // Elementary default
+			// #2148 (γ 採用): 全年齢で collapsible=false 固定
+			expect(config.collapsible).toBe(false);
 		});
 
 		test('部分的な設定は欠損部分だけデフォルト', () => {

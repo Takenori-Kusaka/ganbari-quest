@@ -49,9 +49,11 @@ const icon = $derived(catDef?.icon ?? '');
 
 const css = $derived(CARD_SIZE_CSS[cardSize]);
 // Collapsible state — compactMode変更に追従
+// #2148: collapsible=false の場合は expanded を常に true 固定（子供画面の誤タップ全消失対策、γ 採用 / 業界 prior art 7/7 整合）。
+// 詳細: docs/reference/07-research-child-collapsible-prior-art.md
 let expanded = $state(true);
 $effect(() => {
-	expanded = !compactMode;
+	expanded = collapsible ? !compactMode : true;
 });
 const shouldCollapse = $derived(
 	collapsible && itemsPerCategory > 0 && itemCount > itemsPerCategory,
@@ -67,49 +69,88 @@ function xpBarPct(xp: CategoryXpInfo): number {
 }
 
 function toggleExpand() {
+	// #2148: collapsible=false の場合は折りたたみ操作自体を無効化
+	if (!collapsible) return;
 	expanded = !expanded;
 }
 </script>
 
 <section class="mb-[var(--sp-sm)]">
 	<!-- Category header (always visible) -->
-	<button
-		class="flex items-center gap-1 mb-1 px-1 w-full text-left"
-		onclick={toggleExpand}
-		data-testid="category-header-{categoryId}"
-	>
-		{#if compactMode}
-			<span class="text-xl">{icon}</span>
-		{/if}
-		<h2 class="flex items-center gap-1">
-			<span
-				class="w-1 h-4 rounded-[var(--radius-full)]"
-				style:background-color={accent}
-				aria-hidden="true"
-			></span>
-			<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
-		</h2>
-		{#if missionCount > 0}
-			<span class="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
-				{completedMissionCount}/{missionCount}
-			</span>
-		{/if}
-		{#if xpInfo}
-			<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
-			<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
-				<div
-					class="h-full rounded-full xp-bar__fill"
-					class:xp-bar--animating={xpAnimating}
-					style:width="{xpBarPct(xpInfo)}%"
-				style:background-color={accent}
-				></div>
-			</div>
-			<span class="text-[10px] text-[var(--color-text-muted)] tabular-nums w-8 text-right">{Math.round(xpBarPct(xpInfo))}%</span>
-		{/if}
-		{#if compactMode}
-			<span class="text-xs text-[var(--color-text-muted)] ml-1">{expanded ? '▲' : '▼'}</span>
-		{/if}
-	</button>
+	<!-- #2148: collapsible=false の場合はヘッダーを button ではなく div で描画し、誤タップ全消失を物理的に排除（γ 採用）。 -->
+	{#if collapsible}
+		<button
+			class="flex items-center gap-1 mb-1 px-1 w-full text-left"
+			onclick={toggleExpand}
+			data-testid="category-header-{categoryId}"
+		>
+			{#if compactMode}
+				<span class="text-xl">{icon}</span>
+			{/if}
+			<h2 class="flex items-center gap-1">
+				<span
+					class="w-1 h-4 rounded-[var(--radius-full)]"
+					style:background-color={accent}
+					aria-hidden="true"
+				></span>
+				<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
+			</h2>
+			{#if missionCount > 0}
+				<span class="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
+					{completedMissionCount}/{missionCount}
+				</span>
+			{/if}
+			{#if xpInfo}
+				<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
+				<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
+					<div
+						class="h-full rounded-full xp-bar__fill"
+						class:xp-bar--animating={xpAnimating}
+						style:width="{xpBarPct(xpInfo)}%"
+					style:background-color={accent}
+					></div>
+				</div>
+				<span class="text-[10px] text-[var(--color-text-muted)] tabular-nums w-8 text-right">{Math.round(xpBarPct(xpInfo))}%</span>
+			{/if}
+			{#if compactMode}
+				<span class="text-xs text-[var(--color-text-muted)] ml-1">{expanded ? '▲' : '▼'}</span>
+			{/if}
+		</button>
+	{:else}
+		<div
+			class="flex items-center gap-1 mb-1 px-1 w-full text-left"
+			data-testid="category-header-{categoryId}"
+		>
+			{#if compactMode}
+				<span class="text-xl">{icon}</span>
+			{/if}
+			<h2 class="flex items-center gap-1">
+				<span
+					class="w-1 h-4 rounded-[var(--radius-full)]"
+					style:background-color={accent}
+					aria-hidden="true"
+				></span>
+				<span class="text-xs font-bold text-[var(--color-text-muted)]">{name}</span>
+			</h2>
+			{#if missionCount > 0}
+				<span class="text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
+					{completedMissionCount}/{missionCount}
+				</span>
+			{/if}
+			{#if xpInfo}
+				<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
+				<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
+					<div
+						class="h-full rounded-full xp-bar__fill"
+						class:xp-bar--animating={xpAnimating}
+						style:width="{xpBarPct(xpInfo)}%"
+					style:background-color={accent}
+					></div>
+				</div>
+				<span class="text-[10px] text-[var(--color-text-muted)] tabular-nums w-8 text-right">{Math.round(xpBarPct(xpInfo))}%</span>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Activity grid (expandable in compact mode) -->
 	{#if expanded}
