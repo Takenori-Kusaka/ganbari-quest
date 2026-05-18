@@ -18,6 +18,9 @@ const BASE_TEST_IGNORE = [
 	'**/plan-family.spec.ts',
 	'**/plan-free.spec.ts',
 	'**/premium-welcome.spec.ts',
+	// #2115 / #2116: NotificationPermissionBanner E2E は cognito-dev モード専用
+	// (storageState=playwright/.auth/standard.json を使い /admin/* に到達する)
+	'**/notification-permission-banner.spec.ts',
 	// #752: トライアルフロー E2E は cognito-dev モード専用
 	'**/trial-flow.spec.ts',
 	// #805: /ops E2E は cognito-dev モード専用（ops group の認可テストに email/password ログインが必要）

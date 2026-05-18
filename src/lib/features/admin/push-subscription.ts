@@ -59,9 +59,9 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
 		applicationServerKey: urlBase64ToUint8Array(vapidKey).buffer as ArrayBuffer,
 	});
 
-	// サーバーに購読情報を送信
+	// サーバーに購読情報を送信 (#2115 AC6: silent 失敗防止のため .ok を必ず判定)
 	const keys = subscription.toJSON().keys;
-	await fetch('/api/v1/notifications/subscribe', {
+	const res = await fetch('/api/v1/notifications/subscribe', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({
@@ -72,6 +72,12 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
 			},
 		}),
 	});
+
+	if (!res.ok) {
+		// サーバー保存失敗時はブラウザ側 subscription も解除して整合性維持
+		await subscription.unsubscribe().catch(() => undefined);
+		throw new Error(`subscribe API failed: ${res.status}`);
+	}
 
 	return subscription;
 }
