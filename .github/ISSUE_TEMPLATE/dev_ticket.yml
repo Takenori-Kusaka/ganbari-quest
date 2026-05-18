@@ -93,11 +93,15 @@ body:
   - type: textarea
     id: auxiliary-feature-ux-checklist
     attributes:
-      label: 補助機能 UX 完成度 checklist（permission 系 / marketplace 系のみ必須、#2117 / #2139）
+      label: 機能完成度 checklist 8 層 15 項目（permission / marketplace / 子供向け機能のみ必須、#2117 / #2139 / #2159 / #2171）
       description: |
-        Web Platform API (permission 系: Notification / Geolocation / Camera / Microphone / Clipboard 等)、または marketplace 系 (一覧 + 詳細 + import + アプリ反映) を扱う Issue は以下 checklist を AC として複製する。
-        該当しない Issue は「N/A（permission/marketplace 系ではない）」と明記。
+        以下のいずれかに該当する Issue は該当層の checklist を AC として複製する。
+        該当しない Issue は「N/A（permission / marketplace / 子供向け機能ではない）」と明記。
         SSOT: ADR-0010 §7 / `.claude/skills/issue-triage/SKILL.md`。
+
+        - permission 系: Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard 等)
+        - marketplace 系: 一覧 + 詳細 + import + アプリ反映の 2 hop 構造
+        - 子供向け機能 (#2159 RS-5 由来 3 項目 + #2171 MN-4 由来 3 項目): 子供画面で表示 / 操作 / 通知される機能
       value: |
         <!-- permission 系 5 項目 (#2117): 該当する場合 AC に複製 -->
         - [ ] **Loading state**: 非同期処理中の UI 状態 (spinner / disabled)
@@ -112,7 +116,17 @@ body:
         - [ ] **アプリ反映層**: 取込後に既存機能 (special_rewards / checklist_templates / settings 等) と整合動作
         - [ ] **setup 連携層**: 新規ユーザー setup フローで一括追加経路あり
 
-        または: N/A（permission/marketplace 系ではない補助機能ではない Issue）
+        <!-- 子供向け機能 3 項目 (#2159 RS-5): 該当する場合 AC に複製 -->
+        - [ ] **業界 prior art 比較 (3 件以上)**: 子供向け対象 (Khan Academy Kids / Duolingo ABC / Lingokids 等) の同等機能を最低 3 件比較、UX チープさを起票時点で検出
+        - [ ] **レスポンシブ完成度 (5 breakpoint)**: PC / Tablet / Mobile (375 / 768 / 1024 / 1280 / 1440) の 5 breakpoint で表示確認、PC 1 列中央寄せ等の崩れなし
+        - [ ] **感情演出完成度 (3 層)**: 祝福 (達成時) / 達成感 (完了時) / フィードバック (操作時) の 3 層演出、子供 UX コア体験のチープさ防止
+
+        <!-- 子供向け機能 3 項目 (#2171 MN-4): 該当する場合 AC に複製 -->
+        - [ ] **対象ペルソナと表示画面の整合性**: 起票時点で「誰 (P1 親 / P2 子供 / ops) がどこ (子供画面 / 親画面 / ops 画面) で使うか」明示、実装後に再確認
+        - [ ] **類似 component grep (SSOT 確認)**: 新規 component 実装前に `grep -rE "<.*Banner\|<.*Overlay" src/lib/ui/components/` 等で重複検出、既存統合 or 新規分離の判断
+        - [ ] **語彙統一の年齢整合 (ADR-0015)**: ひらがな / 漢字混在は ADR-0015 `getLabel(key, ctx)` 整合確認、年齢別 variant 化
+
+        または: N/A（permission / marketplace / 子供向け機能ではない Issue）
     validations:
       required: false
 

@@ -108,6 +108,22 @@ DEBUG_PLAN=standard DEBUG_TRIAL=active DEBUG_TRIAL_TIER=family npx playwright te
 
 詳細: `src/lib/server/debug-plan.ts` / `.env.example`
 
+## 局所テストコマンド (#2184)
+
+tests 配下のみ修正 / 個別 spec デバッグ時は全体実行を待たず以下で高速検証:
+
+```bash
+npx vitest run tests/unit/<subdir>/                             # unit test 個別実行
+npx vitest run tests/unit/db/                                   # DB 層 unit test
+npx vitest run tests/unit/services/                             # service 層 unit test
+npx playwright test tests/e2e/<spec>.spec.ts                    # E2E 個別 spec
+npx playwright test tests/e2e/<spec>.spec.ts --grep "<title>"   # spec 内テスト個別
+npx playwright test tests/e2e/<spec>.spec.ts --debug            # ヘッドフルデバッグ
+npm run test:storybook                                          # Storybook test
+```
+
+SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマンド SSOT」。Ready 化前は `npm run pre-ready -- --pr <num>` で全 step PASS が必須。
+
 ## cron E2E テスト
 
 `/api/cron/*` エンドポイントは `tests/e2e/helpers.ts` の cron ヘルパー必須:
