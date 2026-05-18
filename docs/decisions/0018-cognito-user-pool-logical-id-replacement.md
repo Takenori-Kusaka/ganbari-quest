@@ -7,7 +7,10 @@
 
 ## 背景
 
-ADR-0017 で `email: { mutable: false → true }` を CloudFormation に deploy したところ、AWS::Cognito::UserPool の `Mutable` 属性変更は `Update requires: Replacement` とドキュメント記載があるにも関わらず、実際には **CloudFormation が in-place UpdateUserPool を試行** し、Cognito から `Invalid AttributeDataType input` を受けて `UPDATE_ROLLBACK_FAILED` で stuck した。
+- ADR-0017 で `email: { mutable: false → true }` を CloudFormation に deploy した。
+- AWS::Cognito::UserPool の `Mutable` 属性変更はドキュメント上 `Update requires: Replacement` と記載されている。
+- しかし実際には **CloudFormation が in-place UpdateUserPool を試行** した。
+- 結果、Cognito から `Invalid AttributeDataType input` を受け、`UPDATE_ROLLBACK_FAILED` で stuck した。
 
 ADR-0017 ポストモーテム（2026-04-21 07:43 JST 記録）で以下が判明:
 
@@ -136,7 +139,9 @@ aws cognito-idp delete-user-pool-domain \
 
 ### 問題 2: `UserPoolClient: "The provider Google does not exist"`
 
-新 Pool の `UserPoolClient` (`supportedIdentityProviders: [COGNITO, GOOGLE]` 指定) が、`UserPoolIdentityProviderGoogle` 作成完了より先に CloudFormation で作成開始され、Google IdP 未登録エラーで失敗した。CDK の暗黙依存は UserPool への参照しか張られず、IdP と Client は並列作成される。
+- 新 Pool の `UserPoolClient` (`supportedIdentityProviders: [COGNITO, GOOGLE]` 指定) は、`UserPoolIdentityProviderGoogle` 作成完了より先に CloudFormation で作成開始された。
+- 結果、Google IdP 未登録エラーで失敗した。
+- CDK の暗黙依存は UserPool への参照しか張られず、IdP と Client は並列作成される。
 
 **対処**: `auth-stack.ts` で `userPoolClient.node.addDependency(googleIdP)` を明示的に追加。これで CloudFormation が GoogleIdP を先に作成してから Client を作成する。
 

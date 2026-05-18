@@ -17,17 +17,23 @@ PR #1705 の QM レビューで以下 3 点が観察された:
 2. **DOMPurify は `dompurify@3` major pin で運用** — `3.4.x → 3.4.y` の patch を CDN 経由で自動取り込みする方針 (#1705)。SRI を `sha384-...` で固定すると CDN 配信物のバイト列が変わった瞬間にロード失敗 → LP 全停止のリスクがある（major pin と SRI の両立は構造的に不可能）。
 3. **LP 全 10 ページ (`site/*.html` + `site/help/*.html`) に CSP (Content-Security-Policy) ヘッダーも meta tag も無い** — `<script>` インライン実行や任意 origin からのリソース読み込みが許可されたまま。SvelteKit 側 (`hooks.server.ts`) は `default-src 'self'; script-src 'self' 'unsafe-inline'; ...` を全レスポンスに付与済み（ADR-0024 / `docs/design/14-セキュリティ設計書.md §7.1`）だが、`site/**` は SvelteKit 経由でない静的配信のため対象外。
 
-GitHub Pages では HTTP レスポンスヘッダー（`Content-Security-Policy:`）を制御できず、`<meta http-equiv="Content-Security-Policy">` で対応する必要がある。`frame-ancestors` / `report-uri` / `sandbox` は meta では効かないが、本 LP の脅威モデル (静的配信 + analytics 無し + 認証無し) では他指令で十分。
+- GitHub Pages では HTTP レスポンスヘッダー（`Content-Security-Policy:`）を制御できない。
+- そのため `<meta http-equiv="Content-Security-Policy">` で対応する必要がある。
+- `frame-ancestors` / `report-uri` / `sandbox` は meta では効かない。
+- しかし、本 LP の脅威モデル (静的配信 + analytics 無し + 認証無し) では他指令で十分である。
 
 ## 検討した選択肢（OSS / 確立パターン調査 — #1350）
 
-調査した一次資料:
-- **OWASP Cheat Sheet — Content Security Policy**: 静的サイトでも meta tag CSP を最低限の防御として推奨。`script-src` は origin allowlist + `'self' 'unsafe-inline'` の組合せで段階導入が現実的とされている
+- 調査した一次資料:
+- **OWASP Cheat Sheet — Content Security Policy**: 静的サイトでも meta tag CSP を最低限の防御として推奨。
+- `script-src` は origin allowlist + `'self' 'unsafe-inline'` の組合せで段階導入が現実的とされている
 - **MDN Web Docs — `<meta http-equiv="Content-Security-Policy">`**: HTTP ヘッダーが使えない GitHub Pages 等の静的ホスト向けに meta tag CSP の例を提示
 - **GitHub Pages 公式 docs**: HTTP ヘッダー制御は不可、CSP は HTML 内で完結させる必要がある明記
-- **MDN — Subresource Integrity**: SRI は **「特定バージョンに pin した時のみ意味がある」**。バージョンレンジ (`@3` / `@latest`) と SRI は両立しない（CDN 配信物の bytes が変われば即破綻）
-- **jsDelivr Best Practices**: 「production では SRI を必ず使え。ただし pin range には使うな」と公式 doc が明記
-- **OWASP Web Security Testing Guide — WSTG-CONFIG-12**: 「CSP の `default-src 'self'` + 限定的な script-src ホワイトリストが最低ライン」
+- **MDN — Subresource Integrity**: SRI は **「特定バージョンに pin した時のみ意味がある」**。
+- バージョンレンジ (`@3` / `@latest`) と SRI は両立しない（CDN 配信物の bytes が変われば即破綻）
+- **jsDelivr Best Practices**: 「production では SRI を必ず使え。
+- ただし pin range には使うな」と公式 doc が明記
+- **OWASP Web Security Testing Guide — WSTG-CONFIG-12**: 「CSP の `default-src 'self'` + 限定的な script-src ホワイトリストが最低ライン」。
 
 ### 選択肢 A: SRI 完全固定 + 手動更新（A 案）
 

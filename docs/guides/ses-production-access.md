@@ -82,7 +82,7 @@ aws ses get-account --region us-east-1
 We operate "Ganbari Quest" (https://ganbari-quest.com), a family-oriented web
 application that gamifies children's daily activities to motivate good habits.
 
-Email use cases (all transactional, no marketing):
+- Email use cases (all transactional, no marketing):
 1. Account verification: confirmation code when a parent signs up (via Amazon Cognito)
 2. Password reset: reset code when a parent requests password recovery (via Amazon Cognito)
 3. Support auto-reply: automatic acknowledgment when a user emails support@ganbari-quest.com
@@ -91,7 +91,7 @@ Expected volume:
 - Initial phase: fewer than 100 emails/day
 - Growth phase: up to 1,000 emails/day
 
-Bounce/complaint handling:
+- Bounce/complaint handling:
 - We have configured an SES Configuration Set ("ganbari-quest-config") with
   SNS event destinations for bounces and complaints.
 - Bounce and complaint notifications are sent to dedicated SNS topics for monitoring.

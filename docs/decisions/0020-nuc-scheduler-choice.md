@@ -58,6 +58,7 @@ NUC Docker 環境で `/api/cron/license-expire` / `/api/cron/retention-cleanup` 
 **選択肢 B（node-cron + 専用コンテナ）** を採用する。
 
 理由:
+
 1. `schedule-registry.ts` を SSOT として直接 import でき、二重管理が不要
 2. TypeScript で schedule 定義が型安全（`CronJob` 型）
 3. docker-compose `profiles: scheduler` で opt-in、通常開発に影響なし

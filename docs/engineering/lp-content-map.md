@@ -73,8 +73,10 @@ upper 年齢 (junior/senior) の差別化実装候補は **文部科学省キャ
 
 ### RPG バトルの位置づけ
 
-daily trio (stamp card / omikuji / battle) の 3 つ目。プレイ機能ではなく **累積努力の視覚化儀式**。
-baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-BATTLE-UNLOCK) 参照。
+- daily trio (stamp card / omikuji / battle) の 3 つ目。
+- プレイ機能ではなく **累積努力の視覚化儀式**。
+- baby/preschool では 404、elementary+ で通常動作。
+- 詳細は #1323 (B4+5-BATTLE-UNLOCK) 参照。
 
 ゲーミフィケーション設計書 `docs/design/26-ゲーミフィケーション設計書.md` §バトル (年齢帯解放仕様) も併読すること (実装実体の SSOT)。
 
@@ -263,9 +265,9 @@ LP 9 セクションを 4 トーンに分類し、各トーンに「規範のど
 
 ##### §1. 設計背景（why）
 
-ADR-0023 §5 I5 / C-Q10 で特定された **LP 離脱要因 #1 = 「LP で価値が伝わらない」**。
-保護者 P1（35 歳共働き）が LP に来て 30 秒で離脱判断する直前、「シール帳・ホワイトボードでも代用できそう、わざわざアプリにする必要ある？」という疑問に直面する。
-アナログは子供のユーザービリティ（パッと見・即アクション）が高いことを認識した上で、**デジタルだけが提供できる価値（自動集計・卒業設計・年齢別 UI 継続・場所自由）を 4 行比較で訴求**することで、離脱の臨界点で態度を反転させる。
+- ADR-0023 §5 I5 / C-Q10 で特定された **LP 離脱要因 #1 = 「LP で価値が伝わらない」**。
+- 保護者 P1（35 歳共働き）が LP に来て 30 秒で離脱判断する直前、「シール帳・ホワイトボードでも代用できそう、わざわざアプリにする必要ある？」という疑問に直面する。
+- アナログは子供のユーザービリティ（パッと見・即アクション）が高いことを認識した上で、**デジタルだけが提供できる価値（自動集計・卒業設計・年齢別 UI 継続・場所自由）を 4 行比較で訴求**することで、離脱の臨界点で態度を反転させる。
 
 ADR-0013 LP 実装 SSOT（Committed のみ訴求）/ ADR-0012 Anti-engagement（卒業ゴール）/ ADR-0011（コアターゲット 3-18 歳）と整合し、StoryBrand 7 要素の **Problem（顧客が直面する障害）と Plan（解決策の提示）** の橋渡しを担う。
 
@@ -304,9 +306,13 @@ ADR-0013 LP 実装 SSOT（Committed のみ訴求）/ ADR-0012 Anti-engagement（
   - row3（卒業）: `growth-stage-graduate{,-desktop}.webp` (`/demo/lower/achievements`)
   - row4（場所自由）: `feature-cheer-message{,-desktop}.webp` (`/demo/lower/home` — モバイル portable scrshot)
 
-  `.versus-shot` は **実装が SSOT** (`site/index.html` `.versus-shot` 定義が一次情報): `aspect-ratio: 16/9` 固定 + `max-height: 70/80/90px` (≤640px/default/≥1024px) で行高さを揃え、新規撮影はせず既存 9 種から流用する（ADR-0013 LP truth）。`alt` 属性は `LP_VERSUS_LABELS.row{1..4}ShotAlt`（`src/lib/domain/labels.ts`）を SSOT として持つが、現状の `site/index.html` は `<img alt="...">` 直書きで同一文字列を保持している（`data-lp-key-attr` 機構は本 LP では未導入。labels.ts 側が SSOT、HTML 側が同期コピーの 2 系統管理）
-- **CTA 非設置**: 本セクションには CTA を配置しない（Hero / NAV / floating-cta / footer signup に集約（#1838 で旧 [09] 最終 CTA を削除））。`ctaVariants ≤ 3` 制限を侵食しない
-- **同期対象**: `site/pamphlet.html` には現時点で本セクションを反映しない（pamphlet は evaluate モード用 / A4 印刷前提のため要約版を維持。LP 本体の versus 比較は discover モード用）
+- `.versus-shot` は **実装が SSOT** (`site/index.html` `.versus-shot` 定義が一次情報): `aspect-ratio: 16/9` 固定 + `max-height: 70/80/90px` (≤640px/default/≥1024px) で行高さを揃え、新規撮影はせず既存 9 種から流用する（ADR-0013 LP truth）。
+- `alt` 属性は `LP_VERSUS_LABELS.row{1..4}ShotAlt`（`src/lib/domain/labels.ts`）を SSOT として持つが、現状の `site/index.html` は `<img alt="...">` 直書きで同一文字列を保持している（`data-lp-key-attr` 機構は本 LP では未導入。
+- labels.ts 側が SSOT、HTML 側が同期コピーの 2 系統管理）
+- **CTA 非設置**: 本セクションには CTA を配置しない（Hero / NAV / floating-cta / footer signup に集約（#1838 で旧 [09] 最終 CTA を削除））。
+- `ctaVariants ≤ 3` 制限を侵食しない
+- **同期対象**: `site/pamphlet.html` には現時点で本セクションを反映しない（pamphlet は evaluate モード用 / A4 印刷前提のため要約版を維持。
+- LP 本体の versus 比較は discover モード用）。
 
 #### [02b] 年齢スイッチャー (改訂後: 2 パネル構成 #1320)
 
@@ -376,12 +382,14 @@ ADR-0013 LP 実装 SSOT（Committed のみ訴求）/ ADR-0012 Anti-engagement（
 
 ##### §1. 設計背景（why）
 
-3 歳児の保護者（P1）にとって「卒業」は時間軸が長すぎ（10 年以上先）、機能・特徴紹介レベルで訴求すると違和感を生む。
-2026-04 マルチ Agent LP 仕上げレビューで法務 M-1 / 営業 T-6 / コンサル B-2 / PM ADR-0023 の 4 視点が同時に「卒業の自然な訴求文脈」の不在を指摘した。
-PO 判断（2026-04-28）: 「卒業セクション」を独立で作るのは違和感。**プロダクトを通じた子供の成長物語として描き、その最終地点として「卒業」を自然に登場させる**ことで解決する。
-ADR-0023 §3.8（卒業 = ポジティブな解約）/ ADR-0011（コアターゲット 3-18 歳）と整合し、StoryBrand 7 要素の **Success（成功した未来像）** を補完する役割を負う。
+- 3 歳児の保護者（P1）にとって「卒業」は時間軸が長すぎ（10 年以上先）、機能・特徴紹介レベルで訴求すると違和感を生む。
+- 2026-04 マルチ Agent LP 仕上げレビューで法務 M-1 / 営業 T-6 / コンサル B-2 / PM ADR-0023 の 4 視点が同時に「卒業の自然な訴求文脈」の不在を指摘した。
+- PO 判断（2026-04-28）: 「卒業セクション」を独立で作るのは違和感。
+- **プロダクトを通じた子供の成長物語として描き、その最終地点として「卒業」を自然に登場させる**ことで解決する。
+- ADR-0023 §3.8（卒業 = ポジティブな解約）/ ADR-0011（コアターゲット 3-18 歳）と整合し、StoryBrand 7 要素の **Success（成功した未来像）** を補完する役割を負う。
 
-PO 判断（2026-05-02 #1848 PO-Cont-1）: LP 本体に 5 ステージを展開すると Hero〜soft-features の機能訴求 4 連発のあと急に理念セクションが来る IA 急展開で離脱誘発リスクがある（gr-shot 96px 過小・各カード本文長文 reading load）。**5 ステージ詳細を `site/graduation.html` 別ページに切り出し、LP 本体は CTA 1 行に短縮**することで、本体の最短経路化と詳細展開の両立を図る（gr-shot は別ページで 240px 以上に拡張可能）。
+- PO 判断（2026-05-02 #1848 PO-Cont-1）: LP 本体に 5 ステージを展開すると Hero〜soft-features の機能訴求 4 連発のあと急に理念セクションが来る IA 急展開で離脱誘発リスクがある（gr-shot 96px 過小・各カード本文長文 reading load）。
+- **5 ステージ詳細を `site/graduation.html` 別ページに切り出し、LP 本体は CTA 1 行に短縮**することで、本体の最短経路化と詳細展開の両立を図る（gr-shot は別ページで 240px 以上に拡張可能）。
 
 ##### §2. 設計原則（rules）
 
@@ -476,7 +484,7 @@ FAQ 専用ページ (`/faq`) のカテゴリ構成:
 | 4. 対応年齢・使い方 | 5 | 1 / 3 / 5 |
 | 5. 技術的なご質問 | 3 | - |
 
-方針:
+- 方針:
 - トップ LP の FAQ は **3 問 + 「専用ページへ」** で CTA への集中を優先
 - `pricing.html` の料金 FAQ（9 問）は **決済直前の障壁除去** という役割で温存（faq.html とは独立）
 - `pricing.html` フッターと `index.html` フッターに `faq.html` への導線を追加
@@ -669,9 +677,11 @@ hero / floating / footer signup
 
 ### 7.2 NAV / CTA 一覧（#1285 ghost button 復帰 / #1290 ヘッダー常時 signup CTA）
 
-ヘッダー NAV 内の `ログイン` は `nav-login` class の ghost button で統一する。2026-04-21 の HP 再レビューで、全 nav が text link のみだと既存ユーザーーの自分のマイページへの復帰導線として弱く迷子が発生することが判明したため、`.btn` （primary / demo）とは別階層の ghost variant として復帰させる（#1285 / 旧 §7.2 `ボタン化しない` ルールを supersede）。
+- ヘッダー NAV 内の `ログイン` は `nav-login` class の ghost button で統一する。
+- 2026-04-21 の HP 再レビューで、全 nav が text link のみだと既存ユーザーーの自分のマイページへの復帰導線として弱く迷子が発生することが判明したため、`.btn` （primary / demo）とは別階層の ghost variant として復帰させる（#1285 / 旧 §7.2 `ボタン化しない` ルールを supersede）。
 
-加えて 2026-04-21 の同レビューで「スクロール後に CTA が消えて新規登録まで遠い」問題が顕在化したため、ヘッダー右端に `btn btn-primary` の **無料で始める** を常時表示する（#1290、B1-LP-2、MoneyForward / ClassDojo 等で確立されたパターン）。モバイル (<768px) は `floating-cta` と二重表示になるため `.nav-signup` は非表示にし、`floating-cta` に新規登録導線を集約する。
+- 加えて 2026-04-21 の同レビューで「スクロール後に CTA が消えて新規登録まで遠い」問題が顕在化したため、ヘッダー右端に `btn btn-primary` の **無料で始める** を常時表示する（#1290、B1-LP-2、MoneyForward / ClassDojo 等で確立されたパターン）。
+- モバイル (<768px) は `floating-cta` と二重表示になるため `.nav-signup` は非表示にし、`floating-cta` に新規登録導線を集約する。
 
 | 種類 | 文言 | class | 視覚的重み | 登場箇所 |
 |---|---|---|---|---|
@@ -774,7 +784,8 @@ floating-cta の CTA ボタン文言は、ratchet とは独立に **既存 CTA 3
 
 #### 8.4.1 累積 desktopHeight gate (#1840 — pre-merge cumulative simulation)
 
-`cumulative-lp-metrics` ジョブが `lp-metrics.yml` 内で並列起動し、PR HEAD に `origin/main` を `git merge --no-commit --no-ff` で取り込んだ状態で `scripts/measure-lp-dimensions.mjs` を再実行する。これにより「PR を merge した後の main の状態」を擬似計測でき、複数 PR 連続 merge による累積 ratchet 接触を pre-merge 段階で検出する。
+- `cumulative-lp-metrics` ジョブが `lp-metrics.yml` 内で並列起動し、PR HEAD に `origin/main` を `git merge --no-commit --no-ff` で取り込んだ状態で `scripts/measure-lp-dimensions.mjs` を再実行する。
+- これにより「PR を merge した後の main の状態」を擬似計測でき、複数 PR 連続 merge による累積 ratchet 接触を pre-merge 段階で検出する。
 
 | 状態 | 閾値 | ジョブ動作 |
 |------|------|-----------|

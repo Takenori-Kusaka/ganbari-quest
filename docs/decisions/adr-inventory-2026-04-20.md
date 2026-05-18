@@ -85,7 +85,7 @@ git 履歴で追跡可能。TOP10 に吸収 or supersede 終結。
 
 ### TOP10 吸収で冗長化（14 件）
 
-旧 0002 (critical-fix), 0005 (critical-fix-quality-gate-old), 0006 (pr-review-docs), 0010 (issue-ticket-quality), 0017 (test-quality-ratchet-old), 0018 (issue-root-cause), 0020 (test-ratchet-enforce), 0027 (retention-policy-old), 0029 (safety-assertion-erosion-ban-old), 0032 (static-analysis-tier-old), 0034 (pre-pmf-security-min), 0035 (design-policy-preapproval-old), 0037 (labels-ssot-old), 0038 (ac-verification-evidence)
+- 旧 0002 (critical-fix), 0005 (critical-fix-quality-gate-old), 0006 (pr-review-docs), 0010 (issue-ticket-quality), 0017 (test-quality-ratchet-old), 0018 (issue-root-cause), 0020 (test-ratchet-enforce), 0027 (retention-policy-old), 0029 (safety-assertion-erosion-ban-old), 0032 (static-analysis-tier-old), 0034 (pre-pmf-security-min), 0035 (design-policy-preapproval-old), 0037 (labels-ssot-old), 0038 (ac-verification-evidence)
 
 ### supersede 終結（5 件）
 

@@ -10,7 +10,8 @@
 
 #1909 起票時点（中期 follow-up）の前提では、`labels.ts` 単一ファイル内で atom（プラン名・価格）と compound（表示文字列）が混在しており、新規追加時に同概念の表記揺れが発生する構造的問題があった（PO 4 回連続「FAQ 用語 SSOT」指摘の根本原因）。
 
-その後 Phase 1 (#1916) で `src/lib/domain/terms.ts` (atom) → `src/lib/domain/labels.ts` (compound) への 2 階層分離が実装され、atom は terms.ts 単一ファイルが SSOT となった。labels.ts は terms.ts を `import` + `${...}` template literal で参照する compound 専用構造に変更済み（ADR-0045 で正式化）。
+- その後 Phase 1 (#1916) で `src/lib/domain/terms.ts` (atom) → `src/lib/domain/labels.ts` (compound) への 2 階層分離が実装され、atom は terms.ts 単一ファイルが SSOT となった。
+- labels.ts は terms.ts を `import` + `${...}` template literal で参照する compound 専用構造に変更済み（ADR-0045 で正式化）。
 
 この結果、**labels.ts 内で同概念の表記揺れが発生し得る経路は構造的に閉じられた**。残るリスクは「terms.ts に集約された atom を labels.ts 以外で直書きする経路」のみ。
 

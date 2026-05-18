@@ -21,6 +21,7 @@ Pool 再作成が必要なケース:
 ### 1. email を persistent natural key として使用（DynamoDB 変更不要）
 
 本プロジェクトの DynamoDB ユーザーーレコードは `email` を natural key として管理している:
+
 - `findUserByEmail()` が認証時のユーザーー解決に使われる（`cognito.ts` 参照）
 - Cognito `sub`（UUID）は DynamoDB に保存していない
 - Pool 再作成で Cognito `sub` が変わっても、email が同じなら DynamoDB 既存レコードを再利用できる

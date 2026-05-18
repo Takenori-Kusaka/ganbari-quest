@@ -180,7 +180,8 @@ SSR 二重適用は `data-budoux-applied` フラグで回避。詳細は [ADR-00
 
 ### LP Spacing/Layout 3 層トークン (#1839、ADR-0042)
 
-LP (`site/index.html`) の section padding / margin / heading / faq-item など Layout 系設計値は、§2 カラートークンと同じ **Base → Semantic → Component** の 3 層で管理する。過去 5 PR (#1759 / #1798 / #1827 / #1831 / #1836) で section padding を多層的に圧縮 (40→28 等) してきた状態を SSOT 化し、再圧縮時の散在修正を不要にする。
+- LP (`site/index.html`) の section padding / margin / heading / faq-item など Layout 系設計値は、§2 カラートークンと同じ **Base → Semantic → Component** の 3 層で管理する。
+- 過去 5 PR (#1759 / #1798 / #1827 / #1831 / #1836) で section padding を多層的に圧縮 (40→28 等) してきた状態を SSOT 化し、再圧縮時の散在修正を不要にする。
 
 **ADR-0042**: 本トークン体系の意思決定根拠は [docs/decisions/0042-lp-spacing-layout-tokens.md](decisions/0042-lp-spacing-layout-tokens.md) を参照。
 

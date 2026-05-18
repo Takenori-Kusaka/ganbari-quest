@@ -88,7 +88,7 @@
 - 「白紙からユーザーーが作る」設計は、日本のお手伝い系アプリの常識でもあり、これがプリセット文化が育たない一因。**がんばりクエストが「すぐ使えるパック」を全面に押し出すことで、Habitica と国内お手伝いアプリの両方が空けている隙間を取れる**。
 - "Tavern" (公開チャレンジ集) は「マーケットプレイス」呼称の参考にはなるが、酒場メタファーは日本の子供向け文脈には不適。
 
-[Habitica: Gamified Task Manager App Review | Common Sense Media](https://www.commonsensemedia.org/app-reviews/habitica-gamified-task-manager) / [Habitica Reviews 2026 | G2](https://www.g2.com/products/habitica-habitica/reviews)
+- [Habitica: Gamified Task Manager App Review | Common Sense Media](https://www.commonsensemedia.org/app-reviews/habitica-gamified-task-manager) / [Habitica Reviews 2026 | G2](https://www.g2.com/products/habitica-habitica/reviews)
 
 ### 3.2 S'moresUp — "ChoreAI" でビルトイン chore を活用
 
@@ -135,7 +135,7 @@
 - **500+ tasks は「ベンチマーク上限」**。ただし pre-loaded の質と分類（focus area）の設計が伴わないと「数だけ多くて選べない」状態に陥る。本アプリは現状 32 ファイル（活動 200+ 相当）あるので、**質的整理が間に合えばこの上限に近づける**。
 - "Quests" という呼称は本アプリの「クエスト」と完全に被る（むしろ本アプリのメインメタファー）。**「クエスト集」「クエストライブラリ」** が呼称候補として強い説得力を持つ。
 
-[Joon: The behavior improvement app for kids](https://www.joonapp.io) / [Joon: Kids ADHD Chore Tracker - App Store](https://apps.apple.com/us/app/joon-kids-adhd-chore-tracker/id1482225056) / [Joon App Review 2025 | Choosing Therapy](https://www.choosingtherapy.com/joon-app-review/)
+- [Joon: The behavior improvement app for kids](https://www.joonapp.io) / [Joon: Kids ADHD Chore Tracker - App Store](https://apps.apple.com/us/app/joon-kids-adhd-chore-tracker/id1482225056) / [Joon App Review 2025 | Choosing Therapy](https://www.choosingtherapy.com/joon-app-review/)
 
 ### 3.6 Greenlight / FamZoo — 金融教育系（プリセット数より報酬設計）
 
@@ -195,7 +195,7 @@
 - 「ポイントマイナス機能」は本アプリでは**意図的に採用しない**べき設計。子供向けゲーミフィケーションの王道（Joon / Habitica / 進研ゼミ努力賞）は懲罰的設計を避ける。Erikson 第 4 段階「勤勉性 vs 劣等感」の劣等感を強化するため。
 - **広告なし**は日本の子供向けアプリの最低限品質。本アプリも当然遵守。
 
-[ママペイ - おうちペイでお小遣い管理アプリ - App Store](https://apps.apple.com/jp/app/%E3%83%9E%E3%83%9E%E3%83%9A%E3%82%A4-%E3%81%8A%E3%81%86%E3%81%A1%E3%83%9A%E3%82%A4%E3%81%A7%E3%81%8A%E5%B0%8F%E9%81%A3%E3%81%84%E7%AE%A1%E7%90%86%E3%82%A2%E3%83%97%E3%83%AA/id1550523752) / [ママペイとは?やり方とアイデアまとめ! | haruMedia](https://eigomirai.com/mamapay/)
+- [ママペイ - おうちペイでお小遣い管理アプリ - App Store](https://apps.apple.com/jp/app/%E3%83%9E%E3%83%9E%E3%83%9A%E3%82%A4-%E3%81%8A%E3%81%86%E3%81%A1%E3%83%9A%E3%82%A4%E3%81%A7%E3%81%8A%E5%B0%8F%E9%81%A3%E3%81%84%E7%AE%A1%E7%90%86%E3%82%A2%E3%83%97%E3%83%AA/id1550523752) / [ママペイとは?やり方とアイデアまとめ! | haruMedia](https://eigomirai.com/mamapay/)
 
 ### 3.11 やることカード（LITALICO） — 発達支援領域の絵カード 100 種
 
@@ -207,7 +207,7 @@
 - **国内アプリで唯一、100 種規模のプリセット（絵カード）を持つ事例**。視覚的な絵カード文化は本アプリの asset-catalog（シール画像化計画）と相性が良い。
 - 「絵カード」呼称は**乳幼児〜小学低学年に保護者しみやすい**が、中高生には子供っぽい。年齢帯別の呼称切替が必要 → `marketplace-naming-recommendation.md` §4。
 
-[やることカード - LITALICOアプリ](https://app.litalico.com/kidstodolist/jp.html) / [LITALICO「やることカード」リリース | EdTechZine](https://edtechzine.jp/article/detail/392) / [LITALICOアプリ 100 万 DL 突破 | PR TIMES](https://prtimes.jp/main/html/rd/p/000000049.000025994.html)
+- [やることカード - LITALICOアプリ](https://app.litalico.com/kidstodolist/jp.html) / [LITALICO「やることカード」リリース | EdTechZine](https://edtechzine.jp/article/detail/392) / [LITALICOアプリ 100 万 DL 突破 | PR TIMES](https://prtimes.jp/main/html/rd/p/000000049.000025994.html)
 
 ### 3.12 紙ベース実務（ぷりんときっず / Canva / Microsoft / よはくにイラスト 等）
 
@@ -223,7 +223,7 @@
 - **持ち物テンプレートはアプリ化の市場機会が明確に存在**。紙の Canva / Microsoft で繰り返し作る手間を、アプリで「子供と保護者が一緒にチェック」する体験に置換できる。
 - ぷりんときっずの「お手伝いシート 4 デザイン × 3 容量」フォーマットは、本アプリの「シール台紙」UI 検討時の参考。
 
-[お手伝いシート・生活チェックシート | ぷりんときっず](https://print-kids.net/print/other/otetsudai-sheet/) / [子どものやる気を引き出す『ごほうびシール台紙』無料ダウンロードサイト 12 選 | MimiLy](https://mimily.jp/archives/257) / [持ち物リスト無料テンプレートデザイン | Canva](https://www.canva.com/ja_jp/templates/s/mochimonolist/) / [しおり (修学旅行) - Office テンプレート](https://www.microsoft.com/ja-jp/office/pipc/template/result.aspx?id=10180)
+- [お手伝いシート・生活チェックシート | ぷりんときっず](https://print-kids.net/print/other/otetsudai-sheet/) / [子どものやる気を引き出す『ごほうびシール台紙』無料ダウンロードサイト 12 選 | MimiLy](https://mimily.jp/archives/257) / [持ち物リスト無料テンプレートデザイン | Canva](https://www.canva.com/ja_jp/templates/s/mochimonolist/) / [しおり (修学旅行) - Office テンプレート](https://www.microsoft.com/ja-jp/office/pipc/template/result.aspx?id=10180)
 
 ---
 

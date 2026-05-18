@@ -248,7 +248,8 @@
 
 #### ops-analytics-service 拡張
 
-`OpsAnalyticsData.graduation` フィールドを追加。`/ops/analytics` の load 時に
+- `OpsAnalyticsData.graduation` フィールドを追加。
+- `/ops/analytics` の load 時に
 `repos.graduationConsent.aggregateRecent(90)` を呼び、`cancellationReasons.total` を分母に
 `graduationRate` を計算する（循環 import 回避のため `getGraduationStats()` ではなく
 直接 repo を呼ぶ）。

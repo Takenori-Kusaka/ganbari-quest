@@ -15,7 +15,10 @@
 4. **`mergeable: CONFLICTING` 事前検知不在**: Ready 化時点では merge 可能でも、QM Review 中に他 PR が merge されて CONFLICTING 化 (PR #1672 / #1675 / #1718 / #1753)
 5. **ローカルセルフチェック忘れ**: 開発者が `npx biome check` / `npx svelte-check` / `npx vitest run` をローカル実行せず Ready 化 → CI で検出されるが時間ロス
 
-QM Orchestrator の観察 (2026-05-01): 「追加 CI ゲートは天井に近い。`pre-ready` ローカルコマンドを 1 本作れば、開発者の『やり忘れ』は事前検出可能。CI は最終防衛線として現状維持で十分」。PO 承認済み。
+- QM Orchestrator の観察 (2026-05-01): 「追加 CI ゲートは天井に近い。
+- `pre-ready` ローカルコマンドを 1 本作れば、開発者の『やり忘れ』は事前検出可能。
+- CI は最終防衛線として現状維持で十分」。
+- PO 承認済み。
 
 ## Decision
 

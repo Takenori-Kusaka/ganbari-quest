@@ -79,7 +79,9 @@ CSS では `.trust-badge .tb-icon{display:flex;...;height:32px}` + `.tb-icon img
 | `cta-trust-ad-free.svg` | 円 + 斜線 + AD 文字（`trust-no-ads.svg` と同モチーフ、CTA 系統用に独立配置） | #2「広告なし」 |
 | `cta-trust-cancel-anytime.svg` | 循環矢印（recycle / refresh）で「いつでも切替・解約」を表現 | #3「いつでも解約 OK」 |
 
-CSS では `.cta-trust-badges li img{width:18px;height:18px;display:block;flex-shrink:0}` で配置（テキスト `font-size:.82rem` と並ぶよう 18×18 表示、SVG viewBox は 32×32 を維持）。3 ファイル `site/index.html` / `site/faq.html` / `site/pricing.html` で同期参照。`docs/DESIGN.md` §7「OS/ブラウザ間で見た目が変わると困る要素」整合。
+- CSS では `.cta-trust-badges li img{width:18px;height:18px;display:block;flex-shrink:0}` で配置（テキスト `font-size:.82rem` と並ぶよう 18×18 表示、SVG viewBox は 32×32 を維持）。
+- 3 ファイル `site/index.html` / `site/faq.html` / `site/pricing.html` で同期参照。
+- `docs/DESIGN.md` §7「OS/ブラウザ間で見た目が変わると困る要素」整合。
 
 ---
 
@@ -139,7 +141,9 @@ site/ と static/ の双方を同期更新する SSOT パターン。
 
 ## LP スクショ — site/index.html 内の機能画像 (#1707 / #1712 / #1900)
 
-LP `site/index.html` の hero carousel / machine-tour / soft-features / growth-roadmap セクションで参照する実画面のスクリーンショット一覧。`scripts/capture-hp-screenshots.mjs` が `/demo/<mode>/<path>` のデモ画面から自動撮影し `site/screenshots/` に出力する。`.gitignore` で git 追跡対象外（GitHub Pages デプロイ時に CI が生成）。
+- LP `site/index.html` の hero carousel / machine-tour / soft-features / growth-roadmap セクションで参照する実画面のスクリーンショット一覧。
+- `scripts/capture-hp-screenshots.mjs` が `/demo/<mode>/<path>` のデモ画面から自動撮影し `site/screenshots/` に出力する。
+- `.gitignore` で git 追跡対象外（GitHub Pages デプロイ時に CI が生成）。
 
 | ファイル名 | LP セクション | 撮影元 URL（routes） | サイズ（mobile / desktop） |
 |----------|------------|--------------------|--------------------------|

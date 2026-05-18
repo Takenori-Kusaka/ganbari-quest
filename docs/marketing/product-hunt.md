@@ -52,7 +52,7 @@ That's how Ganbari Quest was born. It's a web app that turns everyday activities
 - Kids log completions and earn points
 - Points drive level-ups, combo bonuses, title collection, and daily missions
 
-🧒 **Age-adaptive UI (0-18 years):**
+- 🧒 **Age-adaptive UI (0-18 years):**
 - Baby mode (0-2): Parent preparation mode — parent logs with a simple tap interface
 - Kinder (3-5): Hiragana text, large tap targets — kids tap "I did it!"
 - Primary-plus (6-18): Kanji + higher information density, with grade-specific preset activities (elementary homework, junior-high club prep, high-school self-study). Core gamification (stamp card, omikuji, RPG battle, radar chart) is shared across all ages from elementary up — differentiation is UI + presets, not feature set.

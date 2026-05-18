@@ -30,20 +30,20 @@
 - **未就学児の睡眠指針**（子供家庭庁）— 0-2 歳: 12-16 時間 (4 ヶ月-1 歳) / 11-14 時間 (1-2 歳)、3-5 歳: 10-13 時間
 - **子供家庭総合評価票 記入のめやすと一覧表**（厚労省）— 月齢別の発達評価項目
 
-[令和5年乳幼児身体発育調査｜こども家庭庁](https://www.cfa.go.jp/policies/boshihoken/r5-nyuuyoujityousa) / [子ども家庭総合評価票](https://www.mhlw.go.jp/content/000348513.pdf) / [乳幼児の生活習慣や健康状態に関する状況](https://www.mhlw.go.jp/file/06-Seisakujouhou-11900000-Koyoukintoujidoukateikyoku/0000134209.pdf) / [未就学児の睡眠指針](https://sukoyaka21.cfa.go.jp/media/tools/s4_nyu_pan004.pdf)
+- [令和5年乳幼児身体発育調査｜こども家庭庁](https://www.cfa.go.jp/policies/boshihoken/r5-nyuuyoujityousa) / [子ども家庭総合評価票](https://www.mhlw.go.jp/content/000348513.pdf) / [乳幼児の生活習慣や健康状態に関する状況](https://www.mhlw.go.jp/file/06-Seisakujouhou-11900000-Koyoukintoujidoukateikyoku/0000134209.pdf) / [未就学児の睡眠指針](https://sukoyaka21.cfa.go.jp/media/tools/s4_nyu_pan004.pdf)
 
 **幼児期（3-5 歳）の食生活・基本的生活習慣**:
 - **幼児期の健やかな発育のための栄養・食生活支援ガイド**（国立保健医療科学院、令和 4 年 3 月）
 - **幼児期の終わりまでに育ってほしい姿（10 の姿）**（足立区配布資料、文部科学省ベース）— 健康な心と体 / 自立心 / 協同性 / 道徳性・規範意識 / 社会生活との関わり / 思考力 / 自然との関わり / 数量や図形の関心 / 言葉による伝え合い / 豊かな感性
 
-[幼児期の健やかな発育のための栄養・食生活支援ガイド](https://www.niph.go.jp/soshiki/07shougai/youjishokuguide/YoujiShokuGuideKakutei.pdf) / [幼児教育 基本的生活習慣 (足立区)](https://www.city.adachi.tokyo.jp/documents/68336/hatikarasannjyuugo.pdf)
+- [幼児期の健やかな発育のための栄養・食生活支援ガイド](https://www.niph.go.jp/soshiki/07shougai/youjishokuguide/YoujiShokuGuideKakutei.pdf) / [幼児教育 基本的生活習慣 (足立区)](https://www.city.adachi.tokyo.jp/documents/68336/hatikarasannjyuugo.pdf)
 
 **学齢期 (6-15 歳)**:
 - **子供の基本的生活習慣の育成に向けた取組**（文部科学省 平成 18 年版白書）— 適切な運動 / 調和のとれた食事 / 十分な休養・睡眠
 - **子供の生活の現状**（文部科学省）— 早寝早起き / 朝食 / メディア接触
 - **子供の発達段階ごとの特徴と重視すべき課題**（文部科学省、3 歳〜 18 歳の発達課題一覧）
 
-[平成18年版 文部科学白書 子どもの基本的生活習慣](https://www.mext.go.jp/b_menu/hakusho/html/hpab200601/002/001/007.htm) / [子どもの生活の現状 (文部科学省)](https://www.mext.go.jp/a_menu/shougai/katei/08060902/002.pdf) / [子どもの発達段階ごとの特徴と重視すべき課題](https://www.mext.go.jp/b_menu/shingi/chousa/shotou/053/shiryo/attach/1282789.htm)
+- [平成18年版 文部科学白書 子どもの基本的生活習慣](https://www.mext.go.jp/b_menu/hakusho/html/hpab200601/002/001/007.htm) / [子どもの生活の現状 (文部科学省)](https://www.mext.go.jp/a_menu/shougai/katei/08060902/002.pdf) / [子どもの発達段階ごとの特徴と重視すべき課題](https://www.mext.go.jp/b_menu/shingi/chousa/shotou/053/shiryo/attach/1282789.htm)
 
 ### 1.2 日本小児科学会の指針
 
@@ -65,7 +65,7 @@
   - **週活動時間上限**: 16 時間未満が望ましい
   - 中高生（junior / senior）の `undou` カテゴリで「部活動」活動を扱う際のメタデータ根拠
 
-[運動部活動の在り方に関する総合的なガイドライン](https://www.mext.go.jp/sports/b_menu/sports/mcatetop04/list/detail/1405721.htm) / [運動部活動の在り方に関する総合的なガイドライン PDF](https://www.mext.go.jp/sports/b_menu/shingi/013_index/toushin/__icsFiles/afieldfile/2018/03/19/1402624_1.pdf)
+- [運動部活動の在り方に関する総合的なガイドライン](https://www.mext.go.jp/sports/b_menu/sports/mcatetop04/list/detail/1405721.htm) / [運動部活動の在り方に関する総合的なガイドライン PDF](https://www.mext.go.jp/sports/b_menu/shingi/013_index/toushin/__icsFiles/afieldfile/2018/03/19/1402624_1.pdf)
 
 ### 1.4 自治体・住宅メーカーの実践資料（参考）
 
@@ -74,7 +74,7 @@
 - **年齢別お手伝い実践一覧表**（ミサワホーム子育て報告 PDF）— 2-3 歳 / 4-6 歳 / 小学生 / 中学生〜の段階別お手伝い例
 - **保育のひきだし「年齢別お手伝い」**（ヒガシマル醤油配信メディア）— 保育士視点、2-3 歳〜小学生の段階別
 
-[年齢別お手伝い実践一覧表 (ミサワホーム)](https://www.misawa.co.jp/kosodate/report/pdf/nenreibetsu.pdf) / [年齢別子どもにどんなお手伝いをしてもらうとよいのか | 保育のひきだし](https://www.hoikunohikidashi.jp/?p=16762148) / [子どものお手伝いデビューに！年齢別のおすすめ家事 | シャチハタ](https://www.shachihata.jp/media/column/20210401/)
+- [年齢別お手伝い実践一覧表 (ミサワホーム)](https://www.misawa.co.jp/kosodate/report/pdf/nenreibetsu.pdf) / [年齢別子どもにどんなお手伝いをしてもらうとよいのか | 保育のひきだし](https://www.hoikunohikidashi.jp/?p=16762148) / [子どものお手伝いデビューに！年齢別のおすすめ家事 | シャチハタ](https://www.shachihata.jp/media/column/20210401/)
 
 ---
 
@@ -91,7 +91,7 @@
 | 後期ひよこクラブ | 8 ヶ月-1 歳 | 離乳食中期〜後期 / はいはい / つかまり立ち / 指さし / 共同注意 / バイバイ |
 | 1 歳 2 歳のひよこクラブ | 1-2 歳 | 歩行 / 二語文 / トイレトレ準備 / なぐり描き / おもちゃの片付け / 食具使用 |
 
-[たまひよブックス](https://st.benesse.ne.jp/ninshin/content/?id=165757) / [赤ちゃんの月齢でパーソナライズ! 新しくなったママ向け雑誌「たまひよ」](https://www.san-an.co.jp/blog/2023/01/25/212) / [赤ちゃん・育児｜たまひよ【医師監修】0ヶ月～2歳赤ちゃんの育児情報](https://st.benesse.ne.jp/ikuji/)
+- [たまひよブックス](https://st.benesse.ne.jp/ninshin/content/?id=165757) / [赤ちゃんの月齢でパーソナライズ! 新しくなったママ向け雑誌「たまひよ」](https://www.san-an.co.jp/blog/2023/01/25/212) / [赤ちゃん・育児｜たまひよ【医師監修】0ヶ月～2歳赤ちゃんの育児情報](https://st.benesse.ne.jp/ikuji/)
 
 ### 2.2 子供ちゃれんじ（ベネッセ） — 推奨活動の最有力 SSOT
 
@@ -108,7 +108,7 @@
 
 **コンテンツ示唆**: 子供ちゃれんじが各年齢で扱うテーマは、本アプリの kinder (3-5 歳) パックの「環境（数量・図形）」「言葉（語彙）」「人間関係（思いやり / 順番）」を **アクティビティとして具体化する語彙集**になる。
 
-[【公式】0歳・1歳向け こどもちゃれんじbaby](https://shimajiro.benesse.ne.jp/baby/) / [【公式】1・2歳向け こどもちゃれんじぷち](https://shimajiro.benesse.ne.jp/puchi/) / [【公式】2・3歳向け こどもちゃれんじぽけっと](https://shimajiro.benesse.ne.jp/pocket/) / [【公式】幼児向け通信教育〈こどもちゃれんじ〉](https://shimajiro.benesse.ne.jp/)
+- [【公式】0歳・1歳向け こどもちゃれんじbaby](https://shimajiro.benesse.ne.jp/baby/) / [【公式】1・2歳向け こどもちゃれんじぷち](https://shimajiro.benesse.ne.jp/puchi/) / [【公式】2・3歳向け こどもちゃれんじぽけっと](https://shimajiro.benesse.ne.jp/pocket/) / [【公式】幼児向け通信教育〈こどもちゃれんじ〉](https://shimajiro.benesse.ne.jp/)
 
 ### 2.3 kodomoe（コドモエ、白泉社） — 保護者子時間特化
 
@@ -119,7 +119,7 @@
 - 保護者子で一緒の **創作活動**（工作 / 料理 / 季節の遊び）
 - **季節行事**（端午の節句 / 七夕 / お月見 / クリスマス）
 
-[kodomoe 公式サイト](https://kodomoe.net/) / [3・4歳におすすめの絵本 | kodomoe](https://kodomoe.net/product/ehon/3%E3%83%BB4%E6%AD%B3%E3%81%AB%E3%81%8A%E3%81%99%E3%81%99%E3%82%81%E3%81%AE%E7%B5%B5%E6%9C%AC/) / [最新号のご案内 | kodomoe](https://kodomoe.net/newissue/) / [子育て中に読みたい雑誌一覧【2025年最新版】](https://chiiku-mama.com/parenting-magazine)
+- [kodomoe 公式サイト](https://kodomoe.net/) / [3・4歳におすすめの絵本 | kodomoe](https://kodomoe.net/product/ehon/3%E3%83%BB4%E6%AD%B3%E3%81%AB%E3%81%8A%E3%81%99%E3%81%99%E3%82%81%E3%81%AE%E7%B5%B5%E6%9C%AC/) / [最新号のご案内 | kodomoe](https://kodomoe.net/newissue/) / [子育て中に読みたい雑誌一覧【2025年最新版】](https://chiiku-mama.com/parenting-magazine)
 
 ### 2.4 Baby-mo（ベビモ、主婦の友社）
 
@@ -336,7 +336,7 @@
 
 ### 5.5 第 1 フェーズと共通の出典（再掲）
 
-第1フェーズ成果物 `marketplace-content-audit.md` §7 に記載済の以下を本フェーズでも参照しているため省略掲載: 文科省幼稚園教育要領 / 小学校学習指導要領 / 中学校学習指導要領 / 高等学校学習指導要領 / 「早寝早起き朝ごはん」運動 / スポーツ庁「全国体力・運動能力等調査」 / 厚労省「健康づくりのための身体活動・運動ガイド 2023」「健康づくりのための睡眠ガイド 2023」 / 子供家庭庁「令和 5 年乳幼児身体発育調査」 / 国立成育医療研究センター運動発達研究 / 日本小児科学会「デジタル時代の子育て」「乳幼児のテレビ・ビデオ長時間視聴は危険です」 / 日本スポーツ協会「子供の身体活動の意義」 / 全国学校図書館協議会「学校読書調査」
+- 第1フェーズ成果物 `marketplace-content-audit.md` §7 に記載済の以下を本フェーズでも参照しているため省略掲載: 文科省幼稚園教育要領 / 小学校学習指導要領 / 中学校学習指導要領 / 高等学校学習指導要領 / 「早寝早起き朝ごはん」運動 / スポーツ庁「全国体力・運動能力等調査」 / 厚労省「健康づくりのための身体活動・運動ガイド 2023」「健康づくりのための睡眠ガイド 2023」 / 子供家庭庁「令和 5 年乳幼児身体発育調査」 / 国立成育医療研究センター運動発達研究 / 日本小児科学会「デジタル時代の子育て」「乳幼児のテレビ・ビデオ長時間視聴は危険です」 / 日本スポーツ協会「子供の身体活動の意義」 / 全国学校図書館協議会「学校読書調査」
 
 ### 5.6 不採用とした情報源
 

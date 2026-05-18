@@ -1181,9 +1181,10 @@ AdminHome.svelte
 
 ### 10.7 プラン制限メッセージ SSOT (#1925 / #1934 Phase 2 — ADR-0045 整合)
 
-`createPlanLimitError` / `FeatureGate buttonLabel` / 各 `+page.server.ts` action handler で
+- `createPlanLimitError` / `FeatureGate buttonLabel` / 各 `+page.server.ts` action handler で
 無料プランのユーザーーに返すアップグレード誘導メッセージは、**`PLAN_GATE_LABELS` (compound 層)** 経由で
-組み立てる。リテラル直書きは禁止 (ADR-0045: terms.ts atom → labels.ts compound 2 階層 SSOT)。
+組み立てる。
+- リテラル直書きは禁止 (ADR-0045: terms.ts atom → labels.ts compound 2 階層 SSOT)。
 
 | テンプレート関数 | 展開結果 | 代表的な使用箇所 |
 |---|---|---|
@@ -1319,7 +1320,8 @@ AdminHome.svelte
 
 ##### §1. 設計背景
 
-旧来の admin 設計には「ルーティン」と「持ち物」の 2 種を扱う `/admin/checklists` の kind タブと、活動マスタを編集する `/admin/activities` インライン編集が並存していた。子供のフロー上、生活習慣（旧ルーティン）は「活動マスタの 1 属性として記録できる」のが自然であり、**チェックリストは持ち物に純化**しつつ、活動マスタに **「今日のおやくそく」(`priority='must'`) 属性** を持たせる方針に統合した（ADR-0009 SSOT・ADR-0010 Pre-PMF: 機構統合で複雑度削減）。
+- 旧来の admin 設計には「ルーティン」と「持ち物」の 2 種を扱う `/admin/checklists` の kind タブと、活動マスタを編集する `/admin/activities` インライン編集が並存していた。
+- 子供のフロー上、生活習慣（旧ルーティン）は「活動マスタの 1 属性として記録できる」のが自然であり、**チェックリストは持ち物に純化**しつつ、活動マスタに **「今日のおやくそく」(`priority='must'`) 属性** を持たせる方針に統合した（ADR-0009 SSOT・ADR-0010 Pre-PMF: 機構統合で複雑度削減）。
 
 旧インライン編集は同じ画面内に複数行が同時展開されると DOM 構造の入れ子が深くなり、誤操作（別 row の保存）や form action のバインドミスが発生していたため、**独立 URL `/admin/activities/[id]/edit` に分離**して must トグルとあわせ単一 form で扱う。
 
@@ -1555,9 +1557,10 @@ ADR-0023 §3.6 が定める PMF 達成度の Sean Ellis 指標 (40% 閾値) を 
 
 ### 概要
 
-baby モード（0-2 歳）の利用者は**保護者**。子供は画面を触らない。
-子供向けゲーミフィケーション UI（tapSize 120px / ひらがな / 効果音 / BottomNav）は一切使用しない。
-ADR-0011 の「baby = 保護者の準備モード」方針に基づいた独自 UI。
+- baby モード（0-2 歳）の利用者は**保護者**。
+- 子供は画面を触らない。
+- 子供向けゲーミフィケーション UI（tapSize 120px / ひらがな / 効果音 / BottomNav）は一切使用しない。
+- ADR-0011 の「baby = 保護者の準備モード」方針に基づいた独自 UI。
 
 ### 画面構成
 
@@ -2025,8 +2028,8 @@ ADR-0023 §5 I9 / C-Q13 「ちゃんと使う前にやめる、価値実感が 1
 
 ### 18.7 既存の SES 週次レポート連携
 
-`src/lib/server/services/email-service.ts` の週次活動レポート初月特別版（1 週目「最初の一歩」/ 2 週目「継続の力」/ 3 週目「あと少しで初月達成」/ 4 週目通常）は **本 Issue では未実装、follow-up Issue 化**する。
-理由: Pre-PMF 段階での文面差し替えは PO レビュー・LP/プライシング整合（ADR-0013）の追加コストが高く、本 Issue で先行する dashboard / child UI の価値プレビューが先に動く形を優先。
+- `src/lib/server/services/email-service.ts` の週次活動レポート初月特別版（1 週目「最初の一歩」/ 2 週目「継続の力」/ 3 週目「あと少しで初月達成」/ 4 週目通常）は **本 Issue では未実装、follow-up Issue 化**する。
+- 理由: Pre-PMF 段階での文面差し替えは PO レビュー・LP/プライシング整合（ADR-0013）の追加コストが高く、本 Issue で先行する dashboard / child UI の価値プレビューが先に動く形を優先。
 
 ### 18.8 DynamoDB activation funnel 拡張
 
@@ -2038,7 +2041,9 @@ ADR-0023 §5 I9 / C-Q13 「ちゃんと使う前にやめる、価値実感が 1
 
 ### 19.1 設計背景
 
-LP (`site/index.html` 等) と Legal HTML (`site/{privacy,terms,sla,tokushoho}.html`) には合計 693 件の日本語ハードコード文言が並行実装されており、用語変更時の同期漏れが頻発していた。ADR-0009 §例外節では当初「法的文書は法務要件で固定」「SEO 対象 meta タグはクローラー JS 未実行」を理由に SSOT 化対象外として運用していたが、PO 方針「SSOT 漏れのコンテンツは存在してはいけない」と矛盾し、i18n 対応の前提整備も不可能だった。#1683 umbrella で 693 件全件 SSOT 化を達成（2026-04-30）。
+- LP (`site/index.html` 等) と Legal HTML (`site/{privacy,terms,sla,tokushoho}.html`) には合計 693 件の日本語ハードコード文言が並行実装されており、用語変更時の同期漏れが頻発していた。
+- ADR-0009 §例外節では当初「法的文書は法務要件で固定」「SEO 対象 meta タグはクローラー JS 未実行」を理由に SSOT 化対象外として運用していたが、PO 方針「SSOT 漏れのコンテンツは存在してはいけない」と矛盾し、i18n 対応の前提整備も不可能だった。
+- #1683 umbrella で 693 件全件 SSOT 化を達成（2026-04-30）。
 
 ### 19.2 設計原則
 

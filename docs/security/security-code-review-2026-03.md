@@ -69,7 +69,9 @@ csrf: {
 },
 ```
 
-SvelteKit のビルトイン CSRF (Cross-Site Request Forgery) 保護が `checkOrigin: false` で完全に無効化されている。SvelteKit はデフォルトで `Origin` ヘッダーを検証し、クロスオリジンからの POST/PUT/DELETE リクエストを拒否する。この保護が無効化されているため、全てのフォームアクション (`+page.server.ts` の `actions`) および POST API エンドポイントが CSRF 攻撃に対して脆弱である。
+- SvelteKit のビルトイン CSRF (Cross-Site Request Forgery) 保護が `checkOrigin: false` で完全に無効化されている。
+- SvelteKit はデフォルトで `Origin` ヘッダーを検証し、クロスオリジンからの POST/PUT/DELETE リクエストを拒否する。
+- この保護が無効化されているため、全てのフォームアクション (`+page.server.ts` の `actions`) および POST API エンドポイントが CSRF 攻撃に対して脆弱である。
 
 **リスク評価**:
 
@@ -91,7 +93,8 @@ SvelteKit のビルトイン CSRF (Cross-Site Request Forgery) 保護が `checkO
 
 **説明**:
 
-OCR レシート読み取りエンドポイント (`POST /api/v1/points/ocr-receipt`) に `requireTenantId()` や `requireRole()` などの認証チェックが存在しない。hooks.server.ts のルート保護ルール (`authorization.ts`) では `/api/v1` パスに対して全ロールの認証を要求しているが、エンドポイント内での明示的な認証検証がなく、`locals.context` が null の場合でもリクエストが処理される可能性がある。
+- OCR レシート読み取りエンドポイント (`POST /api/v1/points/ocr-receipt`) に `requireTenantId()` や `requireRole()` などの認証チェックが存在しない。
+- hooks.server.ts のルート保護ルール (`authorization.ts`) では `/api/v1` パスに対して全ロールの認証を要求しているが、エンドポイント内での明示的な認証検証がなく、`locals.context` が null の場合でもリクエストが処理される可能性がある。
 
 hooks.server.ts の認可チェックが `provider.authorize()` で行われているため実際のリスクは Cognito モードでは hooks によってブロックされるが、ローカルモードでは認証なしで通過する。また、このエンドポイントは Gemini API を呼び出すため、未認証アクセスにより API コストが発生するリスクがある。
 

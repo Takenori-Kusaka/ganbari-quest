@@ -10,11 +10,13 @@
 
 ## 1. コンテキスト
 
-LP (`site/**`) は静的 HTML だが、`#1820` (R-CRT-2 装飾枠 5→1 統一) / `#1846` (PO-N-4 machine-tour grid 4→2) / `#1847` (PO-N-5 soft-features featured h3 残骸) と「中途半端統一の symptom」が連続発生している。原因は **LP の card / button / grid / section heading が個別 class で重複定義** されており、SOLID (特に SRP / DRY / OCP) に反した状態のまま継続改修されていること。
+- LP (`site/**`) は静的 HTML だが、`#1820` (R-CRT-2 装飾枠 5→1 統一) / `#1846` (PO-N-4 machine-tour grid 4→2) / `#1847` (PO-N-5 soft-features featured h3 残骸) と「中途半端統一の symptom」が連続発生している。
+- 原因は **LP の card / button / grid / section heading が個別 class で重複定義** されており、SOLID (特に SRP / DRY / OCP) に反した状態のまま継続改修されていること。
 
-PO 補足発言 (2026-05-02):
-> shared-label.js で svelte も静的コンテンツも共用できているなら確かに Pre-PMF としてやりすぎだと思います。であれば静的コンテンツとしてセクションごとのコンポーネント共通化など、静的コンテンツとはいえクラス設計や共通コンポーネント化など実装全体が SOLID 原則に反した LP になっていないかが心配です。
->
+- PO 補足発言 (2026-05-02):
+> shared-label.js で svelte も静的コンテンツも共用できているなら確かに Pre-PMF としてやりすぎだと思います。
+- であれば静的コンテンツとしてセクションごとのコンポーネント共通化など、静的コンテンツとはいえクラス設計や共通コンポーネント化など実装全体が SOLID 原則に反した LP になっていないかが心配です。
+- >
 > 私の変えるな、はセクションの表現が伝え方、メッセージを変えるな、であってその内部実装が汚いのを直すな、とは言ってません。
 
 ### 1.1 現状監査 (Before の数値根拠)
@@ -38,13 +40,15 @@ PO 補足発言 (2026-05-02):
 
 ## 2. 検討した選択肢（OSS / 確立パターン最低 2 件 — #1350）
 
-調査した一次資料:
+- 調査した一次資料:
 - **OOCSS (Object Oriented CSS, Nicole Sullivan)** — 構造 (skin) と表現 (structure) を分離する確立パターン
-- **BEM (Block Element Modifier)** — 命名規約による DRY と OCP の達成。GitHub / WordPress / Yandex 等で採用実績
+- **BEM (Block Element Modifier)** — 命名規約による DRY と OCP の達成。
+- GitHub / WordPress / Yandex 等で採用実績
 - **Tailwind CSS @apply / utility-first** — utility class を組合せて variant を表現（採用実績豊富）
-- **CUBE CSS (Andy Bell)** — Composition / Utility / Block / Exception の階層化。静的サイト向け軽量手法
+- **CUBE CSS (Andy Bell)** — Composition / Utility / Block / Exception の階層化。
+- 静的サイト向け軽量手法
 - **MDN — CSS custom properties (variables)** — `:root` 変数で base token 化、変数差替えで variant を実現
-- **Bootstrap utility API** — variant modifier を CSS 変数 + class で表現
+- **Bootstrap utility API** — variant modifier を CSS 変数 + class で表現。
 
 ### 選択肢 A: BEM (Block Element Modifier) base + variant modifier
 - 概要: `lp-card`（block） / `lp-card__title`（element） / `lp-card--featured`（modifier）の命名で base + variant を分離

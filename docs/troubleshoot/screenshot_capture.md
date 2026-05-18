@@ -498,9 +498,10 @@ QM Re-Review で AC 達成を実視認できず観察ノイズとなる。
 
 ### 根本原因
 
-`scripts/capture-hp-screenshots.mjs` および `scripts/capture.mjs` は `page.goto` 後に networkidle と
+- `scripts/capture-hp-screenshots.mjs` および `scripts/capture.mjs` は `page.goto` 後に networkidle と
 font ready を待つが、Splide.js の初期化（DOMContentLoaded → CDN script 読込 → `splide.mount()` →
-`.splide__slide.is-active` クラス付与）は networkidle と非同期で進行することがある。CSS 適用前の
+`.splide__slide.is-active` クラス付与）は networkidle と非同期で進行することがある。
+- CSS 適用前の
 `<ul class="splide__list"></ul>` だけ存在する瞬間に screenshot が走ると、`.splide__track` の
 `background:var(--gray-900)` が出っ放しで子要素が空という状態 = 真っ黒なブロックが記録される。
 

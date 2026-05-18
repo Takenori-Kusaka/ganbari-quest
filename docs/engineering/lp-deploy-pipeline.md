@@ -89,9 +89,11 @@ BASE_URL=http://localhost:5173 node scripts/capture-hp-screenshots.mjs --webp
 
 ## 6.5 `?screenshot` mode 仕様 (#1893)
 
-LP 配信 SS が本番 NUC ユーザーの実画面と乖離する問題（PO 直接指摘 8 回連続再発）への構造的解決として、
-demo (`/demo/**`) 配下に 3 段階の `?screenshot` mode を導入。SSOT は `src/routes/demo/+layout.svelte`
-の 1 箇所、配下は `getScreenshotMode()` / `getScreenshotModeKind()` で参照する。詳細は
+- LP 配信 SS が本番 NUC ユーザーの実画面と乖離する問題（PO 直接指摘 8 回連続再発）への構造的解決として、
+demo (`/demo/**`) 配下に 3 段階の `?screenshot` mode を導入。
+- SSOT は `src/routes/demo/+layout.svelte`
+の 1 箇所、配下は `getScreenshotMode()` / `getScreenshotModeKind()` で参照する。
+- 詳細は
 [src/routes/CLAUDE.md](../../src/routes/CLAUDE.md) §「demo 配下の `?screenshot` モード」も併読。
 
 | URL パラメータ | mode 値 | demo 固有 UI | 本番一致演出 (MilestoneBanner 等) | 用途 |
@@ -147,9 +149,9 @@ pages.yml
 
 ### 視覚一致 baseline (#1893 Phase 2、別 Issue で対応予定)
 
-`tests/e2e/lp-screenshot-baseline/` に PO 承認済 SS 4 枚を baseline として登録し、
+- `tests/e2e/lp-screenshot-baseline/` に PO 承認済 SS 4 枚を baseline として登録し、
 撮影された SS との pixelmatch diff > 10% で warning を出す機構は #1893 Phase 2 で対応する。
-本 PR (PR-2032) では運用 README + ディレクトリ + `pixelmatch@^7.2.0` devDependency を tracked
+- 本 PR (PR-2032) では運用 README + ディレクトリ + `pixelmatch@^7.2.0` devDependency を tracked
 するに留め、実画像登録は PO 承認 SS 取得後の別 Issue に分割する（PO 承認なしで baseline 登録すると
 本番乖離があっても警告にならない罠を再生産するため）。
 

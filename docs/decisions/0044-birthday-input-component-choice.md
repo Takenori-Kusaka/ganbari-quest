@@ -6,7 +6,7 @@
 
 ## Context and Problem Statement
 
-The child creation and editing forms use a native `<input type="date">` for birthday entry. This presents several UX and design consistency issues:
+- The child creation and editing forms use a native `<input type="date">` for birthday entry. This presents several UX and design consistency issues:
 1.  **Default Focus**: The date picker defaults to the current date, forcing users to navigate back in time, which is a poor user experience as most children's birthdays are in the past.
 2.  **UI Inconsistency**: The appearance of the date picker varies significantly across different browsers (Chrome, Firefox, Safari) and operating systems, undermining the application's consistent brand identity.
 3.  **Poor UX Flow**: The typical flow (e.g., in Chrome) requires users to first change the year through a dropdown, then select the month and day. This is not an intuitive or efficient way to enter a birthdate.
@@ -52,9 +52,9 @@ We need a solution that provides a consistent, branded, and user-friendly experi
 
 Chosen option: **"Option 1: Three NativeSelects"**, because it provides the best balance of UX control, design consistency, and scope management.
 
-By creating a dedicated `BirthdayInput.svelte` component, we solve the immediate UX problems and maintain full control over the component's appearance and behavior. While it requires some manual date logic, this logic is well-defined and can be thoroughly tested.
+- By creating a dedicated `BirthdayInput.svelte` component, we solve the immediate UX problems and maintain full control over the component's appearance and behavior. While it requires some manual date logic, this logic is well-defined and can be thoroughly tested.
 
-This approach aligns with our Pre-PMF strategy of preferring simple, custom solutions built from our existing primitives over introducing new, complex dependencies. If a more advanced, fully-featured date picker becomes necessary post-PMF, we can revisit this decision and potentially replace this component with a more robust primitive (like an improved Ark UI DatePicker).
+- This approach aligns with our Pre-PMF strategy of preferring simple, custom solutions built from our existing primitives over introducing new, complex dependencies. If a more advanced, fully-featured date picker becomes necessary post-PMF, we can revisit this decision and potentially replace this component with a more robust primitive (like an improved Ark UI DatePicker).
 
 ### Implementation Sketch
 

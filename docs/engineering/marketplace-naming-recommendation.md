@@ -96,7 +96,7 @@ UI 文脈に応じた使い分けは §4 で詳述。
   - 各年代ペルソナで × がない安全な選択
 - **弱み**: やや汎用的、特徴がない（同じ「テンプレート」を使う他アプリとの差別化が弱い）→ 「みんなの」「おすすめ」等の修飾子で強化
 
-[持ち物リスト無料テンプレートデザイン | Canva](https://www.canva.com/ja_jp/templates/s/mochimonolist/) / [命名書テンプレートで命名紙デザインを無料で作成 | Canva](https://www.canva.com/ja_jp/meimeisyo/templates/) / [しおり (修学旅行) - Office テンプレート | Microsoft](https://www.microsoft.com/ja-jp/office/pipc/template/result.aspx?id=10180) / [テンプレートとは？仕事に役立つテンプレートを紹介 | Asana](https://asana.com/ja/resources/what-is-template)
+- [持ち物リスト無料テンプレートデザイン | Canva](https://www.canva.com/ja_jp/templates/s/mochimonolist/) / [命名書テンプレートで命名紙デザインを無料で作成 | Canva](https://www.canva.com/ja_jp/meimeisyo/templates/) / [しおり (修学旅行) - Office テンプレート | Microsoft](https://www.microsoft.com/ja-jp/office/pipc/template/result.aspx?id=10180) / [テンプレートとは？仕事に役立つテンプレートを紹介 | Asana](https://asana.com/ja/resources/what-is-template)
 
 #### #5 みんなのテンプレート（第一推奨）
 

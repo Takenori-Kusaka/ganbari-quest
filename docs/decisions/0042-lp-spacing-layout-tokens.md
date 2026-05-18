@@ -89,7 +89,7 @@ Issue #1840 で「PR ごとの累積 desktopHeight 監視機構（pre-merge cumu
 
 ### 3.1 Base Spacing (4px グリッド、14 段階)
 
-`--space-0` (0) / `--space-1` (4px) / `--space-2` (8px) / `--space-3` (12px) / `--space-4` (16px) / `--space-5` (20px) / `--space-6` (24px) / `--space-7` (28px) / `--space-8` (32px) / `--space-9` (36px) / `--space-10` (40px) / `--space-12` (48px) / `--space-14` (56px) / `--space-16` (64px)
+- `--space-0` (0) / `--space-1` (4px) / `--space-2` (8px) / `--space-3` (12px) / `--space-4` (16px) / `--space-5` (20px) / `--space-6` (24px) / `--space-7` (28px) / `--space-8` (32px) / `--space-9` (36px) / `--space-10` (40px) / `--space-12` (48px) / `--space-14` (56px) / `--space-16` (64px)
 
 Tailwind / Material Design 系列に整合。4px グリッド外の値（14px = `--space-3` と `--space-4` の中間）は Semantic 側で直値定義する。
 

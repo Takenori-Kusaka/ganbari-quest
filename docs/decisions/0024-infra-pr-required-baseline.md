@@ -32,7 +32,7 @@ environment: {
   ...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
 }
 
-// ✅ 必須 env はこう書く
+- // ✅ 必須 env はこう書く
 const cronSecret = this.node.tryGetContext('cronSecret');
 if (!cronSecret) {
   throw new Error('cronSecret context is required (set via -c cronSecret=$CRON_SECRET in deploy.yml)');

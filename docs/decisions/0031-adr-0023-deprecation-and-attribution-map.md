@@ -75,7 +75,8 @@ ADR ガバナンスの将来判断のため、ADR-0023 を **Deprecated** にし
 
 ### 4. 大量散在する `ADR-0023` 参照の扱い（明示スコープ外）
 
-`grep -rn "ADR-0023" docs/ CLAUDE.md` は本 PR 時点で 100+ ファイルを検出する。これらは設計書 (06-UI設計書 / 07-API設計書 / 08-DB設計書 / 13-AWS / 14-セキュリティ / 19-プライシング / 26-ゲーミフィケーション / 42-獲得戦略 / lp-content-map / parallel-implementations / plan-change-flow / push-subscription-role-migration runbook) 等の **history 記述（過去経緯の記録）** である。
+- `grep -rn "ADR-0023" docs/ CLAUDE.md` は本 PR 時点で 100+ ファイルを検出する。
+- これらは設計書 (06-UI設計書 / 07-API設計書 / 08-DB設計書 / 13-AWS / 14-セキュリティ / 19-プライシング / 26-ゲーミフィケーション / 42-獲得戦略 / lp-content-map / parallel-implementations / plan-change-flow / push-subscription-role-migration runbook) 等の **history 記述（過去経緯の記録）** である。
 
 これらを機械的に一括書換すると:
 

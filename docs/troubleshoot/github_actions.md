@@ -181,9 +181,11 @@ See the `handleUnseenRoutes` option in https://svelte.dev/docs/kit/configuration
 `src/routes/sitemap.xml/+server.ts` は `export const prerender = true` が設定されており、
 `svelte.config.js` の `prerender.entries` にも `'/sitemap.xml'` が明示登録されている（#832 で対応済み）。
 
-しかし `AUTH_MODE=cognito COGNITO_DEV_MODE=true` のビルド時に、プリレンダクローラが `/sitemap.xml`
+- しかし `AUTH_MODE=cognito COGNITO_DEV_MODE=true` のビルド時に
+- プリレンダクローラが `/sitemap.xml`
 を取得しようとすると `src/lib/server/auth/authorization.ts` の `isPublicRoute()` が
-`/sitemap.xml` を公開ルートとして認識せず、未認証扱いで `/auth/login` に 302 リダイレクトしてしまう。
+`/sitemap.xml` を公開ルートとして認識せず
+- 未認証扱いで `/auth/login` に 302 リダイレクトしてしまう
 
 `local` モードでは `hooks.server.ts` の 429 行目に `path !== '/sitemap.xml'` の明示除外があるが
 （コメントに #832 と記載）、`cognito` モードの認可チェックには同等の除外が漏れていた。
@@ -234,9 +236,9 @@ Error: locator.waitFor: Test timeout of 90000ms exceeded.
 
 ### 根本原因
 
-`playwright.config.ts` の `BASE_TEST_IGNORE` に cognito-dev 専用の `*.spec.ts` を追加し忘れたため、
+- `playwright.config.ts` の `BASE_TEST_IGNORE` に cognito-dev 専用の `*.spec.ts` を追加し忘れたため、
 標準 e2e テスト (`AUTH_MODE=local`, port 5173) でも当該 spec が実行された。
-`local` モードでは `/auth/login` が 302 redirect されてログインフォームが描画されないため、
+- `local` モードでは `/auth/login` が 302 redirect されてログインフォームが描画されないため、
 `loginAsPlan()` が 180s 待ちでタイムアウトし CI がハングした。
 
 ### 解決手順
@@ -379,9 +381,9 @@ Require stack:
 
 ### 根本原因
 
-Docker ビルド（Alpine/musl ベース）で `lightningcss` のネイティブバイナリ
+- Docker ビルド（Alpine/musl ベース）で `lightningcss` のネイティブバイナリ
 （`lightningcss.linux-x64-musl.node`）が見つからないエラー。
-PR ブランチで `package-lock.json` が更新された（`@aws-sdk/client-ssm` 追加）際に、
+- PR ブランチで `package-lock.json` が更新された（`@aws-sdk/client-ssm` 追加）際に、
 musl ターゲット向けバイナリが `optionalDependencies` に正しく含まれていない可能性がある。
 
 同一ブランチの以前の CI run（24923677509, 2026-04-25T05:32:24Z）は成功しており、

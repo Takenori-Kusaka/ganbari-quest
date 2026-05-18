@@ -41,7 +41,10 @@
 
 ### LP 累積 desktopHeight gate (#1840)
 
-`cumulative-lp-metrics` ジョブ: PR HEAD checkout → `git merge --no-commit --no-ff origin/main` → `measure-lp-dimensions.mjs` で擬似 main 累積を計測。8000 超で fail / 7800-8000 で warning。Phase 1 は warn-only (`continue-on-error: true`)、Phase 2 で required 化判断。
+- `cumulative-lp-metrics` ジョブ:
+- PR HEAD checkout → `git merge --no-commit --no-ff origin/main` → `measure-lp-dimensions.mjs` で擬似 main 累積を計測。
+- - 8000 超で fail / 7800-8000 で warning。
+- - Phase 1 は warn-only (`continue-on-error: true`)、Phase 2 で required 化判断。
 
 conflict 時は判定 skip + warning 通知（PR 側で main rebase 必要）。詳細は ADR-0042 / `lp-metrics.yml`。
 
@@ -56,13 +59,19 @@ conflict 時は判定 skip + warning 通知（PR 側で main rebase 必要）。
 
 ## 設計書 3 部構成化原則 (#1329)
 
-新規・改訂設計書は §1 設計背景 / §2 設計原則 / §3 仕様以降 の 3 部構成必須。背景には「この設計がなかった場合に何が困るか」を記述。`docs/design/_template.md` を骨格に使用。既存設計書も改訂時に §1-§2 を追加（後回し禁止）。
+- 新規・改訂設計書は §1 設計背景 / §2 設計原則 / §3 仕様以降 の 3 部構成必須。
+- - 背景には「この設計がなかった場合に何が困るか」を記述。
+- - `docs/design/_template.md` を骨格に使用。
+- - 既存設計書も改訂時に §1-§2 を追加（後回し禁止）。
 
 適用済み: `01-企画書.md` / `26-ゲーミフィケーション設計書.md` / `34-V2MOM.md`。漸進適用: `06-UI設計書.md` / `07-API設計書.md` / `08-データベース設計書.md` / `15-ブランドガイドライン.md`。
 
 ## 機能別 rationale (`docs/rationale/`)
 
-ADR (横断ポリシー) と設計書 (結論) の間に「なぜそう決めたか」を保存する層。複数代替案の比較・棄却理由・残懸念など narrative を記録。命名: `NN-機能名-rationale.md`。テンプレート / 運用ルール: `docs/rationale/01-README.md`。
+- ADR (横断ポリシー) と設計書 (結論) の間に「なぜそう決めたか」を保存する層。
+- - 複数代替案の比較・棄却理由・残懸念など narrative を記録。
+- - 命名: `NN-機能名-rationale.md`。
+- - テンプレート / 運用ルール: `docs/rationale/01-README.md`。
 
 書くタイミング: ① 複雑な新機能実装 / ② 既存機能の大方向転換 / ③ 過去議論再発の兆し。軽微変更には不要。
 
