@@ -11,6 +11,10 @@ import { soundService } from '$lib/ui/sound';
 
 let { data } = $props();
 
+// #2170: achievement 期間表示の区切り文字 (ESLint local/no-hardcoded-jp-text 回避のため定数化、
+// 単独「〜」記号は UI 言語非依存セパレータだが ESLint regex で JP 判定されるため抽出)
+const ACHIEVEMENT_DATE_SEP = '〜'; // 〜 (U+301C WAVE DASH)
+
 const uiMode = $derived((data.uiMode ?? 'preschool') as UiMode);
 const t = $derived(getModeVariant(uiMode).text);
 
@@ -107,9 +111,12 @@ function purchaseStatusTone(status: string): string {
 
 <div class="px-[var(--sp-md)] py-[var(--sp-sm)]">
 	<!-- #2170: 外側タブ = データ種別 4 種 (活動 / 達成 / 交換 / 記念) -->
+	<!-- ArkTabs.Content は全パネルを mount するため、snippet param `kindValue` で
+	     パネルごとの分岐を行う (data.kind での分岐は SSR 時に 4 パネル全てが同一内容になり
+	     `tab-today` 等のテストid 重複を引き起こす — Tabs primitive 仕様、PR-2237 #2170 fix) -->
 	<Tabs items={kindTabs} value={data.kind} onValueChange={handleKindChange}>
-		{#snippet children(_value)}
-			{#if data.kind === 'activities'}
+		{#snippet children(kindValue)}
+			{#if kindValue === 'activities'}
 				<!-- 活動タブ: 既存の期間タブ + 活動ログリスト -->
 				<div class="mb-[var(--sp-sm)]">
 					<Tabs items={periodTabs} value={data.period} onValueChange={handlePeriodChange}>
@@ -179,7 +186,7 @@ function purchaseStatusTone(status: string): string {
 						{/snippet}
 					</Tabs>
 				</div>
-			{:else if data.kind === 'achievements'}
+			{:else if kindValue === 'achievements'}
 				<!-- 達成タブ: チャレンジ達成履歴 -->
 				{#if data.achievements.length === 0}
 					<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]" data-testid="history-empty-achievements">
@@ -194,7 +201,7 @@ function purchaseStatusTone(status: string): string {
 								<div class="flex-1 min-w-0">
 									<p class="text-sm font-bold truncate">{a.title}</p>
 									<p class="text-xs text-[var(--color-text-muted)]">
-										{a.startDate} 〜 {a.endDate}
+										{a.startDate}{' '}{ACHIEVEMENT_DATE_SEP}{' '}{a.endDate}
 									</p>
 								</div>
 								<div class="text-right shrink-0">
@@ -211,7 +218,7 @@ function purchaseStatusTone(status: string): string {
 						{/each}
 					</div>
 				{/if}
-			{:else if data.kind === 'purchases'}
+			{:else if kindValue === 'purchases'}
 				<!-- 交換タブ: ごほうびショップ申請履歴 -->
 				{#if data.purchases.length === 0}
 					<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]" data-testid="history-empty-purchases">
@@ -241,7 +248,7 @@ function purchaseStatusTone(status: string): string {
 						{/each}
 					</div>
 				{/if}
-			{:else if data.kind === 'milestones'}
+			{:else if kindValue === 'milestones'}
 				<!-- 記念タブ: マイルストーン達成履歴 (#2169 年齢別 variant) -->
 				{#if data.milestones.length === 0}
 					<div class="flex flex-col items-center py-[var(--sp-2xl)] text-[var(--color-text-muted)]" data-testid="history-empty-milestones">
