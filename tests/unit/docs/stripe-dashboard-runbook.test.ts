@@ -36,7 +36,9 @@ describe('Stripe Dashboard 立ち上げランブック (#2098 AC7)', () => {
 
 		it('Phase 1 内に 7 件の `### ステップ N:` 見出しがある', () => {
 			// Phase 1 セクションを抽出
-			const phase1Match = content.match(/## Phase 1:[\s\S]*?(?=^## (?:Phase 2|トラブルシューティング|$))/m);
+			const phase1Match = content.match(
+				/## Phase 1:[\s\S]*?(?=^## (?:Phase 2|トラブルシューティング|$))/m,
+			);
 			expect(phase1Match).toBeTruthy();
 			const phase1Section = phase1Match![0];
 
@@ -46,7 +48,9 @@ describe('Stripe Dashboard 立ち上げランブック (#2098 AC7)', () => {
 		});
 
 		it('ステップ 1-7 の番号が連続している (歯抜けなし)', () => {
-			const phase1Match = content.match(/## Phase 1:[\s\S]*?(?=^## (?:Phase 2|トラブルシューティング|$))/m);
+			const phase1Match = content.match(
+				/## Phase 1:[\s\S]*?(?=^## (?:Phase 2|トラブルシューティング|$))/m,
+			);
 			expect(phase1Match).toBeTruthy();
 			const stepNumbers = [...phase1Match![0].matchAll(/^### ステップ (\d+):/gm)].map((m) =>
 				Number(m[1]),
@@ -115,7 +119,9 @@ describe('Stripe Dashboard 立ち上げランブック (#2098 AC7)', () => {
 		});
 
 		it('トラブルシューティング section 内に複数の問題系統が記載 (Webhook / Price / Portal 等)', () => {
-			const tsMatch = content.match(/## トラブルシューティング[\s\S]*?(?=^## (?:Phase 2|配布|改訂|$))/m);
+			const tsMatch = content.match(
+				/## トラブルシューティング[\s\S]*?(?=^## (?:Phase 2|配布|改訂|$))/m,
+			);
 			expect(tsMatch).toBeTruthy();
 			const tsSection = tsMatch![0];
 
