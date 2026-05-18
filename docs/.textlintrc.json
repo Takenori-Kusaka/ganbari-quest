@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "no-mix-dearu-desumasu": {
+      "preferInHeader": "dearu",
+      "preferInBody": "dearu",
+      "preferInList": "dearu",
+      "strict": true
+    },
+    "ja-no-redundant-expression": true,
+    "prh": {
+      "rulePaths": ["./prh.yml"]
+    }
+  },
+  "filters": {
+    "comments": true
+  }
+}
