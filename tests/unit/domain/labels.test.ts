@@ -8,6 +8,9 @@ import {
 	AGE_TIER_SHORT_LABELS,
 	getAgeTierLabel,
 	getAgeTierShortLabel,
+	getMilestoneBannerTitle,
+	getMilestoneLabel,
+	MILESTONE_LABELS,
 	NAV_ITEM_LABELS,
 } from '../../../src/lib/domain/labels';
 
@@ -103,5 +106,68 @@ describe('getAgeTierShortLabel', () => {
 describe('NAV_ITEM_LABELS', () => {
 	it('#1170: マケプレをグローバルナビに昇格 → #1212-H ADR-0041 テンプレート呼称へ移行', () => {
 		expect(NAV_ITEM_LABELS.marketplace).toBe('テンプレート');
+	});
+});
+
+// #2169 / ADR-0015: MILESTONE_LABELS の年齢別 variant
+describe('getMilestoneLabel (#2169, ADR-0015)', () => {
+	it('preschool 向けはひらがな variant を返す', () => {
+		const r = getMilestoneLabel('records_5', { ageTier: 'preschool' });
+		expect(r.title).toBe('5 かい きろく');
+		expect(r.description).toContain('きろくが できたよ');
+		// 漢字を含まない (ひらがな統一の AC3 検証)
+		expect(r.description).not.toMatch(/[一-龯]/);
+	});
+
+	it('elementary 向けは漢字 variant を返す', () => {
+		const r = getMilestoneLabel('records_5', { ageTier: 'elementary' });
+		expect(r.title).toBe('5 回 記録');
+		expect(r.description).toBe('5 回の活動を記録できました');
+	});
+
+	it('junior / senior も漢字 variant を返す (elementary と同じ)', () => {
+		expect(getMilestoneLabel('streak_7', { ageTier: 'junior' }).title).toBe('1 週間 つづいた');
+		expect(getMilestoneLabel('streak_7', { ageTier: 'senior' }).title).toBe('1 週間 つづいた');
+	});
+
+	it('unsupported ageTier (baby 等) は漢字 fallback を返す (MilestoneBellButton 側で baby は非表示済)', () => {
+		const r = getMilestoneLabel('first_record', { ageTier: 'baby' });
+		expect(r.title).toBe('はじめての記録');
+	});
+
+	it('全 6 マイルストーン x 全 4 年齢で title が空でなく取得できる', () => {
+		const ids = [
+			'first_record',
+			'records_5',
+			'records_10',
+			'streak_7',
+			'streak_14',
+			'streak_30',
+		] as const;
+		const ages = ['preschool', 'elementary', 'junior', 'senior'] as const;
+		for (const id of ids) {
+			for (const ageTier of ages) {
+				const r = getMilestoneLabel(id, { ageTier });
+				expect(r.title.length).toBeGreaterThan(0);
+				expect(r.description.length).toBeGreaterThan(0);
+			}
+		}
+	});
+
+	it('カタカナ「マイルストーン」は子供向け bannerTitle から除去されている (#2169 AC2)', () => {
+		expect(MILESTONE_LABELS.bannerTitle).not.toContain('マイルストーン');
+		expect(MILESTONE_LABELS.bannerTitleKanji).not.toContain('マイルストーン');
+	});
+});
+
+describe('getMilestoneBannerTitle (#2169)', () => {
+	it('preschool は「やったね！」を返す', () => {
+		expect(getMilestoneBannerTitle({ ageTier: 'preschool' })).toBe('やったね！');
+	});
+
+	it('elementary / junior / senior は「達成しました」を返す', () => {
+		expect(getMilestoneBannerTitle({ ageTier: 'elementary' })).toBe('達成しました');
+		expect(getMilestoneBannerTitle({ ageTier: 'junior' })).toBe('達成しました');
+		expect(getMilestoneBannerTitle({ ageTier: 'senior' })).toBe('達成しました');
 	});
 });

@@ -19,6 +19,21 @@ export interface TextVariant {
 	historyStreakSuffix: string;
 	weekdays: string[];
 
+	// #2170: history 画面 4 タブ階層 (データ種別 → 期間)
+	historyKindActivities: string;
+	historyKindAchievements: string;
+	historyKindPurchases: string;
+	historyKindMilestones: string;
+	historyEmptyAchievements: string;
+	historyEmptyPurchases: string;
+	historyEmptyMilestones: string;
+	historyPurchaseStatusApproved: string;
+	historyPurchaseStatusRejected: string;
+	historyPurchaseStatusPending: string;
+	historyPurchaseStatusExpired: string;
+	historyAchievementCompleted: string;
+	historyAchievementOngoing: string;
+
 	// Achievements page
 	achievementsWeeklyTitle: string;
 	achievementsClearText: string;
@@ -74,6 +89,21 @@ const HIRAGANA_TEXT: TextVariant = {
 	historyStreakSuffix: 'にちれんぞく',
 	weekdays: ['にち', 'げつ', 'か', 'すい', 'もく', 'きん', 'ど'],
 
+	// #2170: history 画面 4 タブ階層
+	historyKindActivities: 'かつどう',
+	historyKindAchievements: 'できたこと',
+	historyKindPurchases: 'こうかん',
+	historyKindMilestones: 'やったね',
+	historyEmptyAchievements: 'まだ できたことが ないよ',
+	historyEmptyPurchases: 'まだ こうかんしてないよ',
+	historyEmptyMilestones: 'まだ やったねが ないよ',
+	historyPurchaseStatusApproved: 'もらえたよ',
+	historyPurchaseStatusRejected: 'またこんど',
+	historyPurchaseStatusPending: 'まちのちゅう',
+	historyPurchaseStatusExpired: 'きげんぎれ',
+	historyAchievementCompleted: 'クリア！',
+	historyAchievementOngoing: 'がんばってるよ',
+
 	achievementsWeeklyTitle: 'こんしゅうの チャレンジ',
 	achievementsClearText: 'クリア！ おめでとう！',
 	achievementsPastTitle: 'いままでの チャレンジ',
@@ -97,6 +127,21 @@ const KANJI_TEXT: TextVariant = {
 	historyEmpty: 'まだ記録がないよ',
 	historyStreakSuffix: '日連続',
 	weekdays: ['日', '月', '火', '水', '木', '金', '土'],
+
+	// #2170: history 画面 4 タブ階層
+	historyKindActivities: '活動',
+	historyKindAchievements: '達成',
+	historyKindPurchases: '交換',
+	historyKindMilestones: '記念',
+	historyEmptyAchievements: 'まだ達成がないよ',
+	historyEmptyPurchases: 'まだ交換していないよ',
+	historyEmptyMilestones: 'まだ記念がないよ',
+	historyPurchaseStatusApproved: '受け取り済み',
+	historyPurchaseStatusRejected: '見送り',
+	historyPurchaseStatusPending: '申請中',
+	historyPurchaseStatusExpired: '期限切れ',
+	historyAchievementCompleted: '達成',
+	historyAchievementOngoing: '挑戦中',
 
 	achievementsWeeklyTitle: '今週のチャレンジ',
 	achievementsClearText: 'クリア！おめでとう！',
