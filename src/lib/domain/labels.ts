@@ -5582,11 +5582,40 @@ export const FEATURES_LABELS = {
 	},
 
 	// ---- features/admin/components/NotificationPermissionBanner ----
+	// #2115 (Bug fix: loading / try-catch / Toast / fallback)
+	// #2116 (透明性 UX: 2 段階開示 informed consent)
 	notificationBanner: {
 		title: '通知でもっと便利に',
 		desc: '毎日のリマインダーで お子さまの がんばりを サポートしましょう',
+		// #2116 AC1: 第 1 段階 (頻度 / 内容 / 送信先 / quiet hours が一目で把握可能)
+		descCompact:
+			'毎日 1 回まで、お子さまのがんばりリマインダーを親端末にお届けします（21:00-07:00 はお休み）',
 		ctaBtn: '通知を受け取る',
 		dismissBtn: 'あとで',
+		// #2115 AC2: loading 中表示
+		loadingLabel: '設定中…',
+		// #2115 AC3: 成功 Toast
+		toastSuccessTitle: '通知を有効化しました',
+		toastSuccessDesc: '次回から大事なリマインダーをお届けします',
+		// #2115 AC4: 失敗 fallback UI
+		errorTitle: '通知を有効にできませんでした',
+		errorDescDenied: 'ブラウザの設定で通知が拒否されている可能性があります。',
+		errorDescGeneric: '通知の設定中にエラーが発生しました。時間をおいて再度お試しください。',
+		errorSettingsLinkLabel: 'ブラウザの通知設定を確認する方法',
+		// #2116 AC3-4: 2 段階開示 disclosure
+		disclosureLabel: '📖 通知について詳しく',
+		disclosureContent: {
+			reminderTitle: 'がんばりリマインダー（毎日 1 回まで）',
+			reminderExample: '例:「きょうも がんばろう！」「○○さんの がんばりを きろくしよう！」',
+			streakWarningTitle: '連続記録のお知らせ',
+			streakWarningExample: 'がんばりの連続記録が途切れそうなときにお知らせします',
+			achievementTitle: '達成のお祝い',
+			achievementExample: 'お子さまが新しいバッジや称号を獲得したときにお知らせします',
+		},
+		disclosureParentOnly: '通知はすべて親端末にのみ送られます。お子さまの端末には届きません。',
+		disclosureQuietHours: '21:00〜07:00 はおやすみ時間で通知を送りません。',
+		disclosureOffNote: '通知はあとから設定画面でいつでも OFF にできます。',
+		disclosureSettingsLinkLabel: '通知の設定画面を開く',
 	},
 
 	// ---- features/admin/components/OnboardingChecklist ----
