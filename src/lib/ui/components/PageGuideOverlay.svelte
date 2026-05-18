@@ -233,7 +233,7 @@ const bubbleStyle = $derived.by(() => {
 	.guide-overlay {
 		position: fixed;
 		inset: 0;
-		/* #2106: DESIGN section 10 z-index token-ization (replaces hardcoded z-index: 100) */
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
 		z-index: var(--z-tutorial);
 	}
 
