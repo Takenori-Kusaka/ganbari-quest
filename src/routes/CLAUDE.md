@@ -91,6 +91,19 @@ node scripts/capture.mjs --pr <N>            # 修正後 SS を撮り直す
 # 手動運用時は capture 結果を screenshots branch にコミット & push
 ```
 
+## 局所テストコマンド (#2184)
+
+routes 配下のみ修正時は全体テストを待たず以下で高速検証:
+
+```bash
+npx vitest run src/routes/                                      # routes 配下 unit test
+npx playwright test tests/e2e/<関連>.spec.ts                    # 該当 E2E spec 個別実行
+npx playwright test tests/e2e/legacy-url-redirect.spec.ts       # URL リネーム時
+npx playwright test tests/e2e/demo-screenshot-mode.spec.ts      # demo `?screenshot` モード変更時
+```
+
+SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマンド SSOT」。Ready 化前は `npm run pre-ready -- --pr <num>` で全 step PASS が必須。
+
 ## 絶対にやってはいけないこと
 
 - 実画面未確認でゴールに `[x]`（検証偽装）

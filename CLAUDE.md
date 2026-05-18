@@ -30,6 +30,20 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 
 `.env.local` で `DEBUG_PLAN` / `DEBUG_TRIAL` / `DEBUG_TRIAL_TIER` / `DEBUG_LICENSE_KEY_VALID` 上書き（本番ビルド無効）。詳細: `.env.example` / `src/lib/server/debug-plan.ts`
 
+### サブディレクトリ別局所テストコマンド (#2184)
+
+全体実行 (`npm run test` / `npm run pre-ready`) を待たず、局所変更を高速検証可能。詳細表は `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマンド SSOT」。代表例:
+
+```bash
+npx vitest run src/routes/                                      # routes 配下 unit test
+npx vitest run src/lib/server/services/                         # service 層 unit test
+npx vitest run src/lib/domain/                                  # domain 層 unit test
+npx playwright test tests/e2e/<spec>.spec.ts                    # E2E 個別 spec
+cd infra && npx vitest run                                      # CDK 単体テスト
+```
+
+Ready 化前は依然として `npm run pre-ready -- --pr <num>` 全 step PASS が必須。
+
 ### Ready 化前チェック（必須）
 
 `npm run pre-ready -- --pr <num>` 一括実行 (ADR-0030 / #1775 / #1920 で SSOT 検証 step 拡張)。10 step を順次実行し各 fail で即停止 + 修正方針表示:

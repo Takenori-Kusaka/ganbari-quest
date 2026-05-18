@@ -2,6 +2,24 @@
 
 **SSOT**: ADR-0006（assertion 禁止）/ ADR-0020（NUC scheduler）/ ADR-0024（infra PR baseline）/ ADR-0026（force push）
 
+## 局所テストコマンド (#2184)
+
+infra 配下のみ修正時 (CDK stack / Lambda コード) は全体テストを待たず以下で高速検証:
+
+```bash
+cd infra && npx vitest run                                      # CDK 単体テスト (該当時)
+cd infra && npx cdk synth                                       # CDK synth 検証 (template 出力)
+cd infra && npx cdk diff                                        # 既存 stack との差分確認
+```
+
+Lambda 関数の unit test は `tests/unit/infra/` 配下 (該当時):
+
+```bash
+npx vitest run tests/unit/infra/                                # Lambda handler unit test
+```
+
+SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマンド SSOT」。
+
 ## AWS リソース region SSOT（#1606 / #1649）
 
 **全リソース `us-east-1` 固定**（Cognito custom domain ACM が us-east-1 必須のため統一）。CDK source `infra/bin/app.ts` L13-16 が `region: 'us-east-1'` で全 stack (`Storage` / `Auth` / `Compute` / `Network` / `Ops` / `Ses`) を deploy。
