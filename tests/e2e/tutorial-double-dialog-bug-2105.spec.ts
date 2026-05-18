@@ -153,10 +153,10 @@ test.describe('#2105 ガイドモード二重ダイアログ防止', () => {
 		});
 
 		// exitDlg は引き続き 1 件のみ visible (重複表示なし)
-		const exitDlgs = page
+		const exitDialogs = page
 			.locator('[role="dialog"]')
 			.filter({ hasText: 'チュートリアルを終了しますか' });
-		await expect(exitDlgs).toHaveCount(1);
+		await expect(exitDialogs).toHaveCount(1);
 		await expect(exitDlg).toBeVisible();
 	});
 });
