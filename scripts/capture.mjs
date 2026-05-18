@@ -625,11 +625,46 @@ function recordCaptureResult(result, capturedFiles, domFiles) {
 // 設定ファイルモード
 // ============================================================
 
+// #2148 / ADR-0048: 本番ルート `/(child)/[uiMode=uiMode]/<path>` を撮影するためには
+// uiMode と一致する `selectedChildId` cookie を pre-set する必要がある（child layout の
+// redirect ガード回避）。`capture-hp-screenshots.mjs` 同等のロジックを capture.mjs config
+// モードでも利用可能にする。demo fixture (`AUTH_MODE=anonymous DATA_SOURCE=demo` 起動時) の
+// 5 子供 ID は SSOT として `capture-hp-screenshots.mjs` と同期する。
+const CHILD_ID_BY_UI_MODE = {
+	baby: '901',
+	preschool: '902',
+	elementary: '903',
+	junior: '904',
+	senior: '906',
+};
+
+/**
+ * URL から uiMode を判定し、対応する `selectedChildId` cookie 仕様を返す。
+ * page.cookies 明示指定があればそれを尊重し、ない場合に自動推論する。
+ */
+function deriveChildIdCookieFromUrl(urlPath) {
+	const queryMatch = urlPath.match(/[?&]childId=(\d+)/);
+	if (queryMatch) {
+		return [{ name: 'selectedChildId', value: queryMatch[1] }];
+	}
+	const segMatch = urlPath.match(/^\/?([a-z]+)\b/);
+	if (segMatch) {
+		const seg = segMatch[1];
+		const childId = CHILD_ID_BY_UI_MODE[seg];
+		if (childId) {
+			return [{ name: 'selectedChildId', value: childId }];
+		}
+	}
+	return undefined;
+}
+
 async function runConfigMode() {
 	const configAbsPath = path.resolve(values.config);
+	// Windows では `import()` が絶対パス文字列を受け付けないため file:// URL に変換する
+	const configUrl = pathToFileURL(configAbsPath).href;
 	let configModule;
 	try {
-		configModule = await import(configAbsPath);
+		configModule = await import(configUrl);
 	} catch (err) {
 		console.error(`エラー: 設定ファイルを読み込めません: ${configAbsPath}`);
 		console.error(err.message);
@@ -663,6 +698,8 @@ async function runConfigMode() {
 			const viewport = resolvePreset(presetName);
 			const name = pagePresets.length > 1 ? `${page.name}-${presetName}` : page.name;
 			console.log(`Capturing ${page.name} [${presetName}] ...`);
+			// #2148: page.cookies 明示指定 > URL からの自動推論 (capture-hp-screenshots.mjs と同型)
+			const cookies = page.cookies ?? deriveChildIdCookieFromUrl(page.url);
 			const result = await capturer.capture({
 				url: page.url,
 				name,
@@ -673,6 +710,7 @@ async function runConfigMode() {
 				selector: page.selector,
 				storageState,
 				waitSplide: waitSplideEnabled,
+				cookies,
 			});
 			if (recordCaptureResult(result, capturedFiles, domFiles)) success++;
 		}

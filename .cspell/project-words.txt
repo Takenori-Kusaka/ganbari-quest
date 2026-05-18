@@ -336,3 +336,10 @@ wxyz
 WXYZ
 xlabel
 Octalysis
+
+# ===== 業界 prior art サービス名 (#2148 / docs/reference/07-research-child-collapsible-prior-art.md) =====
+# 子供向け教育・ゲーミフィケーション競合 7 サービス全件調査時に commit 履歴 / spec コメントで参照
+Duolingo
+ABCmouse
+Prodigy
+SplashLearn
