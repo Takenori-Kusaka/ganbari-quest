@@ -214,3 +214,225 @@ aws ses get-identity-verification-attributes \
 | 日付 | 版数 | 内容 |
 |------|------|------|
 | 2026-05-18 | 1.0 | #2190 初版作成（EPIC 統括 doc、8 通知種別の動作確認手順 + トラブルシューティング SSOT 化）|
+
+---
+
+## 付録: 詳細動作確認 runbook (Push + Email 8 系統、#2227 PR-B 統合)
+
+# Notification Runbook — Push + Email 配布証跡 + 動作確認
+
+EPIC #2190 / 子 Issue #2191 (Push) + #2192 (Email) の動作確認・配布証跡 SSOT。
+本ファイルが「Push 通知 + メール通知が正しく動作していること」を保証する手順の SSOT。
+
+**SSOT**: ADR-0006 (assertion 弱体化禁止) / ADR-0010 (Pre-PMF scope) / ADR-0023 (Anti-engagement)
+
+---
+
+## 1. 通知 8 系統 全体マップ
+
+| # | 系統 | 種類 | 実装 | cron / trigger | プラン gate |
+|---|---|---|---|---|---|
+| 1 | reminder | Push | `notification-service.sendPushNotification` | reminder cron (daily) | 全プラン |
+| 2 | streak-warning | Push | 同上 (`streak_warning` type) | `analytics-aggregate` 内派生 | 全プラン |
+| 3 | achievement | Push | `sendAchievementNotification` | `activity-log-service` 完了 hook | 全プラン |
+| 4 | level_up | Push | 同上 (`level_up` type) | `activity-log-service` 完了 hook (level up 時) | 全プラン |
+| 5 | weekly-report | Email | `email-service.sendWeeklyReportEmail` | `/api/v1/admin/weekly-report` (cron 想定) | standard 以上 (#735) |
+| 6 | lifecycle (renewal + dormant) | Email | `lifecycle-email-service.runLifecycleEmails` | `/api/cron/lifecycle-emails` (daily) | 全プラン (年 6 回上限) |
+| 7 | trial (3day/1day/today) | Email | `trial-notification-service.processTrialNotifications` | `/api/cron/trial-notifications` (daily) | trial 中のみ |
+| 8 | pmf-survey | Email | `pmf-survey-service.runPmfSurveyDistribution` | `/api/cron/pmf-survey` (年 2 回) | owner 全件 (年 6 回上限と共有) |
+
+---
+
+## 2. 配布証跡 (ADR-0006 整合)
+
+### VAPID 鍵 (#2191 AC2)
+
+| 配布先 | 値の入手元 | 検証手段 |
+|---|---|---|
+| **NUC `.env.production`** | `npx web-push generate-vapid-keys` で生成 → 1Password / 物理金庫保管 | `node -e "console.log(!!process.env.VAPID_PUBLIC_KEY)"` で `true` |
+| **Lambda env (SSM Parameter Store SecureString)** | 同上、`/ganbari-quest/prod/VAPID_PRIVATE_KEY` 等の path | CDK stack の `Secret.fromSecretCompleteArn` 参照 + `aws ssm get-parameter --with-decryption` |
+| **GitHub Actions Secrets** | repository settings → Secrets and variables → Actions | `${{ secrets.VAPID_PUBLIC_KEY }}` で参照 (Lambda デプロイ時のみ必要、Pages デプロイは不要) |
+| **ローカル dev `.env.local`** | `.env.example` template から生成、開発者個別保管 | 起動時に `notification-service` の warn ログを観察 |
+
+**証跡確認コマンド**:
+
+```bash
+# NUC 上で
+grep -c "VAPID_PUBLIC_KEY=" /opt/ganbari-quest/.env.production && echo "OK"
+
+# Lambda / staging
+aws ssm get-parameter --name /ganbari-quest/prod/VAPID_PUBLIC_KEY --with-decryption --region ap-northeast-1
+
+# CI / Actions Secrets
+gh secret list --repo Takenori-Kusaka/ganbari-quest | grep VAPID
+```
+
+**未配布時のフォールバック動作**:
+- `notification-service.ts:170-174` が `warn` ログを出して `{ sent: 0, failed: 0 }` を返す (silent fail)
+- web-push library への送信は試みない (鍵不在で web-push が throw する前にガード)
+- 検出: `tests/unit/services/notification-service.test.ts` 8/24 がこの分岐を網羅
+
+### SES sender ID + DKIM/SPF (#2192 AC2)
+
+| 設定項目 | 設定値 / 確認手段 | 場所 |
+|---|---|---|
+| **Verified identity (sender domain)** | `ganbari-quest.com` を SES Verified identities に追加 | AWS Console: SES → Verified identities |
+| **DKIM** | Easy DKIM (2048-bit) を有効化、`*._domainkey.ganbari-quest.com` CNAME 3 件を Route 53 等に登録 | 同上 + Route 53 |
+| **SPF** | `v=spf1 include:amazonses.com ~all` TXT レコードを `ganbari-quest.com` ルートに登録 | Route 53 |
+| **DMARC (optional)** | `v=DMARC1; p=quarantine; rua=mailto:postmaster@ganbari-quest.com` | Route 53 |
+| **IAM 権限** | Lambda 実行ロールに `ses:SendEmail` / `ses:SendRawEmail` を付与 (RawEmail は #1601 List-Unsubscribe で必要) | CDK stack / IAM |
+| **Configuration Set** | `ganbari-quest-default` (任意。バウンス/苦情 SNS 連携 hook 用) | SES → Configuration sets |
+| **バウンス処理 (Pre-PMF: 任意)** | SES → SNS → Lambda 経路、または SES Mailbox Simulator (`bounce@simulator.amazonses.com`) でテスト | docs/operations/runbook.md §バウンス |
+
+**確認コマンド**:
+
+```bash
+# Verified identities 一覧
+aws ses list-verified-email-addresses --region ap-northeast-1
+aws sesv2 get-email-identity --email-identity ganbari-quest.com --region ap-northeast-1
+
+# DKIM 状態
+aws sesv2 get-email-identity --email-identity ganbari-quest.com --region ap-northeast-1 \
+  --query 'DkimAttributes.{Enabled:SigningEnabled,Tokens:Tokens}'
+
+# 送信 quota (24h limit / max send rate)
+aws ses get-send-quota --region ap-northeast-1
+```
+
+**未設定時の挙動**:
+- sender ID 未 verify → SES が `MessageRejected` を投げ、`email-service.ts:111-114` が `false` を返す
+- DKIM 未設定 → メール届くが Gmail / Outlook がスパム判定する可能性高
+- バウンス処理未設定 → 送信成功率指標が悪化 (SES から警告メール来る)
+
+---
+
+## 3. 動作確認手順 (dogfood)
+
+### #2191 AC3 — Push 通知 dogfood (PO 実機検証手順)
+
+#### PC (Chrome / Edge / Firefox)
+
+```bash
+# 1. ローカル起動 (cognito-dev で owner ログイン)
+npm run dev:cognito
+# 別 terminal で:
+open http://localhost:5174/admin
+
+# 2. 「通知を有効化」を押す (NotificationPermissionBanner、#2115/#2116 で UX 改善済)
+# 3. OS の通知許可ダイアログを承認
+# 4. cron トリガー (手動)
+curl -X POST http://localhost:5174/api/cron/reminder \
+  -H "x-cron-secret: $CRON_SECRET" -d '{"dryRun":false}'
+# 5. デスクトップ右上 (Mac) / 右下 (Win) に通知が出る → SS 撮影
+```
+
+#### Mobile (iOS Safari 16.4+ / Android Chrome)
+
+```bash
+# 1. iOS は「ホーム画面に追加」(PWA) してから「通知を許可」
+# 2. Android はブラウザ通知許可ダイアログ → 「許可」
+# 3. cron トリガーは同上
+# 4. ロック画面 / 通知センターに表示される → SS 撮影
+```
+
+**期待動作**:
+- reminder: 「きょうもがんばろう！」(quiet hours 21-07 JST 外、日次上限 3 通)
+- streak-warning: 連続記録途切れ警告 (`analytics-aggregate` 経由)
+- achievement: 「`{childName}`「`{activityName}`」を がんばったよ！ +`{points}`P」
+- level_up: 「`{childName}` レベル`{n}`に なったよ！ すごい！」
+
+### #2192 AC5 — メール通知 dogfood
+
+```bash
+# 1. ローカル起動
+npm run dev
+# AUTH_MODE=local では SES 送信は skip、tmp/emails/<timestamp>.html に HTML 書き出し
+# 実 SES 送信は AUTH_MODE=cognito + .env.local に SES env を入れて起動
+
+# 2. lifecycle (期限切れリマインド + 休眠復帰) を dryRun で集計
+curl -X POST http://localhost:5174/api/cron/lifecycle-emails \
+  -H "x-cron-secret: $CRON_SECRET" -d '{"dryRun":true}'
+# → { ok: true, scanned, renewalSent, dormantSent, ... }
+
+# 3. trial 通知を dryRun
+curl -X POST http://localhost:5174/api/cron/trial-notifications \
+  -H "x-cron-secret: $CRON_SECRET" -d '{}'
+
+# 4. weekly-report (試験送信)
+curl -X POST http://localhost:5174/api/v1/admin/weekly-report \
+  -H "x-cron-secret: $CRON_SECRET" \
+  -d '{"tenantId":"t-test","ownerEmail":"po@example.com","children":[...]}'
+
+# 5. pmf-survey を dryRun
+curl -X POST http://localhost:5174/api/cron/pmf-survey \
+  -H "x-cron-secret: $CRON_SECRET" -d '{"dryRun":true,"round":"2026-H1"}'
+
+# 6. unsubscribe one-click (RFC 8058)
+# メール内の List-Unsubscribe URL を取得して
+curl -X POST "http://localhost:5174/unsubscribe/<token>?/"
+# → 200 + success: true、再送信時 skip される
+```
+
+**SES sandbox 解除 (本番デリバラビリティ前提)**:
+- 初期状態は sandbox (verify 済 address のみ送信可、200 通/24h)
+- production 移行: AWS Support → SES production access request
+- 解除後: 任意宛先 + 50,000+通/24h (Pre-PMF には十分過ぎる)
+
+---
+
+## 4. トラブルシューティング
+
+### Push 通知が届かない
+
+| 症状 | 原因候補 | 確認 / 対処 |
+|---|---|---|
+| サーバ log `[notification] VAPID キーが設定されていません` | env 未配布 | §2 配布証跡で確認、再配布 |
+| `[notification] レート制限またはサイレント時間帯のためスキップ` | 日次 3 通上限 / 21-07 JST | 設定画面でサイレント時間帯変更、または翌日待つ |
+| `[notification] 非 parent/owner role の subscription への送信をスキップ` | child role で subscribe 済 (過去 bug 想定) | `push_subscriptions` テーブルから `subscriber_role='child'` 行を削除 |
+| 410 / 404 で `stale subscription を削除` | ブラウザ側で通知許可解除済 | 正常動作、re-subscribe 必要 |
+| sendNotification 失敗で 5xx | web-push 内部エラー / 鍵不正 / Service Worker 未登録 | `tmp/` log + ブラウザ DevTools Application → Service Workers |
+
+### メールが届かない
+
+| 症状 | 原因候補 | 確認 / 対処 |
+|---|---|---|
+| `[email] メール送信失敗` + `MessageRejected` | sender ID 未 verify / SES sandbox | §2 SES 確認 + sandbox 解除 |
+| 送信成功だが受信側スパムフォルダ | DKIM 未設定 / SPF 不整合 | §2 DNS レコード再確認 |
+| `[email] ローカルモード: メール送信スキップ` | `AUTH_MODE=local` で実 SES 呼ばれていない | `AUTH_MODE=cognito` + SES env 投入 |
+| バウンス / 苦情率高 | 配信先リスト品質 / List-Unsubscribe 機能不全 | バウンス SNS 連携追加 (Pre-PMF は手動監視可) |
+| List-Unsubscribe ヘッダ無し | `sendRawEmail` 経路使われていない / `listUnsubscribeUrl` 未指定 | `email-service.ts:73-89` 経路確認 |
+
+---
+
+## 5. E2E + Unit テスト網羅性 (#2191 AC1+AC5 / #2192 AC1+AC4)
+
+| spec | scope | 系統数 |
+|---|---|---|
+| `tests/e2e/push-subscribe-anti-engagement.spec.ts` | subscribe API 構造防御 (401/400 smoke) | 全系統共通 |
+| `tests/e2e/push-notification-4-types.spec.ts` (#2191) | 4 Push 系統のサービスレベル発火経路 + VAPID env smoke | 4 (reminder/streak/achievement/level_up) |
+| `tests/e2e/cron-lifecycle-emails.spec.ts` | lifecycle cron auth + dryRun | 1 |
+| `tests/e2e/cron-trial-notifications.spec.ts` (#2192) | trial cron auth + dryRun | 1 |
+| `tests/e2e/cron-pmf-survey.spec.ts` (#2192) | pmf-survey cron auth + dryRun | 1 |
+| `tests/e2e/email-notification-4-types.spec.ts` (#2192) | 4 メール cron 横断 smoke | 4 (lifecycle/trial/pmf/weekly-report) |
+| `tests/e2e/email-unsubscribe.spec.ts` (#2192 AC4) | unsubscribe HMAC token + page server actions | 1 |
+| `tests/unit/services/notification-service.test.ts` | 24 件 (quiet hours / role guard / 410 削除 / 二重防御) | 4 |
+| `tests/unit/services/notification-service-vapid-distribution.test.ts` (#2191 AC5) | VAPID env 配布証跡 + 4 系統発火 unit | 4 |
+| `tests/unit/services/email-service.test.ts` | 15 件 (各テンプレート + ローカルモード fallback) | 4 |
+| `tests/unit/services/email-deliverability.test.ts` (#2192 AC2/AC3) | SES sender / DKIM env 証跡 unit + error path | 4 |
+
+---
+
+## 6. 関連 ADR / Issue
+
+- **ADR-0006**: assertion 弱体化禁止 → VAPID/SES env 配布証跡を「あれば動く」前提にしない
+- **ADR-0010**: Pre-PMF scope → バウンス SNS 連携 / WAF / 監査ログは Pre-PMF 過剰防衛として保留
+- **ADR-0023 §3.3**: Anti-engagement / 接触頻度上限 (年 6 回マーケティング、日次 3 通 Push)
+- **#1593**: child role subscribe 構造的禁止
+- **#1601**: List-Unsubscribe (RFC 8058) 対応
+- **#2115/#2116/#2221**: NotificationPermissionBanner UX 改善 (subscribe フロー silent fail 修正)
+
+## 7. 更新ルール
+
+- 新規通知系統追加時は §1 マップ + §5 テスト網羅性 を更新
+- VAPID 鍵ローテーション時は §2 配布証跡 で全 4 配布先を更新 (1 つでも漏れると silent fail)
+- SES sender ID 変更時は DKIM/SPF 再設定 + §2 確認コマンド再実行
