@@ -872,7 +872,7 @@ npm run check:lp-residue:update-baseline
 
 ### 8.7.3 PR template との連携
 
-`.github/pull_request_template.md` §「LP 削除/圧縮 PR 必須チェックリスト（#1790）」で同 5 項目を Ready 化前のセルフチェック対象に組み込み済み。
+`.github/PULL_REQUEST_TEMPLATE.md` §「LP 削除/圧縮 PR 必須チェックリスト（#1790）」で同 5 項目を Ready 化前のセルフチェック対象に組み込み済み。
 
 ---
 

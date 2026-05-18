@@ -161,6 +161,27 @@ function isCheckableImplPath(p) {
 }
 
 /**
+ * Case-sensitive 版 existsSync (Windows / macOS の case-insensitive FS で
+ * Linux CI と挙動を一致させる)。各パスセグメントを readdirSync で取得した実体名と
+ * strict 比較する。
+ */
+function existsCaseSensitive(p) {
+	if (!fs.existsSync(p)) return false;
+	const segments = p.split(/[/\\]/).filter(Boolean);
+	let cur = p.startsWith('/') || p.startsWith('\\') ? '/' : '.';
+	for (const seg of segments) {
+		try {
+			const entries = fs.readdirSync(cur);
+			if (!entries.includes(seg)) return false;
+			cur = path.join(cur, seg);
+		} catch {
+			return false;
+		}
+	}
+	return true;
+}
+
+/**
  * 改善 1: Deprecated marker のいずれかが含まれるかを判定。
  */
 function isMarkedDeprecated(content) {
@@ -227,7 +248,7 @@ function findViolationsInFile(file) {
 		if (checked.has(cleanPath)) continue;
 		checked.add(cleanPath);
 
-		if (!fs.existsSync(cleanPath)) {
+		if (!existsCaseSensitive(cleanPath)) {
 			violations.push({
 				path: cleanPath,
 				refType: inlinePaths.has(cleanPath) ? 'inline' : 'bare',
