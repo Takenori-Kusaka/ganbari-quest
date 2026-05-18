@@ -129,13 +129,13 @@ test.describe('#753 /admin/activities AI → アップグレード導線', () =>
 	test('free プランで AI パネルの upgrade-cta が /admin/license へリンクする', async ({ page }) => {
 		await page.goto('/admin/activities', { waitUntil: 'commit', timeout: 30_000 });
 
-		// FAB から追加ダイアログを開き AI モードを選択
+		// EPIC #2253 / #2255: header + dropdown menu から AI を選択
 		await page.waitForLoadState('domcontentloaded');
-		const fab = page.getByTestId('add-activity-fab');
-		await expect(fab).toBeVisible({ timeout: 30_000 });
-		await fab.click();
+		const addBtn = page.getByTestId('header-add-activity-btn');
+		await expect(addBtn).toBeVisible({ timeout: 30_000 });
+		await addBtn.click();
+		await page.getByTestId('menu-item-ai').click();
 		await expect(page.getByTestId('add-activity-dialog')).toBeVisible();
-		await page.getByRole('button', { name: /AIで追加/ }).click();
 
 		const panel = page.getByTestId('ai-suggest-panel');
 		await expect(panel).toBeVisible();

@@ -6,9 +6,15 @@ const { Story } = defineMeta({
 	title: 'Admin/ActivitiesHeader',
 	component: ActivitiesHeader,
 	tags: ['autodocs'],
-	args: { clearConfirmOpen: false, onClearAll: () => {} },
+	args: {
+		clearConfirmOpen: false,
+		onClearAll: () => {},
+		canAdd: true,
+		onAddSelect: () => {},
+	},
 });
 </script>
 
-<Story name="Default" args={{ clearConfirmOpen: false, onClearAll: () => alert('全削除確認') }} />
-<Story name="Clear confirm open (delete btn hidden)" args={{ clearConfirmOpen: true, onClearAll: () => {} }} />
+<Story name="Default" />
+<Story name="Clear confirm open (clear-all hidden from overflow)" args={{ clearConfirmOpen: true }} />
+<Story name="Add disabled (limit reached)" args={{ canAdd: false }} />

@@ -8,8 +8,6 @@ import ActivityEmptyState from '$lib/features/admin/components/ActivityEmptyStat
 import ActivityImportPanel from '$lib/features/admin/components/ActivityImportPanel.svelte';
 import ActivityLimitBanner from '$lib/features/admin/components/ActivityLimitBanner.svelte';
 import ActivityListItem from '$lib/features/admin/components/ActivityListItem.svelte';
-import AddActivityFab from '$lib/features/admin/components/AddActivityFab.svelte';
-import AddActivityModeSelector from '$lib/features/admin/components/AddActivityModeSelector.svelte';
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
@@ -30,7 +28,7 @@ let actionMessage = $state('');
 let showClearConfirm = $state(false);
 let clearLoading = $state(false);
 
-// 追加ダイアログ
+// 追加ダイアログ (EPIC #2253 / #2255: header + dropdown menu で必ず mode が確定する)
 let showAddDialog = $state(false);
 let addMode = $state<'manual' | 'ai' | 'import' | null>(null);
 
@@ -94,6 +92,8 @@ function acceptAiPreview(preview: AiPreviewData) {
 	<ActivitiesHeader
 		clearConfirmOpen={showClearConfirm}
 		onClearAll={() => { showClearConfirm = true; }}
+		{canAdd}
+		onAddSelect={openAddDialog}
 	/>
 
 	{#if showClearConfirm}
@@ -154,7 +154,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 			<ActivityEmptyState
 				hasFilter={Boolean(searchQuery || filterCategoryId)}
 				{canAdd}
-				onAdd={() => openAddDialog('manual')}
+				onAdd={(mode) => openAddDialog(mode)}
 			/>
 		{/each}
 	</div>
@@ -164,19 +164,10 @@ function acceptAiPreview(preview: AiPreviewData) {
 		logCounts={data.logCounts}
 	/>
 
-	<AddActivityFab
-		enabled={canAdd}
-		onclick={() => { showAddDialog = true; addMode = null; }}
-	/>
-
-	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? '✨ AI で活動を追加' : addMode === 'import' ? '📥 パックからインポート' : addMode === 'manual' ? '+ 手動で追加' : '活動を追加'} testid="add-activity-dialog">
-		{#if !addMode}
-			<AddActivityModeSelector onselect={(mode) => { addMode = mode; }} />
-		{:else if addMode === 'ai'}
-			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">{UI_LABELS.backWithArrow}</Button>
+	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? '✨ AI で活動を追加' : addMode === 'import' ? '📥 パックからインポート' : '+ 手動で追加'} testid="add-activity-dialog">
+		{#if addMode === 'ai'}
 			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.planTier === 'family'} />
 		{:else if addMode === 'manual'}
-			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">{UI_LABELS.backWithArrow}</Button>
 			<ActivityCreateForm
 				categoryDefs={data.categoryDefs}
 				initialName={prefillName}
@@ -189,11 +180,10 @@ function acceptAiPreview(preview: AiPreviewData) {
 				oncreated={() => { closeAddDialog(); }}
 			/>
 		{:else if addMode === 'import'}
-			<Button variant="ghost" size="sm" onclick={() => { addMode = null; }} class="mb-2">{UI_LABELS.backWithArrow}</Button>
 			<ActivityImportPanel
 				activityPacks={data.activityPacks}
 				onimported={(msg) => { actionMessage = msg; closeAddDialog(); }}
-				onclose={() => { addMode = null; }}
+				onclose={() => { closeAddDialog(); }}
 			/>
 		{/if}
 	</Dialog>
