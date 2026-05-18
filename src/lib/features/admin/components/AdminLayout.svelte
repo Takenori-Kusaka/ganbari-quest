@@ -511,7 +511,8 @@ function isItemActive(itemHref: string): boolean {
 		border-radius: 0.5rem;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 		padding: 0.25rem;
-		z-index: 50;
+		/* DESIGN section 10 z-index token (#2258 / EPIC #2253): raw 50 -> var(--z-modal) */
+		z-index: var(--z-modal);
 		margin-top: 0.25rem;
 	}
 	.dropdown-item {
