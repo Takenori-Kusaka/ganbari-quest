@@ -1,5 +1,13 @@
 # がんばりクエスト 障害対応ランブック
 
+## 関連 runbook
+
+- [stripe-dashboard-runbook.md](stripe-dashboard-runbook.md) — Stripe Dashboard 立ち上げ / 月次運用 / Refund / Chargeback / Customer 検索（#2101）
+- [license-key-secrets.md](license-key-secrets.md) — HMAC シークレット運用 / 鍵ローテーション
+- [notification-runbook.md](notification-runbook.md) — 通知機能（#2 Push + #3 Email）動作確認 / トラブルシューティング（#2190）
+
+---
+
 ## Level 1: アラート受信（自動）
 
 1. メール確認（CloudWatch Alarms / AWS Health / Cost Anomaly）
