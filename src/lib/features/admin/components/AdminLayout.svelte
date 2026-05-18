@@ -534,7 +534,7 @@ function isItemActive(itemHref: string): boolean {
 		color: var(--plan-nav-text, var(--color-brand-700));
 		font-weight: 600;
 	}
-	/* Mobile nav — category buttons (#2178: 5 tab で iPhone SE 375px 収容のため width を 4.5rem → 3.75rem に調整) */
+	/* Mobile nav — category buttons (#2178: 5-tab width tightened 4.5rem -> 3.75rem to fit iPhone SE 375px) */
 	.mobile-nav-item {
 		display: flex;
 		flex-direction: column;
