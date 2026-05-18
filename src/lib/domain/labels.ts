@@ -5015,6 +5015,11 @@ export const CHILD_SHOP_LABELS = {
 	// aria-labels
 	rewardListAriaLabel: 'ごほうびリスト',
 	pointProgressAriaLabel: 'ポイント進捗',
+	// #2155 Dialog UX 改善: 階層化表示用ラベル
+	exchangeConfirmHeading: 'こうかんしますか？',
+	exchangeConfirmPointsLabel: 'ひつようなポイント',
+	exchangeConfirmDescription: 'おうちのひとにれんらくがいくよ',
+	exchangeDialogAriaLabel: 'ごほうび交換確認ダイアログ',
 } as const;
 
 // ============================================================
