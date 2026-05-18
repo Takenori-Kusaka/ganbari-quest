@@ -14,7 +14,7 @@
 -->
 <script lang="ts">
 import { browser } from '$app/environment';
-import { MILESTONE_LABELS } from '$lib/domain/labels';
+import { getMilestoneBannerTitle, getMilestoneLabel, MILESTONE_LABELS } from '$lib/domain/labels';
 import type { MilestoneId } from '$lib/server/services/value-preview-service';
 import IconButton from '$lib/ui/primitives/IconButton.svelte';
 
@@ -28,6 +28,8 @@ interface MilestoneAchievement {
 interface Props {
 	milestones: MilestoneAchievement[];
 	childId: number;
+	/** #2169 ADR-0015: 年齢帯 variant 判定に必須 (preschool = ひらがな / elementary 以上 = 漢字) */
+	uiMode?: string;
 	/**
 	 * #1893: localStorage の `seen` 判定をバイパスする。LP screenshot 撮影時 (`?screenshot=all`)
 	 * のように毎回確実に表示したい場合に true を渡す。通常運用では false (default)。
@@ -35,7 +37,7 @@ interface Props {
 	bypassSeenCheck?: boolean;
 }
 
-let { milestones, childId, bypassSeenCheck = false }: Props = $props();
+let { milestones, childId, uiMode = 'elementary', bypassSeenCheck = false }: Props = $props();
 
 const STORAGE_KEY_PREFIX = 'gq:milestone-seen:';
 
@@ -75,15 +77,8 @@ const pendingMilestone = $derived.by(() => {
 let dismissed = $state(false);
 
 function getLabelEntry(id: MilestoneId): { title: string; description: string } | null {
-	const map: Record<MilestoneId, { title: string; description: string }> = {
-		first_record: MILESTONE_LABELS.first_record,
-		records_5: MILESTONE_LABELS.records_5,
-		records_10: MILESTONE_LABELS.records_10,
-		streak_7: MILESTONE_LABELS.streak_7,
-		streak_14: MILESTONE_LABELS.streak_14,
-		streak_30: MILESTONE_LABELS.streak_30,
-	};
-	return map[id] ?? null;
+	// #2169 / ADR-0015: 年齢帯 variant を経由
+	return getMilestoneLabel(id, { ageTier: uiMode });
 }
 
 function handleDismiss() {
@@ -105,7 +100,7 @@ function handleDismiss() {
 			data-milestone-id={pendingMilestone.id}
 		>
 			<div class="milestone-banner__content">
-				<p class="milestone-banner__heading">{MILESTONE_LABELS.bannerTitle}</p>
+				<p class="milestone-banner__heading">{getMilestoneBannerTitle({ ageTier: uiMode })}</p>
 				<p class="milestone-banner__title">{entry.title}</p>
 				<p class="milestone-banner__description">{entry.description}</p>
 			</div>

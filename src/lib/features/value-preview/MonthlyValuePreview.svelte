@@ -10,7 +10,7 @@
   - インフィニットスクロール / 自動再生 / 通知連打禁止
 -->
 <script lang="ts">
-import { MILESTONE_LABELS, VALUE_PREVIEW_LABELS } from '$lib/domain/labels';
+import { getMilestoneLabel, VALUE_PREVIEW_LABELS } from '$lib/domain/labels';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type {
 	ChildValuePreview,
@@ -38,15 +38,8 @@ const sectionHint = $derived(
 );
 
 function getMilestoneTitle(id: MilestoneId): string {
-	const map: Record<MilestoneId, { title: string }> = {
-		first_record: MILESTONE_LABELS.first_record,
-		records_5: MILESTONE_LABELS.records_5,
-		records_10: MILESTONE_LABELS.records_10,
-		streak_7: MILESTONE_LABELS.streak_7,
-		streak_14: MILESTONE_LABELS.streak_14,
-		streak_30: MILESTONE_LABELS.streak_30,
-	};
-	return map[id]?.title ?? id;
+	// 親 dashboard は漢字 fixed (preschool 子供向けではない、ADR-0015 elementary 同等扱い)
+	return getMilestoneLabel(id, { ageTier: 'elementary' }).title;
 }
 
 function getCategoryName(categoryId: number): string {
