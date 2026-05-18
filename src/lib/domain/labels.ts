@@ -4056,7 +4056,7 @@ export const CHILD_CHECKLIST_LABELS = {
 	emptyDesc: 'おやにおねがいしてね',
 	completedAll: '🎉 ぜんぶできた！',
 	checkForPoints: 'ぜんぶチェックしたら',
-	backButton: 'もどる',
+	// #2196: backButton 撤廃 — BottomNav と動線重複 + 他 child タブ (achievements / battle / history / status / shop) 統一性
 	completeTitle: 'ぜんぶできたよ！',
 	pointsSuffix: 'ポイント！',
 	completeMsg: 'わすれものなし！すごい！',
