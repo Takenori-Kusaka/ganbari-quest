@@ -160,7 +160,7 @@ LP `site/index.html` の hero carousel / machine-tour / soft-features / growth-r
 | **`growth-stage-elementary{,-desktop}.webp`** (#1712 / #2097) | growth-roadmap elementary | `/elementary/home` | 780×1688 / 2880×1800 |
 | **`growth-stage-junior{,-desktop}.webp`** (#1712 / #2097) | growth-roadmap junior | `/junior/home` | 780×1688 / 2880×1800 |
 | **`growth-stage-senior{,-desktop}.webp`** (#1712 / #2097) | growth-roadmap senior | `/senior/home` | 780×1688 / 2880×1800 |
-| **`growth-stage-graduate{,-desktop}.webp`** (#1712 / #2097) | graduation.html / growth-roadmap graduate | `/elementary/achievements` | 780×1688 / 2880×1800 |
+| **`growth-stage-graduate{,-desktop}.webp`** (#1712 / #2097 / #2175) | graduation.html / growth-roadmap graduate | `/elementary/challenges` (#2175 で achievements → challenges rename) | 780×1688 / 2880×1800 |
 
 > **#1901 削除済 dead 撮影定義**: `feature-titles{,-desktop}.webp` (旧: machine-tour ② 称号セクション、#1708 で LP 削除済) と `feature-routine-checklist{,-desktop}.webp` (旧: machine-tour ③ ルーティン、#1708 で LP 削除済) は LP HTML 参照ゼロ + ETag 重複ペアの根本原因のため `capture-hp-screenshots.mjs` から削除。
 >

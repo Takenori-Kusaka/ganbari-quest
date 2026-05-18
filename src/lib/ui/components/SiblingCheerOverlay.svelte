@@ -1,6 +1,14 @@
+<!--
+  SiblingCheerOverlay.svelte
+  - #2107: Ark UI Dialog primitive (`$lib/ui/primitives/Dialog.svelte`) ベースに refactor。
+    backdrop click / ESC / focus trap / aria-modal は primitive 側に委譲。
+  - #2106: z-index は DESIGN §10 `--z-tutorial` 階層を `zLayer="tutorial"` で適用 (旧生数値 100)。
+  - 既存呼び出し側 API (`cheers` / `onDismiss` prop) は維持。
+-->
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 interface CheerData {
 	id: number;
@@ -17,69 +25,67 @@ interface Props {
 let { cheers, onDismiss }: Props = $props();
 
 const cheerIds = $derived(cheers.map((c) => c.id).join(','));
+// Dialog primitive は bindable open を取るため local state を経由する。
+let dialogOpen = $state(true);
+
+function handleDialogChange(details: { open: boolean }) {
+	if (!details.open) {
+		onDismiss();
+	}
+	dialogOpen = details.open;
+}
 </script>
 
 {#if cheers.length > 0}
-	<div class="cheer-overlay" data-testid="cheer-overlay">
-		<div class="cheer-overlay__backdrop" onclick={onDismiss} role="presentation"></div>
-		<div class="cheer-overlay__card">
-			<p class="cheer-overlay__title">{UI_COMPONENTS_LABELS.siblingCheerTitle}</p>
-			<div class="cheer-overlay__list">
-				{#each cheers as cheer}
-					<div class="cheer-overlay__item">
-						<span class="cheer-overlay__emoji">{cheer.stampEmoji}</span>
-						<div>
-							<span class="cheer-overlay__from">{UI_COMPONENTS_LABELS.siblingCheerFrom(cheer.fromName)}</span>
-							<span class="cheer-overlay__label">{cheer.stampLabel}</span>
-						</div>
+	<Dialog
+		bind:open={dialogOpen}
+		onOpenChange={handleDialogChange}
+		zLayer="tutorial"
+		size="sm"
+		closable={false}
+		testid="cheer-overlay"
+		ariaLabel={UI_COMPONENTS_LABELS.siblingCheerTitle}
+		contentClass="cheer-overlay__content"
+	>
+		<p class="cheer-overlay__title">{UI_COMPONENTS_LABELS.siblingCheerTitle}</p>
+		<div class="cheer-overlay__list">
+			{#each cheers as cheer}
+				<div class="cheer-overlay__item">
+					<span class="cheer-overlay__emoji">{cheer.stampEmoji}</span>
+					<div>
+						<span class="cheer-overlay__from">{UI_COMPONENTS_LABELS.siblingCheerFrom(cheer.fromName)}</span>
+						<span class="cheer-overlay__label">{cheer.stampLabel}</span>
 					</div>
-				{/each}
-			</div>
-			<form method="POST" action="?/markCheersShown" use:enhance={() => {
+				</div>
+			{/each}
+		</div>
+		<form
+			method="POST"
+			action="?/markCheersShown"
+			use:enhance={() => {
 				return async ({ update }) => {
 					await update();
+					dialogOpen = false;
 					onDismiss();
 				};
-			}}>
-				<input type="hidden" name="cheerIds" value={cheerIds} />
-				<button type="submit" class="cheer-overlay__btn">{UI_COMPONENTS_LABELS.siblingCheerConfirmBtn}</button>
-			</form>
-		</div>
-	</div>
+			}}
+		>
+			<input type="hidden" name="cheerIds" value={cheerIds} />
+			<button type="submit" class="cheer-overlay__btn">{UI_COMPONENTS_LABELS.siblingCheerConfirmBtn}</button>
+		</form>
+	</Dialog>
 {/if}
 
 <style>
-	.cheer-overlay {
-		position: fixed;
-		inset: 0;
-		z-index: 100;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.cheer-overlay__backdrop {
-		position: absolute;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.4);
-	}
-
-	.cheer-overlay__card {
-		position: relative;
-		background: white;
-		border-radius: var(--radius-lg, 16px);
-		padding: 24px;
-		max-width: 300px;
-		width: 90%;
+	/* Dialog content の card 内側カスタマイズ */
+	:global(.cheer-overlay__content) {
 		text-align: center;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-		animation: cheer-slide-up 0.3s ease-out;
 	}
 
 	.cheer-overlay__title {
 		font-size: 1rem;
 		font-weight: 700;
-		color: #7c3aed;
+		color: var(--color-violet-600, #7c3aed);
 		margin-bottom: 12px;
 	}
 
@@ -95,7 +101,7 @@ const cheerIds = $derived(cheers.map((c) => c.id).join(','));
 		align-items: center;
 		gap: 8px;
 		padding: 8px 12px;
-		background: #f5f3ff;
+		background: var(--color-premium-50, #f5f3ff);
 		border-radius: 8px;
 	}
 
@@ -106,14 +112,14 @@ const cheerIds = $derived(cheers.map((c) => c.id).join(','));
 	.cheer-overlay__from {
 		font-size: 0.6875rem;
 		font-weight: 600;
-		color: #6b7280;
+		color: var(--color-text-muted, #6b7280);
 		display: block;
 	}
 
 	.cheer-overlay__label {
 		font-size: 0.8125rem;
 		font-weight: 700;
-		color: #5b21b6;
+		color: var(--color-violet-700, #5b21b6);
 	}
 
 	.cheer-overlay__btn {
@@ -121,7 +127,7 @@ const cheerIds = $derived(cheers.map((c) => c.id).join(','));
 		padding: 10px;
 		border: none;
 		border-radius: 10px;
-		background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+		background: var(--gradient-premium, linear-gradient(135deg, #8b5cf6, #7c3aed));
 		color: white;
 		font-size: 0.875rem;
 		font-weight: 700;
@@ -129,17 +135,6 @@ const cheerIds = $derived(cheers.map((c) => c.id).join(','));
 	}
 
 	.cheer-overlay__btn:hover {
-		background: linear-gradient(135deg, #7c3aed, #6d28d9);
-	}
-
-	@keyframes cheer-slide-up {
-		from {
-			opacity: 0;
-			transform: translateY(20px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
+		filter: brightness(1.05);
 	}
 </style>

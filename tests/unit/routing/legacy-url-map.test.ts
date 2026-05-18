@@ -130,11 +130,22 @@ describe('legacy-url-map', () => {
 			['/activity-packs/senior-girl', '/activity-packs/senior-girl'],
 			// #1212: 一覧ページも redirect
 			['/activity-packs', '/activity-packs'],
+			// #2175: 子供画面 achievements → challenges rename (5 年齢モード)
+			['/baby/achievements', '/baby/achievements'],
+			['/preschool/achievements', '/preschool/achievements'],
+			['/elementary/achievements', '/elementary/achievements'],
+			['/junior/achievements', '/junior/achievements'],
+			['/senior/achievements', '/senior/achievements'],
 			// 新 URL はマッチしない
 			['/preschool/home', null],
 			['/elementary/home', null],
 			['/junior/home', null],
 			['/senior/home', null],
+			// #2175: 新 URL (challenges) も自己 redirect しない
+			['/preschool/challenges', null],
+			['/elementary/challenges', null],
+			['/junior/challenges', null],
+			['/senior/challenges', null],
 			// 注: #2097 PR-B2 (#2187) で /demo/preschool/home は本番 /preschool/home へ
 			//   redirect されるようになったため null 期待ではなくなる (上の「デモ」ブロックでテスト済)。
 			['/marketplace/activity-pack/baby-first', null],
@@ -216,6 +227,15 @@ describe('legacy-url-map', () => {
 			['/demo', '/'],
 			['/demo/exit', '/'],
 			['/demo/signup', '/auth/signup'],
+			// #2175: 子供画面 achievements → challenges (5 年齢モード)
+			['/baby/achievements', '/baby/challenges'],
+			['/preschool/achievements', '/preschool/challenges'],
+			['/elementary/achievements', '/elementary/challenges'],
+			['/junior/achievements', '/junior/challenges'],
+			['/senior/achievements', '/senior/challenges'],
+			// #2175 + #2188 連鎖: /demo/senior → /senior 第 1 段 (本 test) で /senior/achievements に到達。
+			// 第 2 段 redirect (`/senior/achievements → /senior/challenges`) は別 entry なので
+			// rewriteLegacyPath() 単発呼び出しでは 1 段目のみ評価される。
 			// #1167 / #1212: 活動パック → マーケットプレイス 301
 			// #1301: baby 系は削除されマーケット一覧へフォールバック
 			['/activity-packs/baby-first', '/marketplace?type=activity-pack'],

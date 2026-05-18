@@ -12,7 +12,7 @@ const t = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode).text);
 </script>
 
 <svelte:head>
-	<title>{PAGE_TITLES.childAchievements}{APP_LABELS.pageTitleSuffix}</title>
+	<title>{PAGE_TITLES.childChallenges}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="px-[var(--sp-sm)] py-[var(--sp-md)]">

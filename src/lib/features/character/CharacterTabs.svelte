@@ -25,26 +25,31 @@ const TAB_LABELS = FEATURES_LABELS.character;
 const tabsByMode: Record<string, TabDef[]> = {
 	baby: [
 		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
-		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		// #2175: rename achievements → challenges (route + tab path 整合)
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 	],
 	preschool: [
 		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
-		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		// #2175: rename achievements → challenges (route + tab path 整合)
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabHistoryYoung, icon: ICON_HISTORY, path: 'history' },
 	],
 	elementary: [
 		{ label: TAB_LABELS.tabStatusYoung, icon: ICON_STATUS, path: 'status' },
-		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		// #2175: rename achievements → challenges (route + tab path 整合)
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 	junior: [
 		{ label: TAB_LABELS.tabStatusOlder, icon: '📊', path: 'status' },
-		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		// #2175: rename achievements → challenges (route + tab path 整合)
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 	senior: [
 		{ label: TAB_LABELS.tabStatusOlder, icon: '📊', path: 'status' },
-		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'achievements' },
+		// #2175: rename achievements → challenges (route + tab path 整合)
+		{ label: TAB_LABELS.tabChallenge, icon: ICON_ACHIEVEMENTS, path: 'challenges' },
 		{ label: TAB_LABELS.tabHistoryOlder, icon: ICON_HISTORY, path: 'history' },
 	],
 };

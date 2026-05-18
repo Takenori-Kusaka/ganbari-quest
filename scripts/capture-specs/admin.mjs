@@ -65,10 +65,10 @@ export default [
 		name: 'child-status-elementary',
 		presets: ['mobile'],
 	},
-	// ---- 実績 ----
+	// ---- チャレンジ (#2175: rename from 実績) ----
 	{
-		url: '/elementary/achievements',
-		name: 'child-achievements-elementary',
+		url: '/elementary/challenges',
+		name: 'child-challenges-elementary',
 		presets: ['mobile'],
 	},
 	// ---- 持ち物チェックリスト ----

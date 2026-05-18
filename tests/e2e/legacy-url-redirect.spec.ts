@@ -86,7 +86,9 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/demo/junior/battle', '/junior/battle');
 	});
 
-	test('/demo/senior/achievements → /senior/achievements (308)', async ({ request }) => {
+	// 注: 第 2 段 (`/senior/achievements → /senior/challenges`、#2175) は本 test で検証せず、
+	// 上の「#2175 子供画面 achievements → challenges rename」section で個別に検証する。
+	test('/demo/senior/achievements → /senior/achievements (308, 第 1 段)', async ({ request }) => {
 		await expectRedirect(request, '/demo/senior/achievements', '/senior/achievements');
 	});
 
@@ -225,6 +227,41 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		request,
 	}) => {
 		await expectRedirect(request, '/admin/achievements?childId=1', '/admin/challenges?childId=1');
+	});
+
+	// ============================================================
+	// #2175: 子供画面 achievements → challenges rename (5 年齢モード)
+	// 廃止済「実績システム」命名残存を解消するためルートを rename。
+	// 旧 URL は bookmark / 内部リンク救済で 308 redirect (永久保持)。
+	// ============================================================
+	test('/baby/achievements → /baby/challenges (308, #2175)', async ({ request }) => {
+		await expectRedirect(request, '/baby/achievements', '/baby/challenges');
+	});
+
+	test('/preschool/achievements → /preschool/challenges (308, #2175)', async ({ request }) => {
+		await expectRedirect(request, '/preschool/achievements', '/preschool/challenges');
+	});
+
+	test('/elementary/achievements → /elementary/challenges (308, #2175)', async ({ request }) => {
+		await expectRedirect(request, '/elementary/achievements', '/elementary/challenges');
+	});
+
+	test('/junior/achievements → /junior/challenges (308, #2175)', async ({ request }) => {
+		await expectRedirect(request, '/junior/achievements', '/junior/challenges');
+	});
+
+	test('/senior/achievements → /senior/challenges (308, #2175)', async ({ request }) => {
+		await expectRedirect(request, '/senior/achievements', '/senior/challenges');
+	});
+
+	test('/elementary/achievements?childId=903 → /elementary/challenges?childId=903 (#2175 クエリ保持)', async ({
+		request,
+	}) => {
+		await expectRedirect(
+			request,
+			'/elementary/achievements?childId=903',
+			'/elementary/challenges?childId=903',
+		);
 	});
 
 	// ============================================================

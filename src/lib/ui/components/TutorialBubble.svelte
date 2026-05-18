@@ -246,7 +246,9 @@ function handleEnd() {
 <style>
 	.tutorial-bubble {
 		position: fixed;
-		z-index: 110;
+		/* #2106: DESIGN §10 z-index トークン化 (旧 z-index: 110 直書き)。
+		   bubble は TutorialOverlay (--z-tutorial=100) の +10 上に配置するため calc 経由。 */
+		z-index: calc(var(--z-tutorial) + 10);
 		background: white;
 		border-radius: 16px;
 		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);

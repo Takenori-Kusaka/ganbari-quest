@@ -1,5 +1,8 @@
 <!--
   MilestoneBanner.svelte — ADR-0023 I9 (#1600) 子供 UI マイルストーン演出
+  @deprecated #2168 で横長 alert を撤去し MilestoneBellButton.svelte (Header bell + badge) に統合。
+  本 component は legacy で残置 (LP screenshot ?screenshot=all 撮影系で参照される可能性のため)。
+  新規参照は MilestoneBellButton を使用すること。
 
   ADR-0012 (Anti-engagement) 準拠:
   - 過剰な祝福を行わない（紙吹雪・連続演出・自動再生 BGM 等は禁止）
