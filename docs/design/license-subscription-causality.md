@@ -105,6 +105,21 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 | `customer.subscription.updated`（`cancel_at_period_end=true`） | 変更なし | `status='canceled_active'`（`current_period_end` まで有料機能利用可） |
 | `customer.subscription.deleted` | `status='expired'`（`current_period_end` 経過後の自動通知） | `status='expired_retention'`（データ保持期間へ） |
 
+### 2.4.1 LP 記載準拠の期限切れ予告通知フロー（#2100 PO 8 項目 #6 を反映）
+
+期限切れ予告の通知タイミングは LP / pricing.html FAQ 記載に準拠する（ADR-0013 LP truth）。詳細仕様は [`license-key-requirements.md`](license-key-requirements.md) §2.9 を参照。
+
+| タイミング | 通知手段 | 起点 |
+|---|---|---|
+| 期限の 7 日前 | SES email + アプリ内バナー | `license.expiresAt - 7d` の日次バッチ判定 |
+| 期限の 3 日前 | 同上 | `license.expiresAt - 3d` |
+| 期限の 1 日前 | 同上 | `license.expiresAt - 1d`（最終リマインド） |
+| 期限当日 | 同上 | `license.expiresAt` 経過直後の §2.5 日次バッチ実行時 |
+
+- 配信実装は #815（SES テンプレート整備）で対応予定。本書では仕様化のみ
+- `marketing_email_counter` で重複送信防止
+- tenant 側 `notification_preferences.expiration_warning = false` で個別 opt-out 可能
+
 ### 2.5 失効（時間経過）
 
 | 起点 | 条件 | 結果（license） | 結果（tenant plan state） |

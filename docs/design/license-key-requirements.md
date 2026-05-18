@@ -87,11 +87,15 @@
 | 贈答 | `gift` | /ops から運営が発行 | 発行日 +90 日 | トラブル補償、テスター配布 |
 | campaign | `campaign` | Stripe 100% OFF クーポン | クーポン期限まで | 友達招待、SNS キャンペーン |
 
-### 2.3 紐付けポリシー
+### 2.3 紐付けポリシー（#2100 PO 8 項目 #4 を反映）
 
 - **tenant 単位**で紐付け（家族グループ = 1 tenant）
+- **家族グループに対して 1 対 1 紐付け** — 同一家族グループ（= 1 tenant）に同時に active なライセンスキーは 1 本のみ存在する
+- **古いキーの自動 revoke** — 既存紐付け状態で新キーが consume された場合、古いライセンスキーは自動的に `status='revoked'`（理由: `replaced_by_new_key`）に遷移し、新キーが active となる。`license_events` に `revoked` イベントを記録（運営 ID は `system`）
+- **`replaced_by_new_key` 監査ログ仕様** — `revokedReason='replaced_by_new_key'` の場合は同一家族グループ内のキー差替えであることを示し、Ops dashboard で「不正利用 revoke」と区別表示する。CS 問い合わせ対応で「古いキーが使えない」原因が即座に判別可能になる
 - **owner のみ適用可**（子供アカウントからは入力不可）
 - **購入者 tenant 以外の consume** は拒否しない（贈答・campaign 対応）が、レート制限で保護
+- **Phase 1 α 採用時の例外（Standard → Family アップグレード）** — Phase 1 α 採用（別ライセンスキー追加購入によるプラン変更、`plan-change-flow.md` §11 参照）では、古い Standard キーは期間満了まで併存させ、Family キーを優先して plan 適用する。古い Standard キーは自動 revoke せず、`current_period_end` まで `status='active'` を維持（既支払い分のサービス提供義務を満たすため）。Phase 2 β（差額キー方式）への移行時は本例外を見直す
 
 ### 2.4 期限管理
 
@@ -134,6 +138,47 @@
 - Stripe Checkout 成功 → webhook → license 自動発行（現行実装の延長）
 - 100% OFF クーポン経由の Checkout も同一経路（`kind` のみ区別）
 - 決済失敗時は license 発行しない（現行通り）
+
+### 2.9 Stripe 自動購入照会 → 期限切れ予告 → 無料プラン移行（#2100 PO 8 項目 #6 を反映）
+
+ライセンスキーの期限・失効と Stripe Subscription の連動を以下に定める。LP / pricing.html の FAQ 記載「無料体験後はどうなりますか？」「自動更新は止められますか？」と整合させる SSOT。詳細な webhook hop / DB 反映ロジックは [`license-subscription-causality.md`](license-subscription-causality.md) §2.4-2.6 を参照。
+
+#### 2.9.1 自動購入照会経路
+
+| トリガー | 結果 |
+|---|---|
+| `invoice.payment_succeeded` Webhook | license の `expiresAt` を `subscription.current_period_end` に延長（無中断更新） |
+| `invoice.payment_failed` Webhook | 何もしない（Stripe smart retries に委譲、§1.3 / `license-subscription-causality.md` §1.3） |
+| `customer.subscription.deleted` Webhook | 「期限切れ予告 → 無料プラン移行」フローを発火（後述 2.9.2） |
+| `customer.subscription.updated`（status=`canceled`/`unpaid`/`incomplete_expired`） | 同上 |
+
+#### 2.9.2 LP 記載準拠の通知タイミング
+
+通知タイミング・文面は LP / pricing.html FAQ 記載に準拠する（ADR-0013 LP truth: LP に書いた内容を実装の正仕様とする）。
+
+| タイミング | 通知手段 | 内容 |
+|---|---|---|
+| **期限の 7 日前** | SES email + アプリ内バナー | 「あと 7 日でご利用プランが無料プランに切り替わります」+ 継続購入導線 (`/admin/license`) |
+| **期限の 3 日前** | SES email + アプリ内バナー | 同上（3 日表記） |
+| **期限の 1 日前** | SES email + アプリ内バナー | 同上（1 日表記、最終リマインド） |
+| **期限当日** | SES email + アプリ内バナー | 「本日無料プランに移行しました」+ 復帰導線 |
+
+- **配信実装**: `#815` (SES テンプレート整備) で実装予定。本書では仕様化のみ
+- **配信頻度**: 同一 tenant に 7d/3d/1d/当日 の 4 回まで（重複送信防止は `marketing_email_counter` テーブルで管理）
+- **配信停止**: tenant 側 `notification_preferences.expiration_warning = false` で個別 opt-out 可能
+
+#### 2.9.3 期限後の自動無料プラン移行
+
+- 期限経過後、cron `/api/cron/license-key-revoke`（#821 で実装予定）が以下を実行:
+  1. `license_keys` テーブルから `expiresAt < now() AND status='active'` を抽出
+  2. 各 license を `status='expired'` に遷移、`license_events` に `expired` イベント記録
+  3. 紐付け先 tenant の `plan` を `undefined`、`status` を `suspended` に更新（無料プラン相当）
+  4. データは無料プラン保持期間（90 日）を超えたものから順次削除（既存仕様、`account-deletion-flow.md` §2 連携）
+
+#### 2.9.4 復帰経路
+
+- 期限後に再度 Stripe Checkout 成功 → 新規 license 発行 → §2.3 ロジックで紐付け
+- ライセンスキー方式での復帰は `plan-change-flow.md` §11 参照
 
 ---
 

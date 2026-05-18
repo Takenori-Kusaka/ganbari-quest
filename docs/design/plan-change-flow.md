@@ -585,7 +585,81 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 
 ---
 
-## 11. テスト戦略
+## 11. ライセンスキー方式でのプラン変更 — Phase 1 α（#2100 PO 8 項目 #5 を反映）
+
+### 11.1 設計背景
+
+Standard プランから Family プランへのアップグレードは、Customer Portal 経由（§3 / Stripe Subscription の plan 変更）と並行して、**別ライセンスキーの追加購入による経路**も実装する。Phase 1 では「α 採用 = Family 780 円フル新規購入」を採用し、Phase 2 β（差額 280 円キーのみ追加発行）への移行は PMF 確認後に判断する。
+
+### 11.2 採用案: α 採用（Family 780 円フル新規購入）
+
+Standard プラン契約中の利用者が Family プランに変更する場合、`/admin/license` から **新たに Family プランのライセンスキーを購入** する。
+
+```
+[既存契約: Standard ¥500/月、active]
+        │
+        ▼
+[/admin/license] → 「Family プランで始める」ボタン
+        │
+        ▼
+POST /api/stripe/checkout
+   body: { planId: 'family-monthly' }   ← Family プラン Price ID で新規 Checkout
+        │
+        ▼
+[Stripe Checkout 完了]
+        │
+        ▼
+checkout.session.completed Webhook
+        │
+        ├─ 新規 license 発行: kind='purchase', plan='family-monthly', expiresAt=current_period_end
+        ├─ tenant.plan = 'family-monthly' に更新（新キーが active）
+        │
+        └─ 既存 Standard キーの扱い（α 採用例外、license-key-requirements.md §2.3）:
+              ├─ 自動 revoke せず status='active' を維持
+              └─ current_period_end まで併存（既支払い分のサービス提供義務）
+```
+
+### 11.3 Stripe 側の課金
+
+- 既存 Standard subscription は自動継続（次回更新日に ¥500 請求）
+- 新規 Family subscription として ¥780/月が追加課金される
+- α 採用期間中は **両 subscription が併存** → 利用者は当月のみ ¥1,280 を支払う
+- 翌月以降は ¥780/月（Family のみ）に集約。これは Customer Portal で旧 Standard subscription を解約することで実現する想定
+
+### 11.4 Price ID 抽象化（Phase 2 β 移行容易性担保）
+
+将来の Phase 2 β 移行を容易にするため、Price ID は config 抽象化済み（既存仕様）:
+
+| プラン × 期間 | 環境変数 | 用途 |
+|---|---|---|
+| `family-monthly` | `STRIPE_PRICE_FAMILY_MONTHLY` | Family 月額 |
+| `family-yearly` | `STRIPE_PRICE_FAMILY_YEARLY` | Family 年額 |
+| `standard-to-family-monthly`（Phase 2 β、未実装） | `STRIPE_PRICE_STANDARD_TO_FAMILY_DIFF_MONTHLY` | 差額 ¥280/月（将来追加候補） |
+
+Phase 2 β 移行時には `STRIPE_PRICE_STANDARD_TO_FAMILY_DIFF_MONTHLY` 等の差額 Price ID を Stripe Dashboard で作成し、本 §11 のフローを差額 Price 経由に切り替える。
+
+### 11.5 既存内部プラン変更経路（Customer Portal）との関係
+
+§3「Stripe Customer Portal 経由のプラン変更」フローと **両方が有効**:
+
+| 経路 | 入口 UI | 適用ケース |
+|---|---|---|
+| Customer Portal 経由（§3） | `/admin/license` 「プラン変更・支払い管理」ボタン → PIN/Phrase → Stripe Portal | 既存 subscription の plan 変更（Stripe 標準 UX、proration 自動計算） |
+| ライセンスキー方式（§11） | `/admin/license` プラン選択カード → 「Family プランで始める」ボタン → 新規 Stripe Checkout | 既存 subscription を残したまま上位プランを追加（α 採用）、ライセンスキー配布 / 法人請求書払い等 |
+
+ユーザー導線の入口違いであり、どちらも実装上有効。UI 上の文言で「既に Standard をご契約中ですか？」「プラン変更は管理画面から」等の case sensitivity 案内を `/admin/license` 側で表示する想定（実装は別 Issue）。
+
+### 11.6 関連 ADR / Issue
+
+- ADR-0013（LP truth: LP / pricing.html に書いた仕様を実装の正とする）
+- ADR-0026（archive: ライセンスキーアーキテクチャ）
+- ライセンスキー要件: [`license-key-requirements.md`](license-key-requirements.md) §2.3 / §2.9
+- 因果関係マップ: [`license-subscription-causality.md`](license-subscription-causality.md)
+- Phase 2 β 移行の判断基準: Phase F deep research 軸 D-6（補佐確認、PMF 後に再評価）
+
+---
+
+## 12. テスト戦略
 
 ### 11.1 ユニットテスト（vitest）
 
@@ -602,7 +676,7 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 
 ---
 
-## 12. 関連
+## 13. 関連
 
 - 設計
   - [06-UI設計書.md §10](06-UI設計書.md) — プラン UI パターン全体（#743）

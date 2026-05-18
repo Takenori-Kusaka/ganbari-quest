@@ -9,6 +9,7 @@
 | 関連 ADR | [ADR-0026（archive）](../decisions/archive/0026-license-key-architecture.md) |
 | 関連 Issue | #807, #806 |
 | 関連設計書 | [license-key-requirements.md](../design/license-key-requirements.md), [license-subscription-causality.md](../design/license-subscription-causality.md) |
+| 関連 runbook | [stripe-dashboard-runbook.md](stripe-dashboard-runbook.md) — Stripe Dashboard 立ち上げ / Webhook signing secret 配布証跡（#2101）|
 
 ---
 
