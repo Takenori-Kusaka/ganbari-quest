@@ -37,7 +37,7 @@ URL リネーム・廃止時は **必ず** `src/lib/server/routing/legacy-url-ma
 
 LP SS 撮影用に **全 route** で本番一致演出を強制 ON + demo 固有 UI を一括非表示。SSOT は `src/routes/+layout.svelte` (root) の 1 箇所のみで `setScreenshotModeContext()` 経由 context 配布、配下の page / component は `getScreenshotMode()` / `getScreenshotModeKind()` で参照。
 
-> **#2097 PR-B3 (#2188)**: `src/routes/demo/**` 全削除に伴い、screenshot mode context は root +layout.svelte (PR-B1 hotfix #2 で hoist 済) で全 route に提供される。旧 `src/routes/demo/+layout.svelte` の context 設置は撤去済み。demo Lambda 環境 (AUTH_MODE=anonymous + DATA_SOURCE=demo、ADR-0048) でも本番ルートが直接 host されるため、`?screenshot=*` は demo / production 両 Lambda で同一動作。
+> **#2097 PR-B3 (#2188)**: `src/routes/demo/**` 全削除に伴い、screenshot mode context は root +layout.svelte (PR-B1 hotfix #2 で hoist 済) で全 route に提供される。旧 demo ルート (`+layout.svelte` 等) の context 設置は撤去済み。demo Lambda 環境 (AUTH_MODE=anonymous + DATA_SOURCE=demo、ADR-0048) でも本番ルートが直接 host されるため、`?screenshot=*` は demo / production 両 Lambda で同一動作。
 
 | URL パラメータ | mode | 用途 |
 |---|---|---|
@@ -59,7 +59,7 @@ const isScreenshotAll = $derived(kind === 'all');
 {#if isScreenshotAll}<MilestoneBanner ... bypassSeenCheck />{/if}
 ```
 
-**禁止**: page 側で `$page.url.searchParams.get('screenshot')` 再呼出 / props drilling / global `$state` 化。リグレッション検出: `tests/e2e/demo-screenshot-mode.spec.ts`
+**禁止**: page 側で `$page.url.searchParams.get('screenshot')` 再呼出 / props drilling / global `$state` 化。リグレッション検出: `tests/e2e/demo-lambda/visual-equality.spec.ts`
 
 **capture-hp-screenshots.mjs**: `withScreenshotParam(path)` のデフォルトは `screenshot=all` (#1893)。後方互換で `?screenshot=1` が必要な場合は `withScreenshotParam(path, { mode: 'noise-only' })` を使う。
 
@@ -99,7 +99,7 @@ routes 配下のみ修正時は全体テストを待たず以下で高速検証:
 npx vitest run src/routes/                                      # routes 配下 unit test
 npx playwright test tests/e2e/<関連>.spec.ts                    # 該当 E2E spec 個別実行
 npx playwright test tests/e2e/legacy-url-redirect.spec.ts       # URL リネーム時
-npx playwright test tests/e2e/demo-screenshot-mode.spec.ts      # demo `?screenshot` モード変更時
+npx playwright test tests/e2e/demo-lambda/visual-equality.spec.ts  # demo `?screenshot` モード変更時
 ```
 
 SSOT: `docs/CLAUDE.md` §「サブディレクトリ別局所テストコマンド SSOT」。Ready 化前は `npm run pre-ready -- --pr <num>` で全 step PASS が必須。
