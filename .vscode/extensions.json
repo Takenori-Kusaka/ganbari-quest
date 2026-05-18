@@ -1,0 +1,32 @@
+{
+	"// SSOT": "推奨拡張機能リスト (#2183)。VSCode 初回起動時に '推奨拡張をインストール？' プロンプトが出る",
+
+	"recommendations": [
+		"svelte.svelte-vscode",
+		"biomejs.biome",
+		"stylelint.vscode-stylelint",
+		"dbaeumer.vscode-eslint",
+		"ms-playwright.playwright",
+		"streetsidesoftware.code-spell-checker",
+		"redhat.vscode-yaml",
+		"ms-vscode.makefile-tools",
+		"github.vscode-github-actions"
+	],
+
+	"// 説明": {
+		"svelte.svelte-vscode": "Svelte 公式 LSP (TS plugin 有効で Svelte 5 Runes も解決)",
+		"biomejs.biome": "Biome lint + format (CI と整合)",
+		"stylelint.vscode-stylelint": "CSS hex 直書き検出 (3 層トークン違反防止)",
+		"dbaeumer.vscode-eslint": "ESLint (Playwright no-networkidle 等の追加ルール)",
+		"ms-playwright.playwright": "E2E test 実行・debug UI",
+		"streetsidesoftware.code-spell-checker": "cspell 統合 (CI と整合)",
+		"redhat.vscode-yaml": "GitHub Actions / Issue Forms YAML の schema 検証",
+		"github.vscode-github-actions": "workflow ファイルの編集補助・実行履歴閲覧"
+	},
+
+	"// 非推奨 (混乱の元)": [
+		"esbenp.prettier-vscode (Biome と競合)",
+		"ms-vscode.vscode-typescript-next (project-pinned TS で十分)"
+	],
+	"unwantedRecommendations": ["esbenp.prettier-vscode"]
+}

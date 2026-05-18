@@ -72,6 +72,21 @@ npm run dev
 
 `http://localhost:5173` で開発サーバーが起動します（ホットリロード対応）。
 
+### VS Code セットアップ (#2183)
+
+リポジトリ直下に `.vscode/settings.json` (TypeScript / Svelte / Biome LSP 統合) と `.vscode/extensions.json` (推奨拡張機能) を team 共有設定として配布しています。VS Code でリポジトリを開くと「推奨される拡張機能をインストールしますか？」ダイアログが自動表示されるので、`Install All` を選択してください。
+
+推奨拡張機能（自動セットアップ対象）:
+
+- `svelte.svelte-vscode` — Svelte 公式 LSP (TS Plugin 有効、Svelte 5 Runes 解決)
+- `biomejs.biome` — Biome lint + format (CI と整合)
+- `stylelint.vscode-stylelint` — CSS hex 直書き検出
+- `dbaeumer.vscode-eslint` — Playwright no-networkidle 等の追加ルール
+- `ms-playwright.playwright` — E2E test 実行・debug
+- `streetsidesoftware.code-spell-checker` — cspell 統合
+
+`prettier-vscode` は `unwantedRecommendations` に含めて Biome と競合しないよう抑制しています。個人の keybindings / launch.json 等は `.gitignore` で個別除外しているため、共有設定を上書きせずローカルで自由に設定できます。
+
 ## 設定
 
 `.env.example` を `.env` にコピーして設定してください。すべての変数にデフォルト値があるため、設定なしでも動作します。
