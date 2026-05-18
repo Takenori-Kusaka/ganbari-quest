@@ -212,13 +212,12 @@ function findViolationsInFile(file) {
 
 	const inlinePaths = new Set();
 	const inlineRe = /`([^`\n]+)`/g;
-	let m;
-	while ((m = inlineRe.exec(content)) !== null) {
+	for (const m of content.matchAll(inlineRe)) {
 		const candidate = normalizePath(m[1]);
 		if (isCheckableImplPath(candidate)) inlinePaths.add(candidate);
 	}
 
-	const words = content.split(/[\s`"'()\[\]\n\r<>]+/);
+	const words = content.split(/[\s`"'()[\]\n\r<>]+/);
 	const checked = new Set();
 	const violations = [];
 
@@ -274,9 +273,10 @@ function calculateExceedances(fileTotals, baselineTotals) {
 	return exceedances;
 }
 
-function main() {
-	const mdFiles = collectMdFiles();
-
+/**
+ * 全ファイル走査して fileTotals / violationsByFile を返す。
+ */
+function collectAllViolations(mdFiles) {
 	const fileTotals = {};
 	const violationsByFile = new Map();
 	for (const file of mdFiles) {
@@ -287,7 +287,48 @@ function main() {
 			violationsByFile.set(rel, v);
 		}
 	}
+	return { fileTotals, violationsByFile };
+}
 
+/**
+ * 人間向けに違反レポートを stderr に出力。
+ */
+function printExceedanceReport(exceedances, violationsByFile) {
+	if (exceedances.length === 0) return;
+	console.error('\n[FAIL] baseline exceeded (新規デッドリンク発生):');
+	for (const ex of exceedances) {
+		console.error(`  ${ex.file}: ${ex.current} > ${ex.baseline} (+${ex.delta})`);
+		const vs = violationsByFile.get(ex.file) || [];
+		for (const v of vs) {
+			console.error(
+				`    - ${v.path} (${v.refType === 'inline' ? '`...` inline code' : 'bare path'})`,
+			);
+		}
+	}
+	console.error(
+		'\n対応方針:\n' +
+			'  1. 実装側の現在のパスに参照を更新する (推奨)\n' +
+			'  2. ドキュメント全体が陳腐化しているなら冒頭に `<!-- doc-status: deprecated -->` を追加\n' +
+			'  3. 意図的に違反を増やす場合は `node scripts/check-doc-code-references.mjs --update-baseline` で baseline 更新',
+	);
+}
+
+/**
+ * 人間向け file totals を stdout に出力。
+ */
+function printFileTotals(fileTotals, baselineTotals) {
+	console.log('ドキュメント内のコード参照（実装との突合）をチェックしています...\n');
+	console.log('[check-doc-code-references] file totals:');
+	for (const [file, count] of Object.entries(fileTotals).sort()) {
+		const allowed = baselineTotals[file] ?? 0;
+		const marker = count > allowed ? ' [EXCEEDS]' : count === allowed ? ' [OK]' : ' [BELOW]';
+		console.log(`  ${file}: ${count} (baseline: ${allowed})${marker}`);
+	}
+}
+
+function main() {
+	const mdFiles = collectMdFiles();
+	const { fileTotals, violationsByFile } = collectAllViolations(mdFiles);
 	const totalViolations = Object.values(fileTotals).reduce((a, b) => a + b, 0);
 
 	if (UPDATE_BASELINE) {
@@ -302,32 +343,12 @@ function main() {
 	const exceedances = calculateExceedances(fileTotals, baselineTotals);
 
 	if (JSON_OUTPUT) {
-		console.log(JSON.stringify({ fileTotals, baselineTotals, exceedances, totalViolations }, null, 2));
+		console.log(
+			JSON.stringify({ fileTotals, baselineTotals, exceedances, totalViolations }, null, 2),
+		);
 	} else {
-		console.log('ドキュメント内のコード参照（実装との突合）をチェックしています...\n');
-		console.log('[check-doc-code-references] file totals:');
-		for (const [file, count] of Object.entries(fileTotals).sort()) {
-			const allowed = baselineTotals[file] ?? 0;
-			const marker = count > allowed ? ' [EXCEEDS]' : count === allowed ? ' [OK]' : ' [BELOW]';
-			console.log(`  ${file}: ${count} (baseline: ${allowed})${marker}`);
-		}
-
-		if (exceedances.length > 0) {
-			console.error('\n[FAIL] baseline exceeded (新規デッドリンク発生):');
-			for (const ex of exceedances) {
-				console.error(`  ${ex.file}: ${ex.current} > ${ex.baseline} (+${ex.delta})`);
-				const vs = violationsByFile.get(ex.file) || [];
-				for (const v of vs) {
-					console.error(`    - ${v.path} (${v.refType === 'inline' ? '`...` inline code' : 'bare path'})`);
-				}
-			}
-			console.error(
-				'\n対応方針:\n' +
-					'  1. 実装側の現在のパスに参照を更新する (推奨)\n' +
-					'  2. ドキュメント全体が陳腐化しているなら冒頭に `<!-- doc-status: deprecated -->` を追加\n' +
-					'  3. 意図的に違反を増やす場合は `node scripts/check-doc-code-references.mjs --update-baseline` で baseline 更新',
-			);
-		}
+		printFileTotals(fileTotals, baselineTotals);
+		printExceedanceReport(exceedances, violationsByFile);
 	}
 
 	if (FIX && exceedances.length > 0) {
