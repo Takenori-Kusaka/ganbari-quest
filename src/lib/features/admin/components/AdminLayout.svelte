@@ -593,7 +593,7 @@ function isItemActive(itemHref: string): boolean {
 	}
 	/* Page Guide help button */
 	.page-guide-btn {
-		/* #2109: position: relative は撤廃された .page-guide-badge の絶対配置用だったため不要化 */
+		/* #2109: position: relative removed (was only needed for now-deleted .page-guide-badge absolute positioning) */
 		width: 2rem;
 		height: 2rem;
 		display: flex;
@@ -610,6 +610,6 @@ function isItemActive(itemHref: string): boolean {
 		background: var(--color-action-primary, #3b82f6);
 		filter: brightness(1.1);
 	}
-	/* #2109: .page-guide-badge (赤 --color-danger 通知ドット) 撤廃
-	   ADR-0012 anti-engagement 整合 + 業界 prior art (Linear / Notion / GitHub / Stripe / Sentry) と一致 */
+	/* #2109: .page-guide-badge (red --color-danger notification dot) removed
+	   ADR-0012 anti-engagement + industry prior art (Linear / Notion / GitHub / Stripe / Sentry) */
 </style>
