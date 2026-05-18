@@ -6,12 +6,18 @@ const config = {
 		adapter: adapter({
 			out: 'build',
 		}),
+		// #2125 / PR #2124 fix commit d828a8f2 完了:
+		// path alias は `tsconfig.json` の baseUrl/paths ではなく **必ず `kit.alias` に書く**
+		// (SvelteKit 公式推奨、CI auto-gen tsconfig warning 回避)。
+		// kit.alias は SvelteKit が .svelte-kit/tsconfig.json paths + vite resolve.alias の
+		// 両方に自動同期するため、ts / build / vitest / playwright で一貫した解決が得られる。
+		// tsconfig.json 側に baseUrl / paths を追加すると SvelteKit が
+		// "tsconfig.json paths interferes with kit-generated paths" warning を出す。
 		alias: {
 			$lib: 'src/lib',
 			// #2097 ADR-0048 week 4: CDK 依存は infra/node_modules にのみ存在し
 			// root devDeps に重複導入すると lockfile 不整合 (jsonschema 1.4.1 vs 1.5.0)。
-			// kit.alias 経由で tests/unit/infra/ から `aws-cdk-lib` を resolve させる
-			// (SvelteKit が .svelte-kit/tsconfig.json paths と vite alias の両方に同期反映)。
+			// kit.alias 経由で tests/unit/infra/ から `aws-cdk-lib` を resolve させる。
 			'aws-cdk-lib': 'infra/node_modules/aws-cdk-lib',
 			constructs: 'infra/node_modules/constructs',
 		},
