@@ -7,7 +7,7 @@ import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import { getPageGuide } from '$lib/ui/tutorial/page-guide-registry';
-import { isPageGuideCompleted, startPageGuide } from '$lib/ui/tutorial/page-guide-store.svelte';
+import { startPageGuide } from '$lib/ui/tutorial/page-guide-store.svelte';
 import { markTutorialStarted, startTutorialForPage } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 interface NavItem {
@@ -46,20 +46,16 @@ async function handleStartTutorial() {
 }
 
 // ページガイド（v2）: 現在のページのガイドを起動
+// #2109: 赤バッジ (page-guide-badge) 撤廃 → pageGuideCompleted state 不要化 (ADR-0012 anti-engagement)
 let hasPageGuide = $state(false);
-let pageGuideCompleted = $state(false);
 
 $effect(() => {
 	const path = $page.url.pathname;
 	hasPageGuide = false;
-	pageGuideCompleted = false;
 
 	const adminPath = path.replace(basePath, '/admin');
 	getPageGuide(adminPath).then((guide) => {
 		hasPageGuide = guide !== null;
-		if (guide) {
-			pageGuideCompleted = isPageGuideCompleted(guide.pageId);
-		}
 	});
 });
 
@@ -218,9 +214,6 @@ function isItemActive(itemHref: string): boolean {
 						type="button"
 					>
 						❓
-						{#if !pageGuideCompleted}
-							<span class="page-guide-badge"></span>
-						{/if}
 					</button>
 				{:else if !isDemo}
 					<Button
@@ -600,7 +593,7 @@ function isItemActive(itemHref: string): boolean {
 	}
 	/* Page Guide help button */
 	.page-guide-btn {
-		position: relative;
+		/* #2109: position: relative removed (was only needed for now-deleted .page-guide-badge absolute positioning) */
 		width: 2rem;
 		height: 2rem;
 		display: flex;
@@ -617,14 +610,6 @@ function isItemActive(itemHref: string): boolean {
 		background: var(--color-action-primary, #3b82f6);
 		filter: brightness(1.1);
 	}
-	.page-guide-badge {
-		position: absolute;
-		top: -2px;
-		right: -2px;
-		width: 8px;
-		height: 8px;
-		border-radius: 9999px;
-		background: var(--color-danger, #ef4444);
-		border: 2px solid white;
-	}
+	/* #2109: .page-guide-badge (red --color-danger notification dot) removed
+	   ADR-0012 anti-engagement + industry prior art (Linear / Notion / GitHub / Stripe / Sentry) */
 </style>

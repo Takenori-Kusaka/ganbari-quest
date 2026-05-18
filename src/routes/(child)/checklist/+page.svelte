@@ -174,15 +174,7 @@ const flatChecklists = $derived(data.checklists);
 		{/each}
 	{/if}
 
-	<!-- Back button -->
-	<div class="text-center mt-[var(--sp-md)]">
-		<a
-			href="/{data.uiMode}/home"
-			class="inline-block px-[var(--sp-lg)] py-[var(--sp-sm)] rounded-[var(--radius-md)] bg-[var(--color-surface-tertiary)] font-bold text-sm"
-		>
-			{CHILD_CHECKLIST_LABELS.backButton}
-		</a>
-	</div>
+	<!-- #2196: 「もどる」ボタン撤去 — BottomNav と動線重複 + 他 child タブ (achievements / battle / history / status / shop) 統一性 (ADR-0012 anti-engagement) -->
 </div>
 
 <!-- Complete overlay -->
