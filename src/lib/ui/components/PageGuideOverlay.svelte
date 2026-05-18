@@ -233,7 +233,8 @@ const bubbleStyle = $derived.by(() => {
 	.guide-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 100;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
+		z-index: var(--z-tutorial);
 	}
 
 	.guide-overlay-svg {
@@ -269,7 +270,8 @@ const bubbleStyle = $derived.by(() => {
 
 	.guide-bubble {
 		position: fixed;
-		z-index: 110;
+		/* #2106: bubble sits +10 above overlay (callout layering within --z-tutorial tier) */
+		z-index: calc(var(--z-tutorial) + 10);
 		background: white;
 		border-radius: 16px;
 		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);

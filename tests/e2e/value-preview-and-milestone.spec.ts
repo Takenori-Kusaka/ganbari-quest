@@ -49,8 +49,8 @@ test.describe('#1600 価値プレビュー — admin dashboard smoke', () => {
 	});
 });
 
-test.describe('#1600 マイルストーンバナー — child UI smoke', () => {
-	test('child UI を開いてもマイルストーンバナーがエラー無く描画される', async ({
+test.describe('#1600 / #2168 マイルストーン bell — child UI smoke', () => {
+	test('child UI を開いてもマイルストーン bell + badge がエラー無く描画される', async ({
 		page,
 		context,
 	}) => {
@@ -79,17 +79,22 @@ test.describe('#1600 マイルストーンバナー — child UI smoke', () => {
 				childLink.click(),
 			]);
 
-			// マイルストーンバナーは pendingMilestone が無ければ描画されない仕様。
-			// 描画された場合は閉じるボタンで閉じれることを確認。
-			const banner = page.getByTestId('milestone-banner');
-			const bannerCount = await banner.count();
-			if (bannerCount > 0) {
-				await expect(banner.first()).toBeVisible();
-				// 閉じるボタンを押下できる（ARIA label = MILESTONE_LABELS.bannerCloseLabel）
-				const closeBtn = banner.getByRole('button').first();
-				await expect(closeBtn).toBeVisible();
-				await closeBtn.click();
-				await expect(banner.first()).toBeHidden({ timeout: 5_000 });
+			// #2168: 旧 MilestoneBanner 横長 alert は撤去済。
+			// pendingMilestone が無ければ bell も描画されない仕様。
+			// 描画された場合は click → challenges 画面に遷移することを確認。
+			const bell = page.getByTestId('milestone-bell');
+			const bellCount = await bell.count();
+			if (bellCount > 0) {
+				await expect(bell.first()).toBeVisible();
+				// バッジ件数 attribute が ≥ 1
+				const pendingCountAttr = await bell.first().getAttribute('data-pending-count');
+				expect(Number(pendingCountAttr)).toBeGreaterThanOrEqual(1);
+
+				// click → /<uiMode>/challenges 遷移
+				await bell.first().click();
+				await page.waitForURL(/\/(baby|preschool|elementary|junior|senior)\/challenges/, {
+					timeout: 10_000,
+				});
 			}
 
 			// localStorage に書かれていれば再描画されない（永続化）

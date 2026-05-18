@@ -94,12 +94,14 @@ export const PAGE_TITLES = {
 	// セットアップ
 	setup: 'セットアップ',
 	// 子供用
-	childAchievements: 'チャレンジきろく',
+	// #2175: 「実績システム」命名残存解消で childAchievements → childChallenges に rename
+	childChallenges: 'チャレンジきろく',
 	childStatus: 'つよさ',
 	childHome: 'ホーム',
 	childChecklist: 'もちものチェック',
 	// デモ子供用
-	demoChildAchievements: 'チャレンジきろく',
+	// #2175: demoChildAchievements → demoChildChallenges (本番と同期 rename)
+	demoChildChallenges: 'チャレンジきろく',
 	demoChildStatus: 'つよさ',
 	demoChildBattle: 'バトル',
 	demoChildHome: 'ホーム',
@@ -6658,9 +6660,11 @@ export const STORYBOOK_LABELS = {
 // Anti-engagement (ADR-0012) 準拠: 過剰な祝福禁止、3 秒以内に閉じれる UI
 // ============================================================
 export const MILESTONE_LABELS = {
-	/** 子供 UI に表示する小さなマイルストーンバナータイトル */
+	/** 子供 UI に表示する小さなマイルストーンバナータイトル (#1600 旧 banner、#2168 で bell UI へ移行後も legacy で保持) */
 	bannerTitle: 'マイルストーン',
 	bannerCloseLabel: '閉じる',
+	/** #2168: Header 配置 bell button の aria-label (件数を含む) */
+	bellAriaLabel: (count: number) => `新着マイルストーン ${count}件 を見る`,
 	first_record: {
 		title: 'はじめての記録',
 		description: '最初のがんばりを記録できました',

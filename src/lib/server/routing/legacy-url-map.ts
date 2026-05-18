@@ -302,8 +302,6 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 	// ADR-0012 §6「収集目的の独立 UI / 称号コレクション閲覧ページ / ミッションリスト UI 駆動導線」
 	// 禁止に整合し、長期の達成感はチャレンジ機能 (/admin/challenges) に統合した。
 	// /admin/achievements を bookmark / 内部リンクから踏まれた場合の救済として 308 redirect。
-	// 注: /(child)/[uiMode]/(character)/achievements/ ルートは中身がチャレンジ表示で実体整合済みのため
-	//   ファイルパスはそのまま保持（CharacterTabs の path: 'achievements' も同様）。本件 redirect 対象外。
 	{
 		from: '/admin/achievements',
 		to: '/admin/challenges',
@@ -311,6 +309,46 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		issue: '#1782',
 		reason:
 			'実績機能廃止 + チャレンジ機能 (/admin/challenges) への統合（ADR-0012 §6 整合 / #404 廃止合意の revert 復活への対応）',
+	},
+	// #2175: 廃止済「実績システム」命名残存解消
+	// /(child)/[uiMode]/(character)/achievements/ ルートは中身がチャレンジ画面 (週次 challenge) で
+	// 命名と内容の不一致 = SSOT 違反だったため /challenges に rename。
+	// 旧 URL は 5 年齢モード全て (baby/preschool/elementary/junior/senior) で発生しうるので
+	// プレフィックス毎に redirect エントリを追加 (ブックマーク救済、永久保持)。
+	{
+		from: '/baby/achievements',
+		to: '/baby/challenges',
+		deletedAt: '2026-05-18',
+		issue: '#2175',
+		reason: '廃止済「実績システム」命名残存解消: 子供画面 (character tab) を /challenges に rename',
+	},
+	{
+		from: '/preschool/achievements',
+		to: '/preschool/challenges',
+		deletedAt: '2026-05-18',
+		issue: '#2175',
+		reason: '廃止済「実績システム」命名残存解消: 子供画面 (character tab) を /challenges に rename',
+	},
+	{
+		from: '/elementary/achievements',
+		to: '/elementary/challenges',
+		deletedAt: '2026-05-18',
+		issue: '#2175',
+		reason: '廃止済「実績システム」命名残存解消: 子供画面 (character tab) を /challenges に rename',
+	},
+	{
+		from: '/junior/achievements',
+		to: '/junior/challenges',
+		deletedAt: '2026-05-18',
+		issue: '#2175',
+		reason: '廃止済「実績システム」命名残存解消: 子供画面 (character tab) を /challenges に rename',
+	},
+	{
+		from: '/senior/achievements',
+		to: '/senior/challenges',
+		deletedAt: '2026-05-18',
+		issue: '#2175',
+		reason: '廃止済「実績システム」命名残存解消: 子供画面 (character tab) を /challenges に rename',
 	},
 	// #2097 PR-B3 (#2188): /demo/admin/* 29 file 撤去に伴う本番 admin ルート直接 redirect。
 	// PR-B2 で /demo/(child)/* を撤去したのに続き、本 PR で /demo/(parent)/admin/* と

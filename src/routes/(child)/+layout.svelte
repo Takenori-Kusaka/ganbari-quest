@@ -13,7 +13,8 @@ import {
 import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
-import MilestoneBanner from '$lib/features/value-preview/MilestoneBanner.svelte';
+// #2168: 旧 MilestoneBanner 横長 alert は撤去。Header の bell slot に MilestoneBellButton を注入する。
+import MilestoneBellButton from '$lib/features/value-preview/MilestoneBellButton.svelte';
 // Issue #2069 POC: ProductionDashboardService を Context に配備する。
 // 本 PR では既存 +page.svelte の挙動を変更せず Context インフラのみ noisy なく追加。
 // follow-up Issue で各子供ページが getDashboardService() 経由でデータ参照する。
@@ -162,7 +163,31 @@ function handleStartChildTutorial() {
 
 <div data-theme={theme} data-age-tier={uiMode} class="min-h-dvh bg-[var(--theme-bg)]">
 	{#if data.child}
-		<Header nickname={data.child.nickname} totalPoints={data.balance} avatarUrl={data.child.avatarUrl} pointSettings={data.pointSettings} stampProgress={data.stampProgress} onStampClick={() => { stampDialogOpen = true; }} onHelpClick={handleStartChildTutorial} isPremium={data.isPremium} />
+		{@const hasMilestones = !isBaby && data.milestones && data.milestones.length > 0}
+		<Header
+			nickname={data.child.nickname}
+			totalPoints={data.balance}
+			avatarUrl={data.child.avatarUrl}
+			pointSettings={data.pointSettings}
+			stampProgress={data.stampProgress}
+			onStampClick={() => {
+				stampDialogOpen = true;
+			}}
+			onHelpClick={handleStartChildTutorial}
+			isPremium={data.isPremium}
+		>
+			{#snippet notificationSlot()}
+				<!-- #2168: MilestoneBanner 横長 alert を撤去し、Header に bell + dot badge を統合。
+				     baby モードは祝福 UI 非対象 (ADR-0011 + ADR-0012)。 -->
+				{#if hasMilestones && data.child}
+					<MilestoneBellButton
+						milestones={data.milestones}
+						childId={data.child.id}
+						{uiMode}
+					/>
+				{/if}
+			{/snippet}
+		</Header>
 	{/if}
 
 	<main class="relative z-0 pb-20 pt-[var(--sp-sm)]">
@@ -173,12 +198,6 @@ function handleStartChildTutorial() {
 				<div class="skeleton-block h-20 rounded-[var(--radius-md)]"></div>
 			</div>
 		{:else}
-			<!-- #1600 ADR-0023 I9: マイルストーン演出（baby モードは祝福 UI 非対象、ADR-0011 + ADR-0012） -->
-			{#if !isBaby && data.child && data.milestones && data.milestones.length > 0}
-				<div class="px-[var(--sp-md)]">
-					<MilestoneBanner milestones={data.milestones} childId={data.child.id} />
-				</div>
-			{/if}
 			{@render children()}
 		{/if}
 	</main>

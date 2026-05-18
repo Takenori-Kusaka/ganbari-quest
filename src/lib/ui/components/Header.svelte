@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { Snippet } from 'svelte';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS, formatPointValue } from '$lib/domain/point-display';
@@ -13,6 +14,8 @@ interface Props {
 	onStampClick?: () => void;
 	onHelpClick?: () => void;
 	isPremium?: boolean;
+	/** #2168: 通知 bell (MilestoneBellButton 等) を help button 前に挿入する slot */
+	notificationSlot?: Snippet;
 }
 
 let {
@@ -24,6 +27,7 @@ let {
 	onStampClick,
 	onHelpClick,
 	isPremium = false,
+	notificationSlot,
 }: Props = $props();
 
 const settings = $derived(pointSettings ?? DEFAULT_POINT_SETTINGS);
@@ -50,6 +54,8 @@ const balanceDisplay = $derived(
 		</div>
 	</div>
 	<div class="flex items-center gap-2">
+		<!-- #2168: 通知 bell slot (MilestoneBellButton 等)。help button より前に配置。 -->
+		{#if notificationSlot}{@render notificationSlot()}{/if}
 		{#if onHelpClick}
 			<button
 				type="button"

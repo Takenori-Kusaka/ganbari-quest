@@ -315,7 +315,8 @@ const GROWTH_STAGE_SCREENSHOTS = [
 	},
 	{
 		name: 'growth-stage-graduate',
-		url: '/elementary/achievements',
+		// #2175: /elementary/achievements → /elementary/challenges (route rename)
+		url: '/elementary/challenges',
 		description: 'Growth Stage: 卒業（graduate）— 履歴エクスポートと家族の手元に残す記録',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 	},

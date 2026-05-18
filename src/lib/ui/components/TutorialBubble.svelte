@@ -246,7 +246,9 @@ function handleEnd() {
 <style>
 	.tutorial-bubble {
 		position: fixed;
-		z-index: 110;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 110).
+		   Bubble sits +10 above TutorialOverlay (--z-tutorial=100) via calc(). */
+		z-index: calc(var(--z-tutorial) + 10);
 		background: white;
 		border-radius: 16px;
 		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);

@@ -87,7 +87,8 @@ setupResizeScrollTracking();
 	.tutorial-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 100;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
+		z-index: var(--z-tutorial);
 	}
 
 	.tutorial-overlay-svg {
