@@ -4600,6 +4600,28 @@ export const LP_PRICING_LABELS = {
 	ctaBottomDesc: 'まずは無料ではじめて、お子さまの反応を見てみませんか？',
 	ctaBottomPrimary: '無料ではじめる',
 	ctaBottomSecondary: 'デモで体験する',
+
+	// #2102 F-1: Tower 型二段 CTA — 「7 日間無料体験」(既存) + 「今すぐ購入」(新規) を並列配置
+	// 月額/年額トグルで billing cycle 選択、Stripe Checkout 経由のライセンスキー発行動線（#815 SES メール配布、#847 /admin/license 適用 UI と連携）。
+	// #2104 F-3: 既存「CC 登録不要」訴求 5 箇所 (heroSubtextSuffix / planFreePriceSub / trialStep1Desc /
+	// faqAfterTrialA + cta-trust-credit-card.svg) は γ 既存維持で無修正。新 CTA 周辺のみ「決済情報入力必須」注記を併記。
+	billingToggleLegend: 'お支払い周期を選択',
+	billingToggleMonthly: '月額',
+	billingToggleYearly: '年額（2ヶ月分お得）',
+	planStandardDirectCta: `今すぐ購入（${PLAN_TERMS.standard}）`,
+	planFamilyDirectCta: `今すぐ購入（${PLAN_TERMS.family}）`,
+	directPurchaseNote: '※ 決済情報の入力が必要です。購入後ライセンスキーをメールでお送りします',
+	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）`,
+
+	// #2103 F-2: 解約 CTA + FAQ 経路明示（γ ハイブリッド: アプリ内 1-click → Stripe Customer Portal）
+	// FAQ 既存 faqCancelA は維持し、解約「経路」を補足する追記文 + 新規 FAQ「解約 vs アカウント削除」を追加。
+	// CTA-bottom 直下に既存有料ユーザー向け small リンクで /admin/billing へ誘導。
+	faqCancelPathNote: `解約経路: ログイン後 [プラン・お支払い] → [請求管理ページを開く] (${STRIPE_PORTAL_TERMS.canonical}) でいつでもお手続きいただけます。`,
+	faqCancelVsDeleteQ: `${CANCEL_TERMS.canonical}とアカウント${CANCEL_TERMS.account}は何が違いますか？`,
+	faqCancelVsDeleteA: `${CANCEL_TERMS.canonical}は有料プランの自動更新を停止し、猶予期間後に無料プランへ自動移行します。データは無料プランの保持期間（90 日）を超えたものから順次削除されます。アカウント${CANCEL_TERMS.account}は、ログイン後にご自身で実施いただくことで全データを猶予期間後に完全削除します。`,
+	existingCustomerCancelLinkPrefix: 'すでに有料プランをご利用中の方の',
+	existingCustomerCancelLinkLabel: `${CANCEL_TERMS.canonical}はこちら`,
+	existingCustomerCancelLinkSuffix: `（${ADMIN_VIEW_TERMS.canonical}に移動します）`,
 } as const;
 
 // #1594 ADR-0023 I8 で導入された LP「開発者に直接相談」セクションは、

@@ -339,7 +339,20 @@
 			"ctaBottomTitle": "お子さまの冒険を始めよう",
 			"ctaBottomDesc": "まずは無料ではじめて、お子さまの反応を見てみませんか？",
 			"ctaBottomPrimary": "無料ではじめる",
-			"ctaBottomSecondary": "デモで体験する"
+			"ctaBottomSecondary": "デモで体験する",
+			"billingToggleLegend": "お支払い周期を選択",
+			"billingToggleMonthly": "月額",
+			"billingToggleYearly": "年額（2ヶ月分お得）",
+			"planStandardDirectCta": "今すぐ購入（スタンダード）",
+			"planFamilyDirectCta": "今すぐ購入（ファミリー）",
+			"directPurchaseNote": "※ 決済情報の入力が必要です。購入後ライセンスキーをメールでお送りします",
+			"trialCtaNote": "※ クレジットカード登録不要（7 日間の無料体験経路）",
+			"faqCancelPathNote": "解約経路: ログイン後 [プラン・お支払い] → [請求管理ページを開く] (Stripe の請求管理ページ) でいつでもお手続きいただけます。",
+			"faqCancelVsDeleteQ": "解約とアカウント退会は何が違いますか？",
+			"faqCancelVsDeleteA": "解約は有料プランの自動更新を停止し、猶予期間後に無料プランへ自動移行します。データは無料プランの保持期間（90 日）を超えたものから順次削除されます。アカウント退会は、ログイン後にご自身で実施いただくことで全データを猶予期間後に完全削除します。",
+			"existingCustomerCancelLinkPrefix": "すでに有料プランをご利用中の方の",
+			"existingCustomerCancelLinkLabel": "解約はこちら",
+			"existingCustomerCancelLinkSuffix": "（ご家族の見守り画面に移動します）"
 		},
 		"licenseKey": {
 			"text1": "ライセンスキーの使い方 - がんばりクエスト ヘルプ",
