@@ -21,14 +21,9 @@ let selectedRewardIcon = $state<string | null>(null);
 // #2157: ショップ 3 系統タブ (実物 / お小遣い / 特権)
 // 'all' = すべて, 'physical' / 'money' / 'privilege' は ShopCategory key 整合
 type TabValue = 'all' | ShopCategory;
-// Tabs primitive は value: string で bind するため、`string` 型で保持し
-// 利用箇所では derived で TabValue に narrow する。
+// Tabs primitive は value: string で bind するため、`string` 型で保持。
+// snippet 引数で各 panel に tabValue が渡されるので、active 判定は不要。
 let activeTabRaw = $state<string>('all');
-const activeTab = $derived<TabValue>(
-	activeTabRaw === 'physical' || activeTabRaw === 'money' || activeTabRaw === 'privilege'
-		? activeTabRaw
-		: 'all',
-);
 
 // #2160: フィルタ (ポイント範囲 + 交換可能)
 type PointsRange = 'all' | 'low' | 'mid' | 'high';
@@ -59,15 +54,19 @@ const gridMin = $derived.by(() => {
 	}
 });
 
-// タブ別の reward 配列（#2157 AC2）
-const rewardsByTab = $derived.by(() => {
-	if (activeTab === 'all') return data.rewards;
-	return data.rewards.filter((r) => r.shopCategory === activeTab);
-});
+// タブ別の reward 配列を返す関数（#2157 AC2）
+// Ark UI Tabs.Content は非アクティブタブも DOM に並列マウントされる (display: none 隠蔽) ため、
+// snippet 引数 `tabValue` で各 panel を独立 filter し、reward の DOM 重複を避ける。
+function rewardsForTab(tabValue: string) {
+	if (tabValue === 'physical' || tabValue === 'money' || tabValue === 'privilege') {
+		return data.rewards.filter((r) => r.shopCategory === tabValue);
+	}
+	return data.rewards;
+}
 
 // フィルタ適用後の reward 配列（#2160 AC1 / AC2）
-const filteredRewards = $derived.by(() => {
-	let list = rewardsByTab;
+function applyFilters(rewards: typeof data.rewards) {
+	let list = rewards;
 	if (pointsRangeFilter === 'low') {
 		list = list.filter((r) => r.points <= 100);
 	} else if (pointsRangeFilter === 'mid') {
@@ -79,16 +78,16 @@ const filteredRewards = $derived.by(() => {
 		list = list.filter((r) => data.balance >= r.points);
 	}
 	return list;
-});
+}
 
-// バッジ表示用（#2160 AC3）
+// バッジ表示制御（#2160 AC3） — snippet 内で各 panel ごとに件数を計算するので
+// グローバル derived は表示判定のみ
 const isFilterActive = $derived(pointsRangeFilter !== 'all' || availableOnlyFilter);
-const filterBadgeText = $derived(
-	CHILD_SHOP_LABELS.filterBadge(rewardsByTab.length, filteredRewards.length),
-);
 
-// タブ別 empty 文言
-const activeTabLabel = $derived(tabItems.find((t) => t.value === activeTab)?.label ?? '');
+// タブラベル取得 (tab-empty alert 用)
+function tabLabelFor(tabValue: string) {
+	return tabItems.find((t) => t.value === tabValue)?.label ?? '';
+}
 
 function openConfirmDialog(id: number, title: string, points: number, icon: string | null) {
 	selectedRewardId = id;
@@ -135,8 +134,13 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 	{:else}
 		<!-- #2157 3 系統タブ (Ark UI Tabs primitive) -->
 		<div class="shop-tabs" aria-label={CHILD_SHOP_LABELS.tabsAriaLabel}>
-			<Tabs items={tabItems} bind:value={activeTabRaw}>
-				{#snippet children(_tabValue: string)}
+			<!-- lazyMount + unmountOnExit: 非アクティブ panel を DOM から外し、
+			     同一 reward が全タブで多重 match する Playwright strict mode 違反を防ぐ。 -->
+			<Tabs items={tabItems} bind:value={activeTabRaw} lazyMount unmountOnExit>
+				{#snippet children(tabValue: string)}
+					{@const panelRewards = rewardsForTab(tabValue)}
+					{@const panelFiltered = applyFilters(panelRewards)}
+					{@const panelTabLabel = tabLabelFor(tabValue)}
 					<!-- #2160 フィルタ UI -->
 					<div
 						class="shop-filters"
@@ -206,7 +210,7 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 						{#if isFilterActive}
 							<div class="filter-badge-row">
 								<Badge variant="info" data-testid="filter-badge">
-									{filterBadgeText}
+									{CHILD_SHOP_LABELS.filterBadge(panelRewards.length, panelFiltered.length)}
 								</Badge>
 								<Button
 									variant="ghost"
@@ -220,11 +224,11 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 						{/if}
 					</div>
 
-					{#if rewardsByTab.length === 0}
-						<div class="empty-state" data-testid="tab-empty-{activeTab}">
-							<Alert variant="info" message={CHILD_SHOP_LABELS.tabEmpty(activeTabLabel)} />
+					{#if panelRewards.length === 0}
+						<div class="empty-state" data-testid="tab-empty-{tabValue}">
+							<Alert variant="info" message={CHILD_SHOP_LABELS.tabEmpty(panelTabLabel)} />
 						</div>
-					{:else if filteredRewards.length === 0}
+					{:else if panelFiltered.length === 0}
 						<div class="empty-state" data-testid="filter-empty">
 							<Alert variant="info" message={CHILD_SHOP_LABELS.filterEmptyMessage} />
 						</div>
@@ -235,7 +239,7 @@ const pageTitle = $derived(`${CHILD_SHOP_LABELS.pageTitle}${APP_LABELS.pageTitle
 							data-testid="reward-grid"
 							style:--reward-grid-min={gridMin}
 						>
-							{#each filteredRewards as reward (reward.id)}
+							{#each panelFiltered as reward (reward.id)}
 								{@const canExchange =
 									data.balance >= reward.points &&
 									reward.latestRequestStatus !== 'pending_parent_approval'}
