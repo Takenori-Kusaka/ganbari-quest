@@ -1,5 +1,9 @@
 # 0029. LP CSP 多層防御 + CDN SRI / pin 戦略
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | **accepted (2026-05-01、2026-05-14 connect-src amendment #2068)** |

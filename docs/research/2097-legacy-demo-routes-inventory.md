@@ -1,5 +1,9 @@
 # #2097 ADR-0048 Phase A-3 監査: 残存 `src/routes/demo/` 48 ファイル個別棚卸
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 **起票**: 2026-05-16 (Phase A 監査の 3/7)
 **Agent**: a56325fb499c1c710
 **スコープ**: PR #2118 で削除予定だった legacy /demo/ routes 48 file の個別判定 + 外部参照

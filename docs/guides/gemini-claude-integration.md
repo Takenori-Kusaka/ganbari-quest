@@ -1,5 +1,9 @@
 # ガイド: Claude Code と Gemini CLI の連携
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 ## 1. 概要
 
 このドキュメントは、本プロジェクトにおいて Claude Code セッションから Gemini CLI を呼び出し、タスクを委任するためのガイドラインを定めます。

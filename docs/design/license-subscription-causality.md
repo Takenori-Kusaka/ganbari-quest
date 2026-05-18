@@ -1,5 +1,9 @@
 # License ↔ Stripe Subscription 因果関係マップ
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 | 項目 | 値 |
 |------|-----|
 | 版数 | 1.1 |

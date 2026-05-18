@@ -1,5 +1,9 @@
 # 0039. デモモードを「実行モード」として本番ルート上で駆動する
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 > **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
 
 

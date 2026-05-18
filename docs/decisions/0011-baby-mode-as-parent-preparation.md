@@ -1,5 +1,9 @@
 # 0011. 0-2 歳スコープ判断 — baby モードは「親の準備モード」として扱う
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 - **Status**: Accepted
 - **Date**: 2026-04-21
 - **Related Issue**: #1299 (#1298 umbrella 派生 B3-ADR)

@@ -1,5 +1,9 @@
 # 0046. Svelte 5 Service Interface + Context DI による本番/デモ UI 統合 (POC)
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted (POC: child home 1 ページ + write API 拡張 + 本番 child home 統合 #2084 完了) |

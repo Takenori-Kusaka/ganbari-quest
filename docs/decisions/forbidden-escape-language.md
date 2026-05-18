@@ -1,5 +1,9 @@
 # Forbidden Escape Language SSOT (PR body / commit message / Issue body)
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 > 関連 ADR: [ADR-0047 Demo / 本番 UI Contract SSOT](0047-demo-prod-ui-contract-ssot.md) §決定 Q8
 > 関連 memory: `feedback_no_escape_to_haribote_implementation.md` / `feedback_demo_prod_ui_unification_blocker.md`
 > 関連 Issue: #2097 (6 回目の demo/本番統合要求 + 深層調査 §6 Q8)

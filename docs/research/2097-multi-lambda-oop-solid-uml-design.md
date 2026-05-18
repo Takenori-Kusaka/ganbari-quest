@@ -1,5 +1,9 @@
 # Multi-Lambda Demo — OOP / SOLID / UML / モック化 / ログ管理 / 権限管理 詳細設計
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 > **位置付け**: Issue #2097 v3 リサーチ「Multi-Lambda 詳細設計」の **OOP / SOLID / UML / Test Double / CloudWatch ログ / Policy Gate 統合観点**。
 >
 > 並行して別 Agent (`aac7c2c3ed0e92be3`) が `2097-multi-lambda-detailed-system-design.md` (AWS infra / CDK / IAM / cost / deploy 観点 §1-§13) を執筆中。本 file は同じ Multi-Lambda 採用を **設計パターン側から裏付ける** §A-§J の補完 doc であり、最終的には前 Agent doc と merge する想定。

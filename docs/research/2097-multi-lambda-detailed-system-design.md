@@ -1,5 +1,9 @@
 # Multi-Lambda Demo 詳細システム設計 — AWS 公式 source 裏付け
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 > **位置付け**: Issue #2097 v4 リサーチ。`2097-multi-lambda-demo-evidence-based-architecture.md` (v3) で「採用是非」を裏付けた後、PO 指摘「**Multi-Lambda の具体的なシステム設計、詳細設計の裏付けが不十分**」を解消するため、12 領域を AWS 公式 doc / CDK 公式 sample / SvelteKit 公式 / Pricing 実数値で深掘りした各論記録。
 >
 > **アクセス確認日**: 2026-05-15

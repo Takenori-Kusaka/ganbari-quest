@@ -1,5 +1,9 @@
 # 0048. Multi-Lambda Demo Deployment (env 駆動 + IAM role 分離 + client-side state)
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

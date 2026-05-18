@@ -1,5 +1,9 @@
 # 0016. 日本語テキスト折り返し方針（CSS 第一 + BudouX フォールバック）
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 - **Status**: Proposed
 - **Date**: 2026-04-21
 - **Related Issue**: #1353（B8 吸収）/ #584（CLOSED、BudouX 導入検討起源）

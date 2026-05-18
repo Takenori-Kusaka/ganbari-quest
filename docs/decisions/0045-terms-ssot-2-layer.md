@@ -1,5 +1,9 @@
 # 0045. terms.ts SSOT 2 階層化原則 (atom / compound 責務分離)
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

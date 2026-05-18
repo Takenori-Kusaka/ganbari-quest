@@ -1,5 +1,9 @@
 # ADR-0019: ダイアログ管理は有限ステートマシンでスクラップ＆ビルドする
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 > **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
 
 

@@ -1,5 +1,9 @@
 # Multi-Lambda Demo 詳細システム設計 — 統合版 (Part I Infrastructure + Part II Application)
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 > **位置付け**: Issue #2097 v4 リサーチ統合版。AWS infra 視点 (§1-§13, AWS 公式 doc + Pricing 実数値) と OOP / SOLID / UML 視点 (§A-§J, GoF / Fowler / Martin / Cockburn / Evans 原典) を 1 file に merge した PO 最終判断材料。
 >
 > **構成**:

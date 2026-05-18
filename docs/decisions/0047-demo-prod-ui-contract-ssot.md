@@ -1,5 +1,9 @@
 # 0047. Demo / 本番 UI Contract SSOT (ViewModel 型強制 + 禁止語 + 5 phase 分割)
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted (Phase 1 = 型 + ADR + 禁止語 SSOT のみ、Phase 2-5 は別 PR で実装) |

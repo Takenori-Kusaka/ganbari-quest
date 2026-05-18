@@ -1,5 +1,9 @@
 # ADR-0042: マーケットプレイス性別バリアントは維持、市場データで中身を見直す
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 > **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
 
 

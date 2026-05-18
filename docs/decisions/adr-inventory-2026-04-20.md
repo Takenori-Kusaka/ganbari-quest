@@ -1,5 +1,9 @@
 # ADR 棚卸レポート (2026-04-20)
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 #1262（ADR 全体リファクタリング — active-primary ≤ 10 達成とボリューム上限ルール確立）完了時点の最終棚卸。
 
 sub-A（新 0001-0010 起案）/ sub-B（25 archive + 5 delete）/ sub-C（CLAUDE.md / 設計書 6 ファイルの参照 archive 化）完了を総括する。

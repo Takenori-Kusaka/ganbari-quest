@@ -1,5 +1,9 @@
 # LP デプロイパイプライン設計書
 
+> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。
+
+
+
 **関連 Issue**: #1157 / **前提 Issue**: #1164 (LP マイクロコピー) / **拡張 Issue**: #1893 (demo seed 刷新 + `?screenshot=all` mode + 鮮度 CI、PO-4-7) / **SSOT**: [lp-content-map.md](lp-content-map.md)
 
 ## 1. 目的
