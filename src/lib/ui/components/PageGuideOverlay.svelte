@@ -233,7 +233,7 @@ const bubbleStyle = $derived.by(() => {
 	.guide-overlay {
 		position: fixed;
 		inset: 0;
-		/* #2106: DESIGN §10 z-index トークン化 (旧 z-index: 100 直書き) */
+		/* #2106: DESIGN section 10 z-index token-ization (replaces hardcoded z-index: 100) */
 		z-index: var(--z-tutorial);
 	}
 
@@ -270,7 +270,7 @@ const bubbleStyle = $derived.by(() => {
 
 	.guide-bubble {
 		position: fixed;
-		/* #2106: bubble は overlay より +10 上 (吹き出し用)、--z-tutorial 階層内の上層配置 */
+		/* #2106: bubble sits +10 above overlay (callout layering within --z-tutorial tier) */
 		z-index: calc(var(--z-tutorial) + 10);
 		background: white;
 		border-radius: 16px;

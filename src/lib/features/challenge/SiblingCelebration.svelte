@@ -112,7 +112,7 @@ function handleDialogChange(details: { open: boolean }) {
 </Dialog>
 
 <style>
-	/* Dialog content の card 内側カスタマイズ */
+	/* Dialog content card inner customization */
 	:global(.celebration__content) {
 		position: relative;
 		text-align: center;

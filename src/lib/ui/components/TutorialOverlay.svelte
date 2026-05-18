@@ -87,7 +87,7 @@ setupResizeScrollTracking();
 	.tutorial-overlay {
 		position: fixed;
 		inset: 0;
-		/* #2106: DESIGN §10 z-index トークン化 (旧 z-index: 100 直書き) */
+		/* #2106: DESIGN section 10 z-index token-ization (replaces hardcoded z-index: 100) */
 		z-index: var(--z-tutorial);
 	}
 

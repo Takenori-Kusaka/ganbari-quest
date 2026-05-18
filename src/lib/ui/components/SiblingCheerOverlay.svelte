@@ -77,7 +77,7 @@ function handleDialogChange(details: { open: boolean }) {
 {/if}
 
 <style>
-	/* Dialog content の card 内側カスタマイズ */
+	/* Dialog content card inner customization */
 	:global(.cheer-overlay__content) {
 		text-align: center;
 	}
