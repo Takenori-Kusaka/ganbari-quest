@@ -5022,6 +5022,27 @@ export const CHILD_SHOP_LABELS = {
 	exchangeConfirmPointsLabel: 'ひつようなポイント',
 	exchangeConfirmDescription: 'おうちのひとにれんらくがいくよ',
 	exchangeDialogAriaLabel: 'ごほうび交換確認ダイアログ',
+	// #2157 ショップ 3 系統タブ (実物 / お小遣い / 特権、26-設計書 §12 + #1336 SSOT 反映)
+	// shopCategory key (physical / money / privilege) → 表示ラベル
+	// (表示語彙は子供向け hiragana。internal key の 'money' を表示では「おこづかい」と呼ぶ)
+	tabAll: 'すべて',
+	tabPhysical: 'もの',
+	tabAllowance: 'おこづかい',
+	tabPrivilege: 'とくべつ',
+	tabsAriaLabel: 'ごほうび系統タブ',
+	tabEmpty: (categoryLabel: string) => `${categoryLabel} のごほうびは まだないよ`,
+	// #2160 カテゴリ・フィルタ (ポイント範囲 + 交換可能チェック、子供向け最小 filter)
+	filterPointsRangeLabel: 'ポイントでさがす',
+	filterPointsRangeAll: 'ぜんぶ',
+	filterPointsRangeLow: '〜100ポイント',
+	filterPointsRangeMid: '100〜500ポイント',
+	filterPointsRangeHigh: '500ポイント〜',
+	filterPointsRangeAriaLabel: 'ポイント範囲フィルタ',
+	filterAvailable: 'いまこうかんできる',
+	filterAvailableAriaLabel: 'いまのポイントでこうかんできるものだけ表示',
+	filterReset: 'リセット',
+	filterBadge: (total: number, filtered: number) => `${total}件中 ${filtered}件`,
+	filterEmptyMessage: 'じょうけんに あうごほうびが ありません',
 } as const;
 
 // ============================================================

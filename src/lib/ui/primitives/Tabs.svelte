@@ -11,10 +11,27 @@ interface Props {
 	items: TabItem[];
 	value?: string;
 	onValueChange?: (details: { value: string }) => void;
+	/**
+	 * Ark UI Tabs.Root の render strategy。
+	 * - lazyMount=true: 初回アクティブ化まで Content を mount しない
+	 * - unmountOnExit=true: 非アクティブ化時に Content を unmount する
+	 * 既定 false (Ark UI default、全 panel 並列 mount + display:none で隠蔽)。
+	 * 同一 reward 等が全 panel に並列存在することで Playwright strict mode が
+	 * 多重 match する場合は両方 true を指定する (#2157)。
+	 */
+	lazyMount?: boolean;
+	unmountOnExit?: boolean;
 	children: Snippet<[string]>;
 }
 
-let { items, value = $bindable(items[0]?.value ?? ''), onValueChange, children }: Props = $props();
+let {
+	items,
+	value = $bindable(items[0]?.value ?? ''),
+	onValueChange,
+	lazyMount = false,
+	unmountOnExit = false,
+	children,
+}: Props = $props();
 
 function handleValueChange(details: { value: string }) {
 	value = details.value;
@@ -22,7 +39,7 @@ function handleValueChange(details: { value: string }) {
 }
 </script>
 
-<ArkTabs.Root {value} onValueChange={handleValueChange}>
+<ArkTabs.Root {value} onValueChange={handleValueChange} {lazyMount} {unmountOnExit}>
 	<ArkTabs.List
 		class="flex gap-1 bg-[var(--theme-nav)] rounded-[var(--radius-md)] p-1"
 	>

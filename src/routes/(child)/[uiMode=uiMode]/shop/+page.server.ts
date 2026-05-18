@@ -2,6 +2,7 @@
 // ごほうびショップ 子供側 (#1337)
 
 import { fail } from '@sveltejs/kit';
+import { deriveShopCategory } from '$lib/domain/shop-category';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getBalance } from '$lib/server/db/point-repo';
 import { getChildById } from '$lib/server/services/child-service';
@@ -27,7 +28,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getRedemptionRequestsForChild(child.id, tenantId),
 	]);
 
-	// 各ごほうびに最新の申請状態を付与
+	// 各ごほうびに最新の申請状態 + shopCategory (#2157) を付与
 	const rewardsWithStatus = rewardsData.rewards.map((reward) => {
 		// 最新申請（requestedAt降順）
 		const latestRequest = redemptionRequests
@@ -40,6 +41,12 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			points: reward.points,
 			icon: reward.icon,
 			description: reward.description,
+			// #2157 ショップ 3 系統 (実物/お小遣い/特権)。DB に列が無いため title/icon から派生
+			shopCategory: deriveShopCategory({
+				title: reward.title,
+				icon: reward.icon,
+				description: reward.description,
+			}),
 			latestRequestStatus: latestRequest?.status ?? null,
 			latestRequestId: latestRequest?.id ?? null,
 		};
