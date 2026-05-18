@@ -1,8 +1,8 @@
-# AWSサーバレスアーキテクチャ設計書
+# AWSサーバーレスアーキテクチャ設計書
 
 ## 1. 概要
 
-がんばりクエストのSaaS版を、AWSフルサーバレスアーキテクチャで構築する。
+がんばりクエストのSaaS版を、AWSフルサーバーレスアーキテクチャで構築する。
 月額無リクエスト時1,000円未満を目標とし、自動スケーリング・高可用性を実現する。
 
 ## 2. アーキテクチャ構成図
@@ -132,7 +132,7 @@
 
 - スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
 - ターゲット: `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`)
-- `lifecycle-emails` (#1601, ADR-0023 §5 I11): 親オーナー宛のみ送信。年 6 回マーケティングメール上限を遵守。List-Unsubscribe ヘッダ + 配信停止リンク必須。Anti-engagement 整合 (中立トーン)。
+- `lifecycle-emails` (#1601, ADR-0023 §5 I11): 保護者オーナー宛のみ送信。年 6 回マーケティングメール上限を遵守。List-Unsubscribe ヘッダ + 配信停止リンク必須。Anti-engagement 整合 (中立トーン)。
 - **検証手順 / runbook**: [`docs/runbooks/cron-3-endpoints-verification.md`](../runbooks/cron-3-endpoints-verification.md) (#1377 Sub A-3)
 - **認証ヘッダ**: dispatcher は `Authorization: Bearer <CRON_SECRET>` を送信。endpoint 側は `verifyCronAuth` (`src/lib/server/auth/cron-auth.ts`) で `Authorization: Bearer` と `x-cron-secret` の両ヘッダを受理する (#1377 で統一、NUC scheduler / AWS dispatcher 双方互換)
 - **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の三者整合性を CI で 0 tolerance で検出する。`scripts/check-cron-observability.mjs` (`npm run check:cron-observability`) が logger / Alarm 定義の存在を静的検査する
@@ -182,7 +182,7 @@
 
 | 層 | 実装 | 対象 | 検知できる障害 | 検知できない障害 |
 |----|------|------|--------------|----------------|
-| L1: アプリ層 | Health Check Lambda (`ganbari-quest-health-check`) → **Lambda Function URL** を 1 時間ごとに GET | Lambda / DynamoDB / アプリケーションコード | 500 / タイムアウト / DynamoDB スロットル | CloudFront 障害 / WAF 誤検知 / DNS 障害 / TLS 証明書期限切れ |
+| L1: アプリ層 | Health Check Lambda (`ganbari-quest-health-check`) → **Lambda Function URL** を 1 時間ごとに GET | Lambda / DynamoDB / アプリコード | 500 / タイムアウト / DynamoDB スロットル | CloudFront 障害 / WAF 誤検知 / DNS 障害 / TLS 証明書期限切れ |
 | L2: エッジ層 | （別 Issue で補完予定。CloudWatch Synthetics を JP 許可リージョンで、または UptimeRobot 等を `ganbari-quest.com` 宛に設定） | CloudFront / Route 53 / ACM / geoRestriction | L1 で検知できないエッジ層の失敗 | アプリ層の内部障害（L1 の役割） |
 
 **なぜ L1 が Function URL 直叩きなのか（#1214）**: CloudFront に `geoRestriction('JP')` (`infra/lib/network-stack.ts`) が掛かっているため、us-east-1 の Lambda IP から `https://ganbari-quest.com/api/health` を叩くと常時 403 になる（#1121 導入時の盲点）。Function URL (`authType: NONE`) を直接叩くことで地理制限を迂回し、「L1 = アプリ層の生存確認」という責務に集中させる。Function URL は CloudFront 背後の実体なので公開 URL としては露出しない方針を維持する。

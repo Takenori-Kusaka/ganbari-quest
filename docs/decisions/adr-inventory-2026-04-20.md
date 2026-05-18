@@ -42,7 +42,7 @@ sub-A（新 0001-0010 起案）/ sub-B（25 archive + 5 delete）/ sub-C（CLAUD
 | 0012 | DynamoDB シングルテーブル設計 | 旧 AWS 時代のデータ設計 |
 | 0013 | Cognito + Google OAuth 認証 | 認証方式の決定 |
 | 0014 | 3 層 CSS トークンアーキテクチャ | `DESIGN.md` §2 の原典 |
-| 0015 | Repository パターンによる DB 抽象化 | サーバ層設計方針 |
+| 0015 | Repository パターンによる DB 抽象化 | サーバー層設計方針 |
 | 0040 | 実行モード × ライセンス統括アーキテクチャ | 2026-04 起票、P5 完了後 archive |
 | 0043 | NativeSelect primitive 導入 | Ark UI `<Select>` から移行記録 |
 
@@ -66,7 +66,7 @@ sub-A（新 0001-0010 起案）/ sub-B（25 archive + 5 delete）/ sub-C（CLAUD
 
 | # | タイトル | 備考 |
 |---|---------|------|
-| 0030 | Cognito E2E ユーザーのライフサイクル基盤 | テスト基盤 |
+| 0030 | Cognito E2E ユーザーーのライフサイクル基盤 | テスト基盤 |
 | 0033 | /ops ダッシュボード Cognito authz | OPS_SECRET_KEY → CRON_SECRET 分離 |
 | 0036 | Marketplace 公開アクセス制御 | アクセス境界 |
 | 0039 | demo-mode × app 実行モード | ADR-0040 で統合 |

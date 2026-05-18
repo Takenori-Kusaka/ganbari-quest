@@ -22,26 +22,26 @@
 4. 通知許可バナー（常時）
 5. PlanStatusCard（planStats 取得時）/ プランアップグレードクイックリンク
 6. 季節コンテンツ情報（イベント存在時）
-7. サマリーカード（こどもの数・合計ポイント）
+7. サマリーカード（子供の数・合計ポイント）
 8. 今月のがんばり（子供別 月次サマリ）
-9. こども一覧（ChildListCard）
+9. 子供一覧（ChildListCard）
 10. デモ CTA（デモモード時のみ）
 
 この構造は成長とともにアドホックに追加されており、以下の問題を抱えている。
 
-- **セットアップ未完了 ユーザーと運用中ユーザーが同じ画面**を見ている
+- **セットアップ未完了 ユーザーーと運用中ユーザーーが同じ画面**を見ている
 - セットアップ完了後も「オンボーディングチェックリスト」のスペースが残り、UX が一貫しない
 - ホームの「役割（今 "now" の状況把握）」が曖昧になっている
 
 ### 1.2 解決したい UX ゴール
 
-- **新規ユーザー**: 次に何をすべきかが一目でわかる（セットアップ完了まで誘導）
-- **運用中ユーザー**: 「今日/今週の子供たちの状況」が開いた瞬間に把握できる
+- **新規ユーザーー**: 次に何をすべきかが一目でわかる（セットアップ完了まで誘導）
+- **運用中ユーザーー**: 「今日/今週の子供たちの状況」が開いた瞬間に把握できる
 - 両者が同じコンポーネントを共有しながら、状態に応じて最適コンテンツを表示する
 
 ### 1.3 記録・分析 tab との役割分担
 
-| tab | 時間軸 | ユーザーの問い |
+| tab | 時間軸 | ユーザーーの問い |
 |-----|--------|--------------|
 | **ホーム** | "今 / 今日" | 「今子供たちは何をしているか？今日がんばったか？」|
 | **記録** | "過去 / 期間全体" | 「先月の実績は？どの活動が多い？成長を振り返りたい」|
@@ -149,7 +149,7 @@ Sub C (#1396) 実装時に改めて要件定義・設計を行う。設計が固
 | PlanStatusCard | `getPlanLimits()`, `parentData.planTier` | `plan-limit-service.ts` |
 | サマリーカード | `getAllChildren()`, `getPointBalance()` | `child-service.ts`, `point-service.ts` |
 | 今月のがんばり | `getAllChildrenSimpleSummary()` | `report-service.ts` |
-| こども一覧 | `getAllChildren()` + `getChildStatus()` | `child-service.ts`, `status-service.ts` |
+| 子供一覧 | `getAllChildren()` + `getChildStatus()` | `child-service.ts`, `status-service.ts` |
 | 季節コンテンツ | `findActiveEvents()`, `getMemoryTicketStatus()` | `seasonal-content-service.ts` |
 
 ---

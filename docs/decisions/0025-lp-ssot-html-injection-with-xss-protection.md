@@ -18,7 +18,7 @@
 
 ## コンテキスト
 
-ADR-0009 で確立した「LP/Legal を含む全ユーザー露出文言の SSOT 化」を **100% 完遂**するために、現行の `site/shared-labels.js#applyLpKeys()` が抱える 3 つの構造的限界を解消する必要がある（Issue #1683 直前 Agent fail report でも identified）。
+ADR-0009 で確立した「LP/Legal を含む全ユーザーー露出文言の SSOT 化」を **100% 完遂**するために、現行の `site/shared-labels.js#applyLpKeys()` が抱える 3 つの構造的限界を解消する必要がある（Issue #1683 直前 Agent fail report でも identified）。
 
 1. **textContent 注入は nested HTML を破壊する** — 現在の実装は `el.textContent = value` で値を流し込む。LP の `data-lp-key` 付き要素のうち **156+ 件**（`<strong>` / `<em>` / `<a>` / `<span class>` / `<br>` 等を内包する 178 行サンプル経由で確認）が nested HTML を持っており、SSOT 化したくても机上不可能。例:
    ```html

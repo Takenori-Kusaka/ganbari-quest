@@ -56,7 +56,7 @@ ADR ガバナンスの将来判断のため、ADR-0023 を **Deprecated** にし
 |-----------|---------|----------|---------|
 | **#1591** | infra: ADR-0023 I2 — DynamoDB analytics provider 有効化 + umami/Sentry プロバイダ削除 | **ADR-0013 (LP truth)** + 補完: ADR-0010 (Pre-PMF) | 外部 SaaS analytics を採用しないと LP で訴求する以上、LP 訴求の事実根拠（実装で外部送信ゼロ）を担保する。Pre-PMF コスト最小化（ADR-0010）と整合 |
 | **#1597** | marketing: ADR-0023 I5 — LP「アナログ vs デジタル」優位訴求改善（離脱要因 #1 対応） | **ADR-0013 (LP truth)** | LP 訴求の事実整合（自動集計 / 3-18 歳継続 / 卒業設計 / 場所自由は実装で確認可能）と LP 訴求改善は ADR-0013 の Committed 区分の責務 |
-| **#1593** | fix: ADR-0023 I6 — Web Push 通知の対象監査（親/子端末特定 + Anti-engagement 適合化） | **ADR-0010 (Pre-PMF)** + 補完: ADR-0012 (Anti-engagement) | 子供端末への通知配信を機構レベルで遮断する設計判断。Pre-PMF セキュリティ最小化（ADR-0010 §2）+ Anti-engagement 原則（子供 UI に侵襲的演出を持ち込まない）の二重根拠 |
+| **#1593** | fix: ADR-0023 I6 — Web Push 通知の対象監査（保護者/子端末特定 + Anti-engagement 適合化） | **ADR-0010 (Pre-PMF)** + 補完: ADR-0012 (Anti-engagement) | 子供端末への通知配信を機構レベルで遮断する設計判断。Pre-PMF セキュリティ最小化（ADR-0010 §2）+ Anti-engagement 原則（子供 UI に侵襲的演出を持ち込まない）の二重根拠 |
 | **#1600** | feat: ADR-0023 I9 — 初月「価値プレビュー」体験設計（マイルストーン演出 + 30日後プレビュー） | **ADR-0013 (LP truth)** + 補完: ADR-0012 (Anti-engagement) | 初月価値プレビューは LP「30 日で○○の差」訴求の事実根拠（ADR-0013 Committed）。同時に滞在時間延伸を目的としない設計（ADR-0012）が必要 |
 | **#1602** | feat: ADR-0023 I13 — ops dashboard に setup プリセット選択分布の可視化追加 | **ADR-0010 (Pre-PMF)** | 内部運営の判断材料拡充。LP 訴求と切り離された ops 専用機能で、Pre-PMF スコープ判断（バケット A: 実装、LP 訴求なし）の典型 |
 | **#1603** | feat: ADR-0023 I10 — 卒業フロー実装（ポイント還元提案 + 感謝演出 + 事例公開承諾） | **ADR-0013 (LP truth)** + 補完: ADR-0011 (3-18 歳コアターゲット) | 「卒業 = ポジティブな解約」を LP 訴求するための実装根拠（ADR-0013）。3-18 歳でいずれ卒業するコアターゲット定義（ADR-0011）の終端として整合 |

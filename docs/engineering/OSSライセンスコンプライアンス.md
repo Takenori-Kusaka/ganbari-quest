@@ -69,7 +69,7 @@ npx license-checker --csv > docs/licenses.csv
 | パッケージ | ライセンス | 用途 |
 |-----------|----------|------|
 | svelte | MIT | UI フレームワーク |
-| @sveltejs/kit | MIT | アプリケーションフレームワーク |
+| @sveltejs/kit | MIT | アプリフレームワーク |
 | @ark-ui/svelte | MIT | UI コンポーネント |
 | drizzle-orm | Apache 2.0 | ORM |
 | better-sqlite3 | MIT | SQLite ドライバ |

@@ -57,11 +57,11 @@
 | 20 | Gunderson, E. A., et al. | *Parent praise to 1-3-year-olds predicts motivational frameworks 5 years later* | 2013 | Child Development, 84(5), 1526-1541 | 1-3歳時のプロセス褒め量が7-8歳時の成長マインドセットを予測 |
 | 21 | Kamins, M. L., & Dweck, C. S. | *Person versus process praise and criticism* | 1999 | Developmental Psychology, 35(3), 835-847 | プロセス批評は建設的。人格批評は自己価値の条件付け化を招く |
 
-### 親向け情報提示
+### 保護者向け情報提示
 
 | # | 著者 | タイトル | 年 | 出典 | 主な知見 |
 |---|------|---------|-----|------|---------|
-| 22 | Zuckerman, B., & Halfon, N. | *School readiness: An idea whose time has arrived* | 2003 | Pediatrics, 111(6) | 発達の目安は「範囲」として提示。単一指標は親の不安を増幅 |
+| 22 | Zuckerman, B., & Halfon, N. | *School readiness: An idea whose time has arrived* | 2003 | Pediatrics, 111(6) | 発達の目安は「範囲」として提示。単一指標は保護者の不安を増幅 |
 | 23 | Glascoe, F. P. | *Parents' evaluation of developmental status* | 1997 | Ellsworth & Vandermeer | 「強み→成長の可能性→サポート方法」の順序が最適 |
 
 ---
@@ -136,7 +136,7 @@ NG: 「みんなよりすごい」（他者比較）
 
 ---
 
-## 4. 子供画面 vs 親画面の情報設計
+## 4. 子供画面 vs 保護者画面の情報設計
 
 ### 子供画面
 
@@ -148,7 +148,7 @@ NG: 「みんなよりすごい」（他者比較）
 | 次のマイルストーン | 全体順位、偏差値目標 |
 | ストーリー進行、キャラ成長 | ポイントランキング |
 
-### 親画面
+### 保護者画面
 
 | 表示する | 注意して表示 | 表示しない |
 |---------|-------------|-----------|

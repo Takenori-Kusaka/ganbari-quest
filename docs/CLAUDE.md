@@ -49,7 +49,7 @@ conflict 時は判定 skip + warning 通知（PR 側で main rebase 必要）。
 
 - 作成: `docs/decisions/NNNN-kebab-case-title.md`（テンプレート: `docs/decisions/README.md`）
 - 記録対象: 技術選定根拠 / インシデント教訓 / 機能仕様の正仕様 / 品質プロセス決定
-- Claude Code memory はユーザーローカル。**チーム共有知識は必ず ADR に置く**
+- Claude Code memory はユーザーーローカル。**チーム共有知識は必ず ADR に置く**
 - ADR 追加/変更時は CLAUDE.md / `.github/copilot-instructions.md` も同時更新
 
 **ADR 一覧の SSOT**: [`docs/decisions/README.md`](decisions/README.md)（インベントリ + supersede 関係）。本ファイルでは個別の ADR 番号は列挙しない。
@@ -66,7 +66,7 @@ ADR (横断ポリシー) と設計書 (結論) の間に「なぜそう決めた
 
 書くタイミング: ① 複雑な新機能実装 / ② 既存機能の大方向転換 / ③ 過去議論再発の兆し。軽微変更には不要。
 
-**使い分け**: 横断ポリシー → ADR / 機能仕様の結論 → 設計書 / 機能設計の経緯・理由 → rationale / ユーザーローカル作業メモ → memory（チーム共有不可）
+**使い分け**: 横断ポリシー → ADR / 機能仕様の結論 → 設計書 / 機能設計の経緯・理由 → rationale / ユーザーーローカル作業メモ → memory（チーム共有不可）
 
 ## ローカル Cognito 認証検証環境 (#1026)
 

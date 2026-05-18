@@ -37,7 +37,7 @@ stateDiagram-v2
 | 状態 | 説明 | DB `status` 値 |
 |------|------|--------------|
 | **active** | 発行済み・未消費 | `'active'` |
-| **consumed** | ユーザーが consume 済み | `'consumed'` |
+| **consumed** | ユーザーーが consume 済み | `'consumed'` |
 | **revoked** | Ops 手動 / 漏洩 / 期限切れで失効 | `'revoked'` |
 | **expired** (論理状態) | 90 日経過だがバッチ未実行 | `'active'` + `createdAt + 90d < now()` |
 
@@ -95,7 +95,7 @@ GQ-XXXX-XXXX-XXXX-YYYYY
 | `issuedBy` | string | △ | **#801**: 発行 actor。`kind='gift' \| 'campaign'` では必須（監査要件）。`purchase` では `stripe:<sessionId>` |
 | `stripeSessionId` | string | — | Stripe Checkout Session ID (発行元) |
 | `status` | enum | ○ | `'active' \| 'consumed' \| 'revoked'` |
-| `consumedBy` | string | — | 消費したユーザー ID (consume 後) |
+| `consumedBy` | string | — | 消費したユーザーー ID (consume 後) |
 | `consumedAt` | string (ISO8601) | — | 消費日時 |
 | `revokedReason` | string | — | 失効理由 (`expired` / `leaked` / `ops-manual` / `refund`) |
 | `revokedAt` | string (ISO8601) | — | 失効日時 |
@@ -150,8 +150,8 @@ GQ-XXXX-XXXX-XXXX-YYYYY
 
 | メソッド | パス | 説明 | 権限 | 関連 Issue |
 |---------|------|------|------|-----------|
-| POST | `/api/v1/license/verify` | キー検証 (署名 + DB 照合) | 認証済みユーザー | #812 US-02 |
-| POST | `/api/v1/license/consume` | キー消費 → 有料プラン昇格 | 認証済みユーザー | #812 US-02 |
+| POST | `/api/v1/license/verify` | キー検証 (署名 + DB 照合) | 認証済みユーザーー | #812 US-02 |
+| POST | `/api/v1/license/consume` | キー消費 → 有料プラン昇格 | 認証済みユーザーー | #812 US-02 |
 | GET | `/api/v1/ops/license-keys` | Ops 用一覧 (フィルタ対応) | Ops ロール | #812 US-04, #816 |
 | POST | `/api/v1/ops/license-keys` | Ops 手動発行 | Ops ロール | #812 US-05, #816 |
 | POST | `/api/v1/ops/license-keys/:key/revoke` | Ops 失効 | Ops ロール | #812 US-06, #816 |
@@ -231,8 +231,8 @@ sequenceDiagram
 ### 5.2 配布 (deliver)
 
 - **通常ルート**: 決済完了メールに本文で記載 (`GQ-XXXX-XXXX-XXXX-YYYYY`)
-- **再送**: `/admin/plan` からユーザーが自分で再取得可能
-- **Ops 対応**: `/ops/license-keys` からサポート担当者が特定ユーザーに再送信
+- **再送**: `/admin/plan` からユーザーーが自分で再取得可能
+- **Ops 対応**: `/ops/license-keys` からサポート担当者が特定ユーザーーに再送信
 - **贈答/キャンペーン**: Stripe のクーポン (100% OFF) 経由で通常発行フローを流用 (独自の贈答発行 API は作らない)
 
 ### 5.3 検証 (verify)
@@ -326,7 +326,7 @@ sequenceDiagram
 | Stripe イベント | License への影響 | Tenant への影響 |
 |----------------|----------------|----------------|
 | `checkout.session.completed` | `issued` (新規発行) | — (この時点ではまだ free) |
-| ユーザーによる consume API 呼び出し | `consumed` | `plan='paid'`, `status='active'` |
+| ユーザーーによる consume API 呼び出し | `consumed` | `plan='paid'`, `status='active'` |
 | `invoice.paid` | — | `currentPeriodEnd` 更新 |
 | `invoice.payment_failed` | — | `status='grace_period'` |
 | `customer.subscription.deleted` | — | `status='expired_retention'` |

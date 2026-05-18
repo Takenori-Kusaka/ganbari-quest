@@ -64,7 +64,7 @@ node scripts/check-ssot-parallel-impl.mjs  # 集合比較で整合検証
 
 | 場所 | 内容 |
 |------|------|
-| `src/routes/(child)/baby/` | 乳幼児モード（0〜2歳）— **ADR-0011 で「親の準備モード」として別軸扱い** (#1299) |
+| `src/routes/(child)/baby/` | 乳幼児モード（0〜2歳）— **ADR-0011 で「保護者の準備モード」として別軸扱い** (#1299) |
 | `src/routes/(child)/preschool/` | 幼児モード（3〜5歳） |
 | `src/routes/(child)/elementary/` | 小学生モード（6〜12歳） |
 | `src/routes/(child)/junior/` | 中学生モード（13〜15歳） |
@@ -102,7 +102,7 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 |------|------|
 | `src/routes/(child)/`, `src/routes/(parent)/` | 本番コード |
 | `src/routes/demo/(child)/[mode]/` | デモの子供画面 |
-| `src/routes/demo/(parent)/admin/` | デモの親画面 |
+| `src/routes/demo/(parent)/admin/` | デモの保護者画面 |
 | `src/lib/server/demo/demo-data.ts` | デモ用シードデータ（静的） |
 
 **同期メカニズム**:
@@ -156,8 +156,8 @@ grep -rn "修正対象のコンポーネント名" src/routes/\(child\)/
 
 **BottomNav との棲み分け**:
 - `BottomNav.svelte` は**子供画面専用**（ホーム / つよさ / かぞく）で、管理画面のナビではない
-- 管理画面への導線（マケプレ等の親向け機能）は `BottomNav` の対象外
-- よってマケプレのような親向け機能を追加する際は `AdminLayout` のみ更新し、`BottomNav` への追加は不要
+- 管理画面への導線（マケプレ等の保護者向け機能）は `BottomNav` の対象外
+- よってマケプレのような保護者向け機能を追加する際は `AdminLayout` のみ更新し、`BottomNav` への追加は不要
 
 **同期メカニズム**:
 - **現状（手動）**: 管理画面ナビ項目追加 → `AdminLayout.svelte` の `navCategories` 配列に 1 エントリ追記（Desktop / Mobile の両方が自動で反映される）
@@ -352,7 +352,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 **例外的扱いの理由**: ADR-0013（LP-truth）で「LP は実装を SSOT として参照する」とした原則の例外として、法的文書は性質上 SSOT 化が不要で `site/privacy.html` / `site/terms.html` を直接編集する。`scripts/check-lp-ssot.mjs` の `EXCLUDED_LEGAL_FILES` で日本語ハードコード違反検出から除外している。代わりに `LEGAL_LABELS` のキー用語が両文書に出現することで文言ドリフトを CI 検出する。
 
 **修正時チェック**:
-- [ ] privacy.html / terms.html を変更 → `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新（同意済みユーザーへの再同意フロー誘導）
+- [ ] privacy.html / terms.html を変更 → `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新（同意済みユーザーーへの再同意フロー誘導）
 - [ ] 法律用語を新規追加 → `LEGAL_LABELS` に追加し、`scripts/check-lp-ssot.mjs` の coverage 検証を通すこと
 - [ ] 同意チェックボックス追加 → `signup/+page.svelte` の `canSubmit` / `submitBlockReason` に反映 + E2E テスト追加
 - [ ] 設計書 14 の §8.5 / §8.6 / §8.7 と整合維持（電気通信事業法 §27の12 / 個情法 §28 / 未成年者取扱い）
@@ -362,15 +362,15 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | 場所 | 内容 | 規律 |
 |------|------|------|
 | `src/lib/server/services/trial-notification-service.ts` | トライアル終了 3 日前 / 1 日前 / 当日通知 | システム通知扱い（年 6 回マーケ枠の対象外） |
-| `src/lib/server/services/lifecycle-email-service.ts` (#1601) | 期限切れ前リマインド (30/7/1日前) + 休眠復帰 (90日) | マーケ扱い（年 6 回上限内、List-Unsubscribe必須、親宛のみ） |
-| `src/lib/server/services/report-service.ts` | 週次活動レポート | 親宛のみ。opt-in (#1601 では枠外) |
+| `src/lib/server/services/lifecycle-email-service.ts` (#1601) | 期限切れ前リマインド (30/7/1日前) + 休眠復帰 (90日) | マーケ扱い（年 6 回上限内、List-Unsubscribe必須、保護者宛のみ） |
+| `src/lib/server/services/report-service.ts` | 週次活動レポート | 保護者宛のみ。opt-in (#1601 では枠外) |
 | `src/lib/server/services/email-service.ts` | SES 送信コア + テンプレート | `sendEmail({ listUnsubscribeUrl })` 指定で SendRawEmailCommand を使い List-Unsubscribe ヘッダを付与 (RFC 8058) |
 | `src/lib/server/services/marketing-email-counter.ts` (#1601) | 年間 6 回上限カウンタ (settings KV) | ADR-0023 §3.3 準拠 |
 | `src/lib/server/services/unsubscribe-token.ts` (#1601) | HMAC ベース配信停止トークン | OPS_SECRET_KEY 流用 (Pre-PMF シンプル化、ADR-0010) |
 | `src/routes/unsubscribe/[token]/` (#1601) | 配信停止確認画面 + one-click 解除 | RFC 8058 List-Unsubscribe-Post 対応 |
 
 **規律 (ADR-0023 + ADR-0012 整合)**:
-- 親オーナー (role='owner') の email 以外には絶対に送らない（子供への送信禁止）
+- 保護者オーナー (role='owner') の email 以外には絶対に送らない（子供への送信禁止）
 - 「マーケ扱い」のメールを追加するときは必ず `marketing-email-counter` を経由して年 6 回上限を遵守
 - 「マーケ扱い」のメールには必ず `listUnsubscribeUrl` を渡す（List-Unsubscribe ヘッダ + body 末尾の解除リンク）
 - Anti-engagement (ADR-0012) 整合: 「今すぐアップグレード」「失効します」等の煽り NG。中立トーンを貫く
@@ -390,7 +390,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **年齢モード** → `src/routes/(child)/{baby,preschool,elementary,junior,senior}/` の 5 ディレクトリ全て
 - [ ] **本番画面** → 同等機能が `src/routes/demo/` にも存在しないか確認
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期
-- [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
+- [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、保護者向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
 - [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新

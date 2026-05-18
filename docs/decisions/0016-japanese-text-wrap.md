@@ -81,7 +81,7 @@ export function budoux(node: HTMLElement) {
 ### SSR hydration 戦略
 
 - BudouX の ZWSP 挿入は **決定論的**（同一入力 → 同一出力）
-- サーバ側 `translateHTMLString()` で事前適用、クライアント action 側は `data-budoux-applied` フラグで二重適用回避
+- サーバー側 `translateHTMLString()` で事前適用、クライアント action 側は `data-budoux-applied` フラグで二重適用回避
 - `+layout.server.ts` で処理するのが最安全（PoC で検証、follow-up Issue）
 
 ## 結果

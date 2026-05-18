@@ -1,6 +1,6 @@
 # Cognito User Pool 移行ランブック
 
-**用途**: Cognito User Pool を再作成する必要がある際（standard attribute schema 変更・`AliasAttributes` 変更等）に、既存ユーザーを消失させずに新 Pool へ移行する手順。
+**用途**: Cognito User Pool を再作成する必要がある際（standard attribute schema 変更・`AliasAttributes` 変更等）に、既存ユーザーーを消失させずに新 Pool へ移行する手順。
 
 **前提**:
 - AWS CLI v2 が設定済み（`aws configure` または `AWS_PROFILE` 環境変数）
@@ -11,9 +11,9 @@
 
 ## 0. DynamoDB 側の変更は不要
 
-本プロジェクトは **email を natural key** として DynamoDB ユーザーレコードを管理している（`findUserByEmail` で照合）。Cognito `sub` は DynamoDB に保存していない。
+本プロジェクトは **email を natural key** として DynamoDB ユーザーーレコードを管理している（`findUserByEmail` で照合）。Cognito `sub` は DynamoDB に保存していない。
 
-**つまり、Pool 再作成後も DynamoDB レコードは変更不要**。新 Pool で同じ email アドレスで認証されたユーザーは、自動的に既存の DynamoDB レコードに紐付く。
+**つまり、Pool 再作成後も DynamoDB レコードは変更不要**。新 Pool で同じ email アドレスで認証されたユーザーーは、自動的に既存の DynamoDB レコードに紐付く。
 
 ---
 
@@ -37,9 +37,9 @@ node scripts/cognito/export-users.mjs \
 
 ---
 
-## 2. ユーザーデータのエクスポート
+## 2. ユーザーーデータのエクスポート
 
-Pool 再作成の **直前** に実行する（エクスポートとインポートの間にユーザーが新規登録すると追加対応が必要）。
+Pool 再作成の **直前** に実行する（エクスポートとインポートの間にユーザーーが新規登録すると追加対応が必要）。
 
 ```bash
 # export
@@ -77,7 +77,7 @@ aws cognito-idp list-user-pools --max-results 20 \
 
 ---
 
-## 4. ユーザーのインポート
+## 4. ユーザーーのインポート
 
 新 Pool 作成後に実行する。
 
@@ -100,7 +100,7 @@ node scripts/cognito/import-users.mjs \
 
 ## 5. インポート後の検証
 
-### 5.1 ユーザー数確認
+### 5.1 ユーザーー数確認
 
 ```bash
 aws cognito-idp describe-user-pool \
@@ -115,7 +115,7 @@ aws cognito-idp describe-user-pool \
 2. テストアカウントでサインイン
 3. 管理画面が正常に表示され、家族データ・活動記録が見えること（DynamoDB から取得）
 
-### 5.3 Google OAuth ユーザー確認
+### 5.3 Google OAuth ユーザーー確認
 
 Google アカウントでサインイン可能なことを確認する（federated re-link が正しく動作しているか）。
 
@@ -130,7 +130,7 @@ Google アカウントでサインイン可能なことを確認する（federat
 
 ## 6. パスワードリセット案内
 
-email/password ユーザーは一時パスワードで作成されているため、パスワードリセットが必要。
+email/password ユーザーーは一時パスワードで作成されているため、パスワードリセットが必要。
 
 ```bash
 # 全ユーザーにパスワードリセットを送信（必要な場合）
@@ -175,15 +175,15 @@ aws cognito-idp delete-user-pool --user-pool-id <NEW_POOL_ID>
 | 制限 | 詳細 |
 |------|------|
 | パスワード不可搬 | Cognito のパスワードハッシュはエクスポート不可。インポート後はリセット必要 |
-| MFA 設定 | TOTP の設定はユーザーの authenticator アプリに保存されているため再登録不要だが、新 Pool への紐付けは再スキャンが必要 |
+| MFA 設定 | TOTP の設定はユーザーーの authenticator アプリに保存されているため再登録不要だが、新 Pool への紐付けは再スキャンが必要 |
 | Google OAuth linked user の sub | `admin-link-provider-for-user` に使う Google の `userId` (sub) が古い export に含まれているため、同一値で再紐付け可能 |
-| エクスポートとインポートの間の登録 | エクスポート後・Pool 削除前に登録したユーザーは手動対応が必要 |
+| エクスポートとインポートの間の登録 | エクスポート後・Pool 削除前に登録したユーザーーは手動対応が必要 |
 
 ---
 
 ## 参考
 
 - [ADR-0018](../decisions/0018-cognito-user-pool-logical-id-replacement.md) — Pool 再作成の判断基準
-- [ADR-0021](../decisions/0021-cognito-pool-migration-user-preservation.md) — ユーザー保全戦略
+- [ADR-0021](../decisions/0021-cognito-pool-migration-user-preservation.md) — ユーザーー保全戦略
 - [infra/CLAUDE.md](../../infra/CLAUDE.md) — NUC/Lambda デプロイ手順
 - Issue #1399 — 本ランブックの起点

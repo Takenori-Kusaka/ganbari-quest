@@ -1,0 +1,12 @@
+version: 1
+rules:
+  - expected: ユーザー
+    pattern: ユーザ
+  - expected: サーバー
+    pattern: サーバ
+  - expected: 子供
+    pattern: [子ども, こども]
+  - expected: 保護者
+    pattern: 親
+  - expected: アプリ
+    pattern: アプリケーション

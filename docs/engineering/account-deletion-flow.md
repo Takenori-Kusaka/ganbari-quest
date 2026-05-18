@@ -42,8 +42,8 @@ else                              pattern = 'member';
 | 全メンバーシップ (`deleteAllMemberships`) | ✔ | ✘ | ✔ | ✘ | ✘ |
 | 招待リンク (`revokeAndDeleteAllInvites`) | ✔ | ✘ | ✔ | ✘ | ✘ |
 | テナント本体 (`deleteTenant`) | ✔ | ✘ | ✔ | ✘ | ✘ |
-| 自分の Cognito ユーザー | ✔ | ✔ | ✔ | ✔ | ✔ |
-| 自分の DB ユーザー (`auth.deleteUser`) | ✔ | ✔ | ✔ | ✔ | ✔ |
+| 自分の Cognito ユーザーー | ✔ | ✔ | ✔ | ✔ | ✔ |
+| 自分の DB ユーザーー (`auth.deleteUser`) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | 自分のメンバーシップ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | **新オーナー昇格** (テナント `ownerId` 付け替え) | — | ✔ | — | — | — |
 | 子供レコードと user の link 解除（`child.userId = null`） | — | — | — | ✔ | — |
@@ -127,7 +127,7 @@ soft delete されたテナントは以下の状態になる:
 - `settings` テーブルに `soft_deleted_at` / `deletion_grace_plan_tier` / `physical_deletion_date` が記録される
 - Stripe Subscription は **即時にキャンセル**（grace 期間中に再課金されない / #741、§3 参照）
 - DB のテナント本体・children・activities 等は **保持**（復元のため）
-- ユーザはサインアウトされる（`window.location.href = '/auth/signout'`）が、再ログインすれば admin 画面で復元 UI を見られる
+- ユーザーはサインアウトされる（`window.location.href = '/auth/signout'`）が、再ログインすれば admin 画面で復元 UI を見られる
 
 ### 4.4 復元フロー
 
@@ -160,7 +160,7 @@ soft-delete 中（grace 期間内）の各削除対象は **すべて保持**（
 
 ### 5.1 共通の入力チェック
 
-- 削除実行ボタンの直前に **入力フィールド**を置き、ユーザーに `アカウントを削除します` と正確に入力させる（コピー禁止のため `<input>` を使う）
+- 削除実行ボタンの直前に **入力フィールド**を置き、ユーザーーに `アカウントを削除します` と正確に入力させる（コピー禁止のため `<input>` を使う）
 - 入力値が一致しない限り削除実行ボタンは disabled
 - 実装: `src/routes/(parent)/admin/settings/+page.svelte` の `deleteConfirmText !== 'アカウントを削除します'` ガード
 

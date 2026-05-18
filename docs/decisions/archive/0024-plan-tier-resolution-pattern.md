@@ -28,7 +28,7 @@
 
 | Issue | 問題 | 原因 |
 |-------|------|------|
-| **#725** | `admin/+layout.server.ts` で `resolvePlanTier` を呼ぶ際に `trialTier` 引数を渡し忘れ、トライアル中にファミリー体験ユーザーが standard 扱いになる | 低レベル API を直接呼んだ。trialTier が optional 引数のため型エラーが出なかった |
+| **#725** | `admin/+layout.server.ts` で `resolvePlanTier` を呼ぶ際に `trialTier` 引数を渡し忘れ、トライアル中にファミリー体験ユーザーーが standard 扱いになる | 低レベル API を直接呼んだ。trialTier が optional 引数のため型エラーが出なかった |
 | **#726** | `admin/+page.server.ts` で `resolvePlanTier` の呼び出し自体が欠落 | どこで解決すべきか明文化されておらず、書き忘れた |
 | **#727** | `/api/v1/activities/suggest` でプランチェックが無防備 | プランチェックが必要な API/action の一覧がない |
 | **#728** | `admin/rewards` の action で 400 を返し、`tier` 情報なし | エラー形式が統一されておらず、どのヘルパーを使うべきか不明 |
@@ -51,7 +51,7 @@
 |----|--------------|---------|
 | **server load / action（`+page.server.ts`, `+layout.server.ts`, `+server.ts`）** | `resolveFullPlanTier(tenantId, licenseStatus, planId)` のみ | `resolvePlanTier` を直接呼ばない。`trialEndDate` / `trialTier` を呼び出し側で取得しない |
 | **service 内部の判定（`$lib/server/services/**`）** | `resolveFullPlanTier` または `getPlanLimits(tier)` | 呼び出し側から tier を受け取るのが望ましい（テスト容易性）。service 内で再度 resolve するのは service 境界を跨ぐ判定のみ |
-| **UI コンポーネント（`src/routes/**/+page.svelte`, `$lib/features/**/components`）** | props として `planTier: PlanTier` を受け取る | コンポーネント内でプラン解決をしない。`locals.context` などサーバー側 API を UI から触らない |
+| **UI コンポーネント（`src/routes/**/+page.svelte`, `$lib/features/**/components`）** | props として `planTier: PlanTier` を受け取る | コンポーネント内でプラン解決をしない。`locals.context` などサーバーー側 API を UI から触らない |
 | **ヘルパー / 純粋関数内部** | `resolvePlanTier` 低レベル API | 引数を全て与えること。optional 引数に依存しない |
 
 ### 2. 単一ソース原則
@@ -112,7 +112,7 @@ type PlanLimitError = {
 ### トレードオフ
 
 - 既存コード（`admin/+layout.server.ts`, `admin/license/+page.server.ts`）は依然として `resolvePlanTier` を直接呼んでいる。ESLint ルール導入までは規約依存で対処する
-- `resolveFullPlanTier` は DB 2 往復（trial_end / trial_tier の fetch）が必須なため、パフォーマンス観点では低レベル API の方が軽い。ただし Pre-PMF 段階ではユーザー数が少なく、可読性・安全性を優先する
+- `resolveFullPlanTier` は DB 2 往復（trial_end / trial_tier の fetch）が必須なため、パフォーマンス観点では低レベル API の方が軽い。ただし Pre-PMF 段階ではユーザーー数が少なく、可読性・安全性を優先する
 - 同一リクエスト内で複数の load/service から `resolveFullPlanTier` が呼ばれるため、本番 DynamoDB では N+1 になる懸念があった → **#788 で request-scoped memoize を導入し解決（下記追記参照）**
 
 ### 6. 同一リクエスト内の memoize パターン (#788)

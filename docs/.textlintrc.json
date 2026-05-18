@@ -1,9 +1,9 @@
 {
   "rules": {
     "no-mix-dearu-desumasu": {
-      "preferInHeader": "dearu",
-      "preferInBody": "dearu",
-      "preferInList": "dearu",
+      "preferInHeader": "である",
+      "preferInBody": "である",
+      "preferInList": "である",
       "strict": true
     },
     "ja-no-redundant-expression": true,

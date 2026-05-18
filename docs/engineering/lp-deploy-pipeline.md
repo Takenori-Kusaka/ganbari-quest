@@ -89,7 +89,7 @@ BASE_URL=http://localhost:5173 node scripts/capture-hp-screenshots.mjs --webp
 
 ## 6.5 `?screenshot` mode 仕様 (#1893)
 
-LP 配信 SS が本番 NUC ユーザの実画面と乖離する問題（PO 直接指摘 8 回連続再発）への構造的解決として、
+LP 配信 SS が本番 NUC ユーザーの実画面と乖離する問題（PO 直接指摘 8 回連続再発）への構造的解決として、
 demo (`/demo/**`) 配下に 3 段階の `?screenshot` mode を導入。SSOT は `src/routes/demo/+layout.svelte`
 の 1 箇所、配下は `getScreenshotMode()` / `getScreenshotModeKind()` で参照する。詳細は
 [src/routes/CLAUDE.md](../../src/routes/CLAUDE.md) §「demo 配下の `?screenshot` モード」も併読。
@@ -103,7 +103,7 @@ demo (`/demo/**`) 配下に 3 段階の `?screenshot` mode を導入。SSOT は 
 ### `?screenshot=all` の責務
 
 - `MilestoneBanner` を `bypassSeenCheck` prop で localStorage 無視で強制表示（demo (child) layout で `records_10` 達成済 milestone を生成）
-- demo seed (`src/lib/server/demo/demo-data.ts`) の 902 番ペルソナは「ゆうきちゃん」（13 日分活動ログ ≥ 10 件で `records_10` マイルストーン達成済）に固定し、本番 NUC ユーザ視覚と一致させる
+- demo seed (`src/lib/server/demo/demo-data.ts`) の 902 番ペルソナは「ゆうきちゃん」（13 日分活動ログ ≥ 10 件で `records_10` マイルストーン達成済）に固定し、本番 NUC ユーザー視覚と一致させる
 - `scripts/capture-hp-screenshots.mjs` の `withScreenshotParam(path)` のデフォルトは `screenshot=all` (#1893 で変更)。後方互換で `?screenshot=1` (noise-only) が必要な場合は `withScreenshotParam(path, { mode: 'noise-only' })` を使う
 
 ### 並行実装

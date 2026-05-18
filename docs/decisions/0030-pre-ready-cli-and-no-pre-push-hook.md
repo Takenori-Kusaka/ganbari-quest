@@ -34,7 +34,7 @@ QM Orchestrator の観察 (2026-05-01): 「追加 CI ゲートは天井に近い
 | 選択肢 | pros | cons | 採否 |
 |-------|------|------|------|
 | **(採用) 純 Node CLI** | 既存 `scripts/*.mjs` (lint:parallel 等) と同じ世界観で追加学習コスト 0 / Windows + WSL + macOS 全環境対応 / `npm run pre-ready` で発火 | 開発者が実行を忘れたら効果なし (→ template チェックリストでカバー) | ✅ 採用 |
-| Husky + lint-staged | git pre-commit / pre-push hook で自動実行 / 業界標準 | (a) commit 単位で重い検査を毎回走らせると DX 悪化 (本 CLI は PR 単位検査で重い)、(b) Husky 導入は npm 依存追加で Pre-PMF 段階の最小化方針 (ADR-0010) と摩擦、(c) WSL / Windows Git Bash で `core.hooksPath` を上書きするユーザがいて事故源 | ❌ 不採用 |
+| Husky + lint-staged | git pre-commit / pre-push hook で自動実行 / 業界標準 | (a) commit 単位で重い検査を毎回走らせると DX 悪化 (本 CLI は PR 単位検査で重い)、(b) Husky 導入は npm 依存追加で Pre-PMF 段階の最小化方針 (ADR-0010) と摩擦、(c) WSL / Windows Git Bash で `core.hooksPath` を上書きするユーザーがいて事故源 | ❌ 不採用 |
 | lefthook | Husky と同等 / Go バイナリ単体 / yaml 設定 | Husky と同じ「自動実行 → 強制力 vs DX」のトレードオフ。さらに別バイナリインストールが必要 | ❌ 不採用 |
 | pre-commit (python) | 言語横断 / Python エコシステムで人気 | Python 環境必須で本リポジトリ (pure Node) と整合せず | ❌ 不採用 |
 | GitHub Actions `workflow_dispatch` | リモート実行可能 | ローカルとの差異が出る / 開発者が手動 trigger 忘れる | ❌ 不採用 |

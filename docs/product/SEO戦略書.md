@@ -84,4 +84,4 @@ LP (`www.ganbari-quest.com`) と App (`ganbari-quest.com`) は別プロパティ
 | ツール | 用途 |
 |-------|------|
 | Google Search Console | 検索パフォーマンス |
-| Google Analytics 4 | ユーザー行動分析（将来導入） |
+| Google Analytics 4 | ユーザーー行動分析（将来導入） |

@@ -56,7 +56,7 @@
 |-----|------|
 | **URL クエリ `?mode=demo`** | 入口専用（LP からの遷移、共有リンク、E2E からの起動） |
 | **cookie `gq_demo=1`** | モード維持（POST でクエリが消える／ナビゲーション跨ぎ）。有効期限 4h（短命デフォルト） |
-| **`event.locals.isDemo: boolean`** | サーバサイドの単一真実。`hooks.server.ts` の `handle` で一度だけ確定 |
+| **`event.locals.isDemo: boolean`** | サーバーサイドの単一真実。`hooks.server.ts` の `handle` で一度だけ確定 |
 
 `/demo/exit` エンドポイントで cookie を明示削除し本番に戻せる導線を置く（Stripe test-mode toggle 相当）。
 

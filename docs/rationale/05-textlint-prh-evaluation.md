@@ -43,7 +43,7 @@
 | 観点 | F1 (#1918) check-no-plan-literals.mjs 強化 | textlint-rule-prh (#1909) |
 |------|---|---|
 | **対象範囲** | `src/lib/server` / `src/hooks.server.ts` / `src/routes` の `.ts` / `.svelte` | `src/lib/domain/labels.ts`（中期: `site/**` 拡張も視野） |
-| **検出対象** | terms.ts atom 値の直書き（プラン名 / 価格 / トライアル / 解約 / 無料訴求） | 同概念の複数表記（"FAQ" / "FAQ 専用ページ"、"子供" / "子ども" / "こども" 等の banned terms） |
+| **検出対象** | terms.ts atom 値の直書き（プラン名 / 価格 / トライアル / 解約 / 無料訴求） | 同概念の複数表記（"FAQ" / "FAQ 専用ページ"、"子供" / "子供" / "子供" 等の banned terms） |
 | **正準形 SSOT** | `src/lib/domain/terms.ts`（既存、Phase 1 #1916 で確立） | 新規 `scripts/lp-canonical-terms.yml`（13+ ドメイン） |
 | **例外機構** | 既存 `EXCLUDE_PATTERNS` (constants 本体・stripe-service・schema・migrations・tests) | 新規 `exceptions:` 節（key path + reason） |
 | **学習コスト** | regex の追加のみ。既存 mjs の延長 | textlint + prh.yml 別エコシステムの理解 |
@@ -64,7 +64,7 @@
 
 | リスク | 評価 | 対応 |
 |---|---|---|
-| terms.ts に集約されていない用語の表記揺れ（例: 「子供」/ 「子ども」/ 「こども」、「お子さま」/ 「お子様」） | 中 | Phase 3 D-3 / D-4a/b で SSOT 13 ドメイン正規化を完了予定。完了後、F1 の検出対象に追加するか、再度 textlint-rule-prh の必要性を Phase 6 等で再評価する（本判断は「現時点では不要」） |
+| terms.ts に集約されていない用語の表記揺れ（例: 「子供」/ 「子供」/ 「子供」、「お子さま」/ 「お子様」） | 中 | Phase 3 D-3 / D-4a/b で SSOT 13 ドメイン正規化を完了予定。完了後、F1 の検出対象に追加するか、再度 textlint-rule-prh の必要性を Phase 6 等で再評価する（本判断は「現時点では不要」） |
 | Phase 3 D 完了後に再び表記揺れが発生する経路 | 低 | terms.ts に集約後は Phase 1 と同じ構造的解消が効く。集約自体を妨げる要因が出れば再評価 |
 | 法的注記の短縮形（"FAQ" 単独許容）等の例外管理 | 低 | terms.ts に `XX_TERMS.fooShort` を別 atom として追加すれば集約可能。例外フローは不要 |
 
@@ -76,7 +76,7 @@
 
 ## 残された懸念・フォローアップ
 
-- [ ] **Phase 3 D-3 / D-4a/b 完了後の再評価**: 「子供」/ 「子ども」等の SSOT 13 ドメイン正規化完了後、terms.ts に集約された atom を F1 検出対象に追加するか、または textlint-rule-prh の再導入を検討する判断点を Phase 6 で設ける。関連: #1914 (TECH-F)
+- [ ] **Phase 3 D-3 / D-4a/b 完了後の再評価**: 「子供」/ 「子供」等の SSOT 13 ドメイン正規化完了後、terms.ts に集約された atom を F1 検出対象に追加するか、または textlint-rule-prh の再導入を検討する判断点を Phase 6 で設ける。関連: #1914 (TECH-F)
 - [ ] **terms.ts 内表記揺れ自体の発生監視**: terms.ts 内に「同概念に複数 key」が増えた場合（例: `noCreditCard` / `noCreditCardShort` / `noCreditCardMid` のように長さ違い variants を独立 atom として持つ運用）、レビュー観点で「不要 variant ではないか」を確認する原則を ADR-0045 補足として記録する
 - [ ] **F1 (#1918) 完成版の AC1 リテラル一覧**: 本評価は F1 sketch（Issue 本文 AC1 列挙）を前提に判定したため、F1 PR 完成時に検出範囲が AC1 列挙より狭まった場合は本判断を再評価する
 

@@ -5,7 +5,7 @@
 | ステータス | **accepted (2026-05-02)** |
 | 日付 | 2026-05-02 |
 | 起票者 | Dev (PR #1850) |
-| 関連 Issue | #1839 (Phase 1 親) / #1851 (Phase 2 子) |
+| 関連 Issue | #1839 (Phase 1 保護者) / #1851 (Phase 2 子) |
 | 関連 PR | #1850 (Phase 1 実装) / #1851 PR (Phase 2 stylelint hard-fail + 残置換) |
 | 関連 ADR | ADR-0001 (設計書 SSOT) / ADR-0009 (LP labels.ts SSOT) / ADR-0013 (LP truth from implementation) / ADR-0025 (LP SSOT 注入機構) / ADR-0032 (LP 静的コンテンツ コンポーネント設計原則) |
 | 関連監視機構 | #1840 / PR #1841 (`cumulative-lp-metrics` ジョブ — pre-merge cumulative gate) |

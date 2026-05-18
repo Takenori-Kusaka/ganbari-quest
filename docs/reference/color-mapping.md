@@ -23,7 +23,7 @@
 | green | 緑系 | --theme-400 (#66bb6a) | --theme-700 (#388e3c) | 子供の個人カラー設定 |
 | orange | オレンジ系 | --theme-400 (#ffa726) | --theme-700 (#f57c00) | 子供の個人カラー設定 |
 | purple | 紫系 | --theme-400 (#ab47bc) | --theme-700 (#7b1fa2) | 子供の個人カラー設定 |
-| admin | ブランドブルー | brand-600 | brand-800 | 親管理画面・ポータル画面 |
+| admin | ブランドブルー | brand-600 | brand-800 | 保護者管理画面・ポータル画面 |
 
 ### プラン別テーマ (`[data-plan]`)
 | プラン | 基調色 | ナビ色 | バッジ |
@@ -34,7 +34,7 @@
 
 ### 適用箇所
 - **子供画面** (`/kinder/home`, `/upper/home` 等): `data-theme` + `data-age-tier`
-- **親管理画面** (`/admin/*`): `data-theme="admin"` + `data-plan`
+- **保護者管理画面** (`/admin/*`): `data-theme="admin"` + `data-plan`
 - **ポータル画面** (`/switch`): `data-theme="admin"` + `data-plan`
 
 ---

@@ -33,7 +33,7 @@ NUC Docker 環境で `/api/cron/license-expire` / `/api/cron/retention-cleanup` 
 
 - 概要: `node-cron` npm パッケージで cron 式を Node.js プロセス内で解釈し、schedule-registry.ts を直接 import
 - npm: [node-cron](https://www.npmjs.com/package/node-cron)（週 1 億 DL 超・MIT）
-- 採用実績: Express/NestJS 等の Node サーバで広く使われる定番ライブラリ
+- 採用実績: Express/NestJS 等の Node サーバーで広く使われる定番ライブラリ
 - メリット: schedule-registry.ts を SSOT として直接参照可能・TypeScript 統一・型安全なスケジュール定義
 - デメリット: Node.js プロセスの常駐が必要
 - Pre-PMF コスト: 低（node-cron 150KB 未満・tsx は既存 devDep）

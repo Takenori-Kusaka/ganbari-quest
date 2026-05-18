@@ -46,13 +46,13 @@ Cognito Groups は User Pool 配下で「`ops` group メンバーのみを許可
 
 - メリット:
   - Cognito User Pool console で ops メンバーを個別に追加/削除でき、監査証跡が残る
-  - Google OAuth で SSO 化している実ユーザーが `/ops` にアクセスする流れが自然
+  - Google OAuth で SSO 化している実ユーザーーが `/ops` にアクセスする流れが自然
   - 将来 `ops-reader` / `ops-writer` 等の粒度分割が容易
   - CloudTrail に「XXX user was added to ops group」等の管理イベントが残る
 - デメリット:
   - Cognito User Pool に `ops` group を CDK で作る必要がある（`infra/lib/auth-stack.ts`）
   - 開発環境（`COGNITO_DEV_MODE=true`）では Cognito 実体がないため、
-    `DEV_USERS` に `groups: ['ops']` 持ちのダミーユーザーを追加する必要がある
+    `DEV_USERS` に `groups: ['ops']` 持ちのダミーユーザーーを追加する必要がある
   - 既存の cron エンドポイント認証 (`/api/cron/retention-cleanup`) は Cognito claims を持たない
     EventBridge 呼び出しなので、shared secret 方式を維持する必要がある
     → `OPS_SECRET_KEY` を `CRON_SECRET` に概念分離・リネーム
@@ -80,7 +80,7 @@ Cognito Groups は User Pool 配下で「`ops` group メンバーのみを許可
 - `src/routes/ops/+layout.server.ts` を `isOpsMember(locals.identity)` ベースに書き換え
 - 非メンバーは 403 Forbidden
 - `infra/lib/auth-stack.ts` に `cognito.CfnUserPoolGroup('ops')` 追加
-- 開発用 `DEV_USERS` に `groups: ['ops']` 持ちのダミーユーザー (`ops@example.com`) 追加
+- 開発用 `DEV_USERS` に `groups: ['ops']` 持ちのダミーユーザーー (`ops@example.com`) 追加
 - ユニットテスト（identity=null / local / 各 group パターン）
 
 ### PR-D: OPS_SECRET_KEY の cron 専用鍵への概念分離
@@ -141,7 +141,7 @@ Cognito Groups は User Pool 配下で「`ops` group メンバーのみを許可
 ### トレードオフ
 
 - Cognito User Pool 管理の習熟が必要（特に group 運用）
-- 開発環境での ops ユーザーの認証は `DEV_USERS` ハードコードなので、実 Cognito と挙動差分がある
+- 開発環境での ops ユーザーーの認証は `DEV_USERS` ハードコードなので、実 Cognito と挙動差分がある
 - 後方互換フォールバックを消すまでは、鍵の実質ローテーションは両方を同時に更新する必要がある
   （PR-D-2 で解消）
 

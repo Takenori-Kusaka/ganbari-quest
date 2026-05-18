@@ -13,7 +13,7 @@
 | 項目 | ADR-0017 の想定 | 実際の挙動 |
 |------|----------------|----------|
 | CloudFormation の動作 | `mutable` 変更 → User Pool Replacement (新 Pool 作成 → 既存破棄) | in-place UpdateUserPool 試行 → Cognito が拒否 |
-| 既存ユーザー | 全 federated ユーザー消失 (破壊) | **破壊されず** 3 名健在 (update が rejected されたため) |
+| 既存ユーザーー | 全 federated ユーザーー消失 (破壊) | **破壊されず** 3 名健在 (update が rejected されたため) |
 | 結果 | 新 Pool で #1366 解決 | スタック UPDATE_ROLLBACK_FAILED で stuck、#1366 未解決 |
 
 **復旧手順 (実施済)**:
@@ -32,12 +32,12 @@
 
 **後続 ADR で再設計する点** → [ADR-0018](0018-cognito-user-pool-logical-id-replacement.md) で採択済み (2026-04-21):
 - ~~User Pool 論理 ID を変える~~ → **採用** (`UserPool` → `UserPoolV2`)
-- ~~bulk import 手順~~ → **不要** (ユーザー全員 Pre-PMF テストアカウントで消失許容と確認済み)
+- ~~bulk import 手順~~ → **不要** (ユーザーー全員 Pre-PMF テストアカウントで消失許容と確認済み)
 - SSM パラメータは CDK が自動追従
 - rollback 計画: `removalPolicy: RETAIN` 継続により旧 Pool は orphan として残存、deploy 成功後に手動削除
 
 **関連して起票する Issue**:
-- Cognito ユーザーバックアップ / リストア運用確立 (DynamoDB 側 user ID との紐付け方法含む) — 本件のような Pool 再作成時にユーザーを失わないため
+- Cognito ユーザーーバックアップ / リストア運用確立 (DynamoDB 側 user ID との紐付け方法含む) — 本件のような Pool 再作成時にユーザーーを失わないため
 
 ---
 
@@ -45,7 +45,7 @@
 
 ## コンテキスト
 
-本番 (ganbari-quest.com) で Google OAuth サインアップ済みユーザーが、セッション期限経過後に再度 Google OAuth でログインしようとすると Cognito callback が以下を返しログイン不能になる:
+本番 (ganbari-quest.com) で Google OAuth サインアップ済みユーザーーが、セッション期限経過後に再度 Google OAuth でログインしようとすると Cognito callback が以下を返しログイン不能になる:
 
 ```
 user.email: Attribute cannot be updated.
@@ -60,13 +60,13 @@ user.email: Attribute cannot be updated.
 3. 再認証のたびに Cognito は IdP から取得した email を「属性更新」として処理する (値が同じでも)
 4. `mutable: false` に阻まれて `invalid_request` 応答になる
 
-これは AWS Cognito の既知の挙動であり、User Pool 再作成以外に正攻法の解決手段はない。Pre-PMF 段階で実ユーザー数が 10 未満 (PO テストアカウント中心) のため、Pool 再作成に伴うデータ消失を許容できるのは今だけである。
+これは AWS Cognito の既知の挙動であり、User Pool 再作成以外に正攻法の解決手段はない。Pre-PMF 段階で実ユーザーー数が 10 未満 (PO テストアカウント中心) のため、Pool 再作成に伴うデータ消失を許容できるのは今だけである。
 
 ### なぜ ADR に残すか
 
-- 本番インフラの破壊的変更 (User Pool 再作成 → 全 federated ユーザー消失) を伴う
+- 本番インフラの破壊的変更 (User Pool 再作成 → 全 federated ユーザーー消失) を伴う
 - `mutable` 属性変更は CloudFormation が User Pool を「作り直し」扱いするため、復旧は新 Pool 作成のみ
-- Pre-PMF 終了後は同じ判断ができない (既存ユーザー保護が優先される) ため、判断の時点と境界を残す
+- Pre-PMF 終了後は同じ判断ができない (既存ユーザーー保護が優先される) ため、判断の時点と境界を残す
 
 ## 決定
 
@@ -82,7 +82,7 @@ standardAttributes: {
 
 ### 2. 既存 User Pool を破棄して再作成
 
-CloudFormation が User Pool 置換 (Replacement) を自動トリガーする。既存 Pool の federated ユーザー (Google OAuth 経由) は全て消失する。Pre-PMF 境界内でのみ許容。
+CloudFormation が User Pool 置換 (Replacement) を自動トリガーする。既存 Pool の federated ユーザーー (Google OAuth 経由) は全て消失する。Pre-PMF 境界内でのみ許容。
 
 ### 3. SSM パラメータの再バインド確認
 
@@ -90,7 +90,7 @@ CloudFormation が User Pool 置換 (Replacement) を自動トリガーする。
 
 ### 4. email 変更 UI は実装しない
 
-`mutable: true` は federated IdP 経由の email 更新を許容するだけで、ユーザー自身が email を変更する UI は追加しない。Google 側で email を変更した場合のみ次回 OAuth で Cognito に反映される。
+`mutable: true` は federated IdP 経由の email 更新を許容するだけで、ユーザーー自身が email を変更する UI は追加しない。Google 側で email を変更した場合のみ次回 OAuth で Cognito に反映される。
 
 ## 代替案と却下理由
 
@@ -109,7 +109,7 @@ CloudFormation が User Pool 置換 (Replacement) を自動トリガーする。
 ### 代替案 D: Google IdP 自体を無効化して email/password のみに退避
 
 - メリット: 本 Issue は即時解消
-- デメリット: ユーザー体験が劣化 (Google OAuth 訴求を取り下げる)、LP の「Google で始める」文言と矛盾
+- デメリット: ユーザーー体験が劣化 (Google OAuth 訴求を取り下げる)、LP の「Google で始める」文言と矛盾
 - **却下**
 
 ## 結果
@@ -118,19 +118,19 @@ CloudFormation が User Pool 置換 (Replacement) を自動トリガーする。
 
 - Google OAuth 再ログインが継続可能になる (セッション / Refresh Token 期限切れ後も)
 - `#1365 (Refresh Token 実装)` のブロッカー解消 (Refresh Token があっても revoke 後に同じエラーが出るため、本件先行が必須)
-- email 変更耐性が副次的に得られる (Google 側でユーザーが email を変更した場合も追従可能)
+- email 変更耐性が副次的に得られる (Google 側でユーザーーが email を変更した場合も追従可能)
 
 ### トレードオフ
 
-- **既存 federated ユーザー (Google OAuth 経由) 全消失**。PO テストアカウントのみのため許容
-- email/password サインアップユーザーは影響を受けない
+- **既存 federated ユーザーー (Google OAuth 経由) 全消失**。PO テストアカウントのみのため許容
+- email/password サインアップユーザーーは影響を受けない
 - 次回 Pool 再作成が必要なスキーマ変更は Pre-PMF 終了までに棚卸しすること (Post-PMF では実質不可能になる)
 
 ### デプロイ運用上の制約
 
 - CDK deploy は auth-stack → compute-stack の順で更新される。新 Pool ID が SSM に反映された後に compute-stack が取得し直す
 - `deploy-nuc.yml` は NUC で Cognito を使わないため影響なし
-- 本 ADR merge 後のデプロイ前に、PO が AWS Console で旧 Pool のユーザー一覧を bak 目的でエクスポートしておく
+- 本 ADR merge 後のデプロイ前に、PO が AWS Console で旧 Pool のユーザーー一覧を bak 目的でエクスポートしておく
 
 ## 関連
 

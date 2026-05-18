@@ -95,7 +95,7 @@ new cw.Alarm(this, 'CronDispatcherErrorAlarm', {
 // → 既存 ops SNS topic / Discord webhook に紐付け
 ```
 
-scheduled / cron / queue consumer 等、ユーザー操作以外で起動する Lambda 全て対象。
+scheduled / cron / queue consumer 等、ユーザーー操作以外で起動する Lambda 全て対象。
 
 ## 例外手続き
 

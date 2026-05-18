@@ -10,7 +10,7 @@
 
 ## 1. エグゼクティブサマリ
 
-本監査では、マーケットプレイス収録の活動パック計 32 ファイル（`marketplace/activity-packs/` 14、`activity-packs/` 18）を、文部科学省「幼稚園教育要領」「小・中・高等学校学習指導要領」、厚生労働省「健康づくりのための睡眠ガイド 2023」、スポーツ庁「全国体力・運動能力等調査」、こども家庭庁「乳幼児身体発育調査」等を SSOT として精査した。
+本監査では、マーケットプレイス収録の活動パック計 32 ファイル（`marketplace/activity-packs/` 14、`activity-packs/` 18）を、文部科学省「幼稚園教育要領」「小・中・高等学校学習指導要領」、厚生労働省「健康づくりのための睡眠ガイド 2023」、スポーツ庁「全国体力・運動能力等調査」、子供家庭庁「乳幼児身体発育調査」等を SSOT として精査した。
 
 **主要な所見:**
 
@@ -33,7 +33,7 @@
 
 ### baby (0-2 歳)
 
-参照: 厚生労働省「健康づくりのための睡眠ガイド 2023」（4 ヶ月〜1 歳: 12-16 時間 / 1-2 歳: 11-14 時間）、こども家庭庁「令和 5 年乳幼児身体発育調査」、国立成育医療研究センターのビッグデータ研究
+参照: 厚生労働省「健康づくりのための睡眠ガイド 2023」（4 ヶ月〜1 歳: 12-16 時間 / 1-2 歳: 11-14 時間）、子供家庭庁「令和 5 年乳幼児身体発育調査」、国立成育医療研究センターのビッグデータ研究
 
 | カテゴリ | 性別中立 | 男児 | 女児 | 補足 |
 |---------|---------|------|------|------|
@@ -305,7 +305,7 @@
 
 - **動機構造**: Erikson 第 1-2 段階「基本的信頼 / 自律性 vs 恥」
 - **報酬設計**:
-  - 親の笑顔・拍手・ハイタッチ（アプリ内では効果音 + 大きなアニメーション）
+  - 保護者の笑顔・拍手・ハイタッチ（アプリ内では効果音 + 大きなアニメーション）
   - シール画像は使わず、**シンプルな色の変化 + 音 + 振動**
   - ポイント値は内部処理用（子供本人には見せない）
 - **避けるべき**: 数値競争、他者比較、長期目標
@@ -316,9 +316,9 @@
 - **動機構造**: Erikson 第 3 段階「自発性 vs 罪悪感」、外発的動機が中心
 - **報酬設計**:
   - **シール画像が中核**（asset-catalog.md §シールマスタ N/R/SR/UR と整合）
-  - 親や先生からの「すごいね」「がんばったね」フィードバック
+  - 保護者や先生からの「すごいね」「がんばったね」フィードバック
   - 1 日の頑張り表 / シール台紙風 UI
-  - レベル / ランクは「冒険のたまご→ひよこ→こども」程度の単純な進化
+  - レベル / ランクは「冒険のたまご→ひよこ→子供」程度の単純な進化
 - **避けるべき**: 複雑な数値評価、長期目標、勝敗
 - **実装例**: 既存のスタンプシステム（emoji 16 種）を画像化（asset-catalog 推奨）
 
@@ -340,8 +340,8 @@
   - **数値目標の設定と達成**（テスト勉強 30 時間 / 月、運動 420 分 / 週 等）
   - 連続記録の自己ベスト更新
   - 自分が選んだ目標に対する進捗可視化
-  - 親の介入は最小化、本人の自律性を尊重
-- **避けるべき**: 親からの過度な称賛（思春期は逆効果）、強制的な目標設定
+  - 保護者の介入は最小化、本人の自律性を尊重
+- **避けるべき**: 保護者からの過度な称賛（思春期は逆効果）、強制的な目標設定
 - **実装例**: 「今月のチャレンジ」を本人が選ぶ、数値ダッシュボード、SNS 風シェア（家族内のみ）
 
 ### 4.5 senior (16-18 歳): 自己決定 / 探究 / 外的成果との連結
@@ -419,7 +419,7 @@
 - 遠足: リュック / お弁当 / レジャーシート / おやつ / 水筒 / タオル / ビニール袋
 - 運動会: 体操服 / ハチマキ / ゼッケン / 応援グッズ / 着替え多め
 - 発表会: 衣装 / 小道具 / 写真撮影グッズ
-- 親子参観: 室内履き（保護者用）
+- 保護者子参観: 室内履き（保護者用）
 
 ### 5.2 通学 (elementary)
 
@@ -689,7 +689,7 @@
 | 8 | 文部科学省 | 高等学校学習指導要領解説 | https://www.mext.go.jp/a_menu/shotou/new-cs/1407074.htm | A |
 | 9 | 文部科学省 | 高等学校学習指導要領（平成 30 年告示）解説 総合的な探究の時間編 (PDF) | https://www.mext.go.jp/content/1407196_21_1_1_2.pdf | A |
 | 10 | 文部科学省 | 「早寝早起き朝ごはん」国民運動の推進について | https://www.mext.go.jp/a_menu/shougai/asagohan/ | A |
-| 11 | 文部科学省 | 子どもの生活リズム向上ハンドブック (PDF) | https://www.mext.go.jp/a_menu/shougai/katei/08060902/001.pdf | A |
+| 11 | 文部科学省 | 子供の生活リズム向上ハンドブック (PDF) | https://www.mext.go.jp/a_menu/shougai/katei/08060902/001.pdf | A |
 | 12 | 文部科学省 | 「早寝早起き朝ごはん」中高生向け普及啓発資料 | https://www.mext.go.jp/a_menu/shougai/katei/1359388.htm | A |
 | 13 | 文部科学省 | 令和 6 年度全国学力・学習状況調査 報告書 | https://www.mext.go.jp/a_menu/shotou/gakuryoku-chousa/sonota/1419141_00004.htm | A |
 | 14 | 文部科学省 | 子供の読書活動の推進等に関する現状と論点 (PDF) | https://www.mext.go.jp/b_menu/shingi/chousa/shougai/040/shiryo/__icsFiles/afieldfile/2017/08/15/1389071_005.pdf | A |
@@ -700,17 +700,17 @@
 | 19 | スポーツ庁 | 体力・運動能力調査 | https://www.mext.go.jp/sports/b_menu/toukei/chousa04/tairyoku/1368148.htm | A |
 | 20 | 厚生労働省 | 健康づくりのための身体活動・運動ガイド 2023 推奨事項 (PDF) | https://www.mhlw.go.jp/content/001195867.pdf | A |
 | 21 | 厚生労働省 | 健康づくりのための睡眠ガイド 2023 改訂案 (PDF) | https://www.mhlw.go.jp/content/10904750/001151834.pdf | A |
-| 22 | 厚生労働省 | 子ども家庭総合評価票 記入のめやすと一覧表 (PDF) | https://www.mhlw.go.jp/content/000348513.pdf | A |
+| 22 | 厚生労働省 | 子供家庭総合評価票 記入のめやすと一覧表 (PDF) | https://www.mhlw.go.jp/content/000348513.pdf | A |
 | 23 | 厚生労働省 | 幼稚園教育要領・保育所保育指針対照表 (PDF) | https://www.mhlw.go.jp/stf/shingi/2r98520000035715-att/2r985200000357b7_1.pdf | A |
-| 24 | こども家庭庁 | 令和 5 年乳幼児身体発育調査 | https://www.cfa.go.jp/policies/boshihoken/r5-nyuuyoujityousa | A |
-| 25 | こども家庭庁 | 未就学児の睡眠指針 (PDF) | https://sukoyaka21.cfa.go.jp/media/tools/s4_nyu_pan004.pdf | A |
+| 24 | 子供家庭庁 | 令和 5 年乳幼児身体発育調査 | https://www.cfa.go.jp/policies/boshihoken/r5-nyuuyoujityousa | A |
+| 25 | 子供家庭庁 | 未就学児の睡眠指針 (PDF) | https://sukoyaka21.cfa.go.jp/media/tools/s4_nyu_pan004.pdf | A |
 | 26 | 国立成育医療研究センター | 冬生まれの子は「おすわり」「ひとり歩き」などの運動発達が早い (プレスリリース) | https://www.ncchd.go.jp/press/2022/220302.html | A |
 | 27 | 国立教育政策研究所 | 学習指導要領実施状況調査 | https://www.nier.go.jp/kaihatsu/cs_chosa.html | A |
 | 28 | 国立教育政策研究所 | 令和 6 年度全国学力・学習状況調査 調査問題・正答例・解説 | https://www.nier.go.jp/24chousa/24chousa.html | A |
 | 29 | 公益社団法人日本小児科学会 | デジタル時代の子育て (PDF, 2024) | https://www.jpa-web.org/dcms_media/other/digital_kosodate2024.pdf | A |
 | 30 | 公益社団法人日本小児科学会 | 乳幼児のテレビ・ビデオ長時間視聴は危険です (提言, PDF) | https://www.jpeds.or.jp/uploads/files/20040401_TV_teigen.pdf | A |
 | 31 | 公益社団法人日本小児科学会 | ガイドライン・指針 | https://www.jpeds.or.jp/modules/guidelines/index.php?content_id=2 | A |
-| 32 | 公益財団法人日本スポーツ協会 | 子どもの身体活動の意義 (PDF) | https://www.japan-sports.or.jp/Portals/0/data/supoken/doc/jspo-acp/jspo-acp_chapter1.pdf | A |
+| 32 | 公益財団法人日本スポーツ協会 | 子供の身体活動の意義 (PDF) | https://www.japan-sports.or.jp/Portals/0/data/supoken/doc/jspo-acp/jspo-acp_chapter1.pdf | A |
 | 33 | 公益社団法人全国学校図書館協議会 | 学校読書調査 | https://www.j-sla.or.jp/material/research/dokusyotyousa.html | B（公益社団法人） |
 | 34 | 苫小牧市 | 発育・発達のめやす (PDF, 厚労省指針準拠) | https://www.city.tomakomai.hokkaido.jp/files/00003500/00003584/no13hatsuiku-meyasu.pdf | B（自治体配布） |
 

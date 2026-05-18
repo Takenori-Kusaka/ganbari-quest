@@ -23,7 +23,7 @@
 | 4 | **aws-prod** | Lambda + DynamoDB | Cognito + Google OAuth | DynamoDB |
 | 5 | **nuc-prod** | ローカル NUC + SQLite | Cognito（オプションでライセンスキー） | SQLite + ライセンスキー検証 |
 
-加えて、各モード内でユーザーのライセンスプラン（free / standard / family / trial-expired / ops）によって**機能ゲート・UI 差分・API 認可**が分岐する。
+加えて、各モード内でユーザーーのライセンスプラン（free / standard / family / trial-expired / ops）によって**機能ゲート・UI 差分・API 認可**が分岐する。
 
 ### 現状の問題（「実行モード × ライセンス」の散在）
 
@@ -229,7 +229,7 @@ export function ensureCan(ctx: EvaluationContext, cap: Capability): void;
 - Stripe Entitlements API（ADR-0025 の因果性と衝突）
 - 機能ごとの A/B テスト基盤（Pre-PMF で不要）
 
-これらを再検討するのは、Product-Market Fit 以降、ユーザー数が自社運用困難な水準に達してからとする。その際は本 ADR を supersede する新 ADR を先に起票すること（ADR-0034 と同じ扱い）。
+これらを再検討するのは、Product-Market Fit 以降、ユーザーー数が自社運用困難な水準に達してからとする。その際は本 ADR を supersede する新 ADR を先に起票すること（ADR-0034 と同じ扱い）。
 
 ## 結果
 

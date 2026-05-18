@@ -22,11 +22,11 @@
 
 | # | サービス | 種別 | 対象セグメント | 公式 docs |
 |---|---------|------|--------------|----------|
-| 1 | **Keygen.sh** | ライセンスサーバー SaaS | エンタープライズ / ISV | https://keygen.sh/docs/api/licenses/ |
+| 1 | **Keygen.sh** | ライセンスサーバーー SaaS | エンタープライズ / ISV | https://keygen.sh/docs/api/licenses/ |
 | 2 | **Lemon Squeezy** | 決済 + ライセンスキー MoR | インディー開発者 / SaaS | https://docs.lemonsqueezy.com/help/licensing |
 | 3 | **Paddle** | 決済 + サブスク MoR | SaaS | https://developer.paddle.com/ |
 | 4 | **Gumroad** | デジタル販売 + ライセンスキー | インディー / クリエイター | https://help.gumroad.com/article/76-license-keys |
-| 5 | **JetBrains** | 社内ライセンスサーバー + サブスク | IDE / エンタープライズ | https://www.jetbrains.com/help/idea/license.html |
+| 5 | **JetBrains** | 社内ライセンスサーバーー + サブスク | IDE / エンタープライズ | https://www.jetbrains.com/help/idea/license.html |
 | 6 | **Stripe (Checkout + Webhook)** | 決済のみ（ライセンスは自前実装） | あらゆる SaaS | https://docs.stripe.com/billing/subscriptions |
 
 がんばりクエストと同一セグメント（家族向け B2C SaaS + OSS dual license）は存在しないため、以下では近接ユースケースで比較する。
@@ -40,8 +40,8 @@
 | サービス | 形式 | チェックサム / 署名 | 文字セット | 備考 |
 |---------|------|-------------------|----------|------|
 | Keygen.sh | UUID v4 (デフォルト) / カスタム scheme (ED25519 / RSA) | **ED25519 / RSA 署名**で offline 検証可 | 16進 + ハイフン | ポリシーで形式を上書き可 |
-| Lemon Squeezy | `XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX-XX` (UUID + suffix) | サーバー側 DB で照合 (署名なし) | 16進 + ハイフン | API で `activate` |
-| Paddle | Paddle Vendor ID 紐付きトークン | サーバー側 DB 照合 | 英数 | Paddle API 経由 |
+| Lemon Squeezy | `XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX-XX` (UUID + suffix) | サーバーー側 DB で照合 (署名なし) | 16進 + ハイフン | API で `activate` |
+| Paddle | Paddle Vendor ID 紐付きトークン | サーバーー側 DB 照合 | 英数 | Paddle API 経由 |
 | Gumroad | 16 文字ブロック × 4 (例: `A1B2-C3D4-E5F6-G7H8`) | なし | 英数大文字 | シンプル |
 | JetBrains | JWT (署名付き) or プレーンキー | **署名付き JWT** | Base64URL | License Server or AWS 経由 |
 | Stripe 自前実装 | 自由 | 自由 | 自由 | 例: checkout session ID を直接渡す |
@@ -72,7 +72,7 @@
 
 | サービス | バインド単位 | 交換可否 |
 |---------|------------|---------|
-| Keygen.sh | machine (ユーザー/組織) | ポリシー次第 |
+| Keygen.sh | machine (ユーザーー/組織) | ポリシー次第 |
 | Lemon Squeezy | instance (起動ごと) | activate/deactivate API |
 | Paddle | user email | 手動対応 |
 | Gumroad | 購入者 email | 不可 |
@@ -81,7 +81,7 @@
 
 **設計判断**:
 - **tenant = 家族** という独自概念を採用。machine/email ではなく **家族全員で 1 ライセンスを共有**する子供向け UX に合致
-- Keygen の machine binding は厳しすぎ（親機・子機の切替で手間）、gumroad の email binding は緩すぎ（家族の誰の email でもキーだけ知っていれば有効化できてしまう）
+- Keygen の machine binding は厳しすぎ（保護者機・子機の切替で手間）、gumroad の email binding は緩すぎ（家族の誰の email でもキーだけ知っていれば有効化できてしまう）
 
 ### 2.4 アクティベーション制限
 
@@ -113,7 +113,7 @@
 **設計判断**:
 - 他サービスと異なり、**ライセンスキー自体の有効期限 90 日**は「発行から consume されるまで」の猶予期間を意味する
 - 購読との連動は「キー消費 → tenant を paid に移行 → tenant の `current_period_end` が Stripe と同期」という形で実現 (→ license-subscription-causality.md §2)
-- **なぜ 90 日か**: Stripe Checkout session の有効期限 (24 時間) より長く、ユーザーが受信箱から見落とさずに見つけられる期間として経験則的に選定
+- **なぜ 90 日か**: Stripe Checkout session の有効期限 (24 時間) より長く、ユーザーーが受信箱から見落とさずに見つけられる期間として経験則的に選定
 
 ### 2.6 失効機構
 
@@ -222,7 +222,7 @@
 | # | 参考元 | 項目 | 理由 |
 |---|-------|------|------|
 | 1 | Stripe / Lemon Squeezy | **Webhook 駆動の自動発行** | SaaS の決済 → ライセンス発行フローとしてデファクト |
-| 2 | Gumroad | **短い英数ブロック形式** (4文字×3 + 署名) | 家族ユーザーが手入力することを考慮 |
+| 2 | Gumroad | **短い英数ブロック形式** (4文字×3 + 署名) | 家族ユーザーーが手入力することを考慮 |
 | 3 | JetBrains | **0/O/1/I 除外した文字セット** | 電話でのサポート対応時に聞き間違い防止 |
 | 4 | Keygen / JetBrains | **`revokedReason` フィールド** | 監査・CS 対応で「なぜ失効したか」を追跡可能にする |
 | 5 | Lemon Squeezy / Paddle | **Stripe の 100% OFF クーポンで贈答・モニター対応** | 専用の「ギフト発行」機能を作らずに済む |
@@ -234,7 +234,7 @@
 | # | 参考元 | 項目 | 理由 |
 |---|-------|------|------|
 | 1 | Keygen.sh | ED25519/RSA 非対称署名 | 対称鍵 HMAC-SHA256 で十分。非対称は鍵管理コストが高い |
-| 2 | Keygen.sh | machine binding (マシン ID バインド) | 家族 UX では親機・子機切替で破綻する |
+| 2 | Keygen.sh | machine binding (マシン ID バインド) | 家族 UX では保護者機・子機切替で破綻する |
 | 3 | Keygen.sh | オフライン検証 | 常時 Cognito 認証前提のため不要 |
 | 4 | Lemon Squeezy / Paddle | activate/deactivate API | one-shot consume で十分。状態機構の複雑化回避 |
 | 5 | Lemon Squeezy / Paddle | license key public API 提供 | B2C で第三者統合は想定していない |

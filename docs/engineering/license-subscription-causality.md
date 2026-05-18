@@ -35,7 +35,7 @@
 自アプリ DB（`tenants` / `license_keys` テーブル）は「Stripe の状態をキャッシュしているもの」と位置付ける。
 
 **理由**:
-- Stripe の subscription 状態と自アプリ DB の不整合は致命的なユーザー体験劣化を招く
+- Stripe の subscription 状態と自アプリ DB の不整合は致命的なユーザーー体験劣化を招く
 - 両方で状態を持つと同期ロジックが複雑化し、必ずバグる（#725 / #728 の教訓）
 - 決済ドメインは Stripe に任せ、自アプリはキャッシュとして扱うのが最も安全
 
@@ -98,7 +98,7 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 
 **理由**: §1.3 参照。Stripe の smart retries に完全に任せる。
 
-### 2.4 解約（ユーザー起点）
+### 2.4 解約（ユーザーー起点）
 
 | 起点 Event | 結果（license） | 結果（tenant plan state） |
 |---|---|---|
@@ -126,7 +126,7 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 
 ### 2.7 サインアップ時のライセンスキー claim（#795）
 
-新規ユーザーが gift / 手動発行された License Key をサインアップ時に入力するフロー。
+新規ユーザーーが gift / 手動発行された License Key をサインアップ時に入力するフロー。
 
 | 起点 | 前提 | 結果（license） | 結果（tenant plan state） |
 |------|------|-----------------|---------------------------|
@@ -143,7 +143,7 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 #### 実装上の必須ルール
 
 1. **更新順序**: tenant plan 昇格 → license consumed マークの順。先に license を consumed にすると、tenant 更新失敗時に「キーは消費済みだがプランは free」の整合性崩壊が起きる。
-2. **fire-and-forget 禁止**: signup 側は `await consumeLicenseKey()` で待ち、`{ok: false}` もしくは例外をログに記録する（ユーザー通知は現状 /admin 側の将来実装に委譲）。
+2. **fire-and-forget 禁止**: signup 側は `await consumeLicenseKey()` で待ち、`{ok: false}` もしくは例外をログに記録する（ユーザーー通知は現状 /admin 側の将来実装に委譲）。
 3. **Stripe subscription は作らない**: このフローは Stripe を経由しないため、`stripeSubscriptionId` / `stripeCustomerId` は設定されない。後続の invoice 継続課金も発生しない（`planExpiresAt` 到達時点で自動ダウングレードするのがバッチの責務）。
 4. **活用場面**: ①運営が /ops/license から手動発行した gift キーの claim、②Stripe 購入後にキーを他アカウントで使いたい引き継ぎ（Phase 3 想定）。通常の Stripe Checkout フローとは独立した副ルート。
 
@@ -151,7 +151,7 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 
 ### 2.8 既存テナントへのライセンスキー適用（#796）
 
-既存ユーザー（owner ロール）が `/admin/license` 画面からライセンスキーを入力してプランを昇格するフロー。
+既存ユーザーー（owner ロール）が `/admin/license` 画面からライセンスキーを入力してプランを昇格するフロー。
 §2.7（サインアップ時 claim）と同じ `consumeLicenseKey` を使用するが、テナントが既に存在する点が異なる。
 
 | 起点 | 前提 | 結果（license） | 結果（tenant plan state） |
@@ -163,7 +163,7 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 1. owner が `/admin/license` の「ライセンスキーを適用」カードにキーを入力
 2. 「ライセンスキーを適用」ボタン → 確認ダイアログ（一回限り・上書き・取消不可の警告）
 3. 「適用する」ボタンで SvelteKit form action `applyLicenseKey` を送信
-4. サーバー側: `validateLicenseKey` → `consumeLicenseKey` → 成功/失敗レスポンス
+4. サーバーー側: `validateLicenseKey` → `consumeLicenseKey` → 成功/失敗レスポンス
 5. 成功時: Alert（success）表示、`data` リロードでプラン情報が即時反映
 
 #### 表示条件
@@ -177,7 +177,7 @@ Stripe に**完全一任**する。自アプリ側で猶予期間ロジックを
 2. **事前検証**: `validateLicenseKey` で形式・存在・状態を検証し、不正なキーで `consumeLicenseKey` を呼ばない
 3. **更新順序**: §2.7 と同一（tenant plan 昇格 → license consumed マーク）
 4. **Stripe 非経由**: §2.7 と同様に `stripeSubscriptionId` / `stripeCustomerId` は設定されない
-5. **エラーハンドリング**: `consumeLicenseKey` が `{ok:false}` → ユーザーにエラー表示、例外 → 500 + 汎用エラーメッセージ
+5. **エラーハンドリング**: `consumeLicenseKey` が `{ok:false}` → ユーザーーにエラー表示、例外 → 500 + 汎用エラーメッセージ
 
 ---
 
@@ -241,7 +241,7 @@ sequenceDiagram
     end
 ```
 
-### 3.3 ユーザー解約フロー
+### 3.3 ユーザーー解約フロー
 
 ```mermaid
 sequenceDiagram

@@ -56,9 +56,9 @@ Route53 `AuthDomainAlias` は旧 domain resource の削除 → 新 domain resour
 
 `/ganbari-quest/cognito/user-pool-id` 等の SSM パラメータは CDK が `this.userPool.userPoolId` から値を取るため、自動で新 Pool の ID に更新される。compute-stack は SSM 経由で Pool ID を読むので、次回 cold start で新 Pool に切り替わる。
 
-### 4. 既存 federated ユーザー (3 名) は消失
+### 4. 既存 federated ユーザーー (3 名) は消失
 
-Pre-PMF 境界内で全員 PO テストアカウントのみと確認済み (2026-04-21 ユーザー明示確認: 「ユーザは全員いなくなっても問題ない」)。再度 Google OAuth でサインアップし直す。
+Pre-PMF 境界内で全員 PO テストアカウントのみと確認済み (2026-04-21 ユーザーー明示確認: 「ユーザーは全員いなくなっても問題ない」)。再度 Google OAuth でサインアップし直す。
 
 ### 5. Deploy 後の手動クリーンアップ
 
@@ -78,19 +78,19 @@ aws cognito-idp delete-user-pool --user-pool-id <旧 Pool ID> --region us-east-1
 
 - **メリット**: 新旧 Pool を併存させる期間を長く取れる（カットオーバーを段階的に実施可能）
 - **デメリット**: 新 stack 作成 / SSM パラメータ二重化 / cutover スクリプト追加が必要で、作業量が論理 ID 変更の 3〜4 倍
-- **却下**: Pre-PMF で既存ユーザー全員消失 OK という前提なら過剰。ADR-0010 (Pre-PMF スコープ判断) の趣旨に反する
+- **却下**: Pre-PMF で既存ユーザーー全員消失 OK という前提なら過剰。ADR-0010 (Pre-PMF スコープ判断) の趣旨に反する
 
-### 代替案 B: 既存ユーザー bulk import (`aws cognito-idp admin-create-user`)
+### 代替案 B: 既存ユーザーー bulk import (`aws cognito-idp admin-create-user`)
 
-- **メリット**: 既存ユーザーの email/paswword アカウントを新 Pool に移行できる
-- **デメリット**: federated (Google OAuth) ユーザーは Provider 側の sub が変わらないので import しても再紐付け不可。email/password のみ import する意味が薄い
-- **却下**: ユーザー明示確認で「全員消えて OK」と承認済み
+- **メリット**: 既存ユーザーーの email/paswword アカウントを新 Pool に移行できる
+- **デメリット**: federated (Google OAuth) ユーザーーは Provider 側の sub が変わらないので import しても再紐付け不可。email/password のみ import する意味が薄い
+- **却下**: ユーザーー明示確認で「全員消えて OK」と承認済み
 
 ### 代替案 C: ADR-0017 のまま mutable: false に revert
 
 - **メリット**: stack を安定化させられる
 - **デメリット**: **#1366 未解決のまま**。Google OAuth 再ログイン不能を放置することになる
-- **却下**: 2026-04-21 ユーザー指摘「revert ではなくて、ちゃんと目的を達成できるように修正してもらいたい」により明確に NG
+- **却下**: 2026-04-21 ユーザーー指摘「revert ではなくて、ちゃんと目的を達成できるように修正してもらいたい」により明確に NG
 
 ## 結果
 
@@ -102,7 +102,7 @@ aws cognito-idp delete-user-pool --user-pool-id <旧 Pool ID> --region us-east-1
 
 ### トレードオフ
 
-- **既存 federated ユーザー全消失** (Pre-PMF 許容)
+- **既存 federated ユーザーー全消失** (Pre-PMF 許容)
 - **Deploy 中に短時間 (数分) の認証機能停止**: Hosted UI Domain の Route53 alias 更新タイミングで一時的に auth.ganbari-quest.com が 503 を返す可能性あり
 - **CloudFormation stack に orphan resource (旧 User Pool) が残る**: deploy 成功後に手動削除する運用タスクが発生
 
@@ -161,7 +161,7 @@ aws cognito-idp delete-user-pool --user-pool-id <orphan Pool ID> --region us-eas
 
 ## 今後のために起票する Issue
 
-- **Cognito ユーザーバックアップ / リストア運用確立** (#1366 派生): DynamoDB 側の user ID との紐付け方法を含め、Pool 再作成時にユーザーを失わないための運用手順を策定する。Pre-PMF 終了までに必ず整備する（Post-PMF 以降は本 ADR のような破壊的変更が許容されない）
+- **Cognito ユーザーーバックアップ / リストア運用確立** (#1366 派生): DynamoDB 側の user ID との紐付け方法を含め、Pool 再作成時にユーザーーを失わないための運用手順を策定する。Pre-PMF 終了までに必ず整備する（Post-PMF 以降は本 ADR のような破壊的変更が許容されない）
 - **CDK synth diff を deploy 前チェックに組み込む**: ADR-0017 の根本欠陥 (「staging で Replacement 挙動を確認する段取りが無かった」) への構造的対策。`cdk diff --strict` を deploy job の必須ステップにし、`Replacement` / `requires replacement` を含む diff が出たら deploy を block する案
 
 ## 関連
