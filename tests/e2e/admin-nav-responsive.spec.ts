@@ -14,7 +14,7 @@
 
 import { expect, test } from '@playwright/test';
 
-const VIEWPORTS = {
+const BREAKPOINTS = {
 	mobile: { width: 375, height: 667 }, // iPhone SE
 	tablet: { width: 768, height: 1024 }, // iPad Mini portrait
 	desktop: { width: 1920, height: 1080 }, // PC FullHD
@@ -33,7 +33,7 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 		browser,
 	}) => {
 		test.slow();
-		const ctx = await browser.newContext({ viewport: VIEWPORTS.mobile });
+		const ctx = await browser.newContext({ viewport: BREAKPOINTS.mobile });
 		const page = await ctx.newPage();
 		try {
 			await page.goto('/admin', { waitUntil: 'domcontentloaded' });
@@ -56,7 +56,7 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 
 	test('Mobile 375×667: 家族 submenu に こども + メンバー が含まれる', async ({ browser }) => {
 		test.slow();
-		const ctx = await browser.newContext({ viewport: VIEWPORTS.mobile });
+		const ctx = await browser.newContext({ viewport: BREAKPOINTS.mobile });
 		const page = await ctx.newPage();
 		try {
 			await page.goto('/admin', { waitUntil: 'domcontentloaded' });
@@ -82,7 +82,7 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 	// ============================================================
 	test('Tablet 768×1024: Desktop nav に 5 tab visible', async ({ browser }) => {
 		test.slow();
-		const ctx = await browser.newContext({ viewport: VIEWPORTS.tablet });
+		const ctx = await browser.newContext({ viewport: BREAKPOINTS.tablet });
 		const page = await ctx.newPage();
 		try {
 			await page.goto('/admin', { waitUntil: 'domcontentloaded' });
@@ -105,7 +105,7 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 	// ============================================================
 	test('Desktop 1920×1080: Desktop nav に 5 tab visible', async ({ browser }) => {
 		test.slow();
-		const ctx = await browser.newContext({ viewport: VIEWPORTS.desktop });
+		const ctx = await browser.newContext({ viewport: BREAKPOINTS.desktop });
 		const page = await ctx.newPage();
 		try {
 			await page.goto('/admin', { waitUntil: 'domcontentloaded' });
@@ -125,7 +125,7 @@ test.describe('#2178 親管理画面 5 tab レスポンシブ', () => {
 
 	test('Desktop 1920×1080: 家族 dropdown に こども + メンバー が含まれる', async ({ browser }) => {
 		test.slow();
-		const ctx = await browser.newContext({ viewport: VIEWPORTS.desktop });
+		const ctx = await browser.newContext({ viewport: BREAKPOINTS.desktop });
 		const page = await ctx.newPage();
 		try {
 			await page.goto('/admin', { waitUntil: 'domcontentloaded' });
