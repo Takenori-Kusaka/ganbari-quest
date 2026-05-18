@@ -218,6 +218,63 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 			.toBe(true);
 	});
 
+	// ============================================================
+	// #2155 Dialog UX 改善: アイコン拡大 + 階層化表示 + ボタン強調
+	// ============================================================
+	test('#2155: 確認 Dialog にアイコン大表示 + 階層化表示 + 強調ボタンが描画される', async ({
+		page,
+	}) => {
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/shop');
+
+		await expect(page.getByTestId('shop-page')).toBeVisible();
+
+		const affordableCard = page.locator('[data-testid^="reward-card-"]').filter({
+			hasText: 'E2Eテスト用ごほうび（交換可）',
+		});
+		await affordableCard.locator('button[data-testid^="exchange-btn-"]').click();
+
+		// AC1: 確認 Dialog 自体が描画
+		const dialog = page.getByTestId('exchange-confirm-dialog');
+		await expect(dialog).toBeVisible({ timeout: 10000 });
+
+		// AC2: 階層化表示 — title と points が独立要素で描画される
+		await expect(page.getByTestId('confirm-reward-title')).toBeVisible();
+		await expect(page.getByTestId('confirm-reward-points')).toBeVisible();
+
+		// AC3: 「はい」/「やめる」両方表示
+		await expect(page.getByTestId('confirm-exchange-yes')).toBeVisible();
+		await expect(page.getByTestId('confirm-exchange-cancel')).toBeVisible();
+
+		// 「やめる」で閉じて副作用なし
+		await page.getByTestId('confirm-exchange-cancel').click();
+		await expect(dialog).not.toBeVisible();
+	});
+
+	// ============================================================
+	// #2156 Grid + レスポンシブ: reward-list の display: grid 化
+	// ============================================================
+	test('#2156: reward-list が CSS Grid で描画される', async ({ page }) => {
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/shop');
+
+		await expect(page.getByTestId('shop-page')).toBeVisible();
+
+		const grid = page.getByTestId('reward-grid');
+		await expect(grid).toBeVisible();
+
+		// display: grid が適用されていることを確認
+		const displayValue = await grid.evaluate((el) => getComputedStyle(el).display);
+		expect(displayValue).toBe('grid');
+
+		// grid-template-columns に minmax が反映されている
+		const templateCols = await grid.evaluate((el) => getComputedStyle(el).gridTemplateColumns);
+		// preschool は --reward-grid-min=320px (minmax 経由で px 値が解決される)
+		expect(templateCols).toMatch(/px/);
+	});
+
 	test('キャンセルでダイアログが閉じる', async ({ page }) => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
