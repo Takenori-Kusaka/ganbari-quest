@@ -21,7 +21,7 @@ export default defineConfig({
 	// #1500: plan 別 storageState プロジェクトで loginAsPlan() を撤廃
 	// #1535: upgrade-checkout を tests/e2e/integration/ に移動
 	testMatch:
-		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|integration\/upgrade-checkout)\.spec\.ts$/,
+		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|integration\/upgrade-checkout)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
