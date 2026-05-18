@@ -1,105 +1,112 @@
-# 管理画面 IA（情報アーキテクチャ）再設計書
+# 管理画面 IA（情報アーキテクチャ）設計書
 
 | 項目 | 内容 |
 |------|------|
-| Issue | #1395 (Sub B of umbrella #1393) |
-| 版数 | 1.0 |
-| 作成日 | 2026-04-26 |
+| 版数 | **v2.0 (#2177 / EPIC #2176, 2026-05-18)** |
+| 旧版 | v1.0 (#1395, 2026-04-26 — 頻度ベース分類、本 v2.0 で supersede) |
 | 作成者 | Dev セッション |
-| ステータス | Committed（設計）/ 実装は #1396 |
+| ステータス | Committed（設計）/ 実装は #2178 (AdminLayout 5 tab 実装) |
+| 関連 ADR | ADR-0009 (旧) / ADR-0014 (OSS 先調査整合) |
 
 ---
 
 ## §1 設計背景
 
-### 1.1 現状の IA
+### 1.1 v2.0 改訂の動機 (#2176 EPIC)
 
-現在の管理画面ナビゲーションは `labels.ts` の `NAV_CATEGORIES` に基づき 4 カテゴリで構成されている。
+v1.0 (頻度ベース分類) では「こども」が「活動」配下、「メンバー」が「設定」配下にあった。これは v1.0 §3.1 の頻度ベース分類 (週次操作の「こども」を「活動」へ、稀操作の「メンバー」を「設定」へ) として整合していたが、PO 報告 (2026-05-17) で以下の構造的違和感が露出した:
 
-| カテゴリ ID | ラベル | 含まれる items (URL) |
-|------------|--------|---------------------|
-| `monitor` | 記録・分析 | レポート / グロースブック / チャレンジ履歴 / アナリティクス |
-| `encourage` | 応援・報酬 | ポイント / おうえん / ごほうび |
-| `customize` | 活動設定 | 活動管理 / チェックリスト / イベント / チャレンジ / テンプレート |
-| `settings` | アカウント | こども / 設定 / プラン / 請求管理 / メンバー |
+- 「こども」が「活動 (gamification の機能設定)」配下にあるのは subject (誰の) より function (何を) を上位化していて違和感がある
+- PO の優先度判断: 「アプリ機能 (活動) vs ユーザ情報 (こども)」では後者を上位化すべき
+- 将来「家族グループ招待 / テナント名設定 / 家族プロフィール」が PO の頭の中にあるが、上位カテゴリが不在で配置先が決まらない
 
-合計 17 items（うちホームは別扱い）。
+### 1.2 v1.0 → v2.0 の主要変更点
 
-### 1.2 課題
+| 項目 | v1.0 (頻度ベース) | v2.0 (subject-first) |
+|---|---|---|
+| カテゴリ数 | 3 (活動 / 記録 / 設定) + ホーム = 4 tab | **4 (家族 / 活動 / 記録 / 設定) + ホーム = 5 tab** |
+| こども | 活動配下 (週次操作と同文脈) | **家族配下** (家族グループの構成要素) |
+| メンバー | 設定配下 (稀操作) | **家族配下** (家族グループの構成要素) |
+| 分類軸 | 頻度 (毎日 / 週次 / 稀) | **subject-first (誰の / 何を / 何の記録 / 何の設定)** |
 
-- **「応援・報酬」と「活動設定」が並立している問題**: 保護者にとって「応援する」と「活動を管理する」は異なる頻度・文脈の操作だが、どちらが先かの序列が不明確
-- **「記録・分析」に報酬系が含まれない問題**: ポイント履歴・おうえん履歴は「振り返り」文脈に属するが、現状は「応援・報酬」カテゴリに分類されており、レポートとの文脈が分断されている
-- **「こども」が「アカウント」に入っている問題**: 子供の追加・設定変更は週次操作（活動設定と同文脈）だが、設定・プランと同じ「稀」文脈のカテゴリに格納されている
+### 1.3 業界 prior art 採用根拠 (Phase Admin-Nav-Restructure research)
 
-### 1.3 設計ゴール
+- **Family Link 流 subject-first** (Google): 「家族」を独立カテゴリ化し、その配下に「メンバー」「設定」を配置
+- **iOS HIG**: tab bar 5 タブ上限、78pt/tab で iPhone 12 (390pt) ジャスト収容
+- **Material Design 3**: bottom navigation 3-5 destinations 仕様化、48×48dp target
+- **5 tab 採用 SaaS 実機確認 (Phase C2)**: App Store / Instagram (2025) / X / LinkedIn / Roblox / Linear
 
-- **頻度ベース分類**: 操作頻度が近い items を同じカテゴリにまとめる
-- **4 → 4 tab 維持（ホーム含む）**: ボトムナビの物理的な幅制約（モバイル 375px で 4 つが限界）
-- **既存 URL は維持**: `/admin/children` 等の URL パスは変更しない
+### 1.4 この設計がなかった場合に何が困るか
+
+- 「こども」を探すユーザが「活動」配下を予期せず混乱する (PO 違和感の根本)
+- 将来「家族グループ招待」等を配置するカテゴリが決まらない (上位カテゴリ不在)
+- subject-first の業界水準から逸脱したまま親管理画面が固定化する
 
 ---
 
 ## §2 設計原則
 
-1. **頻度でカテゴリを決める**: 毎日 / 週次 / 稀 の 3 段階で分類する
-2. **URL は変えない**: IA 変更はナビゲーション UI の変更のみ。redirect も不要
-3. **labels.ts SSOT 維持**: `NAV_CATEGORIES` / `NAV_ITEM_LABELS` の変更で全 UI（デスクトップ・モバイル・デモ）が追従する設計
-4. **チュートリアル・E2E への影響を最小化**: `data-tutorial` 属性・`data-testid` を参照する既存テストへの影響を事前にリストアップし、#1396 で同時修正する
+1. **subject-first 上位化**: 「誰の」(家族) > 「何を」(活動) > 「何の記録」(記録) > 「何の設定」(設定) の順で配置
+2. **5 tab 上限** (iOS HIG 整合): ホーム + 4 カテゴリ = 5 tab 構成。6 tab 以上に拡張しない
+3. **既存 URL は維持**: ナビ UI の再配置のみ、`/admin/children` 等は不変
+4. **labels.ts SSOT 維持**: `NAV_CATEGORIES` / `NAV_ITEM_LABELS` 改訂で全 UI (デスクトップ / モバイル / ボトムナビ / デモ) が追従
+5. **チュートリアル / E2E は同 PR 内で追従**: data-tutorial / data-testid を参照する既存テスト群を #2178 で同時更新
 
 ---
 
 ## §3 仕様
 
-### 3.1 提案 IA（案 P: 頻度ベース分類）
+### 3.1 提案 IA (v2.0 = 案 P': subject-first 上位化)
 
-| tab | カテゴリ ID（新） | ラベル（新） | 含まれる items | 頻度 |
-|-----|-----------------|------------|---------------|------|
-| ホーム | (専用ページ) | ホーム | — (admin-home-tab.md 参照) | 毎日 |
-| **活動** | `activity` | 活動 | 活動管理 / チェックリスト / イベント / チャレンジ / テンプレート / **こども** | 週次 |
-| **記録** | `record` | 記録 | レポート / グロースブック / チャレンジ履歴 / アナリティクス / ポイント / おうえん / ごほうび | 週次 |
-| **設定** | `settings` | 設定 | 設定 / プラン / 請求管理 / メンバー | 稀 |
+| tab | カテゴリ ID | ラベル | icon | 含まれる items | 設計意図 |
+|-----|-----------|------|------|---------------|---------|
+| ホーム | (専用ページ) | ホーム | 🏠 | — (`admin-home-tab.md` 参照) | 毎日 |
+| **家族** (新規) | `family` | 家族 | 👨‍👩‍👧 | こども / メンバー | 家族グループの構成要素を subject-first 上位化 |
+| 活動 | `activity` | 活動 | 🎮 | 活動管理 / チェックリスト / イベント / チャレンジ / **テンプレート (現状維持)** | アプリの機能設定 (Notion 流業界整合) |
+| 記録 | `record` | 記録 | 📊 | レポート / グロースブック / アナリティクス / ポイント / おうえん / ごほうび | 振り返り文脈 |
+| 設定 | `settings` | 設定 | ⚙️ | 設定 / プラン / 請求管理 | アカウント設定 (メンバー外し) |
 
 #### 移動の根拠
 
-| item | 現状カテゴリ | 新カテゴリ | 理由 |
+| item | v1.0 カテゴリ | v2.0 カテゴリ | 理由 |
 |------|------------|-----------|------|
-| こども | `settings`（アカウント） | `activity`（活動） | 子供追加・設定変更は活動登録と同じ週次操作文脈 |
-| ポイント | `encourage`（応援・報酬） | `record`（記録） | ポイント履歴は「振り返り」文脈。レポート・グロースブックと同一 tab に置くことで一気通貫で振り返れる |
-| おうえん | `encourage`（応援・報酬） | `record`（記録） | 同上。おうえん送付操作はホームのクイックアクション（Aspirational）で対応予定 |
-| ごほうび | `encourage`（応援・報酬） | `record`（記録） | ごほうび設定は週次以下の頻度。ポイント・おうえんと同文脈でまとめる |
+| こども | `activity` | **`family`** | 家族グループの構成要素 (subject-first)。活動配下では PO 違和感 |
+| メンバー | `settings` | **`family`** | 同上。設定配下では subject 関係性が見えない |
 
-### 3.2 `labels.ts` の変更案
-
-#### NAV_CATEGORIES（変更）
+### 3.2 labels.ts の改訂 (#2177 で実装済)
 
 ```typescript
-// 変更前
+// 改訂前 (v1.0)
 export const NAV_CATEGORIES = {
-  monitor: { label: '記録・分析', icon: '📊' },
-  encourage: { label: '応援・報酬', icon: '💬' },
-  customize: { label: '活動設定', icon: '🎮' },
-  settings: { label: 'アカウント', icon: '⚙️' },
+  activity: { label: '活動', icon: '🎮' },
+  record: { label: '記録', icon: '📊' },
+  settings: { label: '設定', icon: '⚙️' },
 } as const;
 
-// 変更後（#1396 実装時）
+// 改訂後 (v2.0)
 export const NAV_CATEGORIES = {
+  family: { label: '家族', icon: '👨‍👩‍👧' },  // ← 新規
   activity: { label: '活動', icon: '🎮' },
   record: { label: '記録', icon: '📊' },
   settings: { label: '設定', icon: '⚙️' },
 } as const;
 ```
 
-> ホームはカテゴリではなく専用ルート（`/admin`）として扱うため、NAV_CATEGORIES には含まない。
+`NAV_ITEM_LABELS` の各 key・値は変更しない。AdminLayout.svelte での item 配置のみ #2178 で変更する。
 
-#### NAV_ITEM_LABELS（変更なし）
-
-`NAV_ITEM_LABELS` の各 key・値は変更しない。AdminLayout.svelte での item 配置のみ変更する。
-
-### 3.3 AdminLayout.svelte の navCategories 変更案
+### 3.3 AdminLayout.svelte の navCategories 変更案 (#2178 で実装)
 
 ```typescript
-// 変更後の navCategories （#1396 実装時）
 const navCategories: NavCategory[] = $derived([
+  {
+    id: 'family',
+    label: NAV_CATEGORIES.family.label,
+    icon: NAV_CATEGORIES.family.icon,
+    items: [
+      { href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },
+      { href: `${basePath}/members`, label: NAV_ITEM_LABELS.members, icon: '👥' },
+    ],
+  },
   {
     id: 'activity',
     label: NAV_CATEGORIES.activity.label,
@@ -110,7 +117,7 @@ const navCategories: NavCategory[] = $derived([
       { href: `${basePath}/events`, label: NAV_ITEM_LABELS.events, icon: '🎉' },
       { href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
       { href: '/marketplace', label: NAV_ITEM_LABELS.marketplace, icon: '🛍️' },
-      { href: `${basePath}/children`, label: NAV_ITEM_LABELS.children, icon: '👧' },  // ← 移動
+      // こども は family に移動
     ],
   },
   {
@@ -120,11 +127,10 @@ const navCategories: NavCategory[] = $derived([
     items: [
       { href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
       { href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
-      // #1782: 「実績」ナビ削除（チャレンジ機能 /admin/challenges に統合、ADR-0012 §6 整合）
       { href: `${basePath}/analytics`, label: NAV_ITEM_LABELS.analytics, icon: '📈' },
-      { href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },       // ← 移動
-      { href: `${basePath}/messages`, label: NAV_ITEM_LABELS.messages, icon: '💌' },   // ← 移動
-      { href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },     // ← 移動
+      { href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
+      { href: `${basePath}/messages`, label: NAV_ITEM_LABELS.messages, icon: '💌' },
+      { href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
     ],
   },
   {
@@ -135,8 +141,7 @@ const navCategories: NavCategory[] = $derived([
       { href: `${basePath}/settings`, label: NAV_ITEM_LABELS.settings, icon: '⚙️' },
       { href: `${basePath}/license`, label: NAV_ITEM_LABELS.license, icon: '💎' },
       { href: `${basePath}/billing`, label: NAV_ITEM_LABELS.billing, icon: '🧾' },
-      { href: `${basePath}/members`, label: NAV_ITEM_LABELS.members, icon: '👥' },
-      // こども は activity に移動
+      // メンバー は family に移動
     ],
   },
 ]);
@@ -144,52 +149,50 @@ const navCategories: NavCategory[] = $derived([
 
 ### 3.4 URL の維持について
 
-**既存 URL は一切変更しない**。ナビゲーション UI の category 割り当てのみを変更する。
+**既存 URL は一切変更しない**。
 
-- `/admin/children` — 変更なし（activity カテゴリから遷移）
-- `/admin/reports` — 変更なし（record カテゴリから遷移）
-- `/admin/points` — 変更なし（record カテゴリから遷移）
-- `/admin/settings` — 変更なし（settings カテゴリから遷移）
-- 他すべての URL — 変更なし
+- `/admin/children` — 変更なし (family カテゴリから遷移)
+- `/admin/members` — 変更なし (family カテゴリから遷移)
+- `/admin/reports` / `/admin/points` / `/admin/settings` 等 — 変更なし
 
-`src/lib/server/routing/legacy-url-map.ts` への追加は**不要**（URL 変更がないため）。
+`src/lib/server/routing/legacy-url-map.ts` への追加は **不要** (URL 変更がないため)。
 
 ### 3.5 E2E・チュートリアルへの影響範囲
 
-以下のファイルが #1396 で同時修正が必要になる可能性がある。
+#2178 で同時修正:
 
 | ファイル | 影響箇所 | 修正内容 |
 |---------|---------|---------|
-| `src/lib/ui/tutorial/tutorial-chapters.ts` | chapter 1 step `intro-1` の description | `NAV_CATEGORIES.monitor.label` 等の参照が `NAV_CATEGORIES.activity.label` 等に変わる |
-| `tests/e2e/admin-nav-marketplace.spec.ts` | category ID `customize` → `activity` | `navCategories[].id === 'customize'` をチェックしているセレクタを更新 |
-| `tests/e2e/tutorial-verification.spec.ts` | チュートリアル step 1 の description 文言チェック | NAV_CATEGORIES ラベル変更に追従 |
+| `tests/e2e/admin-nav-marketplace.spec.ts` | `getByRole('button', { name: /^活動$/ })` で「こども」へ到達不可能になる | 影響なし: marketplace は activity 配下のまま。本テストは影響なし |
+| `tests/e2e/admin-nav-responsive.spec.ts` (新設) | 5 tab × 3 breakpoint 検証 | 新規追加 |
+| `src/lib/ui/tutorial/tutorial-chapters.ts` | カテゴリ数言及 (もしあれば) | 5 tab に追従更新 |
 
-> **注**: `data-tutorial="nav-desktop"` / `data-tutorial="nav-primary"` は AdminLayout.svelte に固定されており、カテゴリ数変更の影響を受けない。
+### 3.6 デモ画面 (`/demo/admin`) への影響
 
-### 3.6 デモ画面（`/demo/admin`）への影響
-
-デモ管理画面は `basePath="/demo/admin"` を渡して同一の `AdminLayout.svelte` / `AdminHome.svelte` を使用している。IA 変更は自動的にデモ画面にも反映される。追加対応は不要。
+デモ管理画面は `basePath="/demo/admin"` を渡して同一の `AdminLayout.svelte` を使用しているため、IA 変更は自動反映される。追加対応は不要。
 
 ---
 
-## §4 Open Items
+## §4 関連ドキュメント
 
-以下は設計確定後の #1396 実装フェーズで判断する。
-
-| # | 項目 | 判断ポイント |
-|---|------|------------|
-| OI-1 | 「記録」カテゴリの items 数（7 items）が多い | モバイルのサブメニュー UI で 7 items がスクロール不要に収まるか確認 |
-| OI-2 | チュートリアル step 1 description の書き直し範囲 | 「4 つのカテゴリ」→「3 つのカテゴリ」に変わることへのチュートリアル文言更新 |
-| OI-3 | ボトムナビのアイコン選定 | `🎮`（活動）/ `📊`（記録）が視認性・直感性の観点で適切か |
+- [docs/design/family-group-management.md](family-group-management.md) — 家族グループ管理 SSOT (本 EPIC で新設、committed / aspirational 分離)
+- [docs/rationale/10-admin-nav-restructure-rationale.md](../rationale/10-admin-nav-restructure-rationale.md) — 5 tab + family カテゴリ採用経緯 (Phase Admin-Nav-Restructure research 統合)
+- [docs/design/admin-home-tab.md](admin-home-tab.md) — ホームタブコンテンツ設計
+- [docs/design/06-UI設計書.md](06-UI設計書.md) — 管理画面 UI コンポーネント仕様
+- [docs/design/parallel-implementations.md](parallel-implementations.md) — 並行実装ペア一覧
+- [src/lib/domain/labels.ts](../../src/lib/domain/labels.ts) — NAV_CATEGORIES / NAV_ITEM_LABELS (実装 SSOT)
+- [src/lib/features/admin/components/AdminLayout.svelte](../../src/lib/features/admin/components/AdminLayout.svelte) — ナビゲーション実装
+- [tests/e2e/admin-nav-responsive.spec.ts](../../tests/e2e/admin-nav-responsive.spec.ts) — 5 tab レスポンシブ E2E (#2178 で新設)
 
 ---
 
-## 関連ドキュメント
+## §5 v1.0 (頻度ベース分類) の保全
 
-- `docs/design/admin-home-tab.md` — #1394 ホームタブコンテンツ設計
-- `docs/design/06-UI設計書.md` — 管理画面 UI コンポーネント仕様
-- `docs/design/parallel-implementations.md` — 並行実装ペア一覧
-- `src/lib/domain/labels.ts` — NAV_CATEGORIES / NAV_ITEM_LABELS（実装 SSOT）
-- `src/lib/features/admin/components/AdminLayout.svelte` — ナビゲーション実装
-- `src/lib/ui/tutorial/tutorial-chapters.ts` — チュートリアル step 定義
-- `tests/e2e/admin-nav-marketplace.spec.ts` — ナビゲーション E2E テスト
+> **archived (2026-05-18, #2177 で supersede)**: v1.0 (頻度ベース分類) の文言は本ファイル git 履歴で保全。直前 commit を確認すれば v1.0 文書を取得可能。新規 PR は v2.0 (subject-first 上位化) を参照すること。
+
+### v1.0 → v2.0 supersede 経緯サマリ
+
+- v1.0 (2026-04-26 / #1395): 4 カテゴリ → 3 カテゴリに整理、こども = 活動配下 (週次操作と同文脈)
+- v2.0 (2026-05-18 / #2177): 4 カテゴリに再拡張 (家族新設)、こども + メンバー = 家族配下 (subject-first 上位化)
+
+棄却された v1.0 配置は `docs/rationale/10-admin-nav-restructure-rationale.md` §「棄却した代替案」も併せて参照。

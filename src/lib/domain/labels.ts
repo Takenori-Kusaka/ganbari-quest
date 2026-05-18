@@ -224,7 +224,11 @@ export const SETUP_LABELS = {
 // ナビゲーションカテゴリ
 // ============================================================
 
+// #2177 (EPIC #2176): family カテゴリを subject-first 上位化で新設。
+// admin-ia.md v1.0 (頻度ベース分類、#1395) を v2.0 (subject-first 上位化) に supersede。
+// 配置順: family → activity → record → settings (Family Link / iOS HIG / Material 3 仕様準拠)。
 export const NAV_CATEGORIES = {
+	family: { label: '家族', icon: '👨‍👩‍👧' },
 	activity: { label: '活動', icon: '🎮' },
 	record: { label: '記録', icon: '📊' },
 	settings: { label: '設定', icon: '⚙️' },

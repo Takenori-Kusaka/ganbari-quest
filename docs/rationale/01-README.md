@@ -111,6 +111,7 @@ cp docs/rationale/_template.md docs/rationale/NN-機能名-rationale.md
 | [03-stamp-card-audit-2026-04.md](03-stamp-card-audit-2026-04.md) | スタンプカード L2 逸脱調査 (4 項目) | 2026-04-26 | #1339 |
 | [04-stamp-card-spec-rationale.md](04-stamp-card-spec-rationale.md) | スタンプカード正仕様 | — | — |
 | [05-textlint-prh-evaluation.md](05-textlint-prh-evaluation.md) | textlint-rule-prh 必要性評価 (Phase 5 F4) | 2026-05-08 | #1921, #1909, #1918 |
+| [10-admin-nav-restructure-rationale.md](10-admin-nav-restructure-rationale.md) | 親管理画面 5 tab 化 + family カテゴリ新設 (subject-first 上位化) | 2026-05-18 | #2176, #2177, #2178, #2179, #2180 |
 
 ---
 
