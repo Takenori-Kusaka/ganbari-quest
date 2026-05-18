@@ -185,7 +185,7 @@ const activitiesByCategory = $derived(
 		categoryId={group.categoryId}
 		cardSize={displayConfig.cardSize}
 		itemsPerCategory={displayConfig.itemsPerCategory}
-		collapsible={displayConfig.collapsible}
+		collapsible={false}
 		itemCount={group.items.length}
 		xpInfo={getCategoryXpWithAnim(group.categoryId)}
 		xpAnimating={xpAnimatingCategoryId === group.categoryId}
