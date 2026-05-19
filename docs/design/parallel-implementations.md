@@ -205,6 +205,25 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+#### 6.5 親 PIN gate (`/switch` modal + `/admin/*` middleware) (EPIC #2310)
+
+| 場所 | 内容 |
+|------|------|
+| `src/routes/switch/+page.svelte` | PIN modal UI (Dialog + PinInput primitive 初実用化) |
+| `src/routes/switch/+page.server.ts` `select` action | 子供モード切替時の cookie 明示削除 (構造的核心) |
+| `src/routes/(parent)/admin/+layout.server.ts` | PIN gate middleware (未認証時 `/switch?pinRequired=1&next=…` redirect + sliding refresh) |
+| `src/lib/server/services/parent-gate-session.ts` | 署名 cookie 発行 / 検証 / sliding refresh の SSOT |
+| `src/routes/api/v1/parent-gate/verify/+server.ts` | PIN verify endpoint + cookie 発行 |
+| `src/routes/api/v1/parent-gate/logout/+server.ts` | cookie 削除 endpoint |
+
+**修正時チェック**:
+- Cookie 名 `gq_parent_session` の追加変更は全 4 箇所同時更新 (service の `PARENT_SESSION_COOKIE_NAME` SSOT 経由で参照、文字列直書き禁止)
+- timeout 値 (`INACTIVITY_TIMEOUT_MS=15min` / `MAX_SESSION_MS=24h`) 変更は ADR-0050 §4 + 14-セキュリティ設計書.md §4.3 と同期
+- 新規 `/admin/*` ページ追加: middleware は layout で一括適用されるため個別 page 側の対応不要 (PIN gate は config-free)
+- 新規 PO 系 endpoint で「子供モード切替時 cookie 破棄」相当ロジックが必要になった場合は `/api/v1/parent-gate/logout` を呼ぶ
+
+---
+
 ### 🟢 優先度: 中 — スキーマ変更時に注意
 
 #### 7. シードデータ vs マイグレーション
