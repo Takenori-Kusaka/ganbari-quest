@@ -14,7 +14,7 @@
 | **Demo Lambda E2E** | `tests/e2e/demo-lambda/` | demo Lambda 環境専用 (#2205、`playwright.demo.config.ts`) |
 
 判断: 実サーバー必要 → E2E / 不要 + モックで完結 → Integration / それ以外 → Unit。
-`tests/e2e/upgrade-checkout.spec.ts` は `page.route()` で Stripe モック (Integration 相当) だが cognito-dev 認証必要のため `playwright.cognito-dev.config.ts` 管理。
+`tests/e2e/integration/upgrade-checkout.spec.ts` は `page.route()` で Stripe モック (Integration 相当) だが cognito-dev 認証必要のため `playwright.cognito-dev.config.ts` 管理。
 
 ## demo Lambda E2E (`tests/e2e/demo-lambda/`、#2205)
 
@@ -59,7 +59,7 @@ marketplace seed 等) を検証する専用 spec 群。本番 cognito E2E では
 ### カラム追加時
 - 新カラムに `default()` 設定（NULL を業務的意味で使う場合を除く）
 - マイグレーション script の `ALTER TABLE ADD COLUMN` に対応する `UPDATE table SET col = <default> WHERE col IS NULL` を同 script 内に書く
-- 新カラムを `WHERE` / `eq()` / `and()` に使うクエリがあるなら **NULL 混在行**動作の検証テストを `tests/unit/db|services/` に 1 件追加
+- 新カラムを `WHERE` / `eq()` / `and()` に使うクエリがあるなら **NULL 混在行**動作の検証テストを `tests/unit/db/` または `tests/unit/services/` に 1 件追加
 
 ```ts
 it('is_archived が NULL の既存行もアクティブとして返される', () => {
@@ -72,7 +72,7 @@ it('is_archived が NULL の既存行もアクティブとして返される', (
 
 「NULL = 既定値扱い」セマンティクスなら `or(eq(col, default), isNull(col))` または **マイグレーションで backfill**。片側だけは不十分。
 
-CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.ts` diff があるのに `tests/unit/db|services/` diff が無い場合警告。skip 必要時は PR 本文に `[skip-schema-test-check]`。
+CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.ts` diff があるのに `tests/unit/db/` または `tests/unit/services/` diff が無い場合警告。skip 必要時は PR 本文に `[skip-schema-test-check]`。
 
 ### DynamoDB 並行実装の整合性
 

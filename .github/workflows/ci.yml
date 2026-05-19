@@ -29,6 +29,7 @@ jobs:
       stories: ${{ steps.filter.outputs.stories }}
       cognito: ${{ steps.filter.outputs.cognito }}
       docker: ${{ steps.filter.outputs.docker }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v6
 
@@ -111,12 +112,25 @@ jobs:
               - 'tsconfig.json'
               - 'Dockerfile*'
               - '.dockerignore'
+            # #2259 C4 fix: docs / scripts 変更でも lint-and-test (check-doc-code-references)
+            # と scripts/ node:test を走らせる。本機構は「docs 内パス参照の実在性」を検証する
+            # ため、docs-only PR でも CI gate に通す必要がある。
+            docs:
+              - 'docs/**'
+              - 'CLAUDE.md'
+              - 'DESIGN.md'
+              - '**/CLAUDE.md'
+              - 'scripts/check-doc-code-references.mjs'
+              - 'scripts/doc-code-references-baseline.json'
+              - 'scripts/__tests__/**'
+              - '.github/workflows/ci.yml'
 
   lint-and-test:
     needs: changes
     # #923 Phase 1 Copilot指摘: .storybook/** だけ変更された PR でも
     # lint-and-test 内の Storybook build check を走らせるため stories を含める
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
+    # #2259 C4 fix: docs-only PR でも check-doc-code-references を走らせるため docs を含める
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -163,6 +177,19 @@ jobs:
 
       - name: Hardcoded JP text baseline check (#1452 Phase A / #1465 Phase A)
         run: node scripts/check-hardcoded-strings.mjs
+
+      - name: Document code references check (#2215 / #2240 Split A)
+        # ドキュメント内に書かれた実装コードパス参照が実在するかを baseline モデルで検証。
+        # 新規違反 1 件で fail。意図的増減時のみ `--update-baseline` 実行。
+        # 既存 72 件 (40 ファイル) は scripts/doc-code-references-baseline.json で pin (#2240 Split C skip 判定 / #2259 C1 で path 配列化)。
+        run: node scripts/check-doc-code-references.mjs
+
+      - name: Scripts unit tests (node:test for check-doc-code-references.mjs) (#2259 C3)
+        # #2259 C3 fix: vitest config は tests/unit/** / tests/integration/** のみで
+        # scripts/__tests__/*.test.mjs は vitest 対象外。node --test を CI gate に組み込む。
+        # 本 step は scripts/check-doc-code-references.mjs の CLI 動作 (path-set diff /
+        # sandbox 隔離 / Deprecated marker / fenced code 除外 / inline/bare 区別) を検証する。
+        run: node --test scripts/__tests__/check-doc-code-references.test.mjs
 
       - name: LP SSOT HTML baseline check (#1465 Phase A)
         run: node scripts/check-lp-ssot.mjs

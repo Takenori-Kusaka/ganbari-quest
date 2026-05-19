@@ -46,7 +46,7 @@ CDK deploy ステップの **直前** に `cdk diff | check-cdk-replacement.mjs`
 
 コミットメッセージを `git log -1 --pretty=%B` で取得し、`COMMIT_MSG` 環境変数として渡す。
 
-### 3. `.github/pull_request_template.md` への `replacement-approved` セクション追加
+### 3. `.github/PULL_REQUEST_TEMPLATE.md` への `replacement-approved` セクション追加
 
 CDK Replacement が予想される PR で、作者がマーカーを記載する場所と使い方の説明を追加。
 
