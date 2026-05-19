@@ -63,16 +63,16 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		page,
 	}) => {
 		await page.goto('/admin/activities');
-		// Svelte ハイドレーション完了を待つ（FAB の onclick ハンドラ束縛を保証）。
-		// FAB の確実な可視化で ready 状態を検知する（auto-retry assertion）。
-		const fab = page.getByTestId('add-activity-fab');
-		await expect(fab).toBeVisible({ timeout: 15_000 });
+		// EPIC #2253 / #2255: header + dropdown menu から AI を選択
+		// Svelte ハイドレーション完了を待つ（addBtn の onclick ハンドラ束縛を保証）。
+		const addBtn = page.getByTestId('header-add-activity-btn');
+		await expect(addBtn).toBeVisible({ timeout: 15_000 });
 
-		// FAB から追加ダイアログを開き、AI モードを選択
+		// + dropdown menu から AI を選択
 		// （AiSuggestPanel は Dialog 内 addMode='ai' のときのみ描画される）
-		await fab.click();
+		await addBtn.click();
+		await page.getByTestId('menu-item-ai').click();
 		await expect(page.getByTestId('add-activity-dialog')).toBeVisible();
-		await page.getByRole('button', { name: /AIで追加/ }).click();
 
 		const panel = page.getByTestId('ai-suggest-panel');
 		await expect(panel).toBeVisible();

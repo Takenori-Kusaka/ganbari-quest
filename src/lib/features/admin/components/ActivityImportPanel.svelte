@@ -15,7 +15,7 @@ let importLoading = $state(false);
 let fileImportLoading = $state(false);
 </script>
 
-<div class="bg-[var(--color-rarity-common-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-success)]">
+<div class="bg-[var(--color-rarity-common-bg)] rounded-xl p-4 shadow-sm space-y-3 border border-[var(--color-border-success)]" data-testid="activity-import-panel">
 	<div class="flex items-center justify-between">
 		<h3 class="font-bold text-[var(--color-action-success)]">{FEATURES_LABELS.activityImportPanel.heading}</h3>
 		<a href="/admin/packs" class="text-xs text-[var(--color-action-success)] hover:opacity-80 underline">{FEATURES_LABELS.activityImportPanel.seeAllPacks}</a>

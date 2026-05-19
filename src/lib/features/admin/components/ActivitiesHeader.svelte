@@ -1,15 +1,82 @@
 <script lang="ts">
+import { goto } from '$app/navigation';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
+import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
+
+type AddMode = 'manual' | 'ai' | 'import';
 
 interface Props {
 	onClearAll: () => void;
 	clearConfirmOpen: boolean;
+	canAdd: boolean;
+	onAddSelect: (mode: AddMode) => void;
 }
 
-let { onClearAll, clearConfirmOpen }: Props = $props();
+let { onClearAll, clearConfirmOpen, canAdd, onAddSelect }: Props = $props();
 
 const L = FEATURES_LABELS.activitiesHeader;
+
+// + 追加 dropdown menu items (EPIC #2253 / #2255)
+const addMenuItems = $derived<MenuItem[]>([
+	{
+		id: 'manual',
+		label: L.addManualLabel,
+		icon: L.addManualIcon,
+		onSelect: () => onAddSelect('manual'),
+	},
+	{
+		id: 'ai',
+		label: L.addAiLabel,
+		icon: L.addAiIcon,
+		onSelect: () => onAddSelect('ai'),
+	},
+	{
+		id: 'import',
+		label: L.addImportLabel,
+		icon: L.addImportIcon,
+		onSelect: () => onAddSelect('import'),
+	},
+]);
+
+// ︙ overflow menu items (EPIC #2253 / #2257)
+const overflowItems = $derived<MenuItem[]>([
+	{
+		id: 'introduce',
+		label: L.introduceLabel,
+		icon: L.introduceIcon,
+		onSelect: () => {
+			goto('/admin/activities/introduce');
+		},
+	},
+	{
+		id: 'export',
+		label: L.exportLabel,
+		icon: L.exportIcon,
+		onSelect: () => {
+			// JSON ダウンロード: Content-Disposition: attachment + filename hint で実行
+			if (typeof document !== 'undefined') {
+				const a = document.createElement('a');
+				a.href = '/api/v1/activities/export';
+				a.download = 'activities-export.json';
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+			}
+		},
+	},
+	...(clearConfirmOpen
+		? []
+		: [
+				{
+					id: 'clear-all',
+					label: L.clearAllLabel,
+					icon: L.clearAllIcon,
+					onSelect: onClearAll,
+					danger: true,
+				} satisfies MenuItem,
+			]),
+]);
 </script>
 
 <div class="activities-header">
@@ -18,27 +85,26 @@ const L = FEATURES_LABELS.activitiesHeader;
 		<PageHelpButton />
 	</div>
 	<div class="activities-toolbar">
-		<a
-			href="/api/v1/activities/export"
-			class="toolbar-btn"
-			download="activities-export.json"
-			aria-label={L.exportAriaLabel}
-		>
-			📤
-		</a>
-		<a href="/admin/activities/introduce" class="toolbar-btn" aria-label={L.introduceAriaLabel}>
-			📖
-		</a>
-		{#if !clearConfirmOpen}
-			<button
-				type="button"
-				class="toolbar-btn toolbar-btn--danger"
-				onclick={onClearAll}
-				aria-label={L.clearAllAriaLabel}
-			>
-				🗑
-			</button>
-		{/if}
+		<!-- + 追加 dropdown menu (EPIC #2253 / #2255 / #2260 Fix-1: nested button 解消) -->
+		<Menu
+			items={addMenuItems}
+			placement="bottom-end"
+			ariaLabel={L.addMenuAriaLabel}
+			testid="header-add-activity-btn"
+			triggerClass="add-btn"
+			triggerLabel={L.addButtonLabel}
+			dataTutorial="add-activity-btn"
+			disabled={!canAdd}
+		/>
+		<!-- ︙ overflow menu (EPIC #2253 / #2257 / #2260 Fix-1) -->
+		<Menu
+			items={overflowItems}
+			placement="bottom-end"
+			ariaLabel={L.overflowMenuAriaLabel}
+			testid="header-overflow-menu-btn"
+			triggerClass="overflow-btn"
+			triggerLabel={L.overflowTriggerLabel}
+		/>
 	</div>
 </div>
 
@@ -57,7 +123,29 @@ const L = FEATURES_LABELS.activitiesHeader;
 		align-items: center;
 		gap: 0.25rem;
 	}
-	.toolbar-btn {
+	/* #2260 Fix-1: Menu primitive pass-through requires :global selector for parent scope visibility */
+	:global(.activities-toolbar .add-btn) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.4rem 0.85rem;
+		border: none;
+		border-radius: var(--radius-md);
+		background: var(--color-action-primary);
+		color: var(--color-text-inverse);
+		font-size: 0.875rem;
+		font-weight: 700;
+		cursor: pointer;
+		transition: filter 0.15s;
+	}
+	:global(.activities-toolbar .add-btn:hover:not(:disabled)) {
+		filter: brightness(0.9);
+	}
+	:global(.activities-toolbar .add-btn:disabled) {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	:global(.activities-toolbar .overflow-btn) {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -66,14 +154,13 @@ const L = FEATURES_LABELS.activitiesHeader;
 		border: none;
 		border-radius: var(--radius-sm);
 		background: transparent;
-		font-size: 1rem;
+		font-size: 1.25rem;
+		line-height: 1;
 		cursor: pointer;
 		transition: background 0.15s;
+		color: var(--color-text-secondary);
 	}
-	.toolbar-btn:hover {
+	:global(.activities-toolbar .overflow-btn:hover) {
 		background: var(--color-surface-muted);
-	}
-	.toolbar-btn--danger:hover {
-		background: var(--color-feedback-error-bg);
 	}
 </style>

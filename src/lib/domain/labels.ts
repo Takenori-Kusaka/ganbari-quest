@@ -5096,6 +5096,8 @@ export const UI_PRIMITIVES_LABELS = {
 	pinCodeLabel: 'PINコード',
 	// Select
 	selectPlaceholder: '選択してください',
+	// Menu (#2254 / EPIC #2253)
+	menuOpenAriaLabel: 'メニューを開く',
 } as const;
 
 // ============================================================
@@ -5599,15 +5601,6 @@ export const FEATURES_LABELS = {
 	},
 
 	// ---- features/admin/components/AddActivityModeSelector ----
-	addActivityModeSelector: {
-		aiLabel: 'AIで追加',
-		aiDesc: 'AIが活動を提案します',
-		manualLabel: '手動で追加',
-		manualDesc: '名前やポイントを設定',
-		importLabel: 'パックから追加',
-		importDesc: 'おすすめセットを一括追加',
-	},
-
 	// ---- features/admin/components/HiddenActivitiesSection ----
 	hiddenActivities: {
 		toggleLabel: (count: number) => `非表示の活動 (${count}件)`,
@@ -5631,11 +5624,35 @@ export const FEATURES_LABELS = {
 	},
 
 	// ---- features/admin/components/ActivitiesHeader ----
+	// EPIC #2253 / #2255 / #2257: + dropdown menu + ︙ overflow menu に再構成
+	// #2260 Fix-2: +page.svelte L167 hardcode の Dialog title 3 件を SSOT 化 (ADR-0045 / ADR-0009)
 	activitiesHeader: {
 		title: '📋 活動管理',
 		exportAriaLabel: 'エクスポート',
 		introduceAriaLabel: '活動の紹介',
 		clearAllAriaLabel: '全クリア',
+		// + dropdown menu (manual / ai / import の 3 経路、EPIC #2253 / #2255)
+		addButtonLabel: '+ 追加',
+		addMenuAriaLabel: '活動を追加するメニューを開く',
+		addManualLabel: '手動で追加',
+		addManualIcon: '✏️',
+		addAiLabel: 'AI で追加',
+		addAiIcon: '✨',
+		addImportLabel: 'パックから追加',
+		addImportIcon: '📥',
+		// Add Dialog title (mode 別、#2260 Fix-2 で +page.svelte hardcode を SSOT 化)
+		addDialogTitleManual: '+ 手動で追加',
+		addDialogTitleAi: '✨ AI で活動を追加',
+		addDialogTitleImport: '📥 パックからインポート',
+		// ︙ overflow menu (introduce / export / clear-all、EPIC #2253 / #2257)
+		overflowMenuAriaLabel: 'その他の操作',
+		overflowTriggerLabel: '︙',
+		introduceLabel: '使い方を見せる',
+		introduceIcon: '📖',
+		exportLabel: 'エクスポート',
+		exportIcon: '📤',
+		clearAllLabel: 'すべて削除',
+		clearAllIcon: '🗑',
 	},
 
 	// ---- features/admin/components/NotificationPermissionBanner ----
@@ -5753,17 +5770,13 @@ export const FEATURES_LABELS = {
 		ageRange: (min: number, max: number) => `${min}-${max}歳`,
 	},
 
-	// ---- features/admin/components/AddActivityFab ----
-	addActivityFab: {
-		addAriaLabel: '活動を追加',
-		limitAriaLabel: '追加上限',
-	},
-
 	// ---- features/admin/components/ActivityEmptyState ----
+	// EPIC #2253 / #2256: primary CTA + secondary import link の 2 段構成 (bulk import bridge)
 	activityEmptyState: {
 		filteredText: 'この条件に一致する活動はありません',
 		noActivities: '活動がまだ登録されていません',
-		addBtn: '+ 活動を追加する',
+		addBtn: '+ 最初の活動を追加',
+		secondaryImportLink: 'または、パックから一括追加もできます',
 	},
 
 	// ---- features/admin/components/ChildListCard ----
@@ -6671,6 +6684,21 @@ export const STORYBOOK_LABELS = {
 		labelItem: 'アイテム',
 		placeholderItem: 'アイテムを選択',
 		itemPrefix: 'アイテム',
+	},
+	// Menu primitive (#2254 / EPIC #2253)
+	menu: {
+		triggerLabel: 'メニューを開く',
+		triggerButton: '操作メニュー',
+		itemEdit: '編集',
+		itemDuplicate: '複製',
+		itemArchive: 'アーカイブ',
+		itemDelete: '削除',
+		itemDeleteIcon: '🗑',
+		itemEditIcon: '✏️',
+		itemDuplicateIcon: '📄',
+		itemArchiveIcon: '📦',
+		itemDisabled: '無効な操作',
+		ariaLabelOpen: 'メニューを開く',
 	},
 	logo: {
 		captionSymbol: 'symbol',
