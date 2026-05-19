@@ -1,42 +1,76 @@
-// DynamoDB implementation stubs for parent messages
-// TODO: Implement when DynamoDB backend is fully supported
+// DynamoDB implementation of IMessageRepo
+//
+// #2263 hotfix: 旧バージョンの未実装エラー throw で本番 500 を引き起こしうるため、
+// Pre-PMF fallback (read = 空 / write = no-op + logger.warn) に置換。
+// 親→子メッセージ機能は本番未活用 (ADR-0010 Pre-PMF Bucket B = まだ作らない)。
 
+import { logger } from '$lib/server/logger';
 import type { InsertParentMessageInput, ParentMessage } from '../types';
 
+const SERVICE = 'message-repo.dynamodb';
+
+function warnRead(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] read fallback: returning empty (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
+function warnWrite(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] write fallback: no-op (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
 export async function insertMessage(
-	_input: InsertParentMessageInput,
-	_tenantId: string,
+	input: InsertParentMessageInput,
+	tenantId: string,
 ): Promise<ParentMessage> {
-	throw new Error('DynamoDB message repo not implemented');
+	warnWrite('insertMessage', { childId: input.childId, messageType: input.messageType, tenantId });
+	return {
+		id: 0,
+		childId: input.childId,
+		messageType: input.messageType,
+		stampCode: input.stampCode ?? null,
+		body: input.body ?? null,
+		icon: input.icon ?? '💌',
+		sentAt: new Date().toISOString(),
+		shownAt: null,
+	};
 }
 
 export async function findMessages(
-	_childId: number,
-	_limit: number,
-	_tenantId: string,
+	childId: number,
+	limit: number,
+	tenantId: string,
 ): Promise<ParentMessage[]> {
+	warnRead('findMessages', { childId, limit, tenantId });
 	return [];
 }
 
 export async function findUnshownMessage(
-	_childId: number,
-	_tenantId: string,
+	childId: number,
+	tenantId: string,
 ): Promise<ParentMessage | undefined> {
+	warnRead('findUnshownMessage', { childId, tenantId });
 	return undefined;
 }
 
-export async function countUnshownMessages(_childId: number, _tenantId: string): Promise<number> {
+export async function countUnshownMessages(childId: number, tenantId: string): Promise<number> {
+	warnRead('countUnshownMessages', { childId, tenantId });
 	return 0;
 }
 
 export async function markMessageShown(
-	_messageId: number,
-	_tenantId: string,
+	messageId: number,
+	tenantId: string,
 ): Promise<ParentMessage | undefined> {
+	warnWrite('markMessageShown', { messageId, tenantId });
 	return undefined;
 }
 
-/** テナントの全メッセージを削除（DynamoDB未実装: 書き込みがないため no-op） */
-export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	// DynamoDB message repo は未実装のため書き込みデータなし — no-op
+/** テナントの全メッセージを削除（Pre-PMF fallback: no-op） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	warnWrite('deleteByTenantId', { tenantId });
 }

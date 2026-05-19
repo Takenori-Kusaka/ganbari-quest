@@ -1,6 +1,11 @@
 // src/lib/server/db/dynamodb/stamp-card-repo.ts
-// DynamoDB stub implementation of IStampCardRepo
+// DynamoDB implementation of IStampCardRepo
+//
+// #2263 hotfix: 旧バージョンの未実装エラー throw で本番 500 を引き起こしうるため、
+// Pre-PMF fallback (read = 空 / write = no-op + logger.warn) に置換。
+// スタンプカード機能は本番未活用 (ADR-0010 Pre-PMF Bucket B = まだ作らない)。
 
+import { logger } from '$lib/server/logger';
 import type {
 	InsertStampCardInput,
 	InsertStampEntryInput,
@@ -10,53 +15,85 @@ import type {
 	UpdateStampCardStatusInput,
 } from '../types';
 
-export async function findEnabledStampMasters(_tenantId: string): Promise<StampMaster[]> {
-	throw new Error('stamp-card-repo: DynamoDB not implemented');
+const SERVICE = 'stamp-card-repo.dynamodb';
+
+function warnRead(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] read fallback: returning empty (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
+function warnWrite(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] write fallback: no-op (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
+export async function findEnabledStampMasters(tenantId: string): Promise<StampMaster[]> {
+	warnRead('findEnabledStampMasters', { tenantId });
+	return [];
 }
 
 export async function findCardByChildAndWeek(
-	_childId: number,
-	_weekStart: string,
-	_tenantId: string,
+	childId: number,
+	weekStart: string,
+	tenantId: string,
 ): Promise<StampCard | undefined> {
-	throw new Error('stamp-card-repo: DynamoDB not implemented');
+	warnRead('findCardByChildAndWeek', { childId, weekStart, tenantId });
+	return undefined;
 }
 
 export async function insertCard(
-	_input: InsertStampCardInput,
-	_tenantId: string,
+	input: InsertStampCardInput,
+	tenantId: string,
 ): Promise<StampCard> {
-	throw new Error('stamp-card-repo: DynamoDB not implemented');
+	warnWrite('insertCard', { childId: input.childId, weekStart: input.weekStart, tenantId });
+	const now = new Date().toISOString();
+	return {
+		id: 0,
+		childId: input.childId,
+		weekStart: input.weekStart,
+		weekEnd: input.weekEnd,
+		status: input.status ?? 'collecting',
+		redeemedPoints: null,
+		redeemedAt: null,
+		createdAt: now,
+		updatedAt: now,
+	};
 }
 
 export async function findEntriesWithMasterByCardId(
-	_cardId: number,
-	_tenantId: string,
+	cardId: number,
+	tenantId: string,
 ): Promise<StampEntryWithMaster[]> {
-	throw new Error('stamp-card-repo: DynamoDB not implemented');
+	warnRead('findEntriesWithMasterByCardId', { cardId, tenantId });
+	return [];
 }
 
-export async function insertEntry(_input: InsertStampEntryInput, _tenantId: string): Promise<void> {
-	throw new Error('stamp-card-repo: DynamoDB not implemented');
+export async function insertEntry(input: InsertStampEntryInput, tenantId: string): Promise<void> {
+	warnWrite('insertEntry', { cardId: input.cardId, slot: input.slot, tenantId });
 }
 
 export async function updateCardStatus(
-	_cardId: number,
-	_input: UpdateStampCardStatusInput,
-	_tenantId: string,
+	cardId: number,
+	input: UpdateStampCardStatusInput,
+	tenantId: string,
 ): Promise<void> {
-	throw new Error('stamp-card-repo: DynamoDB not implemented');
+	warnWrite('updateCardStatus', { cardId, status: input.status, tenantId });
 }
 
 export async function updateCardStatusIfCollecting(
-	_cardId: number,
-	_input: UpdateStampCardStatusInput,
-	_tenantId: string,
+	cardId: number,
+	input: UpdateStampCardStatusInput,
+	tenantId: string,
 ): Promise<number> {
-	throw new Error('stamp-card-repo: DynamoDB not implemented');
+	warnWrite('updateCardStatusIfCollecting', { cardId, status: input.status, tenantId });
+	return 0;
 }
 
-/** テナントの全スタンプカード・エントリを削除（DynamoDB未実装: 書き込みがないため no-op） */
-export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	// DynamoDB stamp-card repo は未実装のため書き込みデータなし — no-op
+/** テナントの全スタンプカード・エントリを削除（Pre-PMF fallback: no-op） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	warnWrite('deleteByTenantId', { tenantId });
 }

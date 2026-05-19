@@ -1,5 +1,10 @@
-// DynamoDB implementation of ITenantEventRepo (stub)
+// DynamoDB implementation of ITenantEventRepo
+//
+// #2263 hotfix: 旧バージョンの未実装エラー throw で本番 500 を引き起こしうるため、
+// Pre-PMF fallback (read = 空 / write = no-op + logger.warn) に置換。
+// テナントイベント機能は本番未活用 (ADR-0010 Pre-PMF Bucket B = まだ作らない)。
 
+import { logger } from '$lib/server/logger';
 import type {
 	InsertTenantEventInput,
 	TenantEvent,
@@ -8,63 +13,95 @@ import type {
 	UpsertTenantEventProgressInput,
 } from '../types';
 
-const NOT_IMPL = 'tenant-event-repo: DynamoDB not implemented';
+const SERVICE = 'tenant-event-repo.dynamodb';
 
-export async function findByTenantAndYear(
-	_tenantId: string,
-	_year: number,
-): Promise<TenantEvent[]> {
-	throw new Error(NOT_IMPL);
+function warnRead(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] read fallback: returning empty (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
+function warnWrite(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] write fallback: no-op (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
+export async function findByTenantAndYear(tenantId: string, year: number): Promise<TenantEvent[]> {
+	warnRead('findByTenantAndYear', { tenantId, year });
+	return [];
 }
 
 export async function findByEventCode(
-	_tenantId: string,
-	_eventCode: string,
-	_year: number,
+	tenantId: string,
+	eventCode: string,
+	year: number,
 ): Promise<TenantEvent | undefined> {
-	throw new Error(NOT_IMPL);
+	warnRead('findByEventCode', { tenantId, eventCode, year });
+	return undefined;
 }
 
 export async function upsertEvent(
-	_input: InsertTenantEventInput,
-	_tenantId: string,
+	input: InsertTenantEventInput,
+	tenantId: string,
 ): Promise<TenantEvent> {
-	throw new Error(NOT_IMPL);
+	warnWrite('upsertEvent', { eventCode: input.eventCode, year: input.year, tenantId });
+	const now = new Date().toISOString();
+	return {
+		id: 0,
+		tenantId,
+		eventCode: input.eventCode,
+		year: input.year,
+		enabled: input.enabled ?? 1,
+		targetOverride: input.targetOverride ?? null,
+		rewardMemo: input.rewardMemo ?? null,
+		createdAt: now,
+		updatedAt: now,
+	};
 }
 
 export async function updateEvent(
-	_id: number,
+	id: number,
 	_input: UpdateTenantEventInput,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<void> {
-	throw new Error(NOT_IMPL);
+	warnWrite('updateEvent', { id, tenantId });
 }
 
 export async function findProgress(
-	_tenantId: string,
-	_eventCode: string,
-	_childId: number,
-	_year: number,
+	tenantId: string,
+	eventCode: string,
+	childId: number,
+	year: number,
 ): Promise<TenantEventProgress | undefined> {
-	throw new Error(NOT_IMPL);
+	warnRead('findProgress', { tenantId, eventCode, childId, year });
+	return undefined;
 }
 
 export async function findProgressByChild(
-	_childId: number,
-	_year: number,
-	_tenantId: string,
+	childId: number,
+	year: number,
+	tenantId: string,
 ): Promise<TenantEventProgress[]> {
-	throw new Error(NOT_IMPL);
+	warnRead('findProgressByChild', { childId, year, tenantId });
+	return [];
 }
 
 export async function upsertProgress(
-	_input: UpsertTenantEventProgressInput,
-	_tenantId: string,
+	input: UpsertTenantEventProgressInput,
+	tenantId: string,
 ): Promise<void> {
-	throw new Error(NOT_IMPL);
+	warnWrite('upsertProgress', {
+		eventCode: input.eventCode,
+		childId: input.childId,
+		year: input.year,
+		tenantId,
+	});
 }
 
-/** テナントの全イベントデータを削除（DynamoDB未実装: 書き込みがないため no-op） */
-export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	// DynamoDB tenant-event repo は未実装のため書き込みデータなし — no-op
+/** テナントの全イベントデータを削除（Pre-PMF fallback: no-op） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	warnWrite('deleteByTenantId', { tenantId });
 }

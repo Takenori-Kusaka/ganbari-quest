@@ -1,33 +1,57 @@
+// DynamoDB implementation of IReportDailySummaryRepo
+//
+// #2263 hotfix: 旧バージョンの未実装エラー throw で本番 500 を引き起こしうるため、
+// Pre-PMF fallback (read = 空 / write = no-op + logger.warn) に置換。
+// 日次サマリー集計機能は本番未活用 (ADR-0010 Pre-PMF Bucket B = まだ作らない)。
+
+import { logger } from '$lib/server/logger';
 import type { InsertReportDailySummaryInput, ReportDailySummary } from '../types';
 
-const NOT_IMPL = 'DynamoDB report-daily-summary-repo not implemented';
+const SERVICE = 'report-daily-summary-repo.dynamodb';
+
+function warnRead(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] read fallback: returning empty (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
+function warnWrite(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] write fallback: no-op (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
 
 export async function findByChildAndDateRange(
-	_childId: number,
-	_startDate: string,
-	_endDate: string,
-	_tenantId: string,
+	childId: number,
+	startDate: string,
+	endDate: string,
+	tenantId: string,
 ): Promise<ReportDailySummary[]> {
-	throw new Error(NOT_IMPL);
+	warnRead('findByChildAndDateRange', { childId, startDate, endDate, tenantId });
+	return [];
 }
 
 export async function findByTenantAndDateRange(
-	_tenantId: string,
-	_startDate: string,
-	_endDate: string,
+	tenantId: string,
+	startDate: string,
+	endDate: string,
 ): Promise<ReportDailySummary[]> {
-	throw new Error(NOT_IMPL);
+	warnRead('findByTenantAndDateRange', { tenantId, startDate, endDate });
+	return [];
 }
 
-export async function upsert(_input: InsertReportDailySummaryInput): Promise<void> {
-	throw new Error(NOT_IMPL);
+export async function upsert(input: InsertReportDailySummaryInput): Promise<void> {
+	warnWrite('upsert', { tenantId: input.tenantId, childId: input.childId, date: input.date });
 }
 
-export async function deleteOlderThan(_tenantId: string, _cutoffDate: string): Promise<number> {
-	throw new Error(NOT_IMPL);
+export async function deleteOlderThan(tenantId: string, cutoffDate: string): Promise<number> {
+	warnWrite('deleteOlderThan', { tenantId, cutoffDate });
+	return 0;
 }
 
-/** テナントの全日次サマリーを削除（DynamoDB未実装: 書き込みがないため no-op） */
-export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	// DynamoDB report-daily-summary repo は未実装のため書き込みデータなし — no-op
+/** テナントの全日次サマリーを削除（Pre-PMF fallback: no-op） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	warnWrite('deleteByTenantId', { tenantId });
 }
