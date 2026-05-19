@@ -99,9 +99,8 @@ export default async (page, capture) => {
 			const presetButtons = Array.from(container.children).filter(
 				(el) => el.tagName === 'BUTTON' && el.getAttribute('type') === 'button',
 			);
-			return presetButtons.filter((b) =>
-				b.querySelector('span.text-white.text-xs.font-bold'),
-			).length;
+			return presetButtons.filter((b) => b.querySelector('span.text-white.text-xs.font-bold'))
+				.length;
 		});
 		console.log(`[flow] attempt ${attempt}: selectedCount = ${selectedCount}`);
 		if (selectedCount === 7) break;
