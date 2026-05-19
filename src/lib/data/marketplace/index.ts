@@ -22,6 +22,8 @@ import kinderStarter from './activity-packs/kinder-starter.json';
 import seniorBoy from './activity-packs/senior-boy.json';
 import seniorGirl from './activity-packs/senior-girl.json';
 import seniorHighChallenge from './activity-packs/senior-high-challenge.json';
+// ── Challenge Sets (#2297, EPIC #2294 ③) ────────────────────
+import japanAnnualEvents from './challenge-sets/japan-annual-events.json';
 // ── Checklists ──────────────────────────────────────────────
 // #1758 (#1709-D): morning/evening/weekend × 4 年齢 = 12 件削除（持ち物純化）
 // 旧 routine 系 checklist は activities.priority='must'（#1755）に役割移管済み。
@@ -40,7 +42,6 @@ import privilegeRewards from './reward-sets/privilege-rewards.json';
 import screenTimeRewards from './reward-sets/screen-time-rewards.json';
 import seniorRewards from './reward-sets/senior-rewards.json';
 import toddlerRewards from './reward-sets/toddler-rewards.json';
-
 // ── Rule Presets ────────────────────────────────────────────
 import categoryChallenge from './rule-presets/category-challenge.json';
 import choreSkip from './rule-presets/chore-skip.json';
@@ -95,6 +96,8 @@ const allItems: MarketplaceItem[] = [
 	siblingCoop,
 	weekendSpecial,
 	selfStudyReward,
+	// Challenge sets (#2297, EPIC #2294 ③)
+	japanAnnualEvents,
 ] as unknown as MarketplaceItem[];
 
 const itemMap = new Map<string, MarketplaceItem>();
@@ -110,6 +113,8 @@ function countPayloadItems(item: MarketplaceItem): number {
 	if ('rewards' in p) return (p.rewards as unknown[]).length;
 	if ('items' in p) return (p.items as unknown[]).length;
 	if ('rules' in p) return (p.rules as unknown[]).length;
+	// #2297: challenge-set payload は challenges[] を持つ
+	if ('challenges' in p) return (p.challenges as unknown[]).length;
 	return 0;
 }
 
@@ -161,6 +166,7 @@ export function getMarketplaceCounts(): Record<MarketplaceItemType, number> {
 		'reward-set': 0,
 		checklist: 0,
 		'rule-preset': 0,
+		'challenge-set': 0,
 	};
 	for (const item of allItems) {
 		counts[item.type]++;

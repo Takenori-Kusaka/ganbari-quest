@@ -16,7 +16,14 @@ import Select from '$lib/ui/primitives/Select.svelte';
 
 let { data } = $props();
 
-const typeKeys: MarketplaceItemType[] = ['activity-pack', 'reward-set', 'checklist', 'rule-preset'];
+// #2297 (EPIC #2294 ③): challenge-set 追加で 5 type に拡張
+const typeKeys: MarketplaceItemType[] = [
+	'activity-pack',
+	'reward-set',
+	'checklist',
+	'rule-preset',
+	'challenge-set',
+];
 
 const activeType = $derived(data.filters.type);
 const activeAge = $derived(data.filters.age);
@@ -175,8 +182,8 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 			</p>
 		</div>
 
-		<!-- Type counts summary -->
-		<div class="grid grid-cols-4 gap-2 mb-6">
+		<!-- Type counts summary (#2297: 5 type / mobile 2 列・SP 3 列・desktop 5 列) -->
+		<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-6">
 			{#each typeKeys as t (t)}
 				<a
 					href={filterUrl({ type: activeType === t ? null : t })}

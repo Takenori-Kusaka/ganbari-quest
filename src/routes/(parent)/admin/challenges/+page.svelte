@@ -129,6 +129,82 @@ const categories: Record<number, string> = {
 		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">{CHALLENGES_LABELS.deletedNotice}</div>
 	{/if}
 
+	<!-- #2297 (EPIC #2294 ③): マーケプレ challenge-set 一括 import 確認 UI -->
+	{#if data.marketplaceImport}
+		<div
+			class="rounded-xl border border-[var(--color-feedback-info-border)] bg-[var(--color-feedback-info-bg)] p-4 space-y-3"
+			data-testid="marketplace-challenge-set-import"
+		>
+			<div class="flex items-start gap-2">
+				<span class="text-2xl">{CHALLENGES_LABELS.importIcon}</span>
+				<div class="flex-1">
+					<h3 class="font-bold text-sm text-[var(--color-feedback-info-text)]">
+						{CHALLENGES_LABELS.importHeading(data.marketplaceImport.presetName)}
+					</h3>
+					<p class="text-xs text-[var(--color-feedback-info-text)] mt-1">
+						{data.marketplaceImport.presetDescription}
+					</p>
+					<p class="text-xs text-[var(--color-text-secondary)] mt-2">
+						{CHALLENGES_LABELS.importTotalDesc(data.marketplaceImport.challenges.length)}
+					</p>
+				</div>
+			</div>
+			<details class="text-xs text-[var(--color-text-secondary)]">
+				<summary class="cursor-pointer font-medium">{CHALLENGES_LABELS.importBreakdownSummary}</summary>
+				<ul class="mt-2 space-y-1 ml-4 list-disc">
+					{#each data.marketplaceImport.challenges as ch (ch.title)}
+						<li>
+							<span class="font-medium">{ch.title}</span>
+							<span class="text-[var(--color-text-tertiary)]">
+								{CHALLENGES_LABELS.importItemSuffix(ch.monthDay, ch.durationDays)}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</details>
+			<div class="flex gap-2 justify-end">
+				<a
+					href="/admin/challenges"
+					class="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-text-primary)]"
+				>
+					{CHALLENGES_LABELS.importCancel}
+				</a>
+				<form method="POST" action="?/importChallengeSet" use:enhance>
+					<input type="hidden" name="presetId" value={data.marketplaceImport.presetId} />
+					<Button
+						type="submit"
+						variant="primary"
+						size="sm"
+						data-testid="marketplace-challenge-set-import-submit"
+					>
+						{CHALLENGES_LABELS.importSubmit(data.marketplaceImport.challenges.length)}
+					</Button>
+				</form>
+			</div>
+		</div>
+	{/if}
+	{#if form?.challengeSetImport}
+		<div
+			class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]"
+			data-testid="marketplace-challenge-set-import-result"
+		>
+			{CHALLENGES_LABELS.importSuccessNotice(
+				form.challengeSetImport.presetName,
+				form.challengeSetImport.imported,
+			)}
+			{#if (form.challengeSetImport.errors ?? []).length > 0}
+				<details class="mt-1 text-xs">
+					<summary>{CHALLENGES_LABELS.importErrorSummary(form.challengeSetImport.errors.length)}</summary>
+					<ul class="ml-4 list-disc">
+						{#each form.challengeSetImport.errors as err}
+							<li>{err}</li>
+						{/each}
+					</ul>
+				</details>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- 作成フォーム -->
 	{#if creating}
 		<form method="POST" action="?/create" use:enhance class="rounded-xl border bg-white p-4 space-y-3">

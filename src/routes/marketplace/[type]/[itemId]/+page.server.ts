@@ -28,6 +28,8 @@ const VALID_TYPES: MarketplaceItemType[] = [
 	'reward-set',
 	'checklist',
 	'rule-preset',
+	// #2297 (EPIC #2294 ③): challenge-set 詳細ページ対応
+	'challenge-set',
 ];
 
 export const load: PageServerLoad = async ({ params, locals }) => {
