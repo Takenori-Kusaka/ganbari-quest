@@ -7,12 +7,14 @@ import Card from '$lib/ui/primitives/Card.svelte';
 let { children } = $props();
 
 // #2140 MP-5: setup wizard β 採用 — packs/rewards/rules の 3 step に分割
+// #2298: 家族チャレンジ step を rules の後に追加 (任意 step、auto-add 3 件)
 const steps = [
 	{ path: '/setup/children', label: '子供登録' },
 	{ path: '/setup/questionnaire', label: 'かんたん質問' },
 	{ path: '/setup/packs', label: '活動' },
 	{ path: '/setup/rewards', label: 'ごほうび' },
 	{ path: '/setup/rules', label: 'ルール' },
+	{ path: '/setup/challenges', label: '家族チャレンジ' },
 	{ path: '/setup/first-adventure', label: 'はじめての冒険' },
 	{ path: '/setup/complete', label: '冒険の始まり' },
 ];
