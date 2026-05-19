@@ -368,9 +368,11 @@ const childOptions = $derived(
 					</Button>
 				</a>
 			{:else if isRewardSet}
-				<!-- #2136 MP-1: 未ログイン -> signup へ誘導（redirect で同じページに戻す） -->
+				<!-- #2136 MP-1: 未ログイン -> login へ誘導 (#2303: data integrity 保護のため signup ではなく login)。
+					login 画面内「新規アカウント作成」リンクで signup へ到達可能。
+					redirect query は将来 login が post-login redirect に対応した時のため保持 -->
 				<a
-					href="/auth/signup?redirect=/marketplace/{item.type}/{item.itemId}"
+					href="/auth/login?redirect=/marketplace/{item.type}/{item.itemId}"
 					class="block"
 					data-testid="reward-import-signup-cta"
 				>
@@ -451,12 +453,13 @@ const childOptions = $derived(
 					</Button>
 				</form>
 			{:else if isChecklist && !data.isLoggedIn}
-				<!-- #2137 (MP-2): 未ログイン → signup 経由 redirect -->
+				<!-- #2137 (MP-2) / #2303: 未ログイン → login へ誘導 (誤新規登録防止 / data integrity 保護)。
+					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
 				<p class="text-xs text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailCtaImportChecklistDesc}
 				</p>
 				<a
-					href="/auth/signup?next=/marketplace/{item.type}/{item.itemId}"
+					href="/auth/login?next=/marketplace/{item.type}/{item.itemId}"
 					class="block"
 					data-testid="marketplace-signup-redirect"
 				>
@@ -583,9 +586,10 @@ const childOptions = $derived(
 					{/if}
 				</div>
 			{:else if isRulePreset && !data.isAuthenticated}
-				<!-- #2138 (MP-3): 未ログイン → signup 経由 redirect -->
+				<!-- #2138 (MP-3) / #2303: 未ログイン → login へ誘導 (誤新規登録防止 / data integrity 保護)。
+					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
 				<a
-					href="/auth/signup?next=/marketplace/rule-preset/{item.itemId}"
+					href="/auth/login?next=/marketplace/rule-preset/{item.itemId}"
 					class="block"
 					data-testid="rule-import-signup-redirect"
 				>
@@ -611,9 +615,10 @@ const childOptions = $derived(
 					</Button>
 				</a>
 			{:else if isChallengeSet}
-				<!-- #2297: challenge-set 未ログイン → signup 経由 -->
+				<!-- #2297 / #2303: challenge-set 未ログイン → login へ誘導 (誤新規登録防止 / data integrity 保護)。
+					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
 				<a
-					href="/auth/signup?next=/marketplace/challenge-set/{item.itemId}"
+					href="/auth/login?next=/marketplace/challenge-set/{item.itemId}"
 					class="block"
 					data-testid="challenge-set-signup-redirect"
 				>
@@ -625,8 +630,9 @@ const childOptions = $derived(
 					{MARKETPLACE_LABELS.detailCtaImportChallengeSetSignedOut}
 				</p>
 			{:else}
-				<!-- 残りの type (activity-pack) は従来通り signup 動線 -->
-				<a href="/auth/signup" class="block">
+				<!-- 残りの type (activity-pack) は login 動線 (#2303: 誤新規登録防止 / data integrity 保護)。
+					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
+				<a href="/auth/login" class="block">
 					<Button variant="primary" size="lg" class="w-full">
 						{MARKETPLACE_LABELS.detailCtaSignup}
 					</Button>
