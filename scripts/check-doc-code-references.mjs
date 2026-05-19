@@ -24,42 +24,45 @@
  * `remark-validate-links` (~150k downloads/week): markdown link 形式の検証のみ。bare path
  *   未対応。
  * いずれも「inline code 内に bare path で書かれた `src/...` の実在検証」は守備範囲外。
- * よって本リポジトリ固有用途の小規模独自実装 (~200 行) として維持する。
+ * よって本リポジトリ固有用途の小規模独自実装 (~250 行) として維持する。
  *
- * # 改善点 (vs 元 #2226 実装)
+ * # 改善点 (vs 元 #2226 実装 + #2259 QM Tier 2 Review BLOCK 4 件対応)
  * 1. **skip 判定の marker 化** (line 33 fragile fullmatch → stable marker):
- *    元実装は「`> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。`」
- *    の文字列完全一致だった。warning 本文を 1 文字でも変えると判定が壊れる。本実装では
- *    `<!-- doc-status: deprecated -->` HTML コメントを stable marker とし、warning 本文の
- *    細部変更に追従可能にする (warning 文末尾に Issue 番号や日付追記しても判定維持)。
- *    後方互換のため旧 fullmatch も継続サポート。
+ *    元実装は warning 本文の文字列完全一致だった。`<!-- doc-status: deprecated -->` HTML
+ *    コメントを stable marker とし、warning 本文の細部変更に追従可能にする。後方互換のため
+ *    旧 fullmatch も継続サポート。
  *
  * 2. **fenced code block の除外**:
- *    `` ```bash ... ``` `` の中で `cd src/lib && ls` のように記述されたパスは、
- *    「コード例」であり「実装の参照」ではない場合がある。fenced code block 内の path は
- *    skip する (markdown AST を使わず、行頭 ``` の出現で toggle するシンプル実装)。
+ *    `` ```bash ... ``` `` の中で `cd src/lib && ls` のように記述されたパスは skip。
  *
  * 3. **inline code (バッククォート) と bare path の区別**:
- *    元実装は単純 split で両方拾っていた。両方拾うこと自体は本機構の目的に適うが、
- *    エラーメッセージで「inline code (`src/...`)」「bare path」を区別表示し、修正者が
- *    どちらの記法かを判断できるようにする。
+ *    エラーメッセージで「inline code」「bare path」を区別表示。
  *
- * 4. **baseline モデル** (`scripts/doc-code-references-baseline.json`):
- *    `scripts/check-lp-inline-style.mjs` 同型。既存違反のファイル別件数を pin し、
- *    新規違反 1 件で exit 1 する。意図的増減時のみ `--update-baseline` で更新。
- *    Pre-PMF (ADR-0010) 段階で既存違反の全件 fix を強制せず、新規追加を防ぐ防衛ライン
- *    として機能する。Split C (ADR + design への一括 Deprecated 警告挿入) を skip しても
- *    CI gate が成立する設計。
+ * 4. **baseline モデル (#2259 C1 fix — path-array 化)**:
+ *    `scripts/doc-code-references-baseline.json`。元実装は file 別 count のみで pin して
+ *    いたため「同一ファイル内で 1 件 fix + 1 件新規 swap」が baseline 維持で素通りした
+ *    (Copilot [must] C1)。本実装では **path 配列で baseline を保存** し、現状の path
+ *    set との **diff で新規 path が 1 件でも検出されたら fail** に変更。後方互換のため
+ *    旧 `{ totals: { file: count } }` フォーマットも読み込み可能 (count >= 違反数 なら
+ *    fail しない、ただし path-set diff の厳格判定は失われるため warn を出力)。
+ *
+ * 5. **CLI sandbox 対応 (#2259 C2 fix)**:
+ *    `--baseline-path <file>` / `--repo-root <dir>` を追加し、test sandbox から本番
+ *    baseline を参照せずに済むようにした。これにより `--update-baseline` の test が
+ *    本番 baseline を破壊しなくなる (Copilot [must] C2)。引数省略時は従来通り
+ *    `__dirname/..` をベースに解決する。
  *
  * # CLI
- *   node scripts/check-doc-code-references.mjs                    # baseline 検証 (exit 1 on new violations)
- *   node scripts/check-doc-code-references.mjs --json             # JSON 出力
- *   node scripts/check-doc-code-references.mjs --update-baseline  # baseline 更新 (意図的差分時のみ)
- *   node scripts/check-doc-code-references.mjs --fix              # Deprecated 警告挿入 (新規違反に対して、補助機能)
+ *   node scripts/check-doc-code-references.mjs                          # baseline 検証
+ *   node scripts/check-doc-code-references.mjs --json                   # JSON 出力
+ *   node scripts/check-doc-code-references.mjs --update-baseline        # baseline 更新
+ *   node scripts/check-doc-code-references.mjs --fix                    # Deprecated 警告挿入
+ *   node scripts/check-doc-code-references.mjs --baseline-path <file>   # baseline ファイル指定
+ *   node scripts/check-doc-code-references.mjs --repo-root <dir>        # repo root 指定
  *
  * # 関連 Issue / PR
  *   #2215 Epic 2 鮮度チェック / #2218 Epic 3 陳腐化整理 / #2240 Re-Issue (3 PR 分割)
- *   #2226 (CLOSED) 旧巨大 PR の close 候補
+ *   #2226 (CLOSED) 旧巨大 PR の close 候補 / #2259 QM Tier 2 Review Fix
  */
 
 import fs from 'node:fs';
@@ -68,8 +71,6 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..');
-const BASELINE_PATH = path.resolve(REPO_ROOT, 'scripts/doc-code-references-baseline.json');
 
 const CODEBASE_PREFIXES = ['src/', 'site/', 'tests/', 'scripts/', 'infra/', '.github/'];
 
@@ -87,19 +88,47 @@ const DEPRECATED_WARNING_HTML = '<!-- doc-status: deprecated -->';
 const DEPRECATED_WARNING_BODY =
 	'> **Warning**: このドキュメントは現在の実装と乖離しており陳腐化（Deprecated）しています。\n>\n> 自動検知: `scripts/check-doc-code-references.mjs` が実装側に存在しないパスへの参照を検出。\n> 内容を最新の実装に追従させるか、本ファイルを削除/移動してください。';
 
-const args = Object.fromEntries(
-	process.argv
-		.slice(2)
-		.filter((a) => a.startsWith('--'))
-		.map((a) => {
-			const [k, v] = a.replace(/^--/, '').split('=');
-			return [k, v ?? 'true'];
-		}),
-);
+/**
+ * CLI 引数 parser。`--key=value` / `--key value` / `--key` 3 形式に対応 (#2259 C2)。
+ */
+function parseArgs(argv) {
+	const out = {};
+	for (let i = 0; i < argv.length; i++) {
+		const a = argv[i];
+		if (!a.startsWith('--')) continue;
+		const eq = a.indexOf('=');
+		if (eq !== -1) {
+			out[a.slice(2, eq)] = a.slice(eq + 1);
+		} else {
+			const key = a.slice(2);
+			const next = argv[i + 1];
+			if (next && !next.startsWith('--')) {
+				out[key] = next;
+				i++;
+			} else {
+				out[key] = 'true';
+			}
+		}
+	}
+	return out;
+}
+
+const args = parseArgs(process.argv.slice(2));
 
 const FIX = args.fix === 'true';
 const JSON_OUTPUT = args.json === 'true';
 const UPDATE_BASELINE = args['update-baseline'] === 'true';
+
+/**
+ * repo root / baseline path を CLI 引数 or デフォルトで解決 (#2259 C2 fix)。
+ * test sandbox 等から非破壊的に本スクリプトを叩けるようにする。
+ */
+const REPO_ROOT = args['repo-root']
+	? path.resolve(args['repo-root'])
+	: path.resolve(__dirname, '..');
+const BASELINE_PATH = args['baseline-path']
+	? path.resolve(args['baseline-path'])
+	: path.resolve(REPO_ROOT, 'scripts/doc-code-references-baseline.json');
 
 /**
  * 再帰的にディレクトリを走査し ext で終わるファイルを収集。
@@ -121,8 +150,6 @@ function getFiles(dir, ext, fileList = []) {
 
 /**
  * fenced code block の内側行を skip した内容を返す (改善 2)。
- * ```` ``` ```` (3 連続 backtick) の出現で toggle するシンプル実装。
- * markdown AST (remark) は依存追加コストに見合わないため未採用。
  */
 function stripFencedCodeBlocks(content) {
 	const lines = content.split(/\r?\n/);
@@ -156,19 +183,19 @@ function normalizePath(raw) {
 function isCheckableImplPath(p) {
 	if (!CODEBASE_PREFIXES.some((prefix) => p.startsWith(prefix))) return false;
 	if (p.includes('*') || p.includes('{') || p.includes('$')) return false;
-	if (p.length < 5) return false; // src/x 程度の短すぎる断片は対象外
+	if (p.length < 5) return false;
 	return true;
 }
 
 /**
- * Case-sensitive 版 existsSync (Windows / macOS の case-insensitive FS で
- * Linux CI と挙動を一致させる)。各パスセグメントを readdirSync で取得した実体名と
- * strict 比較する。
+ * Case-sensitive 版 existsSync。Windows / macOS の case-insensitive FS で Linux CI と
+ * 挙動を一致させるため、各セグメントを readdirSync で実体名と strict 比較する。
  */
-function existsCaseSensitive(p) {
-	if (!fs.existsSync(p)) return false;
-	const segments = p.split(/[/\\]/).filter(Boolean);
-	let cur = p.startsWith('/') || p.startsWith('\\') ? '/' : '.';
+function existsCaseSensitive(absRoot, relPath) {
+	const abs = path.join(absRoot, relPath);
+	if (!fs.existsSync(abs)) return false;
+	const segments = relPath.split(/[/\\]/).filter(Boolean);
+	let cur = absRoot;
 	for (const seg of segments) {
 		try {
 			const entries = fs.readdirSync(cur);
@@ -182,7 +209,7 @@ function existsCaseSensitive(p) {
 }
 
 /**
- * 改善 1: Deprecated marker のいずれかが含まれるかを判定。
+ * Deprecated marker のいずれかが含まれるかを判定。
  */
 function isMarkedDeprecated(content) {
 	return DEPRECATED_MARKERS.some((marker) => content.includes(marker));
@@ -206,17 +233,20 @@ function insertDeprecatedWarning(filePath) {
 }
 
 /**
- * 全 markdown ファイルを集める。
+ * 指定 repo root 配下の全 markdown ファイルを集める。
  */
-function collectMdFiles() {
-	const mdFiles = getFiles('docs', '.md');
-	if (fs.existsSync('CLAUDE.md')) mdFiles.push('CLAUDE.md');
-	if (fs.existsSync('DESIGN.md')) mdFiles.push('DESIGN.md');
+function collectMdFiles(repoRoot) {
+	const docsDir = path.join(repoRoot, 'docs');
+	const mdFiles = getFiles(docsDir, '.md');
+	for (const top of ['CLAUDE.md', 'DESIGN.md']) {
+		const p = path.join(repoRoot, top);
+		if (fs.existsSync(p)) mdFiles.push(p);
+	}
 	for (const dir of ['src', 'tests', 'scripts', 'infra', '.github']) {
-		const candidate = path.join(dir, 'CLAUDE.md');
+		const candidate = path.join(repoRoot, dir, 'CLAUDE.md');
 		if (fs.existsSync(candidate)) mdFiles.push(candidate);
 	}
-	for (const nested of getFiles('src', 'CLAUDE.md')) {
+	for (const nested of getFiles(path.join(repoRoot, 'src'), 'CLAUDE.md')) {
 		if (!mdFiles.includes(nested)) mdFiles.push(nested);
 	}
 	return mdFiles.sort();
@@ -225,7 +255,7 @@ function collectMdFiles() {
 /**
  * 1 ファイルを走査して違反 (実在しないパス参照) を返す。
  */
-function findViolationsInFile(file) {
+function findViolationsInFile(file, repoRoot) {
 	const original = fs.readFileSync(file, 'utf-8');
 	if (isMarkedDeprecated(original)) return [];
 
@@ -248,7 +278,7 @@ function findViolationsInFile(file) {
 		if (checked.has(cleanPath)) continue;
 		checked.add(cleanPath);
 
-		if (!existsCaseSensitive(cleanPath)) {
+		if (!existsCaseSensitive(repoRoot, cleanPath)) {
 			violations.push({
 				path: cleanPath,
 				refType: inlinePaths.has(cleanPath) ? 'inline' : 'bare',
@@ -258,22 +288,50 @@ function findViolationsInFile(file) {
 	return violations;
 }
 
+/**
+ * baseline ロード。新フォーマット (path 配列) と旧 (totals: count) の両方に対応 (#2259 C1)。
+ * 戻り値: { paths: Record<file, string[]>, legacy: boolean, legacyTotals?: Record<file, number> }
+ */
 function loadBaseline() {
 	if (!fs.existsSync(BASELINE_PATH)) {
-		return { totals: {}, generatedAt: null };
+		return { paths: {}, legacy: false };
 	}
+	let raw;
 	try {
-		return JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf-8'));
+		raw = JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf-8'));
 	} catch {
-		return { totals: {}, generatedAt: null };
+		return { paths: {}, legacy: false };
 	}
+
+	// 新フォーマット: { paths: { file: [missing-paths...] } }
+	if (raw && raw.paths && typeof raw.paths === 'object') {
+		const out = {};
+		for (const [file, arr] of Object.entries(raw.paths)) {
+			if (Array.isArray(arr)) out[file] = arr.slice();
+		}
+		return { paths: out, legacy: false };
+	}
+
+	// 旧フォーマット: { totals: { file: count } } — count 比較フォールバックで読み込む
+	if (raw && raw.totals && typeof raw.totals === 'object') {
+		return { paths: {}, legacy: true, legacyTotals: { ...raw.totals } };
+	}
+
+	return { paths: {}, legacy: false };
 }
 
-function saveBaseline(totals) {
+/**
+ * baseline 保存。新フォーマット (path 配列) で書き出す (#2259 C1)。
+ */
+function saveBaseline(violationsByFile) {
+	const paths = {};
+	for (const [file, vs] of violationsByFile.entries()) {
+		paths[file] = vs.map((v) => v.path).sort();
+	}
 	const data = {
 		_comment:
-			'#2240 Split A baseline: ドキュメント内の実装コードパス参照のうち実在しないものをファイル別件数で pin する。新規違反 1 件で CI fail。Split C (ADR + design 配下への Deprecated 警告一括挿入) は Pre-PMF 過剰防衛 (ADR-0010 §3 Bucket B) として skip し、本 baseline で防衛ラインを成立させる。意図的増減時のみ --update-baseline で更新。',
-		totals,
+			'#2240 Split A baseline (#2259 C1 で path 配列化): ドキュメント内の実装コードパス参照のうち実在しないものを path 配列で pin する。新規 path 1 件で CI fail (set diff)。Split C は Pre-PMF 過剰防衛 (ADR-0010 §3 Bucket B) として skip し、本 baseline で防衛ラインを成立させる。意図的増減時のみ --update-baseline で更新。',
+		paths,
 		generatedAt: new Date().toISOString(),
 	};
 	const json = JSON.stringify(data, null, '\t');
@@ -281,49 +339,77 @@ function saveBaseline(totals) {
 }
 
 /**
- * baseline と現状 totals を比較して exceedances を計算
+ * baseline と現状 violationsByFile を path set diff で比較し、新規 path を返す (#2259 C1)。
  */
-function calculateExceedances(fileTotals, baselineTotals) {
-	const exceedances = [];
-	for (const [file, count] of Object.entries(fileTotals)) {
-		const allowed = baselineTotals[file] ?? 0;
-		if (count > allowed) {
-			exceedances.push({ file, baseline: allowed, current: count, delta: count - allowed });
+function calculateNewViolations(violationsByFile, baseline) {
+	const newByFile = [];
+	for (const [file, vs] of violationsByFile.entries()) {
+		const currentSet = new Set(vs.map((v) => v.path));
+		if (baseline.legacy) {
+			// 旧フォーマット: count 比較 (path-set 厳密判定不可、warn 出力)
+			const allowed = baseline.legacyTotals[file] ?? 0;
+			if (currentSet.size > allowed) {
+				const delta = currentSet.size - allowed;
+				newByFile.push({
+					file,
+					mode: 'legacy-count',
+					baselineCount: allowed,
+					current: vs,
+					delta,
+					newPaths: vs.map((v) => v.path), // どれが新規か特定不能
+				});
+			}
+		} else {
+			const baselineSet = new Set(baseline.paths[file] || []);
+			const newPaths = [...currentSet].filter((p) => !baselineSet.has(p));
+			if (newPaths.length > 0) {
+				newByFile.push({
+					file,
+					mode: 'set-diff',
+					baselinePaths: [...baselineSet].sort(),
+					current: vs,
+					delta: newPaths.length,
+					newPaths,
+				});
+			}
 		}
 	}
-	return exceedances;
+	return newByFile;
 }
 
 /**
- * 全ファイル走査して fileTotals / violationsByFile を返す。
+ * 全ファイル走査して violationsByFile (Map<file, violation[]>) を返す。
  */
-function collectAllViolations(mdFiles) {
-	const fileTotals = {};
+function collectAllViolations(mdFiles, repoRoot) {
 	const violationsByFile = new Map();
 	for (const file of mdFiles) {
-		const v = findViolationsInFile(file);
-		const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
+		const v = findViolationsInFile(file, repoRoot);
+		const rel = path.relative(repoRoot, file).replace(/\\/g, '/');
 		if (v.length > 0) {
-			fileTotals[rel] = v.length;
 			violationsByFile.set(rel, v);
 		}
 	}
-	return { fileTotals, violationsByFile };
+	return violationsByFile;
 }
 
-/**
- * 人間向けに違反レポートを stderr に出力。
- */
-function printExceedanceReport(exceedances, violationsByFile) {
-	if (exceedances.length === 0) return;
+function printNewViolationReport(newByFile) {
+	if (newByFile.length === 0) return;
 	console.error('\n[FAIL] baseline exceeded (新規デッドリンク発生):');
-	for (const ex of exceedances) {
-		console.error(`  ${ex.file}: ${ex.current} > ${ex.baseline} (+${ex.delta})`);
-		const vs = violationsByFile.get(ex.file) || [];
-		for (const v of vs) {
+	for (const ex of newByFile) {
+		if (ex.mode === 'legacy-count') {
 			console.error(
-				`    - ${v.path} (${v.refType === 'inline' ? '`...` inline code' : 'bare path'})`,
+				`  ${ex.file}: ${ex.current.length} > ${ex.baselineCount} (+${ex.delta}) [legacy-count]`,
 			);
+		} else {
+			console.error(`  ${ex.file}: +${ex.delta} new path(s) [set-diff]`);
+		}
+		const newSet = new Set(ex.newPaths);
+		for (const v of ex.current) {
+			if (newSet.has(v.path)) {
+				console.error(
+					`    + ${v.path} (${v.refType === 'inline' ? '`...` inline code' : 'bare path'})`,
+				);
+			}
 		}
 	}
 	console.error(
@@ -334,61 +420,94 @@ function printExceedanceReport(exceedances, violationsByFile) {
 	);
 }
 
-/**
- * 人間向け file totals を stdout に出力。
- */
-function printFileTotals(fileTotals, baselineTotals) {
+function printFileTotals(violationsByFile, baseline) {
 	console.log('ドキュメント内のコード参照（実装との突合）をチェックしています...\n');
 	console.log('[check-doc-code-references] file totals:');
-	for (const [file, count] of Object.entries(fileTotals).sort()) {
-		const allowed = baselineTotals[file] ?? 0;
+	const fileNames = [...violationsByFile.keys()].sort();
+	for (const file of fileNames) {
+		const vs = violationsByFile.get(file);
+		const count = vs.length;
+		let allowed;
+		if (baseline.legacy) {
+			allowed = baseline.legacyTotals[file] ?? 0;
+		} else {
+			allowed = (baseline.paths[file] || []).length;
+		}
 		const marker = count > allowed ? ' [EXCEEDS]' : count === allowed ? ' [OK]' : ' [BELOW]';
 		console.log(`  ${file}: ${count} (baseline: ${allowed})${marker}`);
+	}
+	if (baseline.legacy) {
+		console.warn(
+			'\n[warn] baseline が旧フォーマット (totals: count) で読み込まれました。次回 --update-baseline で path 配列に移行されます。',
+		);
 	}
 }
 
 function main() {
-	const mdFiles = collectMdFiles();
-	const { fileTotals, violationsByFile } = collectAllViolations(mdFiles);
-	const totalViolations = Object.values(fileTotals).reduce((a, b) => a + b, 0);
+	const mdFiles = collectMdFiles(REPO_ROOT);
+	const violationsByFile = collectAllViolations(mdFiles, REPO_ROOT);
 
 	if (UPDATE_BASELINE) {
-		saveBaseline(fileTotals);
+		saveBaseline(violationsByFile);
+		const totalPaths = [...violationsByFile.values()].reduce((a, v) => a + v.length, 0);
 		console.log(`[check-doc-code-references] baseline updated: ${BASELINE_PATH}`);
-		console.log(`  files: ${Object.keys(fileTotals).length}, total violations: ${totalViolations}`);
+		console.log(
+			`  files: ${violationsByFile.size}, total violation paths: ${totalPaths} (path-array format)`,
+		);
 		return;
 	}
 
 	const baseline = loadBaseline();
-	const baselineTotals = baseline.totals || {};
-	const exceedances = calculateExceedances(fileTotals, baselineTotals);
+	const newByFile = calculateNewViolations(violationsByFile, baseline);
+
+	const fileTotals = {};
+	for (const [file, vs] of violationsByFile.entries()) fileTotals[file] = vs.length;
+	const baselineTotalsForJson = baseline.legacy
+		? baseline.legacyTotals
+		: Object.fromEntries(Object.entries(baseline.paths).map(([f, arr]) => [f, arr.length]));
+	const totalViolations = Object.values(fileTotals).reduce((a, b) => a + b, 0);
 
 	if (JSON_OUTPUT) {
 		console.log(
-			JSON.stringify({ fileTotals, baselineTotals, exceedances, totalViolations }, null, 2),
+			JSON.stringify(
+				{
+					fileTotals,
+					baselineTotals: baselineTotalsForJson,
+					exceedances: newByFile.map((x) => ({
+						file: x.file,
+						mode: x.mode,
+						delta: x.delta,
+						newPaths: x.newPaths,
+					})),
+					totalViolations,
+				},
+				null,
+				2,
+			),
 		);
 	} else {
-		printFileTotals(fileTotals, baselineTotals);
-		printExceedanceReport(exceedances, violationsByFile);
+		printFileTotals(violationsByFile, baseline);
+		printNewViolationReport(newByFile);
 	}
 
-	if (FIX && exceedances.length > 0) {
+	if (FIX && newByFile.length > 0) {
 		console.log('\n--fix オプション: 新規違反ファイルに Deprecated 警告を挿入します...');
-		for (const ex of exceedances) {
-			insertDeprecatedWarning(ex.file);
+		for (const ex of newByFile) {
+			const abs = path.join(REPO_ROOT, ex.file);
+			insertDeprecatedWarning(abs);
 			console.log(`  -> ${ex.file} に Deprecated 警告を追加`);
 		}
 		console.log('\n警告を挿入しました。再実行で再検証してください。');
 		process.exit(0);
 	}
 
-	if (exceedances.length > 0) {
+	if (newByFile.length > 0) {
 		process.exit(1);
 	}
 
 	if (!JSON_OUTPUT) {
 		console.log(
-			`\n✓ baseline 内 (${totalViolations} 件、${Object.keys(fileTotals).length} ファイル)。新規違反なし。`,
+			`\n✓ baseline 内 (${totalViolations} 件、${violationsByFile.size} ファイル)。新規違反なし。`,
 		);
 	}
 }
