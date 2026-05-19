@@ -304,7 +304,7 @@ function loadBaseline() {
 	}
 
 	// 新フォーマット: { paths: { file: [missing-paths...] } }
-	if (raw && raw.paths && typeof raw.paths === 'object') {
+	if (raw?.paths && typeof raw.paths === 'object') {
 		const out = {};
 		for (const [file, arr] of Object.entries(raw.paths)) {
 			if (Array.isArray(arr)) out[file] = arr.slice();
@@ -313,7 +313,7 @@ function loadBaseline() {
 	}
 
 	// 旧フォーマット: { totals: { file: count } } — count 比較フォールバックで読み込む
-	if (raw && raw.totals && typeof raw.totals === 'object') {
+	if (raw?.totals && typeof raw.totals === 'object') {
 		return { paths: {}, legacy: true, legacyTotals: { ...raw.totals } };
 	}
 
