@@ -1,15 +1,73 @@
-# ADR-0028: プラン別履歴保持期間ポリシー — 物理削除の導入（ADR-0027 の上書き）
+# ADR-0049: プラン別履歴保持期間ポリシー — 物理削除の対象テーブル拡張（旧 ADR-0028 un-archived + 拡張）
 
-> **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+> **un-archived (2026-05-19)**: rewards-cheer-shop EPIC #2266 で対象テーブル拡張のため active 化。旧 ADR-0028 (archive) の内容を継承。
 
+> **拡張内容** (#2278): 旧 ADR-0028 削除対象 3 テーブル (`activity_logs` / `point_ledger` / `login_bonuses`) に加え、押し漏れ調査 (`docs/research/2278-retention-audit-result.md`) で抽出した P0/P1 対象テーブル (`parent_messages` / `reward_redemption_requests` 等) を retention 削除対象に拡張する方針を確立。実 service 拡張 + e2e は別フォロー Issue で実施 (scope L のため)。
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted |
-| 日付 | 2026-04-11 |
+| ステータス | accepted (旧 ADR-0028 の論理継承、archive → active 化、拡張対象表は §拡張 で記載) |
+| 日付 | 2026-04-11 (initial as ADR-0028) / 2026-05-19 (拡張 + renumber to ADR-0049) |
 | 起票者 | Takenori-Kusaka |
-| 関連 Issue | #717（priority:critical）, #729（priority:high） |
-| 関連 ADR | **ADR-0027（supersedes）**, ADR-0022（課金データライフサイクル）, ADR-0024（プラン解決）, ADR-0025（License ↔ Subscription） |
+| 関連 Issue | #717（priority:critical）, #729（priority:high）, #2278 (EPIC #2266 押し漏れ調査) |
+| 関連 ADR | **旧 ADR-0028 (継承)**, ADR-0022（課金データライフサイクル）, ADR-0024（プラン解決）, ADR-0025（License ↔ Subscription） |
+
+## 2026-05-19 拡張 (#2278 / EPIC #2266)
+
+### 拡張背景
+
+PO 報告 (2026-05-19): 「他にも保管期限を同様に管理するデータ群があるはず。抜け漏れが気になる」
+
+`docs/research/2278-retention-audit-result.md` の網羅調査で、子供関連 DB テーブルの大半 (49 テーブル中 22 テーブル) が ADR-0028 削除対象に含まれていない押し漏れが判明。本拡張で対象テーブルを段階的に追加する方針を SSOT 化。
+
+### 拡張削除対象テーブル (P0/P1 優先順)
+
+| 優先度 | テーブル | 押し漏れ深刻度 | 種別 |
+|---|---|---|---|
+| P0 | `parent_messages` | 高 (応援 P 履歴蓄積) | event |
+| P0 | `reward_redemption_requests` | 高 (申請履歴蓄積) | event |
+| P1 | `notificationLogs` | 中 (通知ログ累積) | event |
+| P1 | `usageLogs` | 中 (アクセスログ累積) | event |
+| P2 | `stampEntries` + `stampCards` | 中 (週次データ蓄積) | event |
+| P2 | `checklistLogs` + `checklistOverrides` | 中 (日次データ蓄積) | event |
+
+### Master テーブル (retention 対象外確定)
+
+PO 確定方針: `special_rewards` 等の親設定 catalog は retention 対象外。
+
+| テーブル | 理由 |
+|---|---|
+| `special_rewards` | ごほうび CRUD catalog (#2268)、親設定の削除は UX 毀損 |
+| `checklistTemplates` / `Items` | 親設定の持ち物リスト雛形 |
+| `achievements` | システム定義の達成可能リスト |
+| `graduationConsent` | 法的記録、retention 対象外 |
+| `certificates` | 永続記録扱い (法的記録) |
+| `children` | master、削除すると参照不能 |
+
+### 判断保留 (PO 合意要)
+
+| テーブル | 判断要点 |
+|---|---|
+| `childCustomVoices` | 子供創作データ、削除で UX 毀損可能性 |
+| `childAchievements` | 実績獲得履歴、長期保持期待される可能性 (卒業時振り返り) |
+
+### Service 拡張方針 (フォロー Issue)
+
+`retention-cleanup-service.ts` の関数を P0/P1 テーブル分追加する実装は scope L のため本 PR 外、別フォロー Issue (P3) で実施:
+
+- P0 (`parent_messages` / `reward_redemption_requests`) の retention 削除関数追加
+- P1 (`notificationLogs` / `usageLogs`) の retention 削除関数追加
+- e2e (`retention-cleanup-extended.spec.ts`) で free/standard/family 3 ケース確認
+- 既存 3 テーブル regression なし確認
+
+### AN-5 #2180 補強候補 #5 連携
+
+新規子供関連テーブル追加時、本 ADR の retention 削除対象に追加されているか + プラン別 SSOT (`historyRetentionDays`) との整合確認を機能完成度 checklist に追加候補。検知方法案: "check-retention-coverage.mjs" (新設候補、実装は別フォロー Issue) で schema.ts の `childId` を持つテーブルが retention-cleanup-service.ts の対象に含まれているか baseline pin チェック。
+
+---
+
+## 元 ADR-0028 内容 (継承)
+
 
 ## コンテキスト
 
