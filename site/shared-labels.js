@@ -705,9 +705,9 @@
 			"heroButton": "無料で始める",
 			"midButton": "デモを見る",
 			"bottomButton": "無料で始める",
-			"heroHref": "https://ganbari-quest.com/auth/signup",
+			"heroHref": "https://www.ganbari-quest.com/auth/signup",
 			"midHref": "https://demo.ganbari-quest.com/",
-			"bottomHref": "https://ganbari-quest.com/auth/signup",
+			"bottomHref": "https://www.ganbari-quest.com/auth/signup",
 			"ariaLabelHero": "7 日間無料トライアルへのご案内",
 			"ariaLabelMid": "デモ画面で機能を体験",
 			"ariaLabelBottom": "無料トライアル開始のご案内"

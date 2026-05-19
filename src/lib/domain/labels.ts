@@ -1145,17 +1145,21 @@ export const DEMO_LABELS = {
 	/**
 	 * 退出先 (LP に戻す)。
 	 * #2097 Phase B Bug 3: demo Lambda には `/demo/exit` route が存在しないため
-	 * 本番 LP (https://ganbari-quest.com/) への absolute URL とする。
+	 * 本番 LP (https://www.ganbari-quest.com/) への absolute URL とする。
 	 * NUC 本番 (local mode) からも同じ absolute URL でアクセス可能。
+	 * #2261 (2026-05-19 PO 報告): apex (ganbari-quest.com) ではなく www. canonical
+	 * に統一。CloudFront / Route53 の canonical は www. のため、apex 経由だと
+	 * 301 リダイレクトが挟まり UX が劣化する。
 	 */
-	exitHref: 'https://ganbari-quest.com/',
+	exitHref: 'https://www.ganbari-quest.com/',
 	/**
 	 * サインアップ CTA 先 (本当に始める)。
 	 * #2097 Phase B Bug 2: demo Lambda では Cognito 未注入のため /auth/signup を
 	 * relative で叩くと中途半端な signup 画面 (失敗確定) が表示される。本番 (Cognito)
 	 * への absolute URL に固定する。
+	 * #2261 (2026-05-19 PO 報告): exitHref と同じく www. canonical に統一。
 	 */
-	signupHref: 'https://ganbari-quest.com/auth/signup',
+	signupHref: 'https://www.ganbari-quest.com/auth/signup',
 } as const;
 
 // ============================================================
@@ -6149,9 +6153,12 @@ export const LP_FLOATING_CTA_LABELS = {
 	midButton: 'デモを見る',
 	bottomButton: `${FREE_TERMS.tryFree}`,
 	// 各 phase の CTA href
-	heroHref: 'https://ganbari-quest.com/auth/signup',
+	// #2261 (2026-05-19 PO 報告): apex (ganbari-quest.com) ではなく www. canonical
+	// に統一。LP は www. で配信されているため apex 経由だと 301 リダイレクトが
+	// 挟まり UX 劣化（DemoBanner と同一 root cause、DEMO_LABELS.exitHref / signupHref 修正と同時対応）。
+	heroHref: 'https://www.ganbari-quest.com/auth/signup',
 	midHref: 'https://demo.ganbari-quest.com/',
-	bottomHref: 'https://ganbari-quest.com/auth/signup',
+	bottomHref: 'https://www.ganbari-quest.com/auth/signup',
 	// aria-label（読み上げ用）
 	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由
 	ariaLabelHero: `${TRIAL_PERIOD_TERMS.full}へのご案内`,
