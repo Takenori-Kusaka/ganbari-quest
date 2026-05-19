@@ -318,8 +318,9 @@ jobs:
       # CI 段階で検出されるべき機能的 fail だった。post-deploy smoke が無いため deploy 完了
       # 後に LP→demo 遷移先 502 で初めて露呈した経緯。
       #
-      # 対策: production と同じく demo Lambda function URL 直接で 200 OK を確認し、
-      # 失敗時は hard-fail させて Rollback step に遷移させる。
+      # 対策: production と同じく demo Lambda function URL 直接で 200 (直接応答) または
+      # 302 (root から /switch へ redirect、demo Lambda root の正常仕様 — #2284) を確認し、
+      # 502/503/504 (runtime crash) は hard-fail させて Rollback step に遷移させる。
       # デモ環境はまだ存在しない可能性があるため (初回 deploy 前 / disable 時) skip 条件付き。
       - name: Demo Lambda smoke test (#2130)
         id: demo-smoke
@@ -340,11 +341,13 @@ jobs:
           echo "Demo smoke target: $DEMO_URL"
           echo "Waiting 10s for Lambda cold start..."
           sleep 10
+          # 200 = direct response OK / 302 = root path redirect to /switch (正常仕様、#2284)
+          # 502/503/504 のみ runtime crash として fail 判定対象
           for i in 1 2 3 4 5; do
             STATUS=$(curl -sk -o /tmp/demo-smoke-body.txt -w "%{http_code}" "$DEMO_URL")
             echo "Attempt $i: status=$STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "::notice::demo Lambda smoke test passed (200 OK)"
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ]; then
+              echo "::notice::demo Lambda smoke test passed ($STATUS OK — 200 direct or 302 /switch redirect)"
               exit 0
             fi
             if [ "$STATUS" = "502" ] || [ "$STATUS" = "503" ] || [ "$STATUS" = "504" ]; then
@@ -355,7 +358,7 @@ jobs:
             echo "Retrying in 10s..."
             sleep 10
           done
-          echo "::error::demo Lambda smoke test failed after 5 attempts (last status: $STATUS) — see ADR-0048 / #2130"
+          echo "::error::demo Lambda smoke test failed after 5 attempts (last status: $STATUS) — see ADR-0048 / #2130 / #2284"
           exit 1
 
       # Phase 5: Post-deployment health check (with retry)
