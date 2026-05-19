@@ -11,6 +11,7 @@
 // cookie name: 'gq_parent_session'
 
 import cookieSignature from 'cookie-signature';
+import { getEnv } from '$lib/runtime/env';
 import { logger } from '$lib/server/logger';
 
 /** PIN 認証後 session の inactivity timeout (15 分、NIST SP 800-63B-4 AAL1 推奨) */
@@ -22,8 +23,6 @@ export const MAX_SESSION_MS = 24 * 60 * 60 * 1000;
 /** session cookie 名 (#2310 EPIC SSOT) */
 export const PARENT_SESSION_COOKIE_NAME = 'gq_parent_session';
 
-/** cookie 署名キー env var */
-const SECRET_ENV_VAR = 'PARENT_GATE_COOKIE_SECRET';
 /** dev 環境 fallback secret (production では throw する) */
 const DEV_FALLBACK_SECRET = 'dev-parent-gate-secret-DO-NOT-USE-IN-PROD';
 
@@ -35,19 +34,22 @@ export interface ParentSessionPayload {
 }
 
 function getSecret(): string {
-	const secret = process.env[SECRET_ENV_VAR];
+	const env = getEnv();
+	const secret = env.PARENT_GATE_COOKIE_SECRET;
 	if (secret && secret.length >= 16) return secret;
 
 	// production で未設定なら throw (誤って弱い fallback で署名する事故を防ぐ)
-	const isProd = process.env.NODE_ENV === 'production' && !process.env.VITEST;
+	const isProd = env.NODE_ENV === 'production' && !env.VITEST;
 	if (isProd) {
 		throw new Error(
-			`[PARENT_GATE] ${SECRET_ENV_VAR} env var is required in production (length >= 16)`,
+			'[PARENT_GATE] PARENT_GATE_COOKIE_SECRET env var is required in production (length >= 16)',
 		);
 	}
 	// dev / test では fallback secret + 警告ログ
 	if (!secret) {
-		logger.warn(`[PARENT_GATE] ${SECRET_ENV_VAR} not set, using dev fallback (dev/test only)`);
+		logger.warn(
+			'[PARENT_GATE] PARENT_GATE_COOKIE_SECRET not set, using dev fallback (dev/test only)',
+		);
 	}
 	return DEV_FALLBACK_SECRET;
 }

@@ -3,6 +3,7 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
+import { getEnv } from '$lib/runtime/env';
 import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getSettings } from '$lib/server/db/settings-repo';
@@ -40,7 +41,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	//   - cognito production mode: PIN gate 有効 (同端末共有家庭の構造的 privacy 保護)
 	//
 	// cognito-dev で手動動作確認したい場合は `PARENT_GATE_FORCE_ACTIVE=true` env で強制 ON。
-	const forceActive = process.env.PARENT_GATE_FORCE_ACTIVE === 'true';
+	const forceActive = getEnv().PARENT_GATE_FORCE_ACTIVE === true;
 	const pinGateActive = forceActive || (authMode === 'cognito' && !isCognitoDevMode());
 	const sessionCookie = cookies.get(PARENT_SESSION_COOKIE_NAME);
 	if (pinGateActive && !verifyParentSession(sessionCookie, tenantId)) {

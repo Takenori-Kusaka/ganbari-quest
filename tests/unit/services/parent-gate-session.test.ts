@@ -4,6 +4,7 @@
 // AC4: 「不正署名 cookie 拒否」「expired 拒否」「正常 verify 通過」「tenant_id 跨ぎ攻撃テスト」全 PASS
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetEnvForTesting } from '../../../src/lib/runtime/env';
 import {
 	createParentSession,
 	INACTIVITY_TIMEOUT_MS,
@@ -18,6 +19,7 @@ describe('parent-gate-session', () => {
 
 	beforeEach(() => {
 		process.env.PARENT_GATE_COOKIE_SECRET = 'test-secret-do-not-use-in-prod-123456';
+		resetEnvForTesting();
 	});
 
 	afterEach(() => {

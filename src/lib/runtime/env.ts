@@ -126,6 +126,23 @@ const envSchema = z.object({
 	// 本番では `https://ganbari-quest.com` を CDK context 経由で注入。
 	// 未設定時は本番 URL にフォールバック (email-service.ts と整合)。
 	APP_BASE_URL: z.string().url().optional(),
+
+	// ----- Parent-Gate Session (#2310 / ADR-0050) -----
+	/**
+	 * /admin/* PIN gate の cookie 署名キー (cookie-signature HMAC-SHA256)。
+	 * production cognito mode で未設定だと起動時 throw。dev / test は fallback secret で動作。
+	 * 配布: AWS Secrets Manager / SSM Parameter Store (`/ganbari-quest/prod/parent_gate_cookie_secret`)
+	 */
+	PARENT_GATE_COOKIE_SECRET: z.string().min(16).optional(),
+	/**
+	 * cognito-dev mode で PIN gate を強制 ON にする (手動 dogfood / SS 撮影用)。
+	 * 通常の cognito-dev では既存 E2E 全 spec を破壊しないため gate 無効。
+	 */
+	PARENT_GATE_FORCE_ACTIVE: booleanStringSchema,
+
+	// ----- Test runtime -----
+	/** vitest 自動設定 (`process.env.VITEST = "true"`)。production 判定の例外用 */
+	VITEST: z.string().optional(),
 });
 
 export type TypedEnv = z.infer<typeof envSchema>;
