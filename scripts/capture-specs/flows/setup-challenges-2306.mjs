@@ -20,6 +20,8 @@
  *     --out tmp/screenshots/pr-2306/
  */
 
+import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5174';
 
 async function loginAs(page, email, password) {
@@ -128,7 +130,7 @@ export default async (page, capture) => {
 		});
 		if (!clicked) break;
 		// reactivity 反映待ち
-		await page.waitForTimeout(200);
+		await waitForStablePage(page, { skipNetworkIdle: true });
 	}
 	await capture('setup-challenges-2-all-selected');
 
@@ -171,7 +173,7 @@ export default async (page, capture) => {
 		throw new Error('[flow] skip-mode option button が DOM に見つかりません');
 	}
 	// click 後の state を確認 (debug)
-	await page.waitForTimeout(500);
+	await waitForStablePage(page, { skipNetworkIdle: true });
 	const submitButtonText = await page.evaluate(() => {
 		const submit = document.querySelector('button[type="submit"]');
 		return submit ? submit.textContent.trim().slice(0, 80) : 'NOT_FOUND';
