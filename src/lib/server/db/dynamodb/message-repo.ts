@@ -37,6 +37,9 @@ export async function insertMessage(
 		icon: input.icon ?? '💌',
 		sentAt: new Date().toISOString(),
 		shownAt: null,
+		// #2267 (EPIC #2266): cheer 機能の新カラム (Pre-PMF fallback では NULL を返す)
+		bonusPoints: input.bonusPoints ?? null,
+		rewardCategory: input.rewardCategory ?? null,
 	};
 }
 

@@ -107,6 +107,10 @@ const navCategories: NavCategory[] = $derived([
 			{ href: `${basePath}/checklists`, label: NAV_ITEM_LABELS.checklists, icon: '✅' },
 			{ href: `${basePath}/events`, label: NAV_ITEM_LABELS.events, icon: '🎉' },
 			{ href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
+			// #2274 (EPIC #2266): ごほうび/応援を record→activity 配下に移動
+			// (rewards/cheer は日々の活動なので activity タブ配下が適切、PO 指摘 2026-05-19)
+			{ href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
+			{ href: `${basePath}/cheer`, label: NAV_ITEM_LABELS.cheer, icon: '🎉' },
 			// #1170: マケプレをグローバルナビ昇格（activity の一員として導線短縮）
 			{ href: '/marketplace', label: NAV_ITEM_LABELS.marketplace, icon: '🛍️' },
 			// #2178: こども → family カテゴリへ移動済
@@ -122,8 +126,7 @@ const navCategories: NavCategory[] = $derived([
 			// #1782: 「実績」ナビ削除。チャレンジ機能 (/admin/challenges) に統合 (ADR-0012 §6 整合)
 			{ href: `${basePath}/analytics`, label: NAV_ITEM_LABELS.analytics, icon: '📈' },
 			{ href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
-			{ href: `${basePath}/messages`, label: NAV_ITEM_LABELS.messages, icon: '💌' },
-			{ href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
+			// #2270 / #2274 (EPIC #2266): messages 廃止 + rewards/cheer を activity 配下に移動
 		],
 	},
 	{

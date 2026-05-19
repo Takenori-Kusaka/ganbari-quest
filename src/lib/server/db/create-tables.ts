@@ -351,7 +351,11 @@ export const SQL_CREATE_TABLES = `
 		body TEXT,
 		icon TEXT NOT NULL DEFAULT '💌',
 		sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		shown_at TEXT
+		shown_at TEXT,
+		-- #2267 (EPIC #2266): 応援機能 (cheer) で付与したボーナスポイント (reward_notice のみ使用)
+		bonus_points INTEGER,
+		-- #2267 (EPIC #2266): 応援機能 (cheer) のカテゴリ (reward_notice のみ使用)
+		reward_category TEXT
 	);
 	CREATE INDEX IF NOT EXISTS idx_parent_messages_child
 		ON parent_messages(child_id, sent_at);

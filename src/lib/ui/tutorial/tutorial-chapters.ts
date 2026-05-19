@@ -178,26 +178,27 @@ export const TUTORIAL_CHAPTERS: TutorialChapter[] = [
 	},
 	{
 		id: 6,
-		title: `${NAV_CATEGORIES.record.label}（${NAV_ITEM_LABELS.messages}）`,
+		// #2270 / #2274 (EPIC #2266): messages 廃止 → cheer (応援) に統合 + activity 配下へ移動
+		title: `${NAV_CATEGORIES.activity.label}（${NAV_ITEM_LABELS.cheer}）`,
 		icon: L.chapters.messages.icon,
 		steps: [
 			{
 				id: 'messages-1',
 				chapterId: 6,
-				selector: '[data-tutorial="message-child-select"]',
+				selector: '[data-tutorial="cheer-child-select"]',
 				title: L.steps['messages-1'].title,
 				description: L.steps['messages-1'].description,
 				position: 'bottom',
-				page: '/admin/messages',
+				page: '/admin/cheer',
 			},
 			{
 				id: 'messages-2',
 				chapterId: 6,
-				selector: '[data-tutorial="message-stamp-grid"]',
+				selector: '[data-tutorial="cheer-reason"]',
 				title: L.steps['messages-2'].title,
 				description: L.steps['messages-2'].description,
 				position: 'bottom',
-				page: '/admin/messages',
+				page: '/admin/cheer',
 			},
 		],
 	},

@@ -17,7 +17,8 @@ const GUIDE_LOADERS: Record<
 	'/admin/rewards': () => import('../../../routes/(parent)/admin/rewards/_guide'),
 	'/admin/points': () => import('../../../routes/(parent)/admin/points/_guide'),
 	'/admin/reports': () => import('../../../routes/(parent)/admin/reports/_guide'),
-	'/admin/messages': () => import('../../../routes/(parent)/admin/messages/_guide'),
+	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer (応援) に統合
+	'/admin/cheer': () => import('../../../routes/(parent)/admin/cheer/_guide'),
 	'/admin/settings': () => import('../../../routes/(parent)/admin/settings/_guide'),
 };
 
@@ -29,7 +30,8 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	'/admin/rewards': 'REWARDS_GUIDE',
 	'/admin/points': 'POINTS_GUIDE',
 	'/admin/reports': 'REPORTS_GUIDE',
-	'/admin/messages': 'MESSAGES_GUIDE',
+	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer に統合
+	'/admin/cheer': 'CHEER_GUIDE',
 	'/admin/settings': 'SETTINGS_GUIDE',
 };
 
@@ -61,6 +63,7 @@ export const ALL_PAGE_IDS = [
 	'admin-rewards',
 	'admin-points',
 	'admin-reports',
-	'admin-messages',
+	// #2270 / #2274 (EPIC #2266): admin-messages 廃止 → admin-cheer (応援) に統合
+	'admin-cheer',
 	'admin-settings',
 ];

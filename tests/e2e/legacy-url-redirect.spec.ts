@@ -230,6 +230,25 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 	});
 
 	// ============================================================
+	// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 → /admin/cheer 308 redirect
+	// PO 報告 (2026-05-19) 「メッセージだけ送る機能は意味なし、応援は任意理由 + 直接 P 付与が核」
+	// 旧 messages は P 付与なし = 子供から見て価値が薄いため廃止、応援機能 /admin/cheer に統合。
+	// ============================================================
+	test('/admin/messages → /admin/cheer (308, #2275)', async ({ request }) => {
+		await expectRedirect(request, '/admin/messages', '/admin/cheer');
+	});
+
+	test('/admin/messages/sub → /admin/cheer/sub (308, サブパス保持 #2275)', async ({ request }) => {
+		await expectRedirect(request, '/admin/messages/sub', '/admin/cheer/sub');
+	});
+
+	test('/admin/messages?childId=1 → /admin/cheer?childId=1 (クエリ保持 #2275)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/admin/messages?childId=1', '/admin/cheer?childId=1');
+	});
+
+	// ============================================================
 	// #2175: 子供画面 achievements → challenges rename (5 年齢モード)
 	// 廃止済「実績システム」命名残存を解消するためルートを rename。
 	// 旧 URL は bookmark / 内部リンク救済で 308 redirect (永久保持)。
@@ -299,8 +318,9 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/demo/admin/members', '/admin/members');
 	});
 
-	test('/demo/admin/messages → /admin/messages (308)', async ({ request }) => {
-		await expectRedirect(request, '/demo/admin/messages', '/admin/messages');
+	// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 → /admin/cheer に 1 段化
+	test('/demo/admin/messages → /admin/cheer (308, #2270 で 1 段化)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/messages', '/admin/cheer');
 	});
 
 	test('/demo/admin/points → /admin/points (308)', async ({ request }) => {

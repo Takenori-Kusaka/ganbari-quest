@@ -476,6 +476,10 @@ export interface InsertParentMessageInput {
 	stampCode?: string | null;
 	body?: string | null;
 	icon?: string;
+	// #2267 (EPIC #2266): 応援機能 (cheer) で付与したボーナスポイント (reward_notice タイプのみで使用)
+	bonusPoints?: number | null;
+	// #2267 (EPIC #2266): 応援機能 (cheer) のカテゴリ (reward_notice タイプのみで使用)
+	rewardCategory?: string | null;
 }
 
 export interface InsertCharacterImageInput {
@@ -584,6 +588,10 @@ export interface ParentMessage {
 	icon: string;
 	sentAt: string;
 	shownAt: string | null;
+	// #2267 (EPIC #2266): 応援機能 (cheer) で付与したボーナスポイント (reward_notice のみ使用、null = 旧 stamp/text)
+	bonusPoints: number | null;
+	// #2267 (EPIC #2266): 応援機能 (cheer) のカテゴリ (reward_notice のみ使用、null = 旧 stamp/text)
+	rewardCategory: string | null;
 }
 
 // ============================================================

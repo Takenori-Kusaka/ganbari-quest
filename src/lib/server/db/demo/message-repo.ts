@@ -16,6 +16,9 @@ export async function insertMessage(
 		icon: input.icon ?? '💌',
 		sentAt: new Date().toISOString(),
 		shownAt: null,
+		// #2267 (EPIC #2266): 応援機能 (cheer) の新カラム (demo stub では NULL を返す)
+		bonusPoints: input.bonusPoints ?? null,
+		rewardCategory: input.rewardCategory ?? null,
 	};
 }
 

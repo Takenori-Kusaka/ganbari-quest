@@ -56,6 +56,22 @@ describe('legacy-url-map', () => {
 			expect(listEntry?.status).toBe(301);
 			expect(listEntry?.to).toBe('/marketplace?type=activity-pack');
 		});
+
+		// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 → /admin/cheer redirect
+		it('/admin/messages → /admin/cheer (308) エントリが存在する', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/admin/messages');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/admin/cheer');
+			// status 省略 = 308 Permanent Redirect (規約デフォルト)
+			expect(entry?.status).toBeUndefined();
+			expect(entry?.issue).toBe('#2275');
+		});
+
+		it('/demo/admin/messages も最終 hop は /admin/cheer に直接 redirect (#2270 1 段化)', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/demo/admin/messages');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/admin/cheer');
+		});
 	});
 
 	describe('findLegacyRedirect()', () => {
@@ -96,6 +112,10 @@ describe('legacy-url-map', () => {
 			['/demo/admin/license', '/demo/admin/license'],
 			['/demo/admin/members', '/demo/admin/members'],
 			['/demo/admin/messages', '/demo/admin/messages'],
+			// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 → /admin/cheer redirect
+			['/admin/messages', '/admin/messages'],
+			['/admin/messages/sub', '/admin/messages'],
+			['/admin/cheer', null],
 			['/demo/admin/points', '/demo/admin/points'],
 			['/demo/admin/reports', '/demo/admin/reports'],
 			['/demo/admin/rewards', '/demo/admin/rewards'],
@@ -211,7 +231,8 @@ describe('legacy-url-map', () => {
 			['/demo/admin/events', '/admin/events'],
 			['/demo/admin/license', '/admin/license'],
 			['/demo/admin/members', '/admin/members'],
-			['/demo/admin/messages', '/admin/messages'],
+			// #2270 / #2275 (EPIC #2266): 1 段化済 (/demo/admin/messages → 直接 /admin/cheer)
+			['/demo/admin/messages', '/admin/cheer'],
 			['/demo/admin/points', '/admin/points'],
 			['/demo/admin/reports', '/admin/reports'],
 			['/demo/admin/rewards', '/admin/rewards'],
@@ -227,6 +248,9 @@ describe('legacy-url-map', () => {
 			['/demo', '/'],
 			['/demo/exit', '/'],
 			['/demo/signup', '/auth/signup'],
+			// #2270 / #2275 (EPIC #2266): /admin/messages → /admin/cheer (308)
+			['/admin/messages', '/admin/cheer'],
+			['/admin/messages/sub', '/admin/cheer/sub'],
 			// #2175: 子供画面 achievements → challenges (5 年齢モード)
 			['/baby/achievements', '/baby/challenges'],
 			['/preschool/achievements', '/preschool/challenges'],

@@ -422,10 +422,13 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 	},
 	{
 		from: '/demo/admin/messages',
-		to: '/admin/messages',
+		// #2270 / #2275 (EPIC #2266): /admin/messages 自体も廃止 → /admin/cheer に統合のため、
+		//   /demo/admin/messages も最終 hop を /admin/cheer に更新 (中間 hop 削減 / 永久 308)
+		to: '/admin/cheer',
 		deletedAt: '2026-05-17',
 		issue: '#2188',
-		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+		reason:
+			'#2097 PR-B3: /demo/admin/* 撤去 + #2270 messages 廃止 → /admin/cheer redirect を 1 段化',
 	},
 	{
 		from: '/demo/admin/points',
@@ -498,6 +501,17 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		issue: '#2188',
 		reason:
 			'#2097 PR-B3: /demo landing 撤去 — LP CTA は #2181 で demo.ganbari-quest.com 切替済、root LP fallback',
+	},
+	// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 + 応援機能 /admin/cheer に統合
+	// PO 報告 (2026-05-19) 「メッセージだけ送る機能は意味なし、応援は任意理由 + 直接 P 付与が核」
+	// 旧 messages は P 付与なし = 子供から見て価値が薄いため廃止。スタンプ/メッセージは応援機能の付随要素として cheer に統合。
+	{
+		from: '/admin/messages',
+		to: '/admin/cheer',
+		deletedAt: '2026-05-19',
+		issue: '#2275',
+		reason:
+			'メッセージ単独機能の存在意義がないため廃止、応援機能 /admin/cheer に統合 (EPIC #2266 rewards-cheer-shop 4 系統責務再整理)',
 	},
 ] as const;
 
