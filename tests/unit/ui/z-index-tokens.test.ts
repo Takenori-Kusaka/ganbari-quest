@@ -4,11 +4,11 @@
 // 検証対象（DESIGN.md §10 z-index 階層）:
 // 1. app.css に --z-* トークンが定義されている
 // 2. 期待される値（base=0, sticky=10, ..., debug=9999）に従う
-// 3. MonthlyRewardDialog が --z-reward を参照している（生数値直書きではない）
 //
 // 目的: 新規コンポーネントが生数値（z-index: 90 等）を直書きする退行を検出するための
-// セーフティネット。app.css の token 定義変更や MonthlyRewardDialog の z-index 直書き復帰を
-// 早期に検出する。
+// セーフティネット。app.css の token 定義変更を早期に検出する。
+//
+// #2295 (EPIC #2294 ①): MonthlyRewardDialog テスト削除済 (2026-05-19、コンポーネント自体撤去)
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,10 +16,6 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const APP_CSS_PATH = path.join(REPO_ROOT, 'src/lib/ui/styles/app.css');
-const MONTHLY_REWARD_DIALOG_PATH = path.join(
-	REPO_ROOT,
-	'src/lib/ui/components/MonthlyRewardDialog.svelte',
-);
 
 const EXPECTED_Z_INDEX_TOKENS: Record<string, string> = {
 	'--z-base': '0',
@@ -69,16 +65,5 @@ describe('#1722 — z-index トークン階層 (DESIGN.md §10)', () => {
 	});
 });
 
-describe('#1722 — MonthlyRewardDialog の z-index は --z-reward を参照する', () => {
-	const dialogSrc = fs.readFileSync(MONTHLY_REWARD_DIALOG_PATH, 'utf8');
-
-	it('z-index に --z-reward を使用している', () => {
-		expect(dialogSrc).toMatch(/z-index:\s*var\(--z-reward\)/);
-	});
-
-	it('z-index に生数値（90 等）を直書きしていない', () => {
-		// `z-index: 90` のような直書きは禁止
-		const directNumericMatches = dialogSrc.match(/z-index\s*:\s*\d+\s*;/g) ?? [];
-		expect(directNumericMatches, 'z-index に生数値直書きが残っている').toEqual([]);
-	});
-});
+// #2295 (EPIC #2294 ①): MonthlyRewardDialog の z-index テスト削除済 (2026-05-19、
+// シーズンパス / 月替わりプレゼント機構撤去に伴いコンポーネント削除)

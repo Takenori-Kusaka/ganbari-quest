@@ -27,7 +27,6 @@
 		"docs/design/06-UI設計書.md": [
 			"site/screenshots/v2",
 			"src/lib/ui/components/OmikujiStampOverlay.svelte",
-			"src/lib/ui/components/SeasonPassCard.svelte",
 			"src/routes/demo",
 			"tests/e2e/helpers/demo-screenshot.ts"
 		],
@@ -89,6 +88,7 @@
 			"tests/unit/server/services/value-preview-service.test.ts"
 		],
 		"docs/reference/03-research-dialog-management-refactor.md": [
+			"src/lib/ui/components/MonthlyRewardDialog.svelte",
 			"src/lib/ui/components/SwitchChildDialog.svelte"
 		],
 		"docs/reference/06b-research-marketplace-completion-supplement.md": [
@@ -116,5 +116,5 @@
 			"src/lib/server/services/email-otp-service.ts"
 		]
 	},
-	"generatedAt": "2026-05-19T00:21:32.517Z"
+	"generatedAt": "2026-05-19T10:20:48.802Z"
 }

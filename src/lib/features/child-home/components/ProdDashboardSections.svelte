@@ -124,7 +124,7 @@ const {
 		showPin: boolean;
 		showConfirmDialog: boolean;
 		showSiblingFeatures: boolean;
-		showEvents: boolean;
+		// #2295 (EPIC #2294 ①): showEvents 削除済 (2026-05-19)
 	};
 	isPremium: boolean;
 	childId: number;

@@ -1,11 +1,6 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
-import {
-	ADMIN_HOME_LABELS,
-	formatDateRange,
-	TUTORIAL_LABELS,
-	USAGE_TIME_LABELS,
-} from '$lib/domain/labels';
+import { ADMIN_HOME_LABELS, TUTORIAL_LABELS, USAGE_TIME_LABELS } from '$lib/domain/labels';
 import type { PointSettings } from '$lib/domain/point-display';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
 import WeeklyUsageChart from '$lib/features/usage/WeeklyUsageChart.svelte';
@@ -44,20 +39,7 @@ interface MonthSummaryData {
 	newAchievements: number;
 }
 
-interface SeasonEventInfo {
-	name: string;
-	eventType: string;
-	startDate: string;
-	endDate: string;
-	bannerIcon: string;
-}
-
-interface MemoryTicketInfo {
-	totalMonths: number;
-	ticketsEarned: number;
-	ticketsAvailable: number;
-	nextTicketAt: number;
-}
+// #2295 (EPIC #2294 ①): SeasonEventInfo / MemoryTicketInfo 削除済 (2026-05-19)
 
 interface PlanStats {
 	activityCount: number;
@@ -86,10 +68,7 @@ interface Props {
 	currentMonth?: string;
 	planTier?: 'free' | 'standard' | 'family';
 	showPremiumWelcome?: boolean;
-	seasonalInfo?: {
-		activeEvents: SeasonEventInfo[];
-		memoryTicket: MemoryTicketInfo | null;
-	} | null;
+	// #2295 (EPIC #2294 ①): seasonalInfo 削除済 (2026-05-19)
 	/** #767: ダッシュボードにプラン利用状況を表示 + ワンクリックアップグレード */
 	planStats?: PlanStats | null;
 	trialStatus?: TrialStatusProp | null;
@@ -117,7 +96,6 @@ let {
 	currentMonth = '',
 	planTier = 'free',
 	showPremiumWelcome = false,
-	seasonalInfo = null,
 	planStats = null,
 	trialStatus = null,
 	stripeEnabled = false,
@@ -284,36 +262,7 @@ function childLink(child: ChildSummary): string {
 		</a>
 	{/if}
 
-	<!-- Seasonal Content Info -->
-	{#if !isDemo && seasonalInfo && seasonalInfo.activeEvents.length > 0}
-		<section class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm">
-			<h2 class="text-sm font-bold text-[var(--color-text)] mb-3">{ADMIN_HOME_LABELS.seasonalSectionTitle}</h2>
-			<div class="space-y-2">
-				{#each seasonalInfo.activeEvents as event}
-					<div class="flex items-center gap-2 text-sm">
-						<span>{event.bannerIcon}</span>
-						<span class="font-medium text-[var(--color-text)]">{event.name}</span>
-						<span class="text-xs text-[var(--color-text-muted)] ml-auto">
-							{formatDateRange(event.startDate, event.endDate)}
-						</span>
-					</div>
-				{/each}
-			</div>
-			{#if seasonalInfo.memoryTicket && (planTier === 'standard' || planTier === 'family')}
-				<div class="mt-3 pt-3 border-t border-[var(--color-border-default)]">
-					<div class="flex items-center justify-between text-sm">
-						<span class="text-[var(--color-text)]">{ADMIN_HOME_LABELS.memoryTicketLabel}</span>
-						<span class="font-bold text-[var(--color-premium)]">
-							{seasonalInfo.memoryTicket.ticketsAvailable}{ADMIN_HOME_LABELS.memoryTicketCountSuffix}
-						</span>
-					</div>
-					<p class="text-xs text-[var(--color-text-muted)] mt-1">
-						{ADMIN_HOME_LABELS.memoryTicketProgress(seasonalInfo.memoryTicket.totalMonths, seasonalInfo.memoryTicket.nextTicketAt)}
-					</p>
-				</div>
-			{/if}
-		</section>
-	{/if}
+	<!-- #2295 (EPIC #2294 ①): Seasonal Content section 削除済 (2026-05-19) -->
 
 	<!-- Summary Cards -->
 	<div class="grid grid-cols-2 gap-3" data-tutorial="summary-cards">

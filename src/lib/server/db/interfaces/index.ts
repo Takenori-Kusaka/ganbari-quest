@@ -28,5 +28,5 @@ export type { ISpecialRewardRepo } from './special-reward-repo.interface';
 export type { IStampCardRepo } from './stamp-card-repo.interface';
 export type { IStatusRepo } from './status-repo.interface';
 export type { IStorageRepo } from './storage.interface';
-export type { ITenantEventRepo } from './tenant-event-repo.interface';
+// #2295 (EPIC #2294 ①): ITenantEventRepo / ISeasonEventRepo 削除済 (2026-05-19)
 export type { ITrialHistoryRepo } from './trial-history-repo.interface';

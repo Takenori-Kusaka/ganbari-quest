@@ -87,13 +87,12 @@ vi.mock('$lib/server/db/factory', () => ({
 		activityPref: { deleteByTenantId: noopDeleteByTenantId },
 		activityMastery: { deleteByTenantId: noopDeleteByTenantId },
 		message: { deleteByTenantId: noopDeleteByTenantId },
-		tenantEvent: { deleteByTenantId: noopDeleteByTenantId },
+		// #2295 (EPIC #2294 ①): tenantEvent / seasonEvent 削除済 (2026-05-19)
 		trialHistory: { deleteByTenantId: noopDeleteByTenantId },
 		siblingChallenge: { deleteByTenantId: noopDeleteByTenantId },
 		siblingCheer: { deleteByTenantId: noopDeleteByTenantId },
 		autoChallenge: { deleteByTenantId: noopDeleteByTenantId },
 		reportDailySummary: { deleteByTenantId: noopDeleteByTenantId },
-		seasonEvent: { deleteByTenantId: noopDeleteByTenantId },
 		image: { deleteByTenantId: noopDeleteByTenantId },
 	}),
 }));

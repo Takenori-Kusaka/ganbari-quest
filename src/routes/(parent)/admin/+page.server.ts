@@ -1,7 +1,6 @@
 import { fail } from '@sveltejs/kit';
-import { todayDateJST } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
-import { findActiveEvents } from '$lib/server/db/season-event-repo';
+// #2295 (EPIC #2294 ①): season-event-repo / seasonal-content-service 削除済 (2026-05-19)
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import { getActivities } from '$lib/server/services/activity-service';
@@ -10,7 +9,6 @@ import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/o
 import { getPlanLimits, isPaidTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
-import { getMemoryTicketStatus } from '$lib/server/services/seasonal-content-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import {
 	getTodayUsageSummary,
@@ -82,48 +80,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		showPremiumWelcome = welcomeSettings.premium_welcome_shown !== 'true';
 	}
 
-	// 季節コンテンツ情報（G6+G7: 思い出チケット＋管理表示）
-	// イベント一覧を一度だけ取得し、seasonalInfo とシーズンパス両方で共有する
-	const today = todayDateJST();
-	let allActiveEvents: Awaited<ReturnType<typeof findActiveEvents>> = [];
-	try {
-		allActiveEvents = await findActiveEvents(today, tenantId);
-	} catch {
-		// イベント取得失敗はページに影響させない
-	}
-
-	let seasonalInfo: {
-		activeEvents: {
-			name: string;
-			eventType: string;
-			startDate: string;
-			endDate: string;
-			bannerIcon: string;
-		}[];
-		memoryTicket: Awaited<ReturnType<typeof getMemoryTicketStatus>> | null;
-	} | null = null;
-	try {
-		const activeEvents = allActiveEvents.map((e) => ({
-			name: e.name,
-			eventType: e.eventType,
-			startDate: e.startDate,
-			endDate: e.endDate,
-			bannerIcon: e.bannerIcon,
-		}));
-
-		let memoryTicket: Awaited<ReturnType<typeof getMemoryTicketStatus>> | null = null;
-		if (isPaid) {
-			const settings = await getSettings(['subscription_start_date'], tenantId);
-			memoryTicket = await getMemoryTicketStatus(
-				tenantId,
-				settings.subscription_start_date ?? null,
-			);
-		}
-
-		seasonalInfo = { activeEvents, memoryTicket };
-	} catch {
-		// 季節情報取得失敗はページに影響させない
-	}
+	// #2295 (EPIC #2294 ①): 季節コンテンツ情報 / 思い出チケット削除済 (2026-05-19)
 
 	// #767: ダッシュボードにプラン利用状況を表示
 	const planLimits = getPlanLimits(tier);
@@ -186,7 +143,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		monthlySummaries,
 		currentMonth: yearMonth,
 		showPremiumWelcome,
-		seasonalInfo,
+		// #2295: seasonalInfo 削除済
 		planStats,
 		stripeEnabled: isStripeEnabled(),
 		todayUsage,

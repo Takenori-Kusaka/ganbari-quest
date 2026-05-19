@@ -49,6 +49,7 @@ function isCurrentlyActive(challenge: {
 	);
 }
 
+// #2296 (EPIC #2294 ②): competitive 表示はそのまま (既存データ閲覧目的、新規作成は不可)
 const typeLabel = (t: string) =>
 	t === 'cooperative'
 		? CHALLENGES_LABELS.typeLabelCooperative
@@ -107,6 +108,11 @@ const categories: Record<number, string> = {
 			</a>
 		</div>
 	{:else}
+
+	<!-- #2296 (EPIC #2294 ②): 説明文ヘッダ追加 (兄弟競争 NG / 協力で家族コミュニケーション促進) -->
+	<div class="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-surface-info)] p-3 text-xs text-[var(--color-text-primary)]">
+		<p>{CHALLENGES_LABELS.headerDesc}</p>
+	</div>
 
 	<div class="flex items-center justify-between">
 		<h2 class="text-lg font-bold">{CHALLENGES_LABELS.sectionTitle}</h2>
@@ -214,15 +220,16 @@ const categories: Record<number, string> = {
 				<FormField label={CHALLENGES_LABELS.descLabel} type="text" name="description" placeholder={CHALLENGES_LABELS.descPlaceholder} class="col-span-2" />
 			</div>
 			<div class="grid grid-cols-3 gap-3">
+				<!-- #2296 (EPIC #2294 ②): competitive option 削除済 (2026-05-19)
+				     Research §3.2 + Harvard Health + UNH SAARA: 兄弟競争は depression/自傷リスク 2 倍。
+				     新規作成は cooperative 固定、既存 competitive データは表示のみ可。
+				     hidden input で cooperative を強制 (POST body は維持し +page.server.ts 互換性確保)。 -->
+				<input type="hidden" name="challengeType" value="cooperative" />
 				<FormField label={CHALLENGES_LABELS.typeLabel}>
 					{#snippet children()}
-						<NativeSelect
-							name="challengeType"
-							options={[
-								{ value: 'cooperative', label: '協力' },
-								{ value: 'competitive', label: '競争' },
-							]}
-						/>
+						<div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]">
+							{CHALLENGES_LABELS.typeLabelCooperative}
+						</div>
 					{/snippet}
 				</FormField>
 				<FormField label={CHALLENGES_LABELS.periodLabel}>
@@ -267,10 +274,18 @@ const categories: Record<number, string> = {
 
 	<!-- チャレンジ一覧 -->
 	{#if data.challenges.length === 0}
-		<div class="rounded-xl border bg-white p-8 text-center">
+		<!-- #2296 (EPIC #2294 ②): empty state CTA「テンプレートから始める」+ ゼロベース構築軽減 -->
+		<div class="rounded-xl border bg-white p-8 text-center space-y-3">
 			<p class="text-2xl">{CHALLENGES_LABELS.noChallengeTitleIcon}</p>
 			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">{CHALLENGES_LABELS.noChallengeTitle}</p>
-			<p class="text-xs text-[var(--color-text-tertiary)]">{CHALLENGES_LABELS.noChallengeDesc}</p>
+			<p class="text-xs text-[var(--color-text-tertiary)]">{CHALLENGES_LABELS.emptyStateDesc}</p>
+			<a
+				href="/marketplace?type=challenge-set"
+				class="inline-block mt-2 rounded-lg bg-[var(--color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--color-text-inverse)]"
+			>
+				{CHALLENGES_LABELS.templateCta}
+			</a>
+			<p class="text-xs text-[var(--color-text-tertiary)] mt-2">{CHALLENGES_LABELS.emptyStateOrCreate}</p>
 		</div>
 	{:else}
 		<div class="space-y-3">

@@ -203,13 +203,7 @@ vi.mock('$lib/server/services/message-service', () => ({
 vi.mock('$lib/server/services/recommendation-service', () => ({
 	selectRecommendations: vi.fn().mockResolvedValue([]),
 }));
-vi.mock('$lib/server/services/season-event-service', () => ({
-	claimEventReward: vi.fn(),
-	getActiveEventsForChild: vi.fn().mockResolvedValue([]),
-}));
-vi.mock('$lib/server/services/seasonal-content-service', () => ({
-	getMonthlyPremiumReward: vi.fn().mockResolvedValue(null),
-}));
+// #2295 (EPIC #2294 ①): season-event-service / seasonal-content-service モック削除済 (2026-05-19)
 vi.mock('$lib/server/services/sibling-challenge-service', () => ({
 	claimChallengeReward: vi.fn(),
 	getActiveChallengesForChild: vi.fn().mockResolvedValue([]),

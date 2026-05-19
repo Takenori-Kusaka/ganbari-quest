@@ -663,70 +663,9 @@ export interface UpdateStampCardStatusInput {
 	updatedAt: string;
 }
 
-// ============================================================
-// Season Events
-// ============================================================
-
-export interface SeasonEvent {
-	id: number;
-	code: string;
-	name: string;
-	description: string | null;
-	eventType: string;
-	startDate: string;
-	endDate: string;
-	bannerIcon: string;
-	bannerColor: string | null;
-	themeConfig: string | null;
-	rewardConfig: string | null;
-	missionConfig: string | null;
-	isActive: number;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface ChildEventProgress {
-	id: number;
-	childId: number;
-	eventId: number;
-	status: string;
-	progressJson: string | null;
-	rewardClaimedAt: string | null;
-	joinedAt: string;
-	updatedAt: string;
-}
-
-export interface InsertSeasonEventInput {
-	code: string;
-	name: string;
-	description?: string | null;
-	eventType?: string;
-	startDate: string;
-	endDate: string;
-	bannerIcon?: string;
-	bannerColor?: string | null;
-	themeConfig?: string | null;
-	rewardConfig?: string | null;
-	missionConfig?: string | null;
-}
-
-export interface UpdateSeasonEventInput {
-	name?: string;
-	description?: string | null;
-	eventType?: string;
-	startDate?: string;
-	endDate?: string;
-	bannerIcon?: string;
-	bannerColor?: string | null;
-	themeConfig?: string | null;
-	rewardConfig?: string | null;
-	missionConfig?: string | null;
-	isActive?: number;
-}
-
-export interface SeasonEventWithProgress extends SeasonEvent {
-	progress: ChildEventProgress | null;
-}
+// #2295 (EPIC #2294 ①): SeasonEvent / ChildEventProgress / InsertSeasonEventInput /
+// UpdateSeasonEventInput / SeasonEventWithProgress 型削除済 (2026-05-19)
+// Research 2 段階で ADR-0012 / ADR-0013 二重違反として完全撤去。
 
 // ============================================================
 // Sibling Challenge
@@ -958,59 +897,8 @@ export interface InsertCloudExportInput {
 	maxDownloads?: number;
 }
 
-// ============================================================
-// Tenant Events (calendar-based season event opt-in/out)
-// ============================================================
-
-export interface TenantEvent {
-	id: number;
-	tenantId: string;
-	eventCode: string;
-	year: number;
-	enabled: number;
-	targetOverride: string | null;
-	rewardMemo: string | null;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface InsertTenantEventInput {
-	eventCode: string;
-	year: number;
-	enabled?: number;
-	targetOverride?: string | null;
-	rewardMemo?: string | null;
-}
-
-export interface UpdateTenantEventInput {
-	enabled?: number;
-	targetOverride?: string | null;
-	rewardMemo?: string | null;
-}
-
-// ============================================================
-// Tenant Event Progress (child progress on calendar events)
-// ============================================================
-
-export interface TenantEventProgress {
-	id: number;
-	tenantId: string;
-	eventCode: string;
-	childId: number;
-	year: number;
-	currentCount: number;
-	completedAt: string | null;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface UpsertTenantEventProgressInput {
-	eventCode: string;
-	childId: number;
-	year: number;
-	currentCount: number;
-	completedAt?: string | null;
-}
+// #2295 (EPIC #2294 ①): TenantEvent / InsertTenantEventInput / UpdateTenantEventInput /
+// TenantEventProgress / UpsertTenantEventProgressInput 型削除済 (2026-05-19)
 
 // ============================================================
 // Auto Challenges (weekly auto-generated per-child challenges)

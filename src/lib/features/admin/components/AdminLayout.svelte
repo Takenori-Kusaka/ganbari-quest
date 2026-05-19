@@ -105,7 +105,7 @@ const navCategories: NavCategory[] = $derived([
 		items: [
 			{ href: `${basePath}/activities`, label: NAV_ITEM_LABELS.activities, icon: '📋' },
 			{ href: `${basePath}/checklists`, label: NAV_ITEM_LABELS.checklists, icon: '✅' },
-			{ href: `${basePath}/events`, label: NAV_ITEM_LABELS.events, icon: '🎉' },
+			// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
 			{ href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
 			// #2274 (EPIC #2266): ごほうび/応援を record→activity 配下に移動
 			// (rewards/cheer は日々の活動なので activity タブ配下が適切、PO 指摘 2026-05-19)

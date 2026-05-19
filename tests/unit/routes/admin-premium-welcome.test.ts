@@ -21,8 +21,7 @@ const mockGetChildStatus = vi.fn();
 const mockGetAllChildrenSimpleSummary = vi.fn();
 const mockGetSettings = vi.fn();
 const mockSetSetting = vi.fn();
-const mockFindActiveEvents = vi.fn();
-const mockGetMemoryTicketStatus = vi.fn();
+// #2295 (EPIC #2294 ①): mockFindActiveEvents / mockGetMemoryTicketStatus 削除済 (2026-05-19)
 
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: mockRequireTenantId,
@@ -54,13 +53,7 @@ vi.mock('$lib/server/db/settings-repo', () => ({
 	setSetting: mockSetSetting,
 }));
 
-vi.mock('$lib/server/db/season-event-repo', () => ({
-	findActiveEvents: mockFindActiveEvents,
-}));
-
-vi.mock('$lib/server/services/seasonal-content-service', () => ({
-	getMemoryTicketStatus: mockGetMemoryTicketStatus,
-}));
+// #2295 (EPIC #2294 ①): season-event-repo / seasonal-content-service モック削除済 (2026-05-19)
 
 vi.mock('$lib/server/services/plan-limit-service', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/services/plan-limit-service')>(
@@ -85,7 +78,6 @@ const load = mod.load as unknown as (event: {
 	children: unknown[];
 	monthlySummaries: unknown;
 	currentMonth: string;
-	seasonalInfo: unknown;
 	onboarding: unknown;
 }>;
 
@@ -116,8 +108,7 @@ describe('/admin page.server — PremiumWelcome 表示制御 (#778)', () => {
 		mockGetPointBalance.mockResolvedValue({ balance: 0 });
 		mockGetChildStatus.mockResolvedValue({ level: 1, levelTitle: '' });
 		mockGetAllChildrenSimpleSummary.mockResolvedValue(new Map());
-		mockFindActiveEvents.mockResolvedValue([]);
-		mockGetMemoryTicketStatus.mockResolvedValue(null);
+		// #2295: mockFindActiveEvents / mockGetMemoryTicketStatus 削除済
 		// デフォルトでは premium_welcome_shown は未設定（初回想定）
 		mockGetSettings.mockResolvedValue({});
 	});

@@ -446,38 +446,7 @@ export const SQL_CREATE_TABLES = `
 	CREATE UNIQUE INDEX IF NOT EXISTS idx_stamp_entries_card_date
 		ON stamp_entries(card_id, login_date);
 
-	CREATE TABLE IF NOT EXISTS season_events (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		code TEXT NOT NULL UNIQUE,
-		name TEXT NOT NULL,
-		description TEXT,
-		event_type TEXT NOT NULL DEFAULT 'seasonal',
-		start_date TEXT NOT NULL,
-		end_date TEXT NOT NULL,
-		banner_icon TEXT NOT NULL DEFAULT '🎉',
-		banner_color TEXT,
-		theme_config TEXT,
-		reward_config TEXT,
-		mission_config TEXT,
-		is_active INTEGER NOT NULL DEFAULT 1,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE IF NOT EXISTS child_event_progress (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		event_id INTEGER NOT NULL REFERENCES season_events(id),
-		status TEXT NOT NULL DEFAULT 'active',
-		progress_json TEXT,
-		reward_claimed_at TEXT,
-		joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_event_unique
-		ON child_event_progress(child_id, event_id);
-	CREATE INDEX IF NOT EXISTS idx_child_event_child
-		ON child_event_progress(child_id);
+	-- #2295 (EPIC #2294 ①): season_events / child_event_progress テーブル削除済 (2026-05-19)
 
 	CREATE TABLE IF NOT EXISTS sibling_challenges (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -612,37 +581,7 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_cloud_exports_pin
 		ON cloud_exports(pin_code);
 
-	CREATE TABLE IF NOT EXISTS tenant_events (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		tenant_id TEXT NOT NULL,
-		event_code TEXT NOT NULL,
-		year INTEGER NOT NULL,
-		enabled INTEGER NOT NULL DEFAULT 1,
-		target_override TEXT,
-		reward_memo TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_events_unique
-		ON tenant_events(tenant_id, event_code, year);
-	CREATE INDEX IF NOT EXISTS idx_tenant_events_tenant_year
-		ON tenant_events(tenant_id, year);
-
-	CREATE TABLE IF NOT EXISTS tenant_event_progress (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		tenant_id TEXT NOT NULL,
-		event_code TEXT NOT NULL,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		year INTEGER NOT NULL,
-		current_count INTEGER NOT NULL DEFAULT 0,
-		completed_at TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_tenant_event_progress_unique
-		ON tenant_event_progress(tenant_id, event_code, child_id, year);
-	CREATE INDEX IF NOT EXISTS idx_tenant_event_progress_child
-		ON tenant_event_progress(child_id, year);
+	-- #2295 (EPIC #2294 ①): tenant_events / tenant_event_progress テーブル削除済 (2026-05-19)
 
 	CREATE TABLE IF NOT EXISTS auto_challenges (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

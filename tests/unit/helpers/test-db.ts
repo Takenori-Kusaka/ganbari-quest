@@ -642,39 +642,7 @@ export const SQL_TABLES = `
 	CREATE INDEX idx_cloud_exports_tenant ON cloud_exports(tenant_id);
 	CREATE INDEX idx_cloud_exports_pin ON cloud_exports(pin_code);
 
-	-- ============================================================
-	-- tenant_events
-	-- ============================================================
-	CREATE TABLE tenant_events (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		tenant_id TEXT NOT NULL,
-		event_code TEXT NOT NULL,
-		year INTEGER NOT NULL,
-		enabled INTEGER NOT NULL DEFAULT 1,
-		target_override TEXT,
-		reward_memo TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX idx_tenant_events_unique ON tenant_events(tenant_id, event_code, year);
-	CREATE INDEX idx_tenant_events_tenant_year ON tenant_events(tenant_id, year);
-
-	-- ============================================================
-	-- tenant_event_progress
-	-- ============================================================
-	CREATE TABLE tenant_event_progress (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		tenant_id TEXT NOT NULL,
-		event_code TEXT NOT NULL,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		year INTEGER NOT NULL,
-		current_count INTEGER NOT NULL DEFAULT 0,
-		completed_at TEXT,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX idx_tenant_event_progress_unique ON tenant_event_progress(tenant_id, event_code, child_id, year);
-	CREATE INDEX idx_tenant_event_progress_child ON tenant_event_progress(child_id, year);
+	-- #2295 (EPIC #2294 ①): tenant_events / tenant_event_progress テーブル定義削除済 (2026-05-19)
 
 	-- ============================================================
 	-- auto_challenges
@@ -819,8 +787,7 @@ const ALL_TABLES = [
 	'trial_history',
 	'viewer_tokens',
 	'auto_challenges',
-	'tenant_event_progress',
-	'tenant_events',
+	// #2295 (EPIC #2294 ①): tenant_event_progress / tenant_events テーブル削除済 (2026-05-19)
 	'cloud_exports',
 	// 'custom_achievements',  // #1816: 物理削除済み (2026-05-01)
 	'certificates',

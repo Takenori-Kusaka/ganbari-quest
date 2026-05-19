@@ -300,33 +300,12 @@ export async function recordActivity(
 	// デイリーミッション判定
 	const missionResult = await checkMissionCompletion(childId, activityId, tenantId);
 
-	// イベントミッション進捗チェック
-	let eventMissionResults: { eventId: number; missionComplete: boolean; eventName: string }[] = [];
-	try {
-		const { checkEventMissionProgress } = await import('$lib/server/services/season-event-service');
-		eventMissionResults = await checkEventMissionProgress(childId, tenantId);
-	} catch {
-		// イベントミッションチェック失敗は記録フローを止めない
-	}
-
-	// シーズンパス進捗チェック
-	try {
-		const { incrementSeasonPassProgress } = await import(
-			'$lib/server/services/seasonal-content-service'
-		);
-		await incrementSeasonPassProgress(childId, tenantId);
-	} catch {
-		// シーズンパス進捗失敗は記録フローを止めない
-	}
-
-	// カレンダーイベント進捗チェック（新: season-event-calendar ベース）
-	let calendarEventResults: { eventCode: string; eventName: string; completed: boolean }[] = [];
-	try {
-		const { incrementEventProgress } = await import('$lib/server/services/calendar-event-service');
-		calendarEventResults = await incrementEventProgress(childId, activity.categoryId, tenantId);
-	} catch {
-		// カレンダーイベント進捗失敗は記録フローを止めない
-	}
+	// #2295 (EPIC #2294 ①): シーズンイベント / シーズンパス / カレンダーイベント進捗チェック削除済 (2026-05-19)
+	// season-event-service / seasonal-content-service / calendar-event-service とも撤去。
+	// 後続で参照される空配列は型整合のため宣言だけ残す。
+	const eventMissionResults: { eventId: number; missionComplete: boolean; eventName: string }[] =
+		[];
+	const calendarEventResults: { eventCode: string; eventName: string; completed: boolean }[] = [];
 
 	// 自動チャレンジ進捗チェック
 	// #2097 Fix 2: 循環依存解消 (activity-log-aggregation 抽出) により dynamic import 撤廃。

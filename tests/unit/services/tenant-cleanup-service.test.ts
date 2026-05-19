@@ -53,13 +53,12 @@ const mockSpecialRewardRepo = mkTenantDelete();
 const mockActivityPrefRepo = mkTenantDelete();
 const mockActivityMasteryRepo = mkTenantDelete();
 const mockMessageRepo = mkTenantDelete();
-const mockTenantEventRepo = mkTenantDelete();
+// #2295 (EPIC #2294 ①): mockTenantEventRepo / mockSeasonEventRepo 削除済 (2026-05-19)
 const mockTrialHistoryRepo = mkTenantDelete();
 const mockSiblingChallengeRepo = mkTenantDelete();
 const mockSiblingCheerRepo = mkTenantDelete();
 const mockAutoChallengeRepo = mkTenantDelete();
 const mockReportDailySummaryRepo = mkTenantDelete();
-const mockSeasonEventRepo = mkTenantDelete();
 const mockImageRepo = mkTenantDelete();
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -82,13 +81,12 @@ vi.mock('$lib/server/db/factory', () => ({
 		activityPref: mockActivityPrefRepo,
 		activityMastery: mockActivityMasteryRepo,
 		message: mockMessageRepo,
-		tenantEvent: mockTenantEventRepo,
+		// #2295: tenantEvent / seasonEvent 削除済
 		trialHistory: mockTrialHistoryRepo,
 		siblingChallenge: mockSiblingChallengeRepo,
 		siblingCheer: mockSiblingCheerRepo,
 		autoChallenge: mockAutoChallengeRepo,
 		reportDailySummary: mockReportDailySummaryRepo,
-		seasonEvent: mockSeasonEventRepo,
 		image: mockImageRepo,
 	}),
 }));
@@ -199,12 +197,11 @@ describe('deleteTenantScopedData', () => {
 		expect(mockActivityPrefRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 		expect(mockActivityMasteryRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 		expect(mockMessageRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
-		expect(mockTenantEventRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
+		// #2295: tenantEvent / seasonEvent 削除済
 		expect(mockSiblingChallengeRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 		expect(mockSiblingCheerRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 		expect(mockAutoChallengeRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 		expect(mockReportDailySummaryRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
-		expect(mockSeasonEventRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 		expect(mockImageRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 	});
 

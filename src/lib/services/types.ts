@@ -353,14 +353,11 @@ export interface ChildHomeFeatureFlags {
 	showMissionBadge: boolean;
 	/** Pin (ピン留め) ボタン表示 */
 	showPinButton: boolean;
-	/** Event badge (期間限定イベント) 表示 */
-	showEventBadge: boolean;
+	// #2295 (EPIC #2294 ①): showEventBadge / showMonthlyReward 削除済 (2026-05-19) — シーズンイベント機構撤去
 	/** Sibling ranking (兄弟ランキング) 表示 */
 	showSiblingRanking: boolean;
 	/** Birthday bonus 表示 */
 	showBirthdayBonus: boolean;
-	/** Monthly reward 表示 */
-	showMonthlyReward: boolean;
 	/** Stamp card 表示 (おみくじスタンプ) */
 	showStampCard: boolean;
 }

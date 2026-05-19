@@ -1,5 +1,4 @@
 import { fail } from '@sveltejs/kit';
-import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { getActivityDisplayName } from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -25,11 +24,7 @@ import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-s
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownMessage } from '$lib/server/services/message-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
-import {
-	claimEventReward,
-	getActiveEventsForChild,
-} from '$lib/server/services/season-event-service';
-import { getMonthlyPremiumReward } from '$lib/server/services/seasonal-content-service';
+// #2295 (EPIC #2294 ①): season-event-service / seasonal-content-service 撤去済 (2026-05-19)
 import {
 	claimChallengeReward as claimChallengeRewardService,
 	getActiveChallengesForChild,
@@ -78,11 +73,9 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			focusMode: false,
 			recommendedActivityIds: [],
 			birthdayBonus: null,
-			activeEvents: [],
 			activeChallenges: [],
 			siblingRanking: null,
 			unshownCheers: [],
-			monthlyPremiumReward: null,
 			specialRewardProgress: null,
 			mustStatus: null,
 		};
@@ -106,18 +99,17 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			focusMode: false,
 			recommendedActivityIds: [],
 			birthdayBonus: null,
-			activeEvents: [],
 			activeChallenges: [],
 			siblingRanking: null,
 			unshownCheers: [],
 			familyStreak: null,
-			monthlyPremiumReward: null,
 			specialRewardProgress: null,
 			mustStatus: null,
 		};
 	}
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
+	// #2295 (EPIC #2294 ①): activeEvents / monthlyPremiumReward 削除済 (2026-05-19)
 	const [
 		rawActivities,
 		todayRecorded,
@@ -130,7 +122,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		categoryXp,
 		hasRecords,
 		birthdayBonusStatus,
-		activeEvents,
 		activeChallenges,
 		unshownCheers,
 		familyStreakData,
@@ -147,7 +138,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getCategoryXpSummary(child.id, tenantId),
 		hasAnyActivityRecords(child.id, tenantId),
 		getBirthdayBonusStatus(child.id, tenantId),
-		getActiveEventsForChild(child.id, tenantId),
 		getActiveChallengesForChild(child.id, tenantId),
 		getUnshownCheers(child.id, tenantId),
 		getFamilyStreak(tenantId),
@@ -243,7 +233,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		focusMode: recommendations.length > 0,
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
-		activeEvents,
 		activeChallenges,
 		siblingRanking,
 		unshownCheers,
@@ -253,11 +242,6 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 					nextMilestone: getNextMilestone(familyStreakData.currentStreak),
 				}
 			: null,
-		monthlyPremiumReward: await getMonthlyPremiumReward(
-			child.id,
-			tenantId,
-			parentData.isPremium ?? false,
-		).catch(() => null),
 		specialRewardProgress,
 		mustStatus,
 	};
@@ -301,7 +285,6 @@ export const actions: Actions = {
 			cancelableUntil: result.cancelableUntil,
 			comboBonus: result.comboBonus,
 			missionComplete: result.missionComplete,
-			eventMissions: result.eventMissions,
 			focusBonus: result.focusBonus,
 			levelUp: result.levelUp,
 			masteryBonus: result.masteryBonus,
@@ -500,37 +483,7 @@ export const actions: Actions = {
 		};
 	},
 
-	claimEventReward: async ({ request, cookies, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const eventId = Number(formData.get('eventId'));
-
-		if (Number.isNaN(childId) || Number.isNaN(eventId)) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-
-		try {
-			const result = await claimEventReward(childId, eventId, tenantId);
-			let rewardInfo: { points?: number; title?: string } = {};
-			if (result.rewardConfig) {
-				try {
-					rewardInfo = JSON.parse(result.rewardConfig);
-				} catch {
-					/* ignore */
-				}
-			}
-			return {
-				success: true,
-				eventRewardClaimed: true,
-				rewardPoints: rewardInfo.points ?? 0,
-				rewardTitle: rewardInfo.title ?? '',
-			};
-		} catch (err) {
-			const message = err instanceof Error ? err.message : 'ほうしゅうをうけとれませんでした';
-			return fail(400, { error: message });
-		}
-	},
+	// #2295 (EPIC #2294 ①): claimEventReward action 削除済 (2026-05-19)
 
 	claimChallengeReward: async ({ request, cookies, locals }) => {
 		const tenantId = requireTenantId(locals);
@@ -595,34 +548,5 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
-	claimMonthlyReward: async ({ request, cookies, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		const childId = Number(cookies.get('selectedChildId'));
-		const eventId = Number(formData.get('eventId'));
-
-		if (Number.isNaN(childId) || Number.isNaN(eventId)) {
-			return fail(400, { error: 'パラメータが不正です' });
-		}
-
-		try {
-			const { claimMonthlyPremiumReward } = await import(
-				'$lib/server/services/seasonal-content-service'
-			);
-			const { isPaidTier, resolveFullPlanTier } = await import(
-				'$lib/server/services/plan-limit-service'
-			);
-			const isPremium = isPaidTier(
-				await resolveFullPlanTier(
-					tenantId,
-					locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
-					locals.context?.plan,
-				),
-			);
-			const reward = await claimMonthlyPremiumReward(childId, eventId, tenantId, isPremium);
-			return { claimedReward: reward };
-		} catch {
-			return fail(500, { error: '月替わり報酬の受け取りに失敗しました' });
-		}
-	},
+	// #2295 (EPIC #2294 ①): claimMonthlyReward action 削除済 (2026-05-19)
 };

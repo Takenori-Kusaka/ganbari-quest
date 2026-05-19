@@ -401,10 +401,13 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 	},
 	{
 		from: '/demo/admin/events',
-		to: '/admin/events',
+		// #2295 (EPIC #2294 ①): /admin/events 自体も撤去 → /admin/challenges に統合のため、
+		//   /demo/admin/events も最終 hop を /admin/challenges に更新 (中間 hop 削減 / 永久 308)
+		to: '/admin/challenges',
 		deletedAt: '2026-05-17',
 		issue: '#2188',
-		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+		reason:
+			'#2097 PR-B3: /demo/admin/* 撤去 + #2295 シーズンイベント機構廃止 → /admin/challenges redirect を 1 段化',
 	},
 	{
 		from: '/demo/admin/license',
@@ -501,6 +504,17 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		issue: '#2188',
 		reason:
 			'#2097 PR-B3: /demo landing 撤去 — LP CTA は #2181 で demo.ganbari-quest.com 切替済、root LP fallback',
+	},
+	// #2295 (EPIC #2294 ①): /admin/events 廃止 — シーズンイベント機構を完全撤去 (ADR-0012 + ADR-0013 二重違反解消)
+	// Research 2 段階で実機構ゼロ + 業界事例ゼロ + 自動配信ロジック皆無の dead UI と確定。
+	// チャレンジ機構が代替価値提供のため /admin/challenges に救済。
+	{
+		from: '/admin/events',
+		to: '/admin/challenges',
+		deletedAt: '2026-05-19',
+		issue: '#2295',
+		reason:
+			'シーズンイベント機構撤去 (ADR-0012 + ADR-0013 二重違反 + 業界事例ゼロ)、代替価値はチャレンジ機能',
 	},
 	// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 + 応援機能 /admin/cheer に統合
 	// PO 報告 (2026-05-19) 「メッセージだけ送る機能は意味なし、応援は任意理由 + 直接 P 付与が核」
