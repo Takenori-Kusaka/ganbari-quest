@@ -1,0 +1,167 @@
+{
+	"type": "challenge-set",
+	"itemId": "japan-annual-events",
+	"name": "日本年間行事パック",
+	"description": "お正月・節分・ひな祭り・こどもの日・七夕・お盆・お月見・ハロウィン・クリスマス…。家族で取り組む日本の年中行事 15 件をまとめた協力チャレンジ集です。",
+	"icon": "🎌",
+	"targetAgeMin": 4,
+	"targetAgeMax": 15,
+	"tags": ["年中行事", "日本文化", "家族で取り組む", "季節"],
+	"personas": ["routine-focused", "achievement-focused", "first-child", "sibling"],
+	"curator": "official",
+	"gender": "neutral",
+	"payload": {
+		"challenges": [
+			{
+				"title": "お正月の家族ミッション",
+				"description": "おせちのお手伝い・年賀状書き・大掃除の総仕上げ。家族で新しい年をむかえる準備をしよう。",
+				"monthDay": "01-07",
+				"durationDays": 7,
+				"categoryId": 3,
+				"baseTarget": 5,
+				"rewardPoints": 50,
+				"icon": "🎍"
+			},
+			{
+				"title": "節分の鬼退治チャレンジ",
+				"description": "豆まきの準備・恵方巻きづくり・節分の絵本読み。家族で福をよびこむ協力ミッション。",
+				"monthDay": "02-03",
+				"durationDays": 3,
+				"categoryId": 4,
+				"baseTarget": 3,
+				"rewardPoints": 30,
+				"icon": "👹"
+			},
+			{
+				"title": "ひな祭り大そうじ + 飾りつけ",
+				"description": "ひな人形の飾りつけ・お部屋のお片付け・ちらし寿司のお手伝い。",
+				"monthDay": "03-03",
+				"durationDays": 3,
+				"categoryId": 3,
+				"baseTarget": 3,
+				"rewardPoints": 30,
+				"icon": "🎎"
+			},
+			{
+				"title": "春のお花見じゅんびチャレンジ",
+				"description": "桜のかんさつ・お弁当のお手伝い・公園での自然あそび。",
+				"monthDay": "04-05",
+				"durationDays": 7,
+				"categoryId": 1,
+				"baseTarget": 5,
+				"rewardPoints": 40,
+				"icon": "🌸"
+			},
+			{
+				"title": "こどもの日プロジェクト",
+				"description": "こいのぼり飾りつけ・かぶと作り・しょうぶ湯のじゅんび。家族でお祝いしよう。",
+				"monthDay": "05-05",
+				"durationDays": 5,
+				"categoryId": 5,
+				"baseTarget": 4,
+				"rewardPoints": 50,
+				"icon": "🎏"
+			},
+			{
+				"title": "梅雨のおうち時間チャレンジ",
+				"description": "雨の日でも楽しめる読書・工作・室内うんどう。家族で『雨の日リスト』を消化していこう。",
+				"monthDay": "06-15",
+				"durationDays": 14,
+				"categoryId": 5,
+				"baseTarget": 10,
+				"rewardPoints": 60,
+				"icon": "☔"
+			},
+			{
+				"title": "七夕短冊チャレンジ",
+				"description": "短冊にねがいごとを書く・笹かざりを作る・夜空の星をみる。",
+				"monthDay": "07-07",
+				"durationDays": 7,
+				"categoryId": 5,
+				"baseTarget": 3,
+				"rewardPoints": 30,
+				"icon": "🎋"
+			},
+			{
+				"title": "夏休み読書記録チャレンジ",
+				"description": "夏休みの自由読書を家族でカウントアップ。読書感想文の下じゅんびにも。",
+				"monthDay": "08-31",
+				"durationDays": 42,
+				"categoryId": 2,
+				"baseTarget": 10,
+				"rewardPoints": 100,
+				"icon": "📚"
+			},
+			{
+				"title": "お盆のおてつだいチャレンジ",
+				"description": "お墓まいり・親せきのおむかえ・夏野菜のおてつだい。",
+				"monthDay": "08-15",
+				"durationDays": 5,
+				"categoryId": 4,
+				"baseTarget": 3,
+				"rewardPoints": 30,
+				"icon": "🏮"
+			},
+			{
+				"title": "お月見だんご作りチャレンジ",
+				"description": "お月見だんごを家族で作る・ススキを飾る・夜にお月さまをかんさつ。",
+				"monthDay": "09-21",
+				"durationDays": 5,
+				"categoryId": 5,
+				"baseTarget": 3,
+				"rewardPoints": 30,
+				"icon": "🌕"
+			},
+			{
+				"title": "敬老の日メッセージ",
+				"description": "おじいちゃん・おばあちゃんへ手紙やイラストを書く・電話する・直接会いに行く。",
+				"monthDay": "09-15",
+				"durationDays": 7,
+				"categoryId": 4,
+				"baseTarget": 3,
+				"rewardPoints": 50,
+				"icon": "👴"
+			},
+			{
+				"title": "ハロウィン仮装プロジェクト",
+				"description": "仮装の準備・かぼちゃのランタン作り・お菓子の交換。家族でハロウィンを楽しもう。",
+				"monthDay": "10-31",
+				"durationDays": 7,
+				"categoryId": 5,
+				"baseTarget": 4,
+				"rewardPoints": 40,
+				"icon": "🎃"
+			},
+			{
+				"title": "七五三の準備チャレンジ",
+				"description": "晴れ着の用意・写真撮影の前じゅんび・神社へのお参り。",
+				"monthDay": "11-15",
+				"durationDays": 7,
+				"categoryId": 3,
+				"baseTarget": 3,
+				"rewardPoints": 30,
+				"icon": "👘"
+			},
+			{
+				"title": "クリスマス家族プロジェクト",
+				"description": "ツリーの飾りつけ・プレゼント準備のお手伝い・ケーキ作り・家族で歌う。",
+				"monthDay": "12-25",
+				"durationDays": 10,
+				"categoryId": 5,
+				"baseTarget": 5,
+				"rewardPoints": 60,
+				"icon": "🎄"
+			},
+			{
+				"title": "年末大そうじチャレンジ",
+				"description": "家族で分担して大そうじ。窓ふき・げんかん・お風呂・自分のお部屋まで。",
+				"monthDay": "12-31",
+				"durationDays": 7,
+				"categoryId": 3,
+				"baseTarget": 7,
+				"rewardPoints": 70,
+				"icon": "🧹"
+			}
+		]
+	}
+}

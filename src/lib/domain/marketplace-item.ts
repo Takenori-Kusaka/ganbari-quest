@@ -12,7 +12,15 @@ import type { RewardCategory } from './validation/special-reward.js';
 
 // ── Content Type ─────────────────────────────────────────────
 
-export type MarketplaceItemType = 'activity-pack' | 'reward-set' | 'checklist' | 'rule-preset';
+// #2297 (EPIC #2294 ③): challenge-set 追加 (4 type → 5 type)。
+// 案 B-γ 日本ローカライズ wedge: 日本年間行事パック (15 件入り) 等を配信し
+// マーケプレ → /admin/challenges import 経路を確立。
+export type MarketplaceItemType =
+	| 'activity-pack'
+	| 'reward-set'
+	| 'checklist'
+	| 'rule-preset'
+	| 'challenge-set';
 
 // ── Persona Tags ─────────────────────────────────────────────
 
@@ -116,6 +124,26 @@ export interface RulePresetPayload {
 	}[];
 }
 
+// #2297 (EPIC #2294 ③): challenge-set payload
+// 協力タイプ固定 (EPIC #2294 ② で競争タイプ UI 削除のため challenge-set でも cooperative 固定)。
+// startDate / endDate は 'MM-DD' 形式 (毎年同月日に開催される年間行事の論理表現)。
+// import 時は service 側で当該年の日付に展開する。
+export interface ChallengeSetPayload {
+	challenges: {
+		title: string;
+		description: string;
+		/** 'MM-DD' (例: '03-03' = ひな祭り) */
+		monthDay: string;
+		/** 期間 (日数)。startDate = monthDay の N 日前。endDate = monthDay。 */
+		durationDays: number;
+		/** 1=undou 2=benkyou 3=seikatsu 4=kouryuu 5=souzou */
+		categoryId: 1 | 2 | 3 | 4 | 5;
+		baseTarget: number;
+		rewardPoints: number;
+		icon: string;
+	}[];
+}
+
 // ── Payload type map ─────────────────────────────────────────
 
 export interface MarketplacePayloadMap {
@@ -123,6 +151,7 @@ export interface MarketplacePayloadMap {
 	'reward-set': RewardSetPayload;
 	checklist: ChecklistPayload;
 	'rule-preset': RulePresetPayload;
+	'challenge-set': ChallengeSetPayload;
 }
 
 // ── Unified MarketplaceItem ──────────────────────────────────
@@ -171,6 +200,7 @@ export const MARKETPLACE_TYPE_LABELS: Record<MarketplaceItemType, string> = {
 	'reward-set': 'ごほうびセット',
 	checklist: 'チェックリスト',
 	'rule-preset': 'とくべつルール',
+	'challenge-set': 'チャレンジ集',
 };
 
 export const MARKETPLACE_TYPE_ICONS: Record<MarketplaceItemType, string> = {
@@ -178,4 +208,5 @@ export const MARKETPLACE_TYPE_ICONS: Record<MarketplaceItemType, string> = {
 	'reward-set': '🎁',
 	checklist: '✅',
 	'rule-preset': '📜',
+	'challenge-set': '🎯',
 };

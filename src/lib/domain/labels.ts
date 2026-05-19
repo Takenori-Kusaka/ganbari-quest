@@ -868,6 +868,8 @@ export const MARKETPLACE_LABELS = {
 	detailIncludedRewards: 'ふくまれるごほうび',
 	detailChecklistItems: 'チェック項目',
 	detailRuleContent: 'ルール内容',
+	/** #2297 (EPIC #2294 ③): challenge-set ふくまれるチャレンジ見出し */
+	detailIncludedChallenges: 'ふくまれるチャレンジ',
 	detailLegacyPackNote: '既存の活動パックから使えるようになります。詳しくは',
 	detailLegacyPackLink: 'パック詳細ページ',
 	detailLegacyPackSuffix: 'をご覧ください。',
@@ -923,6 +925,17 @@ export const MARKETPLACE_LABELS = {
 	detailCtaImportRuleSignedOut: '一括追加するには登録 / ログインが必要です',
 	detailRuleImportLinkToBonusList: '取込済ルール一覧へ →',
 	detailRuleImportLinkToRewardsList: 'ごほうび一覧へ →',
+	// #2297 (EPIC #2294 ③): challenge-set 一括追加 CTA
+	detailCtaImportChallengeSet: '🎯 このチャレンジ集を使ってみる',
+	detailCtaImportChallengeSetWithCount: (count: number) =>
+		`🎯 このチャレンジ集を使ってみる (${count}件)`,
+	detailCtaImportChallengeSetDesc:
+		'家族の見守り画面でフォームに反映されます。家族でお祝いしたい行事だけ選んで保存してください。',
+	detailCtaImportChallengeSetSignedOut: 'チャレンジ集を使うには登録 / ログインが必要です',
+	detailChallengeSetImportSuccess: (presetName: string, count: number) =>
+		`✨ 「${presetName}」から ${count} 件のチャレンジを追加しました`,
+	detailChallengeSetImportDuplicate: (presetName: string) =>
+		`⚠️ 「${presetName}」は既に取込済みです`,
 	backToTypeListSuffix: '一覧に戻る',
 	typeCountSuffix: '種',
 } as const;

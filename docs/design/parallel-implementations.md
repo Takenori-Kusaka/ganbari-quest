@@ -292,6 +292,37 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - 重複検知ロジック (`sameSourceTitles`) 変更 → unit テスト 3 件 (「同一 preset 同一 title」/「別 preset 同名」/「sourcePresetId=null 手動 reward」) で誤検知ガード
 - reward の即時付与（grant）と一括取込（import）の区別: 一括取込は **point 加算しない**（"候補登録"）。grant は `insertPointEntry` を呼ぶ
 
+#### 7e. marketplace challenge-set 一括追加 (#2297, EPIC #2294 ③)
+
+`src/lib/data/marketplace/challenge-sets/*.json` (現状 1 件: 日本年間行事パック 15 件入り) は **マーケットプレイス詳細ページ → /admin/challenges 画面**の動線で一括取込される。`MarketplaceItemType` を 4 → 5 type に拡張した実装。
+
+**並行実装ペア (`MarketplaceItemType` 拡張時の同期対象)**:
+
+| 場所 | 内容 | 技術 |
+|------|------|------|
+| `src/lib/domain/marketplace-item.ts` | `MarketplaceItemType` enum + `MarketplacePayloadMap` + `MARKETPLACE_TYPE_LABELS` + `MARKETPLACE_TYPE_ICONS` + 新規 `ChallengeSetPayload` interface | TypeScript |
+| `src/lib/data/marketplace/challenge-sets/*.json` | challenge-set preset (15 件入りパック等) | JSON |
+| `src/lib/data/marketplace/index.ts` | `allItems` 配列 + `getMarketplaceCounts` + `countPayloadItems` | TypeScript |
+| `src/routes/marketplace/+page.svelte` | `typeKeys` 配列 (5 type) + grid-cols mobile 2 列 / SP 3 列 / desktop 5 列 | Svelte |
+| `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | `VALID_TYPES` 配列 | TypeScript |
+| `src/routes/marketplace/[type]/[itemId]/+page.svelte` | challenge-set 詳細表示 + 「使ってみる」CTA → `/admin/challenges?marketplace-import=<id>` 遷移 | Svelte |
+| `src/routes/(parent)/admin/challenges/+page.{svelte,server.ts}` | `marketplace-import` query 受取 → preview UI + `?/importChallengeSet` form action (一括 `createSiblingChallenge` ループ) | Svelte / TS |
+| `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailIncludedChallenges` / `detailCtaImportChallengeSet*` | TypeScript |
+
+**同期メカニズム**: `tests/unit/domain/marketplace-items.test.ts` で type enum 完全性確認 + `tests/e2e/marketplace-challenge-set-import.spec.ts` で詳細 → admin 遷移 → 一括追加フロー検証。
+
+**AN-5 補強 (#2180 観察 4 #2297 関連)**: `MarketplaceItemType` 拡張時は以下を全件触ること:
+1. `marketplace-item.ts` enum + Payload interface + LABEL/ICON 4 箇所
+2. `marketplace/index.ts` の `countPayloadItems` + `getMarketplaceCounts`
+3. `routes/marketplace/+page.svelte` `typeKeys` + grid-cols
+4. `routes/marketplace/[type]/[itemId]/+page.server.ts` `VALID_TYPES`
+5. `routes/marketplace/[type]/[itemId]/+page.svelte` 表示 block + CTA block
+6. import 先 admin 画面 (`/admin/<type-target>`) に query param 受取り + preview UI + form action
+
+**修正時チェック**:
+- 新しい challenge-set preset 追加 → `marketplaceImport` 先のチャレンジ展開ロジック (`expandChallengeSetDates`) で当該 monthDay/durationDays が正しく実日付に展開されるか単体確認
+- `MarketplaceItemType` enum 追加時は本表 6 項目全件のうち 1 つでも漏れると svelte-check or runtime で fail する設計
+
 ---
 
 #### 8. 設計書 vs 実装
