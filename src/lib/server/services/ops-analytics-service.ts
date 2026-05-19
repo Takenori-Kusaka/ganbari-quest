@@ -1,6 +1,7 @@
 // src/lib/server/services/ops-analytics-service.ts
 // #822: OPS 分析サービス — LTV / コホート / MRR 内訳
 // #1602 (ADR-0023 I13): setup challenges 選択分布を追加
+// #2285 (EPIC #2283): /admin/analytics 撤去に伴い Activation Funnel を ops 側に移動
 //
 // +page.server.ts からビジネスロジックを抽出（アーキテクチャ規約準拠）。
 
@@ -10,6 +11,7 @@ import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { isStripeEnabled } from '$lib/server/stripe/client';
+import { type ActivationFunnelResult, getActivationFunnel } from './analytics-service';
 
 // ============================================================
 // #1602: Setup challenges preset distribution
@@ -124,6 +126,8 @@ export interface OpsAnalyticsData {
 			consentedAt: string;
 		}>;
 	};
+	/** Activation funnel (signup → 初回家庭メンバー登録 → 初回活動完了 → 初回報酬演出) — #2285 (EPIC #2283) */
+	activationFunnel: ActivationFunnelResult | null;
 	stripeEnabled: boolean;
 	fetchedAt: string;
 }
@@ -169,7 +173,12 @@ export function computeAnalytics(
 	now?: Date,
 ): Omit<
 	OpsAnalyticsData,
-	'stripeEnabled' | 'fetchedAt' | 'presetDistribution' | 'cancellationReasons' | 'graduation'
+	| 'stripeEnabled'
+	| 'fetchedAt'
+	| 'presetDistribution'
+	| 'cancellationReasons'
+	| 'graduation'
+	| 'activationFunnel'
 > {
 	// `presetDistribution` は settings 取得が必要なため computeAnalytics スコープ外。
 	// `getAnalyticsData` で別途集計し合成する (#1602)。
@@ -407,6 +416,7 @@ export function emptyAnalytics(): OpsAnalyticsData {
 			graduationRate: 0,
 			publicSamples: [],
 		},
+		activationFunnel: null,
 		stripeEnabled: false,
 		fetchedAt: new Date().toISOString(),
 	};
@@ -550,11 +560,24 @@ export async function getAnalyticsData(): Promise<OpsAnalyticsData> {
 		});
 	}
 
+	// #2285 (EPIC #2283): Activation Funnel を ops 側に移動
+	// /admin/analytics 撤去で消失する Activation Funnel 機能を /ops/analytics で継続提供する。
+	// funnelPeriod = '30d' 固定 (ops 専用、period switch UI なし、Pre-PMF コスト最小化)。
+	let activationFunnel: ActivationFunnelResult | null = null;
+	try {
+		activationFunnel = await getActivationFunnel('30d');
+	} catch (e) {
+		logger.warn('[OPS/analytics] Failed to load activation funnel', {
+			context: { error: e instanceof Error ? e.message : String(e) },
+		});
+	}
+
 	return {
 		...result,
 		presetDistribution,
 		cancellationReasons,
 		graduation,
+		activationFunnel,
 		stripeEnabled: isStripeEnabled(),
 		fetchedAt: new Date().toISOString(),
 	};

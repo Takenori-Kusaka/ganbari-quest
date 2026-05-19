@@ -41,6 +41,56 @@ function barWidthPct(count: number): number {
 		{OPS_ANALYTICS_LABELS.fetchedAt(new Date(a.fetchedAt).toLocaleString('ja-JP'))}
 	</div>
 
+	<!-- Activation Funnel (#2285 EPIC #2283: /admin/analytics 撤去で消失する機能を ops 側へ移動) -->
+	<section data-testid="ops-activation-funnel-section">
+		<Card padding="lg">
+			<h2 class="ops-section-title m-0 mb-1">{OPS_ANALYTICS_LABELS.activationFunnelTitle}</h2>
+			<p class="text-xs text-[var(--color-text-muted)] mb-4">
+				{OPS_ANALYTICS_LABELS.activationFunnelDesc}
+			</p>
+
+			{#if !a.activationFunnel || a.activationFunnel.steps.every((s) => s.count === 0)}
+				<p
+					class="text-sm text-[var(--color-text-muted)]"
+					data-testid="ops-activation-funnel-empty"
+				>
+					{OPS_ANALYTICS_LABELS.activationFunnelEmpty}
+				</p>
+			{:else}
+				<table class="ops-table" data-testid="ops-activation-funnel-table">
+					<thead>
+						<tr>
+							<th>{OPS_ANALYTICS_LABELS.activationFunnelStepCol}</th>
+							<th class="ops-num">{OPS_ANALYTICS_LABELS.activationFunnelCountCol}</th>
+							<th class="ops-num">{OPS_ANALYTICS_LABELS.activationFunnelConversionCol}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each a.activationFunnel.steps as step (step.eventName)}
+							<tr>
+								<td>
+									{OPS_ANALYTICS_LABELS.activationFunnelStepLabels[
+										step.eventName as keyof typeof OPS_ANALYTICS_LABELS.activationFunnelStepLabels
+									] ?? step.eventName}
+								</td>
+								<td class="ops-num">
+									{step.count.toLocaleString('ja-JP')}{OPS_ANALYTICS_LABELS.activationFunnelHouseholdSuffix}
+								</td>
+								<td class="ops-num">
+									{#if step.step === 1}
+										—
+									{:else}
+										{(step.conversionFromPrev * 100).toFixed(1)}%
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</Card>
+	</section>
+
 	<!-- LTV KPI カード -->
 	<section>
 		<h2 class="ops-section-title">{OPS_ANALYTICS_LABELS.ltvSectionTitle}</h2>
