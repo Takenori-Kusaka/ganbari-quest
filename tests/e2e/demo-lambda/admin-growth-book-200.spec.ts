@@ -24,7 +24,7 @@ test.describe('Demo Lambda /admin/growth-book 500 修正 (#2262)', () => {
 		expect(res?.status()).toBeLessThan(400);
 		await expect(page).toHaveURL(/\/admin\/growth-book/);
 		// page.svelte: <h2>📖 成長記録ブック</h2> (GROWTH_BOOK_LABELS.pageHeading)。
-		// チュートリアル / フィードバック等 dialog の h2 と混ざるため role+name で uniquify する。
+		// チュートリアル / フィードバック等 dialog の h2 と混ざるため role+name で一意特定する。
 		await expect(page.getByRole('heading', { level: 2, name: /成長記録/ })).toBeVisible();
 	});
 
