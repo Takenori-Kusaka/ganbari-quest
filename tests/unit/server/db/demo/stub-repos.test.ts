@@ -18,12 +18,11 @@ import * as messageRepo from '../../../../../src/lib/server/db/demo/message-repo
 import * as pushSubscriptionRepo from '../../../../../src/lib/server/db/demo/push-subscription-repo';
 import * as reportDailySummaryRepo from '../../../../../src/lib/server/db/demo/report-daily-summary-repo';
 import * as rewardRedemptionRepo from '../../../../../src/lib/server/db/demo/reward-redemption-repo';
-import * as seasonEventRepo from '../../../../../src/lib/server/db/demo/season-event-repo';
+// #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 import * as siblingChallengeRepo from '../../../../../src/lib/server/db/demo/sibling-challenge-repo';
 import * as siblingCheerRepo from '../../../../../src/lib/server/db/demo/sibling-cheer-repo';
 import * as specialRewardRepo from '../../../../../src/lib/server/db/demo/special-reward-repo';
 import * as storageRepo from '../../../../../src/lib/server/db/demo/storage-repo';
-import * as tenantEventRepo from '../../../../../src/lib/server/db/demo/tenant-event-repo';
 import * as trialHistoryRepo from '../../../../../src/lib/server/db/demo/trial-history-repo';
 import * as viewerTokenRepo from '../../../../../src/lib/server/db/demo/viewer-token-repo';
 import * as voiceRepo from '../../../../../src/lib/server/db/demo/voice-repo';
@@ -201,12 +200,7 @@ describe('demo/reward-redemption-repo', () => {
 	});
 });
 
-describe('demo/season-event-repo', () => {
-	it('findActiveEvents / findAllEvents は空', async () => {
-		expect(await seasonEventRepo.findAllEvents('demo')).toEqual([]);
-		expect(await seasonEventRepo.findActiveEvents('2026-04-01', 'demo')).toEqual([]);
-	});
-});
+// #2295 (EPIC #2294 ①): demo/season-event-repo describe 削除済 (2026-05-19) — repo 自体撤去
 
 describe('demo/sibling-challenge-repo', () => {
 	// #2097 Phase B-5b: fixture を返すので空ではない
@@ -271,11 +265,7 @@ describe('demo/storage-repo (S3 等への write 権限なし)', () => {
 	});
 });
 
-describe('demo/tenant-event-repo', () => {
-	it('findByTenantAndYear は空', async () => {
-		expect(await tenantEventRepo.findByTenantAndYear('demo', 2026)).toEqual([]);
-	});
-});
+// #2295 (EPIC #2294 ①): demo/tenant-event-repo describe 削除済 (2026-05-19) — repo 自体撤去
 
 describe('demo/trial-history-repo', () => {
 	it('findLatestByTenant / findActiveTrials は undefined / 空', async () => {

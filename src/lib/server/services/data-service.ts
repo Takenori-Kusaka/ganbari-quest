@@ -95,7 +95,7 @@ export async function clearAllFamilyData(tenantId: string): Promise<ClearResult>
 
 	// 1. テナントスコープのデータ（children に紐づかないもの）を削除
 	//    trial_history / settings / checklist templates / special_rewards
-	//    templates / tenant_events / auto_challenges 等が対象
+	//    templates / auto_challenges 等が対象 (#2295: tenant_events 削除済 2026-05-19)
 	//    ⚠ voice.deleteByChild は children の ID を参照するため、
 	//      children 削除より先に実行する必要がある（#739 review fix）
 	const deletedOther = await deleteTenantScopedData(tenantId);

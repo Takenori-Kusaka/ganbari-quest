@@ -29,58 +29,17 @@ import * as cloudExportRepo from '../../../src/lib/server/db/dynamodb/cloud-expo
 import * as messageRepo from '../../../src/lib/server/db/dynamodb/message-repo';
 import * as reportDailySummaryRepo from '../../../src/lib/server/db/dynamodb/report-daily-summary-repo';
 import * as rewardRedemptionRepo from '../../../src/lib/server/db/dynamodb/reward-redemption-repo';
-import * as seasonEventRepo from '../../../src/lib/server/db/dynamodb/season-event-repo';
+// #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 import * as siblingChallengeRepo from '../../../src/lib/server/db/dynamodb/sibling-challenge-repo';
 import * as siblingCheerRepo from '../../../src/lib/server/db/dynamodb/sibling-cheer-repo';
 import * as stampCardRepo from '../../../src/lib/server/db/dynamodb/stamp-card-repo';
-import * as tenantEventRepo from '../../../src/lib/server/db/dynamodb/tenant-event-repo';
 import * as viewerTokenRepo from '../../../src/lib/server/db/dynamodb/viewer-token-repo';
 
 const TENANT = 'test-tenant';
 const TODAY = '2026-05-19';
 
 describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
-	describe('season-event-repo (Issue #2263 直接の原因)', () => {
-		it('findAllEvents は空配列を返す (500 throw しない)', async () => {
-			await expect(seasonEventRepo.findAllEvents(TENANT)).resolves.toEqual([]);
-		});
-
-		it('findActiveEvents は空配列を返す', async () => {
-			await expect(seasonEventRepo.findActiveEvents(TODAY, TENANT)).resolves.toEqual([]);
-		});
-
-		it('findEventById は undefined を返す', async () => {
-			await expect(seasonEventRepo.findEventById(1, TENANT)).resolves.toBeUndefined();
-		});
-
-		it('findEventByCode は undefined を返す', async () => {
-			await expect(seasonEventRepo.findEventByCode('halloween', TENANT)).resolves.toBeUndefined();
-		});
-
-		it('findChildProgress は undefined を返す', async () => {
-			await expect(seasonEventRepo.findChildProgress(1, 1, TENANT)).resolves.toBeUndefined();
-		});
-
-		it('findChildActiveEvents は空配列を返す', async () => {
-			await expect(seasonEventRepo.findChildActiveEvents(1, TODAY, TENANT)).resolves.toEqual([]);
-		});
-
-		it('insertEvent / updateEvent / deleteEvent / upsertChildProgress / claimReward / deleteByTenantId は throw しない', async () => {
-			await expect(
-				seasonEventRepo.insertEvent(
-					{ code: 'x', name: 'X', startDate: '2026-05-01', endDate: '2026-05-31' },
-					TENANT,
-				),
-			).resolves.toBeTruthy();
-			await expect(seasonEventRepo.updateEvent(1, { name: 'Y' }, TENANT)).resolves.toBeUndefined();
-			await expect(seasonEventRepo.deleteEvent(1, TENANT)).resolves.toBeUndefined();
-			await expect(
-				seasonEventRepo.upsertChildProgress(1, 1, 'in_progress', null, TENANT),
-			).resolves.toBeUndefined();
-			await expect(seasonEventRepo.claimReward(1, 1, TENANT)).resolves.toBeUndefined();
-			await expect(seasonEventRepo.deleteByTenantId(TENANT)).resolves.toBeUndefined();
-		});
-	});
+	// #2295 (EPIC #2294 ①): season-event-repo describe 削除済 (2026-05-19、repo 自体撤去)
 
 	describe('auto-challenge-repo', () => {
 		it('全 read method は安全値を返す', async () => {
@@ -305,25 +264,7 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('tenant-event-repo', () => {
-		it('全 method が throw しない', async () => {
-			await expect(tenantEventRepo.findByTenantAndYear(TENANT, 2026)).resolves.toEqual([]);
-			await expect(tenantEventRepo.findByEventCode(TENANT, 'x', 2026)).resolves.toBeUndefined();
-			await expect(
-				tenantEventRepo.upsertEvent({ eventCode: 'x', year: 2026 }, TENANT),
-			).resolves.toBeTruthy();
-			await expect(tenantEventRepo.updateEvent(1, { enabled: 1 }, TENANT)).resolves.toBeUndefined();
-			await expect(tenantEventRepo.findProgress(TENANT, 'x', 1, 2026)).resolves.toBeUndefined();
-			await expect(tenantEventRepo.findProgressByChild(1, 2026, TENANT)).resolves.toEqual([]);
-			await expect(
-				tenantEventRepo.upsertProgress(
-					{ eventCode: 'x', childId: 1, year: 2026, currentCount: 0 },
-					TENANT,
-				),
-			).resolves.toBeUndefined();
-			await expect(tenantEventRepo.deleteByTenantId(TENANT)).resolves.toBeUndefined();
-		});
-	});
+	// #2295 (EPIC #2294 ①): tenant-event-repo describe 削除済 (2026-05-19、repo 自体撤去)
 
 	describe('viewer-token-repo', () => {
 		it('全 method が throw しない', async () => {
@@ -335,11 +276,11 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('regression guard: 全 12 repo の Promise.all で reject されない', () => {
-		it('SSR で典型的な 12 repo 並列呼び出しが全 fulfill する', async () => {
+	describe('regression guard: 全 10 repo の Promise.all で reject されない', () => {
+		it('SSR で典型的な 10 repo 並列呼び出しが全 fulfill する', async () => {
+			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
 			// 本番 Lambda /preschool/home SSR の代表的経路を模擬
 			const results = await Promise.allSettled([
-				seasonEventRepo.findActiveEvents(TODAY, TENANT),
 				autoChallengeRepo.findActiveByChild(1, TENANT),
 				battleRepo.findTodayBattle(1, TODAY, TENANT),
 				cloudExportRepo.findByTenant(TENANT),
@@ -349,7 +290,6 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 				siblingChallengeRepo.findActiveChallenges(TODAY, TENANT),
 				siblingCheerRepo.findUnshownCheers(1, TENANT),
 				stampCardRepo.findCardByChildAndWeek(1, '2026-05-12', TENANT),
-				tenantEventRepo.findByTenantAndYear(TENANT, 2026),
 				viewerTokenRepo.findByTenant(TENANT),
 			]);
 

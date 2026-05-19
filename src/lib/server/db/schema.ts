@@ -630,51 +630,10 @@ export const parentMessages = sqliteTable(
 	],
 );
 
-// ============================================================
-// season_events - シーズンイベント定義
-// ============================================================
-export const seasonEvents = sqliteTable('season_events', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
-	code: text('code').notNull().unique(),
-	name: text('name').notNull(),
-	description: text('description'),
-	eventType: text('event_type').notNull().default('seasonal'), // seasonal / campaign / monthly
-	startDate: text('start_date').notNull(), // YYYY-MM-DD
-	endDate: text('end_date').notNull(), // YYYY-MM-DD
-	bannerIcon: text('banner_icon').notNull().default('🎉'),
-	bannerColor: text('banner_color'), // CSS color or gradient
-	themeConfig: text('theme_config'), // JSON: background, accent colors
-	rewardConfig: text('reward_config'), // JSON: title/points/stamp rewards
-	missionConfig: text('mission_config'), // JSON: event-specific missions
-	isActive: integer('is_active').notNull().default(1),
-	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-});
-
-// ============================================================
-// child_event_progress - 子供ごとのイベント参加・進捗
-// ============================================================
-export const childEventProgress = sqliteTable(
-	'child_event_progress',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		childId: integer('child_id')
-			.notNull()
-			.references(() => children.id),
-		eventId: integer('event_id')
-			.notNull()
-			.references(() => seasonEvents.id),
-		status: text('status').notNull().default('active'), // active / completed / reward_claimed
-		progressJson: text('progress_json'), // JSON: mission completions, counts
-		rewardClaimedAt: text('reward_claimed_at'),
-		joinedAt: text('joined_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [
-		uniqueIndex('idx_child_event_unique').on(table.childId, table.eventId),
-		index('idx_child_event_child').on(table.childId),
-	],
-);
+// #2295 (EPIC #2294 ①): season_events / child_event_progress テーブル削除済 (2026-05-19)
+// Research 2 段階で「シーズン機能はコア wedge を補強せず、ADR-0012 anti-engagement + ADR-0013 LP truth 二重違反」と確定。
+// 自動配信ロジック皆無 (設計書 §11.1 記述だけ放置)、業界事例ゼロのため完全撤去。
+// 並行実装ペア (sqlite / demo / dynamodb repo / service / UI / test fixtures) も同期削除。
 
 // ============================================================
 // sibling_challenges - きょうだいチャレンジ定義
@@ -876,56 +835,9 @@ export const cloudExports = sqliteTable(
 	],
 );
 
-// ============================================================
-// tenant_events - テナント別シーズンイベント有効/無効
-// ============================================================
-export const tenantEvents = sqliteTable(
-	'tenant_events',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		tenantId: text('tenant_id').notNull(),
-		eventCode: text('event_code').notNull(),
-		year: integer('year').notNull(),
-		enabled: integer('enabled').notNull().default(1),
-		targetOverride: text('target_override'), // JSON: override missions
-		rewardMemo: text('reward_memo'), // parent's reward promise
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [
-		uniqueIndex('idx_tenant_events_unique').on(table.tenantId, table.eventCode, table.year),
-		index('idx_tenant_events_tenant_year').on(table.tenantId, table.year),
-	],
-);
-
-// ============================================================
-// tenant_event_progress - テナントイベントの子供別進捗
-// ============================================================
-export const tenantEventProgress = sqliteTable(
-	'tenant_event_progress',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		tenantId: text('tenant_id').notNull(),
-		eventCode: text('event_code').notNull(),
-		childId: integer('child_id')
-			.notNull()
-			.references(() => children.id),
-		year: integer('year').notNull(),
-		currentCount: integer('current_count').notNull().default(0),
-		completedAt: text('completed_at'),
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [
-		uniqueIndex('idx_tenant_event_progress_unique').on(
-			table.tenantId,
-			table.eventCode,
-			table.childId,
-			table.year,
-		),
-		index('idx_tenant_event_progress_child').on(table.childId, table.year),
-	],
-);
+// #2295 (EPIC #2294 ①): tenant_events / tenant_event_progress テーブル削除済 (2026-05-19)
+// season_events 撤去に伴うテナント別 opt-in / 進捗テーブルも完全撤去。
+// 並行実装ペアの sqlite / demo / dynamodb repo / service / UI / test fixtures も同期削除。
 
 // ============================================================
 // auto_challenges - 自動生成ウィークリーチャレンジ

@@ -24,7 +24,6 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 	currentMonth={data.currentMonth}
 	planTier={data.planTier}
 	showPremiumWelcome={data.showPremiumWelcome}
-	seasonalInfo={data.seasonalInfo}
 	planStats={data.planStats}
 	trialStatus={data.trialStatus}
 	stripeEnabled={data.stripeEnabled}

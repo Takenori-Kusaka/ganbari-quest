@@ -37,7 +37,10 @@ export const actions: Actions = {
 		const fd = await request.formData();
 		const title = String(fd.get('title') ?? '').trim();
 		const description = String(fd.get('description') ?? '').trim() || null;
-		const challengeType = String(fd.get('challengeType') ?? 'cooperative');
+		// #2296 (EPIC #2294 ②): 新規作成は cooperative 固定 (2026-05-19)
+		// Research §3.2: 兄弟競争は Harvard Health で depression/自傷リスク 2 倍。
+		// 既存 competitive データは UI 表示のみ可、サーバー側でも防衛的に強制。
+		const challengeType = 'cooperative';
 		const periodType = String(fd.get('periodType') ?? 'weekly');
 		const startDate = String(fd.get('startDate') ?? '');
 		const endDate = String(fd.get('endDate') ?? '');

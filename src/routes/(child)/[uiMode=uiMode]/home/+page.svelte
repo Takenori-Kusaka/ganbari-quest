@@ -25,8 +25,7 @@ import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelt
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
 import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
-import EventBanner from '$lib/ui/components/EventBanner.svelte';
-import MonthlyRewardDialog from '$lib/ui/components/MonthlyRewardDialog.svelte';
+// #2295 (EPIC #2294 ①): EventBanner / MonthlyRewardDialog 削除済 (2026-05-19)
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -242,12 +241,8 @@ function isCompleted(activity: { id: number; dailyLimit: number | null }): boole
 	return getCount(activity.id) >= limit;
 }
 
-// Event badge: show first active event's icon on activity cards
-const activeEventBadge = $derived(
-	f.showEvents && data.activeEvents && data.activeEvents.length > 0
-		? (data.activeEvents[0]?.bannerIcon ?? null)
-		: null,
-);
+// #2295 (EPIC #2294 ①): activeEventBadge 削除済 (2026-05-19) — シーズンイベント機構撤去
+const activeEventBadge: string | null = null;
 
 // Per-category mission counts (ProdDashboardSections で props として渡す)
 function getCategoryMissionCount(categoryId: number) {
@@ -604,7 +599,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 			showPin: f.showPin,
 			showConfirmDialog: f.showConfirmDialog,
 			showSiblingFeatures: f.showSiblingFeatures,
-			showEvents: f.showEvents,
+			// #2295 (EPIC #2294 ①): showEvents 削除済 (2026-05-19)
 		}}
 		isPremium={data.isPremium}
 		childId={data.child?.id ?? 0}
@@ -623,10 +618,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		onRecordResult={handleRecordResult}
 	/>
 
-	<!-- Season event banners (non-baby) -->
-	{#if f.showEvents && data.activeEvents && data.activeEvents.length > 0}
-		<EventBanner events={data.activeEvents} />
-	{/if}
+	<!-- #2295 (EPIC #2294 ①): Season event banner 削除済 (2026-05-19) -->
 
 	<!-- Sibling challenge banners -->
 	{#if data.activeChallenges && data.activeChallenges.length > 0}
@@ -927,17 +919,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	/>
 {/if}
 
-<!-- Monthly premium reward modal -->
-<!-- #2097 PR-B1 hotfix: isScreenshotMode で抑止 (LP SS の modal 被り対策) -->
-{#if !isScreenshotMode && data.monthlyPremiumReward && !data.monthlyPremiumReward.claimed}
-	<MonthlyRewardDialog
-		eventId={data.monthlyPremiumReward.event.id}
-		rewardName={data.monthlyPremiumReward.config.name}
-		rewardIcon={data.monthlyPremiumReward.config.icon}
-		rewardDescription={data.monthlyPremiumReward.config.description}
-		claimed={data.monthlyPremiumReward.claimed}
-	/>
-{/if}
+<!-- #2295 (EPIC #2294 ①): Monthly premium reward modal 削除済 (2026-05-19) -->
 {/if}
 
 <style>

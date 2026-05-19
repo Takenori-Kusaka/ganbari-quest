@@ -57,8 +57,7 @@ export interface FeatureFlags {
 	showTrends: boolean;
 	/** きょうだい機能（ランキング、応援等） */
 	showSiblingFeatures: boolean;
-	/** イベントバナー表示 */
-	showEvents: boolean;
+	// #2295 (EPIC #2294 ①): showEvents 削除済 (2026-05-19) — シーズンイベント機構撤去
 	/** チェックリスト表示 */
 	showChecklists: boolean;
 	/** アクティビティピン機能 */
@@ -156,11 +155,11 @@ const KANJI_TEXT: TextVariant = {
 	statusTrendNeutral: '😊 いい調子だよ！',
 };
 
+// #2295 (EPIC #2294 ①): showEvents プロパティ削除済 (2026-05-19)
 const BABY_FEATURES: FeatureFlags = {
 	showComparison: false,
 	showTrends: false,
 	showSiblingFeatures: false,
-	showEvents: false,
 	showChecklists: false,
 	showPin: false,
 	showParentMessages: false,
@@ -173,7 +172,6 @@ const PRESCHOOL_FEATURES: FeatureFlags = {
 	showComparison: true,
 	showTrends: true,
 	showSiblingFeatures: true,
-	showEvents: true,
 	showChecklists: true,
 	showPin: true,
 	showParentMessages: true,
@@ -186,7 +184,6 @@ const FULL_FEATURES: FeatureFlags = {
 	showComparison: true,
 	showTrends: true,
 	showSiblingFeatures: true,
-	showEvents: true,
 	showChecklists: true,
 	showPin: true,
 	showParentMessages: true,

@@ -72,6 +72,21 @@ describe('legacy-url-map', () => {
 			expect(entry).toBeDefined();
 			expect(entry?.to).toBe('/admin/cheer');
 		});
+
+		// #2295 (EPIC #2294 ①): /admin/events 撤去 + /admin/challenges 救済 redirect
+		it('/admin/events → /admin/challenges (308) エントリが存在する', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/admin/events');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/admin/challenges');
+			expect(entry?.status).toBeUndefined();
+			expect(entry?.issue).toBe('#2295');
+		});
+
+		it('/demo/admin/events も最終 hop は /admin/challenges に直接 redirect (#2295 1 段化)', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/demo/admin/events');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/admin/challenges');
+		});
 	});
 
 	describe('findLegacyRedirect()', () => {
@@ -116,6 +131,10 @@ describe('legacy-url-map', () => {
 			['/admin/messages', '/admin/messages'],
 			['/admin/messages/sub', '/admin/messages'],
 			['/admin/cheer', null],
+			// #2295 (EPIC #2294 ①): /admin/events 廃止 → /admin/challenges redirect
+			['/admin/events', '/admin/events'],
+			['/admin/events/new', '/admin/events'],
+			['/admin/challenges', null],
 			['/demo/admin/points', '/demo/admin/points'],
 			['/demo/admin/reports', '/demo/admin/reports'],
 			['/demo/admin/rewards', '/demo/admin/rewards'],
@@ -228,7 +247,8 @@ describe('legacy-url-map', () => {
 			['/demo/admin/challenges', '/admin/challenges'],
 			['/demo/admin/checklists', '/admin/checklists'],
 			['/demo/admin/children', '/admin/children'],
-			['/demo/admin/events', '/admin/events'],
+			// #2295 (EPIC #2294 ①): /demo/admin/events も最終 hop を /admin/challenges に更新
+			['/demo/admin/events', '/admin/challenges'],
 			['/demo/admin/license', '/admin/license'],
 			['/demo/admin/members', '/admin/members'],
 			// #2270 / #2275 (EPIC #2266): 1 段化済 (/demo/admin/messages → 直接 /admin/cheer)
@@ -251,6 +271,9 @@ describe('legacy-url-map', () => {
 			// #2270 / #2275 (EPIC #2266): /admin/messages → /admin/cheer (308)
 			['/admin/messages', '/admin/cheer'],
 			['/admin/messages/sub', '/admin/cheer/sub'],
+			// #2295 (EPIC #2294 ①): /admin/events → /admin/challenges (308)
+			['/admin/events', '/admin/challenges'],
+			['/admin/events/new', '/admin/challenges/new'],
 			// #2175: 子供画面 achievements → challenges (5 年齢モード)
 			['/baby/achievements', '/baby/challenges'],
 			['/preschool/achievements', '/preschool/challenges'],

@@ -76,7 +76,7 @@ export const PAGE_TITLES = {
 	cheer: '応援',
 	rewards: 'ごほうび',
 	checklists: 'チェックリスト管理',
-	events: 'イベント管理',
+	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
 	challenges: 'きょうだいチャレンジ',
 	children: 'こども管理',
 	members: 'メンバー管理',
@@ -257,7 +257,7 @@ export const NAV_ITEM_LABELS = {
 	checklists: 'チェックリスト',
 	itemChecklists: '持ち物チェックリスト',
 	routineChecklists: 'ルーティン',
-	events: 'イベント',
+	// #2295 (EPIC #2294 ①): events 削除済 (2026-05-19)
 	challenges: 'チャレンジ',
 	// #1170: マーケットプレイス グローバルナビ昇格 → #1212-H ADR-0041 呼称変更（テンプレート）
 	marketplace: 'テンプレート',
@@ -2599,10 +2599,20 @@ export const CHALLENGES_LABELS = {
 	rewardMessagePlaceholder: 'みんなすごい！',
 	submitButton: '作成',
 
+	// #2296 (EPIC #2294 ②): 説明文ヘッダ + empty state CTA + テンプレ導線 (2026-05-19)
+	// Research §3.2 (Harvard Health / UNH SAARA / ADR-0012 §6) で兄弟競争は厳禁。
+	// 協力タイプで家族コミュニケーションを促進する文言に統一。
+	headerDesc:
+		'家族で目標を決めて、いっしょに達成するきょうだいチャレンジ。兄弟が協力して取り組むことで、家族のコミュニケーションを促進します。',
+
 	// Empty state
 	noChallengeTitleIcon: '👥',
 	noChallengeTitle: 'チャレンジはまだありません',
 	noChallengeDesc: '上のボタンから作成してください',
+	emptyStateDesc:
+		'まずはテンプレートから始めてみませんか？家族の現実時間に合わせたチャレンジを選べます。',
+	emptyStateOrCreate: '自分で作る場合は上の「新規チャレンジ」ボタンから。',
+	templateCta: '🎁 テンプレートから始める',
 
 	// Challenge card
 	badgeAllCompleted: '全員クリア！',
@@ -3489,24 +3499,7 @@ export const ACTIVITIES_INTRODUCE_LABELS = {
 // DEMO_MESSAGES_LABELS: #2270 (EPIC #2266) で /demo/admin/messages dir 削除 (PR-B3 #2188 で既に削除済) +
 // /admin/messages 廃止に伴い、demo 専用 messages ラベルも参照ゼロのため削除。応援機能 (/admin/cheer) に統合。
 
-// ============================================================
-// イベント管理ページ (#1452 Phase B)
-// ============================================================
-
-export const EVENTS_LABELS = {
-	pageTitle: '🎉 シーズンイベント管理',
-	createdMessage: 'イベントを作成しました',
-	updatedMessage: 'イベントを更新しました',
-	deletedMessage: 'イベントを削除しました',
-	createFormTitle: '新規イベント作成',
-	createButton: '作成',
-	noEventsTitle: 'イベントはまだありません',
-	noEventsDesc: '上のボタンから作成してください',
-	activeLabel: '開催中',
-	inactiveLabel: '無効',
-	separatorLabel: '〜',
-	deleteButton: '削除',
-} as const;
+// #2295 (EPIC #2294 ①): EVENTS_LABELS 削除済 (2026-05-19) — シーズンイベント機構撤去
 
 // ============================================================
 // パスワードリセットページ (#1452 Phase B)
@@ -3720,11 +3713,7 @@ export const ADMIN_HOME_LABELS = {
 	freePlanQuickName: '無料プラン',
 	freePlanQuickHint: 'もっと便利に使いませんか？',
 	freePlanQuickAction: '⭐ アップグレード →',
-	seasonalSectionTitle: '🌸 季節コンテンツ',
-	memoryTicketLabel: '🎫 思い出チケット',
-	memoryTicketCountSuffix: '枚',
-	memoryTicketProgress: (months: number, nextMonth: number) =>
-		`継続${months}ヶ月 — 次のチケットまで${nextMonth}ヶ月`,
+	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
 	summaryChildrenAria: '登録こども数',
 	summaryChildrenLabel: 'こどもの数',
 	summaryPointsAria: '全ポイント合計',
@@ -4209,12 +4198,7 @@ export const DEMO_CHECKLISTS_LABELS = {
 	emptyDesc: '登録するとお子さまの持ち物チェックリストを管理できます',
 } as const;
 
-export const DEMO_EVENTS_LABELS = {
-	sectionTitle: '🎉 シーズンイベント管理',
-	emptyNotice: 'イベントはまだありません',
-	activeBadge: '開催中',
-	dateRangeSeparator: '〜',
-} as const;
+// #2295 (EPIC #2294 ①): DEMO_EVENTS_LABELS 削除済 (2026-05-19) — シーズンイベント機構撤去
 
 export const SWITCH_PAGE_LABELS = {
 	adminForbiddenNotice: 'おやのアカウントでログインしてね',
@@ -5345,12 +5329,7 @@ export const UI_COMPONENTS_LABELS = {
 	logoPlanStandard: '⭐ スタンダード',
 	logoPlanFamily: '⭐⭐ ファミリー',
 
-	// ---- MonthlyRewardDialog ----
-	monthlyRewardAriaLabel: '月替わりプレゼント',
-	monthlyRewardArrived: '今月のプレゼントがとどいたよ！',
-	monthlyRewardOpenBtn: 'あける！',
-	monthlyRewardGotLabel: (name: string) => `「${name}」をゲット！`,
-	monthlyRewardConfirmBtn: 'やったね！ 🎉',
+	// #2295 (EPIC #2294 ①): MonthlyRewardDialog 関連ラベル削除済 (2026-05-19)
 
 	// ---- NumPad ----
 	numPadAriaLabel: 'すうじパッド',

@@ -20,9 +20,10 @@
 //       voice / settings / checklists (templates+items) / dailyMissions /
 //       evaluations (rest_days) / points / stampCards / statuses /
 //       loginBonuses / specialRewards (templates) / activityPref /
-//       activityMastery / message / tenantEvent / trialHistory /
+//       activityMastery / message / trialHistory /
 //       siblingChallenge / siblingCheer / autoChallenge /
-//       reportDailySummary / seasonEvent / image。
+//       reportDailySummary / image。
+//       (#2295 で tenantEvent / seasonEvent 削除済 2026-05-19)
 //
 // ## 呼び出し側の使い分け
 //
@@ -249,13 +250,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] message 削除失敗: ${String(err)}`);
 	}
 
-	// Tenant events + progress
-	try {
-		await r.tenantEvent.deleteByTenantId(tenantId);
-		deleted++;
-	} catch (err) {
-		logger.warn(`[tenant-cleanup] tenantEvent 削除失敗: ${String(err)}`);
-	}
+	// #2295 (EPIC #2294 ①): tenantEvent 削除済 (2026-05-19) — repository / テーブルとも撤去
 
 	// Trial history
 	try {
@@ -299,13 +294,7 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] reportDailySummary 削除失敗: ${String(err)}`);
 	}
 
-	// Season events + child_event_progress
-	try {
-		await r.seasonEvent.deleteByTenantId(tenantId);
-		deleted++;
-	} catch (err) {
-		logger.warn(`[tenant-cleanup] seasonEvent 削除失敗: ${String(err)}`);
-	}
+	// #2295 (EPIC #2294 ①): seasonEvent 削除済 (2026-05-19) — repository / テーブルとも撤去
 
 	// Character images
 	try {

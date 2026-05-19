@@ -306,8 +306,13 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/demo/admin/children', '/admin/children');
 	});
 
-	test('/demo/admin/events → /admin/events (308)', async ({ request }) => {
-		await expectRedirect(request, '/demo/admin/events', '/admin/events');
+	// #2295 (EPIC #2294 ①): /admin/events 撤去 → /admin/challenges 救済に変更
+	test('/demo/admin/events → /admin/challenges (308, #2295 で 1 段化)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/events', '/admin/challenges');
+	});
+
+	test('/admin/events → /admin/challenges (308, シーズンイベント機構廃止)', async ({ request }) => {
+		await expectRedirect(request, '/admin/events', '/admin/challenges');
 	});
 
 	test('/demo/admin/license → /admin/license (308)', async ({ request }) => {

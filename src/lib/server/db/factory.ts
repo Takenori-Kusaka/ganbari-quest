@@ -26,7 +26,7 @@ import * as demoPointRepo from './demo/point-repo';
 import * as demoPushSubscriptionRepo from './demo/push-subscription-repo';
 import * as demoReportDailySummaryRepo from './demo/report-daily-summary-repo';
 import * as demoRewardRedemptionRepo from './demo/reward-redemption-repo';
-import * as demoSeasonEventRepo from './demo/season-event-repo';
+// #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 import * as demoSettingsRepo from './demo/settings-repo';
 import * as demoSiblingChallengeRepo from './demo/sibling-challenge-repo';
 import * as demoSiblingCheerRepo from './demo/sibling-cheer-repo';
@@ -34,7 +34,6 @@ import * as demoSpecialRewardRepo from './demo/special-reward-repo';
 import * as demoStampCardRepo from './demo/stamp-card-repo';
 import * as demoStatusRepo from './demo/status-repo';
 import * as demoStorageRepo from './demo/storage-repo';
-import * as demoTenantEventRepo from './demo/tenant-event-repo';
 import * as demoTrialHistoryRepo from './demo/trial-history-repo';
 import * as demoViewerTokenRepo from './demo/viewer-token-repo';
 import * as demoVoiceRepo from './demo/voice-repo';
@@ -61,7 +60,7 @@ import * as dynamoPointRepo from './dynamodb/point-repo';
 import * as dynamoPushSubscriptionRepo from './dynamodb/push-subscription-repo';
 import * as dynamoReportDailySummaryRepo from './dynamodb/report-daily-summary-repo';
 import * as dynamoRewardRedemptionRepo from './dynamodb/reward-redemption-repo';
-import * as dynamoSeasonEventRepo from './dynamodb/season-event-repo';
+// #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
 import * as dynamoSiblingChallengeRepo from './dynamodb/sibling-challenge-repo';
 import * as dynamoSiblingCheerRepo from './dynamodb/sibling-cheer-repo';
@@ -69,7 +68,6 @@ import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
 import * as dynamoStatusRepo from './dynamodb/status-repo';
 import * as dynamoStorageRepo from './dynamodb/storage-repo';
-import * as dynamoTenantEventRepo from './dynamodb/tenant-event-repo';
 import * as dynamoTrialHistoryRepo from './dynamodb/trial-history-repo';
 import * as dynamoViewerTokenRepo from './dynamodb/viewer-token-repo';
 import * as dynamoVoiceRepo from './dynamodb/voice-repo';
@@ -96,7 +94,7 @@ import type { IPointRepo } from './interfaces/point-repo.interface';
 import type { IPushSubscriptionRepo } from './interfaces/push-subscription-repo.interface';
 import type { IReportDailySummaryRepo } from './interfaces/report-daily-summary-repo.interface';
 import type { IRewardRedemptionRepo } from './interfaces/reward-redemption-repo.interface';
-import type { ISeasonEventRepo } from './interfaces/season-event-repo.interface';
+// #2295 (EPIC #2294 ①): ISeasonEventRepo / ITenantEventRepo 削除済 (2026-05-19)
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
 import type { ISiblingChallengeRepo } from './interfaces/sibling-challenge-repo.interface';
 import type { ISiblingCheerRepo } from './interfaces/sibling-cheer-repo.interface';
@@ -104,7 +102,6 @@ import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interf
 import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
 import type { IStatusRepo } from './interfaces/status-repo.interface';
 import type { IStorageRepo } from './interfaces/storage.interface';
-import type { ITenantEventRepo } from './interfaces/tenant-event-repo.interface';
 import type { ITrialHistoryRepo } from './interfaces/trial-history-repo.interface';
 import type { IViewerTokenRepo } from './interfaces/viewer-token-repo.interface';
 import type { IVoiceRepo } from './interfaces/voice-repo.interface';
@@ -131,7 +128,7 @@ import * as sqlitePointRepo from './sqlite/point-repo';
 import * as sqlitePushSubscriptionRepo from './sqlite/push-subscription-repo';
 import * as sqliteReportDailySummaryRepo from './sqlite/report-daily-summary-repo';
 import * as sqliteRewardRedemptionRepo from './sqlite/reward-redemption-repo';
-import * as sqliteSeasonEventRepo from './sqlite/season-event-repo';
+// #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
 import * as sqliteSiblingChallengeRepo from './sqlite/sibling-challenge-repo';
 import * as sqliteSiblingCheerRepo from './sqlite/sibling-cheer-repo';
@@ -139,7 +136,6 @@ import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
 import * as sqliteStatusRepo from './sqlite/status-repo';
 import * as sqliteStorageRepo from './sqlite/storage-repo';
-import * as sqliteTenantEventRepo from './sqlite/tenant-event-repo';
 import * as sqliteTrialHistoryRepo from './sqlite/trial-history-repo';
 import * as sqliteViewerTokenRepo from './sqlite/viewer-token-repo';
 import * as sqliteVoiceRepo from './sqlite/voice-repo';
@@ -167,7 +163,7 @@ export interface Repositories {
 	point: IPointRepo;
 	pushSubscription: IPushSubscriptionRepo;
 	reportDailySummary: IReportDailySummaryRepo;
-	seasonEvent: ISeasonEventRepo;
+	// #2295 (EPIC #2294 ①): seasonEvent / tenantEvent 削除済 (2026-05-19)
 	siblingChallenge: ISiblingChallengeRepo;
 	siblingCheer: ISiblingCheerRepo;
 	settings: ISettingsRepo;
@@ -176,7 +172,6 @@ export interface Repositories {
 	stampCard: IStampCardRepo;
 	status: IStatusRepo;
 	storage: IStorageRepo;
-	tenantEvent: ITenantEventRepo;
 	trialHistory: ITrialHistoryRepo;
 	viewerToken: IViewerTokenRepo;
 	voice: IVoiceRepo;
@@ -216,7 +211,7 @@ export function getRepos(): Repositories {
 			point: demoPointRepo,
 			pushSubscription: demoPushSubscriptionRepo,
 			reportDailySummary: demoReportDailySummaryRepo,
-			seasonEvent: demoSeasonEventRepo,
+			// #2295: seasonEvent / tenantEvent 削除済
 			siblingChallenge: demoSiblingChallengeRepo,
 			siblingCheer: demoSiblingCheerRepo,
 			settings: demoSettingsRepo,
@@ -225,7 +220,6 @@ export function getRepos(): Repositories {
 			stampCard: demoStampCardRepo,
 			status: demoStatusRepo,
 			storage: demoStorageRepo,
-			tenantEvent: demoTenantEventRepo,
 			trialHistory: demoTrialHistoryRepo,
 			viewerToken: demoViewerTokenRepo,
 			voice: demoVoiceRepo,
@@ -257,7 +251,7 @@ export function getRepos(): Repositories {
 			point: dynamoPointRepo,
 			pushSubscription: dynamoPushSubscriptionRepo,
 			reportDailySummary: dynamoReportDailySummaryRepo,
-			seasonEvent: dynamoSeasonEventRepo,
+			// #2295: seasonEvent / tenantEvent 削除済
 			siblingChallenge: dynamoSiblingChallengeRepo,
 			siblingCheer: dynamoSiblingCheerRepo,
 			settings: dynamoSettingsRepo,
@@ -266,7 +260,6 @@ export function getRepos(): Repositories {
 			stampCard: dynamoStampCardRepo,
 			status: dynamoStatusRepo,
 			storage: dynamoStorageRepo,
-			tenantEvent: dynamoTenantEventRepo,
 			trialHistory: dynamoTrialHistoryRepo,
 			viewerToken: dynamoViewerTokenRepo,
 			voice: dynamoVoiceRepo,
@@ -298,7 +291,7 @@ export function getRepos(): Repositories {
 		point: sqlitePointRepo,
 		pushSubscription: sqlitePushSubscriptionRepo,
 		reportDailySummary: sqliteReportDailySummaryRepo,
-		seasonEvent: sqliteSeasonEventRepo,
+		// #2295: seasonEvent / tenantEvent 削除済
 		siblingChallenge: sqliteSiblingChallengeRepo,
 		siblingCheer: sqliteSiblingCheerRepo,
 		settings: sqliteSettingsRepo,
@@ -307,7 +300,6 @@ export function getRepos(): Repositories {
 		stampCard: sqliteStampCardRepo,
 		status: sqliteStatusRepo,
 		storage: sqliteStorageRepo,
-		tenantEvent: sqliteTenantEventRepo,
 		trialHistory: sqliteTrialHistoryRepo,
 		viewerToken: sqliteViewerTokenRepo,
 		voice: sqliteVoiceRepo,
