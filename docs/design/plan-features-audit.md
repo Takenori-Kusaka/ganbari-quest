@@ -24,7 +24,7 @@
 | 子供の登録数 | `checkChildLimit` | `maxChildren` | free: 2 / paid: 無制限 |
 | オリジナル活動の作成数 | `checkActivityLimit` | `maxActivities` | free: 3 / paid: 無制限 |
 | チェックリストテンプレート数 | `checkChecklistTemplateLimit` | `maxChecklistTemplates` | free: 3/子 / paid: 無制限 |
-| 活動履歴の保持期間 | `applyRetentionFilter` / `hasArchivedData` | `historyRetentionDays` | free: 90日 / standard: 365日 / family: 無制限 |
+| 活動履歴の保持期間 | `applyRetentionFilter` / `hasArchivedData` | `historyRetentionDays` | free: 90日 / standard: 365日 / family: 無制限 (#2278 で対象テーブル拡張: ADR-0049 参照) |
 | データエクスポート（JSON） | `/admin/export` の plan チェック | `canExport` | free: ❌ / paid: ✅ |
 | 特別なごほうび設定（即時付与） | `admin/rewards/+page.server.ts:59 ensurePremium` | `canCustomReward` | free: ❌ / paid: ✅ |
 | ひとことメッセージ（自由テキスト） | ParentMessage の gate | `canFreeTextMessage` | free/standard: ❌ / family: ✅ |
