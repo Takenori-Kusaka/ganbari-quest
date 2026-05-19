@@ -11,6 +11,7 @@ export type {
 	CreateCancellationReasonInput,
 	ICancellationReasonRepo,
 } from './cancellation-reason-repo.interface';
+export type { ICertificateRepo } from './certificate-repo.interface';
 export type { IChecklistRepo } from './checklist-repo.interface';
 export type { IChildRepo } from './child-repo.interface';
 export type { ICloudExportRepo } from './cloud-export-repo.interface';

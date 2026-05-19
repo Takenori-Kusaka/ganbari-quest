@@ -11,6 +11,7 @@ import * as demoAuthRepo from './demo/auth-repo';
 import * as demoAutoChallengeRepo from './demo/auto-challenge-repo';
 import * as demoBattleRepo from './demo/battle-repo';
 import * as demoCancellationReasonRepo from './demo/cancellation-reason-repo';
+import * as demoCertificateRepo from './demo/certificate-repo';
 import * as demoChecklistRepo from './demo/checklist-repo';
 import * as demoChildRepo from './demo/child-repo';
 import * as demoCloudExportRepo from './demo/cloud-export-repo';
@@ -45,6 +46,7 @@ import * as dynamoAuthRepo from './dynamodb/auth-repo';
 import * as dynamoAutoChallengeRepo from './dynamodb/auto-challenge-repo';
 import * as dynamoBattleRepo from './dynamodb/battle-repo';
 import * as dynamoCancellationReasonRepo from './dynamodb/cancellation-reason-repo';
+import * as dynamoCertificateRepo from './dynamodb/certificate-repo';
 import * as dynamoChecklistRepo from './dynamodb/checklist-repo';
 import * as dynamoChildRepo from './dynamodb/child-repo';
 import * as dynamoCloudExportRepo from './dynamodb/cloud-export-repo';
@@ -79,6 +81,7 @@ import type { IAuthRepo } from './interfaces/auth-repo.interface';
 import type { IAutoChallengeRepo } from './interfaces/auto-challenge-repo.interface';
 import type { IBattleRepo } from './interfaces/battle-repo.interface';
 import type { ICancellationReasonRepo } from './interfaces/cancellation-reason-repo.interface';
+import type { ICertificateRepo } from './interfaces/certificate-repo.interface';
 import type { IChecklistRepo } from './interfaces/checklist-repo.interface';
 import type { IChildRepo } from './interfaces/child-repo.interface';
 import type { ICloudExportRepo } from './interfaces/cloud-export-repo.interface';
@@ -113,6 +116,7 @@ import * as sqliteAuthRepo from './sqlite/auth-repo';
 import * as sqliteAutoChallengeRepo from './sqlite/auto-challenge-repo';
 import * as sqliteBattleRepo from './sqlite/battle-repo';
 import * as sqliteCancellationReasonRepo from './sqlite/cancellation-reason-repo';
+import * as sqliteCertificateRepo from './sqlite/certificate-repo';
 import * as sqliteChecklistRepo from './sqlite/checklist-repo';
 import * as sqliteChildRepo from './sqlite/child-repo';
 import * as sqliteCloudExportRepo from './sqlite/cloud-export-repo';
@@ -145,6 +149,7 @@ export interface Repositories {
 	autoChallenge: IAutoChallengeRepo;
 	battle: IBattleRepo;
 	cancellationReason: ICancellationReasonRepo;
+	certificate: ICertificateRepo;
 	auth: IAuthRepo;
 	activity: IActivityRepo;
 	activityMastery: IActivityMasteryRepo;
@@ -193,6 +198,7 @@ export function getRepos(): Repositories {
 			autoChallenge: demoAutoChallengeRepo,
 			battle: demoBattleRepo,
 			cancellationReason: demoCancellationReasonRepo,
+			certificate: demoCertificateRepo,
 			auth: demoAuthRepo,
 			activity: demoActivityRepo,
 			activityMastery: demoActivityMasteryRepo,
@@ -233,6 +239,7 @@ export function getRepos(): Repositories {
 			autoChallenge: dynamoAutoChallengeRepo,
 			battle: dynamoBattleRepo,
 			cancellationReason: dynamoCancellationReasonRepo,
+			certificate: dynamoCertificateRepo,
 			auth: dynamoAuthRepo,
 			activity: dynamoActivityRepo,
 			activityMastery: dynamoActivityMasteryRepo,
@@ -273,6 +280,7 @@ export function getRepos(): Repositories {
 		autoChallenge: sqliteAutoChallengeRepo,
 		battle: sqliteBattleRepo,
 		cancellationReason: sqliteCancellationReasonRepo,
+		certificate: sqliteCertificateRepo,
 		auth: sqliteAuthRepo,
 		activity: sqliteActivityRepo,
 		activityMastery: sqliteActivityMasteryRepo,
