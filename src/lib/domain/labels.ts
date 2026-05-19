@@ -137,6 +137,8 @@ export const PAGE_TITLES = {
 	// #2140 MP-5: setup wizard β 採用
 	setupRewards: 'ごほうびセット選択',
 	setupRules: 'おうちのルール選択',
+	// #2298: 家族チャレンジ step
+	setupChallenges: '家族チャレンジ選択',
 	// ユーザー切替
 	switchUser: 'だれがつかう？',
 	// その他
@@ -4087,6 +4089,28 @@ export const SETUP_RULES_LABELS = {
 	ruleTypeSpecial: 'スペシャル（取込未対応）',
 	bonusOnlyNotice:
 		'ボーナスルールは家族全体に適用されます。交換ルールはお子さまごとのごほうびとして登録されます。',
+} as const;
+
+// #2298 (EPIC #2294 ④): setup wizard β step 4「家族チャレンジ一括追加」labels
+// 任意 step、auto-add 3 件 + 残 4 件は手動 import 動線。Research §5.1 onboarding 整合
+export const SETUP_CHALLENGES_LABELS = {
+	pageTitle: '家族で挑戦するチャレンジを選ぼう',
+	pageDesc:
+		'家族みんなで取り組むチャレンジを一括で追加できます。スキップしても、あとから管理画面で追加できます。',
+	recommendedBadge: 'おすすめ',
+	autoAddOption: 'おすすめ 3 件を自動で追加してすすむ',
+	backButton: 'もどる',
+	importingLabel: '取込中...',
+	addChallengesButton: (count: number) => `${count}件のチャレンジを追加`,
+	processingLabel: '処理中...',
+	skipNextButton: 'スキップして次へ',
+	challengesNotice: '家族全員で協力するチャレンジです。クリアすると家族みんなに点数が配られます。',
+	noticeNoChildren: 'お子さまが登録されていないため、このステップはスキップされます。',
+	targetSuffix: '回',
+	rewardSuffix: 'P',
+	periodFormat: (start: string, end: string): string => `期間: ${start} 〜 ${end}`,
+	previewToggleOpen: '▼ なかみ',
+	previewToggleClose: '▲ とじる',
 } as const;
 
 export const PARENT_LOGIN_LABELS = {

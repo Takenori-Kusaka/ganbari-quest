@@ -16,6 +16,9 @@ export type SetupFunnelEvent =
 	| 'setup_rewards_skipped'
 	| 'setup_rules_selected'
 	| 'setup_rules_skipped'
+	// #2298 (EPIC #2294 ④): 家族チャレンジ一括追加 step
+	| 'setup_challenges_selected'
+	| 'setup_challenges_skipped'
 	| 'setup_first_adventure_completed'
 	| 'setup_first_adventure_skipped'
 	| 'setup_completed'
