@@ -77,15 +77,24 @@ test.describe('Bug 4: /switch クリックで子供選択が動作する (demo L
 		await expect(page).toHaveURL(/\/baby\/home/, { timeout: 10_000 });
 	});
 
-	test('/switch POST レスポンスが redirect になっている (no-op 化されていない)', async ({
+	test('/switch POST レスポンスが SvelteKit action redirect で返る (demo no-op 化されていない)', async ({
 		page,
 	}) => {
 		await page.goto('/switch');
 
-		// form submission の POST response を観測する
-		// SvelteKit 2 の form action では redirect 時は 303 + Location header を返す
-		// (use:enhance enabled でも redirect は raw HTTP 303、本番準拠)。
-		// もし demo no-op 化されていれば 200 + `{ ok: true, demo: true }` JSON が返る。
+		// SvelteKit 2 の form action は `use:enhance` 有効時、redirect を以下の形式で返す
+		// (src/routes/switch/+page.svelte は <form use:enhance> + redirect(303, ...) を発火):
+		//
+		//   HTTP 200 + Content-Type: application/json
+		//   body: `{ type: 'redirect', status: 303, location: '/preschool/home' }`
+		//
+		// クライアント側 use:enhance が JSON を消費し goto(location) で実際の遷移を行う。
+		// raw HTTP 303 は use:enhance OFF 時 (full page submit) のみ。
+		//
+		// 一方 demo no-op 化されていた場合 (Bug 4 再発時) は:
+		//   HTTP 200 + body `{ ok: true, demo: true }` (DEMO_WRITE_METHODS で no-op)
+		//
+		// 本 spec は body 解析で「SvelteKit action redirect 形式」と「demo no-op 形式」を弁別する。
 		const responsePromise = page.waitForResponse(
 			(res) => res.url().includes('/switch') && res.request().method() === 'POST',
 		);
@@ -93,10 +102,16 @@ test.describe('Bug 4: /switch クリックで子供選択が動作する (demo L
 		await page.getByTestId('child-select-902').click();
 		const res = await responsePromise;
 
-		// redirect response であること (303 status + Location ヘッダ)
-		// no-op 化されていれば 200 になる。
-		expect(res.status()).toBe(303);
-		const location = res.headers().location ?? '';
-		expect(location).toMatch(/\/preschool\/home/);
+		// status は 200 (use:enhance 経由)、demo no-op も 200 を返すため弁別は body で行う
+		expect(res.status()).toBe(200);
+
+		const body = await res.json();
+		// SvelteKit action redirect 形式であること = demo no-op 化されていない証拠
+		expect(body).toMatchObject({
+			type: 'redirect',
+			location: expect.stringMatching(/\/preschool\/home/),
+		});
+		// no-op 形式 `{ ok: true, demo: true }` ではないこと (回帰検出)
+		expect(body).not.toMatchObject({ demo: true });
 	});
 });
