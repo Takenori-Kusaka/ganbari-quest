@@ -277,13 +277,16 @@ const childOptions = $derived(
 								<span class="text-lg">{ch.icon}</span>
 								<span class="text-sm font-bold text-[var(--color-text-primary)]">{ch.title}</span>
 								<span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto">
-									{ch.monthDay}・{ch.durationDays + '日間'}
+									{MARKETPLACE_LABELS.detailChallengePeriod(ch.monthDay, ch.durationDays)}
 								</span>
 							</div>
 							<p class="text-xs text-[var(--color-text-secondary)] ml-8">{ch.description}</p>
 							<p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1">
-								{CATEGORY_LABELS[ch.categoryId] ?? ''} ・ 目標 {ch.baseTarget + '回'}
-								・ ごほうび +{ch.rewardPoints}P
+								{MARKETPLACE_LABELS.detailChallengeMeta(
+									CATEGORY_LABELS[ch.categoryId] ?? '',
+									ch.baseTarget,
+									ch.rewardPoints,
+								)}
 							</p>
 						</div>
 					{/each}

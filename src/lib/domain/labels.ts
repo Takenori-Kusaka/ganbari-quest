@@ -870,6 +870,12 @@ export const MARKETPLACE_LABELS = {
 	detailRuleContent: 'ルール内容',
 	/** #2297 (EPIC #2294 ③): challenge-set ふくまれるチャレンジ見出し */
 	detailIncludedChallenges: 'ふくまれるチャレンジ',
+	/** #2297: 各 challenge のメタ表記 (monthDay ・ durationDays日間) */
+	detailChallengePeriod: (monthDay: string, durationDays: number) =>
+		`${monthDay}・${durationDays}日間`,
+	/** #2297: 各 challenge の詳細行 (カテゴリ ・ 目標 N回 ・ ごほうび +NP) */
+	detailChallengeMeta: (category: string, baseTarget: number, rewardPoints: number) =>
+		`${category} ・ 目標 ${baseTarget}回 ・ ごほうび +${rewardPoints}P`,
 	detailLegacyPackNote: '既存の活動パックから使えるようになります。詳しくは',
 	detailLegacyPackLink: 'パック詳細ページ',
 	detailLegacyPackSuffix: 'をご覧ください。',
@@ -2641,6 +2647,20 @@ export const CHALLENGES_LABELS = {
 	categorySeikatsu: 'せいかつ',
 	categoryKouryuu: 'こうりゅう',
 	categorySouzou: 'そうぞう',
+
+	// #2297 (EPIC #2294 ③): マーケプレ challenge-set 一括 import 確認 UI
+	importIcon: '🎯',
+	importHeading: (presetName: string) => `「${presetName}」を一括追加します`,
+	importTotalDesc: (count: number) =>
+		`合計 ${count}件のチャレンジを追加します。期間は当該行事の日付から自動展開されます。`,
+	importBreakdownSummary: '内訳を確認',
+	importItemSuffix: (monthDay: string, durationDays: number) =>
+		`（${monthDay} ・ ${durationDays}日間）`,
+	importCancel: 'キャンセル',
+	importSubmit: (count: number) => `${count}件 一括追加`,
+	importSuccessNotice: (presetName: string, count: number) =>
+		`✨ 「${presetName}」から ${count}件のチャレンジを追加しました`,
+	importErrorSummary: (count: number) => `エラー詳細 (${count}件)`,
 } as const;
 
 // ============================================================

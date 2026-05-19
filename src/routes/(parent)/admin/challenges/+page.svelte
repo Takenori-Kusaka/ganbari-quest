@@ -136,27 +136,27 @@ const categories: Record<number, string> = {
 			data-testid="marketplace-challenge-set-import"
 		>
 			<div class="flex items-start gap-2">
-				<span class="text-2xl">🎯</span>
+				<span class="text-2xl">{CHALLENGES_LABELS.importIcon}</span>
 				<div class="flex-1">
 					<h3 class="font-bold text-sm text-[var(--color-feedback-info-text)]">
-						「{data.marketplaceImport.presetName}」を一括追加します
+						{CHALLENGES_LABELS.importHeading(data.marketplaceImport.presetName)}
 					</h3>
 					<p class="text-xs text-[var(--color-feedback-info-text)] mt-1">
 						{data.marketplaceImport.presetDescription}
 					</p>
 					<p class="text-xs text-[var(--color-text-secondary)] mt-2">
-						合計 {data.marketplaceImport.challenges.length}件のチャレンジを追加します。期間は当該行事の日付から自動展開されます。
+						{CHALLENGES_LABELS.importTotalDesc(data.marketplaceImport.challenges.length)}
 					</p>
 				</div>
 			</div>
 			<details class="text-xs text-[var(--color-text-secondary)]">
-				<summary class="cursor-pointer font-medium">内訳を確認</summary>
+				<summary class="cursor-pointer font-medium">{CHALLENGES_LABELS.importBreakdownSummary}</summary>
 				<ul class="mt-2 space-y-1 ml-4 list-disc">
 					{#each data.marketplaceImport.challenges as ch (ch.title)}
 						<li>
 							<span class="font-medium">{ch.title}</span>
 							<span class="text-[var(--color-text-tertiary)]">
-								（{ch.monthDay} ・ {ch.durationDays + '日間'}）
+								{CHALLENGES_LABELS.importItemSuffix(ch.monthDay, ch.durationDays)}
 							</span>
 						</li>
 					{/each}
@@ -167,7 +167,7 @@ const categories: Record<number, string> = {
 					href="/admin/challenges"
 					class="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-text-primary)]"
 				>
-					キャンセル
+					{CHALLENGES_LABELS.importCancel}
 				</a>
 				<form method="POST" action="?/importChallengeSet" use:enhance>
 					<input type="hidden" name="presetId" value={data.marketplaceImport.presetId} />
@@ -177,7 +177,7 @@ const categories: Record<number, string> = {
 						size="sm"
 						data-testid="marketplace-challenge-set-import-submit"
 					>
-						{data.marketplaceImport.challenges.length}件 一括追加
+						{CHALLENGES_LABELS.importSubmit(data.marketplaceImport.challenges.length)}
 					</Button>
 				</form>
 			</div>
@@ -188,10 +188,13 @@ const categories: Record<number, string> = {
 			class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]"
 			data-testid="marketplace-challenge-set-import-result"
 		>
-			✨ 「{form.challengeSetImport.presetName}」から {form.challengeSetImport.imported}件のチャレンジを追加しました
+			{CHALLENGES_LABELS.importSuccessNotice(
+				form.challengeSetImport.presetName,
+				form.challengeSetImport.imported,
+			)}
 			{#if (form.challengeSetImport.errors ?? []).length > 0}
 				<details class="mt-1 text-xs">
-					<summary>エラー詳細 ({form.challengeSetImport.errors.length}件)</summary>
+					<summary>{CHALLENGES_LABELS.importErrorSummary(form.challengeSetImport.errors.length)}</summary>
 					<ul class="ml-4 list-disc">
 						{#each form.challengeSetImport.errors as err}
 							<li>{err}</li>
