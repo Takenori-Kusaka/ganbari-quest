@@ -5625,6 +5625,7 @@ export const FEATURES_LABELS = {
 
 	// ---- features/admin/components/ActivitiesHeader ----
 	// EPIC #2253 / #2255 / #2257: + dropdown menu + ︙ overflow menu に再構成
+	// #2260 Fix-2: +page.svelte L167 hardcode の Dialog title 3 件を SSOT 化 (ADR-0045 / ADR-0009)
 	activitiesHeader: {
 		title: '📋 活動管理',
 		exportAriaLabel: 'エクスポート',
@@ -5639,6 +5640,10 @@ export const FEATURES_LABELS = {
 		addAiIcon: '✨',
 		addImportLabel: 'パックから追加',
 		addImportIcon: '📥',
+		// Add Dialog title (mode 別、#2260 Fix-2 で +page.svelte hardcode を SSOT 化)
+		addDialogTitleManual: '+ 手動で追加',
+		addDialogTitleAi: '✨ AI で活動を追加',
+		addDialogTitleImport: '📥 パックからインポート',
 		// ︙ overflow menu (introduce / export / clear-all、EPIC #2253 / #2257)
 		overflowMenuAriaLabel: 'その他の操作',
 		overflowTriggerLabel: '︙',

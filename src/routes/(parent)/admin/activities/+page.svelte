@@ -1,6 +1,6 @@
 <script lang="ts">
 import { splitIcon } from '$lib/domain/icon-utils';
-import { APP_LABELS, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, FEATURES_LABELS, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
 import ActivitiesHeader from '$lib/features/admin/components/ActivitiesHeader.svelte';
 import ActivityClearAllConfirm from '$lib/features/admin/components/ActivityClearAllConfirm.svelte';
 import ActivityCreateForm from '$lib/features/admin/components/ActivityCreateForm.svelte';
@@ -164,7 +164,7 @@ function acceptAiPreview(preview: AiPreviewData) {
 		logCounts={data.logCounts}
 	/>
 
-	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? '✨ AI で活動を追加' : addMode === 'import' ? '📥 パックからインポート' : '+ 手動で追加'} testid="add-activity-dialog">
+	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? FEATURES_LABELS.activitiesHeader.addDialogTitleAi : addMode === 'import' ? FEATURES_LABELS.activitiesHeader.addDialogTitleImport : FEATURES_LABELS.activitiesHeader.addDialogTitleManual} testid="add-activity-dialog">
 		{#if addMode === 'ai'}
 			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.planTier === 'family'} />
 		{:else if addMode === 'manual'}

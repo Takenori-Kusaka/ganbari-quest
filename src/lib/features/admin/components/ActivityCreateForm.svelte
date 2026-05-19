@@ -116,6 +116,7 @@ function resetForm() {
 		};
 	}}
 	class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm space-y-4"
+	data-testid="activity-create-form"
 >
 	<h3 class="font-bold text-[var(--color-text)]">{L.createTitle}</h3>
 

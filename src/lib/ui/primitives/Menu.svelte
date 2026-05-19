@@ -4,16 +4,24 @@ import { Portal } from '@ark-ui/svelte/portal';
 import type { Snippet } from 'svelte';
 
 /**
- * Menu primitive (#2254 / EPIC #2253)
+ * Menu primitive (#2254 / EPIC #2253 / #2260 Fix-1)
  *
  * Ark UI Menu の Svelte 5 Runes ラッパ。click trigger + dropdown 配置で
  * manual / ai / import 等の action menu 用途 (子 ② header `+` dropdown / 子 ④ `︙` overflow)。
  *
  * DESIGN.md §5 primitive、§10 z-index トークン (`--z-dropdown` = 20) 整合。
  *
+ * #2260 Fix-1 (a11y BLOCK 解消): Ark UI の `ArkMenu.Trigger` は内部で `<button>` を render するため、
+ * trigger snippet が `<button>` を含むと **nested button** になり focus / keyboard / disabled 動作が
+ * 破綻する。これを防ぐため、本 primitive では **trigger snippet は inner content (icon / label) のみ**
+ * を受け取り、`<button>` 要素自体は ArkMenu.Trigger が render する設計に統一する (Ark UI 推奨)。
+ * 外部から付与したい class / testid / aria-label / data-tutorial / disabled は本 primitive の
+ * props として ArkMenu.Trigger に pass-through する。
+ *
  * trigger は 2 通り渡せる:
- *   1. `triggerLabel: string` + 任意の `triggerClass` で primitive 内部 button 生成
- *   2. `trigger: Snippet` で完全カスタム button (data-tutorial 等 attr 必要時)
+ *   1. `triggerLabel: string` で primitive 内部 button に label 文字列のみ描画
+ *   2. `trigger: Snippet` で button の inner content をカスタム (icon span / multi-element OK)。
+ *      ※ snippet 内で `<button>` を書かない (nested button 禁止、コンパイル時 lint 不可だが ADR-0004 規約)
  *
  * 用途上の注意:
  * - 値選択 (form field 連動) には Select.svelte を使う
@@ -39,22 +47,24 @@ export interface MenuItem {
 type Placement = 'bottom-end' | 'bottom-start' | 'top-end' | 'top-start';
 
 interface Props {
-	/** trigger snippet (詳細カスタム時に渡す。triggerLabel と排他) */
+	/** trigger snippet (button の inner content のみ。`<button>` 直書き禁止) */
 	trigger?: Snippet;
-	/** primitive 内部 button で render する trigger label (snippet 渡さない場合に使う) */
+	/** primitive 内部 button に描画する trigger label 文字列 (snippet 渡さない場合に使う) */
 	triggerLabel?: string;
-	/** triggerLabel 利用時の追加 class */
+	/** primitive 内部 button に付与する追加 class (consumer 側の class をそのまま受ける) */
 	triggerClass?: string;
 	/** menu item 配列 */
 	items: MenuItem[];
 	/** menu placement (Ark UI positioning.placement) */
 	placement?: Placement;
-	/** menu Trigger に付与する aria-label (open ボタンの説明) */
+	/** menu Trigger button の aria-label (open ボタンの説明) */
 	ariaLabel?: string;
-	/** 任意の testid (Trigger 要素に付与) */
+	/** 任意の testid (Trigger button に付与) */
 	testid?: string;
-	/** triggerLabel 利用時の disabled */
+	/** Trigger button の disabled */
 	disabled?: boolean;
+	/** Trigger button の data-tutorial (チュートリアル anchor 用) */
+	dataTutorial?: string;
 }
 
 let {
@@ -66,28 +76,24 @@ let {
 	ariaLabel,
 	testid,
 	disabled = false,
+	dataTutorial,
 }: Props = $props();
 </script>
 
 <ArkMenu.Root positioning={{ placement }}>
-	{#if trigger}
-		<ArkMenu.Trigger
-			class="menu-trigger-wrapper"
-			aria-label={ariaLabel}
-			data-testid={testid}
-		>
+	<ArkMenu.Trigger
+		class={trigger ? triggerClass : `menu-trigger-default ${triggerClass}`}
+		aria-label={ariaLabel}
+		data-testid={testid}
+		data-tutorial={dataTutorial}
+		disabled={disabled}
+	>
+		{#if trigger}
 			{@render trigger()}
-		</ArkMenu.Trigger>
-	{:else}
-		<ArkMenu.Trigger
-			class={`menu-trigger-default ${triggerClass}`}
-			aria-label={ariaLabel}
-			data-testid={testid}
-			disabled={disabled}
-		>
+		{:else}
 			{triggerLabel ?? ''}
-		</ArkMenu.Trigger>
-	{/if}
+		{/if}
+	</ArkMenu.Trigger>
 	<Portal>
 		<ArkMenu.Positioner class="menu-positioner">
 			<ArkMenu.Content class="menu-content">
@@ -111,10 +117,6 @@ let {
 </ArkMenu.Root>
 
 <style>
-	:global(.menu-trigger-wrapper) {
-		display: inline-flex;
-	}
-
 	:global(.menu-trigger-default) {
 		display: inline-flex;
 		align-items: center;

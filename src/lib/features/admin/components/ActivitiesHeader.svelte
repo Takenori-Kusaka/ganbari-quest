@@ -85,34 +85,26 @@ const overflowItems = $derived<MenuItem[]>([
 		<PageHelpButton />
 	</div>
 	<div class="activities-toolbar">
-		<!-- + 追加 dropdown menu (EPIC #2253 / #2255) -->
-		<Menu items={addMenuItems} placement="bottom-end" ariaLabel={L.addMenuAriaLabel}>
-			{#snippet trigger()}
-				<button
-					type="button"
-					class="add-btn"
-					data-tutorial="add-activity-btn"
-					data-testid="header-add-activity-btn"
-					aria-label={L.addMenuAriaLabel}
-					disabled={!canAdd}
-				>
-					{L.addButtonLabel}
-				</button>
-			{/snippet}
-		</Menu>
-		<!-- ︙ overflow menu (EPIC #2253 / #2257) -->
-		<Menu items={overflowItems} placement="bottom-end" ariaLabel={L.overflowMenuAriaLabel}>
-			{#snippet trigger()}
-				<button
-					type="button"
-					class="overflow-btn"
-					data-testid="header-overflow-menu-btn"
-					aria-label={L.overflowMenuAriaLabel}
-				>
-					{L.overflowTriggerLabel}
-				</button>
-			{/snippet}
-		</Menu>
+		<!-- + 追加 dropdown menu (EPIC #2253 / #2255 / #2260 Fix-1: nested button 解消) -->
+		<Menu
+			items={addMenuItems}
+			placement="bottom-end"
+			ariaLabel={L.addMenuAriaLabel}
+			testid="header-add-activity-btn"
+			triggerClass="add-btn"
+			triggerLabel={L.addButtonLabel}
+			dataTutorial="add-activity-btn"
+			disabled={!canAdd}
+		/>
+		<!-- ︙ overflow menu (EPIC #2253 / #2257 / #2260 Fix-1) -->
+		<Menu
+			items={overflowItems}
+			placement="bottom-end"
+			ariaLabel={L.overflowMenuAriaLabel}
+			testid="header-overflow-menu-btn"
+			triggerClass="overflow-btn"
+			triggerLabel={L.overflowTriggerLabel}
+		/>
 	</div>
 </div>
 
@@ -131,7 +123,8 @@ const overflowItems = $derived<MenuItem[]>([
 		align-items: center;
 		gap: 0.25rem;
 	}
-	.add-btn {
+	/* #2260 Fix-1: Menu primitive pass-through requires :global selector for parent scope visibility */
+	:global(.activities-toolbar .add-btn) {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -145,14 +138,14 @@ const overflowItems = $derived<MenuItem[]>([
 		cursor: pointer;
 		transition: filter 0.15s;
 	}
-	.add-btn:hover:not(:disabled) {
+	:global(.activities-toolbar .add-btn:hover:not(:disabled)) {
 		filter: brightness(0.9);
 	}
-	.add-btn:disabled {
+	:global(.activities-toolbar .add-btn:disabled) {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
-	.overflow-btn {
+	:global(.activities-toolbar .overflow-btn) {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -167,7 +160,7 @@ const overflowItems = $derived<MenuItem[]>([
 		transition: background 0.15s;
 		color: var(--color-text-secondary);
 	}
-	.overflow-btn:hover {
+	:global(.activities-toolbar .overflow-btn:hover) {
 		background: var(--color-surface-muted);
 	}
 </style>
