@@ -37,58 +37,42 @@ const { Story } = defineMeta({
 });
 </script>
 
-<Story name="Default">
-	<Menu items={basicItems} ariaLabel={L.ariaLabelOpen}>
-		{#snippet trigger()}
-			<button type="button" class="story-trigger">{L.triggerButton}</button>
-		{/snippet}
-	</Menu>
-</Story>
+<Story
+	name="Default"
+	args={{ items: basicItems, ariaLabel: L.ariaLabelOpen, triggerLabel: L.triggerButton }}
+/>
 
-<Story name="WithIcons">
-	<Menu items={iconItems} ariaLabel={L.ariaLabelOpen}>
-		{#snippet trigger()}
-			<button type="button" class="story-trigger">{L.triggerButton}</button>
-		{/snippet}
-	</Menu>
-</Story>
+<Story
+	name="WithIcons"
+	args={{ items: iconItems, ariaLabel: L.ariaLabelOpen, triggerLabel: L.triggerButton }}
+/>
 
-<Story name="WithDisabledItem">
-	<Menu items={disabledItems} ariaLabel={L.ariaLabelOpen}>
-		{#snippet trigger()}
-			<button type="button" class="story-trigger">{L.triggerButton}</button>
-		{/snippet}
-	</Menu>
-</Story>
+<Story
+	name="WithDisabledItem"
+	args={{ items: disabledItems, ariaLabel: L.ariaLabelOpen, triggerLabel: L.triggerButton }}
+/>
 
-<Story name="PlacementBottomStart">
-	<Menu items={iconItems} placement="bottom-start" ariaLabel={L.ariaLabelOpen}>
-		{#snippet trigger()}
-			<button type="button" class="story-trigger">{L.triggerButton}</button>
-		{/snippet}
-	</Menu>
-</Story>
+<Story
+	name="PlacementBottomStart"
+	args={{
+		items: iconItems,
+		ariaLabel: L.ariaLabelOpen,
+		triggerLabel: L.triggerButton,
+		placement: 'bottom-start',
+	}}
+/>
 
-<Story name="PlacementTopEnd">
-	<Menu items={iconItems} placement="top-end" ariaLabel={L.ariaLabelOpen}>
-		{#snippet trigger()}
-			<button type="button" class="story-trigger">{L.triggerButton}</button>
-		{/snippet}
-	</Menu>
-</Story>
+<Story
+	name="PlacementTopEnd"
+	args={{
+		items: iconItems,
+		ariaLabel: L.ariaLabelOpen,
+		triggerLabel: L.triggerButton,
+		placement: 'top-end',
+	}}
+/>
 
 <style>
-	:global(.story-trigger) {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 1rem;
-		border: 1px solid var(--color-border-default);
-		border-radius: var(--radius-sm);
-		background: var(--color-surface-card);
-		font-size: 0.875rem;
-		cursor: pointer;
-	}
 	:global(.sb-story) {
 		min-height: 300px;
 	}

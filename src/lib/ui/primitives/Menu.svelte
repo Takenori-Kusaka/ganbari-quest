@@ -11,6 +11,10 @@ import type { Snippet } from 'svelte';
  *
  * DESIGN.md §5 primitive、§10 z-index トークン (`--z-dropdown` = 20) 整合。
  *
+ * trigger は 2 通り渡せる:
+ *   1. `triggerLabel: string` + 任意の `triggerClass` で primitive 内部 button 生成
+ *   2. `trigger: Snippet` で完全カスタム button (data-tutorial 等 attr 必要時)
+ *
  * 用途上の注意:
  * - 値選択 (form field 連動) には Select.svelte を使う
  * - 操作確認には Dialog.svelte を使う
@@ -35,8 +39,12 @@ export interface MenuItem {
 type Placement = 'bottom-end' | 'bottom-start' | 'top-end' | 'top-start';
 
 interface Props {
-	/** trigger ノード (anchor button 等を render する) */
-	trigger: Snippet;
+	/** trigger snippet (詳細カスタム時に渡す。triggerLabel と排他) */
+	trigger?: Snippet;
+	/** primitive 内部 button で render する trigger label (snippet 渡さない場合に使う) */
+	triggerLabel?: string;
+	/** triggerLabel 利用時の追加 class */
+	triggerClass?: string;
 	/** menu item 配列 */
 	items: MenuItem[];
 	/** menu placement (Ark UI positioning.placement) */
@@ -45,19 +53,41 @@ interface Props {
 	ariaLabel?: string;
 	/** 任意の testid (Trigger 要素に付与) */
 	testid?: string;
+	/** triggerLabel 利用時の disabled */
+	disabled?: boolean;
 }
 
-let { trigger, items, placement = 'bottom-end', ariaLabel, testid }: Props = $props();
+let {
+	trigger,
+	triggerLabel,
+	triggerClass = '',
+	items,
+	placement = 'bottom-end',
+	ariaLabel,
+	testid,
+	disabled = false,
+}: Props = $props();
 </script>
 
 <ArkMenu.Root positioning={{ placement }}>
-	<ArkMenu.Trigger
-		class="menu-trigger-wrapper"
-		aria-label={ariaLabel}
-		data-testid={testid}
-	>
-		{@render trigger()}
-	</ArkMenu.Trigger>
+	{#if trigger}
+		<ArkMenu.Trigger
+			class="menu-trigger-wrapper"
+			aria-label={ariaLabel}
+			data-testid={testid}
+		>
+			{@render trigger()}
+		</ArkMenu.Trigger>
+	{:else}
+		<ArkMenu.Trigger
+			class={`menu-trigger-default ${triggerClass}`}
+			aria-label={ariaLabel}
+			data-testid={testid}
+			disabled={disabled}
+		>
+			{triggerLabel ?? ''}
+		</ArkMenu.Trigger>
+	{/if}
 	<Portal>
 		<ArkMenu.Positioner class="menu-positioner">
 			<ArkMenu.Content class="menu-content">
@@ -85,8 +115,25 @@ let { trigger, items, placement = 'bottom-end', ariaLabel, testid }: Props = $pr
 		display: inline-flex;
 	}
 
+	:global(.menu-trigger-default) {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.4rem 0.85rem;
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-sm);
+		background: var(--color-surface-card);
+		font-size: 0.875rem;
+		cursor: pointer;
+	}
+
+	:global(.menu-trigger-default:disabled) {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
 	:global(.menu-positioner) {
-		/* DESIGN.md section 10: --z-dropdown = 20 token (no raw z-index) */
+		/* DESIGN section 10: --z-dropdown = 20 token (no raw z-index) */
 		z-index: var(--z-dropdown);
 	}
 
