@@ -324,8 +324,10 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 							<p class="text-xs text-[var(--color-text-secondary)] mb-3">
 								{MARKETPLACE_LABELS.ctaSubheading}
 							</p>
+							<!-- #2303: 未ログイン CTA は /auth/login 経由 (誤新規登録防止 / data integrity 保護)。
+								login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
 							<a
-								href="/auth/signup"
+								href="/auth/login"
 								class="inline-block px-6 py-2.5 bg-[var(--color-action-primary)] text-white font-bold rounded-xl text-sm hover:opacity-90 transition-opacity"
 							>
 								{MARKETPLACE_LABELS.ctaStart}

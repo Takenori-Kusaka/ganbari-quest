@@ -81,7 +81,8 @@ export const actions: Actions = {
 		}
 
 		if (!locals.context) {
-			redirect(303, `/auth/signup?redirect=/marketplace/${type}/${itemId}`);
+			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
+			redirect(303, `/auth/login?redirect=/marketplace/${type}/${itemId}`);
 		}
 
 		const tenantId = requireTenantId(locals);
@@ -119,12 +120,13 @@ export const actions: Actions = {
 
 	// #2137 (MP-2): event-checklist 一括追加 action
 	// CTA「一括追加」ボタンの form action。ログイン済みのみ動作する
-	// (未ログインは UI 側で /auth/signup?next=... に誘導する)。
+	// (未ログインは UI 側で /auth/login?next=... に誘導する、#2303)。
 	importChecklist: async ({ params, request, locals }) => {
 		const tenantId = locals.context?.tenantId;
 		if (!tenantId) {
-			// 未ログインで POST が来た場合は signup 経由で戻す
-			redirect(302, `/auth/signup?next=/marketplace/checklist/${params.itemId}`);
+			// 未ログインで POST が来た場合は login 経由で戻す
+			// (#2303: 誤新規登録防止 / data integrity 保護)
+			redirect(302, `/auth/login?next=/marketplace/checklist/${params.itemId}`);
 		}
 
 		if (params.type !== 'checklist') {
@@ -184,7 +186,8 @@ export const actions: Actions = {
 	importRulePreset: async ({ params, request, locals }) => {
 		const tenantId = locals.context?.tenantId;
 		if (!tenantId) {
-			redirect(302, `/auth/signup?next=/marketplace/rule-preset/${params.itemId}`);
+			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
+			redirect(302, `/auth/login?next=/marketplace/rule-preset/${params.itemId}`);
 		}
 
 		if (params.type !== 'rule-preset') {
