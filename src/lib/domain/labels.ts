@@ -15,12 +15,14 @@
 // #1914 (TECH-F): CHILD_TERMS / PARENT_TERMS / SIGNUP_TERMS / LOGIN_TERMS / CANCEL_TERMS 拡張 — 5 ドメイン用語多重表記 SSOT 集約
 // #1915 (TECH-F 中頻度 8 ドメイン): TRIAL_PERIOD_TERMS / UPGRADE_TERMS / GRADUATION_TERMS / ADVENTURE_TERMS / MECHANISM_TERMS / LIFESTAGE_TERMS 追加
 // （「7 日間無料トライアル」「アップグレード/プラン変更」「卒業/最終ゴール」「冒険/メインクエスト」「仕組み/設計/工夫」「年齢/年齢区分/学年」の atom 集約）
+// #2276 (EPIC #2266): CHEER_TERMS / REWARD_TERMS / TEMPLATE_TERMS 追加（応援 / ごほうび管理 / みんなのテンプレート atom）
 import {
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
 	AUTONOMY_TERMS,
 	CANCEL_TERMS,
+	CHEER_TERMS,
 	CHILD_TERMS,
 	CTA_TERMS,
 	CURRENCY_TERMS,
@@ -36,8 +38,10 @@ import {
 	PLAN_TERMS,
 	POINT_TERMS,
 	PRICE_TERMS,
+	REWARD_TERMS,
 	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
+	TEMPLATE_TERMS,
 	TRIAL_PERIOD_TERMS,
 	TRIAL_TERMS,
 	UPGRADE_TERMS,
@@ -136,7 +140,8 @@ export const PAGE_TITLES = {
 	// ユーザー切替
 	switchUser: 'だれがつかう？',
 	// その他
-	marketplace: 'テンプレート',
+	// #2276: TEMPLATE_TERMS atom 参照化
+	marketplace: TEMPLATE_TERMS.short,
 	consent: '規約への同意',
 	consentUpdate: '規約に変更がありました',
 	pricing: '料金プラン',
@@ -250,8 +255,9 @@ export const NAV_ITEM_LABELS = {
 	analytics: 'アナリティクス',
 	points: 'ポイント',
 	// #2270 / #2274 (EPIC #2266): 旧 messages 廃止 → cheer (応援) に統合 + activity 配下へ移動
-	cheer: '応援',
-	rewards: 'ごほうび',
+	// #2276: CHEER_TERMS / REWARD_TERMS atom 参照化 (ADR-0045)
+	cheer: CHEER_TERMS.canonical,
+	rewards: REWARD_TERMS.canonical,
 	activities: '活動管理',
 	// #1168: チェックリスト（ナビは単一、ページ内タブで「持ち物」「ルーティン」に分離）
 	checklists: 'チェックリスト',
@@ -260,7 +266,8 @@ export const NAV_ITEM_LABELS = {
 	events: 'イベント',
 	challenges: 'チャレンジ',
 	// #1170: マーケットプレイス グローバルナビ昇格 → #1212-H ADR-0041 呼称変更（テンプレート）
-	marketplace: 'テンプレート',
+	// #2276: TEMPLATE_TERMS atom 参照化 (ADR-0045)
+	marketplace: TEMPLATE_TERMS.short,
 	children: 'こども',
 	settings: '設定',
 	license: 'プラン',
@@ -842,19 +849,19 @@ export const PREMIUM_MODAL_LABELS = {
  * LP (`site/`) で同語を扱う場合は `site/shared-labels.js` 経由で同期すること。
  */
 export const MARKETPLACE_LABELS = {
-	pageTitle: 'みんなのテンプレート',
-	navShort: 'テンプレート',
+	pageTitle: TEMPLATE_TERMS.userFacing,
+	navShort: TEMPLATE_TERMS.short,
 	pageDescription: 'お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう',
 	metaDescription:
 		'活動パック・ごほうびセット・チェックリスト・特別ルールを探そう。がんばりクエストの公式テンプレート集です。',
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
-	ctaHeading: 'テンプレートを使うには',
+	ctaHeading: `${TEMPLATE_TERMS.short}を使うには`,
 	ctaSubheading: `アカウント登録後、${ADMIN_VIEW_TERMS.canonical}からワンタップで使ってみることができます`,
 	ctaStart: '無料で はじめる',
 	backToHome: 'トップページへ',
 	backToDemo: 'デモを体験',
-	breadcrumbRoot: 'テンプレート',
+	breadcrumbRoot: TEMPLATE_TERMS.short,
 	recommendedSection: 'おすすめパック',
 	importCta: '使ってみる',
 	questsBadge: 'クエスト集',
@@ -3346,15 +3353,17 @@ export const OPS_EXPORT_LABELS = {
 // ============================================================
 // PO 報告 (2026-05-19) 「応援 = 任意の理由で直接子供にポイント付与 (運動会一位等)、
 // スタンプ/メッセージは P 付与に付随する理由表現」
+// #2276: CHEER_TERMS / REWARD_TERMS atom 参照化 (ADR-0045 §3.3)。
+// atom 1 行修正で 「応援」「ごほうび」のリブランディング時に全 UI 伝播する。
 export const CHEER_LABELS = {
-	pageDescTitle: '🎉 応援',
-	pageDescText1: 'お子さまのがんばりに、理由とポイントで応援を届けます。',
+	pageDescTitle: `🎉 ${CHEER_TERMS.canonical}`,
+	pageDescText1: `お子さまのがんばりに、理由とポイントで${CHEER_TERMS.canonical}を届けます。`,
 	pageDescText2: '「運動会で1位」「むずかしい問題ができた」など、その場で気持ちを形にできます。',
-	pageDescHintPrefix: 'スタンプやひとことメッセージも添えられます。日常のごほうび管理は',
-	pageDescHintLink: 'ごほうび',
+	pageDescHintPrefix: `スタンプやひとことメッセージも添えられます。日常の${REWARD_TERMS.menu}は`,
+	pageDescHintLink: REWARD_TERMS.canonical,
 	pageDescHintSuffix: 'から行えます',
 	selectChildTitle: '1. こどもを選択',
-	reasonTitle: '2. 応援する理由',
+	reasonTitle: `2. ${CHEER_TERMS.action}理由`,
 	reasonPlaceholder: '例: うんどうかいで 1いに なったね！',
 	reasonHint: '100文字以内',
 	pointsTitle: '3. ボーナスポイント',
@@ -3364,19 +3373,19 @@ export const CHEER_LABELS = {
 	iconHint: '絵文字を入れてください',
 	extraTitle: '6. 付随スタンプ / メッセージ（任意）',
 	extraDescription: 'いつものスタンプや、ひとことメッセージも一緒に届けられます',
-	confirmTitle: '7. 内容を確認して応援する',
-	grantButton: '応援する',
+	confirmTitle: `7. 内容を確認して${CHEER_TERMS.action}`,
+	grantButton: CHEER_TERMS.action,
 	grantButtonDisabled: '理由とポイントを入力してください',
-	grantSuccess: '応援を送りました！',
+	grantSuccess: `${CHEER_TERMS.canonical}を送りました！`,
 	grantSuccessDesc: (points: number) => `+${points}P をプレゼントしました`,
-	historyTitle: '最近の応援',
+	historyTitle: `最近の${CHEER_TERMS.canonical}`,
 	recentMessagesTitle: '最近のメッセージ（旧履歴含む）',
 	msgRead: '既読',
 	msgUnread: '未読',
 	noChildrenTitle: 'まずこどもを登録してください',
 	noChildrenDesc: '「こども」タブから登録できます',
 	// プリセット理由（よく使う応援の例、 1 タップで reason に流し込む）
-	presetTitle: 'よくある応援',
+	presetTitle: `よくある${CHEER_TERMS.canonical}`,
 	// ボタン操作系
 	cheerAgainBack: 'ホームへ戻る',
 	// 確認用ラベル
@@ -3385,7 +3394,7 @@ export const CHEER_LABELS = {
 	confirmCategoryLabel: 'カテゴリ',
 	confirmIconLabel: 'アイコン',
 	// エラーメッセージ
-	errorReasonRequired: '応援の理由を入力してください',
+	errorReasonRequired: `${CHEER_TERMS.canonical}の理由を入力してください`,
 	errorReasonTooLong: '理由は100文字以内で入力してください',
 	errorPointsRequired: 'ポイントは1〜10000の範囲で入力してください',
 	errorCategoryRequired: 'カテゴリを選択してください',
@@ -3534,7 +3543,8 @@ export const FORGOT_PASSWORD_LABELS = {
 export const DEMO_REWARDS_LABELS = {
 	upgradeBannerDesc:
 		'無料プランではプリセット閲覧のみ可能です。スタンダードプラン以上にアップグレードすると、カスタムのボーナスごほうびを作成・付与できます。',
-	selectTemplateTitleDemo: '2. テンプレートを選択（またはカスタム）',
+	// #2272 AC2: 「テンプレート」UI 露出を REWARD_TERMS.preset 経由「プリセット」に置換
+	selectTemplateTitleDemo: `2. ${REWARD_TERMS.preset}を選択（またはカスタム）`,
 	confirmGrantTitleDemo: '3. 内容を確認して付与',
 	demoGrantDisabled: 'デモでは報酬を付与できません',
 	ctaTitle: `特別報酬で${CHILD_TERMS.honorific}をもっと応援しませんか？`,
@@ -4147,8 +4157,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	addItemDialogTitle: 'アイテム追加',
 	overrideDialogTitle: 'ワンオフ追加/除外',
 	premiumBadgeLabel: 'スタンダード以上',
-	// #2137 (MP-2): マーケットプレイス checklist 一括追加セクション
-	marketplaceSectionTitle: '🏪 マーケットプレイスから一括追加',
+	// #2137 (MP-2): マーケットプレイス checklist 一括追加セクション (#2272: UI ラベルは TEMPLATE_TERMS atom 経由)
+	marketplaceSectionTitle: `🏪 ${TEMPLATE_TERMS.userFacing}から一括追加`,
 	marketplaceSectionDesc:
 		'季節やイベント時の持ち物リストをワンタップで取込めます（重複時はスキップ）',
 	marketplaceItemCount: (n: number) => `${n}項目`,
@@ -4167,11 +4177,10 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 
 export const ADMIN_RULES_PAGE_LABELS = {
 	pageTitle: '取込済ルール一覧',
-	pageDescription:
-		'マーケットプレイスから取込んだ bonus / exchange 系ルールを管理します。bonus は ON/OFF で有効化を切り替えられます。',
+	pageDescription: `${TEMPLATE_TERMS.userFacing}から取込んだ bonus / exchange 系ルールを管理します。bonus は ON/OFF で有効化を切り替えられます。`,
 	emptyTitle: '取込済のルールがありません',
-	emptyDesc: 'マーケットプレイスから bonus / exchange ルールを取込むとここに表示されます',
-	browseLink: '🏪 マーケットプレイスを見る →',
+	emptyDesc: `${TEMPLATE_TERMS.userFacing}から bonus / exchange ルールを取込むとここに表示されます`,
+	browseLink: `🏪 ${TEMPLATE_TERMS.browse} →`,
 	sectionBonusTitle: '🎯 ボーナスルール',
 	sectionBonusDesc:
 		'活動記録時に発火するボーナスポイント。enabled な preset のみが活動記録時に評価されます。',

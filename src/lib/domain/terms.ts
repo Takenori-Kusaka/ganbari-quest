@@ -36,8 +36,11 @@
 //   ADVENTURE_TERMS  — 冒険 / メインクエスト atom（TECH-F 中頻度、#1915）
 //   MECHANISM_TERMS  — 仕組み / 工夫 / 設計 atom（TECH-F 中頻度、#1915）
 //   LIFESTAGE_TERMS  — 年齢 / 年齢区分 / 学年 atom（TECH-F 中頻度、#1915）
+//   CHEER_TERMS      — 応援 / 応援する / できごと atom（EPIC #2266、#2276）
+//   REWARD_TERMS     — ごほうび管理 / ごほうびショップ / プリセット atom（EPIC #2266、#2276）
+//   TEMPLATE_TERMS   — みんなのテンプレート / テンプレート atom（EPIC #2266、#2276）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -621,4 +624,70 @@ export const LIFESTAGE_TERMS = {
 	canonical: '年齢',
 	tier: '年齢区分',
 	schoolGrade: '学年',
+} as const;
+
+// ============================================================
+// CHEER_TERMS — 応援 atom (#2276 / EPIC #2266)
+// ============================================================
+//
+// PO 報告 (2026-05-19): 「応援 = 任意の理由で直接子供にポイント付与 (運動会一位等)、
+// スタンプ/メッセージは P 付与に付随する理由表現」。本 atom は cheer 機能の
+// canonical / action / reasonField の 3 用途 SSOT。
+//
+// 設計指針:
+//   - canonical    : '応援'       (汎用名詞、ナビ / ページタイトル等の標準形)
+//   - action       : '応援する'    (ボタン動詞、grantButton 用)
+//   - reasonField  : 'できごと'    (入力ラベル、PO 「子供にも分かる平易語」の今後の置換候補)
+//
+// 既存リテラル (CHEER_LABELS '応援' 多数) との段階的 atom 化のため本 atom を導入。
+// 1 行修正で 「応援」→「がんばり応援」等のリブランディング時に伝播可能。
+
+export const CHEER_TERMS = {
+	canonical: '応援',
+	action: '応援する',
+	reasonField: 'できごと',
+} as const;
+
+// ============================================================
+// REWARD_TERMS — ごほうび atom (#2276 / EPIC #2266)
+// ============================================================
+//
+// PO 報告 (2026-05-19): rewards CRUD と子供 shop の責務分離。CRUD は親管理画面の
+// /admin/rewards、shop は子供画面の /(child)/shop。「テンプレート」内部用語を
+// UI から撤去し「プリセット」に置換 (atom 経由)。
+//
+// 設計指針:
+//   - menu      : 'ごほうび管理'    ( /admin/rewards の (b) CRUD 正式名 )
+//   - shop      : 'ごほうびショップ' ( /(child)/shop の (a) 子供 shop 正式名 )
+//   - preset    : 'プリセット'      ( テンプレ用語の代替、UI 露出用 )
+//   - canonical : 'ごほうび'        ( 短縮形、ナビ / セクションタイトル等の標準形 )
+//
+// 既存 REWARDS_LABELS の '管理' / '一覧' / '申請' 等は本 atom と組み合わせて使う。
+
+export const REWARD_TERMS = {
+	menu: 'ごほうび管理',
+	shop: 'ごほうびショップ',
+	preset: 'プリセット',
+	canonical: 'ごほうび',
+} as const;
+
+// ============================================================
+// TEMPLATE_TERMS — みんなのテンプレート atom (#2276 / EPIC #2266)
+// ============================================================
+//
+// PO 確定方針 (A0、2026-05-19): URL `/marketplace` は維持、UI ラベルのみ
+// 「みんなのテンプレート」統一。本 atom は UI 露出専用の SSOT。
+//
+// 設計指針:
+//   - userFacing  : 'みんなのテンプレート' ( /marketplace の UI ラベル統一 )
+//   - short       : 'テンプレート'         ( ナビ短縮形 / 詰めて表示する文脈用 )
+//   - browse      : 'みんなのテンプレートを見る' ( CTA ボタン文言 )
+//
+// 「マーケットプレイス」リテラルは UI 露出禁止 (ADR-0041 移行完了)、内部識別子
+// (`marketplace-item.ts` / API endpoint 等) は維持。
+
+export const TEMPLATE_TERMS = {
+	userFacing: 'みんなのテンプレート',
+	short: 'テンプレート',
+	browse: 'みんなのテンプレートを見る',
 } as const;
