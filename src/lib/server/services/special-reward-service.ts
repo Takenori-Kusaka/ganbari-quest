@@ -88,9 +88,12 @@ function toRewardResult(row: {
 	};
 }
 
-// --- 特別報酬付与 ---
+// --- ごほうび追加 (#2268: grantSpecialReward → addReward リネーム) ---
+// 旧名 `grantSpecialReward` は「P 付与」を示唆していたが、実態は special_rewards INSERT
+// (子供 shop に並べる商品の追加) + points 加算。命名訂正のため `addReward` に rename。
+// 旧名は後方互換 alias で維持（#2268 影響範囲拡散防止、別 Issue で削除予定）。
 
-export async function grantSpecialReward(
+export async function addReward(
 	data: GrantInput,
 	tenantId: string,
 ): Promise<SpecialRewardResult | { error: 'NOT_FOUND'; target: string }> {
@@ -123,6 +126,12 @@ export async function grantSpecialReward(
 
 	return toRewardResult(reward);
 }
+
+/**
+ * @deprecated #2268: `addReward` に rename 済。本 alias は後方互換のため一時的に維持。
+ * 新規コードでは `addReward` を使うこと。
+ */
+export const grantSpecialReward = addReward;
 
 // --- 履歴取得 ---
 

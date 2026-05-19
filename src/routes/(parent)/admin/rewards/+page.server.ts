@@ -1,4 +1,4 @@
-// /admin/rewards — 特別報酬の付与（#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一, #1337 申請タブ追加, #2136 MP-1 マーケットプレイス一括追加）
+// /admin/rewards — ごほうび管理 (#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一, #1337 申請タブ追加, #2136 MP-1 マーケットプレイス一括追加, #2268 CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム + 申請タブ削除)
 
 import { fail } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
@@ -14,25 +14,22 @@ import {
 	type PlanTier,
 	resolveFullPlanTier,
 } from '$lib/server/services/plan-limit-service';
-import {
-	approveRedemption,
-	getRedemptionRequestsForParent,
-	rejectRedemption,
-} from '$lib/server/services/reward-redemption-service';
+import { getRedemptionRequestsForParent } from '$lib/server/services/reward-redemption-service';
 import {
 	importRewardSet,
 	previewRewardSetImport,
 } from '$lib/server/services/reward-set-import-service';
 import {
+	addReward,
 	getChildSpecialRewards,
 	getRewardTemplates,
-	grantSpecialReward,
 	type RewardTemplate,
 	saveRewardTemplates,
 } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
-const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor('特別なごほうび設定');
+// #2268: 「特別なごほうび設定」→「ごほうび管理」に文言更新
+const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor('ごほうび管理');
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
@@ -54,13 +51,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 	);
 
-	// 申請一覧を取得（pending + 最近30件の承認/却下履歴）
-	const [pendingRequests, historyRequests] = await Promise.all([
-		getRedemptionRequestsForParent(tenantId, { status: 'pending_parent_approval' }),
-		getRedemptionRequestsForParent(tenantId, { limit: 30 }).then((requests) =>
-			requests.filter((r) => r.status === 'approved' || r.status === 'rejected'),
-		),
-	]);
+	// #2268: 申請承認画面は /admin/rewards/requests に分離 (子#3)。
+	// 本画面は pending 件数のみ取得し、overflow menu のバッジに使用する。
+	const pendingRequests = await getRedemptionRequestsForParent(tenantId, {
+		status: 'pending_parent_approval',
+	});
 
 	// #2136 MP-1: マーケットプレイス reward-set 一覧（preview 用）
 	const rewardSetMetas = getMarketplaceIndex().filter((m) => m.type === 'reward-set');
@@ -80,8 +75,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		presetGroups: PRESET_REWARD_GROUPS,
 		isPremium,
 		planTier: tier,
-		pendingRequests,
-		historyRequests,
+		pendingRequestsCount: pendingRequests.length,
 		rewardSets,
 	};
 };
@@ -93,10 +87,11 @@ async function resolveTier(locals: App.Locals, tenantId: string): Promise<PlanTi
 }
 
 export const actions: Actions = {
-	grant: async ({ request, locals }) => {
+	// #2268: grant → add リネーム (実態は special_rewards INSERT、子供 shop に並べる商品の追加)
+	add: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 
-		// #728: プランゲート — 無料プランはカスタム報酬付与不可
+		// #728: プランゲート — 無料プランはカスタム報酬追加不可
 		// #787: PlanLimitError 形式に統一
 		const tier = await resolveTier(locals, tenantId);
 		if (!isPaidTier(tier)) {
@@ -116,7 +111,7 @@ export const actions: Actions = {
 		if (!title) return fail(400, { error: 'タイトルを入力してください' });
 		if (points <= 0 || points > 10000) return fail(400, { error: 'ポイントは1〜10000の範囲です' });
 
-		const result = await grantSpecialReward({ childId, title, points, icon, category }, tenantId);
+		const result = await addReward({ childId, title, points, icon, category }, tenantId);
 		if ('error' in result) {
 			return fail(400, { error: result.error });
 		}
@@ -158,29 +153,6 @@ export const actions: Actions = {
 		await saveRewardTemplates([...existing, newTemplate], tenantId);
 
 		return { presetAdded: true };
-	},
-
-	approveRedemption: async ({ request, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		const requestId = Number(formData.get('requestId'));
-		if (!requestId) return fail(400, { redemptionError: '申請IDが不正です' });
-
-		// parentId は approveRedemption の resolved_by_parent_id に記録するだけの追跡用
-		// AuthContext に userId が無いため 0 をフォールバックとして使用
-		const parentId = 0;
-
-		const result = await approveRedemption(requestId, parentId, tenantId);
-		if ('error' in result) {
-			const msgs: Record<string, string> = {
-				INVALID_STATUS: '既に処理済みの申請です',
-				INSUFFICIENT_POINTS: 'ポイントが不足しています',
-				REQUEST_NOT_FOUND: '申請が見つかりません',
-			};
-			return fail(400, { redemptionError: msgs[result.error] ?? 'エラーが発生しました' });
-		}
-
-		return { redemptionApproved: true };
 	},
 
 	// #2136 MP-1: マーケットプレイス reward-set 一括追加
@@ -226,24 +198,5 @@ export const actions: Actions = {
 				presetId,
 			},
 		};
-	},
-
-	rejectRedemption: async ({ request, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		const requestId = Number(formData.get('requestId'));
-		const parentNote = String(formData.get('parentNote') ?? '').trim() || null;
-		if (!requestId) return fail(400, { redemptionError: '申請IDが不正です' });
-
-		const result = await rejectRedemption(requestId, parentNote, tenantId);
-		if ('error' in result) {
-			const msgs: Record<string, string> = {
-				INVALID_STATUS: '既に処理済みの申請です',
-				REQUEST_NOT_FOUND: '申請が見つかりません',
-			};
-			return fail(400, { redemptionError: msgs[result.error] ?? 'エラーが発生しました' });
-		}
-
-		return { redemptionRejected: true };
 	},
 };
