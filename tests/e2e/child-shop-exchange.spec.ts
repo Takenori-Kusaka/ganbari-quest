@@ -318,11 +318,8 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		// 承認前のポイント残高を記録
 		const balanceBefore = await getPointBalance(childId);
 
-		// 管理者として /admin/rewards へアクセス
-		await page.goto('/admin/rewards');
-
-		// 申請タブに切り替え
-		await page.getByTestId('tab-requests').click();
+		// #2269: 申請承認は /admin/rewards/requests に分離されたため直接遷移
+		await page.goto('/admin/rewards/requests');
 
 		// 承認ボタンが表示されるのを待つ
 		const approveBtn = page.getByTestId(`approve-btn-${requestId}`);
@@ -351,11 +348,8 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		// 却下前のポイント残高を記録
 		const balanceBefore = await getPointBalance(childId);
 
-		// 管理者として /admin/rewards へアクセス
-		await page.goto('/admin/rewards');
-
-		// 申請タブに切り替え
-		await page.getByTestId('tab-requests').click();
+		// #2269: 申請承認は /admin/rewards/requests に分離されたため直接遷移
+		await page.goto('/admin/rewards/requests');
 
 		// 却下ボタンが表示されるのを待つ
 		const rejectBtn = page.getByTestId(`reject-btn-${requestId}`);
