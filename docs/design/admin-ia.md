@@ -130,7 +130,7 @@ const navCategories: NavCategory[] = $derived([
     items: [
       { href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
       { href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
-      { href: `${basePath}/analytics`, label: NAV_ITEM_LABELS.analytics, icon: '📈' },
+      // analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に集約)
       { href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
       // #2270 / #2274 (EPIC #2266): messages 廃止 + rewards/cheer を activity 配下に移動
     ],

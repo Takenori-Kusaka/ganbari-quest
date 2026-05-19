@@ -166,6 +166,13 @@ jobs:
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
 
+      - name: Internal terms UI exposure check (#2288 AN-5 #2180 補強)
+        # 親 UI (admin / 親管理画面) で内部用語 (DynamoDB / Pre-PMF Bucket A /
+        # アクティベーションファネル / リテンションコホート / テナント等) の UI 露出を検知。
+        # baseline pin 機構で新規違反 1 件で fail。
+        # AN-5 (#2180) 観察「内部用語 UI 露出 = 3 EPIC 連続発見」の構造的解消 (EPIC #2283 ⑤)。
+        run: node scripts/check-internal-terms.mjs
+
       - name: No direct process.env access check (#1202 / ADR-0040 P1)
         run: node scripts/check-no-direct-env-access.mjs
 

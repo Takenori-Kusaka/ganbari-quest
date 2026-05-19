@@ -57,6 +57,9 @@
 
 `license_event` 追記ログテーブル / `ops_audit_log` 汎用監査 / ブルート検知 / 監査ログ専用 DynamoDB / S3+Athena / AWS WAF 導入。新規採用したい場合は本 ADR を supersede する新 ADR を先に起票。
 
+**事例追記 (2026-05-19、EPIC #2283 由来)**:
+- [Phase Analytics-Removal EPIC #2283](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2283) (`tmp/research/analytics-removal-result.md`): 親管理画面 `/admin/analytics` への運営 KPI 露出 (Activation Funnel / Retention Cohort / 解約理由分布) を全面撤去。**Pre-PMF 段階の典型的な「親画面での運営者向け機能露出」事例** (内部用語 UI 露出 + 全テナント集計の親画面露出 + on-demand DynamoDB query 実行コスト + GDPR Art.5(1)(b) 目的限定違反)。家族向け B2C 業界 (ClassDojo Family / Cozi / Habitica / GoHenry / BusyKid) で同パターン先行事例 0 件。運用者向け機能は `/ops/analytics` に集約 (`ops_users` group 認証)、admin / ops 境界 SSOT は `06-UI設計書.md §11 画面所属判断` 参照。
+
 ### 5. PMF 後の再評価トリガ
 
 - **規模**: 月商 ¥10,000 超 または 有料顧客 100 人超

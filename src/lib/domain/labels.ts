@@ -85,7 +85,7 @@ export const PAGE_TITLES = {
 	children: 'こども管理',
 	members: 'メンバー管理',
 	settings: '設定',
-	analytics: 'アナリティクス',
+	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
 	billing: '請求書・支払い管理',
 	certificates: 'がんばり証明書',
 	license: 'プラン・お支払い',
@@ -252,7 +252,7 @@ export const NAV_ITEM_LABELS = {
 	reports: 'レポート',
 	growthBook: 'グロースブック',
 	achievements: 'チャレンジ履歴',
-	analytics: 'アナリティクス',
+	// analytics: 削除 (#2284 EPIC #2283: /admin/analytics 撤去、運用者向け機能は /ops/analytics に移動)
 	points: 'ポイント',
 	// #2270 / #2274 (EPIC #2266): 旧 messages 廃止 → cheer (応援) に統合 + activity 配下へ移動
 	// #2276: CHEER_TERMS / REWARD_TERMS atom 参照化 (ADR-0045)
@@ -1987,70 +1987,10 @@ export const SIGNUP_LABELS = {
 	blockLicenseOnceRequired: 'ライセンスキーが一回限り使用であることに同意してください',
 } as const;
 
-export const ANALYTICS_LABELS = {
-	pageTitle: `アナリティクス - ${ADMIN_VIEW_TERMS.canonical}`,
-	pageHeading: 'アナリティクス',
-	pageDescription:
-		'DynamoDB に蓄積された業務イベントから 4 つの主要指標を可視化します（Pre-PMF Bucket A 範囲）。',
-
-	// #1639 (#1591 follow-up): DynamoDB ベース 4 種可視化のラベル
-
-	// 共通
-	periodLabel: '期間',
-	period7d: '直近 7 日',
-	period30d: '直近 30 日',
-	period90d: '直近 90 日',
-	periodWeekly: '週次',
-	periodMonthly: '月次',
-	noDataLabel: 'データがありません',
-	fetchErrorLabel: '取得に失敗しました',
-	fetchedAtLabel: '取得時刻',
-	totalLabel: '合計',
-	countSuffix: '件',
-	tenantSuffix: 'テナント',
-
-	// AC1: Activation funnel
-	activationFunnelHeading: 'アクティベーションファネル',
-	activationFunnelDesc:
-		'signup → 初回子供登録 → 初回活動完了 → 初回報酬演出のテナント単位ユニーク件数。各ステップ間の遷移率を表示します。',
-	activationFunnelStepLabels: {
-		activation_signup_completed: 'signup 完了',
-		activation_first_child_added: '初回子供登録',
-		activation_first_activity_completed: '初回活動完了',
-		activation_first_reward_seen: '初回報酬演出',
-	},
-	activationFunnelConversionLabel: '前ステップからの遷移率',
-	activationFunnelStepHeading: 'ステップ',
-	activationFunnelTenantHeading: 'テナント数',
-
-	// AC2: Retention cohort
-	retentionCohortHeading: 'リテンションコホート',
-	retentionCohortDesc: `${SIGNUP_TERMS.canonical}月別のテナント残存率（Day 1 / 7 / 14 / 30 / 60 / 90 時点）。サンプルが少ない月はサンプル不足として表示されます。`,
-	retentionCohortHeading_cohort: 'コホート',
-	retentionCohortHeading_size: 'サイズ',
-	retentionCohortInsufficientSample: 'サンプル不足',
-	retentionCohortDayHeading: (day: number) => `D${day}`,
-	retentionCohortNotYet: '—',
-
-	// AC3: Sean Ellis score
-	seanEllisHeading: 'Sean Ellis スコア (PMF 指標)',
-	seanEllisDesc:
-		'「サービスが使えなくなったらどう感じる？」アンケートで「とても残念」と答えた割合（N/A 除外）。40% 超で PMF 達成判定。',
-	seanEllisRoundLabel: 'round',
-	seanEllisScoreLabel: 'スコア',
-	seanEllisAchieved: 'PMF 達成',
-	seanEllisNotAchieved: '未達成',
-	seanEllisTotalResponses: '回答数',
-	seanEllisOpsLink: 'ops/pmf-survey で詳細を見る',
-
-	// AC4: Cancellation reasons
-	cancellationReasonsHeading: '解約理由分布',
-	cancellationReasonsDesc:
-		'解約フローで取得した理由カテゴリの内訳。卒業 / 離反 / 中断の 3 分類で表示します。',
-	cancellationCategoryHeading: 'カテゴリ',
-	cancellationCountHeading: '件数',
-	cancellationPercentageHeading: '比率',
-} as const;
+// ANALYTICS_LABELS: 削除 (#2284 EPIC #2283)
+// /admin/analytics 全面撤去 (PO 指摘 2026-05-19 4 構造問題: 内部用語 UI 露出 /
+// SaaS マーケ専門用語 / on-demand 実行コスト / 運用者向け画面の親露出) を解消。
+// 運用者向け機能は /ops/analytics に集約 (Activation Funnel は #2285 で移動済)。
 
 export const BILLING_LABELS = {
 	pageHeading: '請求書・支払い管理',
@@ -2956,6 +2896,22 @@ export const OPS_ANALYTICS_LABELS = {
 	pipelineDesc: 'DB 直接集計（リアルタイム、追加コストなし）',
 	costNote:
 		'コスト試算: DB 直接クエリのため追加 AWS コストは $0。DynamoDB Streams + Athena への移行はユーザー数 1,000+ で検討（推定 $5-10/月）。',
+
+	// Activation Funnel section (#2285 EPIC #2283: /admin/analytics 撤去で消失する機能を ops 側へ移動)
+	// 内部基盤名 (DynamoDB / Pre-PMF Bucket A) UI 露出禁止 (AN-5 #2180 整合)、「テナント」→「家庭」置換
+	activationFunnelTitle: 'Activation Funnel (直近 30 日)',
+	activationFunnelDesc: 'signup から初回報酬演出までの家庭単位ユニーク件数と遷移率。',
+	activationFunnelStepCol: 'ステップ',
+	activationFunnelCountCol: '件数',
+	activationFunnelConversionCol: '遷移率',
+	activationFunnelStepLabels: {
+		activation_signup_completed: '① signup',
+		activation_first_child_added: '② 初回家庭メンバー登録',
+		activation_first_activity_completed: '③ 初回活動完了',
+		activation_first_reward_seen: '④ 初回報酬演出',
+	},
+	activationFunnelEmpty: 'データがありません',
+	activationFunnelHouseholdSuffix: '世帯',
 } as const;
 
 // ============================================================

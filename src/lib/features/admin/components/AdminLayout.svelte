@@ -124,7 +124,7 @@ const navCategories: NavCategory[] = $derived([
 			{ href: `${basePath}/reports`, label: NAV_ITEM_LABELS.reports, icon: '📊' },
 			{ href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
 			// #1782: 「実績」ナビ削除。チャレンジ機能 (/admin/challenges) に統合 (ADR-0012 §6 整合)
-			{ href: `${basePath}/analytics`, label: NAV_ITEM_LABELS.analytics, icon: '📈' },
+			// #2284 (EPIC #2283): /admin/analytics 撤去。運用者向け機能は /ops/analytics に移動
 			{ href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
 			// #2270 / #2274 (EPIC #2266): messages 廃止 + rewards/cheer を activity 配下に移動
 		],
