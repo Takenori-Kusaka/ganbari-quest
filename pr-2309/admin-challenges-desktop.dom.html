@@ -15,7 +15,7 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1i2smtp--><!----><title>がんばりクエスト</title>
+		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--p965u9--><!----><title>がんばりクエスト</title>
 		<style data-sveltekit="">/*! tailwindcss v4.3.0 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
@@ -4239,45 +4239,407 @@ h1, h2, h3, h4 {
 	}
  .svelte-1p67wbu{}
 
-	.google-signin-btn.svelte-11stgaa {
+	.admin-shell.svelte-wncecx {
+		min-height: 100dvh;
+		background: linear-gradient(to bottom, var(--plan-page-from, #eff6ff), var(--plan-page-to, #dbeafe));
+	}
+	.admin-header.svelte-wncecx {
+		background: var(--plan-header-bg, rgba(255, 255, 255, 0.8));
+	}
+	/* Header badges — parent / demo labels */
+	.header-badge.svelte-wncecx {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.5rem;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		border-radius: var(--radius-sm, 0.25rem);
+		white-space: nowrap;
+	}
+	.header-badge--admin.svelte-wncecx {
+		color: var(--color-brand-700);
+		background: var(--color-brand-100);
+	}
+	.header-badge--demo.svelte-wncecx {
+		color: var(--color-warning);
+		background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+	}
+	/* Upgrade link */
+	.upgrade-btn.svelte-wncecx {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		padding: 4px 12px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-premium);
+		background: var(--color-premium-bg);
+		border-radius: var(--radius-full);
+		text-decoration: none;
+		transition: all 0.15s ease;
+		white-space: nowrap;
+	}
+	.upgrade-btn.svelte-wncecx:hover {
+		background: var(--color-premium);
+		color: var(--color-text-inverse);
+	}
+	/* Plan badge — single instance (#490) */
+	.plan-badge.svelte-wncecx {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding: 3px 10px;
+		font-size: 0.7rem;
+		font-weight: 700;
+		border-radius: 9999px;
+		white-space: nowrap;
+	}
+	.plan-badge--standard.svelte-wncecx {
+		background: var(--plan-badge-bg, #f3e8ff);
+		color: var(--plan-badge-text, #6d28d9);
+	}
+	.plan-badge--family.svelte-wncecx {
+		background: var(--plan-badge-bg, #fef3c7);
+		color: var(--plan-badge-text, #92400e);
+	}
+	/* Tutorial button override for small size (#497) */
+	.header-tutorial-btn {
+		width: 2rem !important;
+		height: 2rem !important;
+		min-height: unset !important;
+		padding: 0 !important;
+		border-radius: var(--radius-full) !important;
+		font-weight: 700 !important;
+	}
+	/* Switch link (#497) — uses CSS variables instead of Tailwind colors */
+	.header-switch-link.svelte-wncecx {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.75rem;
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-md, 0.5rem);
+		transition: background 0.15s ease;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+	.header-switch-link.svelte-wncecx:hover {
+		background: var(--color-border-default);
+	}
+	/* Desktop nav — category buttons */
+	.nav-item.svelte-wncecx {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.5rem 1rem;
+		border-radius: 0.5rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		transition: all 0.15s;
+		white-space: nowrap;
+		color: var(--color-text-secondary, #4b5563);
+		cursor: pointer;
+		border: none;
+		background: none;
+	}
+	.nav-item.svelte-wncecx:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+		color: var(--plan-nav-text, var(--color-brand-600));
+	}
+	.nav-item--active.svelte-wncecx {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
+	}
+	/* Desktop dropdown */
+	.desktop-dropdown.svelte-wncecx {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		min-width: 180px;
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
+		border-radius: 0.5rem;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		padding: 0.25rem;
+		/* DESIGN section 10 z-index token (#2258 / EPIC #2253): raw 50 -> var(--z-modal) */
+		z-index: var(--z-modal);
+		margin-top: 0.25rem;
+	}
+	.dropdown-item.svelte-wncecx {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 0.375rem;
+		font-size: 0.8125rem;
+		color: var(--color-text-secondary, #4b5563);
+		transition: all 0.1s;
+		white-space: nowrap;
+	}
+	.dropdown-item.svelte-wncecx:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+		color: var(--plan-nav-text, var(--color-brand-600));
+	}
+	.dropdown-item--active.svelte-wncecx {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
+		font-weight: 600;
+	}
+	/* Mobile nav — category buttons (#2178: 5-tab width tightened 4.5rem -> 3.75rem to fit iPhone SE 375px) */
+	.mobile-nav-item.svelte-wncecx {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 2px;
+		width: 3.75rem;
+		height: 100%;
+		transition: color 0.15s;
+		color: var(--color-text-tertiary, #9ca3af);
+		border: none;
+		background: none;
+		cursor: pointer;
+		padding: 0 2px;
+	}
+	.mobile-nav-item.svelte-wncecx:hover {
+		color: var(--color-text-secondary, #4b5563);
+	}
+	.mobile-nav-item--active.svelte-wncecx {
+		color: var(--plan-primary, var(--color-brand-600));
+	}
+	.mobile-nav-item--expanded.svelte-wncecx {
+		color: var(--plan-primary, var(--color-brand-600));
+	}
+	/* Mobile submenu panel */
+	.mobile-submenu.svelte-wncecx {
+		background: var(--color-surface-card);
+		border-top: 1px solid var(--color-border-default);
+		padding: 12px 16px;
+		animation: svelte-wncecx-slideUp 0.15s ease-out;
+	}
+	.mobile-submenu-label.svelte-wncecx {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-text-muted);
+		margin-bottom: 0.5rem;
+		padding-left: 0.25rem;
+	}
+	@keyframes svelte-wncecx-slideUp {
+		from {
+			opacity: 0;
+			transform: translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.mobile-submenu-item.svelte-wncecx {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 4px;
+		padding: 10px 4px;
+		border-radius: 0.5rem;
+		color: var(--color-text-secondary, #4b5563);
+		transition: all 0.1s;
+	}
+	.mobile-submenu-item.svelte-wncecx:hover {
+		background: var(--plan-nav-bg, #e8f4fd);
+	}
+	.mobile-submenu-item--active.svelte-wncecx {
+		background: var(--plan-nav-active, #dbeafe);
+		color: var(--plan-nav-text, var(--color-brand-700));
+		font-weight: 600;
+	}
+	/* Page Guide help button */
+	.page-guide-btn.svelte-wncecx {
+		/* #2109: position: relative removed (was only needed for now-deleted .page-guide-badge absolute positioning) */
+		width: 2rem;
+		height: 2rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 12px;
-		width: 100%;
-		height: 44px;
-		padding: 0 16px;
-		background-color: #fff;
-		border: 1px solid var(--color-border-default, #dadce0);
-		border-radius: var(--radius-sm, 6px);
+		border-radius: 9999px;
+		background: var(--color-surface-card, #e0f2fe);
+		border: 2px solid var(--color-action-primary, #3b82f6);
 		cursor: pointer;
-		transition: background-color 0.2s, box-shadow 0.2s;
-		text-decoration: none;
+		font-size: 0.875rem;
+		transition: all 0.15s;
+	}
+	.page-guide-btn.svelte-wncecx:hover {
+		background: var(--color-action-primary, #3b82f6);
+		filter: brightness(1.1);
+	}
+	/* #2109: .page-guide-badge (red --color-danger notification dot) removed
+	   ADR-0012 anti-engagement + industry prior art (Linear / Notion / GitHub / Stripe / Sentry) */
+ .svelte-wncecx{}
+
+	.trial-banner.svelte-7ep5mg {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 16px;
+		border: 1px solid var(--color-border-trial);
+		border-radius: 12px;
+		background: var(--gradient-surface-trial);
 	}
 
-	.google-signin-btn.svelte-11stgaa:hover {
-		background-color: #f7f8f8;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	.trial-banner.urgent.svelte-7ep5mg {
+		border-color: var(--color-border-trial-urgent);
+		background: var(--gradient-surface-trial-urgent);
 	}
 
-	.google-signin-btn.svelte-11stgaa:active {
-		background-color: #eee;
+	.trial-banner.not-started.svelte-7ep5mg {
+		border-color: var(--color-border-trial);
+		background: var(--gradient-surface-trial);
 	}
 
-	.google-signin-icon.svelte-11stgaa {
-		width: 20px;
-		height: 20px;
+	.trial-banner.expired.svelte-7ep5mg {
+		border-color: var(--color-border-trial-expired);
+		background: var(--color-surface-trial-expired);
+	}
+
+	.trial-icon.svelte-7ep5mg {
+		font-size: 1.5rem;
 		flex-shrink: 0;
 	}
 
-	.google-signin-text.svelte-11stgaa {
-		font-family: 'Roboto', sans-serif;
-		font-weight: 500;
-		font-size: 14px;
-		color: #3c4043;
-		letter-spacing: 0.25px;
+	.trial-content.svelte-7ep5mg {
+		flex: 1;
 	}
- .svelte-11stgaa{}
+
+	.trial-title.svelte-7ep5mg {
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
+		margin: 0;
+	}
+
+	.trial-desc.svelte-7ep5mg {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+		margin: 4px 0 0;
+	}
+
+	.trial-cta.svelte-7ep5mg {
+		flex-shrink: 0;
+		padding: 6px 12px;
+		background: var(--color-action-trial);
+		color: var(--color-text-inverse);
+		font-size: 0.75rem;
+		font-weight: 600;
+		border: none;
+		border-radius: 8px;
+		text-decoration: none;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+
+	.trial-cta.svelte-7ep5mg:hover:not(:disabled) {
+		background: var(--color-action-trial-hover);
+	}
+
+	.trial-cta.svelte-7ep5mg:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.trial-cta.upgrade.svelte-7ep5mg {
+		background: var(--color-action-trial-upgrade);
+	}
+
+	.trial-cta.upgrade.svelte-7ep5mg:hover {
+		background: var(--color-action-trial-upgrade-hover);
+	}
+
+	form.svelte-7ep5mg {
+		margin: 0;
+	}
+ .svelte-7ep5mg{}
+
+	.trial-ended-body.svelte-d5o3di {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		text-align: center;
+		gap: 12px;
+	}
+
+	.trial-ended-icon.svelte-d5o3di {
+		font-size: 2.5rem;
+	}
+
+	.trial-ended-message.svelte-d5o3di {
+		font-size: 0.875rem;
+		color: var(--color-text-primary);
+		line-height: 1.6;
+		margin: 0;
+	}
+
+	.trial-ended-notes.svelte-d5o3di {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		width: 100%;
+		text-align: left;
+	}
+
+	.trial-ended-notes.svelte-d5o3di li:where(.svelte-d5o3di) {
+		position: relative;
+		padding-left: 1.25em;
+		font-size: 0.8rem;
+		color: var(--color-text-secondary);
+		line-height: 1.5;
+		margin-bottom: 4px;
+	}
+
+	.trial-ended-notes.svelte-d5o3di li:where(.svelte-d5o3di)::before {
+		content: '•';
+		position: absolute;
+		left: 0.25em;
+		color: var(--color-text-tertiary);
+	}
+
+	.trial-ended-actions.svelte-d5o3di {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		width: 100%;
+		margin-top: 4px;
+	}
+ .svelte-d5o3di{}
+
+	.debug-plan-indicator.svelte-h6xk8m {
+		position: fixed;
+		bottom: 0.75rem;
+		right: 0.75rem;
+		z-index: 9999;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.375rem 0.625rem;
+		background: var(--color-feedback-warning-bg-strong);
+		color: var(--color-feedback-warning-text);
+		border: 1px solid var(--color-feedback-warning-border);
+		border-radius: 0.5rem;
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		font-size: 0.6875rem;
+		font-weight: 600;
+		box-shadow: 0 2px 8px color-mix(in srgb, var(--color-surface-overlay) 30%, transparent);
+		pointer-events: none;
+	}
+	.debug-plan-indicator__label.svelte-h6xk8m {
+		padding: 0.0625rem 0.25rem;
+		background: var(--color-feedback-warning-text);
+		color: var(--color-feedback-warning-bg);
+		border-radius: 0.25rem;
+		letter-spacing: 0.05em;
+	}
+ .svelte-h6xk8m{}
 
 	.logo-wrapper.svelte-1n7r250 {
 		display: inline-flex;
@@ -4308,6 +4670,527 @@ h1, h2, h3, h4 {
 	}
  .svelte-1n7r250{}
 
+	.guide-overlay.svelte-y136gw {
+		position: fixed;
+		inset: 0;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
+		z-index: var(--z-tutorial);
+	}
+
+	.guide-overlay-svg.svelte-y136gw {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.guide-overlay-bg.svelte-y136gw {
+		pointer-events: auto;
+		cursor: pointer;
+	}
+
+	.guide-spotlight-ring.svelte-y136gw {
+		position: absolute;
+		border: 2px solid rgba(59, 130, 246, 0.6);
+		border-radius: 12px;
+		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+		pointer-events: none;
+		animation: svelte-y136gw-guide-ring-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes svelte-y136gw-guide-ring-pulse {
+		0%, 100% {
+			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+		}
+		50% {
+			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
+		}
+	}
+
+	.guide-bubble.svelte-y136gw {
+		position: fixed;
+		/* #2106: bubble sits +10 above overlay (callout layering within --z-tutorial tier) */
+		z-index: calc(var(--z-tutorial) + 10);
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+		overflow: hidden;
+		animation: svelte-y136gw-guide-bubble-appear 0.3s ease-out;
+		pointer-events: auto;
+		max-height: 80vh;
+		overflow-y: auto;
+	}
+
+	@keyframes svelte-y136gw-guide-bubble-appear {
+		from {
+			opacity: 0;
+			transform: translateY(8px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.guide-header.svelte-y136gw {
+		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
+		padding: 10px 14px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		color: white;
+	}
+
+	.guide-header-icon.svelte-y136gw {
+		font-size: 1.1rem;
+	}
+
+	.guide-header-title.svelte-y136gw {
+		font-size: 0.85rem;
+		font-weight: 600;
+		flex: 1;
+	}
+
+	.guide-header-progress.svelte-y136gw {
+		font-size: 0.75rem;
+		opacity: 0.8;
+	}
+
+	.guide-step-title.svelte-y136gw {
+		padding: 14px 16px 8px;
+	}
+
+	.guide-step-title.svelte-y136gw h3:where(.svelte-y136gw) {
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 700;
+		color: var(--color-text-primary, #1e293b);
+	}
+
+	.guide-tabs.svelte-y136gw {
+		display: flex;
+		padding: 0 12px;
+		gap: 4px;
+	}
+
+	.guide-tab.svelte-y136gw {
+		flex: 1;
+		padding: 6px 8px;
+		font-size: 0.75rem;
+		font-weight: 600;
+		border: none;
+		border-radius: 8px 8px 0 0;
+		cursor: pointer;
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-muted, #64748b);
+		transition: all 0.15s;
+	}
+
+	.guide-tab.active.svelte-y136gw {
+		background: var(--color-brand-50, #eff6ff);
+		color: var(--color-action-primary, #3b82f6);
+	}
+
+	.guide-tab.svelte-y136gw:hover:not(.active) {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
+
+	.guide-tab-content.svelte-y136gw {
+		padding: 12px 16px;
+		min-height: 80px;
+		background: var(--color-surface-card, #ffffff);
+		border-top: 2px solid var(--color-brand-50, #eff6ff);
+	}
+
+	.guide-tab-content.svelte-y136gw p:where(.svelte-y136gw) {
+		margin: 0;
+		font-size: 0.85rem;
+		color: var(--color-text-secondary, #475569);
+		line-height: 1.6;
+		white-space: pre-line;
+	}
+
+	.guide-how-text.svelte-y136gw {
+		font-size: 0.85rem;
+	}
+
+	.guide-tips.svelte-y136gw {
+		margin-top: 10px;
+		padding: 8px 10px;
+		background: var(--color-surface-muted, #fffbeb);
+		border-radius: 8px;
+	}
+
+	.guide-tips-label.svelte-y136gw {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-text-primary, #92400e);
+	}
+
+	.guide-tip.svelte-y136gw {
+		margin: 4px 0 0 !important;
+		font-size: 0.8rem !important;
+		color: var(--color-text-secondary, #78716c) !important;
+	}
+
+	.guide-links.svelte-y136gw {
+		margin-top: 8px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.guide-link.svelte-y136gw {
+		font-size: 0.8rem;
+		color: var(--color-action-primary, #3b82f6);
+		text-decoration: none;
+	}
+
+	.guide-link.svelte-y136gw:hover {
+		text-decoration: underline;
+	}
+
+	.guide-progress-bar.svelte-y136gw {
+		height: 3px;
+		background: var(--color-surface-muted, #e2e8f0);
+		margin: 0 16px;
+	}
+
+	.guide-progress-fill.svelte-y136gw {
+		height: 100%;
+		background: linear-gradient(90deg, var(--color-action-primary, #3b82f6), var(--color-brand-600, #7c3aed));
+		border-radius: 2px;
+		transition: width 0.3s ease;
+	}
+
+	.guide-nav.svelte-y136gw {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 10px 14px 14px;
+		gap: 8px;
+	}
+
+	.guide-nav-right.svelte-y136gw {
+		display: flex;
+		gap: 6px;
+	}
+
+	.guide-nav-btn.svelte-y136gw {
+		padding: 7px 16px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.guide-nav-end.svelte-y136gw {
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-muted, #64748b);
+	}
+
+	.guide-nav-end.svelte-y136gw:hover {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
+
+	.guide-nav-prev.svelte-y136gw {
+		background: var(--color-surface-muted, #f1f5f9);
+		color: var(--color-text-secondary, #475569);
+	}
+
+	.guide-nav-prev.svelte-y136gw:hover {
+		background: var(--color-surface-hover, #e2e8f0);
+	}
+
+	.guide-nav-next.svelte-y136gw {
+		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
+		color: white;
+	}
+
+	.guide-nav-next.svelte-y136gw:hover {
+		filter: brightness(1.1);
+	}
+
+	.guide-nav-next.svelte-y136gw:active {
+		transform: scale(0.97);
+	}
+ .svelte-y136gw{}
+
+	.tutorial-overlay.svelte-c315ht {
+		position: fixed;
+		inset: 0;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
+		z-index: var(--z-tutorial);
+	}
+
+	.tutorial-overlay-svg.svelte-c315ht {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+	}
+
+	.tutorial-overlay-bg.svelte-c315ht {
+		pointer-events: auto;
+		cursor: default;
+	}
+
+	.tutorial-spotlight-ring.svelte-c315ht {
+		position: absolute;
+		border: 2px solid rgba(59, 130, 246, 0.6);
+		border-radius: 12px;
+		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+		pointer-events: none;
+		animation: svelte-c315ht-ring-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes svelte-c315ht-ring-pulse {
+		0%, 100% {
+			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+		}
+		50% {
+			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
+		}
+	}
+
+	/* A. During tutorial, suppress nav/header z-index below the overlay */
+	[data-tutorial-active] .z-30 {
+		z-index: 10 !important;
+	}
+	[data-tutorial-active] .desktop-dropdown {
+		z-index: 10 !important;
+	}
+ .svelte-c315ht{}
+
+	.tutorial-bubble.svelte-9wfq4r {
+		position: fixed;
+		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 110).
+		   Bubble sits +10 above TutorialOverlay (--z-tutorial=100) via calc(). */
+		z-index: calc(var(--z-tutorial) + 10);
+		background: white;
+		border-radius: 16px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+		padding: 0;
+		overflow: hidden;
+		pointer-events: auto;
+	}
+
+	@keyframes svelte-9wfq4r-bubble-appear {
+		from {
+			opacity: 0;
+			transform: translateY(8px) scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+	}
+
+	.tutorial-chapter-header.svelte-9wfq4r {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		padding: 8px 12px;
+	}
+
+	.tutorial-chapter-btn.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		color: white;
+		font-size: 0.8rem;
+		font-weight: 600;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 2px 4px;
+		border-radius: 4px;
+		width: 100%;
+	}
+
+	.tutorial-chapter-btn.svelte-9wfq4r:hover {
+		background: rgba(255, 255, 255, 0.15);
+	}
+
+	.tutorial-chapter-arrow.svelte-9wfq4r {
+		margin-left: auto;
+		font-size: 0.65rem;
+	}
+
+	.tutorial-chapter-menu.svelte-9wfq4r {
+		background: #f8fafc;
+		border-bottom: 1px solid #e2e8f0;
+		padding: 4px;
+	}
+
+	.tutorial-chapter-menu-item.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		padding: 8px 12px;
+		font-size: 0.8rem;
+		border: none;
+		background: none;
+		border-radius: 8px;
+		cursor: pointer;
+		color: #475569;
+	}
+
+	.tutorial-chapter-menu-item.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-chapter-menu-item.active.svelte-9wfq4r {
+		background: #dbeafe;
+		color: #1d4ed8;
+		font-weight: 600;
+	}
+
+	.tutorial-content.svelte-9wfq4r {
+		padding: 16px 16px 8px;
+	}
+
+	.tutorial-title.svelte-9wfq4r {
+		font-size: 1rem;
+		font-weight: 700;
+		color: #1e293b;
+		margin: 0 0 6px;
+	}
+
+	.tutorial-description.svelte-9wfq4r {
+		font-size: 0.85rem;
+		color: #475569;
+		line-height: 1.5;
+		margin: 0;
+	}
+
+	.tutorial-progress.svelte-9wfq4r {
+		padding: 8px 16px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.tutorial-progress-text.svelte-9wfq4r {
+		font-size: 0.7rem;
+		color: #94a3b8;
+		white-space: nowrap;
+		min-width: 36px;
+	}
+
+	.tutorial-progress-bar.svelte-9wfq4r {
+		flex: 1;
+		height: 4px;
+		background: #e2e8f0;
+		border-radius: 2px;
+		overflow: hidden;
+	}
+
+	.tutorial-progress-fill.svelte-9wfq4r {
+		height: 100%;
+		background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+		border-radius: 2px;
+		transition: width 0.3s ease;
+	}
+
+	.tutorial-nav.svelte-9wfq4r {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 8px 12px 12px;
+		gap: 8px;
+	}
+
+	.tutorial-nav-right.svelte-9wfq4r {
+		display: flex;
+		gap: 6px;
+	}
+
+	.tutorial-nav-btn.svelte-9wfq4r {
+		padding: 6px 14px;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
+
+	.tutorial-nav-end.svelte-9wfq4r {
+		background: #f1f5f9;
+		color: #64748b;
+	}
+
+	.tutorial-nav-end.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-nav-prev.svelte-9wfq4r {
+		background: #f1f5f9;
+		color: #475569;
+	}
+
+	.tutorial-nav-prev.svelte-9wfq4r:hover {
+		background: #e2e8f0;
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		color: white;
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r:hover {
+		background: linear-gradient(135deg, #2563eb, #1d4ed8);
+	}
+
+	.tutorial-nav-next.svelte-9wfq4r:active {
+		transform: scale(0.97);
+	}
+
+	/* Age-tier font size adjustments (G3) */
+	[data-age-tier="baby"] .tutorial-title.svelte-9wfq4r,
+	[data-age-tier="preschool"] .tutorial-title.svelte-9wfq4r {
+		font-size: 1.25rem;
+	}
+
+	[data-age-tier="baby"] .tutorial-description.svelte-9wfq4r,
+	[data-age-tier="preschool"] .tutorial-description.svelte-9wfq4r {
+		font-size: 1.05rem;
+	}
+
+	[data-age-tier="elementary"] .tutorial-title.svelte-9wfq4r {
+		font-size: 1.125rem;
+	}
+
+	[data-age-tier="elementary"] .tutorial-description.svelte-9wfq4r {
+		font-size: 0.95rem;
+	}
+ .svelte-9wfq4r{}
+
+	.dialog-body.svelte-1hkj8k9 p:where(.svelte-1hkj8k9) {
+		margin: 0;
+		color: var(--color-text-primary);
+		line-height: 1.5;
+	}
+
+	.dialog-hint.svelte-1hkj8k9 {
+		margin-top: var(--sp-sm) !important;
+		font-size: 0.875rem;
+		color: var(--color-text-secondary) !important;
+	}
+
+	.dialog-actions.svelte-1hkj8k9 {
+		display: flex;
+		gap: var(--sp-sm);
+		justify-content: flex-end;
+		margin-top: var(--sp-md);
+		flex-wrap: wrap;
+	}
+ .svelte-1hkj8k9{}
+
 	.password-toggle.svelte-pwdxgn {
 		position: absolute;
 		top: 50%;
@@ -4336,7 +5219,7 @@ h1, h2, h3, h4 {
  .svelte-pwdxgn{}</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--[--><div class="min-h-dvh flex items-center justify-center bg-[var(--gradient-brand)] p-4"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] w-full max-w-[400px] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]"><!--[-1--><!--]--> <div><div class="text-center mb-8"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo.png" alt="がんばりクエスト" width="320" height="92" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----> <!--[-1--><!--]--></div> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--[-1--><!--]--> <form method="POST" action="?/login" class="flex flex-col gap-5"><div class="flex flex-col gap-1  svelte-pwdxgn"><label for="email" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">メールアドレス</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="email" id="email" value="" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="email" placeholder="example@email.com" required="" autocomplete="email" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="password" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">パスワード</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="password" id="password" value="" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors pr-10 svelte-pwdxgn" name="password" placeholder="8文字以上" required="" minlength="8" autocomplete="current-password" style=""> <!--[0--><button type="button" class="password-toggle svelte-pwdxgn" aria-label="パスワードを表示"><!--[-1--><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="svelte-pwdxgn"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" class="svelte-pwdxgn"></path><circle cx="12" cy="12" r="3" class="svelte-pwdxgn"></circle></svg><!--]--></button><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="-mt-2 text-right"><a href="/auth/forgot-password" class="text-xs text-[var(--color-text-link)] hover:underline">パスワードを忘れた方はこちら</a></div> <!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" type="submit" disabled=""><!--[-1-->ログイン<!--]--><!----></button><!--]--><!----></form> <!--[-1--><!--]--><!--]--> <!--[0--><div class="mt-6 pt-4 border-t border-[var(--color-border-default)]"><details><summary class="text-xs text-[var(--color-text-muted)] cursor-pointer">テスト用アカウント</summary> <ul class="mt-2 pl-4 text-xs text-[var(--color-text-muted)] leading-7"><li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">owner@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Owner2026x</code> (管理者)</li> <li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">parent@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Parent2026</code> (親)</li> <li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">child@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Child2026x</code> (子供)</li></ul></details></div><!--]--><!----></div> <!--[-1--><!--]--></section><!----></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="admin" data-plan="family" class="admin-shell svelte-wncecx"><header class="admin-header sticky top-0 z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3 svelte-wncecx"><div class="max-w-4xl mx-auto flex items-center justify-between svelte-wncecx"><div class="flex items-center gap-2 svelte-wncecx"><a href="/admin" class="flex items-center svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="140" height="57" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></a> <!--[-1--><!--]--></div> <div class="flex items-center gap-2 svelte-wncecx"><!--[1--><span class="plan-badge plan-badge--family svelte-wncecx">ファミリープラン</span><!--]--> <!--[1--><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] header-tutorial-btn" title="チュートリアルを開始" data-tutorial="tutorial-restart"><!---->?<!----></button><!--]--><!----><!--]--> <a href="/switch" class="header-switch-link svelte-wncecx" data-tutorial="switch-to-child"><span aria-hidden="true" class="svelte-wncecx">←</span> 子供画面へ</a></div></div></header> <nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2 svelte-wncecx" aria-label="管理メニュー" data-tutorial="nav-desktop"><div class="max-w-4xl mx-auto flex gap-1 svelte-wncecx"><a href="/admin" class="nav-item  svelte-wncecx"><span aria-hidden="true" class="svelte-wncecx">🏠</span> ホーム</a> <!--[--><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">👨‍👩‍👧</span> 家族 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item nav-item--active svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">🎮</span> 活動 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">📊</span> 記録 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">⚙️</span> 設定 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><!--]--></div></nav> <main class="max-w-4xl mx-auto p-4 pb-24 md:pb-4 svelte-wncecx"><!--[-1--><!--[-1--><!--]--> <!--[-1--><!--[--><div class="space-y-4"><!--[-1--><!--]--> <!--[-1--><div class="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-surface-info)] p-3 text-xs text-[var(--color-text-primary)]"><p>家族で目標を決めて、いっしょに達成するきょうだいチャレンジ。兄弟が協力して取り組むことで、家族のコミュニケーションを促進します。</p></div> <div class="flex items-center justify-between"><h2 class="text-lg font-bold">👥 きょうだいチャレンジ</h2> <!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] "><!---->＋ 新規チャレンジ<!----></button><!--]--><!----></div> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[0--><div class="rounded-xl border bg-white p-8 text-center space-y-3"><p class="text-2xl">👥</p> <p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">チャレンジはまだありません</p> <p class="text-xs text-[var(--color-text-tertiary)]">まずはテンプレートから始めてみませんか？家族の現実時間に合わせたチャレンジを選べます。</p> <a href="/marketplace?type=challenge-set" class="inline-block mt-2 rounded-lg bg-[var(--color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--color-text-inverse)]">🎁 テンプレートから始める</a> <p class="text-xs text-[var(--color-text-tertiary)] mt-2">自分で作る場合は上の「新規チャレンジ」ボタンから。</p></div><!--]--><!--]--></div><!--]--><!--]--><!----><!----><!--]--></main> <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom svelte-wncecx" aria-label="メインナビゲーション" data-tutorial="nav-primary"><!--[-1--><!--]--> <div class="flex justify-around items-center h-16 svelte-wncecx"><a href="/admin" class="mobile-nav-item  svelte-wncecx"><span class="text-xl svelte-wncecx" aria-hidden="true">🏠</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">ホーム</span></a> <!--[--><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">👨‍👩‍👧</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">家族</span></button><button type="button" class="mobile-nav-item mobile-nav-item--active  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">🎮</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">活動</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">📊</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">記録</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">⚙️</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">設定</span></button><!--]--></div></nav> <!--[0--><!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----><!--]--></div><!----> <!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <div class="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-20"><button class="tap-target inline-flex items-center justify-center gap-1 font-medium transition-colors bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 p-2 text-base rounded-lg !rounded-full shadow-lg !p-3" aria-label="ご意見・不具合報告" title="ご意見・不具合報告" data-testid="feedback-fab"><span class="text-xl">💬</span><!----></button><!----></div><!----> <!--[--><!--$s5--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
 			
 			<script>
 				{
@@ -4348,12 +5231,12 @@ h1, h2, h3, h4 {
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/@fs/C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-a975bd514afd6d13c/node_modules/@sveltejs/kit/src/runtime/client/entry.js"),
-						import("/@fs/C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-a975bd514afd6d13c/.svelte-kit/generated/client/app.js")
+						import("/@fs/C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-aa1831706a505753a/node_modules/@sveltejs/kit/src/runtime/client/entry.js"),
+						import("/@fs/C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-aa1831706a505753a/.svelte-kit/generated/client/app.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
-							node_ids: [0, 45],
-							data: [{type:"data",data:{role:null,requestId:"4f7f2072-23cb-4fff-852b-07234377f4ac",isDemo:false},uses:{}},{type:"data",data:{devMode:true},uses:{}}],
+							node_ids: [0, 4, 27],
+							data: [{type:"data",data:{role:"owner",requestId:"98e667c5-14a6-4fb9-9ca5-24f6377a2d48",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"cognito",tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null}},uses:{}},{type:"data",data:{challenges:[],children:[],planTier:"family",familyStreak:{currentStreak:0,hasRecordedToday:false,todayRecorders:[],lastRecordedDate:null,nextMilestone:{days:7,points:50,remaining:7}}},uses:{}}],
 							form: null,
 							error: null
 						});
