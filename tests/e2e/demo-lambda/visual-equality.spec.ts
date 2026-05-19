@@ -36,21 +36,51 @@ const AGE_MODES = [
 	{ childId: '906', uiMode: 'senior', nickname: 'けいすけ' },
 ] as const;
 
+// `(child)/+layout.server.ts` は selectedChildId cookie が無い場合 `/switch` (子供選択画面) へ
+// 302 redirect する UX 仕様 (認証 challenge とは独立、demo / 本番 cognito で同じ挙動)。
+// AC12 の真意は「demo Lambda 上で各 uiMode の home が hydrate して本番と構造等価に描画される」
+// ことなので、capture-hp-screenshots.mjs と同じ pattern で selectedChildId cookie を pre-set
+// してから直アクセスする。これは PR #2291 (Issue #2282) AC11-5 で確立した SSOT pattern。
+//
+// child fixture は demo-data.ts §DEMO_CHILDREN SSOT に従う (901=baby / 902=preschool / 903=elementary
+// / 904=junior / 906=senior)。
+
 test.describe('#2097 AC12: 5 年齢モード home の構造等価 (demo Lambda)', () => {
 	for (const mode of AGE_MODES) {
 		test(`${mode.uiMode} (${mode.childId} ${mode.nickname}): /<uiMode>/home が描画され、demo banner 以外は本番と構造等価`, async ({
+			context,
 			page,
 		}) => {
-			// 直接 home へアクセス (AUTH_MODE=anonymous により認証 challenge なし)
+			// AUTH_MODE=anonymous により AnonymousAuthProvider が常に allowed=true を返すため、
+			// 認証 challenge (/auth/login) は発生しない。selectedChildId cookie を pre-set して
+			// (child)/+layout.server.ts §52 の `/switch` redirect を回避し、対象 uiMode の home を
+			// 直接描画させる (capture-hp-screenshots.mjs と同じ pattern、PR #2291 SSOT)。
+			await context.clearCookies();
+			// cookie domain は localhost 固定。deployed demo Lambda (demo.ganbari-quest.com) を
+			// DEMO_BASE_URL で叩く場合は env 設定側で別途調整される想定 (本 spec はローカル + CI default
+			// preview server (localhost:5180) を主対象とする)。trial-expiration-dialog.spec.ts SSOT pattern。
+			await context.addCookies([
+				{
+					name: 'selectedChildId',
+					value: mode.childId,
+					domain: 'localhost',
+					path: '/',
+				},
+			]);
+
 			const res = await page.goto(`/${mode.uiMode}/home`);
 			expect(res?.status() ?? 200).toBeLessThan(400);
+			// 認証 challenge が発生していないことを直接 assert (AC11 系と同等の安全網)
+			await expect(page).not.toHaveURL(/\/auth\/login/);
 			await expect(page).toHaveURL(new RegExp(`/${mode.uiMode}/home`));
 
-			// home page の最小構造要素 (ProdDashboardSections 由来) が存在する。
+			// home page の最小構造要素が hydrate していること (= 500 / 空 hydration ではない) を assert。
 			// 本番 cognito で同 spec を流しても同じ要素が見える設計 (env 駆動なので同一 route)。
 			// uiMode による age-tier specific component (baby 親向け / 子供画面) の差は許容するが、
 			// page 自体の hydration 失敗や 500 描画でないことを assert する。
-			await expect(page.locator('main, [role="main"], body')).toBeVisible();
+			// strict mode を避けるため、最も確実な main 要素を単独で検証する (`first()` で先頭の main
+			// を取る = home page の主要 layout root)。
+			await expect(page.locator('main').first()).toBeVisible();
 
 			// 本番乖離の唯一の許容点: demo banner ("demo-only-notice" など)
 			// 注: ?screenshot=all で抑止可能 (LP SS 撮影時)。本 spec では query 無し = banner 表示。
@@ -63,11 +93,22 @@ test.describe('#2097 AC12: 5 年齢モード home の構造等価 (demo Lambda)'
 	}
 
 	test('AC12-summary: 5 年齢モード home が全て 200 で hydrate する (集約 regression)', async ({
+		context,
 		page,
 	}) => {
-		// 上記 5 ケースの集約 smoke。CI runtime を抑えるため最小 assertion (`status < 400` のみ)
+		// 上記 5 ケースの集約 smoke。selectedChildId cookie を順次差し替えて 5 uiMode の home が
+		// それぞれ 200 で hydrate することを検証する。CI runtime を抑えるため最小 assertion
+		// (`status < 400` + 認証 challenge 不在 のみ)。
 		const failed: string[] = [];
 		for (const mode of AGE_MODES) {
+			await context.clearCookies();
+			await context.addCookies([
+				{
+					name: 'selectedChildId',
+					value: mode.childId,
+					url: 'http://localhost:5180/',
+				},
+			]);
 			const res = await page.goto(`/${mode.uiMode}/home`, {
 				waitUntil: 'domcontentloaded',
 				timeout: 15_000,
@@ -75,6 +116,10 @@ test.describe('#2097 AC12: 5 年齢モード home の構造等価 (demo Lambda)'
 			const status = res?.status() ?? 0;
 			if (status >= 400) {
 				failed.push(`${mode.uiMode}: status=${status}`);
+			}
+			// 認証 challenge にバウンスしていないことも併せて confirm (AC11 系の安全網)
+			if (/\/auth\/login/.test(page.url())) {
+				failed.push(`${mode.uiMode}: bounced to /auth/login (unexpected)`);
 			}
 		}
 		expect(failed).toEqual([]);
