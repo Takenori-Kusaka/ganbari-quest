@@ -70,14 +70,7 @@ function setupSandbox({ files = {}, baseline = null, legacyBaseline = null } = {
  * sandbox の repo-root / baseline-path を CLI 引数で明示注入する (#2259 C2)。
  */
 function runScript({ sandbox, baselinePath, args = [] }) {
-	const fullArgs = [
-		SCRIPT_PATH,
-		'--repo-root',
-		sandbox,
-		'--baseline-path',
-		baselinePath,
-		...args,
-	];
+	const fullArgs = [SCRIPT_PATH, '--repo-root', sandbox, '--baseline-path', baselinePath, ...args];
 	try {
 		const stdout = execFileSync('node', fullArgs, {
 			cwd: sandbox,
