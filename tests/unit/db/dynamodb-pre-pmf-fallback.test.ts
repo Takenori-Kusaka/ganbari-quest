@@ -116,7 +116,7 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 					1,
 					1,
 					TODAY,
-					{ hp: 100, attack: 10, defense: 5, speed: 5 },
+					{ hp: 100, atk: 10, def: 5, spd: 5, rec: 2 },
 					TENANT,
 				),
 			).resolves.toBe(0);
