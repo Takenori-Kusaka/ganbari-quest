@@ -2,11 +2,11 @@
 
 | 項目 | 内容 |
 |------|------|
-| 版数 | **v2.0 (#2177 / EPIC #2176, 2026-05-18)** |
-| 旧版 | v1.0 (#1395, 2026-04-26 — 頻度ベース分類、本 v2.0 で supersede) |
+| 版数 | **v2.1 (#2274 / EPIC #2266, 2026-05-19)** — rewards/cheer を record→activity 配下に移動 + /admin/messages 廃止 |
+| 旧版 | v2.0 (#2177 / EPIC #2176, 2026-05-18 — 5 tab subject-first 構成、本 v2.1 で部分 supersede) / v1.0 (#1395, 2026-04-26 — 頻度ベース分類) |
 | 作成者 | Dev セッション |
-| ステータス | Committed（設計）/ 実装は #2178 (AdminLayout 5 tab 実装) |
-| 関連 ADR | ADR-0009 (旧) / ADR-0014 (OSS 先調査整合) |
+| ステータス | Committed（設計）/ 実装は #2178 (5 tab 構成) + #2270 (messages 廃止) + #2274 (rewards/cheer 移動) |
+| 関連 ADR | ADR-0009 (旧) / ADR-0014 (OSS 先調査整合) / ADR-0012 (Anti-engagement) |
 
 ---
 
@@ -116,6 +116,9 @@ const navCategories: NavCategory[] = $derived([
       { href: `${basePath}/checklists`, label: NAV_ITEM_LABELS.checklists, icon: '✅' },
       { href: `${basePath}/events`, label: NAV_ITEM_LABELS.events, icon: '🎉' },
       { href: `${basePath}/challenges`, label: NAV_ITEM_LABELS.challenges, icon: '👥' },
+      // #2274 (EPIC #2266): ごほうび/応援を record→activity 配下に移動
+      { href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
+      { href: `${basePath}/cheer`, label: NAV_ITEM_LABELS.cheer, icon: '🎉' },
       { href: '/marketplace', label: NAV_ITEM_LABELS.marketplace, icon: '🛍️' },
       // こども は family に移動
     ],
@@ -129,8 +132,7 @@ const navCategories: NavCategory[] = $derived([
       { href: `${basePath}/growth-book`, label: NAV_ITEM_LABELS.growthBook, icon: '📚' },
       { href: `${basePath}/analytics`, label: NAV_ITEM_LABELS.analytics, icon: '📈' },
       { href: `${basePath}/points`, label: NAV_ITEM_LABELS.points, icon: '⭐' },
-      { href: `${basePath}/messages`, label: NAV_ITEM_LABELS.messages, icon: '💌' },
-      { href: `${basePath}/rewards`, label: NAV_ITEM_LABELS.rewards, icon: '🎁' },
+      // #2270 / #2274 (EPIC #2266): messages 廃止 + rewards/cheer を activity 配下に移動
     ],
   },
   {
