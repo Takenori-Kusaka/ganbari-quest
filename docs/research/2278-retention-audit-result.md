@@ -156,5 +156,5 @@ PO 合意必要な事項:
 新規子供関連テーブル追加時、ADR-0028 retention 削除対象に追加されているか + プラン別 SSOT (`historyRetentionDays`) との整合確認を機能完成度 checklist に追加候補。
 
 検知方法案:
-- `scripts/check-retention-coverage.mjs` (新設候補): schema.ts の `childId` を持つテーブルが retention-cleanup-service.ts の対象に含まれているかチェック
+- "check-retention-coverage.mjs" (新設候補、実装は別フォロー Issue): schema.ts の `childId` を持つテーブルが retention-cleanup-service.ts の対象に含まれているかチェック
 - baseline pin で既知の対象外 (master/judgment-call) を許容、新規追加で 1 件 fail
