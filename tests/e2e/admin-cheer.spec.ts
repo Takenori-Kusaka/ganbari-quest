@@ -54,4 +54,28 @@ test.describe('#2267 応援機能 /admin/cheer', () => {
 		expect(response.status()).toBe(308);
 		expect(response.headers().location).toBe('/admin/cheer');
 	});
+
+	// #2300 (EPIC #2294 ⑥): 日本ローカライズ reason テンプレ 4 件が表示され、tap で reason 反映
+	test('reason テンプレ 4 件 (ひな祭り/こどもの日/七夕/敬老の日) が表示される (#2300)', async ({
+		page,
+	}) => {
+		test.slow();
+		await page.goto('/admin/cheer', { waitUntil: 'domcontentloaded' });
+
+		// テンプレ chip group が cheer-reason section 内に存在
+		const chipGroup = page.locator('[data-testid="cheer-reason-templates"]');
+		await expect(chipGroup).toBeVisible();
+
+		// 各 4 件の icon が表示される
+		await expect(chipGroup.locator('[data-testid="cheer-reason-template-🎎"]')).toBeVisible();
+		await expect(chipGroup.locator('[data-testid="cheer-reason-template-🎏"]')).toBeVisible();
+		await expect(chipGroup.locator('[data-testid="cheer-reason-template-🎋"]')).toBeVisible();
+		await expect(chipGroup.locator('[data-testid="cheer-reason-template-💌"]')).toBeVisible();
+
+		// ひな祭り chip を tap → reason textarea に値が prefill される
+		await chipGroup.locator('[data-testid="cheer-reason-template-🎎"]').click();
+		await expect(page.locator('textarea[name="reason"]')).toHaveValue(
+			/ひな祭りのお手伝い ありがとう/,
+		);
+	});
 });

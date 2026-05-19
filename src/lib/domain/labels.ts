@@ -3419,6 +3419,35 @@ export const CHEER_LABELS = {
 	noChildrenDesc: '「こども」タブから登録できます',
 	// プリセット理由（よく使う応援の例、 1 タップで reason に流し込む）
 	presetTitle: `よくある${CHEER_TERMS.canonical}`,
+	// 日本ローカライズ reason テンプレ (#2300、EPIC #2294 ⑥)
+	// 親が現実イベント後に承認する 1 タップ操作（ADR-0012 anti-engagement / 滞在ゼロ）。
+	// シーズン期間中の自動配信は不採用、家族コミュニケーション wedge 強化。
+	reasonTemplates: [
+		{
+			reason: 'ひな祭りのお手伝い ありがとう',
+			recommendedPoints: 30,
+			icon: '🎎',
+			category: 'せいかつ',
+		},
+		{
+			reason: 'こどもの日のプロジェクト完成',
+			recommendedPoints: 50,
+			icon: '🎏',
+			category: 'そうぞう',
+		},
+		{
+			reason: '七夕の短冊、ステキだったね',
+			recommendedPoints: 20,
+			icon: '🎋',
+			category: 'そうぞう',
+		},
+		{
+			reason: '敬老の日にじいじ/ばあばへメッセージ ありがとう',
+			recommendedPoints: 50,
+			icon: '💌',
+			category: 'こうりゅう',
+		},
+	],
 	// ボタン操作系
 	cheerAgainBack: 'ホームへ戻る',
 	// 確認用ラベル
