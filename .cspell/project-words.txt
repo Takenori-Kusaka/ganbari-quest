@@ -347,3 +347,9 @@ SplashLearn
 # ===== 学術調査機関 (#2295 / #2296 Research 引用) =====
 # 兄弟競争 sibling rivalry が depression/自傷リスクと相関する根拠の引用元
 SAARA
+
+# ===== #2298 日本年間行事 (preset-challenges) =====
+kodomonohi
+tanabata
+natsuyasumi
+keironohi
