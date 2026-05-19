@@ -90,12 +90,9 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await expect(page.getByTestId('rewards-upgrade-cta')).toBeVisible();
 	});
 
-	test('/admin/messages — ひとことメッセージは disabled（family 限定機能）', async ({ page }) => {
-		// plan-gated-features.spec.ts と意図的に重複させ、free 単体でも完結する
-		// 機能疎通スイートにする
-		await page.goto('/admin/messages');
-		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
-		await expect(textBtn).toBeVisible();
-		await expect(textBtn).toBeDisabled();
-	});
+	// #2316: 旧 /admin/messages 「ひとことメッセージ」family-only ゲートテストは削除。
+	//   #2267 (PR #2293) で /admin/messages 廃止 + /admin/cheer 統合により、
+	//   メッセージ機能は応援機能の付随要素として全プラン解放された。
+	//   ADR-0006 (assertion erosion ban) に従い skip ではなく削除。
+	//   free プランのゲート確認は /admin/rewards rewards-upgrade-banner で担保。
 });

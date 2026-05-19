@@ -13,7 +13,12 @@
 //
 // 対応ゲート:
 //  - /admin/rewards: rewards-upgrade-banner（free のみ表示）
-//  - /admin/messages: ひとことメッセージボタン（free/standard は disabled、family は enabled）
+//
+// #2316 削除済 ゲート:
+//  - /admin/messages: ひとことメッセージボタン (free/standard disabled, family enabled)
+//    → #2267 (PR #2293) で /admin/messages 廃止 + /admin/cheer 統合により、
+//      メッセージ機能は応援機能の付随要素として全プラン解放された
+//      (ADR-0006 assertion erosion ban に従い skip ではなく削除)
 
 import { expect, test } from '@playwright/test';
 
@@ -45,43 +50,5 @@ test.describe('#776 /admin/rewards プランゲート — family', () => {
 	test('family プランではアップグレードバナーが表示されない', async ({ page }) => {
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
-	});
-});
-
-// ============================================================
-// /admin/messages — #0270 自由テキストメッセージプランゲート
-// ============================================================
-test.describe('#776 /admin/messages プランゲート — free', () => {
-	test.use({ storageState: 'playwright/.auth/free.json' });
-
-	test('free プランではひとことメッセージボタンが disabled', async ({ page }) => {
-		await page.goto('/admin/messages');
-		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
-		await expect(textBtn).toBeVisible();
-		await expect(textBtn).toBeDisabled();
-	});
-});
-
-test.describe('#776 /admin/messages プランゲート — standard', () => {
-	test.use({ storageState: 'playwright/.auth/standard.json' });
-
-	test('standard プランでもひとことメッセージボタンは disabled（family 限定）', async ({
-		page,
-	}) => {
-		await page.goto('/admin/messages');
-		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
-		await expect(textBtn).toBeVisible();
-		await expect(textBtn).toBeDisabled();
-	});
-});
-
-test.describe('#776 /admin/messages プランゲート — family', () => {
-	test.use({ storageState: 'playwright/.auth/family.json' });
-
-	test('family プランではひとことメッセージボタンが有効', async ({ page }) => {
-		await page.goto('/admin/messages');
-		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
-		await expect(textBtn).toBeVisible();
-		await expect(textBtn).toBeEnabled();
 	});
 });

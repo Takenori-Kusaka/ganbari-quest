@@ -57,11 +57,10 @@ test.describe('#779 standard プラン — 機能疎通', () => {
 		await expect(exportBtn).toBeEnabled();
 	});
 
-	test('/admin/messages — ひとことメッセージは family 限定で disabled のまま', async ({ page }) => {
-		// プラン境界の回帰検知: standard はまだ family 限定機能にアクセスできない
-		await page.goto('/admin/messages');
-		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
-		await expect(textBtn).toBeVisible();
-		await expect(textBtn).toBeDisabled();
-	});
+	// #2316: 旧 /admin/messages 「ひとことメッセージ」family-only ゲートテストは削除。
+	//   #2267 (PR #2293) で /admin/messages 廃止 + /admin/cheer 統合により、
+	//   メッセージ機能は応援機能の付随要素として全プラン解放された
+	//   (standard でも family 限定ボタンに該当する UI は存在しない)。
+	//   ADR-0006 (assertion erosion ban) に従い skip ではなく削除。
+	//   standard / family プラン境界の検証は他の機能 (export-button enabled / weekly-report-upsell 非表示) で担保。
 });

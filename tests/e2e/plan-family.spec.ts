@@ -54,10 +54,10 @@ test.describe('#779 family プラン — 全機能解放確認', () => {
 		await expect(exportBtn).toBeEnabled();
 	});
 
-	test('/admin/messages — ひとことメッセージは family 限定機能として有効', async ({ page }) => {
-		await page.goto('/admin/messages');
-		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
-		await expect(textBtn).toBeVisible();
-		await expect(textBtn).toBeEnabled();
-	});
+	// #2316: 旧 /admin/messages 「ひとことメッセージ」family-only ゲートテストは削除。
+	//   #2267 (PR #2293) で /admin/messages 廃止 + /admin/cheer 統合により、
+	//   メッセージ機能は応援機能の付随要素として全プラン解放された
+	//   (legacy-url-map.ts で /admin/messages → /admin/cheer 308 redirect)。
+	//   ADR-0006 (assertion erosion ban) に従い skip ではなく削除。
+	//   family 限定ゲートはここでは検証対象なし (free/standard アップセル不在確認で family 解放を担保)。
 });
