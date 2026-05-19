@@ -1,13 +1,78 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { APP_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
+import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import PinInput from '$lib/ui/primitives/PinInput.svelte';
 import { soundService } from '$lib/ui/sound/sound-service';
 
 let { data } = $props();
 
 const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
+
+// EPIC #2310 子#2312: PIN gate inline modal (Apple Screen Time 同設計)
+// pinRequired=1 query (Sub-1 middleware redirect) で初期表示 true
+let pinModalOpen = $state<boolean>(data.pinRequired ?? false);
+let pinError = $state<string>('');
+let lockoutUntil = $state<number | null>(null);
+let pinSubmitting = $state<boolean>(false);
+// PinInput remount 用 key (失敗時に入力欄を確実にリセット)
+let pinInputKey = $state<number>(0);
+
+const lockedNow = $derived(lockoutUntil !== null && Date.now() < (lockoutUntil ?? 0));
+
+async function handleAdminLinkClick(e: MouseEvent) {
+	// cognito モードで /auth/login に飛ばす場合は本フローをスキップ (子供画面では本リンク自体が非表示)
+	if (data.adminLink !== '/admin') return;
+	e.preventDefault();
+	soundService.ensureContext();
+	soundService.play('tap');
+	pinError = '';
+	pinModalOpen = true;
+}
+
+async function handlePinComplete(details: { valueAsString: string }) {
+	if (pinSubmitting || lockedNow) return;
+	pinSubmitting = true;
+	pinError = '';
+	try {
+		const res = await fetch('/api/v1/parent-gate/verify', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ pin: details.valueAsString }),
+		});
+		const body = (await res.json().catch(() => ({}))) as {
+			ok?: boolean;
+			error?: string;
+			lockedUntil?: string;
+		};
+		if (res.ok && body.ok) {
+			pinModalOpen = false;
+			// next path が /admin 配下に限定されていることは server 側で保証済
+			window.location.href = data.nextPath ?? '/admin';
+			return;
+		}
+		// 失敗: input 欄をリセット
+		pinInputKey += 1;
+		if (body.error === 'LOCKED_OUT' && body.lockedUntil) {
+			lockoutUntil = new Date(body.lockedUntil).getTime();
+			pinError = OYAKAGI_LABELS.lockedError;
+		} else if (body.error === 'PIN_FORMAT') {
+			pinError = OYAKAGI_LABELS.gateFormatNotice;
+		} else if (body.error === 'INVALID_PIN' || body.error === 'PIN_NOT_SET') {
+			pinError = OYAKAGI_LABELS.invalidError;
+		} else {
+			pinError = OYAKAGI_LABELS.gateGenericError;
+		}
+	} catch {
+		pinInputKey += 1;
+		pinError = OYAKAGI_LABELS.gateGenericError;
+	} finally {
+		pinSubmitting = false;
+	}
+}
 </script>
 
 <svelte:head>
@@ -17,6 +82,10 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 <div class="portal-page min-h-dvh flex flex-col">
 	{#if data.reason === 'admin_forbidden'}
 		<div class="bg-[var(--color-gold-100)] text-[var(--color-gold-700)] py-3 px-4 text-center text-sm font-semibold border-b border-[var(--color-gold-500)]" role="alert">{SWITCH_PAGE_LABELS.adminForbiddenNotice}</div>
+	{/if}
+
+	{#if data.pinRequired}
+		<div class="bg-[var(--color-feedback-info-bg)] text-[var(--color-feedback-info-text)] py-3 px-4 text-center text-sm font-semibold border-b border-[var(--color-feedback-info-border)]" role="status" data-testid="parent-gate-required-banner">{OYAKAGI_LABELS.gatePinRequiredBanner}</div>
 	{/if}
 
 	<header class="pt-10 px-6 pb-6 flex justify-center">
@@ -71,10 +140,36 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 
 	{#if data.showAdminLink}
 		<footer class="p-4 text-center">
-			<a href={data.adminLink} class="text-[var(--color-text-muted)] text-sm no-underline hover:text-[var(--color-brand-700)]">{SWITCH_PAGE_LABELS.adminLink}</a>
+			<a
+				href={data.adminLink}
+				onclick={handleAdminLinkClick}
+				data-testid="switch-admin-link"
+				class="text-[var(--color-text-muted)] text-sm no-underline hover:text-[var(--color-brand-700)]"
+			>{SWITCH_PAGE_LABELS.adminLink}</a>
 		</footer>
 	{/if}
 </div>
+
+<Dialog
+	bind:open={pinModalOpen}
+	title={OYAKAGI_LABELS.gateModalTitle}
+	testid="parent-gate-modal"
+	size="sm"
+>
+	<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.gateModalDescription}</p>
+	{#key pinInputKey}
+		<PinInput length={4} mask onComplete={handlePinComplete} />
+	{/key}
+	<p class="text-xs text-[var(--color-text-muted)] text-center mt-3">{OYAKAGI_LABELS.gateDefaultHint}</p>
+	{#if pinError}
+		<div class="mt-3" data-testid="parent-gate-error">
+			<Alert variant="danger">{pinError}</Alert>
+		</div>
+	{/if}
+	{#if pinSubmitting}
+		<p class="text-xs text-[var(--color-text-muted)] text-center mt-3" data-testid="parent-gate-submitting">{OYAKAGI_LABELS.gateModalSubmitting}</p>
+	{/if}
+</Dialog>
 
 <style>
 	.portal-page {
