@@ -15,7 +15,7 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1bif3d2--><!----><title>がんばりクエスト</title>
+		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--zh99qi--><!----><title>がんばりクエスト</title>
 		<style data-sveltekit="">/*! tailwindcss v4.3.0 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
@@ -5191,103 +5191,999 @@ h1, h2, h3, h4 {
 	}
  .svelte-1hkj8k9{}
 
-	.step-title.svelte-1bif3d2 {
-		font-size: 0.875rem;
+	/* #508: Page heading */
+	.dashboard-heading.svelte-zh99qi {
+		font-size: 1.25rem;
 		font-weight: 700;
-		color: var(--color-text-muted);
-		margin-bottom: 0.5rem;
+		color: var(--color-text-primary, #1f2937);
+		margin: 0;
 	}
-	.page-description.svelte-1bif3d2 {
-		background: var(--color-surface-card);
-		border-radius: 0.75rem;
-		padding: 1rem;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+
+	/* #503 + #508: Monthly stat cards */
+	.monthly-stat.svelte-zh99qi {
+		flex: 1;
+		border-radius: 0.5rem;
+		padding: 0.5rem;
+		text-align: center;
 	}
-	.page-description__title.svelte-1bif3d2 {
-		font-size: 0.9375rem;
-		font-weight: 700;
-		color: var(--color-text);
-		margin-bottom: 0.25rem;
+
+	.monthly-stat--blue.svelte-zh99qi {
+		background: var(--color-info-50, #eff6ff);
 	}
-	.page-description__text.svelte-1bif3d2 {
-		font-size: 0.8125rem;
-		color: var(--color-text-muted);
-		line-height: 1.5;
+
+	.monthly-stat--purple.svelte-zh99qi {
+		background: var(--color-stat-purple-bg, #f5f3ff);
 	}
-	.page-description__hint.svelte-1bif3d2 {
+
+	.monthly-stat--amber.svelte-zh99qi {
+		background: var(--color-warning-50, #fffbeb);
+	}
+
+	.monthly-stat__heading.svelte-zh99qi {
 		font-size: 0.75rem;
-		color: var(--color-text-muted);
-		margin-top: 0.5rem;
-		padding-top: 0.5rem;
-		border-top: 1px solid var(--color-border);
-	}
-	.page-description__link.svelte-1bif3d2 {
-		color: var(--color-action-primary);
 		font-weight: 600;
-		text-decoration: none;
+		color: var(--color-text-secondary, #4b5563);
 	}
-	.page-description__link.svelte-1bif3d2:hover {
-		text-decoration: underline;
+
+	.monthly-stat__value.svelte-zh99qi {
+		font-size: 1.125rem;
+		font-weight: 700;
+		color: var(--color-text-primary, #1f2937);
 	}
- .svelte-1bif3d2{}
 
-.page-help-btn.svelte-1kua3p3 {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 2rem;
-	height: 2rem;
-	border-radius: 9999px;
-	border: 1.5px solid var(--color-border-default);
-	background: var(--color-surface-card);
-	color: var(--color-text-muted);
-	font-weight: 700;
-	font-size: 0.875rem;
-	cursor: pointer;
-	transition: all 0.15s;
-}
-.page-help-btn.svelte-1kua3p3:hover {
-	background: var(--color-brand-50, #eff6ff);
-	border-color: var(--color-brand-300, #93c5fd);
-	color: var(--color-brand-600);
-}
- .svelte-1kua3p3{}
+	.monthly-stat__unit.svelte-zh99qi {
+		font-size: 0.6875rem;
+		color: var(--color-text-tertiary, #6b7280);
+	}
 
-	.password-toggle.svelte-pwdxgn {
-		position: absolute;
-		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 4px;
+	.onboarding-complete-card.svelte-zh99qi {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		background: linear-gradient(135deg, var(--color-success-50, #f0fdf4), var(--color-surface-card));
+		border: 1px solid var(--color-success-300, #86efac);
+		border-radius: var(--radius-lg, 12px);
+		padding: 16px;
+	}
+
+	.dismiss-complete-btn.svelte-zh99qi {
+		margin-left: auto;
 		background: none;
 		border: none;
+		color: var(--color-text-tertiary);
+		font-size: 0.75rem;
 		cursor: pointer;
-		color: var(--color-text-muted);
+		text-decoration: underline;
+	}
+
+	.plan-quick-link.svelte-zh99qi {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		border-radius: var(--radius-lg, 12px);
+		text-decoration: none;
+		transition: all 0.15s;
+	}
+
+	.plan-quick-link--free.svelte-zh99qi {
+		background: var(--color-premium-bg);
+		border: 1px solid var(--color-premium-bg);
+	}
+
+	.plan-quick-link--free.svelte-zh99qi:hover {
+		border-color: var(--color-premium);
+	}
+
+	.plan-quick-link__info.svelte-zh99qi {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.plan-quick-link__name.svelte-zh99qi {
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: var(--color-text-secondary);
+	}
+
+	.plan-quick-link__hint.svelte-zh99qi {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
+
+	.plan-quick-link__action.svelte-zh99qi {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-premium);
+		white-space: nowrap;
+	}
+
+	/* #961 QA: All tutorial guide cards */
+	.tutorial-full-guide-card.svelte-zh99qi {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.75rem 1rem;
+		background: var(--color-surface-accent);
+		border: 1px solid var(--color-feedback-info-border);
+		border-radius: var(--radius-lg, 12px);
+	}
+
+	.tutorial-full-guide-info.svelte-zh99qi {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.tutorial-full-guide-label.svelte-zh99qi {
+		font-size: 0.85rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+	}
+
+	.tutorial-full-guide-hint.svelte-zh99qi {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
+
+	/* #1292: Today's usage time */
+	.usage-grid.svelte-zh99qi {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 0.75rem;
+	}
+
+	.usage-card__name.svelte-zh99qi {
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin-bottom: 0.4rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.usage-bar-wrap.svelte-zh99qi {
+		height: 6px;
+		background: var(--color-surface-muted);
+		border-radius: 9999px;
+		overflow: hidden;
+		margin-bottom: 0.35rem;
+	}
+
+	.usage-bar.svelte-zh99qi {
+		height: 100%;
+		background: var(--color-action-primary);
+		border-radius: 9999px;
+		transition: width 0.4s ease;
+		min-width: 4px;
+	}
+
+	.usage-card__time.svelte-zh99qi {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
+ .svelte-zh99qi{}
+
+	.weekly-chart.svelte-7c2hox {
+		width: 100%;
+	}
+
+	.weekly-chart__empty.svelte-7c2hox {
+		font-size: 0.8rem;
+		color: var(--color-text-tertiary);
+		text-align: center;
+		padding: 1.5rem 0;
+	}
+
+	.weekly-chart__legend.svelte-7c2hox {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.weekly-chart__legend-item.svelte-7c2hox {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+	}
+
+	.weekly-chart__legend-dot.svelte-7c2hox {
+		display: inline-block;
+		width: 10px;
+		height: 10px;
+		border-radius: 50%;
+		flex-shrink: 0;
+	}
+
+	.weekly-chart__svg.svelte-7c2hox {
+		display: block;
+		overflow: visible;
+	}
+
+	.weekly-chart__grid.svelte-7c2hox {
+		stroke: var(--color-border-light);
+		stroke-width: 1;
+	}
+
+	.weekly-chart__axis-label.svelte-7c2hox {
+		font-size: 9px;
+		fill: var(--color-text-tertiary);
+		font-family: system-ui, sans-serif;
+	}
+
+	.weekly-chart__unit-label.svelte-7c2hox {
+		font-size: 0.65rem;
+		color: var(--color-text-tertiary);
+		margin: 0;
+		text-align: left;
+	}
+ .svelte-7c2hox{}
+
+	.value-preview.svelte-19u0w6 {
+		display: block;
+	}
+
+	.value-preview__header.svelte-19u0w6 {
+		margin-bottom: 0.75rem;
+	}
+
+	.value-preview__title.svelte-19u0w6 {
+		font-size: 1.125rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin: 0 0 0.2rem;
+	}
+
+	.value-preview__hint.svelte-19u0w6 {
+		font-size: 0.8rem;
+		color: var(--color-text-tertiary);
+		margin: 0;
+	}
+
+	.value-preview__children.svelte-19u0w6 {
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.value-preview__child-name.svelte-19u0w6 {
+		font-size: 0.95rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin: 0 0 0.65rem;
+	}
+
+	.kpi-grid.svelte-19u0w6 {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.5rem;
+		margin-bottom: 0.85rem;
+	}
+
+	@media (min-width: 480px) {
+		.kpi-grid.svelte-19u0w6 {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.kpi.svelte-19u0w6 {
+		background: var(--color-surface-muted);
+		border-radius: 8px;
+		padding: 0.5rem;
+		text-align: center;
+	}
+
+	.kpi__label.svelte-19u0w6 {
+		font-size: 0.65rem;
+		color: var(--color-text-tertiary);
+		margin: 0 0 0.1rem;
+	}
+
+	.kpi__value.svelte-19u0w6 {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin: 0;
+	}
+
+	.kpi__unit.svelte-19u0w6 {
+		font-size: 0.65rem;
+		color: var(--color-text-tertiary);
+		margin: 0;
+	}
+
+	.milestones.svelte-19u0w6 {
+		margin-bottom: 0.85rem;
+	}
+
+	.milestones__heading.svelte-19u0w6,
+	.categories__heading.svelte-19u0w6 {
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: var(--color-text-secondary);
+		margin: 0 0 0.4rem;
+	}
+
+	.milestones__list.svelte-19u0w6 {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+
+	.milestones__item.svelte-19u0w6 {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.25rem 0.55rem;
+		background: var(--color-feedback-success-bg);
+		color: var(--color-feedback-success-text);
+		border-radius: 9999px;
+		font-size: 0.75rem;
+		font-weight: 600;
+	}
+
+	.milestones__check.svelte-19u0w6 {
+		font-weight: 700;
+	}
+
+	.milestones__empty.svelte-19u0w6,
+	.categories__empty.svelte-19u0w6 {
+		font-size: 0.75rem;
+		color: var(--color-text-tertiary);
+		margin: 0;
+	}
+
+	.categories__list.svelte-19u0w6 {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: grid;
+		gap: 0.4rem;
+	}
+
+	.categories__item.svelte-19u0w6 {
+		display: grid;
+		grid-template-columns: 5rem 1fr 3.5rem;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.75rem;
+	}
+
+	.categories__name.svelte-19u0w6 {
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.categories__bar-wrap.svelte-19u0w6 {
+		display: block;
+		height: 8px;
+		background: var(--color-surface-muted);
+		border-radius: 9999px;
+		overflow: hidden;
+	}
+
+	.categories__bar.svelte-19u0w6 {
+		display: block;
+		height: 100%;
+		background: var(--color-action-primary);
+		border-radius: 9999px;
+		min-width: 4px;
+		transition: width 0.4s ease;
+	}
+
+	.categories__count.svelte-19u0w6 {
+		font-weight: 600;
+		color: var(--color-text-primary);
+		text-align: right;
+	}
+
+	.value-preview__hint-row.svelte-19u0w6 {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+		margin: 0.5rem 0 0;
+		text-align: right;
+	}
+ .svelte-19u0w6{}
+
+	.child-list-card {
+		transition: box-shadow 0.2s, border-color 0.2s;
+		cursor: pointer;
+	}
+	.child-list-card:hover {
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	}
+	.child-list-card--selected {
+		border-color: var(--color-action-primary, #3b82f6);
+		box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-action-primary) 15%, transparent);
+	}
+	.child-list-card__content.svelte-1d9571i {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.child-list-card__avatar.svelte-1d9571i {
+		flex-shrink: 0;
+	}
+	.child-list-card__avatar-img.svelte-1d9571i {
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: 50%;
+		object-fit: cover;
+	}
+	.child-list-card__avatar-placeholder.svelte-1d9571i {
+		font-size: 2rem;
+	}
+	.child-list-card__info.svelte-1d9571i {
+		flex: 1;
+		min-width: 0;
+	}
+	.child-list-card__name.svelte-1d9571i {
+		font-weight: 700;
+		color: var(--color-text-primary, #374151);
+		font-size: 0.95rem;
+	}
+	.child-list-card__meta.svelte-1d9571i {
+		font-size: 0.8rem;
+		color: var(--color-text-tertiary, #9ca3af);
+	}
+	.child-list-card__birthday.svelte-1d9571i {
+		font-size: 0.75rem;
+		color: var(--color-text-tertiary, #9ca3af);
+	}
+	.child-list-card__balance.svelte-1d9571i {
+		text-align: right;
+		flex-shrink: 0;
+	}
+	.child-list-card__balance-value.svelte-1d9571i {
+		font-size: 1.05rem;
+		font-weight: 700;
+		color: var(--color-gold-500, #f59e0b);
+	}
+	.child-list-card__chevron.svelte-1d9571i {
+		flex-shrink: 0;
+		font-size: 0.9rem;
+		color: var(--color-text-tertiary, #9ca3af);
+		transition: transform 0.2s;
+	}
+	.child-list-card__chevron--open.svelte-1d9571i {
+		transform: rotate(90deg);
+	}
+ .svelte-1d9571i{}
+
+	.notification-banner.svelte-1ekxp14 {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 12px 16px;
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-lg);
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	}
+
+	.notification-banner__main.svelte-1ekxp14 {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.notification-banner__icon.svelte-1ekxp14 {
+		font-size: 1.5rem;
+		flex-shrink: 0;
+	}
+
+	.notification-banner__content.svelte-1ekxp14 {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.notification-banner__title.svelte-1ekxp14 {
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin: 0;
+	}
+
+	.notification-banner__desc.svelte-1ekxp14 {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+		margin: 2px 0 0;
+		line-height: 1.4;
+	}
+
+	.notification-banner__actions.svelte-1ekxp14 {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		flex-shrink: 0;
+	}
+
+	.notification-banner__cta.svelte-1ekxp14 {
+		padding: 6px 12px;
+		border: none;
+		border-radius: 8px;
+		background: var(--color-action-primary);
+		color: var(--color-text-inverse);
+		font-size: 0.75rem;
+		font-weight: 600;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	.notification-banner__cta.svelte-1ekxp14:hover:not(:disabled) {
+		opacity: 0.9;
+	}
+
+	.notification-banner__cta.svelte-1ekxp14:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.notification-banner__dismiss.svelte-1ekxp14 {
+		padding: 4px 8px;
+		border: none;
+		background: transparent;
+		color: var(--color-text-secondary);
+		font-size: 0.6875rem;
+		cursor: pointer;
+		text-align: center;
+	}
+
+	.notification-banner__dismiss.svelte-1ekxp14:hover:not(:disabled) {
+		text-decoration: underline;
+	}
+
+	.notification-banner__dismiss.svelte-1ekxp14:disabled {
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.notification-banner__error.svelte-1ekxp14 {
+		padding: 8px 12px;
+		background: var(--color-feedback-error-bg);
+		border: 1px solid var(--color-feedback-error-border);
+		border-radius: 8px;
+		color: var(--color-feedback-error-text);
+	}
+
+	.notification-banner__error-title.svelte-1ekxp14 {
+		font-size: 0.8125rem;
+		font-weight: 700;
+		margin: 0;
+	}
+
+	.notification-banner__error-desc.svelte-1ekxp14 {
+		font-size: 0.75rem;
+		margin: 2px 0 4px;
+	}
+
+	.notification-banner__error-link.svelte-1ekxp14 {
+		font-size: 0.75rem;
+		color: var(--color-text-link);
+		text-decoration: underline;
+	}
+
+	.notification-banner__disclosure.svelte-1ekxp14 {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+	}
+
+	.notification-banner__disclosure-summary.svelte-1ekxp14 {
+		cursor: pointer;
+		font-weight: 600;
+		padding: 4px 0;
+		color: var(--color-text-link);
+	}
+
+	.notification-banner__disclosure-summary.svelte-1ekxp14:hover {
+		text-decoration: underline;
+	}
+
+	.notification-banner__disclosure-body.svelte-1ekxp14 {
+		padding: 8px 4px 4px;
+		line-height: 1.5;
+	}
+
+	.notification-banner__kind-list.svelte-1ekxp14 {
+		margin: 0 0 8px;
+	}
+
+	.notification-banner__kind-list.svelte-1ekxp14 dt:where(.svelte-1ekxp14) {
+		font-weight: 700;
+		color: var(--color-text-primary);
+		margin-top: 6px;
+	}
+
+	.notification-banner__kind-list.svelte-1ekxp14 dd:where(.svelte-1ekxp14) {
+		margin: 2px 0 0 1em;
+		color: var(--color-text-secondary);
+	}
+
+	.notification-banner__disclosure-note.svelte-1ekxp14 {
+		margin: 4px 0 0;
+	}
+
+	.notification-banner__disclosure-link.svelte-1ekxp14 {
+		color: var(--color-text-link);
+		text-decoration: underline;
+		margin-left: 4px;
+	}
+ .svelte-1ekxp14{}
+
+	.onboarding-card.svelte-14z68ob {
+		background: var(--color-surface-info);
+		border: 1px solid var(--color-border-default);
+		border-radius: 12px;
+		padding: 16px;
+	}
+	.header.svelte-14z68ob { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+	.title.svelte-14z68ob { font-weight: 700; font-size: 0.9375rem; color: var(--color-text-primary); }
+	.progress-bar-wrap.svelte-14z68ob {
+		height: 8px; background: var(--color-surface-tertiary);
+		border-radius: 4px; overflow: hidden; margin-bottom: 4px;
+	}
+	.progress-bar.svelte-14z68ob {
+		height: 100%;
+		background: linear-gradient(90deg, var(--color-action-primary), var(--color-action-success));
+		border-radius: 4px; transition: width 0.3s ease;
+	}
+	.progress-text.svelte-14z68ob { font-size: 0.6875rem; color: var(--color-text-muted); margin: 0 0 12px 0; }
+	.all-done.svelte-14z68ob {
+		font-size: 0.875rem; font-weight: 700; color: var(--color-action-success);
+		margin: 0 0 12px 0; text-align: center;
+	}
+	.items.svelte-14z68ob { list-style: none; padding: 0; margin: 0 0 12px 0; display: flex; flex-direction: column; gap: 8px; }
+	.item.svelte-14z68ob { display: flex; align-items: center; gap: 8px; font-size: 0.8125rem; color: var(--color-text); }
+	.item.completed.svelte-14z68ob { color: var(--color-text-muted); }
+	.item.completed.svelte-14z68ob .item-label:where(.svelte-14z68ob) { text-decoration: line-through; }
+	.item-label.svelte-14z68ob { flex: 1; }
+	.item-link.svelte-14z68ob {
+		display: flex; align-items: center; justify-content: center;
+		width: 28px; height: 28px; background: var(--color-action-primary);
+		color: white; border-radius: 8px; text-decoration: none;
+		font-size: 0.75rem; font-weight: 700; flex-shrink: 0; transition: background 0.15s;
+	}
+	.item-link.svelte-14z68ob:hover { background: var(--color-action-primary-hover); }
+	.optional.svelte-14z68ob { margin-bottom: 12px; }
+	.optional-summary.svelte-14z68ob {
+		font-size: 0.8125rem; font-weight: 600; color: var(--color-text-secondary);
+		cursor: pointer; padding: 6px 0; user-select: none;
+	}
+	.optional-summary.svelte-14z68ob:hover { color: var(--color-text-primary); }
+	.optional-items.svelte-14z68ob { margin-top: 8px; margin-bottom: 0; padding-left: 8px; }
+	.next-rec.svelte-14z68ob {
+		display: flex; align-items: center; gap: 6px; font-size: 0.75rem;
+		color: var(--color-text-primary); padding: 8px 12px;
+		background: color-mix(in srgb, var(--color-action-primary) 8%, transparent); border-radius: 8px;
+	}
+	.rec-link.svelte-14z68ob { font-weight: 700; color: var(--color-text-link); text-decoration: underline; }
+	.dismiss.svelte-14z68ob { margin-top: 12px; text-align: center; }
+ .svelte-14z68ob{}
+
+	.plan-status.svelte-o72yk5 {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	.plan-status__title.svelte-o72yk5 {
+		font-size: 0.95rem;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+	.plan-status__trial-badge.svelte-o72yk5 {
+		font-size: 0.7rem;
+		font-weight: 600;
+		padding: 2px 8px;
+		border-radius: 999px;
+		background: var(--color-premium-bg);
+		color: var(--color-premium);
+		border: 1px solid var(--color-border-premium);
+	}
+	.plan-status__trial-note.svelte-o72yk5 {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+		margin: 0;
+		line-height: 1.4;
+	}
+	.plan-status-card--free .plan-status__title.svelte-o72yk5 {
+		color: var(--color-text-secondary);
+	}
+	.plan-status-card--standard .plan-status__title.svelte-o72yk5 {
+		color: var(--color-premium);
+	}
+	.plan-status-card--family .plan-status__title.svelte-o72yk5 {
+		color: var(--color-gold-700, var(--color-amber-700));
+	}
+	.plan-status-card--standard {
+		border-color: var(--color-premium-bg);
+		background: linear-gradient(135deg, var(--color-premium-bg), var(--color-surface-card));
+	}
+	.plan-status-card--family {
+		border-color: var(--color-gold-200, var(--color-amber-200));
+		background: linear-gradient(135deg, var(--color-gold-50, var(--color-amber-50)), var(--color-surface-card));
+	}
+	.plan-status__stats.svelte-o72yk5 {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.5rem;
+	}
+	.plan-status__stat.svelte-o72yk5 {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+	}
+	.plan-status__stat-label.svelte-o72yk5 {
+		font-size: 0.7rem;
+		color: var(--color-text-tertiary);
+	}
+	.plan-status__stat-value.svelte-o72yk5 {
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
+	}
+	.plan-status__cta.svelte-o72yk5 {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.25rem;
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius-md);
+		font-size: 0.8rem;
+		font-weight: 700;
+		text-decoration: none;
+		transition: all 0.15s;
+	}
+	.plan-status__cta--upgrade.svelte-o72yk5 {
+		background: linear-gradient(135deg, var(--color-premium), var(--color-premium-light));
+		color: white;
+	}
+	.plan-status__cta--upgrade.svelte-o72yk5:hover {
+		opacity: 0.9;
+	}
+	.plan-status__actions.svelte-o72yk5 {
+		display: flex;
+		gap: 0.5rem;
+	}
+	.plan-status__cta--detail.svelte-o72yk5 {
+		background: var(--color-surface-secondary);
+		color: var(--color-text-secondary);
+		flex: 1;
+	}
+	.plan-status__cta--detail.svelte-o72yk5:hover {
+		background: var(--color-surface-tertiary);
+	}
+	.plan-status__cta--family.svelte-o72yk5 {
+		background: var(--color-surface-warm);
+		color: var(--color-gold-700, var(--color-amber-700));
+		flex: 1;
+	}
+	.plan-status__cta--family.svelte-o72yk5:hover {
+		background: var(--color-gold-200, var(--color-amber-200));
+	}
+ .svelte-o72yk5{}
+
+	.welcome-overlay.svelte-1y1palh {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 4px;
-		transition: color 0.15s;
+		background: rgba(0, 0, 0, 0.5);
+		animation: svelte-1y1palh-fadeIn 0.3s ease;
+		padding: 1rem;
 	}
 
-	.password-toggle.svelte-pwdxgn:hover {
-		color: var(--color-text);
+	.welcome-card.svelte-1y1palh {
+		position: relative;
+		overflow: hidden;
+		width: 100%;
+		max-width: 400px;
+		border-radius: 1.25rem;
+		background: white;
+		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+		animation: svelte-1y1palh-slideUp 0.4s ease;
 	}
 
-	.password-toggle.svelte-pwdxgn:focus-visible {
-		outline: 2px solid var(--color-brand-500);
-		outline-offset: 2px;
+	.welcome-card--standard.svelte-1y1palh {
+		border: 2px solid var(--color-rarity-epic, #e9d5ff);
 	}
- .svelte-pwdxgn{}</style>
+
+	.welcome-card--family.svelte-1y1palh {
+		border: 2px solid var(--color-gold-300, #fde68a);
+	}
+
+	.welcome-content.svelte-1y1palh {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: 2rem 1.5rem;
+		text-align: center;
+	}
+
+	.welcome-emoji.svelte-1y1palh {
+		font-size: 3rem;
+		display: block;
+		margin-bottom: 0.75rem;
+		animation: svelte-1y1palh-bounce 0.6s ease 0.3s both;
+	}
+
+	.welcome-title.svelte-1y1palh {
+		font-size: 1.2rem;
+		font-weight: 800;
+		color: var(--color-text-primary, #1f2937);
+		line-height: 1.6;
+		margin: 0 0 1rem;
+	}
+
+	.welcome-divider.svelte-1y1palh {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.welcome-divider.svelte-1y1palh::before,
+	.welcome-divider.svelte-1y1palh::after {
+		content: '';
+		flex: 1;
+		height: 1px;
+		background: var(--color-neutral-200, #e5e7eb);
+	}
+
+	.welcome-divider.svelte-1y1palh span:where(.svelte-1y1palh) {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--color-text-tertiary, #9ca3af);
+		white-space: nowrap;
+	}
+
+	.welcome-features.svelte-1y1palh {
+		list-style: none;
+		padding: 0;
+		margin: 0 0 1.25rem;
+		width: 100%;
+		text-align: left;
+	}
+
+	.welcome-feature.svelte-1y1palh {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.375rem 0;
+		font-size: 0.875rem;
+		color: var(--color-text-primary, #374151);
+	}
+
+	.welcome-feature-icon.svelte-1y1palh {
+		flex-shrink: 0;
+		font-size: 0.875rem;
+	}
+
+	.welcome-message.svelte-1y1palh {
+		font-size: 0.85rem;
+		color: var(--color-text-secondary, #6b7280);
+		line-height: 1.6;
+		margin: 0 0 1.25rem;
+	}
+
+	.welcome-card--standard.svelte-1y1palh .welcome-cta:where(.svelte-1y1palh) {
+		background: var(--gradient-premium, linear-gradient(135deg, #7c3aed, #a78bfa));
+	}
+
+	.welcome-card--family.svelte-1y1palh .welcome-cta:where(.svelte-1y1palh) {
+		background: linear-gradient(135deg, var(--color-premium, #7c3aed), var(--color-gold-500, #f59e0b));
+	}
+
+	.welcome-cta.svelte-1y1palh {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		padding: 0.75rem 1.5rem;
+		border: none;
+		border-radius: 0.75rem;
+		color: white;
+		font-size: 1rem;
+		font-weight: 700;
+		cursor: pointer;
+		transition: opacity 0.15s;
+	}
+
+	.welcome-cta.svelte-1y1palh:hover {
+		opacity: 0.9;
+	}
+
+	/* Confetti animation */
+	.confetti.svelte-1y1palh {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	.confetti-piece.svelte-1y1palh {
+		position: absolute;
+		width: 8px;
+		height: 8px;
+		top: -10px;
+		left: calc(var(--i) * 8.33%);
+		border-radius: 2px;
+		animation: svelte-1y1palh-confettiFall 2s ease-out calc(var(--i) * 0.1s) both;
+	}
+
+	.confetti-piece.svelte-1y1palh:nth-child(odd) {
+		background: var(--color-premium, #7c3aed);
+		width: 6px;
+		height: 10px;
+	}
+
+	.confetti-piece.svelte-1y1palh:nth-child(even) {
+		background: var(--color-gold-500, #f59e0b);
+		width: 10px;
+		height: 6px;
+	}
+
+	.confetti-piece.svelte-1y1palh:nth-child(3n) {
+		background: var(--color-cat-souzou, #ec4899);
+	}
+
+	@keyframes svelte-1y1palh-fadeIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes svelte-1y1palh-slideUp {
+		from { opacity: 0; transform: translateY(20px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+
+	@keyframes svelte-1y1palh-bounce {
+		0% { transform: scale(0.3); opacity: 0; }
+		50% { transform: scale(1.1); }
+		70% { transform: scale(0.95); }
+		100% { transform: scale(1); opacity: 1; }
+	}
+
+	@keyframes svelte-1y1palh-confettiFall {
+		0% {
+			transform: translateY(0) rotate(0deg);
+			opacity: 1;
+		}
+		100% {
+			transform: translateY(400px) rotate(calc(var(--i) * 60deg + 180deg));
+			opacity: 0;
+		}
+	}
+ .svelte-1y1palh{}</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="admin" data-plan="family" class="admin-shell svelte-wncecx"><header class="admin-header sticky top-0 z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3 svelte-wncecx"><div class="max-w-4xl mx-auto flex items-center justify-between svelte-wncecx"><div class="flex items-center gap-2 svelte-wncecx"><a href="/admin" class="flex items-center svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="140" height="57" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></a> <!--[-1--><!--]--></div> <div class="flex items-center gap-2 svelte-wncecx"><!--[1--><span class="plan-badge plan-badge--family svelte-wncecx">ファミリープラン</span><!--]--> <!--[1--><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] header-tutorial-btn" title="チュートリアルを開始" data-tutorial="tutorial-restart"><!---->?<!----></button><!--]--><!----><!--]--> <a href="/switch" class="header-switch-link svelte-wncecx" data-tutorial="switch-to-child"><span aria-hidden="true" class="svelte-wncecx">←</span> 子供画面へ</a></div></div></header> <nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2 svelte-wncecx" aria-label="管理メニュー" data-tutorial="nav-desktop"><div class="max-w-4xl mx-auto flex gap-1 svelte-wncecx"><a href="/admin" class="nav-item  svelte-wncecx"><span aria-hidden="true" class="svelte-wncecx">🏠</span> ホーム</a> <!--[--><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">👨‍👩‍👧</span> 家族 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item nav-item--active svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">🎮</span> 活動 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">📊</span> 記録 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">⚙️</span> 設定 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><!--]--></div></nav> <main class="max-w-4xl mx-auto p-4 pb-24 md:pb-4 svelte-wncecx"><!--[-1--><!--[-1--><!--]--> <!--[-1--><!--[--><div class="space-y-6 svelte-1bif3d2"><div class="page-description svelte-1bif3d2"><div class="flex items-center gap-2 svelte-1bif3d2"><p class="page-description__title svelte-1bif3d2">🎉 応援</p> <button type="button" class="page-help-btn svelte-1kua3p3" title="このページの使い方" aria-label="このページの使い方ガイドを開く">?</button><!----></div> <p class="page-description__text svelte-1bif3d2">お子さまのがんばりに、理由とポイントで応援を届けます。
-			「運動会で1位」「むずかしい問題ができた」など、その場で気持ちを形にできます。</p> <p class="page-description__hint svelte-1bif3d2">スタンプやひとことメッセージも添えられます。日常のごほうび管理は <a href="/admin/rewards" class="page-description__link svelte-1bif3d2">ごほうび</a> から行えます</p></div> <!--[-1--><form method="POST" action="?/grant" class="space-y-6 svelte-1bif3d2"><section data-tutorial="cheer-child-select" class="svelte-1bif3d2"><h3 class="step-title svelte-1bif3d2">1. こどもを選択</h3> <div class="flex gap-2 flex-wrap svelte-1bif3d2"><!--[--><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] rounded-xl bg-[var(--color-surface-card)] text-[var(--color-text-muted)] shadow-sm hover:shadow-md" type="button"><!---->さくらちゃん<!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] rounded-xl bg-[var(--color-surface-card)] text-[var(--color-text-muted)] shadow-sm hover:shadow-md" type="button"><!---->けんたくん<!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] rounded-xl bg-[var(--color-surface-card)] text-[var(--color-text-muted)] shadow-sm hover:shadow-md" type="button"><!---->ゆうこちゃん<!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] rounded-xl bg-[var(--color-surface-card)] text-[var(--color-text-muted)] shadow-sm hover:shadow-md" type="button"><!---->まさとくん<!----></button><!--]--><!----><!--]--></div> <input type="hidden" name="childId" value="0" class="svelte-1bif3d2" style=""></section> <section data-tutorial="cheer-reason" class="svelte-1bif3d2"><h3 class="step-title svelte-1bif3d2">2. 応援する理由</h3> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-4"><div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn"></label> <!--[1--><textarea id="field-" rows="3" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm resize-y border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors svelte-pwdxgn" aria-describedby="field--hint" name="reason" maxlength="100" placeholder="例: うんどうかいで 1いに なったね！" style=""></textarea><!--]--> <!--[1--><p id="field--hint" class="text-xs text-[var(--color-text-muted)] mt-0.5 svelte-pwdxgn">0/100（あと100文字）</p><!--]--></div><!----><!----></div> <!--[-1--><!--]--></section><!----></section> <section class="svelte-1bif3d2"><h3 class="step-title svelte-1bif3d2">3. ボーナスポイント</h3> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-4"><div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn"></label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="number" id="field-" value="50" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" aria-describedby="field--hint" name="points" min="1" max="10000" step="1" style=""> <!--[-1--><!--]--></div><!--]--> <!--[1--><p id="field--hint" class="text-xs text-[var(--color-text-muted)] mt-0.5 svelte-pwdxgn">1〜10000の範囲で入力</p><!--]--></div><!----><!----></div> <!--[-1--><!--]--></section><!----></section> <section class="svelte-1bif3d2"><h3 class="step-title svelte-1bif3d2">4. カテゴリ</h3> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-4"><div class="flex flex-col gap-1 "><!--[-1--><!--]--> <select id="native-select-field-2emh2w" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" name="category"><!--[-1--><!--]--><!--[--><option value="うんどう" selected="">うんどう</option><option value="べんきょう">べんきょう</option><option value="せいかつ">せいかつ</option><option value="こうりゅう">こうりゅう</option><option value="そうぞう">そうぞう</option><option value="とくべつ">とくべつ</option><!--]--></select> <!--[-1--><!--]--></div><!----><!----></div> <!--[-1--><!--]--></section><!----></section> <section class="svelte-1bif3d2"><h3 class="step-title svelte-1bif3d2">5. アイコン</h3> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-4"><div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn"></label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="text" id="field-" value="🎉" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" aria-describedby="field--hint" name="icon" maxlength="4" style=""> <!--[-1--><!--]--></div><!--]--> <!--[1--><p id="field--hint" class="text-xs text-[var(--color-text-muted)] mt-0.5 svelte-pwdxgn">絵文字を入れてください</p><!--]--></div><!----><!----></div> <!--[-1--><!--]--></section><!----></section> <section class="svelte-1bif3d2"><h3 class="step-title svelte-1bif3d2">6. 付随スタンプ / メッセージ（任意）</h3> <p class="text-xs text-[var(--color-text-muted)] mb-2 svelte-1bif3d2">いつものスタンプや、ひとことメッセージも一緒に届けられます</p> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-4"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 svelte-1bif3d2"><!--[--><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto " type="button"><span class="text-3xl block svelte-1bif3d2">🌟</span> <p class="text-xs font-bold text-[var(--color-text-muted)] mt-1 svelte-1bif3d2">すごいね！</p><!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto " type="button"><span class="text-3xl block svelte-1bif3d2">💪</span> <p class="text-xs font-bold text-[var(--color-text-muted)] mt-1 svelte-1bif3d2">がんばったね！</p><!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto " type="button"><span class="text-3xl block svelte-1bif3d2">💖</span> <p class="text-xs font-bold text-[var(--color-text-muted)] mt-1 svelte-1bif3d2">ありがとう！</p><!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto " type="button"><span class="text-3xl block svelte-1bif3d2">👀</span> <p class="text-xs font-bold text-[var(--color-text-muted)] mt-1 svelte-1bif3d2">みてるよ！</p><!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto " type="button"><span class="text-3xl block svelte-1bif3d2">🎉</span> <p class="text-xs font-bold text-[var(--color-text-muted)] mt-1 svelte-1bif3d2">おめでとう！</p><!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto " type="button"><span class="text-3xl block svelte-1bif3d2">🤗</span> <p class="text-xs font-bold text-[var(--color-text-muted)] mt-1 svelte-1bif3d2">だいすき！</p><!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto " type="button"><span class="text-3xl block svelte-1bif3d2">🔥</span> <p class="text-xs font-bold text-[var(--color-text-muted)] mt-1 svelte-1bif3d2">パパもがんばるよ</p><!----></button><!--]--><!----><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto " type="button"><span class="text-3xl block svelte-1bif3d2">😊</span> <p class="text-xs font-bold text-[var(--color-text-muted)] mt-1 svelte-1bif3d2">ママもうれしい</p><!----></button><!--]--><!----><!--]--></div> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn"></label> <!--[1--><textarea id="field-" rows="2" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm resize-y border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors svelte-pwdxgn" name="body" maxlength="120" placeholder="ひとことメッセージを足す（任意）" style=""></textarea><!--]--> <!--[-1--><!--]--></div><!----> <input type="hidden" name="stampCode" value="" class="svelte-1bif3d2" style=""><!----></div> <!--[-1--><!--]--></section><!----></section> <section class="svelte-1bif3d2"><h3 class="step-title svelte-1bif3d2">7. 内容を確認して応援する</h3> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-4"><dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm mb-3 svelte-1bif3d2"><dt class="text-[var(--color-text-muted)] svelte-1bif3d2">理由</dt> <dd class="text-[var(--color-text)] font-medium svelte-1bif3d2">—</dd> <dt class="text-[var(--color-text-muted)] svelte-1bif3d2">ポイント</dt> <dd class="text-[var(--color-text)] font-medium svelte-1bif3d2">+50P</dd> <dt class="text-[var(--color-text-muted)] svelte-1bif3d2">カテゴリ</dt> <dd class="text-[var(--color-text)] font-medium svelte-1bif3d2">うんどう</dd> <dt class="text-[var(--color-text-muted)] svelte-1bif3d2">アイコン</dt> <dd class="text-[var(--color-text)] font-medium svelte-1bif3d2">🎉</dd></dl> <!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full rounded-xl" type="submit" disabled=""><!---->理由とポイントを入力してください<!----></button><!--]--><!----><!----></div> <!--[-1--><!--]--></section><!----></section></form><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--></div><!--]--><!--]--><!----><!----><!--]--></main> <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom svelte-wncecx" aria-label="メインナビゲーション" data-tutorial="nav-primary"><!--[-1--><!--]--> <div class="flex justify-around items-center h-16 svelte-wncecx"><a href="/admin" class="mobile-nav-item  svelte-wncecx"><span class="text-xl svelte-wncecx" aria-hidden="true">🏠</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">ホーム</span></a> <!--[--><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">👨‍👩‍👧</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">家族</span></button><button type="button" class="mobile-nav-item mobile-nav-item--active  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">🎮</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">活動</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">📊</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">記録</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">⚙️</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">設定</span></button><!--]--></div></nav> <!--[0--><!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----><!--]--></div><!----> <!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <div class="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-20"><button class="tap-target inline-flex items-center justify-center gap-1 font-medium transition-colors bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 p-2 text-base rounded-lg !rounded-full shadow-lg !p-3" aria-label="ご意見・不具合報告" title="ご意見・不具合報告" data-testid="feedback-fab"><span class="text-xl">💬</span><!----></button><!----></div><!----> <!--[--><!--$s5--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div data-theme="admin" data-plan="family" class="admin-shell svelte-wncecx"><header class="admin-header sticky top-0 z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3 svelte-wncecx"><div class="max-w-4xl mx-auto flex items-center justify-between svelte-wncecx"><div class="flex items-center gap-2 svelte-wncecx"><a href="/admin" class="flex items-center svelte-wncecx"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="140" height="57" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----></a> <!--[-1--><!--]--></div> <div class="flex items-center gap-2 svelte-wncecx"><!--[1--><span class="plan-badge plan-badge--family svelte-wncecx">ファミリープラン</span><!--]--> <!--[1--><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] header-tutorial-btn" title="チュートリアルを開始" data-tutorial="tutorial-restart"><!---->?<!----></button><!--]--><!----><!--]--> <a href="/switch" class="header-switch-link svelte-wncecx" data-tutorial="switch-to-child"><span aria-hidden="true" class="svelte-wncecx">←</span> 子供画面へ</a></div></div></header> <nav class="hidden md:block bg-[var(--color-surface-card)] border-b border-[var(--color-border-default)] px-4 py-2 svelte-wncecx" aria-label="管理メニュー" data-tutorial="nav-desktop"><div class="max-w-4xl mx-auto flex gap-1 svelte-wncecx"><a href="/admin" class="nav-item nav-item--active svelte-wncecx"><span aria-hidden="true" class="svelte-wncecx">🏠</span> ホーム</a> <!--[--><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">👨‍👩‍👧</span> 家族 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">🎮</span> 活動 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">📊</span> 記録 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><div class="relative svelte-wncecx" role="none"><button type="button" class="nav-item  svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span aria-hidden="true" class="svelte-wncecx">⚙️</span> 設定 <span class="text-[10px] ml-0.5 opacity-50 svelte-wncecx" aria-hidden="true">▾</span></button> <!--[-1--><!--]--></div><!--]--></div></nav> <main class="max-w-4xl mx-auto p-4 pb-24 md:pb-4 svelte-wncecx"><!--[-1--><!--[-1--><!--]--> <!--[-1--><!--[--><!--[0--><div class="welcome-overlay svelte-1y1palh" role="dialog" aria-modal="true" aria-label="ファミリーへようこそ"><div class="welcome-card welcome-card--family svelte-1y1palh"><div class="confetti svelte-1y1palh" aria-hidden="true"><!--[--><span class="confetti-piece svelte-1y1palh" style="--i:0"></span><span class="confetti-piece svelte-1y1palh" style="--i:1"></span><span class="confetti-piece svelte-1y1palh" style="--i:2"></span><span class="confetti-piece svelte-1y1palh" style="--i:3"></span><span class="confetti-piece svelte-1y1palh" style="--i:4"></span><span class="confetti-piece svelte-1y1palh" style="--i:5"></span><span class="confetti-piece svelte-1y1palh" style="--i:6"></span><span class="confetti-piece svelte-1y1palh" style="--i:7"></span><span class="confetti-piece svelte-1y1palh" style="--i:8"></span><span class="confetti-piece svelte-1y1palh" style="--i:9"></span><span class="confetti-piece svelte-1y1palh" style="--i:10"></span><span class="confetti-piece svelte-1y1palh" style="--i:11"></span><!--]--></div> <div class="welcome-content svelte-1y1palh"><span class="welcome-emoji svelte-1y1palh">🎉</span> <h2 class="welcome-title svelte-1y1palh">がんばりクエスト ⭐⭐ ファミリー へ<br class="svelte-1y1palh">ようこそ！</h2> <div class="welcome-divider svelte-1y1palh"><span class="svelte-1y1palh">解放された機能</span></div> <ul class="welcome-features svelte-1y1palh"><!--[--><li class="welcome-feature svelte-1y1palh"><span class="welcome-feature-icon svelte-1y1palh">✅</span> <span class="svelte-1y1palh">オリジナル活動の追加（無制限）</span></li><li class="welcome-feature svelte-1y1palh"><span class="welcome-feature-icon svelte-1y1palh">✅</span> <span class="svelte-1y1palh">チェックリストの自由作成</span></li><li class="welcome-feature svelte-1y1palh"><span class="welcome-feature-icon svelte-1y1palh">✨</span> <span class="svelte-1y1palh">AI 自動提案（活動・ごほうび・チェックリスト）</span></li><li class="welcome-feature svelte-1y1palh"><span class="welcome-feature-icon svelte-1y1palh">✅</span> <span class="svelte-1y1palh">ごほうびのカスタマイズ</span></li><li class="welcome-feature svelte-1y1palh"><span class="welcome-feature-icon svelte-1y1palh">✅</span> <span class="svelte-1y1palh">きょうだいランキング</span></li><li class="welcome-feature svelte-1y1palh"><span class="welcome-feature-icon svelte-1y1palh">✅</span> <span class="svelte-1y1palh">ひとことメッセージ（自由テキスト）</span></li><li class="welcome-feature svelte-1y1palh"><span class="welcome-feature-icon svelte-1y1palh">✅</span> <span class="svelte-1y1palh">データの永久保持</span></li><li class="welcome-feature svelte-1y1palh"><span class="welcome-feature-icon svelte-1y1palh">✅</span> <span class="svelte-1y1palh">こどもの登録（無制限）</span></li><!--]--></ul> <p class="welcome-message svelte-1y1palh" style="white-space: pre-line">お子さまの「がんばり」を
+もっと楽しく応援しましょう！</p> <button type="button" class="welcome-cta svelte-1y1palh">さっそく始める →</button></div></div></div><!----><!--]--> <div class="space-y-6 svelte-zh99qi"><h1 class="dashboard-heading svelte-zh99qi">管理ダッシュボード</h1> <!--[0--><div class="onboarding-card svelte-14z68ob" data-testid="onboarding-checklist"><div class="header svelte-14z68ob"><span class="svelte-14z68ob">✅</span> <span class="title svelte-14z68ob">はじめてのセットアップ</span></div> <div class="progress-bar-wrap svelte-14z68ob" role="progressbar" aria-valuenow="17" aria-valuemin="0" aria-valuemax="100" aria-label="セットアップ進捗 17%"><div class="progress-bar svelte-14z68ob" style="width: 17%;"></div></div> <p class="progress-text svelte-14z68ob">1/6 完了 (17%)</p> <!--[-1--><!--]--> <ul class="items svelte-14z68ob"><!--[--><li class="item svelte-14z68ob completed"><span class="svelte-14z68ob">✅</span> <span class="item-label svelte-14z68ob">子供を登録する</span> <!--[-1--><!--]--></li><li class="item svelte-14z68ob"><span class="svelte-14z68ob">☐</span> <span class="item-label svelte-14z68ob">活動パックを選ぶ</span> <!--[0--><a href="/admin/activities" class="item-link svelte-14z68ob">→</a><!--]--></li><li class="item svelte-14z68ob"><span class="svelte-14z68ob">☐</span> <span class="item-label svelte-14z68ob">ごほうびプリセットを選ぶ</span> <!--[0--><a href="/admin/rewards" class="item-link svelte-14z68ob">→</a><!--]--></li><li class="item svelte-14z68ob"><span class="svelte-14z68ob">☐</span> <span class="item-label svelte-14z68ob">チェックリストを作る</span> <!--[0--><a href="/admin/checklists" class="item-link svelte-14z68ob">→</a><!--]--></li><li class="item svelte-14z68ob"><span class="svelte-14z68ob">☐</span> <span class="item-label svelte-14z68ob">子供の画面を確認する</span> <!--[0--><a href="/switch" class="item-link svelte-14z68ob">→</a><!--]--></li><!--]--></ul> <!--[0--><details class="optional svelte-14z68ob"><summary class="optional-summary svelte-14z68ob">さらに便利にする設定（任意・1 項目）</summary> <ul class="items optional-items svelte-14z68ob"><!--[--><li class="item svelte-14z68ob"><span class="svelte-14z68ob">☐</span> <span class="item-label svelte-14z68ob">おやカギコードを変更する</span> <!--[0--><a href="/admin/settings" class="item-link svelte-14z68ob">→</a><!--]--></li><!--]--></ul></details><!--]--> <!--[0--><div class="next-rec svelte-14z68ob"><span class="svelte-14z68ob">→</span> <span class="svelte-14z68ob">次のおすすめ:</span> <a href="/admin/activities" class="rec-link svelte-14z68ob">活動パックを選ぶ</a></div><!--]--> <!--[-1--><!--]--></div><!----><!--]--> <!--[0--><div class="tutorial-full-guide-card svelte-zh99qi" data-testid="admin-view-full-guide"><div class="tutorial-full-guide-info svelte-zh99qi"><span class="tutorial-full-guide-label svelte-zh99qi">くわしいガイドを最初から見る</span> <span class="tutorial-full-guide-hint svelte-zh99qi">すべてのチャプター（活動管理・報酬・レポートなど）を順番に確認できます</span></div> <!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-4 py-2 text-sm rounded-[var(--radius-sm)] "><!---->ガイドを開く<!----></button><!--]--><!----></div><!--]--> <!--[0--><!--[-1--><!--]--><!----><!--]--> <!--[0--><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] plan-status-card plan-status-card--family"><!--[-1--><!--]--> <div class="p-4"><div class="plan-status svelte-o72yk5" data-testid="plan-status-card" data-plan-tier="family"><h3 class="plan-status__title svelte-o72yk5"><!--[0--><span class="plan-status__icon svelte-o72yk5">⭐⭐</span><!--]--> ファミリー プラン <!--[-1--><!--]--></h3> <div class="plan-status__stats svelte-o72yk5"><div class="plan-status__stat svelte-o72yk5"><span class="plan-status__stat-label svelte-o72yk5">カスタム活動</span> <span class="plan-status__stat-value svelte-o72yk5">0 / 無制限</span></div> <div class="plan-status__stat svelte-o72yk5"><span class="plan-status__stat-label svelte-o72yk5">こども</span> <span class="plan-status__stat-value svelte-o72yk5">4 / 無制限</span></div> <div class="plan-status__stat svelte-o72yk5"><span class="plan-status__stat-label svelte-o72yk5">データ保持</span> <span class="plan-status__stat-value svelte-o72yk5">無制限</span></div></div> <!--[-1--><!--]--></div><!----></div> <!--[-1--><!--]--></section><!----><!----><!--]--> <!--[-1--><!--]--> <div class="grid grid-cols-2 gap-3 svelte-zh99qi" data-tutorial="summary-cards"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] text-center" role="group" aria-label="登録こども数"><!--[-1--><!--]--> <div class="p-4"><p class="text-2xl font-bold text-[var(--color-action-primary)] svelte-zh99qi">4</p> <p class="text-xs text-[var(--color-text-tertiary)] mt-1 svelte-zh99qi">こどもの数</p><!----></div> <!--[-1--><!--]--></section><!----> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] text-center" role="group" aria-label="全ポイント合計"><!--[-1--><!--]--> <div class="p-4"><p class="text-2xl font-bold text-[var(--color-gold-500)] svelte-zh99qi">0P</p> <p class="text-xs text-[var(--color-text-tertiary)] mt-1 svelte-zh99qi">合計P</p><!----></div> <!--[-1--><!--]--></section><!----></div> <!--[0--><section class="svelte-zh99qi"><div class="flex items-center justify-between mb-3 svelte-zh99qi"><h2 class="text-lg font-bold text-[var(--color-text)] svelte-zh99qi" data-tutorial="monthly-summary">📊 2026年5月のがんばり</h2> <a href="/admin/reports" class="text-xs text-[var(--color-brand-500)] hover:underline svelte-zh99qi">詳しく見る →</a></div> <div class="grid gap-3 svelte-zh99qi"><!--[--><!--[0--><div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm svelte-zh99qi"><p class="text-sm font-bold text-[var(--color-text)] mb-2 svelte-zh99qi">さくらちゃん</p> <div class="flex gap-3 svelte-zh99qi"><div class="monthly-stat monthly-stat--blue svelte-zh99qi" role="group" aria-label="さくらちゃんの活動回数"><p class="monthly-stat__heading svelte-zh99qi">活動回数</p> <p class="monthly-stat__value svelte-zh99qi">0</p> <p class="monthly-stat__unit svelte-zh99qi">回</p></div> <div class="monthly-stat monthly-stat--purple svelte-zh99qi" role="group" aria-label="さくらちゃんのレベル"><p class="monthly-stat__heading svelte-zh99qi">レベル</p> <p class="monthly-stat__value svelte-zh99qi">1</p></div> <div class="monthly-stat monthly-stat--amber svelte-zh99qi" role="group" aria-label="さくらちゃんの実績"><p class="monthly-stat__heading svelte-zh99qi">実績</p> <p class="monthly-stat__value svelte-zh99qi">0</p> <p class="monthly-stat__unit svelte-zh99qi">獲得</p></div></div></div><!--]--><!--[0--><div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm svelte-zh99qi"><p class="text-sm font-bold text-[var(--color-text)] mb-2 svelte-zh99qi">けんたくん</p> <div class="flex gap-3 svelte-zh99qi"><div class="monthly-stat monthly-stat--blue svelte-zh99qi" role="group" aria-label="けんたくんの活動回数"><p class="monthly-stat__heading svelte-zh99qi">活動回数</p> <p class="monthly-stat__value svelte-zh99qi">0</p> <p class="monthly-stat__unit svelte-zh99qi">回</p></div> <div class="monthly-stat monthly-stat--purple svelte-zh99qi" role="group" aria-label="けんたくんのレベル"><p class="monthly-stat__heading svelte-zh99qi">レベル</p> <p class="monthly-stat__value svelte-zh99qi">1</p></div> <div class="monthly-stat monthly-stat--amber svelte-zh99qi" role="group" aria-label="けんたくんの実績"><p class="monthly-stat__heading svelte-zh99qi">実績</p> <p class="monthly-stat__value svelte-zh99qi">0</p> <p class="monthly-stat__unit svelte-zh99qi">獲得</p></div></div></div><!--]--><!--[0--><div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm svelte-zh99qi"><p class="text-sm font-bold text-[var(--color-text)] mb-2 svelte-zh99qi">ゆうこちゃん</p> <div class="flex gap-3 svelte-zh99qi"><div class="monthly-stat monthly-stat--blue svelte-zh99qi" role="group" aria-label="ゆうこちゃんの活動回数"><p class="monthly-stat__heading svelte-zh99qi">活動回数</p> <p class="monthly-stat__value svelte-zh99qi">0</p> <p class="monthly-stat__unit svelte-zh99qi">回</p></div> <div class="monthly-stat monthly-stat--purple svelte-zh99qi" role="group" aria-label="ゆうこちゃんのレベル"><p class="monthly-stat__heading svelte-zh99qi">レベル</p> <p class="monthly-stat__value svelte-zh99qi">1</p></div> <div class="monthly-stat monthly-stat--amber svelte-zh99qi" role="group" aria-label="ゆうこちゃんの実績"><p class="monthly-stat__heading svelte-zh99qi">実績</p> <p class="monthly-stat__value svelte-zh99qi">0</p> <p class="monthly-stat__unit svelte-zh99qi">獲得</p></div></div></div><!--]--><!--[0--><div class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm svelte-zh99qi"><p class="text-sm font-bold text-[var(--color-text)] mb-2 svelte-zh99qi">まさとくん</p> <div class="flex gap-3 svelte-zh99qi"><div class="monthly-stat monthly-stat--blue svelte-zh99qi" role="group" aria-label="まさとくんの活動回数"><p class="monthly-stat__heading svelte-zh99qi">活動回数</p> <p class="monthly-stat__value svelte-zh99qi">0</p> <p class="monthly-stat__unit svelte-zh99qi">回</p></div> <div class="monthly-stat monthly-stat--purple svelte-zh99qi" role="group" aria-label="まさとくんのレベル"><p class="monthly-stat__heading svelte-zh99qi">レベル</p> <p class="monthly-stat__value svelte-zh99qi">1</p></div> <div class="monthly-stat monthly-stat--amber svelte-zh99qi" role="group" aria-label="まさとくんの実績"><p class="monthly-stat__heading svelte-zh99qi">実績</p> <p class="monthly-stat__value svelte-zh99qi">0</p> <p class="monthly-stat__unit svelte-zh99qi">獲得</p></div></div></div><!--]--><!--]--></div></section><!--]--> <!--[0--><!--[-1--><!--]--><!----><!--]--> <!--[0--><section data-testid="today-usage-section" class="svelte-zh99qi"><h2 class="text-lg font-bold text-[var(--color-text)] svelte-zh99qi" aria-label="本日の使用時間">⏱️ 本日の使用時間</h2> <div class="usage-grid mt-3 svelte-zh99qi"><!--[--><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] p-3" role="group" aria-label="さくらちゃんの本日使用時間"><!--[-1--><!--]--> <div class="p-4"><p class="usage-card__name svelte-zh99qi">さくらちゃん</p> <div class="usage-bar-wrap svelte-zh99qi" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="15" aria-label="0分使用"><div class="usage-bar svelte-zh99qi" style="width: 0%;"></div></div> <p class="usage-card__time svelte-zh99qi">0分 / 15分</p><!----></div> <!--[-1--><!--]--></section><!----><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] p-3" role="group" aria-label="けんたくんの本日使用時間"><!--[-1--><!--]--> <div class="p-4"><p class="usage-card__name svelte-zh99qi">けんたくん</p> <div class="usage-bar-wrap svelte-zh99qi" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="15" aria-label="0分使用"><div class="usage-bar svelte-zh99qi" style="width: 0%;"></div></div> <p class="usage-card__time svelte-zh99qi">0分 / 15分</p><!----></div> <!--[-1--><!--]--></section><!----><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] p-3" role="group" aria-label="ゆうこちゃんの本日使用時間"><!--[-1--><!--]--> <div class="p-4"><p class="usage-card__name svelte-zh99qi">ゆうこちゃん</p> <div class="usage-bar-wrap svelte-zh99qi" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="15" aria-label="0分使用"><div class="usage-bar svelte-zh99qi" style="width: 0%;"></div></div> <p class="usage-card__time svelte-zh99qi">0分 / 15分</p><!----></div> <!--[-1--><!--]--></section><!----><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] p-3" role="group" aria-label="まさとくんの本日使用時間"><!--[-1--><!--]--> <div class="p-4"><p class="usage-card__name svelte-zh99qi">まさとくん</p> <div class="usage-bar-wrap svelte-zh99qi" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="15" aria-label="0分使用"><div class="usage-bar svelte-zh99qi" style="width: 0%;"></div></div> <p class="usage-card__time svelte-zh99qi">0分 / 15分</p><!----></div> <!--[-1--><!--]--></section><!----><!--]--></div></section><!--]--> <!--[0--><section data-testid="weekly-usage-section" class="svelte-zh99qi"><h2 class="text-lg font-bold text-[var(--color-text)] mb-3 svelte-zh99qi">📈 今週の使用時間</h2> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow-elevated)] p-4"><!--[-1--><!--]--> <div class="p-4"><div class="weekly-chart svelte-7c2hox" data-testid="weekly-usage-chart" role="figure" aria-label="今週の使用時間"><!--[0--><p class="weekly-chart__empty svelte-7c2hox">まだデータがありません</p><!--]--></div><!----><!----></div> <!--[-1--><!--]--></section><!----></section><!--]--> <section data-tutorial="children-overview" class="svelte-zh99qi"><h2 class="text-lg font-bold text-[var(--color-text-primary)] mb-3 svelte-zh99qi">こども一覧</h2> <!--[-1--><div class="grid gap-3 svelte-zh99qi"><!--[--><a href="/admin/children?id=1" class="block svelte-1d9571i"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] child-list-card "><!--[-1--><!--]--> <div class="p-4"><div class="child-list-card__content svelte-1d9571i"><div class="child-list-card__avatar svelte-1d9571i"><!--[-1--><span class="child-list-card__avatar-placeholder svelte-1d9571i">👤</span><!--]--></div> <div class="child-list-card__info svelte-1d9571i"><p class="child-list-card__name svelte-1d9571i">さくらちゃん</p> <p class="child-list-card__meta svelte-1d9571i">4歳 / 幼児（3〜5歳） / 🩷 ピンク</p> <!--[-1--><!--]--></div> <div class="child-list-card__balance svelte-1d9571i"><p class="child-list-card__balance-value svelte-1d9571i">0P</p></div> <span class="child-list-card__chevron  svelte-1d9571i">▸</span></div><!----></div> <!--[-1--><!--]--></section><!----></a><!----><a href="/admin/children?id=2" class="block svelte-1d9571i"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] child-list-card "><!--[-1--><!--]--> <div class="p-4"><div class="child-list-card__content svelte-1d9571i"><div class="child-list-card__avatar svelte-1d9571i"><!--[-1--><span class="child-list-card__avatar-placeholder svelte-1d9571i">👤</span><!--]--></div> <div class="child-list-card__info svelte-1d9571i"><p class="child-list-card__name svelte-1d9571i">けんたくん</p> <p class="child-list-card__meta svelte-1d9571i">8歳 / 小学生（6〜12歳） / 💙 ブルー</p> <!--[-1--><!--]--></div> <div class="child-list-card__balance svelte-1d9571i"><p class="child-list-card__balance-value svelte-1d9571i">0P</p></div> <span class="child-list-card__chevron  svelte-1d9571i">▸</span></div><!----></div> <!--[-1--><!--]--></section><!----></a><!----><a href="/admin/children?id=3" class="block svelte-1d9571i"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] child-list-card "><!--[-1--><!--]--> <div class="p-4"><div class="child-list-card__content svelte-1d9571i"><div class="child-list-card__avatar svelte-1d9571i"><!--[-1--><span class="child-list-card__avatar-placeholder svelte-1d9571i">👤</span><!--]--></div> <div class="child-list-card__info svelte-1d9571i"><p class="child-list-card__name svelte-1d9571i">ゆうこちゃん</p> <p class="child-list-card__meta svelte-1d9571i">13歳 / 中学生（13〜15歳） / 💚 グリーン</p> <!--[-1--><!--]--></div> <div class="child-list-card__balance svelte-1d9571i"><p class="child-list-card__balance-value svelte-1d9571i">0P</p></div> <span class="child-list-card__chevron  svelte-1d9571i">▸</span></div><!----></div> <!--[-1--><!--]--></section><!----></a><!----><a href="/admin/children?id=4" class="block svelte-1d9571i"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] child-list-card "><!--[-1--><!--]--> <div class="p-4"><div class="child-list-card__content svelte-1d9571i"><div class="child-list-card__avatar svelte-1d9571i"><!--[-1--><span class="child-list-card__avatar-placeholder svelte-1d9571i">👤</span><!--]--></div> <div class="child-list-card__info svelte-1d9571i"><p class="child-list-card__name svelte-1d9571i">まさとくん</p> <p class="child-list-card__meta svelte-1d9571i">16歳 / 高校生（16〜18歳） / 💜 パープル</p> <!--[-1--><!--]--></div> <div class="child-list-card__balance svelte-1d9571i"><p class="child-list-card__balance-value svelte-1d9571i">0P</p></div> <span class="child-list-card__chevron  svelte-1d9571i">▸</span></div><!----></div> <!--[-1--><!--]--></section><!----></a><!----><!--]--></div><!--]--></section> <!--[-1--><!--]--></div><!----><!--]--><!--]--><!----><!----><!--]--></main> <nav class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[var(--color-surface-card)] border-t border-[var(--color-border-default)] safe-area-bottom svelte-wncecx" aria-label="メインナビゲーション" data-tutorial="nav-primary"><!--[-1--><!--]--> <div class="flex justify-around items-center h-16 svelte-wncecx"><a href="/admin" class="mobile-nav-item mobile-nav-item--active svelte-wncecx"><span class="text-xl svelte-wncecx" aria-hidden="true">🏠</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">ホーム</span></a> <!--[--><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">👨‍👩‍👧</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">家族</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">🎮</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">活動</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">📊</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">記録</span></button><button type="button" class="mobile-nav-item   svelte-wncecx" aria-expanded="false" aria-haspopup="true"><span class="text-xl svelte-wncecx" aria-hidden="true">⚙️</span> <span class="text-[10px] font-medium leading-none svelte-wncecx">設定</span></button><!--]--></div></nav> <!--[0--><!--[--><!--$s1--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s2--><!--[-1--><!--]--><!----><!----><!--]--><!----> <!--[--><!--$s3--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----><!--]--></div><!----> <!--[--><!--$s4--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <div class="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-20"><button class="tap-target inline-flex items-center justify-center gap-1 font-medium transition-colors bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 p-2 text-base rounded-lg !rounded-full shadow-lg !p-3" aria-label="ご意見・不具合報告" title="ご意見・不具合報告" data-testid="feedback-fab"><span class="text-xl">💬</span><!----></button><!----></div><!----> <!--[--><!--$s5--><!--[-1--><!--]--><!----><!----><!--]--><!----><!----> <!--[-1--><!--]--><!----><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
 			
 			<script>
 				{
 					__sveltekit_dev = {
-						base: new URL("..", location).pathname.slice(0, -1),
+						base: new URL(".", location).pathname.slice(0, -1),
 						env: {}
 					};
 
@@ -5298,15 +6194,15 @@ h1, h2, h3, h4 {
 						import("/@fs/C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a5828f5e68a29381e/.svelte-kit/generated/client/app.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
-							node_ids: [0, 4, 29],
-							data: [{type:"data",data:{role:"owner",requestId:"942c3d31-f8b9-4bcb-ba64-69d6f2705e72",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"local",tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null}},uses:{}},{type:"data",data:{children:[{id:1,nickname:"さくらちゃん",age:4,birthDate:null,theme:"pink",uiMode:"preschool",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-19 06:35:46",updatedAt:"2026-05-19 06:35:46",_sv:3,isArchived:0,archivedReason:null,recentMessages:[]},{id:2,nickname:"けんたくん",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-19 06:35:46",updatedAt:"2026-05-19 06:35:46",_sv:3,isArchived:0,archivedReason:null,recentMessages:[]},{id:3,nickname:"ゆうこちゃん",age:13,birthDate:null,theme:"green",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-19 06:35:46",updatedAt:"2026-05-19 06:35:46",_sv:3,isArchived:0,archivedReason:null,recentMessages:[]},{id:4,nickname:"まさとくん",age:16,birthDate:null,theme:"purple",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-19 06:35:46",updatedAt:"2026-05-19 06:35:46",_sv:3,isArchived:0,archivedReason:null,recentMessages:[]}],stamps:[{code:"sugoi",label:"すごいね！",icon:"🌟"},{code:"ganbatta",label:"がんばったね！",icon:"💪"},{code:"arigatou",label:"ありがとう！",icon:"💖"},{code:"miteruyo",label:"みてるよ！",icon:"👀"},{code:"omedetou",label:"おめでとう！",icon:"🎉"},{code:"daisuki",label:"だいすき！",icon:"🤗"},{code:"papa_ganbare",label:"パパもがんばるよ",icon:"🔥"},{code:"mama_ureshii",label:"ママもうれしい",icon:"😊"}],categories:["うんどう","べんきょう","せいかつ","こうりゅう","そうぞう","とくべつ"],reasonMaxLength:100,pointsMin:1,pointsMax:10000},uses:{}}],
+							node_ids: [0, 4, 16],
+							data: [{type:"data",data:{role:"owner",requestId:"f2d52a15-0575-4424-a6ba-df80b7d76215",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"local",tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null}},uses:{}},(function(a){a.key="activities";a.label="活動パックを選ぶ";a.completed=false;a.href="/admin/activities";a.required=true;return {type:"data",data:{children:[{id:1,nickname:"さくらちゃん",age:4,birthDate:null,theme:"pink",uiMode:"preschool",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-19 06:35:46",updatedAt:"2026-05-19 06:35:46",_sv:3,isArchived:0,archivedReason:null,balance:0,level:1,levelTitle:"はじめのぼうけんしゃ"},{id:2,nickname:"けんたくん",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-19 06:35:46",updatedAt:"2026-05-19 06:35:46",_sv:3,isArchived:0,archivedReason:null,balance:0,level:1,levelTitle:"はじめのぼうけんしゃ"},{id:3,nickname:"ゆうこちゃん",age:13,birthDate:null,theme:"green",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-19 06:35:46",updatedAt:"2026-05-19 06:35:46",_sv:3,isArchived:0,archivedReason:null,balance:0,level:1,levelTitle:"はじめのぼうけんしゃ"},{id:4,nickname:"まさとくん",age:16,birthDate:null,theme:"purple",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-05-19 06:35:46",updatedAt:"2026-05-19 06:35:46",_sv:3,isArchived:0,archivedReason:null,balance:0,level:1,levelTitle:"はじめのぼうけんしゃ"}],onboarding:{items:[{key:"children",label:"子供を登録する",completed:true,href:"/admin/children",required:true},a,{key:"rewards",label:"ごほうびプリセットを選ぶ",completed:false,href:"/admin/rewards",required:true},{key:"pin",label:"おやカギコードを変更する",completed:false,href:"/admin/settings",required:false},{key:"checklist",label:"チェックリストを作る",completed:false,href:"/admin/checklists",required:true},{key:"child_screen",label:"子供の画面を確認する",completed:false,href:"/switch",required:true}],completedCount:1,totalCount:6,allCompleted:false,dismissed:false,nextRecommendation:a},monthlySummaries:{"1":{totalActivities:0,currentLevel:1,newAchievements:0},"2":{totalActivities:0,currentLevel:1,newAchievements:0},"3":{totalActivities:0,currentLevel:1,newAchievements:0},"4":{totalActivities:0,currentLevel:1,newAchievements:0}},currentMonth:"2026-05",showPremiumWelcome:true,seasonalInfo:{activeEvents:[],memoryTicket:{totalMonths:0,ticketsEarned:0,ticketsUsed:0,ticketsAvailable:0,nextTicketAt:6}},planStats:{activityCount:0,activityMax:null,childCount:4,childMax:null,retentionDays:null},stripeEnabled:false,todayUsage:[{childId:1,childName:"さくらちゃん",durationMin:0},{childId:2,childName:"けんたくん",durationMin:0},{childId:3,childName:"ゆうこちゃん",durationMin:0},{childId:4,childName:"まさとくん",durationMin:0}],weeklyUsage:[{childId:1,childName:"さくらちゃん",dailySummary:[{date:"2026-05-13",durationMin:0},{date:"2026-05-14",durationMin:0},{date:"2026-05-15",durationMin:0},{date:"2026-05-16",durationMin:0},{date:"2026-05-17",durationMin:0},{date:"2026-05-18",durationMin:0},{date:"2026-05-19",durationMin:0}]},{childId:2,childName:"けんたくん",dailySummary:[{date:"2026-05-13",durationMin:0},{date:"2026-05-14",durationMin:0},{date:"2026-05-15",durationMin:0},{date:"2026-05-16",durationMin:0},{date:"2026-05-17",durationMin:0},{date:"2026-05-18",durationMin:0},{date:"2026-05-19",durationMin:0}]},{childId:3,childName:"ゆうこちゃん",dailySummary:[{date:"2026-05-13",durationMin:0},{date:"2026-05-14",durationMin:0},{date:"2026-05-15",durationMin:0},{date:"2026-05-16",durationMin:0},{date:"2026-05-17",durationMin:0},{date:"2026-05-18",durationMin:0},{date:"2026-05-19",durationMin:0}]},{childId:4,childName:"まさとくん",dailySummary:[{date:"2026-05-13",durationMin:0},{date:"2026-05-14",durationMin:0},{date:"2026-05-15",durationMin:0},{date:"2026-05-16",durationMin:0},{date:"2026-05-17",durationMin:0},{date:"2026-05-18",durationMin:0},{date:"2026-05-19",durationMin:0}]}],valuePreview:{tenantSignupDate:"2026-05-19",daysSinceTenantSignup:0,isInFirstMonth:true,previewEligible:false,children:[{childId:1,nickname:"さくらちゃん",signupDate:"2026-05-19",daysSinceSignup:0,totalActivities:0,currentStreak:0,longestStreak:0,totalPoints:0,categoryBreakdown:[],milestones:[{id:"first_record",threshold:1,achieved:false,achievedAt:null},{id:"records_5",threshold:5,achieved:false,achievedAt:null},{id:"records_10",threshold:10,achieved:false,achievedAt:null},{id:"streak_7",threshold:7,achieved:false,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}]},{childId:2,nickname:"けんたくん",signupDate:"2026-05-19",daysSinceSignup:0,totalActivities:0,currentStreak:0,longestStreak:0,totalPoints:0,categoryBreakdown:[],milestones:[{id:"first_record",threshold:1,achieved:false,achievedAt:null},{id:"records_5",threshold:5,achieved:false,achievedAt:null},{id:"records_10",threshold:10,achieved:false,achievedAt:null},{id:"streak_7",threshold:7,achieved:false,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}]},{childId:3,nickname:"ゆうこちゃん",signupDate:"2026-05-19",daysSinceSignup:0,totalActivities:0,currentStreak:0,longestStreak:0,totalPoints:0,categoryBreakdown:[],milestones:[{id:"first_record",threshold:1,achieved:false,achievedAt:null},{id:"records_5",threshold:5,achieved:false,achievedAt:null},{id:"records_10",threshold:10,achieved:false,achievedAt:null},{id:"streak_7",threshold:7,achieved:false,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}]},{childId:4,nickname:"まさとくん",signupDate:"2026-05-19",daysSinceSignup:0,totalActivities:0,currentStreak:0,longestStreak:0,totalPoints:0,categoryBreakdown:[],milestones:[{id:"first_record",threshold:1,achieved:false,achievedAt:null},{id:"records_5",threshold:5,achieved:false,achievedAt:null},{id:"records_10",threshold:10,achieved:false,achievedAt:null},{id:"streak_7",threshold:7,achieved:false,achievedAt:null},{id:"streak_14",threshold:14,achieved:false,achievedAt:null},{id:"streak_30",threshold:30,achieved:false,achievedAt:null}]}]}},uses:{parent:1}}}({}))],
 							form: null,
 							error: null
 						});
 					});
 
 					if ('serviceWorker' in navigator) {
-						const script_url = '../service-worker.js';
+						const script_url = './service-worker.js';
 						const policy = globalThis?.window?.trustedTypes?.createPolicy(
 							'sveltekit-trusted-url',
 							{ createScriptURL(url) { return url; } }
