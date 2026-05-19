@@ -73,13 +73,42 @@ test.describe('#2097 AC11: demo Lambda は `?mode=demo` 不要で動作', () => 
 		await expect(page.getByTestId('child-select-902')).toBeVisible();
 	});
 
-	test('AC11-5: /elementary/home に直接アクセスしても認証 challenge なしで描画される', async ({
+	test('AC11-5: /elementary/home 直アクセスで認証 challenge (= /auth/login redirect) が発生しない', async ({
+		context,
 		page,
 	}) => {
-		// AUTH_MODE=anonymous により AnonymousAuthProvider が常に allowed=true を返す。
-		// 本番 cognito では /auth/login へ 302 redirect だが、demo Lambda では直アクセス OK。
-		const res = await page.goto('/elementary/home');
-		expect(res?.status() ?? 200).toBeLessThan(400);
+		// AUTH_MODE=anonymous により AnonymousAuthProvider.authorize() が常に allowed=true を返す。
+		// 本番 cognito では未認証時に /auth/login へ 302 redirect されるが、demo Lambda ではそれが
+		// 起きないことが本 AC の真意 (= "認証 challenge なしで描画される")。
+		//
+		// ただし `/(child)/+layout.server.ts` は selectedChildId cookie が無い場合 `/switch` に
+		// redirect する UX 仕様 (子供選択画面、認証とは独立)。これは demo / 本番 cognito で同じ
+		// 挙動であり「認証 challenge」ではない。本 spec では以下 2 ケースを assert する:
+		//
+		//   case (a): cookie 未設定で /elementary/home に直アクセス
+		//     → 認証 challenge ではなく /switch (子供選択) に redirect される (auth/login へは行かない)
+		//   case (b): selectedChildId=903 (elementary fixture けんた) cookie pre-set で直アクセス
+		//     → /elementary/home が直接描画される (capture-hp-screenshots と同じ pattern)
+
+		// case (a): cookie 未設定 → /switch (子供選択) に着地、/auth/login には行かない
+		await context.clearCookies();
+		const resNoCookie = await page.goto('/elementary/home');
+		expect(resNoCookie?.status() ?? 200).toBeLessThan(400);
+		await expect(page).not.toHaveURL(/\/auth\/login/);
+		// 子供選択画面 (/switch) または home (直描画) のどちらかに着地していれば demo Lambda 仕様準拠
+		await expect(page).toHaveURL(/\/(switch|elementary\/home)/);
+
+		// case (b): cookie pre-set → home が直接描画される (capture-hp-screenshots SSOT pattern)
+		await context.clearCookies();
+		await context.addCookies([
+			{
+				name: 'selectedChildId',
+				value: '903', // demo fixture けんた (elementary、src/lib/server/demo/demo-data.ts SSOT)
+				url: page.url() || 'http://localhost:5180',
+			},
+		]);
+		const resWithCookie = await page.goto('/elementary/home');
+		expect(resWithCookie?.status() ?? 200).toBeLessThan(400);
 		await expect(page).toHaveURL(/\/elementary\/home/);
 	});
 });
