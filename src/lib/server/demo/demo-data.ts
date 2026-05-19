@@ -41,6 +41,7 @@ import type {
 	Activity,
 	ActivityLog,
 	AutoChallenge,
+	Certificate,
 	ChecklistTemplate,
 	ChecklistTemplateItem,
 	Child,
@@ -3685,6 +3686,95 @@ export const DEMO_STAMP_ENTRIES: StampEntry[] = [
 		slot: 5,
 		loginDate: prevWeekDate(5),
 		earnedAt: daysAgoISO(7),
+	},
+];
+
+// ============================================================
+// Certificates (#2262 — demo Lambda /admin/growth-book 復旧 + LP 訴求担保)
+// ============================================================
+//
+// LP 訴求 (growth-stage-graduate / monthly-report) は「がんばり証明書 N 枚」を可視化する
+// ため、903 けんたくん (elementary, Level 7+) に streak / level / monthly 証明書を 4 件配布。
+// 他の子は最小 1 件 (902 ひな = streak_7、904 さくら = level_10、906 けいすけ = annual_2025) と
+// する。901 たろう (baby) は証明書なし (year_dependent な実績がまだ生まれていない年齢)。
+//
+// `certificateType` 命名は certificate-service.ts §getStreakDef / getLevelDef 等と一致させる:
+//   streak_<N> / level_<N> / monthly_<YYYY-MM> / category_master_<catId> / annual_<YYYY>
+
+export const DEMO_CERTIFICATES: Certificate[] = [
+	// 902 ひな (preschool F, Level 4) — 1 件: 7 日連続
+	{
+		id: 9021,
+		tenantId: DEMO_TENANT_ID,
+		childId: 902,
+		certificateType: 'streak_7',
+		title: 'れんぞく7にちのぼうけんしゃ',
+		description: '7にちれんぞくで がんばりました！',
+		metadata: null,
+		issuedAt: daysAgoISO(20),
+	},
+	// 903 けんた (elementary M, Level 7) — 4 件: streak 14 / level 5 / 2026-02 月間 / 運動マスター
+	{
+		id: 9031,
+		tenantId: DEMO_TENANT_ID,
+		childId: 903,
+		certificateType: 'streak_14',
+		title: 'れんぞく14にちのぼうけんしゃ',
+		description: '14にちれんぞくで がんばりました！',
+		metadata: null,
+		issuedAt: daysAgoISO(40),
+	},
+	{
+		id: 9032,
+		tenantId: DEMO_TENANT_ID,
+		childId: 903,
+		certificateType: 'level_5',
+		title: 'レベル5とうたつ！',
+		description: 'レベル5に たっせいしました！',
+		metadata: null,
+		issuedAt: daysAgoISO(60),
+	},
+	{
+		id: 9033,
+		tenantId: DEMO_TENANT_ID,
+		childId: 903,
+		certificateType: 'monthly_2026-02',
+		title: '2026ねん2がつの がんばりしょうめいしょ',
+		description: '2026ねん2がつ にがんばりました！',
+		metadata: null,
+		issuedAt: daysAgoISO(25),
+	},
+	{
+		id: 9034,
+		tenantId: DEMO_TENANT_ID,
+		childId: 903,
+		certificateType: 'category_master_1',
+		title: 'うんどうマスター',
+		description: 'うんどうカテゴリで たくさんがんばりました！',
+		metadata: null,
+		issuedAt: daysAgoISO(15),
+	},
+	// 904 さくら (junior F, Level 15+) — 1 件: Lv.10
+	{
+		id: 9041,
+		tenantId: DEMO_TENANT_ID,
+		childId: 904,
+		certificateType: 'level_10',
+		title: 'レベル10とうたつ！',
+		description: 'レベル10に たっせいしました！',
+		metadata: null,
+		issuedAt: daysAgoISO(90),
+	},
+	// 906 けいすけ (senior M, Level 20+) — 1 件: 2025年度総括
+	{
+		id: 9061,
+		tenantId: DEMO_TENANT_ID,
+		childId: 906,
+		certificateType: 'annual_2025',
+		title: '2025ねんどの がんばりしょうめいしょ',
+		description: '2025ねんどに たくさんがんばりました！',
+		metadata: null,
+		issuedAt: daysAgoISO(120),
 	},
 ];
 
