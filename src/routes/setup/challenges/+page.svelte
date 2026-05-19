@@ -110,17 +110,19 @@ $effect(() => {
 							<span
 								class="text-[10px] px-1.5 py-0.5 bg-[var(--color-surface-muted-strong)] text-[var(--color-text-muted)] rounded"
 							>
-								{SETUP_CHALLENGES_LABELS.periodLabel}: {item.startDate} 〜 {item.endDate}
+								{SETUP_CHALLENGES_LABELS.periodFormat(item.startDate, item.endDate)}
 							</span>
-							<button
+							<Button
 								type="button"
+								variant="ghost"
+								size="sm"
 								class="text-[10px] px-1.5 py-0.5 bg-[var(--color-feedback-info-bg)] text-[var(--color-brand-600)] rounded hover:bg-[var(--color-feedback-info-bg-strong)] ml-auto"
 								onclick={(e) => togglePreview(e, item.id)}
 							>
 								{expandedItem === item.id
 									? SETUP_CHALLENGES_LABELS.previewToggleClose
 									: SETUP_CHALLENGES_LABELS.previewToggleOpen}
-							</button>
+							</Button>
 						</div>
 					</div>
 					<div

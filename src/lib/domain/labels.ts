@@ -4152,7 +4152,7 @@ export const SETUP_CHALLENGES_LABELS = {
 	noticeNoChildren: 'お子さまが登録されていないため、このステップはスキップされます。',
 	targetSuffix: '回',
 	rewardSuffix: 'P',
-	periodLabel: '期間',
+	periodFormat: (start: string, end: string): string => `期間: ${start} 〜 ${end}`,
 	previewToggleOpen: '▼ なかみ',
 	previewToggleClose: '▲ とじる',
 } as const;
