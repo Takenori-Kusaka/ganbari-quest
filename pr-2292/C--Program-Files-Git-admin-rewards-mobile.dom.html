@@ -15,7 +15,7 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1i2smtp--><!----><title>がんばりクエスト</title>
+		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1j96wlh--><!----><title>404 エラー - がんばりクエスト</title>
 		<style data-sveltekit="">/*! tailwindcss v4.3.0 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
@@ -4230,109 +4230,114 @@ h1, h2, h3, h4 {
 	}
  .svelte-1p67wbu{}
 
-	.google-signin-btn.svelte-11stgaa {
+	.error-page.svelte-1j96wlh {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		gap: 12px;
-		width: 100%;
-		height: 44px;
-		padding: 0 16px;
-		background-color: #fff;
-		border: 1px solid var(--color-border-default, #dadce0);
-		border-radius: var(--radius-sm, 6px);
-		cursor: pointer;
-		transition: background-color 0.2s, box-shadow 0.2s;
-		text-decoration: none;
+		min-height: 100vh;
+		background: var(--color-surface-base);
+		padding: 1rem;
 	}
 
-	.google-signin-btn.svelte-11stgaa:hover {
-		background-color: #f7f8f8;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+	.error-container.svelte-1j96wlh {
+		text-align: center;
+		max-width: 480px;
 	}
 
-	.google-signin-btn.svelte-11stgaa:active {
-		background-color: #eee;
-	}
-
-	.google-signin-icon.svelte-11stgaa {
-		width: 20px;
-		height: 20px;
-		flex-shrink: 0;
-	}
-
-	.google-signin-text.svelte-11stgaa {
-		font-family: 'Roboto', sans-serif;
-		font-weight: 500;
-		font-size: 14px;
-		color: #3c4043;
-		letter-spacing: 0.25px;
-	}
- .svelte-11stgaa{}
-
-	.logo-wrapper.svelte-1n7r250 {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		vertical-align: middle;
-	}
-	.logo.svelte-1n7r250 {
-		display: inline-block;
-		vertical-align: middle;
-		object-fit: contain;
-	}
-	.plan-label.svelte-1n7r250 {
-		font-size: 0.6rem;
+	.error-status.svelte-1j96wlh {
+		font-size: 4rem;
 		font-weight: 700;
-		padding: 0.125rem 0.375rem;
-		border-radius: 9999px;
-		white-space: nowrap;
-		line-height: 1.4;
-	}
-	.plan-label--standard.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #f3e8ff);
-		color: var(--plan-badge-text, #6d28d9);
-	}
-	.plan-label--family.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #fef3c7);
-		color: var(--plan-badge-text, #92400e);
-	}
- .svelte-1n7r250{}
-
-	.password-toggle.svelte-pwdxgn {
-		position: absolute;
-		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 4px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 4px;
-		transition: color 0.15s;
+		color: var(--color-action-primary);
+		margin: 0 0 0.5rem;
+		line-height: 1;
 	}
 
-	.password-toggle.svelte-pwdxgn:hover {
+	.error-title.svelte-1j96wlh {
+		font-size: 1.25rem;
+		margin: 0 0 1rem;
 		color: var(--color-text);
 	}
 
-	.password-toggle.svelte-pwdxgn:focus-visible {
-		outline: 2px solid var(--color-brand-500);
-		outline-offset: 2px;
+	.error-description.svelte-1j96wlh {
+		color: var(--color-text-muted);
+		line-height: 1.6;
+		margin: 0 0 1.5rem;
 	}
- .svelte-pwdxgn{}</style>
+
+	.countdown.svelte-1j96wlh {
+		font-size: 3rem;
+		font-weight: 700;
+		color: var(--color-action-primary);
+		margin: 1rem 0;
+		line-height: 1;
+	}
+
+	.actions.svelte-1j96wlh {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin: 1.5rem 0;
+	}
+
+	.btn.svelte-1j96wlh {
+		display: inline-block;
+		padding: 0.75rem 1.5rem;
+		border-radius: var(--radius-md);
+		text-decoration: none;
+		font-weight: 600;
+		border: none;
+		cursor: pointer;
+		font-size: 1rem;
+	}
+
+	.btn-primary.svelte-1j96wlh {
+		background: var(--color-action-primary);
+		color: var(--color-text-inverse);
+	}
+
+	.btn-primary.svelte-1j96wlh:hover {
+		opacity: 0.9;
+	}
+
+	.btn-secondary.svelte-1j96wlh {
+		background: var(--color-surface-card);
+		color: var(--color-text);
+		border: 1px solid var(--color-border);
+	}
+
+	/* child role: larger tap target + simple single action */
+	.error-page[data-role='child'].svelte-1j96wlh .error-title:where(.svelte-1j96wlh) {
+		font-size: 1.75rem;
+	}
+	.error-page[data-role='child'].svelte-1j96wlh .error-description:where(.svelte-1j96wlh) {
+		font-size: 1.125rem;
+	}
+	.btn-child.svelte-1j96wlh {
+		padding: 1.25rem 2rem;
+		font-size: 1.25rem;
+		min-height: 60px;
+	}
+
+	.error-id.svelte-1j96wlh {
+		margin-top: 2rem;
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+	.error-id.svelte-1j96wlh code:where(.svelte-1j96wlh) {
+		font-family: monospace;
+		background: var(--color-surface-card);
+		padding: 0.125rem 0.375rem;
+		border-radius: 4px;
+	}
+ .svelte-1j96wlh{}</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--[--><div class="min-h-dvh flex items-center justify-center bg-[var(--gradient-brand)] p-4"><section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] w-full max-w-[400px] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]"><!--[-1--><!--]--> <div><div class="text-center mb-8"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo.png" alt="がんばりクエスト" width="320" height="92" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----> <!--[-1--><!--]--></div> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--[-1--><!--]--> <form method="POST" action="?/login" class="flex flex-col gap-5"><div class="flex flex-col gap-1  svelte-pwdxgn"><label for="email" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">メールアドレス</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="email" id="email" value="" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="email" placeholder="example@email.com" required="" autocomplete="email" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="password" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">パスワード</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="password" id="password" value="" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors pr-10 svelte-pwdxgn" name="password" placeholder="8文字以上" required="" minlength="8" autocomplete="current-password" style=""> <!--[0--><button type="button" class="password-toggle svelte-pwdxgn" aria-label="パスワードを表示"><!--[-1--><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="svelte-pwdxgn"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" class="svelte-pwdxgn"></path><circle cx="12" cy="12" r="3" class="svelte-pwdxgn"></circle></svg><!--]--></button><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="-mt-2 text-right"><a href="/auth/forgot-password" class="text-xs text-[var(--color-text-link)] hover:underline">パスワードを忘れた方はこちら</a></div> <!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" type="submit" disabled=""><!--[-1-->ログイン<!--]--><!----></button><!--]--><!----></form> <!--[-1--><!--]--><!--]--> <!--[0--><div class="mt-6 pt-4 border-t border-[var(--color-border-default)]"><details><summary class="text-xs text-[var(--color-text-muted)] cursor-pointer">テスト用アカウント</summary> <ul class="mt-2 pl-4 text-xs text-[var(--color-text-muted)] leading-7"><li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">owner@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Owner2026x</code> (管理者)</li> <li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">parent@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Parent2026</code> (親)</li> <li><code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">child@example.com</code> / <code class="bg-[var(--color-neutral-100)] px-1 rounded text-[0.7rem]">Gq!Dev#Child2026x</code> (子供)</li></ul></details></div><!--]--><!----></div> <!--[-1--><!--]--></section><!----></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[0--><div class="sticky top-0 z-50 flex items-center gap-2 px-3 py-2 text-sm border-b bg-[var(--color-feedback-warning-bg)] border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)]" role="status" data-testid="demo-banner"><span class="shrink-0" aria-hidden="true">🧪</span> <div class="flex-1 min-w-0"><p class="font-bold leading-tight">おためしモード</p> <p class="text-xs leading-snug opacity-90">これはおためしです。記録やせっていはほぞんされません。</p></div> <a href="https://www.ganbari-quest.com/auth/signup" class="shrink-0 px-3 py-1 rounded-lg bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-xs font-bold whitespace-nowrap" data-testid="demo-banner-signup">本当に始める</a> <a href="https://www.ganbari-quest.com/" class="shrink-0 px-2 py-1 text-xs underline whitespace-nowrap" data-testid="demo-banner-exit">おためしをやめる</a></div><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--[--><div class="error-page svelte-1j96wlh" data-role="parent"><div class="error-container svelte-1j96wlh"><p class="error-status svelte-1j96wlh">404</p> <h1 class="error-title svelte-1j96wlh"><!--[0-->ページが みつかりません<!--]--></h1> <p class="error-description svelte-1j96wlh"><!--[0--><!--[-1-->お探しのページは存在しないか、移動した可能性があります。<!--]--><!--]--></p> <!--[-1--><!--]--> <div class="actions svelte-1j96wlh"><!--[-1--><!--[-1--><a href="/" class="btn btn-primary svelte-1j96wlh">トップページへ戻る</a><!--]--><!--]--></div> <!--[0--><p class="error-id svelte-1j96wlh">エラーID: <code class="svelte-1j96wlh">36aa68c2-495a-4b1e-a1d7-5b84a4ef704e</code></p><!--]--></div></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
 			
 			<script>
 				{
 					__sveltekit_dev = {
-						base: new URL("..", location).pathname.slice(0, -1),
+						base: new URL("../../../..", location).pathname.slice(0, -1),
 						env: {}
 					};
 
@@ -4343,15 +4348,16 @@ h1, h2, h3, h4 {
 						import("/@fs/C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-a01da12788a14092e/.svelte-kit/generated/client/app.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
-							node_ids: [0, 46],
-							data: [{type:"data",data:{role:null,requestId:"9b9d147f-8ae4-4506-8dd6-22067cdb954f",isDemo:false},uses:{}},{type:"data",data:{devMode:true},uses:{}}],
+							node_ids: [0, 1],
+							data: [{type:"data",data:{role:"owner",requestId:"36aa68c2-495a-4b1e-a1d7-5b84a4ef704e",isDemo:true},uses:{}}],
 							form: null,
-							error: null
+							error: {message:"ページが見つかりません"},
+							status: 404
 						});
 					});
 
 					if ('serviceWorker' in navigator) {
-						const script_url = '../service-worker.js';
+						const script_url = '../../../../service-worker.js';
 						const policy = globalThis?.window?.trustedTypes?.createPolicy(
 							'sveltekit-trusted-url',
 							{ createScriptURL(url) { return url; } }
