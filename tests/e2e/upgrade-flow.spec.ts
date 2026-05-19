@@ -287,7 +287,8 @@ test.describe('#753 PremiumWelcome モーダル — family', () => {
 });
 
 // ============================================================
-// 8. アップグレード成功後の機能即時有効化（standard / family）
+// 8. アップグレード成功後の機能即時有効化（standard）
+//    #2316: family は /admin/messages 廃止に伴いテスト削除 (下記参照)
 // ============================================================
 test.describe('#753 アップグレード後の機能有効化 — standard', () => {
 	test.use({ storageState: 'playwright/.auth/standard.json' });
@@ -302,14 +303,8 @@ test.describe('#753 アップグレード後の機能有効化 — standard', ()
 	});
 });
 
-test.describe('#753 アップグレード後の機能有効化 — family', () => {
-	test.use({ storageState: 'playwright/.auth/family.json' });
-
-	test('family プランでひとことメッセージが有効', async ({ page }) => {
-		await page.goto('/admin/messages', { waitUntil: 'commit', timeout: 30_000 });
-
-		const textBtn = page.getByRole('button', { name: /ひとことメッセージ/ });
-		await expect(textBtn).toBeVisible({ timeout: 30_000 });
-		await expect(textBtn).toBeEnabled();
-	});
-});
+// #2316: 旧 family プラン「ひとことメッセージ有効化」テストは削除。
+//   #2267 (PR #2293) で /admin/messages 廃止 + /admin/cheer 統合により、
+//   family 限定の有効化ゲートが消滅 (応援機能は全プラン解放)。
+//   ADR-0006 (assertion erosion ban) に従い skip ではなく削除。
+//   アップグレード機能有効化の家系統的検証は standard 側 rewards-upgrade-banner 非表示で担保。
