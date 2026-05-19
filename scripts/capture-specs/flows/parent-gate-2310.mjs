@@ -64,7 +64,10 @@ export default async (page, capture) => {
 	await page.goto(`${BASE_URL}/switch?pinRequired=1`);
 	const modal = page.getByTestId('parent-gate-modal');
 	await modal.waitFor({ state: 'visible', timeout: 15_000 });
-	await page.waitForTimeout(500); // PIN input rendering 安定化
+
+	// PIN input の render 完了を deterministic に待つ (#1208 — waitForTimeout 不可)
+	const firstPinInput = page.locator('input[inputmode="numeric"]').first();
+	await firstPinInput.waitFor({ state: 'visible', timeout: 10_000 });
 
 	// === 状態 1: PIN modal initial (空入力直後) ===
 	await capture('parent-gate-modal-initial');
@@ -72,11 +75,14 @@ export default async (page, capture) => {
 	// === 状態 2: PIN typing (2 桁入力途中) ===
 	// PinInput primitive は keypress でフォーカスされた input に文字を input する
 	// 1 桁目をクリック → 数字 2 桁を順に入力
-	const firstPinInput = page.locator('input[inputmode="numeric"]').first();
 	await firstPinInput.click();
 	await page.keyboard.type('1', { delay: 100 });
 	await page.keyboard.type('2', { delay: 100 });
-	await page.waitForTimeout(300);
+	// 2 桁目入力後、3 桁目 input が focus 状態になる (PinInput 自動 advance) のを deterministic に待つ
+	await page.locator('input[inputmode="numeric"]:nth-of-type(3):focus').waitFor({
+		state: 'attached',
+		timeout: 5_000,
+	}).catch(() => {});
 	await capture('parent-gate-modal-typing');
 
 	// === 状態 3: invalid PIN error (4 桁誤入力後の alert) ===
@@ -85,7 +91,14 @@ export default async (page, capture) => {
 	await page.keyboard.type('4', { delay: 100 });
 	const errorAlert = page.getByTestId('parent-gate-error');
 	await errorAlert.waitFor({ state: 'visible', timeout: 10_000 });
-	await page.waitForTimeout(500);
+	// alert text が render 完了するのを待つ (textContent が non-empty)
+	await page.waitForFunction(
+		() => {
+			const el = document.querySelector('[data-testid="parent-gate-error"]');
+			return !!(el && el.textContent && el.textContent.trim().length > 0);
+		},
+		{ timeout: 5_000 },
+	);
 	await capture('parent-gate-modal-error');
 
 	// === 状態 4: lockout (連続 5 回失敗で lockout) ===
@@ -96,18 +109,35 @@ export default async (page, capture) => {
 	for (const invalidPin of invalidPins) {
 		// 失敗後 pinInputKey で remount → 再入力可能
 		const inputAfterRemount = page.locator('input[inputmode="numeric"]').first();
+		await inputAfterRemount.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
 		await inputAfterRemount.click({ timeout: 5_000 }).catch(() => {});
 		for (const ch of invalidPin) {
 			await page.keyboard.type(ch, { delay: 80 });
 		}
-		// error / lockout alert 待ち
-		await page.waitForTimeout(800);
-		// lockout alert text が含まれていたら break
-		const alertText = await errorAlert.textContent({ timeout: 3_000 }).catch(() => '');
-		if (alertText && (alertText.includes('ロック') || alertText.includes('locked'))) {
+		// error alert text が更新されるのを待つ (lockout 文言が含まれていれば break)
+		const isLocked = await page
+			.waitForFunction(
+				() => {
+					const el = document.querySelector('[data-testid="parent-gate-error"]');
+					const text = el?.textContent ?? '';
+					// 「ロック」「待って」が出現したら lockout 到達
+					return text.includes('連続') || text.includes('ロック') || text.includes('待って');
+				},
+				{ timeout: 3_000 },
+			)
+			.then(() => true)
+			.catch(() => false);
+		if (isLocked) {
 			break;
 		}
 	}
-	await page.waitForTimeout(500);
+	// lockout 状態の alert text を deterministic に確定
+	await page.waitForFunction(
+		() => {
+			const el = document.querySelector('[data-testid="parent-gate-error"]');
+			return !!(el && el.textContent && el.textContent.trim().length > 0);
+		},
+		{ timeout: 5_000 },
+	);
 	await capture('parent-gate-modal-lockout');
 };
