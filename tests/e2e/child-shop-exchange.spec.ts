@@ -359,7 +359,7 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		// (`reward-redemption-service.ts:163-172` の insertPointEntry 呼び出しと対応)
 		const ledgerAfter = await getRedemptionLedgerEntries(requestId);
 		expect(ledgerAfter.length).toBe(1);
-		expect(ledgerAfter[0].amount).toBe(-rewardPoints);
+		expect(ledgerAfter[0]?.amount).toBe(-rewardPoints);
 	});
 
 	// ============================================================
