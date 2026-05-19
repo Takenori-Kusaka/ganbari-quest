@@ -1,62 +1,86 @@
 // src/lib/server/db/dynamodb/battle-repo.ts
-// DynamoDB implementation of IBattleRepo (stub)
+// DynamoDB implementation of IBattleRepo
+//
+// #2263 hotfix: 旧バージョンの未実装エラー throw で本番 500 を引き起こしうるため、
+// Pre-PMF fallback (read = 空 / write = no-op + logger.warn) に置換。
+// バトル機能は本番未活用 (ADR-0010 Pre-PMF Bucket B = まだ作らない)。
 
 import type { BattleOutcome, BattleStats } from '$lib/domain/battle-types';
+import { logger } from '$lib/server/logger';
 import type { DailyBattleRow, EnemyCollectionRow } from '../interfaces/battle-repo.interface';
 
-const NOT_IMPL = 'DynamoDB battle-repo not implemented';
+const SERVICE = 'battle-repo.dynamodb';
+
+function warnRead(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] read fallback: returning empty (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
+function warnWrite(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] write fallback: no-op (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
 
 export async function findTodayBattle(
-	_childId: number,
-	_date: string,
-	_tenantId: string,
+	childId: number,
+	date: string,
+	tenantId: string,
 ): Promise<DailyBattleRow | undefined> {
-	throw new Error(NOT_IMPL);
+	warnRead('findTodayBattle', { childId, date, tenantId });
+	return undefined;
 }
 
 export async function findRecentBattles(
-	_childId: number,
-	_limit: number,
-	_tenantId: string,
+	childId: number,
+	limit: number,
+	tenantId: string,
 ): Promise<DailyBattleRow[]> {
-	throw new Error(NOT_IMPL);
+	warnRead('findRecentBattles', { childId, limit, tenantId });
+	return [];
 }
 
-export async function countConsecutiveLosses(_childId: number, _tenantId: string): Promise<number> {
-	throw new Error(NOT_IMPL);
+export async function countConsecutiveLosses(childId: number, tenantId: string): Promise<number> {
+	warnRead('countConsecutiveLosses', { childId, tenantId });
+	return 0;
 }
 
 export async function insertDailyBattle(
-	_childId: number,
-	_enemyId: number,
-	_date: string,
+	childId: number,
+	enemyId: number,
+	date: string,
 	_playerStats: BattleStats,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<number> {
-	throw new Error(NOT_IMPL);
+	warnWrite('insertDailyBattle', { childId, enemyId, date, tenantId });
+	return 0;
 }
 
 export async function completeBattle(
-	_battleId: number,
-	_outcome: BattleOutcome,
-	_rewardPoints: number,
-	_turnsUsed: number,
-	_tenantId: string,
+	battleId: number,
+	outcome: BattleOutcome,
+	rewardPoints: number,
+	turnsUsed: number,
+	tenantId: string,
 ): Promise<void> {
-	throw new Error(NOT_IMPL);
+	warnWrite('completeBattle', { battleId, outcome, rewardPoints, turnsUsed, tenantId });
 }
 
 export async function findCollection(
-	_childId: number,
-	_tenantId: string,
+	childId: number,
+	tenantId: string,
 ): Promise<EnemyCollectionRow[]> {
-	throw new Error(NOT_IMPL);
+	warnRead('findCollection', { childId, tenantId });
+	return [];
 }
 
 export async function upsertCollectionEntry(
-	_childId: number,
-	_enemyId: number,
-	_tenantId: string,
+	childId: number,
+	enemyId: number,
+	tenantId: string,
 ): Promise<void> {
-	throw new Error(NOT_IMPL);
+	warnWrite('upsertCollectionEntry', { childId, enemyId, tenantId });
 }

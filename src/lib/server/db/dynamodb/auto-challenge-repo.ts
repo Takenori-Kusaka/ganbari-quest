@@ -1,52 +1,88 @@
-// DynamoDB implementation of IAutoChallengeRepo (stub)
+// DynamoDB implementation of IAutoChallengeRepo
+//
+// #2263 hotfix: 旧バージョンの未実装エラー throw で本番 500 を引き起こしうるため、
+// Pre-PMF fallback (read = 空 / write = no-op + logger.warn) に置換。
+// 自動チャレンジ機能は本番未活用 (ADR-0010 Pre-PMF Bucket B = まだ作らない)。
 
+import { logger } from '$lib/server/logger';
 import type { AutoChallenge, InsertAutoChallengeInput, UpdateAutoChallengeInput } from '../types';
 
-const NOT_IMPL = 'auto-challenge-repo: DynamoDB not implemented';
+const SERVICE = 'auto-challenge-repo.dynamodb';
+
+function warnRead(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] read fallback: returning empty (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
+
+function warnWrite(method: string, context: Record<string, unknown>): void {
+	logger.warn(`[${SERVICE}] write fallback: no-op (Pre-PMF stub, #2263)`, {
+		service: SERVICE,
+		context: { method, ...context },
+	});
+}
 
 export async function findByChildAndWeek(
-	_childId: number,
-	_weekStart: string,
-	_tenantId: string,
+	childId: number,
+	weekStart: string,
+	tenantId: string,
 ): Promise<AutoChallenge | undefined> {
-	throw new Error(NOT_IMPL);
+	warnRead('findByChildAndWeek', { childId, weekStart, tenantId });
+	return undefined;
 }
 
 export async function findActiveByChild(
-	_childId: number,
-	_tenantId: string,
+	childId: number,
+	tenantId: string,
 ): Promise<AutoChallenge | undefined> {
-	throw new Error(NOT_IMPL);
+	warnRead('findActiveByChild', { childId, tenantId });
+	return undefined;
 }
 
 export async function findByChild(
-	_childId: number,
-	_tenantId: string,
-	_limit?: number,
+	childId: number,
+	tenantId: string,
+	limit?: number,
 ): Promise<AutoChallenge[]> {
-	throw new Error(NOT_IMPL);
+	warnRead('findByChild', { childId, tenantId, limit });
+	return [];
 }
 
 export async function insert(
-	_input: InsertAutoChallengeInput,
-	_tenantId: string,
+	input: InsertAutoChallengeInput,
+	tenantId: string,
 ): Promise<AutoChallenge> {
-	throw new Error(NOT_IMPL);
+	warnWrite('insert', { childId: input.childId, tenantId });
+	const now = new Date().toISOString();
+	return {
+		id: 0,
+		childId: input.childId,
+		tenantId,
+		weekStart: input.weekStart,
+		categoryId: input.categoryId,
+		targetCount: input.targetCount,
+		currentCount: 0,
+		status: 'active',
+		createdAt: now,
+		updatedAt: now,
+	};
 }
 
 export async function update(
-	_id: number,
+	id: number,
 	_input: UpdateAutoChallengeInput,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<void> {
-	throw new Error(NOT_IMPL);
+	warnWrite('update', { id, tenantId });
 }
 
-export async function expireOldChallenges(_beforeDate: string, _tenantId: string): Promise<number> {
-	throw new Error(NOT_IMPL);
+export async function expireOldChallenges(beforeDate: string, tenantId: string): Promise<number> {
+	warnWrite('expireOldChallenges', { beforeDate, tenantId });
+	return 0;
 }
 
-/** テナントの全自動チャレンジを削除（DynamoDB未実装: 書き込みがないため no-op） */
-export async function deleteByTenantId(_tenantId: string): Promise<void> {
-	// DynamoDB auto-challenge repo は未実装のため書き込みデータなし — no-op
+/** テナントの全自動チャレンジを削除（Pre-PMF fallback: no-op） */
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	warnWrite('deleteByTenantId', { tenantId });
 }
