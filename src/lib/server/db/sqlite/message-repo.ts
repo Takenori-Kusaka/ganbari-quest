@@ -10,6 +10,10 @@ export async function insertMessage(
 		stampCode?: string | null;
 		body?: string | null;
 		icon?: string;
+		// #2267 (EPIC #2266): 応援機能 (cheer) で付与したボーナスポイント (reward_notice のみ)
+		bonusPoints?: number | null;
+		// #2267 (EPIC #2266): 応援機能のカテゴリ (reward_notice のみ)
+		rewardCategory?: string | null;
 	},
 	_tenantId: string,
 ) {

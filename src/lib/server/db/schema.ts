@@ -617,6 +617,12 @@ export const parentMessages = sqliteTable(
 		icon: text('icon').notNull().default('💌'),
 		sentAt: text('sent_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		shownAt: text('shown_at'), // 子供に表示済みの日時
+		// #2267 (EPIC #2266): 応援機能 (cheer) で付与したボーナスポイント。reward_notice タイプのみで使用。
+		// NULL = 旧 stamp / text メッセージ（cheer P 付与なし）
+		bonusPoints: integer('bonus_points'),
+		// #2267 (EPIC #2266): 応援機能 (cheer) のカテゴリ (うんどう/べんきょう/せいかつ/こうりゅう/そうぞう/とくべつ)。
+		// reward_notice タイプのみで使用。NULL = カテゴリ未指定 or 旧 stamp / text。
+		rewardCategory: text('reward_category'),
 	},
 	(table) => [
 		index('idx_parent_messages_child').on(table.childId, table.sentAt),

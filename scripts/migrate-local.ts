@@ -71,6 +71,31 @@ if (
 	console.log('  → kind column dropped');
 }
 
+// #2267 (EPIC #2266): parent_messages に bonus_points / reward_category カラム追加
+//   - bonus_points: 応援機能 (cheer) で付与したボーナスポイント (reward_notice タイプのみで使用)
+//   - reward_category: 応援機能のカテゴリ (うんどう/べんきょう/せいかつ/こうりゅう/そうぞう/とくべつ)
+//   - 既存 stamp / text レコードは NULL のまま (cheer P 付与なしを意味する)
+if (
+	db
+		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='parent_messages'")
+		.get() &&
+	!tableHasColumn('parent_messages', 'bonus_points')
+) {
+	console.log('Adding parent_messages.bonus_points column (#2267)…');
+	db.exec('ALTER TABLE parent_messages ADD COLUMN bonus_points INTEGER;');
+	console.log('  → done (existing rows remain NULL = no cheer P)');
+}
+if (
+	db
+		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='parent_messages'")
+		.get() &&
+	!tableHasColumn('parent_messages', 'reward_category')
+) {
+	console.log('Adding parent_messages.reward_category column (#2267)…');
+	db.exec('ALTER TABLE parent_messages ADD COLUMN reward_category TEXT;');
+	console.log('  → done (existing rows remain NULL = no category)');
+}
+
 const tables = db
 	.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 	.all() as { name: string }[];

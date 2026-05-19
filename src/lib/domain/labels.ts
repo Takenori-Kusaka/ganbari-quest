@@ -72,7 +72,8 @@ export const PAGE_TITLES = {
 	achievements: 'チャレンジ管理',
 	growth: '成長記録ブック',
 	points: 'ポイント管理',
-	messages: 'おうえんメッセージ',
+	// #2270 (EPIC #2266): 旧 messages 廃止 → cheer (応援機能) に統合
+	cheer: '応援',
 	rewards: 'ごほうび',
 	checklists: 'チェックリスト管理',
 	events: 'イベント管理',
@@ -248,7 +249,8 @@ export const NAV_ITEM_LABELS = {
 	achievements: 'チャレンジ履歴',
 	analytics: 'アナリティクス',
 	points: 'ポイント',
-	messages: 'おうえん',
+	// #2270 / #2274 (EPIC #2266): 旧 messages 廃止 → cheer (応援) に統合 + activity 配下へ移動
+	cheer: '応援',
 	rewards: 'ごほうび',
 	activities: '活動管理',
 	// #1168: チェックリスト（ナビは単一、ページ内タブで「持ち物」「ルーティン」に分離）
@@ -3326,24 +3328,59 @@ export const OPS_EXPORT_LABELS = {
 // おうえんメッセージページ (#1452 Phase B)
 // ============================================================
 
-export const MESSAGES_LABELS = {
-	pageDescTitle: '💌 おうえんメッセージ',
-	pageDescText1: 'スタンプやメッセージでこどもを応援しましょう。',
-	pageDescText2: 'こどもの画面にスタンプが届き、親からの気持ちが伝わります。',
-	pageDescHintPrefix: '🎁 特別なボーナスポイントの付与は',
+// MESSAGES_LABELS: #2270 (EPIC #2266) で /admin/messages 廃止に伴い削除。
+// 応援機能 (/admin/cheer) に統合: CHEER_LABELS を使う。
+// 既読/未読表示など共通用途は CHEER_LABELS.msgRead / msgUnread 等で継承。
+
+// ============================================================
+// 応援機能 (/admin/cheer) (#2267 / EPIC #2266)
+// ============================================================
+// PO 報告 (2026-05-19) 「応援 = 任意の理由で直接子供にポイント付与 (運動会一位等)、
+// スタンプ/メッセージは P 付与に付随する理由表現」
+export const CHEER_LABELS = {
+	pageDescTitle: '🎉 応援',
+	pageDescText1: 'お子さまのがんばりに、理由とポイントで応援を届けます。',
+	pageDescText2: '「運動会で1位」「むずかしい問題ができた」など、その場で気持ちを形にできます。',
+	pageDescHintPrefix: 'スタンプやひとことメッセージも添えられます。日常のごほうび管理は',
 	pageDescHintLink: 'ごほうび',
 	pageDescHintSuffix: 'から行えます',
 	selectChildTitle: '1. こどもを選択',
-	messageTypeTitle: '2. おうえんの種類',
-	stampButton: 'スタンプ',
-	textMessageButton: 'ひとことメッセージ',
-	textMessageDisabledTitle: 'ファミリープラン限定',
-	textMessageDisabledSrOnly:
-		'ひとことメッセージはファミリープラン限定の機能です。ご利用にはプランのアップグレードが必要です。',
-	sendSuccess: 'おうえんメッセージを送りました！',
-	recentMessagesTitle: '最近のメッセージ',
+	reasonTitle: '2. 応援する理由',
+	reasonPlaceholder: '例: うんどうかいで 1いに なったね！',
+	reasonHint: '100文字以内',
+	pointsTitle: '3. ボーナスポイント',
+	pointsHint: '1〜10000の範囲で入力',
+	categoryTitle: '4. カテゴリ',
+	iconTitle: '5. アイコン',
+	iconHint: '絵文字を入れてください',
+	extraTitle: '6. 付随スタンプ / メッセージ（任意）',
+	extraDescription: 'いつものスタンプや、ひとことメッセージも一緒に届けられます',
+	confirmTitle: '7. 内容を確認して応援する',
+	grantButton: '応援する',
+	grantButtonDisabled: '理由とポイントを入力してください',
+	grantSuccess: '応援を送りました！',
+	grantSuccessDesc: (points: number) => `+${points}P をプレゼントしました`,
+	historyTitle: '最近の応援',
+	recentMessagesTitle: '最近のメッセージ（旧履歴含む）',
 	msgRead: '既読',
 	msgUnread: '未読',
+	noChildrenTitle: 'まずこどもを登録してください',
+	noChildrenDesc: '「こども」タブから登録できます',
+	// プリセット理由（よく使う応援の例、 1 タップで reason に流し込む）
+	presetTitle: 'よくある応援',
+	// ボタン操作系
+	cheerAgainBack: 'ホームへ戻る',
+	// 確認用ラベル
+	confirmReasonLabel: '理由',
+	confirmPointsLabel: 'ポイント',
+	confirmCategoryLabel: 'カテゴリ',
+	confirmIconLabel: 'アイコン',
+	// エラーメッセージ
+	errorReasonRequired: '応援の理由を入力してください',
+	errorReasonTooLong: '理由は100文字以内で入力してください',
+	errorPointsRequired: 'ポイントは1〜10000の範囲で入力してください',
+	errorCategoryRequired: 'カテゴリを選択してください',
+	errorChildRequired: 'こどもを選択してください',
 } as const;
 
 // ============================================================
@@ -3440,13 +3477,8 @@ export const ACTIVITIES_INTRODUCE_LABELS = {
 // デモメッセージページ (#1452 Phase B)
 // ============================================================
 
-export const DEMO_MESSAGES_LABELS = {
-	formLabel: 'メッセージ（30文字以内）',
-	formPlaceholder: 'がんばってるね！だいすき！',
-	sendDisabled: 'デモではメッセージを送れません',
-	ctaTitle: 'おうえんメッセージで親子のつながりを深めませんか？',
-	ctaDesc: '登録すると、スタンプやメッセージでお子さまを応援できます。',
-} as const;
+// DEMO_MESSAGES_LABELS: #2270 (EPIC #2266) で /demo/admin/messages dir 削除 (PR-B3 #2188 で既に削除済) +
+// /admin/messages 廃止に伴い、demo 専用 messages ラベルも参照ゼロのため削除。応援機能 (/admin/cheer) に統合。
 
 // ============================================================
 // イベント管理ページ (#1452 Phase B)
