@@ -3,6 +3,7 @@ import { dev } from '$app/environment';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
+import { PARENT_SESSION_COOKIE_NAME } from '$lib/server/services/parent-gate-session';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -11,6 +12,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		redirect(302, '/auth/login');
 	}
 	const reason = url.searchParams.get('reason');
+
+	// EPIC #2310 子#2312: PIN gate modal 自動起動の query
+	const pinRequired = url.searchParams.get('pinRequired') === '1';
+	const rawNext = url.searchParams.get('next') ?? '/admin';
+	// open redirect 防止: /admin 以下のみ許可
+	const nextPath = rawNext.startsWith('/admin') ? rawNext : '/admin';
 
 	let children = await getAllChildren(tenantId);
 
@@ -24,7 +31,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const adminLink = authMode === 'cognito' ? '/auth/login' : '/admin';
 	// child ロールにはご家族の見守り画面リンクを非表示（local モードでは常に表示）
 	const showAdminLink = authMode === 'local' || locals.context?.role !== 'child';
-	return { children, adminLink, showAdminLink, reason };
+	return { children, adminLink, showAdminLink, reason, pinRequired, nextPath };
 };
 
 export const actions: Actions = {
@@ -51,6 +58,11 @@ export const actions: Actions = {
 			secure: COOKIE_SECURE,
 			maxAge: 60 * 60 * 24 * 365,
 		});
+
+		// EPIC #2310 子#2314: 子供モード切替時の PIN session 破棄 (構造的核心)
+		// 親が /admin で作業 → /switch で別の子供 profile 選択 → cookie 削除しないと
+		// 次に子が「ご家族の見守り画面」リンク click した時に再 PIN 要求なしで /admin 即到達 = privacy リスク継続
+		cookies.delete(PARENT_SESSION_COOKIE_NAME, { path: '/' });
 
 		const child = await getChildById(Number(childId), tenantId);
 		const uiMode = child?.uiMode ?? 'preschool';
