@@ -171,7 +171,11 @@ export const actions: Actions = {
 
 		for (const ch of payload.challenges) {
 			try {
-				const { startDate, endDate } = _expandChallengeSetDates(ch.monthDay, ch.durationDays, today);
+				const { startDate, endDate } = _expandChallengeSetDates(
+					ch.monthDay,
+					ch.durationDays,
+					today,
+				);
 				const targetConfig = JSON.stringify({
 					metric: 'count',
 					baseTarget: ch.baseTarget,
