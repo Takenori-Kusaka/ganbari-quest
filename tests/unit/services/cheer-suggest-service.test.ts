@@ -99,4 +99,48 @@ describe('suggestCheer (fallback)', () => {
 		const result = await suggestCheer('運動会で1位');
 		expect(result.reason).toBe('運動会で1位');
 	});
+
+	// 日本ローカライズ — 節句・季節行事 (#2300、EPIC #2294 ⑥)
+	describe('日本ローカライズ reason テンプレ (#2300)', () => {
+		it('ひな祭りで「せいかつ」カテゴリ・🎎・30P', async () => {
+			const result = await suggestCheer('ひな祭りのお手伝いを頑張った');
+			expect(result.category).toBe('せいかつ');
+			expect(result.icon).toBe('🎎');
+			expect(result.points).toBe(30);
+			expect(result.source).toBe('fallback');
+		});
+
+		it('こどもの日で「そうぞう」カテゴリ・🎏・50P', async () => {
+			const result = await suggestCheer('こどもの日のプロジェクト完成した');
+			expect(result.category).toBe('そうぞう');
+			expect(result.icon).toBe('🎏');
+			expect(result.points).toBe(50);
+		});
+
+		it('こいのぼりキーワードでも「そうぞう」カテゴリ・🎏・50P', async () => {
+			const result = await suggestCheer('こいのぼりを家族で飾った');
+			expect(result.category).toBe('そうぞう');
+			expect(result.icon).toBe('🎏');
+		});
+
+		it('七夕で「そうぞう」カテゴリ・🎋・20P', async () => {
+			const result = await suggestCheer('七夕の短冊を書いた');
+			expect(result.category).toBe('そうぞう');
+			expect(result.icon).toBe('🎋');
+			expect(result.points).toBe(20);
+		});
+
+		it('敬老の日で「こうりゅう」カテゴリ・💌・50P', async () => {
+			const result = await suggestCheer('敬老の日にじいじへメッセージを書いた');
+			expect(result.category).toBe('こうりゅう');
+			expect(result.icon).toBe('💌');
+			expect(result.points).toBe(50);
+		});
+
+		it('おばあちゃんキーワードでも「こうりゅう」カテゴリ・💌', async () => {
+			const result = await suggestCheer('おばあちゃんに手紙を書いた');
+			expect(result.category).toBe('こうりゅう');
+			expect(result.icon).toBe('💌');
+		});
+	});
 });

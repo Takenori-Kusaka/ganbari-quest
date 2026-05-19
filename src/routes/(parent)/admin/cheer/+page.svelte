@@ -129,6 +129,32 @@ $effect(() => {
 			<section data-tutorial="cheer-reason">
 				<h3 class="step-title">{CHEER_LABELS.reasonTitle}</h3>
 				<Card>
+					<!-- 日本ローカライズ reason テンプレ (#2300、EPIC #2294 ⑥) — 1 タップで reason / P / category / icon を prefill -->
+					<div class="preset-templates">
+						<p class="preset-templates__label">{CHEER_LABELS.presetTitle}</p>
+						<div class="preset-templates__chips" data-testid="cheer-reason-templates">
+							{#each CHEER_LABELS.reasonTemplates as tpl}
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									class="preset-chip"
+									data-testid="cheer-reason-template-{tpl.icon}"
+									onclick={() => {
+										reason = tpl.reason;
+										points = tpl.recommendedPoints;
+										if (data.categories.includes(tpl.category as (typeof data.categories)[number])) {
+											category = tpl.category;
+										}
+										icon = tpl.icon;
+									}}
+								>
+									<span class="preset-chip__icon">{tpl.icon}</span>
+									<span class="preset-chip__text">{tpl.reason}</span>
+								</Button>
+							{/each}
+						</div>
+					</div>
 					<FormField
 						label=""
 						type="textarea"
@@ -335,5 +361,29 @@ $effect(() => {
 	}
 	.page-description__link:hover {
 		text-decoration: underline;
+	}
+	.preset-templates {
+		margin-bottom: 0.75rem;
+	}
+	.preset-templates__label {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		margin-bottom: 0.375rem;
+	}
+	.preset-templates__chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+	}
+	:global(.preset-chip) {
+		border-radius: 9999px !important;
+		background: var(--color-surface-muted);
+		font-size: 0.8125rem;
+	}
+	.preset-chip__icon {
+		margin-right: 0.25rem;
+	}
+	.preset-chip__text {
+		font-weight: 600;
 	}
 </style>
