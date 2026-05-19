@@ -500,14 +500,16 @@ Dockerfile.lambda        # Lambda Web Adapter用
 
 `hooks.server.ts` `buildCspHeader()` は外部送信先を一切ホワイトリストしない (`connect-src 'self'` 固定)。新たな外部 SaaS analytics を導入する場合は、本セクションと ADR-0023 §3.4 ホワイトリストの両方を更新する PR を先に通すこと (ADR-0006 安全弁削除禁止)。
 
-### 可視化 (`/admin/analytics`, #1639)
+### 可視化 (~~`/admin/analytics`~~ → `/ops/analytics`, #1639 / #2283 EPIC で集約先変更)
 
-`/admin/analytics` ページは **#1639 で 4 種可視化を実装済み**（Pre-PMF Bucket A 範囲）。
+> **2026-05-19 更新 (#2283 EPIC Analytics-Removal)**: `/admin/analytics` を全面撤去し、運用者向け 4 種可視化は **`/ops/analytics` に集約**。詳細は `06-UI設計書.md §11 全ページ一覧` および `tmp/research/analytics-removal-result.md` §1 機能差分マトリクスを参照。本表は run-time の実装方式を継続保持（cron / DynamoDB schema 変更なし）。
+
+`/ops/analytics` ページは **#1639 + #2285 EPIC #2283 で 4 種可視化を実装済み**（Pre-PMF Bucket A 範囲、`ops_users` group 認証必須）。
 
 | セクション | 実装方式 | データ源 |
 |-----------|---------|---------|
-| activation funnel (4 step) | DynamoDB GSI2 query (`GSI2PK=ANALYTICS#EVENT#<name>`、`GSI2SK >= <since-date>`) を 4 events 並列実行、テナント単位 unique 件数を集計 | `ANALYTICS#` partition |
-| retention cohort (週次/月次) | `cohort-analysis-service.getCohortAnalysis` を再利用 | tenant 一覧（`auth.listAllTenants()`） |
+| Activation Funnel (4 step) | DynamoDB GSI2 query (`GSI2PK=ANALYTICS#EVENT#<name>`、`GSI2SK >= <since-date>`) を 4 events 並列実行、テナント単位 unique 件数を集計。**#2285 で `/admin/analytics` から `/ops/analytics` へ移動**、`funnelPeriod=30d` 固定 | `ANALYTICS#` partition |
+| Retention Cohort (月次) | `cohort-analysis-service.getCohortAnalysis` を再利用。Day 単位は本 EPIC scope 外 (PO 確定 OQ1 α: 月単位で十分) | tenant 一覧（`auth.listAllTenants()`） |
 | Sean Ellis スコア | `pmf-survey-service.aggregateSurveyResponses` を再利用 | settings KV (`pmf_survey_response_<round>`) |
 | 解約理由分布 | `cancellation-service.getCancellationReasonAggregation` を再利用 | `CANCEL_REASON` partition |
 
