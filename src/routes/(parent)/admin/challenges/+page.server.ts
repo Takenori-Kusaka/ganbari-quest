@@ -20,9 +20,10 @@ import type { Actions, PageServerLoad } from './$types';
  * 実日付に展開する。monthDay が「今日より過去」なら来年の同月日とする
  * (例: 2026/05/19 時点で「03-03 ひな祭り」を import すると 2027/03/03 になる)。
  *
- * @internal export しているのは unit test 用
+ * @internal export しているのは unit test 用 (SvelteKit `+page.server.ts` の予約 export
+ *           制約により `_` 接頭辞が必須 — anything with a '_' prefix が許可される)
  */
-export function expandChallengeSetDates(
+export function _expandChallengeSetDates(
 	monthDay: string,
 	durationDays: number,
 	today: Date = new Date(),
@@ -170,7 +171,7 @@ export const actions: Actions = {
 
 		for (const ch of payload.challenges) {
 			try {
-				const { startDate, endDate } = expandChallengeSetDates(ch.monthDay, ch.durationDays, today);
+				const { startDate, endDate } = _expandChallengeSetDates(ch.monthDay, ch.durationDays, today);
 				const targetConfig = JSON.stringify({
 					metric: 'count',
 					baseTarget: ch.baseTarget,

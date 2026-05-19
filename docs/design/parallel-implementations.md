@@ -320,7 +320,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 6. import 先 admin 画面 (`/admin/<type-target>`) に query param 受取り + preview UI + form action
 
 **修正時チェック**:
-- 新しい challenge-set preset 追加 → `marketplaceImport` 先のチャレンジ展開ロジック (`expandChallengeSetDates`) で当該 monthDay/durationDays が正しく実日付に展開されるか単体確認
+- 新しい challenge-set preset 追加 → `marketplaceImport` 先のチャレンジ展開ロジック (`_expandChallengeSetDates`、SvelteKit `+page.server.ts` の予約 export 制約により `_` 接頭辞) で当該 monthDay/durationDays が正しく実日付に展開されるか単体確認
 - `MarketplaceItemType` enum 追加時は本表 6 項目全件のうち 1 つでも漏れると svelte-check or runtime で fail する設計
 
 ---
