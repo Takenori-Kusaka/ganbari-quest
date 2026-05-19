@@ -102,16 +102,33 @@ async function insertPendingRedemption(
 	}
 }
 
-/** 現在のポイント残高を DB から取得する */
-async function getPointBalance(childId: number): Promise<number> {
+/**
+ * 特定の申請に紐づく reward_redemption 台帳エントリを取得する。
+ *
+ * AC2/AC3 では「承認/却下によってポイントが正しく変動したか」を検証する必要がある。
+ * しかし total balance を直接比較すると、並行ワーカーで実行される
+ * `child-shop-tabs-filter.spec.ts` 等が `たろうくん` の `point_ledger` を
+ * 同時に書き換えるため (shop_test_seed 削除 + 200pt 再 seed)、
+ * balanceBefore と balanceAfter の差分が予測不能になる (#2292 BLOCK の根本原因)。
+ *
+ * そこで「申請単位の因果関係」を直接検証する: 承認時は `insertPointEntry` で
+ * `type='reward_redemption'` + `reference_id=requestId` のエントリが 1 件挿入される
+ * (`reward-redemption-service.ts:163`)。却下時は同エントリが挿入されない。
+ * 並行テストは異なる `type` (shop_test_seed / shop_tabs_test_seed / `null` reference_id) を使うため、
+ * `reference_id = ?` で完全分離できる。
+ */
+async function getRedemptionLedgerEntries(
+	requestId: number,
+): Promise<Array<{ amount: number; type: string }>> {
 	const DB_PATH = path.resolve('data/ganbari-quest.db');
 	const { default: Database } = await import('better-sqlite3');
 	const db = new Database(DB_PATH);
 	try {
-		const { total } = db
-			.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM point_ledger WHERE child_id = ?')
-			.get(childId) as { total: number };
-		return total;
+		return db
+			.prepare(
+				"SELECT amount, type FROM point_ledger WHERE reference_id = ? AND type = 'reward_redemption'",
+			)
+			.all(requestId) as Array<{ amount: number; type: string }>;
 	} finally {
 		db.close();
 	}
@@ -309,20 +326,23 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 	// ============================================================
 	// AC2: 親が申請を承認 → ポイント減算確認
 	// ============================================================
+	// #2292: 並行 worker (workers: 2 + fullyParallel: true) で実行される
+	// `child-shop-tabs-filter.spec.ts` が `たろうくん` の point_ledger を同時に
+	// 書き換えるため、total balance 比較 (`getPointBalance(childId)`) は flake する。
+	// 代わりに「この申請に紐づく reward_redemption 台帳エントリ」を直接検証する
+	// (`reference_id = requestId`、ADR-0006: assertion 強化方向)。
 	test('AC2: 親が申請を承認するとポイントが減算される', async ({ page }) => {
 		// DB に pending 申請を直接挿入（交換可 = 50pt）
-		const { childId, requestId, rewardPoints } = await insertPendingRedemption(
+		const { requestId, rewardPoints } = await insertPendingRedemption(
 			'E2Eテスト用ごほうび（交換可）',
 		);
 
-		// 承認前のポイント残高を記録
-		const balanceBefore = await getPointBalance(childId);
+		// 承認前: この申請に紐づく reward_redemption エントリは 0 件
+		const ledgerBefore = await getRedemptionLedgerEntries(requestId);
+		expect(ledgerBefore.length).toBe(0);
 
-		// 管理者として /admin/rewards へアクセス
-		await page.goto('/admin/rewards');
-
-		// 申請タブに切り替え
-		await page.getByTestId('tab-requests').click();
+		// #2269: 申請承認は /admin/rewards/requests に分離されたため直接遷移
+		await page.goto('/admin/rewards/requests');
 
 		// 承認ボタンが表示されるのを待つ
 		const approveBtn = page.getByTestId(`approve-btn-${requestId}`);
@@ -334,49 +354,63 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		// 承認後: 承認ボタンが消えること（申請が処理済みになる）を確認
 		await expect(approveBtn).not.toBeVisible({ timeout: 10000 });
 
-		// ポイント残高がごほうびのポイント分だけ減算されていることを DB で確認
-		const balanceAfter = await getPointBalance(childId);
-		expect(balanceAfter).toBe(balanceBefore - rewardPoints);
+		// 承認後: この申請に紐づく reward_redemption エントリが
+		// ちょうど 1 件、amount = -rewardPoints で挿入されていることを DB で確認
+		// (`reward-redemption-service.ts:163-172` の insertPointEntry 呼び出しと対応)
+		const ledgerAfter = await getRedemptionLedgerEntries(requestId);
+		expect(ledgerAfter.length).toBe(1);
+		expect(ledgerAfter[0]?.amount).toBe(-rewardPoints);
 	});
 
 	// ============================================================
 	// AC3: 親が申請を却下 → ポイント変動なし確認
 	// ============================================================
+	// #2292: AC2 と同じ理由で total balance 比較は使えない。
+	// 却下フローは service 層 (`reward-redemption-service.ts:206-240`) で
+	// `insertPointEntry` を呼ばないため、この申請に紐づく
+	// reward_redemption ledger エントリは 0 件のまま (前後共に 0)。
 	test('AC3: 親が申請を却下してもポイントは変動しない', async ({ page }) => {
 		// DB に pending 申請を直接挿入（キャンセル確認用 = 50pt）
-		const { childId, requestId } = await insertPendingRedemption(
-			'E2Eテスト用ごほうび（キャンセル確認用）',
-		);
+		const { requestId } = await insertPendingRedemption('E2Eテスト用ごほうび（キャンセル確認用）');
 
-		// 却下前のポイント残高を記録
-		const balanceBefore = await getPointBalance(childId);
+		// 却下前: この申請に紐づく reward_redemption エントリは 0 件
+		const ledgerBefore = await getRedemptionLedgerEntries(requestId);
+		expect(ledgerBefore.length).toBe(0);
 
-		// 管理者として /admin/rewards へアクセス
-		await page.goto('/admin/rewards');
-
-		// 申請タブに切り替え
-		await page.getByTestId('tab-requests').click();
+		// #2269: 申請承認は /admin/rewards/requests に分離されたため直接遷移
+		await page.goto('/admin/rewards/requests');
 
 		// 却下ボタンが表示されるのを待つ
 		const rejectBtn = page.getByTestId(`reject-btn-${requestId}`);
 		await expect(rejectBtn).toBeVisible({ timeout: 10000 });
 
 		// 却下ボタンをクリック（フォームが展開される）
-		await rejectBtn.click();
-
-		// 却下確認フォームの「却下する」ボタンをクリック
-		// rejectRedemption action に送信するフォーム内の submit ボタン
+		// #2292: Svelte 5 hydration timing race のため、フォームが表示されるまで
+		// click → re-render を最大数回繰り返す。Locator.click 単体では hydration 前の
+		// click が空振りするケースが local dev mode で flake する (CI でも稀に観測)。
+		// expect.poll で auto-retry させることで auto-retryable assertion 化する。
 		const rejectConfirmBtn = page.locator(
 			'form[action="?/rejectRedemption"] button[type="submit"]',
 		);
-		await expect(rejectConfirmBtn).toBeVisible({ timeout: 5000 });
+		await expect
+			.poll(
+				async () => {
+					if (await rejectConfirmBtn.isVisible().catch(() => false)) return true;
+					// click を idempotent に繰り返す: フォーム展開前は再 click で展開を試みる
+					await rejectBtn.click({ timeout: 2000 }).catch(() => {});
+					return rejectConfirmBtn.isVisible().catch(() => false);
+				},
+				{ timeout: 10000, intervals: [500, 1000, 1500] },
+			)
+			.toBe(true);
 		await rejectConfirmBtn.click();
 
 		// 却下後: 却下ボタンが消えること（申請が処理済みになる）を確認
 		await expect(rejectBtn).not.toBeVisible({ timeout: 10000 });
 
-		// ポイント残高が変動していないことを DB で確認（却下なのでポイントは減らない）
-		const balanceAfter = await getPointBalance(childId);
-		expect(balanceAfter).toBe(balanceBefore);
+		// 却下後: この申請に紐づく reward_redemption エントリは 0 件のままであることを DB で確認
+		// (rejectRedemption はステータス更新のみで point_ledger を変更しないため)
+		const ledgerAfter = await getRedemptionLedgerEntries(requestId);
+		expect(ledgerAfter.length).toBe(0);
 	});
 });

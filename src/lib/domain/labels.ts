@@ -3239,41 +3239,50 @@ export const OPS_COSTS_LABELS = {
 // ============================================================
 
 export const REWARDS_LABELS = {
-	sectionTitle: '🎁 ごほうび',
+	// #2268: CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム
+	// 応援系語彙（とくべつなごほうび / ボーナス贈与 / ボーナスポイントを贈れます）は削除済
+	sectionTitle: '🎁 ごほうび管理',
 	premiumBadge: '有料限定',
 	tabRewards: 'ごほうび',
-	pageDescTitle: '🎁 とくべつなごほうび',
-	pageDescText1: 'がんばったこどもへの特別なごほうびを設定・付与します。',
-	pageDescText2:
-		'日常の活動ポイントとは別に、お手伝いや特別な成果に対してボーナスポイントを贈れます。',
+	pageDescTitle: '🎁 ごほうび管理 — 子供 shop に並べる商品',
+	pageDescText1: '子供 shop に並べるごほうび（おこづかい、ゲーム時間、おやつなど）を管理します。',
+	pageDescText2: '応援機能（突発のごほうび）は /admin/cheer をご利用ください。',
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	pageDescHintLink: 'おうえんメッセージ',
 	pageDescHintSuffix: 'から送れます',
-	upgradeBannerTitle: '特別なごほうび設定はスタンダードプラン以上の機能です',
+	upgradeBannerTitle: 'ごほうび管理はスタンダードプラン以上の機能です',
 	upgradeBannerDesc:
-		'アップグレードすると、お手伝いや特別な成果に対してカスタムのボーナスごほうびを作成・付与できます。',
+		'アップグレードすると、子供 shop に並べるごほうびを自由に作成・編集・削除できます。',
 	upgradeButton: 'プランを確認する',
 	selectChildTitle: 'こどもを選択',
-	selectTemplateTitle: 'テンプレートを選択',
-	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットからテンプレートを追加`,
-	confirmGrantTitle: '内容を確認して付与',
+	selectTemplateTitle: 'プリセットを選択',
+	presetToggle: (open: boolean) => `${open ? '▼' : '▶'} プリセットから追加`,
+	// #2268: 検索 UI
+	searchLabel: 'ごほうびを検索',
+	searchPlaceholder: 'ごほうび名で検索...',
+	searchEmptyMessage: '該当するごほうびがありません',
+	confirmGrantTitle: '内容を確認して追加',
 	titleLabel: 'タイトル',
 	pointsLabel: 'ポイント',
 	iconLabel: 'アイコン',
 	categoryLabel: 'カテゴリ',
+	// #2268: grant → add リネーム（実態は special_rewards INSERT、子供 shop に並べる商品の追加）
 	grantButton: (icon: string, title: string, points: number) =>
-		`${icon} ${title || '報酬'} (${points}P) を付与する`,
-	grantSuccess: '特別報酬を付与しました！',
+		`${icon} ${title || 'ごほうび'} (${points}P) を追加する`,
+	grantSuccess: 'ごほうびを追加しました！',
+	// #2268: overflow menu / 申請承認導線（子#3 で /admin/rewards/requests へ分離）
+	overflowMenuAriaLabel: 'その他の操作',
+	requestsMenuLabel: (count: number) => `申請承認 (${count} 件)`,
+	requestsMenuLabelEmpty: '申請承認',
 	/** #2136 MP-1: マーケットプレイス一括追加セクション */
-	marketplaceSectionTitle: 'マーケットプレイスから一括追加',
-	marketplaceSectionDesc:
-		'おすすめのごほうびセットを子供のごほうび履歴に一括追加できます（重複はスキップ）',
+	marketplaceSectionTitle: 'みんなのごほうびから追加',
+	marketplaceSectionDesc: 'おすすめのごほうびセットを一括追加できます（重複はスキップ）',
 	marketplaceImportButton: (count: number) => `${count} 件を一括追加`,
 	marketplaceImportSuccess: (count: number) => `✨ ${count} 件のごほうびを追加しました`,
 	marketplaceImportAllDuplicates: 'このごほうびセットは既に追加済みです',
 	marketplaceImportError: 'インポートに失敗しました',
 	marketplaceItemCountSuffix: '件',
-	marketplaceImportToggle: (open: boolean) => `${open ? '▼' : '▶'} マーケットプレイスから一括追加`,
+	marketplaceImportToggle: (open: boolean) => `${open ? '▼' : '▶'} みんなのごほうびから追加`,
 } as const;
 
 // ============================================================
@@ -5107,6 +5116,32 @@ export const ADMIN_SHOP_REQUEST_LABELS = {
 } as const;
 
 // ============================================================
+// ごほうび申請承認専用画面 (#2269: /admin/rewards/requests)
+// CRUD と承認フローの責務分離（PO 指摘「ごほうび/申請タブ区分が意味不明」）
+// ============================================================
+
+export const ADMIN_REWARDS_REQUESTS_LABELS = {
+	pageTitle: '📋 ごほうび申請承認',
+	pageDescTitle: '📋 ごほうび申請承認',
+	pageDescText: '子供からの交換申請に承認/却下します。',
+	backToRewardsLabel: '← ごほうび管理に戻る',
+	pendingSectionTitle: 'Pending',
+	pendingCountSuffix: (count: number) => `${count} 件`,
+	historySectionTitle: 'History（直近30件）',
+	emptyPendingMessage: '申請はありません',
+	emptyHistoryMessage: '履歴はありません',
+	approveButton: '承認して渡した',
+	rejectButton: '却下する',
+	rejectNoteLabel: '却下理由（任意・最大100文字）',
+	rejectConfirmButton: '確定',
+	rejectCancelButton: 'キャンセル',
+	requestedAtLabel: '申請日時',
+	rewardPointsUnit: 'ポイント',
+	statusApproved: '承認済み',
+	statusRejected: '却下済み',
+} as const;
+
+// ============================================================
 // UI プリミティブ コンポーネントラベル (#1465 Phase B)
 // src/lib/ui/primitives/ 配下のハードコード文字列を集約
 // ============================================================
@@ -5582,6 +5617,19 @@ export const FEATURES_LABELS = {
 		description: 'ごほうびの内容を自由に入力すると、カテゴリ・ポイント・アイコンを自動で提案します',
 		placeholder: '例: おもちゃ、外食、ゲーム時間+30分、おこづかい500円',
 		acceptBtn: 'この内容で入力する',
+	},
+
+	// ---- features/admin/components/AiSuggestCheerPanel (#2273) ----
+	// 出来事テキスト → P 値 + カテゴリ + アイコン + 理由要約推定
+	// AiSuggestRewardPanel と入力プロンプト・出力意味が異なるため別 component
+	aiSuggestCheer: {
+		title: '✨ どんな出来事だった？',
+		kind: 'AI 応援提案',
+		description:
+			'子供のがんばりや出来事を入力すると、応援ポイント・カテゴリ・アイコンを自動で提案します',
+		placeholder: '例: 運動会で1位、テストで100点、お皿を進んで洗った',
+		acceptBtn: 'この内容で応援を送る',
+		reasonLabel: '理由',
 	},
 
 	// ---- features/admin/components/FeedbackDialog ----

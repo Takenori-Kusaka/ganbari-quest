@@ -34,6 +34,7 @@ vi.mock('$lib/server/services/child-service', () => ({
 vi.mock('$lib/server/services/special-reward-service', () => ({
 	getChildSpecialRewards: mockGetChildSpecialRewards,
 	getRewardTemplates: mockGetRewardTemplates,
+	addReward: mockGrantSpecialReward,
 	grantSpecialReward: mockGrantSpecialReward,
 	saveRewardTemplates: mockSaveRewardTemplates,
 }));
@@ -54,7 +55,8 @@ type PlanLimitErrorShape = {
 	requiredTier: 'standard' | 'family';
 	upgradeUrl: '/admin/license';
 };
-const grantAction = mod.actions.grant as unknown as (event: {
+// #2268: grant → add リネーム
+const grantAction = mod.actions.add as unknown as (event: {
 	request: Request;
 	locals: App.Locals;
 }) => Promise<{
