@@ -186,7 +186,7 @@ export default async (page, capture) => {
 			state: 'visible',
 			timeout: 10_000,
 		});
-	} catch (err) {
+	} catch {
 		console.warn('[flow] スキップして次へ button が出ない、現状で撮影継続');
 	}
 	// view top に scroll してから撮影
