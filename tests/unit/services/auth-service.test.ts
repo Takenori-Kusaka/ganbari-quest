@@ -285,6 +285,25 @@ describe('auth-service', () => {
 			expect(result).toEqual({ ok: false, error: 'INVALID_PIN' });
 		});
 
+		// #2335 hotfix Phase 1: 本番で「pin_hash 未設定 (DynamoDB scan 0 件) + pin='5086'」フローが
+		// 失敗している現象の logic 側を再確認する明示的テスト。logic が正常であることを保証し、
+		// 仮説 2 (getSetting が '' 返却) / 仮説 1 (PinInput valueAsString) / 仮説 3 (tenantId) /
+		// 仮説 4 (build minify) を切り分けるための baseline。
+		it('#2335 baseline: pin_hash 完全未挿入 (DEFAULT_PIN 比較経路) で 5086 → ok', async () => {
+			// settings から pin_hash 行を完全に削除 (空文字列ではなく row 自体が無い状態)
+			sqlite.exec("DELETE FROM settings WHERE key = 'pin_hash'");
+			const result = await verifyPin('5086', 'test-tenant');
+			expect(result).toEqual({ ok: true });
+		});
+
+		it('#2335 baseline: pin_hash 空文字列 (DynamoDB empty value 模擬) で 5086 → ok', async () => {
+			// 仮説 2: DynamoDB が empty string を返す可能性。
+			// 現在の logic では `!pinHash` が true になり DEFAULT_PIN 比較 path に入るはず。
+			seedAuthSettings('');
+			const result = await verifyPin('5086', 'test-tenant');
+			expect(result).toEqual({ ok: true });
+		});
+
 		it('5回失敗でロックアウト (login と共通のカウンタ)', async () => {
 			for (let i = 0; i < 5; i++) {
 				await verifyPin('9999', 'test-tenant');
