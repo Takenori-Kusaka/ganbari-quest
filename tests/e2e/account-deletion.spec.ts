@@ -29,8 +29,12 @@ import { expect, test } from '@playwright/test';
 import { warmupAdminPages } from './plan-login-helpers';
 
 test.beforeAll(async ({ browser }) => {
-	test.setTimeout(60_000);
-	await warmupAdminPages(browser, ['/admin/settings']);
+	// #2326 (EPIC #2319): 新規 child route `/admin/settings/account` は CI 初回 cold compile
+	// で Vite が数分かかる。warmupAdminPages 内部の `180_000` timeout に合わせて
+	// beforeAll を 240s に拡張 (旧 60s → cold compile 完了前に hook timeout していた)
+	test.setTimeout(240_000);
+	// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+	await warmupAdminPages(browser, ['/admin/settings/account']);
 });
 
 // ============================================================
@@ -167,7 +171,8 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）famil
 	test('owner ログインで /admin/settings にアカウント削除セクションが表示される', async ({
 		page,
 	}) => {
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
+		// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
 
 		// cognito モードではアカウント削除セクションが表示される
 		const deleteSection = page.getByText('アカウント削除');
@@ -191,7 +196,8 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）famil
 	});
 
 	test('owner ログインで削除ボタンは確認テキスト未入力で無効', async ({ page }) => {
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
+		// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
 
 		const deleteSection = page.getByText('アカウント削除');
 		const deleteSectionCount = await deleteSection.count();
@@ -206,8 +212,9 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）famil
 
 		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
 
-		// 確認テキスト入力前は削除ボタンが disabled
-		const deleteButton = page.getByRole('button', { name: /削除する|退会する/ }).first();
+		// Step 1+2 (確認テキスト + 同意 checkbox) 入力前は削除ボタンが disabled
+		// #2319 EPIC Danger Zone 3-step ガード対応
+		const deleteButton = page.getByTestId('account-danger-execute-button');
 		await expect(deleteButton).toBeVisible({ timeout: 5_000 });
 		await expect(deleteButton).toBeDisabled();
 	});
@@ -218,7 +225,8 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）free'
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランの owner でもアカウント削除セクションが表示される', async ({ page }) => {
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
+		// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
 
 		const deleteSection = page.getByText('アカウント削除');
 		const deleteSectionCount = await deleteSection.count();
@@ -247,7 +255,8 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 	test('owner が削除を試行すると他メンバーがいる場合は移譲ダイアログが表示される', async ({
 		page,
 	}) => {
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
+		// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
 
 		// 前提条件: アカウント削除セクションが表示されること
 		const deleteSection = page.getByText('アカウント削除');
@@ -263,13 +272,18 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 
 		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
 
-		// 確認テキストを入力
+		// Step 1: 確認テキストを入力
 		const confirmInput = page.locator('#deleteConfirm');
 		await expect(confirmInput).toBeVisible({ timeout: 5_000 });
 		await confirmInput.fill('アカウントを削除します');
 
-		// 削除ボタンが有効化されていることを確認してクリック
-		const deleteButton = page.getByRole('button', { name: /削除する|退会する/ }).first();
+		// Step 2: 同意チェックボックス (#2319 EPIC Danger Zone 3-step ガード)
+		const agreeCheckbox = page.getByTestId('account-danger-agree-checkbox');
+		await expect(agreeCheckbox).toBeVisible({ timeout: 5_000 });
+		await agreeCheckbox.check();
+
+		// Step 3: 実行ボタンが有効化されていることを確認してクリック
+		const deleteButton = page.getByTestId('account-danger-execute-button');
 		await expect(deleteButton).toBeEnabled({ timeout: 3_000 });
 		await deleteButton.click();
 

@@ -55,7 +55,8 @@ test.describe('#1254 G3 インポート verify Dialog', () => {
 
 	test.beforeEach(async ({ page }) => {
 		test.slow();
-		await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+		// #2323 (EPIC #2319 ④): import / data 管理 UI は /admin/settings/data に移行済
+		await page.goto('/admin/settings/data', { waitUntil: 'domcontentloaded' });
 		// #702: Svelte 5 の onchange ハンドラは hydration 完了後にのみ bind される。
 		// ハイドレーション完了マーカーを待つ（`+layout.svelte` の $effect で立つ）
 		await page.waitForFunction(() => window.__APP_HYDRATED__ === true, undefined, {

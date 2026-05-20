@@ -360,3 +360,6 @@ unsign
 
 # ===== #2338 usage-log no-op fallback (haribote = scaffold/sham impl 概念) =====
 haribote
+
+# ===== #2320 settings child route helpers =====
+clientside

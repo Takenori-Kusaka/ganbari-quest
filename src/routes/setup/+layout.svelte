@@ -14,6 +14,8 @@ const steps = [
 	{ path: '/setup/packs', label: '活動' },
 	{ path: '/setup/rewards', label: 'ごほうび' },
 	{ path: '/setup/rules', label: 'ルール' },
+	// #2322 (EPIC #2319 ③): 活動・ポイント初期設定 (任意 step、skip 可)
+	{ path: '/setup/activities-defaults', label: '活動初期設定' },
 	{ path: '/setup/challenges', label: '家族チャレンジ' },
 	{ path: '/setup/first-adventure', label: 'はじめての冒険' },
 	{ path: '/setup/complete', label: '冒険の始まり' },

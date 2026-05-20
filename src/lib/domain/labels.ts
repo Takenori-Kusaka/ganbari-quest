@@ -139,6 +139,8 @@ export const PAGE_TITLES = {
 	setupRules: 'おうちのルール選択',
 	// #2298: 家族チャレンジ step
 	setupChallenges: '家族チャレンジ選択',
+	// #2322: 活動・ポイント初期設定 step
+	setupActivitiesDefaults: '活動・ポイント初期設定',
 	// ユーザー切替
 	switchUser: 'だれがつかう？',
 	// その他
@@ -1489,6 +1491,48 @@ export const SETTINGS_LABELS = {
 	logoutDesc:
 		'このデバイスからがんばりクエストのアカウントからログアウトします。再度ログインするにはメールアドレスとパスワードが必要です。',
 	logoutAction: 'アカウントからログアウト',
+
+	// #2319 Phase Settings-Audit: hub page (6 グループへのナビ集約)
+	hubTitle: '設定',
+	hubDesc: '設定をグループ別に整理しました。下のカードから設定したい項目を選んでください。',
+	groupAccountTitle: 'アカウント',
+	groupAccountDesc: 'おやかぎコード変更・ログアウト・アカウント削除',
+	groupActivitiesTitle: '活動・ポイント',
+	groupActivitiesDesc: 'ステータス減少・ポイント表示・既定の子供・きょうだいチャレンジ',
+	groupNotificationsTitle: '通知',
+	groupNotificationsDesc: 'リマインダー・ストリーク警告・サイレント時間帯',
+	groupDataTitle: 'データ',
+	groupDataDesc: 'エクスポート・クラウド共有・データクリア',
+	groupSupportTitle: 'サポート・アプリ情報',
+	groupSupportDesc: 'お問い合わせ・フィードバック・利用規約・バージョン',
+	groupPlanTitle: 'プラン・課金',
+	groupPlanDesc: 'プラン変更・請求履歴 (別ページ)',
+	backToHub: '← 設定トップへ',
+
+	// Danger Zone (#2319 子#2 / #4 GitHub パターン)
+	dangerZoneTitle: '危険な操作 (Danger Zone)',
+	dangerZoneDesc: '以下の操作は元に戻せません。実行前に内容を必ず確認してください。',
+	dangerStep1Label: '手順 1: 確認テキストを入力',
+	dangerStep2Label: '手順 2: 同意チェック',
+	dangerStep3Label: '手順 3: 実行ボタン',
+	clearDangerConsentLabel: 'すべてのデータを削除することに同意します',
+	accountDeleteDangerConsentLabel: 'このアカウントを削除することに同意します（元に戻せません）',
+} as const;
+
+/**
+ * #2319 settings サブナビ用ラベル (AdminLayout 統合不要、settings 専用 +layout.svelte で参照)
+ */
+export const SETTINGS_NAV_LABELS = {
+	ariaLabel: '設定サブナビゲーション',
+	hub: '設定トップ',
+	account: 'アカウント',
+	activities: '活動・ポイント',
+	notifications: '通知',
+	data: 'データ',
+	support: 'サポート',
+	plan: 'プラン・課金',
+	externalIndicator: '別ページ',
+	externalIndicatorHub: '別ページへ',
 } as const;
 
 export const LICENSE_PAGE_LABELS = {
@@ -4103,6 +4147,28 @@ export const SETUP_RULES_LABELS = {
 
 // #2298 (EPIC #2294 ④): setup wizard β step 4「家族チャレンジ一括追加」labels
 // 任意 step、auto-add 3 件 + 残 4 件は手動 import 動線。Research §5.1 onboarding 整合
+/**
+ * #2322 (EPIC #2319 ③): setup 任意 step「活動・ポイントの初期設定」用ラベル。
+ * マーケプレ rule-preset 集約 (PO 提案) の Research 否定の代替案 A — sensible defaults を hard-code。
+ */
+export const SETUP_ACTIVITIES_DEFAULTS_LABELS = {
+	pageTitle: '活動・ポイント設定の初期値',
+	pageDesc:
+		'おすすめの初期設定をワンタップで適用できます。あとから /admin/settings/activities でいつでも変更できます。',
+	infoNotice:
+		'これらの初期値はあくまでスタート地点です。家族の使い方に合わせて、あとから自由に変更できます。',
+	defaultsSummaryTitle: '適用される初期設定',
+	defaultDecayLabel: 'ステータス減少: ふつう（最初の2日は減少しません）',
+	defaultPointModeLabel: 'ポイント表示: 「P」（あとで通貨換算も選べます）',
+	defaultSiblingModeLabel: 'きょうだいチャレンジ: 協力 + 競争 両方',
+	defaultSiblingRankingLabel: 'きょうだいランキング: OFF（family プランで ON 可能）',
+	applyButton: 'おすすめ初期値を適用してすすむ',
+	applyingLabel: '適用中...',
+	skipButton: 'スキップして次へ',
+	backButton: 'もどる',
+	applySuccessNotice: 'おすすめ初期値を適用しました',
+} as const;
+
 export const SETUP_CHALLENGES_LABELS = {
 	pageTitle: '家族で挑戦するチャレンジを選ぼう',
 	pageDesc:

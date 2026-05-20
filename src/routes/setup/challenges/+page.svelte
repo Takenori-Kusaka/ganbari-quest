@@ -179,7 +179,7 @@ $effect(() => {
 	<!-- Navigation buttons -->
 	<div class="flex gap-3">
 		<a
-			href="/setup/rules"
+			href="/setup/activities-defaults"
 			class="flex-1 py-2 text-center text-sm font-bold text-[var(--color-text-muted)] bg-[var(--color-surface-muted-strong)] rounded-lg hover:bg-[var(--color-neutral-200)] transition-colors"
 		>
 			&larr; {SETUP_CHALLENGES_LABELS.backButton}

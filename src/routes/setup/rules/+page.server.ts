@@ -87,7 +87,7 @@ export const actions: Actions = {
 		const childId = childIdRaw && childIdRaw !== '' ? Number(childIdRaw) : undefined;
 
 		if (itemIds.length === 0) {
-			redirect(302, '/setup/challenges?rulesImported=0&rulesSkipped=0');
+			redirect(302, '/setup/activities-defaults?rulesImported=0&rulesSkipped=0');
 		}
 
 		let totalImported = 0;
@@ -145,7 +145,10 @@ export const actions: Actions = {
 			imported: totalImported,
 			warnings: allWarnings.length,
 		});
-		redirect(302, `/setup/challenges?rulesImported=${totalImported}&rulesSkipped=${totalSkipped}`);
+		redirect(
+			302,
+			`/setup/activities-defaults?rulesImported=${totalImported}&rulesSkipped=${totalSkipped}`,
+		);
 	},
 
 	skip: async ({ locals }) => {
@@ -153,6 +156,6 @@ export const actions: Actions = {
 		trackSetupFunnel('setup_rules_skipped', tenantId, {});
 		// #2140 MP-5: rule preset の auto-import は行わない (Pre-PMF UX 単純化 +
 		// rule は親判断要素が強い)。次の step に進むだけ
-		redirect(302, '/setup/challenges?rulesImported=0&rulesSkipped=0');
+		redirect(302, '/setup/activities-defaults?rulesImported=0&rulesSkipped=0');
 	},
 };
