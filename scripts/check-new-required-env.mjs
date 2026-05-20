@@ -115,11 +115,15 @@ function getDiff() {
 					const body = lines.map((l) => `+${l}`).join('\n');
 					diff += `${header + body}\n`;
 				} catch (e) {
-					console.warn(`[check-new-required-env] could not read untracked ${path}: ${e instanceof Error ? e.message : String(e)}`);
+					console.warn(
+						`[check-new-required-env] could not read untracked ${path}: ${e instanceof Error ? e.message : String(e)}`,
+					);
 				}
 			}
 		} catch (e) {
-			console.warn(`[check-new-required-env] could not enumerate untracked files: ${e instanceof Error ? e.message : String(e)}`);
+			console.warn(
+				`[check-new-required-env] could not enumerate untracked files: ${e instanceof Error ? e.message : String(e)}`,
+			);
 		}
 	}
 
