@@ -22,6 +22,7 @@ import {
 	AGE_RANGE_TERMS,
 	AUTONOMY_TERMS,
 	CANCEL_TERMS,
+	CHECKOUT_TERMS,
 	CHEER_TERMS,
 	CHILD_TERMS,
 	CTA_TERMS,
@@ -1639,6 +1640,10 @@ export const LICENSE_PAGE_LABELS = {
 	standardPriceYearly: '¥5,000',
 	standardPerMonth: '/月',
 	standardPerYear: '/年',
+	// #2347 (EPIC #2345): 年額表示 UX 強化 — 月換算サブテキスト
+	// 「¥5,000/年 (月換算 ¥417、約 17% off)」で freemium × 低価格帯特有の
+	// 「結局いくら払うの?」混乱を抑止し、長期割引を訴求 (Notion / Linear / GitHub 整合)
+	standardYearlyMonthlyEquiv: '月換算 ¥417 (約 17% off)',
 
 	// ファミリープラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
@@ -1646,6 +1651,8 @@ export const LICENSE_PAGE_LABELS = {
 	familyPlanDesc: '家族みんなで見守る+永久保持',
 	familyPriceMonthly: `${PRICE_TERMS.family}`,
 	familyPriceYearly: '¥7,800',
+	// #2347 (EPIC #2345): 年額表示 UX 強化 — 月換算サブテキスト
+	familyYearlyMonthlyEquiv: '月換算 ¥650 (約 17% off)',
 	familyRecommendBadge: 'おすすめ',
 
 	// 購入ボタン
@@ -7670,6 +7677,47 @@ export const LP_LEGAL_TERMS_LABELS = {
 	section20:
 		'<h2>第20条（お問い合わせ）</h2><p>本規約に関するお問い合わせは、<a href="https://github.com/Takenori-Kusaka/ganbari-quest/issues">GitHubのIssuesページ</a>または<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="利用規約">メール</a>よりご連絡ください。</p>',
 	effective: '<p>以上</p><p>制定日: 2026年3月27日</p><p>最終改定日: 2026年4月28日</p>',
+} as const;
+
+// ============================================================
+// CHECKOUT_LABELS — Stripe Checkout custom_text SSOT (#2346 / EPIC #2345)
+// ============================================================
+//
+// 景品表示法対応の critical 修正:
+//   - 旧: 'お支払い後、すぐにすべての機能をご利用いただけます。' (stripe-service.ts 直書き)
+//   - 旧: 'アプリに戻ってすべての機能をお楽しみください。'        (stripe-service.ts 直書き)
+//   - 新: 'お支払い後、すぐにお選びのプランの機能をご利用いただけます。'
+//   - 新: 'アプリに戻ってお選びのプランの機能をお楽しみください。'
+//
+// 法的根拠:
+//   - 景品表示法 5 条 1 号 (優良誤認表示) — 「すべての機能」表示はスタンダードプラン購入時に
+//     ファミリープラン機能まで含むと誤認させる可能性 (課徴金 売上 × 3% リスク)
+//   - 特商法 2022-06 改正 最終確認画面ガイドライン — Stripe Checkout 最終確認画面の
+//     誤認表示は消費者契約取消可能性 (消費者契約法 4 条 1 項)
+//   - 消費者庁「動画見放題プラン」措置命令事例 — 本ケースと相同類型
+//
+// 設計指針:
+//   - submitMessage         : Stripe Checkout の `custom_text.submit.message` 用
+//                              (購入確定ボタン直前の説明文)
+//   - afterSubmitMessage    : Stripe Checkout の `custom_text.after_submit.message` 用
+//                              (購入確定直後の thank-you 画面文)
+//   - submitMessageWithPlan : future-proof: プラン名動的差し込み版 (固定文言版は本 PR で採用、
+//                              関数版は将来 plan tier が確定した文脈で使用予定)
+//   - afterSubmitMessageWithPlan : 同上 (after_submit 版)
+//
+// `${CHECKOUT_TERMS.chosenPlanFeature}` 経由参照によりリテラル「お選びのプランの機能」を
+// terms.ts SSOT (atom) から 1 行修正で全 compound に伝播可能 (ADR-0045)。
+//
+// 参照: docs/decisions/0002-critical-fix-quality-gate.md (本 atom 適用の critical 5 要件履歴)
+
+export const CHECKOUT_LABELS = {
+	submitMessage: `お支払い後、すぐに${CHECKOUT_TERMS.chosenPlanFeature}をご利用いただけます。`,
+	afterSubmitMessage: `アプリに戻って${CHECKOUT_TERMS.chosenPlanFeature}をお楽しみください。`,
+	// future-proof: プラン名動的差し込み版 (#2346 No-gos = 本 PR では未使用、定義のみ)
+	submitMessageWithPlan: (planLabel: string) =>
+		`お支払い後、すぐに${planLabel}の機能をご利用いただけます。`,
+	afterSubmitMessageWithPlan: (planLabel: string) =>
+		`アプリに戻って${planLabel}の機能をお楽しみください。`,
 } as const;
 
 // ============================================================

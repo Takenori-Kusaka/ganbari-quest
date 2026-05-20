@@ -5,7 +5,7 @@ import type Stripe from 'stripe';
 import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
-import { PLAN_LABELS } from '$lib/domain/labels';
+import { CHECKOUT_LABELS, PLAN_LABELS } from '$lib/domain/labels';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
@@ -68,12 +68,15 @@ export async function createCheckoutSession(
 		payment_method_types: ['card'],
 		line_items: [{ price: plan.priceId, quantity: 1 }],
 		locale: 'ja',
+		// #2346 (景品表示法 critical fix): CHECKOUT_LABELS SSOT 経由で
+		// 「お選びのプランの機能」文言を適用。景品表示法 5 条 1 号 (優良誤認) +
+		// 特商法 2022-06 改正最終確認画面ガイドライン 二重抵触可能性を構造的解消。
 		custom_text: {
 			submit: {
-				message: 'お支払い後、すぐにすべての機能をご利用いただけます。',
+				message: CHECKOUT_LABELS.submitMessage,
 			},
 			after_submit: {
-				message: 'アプリに戻ってすべての機能をお楽しみください。',
+				message: CHECKOUT_LABELS.afterSubmitMessage,
 			},
 		},
 		consent_collection: {
