@@ -124,6 +124,27 @@ export async function verifyPin(pin: string, tenantId: string): Promise<VerifyPi
 	}
 	if (!isValid) {
 		await incrementFailedAttempts(tenantId);
+		// #2335 hotfix Phase 1: PIN gate 本番 5086 confirmation 失敗の root cause 特定用 debug log。
+		// pin 文字列そのものは出さず、長さ + char code (5086 = [53,48,56,54] の 4 要素) のみ。
+		// セキュリティ評価: 漏洩リスクなし、root cause 判定可。
+		// Phase 2 root cause 特定後に削除する (本ブロックは時限的)。
+		logger.warn('[AUTH][DEBUG #2335] verifyPin invalid', {
+			context: {
+				pinHashSet: pinHash !== undefined,
+				pinHashLen: pinHash?.length ?? 0,
+				pinHashIsEmpty: pinHash === '',
+				pinLen: pin.length,
+				pinCharCodes: Array.from(pin)
+					.map((c) => c.charCodeAt(0))
+					.join(','),
+				pinIsDefault: pin === DEFAULT_PIN,
+				defaultPinLen: DEFAULT_PIN.length,
+				defaultPinCharCodes: Array.from(DEFAULT_PIN)
+					.map((c) => c.charCodeAt(0))
+					.join(','),
+				tenantIdPrefix: tenantId.slice(0, 12),
+			},
+		});
 		logger.warn('[AUTH] おやカギコード再確認失敗');
 		return { ok: false, error: 'INVALID_PIN' };
 	}

@@ -2,6 +2,7 @@
 // DynamoDB implementation of ISettingsRepo
 
 import { BatchGetCommand, GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { logger } from '$lib/server/logger';
 import { deleteItemsByExactPk } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { settingKey, tenantPK } from './keys';
@@ -14,7 +15,22 @@ export async function getSetting(key: string, tenantId: string): Promise<string 
 			Key: settingKey(key, tenantId),
 		}),
 	);
-	return result.Item?.value as string | undefined;
+	const value = result.Item?.value as string | undefined;
+	// #2335 hotfix Phase 1: pin_hash の DynamoDB 取得実態を root cause 特定用に log 出力。
+	// value (= bcrypt hash) そのものは出さず存在判定 / 長さ / type のみ。Phase 2 後に削除予定。
+	if (key === 'pin_hash') {
+		logger.warn('[AUTH][DEBUG #2335] getSetting pin_hash', {
+			context: {
+				itemFound: !!result.Item,
+				valueIsUndefined: value === undefined,
+				valueIsEmptyString: value === '',
+				valueType: typeof value,
+				valueLen: value?.length ?? -1,
+				tenantIdPrefix: tenantId.slice(0, 12),
+			},
+		});
+	}
+	return value;
 }
 
 /** 設定値を更新（upsert） */
