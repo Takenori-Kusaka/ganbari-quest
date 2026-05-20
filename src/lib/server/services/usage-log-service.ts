@@ -33,9 +33,12 @@ let noopNotified = false;
 function notifyNoopOnce(): void {
 	if (noopNotified) return;
 	noopNotified = true;
-	logger.info('[usage-log] DATA_SOURCE 非 sqlite 環境を検出。no-op fallback で動作 (ADR-0010 Bucket B、#2338)', {
-		context: { dataSource: process.env.DATA_SOURCE ?? 'sqlite' },
-	});
+	logger.info(
+		'[usage-log] DATA_SOURCE 非 sqlite 環境を検出。no-op fallback で動作 (ADR-0010 Bucket B、#2338)',
+		{
+			context: { dataSource: process.env.DATA_SOURCE ?? 'sqlite' },
+		},
+	);
 }
 
 /** テスト専用: notifyNoopOnce の状態リセット */
