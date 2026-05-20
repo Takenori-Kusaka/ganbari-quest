@@ -357,8 +357,17 @@ export const actions: Actions = {
 		const bonus = 'error' in bonusResult ? null : bonusResult;
 
 		// 2. Stamp the card (instant 5pt)
+		// NO_STAMPS_AVAILABLE は onboarding seed 欠落の異常系 → 500 でなく成功 no-op で返し
+		// 子供 home の login bonus は獲得済みのまま継続。本番 5xx を防ぐ defense in depth
+		// (Issue: stamp_masters seed 不在で loginStamp 500 — fix で本ファイル経由でも復旧)
 		const stampResult = await stampToday(childId, tenantId);
 		const stamp = 'error' in stampResult ? null : stampResult;
+
+		if ('error' in stampResult && stampResult.error === 'NO_STAMPS_AVAILABLE') {
+			logger.error('[loginStamp] NO_STAMPS_AVAILABLE — onboarding seed missing', {
+				context: { childId, tenantId },
+			});
+		}
 
 		if (!bonus && !stamp) {
 			return fail(409, { error: 'きょうはもうスタンプをおしたよ！' });
@@ -426,6 +435,12 @@ export const actions: Actions = {
 		if ('error' in result) {
 			if (result.error === 'ALREADY_STAMPED') return fail(409, { error: 'きょうはもうおしたよ' });
 			if (result.error === 'CARD_FULL') return fail(409, { error: 'カードがいっぱいだよ' });
+			if (result.error === 'NO_STAMPS_AVAILABLE') {
+				logger.error('[stampCard] NO_STAMPS_AVAILABLE — onboarding seed missing', {
+					context: { childId, tenantId },
+				});
+				return fail(503, { error: 'いまスタンプをおせません。あとでもういちどためしてね' });
+			}
 			return fail(400, { error: 'スタンプをおせませんでした' });
 		}
 

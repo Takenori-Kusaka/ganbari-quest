@@ -327,6 +327,33 @@ describe('stamp-card-service', () => {
 			expect(result).toEqual({ error: 'NOT_COLLECTING' });
 		});
 
+		// 回帰テスト: stamp_masters seed 不在で本番 loginStamp 500 (2026-05-20 Critical)
+		// 旧来 throw new Error('No enabled stamps available') で 500 を返していたが
+		// graceful な error code に変更
+		it('enabled stamp_masters が 0 件でも throw せず NO_STAMPS_AVAILABLE エラーを返す', async () => {
+			// 全 stamp_masters を無効化 (isEnabled=0) して有効 0 件状態を再現
+			// FK 制約のため delete でなく update で「有効な master 0 件」を作る
+			testDb.update(schema.stampMasters).set({ isEnabled: 0 }).run();
+
+			const result = await stampToday(1, TENANT);
+			expect(result).toEqual({ error: 'NO_STAMPS_AVAILABLE' });
+		});
+
+		it('stamp_masters 0 件 + 既に押印済み → ALREADY_STAMPED が優先される', async () => {
+			// 既に押印済みの状態を作る (stamp master 削除前)
+			const card = await getOrCreateCurrentCard(1, TENANT);
+			insertStampEntry(card.id, 1, 1, '2026-03-30');
+
+			// FK 制約: stamp_entries → stamp_masters のため masters を削除する前に
+			// entries 側を先に消すと entry が消えて ALREADY_STAMPED 判定不能になる。
+			// ここでは stamp_masters を「無効化」して 0 件相当を作る。
+			testDb.update(schema.stampMasters).set({ isEnabled: 0 }).run();
+
+			// 既存 entry の検出が先に発火するため NO_STAMPS_AVAILABLE より先に ALREADY_STAMPED
+			const result = await stampToday(1, TENANT);
+			expect(result).toEqual({ error: 'ALREADY_STAMPED' });
+		});
+
 		it('スタンプにはスタンプマスタの情報が含まれる', async () => {
 			const result = assertSuccess(await stampToday(1, TENANT));
 			expect(typeof result.stamp.stampMasterId).toBe('number');

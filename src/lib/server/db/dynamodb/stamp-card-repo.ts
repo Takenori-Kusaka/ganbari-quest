@@ -1,11 +1,23 @@
 // src/lib/server/db/dynamodb/stamp-card-repo.ts
 // DynamoDB implementation of IStampCardRepo
 //
-// #2263 hotfix: 旧バージョンの未実装エラー throw で本番 500 を引き起こしうるため、
-// Pre-PMF fallback (read = 空 / write = no-op + logger.warn) に置換。
-// スタンプカード機能は本番未活用 (ADR-0010 Pre-PMF Bucket B = まだ作らない)。
+// 経緯:
+// - #2263 hotfix (PR #2280): 旧バージョンの未実装エラー throw で本番 500 を引き起こしうるため、
+//   Pre-PMF fallback (read = 空 / write = no-op + logger.warn) に置換。
+//   当時「スタンプカード機能は本番未活用」と判断していたが誤判定だった。
+// - 後続 Critical (Issue 起票 2026-05-20): 子供 home の自動押印 (`?/loginStamp` action) は本番で
+//   active。findEnabledStampMasters が 0 件を返すと stamp-card-service.stampToday が
+//   `throw new Error('No enabled stamps available')` で POST 500 を返す状態だった。
+//
+// 現在の方針 (Pre-PMF Bucket A):
+// - **read findEnabledStampMasters**: DEFAULT_STAMP_MASTERS_DATA SSOT から 16 件を合成して返す
+//   (本番でも子供 home が動く最小修正、tenant 別カスタマイズ機構なしの Pre-PMF)
+// - **write 系**: no-op + logger.warn を維持 (スタンプ獲得履歴の永続化は別 Issue で実装、
+//   現状は in-memory で押印演出のみ可能、week 跨ぎで履歴消失するが致命的でない)
+// - **その他 read**: 旧 fallback を維持 (空 / undefined)
 
 import { logger } from '$lib/server/logger';
+import { getDefaultStampMasters } from '../stamp-master-defaults';
 import type {
 	InsertStampCardInput,
 	InsertStampEntryInput,
@@ -31,9 +43,17 @@ function warnWrite(method: string, context: Record<string, unknown>): void {
 	});
 }
 
-export async function findEnabledStampMasters(tenantId: string): Promise<StampMaster[]> {
-	warnRead('findEnabledStampMasters', { tenantId });
-	return [];
+/**
+ * 有効な stamp master 一覧を返す。
+ *
+ * Pre-PMF Bucket A: tenant 別カスタマイズ機構は未実装のため
+ * DEFAULT_STAMP_MASTERS_DATA SSOT (16 件) を全 tenant 共通で返す。
+ * これにより本番 cognito Lambda の `?/loginStamp` action POST 500 を回避する
+ * (空配列を返すと stamp-card-service.stampToday が throw する設計のため、
+ *  空でなく default を返すのが最も安全)。
+ */
+export async function findEnabledStampMasters(_tenantId: string): Promise<StampMaster[]> {
+	return getDefaultStampMasters();
 }
 
 export async function findCardByChildAndWeek(
