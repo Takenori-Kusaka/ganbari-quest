@@ -1,3 +1,15 @@
+<!-- ============================================================
+hotfix PR runbook checklist (#2343)
+本 template は priority:critical / hotfix 専用。起票前に下記 5 項目を必ず確認すること。
+[詳細]: docs/sessions/dev-session.md §hotfix PR runbook
+============================================================
+- [ ] Step 1: Skill 雛形 (本 template) を使って起票している (手書き禁止、#2342 教訓)
+- [ ] Step 2: `src/routes/` 変更があり機能仕様変化なし (URL 振替 / fallback / no-op 化) なら `refactor:internal-no-doc-impact` ラベルを起票時に付与した (#2318 / #2340 教訓)
+- [ ] Step 3: 新規 env / secret 追加時は 4 経路 (GitHub Secrets / Lambda / NUC .env / .env.example) すべてに配布証跡を記載した (#2341 教訓)
+- [ ] Step 4: service 層 / route handler で `process.env.X` 直接参照していない、`$lib/runtime/env` 経由化している (ADR-0040 P1、#2342 教訓)
+- [ ] Step 5: `npm run pre-ready -- --pr <num>` 全 Step PASS をローカル確認した、または個別に 4 種 check (`check-pr-body.mjs` / `check-design-doc-sync.mjs` / `check-no-direct-env-access.mjs` / `check-new-required-env.mjs`) 全 PASS を確認した
+============================================================ -->
+
 ## 顧客価値・目的
 
 <!-- priority:critical のバグ修正。ADR-0002 の 5 要件を満たさない PR は merge 拒否。 -->

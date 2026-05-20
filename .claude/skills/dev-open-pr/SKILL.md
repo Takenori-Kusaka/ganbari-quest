@@ -152,8 +152,20 @@ rm tmp/pr-bodies/<num>-<slug>.md
 |---|---|---|
 | `default` | 通常の feat / refactor / docs / infra | （PR template の標準セクションのみ） |
 | `lp` | `site/**` を変更する PR | `lp-metrics 結果` 欄（mobileHeight / desktopHeight / forbiddenTerms） |
-| `critical-fix` | `priority:critical` の bug fix | `ADR-0002 5 要件チェック` 欄（E2E 回帰 / AC 全完了 / 提案全実装 / 5 年齢モード検証 / 直近 30 日重複変更） |
+| `critical-fix` | `priority:critical` / hotfix の bug fix | `ADR-0002 5 要件チェック` 欄 + **hotfix runbook 5 項目チェックリスト (#2343)** (Skill 雛形使用 / `refactor:internal-no-doc-impact` ラベル判断 / env 配布 4 経路 / `$lib/runtime/env` 経由化 / pre-ready 4 種 check) |
 | `refactor-ssot` | SSOT 化 / ファイル移動を伴う refactor | `移動先対応マップ` 欄（旧 path → 新 path、import 更新件数） |
+
+### hotfix PR (priority:critical / hotfix label) で必ず `--kind critical-fix` を使う (#2343)
+
+`hotfix` PR が `--kind default` で起票されると以下 4 種の CI fail が連続発生する (#2318 / #2340 / #2341 / #2342 の root cause、詳細 narrative は `docs/rationale/08-hotfix-pr-ci-fail-prevention.md`):
+
+| fail パターン | 対策 (本 template 内蔵) |
+|---|---|
+| 必須セクション 13 件のうち複数欠落 (#2342) | hotfix runbook checklist の Step 1 (Skill 雛形必須) |
+| `refactor:internal-no-doc-impact` ラベル未付与で design-doc-check fail (#2318 / #2340) | Step 2 (ラベル判断 + 起票時付与) |
+| 新規 env / secret 配布証跡が 4 経路揃わず new-env-distribution-check fail | Step 3 (4 経路明示) |
+| `process.env.X` 直接参照で lint-and-test fail (#2342) | Step 4 (`$lib/runtime/env` 経由) |
+| 設計書同期忘れで design-doc-check fail | Step 5 (pre-ready 4 種 check) |
 
 `--kind` を省略すると `default`。Issue label から推定する自動選択は導入しない（曖昧さによる事故回避、Agent が明示指定する）。
 

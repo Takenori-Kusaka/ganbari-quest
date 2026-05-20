@@ -173,6 +173,98 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /admin/children --presets mobi
 
 QA Review Agent (`qa-session.md` 手順 2) が `gh pr diff` で同種変更を検出し、PR 本文の明記と整合するか照合する。
 
+## hotfix PR runbook（CRITICAL — #2343）
+
+`priority:critical` / `type:fix` の本番 hotfix で `gh pr create` 直前に必ず実行する **5 ステップ最短 checklist**。urgency 文脈で品質ゲート bypass の誘惑を構造的に止める。4 PR 連続 fail (#2318 / #2340 / #2341 / #2342) の root cause narrative は [docs/rationale/08-hotfix-pr-ci-fail-prevention.md](../rationale/08-hotfix-pr-ci-fail-prevention.md) 参照。
+
+### Step 1: Skill 雛形を必ず使う (手書き禁止、#2342 教訓)
+
+```bash
+# critical-fix kind 必須 (ADR-0002 5 要件欄 + hotfix チェックリストが内蔵されている)
+npm run dev:open-pr -- --issue <num> --kind critical-fix
+# → tmp/pr-bodies/<num>-<slug>.md に hotfix runbook 内蔵雛形が出力される
+```
+
+Skill 雛形を使わず `gh pr create` body を手書きすると **必須セクション 13 件のうち複数欠落** → `pr-template-gate.yml` で hard-fail する (#2039 / #2043 / #2342 で連続再発)。
+
+### Step 2: `refactor:internal-no-doc-impact` ラベル判断 (#2318 / #2340 教訓)
+
+`src/routes/` 変更を伴う hotfix で **機能仕様変化なし** (URL 振替 / fallback 値修正 / no-op 化等) の場合は **PR 起票時に同ラベルを付与**:
+
+```bash
+# ラベル付与（PR 起票と同 commit で）
+gh pr create --draft \
+  --title "fix: #<num> ..." \
+  --body-file tmp/pr-bodies/<num>-<slug>.md \
+  --label "refactor:internal-no-doc-impact"
+```
+
+判定基準 (ADR-0003 §4.1 / #1985):
+- 機能仕様変化なし (UI / API 表面の挙動が同一)
+- リテラル置換 / atom-compound 階層化 / fallback 値変更 のみ
+- 設計書 `docs/design/` の追記が形式的になる
+
+該当しない場合 (新規 API / UI 変化あり / DB スキーマ変更) は `docs/design/` 同期更新を **同一 PR 内** で行う (ADR-0001 / `docs/CLAUDE.md` 「設計書更新ルール」)。
+
+### Step 3: env 配布証跡 4 経路 (ADR-0006 / #2341 教訓)
+
+新規 env / secret 追加時は `## 配布済み env / secret (ADR-0006)` セクションに **4 経路全て** 列挙:
+
+```markdown
+## 配布済み env / secret (ADR-0006)
+
+- 配布済み: <ENV_NAME> → GitHub Actions Secrets (`gh secret set <ENV_NAME> --body <value>`)
+- 配布済み: <ENV_NAME> → AWS Lambda env (`infra/lib/compute-stack.ts` で CDK SSOT 化)
+- 配布済み: <ENV_NAME> → NUC `.env` 自動生成 (`.github/workflows/deploy-nuc.yml`)
+- 配布済み: <ENV_NAME> → `.env.example` 説明 + 生成コマンド整備
+```
+
+未配布の経路があると `scripts/check-new-required-env.mjs` が hard-fail。検出 regex は 3 自然語パターン (`env var` / `environment variable` / `secret`) を網羅 (#2337 で強化)。
+
+### Step 4: env 直接参照禁止 (ADR-0040 P1 / #2342 教訓)
+
+service 層 / route handler で `process.env.X` 直接参照禁止。必ず `$lib/runtime/env` 経由:
+
+```typescript
+// NG (lint-and-test fail)
+const source = process.env.DATA_SOURCE;
+
+// OK (ADR-0040 P1 整合)
+import { getEnv } from '$lib/runtime/env';
+const source = getEnv().DATA_SOURCE;
+```
+
+ローカル検出: `node scripts/check-no-direct-env-access.mjs` を pre-push で必ず実行 (本 Step 5 の pre-push 4 種統合に含まれる)。
+
+### Step 5: pre-push 4 種統合 (Ready 化前必須)
+
+`gh pr ready <num>` の直前に以下 4 種を順次実行し全 PASS を確認:
+
+```bash
+# 1. PR body 全体検証 (必須セクション 13 件 / AC マップ 4 列 / 禁止語 / Ready チェックリスト)
+node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<num>-<slug>.md --skip-mergeable
+
+# 2. 設計書同期 (src/routes/ 変更時に docs/design/ 同期 or label exempt 確認)
+PR_FILES="$(gh pr diff <num> --name-only)" \
+PR_LABELS="$(gh pr view <num> --json labels --jq '[.labels[].name] | join(",")')" \
+node scripts/check-design-doc-sync.mjs
+
+# 3. env 直接参照禁止 (ADR-0040 P1)
+node scripts/check-no-direct-env-access.mjs
+
+# 4. 新規 env 配布証跡 (ADR-0006)
+node scripts/check-new-required-env.mjs
+```
+
+または `npm run pre-ready -- --pr <num>` で 10 step 一括 (ADR-0030)。Step 9 = `check-pr-body.mjs` で gate 1+2+3 を網羅。**hotfix 緊急時こそ pre-ready を回す**。
+
+### hotfix runbook の禁忌
+
+- **CI gate を `priority:critical` で自動 exempt** → ADR-0002 §4 違反 (Critical でも品質ゲート省略禁止)
+- **「後で別 PR で本実装」前提の hotfix** → 段階的リリース禁止 (次節)。stub / no-op merge は禁止
+- **`gh pr ready` 後の env 直接参照修正** → 必ず Draft 段階で修正、Ready 後の再 push で QM レビューラウンドを増やさない
+- **`docs/sessions/dev-session.md` 本 hotfix runbook の skip** → 4 PR 連続 fail (#2343) と同パターンの再発
+
 ## 段階的リリース禁止（CRITICAL — #1012 / #1021）
 
 `main` への merge は即 Lambda 本番反映。**段階的・漸進的実装は禁止**。
