@@ -79,10 +79,13 @@ export default async (page, capture) => {
 	await page.keyboard.type('1', { delay: 100 });
 	await page.keyboard.type('2', { delay: 100 });
 	// 2 桁目入力後、3 桁目 input が focus 状態になる (PinInput 自動 advance) のを deterministic に待つ
-	await page.locator('input[inputmode="numeric"]:nth-of-type(3):focus').waitFor({
-		state: 'attached',
-		timeout: 5_000,
-	}).catch(() => {});
+	await page
+		.locator('input[inputmode="numeric"]:nth-of-type(3):focus')
+		.waitFor({
+			state: 'attached',
+			timeout: 5_000,
+		})
+		.catch(() => {});
 	await capture('parent-gate-modal-typing');
 
 	// === 状態 3: invalid PIN error (4 桁誤入力後の alert) ===
@@ -95,7 +98,7 @@ export default async (page, capture) => {
 	await page.waitForFunction(
 		() => {
 			const el = document.querySelector('[data-testid="parent-gate-error"]');
-			return !!(el && el.textContent && el.textContent.trim().length > 0);
+			return !!(el?.textContent && el.textContent.trim().length > 0);
 		},
 		{ timeout: 5_000 },
 	);
@@ -135,7 +138,7 @@ export default async (page, capture) => {
 	await page.waitForFunction(
 		() => {
 			const el = document.querySelector('[data-testid="parent-gate-error"]');
-			return !!(el && el.textContent && el.textContent.trim().length > 0);
+			return !!(el?.textContent && el.textContent.trim().length > 0);
 		},
 		{ timeout: 5_000 },
 	);
