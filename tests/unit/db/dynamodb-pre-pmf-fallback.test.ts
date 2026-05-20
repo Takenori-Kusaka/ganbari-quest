@@ -229,7 +229,13 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 
 	describe('stamp-card-repo', () => {
 		it('全 method が throw しない', async () => {
-			await expect(stampCardRepo.findEnabledStampMasters(TENANT)).resolves.toEqual([]);
+			// findEnabledStampMasters は本番 loginStamp 500 を防ぐため
+			// DEFAULT_STAMP_MASTERS_DATA SSOT (16 件) を返す (空配列を返すと service が
+			// 'No enabled stamps available' で 500 を返していた 2026-05-20 Critical の回避策)
+			const stamps = await stampCardRepo.findEnabledStampMasters(TENANT);
+			expect(stamps.length).toBe(16);
+			expect(stamps.every((s) => s.isEnabled === 1)).toBe(true);
+			expect(stamps.every((s) => ['N', 'R', 'SR', 'UR'].includes(s.rarity))).toBe(true);
 			await expect(
 				stampCardRepo.findCardByChildAndWeek(1, '2026-05-12', TENANT),
 			).resolves.toBeUndefined();

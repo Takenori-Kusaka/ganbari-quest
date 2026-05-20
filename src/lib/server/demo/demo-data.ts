@@ -37,6 +37,7 @@ import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import type { DailyBattleRow } from '$lib/server/db/interfaces/battle-repo.interface';
+import { getDefaultStampMasters } from '$lib/server/db/stamp-master-defaults';
 import type {
 	Activity,
 	ActivityLog,
@@ -3084,7 +3085,7 @@ export function getDemoMarketplaceSpecialRewardsByChild(childId: number): Specia
 // ============================================================
 // Stamp Cards (#2097 Phase B-2)
 // ============================================================
-// production seed (src/lib/server/db/seed.ts) と同じ 16 種を fixture 化。
+// stamp_masters SSOT: src/lib/server/db/stamp-master-defaults.ts (16 種)
 // rarity 別出現確率: N 60% / R 25% / SR 12% / UR 3% (stamp-card-service.ts §RARITY_WEIGHTS)
 //
 // baby (901) は ADR-0011 によりスタンプカード非表示。
@@ -3096,172 +3097,7 @@ export function getDemoMarketplaceSpecialRewardsByChild(childId: number): Specia
 // 当週カード ID = 7xx, 前週カード ID = 8xx, entry ID = card_id * 10 + slot
 // child 別 fillCount (当週): 902=2, 903=3, 904=4, 906=4 (年齢/活発度に応じて段階)
 
-export const DEMO_STAMP_MASTERS: StampMaster[] = [
-	// Normal (5)
-	{
-		id: 1,
-		name: 'にこにこ',
-		emoji: '😊',
-		rarity: 'N',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 2,
-		name: 'グッジョブ',
-		emoji: '👍',
-		rarity: 'N',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 3,
-		name: 'スター',
-		emoji: '⭐',
-		rarity: 'N',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 4,
-		name: 'ハート',
-		emoji: '❤️',
-		rarity: 'N',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 5,
-		name: 'がんばった',
-		emoji: '💪',
-		rarity: 'N',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	// Rare (5)
-	{
-		id: 6,
-		name: 'ロケット',
-		emoji: '🚀',
-		rarity: 'R',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 7,
-		name: 'おうかん',
-		emoji: '👑',
-		rarity: 'R',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 8,
-		name: 'トロフィー',
-		emoji: '🏆',
-		rarity: 'R',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 9,
-		name: 'にじ',
-		emoji: '🌈',
-		rarity: 'R',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 10,
-		name: 'たいよう',
-		emoji: '☀️',
-		rarity: 'R',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	// Super Rare (4)
-	{
-		id: 11,
-		name: 'ドラゴン',
-		emoji: '🐉',
-		rarity: 'SR',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 12,
-		name: 'ユニコーン',
-		emoji: '🦄',
-		rarity: 'SR',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 13,
-		name: 'たからばこ',
-		emoji: '📦',
-		rarity: 'SR',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 14,
-		name: 'まほうのつえ',
-		emoji: '🪄',
-		rarity: 'SR',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	// Ultra Rare (2)
-	{
-		id: 15,
-		name: 'でんせつのけん',
-		emoji: '⚔️',
-		rarity: 'UR',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-	{
-		id: 16,
-		name: 'きせきのほし',
-		emoji: '🌟',
-		rarity: 'UR',
-		isDefault: 1,
-		isEnabled: 1,
-		createdAt: NOW,
-		updatedAt: NOW,
-	},
-];
+export const DEMO_STAMP_MASTERS: StampMaster[] = getDefaultStampMasters(NOW);
 
 // 週境界: demo TODAY=2026-03-27 (Fri) → weekStart=2026-03-23 / weekEnd=2026-03-29
 // 前週: weekStart=2026-03-16 / weekEnd=2026-03-22

@@ -176,7 +176,7 @@ export async function stampToday(
 	childId: number,
 	tenantId: string,
 ): Promise<
-	| { error: 'ALREADY_STAMPED' | 'CARD_FULL' | 'NOT_COLLECTING' }
+	| { error: 'ALREADY_STAMPED' | 'CARD_FULL' | 'NOT_COLLECTING' | 'NO_STAMPS_AVAILABLE' }
 	| { stamp: StampEntryData; cardData: StampCardData; instantPoints: number }
 > {
 	const today = todayDateJST();
@@ -197,9 +197,15 @@ export async function stampToday(
 	}
 
 	// ランダムスタンプを選出（レアリティで抽選）
+	// 防御層: 万一 stamp master が 0 件でも throw せず error code で gracefully return
+	// (本来 dynamodb fallback / sqlite seed / demo fixture すべてに 16 件配備されており
+	//  ここに到達するのは onboarding 未完了 tenant 等の異常系のみ)
 	const enabledStamps = await getEnabledStamps(tenantId);
 	if (enabledStamps.length === 0) {
-		throw new Error('No enabled stamps available');
+		logger.error('[stamp] enabledStamps is empty — onboarding seed missing?', {
+			context: { childId, tenantId },
+		});
+		return { error: 'NO_STAMPS_AVAILABLE' };
 	}
 	const picked = pickRandomStamp(enabledStamps);
 	const omikujiRank = pickOmikujiRank(picked.rarity);
