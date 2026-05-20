@@ -57,6 +57,26 @@ docs/ 配下の変更ファイル数が **50 超で QM 警告、100 超で BLOCK
 
 免除: Dependabot / docs-only 同士
 
+## issue-close-gate auto-reopen の挙動（ADR-0004 §4 / #2351）
+
+`.github/workflows/issue-close-gate.yml` は **手動 close** のみを AC 検証対象とし、**PR/Commit 経由 auto-close は skip** する (2026-05-21 改修):
+
+| close 経路 | gate 挙動 |
+|---|---|
+| PR の `closes #N` で auto-close | **skip** (PR Ready チェックリストで検証済み) |
+| squash merge commit message の `closes #N` で auto-close | **skip** (PR 経由と同等) |
+| `gh issue close` / GitHub UI ボタンで手動 close | **AC 検証 gate を通す** (`- [ ]` 残存で reopen) |
+| `wontfix` / `duplicate` ラベル付き close | **skip** (従来通り) |
+
+判定純粋関数: `scripts/issue-close-gate-skip-judge.mjs` (unit test 11 ケース: `tests/unit/github/issue-close-gate-skip-judge.test.ts`)。
+
+### 運用への影響
+
+- **PR merge 後の Issue auto-close**: 旧挙動では generic Done check (`- [ ]` 5 行) が残ったまま reopen ループしていたが、改修後は AC gate を素通り → reopen 発生せず
+- **手動 close (`gh issue close <N>`)**: 引き続き AC 検証 gate を通す。意図的な残存は `wontfix` / `duplicate` ラベルで bypass
+
+詳細: [ADR-0004 §4](../docs/decisions/0004-review-and-ac-verification.md)
+
 ## レビュー必須化 + QM Approve 体制（ADR-0022 / #1481）
 
 - `required_approving_review_count=1` 強制。Copilot の `COMMENTED` は APPROVED にならない
