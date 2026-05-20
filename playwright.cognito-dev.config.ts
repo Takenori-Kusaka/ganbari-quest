@@ -20,8 +20,10 @@ export default defineConfig({
 	// #1497: upgrade-checkout の Stripe Checkout インターセプト spec を追加
 	// #1500: plan 別 storageState プロジェクトで loginAsPlan() を撤廃
 	// #1535: upgrade-checkout を tests/e2e/integration/ に移動
+	// #2346 / #2347 (EPIC #2345): stripe-checkout-labels / stripe-checkout-monthly-yearly を追加
+	//   (景表法対応 + 月額/年額切替 + 年額表示強化、test.use({ storageState: 'playwright/.auth/free.json' }) 使用)
 	testMatch:
-		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|parent-gate|integration\/upgrade-checkout)\.spec\.ts$/,
+		/(cognito-auth|plan-gated-features|plan-standard|plan-family|plan-free|premium-welcome|trial-flow|ops-license|ops-license-issue|upgrade-flow|pricing-page-signup|trial-banner-display|account-deletion|notification-permission-banner|parent-gate|integration\/upgrade-checkout|integration\/stripe-checkout-labels|integration\/stripe-checkout-monthly-yearly)\.spec\.ts$/,
 	fullyParallel: true,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 1,
