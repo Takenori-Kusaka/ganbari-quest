@@ -30,7 +30,8 @@ import { warmupAdminPages } from './plan-login-helpers';
 
 test.beforeAll(async ({ browser }) => {
 	test.setTimeout(60_000);
-	await warmupAdminPages(browser, ['/admin/settings']);
+	// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+	await warmupAdminPages(browser, ['/admin/settings/account']);
 });
 
 // ============================================================
@@ -167,7 +168,8 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）famil
 	test('owner ログインで /admin/settings にアカウント削除セクションが表示される', async ({
 		page,
 	}) => {
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
+		// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
 
 		// cognito モードではアカウント削除セクションが表示される
 		const deleteSection = page.getByText('アカウント削除');
@@ -191,7 +193,8 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）famil
 	});
 
 	test('owner ログインで削除ボタンは確認テキスト未入力で無効', async ({ page }) => {
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
+		// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
 
 		const deleteSection = page.getByText('アカウント削除');
 		const deleteSectionCount = await deleteSection.count();
@@ -218,7 +221,8 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）free'
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランの owner でもアカウント削除セクションが表示される', async ({ page }) => {
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
+		// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
 
 		const deleteSection = page.getByText('アカウント削除');
 		const deleteSectionCount = await deleteSection.count();
@@ -247,7 +251,8 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 	test('owner が削除を試行すると他メンバーがいる場合は移譲ダイアログが表示される', async ({
 		page,
 	}) => {
-		await page.goto('/admin/settings', { waitUntil: 'commit', timeout: 30_000 });
+		// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
+		await page.goto('/admin/settings/account', { waitUntil: 'commit', timeout: 30_000 });
 
 		// 前提条件: アカウント削除セクションが表示されること
 		const deleteSection = page.getByText('アカウント削除');

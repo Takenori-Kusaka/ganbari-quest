@@ -64,7 +64,10 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const { actions } = await import('../../../src/routes/(parent)/admin/settings/+page.server');
+// #2322 (EPIC #2319 ③): updateSiblingSettings action は /admin/settings/activities/+page.server.ts に移行
+const { actions } = await import(
+	'../../../src/routes/(parent)/admin/settings/activities/+page.server'
+);
 
 // ---------- helpers ----------
 

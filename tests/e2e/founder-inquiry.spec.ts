@@ -67,12 +67,13 @@ test.describe('#1594 founder 直接相談 (/inquiry/founder)', () => {
 		await expect(page.getByTestId('founder-inquiry-success')).toBeVisible({ timeout: 5000 });
 	});
 
-	test('admin/settings に founder CTA が表示される', async ({ page }) => {
+	test('admin/settings/support に founder CTA が表示される', async ({ page }) => {
 		// E2E は AUTH_MODE=local 前提。`admin-settings-export-gate.spec.ts` 等と同じ想定で
 		// 直接アクセスし、認証は通る前提で進める（ローカルでは plan-limit-service の
 		// 早期 return で family プラン相当となり 200 OK で返る）。
+		// #2324 (EPIC #2319 ⑤): founder inquiry CTA は /admin/settings/support に移行済
 		test.slow(); // Vite dev コールドコンパイル
-		await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+		await page.goto('/admin/settings/support', { waitUntil: 'domcontentloaded' });
 
 		// PremiumWelcome dialog が出ることがあるので閉じる
 		const welcomeBtn = page.getByRole('button', { name: /さっそく始める/ });

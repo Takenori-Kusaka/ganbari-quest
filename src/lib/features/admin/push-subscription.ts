@@ -82,8 +82,14 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
 	return subscription;
 }
 
-/** プッシュ通知の購読を解除 */
-async function _unsubscribeFromPush(): Promise<boolean> {
+/**
+ * プッシュ通知の購読を解除。
+ * #2320 (EPIC #2319 ①): /admin/settings/notifications/+page.svelte の通知 toggle UI で
+ * 利用するため public export に変更。旧 plain `<script>` ブロックでは dynamic import が
+ * 型チェック対象外で通っていたが、Svelte 5 では `<script lang="ts">` 統合 + onMount 内
+ * dynamic import になるため export 公開が必要。
+ */
+export async function unsubscribeFromPush(): Promise<boolean> {
 	if (!isPushSupported()) return false;
 
 	const registration = await navigator.serviceWorker.ready;

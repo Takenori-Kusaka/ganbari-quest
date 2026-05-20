@@ -46,8 +46,9 @@ test.describe('#779 standard プラン — 機能疎通', () => {
 		await expect(page.getByTestId('weekly-report-upsell')).toHaveCount(0);
 	});
 
-	test('/admin/settings — エクスポートボタンが有効化されている', async ({ page }) => {
-		await page.goto('/admin/settings');
+	test('/admin/settings/data — エクスポートボタンが有効化されている', async ({ page }) => {
+		// #2323 (EPIC #2319 ④): data 管理 UI は /admin/settings/data に移行済
+		await page.goto('/admin/settings/data');
 		await expect(page.getByTestId('data-export-section')).toBeVisible();
 		// free 用アップセルは出ない
 		await expect(page.getByTestId('export-upsell')).toHaveCount(0);

@@ -49,8 +49,9 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await expect(page.getByTestId('weekly-report-upsell')).toBeVisible();
 	});
 
-	test('/admin/settings — エクスポートはアップセル表示で disabled', async ({ page }) => {
-		await page.goto('/admin/settings');
+	test('/admin/settings/data — エクスポートはアップセル表示で disabled', async ({ page }) => {
+		// #2323 (EPIC #2319 ④): data 管理 UI は /admin/settings/data に移行済
+		await page.goto('/admin/settings/data');
 		// free 用アップセルカードが見える
 		await expect(page.getByTestId('export-upsell')).toBeVisible();
 		// data-export-button 自体は disabled 状態（hidden ではなく見せたうえで操作不可）

@@ -8,13 +8,15 @@
 // Free プランの upsell UI の仕様は `tests/unit/routes/admin-settings-export-gate.test.ts`
 // でサーバ load が canExport=false / maxCloudExports=0 を返すことを検証済み。
 // 本 E2E は「その値を受けた Svelte テンプレートが期待どおりに描画されるか」の保証に徹する。
+//
+// #2323 (EPIC #2319 ④): data 管理 UI は /admin/settings/data に移行済。
 
 import { expect, test } from '@playwright/test';
 
-test.describe('#773 /admin/settings エクスポート UI (paid path)', () => {
+test.describe('#773 /admin/settings/data エクスポート UI (paid path)', () => {
 	test.beforeEach(async ({ page }) => {
 		test.slow(); // Vite dev コールドコンパイル
-		await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+		await page.goto('/admin/settings/data', { waitUntil: 'domcontentloaded' });
 	});
 
 	test('有料プラン相当の local モードではデータエクスポートボタンが有効', async ({ page }) => {

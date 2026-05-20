@@ -61,7 +61,9 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-const { load } = await import('../../../src/routes/(parent)/admin/settings/+page.server');
+// #2323 (EPIC #2319 ④): data 関連 load (canExport / maxCloudExports / dataSummary) は
+//   /admin/settings/data/+page.server.ts に移行
+const { load } = await import('../../../src/routes/(parent)/admin/settings/data/+page.server');
 
 // ---------- helpers ----------
 

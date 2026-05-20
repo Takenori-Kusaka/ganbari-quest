@@ -19,6 +19,9 @@ export type SetupFunnelEvent =
 	// #2298 (EPIC #2294 ④): 家族チャレンジ一括追加 step
 	| 'setup_challenges_selected'
 	| 'setup_challenges_skipped'
+	// #2322 (EPIC #2319 ③): 活動・ポイント設定の初期値投入 step
+	| 'setup_activities_defaults_applied'
+	| 'setup_activities_defaults_skipped'
 	| 'setup_first_adventure_completed'
 	| 'setup_first_adventure_skipped'
 	| 'setup_completed'
