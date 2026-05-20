@@ -47,29 +47,25 @@ for (const arg of process.argv.slice(2)) {
 const baseRef = process.env.BASE_REF || BASE_REF;
 
 /**
- * Get git diff vs base ref. Returns the unified diff as a string.
+ * Run `git diff <range>` and return the unified diff as a string.
  *
- * CI モード (PR_BODY あり): `git diff <base>...HEAD` でコミット済みのみ比較
- * ローカルモード (PR_BODY なし): `git diff <base>` で staged + working tree を比較。
- *   `git diff` は untracked file を含まないため、`git status --porcelain` で
- *   untracked を検出して `git diff --no-index /dev/null <path>` で追加行として合成する。
- *   これによりローカルでも `git add` 前の新規 guard ファイルを取りこぼさない。
+ * Fail-closed (ADR-0029): CI モード (PR_BODY あり) で git diff が失敗した場合は exit 2。
+ * ローカルモードでは warn + `null` を返し、呼び出し側で fallback させる。
  *
- * Fail-closed (ADR-0029): CI モードで git diff が失敗した場合は exit 2。
- * ローカルモードでは warn + 空文字列を返す (ローカル開発の利便性のため)。
+ * @param {string} range
+ * @returns {string | null}
  */
-function getDiff() {
-	const range = PR_BODY ? `${baseRef}...HEAD` : baseRef;
-	let diff;
+function runGitDiff(range) {
 	try {
 		// 新規ファイル (staged) 含む全 diff (--no-renames で確実に追加行として検出)
 		// execFileSync で arg-array 渡し → shell metachar 注入リスクを排除
-		diff = execFileSync('git', ['diff', '--no-renames', range], {
+		return execFileSync('git', ['diff', '--no-renames', range], {
 			encoding: 'utf-8',
 			maxBuffer: 50 * 1024 * 1024,
 		});
 	} catch (err) {
-		const msg = `[check-new-required-env] could not git diff against ${range}: ${err.message}`;
+		const errMsg = err instanceof Error ? err.message : String(err);
+		const msg = `[check-new-required-env] could not git diff against ${range}: ${errMsg}`;
 		if (PR_BODY) {
 			// CI モード: fail-closed (ADR-0029) — 検出を素通りさせない
 			console.error(msg);
@@ -80,53 +76,88 @@ function getDiff() {
 		console.warn(
 			'[check-new-required-env] skipping check (local mode, likely new repo or shallow clone)',
 		);
+		return null;
+	}
+}
+
+/**
+ * Append synthesized unified diff for untracked files (local mode only).
+ *
+ * `git diff` は untracked file を含まないため、`git status --porcelain` で
+ * untracked を検出してファイル内容から追加行を合成する。
+ * これによりローカルでも `git add` 前の新規 guard ファイルを取りこぼさない。
+ *
+ * `git diff --no-index /dev/null <path>` は Windows (NUL) との互換性が
+ * 不安定なため、git に頼らず純粋にファイル内容から組み立てる。
+ *
+ * @param {string} diff
+ * @returns {string}
+ */
+function appendUntrackedFiles(diff) {
+	let result = diff;
+	try {
+		const status = execFileSync('git', ['status', '--porcelain'], {
+			encoding: 'utf-8',
+			maxBuffer: 10 * 1024 * 1024,
+		});
+		const untracked = status
+			.split('\n')
+			.filter((l) => l.startsWith('?? '))
+			.map((l) => l.slice(3));
+		for (const path of untracked) {
+			try {
+				const stat = statSync(path);
+				if (stat.isDirectory()) continue; // ディレクトリは扱わない
+				const content = readFileSync(path, 'utf-8');
+				const lines = content.split('\n');
+				// 末尾の空行を除外（split('\n') が末尾に空文字列を残すため）
+				if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+				const lineCount = lines.length;
+				const header =
+					`diff --git a/${path} b/${path}\n` +
+					`new file mode 100644\n` +
+					`--- /dev/null\n` +
+					`+++ b/${path}\n` +
+					`@@ -0,0 +1,${lineCount} @@\n`;
+				const body = lines.map((l) => `+${l}`).join('\n');
+				result += `${header + body}\n`;
+			} catch (e) {
+				console.warn(
+					`[check-new-required-env] could not read untracked ${path}: ${e instanceof Error ? e.message : String(e)}`,
+				);
+			}
+		}
+	} catch (e) {
+		console.warn(
+			`[check-new-required-env] could not enumerate untracked files: ${e instanceof Error ? e.message : String(e)}`,
+		);
+	}
+	return result;
+}
+
+/**
+ * Get git diff vs base ref. Returns the unified diff as a string.
+ *
+ * CI モード (PR_BODY あり): `git diff <base>...HEAD` でコミット済みのみ比較
+ * ローカルモード (PR_BODY なし): `git diff <base>` で staged + working tree を比較し、
+ *   さらに untracked file を合成して追加。
+ *
+ * Orchestration only: calls `runGitDiff()` and optionally `appendUntrackedFiles()`
+ * based on mode (CI vs local).
+ *
+ * @returns {string}
+ */
+function getDiff() {
+	const range = PR_BODY ? `${baseRef}...HEAD` : baseRef;
+	const diff = runGitDiff(range);
+	if (diff === null) {
+		// ローカルモードで git diff 失敗 → 空文字列を返して check を skip
 		return '';
 	}
-
 	// ローカルモードのみ untracked を補完 (CI モードはコミット済みしか見ない)
 	if (!PR_BODY) {
-		try {
-			const status = execFileSync('git', ['status', '--porcelain'], {
-				encoding: 'utf-8',
-				maxBuffer: 10 * 1024 * 1024,
-			});
-			const untracked = status
-				.split('\n')
-				.filter((l) => l.startsWith('?? '))
-				.map((l) => l.slice(3));
-			for (const path of untracked) {
-				// untracked ファイル内容を読み込み、unified diff フォーマットを合成する。
-				// `git diff --no-index /dev/null <path>` は Windows (NUL) との互換性が
-				// 不安定なため、git に頼らず純粋にファイル内容から組み立てる。
-				try {
-					const stat = statSync(path);
-					if (stat.isDirectory()) continue; // ディレクトリは扱わない
-					const content = readFileSync(path, 'utf-8');
-					const lines = content.split('\n');
-					// 末尾の空行を除外（split('\n') が末尾に空文字列を残すため）
-					if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-					const lineCount = lines.length;
-					const header =
-						`diff --git a/${path} b/${path}\n` +
-						`new file mode 100644\n` +
-						`--- /dev/null\n` +
-						`+++ b/${path}\n` +
-						`@@ -0,0 +1,${lineCount} @@\n`;
-					const body = lines.map((l) => `+${l}`).join('\n');
-					diff += `${header + body}\n`;
-				} catch (e) {
-					console.warn(
-						`[check-new-required-env] could not read untracked ${path}: ${e instanceof Error ? e.message : String(e)}`,
-					);
-				}
-			}
-		} catch (e) {
-			console.warn(
-				`[check-new-required-env] could not enumerate untracked files: ${e instanceof Error ? e.message : String(e)}`,
-			);
-		}
+		return appendUntrackedFiles(diff);
 	}
-
 	return diff;
 }
 
