@@ -1531,6 +1531,8 @@ export const SETTINGS_NAV_LABELS = {
 	data: 'データ',
 	support: 'サポート',
 	plan: 'プラン・課金',
+	externalIndicator: '別ページ',
+	externalIndicatorHub: '別ページへ',
 } as const;
 
 export const LICENSE_PAGE_LABELS = {

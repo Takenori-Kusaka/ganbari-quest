@@ -8,7 +8,7 @@
 
 import { page } from '$app/stores';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
-import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS, SETTINGS_NAV_LABELS } from '$lib/domain/labels';
 import ErrorAlert from '$lib/ui/components/ErrorAlert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -146,7 +146,7 @@ async function handleReactivate() {
 					<h3 class="settings-hub__card-title">
 						{group.title}
 						{#if group.external}
-							<span class="settings-hub__card-external" aria-label="別ページへ">↗</span>
+							<span class="settings-hub__card-external" aria-label={SETTINGS_NAV_LABELS.externalIndicatorHub}>↗</span>
 						{/if}
 					</h3>
 					<p class="settings-hub__card-desc">{group.desc}</p>

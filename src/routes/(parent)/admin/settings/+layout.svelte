@@ -74,7 +74,7 @@ function isActive(item: NavItem): boolean {
 					<span aria-hidden="true">{item.icon}</span>
 					<span class="settings-subnav__label">{item.label}</span>
 					{#if item.external}
-						<span class="settings-subnav__external" aria-label="別ページ">↗</span>
+						<span class="settings-subnav__external" aria-label={SETTINGS_NAV_LABELS.externalIndicator}>↗</span>
 					{/if}
 				</a>
 			</li>

@@ -212,8 +212,9 @@ test.describe('#755 アカウント削除 — UI（cognito-dev モード）famil
 
 		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
 
-		// 確認テキスト入力前は削除ボタンが disabled
-		const deleteButton = page.getByRole('button', { name: /削除する|退会する/ }).first();
+		// Step 1+2 (確認テキスト + 同意 checkbox) 入力前は削除ボタンが disabled
+		// #2319 EPIC Danger Zone 3-step ガード対応
+		const deleteButton = page.getByTestId('account-danger-execute-button');
 		await expect(deleteButton).toBeVisible({ timeout: 5_000 });
 		await expect(deleteButton).toBeDisabled();
 	});
@@ -271,13 +272,18 @@ test.describe('#755 権限移譲ダイアログ — UI', () => {
 
 		await expect(deleteSection.first()).toBeVisible({ timeout: 15_000 });
 
-		// 確認テキストを入力
+		// Step 1: 確認テキストを入力
 		const confirmInput = page.locator('#deleteConfirm');
 		await expect(confirmInput).toBeVisible({ timeout: 5_000 });
 		await confirmInput.fill('アカウントを削除します');
 
-		// 削除ボタンが有効化されていることを確認してクリック
-		const deleteButton = page.getByRole('button', { name: /削除する|退会する/ }).first();
+		// Step 2: 同意チェックボックス (#2319 EPIC Danger Zone 3-step ガード)
+		const agreeCheckbox = page.getByTestId('account-danger-agree-checkbox');
+		await expect(agreeCheckbox).toBeVisible({ timeout: 5_000 });
+		await agreeCheckbox.check();
+
+		// Step 3: 実行ボタンが有効化されていることを確認してクリック
+		const deleteButton = page.getByTestId('account-danger-execute-button');
 		await expect(deleteButton).toBeEnabled({ timeout: 3_000 });
 		await deleteButton.click();
 
