@@ -248,6 +248,7 @@ export function detectNewRequiredEnvs(addedLines) {
 	const throwBlockRe = /throw\s+new\s+Error\s*\(\s*([\s\S]*?)\)/g;
 	for (const m of fullText.matchAll(throwBlockRe)) {
 		const errorBody = m[1];
+		if (!errorBody) continue;
 		// 同一エラーボディ内に複数 env 名が含まれる可能性があるので global で探す
 		for (const em of errorBody.matchAll(new RegExp(envInStringRe.source, 'g'))) {
 			found.add(em[1]);
@@ -257,6 +258,7 @@ export function detectNewRequiredEnvs(addedLines) {
 	// 行単位で処理する Pattern A / C
 	for (let i = 0; i < addedLines.length; i++) {
 		const line = addedLines[i];
+		if (!line) continue;
 
 		// Pattern A: assertXxxConfigured — 同 PR 内の関数定義 or 呼び出し
 		const fnMatch = line.match(assertFnRe);
@@ -353,13 +355,16 @@ function main() {
 		console.error('PR 本文に次の形式で配布済み証跡を記載してください:');
 		console.error('');
 		console.error('  ## 配布済み env / secret (ADR-0029)');
-		console.error(
-			`  - 配布済み: ${missing[0]} → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)`,
-		);
-		console.error(
-			`  - 配布済み: ${missing[0]} → SSM Parameter Store /ganbari-quest/prod/${missing[0].toLowerCase()}`,
-		);
-		console.error(`  - 配布済み: ${missing[0]} → NUC .env (本機 + バックアップ機)`);
+		const firstMissing = missing[0];
+		if (firstMissing) {
+			console.error(
+				`  - 配布済み: ${firstMissing} → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)`,
+			);
+			console.error(
+				`  - 配布済み: ${firstMissing} → SSM Parameter Store /ganbari-quest/prod/${firstMissing.toLowerCase()}`,
+			);
+			console.error(`  - 配布済み: ${firstMissing} → NUC .env (本機 + バックアップ機)`);
+		}
 		console.error('');
 		console.error('See: docs/decisions/0006-safety-assertion-erosion-ban.md');
 		process.exit(1);
@@ -373,9 +378,10 @@ function main() {
 
 // CLI 起動時のみ main を呼ぶ。`import { detectNewRequiredEnvs }` 経由のテスト時は呼ばない。
 // (#2337 / Issue #2337 AC: regex unit test 追加のため export 化、CLI 互換性維持)
+const argv1 = process.argv[1];
 const isDirectInvocation =
-	import.meta.url === `file://${process.argv[1]}` ||
-	import.meta.url.endsWith(process.argv[1]?.replace(/\\/g, '/'));
+	!!argv1 &&
+	(import.meta.url === `file://${argv1}` || import.meta.url.endsWith(argv1.replace(/\\/g, '/')));
 if (isDirectInvocation) {
 	main();
 }
