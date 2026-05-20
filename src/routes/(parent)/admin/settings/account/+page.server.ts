@@ -9,7 +9,7 @@ import { changePin } from '$lib/server/services/auth-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	// account は #1781 削除グレースピリオド bannar 用 data を $page.data から
+	// account は #1781 削除グレースピリオド banner 用 data を $page.data から
 	// 参照するため、ここでは追加 load 不要。
 	return {};
 };
