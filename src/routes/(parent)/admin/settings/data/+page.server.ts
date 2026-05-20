@@ -59,7 +59,7 @@ export const actions = {
 
 		try {
 			const result = await clearAllFamilyData(tenantId);
-			logger.info(`[data-clear] テナント ${tenantId} のデータクリア完了`);
+			logger.info(`[data-clear] 家庭 ${tenantId} のデータクリア完了`);
 			return { clearSuccess: true, cleared: result.deleted };
 		} catch (err) {
 			logger.error('[data-clear] データクリア失敗', { error: String(err) });

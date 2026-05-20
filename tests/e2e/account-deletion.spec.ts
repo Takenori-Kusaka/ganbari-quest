@@ -29,7 +29,10 @@ import { expect, test } from '@playwright/test';
 import { warmupAdminPages } from './plan-login-helpers';
 
 test.beforeAll(async ({ browser }) => {
-	test.setTimeout(60_000);
+	// #2326 (EPIC #2319): 新規 child route `/admin/settings/account` は CI 初回 cold compile
+	// で Vite が数分かかる。warmupAdminPages 内部の `180_000` timeout に合わせて
+	// beforeAll を 240s に拡張 (旧 60s → cold compile 完了前に hook timeout していた)
+	test.setTimeout(240_000);
 	// #2321 (EPIC #2319 ②): アカウント削除 UI は /admin/settings/account に移行済
 	await warmupAdminPages(browser, ['/admin/settings/account']);
 });
