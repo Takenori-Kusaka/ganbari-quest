@@ -19,8 +19,16 @@
 export default [
 	{ url: '/admin/settings', name: 'settings-hub', presets: ['mobile', 'desktop'] },
 	{ url: '/admin/settings/account', name: 'settings-account', presets: ['mobile', 'desktop'] },
-	{ url: '/admin/settings/activities', name: 'settings-activities', presets: ['mobile', 'desktop'] },
-	{ url: '/admin/settings/notifications', name: 'settings-notifications', presets: ['mobile', 'desktop'] },
+	{
+		url: '/admin/settings/activities',
+		name: 'settings-activities',
+		presets: ['mobile', 'desktop'],
+	},
+	{
+		url: '/admin/settings/notifications',
+		name: 'settings-notifications',
+		presets: ['mobile', 'desktop'],
+	},
 	{ url: '/admin/settings/data', name: 'settings-data', presets: ['mobile', 'desktop'] },
 	{ url: '/admin/settings/support', name: 'settings-support', presets: ['mobile', 'desktop'] },
 ];

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * scripts/create-owner-storage-state.mjs
  *
@@ -10,8 +11,8 @@
  *   node scripts/create-owner-storage-state.mjs --base-url http://localhost:5174
  */
 
-import { chromium } from 'playwright';
 import { parseArgs } from 'node:util';
+import { chromium } from 'playwright';
 
 const { values } = parseArgs({
 	options: {
