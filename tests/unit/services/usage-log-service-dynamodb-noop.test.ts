@@ -34,6 +34,7 @@ vi.mock('$lib/server/db/usage-log-repo', () => ({
 	deleteByTenantId: vi.fn(),
 }));
 
+import { resetEnvForTesting } from '../../../src/lib/runtime/env';
 import * as repo from '../../../src/lib/server/db/usage-log-repo';
 import {
 	endUsageSession,
@@ -52,16 +53,20 @@ const CHILDREN = [
 describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb / demo)', () => {
 	beforeEach(() => {
 		resetNoopNotifiedForTesting();
+		// env を re-parse させる (ADR-0040 P1 / getEnv cache を都度リセット)
+		resetEnvForTesting();
 		vi.clearAllMocks();
 	});
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
+		resetEnvForTesting();
 	});
 
 	describe('DATA_SOURCE=dynamodb (本番 cognito Lambda)', () => {
 		beforeEach(() => {
 			vi.stubEnv('DATA_SOURCE', 'dynamodb');
+			resetEnvForTesting();
 		});
 
 		it('startUsageSession は no-op で dummy id を返し、SQLite repo を呼ばない', async () => {
@@ -92,7 +97,10 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 			expect(result.every((e) => e.durationMin === 0)).toBe(true);
 			// 各エントリの date は YYYY-MM-DD 形式かつ昇順
 			for (let i = 1; i < result.length; i++) {
-				expect(result[i].date > result[i - 1].date).toBe(true);
+				const curr = result[i];
+				const prev = result[i - 1];
+				if (!curr || !prev) continue;
+				expect(curr.date > prev.date).toBe(true);
 			}
 			expect(repo.findUsageLogsByChildAndDateRange).not.toHaveBeenCalled();
 		});
@@ -101,6 +109,7 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 	describe('DATA_SOURCE=demo (demo Lambda、ADR-0048)', () => {
 		beforeEach(() => {
 			vi.stubEnv('DATA_SOURCE', 'demo');
+			resetEnvForTesting();
 		});
 
 		it('startUsageSession は no-op で dummy id を返す', async () => {
@@ -119,14 +128,22 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 	describe('DATA_SOURCE=sqlite (既定、NUC local / dev)', () => {
 		beforeEach(() => {
 			vi.stubEnv('DATA_SOURCE', 'sqlite');
+			resetEnvForTesting();
 		});
 
 		it('startUsageSession は SQLite repo を呼び、insertUsageLog の結果を返す', async () => {
 			vi.mocked(repo.closeOpenSessions).mockResolvedValue(undefined);
-			vi.mocked(repo.insertUsageLog).mockResolvedValue({ id: 42 });
+			vi.mocked(repo.insertUsageLog).mockResolvedValue({
+				id: 42,
+				tenantId: TENANT,
+				childId: 901,
+				startedAt: '2026-05-20T00:00:00Z',
+				endedAt: null,
+				durationSec: null,
+			});
 
 			const result = await startUsageSession(TENANT, 901);
-			expect(result).toEqual({ id: 42 });
+			expect(result?.id).toBe(42);
 			expect(repo.closeOpenSessions).toHaveBeenCalledOnce();
 			expect(repo.insertUsageLog).toHaveBeenCalledWith(
 				expect.objectContaining({ tenantId: TENANT, childId: 901 }),

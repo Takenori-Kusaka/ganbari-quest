@@ -6,6 +6,7 @@
 // DATA_SOURCE が 'dynamodb' / 'demo' の場合は no-op fallback で graceful degradation。
 // PMF 後の DynamoDB 完全実装 roadmap は docs/rationale/07-usage-log-dynamodb-deferred-rationale.md 参照。
 
+import { getEnv } from '$lib/runtime/env';
 import {
 	closeOpenSessions,
 	findTodayUsageLogs,
@@ -17,10 +18,11 @@ import { logger } from '$lib/server/logger';
 
 /**
  * DATA_SOURCE が SQLite 以外 (dynamodb / demo) かを判定。
- * env を都度読むことで vitest `vi.stubEnv` での切替を可能にしている。
+ * `getEnv()` は cache を持つが、テストでは `resetEnvForTesting()` を beforeEach で
+ * 呼ぶことで `vi.stubEnv` での切替を可能にしている (ADR-0040 P1 整合)。
  */
 function isUsageLogNoopBackend(): boolean {
-	const dataSource = process.env.DATA_SOURCE ?? 'sqlite';
+	const dataSource = getEnv().DATA_SOURCE;
 	return dataSource === 'dynamodb' || dataSource === 'demo';
 }
 
@@ -36,7 +38,7 @@ function notifyNoopOnce(): void {
 	logger.info(
 		'[usage-log] DATA_SOURCE 非 sqlite 環境を検出。no-op fallback で動作 (ADR-0010 Bucket B、#2338)',
 		{
-			context: { dataSource: process.env.DATA_SOURCE ?? 'sqlite' },
+			context: { dataSource: getEnv().DATA_SOURCE },
 		},
 	);
 }
