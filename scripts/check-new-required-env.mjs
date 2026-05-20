@@ -47,29 +47,25 @@ for (const arg of process.argv.slice(2)) {
 const baseRef = process.env.BASE_REF || BASE_REF;
 
 /**
- * Get git diff vs base ref. Returns the unified diff as a string.
+ * Run `git diff <range>` and return the unified diff as a string.
  *
- * CI モード (PR_BODY あり): `git diff <base>...HEAD` でコミット済みのみ比較
- * ローカルモード (PR_BODY なし): `git diff <base>` で staged + working tree を比較。
- *   `git diff` は untracked file を含まないため、`git status --porcelain` で
- *   untracked を検出して `git diff --no-index /dev/null <path>` で追加行として合成する。
- *   これによりローカルでも `git add` 前の新規 guard ファイルを取りこぼさない。
+ * Fail-closed (ADR-0029): CI モード (PR_BODY あり) で git diff が失敗した場合は exit 2。
+ * ローカルモードでは warn + `null` を返し、呼び出し側で fallback させる。
  *
- * Fail-closed (ADR-0029): CI モードで git diff が失敗した場合は exit 2。
- * ローカルモードでは warn + 空文字列を返す (ローカル開発の利便性のため)。
+ * @param {string} range
+ * @returns {string | null}
  */
-function getDiff() {
-	const range = PR_BODY ? `${baseRef}...HEAD` : baseRef;
-	let diff;
+function runGitDiff(range) {
 	try {
 		// 新規ファイル (staged) 含む全 diff (--no-renames で確実に追加行として検出)
 		// execFileSync で arg-array 渡し → shell metachar 注入リスクを排除
-		diff = execFileSync('git', ['diff', '--no-renames', range], {
+		return execFileSync('git', ['diff', '--no-renames', range], {
 			encoding: 'utf-8',
 			maxBuffer: 50 * 1024 * 1024,
 		});
 	} catch (err) {
-		const msg = `[check-new-required-env] could not git diff against ${range}: ${err.message}`;
+		const errMsg = err instanceof Error ? err.message : String(err);
+		const msg = `[check-new-required-env] could not git diff against ${range}: ${errMsg}`;
 		if (PR_BODY) {
 			// CI モード: fail-closed (ADR-0029) — 検出を素通りさせない
 			console.error(msg);
@@ -80,55 +76,98 @@ function getDiff() {
 		console.warn(
 			'[check-new-required-env] skipping check (local mode, likely new repo or shallow clone)',
 		);
+		return null;
+	}
+}
+
+/**
+ * Append synthesized unified diff for untracked files (local mode only).
+ *
+ * `git diff` は untracked file を含まないため、`git status --porcelain` で
+ * untracked を検出してファイル内容から追加行を合成する。
+ * これによりローカルでも `git add` 前の新規 guard ファイルを取りこぼさない。
+ *
+ * `git diff --no-index /dev/null <path>` は Windows (NUL) との互換性が
+ * 不安定なため、git に頼らず純粋にファイル内容から組み立てる。
+ *
+ * @param {string} diff
+ * @returns {string}
+ */
+function appendUntrackedFiles(diff) {
+	let result = diff;
+	try {
+		const status = execFileSync('git', ['status', '--porcelain'], {
+			encoding: 'utf-8',
+			maxBuffer: 10 * 1024 * 1024,
+		});
+		const untracked = status
+			.split('\n')
+			.filter((l) => l.startsWith('?? '))
+			.map((l) => l.slice(3));
+		for (const path of untracked) {
+			try {
+				const stat = statSync(path);
+				if (stat.isDirectory()) continue; // ディレクトリは扱わない
+				const content = readFileSync(path, 'utf-8');
+				const lines = content.split('\n');
+				// 末尾の空行を除外（split('\n') が末尾に空文字列を残すため）
+				if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+				const lineCount = lines.length;
+				const header =
+					`diff --git a/${path} b/${path}\n` +
+					`new file mode 100644\n` +
+					`--- /dev/null\n` +
+					`+++ b/${path}\n` +
+					`@@ -0,0 +1,${lineCount} @@\n`;
+				const body = lines.map((l) => `+${l}`).join('\n');
+				result += `${header + body}\n`;
+			} catch (e) {
+				console.warn(
+					`[check-new-required-env] could not read untracked ${path}: ${e instanceof Error ? e.message : String(e)}`,
+				);
+			}
+		}
+	} catch (e) {
+		console.warn(
+			`[check-new-required-env] could not enumerate untracked files: ${e instanceof Error ? e.message : String(e)}`,
+		);
+	}
+	return result;
+}
+
+/**
+ * Get git diff vs base ref. Returns the unified diff as a string.
+ *
+ * CI モード (PR_BODY あり): `git diff <base>...HEAD` でコミット済みのみ比較
+ * ローカルモード (PR_BODY なし): `git diff <base>` で staged + working tree を比較し、
+ *   さらに untracked file を合成して追加。
+ *
+ * Orchestration only: calls `runGitDiff()` and optionally `appendUntrackedFiles()`
+ * based on mode (CI vs local).
+ *
+ * @returns {string}
+ */
+function getDiff() {
+	const range = PR_BODY ? `${baseRef}...HEAD` : baseRef;
+	const diff = runGitDiff(range);
+	if (diff === null) {
+		// ローカルモードで git diff 失敗 → 空文字列を返して check を skip
 		return '';
 	}
-
 	// ローカルモードのみ untracked を補完 (CI モードはコミット済みしか見ない)
 	if (!PR_BODY) {
-		try {
-			const status = execFileSync('git', ['status', '--porcelain'], {
-				encoding: 'utf-8',
-				maxBuffer: 10 * 1024 * 1024,
-			});
-			const untracked = status
-				.split('\n')
-				.filter((l) => l.startsWith('?? '))
-				.map((l) => l.slice(3));
-			for (const path of untracked) {
-				// untracked ファイル内容を読み込み、unified diff フォーマットを合成する。
-				// `git diff --no-index /dev/null <path>` は Windows (NUL) との互換性が
-				// 不安定なため、git に頼らず純粋にファイル内容から組み立てる。
-				try {
-					const stat = statSync(path);
-					if (stat.isDirectory()) continue; // ディレクトリは扱わない
-					const content = readFileSync(path, 'utf-8');
-					const lines = content.split('\n');
-					// 末尾の空行を除外（split('\n') が末尾に空文字列を残すため）
-					if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-					const lineCount = lines.length;
-					const header =
-						`diff --git a/${path} b/${path}\n` +
-						`new file mode 100644\n` +
-						`--- /dev/null\n` +
-						`+++ b/${path}\n` +
-						`@@ -0,0 +1,${lineCount} @@\n`;
-					const body = lines.map((l) => `+${l}`).join('\n');
-					diff += `${header + body}\n`;
-				} catch (e) {
-					console.warn(`[check-new-required-env] could not read untracked ${path}: ${e.message}`);
-				}
-			}
-		} catch (e) {
-			console.warn(`[check-new-required-env] could not enumerate untracked files: ${e.message}`);
-		}
+		return appendUntrackedFiles(diff);
 	}
-
 	return diff;
 }
 
 /**
  * 検査対象外のファイルパス (docs / .md / 自身 / テスト / lock files)
  * 文字列内の env 名による誤検知を避けるため、コードファイルのみを対象とする。
+ */
+/**
+ * @param {string | null | undefined} path
+ * @returns {boolean}
  */
 function isExcludedPath(path) {
 	if (!path) return true;
@@ -145,6 +184,10 @@ function isExcludedPath(path) {
 /**
  * Extract added lines (those starting with `+` but not `+++`) from a unified diff.
  * docs/ や *.md などのファイル変更ブロックはスキップする。
+ */
+/**
+ * @param {string} diff
+ * @returns {string[]}
  */
 function extractAddedLines(diff) {
 	const lines = [];
@@ -178,17 +221,25 @@ function extractAddedLines(diff) {
  *
  * 戻り値: env 名 (大文字スネーク) の Set
  */
-function detectNewRequiredEnvs(addedLines) {
+/**
+ * @param {string[]} addedLines
+ * @returns {Set<string>}
+ */
+export function detectNewRequiredEnvs(addedLines) {
 	const found = new Set();
 
 	const assertFnRe = /assert([A-Z]\w*?)Configured\s*\(/;
 	const processEnvThrowRe =
 		/process\.env\.([A-Z][A-Z0-9_]+)\s*\|\|\s*\(?\s*\(\s*\)\s*=>\s*\{[^}]*throw/;
 	// 「FOO_BAR is required」「FOO_BAR is not set」「FOO_BAR must be set」等
+	// #2337 (PR #2325 教訓): env 名と "is required" の間に "env var" / "environment variable"
+	// / "secret" の修飾語が挟まる場合も検出する。実例:
+	//   "[PARENT_GATE] PARENT_GATE_COOKIE_SECRET env var is required in production"
+	// が PR #2325 で検出漏れし本番障害を起こしたため、自然語表現 3 パターンを包含化。
 	// 案件の env 名は ALL_CAPS_SNAKE_CASE のみを対象 (camelCase の JSON フィールド名は除外)
 	// アンダースコアを 1 つ以上含むものを必須にして "PORT" 等の単語を弾く
 	const envInStringRe =
-		/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b\s+(?:is\s+(?:not\s+set|required|missing|undefined)|must\s+be\s+set)/;
+		/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b(?:\s+(?:env\s+var|environment\s+variable|secret))?\s+(?:is\s+(?:not\s+set|required|missing|undefined)|must\s+be\s+set)/;
 
 	// 全追加行を結合して走査することで、複数行に渡る `throw new Error(...)` も拾う
 	const fullText = addedLines.join('\n');
@@ -197,6 +248,7 @@ function detectNewRequiredEnvs(addedLines) {
 	const throwBlockRe = /throw\s+new\s+Error\s*\(\s*([\s\S]*?)\)/g;
 	for (const m of fullText.matchAll(throwBlockRe)) {
 		const errorBody = m[1];
+		if (!errorBody) continue;
 		// 同一エラーボディ内に複数 env 名が含まれる可能性があるので global で探す
 		for (const em of errorBody.matchAll(new RegExp(envInStringRe.source, 'g'))) {
 			found.add(em[1]);
@@ -206,6 +258,7 @@ function detectNewRequiredEnvs(addedLines) {
 	// 行単位で処理する Pattern A / C
 	for (let i = 0; i < addedLines.length; i++) {
 		const line = addedLines[i];
+		if (!line) continue;
 
 		// Pattern A: assertXxxConfigured — 同 PR 内の関数定義 or 呼び出し
 		const fnMatch = line.match(assertFnRe);
@@ -248,6 +301,11 @@ function detectNewRequiredEnvs(addedLines) {
  * 書式: 「配布済み: ENV_NAME」 もしくは英語 "Distributed: ENV_NAME"
  * 配布先 (GitHub Secrets / SSM / NUC .env) は ADR-0029 上必須だが、
  * このスクリプトは env 名の証跡有無のみを検証する (配布先文言は人間レビュー)。
+ */
+/**
+ * @param {string} envName
+ * @param {string | null | undefined} prBody
+ * @returns {boolean}
  */
 function hasDistributionEvidence(envName, prBody) {
 	if (!prBody) return false;
@@ -297,13 +355,16 @@ function main() {
 		console.error('PR 本文に次の形式で配布済み証跡を記載してください:');
 		console.error('');
 		console.error('  ## 配布済み env / secret (ADR-0029)');
-		console.error(
-			`  - 配布済み: ${missing[0]} → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)`,
-		);
-		console.error(
-			`  - 配布済み: ${missing[0]} → SSM Parameter Store /ganbari-quest/prod/${missing[0].toLowerCase()}`,
-		);
-		console.error(`  - 配布済み: ${missing[0]} → NUC .env (本機 + バックアップ機)`);
+		const firstMissing = missing[0];
+		if (firstMissing) {
+			console.error(
+				`  - 配布済み: ${firstMissing} → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)`,
+			);
+			console.error(
+				`  - 配布済み: ${firstMissing} → SSM Parameter Store /ganbari-quest/prod/${firstMissing.toLowerCase()}`,
+			);
+			console.error(`  - 配布済み: ${firstMissing} → NUC .env (本機 + バックアップ機)`);
+		}
 		console.error('');
 		console.error('See: docs/decisions/0006-safety-assertion-erosion-ban.md');
 		process.exit(1);
@@ -315,4 +376,12 @@ function main() {
 	process.exit(0);
 }
 
-main();
+// CLI 起動時のみ main を呼ぶ。`import { detectNewRequiredEnvs }` 経由のテスト時は呼ばない。
+// (#2337 / Issue #2337 AC: regex unit test 追加のため export 化、CLI 互換性維持)
+const argv1 = process.argv[1];
+const isDirectInvocation =
+	!!argv1 &&
+	(import.meta.url === `file://${argv1}` || import.meta.url.endsWith(argv1.replace(/\\/g, '/')));
+if (isDirectInvocation) {
+	main();
+}

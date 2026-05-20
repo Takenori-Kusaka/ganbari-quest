@@ -52,6 +52,8 @@ function makeApp(): cdk.App {
 			// compute-stack.ts が tryGetContext で読む context
 			awsLicenseSecret: 'test-license-secret',
 			opsSecretKey: 'test-ops-secret-key',
+			// #2310 / #2337 / ADR-0050: parent-gate-session.ts production throw 防止
+			parentGateCookieSecret: 'test-parent-gate-secret-do-not-use-do-not-use',
 		},
 	});
 	return app;
@@ -228,6 +230,23 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 	});
 
 	describe('C-3: demo Fn environment variables', () => {
+		it('#2337: 本番 Fn (ganbari-quest-app) に PARENT_GATE_COOKIE_SECRET が注入される', () => {
+			// ADR-0050 + #2337 regression test: PR #2325 で本番 Lambda 未配備による /admin/* 500 障害再発防止。
+			// CDK で context 経由注入が壊れた場合 (#2337 root cause) を CI で検知する。
+			const template = computeTemplate;
+
+			template.hasResourceProperties('AWS::Lambda::Function', {
+				FunctionName: 'ganbari-quest-app',
+				Environment: {
+					Variables: Match.objectLike({
+						// context 値 'test-parent-gate-secret-do-not-use-do-not-use' (≥ 16 chars) が
+						// そのまま env 値として注入される (compute-stack.ts L204-208 経由)
+						PARENT_GATE_COOKIE_SECRET: Match.stringLikeRegexp('^test-parent-gate-secret'),
+					}),
+				},
+			});
+		});
+
 		it('DATA_SOURCE=demo + AUTH_MODE=anonymous が注入される', () => {
 			const template = computeTemplate;
 
@@ -269,6 +288,9 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 				'COGNITO_CALLBACK_URL',
 				'CONTEXT_TOKEN_SECRET',
 				'AWS_LICENSE_SECRET',
+				// #2310 / #2337 / ADR-0050: demo Lambda は AUTH_MODE=anonymous で PIN gate 無効、
+				// PARENT_GATE_COOKIE_SECRET 注入は本番 Lambda のみ (ADR-0048 / cross-tenancy 防止)
+				'PARENT_GATE_COOKIE_SECRET',
 				'DYNAMODB_TABLE',
 				'TABLE_NAME',
 				'ANALYTICS_TABLE_NAME',
