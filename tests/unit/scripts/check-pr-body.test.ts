@@ -9,11 +9,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	checkAcMap,
+	checkEnvDistributionForHotfix,
 	extractAcMapSection,
+	extractEnvDistributionSection,
 	extractRequiredSections,
 	FORBIDDEN_TERMS,
 	findMissingSections,
 	findUncheckedReadyChecklist,
+	HOTFIX_LABELS,
+	hasHotfixLabel,
 	scanForbiddenTerms,
 	stripCodeBlocks,
 	stripMarkdownComments,
@@ -211,6 +215,84 @@ describe('checkAcMap', () => {
 ## 次
 `;
 		expect(checkAcMap(body)).toBe(null);
+	});
+});
+
+describe('hotfix label 検出 (#2343)', () => {
+	it('HOTFIX_LABELS は priority:critical と hotfix を含む', () => {
+		expect(HOTFIX_LABELS).toContain('priority:critical');
+		expect(HOTFIX_LABELS).toContain('hotfix');
+	});
+
+	it('priority:critical ラベル付き PR を hotfix として検出', () => {
+		expect(hasHotfixLabel(['priority:critical'])).toBe(true);
+	});
+
+	it('hotfix ラベル付き PR を hotfix として検出', () => {
+		expect(hasHotfixLabel(['hotfix', 'area:backend'])).toBe(true);
+	});
+
+	it('priority:medium や type:fix のみは hotfix として検出しない', () => {
+		expect(hasHotfixLabel(['priority:medium', 'type:fix'])).toBe(false);
+	});
+
+	it('空配列は hotfix として検出しない', () => {
+		expect(hasHotfixLabel([])).toBe(false);
+	});
+
+	it('ラベル名の前後 whitespace / 大文字を許容', () => {
+		expect(hasHotfixLabel([' PRIORITY:CRITICAL '])).toBe(true);
+		expect(hasHotfixLabel([' Hotfix '])).toBe(true);
+	});
+});
+
+describe('extractEnvDistributionSection (#2343)', () => {
+	it('配布済み env / secret セクションを抽出する', () => {
+		const body = `## A\n本文\n\n## 配布済み env / secret (ADR-0006)\n\n- 配布済み: FOO → GitHub Secrets\n\n## 次セクション\n他\n`;
+		const section = extractEnvDistributionSection(body);
+		expect(section).toContain('配布済み: FOO');
+		expect(section).not.toContain('## 次セクション');
+	});
+
+	it('セクションが存在しない body は null を返す', () => {
+		expect(extractEnvDistributionSection('## A\n本文\n')).toBeNull();
+	});
+});
+
+describe('checkEnvDistributionForHotfix (#2343)', () => {
+	it('非 hotfix PR は配布証跡欄が空でも検出しない (null)', () => {
+		const body = `## 配布済み env / secret (ADR-0006)\n\n（空）\n`;
+		expect(checkEnvDistributionForHotfix(body, ['priority:medium'])).toBeNull();
+	});
+
+	it('hotfix PR で配布証跡欄が「N/A 新規 env / secret の追加なし」明示時は pass (null)', () => {
+		const body = `## 配布済み env / secret (ADR-0006)\n\n- [x] N/A — 新規 env / secret の追加なし\n`;
+		expect(checkEnvDistributionForHotfix(body, ['priority:critical'])).toBeNull();
+	});
+
+	it('hotfix PR で配布証跡欄に「配布済み:」行があれば pass (null)', () => {
+		const body = `## 配布済み env / secret (ADR-0006)\n\n- 配布済み: FOO → GitHub Secrets\n- 配布済み: FOO → Lambda env\n`;
+		expect(checkEnvDistributionForHotfix(body, ['hotfix'])).toBeNull();
+	});
+
+	it('hotfix PR で配布証跡欄が完全に空なら fail (#2343 / #2341 教訓)', () => {
+		const body = `## 配布済み env / secret (ADR-0006)\n\n（記載なし）\n`;
+		const result = checkEnvDistributionForHotfix(body, ['priority:critical']);
+		expect(result).not.toBeNull();
+		expect(result?.id).toBe('hotfix-env-distribution-incomplete');
+	});
+
+	it('hotfix PR で配布証跡セクション自体が欠落なら fail', () => {
+		const body = `## 顧客価値・目的\n\n本文\n`;
+		const result = checkEnvDistributionForHotfix(body, ['priority:critical']);
+		expect(result).not.toBeNull();
+		expect(result?.id).toBe('hotfix-env-distribution-missing-section');
+	});
+
+	it('hotfix PR でコメントのみのセクション (実体なし) は fail', () => {
+		const body = `## 配布済み env / secret (ADR-0006)\n\n<!-- 例: 配布済み: FOO → Secrets -->\n`;
+		const result = checkEnvDistributionForHotfix(body, ['hotfix']);
+		expect(result).not.toBeNull();
 	});
 });
 

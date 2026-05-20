@@ -1,3 +1,8 @@
+<!-- hotfix PR (priority:critical / hotfix label) の場合は `--kind critical-fix` template に切替え:
+  npm run dev:open-pr -- --issue <num> --kind critical-fix
+  → hotfix runbook 5 項目内蔵 (#2343 / docs/sessions/dev-session.md §hotfix PR runbook)
+  → ADR-0002 5 要件 + refactor:internal-no-doc-impact ラベル判断 + env 配布 4 経路 + $lib/runtime/env 経由化 + pre-ready check 統合 -->
+
 ## 顧客価値・目的
 
 <!-- 「何を変更したか」ではなく「なぜこの変更がユーザーにとって必要か」を書く -->

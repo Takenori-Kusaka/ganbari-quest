@@ -281,6 +281,92 @@ export function findUncheckedReadyChecklist(body) {
 }
 
 // ---------------------------------------------------------------------------
+// hotfix label 検出 + 配布証跡強化チェック (#2343)
+// ---------------------------------------------------------------------------
+
+/**
+ * hotfix 系 PR を示すラベル名 SSOT (#2343)。
+ *
+ * hotfix urgency 文脈での品質ゲート bypass 誘惑を構造的に止めるため、
+ * 以下ラベル PR には ADR-0006 配布証跡欄の N/A 化を許容しない強化チェックを適用する。
+ * ADR-0002 §4「品質ゲートは Critical でも省略しない」整合。
+ */
+export const HOTFIX_LABELS = ['priority:critical', 'hotfix'];
+
+/**
+ * PR ラベル配列に hotfix label が含まれるかを判定。
+ *
+ * @param {string[]} labels
+ * @returns {boolean}
+ */
+export function hasHotfixLabel(labels) {
+	return labels.some((l) => HOTFIX_LABELS.includes(l.trim().toLowerCase()));
+}
+
+/**
+ * `## 配布済み env / secret (ADR-0006)` セクションを抽出する。
+ * `## ` を含む次セクションまでが対象。
+ *
+ * @param {string} body
+ * @returns {string | null}
+ */
+export function extractEnvDistributionSection(body) {
+	const startMatch = body.match(/^## 配布済み env \/ secret.*$/m);
+	if (!startMatch) return null;
+	const startIdx = body.indexOf(startMatch[0]);
+	const remaining = body.slice(startIdx + startMatch[0].length);
+	const nextSectionIdx = remaining.search(/^## /m);
+	return nextSectionIdx === -1 ? remaining : remaining.slice(0, nextSectionIdx);
+}
+
+/**
+ * hotfix PR で `## 配布済み env / secret (ADR-0006)` セクションを強化検証する (#2343)。
+ *
+ * 検出する違反 (hotfix PR のみ適用):
+ *   - `N/A` のみで `配布済み:` 行が 0 件 (env 追加 hotfix で配布漏れの可能性)
+ *     → ただし `「新規 env / secret の追加なし」` 明示時は許容
+ *
+ * **注**: 本検出は false positive を避けるため警告レベル (info-only) で、`N/A` 明示時は pass。
+ * 純粋な「env 追加していない hotfix」は `- [x] N/A — 新規 env / secret の追加なし` で許容される。
+ *
+ * @param {string} body
+ * @param {string[]} labels - PR ラベル一覧
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkEnvDistributionForHotfix(body, labels) {
+	if (!hasHotfixLabel(labels)) return null;
+
+	const section = extractEnvDistributionSection(body);
+	if (!section) {
+		return {
+			id: 'hotfix-env-distribution-missing-section',
+			message:
+				`hotfix PR (${HOTFIX_LABELS.join(' / ')}) に \`## 配布済み env / secret (ADR-0006)\` ` +
+				`セクションが存在しません。template 雛形 (npm run dev:open-pr -- --issue <num> --kind critical-fix) ` +
+				`から再生成してください。`,
+		};
+	}
+
+	const cleaned = stripCodeBlocks(stripMarkdownComments(section));
+	const hasNaMark = /N\/A.*新規\s*env.*の追加なし|新規\s*env\s*\/\s*secret\s*の追加なし/m.test(
+		cleaned,
+	);
+	const hasDistributionLine = /配布済み:/m.test(cleaned);
+
+	if (hasNaMark) return null;
+	if (hasDistributionLine) return null;
+
+	return {
+		id: 'hotfix-env-distribution-incomplete',
+		message:
+			`hotfix PR (${HOTFIX_LABELS.join(' / ')}) の \`## 配布済み env / secret (ADR-0006)\` ` +
+			`セクションに「配布済み:」行が 1 件もなく、「N/A — 新規 env / secret の追加なし」明示もありません。\n` +
+			`対応 1: env 追加がない hotfix なら明示的に \`- [x] N/A — 新規 env / secret の追加なし\` を本文に記載\n` +
+			`対応 2: env 追加がある hotfix なら 4 経路全て (GitHub Secrets / Lambda / NUC .env / .env.example) の「配布済み:」行を列挙 (#2341 教訓)`,
+	};
+}
+
+// ---------------------------------------------------------------------------
 // mergeable: CONFLICTING 事前検知（GitHub API）
 // ---------------------------------------------------------------------------
 
@@ -338,32 +424,90 @@ function fetchPrBody(prNumber) {
 	return raw;
 }
 
+/**
+ * `gh pr view <num> --json labels` で PR ラベル一覧を取得する (#2343)。
+ * gh CLI 未インストール / オフライン / PR 未作成時は空配列を返す。
+ *
+ * @param {string|number|null} prNumber
+ * @returns {string[]}
+ */
+function fetchPrLabels(prNumber) {
+	if (!prNumber) return [];
+	try {
+		const raw = execSync(`gh pr view ${prNumber} --json labels --jq '[.labels[].name]'`, {
+			encoding: 'utf-8',
+			stdio: ['ignore', 'pipe', 'ignore'],
+			timeout: 15_000,
+		});
+		const parsed = JSON.parse(raw.trim() || '[]');
+		return Array.isArray(parsed) ? parsed.map((l) => String(l)) : [];
+	} catch {
+		return [];
+	}
+}
+
 // ---------------------------------------------------------------------------
 // CLI 引数パース
 // ---------------------------------------------------------------------------
 
 /**
+ * `--name value` / `--name=value` / `-n value` の汎用 string パーサ。
+ * 該当したら新しい index と value を返す。該当しなければ null。
+ *
  * @param {string[]} argv
- * @returns {{ pr: string | null; bodyFile: string | null; skipMergeable: boolean; help: boolean }}
+ * @param {number} i
+ * @param {string[]} aliases
+ * @returns {{ nextIndex: number; value: string | null } | null}
+ */
+function tryParseStringArg(argv, i, aliases) {
+	const a = argv[i] ?? '';
+	for (const alias of aliases) {
+		if (a === alias) {
+			return { nextIndex: i + 1, value: argv[i + 1] ?? null };
+		}
+		const prefix = `${alias}=`;
+		if (a.startsWith(prefix)) {
+			return { nextIndex: i, value: a.slice(prefix.length) };
+		}
+	}
+	return null;
+}
+
+/**
+ * @param {string[]} argv
+ * @returns {{ pr: string | null; bodyFile: string | null; labels: string | null; skipMergeable: boolean; help: boolean }}
  */
 function parseArgs(argv) {
-	/** @type {{ pr: string | null; bodyFile: string | null; skipMergeable: boolean; help: boolean }} */
-	const args = { pr: null, bodyFile: null, skipMergeable: false, help: false };
+	/** @type {{ pr: string | null; bodyFile: string | null; labels: string | null; skipMergeable: boolean; help: boolean }} */
+	const args = {
+		pr: null,
+		bodyFile: null,
+		labels: null,
+		skipMergeable: false,
+		help: false,
+	};
 	for (let i = 0; i < argv.length; i++) {
-		const a = argv[i];
-		if (a === '--pr' || a === '-p') {
-			args.pr = argv[++i] ?? null;
-		} else if (a?.startsWith('--pr=')) {
-			args.pr = a.slice('--pr='.length);
-		} else if (a === '--body-file') {
-			args.bodyFile = argv[++i] ?? null;
-		} else if (a?.startsWith('--body-file=')) {
-			args.bodyFile = a.slice('--body-file='.length);
-		} else if (a === '--skip-mergeable') {
-			args.skipMergeable = true;
-		} else if (a === '--help' || a === '-h') {
-			args.help = true;
+		const pr = tryParseStringArg(argv, i, ['--pr', '-p']);
+		if (pr) {
+			args.pr = pr.value;
+			i = pr.nextIndex;
+			continue;
 		}
+		const bodyFile = tryParseStringArg(argv, i, ['--body-file']);
+		if (bodyFile) {
+			args.bodyFile = bodyFile.value;
+			i = bodyFile.nextIndex;
+			continue;
+		}
+		const labels = tryParseStringArg(argv, i, ['--labels']);
+		if (labels) {
+			args.labels = labels.value;
+			i = labels.nextIndex;
+			continue;
+		}
+		const a = argv[i];
+		if (a === '--skip-mergeable') args.skipMergeable = true;
+		else if (a === '--help' || a === '-h') args.help = true;
 	}
 	return args;
 }
@@ -376,10 +520,12 @@ Usage:
   node scripts/check-pr-body.mjs --pr <number>
   node scripts/check-pr-body.mjs --body-file <path>      # 単体テスト・dry-run 用
   node scripts/check-pr-body.mjs --pr <number> --skip-mergeable
+  node scripts/check-pr-body.mjs --body-file <path> --labels priority:critical,hotfix
 
 Options:
-  --pr <num>          GitHub PR 番号 (gh pr view で body 取得)
+  --pr <num>          GitHub PR 番号 (gh pr view で body 取得 + label 自動検出)
   --body-file <path>  ローカルファイルから body を読む（PR 未作成時の dry-run 用）
+  --labels <csv>      PR ラベルをカンマ区切りで明示指定（--body-file 時の hotfix 検出用、#2343）
   --skip-mergeable    GitHub API 呼び出しをスキップ (オフライン環境用)
   --help, -h          このヘルプを表示
 
@@ -389,6 +535,7 @@ Detected violations:
   3. AC 検証マップの 4 列未記入 (skip マーカー時を除く)
   4. Ready for Review / 完了チェックリストの未チェック残置
   5. PR が CONFLICTING (--pr 指定時)
+  6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
 
 Exit codes:
   0 = OK
@@ -432,11 +579,12 @@ function loadPrBody(args) {
  * PR body と template から全違反リストを計算する。
  * @param {string} body
  * @param {string[]} requiredSections
- * @param {{ pr: string | null; skipMergeable: boolean }} args
+ * @param {{ pr: string | null; skipMergeable: boolean; labels?: string[] }} args
  * @returns {{ id: string; issue: string; message: string }[]}
  */
 function collectViolations(body, requiredSections, args) {
 	const violations = [];
+	const labels = args.labels ?? [];
 
 	const missing = findMissingSections(body, requiredSections);
 	if (missing.length > 0) {
@@ -488,6 +636,10 @@ function collectViolations(body, requiredSections, args) {
 		if (mergeable) violations.push({ ...mergeable, issue: '#1672/#1675/#1718/#1753' });
 	}
 
+	// #2343: hotfix label PR の配布証跡欄強化チェック
+	const hotfixEnvCheck = checkEnvDistributionForHotfix(body, labels);
+	if (hotfixEnvCheck) violations.push({ ...hotfixEnvCheck, issue: '#2343' });
+
 	return violations;
 }
 
@@ -508,7 +660,15 @@ export async function main(argv = process.argv.slice(2)) {
 	const template = readFileSync(TEMPLATE_PATH, 'utf-8');
 	const requiredSections = extractRequiredSections(template);
 
-	const violations = collectViolations(body, requiredSections, args);
+	// #2343: hotfix label 検出のためラベル取得
+	const labels = args.labels
+		? args.labels
+				.split(',')
+				.map((s) => s.trim())
+				.filter(Boolean)
+		: fetchPrLabels(args.pr);
+
+	const violations = collectViolations(body, requiredSections, { ...args, labels });
 
 	if (violations.length === 0) {
 		console.log('[check-pr-body] OK — 違反なし');
