@@ -41,6 +41,8 @@
   createCheckoutSession()
         │
         ├─ Stripe Price ID を planId からマッピング (planId → price)
+        ├─ custom_text.submit       = CHECKOUT_LABELS.submitMessage      (景表法 5 条 1 号整合)
+        ├─ custom_text.after_submit = CHECKOUT_LABELS.afterSubmitMessage (#2346 EPIC #2345)
         ├─ success_url = ${origin}/admin/license?session_id={CHECKOUT_SESSION_ID}
         ├─ cancel_url  = ${origin}/pricing
         ▼
@@ -697,8 +699,24 @@ Phase 2 β 移行時には `STRIPE_PRICE_STANDARD_TO_FAMILY_DIFF_MONTHLY` 等の
 
 ---
 
+## CHECKOUT_LABELS SSOT (#2346 / EPIC #2345)
+
+Stripe Checkout の `custom_text` 文言は `src/lib/domain/labels.ts` の `CHECKOUT_LABELS` を SSOT とする。`stripe-service.ts` への直書きは禁止 (景表法 5 条 1 号 / 特商法 2022-06 改正最終確認画面ガイドライン整合)。
+
+| key | 値 |
+|---|---|
+| `CHECKOUT_LABELS.submitMessage` | お支払い後、すぐにお選びのプランの機能をご利用いただけます。 |
+| `CHECKOUT_LABELS.afterSubmitMessage` | アプリに戻ってお選びのプランの機能をお楽しみください。 |
+
+`CHECKOUT_TERMS.chosenPlanFeature` = 「お選びのプランの機能」を `terms.ts` の atom として保持し、上記 compound は `${CHECKOUT_TERMS.chosenPlanFeature}` 経由参照する (ADR-0045 atom / compound 責務分離)。「すべての機能」リテラルは production code path 上から完全排除済 (回帰防止: `tests/e2e/integration/stripe-checkout-labels.spec.ts`)。
+
+法的根拠 + 5 項目チェックリストは [19-プライシング戦略書.md §2.4](19-プライシング戦略書.md) 参照。
+
+---
+
 ## 更新履歴
 
 | 日付 | 版数 | 内容 |
 |------|------|------|
 | 2026-04-11 | 1.0 | #747 初版作成（実装状態を反映） |
+| 2026-05-20 | 1.1 | #2346 / EPIC #2345 — Stripe Checkout `custom_text` SSOT 化 (CHECKOUT_LABELS / CHECKOUT_TERMS) + 景品表示法 5 条 1 号対応 + custom_text 図解追記 |

@@ -39,8 +39,9 @@
 //   CHEER_TERMS      — 応援 / 応援する / できごと atom（EPIC #2266、#2276）
 //   REWARD_TERMS     — ごほうび管理 / ごほうびショップ / プリセット atom（EPIC #2266、#2276）
 //   TEMPLATE_TERMS   — みんなのテンプレート / テンプレート atom（EPIC #2266、#2276）
+//   CHECKOUT_TERMS   — Stripe Checkout custom_text atom（景品表示法対応、EPIC #2345 / #2346）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -690,4 +691,35 @@ export const TEMPLATE_TERMS = {
 	userFacing: 'みんなのテンプレート',
 	short: 'テンプレート',
 	browse: 'みんなのテンプレートを見る',
+} as const;
+
+// ============================================================
+// CHECKOUT_TERMS — Stripe Checkout custom_text atom (#2346 / EPIC #2345)
+// ============================================================
+//
+// PO 確定文言 (2026-05-20): Stripe Checkout `custom_text.submit` /
+// `custom_text.after_submit` で従来「すべての機能」と表示していたものを
+// 「お選びのプランの機能」に置換する。
+//
+// 法的根拠:
+//   - 景品表示法 5 条 1 号 (優良誤認表示) — 「すべての機能」と表示すると
+//     スタンダードプラン購入時にファミリープラン機能まで含むと誤認させる可能性
+//   - 特商法 2022-06 改正 最終確認画面ガイドライン — Stripe Checkout 最終確認画面の
+//     誤認表示は消費者契約取消可能性 (消費者契約法 4 条 1 項)
+//   - 消費者庁「動画見放題プラン」措置命令事例 — 本ケースと相同類型
+//   - 「お選びのプランの機能」と限定文言にすることで、上位プラン機能を含むと誤認させる
+//     リスクを構造的に排除する
+//
+// 設計指針:
+//   - chosenPlanFeature : 'お選びのプランの機能'  (景品表示法対応の限定文言、submit / after_submit
+//                         compound の中核 atom。プラン名を動的に差し込まないことで Stripe Checkout
+//                         の plan tier 未確定タイミングを回避し、かつ「お選びの」で能動的選択を
+//                         喚起 = 優良誤認回避)
+//
+// 既存 atom (PLAN_FULL_TERMS) との関係:
+//   - PLAN_FULL_TERMS は「スタンダードプラン」「ファミリープラン」等の plan tier 名 atom
+//   - CHECKOUT_TERMS は plan tier を意図的に動的化しない (景品表示法整合) ため独立 atom
+
+export const CHECKOUT_TERMS = {
+	chosenPlanFeature: 'お選びのプランの機能',
 } as const;

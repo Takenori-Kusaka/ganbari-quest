@@ -36,6 +36,11 @@ const BASE_TEST_IGNORE = [
 	'**/account-deletion.spec.ts',
 	// #1497: Stripe Checkout インターセプト E2E は cognito-dev モード専用（loginAsPlan を使用）
 	'**/upgrade-checkout.spec.ts',
+	// #2346 / #2347 (EPIC #2345): Stripe Checkout 景表法対応 + 月額/年額切替 E2E は
+	// cognito-dev モード専用 (test.use({ storageState: 'playwright/.auth/free.json' }) を使用、
+	// auth.setup.ts が cognito-dev config の setup project でのみ走るため local config では fixture 不在 ENOENT)
+	'**/integration/stripe-checkout-labels.spec.ts',
+	'**/integration/stripe-checkout-monthly-yearly.spec.ts',
 	// #1598 PR #1675: スクリーンショット撮影専用 spec (cognito-dev mode 専用、CI 既定実行から除外)
 	'**/screenshots-pmf-survey.spec.ts',
 	'**/production-smoke.spec.ts',

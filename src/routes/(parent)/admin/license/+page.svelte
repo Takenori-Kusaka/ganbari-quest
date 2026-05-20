@@ -672,7 +672,10 @@ async function openPortal() {
 						{#if billingInterval === 'monthly'}
 							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{LICENSE_PAGE_LABELS.standardPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerMonth}</span></p>
 						{:else}
-							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{LICENSE_PAGE_LABELS.standardPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerYear}</span></p>
+							<div class="text-right">
+								<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{LICENSE_PAGE_LABELS.standardPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerYear}</span></p>
+								<p class="text-xs text-[var(--color-feedback-success-text)]" data-testid="standard-yearly-monthly-equiv">{LICENSE_PAGE_LABELS.standardYearlyMonthlyEquiv}</p>
+							</div>
 						{/if}
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
@@ -702,7 +705,10 @@ async function openPortal() {
 						{#if billingInterval === 'monthly'}
 							<p class="text-xl font-bold text-[var(--color-stat-purple)]">{LICENSE_PAGE_LABELS.familyPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerMonth}</span></p>
 						{:else}
-							<p class="text-xl font-bold text-[var(--color-stat-purple)]">{LICENSE_PAGE_LABELS.familyPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerYear}</span></p>
+							<div class="text-right">
+								<p class="text-xl font-bold text-[var(--color-stat-purple)]">{LICENSE_PAGE_LABELS.familyPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{LICENSE_PAGE_LABELS.standardPerYear}</span></p>
+								<p class="text-xs text-[var(--color-feedback-success-text)]" data-testid="family-yearly-monthly-equiv">{LICENSE_PAGE_LABELS.familyYearlyMonthlyEquiv}</p>
+							</div>
 						{/if}
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
