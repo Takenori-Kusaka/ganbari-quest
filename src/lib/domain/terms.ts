@@ -723,3 +723,27 @@ export const TEMPLATE_TERMS = {
 export const CHECKOUT_TERMS = {
 	chosenPlanFeature: 'お選びのプランの機能',
 } as const;
+
+// ============================================================
+// NUC_EDITION_TERMS — NUC セルフホスト版 atom (EPIC #2327 / #2329)
+// ============================================================
+//
+// PO 報告 (2026-05-20): NUC ローカル版で /admin/license が冗長表示 (ライセンスキー /
+// placeholder / 支払い履歴 等)、業界 prior art (Mattermost Team Edition / Bitwarden
+// self-hosted / GitLab CE) の Edition badge + 簡略表示型に統合 (案 B 採用)。
+//
+// 設計指針:
+//   - selfHosted    : 'セルフホスト版'  (Edition badge 主題、Mattermost "Team Edition" 整合)
+//   - fullAccess    : '全機能利用可能'  (NUC の最大特典説明)
+//   - unlimited     : '無制限'          (利用状況 dl の値、データ保持 / activity)
+//   - editionEmoji  : '🏠'              (Edition badge の視覚 anchor、家庭内 self-host)
+//
+// LP / 法務文書には未使用 (NUC 認知は admin 画面のみで完結)。
+// runtime-mode.ts (ADR-0040) と組み合わせて使う。
+
+export const NUC_EDITION_TERMS = {
+	selfHosted: 'セルフホスト版',
+	fullAccess: '全機能利用可能',
+	unlimited: '無制限',
+	editionEmoji: '🏠',
+} as const;
