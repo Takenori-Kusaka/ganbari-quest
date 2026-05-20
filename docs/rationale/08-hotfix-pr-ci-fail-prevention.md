@@ -31,14 +31,14 @@
 | 案 | 概要 | 検討した理由 |
 |----|------|-----------|
 | 案 A: `dev-open-pr` Skill 強化 (#2343 Issue 推奨) | Skill 内 pre-push で `check-design-doc-sync.mjs` / `check-no-direct-env-access.mjs` / `check-pr-body.mjs` を必須実行 | 既存 Skill + check スクリプト群を活かせる、Pre-PMF 整合 |
-| 案 B: hotfix 専用 PR template 新規追加 | `.github/PULL_REQUEST_TEMPLATE/hotfix.md` を新規追加し `?template=hotfix.md` URL で起動 | hotfix urgency と CI gate の両立、必須項目を限定 |
+| 案 B: hotfix 専用 PR template 新規追加 | hotfix 専用 PR template を .github 配下の PULL_REQUEST_TEMPLATE ディレクトリに新規追加し、?template=hotfix URL パラメータで起動 | hotfix urgency と CI gate の両立、必須項目を限定 |
 | 案 C: CI gate を `priority:critical` で自動 exempt | `priority:critical` label PR では `必須セクション` / `Verify AC map` を info-only に降格 | hotfix 速度最大化 |
 | **採用案: A の強化 + B の代替 (critical-fix template 強化)** | `check-pr-body.mjs` に `priority:critical` / `hotfix` label 検知ロジック追加 + critical-fix template に hotfix runbook checklist 統合 + dev-session.md に hotfix runbook 追加 + Skill の pre-push 検証を 4 種統合 | A の Skill 強化を中核に、B の hotfix 専用フローは critical-fix template の強化で代替 (template 複数化のメンテ負荷回避) |
 
 ## 棄却理由
 
 - **案 A 単独棄却理由**: Skill 強化だけでは PR 起票時の「`refactor:internal-no-doc-impact` ラベル付与忘れ」「ADR-0006 配布証跡欄忘れ」が起こりやすい。template 側にチェックリストを内蔵する必要がある
-- **案 B 棄却理由**: PR template を `default.md` / `hotfix.md` の 2 種類化すると、(1) 既存 13 セクション SSOT (`PR_TEMPLATE_SECTIONS.json`) との drift 検知が複雑化、(2) GitHub URL ベースの `?template=` 起動は Dev 側の意図的指定が必要で漏れやすい、(3) `pr-template-gate.yml` の 5 ジョブで両 template を検証する必要が生じる、というメンテ負荷が Pre-PMF 段階で過剰 (ADR-0010 Bucket B/C 判断)
+- **案 B 棄却理由**: PR template を「default」と「hotfix」の 2 種類化すると、(1) 既存 13 セクション SSOT (`PR_TEMPLATE_SECTIONS.json`) との drift 検知が複雑化、(2) GitHub URL ベースの `?template=` 起動は Dev 側の意図的指定が必要で漏れやすい、(3) `pr-template-gate.yml` の 5 ジョブで両 template を検証する必要が生じる、というメンテ負荷が Pre-PMF 段階で過剰 (ADR-0010 Bucket B/C 判断)
 - **案 C 棄却理由**: ADR-0002 §4「品質ゲートは Critical でも省略しない」と直接衝突。hotfix urgency でも AC マップ・必須セクションを満たしてこそ ADR-0002 5 要件 (E2E 回帰 / AC 全完了 / 提案全実装 / 5 年齢モード検証 / 直近 30 日重複変更) が機能する。**非推奨**
 
 ## 採用案とその理由
