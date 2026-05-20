@@ -71,8 +71,16 @@ const envSchema = z.object({
 	// ----- Stripe -----
 	STRIPE_SECRET_KEY: z.string().optional(),
 	STRIPE_WEBHOOK_SECRET: z.string().optional(),
+	// #2347 (EPIC #2345): 設計書 SSOT (docs/design/19-プライシング戦略書.md / 21-プラン用語統一規約.md /
+	// plan-change-flow.md) は `STRIPE_PRICE_STANDARD_MONTHLY` / `STRIPE_PRICE_STANDARD_YEARLY` /
+	// `STRIPE_PRICE_FAMILY_MONTHLY` / `STRIPE_PRICE_FAMILY_YEARLY` の 4 種名称。
+	// 旧名 `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_YEARLY` も production env と CDK で
+	// 配布済のため後方互換として継続許容。`config.ts` が STANDARD 系を優先しつつ
+	// 旧名 fallback を行う (#2347 設計書同期 + production 破壊回避)。
 	STRIPE_PRICE_MONTHLY: z.string().optional(),
 	STRIPE_PRICE_YEARLY: z.string().optional(),
+	STRIPE_PRICE_STANDARD_MONTHLY: z.string().optional(),
+	STRIPE_PRICE_STANDARD_YEARLY: z.string().optional(),
 	STRIPE_PRICE_FAMILY_MONTHLY: z.string().optional(),
 	STRIPE_PRICE_FAMILY_YEARLY: z.string().optional(),
 	STRIPE_MOCK: booleanStringSchema,

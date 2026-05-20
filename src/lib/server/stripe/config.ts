@@ -18,18 +18,35 @@ export interface PlanConfig {
 	label: string;
 }
 
-/** 環境変数から Price ID を取得し、プラン設定を構築 */
+/**
+ * 環境変数から Price ID を取得し、プラン設定を構築。
+ *
+ * #2347 (EPIC #2345): 設計書 SSOT (docs/design/19-プライシング戦略書.md /
+ * 21-プラン用語統一規約.md / plan-change-flow.md) の名称
+ * `STRIPE_PRICE_STANDARD_MONTHLY` / `STRIPE_PRICE_STANDARD_YEARLY` を優先しつつ、
+ * 旧名 `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_YEARLY` を fallback として継続許容。
+ *
+ * production env (CDK / GitHub Secrets) に既配布済の旧名を破壊しないことと、
+ * 設計書 SSOT 整合の両立を満たすため新名優先 + 旧名 fallback 方式を採用。
+ * 旧名は将来別 PR でリネーム完了後に削除予定 (#2347 follow-up)。
+ *
+ * 4 種別の interval × tier 対応:
+ *   - STANDARD_MONTHLY  (旧: STRIPE_PRICE_MONTHLY)
+ *   - STANDARD_YEARLY   (旧: STRIPE_PRICE_YEARLY)
+ *   - FAMILY_MONTHLY    (リネームなし)
+ *   - FAMILY_YEARLY     (リネームなし)
+ */
 function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 	return {
 		[LICENSE_PLAN.MONTHLY]: {
-			priceId: process.env.STRIPE_PRICE_MONTHLY ?? '',
+			priceId: process.env.STRIPE_PRICE_STANDARD_MONTHLY ?? process.env.STRIPE_PRICE_MONTHLY ?? '',
 			amount: 500,
 			interval: 'month',
 			tier: 'standard',
 			label: `${PLAN_TERMS.standard}月額（${PRICE_TERMS.standard}/月）`,
 		},
 		[LICENSE_PLAN.YEARLY]: {
-			priceId: process.env.STRIPE_PRICE_YEARLY ?? '',
+			priceId: process.env.STRIPE_PRICE_STANDARD_YEARLY ?? process.env.STRIPE_PRICE_YEARLY ?? '',
 			amount: 5000,
 			interval: 'year',
 			tier: 'standard',
