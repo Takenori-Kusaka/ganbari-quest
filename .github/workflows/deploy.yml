@@ -89,9 +89,12 @@ jobs:
           AWS_OIDC_IAMROLE_ARN: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           AWS_LICENSE_SECRET: ${{ secrets.AWS_LICENSE_SECRET }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          # #2310 / #2337 / ADR-0050: parent-gate-session.ts が production で必須要求。
+          # 未注入だと /admin/* cold start で throw して 500 連発 (PR #2325 で実害発生)。
+          PARENT_GATE_COOKIE_SECRET: ${{ secrets.PARENT_GATE_COOKIE_SECRET }}
         run: |
           missing=0
-          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN AWS_LICENSE_SECRET STRIPE_SECRET_KEY; do
+          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN AWS_LICENSE_SECRET STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET; do
             val=$(eval echo "\$$s")
             if [ -z "$val" ]; then
               echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
@@ -220,6 +223,7 @@ jobs:
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
             -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} \
+            -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }} \
@@ -244,6 +248,7 @@ jobs:
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
           -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }}
+          -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET && format('-c googleClientSecret={0}', secrets.GOOGLE_OAUTH_CLIENT_SECRET) || '' }}

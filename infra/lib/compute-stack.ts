@@ -119,6 +119,26 @@ export class ComputeStack extends cdk.Stack {
 			);
 		}
 
+		// --- Parent-Gate Cookie Secret (#2310 / #2337 / ADR-0050) ---
+		// /admin/* PIN gate の cookie-signature HMAC-SHA256 署名キー。
+		// production cognito mode で必須。未設定だと src/lib/server/services/parent-gate-session.ts
+		// の getSecret() が cold start 時に throw して /admin/* 全 500 化する (PR #2325 で実害発生)。
+		// 配布証跡: GitHub Actions Secrets → CDK context → Lambda env (本ファイル) → 本番 Lambda
+		// 緊急復旧 (2026-05-20): user が aws lambda update-function-configuration で直接配備済。
+		// 本 PR で CDK SSOT 化し次回 stack deploy 時に env が消失しないようにする (out-of-sync 解消)。
+		const parentGateCookieSecret = this.node.tryGetContext('parentGateCookieSecret') ?? '';
+		if (!parentGateCookieSecret) {
+			// 未注入のまま誤デプロイされると Lambda cold start 時に parent-gate-session.ts が
+			// throw して /admin/* が 500 連発するため、CDK synth 段階で明示的に失敗させる
+			// (ADR-0006 / addError は deploy を阻止する、AWS_LICENSE_SECRET と同じ運用)。
+			cdk.Annotations.of(this).addError(
+				'[ComputeStack] parentGateCookieSecret context is empty. ' +
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax, not JS template literal
+					'Pass -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} in the deploy workflow. ' +
+					'See docs/decisions/0050-parent-gate-session-cookie-signature.md and infra/CLAUDE.md.',
+			);
+		}
+
 		// --- Discord Webhook URLs（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const feedbackDiscordWebhookUrl = this.node.tryGetContext('feedbackDiscordWebhookUrl') ?? '';
 		const discordWebhookSignup = this.node.tryGetContext('discordWebhookSignup') ?? '';
@@ -176,6 +196,12 @@ export class ComputeStack extends cdk.Stack {
 				// 未設定だと Lambda cold start 時に throw して 500 連発するため、
 				// GitHub Actions Secrets 経由で必ず注入する。
 				...(awsLicenseSecret ? { AWS_LICENSE_SECRET: awsLicenseSecret } : {}),
+				// #2310 / #2337 / ADR-0050: parent-gate-session.ts の getSecret() が production
+				// cognito mode で必須要求する。未注入だと /admin/* cold start 時に throw して
+				// 500 連発 (2026-05-20 実害発生)。AWS_LICENSE_SECRET と同じ運用。
+				// demo Lambda (SvelteKitDemoFn) は AUTH_MODE=anonymous で PIN gate 無効
+				// (ADR-0048 整合) のため注入しない。
+				...(parentGateCookieSecret ? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret } : {}),
 				...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 				...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),

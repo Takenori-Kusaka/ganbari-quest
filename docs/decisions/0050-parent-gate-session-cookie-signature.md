@@ -123,6 +123,21 @@ await refreshParentSession(cookie);           // lastActiveAt 更新 + 再 sign
 - bundle 増加 < 1KB
 - 将来 PII を cookie payload に含める要件が出た場合は γ `iron-session` への乗換を ADR で議論する (本 ADR を supersede)
 
+## 6.1 Secret 配布証跡 (ADR-0006 / ADR-0029 / #2337)
+
+PR #2325 マージ後、`PARENT_GATE_COOKIE_SECRET` env が本番 Lambda 未配備で `/admin/*` cold start throw → 500 連発 (2026-05-20)。User が `aws lambda update-function-configuration` + `gh secret set` で緊急復旧。#2337 で CDK SSOT 化 + 配布証跡 4 経路完備を恒久化。
+
+| # | 配布先 | SSOT パス |
+|---|---|---|
+| 1 | GitHub Actions Secrets | `gh secret set PARENT_GATE_COOKIE_SECRET --body <hex>` |
+| 2 | AWS Lambda env (production) | `infra/lib/compute-stack.ts` L204-208 (CDK context 経由) |
+| 3 | NUC `.env` 自動生成 | `.github/workflows/deploy-nuc.yml` Set-Content |
+| 4 | 本番 Lambda 直接配備 | 2026-05-20 user 緊急 hotfix (CDK で永続化済) |
+
+`scripts/check-new-required-env.mjs` の env 検出 regex は PR #2325 で `env var is required` 表現を漏らした → #2337 で `<ENV> (env var|environment variable|secret)? is required` 4 パターンに拡張、regress test は `tests/unit/scripts/check-new-required-env.test.ts`。
+
+生成: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`。平文コミット厳禁。
+
 ## 7. 関連 ADR
 
 - ADR-0010 (Pre-PMF Bucket A: 実害防止、本 EPIC のセキュリティ機構選定根拠)

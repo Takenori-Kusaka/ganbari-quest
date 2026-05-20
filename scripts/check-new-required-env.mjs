@@ -178,17 +178,21 @@ function extractAddedLines(diff) {
  *
  * 戻り値: env 名 (大文字スネーク) の Set
  */
-function detectNewRequiredEnvs(addedLines) {
+export function detectNewRequiredEnvs(addedLines) {
 	const found = new Set();
 
 	const assertFnRe = /assert([A-Z]\w*?)Configured\s*\(/;
 	const processEnvThrowRe =
 		/process\.env\.([A-Z][A-Z0-9_]+)\s*\|\|\s*\(?\s*\(\s*\)\s*=>\s*\{[^}]*throw/;
 	// 「FOO_BAR is required」「FOO_BAR is not set」「FOO_BAR must be set」等
+	// #2337 (PR #2325 教訓): env 名と "is required" の間に "env var" / "environment variable"
+	// / "secret" の修飾語が挟まる場合も検出する。実例:
+	//   "[PARENT_GATE] PARENT_GATE_COOKIE_SECRET env var is required in production"
+	// が PR #2325 で検出漏れし本番障害を起こしたため、自然語表現 3 パターンを包含化。
 	// 案件の env 名は ALL_CAPS_SNAKE_CASE のみを対象 (camelCase の JSON フィールド名は除外)
 	// アンダースコアを 1 つ以上含むものを必須にして "PORT" 等の単語を弾く
 	const envInStringRe =
-		/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b\s+(?:is\s+(?:not\s+set|required|missing|undefined)|must\s+be\s+set)/;
+		/\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b(?:\s+(?:env\s+var|environment\s+variable|secret))?\s+(?:is\s+(?:not\s+set|required|missing|undefined)|must\s+be\s+set)/;
 
 	// 全追加行を結合して走査することで、複数行に渡る `throw new Error(...)` も拾う
 	const fullText = addedLines.join('\n');
@@ -315,4 +319,11 @@ function main() {
 	process.exit(0);
 }
 
-main();
+// CLI 起動時のみ main を呼ぶ。`import { detectNewRequiredEnvs }` 経由のテスト時は呼ばない。
+// (#2337 / Issue #2337 AC: regex unit test 追加のため export 化、CLI 互換性維持)
+const isDirectInvocation =
+	import.meta.url === `file://${process.argv[1]}` ||
+	import.meta.url.endsWith(process.argv[1]?.replace(/\\/g, '/'));
+if (isDirectInvocation) {
+	main();
+}

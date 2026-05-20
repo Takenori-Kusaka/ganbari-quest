@@ -46,6 +46,7 @@ CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は
 | env | 用途 | 本番要否 |
 |---|---|---|
 | `AWS_LICENSE_SECRET` | ライセンスキー HMAC 署名 (#806) | Lambda + NUC 必須、両方同値 |
+| `PARENT_GATE_COOKIE_SECRET` | /admin/* PIN gate cookie 署名 (#2310 / ADR-0050 / #2337) | Lambda + NUC 必須、同値不要 |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe 課金 | Lambda 必須 / NUC 無効 |
 | `GEMINI_API_KEY` | Gemini API | 任意 |
 | `CRON_SECRET` | `/api/cron/*` 認証 (#820 / #1375) | OPS_SECRET_KEY と排他必須 |
