@@ -1,13 +1,20 @@
+import { redirect } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/point-display';
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
-import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
+import { getEnv } from '$lib/runtime/env';
+import { getAuthMode, isCognitoDevMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { getDebugPlanSummary } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
 import { getGracePeriodStatus } from '$lib/server/services/grace-period-service';
+import {
+	PARENT_SESSION_COOKIE_NAME,
+	refreshParentSession,
+	verifyParentSession,
+} from '$lib/server/services/parent-gate-session';
 import { isPaidTier, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import {
 	archiveExcessResources,
@@ -19,9 +26,43 @@ import type { LayoutServerLoad } from './$types';
 const TRIAL_WAS_ACTIVE_COOKIE = 'trial_was_active';
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
-export const load: LayoutServerLoad = async ({ locals, cookies }) => {
+export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	const tenantId = requireTenantId(locals);
 	const authMode = getAuthMode();
+
+	// EPIC #2310 子#2311: PIN gate middleware (Apple Screen Time 同設計)
+	// `/admin/*` への到達には親 PIN session が必要。未認証 / 失効時は /switch?pinRequired=1&next=... へ redirect
+	// 詳細: ADR-0050 + docs/design/14-セキュリティ設計書.md §親 PIN gate
+	//
+	// 有効化条件: cognito production モードのみ
+	//   - anonymous mode (demo Lambda、ADR-0048): PIN gate 無効 (demo 環境では PIN 機構自体が無意味)
+	//   - local mode (dev / NUC セルフホスト): PIN gate 無効 (Pre-PMF Bucket B、認証なしの開発者用途)
+	//   - cognito-dev mode (COGNITO_DEV_MODE=true): PIN gate 無効 (E2E setup / DEV_USERS 経由のため、既存 E2E 全 spec の認証フローを破壊しない)
+	//   - cognito production mode: PIN gate 有効 (同端末共有家庭の構造的 privacy 保護)
+	//
+	// cognito-dev で手動動作確認したい場合は `PARENT_GATE_FORCE_ACTIVE=true` env で強制 ON。
+	const forceActive = getEnv().PARENT_GATE_FORCE_ACTIVE === true;
+	const pinGateActive = forceActive || (authMode === 'cognito' && !isCognitoDevMode());
+	const sessionCookie = cookies.get(PARENT_SESSION_COOKIE_NAME);
+	if (pinGateActive && !verifyParentSession(sessionCookie, tenantId)) {
+		const nextPath = url.pathname + (url.search ?? '');
+		const redirectUrl = `/switch?pinRequired=1&next=${encodeURIComponent(nextPath)}`;
+		redirect(303, redirectUrl);
+	}
+
+	// sliding refresh: lastActiveAt 更新 → 再 sign して cookie 再発行 (15 分 inactivity timeout 延長)
+	if (pinGateActive && sessionCookie) {
+		const refreshed = refreshParentSession(sessionCookie);
+		if (refreshed) {
+			cookies.set(PARENT_SESSION_COOKIE_NAME, refreshed, {
+				path: '/',
+				httpOnly: true,
+				secure: COOKIE_SECURE,
+				sameSite: 'lax',
+				maxAge: 60 * 60 * 24,
+			});
+		}
+	}
 
 	const [pointSettingsRaw, trialStatus] = await Promise.all([
 		getSettings(

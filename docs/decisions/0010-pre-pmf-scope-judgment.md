@@ -180,8 +180,24 @@ Phase Admin-Nav-Restructure 完了時の retroactive 検証で「過去 closed I
 - 起票に追加検討コスト（5〜10 分）
 - 監査ログが存在しない期間のインシデント調査は限定的（state + Stripe webhook + CloudWatch 3 日のみ）
 
+## 機能別判定チェックリスト（EPIC #2310 で適用初例、AN-5 #2180 補強 1）
+
+セキュリティ / Privacy 機能を新規導入する際の機械的チェックリスト。EPIC #2310 Phase Parent-Gate で本格適用された 7 項目を本 ADR に保存し、以降の類似 Issue / ADR 起票時の必須テンプレートとする。
+
+- [ ] 1. 実害シナリオが具体的に列挙されているか（**3 件以上、家庭文脈**）
+- [ ] 2. 業界 prior art を独立調査したか（**5 件以上**、本 ADR §3 OSS 先調査と組合せ）
+- [ ] 3. NIST / OWASP / COPPA / GDPR 等の規格整合を確認したか
+- [ ] 4. 提案機構が **無い場合** の reputational risk を Pre-PMF 段階で評価したか
+- [ ] 5. 機構コスト（実装 + 維持 + 親 UX 摩擦）を **3 案以上** で比較したか
+- [ ] 6. バケット A / B / C 判定の根拠が「実害 vs 過剰防衛」軸で明示されているか
+- [ ] 7. 家庭固有トリガ（子→親切替 / 同端末共有 / 旅行先共有等）を脅威モデルに含めたか
+
+EPIC #2310 は本 7 項目すべてを満たし、**バケット A (実害防止)** 採用判定。
+ADR-0050 (cookie-signature OSS 4 件比較) と本ルールが連動し、将来の Privacy / Auth 機構追加 Issue が「世間が使っているものを見もしないまま独自実装」する re-occurrence を構造的に防ぐ。
+
 ## 関連
 
 - ADR-0003（Issue 起票品質）— 本 ADR を補完（起票の構造化）
 - ADR-0008（設計ポリシー先行確認）— 本 ADR の判断を実装着手前に強制
 - ADR-0006（Safety Assertion Erosion Ban）— 既存セーフティは守る（本 ADR は新規採用の抑制）
+- ADR-0050（Parent-Gate Session Cookie 署名方式）— 本 ADR の機能別判定チェックリスト初適用例

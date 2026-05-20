@@ -1214,6 +1214,16 @@ export const OYAKAGI_LABELS = {
 	lockedError: 'おやカギコードの入力に連続して失敗したため、しばらく待ってから再度お試しください',
 	formatError: 'おやカギコードは4〜6桁の数字で入力してください',
 	numberOnlyError: 'おやカギコードは数字のみです',
+	// EPIC #2310 子#2312: /switch PIN gate modal UI (Apple Screen Time 同設計)
+	gateModalTitle: 'おやカギコードを入力してください',
+	gateModalDescription:
+		'ご家族の見守り画面にはおやのみが入れます。おやカギコードを入力してください。',
+	gateModalSubmitting: 'かくにん中…',
+	gateLockoutNotice: (sec: number) => `連続で間違えたため、${sec}秒後に再度お試しください`,
+	gateFormatNotice: 'おやカギコードは4〜6桁の数字です',
+	gateGenericError: 'おやカギコードの確認に失敗しました。もう一度お試しください',
+	gateDefaultHint: '初期値は 5086（がんばり）です',
+	gatePinRequiredBanner: 'ご家族の見守り画面に入るにはおやカギコードが必要です',
 } as const;
 
 // ============================================================
