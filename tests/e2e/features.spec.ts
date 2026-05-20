@@ -731,10 +731,13 @@ test.describe('#0130: ライセンスご家族の見守り画面', () => {
 
 	test('プラン情報が表示される', async ({ page }) => {
 		await page.goto('/admin/license');
-		// プラン名が表示される
-		const planEl = page.locator('main').getByText('無料プラン');
-		await planEl.scrollIntoViewIfNeeded();
-		await expect(planEl).toBeVisible();
+		// EPIC #2327 子#2330 AC2: 「現在のプラン」表示を license.plan → data.planTier
+		// (resolveFullPlanTier 経由) に SSOT 統一。e2e ローカル環境は family plan のため
+		// 「無料プラン」固定ではなく planTier に応じたラベル (`saas-current-plan` testid) を
+		// 検証する。
+		const planRow = page.locator('main').getByTestId('saas-current-plan');
+		await planRow.scrollIntoViewIfNeeded();
+		await expect(planRow).toBeVisible();
 		// ステータスバッジが表示される（#796 のキー適用UIでも「有効化」が出てしまうため、
 		// アイコン付きのバッジテキストで一意に絞り込む）
 		const statusBadge = page.locator('main').getByText('✅ 有効');
@@ -750,13 +753,22 @@ test.describe('#0130: ライセンスご家族の見守り画面', () => {
 
 	test('プラン管理セクションが表示される', async ({ page }) => {
 		await page.goto('/admin/license');
+		// EPIC #2327 子#2330 AC3: 「決済機能は現在準備中です」placeholder 撤去。
+		// stripeEnabled false 環境ではプラン管理 section ごと {#if stripeEnabled} で
+		// 非表示になる (placeholder section の削除)。Stripe 有効環境では section が見える。
+		const portalButton = page.getByTestId('open-portal-button');
+		const portalCount = await portalButton.count();
 		const planSection = page.getByText('プラン管理');
-		await planSection.scrollIntoViewIfNeeded();
-		await expect(planSection).toBeVisible();
-		// Stripe未設定時は準備中メッセージが表示される
-		const prepMessage = page.getByText('決済機能は現在準備中です');
-		await prepMessage.scrollIntoViewIfNeeded();
-		await expect(prepMessage).toBeVisible();
+
+		if (portalCount > 0) {
+			// Stripe 有効環境: プラン管理 section + portal button が表示される
+			await planSection.scrollIntoViewIfNeeded();
+			await expect(planSection).toBeVisible();
+			await expect(portalButton).toBeVisible();
+		} else {
+			// Stripe 未設定環境: プラン管理 section ごと表示されない (EPIC #2327 で正常動作)
+			await expect(planSection).not.toBeVisible();
+		}
 	});
 
 	test('支払い履歴セクションが表示される', async ({ page }) => {
