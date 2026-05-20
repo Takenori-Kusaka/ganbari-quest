@@ -87,6 +87,9 @@
 		"docs/rationale/06-milestones-thresholds-rationale.md": [
 			"tests/unit/server/services/value-preview-service.test.ts"
 		],
+		"docs/rationale/07-usage-log-dynamodb-deferred-rationale.md": [
+			"src/lib/server/db/dynamodb/usage-log-repo.ts"
+		],
 		"docs/reference/03-research-dialog-management-refactor.md": [
 			"src/lib/ui/components/MonthlyRewardDialog.svelte",
 			"src/lib/ui/components/SwitchChildDialog.svelte"
@@ -116,5 +119,5 @@
 			"src/lib/server/services/email-otp-service.ts"
 		]
 	},
-	"generatedAt": "2026-05-19T10:20:48.802Z"
+	"generatedAt": "2026-05-20T06:44:04.494Z"
 }

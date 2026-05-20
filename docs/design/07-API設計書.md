@@ -111,6 +111,16 @@
 | GET | /api/v1/settings/decay | 減少強度設定取得 | owner/parent |
 | PUT | /api/v1/settings/decay | 減少強度設定更新 | owner/parent |
 
+### 使用時間ログ（#1292 / #2338）
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| POST | /api/v1/usage | セッション開始記録 | 全ロール |
+| PATCH | /api/v1/usage | セッション終了記録 | 全ロール |
+
+**no-op fallback 仕様 (#2338、2026-05-20)**:
+`DATA_SOURCE=dynamodb` / `DATA_SOURCE=demo` モード時、`usage-log-service` は SQLite repo を呼ばず no-op で動作し、endpoint は `204 No Content` を返す（旧来は `null` → 500 で本番 cognito Lambda エラーログ汚染）。SQLite mode (`DATA_SOURCE=sqlite`、NUC / dev) では従来通り `200 OK` + `{ id }`。DynamoDB 完全実装は PMF 後に評価（ADR-0010 Bucket B、`docs/rationale/07-usage-log-dynamodb-deferred-rationale.md`）。
+
 ### 画像・エクスポート
 
 | メソッド | パス | 概要 | 認証 |
