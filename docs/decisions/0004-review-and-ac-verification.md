@@ -45,6 +45,25 @@
 - [ ] 型安全: `as any` / non-null assertion の不適切な使用がない
 - [ ] CLAUDE.md: プロジェクトルールへの違反がない
 
+### 4. issue-close-gate は手動 close のみを検証対象とする（#2351）
+
+`issue-close-gate.yml` の AC 検証 gate は **手動 close** (`gh issue close` / GitHub UI) のみを検証対象とし、**PR/Commit 経由 auto-close** は skip する。理由:
+
+- PR `closes #N` で auto-close される際、Issue body の generic Done check (`- [ ]`) は GitHub 側が自動更新しない
+- 一方 PR 側の Ready for Review チェックリスト (`.claude/skills/dev-open-pr/templates/pr-body-default.md`) で **PR merge 前に既に AC 検証済み** (pre-ready PASS / CI 緑 / SS 確認 / 設計書同期)
+- gate が PR auto-close でも未チェック AC を検出して reopen する旧挙動は **二重検証** であり、毎セッション数十件の reopen ループを生んでいた (本セッションだけで 20 件 × 3 周以上)
+
+判定は `scripts/issue-close-gate-skip-judge.mjs` 純粋関数で行い、GitHub GraphQL `timelineItems(itemTypes: [CLOSED_EVENT])` で直近 ClosedEvent の closer 種別を取得:
+
+| closer 種別 | 例 | 対応 |
+|---|---|---|
+| `PullRequest` | PR `closes #N` 経由 | skip (PR Ready gate で検証済み) |
+| `Commit` | squash merge commit message の `closes #N` | skip (PR 経由と同等) |
+| `null` | 手動 close (`gh issue close` / GitHub UI) | AC 検証 gate 通す |
+| (wontfix / duplicate label) | 任意 | 従来通り skip |
+
+unit test 11 ケース: `tests/unit/github/issue-close-gate-skip-judge.test.ts`。
+
 ### 例外手続き
 
 PR 本文に `<!-- ac-verification-skip: <理由> -->` を記述すれば `pr-ac-verification-check.yml` を skip 可能（監査ログに記録）。
