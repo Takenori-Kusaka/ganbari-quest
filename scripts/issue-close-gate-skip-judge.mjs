@@ -28,29 +28,29 @@
 
 /**
  * @typedef {object} ClosedEventClosing
- * @property {string} __typename — 'PullRequest' | 'Commit' (closer 種別)
- * @property {number} [number] — PR 番号 (PullRequest のとき)
- * @property {string} [oid] — commit oid (Commit のとき)
+ * @property {string} __typename - 'PullRequest' | 'Commit' (closer 種別)
+ * @property {number} [number] - PR 番号 (PullRequest のとき)
+ * @property {string} [oid] - commit oid (Commit のとき)
  */
 
 /**
  * @typedef {object} ClosedEvent
- * @property {string} createdAt
- * @property {{ login: string } | null} actor
+ * @property {string} [createdAt]
+ * @property {{ login: string } | null} [actor]
  * @property {ClosedEventClosing | null} closer
  */
 
 /**
  * @typedef {object} IssueCloseContext
  * @property {number} issueNumber
- * @property {string[]} labels — issue label 名一覧
- * @property {ClosedEvent[]} closedEvents — 時系列順 (古い順)。直近を判定対象とする
+ * @property {string[]} labels - issue label 名一覧
+ * @property {ClosedEvent[]} closedEvents - 時系列順 (古い順)。直近を判定対象とする
  */
 
 /**
  * @typedef {object} SkipJudgeResult
- * @property {boolean} skip — true なら AC gate を skip して reopen しない
- * @property {string} reason — skip / gate 適用の理由 (workflow log 出力用)
+ * @property {boolean} skip - true なら AC gate を skip して reopen しない
+ * @property {string} reason - skip / gate 適用の理由 (workflow log 出力用)
  */
 
 /**
