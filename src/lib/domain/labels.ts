@@ -34,6 +34,7 @@ import {
 	LOGIN_TERMS,
 	LP_FAQ_TERMS,
 	MECHANISM_TERMS,
+	NUC_EDITION_TERMS,
 	PARENT_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
@@ -1730,6 +1731,38 @@ export const LICENSE_PAGE_LABELS = {
 	demoCheckoutNote: 'デモでは実際の決済は行われません',
 	demoPlanManagementTitle: 'プラン管理',
 	demoPaymentHistoryTitle: '支払い履歴',
+} as const;
+
+// ============================================================
+// NUC_LICENSE_LABELS — NUC セルフホスト版 license panel (EPIC #2327 / #2329)
+// ============================================================
+//
+// NucLicensePanel.svelte 専用 compound。Edition badge + 利用状況 + サポート link の
+// 3 セクション表示用ラベル SSOT。NUC_EDITION_TERMS atom (terms.ts) と組み合わせて
+// 「セルフホスト版」「全機能利用可能」「無制限」を伝播させる (ADR-0045 準拠)。
+//
+// Mattermost Team Edition / Bitwarden self-hosted / GitLab CE 業界整合。
+// LICENSE_PAGE_LABELS とは独立 SSOT (NUC は冗長セクション削除のため別名 namespace)。
+
+export const NUC_LICENSE_LABELS = {
+	// Edition badge セクション (Mattermost "Team Edition" 整合)
+	editionTitle: `${NUC_EDITION_TERMS.editionEmoji} ${NUC_EDITION_TERMS.selfHosted}`,
+	editionDesc: `ご家族の NUC でセルフホストされている、${NUC_EDITION_TERMS.fullAccess}版です。インターネット接続なしでもすべての機能をご利用いただけます。`,
+
+	// 利用状況セクション
+	usageTitle: 'ご家族の利用状況',
+	usageChildrenLabel: 'こども',
+	usageChildrenUnit: (count: number) => `${count} 人`,
+	usageActivitiesLabel: 'カスタム活動',
+	usageActivitiesValue: (count: number) => `${count} 件 (${NUC_EDITION_TERMS.unlimited})`,
+	usageRetentionLabel: 'データ保持',
+	usageRetentionValue: NUC_EDITION_TERMS.unlimited,
+
+	// サポート link セクション
+	supportTitle: 'サポート',
+	supportDesc: 'お困りの際は以下をご活用ください。',
+	contactLabel: 'お問い合わせ',
+	docsLabel: 'ドキュメント',
 } as const;
 
 export const REPORTS_LABELS = {

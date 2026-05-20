@@ -224,6 +224,29 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+#### 6.6 NUC (nuc-prod) vs SaaS (aws-prod) UI 分岐 (EPIC #2327 / ADR-0051)
+
+| 場所 | 内容 |
+|------|------|
+| `src/hooks.server.ts` | `event.locals.runtimeMode` 解決 (ADR-0040 SSOT、既存) |
+| `src/app.d.ts` | `App.Locals.runtimeMode` 型定義 (既存) |
+| `src/routes/(parent)/admin/+layout.server.ts` | `data.runtimeMode = locals.runtimeMode` 配布 (#2328) |
+| `src/routes/(parent)/admin/license/+page.svelte` | 薄ラッパー、`{#if data.runtimeMode === 'nuc-prod'}` 2 分岐 (#2331) |
+| `src/lib/features/admin/components/NucLicensePanel.svelte` | NUC 専用 (Edition badge + 簡略 3 セクション、#2329) |
+| `src/lib/features/admin/components/SaasLicensePanel.svelte` | SaaS 専用 (AWS 用 7 セクション、`planTier` SSOT 統一 + placeholder 削除、#2330) |
+
+**同期メカニズム**:
+- **現状 (集約)**: `locals.runtimeMode` を `+layout.server.ts` 1 箇所で `data` に配布、`+page.svelte` 1 箇所で 2 分岐
+- **拡張時**: 他 admin route に NUC/SaaS 分岐が必要になったら同パターンを踏襲 (ADR-0051 §3.4)
+
+**修正時チェック**:
+- `runtime-mode.ts` (ADR-0040) の値変更 → 全 panel の `{#if data.runtimeMode === ...}` を grep で全件確認
+- panel 内で mode 分岐を散在させない (ADR-0015 年齢帯 variant と同型のアンチパターン回避)
+- 共通ロジック (LICENSE_PAGE_LABELS 等) は labels.ts SSOT、NUC 専用 atom (NUC_EDITION_TERMS) は terms.ts に分離 (ADR-0045)
+- 詳細: [docs/design/nuc-saas-runtime-bifurcation.md](nuc-saas-runtime-bifurcation.md)
+
+---
+
 ### 🟢 優先度: 中 — スキーマ変更時に注意
 
 #### 7. シードデータ vs マイグレーション

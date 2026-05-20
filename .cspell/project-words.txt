@@ -363,3 +363,9 @@ haribote
 
 # ===== #2320 settings child route helpers =====
 clientside
+
+# ===== EPIC #2327 License-Page NUC-SaaS Bifurcation (業界 prior art OSS) =====
+Bitwarden
+Vaultwarden
+Mattermost
+Nextcloud

@@ -175,14 +175,21 @@ test.describe('#754 ダウングレードフロー — UI', () => {
 	}) => {
 		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
 
-		// ポータルボタン or 「準備中」テキストのどちらかが必ず表示される
+		// EPIC #2327 子#2330 AC3: 「決済機能は現在準備中です」placeholder 撤去。
+		// stripeEnabled false 環境ではプラン管理 section ごと {#if stripeEnabled} で
+		// 非表示になる。Stripe 有効環境では portal button が見える分岐のみ検証する。
 		const portalButton = page.getByTestId('open-portal-button');
-		const preparingText = page.getByText('決済機能は現在準備中です');
-		const portalOrPreparing = portalButton.or(preparingText);
-		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
-
 		const portalCount = await portalButton.count();
-		if (portalCount > 0) {
+
+		if (portalCount === 0) {
+			// Stripe 無効環境: プラン管理 section 自体が表示されない (EPIC #2327 で正常動作)
+			await expect(page.getByText('プラン管理')).not.toBeVisible();
+			return;
+		}
+
+		await expect(portalButton).toBeVisible({ timeout: 10_000 });
+
+		{
 			await portalButton.click();
 
 			// family プラン（5子供）で free にダウングレード試行
@@ -202,12 +209,9 @@ test.describe('#754 ダウングレードフロー — UI', () => {
 				const confirmButton = page.getByTestId('downgrade-confirm-button');
 				await expect(confirmButton).toBeDisabled();
 			} else {
-				// Stripe 未設定: PIN ダイアログが表示される
+				// Stripe 有効 + 超過なし: PIN ダイアログが表示される
 				await expect(pinDialog).toBeVisible();
 			}
-		} else {
-			// Stripe 未設定: 「準備中」テキストが表示される
-			await expect(preparingText).toBeVisible();
 		}
 	});
 });
@@ -392,20 +396,18 @@ test.describe('#754 ChurnPreventionModal — UI', () => {
 		// モーダルの「解約する前に...」タイトルは Dialog コンポーネント経由で描画される
 		// Portal ボタンクリック → showChurnModal=true で開く導線
 
-		// ポータルボタン or 「準備中」テキストのどちらかが必ず表示される
+		// EPIC #2327 子#2330 AC3: 「決済機能は現在準備中です」placeholder 撤去。
+		// stripeEnabled false 環境ではプラン管理 section ごと非表示。
 		const portalButton = page.getByTestId('open-portal-button');
-		const preparingText = page.getByText('決済機能は現在準備中です');
-		const portalOrPreparing = portalButton.or(preparingText);
-		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
-
 		const portalCount = await portalButton.count();
+
 		if (portalCount > 0) {
 			// ポータルボタンがある = Stripe 有効環境
 			// ChurnPreventionModal は showChurnModal state で制御される
 			await expect(page.getByText('プラン管理')).toBeVisible();
 		} else {
-			// Stripe 未設定環境: 「決済機能は現在準備中です」が表示される
-			await expect(preparingText).toBeVisible();
+			// Stripe 未設定環境: プラン管理 section ごと表示されない (EPIC #2327 で正常動作)
+			await expect(page.getByText('プラン管理')).not.toBeVisible();
 		}
 	});
 });
