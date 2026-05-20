@@ -115,11 +115,11 @@ function getDiff() {
 					const body = lines.map((l) => `+${l}`).join('\n');
 					diff += `${header + body}\n`;
 				} catch (e) {
-					console.warn(`[check-new-required-env] could not read untracked ${path}: ${e.message}`);
+					console.warn(`[check-new-required-env] could not read untracked ${path}: ${e instanceof Error ? e.message : String(e)}`);
 				}
 			}
 		} catch (e) {
-			console.warn(`[check-new-required-env] could not enumerate untracked files: ${e.message}`);
+			console.warn(`[check-new-required-env] could not enumerate untracked files: ${e instanceof Error ? e.message : String(e)}`);
 		}
 	}
 
@@ -129,6 +129,10 @@ function getDiff() {
 /**
  * 検査対象外のファイルパス (docs / .md / 自身 / テスト / lock files)
  * 文字列内の env 名による誤検知を避けるため、コードファイルのみを対象とする。
+ */
+/**
+ * @param {string | null | undefined} path
+ * @returns {boolean}
  */
 function isExcludedPath(path) {
 	if (!path) return true;
@@ -145,6 +149,10 @@ function isExcludedPath(path) {
 /**
  * Extract added lines (those starting with `+` but not `+++`) from a unified diff.
  * docs/ や *.md などのファイル変更ブロックはスキップする。
+ */
+/**
+ * @param {string} diff
+ * @returns {string[]}
  */
 function extractAddedLines(diff) {
 	const lines = [];
@@ -177,6 +185,10 @@ function extractAddedLines(diff) {
  *   - Pattern C: `process.env.<ENV> || (() => { throw ... })()` 形式
  *
  * 戻り値: env 名 (大文字スネーク) の Set
+ */
+/**
+ * @param {string[]} addedLines
+ * @returns {Set<string>}
  */
 export function detectNewRequiredEnvs(addedLines) {
 	const found = new Set();
@@ -252,6 +264,11 @@ export function detectNewRequiredEnvs(addedLines) {
  * 書式: 「配布済み: ENV_NAME」 もしくは英語 "Distributed: ENV_NAME"
  * 配布先 (GitHub Secrets / SSM / NUC .env) は ADR-0029 上必須だが、
  * このスクリプトは env 名の証跡有無のみを検証する (配布先文言は人間レビュー)。
+ */
+/**
+ * @param {string} envName
+ * @param {string | null | undefined} prBody
+ * @returns {boolean}
  */
 function hasDistributionEvidence(envName, prBody) {
 	if (!prBody) return false;
