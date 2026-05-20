@@ -76,6 +76,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 			trialEndDate: trialStatus.trialEndDate,
 			trialTier: trialStatus.trialTier,
 		},
+		// EPIC #2327 / #2328: runtimeMode は +layout.server.ts (admin layout) で
+		// 全 admin route の data に配布済み。NucLicensePanel / SaasLicensePanel の
+		// 分岐に使用する (#2329 / #2330 / #2331)。
 	};
 };
 
