@@ -143,21 +143,21 @@ src/lib/marketplace/schemas/
 }
 ```
 
-#### 3.1.5 `challenge-set` (`ChallengeSetPayloadSchema`、新規 type)
+#### 3.1.5 `challenge-set` (`ChallengeSetPayloadSchema`)
 
-EPIC #2364 で正式にマーケットプレイス対応。SiblingChallenge / AutoChallenge ドメインの「公式 challenge セット」形を融合定義。
+SSOT 整合: `src/lib/domain/marketplace-item.ts` `ChallengeSetPayload` interface (#2297 で導入)。協力タイプ固定 (EPIC #2294 ② で competitive UI 撤去済) で、期間は monthDay (MM-DD) + durationDays の論理表現で年間行事 (お正月 / 節分 / ひな祭り / ハロウィン / クリスマス等) を表現する。import 時に service 側で当該年の日付に展開。参照データ: `src/lib/data/marketplace/challenge-sets/japan-annual-events.json` (15 件)。
 
 ```ts
 {
   challenges: Array<{
     title: string (1-100)
-    description?: string (≤500)
-    icon: string (1-10)
-    challengeType: 'cooperative' | 'competitive'
-    periodType: 'daily' | 'weekly' | 'monthly'
-    categoryCode?: CategoryCode    // 未指定時は全カテゴリ
-    targetCount: integer (1-1000)
+    description: string (1-500)     // interface 上必須
+    monthDay: string                // 'MM-DD' 形式 (例: '03-03' = ひな祭り)
+    durationDays: integer (1-90)    // startDate = monthDay の (durationDays - 1) 日前 / endDate = monthDay
+    categoryId: 1 | 2 | 3 | 4 | 5   // 1=undou 2=benkyou 3=seikatsu 4=kouryuu 5=souzou
+    baseTarget: integer (1-1000)    // 達成目標 (例: 累積 10 回)
     rewardPoints: integer (0-10000)
+    icon: string (1-10)
   }>  (minLength: 1)
 }
 ```
@@ -187,7 +187,7 @@ if (result.success) {
 
 - **Phase 1 (現在の本 PR #2364)**: Valibot schema 5 type を `src/lib/marketplace/schemas/` に新規追加。既存 `marketplace-item.ts` interface は残置、`*-import-service.ts` 4 ファイルも変更しない
 - **Phase 2-6 (#2365-2369)**: 各 type の Strategy 実装で schema を consume するよう移行。旧 `*-import-service.ts` は deprecated marker 経由で 1 release 期間後に削除
-- **Phase 9 (#2371 想定)**: `marketplace-item.ts` の TypeScript interface を schema 由来型 (`v.InferOutput<...>`) に置換し SSOT を schema 側に一元化
+- **後続フェーズ (EPIC #2362 完遂時)**: `marketplace-item.ts` の TypeScript interface を schema 由来型 (`v.InferOutput<...>`) に置換し SSOT を schema 側に一元化 (現時点は interface が SSOT、schema が integrity 検証)
 
 ### 3.4 bundle size 実測 (#2364 PR description にも記載)
 
@@ -205,10 +205,13 @@ Zod は単純ケースでは tree-shaking で同等だが、複雑 schema (refin
 
 ## §4 やらないこと (本 doc 範囲外)
 
-- Registry interface 詳細 → ADR-0051 + marketplace/types module (#2363 で実装予定、本 PR 時点未存在)
-- UnifiedImportHub UI → #2366 (EPIC P4)
-- PageGuideRegistry → #2367 (EPIC P4)
-- Export/Import round-trip 互換 schema v2 → #2370 (EPIC P4 #10)
+- Registry interface 詳細 → ADR-0051 + marketplace/types module (#2363 = EPIC #1 で実装予定、本 PR 時点未存在)
+- UnifiedImportHub UI → #2370 (EPIC #8 / P4)
+- PageGuideRegistry → #2371 (EPIC #9 / P4)
+- Export/Import round-trip 互換 schema v2 → #2372 (EPIC #10 / P4)
+- AN-5 #2180 補強 6 (補佐設計品質ガード) → #2373 (EPIC #11 / P4)
+- AN-5 #2180 補強 7 (Registry 完整性 CI 検知) → #2374 (EPIC #12 / P4)
+- PageHelpButton v1 撤去 + tutorial v1/v2 統合 → #2375 (EPIC #13 / P4)
 
 ---
 

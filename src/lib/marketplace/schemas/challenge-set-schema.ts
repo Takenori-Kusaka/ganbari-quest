@@ -3,53 +3,68 @@
  *
  * Issue #2364 (EPIC #2362 P1): MarketplacePayloadMap 5 type schema SSOT.
  *
- * **新規 type**: EPIC #2362 P3 #2364 で正式にマーケットプレイス対応する challenge-set。
- * 既存 `marketplace-item.ts` には未定義のため、本 schema が SSOT になる。
+ * **SSOT 整合**: 実装 SSOT は `src/lib/domain/marketplace-item.ts` の `ChallengeSetPayload` interface
+ * (#2297 で導入)。本 schema は当該 interface の形 (monthDay / durationDays / categoryId 1-5 /
+ * baseTarget / rewardPoints / icon) と完全一致させる。参照データ:
+ * `src/lib/data/marketplace/challenge-sets/japan-annual-events.json` (15 件、年間行事 challenge セット)。
  *
- * Sibling / Auto challenge ドメイン (src/lib/server/db/types/index.ts SiblingChallenge / AutoChallenge)
- * から融合した「公式 challenge セット」形を定義する。実 import service は #2364 (EPIC P3 #7) で実装。
+ * **協力タイプ固定**: EPIC #2294 ② で競争タイプ UI が削除されたため、本 schema でも competitive
+ * variant を持たず cooperative 固定とする (interface 側コメントと整合)。期間は monthDay (MM-DD) +
+ * durationDays で論理表現し、import 時に service 側で当該年の日付に展開する。
  */
 
 import * as v from 'valibot';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity.js';
 
-/** challenge の種別 (sibling-challenge.challengeType と整合) */
-export const CHALLENGE_TYPES = ['cooperative', 'competitive'] as const;
-export type ChallengeType = (typeof CHALLENGE_TYPES)[number];
-
-/** 周期種別 */
-export const PERIOD_TYPES = ['daily', 'weekly', 'monthly'] as const;
-export type PeriodType = (typeof PERIOD_TYPES)[number];
-
-/** challenge-set item: 単一のチャレンジ */
+/** challenge-set item: 単一のチャレンジ (#2297 ChallengeSetPayload interface 整合) */
 export const ChallengeSetItemSchema = v.object({
 	title: v.pipe(
 		v.string('title は文字列で指定してください'),
 		v.minLength(1, 'title は必須です'),
 		v.maxLength(100, 'title は 100 文字以内で指定してください'),
 	),
-	description: v.optional(v.pipe(v.string(), v.maxLength(500))),
-	icon: v.pipe(v.string(), v.minLength(1, 'icon は必須です'), v.maxLength(10)),
-	challengeType: v.picklist(
-		CHALLENGE_TYPES,
-		'challengeType は CHALLENGE_TYPES のいずれかで指定してください',
+	description: v.pipe(
+		v.string('description は文字列で指定してください'),
+		v.minLength(1, 'description は必須です'),
+		v.maxLength(500, 'description は 500 文字以内で指定してください'),
 	),
-	periodType: v.picklist(PERIOD_TYPES, 'periodType は PERIOD_TYPES のいずれかで指定してください'),
-	/** 対象カテゴリ。未指定時は全カテゴリ対象 */
-	categoryCode: v.optional(v.picklist(CATEGORY_CODES)),
+	/** 'MM-DD' (例: '03-03' = ひな祭り)。毎年同月日に開催される年間行事の論理表現 */
+	monthDay: v.pipe(
+		v.string('monthDay は文字列で指定してください'),
+		v.regex(
+			/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/,
+			'monthDay は MM-DD 形式 (01-01 〜 12-31) で指定してください',
+		),
+	),
+	/** 期間 (日数)。startDate = monthDay の (durationDays - 1) 日前。endDate = monthDay */
+	durationDays: v.pipe(
+		v.number('durationDays は数値で指定してください'),
+		v.integer('durationDays は整数で指定してください'),
+		v.minValue(1, 'durationDays は 1 以上で指定してください'),
+		v.maxValue(90, 'durationDays は 90 以下で指定してください'),
+	),
+	/** 1=undou 2=benkyou 3=seikatsu 4=kouryuu 5=souzou */
+	categoryId: v.picklist(
+		[1, 2, 3, 4, 5] as const,
+		'categoryId は 1 (運動) / 2 (勉強) / 3 (生活) / 4 (交流) / 5 (創造) のいずれかで指定してください',
+	),
 	/** 達成目標 (例: 累積 10 回) */
-	targetCount: v.pipe(
-		v.number('targetCount は数値で指定してください'),
-		v.integer('targetCount は整数で指定してください'),
-		v.minValue(1, 'targetCount は 1 以上で指定してください'),
-		v.maxValue(1000, 'targetCount は 1000 以下で指定してください'),
+	baseTarget: v.pipe(
+		v.number('baseTarget は数値で指定してください'),
+		v.integer('baseTarget は整数で指定してください'),
+		v.minValue(1, 'baseTarget は 1 以上で指定してください'),
+		v.maxValue(1000, 'baseTarget は 1000 以下で指定してください'),
 	),
 	/** 報酬ポイント */
 	rewardPoints: v.pipe(
-		v.number(),
-		v.integer(),
+		v.number('rewardPoints は数値で指定してください'),
+		v.integer('rewardPoints は整数で指定してください'),
 		v.minValue(0, 'rewardPoints は 0 以上で指定してください'),
 		v.maxValue(10000, 'rewardPoints は 10000 以下で指定してください'),
+	),
+	icon: v.pipe(
+		v.string('icon は文字列で指定してください'),
+		v.minLength(1, 'icon は必須です'),
+		v.maxLength(10, 'icon は 10 文字以内で指定してください'),
 	),
 });
 

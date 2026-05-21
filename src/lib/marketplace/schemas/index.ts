@@ -28,14 +28,10 @@ export {
 	ActivityPackPayloadSchema,
 } from './activity-pack-schema.js';
 export {
-	CHALLENGE_TYPES,
 	type ChallengeSetItem,
 	ChallengeSetItemSchema,
 	type ChallengeSetPayload,
 	ChallengeSetPayloadSchema,
-	type ChallengeType,
-	PERIOD_TYPES,
-	type PeriodType,
 } from './challenge-set-schema.js';
 
 export {
@@ -72,10 +68,10 @@ import { RulePresetPayloadSchema } from './rule-preset-schema.js';
  *
  * `MarketplaceTypeRegistry` (#2363 で起票) が type 別 strategy を解決する際に参照する想定。
  *
- * 注: `challenge-set` は EPIC #2362 P3 #2364 で新規導入される type。
- * 既存 `src/lib/domain/marketplace-item.ts` の `MarketplaceItemType` は未だ 4 type だが、
- * EPIC blocks 関係 (#2364 blocks #2363/#7) の通り、本 PR では先取りで 5 type schema を整備する。
- * `MarketplaceItemType` への challenge-set 追加は #2363 (Registry interface 基盤) で行われる。
+ * 注: `src/lib/domain/marketplace-item.ts` の `MarketplaceItemType` には #2297 で既に
+ * `challenge-set` を含む 5 type 全てが定義済み (`'activity-pack' | 'reward-set' | 'checklist'
+ * | 'rule-preset' | 'challenge-set'`)。本 schema 群は当該 interface 群と完全一致させる SSOT
+ * 整合 schema として機能する。実 import service の challenge-set 対応は #2369 (EPIC P3 #7) で実装。
  */
 export const MarketplacePayloadSchemaMap = {
 	'activity-pack': ActivityPackPayloadSchema,
