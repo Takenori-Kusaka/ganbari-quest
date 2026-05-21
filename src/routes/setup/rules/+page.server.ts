@@ -12,12 +12,11 @@
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import type { RulePresetPayload } from '$lib/domain/marketplace-item';
+// #2368 (ADR-0052 P3): Strategy 経由 (Registry 経由) で 4 ruleType sub-dispatcher を呼ぶ
+import { marketplaceRegistry } from '$lib/marketplace';
+import type { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
-import {
-	importRulePreset,
-	previewRulePresetImport,
-} from '$lib/server/services/rule-preset-import-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -110,27 +109,23 @@ export const actions: Actions = {
 					continue;
 				}
 
-				const preview = await previewRulePresetImport(
-					item.itemId,
-					item.name,
-					item.icon,
-					payload,
-					tenantId,
-					childId,
-				);
+				// #2368: Strategy 経由 (Registry 経由で本番 / demo 環境とも同一動作)
+				const strategy = marketplaceRegistry.get('rule-preset')
+					.strategy as typeof rulePresetStrategy;
+				const identity = {
+					presetId: item.itemId,
+					presetName: item.name,
+					presetIcon: item.icon,
+				};
+				const ctx = { tenantId, childId };
+
+				const preview = await strategy.previewRulePreset(identity, payload, ctx);
 				if (preview.alreadyImported) {
 					totalSkipped++;
 					continue;
 				}
 
-				const result = await importRulePreset(
-					item.itemId,
-					item.name,
-					item.icon,
-					payload,
-					tenantId,
-					{ childId },
-				);
+				const result = await strategy.applyRulePreset(identity, payload, ctx);
 				totalImported += result.imported;
 				totalSkipped += result.skipped;
 				allErrors.push(...result.errors);

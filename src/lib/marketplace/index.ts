@@ -47,7 +47,7 @@ export { MARKETPLACE_TYPE_CODES } from './types.js';
 // 順序は仕様上の依存ではなく可読性のため alphabetical 推奨。
 import './types/activity-pack.js'; // #2365
 import './types/reward-set.js'; // #2366
-// 後続 Issue #2367-2369 で各 type の side-effect import をここに追加する。
+import './types/rule-preset.js'; // #2368
+// 後続 Issue #2367 / #2369 で各 type の side-effect import をここに追加する。
 //   import './types/checklist';       // #2367
-//   import './types/rule-preset';     // #2368
 //   import './types/challenge-set';   // #2369
