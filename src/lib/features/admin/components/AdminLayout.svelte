@@ -219,9 +219,6 @@ function isItemActive(itemHref: string): boolean {
 				{:else if !isDemo && !isAnonymousLambda && isPremium}
 					<span class="plan-badge plan-badge--{planTier}">{planLabel}</span>
 				{/if}
-				<!-- #2375: v1 fallback `?` ボタン (Button + handleStartTutorial) を撤去。
-				     PageGuideRegistry が未登録のページでは ❓ ボタン自体を非表示にする。
-				     全 admin ページは _guide.ts を必ず持つ規約 (page-guide-registry.ts SSOT)。 -->
 				{#if !isDemo && hasPageGuide}
 					<button
 						onclick={handleStartPageGuide}
@@ -445,7 +442,6 @@ function isItemActive(itemHref: string): boolean {
 		background: var(--plan-badge-bg, #fef3c7);
 		color: var(--plan-badge-text, #92400e);
 	}
-	/* #2375: v1 `?` ボタン用 .header-tutorial-btn 撤去 — PageGuide v2 ❓ (page-guide-btn) のみに統一 */
 	/* Switch link (#497) — uses CSS variables instead of Tailwind colors */
 	.header-switch-link {
 		display: inline-flex;

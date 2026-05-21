@@ -9,7 +9,6 @@
 // 症状の根因 (A + D) の一翼を担っていた。本テストは冪等 guard の構造的維持を保証する。
 
 import { afterEach, describe, expect, it } from 'vitest';
-import type { PageGuide } from '../../../src/lib/ui/tutorial/page-guide-types';
 import {
 	endPageGuide,
 	getCurrentGuideInfo,
@@ -18,6 +17,7 @@ import {
 	nextGuideStep,
 	startPageGuide,
 } from '../../../src/lib/ui/tutorial/page-guide-store.svelte';
+import type { PageGuide } from '../../../src/lib/ui/tutorial/page-guide-types';
 
 // 最小 fixture (admin-activities / admin-rewards 2 ガイドのみで冪等性 / 切替を検証)
 const ACTIVITIES_GUIDE: PageGuide = {
