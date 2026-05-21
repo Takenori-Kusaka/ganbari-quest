@@ -384,3 +384,7 @@ valibot
 
 # ===== #2365 activity-pack Strategy 移行 (EPIC #2362 P2) =====
 callsite
+
+# ===== #2389 Registry integrity test fixture isolation =====
+typecode
+tmpdirs
