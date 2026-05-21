@@ -4,7 +4,12 @@
 
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
-import { getLicensePlanLabel, LIFECYCLE_EMAIL_LABELS, PMF_SURVEY_LABELS } from '$lib/domain/labels';
+import {
+	getLicensePlanLabel,
+	LIFECYCLE_EMAIL_LABELS,
+	PIN_RESET_LABELS,
+	PMF_SURVEY_LABELS,
+} from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
@@ -368,6 +373,42 @@ export async function sendMemberJoinedEmail(
 // ライセンスキー配布メール (#815)
 // プランラベルは labels.ts (SSOT) の getLicensePlanLabel() を使用
 // ============================================================
+
+// ============================================================
+// PIN reset メール (#2353 設計欠陥 4)
+// ============================================================
+
+/**
+ * #2353: おやカギコード再設定リンクメール (SES magic link)
+ *
+ * - token は 30 分有効・1 回限り (pin-reset-service.ts SSOT)
+ * - リクエスト元 email が登録済かどうかは応答に出さない (enumeration 攻撃防止) ため、
+ *   呼び出し側 (/api/v1/parent-gate/reset/request) は必ず 200 を返す
+ * - 本関数は登録済 email にのみ呼ばれ、SES 失敗時は false を返す
+ */
+export async function sendPinResetEmail(email: string, magicLinkUrl: string): Promise<boolean> {
+	const labels = PIN_RESET_LABELS;
+	const subject = labels.emailSubject;
+	const htmlBody = wrapTemplate(`
+      <h2>${labels.emailHeading}</h2>
+      <p>${labels.emailIntro}</p>
+      <p style="text-align: center; margin: 24px 0;">
+        <a href="${magicLinkUrl}" class="button">${labels.emailCtaLabel}</a>
+      </p>
+      <p style="font-size: 13px; color: #666;">${labels.emailNote}</p>
+      <p style="font-size: 12px; color: #999; word-break: break-all;">${magicLinkUrl}</p>
+    `);
+	const textBody = [
+		labels.emailHeading,
+		'',
+		labels.emailIntro,
+		'',
+		`${labels.emailCtaLabel}: ${magicLinkUrl}`,
+		'',
+		labels.emailNote,
+	].join('\n');
+	return sendEmail({ to: email, subject, htmlBody, textBody });
+}
 
 /** ライセンスキー配布メール (#0247, #815 テンプレート刷新) */
 export async function sendLicenseKeyEmail(
