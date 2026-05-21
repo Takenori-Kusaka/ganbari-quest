@@ -68,7 +68,7 @@ test.describe('ページヘルス: Admin', () => {
 		{ path: '/admin', name: 'ダッシュボード' },
 		{ path: '/admin/children', name: 'こども管理' },
 		{ path: '/admin/activities', name: '活動管理' },
-		{ path: '/admin/activities/introduce', name: '活動紹介' },
+		// #2371: /admin/activities/introduce は廃止 → legacy-url-map で /admin/activities に 308 redirect
 		{ path: '/admin/points', name: 'ポイント管理' },
 		{ path: '/admin/rewards', name: 'ごほうび管理' },
 		// #1782: /admin/achievements は廃止 → /admin/challenges に 308 redirect 統合（ADR-0012 §6 整合）

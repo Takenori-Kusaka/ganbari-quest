@@ -1,5 +1,4 @@
 <script lang="ts">
-import { goto } from '$app/navigation';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
 
@@ -39,15 +38,11 @@ const addMenuItems = $derived<MenuItem[]>([
 ]);
 
 // ︙ overflow menu items (EPIC #2253 / #2257)
+// #2371 (EPIC #2362 PO 指摘 ③ 物理解消): `introduce` 項目撤去。ヘッダー `?` ボタン (PR #2388 で
+// PageGuideOverlay v2 + PageGuideRegistry 経由に統一済) を唯一のガイド経路に統一する。旧
+// `/admin/activities/introduce` URL は `legacy-url-map.ts` で `/admin/activities` に 308
+// リダイレクトされる (ブックマーク救済)。
 const overflowItems = $derived<MenuItem[]>([
-	{
-		id: 'introduce',
-		label: L.introduceLabel,
-		icon: L.introduceIcon,
-		onSelect: () => {
-			goto('/admin/activities/introduce');
-		},
-	},
 	{
 		id: 'export',
 		label: L.exportLabel,

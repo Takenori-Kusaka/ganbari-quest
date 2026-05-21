@@ -131,19 +131,29 @@ test.describe('EPIC #2253 — admin/activities add UX', () => {
 	});
 
 	// --- 子 ④: ︙ overflow menu ---
-	test('header ︙ ボタンで introduce / export / clear-all overflow menu が出現', async ({
+	// #2371 (EPIC #2362 PO 指摘 ③): `introduce` 項目を撤去。`?` page-guide-btn (v2 PageGuideOverlay、PR #2388) に統一
+	test('header ︙ ボタンで export / clear-all overflow menu が出現 (introduce は撤去済)', async ({
 		page,
 	}) => {
 		await openMenu(page, 'header-overflow-menu-btn');
-		await expect(page.getByTestId('menu-item-introduce')).toBeVisible();
+		await expect(page.getByTestId('menu-item-introduce')).toHaveCount(0);
 		await expect(page.getByTestId('menu-item-export')).toBeVisible();
 		await expect(page.getByTestId('menu-item-clear-all')).toBeVisible();
 	});
 
-	test('menu-item-introduce click で /admin/activities/introduce へ遷移', async ({ page }) => {
-		await openMenu(page, 'header-overflow-menu-btn');
-		await page.getByTestId('menu-item-introduce').click();
-		await page.waitForURL(/\/admin\/activities\/introduce$/);
+	// #2371 BLOCK-5: assertion 強化 — `?` ボタンが表示されるだけでなく、クリックで PageGuideOverlay
+	// (v2) が起動し最初の step タイトルが表示されることまで検証 (ガイド経路の SSOT 検証)。
+	test('ヘッダー ? ボタン (page-guide-btn) クリックで PageGuideOverlay が起動する', async ({
+		page,
+	}) => {
+		const helpBtn = page.locator('[data-tutorial="page-guide-btn"]').first();
+		await expect(helpBtn).toBeVisible();
+		await helpBtn.click();
+		// PageGuideOverlay (v2) は role="dialog" + aria-modal で表示される (#2388 AC-V2-7)
+		const overlay = page.getByRole('dialog').filter({ has: page.locator('[data-step-id]') });
+		await expect(overlay).toBeVisible({ timeout: 5000 });
+		// 最初の step title が画面内に存在することで「正しいガイドが起動した」ことを担保
+		await expect(overlay.locator('[data-step-id]').first()).toBeVisible();
 	});
 });
 

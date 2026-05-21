@@ -5946,11 +5946,10 @@ export const FEATURES_LABELS = {
 		addDialogTitleManual: '+ 手動で追加',
 		addDialogTitleAi: '✨ AI で活動を追加',
 		addDialogTitleImport: '📥 パックからインポート',
-		// ︙ overflow menu (introduce / export / clear-all、EPIC #2253 / #2257)
+		// ︙ overflow menu (export / clear-all、EPIC #2253 / #2257)
+		// #2371 (EPIC #2362 PO 指摘 ③): introduce 撤去 (PR #2388 で PageGuideOverlay v2 + PageGuideRegistry 経由 `?` ボタンに統一済)
 		overflowMenuAriaLabel: 'その他の操作',
 		overflowTriggerLabel: '︙',
-		introduceLabel: '使い方を見せる',
-		introduceIcon: '📖',
 		exportLabel: 'エクスポート',
 		exportIcon: '📤',
 		clearAllLabel: 'すべて削除',

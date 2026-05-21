@@ -44,6 +44,16 @@ export interface LegacyUrlEntry {
  * 先に評価され、誤ったマッチングを防ぐ。
  */
 export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
+	// #2371 (EPIC #2362 PO 指摘 ③): /admin/activities/introduce 廃止
+	// PR #2388 で PageGuideOverlay v2 + PageGuideRegistry 経由のヘッダー `?` ボタンに統一
+	// したため、旧 introduce ページは不要。ブックマーク / 外部リンク救済のため URL 層で吸収。
+	{
+		from: '/admin/activities/introduce',
+		to: '/admin/activities',
+		deletedAt: '2026-05-21',
+		issue: '#2371',
+		reason: 'PageGuideRegistry に統合 (PO 指摘 ③、二重ガイド撤廃)',
+	},
 	// #537 / #539 で年齢区分コードを全面リネーム
 	// 旧コード (kinder/lower/upper/teen) は DB の ui_mode カラムにも残存しており、
 	// #571 で SQLite 側の normalize 処理を入れたが、ブックマーク / 外部リンク /
