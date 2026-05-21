@@ -1,12 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
-import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
+// #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
+import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
+import { loadFromMarketplace } from '$lib/marketplace/sources/marketplace-source';
 import { requireTenantId } from '$lib/server/auth/factory';
-import {
-	importActivities,
-	previewActivityImport,
-} from '$lib/server/services/activity-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -84,20 +82,19 @@ export const actions: Actions = {
 		let totalSkipped = 0;
 		const allErrors: string[] = [];
 
+		const descriptor = marketplaceRegistry.get('activity-pack');
 		for (const packId of packIds) {
 			try {
-				const pack = getMarketplaceItem('activity-pack', packId);
-				if (!pack) {
-					allErrors.push(`パック「${packId}」が見つかりません`);
-					continue;
-				}
-				const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
-				const preview = await previewActivityImport(activities, tenantId);
+				const source = loadFromMarketplace('activity-pack', packId);
+				const payload = descriptor.strategy.parse(source.payload) as ActivityPackPayload;
+				const preview = await descriptor.strategy.preview(payload, { tenantId });
 
-				if (preview.newActivities > 0) {
-					const result = await importActivities(activities, tenantId, {
-						presetId: packId,
-						applyMustDefault,
+				if (preview.newItems > 0) {
+					const result = await dispatchImport({
+						typeCode: 'activity-pack',
+						rawPayload: source.payload,
+						displayName: source.displayName,
+						ctx: { tenantId, presetId: packId, applyMustDefault },
 					});
 					totalImported += result.imported;
 					totalSkipped += result.skipped;
@@ -128,18 +125,20 @@ export const actions: Actions = {
 
 		let autoImported = 0;
 		const activityPackMetas = getMarketplaceIndex().filter((m) => m.type === 'activity-pack');
+		const descriptor = marketplaceRegistry.get('activity-pack');
 		for (const p of activityPackMetas) {
 			if (p.targetAgeMin <= maxAge && p.targetAgeMax >= minAge) {
 				try {
-					const pack = getMarketplaceItem('activity-pack', p.itemId);
-					if (!pack) continue;
-					const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
-					const preview = await previewActivityImport(activities, tenantId);
-					if (preview.newActivities > 0) {
+					const source = loadFromMarketplace('activity-pack', p.itemId);
+					const payload = descriptor.strategy.parse(source.payload) as ActivityPackPayload;
+					const preview = await descriptor.strategy.preview(payload, { tenantId });
+					if (preview.newItems > 0) {
 						// #1758: スキップ動線でも must 推奨は ON（最短で「今日のおやくそく」が機能する）
-						const result = await importActivities(activities, tenantId, {
-							presetId: p.itemId,
-							applyMustDefault: true,
+						const result = await dispatchImport({
+							typeCode: 'activity-pack',
+							rawPayload: source.payload,
+							displayName: source.displayName,
+							ctx: { tenantId, presetId: p.itemId, applyMustDefault: true },
 						});
 						autoImported += result.imported;
 					}

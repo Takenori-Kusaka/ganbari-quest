@@ -1,16 +1,15 @@
 import { fail } from '@sveltejs/kit';
-import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
-import type { ActivityPackItem } from '$lib/domain/activity-pack';
+import { getMarketplaceIndex } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
-import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
-import { CATEGORY_CODES, CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+// #2365 (ADR-0052): activity-pack を新 Strategy + dispatchImport 経由に移行。
+// `$lib/marketplace` の eager-load (`./types/activity-pack`) で Registry 登録される。
+import { dispatchImport } from '$lib/marketplace';
+import { FileSourceError, loadActivityPackFromFile } from '$lib/marketplace/sources/file-source';
+import { loadFromMarketplace } from '$lib/marketplace/sources/marketplace-source';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
-import {
-	importActivities,
-	previewActivityImport,
-} from '$lib/server/services/activity-import-service';
 import {
 	createActivity,
 	deleteActivityWithCleanup,
@@ -220,22 +219,20 @@ export const actions: Actions = {
 
 		if (!packId) return fail(400, { error: 'パックIDが必要です' });
 
-		const pack = getMarketplaceItem('activity-pack', packId);
-		if (!pack) return fail(404, { error: 'パックが見つかりません' });
-
+		// #2365 (ADR-0052): Strategy + dispatchImport 経由
 		try {
-			const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
-			const preview = await previewActivityImport(activities, tenantId);
-			const result = await importActivities(activities, tenantId, packId);
-			return {
-				importResult: true,
-				packName: pack.name,
-				imported: result.imported,
-				skipped: result.skipped,
-				total: preview.total,
-				errors: result.errors,
-			};
+			const source = loadFromMarketplace('activity-pack', packId);
+			const result = await dispatchImport({
+				typeCode: 'activity-pack',
+				rawPayload: source.payload,
+				displayName: source.displayName,
+				ctx: { tenantId, presetId: packId },
+			});
+			return result;
 		} catch (e) {
+			if (e instanceof Error && e.message.includes('not found in marketplace SSOT')) {
+				return fail(404, { error: 'パックが見つかりません' });
+			}
 			logger.error('[admin/activities] パックインポート失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				context: { packId },
@@ -274,42 +271,31 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const file = formData.get('file') as File | null;
 
-		if (!file || file.size === 0) {
-			return fail(400, { error: 'ファイルを選択してください' });
-		}
-
-		const text = await file.text();
-		let activities: ActivityPackItem[];
-
+		// #2365 (ADR-0052): Strategy + dispatchImport 経由 + file-source adapter
+		let loaded: { activities: unknown[]; displayName: string };
 		try {
-			if (file.name.endsWith('.csv')) {
-				activities = parseCsvActivities(text);
-			} else {
-				const parsed = JSON.parse(text);
-				activities = parsed.activities ?? parsed;
-				if (!Array.isArray(activities)) {
-					return fail(400, { error: 'JSONの形式が正しくありません' });
-				}
+			loaded = (await loadActivityPackFromFile(file as File)) as {
+				activities: unknown[];
+				displayName: string;
+			};
+		} catch (e) {
+			if (e instanceof FileSourceError) {
+				return fail(400, { error: e.message });
 			}
-		} catch {
+			logger.error('[admin/activities] ファイル解析失敗', {
+				error: e instanceof Error ? e.message : String(e),
+			});
 			return fail(400, { error: 'ファイルの解析に失敗しました' });
 		}
 
-		if (activities.length === 0) {
-			return fail(400, { error: 'インポートする活動がありません' });
-		}
-
 		try {
-			const preview = await previewActivityImport(activities, tenantId);
-			const result = await importActivities(activities, tenantId);
-			return {
-				importResult: true,
-				packName: file.name,
-				imported: result.imported,
-				skipped: result.skipped,
-				total: preview.total,
-				errors: result.errors,
-			};
+			const result = await dispatchImport({
+				typeCode: 'activity-pack',
+				rawPayload: { activities: loaded.activities },
+				displayName: loaded.displayName,
+				ctx: { tenantId },
+			});
+			return result;
 		} catch (e) {
 			logger.error('[admin/activities] ファイルインポート失敗', {
 				error: e instanceof Error ? e.message : String(e),
@@ -361,35 +347,4 @@ export const actions: Actions = {
 	},
 };
 
-/** CSV を ActivityPackItem[] に変換 */
-function parseCsvActivities(text: string): ActivityPackItem[] {
-	const lines = text.split('\n').filter((l) => l.trim());
-	if (lines.length < 2) return [];
-
-	// ヘッダー行をスキップ
-	const validCodes = new Set<string>(CATEGORY_CODES);
-	const items: ActivityPackItem[] = [];
-
-	for (let i = 1; i < lines.length; i++) {
-		const line = lines[i];
-		if (!line) continue;
-		const cols = line.split(',').map((c) => c.trim());
-		if (cols.length < 4) continue;
-
-		const [name, categoryCode, icon, pointsStr, description] = cols;
-		if (!name || !categoryCode || !validCodes.has(categoryCode)) continue;
-
-		items.push({
-			name,
-			categoryCode: categoryCode as ActivityPackItem['categoryCode'],
-			icon: icon || '📝',
-			basePoints: Number(pointsStr) || 5,
-			ageMin: null,
-			ageMax: null,
-			gradeLevel: null,
-			description: description || undefined,
-		});
-	}
-
-	return items;
-}
+// #2365 (ADR-0052): 旧 parseCsvActivities は `$lib/marketplace/sources/file-source.ts` に移管
