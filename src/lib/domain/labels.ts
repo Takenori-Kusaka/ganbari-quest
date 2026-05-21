@@ -7934,6 +7934,10 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	// Pack / set 説明 (type 表示用)
 	itemCountSuffix: (count: number) => `（${count} 件）`,
 	targetAgeRange: (min: number, max: number) => `対象年齢 ${min} 〜 ${max} 歳`,
+	// childId 未選択時の警告 (reward-set / checklist 等 requiresChildId === true で表示)
+	childRequiredHint: '※ 対象の子供を選んでから取り込みできます。',
+	// preset 内アイテム数と対象年齢の連結 separator
+	itemAgeSeparator: '・',
 	// type 選択時のヒント
 	typeHintActivityPack: 'プリセット活動を一括で追加します。',
 	typeHintRewardSet: 'ごほうびテンプレートを子供ごとに一括登録します。',

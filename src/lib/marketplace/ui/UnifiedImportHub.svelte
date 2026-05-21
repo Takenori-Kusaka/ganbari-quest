@@ -168,7 +168,7 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 
 		{#if requiresChildId && !hasChildId}
 			<p class="child-hint" data-testid="unified-import-hub-child-hint">
-				※ 対象の子供を選んでから取り込みできます。
+				{UNIFIED_IMPORT_HUB_LABELS.childRequiredHint}
 			</p>
 		{/if}
 
@@ -220,7 +220,7 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 									<p class="preset-sub">
 										{UNIFIED_IMPORT_HUB_LABELS.itemCountSuffix(preset.itemCount)}
 										{#if preset.targetAgeMin !== undefined && preset.targetAgeMax !== undefined}
-											・{UNIFIED_IMPORT_HUB_LABELS.targetAgeRange(preset.targetAgeMin, preset.targetAgeMax)}
+											{UNIFIED_IMPORT_HUB_LABELS.itemAgeSeparator}{UNIFIED_IMPORT_HUB_LABELS.targetAgeRange(preset.targetAgeMin, preset.targetAgeMax)}
 										{/if}
 									</p>
 								</div>
