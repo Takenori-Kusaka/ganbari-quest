@@ -52,7 +52,8 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 		await page.goto(`/marketplace/challenge-set/${JAPAN_ANNUAL_EVENTS_PRESET}`);
 		await page.waitForLoadState('domcontentloaded');
 		// japan-annual-events.json の name: "日本年間行事パック"
-		await expect(page.getByText('日本年間行事パック')).toBeVisible();
+		// breadcrumb + heading の 2 箇所に出現するため、最初の 1 件で visible 検証
+		await expect(page.getByText('日本年間行事パック').first()).toBeVisible();
 	});
 
 	test('/marketplace/challenge-set/<不存在> は 404', async ({ page }) => {
