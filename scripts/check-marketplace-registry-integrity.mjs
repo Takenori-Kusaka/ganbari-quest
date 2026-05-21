@@ -17,15 +17,23 @@
  *
  * 1 件でも欠落 → exit 1、明確な error メッセージ + 追加すべきファイル path 提示。
  *
- * AST parse は重いため正規表現 + ファイル存在チェック。Strategy 内部の型整合は
- * TypeScript compile (svelte-check) が別途検証するため、本 script は構造完整性のみ。
+ * AST parse は重いため正規表現 + ファイル存在チェック (本 script は構造完整性のみで
+ * Strategy 内部の型整合は `svelte-check` が別途検証するため十分)。
  *
- * 使用法: node scripts/check-marketplace-registry-integrity.mjs
- *        npm run check:marketplace-registry-integrity
+ * 使用法:
+ *   node scripts/check-marketplace-registry-integrity.mjs
+ *   node scripts/check-marketplace-registry-integrity.mjs --root <dir>   # #2389: 任意 root (fixture isolation 等) で検証
+ *   npm run check:marketplace-registry-integrity
+ *
+ * --root <dir> 引数 (#2389、Copilot AC1 fixture isolation):
+ *   検証対象を <dir> 直下の `src/lib/marketplace/**` に差し替える。テストや CI で
+ *   特定の異常シナリオ fixture を分離した木構造で検証する用途。指定が無ければ従来通り
+ *   リポジトリルートの `src/lib/marketplace/**` を対象とする。
  *
  * 関連:
  *   - ADR-0052 (MarketplaceTypeRegistry + ImportStrategy)
  *   - EPIC #2362 / Issue #2374 (本 CI gate の起票)
+ *   - Issue #2389 (PR #2386 follow-up — fixture 隔離化)
  *   - AN-5 #2180 補強 7 (構造的再発防止)
  */
 
@@ -35,7 +43,32 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..');
+const DEFAULT_REPO_ROOT = path.resolve(__dirname, '..');
+
+/**
+ * CLI 引数を解析して { root } を返す (#2389)。
+ * 受け付ける形式: `--root <dir>` / `--root=<dir>`
+ */
+function parseArgs(argv) {
+	let root = DEFAULT_REPO_ROOT;
+	for (let i = 0; i < argv.length; i++) {
+		const a = argv[i];
+		if (a === '--root') {
+			const next = argv[i + 1];
+			if (!next) {
+				console.error(`[check-marketplace-registry-integrity] --root に値が指定されていません`);
+				process.exit(2);
+			}
+			root = path.resolve(next);
+			i++;
+		} else if (a.startsWith('--root=')) {
+			root = path.resolve(a.slice('--root='.length));
+		}
+	}
+	return { root };
+}
+
+const { root: REPO_ROOT } = parseArgs(process.argv.slice(2));
 
 const MARKETPLACE_DIR = path.join(REPO_ROOT, 'src/lib/marketplace');
 const TYPES_TS = path.join(MARKETPLACE_DIR, 'types.ts');
