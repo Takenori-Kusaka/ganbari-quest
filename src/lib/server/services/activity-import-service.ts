@@ -1,5 +1,10 @@
 // src/lib/server/services/activity-import-service.ts
 // 活動単体インポートサービス（#0224）
+//
+// @deprecated #2365 (ADR-0052): activity-pack を新 `ImportStrategy` 経由に移行。
+//   本 service は `$lib/marketplace/strategies/activity-pack-strategy.ts` の内部実装として
+//   並行稼働中だが、外部からの直接呼出は `+page.server.ts` 1 ヶ所のみに集約済 (Strangler Fig)。
+//   1 release 経過後 (別 Issue) に撤去予定。新規 callsite を増やさないこと。
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
@@ -27,6 +32,10 @@ export interface ActivityImportResult {
 
 /**
  * インポート対象の活動をプレビュー（実際にはDBに書き込まない）
+ *
+ * @deprecated #2365 (ADR-0052): activity-pack Strategy 経由 (`dispatchImport`) を使用してください。
+ *   `$lib/marketplace/strategies/activity-pack-strategy` 経由で本関数を呼び出し、
+ *   戻り値は `ImportPreview` shape に正規化されます。1 release 経過後撤去予定。
  */
 export async function previewActivityImport(
 	activities: ActivityPackItem[],
@@ -76,6 +85,10 @@ export interface ImportActivitiesOptions {
 
 /**
  * 活動をインポート（mergeモード: 重複はスキップ）
+ *
+ * @deprecated #2365 (ADR-0052): activity-pack Strategy 経由 (`dispatchImport`) を使用してください。
+ *   `$lib/marketplace/strategies/activity-pack-strategy` が本関数を内部 callee として参照中。
+ *   外部 callsite は `+page.server.ts` 1 ヶ所のみ (Strangler Fig)。1 release 経過後撤去予定。
  *
  * @param activities インポート対象の活動配列（marketplace activity-pack の payload.activities など）
  * @param tenantId   テナントID

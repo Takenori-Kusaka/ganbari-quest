@@ -28,8 +28,10 @@ export {
 	hasMarketplaceRegistry,
 	setMarketplaceRegistryContext,
 } from './context.js';
+export type { DispatchImportInput, DispatchImportResult } from './dispatcher.js';
+export { dispatchImport } from './dispatcher.js';
 export { MarketplaceTypeRegistry, marketplaceRegistry } from './registry.js';
-// 公開 API: 型 / Registry / Context DI
+// 公開 API: 型 / Registry / Context DI / Dispatcher
 export type {
 	AnyMarketplaceTypeDescriptor,
 	ImportContext,
@@ -41,9 +43,10 @@ export type {
 } from './types.js';
 export { MARKETPLACE_TYPE_CODES } from './types.js';
 
-// 後続 Issue #2365-2369 で各 type の side-effect import をここに追加する。
-// 例:
-//   import './types/activity-pack';   // #2365
+// type 登録 (eager-load) — module 評価時に Registry へ side-effect register される。
+// 順序は仕様上の依存ではなく可読性のため alphabetical 推奨。
+import './types/activity-pack.js'; // #2365
+// 後続 Issue #2366-2369 で各 type の side-effect import をここに追加する。
 //   import './types/reward-set';      // #2366
 //   import './types/checklist';       // #2367
 //   import './types/rule-preset';     // #2368

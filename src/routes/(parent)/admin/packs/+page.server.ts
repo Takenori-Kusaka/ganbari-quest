@@ -1,12 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
-import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import type { ActivityPackPayload } from '$lib/domain/marketplace-item';
+// #2365 (ADR-0052): 新 Strategy + dispatchImport 経由
+import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
+import { loadFromMarketplace } from '$lib/marketplace/sources/marketplace-source';
 import { requireTenantId } from '$lib/server/auth/factory';
-import {
-	importActivities,
-	previewActivityImport,
-} from '$lib/server/services/activity-import-service';
 import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -80,16 +78,27 @@ export const actions: Actions = {
 
 		if (!packId) return fail(400, { error: 'パックIDが必要です' });
 
-		const pack = getMarketplaceItem('activity-pack', packId);
-		if (!pack) return fail(404, { error: 'パックが見つかりません' });
+		// 新 Strategy 経由: preview (件数判定) → apply (DB write)
+		let source: ReturnType<typeof loadFromMarketplace>;
+		try {
+			source = loadFromMarketplace('activity-pack', packId);
+		} catch {
+			return fail(404, { error: 'パックが見つかりません' });
+		}
 
-		const activities = (pack.payload as ActivityPackPayload).activities as ActivityPackItem[];
-		const preview = await previewActivityImport(activities, tenantId);
-		if (preview.newActivities === 0) {
+		const descriptor = marketplaceRegistry.get('activity-pack');
+		const payload = descriptor.strategy.parse(source.payload) as ActivityPackPayload;
+		const preview = await descriptor.strategy.preview(payload, { tenantId });
+		if (preview.newItems === 0) {
 			return { success: true, imported: 0, message: 'すべての活動は登録済みです' };
 		}
 
-		await importActivities(activities, tenantId, { presetId: packId, applyMustDefault });
+		await dispatchImport({
+			typeCode: 'activity-pack',
+			rawPayload: source.payload,
+			displayName: source.displayName,
+			ctx: { tenantId, presetId: packId, applyMustDefault },
+		});
 		redirect(302, '/admin/packs');
 	},
 };
