@@ -205,7 +205,7 @@ Zod は単純ケースでは tree-shaking で同等だが、複雑 schema (refin
 
 ## §4 やらないこと (本 doc 範囲外)
 
-- Registry interface 詳細 → ADR-0051 + `src/lib/marketplace/types.ts` (#2363)
+- Registry interface 詳細 → ADR-0051 + marketplace/types module (#2363 で実装予定、本 PR 時点未存在)
 - UnifiedImportHub UI → #2366 (EPIC P4)
 - PageGuideRegistry → #2367 (EPIC P4)
 - Export/Import round-trip 互換 schema v2 → #2370 (EPIC P4 #10)
