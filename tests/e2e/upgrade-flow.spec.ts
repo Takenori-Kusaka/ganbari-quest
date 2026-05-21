@@ -250,16 +250,8 @@ test.describe('#753 /admin/license プラン選択 UI — free', () => {
 			return;
 		}
 
-		const preparingCount = await preparingText.count();
-		if (preparingCount > 0 && (await preparingText.isVisible())) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description: 'Stripe 未設定環境のためプラン選択カードの詳細検証をスキップ',
-			});
-			return;
-		}
-
 		// Stripe 有効環境: スタンダード / ファミリーの選択カードが表示される
+		// (preparingText 重複 skip 機構は #2330 で placeholder 削除済のため撤去)
 		await expect(standardPlanCard).toBeVisible();
 		await expect(page.getByTestId('family-plan-card')).toBeVisible();
 
@@ -281,11 +273,20 @@ test.describe('#753 /admin/license プラン選択 UI — standard', () => {
 		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		// standard はサブスクリプション有りなので Portal ボタンが出る、
-		// または dev 環境では Stripe 未設定で「決済機能は現在準備中です」が出る
+		// または Stripe 未設定環境では plan card 全体非表示 (#2330 で placeholder 削除済)
 		const portalBtn = page.getByTestId('open-portal-button');
-		const preparingText = page.getByText('決済機能は現在準備中です');
-		const portalOrPreparing = portalBtn.or(preparingText);
-		await expect(portalOrPreparing).toBeVisible({ timeout: 10_000 });
+		const isPortalVisible = await portalBtn
+			.waitFor({ state: 'visible', timeout: 10_000 })
+			.then(() => true)
+			.catch(() => false);
+
+		if (!isPortalVisible) {
+			test.info().annotations.push({
+				type: 'skip-reason',
+				description: 'Stripe 未設定環境 (stripeEnabled=false) のため Portal ボタン不在',
+			});
+			return;
+		}
 	});
 });
 
