@@ -9,13 +9,14 @@
 // (取込試行は audit log として settings.rule_preset_import_warnings に記録されるのみ)。
 
 import { fail } from '@sveltejs/kit';
-import { requireTenantId } from '$lib/server/auth/factory';
-import { logger } from '$lib/server/logger';
+// #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
 import {
 	loadBonusOverrides,
 	removeBonusPreset,
 	setBonusPresetEnabled,
-} from '$lib/server/services/rule-preset-import-service';
+} from '$lib/marketplace/strategies/rule-preset/bonus-state';
+import { requireTenantId } from '$lib/server/auth/factory';
+import { logger } from '$lib/server/logger';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

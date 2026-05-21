@@ -10,7 +10,10 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoadBonusOverrides = vi.fn();
 
-vi.mock('$lib/server/services/rule-preset-import-service', () => ({
+// #2368 (ADR-0052 P3): bonus state SSOT が marketplace strategy 配下に移動したため新 path を mock。
+// bonus-hook-service.ts は `$lib/marketplace/strategies/rule-preset/bonus-state` から
+// loadBonusOverrides を import するため、ここで同じ specifier に対して mock を当てる。
+vi.mock('$lib/marketplace/strategies/rule-preset/bonus-state', () => ({
 	loadBonusOverrides: (...args: unknown[]) => mockLoadBonusOverrides(...args),
 }));
 

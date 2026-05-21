@@ -2,8 +2,11 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import type { MarketplaceItemType, RulePresetPayload } from '$lib/domain/marketplace-item';
 // #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
-// `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
-import { dispatchImport } from '$lib/marketplace';
+// `$lib/marketplace` の eager-load (`./types/reward-set` / `./types/rule-preset`) で Registry 登録される。
+// #2138 (MP-3) / #2368 (ADR-0052 P3): rule-preset 4 ruleType 全対応の一括取込
+// 新 SSOT: marketplaceRegistry.get('rule-preset').strategy 経由 (Strategy 内部 sub-dispatcher)
+import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
+import type { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -11,11 +14,6 @@ import {
 	previewChecklistImport,
 } from '$lib/server/services/checklist-template-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
-// #2138 (MP-3): rule-preset 4 ruleType 全対応の一括取込
-import {
-	importRulePreset,
-	previewRulePresetImport,
-} from '$lib/server/services/rule-preset-import-service';
 import type { Actions, PageServerLoad } from './$types';
 
 const VALID_TYPES: MarketplaceItemType[] = [
@@ -223,14 +221,16 @@ export const actions: Actions = {
 		}
 
 		try {
-			const preview = await previewRulePresetImport(
-				item.itemId,
-				item.name,
-				item.icon,
-				payload,
-				tenantId,
-				childId,
-			);
+			// #2368: Strategy 経由 (Registry 経由で本番 / demo 環境とも同一動作)
+			const strategy = marketplaceRegistry.get('rule-preset').strategy as typeof rulePresetStrategy;
+			const identity = {
+				presetId: item.itemId,
+				presetName: item.name,
+				presetIcon: item.icon,
+			};
+			const ctx = { tenantId, childId };
+
+			const preview = await strategy.previewRulePreset(identity, payload, ctx);
 
 			if (preview.alreadyImported) {
 				return {
@@ -242,9 +242,7 @@ export const actions: Actions = {
 				};
 			}
 
-			const result = await importRulePreset(item.itemId, item.name, item.icon, payload, tenantId, {
-				childId,
-			});
+			const result = await strategy.applyRulePreset(identity, payload, ctx);
 			return {
 				ruleImport: {
 					alreadyImported: false,

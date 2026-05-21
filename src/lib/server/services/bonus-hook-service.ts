@@ -23,8 +23,10 @@
 // today categories count を使う形式とする。
 
 import { calcStreakBonus } from '$lib/domain/validation/activity';
+// #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
+// 本 import は新 SSOT を直接参照 (旧 rule-preset-import-service の re-export 経由を撤去)。
+import { loadBonusOverrides } from '$lib/marketplace/strategies/rule-preset/bonus-state';
 import { logger } from '$lib/server/logger';
-import { loadBonusOverrides } from '$lib/server/services/rule-preset-import-service';
 
 // ============================================================
 // 入力: 活動記録時のコンテキスト
