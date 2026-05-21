@@ -85,5 +85,43 @@ function registerParentGateTests(): void {
 			await page.goto('/admin', { waitUntil: 'domcontentloaded' });
 			await expect(page).toHaveURL(/\/switch\?.*pinRequired=1/);
 		});
+
+		// Issue #2353 Fix 1 (Phase A): banner 残存 + modal 出ない回帰検証
+		// 子供画面から `/switch?pinRequired=1` に再アクセスした際に banner だけでなく modal も自動 open する。
+		// Research 結論 (Wave 28-A): 業界 8 サービス調査で「banner だけ + modal 出さない」は prior art ゼロ。
+		test('Fix 1: /switch?pinRequired=1 再アクセス時に banner + modal の両方が表示される (banner 残存 bug 回帰)', async ({
+			page,
+		}) => {
+			// 1. まず child home に到達 (前段)
+			await page.goto('/switch', { waitUntil: 'domcontentloaded' });
+			const firstChildButton = page.locator('[data-testid^="child-select-"]').first();
+			await firstChildButton.click();
+			await page.waitForURL(/\/(preschool|elementary|junior|senior|baby)\/home/, {
+				timeout: 15_000,
+			});
+
+			// 2. 子供画面から /switch?pinRequired=1 に再アクセス (banner 残存 bug の再現条件)
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+
+			// 3. banner と modal の両方が同時に表示されること (Fix 1 修正前は modal が出ない bug)
+			await expect(page.getByTestId('parent-gate-required-banner')).toBeVisible();
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+		});
+
+		// Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒント modal 非表示回帰検証
+		// PIN modal に「初期値は 5086（がんばり）です」が表示されないこと (子供脆弱性対策)。
+		// Research 結論: Apple / Nintendo / Roblox / BusyKid 全て modal では初期 PIN ヒント非表示。
+		test('Fix 5: PIN modal に初期 PIN 5086 ヒントが表示されない (子供脆弱性回帰)', async ({
+			page,
+		}) => {
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			// modal 内に 5086 / "初期値" / "がんばり" 文字が含まれないこと
+			const modal = page.getByTestId('parent-gate-modal');
+			await expect(modal).not.toContainText('5086');
+			await expect(modal).not.toContainText('初期値');
+			await expect(modal).not.toContainText('がんばり');
+		});
 	});
 }

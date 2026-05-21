@@ -1226,7 +1226,8 @@ export const OYAKAGI_LABELS = {
 	gateLockoutNotice: (sec: number) => `連続で間違えたため、${sec}秒後に再度お試しください`,
 	gateFormatNotice: 'おやカギコードは4〜6桁の数字です',
 	gateGenericError: 'おやカギコードの確認に失敗しました。もう一度お試しください',
-	gateDefaultHint: '初期値は 5086（がんばり）です',
+	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
+	// setup フローでの初期値伝達は OYAKAGI_LABELS.defaultValueHint で継続 (適切な文脈 = 親が初期 setup 完了画面で見る)
 	gatePinRequiredBanner: 'ご家族の見守り画面に入るにはおやカギコードが必要です',
 } as const;
 

@@ -21,6 +21,19 @@ let pinSubmitting = $state<boolean>(false);
 // PinInput remount 用 key (失敗時に入力欄を確実にリセット)
 let pinInputKey = $state<number>(0);
 
+// Issue #2353 Fix 1 (Phase A): pinRequired query 再到達時 modal 自動 open 保証
+// 子供画面から戻って `/switch?pinRequired=1` 再アクセス時、banner だけ残って modal が出ない bug の構造的修正。
+// $state は初期化のみで data.pinRequired の変化に追従しないため、$effect で同期する。
+// Research 結論 (Wave 28-A): 業界 8 サービス調査で「banner だけ + modal 出さない」設計は prior art ゼロ = 構造的 bug 確定。
+$effect(() => {
+	if (data.pinRequired) {
+		pinModalOpen = true;
+		// 過去の error / lockout / 入力残骸をクリアして再入力できる状態に揃える
+		pinError = '';
+		pinInputKey += 1;
+	}
+});
+
 const lockedNow = $derived(lockoutUntil !== null && Date.now() < (lockoutUntil ?? 0));
 
 async function handleAdminLinkClick(e: MouseEvent) {
@@ -160,7 +173,9 @@ async function handlePinComplete(details: { valueAsString: string }) {
 	{#key pinInputKey}
 		<PinInput length={4} mask onComplete={handlePinComplete} />
 	{/key}
-	<p class="text-xs text-[var(--color-text-muted)] text-center mt-3">{OYAKAGI_LABELS.gateDefaultHint}</p>
+	<!-- Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒントを modal から削除 (子供脆弱性) -->
+	<!-- 業界 PIN 採用 4 サービス全てで初期値ヒントは setup 時のみ、modal では非表示 (Apple / Nintendo / Roblox / BusyKid) -->
+	<!-- setup/complete/+page.svelte の OYAKAGI_LABELS.defaultValueHint は適切な文脈 (初期 setup 完了時) なので維持 -->
 	{#if pinError}
 		<div class="mt-3" data-testid="parent-gate-error">
 			<Alert variant="danger">{pinError}</Alert>
