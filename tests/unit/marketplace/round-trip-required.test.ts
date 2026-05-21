@@ -39,6 +39,27 @@ import {
 } from '$lib/marketplace/schemas';
 import { MARKETPLACE_TYPE_CODES } from '$lib/marketplace/types';
 
+/**
+ * #2389 Copilot AC2 [must]: 5 type 横断テストの `as any` 排除用 typed helper。
+ *
+ * `MarketplacePayloadSchemaMap[T]` は T に応じた Valibot schema を返す mapped type
+ * (`MarketplacePayloadSchemaMap` の対応するキー型)。本 helper を経由することで
+ * `v.safeParse(schema as any, input)` の `as any` を不要にし、TypeScript strict
+ * 整合を回復する。
+ *
+ * @example
+ *   const result = safeParseWithMap('activity-pack', rawPayload);
+ *   if (result.success) {
+ *     // result.output は ActivityPackPayload として narrow される
+ *   }
+ */
+function safeParseWithMap<T extends MarketplaceTypeId>(
+	typeId: T,
+	input: unknown,
+): v.SafeParseResult<(typeof MarketplacePayloadSchemaMap)[T]> {
+	return v.safeParse(MarketplacePayloadSchemaMap[typeId], input);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '../../../');
@@ -100,9 +121,7 @@ describe('Marketplace 5 type round-trip 必須化 (#2374)', () => {
 		describe(`${seedCase.typeId} round-trip`, () => {
 			it('seed → safeParse 成功 + 値同等性 (1 回目)', () => {
 				const rawPayload = loadSeedPayload(seedCase.seedFile);
-				const schema = MarketplacePayloadSchemaMap[seedCase.typeId];
-				// biome-ignore lint/suspicious/noExplicitAny: 5 type 横断テストのため schema 型を緩める
-				const result = v.safeParse(schema as any, rawPayload);
+				const result = safeParseWithMap(seedCase.typeId, rawPayload);
 				if (!result.success) {
 					console.error(JSON.stringify(result.issues, null, 2));
 				}
@@ -114,11 +133,9 @@ describe('Marketplace 5 type round-trip 必須化 (#2374)', () => {
 
 			it('JSON serialize → deserialize → safeParse でも値同等性 (export → import 同型)', () => {
 				const rawPayload = loadSeedPayload(seedCase.seedFile);
-				const schema = MarketplacePayloadSchemaMap[seedCase.typeId];
 
 				// 1. 1 回目 parse (import 経路の事前 validation 相当)
-				// biome-ignore lint/suspicious/noExplicitAny: 同上
-				const first = v.safeParse(schema as any, rawPayload);
+				const first = safeParseWithMap(seedCase.typeId, rawPayload);
 				expect(first.success).toBe(true);
 				if (!first.success) return;
 
@@ -127,8 +144,7 @@ describe('Marketplace 5 type round-trip 必須化 (#2374)', () => {
 				const restored = JSON.parse(json);
 
 				// 3. 2 回目 parse (import 経路の receive validation 相当)
-				// biome-ignore lint/suspicious/noExplicitAny: 同上
-				const second = v.safeParse(schema as any, restored);
+				const second = safeParseWithMap(seedCase.typeId, restored);
 				expect(second.success).toBe(true);
 				if (!second.success) return;
 
@@ -138,9 +154,7 @@ describe('Marketplace 5 type round-trip 必須化 (#2374)', () => {
 
 			it('items 配列が minLength: 1 を満たし非空', () => {
 				const rawPayload = loadSeedPayload(seedCase.seedFile);
-				const schema = MarketplacePayloadSchemaMap[seedCase.typeId];
-				// biome-ignore lint/suspicious/noExplicitAny: 同上
-				const result = v.safeParse(schema as any, rawPayload);
+				const result = safeParseWithMap(seedCase.typeId, rawPayload);
 				expect(result.success).toBe(true);
 				if (result.success) {
 					const items = (result.output as Record<string, unknown>)[seedCase.expectedItemKey];

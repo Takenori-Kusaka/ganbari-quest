@@ -222,7 +222,7 @@ Issue #2374 (EPIC #2362 P4) で導入された CI gate。`scripts/check-marketpl
 
 | # | 検証項目 | 違反時の挙動 |
 |---|---|---|
-| 1 | `src/lib/marketplace/types.ts` の `MARKETPLACE_TYPE_CODES` を AST 相当 parse で抽出 | 抽出失敗 → exit 1 |
+| 1 | `src/lib/marketplace/types.ts` の `MARKETPLACE_TYPE_CODES` を正規表現で抽出 | 抽出失敗 → exit 1 |
 | 2 | `src/lib/marketplace/index.ts` で全 type が `import './types/<code>'` で side-effect import されている | 1 件でも欠落 → exit 1 |
 | 3 | `src/lib/marketplace/types/<code>.ts` が存在し `marketplaceRegistry.register(...)` 呼出を持つ | 欠落 → exit 1 |
 | 4 | 同 module 内の Descriptor object が `typeCode` / `displayLabel` / `description` / `strategy` / `requiresChildId` を全て持つ | 1 field 欠落 → exit 1 |
