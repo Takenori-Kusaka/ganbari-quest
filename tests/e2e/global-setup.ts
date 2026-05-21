@@ -188,7 +188,9 @@ export default async function globalSetup() {
 		db.prepare(
 			"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('pin_gate_onboarding_seen', 'true', datetime('now'))",
 		).run();
-		console.log('[E2E Setup]   Suppressed PIN gate onboarding dialog (pin_gate_onboarding_seen=true).');
+		console.log(
+			'[E2E Setup]   Suppressed PIN gate onboarding dialog (pin_gate_onboarding_seen=true).',
+		);
 
 		// #1757 (#1709-C): must 活動 priority の冪等保証（E2E 全プロジェクトで毎回実行）
 		// 1755 では `if (!needsSchema)` ブランチでのみ UPDATE していたため、
