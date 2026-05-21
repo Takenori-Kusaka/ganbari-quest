@@ -376,3 +376,7 @@ dont
 # ===== #2353 PIN gate Phase C (jose JWT) =====
 webapi
 inmemory
+
+# ===== #2364 Valibot schema (EPIC #2362) =====
+picklist
+valibot
