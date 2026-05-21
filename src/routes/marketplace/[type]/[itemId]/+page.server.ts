@@ -5,13 +5,14 @@ import type {
 	MarketplaceItemType,
 	RulePresetPayload,
 } from '$lib/domain/marketplace-item';
-// #2366 / #2367 / #2368 (ADR-0052 / EPIC #2362 P3): reward-set / checklist / rule-preset を
-// 新 Strategy + dispatchImport 経由に移行。
-// `$lib/marketplace` の eager-load (`./types/reward-set` / `./types/checklist` / `./types/rule-preset`)
-// で Registry 登録される。
+// #2366 / #2367 / #2368 / #2369 (ADR-0052 / EPIC #2362 P3): reward-set / checklist / rule-preset /
+// challenge-set を新 Strategy + dispatchImport 経由に移行。
+// `$lib/marketplace` の eager-load (`./types/reward-set` / `./types/checklist` / `./types/rule-preset` /
+// `./types/challenge-set`) で Registry 登録される。
 // #2138 (MP-3) / #2368: rule-preset 4 ruleType 全対応の一括取込
 // 新 SSOT: marketplaceRegistry.get('rule-preset').strategy 経由 (Strategy 内部 sub-dispatcher)
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
+import { loadFromMarketplace } from '$lib/marketplace/sources/marketplace-source';
 import type { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -285,6 +286,54 @@ export const actions: Actions = {
 			logger.error('[marketplace/rule-preset] インポート失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				context: { itemId: params.itemId, childId, ruleType: payload.ruleType },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
+
+	// #2369 (EPIC #2362 P3 / EPIC #2294 ③ 案 B-γ wedge):
+	// challenge-set Strategy 経由の一括取込 action。
+	// 旧来 service 不存在の type 漏れ状態を新 abstraction 上で初回実装。
+	// childId は不要 (sibling_challenges は family scope、全子供を自動エンロール)。
+	importChallengeSet: async ({ params, request, locals }) => {
+		const tenantId = locals.context?.tenantId;
+		if (!tenantId) {
+			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
+			redirect(302, `/auth/login?next=/marketplace/challenge-set/${params.itemId}`);
+		}
+
+		if (params.type !== 'challenge-set') {
+			return fail(400, { error: 'チャレンジ集ではありません' });
+		}
+
+		const item = getMarketplaceItem('challenge-set', params.itemId);
+		if (!item) {
+			return fail(404, { error: 'チャレンジ集が見つかりません' });
+		}
+
+		// preserved: 取込前に formData を空読みして action 整合性を維持
+		await request.formData();
+
+		try {
+			const source = loadFromMarketplace('challenge-set', params.itemId);
+			const result = await dispatchImport({
+				typeCode: 'challenge-set',
+				rawPayload: source.payload,
+				displayName: source.displayName,
+				ctx: { tenantId, presetId: params.itemId },
+			});
+			return {
+				challengeSetImport: {
+					presetName: result.packName,
+					imported: result.imported,
+					skipped: result.skipped,
+					errors: result.errors,
+				},
+			};
+		} catch (e) {
+			logger.error('[marketplace/challenge-set] インポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { itemId: params.itemId },
 			});
 			return fail(500, { error: 'インポートに失敗しました' });
 		}

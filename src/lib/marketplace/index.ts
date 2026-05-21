@@ -46,8 +46,9 @@ export { MARKETPLACE_TYPE_CODES } from './types.js';
 // type 登録 (eager-load) — module 評価時に Registry へ side-effect register される。
 // 順序は仕様上の依存ではなく可読性のため alphabetical 推奨。
 import './types/activity-pack.js'; // #2365
+import './types/challenge-set.js'; // #2369
 import './types/checklist.js'; // #2367
 import './types/reward-set.js'; // #2366
 import './types/rule-preset.js'; // #2368
-// 後続 Issue #2369 で各 type の side-effect import をここに追加する。
-//   import './types/challenge-set';   // #2369
+// 5 type 全て (#2365 activity-pack / #2366 reward-set / #2367 checklist / #2368 rule-preset / #2369 challenge-set)
+// が EPIC #2362 P2-P3 で実装・登録完了。本 SSOT 経由で Registry に eager-load される。

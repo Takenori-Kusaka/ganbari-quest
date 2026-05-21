@@ -9,8 +9,14 @@
 		"scripts/**/*.{js,mjs,ts}"
 	],
 	"project": ["src/**/*.{ts,svelte}", "scripts/**/*.{js,mjs,ts}"],
-	"ignore": [".svelte-kit/**", "drizzle/**", "site/**", "personal/**"],
-	"ignoreDependencies": ["@sveltejs/adapter-auto", "tailwindcss"],
+	"ignore": [
+		".svelte-kit/**",
+		"drizzle/**",
+		"site/**",
+		"personal/**",
+		"src/lib/marketplace/schemas/index.ts"
+	],
+	"ignoreDependencies": ["@sveltejs/adapter-auto", "tailwindcss", "@standard-schema/spec"],
 	"rules": {
 		"unlisted": "warn",
 		"unresolved": "off"
