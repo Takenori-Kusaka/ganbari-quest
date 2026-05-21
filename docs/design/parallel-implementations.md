@@ -325,9 +325,11 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - `docs/design/marketplace-preset-checklist-audit.md` (3 件のみに整理済)
 - E2E spec: `tests/e2e/setup-marketplace-must.spec.ts` で 3 件のみ確認
 
-#### 7d. marketplace reward-set 一括追加 (#2136 MP-1)
+#### 7d. marketplace reward-set 一括追加 (#2136 MP-1 / #2366 ADR-0052 Strategy 移行)
 
-`src/lib/data/marketplace/reward-sets/*.json` の reward-set 10 件は **マーケットプレイス詳細ページ + admin/rewards 画面の両方**から一括取込でき、`special_rewards.sourcePresetId` (#1254 G1) で重複検知される。`activity-import-service.ts` を template として横展開した実装。
+`src/lib/data/marketplace/reward-sets/*.json` の reward-set 10 件は **マーケットプレイス詳細ページ + admin/rewards 画面 + setup wizard の 3 箇所**から一括取込でき、`special_rewards.sourcePresetId` (#1254 G1) で重複検知される。
+
+**#2366 (ADR-0052)**: callsite 3 箇所は `$lib/marketplace/dispatchImport({ typeCode: 'reward-set', ... })` 経由に統一済 (Strangler Fig)。旧 `reward-set-import-service.ts` は @deprecated marker 経由で 1 release 並行稼働 (新 Strategy の内部 callee として参照)。`requiresChildId=true` が Registry に表明されており、#8 UnifiedImportHub の子供選択 UI 統合基盤。
 
 **並行実装ペア**:
 
@@ -335,13 +337,17 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 |------|------|------|
 | `src/lib/data/marketplace/reward-sets/*.json` (10 件) | reward-set preset (title / points / icon / category / description) | JSON |
 | `src/lib/domain/marketplace-item.ts` | `RewardSetPayload` 型 | TypeScript |
-| `src/lib/server/services/reward-set-import-service.ts` | `previewRewardSetImport` / `importRewardSet` (`sourcePresetId` で重複検知) | TypeScript |
-| `src/routes/marketplace/[type]/[itemId]/+page.{svelte,server.ts}` | reward-set 詳細ページ CTA（ログイン済み = form / 未ログイン = signup 誘導） | Svelte / TS |
-| `src/routes/(parent)/admin/rewards/+page.{svelte,server.ts}` | 「マーケットプレイスから一括追加」セクション (reward-set 10 件 preview + form) | Svelte / TS |
+| `src/lib/marketplace/schemas/reward-set-schema.ts` (#2364) | Valibot `RewardSetPayloadSchema` (validation SSOT) | TypeScript |
+| `src/lib/marketplace/strategies/reward-set-strategy.ts` (#2366) | `ImportStrategy<RewardSetPayload>` 実装 (parse / preview / apply、childId/presetId 必須) | TypeScript |
+| `src/lib/marketplace/types/reward-set.ts` (#2366) | Registry 登録 (`requiresChildId: true`) | TypeScript |
+| `src/lib/server/services/reward-set-import-service.ts` (@deprecated #2366) | `previewRewardSetImport` / `importRewardSet` (Strategy 内部 callee として並行稼働) | TypeScript |
+| `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | reward-set 詳細ページ CTA、`dispatchImport` 経由 | TypeScript |
+| `src/routes/(parent)/admin/rewards/+page.server.ts` | 「マーケットプレイスから一括追加」、`dispatchImport` 経由 | TypeScript |
+| `src/routes/setup/rewards/+page.server.ts` | setup wizard step 2、`dispatchImport` 経由 | TypeScript |
 | `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailCtaImportReward*` / `REWARDS_LABELS.marketplace*` | TypeScript |
 | `src/lib/server/db/schema.ts` | `special_rewards.sourcePresetId` (#1254 G1) | Drizzle |
 
-**同期メカニズム**: `tests/unit/services/reward-set-import-service.test.ts` (15 シナリオ) + E2E `tests/e2e/marketplace-reward-set-import.spec.ts` (5 シナリオ) で検証。
+**同期メカニズム**: `tests/unit/marketplace/strategies/reward-set-strategy.test.ts` (#2366、23 シナリオ + dispatcher integration) + `tests/unit/services/reward-set-import-service.test.ts` (15 シナリオ、Strangler Fig 並行) + E2E `tests/e2e/marketplace-reward-set-import.spec.ts` (5 シナリオ) + `tests/e2e/admin-rewards-import-marketplace.spec.ts` (#2366 admin 動線) で検証。
 
 **修正時チェック**:
 - 新しい reward-set を追加 → import-service テスト + E2E で itemId を網羅
