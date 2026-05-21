@@ -10,12 +10,11 @@
 import { redirect } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import type { RewardSetPayload } from '$lib/domain/marketplace-item';
+// #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
+// `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
+import { dispatchImport } from '$lib/marketplace';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getAllChildren } from '$lib/server/services/child-service';
-import {
-	importRewardSet,
-	previewRewardSetImport,
-} from '$lib/server/services/reward-set-import-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -93,20 +92,18 @@ export const actions: Actions = {
 					allErrors.push(`セット「${itemId}」が見つかりません`);
 					continue;
 				}
-				const rewards = (item.payload as RewardSetPayload).rewards;
-				const preview = await previewRewardSetImport(rewards, itemId, childId, tenantId);
-
-				if (preview.newRewards > 0) {
-					const result = await importRewardSet(rewards, tenantId, {
-						presetId: itemId,
-						childId,
-					});
-					totalImported += result.imported;
-					totalSkipped += result.skipped;
-					allErrors.push(...result.errors);
-				} else {
-					totalSkipped += preview.total;
-				}
+				// #2366 (ADR-0052): Strategy + dispatchImport 経由でインポート。
+				// requiresChildId=true の Descriptor が ctx.childId 必須を表明する。
+				// 全件重複の場合 imported===0 / skipped===total となり同等動作。
+				const result = await dispatchImport({
+					typeCode: 'reward-set',
+					rawPayload: item.payload,
+					displayName: item.name,
+					ctx: { tenantId, presetId: itemId, childId },
+				});
+				totalImported += result.imported;
+				totalSkipped += result.skipped;
+				allErrors.push(...result.errors);
 			} catch {
 				allErrors.push(`セット「${itemId}」の読み込みに失敗しました`);
 			}
