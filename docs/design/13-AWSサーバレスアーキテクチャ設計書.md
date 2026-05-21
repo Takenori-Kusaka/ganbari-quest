@@ -401,6 +401,10 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 - バージョニング: Git tag (`v*.*.*`) でセマンティックバージョン管理、main push は dev ビルド
 - 自動更新: Dependabot（GitHub Actions + npm + infra npm の3エコシステム週次更新）
 
+### 4.1 NUC self-hosted runner actor ガード (Issue #2356 / EPIC #2354)
+
+`deploy-nuc.yml` は public repo の self-hosted runner で動作するため、fork PR 防御として **actor 許可リスト**で限定する (`if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)`)。許可は (1) **Takenori-Kusaka** (PO / repo owner) と (2) **ganbariquestsupport-lab** (ADR-0022 QA merge 体制の squash merge actor) の 2 account のみ。fork PR や任意の bot は両 account 外となるため skip され、self-hosted runner 上での未承認 command 実行を防ぐ (信頼境界維持)。AWS Lambda 側 `deploy.yml` は GitHub-hosted runner + OIDC で動くため本 gate は不要。新たな信頼 account を追加する場合は本リストに 1 行追記すれば足り、構造変更は伴わない。
+
 ## 5. セキュリティ（WAFなし構成）
 
 | 対策 | 実装 | コスト |
