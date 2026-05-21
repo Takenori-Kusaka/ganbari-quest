@@ -43,7 +43,7 @@ async function openMenu(page: Page, triggerTestid: string): Promise<void> {
 test.describe('UnifiedImportHub — #2370 (admin/activities)', () => {
 	test.beforeEach(async ({ page }) => {
 		await page.goto('/admin/activities');
-		await expect(page.getByTestId('activities-header-title')).toBeVisible({ timeout: 15000 });
+		await expect(page.getByTestId('header-add-activity-btn')).toBeVisible({ timeout: 15000 });
 	});
 
 	test('header + dropdown menu → menu-item-import で UnifiedImportHub が render される', async ({
