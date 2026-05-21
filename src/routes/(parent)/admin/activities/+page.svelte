@@ -5,12 +5,12 @@ import ActivitiesHeader from '$lib/features/admin/components/ActivitiesHeader.sv
 import ActivityClearAllConfirm from '$lib/features/admin/components/ActivityClearAllConfirm.svelte';
 import ActivityCreateForm from '$lib/features/admin/components/ActivityCreateForm.svelte';
 import ActivityEmptyState from '$lib/features/admin/components/ActivityEmptyState.svelte';
-import ActivityImportPanel from '$lib/features/admin/components/ActivityImportPanel.svelte';
 import ActivityLimitBanner from '$lib/features/admin/components/ActivityLimitBanner.svelte';
 import ActivityListItem from '$lib/features/admin/components/ActivityListItem.svelte';
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
+import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -180,8 +180,19 @@ function acceptAiPreview(preview: AiPreviewData) {
 				oncreated={() => { closeAddDialog(); }}
 			/>
 		{:else if addMode === 'import'}
-			<ActivityImportPanel
-				activityPacks={data.activityPacks}
+			<!-- #2370 (EPIC #2362 P4): UnifiedImportHub に置換、PO 指摘 ② 直接解決 -->
+			<UnifiedImportHub
+				typeCode="activity-pack"
+				presets={{
+					'activity-pack': data.activityPacks.map((p) => ({
+						itemId: p.packId,
+						name: p.packName,
+						icon: p.icon,
+						itemCount: p.activityCount,
+						targetAgeMin: p.targetAgeMin,
+						targetAgeMax: p.targetAgeMax,
+					})),
+				}}
 				onimported={(msg) => { actionMessage = msg; closeAddDialog(); }}
 				onclose={() => { closeAddDialog(); }}
 			/>
