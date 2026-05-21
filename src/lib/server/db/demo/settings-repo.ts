@@ -12,6 +12,9 @@ const DEMO_REWARD_TEMPLATES_JSON = JSON.stringify(getDemoMarketplaceRewardTempla
 
 const DEMO_SETTINGS: Record<string, string> = {
 	reward_templates: DEMO_REWARD_TEMPLATES_JSON,
+	// #2353 設計欠陥 6: demo / 試用環境では PIN gate 初心者導線 dialog を非表示。
+	// 「親が初めて子供画面に遷移したときの導線」目的の dialog で、demo 訪問者は実セットアップ未経由のため対象外。
+	pin_gate_onboarding_seen: 'true',
 };
 
 export async function getSetting(key: string, _tenantId: string): Promise<string | undefined> {

@@ -34,19 +34,18 @@ test.describe('#1497 Stripe Checkout 遷移 — page.route() モック', () => {
 		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		// Stripe が有効な場合のみプラン選択カードが表示される
-		// 無効な環境では「決済機能は現在準備中です」が表示されるためスキップ
-		const preparingText = page.getByText('決済機能は現在準備中です');
+		// 無効な環境では plan-card section 自体が非表示 (#2330 で「決済機能は現在準備中です」placeholder 削除済)
 		const standardPlanCard = page.getByTestId('standard-plan-card');
 
-		const isPreparingVisible = await preparingText
-			.waitFor({ state: 'visible', timeout: 15_000 })
+		const isPlanCardVisible = await standardPlanCard
+			.waitFor({ state: 'visible', timeout: 5_000 })
 			.then(() => true)
 			.catch(() => false);
 
-		if (isPreparingVisible) {
+		if (!isPlanCardVisible) {
 			test.info().annotations.push({
 				type: 'skip-reason',
-				description: 'Stripe 未設定環境のため checkout 遷移テストをスキップ',
+				description: 'Stripe 未設定環境 (stripeEnabled=false) のため checkout 遷移テストをスキップ',
 			});
 			return;
 		}

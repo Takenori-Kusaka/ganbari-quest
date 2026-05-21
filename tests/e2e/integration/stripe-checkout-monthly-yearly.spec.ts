@@ -28,22 +28,22 @@ test.describe('#2347 月額/年額切替 + 年額表示強化 — /admin/license
 		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
 
 		// Stripe 未設定環境はスキップ (既存 upgrade-checkout.spec.ts と整合)
-		const preparingText = page.getByText('決済機能は現在準備中です');
-		const isPreparingVisible = await preparingText
-			.waitFor({ state: 'visible', timeout: 15_000 })
+		// #2330 で「決済機能は現在準備中です」placeholder が削除されたため、月額ボタン自体の visible 判定で skip 検出に変更
+		const monthlyBtn = page.getByRole('button', { name: '月額', exact: true });
+		const isMonthlyVisible = await monthlyBtn
+			.waitFor({ state: 'visible', timeout: 5_000 })
 			.then(() => true)
 			.catch(() => false);
 
-		if (isPreparingVisible) {
+		if (!isMonthlyVisible) {
 			test.info().annotations.push({
 				type: 'skip-reason',
-				description: 'Stripe 未設定環境のためスキップ',
+				description: 'Stripe 未設定環境 (stripeEnabled=false で plan card 非表示) のためスキップ',
 			});
 			return;
 		}
 
 		// 月額/年額切替ボタンが両方存在することを確認 (UI 既実装、Research 根本原因 a 解消の前提)
-		const monthlyBtn = page.getByRole('button', { name: '月額', exact: true });
 		const yearlyBtn = page.getByRole('button', { name: /年額/ });
 
 		await expect(monthlyBtn).toBeVisible({ timeout: 15_000 });

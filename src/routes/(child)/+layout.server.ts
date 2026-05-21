@@ -4,7 +4,7 @@ import type { CurrencyCode, PointSettings, PointUnitMode } from '$lib/domain/poi
 import { DEFAULT_POINT_SETTINGS } from '$lib/domain/point-display';
 import { UI_MODES } from '$lib/domain/validation/age-tier';
 import { requireTenantId } from '$lib/server/auth/factory';
-import { getSettings } from '$lib/server/db/settings-repo';
+import { getSetting, getSettings } from '$lib/server/db/settings-repo';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import { markChildScreenVisited } from '$lib/server/services/onboarding-service';
 import {
@@ -35,6 +35,24 @@ async function loadMilestonesForChild(
 		return childPreview?.milestones ?? [];
 	} catch {
 		return [];
+	}
+}
+
+/**
+ * #2353 設計欠陥 6: PIN gate 初心者導線 dialog の表示要否を判定する。
+ * baby モードはゲーミフィケーション非適用 (ADR-0011) のため常に「表示済」扱い。
+ * 取得失敗時は安全側 (表示しない) に倒す。
+ */
+async function loadPinGateOnboardingSeen(
+	tenantId: string,
+	effectiveMode: string,
+): Promise<boolean> {
+	if (effectiveMode === 'baby') return true;
+	try {
+		const value = await getSetting('pin_gate_onboarding_seen', tenantId);
+		return value === 'true';
+	} catch {
+		return true;
 	}
 }
 
@@ -108,6 +126,9 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 	// オンボーディング「子供の画面を確認する」を自動マーク（fire-and-forget）
 	markChildScreenVisited(tenantId).catch(() => {});
 
+	// #2353 設計欠陥 6: PIN gate 初心者導線 dialog の表示要否判定 (補助関数に分離して complexity 抑止)
+	const pinGateOnboardingSeen = await loadPinGateOnboardingSeen(tenantId, effectiveMode);
+
 	// #789: プラン情報を child UI 配下で一元的に参照できるよう layout に集約する。
 	// 従来は各 +page.server.ts が個別に resolveFullPlanTier を呼び直しており、
 	// 「child 側で planTier を取得する手段が無い」状態だった。
@@ -134,5 +155,6 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
 		planTier,
 		planLimits,
 		milestones,
+		pinGateOnboardingSeen,
 	};
 };

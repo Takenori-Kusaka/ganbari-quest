@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -14,7 +15,8 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 
 // EPIC #2310 子#2312: PIN gate inline modal (Apple Screen Time 同設計)
 // pinRequired=1 query (Sub-1 middleware redirect) で初期表示 true
-let pinModalOpen = $state<boolean>(data.pinRequired ?? false);
+// 初期値のみ参照 (data 変化への追従は下記 $effect が担うため、untrack で明示的に opt out)
+let pinModalOpen = $state<boolean>(untrack(() => data.pinRequired ?? false));
 let pinError = $state<string>('');
 let lockoutUntil = $state<number | null>(null);
 let pinSubmitting = $state<boolean>(false);
@@ -176,6 +178,8 @@ async function handlePinComplete(details: { valueAsString: string }) {
 	<!-- Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒントを modal から削除 (子供脆弱性) -->
 	<!-- 業界 PIN 採用 4 サービス全てで初期値ヒントは setup 時のみ、modal では非表示 (Apple / Nintendo / Roblox / BusyKid) -->
 	<!-- setup/complete/+page.svelte の OYAKAGI_LABELS.defaultValueHint は適切な文脈 (初期 setup 完了時) なので維持 -->
+	<!-- Phase C: gateDefaultHint atom は labels.ts から削除済、ここでは Phase C 由来の Forgot PIN リンクのみ追加 -->
+
 	{#if pinError}
 		<div class="mt-3" data-testid="parent-gate-error">
 			<Alert variant="danger">{pinError}</Alert>
@@ -184,6 +188,10 @@ async function handlePinComplete(details: { valueAsString: string }) {
 	{#if pinSubmitting}
 		<p class="text-xs text-[var(--color-text-muted)] text-center mt-3" data-testid="parent-gate-submitting">{OYAKAGI_LABELS.gateModalSubmitting}</p>
 	{/if}
+	<!-- #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分有効 + 1 回限り) -->
+	<div class="mt-4 text-center">
+		<a href="/auth/forgot-pin" class="text-sm text-[var(--color-text-link)] no-underline hover:underline" data-testid="parent-gate-forgot-pin-link">{OYAKAGI_LABELS.gateForgotPinLink}</a>
+	</div>
 </Dialog>
 
 <style>

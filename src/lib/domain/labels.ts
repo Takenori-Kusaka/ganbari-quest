@@ -35,7 +35,9 @@ import {
 	LP_FAQ_TERMS,
 	MECHANISM_TERMS,
 	NUC_EDITION_TERMS,
+	OYAKAGI_TERMS,
 	PARENT_TERMS,
+	PIN_DEFAULT_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
@@ -1203,32 +1205,103 @@ export const DEMO_LABELS = {
 /**
  * 保護者の見守り画面ロック（旧称「PINコード」→「おやカギコード」）の UI 文言 SSOT。
  * ロジック定数（DEFAULT_PIN）は `$lib/domain/constants/oyakagi` を参照。
+ *
+ * #2353 (PR #2325 follow-up 設計欠陥 6 点総合改修):
+ *   - 設計欠陥 2 (SSOT 違反): 「おやカギコード」「ご家族の見守り画面」直書きを
+ *     `${OYAKAGI_TERMS.name}` / `${ADMIN_VIEW_TERMS.canonical}` template literal 経由化
+ *   - 設計欠陥 5 (初期 PIN 5086 ヒント): `gateDefaultHint` を空文字に変更
+ *     (子が見て即入力する脆弱性。setup 完了画面 / onboarding dialog でのみ伝達)
+ *   - 設計欠陥 4 (PIN 忘れ救済導線): `gateForgotPinLink` 等 PIN reset 関連 compound 追加
  */
 export const OYAKAGI_LABELS = {
-	name: 'おやカギコード',
-	shortName: 'おやカギ',
-	setupStep: 'おやカギコードを変更する',
-	changeAction: 'おやカギを変更',
-	changeSuccess: 'おやカギコードを変更しました',
-	sectionTitle: '🔒 おやカギコード変更',
-	inputLabel: 'おやカギコード（4〜6桁）',
-	inputPlaceholder: 'おやカギコードを入力',
-	defaultValueHint: '初期値は 5086（がんばり）です',
-	invalidError: 'おやカギコードが正しくありません',
-	lockedError: 'おやカギコードの入力に連続して失敗したため、しばらく待ってから再度お試しください',
-	formatError: 'おやカギコードは4〜6桁の数字で入力してください',
-	numberOnlyError: 'おやカギコードは数字のみです',
+	name: `${OYAKAGI_TERMS.name}`,
+	shortName: `${OYAKAGI_TERMS.shortName}`,
+	setupStep: `${OYAKAGI_TERMS.name}を変更する`,
+	changeAction: `${OYAKAGI_TERMS.shortName}を変更`,
+	changeSuccess: `${OYAKAGI_TERMS.name}を変更しました`,
+	sectionTitle: `🔒 ${OYAKAGI_TERMS.name}変更`,
+	inputLabel: `${OYAKAGI_TERMS.name}（4〜6桁）`,
+	inputPlaceholder: `${OYAKAGI_TERMS.name}を入力`,
+	defaultValueHint: `${PIN_DEFAULT_TERMS.hintFull}`,
+	invalidError: `${OYAKAGI_TERMS.name}が正しくありません`,
+	lockedError: `${OYAKAGI_TERMS.name}の入力に連続して失敗したため、しばらく待ってから再度お試しください`,
+	formatError: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	numberOnlyError: `${OYAKAGI_TERMS.name}は数字のみです`,
 	// EPIC #2310 子#2312: /switch PIN gate modal UI (Apple Screen Time 同設計)
-	gateModalTitle: 'おやカギコードを入力してください',
-	gateModalDescription:
-		'ご家族の見守り画面にはおやのみが入れます。おやカギコードを入力してください。',
+	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
+	gateModalDescription: `${ADMIN_VIEW_TERMS.canonical}には${PARENT_TERMS.neutral}のみが入れます。${OYAKAGI_TERMS.name}を入力してください。`,
 	gateModalSubmitting: 'かくにん中…',
 	gateLockoutNotice: (sec: number) => `連続で間違えたため、${sec}秒後に再度お試しください`,
-	gateFormatNotice: 'おやカギコードは4〜6桁の数字です',
-	gateGenericError: 'おやカギコードの確認に失敗しました。もう一度お試しください',
+	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
+	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
 	// setup フローでの初期値伝達は OYAKAGI_LABELS.defaultValueHint で継続 (適切な文脈 = 親が初期 setup 完了画面で見る)
-	gatePinRequiredBanner: 'ご家族の見守り画面に入るにはおやカギコードが必要です',
+	gatePinRequiredBanner: `${ADMIN_VIEW_TERMS.canonical}に入るには${OYAKAGI_TERMS.name}が必要です`,
+	// #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分 token + 1 回限り)
+	gateForgotPinLink: `${OYAKAGI_TERMS.name}を忘れた方`,
+	gateForgotPinHelp: `${OYAKAGI_TERMS.name}が分からない場合は登録メールで再設定できます`,
+} as const;
+
+/**
+ * PIN reset 一連の画面文言 SSOT (#2353 設計欠陥 4)
+ *
+ * /auth/forgot-pin (email 入力) / /auth/reset-pin/[token] (新 PIN 設定) の 2 画面で利用。
+ * SES 経由 magic link で配信した 30 分有効 / 1 回限り token を消費する。
+ */
+export const PIN_RESET_LABELS = {
+	requestPageTitle: `${OYAKAGI_TERMS.name}の再設定`,
+	requestHeading: `${OYAKAGI_TERMS.name}を忘れた場合`,
+	requestDescription: `アカウントに登録されているメールアドレスへ再設定用のリンクをお送りします。リンクは送信から 30 分間のみ有効です。`,
+	requestEmailLabel: 'メールアドレス',
+	requestEmailPlaceholder: 'parent@example.com',
+	requestSubmit: '再設定用のリンクを送信',
+	requestSubmitting: '送信中…',
+	requestSuccessHeading: '送信しました',
+	requestSuccessBody:
+		'メールに記載のリンクから再設定画面を開いてください。リンクは 30 分間のみ有効、一度のみ利用できます。届かない場合は迷惑メールフォルダもご確認ください。',
+	requestBackToSwitch: `${ADMIN_VIEW_TERMS.canonical}に戻る`,
+	// resetPage = /auth/reset-pin/[token]
+	resetPageTitle: `${OYAKAGI_TERMS.name}の再設定`,
+	resetHeading: `新しい${OYAKAGI_TERMS.name}を設定`,
+	resetDescription: `4〜6桁の半角数字でお好きな${OYAKAGI_TERMS.name}を入力してください。`,
+	resetPinLabel: `新しい${OYAKAGI_TERMS.name}`,
+	resetSubmit: `${OYAKAGI_TERMS.name}を設定する`,
+	resetSubmitting: '設定中…',
+	resetSuccessHeading: '再設定が完了しました',
+	resetSuccessBody: `新しい${OYAKAGI_TERMS.name}で${ADMIN_VIEW_TERMS.canonical}に入れます。`,
+	resetSuccessCta: `${ADMIN_VIEW_TERMS.canonical}へ`,
+	// エラー文言
+	errorInvalidEmail: '有効なメールアドレスを入力してください',
+	errorRateLimited: '送信回数が上限に達しました。しばらく時間をおいてからお試しください',
+	errorTokenExpired: 'リンクの有効期限が切れています。もう一度はじめから再設定してください',
+	errorTokenInvalid: 'リンクが無効です。もう一度はじめから再設定してください',
+	errorTokenAlreadyUsed: 'このリンクは既に使用済みです。もう一度はじめから再設定してください',
+	errorPinFormat: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	errorGeneric: '再設定に失敗しました。時間をおいてもう一度お試しください',
+	// メール本文
+	emailSubject: `【がんばりクエスト】${OYAKAGI_TERMS.name}の再設定`,
+	emailHeading: `${OYAKAGI_TERMS.name}の再設定リクエスト`,
+	emailIntro: `下記のリンクから${OYAKAGI_TERMS.name}を再設定してください。`,
+	emailNote:
+		'このリンクは送信から 30 分間のみ有効で、1 回のみ使用できます。お心当たりがない場合は本メールを破棄してください。',
+	emailCtaLabel: `${OYAKAGI_TERMS.name}を再設定`,
+} as const;
+
+/**
+ * PIN gate 初心者導線 ダイアログ文言 SSOT (#2353 設計欠陥 6)
+ *
+ * setup 完了後の子供画面初回遷移時に 1 回だけ表示する onboarding dialog。
+ * 「以降表示しない」checkbox で settings.pin_gate_onboarding_seen を 'true' に persist。
+ */
+export const PIN_GATE_ONBOARDING_LABELS = {
+	dialogTitle: `${ADMIN_VIEW_TERMS.canonical}に入る方法`,
+	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_VIEW_TERMS.parent} のリンクをタップしてください。`,
+	dialogPinHint: `初回ログイン時の${OYAKAGI_TERMS.name}は ${PIN_DEFAULT_TERMS.hintCompact} です。設定完了画面でも確認できます。`,
+	dialogChangePinHint: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.canonical}の「せってい」 → 「${OYAKAGI_TERMS.name}」からいつでも変更できます。`,
+	dontShowAgain: '今後表示しない',
+	// Issue #2353 Phase D / E2E 衝突対策: 子供向け Dialog の「とじる」と strict mode 衝突するため
+	// 親向け onboarding 文言として「わかった」を採用 (UI 上は unique、意味 = 「理解した、閉じる」)
+	close: 'わかった',
 } as const;
 
 // ============================================================
@@ -4372,8 +4445,10 @@ export const SWITCH_PAGE_LABELS = {
 	adminForbiddenNotice: 'おやのアカウントでログインしてね',
 	heading: 'だれがつかう？',
 	emptyTitle: 'こどもがまだいないよ',
-	emptyDesc: 'おやがかんりがめんからついかしてね',
-	adminLink: '🔒 おやのかんりがめん',
+	emptyDesc: `${PARENT_TERMS.neutral}が${ADMIN_VIEW_TERMS.canonical}からついかしてね`,
+	// #2353 設計欠陥 3: 「親しか押さないボタンなのにひらがな表記する理由がない」
+	// ADMIN_VIEW_TERMS.parent 経由で漢字化 = 「保護者の見守り画面」
+	adminLink: `🔒 ${ADMIN_VIEW_TERMS.parent}`,
 } as const;
 
 export const OPS_LICENSE_PAGE_LABELS = {
