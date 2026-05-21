@@ -123,6 +123,81 @@ await refreshParentSession(cookie);           // lastActiveAt 更新 + 再 sign
 - bundle 増加 < 1KB
 - 将来 PII を cookie payload に含める要件が出た場合は γ `iron-session` への乗換を ADR で議論する (本 ADR を supersede)
 
+## 4.補. PIN reset 機構 (#2353 設計欠陥 4 — 2026-05-21 追記)
+
+PR #2325 マージ後の運用観察で、PIN 忘れ救済導線が無く本番 user が permanent lockout 状態に陥る設計欠陥が PO から指摘 (#2353)。業界標準 (Auth0 / Cognito password reset / NextAuth Email provider / WP password reset) の SES magic link + signed token + DB consume 記録パターンで補強する。
+
+### reset token 機構選定 (jose JWT 採用、§2 β を再評価)
+
+§2 β `jose` は **session token としては** OWASP 非推奨で棄却したが、**reset token は別カテゴリ**:
+
+| 観点 | session token (§2 棄却理由) | reset token (本節で採用) |
+|---|---|---|
+| 寿命 | 長期 (sliding 15 分〜24h) | 短命 (30 分固定) |
+| revoke 要件 | あり (logout / 認可剥奪) → DB 不可避 | なし (1 回限り消費で完結) |
+| 状態管理 | 各 request で更新 (DB round-trip 嫌う) | 発行 / 消費の 2 回のみ |
+| stateless 適合 | 不適 (revoke 不可) | 適 (1 回限り JTI consume) |
+
+本用途では JWT の `exp` / `jti` が標準パターンで適合するため、`jose v6` の `SignJWT` / `jwtVerify` を採用 (既存 dependency、bundle 増加なし)。
+
+### token schema + lifecycle
+
+```typescript
+// JWT payload (HS256、PARENT_GATE_COOKIE_SECRET で署名 = §5 と同 secret)
+{
+  tid: string,        // tenantId
+  email: string,      // 送信先 email
+  jti: string,        // 32 hex (128 bit エントロピー)、JTI consume key
+  iss: 'ganbari-quest',
+  aud: 'parent-gate-pin-reset',  // cookie session token と aud 分離で混用防止
+  iat: number,
+  exp: number,        // iat + 30 分
+}
+```
+
+### consume 機構
+
+`settings` table の tenant scope key `pin_reset_jti_consumed:<jti>` に 'true' を書き込んで 1 回限り消費。verify 時に同 key 存在チェック → 'true' なら `TOKEN_ALREADY_USED` 返却。
+
+### secret 流用判断
+
+cookie session token (§5) と同じ `PARENT_GATE_COOKIE_SECRET` を使う:
+
+- 両方とも HMAC-SHA256 で構造的に同信頼境界
+- aud 分離 (`parent-gate-session` vs `parent-gate-pin-reset`) で token 種別を区別
+- 新規 env 追加せず、§6.1 の配布証跡 4 経路を流用 = 運用負荷増えず
+
+### enumeration 防止
+
+`POST /api/v1/parent-gate/reset/request` は email 未登録 / SES 失敗時も 200 を返す:
+
+- email 登録有無を外部から判別不可
+- 1Password / Bitwarden / Apple 同一パターン
+- IP-based rate limit: 5 req / 15 min per IP
+
+### Pre-PMF 軽量化適合
+
+JTI consume 行は settings table に永続蓄積されるが、Pre-PMF 段階で user 数 × reset 試行回数 のオーダーが小さいため、定期 cleanup cron は実装しない (ADR-0010 Bucket B 過剰防衛回避)。将来 user 数増加時に別 Issue で cleanup batch を起票する。
+
+## 4.補.2 PIN gate 初心者導線 onboarding dialog (#2353 設計欠陥 6 — 2026-05-21 追記)
+
+setup 完了後の子供画面初回遷移時に PIN gate 機構を未学習の保護者が「子供画面に入ったら戻れない」と誤認する課題への構造的解消。
+
+- (child)/+layout.server.ts で settings.pin_gate_onboarding_seen を読み、未保存なら dialog 表示要を data に返す
+- (child)/+layout.svelte で初回 mount 時 dialog 表示 (PIN_GATE_ONBOARDING_LABELS 経由)
+- 「今後表示しない」checkbox で POST /api/v1/settings/pin-gate-onboarding → 'true' persist
+- baby モードはゲーミフィケーション非適用 (ADR-0011) のため対象外
+
+dialog 表示要否を localStorage ではなく settings table で SSOT 化することで、家族 owner / parent / child 横断、デバイス間も同期可能とする。
+
+## 4.補.3 SSOT 違反監査と labels.ts 整備 (#2353 設計欠陥 2 — 2026-05-21 追記)
+
+PR #2325 で導入された OYAKAGI_LABELS が `labels.ts` compound に直接ハードコード (gateModalDescription 等) されており、ADR-0045 §3.3 違反が検出された。本 ADR では `OYAKAGI_TERMS` / `PIN_DEFAULT_TERMS` atom を独立化し、`OYAKAGI_LABELS` 全 entry を `${ADMIN_VIEW_TERMS.canonical}` / `${OYAKAGI_TERMS.name}` template literal 経由化することで、「カギ → ロック」「コード → 暗証番号」等の用語変更が 1 行で全箇所に伝播する状態を再確立した。
+
+### gate modal 初期 PIN 5086 ヒント削除 (#2353 設計欠陥 5)
+
+`OYAKAGI_LABELS.gateDefaultHint` を空文字に変更し、Svelte 側で空文字なら表示しない条件分岐とすることで、**子供が gate modal を見て即入力できる脆弱性**を解消した。初期 PIN ヒントは setup 完了画面 / onboarding dialog (`PIN_GATE_ONBOARDING_LABELS.dialogPinHint`) でのみ伝達する (子供が見える文脈に出さない)。
+
 ## 6.1 Secret 配布証跡 (ADR-0006 / ADR-0029 / #2337)
 
 PR #2325 マージ後、`PARENT_GATE_COOKIE_SECRET` env が本番 Lambda 未配備で `/admin/*` cold start throw → 500 連発 (2026-05-20)。User が `aws lambda update-function-configuration` + `gh secret set` で緊急復旧。#2337 で CDK SSOT 化 + 配布証跡 4 経路完備を恒久化。

@@ -205,22 +205,36 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
-#### 6.5 親 PIN gate (`/switch` modal + `/admin/*` middleware) (EPIC #2310)
+#### 6.5 親 PIN gate (`/switch` modal + `/admin/*` middleware + reset + onboarding) (EPIC #2310 / #2353)
 
 | 場所 | 内容 |
 |------|------|
-| `src/routes/switch/+page.svelte` | PIN modal UI (Dialog + PinInput primitive 初実用化) |
+| `src/routes/switch/+page.svelte` | PIN modal UI (Dialog + PinInput primitive) + 「PINを忘れた方」link (#2353) |
 | `src/routes/switch/+page.server.ts` `select` action | 子供モード切替時の cookie 明示削除 (構造的核心) |
 | `src/routes/(parent)/admin/+layout.server.ts` | PIN gate middleware (未認証時 `/switch?pinRequired=1&next=…` redirect + sliding refresh) |
 | `src/lib/server/services/parent-gate-session.ts` | 署名 cookie 発行 / 検証 / sliding refresh の SSOT |
 | `src/routes/api/v1/parent-gate/verify/+server.ts` | PIN verify endpoint + cookie 発行 |
 | `src/routes/api/v1/parent-gate/logout/+server.ts` | cookie 削除 endpoint |
+| `src/lib/server/services/pin-reset-service.ts` (#2353) | jose JWT 30 分 token 発行 / 検証 / JTI consume (1 回限り) |
+| `src/lib/server/services/email-service.ts` `sendPinResetEmail` (#2353) | SES magic link 配信 |
+| `src/routes/api/v1/parent-gate/reset/request/+server.ts` (#2353) | reset 要求 (email 入力、enumeration 防止 200 維持) |
+| `src/routes/api/v1/parent-gate/reset/verify/+server.ts` (#2353) | reset 完了 (token + 新 PIN → setupPin + consume) |
+| `src/routes/auth/forgot-pin/+page.svelte` (#2353) | reset Step 1 (email 入力) |
+| `src/routes/auth/reset-pin/[token]/+page.svelte` (#2353) | reset Step 2 (新 PIN 設定、PinInput primitive 再利用) |
+| `src/lib/domain/labels.ts` `OYAKAGI_LABELS` / `PIN_RESET_LABELS` / `PIN_GATE_ONBOARDING_LABELS` (#2353) | 全文言 SSOT (atom 経由化、ADR-0045 §3.3 整合) |
+| `src/lib/domain/terms.ts` `OYAKAGI_TERMS` / `PIN_DEFAULT_TERMS` (#2353) | atom (おやカギコード / 初期値 5086 ヒント) |
+| `src/routes/(child)/+layout.server.ts` `loadPinGateOnboardingSeen` (#2353) | onboarding dialog 表示要否 (settings.pin_gate_onboarding_seen) |
+| `src/routes/(child)/+layout.svelte` (#2353) | PIN gate 初心者導線 dialog (baby モード除外) |
+| `src/routes/api/v1/settings/pin-gate-onboarding/+server.ts` (#2353) | onboarding 既読 persist endpoint |
 
 **修正時チェック**:
 - Cookie 名 `gq_parent_session` の追加変更は全 4 箇所同時更新 (service の `PARENT_SESSION_COOKIE_NAME` SSOT 経由で参照、文字列直書き禁止)
 - timeout 値 (`INACTIVITY_TIMEOUT_MS=15min` / `MAX_SESSION_MS=24h`) 変更は ADR-0050 §4 + 14-セキュリティ設計書.md §4.3 と同期
 - 新規 `/admin/*` ページ追加: middleware は layout で一括適用されるため個別 page 側の対応不要 (PIN gate は config-free)
 - 新規 PO 系 endpoint で「子供モード切替時 cookie 破棄」相当ロジックが必要になった場合は `/api/v1/parent-gate/logout` を呼ぶ
+- reset token TTL (30 分) 変更は ADR-0050 §4 補論 + 14-セキュリティ設計書.md §4.4 と同期、`RESET_TOKEN_TTL_SEC` 定数経由で参照
+- onboarding dialog 文言変更は `PIN_GATE_ONBOARDING_LABELS` SSOT 経由 (Svelte 直書き禁止)
+- PIN 初期値 5086 ヒントは setup 完了画面 / onboarding dialog / `/admin/settings` PIN 変更画面でのみ表示。`/switch` PIN gate modal では非表示 (#2353 設計欠陥 5)
 
 ---
 
