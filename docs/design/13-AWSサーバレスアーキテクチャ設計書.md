@@ -401,6 +401,10 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 - バージョニング: Git tag (`v*.*.*`) でセマンティックバージョン管理、main push は dev ビルド
 - 自動更新: Dependabot（GitHub Actions + npm + infra npm の3エコシステム週次更新）
 
+### 4.1 NUC self-hosted runner actor ガード (Issue #2356 / EPIC #2354)
+
+`deploy-nuc.yml` は public repo の self-hosted runner で動作するため、**self-hosted NUC runner 上で実行できる actor を ADR-0022 体制で想定済みの actor に限定する** ために actor 許可リストで gate する (`if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)`)。本 workflow の trigger は `push: branches=[main]` + `workflow_dispatch` のみであり、fork PR からの直接 push は GitHub の保護 (fork 側に upstream main への push 権限がない) により発生せず、`workflow_dispatch` も upstream リポジトリの権限がある actor からしか発火しない。したがって本 gate の目的は「fork PR 防御」ではなく、**想定外の actor (誤って付与された collaborator / 将来の admin bypass / bot 等) による NUC 本番マシン上での任意コード実行を防ぐ**こと。許可は (1) **Takenori-Kusaka** (PO / repo owner) と (2) **ganbariquestsupport-lab** (ADR-0022 QA merge 体制の squash merge actor) の 2 account のみ。AWS Lambda 側 `deploy.yml` は GitHub-hosted runner + OIDC で動くため本 gate は不要。新たな信頼 account を追加する場合は本リストに 1 行追記すれば足り、構造変更は伴わない。
+
 ## 5. セキュリティ（WAFなし構成）
 
 | 対策 | 実装 | コスト |
