@@ -1,9 +1,12 @@
 import { fail } from '@sveltejs/kit';
-import { getMarketplaceIndex } from '$lib/data/marketplace';
+import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import type { ChecklistPayload } from '$lib/domain/marketplace-item';
+// #2367 (EPIC #2362 P3): checklist 経路は dispatchImport 経由 (Strangler Fig)
+import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	findOverrides,
@@ -21,10 +24,6 @@ import {
 	removeTemplateItem,
 	VALID_TIME_SLOTS,
 } from '$lib/server/services/checklist-service';
-import {
-	importChecklistTemplate,
-	previewChecklistImport,
-} from '$lib/server/services/checklist-template-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	checkChecklistTemplateLimit,
@@ -314,26 +313,50 @@ export const actions: Actions = {
 			});
 		}
 
+		// #2367: checklist は dispatchImport 経由 (EPIC #2362 P3)
+		// 旧 service の戻り shape (alreadyImported / existingTemplateName /
+		// importedItems / errors) を UI 不変のまま維持するため preview を別途呼ぶ。
+		const item = getMarketplaceItem('checklist', presetId);
+		if (!item) {
+			return fail(404, { error: 'プリセットが見つかりません' });
+		}
+		const payload = item.payload as ChecklistPayload;
 		try {
-			const preview = await previewChecklistImport(presetId, childId, tenantId);
-			if (!preview) {
-				return fail(404, { error: 'プリセットが見つかりません' });
-			}
-			if (preview.alreadyImported) {
+			const descriptor = marketplaceRegistry.get('checklist');
+			const strategy = descriptor.strategy;
+			// biome-ignore lint/suspicious/noExplicitAny: Registry parametric type 解決のため
+			const parsedPayload = (strategy as any).parse(payload);
+			// biome-ignore lint/suspicious/noExplicitAny: 同上
+			const preview = await (strategy as any).preview(parsedPayload, {
+				tenantId,
+				presetId,
+				childId,
+			});
+			if (preview.duplicates === preview.total && preview.total > 0) {
 				return {
 					marketplaceImportResult: true,
 					alreadyImported: true,
-					presetName: preview.presetName,
-					existingTemplateName: preview.existingTemplateName,
+					presetName: item.name,
+					existingTemplateName: preview.duplicateNames[0],
 				};
 			}
 
-			const result = await importChecklistTemplate(presetId, childId, tenantId);
+			const result = await dispatchImport({
+				typeCode: 'checklist',
+				rawPayload: payload,
+				displayName: item.name,
+				ctx: {
+					tenantId,
+					presetId,
+					childId,
+				},
+			});
 			return {
 				marketplaceImportResult: true,
 				alreadyImported: false,
-				presetName: preview.presetName,
-				importedItems: result.importedItems,
+				presetName: result.packName,
+				// 旧 importedItems = payload.items.length 互換
+				importedItems: payload.items.length,
 				errors: result.errors,
 			};
 		} catch (e) {

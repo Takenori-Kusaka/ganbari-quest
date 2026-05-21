@@ -24,6 +24,18 @@ vi.mock('$lib/server/db/activity-repo', () => ({
 	insertActivity: (...args: unknown[]) => mockInsertActivity(...args),
 }));
 
+// checklist Strategy も $lib/marketplace eager-load 経由で同時 register されるため
+// 旧 service の DB 経路を mock しておく (#2367 の eager-load 副作用対応)
+vi.mock('$lib/server/services/checklist-template-import-service', () => ({
+	previewChecklistImport: vi.fn().mockResolvedValue(null),
+	importChecklistTemplate: vi.fn().mockResolvedValue({
+		imported: 0,
+		skipped: 0,
+		importedItems: 0,
+		errors: [],
+	}),
+}));
+
 vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));

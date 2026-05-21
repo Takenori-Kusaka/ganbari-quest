@@ -46,8 +46,8 @@ export { MARKETPLACE_TYPE_CODES } from './types.js';
 // type 登録 (eager-load) — module 評価時に Registry へ side-effect register される。
 // 順序は仕様上の依存ではなく可読性のため alphabetical 推奨。
 import './types/activity-pack.js'; // #2365
+import './types/checklist.js'; // #2367
 import './types/reward-set.js'; // #2366
 import './types/rule-preset.js'; // #2368
-// 後続 Issue #2367 / #2369 で各 type の side-effect import をここに追加する。
-//   import './types/checklist';       // #2367
+// 後続 Issue #2369 で各 type の side-effect import をここに追加する。
 //   import './types/challenge-set';   // #2369
