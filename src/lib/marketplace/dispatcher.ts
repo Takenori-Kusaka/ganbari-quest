@@ -9,8 +9,8 @@
  *   - UI / actions は Strategy / Registry を直接参照せず本 dispatcher 経由で呼ぶ
  *   - 戻り値の shape は旧 service 経由 + 旧 actions が返してきた形に互換
  *     (`importResult: true / packName / imported / skipped / total / errors`)
- *   - 互換 shape を本ファイルで一元管理することで、UI 側 ( `ActivityImportPanel.svelte` )
- *     の挙動を不変に保つ
+ *   - 互換 shape を本ファイルで一元管理することで、UI 側 ( `UnifiedImportHub.svelte`、
+ *     旧 `ActivityImportPanel.svelte` は #2391 で物理削除済) の挙動を不変に保つ
  *
  * 関連:
  *   - ADR-0052

@@ -53,9 +53,19 @@ interface Props {
 	onclose?: () => void;
 	/** disabled (plan 制限・権限) */
 	disabled?: boolean;
+	/** #2391: 既に取込済みの presetId 集合 (checklist 等で「取込済」バッジ表示・ボタン disable に使う) */
+	importedPresetIds?: ReadonlySet<string>;
 }
 
-let { typeCode, presets, selectedChildId, onimported, onclose, disabled = false }: Props = $props();
+let {
+	typeCode,
+	presets,
+	selectedChildId,
+	onimported,
+	onclose,
+	disabled = false,
+	importedPresetIds,
+}: Props = $props();
 
 // client-types SSOT から動的に type 一覧を取得（typeCode 指定時はその 1 件のみ）
 const descriptors = $derived<MarketplaceTypeMeta[]>(
@@ -182,6 +192,7 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 			{:else}
 				<div class="preset-grid">
 					{#each activePresets as preset (preset.itemId)}
+						{@const alreadyImported = importedPresetIds?.has(preset.itemId) ?? false}
 						<form
 							method="POST"
 							action={getImportAction(activeDescriptor.typeCode)}
@@ -210,15 +221,26 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 							{/if}
 							<input type="hidden" name="packId" value={preset.itemId} />
 							<input type="hidden" name="presetId" value={preset.itemId} />
+							<!-- #2391: legacy testid `marketplace-preset-import-{itemId}` を主 testid に維持
+							     (E2E tests/e2e/marketplace-checklist-import.spec.ts 互換)。
+							     新 testid 名は未使用のため主 testid を legacy 名に合わせる。 -->
 							<button
 								type="submit"
-								disabled={importLoading || !canImport}
+								disabled={importLoading || !canImport || alreadyImported}
 								class="preset-card"
-								data-testid="unified-import-hub-preset-{preset.itemId}"
+								data-testid="marketplace-preset-import-{preset.itemId}"
 							>
 								<span class="preset-icon">{preset.icon}</span>
 								<div class="preset-meta">
-									<p class="preset-name">{preset.name}</p>
+									<p class="preset-name">
+										{preset.name}
+										{#if alreadyImported}
+											<span
+												class="imported-badge"
+												data-testid="marketplace-preset-imported-{preset.itemId}"
+											>取込済み</span>
+										{/if}
+									</p>
 									<p class="preset-sub">
 										{UNIFIED_IMPORT_HUB_LABELS.itemCountSuffix(preset.itemCount)}
 										{#if preset.targetAgeMin !== undefined && preset.targetAgeMax !== undefined}
@@ -390,6 +412,16 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 		font-weight: 700;
 		color: var(--color-text);
 		margin: 0;
+	}
+	.imported-badge {
+		display: inline-block;
+		margin-left: 0.375rem;
+		padding: 0.0625rem 0.375rem;
+		font-size: 0.625rem;
+		font-weight: 500;
+		background: var(--color-feedback-success-bg);
+		color: var(--color-feedback-success-text);
+		border-radius: var(--radius-sm);
 	}
 	.preset-sub {
 		font-size: 0.75rem;

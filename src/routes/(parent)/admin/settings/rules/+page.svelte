@@ -2,11 +2,16 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { ADMIN_RULES_PAGE_LABELS, APP_LABELS } from '$lib/domain/labels';
+// #2391 (Phase 2): in-page rule-preset 取込 UI を統一
+import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 
 let { data, form } = $props();
+
+// #2391 (Phase 2): marketplace import 完了メッセージ
+let marketplaceImportMessage = $state('');
 
 function formatImportedAt(iso: string): string {
 	try {
@@ -64,7 +69,32 @@ function formatImportedAt(iso: string): string {
 			</div>
 			{/snippet}
 		</Card>
-	{:else}
+	{/if}
+
+	<!-- #2391 (Phase 2): in-page UnifiedImportHub (5 admin UX 統一)。
+	     bonusPresets が空でも非空でも常時表示し「もう 1 セット追加」導線を提供。 -->
+	<section data-testid="rules-marketplace-import-section">
+		{#if marketplaceImportMessage}
+			<div
+				class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
+				data-testid="rules-marketplace-import-result"
+			>
+				{marketplaceImportMessage}
+			</div>
+		{/if}
+		<UnifiedImportHub
+			typeCode="rule-preset"
+			presets={{
+				'rule-preset': data.rulePresets,
+			}}
+			onimported={(msg) => {
+				marketplaceImportMessage = msg;
+				invalidateAll();
+			}}
+		/>
+	</section>
+
+	{#if data.bonusPresets.length > 0}
 		<!-- bonus preset 一覧 -->
 		<Card padding="lg" variant="elevated">
 			{#snippet children()}

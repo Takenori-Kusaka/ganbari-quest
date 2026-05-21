@@ -129,7 +129,7 @@ Registry の SSR / CSR 配布は ADR-0046 と同じ `setContext` / `getContext` 
 | P3 | #2367 | checklist | `checklist-template-import-service.ts` |
 | P3 | #2368 | rule-preset | `rule-preset-import-service.ts` |
 | P3 | #2369 | challenge-set | (新規、現状 service 不存在) |
-| P4 | #8 | UnifiedImportHub + UnifiedEmptyState | `ActivityImportPanel.svelte` |
+| P4 | #2370 / #2391 | UnifiedImportHub + UnifiedEmptyState (5 admin route 横展開完了) | `ActivityImportPanel.svelte` (#2391 で物理削除) |
 | P4 | #9 | PageGuideRegistry + Driver.js | `PageHelpButton` / Menu 二重 |
 | P4 | #10 | Export schema v2 + round-trip | 既存 export endpoint |
 

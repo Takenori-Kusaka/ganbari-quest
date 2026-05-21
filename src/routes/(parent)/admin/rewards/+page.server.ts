@@ -187,18 +187,16 @@ export const actions: Actions = {
 				ctx: { tenantId, presetId, childId },
 			});
 
-			// 全件重複の場合は allDuplicates フラグで返却 (UI 互換)
-			if (result.imported === 0 && result.skipped === result.total && result.total > 0) {
-				return { marketplaceImport: { allDuplicates: true } };
-			}
-
+			// #2391: UnifiedImportHub 互換の top-level shape で返却。
+			// 旧 `marketplaceImport: {...}` shape は #2391 Phase 2 で撤去。
+			// 全件重複の場合も imported=0, skipped=total で表現 (Hub 側が判定する)。
 			return {
-				marketplaceImport: {
-					imported: result.imported,
-					skipped: result.skipped,
-					errors: result.errors,
-					presetId,
-				},
+				packName: item.name,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: result.total,
+				errors: result.errors,
+				presetId,
 			};
 		} catch (e) {
 			logger.error('[admin/rewards] marketplace reward-set インポート失敗', {

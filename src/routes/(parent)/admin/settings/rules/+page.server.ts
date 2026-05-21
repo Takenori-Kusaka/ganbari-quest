@@ -9,6 +9,9 @@
 // (取込試行は audit log として settings.rule_preset_import_warnings に記録されるのみ)。
 
 import { fail } from '@sveltejs/kit';
+import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+// #2391 (Phase 2): rule-preset in-page UnifiedImportHub のため dispatcher 経由 import 追加
+import { dispatchImport } from '$lib/marketplace';
 // #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
 import {
 	loadBonusOverrides,
@@ -29,8 +32,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 		logger.error('[admin/settings/rules] loadBonusOverrides 失敗', { error: String(e) });
 	}
 
+	// #2391 (Phase 2): rule-preset の UnifiedImportHub preset 一覧
+	const rulePresets = getMarketplaceIndex()
+		.filter((m) => m.type === 'rule-preset')
+		.map((m) => ({
+			itemId: m.itemId,
+			name: m.name,
+			icon: m.icon,
+			itemCount: m.itemCount,
+			targetAgeMin: m.targetAgeMin,
+			targetAgeMax: m.targetAgeMax,
+		}));
+
 	return {
 		bonusPresets: bonusOverrides.presets,
+		rulePresets,
 	};
 };
 
@@ -72,6 +88,43 @@ export const actions: Actions = {
 				context: { presetId },
 			});
 			return fail(500, { error: 'ルール削除に失敗しました' });
+		}
+	},
+
+	// #2391 (Phase 2): UnifiedImportHub から rule-preset 一括追加 (ADR-0052 dispatchImport 経由)
+	importMarketplaceRulePreset: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const presetId = String(formData.get('presetId') ?? '').trim();
+		if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
+
+		const item = getMarketplaceItem('rule-preset', presetId);
+		if (!item) {
+			return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
+		}
+
+		try {
+			const result = await dispatchImport({
+				typeCode: 'rule-preset',
+				rawPayload: item.payload,
+				displayName: item.name,
+				ctx: { tenantId, presetId },
+			});
+			// Hub 互換 top-level shape
+			return {
+				packName: result.packName,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: result.total,
+				errors: result.errors,
+				presetId,
+			};
+		} catch (e) {
+			logger.error('[admin/settings/rules] importMarketplaceRulePreset 失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { presetId },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
 		}
 	},
 };

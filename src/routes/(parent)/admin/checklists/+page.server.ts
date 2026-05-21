@@ -287,9 +287,11 @@ export const actions: Actions = {
 	},
 
 	// #2137 (MP-2): マーケットプレイス event-checklist の一括追加
-	// admin/checklists 画面の「マーケットプレイスから一括追加」セクションから POST される。
-	// 同一 (childId × presetId) で取込済なら何もせず onlyAlreadyImported=true を返す。
-	importMarketplace: async ({ request, locals }) => {
+	// #2391 (Phase 2): UnifiedImportHub 規約 (`?/importMarketplace<TypeCode>`) に合わせ
+	// `importMarketplaceChecklist` を実装。後方互換のため旧 `?/importMarketplace` も alias 提供。
+	// admin/checklists 画面の UnifiedImportHub セクションから POST される。
+	// 同一 (childId × presetId) で取込済なら imported=0/skipped=total で Hub 互換返却。
+	importMarketplaceChecklist: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
 		const childId = Number(formData.get('childId'));
@@ -332,12 +334,15 @@ export const actions: Actions = {
 				presetId,
 				childId,
 			});
+			// #2391: 全件重複時も Hub 互換 shape で返却
 			if (preview.duplicates === preview.total && preview.total > 0) {
 				return {
-					marketplaceImportResult: true,
-					alreadyImported: true,
-					presetName: item.name,
-					existingTemplateName: preview.duplicateNames[0],
+					packName: item.name,
+					imported: 0,
+					skipped: preview.total,
+					total: preview.total,
+					errors: [] as string[],
+					presetId,
 				};
 			}
 
@@ -351,13 +356,14 @@ export const actions: Actions = {
 					childId,
 				},
 			});
+			// #2391: UnifiedImportHub 互換 top-level shape
 			return {
-				marketplaceImportResult: true,
-				alreadyImported: false,
-				presetName: result.packName,
-				// 旧 importedItems = payload.items.length 互換
-				importedItems: payload.items.length,
+				packName: result.packName,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: result.total,
 				errors: result.errors,
+				presetId,
 			};
 		} catch (e) {
 			logger.error('[admin/checklists] マーケットプレイスインポート失敗', {
@@ -368,3 +374,9 @@ export const actions: Actions = {
 		}
 	},
 };
+
+// #2391 (Phase 2): 旧 action 名 `?/importMarketplace` の後方互換 alias。
+// 既存 E2E spec (admin-checklists-import-marketplace / marketplace-checklist-import) が
+// `?/importMarketplace` を呼んでおり、テスト互換性のため両 action 名を生かす。
+// 実装は `importMarketplaceChecklist` と完全同一 (alias 再代入)。
+actions.importMarketplace = actions.importMarketplaceChecklist;

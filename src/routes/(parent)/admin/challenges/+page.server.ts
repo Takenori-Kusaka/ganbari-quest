@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { getMarketplaceItem } from '$lib/data/marketplace';
+import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import type { ChallengeSetPayload } from '$lib/domain/marketplace-item';
 // #2369 (EPIC #2362 P3 / ADR-0052): challenge-set を新 Strategy + dispatchImport 経由に移行。
@@ -56,7 +56,19 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}
 	}
 
-	return { challenges, children, planTier, familyStreak, marketplaceImport };
+	// #2391 (Phase 2): UnifiedImportHub の challenge-set preset 一覧
+	const challengePresets = getMarketplaceIndex()
+		.filter((m) => m.type === 'challenge-set')
+		.map((m) => ({
+			itemId: m.itemId,
+			name: m.name,
+			icon: m.icon,
+			itemCount: m.itemCount,
+			targetAgeMin: m.targetAgeMin,
+			targetAgeMax: m.targetAgeMax,
+		}));
+
+	return { challenges, children, planTier, familyStreak, marketplaceImport, challengePresets };
 };
 
 export const actions: Actions = {
@@ -132,6 +144,9 @@ export const actions: Actions = {
 	// #2297 (EPIC #2294 ③) / #2369 (EPIC #2362 P3): マーケプレ challenge-set 一括 import
 	// 旧来 `+page.server.ts` 内で createSiblingChallenge を直接ループ呼出していたが、
 	// ADR-0052 に従い Strategy + dispatchImport 経由に移行 (#2369)。
+	// #2391: query param 経由 (`/admin/challenges?marketplace-import=<presetId>`) の確認 dialog
+	// から submit される互換 action は保持。UnifiedImportHub からは Hub 規約 action
+	// (`importMarketplaceChallengeSet`) を別途呼ぶ。
 	importChallengeSet: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const fd = await request.formData();
@@ -160,6 +175,42 @@ export const actions: Actions = {
 				return fail(404, { error: 'チャレンジ集が見つかりません' });
 			}
 			logger.error('[admin/challenges] challenge-set インポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { presetId },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
+
+	// #2391 (Phase 2): UnifiedImportHub から challenge-set 一括追加 (Hub 互換 top-level shape)
+	importMarketplaceChallengeSet: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const fd = await request.formData();
+		const presetId = String(fd.get('presetId') ?? '').trim();
+		if (!presetId) return fail(400, { error: 'presetId が必要です' });
+
+		try {
+			const source = loadFromMarketplace('challenge-set', presetId);
+			const result = await dispatchImport({
+				typeCode: 'challenge-set',
+				rawPayload: source.payload,
+				displayName: source.displayName,
+				ctx: { tenantId, presetId },
+			});
+			// Hub 互換 top-level shape
+			return {
+				packName: result.packName,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: result.total,
+				errors: result.errors,
+				presetId,
+			};
+		} catch (e) {
+			if (e instanceof Error && e.message.includes('not found in marketplace SSOT')) {
+				return fail(404, { error: 'チャレンジ集が見つかりません' });
+			}
+			logger.error('[admin/challenges] importMarketplaceChallengeSet 失敗', {
 				error: e instanceof Error ? e.message : String(e),
 				context: { presetId },
 			});
