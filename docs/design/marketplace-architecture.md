@@ -205,10 +205,63 @@ import './types/activity-pack';  // ← この 1 行が SSOT
 
 ## 7. テスト戦略
 
-- **`tests/unit/marketplace/registry.test.ts`** (本 PR): Registry の register / get / list / has / size / clear + discriminated union + strategy 呼出契約 + `MARKETPLACE_TYPE_CODES` SSOT (15 ケース)
+- **`tests/unit/marketplace/registry.test.ts`** (#2363): Registry の register / get / list / has / size / clear + discriminated union + strategy 呼出契約 + `MARKETPLACE_TYPE_CODES` SSOT (15 ケース)
 - **per-type strategy test** (#2365-2369): 各 type concrete strategy の parse / preview / apply 単体テスト
-- **integration E2E** (#10): 5 type 全件 export → import round-trip
-- **Registry 完整性 CI 検知** (#12): CI で `MARKETPLACE_TYPE_CODES` 5 件全てが register 済かを assert
+- **`tests/unit/marketplace/round-trip-required.test.ts`** (#2374): 5 type 全件 schema 経由 round-trip (seed → JSON → schema parse → 値同等性)
+- **`tests/e2e/marketplace-round-trip-required.spec.ts`** (#2374): activity-pack の実 admin UI 動線 round-trip (export endpoint → import action)
+- **integration E2E** (#10): 5 type 全件 export → import round-trip (将来、export endpoint 拡張時に追加)
+- **Registry 完整性 CI 検知** (#2374): CI で `MARKETPLACE_TYPE_CODES` 5 件全てが register 済かを assert (詳細は §10)
+
+---
+
+## 10. Registry 完整性 CI 検知 (#2374、AN-5 #2180 補強 7)
+
+Issue #2374 (EPIC #2362 P4) で導入された CI gate。`scripts/check-marketplace-registry-integrity.mjs` が `MARKETPLACE_TYPE_CODES` SSOT と register / strategy / schema / types module / index.ts side-effect import の完整性を構造的に検証する。
+
+### 検証内容
+
+| # | 検証項目 | 違反時の挙動 |
+|---|---|---|
+| 1 | `src/lib/marketplace/types.ts` の `MARKETPLACE_TYPE_CODES` を AST 相当 parse で抽出 | 抽出失敗 → exit 1 |
+| 2 | `src/lib/marketplace/index.ts` で全 type が `import './types/<code>'` で side-effect import されている | 1 件でも欠落 → exit 1 |
+| 3 | `src/lib/marketplace/types/<code>.ts` が存在し `marketplaceRegistry.register(...)` 呼出を持つ | 欠落 → exit 1 |
+| 4 | 同 module 内の Descriptor object が `typeCode` / `displayLabel` / `description` / `strategy` / `requiresChildId` を全て持つ | 1 field 欠落 → exit 1 |
+| 5 | Strategy ファイル (`src/lib/marketplace/strategies/<code>-strategy.ts`) が存在 | 欠落 → exit 1 |
+| 6 | Schema ファイル (`src/lib/marketplace/schemas/<code>-schema.ts`) が存在 | 欠落 → exit 1 |
+
+### CI ジョブ
+
+`.github/workflows/ci.yml` `marketplace-registry-integrity-check` (独立並列 job、lint-and-test と並列)。`needs.changes.outputs.app == 'true'` または `deps == 'true'` 時のみ実行。`ci-gate` の `needs` 配列に組込済。
+
+### ローカル実行
+
+```bash
+npm run check:marketplace-registry-integrity
+# 内部で node scripts/check-marketplace-registry-integrity.mjs
+```
+
+### challenge-set 型漏れ事例 (本 CI gate の起票根拠)
+
+EPIC #2362 background §L1 で判明した「challenge-set が `MarketplaceItemType` 4 値の中に含まれず service 不存在で 1 ヶ月放置」事例の構造的再発防止。新 type を `MARKETPLACE_TYPE_CODES` に追加した時点で、5 件の必須実装 (schema / strategy / types module / index.ts import / strategy unit test) が PR 段階で全て揃っていることを CI で hard-fail 検証する。
+
+---
+
+## 11. Round-trip E2E 必須化 (#2374)
+
+PO 指摘 ④ (Export → Import 消失) の構造的回帰防止。以下 2 spec を CI で並列実行し、新 schema 変更が export/import 互換を破壊した瞬間に hard-fail する。
+
+| spec | 担当 | カバレッジ |
+|---|---|---|
+| `tests/unit/marketplace/round-trip-required.test.ts` | 5 type 全件 | seed payload → `v.safeParse(Schema)` → JSON serialize → JSON deserialize → 再 `v.safeParse(Schema)` → 値同等性 (`toEqual`) |
+| `tests/e2e/marketplace-round-trip-required.spec.ts` | activity-pack | 実 admin UI 動線 (`/api/v1/activities/export` → `/admin/activities?/importFile`) でゼロ情報欠落 round-trip |
+
+5 type 全件 E2E round-trip は将来 (`#10` で `/api/v1/<type>/export` endpoint を全 type に展開した後) に拡張する。本 PR 時点では schema 経由 in-memory round-trip + activity-pack 実 UI round-trip の 2 段で「seed JSON が安全に export/import を往復できる」契約を CI で必須化する。
+
+### round-trip 違反パターン (本 spec で検知される代表例)
+
+- schema に新 field を追加したが optional 未指定 → 旧 export JSON を re-import で reject
+- schema に `transform()` を追加して output ≠ input → 値同等性 assertion 失敗
+- challenge-set のような新 type を export endpoint に追加し忘れ → SEED_CASES の `MARKETPLACE_TYPE_CODES` 全件カバレッジ assertion で fail
 
 ---
 

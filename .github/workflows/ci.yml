@@ -238,6 +238,28 @@ jobs:
         if: needs.changes.outputs.stories == 'true'
         run: npm run build-storybook -- --quiet
 
+  # #2374 / ADR-0052 / AN-5 #2180 補強 7:
+  # Marketplace Registry 完整性 CI 検知。MARKETPLACE_TYPE_CODES の全 type が
+  # Registry に register 済 + Strategy / Schema / types module / index.ts side-effect import
+  # が揃っているかを構造的に検証。新 type 追加時の register 漏れを PR 段階で hard-fail
+  # (challenge-set 型漏れ 1 ヶ月放置の再発防止)。
+  # 軽量 (Node script + fs.readFileSync のみ、npm ci 不要) のため独立並列 job 化。
+  marketplace-registry-integrity-check:
+    needs: changes
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Marketplace Registry integrity check (#2374 / ADR-0052)
+        run: node scripts/check-marketplace-registry-integrity.mjs
+
   # #1006 Phase 2: vitest を 2 shard に分割して並列化 (1m 23s → ~40s 目標)
   # 各 shard は coverage を出力し、unit-test-merge で合算してラチェットチェック。
   # shard 実行時は threshold 未達でも fail しない (部分カバレッジのため不正確)。
@@ -727,6 +749,7 @@ jobs:
       [
         changes,
         lint-and-test,
+        marketplace-registry-integrity-check,
         unit-test,
         unit-test-merge,
         storybook-test,
