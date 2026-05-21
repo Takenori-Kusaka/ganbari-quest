@@ -10,8 +10,8 @@
 //   - magic link は `/auth/reset-pin/<token>` (token は jose JWT、pin-reset-service)
 
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
-import { repos } from '$lib/server/db/factory';
+import { getEnv } from '$lib/runtime/env';
+import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { checkRateLimit } from '$lib/server/security/rate-limiter';
 import { sendPinResetEmail } from '$lib/server/services/email-service';
@@ -25,7 +25,7 @@ const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function getAppBaseUrl(): string {
-	return env.APP_BASE_URL ?? 'https://ganbari-quest.com';
+	return getEnv().APP_BASE_URL ?? 'https://ganbari-quest.com';
 }
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
@@ -50,7 +50,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
 	// 以下、enumeration 防止のため email 未登録 / SES 失敗等の理由でも 200 を返す。
 	try {
-		const user = await repos().auth.findUserByEmail(email);
+		const repos = getRepos();
+		const user = await repos.auth.findUserByEmail(email);
 		if (!user) {
 			logger.info('[PIN_RESET] reset request for unknown email', {
 				context: { emailDomain: email.split('@')[1] ?? 'unknown' },
@@ -58,7 +59,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			return json({ ok: true });
 		}
 
-		const memberships = await repos().auth.findUserTenants(user.id);
+		const memberships = await repos.auth.findUserTenants(user.id);
 		if (memberships.length === 0) {
 			logger.info('[PIN_RESET] user has no tenants', { context: { userId: user.id } });
 			return json({ ok: true });
