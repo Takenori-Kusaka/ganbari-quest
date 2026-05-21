@@ -219,3 +219,129 @@ import './types/activity-pack';  // ← この 1 行が SSOT
 - [docs/design/parallel-implementations.md](parallel-implementations.md) — 並行実装ペア (本 Registry 機構が確立した後、import service 並行 → strategy 並行へ移行予定)
 - `src/lib/marketplace/types.ts` / `registry.ts` / `context.ts` / `index.ts` — 実体
 - `tests/unit/marketplace/registry.test.ts` — Registry 単体テスト
+
+---
+
+## 9. Valibot schema 5 type 仕様 (#2364)
+
+EPIC #2362 P1 Phase 1 で導入された Valibot schema SSOT。`src/lib/marketplace/schemas/` 配下の 5 type schema は、`src/lib/domain/marketplace-item.ts` の対応 TypeScript interface と完全整合する。Registry 統合 (`#2363` 後の各 type Strategy 実装 #2365-2369) で `descriptor.schema` として参照されることを想定。
+
+実装ファイル:
+- `src/lib/marketplace/schemas/activity-pack-schema.ts`
+- `src/lib/marketplace/schemas/reward-set-schema.ts`
+- `src/lib/marketplace/schemas/checklist-schema.ts`
+- `src/lib/marketplace/schemas/rule-preset-schema.ts`
+- `src/lib/marketplace/schemas/challenge-set-schema.ts`
+- `src/lib/marketplace/schemas/index.ts` (compound SSOT、`MarketplacePayloadSchemaMap` 一元 export)
+
+### 9.1 `activity-pack` (`ActivityPackPayloadSchema`)
+
+```ts
+{
+  activities: Array<{
+    name: string (1-50)
+    categoryCode: 'undou' | 'benkyou' | 'seikatsu' | 'kouryuu' | 'souzou'
+    icon: string (1-10)
+    basePoints: integer (1-10000)
+    ageMin: number | null
+    ageMax: number | null
+    gradeLevel: 'baby' | 'kinder' | 'elementary_lower' | ... | null
+    triggerHint?: string (≤200)
+    description?: string (≤500)
+    mustDefault?: boolean    // #1758 / #1709-D
+  }>  (minLength: 1)
+}
+```
+
+### 9.2 `reward-set` (`RewardSetPayloadSchema`)
+
+```ts
+{
+  rewards: Array<{
+    title: string (1-100)
+    points: integer (1-10000)
+    icon: string (1-10)
+    category: 'academic' | 'sports' | 'social' | 'creative' | 'life' | 'other'
+    description?: string (≤500)
+  }>  (minLength: 1)
+}
+```
+
+### 9.3 `checklist` (`ChecklistPayloadSchema`)
+
+```ts
+{
+  timing: 'morning' | 'evening' | 'weekend' | 'daily' | 'weekly'
+  items: Array<{ label: string (1-100); icon: string (1-10); order: integer ≥ 0 }>  (minLength: 1)
+}
+```
+
+### 9.4 `rule-preset` (`RulePresetPayloadSchema`)
+
+```ts
+{
+  ruleType: 'exchange' | 'bonus' | 'penalty' | 'special'
+  rules: Array<{
+    title: string (1-100)
+    description: string (1-500)
+    icon: string (1-10)
+    pointCost?: integer (0-10000)
+    pointBonus?: integer (0-10000)
+  }>  (minLength: 1)
+}
+```
+
+### 9.5 `challenge-set` (`ChallengeSetPayloadSchema`)
+
+SSOT 整合: `src/lib/domain/marketplace-item.ts` `ChallengeSetPayload` interface (#2297 で導入)。協力タイプ固定 (EPIC #2294 ② で competitive UI 撤去済) で、期間は monthDay (MM-DD) + durationDays の論理表現で年間行事 (お正月 / 節分 / ひな祭り / ハロウィン / クリスマス等) を表現する。import 時に service 側で当該年の日付に展開。参照データ: `src/lib/data/marketplace/challenge-sets/japan-annual-events.json` (15 件)。
+
+```ts
+{
+  challenges: Array<{
+    title: string (1-100)
+    description: string (1-500)     // interface 上必須
+    monthDay: string                // 'MM-DD' 形式 (例: '03-03' = ひな祭り)
+    durationDays: integer (1-90)    // startDate = monthDay の (durationDays - 1) 日前 / endDate = monthDay
+    categoryId: 1 | 2 | 3 | 4 | 5   // 1=undou 2=benkyou 3=seikatsu 4=kouryuu 5=souzou
+    baseTarget: integer (1-1000)    // 達成目標 (例: 累積 10 回)
+    rewardPoints: integer (0-10000)
+    icon: string (1-10)
+  }>  (minLength: 1)
+}
+```
+
+### 9.6 bundle size 実測 (esbuild + gzip)
+
+`--minify --format=esm --target=es2022 --tree-shaking=true`:
+
+| シナリオ | minified | gzipped |
+|---|---|---|
+| Valibot 単純 schema 1 件 (`activity-pack` 相当) | 1460 B | 741 B |
+| **Valibot 5 type 全 schema bundle** | **1838 B (1.79 KB)** | **859 B** |
+| Zod v3.x 単純 schema 1 件 (参考) | 1436 B | 736 B |
+
+複雑 schema (refinements / discriminated unions / transforms) では Valibot との乖離が拡大することが公式ベンチで報告されている。Strategy 連動で複雑化する本プロダクトでは Valibot 選定が妥当。
+
+### 9.7 使用例
+
+```ts
+import * as v from 'valibot';
+import {
+  ActivityPackPayloadSchema,
+  type ActivityPackPayload,
+} from '$lib/marketplace/schemas';
+
+const result = v.safeParse(ActivityPackPayloadSchema, unknownInput);
+if (result.success) {
+  const payload: ActivityPackPayload = result.output;
+} else {
+  for (const issue of result.issues) {
+    console.error(issue.path?.map((p) => p.key).join('.'), issue.message);
+  }
+}
+```
+
+### 9.8 後続フェーズ
+
+- **Phase 2-6 (#2365-2369)**: 各 type の Strategy が `descriptor.schema = SchemaXxx` を保持して parse 段階で利用
+- **後続フェーズ (EPIC #2362 完遂時)**: `marketplace-item.ts` の TypeScript interface を schema 由来型 (`v.InferOutput<...>`) に置換し SSOT を schema 側に一元化 (現時点は interface が SSOT、schema が integrity 検証)
