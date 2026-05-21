@@ -7894,3 +7894,67 @@ export const LP_LEGAL_TOKUSHOHO_LABELS = {
 	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込） / 年額5,000円（税込）<br>${PLAN_FULL_TERMS.family}: 月額780円（税込） / 年額7,800円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金<br>年額プラン: 毎年契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${STRIPE_PORTAL_TERMS.short}の「プラン変更・支払い管理」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.family}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
 	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
 } as const;
+
+// ============================================================
+// #2370 (EPIC #2362 P4): UnifiedImportHub + UnifiedEmptyState ラベル
+//
+// PO 指摘 ② (admin import UX が type ごとに分散) 直接解決のため、
+// 5 type 横断で再利用される UI ラベルを集約する SSOT。
+//
+// 参照箇所:
+//   - src/lib/marketplace/ui/UnifiedImportHub.svelte (5 type 共通 import エントリ)
+//   - src/lib/marketplace/ui/UnifiedEmptyState.svelte (5 admin リソース共通 empty state)
+//   - src/routes/(parent)/admin/{activities,rewards,checklists,settings/rules,challenges}/
+//
+// 設計原則 (DESIGN.md §10 Hick's Law / EPIC #2253 bridge ルール):
+//   - empty state は「ないなら追加」へ secondary link を提供（initial setup 期の発見性）
+//   - header `+` メニュー内 1 階層内アクセスで運用期の到達性を確保
+//   - import / 手動作成の 2 経路を統一的に表示し add 経路 ≤ 4 を維持
+// ============================================================
+export const UNIFIED_IMPORT_HUB_LABELS = {
+	heading: 'まとめて取り込む',
+	description: 'マーケットプレイスや手元のファイルから一括で追加できます。',
+	loading: '処理中...',
+	emptyMarketplace: '取り込めるアイテムが見つかりません。',
+	marketplaceHeading: 'マーケットプレイスから',
+	fileHeading: 'ファイルから',
+	fileDesc: '保存しておいた JSON / CSV ファイルを取り込みます。',
+	fileImportBtn: 'ファイルを取り込む',
+	addBtn: 'この内容で追加',
+	processingText: '取り込み中...',
+	// 5 type 共通の type 切替タブ
+	typeTabAriaLabel: '取り込む種類を選ぶ',
+	// 結果メッセージ (type 横断、imported/skipped を含む)
+	resultSuccess: (name: string, imported: number, skipped: number) =>
+		skipped > 0
+			? `「${name}」を取り込みました（追加 ${imported} 件 / スキップ ${skipped} 件）`
+			: `「${name}」を取り込みました（追加 ${imported} 件）`,
+	resultAllDuplicates: (name: string) => `「${name}」はすべて重複していました（追加 0 件）`,
+	resultError: '取り込みに失敗しました',
+	// Pack / set 説明 (type 表示用)
+	itemCountSuffix: (count: number) => `（${count} 件）`,
+	targetAgeRange: (min: number, max: number) => `対象年齢 ${min} 〜 ${max} 歳`,
+	// childId 未選択時の警告 (reward-set / checklist 等 requiresChildId === true で表示)
+	childRequiredHint: '※ 対象の子供を選んでから取り込みできます。',
+	// preset 内アイテム数と対象年齢の連結 separator
+	itemAgeSeparator: '・',
+	// type 選択時のヒント
+	typeHintActivityPack: 'プリセット活動を一括で追加します。',
+	typeHintRewardSet: 'ごほうびテンプレートを子供ごとに一括登録します。',
+	typeHintChecklist: '持ち物チェックリストのテンプレートを取り込みます。',
+	typeHintRulePreset: 'ポイント交換や連続ボーナス等のルールを取り込みます。',
+	typeHintChallengeSet: '家族で取り組むチャレンジ集を一括で追加します。',
+} as const;
+
+export const UNIFIED_EMPTY_STATE_LABELS = {
+	// 5 admin リソース共通の empty state テキスト
+	icon: '📋',
+	// resource 名を埋め込むため関数形式
+	noItems: (resourceName: string) => `${resourceName}がまだありません`,
+	filteredText: '条件に一致するものがありません',
+	addBtn: '＋ 新しく作る',
+	importBtn: '📥 取り込みで追加する',
+	// Reward / Checklist 等で childId 必須な場合の補助文言
+	pickChildHint: '対象の子供を選んでから取り込みできます。',
+	disabledReason: '権限が不足しています',
+} as const;
