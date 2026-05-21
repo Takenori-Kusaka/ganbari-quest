@@ -24,8 +24,16 @@ concurrency:
 jobs:
   deploy-nuc:
     runs-on: [self-hosted, Windows, X64]
-    # Public repository guard: only trusted actors can trigger this workflow on the
-    # self-hosted NUC runner. fork PR からの未承認 push 実行を防ぐ。
+    # Self-hosted runner actor guard: restrict self-hosted NUC runner execution to
+    # trusted actors performing main push / workflow_dispatch.
+    #
+    # 本 workflow の trigger は `push: branches=[main]` + `workflow_dispatch` のみで、
+    # fork PR からの直接 push は GitHub の保護により発生しない (upstream main への push
+    # 権限が fork 側にないため)。workflow_dispatch も upstream リポジトリの権限がある
+    # actor からしか発火しない。したがって本 actor allowlist の目的は「fork PR 防御」
+    # ではなく、**self-hosted NUC runner 上で実行できる actor を ADR-0022 体制で
+    # 想定済みの 2 account に絞り込み、想定外の actor (誤って付与された collaborator /
+    # 将来の admin bypass 等) による NUC 本番マシン上での任意コード実行を防ぐ**こと。
     #
     # 許可リスト (ADR-0022 QA merge 体制 + Issue #2356 / EPIC #2354):
     #   - Takenori-Kusaka       : PO (リポジトリ owner)。手動 dispatch / 自身 commit の main 経由 push
@@ -34,7 +42,6 @@ jobs:
     #                                ここを許可しないと QA merge 後の main push で NUC deploy が
     #                                全件 skip され、本番 / NUC 環境が長期間古い build に固定される。
     #
-    # fork PR からの実行は actor が両 account 外となるため skip される (防御維持)。
     # 信頼 account 追加時は本リストに追記するだけで対応可。
     if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)
     defaults:
