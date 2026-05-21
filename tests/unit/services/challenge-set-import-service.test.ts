@@ -82,7 +82,7 @@ describe('expandChallengeSetDates', () => {
 		expect(result.startDate).toBe('2026-07-01');
 	});
 
-	it('過去日付なら来年扱い (ADR-0013 LP truth: 翌年実日付に展開)', () => {
+	it('過去日付なら来年扱い (#966 JST date-utils SSOT: 翌年実日付に展開)', () => {
 		const today = new Date(Date.UTC(2026, 4, 19));
 		const result = expandChallengeSetDates('03-03', 3, today);
 		expect(result.endDate).toBe('2027-03-03');
@@ -91,6 +91,33 @@ describe('expandChallengeSetDates', () => {
 
 	it('不正フォーマットで throw', () => {
 		expect(() => expandChallengeSetDates('invalid', 7, new Date())).toThrow();
+	});
+
+	// =====================================================
+	// Lambda UTC 環境の年境界バグ回帰テスト (#966 / QM CHANGES_REQUESTED)
+	//
+	// Lambda は UTC で稼働するため、0:00-9:00 JST (= 15:00-24:00 UTC 前日) の
+	// 時間帯に Date.getFullYear() / toISOString() を直接使うと年判定が 1 年ずれる。
+	// toJSTDateString() (date-utils.ts SSOT) 経由で JST 年を抽出して回避する。
+	// =====================================================
+
+	it('UTC 大晦日深夜 (= JST 元旦早朝) は JST 年で判定する (#966 年境界)', () => {
+		// 2025-12-31 23:30 UTC = 2026-01-01 08:30 JST
+		// 旧実装の today.getFullYear() は 2025 を返すが、JST 基準では 2026
+		const today = new Date(Date.UTC(2025, 11, 31, 23, 30));
+		// monthDay '07-07' は JST 2026-01-01 より未来 → 2026-07-07 にならねばならない
+		const result = expandChallengeSetDates('07-07', 7, today);
+		expect(result.endDate).toBe('2026-07-07');
+		expect(result.startDate).toBe('2026-07-01');
+	});
+
+	it('UTC 日中 (= JST 当日夜) は JST 年で判定する (#966 年境界、上限側)', () => {
+		// 2026-01-01 14:00 UTC = 2026-01-01 23:00 JST (JST 当日の 23 時)
+		// JST 基準の今日は 2026-01-01。monthDay '03-03' は未来 → 2026-03-03
+		const today = new Date(Date.UTC(2026, 0, 1, 14, 0));
+		const result = expandChallengeSetDates('03-03', 3, today);
+		expect(result.endDate).toBe('2026-03-03');
+		expect(result.startDate).toBe('2026-03-01');
 	});
 });
 

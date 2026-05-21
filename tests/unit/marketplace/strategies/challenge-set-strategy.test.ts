@@ -261,10 +261,11 @@ describe('marketplace dispatcher + challenge-set', () => {
 		expect(result.total).toBe(1);
 	}, 15_000);
 
-	it('Registry に登録された 5 type すべて (#2362 EPIC 完遂条件)', async () => {
+	it('Registry に activity-pack と challenge-set が登録される (#2362 EPIC P3 部分完遂)', async () => {
 		const { marketplaceRegistry } = await import('../../../../src/lib/marketplace');
-		// #2369 時点では activity-pack + challenge-set のみ。
-		// 残り 3 type (#2366-2368) は別 PR で順次追加。
+		// #2369 時点では activity-pack + challenge-set の 2 type のみ検証。
+		// 5 type 完遂 (#2362 EPIC 完了条件) は残り 3 type (#2366-2368) 別 PR で追加された後、
+		// 別テストで検証する。本テストは現時点で Registry に登録されていることを保証する。
 		expect(marketplaceRegistry.has('activity-pack')).toBe(true);
 		expect(marketplaceRegistry.has('challenge-set')).toBe(true);
 	}, 15_000);
