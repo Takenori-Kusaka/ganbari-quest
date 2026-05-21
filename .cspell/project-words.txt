@@ -380,3 +380,6 @@ inmemory
 # ===== #2364 Valibot schema (EPIC #2362) =====
 picklist
 valibot
+
+# ===== #2365 activity-pack Strategy 移行 (EPIC #2362 P2) =====
+callsite
