@@ -13,7 +13,7 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 ステップ間で必要に応じて **補助手順 A〜D** を参照します:
 
 - **7 ステップ (順次実行)**: 1 根本原因 → 2 Pre-PMF check → 3 マーケ/Growth 視点 → 4 法務/コンプライアンス視点 → 5 財務視点 → 6 仮想顧客レビュー → 7 Issue テンプレート
-- **補助手順 (該当時のみ実行)**: A SSOT namespace 重複検査 / B OSS 先調査 / C research 添付 / D HEREDOC 禁止 / `--body-file` 運用 / **E 補助機能 UX 完成度 checklist (permission 系 / marketplace 系)**
+- **補助手順 (該当時のみ実行)**: A SSOT namespace 重複検査 / B OSS 先調査 / C research 添付 / D HEREDOC 禁止 / `--body-file` 運用 / **E 補助機能 UX 完成度 checklist (permission 系 / marketplace 系)** / **F 補佐設計品質ガード 6 (同領域 EPIC 確認 + 抽象パターン MUST-DO、#2373)**
 
 ## ステップ 1: 根本原因の特定（ADR-0003）
 
@@ -223,6 +223,57 @@ Web Platform API (Notification / Geolocation / Camera / Microphone / Clipboard /
 4. どちらにも該当しない → Template `auxiliary-feature-ux-checklist` textarea に「N/A」と明記
 
 判定不明な場合は手順 C (research 添付) で業界 prior art を 3-5 件調査して判定する。
+
+## 手順 F: 補佐設計品質ガード 6（#2373 / AN-5 #2180 補強 6）
+
+> 本手順は **すべての EPIC 起票時 + 3 件目の類似 service / component 起票時** に実行する補助手順。SSOT: 本 §F + `docs/sessions/po-session.md` §「補佐設計品質ガード 6」。
+
+**背景**: 補佐が 5 EPIC 連続 (#2253 / #2266 / #2294 / #2319 / #2327) でマーケプレ関連 Issue を起票した際、抽象クラス / Strategy / Factory パターンを 5 回連続で見逃した教訓を SSOT 化。補佐責務 = Issue 起票のみであり、設計品質欠陥は起票段階で防がねばならない。
+
+### MUST-DO 1: 同領域 EPIC 既起票確認（過去 6 ヶ月）
+
+新規 EPIC 起票前に `gh issue list --search` で過去 6 ヶ月の同領域 Issue を確認:
+
+```bash
+# 例: marketplace 系新 EPIC 起票前
+gh issue list --search "marketplace import service" --state all --limit 20
+gh issue list --search "preset 取込" --state all --limit 20
+
+# 例: notification 系新 EPIC 起票前
+gh issue list --search "notification push" --state all --limit 20
+```
+
+確認結果は Issue 本文「関連 Issue」セクションに **すべて列挙**（過去 6 ヶ月で 0 件なら「該当なし」と明記）。
+
+### MUST-DO 2: 抽象パターン適用判断（3 つ目の類似 service / component）
+
+3 つ目の類似 service / component を起票する前、Strategy / Factory / Registry パターンの適用判断を PO に必須確認する:
+
+| 既存実装件数 | 起票時の判断 |
+|---|---|
+| 1 件目 | 通常起票 OK（独自設計許容） |
+| 2 件目 | 「1 件目との重複構造あり」を Issue 本文に明記 |
+| **3 件目以降** | **Strategy / Factory / Registry 適用判断を PO に必須確認**。Issue 本文「OSS / 確立パターン調査結果」セクションに検討結果を記載 |
+
+判断保留時のフォールバック: 「3 件目起票時に抽象化判断を保留した」を明記し、4 件目起票時に同判断を再実行。
+
+### 監視 script
+
+```bash
+node scripts/check-import-service-duplication.mjs
+# → src/lib/server/services/*-import-service.ts のうち 150 行超のものを列挙 (warning のみ)
+```
+
+CI 必須化ではなく awareness 用途。3 件目以降の検出時、本手順 F の MUST-DO 2 を実行する awareness を補佐に与える。
+
+### 起票時の判定フロー
+
+1. 新規 EPIC 起票時 → MUST-DO 1（同領域 6 ヶ月確認）を必須実行
+2. 類似 service / component の 3 件目 → MUST-DO 2（抽象パターン判断）を必須実行
+3. 両方該当 → 両方実行
+4. どちらにも該当しない → 本 §F スキップ可
+
+判定不明な場合は PO に確認してから起票する。
 
 ## ステップ 7: Issue テンプレート
 

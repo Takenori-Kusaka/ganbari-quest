@@ -83,6 +83,15 @@ CI 自動拒否される違反は該当 ADR / script に集約: hex 直書き / 
 
 `priority:critical` は ADR-0002 の 5 要件全て充足必須（E2E 回帰 / AC 全完了 / 提案全実装 / 5 年齢モード検証 / 直近 30 日重複変更チェック）。
 
+## 補佐設計品質ガード 6（#2373 / AN-5 #2180 補強 6）
+
+補佐 (Claude / AI Agent) が Issue 起票時に守る 2 つの MUST-DO。詳細 SSOT → `docs/sessions/po-session.md` §「補佐設計品質ガード 6」+ `.claude/skills/issue-triage/SKILL.md` §「手順 F」:
+
+1. **同領域 EPIC 既起票確認**: 新規 EPIC 起票前に `gh issue list --search "<keyword>" --state all` で過去 6 ヶ月の同領域 Issue を確認、「関連 Issue」セクションに列挙
+2. **抽象パターン MUST-DO**: 3 つ目の類似 service / component を起票する前、Strategy / Factory / Registry 適用判断を PO に必須確認
+
+監視: `node scripts/check-import-service-duplication.mjs`（150 行超の `*-import-service.ts` を列挙、warning のみ）。
+
 ## Session Agents & Skills
 
 セッション起動時 `.claude/agents/` がロール自動活性化:
