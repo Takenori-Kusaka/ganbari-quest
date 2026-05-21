@@ -5,10 +5,11 @@ import { FEATURES_LABELS, NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$
 import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
-import Button from '$lib/ui/primitives/Button.svelte';
 import { getPageGuide } from '$lib/ui/tutorial/page-guide-registry';
 import { startPageGuide } from '$lib/ui/tutorial/page-guide-store.svelte';
-import { markTutorialStarted, startTutorialForPage } from '$lib/ui/tutorial/tutorial-store.svelte';
+// #2375: v1 PageHelpButton + handleStartTutorial fallback 撤去 (P4)。
+// AC-V2-5 のため v2 PageGuide 起動時に v1 tutorial を強制終了する目的で endTutorial のみ import。
+import { endTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
 interface NavItem {
 	href: string;
@@ -39,13 +40,10 @@ let { children, mode, basePath, isPremium = false, planTier = 'free', authMode }
 const isDemo = $derived(mode === 'demo');
 const isAnonymousLambda = $derived(authMode === 'anonymous');
 
-async function handleStartTutorial() {
-	await markTutorialStarted();
-	const currentPath = $page.url.pathname;
-	await startTutorialForPage(currentPath);
-}
-
-// ページガイド（v2）: 現在のページのガイドを起動
+// #2375: ページガイド（v2）— v1 PageHelpButton + handleStartTutorial fallback を撤去 (P4)。
+// 旧 fallback は header の `?` ボタン (Button + handleStartTutorial) で、PageGuideRegistry 未登録ページのみ
+// 別経路 (startTutorialForPage) を呼んでいた。本撤去後は ❓ (v2) のみが唯一の経路。
+// 未登録ページでは ❓ ボタン自体を非表示にする (全 admin ページは _guide.ts を持つ規約、page-guide-registry.ts SSOT)。
 // #2109: 赤バッジ (page-guide-badge) 撤廃 → pageGuideCompleted state 不要化 (ADR-0012 anti-engagement)
 let hasPageGuide = $state(false);
 
@@ -60,6 +58,8 @@ $effect(() => {
 });
 
 async function handleStartPageGuide() {
+	// #2375 AC-V2-5: v1 tutorial (AdminHome banner 経由) を強制終了し、v1/v2 同時 active を防止
+	endTutorial();
 	const path = $page.url.pathname.replace(basePath, '/admin');
 	const guide = await getPageGuide(path);
 	if (guide) {
@@ -219,6 +219,9 @@ function isItemActive(itemHref: string): boolean {
 				{:else if !isDemo && !isAnonymousLambda && isPremium}
 					<span class="plan-badge plan-badge--{planTier}">{planLabel}</span>
 				{/if}
+				<!-- #2375: v1 fallback `?` ボタン (Button + handleStartTutorial) を撤去。
+				     PageGuideRegistry が未登録のページでは ❓ ボタン自体を非表示にする。
+				     全 admin ページは _guide.ts を必ず持つ規約 (page-guide-registry.ts SSOT)。 -->
 				{#if !isDemo && hasPageGuide}
 					<button
 						onclick={handleStartPageGuide}
@@ -229,17 +232,6 @@ function isItemActive(itemHref: string): boolean {
 					>
 						❓
 					</button>
-				{:else if !isDemo}
-					<Button
-						variant="ghost"
-						size="sm"
-						onclick={handleStartTutorial}
-						title={FEATURES_LABELS.adminLayout.tutorialRestartTitle}
-						data-tutorial="tutorial-restart"
-						class="header-tutorial-btn"
-					>
-						?
-					</Button>
 				{/if}
 				<a
 					href={isDemo ? '/demo' : '/switch'}
@@ -453,15 +445,7 @@ function isItemActive(itemHref: string): boolean {
 		background: var(--plan-badge-bg, #fef3c7);
 		color: var(--plan-badge-text, #92400e);
 	}
-	/* Tutorial button override for small size (#497) */
-	:global(.header-tutorial-btn) {
-		width: 2rem !important;
-		height: 2rem !important;
-		min-height: unset !important;
-		padding: 0 !important;
-		border-radius: var(--radius-full) !important;
-		font-weight: 700 !important;
-	}
+	/* #2375: v1 `?` ボタン用 .header-tutorial-btn 撤去 — PageGuide v2 ❓ (page-guide-btn) のみに統一 */
 	/* Switch link (#497) — uses CSS variables instead of Tailwind colors */
 	.header-switch-link {
 		display: inline-flex;

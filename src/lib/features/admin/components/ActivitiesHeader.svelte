@@ -1,7 +1,6 @@
 <script lang="ts">
 import { goto } from '$app/navigation';
 import { FEATURES_LABELS } from '$lib/domain/labels';
-import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
 
 type AddMode = 'manual' | 'ai' | 'import';
@@ -82,7 +81,6 @@ const overflowItems = $derived<MenuItem[]>([
 <div class="activities-header">
 	<div class="flex items-center gap-2">
 		<h2 class="activities-title">{L.title}</h2>
-		<PageHelpButton />
 	</div>
 	<div class="activities-toolbar">
 		<!-- + 追加 dropdown menu (EPIC #2253 / #2255 / #2260 Fix-1: nested button 解消) -->

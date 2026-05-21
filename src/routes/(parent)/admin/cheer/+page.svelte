@@ -1,7 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { APP_LABELS, CHEER_LABELS, PAGE_TITLES } from '$lib/domain/labels';
-import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -75,7 +74,6 @@ $effect(() => {
 	<div class="page-description">
 		<div class="flex items-center gap-2">
 			<p class="page-description__title">{CHEER_LABELS.pageDescTitle}</p>
-			<PageHelpButton />
 		</div>
 		<p class="page-description__text">
 			{CHEER_LABELS.pageDescText1}
