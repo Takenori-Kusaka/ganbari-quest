@@ -6,6 +6,12 @@
 // など) を `checklist_templates` + `checklist_template_items` に一括投入する。
 // 重複検出は `checklist_templates.sourcePresetId` (#1254 G1 整備済) を使い、
 // 同一 (childId × presetId) のテンプレートが既に存在する場合は丸ごとスキップする。
+//
+// @deprecated #2367 (EPIC #2362 P3): 本 service は Strangler Fig pattern により
+//   `$lib/marketplace/strategies/checklist-strategy.ts` に rewrap された。
+//   新規 callsite は `dispatchImport({ typeCode: 'checklist', ... })` 経由で呼ぶこと。
+//   本 service は 1 release 並行稼働後 (別 Issue で撤去) 完全削除予定。
+//   現状の callsite (`+page.server.ts` 2 ヶ所) はすべて新 Strategy 経由に移行済み。
 
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import type { ChecklistPayload, MarketplaceItem } from '$lib/domain/marketplace-item';
@@ -43,6 +49,11 @@ export interface ChecklistImportResult {
 
 /**
  * インポート対象の checklist preset をプレビュー（DB 書き込みなし）
+ *
+ * @deprecated #2367 (ADR-0052): checklist Strategy 経由 (`dispatchImport`) を使用してください。
+ *   `$lib/marketplace/strategies/checklist-strategy` 経由で本関数を呼び出し、
+ *   戻り値は `ImportPreview` shape (`duplicates === total` で alreadyImported 判定) に正規化されます。
+ *   1 release 経過後撤去予定。
  *
  * @param presetId  Marketplace item ID (例: 'event-pool')
  * @param childId   インポート先の子供 ID
@@ -104,6 +115,11 @@ function normalizeTimeSlot(timing: ChecklistPayload['timing']): string {
  * 重複検出: 同一 (childId × sourcePresetId) のテンプレートが既に存在する場合は
  * 何も追加せず `imported=0 / skipped=1` で返却する。Items の個別重複検出は行わない
  * （preset は atomic unit として扱う、activity-import-service と同じ考え方）。
+ *
+ * @deprecated #2367 (ADR-0052): checklist Strategy 経由 (`dispatchImport`) を使用してください。
+ *   `$lib/marketplace/strategies/checklist-strategy` 経由で本関数を呼び出し、
+ *   戻り値は `ImportResult` shape (`imported / skipped / errors`) に正規化されます。
+ *   1 release 経過後撤去予定。
  *
  * @param presetId  Marketplace item ID (例: 'event-pool')
  * @param childId   インポート先の子供 ID

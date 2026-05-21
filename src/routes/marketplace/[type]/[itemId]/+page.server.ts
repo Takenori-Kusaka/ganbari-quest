@@ -1,18 +1,20 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
-import type { MarketplaceItemType, RulePresetPayload } from '$lib/domain/marketplace-item';
-// #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
-// `$lib/marketplace` の eager-load (`./types/reward-set` / `./types/rule-preset`) で Registry 登録される。
-// #2138 (MP-3) / #2368 (ADR-0052 P3): rule-preset 4 ruleType 全対応の一括取込
+import type {
+	ChecklistPayload,
+	MarketplaceItemType,
+	RulePresetPayload,
+} from '$lib/domain/marketplace-item';
+// #2366 / #2367 / #2368 (ADR-0052 / EPIC #2362 P3): reward-set / checklist / rule-preset を
+// 新 Strategy + dispatchImport 経由に移行。
+// `$lib/marketplace` の eager-load (`./types/reward-set` / `./types/checklist` / `./types/rule-preset`)
+// で Registry 登録される。
+// #2138 (MP-3) / #2368: rule-preset 4 ruleType 全対応の一括取込
 // 新 SSOT: marketplaceRegistry.get('rule-preset').strategy 経由 (Strategy 内部 sub-dispatcher)
 import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
 import type { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
-import {
-	importChecklistTemplate,
-	previewChecklistImport,
-} from '$lib/server/services/checklist-template-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -151,27 +153,52 @@ export const actions: Actions = {
 			return fail(400, { error: 'お子さまが見つかりません' });
 		}
 
+		// #2367: checklist は dispatchImport 経由 (EPIC #2362 P3)
+		// 旧 service の戻り shape (imported / importedItems / errors / alreadyImported /
+		// existingTemplateName) を UI 不変のまま維持するため、preview を別途呼び
+		// existingTemplateName を取り出す (atomic 重複時のみ意味あり)。
+		const item = getMarketplaceItem('checklist', params.itemId);
+		if (!item) {
+			return fail(404, { error: 'プリセットが見つかりません' });
+		}
+		const payload = item.payload as ChecklistPayload;
 		try {
-			const preview = await previewChecklistImport(params.itemId, childId, tenantId);
-			if (!preview) {
-				return fail(404, { error: 'プリセットが見つかりません' });
-			}
-			if (preview.alreadyImported) {
+			const descriptor = marketplaceRegistry.get('checklist');
+			const strategy = descriptor.strategy;
+			// biome-ignore lint/suspicious/noExplicitAny: Registry parametric type 解決のため
+			const parsedPayload = (strategy as any).parse(payload);
+			// biome-ignore lint/suspicious/noExplicitAny: 同上
+			const preview = await (strategy as any).preview(parsedPayload, {
+				tenantId,
+				presetId: params.itemId,
+				childId,
+			});
+			// atomic 重複検知: 全件 skipped = duplicates = total = alreadyImported
+			if (preview.duplicates === preview.total && preview.total > 0) {
 				return {
 					importResult: true,
 					alreadyImported: true,
-					presetName: preview.presetName,
-					existingTemplateName: preview.existingTemplateName,
+					presetName: item.name,
+					existingTemplateName: preview.duplicateNames[0],
 				};
 			}
-
-			const result = await importChecklistTemplate(params.itemId, childId, tenantId);
+			const result = await dispatchImport({
+				typeCode: 'checklist',
+				rawPayload: payload,
+				displayName: item.name,
+				ctx: {
+					tenantId,
+					presetId: params.itemId,
+					childId,
+				},
+			});
 			return {
 				importResult: true,
 				alreadyImported: false,
-				presetName: preview.presetName,
+				presetName: result.packName,
 				imported: result.imported,
-				importedItems: result.importedItems,
+				// importedItems は ChecklistImportResult 互換のため items 数を返す
+				importedItems: payload.items.length,
 				errors: result.errors,
 			};
 		} catch (e) {
