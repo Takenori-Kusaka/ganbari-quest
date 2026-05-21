@@ -6,8 +6,23 @@ import { expect, test } from '@playwright/test';
 
 const SCREENSHOT_DIR = 'test-results/tutorial-screenshots';
 
+// #2375 (本 PR #2388): admin v1 tutorial 経路を撤去 (PageHelpButton v1 撤去 + tutorial v1/v2 統合) したため、
+// `/admin` から `[data-tutorial="tutorial-restart"]` クリックして v1 TutorialOverlay (`.tutorial-overlay`) を起動する経路は失われた
+// (Issue 「やらないこと」節:「`tutorial-store.svelte.ts` / `startTutorialForPage` の admin callsite を全撤去」)。
+// v1 tutorial 自体は子供画面 (`(child)/+layout.svelte`) で継続稼働するため #534 の機能要件は維持されるが、
+// 本 spec の admin path 経由検証は #2375 で意図的に到達不能化された。
+// 子供画面 (CHILD_TUTORIAL_CHAPTERS 経由) 用 spec への書き換えは follow-up Issue で実施。
+// 暫定 skip 化。
 test.describe('チュートリアル全ステップ検証', () => {
 	test.beforeEach(async ({ page }) => {
+		// #2375 (本 PR #2388): admin v1 tutorial 撤去で本 spec は実行不能 → skip 化
+		test.skip(
+			true,
+			'#2375 (PR #2388): admin v1 tutorial 撤去 (PageHelpButton v1 + handleStartTutorial fallback 撤去) により ' +
+				'`/admin` 経由で `[data-tutorial="tutorial-restart"]` クリックして v1 TutorialOverlay を起動する経路は失われた。' +
+				'v1 tutorial は子供画面 (CHILD_TUTORIAL_CHAPTERS 経由) で継続稼働するため #534 機能要件は維持されるが、' +
+				'本 spec の admin path 経由検証は意図的に到達不能化。follow-up Issue で子供画面 spec として再構築予定',
+		);
 		// チュートリアル進捗をクリアして最初から開始できるようにする
 		await page.goto('/admin');
 		await page.evaluate(() => {

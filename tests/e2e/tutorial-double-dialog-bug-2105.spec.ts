@@ -66,97 +66,106 @@ async function startTutorialAndOpenExitConfirm(page: import('@playwright/test').
 	return { exitDlg, bubble };
 }
 
-test.describe('#2105 ガイドモード二重ダイアログ防止', () => {
-	test.setTimeout(90_000);
+// #2375 (本 PR #2388): admin v1 tutorial 経路を撤去 (PageHelpButton v1 撤去 + tutorial v1/v2 統合) したため、
+// admin パス (`/admin/license`) から `[data-tutorial="tutorial-restart"]` をクリックして
+// v1 TutorialOverlay (`.tutorial-overlay`) を起動する経路は失われた (Issue 「やらないこと」節:
+// 「`tutorial-store.svelte.ts` / `startTutorialForPage` の admin callsite を全撤去」)。
+// v1 tutorial 自体は子供画面 (`(child)/+layout.svelte`) で継続稼働するため #2105 fix の機能要件は維持されるが、
+// 本 spec の `/admin/license` 経由検証は #2375 で意図的に到達不能化された。
+// 子供画面 (CHILD_TUTORIAL_CHAPTERS 経由) 用 spec への書き換えは follow-up Issue で実施。
+// 暫定 skip 化。
+test.describe
+	.skip('#2105 ガイドモード二重ダイアログ防止 (skipped by #2375 admin v1 tutorial 撤去、follow-up Issue で子供画面再構築予定)', () => {
+		test.setTimeout(90_000);
 
-	test('AC4 / AC7: backdrop click → 終了確認ダイアログのみ表示、TutorialBubble は非表示', async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width: 1280, height: 800 });
-		await gotoPageWithRestartBtn(page);
+		test('AC4 / AC7: backdrop click → 終了確認ダイアログのみ表示、TutorialBubble は非表示', async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: 1280, height: 800 });
+			await gotoPageWithRestartBtn(page);
 
-		const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
+			const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
 
-		// AC4 / AC7: 終了確認ダイアログが表示されている
-		await expect(exitDlg).toBeVisible();
+			// AC4 / AC7: 終了確認ダイアログが表示されている
+			await expect(exitDlg).toBeVisible();
 
-		// 二重ダイアログバグの主検証:
-		// TutorialBubble は DOM から削除されているはず ({#if !showExitConfirm} ガード追加で)
-		await expect(bubble).toBeHidden();
+			// 二重ダイアログバグの主検証:
+			// TutorialBubble は DOM から削除されているはず ({#if !showExitConfirm} ガード追加で)
+			await expect(bubble).toBeHidden();
 
-		// 念のため: TutorialBubble 内の「次へ / 戻る / 終了」ボタンも非表示
-		await expect(page.locator('.tutorial-bubble button:has-text("次へ")')).toBeHidden();
-	});
-
-	test('AC5: 「続ける」(キャンセル) → TutorialBubble 再表示 / チュートリアル続行', async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width: 1280, height: 800 });
-		await gotoPageWithRestartBtn(page);
-
-		const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
-
-		// 「続ける」(キャンセル) クリック
-		const cancelBtn = exitDlg.locator('button:has-text("続ける")');
-		await cancelBtn.waitFor({ state: 'visible' });
-		await cancelBtn.click();
-
-		// 終了確認ダイアログが消える
-		await expect(exitDlg).toBeHidden();
-
-		// TutorialBubble が再表示される
-		await expect(bubble).toBeVisible({ timeout: 5_000 });
-
-		// チュートリアル続行可能 (次へボタンが押せる)
-		const nextBtn = bubble.locator('button:has-text("次へ")');
-		await expect(nextBtn).toBeVisible();
-	});
-
-	test('AC6: 「終了する」(確定) → チュートリアル終了 (overlay / bubble 共に dismiss)', async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width: 1280, height: 800 });
-		await gotoPageWithRestartBtn(page);
-
-		const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
-
-		// 「終了する」(確定) クリック
-		const confirmBtn = exitDlg.locator('button:has-text("終了する")');
-		await confirmBtn.waitFor({ state: 'visible' });
-		await confirmBtn.click();
-
-		// 終了確認ダイアログが消える
-		await expect(exitDlg).toBeHidden();
-
-		// TutorialBubble / overlay が消える
-		await expect(bubble).toBeHidden();
-		await expect(page.locator('.tutorial-overlay')).toBeHidden();
-	});
-
-	test('AC4 補強: backdrop の二重 click でも exitConfirm が二重表示されない (FSM 排他)', async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width: 1280, height: 800 });
-		await gotoPageWithRestartBtn(page);
-
-		const { exitDlg } = await startTutorialAndOpenExitConfirm(page);
-
-		// もう一度 backdrop を click しようとする (exitConfirm 表示中)
-		// ただし overlay 自体が hidden になっているため click は failure になる可能性あり。
-		// dispatchEvent で強制的に handleOverlayClick を発火させる。
-		await page.evaluate(() => {
-			const bg = document.querySelector('.tutorial-overlay-bg');
-			if (bg) {
-				const ev = new MouseEvent('click', { bubbles: true });
-				bg.dispatchEvent(ev);
-			}
+			// 念のため: TutorialBubble 内の「次へ / 戻る / 終了」ボタンも非表示
+			await expect(page.locator('.tutorial-bubble button:has-text("次へ")')).toBeHidden();
 		});
 
-		// exitDlg は引き続き 1 件のみ visible (重複表示なし)
-		const exitDialogs = page
-			.locator('[role="dialog"]')
-			.filter({ hasText: 'チュートリアルを終了しますか' });
-		await expect(exitDialogs).toHaveCount(1);
-		await expect(exitDlg).toBeVisible();
+		test('AC5: 「続ける」(キャンセル) → TutorialBubble 再表示 / チュートリアル続行', async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: 1280, height: 800 });
+			await gotoPageWithRestartBtn(page);
+
+			const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
+
+			// 「続ける」(キャンセル) クリック
+			const cancelBtn = exitDlg.locator('button:has-text("続ける")');
+			await cancelBtn.waitFor({ state: 'visible' });
+			await cancelBtn.click();
+
+			// 終了確認ダイアログが消える
+			await expect(exitDlg).toBeHidden();
+
+			// TutorialBubble が再表示される
+			await expect(bubble).toBeVisible({ timeout: 5_000 });
+
+			// チュートリアル続行可能 (次へボタンが押せる)
+			const nextBtn = bubble.locator('button:has-text("次へ")');
+			await expect(nextBtn).toBeVisible();
+		});
+
+		test('AC6: 「終了する」(確定) → チュートリアル終了 (overlay / bubble 共に dismiss)', async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: 1280, height: 800 });
+			await gotoPageWithRestartBtn(page);
+
+			const { exitDlg, bubble } = await startTutorialAndOpenExitConfirm(page);
+
+			// 「終了する」(確定) クリック
+			const confirmBtn = exitDlg.locator('button:has-text("終了する")');
+			await confirmBtn.waitFor({ state: 'visible' });
+			await confirmBtn.click();
+
+			// 終了確認ダイアログが消える
+			await expect(exitDlg).toBeHidden();
+
+			// TutorialBubble / overlay が消える
+			await expect(bubble).toBeHidden();
+			await expect(page.locator('.tutorial-overlay')).toBeHidden();
+		});
+
+		test('AC4 補強: backdrop の二重 click でも exitConfirm が二重表示されない (FSM 排他)', async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: 1280, height: 800 });
+			await gotoPageWithRestartBtn(page);
+
+			const { exitDlg } = await startTutorialAndOpenExitConfirm(page);
+
+			// もう一度 backdrop を click しようとする (exitConfirm 表示中)
+			// ただし overlay 自体が hidden になっているため click は failure になる可能性あり。
+			// dispatchEvent で強制的に handleOverlayClick を発火させる。
+			await page.evaluate(() => {
+				const bg = document.querySelector('.tutorial-overlay-bg');
+				if (bg) {
+					const ev = new MouseEvent('click', { bubbles: true });
+					bg.dispatchEvent(ev);
+				}
+			});
+
+			// exitDlg は引き続き 1 件のみ visible (重複表示なし)
+			const exitDialogs = page
+				.locator('[role="dialog"]')
+				.filter({ hasText: 'チュートリアルを終了しますか' });
+			await expect(exitDialogs).toHaveCount(1);
+			await expect(exitDlg).toBeVisible();
+		});
 	});
-});
