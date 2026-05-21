@@ -12,6 +12,11 @@ import {
 	type MarketplaceTypeCode,
 	marketplaceRegistry,
 } from '$lib/marketplace';
+import {
+	MARKETPLACE_TYPE_CODES_CLIENT,
+	MARKETPLACE_TYPE_METAS_CLIENT,
+	type MarketplaceTypeCodeClient,
+} from '$lib/marketplace/client-types';
 
 describe('UnifiedImportHub labels (Issue #2370)', () => {
 	it('UNIFIED_IMPORT_HUB_LABELS が必須キーを全て持つ', () => {
@@ -24,15 +29,15 @@ describe('UnifiedImportHub labels (Issue #2370)', () => {
 	});
 
 	it('5 type 全てに対して typeHint が定義されている (Registry SSOT 整合)', () => {
-		// MARKETPLACE_TYPE_CODES (5 値) に対応する hint がラベル SSOT に存在する
-		const codeToKey: Record<MarketplaceTypeCode, keyof typeof UNIFIED_IMPORT_HUB_LABELS> = {
+		// MARKETPLACE_TYPE_CODES_CLIENT (5 値) に対応する hint がラベル SSOT に存在する
+		const codeToKey: Record<MarketplaceTypeCodeClient, keyof typeof UNIFIED_IMPORT_HUB_LABELS> = {
 			'activity-pack': 'typeHintActivityPack',
 			'reward-set': 'typeHintRewardSet',
 			checklist: 'typeHintChecklist',
 			'rule-preset': 'typeHintRulePreset',
 			'challenge-set': 'typeHintChallengeSet',
 		};
-		for (const code of MARKETPLACE_TYPE_CODES) {
+		for (const code of MARKETPLACE_TYPE_CODES_CLIENT) {
 			const key = codeToKey[code];
 			expect(UNIFIED_IMPORT_HUB_LABELS[key]).toBeTruthy();
 		}
@@ -69,7 +74,30 @@ describe('UnifiedEmptyState labels (Issue #2370)', () => {
 	});
 });
 
-describe('UnifiedImportHub Registry integration (Issue #2370)', () => {
+describe('UnifiedImportHub client-types ↔ Registry SSOT 整合 (Issue #2370)', () => {
+	it('MARKETPLACE_TYPE_CODES_CLIENT が server 側 MARKETPLACE_TYPE_CODES と完全一致', () => {
+		expect([...MARKETPLACE_TYPE_CODES_CLIENT]).toEqual([...MARKETPLACE_TYPE_CODES]);
+	});
+
+	it('MARKETPLACE_TYPE_METAS_CLIENT の各 type が Registry 上の Descriptor と同じ displayLabel / requiresChildId を持つ', () => {
+		for (const meta of MARKETPLACE_TYPE_METAS_CLIENT) {
+			const desc = marketplaceRegistry.get(meta.typeCode as MarketplaceTypeCode);
+			expect(desc.displayLabel, `displayLabel mismatch for ${meta.typeCode}`).toBe(
+				meta.displayLabel,
+			);
+			expect(desc.requiresChildId, `requiresChildId mismatch for ${meta.typeCode}`).toBe(
+				meta.requiresChildId,
+			);
+		}
+	});
+
+	it('client typeCode 型は server typeCode 型と互換 (型レベル assertion 代用)', () => {
+		// 型互換性を実行時に確認: 全 client code が server code と等しい型
+		const clientCode: MarketplaceTypeCodeClient = 'activity-pack';
+		const serverCode: MarketplaceTypeCode = clientCode;
+		expect(serverCode).toBe('activity-pack');
+	});
+
 	it('marketplaceRegistry.list() で全 5 type が列挙できる', () => {
 		const descriptors = marketplaceRegistry.list();
 		expect(descriptors.length).toBe(5);

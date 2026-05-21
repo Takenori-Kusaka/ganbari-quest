@@ -20,12 +20,16 @@
 
 import { enhance } from '$app/forms';
 import { UNIFIED_IMPORT_HUB_LABELS } from '$lib/domain/labels';
+// #2370: browser-safe な client-types のみ import (server services を巻き込まない)
 import {
-	type AnyMarketplaceTypeDescriptor,
-	type MarketplaceTypeCode,
-	marketplaceRegistry,
-} from '$lib/marketplace';
+	getMarketplaceTypeMetaClient,
+	MARKETPLACE_TYPE_METAS_CLIENT,
+	type MarketplaceTypeCodeClient,
+	type MarketplaceTypeMeta,
+} from '$lib/marketplace/client-types';
 import Button from '$lib/ui/primitives/Button.svelte';
+
+type MarketplaceTypeCode = MarketplaceTypeCodeClient;
 
 interface MarketplacePresetSummary {
 	itemId: string;
@@ -53,11 +57,9 @@ interface Props {
 
 let { typeCode, presets, selectedChildId, onimported, onclose, disabled = false }: Props = $props();
 
-// Registry から動的に type 一覧を取得（typeCode 指定時はその 1 件のみ）
-const descriptors = $derived<AnyMarketplaceTypeDescriptor[]>(
-	typeCode
-		? [marketplaceRegistry.get(typeCode) as AnyMarketplaceTypeDescriptor]
-		: marketplaceRegistry.list(),
+// client-types SSOT から動的に type 一覧を取得（typeCode 指定時はその 1 件のみ）
+const descriptors = $derived<MarketplaceTypeMeta[]>(
+	typeCode ? [getMarketplaceTypeMetaClient(typeCode)] : [...MARKETPLACE_TYPE_METAS_CLIENT],
 );
 
 // 単一 type モードかタブ表示モードか
@@ -73,7 +75,7 @@ $effect(() => {
 	}
 });
 
-const activeDescriptor = $derived<AnyMarketplaceTypeDescriptor | null>(
+const activeDescriptor = $derived<MarketplaceTypeMeta | null>(
 	descriptors.find((d) => d.typeCode === activeTypeCode) ?? descriptors[0] ?? null,
 );
 
