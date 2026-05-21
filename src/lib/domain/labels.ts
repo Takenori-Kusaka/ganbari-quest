@@ -35,7 +35,9 @@ import {
 	LP_FAQ_TERMS,
 	MECHANISM_TERMS,
 	NUC_EDITION_TERMS,
+	OYAKAGI_TERMS,
 	PARENT_TERMS,
+	PIN_DEFAULT_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
@@ -1203,32 +1205,41 @@ export const DEMO_LABELS = {
 /**
  * 保護者の見守り画面ロック（旧称「PINコード」→「おやカギコード」）の UI 文言 SSOT。
  * ロジック定数（DEFAULT_PIN）は `$lib/domain/constants/oyakagi` を参照。
+ *
+ * #2353 (PR #2325 follow-up 設計欠陥 6 点総合改修):
+ *   - 設計欠陥 2 (SSOT 違反): 「おやカギコード」「ご家族の見守り画面」直書きを
+ *     `${OYAKAGI_TERMS.name}` / `${ADMIN_VIEW_TERMS.canonical}` template literal 経由化
+ *   - 設計欠陥 5 (初期 PIN 5086 ヒント): `gateDefaultHint` を空文字に変更
+ *     (子が見て即入力する脆弱性。setup 完了画面 / onboarding dialog でのみ伝達)
+ *   - 設計欠陥 4 (PIN 忘れ救済導線): `gateForgotPinLink` 等 PIN reset 関連 compound 追加
  */
 export const OYAKAGI_LABELS = {
-	name: 'おやカギコード',
-	shortName: 'おやカギ',
-	setupStep: 'おやカギコードを変更する',
-	changeAction: 'おやカギを変更',
-	changeSuccess: 'おやカギコードを変更しました',
-	sectionTitle: '🔒 おやカギコード変更',
-	inputLabel: 'おやカギコード（4〜6桁）',
-	inputPlaceholder: 'おやカギコードを入力',
-	defaultValueHint: '初期値は 5086（がんばり）です',
-	invalidError: 'おやカギコードが正しくありません',
-	lockedError: 'おやカギコードの入力に連続して失敗したため、しばらく待ってから再度お試しください',
-	formatError: 'おやカギコードは4〜6桁の数字で入力してください',
-	numberOnlyError: 'おやカギコードは数字のみです',
+	name: `${OYAKAGI_TERMS.name}`,
+	shortName: `${OYAKAGI_TERMS.shortName}`,
+	setupStep: `${OYAKAGI_TERMS.name}を変更する`,
+	changeAction: `${OYAKAGI_TERMS.shortName}を変更`,
+	changeSuccess: `${OYAKAGI_TERMS.name}を変更しました`,
+	sectionTitle: `🔒 ${OYAKAGI_TERMS.name}変更`,
+	inputLabel: `${OYAKAGI_TERMS.name}（4〜6桁）`,
+	inputPlaceholder: `${OYAKAGI_TERMS.name}を入力`,
+	defaultValueHint: `${PIN_DEFAULT_TERMS.hintFull}`,
+	invalidError: `${OYAKAGI_TERMS.name}が正しくありません`,
+	lockedError: `${OYAKAGI_TERMS.name}の入力に連続して失敗したため、しばらく待ってから再度お試しください`,
+	formatError: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	numberOnlyError: `${OYAKAGI_TERMS.name}は数字のみです`,
 	// EPIC #2310 子#2312: /switch PIN gate modal UI (Apple Screen Time 同設計)
-	gateModalTitle: 'おやカギコードを入力してください',
-	gateModalDescription:
-		'ご家族の見守り画面にはおやのみが入れます。おやカギコードを入力してください。',
+	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
+	gateModalDescription: `${ADMIN_VIEW_TERMS.canonical}には${PARENT_TERMS.neutral}のみが入れます。${OYAKAGI_TERMS.name}を入力してください。`,
 	gateModalSubmitting: 'かくにん中…',
 	gateLockoutNotice: (sec: number) => `連続で間違えたため、${sec}秒後に再度お試しください`,
-	gateFormatNotice: 'おやカギコードは4〜6桁の数字です',
-	gateGenericError: 'おやカギコードの確認に失敗しました。もう一度お試しください',
+	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
+	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
 	// setup フローでの初期値伝達は OYAKAGI_LABELS.defaultValueHint で継続 (適切な文脈 = 親が初期 setup 完了画面で見る)
-	gatePinRequiredBanner: 'ご家族の見守り画面に入るにはおやカギコードが必要です',
+	gatePinRequiredBanner: `${ADMIN_VIEW_TERMS.canonical}に入るには${OYAKAGI_TERMS.name}が必要です`,
+	// #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分 token + 1 回限り)
+	gateForgotPinLink: `${OYAKAGI_TERMS.name}を忘れた方`,
+	gateForgotPinHelp: `${OYAKAGI_TERMS.name}が分からない場合は登録メールで再設定できます`,
 } as const;
 
 // ============================================================
@@ -4372,8 +4383,10 @@ export const SWITCH_PAGE_LABELS = {
 	adminForbiddenNotice: 'おやのアカウントでログインしてね',
 	heading: 'だれがつかう？',
 	emptyTitle: 'こどもがまだいないよ',
-	emptyDesc: 'おやがかんりがめんからついかしてね',
-	adminLink: '🔒 おやのかんりがめん',
+	emptyDesc: `${PARENT_TERMS.neutral}が${ADMIN_VIEW_TERMS.canonical}からついかしてね`,
+	// #2353 設計欠陥 3: 「親しか押さないボタンなのにひらがな表記する理由がない」
+	// ADMIN_VIEW_TERMS.parent 経由で漢字化 = 「保護者の見守り画面」
+	adminLink: `🔒 ${ADMIN_VIEW_TERMS.parent}`,
 } as const;
 
 export const OPS_LICENSE_PAGE_LABELS = {

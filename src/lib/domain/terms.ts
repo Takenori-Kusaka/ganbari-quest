@@ -747,3 +747,49 @@ export const NUC_EDITION_TERMS = {
 	unlimited: '無制限',
 	editionEmoji: '🏠',
 } as const;
+
+// ============================================================
+// OYAKAGI_TERMS — おやカギコード関連 atom (#2353)
+// ============================================================
+//
+// PR #2325 (EPIC #2310 Parent-Gate PIN gate) 導入時に OYAKAGI_LABELS が
+// labels.ts compound に直接ハードコード (gatePinRequiredBanner /
+// gateModalDescription / gatePinRequiredBanner etc.) されており、
+// ADR-0045 §3.3 (terms.ts SSOT 2 階層化) 違反が #2353 設計欠陥 2 で検出された。
+//
+// 「おやカギコード」「おやカギ」atom を独立化し、labels.ts compound 側は
+// `${OYAKAGI_TERMS.name}` template literal で参照する形に refactor することで、
+// 「カギ → ロック」「コード → 暗証番号」等の用語変更が 1 行で全箇所に伝播する。
+//
+// 設計指針:
+//   - name       : 'おやカギコード'  (主訴求、フォーム / dialog / error / banner で第一選択)
+//   - shortName  : 'おやカギ'        (アクション動詞「を変更」と組合せる短縮形)
+//
+// 参照: docs/DESIGN.md §6 / Issue #2353 / ADR-0045
+
+export const OYAKAGI_TERMS = {
+	name: 'おやカギコード',
+	shortName: 'おやカギ',
+} as const;
+
+// ============================================================
+// PIN_DEFAULT_TERMS — 初期 PIN 表示用 atom (#2353 設計欠陥 5 関連)
+// ============================================================
+//
+// #2353 設計欠陥 5: PIN modal に「初期値は 5086（がんばり）です」を表示すると
+// 子供が見て即入力できる脆弱性。「setup フローでのみ伝達、gate modal では非表示」
+// が PO 確定方針。
+//
+// ただし setup 完了画面 / setup wizard / onboarding dialog で「初期 PIN を覚えて
+// おいてください」と伝達する文脈は残るため、用語自体は atom 化して 1 行更新できる
+// 体制を維持する。値そのものは src/lib/domain/constants/oyakagi.ts の DEFAULT_PIN
+// (= '5086') を SSOT とし、本 atom は表示用の文字列だけ。
+//
+// 設計指針:
+//   - hintFull       : '初期値は 5086（がんばり）です'  (setup 完了 / onboarding dialog 用)
+//   - hintCompact    : '初期 5086（がんばり）'           (短縮版、checklist 等向け)
+
+export const PIN_DEFAULT_TERMS = {
+	hintFull: '初期値は 5086（がんばり）です',
+	hintCompact: '初期 5086（がんばり）',
+} as const;
