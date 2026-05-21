@@ -127,11 +127,11 @@ describe('export → import round-trip 保証 (5 type 全網羅)', () => {
 			it('dispatchExport → JSON.stringify → JSON.parse → parseExportEnvelopeV2 が成功する', () => {
 				const env = dispatchExport({ typeCode, payload });
 				const json = JSON.stringify(env);
-				const reparsed = parseExportEnvelopeV2(JSON.parse(json));
-				expect(reparsed.typeCode).toBe(typeCode);
-				expect(reparsed.schemaVersion).toBe(2);
-				expect(reparsed.payload).toEqual(env.payload);
-				expect(reparsed.checksum).toBe(env.checksum);
+				const restored = parseExportEnvelopeV2(JSON.parse(json));
+				expect(restored.typeCode).toBe(typeCode);
+				expect(restored.schemaVersion).toBe(2);
+				expect(restored.payload).toEqual(env.payload);
+				expect(restored.checksum).toBe(env.checksum);
 			});
 
 			it('envelope.payload は Strategy 互換の schema.parse() で受理される', () => {
@@ -140,10 +140,10 @@ describe('export → import round-trip 保証 (5 type 全網羅)', () => {
 			});
 
 			it('round-trip 後の payload を schema.parse() に渡しても元 payload と等価', () => {
-				// payload → envelope → JSON → reparsed → schema.parse → reparsed payload
+				// payload → envelope → JSON → restored → schema.parse → restored payload
 				const env = dispatchExport({ typeCode, payload });
-				const reparsed = parseExportEnvelopeV2(JSON.parse(JSON.stringify(env)));
-				const finalParsed = parseViaSchema(typeCode, reparsed.payload);
+				const restored = parseExportEnvelopeV2(JSON.parse(JSON.stringify(env)));
+				const finalParsed = parseViaSchema(typeCode, restored.payload);
 				// schema 経由 parse の結果が元 payload と equal (deep)
 				expect(finalParsed).toEqual(env.payload);
 			});
@@ -157,14 +157,14 @@ describe('export → import round-trip 保証 (5 type 全網羅)', () => {
 
 			it('dispatchExportToJson 経由でも round-trip 成立', () => {
 				const json = dispatchExportToJson({ typeCode, payload });
-				const reparsed = parseExportEnvelopeV2(JSON.parse(json));
-				expect(reparsed.typeCode).toBe(typeCode);
+				const restored = parseExportEnvelopeV2(JSON.parse(json));
+				expect(restored.typeCode).toBe(typeCode);
 			});
 
 			it('parseAnyExportEnvelope (version 不明 entry) でも v2 として受理', () => {
 				const env = dispatchExport({ typeCode, payload });
-				const reparsed = parseAnyExportEnvelope(JSON.parse(JSON.stringify(env)));
-				expect(reparsed.typeCode).toBe(typeCode);
+				const restored = parseAnyExportEnvelope(JSON.parse(JSON.stringify(env)));
+				expect(restored.typeCode).toBe(typeCode);
 			});
 		});
 	}

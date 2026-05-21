@@ -186,8 +186,8 @@ describe('migrateV1ActivityPackToV2', () => {
 
 	it('migration 後の envelope は parse で再検証可能', () => {
 		const env = migrateV1ActivityPackToV2(V1_INPUT);
-		const reparsed = parseExportEnvelopeV2(env);
-		expect(reparsed.typeCode).toBe('activity-pack');
+		const restored = parseExportEnvelopeV2(env);
+		expect(restored.typeCode).toBe('activity-pack');
 	});
 
 	it('v1 でない入力で throw', () => {
