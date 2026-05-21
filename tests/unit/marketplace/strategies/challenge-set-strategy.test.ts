@@ -238,44 +238,34 @@ describe('challengeSetStrategy.apply', () => {
 // =====================================================
 
 describe('marketplace dispatcher + challenge-set', () => {
-	it(
-		'Registry 経由で challenge-set が解決でき、dispatchImport が成立',
-		async () => {
-			const { marketplaceRegistry, dispatchImport } = await import(
-				'../../../../src/lib/marketplace'
-			);
+	it('Registry 経由で challenge-set が解決でき、dispatchImport が成立', async () => {
+		const { marketplaceRegistry, dispatchImport } = await import('../../../../src/lib/marketplace');
 
-			expect(marketplaceRegistry.has('challenge-set')).toBe(true);
-			const desc = marketplaceRegistry.get('challenge-set');
-			expect(desc.typeCode).toBe('challenge-set');
-			expect(desc.requiresChildId).toBe(false);
+		expect(marketplaceRegistry.has('challenge-set')).toBe(true);
+		const desc = marketplaceRegistry.get('challenge-set');
+		expect(desc.typeCode).toBe('challenge-set');
+		expect(desc.requiresChildId).toBe(false);
 
-			const payload = {
-				challenges: [makeChallenge({ title: 'dispatched' })],
-			};
-			const result = await dispatchImport({
-				typeCode: 'challenge-set',
-				rawPayload: payload,
-				displayName: 'test challenge set',
-				ctx: { tenantId: TENANT, presetId: 'cs-1' },
-			});
-			expect(result.importResult).toBe(true);
-			expect(result.packName).toBe('test challenge set');
-			expect(result.imported).toBe(1);
-			expect(result.total).toBe(1);
-		},
-		15_000,
-	);
+		const payload = {
+			challenges: [makeChallenge({ title: 'dispatched' })],
+		};
+		const result = await dispatchImport({
+			typeCode: 'challenge-set',
+			rawPayload: payload,
+			displayName: 'test challenge set',
+			ctx: { tenantId: TENANT, presetId: 'cs-1' },
+		});
+		expect(result.importResult).toBe(true);
+		expect(result.packName).toBe('test challenge set');
+		expect(result.imported).toBe(1);
+		expect(result.total).toBe(1);
+	}, 15_000);
 
-	it(
-		'Registry に登録された 5 type すべて (#2362 EPIC 完遂条件)',
-		async () => {
-			const { marketplaceRegistry } = await import('../../../../src/lib/marketplace');
-			// #2369 時点では activity-pack + challenge-set のみ。
-			// 残り 3 type (#2366-2368) は別 PR で順次追加。
-			expect(marketplaceRegistry.has('activity-pack')).toBe(true);
-			expect(marketplaceRegistry.has('challenge-set')).toBe(true);
-		},
-		15_000,
-	);
+	it('Registry に登録された 5 type すべて (#2362 EPIC 完遂条件)', async () => {
+		const { marketplaceRegistry } = await import('../../../../src/lib/marketplace');
+		// #2369 時点では activity-pack + challenge-set のみ。
+		// 残り 3 type (#2366-2368) は別 PR で順次追加。
+		expect(marketplaceRegistry.has('activity-pack')).toBe(true);
+		expect(marketplaceRegistry.has('challenge-set')).toBe(true);
+	}, 15_000);
 });
