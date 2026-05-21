@@ -62,6 +62,19 @@ ADR / 実装 Issue を起票する前に、以下の順で調査:
 ADR-0010 (Pre-PMF scope 判断) と併せて、OSS 導入コストが Pre-PMF 段階で過剰な場合の判断基準も
 参照すること。
 
+### OSS 採用記録 (本リポジトリ採用済み、#1350 整合)
+
+10 行超の独自実装の代替として OSS / 確立パターンを採用した事例。新規採用時は本表に 1 行追記し、選定根拠 ADR / Issue を残す。
+
+| 領域 | 採用 OSS | 採用 PR / Issue | 採用根拠 |
+|------|---------|----------------|---------|
+| LP テキスト折り返し (日本語) | BudouX (CDN Web Component) | ADR-0016 | OS-non-dependent + 0 KB (CDN) |
+| LP SSOT 注入 (XSS 設計) | DOMPurify | ADR-0025 / #1683 | innerHTML 経路の XSS 防御、業界標準 |
+| Parent-Gate session cookie 署名 | cookie-signature | ADR-0050 / #2310 | HMAC-SHA256 検証、4 OSS 比較 |
+| **Marketplace schema validation (5 type SSOT)** | **Valibot + @standard-schema/spec** | **#2362 EPIC / #2364** | **bundle 92% 削減 (vs Zod v3)、Standard Schema spec で将来 Zod/ArkType 切替自由度** |
+
+各採用 OSS の詳細根拠は対応する ADR / 設計書 (`docs/design/*-architecture.md`) を参照。本表は採用済み OSS の「インデックス」として機能し、新規実装者が `npm install` 前にまず参照する SSOT。
+
 ## ボリューム上限ルール
 
 ADR を現場の常時参照ルールとして機能させるため、以下の上限を設ける。
