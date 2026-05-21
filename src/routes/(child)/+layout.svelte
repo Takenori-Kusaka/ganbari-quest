@@ -10,7 +10,7 @@ import {
 	ICON_STATUS,
 	ICON_SWITCH,
 } from '$lib/domain/icons';
-import { CHILD_SHOP_LABELS } from '$lib/domain/labels';
+import { CHILD_SHOP_LABELS, PIN_GATE_ONBOARDING_LABELS } from '$lib/domain/labels';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import { startAutoSleep } from '$lib/features/auto-sleep';
 // #2168: 旧 MilestoneBanner 横長 alert は撤去。Header の bell slot に MilestoneBellButton を注入する。
@@ -24,6 +24,7 @@ import BottomNav from '$lib/ui/components/BottomNav.svelte';
 import Header from '$lib/ui/components/Header.svelte';
 import StampCard from '$lib/ui/components/StampCard.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { loadSoundSettings, SOUND_TIER_CONFIG, soundService } from '$lib/ui/sound';
 import { CHILD_TUTORIAL_CHAPTERS } from '$lib/ui/tutorial/tutorial-chapters-child';
@@ -156,6 +157,23 @@ onMount(() => {
 
 let stampDialogOpen = $state(false);
 
+// #2353 設計欠陥 6: PIN gate 初心者導線 dialog
+// data.pinGateOnboardingSeen が false (settings 未保存) のとき初回 mount 時に開く。
+// 「今後表示しない」checkbox で確認のうえ閉じる → POST /api/v1/settings/pin-gate-onboarding。
+let pinGateOnboardingOpen = $state(!data.pinGateOnboardingSeen && !isBaby);
+let dontShowAgainChecked = $state(true);
+
+async function closePinGateOnboarding() {
+	pinGateOnboardingOpen = false;
+	if (dontShowAgainChecked) {
+		try {
+			await fetch('/api/v1/settings/pin-gate-onboarding', { method: 'POST' });
+		} catch {
+			// persist 失敗は無視 (次回 child 画面遷移時に再表示されるだけ)
+		}
+	}
+}
+
 function handleStartChildTutorial() {
 	startTutorial();
 }
@@ -221,5 +239,23 @@ function handleStartChildTutorial() {
 			status={data.stampCard.status}
 			redeemedPoints={data.stampCard.redeemedPoints}
 		/>
+	</Dialog>
+{/if}
+
+<!-- #2353 設計欠陥 6: PIN gate 初心者導線 onboarding dialog -->
+{#if !isBaby}
+	<Dialog bind:open={pinGateOnboardingOpen} title={PIN_GATE_ONBOARDING_LABELS.dialogTitle} size="sm" testid="pin-gate-onboarding-dialog">
+		<div class="flex flex-col gap-3">
+			<p class="text-sm text-[var(--color-text-primary)] leading-relaxed m-0">{PIN_GATE_ONBOARDING_LABELS.dialogIntro}</p>
+			<p class="text-sm text-[var(--color-text-primary)] leading-relaxed m-0">{PIN_GATE_ONBOARDING_LABELS.dialogPinHint}</p>
+			<p class="text-xs text-[var(--color-text-muted)] leading-relaxed m-0">{PIN_GATE_ONBOARDING_LABELS.dialogChangePinHint}</p>
+			<label class="flex items-center gap-2 mt-2 text-sm cursor-pointer">
+				<input type="checkbox" bind:checked={dontShowAgainChecked} data-testid="pin-gate-onboarding-dont-show-again" />
+				<span>{PIN_GATE_ONBOARDING_LABELS.dontShowAgain}</span>
+			</label>
+			<div class="mt-3">
+				<Button variant="primary" size="md" fullWidth onclick={closePinGateOnboarding} data-testid="pin-gate-onboarding-close">{PIN_GATE_ONBOARDING_LABELS.close}</Button>
+			</div>
+		</div>
 	</Dialog>
 {/if}
