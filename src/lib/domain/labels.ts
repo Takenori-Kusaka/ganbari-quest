@@ -5588,10 +5588,6 @@ export const UI_COMPONENTS_LABELS = {
 	pageGuideBackBtn: 'もどる',
 	pageGuideNextBtn: (isLast: boolean) => (isLast ? 'かんりょう！' : 'つぎへ'),
 
-	// ---- PageHelpButton ----
-	pageHelpButtonTitle: 'このページの使い方',
-	pageHelpButtonAriaLabel: 'このページの使い方ガイドを開く',
-
 	// ---- ParentMessageOverlay ----
 	parentMessageTitle: '💌 おうえんメッセージ！',
 	parentMessageFrom: 'パパ・ママからのメッセージだよ',

@@ -55,8 +55,23 @@ export function isPageGuideCompleted(pageId: string): boolean {
 // ガイドの起動・ナビゲーション
 // ──────────────────────────────────────
 
-/** ページガイドを起動する */
+/**
+ * ページガイドを起動する。
+ *
+ * #2375 AC-V2-1: active 中の同一 pageId 再起動は no-op (冪等 guard)
+ *               — ❓ 連打で bubble appear アニメが 2 回連続再生されるのを防止
+ * #2375 AC-V2-2: 異 pageId 切替時は endPageGuide() を先行実行し state を完全 reset
+ *               — 旧 guide の step index / targetRect が新 guide に混入するのを防止
+ */
 export function startPageGuide(guide: PageGuide) {
+	if (state.isActive && state.currentPageId === guide.pageId) {
+		// 同一 pageId 再起動は冪等: 何もせずに return
+		return;
+	}
+	if (state.isActive) {
+		// 異 pageId に切替: 先に終了させて state を初期化
+		endPageGuide();
+	}
 	state.isActive = true;
 	state.currentPageId = guide.pageId;
 	state.currentStepIndex = 0;

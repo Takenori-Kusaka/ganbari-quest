@@ -13,7 +13,6 @@ import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, PAGE_TITLES, REWARDS_LABELS } from '$lib/domain/labels';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
-import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -145,7 +144,6 @@ const overflowMenuItems = $derived<MenuItem[]>([
 				<span class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">{REWARDS_LABELS.premiumBadge}</span>
 			{/if}
 		</h2>
-		<PageHelpButton />
 		<!-- #2268: 申請承認バッジ + overflow menu に振替 (旧: タブで併存) -->
 		<div class="ml-auto flex items-center gap-2">
 			{#if data.pendingRequestsCount > 0}

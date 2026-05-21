@@ -2,7 +2,6 @@
 import { enhance } from '$app/forms';
 import { APP_LABELS, PAGE_TITLES, POINTS_LABELS } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
-import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -176,7 +175,6 @@ async function handleReceiptFile(event: Event) {
 	<div class="flex items-center justify-between mb-1">
 		<div class="flex items-center gap-2">
 			<h2 class="text-lg font-bold">{POINTS_LABELS.pageTitle}</h2>
-			<PageHelpButton />
 		</div>
 		<a
 			href="/admin/settings#point-settings"

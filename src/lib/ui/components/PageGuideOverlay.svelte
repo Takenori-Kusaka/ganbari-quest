@@ -13,7 +13,6 @@ import {
 } from '$lib/ui/tutorial/page-guide-store.svelte';
 
 let targetRect = $state<DOMRect | null>(null);
-let animKey = $state(0);
 
 const active = $derived(isPageGuideActive());
 const step = $derived(getCurrentGuideStep());
@@ -32,26 +31,49 @@ $effect(() => {
 	}
 });
 
+// #2375 AC-V2-3: AbortController で setTimeout 群を cleanup (内側 timer も含む race 防止)
+// #2375 AC-V2-9: step.selector 解決時に focus({ preventScroll: true })
 $effect(() => {
 	if (active && step) {
-		const timer = setTimeout(() => {
-			const el = step.selector ? document.querySelector(step.selector) : null;
+		const ctrl = new AbortController();
+		const outerTimer = setTimeout(() => {
+			if (ctrl.signal.aborted) return;
+			const el = step.selector
+				? (document.querySelector(step.selector) as HTMLElement | null)
+				: null;
 			if (el) {
 				el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-				setTimeout(() => {
+				const innerTimer = setTimeout(() => {
+					if (ctrl.signal.aborted) return;
 					targetRect = el.getBoundingClientRect();
-					animKey++;
+					// AC-V2-9: focus the highlighted element (Tab で overlay 外へ抜けないように)
+					try {
+						el.focus({ preventScroll: true });
+					} catch {
+						// el が focus 不可ならスルー (a11y は #2371 で focus trap 対応)
+					}
 				}, 350);
+				ctrl.signal.addEventListener('abort', () => clearTimeout(innerTimer));
 			} else {
 				targetRect = new DOMRect(window.innerWidth / 2 - 100, window.innerHeight / 3, 200, 40);
-				animKey++;
 			}
 		}, 100);
 
-		return () => clearTimeout(timer);
+		return () => {
+			ctrl.abort();
+			clearTimeout(outerTimer);
+		};
 	}
 	targetRect = null;
 });
+
+// #2375 AC-V2-6: Escape キーで閉じる
+function handleKeydown(e: KeyboardEvent) {
+	if (active && e.key === 'Escape') {
+		e.preventDefault();
+		endPageGuide();
+	}
+}
 
 function handleOverlayClick(e: MouseEvent) {
 	if ((e.target as HTMLElement).classList.contains('guide-overlay-bg')) {
@@ -90,10 +112,19 @@ const bubbleStyle = $derived.by(() => {
 });
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 {#if active && step && targetRect}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="guide-overlay" onclick={handleOverlayClick}>
+	<!-- #2375 AC-V2-7: a11y 強化 — role="dialog" + aria-modal + aria-labelledby (focus trap は #2371 待ち) -->
+	<div
+		class="guide-overlay"
+		onclick={handleOverlayClick}
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="page-guide-title"
+	>
 		<!-- Dark overlay with spotlight cutout -->
 		<svg class="guide-overlay-svg" xmlns="http://www.w3.org/2000/svg">
 			<defs>
@@ -127,105 +158,108 @@ const bubbleStyle = $derived.by(() => {
 			style:height="{targetRect.height + 20}px"
 		></div>
 
-		<!-- Guide bubble -->
-		{#key animKey}
-			<div
-				class="guide-bubble"
-				style:top={bubbleStyle.top}
-				style:left={bubbleStyle.left}
-				style:width={bubbleStyle.width}
-			>
-				<!-- Header -->
-				<div class="guide-header">
-					<span class="guide-header-icon">{guide?.icon ?? '📖'}</span>
-					<span class="guide-header-title">{guide?.title ?? ''}</span>
-					<span class="guide-header-progress">{progress.current} / {progress.total}</span>
-				</div>
+		<!--
+		  #2375 AC-V2-4: 旧 `{#key animKey}` を撤廃。
+		  これにより step 切替時に bubble DOM が破棄されず、tab フォーカス・SR 読み上げ・現在 activeTab が維持される。
+		  値は Svelte 5 の reactive プロパティ更新で自然に追従する。
+		-->
+		<div
+			class="guide-bubble"
+			style:top={bubbleStyle.top}
+			style:left={bubbleStyle.left}
+			style:width={bubbleStyle.width}
+			data-step-id={step.id}
+		>
+			<!-- Header -->
+			<div class="guide-header">
+				<span class="guide-header-icon">{guide?.icon ?? '📖'}</span>
+				<span id="page-guide-title" class="guide-header-title">{guide?.title ?? ''}</span>
+				<span class="guide-header-progress">{progress.current} / {progress.total}</span>
+			</div>
 
-				<!-- Step title -->
-				<div class="guide-step-title">
-					<h3>{step.title}</h3>
-				</div>
+			<!-- Step title -->
+			<div class="guide-step-title">
+				<h3>{step.title}</h3>
+			</div>
 
-				<!-- Tab navigation -->
-				<div class="guide-tabs">
-					<button
-						class="guide-tab"
-						class:active={activeTab === 'what'}
-						onclick={() => (activeTab = 'what')}
-					>
-						{UI_COMPONENTS_LABELS.pageGuideTabWhat}
-					</button>
-					<button
-						class="guide-tab"
-						class:active={activeTab === 'how'}
-						onclick={() => (activeTab = 'how')}
-					>
-						{UI_COMPONENTS_LABELS.pageGuideTabHow}
-					</button>
-					<button
-						class="guide-tab"
-						class:active={activeTab === 'goal'}
-						onclick={() => (activeTab = 'goal')}
-					>
-						{UI_COMPONENTS_LABELS.pageGuideTabGoal}
-					</button>
-				</div>
+			<!-- Tab navigation -->
+			<div class="guide-tabs">
+				<button
+					class="guide-tab"
+					class:active={activeTab === 'what'}
+					onclick={() => (activeTab = 'what')}
+				>
+					{UI_COMPONENTS_LABELS.pageGuideTabWhat}
+				</button>
+				<button
+					class="guide-tab"
+					class:active={activeTab === 'how'}
+					onclick={() => (activeTab = 'how')}
+				>
+					{UI_COMPONENTS_LABELS.pageGuideTabHow}
+				</button>
+				<button
+					class="guide-tab"
+					class:active={activeTab === 'goal'}
+					onclick={() => (activeTab = 'goal')}
+				>
+					{UI_COMPONENTS_LABELS.pageGuideTabGoal}
+				</button>
+			</div>
 
-				<!-- Tab content -->
-				<div class="guide-tab-content">
-					{#if activeTab === 'what'}
-						<p>{step.what}</p>
-					{:else if activeTab === 'how'}
-						<p class="guide-how-text">{step.how}</p>
-					{:else}
-						<p>{step.goal}</p>
-					{/if}
+			<!-- Tab content -->
+			<div class="guide-tab-content">
+				{#if activeTab === 'what'}
+					<p>{step.what}</p>
+				{:else if activeTab === 'how'}
+					<p class="guide-how-text">{step.how}</p>
+				{:else}
+					<p>{step.goal}</p>
+				{/if}
 
-					{#if step.tips && step.tips.length > 0}
-						<div class="guide-tips">
-							<span class="guide-tips-label">{UI_COMPONENTS_LABELS.pageGuideTipsLabel}</span>
-							{#each step.tips as tip}
-								<p class="guide-tip">{tip}</p>
-							{/each}
-						</div>
-					{/if}
-
-					{#if step.relatedLinks && step.relatedLinks.length > 0}
-						<div class="guide-links">
-							{#each step.relatedLinks as link}
-								<a href={link.href} class="guide-link">{link.label} →</a>
-							{/each}
-						</div>
-					{/if}
-				</div>
-
-				<!-- Progress bar -->
-				<div class="guide-progress-bar">
-					<div
-						class="guide-progress-fill"
-						style:width="{(progress.current / progress.total) * 100}%"
-					></div>
-				</div>
-
-				<!-- Navigation -->
-				<div class="guide-nav">
-					<button class="guide-nav-btn guide-nav-end" onclick={endPageGuide}>
-						{UI_COMPONENTS_LABELS.pageGuideCloseBtn}
-					</button>
-					<div class="guide-nav-right">
-						{#if !isFirst}
-							<button class="guide-nav-btn guide-nav-prev" onclick={prevGuideStep}>
-								{UI_COMPONENTS_LABELS.pageGuideBackBtn}
-							</button>
-						{/if}
-						<button class="guide-nav-btn guide-nav-next" onclick={nextGuideStep}>
-							{UI_COMPONENTS_LABELS.pageGuideNextBtn(isLast)}
-						</button>
+				{#if step.tips && step.tips.length > 0}
+					<div class="guide-tips">
+						<span class="guide-tips-label">{UI_COMPONENTS_LABELS.pageGuideTipsLabel}</span>
+						{#each step.tips as tip}
+							<p class="guide-tip">{tip}</p>
+						{/each}
 					</div>
+				{/if}
+
+				{#if step.relatedLinks && step.relatedLinks.length > 0}
+					<div class="guide-links">
+						{#each step.relatedLinks as link}
+							<a href={link.href} class="guide-link">{link.label} →</a>
+						{/each}
+					</div>
+				{/if}
+			</div>
+
+			<!-- Progress bar -->
+			<div class="guide-progress-bar">
+				<div
+					class="guide-progress-fill"
+					style:width="{(progress.current / progress.total) * 100}%"
+				></div>
+			</div>
+
+			<!-- Navigation -->
+			<div class="guide-nav">
+				<button class="guide-nav-btn guide-nav-end" onclick={endPageGuide}>
+					{UI_COMPONENTS_LABELS.pageGuideCloseBtn}
+				</button>
+				<div class="guide-nav-right">
+					{#if !isFirst}
+						<button class="guide-nav-btn guide-nav-prev" onclick={prevGuideStep}>
+							{UI_COMPONENTS_LABELS.pageGuideBackBtn}
+						</button>
+					{/if}
+					<button class="guide-nav-btn guide-nav-next" onclick={nextGuideStep}>
+						{UI_COMPONENTS_LABELS.pageGuideNextBtn(isLast)}
+					</button>
 				</div>
 			</div>
-		{/key}
+		</div>
 	</div>
 {/if}
 

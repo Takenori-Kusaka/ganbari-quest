@@ -11,7 +11,6 @@ import {
 import { formatPointValue } from '$lib/domain/point-display';
 import ChildListCard from '$lib/features/admin/components/ChildListCard.svelte';
 import ChildProfileCard from '$lib/features/admin/components/ChildProfileCard.svelte';
-import PageHelpButton from '$lib/ui/components/PageHelpButton.svelte';
 import BirthdayInput from '$lib/ui/primitives/BirthdayInput.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -45,7 +44,6 @@ const addCalculatedAge = $derived(
 <div class="children-page">
 	<div class="flex items-center gap-2 mb-3">
 		<h2 class="text-lg font-bold">{ADMIN_CHILDREN_PAGE_LABELS.pageTitle}</h2>
-		<PageHelpButton />
 	</div>
 	{#if childLimit && !childLimit.allowed}
 		<div class="children-page__limit-banner">

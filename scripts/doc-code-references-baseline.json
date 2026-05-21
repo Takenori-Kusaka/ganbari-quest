@@ -43,6 +43,7 @@
 			"src/lib/server/services/custom-achievement-service.ts",
 			"src/routes/demo"
 		],
+		"docs/design/43-ユーザーオンボーディング監査.md": ["tests/e2e/tutorial-verification.spec.ts"],
 		"docs/design/asset-catalog.md": [
 			"site/hero-illustration.png",
 			"site/screenshots",
@@ -92,7 +93,8 @@
 		],
 		"docs/reference/03-research-dialog-management-refactor.md": [
 			"src/lib/ui/components/MonthlyRewardDialog.svelte",
-			"src/lib/ui/components/SwitchChildDialog.svelte"
+			"src/lib/ui/components/SwitchChildDialog.svelte",
+			"tests/e2e/tutorial-double-dialog-bug-2105.spec.ts"
 		],
 		"docs/reference/06b-research-marketplace-completion-supplement.md": [
 			"src/routes/api/marketplace"
@@ -119,5 +121,5 @@
 			"src/lib/server/services/email-otp-service.ts"
 		]
 	},
-	"generatedAt": "2026-05-20T06:44:04.494Z"
+	"generatedAt": "2026-05-21T15:46:31.839Z"
 }
