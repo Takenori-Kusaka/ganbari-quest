@@ -6,8 +6,11 @@ import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
-import type { RewardSetPayload } from '$lib/domain/marketplace-item';
+// #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
+// `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
+import { dispatchImport } from '$lib/marketplace';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	isPaidTier,
@@ -15,10 +18,6 @@ import {
 	resolveFullPlanTier,
 } from '$lib/server/services/plan-limit-service';
 import { getRedemptionRequestsForParent } from '$lib/server/services/reward-redemption-service';
-import {
-	importRewardSet,
-	previewRewardSetImport,
-} from '$lib/server/services/reward-set-import-service';
 import {
 	addReward,
 	getChildSpecialRewards,
@@ -178,25 +177,35 @@ export const actions: Actions = {
 			return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
 		}
 
-		const rewards = (item.payload as RewardSetPayload).rewards;
-		const preview = await previewRewardSetImport(rewards, presetId, childId, tenantId);
+		// #2366 (ADR-0052): Strategy + dispatchImport 経由でインポート。
+		// requiresChildId=true の Descriptor が ctx.childId 必須を表明する。
+		try {
+			const result = await dispatchImport({
+				typeCode: 'reward-set',
+				rawPayload: item.payload,
+				displayName: item.name,
+				ctx: { tenantId, presetId, childId },
+			});
 
-		if (preview.newRewards === 0) {
-			return { marketplaceImport: { allDuplicates: true } };
+			// 全件重複の場合は allDuplicates フラグで返却 (UI 互換)
+			if (result.imported === 0 && result.skipped === result.total && result.total > 0) {
+				return { marketplaceImport: { allDuplicates: true } };
+			}
+
+			return {
+				marketplaceImport: {
+					imported: result.imported,
+					skipped: result.skipped,
+					errors: result.errors,
+					presetId,
+				},
+			};
+		} catch (e) {
+			logger.error('[admin/rewards] marketplace reward-set インポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { presetId, childId },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
 		}
-
-		const result = await importRewardSet(rewards, tenantId, {
-			presetId,
-			childId,
-		});
-
-		return {
-			marketplaceImport: {
-				imported: result.imported,
-				skipped: result.skipped,
-				errors: result.errors,
-				presetId,
-			},
-		};
 	},
 };

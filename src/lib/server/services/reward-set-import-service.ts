@@ -11,6 +11,11 @@
 //   ユーザーが手動で同名 reward を作っていた場合に誤検知するため）
 // - activity と異なり「カテゴリ ID マッピング」は不要（reward-set の category は
 //   そのまま `special_rewards.category` に書き込む）
+//
+// @deprecated #2366 (ADR-0052): reward-set を新 `ImportStrategy` 経由に移行。
+//   本 service は `$lib/marketplace/strategies/reward-set-strategy.ts` の内部実装として
+//   並行稼働中だが、外部からの直接呼出は Strategy 内部 callee のみに集約済 (Strangler Fig)。
+//   1 release 経過後 (別 Issue) に撤去予定。新規 callsite を増やさないこと。
 
 import type { RewardSetPayload } from '$lib/domain/marketplace-item';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
@@ -62,6 +67,10 @@ export interface ImportRewardSetOptions {
  * 重複判定: `sourcePresetId === presetId` の reward が既に存在し、
  * かつ同一 title である場合のみ「重複」とみなす。これにより、
  * ユーザーが手動で同名 reward を作っていても誤検知しない。
+ *
+ * @deprecated #2366 (ADR-0052): reward-set Strategy 経由 (`dispatchImport`) を使用してください。
+ *   `$lib/marketplace/strategies/reward-set-strategy` 経由で本関数を呼び出し、
+ *   戻り値は `ImportPreview` shape に正規化されます。1 release 経過後撤去予定。
  */
 export async function previewRewardSetImport(
 	rewards: RewardSetItem[],
@@ -107,6 +116,10 @@ export async function previewRewardSetImport(
  * preset 一括取込で大量の点数を一気に与えるのは設計上望ましくないため、
  * 本サービスは **reward レコードのみ作成し、ポイント加算は行わない**。
  * これにより、preset 取込は「ごほうび候補の事前登録」として機能する。
+ *
+ * @deprecated #2366 (ADR-0052): reward-set Strategy 経由 (`dispatchImport`) を使用してください。
+ *   `$lib/marketplace/strategies/reward-set-strategy` が本関数を内部 callee として参照中。
+ *   外部 callsite は Strategy 内部のみ (Strangler Fig)。1 release 経過後撤去予定。
  */
 export async function importRewardSet(
 	rewards: RewardSetItem[],

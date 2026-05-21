@@ -1,10 +1,9 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
-import type {
-	MarketplaceItemType,
-	RewardSetPayload,
-	RulePresetPayload,
-} from '$lib/domain/marketplace-item';
+import type { MarketplaceItemType, RulePresetPayload } from '$lib/domain/marketplace-item';
+// #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
+// `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
+import { dispatchImport } from '$lib/marketplace';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -12,10 +11,6 @@ import {
 	previewChecklistImport,
 } from '$lib/server/services/checklist-template-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
-import {
-	importRewardSet,
-	previewRewardSetImport,
-} from '$lib/server/services/reward-set-import-service';
 // #2138 (MP-3): rule-preset 4 ruleType 全対応の一括取込
 import {
 	importRulePreset,
@@ -97,25 +92,37 @@ export const actions: Actions = {
 			return fail(400, { error: 'お子さまを選択してください' });
 		}
 
-		const rewards = (item.payload as RewardSetPayload).rewards;
-		const preview = await previewRewardSetImport(rewards, itemId, childId, tenantId);
+		// #2366 (ADR-0052): Strategy + dispatchImport 経由でインポート。
+		// requiresChildId=true の Descriptor が ctx.childId 必須を表明する。
+		// 旧 service の preview→allDuplicates 早期 return は dispatcher 経由でも
+		// `imported===0 && skipped===total` で同等の意味を表現できるため UI 側で判定。
+		try {
+			const result = await dispatchImport({
+				typeCode: 'reward-set',
+				rawPayload: item.payload,
+				displayName: item.name,
+				ctx: { tenantId, presetId: itemId, childId },
+			});
 
-		if (preview.newRewards === 0) {
-			return { rewardImport: { allDuplicates: true } };
+			// 全件重複の場合は allDuplicates フラグで返却 (UI 互換)
+			if (result.imported === 0 && result.skipped === result.total && result.total > 0) {
+				return { rewardImport: { allDuplicates: true } };
+			}
+
+			return {
+				rewardImport: {
+					imported: result.imported,
+					skipped: result.skipped,
+					errors: result.errors,
+				},
+			};
+		} catch (e) {
+			logger.error('[marketplace/reward-set] インポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { itemId, childId },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
 		}
-
-		const result = await importRewardSet(rewards, tenantId, {
-			presetId: itemId,
-			childId,
-		});
-
-		return {
-			rewardImport: {
-				imported: result.imported,
-				skipped: result.skipped,
-				errors: result.errors,
-			},
-		};
 	},
 
 	// #2137 (MP-2): event-checklist 一括追加 action
