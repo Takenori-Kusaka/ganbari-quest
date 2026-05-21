@@ -369,3 +369,10 @@ Bitwarden
 Vaultwarden
 Mattermost
 Nextcloud
+
+# ===== #2353 PIN gate Phase D (onboarding dialog) =====
+dont
+
+# ===== #2353 PIN gate Phase C (jose JWT) =====
+webapi
+inmemory
