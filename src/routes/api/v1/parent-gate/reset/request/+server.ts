@@ -59,9 +59,9 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 			return json({ ok: true });
 		}
 
-		const memberships = await repos.auth.findUserTenants(user.id);
+		const memberships = await repos.auth.findUserTenants(user.userId);
 		if (memberships.length === 0) {
-			logger.info('[PIN_RESET] user has no tenants', { context: { userId: user.id } });
+			logger.info('[PIN_RESET] user has no tenants', { context: { userId: user.userId } });
 			return json({ ok: true });
 		}
 

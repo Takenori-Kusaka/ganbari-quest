@@ -4,7 +4,7 @@
 // 業界標準 (1Password / Bitwarden / Apple Screen Time) と整合し、enumeration 攻撃を防ぐため
 // email 未登録時も「送信しました」を表示する。実際の送信は /api/v1/parent-gate/reset/request 側で
 // findUserByEmail → 該当があれば SES、無ければ logger.info のみ。
-import { APP_LABELS, PAGE_TITLES, PIN_RESET_LABELS } from '$lib/domain/labels';
+import { APP_LABELS, PIN_RESET_LABELS } from '$lib/domain/labels';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -47,7 +47,7 @@ async function handleSubmit(event: SubmitEvent) {
 </script>
 
 <svelte:head>
-	<title>{PAGE_TITLES.forgotPassword === PIN_RESET_LABELS.requestPageTitle ? PAGE_TITLES.forgotPassword : PIN_RESET_LABELS.requestPageTitle}{APP_LABELS.pageTitleSuffix}</title>
+	<title>{PIN_RESET_LABELS.requestPageTitle}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
 <div class="min-h-dvh flex items-center justify-center bg-[var(--gradient-brand)] p-4">

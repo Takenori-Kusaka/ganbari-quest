@@ -254,7 +254,7 @@ function handleStartChildTutorial() {
 				<span>{PIN_GATE_ONBOARDING_LABELS.dontShowAgain}</span>
 			</label>
 			<div class="mt-3">
-				<Button variant="primary" size="md" fullWidth onclick={closePinGateOnboarding} data-testid="pin-gate-onboarding-close">{PIN_GATE_ONBOARDING_LABELS.close}</Button>
+				<Button variant="primary" size="md" class="w-full" onclick={closePinGateOnboarding} data-testid="pin-gate-onboarding-close">{PIN_GATE_ONBOARDING_LABELS.close}</Button>
 			</div>
 		</div>
 	</Dialog>

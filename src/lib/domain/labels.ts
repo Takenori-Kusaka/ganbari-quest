@@ -1299,7 +1299,9 @@ export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogPinHint: `初回ログイン時の${OYAKAGI_TERMS.name}は ${PIN_DEFAULT_TERMS.hintCompact} です。設定完了画面でも確認できます。`,
 	dialogChangePinHint: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.canonical}の「せってい」 → 「${OYAKAGI_TERMS.name}」からいつでも変更できます。`,
 	dontShowAgain: '今後表示しない',
-	close: 'とじる',
+	// Issue #2353 Phase D / E2E 衝突対策: 子供向け Dialog の「とじる」と strict mode 衝突するため
+	// 親向け onboarding 文言として「わかった」を採用 (UI 上は unique、意味 = 「理解した、閉じる」)
+	close: 'わかった',
 } as const;
 
 // ============================================================

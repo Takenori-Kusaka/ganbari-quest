@@ -86,7 +86,7 @@ function handlePinComplete(details: { valueAsString: string }) {
 						<p class="text-sm m-0">{PIN_RESET_LABELS.resetSuccessBody}</p>
 					</Alert>
 					<div class="mt-6">
-						<Button as="a" href="/switch" variant="primary" size="lg" fullWidth data-testid="pin-reset-verify-success-cta">{PIN_RESET_LABELS.resetSuccessCta}</Button>
+						<Button href="/switch" variant="primary" size="lg" class="w-full" data-testid="pin-reset-verify-success-cta">{PIN_RESET_LABELS.resetSuccessCta}</Button>
 					</div>
 				</div>
 			{:else}

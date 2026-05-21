@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -14,7 +15,8 @@ const knownThemes = new Set(['pink', 'blue', 'green', 'orange', 'purple']);
 
 // EPIC #2310 子#2312: PIN gate inline modal (Apple Screen Time 同設計)
 // pinRequired=1 query (Sub-1 middleware redirect) で初期表示 true
-let pinModalOpen = $state<boolean>(data.pinRequired ?? false);
+// 初期値のみ参照 (data 変化への追従は下記 $effect が担うため、untrack で明示的に opt out)
+let pinModalOpen = $state<boolean>(untrack(() => data.pinRequired ?? false));
 let pinError = $state<string>('');
 let lockoutUntil = $state<number | null>(null);
 let pinSubmitting = $state<boolean>(false);
