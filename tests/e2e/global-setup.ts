@@ -182,6 +182,14 @@ export default async function globalSetup() {
 		).run();
 		console.log('[E2E Setup]   Suppressed PremiumWelcome dialog (premium_welcome_shown=true).');
 
+		// #2353 設計欠陥 6: PIN gate 初心者導線 onboarding dialog 抑制
+		// (child)/+layout.svelte で初期表示される dialog が e2e の子画面操作 (FAB click 等) をブロックする。
+		// premium_welcome_shown と同じ理由で fixture seed として 'true' を入れて非表示化する。
+		db.prepare(
+			"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('pin_gate_onboarding_seen', 'true', datetime('now'))",
+		).run();
+		console.log('[E2E Setup]   Suppressed PIN gate onboarding dialog (pin_gate_onboarding_seen=true).');
+
 		// #1757 (#1709-C): must 活動 priority の冪等保証（E2E 全プロジェクトで毎回実行）
 		// 1755 では `if (!needsSchema)` ブランチでのみ UPDATE していたため、
 		// 新規 DB 作成 → seed.ts → priority='optional' が確定してしまうケースがあった。
