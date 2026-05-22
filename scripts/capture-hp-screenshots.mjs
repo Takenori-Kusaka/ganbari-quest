@@ -443,6 +443,26 @@ async function captureScreenshots() {
 				);
 				pngFiles.push(result.filePath);
 				successCount++;
+
+				// #2401 (#2435 PR fix M1): WebP 変換を per-success 直後に実行する。
+				// 旧構造は「全撮影完了 → exit-on-failure 判定 → WebP 一括変換」だったため、
+				// 1 件でも撮影失敗があると WebP 変換が走らず、`site/screenshots/*.webp` が 0 件のまま
+				// CI の `check-lp-visual-regression.mjs` で「baseline 51 件、current 0 件」となり
+				// 全 baseline が `missing` 扱いで hard-fail し続ける構造的バグだった。
+				// 各 PNG 撮影成功直後に WebP を作るよう変更し、撮影失敗があっても部分的な WebP は残す。
+				if (doWebp) {
+					const webpPath = result.filePath.replace(/\.png$/, '.webp');
+					const webpResult = await convertToWebP(result.filePath, {
+						quality: 80,
+						outPath: webpPath,
+					});
+					if (webpResult.ok) {
+						const webpSize = fs.statSync(webpPath).size;
+						console.log(`     ↳ ${path.basename(webpPath)} (${(webpSize / 1024).toFixed(0)} KB)`);
+					} else {
+						console.error(`     ↳ WebP変換失敗: ${webpResult.error.message}`);
+					}
+				}
 			} else {
 				console.error(`  Error capturing ${filename}:`, result.error.message);
 			}
@@ -452,36 +472,29 @@ async function captureScreenshots() {
 	await capturer.teardown();
 	console.log(`\n撮影完了: ${successCount}/${totalFiles} ファイル`);
 
-	// #1783: 撮影失敗ゼロ容認 — 1 件でも失敗したら exit 1（古い画像を黙って残さない / ADR-0029）
+	// WebP 変換は per-success 完了済 (#2401 / #2435 PR fix M1)。
+	if (!doWebp) {
+		console.log('\n次のステップ: WebP変換');
+		console.log('  node scripts/capture-hp-screenshots.mjs --webp');
+	}
+
+	// #1783: 撮影失敗ゼロ容認 — 1 件でも失敗したら exit 1（古い画像を黙って残さない / ADR-0029）。
+	// ただし WebP 変換は per-success 直後に既に走っているため、成功分は site/screenshots/ に残る。
+	// これにより visual regression gate の比較対象が「成功分のみ」となり、全 baseline missing で
+	// hard-fail する構造的バグを回避できる (#2435 PR fix M1)。
 	const failedCount = totalFiles - successCount;
 	if (failedCount > 0) {
 		console.error(`\n[FAIL] 撮影失敗 ${failedCount}/${totalFiles} 件`);
 		console.error(
 			'  → CI が無言で古い画像を残すのを防ぐため、失敗 1 件でも exit 1 します (ADR-0029 / #1783)',
 		);
+		console.error(
+			'  → 成功した撮影 (WebP 変換済み) は site/screenshots/ に残るため、visual regression は',
+		);
+		console.error(
+			'    部分的に評価可能 (撮影漏れ image は check-lp-visual-regression.mjs が missing 検出)',
+		);
 		process.exit(1);
-	}
-
-	// WebP conversion
-	if (doWebp && pngFiles.length > 0) {
-		console.log('\n=== WebP変換 ===');
-		let convertCount = 0;
-		for (const pngPath of pngFiles) {
-			const webpPath = pngPath.replace(/\.png$/, '.webp');
-			const result = await convertToWebP(pngPath, { quality: 80, outPath: webpPath });
-			if (result.ok) {
-				const { size } = await import('node:fs').then((m) => ({ size: m.statSync(webpPath).size }));
-				console.log(`  -> ${path.basename(webpPath)} (${(size / 1024).toFixed(0)} KB)`);
-				convertCount++;
-			} else {
-				console.error(`  WebP変換失敗: ${path.basename(pngPath)}`);
-				console.error(`    原因: ${result.error.message}`);
-			}
-		}
-		console.log(`変換完了: ${convertCount}/${pngFiles.length} ファイル`);
-	} else if (!doWebp) {
-		console.log('\n次のステップ: WebP変換');
-		console.log('  node scripts/capture-hp-screenshots.mjs --webp');
 	}
 }
 
