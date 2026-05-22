@@ -18,33 +18,35 @@
 <link rel="stylesheet" href="shared.css">
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
 <style>
+/* #2395 Phase 3: ADR-0042 LP Spacing/Layout 3 層トークン化。
+   padding/margin の数値直書きは --lp-* Semantic トークン経由 (site/shared.css :root SSOT)。 */
 body{line-height:1.8;background:var(--gray-50)}
-.selfhost-hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:60px 16px 48px;text-align:center}
-.selfhost-hero h1{font-size:2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px}
-.selfhost-hero p{font-size:1rem;color:var(--gray-500);max-width:600px;margin:0 auto 24px}
-.section{padding:48px 16px}
+.selfhost-hero{background:linear-gradient(135deg,var(--brand-100) 0%,#f0f7ff 50%,#fef9e7 100%);padding:var(--lp-selfhost-hero-padding-y-top) var(--lp-selfhost-hero-padding-x) var(--lp-selfhost-hero-padding-y-bottom);text-align:center}
+.selfhost-hero h1{font-size:2rem;font-weight:800;color:var(--gray-900);margin-bottom:var(--lp-content-hero-title-mb)}
+.selfhost-hero p{font-size:1rem;color:var(--gray-500);max-width:600px;margin:0 auto var(--lp-selfhost-hero-desc-mb)}
+.section{padding:var(--lp-content-section-padding-y) var(--lp-content-section-padding-x)}
 .section-inner{max-width:800px;margin:0 auto}
-.section-title{font-size:1.5rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
-.section-desc{color:var(--gray-500);margin-bottom:32px;font-size:.95rem}
-.setup-code{background:var(--gray-900);color:#e2e8f0;padding:16px;border-radius:8px;font-family:monospace;font-size:.85rem;overflow-x:auto;margin-bottom:16px;line-height:1.8}
+.section-title{font-size:1.5rem;font-weight:700;color:var(--gray-900);margin-bottom:var(--lp-content-section-title-mb)}
+.section-desc{color:var(--gray-500);margin-bottom:var(--lp-content-section-desc-mb);font-size:.95rem}
+.setup-code{background:var(--gray-900);color:#e2e8f0;padding:var(--lp-selfhost-setup-code-padding);border-radius:8px;font-family:monospace;font-size:.85rem;overflow-x:auto;margin-bottom:var(--lp-selfhost-setup-code-mb);line-height:1.8}
 .feature-list{list-style:none;padding:0}
-.feature-list li{padding:8px 0;font-size:.95rem;color:var(--gray-700);display:flex;gap:8px;align-items:flex-start}
+.feature-list li{padding:var(--lp-selfhost-feature-list-padding-y) 0;font-size:.95rem;color:var(--gray-700);display:flex;gap:8px;align-items:flex-start}
 .feature-list li span{flex-shrink:0}
-.comparison-table{width:100%;border-collapse:collapse;margin:24px 0}
-.comparison-table th,.comparison-table td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--gray-200);font-size:.9rem}
+.comparison-table{width:100%;border-collapse:collapse;margin:var(--lp-selfhost-note-box-margin-y) 0}
+.comparison-table th,.comparison-table td{padding:var(--lp-selfhost-table-padding-y) var(--lp-selfhost-table-padding-x);text-align:left;border-bottom:1px solid var(--gray-200);font-size:.9rem}
 .comparison-table th{background:var(--gray-100);color:var(--gray-900);font-weight:600}
 .comparison-table td{color:var(--gray-700)}
-.note-box{background:var(--brand-50);border:1px solid var(--brand-200);border-radius:var(--radius);padding:20px 24px;margin:24px 0;font-size:.9rem;color:var(--gray-700);line-height:1.7}
+.note-box{background:var(--brand-50);border:1px solid var(--brand-200);border-radius:var(--radius);padding:var(--lp-selfhost-note-box-padding-y) var(--lp-selfhost-note-box-padding-x);margin:var(--lp-selfhost-note-box-margin-y) 0;font-size:.9rem;color:var(--gray-700);line-height:1.7}
 .bg-white{background:#fff}
 .bg-gray{background:var(--gray-50)}
-.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:48px 16px;text-align:center}
-.cta-bottom h2{font-size:1.5rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
-.cta-bottom p{color:var(--gray-500);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto;font-size:.95rem}
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,#fef9e7 100%);padding:var(--lp-content-cta-padding-y) var(--lp-content-cta-padding-x);text-align:center}
+.cta-bottom h2{font-size:1.5rem;font-weight:700;color:var(--gray-900);margin-bottom:var(--lp-content-hero-title-mb)}
+.cta-bottom p{color:var(--gray-500);margin-bottom:var(--lp-content-section-desc-mb-default);max-width:500px;margin-left:auto;margin-right:auto;font-size:.95rem}
 .cta-bottom .cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
-.req-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:24px 0}
-.req-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:20px;text-align:center}
-.req-card .req-icon{font-size:2rem;margin-bottom:8px}
-.req-card h3{font-size:.95rem;font-weight:600;color:var(--gray-900);margin-bottom:4px}
+.req-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:var(--lp-selfhost-req-grid-margin-y) 0}
+.req-card{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:var(--lp-selfhost-req-card-padding);text-align:center}
+.req-card .req-icon{font-size:2rem;margin-bottom:var(--lp-selfhost-req-icon-mb)}
+.req-card h3{font-size:.95rem;font-weight:600;color:var(--gray-900);margin-bottom:var(--lp-selfhost-req-card-h3-mb)}
 .req-card p{font-size:.82rem;color:var(--gray-500)}
 </style>
 </head>

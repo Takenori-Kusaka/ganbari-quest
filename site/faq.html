@@ -18,60 +18,62 @@
 <link rel="stylesheet" href="shared.css">
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer></script>
 <style>
+/* #2395 Phase 3: ADR-0042 LP Spacing/Layout 3 層トークン化。
+   padding/margin の数値直書きは --lp-* Semantic トークン経由 (site/shared.css :root SSOT)。 */
 /* Hero */
-.faq-hero{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 50%,var(--brand-200) 100%);padding:64px 16px 48px;text-align:center}
-.faq-hero h1{font-size:2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px}
+.faq-hero{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 50%,var(--brand-200) 100%);padding:var(--lp-content-hero-padding-y-top) var(--lp-content-hero-padding-x) var(--lp-content-hero-padding-y-bottom);text-align:center}
+.faq-hero h1{font-size:2rem;font-weight:800;color:var(--gray-900);margin-bottom:var(--lp-content-hero-title-mb)}
 .faq-hero p{font-size:1rem;color:var(--gray-500);max-width:600px;margin:0 auto;line-height:1.7}
 
 /* Table of contents */
-.faq-toc{max-width:960px;margin:0 auto;padding:32px 16px 0}
-.faq-toc-inner{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:20px 24px}
-.faq-toc-title{font-size:.85rem;font-weight:700;color:var(--gray-500);letter-spacing:.08em;margin-bottom:12px;text-transform:uppercase}
+.faq-toc{max-width:960px;margin:0 auto;padding:var(--lp-faq-toc-padding-y-top) var(--lp-faq-toc-padding-x) 0}
+.faq-toc-inner{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:var(--lp-faq-toc-inner-padding-y) var(--lp-faq-toc-inner-padding-x)}
+.faq-toc-title{font-size:.85rem;font-weight:700;color:var(--gray-500);letter-spacing:.08em;margin-bottom:var(--lp-faq-toc-title-mb);text-transform:uppercase}
 .faq-toc-list{display:flex;flex-wrap:wrap;gap:10px 16px;list-style:none;padding:0;margin:0}
-.faq-toc-list a{font-size:.92rem;color:var(--brand-700);font-weight:600;padding:6px 14px;background:var(--brand-50);border-radius:2rem;text-decoration:none;transition:all .2s}
+.faq-toc-list a{font-size:.92rem;color:var(--brand-700);font-weight:600;padding:var(--lp-faq-toc-link-padding-y-pill) var(--lp-faq-toc-link-padding-x);background:var(--brand-50);border-radius:2rem;text-decoration:none;transition:all .2s}
 .faq-toc-list a:hover{background:var(--brand-100);text-decoration:none}
 
 /* FAQ sections */
-.faq-sections{max-width:960px;margin:0 auto;padding:32px 16px 48px}
-.faq-category{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:32px 28px;margin-bottom:24px;scroll-margin-top:80px}
-.faq-category h2{font-size:1.3rem;font-weight:700;color:var(--gray-900);margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.faq-sections{max-width:960px;margin:0 auto;padding:var(--lp-faq-sections-padding-y-top) var(--lp-faq-sections-padding-x) var(--lp-faq-sections-padding-y-bottom)}
+.faq-category{background:#fff;border:1px solid var(--gray-200);border-radius:var(--radius);padding:var(--lp-faq-category-padding-y) var(--lp-faq-category-padding-x);margin-bottom:var(--lp-faq-category-mb);scroll-margin-top:var(--lp-faq-category-scroll-margin-top)}
+.faq-category h2{font-size:1.3rem;font-weight:700;color:var(--gray-900);margin-bottom:var(--lp-faq-category-title-mb);display:flex;align-items:center;gap:12px}
 .faq-category-num{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff;border-radius:50%;font-size:.9rem;font-weight:700;flex-shrink:0}
-.faq-category-desc{font-size:.9rem;color:var(--gray-500);margin:0 0 20px 44px;line-height:1.7}
+.faq-category-desc{font-size:.9rem;color:var(--gray-500);margin:0 0 var(--lp-faq-category-desc-mt) var(--lp-faq-category-desc-ml);line-height:1.7}
 .faq-list{list-style:none;padding:0;margin:0}
-.faq-item{border-top:1px solid var(--gray-200);padding:18px 0}
+.faq-item{border-top:1px solid var(--gray-200);padding:var(--lp-faq-item-list-padding-y) 0}
 .faq-item:first-child{border-top:none;padding-top:0}
-.faq-item summary{font-size:.98rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:flex-start;gap:10px;line-height:1.5;padding:4px 0}
+.faq-item summary{font-size:.98rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:flex-start;gap:10px;line-height:1.5;padding:var(--lp-faq-item-summary-padding-y) 0}
 .faq-item summary::-webkit-details-marker{display:none}
 .faq-item summary::before{content:"Q.";color:var(--brand-700);font-weight:700;font-size:1.05rem;flex-shrink:0}
 .faq-item summary::after{content:"+";margin-left:auto;color:var(--brand-500);font-size:1.4rem;font-weight:400;flex-shrink:0;transition:transform .2s}
 .faq-item[open] summary::after{transform:rotate(45deg)}
-.faq-item[open] summary{margin-bottom:10px}
-.faq-answer{font-size:.9rem;color:var(--gray-700);padding:8px 28px 4px;line-height:1.8;background:var(--gray-50);border-radius:8px;margin-top:6px}
-.faq-answer p{margin:0 0 10px}
+.faq-item[open] summary{margin-bottom:var(--lp-faq-item-open-mb)}
+.faq-answer{font-size:.9rem;color:var(--gray-700);padding:var(--lp-faq-answer-padding-y-top) var(--lp-faq-answer-padding-x) var(--lp-faq-answer-padding-y-bottom);line-height:1.8;background:var(--gray-50);border-radius:8px;margin-top:var(--lp-faq-answer-mt)}
+.faq-answer p{margin:0 0 var(--lp-faq-answer-p-mb)}
 .faq-answer p:last-child{margin-bottom:0}
 .faq-answer a{color:var(--brand-700);font-weight:600}
-.faq-answer ul{padding-left:20px;margin:8px 0}
-.faq-answer li{margin:4px 0}
+.faq-answer ul{padding-left:var(--lp-faq-answer-ul-padding-l);margin:var(--lp-faq-answer-ul-margin-y) 0}
+.faq-answer li{margin:var(--lp-faq-answer-li-margin-y) 0}
 .faq-answer strong{color:var(--gray-900)}
 
 /* Related & bottom CTA */
-.faq-bottom{background:linear-gradient(135deg,var(--brand-100),var(--brand-50));padding:48px 16px;text-align:center}
-.faq-bottom h2{font-size:1.4rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
-.faq-bottom p{font-size:.95rem;color:var(--gray-500);margin-bottom:24px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7}
+.faq-bottom{background:linear-gradient(135deg,var(--brand-100),var(--brand-50));padding:var(--lp-content-cta-padding-y) var(--lp-content-cta-padding-x);text-align:center}
+.faq-bottom h2{font-size:1.4rem;font-weight:700;color:var(--gray-900);margin-bottom:var(--lp-content-hero-title-mb)}
+.faq-bottom p{font-size:.95rem;color:var(--gray-500);margin-bottom:var(--lp-content-section-desc-mb-default);max-width:560px;margin-left:auto;margin-right:auto;line-height:1.7}
 .faq-bottom-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 /* #1626 R22: 不安解消 3 バッジ */
 /* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、line-height 内に収めるよう vertical-align:middle) */
 /* #1910 AC3: 16→18px に拡大、docs/design/asset-catalog.md 既定値整合 */
-.cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:18px auto 0;max-width:560px;font-size:.82rem;color:var(--gray-700)}
+.cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:var(--lp-faq-cta-trust-mt) auto 0;max-width:560px;font-size:.82rem;color:var(--gray-700)}
 .cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
 .cta-trust-badges li img{width:18px;height:18px;flex-shrink:0;vertical-align:middle}
-.faq-contact{margin-top:24px;font-size:.9rem;color:var(--gray-500)}
+.faq-contact{margin-top:var(--lp-faq-contact-mt);font-size:.9rem;color:var(--gray-500)}
 .faq-contact a{color:var(--brand-700);font-weight:600}
 
 @media(max-width:640px){
-  .faq-hero{padding:48px 16px 36px}
+  .faq-hero{padding:var(--lp-content-hero-padding-y-top-sm) var(--lp-content-hero-padding-x) var(--lp-content-hero-padding-y-bottom-sm)}
   .faq-hero h1{font-size:1.6rem}
-  .faq-category{padding:24px 20px}
+  .faq-category{padding:var(--lp-faq-category-padding-y-sm) var(--lp-faq-category-padding-x-sm)}
   .faq-category h2{font-size:1.1rem}
   .faq-category-desc{margin-left:0}
   .faq-bottom-cta{flex-direction:column;align-items:stretch}
