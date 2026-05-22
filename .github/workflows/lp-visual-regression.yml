@@ -1,0 +1,157 @@
+name: LP Visual Regression (pixelmatch baseline)
+
+# Issue #2401 / PR #1893 Phase 2
+#
+# 目的:
+#   LP (site/**) visual の意図しない regression を pixelmatch baseline で構造的検出。
+#   - 撮影元: `scripts/capture-hp-screenshots.mjs` (preview server + AUTH_MODE=anonymous + DATA_SOURCE=demo)
+#   - 比較: `scripts/check-lp-visual-regression.mjs` (pixelmatch、diff > 10% で fail)
+#   - baseline: `scripts/lp-screenshot-baseline/*.webp` (git tracked)
+#
+# 過去の課題 (PR #1893 Phase 1 で baseline + dep を導入、本 workflow で gate 化):
+#   - LP HTML 変更で demo 固有 UI が映り込んでも検出できない
+#   - dialog auto-open による干渉 (CheerDialog / MonthlyReward 等) の regression 検出なし
+#   - 「LP SS demo path 撮影」「dialog 干渉」事故が PO-4-7 で 8 回再発
+#
+# 段階運用 (Issue #2401):
+#   - 本 PR: warn-only ではなく hard-fail (Pre-PMF visual 安定性最優先、ADR-0010 Bucket B)
+#   - 閾値: diff > 10% (THRESHOLD_PCT、ADR 合意なしで緩和禁止)
+#
+# trigger:
+#   - main push: site/** / src/** / capture / baseline / workflow 変更時のみ
+#   - PR with area:lp label OR file path filter
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "site/**"
+      - "src/**"
+      - "scripts/capture-hp-screenshots.mjs"
+      - "scripts/check-lp-visual-regression.mjs"
+      - "scripts/lp-screenshot-baseline/**"
+      - ".github/workflows/lp-visual-regression.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "site/**"
+      - "src/**"
+      - "scripts/capture-hp-screenshots.mjs"
+      - "scripts/check-lp-visual-regression.mjs"
+      - "scripts/lp-screenshot-baseline/**"
+      - ".github/workflows/lp-visual-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: lp-visual-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual-regression-check:
+    name: LP visual regression (pixelmatch diff)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Build app for preview
+        # vite preview は NODE_ENV=production で起動するため build が必要
+        run: npm run build
+
+      - name: Start preview server
+        # AUTH_MODE=anonymous + DATA_SOURCE=demo で起動 (Multi-Lambda demo Lambda 同型、ADR-0048)
+        # capture-hp-screenshots.mjs が本番ルート `/(child)/[uiMode]/home` を demo fixture data で撮影できる
+        env:
+          AWS_LICENSE_SECRET: lp-vr-capture-secret-do-not-use-in-production
+          AUTH_MODE: anonymous
+          DATA_SOURCE: demo
+        run: |
+          npm run preview -- --port 5173 --host 0.0.0.0 > /tmp/preview.log 2>&1 &
+          echo "PREVIEW_PID=$!" >> $GITHUB_ENV
+          for i in {1..60}; do
+            if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+              echo "Preview server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Preview server failed to start within 60s"
+          cat /tmp/preview.log
+          exit 1
+
+      - name: Capture LP screenshots (current state)
+        env:
+          BASE_URL: http://localhost:5173
+        # capture script は 1 件でも失敗で exit 1 (ADR-0029 / #1783)。
+        # 既知の testid タイムアウト (feature-auto-sleep 等) があれば本 step が fail し、
+        # visual-regression 判定の前段で停止する。当面は continue-on-error: true で
+        # baseline 内に該当 image が存在する限り回帰検出を継続させる。
+        continue-on-error: true
+        run: node scripts/capture-hp-screenshots.mjs --webp
+
+      - name: Stop preview server
+        if: always()
+        run: |
+          if [ -n "$PREVIEW_PID" ]; then
+            kill $PREVIEW_PID 2>/dev/null || true
+          fi
+
+      - name: Run visual regression check
+        # diff > 10% で exit 1。baseline と current の image set 差異 (撮影漏れ) も検出。
+        run: node scripts/check-lp-visual-regression.mjs
+
+      - name: Generate JSON report (artifact)
+        if: always()
+        run: |
+          node scripts/check-lp-visual-regression.mjs --json > lp-visual-regression.json || true
+
+      - name: Upload visual regression report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lp-visual-regression
+          path: |
+            lp-visual-regression.json
+            tmp/visual-regression-diffs/
+          retention-days: 14
+
+      - name: Upload current screenshots (debug)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lp-visual-regression-current-ss
+          path: site/screenshots/
+          retention-days: 14
