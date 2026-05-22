@@ -6020,24 +6020,9 @@ export const FEATURES_LABELS = {
 		familyUpgradeBtn: '⭐⭐ ファミリーへ',
 	},
 
-	// ---- features/admin/components/ActivityImportPanel ----
-	activityImportPanel: {
-		heading: '📥 活動パックからインポート',
-		seeAllPacks: 'すべてのパック →',
-		desc: 'おすすめの活動セットを一括追加できます（重複はスキップ）',
-		emptyText: '利用可能なパックがありません',
-		processingText: '処理中...',
-		addBtn: '追加',
-		fileImportHeading: '📁 ファイルからインポート',
-		fileImportDesc: 'JSON または CSV ファイルから活動を一括追加（重複はスキップ）',
-		fileImportBtn: 'インポート',
-		packResult: (packName: string, imported: number, skipped: number) =>
-			`📦 「${packName}」: ${imported}件追加、${skipped}件スキップ`,
-		fileResult: (packName: string, imported: number, skipped: number) =>
-			`📁 「${packName}」: ${imported}件追加、${skipped}件スキップ`,
-		packMeta: (count: number, ageMin: number, ageMax: number) =>
-			`${count}件 ・ ${ageMin}〜${ageMax}歳`,
-	},
+	// ---- features/admin/components/ActivityImportPanel (#2391 で物理削除済) ----
+	// 旧 ActivityImportPanel.svelte は UnifiedImportHub.svelte に統合された。
+	// UNIFIED_IMPORT_HUB_LABELS が後継 SSOT (このファイル後段)。
 
 	// ---- features/admin/components/ActivityLimitBanner ----
 	activityLimitBanner: {
@@ -7933,6 +7918,8 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	childRequiredHint: '※ 対象の子供を選んでから取り込みできます。',
 	// preset 内アイテム数と対象年齢の連結 separator
 	itemAgeSeparator: '・',
+	// 既に取込済みの preset に表示するバッジ (#2391 Phase 2/3)
+	importedBadge: '取込済み',
 	// type 選択時のヒント
 	typeHintActivityPack: 'プリセット活動を一括で追加します。',
 	typeHintRewardSet: 'ごほうびテンプレートを子供ごとに一括登録します。',

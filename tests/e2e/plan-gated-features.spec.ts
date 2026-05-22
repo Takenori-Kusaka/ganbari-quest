@@ -52,3 +52,19 @@ test.describe('#776 /admin/rewards プランゲート — family', () => {
 		await expect(page.getByTestId('rewards-upgrade-banner')).toHaveCount(0);
 	});
 });
+
+// ============================================================
+// /admin/challenges — #2402 QM must-3 (OWASP A01) challenge-set import family ゲート
+// ============================================================
+// 兄弟チャレンジは family-only 機能。client-side `{#if !isFamily}` UI ゲートを
+// 直接 POST でバイパスできないよう、サーバー側でも family プラン厳密比較を実施。
+//
+// **検証層**: unit テスト (`tests/unit/routes/admin-challenges-marketplace-import-plan-gate.test.ts`)
+// で action handler を直接呼び出して検証する。
+//
+// E2E (`request.post`) で同等の検証を試みたところ、SvelteKit の CSRF 保護
+// (`Cross-site POST form submissions are forbidden`) が family ゲートに到達する前に
+// レスポンスを差し替えるため、E2E 層で gate メッセージを assert できない問題があった
+// (PR #2402 e2e-cognito-dev failure)。
+// unit テストで action handler を直接呼ぶことで CSRF を回避しつつ、ADR-0006 に従い
+// 403 family gate の assertion 強度は維持する (検証層を移動するだけで弱体化させない)。

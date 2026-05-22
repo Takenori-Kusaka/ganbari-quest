@@ -69,13 +69,11 @@ test.describe('#2137 マーケットプレイス checklist 一括追加', () => 
 		const section = page.getByTestId('marketplace-import-section');
 		await expect(section).toBeVisible({ timeout: 30_000 });
 
-		// event-pool / event-school-start / event-field-trip 3 件の preset row
-		await expect(page.getByTestId('marketplace-preset-row-event-pool')).toBeVisible();
-		await expect(page.getByTestId('marketplace-preset-row-event-school-start')).toBeVisible();
-		await expect(page.getByTestId('marketplace-preset-row-event-field-trip')).toBeVisible();
-
-		// それぞれに「一括追加」ボタンが描画されている
+		// #2391 (Phase 2): UnifiedImportHub 統合で `marketplace-preset-row-{itemId}` (container)
+		// は廃止。`marketplace-preset-import-{itemId}` (button) で同等の見え方を確認する。
 		await expect(page.getByTestId('marketplace-preset-import-event-pool')).toBeVisible();
+		await expect(page.getByTestId('marketplace-preset-import-event-school-start')).toBeVisible();
+		await expect(page.getByTestId('marketplace-preset-import-event-field-trip')).toBeVisible();
 	});
 
 	// ============================================================

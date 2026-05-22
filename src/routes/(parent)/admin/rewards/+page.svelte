@@ -13,6 +13,8 @@ import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, PAGE_TITLES, REWARDS_LABELS } from '$lib/domain/labels';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
+// #2391 (Phase 2): 独自 marketplace UI を UnifiedImportHub に統一
+import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -28,20 +30,9 @@ let selectedChildId = $state(0);
 // #2268: 検索 UI 状態
 let searchQuery = $state('');
 
-// #2136 MP-1: マーケットプレイス一括追加 UI 状態
+// #2391 (Phase 2): マーケットプレイス一括追加 UI 状態 (UnifiedImportHub 統合)
 let showMarketplace = $state(false);
-const marketplaceImport = $derived(
-	(
-		form as {
-			marketplaceImport?: {
-				imported?: number;
-				skipped?: number;
-				allDuplicates?: boolean;
-				presetId?: string;
-			};
-		} | null
-	)?.marketplaceImport,
-);
+let marketplaceImportMessage = $state('');
 
 $effect(() => {
 	const first = data.children[0];
@@ -312,7 +303,8 @@ const overflowMenuItems = $derived<MenuItem[]>([
 		{/if}
 	</section>
 
-	<!-- #2136 MP-1: マーケットプレイスから一括追加 -->
+	<!-- #2391 (Phase 2): UnifiedImportHub に統一 (旧 #2136 MP-1 独自 UI を置換)
+	     PO 指摘 ②「UX 統一感不足」直接解決。Hick's Law 整合 (Hub 経由で 5 admin 共通 UI)。 -->
 	<section data-testid="marketplace-reward-import-section">
 		<Button
 			type="button"
@@ -327,61 +319,33 @@ const overflowMenuItems = $derived<MenuItem[]>([
 
 		{#if showMarketplace}
 			<div class="mt-2 space-y-2">
-				<p class="text-xs text-[var(--color-text-muted)]">
-					{REWARDS_LABELS.marketplaceSectionDesc}
-				</p>
-				{#if marketplaceImport}
-					{#if marketplaceImport.allDuplicates}
-						<div
-							class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm text-center"
-							data-testid="marketplace-reward-import-result"
-						>
-							{REWARDS_LABELS.marketplaceImportAllDuplicates}
-						</div>
-					{:else if (marketplaceImport.imported ?? 0) > 0}
-						<div
-							class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm text-center"
-							data-testid="marketplace-reward-import-result"
-						>
-							{REWARDS_LABELS.marketplaceImportSuccess(marketplaceImport.imported ?? 0)}
-						</div>
-					{/if}
+				{#if marketplaceImportMessage}
+					<div
+						class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm text-center"
+						data-testid="marketplace-reward-import-result"
+					>
+						{marketplaceImportMessage}
+					</div>
 				{/if}
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-					{#each data.rewardSets as set}
-						<form
-							method="POST"
-							action="?/importMarketplaceRewardSet"
-							use:enhance={() => {
-								return async ({ update }) => {
-									await invalidateAll();
-									await update();
-								};
-							}}
-							data-testid="marketplace-reward-form-{set.itemId}"
-						>
-							<input type="hidden" name="childId" value={selectedChildId} />
-							<input type="hidden" name="presetId" value={set.itemId} />
-							<Button
-								type="submit"
-								variant="ghost"
-								size="sm"
-								disabled={!data.isPremium}
-								class="w-full bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-left hover:shadow-md flex-col h-auto items-start"
-							>
-								<div class="flex items-center gap-2 w-full">
-									<span class="text-2xl">{set.icon}</span>
-									<div class="flex-1 min-w-0">
-										<p class="text-xs font-bold text-[var(--color-text-muted)] truncate">{set.name}</p>
-										<p class="text-xs text-[var(--color-text-tertiary)]">
-											{REWARDS_LABELS.marketplaceImportButton(set.itemCount)}
-										</p>
-									</div>
-								</div>
-							</Button>
-						</form>
-					{/each}
-				</div>
+				<UnifiedImportHub
+					typeCode="reward-set"
+					presets={{
+						'reward-set': data.rewardSets.map((s) => ({
+							itemId: s.itemId,
+							name: s.name,
+							icon: s.icon,
+							itemCount: s.itemCount,
+							targetAgeMin: s.targetAgeMin,
+							targetAgeMax: s.targetAgeMax,
+						})),
+					}}
+					selectedChildId={selectedChildId}
+					disabled={!data.isPremium}
+					onimported={(msg) => {
+						marketplaceImportMessage = msg;
+						invalidateAll();
+					}}
+				/>
 			</div>
 		{/if}
 	</section>

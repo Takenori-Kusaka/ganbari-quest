@@ -27,10 +27,11 @@ test.describe('#2367 marketplace -> checklist -> import (EPIC #2362 P3 / Strangl
 		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
 
-		// 全 3 件の preset row
-		await expect(page.getByTestId('marketplace-preset-row-event-pool')).toBeVisible();
-		await expect(page.getByTestId('marketplace-preset-row-event-school-start')).toBeVisible();
-		await expect(page.getByTestId('marketplace-preset-row-event-field-trip')).toBeVisible();
+		// #2391 (Phase 2): UnifiedImportHub 統合で `marketplace-preset-row-*` (container) は廃止。
+		// `marketplace-preset-import-*` (button) で同等の確認。
+		await expect(page.getByTestId('marketplace-preset-import-event-pool')).toBeVisible();
+		await expect(page.getByTestId('marketplace-preset-import-event-school-start')).toBeVisible();
+		await expect(page.getByTestId('marketplace-preset-import-event-field-trip')).toBeVisible();
 	});
 
 	test('?/importMarketplace action: 不存在 presetId は fail() で扱われる', async ({ page }) => {
@@ -74,8 +75,10 @@ test.describe('#2367 marketplace -> checklist -> import (EPIC #2362 P3 / Strangl
 		// 既取込 (alreadyImported) でも未取込でも 200 が返る (Strategy 経由で success path)
 		expect(res.status()).toBe(200);
 		const body = await res.text();
-		// 戻り shape は body 内に埋め込まれる
-		expect(body).toContain('marketplaceImportResult');
+		// #2391 (Phase 2): UnifiedImportHub 統合により戻り shape が top-level
+		// (`packName / imported / skipped / total / errors / presetId`) に統一。
+		expect(body).toContain('packName');
+		expect(body).toContain('imported');
 	});
 
 	test('?/importChecklist action: /marketplace/checklist/event-pool で動作する', async ({

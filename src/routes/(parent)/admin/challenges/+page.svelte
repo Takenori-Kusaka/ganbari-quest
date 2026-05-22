@@ -1,7 +1,10 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
+import { invalidateAll } from '$app/navigation';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { APP_LABELS, CHALLENGES_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+// #2391 (Phase 2): in-page challenge-set 取込 UI を統一
+import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -11,6 +14,9 @@ let { data, form } = $props();
 
 const isFamily = $derived(data.planTier === 'family');
 let creating = $state(false);
+
+// #2391 (Phase 2): marketplace import 完了メッセージ
+let marketplaceImportMessage = $state('');
 
 interface TargetConfig {
 	metric: string;
@@ -124,6 +130,30 @@ const categories: Record<number, string> = {
 			{creating ? CHALLENGES_LABELS.cancelButton : CHALLENGES_LABELS.createButton}
 		</Button>
 	</div>
+
+	<!-- #2391 (Phase 2): in-page UnifiedImportHub (5 admin UX 統一)。
+	     旧来は query param `marketplace-import` 経由の単一 preset 確認 dialog のみだったが、
+	     in-page で全 preset 一覧を直接取込めるよう統一 UI を追加。 -->
+	<section data-testid="challenges-marketplace-import-section">
+		{#if marketplaceImportMessage}
+			<div
+				class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
+				data-testid="challenges-marketplace-import-result"
+			>
+				{marketplaceImportMessage}
+			</div>
+		{/if}
+		<UnifiedImportHub
+			typeCode="challenge-set"
+			presets={{
+				'challenge-set': data.challengePresets,
+			}}
+			onimported={(msg) => {
+				marketplaceImportMessage = msg;
+				invalidateAll();
+			}}
+		/>
+	</section>
 
 	{#if form?.error}
 		<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)]">{form.error}</div>
