@@ -6,7 +6,8 @@ import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 // #2367 (EPIC #2362 P3): checklist 経路は dispatchImport 経由 (Strangler Fig)
-import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
+// #2402 QM must-2: `marketplaceRegistry` 直接参照は dispatchImport API で代替済、import 撤去
+import { dispatchImport } from '$lib/marketplace';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	findOverrides,
@@ -118,36 +119,16 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 	}
 
 	// #2367: checklist は dispatchImport 経由 (EPIC #2362 P3)
-	// 旧 service の戻り shape (alreadyImported / existingTemplateName /
-	// importedItems / errors) を UI 不変のまま維持するため preview を別途呼ぶ。
+	// #2402 QM must-2: 旧来 `(strategy as any).parse/preview` で全件重複判定を別途呼んでいたが、
+	// dispatchImport の戻り値 (imported / skipped / total) から「全件重複」を同等に判定可能。
+	// Registry 内部 (`ImportStrategy<unknown>`) への `as any` cast 不要化 + biome-ignore 削減 +
+	// parse/preview/apply の重複実行 (二重 DB read) も解消。
 	const item = getMarketplaceItem('checklist', presetId);
 	if (!item) {
 		return fail(404, { error: 'プリセットが見つかりません' });
 	}
 	const payload = item.payload as ChecklistPayload;
 	try {
-		const descriptor = marketplaceRegistry.get('checklist');
-		const strategy = descriptor.strategy;
-		// biome-ignore lint/suspicious/noExplicitAny: Registry parametric type 解決のため
-		const parsedPayload = (strategy as any).parse(payload);
-		// biome-ignore lint/suspicious/noExplicitAny: 同上
-		const preview = await (strategy as any).preview(parsedPayload, {
-			tenantId,
-			presetId,
-			childId,
-		});
-		// #2391: 全件重複時も Hub 互換 shape で返却
-		if (preview.duplicates === preview.total && preview.total > 0) {
-			return {
-				packName: item.name,
-				imported: 0,
-				skipped: preview.total,
-				total: preview.total,
-				errors: [] as string[],
-				presetId,
-			};
-		}
-
 		const result = await dispatchImport({
 			typeCode: 'checklist',
 			rawPayload: payload,
@@ -158,7 +139,9 @@ const importMarketplaceChecklistAction: Action = async ({ request, locals }) => 
 				childId,
 			},
 		});
-		// #2391: UnifiedImportHub 互換 top-level shape
+		// #2391 / #2402: UnifiedImportHub 互換 top-level shape。
+		// 全件重複の場合 (`imported === 0 && skipped === total && total > 0`) も
+		// 同 shape で返るため UI 側 (`UnifiedImportHub.svelte`) で分岐表示できる。
 		return {
 			packName: result.packName,
 			imported: result.imported,

@@ -1,6 +1,8 @@
 import { fail } from '@sveltejs/kit';
 import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
+import { createPlanLimitError } from '$lib/domain/errors';
+import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import type { ChallengeSetPayload } from '$lib/domain/marketplace-item';
 // #2369 (EPIC #2362 P3 / ADR-0052): challenge-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/challenge-set`) で Registry 登録される。
@@ -147,8 +149,25 @@ export const actions: Actions = {
 	// #2391: query param 経由 (`/admin/challenges?marketplace-import=<presetId>`) の確認 dialog
 	// から submit される互換 action は保持。UnifiedImportHub からは Hub 規約 action
 	// (`importMarketplaceChallengeSet`) を別途呼ぶ。
+	// #2402 QM must-3 (OWASP A01 Broken Access Control): family プラン未満は 403。
+	// Hub 経路 (`importMarketplaceChallengeSet`) と同じ防御線を query-param 経路にも適用する
+	// (どちらも同一 challenge-set データに書込するため、片方だけ守ると bypass 可能になる)。
 	importChallengeSet: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
+
+		// #2402 QM must-3: family プラン gate (server-side bypass 防止)
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+		if (tier !== 'family') {
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'family',
+					PLAN_GATE_LABELS.familyOnlyFor('きょうだいチャレンジ'),
+				),
+			});
+		}
+
 		const fd = await request.formData();
 		const presetId = String(fd.get('presetId') ?? '').trim();
 		if (!presetId) return fail(400, { error: 'presetId が必要です' });
@@ -183,8 +202,26 @@ export const actions: Actions = {
 	},
 
 	// #2391 (Phase 2): UnifiedImportHub から challenge-set 一括追加 (Hub 互換 top-level shape)
+	// #2402 QM must-3 (OWASP A01 Broken Access Control): family プラン未満は 403。
+	// 兄弟チャレンジ機能全体が family-only であり、client-side `{#if !isFamily}` UI ゲートを
+	// 直接 POST でバイパスする経路を遮断する。rewards/+page.server.ts の `isPaidTier` パターンと
+	// 対称な防御線 (challenges は family-only なので isPaidTier ではなく family 厳密比較)。
 	importMarketplaceChallengeSet: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
+
+		// #2402 QM must-3: family プラン gate (server-side bypass 防止)
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+		if (tier !== 'family') {
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'family',
+					PLAN_GATE_LABELS.familyOnlyFor('きょうだいチャレンジ'),
+				),
+			});
+		}
+
 		const fd = await request.formData();
 		const presetId = String(fd.get('presetId') ?? '').trim();
 		if (!presetId) return fail(400, { error: 'presetId が必要です' });

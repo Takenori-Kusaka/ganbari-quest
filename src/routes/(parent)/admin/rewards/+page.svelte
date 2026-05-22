@@ -8,7 +8,7 @@
 // - CRUD と申請承認の責務混在 → 申請タブ削除 (#2269 で /admin/rewards/requests へ分離)
 
 import { enhance } from '$app/forms';
-import { goto } from '$app/navigation';
+import { goto, invalidateAll } from '$app/navigation';
 import { getErrorMessage } from '$lib/domain/errors';
 import { APP_LABELS, PAGE_TITLES, REWARDS_LABELS } from '$lib/domain/labels';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
@@ -341,7 +341,10 @@ const overflowMenuItems = $derived<MenuItem[]>([
 					}}
 					selectedChildId={selectedChildId}
 					disabled={!data.isPremium}
-					onimported={(msg) => { marketplaceImportMessage = msg; }}
+					onimported={(msg) => {
+						marketplaceImportMessage = msg;
+						invalidateAll();
+					}}
 				/>
 			</div>
 		{/if}
