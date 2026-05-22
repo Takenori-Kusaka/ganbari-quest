@@ -1,5 +1,5 @@
 <script lang="ts">
-import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import PageGuideBubble from '$lib/ui/tutorial/PageGuideBubble.svelte';
 import {
 	endPageGuide,
 	getCurrentGuideInfo,
@@ -21,18 +21,7 @@ const progress = $derived(getGuideProgress());
 const isFirst = $derived(isFirstGuideStep());
 const isLast = $derived(isLastGuideStep());
 
-// 三部構成の表示タブ
-let activeTab = $state<'what' | 'how' | 'goal'>('what');
-
-// ステップ切替時にタブをリセット
-$effect(() => {
-	if (step) {
-		activeTab = 'what';
-	}
-});
-
-// #2375 AC-V2-3: AbortController で setTimeout 群を cleanup (内側 timer も含む race 防止)
-// #2375 AC-V2-9: step.selector 解決時に focus({ preventScroll: true })
+// #2375 AC-V2-3/9: AbortController で setTimeout 群を cleanup + selector 解決時 focus
 $effect(() => {
 	if (active && step) {
 		const ctrl = new AbortController();
@@ -46,11 +35,10 @@ $effect(() => {
 				const innerTimer = setTimeout(() => {
 					if (ctrl.signal.aborted) return;
 					targetRect = el.getBoundingClientRect();
-					// AC-V2-9: focus the highlighted element (Tab で overlay 外へ抜けないように)
 					try {
 						el.focus({ preventScroll: true });
 					} catch {
-						// el が focus 不可ならスルー (a11y は #2371 で focus trap 対応)
+						/* focus 不可要素はスキップ (#2371 focus trap 対応) */
 					}
 				}, 350);
 				ctrl.signal.addEventListener('abort', () => clearTimeout(innerTimer));
@@ -67,7 +55,7 @@ $effect(() => {
 	targetRect = null;
 });
 
-// #2375 AC-V2-6: Escape キーで閉じる
+// #2375 AC-V2-6: Escape で閉じる
 function handleKeydown(e: KeyboardEvent) {
 	if (active && e.key === 'Escape') {
 		e.preventDefault();
@@ -84,40 +72,34 @@ function handleOverlayClick(e: MouseEvent) {
 const bubbleStyle = $derived.by(() => {
 	if (!targetRect || !step) return { top: '50%', left: '50%', width: '360px' };
 	const gap = 16;
-	const bubbleWidth = 360;
-	const pos = step.position ?? 'auto';
-	const effectivePos = pos === 'auto' ? 'bottom' : pos;
-
+	const bw = 360;
+	const r = targetRect;
+	const pos = (step.position ?? 'auto') === 'auto' ? 'bottom' : step.position;
 	let top = 0;
 	let left = 0;
-
-	if (effectivePos === 'bottom') {
-		top = targetRect.bottom + gap;
-		left = targetRect.left + targetRect.width / 2 - bubbleWidth / 2;
-	} else if (effectivePos === 'top') {
-		top = targetRect.top - gap;
-		left = targetRect.left + targetRect.width / 2 - bubbleWidth / 2;
-	} else if (effectivePos === 'left') {
-		top = targetRect.top + targetRect.height / 2;
-		left = targetRect.left - bubbleWidth - gap;
+	if (pos === 'bottom') {
+		top = r.bottom + gap;
+		left = r.left + r.width / 2 - bw / 2;
+	} else if (pos === 'top') {
+		top = r.top - gap;
+		left = r.left + r.width / 2 - bw / 2;
+	} else if (pos === 'left') {
+		top = r.top + r.height / 2;
+		left = r.left - bw - gap;
 	} else {
-		top = targetRect.top + targetRect.height / 2;
-		left = targetRect.right + gap;
+		top = r.top + r.height / 2;
+		left = r.right + gap;
 	}
-
-	left = Math.max(12, Math.min(left, window.innerWidth - bubbleWidth - 12));
+	left = Math.max(12, Math.min(left, window.innerWidth - bw - 12));
 	top = Math.max(12, Math.min(top, window.innerHeight - 400));
-
-	return { top: `${top}px`, left: `${left}px`, width: `${bubbleWidth}px` };
+	return { top: `${top}px`, left: `${left}px`, width: `${bw}px` };
 });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
 {#if active && step && targetRect}
-	<!-- #2375 AC-V2-7: a11y 強化 — role="dialog" + aria-modal + aria-labelledby + tabindex="-1"
-	     #2371 で focus trap 実装後、tabindex 0 に昇格予定。tabindex="-1" は modal dialog 標準パターン
-	     (focusable but not in tab sequence)。-->
+	<!-- #2375 AC-V2-7: a11y 強化 — role="dialog" + aria-modal + aria-labelledby + tabindex="-1" (modal dialog 標準) -->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
@@ -161,108 +143,17 @@ const bubbleStyle = $derived.by(() => {
 			style:height="{targetRect.height + 20}px"
 		></div>
 
-		<!--
-		  #2375 AC-V2-4: 旧 `{#key animKey}` を撤廃。
-		  これにより step 切替時に bubble DOM が破棄されず、tab フォーカス・SR 読み上げ・現在 activeTab が維持される。
-		  値は Svelte 5 の reactive プロパティ更新で自然に追従する。
-		-->
-		<div
-			class="guide-bubble"
-			style:top={bubbleStyle.top}
-			style:left={bubbleStyle.left}
-			style:width={bubbleStyle.width}
-			data-step-id={step.id}
-		>
-			<!-- Header -->
-			<div class="guide-header">
-				<span class="guide-header-icon">{guide?.icon ?? '📖'}</span>
-				<span id="page-guide-title" class="guide-header-title">{guide?.title ?? ''}</span>
-				<span class="guide-header-progress">{progress.current} / {progress.total}</span>
-			</div>
-
-			<!-- Step title -->
-			<div class="guide-step-title">
-				<h3>{step.title}</h3>
-			</div>
-
-			<!-- Tab navigation -->
-			<div class="guide-tabs">
-				<button
-					class="guide-tab"
-					class:active={activeTab === 'what'}
-					onclick={() => (activeTab = 'what')}
-				>
-					{UI_COMPONENTS_LABELS.pageGuideTabWhat}
-				</button>
-				<button
-					class="guide-tab"
-					class:active={activeTab === 'how'}
-					onclick={() => (activeTab = 'how')}
-				>
-					{UI_COMPONENTS_LABELS.pageGuideTabHow}
-				</button>
-				<button
-					class="guide-tab"
-					class:active={activeTab === 'goal'}
-					onclick={() => (activeTab = 'goal')}
-				>
-					{UI_COMPONENTS_LABELS.pageGuideTabGoal}
-				</button>
-			</div>
-
-			<!-- Tab content -->
-			<div class="guide-tab-content">
-				{#if activeTab === 'what'}
-					<p>{step.what}</p>
-				{:else if activeTab === 'how'}
-					<p class="guide-how-text">{step.how}</p>
-				{:else}
-					<p>{step.goal}</p>
-				{/if}
-
-				{#if step.tips && step.tips.length > 0}
-					<div class="guide-tips">
-						<span class="guide-tips-label">{UI_COMPONENTS_LABELS.pageGuideTipsLabel}</span>
-						{#each step.tips as tip}
-							<p class="guide-tip">{tip}</p>
-						{/each}
-					</div>
-				{/if}
-
-				{#if step.relatedLinks && step.relatedLinks.length > 0}
-					<div class="guide-links">
-						{#each step.relatedLinks as link}
-							<a href={link.href} class="guide-link">{link.label} →</a>
-						{/each}
-					</div>
-				{/if}
-			</div>
-
-			<!-- Progress bar -->
-			<div class="guide-progress-bar">
-				<div
-					class="guide-progress-fill"
-					style:width="{(progress.current / progress.total) * 100}%"
-				></div>
-			</div>
-
-			<!-- Navigation -->
-			<div class="guide-nav">
-				<button class="guide-nav-btn guide-nav-end" onclick={endPageGuide}>
-					{UI_COMPONENTS_LABELS.pageGuideCloseBtn}
-				</button>
-				<div class="guide-nav-right">
-					{#if !isFirst}
-						<button class="guide-nav-btn guide-nav-prev" onclick={prevGuideStep}>
-							{UI_COMPONENTS_LABELS.pageGuideBackBtn}
-						</button>
-					{/if}
-					<button class="guide-nav-btn guide-nav-next" onclick={nextGuideStep}>
-						{UI_COMPONENTS_LABELS.pageGuideNextBtn(isLast)}
-					</button>
-				</div>
-			</div>
-		</div>
+		<PageGuideBubble
+			{step}
+			{guide}
+			{progress}
+			{isFirst}
+			{isLast}
+			{bubbleStyle}
+			onEnd={endPageGuide}
+			onPrev={prevGuideStep}
+			onNext={nextGuideStep}
+		/>
 	</div>
 {/if}
 
@@ -303,215 +194,5 @@ const bubbleStyle = $derived.by(() => {
 		50% {
 			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
 		}
-	}
-
-	.guide-bubble {
-		position: fixed;
-		/* #2106: bubble sits +10 above overlay (callout layering within --z-tutorial tier) */
-		z-index: calc(var(--z-tutorial) + 10);
-		background: white;
-		border-radius: 16px;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
-		overflow: hidden;
-		animation: guide-bubble-appear 0.3s ease-out;
-		pointer-events: auto;
-		max-height: 80vh;
-		overflow-y: auto;
-	}
-
-	@keyframes guide-bubble-appear {
-		from {
-			opacity: 0;
-			transform: translateY(8px) scale(0.95);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0) scale(1);
-		}
-	}
-
-	.guide-header {
-		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
-		padding: 10px 14px;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		color: white;
-	}
-
-	.guide-header-icon {
-		font-size: 1.1rem;
-	}
-
-	.guide-header-title {
-		font-size: 0.85rem;
-		font-weight: 600;
-		flex: 1;
-	}
-
-	.guide-header-progress {
-		font-size: 0.75rem;
-		opacity: 0.8;
-	}
-
-	.guide-step-title {
-		padding: 14px 16px 8px;
-	}
-
-	.guide-step-title h3 {
-		margin: 0;
-		font-size: 1.05rem;
-		font-weight: 700;
-		color: var(--color-text-primary, #1e293b);
-	}
-
-	.guide-tabs {
-		display: flex;
-		padding: 0 12px;
-		gap: 4px;
-	}
-
-	.guide-tab {
-		flex: 1;
-		padding: 6px 8px;
-		font-size: 0.75rem;
-		font-weight: 600;
-		border: none;
-		border-radius: 8px 8px 0 0;
-		cursor: pointer;
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-muted, #64748b);
-		transition: all 0.15s;
-	}
-
-	.guide-tab.active {
-		background: var(--color-brand-50, #eff6ff);
-		color: var(--color-action-primary, #3b82f6);
-	}
-
-	.guide-tab:hover:not(.active) {
-		background: var(--color-surface-hover, #e2e8f0);
-	}
-
-	.guide-tab-content {
-		padding: 12px 16px;
-		min-height: 80px;
-		background: var(--color-surface-card, #ffffff);
-		border-top: 2px solid var(--color-brand-50, #eff6ff);
-	}
-
-	.guide-tab-content p {
-		margin: 0;
-		font-size: 0.85rem;
-		color: var(--color-text-secondary, #475569);
-		line-height: 1.6;
-		white-space: pre-line;
-	}
-
-	.guide-how-text {
-		font-size: 0.85rem;
-	}
-
-	.guide-tips {
-		margin-top: 10px;
-		padding: 8px 10px;
-		background: var(--color-surface-muted, #fffbeb);
-		border-radius: 8px;
-	}
-
-	.guide-tips-label {
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--color-text-primary, #92400e);
-	}
-
-	.guide-tip {
-		margin: 4px 0 0 !important;
-		font-size: 0.8rem !important;
-		color: var(--color-text-secondary, #78716c) !important;
-	}
-
-	.guide-links {
-		margin-top: 8px;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-	}
-
-	.guide-link {
-		font-size: 0.8rem;
-		color: var(--color-action-primary, #3b82f6);
-		text-decoration: none;
-	}
-
-	.guide-link:hover {
-		text-decoration: underline;
-	}
-
-	.guide-progress-bar {
-		height: 3px;
-		background: var(--color-surface-muted, #e2e8f0);
-		margin: 0 16px;
-	}
-
-	.guide-progress-fill {
-		height: 100%;
-		background: linear-gradient(90deg, var(--color-action-primary, #3b82f6), var(--color-brand-600, #7c3aed));
-		border-radius: 2px;
-		transition: width 0.3s ease;
-	}
-
-	.guide-nav {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 10px 14px 14px;
-		gap: 8px;
-	}
-
-	.guide-nav-right {
-		display: flex;
-		gap: 6px;
-	}
-
-	.guide-nav-btn {
-		padding: 7px 16px;
-		border-radius: 8px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		border: none;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.guide-nav-end {
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-muted, #64748b);
-	}
-
-	.guide-nav-end:hover {
-		background: var(--color-surface-hover, #e2e8f0);
-	}
-
-	.guide-nav-prev {
-		background: var(--color-surface-muted, #f1f5f9);
-		color: var(--color-text-secondary, #475569);
-	}
-
-	.guide-nav-prev:hover {
-		background: var(--color-surface-hover, #e2e8f0);
-	}
-
-	.guide-nav-next {
-		background: linear-gradient(135deg, var(--color-action-primary, #3b82f6), var(--color-brand-700, #2563eb));
-		color: white;
-	}
-
-	.guide-nav-next:hover {
-		filter: brightness(1.1);
-	}
-
-	.guide-nav-next:active {
-		transform: scale(0.97);
 	}
 </style>
