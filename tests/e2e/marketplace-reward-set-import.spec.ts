@@ -121,8 +121,10 @@ test.describe('#2136 MP-1: marketplace reward-set 一括追加', () => {
 		await expect(toggle).toBeVisible();
 		await toggle.click();
 
-		// reward-set 10 件分の form が描画される（kinder-rewards は確実に存在）
-		const kinderForm = page.getByTestId('marketplace-reward-form-kinder-rewards');
+		// reward-set 10 件分の preset card が描画される（kinder-rewards は確実に存在）
+		// #2391 (Phase 2): UnifiedImportHub 統合により testid 名規約が
+		// `marketplace-reward-form-{itemId}` → `marketplace-preset-import-{itemId}` に統一
+		const kinderForm = page.getByTestId('marketplace-preset-import-kinder-rewards');
 		await expect(kinderForm).toBeVisible({ timeout: 5000 });
 	});
 
