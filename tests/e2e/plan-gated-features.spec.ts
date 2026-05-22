@@ -58,69 +58,13 @@ test.describe('#776 /admin/rewards プランゲート — family', () => {
 // ============================================================
 // 兄弟チャレンジは family-only 機能。client-side `{#if !isFamily}` UI ゲートを
 // 直接 POST でバイパスできないよう、サーバー側でも family プラン厳密比較を実施。
-// `importMarketplaceChallengeSet` (UnifiedImportHub) と `importChallengeSet`
-// (query-param dialog) の両方の経路で 403 が返ることを確認する。
-
-test.describe('#2402 /admin/challenges 直接 POST バイパス防止 — free', () => {
-	test.use({ storageState: 'playwright/.auth/free.json' });
-
-	test('importMarketplaceChallengeSet を free プランで叩くと 403 で拒否される', async ({
-		request,
-	}) => {
-		const res = await request.post('/admin/challenges?/importMarketplaceChallengeSet', {
-			multipart: { presetId: 'japan-annual-events' },
-		});
-		// SvelteKit form action の fail() は HTTP 200 + JSON body 形式で返る。
-		// app crash (5xx) させず、family ゲート発火を確認する。
-		expect(res.status()).toBeLessThan(500);
-		const text = await res.text();
-		// `tier !== 'family'` ゲートが発火した証拠 (createPlanLimitError の最小プラン要求)
-		expect(text).toMatch(/family|ファミリー|きょうだいチャレンジ/);
-	});
-
-	test('importChallengeSet (query-param 経路) を free プランで叩いても 403 で拒否される', async ({
-		request,
-	}) => {
-		const res = await request.post('/admin/challenges?/importChallengeSet', {
-			multipart: { presetId: 'japan-annual-events' },
-		});
-		expect(res.status()).toBeLessThan(500);
-		const text = await res.text();
-		expect(text).toMatch(/family|ファミリー|きょうだいチャレンジ/);
-	});
-});
-
-test.describe('#2402 /admin/challenges 直接 POST バイパス防止 — standard', () => {
-	test.use({ storageState: 'playwright/.auth/standard.json' });
-
-	test('importMarketplaceChallengeSet を standard プランで叩いても 403 (family-only)', async ({
-		request,
-	}) => {
-		// standard は paid だが family 未満なので兄弟チャレンジは禁止。
-		// rewards (isPaidTier OK) と異なり challenges は family 厳密比較である点を検証。
-		const res = await request.post('/admin/challenges?/importMarketplaceChallengeSet', {
-			multipart: { presetId: 'japan-annual-events' },
-		});
-		expect(res.status()).toBeLessThan(500);
-		const text = await res.text();
-		expect(text).toMatch(/family|ファミリー|きょうだいチャレンジ/);
-	});
-});
-
-test.describe('#2402 /admin/challenges 直接 POST バイパス防止 — family', () => {
-	test.use({ storageState: 'playwright/.auth/family.json' });
-
-	test('family プランでは 403 にならない (成功 / 4xx 他の理由で fail 可)', async ({ request }) => {
-		// family なら family ゲートを通過。dispatchImport 内部で 200 / 4xx / 5xx 何かしらの結果。
-		// 重要なのは「family ゲートで弾かれない」ことの証明 (gate 文言不在を検証)。
-		const res = await request.post('/admin/challenges?/importMarketplaceChallengeSet', {
-			multipart: { presetId: 'japan-annual-events' },
-		});
-		// app crash しないことを確認 + family 文言で gate が発火していないことを確認
-		expect(res.status()).toBeLessThan(500);
-		const text = await res.text();
-		// family ゲート文言が含まれない (このゲートは通過した)
-		// "きょうだいチャレンジ" は gate メッセージ専用文言のため不在を確認
-		expect(text).not.toMatch(/きょうだいチャレンジ.*ファミリープラン/);
-	});
-});
+//
+// **検証層**: unit テスト (`tests/unit/routes/admin-challenges-marketplace-import-plan-gate.test.ts`)
+// で action handler を直接呼び出して検証する。
+//
+// E2E (`request.post`) で同等の検証を試みたところ、SvelteKit の CSRF 保護
+// (`Cross-site POST form submissions are forbidden`) が family ゲートに到達する前に
+// レスポンスを差し替えるため、E2E 層で gate メッセージを assert できない問題があった
+// (PR #2402 e2e-cognito-dev failure)。
+// unit テストで action handler を直接呼ぶことで CSRF を回避しつつ、ADR-0006 に従い
+// 403 family gate の assertion 強度は維持する (検証層を移動するだけで弱体化させない)。
