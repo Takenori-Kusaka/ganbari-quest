@@ -189,11 +189,15 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 					).toBeLessThanOrEqual(1280);
 				}
 
-				// 「次へ」または「完了」ボタンで進行
-				const nextBtn = bubble.locator('button:has-text("次へ"), button:has-text("完了")');
+				// 「次へ」「完了」ボタンで進行 (年齢帯別ラベル対応)
+				// preschool/baby (isYoungTier=true) = 「つぎへ」/「おしまい！」
+				// elementary/junior/senior = 「次へ」/「完了！」
+				// (UI_COMPONENTS_LABELS.tutorialBubbleNext / src/lib/domain/labels.ts)
+				const nextBtn = bubble.locator('.tutorial-nav-next');
 				await expect(nextBtn).toBeVisible();
 				const btnText = (await nextBtn.textContent()) ?? '';
-				const isLastStep = btnText.includes('完了');
+				// 最終ステップ判定: 漢字「完了」または ひらがな「おしまい」のいずれかを含む
+				const isLastStep = btnText.includes('完了') || btnText.includes('おしまい');
 
 				await nextBtn.click();
 
