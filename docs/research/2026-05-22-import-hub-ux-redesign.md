@@ -206,7 +206,7 @@
   - `AddActivityModeSelector.svelte` → **削除** (FAB = manual 直行 / template は overflow に分離)
   - `marketplace-import-section` (admin/checklists) の常時 Card → **削除**、overflow menu からの導線 1 本化
   - `showMarketplace` toggle (admin/rewards) → **削除**、同様に overflow 経由
-- **demo 側並行実装**: `src/routes/demo/(parent)/admin/` 配下も同期更新必須 (ADR-0047 + memory `demo_prod_ui_unification_blocker`)
+- **demo 並行実装は不要**: #2097 PR-B3 (2026-05-17) で旧 `demo/**` 配下が完全削除済み。現在の demo Lambda 環境は `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` env で本番ルートを直接 host する (ADR-0048 Multi-Lambda demo deployment)。本リファクタも本番ルートを変更すれば demo Lambda にも自動反映されるため、別途同期作業は発生しない。Demo / 本番 UI Contract SSOT (ADR-0047) は本番ルート側で satisfy される
 
 ---
 
@@ -224,11 +224,11 @@
 - `OVERFLOW_MENU_LABELS` 追加 (terms.ts + labels.ts): **S** (~15 行)
 - 5 admin route の section 統廃合 (activities / checklists / rewards / challenges + settings/rules empty 維持): **M** (~150 行 net 削減)
 - `marketplace/[type]/[itemId]` 詳細 CTA の遷移 link 追加: **S** (~20 行)
-- demo 側並行実装の同期 (ADR-0047): **M**
+- demo Lambda 同期: **不要** (#2097 PR-B3 / ADR-0048 で env-driven demo 化済み、本番ルート変更で自動反映)
 - E2E test (5 route × overflow menu open + template path): **M**
 - 設計書同期 (`docs/DESIGN.md §5` プリミティブ表 + `docs/design/06-UI設計書.md`): **S**
 
-**全体**: **M (推奨 1 PR、~400 行 net、5 SS)**。Pre-PMF Bucket B として正当性あり。
+**全体**: **S+M (推奨 1 PR、~350 行 net、5 SS)**。demo 並行実装が消えた分、見積を従来の M から 1 段下方修正。Pre-PMF Bucket B として正当性あり。
 
 **ADR 起票要否**: ❌ **不要**。本研究 docs を SSOT として参照する、または `docs/DESIGN.md §5` プリミティブ表に `OverflowMenu` を追加すれば充足。ADR は「機械強制できない判断原則」を残す枠 (10 件上限) なので、UI primitive 追加には使わない。
 
@@ -258,7 +258,7 @@
 
 ### Q3. AI 提案 panel の位置
 
-現状 `AiSuggestPanel` / `AiSuggestRewardPanel` / `AiSuggestChecklistPanel` はページ上部に常時 Card 表示。
+現状 `AiSuggestPanel` / `AiSuggestRewardPanel` / `AiSuggestChecklistPanel` はページ上部に常時 Card 表示 (実在 path: `src/lib/features/admin/components/AiSuggestPanel.svelte` / `AiSuggestRewardPanel.svelte` / `AiSuggestChecklistPanel.svelte` — `AiSuggestCheerPanel.svelte` も同 dir に存在するが本研究の対象 5 route には未配置)。
 
 | 選択肢 | 推奨度 |
 |---|---|
@@ -340,7 +340,7 @@
 4. **PR-4 (admin/rewards リファクタ)**: marketplace / preset toggle 削除 + overflow 化 + FAB 追加 — M
 5. **PR-5 (marketplace 詳細 CTA 統一)**: 4 type の CTA 文言 SSOT + 遷移 link 追加 — S
 6. **PR-6 (setup フロー empty 強推奨拡張)**: rewards / rules / challenges に「Recommended for you」適用 — M
-7. **PR-7 (demo 並行実装同期 + 設計書同期)**: ADR-0047 規約遵守 — M
+7. **PR-7 (設計書同期のみ)**: `docs/DESIGN.md §5` プリミティブ表 + `docs/design/06-UI設計書.md` 更新 — S (demo Lambda は #2097 PR-B3 / ADR-0048 により本番ルート変更で自動反映、別途同期 work item なし)
 
-各 PR は **screenshots/ branch で SS 必須** (memory: `feedback_screenshot_mandatory_rule`)。
+各 PR は **screenshots/ branch で SS 必須** (`docs/sessions/qa-session.md` の SS 必須ルール参照)。
 
