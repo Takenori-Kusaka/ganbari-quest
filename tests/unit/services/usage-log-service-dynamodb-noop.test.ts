@@ -158,13 +158,18 @@ describe('#2338 hotfix: usage-log-service no-op fallback (DATA_SOURCE=dynamodb /
 		});
 
 		it('getWeeklyUsageSummary は SQLite repo の結果を集計する', async () => {
+			// 直近 7 日範囲内 (今日) の date を使う — 固定日付は時間経過で範囲外になり flake する (#2402)
+			const today = new Date();
+			today.setUTCHours(10, 0, 0, 0);
+			const todayIso = today.toISOString();
+			const endIso = new Date(today.getTime() + 30 * 60 * 1000).toISOString();
 			vi.mocked(repo.findUsageLogsByChildAndDateRange).mockResolvedValue([
 				{
 					id: 1,
 					tenantId: TENANT,
 					childId: 901,
-					startedAt: '2026-05-15T10:00:00Z',
-					endedAt: '2026-05-15T10:30:00Z',
+					startedAt: todayIso,
+					endedAt: endIso,
 					durationSec: 1800, // 30 分
 				},
 			]);
