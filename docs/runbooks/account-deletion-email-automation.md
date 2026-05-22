@@ -68,13 +68,13 @@
    - payload を `Authorization: Bearer <CRON_SECRET>` 付きで `https://<function-url>/api/cron/deletion-warning-emails` に HTTP POST 変換
    - timeout 5min / memory 128MB / ARM64
 
-3. **SvelteKit cron endpoint** (新規追加): `src/routes/api/cron/deletion-warning-emails/+server.ts`
+3. **SvelteKit cron endpoint** (新規追加、Phase 1 で作成予定 — src/routes/api/cron/deletion-warning-emails/+server.ts):
    - `verifyCronAuth` で 401 ガード (既存パターン)
    - `findTenantsForDeletionWarning` を呼んで対象テナント抽出
    - 各 owner に対し `sendDeletionWarningEmail` を呼び出す
    - 結果を JSON で返却 (送信成功数 / 失敗数 / skipped 数)
 
-4. **新規 service**: `src/lib/server/services/deletion-warning-service.ts`
+4. **新規 service** (Phase 1 で作成予定 — src/lib/server/services/deletion-warning-service.ts):
    - `findTenantsForDeletionWarning(now)`: settings KV から `physical_deletion_date` が `now + 1 day .. now + 1 day + 24h` のテナントを抽出
    - `sendDeletionWarningEmail` を email-service.ts に追加
    - 送信成功時に `deletion_warning_sent_at` を settings に書く (idempotency)
@@ -107,7 +107,7 @@
 
 ### 4.1 Logger
 
-`src/lib/server/services/deletion-warning-service.ts` で以下を出力:
+Phase 1 で新規追加する deletion-warning-service.ts (Phase 1 #2426) で以下を出力:
 
 ```ts
 logger.info('[deletion-warning] sent', { tenantId, daysRemaining, emailHash });
@@ -135,8 +135,8 @@ Phase 1 (sub-Issue) PR がマージされたとき:
 
 1. `schedule-registry.ts` への `deletion-warning-emails` 追加
 2. `infra/lib/compute-stack.ts` CRON_JOBS 配列への追加 (EventBridge rule 自動生成)
-3. `src/routes/api/cron/deletion-warning-emails/+server.ts` 新規追加
-4. `src/lib/server/services/deletion-warning-service.ts` + `email-service.ts` の新 function 追加
+3. src/routes/api/cron/deletion-warning-emails/+server.ts 新規追加 (Phase 1)
+4. src/lib/server/services/deletion-warning-service.ts + `email-service.ts` の新 function 追加 (Phase 1)
 5. CDK deploy (GitHub Actions deploy.yml で自動)
 6. post-deploy smoke test (deploy.yml の dryRun invoke で env 注入確認)
 
@@ -169,7 +169,7 @@ aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region us-east-1 \
 
 ### 6.1 unit (Phase 1)
 
-- `tests/unit/services/deletion-warning-service.test.ts`:
+- tests/unit/services/deletion-warning-service.test.ts (Phase 1 で新規作成):
   - `findTenantsForDeletionWarning` の境界条件 (14 日前ピッタリ / 13 日前 / 15 日前)
   - idempotency: `deletion_warning_sent_at` 既存のテナントを skip
   - family / standard プランの giorni 計算分岐
@@ -178,7 +178,7 @@ aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region us-east-1 \
 
 ### 6.2 E2E (Phase 2)
 
-- `tests/e2e/account-deletion-warning-email.spec.ts`:
+- tests/e2e/account-deletion-warning-email.spec.ts (Phase 2 で新規作成):
   - mock SES で送信メール内容を assert
   - 削除予約 → cron 起動 → メール送信 → restore で sent 状態リセット
   - List-Unsubscribe ヘッダ存在検証 (RFC 8058)
