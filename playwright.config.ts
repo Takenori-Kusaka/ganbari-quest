@@ -98,7 +98,14 @@ export default defineConfig({
 			// #1192: tablet 固定のスクショ E2E は mobile では実行しない。
 			// Playwright は project 側 testIgnore が top-level を override するため、
 			// BASE_TEST_IGNORE を include した上で追加ファイルを足す必要がある。
-			testIgnore: [...BASE_TEST_IGNORE, '**/tutorial-dialog-primitive-screenshots.spec.ts'],
+			testIgnore: [
+				...BASE_TEST_IGNORE,
+				'**/tutorial-dialog-primitive-screenshots.spec.ts',
+				// #2393: 子供画面 tutorial spec は tablet 固定 (1280x800 で撮影 + dialog 検証)
+				'**/child-tutorial-dialog-screenshots.spec.ts',
+				'**/child-tutorial-double-dialog-regression.spec.ts',
+				'**/child-tutorial-verification.spec.ts',
+			],
 			use: {
 				...devices['Pixel 7'],
 			},
