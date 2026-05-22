@@ -7918,6 +7918,8 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	childRequiredHint: '※ 対象の子供を選んでから取り込みできます。',
 	// preset 内アイテム数と対象年齢の連結 separator
 	itemAgeSeparator: '・',
+	// 既に取込済みの preset に表示するバッジ (#2391 Phase 2/3)
+	importedBadge: '取込済み',
 	// type 選択時のヒント
 	typeHintActivityPack: 'プリセット活動を一括で追加します。',
 	typeHintRewardSet: 'ごほうびテンプレートを子供ごとに一括登録します。',

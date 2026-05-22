@@ -238,7 +238,7 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 											<span
 												class="imported-badge"
 												data-testid="marketplace-preset-imported-{preset.itemId}"
-											>取込済み</span>
+											>{UNIFIED_IMPORT_HUB_LABELS.importedBadge}</span>
 										{/if}
 									</p>
 									<p class="preset-sub">
