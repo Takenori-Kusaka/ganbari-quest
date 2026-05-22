@@ -379,4 +379,5 @@ export const actions: Actions = {
 // 既存 E2E spec (admin-checklists-import-marketplace / marketplace-checklist-import) が
 // `?/importMarketplace` を呼んでおり、テスト互換性のため両 action 名を生かす。
 // 実装は `importMarketplaceChecklist` と完全同一 (alias 再代入)。
-actions.importMarketplace = actions.importMarketplaceChecklist;
+// biome-ignore lint/style/noNonNullAssertion: actions.importMarketplaceChecklist は上記で定義済 (Actions 型の optional 推論を回避)
+actions.importMarketplace = actions.importMarketplaceChecklist!;
