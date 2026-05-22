@@ -63,10 +63,10 @@ GQ-XXXX-XXXX-XXXX-YYYYY
 
 | 形式 | 正規表現 | 説明 | 廃止時期 |
 |------|---------|------|---------|
-| LEGACY | `^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$` | HMAC 署名なし (旧実装) | #806 対応後に廃止 |
+| LEGACY | `^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$` | HMAC 署名なし (旧実装) | **#2398 計画策定済、Phase 3 で物理削除 (期限: 2026-12-31)** |
 | SIGNED | `^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}$` | HMAC-SHA256 付き (現行) | — |
 
-> 現状 `AWS_LICENSE_SECRET` が **optional** (#806 bug) のため、dev 環境では LEGACY で発行される場合がある。#806 解消後は SIGNED 必須。
+> #806 で `AWS_LICENSE_SECRET` は production 必須化済み、dev 環境では引き続き optional (`isLegacyFormatAllowed()` で dev/test は常に受入)。#2398 で **Phase 1 (warning + ops 集計) / Phase 2 (新規 legacy 発行禁止 + migration 案内) / Phase 3 (verify reject + legacy code 物理削除)** の 3 phase 移行計画を策定済。詳細: [docs/operations/license-hmac-migration-plan.md](../operations/license-hmac-migration-plan.md)。
 
 ### 2.3 実装リファレンス
 
