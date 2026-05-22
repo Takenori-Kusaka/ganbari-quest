@@ -52,15 +52,15 @@ $ grep -rln "biome-ignore.*complexity" src/ | sort -u | wc -l
 
 | # | ファイル | rule 種別 | 件数 | 影響範囲 | 難易度 | 優先度 | sub-Issue |
 |---|---------|----------|------|---------|-------|-------|----------|
-| 1 | `src/hooks.server.ts` | cognitive | 1 | HIGH (全 request) | 高 | **HIGH** | TBD |
-| 2 | `src/lib/server/auth/providers/cognito.ts` | cognitive | 1 | HIGH (auth) | 高 | **HIGH** | TBD |
-| 3 | `src/lib/domain/battle-engine.ts` | cognitive | 1 | HIGH (子供 UI core) | 中 | **HIGH** | TBD |
-| 4 | `src/routes/auth/signup/+page.server.ts` | cognitive | 1 | HIGH (登録 funnel) | 中 | **HIGH** | TBD |
-| 5 | `src/lib/server/demo/demo-service.ts` | cognitive | 1 | HIGH (LP demo) | 中 | **HIGH** | TBD |
-| 6 | `src/lib/server/security/magic-bytes.ts` | cognitive | 1 | HIGH (セキュリティ) | 中 | **HIGH** | TBD |
-| 7 | `src/lib/server/services/activity-log-service.ts` | cognitive | 1 | HIGH (記録 core) | 中 | **HIGH** | TBD |
-| 8 | `src/lib/server/services/daily-mission-service.ts` | cognitive | 1 | HIGH (ミッション) | 中 | **HIGH** | TBD |
-| 9 | `src/routes/(parent)/admin/+layout.server.ts` | cognitive | 1 | HIGH (admin core) | 中 | **HIGH** | TBD |
+| 1 | `src/hooks.server.ts` | cognitive | 1 | HIGH (全 request) | 高 | **HIGH** | #2417 |
+| 2 | `src/lib/server/auth/providers/cognito.ts` | cognitive | 1 | HIGH (auth) | 高 | **HIGH** | #2418 |
+| 3 | `src/lib/domain/battle-engine.ts` | cognitive | 1 | HIGH (子供 UI core) | 中 | **HIGH** | #2419 |
+| 4 | `src/routes/auth/signup/+page.server.ts` | cognitive | 1 | HIGH (登録 funnel) | 中 | **HIGH** | #2420 |
+| 5 | `src/lib/server/demo/demo-service.ts` | cognitive | 1 | HIGH (LP demo) | 中 | **HIGH** | #2421 |
+| 6 | `src/lib/server/security/magic-bytes.ts` | cognitive | 1 | HIGH (セキュリティ) | 中 | **HIGH** | #2422 |
+| 7 | `src/lib/server/services/activity-log-service.ts` | cognitive | 1 | HIGH (記録 core) | 中 | **HIGH** | #2423 |
+| 8 | `src/lib/server/services/daily-mission-service.ts` | cognitive | 1 | HIGH (ミッション) | 中 | **HIGH** | #2424 |
+| 9 | `src/routes/(parent)/admin/+layout.server.ts` | cognitive | 1 | HIGH (admin core) | 中 | **HIGH** | #2425 |
 | 10 | `src/lib/server/services/recommendation-service.ts` | cognitive | 1 | MID | 中 | MID | TBD |
 | 11 | `src/lib/server/services/sibling-ranking-service.ts` | cognitive | 1 | MID | 中 | MID | TBD |
 | 12 | `src/lib/server/services/ops-analytics-service.ts` | cognitive | 1 | MID (ops) | 中 | MID | TBD |
@@ -140,7 +140,7 @@ refactor
 | Phase | 件数 | 状態 |
 |-------|------|------|
 | Phase 1 (umbrella docs) | 1 | active (本 PR で完了) |
-| Phase 2 (HIGH sub-Issue 起票) | 9 | TBD |
+| Phase 2 (HIGH sub-Issue 起票) | 9 | DONE (#2417-#2425、本 PR で起票完了) |
 | Phase 3 (MID sub-Issue 起票) | 18 | TBD |
 | Phase 4 (LOW sub-Issue 起票) | 6 | TBD |
 | Phase 5 (refactor PR 順次 merge) | 33 | TBD |
