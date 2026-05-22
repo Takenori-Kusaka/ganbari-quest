@@ -31,7 +31,7 @@ import {
 	isPaidTier,
 	resolveFullPlanTier,
 } from '$lib/server/services/plan-limit-service';
-import type { Actions, PageServerLoad } from './$types';
+import type { Action, Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
@@ -93,89 +93,88 @@ export const load: PageServerLoad = async ({ locals }) => {
 // 両 action 名から参照させる。alias 後付け (`actions.importMarketplace = actions.importMarketplaceChecklist`)
 // は Actions 型 (optional プロパティ無し) と衝突して svelte-check error になるため、
 // handler 変数を括り出してから `Actions` リテラル内で 2 つの名前にバインドする。
-const importMarketplaceChecklistAction: import('./$types').Actions['importMarketplaceChecklist'] =
-	async ({ request, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
-		const presetId = String(formData.get('presetId') ?? '').trim();
+const importMarketplaceChecklistAction: Action = async ({ request, locals }) => {
+	const tenantId = requireTenantId(locals);
+	const formData = await request.formData();
+	const childId = Number(formData.get('childId'));
+	const presetId = String(formData.get('presetId') ?? '').trim();
 
-		if (!childId) return fail(400, { error: 'こどもを選択してください' });
-		if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
+	if (!childId) return fail(400, { error: 'こどもを選択してください' });
+	if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
 
-		// プラン制限 (Free プランのテンプレート数)
-		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
-		if (!limit.allowed) {
-			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-			return fail(403, {
-				error: createPlanLimitError(
-					tier,
-					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
-				),
-				upgradeRequired: true,
-			});
+	// プラン制限 (Free プランのテンプレート数)
+	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+	const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
+	if (!limit.allowed) {
+		const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+		return fail(403, {
+			error: createPlanLimitError(
+				tier,
+				'standard',
+				`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+			),
+			upgradeRequired: true,
+		});
+	}
+
+	// #2367: checklist は dispatchImport 経由 (EPIC #2362 P3)
+	// 旧 service の戻り shape (alreadyImported / existingTemplateName /
+	// importedItems / errors) を UI 不変のまま維持するため preview を別途呼ぶ。
+	const item = getMarketplaceItem('checklist', presetId);
+	if (!item) {
+		return fail(404, { error: 'プリセットが見つかりません' });
+	}
+	const payload = item.payload as ChecklistPayload;
+	try {
+		const descriptor = marketplaceRegistry.get('checklist');
+		const strategy = descriptor.strategy;
+		// biome-ignore lint/suspicious/noExplicitAny: Registry parametric type 解決のため
+		const parsedPayload = (strategy as any).parse(payload);
+		// biome-ignore lint/suspicious/noExplicitAny: 同上
+		const preview = await (strategy as any).preview(parsedPayload, {
+			tenantId,
+			presetId,
+			childId,
+		});
+		// #2391: 全件重複時も Hub 互換 shape で返却
+		if (preview.duplicates === preview.total && preview.total > 0) {
+			return {
+				packName: item.name,
+				imported: 0,
+				skipped: preview.total,
+				total: preview.total,
+				errors: [] as string[],
+				presetId,
+			};
 		}
 
-		// #2367: checklist は dispatchImport 経由 (EPIC #2362 P3)
-		// 旧 service の戻り shape (alreadyImported / existingTemplateName /
-		// importedItems / errors) を UI 不変のまま維持するため preview を別途呼ぶ。
-		const item = getMarketplaceItem('checklist', presetId);
-		if (!item) {
-			return fail(404, { error: 'プリセットが見つかりません' });
-		}
-		const payload = item.payload as ChecklistPayload;
-		try {
-			const descriptor = marketplaceRegistry.get('checklist');
-			const strategy = descriptor.strategy;
-			// biome-ignore lint/suspicious/noExplicitAny: Registry parametric type 解決のため
-			const parsedPayload = (strategy as any).parse(payload);
-			// biome-ignore lint/suspicious/noExplicitAny: 同上
-			const preview = await (strategy as any).preview(parsedPayload, {
+		const result = await dispatchImport({
+			typeCode: 'checklist',
+			rawPayload: payload,
+			displayName: item.name,
+			ctx: {
 				tenantId,
 				presetId,
 				childId,
-			});
-			// #2391: 全件重複時も Hub 互換 shape で返却
-			if (preview.duplicates === preview.total && preview.total > 0) {
-				return {
-					packName: item.name,
-					imported: 0,
-					skipped: preview.total,
-					total: preview.total,
-					errors: [] as string[],
-					presetId,
-				};
-			}
-
-			const result = await dispatchImport({
-				typeCode: 'checklist',
-				rawPayload: payload,
-				displayName: item.name,
-				ctx: {
-					tenantId,
-					presetId,
-					childId,
-				},
-			});
-			// #2391: UnifiedImportHub 互換 top-level shape
-			return {
-				packName: result.packName,
-				imported: result.imported,
-				skipped: result.skipped,
-				total: result.total,
-				errors: result.errors,
-				presetId,
-			};
-		} catch (e) {
-			logger.error('[admin/checklists] マーケットプレイスインポート失敗', {
-				error: e instanceof Error ? e.message : String(e),
-				context: { presetId, childId },
-			});
-			return fail(500, { error: 'インポートに失敗しました' });
-		}
-	};
+			},
+		});
+		// #2391: UnifiedImportHub 互換 top-level shape
+		return {
+			packName: result.packName,
+			imported: result.imported,
+			skipped: result.skipped,
+			total: result.total,
+			errors: result.errors,
+			presetId,
+		};
+	} catch (e) {
+		logger.error('[admin/checklists] マーケットプレイスインポート失敗', {
+			error: e instanceof Error ? e.message : String(e),
+			context: { presetId, childId },
+		});
+		return fail(500, { error: 'インポートに失敗しました' });
+	}
+};
 
 export const actions: Actions = {
 	createTemplate: async ({ request, locals }) => {

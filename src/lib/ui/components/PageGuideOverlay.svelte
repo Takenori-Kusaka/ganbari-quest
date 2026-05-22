@@ -115,18 +115,18 @@ const bubbleStyle = $derived.by(() => {
 <svelte:window onkeydown={handleKeydown} />
 
 {#if active && step && targetRect}
+	<!-- #2375 AC-V2-7: a11y 強化 — role="dialog" + aria-modal + aria-labelledby + tabindex="-1"
+	     #2371 で focus trap 実装後、tabindex 0 に昇格予定。tabindex="-1" は modal dialog 標準パターン
+	     (focusable but not in tab sequence)。-->
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- svelte-ignore a11y_interactive_supports_focus -->
-	<!-- #2375 AC-V2-7: a11y 強化 — role="dialog" + aria-modal + aria-labelledby (focus trap は #2371 待ち)
-	     #2391: a11y_interactive_supports_focus も svelte-ignore で抑止 (tabindex は focus trap 実装と
-	     セットで追加するため #2371 完遂までは pending) -->
 	<div
 		class="guide-overlay"
 		onclick={handleOverlayClick}
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="page-guide-title"
+		tabindex="-1"
 	>
 		<!-- Dark overlay with spotlight cutout -->
 		<svg class="guide-overlay-svg" xmlns="http://www.w3.org/2000/svg">
