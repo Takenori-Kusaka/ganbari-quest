@@ -180,6 +180,15 @@ soft delete されたテナントは以下の状態になる:
 
 soft-delete 中（grace 期間内）の各削除対象は **すべて保持**（チェックなし）。grace 期限切れで cron が物理削除を実行したタイミングで §2 の Pattern 1 / 2b と同じ範囲が削除される。
 
+### 4.7 削除予告メール自動化（#2399、Phase 1 計画中）
+
+soft delete 状態のテナントに対し、物理削除実行の **14 日前 (family プラン) / 1 日前 (standard プラン)** に所有者へ予告メールを送信する cron 機構の計画策定済。実装は別 PR (sub-Issue) で行う。
+
+- **計画 / 設計 SSOT**: [`docs/runbooks/account-deletion-email-automation.md`](../runbooks/account-deletion-email-automation.md) (#2399 本 Issue で策定)
+- **使用基盤**: 既存 EventBridge + cron-dispatcher Lambda + SES Configuration Set (新規 Lambda function 追加なし)
+- **idempotency**: `settings.deletion_warning_sent_at` で 1 テナント 1 送信を保証
+- **法務通知扱い**: `marketing-email-counter` (年 6 回上限、ADR-0023 §5 I11) には乗せない
+
 ---
 
 ## 5. 確認 UX
@@ -254,3 +263,4 @@ soft-delete 中（grace 期間内）の各削除対象は **すべて保持**（
 |------|------|------|
 | 2026-04-11 | 1.0 | #746 初版作成（実装状態を反映） |
 | 2026-05-01 | 1.1 | #1781 グレースピリオド配線完了反映: §4 を「未実装」→「実装済」に書き換え、`softDeleteTenant` を `+server.ts` の `owner-only` / `owner-full-delete` パターンに配線、復元 API / cron 物理削除フローを追記 |
+| 2026-05-22 | 1.2 | #2399 削除予告メール自動化の計画策定: §4.7 追加 (実装は別 PR sub-Issue)、docs/runbooks/account-deletion-email-automation.md へリンク |
