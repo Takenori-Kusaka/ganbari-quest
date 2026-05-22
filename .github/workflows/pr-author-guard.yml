@@ -40,6 +40,10 @@ name: PR Author Guard
 #     を併設することで、規律ベースの事前防止 + server side 事後 close の二段構えとする
 #   - merged 済の違反 PR (#1875 / #1982) は対象外 (本 gate は新規 open に発火、merged は
 #     ADR-0022 が事後監査許容)
+#   - Dependabot / Renovate 等 bot PR は #1808 で確立した exempt パターンに従い skip。
+#     bot は ADR-0022 の役割分離 (Takenori-Kusaka が作成 / ganbariquestsupport-lab が approve)
+#     対象外であり、自動依存更新の機能性を維持する。job-level `if:` で機械強制
+#     (`pr-template-gate.yml` line 40 と同パターン、#2430 で exempt 抜け修復)
 
 on:
   pull_request_target:
@@ -55,6 +59,9 @@ jobs:
     name: PR 起票アカウント検証
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    # Dependabot / Renovate 等 bot PR は #1808 exempt 同等で skip (#2430)。
+    # bot は ADR-0022 の役割分離対象外、`pr-template-gate.yml` line 40 と同パターン。
+    if: github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'
     steps:
       - name: Verify PR author
         uses: actions/github-script@v9
