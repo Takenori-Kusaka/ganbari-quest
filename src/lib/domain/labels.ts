@@ -2664,9 +2664,9 @@ export const DEMO_SIGNUP_LABELS = {
 	pricingHeading: '料金プラン',
 	pricingFreeLabel: 'フリー',
 	pricingFreePrice: '（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。',
-	pricingStandardLabel: 'スタンダード',
+	pricingStandardLabel: `${PLAN_TERMS.standard}`,
 	pricingStandardPrice: '（月額¥500〜）と',
-	pricingFamilyLabel: 'ファミリー',
+	pricingFamilyLabel: `${PLAN_TERMS.family}`,
 	pricingFamilyPrice: '（月額¥780〜）。',
 	pricingTrialNote: 'スタンダード・ファミリープランはすべて7日間の無料トライアル付き',
 	pricingDetailsLink: 'プランの詳細を料金ページで見る →',
@@ -2841,8 +2841,8 @@ export const LOGIN_LABELS = {
 export const MEMBERS_LABELS = {
 	// Role labels
 	roleOwner: 'オーナー',
-	roleParent: '保護者',
-	roleChild: 'こども',
+	roleParent: `${PARENT_TERMS.honorific}`,
+	roleChild: `${CHILD_TERMS.hiragana}`,
 
 	// Current members section
 	currentMembersTitle: '現在のメンバー',
@@ -2891,7 +2891,7 @@ export const MEMBERS_LABELS = {
 	viewerLabelField: 'ラベル（任意）',
 	viewerLabelPlaceholder: '例: おばあちゃん用',
 	viewerDurationLabel: '有効期限',
-	viewerDuration7d: '7日間',
+	viewerDuration7d: `${TRIAL_TERMS.duration}`,
 	viewerDuration30d: '30日間',
 	viewerDurationUnlimited: '無期限',
 	viewerCreateLoading: '作成中...',
@@ -3794,9 +3794,9 @@ export const DEMO_CHILD_HOME_LABELS = {
 export const DEMO_ADMIN_HOME_LABELS = {
 	planSwitcherAriaLabel: 'デモ用プラン切替',
 	planSwitcherLabel: 'デモ: プランを切り替えて体験',
-	freePlanButton: '無料プラン',
-	standardPlanButton: '⭐ スタンダード',
-	familyPlanButton: '⭐⭐ ファミリー',
+	freePlanButton: `${PLAN_FULL_TERMS.free}`,
+	standardPlanButton: `⭐ ${PLAN_TERMS.standard}`,
+	familyPlanButton: `⭐⭐ ${PLAN_TERMS.family}`,
 	statsActivityLabel: 'カスタム活動',
 	statsChildLabel: 'こども',
 	statsRetentionLabel: 'データ保持',
@@ -3908,7 +3908,7 @@ export const ADMIN_HOME_LABELS = {
 	tutorialBannerHint: 'チュートリアルで使い方を確認しましょう（約3分）',
 	tutorialStartButton: '開始',
 	tutorialLaterButton: 'あとで',
-	freePlanQuickName: '無料プラン',
+	freePlanQuickName: `${PLAN_FULL_TERMS.free}`,
 	freePlanQuickHint: 'もっと便利に使いませんか？',
 	freePlanQuickAction: '⭐ アップグレード →',
 	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
@@ -5528,8 +5528,8 @@ export const UI_COMPONENTS_LABELS = {
 
 	// ---- FeatureGate ----
 	featureGateFree: '無料',
-	featureGateStandard: 'スタンダード',
-	featureGateFamily: 'ファミリー',
+	featureGateStandard: `${PLAN_TERMS.standard}`,
+	featureGateFamily: `${PLAN_TERMS.family}`,
 	featureGateLockTitle: (plan: string) => `${plan}プラン以上で利用可能`,
 	featureGateLockText: (plan: string) => `${plan}プラン以上で利用可能`,
 	featureGateUpgrade: 'アップグレード',
@@ -6002,7 +6002,7 @@ export const FEATURES_LABELS = {
 
 	// ---- features/admin/components/PlanStatusCard ----
 	planStatusCard: {
-		freePlan: '無料プラン',
+		freePlan: `${PLAN_FULL_TERMS.free}`,
 		standardPlan: 'スタンダード プラン',
 		familyPlan: 'ファミリー プラン',
 		unlimited: '無制限',
@@ -6959,8 +6959,8 @@ export const STORYBOOK_LABELS = {
 		errorRequired: '選択してください',
 		labelPlan: 'プラン',
 		optionPlanFree: 'フリープラン',
-		optionPlanStandard: 'スタンダードプラン',
-		optionPlanFamily: 'ファミリープラン (準備中)',
+		optionPlanStandard: `${PLAN_FULL_TERMS.standard}`,
+		optionPlanFamily: `${PLAN_FULL_TERMS.family} (準備中)`,
 		optionThemeForest: 'もりのテーマ',
 		optionThemeOcean: 'うみのテーマ',
 		optionThemeSpace: 'うちゅうのテーマ',
