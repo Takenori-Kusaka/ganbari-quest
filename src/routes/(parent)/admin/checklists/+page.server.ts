@@ -88,6 +88,95 @@ export const load: PageServerLoad = async ({ locals }) => {
 	};
 };
 
+// #2391 (Phase 2): UnifiedImportHub 規約 (`?/importMarketplace<TypeCode>`) に合わせ
+// `importMarketplaceChecklist` を実装。後方互換のため旧 `?/importMarketplace` も同一 handler を
+// 両 action 名から参照させる。alias 後付け (`actions.importMarketplace = actions.importMarketplaceChecklist`)
+// は Actions 型 (optional プロパティ無し) と衝突して svelte-check error になるため、
+// handler 変数を括り出してから `Actions` リテラル内で 2 つの名前にバインドする。
+const importMarketplaceChecklistAction: import('./$types').Actions['importMarketplaceChecklist'] =
+	async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const presetId = String(formData.get('presetId') ?? '').trim();
+
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+		if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
+
+		// プラン制限 (Free プランのテンプレート数)
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
+		if (!limit.allowed) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				),
+				upgradeRequired: true,
+			});
+		}
+
+		// #2367: checklist は dispatchImport 経由 (EPIC #2362 P3)
+		// 旧 service の戻り shape (alreadyImported / existingTemplateName /
+		// importedItems / errors) を UI 不変のまま維持するため preview を別途呼ぶ。
+		const item = getMarketplaceItem('checklist', presetId);
+		if (!item) {
+			return fail(404, { error: 'プリセットが見つかりません' });
+		}
+		const payload = item.payload as ChecklistPayload;
+		try {
+			const descriptor = marketplaceRegistry.get('checklist');
+			const strategy = descriptor.strategy;
+			// biome-ignore lint/suspicious/noExplicitAny: Registry parametric type 解決のため
+			const parsedPayload = (strategy as any).parse(payload);
+			// biome-ignore lint/suspicious/noExplicitAny: 同上
+			const preview = await (strategy as any).preview(parsedPayload, {
+				tenantId,
+				presetId,
+				childId,
+			});
+			// #2391: 全件重複時も Hub 互換 shape で返却
+			if (preview.duplicates === preview.total && preview.total > 0) {
+				return {
+					packName: item.name,
+					imported: 0,
+					skipped: preview.total,
+					total: preview.total,
+					errors: [] as string[],
+					presetId,
+				};
+			}
+
+			const result = await dispatchImport({
+				typeCode: 'checklist',
+				rawPayload: payload,
+				displayName: item.name,
+				ctx: {
+					tenantId,
+					presetId,
+					childId,
+				},
+			});
+			// #2391: UnifiedImportHub 互換 top-level shape
+			return {
+				packName: result.packName,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: result.total,
+				errors: result.errors,
+				presetId,
+			};
+		} catch (e) {
+			logger.error('[admin/checklists] マーケットプレイスインポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { presetId, childId },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	};
+
 export const actions: Actions = {
 	createTemplate: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
@@ -288,96 +377,10 @@ export const actions: Actions = {
 
 	// #2137 (MP-2): マーケットプレイス event-checklist の一括追加
 	// #2391 (Phase 2): UnifiedImportHub 規約 (`?/importMarketplace<TypeCode>`) に合わせ
-	// `importMarketplaceChecklist` を実装。後方互換のため旧 `?/importMarketplace` も alias 提供。
-	// admin/checklists 画面の UnifiedImportHub セクションから POST される。
-	// 同一 (childId × presetId) で取込済なら imported=0/skipped=total で Hub 互換返却。
-	importMarketplaceChecklist: async ({ request, locals }) => {
-		const tenantId = requireTenantId(locals);
-		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
-		const presetId = String(formData.get('presetId') ?? '').trim();
-
-		if (!childId) return fail(400, { error: 'こどもを選択してください' });
-		if (!presetId) return fail(400, { error: 'プリセットIDが必要です' });
-
-		// プラン制限 (Free プランのテンプレート数)
-		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
-		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, childId);
-		if (!limit.allowed) {
-			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
-			return fail(403, {
-				error: createPlanLimitError(
-					tier,
-					'standard',
-					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
-				),
-				upgradeRequired: true,
-			});
-		}
-
-		// #2367: checklist は dispatchImport 経由 (EPIC #2362 P3)
-		// 旧 service の戻り shape (alreadyImported / existingTemplateName /
-		// importedItems / errors) を UI 不変のまま維持するため preview を別途呼ぶ。
-		const item = getMarketplaceItem('checklist', presetId);
-		if (!item) {
-			return fail(404, { error: 'プリセットが見つかりません' });
-		}
-		const payload = item.payload as ChecklistPayload;
-		try {
-			const descriptor = marketplaceRegistry.get('checklist');
-			const strategy = descriptor.strategy;
-			// biome-ignore lint/suspicious/noExplicitAny: Registry parametric type 解決のため
-			const parsedPayload = (strategy as any).parse(payload);
-			// biome-ignore lint/suspicious/noExplicitAny: 同上
-			const preview = await (strategy as any).preview(parsedPayload, {
-				tenantId,
-				presetId,
-				childId,
-			});
-			// #2391: 全件重複時も Hub 互換 shape で返却
-			if (preview.duplicates === preview.total && preview.total > 0) {
-				return {
-					packName: item.name,
-					imported: 0,
-					skipped: preview.total,
-					total: preview.total,
-					errors: [] as string[],
-					presetId,
-				};
-			}
-
-			const result = await dispatchImport({
-				typeCode: 'checklist',
-				rawPayload: payload,
-				displayName: item.name,
-				ctx: {
-					tenantId,
-					presetId,
-					childId,
-				},
-			});
-			// #2391: UnifiedImportHub 互換 top-level shape
-			return {
-				packName: result.packName,
-				imported: result.imported,
-				skipped: result.skipped,
-				total: result.total,
-				errors: result.errors,
-				presetId,
-			};
-		} catch (e) {
-			logger.error('[admin/checklists] マーケットプレイスインポート失敗', {
-				error: e instanceof Error ? e.message : String(e),
-				context: { presetId, childId },
-			});
-			return fail(500, { error: 'インポートに失敗しました' });
-		}
-	},
+	// `importMarketplaceChecklist` を実装。後方互換のため旧 `?/importMarketplace` も
+	// 同一 handler (`importMarketplaceChecklistAction`) を両 action 名から参照させる。
+	// 既存 E2E spec (admin-checklists-import-marketplace / marketplace-checklist-import) が
+	// `?/importMarketplace` を呼ぶ互換性をテンポラリに維持するため、両エントリを用意。
+	importMarketplaceChecklist: importMarketplaceChecklistAction,
+	importMarketplace: importMarketplaceChecklistAction,
 };
-
-// #2391 (Phase 2): 旧 action 名 `?/importMarketplace` の後方互換 alias。
-// 既存 E2E spec (admin-checklists-import-marketplace / marketplace-checklist-import) が
-// `?/importMarketplace` を呼んでおり、テスト互換性のため両 action 名を生かす。
-// 実装は `importMarketplaceChecklist` と完全同一 (alias 再代入)。
-// biome-ignore lint/style/noNonNullAssertion: actions.importMarketplaceChecklist は上記で定義済 (Actions 型の optional 推論を回避)
-actions.importMarketplace = actions.importMarketplaceChecklist!;

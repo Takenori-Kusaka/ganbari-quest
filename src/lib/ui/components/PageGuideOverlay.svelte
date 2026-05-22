@@ -117,7 +117,10 @@ const bubbleStyle = $derived.by(() => {
 {#if active && step && targetRect}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- #2375 AC-V2-7: a11y 強化 — role="dialog" + aria-modal + aria-labelledby (focus trap は #2371 待ち) -->
+	<!-- svelte-ignore a11y_interactive_supports_focus -->
+	<!-- #2375 AC-V2-7: a11y 強化 — role="dialog" + aria-modal + aria-labelledby (focus trap は #2371 待ち)
+	     #2391: a11y_interactive_supports_focus も svelte-ignore で抑止 (tabindex は focus trap 実装と
+	     セットで追加するため #2371 完遂までは pending) -->
 	<div
 		class="guide-overlay"
 		onclick={handleOverlayClick}

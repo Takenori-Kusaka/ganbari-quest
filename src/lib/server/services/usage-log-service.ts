@@ -188,6 +188,8 @@ export async function getWeeklyUsageSummary(
 
 		for (const log of logs) {
 			const date = log.startedAt.slice(0, 10);
+			// 直近 7 日のキーのみ集計 (範囲外日付は無視、#2391 PR-2402 flaky 修正)
+			if (!dailyMap.has(date)) continue;
 			const existing = dailyMap.get(date) ?? 0;
 			dailyMap.set(date, existing + (log.durationSec ?? 0));
 		}
