@@ -61,7 +61,7 @@ family-wide でかつ進捗が child 単位な type (challenge-set) は **master
 
 - import 完了直後トーストに「○○管理を開く」secondary CTA を入れ、admin/{type} 画面の対象 row に scroll + highlight して visibility 設定を促す
 - visibility 設定は admin/{type} edit modal 内で完結 (authenticated session 必須)
-- demo route (`src/routes/demo/(parent)/admin/`) も同型同期 (ADR-0047 demo-prod UI 等価性)
+- 本番ルートを `AUTH_MODE=anonymous` + `DATA_SOURCE=demo` で起動する demo Lambda (ADR-0048 / #2097 PR-B3) でも同型動作するよう、fixture (`src/lib/server/demo/demo-data.ts`) と本番 service を同じ Repository 経由に統合する
 
 ### 2.5 import service / strategy との連携 (ADR-0052)
 
@@ -179,8 +179,8 @@ family-wide でかつ進捗が child 単位な type (challenge-set) は **master
 - `src/lib/server/db/schema.ts` (master + preferences の SQLite 定義)
 - `src/lib/server/db/dynamodb/*-repo.ts` (DynamoDB 側 master / preferences repository、ADR-0031 同型)
 - `src/lib/server/services/<resource>-*.ts` (service 層の import / visibility 更新ロジック)
-- `src/routes/admin/<type>/+page.svelte` (admin 画面の chip UI)
-- `src/routes/demo/(parent)/admin/<type>/+page.svelte` (demo 同型 UI、ADR-0047)
+- 本番 admin ルート配下 (各 type の `+page.svelte`、admin 画面の chip UI)
+- demo Lambda 配信時の fixture (`src/lib/server/demo/demo-data.ts`、ADR-0048)
 - `tests/e2e/global-setup.ts` / `tests/unit/helpers/test-db.ts` / `src/lib/server/demo/demo-data.ts` (fixture)
 - `docs/design/parallel-implementations.md` (本原則を追加)
 - `docs/design/08-データベース設計書.md` (schema 定義)
