@@ -18,7 +18,7 @@
 ライセンスキー HMAC 署名 (#797 / #806 / #812) を **optional → 必須化**するための **3 phase 段階移行計画**。
 本書は計画策定 SSOT であり、実装は配下 sub-Issue 3 件 (Phase 1 / 2 / 3) で段階的に行う。
 
-> **本 PR (#2398) は計画策定のみ。実 code 変更は sub-Issue 3 件で別 PR とする。**
+> **本 PR (Issue #2398 対応) は計画策定のみ。実 code 変更は sub-Issue 3 件で別 PR とする。**
 
 ---
 
@@ -67,29 +67,27 @@ DB ストレージ別の集計 query:
 
 ```bash
 # Lambda 経由で集計 (PartiQL)
+# テーブル名は env 駆動 (process.env.DYNAMODB_TABLE / TABLE_NAME、default 'ganbari-quest'
+# — `src/lib/server/db/dynamodb/client.ts:8` 参照)。production / staging で異なるため、
+# 実行環境の env 値を $DDB_TABLE に注入して呼ぶ。
+DDB_TABLE="${DYNAMODB_TABLE:-${TABLE_NAME:-ganbari-quest}}"
 aws dynamodb execute-statement \
-  --statement "SELECT count(*) FROM \"ganbari-quest-table\" WHERE begins_with(\"PK\", 'LICENSEKEY#') AND size(\"licenseKey\") < 22"
+  --statement "SELECT count(*) FROM \"${DDB_TABLE}\" WHERE begins_with(\"PK\", 'LICENSE#') AND size(\"licenseKey\") < 22"
 ```
 
+PK プレフィックスは `LICENSE#`（`src/lib/server/db/dynamodb/auth-keys.ts:50-52` SSOT、`licenseKey()` 関数）。
 または Lambda の ops endpoint (`/ops/license/legacy-count`) を Phase 1 で追加する案も検討
 (ops 専用、`ops_users` group 認証必須)。
 
-#### SQLite (NUC ローカル)
+#### SQLite (NUC ローカル / local mode)
 
-```sql
--- license_keys テーブル直接 query
-SELECT COUNT(*) AS legacy_count
-FROM license_keys
-WHERE LENGTH(license_key) < 22;  -- SIGNED 形式は 22 文字
-```
-
-または:
-
-```sql
-SELECT COUNT(*) AS legacy_count
-FROM license_keys
-WHERE license_key NOT LIKE 'GQ-%-%-%-%';  -- 4 セグメント = SIGNED
-```
+> **※ NUC (SQLite mode) は license key 永続化対象外のため本集計は SaaS / DynamoDB only**
+>
+> `DATA_SOURCE=sqlite` の `IAuthRepo` 実装 (`src/lib/server/db/sqlite/auth-repo.ts:106-128`) では
+> `saveLicenseKey` / `findLicenseKey` / `listLicenseKeysByTenant` / `countLicenseKeys` 等が
+> 全て **no-op または空配列返却** として実装されており、license key は永続化されない。
+> 従って NUC local mode 下では legacy key 残存数は構造的に 0 件であり、本 §2 の集計対象から除外する。
+> Phase 1 / 2 / 3 の AC で参照される「legacy 残存数」は全て **SaaS (DynamoDB) backend のみ** を指す。
 
 ### 2.2 集計結果記録ルール
 
@@ -131,17 +129,17 @@ WHERE license_key NOT LIKE 'GQ-%-%-%-%';  -- 4 セグメント = SIGNED
 
 - `validateLicenseKey()` の legacy 形式分岐 (`if (isLegacy && getLicenseSecret())`) の log を
   `logger.info` → `logger.warn` に格上げ、Discord incident channel へ alert (rate-limit 1h/key suffix)
-- ops 集計 endpoint `/api/v1/ops/license/legacy-count` 追加 (`ops_users` 認証必須)
+- ops 集計 endpoint `/ops/license/legacy-count` 追加 (`ops_users` 認証必須、既存 `/ops/*` ルート規約に整合 — `src/routes/ops/` 配下)
   - response: `{ "legacyCount": <number>, "queriedAt": <ISO8601> }`
-  - DynamoDB / SQLite 両 backend 対応
+  - DynamoDB backend のみ対応 (NUC SQLite は §2.1 注記により集計対象外)
 - `docs/operations/license-hmac-migration-plan.md` §6 に集計結果記録
 - E2E: ops 認証 + endpoint 200 / 非 ops 403 を verify
 
 **AC**:
-- [ ] `/api/v1/ops/license/legacy-count` 実装 + ops 認証 gate
+- [ ] `/ops/license/legacy-count` 実装 + ops 認証 gate
 - [ ] legacy key 検証時の Discord alert 1 件発火 E2E
 - [ ] 既存 unit / E2E 全 PASS (legacy 受入 path は維持)
-- [ ] 設計書 §3 (本書) に集計結果記録
+- [ ] 設計書 §6 (本書「実績ログ」) に集計結果記録
 
 **期間**: 1 sprint (1 週間)
 
@@ -244,7 +242,7 @@ Phase 進捗・残存数集計をここに記録する。
 | 2026-05-22 | 計画策定 | sub-Issue #2403 / #2404 / #2405 起票完了 | #2398 PR |
 | (Phase 1 完了時) | Phase 1 | legacy_count = ? | #2403 |
 | (Phase 2 完了時) | Phase 2 | migration email 送信 N 件 / migrated N 件 | #2404 |
-| (Phase 3 完了時) | Phase 3 | legacy code 削除完了 / SIGNED 一律 reject 適用 | #2405 |
+| (Phase 3 完了時) | Phase 3 | legacy code 削除完了 / LEGACY 一律 reject 適用 | #2405 |
 
 ---
 
