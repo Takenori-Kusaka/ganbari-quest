@@ -41,7 +41,7 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
 .page{
   width:210mm;
   min-height:297mm;
-  margin:20px auto;
+  margin:var(--lp-pamphlet-control-margin-y) auto;
   background:#fff;
   box-shadow:0 4px 24px rgba(0,0,0,.12);
   overflow:hidden;
@@ -49,10 +49,10 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
 }
 .page-break{page-break-after:always;break-after:page}
 
-/* === Screen Controls === */
+/* === Screen Controls (#2395 Phase 3: ADR-0042 Semantic トークン化、印刷用 mm 単位は対象外) === */
 .screen-controls{
   text-align:center;
-  padding:20px;
+  padding:var(--lp-pamphlet-screen-controls-padding);
   background:var(--gray-900);
   color:#fff;
   font-size:.9rem;
@@ -61,16 +61,16 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
   background:linear-gradient(135deg,var(--brand-500),var(--brand-700));
   color:#fff;
   border:none;
-  padding:12px 32px;
+  padding:var(--lp-pamphlet-screen-controls-btn-padding-y) var(--lp-pamphlet-screen-controls-btn-padding-x);
   border-radius:2rem;
   font-size:1rem;
   font-weight:600;
   cursor:pointer;
   font-family:inherit;
-  margin:0 8px;
+  margin:0 var(--lp-pamphlet-page-num-margin-x);
 }
 .screen-controls button:hover{opacity:.9}
-.screen-controls p{margin-top:8px;color:#94a3b8;font-size:.8rem}
+.screen-controls p{margin-top:var(--lp-pamphlet-screen-controls-p-mt);color:#94a3b8;font-size:.8rem}
 
 /* =============================================
    FRONT PAGE (omote)
@@ -186,7 +186,7 @@ body{font-family:'Hiragino Sans','Hiragino Kaku Gothic ProN','Noto Sans JP',syst
 .feature-item .fi-icon{font-size:1.6rem;margin-bottom:1.5mm}
 .feature-item h3{font-size:.82rem;font-weight:700;color:var(--gray-900);margin-bottom:1mm}
 .feature-item p{font-size:.68rem;color:var(--gray-500);line-height:1.5}
-.fi-layer-badge{display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:3px;padding:1px 4px;letter-spacing:.04em;vertical-align:middle;margin-right:2px}
+.fi-layer-badge{display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;background:var(--brand-700);color:#fff;border-radius:3px;padding:var(--lp-pamphlet-fi-layer-badge-padding-y) var(--lp-pamphlet-fi-layer-badge-padding-x);letter-spacing:.04em;vertical-align:middle;margin-right:var(--lp-pamphlet-fi-layer-badge-mr)}
 
 /* -- Front: Age Modes -- */
 .front-ages{

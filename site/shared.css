@@ -157,6 +157,108 @@
 	--lp-pattern-card-padding: var(--space-6); /* 24px */
 	--lp-comparison-section-padding-x: var(--space-4); /* 16px */
 	--lp-comparison-section-padding-bottom: var(--space-16); /* 64px */
+	/* #2395 Phase 3: faq.html / graduation.html / selfhost.html / pamphlet.html 共通 hero / CTA / section spacing。
+	   ADR-0042 Phase 1/2 と同パターンで 4 HTML に Semantic トークン化を波及させる。 */
+	/* content (faq / graduation / selfhost) 共通 hero */
+	--lp-content-hero-padding-y-top: var(--space-16); /* 64px (faq / graduation の hero 上 padding) */
+	--lp-content-hero-padding-y-bottom: var(--space-12); /* 48px (faq / graduation の hero 下 padding) */
+	--lp-content-hero-padding-y-top-sm: var(--space-12); /* 48px @≤640px */
+	--lp-content-hero-padding-y-bottom-sm: var(--space-9); /* 36px @≤640px */
+	--lp-content-hero-padding-x: var(--space-4); /* 16px */
+	--lp-content-hero-title-mb: var(--space-3); /* 12px (h1 下マージン) */
+	/* selfhost hero は 60px/16px/48px (4px グリッド外) */
+	--lp-selfhost-hero-padding-y-top: 60px; /* 4px グリッド外、独立定義 */
+	--lp-selfhost-hero-padding-y-bottom: var(--space-12); /* 48px */
+	--lp-selfhost-hero-padding-x: var(--space-4); /* 16px */
+	--lp-selfhost-hero-desc-mb: var(--space-6); /* 24px (hero p 下マージン) */
+	/* content (faq / graduation / selfhost) 共通 section */
+	--lp-content-section-padding-y: var(--space-12); /* 48px (selfhost .section / faq-sections / faq-bottom) */
+	--lp-content-section-padding-x: var(--space-4); /* 16px */
+	--lp-content-section-title-mb: var(--space-3); /* 12px */
+	--lp-content-section-desc-mb: var(--space-8); /* 32px (selfhost .section-desc) */
+	--lp-content-section-desc-mb-default: var(--space-6); /* 24px (faq-bottom p) */
+	/* content (faq / graduation / selfhost) 共通 CTA bottom */
+	--lp-content-cta-padding-y: var(--space-12); /* 48px (faq-bottom / selfhost cta-bottom) */
+	--lp-content-cta-padding-y-lg: var(--space-14); /* 56px (graduation-cta) */
+	--lp-content-cta-padding-x: var(--space-4); /* 16px */
+	/* faq 専用 */
+	--lp-faq-toc-padding-y-top: var(--space-8); /* 32px (faq-toc 上 padding) */
+	--lp-faq-toc-padding-x: var(--space-4); /* 16px */
+	--lp-faq-toc-inner-padding-y: var(--space-5); /* 20px */
+	--lp-faq-toc-inner-padding-x: var(--space-6); /* 24px */
+	--lp-faq-toc-title-mb: var(--space-3); /* 12px */
+	--lp-faq-toc-link-padding-y: var(--space-1); /* 4px (絵文字 padding に近い) - 直値の方が安全だが grid に乗る */
+	--lp-faq-toc-link-padding-y-pill: 6px; /* 4px グリッド外 (pill 状 link、--space-1=4 と --space-2=8 の中間) */
+	--lp-faq-toc-link-padding-x: 14px; /* 4px グリッド外 */
+	--lp-faq-sections-padding-y-top: var(--space-8); /* 32px */
+	--lp-faq-sections-padding-y-bottom: var(--space-12); /* 48px */
+	--lp-faq-sections-padding-x: var(--space-4); /* 16px */
+	--lp-faq-category-padding-y: var(--space-8); /* 32px */
+	--lp-faq-category-padding-x: var(--space-7); /* 28px */
+	--lp-faq-category-padding-x-sm: var(--space-5); /* 20px @≤640px */
+	--lp-faq-category-padding-y-sm: var(--space-6); /* 24px @≤640px */
+	--lp-faq-category-mb: var(--space-6); /* 24px */
+	--lp-faq-category-scroll-margin-top: 80px; /* 4px グリッド外 (header 高さ依存) */
+	--lp-faq-category-title-mb: var(--space-2); /* 8px */
+	--lp-faq-category-desc-mt: 20px; /* 4px グリッド外 (44px との差分調整) */
+	--lp-faq-category-desc-ml: 44px; /* 4px グリッド外 (faq-category-num width 32px + gap 12px) */
+	--lp-faq-item-list-padding-y: 18px; /* 4px グリッド外、独立定義 */
+	--lp-faq-item-summary-padding-y: var(--space-1); /* 4px */
+	--lp-faq-item-open-mb: 10px; /* 4px グリッド外 */
+	--lp-faq-answer-padding-y-top: var(--space-2); /* 8px */
+	--lp-faq-answer-padding-y-bottom: var(--space-1); /* 4px */
+	--lp-faq-answer-padding-x: var(--space-7); /* 28px */
+	--lp-faq-answer-mt: 6px; /* 4px グリッド外 */
+	--lp-faq-answer-p-mb: 10px; /* 4px グリッド外 */
+	--lp-faq-answer-ul-padding-l: var(--space-5); /* 20px */
+	--lp-faq-answer-ul-margin-y: var(--space-2); /* 8px */
+	--lp-faq-answer-li-margin-y: var(--space-1); /* 4px */
+	--lp-faq-cta-trust-mt: 18px; /* 4px グリッド外 */
+	--lp-faq-contact-mt: var(--space-6); /* 24px */
+	/* graduation 専用 */
+	--lp-graduation-breadcrumb-padding-y: 14px; /* 4px グリッド外 */
+	--lp-graduation-breadcrumb-padding-x: var(--space-4); /* 16px */
+	--lp-graduation-breadcrumb-sep-margin-x: var(--space-2); /* 8px */
+	--lp-graduation-detail-padding-y-top: var(--space-12); /* 48px */
+	--lp-graduation-detail-padding-y-bottom: var(--space-16); /* 64px */
+	--lp-graduation-detail-padding-x: var(--space-4); /* 16px */
+	--lp-gr-stage-padding-y: 18px; /* 4px グリッド外 */
+	--lp-gr-stage-padding-x: 18px; /* 4px グリッド外 */
+	--lp-gr-stage-padding-y-md: var(--space-6); /* 24px @≥1024px */
+	--lp-gr-stage-padding-x-md: var(--space-7); /* 28px @≥1024px */
+	--lp-gr-age-padding-y: 10px; /* 4px グリッド外 */
+	--lp-gr-age-padding-x: 6px; /* 4px グリッド外 (小型ラベル) */
+	--lp-gr-age-padding-sm: var(--space-2); /* 8px @≤768px */
+	--lp-gr-body-h2-mb: 10px; /* 4px グリッド外 */
+	--lp-gr-body-p-mb: var(--space-2); /* 8px */
+	--lp-gr-shot-margin-y: 10px; /* 4px グリッド外 */
+	--lp-gr-benefit-margin-y: 6px; /* 4px グリッド外 */
+	--lp-graduation-cta-buttons-btn-padding-y: var(--space-3); /* 12px */
+	--lp-graduation-cta-buttons-btn-padding-x: var(--space-7); /* 28px */
+	--lp-graduation-cta-p-mb: var(--space-5); /* 20px */
+	/* selfhost 専用 */
+	--lp-selfhost-setup-code-padding: var(--space-4); /* 16px */
+	--lp-selfhost-setup-code-mb: var(--space-4); /* 16px */
+	--lp-selfhost-feature-list-padding-y: var(--space-2); /* 8px */
+	--lp-selfhost-table-padding-y: var(--space-3); /* 12px */
+	--lp-selfhost-table-padding-x: var(--space-4); /* 16px */
+	--lp-selfhost-note-box-padding-y: var(--space-5); /* 20px */
+	--lp-selfhost-note-box-padding-x: var(--space-6); /* 24px */
+	--lp-selfhost-note-box-margin-y: var(--space-6); /* 24px */
+	--lp-selfhost-req-card-padding: var(--space-5); /* 20px */
+	--lp-selfhost-req-icon-mb: var(--space-2); /* 8px */
+	--lp-selfhost-req-card-h3-mb: var(--space-1); /* 4px */
+	--lp-selfhost-req-grid-margin-y: var(--space-6); /* 24px */
+	/* pamphlet 専用 (#2395 Phase 3、印刷用 mm 単位は対象外) */
+	--lp-pamphlet-control-margin-y: var(--space-5); /* 20px */
+	--lp-pamphlet-screen-controls-padding: var(--space-5); /* 20px */
+	--lp-pamphlet-screen-controls-btn-padding-y: var(--space-3); /* 12px */
+	--lp-pamphlet-screen-controls-btn-padding-x: var(--space-8); /* 32px */
+	--lp-pamphlet-screen-controls-p-mt: var(--space-2); /* 8px */
+	--lp-pamphlet-page-num-margin-x: var(--space-2); /* 8px */
+	--lp-pamphlet-fi-layer-badge-padding-y: 1px; /* 4px グリッド外 */
+	--lp-pamphlet-fi-layer-badge-padding-x: var(--space-1); /* 4px */
+	--lp-pamphlet-fi-layer-badge-mr: 2px; /* 4px グリッド外 */
 	/* Layout */
 	--lp-container-max: 1080px; /* セクション内の最大幅 (header-inner / footer-inner / section-inner 共通) */
 	--lp-container-max-wide: 1280px; /* hero / machine-tour / guide 用ワイド版 */

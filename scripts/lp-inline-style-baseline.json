@@ -1,16 +1,16 @@
 {
-	"_comment": "#1851 Phase 2 baseline: 構造的 padding/margin は --lp-* Semantic トークン経由 (#1851 / PR #1850 / ADR-0042)。本ファイルは残ローカル装飾値 (gap / 微小余白 / 絵文字 padding 等) のファイル別件数を pin する。新規違反 1 件で CI fail。意図的増減時のみ --update-baseline で更新する。",
+	"_comment": "#2395 Phase 3 baseline: ADR-0042 LP Spacing/Layout 3 層トークン Phase 3 完遂 (faq / graduation / selfhost / pamphlet を 72 → 0)。残値は Phase 1/2 完了後の index / pricing / privacy / tokushoho のローカル装飾値 (gap / 微小余白 等)。構造的 padding/margin は全 4 HTML で --lp-* Semantic トークン経由 (#1851 / #2395 / PR #1850 / ADR-0042)。新規違反 1 件で CI fail。意図的増減時のみ --update-baseline で更新する。",
 	"totals": {
-		"site/faq.html": 28,
-		"site/graduation.html": 17,
-		"site/index.html": 51,
-		"site/pamphlet.html": 7,
+		"site/faq.html": 0,
+		"site/graduation.html": 0,
+		"site/index.html": 47,
+		"site/pamphlet.html": 0,
 		"site/pricing.html": 46,
 		"site/privacy.html": 7,
-		"site/selfhost.html": 20,
+		"site/selfhost.html": 0,
 		"site/sla.html": 0,
 		"site/terms.html": 0,
 		"site/tokushoho.html": 4
 	},
-	"generatedAt": "2026-05-06T10:28:26.525Z"
+	"generatedAt": "2026-05-22T10:57:14.452Z"
 }
