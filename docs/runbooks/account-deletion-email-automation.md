@@ -68,13 +68,23 @@
    - payload を `Authorization: Bearer <CRON_SECRET>` 付きで `https://<function-url>/api/cron/deletion-warning-emails` に HTTP POST 変換
    - timeout 5min / memory 128MB / ARM64
 
-3. **SvelteKit cron endpoint** (新規追加、Phase 1 で作成予定 — src/routes/api/cron/deletion-warning-emails/+server.ts):
+3. **SvelteKit cron endpoint** (Phase 1 で新規作成予定):
+
+   ```text
+   src/routes/api/cron/deletion-warning-emails/+server.ts
+   ```
+
    - `verifyCronAuth` で 401 ガード (既存パターン)
    - `findTenantsForDeletionWarning` を呼んで対象テナント抽出
    - 各 owner に対し `sendDeletionWarningEmail` を呼び出す
    - 結果を JSON で返却 (送信成功数 / 失敗数 / skipped 数)
 
-4. **新規 service** (Phase 1 で作成予定 — src/lib/server/services/deletion-warning-service.ts):
+4. **新規 service** (Phase 1 で新規作成予定):
+
+   ```text
+   src/lib/server/services/deletion-warning-service.ts
+   ```
+
    - `findTenantsForDeletionWarning(now)`: settings KV から `physical_deletion_date` が `now + 1 day .. now + 1 day + 24h` のテナントを抽出
    - `sendDeletionWarningEmail` を email-service.ts に追加
    - 送信成功時に `deletion_warning_sent_at` を settings に書く (idempotency)
@@ -135,10 +145,16 @@ Phase 1 (sub-Issue) PR がマージされたとき:
 
 1. `schedule-registry.ts` への `deletion-warning-emails` 追加
 2. `infra/lib/compute-stack.ts` CRON_JOBS 配列への追加 (EventBridge rule 自動生成)
-3. src/routes/api/cron/deletion-warning-emails/+server.ts 新規追加 (Phase 1)
-4. src/lib/server/services/deletion-warning-service.ts + `email-service.ts` の新 function 追加 (Phase 1)
-5. CDK deploy (GitHub Actions deploy.yml で自動)
-6. post-deploy smoke test (deploy.yml の dryRun invoke で env 注入確認)
+3. Phase 1 で新規追加する path:
+
+   ```text
+   src/routes/api/cron/deletion-warning-emails/+server.ts
+   src/lib/server/services/deletion-warning-service.ts
+   ```
+
+   加えて `email-service.ts` に新 function を追加 (Phase 1)
+4. CDK deploy (GitHub Actions deploy.yml で自動)
+5. post-deploy smoke test (deploy.yml の dryRun invoke で env 注入確認)
 
 ### 5.1 PO 責務 (AWS CLI 検証)
 
@@ -169,19 +185,33 @@ aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region us-east-1 \
 
 ### 6.1 unit (Phase 1)
 
-- tests/unit/services/deletion-warning-service.test.ts (Phase 1 で新規作成):
-  - `findTenantsForDeletionWarning` の境界条件 (14 日前ピッタリ / 13 日前 / 15 日前)
-  - idempotency: `deletion_warning_sent_at` 既存のテナントを skip
-  - family / standard プランの giorni 計算分岐
-- `tests/unit/cron/schedule-consistency.test.ts` (既存):
-  - registry / CDK / dispatcher の三者整合性を自動 assert
+Phase 1 で新規作成する unit test:
+
+```text
+tests/unit/services/deletion-warning-service.test.ts
+```
+
+検証内容:
+
+- `findTenantsForDeletionWarning` の境界条件 (14 日前ピッタリ / 13 日前 / 15 日前)
+- idempotency: `deletion_warning_sent_at` 既存のテナントを skip
+- family / standard プランの giorni 計算分岐
+
+加えて既存 `tests/unit/cron/schedule-consistency.test.ts` で registry / CDK / dispatcher の三者整合性を自動 assert。
 
 ### 6.2 E2E (Phase 2)
 
-- tests/e2e/account-deletion-warning-email.spec.ts (Phase 2 で新規作成):
-  - mock SES で送信メール内容を assert
-  - 削除予約 → cron 起動 → メール送信 → restore で sent 状態リセット
-  - List-Unsubscribe ヘッダ存在検証 (RFC 8058)
+Phase 2 で新規作成する E2E test:
+
+```text
+tests/e2e/account-deletion-warning-email.spec.ts
+```
+
+検証内容:
+
+- mock SES で送信メール内容を assert
+- 削除予約 → cron 起動 → メール送信 → restore で sent 状態リセット
+- List-Unsubscribe ヘッダ存在検証 (RFC 8058)
 
 ### 6.3 idempotency 検証 (deploy 後手動)
 
