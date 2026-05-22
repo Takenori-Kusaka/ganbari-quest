@@ -99,16 +99,19 @@ jobs:
           AUTH_MODE: anonymous
           DATA_SOURCE: demo
         run: |
+          # #2435 PR fix M4: 60s → 120s に拡張 (CI runner の冷起動時に preview 起動が遅延する
+          # 環境依存ばらつきを吸収する防御的設定変更)。本番起動が遅すぎる場合はここで fail し、
+          # 無限 retry / ADR-0006 禁止 5 項目の retry 延長と取り違えない。
           npm run preview -- --port 5173 --host 0.0.0.0 > /tmp/preview.log 2>&1 &
           echo "PREVIEW_PID=$!" >> $GITHUB_ENV
-          for i in {1..60}; do
+          for i in {1..120}; do
             if curl -sf http://localhost:5173 > /dev/null 2>&1; then
               echo "Preview server ready after ${i}s"
               exit 0
             fi
             sleep 1
           done
-          echo "::error::Preview server failed to start within 60s"
+          echo "::error::Preview server failed to start within 120s"
           cat /tmp/preview.log
           exit 1
 
