@@ -48,7 +48,7 @@ const pixelmatch = require('pixelmatch').default;
 | `feature-belongings-checklist-desktop.png` | `/checklist?childId=903` (#2097 PR-B1 で本番ルート化) | machine-tour ② 持ち物チェックリスト |
 | `feature-cheer-message-desktop.png` | `/admin/messages` (#2199 で振替 — versus-row4「旅行先・祖父母宅でも続けられる」訴求の家族おうえんメッセージ送信 UI) | versus-row4 おうえんメッセージ送信 |
 | `feature-monthly-report-desktop.png` | `/admin/status?childId=903` (#2200 で childId 明示 — elementary fixture けんたくん 3,400P でレーダーチャート 5 軸を埋める) | soft-features 月次レポート |
-| `feature-auto-sleep-desktop.png` | `/admin/settings` (scrollTo: `[data-testid="settings-decay-section"]`、#2201 でステータス減少設定にリフレーム) | soft-features ステータス減少設定 |
+| `feature-auto-sleep-desktop.png` | `/admin/settings/activities` (scrollTo: `[data-testid="settings-decay-section"]`、#2201 でステータス減少設定にリフレーム、#2410 で #2319 settings 分割に追従 — decay UI は activities サブルートに移動) | soft-features ステータス減少設定 |
 
 ## 注意事項
 

@@ -249,12 +249,19 @@ const FEATURE_SCREENSHOTS = [
 	//   の runtime ロジック / メッセージは `/admin/messages` の独立画面)。
 	//   ADR-0013 LP truth に従い:
 	//     - LP h3/desc/alt を「ステータス減少設定（習慣化サポート）」に rename
-	//     - 撮影元 URL は `/admin/settings` 維持 + scrollTo で decay セクションを映す
+	//     - 撮影元 URL は `/admin/settings/activities` (decay UI の実体) + scrollTo
 	//     - 「家族からおうえんメッセージを送る」訴求は feature-cheer-message に集約 (URL は
 	//       `/admin/messages` に振替、視点 = 親の送信側) し、本カードと差別化する
+	// #2319 (2026-05-20 commit 64ffc52d) で `/admin/settings` 2059 行メガファイルを 6 child
+	//   routes に分割した際、`[data-testid="settings-decay-section"]` は `settings/activities`
+	//   サブルートに移動した。capture-hp-screenshots.mjs の `url:` が `/admin/settings`
+	//   (空 wrapper) のままだったため selector 待機で 10s timeout → 19 連続 deploy fail
+	//   (2 日間 LP 配信ストップ)。本 fix で URL を実 page に同期。
+	//   → 並行実装チェックリスト追加 follow-up: scripts/capture-hp-screenshots.mjs を
+	//     /admin/settings route 分割時の同期対象に加える (`docs/design/parallel-implementations.md`)。
 	{
 		name: 'feature-auto-sleep',
-		url: '/admin/settings',
+		url: '/admin/settings/activities',
 		description: 'Features: ステータス減少設定（習慣化サポート）',
 		viewports: { mobile: MOBILE, desktop: DESKTOP },
 		scrollTo: '[data-testid="settings-decay-section"]',
