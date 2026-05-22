@@ -19,6 +19,7 @@
 | デザイン・ビジュアル | `15-ブランドガイドライン.md` |
 | LP IA (#1163) | `lp-content-map.md` |
 | LP sitemap.xml (#1908) | 自動生成: `scripts/generate-sitemap.mjs` (pages.yml main push 毎再生成、手動編集禁止) |
+| Import / data model 原則 (EPIC #2362、ADR-0054) | `design/import-hub-data-model-principles.md` |
 
 **禁忌**: 会話で確定した仕様を反映せずに実装進行 / 「設計書は後で」と先送り / 設計書更新を別 Issue 切出しで本体 Done。アーキ図は drawio (`docs/design/diagrams/`)、ASCII 図禁止。
 
