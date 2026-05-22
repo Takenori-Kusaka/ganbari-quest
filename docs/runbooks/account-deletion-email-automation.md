@@ -26,6 +26,7 @@
 |------|------|
 | UX (誤操作防止) | 親が誤って削除予約を実行した場合、復元期限内に気づける |
 | 法務 (GDPR Article 17 推奨ベストプラクティス) | 削除前の事前通知は EU 規制で明文要件ではないが推奨。日本の個人情報保護法でも消去前確認の機会提供は ADR-0010 Bucket C (運用安定) として有用 |
+| **SLA 整合 (`site/sla.html` §5 障害通知 / §8 免責事項末尾「重要な変更がある場合は 14 日前までに通知」)** | **SLA は「サービス重要変更の 14 日前通知」を約束済 (`docs/runbooks/account-deletion-email-automation.md` の family プラン 14 日前と整合)。本機構は、テナント個別の「データ消失」という重要変更に対し SLA §5 / §8 と同じ「14 日前予告」原則を実装する** |
 | Pre-PMF コスト | EventBridge rule 1 本追加 + Lambda 起動 1 回/日 + SES 1 通/送信。月額数十円レベル (ADR-0010 Bucket A: ローンチ後の運用安定 / Pre-PMF 段階では low priority だが工数 < 10h) |
 
 ### 1.3 採用しない代替案
@@ -104,7 +105,9 @@
 | standard | 7 日 | 削除 1 日前 (グレース 6 日目) | `physical_deletion_date - now == 1 day` |
 | family | 30 日 | 削除 14 日前 (グレース 16 日目) | `physical_deletion_date - now == 14 days` |
 
-> **判定**: Issue 本文の「14 日前固定」は family プラン基準。standard はグレース 7 日しかないため「14 日前」は到達不能 → 「削除 1 日前」に縮退する。Phase 1 実装時にこの仕様確定が必要 (sub-Issue で扱う)。
+> **判定**: Issue 本文の「14 日前固定」は family プラン基準。standard はグレース 7 日しかないため「14 日前」は到達不能 → 「削除 1 日前」に縮退する。
+>
+> **仕様確定タイミング (#2429 QM Re-Review で明示)**: 上記の standard プラン「削除 1 日前」縮退は **本 PR (#2429) で SSOT 確定**とする。Phase 1 sub-Issue (#2426) は本 runbook §3.2 の表をそのまま実装する責務を持ち、仕様再議論は行わない（再議論が必要な場合は本 runbook を別 PR で更新してから Phase 1 着手）。
 
 ### 3.3 DB 影響
 
@@ -242,6 +245,7 @@ aws lambda invoke --function-name ganbari-quest-cron-dispatcher \
 - `docs/design/account-deletion-flow.md` (グレースピリオド + 削除パターン SSOT)
 - `docs/design/13-AWSサーバレスアーキテクチャ設計書.md` §3.3 (cron-dispatcher + EventBridge)
 - `docs/runbooks/cron-3-endpoints-verification.md` (#1377 cron 検証フロー、本 runbook の親型)
+- [`site/sla.html`](../../site/sla.html) §5 障害通知 / §8 免責事項末尾 — SLA の「重要な変更は 14 日前までに通知」原則と本機構の family プラン 14 日前予告が整合。SLA がサービス全体の重要変更を扱うのに対し、本機構はテナント個別のデータ消失予告を扱う (補完関係)
 
 ### 8.2 関連 Issue / ADR
 
@@ -256,6 +260,8 @@ aws lambda invoke --function-name ganbari-quest-cron-dispatcher \
 - ADR-0012 Anti-engagement 原則 (メール文言の中立トーン)
 - ADR-0023 §5 I11 (archive、年 6 回マーケティング上限 — 本機能は **法務通知扱いで対象外**)
 - ADR-0024 (archive、インフラ PR 必須要件 — 本 runbook はその発展系)
+- **[ADR-0049](../decisions/0049-retention-physical-delete-extended.md)** (active、un-archived 2026-05-19) — プラン別履歴保持期間ポリシー（物理削除対象テーブル拡張）。本 ADR §4 ポイント残高の非削除設計 / §7 downgrade 時の UX で「削除前の予告メール通知は別 Issue (#729 AC)」と明示されており、本 runbook (#2399) はその follow-up 実装に該当。フォローアップ欄「削除予告メール（14 日前）の実装」をカバー
+- (旧 ADR-0028 (archive)) — 上記 ADR-0049 が un-archived + 拡張で継承済。historical record として archive 参照のみ
 - ADR-0031 (Marketing policy Pre-PMF)
 
 ---
@@ -265,3 +271,4 @@ aws lambda invoke --function-name ganbari-quest-cron-dispatcher \
 | 日付 | 版数 | 内容 |
 |------|------|------|
 | 2026-05-22 | 1.0 | #2399 初版作成 (計画 + 設計のみ、実装は sub-Issue) |
+| 2026-05-23 | 1.1 | #2429 QM Re-Review 対応: §1.2 / §8.1 に SLA cross-ref 追加 / §3.2 で standard プラン「1 日前」縮退の確定タイミングを本 PR で SSOT 化と明示 / §8.2 に ADR-0049 (active) cross-ref 追加 (旧 ADR-0028 は historical record として archive 参照のみ) |
