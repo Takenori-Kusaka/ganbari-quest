@@ -793,3 +793,86 @@ export const PIN_DEFAULT_TERMS = {
 	hintFull: '初期値は 5086（がんばり）です',
 	hintCompact: '初期 5086（がんばり）',
 } as const;
+
+// ============================================================
+// OVERFLOW_MENU_TERMS — admin route 共通 ⋮ menu atom (EPIC #2362 PR-2)
+// ============================================================
+//
+// 5 admin route (activity / reward / challenge / checklist / rule bonus) 共通の
+// top-right ⋮ overflow menu に並ぶ標準項目 atom。各 route で項目 ON/OFF 可能 (props 制御)。
+//
+// 設計指針 (User 合意済 2026-05-23 §6.1):
+//   - menu trigger 自体は icon button (⋮)、aria-label を本 atom で供給
+//   - 標準 7 項目 (marketplace / ai / divider / restore / export / divider / help)
+//   - AI を menu 内に格下げ = エンジニア独善デザイン排除、顧客目線「単なる追加時のサジェスト機能」
+//
+// 既存 ACTION_LABELS との関係:
+//   - ACTION_LABELS は CRUD 基本動詞 (save / delete / cancel)
+//   - 本 atom は overflow menu 固有の項目ラベル (label + icon emoji)
+
+export const OVERFLOW_MENU_TERMS = {
+	openLabel: 'メニューを開く',
+	itemMarketplace: 'みんなのテンプレから取込',
+	itemMarketplaceIcon: '📦',
+	itemAiSuggest: 'AI で提案してもらう',
+	itemAiSuggestIcon: '🤖',
+	itemRestore: 'バックアップから復元',
+	itemRestoreIcon: '⬇',
+	itemExport: 'エクスポート',
+	itemExportIcon: '⬆',
+	itemHelp: 'このページのヘルプ',
+	itemHelpIcon: '❓',
+} as const;
+
+// ============================================================
+// CHILD_SELECTION_TERMS — per-child 取込ダイアログ atom (EPIC #2362 PR-2)
+// ============================================================
+//
+// per-child 採用 type (activity / reward / challenge) の marketplace 取込時に、
+// 「誰に追加するか / 全員に追加するか」を選択させる Dialog の atom。
+//
+// 設計指針 (User 合意済 2026-05-23 §6.2):
+//   - title: 「どのお子さまに追加?」 (CHILD_TERMS.honorific = 'お子さま' を採用)
+//   - option 1: 「全員に追加」 (primary、最も使われる選択肢を default)
+//   - option 2-N: 各 child の名前 + アイコン (radio / multi-select 切替可)
+//   - footer: 「追加」/「キャンセル」
+//
+// 既存 CHILD_TERMS との関係:
+//   - CHILD_TERMS.honorific = 'お子さま' を本 compound (CHILD_SELECTION_LABELS) で参照
+//   - 本 atom は dialog 固有の動詞句のみ (短文 atom)
+
+export const CHILD_SELECTION_TERMS = {
+	dialogTitleSuffix: 'に追加?',
+	dialogTitleQuestion: 'どの',
+	allOptionLabel: '全員に追加',
+	confirmLabel: '追加',
+	cancelLabel: 'キャンセル',
+	listAriaLabel: 'お子さま一覧',
+	/** 年齢 suffix (UI 表示用、例: "5 歳" の "歳") */
+	ageUnitSuffix: '歳',
+} as const;
+
+// ============================================================
+// VISIBILITY_CHIP_TERMS — family master per-child visibility atom (EPIC #2362 PR-2)
+// ============================================================
+//
+// family master 採用 type (checklist / rule bonus) の edit modal 内で、
+// per-child visibility (どの子に配信するか) を chip toggle で表示する UI の atom。
+//
+// 設計指針 (User 合意済 2026-05-23 §6.3):
+//   - chip click で toggle (ON = 表示 / OFF = 非表示)
+//   - 「全員 ON」「全員 OFF」ショートカット button
+//   - state 永続化は呼び出し側責務 (Pure presentation)
+//
+// 既存 CHILD_TERMS との関係:
+//   - 個別 chip ラベルは child.nickname を直接表示 (atom 化対象外、データ駆動)
+//   - 本 atom は section title / toggle ラベル / shortcut button のみ
+
+export const VISIBILITY_CHIP_TERMS = {
+	sectionTitle: '配信するお子さま',
+	toggleOn: '表示',
+	toggleOff: '非表示',
+	allOnLabel: '全員 ON',
+	allOffLabel: '全員 OFF',
+	groupAriaLabel: '配信お子さま選択',
+} as const;
