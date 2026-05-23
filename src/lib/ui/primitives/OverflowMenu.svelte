@@ -31,20 +31,42 @@ import { Portal } from '@ark-ui/svelte/portal';
  *   本 primitive は admin route header の overflow menu 用途専用
  */
 
-export interface OverflowMenuItem {
-	/** ユニーク ID (typeahead / test に使う、divider の場合は不要だが推奨) */
+/**
+ * Action item (選択可能なメニュー項目) — 'type: action' は省略可能 (default で action 扱い)。
+ * QM Re-Review feedback (2026-05-23): silent skip の無効値を構造的に許容しないため
+ * discriminated union 化。invalid item は TypeScript 型チェック時点で fail loud する。
+ */
+export interface OverflowMenuActionItem {
+	type?: 'action';
+	/** ユニーク ID (typeahead / test に使う) */
 	id: string;
-	/** 表示ラベル (divider 時は無視される) */
-	label?: string;
+	/** 表示ラベル */
+	label: string;
 	/** 任意の prefix icon (絵文字 1 文字推奨) */
 	icon?: string;
-	/** 選択時のハンドラ (divider / disabled 時は無視) */
-	onSelect?: () => void;
+	/** 選択時のハンドラ */
+	onSelect: () => void;
 	/** 無効化 */
 	disabled?: boolean;
-	/** 区切り線として描画する (label / onSelect は無視) */
-	divider?: boolean;
 }
+
+/** Divider item (区切り線) — 'type: divider' 必須。label / onSelect は持たない。 */
+export interface OverflowMenuDividerItem {
+	type: 'divider';
+	/** ユニーク ID (Svelte each key 用、test に使う) */
+	id: string;
+}
+
+/**
+ * Discriminated union: action か divider のいずれか必須。
+ * action item は 'type: action' 省略可能 (default、既存呼出側との互換維持)。
+ * divider item は 'type: divider' 必須。
+ *
+ * QM Re-Review (2026-05-23): 旧 optional fields 版は invalid item を silent skip して
+ * いたが、PR-3〜7 で 5+ 箇所から呼ばれる primitive で silent skip は debug 不能。
+ * 型レベルで invalid を排除する。
+ */
+export type OverflowMenuItem = OverflowMenuActionItem | OverflowMenuDividerItem;
 
 type Placement = 'bottom-end' | 'bottom-start' | 'top-end' | 'top-start';
 
@@ -62,6 +84,11 @@ interface Props {
 }
 
 let { items, ariaLabel, placement = 'bottom-end', testid, disabled = false }: Props = $props();
+
+/** type narrowing helper: divider かどうか (Svelte 5 markup から呼ぶ) */
+function isDivider(item: OverflowMenuItem): item is OverflowMenuDividerItem {
+	return item.type === 'divider';
+}
 </script>
 
 <ArkMenu.Root positioning={{ placement }}>
@@ -77,9 +104,9 @@ let { items, ariaLabel, placement = 'bottom-end', testid, disabled = false }: Pr
 		<ArkMenu.Positioner class="overflow-menu-positioner">
 			<ArkMenu.Content class="overflow-menu-content">
 				{#each items as item (item.id)}
-					{#if item.divider}
+					{#if isDivider(item)}
 						<div class="overflow-menu-divider" role="separator" aria-hidden="true"></div>
-					{:else if item.onSelect && item.label}
+					{:else}
 						<ArkMenu.Item
 							value={item.id}
 							disabled={item.disabled}

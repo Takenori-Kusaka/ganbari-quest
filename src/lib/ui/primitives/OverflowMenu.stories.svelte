@@ -6,57 +6,90 @@ import OverflowMenu from './OverflowMenu.svelte';
 const L = STORYBOOK_LABELS.overflowMenu;
 const items = OVERFLOW_MENU_LABELS.items;
 
+/** @type {import('./OverflowMenu.svelte').OverflowMenuItem[]} */
 const fullItems = [
 	{
+		type: 'action',
 		id: items.marketplace.id,
 		label: items.marketplace.label,
 		icon: items.marketplace.icon,
 		onSelect: () => {},
 	},
 	{
+		type: 'action',
 		id: items.aiSuggest.id,
 		label: items.aiSuggest.label,
 		icon: items.aiSuggest.icon,
 		onSelect: () => {},
 	},
-	{ id: 'divider-1', divider: true },
+	{ type: 'divider', id: 'divider-1' },
 	{
+		type: 'action',
 		id: items.restore.id,
 		label: items.restore.label,
 		icon: items.restore.icon,
 		onSelect: () => {},
 	},
-	{ id: items.export.id, label: items.export.label, icon: items.export.icon, onSelect: () => {} },
-	{ id: 'divider-2', divider: true },
-	{ id: items.help.id, label: items.help.label, icon: items.help.icon, onSelect: () => {} },
+	{
+		type: 'action',
+		id: items.export.id,
+		label: items.export.label,
+		icon: items.export.icon,
+		onSelect: () => {},
+	},
+	{ type: 'divider', id: 'divider-2' },
+	{
+		type: 'action',
+		id: items.help.id,
+		label: items.help.label,
+		icon: items.help.icon,
+		onSelect: () => {},
+	},
 ];
 
+/** @type {import('./OverflowMenu.svelte').OverflowMenuItem[]} */
 const minimalItems = [
 	{
+		type: 'action',
 		id: items.marketplace.id,
 		label: items.marketplace.label,
 		icon: items.marketplace.icon,
 		onSelect: () => {},
 	},
-	{ id: items.help.id, label: items.help.label, icon: items.help.icon, onSelect: () => {} },
+	{
+		type: 'action',
+		id: items.help.id,
+		label: items.help.label,
+		icon: items.help.icon,
+		onSelect: () => {},
+	},
 ];
 
+/** @type {import('./OverflowMenu.svelte').OverflowMenuItem[]} */
 const disabledItems = [
 	{
+		type: 'action',
 		id: items.marketplace.id,
 		label: items.marketplace.label,
 		icon: items.marketplace.icon,
 		onSelect: () => {},
 	},
 	{
+		type: 'action',
 		id: items.aiSuggest.id,
 		label: items.aiSuggest.label,
 		icon: items.aiSuggest.icon,
 		onSelect: () => {},
 		disabled: true,
 	},
-	{ id: 'divider-1', divider: true },
-	{ id: items.help.id, label: items.help.label, icon: items.help.icon, onSelect: () => {} },
+	{ type: 'divider', id: 'divider-1' },
+	{
+		type: 'action',
+		id: items.help.id,
+		label: items.help.label,
+		icon: items.help.icon,
+		onSelect: () => {},
+	},
 ];
 
 const { Story } = defineMeta({

@@ -1,14 +1,32 @@
 import { fireEvent, render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import OverflowMenu from '$lib/ui/primitives/OverflowMenu.svelte';
+import OverflowMenu, { type OverflowMenuItem } from '$lib/ui/primitives/OverflowMenu.svelte';
 
 describe('OverflowMenu', () => {
-	const baseItems = [
-		{ id: 'marketplace', label: 'みんなのテンプレから取込', icon: '📦', onSelect: vi.fn() },
-		{ id: 'ai-suggest', label: 'AI で提案してもらう', icon: '🤖', onSelect: vi.fn() },
-		{ id: 'div-1', divider: true },
-		{ id: 'restore', label: 'バックアップから復元', icon: '⬇', onSelect: vi.fn() },
-		{ id: 'help', label: 'このページのヘルプ', icon: '❓', onSelect: vi.fn() },
+	const baseItems: OverflowMenuItem[] = [
+		{
+			type: 'action',
+			id: 'marketplace',
+			label: 'みんなのテンプレから取込',
+			icon: '📦',
+			onSelect: vi.fn(),
+		},
+		{
+			type: 'action',
+			id: 'ai-suggest',
+			label: 'AI で提案してもらう',
+			icon: '🤖',
+			onSelect: vi.fn(),
+		},
+		{ type: 'divider', id: 'div-1' },
+		{
+			type: 'action',
+			id: 'restore',
+			label: 'バックアップから復元',
+			icon: '⬇',
+			onSelect: vi.fn(),
+		},
+		{ type: 'action', id: 'help', label: 'このページのヘルプ', icon: '❓', onSelect: vi.fn() },
 	];
 
 	it('trigger button が aria-label を持つ', () => {
@@ -46,7 +64,15 @@ describe('OverflowMenu', () => {
 
 	it('menu item をクリックすると onSelect が呼ばれる', async () => {
 		const onSelect = vi.fn();
-		const items = [{ id: 'marketplace', label: 'みんなのテンプレから取込', icon: '📦', onSelect }];
+		const items: OverflowMenuItem[] = [
+			{
+				type: 'action',
+				id: 'marketplace',
+				label: 'みんなのテンプレから取込',
+				icon: '📦',
+				onSelect,
+			},
+		];
 		const { container, findByTestId } = render(OverflowMenu, {
 			props: { items, ariaLabel: 'メニューを開く' },
 		});
@@ -72,8 +98,9 @@ describe('OverflowMenu', () => {
 	});
 
 	it('disabled な menu item は data-disabled 属性を持つ', async () => {
-		const disabledItems = [
+		const disabledItems: OverflowMenuItem[] = [
 			{
+				type: 'action',
 				id: 'marketplace',
 				label: 'みんなのテンプレから取込',
 				icon: '📦',
@@ -91,9 +118,34 @@ describe('OverflowMenu', () => {
 		expect(menuItem?.getAttribute('data-disabled')).not.toBeNull();
 	});
 
+	it('OverflowMenuItem discriminated union: divider item は label / onSelect を持たない (型レベル narrowing)', () => {
+		// QM Re-Review (2026-05-23): silent skip 防止のため discriminated union 化
+		// この test は実行時 narrowing も検証する。コンパイル時 narrowing は
+		// `tsc --noEmit` (svelte-check) で別途検証される。
+		//
+		// mixed 配列で型 narrowing が機能することを確認する (実利用パターン整合)。
+		const items: OverflowMenuItem[] = [
+			{ type: 'divider', id: 'div-1' },
+			{ type: 'action', id: 'act', label: 'A', onSelect: vi.fn() },
+		];
+		for (const item of items) {
+			if (item.type === 'divider') {
+				// narrowing: divider item は label / onSelect プロパティを持たない
+				// @ts-expect-error — divider item に label プロパティは存在しない
+				expect(item.label).toBeUndefined();
+				// @ts-expect-error — divider item に onSelect プロパティは存在しない
+				expect(item.onSelect).toBeUndefined();
+			} else {
+				// narrowing: action item は label / onSelect を持つ (TS が認識)
+				expect(item.label).toBeDefined();
+				expect(item.onSelect).toBeDefined();
+			}
+		}
+	});
+
 	it('items props で項目を ON/OFF できる (Open/Closed 原則)', async () => {
-		const minimalItems = [
-			{ id: 'help', label: 'このページのヘルプ', icon: '❓', onSelect: vi.fn() },
+		const minimalItems: OverflowMenuItem[] = [
+			{ type: 'action', id: 'help', label: 'このページのヘルプ', icon: '❓', onSelect: vi.fn() },
 		];
 		const { container, findByText, queryByText } = render(OverflowMenu, {
 			props: { items: minimalItems, ariaLabel: 'メニューを開く' },
