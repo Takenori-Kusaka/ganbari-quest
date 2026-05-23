@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 関連 ADR | [ADR-0053](../decisions/0053-per-child-primary-data-model-pattern.md) (per-child 主軸 + 限定 family master 原則) / ADR-0052 (Strategy + Registry) / ADR-0046 (Service Interface + Context DI) |
+| 関連 ADR | [ADR-0055](../decisions/0055-per-child-primary-data-model-pattern.md) (per-child 主軸 + 限定 family master 原則) / ADR-0052 (Strategy + Registry) / ADR-0046 (Service Interface + Context DI) |
 | 関連 Issue | EPIC #2362 / 派生 I1 #2445 / I2 #2446 / I3 #2447 / I4 #2448 |
 | 更新タイミング | 新 MarketplaceType 追加 / 既存 type の scope 変更 / aggregate root 変更時 |
 
@@ -12,7 +12,7 @@
 
 `MarketplaceTypeRegistry` (ADR-0052) で 5 type の **実装** が統一されたが、**"何 scope で持たれるか" のデータモデル原則が SSOT 化されていない**ため、各 type が歴史的経緯で per-child / family master を選択し、PR ごとに判断ぶれが発生していた (#2441 / #2442 / #2443 の連続誤実装の構造的原因)。
 
-本ドキュメントは ADR-0053 で確定した「per-child 主軸 + 限定 family master pattern」の **6 type 適用範囲 + DB schema 設計案 SSOT** を提供する。後続 PR (PR-3〜7) は本表を参照して schema 変更を判定する。
+本ドキュメントは ADR-0055 で確定した「per-child 主軸 + 限定 family master pattern」の **6 type 適用範囲 + DB schema 設計案 SSOT** を提供する。後続 PR (PR-3〜7) は本表を参照して schema 変更を判定する。
 
 ---
 
@@ -185,7 +185,7 @@ child_challenge_progress  -- 既存 sibling_challenge_progress を child_challen
 
 ## 6. 関連
 
-- [ADR-0053](../decisions/0053-per-child-primary-data-model-pattern.md) (本ドキュメントの上流 原則)
+- [ADR-0055](../decisions/0055-per-child-primary-data-model-pattern.md) (本ドキュメントの上流 原則)
 - [marketplace-import-flow.md](marketplace-import-flow.md) (取込フロー sequence SSOT)
 - [marketplace-architecture.md](marketplace-architecture.md) (Strategy + Registry アーキ、ADR-0052)
 - [08-データベース設計書.md](08-データベース設計書.md) (DB SSOT、各 PR で同期更新)

@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| 関連 ADR | [ADR-0053](../decisions/0053-per-child-primary-data-model-pattern.md) (per-child 主軸 + 限定 family master) / ADR-0052 (Strategy + Registry) / ADR-0023 archive (tenant isolation) |
+| 関連 ADR | [ADR-0055](../decisions/0055-per-child-primary-data-model-pattern.md) (per-child 主軸 + 限定 family master) / ADR-0052 (Strategy + Registry) / ADR-0031 (ADR-0023 廃案 + 帰属マップ、tenant isolation 整合) |
 | 関連 Issue | EPIC #2362 / 派生 I1 #2445 / I2 #2446 |
 | 更新タイミング | 取込フロー変更 / 取込時の child binding ルール変更 / privacy 関連の URL/body 露出ポリシー変更時 |
 
@@ -126,7 +126,7 @@ PR-2 (Framework) で取込ダイアログコンポーネントを `src/lib/marke
 
 ## 6. 関連
 
-- [ADR-0053](../decisions/0053-per-child-primary-data-model-pattern.md) (per-child 主軸原則)
+- [ADR-0055](../decisions/0055-per-child-primary-data-model-pattern.md) (per-child 主軸原則)
 - [data-model-resource-scope.md](data-model-resource-scope.md) (6 type scope SSOT)
 - [marketplace-architecture.md](marketplace-architecture.md) (Strategy + Registry アーキ)
 - [14-セキュリティ設計書.md](14-セキュリティ設計書.md) (CWE-598 / privacy 関連の全社方針)

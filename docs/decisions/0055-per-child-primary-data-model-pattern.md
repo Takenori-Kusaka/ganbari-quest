@@ -1,4 +1,4 @@
-# 0053. Per-child 主軸 + 限定 family master データモデル原則 (6 type SSOT)
+# 0055. Per-child 主軸 + 限定 family master データモデル原則 (6 type SSOT)
 
 | 項目 | 内容 |
 |------|------|
@@ -98,7 +98,7 @@ PO 集計 (`tmp/user-question/2026-05-23-customer-use-case-data-model-qa.md`、6
 - **ADR-0052 (Strategy + Registry)** と相補的: 本 ADR は **scope 選択原則**、ADR-0052 は **実装統一機構**。両者は直交し supersede しない
 - **ADR-0046 (Service Interface + Context DI)**: per-child service が child 別 context 注入される際の DI パターンとして再利用
 - **ADR-0047 (Demo / 本番 UI Contract)**: 実装 PR-3〜7 で demo 同期必須。本 ADR は docs only のため影響なし
-- **ADR-0023 archive (tenant isolation)**: per-child instance も `tenantId` 必須を維持 (Repository SSOT)
+- **ADR-0031 (ADR-0023 廃案 + 帰属マップ、tenant isolation 整合)**: per-child instance も `tenantId` 必須を維持 (Repository SSOT、ADR-0052 §「tenant isolation 強制」と整合)
 
 ## 4. 結果
 
