@@ -120,7 +120,7 @@ CWE-598 (Information Exposure Through Query Strings in GET Request) 整合。
 
 EPIC #2362 で実装済の `UnifiedImportHub` (#2370 / PR #2384) は **type 選択 + 取込実行 hub**。本ドキュメントの sequence は UnifiedImportHub 内でダイアログ表示を呼び出す形に統合される。
 
-PR-2 (Framework) で取込ダイアログコンポーネントを `src/lib/marketplace/components/ImportTargetSelectionDialog.svelte` 等に追加し、UnifiedImportHub から呼び出す。各 strategy はダイアログ完了後に `apply()` を実行。
+PR-2 (Framework) で取込ダイアログコンポーネントを `src/lib/marketplace/ui/` 配下 (既存 `UnifiedImportHub.svelte` / `UnifiedEmptyState.svelte` と並ぶ) に追加し、UnifiedImportHub から呼び出す。各 strategy はダイアログ完了後に `apply()` を実行。
 
 ---
 

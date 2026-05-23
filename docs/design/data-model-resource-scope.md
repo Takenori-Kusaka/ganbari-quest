@@ -178,7 +178,7 @@ child_challenge_progress  -- 既存 sibling_challenge_progress を child_challen
 
 - `src/lib/server/db/schema.ts` (Drizzle スキーマ SSOT)
 - `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts` (test DB)
-- `src/lib/server/migrate.ts` / `src/lib/server/migrate-local.ts` (本番 / NUC migration)
+- `scripts/migrate-local.ts` (本番 / NUC migration)
 - `docs/design/08-データベース設計書.md` §3 テーブル定義 (PR で同時更新)
 
 ---
