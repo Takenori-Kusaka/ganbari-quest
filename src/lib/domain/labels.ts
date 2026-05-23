@@ -16,6 +16,8 @@
 // #1915 (TECH-F 中頻度 8 ドメイン): TRIAL_PERIOD_TERMS / UPGRADE_TERMS / GRADUATION_TERMS / ADVENTURE_TERMS / MECHANISM_TERMS / LIFESTAGE_TERMS 追加
 // （「7 日間無料トライアル」「アップグレード/プラン変更」「卒業/最終ゴール」「冒険/メインクエスト」「仕組み/設計/工夫」「年齢/年齢区分/学年」の atom 集約）
 // #2276 (EPIC #2266): CHEER_TERMS / REWARD_TERMS / TEMPLATE_TERMS 追加（応援 / ごほうび管理 / みんなのテンプレート atom）
+// EPIC #2362 PR-2: OVERFLOW_MENU_TERMS / CHILD_SELECTION_TERMS / VISIBILITY_CHIP_TERMS 追加
+//   （admin route 共通 ⋮ menu / per-child 取込ダイアログ / family master visibility chip atom、UX 規約 SSOT）
 import {
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
@@ -24,6 +26,7 @@ import {
 	CANCEL_TERMS,
 	CHECKOUT_TERMS,
 	CHEER_TERMS,
+	CHILD_SELECTION_TERMS,
 	CHILD_TERMS,
 	CTA_TERMS,
 	CURRENCY_TERMS,
@@ -35,6 +38,7 @@ import {
 	LP_FAQ_TERMS,
 	MECHANISM_TERMS,
 	NUC_EDITION_TERMS,
+	OVERFLOW_MENU_TERMS,
 	OYAKAGI_TERMS,
 	PARENT_TERMS,
 	PIN_DEFAULT_TERMS,
@@ -49,6 +53,7 @@ import {
 	TRIAL_PERIOD_TERMS,
 	TRIAL_TERMS,
 	UPGRADE_TERMS,
+	VISIBILITY_CHIP_TERMS,
 } from './terms';
 import type { UiMode } from './validation/age-tier-types';
 // #980: age-tier-types.ts に型・正規化関数を集約し循環依存を解消
@@ -5399,6 +5404,79 @@ export const UI_PRIMITIVES_LABELS = {
 } as const;
 
 // ============================================================
+// OverflowMenu (EPIC #2362 PR-2) — admin route 共通 ⋮ menu 表示文字列
+// ============================================================
+//
+// admin route (activity / reward / challenge / checklist / rule bonus) の
+// top-right ⋮ menu の標準項目を SSOT 集約。各 route で項目 ON/OFF 可能 (props 制御)。
+// terms.ts OVERFLOW_MENU_TERMS atom を template literal で参照。
+
+export const OVERFLOW_MENU_LABELS = {
+	openLabel: `${OVERFLOW_MENU_TERMS.openLabel}`,
+	items: {
+		marketplace: {
+			id: 'marketplace',
+			label: `${OVERFLOW_MENU_TERMS.itemMarketplace}`,
+			icon: `${OVERFLOW_MENU_TERMS.itemMarketplaceIcon}`,
+		},
+		aiSuggest: {
+			id: 'ai-suggest',
+			label: `${OVERFLOW_MENU_TERMS.itemAiSuggest}`,
+			icon: `${OVERFLOW_MENU_TERMS.itemAiSuggestIcon}`,
+		},
+		restore: {
+			id: 'restore',
+			label: `${OVERFLOW_MENU_TERMS.itemRestore}`,
+			icon: `${OVERFLOW_MENU_TERMS.itemRestoreIcon}`,
+		},
+		export: {
+			id: 'export',
+			label: `${OVERFLOW_MENU_TERMS.itemExport}`,
+			icon: `${OVERFLOW_MENU_TERMS.itemExportIcon}`,
+		},
+		help: {
+			id: 'help',
+			label: `${OVERFLOW_MENU_TERMS.itemHelp}`,
+			icon: `${OVERFLOW_MENU_TERMS.itemHelpIcon}`,
+		},
+	},
+} as const;
+
+// ============================================================
+// ChildSelectionDialog (EPIC #2362 PR-2) — per-child 取込ダイアログ表示文字列
+// ============================================================
+//
+// per-child 採用 type (activity / reward / challenge) の marketplace 取込時の
+// 「誰に追加するか / 全員に追加するか」を選択させる Dialog の compound。
+// terms.ts CHILD_SELECTION_TERMS + CHILD_TERMS atom を組み合わせる。
+
+export const CHILD_SELECTION_LABELS = {
+	dialogTitle: `${CHILD_SELECTION_TERMS.dialogTitleQuestion}${CHILD_TERMS.honorific}${CHILD_SELECTION_TERMS.dialogTitleSuffix}`,
+	allOption: `${CHILD_SELECTION_TERMS.allOptionLabel}`,
+	confirm: `${CHILD_SELECTION_TERMS.confirmLabel}`,
+	cancel: `${CHILD_SELECTION_TERMS.cancelLabel}`,
+	listAriaLabel: `${CHILD_SELECTION_TERMS.listAriaLabel}`,
+	ageUnitSuffix: `${CHILD_SELECTION_TERMS.ageUnitSuffix}`,
+} as const;
+
+// ============================================================
+// VisibilityChipGroup (EPIC #2362 PR-2) — family master per-child visibility 表示文字列
+// ============================================================
+//
+// family master 採用 type (checklist / rule bonus) の edit modal 内の
+// per-child visibility chip toggle compound。
+// terms.ts VISIBILITY_CHIP_TERMS atom を template literal で参照。
+
+export const VISIBILITY_CHIP_LABELS = {
+	sectionTitle: `${VISIBILITY_CHIP_TERMS.sectionTitle}`,
+	toggleOn: `${VISIBILITY_CHIP_TERMS.toggleOn}`,
+	toggleOff: `${VISIBILITY_CHIP_TERMS.toggleOff}`,
+	allOn: `${VISIBILITY_CHIP_TERMS.allOnLabel}`,
+	allOff: `${VISIBILITY_CHIP_TERMS.allOffLabel}`,
+	groupAriaLabel: `${VISIBILITY_CHIP_TERMS.groupAriaLabel}`,
+} as const;
+
+// ============================================================
 // スタンプカード N レアリティ ポジティブメッセージ (#1536)
 // StampPressOverlay で N レアリティのスタンプ取得時に表示
 // ============================================================
@@ -6993,6 +7071,32 @@ export const STORYBOOK_LABELS = {
 		captionSymbol: 'symbol',
 		captionCompact: 'compact',
 		captionFull: 'full',
+	},
+	// OverflowMenu primitive (EPIC #2362 PR-2)
+	overflowMenu: {
+		ariaLabelOpen: 'メニューを開く',
+		itemMarketplace: 'みんなのテンプレから取込',
+		itemAiSuggest: 'AI で提案してもらう',
+		itemRestore: 'バックアップから復元',
+		itemExport: 'エクスポート',
+		itemHelp: 'このページのヘルプ',
+	},
+	// ChildSelectionDialog primitive (EPIC #2362 PR-2)
+	childSelectionDialog: {
+		triggerOpen: '取込先を選ぶ',
+		childTaro: 'たろう (8 歳)',
+		childHina: 'ひな (5 歳)',
+		childKenta: 'けんた (1 歳)',
+		childTaroIcon: '👦',
+		childHinaIcon: '👧',
+		childKentaIcon: '👶',
+		emptyMessage: 'お子さまが登録されていません',
+	},
+	// VisibilityChipGroup primitive (EPIC #2362 PR-2)
+	visibilityChipGroup: {
+		childTaro: 'たろう (8 歳)',
+		childHina: 'ひな (5 歳)',
+		childKenta: 'けんた (1 歳)',
 	},
 } as const;
 
