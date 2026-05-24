@@ -67,21 +67,26 @@ const mockStorageRepo = {
 };
 
 const mockActivityRepo = {
-	findActivities: vi.fn().mockResolvedValue([
+	findActivities: vi.fn().mockResolvedValue([]),
+};
+
+// #2362 PR-3 (ADR-0055): per-child instance repo の mock
+const mockChildActivityRepo = {
+	findActivitiesByChild: vi.fn().mockResolvedValue([
 		{
 			name: '走る',
 			categoryId: 1,
 			icon: '🏃',
 			basePoints: 5,
-			ageMin: null,
-			ageMax: null,
 			triggerHint: null,
+			isMainQuest: 0,
+			priority: 'optional',
 		},
 	]),
 };
 
 const mockChildRepo = {
-	findAllChildren: vi.fn().mockResolvedValue([]),
+	findAllChildren: vi.fn().mockResolvedValue([{ id: 1, nickname: 'テスト' }]),
 };
 
 const mockChecklistRepo = {
@@ -94,6 +99,7 @@ vi.mock('$lib/server/db/factory', () => ({
 		cloudExport: mockCloudExportRepo,
 		storage: mockStorageRepo,
 		activity: mockActivityRepo,
+		childActivity: mockChildActivityRepo,
 		child: mockChildRepo,
 		checklist: mockChecklistRepo,
 	}),
@@ -122,6 +128,19 @@ describe('cloud-export-service', () => {
 			maxDownloads: (input.maxDownloads as number) ?? 10,
 			createdAt: new Date().toISOString(),
 		}));
+		// #2362 PR-3 (ADR-0055): per-child child fixture + activity fixture
+		mockChildRepo.findAllChildren.mockResolvedValue([{ id: 1, nickname: 'テスト' }]);
+		mockChildActivityRepo.findActivitiesByChild.mockResolvedValue([
+			{
+				name: '走る',
+				categoryId: 1,
+				icon: '🏃',
+				basePoints: 5,
+				triggerHint: null,
+				isMainQuest: 0,
+				priority: 'optional',
+			},
+		]);
 	});
 
 	describe('createCloudExport', () => {
@@ -196,6 +215,112 @@ describe('cloud-export-service', () => {
 			});
 
 			expect(result.pinCode).toMatch(/^[A-Z2-9]{6}$/);
+		});
+
+		it('テンプレート export は child 別 shape (activitiesByChild) を出力する (#2362 PR-3、PO 判断 A 案)', async () => {
+			mockChildRepo.findAllChildren.mockResolvedValue([
+				{ id: 10, nickname: 'たろう' },
+				{ id: 20, nickname: 'はなこ' },
+			]);
+			mockChildActivityRepo.findActivitiesByChild
+				.mockResolvedValueOnce([
+					{
+						name: 'はしる',
+						categoryId: 1,
+						icon: '🏃',
+						basePoints: 5,
+						triggerHint: null,
+						isMainQuest: 1,
+						priority: 'must',
+					},
+				])
+				.mockResolvedValueOnce([
+					{
+						name: 'よむ',
+						categoryId: 2,
+						icon: '📖',
+						basePoints: 3,
+						triggerHint: '寝る前',
+						isMainQuest: 0,
+						priority: 'optional',
+					},
+					{
+						name: 'はみがき',
+						categoryId: 3,
+						icon: '🪥',
+						basePoints: 2,
+						triggerHint: null,
+						isMainQuest: 0,
+						priority: 'must',
+					},
+				]);
+
+			await createCloudExport({
+				tenantId: 'tenant-1',
+				exportType: 'template',
+				licenseStatus: 'active',
+			});
+
+			// saveFile が呼ばれた中身を取り出して shape を検証
+			const savedCall = mockStorageRepo.saveFile.mock.calls[0];
+			expect(savedCall).toBeDefined();
+			const savedBuffer = savedCall?.[1] as Buffer;
+			const savedData = JSON.parse(savedBuffer.toString('utf-8'));
+
+			expect(savedData.format).toBe('ganbari-quest-template');
+			expect(savedData.version).toBe('2.0.0');
+			expect(savedData.activitiesByChild).toHaveLength(2);
+			expect(savedData.activitiesByChild[0]).toMatchObject({
+				childId: 10,
+				childNickname: 'たろう',
+				activities: [{ name: 'はしる', isMainQuest: 1, priority: 'must' }],
+			});
+			expect(savedData.activitiesByChild[1]).toMatchObject({
+				childId: 20,
+				childNickname: 'はなこ',
+				activities: [{ name: 'よむ' }, { name: 'はみがき' }],
+			});
+			// 旧 family-wide shape は出力されない
+			expect(savedData.activities).toBeUndefined();
+		});
+
+		it('テンプレート export description に「人分」が含まれる (#2362 PR-3)', async () => {
+			mockChildRepo.findAllChildren.mockResolvedValue([
+				{ id: 10, nickname: 'たろう' },
+				{ id: 20, nickname: 'はなこ' },
+			]);
+			mockChildActivityRepo.findActivitiesByChild
+				.mockResolvedValueOnce([
+					{
+						name: 'a1',
+						categoryId: 1,
+						icon: '🏃',
+						basePoints: 5,
+						triggerHint: null,
+						isMainQuest: 0,
+						priority: 'optional',
+					},
+				])
+				.mockResolvedValueOnce([
+					{
+						name: 'a2',
+						categoryId: 1,
+						icon: '📖',
+						basePoints: 3,
+						triggerHint: null,
+						isMainQuest: 0,
+						priority: 'optional',
+					},
+				]);
+
+			const result = await createCloudExport({
+				tenantId: 'tenant-1',
+				exportType: 'template',
+				licenseStatus: 'active',
+			});
+
+			expect(result.description).toContain('活動2件');
+			expect(result.description).toContain('2人分');
 		});
 	});
 
