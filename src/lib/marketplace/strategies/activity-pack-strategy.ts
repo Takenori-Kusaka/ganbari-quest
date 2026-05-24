@@ -82,9 +82,15 @@ export const activityPackStrategy: ImportStrategy<ActivityPackPayload> = {
 		}
 
 		const activities = payload.activities as ActivityPackItem[];
+		// #2362 PR-3 (ADR-0055): per-child instance 化対応。
+		// activity-pack Descriptor (`requiresChildSelection: true`) では UI 側で必ず
+		// ctx.childIds が注入される。Strangler Fig 期間中は family master insert と
+		// per-child instance 配信を service 内部で並存させる (Phase 6/7 で family master
+		// insert path を drop し本 ctx.childIds を必須化予定)。
 		const raw = await importActivities(activities, ctx.tenantId, {
 			presetId: ctx.presetId,
 			applyMustDefault: ctx.applyMustDefault,
+			childIds: ctx.childIds,
 		});
 		return {
 			imported: raw.imported,
