@@ -128,9 +128,11 @@ export const activityLogs = sqliteTable(
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id),
+		// #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		// 旧 activities table は drop しない (#2458 別 PR)、並存維持
 		activityId: integer('activity_id')
 			.notNull()
-			.references(() => activities.id),
+			.references(() => childActivities.id),
 		points: integer('points').notNull(),
 		streakDays: integer('streak_days').notNull().default(1),
 		streakBonus: integer('streak_bonus').notNull().default(0),
@@ -503,9 +505,10 @@ export const dailyMissions = sqliteTable(
 			.notNull()
 			.references(() => children.id),
 		missionDate: text('mission_date').notNull(),
+		// #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
 		activityId: integer('activity_id')
 			.notNull()
-			.references(() => activities.id),
+			.references(() => childActivities.id),
 		completed: integer('completed').notNull().default(0),
 		completedAt: text('completed_at'),
 	},
@@ -525,9 +528,10 @@ export const childActivityPreferences = sqliteTable(
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id, { onDelete: 'cascade' }),
+		// #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
 		activityId: integer('activity_id')
 			.notNull()
-			.references(() => activities.id, { onDelete: 'cascade' }),
+			.references(() => childActivities.id, { onDelete: 'cascade' }),
 		isPinned: integer('is_pinned').notNull().default(0),
 		pinOrder: integer('pin_order'),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -610,9 +614,10 @@ export const activityMastery = sqliteTable(
 		childId: integer('child_id')
 			.notNull()
 			.references(() => children.id),
+		// #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
 		activityId: integer('activity_id')
 			.notNull()
-			.references(() => activities.id),
+			.references(() => childActivities.id),
 		totalCount: integer('total_count').notNull().default(0),
 		level: integer('level').notNull().default(1),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),

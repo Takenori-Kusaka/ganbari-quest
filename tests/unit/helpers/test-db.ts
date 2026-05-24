@@ -130,7 +130,8 @@ export const SQL_TABLES = `
 	CREATE TABLE activity_logs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		points INTEGER NOT NULL,
 		streak_days INTEGER NOT NULL DEFAULT 1,
 		streak_bonus INTEGER NOT NULL DEFAULT 0,
@@ -339,7 +340,8 @@ export const SQL_TABLES = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
 		mission_date TEXT NOT NULL,
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		completed INTEGER NOT NULL DEFAULT 0,
 		completed_at TEXT,
 		UNIQUE(child_id, mission_date, activity_id)
@@ -453,7 +455,8 @@ export const SQL_TABLES = `
 	CREATE TABLE child_activity_preferences (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		is_pinned INTEGER NOT NULL DEFAULT 0,
 		pin_order INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -528,7 +531,8 @@ export const SQL_TABLES = `
 	CREATE TABLE activity_mastery (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		total_count INTEGER NOT NULL DEFAULT 0,
 		level INTEGER NOT NULL DEFAULT 1,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
