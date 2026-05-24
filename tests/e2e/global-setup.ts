@@ -718,12 +718,34 @@ export default async function globalSetup() {
 		// 旧実装は SELECT id FROM activities WHERE ... を直接 activity_logs.activity_id に渡していたが、
 		// schema 変更後は FK 違反となるため (#2455 must-3 root cause)、per-child instance 生成を挟む。
 		//
+		// #2455 Round 6: master の `priority` / `daily_limit` / `icon` / `is_visible` / `sort_order` /
+		// `name_kana` / `name_kanji` / `trigger_hint` / `is_main_quest` / `source_preset_id` を per-child
+		// instance に正しく伝播する。旧実装は priority / icon / daily_limit 等を hardcode していたため、
+		// #2146 (must-priority カード演出) / #0051 (dailyLimit > 1) / #0054 (複合アイコン) / AC4 CWE-598
+		// が silent fail していた。
+		//
 		// idempotent: 既に対象 child の child_activities が seed 済みであれば再生成しない
 		// childId が undefined (= testChildIds に該当 nickname の seed がない) の場合は空配列を返し、
 		// 後続の activity_logs seed もスキップさせる (defensive: child seed 失敗時の cascade を防ぐ)
+		type MasterActivity = {
+			id: number;
+			name: string;
+			category_id: number;
+			base_points: number;
+			icon: string;
+			priority: 'must' | 'optional';
+			daily_limit: number | null;
+			is_visible: number;
+			sort_order: number;
+			name_kana: string | null;
+			name_kanji: string | null;
+			trigger_hint: string | null;
+			is_main_quest: number;
+			source_preset_id: string | null;
+		};
 		const seedChildActivitiesIfMissing = (
 			childId: number | undefined,
-			masterActivities: { id: number; name: string; category_id: number; base_points: number }[],
+			masterActivities: MasterActivity[],
 		): { id: number; base_points: number }[] => {
 			if (childId === undefined) return [];
 			const existing = db
@@ -734,8 +756,12 @@ export default async function globalSetup() {
 			if (existing.length > 0) return existing;
 			if (masterActivities.length === 0) return [];
 			const insertStmt = db.prepare(
-				`INSERT INTO child_activities (child_id, name, category_id, icon, base_points, sort_order, source, priority)
-				 VALUES (?, ?, ?, ?, ?, ?, 'seed', 'optional')`,
+				`INSERT INTO child_activities (
+					child_id, name, category_id, icon, base_points, is_visible, daily_limit,
+					sort_order, source, name_kana, name_kanji, trigger_hint, is_main_quest,
+					source_preset_id, priority
+				)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'seed', ?, ?, ?, ?, ?, ?)`,
 			);
 			const created: { id: number; base_points: number }[] = [];
 			for (const [idx, master] of masterActivities.entries()) {
@@ -743,9 +769,17 @@ export default async function globalSetup() {
 					childId,
 					master.name,
 					master.category_id,
-					'⭐',
+					master.icon,
 					master.base_points,
-					idx,
+					master.is_visible,
+					master.daily_limit,
+					master.sort_order ?? idx,
+					master.name_kana,
+					master.name_kanji,
+					master.trigger_hint,
+					master.is_main_quest,
+					master.source_preset_id,
+					master.priority,
 				);
 				created.push({ id: Number(result.lastInsertRowid), base_points: master.base_points });
 			}
@@ -762,11 +796,22 @@ export default async function globalSetup() {
 		if (pastLogCount.c === 0) {
 			// たろうくん の過去7日分の活動ログ
 			// kinder-starter パックの活動を使用（seed.ts の活動名と一致）
+			// #2455 Round 6: LIMIT を 20 → 100 に拡張。PR-3 で getActivities() が
+			// `child_activities` 由来になったため、API 公開対象 activity は per-child instance に
+			// 全件 seed する必要がある。LIMIT 20 だと `おさらあらい` (kinder index 32) / `水やりをする`
+			// (index 41) 等が未 seed となり features.spec.ts #0051 / #0054 の UI 検証が空 locator
+			// で fail する。kinder 母集合 43 件のため 100 で十分余裕。
 			const kinderActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'kinder' OR (age_min <= 4 AND (age_max IS NULL OR age_max >= 4)) LIMIT 20",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'kinder' OR (age_min <= 4 AND (age_max IS NULL OR age_max >= 4))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (kinderActivities.length > 0) {
 				// #2362 PR-3: master `activities` を per-child instance に複写し、その id を activity_logs で参照
@@ -801,9 +846,15 @@ export default async function globalSetup() {
 			// はなこちゃん の過去5日分
 			const babyActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'baby' OR (age_min <= 1 AND (age_max IS NULL OR age_max >= 1)) LIMIT 10",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'baby' OR (age_min <= 1 AND (age_max IS NULL OR age_max >= 1))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (babyActivities.length > 0) {
 				const childActs2 = seedChildActivitiesIfMissing(testChildIds.はなこちゃん, babyActivities);
@@ -834,9 +885,15 @@ export default async function globalSetup() {
 			// けんたくん の過去6日分の活動ログ
 			const elementaryActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'elementary_lower' OR (age_min <= 8 AND (age_max IS NULL OR age_max >= 8)) LIMIT 20",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'elementary_lower' OR (age_min <= 8 AND (age_max IS NULL OR age_max >= 8))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (elementaryActivities.length > 0) {
 				const childActs3 = seedChildActivitiesIfMissing(
@@ -872,9 +929,15 @@ export default async function globalSetup() {
 			// ゆうこちゃん の過去5日分の活動ログ
 			const juniorActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'middle_school' OR (age_min <= 13 AND (age_max IS NULL OR age_max >= 13)) LIMIT 20",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'middle_school' OR (age_min <= 13 AND (age_max IS NULL OR age_max >= 13))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (juniorActivities.length > 0) {
 				const childActs4 = seedChildActivitiesIfMissing(
@@ -910,9 +973,15 @@ export default async function globalSetup() {
 			// まさとくん の過去4日分の活動ログ
 			const seniorActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'high_school' OR (age_min <= 16 AND (age_max IS NULL OR age_max >= 16)) LIMIT 20",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'high_school' OR (age_min <= 16 AND (age_max IS NULL OR age_max >= 16))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (seniorActivities.length > 0) {
 				const childActs5 = seedChildActivitiesIfMissing(testChildIds.まさとくん, seniorActivities);
