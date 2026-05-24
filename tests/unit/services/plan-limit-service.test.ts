@@ -510,10 +510,7 @@ describe('plan-limit-service', () => {
 
 		it('free (cognito): allowed when tenant-wide custom count is under limit (per-child sum, #2362)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			mockFindAllChildren.mockResolvedValue([
-				{ id: 10 },
-				{ id: 20 },
-			]);
+			mockFindAllChildren.mockResolvedValue([{ id: 10 }, { id: 20 }]);
 			mockFindActivitiesByChild
 				.mockResolvedValueOnce([{ id: 101, source: 'custom' }])
 				.mockResolvedValueOnce([{ id: 201, source: 'custom' }]);

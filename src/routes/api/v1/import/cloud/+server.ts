@@ -34,7 +34,9 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		return validationError('mode は preview, execute, replace を指定してください');
 	}
 
-	let body: { pinCode?: string };
+	// #2362 PR-3 (ADR-0055): template export は child 別 shape を持つ。
+	// 取込時は ChildSelectionDialog で選択された targetChildIds を必須化 (per-child instance binding)。
+	let body: { pinCode?: string; targetChildIds?: number[] };
 	try {
 		body = await request.json();
 	} catch {
@@ -45,6 +47,10 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	if (!pinCode || pinCode.length < 4) {
 		return validationError('PINコードを入力してください');
 	}
+
+	const targetChildIds = Array.isArray(body.targetChildIds)
+		? body.targetChildIds.filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+		: undefined;
 
 	// PINでクラウドデータ取得
 	let record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'];
@@ -62,33 +68,53 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		return apiError('INTERNAL_ERROR', 'クラウドデータの取得に失敗しました');
 	}
 
-	// テンプレートインポート
+	// テンプレートインポート (per-child shape, ADR-0055)
 	if (record.exportType === 'template') {
-		return handleTemplateImport(data, tenantId, mode, record.description);
+		return handleTemplateImport(data, tenantId, mode, record.description, targetChildIds);
 	}
 
 	// フルインポート（既存import-serviceに委譲）
 	return handleFullImport(data, tenantId, mode);
 };
 
+/**
+ * テンプレートインポート (per-child instance, #2362 PR-3 / ADR-0055)
+ *
+ * 入力 shape (cloud-export-service v2.0.0 が出力):
+ *   { activitiesByChild: [{ childId, childNickname, activities: [...] }], checklistTemplates: [...] }
+ *
+ * 取込フロー (PO 判断 A 案):
+ *   1. preview: 集計のみ (childIds 不要)
+ *   2. execute: targetChildIds 必須 (ChildSelectionDialog で選択された復元先 child)
+ *      - 旧 export の各 child の activities を targetChildIds の各 child に instance 化
+ *      - 同名 activity は per-child で重複スキップ (`source: 'cloud-import'`)
+ *      - childId 元情報は捨てる (復元先 child が SSOT)
+ */
 async function handleTemplateImport(
 	dataStr: string,
 	tenantId: string,
 	mode: string,
 	description: string | null,
+	targetChildIds: number[] | undefined,
 ): Promise<Response> {
+	type TemplateActivity = {
+		name: string;
+		categoryId: number;
+		icon: string;
+		basePoints: number;
+		triggerHint?: string | null;
+		isMainQuest?: number;
+		priority?: 'must' | 'optional';
+	};
+	type TemplateChildBucket = {
+		childId: number;
+		childNickname?: string;
+		activities: TemplateActivity[];
+	};
 	let templateData: {
 		format: string;
 		version: string;
-		activities?: Array<{
-			name: string;
-			categoryId: number;
-			icon: string;
-			basePoints: number;
-			ageMin?: number | null;
-			ageMax?: number | null;
-			triggerHint?: string | null;
-		}>;
+		activitiesByChild?: TemplateChildBucket[];
 		checklistTemplates?: Array<{
 			name: string;
 			items: Array<{ name: string; icon: string }>;
@@ -104,8 +130,20 @@ async function handleTemplateImport(
 	if (templateData.format !== 'ganbari-quest-template') {
 		return apiError('VALIDATION_ERROR', 'テンプレート形式が不正です');
 	}
+	if (templateData.version !== '2.0.0') {
+		return apiError(
+			'VALIDATION_ERROR',
+			`サポートされていないテンプレートバージョンです (version=${String(templateData.version)})`,
+		);
+	}
 
-	const activitiesCount = templateData.activities?.length ?? 0;
+	const childBuckets = Array.isArray(templateData.activitiesByChild)
+		? templateData.activitiesByChild
+		: [];
+	const totalActivitiesInTemplate = childBuckets.reduce(
+		(sum, bucket) => sum + (Array.isArray(bucket.activities) ? bucket.activities.length : 0),
+		0,
+	);
 	const checklistsCount = templateData.checklistTemplates?.length ?? 0;
 
 	if (mode === 'preview') {
@@ -114,44 +152,83 @@ async function handleTemplateImport(
 			preview: {
 				exportType: 'template',
 				description,
-				activities: activitiesCount,
+				activities: totalActivitiesInTemplate,
+				activitiesByChild: childBuckets.map((b) => ({
+					childId: b.childId,
+					childNickname: b.childNickname ?? null,
+					activityCount: Array.isArray(b.activities) ? b.activities.length : 0,
+				})),
 				checklistTemplates: checklistsCount,
 			},
 		});
 	}
 
-	// execute: テンプレートデータをマージインポート
+	// execute: ChildSelectionDialog 経由で復元先 child が指定されている必要がある
+	if (!targetChildIds || targetChildIds.length === 0) {
+		return apiError(
+			'VALIDATION_ERROR',
+			'取込先のお子さまを 1 人以上選択してください (targetChildIds 必須)',
+		);
+	}
+
 	try {
 		const { getRepos } = await import('$lib/server/db/factory');
 		const repos = getRepos();
+
+		// 復元先 child の所有権検証 (cross-tenant access 防止)
+		const ownedChildren = await repos.child.findAllChildren(tenantId);
+		const ownedChildIds = new Set(ownedChildren.map((c) => c.id));
+		const invalidIds = targetChildIds.filter((id) => !ownedChildIds.has(id));
+		if (invalidIds.length > 0) {
+			return apiError(
+				'VALIDATION_ERROR',
+				`指定されたお子さまが見つかりません (invalid: ${invalidIds.join(',')})`,
+			);
+		}
+
+		// 旧 export の活動を平坦化 (childId 元情報は捨てる、復元先 child が SSOT)
+		const flatActivities: TemplateActivity[] = childBuckets.flatMap((b) =>
+			Array.isArray(b.activities) ? b.activities : [],
+		);
+		// 同名 dedup (取込側で重複を吸収、ChildSelectionDialog で複数 child 選択時の整合保持)
+		const uniqByName = new Map<string, TemplateActivity>();
+		for (const act of flatActivities) {
+			if (!uniqByName.has(act.name)) uniqByName.set(act.name, act);
+		}
+
 		let activitiesCreated = 0;
 		const checklistsCreated = 0;
 
-		// 活動マスタのインポート（重複名はスキップ）
-		if (templateData.activities && templateData.activities.length > 0) {
-			const existing = await repos.activity.findActivities(tenantId);
-			const existingNames = new Set(existing.map((a) => a.name));
-			for (const act of templateData.activities) {
-				if (!existingNames.has(act.name)) {
-					await repos.activity.insertActivity(
-						{
-							name: act.name,
-							categoryId: act.categoryId,
-							icon: act.icon,
-							basePoints: act.basePoints,
-							ageMin: act.ageMin ?? null,
-							ageMax: act.ageMax ?? null,
-							triggerHint: act.triggerHint ?? null,
-						},
-						tenantId,
-					);
-					activitiesCreated++;
-				}
+		// per-child instance bulk insert
+		for (const cid of targetChildIds) {
+			const existingInChild = await repos.childActivity.findActivitiesByChild(cid, tenantId);
+			const existingNames = new Set(existingInChild.map((a) => a.name));
+			const inputs = Array.from(uniqByName.values())
+				.filter((a) => !existingNames.has(a.name))
+				.map((a) => ({
+					childId: cid,
+					name: a.name,
+					categoryId: a.categoryId,
+					icon: a.icon,
+					basePoints: a.basePoints,
+					triggerHint: a.triggerHint ?? null,
+					isMainQuest: a.isMainQuest ?? 0,
+					priority: a.priority ?? 'optional',
+					sourcePresetId: null,
+				}));
+			if (inputs.length > 0) {
+				const created = await repos.childActivity.insertActivitiesBulk(inputs, tenantId);
+				activitiesCreated += created.length;
 			}
 		}
 
 		logger.info('[cloud-import] テンプレートインポート完了', {
-			context: { tenantId, activitiesCreated, checklistsCreated },
+			context: {
+				tenantId,
+				activitiesCreated,
+				checklistsCreated,
+				targetChildCount: targetChildIds.length,
+			},
 		});
 
 		return json({
@@ -160,6 +237,7 @@ async function handleTemplateImport(
 				exportType: 'template',
 				activitiesCreated,
 				checklistsCreated,
+				targetChildIds,
 			},
 		});
 	} catch (err) {
