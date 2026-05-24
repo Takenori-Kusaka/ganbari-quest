@@ -1,0 +1,196 @@
+// src/lib/server/db/demo/child-activity-repo.ts
+// per-child activity instance repository — Demo Lambda 実装 (#2362 PR-3, ADR-0055)
+// ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
+//
+// Phase 2 段階: 旧 DEMO_ACTIVITIES (family master) を per-child 視点で擬似 instance 化する。
+// 旧 demo activity fixture が依然 master 形 (childId なし) であるため、find は
+// 全 child に対し旧 fixture を活動共通で返す lightweight read fake を用意する。
+// Phase 6 で demo-data.ts に per-child fixture を追加した時点で本実装を refactor する。
+
+import {
+	DEMO_ACTIVITIES,
+	DEMO_CHILDREN,
+	DEMO_MARKETPLACE_ACTIVITIES,
+} from '$lib/server/demo/demo-data';
+import type {
+	Activity,
+	Child,
+	ChildActivity,
+	InsertChildActivityInput,
+	UpdateChildActivityInput,
+} from '../types';
+
+/**
+ * 旧 master Activity を per-child 視点の ChildActivity 形に投影する。
+ * id 衝突を避けるため `child_id * 1_000_000 + activity_id` で擬似 id を生成。
+ * 取込元 master id は sourcePresetId に "demo:<originalId>" として保持。
+ */
+function projectToChildActivity(master: Activity, childId: number): ChildActivity {
+	return {
+		id: childId * 1_000_000 + master.id,
+		childId,
+		name: master.name,
+		categoryId: master.categoryId,
+		icon: master.icon,
+		basePoints: master.basePoints,
+		isVisible: master.isVisible,
+		dailyLimit: master.dailyLimit,
+		sortOrder: master.sortOrder,
+		source: master.source,
+		nameKana: master.nameKana,
+		nameKanji: master.nameKanji,
+		triggerHint: master.triggerHint,
+		isMainQuest: master.isMainQuest,
+		isArchived: master.isArchived,
+		archivedReason: master.archivedReason,
+		createdAt: master.createdAt,
+		sourcePresetId: master.sourcePresetId ?? `demo:${master.id}`,
+		priority: master.priority,
+	};
+}
+
+const ALL_DEMO_ACTIVITIES_MASTER: Activity[] = (() => {
+	const byName = new Map<string, Activity>();
+	for (const a of DEMO_ACTIVITIES) {
+		byName.set(a.name, a);
+	}
+	for (const a of DEMO_MARKETPLACE_ACTIVITIES) {
+		if (!byName.has(a.name)) {
+			byName.set(a.name, a);
+		}
+	}
+	return Array.from(byName.values());
+})();
+
+// ============================================================
+// Read (Fake)
+// ============================================================
+
+export async function findActivitiesByChild(
+	childId: number,
+	_tenantId: string,
+	options?: { includeArchived?: boolean; visibleOnly?: boolean },
+): Promise<ChildActivity[]> {
+	return ALL_DEMO_ACTIVITIES_MASTER.filter((master) => {
+		if (!options?.includeArchived && master.isArchived === 1) return false;
+		if (options?.visibleOnly && master.isVisible !== 1) return false;
+		return true;
+	}).map((master) => projectToChildActivity(master, childId));
+}
+
+export async function findActivityById(
+	id: number,
+	childId: number,
+	_tenantId: string,
+): Promise<ChildActivity | undefined> {
+	const masterId = id - childId * 1_000_000;
+	const master = ALL_DEMO_ACTIVITIES_MASTER.find((a) => a.id === masterId);
+	return master ? projectToChildActivity(master, childId) : undefined;
+}
+
+export async function countMainQuestActivities(childId: number, tenantId: string): Promise<number> {
+	const list = await findActivitiesByChild(childId, tenantId, { visibleOnly: true });
+	return list.filter((a) => a.isMainQuest === 1).length;
+}
+
+// ============================================================
+// Write (Stub no-op)
+// ============================================================
+
+export async function insertActivity(
+	input: InsertChildActivityInput,
+	_tenantId: string,
+): Promise<ChildActivity> {
+	const now = new Date().toISOString();
+	return {
+		id: 0,
+		childId: input.childId,
+		name: input.name,
+		categoryId: input.categoryId,
+		icon: input.icon,
+		basePoints: input.basePoints,
+		isVisible: 1,
+		dailyLimit: null,
+		sortOrder: 0,
+		source: 'demo',
+		nameKana: null,
+		nameKanji: null,
+		triggerHint: input.triggerHint ?? null,
+		isMainQuest: input.isMainQuest ?? 0,
+		isArchived: 0,
+		archivedReason: null,
+		createdAt: now,
+		sourcePresetId: input.sourcePresetId ?? null,
+		priority: input.priority ?? 'optional',
+	};
+}
+
+export async function insertActivitiesBulk(
+	inputs: InsertChildActivityInput[],
+	tenantId: string,
+): Promise<ChildActivity[]> {
+	const out: ChildActivity[] = [];
+	for (const input of inputs) {
+		out.push(await insertActivity(input, tenantId));
+	}
+	return out;
+}
+
+export async function updateActivity(
+	id: number,
+	childId: number,
+	_input: UpdateChildActivityInput,
+	tenantId: string,
+): Promise<ChildActivity | undefined> {
+	return findActivityById(id, childId, tenantId);
+}
+
+export async function setActivityVisibility(
+	id: number,
+	childId: number,
+	_visible: boolean,
+	tenantId: string,
+): Promise<ChildActivity | undefined> {
+	return findActivityById(id, childId, tenantId);
+}
+
+export async function deleteActivity(
+	id: number,
+	childId: number,
+	tenantId: string,
+): Promise<ChildActivity | undefined> {
+	return findActivityById(id, childId, tenantId);
+}
+
+export async function copyActivitiesAcrossChildren(
+	sourceChildId: number,
+	targetChildId: number,
+	tenantId: string,
+): Promise<ChildActivity[]> {
+	const sourceList = await findActivitiesByChild(sourceChildId, tenantId, {
+		includeArchived: false,
+		visibleOnly: false,
+	});
+	// Stub: source の活動を targetChildId 視点に投影して返すのみ (write は no-op)
+	return sourceList.map((a) => ({ ...a, childId: targetChildId }));
+}
+
+export async function archiveActivities(
+	_ids: number[],
+	_reason: string,
+	_tenantId: string,
+): Promise<void> {
+	// Stub: no-op
+}
+
+export async function restoreArchivedActivities(_reason: string, _tenantId: string): Promise<void> {
+	// Stub: no-op
+}
+
+// ============================================================
+// Child convenience lookup
+// ============================================================
+
+export async function findChildById(id: number, _tenantId: string): Promise<Child | undefined> {
+	return DEMO_CHILDREN.find((c) => c.id === id);
+}
