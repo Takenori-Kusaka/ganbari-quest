@@ -59,6 +59,30 @@ export interface ImportRewardSetOptions {
 	childId: number;
 }
 
+/**
+ * 複数 child に同時取込する場合のオプション (#2362 PR-4、ADR-0055)。
+ *
+ * marketplace 取込フロー (取込ダイアログ「全員に追加」/ 個別選択) で利用。
+ * 単一 child は `ImportRewardSetOptions.childId` 経由 (既存互換)。
+ */
+export interface ImportRewardSetToChildrenOptions {
+	presetId: string;
+	/** 適用対象 child ID 配列 (1 件以上必須、空は呼出側で排除) */
+	childIds: readonly number[];
+}
+
+/**
+ * per-child bulk 取込結果。`imported / skipped / errors` は全 child 合算、
+ * `byChild` は target child 別の内訳 (UI feedback 用)。
+ */
+export interface RewardSetImportToChildrenResult {
+	imported: number;
+	skipped: number;
+	errors: string[];
+	/** target child 別の取込件数 (UI 表示 / debug 用) */
+	byChild: Record<number, { imported: number; skipped: number; errors: number }>;
+}
+
 // ---------- preview ----------
 
 /**
@@ -176,4 +200,58 @@ export async function importRewardSet(
 	});
 
 	return { imported, skipped, errors };
+}
+
+/**
+ * 複数 child に同一 reward-set を一括取込する (#2362 PR-4、ADR-0055)。
+ *
+ * 各 child について `importRewardSet` を順次実行し、結果を集約する。
+ * 1 child の取込失敗が他 child を blocking しない (partial success 許容)。
+ *
+ * @param rewards    取込対象 reward 配列 (RewardSetPayload['rewards'])
+ * @param tenantId   テナント ID
+ * @param options    presetId + childIds 配列
+ */
+export async function importRewardSetToChildren(
+	rewards: RewardSetItem[],
+	tenantId: string,
+	options: ImportRewardSetToChildrenOptions,
+): Promise<RewardSetImportToChildrenResult> {
+	const { presetId, childIds } = options;
+	const byChild: Record<number, { imported: number; skipped: number; errors: number }> = {};
+	let totalImported = 0;
+	let totalSkipped = 0;
+	const allErrors: string[] = [];
+
+	for (const childId of childIds) {
+		const result = await importRewardSet(rewards, tenantId, { presetId, childId });
+		byChild[childId] = {
+			imported: result.imported,
+			skipped: result.skipped,
+			errors: result.errors.length,
+		};
+		totalImported += result.imported;
+		totalSkipped += result.skipped;
+		for (const e of result.errors) {
+			allErrors.push(`child ${childId}: ${e}`);
+		}
+	}
+
+	logger.info('[reward-set-import] per-child 一括インポート完了', {
+		context: {
+			tenantId,
+			presetId,
+			childCount: childIds.length,
+			totalImported,
+			totalSkipped,
+			errorCount: allErrors.length,
+		},
+	});
+
+	return {
+		imported: totalImported,
+		skipped: totalSkipped,
+		errors: allErrors,
+		byChild,
+	};
 }

@@ -68,8 +68,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 };
 
 export const actions: Actions = {
-	// #2136 MP-1: reward-set の一括取込 action
-	importRewardSet: async ({ request, params, locals }) => {
+	// #2362 PR-4 (ADR-0055 / CWE-598): reward-set marketplace action は child 情報を
+	// 持たず、admin/rewards へ `?import=<itemId>` で遷移するだけ。
+	// 取込実行 (per-child fan-out) は admin/rewards 側の ChildSelectionDialog 経由で行う。
+	// 旧来 form data (`childId`) は受信せず、URL/body に child 情報を一切露出させない
+	// (User §7.3 直接判断 + marketplace-import-flow.md §2.1)。
+	importRewardSet: async ({ params, locals }) => {
 		const { type, itemId } = params;
 
 		if (type !== 'reward-set') {
@@ -81,49 +85,8 @@ export const actions: Actions = {
 			redirect(303, `/auth/login?redirect=/marketplace/${type}/${itemId}`);
 		}
 
-		const tenantId = requireTenantId(locals);
-		const item = getMarketplaceItem('reward-set', itemId);
-		if (!item) {
-			return fail(404, { error: 'コンテンツが見つかりません' });
-		}
-
-		const formData = await request.formData();
-		const childId = Number(formData.get('childId'));
-		if (!childId) {
-			return fail(400, { error: 'お子さまを選択してください' });
-		}
-
-		// #2366 (ADR-0052): Strategy + dispatchImport 経由でインポート。
-		// requiresChildId=true の Descriptor が ctx.childId 必須を表明する。
-		// 旧 service の preview→allDuplicates 早期 return は dispatcher 経由でも
-		// `imported===0 && skipped===total` で同等の意味を表現できるため UI 側で判定。
-		try {
-			const result = await dispatchImport({
-				typeCode: 'reward-set',
-				rawPayload: item.payload,
-				displayName: item.name,
-				ctx: { tenantId, presetId: itemId, childId },
-			});
-
-			// 全件重複の場合は allDuplicates フラグで返却 (UI 互換)
-			if (result.imported === 0 && result.skipped === result.total && result.total > 0) {
-				return { rewardImport: { allDuplicates: true } };
-			}
-
-			return {
-				rewardImport: {
-					imported: result.imported,
-					skipped: result.skipped,
-					errors: result.errors,
-				},
-			};
-		} catch (e) {
-			logger.error('[marketplace/reward-set] インポート失敗', {
-				error: e instanceof Error ? e.message : String(e),
-				context: { itemId, childId },
-			});
-			return fail(500, { error: 'インポートに失敗しました' });
-		}
+		// presetId のみ持って親管理画面へ遷移 (childId は URL/body どこにも露出させない)
+		redirect(303, `/admin/rewards?import=${encodeURIComponent(itemId)}`);
 	},
 
 	// #2137 (MP-2): event-checklist 一括追加 action

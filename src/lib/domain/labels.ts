@@ -933,6 +933,8 @@ export const MARKETPLACE_LABELS = {
 	detailRewardImportAllDuplicates: 'このごほうびセットは既に追加済みです',
 	/** #2136 MP-1: お子さま未登録時の誘導 */
 	detailRewardImportNoChildren: 'まずはお子さまを登録してください',
+	/** #2362 PR-4 (ADR-0055 / CWE-598): marketplace 取込ボタン下のヒント (admin 側でダイアログ) */
+	detailRewardImportPerChildHint: '取り込む際は親管理画面で「どのお子さまに追加するか」を選びます',
 	// #2137 (MP-2): event-checklist 一括追加 CTA
 	detailCtaImportChecklist: '一括追加',
 	detailCtaImportChecklistDesc:
@@ -3947,6 +3949,42 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	bulkTargetChildAgeSuffix: '歳',
 	bulkDialogCancel: 'キャンセル',
 	bulkDialogConfirm: '追加する',
+} as const;
+
+/**
+ * /admin/rewards (per-child UX 整備) 用ラベル (#2362 PR-4、ADR-0055)
+ *
+ * PR-3 の ADMIN_ACTIVITIES_PAGE_LABELS と同型 (子供別タブ + 兄弟共通化 + 取込ダイアログ)。
+ * CHILD_TERMS atom を template literal で参照し ADR-0045 整合。
+ */
+export const ADMIN_REWARDS_PAGE_LABELS = {
+	// 子供別タブ
+	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
+	childCountSuffix: '件',
+	// 兄弟共通化 actions
+	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	// 選択中 child banner
+	childContextRewardsSuffix: (count: number) => `のごほうび (${count} 件)`,
+	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}のごほうびを表示します`,
+	// copy dialog
+	copyDialogTitle: `他の${CHILD_TERMS.honorific}からごほうびをコピー`,
+	copyDialogDescPrefix: 'コピー元の',
+	copyDialogDescSuffix: 'を選んでください (コピー先: ',
+	copyDialogDescCloseParen: ')',
+	copyDialogSelectedPlaceholder: '—',
+	copyDialogAgeSuffix: '歳',
+	copyDialogCountSuffix: '件',
+	copyDialogEmpty: `他の${CHILD_TERMS.honorific}がいません`,
+	copyDialogCancel: 'キャンセル',
+	copyDialogConfirm: 'コピーする',
+	// 取込ダイアログ後の result toast
+	importSuccess: (count: number) => `✨ ${count} 件のごほうびを追加しました`,
+	importAllDuplicates: 'このごほうびセットは既に追加済みです',
+	importFailed: '取込に失敗しました',
+	copySuccess: (count: number) => `📋 ${count} 件のごほうびをコピーしました`,
+	copyFailed: 'コピーに失敗しました',
+	// 互換: importPresetId が無効な場合の guidance
+	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
 } as const;
 
 /**

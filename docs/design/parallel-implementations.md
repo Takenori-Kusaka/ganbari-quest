@@ -342,6 +342,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 **#2366 (ADR-0052)**: callsite 3 箇所は `$lib/marketplace/dispatchImport({ typeCode: 'reward-set', ... })` 経由に統一済 (Strangler Fig)。旧 `reward-set-import-service.ts` は @deprecated marker 経由で 1 release 並行稼働 (新 Strategy の内部 callee として参照)。`requiresChildId=true` が Registry に表明されており、#8 UnifiedImportHub の子供選択 UI 統合基盤。
 
+**#2362 PR-4 (ADR-0055)**: per-child 取込 fan-out + 兄弟共通化 UX 整備 + marketplace 詳細から child 排除 (CWE-598)。`narrowChildContext` で discriminated union (`child-selection` / `legacy-single`) に narrow、`importRewardSetToChildren` で複数 child 同時 fan-out。admin 側 `ChildSelectionDialog` auto-open + 「他の子供から copy」(`copyChildRewardsToSibling` / `copyChildRewardsToSiblings`) で運用フロー完成。詳細動線は [marketplace-import-flow.md](marketplace-import-flow.md) §3.2 reward-set 節参照。
+
 **並行実装ペア**:
 
 | 場所 | 内容 | 技術 |

@@ -42,29 +42,8 @@ const CATEGORY_LABELS: Record<number, string> = {
 	5: 'そうぞう',
 };
 
-// #2136 MP-1: reward-set 一括追加 UI 状態
-let selectedChildId = $state<number>(0);
-
-$effect(() => {
-	const first = data.children[0];
-	if (selectedChildId === 0 && first) {
-		selectedChildId = first.id;
-	}
-});
-
-const rewardImport = $derived(
-	(
-		form as {
-			rewardImport?: {
-				imported?: number;
-				skipped?: number;
-				allDuplicates?: boolean;
-				errors?: string[];
-			};
-		} | null
-	)?.rewardImport,
-);
-
+// #2362 PR-4 (ADR-0055 / CWE-598): reward-set 一括追加 UI は admin/rewards 側 ChildSelectionDialog
+// に集約。marketplace 詳細では item count のみ表示。selectedChildId / rewardImport state は撤去。
 const rewardCount = $derived(isRewardSet ? (item.payload as RewardSetPayload).rewards.length : 0);
 
 // #2138 (MP-3): rule-preset 件数 + ruleType 別 CTA 分岐
@@ -298,62 +277,29 @@ const childOptions = $derived(
 		<!-- CTA -->
 		<div class="mt-6 space-y-3" data-testid="marketplace-detail-cta">
 			{#if isRewardSet && data.isAuthenticated && data.children.length > 0}
-				<!-- #2136 MP-1: reward-set 一括追加 CTA（ログイン済み + 子供登録済み） -->
-				<Card padding="md">
-					{#snippet children()}
-					<form
-						method="POST"
-						action="?/importRewardSet"
-						use:enhance
-						class="space-y-3"
-						data-testid="reward-import-form"
+				<!-- #2362 PR-4 (ADR-0055 / CWE-598): child 選択 UI を marketplace 側から削除。
+				     「取込」 button のみ表示し、押下後は admin/rewards へ `?import=<itemId>`
+				     遷移、admin 側で ChildSelectionDialog auto-open する。
+				     URL/body どこにも childId / nickname を露出しない。 -->
+				<form
+					method="POST"
+					action="?/importRewardSet"
+					use:enhance
+					data-testid="reward-import-form"
+				>
+					<Button
+						type="submit"
+						variant="primary"
+						size="lg"
+						class="w-full"
+						data-testid="reward-import-submit"
 					>
-						<label class="block">
-							<span class="text-xs font-bold text-[var(--color-text-secondary)] block mb-1">
-								{MARKETPLACE_LABELS.detailCtaSelectChild}
-							</span>
-							<NativeSelect
-								name="childId"
-								bind:value={selectedChildId}
-								options={data.children.map((c) => ({
-									value: c.id,
-									label: c.nickname,
-								}))}
-							/>
-						</label>
-						<Button
-							type="submit"
-							variant="primary"
-							size="lg"
-							class="w-full"
-							data-testid="reward-import-submit"
-						>
-							{MARKETPLACE_LABELS.detailCtaImportRewardWithCount(rewardCount)}
-						</Button>
-					</form>
-					{/snippet}
-				</Card>
-
-				{#if rewardImport}
-					{#if rewardImport.allDuplicates}
-						<div
-							class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm text-center"
-							data-testid="reward-import-result"
-						>
-							{MARKETPLACE_LABELS.detailRewardImportAllDuplicates}
-						</div>
-					{:else if (rewardImport.imported ?? 0) > 0}
-						<div
-							class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm text-center"
-							data-testid="reward-import-result"
-						>
-							{MARKETPLACE_LABELS.detailRewardImportSuccess(rewardImport.imported ?? 0)}
-							<div class="text-xs mt-1">
-								<a href="/admin/rewards" class="underline">{MARKETPLACE_LABELS.detailCtaSignup}</a>
-							</div>
-						</div>
-					{/if}
-				{/if}
+						{MARKETPLACE_LABELS.detailCtaImportRewardWithCount(rewardCount)}
+					</Button>
+				</form>
+				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
+					{MARKETPLACE_LABELS.detailRewardImportPerChildHint}
+				</p>
 			{:else if isRewardSet && data.isAuthenticated && data.children.length === 0}
 				<!-- #2136 MP-1: ログイン済みだが子供未登録 -->
 				<div

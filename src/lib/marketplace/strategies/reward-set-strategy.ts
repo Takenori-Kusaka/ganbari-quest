@@ -36,9 +36,25 @@ import type {
 } from '$lib/marketplace/types.js';
 import {
 	importRewardSet,
+	importRewardSetToChildren,
 	previewRewardSetImport,
 	type RewardSetItem,
 } from '$lib/server/services/reward-set-import-service.js';
+
+/**
+ * reward-set Strategy 固有の per-child context narrowing (#2362 PR-4、ADR-0055)。
+ *
+ * Discriminated union により `childIds` (per-child 配信) と `childId` (legacy 単一) を
+ * 明確に区別する。呼出側 (dispatchImport / +page.server.ts) は以下のいずれかを必ず注入:
+ *
+ *   - `child-selection`: `ctx.childIds` 配列 (新規、PR-4 の admin/rewards ChildSelectionDialog 経由)
+ *   - `legacy-single`:   `ctx.childId` 単一 (既存、backward compat for 旧 admin/rewards form)
+ *
+ * 両方欠落時は明確に error throw (Descriptor.requiresChildId=true の保証)。
+ */
+export type RewardSetChildContext =
+	| { kind: 'child-selection'; presetId: string; childIds: readonly number[] }
+	| { kind: 'legacy-single'; presetId: string; childId: number };
 
 /**
  * reward-set Strategy 実装 (SSOT)。
@@ -61,9 +77,18 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 	},
 
 	async preview(payload: RewardSetPayload, ctx: ImportContext): Promise<ImportPreview> {
-		const { presetId, childId } = requireChildContext(ctx);
+		const narrowed = narrowChildContext(ctx);
 		const rewards = payload.rewards as RewardSetItem[];
-		const raw = await previewRewardSetImport(rewards, presetId, childId, ctx.tenantId);
+		// preview は重複検知が child 単位で意味を持つため、複数 child 時は
+		// 最初の child について preview を返す (件数提示は概算で十分、ADR-0055 §3.2)。
+		const previewChildId =
+			narrowed.kind === 'legacy-single' ? narrowed.childId : (narrowed.childIds[0] ?? 0);
+		const raw = await previewRewardSetImport(
+			rewards,
+			narrowed.presetId,
+			previewChildId,
+			ctx.tenantId,
+		);
 		return {
 			total: raw.total,
 			newItems: raw.newRewards,
@@ -73,7 +98,7 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 	},
 
 	async apply(payload: RewardSetPayload, ctx: ImportContext): Promise<ImportResult> {
-		const { presetId, childId } = requireChildContext(ctx);
+		const narrowed = narrowChildContext(ctx);
 
 		// dry-run は preview と等価動作 (DB write 禁止)
 		if (ctx.dryRun === true) {
@@ -86,9 +111,22 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 		}
 
 		const rewards = payload.rewards as RewardSetItem[];
+		if (narrowed.kind === 'child-selection') {
+			// #2362 PR-4 (ADR-0055): per-child fan-out (admin/rewards ChildSelectionDialog 経由)
+			const raw = await importRewardSetToChildren(rewards, ctx.tenantId, {
+				presetId: narrowed.presetId,
+				childIds: narrowed.childIds,
+			});
+			return {
+				imported: raw.imported,
+				skipped: raw.skipped,
+				errors: raw.errors,
+			};
+		}
+		// legacy-single: 既存 admin/rewards 手動 form 互換
 		const raw = await importRewardSet(rewards, ctx.tenantId, {
-			presetId,
-			childId,
+			presetId: narrowed.presetId,
+			childId: narrowed.childId,
 		});
 		return {
 			imported: raw.imported,
@@ -99,24 +137,31 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 };
 
 /**
- * reward-set 固有の必須 context 検証。
+ * reward-set 固有の必須 context 検証 + discriminated union narrowing。
  *
  * Descriptor.requiresChildId=true により呼出側 (dispatcher / +page.server.ts) で
- * childId 注入が期待されるが、interface レベルでは optional のため
- * Strategy 内で明示的に error を返して fail-fast する。
+ * childId / childIds 注入が期待されるが、interface (`ImportContext`) レベルでは
+ * 両方 optional のため Strategy 内で discriminated union に narrow して fail-fast する。
+ *
+ * - `ctx.childIds` が non-empty なら `child-selection` (PR-4 新規動線)
+ * - `ctx.childId` が存在すれば `legacy-single` (既存 admin form 互換)
+ * - 両方欠落時は throw (取込ダイアログを抜けたとき必ずどちらかが入る保証)
  *
  * presetId も sourcePresetId 重複検知 (#1254 G1) のため必須。
  */
-function requireChildContext(ctx: ImportContext): { presetId: string; childId: number } {
-	if (!ctx.childId) {
-		throw new Error(
-			'[reward-set-strategy] childId is required (Descriptor.requiresChildId=true). Pass ctx.childId in dispatchImport().',
-		);
-	}
+export function narrowChildContext(ctx: ImportContext): RewardSetChildContext {
 	if (!ctx.presetId) {
 		throw new Error(
 			'[reward-set-strategy] presetId is required for sourcePresetId duplicate detection (#1254 G1). Pass ctx.presetId in dispatchImport().',
 		);
 	}
-	return { presetId: ctx.presetId, childId: ctx.childId };
+	if (ctx.childIds && ctx.childIds.length > 0) {
+		return { kind: 'child-selection', presetId: ctx.presetId, childIds: ctx.childIds };
+	}
+	if (ctx.childId && ctx.childId > 0) {
+		return { kind: 'legacy-single', presetId: ctx.presetId, childId: ctx.childId };
+	}
+	throw new Error(
+		'[reward-set-strategy] childIds (per-child selection) or childId (legacy) is required (Descriptor.requiresChildId=true). Pass ctx.childIds or ctx.childId in dispatchImport().',
+	);
 }

@@ -1,45 +1,98 @@
 <script lang="ts">
-// /admin/rewards — ごほうび管理 (#2268: CRUD + 命名訂正 + 検索 + grant→add リネーム + 申請タブ削除)
+// /admin/rewards — ごほうび管理 (#2362 PR-4: per-child UX 整備、ADR-0055)
 //
-// PO 指摘 (2026-05-19):
-// - 「とくべつなごほうび/ボーナス贈与」が応援機能を装って混同を招く → 命名訂正
-// - 「テンプレート」「マーケットプレイス」UI 露出 → 内部用語撤去
-// - 検索性不親切 → 検索 UI 追加
-// - CRUD と申請承認の責務混在 → 申請タブ削除 (#2269 で /admin/rewards/requests へ分離)
+// PR-4 (2026-05-25):
+// - 子供別タブ切替 (PR-3 ADMIN_ACTIVITIES_PAGE_LABELS 同型)
+// - ChildSelectionDialog auto-open (`?import=<presetId>` 経由)
+// - 「他の子供から copy」action (兄弟共通化 UX、User §3 reward use case R6)
+// - marketplace 取込フロー: child 情報を URL/body に露出させない (CWE-598 / User §7.3)
+//
+// 既存 (#2268): CRUD + 命名訂正 + 検索 + grant→add リネーム + 申請タブ削除
 
 import { enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getErrorMessage } from '$lib/domain/errors';
-import { APP_LABELS, PAGE_TITLES, REWARDS_LABELS } from '$lib/domain/labels';
+import {
+	ADMIN_REWARDS_PAGE_LABELS,
+	APP_LABELS,
+	PAGE_TITLES,
+	REWARDS_LABELS,
+} from '$lib/domain/labels';
+import { CHILD_TERMS } from '$lib/domain/terms';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
-// #2391 (Phase 2): 独自 marketplace UI を UnifiedImportHub に統一
-import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import ChildSelectionDialog, {
+	type ChildOption,
+} from '$lib/ui/primitives/ChildSelectionDialog.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
+
+// #2362 PR-4: hardcoded text 排除 (ADR-0045) — CHILD_TERMS.honorific を template literal で参照
+const CHILD_HONORIFIC_LABEL = CHILD_TERMS.honorific;
 
 let { data, form } = $props();
 // #787: form.error が string | PlanLimitError どちらでも表示できるよう正規化
 const errorMessage = $derived(getErrorMessage(form?.error));
 
-let selectedChildId = $state(0);
+// #2362 PR-4: 子供タブ切替 UI
+//   `?childId=<n>` query で初期 child 復元、未指定なら最初の child
+let childIdOverride = $state<number | undefined>(
+	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
+		? data.initialChildId
+		: undefined,
+);
+const selectedChildId = $derived(
+	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
+		? childIdOverride
+		: (data.children[0]?.id ?? 0),
+);
+const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
+
+// 選択中 child の per-child reward 一覧
+const perChildRewards = $derived(
+	selectedChildId ? (data.childRewardsByChild[selectedChildId] ?? []) : [],
+);
+
+// #2362 PR-4: ChildSelectionDialog state (per-child 取込時 auto-open)
+let showChildSelectionDialog = $state(false);
+let pendingImportPresetId = $state<string | null>(null);
+let actionMessage = $state('');
+
+// #2362 PR-4: 「他の子供から copy」dialog
+let showCopyFromChildDialog = $state(false);
+let copySourceChildId = $state<number | null>(null);
+
+// `?import=<presetId>` で auto-open (server load で validation 済)
+$effect(() => {
+	if (data.importPresetId && !showChildSelectionDialog) {
+		pendingImportPresetId = data.importPresetId;
+		showChildSelectionDialog = true;
+	}
+});
+
+// #2362 PR-4: 取込失敗 / invalid preset の guidance
+$effect(() => {
+	if (data.importPresetInvalid) {
+		actionMessage = ADMIN_REWARDS_PAGE_LABELS.importInvalidPreset;
+	}
+});
+
+// ChildSelectionDialog 用の ChildOption 配列
+const childOptions = $derived<ChildOption[]>(
+	data.children.map((c) => ({
+		id: c.id,
+		nickname: c.nickname,
+		age: c.age,
+		icon: undefined,
+	})),
+);
 
 // #2268: 検索 UI 状態
 let searchQuery = $state('');
-
-// #2391 (Phase 2): マーケットプレイス一括追加 UI 状態 (UnifiedImportHub 統合)
-let showMarketplace = $state(false);
-let marketplaceImportMessage = $state('');
-
-$effect(() => {
-	const first = data.children[0];
-	if (selectedChildId === 0 && first) {
-		selectedChildId = first.id;
-	}
-});
 
 // --- ごほうび追加フォーム ---
 let selectedTemplate = $state<{
@@ -122,6 +175,105 @@ const overflowMenuItems = $derived<MenuItem[]>([
 		onSelect: () => goto('/admin/rewards/requests'),
 	},
 ]);
+
+// #2362 PR-4: 子供タブクリック時に URL を `?childId=<n>` に同期 (share link / refresh 対応)
+function selectChild(childId: number) {
+	childIdOverride = childId;
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.set('childId', String(childId));
+		// import param は dialog auto-open でしか使わないので消す (戻ったとき再 open しない)
+		url.searchParams.delete('import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
+
+// #2362 PR-4: ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
+async function handleChildSelectionConfirm(result: 'all' | number[]) {
+	if (!pendingImportPresetId) {
+		showChildSelectionDialog = false;
+		return;
+	}
+	const childIdsValue = result === 'all' ? 'all' : result.join(',');
+	const formData = new FormData();
+	formData.append('presetId', pendingImportPresetId);
+	formData.append('childIds', childIdsValue);
+
+	const resp = await fetch('?/importPresetToChildren', { method: 'POST', body: formData });
+	if (resp.ok) {
+		// SvelteKit form action returns JSON; extract result for toast
+		try {
+			const json = (await resp.json()) as { data?: string };
+			// `data` is a JSON-serialized list of action data. Use generic success message instead.
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importSuccess(1);
+			// Try to extract real count from payload (best effort)
+			if (typeof json?.data === 'string') {
+				const matches = json.data.match(/"imported"[^0-9]*(\d+)/);
+				if (matches?.[1]) {
+					const imp = Number(matches[1]);
+					actionMessage =
+						imp === 0
+							? ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates
+							: ADMIN_REWARDS_PAGE_LABELS.importSuccess(imp);
+				}
+			}
+		} catch {
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importSuccess(1);
+		}
+		await invalidateAll();
+	} else {
+		actionMessage = ADMIN_REWARDS_PAGE_LABELS.importFailed;
+	}
+	pendingImportPresetId = null;
+	showChildSelectionDialog = false;
+	// URL から import param を除去 (戻り遷移時に再 open しない)
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.delete('import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
+
+function handleChildSelectionCancel() {
+	pendingImportPresetId = null;
+	showChildSelectionDialog = false;
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.delete('import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
+
+// #2362 PR-4: 「他の子供から copy」action
+async function handleCopyFromChild() {
+	if (!copySourceChildId || !selectedChildId || copySourceChildId === selectedChildId) {
+		actionMessage = '違うお子さまを選んでください';
+		return;
+	}
+	const formData = new FormData();
+	formData.append('sourceChildId', String(copySourceChildId));
+	formData.append('targetChildId', String(selectedChildId));
+
+	const resp = await fetch('?/copyFromChild', { method: 'POST', body: formData });
+	if (resp.ok) {
+		try {
+			const json = (await resp.json()) as { data?: string };
+			let cnt = 0;
+			if (typeof json?.data === 'string') {
+				const m = json.data.match(/"copiedCount"[^0-9]*(\d+)/);
+				if (m?.[1]) cnt = Number(m[1]);
+			}
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt);
+		} catch {
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySuccess(0);
+		}
+		showCopyFromChildDialog = false;
+		copySourceChildId = null;
+		await invalidateAll();
+	} else {
+		actionMessage = ADMIN_REWARDS_PAGE_LABELS.copyFailed;
+	}
+}
 </script>
 
 <svelte:head>
@@ -187,6 +339,58 @@ const overflowMenuItems = $derived<MenuItem[]>([
 		</div>
 	{/if}
 
+	<!-- #2362 PR-4: 子供タブ切替 UI -->
+	{#if data.children.length > 0}
+		<div
+			class="child-tab-row"
+			data-testid="admin-rewards-child-tabs"
+			role="tablist"
+			aria-label={ADMIN_REWARDS_PAGE_LABELS.childTabsAriaLabel}
+		>
+			{#each data.children as child (child.id)}
+				{@const count = (data.childRewardsByChild[child.id] ?? []).length}
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class="child-tab {selectedChildId === child.id ? '' : 'child-tab--inactive'}"
+					data-testid="rewards-child-tab-{child.id}"
+					role="tab"
+					aria-selected={selectedChildId === child.id}
+					onclick={() => selectChild(child.id)}
+				>
+					{child.nickname}
+					<span class="child-tab__count">({count})</span>
+				</Button>
+			{/each}
+
+			<!-- 兄弟共通化 actions (右寄せ) -->
+			<div class="child-tab-actions">
+				{#if data.children.length >= 2}
+					<Button
+						variant="ghost"
+						size="sm"
+						data-testid="rewards-copy-from-child-btn"
+						disabled={!data.isPremium}
+						onclick={() => { showCopyFromChildDialog = true; }}
+					>
+						{ADMIN_REWARDS_PAGE_LABELS.copyFromChildButton}
+					</Button>
+				{/if}
+			</div>
+		</div>
+
+		{#if selectedChild}
+			<div class="child-context-banner" data-testid="rewards-child-context-banner">
+				<span class="child-context-banner__label">
+					{selectedChild.nickname}{ADMIN_REWARDS_PAGE_LABELS.childContextRewardsSuffix(perChildRewards.length)}
+				</span>
+				<span class="child-context-banner__hint">
+					{ADMIN_REWARDS_PAGE_LABELS.childContextHint}
+				</span>
+			</div>
+		{/if}
+	{/if}
+
 	<!-- #2268: 検索 UI -->
 	<section>
 		<FormField
@@ -197,22 +401,15 @@ const overflowMenuItems = $derived<MenuItem[]>([
 		/>
 	</section>
 
-	<!-- Child Selector -->
-	<section>
-		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{REWARDS_LABELS.selectChildTitle}</h3>
-		<div class="flex gap-2 flex-wrap">
-			{#each data.children as child}
-				<Button
-					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
-					size="sm"
-					class="rounded-xl {selectedChildId === child.id ? '' : 'bg-[var(--color-surface-card)] text-[var(--color-text-muted)] shadow-sm hover:shadow-md'}"
-					onclick={() => selectedChildId = child.id}
-				>
-					{child.nickname}
-				</Button>
-			{/each}
+	<!-- アクションメッセージ (取込結果 / copy 結果 / invalid preset 警告) -->
+	{#if actionMessage}
+		<div
+			class="action-message"
+			data-testid="rewards-action-message"
+		>
+			{actionMessage}
 		</div>
-	</section>
+	{/if}
 
 	<!-- Error Display -->
 	{#if errorMessage}
@@ -303,53 +500,6 @@ const overflowMenuItems = $derived<MenuItem[]>([
 		{/if}
 	</section>
 
-	<!-- #2391 (Phase 2): UnifiedImportHub に統一 (旧 #2136 MP-1 独自 UI を置換)
-	     PO 指摘 ②「UX 統一感不足」直接解決。Hick's Law 整合 (Hub 経由で 5 admin 共通 UI)。 -->
-	<section data-testid="marketplace-reward-import-section">
-		<Button
-			type="button"
-			variant="ghost"
-			size="sm"
-			class="text-sm font-bold text-[var(--color-text-link)] hover:underline px-0"
-			onclick={() => { showMarketplace = !showMarketplace; }}
-			data-testid="marketplace-reward-import-toggle"
-		>
-			{REWARDS_LABELS.marketplaceImportToggle(showMarketplace)}
-		</Button>
-
-		{#if showMarketplace}
-			<div class="mt-2 space-y-2">
-				{#if marketplaceImportMessage}
-					<div
-						class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm text-center"
-						data-testid="marketplace-reward-import-result"
-					>
-						{marketplaceImportMessage}
-					</div>
-				{/if}
-				<UnifiedImportHub
-					typeCode="reward-set"
-					presets={{
-						'reward-set': data.rewardSets.map((s) => ({
-							itemId: s.itemId,
-							name: s.name,
-							icon: s.icon,
-							itemCount: s.itemCount,
-							targetAgeMin: s.targetAgeMin,
-							targetAgeMax: s.targetAgeMax,
-						})),
-					}}
-					selectedChildId={selectedChildId}
-					disabled={!data.isPremium}
-					onimported={(msg) => {
-						marketplaceImportMessage = msg;
-						invalidateAll();
-					}}
-				/>
-			</div>
-		{/if}
-	</section>
-
 	<!-- Add Form (旧: Grant Form、#2268 リネーム) -->
 	<Card variant="elevated" padding="md">
 		{#snippet children()}
@@ -406,6 +556,63 @@ const overflowMenuItems = $derived<MenuItem[]>([
 			<p class="text-[var(--color-action-success)] font-bold">{REWARDS_LABELS.grantSuccess}</p>
 		</div>
 	{/if}
+
+	<!-- #2362 PR-4: ChildSelectionDialog (`?import=<presetId>` auto-open) -->
+	<ChildSelectionDialog
+		bind:open={showChildSelectionDialog}
+		children={childOptions}
+		allowMultiple={true}
+		onConfirm={handleChildSelectionConfirm}
+		onCancel={handleChildSelectionCancel}
+		testid="reward-import-child-selection-dialog"
+	/>
+
+	<!-- #2362 PR-4: 「他の子供から copy」 dialog -->
+	<Dialog
+		bind:open={showCopyFromChildDialog}
+		title={ADMIN_REWARDS_PAGE_LABELS.copyDialogTitle}
+		testid="rewards-copy-from-child-dialog"
+	>
+		<p class="copy-dialog-desc">
+			{ADMIN_REWARDS_PAGE_LABELS.copyDialogDescPrefix}{CHILD_HONORIFIC_LABEL}{ADMIN_REWARDS_PAGE_LABELS.copyDialogDescSuffix}<strong>{selectedChild?.nickname ?? ADMIN_REWARDS_PAGE_LABELS.copyDialogSelectedPlaceholder}</strong>{ADMIN_REWARDS_PAGE_LABELS.copyDialogDescCloseParen}
+		</p>
+		<div class="copy-source-list">
+			{#each data.children.filter((c) => c.id !== selectedChildId) as child (child.id)}
+				<label class="copy-source-option">
+					<input
+						type="radio"
+						name="copy-source"
+						value={child.id}
+						checked={copySourceChildId === child.id}
+						onchange={() => { copySourceChildId = child.id; }}
+						data-testid="rewards-copy-source-{child.id}"
+					/>
+					<span class="copy-source-option__label">
+						{child.nickname}
+						<span class="copy-source-option__age">({child.age} {ADMIN_REWARDS_PAGE_LABELS.copyDialogAgeSuffix})</span>
+						<span class="copy-source-option__count">
+							{(data.childRewardsByChild[child.id] ?? []).length} {ADMIN_REWARDS_PAGE_LABELS.copyDialogCountSuffix}
+						</span>
+					</span>
+				</label>
+			{:else}
+				<p class="copy-source-empty">{ADMIN_REWARDS_PAGE_LABELS.copyDialogEmpty}</p>
+			{/each}
+		</div>
+		<div class="copy-dialog-footer">
+			<Button variant="ghost" onclick={() => { showCopyFromChildDialog = false; copySourceChildId = null; }}>
+				{ADMIN_REWARDS_PAGE_LABELS.copyDialogCancel}
+			</Button>
+			<Button
+				variant="primary"
+				disabled={!copySourceChildId}
+				data-testid="rewards-copy-from-child-confirm"
+				onclick={handleCopyFromChild}
+			>
+				{ADMIN_REWARDS_PAGE_LABELS.copyDialogConfirm}
+			</Button>
+		</div>
+	</Dialog>
 </div>
 
 <style>
@@ -440,5 +647,109 @@ const overflowMenuItems = $derived<MenuItem[]>([
 	}
 	.page-description__link:hover {
 		text-decoration: underline;
+	}
+
+	/* #2362 PR-4: 子供タブ */
+	.child-tab-row {
+		display: flex;
+		gap: 0.375rem;
+		flex-wrap: wrap;
+		align-items: center;
+		padding: 0.5rem;
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-md);
+	}
+	:global(.child-tab) {
+		border-radius: 9999px !important;
+		font-size: 0.85rem !important;
+	}
+	:global(.child-tab--inactive) {
+		background: var(--color-surface) !important;
+		color: var(--color-text-secondary) !important;
+	}
+	.child-tab__count {
+		font-size: 0.75rem;
+		opacity: 0.8;
+		margin-left: 0.25rem;
+	}
+	.child-tab-actions {
+		display: flex;
+		gap: 0.25rem;
+		margin-left: auto;
+	}
+	.child-context-banner {
+		padding: 0.5rem 0.75rem;
+		background: var(--color-surface-accent);
+		border-left: 3px solid var(--color-border-accent);
+		border-radius: var(--radius-sm);
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+	}
+	.child-context-banner__label {
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
+	}
+	.child-context-banner__hint {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.action-message {
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius-md);
+		background: var(--color-feedback-info-bg);
+		border: 1px solid var(--color-feedback-info-border);
+		color: var(--color-feedback-info-text);
+		font-size: 0.85rem;
+	}
+
+	/* Copy dialog */
+	.copy-dialog-desc {
+		font-size: 0.9rem;
+		color: var(--color-text-secondary);
+		margin-bottom: 0.75rem;
+	}
+	.copy-source-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+	.copy-source-option {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.copy-source-option:has(input:checked) {
+		background: var(--color-surface-accent);
+		border-color: var(--color-border-focus);
+	}
+	.copy-source-option__label {
+		display: flex;
+		gap: 0.5rem;
+		flex: 1;
+	}
+	.copy-source-option__age,
+	.copy-source-option__count {
+		color: var(--color-text-muted);
+		font-size: 0.85rem;
+	}
+	.copy-source-empty {
+		text-align: center;
+		color: var(--color-text-muted);
+		padding: 1rem;
+	}
+	.copy-dialog-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border-light);
 	}
 </style>
