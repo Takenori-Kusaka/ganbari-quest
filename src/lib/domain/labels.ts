@@ -902,6 +902,18 @@ export const MARKETPLACE_LABELS = {
 	detailRulePointCost: '必要ポイント',
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
+	// #2362 PR-3 Phase 5: activity-pack 取込 CTA (CWE-598: marketplace 側で childId を扱わず親管理画面に delegate)
+	/** activity-pack ログイン済 + 子供登録済: 親管理画面に遷移して child 選択ダイアログを開く動線 */
+	detailCtaImportActivityPack: '親管理画面で取り込む',
+	/** activity-pack ログイン済 + 子供登録済: 件数付き CTA */
+	detailCtaImportActivityPackWithCount: (count: number) =>
+		`親管理画面で取り込む (${count}件の活動)`,
+	/** activity-pack ログイン済 + 子供未登録 */
+	detailCtaImportActivityPackNoChildren: 'まずはお子さまを登録してください',
+	/** activity-pack 未ログイン CTA 説明 (誤新規登録防止) */
+	detailCtaImportActivityPackSignedOut: 'ログイン後、親管理画面でお子さまを選んで取り込みます',
+	/** activity-pack 説明 */
+	detailCtaImportActivityPackDesc: '取り込む際は親管理画面で「どのお子さまに追加するか」を選びます',
 	/** #2136 MP-1: reward-set 一括追加 CTA */
 	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
 	/** #2136 MP-1: 件数付き一括追加 CTA */

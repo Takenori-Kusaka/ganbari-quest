@@ -629,9 +629,56 @@ const childOptions = $derived(
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailCtaImportChallengeSetSignedOut}
 				</p>
+			{:else if isActivityPack && data.isAuthenticated && data.children.length > 0}
+				<!-- #2362 PR-3 Phase 5 (CWE-598): activity-pack ログイン済 + 子供登録済
+					→ 親管理画面に遷移して ChildSelectionDialog を auto-open (Phase 4 admin の mechanism と接続)。
+					URL に childId を渡さず itemId のみ。child binding は admin 側ダイアログで決定する。
+					(docs/design/marketplace-import-flow.md §3.1 取込フロー sequence 整合) -->
+				{@const activityPackPayload = item.payload as ActivityPackPayload}
+				<p class="text-xs text-[var(--color-text-tertiary)]">
+					{MARKETPLACE_LABELS.detailCtaImportActivityPackDesc}
+				</p>
+				<a
+					href="/admin/activities?import={item.itemId}"
+					class="block"
+					data-testid="activity-pack-import-cta"
+				>
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailCtaImportActivityPackWithCount(
+							activityPackPayload.activities.length,
+						)}
+					</Button>
+				</a>
+			{:else if isActivityPack && data.isAuthenticated && data.children.length === 0}
+				<!-- #2362 PR-3 Phase 5: activity-pack ログイン済 + 子供未登録 → setup 誘導 -->
+				<div
+					class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)] rounded-xl p-3 text-sm text-center"
+					data-testid="activity-pack-import-no-children"
+				>
+					{MARKETPLACE_LABELS.detailCtaImportActivityPackNoChildren}
+				</div>
+				<a href="/setup/children" class="block">
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailCtaImportActivityPackNoChildren}
+					</Button>
+				</a>
+			{:else if isActivityPack}
+				<!-- #2362 PR-3 Phase 5 / #2303: activity-pack 未ログイン → /auth/login (誤新規登録防止 / data integrity 保護)。
+					next query で取込再開動線を維持 (login 後 admin/activities?import=<itemId> へ遷移して auto-open) -->
+				<a
+					href="/auth/login?next=/admin/activities?import={item.itemId}"
+					class="block"
+					data-testid="activity-pack-signup-redirect"
+				>
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailCtaImportActivityPack}
+					</Button>
+				</a>
+				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
+					{MARKETPLACE_LABELS.detailCtaImportActivityPackSignedOut}
+				</p>
 			{:else}
-				<!-- 残りの type (activity-pack) は login 動線 (#2303: 誤新規登録防止 / data integrity 保護)。
-					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
+				<!-- fallback: 想定外の type (将来追加 type) は signup 一般動線 -->
 				<a href="/auth/login" class="block">
 					<Button variant="primary" size="lg" class="w-full">
 						{MARKETPLACE_LABELS.detailCtaSignup}
