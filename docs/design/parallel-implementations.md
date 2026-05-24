@@ -286,6 +286,17 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 |----|--------------|-----------------|------------|--------------|-----------|
 | `activities.priority` (#1755) | `src/lib/server/db/schema.ts` | `tests/e2e/global-setup.ts` (ALTER + must seed) | `tests/unit/helpers/test-db.ts` | `src/lib/server/demo/demo-data.ts` (must=はみがきした/おきがえした/おかたづけした) | #1755 (#1709-A) |
 | `checklist_templates.kind` 削除 (#1755) | 同上（列削除済） | 同上（DROP COLUMN + DELETE WHERE 旧ルーチン枠レコード） | 同上（列なし） | 同上（kind プロパティ削除済 + 旧ルーチン枠テンプレート削除） | #1755 (#1709-A) |
+| `child_activities` 並存（旧 `activities` と並列保持） (#2362 PR-3 / ADR-0055) | `src/lib/server/db/schema.ts` (`child_activities` table 追加、`childId NOT NULL ON DELETE CASCADE`) | `tests/e2e/global-setup.ts` (CREATE TABLE + 2 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE) + `src/lib/server/db/create-tables.ts` (CREATE TABLE + 2 INDEX) | `src/lib/server/demo/demo-data.ts` (Phase 6 で各 child fixture 追加) | #2362 PR-3 (Phase 7 で旧 `activities` drop 予定) |
+
+###### `child_activities` per-child instance への移行 (#2362 PR-3 / ADR-0055)
+
+旧 `activities` table (family-wide master + age filter) は Phase 7 で drop 予定。それまでは並存:
+
+- **schema**: 旧 `activities` table + 新 `child_activities` table が並存。FK 切替 (`activity_logs.activity_id` → `child_activity_id` 等 4 件) も Phase 7
+- **services**: `activity-import-service.ts` は `options.childIds` 受領 (後方互換維持)、`child-activity-copy-service.ts` 新規 (SRP)。`Activity` 型 / `IActivityRepo` interface は並存
+- **routes**: `/admin/activities` は per-child UX (子供別タブ + ChildSelectionDialog auto-open + copy / bulk)。`/marketplace/[type]/[itemId]` activity-pack は admin redirect 動線 (CWE-598 排除、Phase 5)
+- **demo**: `child_activities` fixture (per-child instance) を Phase 6 で各 child に追加。旧 `activities` fixture も並存
+- **Phase 7 で実施**: 旧 `activities` drop + `Activity` / `IActivityRepo` 削除 + FK 切替 + 86 test files signature 追従
 
 ---
 
