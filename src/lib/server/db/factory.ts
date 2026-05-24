@@ -13,6 +13,7 @@ import * as demoBattleRepo from './demo/battle-repo';
 import * as demoCancellationReasonRepo from './demo/cancellation-reason-repo';
 import * as demoCertificateRepo from './demo/certificate-repo';
 import * as demoChecklistRepo from './demo/checklist-repo';
+import * as demoChildActivityRepo from './demo/child-activity-repo';
 import * as demoChildRepo from './demo/child-repo';
 import * as demoCloudExportRepo from './demo/cloud-export-repo';
 import * as demoDailyMissionRepo from './demo/daily-mission-repo';
@@ -47,6 +48,7 @@ import * as dynamoBattleRepo from './dynamodb/battle-repo';
 import * as dynamoCancellationReasonRepo from './dynamodb/cancellation-reason-repo';
 import * as dynamoCertificateRepo from './dynamodb/certificate-repo';
 import * as dynamoChecklistRepo from './dynamodb/checklist-repo';
+import * as dynamoChildActivityRepo from './dynamodb/child-activity-repo';
 import * as dynamoChildRepo from './dynamodb/child-repo';
 import * as dynamoCloudExportRepo from './dynamodb/cloud-export-repo';
 import * as dynamoDailyMissionRepo from './dynamodb/daily-mission-repo';
@@ -81,6 +83,7 @@ import type { IBattleRepo } from './interfaces/battle-repo.interface';
 import type { ICancellationReasonRepo } from './interfaces/cancellation-reason-repo.interface';
 import type { ICertificateRepo } from './interfaces/certificate-repo.interface';
 import type { IChecklistRepo } from './interfaces/checklist-repo.interface';
+import type { IChildActivityRepo } from './interfaces/child-activity-repo.interface';
 import type { IChildRepo } from './interfaces/child-repo.interface';
 import type { ICloudExportRepo } from './interfaces/cloud-export-repo.interface';
 import type { IDailyMissionRepo } from './interfaces/daily-mission-repo.interface';
@@ -115,6 +118,7 @@ import * as sqliteBattleRepo from './sqlite/battle-repo';
 import * as sqliteCancellationReasonRepo from './sqlite/cancellation-reason-repo';
 import * as sqliteCertificateRepo from './sqlite/certificate-repo';
 import * as sqliteChecklistRepo from './sqlite/checklist-repo';
+import * as sqliteChildActivityRepo from './sqlite/child-activity-repo';
 import * as sqliteChildRepo from './sqlite/child-repo';
 import * as sqliteCloudExportRepo from './sqlite/cloud-export-repo';
 import * as sqliteDailyMissionRepo from './sqlite/daily-mission-repo';
@@ -150,6 +154,11 @@ export interface Repositories {
 	activity: IActivityRepo;
 	activityMastery: IActivityMasteryRepo;
 	activityPref: IActivityPrefRepo;
+	/**
+	 * #2362 PR-3 (ADR-0055): per-child activity instance repo.
+	 * 旧 `activity` (family master) と並存。Phase 6/7 で全 callsite 移行後に `activity` を削除。
+	 */
+	childActivity: IChildActivityRepo;
 	checklist: IChecklistRepo;
 	child: IChildRepo;
 	cloudExport: ICloudExportRepo;
@@ -198,6 +207,7 @@ export function getRepos(): Repositories {
 			activity: demoActivityRepo,
 			activityMastery: demoActivityMasteryRepo,
 			activityPref: demoActivityPrefRepo,
+			childActivity: demoChildActivityRepo,
 			checklist: demoChecklistRepo,
 			child: demoChildRepo,
 			cloudExport: demoCloudExportRepo,
@@ -238,6 +248,7 @@ export function getRepos(): Repositories {
 			activity: dynamoActivityRepo,
 			activityMastery: dynamoActivityMasteryRepo,
 			activityPref: dynamoActivityPrefRepo,
+			childActivity: dynamoChildActivityRepo,
 			checklist: dynamoChecklistRepo,
 			child: dynamoChildRepo,
 			cloudExport: dynamoCloudExportRepo,
@@ -278,6 +289,7 @@ export function getRepos(): Repositories {
 		activity: sqliteActivityRepo,
 		activityMastery: sqliteActivityMasteryRepo,
 		activityPref: sqliteActivityPrefRepo,
+		childActivity: sqliteChildActivityRepo,
 		checklist: sqliteChecklistRepo,
 		child: sqliteChildRepo,
 		cloudExport: sqliteCloudExportRepo,

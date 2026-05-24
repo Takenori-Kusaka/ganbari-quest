@@ -52,6 +52,7 @@ function seedChild() {
 }
 
 function seedActivities() {
+	// #2362 PR-3 Phase 7b-2c: child_activities (per-child instance, childId=1) へ seed
 	// 5カテゴリにそれぞれ1つ以上の活動
 	const items = [
 		{ name: 'たいそう', categoryId: 1, icon: '🏃' },
@@ -64,8 +65,8 @@ function seedActivities() {
 	];
 	for (const item of items) {
 		testDb
-			.insert(schema.activities)
-			.values({ ...item, basePoints: 5 })
+			.insert(schema.childActivities)
+			.values({ ...item, childId: 1, basePoints: 5 })
 			.run();
 	}
 }
@@ -117,6 +118,9 @@ describe('エラーパス・境界値', () => {
 	});
 
 	it('存在しない子供IDでもエラーにならず空ミッションを返す', async () => {
+		// #2362 PR-3 Phase 7b-2c: child_activities は childId FK 必須。
+		// childId=1 用に child を先に seed し、その活動を作成 (999 はあえて存在しない別 id)
+		seedChild();
 		seedActivities();
 		const result = await getTodayMissions(999, 'test-tenant');
 		// 子供が存在しないため活動候補がフィルタされ、空ミッションを返す
@@ -135,9 +139,10 @@ describe('エラーパス・境界値', () => {
 
 	it('活動が1件しかない場合はミッション1つだけ生成', async () => {
 		seedChild();
+		// #2362 PR-3 Phase 7b-2c: child_activities へ insert (childId=1)
 		testDb
-			.insert(schema.activities)
-			.values({ name: 'ランニング', categoryId: 1, icon: '🏃', basePoints: 5 })
+			.insert(schema.childActivities)
+			.values({ name: 'ランニング', childId: 1, categoryId: 1, icon: '🏃', basePoints: 5 })
 			.run();
 		const result = await getTodayMissions(1, 'test-tenant');
 		expect(result.missions).toHaveLength(1);
@@ -145,13 +150,14 @@ describe('エラーパス・境界値', () => {
 
 	it('活動が2件の場合はミッション2つだけ生成', async () => {
 		seedChild();
+		// #2362 PR-3 Phase 7b-2c: child_activities へ insert (childId=1)
 		testDb
-			.insert(schema.activities)
-			.values({ name: 'ランニング', categoryId: 1, icon: '🏃', basePoints: 5 })
+			.insert(schema.childActivities)
+			.values({ name: 'ランニング', childId: 1, categoryId: 1, icon: '🏃', basePoints: 5 })
 			.run();
 		testDb
-			.insert(schema.activities)
-			.values({ name: 'おべんきょう', categoryId: 2, icon: '📚', basePoints: 5 })
+			.insert(schema.childActivities)
+			.values({ name: 'おべんきょう', childId: 1, categoryId: 2, icon: '📚', basePoints: 5 })
 			.run();
 		const result = await getTodayMissions(1, 'test-tenant');
 		expect(result.missions).toHaveLength(2);
@@ -201,7 +207,8 @@ describe('利用履歴ベースのミッション生成', () => {
 
 	it('全ての活動を記録済みでもミッションが3つ生成される', async () => {
 		// 全活動を記録済みにする
-		const allActs = testDb.select().from(schema.activities).all();
+		// #2362 PR-3 Phase 7b-2c: child_activities を参照
+		const allActs = testDb.select().from(schema.childActivities).all();
 		for (const a of allActs) {
 			testDb
 				.insert(schema.activityLogs)
@@ -246,7 +253,8 @@ describe('checkMissionCompletion', () => {
 		const missionActivityIds = new Set(missions.missions.map((m) => m.activityId));
 
 		// ミッションに含まれない活動を探す
-		const allActivities = testDb.select().from(schema.activities).all();
+		// #2362 PR-3 Phase 7b-2c: child_activities を参照
+		const allActivities = testDb.select().from(schema.childActivities).all();
 		const nonMissionActivity = allActivities.find((a) => !missionActivityIds.has(a.id));
 		if (!nonMissionActivity) return; // all activities are in missions
 

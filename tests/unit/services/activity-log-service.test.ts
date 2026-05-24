@@ -4,7 +4,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 import { assertSuccess } from '../helpers/assert-result';
-import { closeDb, createTestDb, resetDb, type TestDb, type TestSqlite } from '../helpers/test-db';
+import {
+	closeDb,
+	createTestDb,
+	resetDb,
+	seedChildActivities,
+	type TestDb,
+	type TestSqlite,
+} from '../helpers/test-db';
 
 let sqlite: TestSqlite;
 let testDb: TestDb;
@@ -63,15 +70,12 @@ function seedBase() {
 	resetDb(sqlite);
 	// 子供
 	testDb.insert(schema.children).values({ nickname: 'テスト子', age: 4, theme: 'pink' }).run();
-	// 活動（カテゴリ1: うんどう, カテゴリ2: べんきょう）
-	testDb
-		.insert(schema.activities)
-		.values({ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5 })
-		.run();
-	testDb
-		.insert(schema.activities)
-		.values({ name: 'えほん', categoryId: 2, icon: '📖', basePoints: 5 })
-		.run();
+	// #2362 PR-3 Phase 7b-2c: 活動を child_activities (per-child instance) に seed
+	// childId=1 紐付け。カテゴリ1: うんどう / カテゴリ2: べんきょう
+	seedChildActivities(testDb, 1, [
+		{ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5 },
+		{ name: 'えほん', categoryId: 2, icon: '📖', basePoints: 5 },
+	]);
 }
 
 describe('calcStreakBonus（純粋関数テスト）', () => {
@@ -228,13 +232,12 @@ describe('recordActivity: dailyLimit', () => {
 	});
 
 	it('dailyLimit=2 の活動は同日2回まで記録可能', async () => {
-		// dailyLimit=2 の活動を追加
-		testDb
-			.insert(schema.activities)
-			.values({ name: 'はみがき', categoryId: 3, icon: '🪥', basePoints: 3, dailyLimit: 2 })
-			.run();
-		const activities = testDb.select().from(schema.activities).all();
-		const hamigaki = activities.find((a) => a.name === 'はみがき');
+		// #2362 PR-3 Phase 7b-2c: child_activities へ insert (childId=1)
+		seedChildActivities(testDb, 1, [
+			{ name: 'はみがき', categoryId: 3, icon: '🪥', basePoints: 3, dailyLimit: 2 },
+		]);
+		const childActs = testDb.select().from(schema.childActivities).all();
+		const hamigaki = childActs.find((a) => a.name === 'はみがき');
 		if (!hamigaki) throw new Error('はみがき not found');
 
 		const r1 = assertSuccess(await recordActivity(1, hamigaki.id, TENANT));
@@ -249,12 +252,12 @@ describe('recordActivity: dailyLimit', () => {
 	});
 
 	it('dailyLimit=0 の活動は無制限に記録可能', async () => {
-		testDb
-			.insert(schema.activities)
-			.values({ name: 'おそうじ', categoryId: 3, icon: '🧹', basePoints: 3, dailyLimit: 0 })
-			.run();
-		const activities = testDb.select().from(schema.activities).all();
-		const osouji = activities.find((a) => a.name === 'おそうじ');
+		// #2362 PR-3 Phase 7b-2c: child_activities へ insert
+		seedChildActivities(testDb, 1, [
+			{ name: 'おそうじ', categoryId: 3, icon: '🧹', basePoints: 3, dailyLimit: 0 },
+		]);
+		const childActs = testDb.select().from(schema.childActivities).all();
+		const osouji = childActs.find((a) => a.name === 'おそうじ');
 		if (!osouji) throw new Error('おそうじ not found');
 
 		// 5回連続で記録できる

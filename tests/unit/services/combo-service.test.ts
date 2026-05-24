@@ -48,7 +48,11 @@ function seedChild() {
 }
 
 function seedActivity(_id: number, name: string, categoryId: number) {
-	testDb.insert(schema.activities).values({ name, categoryId, icon: '🏃', basePoints: 5 }).run();
+	// #2362 PR-3 Phase 7b-2c: child_activities へ insert (childId=1 紐付け、seedChild 後に呼ぶ)
+	testDb
+		.insert(schema.childActivities)
+		.values({ childId: 1, name, categoryId, icon: '🏃', basePoints: 5 })
+		.run();
 }
 
 function addLog(childId: number, activityId: number, date: string) {

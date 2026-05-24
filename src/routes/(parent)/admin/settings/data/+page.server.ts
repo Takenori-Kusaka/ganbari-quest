@@ -4,6 +4,7 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { findAllChildren } from '$lib/server/db/child-repo';
 import { logger } from '$lib/server/logger';
 import { clearAllFamilyData, getDataSummary } from '$lib/server/services/data-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
@@ -36,10 +37,24 @@ export const load: PageServerLoad = async ({ locals }) => {
 		logger.error('[settings/data] load failed', { error: String(err) });
 	}
 
+	// #2362 PR-3 Phase 7b-2: cloud import template (v2.0.0) は targetChildIds 必須
+	// (CWE-639 IDOR 排除 + child 別 export shape の復元先指定)。
+	// ChildSelectionDialog で表示する child 一覧を load 時に取得する。
+	let children: Array<{ id: number; nickname: string; age: number }> = [];
+	try {
+		const allChildren = await findAllChildren(tenantId);
+		children = allChildren
+			.filter((c) => !c.isArchived)
+			.map((c) => ({ id: c.id, nickname: c.nickname, age: c.age }));
+	} catch (err) {
+		logger.error('[settings/data] findAllChildren failed', { error: String(err) });
+	}
+
 	return {
 		dataSummary,
 		canExport: planLimits.canExport,
 		maxCloudExports: planLimits.maxCloudExports,
+		children,
 	};
 };
 

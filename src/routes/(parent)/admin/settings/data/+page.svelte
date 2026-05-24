@@ -15,6 +15,7 @@ import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import ChildSelectionDialog from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
 type DuplicateEntry = { label: string; reason: ImportSkipReason };
@@ -80,6 +81,17 @@ let cloudImportError = $state('');
 let cloudImportPreview = $state<Record<string, unknown> | null>(null);
 let cloudImportResult = $state<Record<string, unknown> | null>(null);
 let cloudImportStep = $state<'input' | 'preview' | 'done'>('input');
+
+// #2362 PR-3 Phase 7b-2: ChildSelectionDialog 統合
+// template (v2.0.0) 取込時のみ「誰に追加するか」を選択
+let childSelectionOpen = $state(false);
+const importTargetChildren = $derived(
+	(data.children ?? []).map((c) => ({ id: c.id, nickname: c.nickname, age: c.age })),
+);
+const isCloudImportTemplate = $derived(
+	cloudImportPreview != null &&
+		(cloudImportPreview as { exportType?: string }).exportType === 'template',
+);
 
 // データクリア
 let clearConfirmText = $state('');
@@ -278,13 +290,35 @@ async function handleCloudImportPreview() {
 
 async function handleCloudImportExecute() {
 	if (anyFormBusy) return;
+	// #2362 PR-3 Phase 7b-2: template (v2.0.0) は targetChildIds 必須化 (CWE-639 IDOR 排除)。
+	// ChildSelectionDialog で取込先 child を選択させてから execute する。
+	if (isCloudImportTemplate) {
+		if (importTargetChildren.length === 0) {
+			cloudImportError =
+				'取込先のお子さまが登録されていません。先に /admin/children でお子さま登録をしてください。';
+			return;
+		}
+		childSelectionOpen = true;
+		return;
+	}
+	// full export はそのまま execute (PR-3 scope 外、family-wide 復元)
+	await executeCloudImport(null);
+}
+
+async function executeCloudImport(targetChildIds: number[] | null) {
 	cloudImportLoading = true;
 	cloudImportError = '';
 	try {
+		const body: { pinCode: string; targetChildIds?: number[] } = {
+			pinCode: cloudImportPin.trim(),
+		};
+		if (targetChildIds && targetChildIds.length > 0) {
+			body.targetChildIds = targetChildIds;
+		}
 		const res = await fetch('/api/v1/import/cloud?mode=execute', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ pinCode: cloudImportPin.trim() }),
+			body: JSON.stringify(body),
 		});
 		const d = await res.json();
 		if (!res.ok) {
@@ -299,12 +333,23 @@ async function handleCloudImportExecute() {
 	}
 }
 
+function handleChildSelectionConfirm(result: 'all' | number[]) {
+	childSelectionOpen = false;
+	const ids = result === 'all' ? importTargetChildren.map((c) => c.id) : result;
+	void executeCloudImport(ids);
+}
+
+function handleChildSelectionCancel() {
+	childSelectionOpen = false;
+}
+
 function resetCloudImport() {
 	cloudImportPin = '';
 	cloudImportPreview = null;
 	cloudImportResult = null;
 	cloudImportError = '';
 	cloudImportStep = 'input';
+	childSelectionOpen = false;
 }
 
 $effect(() => {
@@ -929,6 +974,16 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 			{/if}
 		</Card>
 	{/if}
+
+	<!-- #2362 PR-3 Phase 7b-2: ChildSelectionDialog (template 取込時のみ表示) -->
+	<ChildSelectionDialog
+		children={importTargetChildren}
+		bind:open={childSelectionOpen}
+		allowMultiple={true}
+		onConfirm={handleChildSelectionConfirm}
+		onCancel={handleChildSelectionCancel}
+		testid="cloud-import-child-selection-dialog"
+	/>
 
 	<!-- Danger Zone: データクリア (#2323 GitHub Danger Zone パターン) -->
 	<section class="danger-zone" data-testid="data-danger-zone">

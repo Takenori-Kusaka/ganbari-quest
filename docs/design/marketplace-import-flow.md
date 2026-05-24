@@ -94,6 +94,28 @@ for (const childId of selectedChildIds) {
 
 ダイアログ「全員」選択時は family の全 active child を順次 apply。
 
+#### activity-pack 取込フロー (EPIC #2362 PR-3 Phase 5 で実装済)
+
+activity-pack は `MarketplaceTypeDescriptor.requiresChildSelection: true` を宣言する代表 type。
+本 PR の実装で以下の動線が CWE-598 整合となっている:
+
+| user 状態 | marketplace 詳細 CTA href | 遷移先動作 |
+|---|---|---|
+| 未認証 | `/auth/login?next=/admin/activities?import=<itemId>` | login 後 admin/activities に遷移 → ChildSelectionDialog auto-open |
+| 認証済 + 子供登録済 (≥ 1) | `/admin/activities?import=<itemId>` | admin/activities 上で ChildSelectionDialog auto-open (`?import=` query を `$effect` で検出) |
+| 認証済 + 子供未登録 (= 0) | `/setup/children` | 子供登録後に再 visit する想定 |
+
+**実装位置** (本 PR で更新):
+- `src/routes/marketplace/[type]/[itemId]/+page.svelte` (activity-pack CTA 3 分岐)
+- `src/routes/(parent)/admin/activities/+page.svelte` (`?import=<presetId>` → `bind:open` で ChildSelectionDialog auto-open、Phase 4 で実装)
+- `src/routes/(parent)/admin/activities/+page.server.ts` action `importPackToChildren` (`dispatchImport` ctx に `childIds: 'all' | [n,...]` を注入、Phase 4)
+
+**CWE-598 補強検証**:
+- `tests/e2e/marketplace-activity-pack-no-childid.spec.ts` (Phase 5 新規、4 AC)
+- `tests/unit/routes/marketplace-auth-redirect.test.ts` (Phase 5 で Phase 5 仕様に同期 + childId 0 件 grep 追加)
+
+reward-set / challenge-set は per-child instance type だが、現状 (Phase 5 時点) marketplace 詳細で form の `childId` 受領が残っている。Phase 6/7 で activity-pack と同型の admin redirect 動線に統一する予定。
+
 ### 3.3 family master type の登録挙動 (checklist / rule bonus)
 
 ダイアログで「全員」default → 1 record として `ImportStrategy.apply(payload, ctx)` 呼出 (`ctx.childId` は undefined)。配信先 child は `checklist_template_assignments` 等の中間 table に書き込む (詳細は [data-model-resource-scope.md](data-model-resource-scope.md) §4.2)。

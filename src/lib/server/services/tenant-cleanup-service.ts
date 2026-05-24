@@ -99,15 +99,22 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 	let deleted = 0;
 	const r = repos();
 
-	// Activities（テナントスコープで find + delete 可能）
+	// Activities (#2362 PR-3 / ADR-0055): per-child instance loop
+	// 旧 tenant-wide enumeration を child loop + per-child deleteActivity(id, childId, tenantId) に置換。
+	// 旧 activities table drop (Phase 7b-2) 後、child cascade delete に委譲予定。
 	try {
-		const activities = await r.activity.findActivities(tenantId);
-		for (const act of activities) {
-			await r.activity.deleteActivity(act.id, tenantId);
-			deleted++;
+		const children = await r.child.findAllChildren(tenantId);
+		for (const child of children) {
+			const activities = await r.childActivity.findActivitiesByChild(child.id, tenantId, {
+				includeArchived: true,
+			});
+			for (const act of activities) {
+				await r.childActivity.deleteActivity(act.id, child.id, tenantId);
+				deleted++;
+			}
 		}
 	} catch (err) {
-		logger.warn(`[tenant-cleanup] activities 削除失敗: ${String(err)}`);
+		logger.warn(`[tenant-cleanup] activities (per-child) 削除失敗: ${String(err)}`);
 	}
 
 	// Viewer tokens（findByTenant + deleteById 可能）

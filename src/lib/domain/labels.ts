@@ -902,6 +902,18 @@ export const MARKETPLACE_LABELS = {
 	detailRulePointCost: '必要ポイント',
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
+	// #2362 PR-3 Phase 5: activity-pack 取込 CTA (CWE-598: marketplace 側で childId を扱わず親管理画面に delegate)
+	/** activity-pack ログイン済 + 子供登録済: 親管理画面に遷移して child 選択ダイアログを開く動線 */
+	detailCtaImportActivityPack: '親管理画面で取り込む',
+	/** activity-pack ログイン済 + 子供登録済: 件数付き CTA */
+	detailCtaImportActivityPackWithCount: (count: number) =>
+		`親管理画面で取り込む (${count}件の活動)`,
+	/** activity-pack ログイン済 + 子供未登録 */
+	detailCtaImportActivityPackNoChildren: 'まずはお子さまを登録してください',
+	/** activity-pack 未ログイン CTA 説明 (誤新規登録防止) */
+	detailCtaImportActivityPackSignedOut: 'ログイン後、親管理画面でお子さまを選んで取り込みます',
+	/** activity-pack 説明 */
+	detailCtaImportActivityPackDesc: '取り込む際は親管理画面で「どのお子さまに追加するか」を選びます',
 	/** #2136 MP-1: reward-set 一括追加 CTA */
 	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
 	/** #2136 MP-1: 件数付き一括追加 CTA */
@@ -3897,6 +3909,44 @@ export const ACTIVITY_FORM_LABELS = {
 	deleteFullButton: '削除する',
 	deleteCancelButton: 'キャンセル',
 	deleteAutoHidMessage: '記録があるため非表示にしました',
+} as const;
+
+/**
+ * admin/activities ページ用ラベル (#2362 PR-3 Phase 4)
+ * 子供別タブ切替 + 兄弟共通化 UX (copy / 一括追加) の SSOT。
+ */
+export const ADMIN_ACTIVITIES_PAGE_LABELS = {
+	// 子供別タブ
+	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
+	childCountSuffix: '件',
+	// 兄弟共通化 actions
+	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	bulkCreateButton: '👨‍👩‍👧‍👦 一括追加',
+	// 選択中 child banner
+	childContextActivitiesSuffix: (count: number) => `の活動 (${count} 件)`,
+	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}の活動を表示します`,
+	// copy dialog
+	copyDialogTitle: `他の${CHILD_TERMS.honorific}から活動をコピー`,
+	copyDialogDescPrefix: 'コピー元の',
+	copyDialogDescSuffix: 'を選んでください (コピー先: ',
+	copyDialogDescCloseParen: ')',
+	copyDialogSelectedPlaceholder: '—',
+	copyDialogAgeSuffix: '歳',
+	copyDialogCountSuffix: '件',
+	copyDialogEmpty: `他の${CHILD_TERMS.honorific}がいません`,
+	copyDialogCancel: 'キャンセル',
+	copyDialogConfirm: 'コピーする',
+	// bulk dialog
+	bulkDialogTitle: `複数の${CHILD_TERMS.honorific}に一括追加`,
+	bulkFormName: '活動名',
+	bulkFormPoints: 'ポイント',
+	bulkFormCategory: 'カテゴリ',
+	bulkFormIcon: 'アイコン (絵文字)',
+	bulkTargetsLegend: `追加する${CHILD_TERMS.honorific}`,
+	bulkTargetAll: '👨‍👩‍👧‍👦 全員に追加',
+	bulkTargetChildAgeSuffix: '歳',
+	bulkDialogCancel: 'キャンセル',
+	bulkDialogConfirm: '追加する',
 } as const;
 
 /**

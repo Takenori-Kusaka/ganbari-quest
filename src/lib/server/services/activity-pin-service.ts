@@ -8,15 +8,31 @@ import {
 	togglePin as togglePinRepo,
 } from '$lib/server/db/activity-pref-repo';
 import { findActivityById } from '$lib/server/db/activity-repo';
-import type { Activity } from '$lib/server/db/types';
+import type { Activity, ChildActivity } from '$lib/server/db/types';
 
 const MAX_PINS_PER_CATEGORY = 5;
 const USAGE_DAYS = 30;
 
-export interface SortedActivity extends Activity {
+/**
+ * #2362 PR-3 Phase 7b-2c: sortActivitiesWithPreferences / selectRecommendations の
+ * 引数型を Activity と ChildActivity 双方が満たす共通 subset (`SortableActivity`) に緩める。
+ *
+ * Activity (旧 master) は `ageMin / ageMax / gradeLevel / subcategory / description` を持ち、
+ * ChildActivity は持たないが、sort / select の判定では `id / categoryId / basePoints /
+ * isVisible / sortOrder` のみ参照するため、共通 subset で型安全に互換化できる。
+ */
+export interface SortableActivity {
+	id: number;
+	categoryId: number;
+	basePoints: number;
+	isVisible: number | boolean;
+	sortOrder: number;
+}
+
+export type SortedActivity<T extends SortableActivity = Activity | ChildActivity> = T & {
 	isPinned: boolean;
 	usageCount: number;
-}
+};
 
 /** ピン留めトグル */
 export async function toggleActivityPin(
@@ -41,12 +57,17 @@ export async function toggleActivityPin(
 	return { isPinned: result.isPinned === 1 };
 }
 
-/** 活動リストにピン留め+使用頻度情報を付与してソート */
-export async function sortActivitiesWithPreferences(
-	activities: Activity[],
+/**
+ * 活動リストにピン留め+使用頻度情報を付与してソート
+ *
+ * #2362 PR-3 Phase 7b-2c: generic T で呼出側の活動型を保持。
+ * Activity / ChildActivity いずれの配列も受け取れる。
+ */
+export async function sortActivitiesWithPreferences<T extends SortableActivity>(
+	activities: T[],
 	childId: number,
 	tenantId: string,
-): Promise<SortedActivity[]> {
+): Promise<SortedActivity<T>[]> {
 	const [pinnedPrefs, usageCounts] = await Promise.all([
 		findPinnedByChild(childId, tenantId),
 		getUsageCounts(childId, getSinceDate(USAGE_DAYS), tenantId),

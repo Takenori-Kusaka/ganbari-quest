@@ -52,6 +52,7 @@ function seedBase() {
 	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 
 	// 5カテゴリに1つずつ活動を用意
+	// #2362 PR-3 Phase 7b-2c: child_activities (childId=1) へ seed
 	const acts = [
 		{ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 },
 		{ name: 'ひらがな', categoryId: 2, icon: '✏️', basePoints: 5, sortOrder: 2 },
@@ -60,7 +61,10 @@ function seedBase() {
 		{ name: 'おえかき', categoryId: 5, icon: '🎨', basePoints: 5, sortOrder: 5 },
 	];
 	for (const a of acts) {
-		testDb.insert(schema.activities).values(a).run();
+		testDb
+			.insert(schema.childActivities)
+			.values({ ...a, childId: 1 })
+			.run();
 	}
 }
 

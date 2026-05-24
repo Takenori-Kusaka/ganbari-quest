@@ -9,15 +9,18 @@ export interface ActivityItem {
 	categoryId: number;
 	icon: string;
 	basePoints: number;
-	ageMin: number | null;
-	ageMax: number | null;
+	// #2362 PR-3 Phase 7b-2c: ChildActivity (per-child instance) は ageMin/ageMax/gradeLevel/
+	// subcategory/description を持たないため optional 化。
+	// 旧 Activity master は引き続き値あり、ChildActivity は undefined。
+	ageMin?: number | null;
+	ageMax?: number | null;
 	isVisible: number;
 	dailyLimit: number | null;
 	sortOrder: number;
 	source: string;
-	gradeLevel: string | null;
-	subcategory: string | null;
-	description: string | null;
+	gradeLevel?: string | null;
+	subcategory?: string | null;
+	description?: string | null;
 	nameKana: string | null;
 	nameKanji: string | null;
 	triggerHint: string | null;

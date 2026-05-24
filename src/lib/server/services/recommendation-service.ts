@@ -2,7 +2,19 @@
 // #0264 G2: おすすめ活動の選定ロジック（カテゴリ分散・難易度・日替わり）
 
 import { getSetting } from '$lib/server/db/settings-repo';
-import type { Activity } from '$lib/server/db/types';
+
+/**
+ * #2362 PR-3 Phase 7b-2c: selectRecommendations の引数型を Activity / ChildActivity 双方が
+ * 満たす共通 subset (`RecommendableActivity`) に緩める。
+ * selection は `id / categoryId / basePoints / isVisible` のみ参照するため、削除済 fields
+ * (ageMin / ageMax / gradeLevel / subcategory / description) には依存しない。
+ */
+export interface RecommendableActivity {
+	id: number;
+	categoryId: number;
+	basePoints: number;
+	isVisible: number | boolean;
+}
 
 export interface RecommendedActivity {
 	activityId: number;
@@ -39,19 +51,19 @@ export async function markFocusModeStart(childId: number, tenantId: string): Pro
  * 3. 日替わり — 日付ベースのハッシュで毎日異なる組み合わせ
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
-export function selectRecommendations(
-	activities: Activity[],
+export function selectRecommendations<T extends RecommendableActivity>(
+	activities: T[],
 	date: string,
 	count = 3,
 ): RecommendedActivity[] {
 	if (activities.length === 0) return [];
 
-	// 可視活動のみ
-	const visible = activities.filter((a) => a.isVisible);
+	// 可視活動のみ (number 0/1 / boolean 双方対応)
+	const visible = activities.filter((a) => Boolean(a.isVisible));
 	if (visible.length === 0) return [];
 
 	// カテゴリ別にグループ化
-	const byCategory = new Map<number, Activity[]>();
+	const byCategory = new Map<number, T[]>();
 	for (const a of visible) {
 		const group = byCategory.get(a.categoryId) ?? [];
 		group.push(a);

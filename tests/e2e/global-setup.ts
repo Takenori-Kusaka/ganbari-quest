@@ -365,12 +365,41 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Created checklist template (がっこうのもちもの, 持ち物純化).');
 		}
 
+		// #2362 PR-3 (ADR-0055): child_activities per-child instance table
+		// schema.ts に追加済 (drizzle-kit push で生成) だが、safety net として idempotent に再作成。
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS child_activities (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				name TEXT NOT NULL,
+				category_id INTEGER NOT NULL REFERENCES categories(id),
+				icon TEXT NOT NULL,
+				base_points INTEGER NOT NULL DEFAULT 5,
+				is_visible INTEGER NOT NULL DEFAULT 1,
+				daily_limit INTEGER,
+				sort_order INTEGER NOT NULL DEFAULT 0,
+				source TEXT NOT NULL DEFAULT 'seed',
+				name_kana TEXT,
+				name_kanji TEXT,
+				trigger_hint TEXT,
+				is_main_quest INTEGER NOT NULL DEFAULT 0,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				is_archived INTEGER NOT NULL DEFAULT 0,
+				archived_reason TEXT,
+				source_preset_id TEXT,
+				priority TEXT NOT NULL DEFAULT 'optional'
+			);
+			CREATE INDEX IF NOT EXISTS idx_child_activities_child ON child_activities(child_id, is_archived);
+			CREATE INDEX IF NOT EXISTS idx_child_activities_child_sort ON child_activities(child_id, sort_order);
+		`);
+
 		// child_activity_preferences テーブルが存在しなければ作成（#0115 ピン留め機能）
 		db.exec(`
 			CREATE TABLE IF NOT EXISTS child_activity_preferences (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-				activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+				-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+				activity_id INTEGER NOT NULL REFERENCES child_activities(id) ON DELETE CASCADE,
 				is_pinned INTEGER NOT NULL DEFAULT 0,
 				pin_order INTEGER,
 				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -386,7 +415,8 @@ export default async function globalSetup() {
 			CREATE TABLE IF NOT EXISTS activity_mastery (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				child_id INTEGER NOT NULL REFERENCES children(id),
-				activity_id INTEGER NOT NULL REFERENCES activities(id),
+				-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+				activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 				total_count INTEGER NOT NULL DEFAULT 0,
 				level INTEGER NOT NULL DEFAULT 1,
 				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -681,6 +711,81 @@ export default async function globalSetup() {
 
 		`);
 
+		// #2362 PR-3 (Phase 7c): activity_logs.activity_id は child_activities(id) を参照する
+		// (Phase 7b-2a で FK target 切替済)。各 child に対し master `activities` から
+		// per-child instance を copy して child_activities に投入し、その id を activity_logs で参照する。
+		//
+		// 旧実装は SELECT id FROM activities WHERE ... を直接 activity_logs.activity_id に渡していたが、
+		// schema 変更後は FK 違反となるため (#2455 must-3 root cause)、per-child instance 生成を挟む。
+		//
+		// #2455 Round 6: master の `priority` / `daily_limit` / `icon` / `is_visible` / `sort_order` /
+		// `name_kana` / `name_kanji` / `trigger_hint` / `is_main_quest` / `source_preset_id` を per-child
+		// instance に正しく伝播する。旧実装は priority / icon / daily_limit 等を hardcode していたため、
+		// #2146 (must-priority カード演出) / #0051 (dailyLimit > 1) / #0054 (複合アイコン) / AC4 CWE-598
+		// が silent fail していた。
+		//
+		// idempotent: 既に対象 child の child_activities が seed 済みであれば再生成しない
+		// childId が undefined (= testChildIds に該当 nickname の seed がない) の場合は空配列を返し、
+		// 後続の activity_logs seed もスキップさせる (defensive: child seed 失敗時の cascade を防ぐ)
+		type MasterActivity = {
+			id: number;
+			name: string;
+			category_id: number;
+			base_points: number;
+			icon: string;
+			priority: 'must' | 'optional';
+			daily_limit: number | null;
+			is_visible: number;
+			sort_order: number;
+			name_kana: string | null;
+			name_kanji: string | null;
+			trigger_hint: string | null;
+			is_main_quest: number;
+			source_preset_id: string | null;
+		};
+		const seedChildActivitiesIfMissing = (
+			childId: number | undefined,
+			masterActivities: MasterActivity[],
+		): { id: number; base_points: number }[] => {
+			if (childId === undefined) return [];
+			const existing = db
+				.prepare(
+					"SELECT id, base_points FROM child_activities WHERE child_id = ? AND source = 'seed'",
+				)
+				.all(childId) as { id: number; base_points: number }[];
+			if (existing.length > 0) return existing;
+			if (masterActivities.length === 0) return [];
+			const insertStmt = db.prepare(
+				`INSERT INTO child_activities (
+					child_id, name, category_id, icon, base_points, is_visible, daily_limit,
+					sort_order, source, name_kana, name_kanji, trigger_hint, is_main_quest,
+					source_preset_id, priority
+				)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'seed', ?, ?, ?, ?, ?, ?)`,
+			);
+			const created: { id: number; base_points: number }[] = [];
+			for (const [idx, master] of masterActivities.entries()) {
+				const result = insertStmt.run(
+					childId,
+					master.name,
+					master.category_id,
+					master.icon,
+					master.base_points,
+					master.is_visible,
+					master.daily_limit,
+					master.sort_order ?? idx,
+					master.name_kana,
+					master.name_kanji,
+					master.trigger_hint,
+					master.is_main_quest,
+					master.source_preset_id,
+					master.priority,
+				);
+				created.push({ id: Number(result.lastInsertRowid), base_points: master.base_points });
+			}
+			return created;
+		};
+
 		// リアルな過去の活動ログを追加（ステータス画面・レーダーチャートの表示用）
 		// 今日のログはテスト安定化のため下で削除されるが、過去日のログは保持
 		const pastLogCount = db
@@ -691,13 +796,26 @@ export default async function globalSetup() {
 		if (pastLogCount.c === 0) {
 			// たろうくん の過去7日分の活動ログ
 			// kinder-starter パックの活動を使用（seed.ts の活動名と一致）
+			// #2455 Round 6: LIMIT を 20 → 100 に拡張。PR-3 で getActivities() が
+			// `child_activities` 由来になったため、API 公開対象 activity は per-child instance に
+			// 全件 seed する必要がある。LIMIT 20 だと `おさらあらい` (kinder index 32) / `水やりをする`
+			// (index 41) 等が未 seed となり features.spec.ts #0051 / #0054 の UI 検証が空 locator
+			// で fail する。kinder 母集合 43 件のため 100 で十分余裕。
 			const kinderActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'kinder' OR (age_min <= 4 AND (age_max IS NULL OR age_max >= 4)) LIMIT 20",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'kinder' OR (age_min <= 4 AND (age_max IS NULL OR age_max >= 4))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (kinderActivities.length > 0) {
+				// #2362 PR-3: master `activities` を per-child instance に複写し、その id を activity_logs で参照
+				const childActs = seedChildActivitiesIfMissing(testChildIds.たろうくん, kinderActivities);
 				const logStmt = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -706,8 +824,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 2 + (daysAgo % 3); // 2-4件/日
-					for (let j = 0; j < logsPerDay && j < kinderActivities.length; j++) {
-						const act = kinderActivities[(daysAgo * 3 + j) % kinderActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs.length; j++) {
+						const act = childActs[(daysAgo * 3 + j) % childActs.length];
 						if (!act) continue;
 						const streak = 8 - daysAgo; // 連続日数
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
@@ -728,11 +846,18 @@ export default async function globalSetup() {
 			// はなこちゃん の過去5日分
 			const babyActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'baby' OR (age_min <= 1 AND (age_max IS NULL OR age_max >= 1)) LIMIT 10",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'baby' OR (age_min <= 1 AND (age_max IS NULL OR age_max >= 1))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (babyActivities.length > 0) {
+				const childActs2 = seedChildActivitiesIfMissing(testChildIds.はなこちゃん, babyActivities);
 				const logStmt2 = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -740,8 +865,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 1 + (daysAgo % 2); // 1-2件/日
-					for (let j = 0; j < logsPerDay && j < babyActivities.length; j++) {
-						const act = babyActivities[(daysAgo * 2 + j) % babyActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs2.length; j++) {
+						const act = childActs2[(daysAgo * 2 + j) % childActs2.length];
 						if (!act) continue;
 						logStmt2.run(
 							testChildIds.はなこちゃん,
@@ -760,11 +885,21 @@ export default async function globalSetup() {
 			// けんたくん の過去6日分の活動ログ
 			const elementaryActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'elementary_lower' OR (age_min <= 8 AND (age_max IS NULL OR age_max >= 8)) LIMIT 20",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'elementary_lower' OR (age_min <= 8 AND (age_max IS NULL OR age_max >= 8))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (elementaryActivities.length > 0) {
+				const childActs3 = seedChildActivitiesIfMissing(
+					testChildIds.けんたくん,
+					elementaryActivities,
+				);
 				const logStmt3 = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -772,8 +907,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 2 + (daysAgo % 2); // 2-3件/日
-					for (let j = 0; j < logsPerDay && j < elementaryActivities.length; j++) {
-						const act = elementaryActivities[(daysAgo * 2 + j) % elementaryActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs3.length; j++) {
+						const act = childActs3[(daysAgo * 2 + j) % childActs3.length];
 						if (!act) continue;
 						const streak = 7 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
@@ -794,11 +929,21 @@ export default async function globalSetup() {
 			// ゆうこちゃん の過去5日分の活動ログ
 			const juniorActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'middle_school' OR (age_min <= 13 AND (age_max IS NULL OR age_max >= 13)) LIMIT 20",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'middle_school' OR (age_min <= 13 AND (age_max IS NULL OR age_max >= 13))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (juniorActivities.length > 0) {
+				const childActs4 = seedChildActivitiesIfMissing(
+					testChildIds.ゆうこちゃん,
+					juniorActivities,
+				);
 				const logStmt4 = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -806,8 +951,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 2 + (daysAgo % 3); // 2-4件/日
-					for (let j = 0; j < logsPerDay && j < juniorActivities.length; j++) {
-						const act = juniorActivities[(daysAgo * 3 + j) % juniorActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs4.length; j++) {
+						const act = childActs4[(daysAgo * 3 + j) % childActs4.length];
 						if (!act) continue;
 						const streak = 6 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
@@ -828,11 +973,18 @@ export default async function globalSetup() {
 			// まさとくん の過去4日分の活動ログ
 			const seniorActivities = db
 				.prepare(
-					"SELECT id, name, category_id, base_points FROM activities WHERE grade_level = 'high_school' OR (age_min <= 16 AND (age_max IS NULL OR age_max >= 16)) LIMIT 20",
+					`SELECT id, name, category_id, base_points, icon, priority, daily_limit,
+					 is_visible, sort_order, name_kana, name_kanji, trigger_hint, is_main_quest,
+					 source_preset_id
+					 FROM activities
+					 WHERE grade_level = 'high_school' OR (age_min <= 16 AND (age_max IS NULL OR age_max >= 16))
+					 ORDER BY id
+					 LIMIT 100`,
 				)
-				.all() as { id: number; name: string; category_id: number; base_points: number }[];
+				.all() as MasterActivity[];
 
 			if (seniorActivities.length > 0) {
+				const childActs5 = seedChildActivitiesIfMissing(testChildIds.まさとくん, seniorActivities);
 				const logStmt5 = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -840,8 +992,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 1 + (daysAgo % 2); // 1-2件/日
-					for (let j = 0; j < logsPerDay && j < seniorActivities.length; j++) {
-						const act = seniorActivities[(daysAgo * 2 + j) % seniorActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs5.length; j++) {
+						const act = childActs5[(daysAgo * 2 + j) % childActs5.length];
 						if (!act) continue;
 						const streak = 5 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;

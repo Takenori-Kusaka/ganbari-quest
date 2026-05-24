@@ -44,6 +44,9 @@ const SQL_TABLES = `
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT
 	);
+	-- 旧 activities table (#2362 PR-3 Phase 7b-2d で legacy/未使用化、#2458 別 PR で drop 予定)
+	-- 一部の repo function (countMainQuestActivities / countActiveActivityLogsByCategory 等) が
+	-- 依然 from(activities) を呼ぶため、定義は残す (空テーブル)。
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
@@ -64,10 +67,35 @@ const SQL_TABLES = `
 		-- #1755 (#1709-A): 「今日のおやくそく」優先度
 		priority TEXT NOT NULL DEFAULT 'optional'
 	);
+	-- #2362 PR-3 Phase 7b-2d: child_activities (per-child instance、ADR-0055)
+	CREATE TABLE child_activities (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		icon TEXT NOT NULL,
+		base_points INTEGER NOT NULL DEFAULT 5,
+		is_visible INTEGER NOT NULL DEFAULT 1,
+		daily_limit INTEGER,
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		source TEXT NOT NULL DEFAULT 'seed',
+		name_kana TEXT,
+		name_kanji TEXT,
+		trigger_hint TEXT,
+		is_main_quest INTEGER NOT NULL DEFAULT 0,
+		is_archived INTEGER NOT NULL DEFAULT 0,
+		archived_reason TEXT,
+		source_preset_id TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		priority TEXT NOT NULL DEFAULT 'optional'
+	);
+	CREATE INDEX idx_child_activities_child ON child_activities(child_id, is_archived);
+	CREATE INDEX idx_child_activities_child_sort ON child_activities(child_id, sort_order);
 	CREATE TABLE activity_logs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 Phase 7b-2a: FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		points INTEGER NOT NULL, streak_days INTEGER NOT NULL DEFAULT 1,
 		streak_bonus INTEGER NOT NULL DEFAULT 0,
 		recorded_date TEXT NOT NULL,
@@ -126,7 +154,8 @@ const SQL_TABLES = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
 		mission_date TEXT NOT NULL,
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 Phase 7b-2a: FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		completed INTEGER NOT NULL DEFAULT 0,
 		completed_at TEXT,
 		UNIQUE(child_id, mission_date, activity_id)
@@ -135,7 +164,8 @@ const SQL_TABLES = `
 	CREATE TABLE activity_mastery (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 Phase 7b-2a: FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		total_count INTEGER NOT NULL DEFAULT 0,
 		level INTEGER NOT NULL DEFAULT 1,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -179,27 +209,36 @@ function resetDb() {
 	sqlite.exec('DELETE FROM child_achievements');
 	sqlite.exec('DELETE FROM point_ledger');
 	sqlite.exec('DELETE FROM activity_logs');
+	sqlite.exec('DELETE FROM child_activities');
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','activity_logs','point_ledger','statuses','status_history','child_achievements','activity_mastery')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','child_activities','activity_logs','point_ledger','statuses','status_history','child_achievements','activity_mastery')",
 	);
 }
 
 function seedBasic() {
+	// #2362 PR-3 Phase 7b-2d: per-child activity instance (ADR-0055) ベースに seed。
 	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4 }).run();
 	testDb
-		.insert(schema.activities)
-		.values({ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 })
+		.insert(schema.childActivities)
+		.values({
+			childId: 1,
+			name: 'たいそう',
+			categoryId: 1,
+			icon: '🤸',
+			basePoints: 5,
+			sortOrder: 1,
+		})
 		.run();
 	testDb
-		.insert(schema.activities)
+		.insert(schema.childActivities)
 		.values({
+			childId: 1,
 			name: 'ひらがな',
 			categoryId: 2,
 			icon: '✏️',
 			basePoints: 5,
-			ageMin: 3,
 			sortOrder: 2,
 		})
 		.run();

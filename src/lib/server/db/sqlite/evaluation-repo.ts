@@ -4,8 +4,8 @@
 import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
 import { db } from '../client';
 import {
-	activities,
 	activityLogs,
+	childActivities,
 	children,
 	evaluations,
 	restDays,
@@ -19,14 +19,15 @@ export async function countActivitiesByCategory(
 	weekEnd: string,
 	_tenantId: string,
 ) {
+	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)
 	return db
 		.select({
-			categoryId: activities.categoryId,
+			categoryId: childActivities.categoryId,
 			count: sql<number>`count(*)`,
 			totalPoints: sql<number>`sum(${activityLogs.points})`,
 		})
 		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(
 			and(
 				eq(activityLogs.childId, childId),
@@ -35,7 +36,7 @@ export async function countActivitiesByCategory(
 				lte(activityLogs.recordedDate, weekEnd),
 			),
 		)
-		.groupBy(activities.categoryId)
+		.groupBy(childActivities.categoryId)
 		.all();
 }
 
@@ -100,15 +101,16 @@ export async function findWeekEvaluation(childId: number, weekStart: string, _te
 
 /** 子供の最終活動日をカテゴリ別に取得 */
 export async function findLastActivityDateByCategory(childId: number, _tenantId: string) {
+	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済
 	return db
 		.select({
-			categoryId: activities.categoryId,
+			categoryId: childActivities.categoryId,
 			lastDate: sql<string>`max(${activityLogs.recordedDate})`,
 		})
 		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
-		.groupBy(activities.categoryId)
+		.groupBy(childActivities.categoryId)
 		.all();
 }
 

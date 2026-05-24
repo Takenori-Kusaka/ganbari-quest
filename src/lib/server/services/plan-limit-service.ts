@@ -225,7 +225,12 @@ export async function checkChildLimit(
 	};
 }
 
-/** 活動マスタ追加の制限チェック */
+/**
+ * 活動追加の制限チェック (#2362 PR-3 / ADR-0055)
+ *
+ * Per-child instance 化に伴い、tenant 全体の custom 活動数を per-child loop で集計する。
+ * 意味論は不変 (maxActivities=3 は tenant-wide 合計の上限)。プラン見直しは別 Issue #2457 で扱う。
+ */
 export async function checkActivityLimit(
 	tenantId: string,
 	licenseStatus: string,
@@ -236,9 +241,12 @@ export async function checkActivityLimit(
 	}
 
 	const repos = getRepos();
-	const activities = await repos.activity.findActivities(tenantId);
-	const customActivities = activities.filter((a) => a.source === 'custom');
-	const current = customActivities.length;
+	const children = await repos.child.findAllChildren(tenantId);
+	let current = 0;
+	for (const child of children) {
+		const activities = await repos.childActivity.findActivitiesByChild(child.id, tenantId);
+		current += activities.filter((a) => a.source === 'custom').length;
+	}
 
 	return {
 		allowed: current < limits.maxActivities,

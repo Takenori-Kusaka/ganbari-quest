@@ -80,14 +80,36 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 			);
 		});
 
-		it('詳細画面 fallback (activity-pack) 未ログイン CTA は /auth/login へ遷移する', () => {
-			// fallback: `<a href="/auth/login" class="block">`
-			expect(content).toMatch(/href=["']\/auth\/login["']\s+class=["']block["']/);
+		it('詳細画面 activity-pack 未ログイン CTA は /auth/login へ遷移する (#2362 PR-3 Phase 5)', () => {
+			// #2362 PR-3 Phase 5: activity-pack 未ログイン CTA は admin auto-open を next に持つ
+			// `href="/auth/login?next=/admin/activities?import={item.itemId}"`
+			// (CWE-598 / docs/design/marketplace-import-flow.md §3.1 整合: childId を URL に含めない)
+			expect(content).toMatch(
+				/href=["']\/auth\/login\?next=\/admin\/activities\?import=\{item\.itemId\}["']/,
+			);
+		});
+
+		it('詳細画面 activity-pack ログイン済 CTA は /admin/activities?import= へ遷移する (#2362 PR-3 Phase 5)', () => {
+			// #2362 PR-3 Phase 5: activity-pack ログイン済 + 子供登録済の CTA は admin/activities へ
+			// (ChildSelectionDialog auto-open mechanism Phase 4 と接続)
+			expect(content).toMatch(/href=["']\/admin\/activities\?import=\{item\.itemId\}["']/);
 		});
 
 		it('詳細画面に /auth/signup 直接遷移が残っていない (data integrity 保護)', () => {
 			// /auth/signup を含む href が一切無いこと (5 種の CTA + fallback すべて login 経由)
 			expect(content).not.toMatch(/href=["']\/auth\/signup/);
+		});
+
+		it('詳細画面 activity-pack 関連 href に childId が含まれない (CWE-598、#2362 PR-3 Phase 5)', () => {
+			// activity-pack 関連 CTA (data-testid="activity-pack-*") の周辺 href に
+			// `childId=` が出現しないこと。marketplace-import-flow.md §4 privacy 検証必須項目。
+			// activity-pack-* CTA とその href= は同一行 / 隣接行に書かれる
+			const activityPackCtaMatches = content.match(
+				/activity-pack-(import-cta|signup-redirect)[\s\S]{0,200}/g,
+			);
+			for (const match of activityPackCtaMatches ?? []) {
+				expect(match).not.toMatch(/childId/);
+			}
 		});
 	});
 

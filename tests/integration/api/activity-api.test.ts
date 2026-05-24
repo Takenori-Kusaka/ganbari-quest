@@ -44,6 +44,9 @@ const SQL_TABLES = `
 		is_archived INTEGER NOT NULL DEFAULT 0,
 		archived_reason TEXT
 	);
+	-- 旧 activities table (#2362 PR-3 Phase 7b-2d で legacy/未使用化、#2458 別 PR で drop 予定)
+	-- 一部の repo function (countMainQuestActivities / countActiveActivityLogsByCategory 等) が
+	-- 依然 from(activities) を呼ぶため、定義は残す (空テーブル)。
 	CREATE TABLE activities (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL, category_id INTEGER NOT NULL REFERENCES categories(id), icon TEXT NOT NULL,
@@ -64,10 +67,36 @@ const SQL_TABLES = `
 		-- #1755 (#1709-A): 「今日のおやくそく」優先度
 		priority TEXT NOT NULL DEFAULT 'optional'
 	);
+	-- #2362 PR-3 Phase 7b-2d: child_activities (per-child instance、ADR-0055)
+	-- activity-service 全 method は本 table 経由で動作する。
+	CREATE TABLE child_activities (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		icon TEXT NOT NULL,
+		base_points INTEGER NOT NULL DEFAULT 5,
+		is_visible INTEGER NOT NULL DEFAULT 1,
+		daily_limit INTEGER,
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		source TEXT NOT NULL DEFAULT 'seed',
+		name_kana TEXT,
+		name_kanji TEXT,
+		trigger_hint TEXT,
+		is_main_quest INTEGER NOT NULL DEFAULT 0,
+		is_archived INTEGER NOT NULL DEFAULT 0,
+		archived_reason TEXT,
+		source_preset_id TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		priority TEXT NOT NULL DEFAULT 'optional'
+	);
+	CREATE INDEX idx_child_activities_child ON child_activities(child_id, is_archived);
+	CREATE INDEX idx_child_activities_child_sort ON child_activities(child_id, sort_order);
 	CREATE TABLE activity_logs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 Phase 7b-2a: FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		points INTEGER NOT NULL, streak_days INTEGER NOT NULL DEFAULT 1,
 		streak_bonus INTEGER NOT NULL DEFAULT 0,
 		recorded_date TEXT NOT NULL,
@@ -118,33 +147,44 @@ afterAll(() => {
 function resetDb() {
 	sqlite.exec('DELETE FROM point_ledger');
 	sqlite.exec('DELETE FROM activity_logs');
+	sqlite.exec('DELETE FROM child_activities');
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','activity_logs','point_ledger')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','child_activities','activity_logs','point_ledger')",
 	);
 }
 
 function seedBasic() {
+	// #2362 PR-3 Phase 7b-2d: per-child activity instance (ADR-0055) ベースに seed。
+	// child id=1 にひも付ける per-child activity を 3 件 (id=1 たいそう / id=2 ひらがな / id=3 非表示)。
 	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4 }).run();
 	testDb
-		.insert(schema.activities)
-		.values({ name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 })
+		.insert(schema.childActivities)
+		.values({
+			childId: 1,
+			name: 'たいそう',
+			categoryId: 1,
+			icon: '🤸',
+			basePoints: 5,
+			sortOrder: 1,
+		})
 		.run();
 	testDb
-		.insert(schema.activities)
+		.insert(schema.childActivities)
 		.values({
+			childId: 1,
 			name: 'ひらがな',
 			categoryId: 2,
 			icon: '✏️',
 			basePoints: 5,
-			ageMin: 3,
 			sortOrder: 2,
 		})
 		.run();
 	testDb
-		.insert(schema.activities)
+		.insert(schema.childActivities)
 		.values({
+			childId: 1,
 			name: '非表示',
 			categoryId: 1,
 			icon: '❌',
@@ -196,32 +236,36 @@ describe('API-ACT-01: GET /api/v1/activities', () => {
 // ===================================================================
 // API-ACT-02: GET /api/v1/activities?childId=1 → 子供IDフィルタ
 // ===================================================================
+// #2362 PR-3 Phase 7b-2d (ADR-0055): per-child instance 化により ageMin/ageMax フィールドは
+// child_activities table から撤去された。age filter は per-child では意味を持たない (childId
+// 指定すれば自然と child の activity のみ返る)。テスト期待値を「childId フィルタは existing
+// child の per-child activity 全件 (非表示除外)」に再定義する。
 describe('API-ACT-02: GET /api/v1/activities?childId=1', () => {
-	it('子供の年齢に合った活動のみ返す', async () => {
-		// 5歳以上限定の活動を追加
+	it('childId 指定で child の per-child activity 全件返る (非表示除外)', async () => {
+		// 子供 id=1 用に追加 activity (per-child instance)
 		testDb
-			.insert(schema.activities)
+			.insert(schema.childActivities)
 			.values({
+				childId: 1,
 				name: '英語',
 				categoryId: 2,
 				icon: '🇬🇧',
 				basePoints: 5,
-				ageMin: 5,
 				sortOrder: 10,
 			})
 			.run();
 
 		const event = createMockEvent({
-			url: '/api/v1/activities?childId=1', // age=4
+			url: '/api/v1/activities?childId=1',
 		});
 		const res = await GET(event);
 		expect(res.status).toBe(200);
 
 		const body = await jsonBody(res);
-		// 4歳の子: 'たいそう'(制限なし), 'ひらがな'(3歳以上)  → 2件, '英語'(5歳以上)は除外
-		expect(body.activities).toHaveLength(2);
+		// child id=1 の per-child activity: 'たいそう' / 'ひらがな' / '英語' (非表示除外で 3 件)
+		expect(body.activities).toHaveLength(3);
 		const names = body.activities.map((a: Record<string, unknown>) => a.name);
-		expect(names).not.toContain('英語');
+		expect(names).toContain('英語');
 	});
 });
 

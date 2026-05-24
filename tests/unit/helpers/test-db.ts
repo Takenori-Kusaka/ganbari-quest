@@ -96,12 +96,42 @@ export const SQL_TABLES = `
 	);
 
 	-- ============================================================
+	-- child_activities — per-child 活動 instance (#2362 PR-3, ADR-0055)
+	-- ============================================================
+	-- 旧 activities を per-child instance 化する refactor の第 1 段階として並存配置。
+	-- Phase 6/7 で旧 activities を drop + FK 全切替を行う。
+	CREATE TABLE child_activities (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		icon TEXT NOT NULL,
+		base_points INTEGER NOT NULL DEFAULT 5,
+		is_visible INTEGER NOT NULL DEFAULT 1,
+		daily_limit INTEGER,
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		source TEXT NOT NULL DEFAULT 'seed',
+		name_kana TEXT,
+		name_kanji TEXT,
+		trigger_hint TEXT,
+		is_main_quest INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		is_archived INTEGER NOT NULL DEFAULT 0,
+		archived_reason TEXT,
+		source_preset_id TEXT,
+		priority TEXT NOT NULL DEFAULT 'optional'
+	);
+	CREATE INDEX idx_child_activities_child ON child_activities(child_id, is_archived);
+	CREATE INDEX idx_child_activities_child_sort ON child_activities(child_id, sort_order);
+
+	-- ============================================================
 	-- activity_logs
 	-- ============================================================
 	CREATE TABLE activity_logs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		points INTEGER NOT NULL,
 		streak_days INTEGER NOT NULL DEFAULT 1,
 		streak_bonus INTEGER NOT NULL DEFAULT 0,
@@ -310,7 +340,8 @@ export const SQL_TABLES = `
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
 		mission_date TEXT NOT NULL,
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		completed INTEGER NOT NULL DEFAULT 0,
 		completed_at TEXT,
 		UNIQUE(child_id, mission_date, activity_id)
@@ -424,7 +455,8 @@ export const SQL_TABLES = `
 	CREATE TABLE child_activity_preferences (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		is_pinned INTEGER NOT NULL DEFAULT 0,
 		pin_order INTEGER,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -499,7 +531,8 @@ export const SQL_TABLES = `
 	CREATE TABLE activity_mastery (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
-		activity_id INTEGER NOT NULL REFERENCES activities(id),
+		-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+		activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 		total_count INTEGER NOT NULL DEFAULT 0,
 		level INTEGER NOT NULL DEFAULT 1,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -822,6 +855,9 @@ const ALL_TABLES = [
 	'market_benchmarks',
 	'point_ledger',
 	'activity_logs',
+	// #2362 PR-3 (Phase 7b-2a): activity_logs / daily_missions / etc. の FK target
+	// child_activities を activities より先に reset (FK 順序)
+	'child_activities',
 	'activities',
 	'children',
 	'settings',
@@ -863,4 +899,65 @@ export function resetDb(sqlite: TestSqlite): void {
  */
 export function closeDb(sqlite: TestSqlite): void {
 	sqlite.close();
+}
+
+// ============================================================
+// #2362 PR-3 Phase 7b-2c: seedChildActivities helper
+// 旧 schema.activities へ seed していた service test を child_activities ベースに
+// 移行するための共通 helper。指定 child_id への per-child instance として insert する。
+// 旧 Activity master の `ageMin / ageMax / gradeLevel / subcategory / description` は
+// ChildActivity に存在しないため input にも含めない。
+// ============================================================
+
+export interface SeedChildActivityInput {
+	name: string;
+	categoryId: number;
+	icon: string;
+	basePoints?: number;
+	isVisible?: number;
+	dailyLimit?: number | null;
+	sortOrder?: number;
+	source?: string;
+	nameKana?: string | null;
+	nameKanji?: string | null;
+	triggerHint?: string | null;
+	isMainQuest?: number;
+	priority?: 'must' | 'optional';
+}
+
+/**
+ * 指定 child_id に per-child activity instance を bulk insert する。
+ * service test の fixture rewrite で活用。
+ *
+ * @example
+ *   seedChildActivities(testDb, childId, [
+ *     { name: 'たいそうした', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 },
+ *     { name: 'おそとであそんだ', categoryId: 1, icon: '🏃', basePoints: 5, sortOrder: 2 },
+ *   ]);
+ */
+export function seedChildActivities(
+	db: TestDb,
+	childId: number,
+	activities: SeedChildActivityInput[],
+): void {
+	for (const a of activities) {
+		db.insert(schema.childActivities)
+			.values({
+				childId,
+				name: a.name,
+				categoryId: a.categoryId,
+				icon: a.icon,
+				basePoints: a.basePoints ?? 5,
+				isVisible: a.isVisible ?? 1,
+				dailyLimit: a.dailyLimit ?? null,
+				sortOrder: a.sortOrder ?? 0,
+				source: a.source ?? 'seed',
+				nameKana: a.nameKana ?? null,
+				nameKanji: a.nameKanji ?? null,
+				triggerHint: a.triggerHint ?? null,
+				isMainQuest: a.isMainQuest ?? 0,
+				priority: a.priority ?? 'optional',
+			})
+			.run();
+	}
 }

@@ -192,9 +192,15 @@ test.describe('#0051: 複数回実行', () => {
 		// 複数回実行対応の活動（例: おさらあらい dailyLimit=3）を探す
 		// 記録済みの場合はバッジ(回数)が表示される
 		// 未記録でもdailyLimitが1より大きいので、ボタンが有効なまま残る仕様
+		// #2455 Round 6: PR-3 ADR-0055 で `getActivities()` が tenant 全 child の
+		// child_activities を返すため同名 activity が複数 child instance として返却される。
+		// `.first()` は assertion 弱体化ではなく「複数 instance のうち最初の 1 件が visible」
+		// を strict-mode violation 回避しつつ確認する標準パターン (ADR-0006 適合)。
+		// 本 test 意図 = 複数回実行可能な activity が UI に存在する検証。
 		const multiButton = page
 			.locator('[data-testid^="activity-card-"]')
-			.filter({ hasText: 'おさらあらい' });
+			.filter({ hasText: 'おさらあらい' })
+			.first();
 		await expect(multiButton).toBeVisible();
 	});
 });
@@ -222,9 +228,13 @@ test.describe('#0054: 複合アイコン', () => {
 
 		// 複合アイコンの例: おさらあらい (🍽️💧), 水やりをする (🌱💧)
 		// これらの活動ボタンが正常に表示される
+		// #2455 Round 6: PR-3 tenant-wide getActivities() により同名 activity が複数 child
+		// instance で重複表示される。`.first()` は strict-mode violation 回避用標準パターン
+		// (ADR-0006 適合、本 test 意図 = 複合アイコン活動が render される検証)。
 		const button = page
 			.locator('[data-testid^="activity-card-"]')
-			.filter({ hasText: '水やりをする' });
+			.filter({ hasText: '水やりをする' })
+			.first();
 		await expect(button).toBeVisible();
 	});
 });
