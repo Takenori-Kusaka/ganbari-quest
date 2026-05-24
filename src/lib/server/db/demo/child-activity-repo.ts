@@ -2,13 +2,14 @@
 // per-child activity instance repository — Demo Lambda 実装 (#2362 PR-3, ADR-0055)
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 //
-// Phase 2 段階: 旧 DEMO_ACTIVITIES (family master) を per-child 視点で擬似 instance 化する。
-// 旧 demo activity fixture が依然 master 形 (childId なし) であるため、find は
-// 全 child に対し旧 fixture を活動共通で返す lightweight read fake を用意する。
-// Phase 6 で demo-data.ts に per-child fixture を追加した時点で本実装を refactor する。
+// Phase 6 段階: per-child fixture `DEMO_CHILD_ACTIVITIES` を優先参照する。
+// DEMO_CHILD_ACTIVITIES に該当 child のエントリが無い場合は、後方互換のため
+// 旧 master DEMO_ACTIVITIES を per-child 視点で投影する legacy fallback を維持。
+// Phase 7 で旧 master fallback を撤去予定。
 
 import {
 	DEMO_ACTIVITIES,
+	DEMO_CHILD_ACTIVITIES,
 	DEMO_CHILDREN,
 	DEMO_MARKETPLACE_ACTIVITIES,
 } from '$lib/server/demo/demo-data';
@@ -71,6 +72,19 @@ export async function findActivitiesByChild(
 	_tenantId: string,
 	options?: { includeArchived?: boolean; visibleOnly?: boolean },
 ): Promise<ChildActivity[]> {
+	// Phase 6: DEMO_CHILD_ACTIVITIES per-child fixture を優先参照
+	const perChildList = DEMO_CHILD_ACTIVITIES.filter((a) => {
+		if (a.childId !== childId) return false;
+		if (!options?.includeArchived && a.isArchived === 1) return false;
+		if (options?.visibleOnly && a.isVisible !== 1) return false;
+		return true;
+	});
+
+	if (perChildList.length > 0) {
+		return perChildList.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+	}
+
+	// Legacy fallback: 旧 master を per-child 投影 (Phase 7 で撤去予定)
 	return ALL_DEMO_ACTIVITIES_MASTER.filter((master) => {
 		if (!options?.includeArchived && master.isArchived === 1) return false;
 		if (options?.visibleOnly && master.isVisible !== 1) return false;
@@ -83,6 +97,11 @@ export async function findActivityById(
 	childId: number,
 	_tenantId: string,
 ): Promise<ChildActivity | undefined> {
+	// Phase 6: per-child fixture を優先確認
+	const perChild = DEMO_CHILD_ACTIVITIES.find((a) => a.id === id && a.childId === childId);
+	if (perChild) return perChild;
+
+	// Legacy fallback: 旧 master id 体系 (childId * 1_000_000 + masterId)
 	const masterId = id - childId * 1_000_000;
 	const master = ALL_DEMO_ACTIVITIES_MASTER.find((a) => a.id === masterId);
 	return master ? projectToChildActivity(master, childId) : undefined;

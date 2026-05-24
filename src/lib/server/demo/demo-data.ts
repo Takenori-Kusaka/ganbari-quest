@@ -47,6 +47,7 @@ import type {
 	ChecklistTemplateItem,
 	Child,
 	ChildAchievement,
+	ChildActivity,
 	DailyMission,
 	Evaluation,
 	LoginBonus,
@@ -1174,6 +1175,323 @@ export const DEMO_ACTIVITIES: Activity[] = [
 		archivedReason: null,
 		createdAt: NOW,
 	},
+];
+
+// ============================================================
+// DEMO_CHILD_ACTIVITIES — per-child instance fixture (#2362 PR-3 / ADR-0055)
+// ============================================================
+// per-child instance (child_activities table) の demo fixture。
+// Phase 7 で旧 `activities` table drop + FK 切替後、ChildActivity ベースの
+// 一覧 / カウント API が本 fixture を直接参照する。
+//
+// 設計原則 (ADR-0055):
+//   - childId NOT NULL (cross-child access を構造的に防ぐ)
+//   - 旧 master Activity から代表 5-7 件を各 child に instance 化
+//   - sourcePresetId: 'demo:<master.id>' で master と紐付け
+//
+// id 体系: child_id * 10_000 + offset
+//   901: 9010001 - 9010099 (たろうくん baby)
+//   902: 9020001 - 9020099 (ひなちゃん preschool)
+//   903: 9030001 - 9030099 (けんたくん elementary)
+//   904: 9040001 - 9040099 (さくらちゃん junior)
+//   906: 9060001 - 9060099 (けいすけくん senior)
+//
+// 並存原則: Phase 6 段階では DEMO_ACTIVITIES (旧 master) と本 fixture が併存。
+// child-activity-repo (demo Lambda 実装) は本 fixture を優先参照し、未定義 child は
+// 旧 master を per-child 投影する legacy fallback で動作継続。
+
+function buildChildActivity(spec: {
+	id: number;
+	childId: number;
+	sourceMasterId: number;
+	name: string;
+	categoryId: number;
+	icon: string;
+	basePoints: number;
+	isMainQuest?: boolean;
+	priority?: 'must' | 'optional';
+	sortOrder?: number;
+}): ChildActivity {
+	return {
+		id: spec.id,
+		childId: spec.childId,
+		name: spec.name,
+		categoryId: spec.categoryId,
+		icon: spec.icon,
+		basePoints: spec.basePoints,
+		isVisible: 1,
+		dailyLimit: null,
+		sortOrder: spec.sortOrder ?? 0,
+		source: 'demo-per-child',
+		nameKana: null,
+		nameKanji: null,
+		triggerHint: null,
+		isMainQuest: spec.isMainQuest ? 1 : 0,
+		isArchived: 0,
+		archivedReason: null,
+		createdAt: NOW,
+		sourcePresetId: `demo:${spec.sourceMasterId}`,
+		priority: spec.priority ?? 'optional',
+	};
+}
+
+export const DEMO_CHILD_ACTIVITIES: ChildActivity[] = [
+	// 901 たろうくん (baby M, age 1) — baby 基本動作 3 件
+	buildChildActivity({
+		id: 9010001,
+		childId: 901,
+		sourceMasterId: 1,
+		name: 'はいはいした',
+		categoryId: 1,
+		icon: '🐣',
+		basePoints: 3,
+		sortOrder: 1,
+	}),
+	buildChildActivity({
+		id: 9010002,
+		childId: 901,
+		sourceMasterId: 2,
+		name: 'あんよした',
+		categoryId: 1,
+		icon: '👣',
+		basePoints: 5,
+		sortOrder: 2,
+	}),
+	buildChildActivity({
+		id: 9010003,
+		childId: 901,
+		sourceMasterId: 10,
+		name: 'えほんをよんだ',
+		categoryId: 2,
+		icon: '📖',
+		basePoints: 5,
+		sortOrder: 3,
+	}),
+
+	// 902 ひなちゃん (preschool F, age 5) — 幼児期 5 件 (うち must 1 件 = はみがき)
+	buildChildActivity({
+		id: 9020001,
+		childId: 902,
+		sourceMasterId: 4,
+		name: 'からだをうごかした',
+		categoryId: 1,
+		icon: '🤸',
+		basePoints: 5,
+		sortOrder: 1,
+	}),
+	buildChildActivity({
+		id: 9020002,
+		childId: 902,
+		sourceMasterId: 10,
+		name: 'えほんをよんだ',
+		categoryId: 2,
+		icon: '📖',
+		basePoints: 5,
+		sortOrder: 2,
+	}),
+	buildChildActivity({
+		id: 9020003,
+		childId: 902,
+		sourceMasterId: 25,
+		name: 'おてつだいした',
+		categoryId: 3,
+		icon: '🧹',
+		basePoints: 6,
+		sortOrder: 3,
+	}),
+	buildChildActivity({
+		id: 9020004,
+		childId: 902,
+		sourceMasterId: 30,
+		name: 'あいさつした',
+		categoryId: 4,
+		icon: '👋',
+		basePoints: 3,
+		sortOrder: 4,
+	}),
+	buildChildActivity({
+		id: 9020005,
+		childId: 902,
+		sourceMasterId: 35,
+		name: 'はみがきした',
+		categoryId: 3,
+		icon: '🪥',
+		basePoints: 5,
+		priority: 'must',
+		sortOrder: 5,
+	}),
+
+	// 903 けんたくん (elementary M, age 8) — 小学生 6 件 (うち main quest 1 件 + must 1 件)
+	buildChildActivity({
+		id: 9030001,
+		childId: 903,
+		sourceMasterId: 7,
+		name: 'うんどうした',
+		categoryId: 1,
+		icon: '⚽',
+		basePoints: 8,
+		sortOrder: 1,
+	}),
+	buildChildActivity({
+		id: 9030002,
+		childId: 903,
+		sourceMasterId: 13,
+		name: 'しゅくだいをした',
+		categoryId: 2,
+		icon: '📝',
+		basePoints: 10,
+		priority: 'must',
+		sortOrder: 2,
+	}),
+	buildChildActivity({
+		id: 9030003,
+		childId: 903,
+		sourceMasterId: 40,
+		name: 'おえかきした',
+		categoryId: 5,
+		icon: '🎨',
+		basePoints: 5,
+		sortOrder: 3,
+	}),
+	buildChildActivity({
+		id: 9030004,
+		childId: 903,
+		sourceMasterId: 25,
+		name: 'おてつだいした',
+		categoryId: 3,
+		icon: '🧹',
+		basePoints: 6,
+		sortOrder: 4,
+	}),
+	buildChildActivity({
+		id: 9030005,
+		childId: 903,
+		sourceMasterId: 30,
+		name: 'あいさつした',
+		categoryId: 4,
+		icon: '👋',
+		basePoints: 3,
+		sortOrder: 5,
+	}),
+	buildChildActivity({
+		id: 9030006,
+		childId: 903,
+		sourceMasterId: 43,
+		name: 'ピアノれんしゅう',
+		categoryId: 5,
+		icon: '🎹',
+		basePoints: 10,
+		isMainQuest: true,
+		sortOrder: 6,
+	}),
+
+	// 904 さくらちゃん (junior F, age 14) — 中学生 5 件 (受験 / 検定中心)
+	buildChildActivity({
+		id: 9040001,
+		childId: 904,
+		sourceMasterId: 7,
+		name: '運動した',
+		categoryId: 1,
+		icon: '🏃',
+		basePoints: 8,
+		sortOrder: 1,
+	}),
+	buildChildActivity({
+		id: 9040002,
+		childId: 904,
+		sourceMasterId: 13,
+		name: '宿題をした',
+		categoryId: 2,
+		icon: '📚',
+		basePoints: 10,
+		priority: 'must',
+		sortOrder: 2,
+	}),
+	buildChildActivity({
+		id: 9040003,
+		childId: 904,
+		sourceMasterId: 17,
+		name: '受験勉強した',
+		categoryId: 2,
+		icon: '✏️',
+		basePoints: 15,
+		isMainQuest: true,
+		sortOrder: 3,
+	}),
+	buildChildActivity({
+		id: 9040004,
+		childId: 904,
+		sourceMasterId: 18,
+		name: '資格・検定の勉強',
+		categoryId: 2,
+		icon: '📖',
+		basePoints: 12,
+		sortOrder: 4,
+	}),
+	buildChildActivity({
+		id: 9040005,
+		childId: 904,
+		sourceMasterId: 22,
+		name: '部活がんばった',
+		categoryId: 1,
+		icon: '🏃‍♀️',
+		basePoints: 8,
+		sortOrder: 5,
+	}),
+
+	// 906 けいすけくん (senior M, age 17) — 高校生 5 件 (大学受験 / アルバイト)
+	buildChildActivity({
+		id: 9060001,
+		childId: 906,
+		sourceMasterId: 7,
+		name: '運動した',
+		categoryId: 1,
+		icon: '🏃',
+		basePoints: 8,
+		sortOrder: 1,
+	}),
+	buildChildActivity({
+		id: 9060002,
+		childId: 906,
+		sourceMasterId: 50,
+		name: '大学受験勉強した',
+		categoryId: 2,
+		icon: '🎓',
+		basePoints: 20,
+		isMainQuest: true,
+		priority: 'must',
+		sortOrder: 2,
+	}),
+	buildChildActivity({
+		id: 9060003,
+		childId: 906,
+		sourceMasterId: 51,
+		name: 'アルバイトした',
+		categoryId: 4,
+		icon: '💼',
+		basePoints: 15,
+		sortOrder: 3,
+	}),
+	buildChildActivity({
+		id: 9060004,
+		childId: 906,
+		sourceMasterId: 18,
+		name: '資格・検定の勉強',
+		categoryId: 2,
+		icon: '📖',
+		basePoints: 12,
+		sortOrder: 4,
+	}),
+	buildChildActivity({
+		id: 9060005,
+		childId: 906,
+		sourceMasterId: 52,
+		name: '自動車学校',
+		categoryId: 4,
+		icon: '🚗',
+		basePoints: 18,
+		sortOrder: 5,
+	}),
 ];
 
 // ============================================================
