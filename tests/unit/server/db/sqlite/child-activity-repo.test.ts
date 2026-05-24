@@ -94,7 +94,7 @@ describe('sqlite/child-activity-repo', () => {
 
 			const list = await findActivitiesByChild(1, TENANT);
 			expect(list.length).toBe(1);
-			expect(list[0].name).toBe('はみがきした');
+			expect(list[0]?.name).toBe('はみがきした');
 		});
 
 		it('別 child の activity は取得 list に出ない (cross-child isolation)', async () => {
@@ -111,9 +111,9 @@ describe('sqlite/child-activity-repo', () => {
 			const list2 = await findActivitiesByChild(2, TENANT);
 
 			expect(list1.length).toBe(1);
-			expect(list1[0].name).toBe('たろう専用');
+			expect(list1[0]?.name).toBe('たろう専用');
 			expect(list2.length).toBe(1);
-			expect(list2[0].name).toBe('はなこ専用');
+			expect(list2[0]?.name).toBe('はなこ専用');
 		});
 
 		it('findActivityById は id + childId の 2 軸で取得し、別 child の id は undefined', async () => {
@@ -198,8 +198,8 @@ describe('sqlite/child-activity-repo', () => {
 				TENANT,
 			);
 			expect(rows.length).toBe(2);
-			expect(rows[0].childId).toBe(1);
-			expect(rows[1].childId).toBe(2);
+			expect(rows[0]?.childId).toBe(1);
+			expect(rows[1]?.childId).toBe(2);
 
 			const list1 = await findActivitiesByChild(1, TENANT);
 			const list2 = await findActivitiesByChild(2, TENANT);
@@ -272,8 +272,8 @@ describe('sqlite/child-activity-repo', () => {
 				includeArchived: true,
 			});
 			expect(includeArchivedList.length).toBe(1);
-			expect(includeArchivedList[0].isArchived).toBe(1);
-			expect(includeArchivedList[0].archivedReason).toBe('unit-test-reason');
+			expect(includeArchivedList[0]?.isArchived).toBe(1);
+			expect(includeArchivedList[0]?.archivedReason).toBe('unit-test-reason');
 		});
 
 		it('restoreArchivedActivities は reason 一致で復活', async () => {
@@ -286,8 +286,8 @@ describe('sqlite/child-activity-repo', () => {
 
 			const list = await findActivitiesByChild(1, TENANT);
 			expect(list.length).toBe(1);
-			expect(list[0].isArchived).toBe(0);
-			expect(list[0].archivedReason).toBeNull();
+			expect(list[0]?.isArchived).toBe(0);
+			expect(list[0]?.archivedReason).toBeNull();
 		});
 
 		it('archive ids 空配列は no-op', async () => {
@@ -367,7 +367,7 @@ describe('sqlite/child-activity-repo', () => {
 
 			const visibleOnly = await findActivitiesByChild(1, TENANT, { visibleOnly: true });
 			expect(visibleOnly.length).toBe(1);
-			expect(visibleOnly[0].id).toBe(visible.id);
+			expect(visibleOnly[0]?.id).toBe(visible.id);
 
 			const all = await findActivitiesByChild(1, TENANT);
 			expect(all.length).toBe(2);

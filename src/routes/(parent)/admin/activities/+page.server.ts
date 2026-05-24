@@ -9,6 +9,7 @@ import { dispatchImport } from '$lib/marketplace';
 import { FileSourceError, loadActivityPackFromFile } from '$lib/marketplace/sources/file-source';
 import { loadFromMarketplace } from '$lib/marketplace/sources/marketplace-source';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
 	createActivity,
@@ -23,17 +24,46 @@ import {
 	updateActivity,
 } from '$lib/server/services/activity-service';
 import {
+	copyChildActivitiesToSibling,
+	copyChildActivitiesToSiblings,
+} from '$lib/server/services/child-activity-copy-service';
+// #2362 PR-3 Phase 4: per-child instance 取得 + 兄弟共通化 copy
+import { getAllChildren } from '$lib/server/services/child-service';
+import {
 	checkActivityLimit,
 	isPaidTier,
 	resolveFullPlanTier,
 } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
 	const activities = await getActivities(tenantId, { includeHidden: true });
 	const logCounts = await getActivityLogCounts(tenantId);
 	const mainQuestCount = await getMainQuestCount(tenantId);
+
+	// #2362 PR-3 Phase 4: 子供別 per-child activity instance ロード
+	// 子供タブ切替 UI 用に家族の child 全件を取得 + 各 child の per-child activities を取得
+	const children = await getAllChildren(tenantId);
+	const repos = getRepos();
+	const childActivitiesByChild: Record<
+		number,
+		Awaited<ReturnType<typeof repos.childActivity.findActivitiesByChild>>
+	> = {};
+	for (const child of children) {
+		childActivitiesByChild[child.id] = await repos.childActivity.findActivitiesByChild(
+			child.id,
+			tenantId,
+			{ includeArchived: false },
+		);
+	}
+
+	// `?import=<presetId>` query で ChildSelectionDialog auto-open
+	const importPresetId = url.searchParams.get('import')?.trim() || null;
+	// `?childId=<n>` query で初期選択 child 復元 (refresh / share link 対応)
+	const initialChildIdRaw = url.searchParams.get('childId');
+	const initialChildId =
+		initialChildIdRaw && /^\d+$/.test(initialChildIdRaw) ? Number(initialChildIdRaw) : null;
 
 	// プラン制限情報
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
@@ -59,6 +89,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		activities,
+		children,
+		childActivitiesByChild,
+		importPresetId,
+		initialChildId,
 		categoryDefs: CATEGORY_DEFS,
 		logCounts,
 		activityLimit,
@@ -317,6 +351,173 @@ export const actions: Actions = {
 			return fail(400, { error: result.error });
 		}
 		return { success: true };
+	},
+
+	// #2362 PR-3 Phase 4: per-child 取込 (ChildSelectionDialog から呼出)
+	// `?import=<presetId>` query で auto-open した dialog で「全員 / 個別」選択 → 本 action に POST
+	// childIds=all で全 child、childIds=1,2,3 で個別 child 配列
+	importPackToChildren: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const packId = String(formData.get('packId') ?? '').trim();
+		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
+
+		if (!packId) return fail(400, { error: 'パックIDが必要です' });
+		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+
+		// childIds: 'all' or comma-separated number list
+		let childIds: number[] | undefined;
+		if (childIdsRaw === 'all') {
+			const children = await getAllChildren(tenantId);
+			childIds = children.map((c) => c.id);
+		} else {
+			childIds = childIdsRaw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		}
+
+		if (!childIds || childIds.length === 0) {
+			return fail(400, { error: '有効な対象が指定されていません' });
+		}
+
+		try {
+			const source = loadFromMarketplace('activity-pack', packId);
+			const result = await dispatchImport({
+				typeCode: 'activity-pack',
+				rawPayload: source.payload,
+				displayName: source.displayName,
+				ctx: { tenantId, presetId: packId, childIds },
+			});
+			return { perChildImport: true, ...result };
+		} catch (e) {
+			if (e instanceof Error && e.message.includes('not found in marketplace SSOT')) {
+				return fail(404, { error: 'パックが見つかりません' });
+			}
+			logger.error('[admin/activities] per-child 取込失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { packId, childIds },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
+
+	// #2362 PR-3 Phase 4: 「他の子供から copy」action
+	// source child の activity 全件を target child (現在の表示 child) に複製
+	// targetChildIds (CSV) 指定で複数 target にも一括複製可能 (兄弟全員に同期)
+	copyFromChild: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const sourceChildId = Number(formData.get('sourceChildId'));
+		const targetChildIdsRaw = String(formData.get('targetChildIds') ?? '').trim();
+		const singleTargetChildId = Number(formData.get('targetChildId'));
+
+		if (!sourceChildId) {
+			return fail(400, { error: 'コピー元のお子さまが必要です' });
+		}
+
+		// targetChildIds (CSV) 優先、なければ targetChildId (単一) を使う
+		let targetChildIds: number[] | null = null;
+		if (targetChildIdsRaw) {
+			targetChildIds = targetChildIdsRaw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		} else if (singleTargetChildId) {
+			targetChildIds = [singleTargetChildId];
+		}
+
+		if (!targetChildIds || targetChildIds.length === 0) {
+			return fail(400, { error: 'コピー先のお子さまが必要です' });
+		}
+
+		try {
+			const target = targetChildIds[0];
+			if (targetChildIds.length === 1 && target !== undefined) {
+				if (sourceChildId === target) {
+					return fail(400, { error: '同じお子さまにはコピーできません' });
+				}
+				const copied = await copyChildActivitiesToSibling(tenantId, sourceChildId, target);
+				return { copyResult: true, copiedCount: copied.length };
+			}
+			const result = await copyChildActivitiesToSiblings({
+				tenantId,
+				sourceChildId,
+				targetChildIds,
+			});
+			if (result.errors.length > 0) {
+				logger.warn('[admin/activities] 兄弟へのコピーで partial failure', {
+					context: { sourceChildId, errorCount: result.errors.length },
+				});
+			}
+			return {
+				copyResult: true,
+				copiedCount: result.totalCopied,
+				errorCount: result.errors.length,
+			};
+		} catch (e) {
+			logger.error('[admin/activities] copy 失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { sourceChildId, targetChildIds },
+			});
+			return fail(500, { error: 'コピーに失敗しました' });
+		}
+	},
+
+	// #2362 PR-3 Phase 4: 「一括追加」action (新規 activity を複数 child に同時 create)
+	// 子供選択 (childIds) を受領し、各 child の child_activities に同一 activity を bulk insert
+	bulkCreateForChildren: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const name = String(formData.get('name') ?? '').trim();
+		const categoryId = Number(formData.get('categoryId') ?? 0);
+		const icon = String(formData.get('icon') ?? '📝');
+		const basePoints = Number(formData.get('basePoints') ?? 5);
+		const dailyLimitRaw = formData.get('dailyLimit');
+		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
+		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
+
+		if (!name) return fail(400, { error: '名前を入力してください' });
+		if (!categoryId || categoryId < 1 || categoryId > 5) {
+			return fail(400, { error: 'カテゴリを選択してください' });
+		}
+		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+
+		let childIds: number[];
+		if (childIdsRaw === 'all') {
+			const children = await getAllChildren(tenantId);
+			childIds = children.map((c) => c.id);
+		} else {
+			childIds = childIdsRaw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		}
+		if (childIds.length === 0) {
+			return fail(400, { error: '有効な対象が指定されていません' });
+		}
+
+		const repos = getRepos();
+		const inputs = childIds.map((childId) => ({
+			childId,
+			categoryId,
+			name,
+			icon,
+			basePoints,
+			dailyLimit,
+			source: 'parent' as const,
+		}));
+
+		try {
+			const created = await repos.childActivity.insertActivitiesBulk(inputs, tenantId);
+			return { bulkCreated: true, createdCount: created.length };
+		} catch (e) {
+			logger.error('[admin/activities] 一括追加失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { name, categoryId, childIds },
+			});
+			return fail(500, { error: '一括追加に失敗しました' });
+		}
 	},
 
 	clearAll: async ({ locals }) => {
