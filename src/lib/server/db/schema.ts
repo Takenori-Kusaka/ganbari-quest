@@ -78,6 +78,47 @@ export const activities = sqliteTable('activities', {
 });
 
 // ============================================================
+// child_activities - per-child 活動 instance (#2362 PR-3、ADR-0055)
+// ============================================================
+// 旧 `activities` を per-child instance 化する refactor の第 1 段階として、
+// 並存 table として作成。次 phase で旧 `activities` を drop + FK 全切替を行う。
+// 設計 SSOT: docs/design/data-model-resource-scope.md §4.1
+export const childActivities = sqliteTable(
+	'child_activities',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		categoryId: integer('category_id')
+			.notNull()
+			.references(() => categories.id),
+		icon: text('icon').notNull(),
+		basePoints: integer('base_points').notNull().default(5),
+		isVisible: integer('is_visible').notNull().default(1),
+		dailyLimit: integer('daily_limit'),
+		sortOrder: integer('sort_order').notNull().default(0),
+		source: text('source').notNull().default('seed'),
+		nameKana: text('name_kana'),
+		nameKanji: text('name_kanji'),
+		triggerHint: text('trigger_hint'),
+		isMainQuest: integer('is_main_quest').notNull().default(0),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		isArchived: integer('is_archived').notNull().default(0),
+		archivedReason: text('archived_reason'),
+		sourcePresetId: text('source_preset_id'),
+		priority: text('priority', { enum: ['must', 'optional'] })
+			.notNull()
+			.default('optional'),
+	},
+	(table) => [
+		index('idx_child_activities_child').on(table.childId, table.isArchived),
+		index('idx_child_activities_child_sort').on(table.childId, table.sortOrder),
+	],
+);
+
+// ============================================================
 // activity_logs - 活動記録
 // ============================================================
 export const activityLogs = sqliteTable(

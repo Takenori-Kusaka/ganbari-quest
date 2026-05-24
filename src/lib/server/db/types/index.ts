@@ -71,6 +71,42 @@ export interface Activity {
 	priority: ActivityPriority;
 }
 
+/**
+ * ChildActivity — per-child instance of an activity (#2362 PR-3、ADR-0055)
+ *
+ * 旧 `Activity` (family-wide master + age filter) を子供別 instance に refactor。
+ * `childId NOT NULL` で aggregate root が child に閉じる (ADR-0055 §3.1)。
+ *
+ * 差分:
+ *   - `childId: number` 追加 (NOT NULL)
+ *   - `ageMin / ageMax` 削除 (marketplace 側の表示 filter にのみ残す)
+ *   - `gradeLevel / subcategory / description` 削除 (使用箇所なしの cleanup)
+ *
+ * 互換性: PR-3 期間中は `Activity` 並存。次 phase で `Activity` を削除し全 callsite を
+ *         `ChildActivity` に切り替える (本 PR の続きで対応)。
+ */
+export interface ChildActivity {
+	id: number;
+	childId: number;
+	name: string;
+	categoryId: number;
+	icon: string;
+	basePoints: number;
+	isVisible: number;
+	dailyLimit: number | null;
+	sortOrder: number;
+	source: string;
+	nameKana: string | null;
+	nameKanji: string | null;
+	triggerHint: string | null;
+	isMainQuest: number;
+	isArchived: number;
+	archivedReason: string | null;
+	createdAt: string;
+	sourcePresetId?: string | null;
+	priority: ActivityPriority;
+}
+
 export interface ActivityLog {
 	id: number;
 	childId: number;
@@ -330,6 +366,32 @@ export interface UpdateActivityInput {
 	triggerHint?: string | null;
 	isMainQuest?: number;
 	// #1755 (#1709-A): 「今日のおやくそく」優先度の変更
+	priority?: ActivityPriority;
+}
+
+/**
+ * #2362 PR-3 (ADR-0055): per-child instance 作成入力。
+ * `childId` 必須、`ageMin/ageMax` なし。
+ */
+export interface InsertChildActivityInput {
+	childId: number;
+	name: string;
+	categoryId: number;
+	icon: string;
+	basePoints: number;
+	triggerHint?: string | null;
+	isMainQuest?: number;
+	sourcePresetId?: string | null;
+	priority?: ActivityPriority;
+}
+
+export interface UpdateChildActivityInput {
+	name?: string;
+	categoryId?: number;
+	icon?: string;
+	basePoints?: number;
+	triggerHint?: string | null;
+	isMainQuest?: number;
 	priority?: ActivityPriority;
 }
 
