@@ -43,7 +43,10 @@ export const MARKETPLACE_TYPE_CODES = [
  * @property tenantId        取込先テナント ID (必須、ADR-0023 archive 整合)
  * @property dryRun          true の場合は DB 書込を行わず preview と等価
  * @property presetId        marketplace preset 由来の場合のソース識別子
- * @property childId         reward-set / challenge-set 等の子供紐付き type で使用
+ * @property childId         reward-set 等の単一 child 紐付き type で使用 (legacy)
+ * @property childIds        #2362 PR-3 (ADR-0055): per-child instance type
+ *                           (activity-pack / challenge-set 等) で複数 child 配信。
+ *                           `requiresChildSelection: true` の Descriptor では必須。
  * @property applyMustDefault activity-pack の must 推奨採用フラグ (#1758)
  */
 export interface ImportContext {
@@ -51,6 +54,7 @@ export interface ImportContext {
 	dryRun?: boolean;
 	presetId?: string;
 	childId?: number;
+	childIds?: readonly number[];
 	applyMustDefault?: boolean;
 }
 
@@ -127,10 +131,27 @@ export interface MarketplaceTypeDescriptor<
 	/** import/export 振る舞い */
 	readonly strategy: ImportStrategy<TPayload>;
 	/**
-	 * 子供紐付け必須かどうか。
-	 * true の type (reward-set / challenge-set 等) は import 時に childId が必須。
+	 * 子供紐付け必須かどうか (legacy 単一 child binding)。
+	 * true の type (reward-set 等) は import 時に `ctx.childId` が必須。
+	 *
+	 * #2362 PR-3 以降、per-child instance type は `requiresChildSelection: true`
+	 * (複数 child 選択) を優先採用する。`requiresChildId` は単一 child binding
+	 * の legacy type 向けに残置。
 	 */
 	readonly requiresChildId: boolean;
+	/**
+	 * #2362 PR-3 (ADR-0055): per-child instance への配信時に
+	 * ChildSelectionDialog (誰に追加 / 全員) を要求するかどうか。
+	 *
+	 * true の type (activity-pack / challenge-set 等) は import 時に
+	 * `ctx.childIds: readonly number[]` が必須となり、配列の各 child に
+	 * per-child instance を作成する。Marketplace 側に child 情報を露出させない
+	 * (CWE-598 privacy 排除) ため、AdminApp 側で選択結果を `ctx` 経由で注入する。
+	 *
+	 * false (default) の type (rule-preset / checklist 等 family master type) は
+	 * 従来通り 1 record 取込のみで完結する。
+	 */
+	readonly requiresChildSelection?: boolean;
 	/**
 	 * Valibot schema (#2364 で導入予定、現段階は型ホール `unknown`)。
 	 * 当面 `parse()` 内で個別 validation するが、#2364 完了後は

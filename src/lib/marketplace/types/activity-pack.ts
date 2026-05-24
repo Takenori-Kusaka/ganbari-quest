@@ -32,6 +32,10 @@ export const activityPackDescriptor: MarketplaceTypeDescriptor<
 	description: 'マーケットプレイス公式の活動セット (例: 入園 1 週間スターター)',
 	strategy: activityPackStrategy,
 	requiresChildId: false,
+	// #2362 PR-3 (ADR-0055): per-child instance 化に伴い、取込時に
+	// ChildSelectionDialog で対象 child を選択 (複数選択 / 全員選択可) する。
+	// Strategy 実装は ctx.childIds の各 child に per-child instance を作成する。
+	requiresChildSelection: true,
 	schema: ActivityPackPayloadSchema,
 };
 
