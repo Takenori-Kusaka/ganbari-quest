@@ -49,17 +49,57 @@ function calculateExpiry(): string {
 	return d.toISOString();
 }
 
-/** テンプレートエクスポートデータを構築（活動セット + チェックリスト） */
+/**
+ * テンプレートエクスポートデータを構築（活動セット + チェックリスト）
+ *
+ * #2362 PR-3 (ADR-0055) per-child instance 化に伴い、child 別 export shape を採用 (PO 判断 A 案、2026-05-24):
+ *   - 旧: tenant-wide 1 集合 `{ activities: [...] }` で出力
+ *   - 新: child 別 `{ activitiesByChild: [{ childId, childNickname, activities: [...] }] }` で出力
+ * 取込側 (handleTemplateImport) は ChildSelectionDialog 経由で復元先 child を指定する。
+ *
+ * version 2.0.0 で per-child shape を採用。1.0.0 (旧 family-wide) は本 PR で完全廃止 (0 user)。
+ */
 async function buildTemplateExportData(tenantId: string): Promise<{
 	data: string;
 	description: string;
 }> {
 	const repos = getRepos();
-
-	// 活動一覧
-	const activities = await repos.activity.findActivities(tenantId);
-	// チェックリストテンプレート（子供ごとに紐づくテンプレートを収集）
 	const children = await repos.child.findAllChildren(tenantId);
+
+	// 子供別 activity 一覧 (per-child instance)
+	const activitiesByChild: Array<{
+		childId: number;
+		childNickname: string;
+		activities: Array<{
+			name: string;
+			categoryId: number;
+			icon: string;
+			basePoints: number;
+			triggerHint: string | null;
+			isMainQuest: number;
+			priority: string;
+		}>;
+	}> = [];
+	let totalActivityCount = 0;
+	for (const child of children) {
+		const acts = await repos.childActivity.findActivitiesByChild(child.id, tenantId);
+		activitiesByChild.push({
+			childId: child.id,
+			childNickname: child.nickname,
+			activities: acts.map((a) => ({
+				name: a.name,
+				categoryId: a.categoryId,
+				icon: a.icon,
+				basePoints: a.basePoints,
+				triggerHint: a.triggerHint,
+				isMainQuest: a.isMainQuest,
+				priority: a.priority,
+			})),
+		});
+		totalActivityCount += acts.length;
+	}
+
+	// チェックリストテンプレート（子供ごとに紐づくテンプレートを収集）
 	const checklistTemplates: Array<{
 		name: string;
 		items: Array<{ name: string; icon: string }>;
@@ -77,22 +117,16 @@ async function buildTemplateExportData(tenantId: string): Promise<{
 
 	const templateData = {
 		format: 'ganbari-quest-template' as const,
-		version: '1.0.0',
+		version: '2.0.0',
 		exportedAt: new Date().toISOString(),
-		activities: activities.map((a) => ({
-			name: a.name,
-			categoryId: a.categoryId,
-			icon: a.icon,
-			basePoints: a.basePoints,
-			ageMin: a.ageMin,
-			ageMax: a.ageMax,
-			triggerHint: a.triggerHint,
-		})),
+		activitiesByChild,
 		checklistTemplates,
 	};
 
 	const parts: string[] = [];
-	if (activities.length > 0) parts.push(`活動${activities.length}件`);
+	if (totalActivityCount > 0) {
+		parts.push(`活動${totalActivityCount}件（${activitiesByChild.length}人分）`);
+	}
 	if (checklistTemplates.length > 0) parts.push(`チェックリスト${checklistTemplates.length}件`);
 	const description = parts.join('、') || 'データなし';
 

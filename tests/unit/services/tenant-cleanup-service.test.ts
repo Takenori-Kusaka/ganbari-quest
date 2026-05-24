@@ -20,6 +20,12 @@ const mockActivityRepo = {
 	deleteActivity: vi.fn().mockResolvedValue(undefined),
 };
 
+// #2362 PR-3 (ADR-0055): per-child instance repo の mock
+const mockChildActivityRepo = {
+	findActivitiesByChild: vi.fn().mockResolvedValue([]),
+	deleteActivity: vi.fn().mockResolvedValue(undefined),
+};
+
 const mockViewerTokenRepo = {
 	findByTenant: vi.fn().mockResolvedValue([]),
 	deleteById: vi.fn().mockResolvedValue(undefined),
@@ -65,6 +71,7 @@ vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		child: mockChildRepo,
 		activity: mockActivityRepo,
+		childActivity: mockChildActivityRepo,
 		viewerToken: mockViewerTokenRepo,
 		cloudExport: mockCloudExportRepo,
 		pushSubscription: mockPushSubscriptionRepo,
@@ -205,18 +212,32 @@ describe('deleteTenantScopedData', () => {
 		expect(mockImageRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 	});
 
-	it('activities / viewerTokens / cloudExports / pushSubscriptions は find+delete パターン', async () => {
-		mockActivityRepo.findActivities.mockResolvedValue([
-			{ id: 10, name: 'test1' },
-			{ id: 11, name: 'test2' },
-		]);
+	it('activities (per-child loop, #2362) / viewerTokens / cloudExports / pushSubscriptions は find+delete パターン', async () => {
+		// #2362 PR-3 (ADR-0055): activities は per-child instance loop で delete される
+		mockChildRepo.findAllChildren.mockResolvedValue([{ id: 100 }, { id: 200 }]);
+		mockChildActivityRepo.findActivitiesByChild
+			.mockResolvedValueOnce([{ id: 1001 }, { id: 1002 }])
+			.mockResolvedValueOnce([{ id: 2001 }]);
 		mockViewerTokenRepo.findByTenant.mockResolvedValue([{ id: 'tk1' }]);
 		mockCloudExportRepo.findByTenant.mockResolvedValue([{ id: 'ex1' }]);
 		mockPushSubscriptionRepo.findByTenant.mockResolvedValue([{ endpoint: 'https://push1' }]);
 
 		await deleteTenantScopedData(TENANT);
 
-		expect(mockActivityRepo.deleteActivity).toHaveBeenCalledTimes(2);
+		// per-child activity delete: child=100 で 2 件、child=200 で 1 件 → 計 3 回
+		expect(mockChildActivityRepo.findActivitiesByChild).toHaveBeenCalledWith(100, TENANT, {
+			includeArchived: true,
+		});
+		expect(mockChildActivityRepo.findActivitiesByChild).toHaveBeenCalledWith(200, TENANT, {
+			includeArchived: true,
+		});
+		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledTimes(3);
+		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith(1001, 100, TENANT);
+		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith(1002, 100, TENANT);
+		expect(mockChildActivityRepo.deleteActivity).toHaveBeenCalledWith(2001, 200, TENANT);
+		// 旧 activity facade は呼ばれない (signature 移行確認)
+		expect(mockActivityRepo.deleteActivity).not.toHaveBeenCalled();
+
 		expect(mockViewerTokenRepo.deleteById).toHaveBeenCalledWith('tk1', TENANT);
 		expect(mockCloudExportRepo.deleteById).toHaveBeenCalledWith('ex1', TENANT);
 		expect(mockPushSubscriptionRepo.deleteByEndpoint).toHaveBeenCalledWith('https://push1', TENANT);

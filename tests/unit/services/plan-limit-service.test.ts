@@ -6,12 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // mock repos
 const mockFindAllChildren = vi.fn();
 const mockFindActivities = vi.fn();
+const mockFindActivitiesByChild = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
 const mockFindTenantMembers = vi.fn();
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		child: { findAllChildren: mockFindAllChildren },
 		activity: { findActivities: mockFindActivities },
+		childActivity: { findActivitiesByChild: mockFindActivitiesByChild },
 		checklist: { findTemplatesByChild: mockFindTemplatesByChild },
 		auth: { findTenantMembers: mockFindTenantMembers },
 	}),
@@ -503,44 +505,59 @@ describe('plan-limit-service', () => {
 			const result = await checkActivityLimit('tenant1', 'active');
 			expect(result.allowed).toBe(true);
 			expect(result.max).toBeNull();
-			expect(mockFindActivities).not.toHaveBeenCalled();
+			expect(mockFindActivitiesByChild).not.toHaveBeenCalled();
 		});
 
-		it('free (cognito): allowed when under limit', async () => {
+		it('free (cognito): allowed when tenant-wide custom count is under limit (per-child sum, #2362)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			mockFindActivities.mockResolvedValue([
-				{ id: 1, source: 'custom' },
-				{ id: 2, source: 'custom' },
+			mockFindAllChildren.mockResolvedValue([
+				{ id: 10 },
+				{ id: 20 },
 			]);
+			mockFindActivitiesByChild
+				.mockResolvedValueOnce([{ id: 101, source: 'custom' }])
+				.mockResolvedValueOnce([{ id: 201, source: 'custom' }]);
 			const result = await checkActivityLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
 			expect(result.current).toBe(2);
 			expect(result.max).toBe(3);
+			expect(mockFindActivitiesByChild).toHaveBeenCalledWith(10, 'tenant1');
+			expect(mockFindActivitiesByChild).toHaveBeenCalledWith(20, 'tenant1');
 		});
 
-		it('free (cognito): blocked when at limit', async () => {
+		it('free (cognito): blocked when tenant-wide custom count meets limit (per-child sum, #2362)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			mockFindActivities.mockResolvedValue([
-				{ id: 1, source: 'custom' },
-				{ id: 2, source: 'custom' },
-				{ id: 3, source: 'custom' },
-			]);
+			mockFindAllChildren.mockResolvedValue([{ id: 10 }, { id: 20 }, { id: 30 }]);
+			mockFindActivitiesByChild
+				.mockResolvedValueOnce([{ id: 101, source: 'custom' }])
+				.mockResolvedValueOnce([{ id: 201, source: 'custom' }])
+				.mockResolvedValueOnce([{ id: 301, source: 'custom' }]);
 			const result = await checkActivityLimit('tenant1', 'none');
 			expect(result.allowed).toBe(false);
 			expect(result.current).toBe(3);
 			expect(result.max).toBe(3);
 		});
 
-		it('free (cognito): system activities are not counted', async () => {
+		it('free (cognito): system activities are not counted (per-child loop)', async () => {
 			process.env.AUTH_MODE = 'cognito';
-			mockFindActivities.mockResolvedValue([
-				{ id: 1, source: 'system' },
-				{ id: 2, source: 'system' },
-				{ id: 3, source: 'custom' },
+			mockFindAllChildren.mockResolvedValue([{ id: 10 }]);
+			mockFindActivitiesByChild.mockResolvedValueOnce([
+				{ id: 101, source: 'system' },
+				{ id: 102, source: 'system' },
+				{ id: 103, source: 'custom' },
 			]);
 			const result = await checkActivityLimit('tenant1', 'none');
 			expect(result.allowed).toBe(true);
 			expect(result.current).toBe(1);
+		});
+
+		it('free (cognito): no children → current=0 allowed', async () => {
+			process.env.AUTH_MODE = 'cognito';
+			mockFindAllChildren.mockResolvedValue([]);
+			const result = await checkActivityLimit('tenant1', 'none');
+			expect(result.allowed).toBe(true);
+			expect(result.current).toBe(0);
+			expect(mockFindActivitiesByChild).not.toHaveBeenCalled();
 		});
 
 		it('local: always allowed (selfhost)', async () => {
