@@ -398,7 +398,8 @@ export default async function globalSetup() {
 			CREATE TABLE IF NOT EXISTS child_activity_preferences (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-				activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+				-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+				activity_id INTEGER NOT NULL REFERENCES child_activities(id) ON DELETE CASCADE,
 				is_pinned INTEGER NOT NULL DEFAULT 0,
 				pin_order INTEGER,
 				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -414,7 +415,8 @@ export default async function globalSetup() {
 			CREATE TABLE IF NOT EXISTS activity_mastery (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				child_id INTEGER NOT NULL REFERENCES children(id),
-				activity_id INTEGER NOT NULL REFERENCES activities(id),
+				-- #2362 PR-3 (Phase 7b-2a): FK target を child_activities へ切替
+				activity_id INTEGER NOT NULL REFERENCES child_activities(id),
 				total_count INTEGER NOT NULL DEFAULT 0,
 				level INTEGER NOT NULL DEFAULT 1,
 				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

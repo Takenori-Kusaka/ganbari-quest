@@ -96,6 +96,136 @@ if (
 	console.log('  → done (existing rows remain NULL = no category)');
 }
 
+// #2362 PR-3 (Phase 7b-2a): activity 系 FK 切替 (旧 activities → child_activities)
+//   - activity_logs / daily_missions / activity_mastery / child_activity_preferences の 4 件
+//   - 旧 activities table は drop しない (#2458 別 PR)、並存維持
+//   - SQLite 制約により FK 単独 ALTER は不可。shadow table 再作成 pattern を使う
+//   - 冪等性: PRAGMA foreign_key_list で FK target を確認し、'activities' なら切替実行
+//   - 設計 SSOT: docs/design/08-データベース設計書.md / docs/design/data-model-resource-scope.md §4.1
+interface ForeignKeyInfo {
+	id: number;
+	seq: number;
+	table: string;
+	from: string;
+	to: string;
+	on_update: string;
+	on_delete: string;
+	match: string;
+}
+
+function tableHasFkToActivities(table: string): boolean {
+	if (!db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='${table}'`).get()) {
+		return false;
+	}
+	const fks = db.prepare(`PRAGMA foreign_key_list(${table})`).all() as ForeignKeyInfo[];
+	return fks.some((fk) => fk.from === 'activity_id' && fk.table === 'activities');
+}
+
+if (
+	tableHasFkToActivities('activity_logs') ||
+	tableHasFkToActivities('daily_missions') ||
+	tableHasFkToActivities('activity_mastery') ||
+	tableHasFkToActivities('child_activity_preferences')
+) {
+	console.log(
+		'Switching activity_id FK target: activities → child_activities (#2362 PR-3 Phase 7b-2a)…',
+	);
+	db.exec('PRAGMA foreign_keys = OFF');
+
+	// 1. activity_logs
+	if (tableHasFkToActivities('activity_logs')) {
+		console.log('  → activity_logs');
+		db.exec(`
+			CREATE TABLE activity_logs_new (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				activity_id INTEGER NOT NULL REFERENCES child_activities(id),
+				points INTEGER NOT NULL,
+				streak_days INTEGER NOT NULL DEFAULT 1,
+				streak_bonus INTEGER NOT NULL DEFAULT 0,
+				recorded_date TEXT NOT NULL,
+				recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				cancelled INTEGER NOT NULL DEFAULT 0
+			);
+			INSERT INTO activity_logs_new (id, child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at, cancelled)
+				SELECT id, child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at, cancelled FROM activity_logs;
+			DROP TABLE activity_logs;
+			ALTER TABLE activity_logs_new RENAME TO activity_logs;
+			CREATE INDEX idx_activity_logs_daily ON activity_logs(child_id, activity_id, recorded_date);
+			CREATE INDEX idx_activity_logs_child_date ON activity_logs(child_id, recorded_date);
+			CREATE INDEX idx_activity_logs_activity ON activity_logs(activity_id);
+			CREATE INDEX idx_activity_logs_streak ON activity_logs(child_id, activity_id, recorded_date);
+		`);
+	}
+
+	// 2. daily_missions
+	if (tableHasFkToActivities('daily_missions')) {
+		console.log('  → daily_missions');
+		db.exec(`
+			CREATE TABLE daily_missions_new (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				mission_date TEXT NOT NULL,
+				activity_id INTEGER NOT NULL REFERENCES child_activities(id),
+				completed INTEGER NOT NULL DEFAULT 0,
+				completed_at TEXT
+			);
+			INSERT INTO daily_missions_new (id, child_id, mission_date, activity_id, completed, completed_at)
+				SELECT id, child_id, mission_date, activity_id, completed, completed_at FROM daily_missions;
+			DROP TABLE daily_missions;
+			ALTER TABLE daily_missions_new RENAME TO daily_missions;
+			CREATE UNIQUE INDEX idx_daily_missions_unique ON daily_missions(child_id, mission_date, activity_id);
+			CREATE INDEX idx_daily_missions_child_date ON daily_missions(child_id, mission_date);
+		`);
+	}
+
+	// 3. activity_mastery
+	if (tableHasFkToActivities('activity_mastery')) {
+		console.log('  → activity_mastery');
+		db.exec(`
+			CREATE TABLE activity_mastery_new (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id),
+				activity_id INTEGER NOT NULL REFERENCES child_activities(id),
+				total_count INTEGER NOT NULL DEFAULT 0,
+				level INTEGER NOT NULL DEFAULT 1,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			INSERT INTO activity_mastery_new (id, child_id, activity_id, total_count, level, updated_at)
+				SELECT id, child_id, activity_id, total_count, level, updated_at FROM activity_mastery;
+			DROP TABLE activity_mastery;
+			ALTER TABLE activity_mastery_new RENAME TO activity_mastery;
+			CREATE UNIQUE INDEX idx_activity_mastery_child_activity ON activity_mastery(child_id, activity_id);
+		`);
+	}
+
+	// 4. child_activity_preferences (ON DELETE CASCADE 維持)
+	if (tableHasFkToActivities('child_activity_preferences')) {
+		console.log('  → child_activity_preferences');
+		db.exec(`
+			CREATE TABLE child_activity_preferences_new (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				activity_id INTEGER NOT NULL REFERENCES child_activities(id) ON DELETE CASCADE,
+				is_pinned INTEGER NOT NULL DEFAULT 0,
+				pin_order INTEGER,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			INSERT INTO child_activity_preferences_new (id, child_id, activity_id, is_pinned, pin_order, created_at, updated_at)
+				SELECT id, child_id, activity_id, is_pinned, pin_order, created_at, updated_at FROM child_activity_preferences;
+			DROP TABLE child_activity_preferences;
+			ALTER TABLE child_activity_preferences_new RENAME TO child_activity_preferences;
+			CREATE UNIQUE INDEX idx_child_activity_prefs_unique ON child_activity_preferences(child_id, activity_id);
+			CREATE INDEX idx_child_activity_prefs_child ON child_activity_preferences(child_id);
+			CREATE INDEX idx_child_activity_prefs_pinned ON child_activity_preferences(child_id, is_pinned);
+		`);
+	}
+
+	db.exec('PRAGMA foreign_keys = ON');
+	console.log('  → activity FK switchover complete');
+}
+
 const tables = db
 	.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 	.all() as { name: string }[];
