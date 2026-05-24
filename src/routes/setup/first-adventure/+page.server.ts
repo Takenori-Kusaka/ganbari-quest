@@ -26,15 +26,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const activities = await getActivities(tenantId);
 
 	// 子供の年齢に合う活動を3〜5件選ぶ
-	const childAge = firstChild.age;
-	const ageFiltered = activities
-		.filter((a) => a.isVisible)
-		.filter((a) => {
-			if (a.ageMin !== null && childAge < a.ageMin) return false;
-			if (a.ageMax !== null && childAge > a.ageMax) return false;
-			return true;
-		})
-		.slice(0, 5);
+	// #2362 PR-3 Phase 7b-2c: ChildActivity は per-child instance のため、その子供向けに
+	// 既に作成されている前提。ageMin/ageMax filter は不要 (削除済 fields)。
+	const ageFiltered = activities.filter((a) => a.isVisible).slice(0, 5);
 
 	// パックインポート結果を透過
 	const imported = Number(url.searchParams.get('imported') ?? 0);

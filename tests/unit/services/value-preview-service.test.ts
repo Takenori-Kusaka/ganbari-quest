@@ -54,9 +54,11 @@ function seed(opts: { childCreatedAt: string }): { childId: number } {
 		})
 		.returning()
 		.get();
+	// #2362 PR-3 Phase 7b-2c: child_activities へ insert (child.id 紐付け)
 	testDb
-		.insert(schema.activities)
+		.insert(schema.childActivities)
 		.values({
+			childId: child.id,
 			name: 'たいそう',
 			categoryId: 1,
 			icon: '🤸',
@@ -64,8 +66,9 @@ function seed(opts: { childCreatedAt: string }): { childId: number } {
 		})
 		.run();
 	testDb
-		.insert(schema.activities)
+		.insert(schema.childActivities)
 		.values({
+			childId: child.id,
 			name: 'えほん',
 			categoryId: 2,
 			icon: '📖',

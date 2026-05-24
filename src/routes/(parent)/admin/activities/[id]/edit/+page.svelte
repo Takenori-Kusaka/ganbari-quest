@@ -29,8 +29,11 @@ let editMainIcon = $state(parsed.main);
 let editSubIcon = $state(parsed.sub ?? '');
 const editIcon = $derived(joinIcon(editMainIcon, editSubIcon || null));
 let editPoints = $state(a.basePoints);
-let editAgeMin = $state(a.ageMin != null ? String(a.ageMin) : '');
-let editAgeMax = $state(a.ageMax != null ? String(a.ageMax) : '');
+// #2362 PR-3 Phase 7b-2c: ChildActivity は ageMin/ageMax を持たないため空初期化。
+// per-child instance 移行後は年齢 filter 概念が消えるため、edit UI 上は空入力 = 制限なし扱い。
+// Phase 7b-2d 以降で UI から age 入力欄を撤去予定。
+let editAgeMin = $state('');
+let editAgeMax = $state('');
 let editDailyLimit = $state<string>(a.dailyLimit != null ? String(a.dailyLimit) : '');
 let editNameKana = $state(a.nameKana ?? '');
 let editNameKanji = $state(a.nameKanji ?? '');

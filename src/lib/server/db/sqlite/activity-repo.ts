@@ -3,7 +3,14 @@
 
 import { and, count, countDistinct, desc, eq, gte, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { db } from '../client';
-import { activities, activityLogs, children, dailyMissions, pointLedger } from '../schema';
+import {
+	activities,
+	activityLogs,
+	childActivities,
+	children,
+	dailyMissions,
+	pointLedger,
+} from '../schema';
 import type { ActivityFilter } from '../types';
 
 export async function findActivities(_tenantId: string, filter?: ActivityFilter) {
@@ -35,7 +42,11 @@ export async function findActivities(_tenantId: string, filter?: ActivityFilter)
 }
 
 export async function findActivityById(id: number, _tenantId: string) {
-	return db.select().from(activities).where(eq(activities.id, id)).get();
+	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)。
+	// activity_logs.activity_id は child_activities.id を参照するため、
+	// findActivityById も child_activities ベースに切替える。
+	// 旧 activities table は遺物 (#2458 別 PR で drop)、本関数では参照しない。
+	return db.select().from(childActivities).where(eq(childActivities.id, id)).get();
 }
 
 export async function insertActivity(
@@ -91,21 +102,24 @@ export async function findMustActivitiesWithToday(
 	total: number;
 	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
 }> {
+	// #2362 PR-3 Phase 7b-2c: child_activities (per-child instance) を読みに行く。
+	// childId scope の must 活動のみ対象 (旧 master + age filter から per-child instance へ)。
 	const mustList = await db
 		.select({
-			id: activities.id,
-			name: activities.name,
-			icon: activities.icon,
+			id: childActivities.id,
+			name: childActivities.name,
+			icon: childActivities.icon,
 		})
-		.from(activities)
+		.from(childActivities)
 		.where(
 			and(
-				eq(activities.priority, 'must'),
-				eq(activities.isVisible, 1),
-				or(eq(activities.isArchived, 0), isNull(activities.isArchived)),
+				eq(childActivities.childId, childId),
+				eq(childActivities.priority, 'must'),
+				eq(childActivities.isVisible, 1),
+				or(eq(childActivities.isArchived, 0), isNull(childActivities.isArchived)),
 			),
 		)
-		.orderBy(activities.sortOrder)
+		.orderBy(childActivities.sortOrder)
 		.all();
 
 	if (mustList.length === 0) {
@@ -278,19 +292,20 @@ export async function findActivityLogs(
 		conditions.push(lte(activityLogs.recordedDate, options.to));
 	}
 
+	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)
 	return db
 		.select({
 			id: activityLogs.id,
-			activityName: activities.name,
-			activityIcon: activities.icon,
-			categoryId: activities.categoryId,
+			activityName: childActivities.name,
+			activityIcon: childActivities.icon,
+			categoryId: childActivities.categoryId,
 			points: activityLogs.points,
 			streakDays: activityLogs.streakDays,
 			streakBonus: activityLogs.streakBonus,
 			recordedAt: activityLogs.recordedAt,
 		})
 		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(and(...conditions))
 		.orderBy(desc(activityLogs.recordedAt))
 		.all();
@@ -417,13 +432,15 @@ export async function countDistinctCategories(childId: number, _tenantId: string
 
 /** 今日のログ（活動ID+カテゴリID付き）を取得（combo-service用） */
 export async function findTodayLogsWithCategory(childId: number, date: string, _tenantId: string) {
+	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)。
+	// activity_logs.activity_id → child_activities.id を JOIN。
 	return db
 		.select({
 			activityId: activityLogs.activityId,
-			categoryId: activities.categoryId,
+			categoryId: childActivities.categoryId,
 		})
 		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(
 			and(
 				eq(activityLogs.childId, childId),

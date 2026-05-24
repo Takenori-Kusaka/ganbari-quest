@@ -130,7 +130,8 @@ const displayActivities = $derived<DisplayActivity[]>([
 			name: a.name,
 			icon: a.icon,
 			basePoints: a.basePoints,
-			isVisible: a.isVisible,
+			// Activity (SQLite 0/1 number) / ChildActivity (boolean) 双方を boolean に正規化
+			isVisible: Boolean(a.isVisible),
 			nameKana: a.nameKana,
 			nameKanji: a.nameKanji,
 		})),

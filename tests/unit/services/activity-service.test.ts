@@ -8,6 +8,7 @@ import {
 	closeDb,
 	createTestDb,
 	resetDb as resetAllTables,
+	seedChildActivities,
 	type TestDb,
 	type TestSqlite,
 } from '../helpers/test-db';
@@ -60,38 +61,17 @@ function seedBase() {
 	resetDb();
 	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4, theme: 'pink' }).run();
 
-	const act = [
+	// #2362 PR-3 Phase 7b-2c: seed を child_activities に移行 (per-child instance)。
+	// 旧 schema.activities (master + age filter) → schema.childActivities (childId=1 紐付け)。
+	// ageMin/ageMax は ChildActivity に無いため drop (per-child なので年齢 filter は不要)。
+	seedChildActivities(testDb, 1, [
 		{ name: 'たいそうした', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 },
 		{ name: 'おそとであそんだ', categoryId: 1, icon: '🏃', basePoints: 5, sortOrder: 2 },
-		{
-			name: 'すいみんぐ',
-			categoryId: 1,
-			icon: '🏊',
-			basePoints: 10,
-			ageMin: 5,
-			sortOrder: 3,
-		},
-		{
-			name: 'ひらがなれんしゅう',
-			categoryId: 2,
-			icon: '✏️',
-			basePoints: 5,
-			ageMin: 3,
-			sortOrder: 4,
-		},
+		{ name: 'すいみんぐ', categoryId: 1, icon: '🏊', basePoints: 10, sortOrder: 3 },
+		{ name: 'ひらがなれんしゅう', categoryId: 2, icon: '✏️', basePoints: 5, sortOrder: 4 },
 		{ name: 'おかたづけした', categoryId: 3, icon: '🧹', basePoints: 5, sortOrder: 5 },
-		{
-			name: '非表示活動',
-			categoryId: 1,
-			icon: '❌',
-			basePoints: 5,
-			isVisible: 0,
-			sortOrder: 99,
-		},
-	];
-	for (const a of act) {
-		testDb.insert(schema.activities).values(a).run();
-	}
+		{ name: '非表示活動', categoryId: 1, icon: '❌', basePoints: 5, isVisible: 0, sortOrder: 99 },
+	]);
 }
 
 describe('activity-service', () => {
@@ -107,12 +87,15 @@ describe('activity-service', () => {
 		expect(result.every((a) => a.isVisible === 1)).toBe(true);
 	});
 
-	// UT-ACT-02: 活動一覧取得（子供IDフィルタ）
-	it('UT-ACT-02: 活動一覧取得（childAge フィルタ - 4歳）', async () => {
+	// UT-ACT-02: 活動一覧取得（childAge フィルタ - 4歳）
+	// #2362 PR-3 Phase 7b-2c: ChildActivity は per-child instance のため ageMin/ageMax を持たず、
+	// childAge filter は service 内部で適用されない (signature 後方互換のため引数だけ残存)。
+	// 全 visible 5 件が返る。
+	it('UT-ACT-02: 活動一覧取得（childAge フィルタ - 4歳、per-child では filter 失効）', async () => {
 		const result = await getActivities('test-tenant', { childAge: 4 });
-		// すいみんぐ(ageMin=5)は除外、非表示も除外 → 4件
-		expect(result.length).toBe(4);
-		expect(result.find((a) => a.name === 'すいみんぐ')).toBeUndefined();
+		expect(result.length).toBe(5);
+		// per-child instance なので age filter は不適用、全 visible 5 件が返る
+		expect(result.find((a) => a.name === 'すいみんぐ')).toBeDefined();
 	});
 
 	// UT-ACT-03: 活動一覧取得（カテゴリフィルタ）
@@ -169,12 +152,14 @@ describe('activity-service', () => {
 	});
 
 	// UT-ACT-09: 年齢範囲フィルタ
-	it('UT-ACT-09: 年齢範囲フィルタ（5歳以上の活動、4歳の子供）', async () => {
+	// #2362 PR-3 Phase 7b-2c: per-child instance では age filter 失効。両 query で同件数 (5 件)。
+	it('UT-ACT-09: 年齢範囲フィルタ（per-child では filter 失効、両 query で同件数）', async () => {
 		const result = await getActivities('test-tenant', { childAge: 4 });
-		expect(result.find((a) => a.name === 'すいみんぐ')).toBeUndefined();
+		expect(result.find((a) => a.name === 'すいみんぐ')).toBeDefined();
 
 		const result5 = await getActivities('test-tenant', { childAge: 5 });
 		expect(result5.find((a) => a.name === 'すいみんぐ')).toBeDefined();
+		expect(result.length).toBe(result5.length);
 	});
 
 	it('getActivityById: 存在する活動を返す', async () => {

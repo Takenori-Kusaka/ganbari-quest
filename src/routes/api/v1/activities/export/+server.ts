@@ -25,6 +25,9 @@ export const GET: RequestHandler = async ({ locals }) => {
 		targetAgeMin: 0,
 		targetAgeMax: 15,
 		tags: ['エクスポート'],
+		// #2362 PR-3 Phase 7b-2c: ChildActivity は ageMin/ageMax/description/gradeLevel を持たない。
+		// export 形式は v1.0 互換維持のため key は残し、値は null/undefined で出力 (downstream
+		// import で fallback 動作する)。Phase 7b-2d 以降で export schema v2 への移行を検討。
 		activities: activities.map((a) => ({
 			name: a.name,
 			nameKana: a.nameKana ?? undefined,
@@ -32,11 +35,11 @@ export const GET: RequestHandler = async ({ locals }) => {
 			categoryCode: CATEGORY_ID_TO_CODE[a.categoryId] ?? 'seikatsu',
 			icon: a.icon,
 			basePoints: a.basePoints,
-			ageMin: a.ageMin,
-			ageMax: a.ageMax,
+			ageMin: null,
+			ageMax: null,
 			gradeLevel: null,
 			triggerHint: a.triggerHint ?? undefined,
-			description: a.description ?? undefined,
+			description: undefined,
 		})),
 	};
 

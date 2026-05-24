@@ -160,12 +160,15 @@ async function generateMissions(childId: number, date: string, tenantId: string)
 	const child = await findChildForMission(childId, tenantId);
 	if (!child) return;
 
-	// 対象年齢の表示可能な活動を取得
+	// 対象児の表示可能な活動を取得
+	// #2362 PR-3 Phase 7b-2c: ChildActivity (per-child instance) は ageMin/ageMax を持たない。
+	// findVisibleActivities は全 child の活動を返すため、childId で filter する。
+	// 旧 Activity master 系 (demo/dynamodb 未移行) は childId フィールド無しのため、
+	// 後方互換 fallback として undefined 時は全件通す (Phase 7b-2d で全 repo を per-child 化予定)。
 	const allVisibleActivities = await findVisibleActivities(tenantId);
 	const allActivities = allVisibleActivities.filter((a) => {
-		if (a.ageMin !== null && child.age < a.ageMin) return false;
-		if (a.ageMax !== null && child.age > a.ageMax) return false;
-		return true;
+		const aChildId = (a as { childId?: number }).childId;
+		return aChildId === undefined || aChildId === childId;
 	});
 
 	if (allActivities.length === 0) return;

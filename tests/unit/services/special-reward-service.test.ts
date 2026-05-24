@@ -327,9 +327,11 @@ describe('getRewardTemplates / saveRewardTemplates', () => {
 function seedWithActivity() {
 	seedBase();
 	// Add an activity for the child to record
+	// #2362 PR-3 Phase 7b-2c: child_activities へ insert (childId=1)
 	testDb
-		.insert(schema.activities)
+		.insert(schema.childActivities)
 		.values({
+			childId: 1,
 			name: 'テスト活動',
 			categoryId: 1,
 			basePoints: 10,

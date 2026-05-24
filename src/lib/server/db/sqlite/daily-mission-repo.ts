@@ -3,21 +3,23 @@
 
 import { and, eq, gte } from 'drizzle-orm';
 import { db } from '../client';
-import { activities, activityLogs, children, dailyMissions, pointLedger } from '../schema';
+import { activityLogs, childActivities, children, dailyMissions, pointLedger } from '../schema';
 
 /** 今日のミッション一覧を取得（活動情報JOIN） */
 export async function findTodayMissions(childId: number, date: string, _tenantId: string) {
+	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)。
+	// daily_missions.activity_id → child_activities.id を JOIN。
 	return db
 		.select({
 			id: dailyMissions.id,
 			activityId: dailyMissions.activityId,
 			completed: dailyMissions.completed,
-			activityName: activities.name,
-			activityIcon: activities.icon,
-			categoryId: activities.categoryId,
+			activityName: childActivities.name,
+			activityIcon: childActivities.icon,
+			categoryId: childActivities.categoryId,
 		})
 		.from(dailyMissions)
-		.innerJoin(activities, eq(dailyMissions.activityId, activities.id))
+		.innerJoin(childActivities, eq(dailyMissions.activityId, childActivities.id))
 		.where(and(eq(dailyMissions.childId, childId), eq(dailyMissions.missionDate, date)))
 		.all();
 }
@@ -83,9 +85,14 @@ export async function findChildForMission(childId: number, _tenantId: string) {
 	return db.select().from(children).where(eq(children.id, childId)).get();
 }
 
-/** 表示可能な全活動を取得 */
+/**
+ * 表示可能な全活動を取得
+ * #2362 PR-3 Phase 7b-2c: signature 不変のまま、内部実装を child_activities (全件、全 child 横断)
+ * に切替。daily-mission の callsite (`generateMissions(childId)`) は child filter を service 側で
+ * 適用する。注意: 戻り値は ChildActivity 形状 (ageMin/ageMax 等の旧 fields は無い)。
+ */
 export async function findVisibleActivities(_tenantId: string) {
-	return db.select().from(activities).where(eq(activities.isVisible, 1)).all();
+	return db.select().from(childActivities).where(eq(childActivities.isVisible, 1)).all();
 }
 
 /** 前日のミッション活動IDを取得 */

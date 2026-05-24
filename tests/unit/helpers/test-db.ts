@@ -855,6 +855,9 @@ const ALL_TABLES = [
 	'market_benchmarks',
 	'point_ledger',
 	'activity_logs',
+	// #2362 PR-3 (Phase 7b-2a): activity_logs / daily_missions / etc. の FK target
+	// child_activities を activities より先に reset (FK 順序)
+	'child_activities',
 	'activities',
 	'children',
 	'settings',
@@ -896,4 +899,65 @@ export function resetDb(sqlite: TestSqlite): void {
  */
 export function closeDb(sqlite: TestSqlite): void {
 	sqlite.close();
+}
+
+// ============================================================
+// #2362 PR-3 Phase 7b-2c: seedChildActivities helper
+// 旧 schema.activities へ seed していた service test を child_activities ベースに
+// 移行するための共通 helper。指定 child_id への per-child instance として insert する。
+// 旧 Activity master の `ageMin / ageMax / gradeLevel / subcategory / description` は
+// ChildActivity に存在しないため input にも含めない。
+// ============================================================
+
+export interface SeedChildActivityInput {
+	name: string;
+	categoryId: number;
+	icon: string;
+	basePoints?: number;
+	isVisible?: number;
+	dailyLimit?: number | null;
+	sortOrder?: number;
+	source?: string;
+	nameKana?: string | null;
+	nameKanji?: string | null;
+	triggerHint?: string | null;
+	isMainQuest?: number;
+	priority?: 'must' | 'optional';
+}
+
+/**
+ * 指定 child_id に per-child activity instance を bulk insert する。
+ * service test の fixture rewrite で活用。
+ *
+ * @example
+ *   seedChildActivities(testDb, childId, [
+ *     { name: 'たいそうした', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 },
+ *     { name: 'おそとであそんだ', categoryId: 1, icon: '🏃', basePoints: 5, sortOrder: 2 },
+ *   ]);
+ */
+export function seedChildActivities(
+	db: TestDb,
+	childId: number,
+	activities: SeedChildActivityInput[],
+): void {
+	for (const a of activities) {
+		db.insert(schema.childActivities)
+			.values({
+				childId,
+				name: a.name,
+				categoryId: a.categoryId,
+				icon: a.icon,
+				basePoints: a.basePoints ?? 5,
+				isVisible: a.isVisible ?? 1,
+				dailyLimit: a.dailyLimit ?? null,
+				sortOrder: a.sortOrder ?? 0,
+				source: a.source ?? 'seed',
+				nameKana: a.nameKana ?? null,
+				nameKanji: a.nameKanji ?? null,
+				triggerHint: a.triggerHint ?? null,
+				isMainQuest: a.isMainQuest ?? 0,
+				priority: a.priority ?? 'optional',
+			})
+			.run();
+	}
 }
