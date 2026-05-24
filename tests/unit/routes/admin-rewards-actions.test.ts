@@ -47,6 +47,7 @@ const mod = await import('../../../src/routes/(parent)/admin/rewards/+page.serve
 // SvelteKit の Actions 型は optional を含むため、テスト用に non-null 化
 const load = mod.load as unknown as (event: {
 	locals: App.Locals;
+	url: URL;
 }) => Promise<{ isPremium: boolean; planTier: string; children: unknown[]; templates: unknown[] }>;
 type PlanLimitErrorShape = {
 	code: 'PLAN_LIMIT_EXCEEDED';
