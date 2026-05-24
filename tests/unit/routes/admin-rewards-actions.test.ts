@@ -103,7 +103,10 @@ describe('/admin/rewards page.server', () => {
 	describe('load', () => {
 		it('無料プランでは isPremium: false を返す', async () => {
 			mockResolveFullPlanTier.mockResolvedValue('free');
-			const result = await load({ locals: makeLocals({ licenseStatus: 'none' }) });
+			const result = await load({
+				locals: makeLocals({ licenseStatus: 'none' }),
+				url: new URL('http://localhost/admin/rewards'),
+			});
 			expect(result.isPremium).toBe(false);
 			expect(result.planTier).toBe('free');
 		});
@@ -112,6 +115,7 @@ describe('/admin/rewards page.server', () => {
 			mockResolveFullPlanTier.mockResolvedValue('standard');
 			const result = await load({
 				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
+				url: new URL('http://localhost/admin/rewards'),
 			});
 			expect(result.isPremium).toBe(true);
 			expect(result.planTier).toBe('standard');
@@ -121,6 +125,7 @@ describe('/admin/rewards page.server', () => {
 			mockResolveFullPlanTier.mockResolvedValue('family');
 			const result = await load({
 				locals: makeLocals({ licenseStatus: 'active', plan: 'family_monthly' }),
+				url: new URL('http://localhost/admin/rewards'),
 			});
 			expect(result.isPremium).toBe(true);
 			expect(result.planTier).toBe('family');
