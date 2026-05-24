@@ -1,4 +1,4 @@
-import type { Activity, Child, DailyMissionWithActivity } from '../types';
+import type { Activity, Child, ChildActivity, DailyMissionWithActivity } from '../types';
 
 export interface IDailyMissionRepo {
 	findTodayMissions(
@@ -24,7 +24,9 @@ export interface IDailyMissionRepo {
 		tenantId: string,
 	): Promise<{ completed: number }[]>;
 	findChildForMission(childId: number, tenantId: string): Promise<Child | undefined>;
-	findVisibleActivities(tenantId: string): Promise<Activity[]>;
+	// #2362 PR-3 Phase 7b-2c: sqlite は ChildActivity (per-child instance) を返す。
+	// dynamodb / demo 実装は legacy Activity を返す (PR-3 scope 外、#2458 で 統一)。
+	findVisibleActivities(tenantId: string): Promise<Array<Activity | ChildActivity>>;
 	findPreviousDayMissionIds(childId: number, date: string, tenantId: string): Promise<number[]>;
 	findRecentActivityIds(childId: number, sinceDate: string, tenantId: string): Promise<number[]>;
 	findAllRecordedActivityIds(childId: number, tenantId: string): Promise<number[]>;

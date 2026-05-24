@@ -1,7 +1,14 @@
 <script lang="ts">
 import { invalidateAll } from '$app/navigation';
 import { splitIcon } from '$lib/domain/icon-utils';
-import { APP_LABELS, FEATURES_LABELS, PAGE_TITLES, UI_LABELS } from '$lib/domain/labels';
+import {
+	ADMIN_ACTIVITIES_PAGE_LABELS,
+	APP_LABELS,
+	FEATURES_LABELS,
+	PAGE_TITLES,
+	UI_LABELS,
+} from '$lib/domain/labels';
+import { CHILD_TERMS } from '$lib/domain/terms';
 import ActivitiesHeader from '$lib/features/admin/components/ActivitiesHeader.svelte';
 import ActivityClearAllConfirm from '$lib/features/admin/components/ActivityClearAllConfirm.svelte';
 import ActivityCreateForm from '$lib/features/admin/components/ActivityCreateForm.svelte';
@@ -19,6 +26,8 @@ import ChildSelectionDialog, {
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
+// #2362 PR-3 Phase 7c: hardcoded text 排除 (ADR-0045) — CHILD_TERMS.honorific を template literal で参照
+const CHILD_HONORIFIC_LABEL = CHILD_TERMS.honorific;
 let { data } = $props();
 const activityLimit = $derived(
 	(data as Record<string, unknown>).activityLimit as
@@ -288,7 +297,7 @@ function selectChild(childId: number) {
 			class="child-tab-row"
 			data-testid="admin-activities-child-tabs"
 			role="tablist"
-			aria-label="お子さまを選択"
+			aria-label={ADMIN_ACTIVITIES_PAGE_LABELS.childTabsAriaLabel}
 		>
 			{#each data.children as child (child.id)}
 				{@const count = (data.childActivitiesByChild[child.id] ?? []).length}
@@ -315,7 +324,7 @@ function selectChild(childId: number) {
 						data-testid="copy-from-child-btn"
 						onclick={() => { showCopyFromChildDialog = true; }}
 					>
-						📋 他の子供から copy
+						{ADMIN_ACTIVITIES_PAGE_LABELS.copyFromChildButton}
 					</Button>
 				{/if}
 				<Button
@@ -325,7 +334,7 @@ function selectChild(childId: number) {
 					disabled={!canAdd}
 					onclick={() => { showBulkCreateDialog = true; }}
 				>
-					👨‍👩‍👧‍👦 一括追加
+					{ADMIN_ACTIVITIES_PAGE_LABELS.bulkCreateButton}
 				</Button>
 			</div>
 		</div>
@@ -333,10 +342,10 @@ function selectChild(childId: number) {
 		{#if selectedChild}
 			<div class="child-context-banner" data-testid="child-context-banner">
 				<span class="child-context-banner__label">
-					{selectedChild.nickname} の活動 ({perChildActivities.length} 件)
+					{selectedChild.nickname}{ADMIN_ACTIVITIES_PAGE_LABELS.childContextActivitiesSuffix(perChildActivities.length)}
 				</span>
 				<span class="child-context-banner__hint">
-					タブを切り替えると、他のお子さまの活動を表示します
+					{ADMIN_ACTIVITIES_PAGE_LABELS.childContextHint}
 				</span>
 			</div>
 		{/if}
@@ -471,11 +480,11 @@ function selectChild(childId: number) {
 	<!-- 「他の子供から copy」 dialog -->
 	<Dialog
 		bind:open={showCopyFromChildDialog}
-		title="他のお子さまから活動をコピー"
+		title={ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogTitle}
 		testid="copy-from-child-dialog"
 	>
 		<p class="copy-dialog-desc">
-			コピー元のお子さまを選んでください (コピー先: <strong>{selectedChild?.nickname ?? '—'}</strong>)
+			{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogDescPrefix}{CHILD_HONORIFIC_LABEL}{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogDescSuffix}<strong>{selectedChild?.nickname ?? ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogSelectedPlaceholder}</strong>{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogDescCloseParen}
 		</p>
 		<div class="copy-source-list">
 			{#each data.children.filter((c) => c.id !== selectedChildId) as child (child.id)}
@@ -490,19 +499,19 @@ function selectChild(childId: number) {
 					/>
 					<span class="copy-source-option__label">
 						{child.nickname}
-						<span class="copy-source-option__age">({child.age} 歳)</span>
+						<span class="copy-source-option__age">({child.age} {ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogAgeSuffix})</span>
 						<span class="copy-source-option__count">
-							{(data.childActivitiesByChild[child.id] ?? []).length} 件
+							{(data.childActivitiesByChild[child.id] ?? []).length} {ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogCountSuffix}
 						</span>
 					</span>
 				</label>
 			{:else}
-				<p class="copy-source-empty">他のお子さまがいません</p>
+				<p class="copy-source-empty">{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogEmpty}</p>
 			{/each}
 		</div>
 		<div class="copy-dialog-footer">
 			<Button variant="ghost" onclick={() => { showCopyFromChildDialog = false; copySourceChildId = null; }}>
-				キャンセル
+				{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogCancel}
 			</Button>
 			<Button
 				variant="primary"
@@ -510,7 +519,7 @@ function selectChild(childId: number) {
 				data-testid="copy-from-child-confirm"
 				onclick={handleCopyFromChild}
 			>
-				コピーする
+				{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogConfirm}
 			</Button>
 		</div>
 	</Dialog>
@@ -519,26 +528,26 @@ function selectChild(childId: number) {
 	<!-- Phase 4 簡易版: form + 内蔵 child checkbox list (ChildSelectionDialog の nesting を回避) -->
 	<Dialog
 		bind:open={showBulkCreateDialog}
-		title="複数のお子さまに一括追加"
+		title={ADMIN_ACTIVITIES_PAGE_LABELS.bulkDialogTitle}
 		testid="bulk-create-dialog"
 	>
 		<div class="bulk-form">
 			<FormField
 				id="bulk-name"
-				label="活動名"
+				label={ADMIN_ACTIVITIES_PAGE_LABELS.bulkFormName}
 				bind:value={bulkName}
 				required={true}
 			/>
 			<FormField
 				id="bulk-points"
-				label="ポイント"
+				label={ADMIN_ACTIVITIES_PAGE_LABELS.bulkFormPoints}
 				type="number"
 				bind:value={bulkPoints}
 				min={1}
 				max={100}
 			/>
 			<div class="bulk-field">
-				<label for="bulk-category" class="bulk-field__label">カテゴリ</label>
+				<label for="bulk-category" class="bulk-field__label">{ADMIN_ACTIVITIES_PAGE_LABELS.bulkFormCategory}</label>
 				<select id="bulk-category" bind:value={bulkCategoryId} class="bulk-select">
 					{#each data.categoryDefs as catDef}
 						<option value={catDef.id}>{catDef.name}</option>
@@ -547,13 +556,13 @@ function selectChild(childId: number) {
 			</div>
 			<FormField
 				id="bulk-icon"
-				label="アイコン (絵文字)"
+				label={ADMIN_ACTIVITIES_PAGE_LABELS.bulkFormIcon}
 				bind:value={bulkIcon}
 			/>
 		</div>
 
 		<fieldset class="bulk-targets">
-			<legend class="bulk-targets__legend">追加するお子さま</legend>
+			<legend class="bulk-targets__legend">{ADMIN_ACTIVITIES_PAGE_LABELS.bulkTargetsLegend}</legend>
 			<label class="bulk-target-option">
 				<input
 					type="radio"
@@ -563,7 +572,7 @@ function selectChild(childId: number) {
 					onchange={() => { bulkTargets = 'all'; }}
 					data-testid="bulk-target-all"
 				/>
-				<span>👨‍👩‍👧‍👦 全員に追加</span>
+				<span>{ADMIN_ACTIVITIES_PAGE_LABELS.bulkTargetAll}</span>
 			</label>
 			{#each data.children as child (child.id)}
 				<label class="bulk-target-option">
@@ -583,14 +592,14 @@ function selectChild(childId: number) {
 						}}
 						data-testid="bulk-target-{child.id}"
 					/>
-					<span>{child.nickname} ({child.age} 歳)</span>
+					<span>{child.nickname} ({child.age} {ADMIN_ACTIVITIES_PAGE_LABELS.bulkTargetChildAgeSuffix})</span>
 				</label>
 			{/each}
 		</fieldset>
 
 		<div class="copy-dialog-footer">
 			<Button variant="ghost" onclick={() => { showBulkCreateDialog = false; }}>
-				キャンセル
+				{ADMIN_ACTIVITIES_PAGE_LABELS.bulkDialogCancel}
 			</Button>
 			<Button
 				variant="primary"
@@ -598,7 +607,7 @@ function selectChild(childId: number) {
 				data-testid="bulk-create-confirm"
 				onclick={() => handleBulkCreate(bulkTargets)}
 			>
-				追加する
+				{ADMIN_ACTIVITIES_PAGE_LABELS.bulkDialogConfirm}
 			</Button>
 		</div>
 	</Dialog>
@@ -628,7 +637,7 @@ function selectChild(childId: number) {
 		font-size: 0.85rem;
 	}
 
-	/* #2362 PR-3 Phase 4: 子供タブ */
+	/* #2362 PR-3 Phase 4: child tabs */
 	.child-tab-row {
 		display: flex;
 		gap: 0.375rem;
@@ -675,7 +684,7 @@ function selectChild(childId: number) {
 		color: var(--color-text-muted);
 	}
 
-	/* per-child activity 簡易表示 (Phase 5 で list item refactor 予定) */
+	/* per-child activity simple list (Phase 5: list item refactor pending) */
 	.per-child-item {
 		display: flex;
 		align-items: center;

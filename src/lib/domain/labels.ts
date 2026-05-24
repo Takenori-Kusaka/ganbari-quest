@@ -3912,6 +3912,44 @@ export const ACTIVITY_FORM_LABELS = {
 } as const;
 
 /**
+ * admin/activities ページ用ラベル (#2362 PR-3 Phase 4)
+ * 子供別タブ切替 + 兄弟共通化 UX (copy / 一括追加) の SSOT。
+ */
+export const ADMIN_ACTIVITIES_PAGE_LABELS = {
+	// 子供別タブ
+	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
+	childCountSuffix: '件',
+	// 兄弟共通化 actions
+	copyFromChildButton: `📋 他の${CHILD_TERMS.neutral}から copy`,
+	bulkCreateButton: '👨‍👩‍👧‍👦 一括追加',
+	// 選択中 child banner
+	childContextActivitiesSuffix: (count: number) => `の活動 (${count} 件)`,
+	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}の活動を表示します`,
+	// copy dialog
+	copyDialogTitle: `他の${CHILD_TERMS.honorific}から活動をコピー`,
+	copyDialogDescPrefix: 'コピー元の',
+	copyDialogDescSuffix: 'を選んでください (コピー先: ',
+	copyDialogDescCloseParen: ')',
+	copyDialogSelectedPlaceholder: '—',
+	copyDialogAgeSuffix: '歳',
+	copyDialogCountSuffix: '件',
+	copyDialogEmpty: `他の${CHILD_TERMS.honorific}がいません`,
+	copyDialogCancel: 'キャンセル',
+	copyDialogConfirm: 'コピーする',
+	// bulk dialog
+	bulkDialogTitle: `複数の${CHILD_TERMS.honorific}に一括追加`,
+	bulkFormName: '活動名',
+	bulkFormPoints: 'ポイント',
+	bulkFormCategory: 'カテゴリ',
+	bulkFormIcon: 'アイコン (絵文字)',
+	bulkTargetsLegend: `追加する${CHILD_TERMS.honorific}`,
+	bulkTargetAll: '👨‍👩‍👧‍👦 全員に追加',
+	bulkTargetChildAgeSuffix: '歳',
+	bulkDialogCancel: 'キャンセル',
+	bulkDialogConfirm: '追加する',
+} as const;
+
+/**
  * AdminHome ダッシュボード用ラベル (#1465 Phase D)
  */
 export const ADMIN_HOME_LABELS = {

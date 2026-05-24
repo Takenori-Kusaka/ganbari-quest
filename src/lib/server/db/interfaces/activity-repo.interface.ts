@@ -4,6 +4,7 @@ import type {
 	ActivityLog,
 	ActivityLogSummary,
 	Child,
+	ChildActivity,
 	InsertActivityInput,
 	InsertActivityLogInput,
 	InsertPointLedgerInput,
@@ -13,7 +14,10 @@ import type {
 export interface IActivityRepo {
 	// Activities
 	findActivities(tenantId: string, filter?: ActivityFilter): Promise<Activity[]>;
-	findActivityById(id: number, tenantId: string): Promise<Activity | undefined>;
+	// #2362 PR-3 Phase 7b-2c: sqlite は ChildActivity (per-child instance) を返す。
+	// dynamodb / demo 実装は legacy Activity を返す (PR-3 scope 外、#2458 で 統一)。
+	// 共通 callsite は id / name / icon / basePoints / priority / isVisible のみ参照。
+	findActivityById(id: number, tenantId: string): Promise<Activity | ChildActivity | undefined>;
 	insertActivity(input: InsertActivityInput, tenantId: string): Promise<Activity>;
 	updateActivity(
 		id: number,
