@@ -64,6 +64,35 @@ export const SQL_CREATE_TABLES = `
 		priority TEXT NOT NULL DEFAULT 'optional'
 	);
 
+	-- #2362 PR-3 (ADR-0055): per-child 活動 instance。旧 activities (family master) と並存。
+	-- Phase 6/7 で旧 activities を drop + FK 切替予定 (本 phase では並存のみ)。
+	-- 設計 SSOT: docs/design/data-model-resource-scope.md §4.1
+	CREATE TABLE IF NOT EXISTS child_activities (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		icon TEXT NOT NULL,
+		base_points INTEGER NOT NULL DEFAULT 5,
+		is_visible INTEGER NOT NULL DEFAULT 1,
+		daily_limit INTEGER,
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		source TEXT NOT NULL DEFAULT 'seed',
+		name_kana TEXT,
+		name_kanji TEXT,
+		trigger_hint TEXT,
+		is_main_quest INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		is_archived INTEGER NOT NULL DEFAULT 0,
+		archived_reason TEXT,
+		source_preset_id TEXT,
+		priority TEXT NOT NULL DEFAULT 'optional'
+	);
+	CREATE INDEX IF NOT EXISTS idx_child_activities_child
+		ON child_activities(child_id, is_archived);
+	CREATE INDEX IF NOT EXISTS idx_child_activities_child_sort
+		ON child_activities(child_id, sort_order);
+
 	CREATE TABLE IF NOT EXISTS activity_logs (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id),
