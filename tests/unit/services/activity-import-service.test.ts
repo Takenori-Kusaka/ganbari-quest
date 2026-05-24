@@ -8,10 +8,20 @@ import type { ActivityPackItem } from '../../../src/lib/domain/activity-pack';
 
 const mockFindActivities = vi.fn();
 const mockInsertActivity = vi.fn();
+// #2362 PR-3: per-child instance 配信 (childIds 指定時に呼ばれる)
+const mockInsertActivitiesBulk = vi.fn();
 
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
 	insertActivity: (...args: unknown[]) => mockInsertActivity(...args),
+}));
+
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		childActivity: {
+			insertActivitiesBulk: (...args: unknown[]) => mockInsertActivitiesBulk(...args),
+		},
+	}),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -52,6 +62,7 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindActivities.mockResolvedValue([]);
 	mockInsertActivity.mockResolvedValue({ id: 1 });
+	mockInsertActivitiesBulk.mockResolvedValue([]);
 });
 
 // ==========================================================
@@ -425,5 +436,129 @@ describe('importActivities', () => {
 		expect(result.skipped).toBe(0);
 		expect(result.errors).toEqual([]);
 		expect(mockInsertActivity).not.toHaveBeenCalled();
+	});
+
+	// ==========================================================
+	// #2362 PR-3 (ADR-0055): per-child instance 配信
+	// ==========================================================
+
+	describe('#2362 PR-3 per-child instance 配信 (options.childIds)', () => {
+		it('childIds 未指定 -> family master insert のみ、per-child bulk は呼ばれない', async () => {
+			const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
+
+			const result = await importActivities(items, TENANT);
+
+			expect(result.imported).toBe(1);
+			expect(mockInsertActivity).toHaveBeenCalledTimes(1);
+			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+		});
+
+		it('childIds 空配列 -> per-child bulk は呼ばれない', async () => {
+			const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
+
+			await importActivities(items, TENANT, { childIds: [] });
+
+			expect(mockInsertActivity).toHaveBeenCalledTimes(1);
+			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+		});
+
+		it('childIds=[101] -> 1 child に対し bulk insert 1 回 / 件数は activities 数', async () => {
+			const items = [
+				makeItem({ name: 'A', categoryCode: 'undou' }),
+				makeItem({ name: 'B', categoryCode: 'benkyou' }),
+			];
+
+			const result = await importActivities(items, TENANT, { childIds: [101] });
+
+			expect(result.imported).toBe(2);
+			expect(mockInsertActivity).toHaveBeenCalledTimes(2);
+			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
+			const [bulkArgs, tenantArg] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(tenantArg).toBe(TENANT);
+			expect(bulkArgs).toHaveLength(2);
+			expect(bulkArgs[0]).toMatchObject({ childId: 101, name: 'A', categoryId: 1 });
+			expect(bulkArgs[1]).toMatchObject({ childId: 101, name: 'B', categoryId: 2 });
+		});
+
+		it('childIds=[101, 202, 303] -> 3 child それぞれに bulk insert', async () => {
+			const items = [
+				makeItem({ name: 'A', categoryCode: 'undou' }),
+				makeItem({ name: 'B', categoryCode: 'benkyou' }),
+			];
+
+			await importActivities(items, TENANT, { childIds: [101, 202, 303] });
+
+			expect(mockInsertActivity).toHaveBeenCalledTimes(2);
+			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(3);
+			const calledChildIds = mockInsertActivitiesBulk.mock.calls
+				.map((c) => (c[0] as { childId: number }[])[0]?.childId)
+				.sort((a, b) => (a ?? 0) - (b ?? 0));
+			expect(calledChildIds).toEqual([101, 202, 303]);
+		});
+
+		it('1 child の bulk insert が失敗しても他 child は継続する (partial success)', async () => {
+			mockInsertActivitiesBulk
+				.mockRejectedValueOnce(new Error('child=101 disk full'))
+				.mockResolvedValueOnce([{ id: 99 }])
+				.mockResolvedValueOnce([{ id: 100 }]);
+
+			const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
+
+			const result = await importActivities(items, TENANT, { childIds: [101, 202, 303] });
+
+			expect(result.imported).toBe(1); // family master は成功
+			expect(result.errors).toHaveLength(1);
+			expect(result.errors[0]).toContain('child=101');
+			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(3);
+		});
+
+		it('family master insert が duplicate でスキップされた activity は per-child 配信からも除外', async () => {
+			mockFindActivities.mockResolvedValue([{ name: '既存' }]);
+
+			const items = [
+				makeItem({ name: '既存', categoryCode: 'undou' }),
+				makeItem({ name: '新規', categoryCode: 'benkyou' }),
+			];
+
+			const result = await importActivities(items, TENANT, { childIds: [101] });
+
+			expect(result.imported).toBe(1);
+			expect(result.skipped).toBe(1);
+			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
+			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(bulkArgs).toHaveLength(1);
+			expect(bulkArgs[0]).toMatchObject({ childId: 101, name: '新規' });
+		});
+
+		it('per-child input の priority / sourcePresetId は family master と一致', async () => {
+			const items = [makeItem({ name: 'はみがき', categoryCode: 'seikatsu', mustDefault: true })];
+
+			await importActivities(items, TENANT, {
+				childIds: [101],
+				presetId: 'kinder-starter',
+				applyMustDefault: true,
+			});
+
+			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(bulkArgs[0]).toMatchObject({
+				childId: 101,
+				name: 'はみがき',
+				priority: 'must',
+				sourcePresetId: 'kinder-starter',
+			});
+		});
+
+		it('family master insert 失敗時は per-child 配信もスキップされる', async () => {
+			mockInsertActivity.mockRejectedValueOnce(new Error('FK violation'));
+
+			const items = [makeItem({ name: '失敗', categoryCode: 'undou' })];
+
+			const result = await importActivities(items, TENANT, { childIds: [101] });
+
+			expect(result.imported).toBe(0);
+			expect(result.errors).toHaveLength(1);
+			// 失敗 activity だけだったので per-child bulk は呼ばれない (空配列なので continue)
+			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+		});
 	});
 });
