@@ -388,3 +388,11 @@ callsite
 # ===== #2389 Registry integrity test fixture isolation =====
 typecode
 tmpdirs
+
+# ===== #2455 capture flow comment (Git Bash MSYS path conversion workaround) =====
+MSYS
+PATHCONV
+
+# ===== #2455 security CWE-639 / per-child URL param =====
+IDOR
+childid
