@@ -222,7 +222,14 @@ function seedBasic() {
 	testDb.insert(schema.children).values({ nickname: 'テストちゃん', age: 4 }).run();
 	testDb
 		.insert(schema.childActivities)
-		.values({ childId: 1, name: 'たいそう', categoryId: 1, icon: '🤸', basePoints: 5, sortOrder: 1 })
+		.values({
+			childId: 1,
+			name: 'たいそう',
+			categoryId: 1,
+			icon: '🤸',
+			basePoints: 5,
+			sortOrder: 1,
+		})
 		.run();
 	testDb
 		.insert(schema.childActivities)
