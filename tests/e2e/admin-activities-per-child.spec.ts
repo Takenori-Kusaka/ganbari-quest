@@ -30,7 +30,13 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 		await page.goto('/admin/activities');
 		const tabs = page.locator('[data-testid^="child-tab-"]');
 		const count = await tabs.count();
-		test.skip(count < 2, '2 child 以上の seed が必要');
+		// global-setup.ts は 5 children (preschool/baby/elementary/junior/senior) を seed する
+		// (TEST_CHILDREN 配列、ADR-0005 deterministic seed)。skip ではなく precondition assert で
+		// seed 破綻を検知する (ADR-0006 §3 — assertion 弱体化禁止)
+		expect(
+			count,
+			'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
+		).toBeGreaterThanOrEqual(2);
 
 		const secondTab = tabs.nth(1);
 		const secondId = await secondTab.getAttribute('data-testid');
@@ -53,7 +59,12 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 		await page.goto('/admin/activities');
 		const tabs = page.locator('[data-testid^="child-tab-"]');
 		const count = await tabs.count();
-		test.skip(count < 2, '2 child 以上の seed が必要');
+		// global-setup.ts は 5 children を seed する (上 test 参照)。skip ではなく
+		// precondition assert で seed 破綻を検知する (ADR-0006)
+		expect(
+			count,
+			'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
+		).toBeGreaterThanOrEqual(2);
 
 		const copyBtn = page.getByTestId('copy-from-child-btn');
 		await expect(copyBtn).toBeVisible();

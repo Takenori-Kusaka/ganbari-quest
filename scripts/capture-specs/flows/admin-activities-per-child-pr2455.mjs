@@ -90,8 +90,11 @@ export default async (page, capture) => {
 	if (copyBtnVisible) {
 		// 通常 click → Svelte 5 hydration + Ark UI Dialog state 反映を確実に待つ
 		await copyBtn.dispatchEvent('click');
-		// Ark UI Dialog hydration + reactivity の安定化を多段で待つ
-		await page.waitForTimeout(1200);
+		// Ark UI Dialog hydration + reactivity の安定化を deterministic に待つ
+		// (#1208 — waitForTimeout 不可。dialog data-state="open" を polling)
+		await waitForDialogOpen(page, 'copy-from-child-dialog').catch(() => {
+			// dialog が hydration されない場合 (per-child 機能未活性等) でも撮影は試みる
+		});
 		// DOM 確認 (button click が svelte state を変化させているか)
 		const copyDialogState = await page.evaluate(() => {
 			const el = document.querySelector('[data-testid="copy-from-child-dialog"]');
@@ -104,7 +107,16 @@ export default async (page, capture) => {
 		console.log('[capture] copy-from-child-dialog state:', copyDialogState);
 		await capture('pr2455-admin-activities-copy-dialog-attempted');
 		await page.keyboard.press('Escape').catch(() => {});
-		await page.waitForTimeout(500);
+		// dialog close を deterministic に待つ (#1208)
+		await page
+			.waitForFunction(
+				() => {
+					const el = document.querySelector('[data-testid="copy-from-child-dialog"]');
+					return !el || el.getAttribute('data-state') !== 'open';
+				},
+				{ timeout: 5_000, polling: 100 },
+			)
+			.catch(() => {});
 	}
 
 	// --- 5) 「一括追加」 dialog open ---
@@ -115,7 +127,10 @@ export default async (page, capture) => {
 	const bulkBtn = page.getByTestId('bulk-create-btn');
 	if ((await bulkBtn.count()) > 0) {
 		await bulkBtn.click({ force: true });
-		await page.waitForTimeout(800);
+		// dialog open を deterministic に待つ (#1208)
+		await waitForDialogOpen(page, 'bulk-create-dialog').catch(() => {
+			// dialog が hydration されない場合でも撮影は試みる
+		});
 		const bulkDialogState = await page.evaluate(() => {
 			const el = document.querySelector('[data-testid="bulk-create-dialog"]');
 			return {

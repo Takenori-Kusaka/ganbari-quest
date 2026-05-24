@@ -711,6 +711,47 @@ export default async function globalSetup() {
 
 		`);
 
+		// #2362 PR-3 (Phase 7c): activity_logs.activity_id は child_activities(id) を参照する
+		// (Phase 7b-2a で FK target 切替済)。各 child に対し master `activities` から
+		// per-child instance を copy して child_activities に投入し、その id を activity_logs で参照する。
+		//
+		// 旧実装は SELECT id FROM activities WHERE ... を直接 activity_logs.activity_id に渡していたが、
+		// schema 変更後は FK 違反となるため (#2455 must-3 root cause)、per-child instance 生成を挟む。
+		//
+		// idempotent: 既に対象 child の child_activities が seed 済みであれば再生成しない
+		// childId が undefined (= testChildIds に該当 nickname の seed がない) の場合は空配列を返し、
+		// 後続の activity_logs seed もスキップさせる (defensive: child seed 失敗時の cascade を防ぐ)
+		const seedChildActivitiesIfMissing = (
+			childId: number | undefined,
+			masterActivities: { id: number; name: string; category_id: number; base_points: number }[],
+		): { id: number; base_points: number }[] => {
+			if (childId === undefined) return [];
+			const existing = db
+				.prepare(
+					"SELECT id, base_points FROM child_activities WHERE child_id = ? AND source = 'seed'",
+				)
+				.all(childId) as { id: number; base_points: number }[];
+			if (existing.length > 0) return existing;
+			if (masterActivities.length === 0) return [];
+			const insertStmt = db.prepare(
+				`INSERT INTO child_activities (child_id, name, category_id, icon, base_points, sort_order, source, priority)
+				 VALUES (?, ?, ?, ?, ?, ?, 'seed', 'optional')`,
+			);
+			const created: { id: number; base_points: number }[] = [];
+			for (const [idx, master] of masterActivities.entries()) {
+				const result = insertStmt.run(
+					childId,
+					master.name,
+					master.category_id,
+					'⭐',
+					master.base_points,
+					idx,
+				);
+				created.push({ id: Number(result.lastInsertRowid), base_points: master.base_points });
+			}
+			return created;
+		};
+
 		// リアルな過去の活動ログを追加（ステータス画面・レーダーチャートの表示用）
 		// 今日のログはテスト安定化のため下で削除されるが、過去日のログは保持
 		const pastLogCount = db
@@ -728,6 +769,8 @@ export default async function globalSetup() {
 				.all() as { id: number; name: string; category_id: number; base_points: number }[];
 
 			if (kinderActivities.length > 0) {
+				// #2362 PR-3: master `activities` を per-child instance に複写し、その id を activity_logs で参照
+				const childActs = seedChildActivitiesIfMissing(testChildIds.たろうくん, kinderActivities);
 				const logStmt = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -736,8 +779,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 2 + (daysAgo % 3); // 2-4件/日
-					for (let j = 0; j < logsPerDay && j < kinderActivities.length; j++) {
-						const act = kinderActivities[(daysAgo * 3 + j) % kinderActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs.length; j++) {
+						const act = childActs[(daysAgo * 3 + j) % childActs.length];
 						if (!act) continue;
 						const streak = 8 - daysAgo; // 連続日数
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
@@ -763,6 +806,7 @@ export default async function globalSetup() {
 				.all() as { id: number; name: string; category_id: number; base_points: number }[];
 
 			if (babyActivities.length > 0) {
+				const childActs2 = seedChildActivitiesIfMissing(testChildIds.はなこちゃん, babyActivities);
 				const logStmt2 = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -770,8 +814,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 1 + (daysAgo % 2); // 1-2件/日
-					for (let j = 0; j < logsPerDay && j < babyActivities.length; j++) {
-						const act = babyActivities[(daysAgo * 2 + j) % babyActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs2.length; j++) {
+						const act = childActs2[(daysAgo * 2 + j) % childActs2.length];
 						if (!act) continue;
 						logStmt2.run(
 							testChildIds.はなこちゃん,
@@ -795,6 +839,10 @@ export default async function globalSetup() {
 				.all() as { id: number; name: string; category_id: number; base_points: number }[];
 
 			if (elementaryActivities.length > 0) {
+				const childActs3 = seedChildActivitiesIfMissing(
+					testChildIds.けんたくん,
+					elementaryActivities,
+				);
 				const logStmt3 = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -802,8 +850,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 2 + (daysAgo % 2); // 2-3件/日
-					for (let j = 0; j < logsPerDay && j < elementaryActivities.length; j++) {
-						const act = elementaryActivities[(daysAgo * 2 + j) % elementaryActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs3.length; j++) {
+						const act = childActs3[(daysAgo * 2 + j) % childActs3.length];
 						if (!act) continue;
 						const streak = 7 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
@@ -829,6 +877,10 @@ export default async function globalSetup() {
 				.all() as { id: number; name: string; category_id: number; base_points: number }[];
 
 			if (juniorActivities.length > 0) {
+				const childActs4 = seedChildActivitiesIfMissing(
+					testChildIds.ゆうこちゃん,
+					juniorActivities,
+				);
 				const logStmt4 = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -836,8 +888,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 2 + (daysAgo % 3); // 2-4件/日
-					for (let j = 0; j < logsPerDay && j < juniorActivities.length; j++) {
-						const act = juniorActivities[(daysAgo * 3 + j) % juniorActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs4.length; j++) {
+						const act = childActs4[(daysAgo * 3 + j) % childActs4.length];
 						if (!act) continue;
 						const streak = 6 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
@@ -863,6 +915,7 @@ export default async function globalSetup() {
 				.all() as { id: number; name: string; category_id: number; base_points: number }[];
 
 			if (seniorActivities.length > 0) {
+				const childActs5 = seedChildActivitiesIfMissing(testChildIds.まさとくん, seniorActivities);
 				const logStmt5 = db.prepare(
 					'INSERT INTO activity_logs (child_id, activity_id, points, streak_days, streak_bonus, recorded_date, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
 				);
@@ -870,8 +923,8 @@ export default async function globalSetup() {
 					const date = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 					const dateStr = date.toISOString().split('T')[0];
 					const logsPerDay = 1 + (daysAgo % 2); // 1-2件/日
-					for (let j = 0; j < logsPerDay && j < seniorActivities.length; j++) {
-						const act = seniorActivities[(daysAgo * 2 + j) % seniorActivities.length];
+					for (let j = 0; j < logsPerDay && j < childActs5.length; j++) {
+						const act = childActs5[(daysAgo * 2 + j) % childActs5.length];
 						if (!act) continue;
 						const streak = 5 - daysAgo;
 						const bonus = streak > 1 ? Math.floor(act.base_points * 0.1 * (streak - 1)) : 0;
