@@ -1,21 +1,58 @@
 import type { GradeLevel, Source } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import {
-	countMainQuestActivities as countMainQuestActivitiesRepo,
 	countPointLedgerEntriesByTypeAndDate,
-	deleteActivity as deleteActivityRepo,
 	deleteDailyMissionsByActivity,
-	findActivities,
-	findActivityById,
 	findMustActivitiesWithToday,
 	getActivityLogCounts as getActivityLogCountsRepo,
 	hasActivityLogs as hasActivityLogsRepo,
-	insertActivity,
 	insertPointLedger,
-	setActivityVisibility as setActivityVisibilityRepo,
-	updateActivity as updateActivityRepo,
 } from '$lib/server/db/activity-repo';
-import type { ActivityPriority } from '$lib/server/db/types';
+import { findAllChildren } from '$lib/server/db/child-repo';
+import { getRepos } from '$lib/server/db/factory';
+import type {
+	ActivityPriority,
+	Child,
+	ChildActivity,
+	InsertChildActivityInput,
+	UpdateChildActivityInput,
+} from '$lib/server/db/types';
+
+// ============================================================
+// #2362 PR-3 Phase 7b-2b — per-child instance への内部移行 (signature 不変 wrapper)
+// ============================================================
+//
+// 本 service の master 系 9 method (getActivities / getActivityById / createActivity /
+// updateActivity / setActivityVisibility / deleteActivityWithCleanup / setMainQuest /
+// getMainQuestCount / `_deleteActivity`) は外部 signature を維持したまま、
+// 内部実装を `getRepos().childActivity` 経由に rewrite している (ADR-0055)。
+//
+// 設計判断:
+//   - signature 不変原則: 30+ files の callsite を破壊しないため signature `(id, tenantId)`
+//     を堅持。childId が必要な childActivity API は internal helper
+//     `_resolveChildIdForActivity` で activity_id → childId 逆引きする (全 child を loop
+//     で `findActivitiesByChild` し id match を探す)。
+//   - 戻り値: 旧 `Activity` 型から `ChildActivity` 型へ。差分フィールド
+//     (`ageMin / ageMax / gradeLevel / subcategory / description`) は ChildActivity に
+//     存在しないため、callsite 側のフィールドアクセスは Phase 7b-2c (test/callsite 追従) で
+//     対応する。本 phase では型互換性を service 層で吸収。
+//   - tenant 集約: `getActivities(tenantId)` 等は `findAllChildren` + per-child loop で
+//     集約 (Phase 7b-1 と同パターン、cloud-export / plan-limit / tenant-cleanup 整合)。
+//   - log/point_ledger 系 (`hasActivityLogs` / `getActivityLogCounts` /
+//     `findMustActivitiesWithToday` / `countPointLedgerEntriesByTypeAndDate` /
+//     `insertPointLedger` / `deleteDailyMissionsByActivity`) は schema FK 切替済で
+//     意味論不変のため、引き続き activity-repo facade 経由 (内部は child_activities.id 参照)。
+//
+// 既知の制約:
+//   - `createActivity` は新規作成時に activity_id が無く逆引き不可能。Phase 7b-2c で
+//     callsite 側に childId を渡す signature 拡張が必要だが、本 phase では
+//     既存 `CreateActivityInput` を尊重するため、最も古い (= 一番上の sortOrder) child
+//     に作成する暫定動作とする。Phase 7b-2c で全 callsite に childId を渡す。
+//
+// 関連:
+//   - PR #2455 (本 PR-3) / Issue #2362
+//   - docs/decisions/0055-per-child-primary-data-model-pattern.md
+//   - docs/design/data-model-resource-scope.md §4.1
 
 export interface CreateActivityInput {
 	name: string;
@@ -42,32 +79,162 @@ export interface ActivityFilter {
 	includeHidden?: boolean;
 }
 
+// ============================================================
+// Internal helpers (per-child instance への wrapper 共通機構)
+// ============================================================
+
+/**
+ * tenant 全 child の per-child activity を集約取得する。
+ * `getActivities` / `getMainQuestCount` 等の tenant-wide aggregate 用。
+ *
+ * @param tenantId tenant id
+ * @param options.includeHidden 既定 false (isVisible=1 のみ)
+ * @param options.includeArchived 既定 false
+ */
+async function _collectAllChildActivities(
+	tenantId: string,
+	options?: { includeHidden?: boolean; includeArchived?: boolean },
+): Promise<{ children: Child[]; activities: ChildActivity[] }> {
+	const children = await findAllChildren(tenantId);
+	const repos = getRepos();
+	const all: ChildActivity[] = [];
+	for (const child of children) {
+		const acts = await repos.childActivity.findActivitiesByChild(child.id, tenantId, {
+			includeArchived: options?.includeArchived ?? false,
+			visibleOnly: !options?.includeHidden,
+		});
+		all.push(...acts);
+	}
+	return { children, activities: all };
+}
+
+/**
+ * activity_id から childId を逆引きする。
+ * tenant 全 child を loop して `findActivityById(id, child.id, tenantId)` を試行し、
+ * 見つかった child.id を返す。tenant 内に存在しなければ undefined。
+ *
+ * archived 含む全件を対象とする (delete / restore 等の操作用)。
+ *
+ * NOTE (Phase 7b-2c 検討事項): N+1 cost (per call で全 child 線形探索) を許容する。
+ * 1 家族あたり child 数は実運用上 1〜4 件程度のため、production パフォーマンス影響は軽微。
+ * 大規模化時は ChildActivity に tenant index を追加し直接 join するよう refactor 可能。
+ */
+async function _resolveChildIdForActivity(
+	id: number,
+	tenantId: string,
+): Promise<number | undefined> {
+	const children = await findAllChildren(tenantId);
+	const repos = getRepos();
+	for (const child of children) {
+		const found = await repos.childActivity.findActivityById(id, child.id, tenantId);
+		if (found) return child.id;
+	}
+	return undefined;
+}
+
+/**
+ * `CreateActivityInput` (Activity master 型) を `InsertChildActivityInput` に変換。
+ *
+ * ageMin / ageMax / gradeLevel / subcategory / description / dailyLimit / source /
+ * nameKana / nameKanji は ChildActivity に存在しないため drop。Phase 7b-2c で
+ * callsite 側で渡されなくなる想定。
+ */
+function _toChildActivityInsertInput(
+	input: CreateActivityInput,
+	childId: number,
+): InsertChildActivityInput {
+	return {
+		childId,
+		name: input.name,
+		categoryId: input.categoryId,
+		icon: input.icon,
+		basePoints: input.basePoints,
+		triggerHint: input.triggerHint ?? null,
+		priority: input.priority,
+	};
+}
+
+/**
+ * `Partial<CreateActivityInput>` を `UpdateChildActivityInput` に変換。
+ */
+function _toChildActivityUpdateInput(
+	input: Partial<CreateActivityInput> & { isMainQuest?: number },
+): UpdateChildActivityInput {
+	const update: UpdateChildActivityInput = {};
+	if (input.name !== undefined) update.name = input.name;
+	if (input.categoryId !== undefined) update.categoryId = input.categoryId;
+	if (input.icon !== undefined) update.icon = input.icon;
+	if (input.basePoints !== undefined) update.basePoints = input.basePoints;
+	if (input.triggerHint !== undefined) update.triggerHint = input.triggerHint;
+	if (input.isMainQuest !== undefined) update.isMainQuest = input.isMainQuest;
+	if (input.priority !== undefined) update.priority = input.priority;
+	return update;
+}
+
+// ============================================================
+// Public API — signature 不変、内部 childActivity 経由
+// ============================================================
+
 export async function getActivities(tenantId: string, filter?: ActivityFilter) {
-	return await findActivities(tenantId, filter);
+	const { activities } = await _collectAllChildActivities(tenantId, {
+		includeHidden: filter?.includeHidden ?? false,
+		includeArchived: false,
+	});
+	if (filter?.categoryId !== undefined) {
+		return activities.filter((a) => a.categoryId === filter.categoryId);
+	}
+	return activities;
 }
 
 export async function getActivityById(id: number, tenantId: string) {
-	return await findActivityById(id, tenantId);
+	const childId = await _resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	return getRepos().childActivity.findActivityById(id, childId, tenantId);
 }
 
 export async function createActivity(input: CreateActivityInput, tenantId: string) {
-	return await insertActivity(input, tenantId);
+	// signature 不変のため input に childId が無い。Phase 7b-2c で callsite 側に childId を
+	// 渡す signature 拡張が必要。本 phase は暫定 fallback として一番古い child (sortOrder
+	// 最小 = `findAllChildren` の先頭) に作成する。tenant に child が 0 件なら error。
+	const children = await findAllChildren(tenantId);
+	if (children.length === 0) {
+		throw new Error('createActivity: tenant に child が存在しないため作成不可');
+	}
+	const firstChild = children[0];
+	if (!firstChild) {
+		throw new Error('createActivity: tenant に child が存在しないため作成不可');
+	}
+	return getRepos().childActivity.insertActivity(
+		_toChildActivityInsertInput(input, firstChild.id),
+		tenantId,
+	);
 }
 
 export async function updateActivity(
 	id: number,
-	input: Partial<CreateActivityInput>,
+	input: Partial<CreateActivityInput> & { isMainQuest?: number },
 	tenantId: string,
 ) {
-	return await updateActivityRepo(id, input, tenantId);
+	const childId = await _resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	return getRepos().childActivity.updateActivity(
+		id,
+		childId,
+		_toChildActivityUpdateInput(input),
+		tenantId,
+	);
 }
 
 export async function setActivityVisibility(id: number, visible: boolean, tenantId: string) {
-	return await setActivityVisibilityRepo(id, visible, tenantId);
+	const childId = await _resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	return getRepos().childActivity.setActivityVisibility(id, childId, visible, tenantId);
 }
 
 async function _deleteActivity(id: number, tenantId: string) {
-	return await deleteActivityRepo(id, tenantId);
+	const childId = await _resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	return getRepos().childActivity.deleteActivity(id, childId, tenantId);
 }
 
 export async function hasActivityLogs(activityId: number, tenantId: string): Promise<boolean> {
@@ -80,7 +247,7 @@ export async function getActivityLogCounts(tenantId: string): Promise<Record<num
 
 export async function deleteActivityWithCleanup(id: number, tenantId: string) {
 	await deleteDailyMissionsByActivity(id, tenantId);
-	return await deleteActivityRepo(id, tenantId);
+	return await _deleteActivity(id, tenantId);
 }
 
 export const MAIN_QUEST_MAX = 3;
@@ -91,18 +258,35 @@ export async function setMainQuest(
 	tenantId: string,
 ): Promise<{ success: true } | { error: string }> {
 	if (enabled) {
-		const currentCount = await countMainQuestActivitiesRepo(tenantId);
+		const currentCount = await getMainQuestCount(tenantId);
 		if (currentCount >= MAIN_QUEST_MAX) {
 			return { error: `メインクエストは${MAIN_QUEST_MAX}つまで設定できます` };
 		}
 	}
-	const updated = await updateActivityRepo(id, { isMainQuest: enabled ? 1 : 0 }, tenantId);
+	const childId = await _resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return { error: '活動が見つかりません' };
+	const updated = await getRepos().childActivity.updateActivity(
+		id,
+		childId,
+		{ isMainQuest: enabled ? 1 : 0 },
+		tenantId,
+	);
 	if (!updated) return { error: '活動が見つかりません' };
 	return { success: true };
 }
 
 export async function getMainQuestCount(tenantId: string): Promise<number> {
-	return await countMainQuestActivitiesRepo(tenantId);
+	// childActivity.countMainQuestActivities は per-child しか取れないため
+	// 全 child を loop で集約する (signature 不変)。
+	// NOTE: tenant-wide MAIN_QUEST_MAX 制約の意味論は Phase 7b-1 / PO 判断 1 で「tenant-wide
+	// 合計上限」を維持と確定。プラン別制限は別 Issue #2457 で扱う。
+	const children = await findAllChildren(tenantId);
+	const repos = getRepos();
+	let total = 0;
+	for (const child of children) {
+		total += await repos.childActivity.countMainQuestActivities(child.id, tenantId);
+	}
+	return total;
 }
 
 // ============================================================
