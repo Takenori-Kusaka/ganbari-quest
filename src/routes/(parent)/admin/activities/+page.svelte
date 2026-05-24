@@ -232,7 +232,7 @@ let bulkName = $state('');
 let bulkCategoryId = $state(1);
 let bulkIcon = $state('📝');
 let bulkPoints = $state(5);
-let bulkTargets: 'all' | number[] = $state('all');
+let bulkTargets = $state<'all' | number[]>('all');
 
 async function handleBulkCreate(targets: 'all' | number[]) {
 	if (!bulkName.trim()) {
