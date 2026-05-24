@@ -30,7 +30,13 @@ export async function findActivitiesByChild(
 
 	if (!options?.includeArchived) {
 		// NULL 互換 (#962 教訓: NULL 既存行も active 扱い)
-		conditions.push(or(eq(childActivities.isArchived, 0), isNull(childActivities.isArchived)));
+		const archivedFilter = or(
+			eq(childActivities.isArchived, 0),
+			isNull(childActivities.isArchived),
+		);
+		if (archivedFilter) {
+			conditions.push(archivedFilter);
+		}
 	}
 
 	if (options?.visibleOnly) {
