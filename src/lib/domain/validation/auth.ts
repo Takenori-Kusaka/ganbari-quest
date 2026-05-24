@@ -5,7 +5,7 @@ import { MS_PER_DAY, MS_PER_MINUTE, SECONDS_PER_DAY } from '$lib/domain/constant
 export const IDENTITY_COOKIE_NAME = 'identity_token';
 export const CONTEXT_COOKIE_NAME = 'context_token';
 
-// --- 後方互換: PIN認証関連（#0134で段階的に削除予定） ---
+// --- PIN認証関連（ADR-0050 で能動利用中。詳細: docs/operations/pin-auth-legacy-migration-plan.md） ---
 export const PIN_MIN_LENGTH = 4;
 export const PIN_MAX_LENGTH = 6;
 export const MAX_FAILED_ATTEMPTS = 5;
