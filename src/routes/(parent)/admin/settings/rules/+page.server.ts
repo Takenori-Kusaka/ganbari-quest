@@ -148,6 +148,7 @@ export const actions: Actions = {
 		} catch (e) {
 			logger.error('[admin/settings/rules] importMarketplaceRulePreset 失敗', {
 				error: e instanceof Error ? e.message : String(e),
+				stack: e instanceof Error ? e.stack : undefined,
 				context: { presetId },
 			});
 			return fail(500, { error: 'インポートに失敗しました' });

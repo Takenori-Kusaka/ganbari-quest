@@ -11,7 +11,7 @@
 // 認証: AUTH_MODE=local の自動セットアップで /admin 配下に到達できる前提
 
 import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 async function cleanupRulePresetState(): Promise<void> {
 	const DB_PATH = path.resolve('data/ganbari-quest.db');
@@ -23,6 +23,48 @@ async function cleanupRulePresetState(): Promise<void> {
 	} finally {
 		db.close();
 	}
+}
+
+/**
+ * Ark UI Menu trigger を確実に開く helper (admin-activities-add-ux.spec.ts #2260 Fix-6 と同パターン)。
+ *
+ * 根本原因: Ark UI Menu の Trigger は client-side hydration 完了後に
+ * pointerdown / click listener を attach する。Playwright の `locator.click()` は
+ * `waitForLoadState('domcontentloaded')` 直後に発火可能だが、その時点では
+ * hydration が間に合っていない場合があり、初回 click は DOM event として通る
+ * (`data-state` は `"closed"` のまま) が menu は開かない。
+ *
+ * 対策: click が menu を実際に開くまで rAF 間隔で retry (max 30 ~0.5s)。
+ * ADR-0006 適合: assertion 強化 (`data-state="open"` を hard assert)、interaction の
+ * retry のみで安定化、skip / weakening ではない。
+ */
+async function openMenu(page: Page, triggerTestid: string): Promise<void> {
+	const trigger = page.getByTestId(triggerTestid);
+	await expect(trigger).toBeVisible();
+	// 2 段階の hydration wait: load + 2 rAF で Ark UI の listener attach を確実に待つ
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) => {
+				const waitRaf = () => requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+				if (document.readyState === 'complete') {
+					waitRaf();
+				} else {
+					window.addEventListener('load', waitRaf, { once: true });
+				}
+			}),
+	);
+	// Retry click until Ark UI Menu transitions to `data-state="open"`.
+	// Up to 60 attempts (~1s) — production hydration / network 揺らぎを吸収。
+	const MAX_ATTEMPTS = 60;
+	for (let i = 0; i < MAX_ATTEMPTS; i++) {
+		await trigger.click();
+		const state = await trigger.evaluate((el) => el.getAttribute('data-state'));
+		if (state === 'open') return;
+		await page.evaluate(
+			() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+		);
+	}
+	await expect(trigger).toHaveAttribute('data-state', 'open');
 }
 
 test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
@@ -50,9 +92,8 @@ test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
 		await page.goto('/admin/settings/rules', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('admin-rules-page')).toBeVisible();
 
-		const trigger = page.getByTestId('rules-overflow-menu');
-		await expect(trigger).toBeVisible();
-		await trigger.click();
+		// #2260 Fix-6 pattern: Ark UI Menu hydration race を rAF retry で吸収
+		await openMenu(page, 'rules-overflow-menu');
 
 		// 4 items 順序: marketplace / restore / export / help (PR-2 OVERFLOW_MENU_LABELS 整合)
 		await expect(page.getByTestId('overflow-menu-item-marketplace')).toBeVisible();
@@ -69,7 +110,8 @@ test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
 		await page.goto('/admin/settings/rules', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('admin-rules-page')).toBeVisible();
 
-		await page.getByTestId('rules-overflow-menu').click();
+		// #2260 Fix-6 pattern: Ark UI Menu hydration race を rAF retry で吸収
+		await openMenu(page, 'rules-overflow-menu');
 		await page.getByTestId('overflow-menu-item-help').click();
 
 		await expect(page.getByTestId('rules-help-dialog')).toBeVisible({ timeout: 10_000 });

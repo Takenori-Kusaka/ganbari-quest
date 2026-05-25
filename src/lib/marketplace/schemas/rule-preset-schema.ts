@@ -24,7 +24,9 @@ export const RulePresetItemSchema = v.object({
 		v.minLength(1, 'description は必須です'),
 		v.maxLength(500, 'description は 500 文字以内で指定してください'),
 	),
-	icon: v.pipe(v.string(), v.minLength(1, 'icon は必須です'), v.maxLength(10)),
+	// icon は単一の emoji を想定 (ZWJ 連結 emoji 例: 👨‍👩‍👧‍👦 = 11 UTF-16 code units)
+	// を許容するため maxLength=20 (ZWJ profession sequences は ~17 で安全圏)
+	icon: v.pipe(v.string(), v.minLength(1, 'icon は必須です'), v.maxLength(20)),
 	pointCost: v.optional(
 		v.pipe(
 			v.number(),

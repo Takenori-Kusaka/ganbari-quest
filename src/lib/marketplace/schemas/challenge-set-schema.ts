@@ -61,10 +61,12 @@ export const ChallengeSetItemSchema = v.object({
 		v.minValue(0, 'rewardPoints は 0 以上で指定してください'),
 		v.maxValue(10000, 'rewardPoints は 10000 以下で指定してください'),
 	),
+	// icon は単一の emoji を想定 (ZWJ 連結 emoji 例: 👨‍👩‍👧‍👦 = 11 UTF-16 code units)
+	// を許容するため maxLength=20 (ZWJ profession sequences は ~17 で安全圏)
 	icon: v.pipe(
 		v.string('icon は文字列で指定してください'),
 		v.minLength(1, 'icon は必須です'),
-		v.maxLength(10, 'icon は 10 文字以内で指定してください'),
+		v.maxLength(20, 'icon は 20 文字以内で指定してください'),
 	),
 });
 

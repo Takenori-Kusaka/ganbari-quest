@@ -1,4 +1,5 @@
 <script lang="ts">
+import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll, replaceState } from '$app/navigation';
 import { page } from '$app/state';
@@ -70,10 +71,19 @@ type ImportFormResult = {
 	presetId?: string;
 };
 
+// 同一 form result の二重発火防止 — invalidateAll 後の re-render / 別 form action 後にも
+// effect 再実行されるため、最後に処理した import result のシリアライズを記録して比較する。
+let lastProcessedImportFingerprint = $state<string | null>(null);
+
 $effect(() => {
 	if (!form) return;
 	const r = form as ImportFormResult;
 	if (r.presetId && typeof r.imported === 'number') {
+		// fingerprint: presetId + imported + skipped で同一 import result の識別。
+		// 同じ result の effect 再実行では toast を出さない。
+		const fp = `${r.presetId}|${r.imported}|${r.skipped ?? 0}|${r.total ?? 0}`;
+		if (fp === lastProcessedImportFingerprint) return;
+		lastProcessedImportFingerprint = fp;
 		const display = r.packName ?? r.presetId;
 		if (r.imported > 0) {
 			showToast(ADMIN_RULES_PAGE_LABELS.importToastSuccess(display), undefined, 'success');
@@ -86,12 +96,21 @@ $effect(() => {
 	}
 });
 
-function cleanupImportQueryParam() {
+async function cleanupImportQueryParam() {
 	if (typeof window === 'undefined') return;
 	const u = new URL(page.url);
-	if (u.searchParams.has('import')) {
-		u.searchParams.delete('import');
-		replaceState(u, page.state);
+	if (!u.searchParams.has('import')) return;
+	u.searchParams.delete('import');
+	// $effect は mount 直後に fire するため初回は router 未初期化で
+	// `replaceState` from $app/navigation が throw する。tick() で 1 回 microtask を
+	// 待つと router init が完了するため安全に呼べる (PR #2478 review feedback)。
+	await tick();
+	try {
+		replaceState(u, page.state ?? {});
+	} catch {
+		// fallback: tick 後でも router が未初期化な極端なケースのみ
+		// window.history.replaceState (SvelteKit warning 出るが URL bar 更新のみで navigation 無し)
+		window.history.replaceState(window.history.state, '', u.toString());
 	}
 }
 
