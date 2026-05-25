@@ -86,6 +86,18 @@ child_activities
 
 `activity_logs` は既存 `activity_id` を `child_activity_id` にリネーム (FK 変更)。
 
+**service 層 API 使い分け (#2471、PR #2455 Round 6 follow-up)**:
+
+| 経路 | 呼ぶ API | 用途 |
+|---|---|---|
+| 子供 home (`/(child)/[uiMode]/home/+page.server.ts`) | `getChildActivities(child.id, tenantId, filter?)` | 現在の child の per-child instance のみ取得 |
+| setup フロー (`/setup/first-adventure/+page.server.ts`) | `getChildActivities(firstChild.id, tenantId)` | 「はじめての活動」体験の初期 child のみ |
+| admin 集約 (`/admin/+page.server.ts`, `/admin/activities`, `/admin/license`, `/admin/packs`) | `getActivities(tenantId, filter?)` | tenant 全 child を aggregate (admin tab で per-child filter) |
+| API 集約 (`/api/v1/activities/*`) | `getActivities(tenantId, filter?)` | tenant 集計 / export (認可は別経路) |
+| onboarding 完了率判定 (`onboarding-service.ts`) | `getActivities(tenantId)` | 「活動が 1 件でも存在するか」総数判定のみ (aggregate 適切) |
+
+**禁忌**: child context が確定している経路 (child home / setup の child binding 後) では必ず `getChildActivities` を使う。`getActivities` (tenant aggregate) を child 経路で使うと 5 children 環境で同名 activity が 5 倍に重複 render される UX 退行が再発する (#2471 教訓)。
+
 ### 4.2 checklist (PR-5 Phase 1 完了 / Phase 2 UX 化進行中)
 
 **実装状況** (2026-05-25 PR-5 Phase 1):
