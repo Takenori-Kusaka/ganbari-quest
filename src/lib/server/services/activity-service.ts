@@ -186,6 +186,42 @@ export async function getActivities(tenantId: string, filter?: ActivityFilter) {
 	return activities;
 }
 
+/**
+ * #2471: 指定 child 1 人分の activity 一覧を取得する per-child API。
+ *
+ * 子供 home (`/(child)/[uiMode]/home`) / setup/first-adventure 等、
+ * 現在の child context が確定している経路から呼ぶ。
+ *
+ * `getActivities(tenantId)` は tenant 全 child を集約する aggregate API のため、
+ * 子供 home から呼ぶと 4 children なら最大 4 倍に同名 activity が重複 render される
+ * UX 退行 bug が発生した (#2471、PR #2455 Round 6 で発覚)。
+ *
+ * ADR-0055 §3.1「childId 必須引数化で cross-child cross access を構造的に防ぐ」整合。
+ * 内部実装は `IChildActivityRepo.findActivitiesByChild(childId, tenantId, options)` 直呼び。
+ *
+ * @param childId 対象 child id (cross-child access 防止)
+ * @param tenantId tenant id (multi-tenant isolation)
+ * @param filter `includeHidden` (default false = visibleOnly=true) /
+ *               `categoryId` (post-filter) は `getActivities` 同様にサポート。
+ *               `childAge` は per-child instance では不要 (instance 化時点で適齢)、
+ *               signature 互換のため受け取るが filter 適用はしない。
+ */
+export async function getChildActivities(
+	childId: number,
+	tenantId: string,
+	filter?: ActivityFilter,
+): Promise<ChildActivity[]> {
+	const repos = getRepos();
+	const activities = await repos.childActivity.findActivitiesByChild(childId, tenantId, {
+		visibleOnly: !(filter?.includeHidden ?? false),
+		includeArchived: false,
+	});
+	if (filter?.categoryId !== undefined) {
+		return activities.filter((a) => a.categoryId === filter.categoryId);
+	}
+	return activities;
+}
+
 export async function getActivityById(id: number, tenantId: string) {
 	const childId = await _resolveChildIdForActivity(id, tenantId);
 	if (childId === undefined) return undefined;

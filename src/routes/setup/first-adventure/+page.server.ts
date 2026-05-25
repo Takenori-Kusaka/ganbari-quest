@@ -4,7 +4,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { recordActivity } from '$lib/server/services/activity-log-service';
-import { getActivities } from '$lib/server/services/activity-service';
+import { getChildActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -23,7 +23,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// redirect 済みなので children[0] は確実に存在
 	const firstChild = children[0];
 	if (!firstChild) redirect(302, '/setup/children');
-	const activities = await getActivities(tenantId);
+	// #2471: per-child API に絞り込み (firstChild を持っているのに tenant 全 child の
+	// activity を aggregate して filter していた点を是正)
+	const activities = await getChildActivities(firstChild.id, tenantId);
 
 	// 子供の年齢に合う活動を3〜5件選ぶ
 	// #2362 PR-3 Phase 7b-2c: ChildActivity は per-child instance のため、その子供向けに

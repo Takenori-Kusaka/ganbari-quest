@@ -38,6 +38,7 @@ import {
 	getActivities,
 	getActivityById,
 	getActivityLogCounts,
+	getChildActivities,
 	hasActivityLogs,
 	setActivityVisibility,
 	updateActivity,
@@ -160,6 +161,60 @@ describe('activity-service', () => {
 		const result5 = await getActivities('test-tenant', { childAge: 5 });
 		expect(result5.find((a) => a.name === 'すいみんぐ')).toBeDefined();
 		expect(result.length).toBe(result5.length);
+	});
+
+	// UT-ACT-11 (#2471): getChildActivities — per-child 絞り込み (兄弟がいても 1 child 分のみ)
+	it('UT-ACT-11 (#2471): getChildActivities は指定 child の activity のみ返す', async () => {
+		// seedBase で child id=1 + 6 activities seed 済。子供 2 (id=2) を追加し独自 activities を seed
+		testDb.insert(schema.children).values({ nickname: 'いもうと', age: 6, theme: 'blue' }).run();
+		seedChildActivities(testDb, 2, [
+			{ name: 'いもうと専用活動A', categoryId: 1, icon: '🎯', basePoints: 5, sortOrder: 1 },
+			{ name: 'いもうと専用活動B', categoryId: 2, icon: '✨', basePoints: 5, sortOrder: 2 },
+		]);
+
+		// 兄 (id=1) の home から取得すると 5 件 (visible のみ、いもうと活動は含まれない)
+		const elderResult = await getChildActivities(1, 'test-tenant');
+		expect(elderResult.length).toBe(5);
+		expect(elderResult.every((a) => a.childId === 1)).toBe(true);
+		expect(elderResult.find((a) => a.name.startsWith('いもうと専用'))).toBeUndefined();
+
+		// 妹 (id=2) の home から取得すると 2 件 (いもうと活動のみ)
+		const youngerResult = await getChildActivities(2, 'test-tenant');
+		expect(youngerResult.length).toBe(2);
+		expect(youngerResult.every((a) => a.childId === 2)).toBe(true);
+		expect(youngerResult.find((a) => a.name === '兄専用')).toBeUndefined();
+
+		// 既存 getActivities (tenant 全集約) は兄妹両方を返す = 7 件 (5 + 2)
+		const aggregate = await getActivities('test-tenant');
+		expect(aggregate.length).toBe(7);
+	});
+
+	// UT-ACT-12 (#2471): includeHidden / categoryId filter は per-child でも有効
+	it('UT-ACT-12 (#2471): getChildActivities の includeHidden / categoryId filter', async () => {
+		const visible = await getChildActivities(1, 'test-tenant');
+		expect(visible.length).toBe(5);
+		expect(visible.every((a) => a.isVisible === 1)).toBe(true);
+
+		const includeHidden = await getChildActivities(1, 'test-tenant', { includeHidden: true });
+		expect(includeHidden.length).toBe(6);
+		expect(includeHidden.some((a) => a.isVisible === 0)).toBe(true);
+
+		const cat1 = await getChildActivities(1, 'test-tenant', { categoryId: 1 });
+		// うんどう (cat=1) は seed で 3 件 (たいそう / おそと / すいみんぐ)、visible only
+		expect(cat1.length).toBe(3);
+		expect(cat1.every((a) => a.categoryId === 1)).toBe(true);
+	});
+
+	// UT-ACT-13 (#2471): 存在しない childId は空配列 (cross-child access の defense in depth)
+	it('UT-ACT-13 (#2471): getChildActivities は存在しない childId に対し空配列を返す', async () => {
+		// child id=999 は tenant に存在しないため activity 0 件
+		// (NOTE: ADR-0055 §3.1 「tenant isolation」の SQLite 層実装は別 Issue で扱う。
+		//  現状 findActivitiesByChild は tenantId 引数を受け取るが SQLite 層では未使用、
+		//  child_activities table 自体に tenant_id 列がないため child.tenant_id 経由の
+		//  間接 isolation のみ。本 Issue #2471 scope は重複 render fix のため tenant 層
+		//  isolation 強化は follow-up Issue にて対応)
+		const nonexistent = await getChildActivities(999, 'test-tenant');
+		expect(nonexistent.length).toBe(0);
 	});
 
 	it('getActivityById: 存在する活動を返す', async () => {

@@ -12,7 +12,10 @@ import {
 	sortActivitiesWithPreferences,
 	toggleActivityPin,
 } from '$lib/server/services/activity-pin-service';
-import { getActivities, tryGrantMustCompletionBonus } from '$lib/server/services/activity-service';
+import {
+	getChildActivities,
+	tryGrantMustCompletionBonus,
+} from '$lib/server/services/activity-service';
 import { trackActivationFirstRewardSeen } from '$lib/server/services/analytics-service';
 import {
 	claimBirthdayBonus,
@@ -127,7 +130,9 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		familyStreakData,
 		specialRewardProgress,
 	] = await Promise.all([
-		getActivities(tenantId, { childAge: child.age }),
+		// #2471: per-child API に絞り込み (旧 getActivities(tenantId) は tenant 全 child を
+		// aggregate して同名 activity が child 数分重複 render される bug の根本原因)
+		getChildActivities(child.id, tenantId, { childAge: child.age }),
 		getTodayRecordedActivityCounts(child.id, tenantId),
 		getLoginBonusStatus(child.id, tenantId),
 		getUnshownReward(child.id, tenantId),
