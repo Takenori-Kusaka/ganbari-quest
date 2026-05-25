@@ -124,9 +124,10 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 		});
 
 		it('importChecklist action の未ログイン redirect は /auth/login', () => {
-			// `redirect(302, \`/auth/login?next=/marketplace/checklist/${params.itemId}\`)`
+			// #2362 PR-5 Phase 2 (ADR-0055): CWE-598 整合で reward-set 同型に rewrite。
+			// `redirect(303, \`/auth/login?redirect=/marketplace/checklist/${params.itemId}\`)`
 			expect(content).toMatch(
-				/redirect\(\d+,\s*`\/auth\/login\?next=\/marketplace\/checklist\/\$\{params\.itemId\}`\)/,
+				/redirect\(\d+,\s*`\/auth\/login\?redirect=\/marketplace\/checklist\/\$\{params\.itemId\}`\)/,
 			);
 		});
 

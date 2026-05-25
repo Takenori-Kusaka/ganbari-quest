@@ -1,7 +1,12 @@
 <script lang="ts">
-import { enhance } from '$app/forms';
+import { deserialize, enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
-import { ADMIN_CHECKLISTS_PAGE_LABELS, APP_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import {
+	ADMIN_CHECKLISTS_PAGE_LABELS,
+	APP_LABELS,
+	OVERFLOW_MENU_LABELS,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 // #2391 (Phase 2): 独自 marketplace UI を UnifiedImportHub に統一
@@ -9,9 +14,16 @@ import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import ChildSelectionDialog, {
+	type ChildOption,
+} from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
+import OverflowMenu, { type OverflowMenuItem } from '$lib/ui/primitives/OverflowMenu.svelte';
+import VisibilityChipGroup, {
+	type VisibilityChild,
+} from '$lib/ui/primitives/VisibilityChipGroup.svelte';
 
 let { data, form } = $props();
 
@@ -26,14 +38,15 @@ $effect(() => {
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
-// #1755 (#1709-A): kind 削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
-//   タブ選択 / kind フィルタ削除、全テンプレート一覧表示。
-const filteredTemplates = $derived(selectedChild?.templates ?? []);
+// #2362 PR-5 Phase 2 (ADR-0055): family scope の templates 一覧 (childId 軸ではなく family 軸)
+//   旧 per-child templates 表示は廃止し、family templates を表示する。
+//   override 操作のみ child 軸が残るため selectedChild を維持。
+const filteredTemplates = $derived(data.familyTemplates);
 
-// #723: Free プランのテンプレート上限（UI ゲート用）
+// #723: Free プランのテンプレート上限（UI ゲート用、family scope での件数）
 // null = 無制限（Standard/Family）
 const checklistMax = $derived(data.checklistTemplateMax);
-const currentCount = $derived(selectedChild?.templates.length ?? 0);
+const currentCount = $derived(data.familyTemplates.length);
 const atLimit = $derived(checklistMax !== null && currentCount >= checklistMax);
 
 // Add item dialog
@@ -158,24 +171,292 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 // #2391 (Phase 2): marketplace import 完了メッセージ
 let marketplaceImportMessage = $state('');
 
-// #2391 (Phase 2): 取込済 presetId 集合 (sourcePresetId から)
+// #2391 (Phase 2): 取込済 presetId 集合 (sourcePresetId から、family scope で確認)
 const importedPresetIds = $derived(
 	new Set(
-		(selectedChild?.templates ?? [])
-			.map((t) => t.sourcePresetId)
-			.filter((id): id is string => Boolean(id)),
+		data.familyTemplates.map((t) => t.sourcePresetId).filter((id): id is string => Boolean(id)),
 	),
 );
+
+// ============================================================
+// #2362 PR-5 Phase 2 (ADR-0055): family checklist + 配信先選択 UX
+// ============================================================
+
+// ChildSelectionDialog (auto-open `?import=<presetId>` 経由)
+let showChildSelectionDialog = $state(false);
+let pendingImportPresetId = $state<string | null>(null);
+let actionMessage = $state('');
+
+// ChecklistDistributionDialog (template 別の配信先 children 設定)
+let showDistributionDialog = $state(false);
+let distributionTemplateId = $state<number | null>(null);
+let distributionVisibility = $state<Record<number, boolean>>({});
+
+// 「ヘルプ」「復元」「エクスポート」未実装 dialog
+let helpDialogOpen = $state(false);
+let restoreDialogOpen = $state(false);
+let exportDialogOpen = $state(false);
+
+// childOptions for ChildSelectionDialog (PR-2 primitive)
+const childSelectionOptions = $derived<ChildOption[]>(
+	data.children.map((c) => ({
+		id: c.id,
+		nickname: c.nickname,
+		age: c.age,
+		icon: undefined,
+	})),
+);
+
+// visibility chip 用 children
+const visibilityChildren = $derived<VisibilityChild[]>(
+	data.children.map((c) => ({
+		id: c.id,
+		nickname: c.nickname,
+		age: c.age,
+		icon: undefined,
+	})),
+);
+
+// `?import=<presetId>` で ChildSelectionDialog auto-open
+$effect(() => {
+	if (data.importPresetId && !showChildSelectionDialog && pendingImportPresetId === null) {
+		pendingImportPresetId = data.importPresetId;
+		showChildSelectionDialog = true;
+	}
+});
+
+// invalid preset の guidance
+$effect(() => {
+	if (data.importPresetInvalid) {
+		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importInvalidPreset;
+	}
+});
+
+// OverflowMenu items
+const overflowItems = $derived<OverflowMenuItem[]>([
+	{
+		type: 'action',
+		id: OVERFLOW_MENU_LABELS.items.marketplace.id,
+		label: OVERFLOW_MENU_LABELS.items.marketplace.label,
+		icon: OVERFLOW_MENU_LABELS.items.marketplace.icon,
+		onSelect: () => {
+			window.location.href = '/marketplace?type=checklist';
+		},
+	},
+	{ type: 'divider', id: 'divider-1' },
+	{
+		type: 'action',
+		id: OVERFLOW_MENU_LABELS.items.restore.id,
+		label: OVERFLOW_MENU_LABELS.items.restore.label,
+		icon: OVERFLOW_MENU_LABELS.items.restore.icon,
+		onSelect: () => {
+			restoreDialogOpen = true;
+		},
+	},
+	{
+		type: 'action',
+		id: OVERFLOW_MENU_LABELS.items.export.id,
+		label: OVERFLOW_MENU_LABELS.items.export.label,
+		icon: OVERFLOW_MENU_LABELS.items.export.icon,
+		onSelect: () => {
+			exportDialogOpen = true;
+		},
+	},
+	{ type: 'divider', id: 'divider-2' },
+	{
+		type: 'action',
+		id: OVERFLOW_MENU_LABELS.items.help.id,
+		label: OVERFLOW_MENU_LABELS.items.help.label,
+		icon: OVERFLOW_MENU_LABELS.items.help.icon,
+		onSelect: () => {
+			helpDialogOpen = true;
+		},
+	},
+]);
+
+// ChildSelectionDialog confirm: family preset 取込 + 配信先 children 設定
+//
+// PR-4 reward (#2474 must-2): SvelteKit form action を fetch で直接呼ぶ場合、
+// `x-sveltekit-action: true` + `accept: application/json` header が無いと 303 redirect
+// が返り JSON parse 失敗する。公式 enhance と同じ header を付与 + `deserialize()` で
+// 正しい ActionResult を取得する。
+async function handleChildSelectionConfirm(result: 'all' | number[]) {
+	if (!pendingImportPresetId) {
+		showChildSelectionDialog = false;
+		return;
+	}
+	const childIdsValue = result === 'all' ? 'all' : result.join(',');
+	const formData = new FormData();
+	formData.append('presetId', pendingImportPresetId);
+	formData.append('childIds', childIdsValue);
+
+	try {
+		const resp = await fetch('?/importPresetToChildren', {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true',
+			},
+			body: formData,
+		});
+		const actionResult = deserialize(await resp.text()) as
+			| {
+					type: 'success';
+					data?: {
+						imported?: number;
+						skipped?: number;
+						total?: number;
+						distributedCount?: number;
+						packName?: string;
+					};
+			  }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+
+		if (actionResult.type === 'success') {
+			const packName = actionResult.data?.packName ?? '';
+			const distributedCount = Number(actionResult.data?.distributedCount ?? 0);
+			const imp = Number(actionResult.data?.imported ?? 0);
+			actionMessage =
+				imp === 0
+					? ADMIN_CHECKLISTS_PAGE_LABELS.importToastDuplicate(packName)
+					: ADMIN_CHECKLISTS_PAGE_LABELS.importToastSuccess(packName, distributedCount);
+		} else if (actionResult.type === 'failure') {
+			actionMessage =
+				actionResult.data?.error ??
+				ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId);
+		} else {
+			actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId);
+		}
+	} catch {
+		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId);
+	}
+
+	pendingImportPresetId = null;
+	showChildSelectionDialog = false;
+	await invalidateAll();
+
+	// URL から ?import=<presetId> を取り除く
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.delete('import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
+
+function handleChildSelectionCancel() {
+	pendingImportPresetId = null;
+	showChildSelectionDialog = false;
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.delete('import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
+
+// ChecklistDistributionDialog open: 既存配信先で visibility を初期化
+function openDistributionDialog(template: { id: number; assignedChildIds: readonly number[] }) {
+	distributionTemplateId = template.id;
+	const assignedSet = new Set(template.assignedChildIds);
+	const initial: Record<number, boolean> = {};
+	for (const c of data.children) {
+		initial[c.id] = assignedSet.has(c.id);
+	}
+	distributionVisibility = initial;
+	showDistributionDialog = true;
+}
+
+function closeDistributionDialog() {
+	showDistributionDialog = false;
+	distributionTemplateId = null;
+}
+
+function toggleVisibility(childId: number, visible: boolean) {
+	distributionVisibility = { ...distributionVisibility, [childId]: visible };
+}
+
+async function saveDistribution() {
+	if (distributionTemplateId === null) return;
+	const desiredChildIds = data.children
+		.filter((c) => distributionVisibility[c.id] === true)
+		.map((c) => c.id);
+	const formData = new FormData();
+	formData.append('templateId', String(distributionTemplateId));
+	formData.append('childIds', desiredChildIds.length === 0 ? '' : desiredChildIds.join(','));
+
+	try {
+		const resp = await fetch('?/syncDistribution', {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true',
+			},
+			body: formData,
+		});
+		const actionResult = deserialize(await resp.text()) as
+			| { type: 'success'; data?: { added?: number; removed?: number } }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+
+		if (actionResult.type === 'success') {
+			const added = Number(actionResult.data?.added ?? 0);
+			const removed = Number(actionResult.data?.removed ?? 0);
+			actionMessage =
+				added === 0 && removed === 0
+					? ADMIN_CHECKLISTS_PAGE_LABELS.distributionNoChange
+					: ADMIN_CHECKLISTS_PAGE_LABELS.distributionUpdated(added, removed);
+		} else if (actionResult.type === 'failure') {
+			actionMessage = actionResult.data?.error ?? '配信先の保存に失敗しました';
+		}
+	} catch {
+		actionMessage = '配信先の保存に失敗しました';
+	}
+
+	closeDistributionDialog();
+	await invalidateAll();
+}
+
+function getChildName(childId: number): string {
+	return data.children.find((c) => c.id === childId)?.nickname ?? `#${childId}`;
+}
 </script>
 
 <svelte:head>
 	<title>{PAGE_TITLES.checklists}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-4">
-	<!-- Child selector -->
+<div class="space-y-4" data-testid="admin-checklists-page">
+	<!-- #2362 PR-5 Phase 2: page header + OverflowMenu (top-right ⋮) -->
+	<header class="flex items-start justify-between gap-2">
+		<div class="space-y-1 flex-1 min-w-0">
+			<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
+				{ADMIN_CHECKLISTS_PAGE_LABELS.pageTitle}
+			</h1>
+			<p class="text-sm text-[var(--color-text-secondary)]">
+				{ADMIN_CHECKLISTS_PAGE_LABELS.familyChecklistsSectionDesc}
+			</p>
+		</div>
+		<OverflowMenu
+			items={overflowItems}
+			ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.overflowMenuAriaLabel}
+			testid="checklists-overflow-menu"
+		/>
+	</header>
+
+	{#if actionMessage}
+		<div
+			class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm"
+			data-testid="checklists-action-message"
+		>
+			{actionMessage}
+		</div>
+	{/if}
+
+	<!-- Child selector (override 操作用に残す) -->
 	{#if data.children.length > 1}
-		<div class="flex gap-2">
+		<div class="flex gap-2" data-testid="checklists-child-tabs">
 			{#each data.children as child (child.id)}
 				<Button
 					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
@@ -366,6 +647,53 @@ const importedPresetIds = $derived(
 					>
 						{ADMIN_CHECKLISTS_PAGE_LABELS.addItemButton}
 					</Button>
+				</div>
+
+				<!-- #2362 PR-5 Phase 2: 配信先 + per-child progress section -->
+				<div
+					class="px-4 py-3 border-t border-[var(--color-surface-muted)] bg-[var(--color-surface-muted)]"
+					data-testid="checklist-distribution-section-{template.id}"
+				>
+					<div class="flex items-center justify-between mb-2">
+						<h3 class="text-xs font-bold text-[var(--color-text-secondary)]">
+							{ADMIN_CHECKLISTS_PAGE_LABELS.distributionSectionTitle}
+						</h3>
+						<Button
+							variant="ghost"
+							size="sm"
+							class="text-xs text-[var(--color-action-primary)] hover:bg-[var(--color-feedback-info-bg)]"
+							onclick={() => openDistributionDialog(template)}
+							data-testid="checklist-configure-distribution-{template.id}"
+						>
+							{ADMIN_CHECKLISTS_PAGE_LABELS.distributionConfigureButton}
+						</Button>
+					</div>
+					{#if template.assignedChildIds.length === 0}
+						<p class="text-xs text-[var(--color-text-tertiary)]">
+							{ADMIN_CHECKLISTS_PAGE_LABELS.distributionEmpty}
+						</p>
+					{:else}
+						<ul class="space-y-1" data-testid="checklist-per-child-progress-{template.id}">
+							{#each template.perChildProgress as p (p.childId)}
+								<li
+									class="flex items-center justify-between text-xs px-2 py-1 rounded bg-white"
+									data-testid="checklist-progress-{template.id}-{p.childId}"
+								>
+									<span class="text-[var(--color-text-primary)]">
+										{getChildName(p.childId)}
+									</span>
+									<span
+										class="text-[var(--color-text-secondary)] {p.completedAll
+											? 'text-[var(--color-feedback-success-text)] font-bold'
+											: ''}"
+									>
+										{p.checkedCount} / {p.totalCount}
+										{#if p.completedAll}✅{/if}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</div>
 				{/snippet}
 			</Card>
@@ -617,4 +945,61 @@ const importedPresetIds = $derived(
 			{ADMIN_CHECKLISTS_PAGE_LABELS.addButton}
 		</Button>
 	</form>
+</Dialog>
+
+<!-- #2362 PR-5 Phase 2: ChildSelectionDialog (auto-open via `?import=<presetId>`) -->
+<ChildSelectionDialog
+	children={childSelectionOptions}
+	bind:open={showChildSelectionDialog}
+	allowMultiple={true}
+	onConfirm={handleChildSelectionConfirm}
+	onCancel={handleChildSelectionCancel}
+	testid="checklist-import-child-selection-dialog"
+/>
+
+<!-- #2362 PR-5 Phase 2: ChecklistDistributionDialog (per-template 配信先設定) -->
+<Dialog
+	bind:open={showDistributionDialog}
+	closable={true}
+	title={ADMIN_CHECKLISTS_PAGE_LABELS.distributionDialogTitle}
+	testid="checklist-distribution-dialog"
+>
+	<div class="space-y-3">
+		<p class="text-sm text-[var(--color-text-secondary)]">
+			{ADMIN_CHECKLISTS_PAGE_LABELS.distributionDialogDesc}
+		</p>
+		<VisibilityChipGroup
+			children={visibilityChildren}
+			visibility={distributionVisibility}
+			onToggle={toggleVisibility}
+			testid="checklist-distribution-visibility"
+		/>
+		<div class="flex justify-end gap-2 pt-2 border-t border-[var(--color-border-light)]">
+			<Button variant="ghost" onclick={closeDistributionDialog}>キャンセル</Button>
+			<Button
+				variant="primary"
+				onclick={saveDistribution}
+				data-testid="checklist-distribution-save"
+			>
+				{ADMIN_CHECKLISTS_PAGE_LABELS.distributionSaveButton}
+			</Button>
+		</div>
+	</div>
+</Dialog>
+
+<!-- #2362 PR-5 Phase 2: OverflowMenu の未実装機能告知 + Help dialog 群 -->
+<Dialog bind:open={helpDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.helpDialogTitle}>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{ADMIN_CHECKLISTS_PAGE_LABELS.helpDialogDesc}
+	</p>
+</Dialog>
+<Dialog bind:open={restoreDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.restoreNotImplementedTitle}>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{ADMIN_CHECKLISTS_PAGE_LABELS.restoreNotImplementedDesc}
+	</p>
+</Dialog>
+<Dialog bind:open={exportDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.exportNotImplementedTitle}>
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{ADMIN_CHECKLISTS_PAGE_LABELS.exportNotImplementedDesc}
+	</p>
 </Dialog>

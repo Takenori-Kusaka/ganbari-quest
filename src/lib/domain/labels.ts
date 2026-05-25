@@ -4507,6 +4507,44 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	marketplaceImportDuplicate: (presetName: string) =>
 		`⚠️ 「${presetName}」は既に取込済みのためスキップしました`,
 	marketplaceSeeMore: 'すべてのチェックリストを見る →',
+	// #2362 PR-5 Phase 2: family master UX (ChecklistDistributionDialog / OverflowMenu / per-child progress)
+	pageTitle: '持ち物チェックリスト管理',
+	familyChecklistsSectionTitle: '家族の持ち物リスト',
+	familyChecklistsSectionDesc:
+		'1 つのリストを家族全員のお子さまに配信できます。お子さまごとの進捗は配信後に表示されます。',
+	emptyFamilyMessage: '家族の持ち物リストがまだありません',
+	emptyFamilyDesc: `みんなのテンプレートから取込むか、「${OVERFLOW_MENU_TERMS.itemMarketplace}」メニューから追加できます`,
+	browseMarketplaceLink: `🏪 ${TEMPLATE_TERMS.browse} →`,
+	distributionSectionTitle: '配信先のお子さま',
+	distributionEmpty: '誰にも配信されていません',
+	distributionConfigureButton: '配信先を設定',
+	distributionDialogTitle: '配信先のお子さまを選ぶ',
+	distributionDialogDesc: 'チェックを入れたお子さまの画面に、この持ち物リストが表示されます。',
+	distributionSaveButton: '配信先を保存',
+	distributionUpdated: (added: number, removed: number) =>
+		`配信先を更新しました（追加 ${added} 件 / 解除 ${removed} 件）`,
+	distributionNoChange: '配信先に変更はありませんでした',
+	perChildProgressTitle: 'お子さまごとの今日の進捗',
+	perChildProgressEmpty: '配信中のお子さまがいないため進捗は表示されません',
+	perChildProgressDone: (childName: string, total: number) =>
+		`${childName}: 今日のぶん ${total}/${total} 完了`,
+	perChildProgressPartial: (childName: string, done: number, total: number) =>
+		`${childName}: ${done}/${total}`,
+	overflowMenuAriaLabel: '持ち物チェックリスト管理メニュー',
+	helpDialogTitle: '持ち物チェックリスト ヘルプ',
+	helpDialogDesc: `家族で 1 つのリストを作成し、配信先のお子さまを選ぶことで、同じリストを複数の${CHILD_TERMS.honorific}で共有できます。${CHILD_TERMS.honorific}ごとに今日の進捗が記録されます。`,
+	restoreNotImplementedTitle: 'バックアップから復元',
+	restoreNotImplementedDesc: '本機能は今後のアップデートで対応予定です。',
+	exportNotImplementedTitle: 'エクスポート',
+	exportNotImplementedDesc: '取込済リストのエクスポートは今後のアップデートで対応予定です。',
+	importToastSuccess: (presetName: string, distributedCount: number) =>
+		`「${presetName}」を取込み、${distributedCount}名のお子さまに配信しました`,
+	importToastDuplicate: (presetName: string) =>
+		`「${presetName}」は既に取込済みです（配信先のみ更新できます）`,
+	importToastError: (presetName: string) =>
+		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
+	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
+	importInvalidPreset: '指定されたプリセットが見つかりませんでした',
 } as const;
 
 // ============================================================
