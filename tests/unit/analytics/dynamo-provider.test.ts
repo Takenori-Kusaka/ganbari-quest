@@ -13,8 +13,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.setConfig({ testTimeout: 30_000 });
-
 vi.mock('$lib/server/logger', () => ({
 	logger: {
 		debug: vi.fn(),

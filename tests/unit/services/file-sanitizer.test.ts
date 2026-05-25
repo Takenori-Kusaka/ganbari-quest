@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-// フルスイート並列実行時の sharp dynamic import タイムアウト対策
-vi.setConfig({ testTimeout: 30_000 });
-
 import {
 	safeContentType,
 	sanitizeAudio,
