@@ -247,7 +247,7 @@ function handleChildSelectionCancel() {
 // #2362 PR-4: 「他の子供から copy」action
 async function handleCopyFromChild() {
 	if (!copySourceChildId || !selectedChildId || copySourceChildId === selectedChildId) {
-		actionMessage = '違うお子さまを選んでください';
+		actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySameChild;
 		return;
 	}
 	const formData = new FormData();
@@ -649,7 +649,7 @@ async function handleCopyFromChild() {
 		text-decoration: underline;
 	}
 
-	/* #2362 PR-4: 子供タブ */
+	/* #2362 PR-4: child tab row + actions */
 	.child-tab-row {
 		display: flex;
 		gap: 0.375rem;
