@@ -15,7 +15,7 @@
 
 import { getMarketplaceItem } from '$lib/data/marketplace';
 import type { ChecklistPayload, MarketplaceItem } from '$lib/domain/marketplace-item';
-import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
+import { findTemplatesByTenant } from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
 import { addTemplateItem, createTemplate } from '$lib/server/services/checklist-service';
 
@@ -70,8 +70,12 @@ export async function previewChecklistImport(
 	}
 	const payload = item.payload as ChecklistPayload;
 
-	// #1254 G1 sourcePresetId による既存判定（重複検出）
-	const existingTemplates = await findTemplatesByChild(childId, tenantId, true);
+	// #2362 PR-5: family master 化後は preset の重複は **tenant scope** で判定する
+	// (childId が異なっても同 preset の family checklist が既に存在すれば重複扱い)。
+	// Phase 1 では legacy 互換 hint として childId を受け取るが、判定は family scope。
+	// Phase 2 admin UX で childId 引数自体を撤去予定。
+	void childId;
+	const existingTemplates = await findTemplatesByTenant(tenantId, true);
 	const existing = existingTemplates.find((t) => t.sourcePresetId === presetId);
 
 	return {
@@ -132,28 +136,61 @@ export async function importChecklistTemplate(
 	tenantId: string,
 	options?: ImportChecklistTemplateOptions,
 ): Promise<ChecklistImportResult> {
+	return importChecklistTemplateInternal(presetId, tenantId, {
+		childIds: [childId],
+		timeSlot: options?.timeSlot,
+	});
+}
+
+/**
+ * #2362 PR-5: family master 化に対応した新 import API。
+ *   - Phase 2 admin UX で ChecklistDistributionDialog 経由で複数 child 配信時に使う想定
+ *   - Phase 1 では `importChecklistTemplate` (single child binding 互換) の内部実装として使用
+ *
+ * 重複判定は **tenant scope** (同 preset の family checklist が既に存在すれば preset 全体 skip)。
+ * 配信先 child 群は family checklist 作成と同時に assignments で記録する。
+ */
+export async function importChecklistTemplateForFamily(
+	presetId: string,
+	tenantId: string,
+	options: {
+		childIds: readonly number[];
+		timeSlot?: string;
+	},
+): Promise<ChecklistImportResult> {
+	return importChecklistTemplateInternal(presetId, tenantId, options);
+}
+
+async function importChecklistTemplateInternal(
+	presetId: string,
+	tenantId: string,
+	options: {
+		childIds: readonly number[];
+		timeSlot?: string;
+	},
+): Promise<ChecklistImportResult> {
 	const item: MarketplaceItem | null = getMarketplaceItem('checklist', presetId);
 	if (!item) {
 		throw new Error(`Marketplace preset 'checklist/${presetId}' が見つかりません`);
 	}
 	const payload = item.payload as ChecklistPayload;
 
-	// #1254 G1 sourcePresetId による既存判定（preset 全体スキップ）
-	const existingTemplates = await findTemplatesByChild(childId, tenantId, true);
+	// #2362 PR-5: family scope 重複判定 (atomic unit = family-wide preset)
+	const existingTemplates = await findTemplatesByTenant(tenantId, true);
 	const duplicate = existingTemplates.find((t) => t.sourcePresetId === presetId);
 	if (duplicate) {
-		logger.info('[checklist-import] 既に同 preset で取込済 → スキップ', {
-			context: { tenantId, childId, presetId, existingTemplateId: duplicate.id },
+		logger.info('[checklist-import] 既に同 preset で family scope 取込済 → スキップ', {
+			context: { tenantId, presetId, existingTemplateId: duplicate.id },
 		});
 		return { imported: 0, skipped: 1, importedItems: 0, errors: [] };
 	}
 
-	const timeSlot = options?.timeSlot ?? normalizeTimeSlot(payload.timing);
+	const timeSlot = options.timeSlot ?? normalizeTimeSlot(payload.timing);
 
-	// 1. template 本体を作成
+	// 1. family master template 本体を作成 + 配信先 child 群に assignment 自動付与
 	const template = await createTemplate(
 		{
-			childId,
+			childIds: options.childIds,
 			name: item.name,
 			icon: item.icon,
 			timeSlot,
@@ -191,7 +228,7 @@ export async function importChecklistTemplate(
 	logger.info('[checklist-import] インポート完了', {
 		context: {
 			tenantId,
-			childId,
+			childIds: options.childIds,
 			presetId,
 			templateId: template.id,
 			importedItems,

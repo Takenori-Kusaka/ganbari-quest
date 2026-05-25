@@ -12,6 +12,7 @@ import {
 	insertPointLedger,
 } from '$lib/server/db/activity-repo';
 import {
+	assignTemplateToChildren,
 	findTemplatesByChild,
 	insertTemplate,
 	insertTemplateItem,
@@ -565,9 +566,11 @@ async function importChecklistTemplatesData(
 		}
 
 		try {
+			// #2362 PR-5 (ADR-0055): family master template + assignment 自動付与。
+			// InsertChecklistTemplateInput は family scope (childId なし) に変更済。
+			// export data 由来の childRef は assignment で 1 row 配信先として記録する。
 			const newTpl = await insertTemplate(
 				{
-					childId,
 					name: tpl.name,
 					icon: tpl.icon,
 					pointsPerItem: tpl.pointsPerItem,
@@ -577,6 +580,7 @@ async function importChecklistTemplatesData(
 				},
 				tenantId,
 			);
+			await assignTemplateToChildren(newTpl.id, [childId], tenantId);
 			existing.names.add(tpl.name);
 			if (tpl.sourcePresetId) existing.presetIds.add(tpl.sourcePresetId);
 			for (const item of tpl.items) {

@@ -385,11 +385,11 @@ export const SQL_TABLES = `
 	CREATE INDEX idx_child_custom_voices_child ON child_custom_voices(child_id, scene);
 
 	-- ============================================================
-	-- checklist_templates
+	-- checklist_templates (#2362 PR-5 / ADR-0055: family master 化)
 	-- ============================================================
 	CREATE TABLE checklist_templates (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
+		tenant_id TEXT NOT NULL DEFAULT 'default',
 		name TEXT NOT NULL,
 		icon TEXT NOT NULL DEFAULT '📋',
 		points_per_item INTEGER NOT NULL DEFAULT 2,
@@ -404,6 +404,21 @@ export const SQL_TABLES = `
 		-- #1254 G1: マーケットプレイスプリセット由来の識別子（NULL=プリセット非由来）
 		source_preset_id TEXT
 	);
+	CREATE INDEX idx_checklist_templates_tenant_archived ON checklist_templates(tenant_id, is_archived);
+
+	-- ============================================================
+	-- checklist_template_assignments (#2362 PR-5: family ↔ child 配信先 binding)
+	-- ============================================================
+	CREATE TABLE checklist_template_assignments (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_checklist_template_assignments_unique
+		ON checklist_template_assignments(template_id, child_id);
+	CREATE INDEX idx_checklist_template_assignments_child
+		ON checklist_template_assignments(child_id);
 
 	-- ============================================================
 	-- checklist_template_items
@@ -837,6 +852,8 @@ const ALL_TABLES = [
 	'checklist_overrides',
 	'checklist_logs',
 	'checklist_template_items',
+	// #2362 PR-5: assignments を templates より先に削除 (FK 依存)
+	'checklist_template_assignments',
 	'checklist_templates',
 	'child_activity_preferences',
 	'child_custom_voices',

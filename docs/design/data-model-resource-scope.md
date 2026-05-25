@@ -86,11 +86,20 @@ child_activities
 
 `activity_logs` は既存 `activity_id` を `child_activity_id` にリネーム (FK 変更)。
 
-### 4.2 checklist (PR-5、現状 per-child instance → family master template 化)
+### 4.2 checklist (PR-5 Phase 1 完了 / Phase 2 UX 化進行中)
 
-**現状**: `checklist_templates.child_id NOT NULL` (per-child instance)
+**実装状況** (2026-05-25 PR-5 Phase 1):
+- ✅ schema flip 完了 (`checklist_templates.child_id` 削除 + `tenant_id` 列追加 + `checklist_template_assignments` 新規)
+- ✅ repo interface 改定 (`IChecklistRepo` に `findTemplatesByTenant` / `findAssignmentsByTemplate` / `assignTemplateToChildren` / `unassignTemplate` 等 family + distribution method 追加)
+- ✅ 3 実装 (sqlite / dynamodb / demo) 全 method 更新
+- ✅ `checklist-distribution-service.ts` 新規 (SRP: 配信先管理専用)
+- ✅ `checklist-template-import-service.ts` family scope 重複判定 + `importChecklistTemplateForFamily` 追加
+- ✅ `event-checklist-strategy.ts` discriminated union ctx (`family-master-with-distribution` / `legacy-single-binding`) 対応
+- ⏳ admin UX 全面刷新 (Phase 2): family checklist 一覧 + `ChecklistDistributionDialog` + per-child progress 表示
+- ⏳ 子供画面 data 取得 path 修正 (Phase 2): 既存 `findTemplatesByChild` (assignments join 経由) で後方互換維持中
+- ⏳ marketplace 取込 CWE-598 + admin redirect (Phase 2)
 
-**目標**:
+**Schema 構造 (Phase 1 完了時点)**:
 
 ```
 checklist_templates  -- family master 化

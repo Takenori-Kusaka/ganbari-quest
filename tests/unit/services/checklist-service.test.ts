@@ -18,6 +18,8 @@ const mockDeleteTemplateItem = vi.fn();
 const mockInsertOverride = vi.fn();
 const mockDeleteOverride = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
+const mockAssignTemplateToChildren = vi.fn();
+const mockFindAssignmentsByChild = vi.fn();
 const mockInsertPointEntry = vi.fn();
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
@@ -34,6 +36,10 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 	deleteTemplateItem: (...args: unknown[]) => mockDeleteTemplateItem(...args),
 	insertOverride: (...args: unknown[]) => mockInsertOverride(...args),
 	deleteOverride: (...args: unknown[]) => mockDeleteOverride(...args),
+	// #2362 PR-5: family master 化に伴い createTemplate が内部で呼ぶ assignment helper
+	assignTemplateToChildren: (...args: unknown[]) => mockAssignTemplateToChildren(...args),
+	// #2362 PR-5: getTodayChecklist / toggleCheckItem で child→template 配信判定に使用
+	findAssignmentsByChild: (...args: unknown[]) => mockFindAssignmentsByChild(...args),
 }));
 
 vi.mock('$lib/server/db/point-repo', () => ({
@@ -98,6 +104,10 @@ beforeEach(() => {
 	mockUpsertLog.mockResolvedValue(undefined);
 	mockInsertPointEntry.mockResolvedValue(undefined);
 	mockFindTemplatesByChild.mockResolvedValue([baseTemplate]);
+	// #2362 PR-5: default は CHILD_ID が TEMPLATE_ID 配信先である状態
+	mockFindAssignmentsByChild.mockResolvedValue([
+		{ id: 1, templateId: TEMPLATE_ID, childId: CHILD_ID, createdAt: 'T' },
+	]);
 });
 
 // ============================================================
@@ -135,7 +145,9 @@ describe('getTodayChecklist', () => {
 		expect((result as { kind?: unknown }).kind).toBeUndefined();
 	});
 
-	it('childId が一致しない場合 NOT_FOUND を返す', async () => {
+	it('child に template が配信されていない場合 NOT_FOUND を返す (#2362 PR-5 assignments 判定)', async () => {
+		// 999 child の assignments は空 (default mock は CHILD_ID 配信先のみ)
+		mockFindAssignmentsByChild.mockResolvedValue([]);
 		const { getTodayChecklist } = await import('$lib/server/services/checklist-service');
 		const result = assertError(await getTodayChecklist(999, TEMPLATE_ID, DATE, TENANT));
 
@@ -331,14 +343,18 @@ describe('getChecklistsForChild', () => {
 // テンプレート管理
 // ============================================================
 describe('createTemplate', () => {
-	it('デフォルト値でテンプレートを作成する', async () => {
+	beforeEach(() => {
+		mockAssignTemplateToChildren.mockResolvedValue([]);
+	});
+
+	it('デフォルト値でテンプレートを作成 + child に assignment 自動付与する (#2362 PR-5)', async () => {
 		mockInsertTemplate.mockResolvedValue({ id: 20 });
 		const { createTemplate } = await import('$lib/server/services/checklist-service');
 		await createTemplate({ childId: CHILD_ID, name: 'おでかけ' }, TENANT);
 
+		// family master template は childId 列を持たない
 		expect(mockInsertTemplate).toHaveBeenCalledWith(
 			expect.objectContaining({
-				childId: CHILD_ID,
 				name: 'おでかけ',
 				icon: '📋',
 				pointsPerItem: 2,
@@ -346,6 +362,8 @@ describe('createTemplate', () => {
 			}),
 			TENANT,
 		);
+		// assignment 自動付与
+		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith(20, [CHILD_ID], TENANT);
 	});
 
 	it('カスタム値でテンプレートを作成する', async () => {
@@ -364,6 +382,21 @@ describe('createTemplate', () => {
 			}),
 			TENANT,
 		);
+		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith(21, [CHILD_ID], TENANT);
+	});
+
+	it('childIds で複数 child に配信できる (#2362 PR-5)', async () => {
+		mockInsertTemplate.mockResolvedValue({ id: 22 });
+		const { createTemplate } = await import('$lib/server/services/checklist-service');
+		await createTemplate({ childIds: [10, 11, 12], name: '家族の決まり' }, TENANT);
+		expect(mockAssignTemplateToChildren).toHaveBeenCalledWith(22, [10, 11, 12], TENANT);
+	});
+
+	it('childId / childIds どちらも未指定なら assignment 作成なし (#2362 PR-5)', async () => {
+		mockInsertTemplate.mockResolvedValue({ id: 23 });
+		const { createTemplate } = await import('$lib/server/services/checklist-service');
+		await createTemplate({ name: '空の master' }, TENANT);
+		expect(mockAssignTemplateToChildren).not.toHaveBeenCalled();
 	});
 });
 

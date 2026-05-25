@@ -20,6 +20,8 @@ const mockInsertLoginBonus = vi.fn();
 const mockInsertTemplate = vi.fn();
 const mockInsertTemplateItem = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
+// #2362 PR-5: family master 化に伴い import 時 assignment 自動付与が必要
+const mockAssignTemplateToChildren = vi.fn();
 const mockFindSpecialRewards = vi.fn();
 const mockInsertSpecialReward = vi.fn();
 
@@ -54,6 +56,8 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 	insertTemplate: (...args: unknown[]) => mockInsertTemplate(...args),
 	insertTemplateItem: (...args: unknown[]) => mockInsertTemplateItem(...args),
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
+	// #2362 PR-5 (ADR-0055): family master 化に伴い import 時 assignment 自動付与が必要
+	assignTemplateToChildren: (...args: unknown[]) => mockAssignTemplateToChildren(...args),
 }));
 
 vi.mock('$lib/server/db/special-reward-repo', () => ({
@@ -1010,17 +1014,20 @@ describe('importFamilyData', () => {
 			mockInsertChild.mockResolvedValue({ id: 101 });
 			mockInsertTemplate.mockResolvedValue({ id: 50 });
 			mockInsertTemplateItem.mockResolvedValue({});
+			mockAssignTemplateToChildren.mockResolvedValue([]);
 
 			await importFamilyData(data, TENANT);
 
+			// #2362 PR-5 (ADR-0055): family master template に childId 列なし。
+			//   配信先は assignTemplateToChildren 経由で row 1 件作成される。
 			expect(mockInsertTemplate).toHaveBeenCalledWith(
 				expect.objectContaining({
-					childId: 101,
 					name: 'あさのしたく',
 					isActive: 1, // boolean -> number conversion
 				}),
 				TENANT,
 			);
+			expect(mockAssignTemplateToChildren).toHaveBeenCalledWith(50, [101], TENANT);
 			expect(mockInsertTemplateItem).toHaveBeenCalledTimes(2);
 			expect(mockInsertTemplateItem).toHaveBeenCalledWith(
 				expect.objectContaining({

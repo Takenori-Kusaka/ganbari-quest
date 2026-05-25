@@ -292,21 +292,42 @@ export function specialRewardPrefix(): string {
 	return 'REWARD#';
 }
 
-/** Checklist template: PK=CHILD#<cId>, SK=CKTPL#<id> */
-export function checklistTemplateKey(
-	childId: number,
-	templateId: number,
-	tenantId: string,
-): DynamoKey {
+/**
+ * Checklist template: PK=T#<tenantId>#CKTPL, SK=CKTPL#<id>
+ * #2362 PR-5 (ADR-0055): family master 化に伴い CHILD#<cId> 配下 → tenant scope に変更。
+ */
+export function checklistTemplateKey(templateId: number, tenantId: string): DynamoKey {
 	return {
-		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		PK: tenantPK(PREFIX.CKTPL, tenantId),
 		SK: `CKTPL#${padId(templateId)}`,
 	};
 }
 
-/** Checklist template SK prefix for querying all templates of a child */
+/** Checklist template SK prefix for querying all templates of a tenant */
 export function checklistTemplatePrefix(): string {
 	return 'CKTPL#';
+}
+
+/**
+ * Checklist assignment: PK=T#<tenantId>#CKTPL#<tplId>, SK=ASSIGN#<childId>
+ * #2362 PR-5: family checklist ↔ child 配信先 binding。
+ *   - PK は対象 template 配下 (template 配下に並ぶ → 配信先一覧の高速 list)
+ *   - SK は child パディング ID (child 視点では別途 GSI 不要、tenantPK で query 可能)
+ */
+export function checklistAssignmentKey(
+	templateId: number,
+	childId: number,
+	tenantId: string,
+): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CKTPL}#${templateId}`, tenantId),
+		SK: `ASSIGN#${padId(childId)}`,
+	};
+}
+
+/** Checklist assignment SK prefix (query assignments of a template) */
+export function checklistAssignmentPrefix(): string {
+	return 'ASSIGN#';
 }
 
 /** Checklist item: PK=CKTPL#<tplId>, SK=ITEM#<sort>#<id> */
@@ -673,6 +694,7 @@ export const ENTITY_NAMES = {
 	childTitle: 'childTitle',
 	specialReward: 'specialReward',
 	checklistTemplate: 'checklistTemplate',
+	checklistAssignment: 'checklistAssignment',
 	checklistItem: 'checklistItem',
 	checklistLog: 'checklistLog',
 	checklistOverride: 'checklistOverride',

@@ -2,9 +2,11 @@
 // チェックリスト サービス層
 
 import {
+	assignTemplateToChildren,
 	deleteOverride,
 	deleteTemplate,
 	deleteTemplateItem,
+	findAssignmentsByChild,
 	findOverrides,
 	findTemplateById,
 	findTemplateItems,
@@ -105,7 +107,12 @@ export async function getTodayChecklist(
 ): Promise<TodayChecklist | { error: 'NOT_FOUND'; target: string }> {
 	const template = await findTemplateById(templateId, tenantId);
 	if (!template) return { error: 'NOT_FOUND', target: 'template' };
-	if (template.childId !== childId) return { error: 'NOT_FOUND', target: 'template' };
+	// #2362 PR-5 (ADR-0055): family master 化に伴い、child との関連は assignments で判定する。
+	// 配信先 child でなければ NOT_FOUND を返す (per-child instance 時代と同等の挙動)。
+	const childAssignments = await findAssignmentsByChild(childId, tenantId);
+	if (!childAssignments.some((a) => a.templateId === templateId)) {
+		return { error: 'NOT_FOUND', target: 'template' };
+	}
 
 	const dayOfWeek = getDayOfWeek(date);
 	const allItems = await findTemplateItems(templateId, tenantId);
@@ -233,7 +240,11 @@ export async function toggleCheckItem(
 ): Promise<CheckItemResult | { error: 'NOT_FOUND'; target: string }> {
 	const template = await findTemplateById(templateId, tenantId);
 	if (!template) return { error: 'NOT_FOUND', target: 'template' };
-	if (template.childId !== childId) return { error: 'NOT_FOUND', target: 'template' };
+	// #2362 PR-5 (ADR-0055): family master 化に伴い、child との関連は assignments で判定する。
+	const childAssignments = await findAssignmentsByChild(childId, tenantId);
+	if (!childAssignments.some((a) => a.templateId === templateId)) {
+		return { error: 'NOT_FOUND', target: 'template' };
+	}
 
 	// 現在のチェックリストを取得
 	const checklist = await getTodayChecklist(childId, templateId, date, tenantId);
@@ -312,9 +323,19 @@ export async function toggleCheckItem(
 // テンプレート管理（親画面用）
 // ============================================================
 
+/**
+ * #2362 PR-5 (ADR-0055): family master 化に伴い childId は配信先 child の hint として扱う。
+ *   - 旧 API 互換: `childId` を渡すと family master template を作成し、その child に
+ *     自動的に assignment を 1 件作成する (1:1 互換 view を提供)。
+ *   - 新 API: `childIds` を渡すと複数 child に配信 (Phase 2 admin UX で `childIds` 経路を採用)。
+ *   - `childId` も `childIds` も渡されない場合は family master のみ作成 (assignment 0 件)。
+ */
 export async function createTemplate(
 	input: {
-		childId: number;
+		/** legacy 互換: 単一 child binding (内部で childIds=[childId] と等価) */
+		childId?: number;
+		/** family checklist の配信先 child 群 (#2362 PR-5) */
+		childIds?: readonly number[];
 		name: string;
 		icon?: string;
 		pointsPerItem?: number;
@@ -325,9 +346,8 @@ export async function createTemplate(
 	},
 	tenantId: string,
 ) {
-	return await insertTemplate(
+	const template = await insertTemplate(
 		{
-			childId: input.childId,
 			name: input.name,
 			icon: input.icon ?? '📋',
 			pointsPerItem: input.pointsPerItem ?? 2,
@@ -337,6 +357,13 @@ export async function createTemplate(
 		},
 		tenantId,
 	);
+
+	const distributeTo: readonly number[] = input.childIds ?? (input.childId ? [input.childId] : []);
+	if (distributeTo.length > 0) {
+		await assignTemplateToChildren(template.id, distributeTo, tenantId);
+	}
+
+	return template;
 }
 
 export async function editTemplate(

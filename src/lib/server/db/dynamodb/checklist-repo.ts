@@ -1,5 +1,12 @@
 // src/lib/server/db/dynamodb/checklist-repo.ts
 // DynamoDB implementation of IChecklistRepo
+//
+// #2362 PR-5 (ADR-0055): family master template + per-child assignments + per-child progress logs。
+//   - Templates: PK=T#<tenantId>#CKTPL, SK=CKTPL#<id> (旧 CHILD#<cId> 配下から tenant scope に変更)
+//   - Assignments: PK=T#<tenantId>#CKTPL#<tplId>, SK=ASSIGN#<childId>
+//   - Items: PK=T#<tenantId>#CKTPL#<tplId>, SK=ITEM#<sort>#<id> (既存維持)
+//   - Logs: PK=CHILD#<cId>, SK=CKLOG#<tplId>#<date> (既存維持、per-child progress)
+//   - Overrides: PK=CHILD#<cId>, SK=CKOVER#<date>#<id> (既存維持、per-child override)
 
 import {
 	DeleteCommand,
@@ -13,6 +20,7 @@ import type {
 	ChecklistLog,
 	ChecklistOverride,
 	ChecklistTemplate,
+	ChecklistTemplateAssignment,
 	ChecklistTemplateItem,
 	InsertChecklistOverrideInput,
 	InsertChecklistTemplateInput,
@@ -24,6 +32,8 @@ import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
+	checklistAssignmentKey,
+	checklistAssignmentPrefix,
 	checklistItemKey,
 	checklistItemPrefix,
 	checklistLogKey,
@@ -40,11 +50,10 @@ import {
 import { stripKeys } from './repo-helpers';
 
 // ============================================================
-// Templates
+// Templates (family scope)
 // ============================================================
 
-export async function findTemplatesByChild(
-	childId: number,
+export async function findTemplatesByTenant(
 	tenantId: string,
 	includeInactive?: boolean,
 ): Promise<ChecklistTemplate[]> {
@@ -53,50 +62,54 @@ export async function findTemplatesByChild(
 			TableName: TABLE_NAME,
 			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
 			ExpressionAttributeValues: {
-				':pk': childPK(childId, tenantId),
+				':pk': tenantPK('CKTPL', tenantId),
 				':prefix': checklistTemplatePrefix(),
 			},
 		}),
 	);
 
 	let items = (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistTemplate);
-
-	// #783: archive されたリソースをデフォルトで除外
 	items = items.filter((t) => !t.isArchived || t.isArchived === 0);
-
 	if (!includeInactive) {
 		items = items.filter((t) => t.isActive === 1);
 	}
-
 	return items;
+}
+
+/**
+ * 子供視点で「配信中の family templates」を取得 (assignments → templates の 2 段 query)。
+ */
+export async function findTemplatesByChild(
+	childId: number,
+	tenantId: string,
+	includeInactive?: boolean,
+): Promise<ChecklistTemplate[]> {
+	const assignments = await findAssignmentsByChild(childId, tenantId);
+	if (assignments.length === 0) return [];
+
+	const templates: ChecklistTemplate[] = [];
+	for (const a of assignments) {
+		const t = await findTemplateById(a.templateId, tenantId);
+		if (!t) continue;
+		if (t.isArchived === 1) continue;
+		if (!includeInactive && t.isActive !== 1) continue;
+		templates.push(t);
+	}
+	return templates;
 }
 
 export async function findTemplateById(
 	id: number,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<ChecklistTemplate | undefined> {
-	// Need to scan since we don't know childId
-	let lastKey: Record<string, unknown> | undefined;
-
-	do {
-		const result = await getDocClient().send(
-			new ScanCommand({
-				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
-				ExpressionAttributeValues: {
-					':prefix': checklistTemplatePrefix(),
-					':id': id,
-				},
-				ExclusiveStartKey: lastKey,
-			}),
-		);
-		if (result.Items && result.Items.length > 0) {
-			return stripKeys(result.Items[0] as Record<string, unknown>) as unknown as ChecklistTemplate;
-		}
-		lastKey = result.LastEvaluatedKey;
-	} while (lastKey);
-
-	return undefined;
+	const result = await getDocClient().send(
+		new GetCommand({
+			TableName: TABLE_NAME,
+			Key: checklistTemplateKey(id, tenantId),
+		}),
+	);
+	if (!result.Item) return undefined;
+	return stripKeys(result.Item) as unknown as ChecklistTemplate;
 }
 
 export async function insertTemplate(
@@ -108,7 +121,7 @@ export async function insertTemplate(
 
 	const template: ChecklistTemplate = {
 		id,
-		childId: input.childId,
+		tenantId,
 		name: input.name,
 		icon: input.icon ?? '📋',
 		pointsPerItem: input.pointsPerItem ?? 5,
@@ -117,7 +130,6 @@ export async function insertTemplate(
 		isActive: input.isActive ?? 1,
 		isArchived: 0,
 		archivedReason: null,
-		// #1755 (#1709-A): kind 列削除 — 持ち物純化
 		createdAt: now,
 		updatedAt: now,
 		sourcePresetId: input.sourcePresetId ?? null,
@@ -127,7 +139,7 @@ export async function insertTemplate(
 		new PutCommand({
 			TableName: TABLE_NAME,
 			Item: {
-				...checklistTemplateKey(input.childId, id, tenantId),
+				...checklistTemplateKey(id, tenantId),
 				...template,
 			},
 		}),
@@ -148,7 +160,6 @@ export async function updateTemplate(
 	const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
 	const values: Record<string, unknown> = { ':updatedAt': new Date().toISOString() };
 
-	// #1755 (#1709-A): kind 削除済み（持ち物純化）
 	const fields = [
 		'name',
 		'icon',
@@ -168,7 +179,7 @@ export async function updateTemplate(
 	const result = await getDocClient().send(
 		new UpdateCommand({
 			TableName: TABLE_NAME,
-			Key: checklistTemplateKey(existing.childId, id, tenantId),
+			Key: checklistTemplateKey(id, tenantId),
 			UpdateExpression: `SET ${updates.join(', ')}`,
 			ExpressionAttributeNames: names,
 			ExpressionAttributeValues: values,
@@ -181,19 +192,157 @@ export async function updateTemplate(
 }
 
 export async function deleteTemplate(id: number, tenantId: string): Promise<void> {
-	const existing = await findTemplateById(id, tenantId);
-	if (!existing) return;
+	// 関連 assignments / items を先に削除
+	await unassignTemplate(id, tenantId);
 
+	// items を全削除 (template 配下)
+	const itemsResult = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': tenantPK(`CKTPL#${id}`, tenantId),
+				':prefix': checklistItemPrefix(),
+			},
+		}),
+	);
+	for (const item of itemsResult.Items ?? []) {
+		await getDocClient().send(
+			new DeleteCommand({
+				TableName: TABLE_NAME,
+				Key: { PK: item.PK, SK: item.SK },
+			}),
+		);
+	}
+
+	// template 本体
 	await getDocClient().send(
 		new DeleteCommand({
 			TableName: TABLE_NAME,
-			Key: checklistTemplateKey(existing.childId, id, tenantId),
+			Key: checklistTemplateKey(id, tenantId),
 		}),
 	);
 }
 
 // ============================================================
-// Template items
+// Distribution (template ↔ child assignments)
+// ============================================================
+
+export async function findAssignmentsByTemplate(
+	templateId: number,
+	tenantId: string,
+): Promise<ChecklistTemplateAssignment[]> {
+	const result = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': tenantPK(`CKTPL#${templateId}`, tenantId),
+				':prefix': checklistAssignmentPrefix(),
+			},
+		}),
+	);
+	return (result.Items ?? []).map(
+		(item) => stripKeys(item) as unknown as ChecklistTemplateAssignment,
+	);
+}
+
+export async function findAssignmentsByChild(
+	childId: number,
+	tenantId: string,
+): Promise<ChecklistTemplateAssignment[]> {
+	// Scan: PK starts with T#<tenantId>#CKTPL# and SK = ASSIGN#<padded childId>
+	// 件数は family scope = 高々数十 templates × 数 child のため Scan で許容範囲。
+	// 将来 hot path 化したら GSI (childId index) を追加検討。
+	let lastKey: Record<string, unknown> | undefined;
+	const results: ChecklistTemplateAssignment[] = [];
+	const tenantPrefix = `${tenantPK('CKTPL#', tenantId)}`;
+	do {
+		const result = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression:
+					'begins_with(PK, :pkPrefix) AND begins_with(SK, :skPrefix) AND childId = :childId',
+				ExpressionAttributeValues: {
+					':pkPrefix': tenantPrefix,
+					':skPrefix': checklistAssignmentPrefix(),
+					':childId': childId,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) {
+			results.push(stripKeys(item) as unknown as ChecklistTemplateAssignment);
+		}
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+	return results;
+}
+
+export async function assignTemplateToChildren(
+	templateId: number,
+	childIds: readonly number[],
+	tenantId: string,
+): Promise<ChecklistTemplateAssignment[]> {
+	if (childIds.length === 0) return [];
+	const existing = await findAssignmentsByTemplate(templateId, tenantId);
+	const existingSet = new Set(existing.map((a) => a.childId));
+	const toInsert = childIds.filter((c) => !existingSet.has(c));
+	const inserted: ChecklistTemplateAssignment[] = [];
+
+	for (const childId of toInsert) {
+		const id = await nextId(ENTITY_NAMES.checklistAssignment, tenantId);
+		const now = new Date().toISOString();
+		const assignment: ChecklistTemplateAssignment = {
+			id,
+			templateId,
+			childId,
+			createdAt: now,
+		};
+		await getDocClient().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: {
+					...checklistAssignmentKey(templateId, childId, tenantId),
+					...assignment,
+				},
+			}),
+		);
+		inserted.push(assignment);
+	}
+	return inserted;
+}
+
+export async function unassignTemplateFromChildren(
+	templateId: number,
+	childIds: readonly number[],
+	tenantId: string,
+): Promise<void> {
+	if (childIds.length === 0) return;
+	for (const childId of childIds) {
+		await getDocClient().send(
+			new DeleteCommand({
+				TableName: TABLE_NAME,
+				Key: checklistAssignmentKey(templateId, childId, tenantId),
+			}),
+		);
+	}
+}
+
+export async function unassignTemplate(templateId: number, tenantId: string): Promise<void> {
+	const assignments = await findAssignmentsByTemplate(templateId, tenantId);
+	for (const a of assignments) {
+		await getDocClient().send(
+			new DeleteCommand({
+				TableName: TABLE_NAME,
+				Key: checklistAssignmentKey(templateId, a.childId, tenantId),
+			}),
+		);
+	}
+}
+
+// ============================================================
+// Template items (family items)
 // ============================================================
 
 export async function findTemplateItems(
@@ -247,9 +396,7 @@ export async function insertTemplateItem(
 }
 
 export async function deleteTemplateItem(id: number, _tenantId: string): Promise<void> {
-	// Scan to find the item since we don't have templateId/sortOrder
 	let lastKey: Record<string, unknown> | undefined;
-
 	do {
 		const result = await getDocClient().send(
 			new ScanCommand({
@@ -277,7 +424,7 @@ export async function deleteTemplateItem(id: number, _tenantId: string): Promise
 }
 
 // ============================================================
-// Logs
+// Logs (per-child progress)
 // ============================================================
 
 export async function findTodayLog(
@@ -349,7 +496,7 @@ export async function upsertLog(
 }
 
 // ============================================================
-// Overrides
+// Overrides (per-child)
 // ============================================================
 
 export async function findOverrides(
@@ -401,10 +548,8 @@ export async function insertOverride(
 	return override;
 }
 
-export async function deleteOverride(id: number): Promise<void> {
-	// Scan to find the override
+export async function deleteOverride(id: number, _tenantId: string): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;
-
 	do {
 		const result = await getDocClient().send(
 			new ScanCommand({
@@ -433,74 +578,61 @@ export async function deleteOverride(id: number): Promise<void> {
 
 /**
  * テナントの全チェックリストデータを削除。
- * - CHILD#* 配下: CKTPL# (テンプレート), CKLOG# (ログ), CKOVER# (オーバーライド)
- * - CKTPL#* 配下: ITEM# (テンプレートアイテム)
+ * - T#<tenantId>#CKTPL 配下: CKTPL# (テンプレート本体)
+ * - T#<tenantId>#CKTPL#<tplId> 配下: ITEM# (item) / ASSIGN# (assignment)
+ * - CHILD#* 配下: CKLOG# (ログ), CKOVER# (override)
  */
 export async function deleteByTenantId(tenantId: string): Promise<void> {
-	// Delete checklist template items (PK=T#<tenantId>#CKTPL#*, SK=ITEM#*)
+	// Templates 本体
+	await deleteItemsByPkPrefix(tenantPK('CKTPL', tenantId));
+	// Items + Assignments (PK=T#<tenantId>#CKTPL#*)
 	await deleteItemsByPkPrefix(tenantPK('CKTPL#', tenantId));
-	// Delete templates (CHILD#* 配下の CKTPL# アイテム)
-	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistTemplatePrefix());
-	// Delete logs (CHILD#* 配下の CKLOG# アイテム)
+	// Logs / Overrides (CHILD#* 配下)
 	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistLogPrefix());
-	// Delete overrides (CHILD#* 配下の CKOVER# アイテム)
 	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), checklistOverridePrefix());
 }
 
-// #783: archive / restore
+// ============================================================
+// #783: archive / restore (family scope)
+// ============================================================
 
 export async function archiveChecklistTemplates(
 	ids: number[],
 	reason: string,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<void> {
 	for (const id of ids) {
-		// テンプレートの PK は CHILD#<childId> だが id しかわからないため Scan で探す
-		let lastKey: Record<string, unknown> | undefined;
-		do {
-			const result = await getDocClient().send(
-				new ScanCommand({
-					TableName: TABLE_NAME,
-					FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
-					ExpressionAttributeValues: {
-						':prefix': checklistTemplatePrefix(),
-						':id': id,
-					},
-					ExclusiveStartKey: lastKey,
-				}),
-			);
-			for (const item of result.Items ?? []) {
-				await getDocClient().send(
-					new UpdateCommand({
-						TableName: TABLE_NAME,
-						Key: { PK: item.PK, SK: item.SK },
-						UpdateExpression:
-							'SET isArchived = :archived, archivedReason = :reason, updatedAt = :now',
-						ExpressionAttributeValues: {
-							':archived': 1,
-							':reason': reason,
-							':now': new Date().toISOString(),
-						},
-					}),
-				);
-			}
-			lastKey = result.LastEvaluatedKey;
-		} while (lastKey);
+		const existing = await findTemplateById(id, tenantId);
+		if (!existing) continue;
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: checklistTemplateKey(id, tenantId),
+				UpdateExpression: 'SET isArchived = :archived, archivedReason = :reason, updatedAt = :now',
+				ExpressionAttributeValues: {
+					':archived': 1,
+					':reason': reason,
+					':now': new Date().toISOString(),
+				},
+			}),
+		);
 	}
 }
 
 export async function restoreArchivedChecklistTemplates(
 	reason: string,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;
 	do {
 		const result = await getDocClient().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :prefix) AND archivedReason = :reason',
+				FilterExpression:
+					'begins_with(PK, :pkPrefix) AND begins_with(SK, :skPrefix) AND archivedReason = :reason',
 				ExpressionAttributeValues: {
-					':prefix': checklistTemplatePrefix(),
+					':pkPrefix': tenantPK('CKTPL', tenantId),
+					':skPrefix': checklistTemplatePrefix(),
 					':reason': reason,
 				},
 				ExclusiveStartKey: lastKey,

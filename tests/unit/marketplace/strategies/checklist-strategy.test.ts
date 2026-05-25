@@ -19,10 +19,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPreviewChecklistImport = vi.fn();
 const mockImportChecklistTemplate = vi.fn();
+const mockImportChecklistTemplateForFamily = vi.fn();
 
 vi.mock('$lib/server/services/checklist-template-import-service', () => ({
 	previewChecklistImport: (...args: unknown[]) => mockPreviewChecklistImport(...args),
 	importChecklistTemplate: (...args: unknown[]) => mockImportChecklistTemplate(...args),
+	importChecklistTemplateForFamily: (...args: unknown[]) =>
+		mockImportChecklistTemplateForFamily(...args),
 }));
 
 // activity-pack の Strategy も同時 eager-load されるため activity-repo を mock しておく
@@ -216,11 +219,14 @@ describe('checklistStrategy.preview', () => {
 		).rejects.toThrow(/presetId/);
 	});
 
-	it('ctx.childId 未指定なら error throw (requiresChildId=true)', async () => {
+	it('#2362 PR-5: preview は ctx.childId / childIds なしでも OK (family scope 重複判定のみ)', async () => {
+		// family master 化後は preview = tenant scope 判定のため、childId hint は任意。
 		const payload = makeChecklistPayload();
 		await expect(
 			checklistStrategy.preview(payload, { tenantId: TENANT, presetId: PRESET_ID }),
-		).rejects.toThrow(/childId/);
+		).resolves.toBeDefined();
+		// hintChildId=0 で legacy service が呼ばれる
+		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, 0, TENANT);
 	});
 
 	it('下流 service が preset 未発見で null 返却 -> error throw', async () => {
@@ -298,11 +304,32 @@ describe('checklistStrategy.apply', () => {
 		).rejects.toThrow(/presetId/);
 	});
 
-	it('ctx.childId 未指定なら error throw', async () => {
+	it('ctx.childId / childIds どちらも未指定なら error throw', async () => {
 		const payload = makeChecklistPayload();
 		await expect(
 			checklistStrategy.apply(payload, { tenantId: TENANT, presetId: PRESET_ID }),
 		).rejects.toThrow(/childId/);
+	});
+
+	it('#2362 PR-5: ctx.childIds でも apply 可能 (family-master-with-distribution)', async () => {
+		mockImportChecklistTemplateForFamily.mockResolvedValue({
+			imported: 1,
+			skipped: 0,
+			importedItems: 2,
+			errors: [],
+		});
+		const payload = makeChecklistPayload();
+		const result = await checklistStrategy.apply(payload, {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+			childIds: [10, 11],
+		});
+		expect(result.imported).toBe(1);
+		expect(mockImportChecklistTemplateForFamily).toHaveBeenCalledWith(PRESET_ID, TENANT, {
+			childIds: [10, 11],
+		});
+		// legacy (single binding) は呼ばれない
+		expect(mockImportChecklistTemplate).not.toHaveBeenCalled();
 	});
 
 	it('下流 service の errors を pass-through', async () => {

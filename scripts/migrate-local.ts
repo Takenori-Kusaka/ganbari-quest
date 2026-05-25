@@ -226,6 +226,101 @@ if (
 	console.log('  → activity FK switchover complete');
 }
 
+// #2362 PR-5 (Phase 1): checklist_templates family master 化
+//   - 旧: checklist_templates.child_id NOT NULL (per-child instance)
+//   - 新: checklist_templates に tenant_id 列追加 + child_id 列削除
+//         + checklist_template_assignments 新規 (template ↔ child N:M binding)
+//   - 既存 per-child template は配信先 1 件の family master + assignment 1 行に変換
+//   - 既存 checklist_logs / checklist_overrides の child_id は維持 (per-child progress / override の事実履歴)
+//   - 冪等性: PRAGMA table_info で child_id 列の有無を確認し、既に新形式なら skip
+//   - SQLite 制約: DROP COLUMN は 3.35+、shadow table 再作成 pattern を併用 (FK 維持)
+//   - SSOT: docs/design/data-model-resource-scope.md §4.2
+if (
+	db
+		.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='checklist_templates'")
+		.get() &&
+	tableHasColumn('checklist_templates', 'child_id')
+) {
+	console.log(
+		'Switching checklist_templates: per-child instance → family master (#2362 PR-5 Phase 1)…',
+	);
+	db.exec('PRAGMA foreign_keys = OFF');
+
+	const hasTenantId = tableHasColumn('checklist_templates', 'tenant_id');
+
+	// 1. checklist_templates: tenant_id 追加 (なければ) + child_id 削除 + shadow table 再作成
+	db.exec(`
+		CREATE TABLE checklist_templates_new (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			tenant_id TEXT NOT NULL DEFAULT 'default',
+			name TEXT NOT NULL,
+			icon TEXT NOT NULL DEFAULT '📋',
+			points_per_item INTEGER NOT NULL DEFAULT 2,
+			completion_bonus INTEGER NOT NULL DEFAULT 5,
+			time_slot TEXT NOT NULL DEFAULT 'anytime',
+			is_active INTEGER NOT NULL DEFAULT 1,
+			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			is_archived INTEGER NOT NULL DEFAULT 0,
+			archived_reason TEXT,
+			source_preset_id TEXT
+		);
+	`);
+
+	// 2. 既存 row を新 schema に移行。tenant_id は (a) 既に列があればその値、(b) なければ 'default'。
+	if (hasTenantId) {
+		db.exec(`
+			INSERT INTO checklist_templates_new
+				(id, tenant_id, name, icon, points_per_item, completion_bonus, time_slot, is_active,
+				 created_at, updated_at, is_archived, archived_reason, source_preset_id)
+				SELECT id, COALESCE(tenant_id, 'default'), name, icon, points_per_item, completion_bonus, time_slot, is_active,
+				 created_at, updated_at, is_archived, COALESCE(archived_reason, NULL), COALESCE(source_preset_id, NULL)
+				 FROM checklist_templates;
+		`);
+	} else {
+		db.exec(`
+			INSERT INTO checklist_templates_new
+				(id, tenant_id, name, icon, points_per_item, completion_bonus, time_slot, is_active,
+				 created_at, updated_at, is_archived, archived_reason, source_preset_id)
+				SELECT id, 'default', name, icon, points_per_item, completion_bonus, time_slot, is_active,
+				 created_at, updated_at, is_archived, COALESCE(archived_reason, NULL), COALESCE(source_preset_id, NULL)
+				 FROM checklist_templates;
+		`);
+	}
+
+	// 3. 新規 assignments table (旧 per-child template の child_id を 1 row ずつ移行)
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS checklist_template_assignments (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+			child_id INTEGER NOT NULL REFERENCES children(id),
+			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_checklist_template_assignments_unique
+			ON checklist_template_assignments(template_id, child_id);
+		CREATE INDEX IF NOT EXISTS idx_checklist_template_assignments_child
+			ON checklist_template_assignments(child_id);
+		INSERT INTO checklist_template_assignments (template_id, child_id, created_at)
+			SELECT id, child_id, created_at FROM checklist_templates;
+	`);
+
+	const assignmentCount = (
+		db.prepare('SELECT COUNT(*) AS c FROM checklist_template_assignments').get() as { c: number }
+	).c;
+	console.log(`  → migrated ${assignmentCount} per-child rows to template_assignments`);
+
+	// 4. 旧 table を drop して new を rename
+	db.exec(`
+		DROP TABLE checklist_templates;
+		ALTER TABLE checklist_templates_new RENAME TO checklist_templates;
+		CREATE INDEX IF NOT EXISTS idx_checklist_templates_tenant_archived
+			ON checklist_templates(tenant_id, is_archived);
+	`);
+
+	db.exec('PRAGMA foreign_keys = ON');
+	console.log('  → checklist family master flip complete');
+}
+
 const tables = db
 	.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 	.all() as { name: string }[];
