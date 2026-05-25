@@ -332,7 +332,9 @@ describe('marketplace dispatcher + checklist', () => {
 	// 追加され、`$lib/marketplace` の eager-load 経路が増えたことで本テストの
 	// import が並列実行時に default 5000ms を超えるようになった (ADR-0006 §3.1
 	// 「PR 改変による負荷増」整合)。timeout を 15000ms に引き上げる。
-	it('Registry 経由で checklist が解決でき、dispatchImport が成立', { timeout: 15000 }, async () => {
+	it('Registry 経由で checklist が解決でき、dispatchImport が成立', {
+		timeout: 15000,
+	}, async () => {
 		// eager-load が走るよう $lib/marketplace import
 		const { marketplaceRegistry, dispatchImport } = await import('../../../../src/lib/marketplace');
 
