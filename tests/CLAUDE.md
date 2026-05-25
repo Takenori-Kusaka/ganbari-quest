@@ -6,7 +6,7 @@
 
 ## テスト環境セットアップ (#2476)
 
-新規 contributor / AI 補佐は **必ず以下 2 ステップを実行** してからテストを起動する。**`npm ci` 単独では infra/marketplace 系テストが Cannot find module で fail する**:
+新規 contributor / AI 補佐は **必ず以下 2 ステップを実行** してからテストを起動する。**`npm ci` 単独では `tests/unit/infra/` と `tests/unit/marketplace/` 系テストが Cannot find module で fail する**:
 
 ```bash
 npm ci                  # root 依存 install
