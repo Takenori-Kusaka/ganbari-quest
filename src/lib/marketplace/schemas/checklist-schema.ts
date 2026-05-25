@@ -19,7 +19,9 @@ export const ChecklistItemSchema = v.object({
 		v.minLength(1, 'label は必須です'),
 		v.maxLength(100, 'label は 100 文字以内で指定してください'),
 	),
-	icon: v.pipe(v.string(), v.minLength(1, 'icon は必須です'), v.maxLength(10)),
+	// icon は単一の emoji を想定 (ZWJ 連結 emoji 例: 👨‍👩‍👧‍👦 = 11 UTF-16 code units)
+	// を許容するため maxLength=20 (ZWJ profession sequences は ~17 で安全圏)
+	icon: v.pipe(v.string(), v.minLength(1, 'icon は必須です'), v.maxLength(20)),
 	order: v.pipe(
 		v.number('order は数値で指定してください'),
 		v.integer('order は整数で指定してください'),

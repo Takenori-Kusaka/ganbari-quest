@@ -21,10 +21,12 @@ export const ActivityPackItemSchema = v.object({
 		CATEGORY_CODES,
 		'categoryCode は CATEGORY_CODES のいずれかで指定してください',
 	),
+	// icon は単一の emoji を想定 (ZWJ 連結 emoji 例: 👨‍👩‍👧‍👦 = 11 UTF-16 code units)
+	// を許容するため maxLength=20 (ZWJ profession sequences は ~17 で安全圏)
 	icon: v.pipe(
 		v.string(),
 		v.minLength(1, 'icon は必須です'),
-		v.maxLength(10, 'icon は 10 文字以内です'),
+		v.maxLength(20, 'icon は 20 文字以内です'),
 	),
 	basePoints: v.pipe(
 		v.number('basePoints は数値で指定してください'),

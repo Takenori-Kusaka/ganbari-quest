@@ -22,7 +22,7 @@ import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
 
 	let bonusOverrides: Awaited<ReturnType<typeof loadBonusOverrides>> = { presets: [] };
@@ -44,9 +44,35 @@ export const load: PageServerLoad = async ({ locals }) => {
 			targetAgeMax: m.targetAgeMax,
 		}));
 
+	// #2362 PR-6: `?import=<presetId>` で marketplace から遷移した場合、
+	// 自動取込のために presetId を validate し client 側 $effect で `?/importMarketplaceRulePreset`
+	// action を 1 度だけ POST する。dialog 不要 (family scope、即取込 + toast)。
+	// 不正な presetId / 非 bonus type は client 側 toast で error 表示。
+	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
+	let importPresetId: string | null = null;
+	let importPresetError: 'not-found' | 'wrong-type' | null = null;
+	if (importPresetIdRaw) {
+		const item = getMarketplaceItem('rule-preset', importPresetIdRaw);
+		if (!item) {
+			importPresetError = 'not-found';
+		} else if (
+			!('ruleType' in item.payload) ||
+			(item.payload as { ruleType: string }).ruleType !== 'bonus'
+		) {
+			// exchange / penalty / special は本画面の auto-import 対象外。
+			// exchange は admin/rewards 経由、penalty / special は ADR-0012 細則で取込不可。
+			importPresetError = 'wrong-type';
+		} else {
+			importPresetId = importPresetIdRaw;
+		}
+	}
+
 	return {
 		bonusPresets: bonusOverrides.presets,
 		rulePresets,
+		importPresetId,
+		importPresetIdRaw,
+		importPresetError,
 	};
 };
 
@@ -122,6 +148,7 @@ export const actions: Actions = {
 		} catch (e) {
 			logger.error('[admin/settings/rules] importMarketplaceRulePreset 失敗', {
 				error: e instanceof Error ? e.message : String(e),
+				stack: e instanceof Error ? e.stack : undefined,
 				context: { presetId },
 			});
 			return fail(500, { error: 'インポートに失敗しました' });

@@ -413,17 +413,34 @@ const childOptions = $derived(
 						{MARKETPLACE_LABELS.detailCtaSignupToImport}
 					</Button>
 				</a>
-			{:else if isRulePreset && data.isAuthenticated && (isRuleBonus || (isRuleExchange && data.children.length > 0))}
-				<!-- #2138 (MP-3): rule-preset 一括追加 CTA -->
-				<!-- bonus は childId 不要 (tenant スコープ)、exchange は childId 必須 -->
+			{:else if isRulePreset && data.isAuthenticated && isRuleBonus}
+				<!-- #2362 PR-6: rule-preset bonus は family scope (tenant 全体に 1 件、childId 不要)。
+				     in-page form を撤去し、CWE-598 整合 (childId URL/body 排除) のため
+				     /admin/settings/rules?import=<itemId> へ link 遷移 (admin 側で auto-import + toast)。
+				     旧 in-page action `?/importRulePreset` (bonus) は廃止。 -->
 				<Card padding="md">
 					{#snippet children()}
 					<p class="text-xs text-[var(--color-text-tertiary)]">
-						{#if isRuleBonus}
-							{MARKETPLACE_LABELS.detailCtaImportRuleDescBonus}
-						{:else if isRuleExchange}
-							{MARKETPLACE_LABELS.detailCtaImportRuleDescExchange}
-						{/if}
+						{MARKETPLACE_LABELS.detailCtaImportRuleDescBonus}
+					</p>
+					<a
+						href="/admin/settings/rules?import={item.itemId}"
+						class="block mt-3"
+						data-testid="rule-import-bonus-redirect"
+					>
+						<Button variant="primary" size="lg" class="w-full">
+							{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
+						</Button>
+					</a>
+					{/snippet}
+				</Card>
+			{:else if isRulePreset && data.isAuthenticated && isRuleExchange && data.children.length > 0}
+				<!-- #2138 (MP-3): rule-preset exchange 一括追加 CTA (childId 必須、per-child)。
+				     exchange は marketplace 削除予定 (#2445 / I1) のため、暫定的に従来通り維持。 -->
+				<Card padding="md">
+					{#snippet children()}
+					<p class="text-xs text-[var(--color-text-tertiary)]">
+						{MARKETPLACE_LABELS.detailCtaImportRuleDescExchange}
 					</p>
 
 					{#if ruleImport}
@@ -439,27 +456,17 @@ const childOptions = $derived(
 								class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm text-center mt-3"
 								data-testid="rule-import-result-success"
 							>
-								{#if ruleImport.ruleType === 'bonus'}
-									{MARKETPLACE_LABELS.detailRuleImportSuccessBonus(ruleImport.presetName ?? '')}
-								{:else if ruleImport.ruleType === 'exchange'}
+								{#if ruleImport.ruleType === 'exchange'}
 									{MARKETPLACE_LABELS.detailRuleImportSuccessExchange(
 										ruleImport.presetName ?? '',
 										ruleImport.imported ?? 0,
 									)}
 								{/if}
-								{#if isRuleBonus}
-									<div class="text-xs mt-1">
-										<a href="/admin/settings/rules" class="underline">
-											{MARKETPLACE_LABELS.detailRuleImportLinkToBonusList}
-										</a>
-									</div>
-								{:else if isRuleExchange}
-									<div class="text-xs mt-1">
-										<a href="/admin/rewards" class="underline">
-											{MARKETPLACE_LABELS.detailRuleImportLinkToRewardsList}
-										</a>
-									</div>
-								{/if}
+								<div class="text-xs mt-1">
+									<a href="/admin/rewards" class="underline">
+										{MARKETPLACE_LABELS.detailRuleImportLinkToRewardsList}
+									</a>
+								</div>
 							</div>
 						{/if}
 					{/if}
@@ -478,21 +485,19 @@ const childOptions = $derived(
 						class="space-y-3 mt-3"
 						data-testid="rule-import-form"
 					>
-						{#if isRuleExchange}
-							<label class="block">
-								<span class="text-xs font-bold text-[var(--color-text-secondary)] block mb-1">
-									{MARKETPLACE_LABELS.detailCtaSelectChild}
-								</span>
-								<NativeSelect
-									name="childId"
-									bind:value={selectedChildIdForRule}
-									options={data.children.map((c) => ({
-										value: c.id,
-										label: c.nickname,
-									}))}
-								/>
-							</label>
-						{/if}
+						<label class="block">
+							<span class="text-xs font-bold text-[var(--color-text-secondary)] block mb-1">
+								{MARKETPLACE_LABELS.detailCtaSelectChild}
+							</span>
+							<NativeSelect
+								name="childId"
+								bind:value={selectedChildIdForRule}
+								options={data.children.map((c) => ({
+									value: c.id,
+									label: c.nickname,
+								}))}
+							/>
+						</label>
 						<Button
 							type="submit"
 							variant="primary"

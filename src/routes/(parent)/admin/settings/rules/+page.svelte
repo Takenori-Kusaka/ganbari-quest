@@ -1,17 +1,161 @@
 <script lang="ts">
+import { tick } from 'svelte';
 import { enhance } from '$app/forms';
-import { invalidateAll } from '$app/navigation';
-import { ADMIN_RULES_PAGE_LABELS, APP_LABELS } from '$lib/domain/labels';
+import { invalidateAll, replaceState } from '$app/navigation';
+import { page } from '$app/state';
+import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, OVERFLOW_MENU_LABELS } from '$lib/domain/labels';
 // #2391 (Phase 2): in-page rule-preset 取込 UI を統一
 import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import OverflowMenu, { type OverflowMenuItem } from '$lib/ui/primitives/OverflowMenu.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 let { data, form } = $props();
 
 // #2391 (Phase 2): marketplace import 完了メッセージ
 let marketplaceImportMessage = $state('');
+
+// #2362 PR-6: OverflowMenu からの「未実装」表示用 Dialog 群
+let helpDialogOpen = $state(false);
+let restoreDialogOpen = $state(false);
+let exportDialogOpen = $state(false);
+
+// #2362 PR-6: `?import=<presetId>` auto-import 制御
+// load 側で validate 済 (importPresetId / importPresetError)、本 client 側は
+// 1 度だけ form を programmatically submit + URL を `?import=` 除去
+let autoImportTriggered = $state(false);
+let autoImportFormRef = $state<HTMLFormElement | null>(null);
+let autoImportPresetIdInput = $state<HTMLInputElement | null>(null);
+
+$effect(() => {
+	if (autoImportTriggered) return;
+
+	// 不正 presetId / 非 bonus type を即時 toast 表示してから URL cleanup
+	if (data.importPresetError === 'not-found' && data.importPresetIdRaw) {
+		autoImportTriggered = true;
+		showToast(
+			ADMIN_RULES_PAGE_LABELS.importToastNotFound(data.importPresetIdRaw),
+			undefined,
+			'error',
+		);
+		cleanupImportQueryParam();
+		return;
+	}
+	if (data.importPresetError === 'wrong-type' && data.importPresetIdRaw) {
+		autoImportTriggered = true;
+		showToast(ADMIN_RULES_PAGE_LABELS.importToastError(data.importPresetIdRaw), undefined, 'error');
+		cleanupImportQueryParam();
+		return;
+	}
+
+	if (data.importPresetId && autoImportFormRef && autoImportPresetIdInput) {
+		autoImportTriggered = true;
+		autoImportPresetIdInput.value = data.importPresetId;
+		autoImportFormRef.requestSubmit();
+	}
+});
+
+// #2362 PR-6: import action 完了後の form 戻り値を観察し toast 表示
+// SvelteKit が action union から narrowing を自動推論できないため、
+// importMarketplaceRulePreset 専用の shape として cast (top-level shape:
+// { packName, imported, skipped, total, errors, presetId })
+type ImportFormResult = {
+	packName?: string;
+	imported?: number;
+	skipped?: number;
+	total?: number;
+	errors?: string[];
+	presetId?: string;
+};
+
+// 同一 form result の二重発火防止 — invalidateAll 後の re-render / 別 form action 後にも
+// effect 再実行されるため、最後に処理した import result のシリアライズを記録して比較する。
+let lastProcessedImportFingerprint = $state<string | null>(null);
+
+$effect(() => {
+	if (!form) return;
+	const r = form as ImportFormResult;
+	if (r.presetId && typeof r.imported === 'number') {
+		// fingerprint: presetId + imported + skipped で同一 import result の識別。
+		// 同じ result の effect 再実行では toast を出さない。
+		const fp = `${r.presetId}|${r.imported}|${r.skipped ?? 0}|${r.total ?? 0}`;
+		if (fp === lastProcessedImportFingerprint) return;
+		lastProcessedImportFingerprint = fp;
+		const display = r.packName ?? r.presetId;
+		if (r.imported > 0) {
+			showToast(ADMIN_RULES_PAGE_LABELS.importToastSuccess(display), undefined, 'success');
+		} else if (r.skipped === r.total && (r.total ?? 0) > 0) {
+			showToast(ADMIN_RULES_PAGE_LABELS.importToastDuplicate(display), undefined, 'info');
+		} else if (r.errors && r.errors.length > 0) {
+			showToast(ADMIN_RULES_PAGE_LABELS.importToastError(display), undefined, 'error');
+		}
+		cleanupImportQueryParam();
+	}
+});
+
+async function cleanupImportQueryParam() {
+	if (typeof window === 'undefined') return;
+	const u = new URL(page.url);
+	if (!u.searchParams.has('import')) return;
+	u.searchParams.delete('import');
+	// $effect は mount 直後に fire するため初回は router 未初期化で
+	// `replaceState` from $app/navigation が throw する。tick() で 1 回 microtask を
+	// 待つと router init が完了するため安全に呼べる (PR #2478 review feedback)。
+	await tick();
+	try {
+		replaceState(u, page.state ?? {});
+	} catch {
+		// fallback: tick 後でも router が未初期化な極端なケースのみ
+		// window.history.replaceState (SvelteKit warning 出るが URL bar 更新のみで navigation 無し)
+		window.history.replaceState(window.history.state, '', u.toString());
+	}
+}
+
+// #2362 PR-6: OverflowMenu items (PR-2 OVERFLOW_MENU_LABELS 経由)
+// rule bonus は family scope なので AI 提案は対象外 (個別 child カスタマイズが効きにくい)
+const overflowItems = $derived<OverflowMenuItem[]>([
+	{
+		type: 'action',
+		id: OVERFLOW_MENU_LABELS.items.marketplace.id,
+		label: OVERFLOW_MENU_LABELS.items.marketplace.label,
+		icon: OVERFLOW_MENU_LABELS.items.marketplace.icon,
+		onSelect: () => {
+			window.location.href = '/marketplace?type=rule-preset';
+		},
+	},
+	{ type: 'divider', id: 'divider-1' },
+	{
+		type: 'action',
+		id: OVERFLOW_MENU_LABELS.items.restore.id,
+		label: OVERFLOW_MENU_LABELS.items.restore.label,
+		icon: OVERFLOW_MENU_LABELS.items.restore.icon,
+		onSelect: () => {
+			restoreDialogOpen = true;
+		},
+	},
+	{
+		type: 'action',
+		id: OVERFLOW_MENU_LABELS.items.export.id,
+		label: OVERFLOW_MENU_LABELS.items.export.label,
+		icon: OVERFLOW_MENU_LABELS.items.export.icon,
+		onSelect: () => {
+			exportDialogOpen = true;
+		},
+	},
+	{ type: 'divider', id: 'divider-2' },
+	{
+		type: 'action',
+		id: OVERFLOW_MENU_LABELS.items.help.id,
+		label: OVERFLOW_MENU_LABELS.items.help.label,
+		icon: OVERFLOW_MENU_LABELS.items.help.icon,
+		onSelect: () => {
+			helpDialogOpen = true;
+		},
+	},
+]);
 
 function formatImportedAt(iso: string): string {
 	try {
@@ -27,14 +171,37 @@ function formatImportedAt(iso: string): string {
 	<title>{ADMIN_RULES_PAGE_LABELS.pageTitle}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
+<!-- #2362 PR-6: ?import=<presetId> auto-import 用の hidden form (programmatic submit) -->
+<form
+	bind:this={autoImportFormRef}
+	method="POST"
+	action="?/importMarketplaceRulePreset"
+	use:enhance={() => async ({ update }) => {
+		await update();
+		await invalidateAll();
+	}}
+	style="display:none"
+	data-testid="rules-auto-import-form"
+>
+	<input bind:this={autoImportPresetIdInput} type="hidden" name="presetId" value="" />
+</form>
+
 <div class="max-w-3xl mx-auto px-4 py-6 space-y-6" data-testid="admin-rules-page">
-	<header class="space-y-2">
-		<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
-			{ADMIN_RULES_PAGE_LABELS.pageTitle}
-		</h1>
-		<p class="text-sm text-[var(--color-text-secondary)]">
-			{ADMIN_RULES_PAGE_LABELS.pageDescription}
-		</p>
+	<header class="flex items-start justify-between gap-2">
+		<div class="space-y-2 flex-1 min-w-0">
+			<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
+				{ADMIN_RULES_PAGE_LABELS.pageTitle}
+			</h1>
+			<p class="text-sm text-[var(--color-text-secondary)]">
+				{ADMIN_RULES_PAGE_LABELS.pageDescription}
+			</p>
+		</div>
+		<!-- #2362 PR-6: OverflowMenu (top-right ⋮) -->
+		<OverflowMenu
+			items={overflowItems}
+			ariaLabel={ADMIN_RULES_PAGE_LABELS.overflowMenuAriaLabel}
+			testid="rules-overflow-menu"
+		/>
 	</header>
 
 	{#if form?.toggleSuccess || form?.removeSuccess}
@@ -250,3 +417,38 @@ function formatImportedAt(iso: string): string {
 		{/snippet}
 	</Card>
 </div>
+
+<!-- #2362 PR-6: OverflowMenu からの未実装機能告知 + ヘルプ Dialog 群 -->
+<Dialog
+	bind:open={helpDialogOpen}
+	title={ADMIN_RULES_PAGE_LABELS.helpDialogTitle}
+	testid="rules-help-dialog"
+>
+	{#snippet children()}
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{ADMIN_RULES_PAGE_LABELS.helpDialogDesc}
+	</p>
+	{/snippet}
+</Dialog>
+<Dialog
+	bind:open={restoreDialogOpen}
+	title={ADMIN_RULES_PAGE_LABELS.restoreNotImplementedTitle}
+	testid="rules-restore-dialog"
+>
+	{#snippet children()}
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{ADMIN_RULES_PAGE_LABELS.restoreNotImplementedDesc}
+	</p>
+	{/snippet}
+</Dialog>
+<Dialog
+	bind:open={exportDialogOpen}
+	title={ADMIN_RULES_PAGE_LABELS.exportNotImplementedTitle}
+	testid="rules-export-dialog"
+>
+	{#snippet children()}
+	<p class="text-sm text-[var(--color-text-secondary)]">
+		{ADMIN_RULES_PAGE_LABELS.exportNotImplementedDesc}
+	</p>
+	{/snippet}
+</Dialog>

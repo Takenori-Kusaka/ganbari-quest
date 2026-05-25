@@ -200,6 +200,13 @@ export const actions: Actions = {
 		const childIdRaw = formData.get('childId');
 		const childId = childIdRaw ? Number(childIdRaw) : undefined;
 
+		// #2362 PR-6: bonus は family scope。marketplace 経由の in-page import を
+		// 撤去し /admin/settings/rules?import=<itemId> 経由に統一 (CWE-598 整合)。
+		// 直接 POST してきた場合 (form 撤去後の互換 / 攻撃) は admin 側へ redirect。
+		if (payload.ruleType === 'bonus') {
+			redirect(303, `/admin/settings/rules?import=${params.itemId}`);
+		}
+
 		// exchange は childId 必須
 		if (payload.ruleType === 'exchange') {
 			if (!childId || Number.isNaN(childId)) {
