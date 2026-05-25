@@ -2033,6 +2033,7 @@ export const DEMO_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = [
 	// senior (906 けいすけくん) → 高校生の登校準備
 	{
 		id: 900,
+		tenantId: DEMO_TENANT_ID,
 		childId: 901,
 		name: 'おでかけのじゅんび',
 		icon: '🍼',
@@ -2047,6 +2048,7 @@ export const DEMO_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = [
 	},
 	{
 		id: 904,
+		tenantId: DEMO_TENANT_ID,
 		childId: 904,
 		name: '中学生の登校準備',
 		icon: '🎒',
@@ -2061,6 +2063,7 @@ export const DEMO_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = [
 	},
 	{
 		id: 905,
+		tenantId: DEMO_TENANT_ID,
 		childId: 906,
 		name: '高校生の登校準備',
 		icon: '📚',

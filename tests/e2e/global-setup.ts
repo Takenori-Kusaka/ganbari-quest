@@ -438,8 +438,10 @@ export default async function globalSetup() {
 			}
 
 			// 持ち物チェックリスト (kind なし、family master 化対応)
+			// tenant_id は LocalAuthProvider の固定値 'local' に揃える (
+			// `src/lib/server/auth/providers/local.ts` 参照、E2E は local モードで動作)。
 			db.prepare(
-				"INSERT INTO checklist_templates (tenant_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES ('default', 'がっこうのもちもの', '🎒', 2, 5, 'morning')",
+				"INSERT INTO checklist_templates (tenant_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES ('local', 'がっこうのもちもの', '🎒', 2, 5, 'morning')",
 			).run();
 			const itemTplId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
 			// preschool child に assignment 1 件
