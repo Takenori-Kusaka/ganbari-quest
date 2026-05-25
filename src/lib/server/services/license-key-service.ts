@@ -10,6 +10,7 @@ import { type LicensePlan, planDurationDays } from '$lib/domain/constants/licens
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { getRepos } from '$lib/server/db/factory';
+import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
 
 // ============================================================
@@ -325,9 +326,23 @@ export async function validateLicenseKey(
 		}
 	}
 
-	// 旧形式キーの場合: 秘密鍵があればログ出力（将来的に非推奨化の追跡用）
+	// 旧形式キーの場合: 秘密鍵があれば警告ログ + Discord alert (HMAC 必須化 Phase 1、#2403)
+	// 既存 discord-alert.ts の 5 分窓 × 3 件 throttle 機構で同一 key prefix の連続通知を抑制 (key suffix を
+	// message 内に含めることで throttle key として動作、Issue #2403 「key suffix で同一 user 連続通知抑制」整合)。
+	// Phase 2 で legacy 発行禁止、Phase 3 で verify reject + 物理削除 (docs/operations/license-hmac-migration-plan.md)。
 	if (isLegacy && getLicenseSecret()) {
-		logger.info(`[LICENSE] Legacy format key used: ${normalized.slice(0, 7)}...`);
+		const keyPrefix = normalized.slice(0, 7);
+		logger.warn(
+			`[LICENSE] Legacy format key used (HMAC 未署名、Phase 2/3 で reject 予告): ${keyPrefix}...`,
+		);
+		// fire-and-forget — alert 失敗は本処理を止めない (await しない、未処理例外は logger 内で catch される設計)
+		void sendDiscordAlert({
+			level: 'error',
+			message: `Legacy license key used: ${keyPrefix}... (HMAC 未署名、要 Phase 2 migration 通知)`,
+			errorSummary: `legacy_key_used:${keyPrefix}`,
+		}).catch((err) => {
+			logger.warn(`[LICENSE] Discord alert failed for legacy key ${keyPrefix}: ${String(err)}`);
+		});
 	}
 
 	const repos = getRepos();
