@@ -78,16 +78,16 @@
 
 本サービスの稼働は以下の外部クラウド基盤に依存する。本 SLA §3.2「計画外ダウンタイムに含まない事象」の通り、これら依存先の障害は SLA 計算から **除外** するため、依存先合成値は SLA 達成判定には用いない。ただし**当社単独で制御できる稼働率の理論上限**を透明化する目的で参考開示する。
 
-| 依存先 | 公称 SLA | 出典 |
+| 依存先 | 公称 SLA / 観測値 | 出典 |
 |--------|---------|------|
-| AWS Lambda | 99.95% | [Compute SLA](https://aws.amazon.com/compute/sla/) |
-| Amazon CloudFront | 99.9% | [CloudFront SLA](https://aws.amazon.com/cloudfront/sla/) |
-| Amazon Cognito | 99.9% | [Cognito SLA](https://aws.amazon.com/cognito/sla/) |
-| Stripe | 99.99% | [Stripe Status](https://status.stripe.com/) |
+| AWS Lambda | 99.95%（契約 SLA） | [Compute SLA](https://aws.amazon.com/compute/sla/) |
+| Amazon CloudFront | 99.9%（契約 SLA） | [CloudFront SLA](https://aws.amazon.com/cloudfront/sla/) |
+| Amazon Cognito | 99.9%（契約 SLA） | [Cognito SLA](https://aws.amazon.com/cognito/sla/) |
+| Stripe | 99.99%（Stripe Status Page 観測値、契約 SLA は Enterprise tier のみ提供） | [Stripe Status](https://status.stripe.com/) |
 
 各依存先が独立障害を起こす前提での合成稼働率: `0.9995 × 0.999 × 0.999 × 0.9999 ≈ 0.9974` (= 99.74%)
 
-→ 依存先障害を SLA 計算に含めた場合の理論上限は約 99.74%。当社 target **99.5%** はこの理論上限を約 0.24 pts 下回る位置に設定されており、当社制御範囲内 (Lambda 実装 / CDK 構成 / Web アプリ品質 / 計画メンテナンス) で吸収すべき許容ダウンタイム余地は概ね **0.24 pts (月間約 10 分)** となる。本値は内部リスク管理の参考指標であり、SLA 達成判定には依存先除外後の単独稼働実績を用いる。
+→ 依存先障害を SLA 計算に含めた場合の理論上限は約 99.74%。当社 target **99.5%** はこの理論上限を約 0.24 pts 下回る位置に設定されており、当社制御範囲内 (Lambda 実装 / CDK 構成 / Web アプリ品質 / 計画メンテナンス) で吸収すべき許容ダウンタイム余地は概ね **0.24 pts（月間約 100 分 ≒ 1.7 時間。算出: 0.24% × 30 日 × 24h × 60min ≈ 104 分）** となる。本値は内部リスク管理の参考指標であり、SLA 達成判定には依存先除外後の単独稼働実績を用いる。なお Stripe は公開ステータスページ観測値であり契約上の SLA は Enterprise tier 限定のため、Stripe 単独の SLA 違反による補償請求は当社では発生しない（依存先除外条項に整合）。
 
 ### 3.3 デプロイおよび計画メンテナンス
 
