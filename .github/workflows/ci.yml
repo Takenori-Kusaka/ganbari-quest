@@ -146,11 +146,11 @@ jobs:
 
       - run: npm ci
 
-      # #2097 ADR-0048 week 4: infra/ 配下も install。
-      # root devDeps は aws-cdk-lib を持たず (lockfile 不整合回避)、
-      # vite.config.ts alias で infra/node_modules/aws-cdk-lib にエイリアス解決する。
-      # tests/unit/infra/multi-lambda-cdk.test.ts が CDK Template assertion を実行するために必須。
-      - name: Install infra dependencies (#2097 ADR-0048)
+      # #2097 ADR-0048 week 4 / #2476: infra/ 配下も install。
+      # root devDeps は aws-cdk-lib を持たず (lockfile 不整合回避)、infra/package.json SSOT で分離。
+      # tests/unit/infra/multi-lambda-cdk.test.ts が aws-cdk-lib を import し、
+      # vitest の module resolution が infra/node_modules を経由して解決する (vite.config.ts alias は不使用)。
+      - name: Install infra dependencies (#2097 ADR-0048 / #2476)
         run: cd infra && npm ci
 
       - name: Biome lint (#1432 — warning=error)
@@ -286,9 +286,10 @@ jobs:
 
       - run: npm ci
 
-      # #2097 ADR-0048 week 4: tests/unit/infra/multi-lambda-cdk.test.ts が
-      # vite.config.ts alias 経由で infra/node_modules/aws-cdk-lib を import する。
-      - name: Install infra dependencies (#2097 ADR-0048)
+      # #2097 ADR-0048 week 4 / #2476: tests/unit/infra/multi-lambda-cdk.test.ts が
+      # aws-cdk-lib (infra/package.json SSOT) を import するため infra/ 配下にも install。
+      # vitest の module resolution が infra/node_modules を経由して解決する (vite.config.ts alias は不使用)。
+      - name: Install infra dependencies (#2097 ADR-0048 / #2476)
         run: cd infra && npm ci
 
       - name: Unit tests with coverage (shard ${{ matrix.shard }}/2)
@@ -333,9 +334,10 @@ jobs:
 
       - run: npm ci
 
-      # #2097 ADR-0048 week 4: merge 時の coverage 再評価で multi-lambda-cdk.test.ts が
+      # #2097 ADR-0048 week 4 / #2476: merge 時の coverage 再評価で multi-lambda-cdk.test.ts が
       # 再 import 解決される可能性があるため、infra/ 依存も install して整合させる。
-      - name: Install infra dependencies (#2097 ADR-0048)
+      # 解決経路は vitest module resolution → infra/node_modules (vite.config.ts alias は不使用)。
+      - name: Install infra dependencies (#2097 ADR-0048 / #2476)
         run: cd infra && npm ci
 
       - name: Download vitest blob reports

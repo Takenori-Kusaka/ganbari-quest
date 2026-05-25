@@ -3,10 +3,6 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// フルスイート並列実行時の dynamic import タイムアウト対策
-// hooks.server.ts は依存が深く、並列実行時のモジュール解決に時間がかかる
-vi.setConfig({ testTimeout: 30_000, hookTimeout: 60_000 });
-
 import type { AuthContext, Identity } from '../../../src/lib/server/auth/types';
 
 // --- モック定義 ---

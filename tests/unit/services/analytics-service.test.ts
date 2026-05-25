@@ -8,9 +8,6 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// フルスイート並列実行時の dynamic import タイムアウト対策
-vi.setConfig({ testTimeout: 30_000 });
-
 // Mock the logger to avoid file I/O in tests
 vi.mock('$lib/server/logger', () => ({
 	logger: {
