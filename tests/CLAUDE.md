@@ -4,6 +4,38 @@
 
 テスト品質劣化は許容しない。カバレッジ閾値引き下げ・テスト回避は CI 自動拒否。
 
+## テスト環境セットアップ (#2476)
+
+新規 contributor / AI 補佐は **必ず以下 2 ステップを実行** してからテストを起動する。**`npm ci` 単独では infra/marketplace 系テストが Cannot find module で fail する**:
+
+```bash
+npm ci                  # root 依存 install
+cd infra && npm ci      # infra 配下も install (必須)
+cd ..
+```
+
+`prepare` script (root `package.json`) が 2 ステップ目を自動実行するが、`prepare` の各ステップは `||` 経由で warning を出すだけで silent fail する設計のため、**手動確認推奨**:
+
+```bash
+ls node_modules/valibot/                    # marketplace schemas で必要
+ls infra/node_modules/aws-cdk-lib/          # tests/unit/infra/ で必要
+ls node_modules/canvas-confetti/            # tests/unit/features/reward-celebration で必要
+```
+
+### 「Cannot find module 'XXX'」が出たら
+
+| エラー | 原因 | 対処 |
+|---|---|---|
+| `Cannot find module 'valibot'` (`tests/unit/marketplace/schemas/*`) | root `node_modules/` 不整合 | `npm ci` または `rm -rf node_modules && npm install` |
+| `Cannot find module 'aws-cdk-lib'` (`tests/unit/infra/multi-lambda-cdk.test.ts`) | `infra/node_modules/` 未 install | `cd infra && npm ci` を手動実行 |
+| `Cannot find module 'canvas-confetti'` (`tests/unit/features/reward-celebration.test.ts`) | root `node_modules/` 不整合 | `npm ci` または `rm -rf node_modules && npm install` |
+
+### `prepare` script の挙動 (#2476)
+
+`package.json` `prepare` script は 3 ステップ実行する: `svelte-kit sync` / `husky` / `cd infra && npm ci`。各ステップ失敗時は `[prepare] ... FAILED — ...` の warning が標準出力に出るため、`npm install` / `npm ci` の出力末尾を確認する習慣をつける。
+
+CI ログでも同 warning が出るため、PR の CI fail 調査時にまず確認する箇所。
+
 ## テスト分類（#1500）
 
 | 分類 | 置き場所 | 特徴 |
