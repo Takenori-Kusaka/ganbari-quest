@@ -6,6 +6,7 @@ import {
 	APP_LABELS,
 	OVERFLOW_MENU_LABELS,
 	PAGE_TITLES,
+	UI_LABELS,
 } from '$lib/domain/labels';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
@@ -975,7 +976,7 @@ function getChildName(childId: number): string {
 			testid="checklist-distribution-visibility"
 		/>
 		<div class="flex justify-end gap-2 pt-2 border-t border-[var(--color-border-light)]">
-			<Button variant="ghost" onclick={closeDistributionDialog}>キャンセル</Button>
+			<Button variant="ghost" onclick={closeDistributionDialog}>{UI_LABELS.cancel}</Button>
 			<Button
 				variant="primary"
 				onclick={saveDistribution}
