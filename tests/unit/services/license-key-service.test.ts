@@ -33,6 +33,11 @@ vi.mock('$lib/server/logger', () => ({
 	},
 }));
 
+const mockSendDiscordAlert = vi.fn();
+vi.mock('$lib/server/discord-alert', () => ({
+	sendDiscordAlert: (...args: unknown[]) => mockSendDiscordAlert(...args),
+}));
+
 import {
 	assertLicenseKeyConfigured,
 	consumeLicenseKey,
@@ -510,6 +515,61 @@ describe('validateLicenseKey', () => {
 		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
 
 		expect(result.valid).toBe(true);
+	});
+
+	it('#2403 Phase 1.1/1.2: legacy 形式 + AWS_LICENSE_SECRET 設定下で logger.warn + Discord alert が発火する', async () => {
+		// Arrange — AWS_LICENSE_SECRET 設定 (Phase 1.1 の `if (isLegacy && getLicenseSecret())` 分岐に入る条件)
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		const { logger } = await import('$lib/server/logger');
+		mockSendDiscordAlert.mockResolvedValue(undefined);
+
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		// Act
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		// Assert — validation 自体は成功 (legacy 受け入れ維持、Phase 2 で初めて reject)
+		expect(result.valid).toBe(true);
+
+		// Assert — Phase 1.1: logger.warn が「Legacy format key used」で発火
+		expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Legacy format key used'));
+		expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('GQ-ABCD'));
+
+		// Assert — Phase 1.2: sendDiscordAlert が level: 'error' + errorSummary: legacy_key_used:<prefix> で発火
+		expect(mockSendDiscordAlert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				level: 'error',
+				errorSummary: expect.stringContaining('legacy_key_used:GQ-ABCD'),
+			}),
+		);
+	});
+
+	it('#2403 Phase 1.2: Discord alert 失敗は本処理を止めない (fire-and-forget)', async () => {
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		mockSendDiscordAlert.mockRejectedValue(new Error('Discord webhook unreachable'));
+
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'active',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		// Act — Discord alert が reject しても validateLicenseKey は通常通り完了する
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		// Assert — validation 結果は alert 失敗の影響を受けない
+		expect(result.valid).toBe(true);
+		expect(mockSendDiscordAlert).toHaveBeenCalled();
 	});
 
 	it('署名付きキーの署名が正しい場合はDBを参照する', async () => {
