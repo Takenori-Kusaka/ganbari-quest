@@ -6,4 +6,4 @@
 | 1 | pr2474-admin-rewards-default |
 | 2 | pr2474-admin-rewards-child-tab-switched |
 | 3 | pr2474-admin-rewards-import-dialog-auto-open |
-| 4 | pr2474-admin-rewards-copy-dialog-attempted |
+| 4 | pr2474-admin-rewards-copy-dialog |
