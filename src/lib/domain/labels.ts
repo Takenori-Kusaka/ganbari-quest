@@ -4191,6 +4191,27 @@ export const ADMIN_CHILDREN_PAGE_LABELS = {
 	ageRange: '0〜18で入力してください',
 } as const;
 
+// #2362 PR-7 (ADR-0055、User §6): per-child challenge instance + 兄弟連動 UI
+export const ADMIN_CHALLENGES_PAGE_LABELS = {
+	// 兄弟連動比較 UI (SiblingChallengeComparison.svelte)
+	siblingComparisonHeading: 'きょうだいの進捗',
+	siblingComparisonAllCompleted: 'みんな達成',
+	siblingComparisonAllCompletedMessage:
+		'きょうだい全員で達成しました。お子さまの努力を一緒に認めてあげましょう。',
+	// 子供別タブ
+	childTabAllLabel: 'すべて',
+	childTabAllAriaLabel: 'すべてのお子さま',
+	// 一括追加 / cross-child copy
+	bulkAddAction: '全員にこのチャレンジを追加',
+	copyFromOtherChildAction: '他のお子さまから取り込む',
+	copyConfirmTitle: (sourceName: string, targetCount: number) =>
+		`${sourceName}のチャレンジを ${targetCount} 人にコピーしますか？`,
+	copyCompletedMessage: (copiedCount: number) => `${copiedCount} 件のチャレンジをコピーしました。`,
+	// per-child empty state
+	perChildEmptyTitle: 'このお子さまのチャレンジはまだありません',
+	perChildEmptyDesc: 'みんなのテンプレートから取り込むか、新規作成してください',
+} as const;
+
 export const CERTIFICATES_PAGE_LABELS = {
 	pageTitle: '📜 がんばり証明書',
 	backToReportsLink: 'レポートへ',

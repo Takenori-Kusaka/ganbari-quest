@@ -287,6 +287,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `activities.priority` (#1755) | `src/lib/server/db/schema.ts` | `tests/e2e/global-setup.ts` (ALTER + must seed) | `tests/unit/helpers/test-db.ts` | `src/lib/server/demo/demo-data.ts` (must=はみがきした/おきがえした/おかたづけした) | #1755 (#1709-A) |
 | `checklist_templates.kind` 削除 (#1755) | 同上（列削除済） | 同上（DROP COLUMN + DELETE WHERE 旧ルーチン枠レコード） | 同上（列なし） | 同上（kind プロパティ削除済 + 旧ルーチン枠テンプレート削除） | #1755 (#1709-A) |
 | `child_activities` 並存（旧 `activities` と並列保持） (#2362 PR-3 / ADR-0055) | `src/lib/server/db/schema.ts` (`child_activities` table 追加、`childId NOT NULL ON DELETE CASCADE`) | `tests/e2e/global-setup.ts` (CREATE TABLE + 2 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE) + `src/lib/server/db/create-tables.ts` (CREATE TABLE + 2 INDEX) | `src/lib/server/demo/demo-data.ts` (Phase 6 で各 child fixture 追加) | #2362 PR-3 (Phase 7 で旧 `activities` drop 予定) |
+| `child_challenges` 並存（旧 `sibling_challenges` + `sibling_challenge_progress` と並列保持） (#2362 PR-7 / ADR-0055、User §6) | `src/lib/server/db/schema.ts` (`child_challenges` table 追加、`childId NOT NULL ON DELETE CASCADE` + `sourceTemplateId` で兄弟連動 group) | `tests/e2e/global-setup.ts` (CREATE TABLE + 3 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE + 3 INDEX + ALL_TABLES に追加) | `src/lib/server/demo/demo-data.ts` (`DEMO_CHILD_CHALLENGES` 4 件 + 兄弟連動 demo group) | #2362 PR-7 (cleanup #2458 で旧 sibling_challenges drop 予定) |
 
 ###### `child_activities` per-child instance への移行 (#2362 PR-3 / ADR-0055)
 
@@ -297,6 +298,19 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - **routes**: `/admin/activities` は per-child UX (子供別タブ + ChildSelectionDialog auto-open + copy / bulk)。`/marketplace/[type]/[itemId]` activity-pack は admin redirect 動線 (CWE-598 排除、Phase 5)
 - **demo**: `child_activities` fixture (per-child instance) を Phase 6 で各 child に追加。旧 `activities` fixture も並存
 - **Phase 7 で実施**: 旧 `activities` drop + `Activity` / `IActivityRepo` 削除 + FK 切替 + 86 test files signature 追従
+
+###### `child_challenges` per-child instance への移行 (#2362 PR-7 / ADR-0055、User §6)
+
+旧 `sibling_challenges` (family-wide + 別 `sibling_challenge_progress` table、全 child を自動 enroll) は cleanup PR (#2458) で drop 予定。それまでは並存:
+
+- **schema**: 旧 `sibling_challenges` / `sibling_challenge_progress` table + 新 `child_challenges` table が並存。FK 切替は cleanup PR
+- **services**: 新 `child-challenge-service.ts` / `child-challenge-copy-service.ts` を SRP 分離。旧 `sibling-challenge-service.ts` は cleanup PR まで保持 (challenge-set-import-service が後方互換 path として呼ぶ)
+- **routes**: `/admin/challenges` は per-child instance + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte) + 一括追加 + cross-child copy。`/marketplace/[type]/[itemId]` challenge-set は admin redirect 動線 (CWE-598 排除、`?marketplace-import=<presetId>` のみ)
+- **demo**: `DEMO_CHILD_CHALLENGES` 4 件 fixture (3 件は `sourceTemplateId: 'challenge-100pt'` を共有して兄弟連動表示 demo、1 件は個別)
+- **兄弟連動 UI 工夫 (User §6)**: 同じ `sourceTemplateId` (または `title + startDate + endDate`) を共有する per-child instance を admin/challenges で group 表示。SiblingChallengeComparison は admin 画面でのみ使用し子供画面では非表示 (ADR-0012 Anti-engagement 整合)
+- **LP 整合性 (ADR-0013)**: LP / pricing / faq の「チャレンジ」訴求は per-child 体験ベース (「自分から目標を立てる」「ウィークリーチャレンジ」) のため per-child 化と既に整合済み。LP 文言修正不要 (本 PR で grep 確認済)
+- **family-only gate**: 既存の `tier !== 'family'` server-side gate は本 PR では維持 (LP / pricing 整合性は別 PR 判断、#2457 plan-limit cleanup と連携)
+- **Cleanup PR (#2458) で実施**: 旧 `sibling_challenges` / `sibling_challenge_progress` drop + `SiblingChallenge*` 型削除 + `ISiblingChallengeRepo` 削除 + 旧 service 呼出 残箇所の追従
 
 ---
 

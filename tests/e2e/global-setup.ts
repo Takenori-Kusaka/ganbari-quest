@@ -547,6 +547,36 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_scp_child ON sibling_challenge_progress(child_id);
 		`);
 
+		// child_challenges テーブル（#2362 PR-7、ADR-0055、User §6: per-child instance）
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS child_challenges (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+				title TEXT NOT NULL,
+				description TEXT,
+				challenge_type TEXT NOT NULL DEFAULT 'cooperative',
+				period_type TEXT NOT NULL DEFAULT 'weekly',
+				start_date TEXT NOT NULL,
+				end_date TEXT NOT NULL,
+				target_config TEXT NOT NULL,
+				reward_config TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'active',
+				is_active INTEGER NOT NULL DEFAULT 1,
+				source_template_id TEXT,
+				current_value INTEGER NOT NULL DEFAULT 0,
+				target_value INTEGER NOT NULL,
+				completed INTEGER NOT NULL DEFAULT 0,
+				completed_at TEXT,
+				reward_claimed INTEGER NOT NULL DEFAULT 0,
+				reward_claimed_at TEXT,
+				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX IF NOT EXISTS idx_child_challenges_child ON child_challenges(child_id, status);
+			CREATE INDEX IF NOT EXISTS idx_child_challenges_dates ON child_challenges(start_date, end_date);
+			CREATE INDEX IF NOT EXISTS idx_child_challenges_source ON child_challenges(source_template_id);
+		`);
+
 		// sibling_cheers テーブル（#0216 きょうだいスタンプ）
 		db.exec(`
 			CREATE TABLE IF NOT EXISTS sibling_cheers (

@@ -48,6 +48,7 @@ import type {
 	Child,
 	ChildAchievement,
 	ChildActivity,
+	ChildChallenge,
 	DailyMission,
 	Evaluation,
 	LoginBonus,
@@ -2597,6 +2598,114 @@ export const DEMO_SIBLING_CHALLENGE_PROGRESSES: SiblingChallengeProgress[] = [
 		rewardClaimedAt: daysAgoISO(3),
 		progressJson: null,
 		updatedAt: daysAgoISO(3),
+	},
+];
+
+// ============================================================
+// Child Challenges (#2362 PR-7、ADR-0055、User §6)
+// ============================================================
+// 旧 DEMO_SIBLING_CHALLENGES (family-wide + 別 progress 配列) を per-child instance に flip。
+// 同じ sourceTemplateId を持つ instance が admin/challenges 画面で
+// SiblingChallengeComparison により兄弟連動表示される。
+// 902 (ひなちゃん 5歳) と 903 (けんたくん 8歳) と 904 (さくらちゃん 14歳) が
+// 「みんなで 100 ポイントチャレンジ」を共有 (兄弟連動 UX デモ)。
+
+export const DEMO_CHILD_CHALLENGES: ChildChallenge[] = [
+	// 兄弟連動 instance: 902 ひなちゃん版 (5歳 age-adjusted target 15)
+	{
+		id: 101,
+		childId: 902,
+		title: 'みんなで 100 ポイントチャレンジ',
+		description: 'きょうだいで力を合わせて 100 pt を目指そう！',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: daysAgo(2),
+		endDate: daysAgo(-4),
+		targetConfig: JSON.stringify({ metric: 'count', baseTarget: 15 }),
+		rewardConfig: JSON.stringify({ points: 50, message: 'みんなでがんばったね！' }),
+		status: 'active',
+		isActive: 1,
+		sourceTemplateId: 'challenge-100pt',
+		currentValue: 12,
+		targetValue: 15,
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		createdAt: daysAgoISO(2),
+		updatedAt: daysAgoISO(1),
+	},
+	// 兄弟連動 instance: 903 けんたくん版 (8歳 age-adjusted target 25)
+	{
+		id: 102,
+		childId: 903,
+		title: 'みんなで 100 ポイントチャレンジ',
+		description: 'きょうだいで力を合わせて 100 pt を目指そう！',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: daysAgo(2),
+		endDate: daysAgo(-4),
+		targetConfig: JSON.stringify({ metric: 'count', baseTarget: 25 }),
+		rewardConfig: JSON.stringify({ points: 50, message: 'みんなでがんばったね！' }),
+		status: 'active',
+		isActive: 1,
+		sourceTemplateId: 'challenge-100pt',
+		currentValue: 20,
+		targetValue: 25,
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		createdAt: daysAgoISO(2),
+		updatedAt: daysAgoISO(1),
+	},
+	// 兄弟連動 instance: 904 さくらちゃん版 (14歳 age-adjusted target 30)
+	{
+		id: 103,
+		childId: 904,
+		title: 'みんなで 100 ポイントチャレンジ',
+		description: 'きょうだいで力を合わせて 100 pt を目指そう！',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: daysAgo(2),
+		endDate: daysAgo(-4),
+		targetConfig: JSON.stringify({ metric: 'count', baseTarget: 30 }),
+		rewardConfig: JSON.stringify({ points: 50, message: 'みんなでがんばったね！' }),
+		status: 'active',
+		isActive: 1,
+		sourceTemplateId: 'challenge-100pt',
+		currentValue: 28,
+		targetValue: 30,
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		createdAt: daysAgoISO(2),
+		updatedAt: daysAgoISO(1),
+	},
+	// 個別 instance: 903 けんたくんの「うんどう週間チャレンジ」(兄弟連動なし)
+	{
+		id: 104,
+		childId: 903,
+		title: 'うんどう週間チャレンジ',
+		description: 'うんどうカテゴリを 5 回達成しよう',
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: daysAgo(1),
+		endDate: daysAgo(-5),
+		targetConfig: JSON.stringify({ metric: 'count', categoryId: 1, baseTarget: 5 }),
+		rewardConfig: JSON.stringify({ points: 30, message: 'たいりょくアップ！' }),
+		status: 'active',
+		isActive: 1,
+		sourceTemplateId: null,
+		currentValue: 3,
+		targetValue: 5,
+		completed: 0,
+		completedAt: null,
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		createdAt: daysAgoISO(1),
+		updatedAt: daysAgoISO(0),
 	},
 ];
 

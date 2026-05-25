@@ -11,7 +11,12 @@
  *   - Schema は `../schemas/challenge-set-schema.ts` に分離 (#2364)
  *
  * #2369 EPIC #2362 P3 / EPIC #2294 案 B-γ 整合:
- *   - `requiresChildId: false` — sibling_challenges は family scope (全子供を自動エンロール)
+ *   - `requiresChildId: false` — challenge-set は per-child instance を複数生成するため
+ *     単一 childId は不要 (代わりに `requiresChildSelection: true` で childIds 配列を取得)
+ *
+ * #2362 PR-7 (ADR-0055、User §6):
+ *   - `requiresChildSelection: true` — per-child instance 化に伴い、取込時に
+ *     ChildSelectionDialog で対象 child を選択 (複数選択 / 全員選択可) する
  *
  * 関連:
  *   - $lib/marketplace/registry (singleton marketplaceRegistry)
@@ -36,6 +41,10 @@ export const challengeSetDescriptor: MarketplaceTypeDescriptor<
 		'マーケットプレイス公式のチャレンジ集 (例: 日本年間行事パック)。家族で取り組む協力チャレンジを一括追加します。',
 	strategy: challengeSetStrategy,
 	requiresChildId: false,
+	// #2362 PR-7 (ADR-0055、User §6): per-child instance 化に伴い、取込時に
+	// ChildSelectionDialog で対象 child を選択する (複数選択 / 全員選択可)。
+	// Strategy 実装は ctx.childIds の各 child に per-child instance を作成する。
+	requiresChildSelection: true,
 	schema: ChallengeSetPayloadSchema,
 };
 

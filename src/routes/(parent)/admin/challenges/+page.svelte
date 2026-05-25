@@ -2,10 +2,15 @@
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { todayDateJST } from '$lib/domain/date-utils';
-import { APP_LABELS, CHALLENGES_LABELS, PAGE_TITLES } from '$lib/domain/labels';
-// #2391 (Phase 2): in-page challenge-set 取込 UI を統一
+import {
+	ADMIN_CHALLENGES_PAGE_LABELS,
+	APP_LABELS,
+	CHALLENGES_LABELS,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
-import ProgressFill from '$lib/ui/components/ProgressFill.svelte';
+import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
+import SiblingChallengeComparison from '$lib/ui/features/admin/SiblingChallengeComparison.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
@@ -15,14 +20,8 @@ let { data, form } = $props();
 const isFamily = $derived(data.planTier === 'family');
 let creating = $state(false);
 
-// #2391 (Phase 2): marketplace import 完了メッセージ
 let marketplaceImportMessage = $state('');
 
-interface TargetConfig {
-	metric: string;
-	baseTarget: number;
-	categoryId?: number;
-}
 interface RewardConfig {
 	points: number;
 	message?: string;
@@ -40,26 +39,16 @@ function formatDate(d: string): string {
 	return d.replace(/-/g, '/');
 }
 
-function isCurrentlyActive(challenge: {
-	isActive: number;
-	status: string;
-	startDate: string;
-	endDate: string;
-}): boolean {
+function isCurrentlyActive(instance: ChildChallenge): boolean {
 	const today = todayDateJST();
 	return (
-		challenge.isActive === 1 &&
-		challenge.status === 'active' &&
-		challenge.startDate <= today &&
-		challenge.endDate >= today
+		instance.isActive === 1 &&
+		instance.status === 'active' &&
+		instance.startDate <= today &&
+		instance.endDate >= today
 	);
 }
 
-// #2296 (EPIC #2294 ②): competitive 表示はそのまま (既存データ閲覧目的、新規作成は不可)
-const typeLabel = (t: string) =>
-	t === 'cooperative'
-		? CHALLENGES_LABELS.typeLabelCooperative
-		: CHALLENGES_LABELS.typeLabelCompetitive;
 const periodLabel = (t: string) => {
 	switch (t) {
 		case 'weekly':
@@ -78,6 +67,23 @@ const categories: Record<number, string> = {
 	4: CHALLENGES_LABELS.categoryKouryuu,
 	5: CHALLENGES_LABELS.categorySouzou,
 };
+
+// 子供別タブ filtering
+const selectedChildId = $derived(data.selectedChildId);
+const filteredGroups = $derived.by((): ChildChallengeGroup[] => {
+	if (selectedChildId === 'all') return data.challengeGroups;
+	return data.challengeGroups
+		.map((g) => ({
+			...g,
+			instances: g.instances.filter((i) => i.childId === selectedChildId),
+		}))
+		.filter((g) => g.instances.length > 0);
+});
+
+// child 別タブ URL
+function tabHref(childId: number | 'all'): string {
+	return childId === 'all' ? '/admin/challenges' : `/admin/challenges?childId=${childId}`;
+}
 </script>
 
 <svelte:head>
@@ -85,7 +91,6 @@ const categories: Record<number, string> = {
 </svelte:head>
 
 <div class="space-y-4">
-	<!-- Family Streak -->
 	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
 		<div class="rounded-xl border bg-white p-4">
 			<div class="flex items-center gap-2 mb-2">
@@ -97,11 +102,6 @@ const categories: Record<number, string> = {
 					? `今日は${data.familyStreak.todayRecorders.length + '人'}が記録済み`
 					: '今日はまだ誰も記録していません'}
 			</p>
-			{#if data.familyStreak.nextMilestone}
-				<p class="text-xs text-[var(--color-text-tertiary)] mt-1">
-					{CHALLENGES_LABELS.familyStreakMilestone(data.familyStreak.nextMilestone.remaining, data.familyStreak.nextMilestone.days, data.familyStreak.nextMilestone.points)}
-				</p>
-			{/if}
 		</div>
 	{/if}
 
@@ -115,10 +115,35 @@ const categories: Record<number, string> = {
 		</div>
 	{:else}
 
-	<!-- #2296 (EPIC #2294 ②): 説明文ヘッダ追加 (兄弟競争 NG / 協力で家族コミュニケーション促進) -->
 	<div class="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-surface-info)] p-3 text-xs text-[var(--color-text-primary)]">
 		<p>{CHALLENGES_LABELS.headerDesc}</p>
 	</div>
+
+	<!-- 子供別タブ -->
+	{#if data.children.length > 1}
+		<nav
+			class="flex gap-1 overflow-x-auto"
+			aria-label={ADMIN_CHALLENGES_PAGE_LABELS.childTabAllAriaLabel}
+			data-testid="admin-challenges-child-tabs"
+		>
+			<a
+				href={tabHref('all')}
+				class="px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap {selectedChildId === 'all' ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'}"
+				data-testid="admin-challenges-child-tab-all"
+			>
+				{ADMIN_CHALLENGES_PAGE_LABELS.childTabAllLabel}
+			</a>
+			{#each data.children as child (child.id)}
+				<a
+					href={tabHref(child.id)}
+					class="px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap {selectedChildId === child.id ? 'bg-[var(--color-action-primary)] text-[var(--color-text-inverse)]' : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-primary)]'}"
+					data-testid="admin-challenges-child-tab-{child.id}"
+				>
+					{child.nickname}
+				</a>
+			{/each}
+		</nav>
+	{/if}
 
 	<div class="flex items-center justify-between">
 		<h2 class="text-lg font-bold">{CHALLENGES_LABELS.sectionTitle}</h2>
@@ -131,9 +156,7 @@ const categories: Record<number, string> = {
 		</Button>
 	</div>
 
-	<!-- #2391 (Phase 2): in-page UnifiedImportHub (5 admin UX 統一)。
-	     旧来は query param `marketplace-import` 経由の単一 preset 確認 dialog のみだったが、
-	     in-page で全 preset 一覧を直接取込めるよう統一 UI を追加。 -->
+	<!-- in-page UnifiedImportHub: marketplace 取込 → ChildSelectionDialog auto-open (PR-7 では Hub 側で対応) -->
 	<section data-testid="challenges-marketplace-import-section">
 		{#if marketplaceImportMessage}
 			<div
@@ -161,99 +184,49 @@ const categories: Record<number, string> = {
 	{#if form?.created}
 		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">{CHALLENGES_LABELS.createdNotice}</div>
 	{/if}
+	{#if form?.bulkCreated}
+		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]" data-testid="admin-challenges-bulk-created-notice">
+			{form.bulkCreated} 件のチャレンジを追加しました。
+		</div>
+	{/if}
 	{#if form?.deleted}
 		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">{CHALLENGES_LABELS.deletedNotice}</div>
 	{/if}
-
-	<!-- #2297 (EPIC #2294 ③): マーケプレ challenge-set 一括 import 確認 UI -->
-	{#if data.marketplaceImport}
-		<div
-			class="rounded-xl border border-[var(--color-feedback-info-border)] bg-[var(--color-feedback-info-bg)] p-4 space-y-3"
-			data-testid="marketplace-challenge-set-import"
-		>
-			<div class="flex items-start gap-2">
-				<span class="text-2xl">{CHALLENGES_LABELS.importIcon}</span>
-				<div class="flex-1">
-					<h3 class="font-bold text-sm text-[var(--color-feedback-info-text)]">
-						{CHALLENGES_LABELS.importHeading(data.marketplaceImport.presetName)}
-					</h3>
-					<p class="text-xs text-[var(--color-feedback-info-text)] mt-1">
-						{data.marketplaceImport.presetDescription}
-					</p>
-					<p class="text-xs text-[var(--color-text-secondary)] mt-2">
-						{CHALLENGES_LABELS.importTotalDesc(data.marketplaceImport.challenges.length)}
-					</p>
-				</div>
-			</div>
-			<details class="text-xs text-[var(--color-text-secondary)]">
-				<summary class="cursor-pointer font-medium">{CHALLENGES_LABELS.importBreakdownSummary}</summary>
-				<ul class="mt-2 space-y-1 ml-4 list-disc">
-					{#each data.marketplaceImport.challenges as ch (ch.title)}
-						<li>
-							<span class="font-medium">{ch.title}</span>
-							<span class="text-[var(--color-text-tertiary)]">
-								{CHALLENGES_LABELS.importItemSuffix(ch.monthDay, ch.durationDays)}
-							</span>
-						</li>
-					{/each}
-				</ul>
-			</details>
-			<div class="flex gap-2 justify-end">
-				<a
-					href="/admin/challenges"
-					class="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-text-primary)]"
-				>
-					{CHALLENGES_LABELS.importCancel}
-				</a>
-				<form method="POST" action="?/importChallengeSet" use:enhance>
-					<input type="hidden" name="presetId" value={data.marketplaceImport.presetId} />
-					<Button
-						type="submit"
-						variant="primary"
-						size="sm"
-						data-testid="marketplace-challenge-set-import-submit"
-					>
-						{CHALLENGES_LABELS.importSubmit(data.marketplaceImport.challenges.length)}
-					</Button>
-				</form>
-			</div>
-		</div>
-	{/if}
-	{#if form?.challengeSetImport}
-		<div
-			class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]"
-			data-testid="marketplace-challenge-set-import-result"
-		>
-			{CHALLENGES_LABELS.importSuccessNotice(
-				form.challengeSetImport.presetName,
-				form.challengeSetImport.imported,
-			)}
-			{#if (form.challengeSetImport.errors ?? []).length > 0}
-				<details class="mt-1 text-xs">
-					<summary>{CHALLENGES_LABELS.importErrorSummary(form.challengeSetImport.errors.length)}</summary>
-					<ul class="ml-4 list-disc">
-						{#each form.challengeSetImport.errors as err}
-							<li>{err}</li>
-						{/each}
-					</ul>
-				</details>
-			{/if}
+	{#if form?.copyResult}
+		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]" data-testid="admin-challenges-copy-result">
+			{ADMIN_CHALLENGES_PAGE_LABELS.copyCompletedMessage(form.copyResult.totalCopied)}
 		</div>
 	{/if}
 
-	<!-- 作成フォーム -->
+	<!-- 作成フォーム (per-child 1 件 / 全員一括 切替可能) -->
 	{#if creating}
-		<form method="POST" action="?/create" use:enhance class="rounded-xl border bg-white p-4 space-y-3">
+		<form method="POST" action="?/bulkCreate" use:enhance class="rounded-xl border bg-white p-4 space-y-3" data-testid="admin-challenges-create-form">
 			<h3 class="font-bold text-sm">{CHALLENGES_LABELS.formTitle}</h3>
 			<div class="grid grid-cols-2 gap-3">
 				<FormField label={CHALLENGES_LABELS.titleLabel} type="text" name="title" placeholder={CHALLENGES_LABELS.titlePlaceholder} required class="col-span-2" />
 				<FormField label={CHALLENGES_LABELS.descLabel} type="text" name="description" placeholder={CHALLENGES_LABELS.descPlaceholder} class="col-span-2" />
 			</div>
+
+			<!-- 対象お子さま (cooperative 設計 + 兄弟連動表示) -->
+			<fieldset class="space-y-1">
+				<legend class="text-xs font-semibold text-[var(--color-text-secondary)]">{ADMIN_CHALLENGES_PAGE_LABELS.bulkAddAction}</legend>
+				<div class="flex flex-wrap gap-2">
+					{#each data.children as child (child.id)}
+						<label class="inline-flex items-center gap-1 text-xs">
+							<input
+								type="checkbox"
+								name="childIds"
+								value={child.id}
+								checked={selectedChildId === 'all' || selectedChildId === child.id}
+								data-testid="admin-challenges-child-checkbox-{child.id}"
+							/>
+							{child.nickname}
+						</label>
+					{/each}
+				</div>
+			</fieldset>
+
 			<div class="grid grid-cols-3 gap-3">
-				<!-- #2296 (EPIC #2294 ②): competitive option 削除済 (2026-05-19)
-				     Research §3.2 + Harvard Health + UNH SAARA: 兄弟競争は depression/自傷リスク 2 倍。
-				     新規作成は cooperative 固定、既存 competitive データは表示のみ可。
-				     hidden input で cooperative を強制 (POST body は維持し +page.server.ts 互換性確保)。 -->
 				<input type="hidden" name="challengeType" value="cooperative" />
 				<FormField label={CHALLENGES_LABELS.typeLabel}>
 					{#snippet children()}
@@ -302,85 +275,98 @@ const categories: Record<number, string> = {
 		</form>
 	{/if}
 
-	<!-- チャレンジ一覧 -->
-	{#if data.challenges.length === 0}
-		<!-- #2296 (EPIC #2294 ②): empty state CTA「テンプレートから始める」+ ゼロベース構築軽減 -->
-		<div class="rounded-xl border bg-white p-8 text-center space-y-3">
+	<!-- チャレンジ group 一覧 (per-child instance + 兄弟連動表示) -->
+	{#if filteredGroups.length === 0}
+		<div class="rounded-xl border bg-white p-8 text-center space-y-3" data-testid="admin-challenges-empty-state">
 			<p class="text-2xl">{CHALLENGES_LABELS.noChallengeTitleIcon}</p>
-			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">{CHALLENGES_LABELS.noChallengeTitle}</p>
-			<p class="text-xs text-[var(--color-text-tertiary)]">{CHALLENGES_LABELS.emptyStateDesc}</p>
+			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">
+				{selectedChildId === 'all'
+					? CHALLENGES_LABELS.noChallengeTitle
+					: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyTitle}
+			</p>
+			<p class="text-xs text-[var(--color-text-tertiary)]">
+				{selectedChildId === 'all'
+					? CHALLENGES_LABELS.emptyStateDesc
+					: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyDesc}
+			</p>
 			<a
 				href="/marketplace?type=challenge-set"
 				class="inline-block mt-2 rounded-lg bg-[var(--color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--color-text-inverse)]"
 			>
 				{CHALLENGES_LABELS.templateCta}
 			</a>
-			<p class="text-xs text-[var(--color-text-tertiary)] mt-2">{CHALLENGES_LABELS.emptyStateOrCreate}</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
-			{#each data.challenges as challenge (challenge.id)}
-				{@const active = isCurrentlyActive(challenge)}
-				{@const target = parseJSON<TargetConfig>(challenge.targetConfig, { metric: 'count', baseTarget: 0 })}
-				{@const reward = parseJSON<RewardConfig>(challenge.rewardConfig, { points: 0 })}
-				<div class="rounded-xl border bg-white p-4" class:border-[var(--color-feedback-info-border)]={active}>
+			{#each filteredGroups as group (group.groupKey)}
+				{@const firstInstance = group.instances[0]}
+				{@const active = firstInstance ? isCurrentlyActive(firstInstance) : false}
+				{@const reward = firstInstance ? parseJSON<RewardConfig>(firstInstance.rewardConfig, { points: 0 }) : { points: 0 }}
+				<div
+					class="rounded-xl border bg-white p-4 space-y-3"
+					class:border-[var(--color-feedback-info-border)]={active}
+					data-testid="admin-challenges-group"
+					data-group-key={group.groupKey}
+				>
 					<div class="flex items-start justify-between gap-2">
 						<div class="flex-1">
 							<h3 class="font-bold text-sm">
-								{challenge.title}
-								{#if challenge.allCompleted}
+								{group.title}
+								{#if group.allCompleted}
 									<span class="ml-1 rounded bg-[var(--color-feedback-success-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-success-text)]">{CHALLENGES_LABELS.badgeAllCompleted}</span>
 								{/if}
 								{#if active}
 									<span class="ml-1 rounded bg-[var(--color-feedback-info-bg-strong)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-feedback-info-text)]">{CHALLENGES_LABELS.badgeActive}</span>
 								{/if}
-								{#if challenge.status === 'expired'}
-									<span class="ml-1 rounded bg-[var(--color-surface-secondary)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--color-text-muted)]">{CHALLENGES_LABELS.badgeExpired}</span>
-								{/if}
 							</h3>
 							<p class="text-xs text-[var(--color-text-muted)] mt-0.5">
-								{typeLabel(challenge.challengeType)} · {periodLabel(challenge.periodType)}
-								· {formatDate(challenge.startDate)}{CHALLENGES_LABELS.dateSeparator}{formatDate(challenge.endDate)}
-								· {CHALLENGES_LABELS.targetGoal(target.baseTarget)}
-								{#if target.categoryId}
-									· {categories[target.categoryId] ?? ''}
-								{/if}
+								{periodLabel(group.periodType)}
+								· {formatDate(group.startDate)}{CHALLENGES_LABELS.dateSeparator}{formatDate(group.endDate)}
 								· {CHALLENGES_LABELS.rewardLabel(reward.points)}
 							</p>
-							{#if challenge.description}
-								<p class="text-xs text-[var(--color-text-secondary)] mt-1">{challenge.description}</p>
-							{/if}
-
-							<!-- 進捗表示 -->
-							{#if challenge.progress.length > 0}
-								<div class="mt-2 space-y-1">
-									{#each challenge.progress as prog}
-										{@const child = data.children.find((c: { id: number }) => c.id === prog.childId)}
-										<div class="flex items-center gap-2">
-											<span class="text-xs font-medium text-[var(--color-text-primary)] w-16 truncate">
-												{child?.nickname ?? `#${prog.childId}`}
-											</span>
-											<div class="flex-1 h-2 bg-[var(--color-surface-secondary)] rounded-full overflow-hidden">
-												<ProgressFill
-													pct={Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}
-													class="h-full rounded-full transition-all {prog.completed === 1 ? 'bg-[var(--color-feedback-success-border)]' : 'bg-[var(--color-feedback-info-border)]'}"
-												/>
-											</div>
-											<span class="text-[10px] text-[var(--color-text-muted)] w-12 text-right">
-												{prog.currentValue}/{prog.targetValue}
-												{#if prog.completed === 1}✅{/if}
-											</span>
-										</div>
-									{/each}
-								</div>
+							{#if group.description}
+								<p class="text-xs text-[var(--color-text-secondary)] mt-1">{group.description}</p>
 							{/if}
 						</div>
-						<form method="POST" action="?/delete" use:enhance
-							onsubmit={(e) => { if (!confirm(CHALLENGES_LABELS.deleteConfirm(challenge.title))) e.preventDefault(); }}
-						>
-							<input type="hidden" name="id" value={challenge.id} />
-							<Button type="submit" variant="danger" size="sm">{CHALLENGES_LABELS.deleteButton}</Button>
-						</form>
+					</div>
+
+					<!-- 兄弟連動表示 (instance 数 ≥ 2 で展開) -->
+					{#if group.instances.length >= 2}
+						<SiblingChallengeComparison {group} children={data.children} />
+					{:else if group.instances.length === 1 && firstInstance}
+						<!-- 1 instance (個別) のときは簡易進捗バーのみ -->
+						{@const child = data.children.find((c) => c.id === firstInstance.childId)}
+						{@const pct = Math.min(100, Math.round((firstInstance.currentValue / firstInstance.targetValue) * 100))}
+						<div class="flex items-center gap-2" data-testid="admin-challenges-single-progress">
+							<span class="text-xs font-medium text-[var(--color-text-primary)] w-20 truncate">
+								{child?.nickname ?? `#${firstInstance.childId}`}
+							</span>
+							<div class="flex-1 h-2 bg-[var(--color-surface-secondary)] rounded-full overflow-hidden">
+								<div
+									class="h-full rounded-full {firstInstance.completed === 1 ? 'bg-[var(--color-feedback-success-border)]' : 'bg-[var(--color-feedback-info-border)]'}"
+									style:width="{pct}%"
+								></div>
+							</div>
+							<span class="text-[10px] text-[var(--color-text-muted)] w-14 text-right">
+								{firstInstance.currentValue}/{firstInstance.targetValue}
+								{#if firstInstance.completed === 1}✅{/if}
+							</span>
+						</div>
+					{/if}
+
+					<!-- 削除アクション (group 内 全 instance に対して 1 件ずつ) -->
+					<div class="flex justify-end gap-1 flex-wrap">
+						{#each group.instances as instance (instance.id)}
+							{@const child = data.children.find((c) => c.id === instance.childId)}
+							<form method="POST" action="?/delete" use:enhance
+								onsubmit={(e) => { if (!confirm(`「${group.title}」(${child?.nickname ?? '#' + instance.childId}) を削除しますか？`)) e.preventDefault(); }}
+							>
+								<input type="hidden" name="id" value={instance.id} />
+								<Button type="submit" variant="ghost" size="sm">
+									{group.instances.length >= 2 ? `${child?.nickname ?? '#' + instance.childId} を削除` : CHALLENGES_LABELS.deleteButton}
+								</Button>
+							</form>
+						{/each}
 					</div>
 				</div>
 			{/each}
