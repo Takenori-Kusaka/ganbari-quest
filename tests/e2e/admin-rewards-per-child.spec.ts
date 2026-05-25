@@ -139,8 +139,7 @@ test.describe('marketplace reward-set: childId 排除 (#2362 PR-4 / CWE-598)', (
 		// 遷移先 URL を `expect.poll` で確認する。
 		// 注意: `waitForResponse` は 200 OK (ActionResult を JSON で body に持つ) を待つ。
 		const responsePromise = page.waitForResponse(
-			(resp) =>
-				resp.url().includes('?/importRewardSet') && resp.request().method() === 'POST',
+			(resp) => resp.url().includes('?/importRewardSet') && resp.request().method() === 'POST',
 			{ timeout: 15_000 },
 		);
 		await submitBtn.click();
