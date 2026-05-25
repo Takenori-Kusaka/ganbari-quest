@@ -11,19 +11,24 @@ import {
 } from '../../../../../src/lib/server/demo/demo-data';
 
 describe('demo/checklist-repo — marketplace integration (#2097 B-7)', () => {
-	describe('per-child marketplace checklists', () => {
+	// #2362 PR-5 (ADR-0055): fixture は legacy per-child 形のまま保持 (Phase 2 で全面刷新予定)。
+	// 本 test は legacy fixture helper の出力 (`getDemoMarketplaceChecklistTemplatesByChild`) を
+	// 介し、childId 軸での割り当て期待を検証する。Phase 2 で fixture が family master 化された
+	// 際は本 test を assignments 経由検証に書き換える。
+	describe('per-child marketplace checklists (legacy fixture helper)', () => {
 		it('903 (elementary M): event-pool checklist が含まれる', () => {
 			const templates = getDemoMarketplaceChecklistTemplatesByChild(903);
 			expect(templates.length).toBeGreaterThanOrEqual(1);
 			expect(templates[0]?.sourcePresetId).toBe('event-pool');
-			expect(templates[0]?.childId).toBe(903);
+			// legacy fixture record は childId フィールドを持つ (cast 経由で参照)
+			expect((templates[0] as unknown as { childId?: number }).childId).toBe(903);
 		});
 
 		it('904 (junior F): event-school-start checklist が含まれる', () => {
 			const templates = getDemoMarketplaceChecklistTemplatesByChild(904);
 			expect(templates.length).toBeGreaterThanOrEqual(1);
 			expect(templates[0]?.sourcePresetId).toBe('event-school-start');
-			expect(templates[0]?.childId).toBe(904);
+			expect((templates[0] as unknown as { childId?: number }).childId).toBe(904);
 		});
 
 		it('901/902/906: marketplace checklist 対象外', () => {

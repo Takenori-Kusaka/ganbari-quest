@@ -65,6 +65,94 @@ export default async function globalSetup() {
 			} catch {
 				// カラム未存在 / すでに drop 済み
 			}
+
+			// #2362 PR-5 (ADR-0055): checklist_templates family master 化
+			//   - child_id 削除 + tenant_id 追加 + checklist_template_assignments 新規
+			//   - shadow table 再作成 pattern (SQLite 制約)
+			try {
+				const cols = db.prepare('PRAGMA table_info(checklist_templates)').all() as {
+					name: string;
+				}[];
+				const hasChildId = cols.some((c) => c.name === 'child_id');
+				const hasTenantId = cols.some((c) => c.name === 'tenant_id');
+				if (hasChildId) {
+					db.exec('PRAGMA foreign_keys = OFF');
+					db.exec(`
+						CREATE TABLE checklist_templates_new (
+							id INTEGER PRIMARY KEY AUTOINCREMENT,
+							tenant_id TEXT NOT NULL DEFAULT 'default',
+							name TEXT NOT NULL,
+							icon TEXT NOT NULL DEFAULT '📋',
+							points_per_item INTEGER NOT NULL DEFAULT 2,
+							completion_bonus INTEGER NOT NULL DEFAULT 5,
+							time_slot TEXT NOT NULL DEFAULT 'anytime',
+							is_active INTEGER NOT NULL DEFAULT 1,
+							created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+							updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+							is_archived INTEGER NOT NULL DEFAULT 0,
+							archived_reason TEXT,
+							source_preset_id TEXT
+						);
+					`);
+					if (hasTenantId) {
+						db.exec(`
+							INSERT INTO checklist_templates_new
+								(id, tenant_id, name, icon, points_per_item, completion_bonus, time_slot, is_active,
+								 created_at, updated_at, is_archived, archived_reason, source_preset_id)
+								SELECT id, COALESCE(tenant_id, 'default'), name, icon, points_per_item, completion_bonus, time_slot, is_active,
+								 created_at, updated_at, is_archived, archived_reason, source_preset_id
+								 FROM checklist_templates;
+						`);
+					} else {
+						db.exec(`
+							INSERT INTO checklist_templates_new
+								(id, tenant_id, name, icon, points_per_item, completion_bonus, time_slot, is_active,
+								 created_at, updated_at, is_archived, archived_reason, source_preset_id)
+								SELECT id, 'default', name, icon, points_per_item, completion_bonus, time_slot, is_active,
+								 created_at, updated_at, is_archived, archived_reason, source_preset_id
+								 FROM checklist_templates;
+						`);
+					}
+					db.exec(`
+						CREATE TABLE IF NOT EXISTS checklist_template_assignments (
+							id INTEGER PRIMARY KEY AUTOINCREMENT,
+							template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+							child_id INTEGER NOT NULL REFERENCES children(id),
+							created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+						);
+						CREATE UNIQUE INDEX IF NOT EXISTS idx_checklist_template_assignments_unique
+							ON checklist_template_assignments(template_id, child_id);
+						CREATE INDEX IF NOT EXISTS idx_checklist_template_assignments_child
+							ON checklist_template_assignments(child_id);
+						INSERT INTO checklist_template_assignments (template_id, child_id, created_at)
+							SELECT id, child_id, created_at FROM checklist_templates;
+					`);
+					db.exec(`
+						DROP TABLE checklist_templates;
+						ALTER TABLE checklist_templates_new RENAME TO checklist_templates;
+						CREATE INDEX IF NOT EXISTS idx_checklist_templates_tenant_archived
+							ON checklist_templates(tenant_id, is_archived);
+					`);
+					db.exec('PRAGMA foreign_keys = ON');
+					console.log('[E2E Setup]   Migrated checklist_templates → family master (#2362 PR-5).');
+				} else {
+					// Fresh DB: ensure assignments table exists
+					db.exec(`
+						CREATE TABLE IF NOT EXISTS checklist_template_assignments (
+							id INTEGER PRIMARY KEY AUTOINCREMENT,
+							template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+							child_id INTEGER NOT NULL REFERENCES children(id),
+							created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+						);
+						CREATE UNIQUE INDEX IF NOT EXISTS idx_checklist_template_assignments_unique
+							ON checklist_template_assignments(template_id, child_id);
+						CREATE INDEX IF NOT EXISTS idx_checklist_template_assignments_child
+							ON checklist_template_assignments(child_id);
+					`);
+				}
+			} catch (e) {
+				console.warn('[E2E Setup]   checklist_templates family master migration skipped:', e);
+			}
 			try {
 				db.exec("ALTER TABLE activities ADD COLUMN priority TEXT NOT NULL DEFAULT 'optional'");
 				console.log('[E2E Setup]   Added activities.priority column (#1755).');
@@ -336,20 +424,30 @@ export default async function globalSetup() {
 			.prepare("SELECT id FROM children WHERE ui_mode = 'preschool' LIMIT 1")
 			.get() as { id: number } | undefined;
 		if (preschoolChild) {
-			// 旧テンプレートをクリーンアップして持ち物のみで再作成
-			const existingTmpls = db
-				.prepare('SELECT id FROM checklist_templates WHERE child_id = ?')
+			// #2362 PR-5 (ADR-0055): family master 化 — 旧 per-child テンプレートを
+			// assignments 経由で取得して全部クリーンアップ。
+			const assignedTmpls = db
+				.prepare(
+					'SELECT t.id FROM checklist_templates t INNER JOIN checklist_template_assignments a ON a.template_id = t.id WHERE a.child_id = ?',
+				)
 				.all(preschoolChild.id) as { id: number }[];
-			for (const t of existingTmpls) {
+			for (const t of assignedTmpls) {
 				db.prepare('DELETE FROM checklist_template_items WHERE template_id = ?').run(t.id);
+				db.prepare('DELETE FROM checklist_template_assignments WHERE template_id = ?').run(t.id);
+				db.prepare('DELETE FROM checklist_templates WHERE id = ?').run(t.id);
 			}
-			db.prepare('DELETE FROM checklist_templates WHERE child_id = ?').run(preschoolChild.id);
 
-			// 持ち物チェックリスト（kind なし — 1755 で純化）
+			// 持ち物チェックリスト (kind なし、family master 化対応)
+			// tenant_id は LocalAuthProvider の固定値 'local' に揃える (
+			// `src/lib/server/auth/providers/local.ts` 参照、E2E は local モードで動作)。
 			db.prepare(
-				"INSERT INTO checklist_templates (child_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES (?, 'がっこうのもちもの', '🎒', 2, 5, 'morning')",
-			).run(preschoolChild.id);
+				"INSERT INTO checklist_templates (tenant_id, name, icon, points_per_item, completion_bonus, time_slot) VALUES ('local', 'がっこうのもちもの', '🎒', 2, 5, 'morning')",
+			).run();
 			const itemTplId = (db.prepare('SELECT last_insert_rowid() as id').get() as { id: number }).id;
+			// preschool child に assignment 1 件
+			db.prepare(
+				'INSERT INTO checklist_template_assignments (template_id, child_id) VALUES (?, ?)',
+			).run(itemTplId, preschoolChild.id);
 			const itemPairs: [string, string][] = [
 				['ハンカチ', '🤧'],
 				['ティッシュ', '🧻'],
@@ -362,7 +460,9 @@ export default async function globalSetup() {
 					'INSERT INTO checklist_template_items (template_id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
 				).run(itemTplId, itemName, itemIcon, i + 1);
 			}
-			console.log('[E2E Setup]   Created checklist template (がっこうのもちもの, 持ち物純化).');
+			console.log(
+				'[E2E Setup]   Created family checklist (がっこうのもちもの) + preschool assignment.',
+			);
 		}
 
 		// #2362 PR-3 (ADR-0055): child_activities per-child instance table

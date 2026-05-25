@@ -66,9 +66,10 @@ const SQL_TABLES = `
 		priority TEXT NOT NULL DEFAULT 'optional'
 	);
 
+	-- #2362 PR-5 (ADR-0055): family master 化
 	CREATE TABLE checklist_templates (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
+		tenant_id TEXT NOT NULL DEFAULT 'default',
 		name TEXT NOT NULL,
 		icon TEXT NOT NULL DEFAULT '📋',
 		points_per_item INTEGER NOT NULL DEFAULT 2,
@@ -82,6 +83,16 @@ const SQL_TABLES = `
 		-- #1755 (#1709-A): kind 列削除 — 持ち物純化
 		source_preset_id TEXT
 	);
+	CREATE TABLE checklist_template_assignments (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX idx_checklist_template_assignments_unique
+		ON checklist_template_assignments(template_id, child_id);
+	CREATE INDEX idx_checklist_template_assignments_child
+		ON checklist_template_assignments(child_id);
 `;
 
 vi.mock('$lib/server/db', () => ({
@@ -114,11 +125,13 @@ afterAll(() => {
 });
 
 function resetDb() {
+	// #2362 PR-5: assignments を templates より先に削除 (FK 依存)
+	sqlite.exec('DELETE FROM checklist_template_assignments');
 	sqlite.exec('DELETE FROM checklist_templates');
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','checklist_templates')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','checklist_templates','checklist_template_assignments')",
 	);
 }
 
@@ -164,10 +177,17 @@ function seedSeedActivities(count: number) {
 }
 
 function seedChecklistTemplates(childId: number, count: number) {
+	// #2362 PR-5 (ADR-0055): family master 化 — checklistTemplates 自体は child を持たず、
+	// assignment row を介して child との関連を表現する。
 	for (let i = 1; i <= count; i++) {
-		testDb
+		const inserted = testDb
 			.insert(schema.checklistTemplates)
-			.values({ childId, name: `テンプレ${i}`, icon: '📋' })
+			.values({ name: `テンプレ${i}`, icon: '📋', tenantId: TENANT })
+			.returning()
+			.get();
+		testDb
+			.insert(schema.checklistTemplateAssignments)
+			.values({ templateId: inserted.id, childId })
 			.run();
 	}
 }
@@ -193,12 +213,23 @@ function getArchivedActivities() {
 }
 
 function getVisibleTemplates(childId: number) {
+	// #2362 PR-5 (ADR-0055): family master 化 — child との関連は
+	// `checklist_template_assignments` 経由になったため join で取得。
 	return testDb
-		.select()
+		.select({
+			id: schema.checklistTemplates.id,
+			name: schema.checklistTemplates.name,
+			tenantId: schema.checklistTemplates.tenantId,
+			isArchived: schema.checklistTemplates.isArchived,
+		})
 		.from(schema.checklistTemplates)
+		.innerJoin(
+			schema.checklistTemplateAssignments,
+			eq(schema.checklistTemplateAssignments.templateId, schema.checklistTemplates.id),
+		)
 		.where(
 			and(
-				eq(schema.checklistTemplates.childId, childId),
+				eq(schema.checklistTemplateAssignments.childId, childId),
 				eq(schema.checklistTemplates.isArchived, 0),
 			),
 		)

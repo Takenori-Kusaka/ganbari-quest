@@ -46,6 +46,8 @@ vi.mock('$lib/server/db/login-bonus-repo', () => ({
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	insertTemplate: (...args: unknown[]) => mockInsertTemplate(...args),
 	insertTemplateItem: (...args: unknown[]) => mockInsertTemplateItem(...args),
+	// #2362 PR-5 (ADR-0055): family master 化に伴い import 時 assignment 自動付与が必要
+	assignTemplateToChildren: vi.fn().mockResolvedValue([]),
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
 }));
 

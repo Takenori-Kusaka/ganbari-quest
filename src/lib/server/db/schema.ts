@@ -404,13 +404,19 @@ export const rewardRedemptionRequests = sqliteTable(
 );
 
 // ============================================================
-// checklist_templates - チェックリストテンプレート
+// checklist_templates - 持ち物チェックリスト family master template
 // ============================================================
+// #2362 PR-5 (ADR-0055 / data-model-resource-scope §4.2):
+//   per-child instance (旧 childId NOT NULL) → family master 化。
+//   childId 列を削除し tenantId scope のみで一意化。配信先 child の N:M binding は
+//   `checklist_template_assignments` (新規) で表現する。
+//   per-child progress は既存 `checklist_logs` (childId × templateId × date UNIQUE) を維持。
 export const checklistTemplates = sqliteTable('checklist_templates', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
-	childId: integer('child_id')
-		.notNull()
-		.references(() => children.id),
+	// #2362 PR-5: tenant scope (family master) を物理 column 化。
+	//   SQLite 単一テナント運用時は固定値 'default' を入れる (`scripts/migrate-local.ts` で backfill)。
+	//   DynamoDB 実装では PK の tenant プレフィクスで暗黙保持されるが、コードからは tenantId 引数で渡す。
+	tenantId: text('tenant_id').notNull().default('default'),
 	name: text('name').notNull(),
 	icon: text('icon').notNull().default('📋'),
 	pointsPerItem: integer('points_per_item').notNull().default(2),
@@ -426,6 +432,32 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
 	sourcePresetId: text('source_preset_id'),
 });
+
+// ============================================================
+// checklist_template_assignments - family checklist ↔ child 配信先 binding (#2362 PR-5)
+// ============================================================
+// 1 つの family checklist (`checklist_templates`) を複数 child に「配信」する N:M relation。
+// 配信解除 = row 削除、配信先追加 = row 追加。`checklist_logs` の per-child progress は
+// 本 table と独立 (logs は (childId, templateId, date) で UNIQUE)。
+//
+// SSOT: docs/design/data-model-resource-scope.md §4.2
+export const checklistTemplateAssignments = sqliteTable(
+	'checklist_template_assignments',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		templateId: integer('template_id')
+			.notNull()
+			.references(() => checklistTemplates.id),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		uniqueIndex('idx_checklist_template_assignments_unique').on(table.templateId, table.childId),
+		index('idx_checklist_template_assignments_child').on(table.childId),
+	],
+);
 
 // ============================================================
 // checklist_template_items - チェックリストアイテム

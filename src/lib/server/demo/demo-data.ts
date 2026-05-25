@@ -2013,8 +2013,17 @@ export const DEMO_AUTO_CHALLENGES: AutoChallenge[] = [
 // ============================================================
 // Checklist Templates
 // ============================================================
+//
+// #2362 PR-5 (ADR-0055): fixture は legacy per-child 形 (`childId` 列を持つ) のまま保持。
+// 本 PR (Phase 1) では schema flip + repo refactor のみ完遂し、fixture 全面刷新は
+// Phase 2 (admin UX + 子供画面 UX 全面刷新) で実施する。
+// 法定 ChecklistTemplate 型は family master 化済 (childId 列なし) のため、
+// fixture 用に legacy 拡張型 `DemoLegacyChecklistTemplate` を局所定義する。
+// demo-repo.ts (`src/lib/server/db/demo/checklist-repo.ts`) で childId を捨てて
+// family master view に変換する処理が入っている。
+type DemoLegacyChecklistTemplate = ChecklistTemplate & { childId: number };
 
-export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
+export const DEMO_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = [
 	// #1755 (#1709-A): kind 削除 — 持ち物純化
 	//   旧 kind='routine' のテンプレート (901 あさのしたく / 902 よるのじゅんび) は削除
 	//   ルーティン的なふるまいは後続 sub-issue (#1709-B/C) で activities.priority='must' へ役割移管予定
@@ -2024,6 +2033,7 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 	// senior (906 けいすけくん) → 高校生の登校準備
 	{
 		id: 900,
+		tenantId: DEMO_TENANT_ID,
 		childId: 901,
 		name: 'おでかけのじゅんび',
 		icon: '🍼',
@@ -2038,6 +2048,7 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 	},
 	{
 		id: 904,
+		tenantId: DEMO_TENANT_ID,
 		childId: 904,
 		name: '中学生の登校準備',
 		icon: '🎒',
@@ -2052,6 +2063,7 @@ export const DEMO_CHECKLIST_TEMPLATES: ChecklistTemplate[] = [
 	},
 	{
 		id: 905,
+		tenantId: DEMO_TENANT_ID,
 		childId: 906,
 		name: '高校生の登校準備',
 		icon: '📚',
@@ -3227,36 +3239,40 @@ const MARKETPLACE_REWARD_TEMPLATES_BY_CHILD: Record<
 	return map;
 })();
 
-const MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD: Record<number, ChecklistTemplate[]> = (() => {
-	const map: Record<number, ChecklistTemplate[]> = {};
-	let tplIdOffset = 0;
-	for (const [childIdStr, listIds] of Object.entries(CHECKLISTS_BY_CHILD)) {
-		const childId = Number(childIdStr);
-		const collected: ChecklistTemplate[] = [];
-		for (const listId of listIds) {
-			const item = getMarketplaceItem('checklist', listId);
-			if (!item) continue;
-			collected.push({
-				id: SYN_TEMPLATE_ID_BASE + tplIdOffset,
-				childId,
-				name: item.name,
-				icon: item.icon,
-				pointsPerItem: 2,
-				completionBonus: 10,
-				timeSlot: (item.payload as ChecklistPayload).timing ?? 'daily',
-				isActive: 1,
-				isArchived: 0,
-				archivedReason: null,
-				createdAt: NOW,
-				updatedAt: NOW,
-				sourcePresetId: listId,
-			} satisfies ChecklistTemplate);
-			tplIdOffset++;
+// #2362 PR-5 (ADR-0055): family master 化 — legacy 形 fixture を生成。
+// `DemoLegacyChecklistTemplate` で childId 列を許容し、demo-repo.ts で family scope view に変換。
+const MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD: Record<number, DemoLegacyChecklistTemplate[]> =
+	(() => {
+		const map: Record<number, DemoLegacyChecklistTemplate[]> = {};
+		let tplIdOffset = 0;
+		for (const [childIdStr, listIds] of Object.entries(CHECKLISTS_BY_CHILD)) {
+			const childId = Number(childIdStr);
+			const collected: DemoLegacyChecklistTemplate[] = [];
+			for (const listId of listIds) {
+				const item = getMarketplaceItem('checklist', listId);
+				if (!item) continue;
+				collected.push({
+					id: SYN_TEMPLATE_ID_BASE + tplIdOffset,
+					tenantId: 'demo',
+					childId,
+					name: item.name,
+					icon: item.icon,
+					pointsPerItem: 2,
+					completionBonus: 10,
+					timeSlot: (item.payload as ChecklistPayload).timing ?? 'daily',
+					isActive: 1,
+					isArchived: 0,
+					archivedReason: null,
+					createdAt: NOW,
+					updatedAt: NOW,
+					sourcePresetId: listId,
+				} satisfies DemoLegacyChecklistTemplate);
+				tplIdOffset++;
+			}
+			map[childId] = collected;
 		}
-		map[childId] = collected;
-	}
-	return map;
-})();
+		return map;
+	})();
 
 const MARKETPLACE_CHECKLIST_ITEMS_BY_TEMPLATE: Record<number, ChecklistTemplateItem[]> = (() => {
 	const map: Record<number, ChecklistTemplateItem[]> = {};
@@ -3331,8 +3347,8 @@ export const DEMO_MARKETPLACE_ACTIVITIES: Activity[] = Object.values(
 	MARKETPLACE_ACTIVITIES_BY_CHILD,
 ).flat();
 
-/** 全 marketplace 由来 checklist templates の flat 配列 */
-export const DEMO_MARKETPLACE_CHECKLIST_TEMPLATES: ChecklistTemplate[] = Object.values(
+/** 全 marketplace 由来 checklist templates の flat 配列 (legacy fixture 形) */
+export const DEMO_MARKETPLACE_CHECKLIST_TEMPLATES: DemoLegacyChecklistTemplate[] = Object.values(
 	MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD,
 ).flat();
 
@@ -3386,7 +3402,9 @@ export function getDemoMarketplaceRewardTemplatesForTenant(): Array<{
 	return collected;
 }
 
-export function getDemoMarketplaceChecklistTemplatesByChild(childId: number): ChecklistTemplate[] {
+export function getDemoMarketplaceChecklistTemplatesByChild(
+	childId: number,
+): DemoLegacyChecklistTemplate[] {
 	return MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD[childId] ?? [];
 }
 
@@ -3956,9 +3974,11 @@ export function getDemoMissionsForChild(childId: number): DailyMission[] {
 }
 
 export function getDemoChecklistsForChild(childId: number): {
-	templates: ChecklistTemplate[];
+	templates: DemoLegacyChecklistTemplate[];
 	items: ChecklistTemplateItem[];
 } {
+	// #2362 PR-5: legacy fixture (childId 列) を直接フィルタ。
+	// Phase 2 で fixture 全面刷新時は assignments fixture 経由に切替予定。
 	const templates = DEMO_CHECKLIST_TEMPLATES.filter((t) => t.childId === childId);
 	const templateIds = templates.map((t) => t.id);
 	const items = DEMO_CHECKLIST_ITEMS.filter((i) => templateIds.includes(i.templateId));

@@ -44,6 +44,7 @@ import type {
 } from '$lib/marketplace/types.js';
 import {
 	importChecklistTemplate,
+	importChecklistTemplateForFamily,
 	previewChecklistImport,
 } from '$lib/server/services/checklist-template-import-service.js';
 
@@ -74,15 +75,15 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 
 	async preview(payload: ChecklistPayload, ctx: ImportContext): Promise<ImportPreview> {
 		const presetId = ctx.presetId;
-		const childId = ctx.childId;
+		// #2362 PR-5: family master 化後、preview の重複判定は family scope (tenant)。
+		// childId / childIds は preview には不要だが、Phase 1 後方互換のため childId は引き続き
+		// 受け取れる (内部で legacy preview API に渡す)。childIds 経由が優先。
+		const hintChildId = ctx.childId ?? ctx.childIds?.[0] ?? 0;
 		if (!presetId) {
 			throw new Error('[checklist-strategy] ctx.presetId は必須です');
 		}
-		if (!childId) {
-			throw new Error('[checklist-strategy] ctx.childId は必須です (requiresChildId=true)');
-		}
 
-		const raw = await previewChecklistImport(presetId, childId, ctx.tenantId);
+		const raw = await previewChecklistImport(presetId, hintChildId, ctx.tenantId);
 		if (!raw) {
 			throw new Error(`[checklist-strategy] preset "${presetId}" が見つかりません`);
 		}
@@ -107,12 +108,21 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 
 	async apply(payload: ChecklistPayload, ctx: ImportContext): Promise<ImportResult> {
 		const presetId = ctx.presetId;
-		const childId = ctx.childId;
 		if (!presetId) {
 			throw new Error('[checklist-strategy] ctx.presetId は必須です');
 		}
-		if (!childId) {
-			throw new Error('[checklist-strategy] ctx.childId は必須です (requiresChildId=true)');
+
+		// #2362 PR-5 (ADR-0055): ctx に対応する 2 つの取込モードを内部で分岐 (discriminated union 風)。
+		//   - family-master-with-distribution: ctx.childIds (複数 child 配信)
+		//   - legacy-single-binding: ctx.childId (単一 child 互換、Phase 2 admin UX 移行後撤去予定)
+		// どちらも family master template + assignment(s) 1 回作成で同 schema に着地する。
+		const kind: 'family-master-with-distribution' | 'legacy-single-binding' =
+			ctx.childIds && ctx.childIds.length > 0
+				? 'family-master-with-distribution'
+				: 'legacy-single-binding';
+
+		if (kind === 'legacy-single-binding' && !ctx.childId) {
+			throw new Error('[checklist-strategy] ctx.childId または ctx.childIds のいずれかが必須です');
 		}
 
 		// dry-run は preview と等価動作 (DB write 禁止)
@@ -125,7 +135,13 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 			};
 		}
 
-		const raw = await importChecklistTemplate(presetId, childId, ctx.tenantId);
+		const raw =
+			kind === 'family-master-with-distribution'
+				? await importChecklistTemplateForFamily(presetId, ctx.tenantId, {
+						childIds: ctx.childIds as readonly number[],
+					})
+				: await importChecklistTemplate(presetId, ctx.childId as number, ctx.tenantId);
+
 		return {
 			imported: raw.imported,
 			skipped: raw.skipped,

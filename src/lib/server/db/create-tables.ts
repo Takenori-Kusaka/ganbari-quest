@@ -273,9 +273,12 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_redemption_reward_status
 		ON reward_redemption_requests(reward_id, status);
 
+	-- #2362 PR-5 (ADR-0055): family master 化。
+	--   child_id 列を削除し tenant_id scope のみで一意化。
+	--   配信先 child の N:M binding は checklist_template_assignments で表現。
 	CREATE TABLE IF NOT EXISTS checklist_templates (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
+		tenant_id TEXT NOT NULL DEFAULT 'default',
 		name TEXT NOT NULL,
 		icon TEXT NOT NULL DEFAULT '📋',
 		points_per_item INTEGER NOT NULL DEFAULT 2,
@@ -290,6 +293,20 @@ export const SQL_CREATE_TABLES = `
 		-- #1254 G1: マーケットプレイスプリセット由来の識別子（NULL=プリセット非由来）
 		source_preset_id TEXT
 	);
+	CREATE INDEX IF NOT EXISTS idx_checklist_templates_tenant_archived
+		ON checklist_templates(tenant_id, is_archived);
+
+	-- #2362 PR-5: family checklist ↔ child 配信先 binding (N:M)
+	CREATE TABLE IF NOT EXISTS checklist_template_assignments (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		template_id INTEGER NOT NULL REFERENCES checklist_templates(id),
+		child_id INTEGER NOT NULL REFERENCES children(id),
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_checklist_template_assignments_unique
+		ON checklist_template_assignments(template_id, child_id);
+	CREATE INDEX IF NOT EXISTS idx_checklist_template_assignments_child
+		ON checklist_template_assignments(child_id);
 
 	CREATE TABLE IF NOT EXISTS checklist_template_items (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

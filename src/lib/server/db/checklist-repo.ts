@@ -1,4 +1,7 @@
 // src/lib/server/db/checklist-repo.ts — Facade (delegates to factory)
+//
+// #2362 PR-5 (ADR-0055): family master + assignments method を facade に追加。
+//   既存 callsite (`findTemplatesByChild` / `findTemplateById` 等) は後方互換維持。
 
 import { getRepos } from './factory';
 import type {
@@ -9,7 +12,12 @@ import type {
 	UpsertChecklistLogInput,
 } from './types';
 
-// Templates
+// ── Templates (family scope) ────────────────────────────────────
+
+export async function findTemplatesByTenant(tenantId: string, includeInactive = false) {
+	return getRepos().checklist.findTemplatesByTenant(tenantId, includeInactive);
+}
+
 export async function findTemplatesByChild(
 	childId: number,
 	tenantId: string,
@@ -17,12 +25,15 @@ export async function findTemplatesByChild(
 ) {
 	return getRepos().checklist.findTemplatesByChild(childId, tenantId, includeInactive);
 }
+
 export async function findTemplateById(id: number, tenantId: string) {
 	return getRepos().checklist.findTemplateById(id, tenantId);
 }
+
 export async function insertTemplate(input: InsertChecklistTemplateInput, tenantId: string) {
 	return getRepos().checklist.insertTemplate(input, tenantId);
 }
+
 export async function updateTemplate(
 	id: number,
 	input: UpdateChecklistTemplateInput,
@@ -30,25 +41,60 @@ export async function updateTemplate(
 ) {
 	return getRepos().checklist.updateTemplate(id, input, tenantId);
 }
+
 export async function deleteTemplate(id: number, tenantId: string) {
 	return getRepos().checklist.deleteTemplate(id, tenantId);
 }
 
-// Template items
+// ── Distribution (assignments) ──────────────────────────────────
+
+export async function findAssignmentsByTemplate(templateId: number, tenantId: string) {
+	return getRepos().checklist.findAssignmentsByTemplate(templateId, tenantId);
+}
+
+export async function findAssignmentsByChild(childId: number, tenantId: string) {
+	return getRepos().checklist.findAssignmentsByChild(childId, tenantId);
+}
+
+export async function assignTemplateToChildren(
+	templateId: number,
+	childIds: readonly number[],
+	tenantId: string,
+) {
+	return getRepos().checklist.assignTemplateToChildren(templateId, childIds, tenantId);
+}
+
+export async function unassignTemplateFromChildren(
+	templateId: number,
+	childIds: readonly number[],
+	tenantId: string,
+) {
+	return getRepos().checklist.unassignTemplateFromChildren(templateId, childIds, tenantId);
+}
+
+export async function unassignTemplate(templateId: number, tenantId: string) {
+	return getRepos().checklist.unassignTemplate(templateId, tenantId);
+}
+
+// ── Template items ──────────────────────────────────────────────
+
 export async function findTemplateItems(templateId: number, tenantId: string) {
 	return getRepos().checklist.findTemplateItems(templateId, tenantId);
 }
+
 export async function insertTemplateItem(
 	input: InsertChecklistTemplateItemInput,
 	tenantId: string,
 ) {
 	return getRepos().checklist.insertTemplateItem(input, tenantId);
 }
+
 export async function deleteTemplateItem(id: number, tenantId: string) {
 	return getRepos().checklist.deleteTemplateItem(id, tenantId);
 }
 
-// Logs
+// ── Logs ────────────────────────────────────────────────────────
+
 export async function findTodayLog(
 	childId: number,
 	templateId: number,
@@ -57,25 +103,31 @@ export async function findTodayLog(
 ) {
 	return getRepos().checklist.findTodayLog(childId, templateId, date, tenantId);
 }
+
 export async function upsertLog(input: UpsertChecklistLogInput, tenantId: string) {
 	return getRepos().checklist.upsertLog(input, tenantId);
 }
 
-// Overrides
+// ── Overrides ───────────────────────────────────────────────────
+
 export async function findOverrides(childId: number, date: string, tenantId: string) {
 	return getRepos().checklist.findOverrides(childId, date, tenantId);
 }
+
 export async function insertOverride(input: InsertChecklistOverrideInput, tenantId: string) {
 	return getRepos().checklist.insertOverride(input, tenantId);
 }
+
 export async function deleteOverride(id: number, tenantId: string) {
 	return getRepos().checklist.deleteOverride(id, tenantId);
 }
 
-// #783: archive / restore
+// ── #783: archive / restore ─────────────────────────────────────
+
 export async function archiveChecklistTemplates(ids: number[], reason: string, tenantId: string) {
 	return getRepos().checklist.archiveChecklistTemplates(ids, reason, tenantId);
 }
+
 export async function restoreArchivedChecklistTemplates(reason: string, tenantId: string) {
 	return getRepos().checklist.restoreArchivedChecklistTemplates(reason, tenantId);
 }

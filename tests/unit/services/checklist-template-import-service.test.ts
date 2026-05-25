@@ -10,6 +10,7 @@ import type { ChecklistPayload, MarketplaceItem } from '../../../src/lib/domain/
 
 const mockGetMarketplaceItem = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
+const mockFindTemplatesByTenant = vi.fn();
 const mockCreateTemplate = vi.fn();
 const mockAddTemplateItem = vi.fn();
 
@@ -19,6 +20,8 @@ vi.mock('$lib/data/marketplace', () => ({
 
 vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
+	// #2362 PR-5 (ADR-0055): family master 化に伴い tenant scope 重複判定で使用
+	findTemplatesByTenant: (...args: unknown[]) => mockFindTemplatesByTenant(...args),
 }));
 
 vi.mock('$lib/server/services/checklist-service', () => ({
@@ -71,7 +74,7 @@ function makePresetItem(overrides: Partial<MarketplaceItem> = {}): MarketplaceIt
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mockFindTemplatesByChild.mockResolvedValue([]);
+	mockFindTemplatesByTenant.mockResolvedValue([]);
 	mockCreateTemplate.mockResolvedValue({ id: 100 });
 	mockAddTemplateItem.mockResolvedValue({ id: 1 });
 });
@@ -91,7 +94,7 @@ describe('previewChecklistImport', () => {
 
 	it('既存テンプレートなし → alreadyImported=false / item 数集計', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
-		mockFindTemplatesByChild.mockResolvedValue([]);
+		mockFindTemplatesByTenant.mockResolvedValue([]);
 
 		const result = await previewChecklistImport('event-pool', CHILD_ID, TENANT);
 
@@ -106,7 +109,7 @@ describe('previewChecklistImport', () => {
 
 	it('同 sourcePresetId のテンプレートが既存 → alreadyImported=true', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
-		mockFindTemplatesByChild.mockResolvedValue([
+		mockFindTemplatesByTenant.mockResolvedValue([
 			{ id: 7, name: 'プールの もちもの', sourcePresetId: 'event-pool' },
 			{ id: 8, name: '別のテンプレ', sourcePresetId: null },
 		]);
@@ -119,7 +122,7 @@ describe('previewChecklistImport', () => {
 
 	it('他の preset 由来テンプレートが既存 → alreadyImported=false', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
-		mockFindTemplatesByChild.mockResolvedValue([
+		mockFindTemplatesByTenant.mockResolvedValue([
 			{ id: 7, name: '別 preset', sourcePresetId: 'event-school-start' },
 		]);
 
@@ -128,12 +131,13 @@ describe('previewChecklistImport', () => {
 		expect(result?.alreadyImported).toBe(false);
 	});
 
-	it('findTemplatesByChild に includeInactive=true が渡される', async () => {
+	it('findTemplatesByTenant に includeInactive=true が渡される (#2362 PR-5: tenant scope 判定)', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
 
 		await previewChecklistImport('event-pool', CHILD_ID, TENANT);
 
-		expect(mockFindTemplatesByChild).toHaveBeenCalledWith(CHILD_ID, TENANT, true);
+		// family master 化後は tenant scope で全 template を取得する
+		expect(mockFindTemplatesByTenant).toHaveBeenCalledWith(TENANT, true);
 	});
 });
 
@@ -152,7 +156,7 @@ describe('importChecklistTemplate', () => {
 
 	it('新規取込: template + items が全て作成される', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
-		mockFindTemplatesByChild.mockResolvedValue([]);
+		mockFindTemplatesByTenant.mockResolvedValue([]);
 
 		const result = await importChecklistTemplate('event-pool', CHILD_ID, TENANT);
 
@@ -163,9 +167,10 @@ describe('importChecklistTemplate', () => {
 		expect(result.templateId).toBe(100);
 
 		expect(mockCreateTemplate).toHaveBeenCalledTimes(1);
+		// #2362 PR-5 (ADR-0055): family master 化に伴い childId → childIds 経由
 		expect(mockCreateTemplate).toHaveBeenCalledWith(
 			expect.objectContaining({
-				childId: CHILD_ID,
+				childIds: [CHILD_ID],
 				name: 'プールの もちもの',
 				icon: '🏊',
 				timeSlot: 'anytime', // daily → anytime
@@ -178,7 +183,7 @@ describe('importChecklistTemplate', () => {
 
 	it('重複検出: 同 sourcePresetId が既存 → 何もせずスキップ', async () => {
 		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
-		mockFindTemplatesByChild.mockResolvedValue([
+		mockFindTemplatesByTenant.mockResolvedValue([
 			{ id: 99, name: 'プールの もちもの', sourcePresetId: 'event-pool' },
 		]);
 

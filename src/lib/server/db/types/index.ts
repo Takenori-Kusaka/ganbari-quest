@@ -264,9 +264,14 @@ export interface InsertRedemptionRequestInput {
 	requestedAt: number;
 }
 
+/**
+ * #2362 PR-5 (ADR-0055): family master template。
+ *   `childId` 列を削除し、配信先 child は `ChecklistTemplateAssignment` で管理。
+ *   `tenantId` は scope 物理化 (SQLite 単一テナント時は 'default')。
+ */
 export interface ChecklistTemplate {
 	id: number;
-	childId: number;
+	tenantId: string;
 	name: string;
 	icon: string;
 	pointsPerItem: number;
@@ -280,6 +285,17 @@ export interface ChecklistTemplate {
 	updatedAt: string;
 	// #1254 G1: プリセット非由来は NULL / 未設定
 	sourcePresetId?: string | null;
+}
+
+/**
+ * #2362 PR-5: family checklist (`ChecklistTemplate`) ↔ child の N:M binding。
+ * 配信先 child を表す 1 row = 1 配信。配信解除は row 削除。
+ */
+export interface ChecklistTemplateAssignment {
+	id: number;
+	templateId: number;
+	childId: number;
+	createdAt: string;
 }
 
 export interface ChecklistTemplateItem {
@@ -471,8 +487,13 @@ export interface InsertStatusHistoryInput {
 	changeType: string;
 }
 
+/**
+ * #2362 PR-5 (ADR-0055): family master 化に伴い `childId` を削除。
+ *   - 取込/作成時の配信先 child は `assignTemplateToChildren(templateId, childIds, tenantId)` で別途登録する。
+ *   - Phase 1 の最小整合では legacy 呼び出し (childId を渡す callsite) で childId を ignore
+ *     しつつ後段で assignTemplateToChildren を呼ぶ責務を service 層に持たせる。
+ */
 export interface InsertChecklistTemplateInput {
-	childId: number;
 	name: string;
 	icon?: string;
 	pointsPerItem?: number;
