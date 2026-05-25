@@ -256,17 +256,22 @@ for (const name of presetNames) {
 
 /** ポートが使用中か確認 */
 function checkPort(port) {
-	return new Promise((resolve) => {
-		const client = createConnection({ host: '127.0.0.1', port }, () => {
-			client.destroy();
-			resolve(true);
+	// IPv4 + IPv6 両方を試行 (Windows では vite が IPv6 のみで listening するケースあり)
+	const tryHost = (host) =>
+		new Promise((resolve) => {
+			const client = createConnection({ host, port }, () => {
+				client.destroy();
+				resolve(true);
+			});
+			client.on('error', () => resolve(false));
+			client.setTimeout(1500, () => {
+				client.destroy();
+				resolve(false);
+			});
 		});
-		client.on('error', () => resolve(false));
-		client.setTimeout(1500, () => {
-			client.destroy();
-			resolve(false);
-		});
-	});
+	return Promise.all([tryHost('127.0.0.1'), tryHost('::1')]).then((results) =>
+		results.some((r) => r),
+	);
 }
 
 /** baseUrl からポート番号を取得 */
