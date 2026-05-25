@@ -240,7 +240,9 @@ Phase 進捗・残存数集計をここに記録する。
 | 日付 | Phase | 集計値 / 状態 | 記録者 |
 |------|-------|-------------|--------|
 | 2026-05-22 | 計画策定 | sub-Issue #2403 / #2404 / #2405 起票完了 | #2398 PR |
-| (Phase 1 完了時) | Phase 1 | legacy_count = ? | #2403 |
+| 2026-05-25 | Phase 1.1/1.2 | logger.warn 格上げ + Discord alert 実装 (PR #2483 merged) | #2403 PR-1 |
+| 2026-05-26 | Phase 1.3 | `/ops/license/legacy-count` endpoint 実装 (PR #2484 で `countLicenseKeys({ format: 'legacy' })` 拡張)。本番 deploy 後の本番 hit で legacy_count 確定 | #2484 PR |
+| (Phase 1.3 deploy 後) | Phase 1 | legacy_count = ? (DynamoDB 本番集計値、ops endpoint で取得) | #2484 deploy |
 | (Phase 2 完了時) | Phase 2 | migration email 送信 N 件 / migrated N 件 | #2404 |
 | (Phase 3 完了時) | Phase 3 | legacy code 削除完了 / LEGACY 一律 reject 適用 | #2405 |
 

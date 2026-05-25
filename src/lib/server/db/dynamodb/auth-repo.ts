@@ -924,6 +924,17 @@ export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async (filter) =>
 
 	// テナント指定がある場合は GSI2 Query を使用
 	if (filter?.tenantId) {
+		// #2484: format filter (size(licenseKey)) を tenantId 経路にも適用、interface 一貫性維持
+		const hasStatusFilterT = !!filter.status;
+		const hasFormatFilterT = !!filter.format;
+		const legacyLenT = 17;
+		const signedLenT = 23;
+		const formatLenT = filter.format === 'legacy' ? legacyLenT : signedLenT;
+		const filterPartsT: string[] = [];
+		if (hasStatusFilterT) filterPartsT.push('#status = :status');
+		if (hasFormatFilterT) filterPartsT.push('size(licenseKey) = :formatLen');
+		const needsFilterExpressionT = filterPartsT.length > 0;
+
 		do {
 			const result = await doc().send(
 				new QueryCommand({
@@ -933,12 +944,15 @@ export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async (filter) =>
 					ExpressionAttributeValues: {
 						':pk': `TENANT#${filter.tenantId}`,
 						':prefix': 'LICENSE#',
-						...(filter.status ? { ':status': filter.status } : {}),
+						...(hasStatusFilterT ? { ':status': filter.status } : {}),
+						...(hasFormatFilterT ? { ':formatLen': formatLenT } : {}),
 					},
-					...(filter.status
+					...(needsFilterExpressionT
 						? {
-								FilterExpression: '#status = :status',
-								ExpressionAttributeNames: { '#status': 'status' },
+								FilterExpression: filterPartsT.join(' AND '),
+								...(hasStatusFilterT
+									? { ExpressionAttributeNames: { '#status': 'status' } }
+									: {}),
 							}
 						: {}),
 					Select: 'COUNT',
@@ -955,17 +969,26 @@ export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async (filter) =>
 	// テナント指定なし: Scan
 	do {
 		const hasStatusFilter = !!filter?.status;
+		const hasFormatFilter = !!filter?.format;
+		// #2484: licenseKey 属性の長さで legacy/signed 判定 (LEGACY_FORMAT regex = 17 文字 / SIGNED_FORMAT = 23 文字)
+		// schema 変更不要、DynamoDB ScanFilter で完結
+		const legacyLen = 17;
+		const signedLen = 23;
+		const formatLen = filter?.format === 'legacy' ? legacyLen : signedLen;
+
+		const filterParts: string[] = ['begins_with(PK, :prefix)'];
+		if (hasStatusFilter) filterParts.push('#status = :status');
+		if (hasFormatFilter) filterParts.push('size(licenseKey) = :formatLen');
 
 		const result = await doc().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: hasStatusFilter
-					? 'begins_with(PK, :prefix) AND #status = :status'
-					: 'begins_with(PK, :prefix)',
+				FilterExpression: filterParts.join(' AND '),
 				...(hasStatusFilter ? { ExpressionAttributeNames: { '#status': 'status' } } : {}),
 				ExpressionAttributeValues: {
 					':prefix': 'LICENSE#',
 					...(hasStatusFilter ? { ':status': filter.status } : {}),
+					...(hasFormatFilter ? { ':formatLen': formatLen } : {}),
 				},
 				Select: 'COUNT',
 				ExclusiveStartKey: lastKey,

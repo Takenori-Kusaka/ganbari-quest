@@ -27,6 +27,18 @@ export interface LicenseKeyPage {
 export interface LicenseKeyCountFilter {
 	tenantId?: string;
 	status?: LicenseKeyStatus;
+	/**
+	 * #2484 (HMAC migration Phase 1.3): ライセンスキー形式での絞込み。
+	 * - `'legacy'`: HMAC 未署名形式 `GQ-XXXX-XXXX-XXXX` (17 文字)
+	 * - `'signed'`: HMAC 署名付き形式 `GQ-XXXX-XXXX-XXXX-YYYYY` (23 文字)
+	 * - 未指定: 形式不問
+	 *
+	 * 実装は `licenseKey` 属性の長さで判定 (schema 変更不要)。
+	 * `docs/operations/license-hmac-migration-plan.md` §4 line 90 整合:
+	 * 「Phase 1 / 2 / 3 の AC で参照される『legacy 残存数』は全て SaaS (DynamoDB) backend のみ」。
+	 * SQLite 実装は本 filter を ignore (no-op、count 0 を返す) して問題なし。
+	 */
+	format?: 'legacy' | 'signed';
 }
 
 export interface IAuthRepo {
