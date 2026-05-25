@@ -4,8 +4,9 @@
 // - PRESET_CHALLENGES から 5-7 件の家族向けチャレンジテンプレートを提示
 // - 任意 step (skip 可、ADR-0012 anti-engagement 整合)
 // - 「おすすめ 3 件を自動追加」or 親が個別選択
-// - 選択された preset は sibling-challenge-service.createSiblingChallenge 経由で
-//   tenant に紐付け、challengeType=cooperative 固定 (子#2 で競争型は削除済)
+// - 選択された preset は child-challenge-service.createChildChallengesBulk 経由で
+//   per-child instance として全子供に同時 instance 化、challengeType=cooperative 固定
+//   (#2458-B: sibling-challenge-service → child-challenge-service へ移行)
 // - 次の遷移先は /setup/first-adventure (既存)
 
 import { redirect } from '@sveltejs/kit';
@@ -16,9 +17,12 @@ import {
 	resolvePresetChallengeDates,
 } from '$lib/data/preset-challenges';
 import { requireTenantId } from '$lib/server/auth/factory';
+import {
+	buildPerChildTargets,
+	createChildChallengesBulk,
+} from '$lib/server/services/child-challenge-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { trackSetupFunnel } from '$lib/server/services/setup-funnel-service';
-import { createSiblingChallenge } from '$lib/server/services/sibling-challenge-service';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -65,6 +69,15 @@ async function addPresetsAsChallenges(
 	const errors: string[] = [];
 	const now = new Date();
 
+	// #2458-B: per-child instance 配信のため全 child を 1 回取得
+	// (旧 sibling-challenge-service.createSiblingChallenge が内部で findAllChildren していた挙動を service 外に移動)
+	const children = await getAllChildren(tenantId);
+	const childIds = children.map((c) => c.id);
+	if (childIds.length === 0) {
+		// guard: 上流 load() で /setup/children へ redirect 済のため通常は到達しない
+		return { added: 0, errors: ['お子さまが登録されていません'] };
+	}
+
 	for (const id of presetIds) {
 		const preset = getPresetChallengeById(id);
 		if (!preset) {
@@ -82,7 +95,16 @@ async function addPresetsAsChallenges(
 				points: preset.rewardPoints,
 				message: preset.title,
 			});
-			await createSiblingChallenge(
+			// preset の age-adjustment SSOT は preset 側で持たないため undefined を渡す (baseTarget 一定)
+			const perChildTargets = await buildPerChildTargets(
+				preset.baseTarget,
+				undefined,
+				childIds,
+				tenantId,
+			);
+			// sourceTemplateId は admin/challenges 兄弟連動表示のため preset id を埋め込む
+			const sourceTemplateId = `setup-preset:${preset.id}`;
+			const created = await createChildChallengesBulk(
 				{
 					title: preset.title,
 					description: preset.description,
@@ -92,10 +114,14 @@ async function addPresetsAsChallenges(
 					endDate,
 					targetConfig,
 					rewardConfig,
+					sourceTemplateId,
+					perChildTargets,
 				},
+				childIds,
 				tenantId,
 			);
-			added++;
+			// 1 preset = 1 challenge (count for funnel analytics). 内部 instance 数は children 数と一致。
+			if (created.length > 0) added++;
 		} catch (e) {
 			errors.push(
 				`「${preset.title}」の追加に失敗: ${e instanceof Error ? e.message : 'unknown error'}`,

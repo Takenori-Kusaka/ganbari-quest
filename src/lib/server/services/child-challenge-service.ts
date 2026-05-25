@@ -17,8 +17,16 @@ import { getRepos } from '$lib/server/db/factory';
 import type {
 	ChildChallenge,
 	ChildChallengeGroup,
+	ChildChallengeWithSiblings,
 	InsertChildChallengeInput,
 } from '$lib/server/db/types';
+
+/** group key 解決 (admin getChallengeGroupsForAdmin と同一規約、ADR-0055 §4.7 整合) */
+function resolveGroupKey(
+	c: Pick<ChildChallenge, 'sourceTemplateId' | 'title' | 'startDate' | 'endDate'>,
+): string {
+	return c.sourceTemplateId ?? `${c.title}::${c.startDate}::${c.endDate}`;
+}
 
 interface TargetConfig {
 	metric: 'count' | 'xp';
@@ -143,6 +151,50 @@ export async function getActiveChildChallenges(
 	const repos = getRepos();
 	const today = todayDateJST();
 	return repos.childChallenge.findActiveByChildId(childId, today, tenantId);
+}
+
+/**
+ * #2458-B (caller migration): 子供画面 (home / history) 向け per-child instance 配列 +
+ * 兄弟連動情報の付与。
+ *
+ * 旧 `sibling-challenge-service.getActiveChallengesForChild` の後継。
+ *
+ * 自身の active instance を主軸に、同じ group key (sourceTemplateId or `title::start::end`) を
+ * 共有する兄弟 instance を `siblings` フィールドに格納。`ChallengeBanner` / `SiblingCelebration`
+ * の UX 互換性を維持する。
+ *
+ * IDOR / tenant 境界: `findActiveByChildId` / `findAllByTenant` ともに `tenantId` 必須化済。
+ * 自身の childId 以外の child instance は同一 tenant 内のみ含まれる。
+ */
+export async function getActiveChildChallengesWithSiblings(
+	childId: number,
+	tenantId: string,
+): Promise<ChildChallengeWithSiblings[]> {
+	const repos = getRepos();
+	const today = todayDateJST();
+
+	// 自身の active instance
+	const myActive = await repos.childChallenge.findActiveByChildId(childId, today, tenantId);
+	if (myActive.length === 0) return [];
+
+	// tenant 全体 (同期間 + 同 group key の兄弟 instance を捕捉するため)
+	const allTenant = await repos.childChallenge.findAllByTenant(tenantId);
+
+	// group key → group 内全 instance (status / 期間問わず) の map
+	const groupMap = new Map<string, ChildChallenge[]>();
+	for (const c of allTenant) {
+		const key = resolveGroupKey(c);
+		const arr = groupMap.get(key) ?? [];
+		arr.push(c);
+		groupMap.set(key, arr);
+	}
+
+	return myActive.map((mine) => {
+		const key = resolveGroupKey(mine);
+		const siblings = groupMap.get(key) ?? [mine];
+		const allCompleted = siblings.length > 0 && siblings.every((s) => s.completed === 1);
+		return { ...mine, siblings, allCompleted };
+	});
 }
 
 /**

@@ -90,14 +90,11 @@ function dismissTutorialHint() {
 let showCheerOverlay = $state(true);
 
 // Sibling celebration (all siblings complete)
+// #2458-B: per-child instance に flip。自身の instance の rewardClaimed と group 全完了で判定。
 const celebrationChallenge = $derived(
 	data.activeChallenges?.find(
-		(c: { allCompleted: boolean; progress: { childId: number; rewardClaimed: number }[] }) =>
-			c.allCompleted &&
-			c.progress.some(
-				(p: { childId: number; rewardClaimed: number }) =>
-					p.childId === (data.child?.id ?? 0) && p.rewardClaimed === 0,
-			),
+		(c: { allCompleted: boolean; rewardClaimed: number; childId: number }) =>
+			c.allCompleted && c.childId === (data.child?.id ?? 0) && c.rewardClaimed === 0,
 	) ?? null,
 );
 let showCelebration = $state(true);
@@ -902,9 +899,9 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		challengeTitle={celebrationChallenge.title}
 		challengeId={celebrationChallenge.id}
 		rewardClaimed={false}
-		siblings={celebrationChallenge.progress.map((p: { childId: number; completed: number }) => ({
-			name: data.allChildren?.find((c: { id: number }) => c.id === p.childId)?.nickname ?? `#${p.childId}`,
-			completed: p.completed === 1,
+		siblings={celebrationChallenge.siblings.map((s: { childId: number; completed: number }) => ({
+			name: data.allChildren?.find((c: { id: number }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
+			completed: s.completed === 1,
 		}))}
 		onDismiss={() => { showCelebration = false; }}
 	/>

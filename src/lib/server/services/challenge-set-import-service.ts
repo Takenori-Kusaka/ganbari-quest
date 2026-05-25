@@ -4,28 +4,28 @@
 // challenge-set type は本 Issue で新規実装。activity-pack / event-checklist / reward-set /
 // rule-preset 4 type と同等の preview / import 関数を提供する。
 //
-// 設計上の差異 (他 4 type との対比):
-//   - `sibling_challenges` テーブルに `source_preset_id` column が存在しないため、
-//     重複検知は **同一 title** で行う (#2369 Issue 制約: schema 拡張禁止)
+// #2458-B: legacy family-wide path (createSiblingChallenge 経由) を撤去し、
+// per-child instance path (createChildChallengesBulk) に統一。childIds 必須化。
+//
+// 設計:
+//   - 重複検知は **同一 title** で行う (preset 内の title 一意性に依拠、#2369 既存規約)
 //   - `monthDay` (MM-DD) → 当該年実日付に展開するロジックを本 service 内に集約
-//     (旧 `+page.server.ts` の `_expandChallengeSetDates` を内部 helper として吸収)
-//   - 全 challenge を `createSiblingChallenge` 経由で挿入することで全子供を自動エンロール
+//   - 全 challenge を `createChildChallengesBulk` 経由で per-child instance 配信
 //
 // 関連:
 //   - ADR-0052 (MarketplaceTypeRegistry + ImportStrategy)
+//   - ADR-0055 (Per-child 主軸データモデル原則)
 //   - $lib/marketplace/strategies/challenge-set-strategy (本 service を内部 callee として参照)
 //   - EPIC #2294 案 B-γ (日本ローカライズ wedge): 日本年間行事パック配信経路
-//   - $lib/server/services/sibling-challenge-service (createSiblingChallenge 既存実装)
 
 import { toJSTDateString } from '$lib/domain/date-utils';
 import type { ChallengeSetPayload } from '$lib/domain/marketplace-item';
-import { findAllChallenges } from '$lib/server/db/sibling-challenge-repo';
+import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
 	buildPerChildTargets,
 	createChildChallengesBulk,
 } from '$lib/server/services/child-challenge-service';
-import { createSiblingChallenge } from '$lib/server/services/sibling-challenge-service';
 
 /**
  * monthDay (MM-DD) と durationDays を当該年の実日付に展開する。
@@ -107,14 +107,15 @@ const CATEGORY_ID_TO_CODE: Record<number, string> = {
 /**
  * インポート対象の challenge-set をプレビュー (DB write 禁止)
  *
- * 重複判定: 同一テナント内に**同一 title** の sibling_challenges が既に存在する場合は
- * 「重複」としてカウント。
+ * 重複判定: 同一テナント内に**同一 title** の child_challenges instance が既に存在する場合は
+ * 「重複」としてカウント。複数 child instance が同 title で並存しても重複は 1 回換算。
+ * (#2458-B: 旧 sibling_challenges 参照から child_challenges 参照に flip)
  */
 export async function previewChallengeSetImport(
 	challenges: ChallengeSetPayload['challenges'],
 	tenantId: string,
 ): Promise<ChallengeSetImportPreview> {
-	const existing = await findAllChallenges(tenantId);
+	const existing = await getRepos().childChallenge.findAllByTenant(tenantId);
 	const existingTitles = new Set(existing.map((c) => c.title));
 
 	const duplicateNames: string[] = [];
@@ -156,92 +157,43 @@ export interface ImportChallengeSetOptions {
 	/** 日付展開の基準日。テスト時に固定値を注入する */
 	today?: Date;
 	/**
-	 * #2362 PR-7 (User §6): per-child instance 配信先 child ID 配列。
-	 * 指定時は `createChildChallengesBulk` (per-child instance) 経由で挿入し
-	 * sourceTemplateId に `challenge-set:<presetId>:<title>` を付与する。
-	 * 未指定時は legacy 互換で `createSiblingChallenge` (family-wide) を呼ぶ。
+	 * per-child instance 配信先 child ID 配列。
+	 * `createChildChallengesBulk` 経由で挿入し sourceTemplateId に
+	 * `challenge-set:<presetId>:<title>` を付与する。
+	 * #2458-B: 旧 legacy family-wide path は撤去、childIds 必須化。
 	 */
-	childIds?: readonly number[];
+	childIds: readonly number[];
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-child / legacy 2 path 分岐 + try-catch + ループで複雑度 23、path 分岐は 1 関数内が SSOT として明示的
+/**
+ * challenge-set を per-child instance として import (childIds 全 child に配信)。
+ *
+ * #2458-B: 旧 family-wide path (createSiblingChallenge 経由) を撤去。
+ * 重複判定 (existingTitles) は 1 回 import で大量 child に同 title を撒く特性上、
+ * preview 段階の集計のみ。本 import では per-child instance を child 数分作成する。
+ */
 export async function importChallengeSet(
 	challenges: ChallengeSetPayload['challenges'],
 	tenantId: string,
-	options: ImportChallengeSetOptions = {},
+	options: ImportChallengeSetOptions,
 ): Promise<ChallengeSetImportResult> {
 	const presetId = options.presetId;
 	const today = options.today ?? new Date();
 	const childIds = options.childIds;
 
-	// per-child path: childIds 指定時は新 per-child instance service 経由
-	if (childIds && childIds.length > 0) {
-		const errors: string[] = [];
-		let imported = 0;
-		const skipped = 0;
-		for (const ch of challenges) {
-			try {
-				const { startDate, endDate } = expandChallengeSetDates(ch.monthDay, ch.durationDays, today);
-				const targetConfig = JSON.stringify({
-					metric: 'count',
-					baseTarget: ch.baseTarget,
-					categoryId: ch.categoryId,
-				});
-				const rewardConfig = JSON.stringify({ points: ch.rewardPoints });
-				const sourceTemplateId = `challenge-set:${presetId ?? 'manual'}:${ch.title}`;
-				const perChildTargets = await buildPerChildTargets(
-					ch.baseTarget,
-					undefined,
-					childIds,
-					tenantId,
-				);
-				const created = await createChildChallengesBulk(
-					{
-						title: ch.title,
-						description: ch.description,
-						challengeType: 'cooperative',
-						periodType: 'custom',
-						startDate,
-						endDate,
-						targetConfig,
-						rewardConfig,
-						sourceTemplateId,
-						perChildTargets,
-					},
-					childIds,
-					tenantId,
-				);
-				imported += created.length;
-			} catch (e) {
-				errors.push(`「${ch.title}」: ${e instanceof Error ? e.message : String(e)}`);
-			}
-		}
-		logger.info('[challenge-set-import] per-child インポート完了', {
-			context: {
-				tenantId,
-				imported,
-				skipped,
-				errors: errors.length,
-				presetId: presetId ?? null,
-				childCount: childIds.length,
-			},
-		});
-		return { imported, skipped, errors };
+	if (!childIds || childIds.length === 0) {
+		// #2458-B: childIds 必須化 (per-child instance 配信モデル整合)
+		return {
+			imported: 0,
+			skipped: 0,
+			errors: ['childIds が必須です (1 名以上のお子さまを選択してください)'],
+		};
 	}
 
-	// legacy family-wide path (childIds 未指定時、後方互換): 既存 sibling_challenges に挿入
-	const existing = await findAllChallenges(tenantId);
-	const existingTitles = new Set(existing.map((c) => c.title));
 	const errors: string[] = [];
 	let imported = 0;
-	let skipped = 0;
-
+	const skipped = 0;
 	for (const ch of challenges) {
-		if (existingTitles.has(ch.title)) {
-			skipped++;
-			continue;
-		}
-
 		try {
 			const { startDate, endDate } = expandChallengeSetDates(ch.monthDay, ch.durationDays, today);
 			const targetConfig = JSON.stringify({
@@ -250,37 +202,44 @@ export async function importChallengeSet(
 				categoryId: ch.categoryId,
 			});
 			const rewardConfig = JSON.stringify({ points: ch.rewardPoints });
-
-			await createSiblingChallenge(
+			const sourceTemplateId = `challenge-set:${presetId ?? 'manual'}:${ch.title}`;
+			const perChildTargets = await buildPerChildTargets(
+				ch.baseTarget,
+				undefined,
+				childIds,
+				tenantId,
+			);
+			const created = await createChildChallengesBulk(
 				{
 					title: ch.title,
 					description: ch.description,
-					// #2296 (EPIC #2294 ②): cooperative 固定 (Research §3.2)
+					// #2296 (EPIC #2294 ②): cooperative 固定
 					challengeType: 'cooperative',
 					periodType: 'custom',
 					startDate,
 					endDate,
 					targetConfig,
 					rewardConfig,
+					sourceTemplateId,
+					perChildTargets,
 				},
+				childIds,
 				tenantId,
 			);
-			imported++;
-			existingTitles.add(ch.title);
+			imported += created.length;
 		} catch (e) {
 			errors.push(`「${ch.title}」: ${e instanceof Error ? e.message : String(e)}`);
 		}
 	}
-
-	logger.info('[challenge-set-import] family-wide (legacy) インポート完了', {
+	logger.info('[challenge-set-import] per-child インポート完了', {
 		context: {
 			tenantId,
 			imported,
 			skipped,
 			errors: errors.length,
 			presetId: presetId ?? null,
+			childCount: childIds.length,
 		},
 	});
-
 	return { imported, skipped, errors };
 }

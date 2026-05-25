@@ -2,9 +2,10 @@ import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST, toJSTDateString } from '$lib/domain/date-utils';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivityLogs } from '$lib/server/services/activity-log-service';
+// #2458-B: sibling-challenge-service (legacy) → child-challenge-service (per-child instance) 移行
+import { getActiveChildChallengesWithSiblings } from '$lib/server/services/child-challenge-service';
 import { applyRetentionFilter, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { getRedemptionRequestsForChild } from '$lib/server/services/reward-redemption-service';
-import { getActiveChallengesForChild } from '$lib/server/services/sibling-challenge-service';
 import { getTenantValuePreview } from '$lib/server/services/value-preview-service';
 import type { PageServerLoad } from './$types';
 
@@ -67,7 +68,7 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	const [activityResult, achievementsResult, purchasesResult, valuePreviewResult] =
 		await Promise.allSettled([
 			getActivityLogs(child.id, tenantId, filtered),
-			getActiveChallengesForChild(child.id, tenantId),
+			getActiveChildChallengesWithSiblings(child.id, tenantId),
 			getRedemptionRequestsForChild(child.id, tenantId),
 			getTenantValuePreview(tenantId),
 		]);
@@ -80,17 +81,18 @@ export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	const achievements =
 		achievementsResult.status === 'fulfilled'
 			? achievementsResult.value.map((c) => {
-					const myProgress = c.progress.find((p) => p.childId === child.id) ?? null;
+					// #2458-B: per-child instance ベース。self instance の progress を直接読む
+					// (siblings[] は同 group の兄弟比較用、history では allCompleted のみ参照)。
 					return {
 						id: c.id,
 						title: c.title,
 						challengeType: c.challengeType,
 						startDate: c.startDate,
 						endDate: c.endDate,
-						completed: myProgress?.completed === 1,
+						completed: c.completed === 1,
 						allCompleted: c.allCompleted,
-						currentValue: myProgress?.currentValue ?? 0,
-						targetValue: myProgress?.targetValue ?? 0,
+						currentValue: c.currentValue,
+						targetValue: c.targetValue,
 					};
 				})
 			: [];

@@ -22,16 +22,17 @@ import {
 	getBirthdayBonusStatus,
 } from '$lib/server/services/birthday-bonus-service';
 import { getChecklistsForChild } from '$lib/server/services/checklist-service';
+// #2295 (EPIC #2294 ①): season-event-service / seasonal-content-service 撤去済 (2026-05-19)
+// #2458-B: sibling-challenge-service (legacy family-wide) → child-challenge-service (per-child instance) 移行
+import {
+	claimChildChallengeReward,
+	getActiveChildChallengesWithSiblings,
+} from '$lib/server/services/child-challenge-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
 import { claimLoginBonus, getLoginBonusStatus } from '$lib/server/services/login-bonus-service';
 import { getUnshownMessage } from '$lib/server/services/message-service';
 import { selectRecommendations } from '$lib/server/services/recommendation-service';
-// #2295 (EPIC #2294 ①): season-event-service / seasonal-content-service 撤去済 (2026-05-19)
-import {
-	claimChallengeReward as claimChallengeRewardService,
-	getActiveChallengesForChild,
-} from '$lib/server/services/sibling-challenge-service';
 import {
 	getUnshownCheers,
 	markCheersShown,
@@ -143,7 +144,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		getCategoryXpSummary(child.id, tenantId),
 		hasAnyActivityRecords(child.id, tenantId),
 		getBirthdayBonusStatus(child.id, tenantId),
-		getActiveChallengesForChild(child.id, tenantId),
+		getActiveChildChallengesWithSiblings(child.id, tenantId),
 		getUnshownCheers(child.id, tenantId),
 		getFamilyStreak(tenantId),
 		getSpecialRewardProgress(child.id, tenantId),
@@ -516,7 +517,8 @@ export const actions: Actions = {
 		}
 
 		try {
-			const result = await claimChallengeRewardService(challengeId, childId, tenantId);
+			// #2458-B: per-child instance ごとに claim (旧 sibling-challenge service の family scope claim から flip)
+			const result = await claimChildChallengeReward(challengeId, childId, tenantId);
 			if ('error' in result) {
 				return fail(400, { error: result.error });
 			}

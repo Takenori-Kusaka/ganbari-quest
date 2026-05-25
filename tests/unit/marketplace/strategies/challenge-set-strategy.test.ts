@@ -2,11 +2,12 @@
  * tests/unit/marketplace/strategies/challenge-set-strategy.test.ts
  *
  * challenge-set ImportStrategy unit tests — Issue #2369 / EPIC #2362 P3 / ADR-0052
+ * #2458-B (caller migration): per-child instance path 必須化 (childIds 必須) に追従。
  *
  * 検証:
  *   - parse() の Valibot 経由 validation (成功 / 失敗 / monthDay regex / categoryId picklist)
- *   - preview() が DB write せずに件数集計を返す (重複は title ベース)
- *   - apply() が importChallengeSet を呼んで結果を返す
+ *   - preview() が DB write せずに件数集計を返す (重複は title ベース、child_challenges から検索)
+ *   - apply() が createChildChallengesBulk を呼んで結果を返す (childIds 必須)
  *   - apply() の dryRun=true は preview と等価動作
  *   - Registry 経由の dispatcher integration
  */
@@ -15,16 +16,33 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------- Top-level mocks ----------
 
-const mockFindAllChallenges = vi.fn();
-const mockCreateSiblingChallenge = vi.fn();
+// #2458-B: 旧 sibling-challenge-repo / sibling-challenge-service mock を撤去し、
+// child-challenge factory / service の mock に flip。
 
-vi.mock('$lib/server/db/sibling-challenge-repo', () => ({
-	findAllChallenges: (...args: unknown[]) => mockFindAllChallenges(...args),
+const mockFindAllByTenant = vi.fn();
+const mockCreateChildChallengesBulk = vi.fn();
+const mockBuildPerChildTargets = vi.fn();
+const mockFindAllChildren = vi.fn();
+
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		childChallenge: {
+			findAllByTenant: (...args: unknown[]) => mockFindAllByTenant(...args),
+		},
+	}),
 }));
 
-vi.mock('$lib/server/services/sibling-challenge-service', () => ({
-	createSiblingChallenge: (...args: unknown[]) => mockCreateSiblingChallenge(...args),
+vi.mock('$lib/server/db/child-repo', () => ({
+	findAllChildren: (...args: unknown[]) => mockFindAllChildren(...args),
 }));
+
+vi.mock('$lib/server/services/child-challenge-service', async () => {
+	// buildPerChildTargets は実装中で呼ばれるため mock + spy
+	return {
+		createChildChallengesBulk: (...args: unknown[]) => mockCreateChildChallengesBulk(...args),
+		buildPerChildTargets: (...args: unknown[]) => mockBuildPerChildTargets(...args),
+	};
+});
 
 vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -35,6 +53,7 @@ vi.mock('$lib/server/logger', () => ({
 import { challengeSetStrategy } from '../../../../src/lib/marketplace/strategies/challenge-set-strategy';
 
 const TENANT = 'test-tenant-002';
+const CHILD_IDS = [101, 102] as const;
 
 function makeChallenge(overrides: Record<string, unknown> = {}) {
 	return {
@@ -52,8 +71,19 @@ function makeChallenge(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mockFindAllChallenges.mockResolvedValue([]);
-	mockCreateSiblingChallenge.mockResolvedValue({ id: 1, title: 'mock' });
+	mockFindAllByTenant.mockResolvedValue([]);
+	// createChildChallengesBulk: childIds 数だけ作成して配列を返す
+	mockCreateChildChallengesBulk.mockImplementation((_spec, childIds: readonly number[]) =>
+		Promise.resolve(childIds.map((id, i) => ({ id: i + 1, childId: id }))),
+	);
+	mockBuildPerChildTargets.mockImplementation(
+		(baseTarget: number, _adj, childIds: readonly number[]) =>
+			Promise.resolve(Object.fromEntries(childIds.map((id) => [id, baseTarget]))),
+	);
+	mockFindAllChildren.mockResolvedValue([
+		{ id: 101, age: 5 },
+		{ id: 102, age: 8 },
+	]);
 });
 
 // =====================================================
@@ -113,7 +143,7 @@ describe('challengeSetStrategy.parse', () => {
 
 describe('challengeSetStrategy.preview', () => {
 	it('既存 0 件 → 全て新規としてカウント', async () => {
-		mockFindAllChallenges.mockResolvedValue([]);
+		mockFindAllByTenant.mockResolvedValue([]);
 		const payload = {
 			challenges: [
 				makeChallenge({ title: 'A' }),
@@ -127,7 +157,7 @@ describe('challengeSetStrategy.preview', () => {
 	});
 
 	it('一部 title 重複 → 正しくカウント', async () => {
-		mockFindAllChallenges.mockResolvedValue([{ title: 'A' }]);
+		mockFindAllByTenant.mockResolvedValue([{ title: 'A' }]);
 		const payload = {
 			challenges: [
 				makeChallenge({ title: 'A' }),
@@ -141,16 +171,16 @@ describe('challengeSetStrategy.preview', () => {
 		expect(preview.duplicateNames).toEqual(['A']);
 	});
 
-	it('preview() は createSiblingChallenge を呼ばない (DB write 禁止)', async () => {
+	it('preview() は createChildChallengesBulk を呼ばない (DB write 禁止)', async () => {
 		const payload = { challenges: [makeChallenge({ title: 'X' })] };
 		await challengeSetStrategy.preview(payload, { tenantId: TENANT });
-		expect(mockCreateSiblingChallenge).not.toHaveBeenCalled();
+		expect(mockCreateChildChallengesBulk).not.toHaveBeenCalled();
 	});
 
-	it('tenantId が findAllChallenges に渡される', async () => {
+	it('tenantId が findAllByTenant に渡される', async () => {
 		const payload = { challenges: [makeChallenge()] };
 		await challengeSetStrategy.preview(payload, { tenantId: TENANT });
-		expect(mockFindAllChallenges).toHaveBeenCalledWith(TENANT);
+		expect(mockFindAllByTenant).toHaveBeenCalledWith(TENANT);
 	});
 
 	it('byCategory が集計される (categoryId → カテゴリコード)', async () => {
@@ -167,40 +197,11 @@ describe('challengeSetStrategy.preview', () => {
 });
 
 // =====================================================
-// apply()
+// apply()  (#2458-B: childIds 必須化に追従)
 // =====================================================
 
 describe('challengeSetStrategy.apply', () => {
-	it('全件新規 → imported=件数, skipped=0', async () => {
-		const payload = {
-			challenges: [
-				makeChallenge({ title: 'A' }),
-				makeChallenge({ title: 'B', categoryId: 2 as const }),
-			],
-		};
-		const result = await challengeSetStrategy.apply(payload, { tenantId: TENANT });
-		expect(result.imported).toBe(2);
-		expect(result.skipped).toBe(0);
-		expect(result.errors).toEqual([]);
-		expect(mockCreateSiblingChallenge).toHaveBeenCalledTimes(2);
-	});
-
-	it('重複あり → skipped=重複件数', async () => {
-		mockFindAllChallenges.mockResolvedValue([{ title: 'A' }]);
-		const payload = {
-			challenges: [
-				makeChallenge({ title: 'A' }),
-				makeChallenge({ title: 'B', categoryId: 2 as const }),
-			],
-		};
-		const result = await challengeSetStrategy.apply(payload, { tenantId: TENANT });
-		expect(result.imported).toBe(1);
-		expect(result.skipped).toBe(1);
-		expect(mockCreateSiblingChallenge).toHaveBeenCalledTimes(1);
-	});
-
-	it('dryRun=true → DB write せず imported=0 + skipped=重複件数', async () => {
-		mockFindAllChallenges.mockResolvedValue([{ title: 'A' }]);
+	it('全件新規 → imported=件数×childIds数, skipped=0', async () => {
 		const payload = {
 			challenges: [
 				makeChallenge({ title: 'A' }),
@@ -209,25 +210,63 @@ describe('challengeSetStrategy.apply', () => {
 		};
 		const result = await challengeSetStrategy.apply(payload, {
 			tenantId: TENANT,
+			childIds: CHILD_IDS,
+		});
+		// per-child instance = 2 challenges × 2 children = 4 imported
+		expect(result.imported).toBe(4);
+		expect(result.skipped).toBe(0);
+		expect(result.errors).toEqual([]);
+		expect(mockCreateChildChallengesBulk).toHaveBeenCalledTimes(2);
+	});
+
+	it('childIds 必須 — 空配列なら errors を返す', async () => {
+		const payload = { challenges: [makeChallenge({ title: 'A' })] };
+		const result = await challengeSetStrategy.apply(payload, {
+			tenantId: TENANT,
+			childIds: [],
+		});
+		expect(result.imported).toBe(0);
+		expect(result.errors).toHaveLength(1);
+		expect(result.errors[0]).toContain('childIds');
+		expect(mockCreateChildChallengesBulk).not.toHaveBeenCalled();
+	});
+
+	it('dryRun=true → DB write せず imported=0 + skipped=重複件数', async () => {
+		mockFindAllByTenant.mockResolvedValue([{ title: 'A' }]);
+		const payload = {
+			challenges: [
+				makeChallenge({ title: 'A' }),
+				makeChallenge({ title: 'B', categoryId: 2 as const }),
+			],
+		};
+		const result = await challengeSetStrategy.apply(payload, {
+			tenantId: TENANT,
+			childIds: CHILD_IDS,
 			dryRun: true,
 		});
 		expect(result.imported).toBe(0);
 		expect(result.skipped).toBe(1);
-		expect(mockCreateSiblingChallenge).not.toHaveBeenCalled();
+		expect(mockCreateChildChallengesBulk).not.toHaveBeenCalled();
 	});
 
-	it('createSiblingChallenge throw → errors 記録 + 処理継続', async () => {
-		mockCreateSiblingChallenge
+	it('createChildChallengesBulk throw → errors 記録 + 処理継続', async () => {
+		mockCreateChildChallengesBulk
 			.mockRejectedValueOnce(new Error('DB error'))
-			.mockResolvedValueOnce({ id: 2 });
+			.mockResolvedValueOnce([
+				{ id: 2, childId: 101 },
+				{ id: 3, childId: 102 },
+			]);
 		const payload = {
 			challenges: [
 				makeChallenge({ title: 'failing' }),
 				makeChallenge({ title: 'ok', categoryId: 2 as const }),
 			],
 		};
-		const result = await challengeSetStrategy.apply(payload, { tenantId: TENANT });
-		expect(result.imported).toBe(1);
+		const result = await challengeSetStrategy.apply(payload, {
+			tenantId: TENANT,
+			childIds: CHILD_IDS,
+		});
+		expect(result.imported).toBe(2);
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toContain('failing');
 	});
@@ -238,13 +277,12 @@ describe('challengeSetStrategy.apply', () => {
 // =====================================================
 
 describe('marketplace dispatcher + challenge-set', () => {
-	it('Registry 経由で challenge-set が解決でき、dispatchImport が成立', async () => {
+	it('Registry 経由で challenge-set が解決でき、dispatchImport が成立 (childIds 必須)', async () => {
 		const { marketplaceRegistry, dispatchImport } = await import('../../../../src/lib/marketplace');
 
 		expect(marketplaceRegistry.has('challenge-set')).toBe(true);
 		const desc = marketplaceRegistry.get('challenge-set');
 		expect(desc.typeCode).toBe('challenge-set');
-		expect(desc.requiresChildId).toBe(false);
 
 		const payload = {
 			challenges: [makeChallenge({ title: 'dispatched' })],
@@ -253,19 +291,17 @@ describe('marketplace dispatcher + challenge-set', () => {
 			typeCode: 'challenge-set',
 			rawPayload: payload,
 			displayName: 'test challenge set',
-			ctx: { tenantId: TENANT, presetId: 'cs-1' },
+			ctx: { tenantId: TENANT, presetId: 'cs-1', childIds: CHILD_IDS },
 		});
 		expect(result.importResult).toBe(true);
 		expect(result.packName).toBe('test challenge set');
-		expect(result.imported).toBe(1);
+		// 1 challenge × 2 children = 2 imported
+		expect(result.imported).toBe(2);
 		expect(result.total).toBe(1);
 	}, 15_000);
 
 	it('Registry に activity-pack と challenge-set が登録される (#2362 EPIC P3 部分完遂)', async () => {
 		const { marketplaceRegistry } = await import('../../../../src/lib/marketplace');
-		// #2369 時点では activity-pack + challenge-set の 2 type のみ検証。
-		// 5 type 完遂 (#2362 EPIC 完了条件) は残り 3 type (#2366-2368) 別 PR で追加された後、
-		// 別テストで検証する。本テストは現時点で Registry に登録されていることを保証する。
 		expect(marketplaceRegistry.has('activity-pack')).toBe(true);
 		expect(marketplaceRegistry.has('challenge-set')).toBe(true);
 	}, 15_000);

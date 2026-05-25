@@ -204,9 +204,10 @@ vi.mock('$lib/server/services/recommendation-service', () => ({
 	selectRecommendations: vi.fn().mockResolvedValue([]),
 }));
 // #2295 (EPIC #2294 ①): season-event-service / seasonal-content-service モック削除済 (2026-05-19)
-vi.mock('$lib/server/services/sibling-challenge-service', () => ({
-	claimChallengeReward: vi.fn(),
-	getActiveChallengesForChild: vi.fn().mockResolvedValue([]),
+// #2458-B: sibling-challenge-service 撤去済。child-challenge-service の mock に flip。
+vi.mock('$lib/server/services/child-challenge-service', () => ({
+	claimChildChallengeReward: vi.fn(),
+	getActiveChildChallengesWithSiblings: vi.fn().mockResolvedValue([]),
 }));
 vi.mock('$lib/server/services/sibling-cheer-service', () => ({
 	getUnshownCheers: vi.fn().mockResolvedValue([]),

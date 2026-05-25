@@ -889,6 +889,25 @@ export interface ChildChallengeGroup {
 	allCompleted: boolean;
 }
 
+/**
+ * #2458-B (sibling-challenges caller migration):
+ * 子供画面 (home / history) で表示する per-child challenge instance + 兄弟連動情報。
+ *
+ * 旧 `SiblingChallengeWithProgress` (family-wide + progress[] 配列) の per-child 後継。
+ * 自身の instance を主軸に、同じ sourceTemplateId / (title + 期間) を共有する
+ * 兄弟 instance を `siblings` として併記する。`ChallengeBanner` / `SiblingCelebration`
+ * が「自分の進捗 + 兄弟の進捗 + 全員完了で celebration」の UX を継続できる。
+ */
+export interface ChildChallengeWithSiblings extends ChildChallenge {
+	/**
+	 * 同じ sourceTemplateId / (title + 期間) を共有する兄弟 instance (自身を含む)。
+	 * 自身のみ存在する (兄弟が居ない / sourceTemplateId が独立) 場合は length === 1。
+	 */
+	siblings: ChildChallenge[];
+	/** siblings 全員 (length 件) が completed === 1 か */
+	allCompleted: boolean;
+}
+
 // ============================================================
 // Sibling Cheers (きょうだい間おうえんスタンプ)
 // ============================================================

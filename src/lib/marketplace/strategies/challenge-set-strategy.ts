@@ -81,10 +81,11 @@ export const challengeSetStrategy: ImportStrategy<ChallengeSetPayload> = {
 			};
 		}
 
+		// #2458-B: childIds 必須化 (per-child instance 配信モデルに統一)。
+		// 未指定なら importChallengeSet 内で error 返却される。
 		const raw = await importChallengeSet(payload.challenges, ctx.tenantId, {
 			presetId: ctx.presetId,
-			// #2362 PR-7 (User §6): per-child instance 配信
-			childIds: ctx.childIds,
+			childIds: ctx.childIds ?? [],
 		});
 		return {
 			imported: raw.imported,
