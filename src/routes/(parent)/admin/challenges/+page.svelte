@@ -186,7 +186,7 @@ function tabHref(childId: number | 'all'): string {
 	{/if}
 	{#if form?.bulkCreated}
 		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]" data-testid="admin-challenges-bulk-created-notice">
-			{form.bulkCreated} 件のチャレンジを追加しました。
+			{ADMIN_CHALLENGES_PAGE_LABELS.bulkCreatedMessage(form.bulkCreated)}
 		</div>
 	{/if}
 	{#if form?.deleted}

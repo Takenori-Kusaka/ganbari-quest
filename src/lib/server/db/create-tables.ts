@@ -532,6 +532,40 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_sibling_cheers_to_shown
 		ON sibling_cheers(to_child_id, shown_at);
 
+	-- child_challenges - per-child チャレンジ instance (#2362 PR-7, ADR-0055, User §6)
+	-- 旧 sibling_challenges (family-wide) を per-child instance 化する refactor。
+	-- 兄弟連動 UI は同じ sourceTemplateId を持つ instance を group 表示。
+	-- 設計 SSOT: docs/design/data-model-resource-scope.md §4.7
+	CREATE TABLE IF NOT EXISTS child_challenges (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		title TEXT NOT NULL,
+		description TEXT,
+		challenge_type TEXT NOT NULL DEFAULT 'cooperative',
+		period_type TEXT NOT NULL DEFAULT 'weekly',
+		start_date TEXT NOT NULL,
+		end_date TEXT NOT NULL,
+		target_config TEXT NOT NULL,
+		reward_config TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'active',
+		is_active INTEGER NOT NULL DEFAULT 1,
+		source_template_id TEXT,
+		current_value INTEGER NOT NULL DEFAULT 0,
+		target_value INTEGER NOT NULL,
+		completed INTEGER NOT NULL DEFAULT 0,
+		completed_at TEXT,
+		reward_claimed INTEGER NOT NULL DEFAULT 0,
+		reward_claimed_at TEXT,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+	CREATE INDEX IF NOT EXISTS idx_child_challenges_child
+		ON child_challenges(child_id, status);
+	CREATE INDEX IF NOT EXISTS idx_child_challenges_dates
+		ON child_challenges(start_date, end_date);
+	CREATE INDEX IF NOT EXISTS idx_child_challenges_source
+		ON child_challenges(source_template_id);
+
 	-- #1593 (ADR-0023 I6) subscriber_role: 'parent' | 'owner' のみ許容、'child' は subscribe 拒否。
 	-- 既存行 backfill 用の default 'parent' (ADR-0031 NULL 混在防止)。
 	CREATE TABLE IF NOT EXISTS push_subscriptions (

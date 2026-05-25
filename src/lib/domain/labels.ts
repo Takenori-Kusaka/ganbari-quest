@@ -4207,6 +4207,8 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	copyConfirmTitle: (sourceName: string, targetCount: number) =>
 		`${sourceName}のチャレンジを ${targetCount} 人にコピーしますか？`,
 	copyCompletedMessage: (copiedCount: number) => `${copiedCount} 件のチャレンジをコピーしました。`,
+	// 一括追加 完了通知 (#2362 PR-7)
+	bulkCreatedMessage: (createdCount: number) => `${createdCount} 件のチャレンジを追加しました。`,
 	// per-child empty state
 	perChildEmptyTitle: 'このお子さまのチャレンジはまだありません',
 	perChildEmptyDesc: 'みんなのテンプレートから取り込むか、新規作成してください',
