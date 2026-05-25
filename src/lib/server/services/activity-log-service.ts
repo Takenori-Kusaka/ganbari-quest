@@ -149,16 +149,19 @@ export async function recordActivity(
 
 	// #2138 MP-3: bonus-hook-service による 6 件マーケットプレイス bonus 評価
 	// (取込済 preset が無ければ totalBonus=0 / pointsMultiplier=1.0 で regression なし)
+	// #2458-A1 (ADR-0055): per-child instance API (`getChildActivities`) に migrate。
+	// 旧 `findActivities(tenantId)` は tenant aggregate (兄弟全 child の合算) のため、
+	// distinct カテゴリ計算が膨らみすぎる UX 退行があった。child scope に絞る。
 	let todayDistinctCategoryCount = 0;
 	try {
 		const todayCounts = await getTodayActivityCountsByChild(childId, today, tenantId);
 		const todayActivityIds = new Set(todayCounts.map((c) => c.activityId));
 		// 今回記録する activity も含めて distinct カテゴリを数える
 		todayActivityIds.add(activityId);
-		const { findActivities } = await import('$lib/server/db/activity-repo');
-		const allActivities = await findActivities(tenantId, {});
+		const { getChildActivities } = await import('$lib/server/services/activity-service');
+		const childActivities = await getChildActivities(childId, tenantId, {});
 		const todayCategoryIds = new Set<number>();
-		for (const a of allActivities) {
+		for (const a of childActivities) {
 			if (todayActivityIds.has(a.id)) {
 				todayCategoryIds.add(a.categoryId);
 			}
@@ -342,13 +345,15 @@ export async function recordActivity(
 	}
 
 	// フォーカスモードおすすめ3件達成ボーナスチェック
+	// #2458-A1 (ADR-0055): per-child API に migrate。childAge filter は per-child instance では
+	// 不要 (instance 化時点で適齢のため)。signature 互換性は `getChildActivities` 側で吸収。
 	let focusBonus: { bonusPoints: number } | null = null;
 	try {
 		const { checkAndGrantFocusBonus } = await import('$lib/server/services/recommendation-service');
-		const { findActivities } = await import('$lib/server/db/activity-repo');
+		const { getChildActivities } = await import('$lib/server/services/activity-service');
 		const { selectRecommendations } = await import('$lib/server/services/recommendation-service');
-		const allActivities = await findActivities(tenantId, { childAge: child.age });
-		const recs = selectRecommendations(allActivities, today, 3);
+		const childActs = await getChildActivities(childId, tenantId, { childAge: child.age });
+		const recs = selectRecommendations(childActs, today, 3);
 		const recIds = recs.map((r) => r.activityId);
 		focusBonus = await checkAndGrantFocusBonus(childId, recIds, tenantId);
 	} catch {

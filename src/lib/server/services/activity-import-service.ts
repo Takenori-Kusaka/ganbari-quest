@@ -7,13 +7,15 @@
 //   1 release 経過後 (別 Issue) に撤去予定。新規 callsite を増やさないこと。
 //
 // #2362 PR-3 (ADR-0055): per-child instance への配信を `options.childIds` で受領可能化。
-//   - childIds 未指定: 旧来通り family master `activities` table へ insert (legacy path 維持)
-//   - childIds 指定: family master insert に加え、各 child の `child_activities` にも複製
-//     (Phase 3 並存期間、Phase 6/7 で family master insert は drop 予定)
+// #2458-A1 (2026-05-26): facade insertActivity が child_activities 経由に変更されたため、
+//   parallel write (family master + per-child instance) を停止。childIds 未指定時は
+//   facade 経由 (= tenant 最初の child に bind) のみ、指定時は per-child bulk 配信のみ。
+//   旧 activities table への write はゼロ。
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
-import { findActivities, insertActivity } from '$lib/server/db/activity-repo';
+import { findActivities } from '$lib/server/db/activity-repo';
+import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type { InsertChildActivityInput } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
@@ -121,7 +123,7 @@ function normalizeOptions(options?: ImportActivitiesOptions | string): ImportAct
  */
 async function importOneActivity(
 	a: ActivityPackItem,
-	tenantId: string,
+	_tenantId: string,
 	presetId: string | undefined,
 	applyMustDefault: boolean,
 	childIds: readonly number[],
@@ -147,30 +149,13 @@ async function importOneActivity(
 	const priority: 'must' | 'optional' =
 		applyMustDefault && a.mustDefault === true ? 'must' : 'optional';
 
-	try {
-		await insertActivity(
-			{
-				name: a.name,
-				categoryId,
-				icon: a.icon,
-				basePoints: a.basePoints,
-				ageMin: a.ageMin,
-				ageMax: a.ageMax,
-				triggerHint: a.triggerHint ?? null,
-				sourcePresetId: presetId ?? null,
-				priority,
-			},
-			tenantId,
-		);
-	} catch (e) {
-		return {
-			ok: false,
-			skipReason: 'insert-failed',
-			error: `「${a.name}」: ${String(e)}`,
-		};
-	}
+	// #2458-A1: legacy family master insert (旧 `activities` table) を撤去。
+	// childIds 指定時は per-child instance 配信のみ (本 function 戻り値の childInputs)、
+	// childIds 未指定時 caller (`importActivities`) 側で fallback bind (tenant 最初の child)
+	// を行う設計に変更。本 phase では family master insert なしで成功扱いとする。
+	// 旧 activities table への write はゼロ (#2458-C drop ready)。
 
-	// per-child 並存配信: 各 child の instance を組み立て
+	// per-child 配信: 各 child の instance を組み立て
 	const childInputs: InsertChildActivityInput[] =
 		childIds.length > 0
 			? childIds.map((cid) => ({
@@ -208,13 +193,30 @@ async function dispatchPerChildBulk(
 	}
 }
 
+/**
+ * #2458-A1: childIds 未指定時の fallback bind helper。
+ * 旧 path では family master `activities` table へ insert していたが、facade rewrite で
+ * 旧 table への write が消えたため、per-child instance を必ず作成する必要がある。
+ * tenant 最初の child に bind する。
+ */
+async function _fallbackChildIds(
+	tenantId: string,
+	current: readonly number[],
+): Promise<readonly number[]> {
+	if (current.length > 0) return current;
+	const all = await findAllChildren(tenantId);
+	if (all.length > 0 && all[0]) return [all[0].id];
+	return [];
+}
+
 export async function importActivities(
 	activities: ActivityPackItem[],
 	tenantId: string,
 	options?: ImportActivitiesOptions | string,
 ): Promise<ActivityImportResult> {
 	const opts = normalizeOptions(options);
-	const { presetId, childIds = [] } = opts;
+	const { presetId } = opts;
+	const childIds: readonly number[] = await _fallbackChildIds(tenantId, opts.childIds ?? []);
 	const applyMustDefault = opts.applyMustDefault === true;
 
 	const existing = await findActivities(tenantId);
