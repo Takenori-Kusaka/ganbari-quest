@@ -299,6 +299,7 @@ taisou
 Takenori
 TESTIDS
 textareas
+tmpl
 Tmpls
 tokushoho
 tooltip
