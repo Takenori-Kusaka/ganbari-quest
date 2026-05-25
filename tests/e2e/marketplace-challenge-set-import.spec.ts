@@ -71,34 +71,45 @@ test.describe('#2297 marketplace challenge-set 一括追加', () => {
 		expect(eitherVisible).toBe(true);
 	});
 
-	test('CTA → /admin/challenges?marketplace-import=japan-annual-events 遷移 + import preview UI', async ({
+	test('CTA → /admin/challenges?marketplace-import=japan-annual-events 遷移 + UnifiedImportHub UI', async ({
 		page,
 	}) => {
-		// AUTH_MODE=local で /admin/challenges に直接アクセス + query param 付与
+		// #2362 PR-7 (#2479): query-param dialog 経路の preview UI は撤去され
+		// in-page UnifiedImportHub に統合された (per-child 配信、CWE-598 整合)。
+		// marketplace 詳細 CTA の URL `?marketplace-import=...` は preset 識別の hint
+		// として保持され、UnifiedImportHub セクションが描画される。
 		const res = await page.goto('/admin/challenges?marketplace-import=japan-annual-events', {
 			waitUntil: 'domcontentloaded',
 		});
 		expect(res?.status()).toBe(200);
 
-		// import preview UI が描画される
-		const preview = page.getByTestId('marketplace-challenge-set-import');
-		await expect(preview).toBeVisible();
-		await expect(preview).toContainText('日本年間行事パック');
-		await expect(preview).toContainText('15');
+		// UnifiedImportHub セクションが描画される (challenge-set 系統)
+		const hubSection = page.getByTestId('challenges-marketplace-import-section');
+		await expect(hubSection).toBeVisible();
+		const hub = page.getByTestId('unified-import-hub-marketplace');
+		await expect(hub).toBeVisible();
 
-		// 一括追加ボタンが表示される
-		const submitBtn = page.getByTestId('marketplace-challenge-set-import-submit');
-		await expect(submitBtn).toBeVisible();
+		// japan-annual-events preset が一覧に含まれ取込ボタン (per-preset) が表示される
+		const presetImportBtn = page.getByTestId('marketplace-preset-import-japan-annual-events');
+		await expect(presetImportBtn).toBeVisible();
 	});
 
-	test('不正な presetId は preview UI が表示されない', async ({ page }) => {
+	test('不正な presetId でも /admin/challenges 自体は 200 で開ける (UnifiedImportHub 表示)', async ({
+		page,
+	}) => {
+		// #2362 PR-7 (#2479): 不正 presetId は marketplaceImport=null になるが、
+		// 画面自体は UnifiedImportHub があるため 200 で表示される (旧 preview UI のみ非表示)。
 		const res = await page.goto('/admin/challenges?marketplace-import=nonexistent-preset', {
 			waitUntil: 'domcontentloaded',
 		});
 		expect(res?.status()).toBe(200);
 
-		// preview UI は表示されない (Issue #2297: getMarketplaceItem が null → marketplaceImport=null)
-		const preview = page.getByTestId('marketplace-challenge-set-import');
-		await expect(preview).toHaveCount(0);
+		// 旧 preview UI (marketplace-challenge-set-import testid) は撤去済 → 描画されない
+		const oldPreview = page.getByTestId('marketplace-challenge-set-import');
+		await expect(oldPreview).toHaveCount(0);
+
+		// UnifiedImportHub は描画される
+		const hubSection = page.getByTestId('challenges-marketplace-import-section');
+		await expect(hubSection).toBeVisible();
 	});
 });
