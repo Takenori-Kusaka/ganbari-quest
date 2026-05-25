@@ -116,20 +116,27 @@ test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
 		await page.goto('/marketplace/rule-preset/streak-bonus', { waitUntil: 'domcontentloaded' });
 
 		const bonusRedirect = page.getByTestId('rule-import-bonus-redirect');
-		if ((await bonusRedirect.count()) === 0) {
-			// 未ログイン環境では bonus link 非表示、CWE-598 検証 skip
-			test.skip();
+		const signupRedirect = page.getByTestId('rule-import-signup-redirect');
+		const isLoggedIn = (await bonusRedirect.count()) > 0;
+
+		if (!isLoggedIn) {
+			// 未ログイン環境: signup redirect link も childId を含まない (CWE-598 整合)
+			await expect(signupRedirect).toBeVisible();
+			const href = await signupRedirect.getAttribute('href');
+			expect(href).not.toContain('childId');
+			expect(href).not.toContain('child=');
+			expect(href).not.toContain('child_id');
 			return;
 		}
 
-		// (1) bonus link の href が /admin/settings/rules?import=streak-bonus のみで childId を含まない
+		// ログイン環境: bonus link の href が /admin/settings/rules?import=streak-bonus のみで childId を含まない
 		const href = await bonusRedirect.getAttribute('href');
 		expect(href).toBe('/admin/settings/rules?import=streak-bonus');
 		expect(href).not.toContain('childId');
 		expect(href).not.toContain('child=');
 		expect(href).not.toContain('child_id');
 
-		// (2) marketplace bonus 詳細ページに input[name="childId"] が 0 件
+		// marketplace bonus 詳細ページに input[name="childId"] が 0 件
 		// (exchange 系では存在しうるので、bonus 限定検証)
 		const childIdInputs = page.locator('input[name="childId"]');
 		expect(await childIdInputs.count()).toBe(0);
@@ -142,8 +149,12 @@ test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
 		await page.goto('/marketplace/rule-preset/weekend-special', { waitUntil: 'domcontentloaded' });
 
 		const bonusRedirect = page.getByTestId('rule-import-bonus-redirect');
-		if ((await bonusRedirect.count()) === 0) {
-			test.skip();
+		const signupRedirect = page.getByTestId('rule-import-signup-redirect');
+		const isLoggedIn = (await bonusRedirect.count()) > 0;
+
+		if (!isLoggedIn) {
+			// 未ログイン環境: signup redirect が見える (回帰防止の最小 assertion)
+			await expect(signupRedirect).toBeVisible();
 			return;
 		}
 
