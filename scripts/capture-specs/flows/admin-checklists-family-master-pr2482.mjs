@@ -89,9 +89,7 @@ export default async (page, capture) => {
 	await waitForChecklistsPage(page);
 
 	// 最初の template の distribution section から configure button を取得
-	const configureBtn = page
-		.locator('[data-testid^="checklist-configure-distribution-"]')
-		.first();
+	const configureBtn = page.locator('[data-testid^="checklist-configure-distribution-"]').first();
 	const configureBtnCount = await configureBtn.count();
 	if (configureBtnCount === 0) {
 		throw new Error(
@@ -111,9 +109,7 @@ export default async (page, capture) => {
 	await page.goto(`${BASE_URL}/admin/checklists?screenshot=all`);
 	await page.waitForLoadState('networkidle');
 	await waitForChecklistsPage(page);
-	const progressSection = page
-		.locator('[data-testid^="checklist-per-child-progress-"]')
-		.first();
+	const progressSection = page.locator('[data-testid^="checklist-per-child-progress-"]').first();
 	const progressCount = await progressSection.count();
 	if (progressCount === 0) {
 		// per-child progress 表示は assignment が必要 (distribution 0 件なら empty message のみ)。

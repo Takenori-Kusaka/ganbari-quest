@@ -105,7 +105,9 @@ test.describe('#2367 marketplace -> checklist -> import (EPIC #2362 P3 / Strangl
 		expect(body).not.toContain('childId');
 		// admin/checklists?import= OR /auth/login?redirect= のいずれかへ redirect
 		const hasAdminRedirect = body.includes('/admin/checklists?import=event-pool');
-		const hasLoginRedirect = body.includes('/auth/login?redirect=/marketplace/checklist/event-pool');
+		const hasLoginRedirect = body.includes(
+			'/auth/login?redirect=/marketplace/checklist/event-pool',
+		);
 		expect(hasAdminRedirect || hasLoginRedirect).toBe(true);
 	});
 });
