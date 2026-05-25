@@ -813,6 +813,83 @@ export interface SiblingChallengeWithProgress extends SiblingChallenge {
 }
 
 // ============================================================
+// ChildChallenge — per-child instance of a challenge (#2362 PR-7、ADR-0055、User §6)
+// ============================================================
+//
+// 旧 `sibling_challenges` (family-wide + sibling_challenge_progress) を per-child instance に flip。
+// 兄弟連動 UI は `sourceTemplateId` でグルーピングし `SiblingChallengeComparison` で表示する。
+
+export interface ChildChallenge {
+	id: number;
+	childId: number;
+	title: string;
+	description: string | null;
+	challengeType: string;
+	periodType: string;
+	startDate: string;
+	endDate: string;
+	targetConfig: string;
+	rewardConfig: string;
+	status: string;
+	isActive: number;
+	sourceTemplateId: string | null;
+	currentValue: number;
+	targetValue: number;
+	completed: number;
+	completedAt: string | null;
+	rewardClaimed: number;
+	rewardClaimedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface InsertChildChallengeInput {
+	childId: number;
+	title: string;
+	description?: string | null;
+	challengeType?: string;
+	periodType?: string;
+	startDate: string;
+	endDate: string;
+	targetConfig: string;
+	rewardConfig: string;
+	sourceTemplateId?: string | null;
+	targetValue: number;
+}
+
+export interface UpdateChildChallengeInput {
+	title?: string;
+	description?: string | null;
+	periodType?: string;
+	startDate?: string;
+	endDate?: string;
+	targetConfig?: string;
+	rewardConfig?: string;
+	status?: string;
+	isActive?: number;
+}
+
+/**
+ * 兄弟連動表示用: 同じ sourceTemplateId / 同じタイトル + 同期間で
+ * 複数 child instance を group したビュー。
+ * admin/challenges 画面の SiblingChallengeComparison で利用。
+ */
+export interface ChildChallengeGroup {
+	/** group キー: sourceTemplateId があればそれ、なければ `${title}::${startDate}::${endDate}` */
+	groupKey: string;
+	title: string;
+	description: string | null;
+	startDate: string;
+	endDate: string;
+	periodType: string;
+	sourceTemplateId: string | null;
+	/** group 内の各 child instance (1 件 = 1 child の challenge instance) */
+	instances: ChildChallenge[];
+	/** group 全員 (instances.length 件) が completed === 1 になっているか */
+	allCompleted: boolean;
+}
+
+// ============================================================
 // Sibling Cheers (きょうだい間おうえんスタンプ)
 // ============================================================
 

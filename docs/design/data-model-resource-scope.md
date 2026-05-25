@@ -150,36 +150,58 @@ C6 use case「配信先を全員 or 個別で選ぶ」は `checklist_template_as
 
 `MarketplaceItemType` から `rule-preset` の exchange サブセットを削除、`MARKETPLACE_TYPE_CODES` も同期更新。schema 変更は I1 PR 内で実施。
 
-### 4.6 challenge (I2 #2446 で per-child 化)
+### 4.6 challenge (#2362 PR-7 で per-child 化、User §6)
 
-**現状**: `sibling_challenges` family-wide + `sibling_challenge_progress` per-child progress
+**現状 (本 PR で実装)**: `child_challenges` per-child instance + 進捗 inline 化 (旧 `sibling_challenges` family-wide / 旧 `sibling_challenge_progress` per-child progress 別 table は並存、cleanup は #2458 PR)
 
-**目標** (I2 #2446 PR で実装):
+**実装スキーマ** (本 PR で実装済):
 
 ```
-child_challenges  -- ★新 table (sibling_challenges を per-child 化、リネーム)
-  id                INTEGER PK
-  child_id          INTEGER NOT NULL FK → children.id  ★追加
-  title             TEXT NOT NULL
-  description       TEXT
-  challenge_type    TEXT NOT NULL DEFAULT 'individual'  -- 旧 cooperative / competitive 概念を UX 工夫で吸収
-  period_type       TEXT NOT NULL DEFAULT 'weekly'
-  start_date        TEXT NOT NULL
-  end_date          TEXT NOT NULL
-  target_config     TEXT NOT NULL  -- JSON
-  reward_config     TEXT NOT NULL  -- JSON
-  status            TEXT NOT NULL DEFAULT 'active'
-  is_active         INTEGER NOT NULL DEFAULT 1
-  source_preset_id  TEXT
-  created_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  updated_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  INDEX (child_id, status)
-
-child_challenge_progress  -- 既存 sibling_challenge_progress を child_challenge_id にリネーム
-  (challenge_id → child_challenge_id、他 column 維持)
+child_challenges  -- ★新 table (per-child instance、進捗 inline 化)
+  id                  INTEGER PK
+  child_id            INTEGER NOT NULL FK → children.id (CASCADE)  ★追加
+  title               TEXT NOT NULL
+  description         TEXT
+  challenge_type      TEXT NOT NULL DEFAULT 'cooperative'  -- 新規作成は cooperative 固定 (#2296 競争撤廃)
+  period_type         TEXT NOT NULL DEFAULT 'weekly'
+  start_date          TEXT NOT NULL
+  end_date             TEXT NOT NULL
+  target_config       TEXT NOT NULL  -- JSON: { metric, baseTarget, categoryId? }
+  reward_config       TEXT NOT NULL  -- JSON: { points, message? }
+  status              TEXT NOT NULL DEFAULT 'active'
+  is_active           INTEGER NOT NULL DEFAULT 1
+  source_template_id  TEXT  -- 兄弟連動 group キー (`challenge-set:<presetId>:<title>` 等)
+  current_value       INTEGER NOT NULL DEFAULT 0  -- 進捗 inline 化
+  target_value        INTEGER NOT NULL              -- 年齢調整済目標
+  completed           INTEGER NOT NULL DEFAULT 0
+  completed_at        TEXT
+  reward_claimed      INTEGER NOT NULL DEFAULT 0
+  reward_claimed_at   TEXT
+  created_at          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  INDEX (child_id, status), (start_date, end_date), source_template_id
 ```
 
-`sibling_cheers` は別概念 (応援スタンプ) として既存維持。「みんなで頑張る」UX は同一 `source_preset_id` の challenge を複数 child に取込時、ダッシュボードで合算表示する UI 工夫で表現 (I2 #2446 仕様)。LP 訴求への波及も I2 内で扱う (ADR-0013 LP truth)。
+**設計差分** (I2 #2446 提案からの変更):
+
+- `child_challenge_progress` 別 table を作らず、`child_challenges` に `current_value` / `target_value` / `completed*` / `reward_claimed*` を inline 化 (1 instance = 1 child binding なので 1:1、別 table の意味なし)
+- `source_preset_id` → `source_template_id` にリネーム (兄弟連動 group キーの意味を明示、`challenge-set:<presetId>:<title>` 形式)
+- `challenge_type` は legacy 互換のため `cooperative` 既定維持 (新規作成 UI 側で固定、#2296 競争撤廃)
+
+**兄弟連動 UX** (User §6「兄弟にこだわらない、子供別 challenge セットで管理し、共通化コントロールで兄弟チャレンジに魅せる」):
+
+- 同じ `source_template_id` (または `title + start_date + end_date`) を共有する複数 child instance を admin/challenges で group 表示
+- `SiblingChallengeComparison.svelte` (admin 画面でのみ使用) で「兄弟の進捗」一覧表示。全員完了時のみ簡素な祝福バナー
+- 子供画面では兄弟比較は非表示 (ADR-0012 Anti-engagement、個人ペース重視)
+- marketplace 取込時に `requiresChildSelection: true` で ChildSelectionDialog から複数 child を選択し、同じ `source_template_id` で per-child instance を一括生成
+
+**LP 訴求への波及** (ADR-0013 LP truth):
+
+- LP / pricing / faq の「チャレンジ」訴求は per-child 体験ベース (「自分から目標を立てる」「ウィークリーチャレンジ」) のため per-child 化と既に整合済み
+- 「兄弟チャレンジ family-only」「全員自動参加」「兄弟競争」は LP に元から訴求なし → 文言修正不要
+- `CHALLENGES_LABELS.familyPlanTitle` family-only gate はアプリ内 UI のみで LP 側に波及せず。本 PR では family-only gate を維持 (LP/pricing 整合性は #2457 plan-limit 別 PR 判断)
+
+`sibling_cheers` は別概念 (応援スタンプ) として既存維持。
 
 ---
 

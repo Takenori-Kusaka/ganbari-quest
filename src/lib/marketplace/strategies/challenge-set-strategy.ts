@@ -83,6 +83,8 @@ export const challengeSetStrategy: ImportStrategy<ChallengeSetPayload> = {
 
 		const raw = await importChallengeSet(payload.challenges, ctx.tenantId, {
 			presetId: ctx.presetId,
+			// #2362 PR-7 (User §6): per-child instance 配信
+			childIds: ctx.childIds,
 		});
 		return {
 			imported: raw.imported,

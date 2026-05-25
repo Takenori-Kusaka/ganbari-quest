@@ -111,10 +111,8 @@ const importMarketplaceChallengeSetAction = mod.actions
 	locals: App.Locals;
 }) => Promise<ActionResult>;
 
-const importChallengeSetAction = mod.actions.importChallengeSet as unknown as (event: {
-	request: Request;
-	locals: App.Locals;
-}) => Promise<ActionResult>;
+// NOTE: #2362 PR-7 で `importChallengeSet` (query-param dialog 経路) 撤去。
+// 取込動線は `importMarketplaceChallengeSet` (UnifiedImportHub 経路) に統合済み。
 
 function makeLocals(opts: { licenseStatus?: string; plan?: string; tenantId?: string } = {}) {
 	return {
@@ -126,10 +124,18 @@ function makeLocals(opts: { licenseStatus?: string; plan?: string; tenantId?: st
 	} as unknown as App.Locals;
 }
 
-function makeFormRequest(fields: Record<string, string | number>): Request {
+function makeFormRequest(
+	fields: Record<string, string | number | Array<string | number>>,
+): Request {
 	const form = new FormData();
 	for (const [k, v] of Object.entries(fields)) {
-		form.append(k, String(v));
+		if (Array.isArray(v)) {
+			for (const item of v) {
+				form.append(k, String(item));
+			}
+		} else {
+			form.append(k, String(v));
+		}
 	}
 	return new Request('http://localhost/admin/challenges', { method: 'POST', body: form });
 }
@@ -204,8 +210,12 @@ describe('/admin/challenges page.server — #2402 family プランゲート (OWA
 				errors: [],
 			});
 
+			// #2362 PR-7: per-child 配信 (childIds body 必須、URL 露出なし = CWE-598)
 			const result = await importMarketplaceChallengeSetAction({
-				request: makeFormRequest({ presetId: 'japan-annual-events' }),
+				request: makeFormRequest({
+					presetId: 'japan-annual-events',
+					childIds: [902, 903, 904],
+				}),
 				locals: makeLocals({ licenseStatus: 'active', plan: 'family_monthly' }),
 			});
 
@@ -216,67 +226,7 @@ describe('/admin/challenges page.server — #2402 family プランゲート (OWA
 		});
 	});
 
-	describe('importChallengeSet action (query-param dialog 経路)', () => {
-		it('free プランでは 403 を返し dispatchImport を呼ばない', async () => {
-			mockResolveFullPlanTier.mockResolvedValue('free');
-			const result = await importChallengeSetAction({
-				request: makeFormRequest({ presetId: 'japan-annual-events' }),
-				locals: makeLocals({ licenseStatus: 'none' }),
-			});
-
-			expect(result.status).toBe(403);
-			const err = result.data?.error as PlanLimitErrorShape;
-			expect(err).toMatchObject({
-				code: 'PLAN_LIMIT_EXCEEDED',
-				currentTier: 'free',
-				requiredTier: 'family',
-				upgradeUrl: '/admin/license',
-			});
-			expect(err.message).toContain('きょうだいチャレンジ');
-			expect(err.message).toContain('ファミリープラン');
-			expect(mockDispatchImport).not.toHaveBeenCalled();
-			expect(mockLoadFromMarketplace).not.toHaveBeenCalled();
-		});
-
-		it('standard プランでも 403 を返す (family-only)', async () => {
-			mockResolveFullPlanTier.mockResolvedValue('standard');
-			const result = await importChallengeSetAction({
-				request: makeFormRequest({ presetId: 'japan-annual-events' }),
-				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
-			});
-
-			expect(result.status).toBe(403);
-			const err = result.data?.error as PlanLimitErrorShape;
-			expect(err).toMatchObject({
-				code: 'PLAN_LIMIT_EXCEEDED',
-				currentTier: 'standard',
-				requiredTier: 'family',
-				upgradeUrl: '/admin/license',
-			});
-			expect(mockDispatchImport).not.toHaveBeenCalled();
-			expect(mockLoadFromMarketplace).not.toHaveBeenCalled();
-		});
-
-		it('family プランでは family ゲートを通過し dispatchImport を実行する', async () => {
-			mockResolveFullPlanTier.mockResolvedValue('family');
-			mockDispatchImport.mockResolvedValue({
-				packName: '日本の年中行事',
-				imported: 5,
-				skipped: 0,
-				total: 5,
-				errors: [],
-			});
-
-			const result = await importChallengeSetAction({
-				request: makeFormRequest({ presetId: 'japan-annual-events' }),
-				locals: makeLocals({ licenseStatus: 'active', plan: 'family_monthly' }),
-			});
-
-			expect(result.status).toBeUndefined();
-			expect(result.challengeSetImport).toBeDefined();
-			expect(result.challengeSetImport?.presetName).toBe('日本の年中行事');
-			expect(result.challengeSetImport?.imported).toBe(5);
-			expect(mockDispatchImport).toHaveBeenCalledTimes(1);
-		});
-	});
+	// NOTE: #2362 PR-7 で query-param dialog 経路 `importChallengeSet` action は撤去。
+	// 取込動線は `importMarketplaceChallengeSet` (UnifiedImportHub 経路) に統合済み。
+	// 同じ family-only gate が Hub 経路で維持されている (上の describe ブロック)。
 });

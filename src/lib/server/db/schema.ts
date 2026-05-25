@@ -768,6 +768,55 @@ export const siblingChallengeProgress = sqliteTable(
 );
 
 // ============================================================
+// child_challenges - per-child チャレンジ instance (#2362 PR-7、ADR-0055、User §6)
+// ============================================================
+// 旧 `sibling_challenges` (family-wide) を per-child instance 化する refactor。
+// 並存 table として作成 (PR-3 `child_activities` と同じ pattern、cleanup は #2458)。
+// User §6: 「兄弟にこだわりすぎないほうが…子供別 challenge セット + 共通化コントロールで
+// 兄弟チャレンジに魅せる」方針。
+//
+// 兄弟連動 UI は同じ source preset / 同じタイトル / 同じ期間で複数 child instance が
+// 作成された場合、admin/challenges 画面で sourceTemplateId による group 表示で比較する。
+//
+// 設計 SSOT: docs/design/data-model-resource-scope.md §4.7
+export const childChallenges = sqliteTable(
+	'child_challenges',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		childId: integer('child_id')
+			.notNull()
+			.references(() => children.id, { onDelete: 'cascade' }),
+		title: text('title').notNull(),
+		description: text('description'),
+		challengeType: text('challenge_type').notNull().default('cooperative'), // cooperative (新規作成は固定、#2296)
+		periodType: text('period_type').notNull().default('weekly'), // weekly | monthly | custom
+		startDate: text('start_date').notNull(), // YYYY-MM-DD
+		endDate: text('end_date').notNull(), // YYYY-MM-DD
+		targetConfig: text('target_config').notNull(), // JSON: { metric, categoryId?, baseTarget }
+		rewardConfig: text('reward_config').notNull(), // JSON: { points, message? }
+		status: text('status').notNull().default('active'), // active | completed | expired
+		isActive: integer('is_active').notNull().default(1),
+		// 兄弟連動: 同じ preset / source から複製された instance を group するキー。
+		// 同じ sourceTemplateId を持つ instance 同士が SiblingChallengeComparison で比較表示される。
+		sourceTemplateId: text('source_template_id'),
+		// 進捗 (旧 sibling_challenge_progress と等価、per-child instance 内に inline 化)
+		currentValue: integer('current_value').notNull().default(0),
+		targetValue: integer('target_value').notNull(),
+		completed: integer('completed').notNull().default(0),
+		completedAt: text('completed_at'),
+		rewardClaimed: integer('reward_claimed').notNull().default(0),
+		rewardClaimedAt: text('reward_claimed_at'),
+		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+	},
+	(table) => [
+		index('idx_child_challenges_child').on(table.childId, table.status),
+		index('idx_child_challenges_dates').on(table.startDate, table.endDate),
+		index('idx_child_challenges_source').on(table.sourceTemplateId),
+	],
+);
+
+// ============================================================
 // sibling_cheers - きょうだい間おうえんスタンプ
 // ============================================================
 export const siblingCheers = sqliteTable(

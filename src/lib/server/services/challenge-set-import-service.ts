@@ -21,6 +21,10 @@ import { toJSTDateString } from '$lib/domain/date-utils';
 import type { ChallengeSetPayload } from '$lib/domain/marketplace-item';
 import { findAllChallenges } from '$lib/server/db/sibling-challenge-repo';
 import { logger } from '$lib/server/logger';
+import {
+	buildPerChildTargets,
+	createChildChallengesBulk,
+} from '$lib/server/services/child-challenge-service';
 import { createSiblingChallenge } from '$lib/server/services/sibling-challenge-service';
 
 /**
@@ -151,8 +155,16 @@ export interface ImportChallengeSetOptions {
 	presetId?: string;
 	/** 日付展開の基準日。テスト時に固定値を注入する */
 	today?: Date;
+	/**
+	 * #2362 PR-7 (User §6): per-child instance 配信先 child ID 配列。
+	 * 指定時は `createChildChallengesBulk` (per-child instance) 経由で挿入し
+	 * sourceTemplateId に `challenge-set:<presetId>:<title>` を付与する。
+	 * 未指定時は legacy 互換で `createSiblingChallenge` (family-wide) を呼ぶ。
+	 */
+	childIds?: readonly number[];
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: per-child / legacy 2 path 分岐 + try-catch + ループで複雑度 23、path 分岐は 1 関数内が SSOT として明示的
 export async function importChallengeSet(
 	challenges: ChallengeSetPayload['challenges'],
 	tenantId: string,
@@ -160,7 +172,64 @@ export async function importChallengeSet(
 ): Promise<ChallengeSetImportResult> {
 	const presetId = options.presetId;
 	const today = options.today ?? new Date();
+	const childIds = options.childIds;
 
+	// per-child path: childIds 指定時は新 per-child instance service 経由
+	if (childIds && childIds.length > 0) {
+		const errors: string[] = [];
+		let imported = 0;
+		const skipped = 0;
+		for (const ch of challenges) {
+			try {
+				const { startDate, endDate } = expandChallengeSetDates(ch.monthDay, ch.durationDays, today);
+				const targetConfig = JSON.stringify({
+					metric: 'count',
+					baseTarget: ch.baseTarget,
+					categoryId: ch.categoryId,
+				});
+				const rewardConfig = JSON.stringify({ points: ch.rewardPoints });
+				const sourceTemplateId = `challenge-set:${presetId ?? 'manual'}:${ch.title}`;
+				const perChildTargets = await buildPerChildTargets(
+					ch.baseTarget,
+					undefined,
+					childIds,
+					tenantId,
+				);
+				const created = await createChildChallengesBulk(
+					{
+						title: ch.title,
+						description: ch.description,
+						challengeType: 'cooperative',
+						periodType: 'custom',
+						startDate,
+						endDate,
+						targetConfig,
+						rewardConfig,
+						sourceTemplateId,
+						perChildTargets,
+					},
+					childIds,
+					tenantId,
+				);
+				imported += created.length;
+			} catch (e) {
+				errors.push(`「${ch.title}」: ${e instanceof Error ? e.message : String(e)}`);
+			}
+		}
+		logger.info('[challenge-set-import] per-child インポート完了', {
+			context: {
+				tenantId,
+				imported,
+				skipped,
+				errors: errors.length,
+				presetId: presetId ?? null,
+				childCount: childIds.length,
+			},
+		});
+		return { imported, skipped, errors };
+	}
+
+	// legacy family-wide path (childIds 未指定時、後方互換): 既存 sibling_challenges に挿入
 	const existing = await findAllChallenges(tenantId);
 	const existingTitles = new Set(existing.map((c) => c.title));
 	const errors: string[] = [];
@@ -203,7 +272,7 @@ export async function importChallengeSet(
 		}
 	}
 
-	logger.info('[challenge-set-import] インポート完了', {
+	logger.info('[challenge-set-import] family-wide (legacy) インポート完了', {
 		context: {
 			tenantId,
 			imported,
