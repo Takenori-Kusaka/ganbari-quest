@@ -10,11 +10,14 @@ import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 import { dispatchImport } from '$lib/marketplace';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
+	findAssignmentsByTemplate,
 	findOverrides,
 	findTemplateItems,
-	findTemplatesByChild,
+	findTemplatesByTenant,
+	findTodayLog,
 } from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
+import { syncDistribution } from '$lib/server/services/checklist-distribution-service';
 import {
 	addOverride,
 	addTemplateItem,
@@ -34,25 +37,47 @@ import {
 } from '$lib/server/services/plan-limit-service';
 import type { Action, Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
 	const children = await getAllChildren(tenantId);
+	const today = todayDateJST();
 
-	const childrenWithChecklists = await Promise.all(
-		children.map(async (child) => {
-			const templates = await findTemplatesByChild(child.id, tenantId, true);
-			const templatesWithItems = await Promise.all(
-				templates.map(async (tpl) => ({
-					...tpl,
-					items: await findTemplateItems(tpl.id, tenantId),
-				})),
+	// #2362 PR-5 Phase 2 (ADR-0055): family checklist 一覧 + 配信先 children + per-child progress
+	const familyTemplatesRaw = await findTemplatesByTenant(tenantId, true);
+	const familyTemplates = await Promise.all(
+		familyTemplatesRaw.map(async (tpl) => {
+			const items = await findTemplateItems(tpl.id, tenantId);
+			const assignments = await findAssignmentsByTemplate(tpl.id, tenantId);
+			// per-child progress: 配信中 child ごとに今日の log を取得
+			const perChildProgress = await Promise.all(
+				assignments.map(async (a) => {
+					const log = await findTodayLog(a.childId, tpl.id, today, tenantId);
+					const checkedIds = log ? (JSON.parse(log.itemsJson) as number[]) : [];
+					const child = children.find((c) => c.id === a.childId);
+					return {
+						childId: a.childId,
+						childName: child?.nickname ?? `#${a.childId}`,
+						checkedCount: checkedIds.length,
+						totalCount: items.length,
+						completedAll: log?.completedAll === 1,
+					};
+				}),
 			);
-			const overrides = await findOverrides(child.id, todayDateJST(), tenantId);
 			return {
-				...child,
-				templates: templatesWithItems,
-				overrides,
+				...tpl,
+				items,
+				assignedChildIds: assignments.map((a) => a.childId),
+				perChildProgress,
 			};
+		}),
+	);
+
+	// 旧 per-child legacy 経路 (admin UI の child 別タブ + override) 維持: family scope で
+	// findAssignmentsByChild ベースに置換える代わりに、family scope の overrides を child 別に並べる。
+	const childrenWithOverrides = await Promise.all(
+		children.map(async (child) => {
+			const overrides = await findOverrides(child.id, today, tenantId);
+			return { ...child, overrides };
 		}),
 	);
 
@@ -80,12 +105,23 @@ export const load: PageServerLoad = async ({ locals }) => {
 			itemCount: m.itemCount,
 		}));
 
+	// #2362 PR-5 Phase 2: `?import=<presetId>` query で ChecklistDistributionDialog auto-open
+	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
+	const importPresetId =
+		importPresetIdRaw && getMarketplaceItem('checklist', importPresetIdRaw)
+			? importPresetIdRaw
+			: null;
+	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
+
 	return {
-		children: childrenWithChecklists,
-		today: todayDateJST(),
+		children: childrenWithOverrides,
+		familyTemplates,
+		today,
 		isPremium,
 		checklistTemplateMax,
 		marketplaceChecklists,
+		importPresetId,
+		importPresetInvalid,
 	};
 };
 
@@ -365,4 +401,163 @@ export const actions: Actions = {
 	// `?/importMarketplace` を呼ぶ互換性をテンポラリに維持するため、両エントリを用意。
 	importMarketplaceChecklist: importMarketplaceChecklistAction,
 	importMarketplace: importMarketplaceChecklistAction,
+
+	// #2362 PR-5 Phase 2 (ADR-0055): family scope 取込 + 配信先 children 指定
+	// ChecklistDistributionDialog (auto-open `?import=<presetId>`) から呼ばれる action。
+	// childIds: 'all' (全 child 配信) or CSV 'id1,id2,id3' (個別配信) を受け取る。
+	//
+	// CWE-598 防御 (PR-4 reward-set 同型 / Copilot must-3):
+	//   childIds が tenant 配下 child の ID 集合に全て含まれることを assert。
+	//   未含有 1 件で 403 fail (cross-tenant child IDOR 防止)。
+	importPresetToChildren: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const presetId = String(formData.get('presetId') ?? '').trim();
+		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
+
+		if (!presetId) return fail(400, { error: 'プリセットが指定されていません' });
+
+		// プラン制限 (Free プランのテンプレート数、per-child quota: LP「3個/子まで」と整合)
+		// 配信先 child 0 件でも family template 自体は作成可能 (後で distribution 編集)
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const tenantChildren = await getAllChildren(tenantId);
+		// 配信先 child が指定済みなら各 child の per-child quota を事前確認
+		const childIdsForLimitCheck =
+			childIdsRaw === 'all'
+				? tenantChildren.map((c) => c.id)
+				: childIdsRaw === ''
+					? []
+					: childIdsRaw
+							.split(',')
+							.map((s) => Number(s.trim()))
+							.filter((n) => Number.isInteger(n) && n > 0);
+		for (const cId of childIdsForLimitCheck) {
+			const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, cId);
+			if (!limit.allowed) {
+				const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+				return fail(403, {
+					error: createPlanLimitError(
+						tier,
+						'standard',
+						`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+					),
+					upgradeRequired: true,
+				});
+			}
+		}
+
+		// childIds: 'all' or comma-separated number list ('' で配信先未指定 = template のみ作成)
+		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
+		let childIds: number[];
+		if (childIdsRaw === 'all') {
+			childIds = tenantChildren.map((c) => c.id);
+		} else if (childIdsRaw === '') {
+			childIds = [];
+		} else {
+			childIds = childIdsRaw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		}
+
+		// CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject
+		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
+		if (foreignChildIds.length > 0) {
+			logger.warn('[admin/checklists] tenant 外 child ID が importPresetToChildren に指定された', {
+				context: { presetId, foreignChildIds, tenantId },
+			});
+			return fail(403, {
+				error: '指定されたお子さまの一部が見つかりませんでした',
+			});
+		}
+
+		const item = getMarketplaceItem('checklist', presetId);
+		if (!item) {
+			return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
+		}
+		const payload = item.payload as ChecklistPayload;
+
+		try {
+			const result = await dispatchImport({
+				typeCode: 'checklist',
+				rawPayload: payload,
+				displayName: item.name,
+				ctx: {
+					tenantId,
+					presetId,
+					childIds,
+				},
+			});
+			return {
+				perChildImport: true,
+				packName: result.packName,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: result.total,
+				errors: result.errors,
+				presetId,
+				distributedCount: childIds.length,
+			};
+		} catch (e) {
+			logger.error('[admin/checklists] family scope import 失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { presetId, childIds },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
+
+	// #2362 PR-5 Phase 2 (ADR-0055): family checklist の配信先 children を同期
+	// ChecklistDistributionDialog の「配信先を保存」ボタンから呼ばれる action。
+	// childIds: 'all' or CSV 'id1,id2,id3' を受け取り、現在の配信先と差分計算して add/remove。
+	syncDistribution: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const templateId = Number(formData.get('templateId'));
+		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
+
+		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
+
+		const tenantChildren = await getAllChildren(tenantId);
+		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
+
+		let desiredChildIds: number[];
+		if (childIdsRaw === 'all') {
+			desiredChildIds = tenantChildren.map((c) => c.id);
+		} else if (childIdsRaw === '') {
+			desiredChildIds = [];
+		} else {
+			desiredChildIds = childIdsRaw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		}
+
+		// CWE-598 guard
+		const foreignChildIds = desiredChildIds.filter((id) => !allowedChildIdSet.has(id));
+		if (foreignChildIds.length > 0) {
+			logger.warn('[admin/checklists] tenant 外 child ID が syncDistribution に指定された', {
+				context: { templateId, foreignChildIds, tenantId },
+			});
+			return fail(403, {
+				error: '指定されたお子さまの一部が見つかりませんでした',
+			});
+		}
+
+		try {
+			const result = await syncDistribution(templateId, desiredChildIds, tenantId);
+			return {
+				distributionSynced: true,
+				templateId,
+				added: result.added.length,
+				removed: result.removed.length,
+			};
+		} catch (e) {
+			logger.error('[admin/checklists] 配信先同期失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { templateId, desiredChildIds },
+			});
+			return fail(500, { error: '配信先の同期に失敗しました' });
+		}
+	},
 };

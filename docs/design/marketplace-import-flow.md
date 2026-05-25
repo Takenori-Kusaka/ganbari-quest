@@ -150,9 +150,33 @@ reward-set も `MarketplaceTypeDescriptor.requiresChildId: true` を宣言する
 
 ### 3.3 family master type の登録挙動 (checklist / rule bonus)
 
-ダイアログで「全員」default → 1 record として `ImportStrategy.apply(payload, ctx)` 呼出 (`ctx.childId` は undefined)。配信先 child は `checklist_template_assignments` 等の中間 table に書き込む (詳細は [data-model-resource-scope.md](data-model-resource-scope.md) §4.2)。
+ダイアログで「全員」default → `ImportStrategy.apply(payload, ctx)` を `ctx.childIds = [全 child id]` で呼出 → family master 1 record + 配信先 child 全員分の `checklist_template_assignments` row を 1 transaction で作成。
 
-ダイアログで個別配信を選んだ場合は、family master 1 record + 配信先 child の assignment row のみ追加。
+ダイアログで個別配信を選んだ場合は `ctx.childIds = [選択された child id]` で同様、配信先 child の assignment row のみ追加。
+
+ダイアログで誰も選ばなかった場合 (空配列) は family master 1 record のみ作成 (assignment 0 件)、後で admin/checklists の ChecklistDistributionDialog から配信先を設定可能。
+
+#### 3.3.1 checklist 専用フロー (PR-5 Phase 2、ADR-0055)
+
+```
+marketplace/checklist/[itemId]
+  ↓ submit (childId なし)
+303 redirect: /admin/checklists?import=<itemId>
+  ↓ admin load 時 ?import= query 検出
+ChildSelectionDialog auto-open (allowMultiple=true)
+  ↓ 「全員」or 個別 child 選択 → confirm
+?/importPresetToChildren action (childIds='all' or CSV)
+  ↓ dispatchImport('checklist', ctx={tenantId, presetId, childIds})
+  ↓ checklistStrategy.apply()
+importChecklistTemplateForFamily(presetId, tenantId, {childIds})
+  ↓ family master template + assignments 一括作成 (1 transaction)
+```
+
+**CWE-598 / privacy 保護**: marketplace ↔ admin の遷移で childId / nickname が URL / form body に一切露出しない。child 情報は admin の ChildSelectionDialog 内のみで扱う。
+
+**ctx.childId は受付撤去** (Phase 2): legacy-single-binding ctx は撤去済 (`checklist-strategy.ts` から `importChecklistTemplate` (per-child legacy API) call は削除)。新規 callsite は必ず `ctx.childIds` 経由で呼ぶ。
+
+**配信先設定の事後変更**: admin/checklists の各 template card 内の「配信先を設定」ボタン → `ChecklistDistributionDialog` → `VisibilityChipGroup` で chip toggle → `?/syncDistribution` action で差分計算 (`syncDistribution()` service 経由) → assignment 追加/解除。
 
 ---
 

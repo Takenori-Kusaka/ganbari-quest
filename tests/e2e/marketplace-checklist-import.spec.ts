@@ -1,8 +1,10 @@
 // tests/e2e/marketplace-checklist-import.spec.ts
 // #2137 (MP-2): event-checklist 一括追加フロー E2E
+// #2362 PR-5 Phase 2 (ADR-0055 / CWE-598): marketplace 詳細ページから childId 排除、
+//   admin/checklists?import= 経由の auto-open dialog 動線に rewrite。
 //
 // 検証対象:
-// 1. /marketplace/checklist/event-pool 詳細ページに「一括追加」CTA が描画される
+// 1. /marketplace/checklist/event-pool 詳細ページに「取込」CTA が描画される
 //    (ログイン済 = AUTH_MODE=local 認証通過後)
 // 2. /admin/checklists にマーケットプレイス取込セクションが表示される
 //    (event-pool / event-school-start / event-field-trip 3 件 + 「一括追加」ボタン)
@@ -30,13 +32,13 @@ test.describe('#2137 マーケットプレイス checklist 一括追加', () => 
 		});
 		expect(res?.status()).toBe(200);
 
-		// AUTH_MODE=local ではログイン済 → 一括追加 button が表示される
-		// (未ログイン環境では signup redirect になるため、別 spec で扱う)
+		// AUTH_MODE=local ではログイン済 → 取込 button が表示される
+		// (未ログイン環境では login redirect になるため、別 spec で扱う)
 		const cta = page.getByTestId('marketplace-detail-cta');
 		await expect(cta).toBeVisible();
 
-		// 「一括追加」 button または signup redirect link のいずれかが描画される
-		const importBtn = page.getByTestId('marketplace-import-button');
+		// #2362 PR-5 Phase 2: 「取込」 button (childId 排除済) または signup redirect link のいずれか
+		const importBtn = page.getByTestId('checklist-import-submit');
 		const signupLink = page.getByTestId('marketplace-signup-redirect');
 		// 両方 hidden は AC 違反
 		const eitherVisible = (await importBtn.count()) > 0 || (await signupLink.count()) > 0;

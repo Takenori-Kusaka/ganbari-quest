@@ -1,29 +1,28 @@
 /**
  * tests/unit/marketplace/strategies/checklist-strategy.test.ts
  *
- * checklist ImportStrategy unit tests — Issue #2367 / ADR-0052
+ * checklist ImportStrategy unit tests — Issue #2367 / ADR-0052 / #2481 PR-5 Phase 2 (ADR-0055)
  *
  * 検証:
  *   - parse() の Valibot 経由 validation (成功 / 失敗)
  *   - preview() が atomic unit 重複検知 (`duplicates === total`) を行う
  *   - preview() が DB write しない
- *   - apply() が importChecklistTemplate を呼んで結果を返す
+ *   - apply() が importChecklistTemplateForFamily を呼んで結果を返す (Phase 2 で legacy-single-binding 撤去)
  *   - apply() の dryRun=true は preview と等価動作
- *   - ctx.presetId / ctx.childId 必須 (型エラーではなく runtime error)
+ *   - ctx.presetId 必須 (型エラーではなく runtime error)
+ *   - ctx.childIds 0 件でも family template 作成可能 (Phase 2 新仕様)
  *   - tenant 必須 (ctx.tenantId が下流に伝播)
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// ---------- Top-level mocks (旧 service 経由) ----------
+// ---------- Top-level mocks (Phase 2 で `importChecklistTemplate` は撤去、family API のみ) ----------
 
 const mockPreviewChecklistImport = vi.fn();
-const mockImportChecklistTemplate = vi.fn();
 const mockImportChecklistTemplateForFamily = vi.fn();
 
 vi.mock('$lib/server/services/checklist-template-import-service', () => ({
 	previewChecklistImport: (...args: unknown[]) => mockPreviewChecklistImport(...args),
-	importChecklistTemplate: (...args: unknown[]) => mockImportChecklistTemplate(...args),
 	importChecklistTemplateForFamily: (...args: unknown[]) =>
 		mockImportChecklistTemplateForFamily(...args),
 }));
@@ -75,7 +74,7 @@ beforeEach(() => {
 		itemCount: 2,
 		alreadyImported: false,
 	});
-	mockImportChecklistTemplate.mockResolvedValue({
+	mockImportChecklistTemplateForFamily.mockResolvedValue({
 		imported: 1,
 		skipped: 0,
 		importedItems: 2,
@@ -192,24 +191,25 @@ describe('checklistStrategy.preview', () => {
 		expect(preview.duplicateNames).toEqual(['プールの もちもの']);
 	});
 
-	it('preview() は importChecklistTemplate を呼ばない (DB write 禁止)', async () => {
+	it('preview() は importChecklistTemplateForFamily を呼ばない (DB write 禁止)', async () => {
 		const payload = makeChecklistPayload();
 		await checklistStrategy.preview(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
 			childId: CHILD_ID,
 		});
-		expect(mockImportChecklistTemplate).not.toHaveBeenCalled();
+		expect(mockImportChecklistTemplateForFamily).not.toHaveBeenCalled();
 	});
 
-	it('ctx.presetId / childId / tenantId が下流 previewChecklistImport に伝播', async () => {
+	it('ctx.presetId / tenantId が下流 previewChecklistImport に伝播 (Phase 2: childId 排除)', async () => {
 		const payload = makeChecklistPayload();
 		await checklistStrategy.preview(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
 			childId: CHILD_ID,
 		});
-		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, CHILD_ID, TENANT);
+		// Phase 2: family scope のため childId hint は 0 固定で legacy service へ渡される
+		expect(mockPreviewChecklistImport).toHaveBeenCalledWith(PRESET_ID, 0, TENANT);
 	});
 
 	it('ctx.presetId 未指定なら error throw', async () => {
@@ -219,7 +219,7 @@ describe('checklistStrategy.preview', () => {
 		).rejects.toThrow(/presetId/);
 	});
 
-	it('#2362 PR-5: preview は ctx.childId / childIds なしでも OK (family scope 重複判定のみ)', async () => {
+	it('#2362 PR-5 Phase 2: preview は ctx.childId / childIds なしでも OK (family scope 重複判定のみ)', async () => {
 		// family master 化後は preview = tenant scope 判定のため、childId hint は任意。
 		const payload = makeChecklistPayload();
 		await expect(
@@ -247,21 +247,53 @@ describe('checklistStrategy.preview', () => {
 // =====================================================
 
 describe('checklistStrategy.apply', () => {
-	it('未取込 -> imported=1, skipped=0', async () => {
+	// #2362 PR-5 Phase 2 (ADR-0055): legacy-single-binding ctx 撤去後の apply 仕様
+	// - ctx.childIds 指定時: 配信先 children を assignments で記録
+	// - ctx.childIds 未指定 / 空配列時: family template のみ作成 (assignment 0 件、配信は admin UX で)
+	// - 旧 ctx.childId は受付撤去 (UI から URL/body 経路で渡されない、CWE-598)
+
+	it('childIds 指定: family-master-with-distribution で apply', async () => {
 		const payload = makeChecklistPayload();
 		const result = await checklistStrategy.apply(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childId: CHILD_ID,
+			childIds: [10, 11],
 		});
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(0);
 		expect(result.errors).toEqual([]);
-		expect(mockImportChecklistTemplate).toHaveBeenCalledWith(PRESET_ID, CHILD_ID, TENANT);
+		expect(mockImportChecklistTemplateForFamily).toHaveBeenCalledWith(PRESET_ID, TENANT, {
+			childIds: [10, 11],
+		});
+	});
+
+	it('childIds 空配列: family template のみ作成 (assignment 0 件、配信は admin UX で)', async () => {
+		const payload = makeChecklistPayload();
+		const result = await checklistStrategy.apply(payload, {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+			childIds: [],
+		});
+		expect(result.imported).toBe(1);
+		expect(mockImportChecklistTemplateForFamily).toHaveBeenCalledWith(PRESET_ID, TENANT, {
+			childIds: [],
+		});
+	});
+
+	it('childIds 未指定: family template のみ作成 (assignment 0 件)', async () => {
+		const payload = makeChecklistPayload();
+		const result = await checklistStrategy.apply(payload, {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+		});
+		expect(result.imported).toBe(1);
+		expect(mockImportChecklistTemplateForFamily).toHaveBeenCalledWith(PRESET_ID, TENANT, {
+			childIds: [],
+		});
 	});
 
 	it('atomic 重複: imported=0, skipped=1', async () => {
-		mockImportChecklistTemplate.mockResolvedValue({
+		mockImportChecklistTemplateForFamily.mockResolvedValue({
 			imported: 0,
 			skipped: 1,
 			importedItems: 0,
@@ -271,7 +303,7 @@ describe('checklistStrategy.apply', () => {
 		const result = await checklistStrategy.apply(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childId: CHILD_ID,
+			childIds: [CHILD_ID],
 		});
 		expect(result.imported).toBe(0);
 		expect(result.skipped).toBe(1);
@@ -289,51 +321,23 @@ describe('checklistStrategy.apply', () => {
 		const result = await checklistStrategy.apply(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childId: CHILD_ID,
+			childIds: [CHILD_ID],
 			dryRun: true,
 		});
 		expect(result.imported).toBe(0);
 		expect(result.skipped).toBe(2);
-		expect(mockImportChecklistTemplate).not.toHaveBeenCalled();
+		expect(mockImportChecklistTemplateForFamily).not.toHaveBeenCalled();
 	});
 
 	it('ctx.presetId 未指定なら error throw', async () => {
 		const payload = makeChecklistPayload();
 		await expect(
-			checklistStrategy.apply(payload, { tenantId: TENANT, childId: CHILD_ID }),
+			checklistStrategy.apply(payload, { tenantId: TENANT, childIds: [CHILD_ID] }),
 		).rejects.toThrow(/presetId/);
 	});
 
-	it('ctx.childId / childIds どちらも未指定なら error throw', async () => {
-		const payload = makeChecklistPayload();
-		await expect(
-			checklistStrategy.apply(payload, { tenantId: TENANT, presetId: PRESET_ID }),
-		).rejects.toThrow(/childId/);
-	});
-
-	it('#2362 PR-5: ctx.childIds でも apply 可能 (family-master-with-distribution)', async () => {
-		mockImportChecklistTemplateForFamily.mockResolvedValue({
-			imported: 1,
-			skipped: 0,
-			importedItems: 2,
-			errors: [],
-		});
-		const payload = makeChecklistPayload();
-		const result = await checklistStrategy.apply(payload, {
-			tenantId: TENANT,
-			presetId: PRESET_ID,
-			childIds: [10, 11],
-		});
-		expect(result.imported).toBe(1);
-		expect(mockImportChecklistTemplateForFamily).toHaveBeenCalledWith(PRESET_ID, TENANT, {
-			childIds: [10, 11],
-		});
-		// legacy (single binding) は呼ばれない
-		expect(mockImportChecklistTemplate).not.toHaveBeenCalled();
-	});
-
 	it('下流 service の errors を pass-through', async () => {
-		mockImportChecklistTemplate.mockResolvedValue({
+		mockImportChecklistTemplateForFamily.mockResolvedValue({
 			imported: 1,
 			skipped: 0,
 			importedItems: 1,
@@ -343,7 +347,7 @@ describe('checklistStrategy.apply', () => {
 		const result = await checklistStrategy.apply(payload, {
 			tenantId: TENANT,
 			presetId: PRESET_ID,
-			childId: CHILD_ID,
+			childIds: [CHILD_ID],
 		});
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toContain('タオル');
@@ -368,15 +372,17 @@ describe('marketplace dispatcher + checklist', () => {
 		expect(marketplaceRegistry.has('checklist')).toBe(true);
 		const desc = marketplaceRegistry.get('checklist');
 		expect(desc.typeCode).toBe('checklist');
+		// #2362 PR-5 Phase 2: checklist は family scope のため childId は構造上 required ではないが、
+		// Descriptor の requiresChildId 値は当面互換維持 (Registry レベルの contract、admin UI で childIds 指定)
 		expect(desc.requiresChildId).toBe(true);
 
-		// dispatchImport が動作すること
+		// dispatchImport が動作すること (Phase 2: childIds 経由)
 		const payload = makeChecklistPayload();
 		const result = await dispatchImport({
 			typeCode: 'checklist',
 			rawPayload: payload,
 			displayName: 'プールの もちもの',
-			ctx: { tenantId: TENANT, presetId: PRESET_ID, childId: CHILD_ID },
+			ctx: { tenantId: TENANT, presetId: PRESET_ID, childIds: [CHILD_ID] },
 		});
 		expect(result.importResult).toBe(true);
 		expect(result.packName).toBe('プールの もちもの');

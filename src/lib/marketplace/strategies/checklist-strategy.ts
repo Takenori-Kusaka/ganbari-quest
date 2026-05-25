@@ -43,7 +43,6 @@ import type {
 	ImportStrategy,
 } from '$lib/marketplace/types.js';
 import {
-	importChecklistTemplate,
 	importChecklistTemplateForFamily,
 	previewChecklistImport,
 } from '$lib/server/services/checklist-template-import-service.js';
@@ -75,15 +74,13 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 
 	async preview(payload: ChecklistPayload, ctx: ImportContext): Promise<ImportPreview> {
 		const presetId = ctx.presetId;
-		// #2362 PR-5: family master 化後、preview の重複判定は family scope (tenant)。
-		// childId / childIds は preview には不要だが、Phase 1 後方互換のため childId は引き続き
-		// 受け取れる (内部で legacy preview API に渡す)。childIds 経由が優先。
-		const hintChildId = ctx.childId ?? ctx.childIds?.[0] ?? 0;
 		if (!presetId) {
 			throw new Error('[checklist-strategy] ctx.presetId は必須です');
 		}
 
-		const raw = await previewChecklistImport(presetId, hintChildId, ctx.tenantId);
+		// #2362 PR-5 Phase 2 (ADR-0055): checklist は family master scope。重複判定は tenant scope。
+		// childId / childIds は preview に不要 (legacy 互換 hint も Phase 2 で撤去)。
+		const raw = await previewChecklistImport(presetId, 0, ctx.tenantId);
 		if (!raw) {
 			throw new Error(`[checklist-strategy] preset "${presetId}" が見つかりません`);
 		}
@@ -112,18 +109,11 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 			throw new Error('[checklist-strategy] ctx.presetId は必須です');
 		}
 
-		// #2362 PR-5 (ADR-0055): ctx に対応する 2 つの取込モードを内部で分岐 (discriminated union 風)。
-		//   - family-master-with-distribution: ctx.childIds (複数 child 配信)
-		//   - legacy-single-binding: ctx.childId (単一 child 互換、Phase 2 admin UX 移行後撤去予定)
-		// どちらも family master template + assignment(s) 1 回作成で同 schema に着地する。
-		const kind: 'family-master-with-distribution' | 'legacy-single-binding' =
-			ctx.childIds && ctx.childIds.length > 0
-				? 'family-master-with-distribution'
-				: 'legacy-single-binding';
-
-		if (kind === 'legacy-single-binding' && !ctx.childId) {
-			throw new Error('[checklist-strategy] ctx.childId または ctx.childIds のいずれかが必須です');
-		}
+		// #2362 PR-5 Phase 2 (ADR-0055): family master + distribution 単一経路 (legacy-single-binding 撤去)。
+		// ctx.childIds 未指定 (空配列含む) の場合は family scope template 作成のみ (assignment 0 件)、
+		// 配信は別途 admin/checklists の ChecklistDistributionDialog から行う想定。
+		// 旧 ctx.childId は本 Phase で受付撤去。
+		const childIds: readonly number[] = ctx.childIds && ctx.childIds.length > 0 ? ctx.childIds : [];
 
 		// dry-run は preview と等価動作 (DB write 禁止)
 		if (ctx.dryRun === true) {
@@ -135,12 +125,9 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 			};
 		}
 
-		const raw =
-			kind === 'family-master-with-distribution'
-				? await importChecklistTemplateForFamily(presetId, ctx.tenantId, {
-						childIds: ctx.childIds as readonly number[],
-					})
-				: await importChecklistTemplate(presetId, ctx.childId as number, ctx.tenantId);
+		const raw = await importChecklistTemplateForFamily(presetId, ctx.tenantId, {
+			childIds,
+		});
 
 		return {
 			imported: raw.imported,

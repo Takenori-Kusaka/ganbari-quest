@@ -330,74 +330,43 @@ const childOptions = $derived(
 					{MARKETPLACE_LABELS.detailCtaImportRewardSignedOut}
 				</p>
 			{:else if isChecklist && data.isLoggedIn && data.children && data.children.length > 0}
-				<!-- #2137 (MP-2): ログイン済 → 直接「一括追加」 -->
+				<!-- #2362 PR-5 Phase 2 (ADR-0055 / CWE-598): family scope のため child 選択 UI を
+				     marketplace 側から削除。「取込」 button のみ表示し、押下後は admin/checklists へ
+				     `?import=<itemId>` 遷移、admin 側で ChecklistDistributionDialog auto-open する。
+				     URL/body どこにも childId / nickname を露出しない (PR-4 reward-set と同型)。 -->
 				<p class="text-xs text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailCtaImportChecklistDesc}
 				</p>
 
-				{#if form?.importResult}
-					{#if form.alreadyImported}
-						<div
-							class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-warning-bg)] text-[var(--color-feedback-warning-text)]"
-							data-testid="marketplace-import-result-duplicate"
-						>
-							{MARKETPLACE_LABELS.detailImportDuplicate(form.existingTemplateName ?? form.presetName)}
-						</div>
-					{:else}
-						<div
-							class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
-							data-testid="marketplace-import-result-success"
-						>
-							{MARKETPLACE_LABELS.detailImportSuccess(form.importedItems ?? 0)}
-						</div>
-					{/if}
-				{:else if form?.error}
-					<div
-						class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)]"
-						data-testid="marketplace-import-result-error"
-					>
-						{form.error}
-					</div>
-				{/if}
-
 				<form
 					method="POST"
 					action="?/importChecklist"
-					use:enhance={() => {
-						importing = true;
-						return async ({ update }) => {
-							await update();
-							importing = false;
-							await invalidateAll();
-						};
-					}}
-					class="space-y-3"
-					data-testid="marketplace-import-form"
+					use:enhance
+					data-testid="checklist-import-form"
 				>
-					{#if data.children.length > 1}
-						<label class="block text-xs font-medium text-[var(--color-text-secondary)]">
-							{MARKETPLACE_LABELS.detailChildSelectLabel}
-							<NativeSelect
-								name="childId"
-								bind:value={selectedChildIdStr}
-								options={childOptions}
-							/>
-						</label>
-					{:else}
-						<input type="hidden" name="childId" value={selectedChildIdStr} />
-					{/if}
-
 					<Button
 						type="submit"
 						variant="primary"
 						size="lg"
 						class="w-full"
-						disabled={importing || !selectedChildIdStr}
-						data-testid="marketplace-import-button"
+						data-testid="checklist-import-submit"
 					>
 						{MARKETPLACE_LABELS.detailCtaImportChecklist}
 					</Button>
 				</form>
+			{:else if isChecklist && data.isLoggedIn && data.children && data.children.length === 0}
+				<!-- ログイン済だが子供未登録 -->
+				<div
+					class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)] rounded-xl p-3 text-sm text-center"
+					data-testid="checklist-import-no-children"
+				>
+					{MARKETPLACE_LABELS.detailRewardImportNoChildren}
+				</div>
+				<a href="/setup/children" class="block">
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailRewardImportNoChildren}
+					</Button>
+				</a>
 			{:else if isChecklist && !data.isLoggedIn}
 				<!-- #2137 (MP-2) / #2303: 未ログイン → login へ誘導 (誤新規登録防止 / data integrity 保護)。
 					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->

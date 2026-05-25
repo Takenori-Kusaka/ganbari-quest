@@ -1,10 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
-import type {
-	ChecklistPayload,
-	MarketplaceItemType,
-	RulePresetPayload,
-} from '$lib/domain/marketplace-item';
+import type { MarketplaceItemType, RulePresetPayload } from '$lib/domain/marketplace-item';
 // #2366 / #2367 / #2368 / #2369 (ADR-0052 / EPIC #2362 P3): reward-set / checklist / rule-preset /
 // challenge-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/reward-set` / `./types/checklist` / `./types/rule-preset` /
@@ -89,89 +85,22 @@ export const actions: Actions = {
 		redirect(303, `/admin/rewards?import=${encodeURIComponent(itemId)}`);
 	},
 
-	// #2137 (MP-2): event-checklist 一括追加 action
-	// CTA「一括追加」ボタンの form action。ログイン済みのみ動作する
-	// (未ログインは UI 側で /auth/login?next=... に誘導する、#2303)。
-	importChecklist: async ({ params, request, locals }) => {
-		const tenantId = locals.context?.tenantId;
-		if (!tenantId) {
-			// 未ログインで POST が来た場合は login 経由で戻す
-			// (#2303: 誤新規登録防止 / data integrity 保護)
-			redirect(302, `/auth/login?next=/marketplace/checklist/${params.itemId}`);
-		}
-
+	// #2362 PR-5 Phase 2 (ADR-0055 / CWE-598): checklist marketplace action は child 情報を
+	// 持たず、admin/checklists へ `?import=<itemId>` で遷移するだけ。
+	// 取込実行 (family scope + 配信先選択) は admin/checklists 側の ChecklistDistributionDialog
+	// 経由で行う (User §7.3 / marketplace-import-flow.md §2.1)。
+	importChecklist: async ({ params, locals }) => {
 		if (params.type !== 'checklist') {
 			return fail(400, { error: 'チェックリストではありません' });
 		}
 
-		const formData = await request.formData();
-		const childIdRaw = formData.get('childId');
-		const childId = Number(childIdRaw);
-		if (!childId || Number.isNaN(childId)) {
-			return fail(400, { error: 'お子さまを選択してください' });
+		if (!locals.context) {
+			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
+			redirect(303, `/auth/login?redirect=/marketplace/checklist/${params.itemId}`);
 		}
 
-		// 子供が本テナントに存在するか念のため確認
-		const children = await getAllChildren(tenantId);
-		if (!children.some((c) => c.id === childId)) {
-			return fail(400, { error: 'お子さまが見つかりません' });
-		}
-
-		// #2367: checklist は dispatchImport 経由 (EPIC #2362 P3)
-		// 旧 service の戻り shape (imported / importedItems / errors / alreadyImported /
-		// existingTemplateName) を UI 不変のまま維持するため、preview を別途呼び
-		// existingTemplateName を取り出す (atomic 重複時のみ意味あり)。
-		const item = getMarketplaceItem('checklist', params.itemId);
-		if (!item) {
-			return fail(404, { error: 'プリセットが見つかりません' });
-		}
-		const payload = item.payload as ChecklistPayload;
-		try {
-			const descriptor = marketplaceRegistry.get('checklist');
-			const strategy = descriptor.strategy;
-			// biome-ignore lint/suspicious/noExplicitAny: Registry parametric type 解決のため
-			const parsedPayload = (strategy as any).parse(payload);
-			// biome-ignore lint/suspicious/noExplicitAny: 同上
-			const preview = await (strategy as any).preview(parsedPayload, {
-				tenantId,
-				presetId: params.itemId,
-				childId,
-			});
-			// atomic 重複検知: 全件 skipped = duplicates = total = alreadyImported
-			if (preview.duplicates === preview.total && preview.total > 0) {
-				return {
-					importResult: true,
-					alreadyImported: true,
-					presetName: item.name,
-					existingTemplateName: preview.duplicateNames[0],
-				};
-			}
-			const result = await dispatchImport({
-				typeCode: 'checklist',
-				rawPayload: payload,
-				displayName: item.name,
-				ctx: {
-					tenantId,
-					presetId: params.itemId,
-					childId,
-				},
-			});
-			return {
-				importResult: true,
-				alreadyImported: false,
-				presetName: result.packName,
-				imported: result.imported,
-				// importedItems は ChecklistImportResult 互換のため items 数を返す
-				importedItems: payload.items.length,
-				errors: result.errors,
-			};
-		} catch (e) {
-			logger.error('[marketplace/checklist] インポート失敗', {
-				error: e instanceof Error ? e.message : String(e),
-				context: { itemId: params.itemId, childId },
-			});
-			return fail(500, { error: 'インポートに失敗しました' });
-		}
+		// presetId のみ持って親管理画面へ遷移 (childId は URL/body どこにも露出させない)
+		redirect(303, `/admin/checklists?import=${encodeURIComponent(params.itemId)}`);
 	},
 
 	// #2138 (MP-3): rule-preset 4 ruleType 全対応 の一括取込 action
