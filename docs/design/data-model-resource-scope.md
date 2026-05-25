@@ -123,11 +123,13 @@ checklist_logs       -- 既存維持 (per-child progress、(child_id, template_i
 
 C6 use case「配信先を全員 or 個別で選ぶ」は `checklist_template_assignments` 側で表現。C2「たろうにだけ色鉛筆追加」は `checklist_overrides` (既存 per-child override) で表現。
 
-### 4.3 reward exchange (PR-4、現状 per-child 維持)
+### 4.3 reward exchange (PR-4、現状 per-child 維持 + UX 整備済)
 
 **現状**: `special_rewards.child_id NOT NULL` (per-child instance、現状一致)
 
 **目標**: 既存 schema 維持 + `source_preset_id` 経路を `MarketplaceTypeRegistry.reward-set` strategy 経由 (#2366) に統一。schema 変更なし、Strategy 経路統一のみ。
+
+**PR-4 実装状況** (2026-05-25): admin/rewards UX を PR-3 と同型に整備済。子供別タブ切替 + ChildSelectionDialog auto-open + 「他の子供から copy」action + marketplace 取込 child 排除 (CWE-598)。schema 変更ゼロ、UX 整備のみ。詳細動線は [marketplace-import-flow.md](marketplace-import-flow.md) §3.2 reward-set 節参照。
 
 ### 4.4 rule bonus (PR-6、現状維持)
 

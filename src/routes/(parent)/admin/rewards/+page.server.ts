@@ -11,6 +11,11 @@ import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { dispatchImport } from '$lib/marketplace';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
+// #2362 PR-4 (ADR-0055): per-child reward 兄弟共通化 copy
+import {
+	copyChildRewardsToSibling,
+	copyChildRewardsToSiblings,
+} from '$lib/server/services/child-reward-copy-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	isPaidTier,
@@ -30,7 +35,7 @@ import type { Actions, PageServerLoad } from './$types';
 // #2268: 「特別なごほうび設定」→「ごほうび管理」に文言更新
 const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor('ごほうび管理');
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
@@ -39,9 +44,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const children = await getAllChildren(tenantId);
 	const templates = await getRewardTemplates(tenantId);
 
+	// #2362 PR-4 (ADR-0055): per-child rewards 取得 (child タブ切替 + 兄弟 copy UI 用)
+	const childRewardsByChild: Record<
+		number,
+		Awaited<ReturnType<typeof getChildSpecialRewards>>['rewards']
+	> = {};
 	const childrenWithRewards = await Promise.all(
 		children.map(async (child) => {
 			const rewards = await getChildSpecialRewards(child.id, tenantId);
+			childRewardsByChild[child.id] = rewards.rewards;
 			return {
 				...child,
 				rewardCount: rewards.rewards.length,
@@ -49,6 +60,19 @@ export const load: PageServerLoad = async ({ locals }) => {
 			};
 		}),
 	);
+
+	// #2362 PR-4: `?import=<presetId>` query で ChildSelectionDialog auto-open
+	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
+	// presetId が marketplace に存在するか確認 (invalid 時は null + UI 警告表示)
+	const importPresetId =
+		importPresetIdRaw && getMarketplaceItem('reward-set', importPresetIdRaw)
+			? importPresetIdRaw
+			: null;
+	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
+	// `?childId=<n>` query で初期 child 選択復元 (refresh / share link 対応)
+	const initialChildIdRaw = url.searchParams.get('childId');
+	const initialChildId =
+		initialChildIdRaw && /^\d+$/.test(initialChildIdRaw) ? Number(initialChildIdRaw) : null;
 
 	// #2268: 申請承認画面は /admin/rewards/requests に分離 (子#3)。
 	// 本画面は pending 件数のみ取得し、overflow menu のバッジに使用する。
@@ -70,12 +94,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		children: childrenWithRewards,
+		childRewardsByChild,
 		templates,
 		presetGroups: PRESET_REWARD_GROUPS,
 		isPremium,
 		planTier: tier,
 		pendingRequestsCount: pendingRequests.length,
 		rewardSets,
+		importPresetId,
+		importPresetInvalid,
+		initialChildId,
 	};
 };
 
@@ -204,6 +232,182 @@ export const actions: Actions = {
 				context: { presetId, childId },
 			});
 			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
+
+	// #2362 PR-4 (ADR-0055): per-child 取込 (ChildSelectionDialog から呼出)
+	// `?import=<presetId>` query で auto-open した dialog で「全員 / 個別」選択 → 本 action に POST
+	// childIds=all で全 child、childIds=1,2,3 で個別 child 配列
+	//
+	// CWE-598 防御 (PR #2474 QM Re-Review must-1 / Copilot must-3):
+	//   childIds が tenant 配下 child の ID 集合に全て含まれることを assert。
+	//   未含有 1 件で 403 fail (orphan reward / 兄弟外 IDOR を新設しない)。
+	importPresetToChildren: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		// プラン制限ガード (既存 form と同じ)
+		const tier = await resolveTier(locals, tenantId);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
+			});
+		}
+
+		const formData = await request.formData();
+		const presetId = String(formData.get('presetId') ?? '').trim();
+		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
+
+		if (!presetId) return fail(400, { error: 'プリセットが指定されていません' });
+		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+
+		// 先に tenant 配下 child の ID 集合を取得 (childIds=all でも guard 後にも使う)
+		const tenantChildren = await getAllChildren(tenantId);
+		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
+
+		// childIds: 'all' or comma-separated number list
+		let childIds: number[];
+		if (childIdsRaw === 'all') {
+			childIds = tenantChildren.map((c) => c.id);
+		} else {
+			childIds = childIdsRaw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		}
+		if (childIds.length === 0) {
+			return fail(400, { error: '有効な対象が指定されていません' });
+		}
+
+		// #2474 must-1 CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject。
+		// 'all' 経路は構造的に tenant 配下のみだが、明示的ユーザ指定 (CSV) で他 tenant ID を
+		// 紛れ込ませた場合に orphan reward / IDOR にならないよう必ず検証する。
+		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
+		if (foreignChildIds.length > 0) {
+			logger.warn('[admin/rewards] tenant 外 child ID が importPresetToChildren に指定された', {
+				context: { presetId, foreignChildIds, tenantId },
+			});
+			return fail(403, {
+				error: '指定されたお子さまの一部が見つかりませんでした',
+			});
+		}
+
+		const item = getMarketplaceItem('reward-set', presetId);
+		if (!item) {
+			return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
+		}
+
+		try {
+			// #2366 / PR-4: Strategy + dispatchImport 経由 (ctx.childIds で per-child fan-out)
+			const result = await dispatchImport({
+				typeCode: 'reward-set',
+				rawPayload: item.payload,
+				displayName: item.name,
+				ctx: { tenantId, presetId, childIds },
+			});
+			return {
+				perChildImport: true,
+				packName: result.packName,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: result.total,
+				errors: result.errors,
+				presetId,
+			};
+		} catch (e) {
+			logger.error('[admin/rewards] per-child インポート失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { presetId, childIds },
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
+
+	// #2362 PR-4 (ADR-0055): 「他の子供から copy」action
+	// source child の reward 全件を target child (現在の表示 child) に複製
+	// targetChildIds (CSV) 指定で複数 target にも一括複製可能 (兄弟全員に同期)
+	//
+	// CWE-598 防御 (PR #2474 QM Re-Review must-1 / Copilot must-4):
+	//   source / target childId が tenant 配下 child の ID 集合に全て含まれることを assert。
+	//   未含有 1 件で 403 fail (兄弟外 reward 漏洩 IDOR を新設しない)。
+	copyFromChild: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		// プラン制限ガード
+		const tier = await resolveTier(locals, tenantId);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
+			});
+		}
+
+		const formData = await request.formData();
+		const sourceChildId = Number(formData.get('sourceChildId'));
+		const targetChildIdsRaw = String(formData.get('targetChildIds') ?? '').trim();
+		const singleTargetChildId = Number(formData.get('targetChildId'));
+
+		if (!sourceChildId) {
+			return fail(400, { error: 'コピー元のお子さまが必要です' });
+		}
+
+		let targetChildIds: number[] | null = null;
+		if (targetChildIdsRaw) {
+			targetChildIds = targetChildIdsRaw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		} else if (singleTargetChildId) {
+			targetChildIds = [singleTargetChildId];
+		}
+
+		if (!targetChildIds || targetChildIds.length === 0) {
+			return fail(400, { error: 'コピー先のお子さまが必要です' });
+		}
+
+		// #2474 must-1 CWE-598 guard: tenant 配下 child ID 集合と source / target 全件を照合。
+		// 兄弟以外への reward 複製を構造的に防ぐ。
+		const tenantChildrenForCopy = await getAllChildren(tenantId);
+		const allowedChildIdSetCopy = new Set(tenantChildrenForCopy.map((c) => c.id));
+		const allChildIdsForCopy = [sourceChildId, ...targetChildIds];
+		const foreignCopyChildIds = allChildIdsForCopy.filter((id) => !allowedChildIdSetCopy.has(id));
+		if (foreignCopyChildIds.length > 0) {
+			logger.warn('[admin/rewards] tenant 外 child ID が copyFromChild に指定された', {
+				context: { sourceChildId, targetChildIds, foreignCopyChildIds, tenantId },
+			});
+			return fail(403, {
+				error: '指定されたお子さまの一部が見つかりませんでした',
+			});
+		}
+
+		try {
+			const target = targetChildIds[0];
+			if (targetChildIds.length === 1 && target !== undefined) {
+				if (sourceChildId === target) {
+					return fail(400, { error: '同じお子さまにはコピーできません' });
+				}
+				const copied = await copyChildRewardsToSibling(tenantId, sourceChildId, target);
+				return { copyResult: true, copiedCount: copied };
+			}
+			const result = await copyChildRewardsToSiblings({
+				tenantId,
+				sourceChildId,
+				targetChildIds,
+			});
+			if (result.errors.length > 0) {
+				logger.warn('[admin/rewards] 兄弟へのコピーで partial failure', {
+					context: { sourceChildId, errorCount: result.errors.length },
+				});
+			}
+			return {
+				copyResult: true,
+				copiedCount: result.totalCopied,
+				errorCount: result.errors.length,
+			};
+		} catch (e) {
+			logger.error('[admin/rewards] copy 失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { sourceChildId, targetChildIds },
+			});
+			return fail(500, { error: 'コピーに失敗しました' });
 		}
 	},
 };

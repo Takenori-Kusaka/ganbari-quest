@@ -319,3 +319,121 @@ describe('marketplace dispatcher + reward-set', () => {
 		).rejects.toThrow(/childId/);
 	});
 });
+
+// =====================================================
+// #2362 PR-4 (ADR-0055) — discriminated union narrowing + per-child fan-out
+// =====================================================
+
+describe('rewardSetStrategy narrowChildContext (#2362 PR-4)', () => {
+	it('childIds (non-empty) -> child-selection に narrow される', async () => {
+		const { narrowChildContext } = await import(
+			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
+		);
+		const ctx = { tenantId: TENANT, presetId: PRESET_ID, childIds: [202, 303] };
+		const narrowed = narrowChildContext(ctx);
+		expect(narrowed.kind).toBe('child-selection');
+		if (narrowed.kind === 'child-selection') {
+			expect(narrowed.childIds).toEqual([202, 303]);
+			expect(narrowed.presetId).toBe(PRESET_ID);
+		}
+	});
+
+	it('childId のみ (legacy) -> legacy-single に narrow される', async () => {
+		const { narrowChildContext } = await import(
+			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
+		);
+		const ctx = { tenantId: TENANT, presetId: PRESET_ID, childId: CHILD_ID };
+		const narrowed = narrowChildContext(ctx);
+		expect(narrowed.kind).toBe('legacy-single');
+		if (narrowed.kind === 'legacy-single') {
+			expect(narrowed.childId).toBe(CHILD_ID);
+		}
+	});
+
+	it('childIds が空配列 -> childId fallback (legacy-single)', async () => {
+		const { narrowChildContext } = await import(
+			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
+		);
+		const ctx = {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+			childIds: [] as readonly number[],
+			childId: CHILD_ID,
+		};
+		const narrowed = narrowChildContext(ctx);
+		expect(narrowed.kind).toBe('legacy-single');
+	});
+
+	it('childIds / childId 両方欠落 -> Error throw', async () => {
+		const { narrowChildContext } = await import(
+			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
+		);
+		expect(() => narrowChildContext({ tenantId: TENANT, presetId: PRESET_ID })).toThrow(
+			/childIds.*childId/,
+		);
+	});
+
+	it('presetId 欠落 -> Error throw (sourcePresetId 重複検知のため)', async () => {
+		const { narrowChildContext } = await import(
+			'../../../../src/lib/marketplace/strategies/reward-set-strategy'
+		);
+		expect(() => narrowChildContext({ tenantId: TENANT, childIds: [202] } as never)).toThrow(
+			/presetId/,
+		);
+	});
+});
+
+describe('rewardSetStrategy.apply (per-child fan-out)', () => {
+	it('childIds 配列指定 -> importRewardSetToChildren 経由で全 child に取込', async () => {
+		const payload = {
+			rewards: [makeReward({ title: 'A' }), makeReward({ title: 'B' })],
+		};
+		// 全 child で既存空
+		mockFindSpecialRewards.mockResolvedValue([]);
+
+		const result = await rewardSetStrategy.apply(payload, {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+			childIds: [202, 303],
+		});
+
+		expect(result.imported).toBe(4); // 2 reward × 2 child
+		expect(result.skipped).toBe(0);
+		expect(result.errors).toEqual([]);
+		// 4 件全てに child / preset / tenant が伝播
+		expect(mockInsertSpecialReward).toHaveBeenCalledTimes(4);
+	});
+
+	it('per-child fan-out: 1 child で失敗、他 child は継続 (partial success)', async () => {
+		const payload = { rewards: [makeReward({ title: 'X' })] };
+		mockFindSpecialRewards.mockResolvedValue([]);
+		mockInsertSpecialReward
+			.mockRejectedValueOnce(new Error('child 202 FK violation'))
+			.mockResolvedValueOnce({ id: 99 });
+
+		const result = await rewardSetStrategy.apply(payload, {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+			childIds: [202, 303],
+		});
+
+		expect(result.imported).toBe(1); // 303 のみ成功
+		expect(result.errors).toHaveLength(1);
+		expect(result.errors[0]).toMatch(/child 202/);
+	});
+
+	it('childIds: dryRun=true -> insert 呼出ゼロ + skipped=duplicates', async () => {
+		mockFindSpecialRewards.mockResolvedValue([{ title: 'A', sourcePresetId: PRESET_ID }]);
+		const payload = {
+			rewards: [makeReward({ title: 'A' }), makeReward({ title: 'B' })],
+		};
+		const result = await rewardSetStrategy.apply(payload, {
+			tenantId: TENANT,
+			presetId: PRESET_ID,
+			childIds: [202, 303],
+			dryRun: true,
+		});
+		expect(result.imported).toBe(0);
+		expect(mockInsertSpecialReward).not.toHaveBeenCalled();
+	});
+});
