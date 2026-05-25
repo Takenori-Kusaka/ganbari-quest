@@ -6,8 +6,8 @@
 // backend: DynamoDB のみ実 count (SaaS 限定、migration plan §4 line 90)、SQLite は no-op で 0
 
 import { json } from '@sveltejs/kit';
-import { getRepos } from '$lib/server/db/factory';
 import { getEnv } from '$lib/runtime/env';
+import { getRepos } from '$lib/server/db/factory';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
