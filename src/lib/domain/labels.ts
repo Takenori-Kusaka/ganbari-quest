@@ -4517,6 +4517,20 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	penaltyNotImplementedTitle: 'ℹ️ penalty / special タイプについて',
 	penaltyNotImplementedDesc:
 		'penalty / special タイプは ADR-0012 anti-engagement 細則により慎重審査中のため、本画面には表示されません。取込試行は audit log に記録されます。',
+	// #2362 PR-6: OverflowMenu (top-right ⋮) + ?import=<presetId> 自動取込 + toast
+	overflowMenuAriaLabel: 'ルール管理メニュー',
+	helpDialogTitle: 'ルール管理ヘルプ',
+	helpDialogDesc: `${TEMPLATE_TERMS.userFacing}から取込んだボーナスルールを ON/OFF で管理できます。bonus は ${PARENT_TERMS.neutral} が家族全員に一律適用するため、お子さま個別の選択は不要です。`,
+	restoreNotImplementedTitle: 'バックアップから復元',
+	restoreNotImplementedDesc: '本機能は今後のアップデートで対応予定です。',
+	exportNotImplementedTitle: 'エクスポート',
+	exportNotImplementedDesc: '取込済ルールのエクスポートは今後のアップデートで対応予定です。',
+	importToastSuccess: (presetName: string) =>
+		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
+	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
+	importToastError: (presetName: string) =>
+		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
+	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {
