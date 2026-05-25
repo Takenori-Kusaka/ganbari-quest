@@ -9,7 +9,7 @@
 //
 // 既存 (#2268): CRUD + 命名訂正 + 検索 + grant→add リネーム + 申請タブ削除
 
-import { enhance } from '$app/forms';
+import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
 import { getErrorMessage } from '$lib/domain/errors';
 import {
@@ -189,6 +189,11 @@ function selectChild(childId: number) {
 }
 
 // #2362 PR-4: ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
+//
+// #2474 must-2 (Copilot must-1): SvelteKit form action を fetch で直接呼ぶ場合、
+// `x-sveltekit-action: true` + `accept: application/json` header が無いと 303 redirect
+// が返ってきて JSON parse 常時 fail し件数が誤表示される (件数=1 固定の旧 bug)。
+// 公式 enhance と同じ header を付与 + `deserialize()` で正しい ActionResult を取得する。
 async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	if (!pendingImportPresetId) {
 		showChildSelectionDialog = false;
@@ -199,29 +204,39 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	formData.append('presetId', pendingImportPresetId);
 	formData.append('childIds', childIdsValue);
 
-	const resp = await fetch('?/importPresetToChildren', { method: 'POST', body: formData });
-	if (resp.ok) {
-		// SvelteKit form action returns JSON; extract result for toast
-		try {
-			const json = (await resp.json()) as { data?: string };
-			// `data` is a JSON-serialized list of action data. Use generic success message instead.
-			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importSuccess(1);
-			// Try to extract real count from payload (best effort)
-			if (typeof json?.data === 'string') {
-				const matches = json.data.match(/"imported"[^0-9]*(\d+)/);
-				if (matches?.[1]) {
-					const imp = Number(matches[1]);
-					actionMessage =
-						imp === 0
-							? ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates
-							: ADMIN_REWARDS_PAGE_LABELS.importSuccess(imp);
-				}
-			}
-		} catch {
-			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importSuccess(1);
+	try {
+		const resp = await fetch('?/importPresetToChildren', {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true',
+			},
+			body: formData,
+		});
+		// SvelteKit returns the serialized ActionResult as text for AJAX requests
+		// when x-sveltekit-action header is set. Use `deserialize()` to parse correctly.
+		const actionResult = deserialize(await resp.text()) as
+			| {
+					type: 'success';
+					data?: { imported?: number; skipped?: number; total?: number };
+			  }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+
+		if (actionResult.type === 'success') {
+			const imp = Number(actionResult.data?.imported ?? 0);
+			actionMessage =
+				imp === 0
+					? ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates
+					: ADMIN_REWARDS_PAGE_LABELS.importSuccess(imp);
+			await invalidateAll();
+		} else if (actionResult.type === 'failure') {
+			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.importFailed);
+		} else {
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importFailed;
 		}
-		await invalidateAll();
-	} else {
+	} catch {
 		actionMessage = ADMIN_REWARDS_PAGE_LABELS.importFailed;
 	}
 	pendingImportPresetId = null;
@@ -245,6 +260,10 @@ function handleChildSelectionCancel() {
 }
 
 // #2362 PR-4: 「他の子供から copy」action
+//
+// #2474 must-2 (Copilot must-2): handleChildSelectionConfirm と同じ理由で
+// `x-sveltekit-action: true` + `accept: application/json` header + `deserialize()`
+// により copiedCount を実値で取得する (旧 bug: 件数=0 固定誤表示)。
 async function handleCopyFromChild() {
 	if (!copySourceChildId || !selectedChildId || copySourceChildId === selectedChildId) {
 		actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySameChild;
@@ -254,23 +273,33 @@ async function handleCopyFromChild() {
 	formData.append('sourceChildId', String(copySourceChildId));
 	formData.append('targetChildId', String(selectedChildId));
 
-	const resp = await fetch('?/copyFromChild', { method: 'POST', body: formData });
-	if (resp.ok) {
-		try {
-			const json = (await resp.json()) as { data?: string };
-			let cnt = 0;
-			if (typeof json?.data === 'string') {
-				const m = json.data.match(/"copiedCount"[^0-9]*(\d+)/);
-				if (m?.[1]) cnt = Number(m[1]);
-			}
+	try {
+		const resp = await fetch('?/copyFromChild', {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true',
+			},
+			body: formData,
+		});
+		const actionResult = deserialize(await resp.text()) as
+			| { type: 'success'; data?: { copiedCount?: number } }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+
+		if (actionResult.type === 'success') {
+			const cnt = Number(actionResult.data?.copiedCount ?? 0);
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt);
-		} catch {
-			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySuccess(0);
+			showCopyFromChildDialog = false;
+			copySourceChildId = null;
+			await invalidateAll();
+		} else if (actionResult.type === 'failure') {
+			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.copyFailed);
+		} else {
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copyFailed;
 		}
-		showCopyFromChildDialog = false;
-		copySourceChildId = null;
-		await invalidateAll();
-	} else {
+	} catch {
 		actionMessage = ADMIN_REWARDS_PAGE_LABELS.copyFailed;
 	}
 }

@@ -238,6 +238,10 @@ export const actions: Actions = {
 	// #2362 PR-4 (ADR-0055): per-child 取込 (ChildSelectionDialog から呼出)
 	// `?import=<presetId>` query で auto-open した dialog で「全員 / 個別」選択 → 本 action に POST
 	// childIds=all で全 child、childIds=1,2,3 で個別 child 配列
+	//
+	// CWE-598 防御 (PR #2474 QM Re-Review must-1 / Copilot must-3):
+	//   childIds が tenant 配下 child の ID 集合に全て含まれることを assert。
+	//   未含有 1 件で 403 fail (orphan reward / 兄弟外 IDOR を新設しない)。
 	importPresetToChildren: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 
@@ -256,11 +260,14 @@ export const actions: Actions = {
 		if (!presetId) return fail(400, { error: 'プリセットが指定されていません' });
 		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
 
+		// 先に tenant 配下 child の ID 集合を取得 (childIds=all でも guard 後にも使う)
+		const tenantChildren = await getAllChildren(tenantId);
+		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
+
 		// childIds: 'all' or comma-separated number list
 		let childIds: number[];
 		if (childIdsRaw === 'all') {
-			const children = await getAllChildren(tenantId);
-			childIds = children.map((c) => c.id);
+			childIds = tenantChildren.map((c) => c.id);
 		} else {
 			childIds = childIdsRaw
 				.split(',')
@@ -269,6 +276,19 @@ export const actions: Actions = {
 		}
 		if (childIds.length === 0) {
 			return fail(400, { error: '有効な対象が指定されていません' });
+		}
+
+		// #2474 must-1 CWE-598 guard: tenant 外 child を 1 件でも含む場合は即 reject。
+		// 'all' 経路は構造的に tenant 配下のみだが、明示的ユーザ指定 (CSV) で他 tenant ID を
+		// 紛れ込ませた場合に orphan reward / IDOR にならないよう必ず検証する。
+		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
+		if (foreignChildIds.length > 0) {
+			logger.warn('[admin/rewards] tenant 外 child ID が importPresetToChildren に指定された', {
+				context: { presetId, foreignChildIds, tenantId },
+			});
+			return fail(403, {
+				error: '指定されたお子さまの一部が見つかりませんでした',
+			});
 		}
 
 		const item = getMarketplaceItem('reward-set', presetId);
@@ -305,6 +325,10 @@ export const actions: Actions = {
 	// #2362 PR-4 (ADR-0055): 「他の子供から copy」action
 	// source child の reward 全件を target child (現在の表示 child) に複製
 	// targetChildIds (CSV) 指定で複数 target にも一括複製可能 (兄弟全員に同期)
+	//
+	// CWE-598 防御 (PR #2474 QM Re-Review must-1 / Copilot must-4):
+	//   source / target childId が tenant 配下 child の ID 集合に全て含まれることを assert。
+	//   未含有 1 件で 403 fail (兄弟外 reward 漏洩 IDOR を新設しない)。
 	copyFromChild: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 
@@ -337,6 +361,21 @@ export const actions: Actions = {
 
 		if (!targetChildIds || targetChildIds.length === 0) {
 			return fail(400, { error: 'コピー先のお子さまが必要です' });
+		}
+
+		// #2474 must-1 CWE-598 guard: tenant 配下 child ID 集合と source / target 全件を照合。
+		// 兄弟以外への reward 複製を構造的に防ぐ。
+		const tenantChildrenForCopy = await getAllChildren(tenantId);
+		const allowedChildIdSetCopy = new Set(tenantChildrenForCopy.map((c) => c.id));
+		const allChildIdsForCopy = [sourceChildId, ...targetChildIds];
+		const foreignCopyChildIds = allChildIdsForCopy.filter((id) => !allowedChildIdSetCopy.has(id));
+		if (foreignCopyChildIds.length > 0) {
+			logger.warn('[admin/rewards] tenant 外 child ID が copyFromChild に指定された', {
+				context: { sourceChildId, targetChildIds, foreignCopyChildIds, tenantId },
+			});
+			return fail(403, {
+				error: '指定されたお子さまの一部が見つかりませんでした',
+			});
 		}
 
 		try {

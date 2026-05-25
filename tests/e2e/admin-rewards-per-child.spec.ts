@@ -93,8 +93,12 @@ test.describe('admin/rewards per-child UX (#2362 PR-4)', () => {
 		// Phase 4 では family レベルの preset カタログ + per-child SpecialReward が並存
 		const firstTab = page.locator('[data-testid^="rewards-child-tab-"]').first();
 		await expect(firstTab).toBeVisible();
-		// preset 入力フォームが表示される (family preset 動線維持)
-		await expect(page.getByText('テンプレート', { exact: false }).first()).toBeVisible();
+		// PR #2474 must-5 (Round 2): 旧 spec は `getByText('テンプレート')` を期待していたが、
+		// 本 PR で UnifiedImportHub セクション (旧 marketplace-reward-import-section) が
+		// `+page.svelte` から削除されたため「テンプレート」テキストが消失していた (Round 1 self-fail)。
+		// 実画面で残っている family preset 動線 = `REWARDS_LABELS.selectTemplateTitle`
+		// (='プリセットを選択', `+page.svelte` line 462 の h3) を assert する。
+		await expect(page.getByText('プリセットを選択', { exact: false }).first()).toBeVisible();
 	});
 });
 
@@ -119,19 +123,38 @@ test.describe('marketplace reward-set: childId 排除 (#2362 PR-4 / CWE-598)', (
 		// PR-3 と同型: marketplace は child 情報を持たず admin へ遷移
 		await page.goto('/marketplace/reward-set/kinder-rewards');
 
-		// 取込 button (data-testid="reward-import-submit") を押下
+		// 取込 button (data-testid="reward-import-submit")
+		// PR #2474 must-5 (Copilot must-5 / ADR-0006): 旧版は `count===0` で return する
+		// skip-on-missing pattern (assertion 弱体化) があったが、本 spec は global-setup で
+		// 認証済 + 子供 5 件 seed 済の前提なので precondition assert に強化する。
 		const submitBtn = page.getByTestId('reward-import-submit');
-		if ((await submitBtn.count()) === 0) {
-			// 未認証 / 子供未登録時は表示されない可能性 (本 spec は認証済 + 子供登録済前提)
-			return;
-		}
-		await Promise.all([
-			page.waitForURL(/\/admin\/rewards\?import=kinder-rewards/, { timeout: 5000 }),
-			submitBtn.click(),
-		]);
+		await expect(
+			submitBtn,
+			'reward-import-submit が表示されない (認証 / 子供登録 / プラン状態を確認)',
+		).toBeVisible({ timeout: 10_000 });
+
+		// PR #2474 must-5 (Round 2): `use:enhance` の場合、ActionResult type='redirect' は
+		// applyAction → goto() 経由で client-side navigation する。Playwright で確実に検出する
+		// ため、playwright の `page.waitForResponse` でアクション response を待ち、その後
+		// 遷移先 URL を `expect.poll` で確認する。
+		// 注意: `waitForResponse` は 200 OK (ActionResult を JSON で body に持つ) を待つ。
+		const responsePromise = page.waitForResponse(
+			(resp) =>
+				resp.url().includes('?/importRewardSet') && resp.request().method() === 'POST',
+			{ timeout: 15_000 },
+		);
+		await submitBtn.click();
+		const response = await responsePromise;
+		expect(response.status()).toBeLessThan(400);
+
+		// Client-side navigation の完了を URL で待つ (load event 経由しない場合もあるため poll)
+		await expect
+			.poll(() => page.url(), { timeout: 15_000 })
+			.toMatch(/\/admin\/rewards\?import=kinder-rewards/);
+
 		// admin/rewards 側で ChildSelectionDialog が auto-open される
 		await expect(page.getByTestId('reward-import-child-selection-dialog')).toBeVisible({
-			timeout: 5000,
+			timeout: 10_000,
 		});
 	});
 });
