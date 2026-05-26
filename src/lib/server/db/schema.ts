@@ -714,64 +714,12 @@ export const parentMessages = sqliteTable(
 // 並行実装ペア (sqlite / demo / dynamodb repo / service / UI / test fixtures) も同期削除。
 
 // ============================================================
-// sibling_challenges - きょうだいチャレンジ定義
-// ============================================================
-export const siblingChallenges = sqliteTable(
-	'sibling_challenges',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		title: text('title').notNull(),
-		description: text('description'),
-		challengeType: text('challenge_type').notNull().default('cooperative'), // cooperative | competitive
-		periodType: text('period_type').notNull().default('weekly'), // weekly | monthly | custom
-		startDate: text('start_date').notNull(), // YYYY-MM-DD
-		endDate: text('end_date').notNull(), // YYYY-MM-DD
-		targetConfig: text('target_config').notNull(), // JSON: { metric, categoryId?, baseTarget, ageAdjustments? }
-		rewardConfig: text('reward_config').notNull(), // JSON: { points, message? }
-		status: text('status').notNull().default('active'), // active | completed | expired
-		isActive: integer('is_active').notNull().default(1),
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [
-		index('idx_sibling_challenges_status').on(table.status),
-		index('idx_sibling_challenges_dates').on(table.startDate, table.endDate),
-	],
-);
-
-// ============================================================
-// sibling_challenge_progress - 子供ごとのチャレンジ進捗
-// ============================================================
-export const siblingChallengeProgress = sqliteTable(
-	'sibling_challenge_progress',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		challengeId: integer('challenge_id')
-			.notNull()
-			.references(() => siblingChallenges.id, { onDelete: 'cascade' }),
-		childId: integer('child_id')
-			.notNull()
-			.references(() => children.id, { onDelete: 'cascade' }),
-		currentValue: integer('current_value').notNull().default(0),
-		targetValue: integer('target_value').notNull(),
-		completed: integer('completed').notNull().default(0),
-		completedAt: text('completed_at'),
-		rewardClaimed: integer('reward_claimed').notNull().default(0),
-		rewardClaimedAt: text('reward_claimed_at'),
-		progressJson: text('progress_json'), // JSON: detailed tracking
-		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [
-		uniqueIndex('idx_sibling_challenge_progress_unique').on(table.challengeId, table.childId),
-		index('idx_sibling_challenge_progress_child').on(table.childId),
-	],
-);
-
-// ============================================================
 // child_challenges - per-child チャレンジ instance (#2362 PR-7、ADR-0055、User §6)
 // ============================================================
-// 旧 `sibling_challenges` (family-wide) を per-child instance 化する refactor。
-// 並存 table として作成 (PR-3 `child_activities` と同じ pattern、cleanup は #2458)。
+// 旧 `sibling_challenges` / `sibling_challenge_progress` (family-wide + 別 progress table) を
+// per-child instance に flip した refactor。旧 table は #2458 (PR #2488 caller migrate +
+// 本 PR で物理 drop) で完全撤去済。
+//
 // User §6: 「兄弟にこだわりすぎないほうが…子供別 challenge セット + 共通化コントロールで
 // 兄弟チャレンジに魅せる」方針。
 //

@@ -287,7 +287,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `activities.priority` (#1755) | `src/lib/server/db/schema.ts` | `tests/e2e/global-setup.ts` (ALTER + must seed) | `tests/unit/helpers/test-db.ts` | `src/lib/server/demo/demo-data.ts` (must=はみがきした/おきがえした/おかたづけした) | #1755 (#1709-A) |
 | `checklist_templates.kind` 削除 (#1755) | 同上（列削除済） | 同上（DROP COLUMN + DELETE WHERE 旧ルーチン枠レコード） | 同上（列なし） | 同上（kind プロパティ削除済 + 旧ルーチン枠テンプレート削除） | #1755 (#1709-A) |
 | `child_activities` 並存（旧 `activities` と並列保持） (#2362 PR-3 / ADR-0055) | `src/lib/server/db/schema.ts` (`child_activities` table 追加、`childId NOT NULL ON DELETE CASCADE`) | `tests/e2e/global-setup.ts` (CREATE TABLE + 2 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE) + `src/lib/server/db/create-tables.ts` (CREATE TABLE + 2 INDEX) | `src/lib/server/demo/demo-data.ts` (Phase 6 で各 child fixture 追加) | #2362 PR-3 (Phase 7 で旧 `activities` drop 予定) |
-| `child_challenges` 並存（旧 `sibling_challenges` + `sibling_challenge_progress` と並列保持） (#2362 PR-7 / ADR-0055、User §6) | `src/lib/server/db/schema.ts` (`child_challenges` table 追加、`childId NOT NULL ON DELETE CASCADE` + `sourceTemplateId` で兄弟連動 group) | `tests/e2e/global-setup.ts` (CREATE TABLE + 3 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE + 3 INDEX + ALL_TABLES に追加) | `src/lib/server/demo/demo-data.ts` (`DEMO_CHILD_CHALLENGES` 4 件 + 兄弟連動 demo group) | #2362 PR-7 (cleanup #2458 で旧 sibling_challenges drop 予定) |
+| `child_challenges` (#2362 PR-7 / ADR-0055、User §6、#2458 Path B sibling drop で旧 `sibling_challenges` / `sibling_challenge_progress` 物理撤去済 2026-05-26) | `src/lib/server/db/schema.ts` (`child_challenges` table のみ、`childId NOT NULL ON DELETE CASCADE` + `sourceTemplateId` で兄弟連動 group) | `tests/e2e/global-setup.ts` (CREATE TABLE + 3 INDEX) | `tests/unit/helpers/test-db.ts` (CREATE TABLE + 3 INDEX + ALL_TABLES に追加) | `src/lib/server/demo/demo-data.ts` (`DEMO_CHILD_CHALLENGES` 4 件 + 兄弟連動 demo group) | #2362 PR-7 + #2458 (Path B sibling drop 完了) |
 | `checklist_templates` family master 化 (#2362 PR-5 Phase 1 / ADR-0055) | `src/lib/server/db/schema.ts` (`child_id` 列削除 + `tenant_id` 列追加 + `checklist_template_assignments` 中間 table 新規) | `tests/e2e/global-setup.ts` (Phase 1 で migration 実装済) | `tests/unit/helpers/test-db.ts` (同上) | `src/lib/server/demo/demo-data.ts` (`DemoLegacyChecklistTemplate` 局所拡張型 + demo-repo で family scope view 変換) | #2362 PR-5 Phase 2 (#2481、admin UX / 子供画面 / E2E 整備) |
 
 ###### `child_activities` per-child instance への移行 (#2362 PR-3 / ADR-0055)
@@ -302,10 +302,10 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ###### `child_challenges` per-child instance への移行 (#2362 PR-7 / ADR-0055、User §6)
 
-旧 `sibling_challenges` (family-wide + 別 `sibling_challenge_progress` table、全 child を自動 enroll) は cleanup PR (#2458) で drop 予定。それまでは並存:
+旧 `sibling_challenges` (family-wide + 別 `sibling_challenge_progress` table、全 child を自動 enroll) は **#2458 (Path B sibling drop、本 PR、2026-05-26) で物理撤去完了**。child_challenges 単独経路:
 
-- **schema**: 旧 `sibling_challenges` / `sibling_challenge_progress` table + 新 `child_challenges` table が並存。物理 drop は #2458-C
-- **services**: 新 `child-challenge-service.ts` / `child-challenge-copy-service.ts` で SRP 分離 + 全 caller migrate 完了 (**#2458-B で 4 caller + activity-log dynamic import + challenge-set-import-service legacy path 撤去 → `sibling-challenge-service.ts` 削除済**)。`sibling-challenge-repo.ts` facade は legacy table が残るため `#2458-C` まで保持
+- **schema**: 旧 `sibling_challenges` / `sibling_challenge_progress` table 撤去済、`child_challenges` table のみ
+- **services**: `child-challenge-service.ts` / `child-challenge-copy-service.ts` (SRP 分離) のみ。`sibling-challenge-service.ts` / `sibling-challenge-repo.ts` facade / 3 backend 実装 / `ISiblingChallengeRepo` interface / `SiblingChallenge*` 型は #2458-B (PR #2488) + Path B sibling drop で完全撤去
 - **routes**: `/admin/challenges` は per-child instance + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte) + 一括追加 + cross-child copy。`/marketplace/[type]/[itemId]` challenge-set は admin redirect 動線 (CWE-598 排除、`?marketplace-import=<presetId>` のみ、#2458-B で reward-set / checklist と同型化)
 - **子供画面 (#2458-B caller migration)**:
   - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key (sourceTemplateId / `title::start::end`) 兄弟連動情報 (`siblings[]`) を取得
@@ -316,7 +316,6 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - **兄弟連動 UI 工夫 (User §6)**: 同じ `sourceTemplateId` (または `title + startDate + endDate`) を共有する per-child instance を admin/challenges + 子供 home / history で group 表示。SiblingChallengeComparison は admin 画面でのみ使用し、子供 home は `ChallengeBanner` 内に `siblings[]` 一覧表示 (ADR-0012 Anti-engagement 整合: 1 件 banner 内集約、連続演出なし)
 - **LP 整合性 (ADR-0013)**: LP / pricing / faq の「チャレンジ」訴求は per-child 体験ベース (「自分から目標を立てる」「ウィークリーチャレンジ」) のため per-child 化と既に整合済み。LP 文言修正不要
 - **family-only gate**: 既存の `tier !== 'family'` server-side gate は本 PR では維持
-- **Cleanup PR (#2458-C) で実施予定**: 旧 `sibling_challenges` / `sibling_challenge_progress` 物理 drop + `SiblingChallenge*` 型削除 + `ISiblingChallengeRepo` 削除 + sqlite/dynamodb/demo `sibling-challenge-repo` 3 実装削除 + factory 登録削除 + create-tables / test-db / global-setup の CREATE TABLE 削除 + repo unit test 削除
 
 ---
 

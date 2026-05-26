@@ -606,46 +606,8 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_child_custom_voices_child ON child_custom_voices(child_id, scene);
 		`);
 
-		// sibling_challenges テーブル（#0216 きょうだいチャレンジ）
-		db.exec(`
-			CREATE TABLE IF NOT EXISTS sibling_challenges (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				title TEXT NOT NULL,
-				description TEXT,
-				challenge_type TEXT NOT NULL DEFAULT 'cooperative',
-				period_type TEXT NOT NULL DEFAULT 'weekly',
-				start_date TEXT NOT NULL,
-				end_date TEXT NOT NULL,
-				target_config TEXT NOT NULL,
-				reward_config TEXT NOT NULL,
-				status TEXT NOT NULL DEFAULT 'active',
-				is_active INTEGER NOT NULL DEFAULT 1,
-				tenant_id TEXT NOT NULL DEFAULT 'default',
-				created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-			);
-			CREATE INDEX IF NOT EXISTS idx_sibling_challenges_status ON sibling_challenges(status);
-			CREATE INDEX IF NOT EXISTS idx_sibling_challenges_dates ON sibling_challenges(start_date, end_date);
-		`);
-
-		db.exec(`
-			CREATE TABLE IF NOT EXISTS sibling_challenge_progress (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				challenge_id INTEGER NOT NULL REFERENCES sibling_challenges(id) ON DELETE CASCADE,
-				child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
-				current_value INTEGER NOT NULL DEFAULT 0,
-				target_value INTEGER NOT NULL,
-				completed INTEGER NOT NULL DEFAULT 0,
-				completed_at TEXT,
-				reward_claimed INTEGER NOT NULL DEFAULT 0,
-				reward_claimed_at TEXT,
-				progress_json TEXT,
-				tenant_id TEXT NOT NULL DEFAULT 'default',
-				updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-			);
-			CREATE UNIQUE INDEX IF NOT EXISTS idx_scp_challenge_child ON sibling_challenge_progress(challenge_id, child_id);
-			CREATE INDEX IF NOT EXISTS idx_scp_child ON sibling_challenge_progress(child_id);
-		`);
+		// #2458 (Path B sibling drop): sibling_challenges / sibling_challenge_progress 物理 drop 済 (2026-05-26)
+		// per-child child_challenges に完全 flip (ADR-0055 / User §6)。
 
 		// child_challenges テーブル（#2362 PR-7、ADR-0055、User §6: per-child instance）
 		db.exec(`

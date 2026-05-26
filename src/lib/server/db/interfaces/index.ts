@@ -22,7 +22,7 @@ export type { ILoginBonusRepo } from './login-bonus-repo.interface';
 export type { IMessageRepo } from './message-repo.interface';
 export type { IPointRepo } from './point-repo.interface';
 export type { ISettingsRepo } from './settings-repo.interface';
-export type { ISiblingChallengeRepo } from './sibling-challenge-repo.interface';
+// #2458 (Path B sibling drop): ISiblingChallengeRepo 削除済 (2026-05-26)、IChildChallengeRepo へ統合
 export type { ISiblingCheerRepo } from './sibling-cheer-repo.interface';
 export type { ISpecialRewardRepo } from './special-reward-repo.interface';
 export type { IStampCardRepo } from './stamp-card-repo.interface';
