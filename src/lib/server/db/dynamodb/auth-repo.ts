@@ -10,7 +10,10 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { LICENSE_KEY_STATUS } from '$lib/domain/constants/license-key-status';
+import {
+	LICENSE_KEY_STATUS,
+	type LicenseKeyStatus,
+} from '$lib/domain/constants/license-key-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { INVITE_EXPIRY_DAYS } from '$lib/domain/validation/auth';
@@ -918,54 +921,102 @@ export const listExpiringSoon: IAuthRepo['listExpiringSoon'] = async (days) => {
 	return items;
 };
 
-export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async (filter) => {
-	let count = 0;
-	let lastKey: Record<string, unknown> | undefined;
+/**
+ * #2484: license key 形式 (legacy / signed) に対応する `licenseKey` 属性長を返す。
+ * - LEGACY_FORMAT regex (`GQ-XXXX-XXXX-XXXX`) = 17 文字
+ * - SIGNED_FORMAT regex (`GQ-XXXX-XXXX-XXXX-YYYYY`) = 23 文字
+ */
+const LEGACY_KEY_LENGTH = 17;
+const SIGNED_KEY_LENGTH = 23;
+function getLicenseFormatLength(format: 'legacy' | 'signed'): number {
+	return format === 'legacy' ? LEGACY_KEY_LENGTH : SIGNED_KEY_LENGTH;
+}
 
-	// テナント指定がある場合は GSI2 Query を使用
-	if (filter?.tenantId) {
-		do {
-			const result = await doc().send(
-				new QueryCommand({
-					TableName: TABLE_NAME,
-					IndexName: GSI.GSI2,
-					KeyConditionExpression: 'GSI2PK = :pk AND begins_with(GSI2SK, :prefix)',
-					ExpressionAttributeValues: {
-						':pk': `TENANT#${filter.tenantId}`,
-						':prefix': 'LICENSE#',
-						...(filter.status ? { ':status': filter.status } : {}),
-					},
-					...(filter.status
-						? {
-								FilterExpression: '#status = :status',
-								ExpressionAttributeNames: { '#status': 'status' },
-							}
-						: {}),
-					Select: 'COUNT',
-					ExclusiveStartKey: lastKey,
-				}),
-			);
-			count += result.Count ?? 0;
-			lastKey = result.LastEvaluatedKey;
-		} while (lastKey);
+/**
+ * #2484: countLicenseKeys 用の DynamoDB FilterExpression を組み立てる。
+ * Query / Scan 両経路で同一の filter 拡張を提供する SOLID DRY ヘルパ。
+ */
+interface LicenseCountFilterBuild {
+	filterParts: string[];
+	expressionAttributeNames?: Record<string, string>;
+	extraValues: Record<string, string | number>;
+}
+function buildLicenseCountFilter(filter?: {
+	status?: LicenseKeyStatus;
+	format?: 'legacy' | 'signed';
+}): LicenseCountFilterBuild {
+	const filterParts: string[] = [];
+	const extraValues: Record<string, string | number> = {};
+	let expressionAttributeNames: Record<string, string> | undefined;
 
-		return count;
+	if (filter?.status) {
+		filterParts.push('#status = :status');
+		extraValues[':status'] = filter.status;
+		expressionAttributeNames = { '#status': 'status' };
+	}
+	if (filter?.format) {
+		filterParts.push('size(licenseKey) = :formatLen');
+		extraValues[':formatLen'] = getLicenseFormatLength(filter.format);
 	}
 
-	// テナント指定なし: Scan
-	do {
-		const hasStatusFilter = !!filter?.status;
+	return { filterParts, expressionAttributeNames, extraValues };
+}
 
+async function countLicenseKeysByTenant(
+	tenantId: string,
+	build: LicenseCountFilterBuild,
+): Promise<number> {
+	let count = 0;
+	let lastKey: Record<string, unknown> | undefined;
+	const hasFilter = build.filterParts.length > 0;
+
+	do {
+		const result = await doc().send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				IndexName: GSI.GSI2,
+				KeyConditionExpression: 'GSI2PK = :pk AND begins_with(GSI2SK, :prefix)',
+				ExpressionAttributeValues: {
+					':pk': `TENANT#${tenantId}`,
+					':prefix': 'LICENSE#',
+					...build.extraValues,
+				},
+				...(hasFilter
+					? {
+							FilterExpression: build.filterParts.join(' AND '),
+							...(build.expressionAttributeNames
+								? { ExpressionAttributeNames: build.expressionAttributeNames }
+								: {}),
+						}
+					: {}),
+				Select: 'COUNT',
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		count += result.Count ?? 0;
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+
+	return count;
+}
+
+async function countLicenseKeysAllTenants(build: LicenseCountFilterBuild): Promise<number> {
+	let count = 0;
+	let lastKey: Record<string, unknown> | undefined;
+	// Scan 経路は begins_with(PK, 'LICENSE#') が必須 (status / format 不問でも基底条件として残す)
+	const filterParts = ['begins_with(PK, :prefix)', ...build.filterParts];
+
+	do {
 		const result = await doc().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: hasStatusFilter
-					? 'begins_with(PK, :prefix) AND #status = :status'
-					: 'begins_with(PK, :prefix)',
-				...(hasStatusFilter ? { ExpressionAttributeNames: { '#status': 'status' } } : {}),
+				FilterExpression: filterParts.join(' AND '),
+				...(build.expressionAttributeNames
+					? { ExpressionAttributeNames: build.expressionAttributeNames }
+					: {}),
 				ExpressionAttributeValues: {
 					':prefix': 'LICENSE#',
-					...(hasStatusFilter ? { ':status': filter.status } : {}),
+					...build.extraValues,
 				},
 				Select: 'COUNT',
 				ExclusiveStartKey: lastKey,
@@ -976,6 +1027,13 @@ export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async (filter) =>
 	} while (lastKey);
 
 	return count;
+}
+
+export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async (filter) => {
+	const build = buildLicenseCountFilter(filter);
+	return filter?.tenantId
+		? countLicenseKeysByTenant(filter.tenantId, build)
+		: countLicenseKeysAllTenants(build);
 };
 
 // #821: 期限切れキー列挙。日次バッチで対象抽出に使う。

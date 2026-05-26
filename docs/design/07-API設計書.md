@@ -1409,6 +1409,35 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 - `license_events` に `eventType='issued'` を各キー分記録 (#804)
 - `ops_audit_log` に `action='license.issue'` / `target=<tenantId>` / `metadata={plan, quantity, reason, keys, errors?}` を 1 件記録 (#820)
 
+#### GET /ops/license/legacy-count （legacy 形式 license key 残存数 集計 #2484）
+
+**認証:** Cognito User Pool `ops` group メンバーであること (`src/routes/ops/+layout.server.ts` の `isOpsMember(locals.identity)` で gate)
+
+**機能:**
+- HMAC 未署名 (legacy 形式 `GQ-XXXX-XXXX-XXXX`、17 文字) の license key 残存数を DB から集計
+- HMAC 必須化計画 (`docs/operations/license-hmac-migration-plan.md`) Phase 1 — Phase 2 (新規 legacy 発行禁止) / Phase 3 (legacy code 物理削除) への移行判断材料を取得する ops 観測 endpoint
+
+**実装:** `getRepos().auth.countLicenseKeys({ format: 'legacy' })` を呼ぶ。
+- DynamoDB backend: `size(licenseKey) = 17` FilterExpression で legacy 形式を抽出
+- SQLite backend: 既存 no-op (`return 0`)、migration plan §4 line 90「Phase 1 集計は SaaS DynamoDB only」整合
+
+**レスポンス (200):**
+```json
+{
+  "legacyCount": 42,
+  "queriedAt": "2026-05-25T12:34:56.789Z",
+  "backend": "dynamodb"
+}
+```
+
+| フィールド | 型 | 説明 |
+|-----------|----|------|
+| `legacyCount` | number | legacy 形式 license key の総数 |
+| `queriedAt` | ISO8601 | 集計実行時刻 |
+| `backend` | `'dynamodb' \| 'sqlite'` | 集計対象 backend (DATA_SOURCE env 駆動) |
+
+**レスポンス (403):** `Forbidden` — identity が ops group 未所属 (`/ops/*` layout gate)
+
 ### 3.x バトルアドベンチャー
 
 #### GET /api/v1/battle/[childId]

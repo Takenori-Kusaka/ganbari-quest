@@ -26,6 +26,8 @@ const BASE_TEST_IGNORE = [
 	// #805: /ops E2E は cognito-dev モード専用（ops group の認可テストに email/password ログインが必要）
 	'**/ops-license.spec.ts',
 	'**/ops-license-issue.spec.ts',
+	// #2484: /ops/license/legacy-count endpoint E2E も同様 cognito-dev モード専用
+	'**/ops-license-legacy-count.spec.ts',
 	// #753: upgrade-flow E2E は cognito-dev モード専用（loginAsPlan でプラン別ユーザーにログインする）
 	'**/upgrade-flow.spec.ts',
 	// #757: pricing → signup トライアル自動開始 E2E は cognito-dev モード専用
