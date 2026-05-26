@@ -1,11 +1,36 @@
 // src/lib/server/db/dynamodb/activity-repo.ts
 // DynamoDB implementation of IActivityRepo
+//
+// #2458-A2 (2026-05-26): facade rewrite — 旧 `activities` partition (SK=MASTER) への
+// write を全て NotImplementedError に置き換えた。これにより sqlite と同型に
+// 「旧 activities table への write 0 件」を 3 backend (sqlite / demo / dynamodb) で
+// 達成。次 PR #2458-C で旧 activities partition / 旧 dynamodb activity-repo は
+// 物理削除される予定。
+//
+// 設計の前提:
+//   - ADR-0048 Multi-Lambda Demo Deployment で main Lambda は sqlite local file +
+//     S3 backup を使用。`DATA_SOURCE='dynamodb'` は production 未使用 (factory.ts
+//     interface 整合のため stub 保持)。
+//   - production で本 file の write 経路が呼ばれることはないが、cross-backend test
+//     等で interface 契約 (IActivityRepo) を満たす必要があるため type 整合は維持。
+//   - write 系を NotImplementedError 化することで「将来 dynamodb 本実装を再開する
+//     際に必ず `dynamodb/child-activity-repo.ts` (ADR-0055 per-child schema) 経由で
+//     実装し直す」ことを構造的に強制する (旧 activities partition への退行を防止)。
+//
+// 読み込み系 (findActivities / findActivityById / findActivityLogs 等) は依然として
+// activities partition (SK=MASTER) / activity_logs LOG# partition を Scan / Query で
+// 取得する legacy 実装を保持。production 未使用のため write 0 化が達成できれば
+// 残 read 経路は #2458-C で削除される。
+//
+// 関連:
+//   - PR #2487 (#2458-A1 sqlite facade rewrite、本 PR の reference pattern)
+//   - ADR-0055 §3.1 per-child primary data model
+//   - ADR-0048 §2 demo Lambda stateless 原則
+//   - docs/design/data-model-resource-scope.md §4.1
 
 import {
 	BatchWriteCommand,
-	DeleteCommand,
 	GetCommand,
-	PutCommand,
 	QueryCommand,
 	ScanCommand,
 	UpdateCommand,
@@ -22,17 +47,12 @@ import type {
 	UpdateActivityInput,
 } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
-import { nextId } from './counter';
 import {
 	activityKey,
-	activityKeyWithGSI2,
 	activityLogDatePrefix,
-	activityLogKey,
 	activityLogPrefix,
 	childKey,
 	childPK,
-	ENTITY_NAMES,
-	pointLedgerKey,
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
@@ -93,6 +113,20 @@ async function queryAll(
 	} while (lastKey);
 
 	return items;
+}
+
+/**
+ * #2458-A2: 旧 `activities` partition への write を発生させない構造的ガード。
+ * `dynamodb/child-activity-repo.ts` も全 method が NotImplemented stub のため、
+ * 本実装の write 経路を再開する際は ADR-0055 per-child schema (`child_activities`
+ * partition) を先に実装してから本 throw を解除する必要がある。
+ */
+function notImplementedWrite(method: string): never {
+	throw new Error(
+		`[activity-repo.dynamodb] ${method} not implemented (#2458-A2 旧 activities partition への write 防止). ` +
+			'DynamoDB backend は ADR-0048 で production 未使用 (main Lambda は sqlite). ' +
+			'再実装時は dynamodb/child-activity-repo.ts (ADR-0055 per-child) 経由で実装すること。',
+	);
 }
 
 // ============================================================
@@ -170,182 +204,47 @@ export async function findActivityById(
 	return activity;
 }
 
-/** 活動を作成 */
+/**
+ * 活動を作成 — #2458-A2: 旧 activities partition への write を停止。
+ * dynamodb/child-activity-repo.ts (NotImplemented stub) 経由で実装する設計に shift。
+ */
 export async function insertActivity(
-	input: InsertActivityInput,
-	tenantId: string,
+	_input: InsertActivityInput,
+	_tenantId: string,
 ): Promise<Activity> {
-	const id = await nextId(ENTITY_NAMES.activity, tenantId);
-	const now = new Date().toISOString();
-
-	const activity: Activity = {
-		id,
-		name: input.name,
-		categoryId: input.categoryId,
-		icon: input.icon,
-		basePoints: input.basePoints,
-		ageMin: input.ageMin,
-		ageMax: input.ageMax,
-		isVisible: 1,
-		dailyLimit: null,
-		sortOrder: id,
-		source: 'custom',
-		gradeLevel: null,
-		subcategory: null,
-		description: null,
-		nameKana: null,
-		nameKanji: null,
-		triggerHint: input.triggerHint ?? null,
-		isMainQuest: 0,
-		isArchived: 0,
-		archivedReason: null,
-		createdAt: now,
-		sourcePresetId: input.sourcePresetId ?? null,
-		// #1755 (#1709-A): 「今日のおやくそく」優先度（既定 'optional'）
-		priority: input.priority ?? 'optional',
-	};
-
-	const keys = activityKeyWithGSI2(id, input.categoryId, activity.sortOrder, tenantId);
-
-	await getDocClient().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: {
-				...keys,
-				...activity,
-			},
-		}),
-	);
-
-	return activity;
+	return notImplementedWrite('insertActivity');
 }
 
-/** 活動を更新 */
+/**
+ * 活動を更新 — #2458-A2: 旧 activities partition への write を停止。
+ */
 export async function updateActivity(
-	id: number,
-	input: UpdateActivityInput,
-	tenantId: string,
+	_id: number,
+	_input: UpdateActivityInput,
+	_tenantId: string,
 ): Promise<Activity | undefined> {
-	const expressionParts: string[] = [];
-	const expressionNames: Record<string, string> = {};
-	const expressionValues: Record<string, unknown> = {};
-
-	if (input.name !== undefined) {
-		expressionParts.push('#name = :name');
-		expressionNames['#name'] = 'name';
-		expressionValues[':name'] = input.name;
-	}
-	if (input.categoryId !== undefined) {
-		expressionParts.push('#categoryId = :categoryId');
-		expressionNames['#categoryId'] = 'categoryId';
-		expressionValues[':categoryId'] = input.categoryId;
-	}
-	if (input.icon !== undefined) {
-		expressionParts.push('#icon = :icon');
-		expressionNames['#icon'] = 'icon';
-		expressionValues[':icon'] = input.icon;
-	}
-	if (input.basePoints !== undefined) {
-		expressionParts.push('#basePoints = :basePoints');
-		expressionNames['#basePoints'] = 'basePoints';
-		expressionValues[':basePoints'] = input.basePoints;
-	}
-	if (input.ageMin !== undefined) {
-		expressionParts.push('#ageMin = :ageMin');
-		expressionNames['#ageMin'] = 'ageMin';
-		expressionValues[':ageMin'] = input.ageMin;
-	}
-	if (input.ageMax !== undefined) {
-		expressionParts.push('#ageMax = :ageMax');
-		expressionNames['#ageMax'] = 'ageMax';
-		expressionValues[':ageMax'] = input.ageMax;
-	}
-	if (input.triggerHint !== undefined) {
-		expressionParts.push('#triggerHint = :triggerHint');
-		expressionNames['#triggerHint'] = 'triggerHint';
-		expressionValues[':triggerHint'] = input.triggerHint;
-	}
-	if (input.isMainQuest !== undefined) {
-		expressionParts.push('#isMainQuest = :isMainQuest');
-		expressionNames['#isMainQuest'] = 'isMainQuest';
-		expressionValues[':isMainQuest'] = input.isMainQuest;
-	}
-	// #1755 (#1709-A): 「今日のおやくそく」優先度
-	if (input.priority !== undefined) {
-		expressionParts.push('#priority = :priority');
-		expressionNames['#priority'] = 'priority';
-		expressionValues[':priority'] = input.priority;
-	}
-
-	if (expressionParts.length === 0) {
-		return findActivityById(id, tenantId);
-	}
-
-	try {
-		const result = await getDocClient().send(
-			new UpdateCommand({
-				TableName: TABLE_NAME,
-				Key: activityKey(id, tenantId),
-				UpdateExpression: `SET ${expressionParts.join(', ')}`,
-				ExpressionAttributeNames: expressionNames,
-				ExpressionAttributeValues: expressionValues,
-				ConditionExpression: 'attribute_exists(PK)',
-				ReturnValues: 'ALL_NEW',
-			}),
-		);
-
-		if (!result.Attributes) return undefined;
-		return stripKeys(result.Attributes) as unknown as Activity;
-	} catch (err: unknown) {
-		if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
-			return undefined;
-		}
-		throw err;
-	}
+	return notImplementedWrite('updateActivity');
 }
 
-/** 活動の表示/非表示を切り替え */
+/**
+ * 活動の表示/非表示を切り替え — #2458-A2: 旧 activities partition への write を停止。
+ */
 export async function setActivityVisibility(
-	id: number,
-	visible: boolean,
-	tenantId: string,
+	_id: number,
+	_visible: boolean,
+	_tenantId: string,
 ): Promise<Activity | undefined> {
-	try {
-		const result = await getDocClient().send(
-			new UpdateCommand({
-				TableName: TABLE_NAME,
-				Key: activityKey(id, tenantId),
-				UpdateExpression: 'SET #isVisible = :isVisible',
-				ExpressionAttributeNames: { '#isVisible': 'isVisible' },
-				ExpressionAttributeValues: { ':isVisible': visible ? 1 : 0 },
-				ConditionExpression: 'attribute_exists(PK)',
-				ReturnValues: 'ALL_NEW',
-			}),
-		);
-
-		if (!result.Attributes) return undefined;
-		return stripKeys(result.Attributes) as unknown as Activity;
-	} catch (err: unknown) {
-		if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
-			return undefined;
-		}
-		throw err;
-	}
+	return notImplementedWrite('setActivityVisibility');
 }
 
-/** 活動を削除（削除前のアイテムを返す） */
-export async function deleteActivity(id: number, tenantId: string): Promise<Activity | undefined> {
-	const existing = await findActivityById(id, tenantId);
-	if (!existing) return undefined;
-
-	await getDocClient().send(
-		new DeleteCommand({
-			TableName: TABLE_NAME,
-			Key: activityKey(id, tenantId),
-		}),
-	);
-
-	return existing;
+/**
+ * 活動を削除 — #2458-A2: 旧 activities partition への write を停止。
+ */
+export async function deleteActivity(
+	_id: number,
+	_tenantId: string,
+): Promise<Activity | undefined> {
+	return notImplementedWrite('deleteActivity');
 }
 
 /** 活動にログが存在するか確認 */
@@ -388,7 +287,6 @@ export async function getActivityLogCounts(_tenantId: string): Promise<Record<nu
 	return counts;
 }
 
-/** 特定活動のデイリーミッションを全削除 */
 /** メインクエストに設定された活動数を取得 */
 export async function countMainQuestActivities(_tenantId: string): Promise<number> {
 	const all = await findActivities(_tenantId);
@@ -503,51 +401,15 @@ export async function findStreakLogs(
 }
 
 /**
- * 活動ログを挿入。
- * JOINを避けるため、activityName, activityIcon, categoryId を非正規化して保存する。
+ * 活動ログを挿入 — #2458-A2: 旧 activities partition への write 経路 (lookup の Put) を停止。
+ * activity_logs LOG# partition への write も同時停止 (activity 表に依存するため)。
+ * 再実装時は dynamodb/child-activity-repo.ts (ADR-0055) 経由で。
  */
 export async function insertActivityLog(
-	input: InsertActivityLogInput,
-	tenantId: string,
+	_input: InsertActivityLogInput,
+	_tenantId: string,
 ): Promise<ActivityLog> {
-	const id = await nextId(ENTITY_NAMES.activityLog, tenantId);
-	const keys = activityLogKey(input.childId, input.recordedDate, id, tenantId);
-
-	// Lookup activity for denormalized fields
-	const activityItem = await findActivityById(input.activityId, tenantId);
-	const denormalized = {
-		activityName: activityItem?.name ?? '',
-		activityIcon: activityItem?.icon ?? '',
-		categoryId: activityItem?.categoryId ?? 0,
-	};
-
-	const log: ActivityLog = {
-		id,
-		childId: input.childId,
-		activityId: input.activityId,
-		points: input.points,
-		streakDays: input.streakDays,
-		streakBonus: input.streakBonus,
-		recordedDate: input.recordedDate,
-		recordedAt: input.recordedAt,
-		cancelled: 0,
-	};
-
-	await getDocClient().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: {
-				...keys,
-				...log,
-				// Denormalized fields for query convenience (not part of ActivityLog type)
-				activityName: denormalized.activityName,
-				activityIcon: denormalized.activityIcon,
-				categoryId: denormalized.categoryId,
-			},
-		}),
-	);
-
-	return log;
+	return notImplementedWrite('insertActivityLog');
 }
 
 /** IDで活動ログを取得（childId不明のためScanが必要） */
@@ -989,33 +851,16 @@ export async function countPointLedgerEntriesByTypeAndDate(
 }
 
 // ============================================================
-// Point Ledger
+// Point Ledger — #2458-A2: 旧 activities partition への write 停止に伴い同時停止
 // ============================================================
+// point_ledger 自体は activities partition を直接 update しないが、activity_logs 経由の
+// bonus 付与 chain が write 停止になるため、本実装も整合のため stub 化する。
 
-/** ポイント台帳にエントリを追加 + 残高を更新 */
 export async function insertPointLedger(
-	input: InsertPointLedgerInput,
-	tenantId: string,
+	_input: InsertPointLedgerInput,
+	_tenantId: string,
 ): Promise<void> {
-	const id = await nextId(ENTITY_NAMES.pointLedger, tenantId);
-	const now = new Date().toISOString();
-	const keys = pointLedgerKey(input.childId, now, id, tenantId);
-
-	await getDocClient().send(
-		new PutCommand({
-			TableName: TABLE_NAME,
-			Item: {
-				...keys,
-				id,
-				childId: input.childId,
-				amount: input.amount,
-				type: input.type,
-				description: input.description,
-				referenceId: input.referenceId ?? null,
-				createdAt: now,
-			},
-		}),
-	);
+	return notImplementedWrite('insertPointLedger');
 }
 
 // ============================================================
@@ -1072,7 +917,6 @@ export async function deleteActivityLogsBeforeDate(
 /**
  * priority='must' の活動全件と、`today` 当日に記録されたものを集計する。
  * - SQLite 実装と同じ契約 (logged / total / activities[]) を返す
- * - DynamoDB 側もスタブではなく本実装（ADR-0010 #1021）
  */
 export async function findMustActivitiesWithToday(
 	childId: number,
@@ -1116,49 +960,16 @@ export async function findMustActivitiesWithToday(
 	return { logged, total: enriched.length, activities: enriched };
 }
 
-// #783: archive / restore
+// #783: archive / restore — #2458-A2: 旧 activities partition への write 停止
 
 export async function archiveActivities(
-	ids: number[],
-	reason: string,
-	tenantId: string,
+	_ids: number[],
+	_reason: string,
+	_tenantId: string,
 ): Promise<void> {
-	for (const id of ids) {
-		await getDocClient().send(
-			new UpdateCommand({
-				TableName: TABLE_NAME,
-				Key: activityKey(id, tenantId),
-				UpdateExpression: 'SET isArchived = :archived, archivedReason = :reason',
-				ExpressionAttributeValues: {
-					':archived': 1,
-					':reason': reason,
-				},
-			}),
-		);
-	}
+	return notImplementedWrite('archiveActivities');
 }
 
-export async function restoreArchivedActivities(reason: string, tenantId: string): Promise<void> {
-	const items = await scanAll({
-		TableName: TABLE_NAME,
-		FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk AND archivedReason = :reason',
-		ExpressionAttributeValues: {
-			':prefix': tenantPK('ACTIVITY#', tenantId),
-			':sk': 'MASTER',
-			':reason': reason,
-		},
-	});
-
-	for (const item of items) {
-		await getDocClient().send(
-			new UpdateCommand({
-				TableName: TABLE_NAME,
-				Key: { PK: item.PK, SK: item.SK },
-				UpdateExpression: 'SET isArchived = :zero REMOVE archivedReason',
-				ExpressionAttributeValues: {
-					':zero': 0,
-				},
-			}),
-		);
-	}
+export async function restoreArchivedActivities(_reason: string, _tenantId: string): Promise<void> {
+	return notImplementedWrite('restoreArchivedActivities');
 }

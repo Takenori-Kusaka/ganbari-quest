@@ -105,8 +105,15 @@ child_activities
 - ✅ explicit 2 per-child site migrate: `activity-log-service.ts` L159 / L350 を `getChildActivities(childId, tenantId, filter)` に置換
 - ✅ parallel write 撤去: `activity-import-service.ts:151` の family master insert を削除、childIds 未指定時は fallback で tenant 最初の child に bind
 - ✅ regression test: `tests/unit/services/activity-legacy-table-write-zero.test.ts` — 全 write method に対し旧 `activities` table row count が 0 のまま不変であることを assert (8 test)
-- ⏳ demo + dynamodb 同期: 本 PR では sqlite のみ。demo/dynamodb 側は次 PR で同期 (#2458-A1 後段、別 commit で対応推奨)
-- ⏳ physical drop (#2458-C / -A2): main merge + 1 release 経過後に旧 `activities` table / `IActivityRepo` interface を schema から削除
+
+**実装状況 PR-A2 (2026-05-26、#2458 Path A の demo + dynamodb 同期)**:
+
+- ✅ `src/lib/server/db/dynamodb/activity-repo.ts` rewrite — 全 write method (`insertActivity` / `updateActivity` / `setActivityVisibility` / `deleteActivity` / `archiveActivities` / `restoreArchivedActivities` / `insertActivityLog` / `insertPointLedger`) を `NotImplementedError` に置換。ADR-0048 で DynamoDB は production 未使用 (main Lambda は sqlite local file) のため、再実装時は `dynamodb/child-activity-repo.ts` (ADR-0055 per-child schema) 経由で実装し直す構造的ガードを設置 (旧 `activities` partition (`SK=MASTER`) への退行を防止)
+- ✅ `src/lib/server/db/demo/activity-repo.ts` SSOT コメント追記 — 全 write method (insertActivity / updateActivity / setActivityVisibility / deleteActivity / archive / restore / insertActivityLog / insertPointLedger / markActivityLogCancelled / deleteDailyMissionsByActivity / deleteActivityLogsBeforeDate) は元から no-op stub または synthetic 戻り値 (id=0) を返すのみで fixture を mutate しないことを明文化。read 経路は marketplace integration テスト (#2097 Phase B-7) を退行させないため `ALL_DEMO_ACTIVITIES` (hand-curated + marketplace merged) を primary source として保持し、per-child scope queries は別 file (demo/child-activity-repo.ts) 経由で `DEMO_CHILD_ACTIVITIES` から取得する設計
+- ✅ regression test (demo): `tests/unit/services/activity-legacy-table-write-zero-demo.test.ts` (12 test) — 全 11 write/stub method 呼出後に `DEMO_CHILD_ACTIVITIES` / `DEMO_ACTIVITIES` / `DEMO_MARKETPLACE_ACTIVITIES` / `DEMO_ACTIVITY_LOGS` の長さ + flag 不変を assert + read 経路 (marketplace integration) 維持を 2 件確認
+- ✅ regression test (dynamodb): `tests/unit/services/activity-legacy-table-write-zero-dynamodb.test.ts` (11 test) — 全 write method が `NotImplementedError` throw + `mockSend.not.toHaveBeenCalled()` で DynamoDB Client に到達しないこと、エラー message に「ADR-0055」「child-activity-repo」が含まれ再実装方針を誘導することを assert
+- ✅ schema 不変 (本 PR は backend rewrite のみ、`schema.ts` / `create-tables.ts` / `interfaces/activity-repo.interface.ts` 変更なし。interface.ts は comment 更新のみ)
+- ⏳ physical drop (#2458-C): 3 backend (sqlite / demo / dynamodb) で旧 `activities` table / partition への write 0 化完遂 → main merge + 1 release 経過後に旧 `activities` table / `IActivityRepo` interface / 残 read 経路を schema / dynamodb partition から削除
 
 ### 4.2 checklist (PR-5 Phase 1 完了 / Phase 2 UX 化進行中)
 

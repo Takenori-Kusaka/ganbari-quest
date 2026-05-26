@@ -14,9 +14,16 @@ import type {
 export interface IActivityRepo {
 	// Activities
 	findActivities(tenantId: string, filter?: ActivityFilter): Promise<Activity[]>;
-	// #2362 PR-3 Phase 7b-2c: sqlite は ChildActivity (per-child instance) を返す。
-	// dynamodb / demo 実装は legacy Activity を返す (PR-3 scope 外、#2458 で 統一)。
+	// #2362 PR-3 Phase 7b-2c → #2458-A1/A2 (2026-05-26):
+	// - sqlite: ChildActivity を `_toActivityShape` adapter 経由で Activity shape として返す
+	//   (per-child instance ベース統一、#2458-A1 完遂)
+	// - demo: legacy `ALL_DEMO_ACTIVITIES` (hand-curated DEMO_ACTIVITIES + marketplace merged)
+	//   を返す (read 経路維持で marketplace integration テスト退行ゼロ)。per-child scope queries
+	//   は別 file (demo/child-activity-repo.ts) 経由で DEMO_CHILD_ACTIVITIES から取得
+	// - dynamodb: production 未使用 (ADR-0048) のため legacy Activity を Scan で返す
+	//   (read のみ生存、write は全て NotImplementedError throw)
 	// 共通 callsite は id / name / icon / basePoints / priority / isVisible のみ参照。
+	// physical drop は #2458-C で実施予定。
 	findActivityById(id: number, tenantId: string): Promise<Activity | ChildActivity | undefined>;
 	insertActivity(input: InsertActivityInput, tenantId: string): Promise<Activity>;
 	updateActivity(
