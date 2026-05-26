@@ -137,10 +137,35 @@ describe('verifyKeySignature', () => {
 describe('generateLicenseKey', () => {
 	afterEach(() => {
 		process.env.AWS_LICENSE_SECRET = '';
+		process.env.NODE_ENV = 'test'; // #2404 Phase 2.1: production テスト後に必ず復元
 	});
 
 	it('秘密鍵なしの場合 GQ-XXXX-XXXX-XXXX 形式のキーを生成する', () => {
 		process.env.AWS_LICENSE_SECRET = '';
+		const key = generateLicenseKey();
+		expect(key).toMatch(/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+	});
+
+	it('#2404 Phase 2.1: production で秘密鍵未設定下の legacy 発行は throw する', () => {
+		process.env.AWS_LICENSE_SECRET = '';
+		process.env.NODE_ENV = 'production';
+		expect(() => generateLicenseKey()).toThrowError(
+			/legacy.*key.*Phase 2|AWS_LICENSE_SECRET is required/i,
+		);
+	});
+
+	it('#2404 Phase 2.1: production で秘密鍵が設定済みなら通常通り SIGNED key を発行する', () => {
+		process.env.AWS_LICENSE_SECRET = TEST_SECRET;
+		process.env.NODE_ENV = 'production';
+		const key = generateLicenseKey();
+		expect(key).toMatch(/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}$/);
+		expect(verifyKeySignature(key, TEST_SECRET)).toBe(true);
+	});
+
+	it('#2404 Phase 2.1: dev / test 環境では秘密鍵未設定でも legacy 発行可 (テスト互換維持)', () => {
+		process.env.AWS_LICENSE_SECRET = '';
+		process.env.NODE_ENV = 'test';
+		expect(() => generateLicenseKey()).not.toThrow();
 		const key = generateLicenseKey();
 		expect(key).toMatch(/^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/);
 	});
