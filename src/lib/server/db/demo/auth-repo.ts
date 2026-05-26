@@ -279,8 +279,7 @@ export async function listLicenseKeysByTenant(
 
 export async function listLicenseKeysByStatus(
 	_status: LicenseKeyStatus,
-	_limit?: number,
-	_cursor?: string,
+	_options?: { format?: 'legacy' | 'signed'; limit?: number; cursor?: string },
 ): Promise<LicenseKeyPage> {
 	return { items: [], cursor: null };
 }

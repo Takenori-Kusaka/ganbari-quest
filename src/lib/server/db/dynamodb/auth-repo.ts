@@ -840,26 +840,37 @@ export const listLicenseKeysByTenant: IAuthRepo['listLicenseKeysByTenant'] = asy
 
 export const listLicenseKeysByStatus: IAuthRepo['listLicenseKeysByStatus'] = async (
 	status,
-	limit = DEFAULT_PAGE_SIZE,
-	cursor,
+	options,
 ) => {
 	// DynamoDB の LICENSE# パーティションは status でインデックスされていないため、
 	// Scan + FilterExpression を使用。Pre-PMF 段階ではキー数が限定的。
 	// 本番スケール時は GSI 追加を検討（ADR-0034 準拠で過剰設計を避ける）。
+	const limit = options?.limit ?? DEFAULT_PAGE_SIZE;
+	const cursor = options?.cursor;
+	const format = options?.format;
 	const items: LicenseRecord[] = [];
 	let lastKey = cursor ? decodeCursor(cursor) : undefined;
 	let scannedCount = 0;
+
+	// #2490 Sub-B2: format filter 追加 (countLicenseKeys と同 size(licenseKey) パターン)
+	const filterParts = ['begins_with(PK, :prefix)', '#status = :status'];
+	const valuesExtra: Record<string, string | number> = {};
+	if (format) {
+		filterParts.push('size(licenseKey) = :formatLen');
+		valuesExtra[':formatLen'] = getLicenseFormatLength(format);
+	}
 
 	// Scan は FilterExpression 適用前の Limit なので、十分な件数が集まるまでループする
 	while (items.length < limit) {
 		const result = await doc().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(PK, :prefix) AND #status = :status',
+				FilterExpression: filterParts.join(' AND '),
 				ExpressionAttributeNames: { '#status': 'status' },
 				ExpressionAttributeValues: {
 					':prefix': 'LICENSE#',
 					':status': status,
+					...valuesExtra,
 				},
 				ExclusiveStartKey: lastKey,
 				// 多めにスキャンしてフィルタで絞る
