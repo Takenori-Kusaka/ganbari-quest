@@ -1,0 +1,9 @@
+{
+	"allowed": ["DEMO_CHILD_ACHIEVEMENTS", "DEMO_MARKETPLACE_SPECIAL_REWARDS"],
+	"reasons": {
+		"DEMO_CHILD_ACHIEVEMENTS": "PR_initial baseline — cleanup 候補。後続 Path B 拡張 PR で削除予定 (EPIC #2362 follow-up)。",
+		"DEMO_MARKETPLACE_SPECIAL_REWARDS": "PR_initial baseline — cleanup 候補。後続 Path B 拡張 PR で削除予定 (EPIC #2362 follow-up)。"
+	},
+	"version": "1.0.0",
+	"generated": "2026-05-26T00:00:00.000Z"
+}

@@ -1,0 +1,18 @@
+{
+	"allowed": [
+		"/[uiMode]/history",
+		"/[uiMode]/home/initial-points",
+		"/[uiMode]/shop",
+		"/admin/certificates/[id]",
+		"/view/[token]"
+	],
+	"reasons": {
+		"/[uiMode]/history": "PR_initial baseline — 動的 goto(`/${uiMode}/history`) 経由参照の可能性。検出 regex の dynamic path expansion 強化で誤検出の可能性あり。後続 cleanup PR で grep 精査。",
+		"/[uiMode]/home/initial-points": "PR_initial baseline — 初回ポイント設定 onboarding page、動的遷移経路の可能性。後続 cleanup PR で参照経路を精査。",
+		"/[uiMode]/shop": "PR_initial baseline — ごほうびショップ、子供画面 BottomNav 経由参照の可能性。後続 cleanup PR で grep 精査。",
+		"/admin/certificates/[id]": "PR_initial baseline — 動的 detail page (certificate id 経由)、goto(`/admin/certificates/${id}`) 動的遷移。検出 regex 改善余地。",
+		"/view/[token]": "PR_initial baseline — viewer token 経由公開閲覧 page、外部 link 共有経由参照。動的 token なので regex match 不可。"
+	},
+	"version": "1.0.0",
+	"generated": "2026-05-26T00:00:00.000Z"
+}

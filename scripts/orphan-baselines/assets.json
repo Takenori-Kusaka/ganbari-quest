@@ -1,0 +1,24 @@
+{
+	"allowed": [
+		"site/assets/lp/core-loop-summary.png",
+		"site/assets/ui/versus-arrow.svg",
+		"static/assets/favicon/brand-comparison.png",
+		"static/assets/favicon/candidate-1.png",
+		"static/assets/favicon/candidate-2.png",
+		"static/assets/favicon/candidate-3.png",
+		"static/assets/lp/core-loop-summary.png",
+		"static/assets/marketing/press-key-visual.png"
+	],
+	"reasons": {
+		"static/assets/favicon/brand-comparison.png": "PR_initial baseline — ブランド検討の比較画像、本番未参照。後続 cleanup PR で削除候補。",
+		"static/assets/favicon/candidate-1.png": "PR_initial baseline — favicon 候補画像、本番未参照。後続 cleanup PR で削除候補。",
+		"static/assets/favicon/candidate-2.png": "PR_initial baseline — favicon 候補画像、本番未参照。後続 cleanup PR で削除候補。",
+		"static/assets/favicon/candidate-3.png": "PR_initial baseline — favicon 候補画像、本番未参照。後続 cleanup PR で削除候補。",
+		"static/assets/lp/core-loop-summary.png": "PR_initial baseline — LP は .webp のみ参照、.png は dead (#1907 同種事例)。後続 cleanup PR。",
+		"static/assets/marketing/press-key-visual.png": "PR_initial baseline — マーケティング素材、未参照。後続 cleanup PR で削除候補。",
+		"site/assets/lp/core-loop-summary.png": "PR_initial baseline — LP は .webp のみ参照、.png は dead (#1907 同種事例)。後続 cleanup PR。",
+		"site/assets/ui/versus-arrow.svg": "PR_initial baseline — #1838 で versus section の削除に伴う dead asset。後続 cleanup PR。"
+	},
+	"version": "1.0.0",
+	"generated": "2026-05-26T00:00:00.000Z"
+}
