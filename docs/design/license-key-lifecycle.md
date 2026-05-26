@@ -39,6 +39,7 @@ stateDiagram-v2
 | **active** | 発行済み・未消費 | `'active'` |
 | **consumed** | ユーザーが consume 済み | `'consumed'` |
 | **revoked** | Ops 手動 / 漏洩 / 期限切れで失効 | `'revoked'` |
+| **migrated** | **#2490 Phase 2 Sub-B1**: HMAC migration により再発行された旧 legacy key (validate/consume/revoke 全経路で reject、監査用に record 残置) | `'migrated'` |
 | **expired** (論理状態) | 90 日経過だがバッチ未実行 | `'active'` + `createdAt + 90d < now()` |
 
 ---
@@ -102,7 +103,7 @@ GQ-XXXX-XXXX-XXXX-YYYYY
 | `kind` | enum | △ | **#801**: `'purchase' \| 'gift' \| 'campaign'`。未設定（legacy）は `'purchase'` として扱う |
 | `issuedBy` | string | △ | **#801**: 発行 actor。`kind='gift' \| 'campaign'` では必須（監査要件）。`purchase` では `stripe:<sessionId>` |
 | `stripeSessionId` | string | — | Stripe Checkout Session ID (発行元) |
-| `status` | enum | ○ | `'active' \| 'consumed' \| 'revoked'` |
+| `status` | enum | ○ | `'active' \| 'consumed' \| 'revoked' \| 'migrated'` (#2490 Phase 2 Sub-B1 で MIGRATED 追加) |
 | `consumedBy` | string | — | 消費したユーザー ID (consume 後) |
 | `consumedAt` | string (ISO8601) | — | 消費日時 |
 | `revokedReason` | string | — | 失効理由 (`expired` / `leaked` / `ops-manual` / `refund`) |
