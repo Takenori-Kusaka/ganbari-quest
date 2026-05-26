@@ -115,6 +115,13 @@ child_activities
 - ✅ schema 不変 (本 PR は backend rewrite のみ、`schema.ts` / `create-tables.ts` / `interfaces/activity-repo.interface.ts` 変更なし。interface.ts は comment 更新のみ)
 - ⏳ physical drop (#2458-C): 3 backend (sqlite / demo / dynamodb) で旧 `activities` table / partition への write 0 化完遂 → main merge + 1 release 経過後に旧 `activities` table / `IActivityRepo` interface / 残 read 経路を schema / dynamodb partition から削除
 
+**実装状況 PR-C-1 (2026-05-26、#2458 Path B 第 1 弾)**:
+
+- ✅ `src/lib/server/db/sqlite/activity-pref-repo.ts` `countPinnedInCategory` を `child_activities` JOIN に migrate — 旧 JOIN は `childActivityPreferences.activityId` (FK target は PR-3 Phase 7b-2a で `child_activities.id` に切替済) を `activities.id` と突合する integrity bug 状態だった。本 PR で正しい FK target との JOIN に修正
+- ✅ caller `activity-pin-service.ts:50` は `categoryId` を渡すのみで internal JOIN target に依存しないため signature 不変 (透過 migrate)
+- ✅ regression test: `tests/unit/db/sqlite/activity-pref-repo.test.ts` (5 test) — AC-1 旧 activities table 空のまま child_activities 経由で集計成立 / AC-2 別 categoryId 除外 / AC-3 別 childId 除外 / AC-4 isPinned=0 除外 / AC-5 pin 0 件 fallback
+- ⏳ 18 caller migrate (PR-C-3) / seed.ts 変更 (PR-C-2) / DEMO_ACTIVITIES (PR-C-4) / 最終 drop (PR-C-5) は別 PR で順次実施
+
 ### 4.2 checklist (PR-5 Phase 1 完了 / Phase 2 UX 化進行中)
 
 **実装状況** (2026-05-25 PR-5 Phase 1):

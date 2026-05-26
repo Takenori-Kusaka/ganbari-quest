@@ -1,9 +1,27 @@
 // src/lib/server/db/sqlite/activity-pref-repo.ts
 // 子供×活動ピン留め設定リポジトリ（SQLite実装）
+//
+// #2458-C-1 (2026-05-26): countPinnedInCategory を旧 `activities` table JOIN から
+// `child_activities` JOIN に migrate。これにより本 file は旧 `activities` table を
+// 完全に参照しなくなり、#2458-C (旧 table physical drop) の制約条件を 1 件満たす。
+//
+// 設計:
+//   - `childActivityPreferences.activityId` FK target は PR-3 (Phase 7b-2a) で既に
+//     `childActivities.id` に切替済 (schema.ts L564-566)。旧 JOIN は活動 id を
+//     `activities.id` と突合する integrity bug 状態だった。本 PR で正しい FK target
+//     (`childActivities`) との JOIN に修正する。
+//   - signature 不変 (caller `activity-pin-service.ts:50` は categoryId を渡すのみで
+//     internal JOIN target に依存しない)。
+//
+// 関連:
+//   - #2458 EPIC (旧 activities table drop)
+//   - PR #2487 (#2458-A1 sqlite facade rewrite — write 0 化)
+//   - ADR-0055 §3.1 per-child primary data model
+//   - docs/design/data-model-resource-scope.md §4.1
 
 import { and, count, eq, gte, sql } from 'drizzle-orm';
 import { db } from '../client';
-import { activities, activityLogs, childActivityPreferences } from '../schema';
+import { activityLogs, childActivities, childActivityPreferences } from '../schema';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
 
 export async function findPinnedByChild(
@@ -109,15 +127,19 @@ export async function countPinnedInCategory(
 	categoryId: number,
 	_tenantId: string,
 ): Promise<number> {
+	// #2458-C-1: childActivityPreferences.activityId は child_activities.id を参照する
+	// (schema.ts L564-566、PR-3 Phase 7b-2a で FK target 切替済)。旧 JOIN は
+	// `activities.id` 突合だったが、現状の FK semantics と integrity bug 状態を解消し、
+	// 正しく child_activities と JOIN する。
 	const result = db
 		.select({ count: count() })
 		.from(childActivityPreferences)
-		.innerJoin(activities, eq(childActivityPreferences.activityId, activities.id))
+		.innerJoin(childActivities, eq(childActivityPreferences.activityId, childActivities.id))
 		.where(
 			and(
 				eq(childActivityPreferences.childId, childId),
 				eq(childActivityPreferences.isPinned, 1),
-				eq(activities.categoryId, categoryId),
+				eq(childActivities.categoryId, categoryId),
 			),
 		)
 		.get();
