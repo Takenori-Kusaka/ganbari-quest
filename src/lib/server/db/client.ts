@@ -4,6 +4,7 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { SQL_CREATE_TABLES } from './create-tables';
+import { applyLazyStartupMigrations } from './migration/lazy-startup-migrations';
 import * as schema from './schema';
 import { validateAndMigrate } from './schema-validator';
 
@@ -26,9 +27,17 @@ sqlite.pragma('synchronous = NORMAL');
 // All statements use CREATE TABLE/INDEX IF NOT EXISTS, so this is idempotent.
 // Ensures new tables are always available after code updates (NUC Docker, Lambda, dev).
 if ((process.env.DATA_SOURCE ?? 'sqlite') === 'sqlite') {
+	// 1. shadow-table recreation / DROP COLUMN / FK target switchover を最初に実行。
+	//    既存 production DB の旧 schema を新 schema 互換に揃え、後続の
+	//    `SQL_CREATE_TABLES` の `CREATE INDEX ... ON <new_column>` 等が
+	//    `no such column` で fail しないようにする。
+	//    詳細: src/lib/server/db/migration/lazy-startup-migrations.ts 冒頭コメント
+	applyLazyStartupMigrations(sqlite);
+
+	// 2. 新規 table / index を idempotent に作成
 	sqlite.exec(SQL_CREATE_TABLES);
 
-	// スキーマバリデーション + 安全な自動マイグレーション（カラム追加）
+	// 3. スキーマバリデーション + 安全な自動マイグレーション（カラム追加）
 	const schemaResult = validateAndMigrate(sqlite);
 
 	if (schemaResult.applied.length > 0) {
