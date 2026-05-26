@@ -38,7 +38,6 @@ interface ReconcileResult {
 	matchedSubscriptions: number;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 async function reconcile(): Promise<ReconcileResult> {
 	console.log('=== Stripe Subscription Reconciliation ===\n');
 

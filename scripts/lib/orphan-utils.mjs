@@ -226,7 +226,7 @@ export function collectReferences(needles, files, options = {}) {
 
 	for (const file of files) {
 		const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
-		if (ignoreSelf && ignoreSelf.has(rel)) continue;
+		if (ignoreSelf?.has(rel)) continue;
 		let text;
 		try {
 			text = fs.readFileSync(file, 'utf8');
@@ -264,8 +264,9 @@ export function collectReferences(needles, files, options = {}) {
  *       false positive (コメント内 import 等) は許容範囲、新規 orphan の hard fail のため
  *       allowlist + baseline 機構で回避する設計。
  */
-export function collectFileImports(targetFiles, searchFiles, options = {}) {
-	const { stripExt = true } = options;
+export function collectFileImports(targetFiles, searchFiles, _options = {}) {
+	// NOTE: `_options` は将来 `stripExt` 等の細粒度オプションを再導入する余地を残しているが
+	// 現状の実装では basename matching が一律 stripExt=true 相当の挙動になっているため未使用。
 	const needles = targetFiles.map((t) => {
 		// e.g. 'src/lib/server/services/foo-service.ts'
 		const base = path.basename(t, path.extname(t));

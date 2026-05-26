@@ -46,7 +46,7 @@ function main() {
 
 	// asset を列挙
 	const assets = [];
-	for (const { root, relPrefix } of ASSET_ROOTS) {
+	for (const { root } of ASSET_ROOTS) {
 		if (!fs.existsSync(root)) continue;
 		for (const f of walkDir(root, { extensions: ASSET_EXTENSIONS })) {
 			assets.push(path.relative(REPO_ROOT, f).replace(/\\/g, '/'));

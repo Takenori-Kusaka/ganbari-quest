@@ -52,7 +52,7 @@ describe('escapeRegex', () => {
 
 describe('loadBaseline / saveBaseline', () => {
 	it('存在しない baseline は empty allowed を返す', () => {
-		const b = loadBaseline('nonexistent-category-' + Math.random());
+		const b = loadBaseline(`nonexistent-category-${Math.random()}`);
 		assert.deepEqual(b.allowed, []);
 		assert.deepEqual(b.reasons, {});
 	});

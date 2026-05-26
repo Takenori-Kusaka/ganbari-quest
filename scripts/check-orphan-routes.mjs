@@ -94,8 +94,7 @@ function main() {
 		const legacy = fs.readFileSync(LEGACY_URL_MAP, 'utf8');
 		// `to: '/foo/bar'` or `target: '/foo/bar'`
 		const re = /(?:to|target|destination)\s*:\s*['"`]([^'"`]+)['"`]/g;
-		let m;
-		while ((m = re.exec(legacy)) !== null) {
+		for (const m of legacy.matchAll(re)) {
 			legacyTargets.add(m[1]);
 		}
 	}

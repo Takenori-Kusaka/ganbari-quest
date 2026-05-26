@@ -36,8 +36,7 @@ function extractEnvVars(text) {
 	// `<NAME>=...` (行頭 + コメント prefix `#` 付きも含む)
 	const re = /^(?:#\s*)?([A-Z][A-Z0-9_]+)\s*=/gm;
 	const out = new Set();
-	let m;
-	while ((m = re.exec(text)) !== null) {
+	for (const m of text.matchAll(re)) {
 		out.add(m[1]);
 	}
 	return [...out].sort();

@@ -216,12 +216,15 @@ function buildSteps(args, changedFiles) {
 	return [
 		{
 			name: 'biome',
-			label: 'Step 1/10: biome check',
+			label: 'Step 1/10: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
 			skip: args.skipBiome,
-			runner: () => run('biome check', ['npx', 'biome', 'check', '.']),
+			// #2503 (Issue #2475 14 件目): pre-ready Step 1 は CI .github/workflows/ci.yml
+			// lint-and-test の `npx biome check --error-on-warnings .` と完全一致させる。
+			// 旧来は `--error-on-warnings` 欠落で local PASS / CI FAIL 乖離が発生していた。
+			runner: () => run('biome check', ['npx', 'biome', 'check', '--error-on-warnings', '.']),
 			fixHint:
-				'  npx biome check --write .   # 自動修正可能なものを修正\n' +
-				'  remaining error は手動で修正してから再実行',
+				'  npx biome check --error-on-warnings --write .   # 自動修正可能なものを修正\n' +
+				'  remaining warning / error は手動で修正してから再実行 (CI は warning=error 扱い)',
 		},
 		{
 			name: 'svelte-check',

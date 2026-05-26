@@ -51,8 +51,7 @@ function extractExports(text) {
 	const re =
 		/^export\s+(?:const|let|function|class|type|interface)\s+([A-Z][A-Z0-9_]+|[A-Z]\w+)\b/gm;
 	const out = [];
-	let m;
-	while ((m = re.exec(text)) !== null) {
+	for (const m of text.matchAll(re)) {
 		out.push(m[1]);
 	}
 	return out;

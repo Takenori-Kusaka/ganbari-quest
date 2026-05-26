@@ -41,8 +41,7 @@ function extractExports(text) {
 	// `export const NAME = ...` / `export function NAME(...)`
 	const re = /^export\s+(?:const|let|function|class)\s+([A-Z][A-Z0-9_]*)\b/gm;
 	const out = [];
-	let m;
-	while ((m = re.exec(text)) !== null) {
+	for (const m of text.matchAll(re)) {
 		out.push(m[1]);
 	}
 	return out;
