@@ -6,6 +6,7 @@ import {
 	ALL_LICENSE_KEY_STATUSES,
 	isLicenseKeyActive,
 	isLicenseKeyConsumed,
+	isLicenseKeyMigrated,
 	isLicenseKeyRevoked,
 	LICENSE_KEY_STATUS,
 } from '../../../src/lib/domain/constants/license-key-status';
@@ -15,10 +16,11 @@ describe('LICENSE_KEY_STATUS 定数', () => {
 		expect(LICENSE_KEY_STATUS.ACTIVE).toBe('active');
 		expect(LICENSE_KEY_STATUS.CONSUMED).toBe('consumed');
 		expect(LICENSE_KEY_STATUS.REVOKED).toBe('revoked');
+		expect(LICENSE_KEY_STATUS.MIGRATED).toBe('migrated'); // #2490 Phase 2 Sub-B1
 	});
 
 	it('ALL_LICENSE_KEY_STATUSES は全 status を含む (重複なし)', () => {
-		expect(ALL_LICENSE_KEY_STATUSES).toHaveLength(3);
+		expect(ALL_LICENSE_KEY_STATUSES).toHaveLength(4); // active / consumed / revoked / migrated (#2490)
 		expect(new Set(ALL_LICENSE_KEY_STATUSES).size).toBe(ALL_LICENSE_KEY_STATUSES.length);
 	});
 
@@ -34,18 +36,28 @@ describe('ヘルパ関数 (相互排他)', () => {
 		expect(isLicenseKeyActive(LICENSE_KEY_STATUS.ACTIVE)).toBe(true);
 		expect(isLicenseKeyActive(LICENSE_KEY_STATUS.CONSUMED)).toBe(false);
 		expect(isLicenseKeyActive(LICENSE_KEY_STATUS.REVOKED)).toBe(false);
+		expect(isLicenseKeyActive(LICENSE_KEY_STATUS.MIGRATED)).toBe(false);
 	});
 
 	it('CONSUMED のみ isLicenseKeyConsumed === true', () => {
 		expect(isLicenseKeyConsumed(LICENSE_KEY_STATUS.CONSUMED)).toBe(true);
 		expect(isLicenseKeyConsumed(LICENSE_KEY_STATUS.ACTIVE)).toBe(false);
 		expect(isLicenseKeyConsumed(LICENSE_KEY_STATUS.REVOKED)).toBe(false);
+		expect(isLicenseKeyConsumed(LICENSE_KEY_STATUS.MIGRATED)).toBe(false);
 	});
 
 	it('REVOKED のみ isLicenseKeyRevoked === true', () => {
 		expect(isLicenseKeyRevoked(LICENSE_KEY_STATUS.REVOKED)).toBe(true);
 		expect(isLicenseKeyRevoked(LICENSE_KEY_STATUS.ACTIVE)).toBe(false);
 		expect(isLicenseKeyRevoked(LICENSE_KEY_STATUS.CONSUMED)).toBe(false);
+		expect(isLicenseKeyRevoked(LICENSE_KEY_STATUS.MIGRATED)).toBe(false);
+	});
+
+	it('MIGRATED のみ isLicenseKeyMigrated === true (#2490 Phase 2 Sub-B1)', () => {
+		expect(isLicenseKeyMigrated(LICENSE_KEY_STATUS.MIGRATED)).toBe(true);
+		expect(isLicenseKeyMigrated(LICENSE_KEY_STATUS.ACTIVE)).toBe(false);
+		expect(isLicenseKeyMigrated(LICENSE_KEY_STATUS.CONSUMED)).toBe(false);
+		expect(isLicenseKeyMigrated(LICENSE_KEY_STATUS.REVOKED)).toBe(false);
 	});
 
 	it('各 status はちょうど 1 つのヘルパで true になる (partition)', () => {
@@ -54,6 +66,7 @@ describe('ヘルパ関数 (相互排他)', () => {
 				isLicenseKeyActive(s),
 				isLicenseKeyConsumed(s),
 				isLicenseKeyRevoked(s),
+				isLicenseKeyMigrated(s),
 			].filter(Boolean).length;
 			expect(trueCount).toBe(1);
 		}

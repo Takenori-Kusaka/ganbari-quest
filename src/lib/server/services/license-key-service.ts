@@ -381,6 +381,15 @@ export async function validateLicenseKey(
 		return { valid: false, reason: 'このライセンスキーは無効化されています' };
 	}
 
+	// #2490 Phase 2 Sub-B1: migrated status は HMAC migration により再発行された旧 key
+	if (record.status === LICENSE_KEY_STATUS.MIGRATED) {
+		await recordFailure('migrated', { useFullKey: true });
+		return {
+			valid: false,
+			reason: 'このライセンスキーは再発行のため無効化されています',
+		};
+	}
+
 	// #797: 有効期限チェック。active でも expiresAt を過ぎていたら reject する。
 	// expiresAt が未設定の legacy レコードは期限チェックをスキップ（後方互換）。
 	if (isLicenseExpired(record)) {
@@ -471,6 +480,11 @@ export async function consumeLicenseKey(
 	if (record.status === LICENSE_KEY_STATUS.REVOKED) {
 		await recordFailure('revoked', { revokedReason: record.revokedReason ?? null });
 		return { ok: false, reason: 'このライセンスキーは無効化されています' };
+	}
+	// #2490 Phase 2 Sub-B1: migrated status は HMAC migration により再発行された旧 key
+	if (record.status === LICENSE_KEY_STATUS.MIGRATED) {
+		await recordFailure('migrated');
+		return { ok: false, reason: 'このライセンスキーは再発行のため無効化されています' };
 	}
 	if (record.status !== LICENSE_KEY_STATUS.ACTIVE) {
 		await recordFailure('not_active', { status: record.status });
@@ -576,6 +590,11 @@ export async function revokeLicenseKey(params: {
 	if (record.status === LICENSE_KEY_STATUS.CONSUMED) {
 		// consumed キーも監査目的で revoke 可能だが、現状ユースケースがないため拒否
 		return { ok: false, reason: 'このライセンスキーは既に使用されています' };
+	}
+
+	// #2490 Phase 2 Sub-B1: migrated key は既に再発行で無効化済、revoke 不要
+	if (record.status === LICENSE_KEY_STATUS.MIGRATED) {
+		return { ok: false, reason: 'このライセンスキーは再発行のため既に無効化されています' };
 	}
 
 	const revokedAt = new Date().toISOString();

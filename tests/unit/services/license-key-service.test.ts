@@ -728,6 +728,24 @@ describe('validateLicenseKey', () => {
 		}
 	});
 
+	it('#2490 Phase 2 Sub-B1: ステータスが migrated のキーは invalid (再発行 reject) を返す', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'migrated',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await validateLicenseKey('GQ-ABCD-EFGH-JKLM');
+
+		expect(result.valid).toBe(false);
+		if (!result.valid) {
+			expect(result.reason).toBe('このライセンスキーは再発行のため無効化されています');
+		}
+	});
+
 	it('ステータスが active のキーは valid を返し、レコードを含む', async () => {
 		const record: LicenseRecord = {
 			licenseKey: 'GQ-ABCD-EFGH-JKLM',
@@ -1033,6 +1051,26 @@ describe('consumeLicenseKey', () => {
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(result.reason).toBe('このライセンスキーは無効化されています');
+		}
+		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
+		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
+	});
+
+	it('#2490 Phase 2 Sub-B1: ステータスが migrated のキーは {ok:false} を返し何も更新しない', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-ABCD-EFGH-JKLM',
+			tenantId: 'tenant-issuer',
+			plan: 'monthly',
+			status: 'migrated',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await consumeLicenseKey('GQ-ABCD-EFGH-JKLM', 'tenant-issuer');
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toBe('このライセンスキーは再発行のため無効化されています');
 		}
 		expect(mockUpdateTenantStripe).not.toHaveBeenCalled();
 		expect(mockUpdateLicenseKeyStatus).not.toHaveBeenCalled();
@@ -1535,6 +1573,29 @@ describe('revokeLicenseKey (#797)', () => {
 		expect(result.ok).toBe(false);
 		if (!result.ok) {
 			expect(result.reason).toContain('使用');
+		}
+		expect(mockRevokeLicenseKey).not.toHaveBeenCalled();
+	});
+
+	it('#2490 Phase 2 Sub-B1: migrated 状態の key は revoke 試行で {ok:false} を返す', async () => {
+		const record: LicenseRecord = {
+			licenseKey: 'GQ-2334-2334-2334',
+			tenantId: 'tenant-1',
+			plan: 'monthly',
+			status: 'migrated',
+			createdAt: '2026-01-01T00:00:00Z',
+		};
+		mockFindLicenseKey.mockResolvedValue(record);
+
+		const result = await revokeLicenseKey({
+			licenseKey: 'GQ-2334-2334-2334',
+			reason: 'ops-manual',
+			revokedBy: 'ops:admin-1',
+		});
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toBe('このライセンスキーは再発行のため既に無効化されています');
 		}
 		expect(mockRevokeLicenseKey).not.toHaveBeenCalled();
 	});
