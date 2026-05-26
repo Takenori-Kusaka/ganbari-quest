@@ -751,66 +751,11 @@ export interface UpdateStampCardStatusInput {
 // Research 2 段階で ADR-0012 / ADR-0013 二重違反として完全撤去。
 
 // ============================================================
-// Sibling Challenge
+// Sibling Challenge — #2458 (Path B sibling drop) で物理 drop 済 (2026-05-26)
 // ============================================================
-
-export interface SiblingChallenge {
-	id: number;
-	title: string;
-	description: string | null;
-	challengeType: string;
-	periodType: string;
-	startDate: string;
-	endDate: string;
-	targetConfig: string;
-	rewardConfig: string;
-	status: string;
-	isActive: number;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface SiblingChallengeProgress {
-	id: number;
-	challengeId: number;
-	childId: number;
-	currentValue: number;
-	targetValue: number;
-	completed: number;
-	completedAt: string | null;
-	rewardClaimed: number;
-	rewardClaimedAt: string | null;
-	progressJson: string | null;
-	updatedAt: string;
-}
-
-export interface InsertSiblingChallengeInput {
-	title: string;
-	description?: string | null;
-	challengeType?: string;
-	periodType?: string;
-	startDate: string;
-	endDate: string;
-	targetConfig: string;
-	rewardConfig: string;
-}
-
-export interface UpdateSiblingChallengeInput {
-	title?: string;
-	description?: string | null;
-	challengeType?: string;
-	startDate?: string;
-	endDate?: string;
-	targetConfig?: string;
-	rewardConfig?: string;
-	status?: string;
-	isActive?: number;
-}
-
-export interface SiblingChallengeWithProgress extends SiblingChallenge {
-	progress: SiblingChallengeProgress[];
-	allCompleted: boolean;
-}
+// 旧 SiblingChallenge / SiblingChallengeProgress / InsertSiblingChallengeInput /
+// UpdateSiblingChallengeInput / SiblingChallengeWithProgress 型は撤去済。
+// per-child ChildChallenge 型へ完全移行 (ADR-0055 / User §6)。
 
 // ============================================================
 // ChildChallenge — per-child instance of a challenge (#2362 PR-7、ADR-0055、User §6)

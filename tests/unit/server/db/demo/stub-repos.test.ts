@@ -19,7 +19,7 @@ import * as pushSubscriptionRepo from '../../../../../src/lib/server/db/demo/pus
 import * as reportDailySummaryRepo from '../../../../../src/lib/server/db/demo/report-daily-summary-repo';
 import * as rewardRedemptionRepo from '../../../../../src/lib/server/db/demo/reward-redemption-repo';
 // #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
-import * as siblingChallengeRepo from '../../../../../src/lib/server/db/demo/sibling-challenge-repo';
+// #2458 (Path B sibling drop): sibling-challenge-repo 削除済 (2026-05-26)、child-challenge-repo へ移行
 import * as siblingCheerRepo from '../../../../../src/lib/server/db/demo/sibling-cheer-repo';
 import * as specialRewardRepo from '../../../../../src/lib/server/db/demo/special-reward-repo';
 import * as storageRepo from '../../../../../src/lib/server/db/demo/storage-repo';
@@ -202,17 +202,8 @@ describe('demo/reward-redemption-repo', () => {
 
 // #2295 (EPIC #2294 ①): demo/season-event-repo describe 削除済 (2026-05-19) — repo 自体撤去
 
-describe('demo/sibling-challenge-repo', () => {
-	// #2097 Phase B-5b: fixture を返すので空ではない
-	it('findAllChallenges は fixture 件数を返す', async () => {
-		const challenges = await siblingChallengeRepo.findAllChallenges('demo');
-		expect(challenges.length).toBeGreaterThan(0);
-	});
-	it('countTodayCheersFrom は 0 (write 系は stub)', async () => {
-		// findActiveChallenges は date 範囲フィルタを行うため、範囲外は空が正常
-		expect(await siblingChallengeRepo.findActiveChallenges('2099-01-01', 'demo')).toEqual([]);
-	});
-});
+// #2458 (Path B sibling drop): demo/sibling-challenge-repo describe 削除済 (2026-05-26)、
+// repo / table 物理 drop 済。per-child child-challenge-repo に移行 (ADR-0055 / User §6)。
 
 describe('demo/sibling-cheer-repo', () => {
 	// #2097 Phase B-5b: 未表示 cheer fixture が含まれるため findUnshownCheers は件数を返す

@@ -30,7 +30,7 @@ import * as demoReportDailySummaryRepo from './demo/report-daily-summary-repo';
 import * as demoRewardRedemptionRepo from './demo/reward-redemption-repo';
 // #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 import * as demoSettingsRepo from './demo/settings-repo';
-import * as demoSiblingChallengeRepo from './demo/sibling-challenge-repo';
+// #2458 (Path B sibling drop): demoSiblingChallengeRepo 削除済 (2026-05-26)、child-challenge-repo へ完全移行
 import * as demoSiblingCheerRepo from './demo/sibling-cheer-repo';
 import * as demoSpecialRewardRepo from './demo/special-reward-repo';
 import * as demoStampCardRepo from './demo/stamp-card-repo';
@@ -66,7 +66,7 @@ import * as dynamoReportDailySummaryRepo from './dynamodb/report-daily-summary-r
 import * as dynamoRewardRedemptionRepo from './dynamodb/reward-redemption-repo';
 // #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 import * as dynamoSettingsRepo from './dynamodb/settings-repo';
-import * as dynamoSiblingChallengeRepo from './dynamodb/sibling-challenge-repo';
+// #2458 (Path B sibling drop): dynamoSiblingChallengeRepo 削除済 (2026-05-26)、child-challenge-repo へ完全移行
 import * as dynamoSiblingCheerRepo from './dynamodb/sibling-cheer-repo';
 import * as dynamoSpecialRewardRepo from './dynamodb/special-reward-repo';
 import * as dynamoStampCardRepo from './dynamodb/stamp-card-repo';
@@ -102,7 +102,7 @@ import type { IReportDailySummaryRepo } from './interfaces/report-daily-summary-
 import type { IRewardRedemptionRepo } from './interfaces/reward-redemption-repo.interface';
 // #2295 (EPIC #2294 ①): ISeasonEventRepo / ITenantEventRepo 削除済 (2026-05-19)
 import type { ISettingsRepo } from './interfaces/settings-repo.interface';
-import type { ISiblingChallengeRepo } from './interfaces/sibling-challenge-repo.interface';
+// #2458 (Path B sibling drop): ISiblingChallengeRepo 削除済 (2026-05-26)、IChildChallengeRepo に統合
 import type { ISiblingCheerRepo } from './interfaces/sibling-cheer-repo.interface';
 import type { ISpecialRewardRepo } from './interfaces/special-reward-repo.interface';
 import type { IStampCardRepo } from './interfaces/stamp-card-repo.interface';
@@ -138,7 +138,7 @@ import * as sqliteReportDailySummaryRepo from './sqlite/report-daily-summary-rep
 import * as sqliteRewardRedemptionRepo from './sqlite/reward-redemption-repo';
 // #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 import * as sqliteSettingsRepo from './sqlite/settings-repo';
-import * as sqliteSiblingChallengeRepo from './sqlite/sibling-challenge-repo';
+// #2458 (Path B sibling drop): sqliteSiblingChallengeRepo 削除済 (2026-05-26)、child-challenge-repo へ完全移行
 import * as sqliteSiblingCheerRepo from './sqlite/sibling-cheer-repo';
 import * as sqliteSpecialRewardRepo from './sqlite/special-reward-repo';
 import * as sqliteStampCardRepo from './sqlite/stamp-card-repo';
@@ -165,8 +165,8 @@ export interface Repositories {
 	childActivity: IChildActivityRepo;
 	/**
 	 * #2362 PR-7 (ADR-0055、User §6): per-child challenge instance repo.
-	 * 旧 `siblingChallenge` (family-wide + progress 別 table) と並存。
-	 * cleanup は別 PR (#2458)。
+	 * 旧 `siblingChallenge` (family-wide + progress 別 table) は #2458 (Path B sibling drop) で
+	 * 物理 drop 済 (2026-05-26)。本 repo が単一の challenge 経路。
 	 */
 	childChallenge: IChildChallengeRepo;
 	checklist: IChecklistRepo;
@@ -183,7 +183,7 @@ export interface Repositories {
 	pushSubscription: IPushSubscriptionRepo;
 	reportDailySummary: IReportDailySummaryRepo;
 	// #2295 (EPIC #2294 ①): seasonEvent / tenantEvent 削除済 (2026-05-19)
-	siblingChallenge: ISiblingChallengeRepo;
+	// #2458 (Path B sibling drop): siblingChallenge 削除済 (2026-05-26)、childChallenge へ移行
 	siblingCheer: ISiblingCheerRepo;
 	settings: ISettingsRepo;
 	rewardRedemption: IRewardRedemptionRepo;
@@ -233,7 +233,7 @@ export function getRepos(): Repositories {
 			pushSubscription: demoPushSubscriptionRepo,
 			reportDailySummary: demoReportDailySummaryRepo,
 			// #2295: seasonEvent / tenantEvent 削除済
-			siblingChallenge: demoSiblingChallengeRepo,
+			// #2458 (Path B sibling drop): siblingChallenge 削除済 (2026-05-26)
 			siblingCheer: demoSiblingCheerRepo,
 			settings: demoSettingsRepo,
 			rewardRedemption: demoRewardRedemptionRepo,
@@ -275,7 +275,7 @@ export function getRepos(): Repositories {
 			pushSubscription: dynamoPushSubscriptionRepo,
 			reportDailySummary: dynamoReportDailySummaryRepo,
 			// #2295: seasonEvent / tenantEvent 削除済
-			siblingChallenge: dynamoSiblingChallengeRepo,
+			// #2458 (Path B sibling drop): siblingChallenge 削除済 (2026-05-26)
 			siblingCheer: dynamoSiblingCheerRepo,
 			settings: dynamoSettingsRepo,
 			rewardRedemption: dynamoRewardRedemptionRepo,
@@ -317,7 +317,7 @@ export function getRepos(): Repositories {
 		pushSubscription: sqlitePushSubscriptionRepo,
 		reportDailySummary: sqliteReportDailySummaryRepo,
 		// #2295: seasonEvent / tenantEvent 削除済
-		siblingChallenge: sqliteSiblingChallengeRepo,
+		// #2458 (Path B sibling drop): siblingChallenge 削除済 (2026-05-26)
 		siblingCheer: sqliteSiblingCheerRepo,
 		settings: sqliteSettingsRepo,
 		rewardRedemption: sqliteRewardRedemptionRepo,

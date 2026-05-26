@@ -269,13 +269,9 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] trialHistory 削除失敗: ${String(err)}`);
 	}
 
-	// Sibling challenges + progress
-	try {
-		await r.siblingChallenge.deleteByTenantId(tenantId);
-		deleted++;
-	} catch (err) {
-		logger.warn(`[tenant-cleanup] siblingChallenge 削除失敗: ${String(err)}`);
-	}
+	// #2458 (Path B sibling drop): siblingChallenge.deleteByTenantId call 削除済 (2026-05-26)、
+	// table 物理 drop 済のため tenant-cleanup 経路も撤去。per-child child_challenges は
+	// child cascade で削除される (child_id FK on delete cascade)。
 
 	// Sibling cheers
 	try {

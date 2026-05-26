@@ -4,7 +4,8 @@
 // 旧 `sibling-challenge-repo.ts` (family-wide + per-child progress 別 table) の後継。
 // `childId` 必須 + tenant isolation を強制し、cross-child access を構造的に防ぐ。
 //
-// 並存原則: 旧 sibling_challenges / sibling_challenge_progress は drop しない (#2458 cleanup PR)。
+// 旧 sibling_challenges / sibling_challenge_progress は #2458 (Path B sibling drop, 2026-05-26) で
+// 物理 drop 済。本 repo が単一の challenge 経路。
 
 import { and, eq, gte, inArray, lte } from 'drizzle-orm';
 import { db } from '../client';

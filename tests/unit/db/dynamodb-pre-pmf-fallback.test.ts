@@ -30,7 +30,7 @@ import * as messageRepo from '../../../src/lib/server/db/dynamodb/message-repo';
 import * as reportDailySummaryRepo from '../../../src/lib/server/db/dynamodb/report-daily-summary-repo';
 import * as rewardRedemptionRepo from '../../../src/lib/server/db/dynamodb/reward-redemption-repo';
 // #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
-import * as siblingChallengeRepo from '../../../src/lib/server/db/dynamodb/sibling-challenge-repo';
+// #2458 (Path B sibling drop): sibling-challenge-repo 削除済 (2026-05-26)、child-challenge-repo へ移行
 import * as siblingCheerRepo from '../../../src/lib/server/db/dynamodb/sibling-cheer-repo';
 import * as stampCardRepo from '../../../src/lib/server/db/dynamodb/stamp-card-repo';
 import * as viewerTokenRepo from '../../../src/lib/server/db/dynamodb/viewer-token-repo';
@@ -179,41 +179,8 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('sibling-challenge-repo', () => {
-		it('全 method が throw しない', async () => {
-			await expect(siblingChallengeRepo.findAllChallenges(TENANT)).resolves.toEqual([]);
-			await expect(siblingChallengeRepo.findActiveChallenges(TODAY, TENANT)).resolves.toEqual([]);
-			await expect(siblingChallengeRepo.findChallengeById(1, TENANT)).resolves.toBeUndefined();
-			await expect(
-				siblingChallengeRepo.insertChallenge(
-					{
-						title: 'X',
-						startDate: TODAY,
-						endDate: TODAY,
-						targetConfig: '{}',
-						rewardConfig: '{}',
-					},
-					TENANT,
-				),
-			).resolves.toBeTruthy();
-			await expect(
-				siblingChallengeRepo.updateChallenge(1, { title: 'Y' }, TENANT),
-			).resolves.toBeUndefined();
-			await expect(siblingChallengeRepo.deleteChallenge(1, TENANT)).resolves.toBeUndefined();
-			await expect(siblingChallengeRepo.findProgressByChallenge(1, TENANT)).resolves.toEqual([]);
-			await expect(siblingChallengeRepo.findProgressByChild(1, TENANT)).resolves.toEqual([]);
-			await expect(siblingChallengeRepo.findProgress(1, 1, TENANT)).resolves.toBeUndefined();
-			await expect(
-				siblingChallengeRepo.upsertProgress(1, 1, 0, 5, TENANT),
-			).resolves.toBeUndefined();
-			await expect(siblingChallengeRepo.markCompleted(1, 1, TENANT)).resolves.toBeUndefined();
-			await expect(siblingChallengeRepo.claimReward(1, 1, TENANT)).resolves.toBeUndefined();
-			await expect(
-				siblingChallengeRepo.enrollChildren(1, [{ childId: 1, targetValue: 5 }], TENANT),
-			).resolves.toBeUndefined();
-			await expect(siblingChallengeRepo.deleteByTenantId(TENANT)).resolves.toBeUndefined();
-		});
-	});
+	// #2458 (Path B sibling drop): sibling-challenge-repo describe 削除済 (2026-05-26)、
+	// repo / table 物理 drop 済。per-child child-challenge-repo に移行 (ADR-0055 / User §6)。
 
 	describe('sibling-cheer-repo', () => {
 		it('全 method が throw しない', async () => {
@@ -282,9 +249,10 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('regression guard: 全 10 repo の Promise.all で reject されない', () => {
-		it('SSR で典型的な 10 repo 並列呼び出しが全 fulfill する', async () => {
+	describe('regression guard: 全 9 repo の Promise.all で reject されない', () => {
+		it('SSR で典型的な 9 repo 並列呼び出しが全 fulfill する', async () => {
 			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
+			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
 			// 本番 Lambda /preschool/home SSR の代表的経路を模擬
 			const results = await Promise.allSettled([
 				autoChallengeRepo.findActiveByChild(1, TENANT),
@@ -293,7 +261,6 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 				messageRepo.findUnshownMessage(1, TENANT),
 				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),
 				rewardRedemptionRepo.findUnshownResultByChild(1, TENANT),
-				siblingChallengeRepo.findActiveChallenges(TODAY, TENANT),
 				siblingCheerRepo.findUnshownCheers(1, TENANT),
 				stampCardRepo.findCardByChildAndWeek(1, '2026-05-12', TENANT),
 				viewerTokenRepo.findByTenant(TENANT),
