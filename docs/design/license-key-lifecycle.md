@@ -59,14 +59,20 @@ GQ-XXXX-XXXX-XXXX-YYYYY
 - **ペイロード**: `randomBytes(12)` を `KEY_CHARS[b % 32]` で変換
 - **署名**: `HMAC-SHA256(payload, AWS_LICENSE_SECRET)` の先頭 5 バイトを `KEY_CHARS` で変換
 
-### 2.2 LEGACY vs SIGNED
+### 2.2 LEGACY vs SIGNED (廃止予告)
 
 | 形式 | 正規表現 | 説明 | 廃止時期 |
 |------|---------|------|---------|
-| LEGACY | `^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$` | HMAC 署名なし (旧実装) | **#2398 計画策定済、Phase 3 で物理削除 (期限: 2026-12-31)** |
+| LEGACY | `^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$` | HMAC 署名なし (旧実装) | **廃止予告: production 新規発行は Phase 2 (#2404、2026-Q3) で物理 throw、validate 経路は Phase 3 (#2405、期限: 2026-12-31) で一律 reject + code 物理削除** |
 | SIGNED | `^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}$` | HMAC-SHA256 付き (現行) | — |
 
-> #806 で `AWS_LICENSE_SECRET` は production 必須化済み、dev 環境では引き続き optional (`isLegacyFormatAllowed()` で dev/test は常に受入)。#2398 で **Phase 1 (warning + ops 集計) / Phase 2 (新規 legacy 発行禁止 + migration 案内) / Phase 3 (verify reject + legacy code 物理削除)** の 3 phase 移行計画を策定済。詳細: [docs/operations/license-hmac-migration-plan.md](../operations/license-hmac-migration-plan.md)。
+#### 廃止スケジュール (#2398 3 phase 計画)
+
+- **Phase 1 (完了、2026-Q2)** — warning log + Discord alert (#2403) + ops 集計 endpoint `/ops/license/legacy-count` (#2484)
+- **Phase 2 (進行中、2026-Q3 末)** — 新規 legacy 発行を production で物理 throw (#2404 Sub-A 適用済) + 既存 legacy user に migration 案内 email + `LICENSE_KEY_STATUS.MIGRATED` 遷移 (#2404 Sub-B、別 Issue で起票)
+- **Phase 3 (2026-12-31 期限、#2405)** — validate 経路で legacy 一律 reject + `isLegacyFormatAllowed` / `LEGACY_FORMAT` / `ALLOW_LEGACY_LICENSE_KEYS` env を物理削除
+
+> #806 で `AWS_LICENSE_SECRET` は production 必須化済み、dev 環境では引き続き optional (`isLegacyFormatAllowed()` で dev/test は常に受入)。#2404 Phase 2.1 で `generateLicenseKey()` の secret 未設定 fallback を production で物理 throw 化、新規 legacy 流入を停止。詳細: [docs/operations/license-hmac-migration-plan.md](../operations/license-hmac-migration-plan.md)。
 
 ### 2.3 実装リファレンス
 

@@ -140,6 +140,18 @@ export function generateLicenseKey(): string {
 		return `${payload}-${checksum}`;
 	}
 
+	// #2404 Phase 2.1: production で secret 未設定下の legacy 発行を物理的に止める。
+	// production では assertLicenseKeyConfigured() で起動時 throw 済みのため secret は必ず設定されているはずだが、
+	// 実装層でも legacy fallback を fail-closed に強化し、Phase 3 (legacy code 物理削除) への構造的前進を確保する。
+	// dev / test では legacy 発行を継続 (既存テスト互換 + ローカル開発フロー維持)。
+	if (isProduction()) {
+		throw new Error(
+			'[LICENSE] generateLicenseKey: AWS_LICENSE_SECRET is required in production. ' +
+				'Legacy (HMAC 未署名) key 生成は HMAC 必須化 Phase 2 で物理的に禁止されています。' +
+				'docs/operations/license-hmac-migration-plan.md §4 Phase 2 / #2404 参照。',
+		);
+	}
+
 	return payload;
 }
 
