@@ -57,6 +57,22 @@ conflict 時は判定 skip + warning 通知（PR 側で main rebase 必要）。
 
 **ADR 一覧の SSOT**: [`docs/decisions/README.md`](decisions/README.md)（インベントリ + supersede 関係）。本ファイルでは個別の ADR 番号は列挙しない。
 
+### ADR 月 1 棚卸 (定期 retrospective)
+
+ADR の active 件数 / volume / stale-context / supersede chain 等は、自然に増殖 + 前提崩れが累積するため、**月 1 回の定期棚卸** を運用する。
+
+- **頻度**: 毎月最終週 (月初に reminder Issue を起票、月末までに棚卸 PR で消化)
+- **対象**: docs/decisions/ 全 active + archive ペア
+- **チェック項目**:
+  - active 件数 (TOP 10 ルール準拠か、超過数は?)
+  - 各 ADR の volume (≤ 150 行 / ≤ 7 セクション、`docs/decisions/README.md` §ボリューム上限ルール)
+  - 各 ADR の context 前提が現状と乖離していないか (例:「○○ 未導入」記載が実は導入済等)
+  - supersede chain 整合性 (deprecated/superseded が archive 移動済か)
+  - README.md 表 vs 実 file の照合 (新規追加 ADR が表に追補されているか)
+- **アウトプット**: 棚卸 report を `tmp/adr-audit-YYYY-MM-DD.md` に出力、是正必要事項を別 Issue で起票
+- **CI gate**: `scripts/check-adr-*.mjs` で機械化可能項目は自動検出 (Phase 4 で実装)
+- **次回予定**: 2026-06 最終週 (本ルール初回適用)
+
 ## 設計書 3 部構成化原則 (#1329)
 
 新規・改訂設計書は §1 設計背景 / §2 設計原則 / §3 仕様以降 の 3 部構成必須。背景には「この設計がなかった場合に何が困るか」を記述。`docs/design/_template.md` を骨格に使用。既存設計書も改訂時に §1-§2 を追加（後回し禁止）。
