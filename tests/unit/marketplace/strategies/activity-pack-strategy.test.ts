@@ -10,18 +10,35 @@
  *   - apply() の dryRun=true は preview と等価動作
  *   - tenant 必須 (ctx.tenantId が下流に伝播)
  *   - presetId / applyMustDefault が下流に伝播 (#1758 / #1709-D)
+ *
+ * #2458-A1 (2026-05-26): activity-import-service の facade rewrite に伴い、
+ *   write は `repos.childActivity.insertActivitiesBulk` 経由に移行。
+ *   旧 `insertActivity` mock は呼ばれなくなったため、本 spec も bulk path mock に同期。
+ *   childIds 未指定時は `findAllChildren` で tenant 最初の child に fallback bind。
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// ---------- Top-level mocks (旧 service 経由) ----------
+// ---------- Top-level mocks (#2458-A1: facade rewrite で bulk path に同期) ----------
 
 const mockFindActivities = vi.fn();
-const mockInsertActivity = vi.fn();
+const mockFindAllChildren = vi.fn();
+const mockInsertActivitiesBulk = vi.fn();
 
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
-	insertActivity: (...args: unknown[]) => mockInsertActivity(...args),
+}));
+
+vi.mock('$lib/server/db/child-repo', () => ({
+	findAllChildren: (...args: unknown[]) => mockFindAllChildren(...args),
+}));
+
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		childActivity: {
+			insertActivitiesBulk: (...args: unknown[]) => mockInsertActivitiesBulk(...args),
+		},
+	}),
 }));
 
 // checklist Strategy も $lib/marketplace eager-load 経由で同時 register されるため
@@ -62,7 +79,10 @@ function makeActivity(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindActivities.mockResolvedValue([]);
-	mockInsertActivity.mockResolvedValue({ id: 1 });
+	// #2458-A1: fallback bind helper — tenant 最初の child を返す。
+	// childIds 未指定 ctx の test ではこの child に per-child instance が bulk insert される。
+	mockFindAllChildren.mockResolvedValue([{ id: 100 }]);
+	mockInsertActivitiesBulk.mockResolvedValue(undefined);
 });
 
 // =====================================================
@@ -136,10 +156,12 @@ describe('activityPackStrategy.preview', () => {
 		expect(preview.duplicateNames).toEqual(['A']);
 	});
 
-	it('preview() は insertActivity を呼ばない (DB write 禁止)', async () => {
+	it('preview() は insertActivitiesBulk を呼ばない (DB write 禁止)', async () => {
+		// #2458-A1: facade rewrite で per-child bulk path 経由に変更されたが、
+		// preview の不可侵性 (DB write 禁止) は同じ。
 		const payload = { activities: [makeActivity({ name: 'X' })] };
 		await activityPackStrategy.preview(payload, { tenantId: TENANT });
-		expect(mockInsertActivity).not.toHaveBeenCalled();
+		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 	});
 
 	it('tenantId が findActivities に渡される', async () => {
@@ -177,7 +199,13 @@ describe('activityPackStrategy.apply', () => {
 		expect(result.imported).toBe(2);
 		expect(result.skipped).toBe(0);
 		expect(result.errors).toEqual([]);
-		expect(mockInsertActivity).toHaveBeenCalledTimes(2);
+		// #2458-A1: per-child bulk path 経由 — childIds 未指定時は fallback で
+		// tenant 最初の child (mockFindAllChildren 戻り値の id=100) に bind され、
+		// 1 child × 2 activities = 1 bulk call (inputs.length=2)。
+		expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
+		const [inputs, tenant] = mockInsertActivitiesBulk.mock.calls[0] as [unknown[], string];
+		expect(inputs).toHaveLength(2);
+		expect(tenant).toBe(TENANT);
 	});
 
 	it('重複ありなら skipped=重複件数', async () => {
@@ -191,14 +219,18 @@ describe('activityPackStrategy.apply', () => {
 		const result = await activityPackStrategy.apply(payload, { tenantId: TENANT });
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(1);
-		expect(mockInsertActivity).toHaveBeenCalledTimes(1);
+		// #2458-A1: 1 new activity → 1 bulk call with 1 input
+		expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
+		const [inputs] = mockInsertActivitiesBulk.mock.calls[0] as [unknown[]];
+		expect(inputs).toHaveLength(1);
 	});
 
-	it('ctx.presetId が下流 (insertActivity) に sourcePresetId として伝播 (#1254 G1)', async () => {
+	it('ctx.presetId が下流 (insertActivitiesBulk) に sourcePresetId として伝播 (#1254 G1)', async () => {
 		const payload = { activities: [makeActivity({ name: 'X' })] };
 		await activityPackStrategy.apply(payload, { tenantId: TENANT, presetId: 'pack-1' });
-		expect(mockInsertActivity).toHaveBeenCalledWith(
-			expect.objectContaining({ sourcePresetId: 'pack-1' }),
+		// #2458-A1: per-child input array 経由で sourcePresetId が伝播
+		expect(mockInsertActivitiesBulk).toHaveBeenCalledWith(
+			expect.arrayContaining([expect.objectContaining({ sourcePresetId: 'pack-1' })]),
 			TENANT,
 		);
 	});
@@ -217,8 +249,8 @@ describe('activityPackStrategy.apply', () => {
 			tenantId: TENANT,
 			applyMustDefault: true,
 		});
-		expect(mockInsertActivity).toHaveBeenCalledWith(
-			expect.objectContaining({ priority: 'must' }),
+		expect(mockInsertActivitiesBulk).toHaveBeenCalledWith(
+			expect.arrayContaining([expect.objectContaining({ priority: 'must' })]),
 			TENANT,
 		);
 	});
@@ -237,8 +269,8 @@ describe('activityPackStrategy.apply', () => {
 			tenantId: TENANT,
 			applyMustDefault: false,
 		});
-		expect(mockInsertActivity).toHaveBeenCalledWith(
-			expect.objectContaining({ priority: 'optional' }),
+		expect(mockInsertActivitiesBulk).toHaveBeenCalledWith(
+			expect.arrayContaining([expect.objectContaining({ priority: 'optional' })]),
 			TENANT,
 		);
 	});
@@ -257,13 +289,14 @@ describe('activityPackStrategy.apply', () => {
 		});
 		expect(result.imported).toBe(0);
 		expect(result.skipped).toBe(1);
-		expect(mockInsertActivity).not.toHaveBeenCalled();
+		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 	});
 
-	it('insertActivity が throw した場合 errors に記録 + 処理継続', async () => {
-		mockInsertActivity
-			.mockRejectedValueOnce(new Error('DB error'))
-			.mockResolvedValueOnce({ id: 2 });
+	it('insertActivitiesBulk が throw した場合 errors に記録', async () => {
+		// #2458-A1: per-child bulk path では child 単位の partial failure を errors に記録。
+		// 旧 spec の per-activity rejection mock は bulk path で意味を持たないため、
+		// bulk reject で 1 件 errors が増えるパターンに置換。
+		mockInsertActivitiesBulk.mockRejectedValueOnce(new Error('DB error'));
 		const payload = {
 			activities: [
 				makeActivity({ name: 'failing' }),
@@ -271,9 +304,10 @@ describe('activityPackStrategy.apply', () => {
 			],
 		};
 		const result = await activityPackStrategy.apply(payload, { tenantId: TENANT });
-		expect(result.imported).toBe(1);
+		// importOneActivity 自体は成功するため imported カウンタは 2、bulk write 失敗で errors 1 件追加
+		expect(result.imported).toBe(2);
 		expect(result.errors).toHaveLength(1);
-		expect(result.errors[0]).toContain('failing');
+		expect(result.errors[0]).toContain('per-child instance 作成失敗');
 	});
 });
 
