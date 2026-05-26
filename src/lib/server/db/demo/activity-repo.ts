@@ -1,5 +1,28 @@
 // Demo IActivityRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
+//
+// #2458-A2 (2026-05-26): 「旧 activities table への write 0 件」3 backend 達成の
+// demo backend 側立場の明示化。本 file の全 write method (insertActivity /
+// updateActivity / setActivityVisibility / deleteActivity / archiveActivities /
+// restoreArchivedActivities / insertActivityLog / insertPointLedger /
+// markActivityLogCancelled / deleteDailyMissionsByActivity /
+// deleteActivityLogsBeforeDate) は元から no-op stub または synthetic 戻り値
+// (id=0) を返すのみで、`DEMO_ACTIVITIES` / `DEMO_MARKETPLACE_ACTIVITIES` /
+// `DEMO_ACTIVITY_LOGS` を mutate しない。
+//
+// 結果: demo Lambda 環境 (`AUTH_MODE=anonymous + DATA_SOURCE=demo`、ADR-0048)
+// で「旧 activities table への write」は物理的に発生不可能。read 経路は
+// `ALL_DEMO_ACTIVITIES` (hand-curated DEMO_ACTIVITIES + marketplace の merge) を
+// primary source として保持し、marketplace integration テスト (#2097 Phase B-7) を
+// 退行させない。per-child fixture (`DEMO_CHILD_ACTIVITIES`) は別 file
+// (demo/child-activity-repo.ts) で Phase 6 から既に参照されており、必要な per-child
+// scope queries は本 file ではなく child-activity-repo 経由で取得される設計。
+//
+// 関連:
+//   - PR #2487 (#2458-A1 sqlite facade rewrite)
+//   - ADR-0055 §3.1 per-child primary data model
+//   - ADR-0048 demo Lambda stateless 原則
+//   - docs/design/data-model-resource-scope.md §4.1
 
 import {
 	DEMO_ACTIVITIES,
