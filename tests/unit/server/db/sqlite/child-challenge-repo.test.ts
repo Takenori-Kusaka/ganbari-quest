@@ -26,9 +26,11 @@ vi.mock('$lib/server/db/client', () => ({
 }));
 
 import {
+	claimReward,
 	copyAcrossChildren,
 	deleteChallenge,
 	findActiveByChildId,
+	findActiveOrUnclaimedByChildId,
 	findAllByTenant,
 	findByChildId,
 	findById,
@@ -175,6 +177,47 @@ describe('sqlite/child-challenge-repo', () => {
 		expect(copied[0]?.sourceTemplateId).toBe('tmpl'); // sourceTemplateId は維持
 		expect(copied[0]?.currentValue).toBe(0); // 進捗はリセット
 		expect(copied[0]?.completed).toBe(0);
+	});
+
+	// #2488 (must-1 fix): findActiveOrUnclaimedByChildId は status='completed' AND rewardClaimed=0 も返す
+	it('findActiveOrUnclaimedByChildId は active + 完成済かつ未請求の instance を返す', async () => {
+		// 3 種類の instance を投入: active / completed+unclaimed / completed+claimed
+		const activeOne = await insert(
+			buildInput({ childId: 1, startDate: '2026-05-20', endDate: '2026-05-30', title: 'active' }),
+			TENANT,
+		);
+		const unclaimedCompleted = await insert(
+			buildInput({
+				childId: 1,
+				startDate: '2026-05-20',
+				endDate: '2026-05-30',
+				title: 'unclaimed',
+			}),
+			TENANT,
+		);
+		await markCompleted(unclaimedCompleted.id, TENANT);
+
+		const claimedCompleted = await insert(
+			buildInput({
+				childId: 1,
+				startDate: '2026-05-20',
+				endDate: '2026-05-30',
+				title: 'claimed',
+			}),
+			TENANT,
+		);
+		await markCompleted(claimedCompleted.id, TENANT);
+		await claimReward(claimedCompleted.id, TENANT);
+
+		const result = await findActiveOrUnclaimedByChildId(1, '2026-05-25', TENANT);
+		const titles = result.map((r) => r.title).sort();
+		// active + unclaimed の 2 件のみ。claimed は除外
+		expect(titles).toEqual(['active', 'unclaimed']);
+		// 元の findActiveByChildId は active 1 件のみ返す (status=active filter)
+		const activeOnly = await findActiveByChildId(1, '2026-05-25', TENANT);
+		expect(activeOnly.length).toBe(1);
+		expect(activeOnly[0]?.title).toBe('active');
+		void activeOne; // ref
 	});
 
 	it('cross-child scope: childId が異なる instance は別 row', async () => {

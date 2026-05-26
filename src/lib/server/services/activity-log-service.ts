@@ -324,24 +324,35 @@ export async function recordActivity(
 		// 自動チャレンジ進捗失敗は記録フローを止めない
 	}
 
-	// きょうだいチャレンジ進捗チェック
+	// per-child チャレンジ進捗チェック (#2458-B: sibling-challenge-service → child-challenge-service)
+	// 戻り値型: sibling-challenge は `allSiblingsComplete` (group 全員完了) を返したが、
+	// per-child instance では自身の completed のみ判定し、group 全員完了は admin/challenges 側で集計する。
+	// 上流呼び出し (record action UI) では本配列の各要素を「自身が completed したか」のシグナルのみ使用。
 	let siblingChallengeResults: {
 		challengeId: number;
 		allSiblingsComplete: boolean;
 		challengeTitle: string;
 	}[] = [];
 	try {
-		const { checkChallengeProgress } = await import(
-			'$lib/server/services/sibling-challenge-service'
+		const { updateChildChallengeProgress } = await import(
+			'$lib/server/services/child-challenge-service'
 		);
-		siblingChallengeResults = await checkChallengeProgress(
+		const perChildResults = await updateChildChallengeProgress(
 			childId,
 			activityId,
 			activity.categoryId,
 			tenantId,
 		);
+		// shape adapter: ChallengeCompleted (per-child) → allSiblingsComplete 互換 (自身完了 = 1 件達成)
+		// 全兄弟完了演出は SiblingCelebration 側 (home/+page.svelte) で group 集計済の allCompleted を参照するため
+		// 本配列では自身 completed の boolean のみ意味を持つ。
+		siblingChallengeResults = perChildResults.map((r) => ({
+			challengeId: r.challengeId,
+			allSiblingsComplete: r.completed,
+			challengeTitle: r.challengeTitle,
+		}));
 	} catch {
-		// きょうだいチャレンジチェック失敗は記録フローを止めない
+		// per-child チャレンジチェック失敗は記録フローを止めない
 	}
 
 	// フォーカスモードおすすめ3件達成ボーナスチェック

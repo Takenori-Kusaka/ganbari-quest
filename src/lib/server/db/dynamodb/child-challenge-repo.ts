@@ -41,6 +41,16 @@ export async function findActiveByChildId(
 	return [];
 }
 
+/** #2488 (must-1 fix): Pre-PMF DynamoDB stub */
+export async function findActiveOrUnclaimedByChildId(
+	childId: number,
+	today: string,
+	tenantId: string,
+): Promise<ChildChallenge[]> {
+	warnRead('findActiveOrUnclaimedByChildId', { childId, today, tenantId });
+	return [];
+}
+
 export async function findAllByTenant(tenantId: string): Promise<ChildChallenge[]> {
 	warnRead('findAllByTenant', { tenantId });
 	return [];

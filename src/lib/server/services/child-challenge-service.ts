@@ -17,8 +17,16 @@ import { getRepos } from '$lib/server/db/factory';
 import type {
 	ChildChallenge,
 	ChildChallengeGroup,
+	ChildChallengeWithSiblings,
 	InsertChildChallengeInput,
 } from '$lib/server/db/types';
+
+/** group key 解決 (admin getChallengeGroupsForAdmin と同一規約、ADR-0055 §4.7 整合) */
+function resolveGroupKey(
+	c: Pick<ChildChallenge, 'sourceTemplateId' | 'title' | 'startDate' | 'endDate'>,
+): string {
+	return c.sourceTemplateId ?? `${c.title}::${c.startDate}::${c.endDate}`;
+}
 
 interface TargetConfig {
 	metric: 'count' | 'xp';
@@ -146,6 +154,70 @@ export async function getActiveChildChallenges(
 }
 
 /**
+ * #2458-B (caller migration): 子供画面 (home / history) 向け per-child instance 配列 +
+ * 兄弟連動情報の付与。
+ *
+ * 旧 `sibling-challenge-service.getActiveChallengesForChild` の後継。
+ *
+ * 自身の active instance を主軸に、同じ group key (sourceTemplateId or `title::start::end`) を
+ * 共有する兄弟 instance を `siblings` フィールドに格納。`ChallengeBanner` / `SiblingCelebration`
+ * の UX 互換性を維持する。
+ *
+ * #2488 (must-1 fix): `findActiveOrUnclaimedByChildId` 経由で「完成済だが未請求」instance も
+ * 含めるよう変更 (status='completed' AND rewardClaimed=0)。これにより `markCompleted` 直後に
+ * instance が active 一覧から消えて claim ボタンが render されない regression を防ぐ。
+ *
+ * #2488 (must-2 fix): `siblings[]` は **同一 startDate + endDate** (同一期間) の instance に
+ * 限定する。過去 expired instance や 別期間 (例: 先週分) の completed instance が
+ * `sourceTemplateId` 共有経由で leak し `allCompleted=true` 誤判定 (= celebration 誤発火) を
+ * 引き起こすため。
+ *
+ * IDOR / tenant 境界: `findActiveOrUnclaimedByChildId` / `findAllByTenant` ともに `tenantId`
+ * 必須化済。自身の childId 以外の child instance は同一 tenant 内のみ含まれる。
+ */
+export async function getActiveChildChallengesWithSiblings(
+	childId: number,
+	tenantId: string,
+): Promise<ChildChallengeWithSiblings[]> {
+	const repos = getRepos();
+	const today = todayDateJST();
+
+	// 自身の active + 未請求完成 instance (#2488 must-1)
+	const myActive = await repos.childChallenge.findActiveOrUnclaimedByChildId(
+		childId,
+		today,
+		tenantId,
+	);
+	if (myActive.length === 0) return [];
+
+	// tenant 全体 (同期間 + 同 group key の兄弟 instance を捕捉するため)
+	const allTenant = await repos.childChallenge.findAllByTenant(tenantId);
+
+	// group key → group 内全 instance の map (期間 filter は下で実施、#2488 must-2)
+	const groupMap = new Map<string, ChildChallenge[]>();
+	for (const c of allTenant) {
+		const key = resolveGroupKey(c);
+		const arr = groupMap.get(key) ?? [];
+		arr.push(c);
+		groupMap.set(key, arr);
+	}
+
+	return myActive.map((mine) => {
+		const key = resolveGroupKey(mine);
+		// #2488 must-2: siblings[] は同一 startDate + endDate (= 同一期間) の instance のみ
+		// 含める。`sourceTemplateId` 共有の preset 過去期間 instance が混入し allCompleted を
+		// 誤判定する regression を防ぐ。
+		const siblings = (groupMap.get(key) ?? [mine]).filter(
+			(s) => s.startDate === mine.startDate && s.endDate === mine.endDate,
+		);
+		// filter で自身が脱落しないよう (理論上ありえないが安全側) fallback
+		const finalSiblings = siblings.length > 0 ? siblings : [mine];
+		const allCompleted = finalSiblings.length > 0 && finalSiblings.every((s) => s.completed === 1);
+		return { ...mine, siblings: finalSiblings, allCompleted };
+	});
+}
+
+/**
  * 活動記録時の進捗更新フック。child の活動 1 件記録時に呼び出される。
  * 旧 sibling-challenge-service.checkChallengeProgress の per-child 後継。
  */
@@ -220,14 +292,19 @@ export async function deleteChildChallenge(id: number, tenantId: string): Promis
 /**
  * age-adjusted target を計算するヘルパー (全 child 分の childId → targetValue マップを構築)。
  * marketplace 取込 + admin 一括追加で使用。
+ *
+ * #2488 (must-3 fix): loop 内呼出時の N+1 query 解消のため、pre-fetched children 配列を
+ * 受け取る overload を追加。caller 側で `findAllChildren(tenantId)` を 1 回だけ実行し、
+ * 配列を渡すこと。配列省略時は従来通り内部で 1 回 fetch する。
  */
 export async function buildPerChildTargets(
 	baseTarget: number,
 	ageAdjustments: Record<string, number> | undefined,
 	childIds: readonly number[],
 	tenantId: string,
+	prefetchedChildren?: readonly { id: number; age: number }[],
 ): Promise<Record<number, number>> {
-	const allChildren = await findAllChildren(tenantId);
+	const allChildren = prefetchedChildren ?? (await findAllChildren(tenantId));
 	const result: Record<number, number> = {};
 	for (const childId of childIds) {
 		const child = allChildren.find((c) => c.id === childId);

@@ -174,7 +174,10 @@ C6 use case「配信先を全員 or 個別で選ぶ」は `checklist_template_as
 
 ### 4.6 challenge (#2362 PR-7 で per-child 化、User §6)
 
-**現状 (本 PR で実装)**: `child_challenges` per-child instance + 進捗 inline 化 (旧 `sibling_challenges` family-wide / 旧 `sibling_challenge_progress` per-child progress 別 table は並存、cleanup は #2458 PR)
+**現状**: `child_challenges` per-child instance + 進捗 inline 化。
+- **#2362 PR-7**: schema 追加 + admin/challenges 移行
+- **#2458-B (本 PR)**: 子供 home / history + setup challenges + challenge-set-import-service legacy path + activity-log dynamic import の caller migration 完遂、`sibling-challenge-service.ts` 撤去
+- **#2458-C (予定)**: 旧 `sibling_challenges` / `sibling_challenge_progress` 物理 drop + `sibling-challenge-repo` 3 実装 + `ISiblingChallengeRepo` interface 削除
 
 **実装スキーマ** (本 PR で実装済):
 

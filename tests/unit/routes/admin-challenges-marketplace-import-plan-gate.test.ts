@@ -26,11 +26,8 @@ const mockRequireTenantId = vi.fn();
 const mockResolveFullPlanTier = vi.fn();
 const mockDispatchImport = vi.fn();
 const mockLoadFromMarketplace = vi.fn();
-const mockGetAllChallengesWithProgress = vi.fn();
 const mockGetAllChildren = vi.fn();
 const mockGetFamilyStreak = vi.fn();
-const mockCreateSiblingChallenge = vi.fn();
-const mockDeleteSiblingChallenge = vi.fn();
 
 vi.mock('$lib/server/auth/factory', () => ({
 	requireTenantId: mockRequireTenantId,
@@ -55,10 +52,25 @@ vi.mock('$lib/marketplace/sources/marketplace-source', () => ({
 	loadFromMarketplace: mockLoadFromMarketplace,
 }));
 
-vi.mock('$lib/server/services/sibling-challenge-service', () => ({
-	createSiblingChallenge: mockCreateSiblingChallenge,
-	deleteSiblingChallenge: mockDeleteSiblingChallenge,
-	getAllChallengesWithProgress: mockGetAllChallengesWithProgress,
+// #2458-B: sibling-challenge-service 撤去済。admin/challenges は child-challenge-service 経由
+// (PR-7 で migrate 済)。本テストは family プランゲート (403) のみ検証するため child-challenge-service
+// のメソッド呼出には到達しない (403 で早期 return)。fail 路の保険として stub mock を置く。
+const mockGetChallengeGroupsForAdmin = vi.fn();
+const mockCreateChildChallenge = vi.fn();
+const mockCreateChildChallengesBulk = vi.fn();
+const mockDeleteChildChallenge = vi.fn();
+const mockBuildPerChildTargets = vi.fn();
+
+vi.mock('$lib/server/services/child-challenge-service', () => ({
+	getChallengeGroupsForAdmin: mockGetChallengeGroupsForAdmin,
+	createChildChallenge: mockCreateChildChallenge,
+	createChildChallengesBulk: mockCreateChildChallengesBulk,
+	deleteChildChallenge: mockDeleteChildChallenge,
+	buildPerChildTargets: mockBuildPerChildTargets,
+}));
+
+vi.mock('$lib/server/services/child-challenge-copy-service', () => ({
+	copyChildChallengesToSiblings: vi.fn(),
 }));
 
 vi.mock('$lib/server/services/child-service', () => ({

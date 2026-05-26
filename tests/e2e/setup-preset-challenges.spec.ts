@@ -7,8 +7,9 @@
 // 3. skip / autoAdd / addChallenges action がいずれも /setup/first-adventure に redirect する
 //
 // 認証: AUTH_MODE=local (global-setup の owner / parent / family 子供 seed に依存)
-// 取込結果 (sibling_challenges への INSERT) の機能 E2E は unit test
-// (tests/unit/data/preset-challenges.test.ts と tests/unit/services/sibling-challenge-service.test.ts) で網羅。
+// 取込結果 (child_challenges per-child instance への INSERT、#2458-B migration 後) の
+// 機能 E2E は unit test (tests/unit/data/preset-challenges.test.ts と
+// tests/unit/services/child-challenge-service.test.ts) で網羅。
 //
 // 補足: AUTH_MODE=local の hooks redirect 影響で setup フロー全 step 通し操作は再現が不安定なため、
 // 本 spec は (a) route の 200 アクセス可能性 と (b) 主要 UI 要素描画 にスコープを絞る。

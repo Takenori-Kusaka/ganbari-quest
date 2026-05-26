@@ -7,8 +7,9 @@ import type { MarketplaceItemType, RulePresetPayload } from '$lib/domain/marketp
 // `./types/challenge-set`) で Registry 登録される。
 // #2138 (MP-3) / #2368: rule-preset 4 ruleType 全対応の一括取込
 // 新 SSOT: marketplaceRegistry.get('rule-preset').strategy 経由 (Strategy 内部 sub-dispatcher)
-import { dispatchImport, marketplaceRegistry } from '$lib/marketplace';
-import { loadFromMarketplace } from '$lib/marketplace/sources/marketplace-source';
+// #2458-B: challenge-set / reward-set / checklist は admin 画面 ?import=<itemId> redirect モデルへ統一済
+// (CWE-598 整合)。dispatchImport / loadFromMarketplace は本 file では未使用。
+import { marketplaceRegistry } from '$lib/marketplace';
 import type { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
@@ -190,51 +191,21 @@ export const actions: Actions = {
 		}
 	},
 
-	// #2369 (EPIC #2362 P3 / EPIC #2294 ③ 案 B-γ wedge):
-	// challenge-set Strategy 経由の一括取込 action。
-	// 旧来 service 不存在の type 漏れ状態を新 abstraction 上で初回実装。
-	// childId は不要 (sibling_challenges は family scope、全子供を自動エンロール)。
-	importChallengeSet: async ({ params, request, locals }) => {
-		const tenantId = locals.context?.tenantId;
-		if (!tenantId) {
-			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
-			redirect(302, `/auth/login?next=/marketplace/challenge-set/${params.itemId}`);
-		}
-
+	// #2458-B: marketplace challenge-set action は child 情報を持たず、
+	// admin/challenges へ `?marketplace-import=<itemId>` で遷移するだけ。
+	// 取込実行 (per-child 配信) は admin/challenges 側の ChildSelectionDialog 経由で行う。
+	// (User §7.3 / marketplace-import-flow.md §2.1: CWE-598 整合 = childIds を URL/body に出さない)
+	importChallengeSet: async ({ params, locals }) => {
 		if (params.type !== 'challenge-set') {
 			return fail(400, { error: 'チャレンジ集ではありません' });
 		}
 
-		const item = getMarketplaceItem('challenge-set', params.itemId);
-		if (!item) {
-			return fail(404, { error: 'チャレンジ集が見つかりません' });
+		if (!locals.context) {
+			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
+			redirect(303, `/auth/login?redirect=/marketplace/challenge-set/${params.itemId}`);
 		}
 
-		// preserved: 取込前に formData を空読みして action 整合性を維持
-		await request.formData();
-
-		try {
-			const source = loadFromMarketplace('challenge-set', params.itemId);
-			const result = await dispatchImport({
-				typeCode: 'challenge-set',
-				rawPayload: source.payload,
-				displayName: source.displayName,
-				ctx: { tenantId, presetId: params.itemId },
-			});
-			return {
-				challengeSetImport: {
-					presetName: result.packName,
-					imported: result.imported,
-					skipped: result.skipped,
-					errors: result.errors,
-				},
-			};
-		} catch (e) {
-			logger.error('[marketplace/challenge-set] インポート失敗', {
-				error: e instanceof Error ? e.message : String(e),
-				context: { itemId: params.itemId },
-			});
-			return fail(500, { error: 'インポートに失敗しました' });
-		}
+		// presetId のみ持って親管理画面へ遷移 (childIds は URL/body どこにも露出させない)
+		redirect(303, `/admin/challenges?marketplace-import=${encodeURIComponent(params.itemId)}`);
 	},
 };

@@ -304,14 +304,19 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 旧 `sibling_challenges` (family-wide + 別 `sibling_challenge_progress` table、全 child を自動 enroll) は cleanup PR (#2458) で drop 予定。それまでは並存:
 
-- **schema**: 旧 `sibling_challenges` / `sibling_challenge_progress` table + 新 `child_challenges` table が並存。FK 切替は cleanup PR
-- **services**: 新 `child-challenge-service.ts` / `child-challenge-copy-service.ts` を SRP 分離。旧 `sibling-challenge-service.ts` は cleanup PR まで保持 (challenge-set-import-service が後方互換 path として呼ぶ)
-- **routes**: `/admin/challenges` は per-child instance + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte) + 一括追加 + cross-child copy。`/marketplace/[type]/[itemId]` challenge-set は admin redirect 動線 (CWE-598 排除、`?marketplace-import=<presetId>` のみ)
+- **schema**: 旧 `sibling_challenges` / `sibling_challenge_progress` table + 新 `child_challenges` table が並存。物理 drop は #2458-C
+- **services**: 新 `child-challenge-service.ts` / `child-challenge-copy-service.ts` で SRP 分離 + 全 caller migrate 完了 (**#2458-B で 4 caller + activity-log dynamic import + challenge-set-import-service legacy path 撤去 → `sibling-challenge-service.ts` 削除済**)。`sibling-challenge-repo.ts` facade は legacy table が残るため `#2458-C` まで保持
+- **routes**: `/admin/challenges` は per-child instance + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte) + 一括追加 + cross-child copy。`/marketplace/[type]/[itemId]` challenge-set は admin redirect 動線 (CWE-598 排除、`?marketplace-import=<presetId>` のみ、#2458-B で reward-set / checklist と同型化)
+- **子供画面 (#2458-B caller migration)**:
+  - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key (sourceTemplateId / `title::start::end`) 兄弟連動情報 (`siblings[]`) を取得
+  - `ChallengeBanner.svelte` / `SiblingCelebration.svelte` は `ChildChallengeWithSiblings` 型に統合 (自身の `currentValue` / `targetValue` / `rewardClaimed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定)
+  - `claimChallengeReward` action は `claimChildChallengeReward(challengeId, childId, tenantId)` を呼ぶ (per-child instance の `rewardClaimed` flip + 自分のみ tenant-scoped point ledger 加算)
+- **setup wizard (#2458-B)**: `/setup/challenges` は preset 選択 → `getAllChildren` で全 child 取得 → `buildPerChildTargets` で age-adjusted target 計算 → `createChildChallengesBulk` で全 child に同 spec instance を bulk insert (sourceTemplateId = `setup-preset:<presetId>` で admin 兄弟連動表示)
 - **demo**: `DEMO_CHILD_CHALLENGES` 4 件 fixture (3 件は `sourceTemplateId: 'challenge-100pt'` を共有して兄弟連動表示 demo、1 件は個別)
-- **兄弟連動 UI 工夫 (User §6)**: 同じ `sourceTemplateId` (または `title + startDate + endDate`) を共有する per-child instance を admin/challenges で group 表示。SiblingChallengeComparison は admin 画面でのみ使用し子供画面では非表示 (ADR-0012 Anti-engagement 整合)
-- **LP 整合性 (ADR-0013)**: LP / pricing / faq の「チャレンジ」訴求は per-child 体験ベース (「自分から目標を立てる」「ウィークリーチャレンジ」) のため per-child 化と既に整合済み。LP 文言修正不要 (本 PR で grep 確認済)
-- **family-only gate**: 既存の `tier !== 'family'` server-side gate は本 PR では維持 (LP / pricing 整合性は別 PR 判断、#2457 plan-limit cleanup と連携)
-- **Cleanup PR (#2458) で実施**: 旧 `sibling_challenges` / `sibling_challenge_progress` drop + `SiblingChallenge*` 型削除 + `ISiblingChallengeRepo` 削除 + 旧 service 呼出 残箇所の追従
+- **兄弟連動 UI 工夫 (User §6)**: 同じ `sourceTemplateId` (または `title + startDate + endDate`) を共有する per-child instance を admin/challenges + 子供 home / history で group 表示。SiblingChallengeComparison は admin 画面でのみ使用し、子供 home は `ChallengeBanner` 内に `siblings[]` 一覧表示 (ADR-0012 Anti-engagement 整合: 1 件 banner 内集約、連続演出なし)
+- **LP 整合性 (ADR-0013)**: LP / pricing / faq の「チャレンジ」訴求は per-child 体験ベース (「自分から目標を立てる」「ウィークリーチャレンジ」) のため per-child 化と既に整合済み。LP 文言修正不要
+- **family-only gate**: 既存の `tier !== 'family'` server-side gate は本 PR では維持
+- **Cleanup PR (#2458-C) で実施予定**: 旧 `sibling_challenges` / `sibling_challenge_progress` 物理 drop + `SiblingChallenge*` 型削除 + `ISiblingChallengeRepo` 削除 + sqlite/dynamodb/demo `sibling-challenge-repo` 3 実装削除 + factory 登録削除 + create-tables / test-db / global-setup の CREATE TABLE 削除 + repo unit test 削除
 
 ---
 
@@ -396,7 +401,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/marketplace/+page.svelte` | `typeKeys` 配列 (5 type) + grid-cols mobile 2 列 / SP 3 列 / desktop 5 列 | Svelte |
 | `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | `VALID_TYPES` 配列 | TypeScript |
 | `src/routes/marketplace/[type]/[itemId]/+page.svelte` | challenge-set 詳細表示 + 「使ってみる」CTA → `/admin/challenges?marketplace-import=<id>` 遷移 | Svelte |
-| `src/routes/(parent)/admin/challenges/+page.{svelte,server.ts}` | `marketplace-import` query 受取 → preview UI + `?/importChallengeSet` form action (一括 `createSiblingChallenge` ループ) | Svelte / TS |
+| `src/routes/(parent)/admin/challenges/+page.{svelte,server.ts}` | `marketplace-import` query 受取 → ChildSelectionDialog auto-open + `?/importMarketplaceChallengeSet` form action (per-child `createChildChallengesBulk` 配信、#2458-B で legacy `createSiblingChallenge` 撤去済) | Svelte / TS |
 | `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailIncludedChallenges` / `detailCtaImportChallengeSet*` | TypeScript |
 
 **同期メカニズム**: `tests/unit/domain/marketplace-items.test.ts` で type enum 完全性確認 + `tests/e2e/marketplace-challenge-set-import.spec.ts` で詳細 → admin 遷移 → 一括追加フロー検証。

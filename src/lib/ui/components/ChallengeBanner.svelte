@@ -2,16 +2,13 @@
 import { enhance } from '$app/forms';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 
-interface ChallengeProgress {
-	childId: number;
-	currentValue: number;
-	targetValue: number;
-	completed: number;
-	rewardClaimed: number;
-}
-
-interface ChallengeData {
+// #2458-B: ChallengeBanner を per-child instance + 兄弟連動情報 (`siblings[]`) ベースに refactor。
+// 旧 SiblingChallengeWithProgress (family-wide + per-child progress[] 配列) からの
+// 移行。自身の instance を主軸に表示し、`siblings[]` (同 group key の他 child instance) を
+// 進捗バー一覧で並べる。
+interface ChildChallengeInstance {
 	id: number;
+	childId: number;
 	title: string;
 	description: string | null;
 	challengeType: string;
@@ -19,8 +16,16 @@ interface ChallengeData {
 	startDate: string;
 	endDate: string;
 	status: string;
+	currentValue: number;
+	targetValue: number;
+	completed: number;
+	rewardClaimed: number;
+}
+
+interface ChallengeData extends ChildChallengeInstance {
 	allCompleted: boolean;
-	progress: ChallengeProgress[];
+	/** 同 group key の兄弟 instance (自身を含む) */
+	siblings: ChildChallengeInstance[];
 }
 
 interface Props {
@@ -29,7 +34,7 @@ interface Props {
 	siblings?: { id: number; nickname: string }[];
 }
 
-let { challenges, childId, siblings = [] }: Props = $props();
+let { challenges, childId, siblings: siblingNames = [] }: Props = $props();
 
 function remainingDays(endDate: string): number {
 	const end = new Date(`${endDate}T23:59:59`);
@@ -37,12 +42,8 @@ function remainingDays(endDate: string): number {
 	return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86400000));
 }
 
-function getMyProgress(challenge: ChallengeData): ChallengeProgress | null {
-	return challenge.progress.find((p) => p.childId === childId) ?? null;
-}
-
 function getSiblingName(id: number): string {
-	return siblings.find((s) => s.id === id)?.nickname ?? `#${id}`;
+	return siblingNames.find((s) => s.id === id)?.nickname ?? `#${id}`;
 }
 
 const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
@@ -51,8 +52,6 @@ const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
 {#if challenges.length > 0}
 	<div class="challenge-banners" data-testid="challenge-banners">
 		{#each challenges as challenge}
-			{@const myProgress = getMyProgress(challenge)}
-			{@const isCoop = challenge.challengeType === 'cooperative'}
 			<div class="challenge-banner" class:challenge-banner--complete={challenge.allCompleted}>
 				<span class="challenge-banner__icon">{typeIcon(challenge.challengeType)}</span>
 				<div class="challenge-banner__content">
@@ -66,27 +65,27 @@ const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
 						<span class="challenge-banner__desc">{challenge.description}</span>
 					{/if}
 
-					<!-- Progress bars for each sibling -->
-					{#if challenge.progress.length > 0}
+					<!-- Progress bars for each sibling instance (#2458-B: per-child instance group) -->
+					{#if challenge.siblings.length > 0}
 						<div class="challenge-banner__progress-list">
-							{#each challenge.progress as prog}
+							{#each challenge.siblings as sib (sib.id)}
 								<div class="challenge-banner__sibling-row">
 									<span
 										class="challenge-banner__sibling-name"
-										class:challenge-banner__sibling-name--me={prog.childId === childId}
+										class:challenge-banner__sibling-name--me={sib.childId === childId}
 									>
-										{prog.childId === childId ? UI_COMPONENTS_LABELS.challengeBannerMe : getSiblingName(prog.childId)}
+										{sib.childId === childId ? UI_COMPONENTS_LABELS.challengeBannerMe : getSiblingName(sib.childId)}
 									</span>
 									<div class="challenge-banner__progress-bar">
 										<div
 											class="challenge-banner__progress-fill"
-											class:challenge-banner__progress-fill--complete={prog.completed === 1}
-											style:width="{Math.min(100, Math.round((prog.currentValue / prog.targetValue) * 100))}%"
+											class:challenge-banner__progress-fill--complete={sib.completed === 1}
+											style:width="{Math.min(100, Math.round((sib.currentValue / sib.targetValue) * 100))}%"
 										></div>
 									</div>
 									<span class="challenge-banner__progress-text">
-										{prog.currentValue}/{prog.targetValue}
-										{#if prog.completed === 1}✅{/if}
+										{sib.currentValue}/{sib.targetValue}
+										{#if sib.completed === 1}✅{/if}
 									</span>
 								</div>
 							{/each}
@@ -95,14 +94,14 @@ const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
 				</div>
 
 				<div class="challenge-banner__meta">
-					{#if myProgress?.completed === 1 && myProgress.rewardClaimed === 0}
+					{#if challenge.completed === 1 && challenge.rewardClaimed === 0}
 						<form method="POST" action="?/claimChallengeReward" use:enhance>
 							<input type="hidden" name="challengeId" value={challenge.id} />
 							<button type="submit" class="challenge-banner__claim-btn">
 								{UI_COMPONENTS_LABELS.challengeBannerReceive}
 							</button>
 						</form>
-					{:else if myProgress?.rewardClaimed === 1}
+					{:else if challenge.rewardClaimed === 1}
 						<span class="challenge-banner__claimed">{UI_COMPONENTS_LABELS.challengeBannerReceived}</span>
 					{:else}
 						{#if remainingDays(challenge.endDate) <= 3}

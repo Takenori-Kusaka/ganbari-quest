@@ -2,27 +2,40 @@
  * tests/unit/services/challenge-set-import-service.test.ts
  *
  * challenge-set service unit tests — Issue #2369 / EPIC #2362 P3
+ * #2458-B (caller migration): per-child instance path 必須化 (childIds 必須) に追従。
  *
  * 検証:
- *   - previewChallengeSetImport() の重複検知 (title ベース) + byCategory 集計
- *   - importChallengeSet() の merge 動作 (skipped / imported / errors)
- *   - createSiblingChallenge への展開後 startDate / endDate 伝播
- *   - tenant 強制 (findAllChallenges に tenantId 伝播)
+ *   - previewChallengeSetImport() の重複検知 (title ベース、child_challenges から) + byCategory 集計
+ *   - importChallengeSet() の per-child instance 配信動作 (imported / errors)
+ *   - childIds 必須化 (空配列なら error 返却)
+ *   - expandChallengeSetDates() の JST date utility 整合
+ *   - tenant 強制
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------- Top-level mocks ----------
 
-const mockFindAllChallenges = vi.fn();
-const mockCreateSiblingChallenge = vi.fn();
+const mockFindAllByTenant = vi.fn();
+const mockCreateChildChallengesBulk = vi.fn();
+const mockBuildPerChildTargets = vi.fn();
+const mockFindAllChildren = vi.fn();
 
-vi.mock('$lib/server/db/sibling-challenge-repo', () => ({
-	findAllChallenges: (...args: unknown[]) => mockFindAllChallenges(...args),
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		childChallenge: {
+			findAllByTenant: (...args: unknown[]) => mockFindAllByTenant(...args),
+		},
+	}),
 }));
 
-vi.mock('$lib/server/services/sibling-challenge-service', () => ({
-	createSiblingChallenge: (...args: unknown[]) => mockCreateSiblingChallenge(...args),
+vi.mock('$lib/server/db/child-repo', () => ({
+	findAllChildren: (...args: unknown[]) => mockFindAllChildren(...args),
+}));
+
+vi.mock('$lib/server/services/child-challenge-service', () => ({
+	createChildChallengesBulk: (...args: unknown[]) => mockCreateChildChallengesBulk(...args),
+	buildPerChildTargets: (...args: unknown[]) => mockBuildPerChildTargets(...args),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -38,6 +51,7 @@ import {
 } from '../../../src/lib/server/services/challenge-set-import-service';
 
 const TENANT = 'test-tenant-001';
+const CHILD_IDS = [101, 102] as const;
 
 interface ChallengeFixture {
 	title: string;
@@ -66,8 +80,18 @@ function makeChallenge(overrides: Partial<ChallengeFixture> = {}): ChallengeFixt
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mockFindAllChallenges.mockResolvedValue([]);
-	mockCreateSiblingChallenge.mockResolvedValue({ id: 1, title: 'mock', startDate: '2026-01-01' });
+	mockFindAllByTenant.mockResolvedValue([]);
+	mockCreateChildChallengesBulk.mockImplementation((_spec, childIds: readonly number[]) =>
+		Promise.resolve(childIds.map((id, i) => ({ id: i + 1, childId: id, title: 'mock' }))),
+	);
+	mockBuildPerChildTargets.mockImplementation(
+		(baseTarget: number, _adj, childIds: readonly number[]) =>
+			Promise.resolve(Object.fromEntries(childIds.map((id) => [id, baseTarget]))),
+	);
+	mockFindAllChildren.mockResolvedValue([
+		{ id: 101, age: 5 },
+		{ id: 102, age: 8 },
+	]);
 });
 
 // =====================================================
@@ -95,25 +119,16 @@ describe('expandChallengeSetDates', () => {
 
 	// =====================================================
 	// Lambda UTC 環境の年境界バグ回帰テスト (#966 / QM CHANGES_REQUESTED)
-	//
-	// Lambda は UTC で稼働するため、0:00-9:00 JST (= 15:00-24:00 UTC 前日) の
-	// 時間帯に Date.getFullYear() / toISOString() を直接使うと年判定が 1 年ずれる。
-	// toJSTDateString() (date-utils.ts SSOT) 経由で JST 年を抽出して回避する。
 	// =====================================================
 
 	it('UTC 大晦日深夜 (= JST 元旦早朝) は JST 年で判定する (#966 年境界)', () => {
-		// 2025-12-31 23:30 UTC = 2026-01-01 08:30 JST
-		// 旧実装の today.getFullYear() は 2025 を返すが、JST 基準では 2026
 		const today = new Date(Date.UTC(2025, 11, 31, 23, 30));
-		// monthDay '07-07' は JST 2026-01-01 より未来 → 2026-07-07 にならねばならない
 		const result = expandChallengeSetDates('07-07', 7, today);
 		expect(result.endDate).toBe('2026-07-07');
 		expect(result.startDate).toBe('2026-07-01');
 	});
 
 	it('UTC 日中 (= JST 当日夜) は JST 年で判定する (#966 年境界、上限側)', () => {
-		// 2026-01-01 14:00 UTC = 2026-01-01 23:00 JST (JST 当日の 23 時)
-		// JST 基準の今日は 2026-01-01。monthDay '03-03' は未来 → 2026-03-03
 		const today = new Date(Date.UTC(2026, 0, 1, 14, 0));
 		const result = expandChallengeSetDates('03-03', 3, today);
 		expect(result.endDate).toBe('2026-03-03');
@@ -127,7 +142,7 @@ describe('expandChallengeSetDates', () => {
 
 describe('previewChallengeSetImport', () => {
 	it('既存 0 件 → 全て新規としてカウント', async () => {
-		mockFindAllChallenges.mockResolvedValue([]);
+		mockFindAllByTenant.mockResolvedValue([]);
 		const challenges = [
 			makeChallenge({ title: 'A', categoryId: 1 }),
 			makeChallenge({ title: 'B', categoryId: 2 }),
@@ -139,8 +154,8 @@ describe('previewChallengeSetImport', () => {
 		expect(preview.duplicateNames).toEqual([]);
 	});
 
-	it('一部 title 重複 → 正しくカウント', async () => {
-		mockFindAllChallenges.mockResolvedValue([{ title: 'A' }]);
+	it('一部 title 重複 → 正しくカウント (child_challenges から検索)', async () => {
+		mockFindAllByTenant.mockResolvedValue([{ title: 'A' }]);
 		const challenges = [
 			makeChallenge({ title: 'A' }),
 			makeChallenge({ title: 'B', categoryId: 2 }),
@@ -163,54 +178,53 @@ describe('previewChallengeSetImport', () => {
 		expect(preview.byCategory).toEqual({ undou: 2, benkyou: 1, souzou: 1 });
 	});
 
-	it('preview() は createSiblingChallenge を呼ばない (DB write 禁止)', async () => {
+	it('preview() は createChildChallengesBulk を呼ばない (DB write 禁止)', async () => {
 		const challenges = [makeChallenge({ title: 'X' })];
 		await previewChallengeSetImport(challenges, TENANT);
-		expect(mockCreateSiblingChallenge).not.toHaveBeenCalled();
+		expect(mockCreateChildChallengesBulk).not.toHaveBeenCalled();
 	});
 
-	it('tenantId が findAllChallenges に渡される', async () => {
+	it('tenantId が findAllByTenant に渡される', async () => {
 		const challenges = [makeChallenge()];
 		await previewChallengeSetImport(challenges, TENANT);
-		expect(mockFindAllChallenges).toHaveBeenCalledWith(TENANT);
+		expect(mockFindAllByTenant).toHaveBeenCalledWith(TENANT);
 	});
 });
 
 // =====================================================
-// importChallengeSet
+// importChallengeSet (#2458-B: childIds 必須化)
 // =====================================================
 
 describe('importChallengeSet', () => {
-	it('全件新規 → imported=件数, skipped=0', async () => {
+	it('全件新規 → imported = 件数 × childIds 数', async () => {
 		const challenges = [
 			makeChallenge({ title: 'A' }),
 			makeChallenge({ title: 'B', categoryId: 2 }),
 		];
-		const result = await importChallengeSet(challenges, TENANT);
-		expect(result.imported).toBe(2);
+		const result = await importChallengeSet(challenges, TENANT, { childIds: CHILD_IDS });
+		// 2 challenges × 2 children = 4 imported
+		expect(result.imported).toBe(4);
 		expect(result.skipped).toBe(0);
 		expect(result.errors).toEqual([]);
-		expect(mockCreateSiblingChallenge).toHaveBeenCalledTimes(2);
+		expect(mockCreateChildChallengesBulk).toHaveBeenCalledTimes(2);
 	});
 
-	it('既存 title と重複 → skipped=重複件数', async () => {
-		mockFindAllChallenges.mockResolvedValue([{ title: 'A' }]);
-		const challenges = [
-			makeChallenge({ title: 'A' }),
-			makeChallenge({ title: 'B', categoryId: 2 }),
-		];
-		const result = await importChallengeSet(challenges, TENANT);
-		expect(result.imported).toBe(1);
-		expect(result.skipped).toBe(1);
-		expect(mockCreateSiblingChallenge).toHaveBeenCalledTimes(1);
+	it('childIds 未指定 / 空配列 → error 返却 + write なし', async () => {
+		const challenges = [makeChallenge({ title: 'A' })];
+		const result = await importChallengeSet(challenges, TENANT, { childIds: [] });
+		expect(result.imported).toBe(0);
+		expect(result.errors).toHaveLength(1);
+		expect(result.errors[0]).toContain('childIds');
+		expect(mockCreateChildChallengesBulk).not.toHaveBeenCalled();
 	});
 
-	it('challengeType=cooperative 固定で createSiblingChallenge に渡る (#2296)', async () => {
+	it('challengeType=cooperative 固定で createChildChallengesBulk に渡る (#2296)', async () => {
 		const challenges = [makeChallenge({ title: 'cooperative-only' })];
 		const today = new Date(Date.UTC(2026, 0, 1));
-		await importChallengeSet(challenges, TENANT, { today });
-		expect(mockCreateSiblingChallenge).toHaveBeenCalledWith(
+		await importChallengeSet(challenges, TENANT, { today, childIds: CHILD_IDS });
+		expect(mockCreateChildChallengesBulk).toHaveBeenCalledWith(
 			expect.objectContaining({ challengeType: 'cooperative' }),
+			CHILD_IDS,
 			TENANT,
 		);
 	});
@@ -220,12 +234,13 @@ describe('importChallengeSet', () => {
 		const challenges = [
 			makeChallenge({ title: '七夕', monthDay: '07-07', durationDays: 7, categoryId: 5 }),
 		];
-		await importChallengeSet(challenges, TENANT, { today });
-		expect(mockCreateSiblingChallenge).toHaveBeenCalledWith(
+		await importChallengeSet(challenges, TENANT, { today, childIds: CHILD_IDS });
+		expect(mockCreateChildChallengesBulk).toHaveBeenCalledWith(
 			expect.objectContaining({
 				startDate: '2026-07-01',
 				endDate: '2026-07-07',
 			}),
+			CHILD_IDS,
 			TENANT,
 		);
 	});
@@ -233,11 +248,12 @@ describe('importChallengeSet', () => {
 	it('過去 monthDay (3/3) を 5/19 視点で取込 → 翌年に展開', async () => {
 		const today = new Date(Date.UTC(2026, 4, 19));
 		const challenges = [makeChallenge({ title: 'ひな祭り 2027', monthDay: '03-03' })];
-		await importChallengeSet(challenges, TENANT, { today });
-		expect(mockCreateSiblingChallenge).toHaveBeenCalledWith(
+		await importChallengeSet(challenges, TENANT, { today, childIds: CHILD_IDS });
+		expect(mockCreateChildChallengesBulk).toHaveBeenCalledWith(
 			expect.objectContaining({
 				endDate: '2027-03-03',
 			}),
+			CHILD_IDS,
 			TENANT,
 		);
 	});
@@ -246,51 +262,71 @@ describe('importChallengeSet', () => {
 		const challenges = [
 			makeChallenge({ title: 'cfg', categoryId: 2, baseTarget: 5, rewardPoints: 50 }),
 		];
-		await importChallengeSet(challenges, TENANT);
-		const args = mockCreateSiblingChallenge.mock.calls[0]?.[0] as
-			| { targetConfig: string; rewardConfig: string }
+		await importChallengeSet(challenges, TENANT, { childIds: CHILD_IDS });
+		const args = mockCreateChildChallengesBulk.mock.calls[0]?.[0] as
+			| { targetConfig: string; rewardConfig: string; sourceTemplateId: string }
 			| undefined;
 		expect(args).toBeDefined();
-		if (!args) throw new Error('createSiblingChallenge was not called');
+		if (!args) throw new Error('createChildChallengesBulk was not called');
 		expect(JSON.parse(args.targetConfig)).toMatchObject({
 			metric: 'count',
 			baseTarget: 5,
 			categoryId: 2,
 		});
 		expect(JSON.parse(args.rewardConfig)).toMatchObject({ points: 50 });
+		expect(args.sourceTemplateId).toMatch(/^challenge-set:/);
 	});
 
-	it('createSiblingChallenge throw → errors に記録 + 処理継続', async () => {
-		mockCreateSiblingChallenge
+	it('createChildChallengesBulk throw → errors 記録 + 処理継続', async () => {
+		mockCreateChildChallengesBulk
 			.mockRejectedValueOnce(new Error('DB error'))
-			.mockResolvedValueOnce({ id: 2 });
+			.mockResolvedValueOnce([
+				{ id: 2, childId: 101 },
+				{ id: 3, childId: 102 },
+			]);
 		const challenges = [
 			makeChallenge({ title: 'failing' }),
 			makeChallenge({ title: 'ok', categoryId: 2 }),
 		];
-		const result = await importChallengeSet(challenges, TENANT);
-		expect(result.imported).toBe(1);
+		const result = await importChallengeSet(challenges, TENANT, { childIds: CHILD_IDS });
+		expect(result.imported).toBe(2);
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toContain('failing');
 	});
 
-	it('tenantId が findAllChallenges に渡される', async () => {
-		const challenges = [makeChallenge()];
-		await importChallengeSet(challenges, TENANT);
-		expect(mockFindAllChallenges).toHaveBeenCalledWith(TENANT);
+	it('sourceTemplateId に presetId が埋め込まれる', async () => {
+		const challenges = [makeChallenge({ title: 'with-preset' })];
+		await importChallengeSet(challenges, TENANT, {
+			childIds: CHILD_IDS,
+			presetId: 'japan-annual-2026',
+		});
+		const args = mockCreateChildChallengesBulk.mock.calls[0]?.[0] as
+			| { sourceTemplateId: string }
+			| undefined;
+		expect(args?.sourceTemplateId).toBe('challenge-set:japan-annual-2026:with-preset');
 	});
 
-	it('インポート結果 invariant: imported + skipped <= total (errors を含めて total と一致)', async () => {
-		mockCreateSiblingChallenge
-			.mockResolvedValueOnce({ id: 1 })
-			.mockRejectedValueOnce(new Error('err'))
-			.mockResolvedValueOnce({ id: 3 });
+	// #2488 (must-3 fix): N+1 query 解消の回帰防止
+	it('複数 challenge の import で findAllChildren は 1 回しか呼ばれない (N+1 解消)', async () => {
 		const challenges = [
-			makeChallenge({ title: 'ok1' }),
-			makeChallenge({ title: 'fail' }),
-			makeChallenge({ title: 'ok2', categoryId: 2 }),
+			makeChallenge({ title: 'A' }),
+			makeChallenge({ title: 'B' }),
+			makeChallenge({ title: 'C' }),
+			makeChallenge({ title: 'D' }),
+			makeChallenge({ title: 'E' }),
 		];
-		const result = await importChallengeSet(challenges, TENANT);
-		expect(result.imported + result.skipped + result.errors.length).toBe(challenges.length);
+		await importChallengeSet(challenges, TENANT, { childIds: CHILD_IDS });
+		// 旧実装: buildPerChildTargets 内で 5 回 findAllChildren が走っていた
+		// 新実装: import service が 1 回だけ呼び、buildPerChildTargets には prefetched を渡す
+		expect(mockFindAllChildren).toHaveBeenCalledTimes(1);
+		// buildPerChildTargets は loop 内 5 回 mock 呼出されるが、prefetched 配列を渡す形
+		expect(mockBuildPerChildTargets).toHaveBeenCalledTimes(5);
+		// 5 回全てで 5 番目引数 (prefetched) が渡されている
+		for (const call of mockBuildPerChildTargets.mock.calls) {
+			expect(call[4]).toEqual([
+				{ id: 101, age: 5 },
+				{ id: 102, age: 8 },
+			]);
+		}
 	});
 });

@@ -6,7 +6,7 @@
 //
 // 並存原則: 旧 sibling_challenges / sibling_challenge_progress は drop しない (#2458 cleanup PR)。
 
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte } from 'drizzle-orm';
 import { db } from '../client';
 import { childChallenges } from '../schema';
 import type {
@@ -42,6 +42,43 @@ export async function findActiveByChildId(
 			),
 		)
 		.all();
+}
+
+/**
+ * #2488 (must-1 fix): 子供画面 home/history で active + 「完成済だが未請求」の instance を返す。
+ *
+ * 旧 `findActiveByChildId` (status='active' のみ) では `markCompleted` が status を 'completed'
+ * に flip した瞬間、当該 instance が active 一覧から消えてしまい、`ChallengeBanner` の claim
+ * ボタンが render されず、ユーザが報酬を受け取れないまま消える regression が発生した
+ * (PR #2488 QM Re-Review must-1)。
+ *
+ * 旧 sibling-challenge-service の挙動: status flip は全 siblings 完了時のみで、それまで
+ * 子供画面に表示され続けていた。本関数で「期間内 = 当該 child の今閉じるべき instance」を
+ * 包括的に返すことで挙動を復元する。
+ *
+ * 条件: 当該 child の instance、isActive=1、startDate <= today <= endDate、
+ *      (status='active' OR (status='completed' AND rewardClaimed=0))
+ */
+export async function findActiveOrUnclaimedByChildId(
+	childId: number,
+	today: string,
+	_tenantId: string,
+): Promise<ChildChallenge[]> {
+	const rows = db
+		.select()
+		.from(childChallenges)
+		.where(
+			and(
+				eq(childChallenges.childId, childId),
+				eq(childChallenges.isActive, 1),
+				inArray(childChallenges.status, ['active', 'completed']),
+				lte(childChallenges.startDate, today),
+				gte(childChallenges.endDate, today),
+			),
+		)
+		.all();
+	// status='completed' で rewardClaimed=1 (受取済) は除外
+	return rows.filter((r) => r.status === 'active' || r.rewardClaimed === 0);
 }
 
 export async function findAllByTenant(_tenantId: string): Promise<ChildChallenge[]> {
