@@ -99,11 +99,11 @@ function migrateChecklistTemplatesDropKind(db: Database.Database): void {
 		return;
 	}
 	const dropped = db.prepare("DELETE FROM checklist_templates WHERE kind = 'routine'").run();
-	console.log(
+	console.info(
 		`[lazy-migrate #1755] deleted ${dropped.changes} legacy 'routine' rows from checklist_templates`,
 	);
 	db.exec('ALTER TABLE checklist_templates DROP COLUMN kind;');
-	console.log('[lazy-migrate #1755] dropped checklist_templates.kind column');
+	console.info('[lazy-migrate #1755] dropped checklist_templates.kind column');
 }
 
 /**
@@ -123,7 +123,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 		hasFkToActivities(db, 'child_activity_preferences');
 	if (!needs) return;
 
-	console.log(
+	console.info(
 		'[lazy-migrate #2362-PR3] switching activity_id FK target: activities → child_activities',
 	);
 
@@ -149,7 +149,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 			CREATE INDEX idx_activity_logs_activity ON activity_logs(activity_id);
 			CREATE INDEX idx_activity_logs_streak ON activity_logs(child_id, activity_id, recorded_date);
 		`);
-		console.log('[lazy-migrate #2362-PR3]   → activity_logs done');
+		console.info('[lazy-migrate #2362-PR3]   → activity_logs done');
 	}
 
 	if (hasFkToActivities(db, 'daily_missions')) {
@@ -169,7 +169,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 			CREATE UNIQUE INDEX idx_daily_missions_unique ON daily_missions(child_id, mission_date, activity_id);
 			CREATE INDEX idx_daily_missions_child_date ON daily_missions(child_id, mission_date);
 		`);
-		console.log('[lazy-migrate #2362-PR3]   → daily_missions done');
+		console.info('[lazy-migrate #2362-PR3]   → daily_missions done');
 	}
 
 	if (hasFkToActivities(db, 'activity_mastery')) {
@@ -188,7 +188,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 			ALTER TABLE activity_mastery_new RENAME TO activity_mastery;
 			CREATE UNIQUE INDEX idx_activity_mastery_child_activity ON activity_mastery(child_id, activity_id);
 		`);
-		console.log('[lazy-migrate #2362-PR3]   → activity_mastery done');
+		console.info('[lazy-migrate #2362-PR3]   → activity_mastery done');
 	}
 
 	if (hasFkToActivities(db, 'child_activity_preferences')) {
@@ -210,7 +210,7 @@ function migrateActivityFkSwitchover(db: Database.Database): void {
 			CREATE INDEX idx_child_activity_prefs_child ON child_activity_preferences(child_id);
 			CREATE INDEX idx_child_activity_prefs_pinned ON child_activity_preferences(child_id, is_pinned);
 		`);
-		console.log('[lazy-migrate #2362-PR3]   → child_activity_preferences done');
+		console.info('[lazy-migrate #2362-PR3]   → child_activity_preferences done');
 	}
 }
 
@@ -235,7 +235,7 @@ function migrateChecklistTemplatesFamilyFlip(db: Database.Database): void {
 		return;
 	}
 
-	console.log('[lazy-migrate #2362-PR5] flipping checklist_templates: per-child → family master');
+	console.info('[lazy-migrate #2362-PR5] flipping checklist_templates: per-child → family master');
 
 	const hasTenantId = hasColumn(db, 'checklist_templates', 'tenant_id');
 
@@ -299,7 +299,7 @@ function migrateChecklistTemplatesFamilyFlip(db: Database.Database): void {
 	const assignmentCount = (
 		db.prepare('SELECT COUNT(*) AS c FROM checklist_template_assignments').get() as { c: number }
 	).c;
-	console.log(
+	console.info(
 		`[lazy-migrate #2362-PR5]   migrated ${assignmentCount} per-child rows to template_assignments`,
 	);
 
@@ -310,7 +310,7 @@ function migrateChecklistTemplatesFamilyFlip(db: Database.Database): void {
 		CREATE INDEX IF NOT EXISTS idx_checklist_templates_tenant_archived
 			ON checklist_templates(tenant_id, is_archived);
 	`);
-	console.log('[lazy-migrate #2362-PR5]   → flip complete');
+	console.info('[lazy-migrate #2362-PR5]   → flip complete');
 }
 
 /**
