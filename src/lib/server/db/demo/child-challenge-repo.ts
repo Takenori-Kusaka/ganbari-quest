@@ -32,6 +32,22 @@ export async function findActiveByChildId(
 	);
 }
 
+/** #2488 (must-1 fix): demo Lambda 環境向け。完成済 + 未請求 instance も含める。 */
+export async function findActiveOrUnclaimedByChildId(
+	childId: number,
+	today: string,
+	_tenantId: string,
+): Promise<ChildChallenge[]> {
+	return DEMO_CHILD_CHALLENGES.filter(
+		(c) =>
+			c.childId === childId &&
+			c.isActive === 1 &&
+			c.startDate <= today &&
+			today <= c.endDate &&
+			(c.status === 'active' || (c.status === 'completed' && c.rewardClaimed === 0)),
+	);
+}
+
 export async function findAllByTenant(_tenantId: string): Promise<ChildChallenge[]> {
 	return DEMO_CHILD_CHALLENGES;
 }

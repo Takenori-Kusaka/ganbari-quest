@@ -20,6 +20,7 @@
 
 import { toJSTDateString } from '$lib/domain/date-utils';
 import type { ChallengeSetPayload } from '$lib/domain/marketplace-item';
+import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -192,7 +193,15 @@ export async function importChallengeSet(
 
 	const errors: string[] = [];
 	let imported = 0;
+	// #2488 (ask-4): skipped は常に 0。本 import は per-child instance を child 数分作成する
+	// 特性上、title 重複検知は `previewChallengeSetImport` 段階で集計表示のみ行い、本 import 内
+	// では skip を発火しない (preset 内の title 一意性 + child 数倍化を前提)。旧
+	// sibling-challenge-service は同 title 検知で skip していたが、per-child 化に伴い意味が
+	// 失われたため挙動を変更している (ChallengeSetImportResult.skipped は API 互換維持のため保持)。
 	const skipped = 0;
+	// #2488 must-3: children を 1 回だけ fetch し、loop 内 buildPerChildTargets で再利用
+	// (N+1 query 解消)。15 件 challenge × 4 children → findAllChildren 呼出 15→1 回に削減。
+	const allChildren = await findAllChildren(tenantId);
 	for (const ch of challenges) {
 		try {
 			const { startDate, endDate } = expandChallengeSetDates(ch.monthDay, ch.durationDays, today);
@@ -208,6 +217,7 @@ export async function importChallengeSet(
 				undefined,
 				childIds,
 				tenantId,
+				allChildren,
 			);
 			const created = await createChildChallengesBulk(
 				{

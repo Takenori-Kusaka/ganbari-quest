@@ -163,8 +163,17 @@ export async function getActiveChildChallenges(
  * 共有する兄弟 instance を `siblings` フィールドに格納。`ChallengeBanner` / `SiblingCelebration`
  * の UX 互換性を維持する。
  *
- * IDOR / tenant 境界: `findActiveByChildId` / `findAllByTenant` ともに `tenantId` 必須化済。
- * 自身の childId 以外の child instance は同一 tenant 内のみ含まれる。
+ * #2488 (must-1 fix): `findActiveOrUnclaimedByChildId` 経由で「完成済だが未請求」instance も
+ * 含めるよう変更 (status='completed' AND rewardClaimed=0)。これにより `markCompleted` 直後に
+ * instance が active 一覧から消えて claim ボタンが render されない regression を防ぐ。
+ *
+ * #2488 (must-2 fix): `siblings[]` は **同一 startDate + endDate** (同一期間) の instance に
+ * 限定する。過去 expired instance や 別期間 (例: 先週分) の completed instance が
+ * `sourceTemplateId` 共有経由で leak し `allCompleted=true` 誤判定 (= celebration 誤発火) を
+ * 引き起こすため。
+ *
+ * IDOR / tenant 境界: `findActiveOrUnclaimedByChildId` / `findAllByTenant` ともに `tenantId`
+ * 必須化済。自身の childId 以外の child instance は同一 tenant 内のみ含まれる。
  */
 export async function getActiveChildChallengesWithSiblings(
 	childId: number,
@@ -173,14 +182,18 @@ export async function getActiveChildChallengesWithSiblings(
 	const repos = getRepos();
 	const today = todayDateJST();
 
-	// 自身の active instance
-	const myActive = await repos.childChallenge.findActiveByChildId(childId, today, tenantId);
+	// 自身の active + 未請求完成 instance (#2488 must-1)
+	const myActive = await repos.childChallenge.findActiveOrUnclaimedByChildId(
+		childId,
+		today,
+		tenantId,
+	);
 	if (myActive.length === 0) return [];
 
 	// tenant 全体 (同期間 + 同 group key の兄弟 instance を捕捉するため)
 	const allTenant = await repos.childChallenge.findAllByTenant(tenantId);
 
-	// group key → group 内全 instance (status / 期間問わず) の map
+	// group key → group 内全 instance の map (期間 filter は下で実施、#2488 must-2)
 	const groupMap = new Map<string, ChildChallenge[]>();
 	for (const c of allTenant) {
 		const key = resolveGroupKey(c);
@@ -191,9 +204,16 @@ export async function getActiveChildChallengesWithSiblings(
 
 	return myActive.map((mine) => {
 		const key = resolveGroupKey(mine);
-		const siblings = groupMap.get(key) ?? [mine];
-		const allCompleted = siblings.length > 0 && siblings.every((s) => s.completed === 1);
-		return { ...mine, siblings, allCompleted };
+		// #2488 must-2: siblings[] は同一 startDate + endDate (= 同一期間) の instance のみ
+		// 含める。`sourceTemplateId` 共有の preset 過去期間 instance が混入し allCompleted を
+		// 誤判定する regression を防ぐ。
+		const siblings = (groupMap.get(key) ?? [mine]).filter(
+			(s) => s.startDate === mine.startDate && s.endDate === mine.endDate,
+		);
+		// filter で自身が脱落しないよう (理論上ありえないが安全側) fallback
+		const finalSiblings = siblings.length > 0 ? siblings : [mine];
+		const allCompleted = finalSiblings.length > 0 && finalSiblings.every((s) => s.completed === 1);
+		return { ...mine, siblings: finalSiblings, allCompleted };
 	});
 }
 
@@ -272,14 +292,19 @@ export async function deleteChildChallenge(id: number, tenantId: string): Promis
 /**
  * age-adjusted target を計算するヘルパー (全 child 分の childId → targetValue マップを構築)。
  * marketplace 取込 + admin 一括追加で使用。
+ *
+ * #2488 (must-3 fix): loop 内呼出時の N+1 query 解消のため、pre-fetched children 配列を
+ * 受け取る overload を追加。caller 側で `findAllChildren(tenantId)` を 1 回だけ実行し、
+ * 配列を渡すこと。配列省略時は従来通り内部で 1 回 fetch する。
  */
 export async function buildPerChildTargets(
 	baseTarget: number,
 	ageAdjustments: Record<string, number> | undefined,
 	childIds: readonly number[],
 	tenantId: string,
+	prefetchedChildren?: readonly { id: number; age: number }[],
 ): Promise<Record<number, number>> {
-	const allChildren = await findAllChildren(tenantId);
+	const allChildren = prefetchedChildren ?? (await findAllChildren(tenantId));
 	const result: Record<number, number> = {};
 	for (const childId of childIds) {
 		const child = allChildren.find((c) => c.id === childId);

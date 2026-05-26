@@ -13,6 +13,7 @@ const mockInsert = vi.fn();
 const mockInsertBulk = vi.fn();
 const mockFindAllByTenant = vi.fn();
 const mockFindActiveByChildId = vi.fn();
+const mockFindActiveOrUnclaimedByChildId = vi.fn();
 const mockUpdateProgress = vi.fn();
 const mockMarkCompleted = vi.fn();
 const mockFindAllChildren = vi.fn();
@@ -24,6 +25,7 @@ vi.mock('$lib/server/db/factory', () => ({
 			insertBulk: (...a: unknown[]) => mockInsertBulk(...a),
 			findAllByTenant: (...a: unknown[]) => mockFindAllByTenant(...a),
 			findActiveByChildId: (...a: unknown[]) => mockFindActiveByChildId(...a),
+			findActiveOrUnclaimedByChildId: (...a: unknown[]) => mockFindActiveOrUnclaimedByChildId(...a),
 			updateProgress: (...a: unknown[]) => mockUpdateProgress(...a),
 			markCompleted: (...a: unknown[]) => mockMarkCompleted(...a),
 		},
@@ -47,6 +49,7 @@ import {
 	calcAgeAdjustedTarget,
 	createChildChallenge,
 	createChildChallengesBulk,
+	getActiveChildChallengesWithSiblings,
 	getChallengeGroupsForAdmin,
 	updateChildChallengeProgress,
 } from '../../../src/lib/server/services/child-challenge-service';
@@ -366,5 +369,154 @@ describe('buildPerChildTargets', () => {
 		const result = await buildPerChildTargets(10, undefined, [999], TENANT);
 		// baseTarget=10、ageAdjustments 未指定 → baseTarget そのまま
 		expect(result).toEqual({ 999: 10 });
+	});
+
+	// #2488 (must-3 fix): pre-fetched children を受け取った場合 findAllChildren 呼出をスキップ
+	it('prefetchedChildren 渡し時は findAllChildren を呼ばない (N+1 解消)', async () => {
+		const result = await buildPerChildTargets(10, { '5': 15 }, [902], TENANT, [
+			{ id: 902, age: 5 },
+		]);
+		expect(mockFindAllChildren).not.toHaveBeenCalled();
+		expect(result).toEqual({ 902: 15 });
+	});
+});
+
+// #2488 (must-1 + must-2 fix): regression tests
+describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
+	function row(overrides: Record<string, unknown>) {
+		return {
+			id: 0,
+			childId: 902,
+			title: 'X',
+			startDate: '2026-05-25',
+			endDate: '2026-06-01',
+			periodType: 'weekly' as const,
+			sourceTemplateId: 'tmpl-1',
+			completed: 0,
+			targetValue: 5,
+			currentValue: 0,
+			description: null,
+			rewardConfig: '{}',
+			targetConfig: '{}',
+			status: 'active' as const,
+			isActive: 1,
+			challengeType: 'cooperative' as const,
+			completedAt: null,
+			rewardClaimed: 0,
+			rewardClaimedAt: null,
+			createdAt: '',
+			updatedAt: '',
+			...overrides,
+		};
+	}
+
+	it('must-1: completed AND rewardClaimed=0 の自身 instance も active 一覧に含まれる', async () => {
+		// findActiveOrUnclaimedByChildId が status=completed+rewardClaimed=0 を返す前提
+		mockFindActiveOrUnclaimedByChildId.mockResolvedValueOnce([
+			row({
+				id: 10,
+				childId: 902,
+				status: 'completed',
+				completed: 1,
+				currentValue: 5,
+				rewardClaimed: 0,
+			}),
+		]);
+		mockFindAllByTenant.mockResolvedValueOnce([
+			row({
+				id: 10,
+				childId: 902,
+				status: 'completed',
+				completed: 1,
+				currentValue: 5,
+				rewardClaimed: 0,
+			}),
+		]);
+		const result = await getActiveChildChallengesWithSiblings(902, TENANT);
+		expect(result).toHaveLength(1);
+		expect(result[0]?.id).toBe(10);
+		expect(result[0]?.rewardClaimed).toBe(0);
+		expect(result[0]?.completed).toBe(1);
+		// ChallengeBanner の claim button が render されるための条件: completed=1 + rewardClaimed=0
+	});
+
+	it('must-2: 過去期間の同 sourceTemplateId instance は siblings[] から除外される', async () => {
+		// 自身: 今週 (5/25 - 6/1) active
+		mockFindActiveOrUnclaimedByChildId.mockResolvedValueOnce([
+			row({ id: 100, childId: 902, startDate: '2026-05-25', endDate: '2026-06-01' }),
+		]);
+		// tenant 全体: 自身 + 兄弟今週 + 自身の先週 expired completed (sourceTemplateId 共有)
+		mockFindAllByTenant.mockResolvedValueOnce([
+			row({ id: 100, childId: 902, startDate: '2026-05-25', endDate: '2026-06-01' }),
+			row({
+				id: 101,
+				childId: 903,
+				startDate: '2026-05-25',
+				endDate: '2026-06-01',
+				currentValue: 2,
+			}),
+			// 先週分 (異なる期間) — siblings に含まれてはいけない
+			row({
+				id: 90,
+				childId: 902,
+				startDate: '2026-05-18',
+				endDate: '2026-05-24',
+				status: 'completed',
+				completed: 1,
+				currentValue: 5,
+				rewardClaimed: 1,
+			}),
+			row({
+				id: 91,
+				childId: 903,
+				startDate: '2026-05-18',
+				endDate: '2026-05-24',
+				status: 'completed',
+				completed: 1,
+				currentValue: 5,
+				rewardClaimed: 1,
+			}),
+		]);
+		const result = await getActiveChildChallengesWithSiblings(902, TENANT);
+		expect(result).toHaveLength(1);
+		// siblings は今週分 2 件のみ (先週分 2 件は除外)
+		expect(result[0]?.siblings).toHaveLength(2);
+		expect(result[0]?.siblings.map((s) => s.id).sort()).toEqual([100, 101]);
+		// 今週分は誰も完了していない → allCompleted=false (誤 celebration 発火しない)
+		expect(result[0]?.allCompleted).toBe(false);
+	});
+
+	it('must-2: 同期間のみで全 sibling completed → allCompleted=true (正常 celebration 発火)', async () => {
+		mockFindActiveOrUnclaimedByChildId.mockResolvedValueOnce([
+			row({
+				id: 200,
+				childId: 902,
+				status: 'completed',
+				completed: 1,
+				currentValue: 5,
+				rewardClaimed: 0,
+			}),
+		]);
+		mockFindAllByTenant.mockResolvedValueOnce([
+			row({
+				id: 200,
+				childId: 902,
+				status: 'completed',
+				completed: 1,
+				currentValue: 5,
+				rewardClaimed: 0,
+			}),
+			row({
+				id: 201,
+				childId: 903,
+				status: 'completed',
+				completed: 1,
+				currentValue: 5,
+				rewardClaimed: 1,
+			}),
+		]);
+		const result = await getActiveChildChallengesWithSiblings(902, TENANT);
+		expect(result).toHaveLength(1);
+		expect(result[0]?.allCompleted).toBe(true);
 	});
 });

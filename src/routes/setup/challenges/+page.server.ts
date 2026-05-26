@@ -71,6 +71,7 @@ async function addPresetsAsChallenges(
 
 	// #2458-B: per-child instance 配信のため全 child を 1 回取得
 	// (旧 sibling-challenge-service.createSiblingChallenge が内部で findAllChildren していた挙動を service 外に移動)
+	// #2488 must-3: 同一 children を全 preset 共通で再利用 (N+1 query 解消)
 	const children = await getAllChildren(tenantId);
 	const childIds = children.map((c) => c.id);
 	if (childIds.length === 0) {
@@ -96,11 +97,13 @@ async function addPresetsAsChallenges(
 				message: preset.title,
 			});
 			// preset の age-adjustment SSOT は preset 側で持たないため undefined を渡す (baseTarget 一定)
+			// #2488 must-3: 上で取得した children を渡し、buildPerChildTargets 内部の重複 fetch を解消
 			const perChildTargets = await buildPerChildTargets(
 				preset.baseTarget,
 				undefined,
 				childIds,
 				tenantId,
+				children,
 			);
 			// sourceTemplateId は admin/challenges 兄弟連動表示のため preset id を埋め込む
 			const sourceTemplateId = `setup-preset:${preset.id}`;

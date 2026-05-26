@@ -21,6 +21,19 @@ export interface IChildChallengeRepo {
 	/** child 単位のアクティブ challenge instance (status=active かつ today が start〜end の範囲内) */
 	findActiveByChildId(childId: number, today: string, tenantId: string): Promise<ChildChallenge[]>;
 
+	/**
+	 * #2488 (must-1 fix): 子供画面向け「active + 完成済だが未請求」instance を返す。
+	 *
+	 * status='active' に加え、status='completed' AND rewardClaimed=0 の instance も含める。
+	 * markCompleted 直後に instance が消えて claim ボタンが render されない regression を防ぐため
+	 * 子供画面 (home / history) は本関数経由でデータ取得すること。
+	 */
+	findActiveOrUnclaimedByChildId(
+		childId: number,
+		today: string,
+		tenantId: string,
+	): Promise<ChildChallenge[]>;
+
 	/** tenant 全体の全 challenge instance (admin 画面用) */
 	findAllByTenant(tenantId: string): Promise<ChildChallenge[]>;
 

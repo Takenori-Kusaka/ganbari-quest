@@ -305,4 +305,28 @@ describe('importChallengeSet', () => {
 			| undefined;
 		expect(args?.sourceTemplateId).toBe('challenge-set:japan-annual-2026:with-preset');
 	});
+
+	// #2488 (must-3 fix): N+1 query 解消の回帰防止
+	it('複数 challenge の import で findAllChildren は 1 回しか呼ばれない (N+1 解消)', async () => {
+		const challenges = [
+			makeChallenge({ title: 'A' }),
+			makeChallenge({ title: 'B' }),
+			makeChallenge({ title: 'C' }),
+			makeChallenge({ title: 'D' }),
+			makeChallenge({ title: 'E' }),
+		];
+		await importChallengeSet(challenges, TENANT, { childIds: CHILD_IDS });
+		// 旧実装: buildPerChildTargets 内で 5 回 findAllChildren が走っていた
+		// 新実装: import service が 1 回だけ呼び、buildPerChildTargets には prefetched を渡す
+		expect(mockFindAllChildren).toHaveBeenCalledTimes(1);
+		// buildPerChildTargets は loop 内 5 回 mock 呼出されるが、prefetched 配列を渡す形
+		expect(mockBuildPerChildTargets).toHaveBeenCalledTimes(5);
+		// 5 回全てで 5 番目引数 (prefetched) が渡されている
+		for (const call of mockBuildPerChildTargets.mock.calls) {
+			expect(call[4]).toEqual([
+				{ id: 101, age: 5 },
+				{ id: 102, age: 8 },
+			]);
+		}
+	});
 });
