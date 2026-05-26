@@ -131,11 +131,16 @@ export interface IAuthRepo {
 		cursor?: string,
 	): Promise<LicenseKeyPage>;
 
-	/** ステータス別のライセンスキー一覧（ページネーション対応） */
+	/**
+	 * ステータス別のライセンスキー一覧（ページネーション対応）。
+	 *
+	 * #2490 Phase 2 Sub-B2: format filter 拡張 (`countLicenseKeys` と同パターン、OCP 整合)。
+	 * - `options.format: 'legacy' | 'signed'` で key 形式絞込み (`size(licenseKey)` で判定、schema 変更不要)
+	 * - migration plan §4 line 90 整合: SQLite no-op (空配列返却、SaaS DynamoDB のみ実集計)
+	 */
 	listLicenseKeysByStatus(
 		status: LicenseKeyStatus,
-		limit?: number,
-		cursor?: string,
+		options?: { format?: 'legacy' | 'signed'; limit?: number; cursor?: string },
 	): Promise<LicenseKeyPage>;
 
 	/** N 日以内に有効期限が切れるアクティブなキー一覧 */

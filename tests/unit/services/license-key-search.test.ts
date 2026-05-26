@@ -235,6 +235,38 @@ describe('DynamoDB auth-repo — license key search (#816)', () => {
 			expect(result.items).toHaveLength(1);
 			expect(result.items[0]?.revokedReason).toBe('ops-manual');
 		});
+
+		it('#2490 Sub-B2: format: "legacy" filter で size(licenseKey)=17 FilterExpression を含む', async () => {
+			mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+
+			const mod = await import('$lib/server/db/dynamodb/auth-repo');
+			await mod.listLicenseKeysByStatus(LICENSE_KEY_STATUS.ACTIVE, { format: 'legacy' });
+
+			const command = mockSend.mock.calls[0]?.[0];
+			expect(command?.input?.FilterExpression).toContain('size(licenseKey) = :formatLen');
+			expect(command?.input?.ExpressionAttributeValues?.[':formatLen']).toBe(17);
+		});
+
+		it('#2490 Sub-B2: format: "signed" filter で size(licenseKey)=23 を含む', async () => {
+			mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+
+			const mod = await import('$lib/server/db/dynamodb/auth-repo');
+			await mod.listLicenseKeysByStatus(LICENSE_KEY_STATUS.ACTIVE, { format: 'signed' });
+
+			const command = mockSend.mock.calls[0]?.[0];
+			expect(command?.input?.ExpressionAttributeValues?.[':formatLen']).toBe(23);
+		});
+
+		it('#2490 Sub-B2: format 未指定なら size filter は付与されない (backward-compat)', async () => {
+			mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+
+			const mod = await import('$lib/server/db/dynamodb/auth-repo');
+			await mod.listLicenseKeysByStatus(LICENSE_KEY_STATUS.ACTIVE);
+
+			const command = mockSend.mock.calls[0]?.[0];
+			expect(command?.input?.FilterExpression).not.toContain('size(licenseKey)');
+			expect(command?.input?.ExpressionAttributeValues?.[':formatLen']).toBeUndefined();
+		});
 	});
 
 	describe('listExpiringSoon', () => {
