@@ -98,6 +98,16 @@ child_activities
 
 **禁忌**: child context が確定している経路 (child home / setup の child binding 後) では必ず `getChildActivities` を使う。`getActivities` (tenant aggregate) を child 経路で使うと 5 children 環境で同名 activity が 5 倍に重複 render される UX 退行が再発する (#2471 教訓)。
 
+**実装状況 PR-A1 (2026-05-26、#2458 Path A)**:
+
+- ✅ facade rewrite (`src/lib/server/db/sqlite/activity-repo.ts`) — 全 write method (insertActivity / updateActivity / setActivityVisibility / deleteActivity / archiveActivities / restoreArchivedActivities) を `child_activities` 経由に切替。**旧 `activities` table への write が 0 件 = #2458-C drop ready**
+- ✅ read method (`findActivities` / `findActivityById` / `getCategoryCountsByDate` / `countActiveActivityLogsByCategory` / `countMainQuestActivities`) も `child_activities` 経由に統一。signature 不変で caller 修正ゼロ (`Activity` shape は `_toActivityShape` adapter で互換性維持、削除 field は null fallback)
+- ✅ explicit 2 per-child site migrate: `activity-log-service.ts` L159 / L350 を `getChildActivities(childId, tenantId, filter)` に置換
+- ✅ parallel write 撤去: `activity-import-service.ts:151` の family master insert を削除、childIds 未指定時は fallback で tenant 最初の child に bind
+- ✅ regression test: `tests/unit/services/activity-legacy-table-write-zero.test.ts` — 全 write method に対し旧 `activities` table row count が 0 のまま不変であることを assert (8 test)
+- ⏳ demo + dynamodb 同期: 本 PR では sqlite のみ。demo/dynamodb 側は次 PR で同期 (#2458-A1 後段、別 commit で対応推奨)
+- ⏳ physical drop (#2458-C / -A2): main merge + 1 release 経過後に旧 `activities` table / `IActivityRepo` interface を schema から削除
+
 ### 4.2 checklist (PR-5 Phase 1 完了 / Phase 2 UX 化進行中)
 
 **実装状況** (2026-05-25 PR-5 Phase 1):

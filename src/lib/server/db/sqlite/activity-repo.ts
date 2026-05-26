@@ -1,97 +1,229 @@
-// src/lib/server/db/activity-repo.ts
+// src/lib/server/db/sqlite/activity-repo.ts
 // 活動関連のリポジトリ層（DBアクセス）
+//
+// #2458-A1 (2026-05-26): facade rewrite — 旧 `activities` table への write を完全停止し、
+// 全 method を `child_activities` 経由に rewrite。これにより #2458-C (旧 table physical drop)
+// が安全に実行可能になる。signature は不変 (caller 修正 0)。
+//
+// 設計:
+//   - read 系 (findActivities / findActivityById / findMustActivitiesWithToday /
+//     findTodayLogsWithCategory / findActivityLogs / countMainQuestActivities) は既に
+//     `child_activities` 経由 (PR-3 で部分移行済)。本 PR で残る aggregate (findActivities /
+//     countMainQuestActivities) を child loop aggregate に統一。
+//   - write 系 (insertActivity / updateActivity / setActivityVisibility / deleteActivity /
+//     archiveActivities / restoreArchivedActivities) は tenant 全 child を loop して
+//     activity_id → childId を逆引きしてから child_activities を操作。
+//     insertActivity は新規 instance のため、tenant の最初の child に bind する暫定動作
+//     (activity-service.ts の createActivity と同パターン)。
+//
+// 関連:
+//   - PR #2455 (PR-3 facade transparent migration、findActivityById 等 4 method)
+//   - ADR-0055 §3.1 per-child primary data model
+//   - docs/design/data-model-resource-scope.md §4.1
 
-import { and, count, countDistinct, desc, eq, gte, isNull, lt, lte, or, sql } from 'drizzle-orm';
-import { db } from '../client';
 import {
-	activities,
-	activityLogs,
-	childActivities,
-	children,
-	dailyMissions,
-	pointLedger,
-} from '../schema';
-import type { ActivityFilter } from '../types';
+	and,
+	count,
+	countDistinct,
+	desc,
+	eq,
+	gte,
+	inArray,
+	isNull,
+	lt,
+	lte,
+	or,
+	sql,
+} from 'drizzle-orm';
+import { db } from '../client';
+import { activityLogs, childActivities, children, dailyMissions, pointLedger } from '../schema';
+import type { Activity, ActivityFilter, InsertActivityInput, UpdateActivityInput } from '../types';
 
-export async function findActivities(_tenantId: string, filter?: ActivityFilter) {
-	let query = db.select().from(activities).$dynamic();
+// ============================================================
+// Internal helpers — ChildActivity → Activity shape adapter
+// ============================================================
+//
+// 既存 caller の `Activity[]` 型シグネチャを破壊しないため、`ChildActivity` 行を
+// `Activity` shape に変換する。差分 field (ageMin / ageMax / gradeLevel / subcategory /
+// description) は null で埋める。callsite で参照されている場合は null fallback で動作。
 
+function _toActivityShape(c: {
+	id: number;
+	name: string;
+	categoryId: number;
+	icon: string;
+	basePoints: number;
+	isVisible: number;
+	dailyLimit: number | null;
+	sortOrder: number;
+	source: string;
+	nameKana: string | null;
+	nameKanji: string | null;
+	triggerHint: string | null;
+	isMainQuest: number;
+	isArchived: number;
+	archivedReason: string | null;
+	createdAt: string;
+	sourcePresetId?: string | null;
+	priority: 'must' | 'optional';
+}): Activity {
+	return {
+		id: c.id,
+		name: c.name,
+		categoryId: c.categoryId,
+		icon: c.icon,
+		basePoints: c.basePoints,
+		ageMin: null, // ChildActivity は per-child instance のため age filter なし (ADR-0055)
+		ageMax: null,
+		isVisible: c.isVisible,
+		dailyLimit: c.dailyLimit,
+		sortOrder: c.sortOrder,
+		source: c.source,
+		gradeLevel: null,
+		subcategory: null,
+		description: null,
+		nameKana: c.nameKana,
+		nameKanji: c.nameKanji,
+		triggerHint: c.triggerHint,
+		isMainQuest: c.isMainQuest,
+		isArchived: c.isArchived,
+		archivedReason: c.archivedReason,
+		createdAt: c.createdAt,
+		sourcePresetId: c.sourcePresetId ?? null,
+		priority: c.priority,
+	};
+}
+
+/**
+ * activity_id から childId を逆引きする (tenant 内)。
+ * write 系 method (updateActivity / setActivityVisibility / deleteActivity) で必要。
+ * 見つからなければ undefined。
+ */
+async function _resolveChildIdForActivity(
+	id: number,
+	_tenantId: string,
+): Promise<number | undefined> {
+	const row = await db
+		.select({ childId: childActivities.childId })
+		.from(childActivities)
+		.where(eq(childActivities.id, id))
+		.get();
+	return row?.childId;
+}
+
+/**
+ * tenant 内全 child を取得 (insertActivity の fallback bind 用)。
+ */
+async function _findFirstChild(_tenantId: string): Promise<{ id: number } | undefined> {
+	return db.select({ id: children.id }).from(children).orderBy(children.id).get();
+}
+
+// ============================================================
+// Activities (CRUD — child_activities 経由)
+// ============================================================
+
+export async function findActivities(
+	_tenantId: string,
+	filter?: ActivityFilter,
+): Promise<Activity[]> {
 	const conditions = [];
 
 	// #783: archive されたリソースをデフォルトで除外（NULL互換: #962）
-	conditions.push(or(eq(activities.isArchived, 0), isNull(activities.isArchived)));
+	conditions.push(or(eq(childActivities.isArchived, 0), isNull(childActivities.isArchived)));
 
 	if (filter?.categoryId) {
-		conditions.push(eq(activities.categoryId, filter.categoryId));
+		conditions.push(eq(childActivities.categoryId, filter.categoryId));
 	}
 
 	if (!filter?.includeHidden) {
-		conditions.push(eq(activities.isVisible, 1));
+		conditions.push(eq(childActivities.isVisible, 1));
 	}
 
-	if (filter?.childAge != null) {
-		conditions.push(or(isNull(activities.ageMin), lte(activities.ageMin, filter.childAge)));
-		conditions.push(or(isNull(activities.ageMax), gte(activities.ageMax, filter.childAge)));
-	}
+	// NOTE: ChildActivity は per-child instance のため ageMin/ageMax 列なし。
+	// filter.childAge は (ADR-0055 §3.1) instance 化時点で適齢のため filter 適用しない。
 
+	let query = db.select().from(childActivities).$dynamic();
 	if (conditions.length > 0) {
 		query = query.where(and(...conditions));
 	}
-
-	return query.orderBy(activities.sortOrder).all();
+	const rows = await query.orderBy(childActivities.sortOrder).all();
+	return rows.map(_toActivityShape);
 }
 
 export async function findActivityById(id: number, _tenantId: string) {
-	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)。
-	// activity_logs.activity_id は child_activities.id を参照するため、
-	// findActivityById も child_activities ベースに切替える。
-	// 旧 activities table は遺物 (#2458 別 PR で drop)、本関数では参照しない。
-	return db.select().from(childActivities).where(eq(childActivities.id, id)).get();
+	// #2362 PR-3 Phase 7b-2c: child_activities から取得 (PR-3 で移行済)。
+	const row = await db.select().from(childActivities).where(eq(childActivities.id, id)).get();
+	return row ? _toActivityShape(row) : undefined;
 }
 
 export async function insertActivity(
-	input: {
-		name: string;
-		categoryId: number;
-		icon: string;
-		basePoints: number;
-		ageMin: number | null;
-		ageMax: number | null;
-		triggerHint?: string | null;
-		sourcePresetId?: string | null;
-		// #1755 (#1709-A): 「今日のおやくそく」優先度
-		priority?: 'must' | 'optional';
-	},
-	_tenantId: string,
-) {
-	return db.insert(activities).values(input).returning().get();
+	input: InsertActivityInput,
+	tenantId: string,
+): Promise<Activity> {
+	// #2458-A1: family master insert を廃止し、tenant の最初の child に bind する。
+	// signature `(input, tenantId)` を維持しつつ child binding を内部で解決。
+	// activity-service.ts の createActivity と同パターン。
+	const firstChild = await _findFirstChild(tenantId);
+	if (!firstChild) {
+		throw new Error('insertActivity: tenant に child が存在しないため作成不可');
+	}
+	const row = db
+		.insert(childActivities)
+		.values({
+			childId: firstChild.id,
+			name: input.name,
+			categoryId: input.categoryId,
+			icon: input.icon,
+			basePoints: input.basePoints,
+			triggerHint: input.triggerHint ?? null,
+			isMainQuest: input.isMainQuest ?? 0,
+			sourcePresetId: input.sourcePresetId ?? null,
+			priority: input.priority ?? 'optional',
+		})
+		.returning()
+		.get();
+	if (!row) {
+		throw new Error('insertActivity: insert returned no row');
+	}
+	return _toActivityShape(row);
 }
 
 export async function updateActivity(
 	id: number,
-	input: Partial<{
-		name: string;
-		categoryId: number;
-		icon: string;
-		basePoints: number;
-		ageMin: number | null;
-		ageMax: number | null;
-		triggerHint: string | null;
-		// #1755 (#1709-A): 「今日のおやくそく」優先度
-		priority: 'must' | 'optional';
-		// updateActivity 経由で isMainQuest も更新できる必要がある（既存呼び出し維持）
-		isMainQuest: number;
-	}>,
-	_tenantId: string,
-) {
-	return db.update(activities).set(input).where(eq(activities.id, id)).returning().get();
+	input: UpdateActivityInput,
+	tenantId: string,
+): Promise<Activity | undefined> {
+	const childId = await _resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	// ChildActivity に存在しない field (ageMin / ageMax) は drop
+	const updateData: Record<string, unknown> = {};
+	if (input.name !== undefined) updateData.name = input.name;
+	if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
+	if (input.icon !== undefined) updateData.icon = input.icon;
+	if (input.basePoints !== undefined) updateData.basePoints = input.basePoints;
+	if (input.triggerHint !== undefined) updateData.triggerHint = input.triggerHint;
+	if (input.priority !== undefined) updateData.priority = input.priority;
+	if (input.isMainQuest !== undefined) updateData.isMainQuest = input.isMainQuest;
+	if (Object.keys(updateData).length === 0) {
+		// no-op update — 既存行を返却
+		const existing = await db
+			.select()
+			.from(childActivities)
+			.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+			.get();
+		return existing ? _toActivityShape(existing) : undefined;
+	}
+	const row = db
+		.update(childActivities)
+		.set(updateData)
+		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.returning()
+		.get();
+	return row ? _toActivityShape(row) : undefined;
 }
 
 /**
  * #1755 (#1709-A): 子供の今日の must 活動と達成状況を返す。
- * - 今日 = recordedDate が `today` に一致するキャンセル除外ログを「達成」とみなす
- * - 戻り値 `activities` は priority='must' かつ isVisible=1 / isArchived=0 の活動全件
- *   （年齢フィルタは呼び出し側で適用する設計に揃え、本関数は schema 直結の最小実装に留める）
  */
 export async function findMustActivitiesWithToday(
 	childId: number,
@@ -102,8 +234,6 @@ export async function findMustActivitiesWithToday(
 	total: number;
 	activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
 }> {
-	// #2362 PR-3 Phase 7b-2c: child_activities (per-child instance) を読みに行く。
-	// childId scope の must 活動のみ対象 (旧 master + age filter から per-child instance へ)。
 	const mustList = await db
 		.select({
 			id: childActivities.id,
@@ -126,7 +256,6 @@ export async function findMustActivitiesWithToday(
 		return { logged: 0, total: 0, activities: [] };
 	}
 
-	// 今日記録された activityId 集合を取得
 	const todayLogs = await db
 		.select({ activityId: activityLogs.activityId })
 		.from(activityLogs)
@@ -150,34 +279,50 @@ export async function findMustActivitiesWithToday(
 	return { logged, total: enriched.length, activities: enriched };
 }
 
-export async function setActivityVisibility(id: number, visible: boolean, _tenantId: string) {
-	return db
-		.update(activities)
+export async function setActivityVisibility(
+	id: number,
+	visible: boolean,
+	tenantId: string,
+): Promise<Activity | undefined> {
+	const childId = await _resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	const row = db
+		.update(childActivities)
 		.set({ isVisible: visible ? 1 : 0 })
-		.where(eq(activities.id, id))
+		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
 		.returning()
 		.get();
+	return row ? _toActivityShape(row) : undefined;
 }
 
-export async function deleteActivity(id: number, _tenantId: string) {
-	return db.delete(activities).where(eq(activities.id, id)).returning().get();
+export async function deleteActivity(id: number, tenantId: string): Promise<Activity | undefined> {
+	const childId = await _resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	const row = db
+		.delete(childActivities)
+		.where(and(eq(childActivities.id, id), eq(childActivities.childId, childId)))
+		.returning()
+		.get();
+	return row ? _toActivityShape(row) : undefined;
 }
 
-// #783: archive / restore
-export async function archiveActivities(ids: number[], reason: string, _tenantId: string) {
+// #783: archive / restore — child_activities 経由
+export async function archiveActivities(
+	ids: number[],
+	reason: string,
+	_tenantId: string,
+): Promise<void> {
 	if (ids.length === 0) return;
-	for (const id of ids) {
-		db.update(activities)
-			.set({ isArchived: 1, archivedReason: reason })
-			.where(eq(activities.id, id))
-			.run();
-	}
+	db.update(childActivities)
+		.set({ isArchived: 1, archivedReason: reason })
+		.where(inArray(childActivities.id, ids))
+		.run();
 }
 
-export async function restoreArchivedActivities(reason: string, _tenantId: string) {
-	db.update(activities)
+export async function restoreArchivedActivities(reason: string, _tenantId: string): Promise<void> {
+	db.update(childActivities)
 		.set({ isArchived: 0, archivedReason: null })
-		.where(eq(activities.archivedReason, reason))
+		.where(eq(childActivities.archivedReason, reason))
 		.run();
 }
 
@@ -407,13 +552,14 @@ export async function getCategoryCountsByDate(
 	childId: number,
 	_tenantId: string,
 ): Promise<{ recordedDate: string; categoryCount: number }[]> {
+	// #2458-A1: child_activities 経由 (旧 activities table の JOIN を撤去)
 	return db
 		.select({
 			recordedDate: activityLogs.recordedDate,
-			categoryCount: countDistinct(activities.categoryId),
+			categoryCount: countDistinct(childActivities.categoryId),
 		})
 		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
 		.groupBy(activityLogs.recordedDate)
 		.all();
@@ -421,10 +567,11 @@ export async function getCategoryCountsByDate(
 
 /** 累計で記録した異なるカテゴリ数 */
 export async function countDistinctCategories(childId: number, _tenantId: string): Promise<number> {
+	// #2458-A1: child_activities 経由
 	const result = await db
-		.select({ count: countDistinct(activities.categoryId) })
+		.select({ count: countDistinct(childActivities.categoryId) })
 		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(and(eq(activityLogs.childId, childId), eq(activityLogs.cancelled, 0)))
 		.get();
 	return result?.count ?? 0;
@@ -432,8 +579,7 @@ export async function countDistinctCategories(childId: number, _tenantId: string
 
 /** 今日のログ（活動ID+カテゴリID付き）を取得（combo-service用） */
 export async function findTodayLogsWithCategory(childId: number, date: string, _tenantId: string) {
-	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)。
-	// activity_logs.activity_id → child_activities.id を JOIN。
+	// #2362 PR-3 Phase 7b-2c: schema FK は child_activities に切替済 (Phase 7b-2a)
 	return db
 		.select({
 			activityId: activityLogs.activityId,
@@ -479,15 +625,16 @@ export async function countActiveActivityLogsByCategory(
 	categoryId: number,
 	_tenantId: string,
 ): Promise<number> {
+	// #2458-A1: child_activities 経由 (旧 activities table の JOIN を撤去)
 	const result = await db
 		.select({ total: count() })
 		.from(activityLogs)
-		.innerJoin(activities, eq(activityLogs.activityId, activities.id))
+		.innerJoin(childActivities, eq(activityLogs.activityId, childActivities.id))
 		.where(
 			and(
 				eq(activityLogs.childId, childId),
 				eq(activityLogs.cancelled, 0),
-				eq(activities.categoryId, categoryId),
+				eq(childActivities.categoryId, categoryId),
 			),
 		)
 		.get();
@@ -547,10 +694,17 @@ export async function insertPointLedger(
 }
 
 export async function countMainQuestActivities(_tenantId: string): Promise<number> {
+	// #2458-A1: child_activities 経由 (tenant 全 child 横断、isVisible & isMainQuest フィルタ)
 	const result = await db
 		.select({ cnt: count() })
-		.from(activities)
-		.where(and(eq(activities.isMainQuest, 1), eq(activities.isVisible, 1)))
+		.from(childActivities)
+		.where(
+			and(
+				eq(childActivities.isMainQuest, 1),
+				eq(childActivities.isVisible, 1),
+				or(eq(childActivities.isArchived, 0), isNull(childActivities.isArchived)),
+			),
+		)
 		.get();
 	return result?.cnt ?? 0;
 }

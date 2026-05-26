@@ -94,6 +94,9 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 	// 実績システム廃止（#322）— achievementMap は空
 	const achievementMap = new Map<number, { code: string }>();
 	// マスタデータの変換
+	// #2458-A1: gradeLevel は ChildActivity per-child instance に存在しない (ADR-0055)。
+	// _toActivityShape adapter で null 化されているため null を export する。
+	// 後方互換のため field 自体は残す (import 側で null tolerated)。
 	const masterActivities: ExportActivity[] = activitiesRaw.map((a) => ({
 		name: a.name,
 		categoryCode: getCategoryCode(a.categoryId),

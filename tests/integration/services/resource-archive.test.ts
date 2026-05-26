@@ -66,6 +66,37 @@ const SQL_TABLES = `
 		priority TEXT NOT NULL DEFAULT 'optional'
 	);
 
+	-- ============================================================
+	-- child_activities - per-child 活動 instance (#2362 PR-3, ADR-0055)
+	-- #2458-A1 (2026-05-26): facade rewrite で activity-repo は child_activities を SSOT 化。
+	-- resource-archive-service の findActivities / archiveActivities / restoreArchivedActivities は
+	-- 本 table を経由するため、test DB schema も同期する必要がある。
+	-- 列定義は src/lib/server/db/schema.ts childActivities と SQL_TABLES (tests/unit/helpers/test-db.ts) に整合。
+	-- ============================================================
+	CREATE TABLE child_activities (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+		name TEXT NOT NULL,
+		category_id INTEGER NOT NULL REFERENCES categories(id),
+		icon TEXT NOT NULL,
+		base_points INTEGER NOT NULL DEFAULT 5,
+		is_visible INTEGER NOT NULL DEFAULT 1,
+		daily_limit INTEGER,
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		source TEXT NOT NULL DEFAULT 'seed',
+		name_kana TEXT,
+		name_kanji TEXT,
+		trigger_hint TEXT,
+		is_main_quest INTEGER NOT NULL DEFAULT 0,
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		is_archived INTEGER NOT NULL DEFAULT 0,
+		archived_reason TEXT,
+		source_preset_id TEXT,
+		priority TEXT NOT NULL DEFAULT 'optional'
+	);
+	CREATE INDEX idx_child_activities_child ON child_activities(child_id, is_archived);
+	CREATE INDEX idx_child_activities_child_sort ON child_activities(child_id, sort_order);
+
 	-- #2362 PR-5 (ADR-0055): family master 化
 	CREATE TABLE checklist_templates (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,10 +159,12 @@ function resetDb() {
 	// #2362 PR-5: assignments を templates より先に削除 (FK 依存)
 	sqlite.exec('DELETE FROM checklist_template_assignments');
 	sqlite.exec('DELETE FROM checklist_templates');
+	// #2458-A1: child_activities を children より先に (FK ON DELETE CASCADE だが明示削除)
+	sqlite.exec('DELETE FROM child_activities');
 	sqlite.exec('DELETE FROM activities');
 	sqlite.exec('DELETE FROM children');
 	sqlite.exec(
-		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','checklist_templates','checklist_template_assignments')",
+		"DELETE FROM sqlite_sequence WHERE name IN ('children','activities','child_activities','checklist_templates','checklist_template_assignments')",
 	);
 }
 
@@ -144,11 +177,24 @@ function seedChildren(count: number) {
 	}
 }
 
+// #2458-A1: activity-repo facade rewrite に伴い、test fixture も per-child instance
+// (child_activities table) に同期。デフォルトで最初に作成された child に bind する
+// (test 内では `seedChildren(>=1)` を必ず先に呼ぶ前提)。
+function _firstChildId(): number {
+	const row = testDb.select({ id: schema.children.id }).from(schema.children).get();
+	if (!row) {
+		throw new Error('seedCustomActivities/seedSeedActivities: must call seedChildren(>=1) first');
+	}
+	return row.id;
+}
+
 function seedCustomActivities(count: number) {
+	const childId = _firstChildId();
 	for (let i = 1; i <= count; i++) {
 		testDb
-			.insert(schema.activities)
+			.insert(schema.childActivities)
 			.values({
+				childId,
 				name: `カスタム活動${i}`,
 				categoryId: 1,
 				icon: '🏃',
@@ -161,10 +207,12 @@ function seedCustomActivities(count: number) {
 }
 
 function seedSeedActivities(count: number) {
+	const childId = _firstChildId();
 	for (let i = 1; i <= count; i++) {
 		testDb
-			.insert(schema.activities)
+			.insert(schema.childActivities)
 			.values({
+				childId,
 				name: `シード活動${i}`,
 				categoryId: 1,
 				icon: '🏃',
@@ -201,15 +249,23 @@ function getArchivedChildren() {
 }
 
 function getVisibleCustomActivities() {
+	// #2458-A1: activity-repo facade は child_activities を SSOT 化済。
 	return testDb
 		.select()
-		.from(schema.activities)
-		.where(and(eq(schema.activities.isArchived, 0), eq(schema.activities.source, 'custom')))
+		.from(schema.childActivities)
+		.where(
+			and(eq(schema.childActivities.isArchived, 0), eq(schema.childActivities.source, 'custom')),
+		)
 		.all();
 }
 
 function getArchivedActivities() {
-	return testDb.select().from(schema.activities).where(eq(schema.activities.isArchived, 1)).all();
+	// #2458-A1: archive 対象は child_activities (activity-repo facade SSOT)。
+	return testDb
+		.select()
+		.from(schema.childActivities)
+		.where(eq(schema.childActivities.isArchived, 1))
+		.all();
 }
 
 function getVisibleTemplates(childId: number) {

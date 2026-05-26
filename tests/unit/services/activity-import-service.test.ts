@@ -1,5 +1,11 @@
 // tests/unit/services/activity-import-service.test.ts
 // activity-import-service unit tests
+//
+// #2458-A1 (2026-05-26): facade rewrite で family master `activities` table への
+// parallel write を撤去。本テストは新挙動 (per-child instance bulk insert のみ) を検証する。
+// childIds 未指定時は fallback で tenant 最初の child に bind されるため、`mockInsertActivitiesBulk`
+// が常に呼ばれることを assert する。
+// 旧 `mockInsertActivity` (facade) は assert 対象外 (内部実装としても呼ばれない)。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityPackItem } from '../../../src/lib/domain/activity-pack';
@@ -7,13 +13,13 @@ import type { ActivityPackItem } from '../../../src/lib/domain/activity-pack';
 // ---------- Top-level mocks ----------
 
 const mockFindActivities = vi.fn();
-const mockInsertActivity = vi.fn();
-// #2362 PR-3: per-child instance 配信 (childIds 指定時に呼ばれる)
+// #2362 PR-3: per-child instance 配信
 const mockInsertActivitiesBulk = vi.fn();
+// #2458-A1: childIds 未指定 fallback 用
+const mockFindAllChildren = vi.fn();
 
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
-	insertActivity: (...args: unknown[]) => mockInsertActivity(...args),
 }));
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -22,6 +28,11 @@ vi.mock('$lib/server/db/factory', () => ({
 			insertActivitiesBulk: (...args: unknown[]) => mockInsertActivitiesBulk(...args),
 		},
 	}),
+}));
+
+// #2458-A1: importActivities が childIds 未指定時に dynamic import する fallback
+vi.mock('$lib/server/db/child-repo', () => ({
+	findAllChildren: (...args: unknown[]) => mockFindAllChildren(...args),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -42,6 +53,7 @@ import {
 // ---------- Helpers ----------
 
 const TENANT = 'test-tenant-001';
+const FIRST_CHILD_ID = 999; // fallback bind 用 (childIds 未指定時)
 
 function makeItem(overrides: Partial<ActivityPackItem> = {}): ActivityPackItem {
 	return {
@@ -61,8 +73,8 @@ function makeItem(overrides: Partial<ActivityPackItem> = {}): ActivityPackItem {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindActivities.mockResolvedValue([]);
-	mockInsertActivity.mockResolvedValue({ id: 1 });
 	mockInsertActivitiesBulk.mockResolvedValue([]);
+	mockFindAllChildren.mockResolvedValue([{ id: FIRST_CHILD_ID, nickname: 'first' }]);
 });
 
 // ==========================================================
@@ -149,11 +161,15 @@ describe('previewActivityImport', () => {
 });
 
 // ==========================================================
-// importActivities
+// importActivities (#2458-A1: child_activities 経由のみ)
 // ==========================================================
 
 describe('importActivities', () => {
-	it('全て新規 -> 全てインポートされる', async () => {
+	// ──────────────────────────────────────────────────────────
+	// 基本動作 — childIds 未指定 (fallback)
+	// ──────────────────────────────────────────────────────────
+
+	it('全て新規 -> 全て per-child bulk に渡される (fallback child binding)', async () => {
 		const items = [
 			makeItem({ name: 'サッカー', categoryCode: 'undou' }),
 			makeItem({ name: '読書', categoryCode: 'benkyou' }),
@@ -164,7 +180,12 @@ describe('importActivities', () => {
 		expect(result.imported).toBe(2);
 		expect(result.skipped).toBe(0);
 		expect(result.errors).toEqual([]);
-		expect(mockInsertActivity).toHaveBeenCalledTimes(2);
+		// #2458-A1: fallback で FIRST_CHILD_ID に bind される
+		expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
+		const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+		expect(bulkArgs).toHaveLength(2);
+		expect(bulkArgs[0]).toMatchObject({ childId: FIRST_CHILD_ID, name: 'サッカー' });
+		expect(bulkArgs[1]).toMatchObject({ childId: FIRST_CHILD_ID, name: '読書' });
 	});
 
 	it('重複がスキップされる', async () => {
@@ -180,7 +201,10 @@ describe('importActivities', () => {
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(1);
 		expect(result.errors).toEqual([]);
-		expect(mockInsertActivity).toHaveBeenCalledTimes(1);
+		expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
+		const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+		expect(bulkArgs).toHaveLength(1);
+		expect(bulkArgs[0]).toMatchObject({ name: '読書' });
 	});
 
 	it('不明なカテゴリ -> エラー記録される', async () => {
@@ -193,13 +217,11 @@ describe('importActivities', () => {
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toContain('謎の活動');
 		expect(result.errors[0]).toContain('unknown');
-		expect(mockInsertActivity).not.toHaveBeenCalled();
+		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 	});
 
-	it('insertActivity が例外をスロー -> エラー記録され処理継続', async () => {
-		mockInsertActivity
-			.mockRejectedValueOnce(new Error('DB constraint violation'))
-			.mockResolvedValueOnce({ id: 2 });
+	it('per-child bulk が例外をスロー -> エラー記録され処理継続', async () => {
+		mockInsertActivitiesBulk.mockRejectedValueOnce(new Error('DB constraint violation'));
 
 		const items = [
 			makeItem({ name: '失敗する活動', categoryCode: 'undou' }),
@@ -208,33 +230,28 @@ describe('importActivities', () => {
 
 		const result = await importActivities(items, TENANT);
 
-		expect(result.imported).toBe(1);
+		// imported は family master 段階での成功件数。bulk 失敗は別 channel (errors)
+		expect(result.imported).toBe(2);
 		expect(result.errors).toHaveLength(1);
-		expect(result.errors[0]).toContain('失敗する活動');
+		expect(result.errors[0]).toContain('per-child instance 作成失敗');
 		expect(result.errors[0]).toContain('DB constraint violation');
 	});
 
-	it('混合シナリオ: 新規 + 重複 + カテゴリエラー + DB例外', async () => {
+	it('混合シナリオ: 新規 + 重複 + カテゴリエラー', async () => {
 		mockFindActivities.mockResolvedValue([{ name: '既存活動' }]);
-		mockInsertActivity
-			.mockResolvedValueOnce({ id: 1 })
-			.mockRejectedValueOnce(new Error('disk full'));
 
 		const items = [
 			makeItem({ name: '既存活動', categoryCode: 'undou' }),
 			makeItem({ name: '新規OK', categoryCode: 'benkyou' }),
 			makeItem({ name: 'カテゴリ不明', categoryCode: 'invalid' as never }),
-			makeItem({ name: 'DB失敗', categoryCode: 'seikatsu' }),
 		];
 
 		const result = await importActivities(items, TENANT);
 
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(1);
-		expect(result.errors).toHaveLength(2);
+		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toContain('カテゴリ不明');
-		expect(result.errors[1]).toContain('DB失敗');
-		expect(result.errors[1]).toContain('disk full');
 	});
 
 	it('同名が入力に2回 -> 2つ目は existingNames.add で重複扱い', async () => {
@@ -245,14 +262,12 @@ describe('importActivities', () => {
 
 		const result = await importActivities(items, TENANT);
 
-		// 1つ目はインポート成功、2つ目は existingNames に追加済みなのでスキップ
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(1);
 		expect(result.errors).toEqual([]);
-		expect(mockInsertActivity).toHaveBeenCalledTimes(1);
 	});
 
-	it('insertActivity に正しい引数が渡される', async () => {
+	it('per-child bulk に正しい引数が渡される', async () => {
 		const items = [
 			makeItem({
 				name: 'テスト活動',
@@ -267,46 +282,40 @@ describe('importActivities', () => {
 
 		await importActivities(items, TENANT);
 
-		expect(mockInsertActivity).toHaveBeenCalledWith(
-			{
-				name: 'テスト活動',
-				categoryId: 3, // seikatsu is index 2 + 1 = 3
-				icon: '🧹',
-				basePoints: 3,
-				ageMin: 4,
-				ageMax: 10,
-				triggerHint: 'おかたづけの後',
-				sourcePresetId: null,
-				// #1758: applyMustDefault 未指定 / mustDefault 未指定 -> 'optional'
-				priority: 'optional',
-			},
-			TENANT,
-		);
+		const [bulkArgs, tenantArg] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+		expect(tenantArg).toBe(TENANT);
+		expect(bulkArgs[0]).toMatchObject({
+			childId: FIRST_CHILD_ID,
+			name: 'テスト活動',
+			categoryId: 3, // seikatsu is index 2 + 1 = 3
+			icon: '🧹',
+			basePoints: 3,
+			triggerHint: 'おかたづけの後',
+			sourcePresetId: null,
+			priority: 'optional',
+		});
+		// #2458-A1: ChildActivity に存在しない field は drop されること
+		expect(bulkArgs[0]).not.toHaveProperty('ageMin');
+		expect(bulkArgs[0]).not.toHaveProperty('ageMax');
 	});
 
-	// ==========================================================
+	// ──────────────────────────────────────────────────────────
 	// #1758 (#1709-D): mustDefault + applyMustDefault による priority 制御
-	// ==========================================================
+	// ──────────────────────────────────────────────────────────
 
 	describe('#1758 mustDefault / applyMustDefault による priority 設定', () => {
-		it('applyMustDefault=true かつ mustDefault=true -> priority=must で挿入', async () => {
+		it('applyMustDefault=true かつ mustDefault=true -> priority=must', async () => {
 			const items = [
-				makeItem({
-					name: 'はみがきした',
-					categoryCode: 'seikatsu',
-					mustDefault: true,
-				}),
+				makeItem({ name: 'はみがきした', categoryCode: 'seikatsu', mustDefault: true }),
 			];
 
 			await importActivities(items, TENANT, { applyMustDefault: true });
 
-			expect(mockInsertActivity).toHaveBeenCalledWith(
-				expect.objectContaining({
-					name: 'はみがきした',
-					priority: 'must',
-				}),
-				TENANT,
-			);
+			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(bulkArgs[0]).toMatchObject({
+				name: 'はみがきした',
+				priority: 'must',
+			});
 		});
 
 		it('applyMustDefault=true でも mustDefault=false の活動は priority=optional', async () => {
@@ -317,16 +326,9 @@ describe('importActivities', () => {
 
 			await importActivities(items, TENANT, { applyMustDefault: true });
 
-			expect(mockInsertActivity).toHaveBeenNthCalledWith(
-				1,
-				expect.objectContaining({ name: 'はみがきした', priority: 'must' }),
-				TENANT,
-			);
-			expect(mockInsertActivity).toHaveBeenNthCalledWith(
-				2,
-				expect.objectContaining({ name: 'なわとびした', priority: 'optional' }),
-				TENANT,
-			);
+			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(bulkArgs[0]).toMatchObject({ name: 'はみがきした', priority: 'must' });
+			expect(bulkArgs[1]).toMatchObject({ name: 'なわとびした', priority: 'optional' });
 		});
 
 		it('applyMustDefault=false なら mustDefault=true の活動でも priority=optional', async () => {
@@ -337,9 +339,10 @@ describe('importActivities', () => {
 
 			await importActivities(items, TENANT, { applyMustDefault: false });
 
-			expect(mockInsertActivity).toHaveBeenCalledTimes(2);
-			for (const call of mockInsertActivity.mock.calls) {
-				expect(call[0].priority).toBe('optional');
+			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(bulkArgs).toHaveLength(2);
+			for (const arg of bulkArgs) {
+				expect(arg.priority).toBe('optional');
 			}
 		});
 
@@ -350,10 +353,8 @@ describe('importActivities', () => {
 
 			await importActivities(items, TENANT);
 
-			expect(mockInsertActivity).toHaveBeenCalledWith(
-				expect.objectContaining({ priority: 'optional' }),
-				TENANT,
-			);
+			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(bulkArgs[0]).toMatchObject({ priority: 'optional' });
 		});
 
 		it('後方互換: 第3引数に文字列を渡すと presetId として扱われる', async () => {
@@ -361,14 +362,11 @@ describe('importActivities', () => {
 
 			await importActivities(items, TENANT, 'kinder-starter');
 
-			expect(mockInsertActivity).toHaveBeenCalledWith(
-				expect.objectContaining({
-					sourcePresetId: 'kinder-starter',
-					// applyMustDefault は未指定なので false 扱い
-					priority: 'optional',
-				}),
-				TENANT,
-			);
+			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(bulkArgs[0]).toMatchObject({
+				sourcePresetId: 'kinder-starter',
+				priority: 'optional', // applyMustDefault 未指定なので false 扱い
+			});
 		});
 
 		it('options.presetId と applyMustDefault が両方反映される', async () => {
@@ -381,13 +379,11 @@ describe('importActivities', () => {
 				applyMustDefault: true,
 			});
 
-			expect(mockInsertActivity).toHaveBeenCalledWith(
-				expect.objectContaining({
-					sourcePresetId: 'kinder-starter',
-					priority: 'must',
-				}),
-				TENANT,
-			);
+			const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(bulkArgs[0]).toMatchObject({
+				sourcePresetId: 'kinder-starter',
+				priority: 'must',
+			});
 		});
 	});
 
@@ -402,10 +398,8 @@ describe('importActivities', () => {
 
 		await importActivities(items, TENANT);
 
-		expect(mockInsertActivity).toHaveBeenCalledWith(
-			expect.objectContaining({ triggerHint: null }),
-			TENANT,
-		);
+		const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+		expect(bulkArgs[0]).toMatchObject({ triggerHint: null });
 	});
 
 	it('全カテゴリコードが正しい categoryId にマッピングされる', async () => {
@@ -423,9 +417,10 @@ describe('importActivities', () => {
 
 		await importActivities(items, TENANT);
 
-		expect(mockInsertActivity).toHaveBeenCalledTimes(5);
+		const [bulkArgs] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+		expect(bulkArgs).toHaveLength(5);
 		for (const [i, [_, expectedId]] of Object.entries(codeToExpectedId).entries()) {
-			expect(mockInsertActivity.mock.calls[i]?.[0].categoryId).toBe(expectedId);
+			expect(bulkArgs[i].categoryId).toBe(expectedId);
 		}
 	});
 
@@ -435,33 +430,30 @@ describe('importActivities', () => {
 		expect(result.imported).toBe(0);
 		expect(result.skipped).toBe(0);
 		expect(result.errors).toEqual([]);
-		expect(mockInsertActivity).not.toHaveBeenCalled();
+		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 	});
 
-	// ==========================================================
-	// #2362 PR-3 (ADR-0055): per-child instance 配信
-	// ==========================================================
+	// ──────────────────────────────────────────────────────────
+	// #2458-A1 fallback: tenant に child が 0 件
+	// ──────────────────────────────────────────────────────────
+
+	it('tenant に child が 0 件 -> per-child bulk は呼ばれない (imported は別 channel)', async () => {
+		mockFindAllChildren.mockResolvedValue([]);
+
+		const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
+
+		const result = await importActivities(items, TENANT);
+
+		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+		// imported は per-child 配信前の進捗カウンタとして残る
+		expect(result.imported).toBe(1);
+	});
+
+	// ──────────────────────────────────────────────────────────
+	// #2362 PR-3 (ADR-0055): per-child instance 配信 — childIds 明示
+	// ──────────────────────────────────────────────────────────
 
 	describe('#2362 PR-3 per-child instance 配信 (options.childIds)', () => {
-		it('childIds 未指定 -> family master insert のみ、per-child bulk は呼ばれない', async () => {
-			const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
-
-			const result = await importActivities(items, TENANT);
-
-			expect(result.imported).toBe(1);
-			expect(mockInsertActivity).toHaveBeenCalledTimes(1);
-			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
-		});
-
-		it('childIds 空配列 -> per-child bulk は呼ばれない', async () => {
-			const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
-
-			await importActivities(items, TENANT, { childIds: [] });
-
-			expect(mockInsertActivity).toHaveBeenCalledTimes(1);
-			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
-		});
-
 		it('childIds=[101] -> 1 child に対し bulk insert 1 回 / 件数は activities 数', async () => {
 			const items = [
 				makeItem({ name: 'A', categoryCode: 'undou' }),
@@ -471,13 +463,14 @@ describe('importActivities', () => {
 			const result = await importActivities(items, TENANT, { childIds: [101] });
 
 			expect(result.imported).toBe(2);
-			expect(mockInsertActivity).toHaveBeenCalledTimes(2);
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
 			const [bulkArgs, tenantArg] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
 			expect(tenantArg).toBe(TENANT);
 			expect(bulkArgs).toHaveLength(2);
 			expect(bulkArgs[0]).toMatchObject({ childId: 101, name: 'A', categoryId: 1 });
 			expect(bulkArgs[1]).toMatchObject({ childId: 101, name: 'B', categoryId: 2 });
+			// fallback が使われていないことを確認 (childIds 明示時は findAllChildren 不呼出)
+			expect(mockFindAllChildren).not.toHaveBeenCalled();
 		});
 
 		it('childIds=[101, 202, 303] -> 3 child それぞれに bulk insert', async () => {
@@ -488,7 +481,6 @@ describe('importActivities', () => {
 
 			await importActivities(items, TENANT, { childIds: [101, 202, 303] });
 
-			expect(mockInsertActivity).toHaveBeenCalledTimes(2);
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(3);
 			const calledChildIds = mockInsertActivitiesBulk.mock.calls
 				.map((c) => (c[0] as { childId: number }[])[0]?.childId)
@@ -506,13 +498,13 @@ describe('importActivities', () => {
 
 			const result = await importActivities(items, TENANT, { childIds: [101, 202, 303] });
 
-			expect(result.imported).toBe(1); // family master は成功
+			expect(result.imported).toBe(1);
 			expect(result.errors).toHaveLength(1);
 			expect(result.errors[0]).toContain('child=101');
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(3);
 		});
 
-		it('family master insert が duplicate でスキップされた activity は per-child 配信からも除外', async () => {
+		it('duplicate でスキップされた activity は per-child 配信からも除外', async () => {
 			mockFindActivities.mockResolvedValue([{ name: '既存' }]);
 
 			const items = [
@@ -530,7 +522,7 @@ describe('importActivities', () => {
 			expect(bulkArgs[0]).toMatchObject({ childId: 101, name: '新規' });
 		});
 
-		it('per-child input の priority / sourcePresetId は family master と一致', async () => {
+		it('per-child input の priority / sourcePresetId は正しく伝播', async () => {
 			const items = [makeItem({ name: 'はみがき', categoryCode: 'seikatsu', mustDefault: true })];
 
 			await importActivities(items, TENANT, {
@@ -546,19 +538,6 @@ describe('importActivities', () => {
 				priority: 'must',
 				sourcePresetId: 'kinder-starter',
 			});
-		});
-
-		it('family master insert 失敗時は per-child 配信もスキップされる', async () => {
-			mockInsertActivity.mockRejectedValueOnce(new Error('FK violation'));
-
-			const items = [makeItem({ name: '失敗', categoryCode: 'undou' })];
-
-			const result = await importActivities(items, TENANT, { childIds: [101] });
-
-			expect(result.imported).toBe(0);
-			expect(result.errors).toHaveLength(1);
-			// 失敗 activity だけだったので per-child bulk は呼ばれない (空配列なので continue)
-			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 		});
 	});
 });
