@@ -1579,7 +1579,7 @@ describe('revokeLicenseKey (#797)', () => {
 
 	it('#2490 Phase 2 Sub-B1: migrated 状態の key は revoke 試行で {ok:false} を返す', async () => {
 		const record: LicenseRecord = {
-			licenseKey: 'GQ-MIGR-MIGR-MIGR',
+			licenseKey: 'GQ-2334-2334-2334',
 			tenantId: 'tenant-1',
 			plan: 'monthly',
 			status: 'migrated',
@@ -1588,7 +1588,7 @@ describe('revokeLicenseKey (#797)', () => {
 		mockFindLicenseKey.mockResolvedValue(record);
 
 		const result = await revokeLicenseKey({
-			licenseKey: 'GQ-MIGR-MIGR-MIGR',
+			licenseKey: 'GQ-2334-2334-2334',
 			reason: 'ops-manual',
 			revokedBy: 'ops:admin-1',
 		});
