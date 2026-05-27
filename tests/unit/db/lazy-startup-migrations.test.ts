@@ -268,6 +268,61 @@ describe('applyLazyStartupMigrations', () => {
 		});
 	});
 
+	describe('transaction rollback on mid-failure (#2509)', () => {
+		// 各 migration block は内部で transaction を張るため、ALTER / INSERT / DROP の
+		// 途中で fail した場合は SQLite が自動 ROLLBACK し partial state は残らない。
+		// partial state が残ると次回起動時 guard 判定 (hasColumn / hasFkToActivities)
+		// が破れて永続的 startup loop に陥るため、atomic 化は #2508 の構造的再発防止
+		// の核心。本ケースでは「shadow table 作成 → INSERT 途中で table 不在 error」
+		// を強制し、ROLLBACK が機能して旧 schema が完全に残ることを検証する。
+
+		it('shadow table が既存と衝突して family flip が fail した場合、旧 schema (child_id 列) が完全に残る', () => {
+			seedLegacyProductionSchema(db);
+			db.prepare("INSERT INTO children (nickname, age) VALUES ('A', 5)").run();
+			db.prepare(
+				"INSERT INTO checklist_templates (child_id, name, kind) VALUES (1, 'morning', 'belongings')",
+			).run();
+
+			// 強制 fail: shadow table と同名の table を先に作っておき、
+			// `CREATE TABLE checklist_templates_new (...)` が SQLITE_ERROR で落ちるようにする。
+			// これは family flip の step 1 で必ず最初に投げられる DDL なので、
+			// tx 内の全 step (INSERT / assignments 作成 / DROP / RENAME) がまだ実行されない
+			// ことが確認できる。tx wrap がなければ migrateChecklistTemplatesDropKind の DELETE+
+			// DROP COLUMN は既に commit されてしまい、`kind` 列の削除と family flip 部分実装
+			// の二重不整合が残る (#2508 と同型の startup loop リスク)。
+			db.exec('CREATE TABLE checklist_templates_new (placeholder TEXT);');
+
+			let caught: Error | undefined;
+			try {
+				applyLazyStartupMigrations(db);
+			} catch (err) {
+				caught = err as Error;
+			}
+
+			// 例外は呼び出し元に伝播されている (fail-fast)
+			expect(caught).toBeDefined();
+			expect(caught?.message).toMatch(/already exists|checklist_templates_new/);
+
+			// migrateChecklistTemplatesDropKind 自体は family flip の前に走る tx なので
+			// 成功して commit 済 (kind 列削除 + 'routine' 行削除)。それは想定挙動。
+			expect(hasColumn(db, 'checklist_templates', 'kind')).toBe(false);
+
+			// **核心 assertion**: family flip の tx が ROLLBACK されたため、
+			// checklist_templates は旧 schema のまま (child_id 列が残り、tenant_id 不在)、
+			// checklist_template_assignments table も作成されていない。
+			// partial state (例: assignments 作成済 + 旧 templates もそのまま) は残らない。
+			expect(hasColumn(db, 'checklist_templates', 'child_id')).toBe(true);
+			expect(hasColumn(db, 'checklist_templates', 'tenant_id')).toBe(false);
+			expect(tableExists(db, 'checklist_template_assignments')).toBe(false);
+
+			// 旧 row 数も保全
+			const remaining = (
+				db.prepare('SELECT COUNT(*) AS c FROM checklist_templates').get() as { c: number }
+			).c;
+			expect(remaining).toBe(1);
+		});
+	});
+
 	describe('foreign_keys pragma 状態の保全', () => {
 		it('呼び出し前後で foreign_keys=ON の状態が維持される', () => {
 			seedLegacyProductionSchema(db);
