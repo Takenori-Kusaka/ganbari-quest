@@ -4,7 +4,7 @@
 |------|------|
 | 孫 issue | #2532 (新規申込の要件) |
 | 親 | #2526 (Phase 1 要件定義) / 上位 #2525 |
-| ステータス | deep-research 完了 → PO レビュー待ち |
+| ステータス | Phase 1 完了 (deep-research 完了 → PO 確定 2026-05-27) |
 | deep-research | Cognito / Stripe / PIPC / COPPA / 競合 UX を primary source 確認済 |
 
 ## 主要な設計判断 (3 根拠が同方向)

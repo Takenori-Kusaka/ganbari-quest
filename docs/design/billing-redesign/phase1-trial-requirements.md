@@ -4,7 +4,7 @@
 |------|------|
 | 孫 issue | #2533 (トライアルの要件) |
 | 親 | #2526 (Phase 1) / 上位 #2525 |
-| ステータス | deep-research 完了 → PO 判断 3 論点 + レビュー待ち |
+| ステータス | Phase 1 完了 (deep-research 完了 → PO 確定 2026-05-27、判断 3 論点も確定) |
 | deep-research | Stripe 公式 / 競合 (Duolingo/Headspace/Slack/Notion) / ADR-0012 / 既存実装を primary source 確認 |
 
 ## trust but verify で精緻化した前提 (2 点)

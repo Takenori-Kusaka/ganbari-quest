@@ -4,7 +4,7 @@
 |------|------|
 | 孫 issue | #2540 (購入セキュリティの要件) |
 | 親 | #2526 (Phase 1) / 上位 #2525 |
-| ステータス | deep-research 完了 (Stripe webhook security + OWASP 一次確認) → 推奨で確定、PO レビュー待ち |
+| ステータス | Phase 1 完了 (deep-research: Stripe webhook security + OWASP 一次確認 → 推奨で確定、PO 確定 2026-05-27) |
 
 ## 真の新規スコープ (他孫で既出の要件は参照のみ)
 

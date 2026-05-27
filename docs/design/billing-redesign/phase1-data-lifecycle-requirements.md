@@ -4,7 +4,7 @@
 |------|------|
 | 孫 issue | #2538 (データライフサイクルの要件) — 複数孫 (トライアル/解約/ダウングレード/dunning) の連動中核 |
 | 親 | #2526 (Phase 1) / 上位 #2525 |
-| ステータス | deep-research 完了 (PIPC 一次 + ADR-0049/account-deletion-flow.md 照合) → PO 判断 3 論点 + レビュー待ち |
+| ステータス | Phase 1 完了 (deep-research: PIPC 一次 + ADR-0049/account-deletion-flow.md 照合 → PO 確定 2026-05-27、判断 3 論点も確定) |
 
 ## 重要: 「90日」は 2 系統 (混同注意)
 

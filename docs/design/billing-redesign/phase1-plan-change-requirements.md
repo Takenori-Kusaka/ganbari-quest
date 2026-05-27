@@ -4,7 +4,7 @@
 |------|------|
 | 孫 issue | #2535 (アップ・ダウングレードの要件) |
 | 親 | #2526 (Phase 1) / 上位 #2525 |
-| ステータス | deep-research 完了 (Stripe 公式一次 + 既存 plan-change-flow.md 照合) → PO レビュー待ち |
+| ステータス | Phase 1 完了 (deep-research: Stripe 公式一次 + 既存 plan-change-flow.md 照合 → PO 確定 2026-05-27) |
 
 ## 最重要制約 (Stripe 公式)
 

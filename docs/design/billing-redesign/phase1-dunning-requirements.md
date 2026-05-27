@@ -4,7 +4,7 @@
 |------|------|
 | 孫 issue | #2537 (支払い失敗 dunning の要件) |
 | 親 | #2526 (Phase 1) / 上位 #2525 |
-| ステータス | deep-research 完了 (Stripe 公式 status 定義 verbatim 確認) → PO 判断 2 論点 + レビュー待ち |
+| ステータス | Phase 1 完了 (deep-research: Stripe 公式 status 定義 verbatim 確認 → PO 確定 2026-05-27、判断 2 論点も確定) |
 
 ## 状態遷移 (Stripe 公式)
 
