@@ -12,60 +12,52 @@
 // 本 spec は実 API を叩き、越境記録が 404 (NOT_FOUND) で構造的に拒否されること、
 // および自分の activity なら 201 で正常記録できること (過剰ガードでないこと) を検証する。
 //
+// 注意 (#2520 finishing): global-setup の seed は はなこちゃん(baby=準備モード) を含み、
+// baby は activity card を持たない (ADR-0011)。そのため「先頭 2 child」ではなく
+// activity を持つことが保証された 2 mode (けんたくん=elementary / ゆうこちゃん=junior) を
+// 名前で選択する。category compact 折りたたみ対策に expandAllCategories で card を surface する。
+//
 // 関連: service 層 unit test `tests/unit/services/activity-log-service.test.ts`
 //       (recordActivity: child 越境ガード) と相補。
 
 import { expect, test } from '@playwright/test';
+import { expandAllCategories } from './helpers';
 
 /**
- * `/switch` から 2 人分の child id を取得する。
- * global-setup.ts は 5 children を seed するため最低 2 件は必ず存在する。
+ * 指定 nickname の child を選択して home に遷移し、(childId, 自分の activityId 1 件) を取得する。
+ *   - childId は `/switch` の `child-select-{id}` testid から抽出する。
+ *   - activity card は category compact で折りたたまれている場合があるため expandAllCategories で展開する。
  */
-async function getTwoChildIds(page: import('@playwright/test').Page): Promise<[number, number]> {
-	await page.goto('/switch');
-	const buttons = page.locator('[data-testid^="child-select-"]');
-	await expect(buttons.first()).toBeVisible();
-	const count = await buttons.count();
-	expect(
-		count,
-		'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
-	).toBeGreaterThanOrEqual(2);
-
-	const ids: number[] = [];
-	for (let i = 0; i < count && ids.length < 2; i++) {
-		const testid = await buttons.nth(i).getAttribute('data-testid');
-		const id = Number(testid?.replace('child-select-', ''));
-		if (Number.isFinite(id)) ids.push(id);
-	}
-	expect(ids.length).toBe(2);
-	const [a, b] = ids;
-	// expect で 2 件を保証済 (precondition assert)。tuple として返し呼び出し側の undefined 推論を排除。
-	if (a === undefined || b === undefined) {
-		throw new Error('child id を 2 件取得できませんでした (seed 破綻)');
-	}
-	return [a, b];
-}
-
-/**
- * 指定 child を選択して home に遷移し、その child の activity id を 1 件取得する。
- * activity card の `data-testid="activity-card-{id}"` から id を抜き出す。
- */
-async function getOwnActivityId(
+async function selectChildAndGetIds(
 	page: import('@playwright/test').Page,
-	childId: number,
-): Promise<number> {
+	nickname: string,
+): Promise<{ childId: number; activityId: number }> {
 	await page.goto('/switch');
-	const childButton = page.getByTestId(`child-select-${childId}`);
-	await expect(childButton).toBeVisible();
+	const childButton = page.locator('[data-testid^="child-select-"]').filter({ hasText: nickname });
+	await expect(
+		childButton,
+		`${nickname} の child-select ボタンが seed されていること`,
+	).toBeVisible();
+
+	const testid = await childButton.getAttribute('data-testid');
+	const childId = Number(testid?.replace('child-select-', ''));
+	expect(Number.isFinite(childId), `${nickname} の childId を取得できること`).toBe(true);
+
 	await childButton.click();
-	await page.waitForURL(/\/(baby|preschool|elementary|junior|senior)\/home/);
+	await page.waitForURL(/\/(preschool|elementary|junior|senior)\/home/);
+
+	// compact 折りたたみ対策: card が隠れている場合 category を展開して surface する
+	await expandAllCategories(page);
 
 	const cards = page.locator('[data-testid^="activity-card-"]');
-	await expect(cards.first()).toBeVisible();
-	const testid = await cards.first().getAttribute('data-testid');
-	const activityId = Number(testid?.replace('activity-card-', ''));
-	expect(Number.isFinite(activityId), 'activity-card id を取得できること').toBe(true);
-	return activityId;
+	await expect(cards.first(), `${nickname} の home に activity card が存在すること`).toBeVisible();
+	const cardTestid = await cards.first().getAttribute('data-testid');
+	const activityId = Number(cardTestid?.replace('activity-card-', ''));
+	expect(Number.isFinite(activityId), `${nickname} の activity-card id を取得できること`).toBe(
+		true,
+	);
+
+	return { childId, activityId };
 }
 
 test.describe('#2520 AC8: child 越境記録ガード (CWE-598)', () => {
@@ -76,24 +68,22 @@ test.describe('#2520 AC8: child 越境記録ガード (CWE-598)', () => {
 		page,
 		request,
 	}) => {
-		const [childA, childB] = await getTwoChildIds(page);
+		// けんたくん(elementary) を A、ゆうこちゃん(junior) を B とする (いずれも activity を持つ非 baby child)
+		const childA = await selectChildAndGetIds(page, 'けんたくん');
+		const childB = await selectChildAndGetIds(page, 'ゆうこちゃん');
 
-		// baby (準備モード) は activity card を持たないため、子供 mode を持つ child を使う。
-		// global-setup の seed 上、たろうくん(preschool)/けんたくん(elementary) 等は activity を持つ。
-		// child id 配列の先頭 2 件が baby を含む可能性があるため、home の activity 取得で
-		// 失敗したら別 child を使う必要があるが、preschool が必ず seed されるため先頭 2 件で十分。
-		const activityIdOfB = await getOwnActivityId(page, childB);
+		expect(childA.childId, 'A と B は別の child であること').not.toBe(childB.childId);
 
 		// === 越境記録: child A の childId で child B の activityId を POST ===
 		const res = await request.post('/api/v1/activity-logs', {
-			data: { childId: childA, activityId: activityIdOfB },
+			data: { childId: childA.childId, activityId: childB.activityId },
 		});
 
 		// 越境は「activity が見つからない」として拒否される (404 NOT_FOUND)。
 		// 防御が外れていると 201 で記録され、child A の履歴に child B の activity が混入する。
 		expect(
 			res.status(),
-			`child A(${childA}) で child B(${childB}) の activity(${activityIdOfB}) を記録できてはならない`,
+			`child A(${childA.childId}) で child B(${childB.childId}) の activity(${childB.activityId}) を記録できてはならない`,
 		).toBe(404);
 		// apiError レスポンス body: { error: { code: 'NOT_FOUND', ... } }
 		const body = await res.json();
@@ -104,12 +94,10 @@ test.describe('#2520 AC8: child 越境記録ガード (CWE-598)', () => {
 		page,
 		request,
 	}) => {
-		const ids = await getTwoChildIds(page);
-		const childB = ids[1];
-		const activityIdOfB = await getOwnActivityId(page, childB);
+		const childB = await selectChildAndGetIds(page, 'ゆうこちゃん');
 
 		const res = await request.post('/api/v1/activity-logs', {
-			data: { childId: childB, activityId: activityIdOfB },
+			data: { childId: childB.childId, activityId: childB.activityId },
 		});
 
 		// 自分の activity は記録成功 (201) または当日 2 回目で 409 ALREADY_RECORDED。
