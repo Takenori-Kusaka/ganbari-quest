@@ -17,6 +17,7 @@ import {
 	countActiveActivityLogs,
 	countTodayActiveRecords,
 	findActivityById,
+	findActivityByIdForChild,
 	findActivityLogById,
 	findChildById,
 	findStreakLogs,
@@ -122,8 +123,10 @@ export async function recordActivity(
 	const child = await findChildById(childId, tenantId);
 	if (!child) return { error: 'NOT_FOUND', target: 'child' };
 
-	// Verify activity exists
-	const activity = await findActivityById(activityId, tenantId);
+	// Verify activity exists AND belongs to this child (CWE-598 / ADR-0055 §3.1 cross-child guard、#2520)。
+	// child A の context で child B の child_activities.id を渡す越境を構造的に防ぐ。
+	// tenant スコープのみの `findActivityById` ではなく id+child+tenant の 3 軸版を使う。
+	const activity = await findActivityByIdForChild(activityId, childId, tenantId);
 	if (!activity) return { error: 'NOT_FOUND', target: 'activity' };
 
 	// Count today's active records for this child+activity

@@ -740,6 +740,36 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/check-schema-change-tests.mjs
 
+  # #2520 AC6/AC7 / #2507 予告実装 (最小版): schema 破壊的変更時の lazy migration 同期 blocker。
+  # schema.ts diff が DROP COLUMN / FK target 変更 / NOT NULL 変更 / cross-table flip を含む
+  # ときだけ、lazy-startup-migrations.ts に同期 diff があるかを検証する (無ければ exit 1)。
+  # 通常の ADD COLUMN は破壊的でないため素通り (上の warn ジョブの責務)。
+  # Issue #2508 (NUC startup failure: 既存 DB を新 schema に上げられず起動 block) の再発防止。
+  # #2519 (runtime data orphan gate、data 側 startup assert) とは別軸 (本ジョブは PR 時の static schema diff)。
+  schema-migration-completeness-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Fetch base ref
+        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+
+      - name: Check destructive schema change syncs lazy-startup-migrations (#2520 AC6/AC7)
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: node scripts/check-schema-migration-completeness.mjs
+
   # Gate job: always runs and reports overall CI status.
   # Required by branch ruleset instead of individual jobs,
   # so skipped jobs (via path filter) don't block merges.
@@ -763,6 +793,7 @@ jobs:
         site-check,
         new-env-distribution-check,
         schema-change-tests-check,
+        schema-migration-completeness-check,
       ]
     runs-on: ubuntu-latest
     steps:
