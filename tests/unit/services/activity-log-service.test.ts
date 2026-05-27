@@ -145,6 +145,59 @@ describe('recordActivity: 初回記録', () => {
 	});
 });
 
+// ============================================================
+// CWE-598 / ADR-0055 §3.1 — child 越境記録ガード (#2520 AC8)
+//
+// per-child refactor (ADR-0055) 後、`child_activities.id` は child に閉じている。
+// child A の context で child B の child_activities.id を記録 API に渡す越境
+// (CWE-598 IDOR) を「activity が見つからない」として構造的に拒否すること。
+// 防御が外れると child A の activity_logs に child B 所属 activity が紐づき、
+// 別の子のデータが混入する (親が即離脱する failure class、research §2 Class 4)。
+// ============================================================
+describe('recordActivity: child 越境ガード (CWE-598)', () => {
+	beforeEach(() => {
+		resetDb(sqlite);
+		mockToday = '2026-02-20';
+		// child 1 (childA) / child 2 (childB) を seed
+		testDb.insert(schema.children).values({ nickname: 'childA', age: 8, theme: 'blue' }).run();
+		testDb.insert(schema.children).values({ nickname: 'childB', age: 13, theme: 'green' }).run();
+		// child 1 の activity (id=1) / child 2 の activity (id=2)
+		seedChildActivities(testDb, 1, [
+			{ name: 'A-たいそう', categoryId: 1, icon: '🤸', basePoints: 5 },
+		]);
+		seedChildActivities(testDb, 2, [
+			{ name: 'B-べんきょう', categoryId: 2, icon: '📖', basePoints: 5 },
+		]);
+	});
+
+	it('child A が child B の activity_id を記録しようとすると NOT_FOUND (越境拒否)', async () => {
+		// activity id=2 は child 2 (childB) に属する。child 1 (childA) で記録 → 越境
+		const result = await recordActivity(1, 2, TENANT);
+		expect(result).toEqual({ error: 'NOT_FOUND', target: 'activity' });
+
+		// child A の activity_logs に child B の activity が混入していないこと
+		const logs = sqlite
+			.prepare('SELECT child_id, activity_id FROM activity_logs WHERE cancelled = 0')
+			.all() as { child_id: number; activity_id: number }[];
+		expect(logs).toEqual([]);
+	});
+
+	it('child B が child A の activity_id を記録しようとしても NOT_FOUND (逆方向も拒否)', async () => {
+		// activity id=1 は child 1 (childA) に属する。child 2 (childB) で記録 → 越境
+		const result = await recordActivity(2, 1, TENANT);
+		expect(result).toEqual({ error: 'NOT_FOUND', target: 'activity' });
+	});
+
+	it('自分の activity_id なら正常に記録できる (正例で過剰ガードでないことを確認)', async () => {
+		const a = assertSuccess(await recordActivity(1, 1, TENANT));
+		expect(a.childId).toBe(1);
+		expect(a.activityId).toBe(1);
+		const b = assertSuccess(await recordActivity(2, 2, TENANT));
+		expect(b.childId).toBe(2);
+		expect(b.activityId).toBe(2);
+	});
+});
+
 describe('recordActivity: 連続日数（streak）', () => {
 	beforeEach(() => {
 		seedBase();

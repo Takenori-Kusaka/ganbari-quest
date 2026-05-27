@@ -18,6 +18,17 @@ export async function findActivities(tenantId: string, filter?: ActivityFilter) 
 export async function findActivityById(id: number, tenantId: string) {
 	return getRepos().activity.findActivityById(id, tenantId);
 }
+/**
+ * activity を id + child + tenant の 3 軸でスコープ取得する (CWE-598 / ADR-0055 §3.1 cross-child guard)。
+ *
+ * `findActivityById(id, tenantId)` は tenant スコープのみで child を見ないため、
+ * child A の context で child B の `child_activities.id` を渡すと素通りしてしまう
+ * (#2520 で確認した IDOR 盲点)。記録 (recordActivity) のように childId が確定している
+ * write path では本関数を使い、`childActivities.child_id != childId` の越境を構造的に防ぐ。
+ */
+export async function findActivityByIdForChild(id: number, childId: number, tenantId: string) {
+	return getRepos().childActivity.findActivityById(id, childId, tenantId);
+}
 export async function insertActivity(input: InsertActivityInput, tenantId: string) {
 	return getRepos().activity.insertActivity(input, tenantId);
 }
