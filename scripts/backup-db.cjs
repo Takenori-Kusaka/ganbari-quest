@@ -78,14 +78,37 @@ async function main() {
 	}
 	db.close();
 
-	// Verify integrity
+	// Verify integrity (#2519: table count → PRAGMA integrity_check + foreign_key_check に格上げ)
+	// table 数 > 0 は「file が開ける」程度の確認に過ぎず、page 構造の破損 / FK orphan を
+	// 見逃す。GitLab 2017 教訓 (backup の存在 ≠ restore 可能) に従い、backup 直後に
+	// integrity_check=ok + foreign_key_check=空 を確認する。
 	try {
 		const bdb = new Database(backupPath, { readonly: true });
-		const result = bdb
-			.prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table'")
-			.get();
-		bdb.close();
-		console.log(`[Backup] Integrity check: OK (${result.cnt} tables)`);
+		try {
+			const tableCount = bdb
+				.prepare("SELECT COUNT(*) as cnt FROM sqlite_master WHERE type='table'")
+				.get().cnt;
+
+			const integrity = bdb.pragma('integrity_check');
+			const integrityOk =
+				Array.isArray(integrity) && integrity.length === 1 && integrity[0].integrity_check === 'ok';
+			if (!integrityOk) {
+				throw new Error(`integrity_check failed: ${JSON.stringify(integrity)}`);
+			}
+
+			const fkViolations = bdb.pragma('foreign_key_check');
+			if (!Array.isArray(fkViolations) || fkViolations.length > 0) {
+				throw new Error(
+					`foreign_key_check found ${fkViolations.length} violation(s): ${JSON.stringify(fkViolations.slice(0, 5))}`,
+				);
+			}
+
+			console.log(
+				`[Backup] Integrity check: OK (${tableCount} tables, integrity_check=ok, foreign_key_check=clean)`,
+			);
+		} finally {
+			bdb.close();
+		}
 	} catch (err) {
 		console.error('[Backup] Integrity check FAILED:', err);
 		process.exit(1);
