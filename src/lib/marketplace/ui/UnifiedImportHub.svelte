@@ -202,6 +202,14 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 									importLoading = false;
 									if (result.type === 'success' && result.data) {
 										const d = result.data as Record<string, unknown>;
+										// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず
+										// 「お試し用」feedback を出して dialog を閉じる (dead-end 解消)。
+										if (d.demo === true) {
+											onimported?.(UNIFIED_IMPORT_HUB_LABELS.resultDemo);
+											onclose?.();
+											await update({ reset: false });
+											return;
+										}
 										const imported = Number(d.imported ?? 0);
 										const skipped = Number(d.skipped ?? 0);
 										const name = String(d.packName ?? preset.name);
@@ -275,6 +283,13 @@ function getTypeHint(code: MarketplaceTypeCode): string {
 							fileImportLoading = false;
 							if (result.type === 'success' && result.data) {
 								const d = result.data as Record<string, unknown>;
+								// #2558 bug-1: デモ環境 no-op 時の feedback (dead-end 解消)。
+								if (d.demo === true) {
+									onimported?.(UNIFIED_IMPORT_HUB_LABELS.resultDemo);
+									onclose?.();
+									await update({ reset: false });
+									return;
+								}
 								const imported = Number(d.imported ?? 0);
 								const skipped = Number(d.skipped ?? 0);
 								const name = String(d.packName ?? 'ファイル');

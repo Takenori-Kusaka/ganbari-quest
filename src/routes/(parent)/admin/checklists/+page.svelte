@@ -316,13 +316,18 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			| { type: 'error'; error: unknown };
 
 		if (actionResult.type === 'success') {
-			const packName = actionResult.data?.packName ?? '';
-			const distributedCount = Number(actionResult.data?.distributedCount ?? 0);
-			const imp = Number(actionResult.data?.imported ?? 0);
-			actionMessage =
-				imp === 0
-					? ADMIN_CHECKLISTS_PAGE_LABELS.importToastDuplicate(packName)
-					: ADMIN_CHECKLISTS_PAGE_LABELS.importToastSuccess(packName, distributedCount);
+			// #2558 bug-1: デモ環境 no-op (data.demo === true) は成功偽装せず明示。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importToastDemo;
+			} else {
+				const packName = actionResult.data?.packName ?? '';
+				const distributedCount = Number(actionResult.data?.distributedCount ?? 0);
+				const imp = Number(actionResult.data?.imported ?? 0);
+				actionMessage =
+					imp === 0
+						? ADMIN_CHECKLISTS_PAGE_LABELS.importToastDuplicate(packName)
+						: ADMIN_CHECKLISTS_PAGE_LABELS.importToastSuccess(packName, distributedCount);
+			}
 		} else if (actionResult.type === 'failure') {
 			actionMessage =
 				actionResult.data?.error ??

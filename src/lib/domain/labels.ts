@@ -896,9 +896,9 @@ export const MARKETPLACE_LABELS = {
 	/** #2297: 各 challenge の詳細行 (カテゴリ ・ 目標 N回 ・ ごほうび +NP) */
 	detailChallengeMeta: (category: string, baseTarget: number, rewardPoints: number) =>
 		`${category} ・ 目標 ${baseTarget}回 ・ ごほうび +${rewardPoints}P`,
-	detailLegacyPackNote: '既存の活動パックから使えるようになります。詳しくは',
-	detailLegacyPackLink: 'パック詳細ページ',
-	detailLegacyPackSuffix: 'をご覧ください。',
+	// #2558 bug-3: detailLegacyPackNote / detailLegacyPackLink / detailLegacyPackSuffix
+	// は参照ゼロの dead label (内部語彙「パック」露出元) のため削除。marketplace 取込の
+	// ユーザー向けラベルは TEMPLATE_TERMS (みんなのテンプレート / テンプレート) に統一。
 	detailRulePointCost: '必要ポイント',
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
@@ -3981,6 +3981,8 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	importSuccess: (count: number) => `✨ ${count} 件のごほうびを追加しました`,
 	importAllDuplicates: 'このごほうびセットは既に追加済みです',
 	importFailed: '取込に失敗しました',
+	// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
+	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	copySuccess: (count: number) => `📋 ${count} 件のごほうびをコピーしました`,
 	copyFailed: 'コピーに失敗しました',
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
@@ -4541,6 +4543,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 		`「${presetName}」を取込み、${distributedCount}名のお子さまに配信しました`,
 	importToastDuplicate: (presetName: string) =>
 		`「${presetName}」は既に取込済みです（配信先のみ更新できます）`,
+	// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
+	importToastDemo: 'デモではお試し用です（実際の追加は行われません）',
 	importToastError: (presetName: string) =>
 		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
 	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
@@ -6182,12 +6186,14 @@ export const FEATURES_LABELS = {
 		addManualIcon: '✏️',
 		addAiLabel: 'AI で追加',
 		addAiIcon: '✨',
-		addImportLabel: 'パックから追加',
+		// #2558 bug-3: 内部語彙「パック」を排し TEMPLATE_TERMS (みんなのテンプレート / テンプレート) に統一
+		addImportLabel: `${TEMPLATE_TERMS.short}から追加`,
 		addImportIcon: '📥',
 		// Add Dialog title (mode 別、#2260 Fix-2 で +page.svelte hardcode を SSOT 化)
 		addDialogTitleManual: '+ 手動で追加',
 		addDialogTitleAi: '✨ AI で活動を追加',
-		addDialogTitleImport: '📥 パックからインポート',
+		// #2558 bug-3: 「📥 パックからインポート」→ TEMPLATE_TERMS 経由
+		addDialogTitleImport: `📥 ${TEMPLATE_TERMS.short}から取り込む`,
 		// ︙ overflow menu (export / clear-all、EPIC #2253 / #2257)
 		// #2371 (EPIC #2362 PO 指摘 ③): introduce 撤去 (PR #2388 で PageGuideOverlay v2 + PageGuideRegistry 経由 `?` ボタンに統一済)
 		overflowMenuAriaLabel: 'その他の操作',
@@ -6304,7 +6310,8 @@ export const FEATURES_LABELS = {
 		filteredText: 'この条件に一致する活動はありません',
 		noActivities: '活動がまだ登録されていません',
 		addBtn: '+ 最初の活動を追加',
-		secondaryImportLink: 'または、パックから一括追加もできます',
+		// #2558 bug-3: 「パックから」→ TEMPLATE_TERMS 経由
+		secondaryImportLink: `または、${TEMPLATE_TERMS.short}から一括追加もできます`,
 	},
 
 	// ---- features/admin/components/ChildListCard ----
@@ -8179,6 +8186,9 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 			: `「${name}」を取り込みました（追加 ${imported} 件）`,
 	resultAllDuplicates: (name: string) => `「${name}」はすべて重複していました（追加 0 件）`,
 	resultError: '取り込みに失敗しました',
+	// #2558 bug-1: デモ環境では書き込みが no-op 化されるため、成功偽装ではなく
+	// 「お試し用」であることを明示して dialog を閉じる (dead-end 解消)。
+	resultDemo: 'デモではお試し用です（実際の追加は行われません）',
 	// Pack / set 説明 (type 表示用)
 	itemCountSuffix: (count: number) => `（${count} 件）`,
 	targetAgeRange: (min: number, max: number) => `対象年齢 ${min} 〜 ${max} 歳`,

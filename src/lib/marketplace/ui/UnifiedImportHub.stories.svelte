@@ -78,3 +78,24 @@ const rewardPresets = {
 		await expect(canvas.getByTestId('marketplace-preset-import-kinder-starter')).toBeDisabled();
 	}}
 />
+
+<!--
+  #2558 bug-1 配線健全性: import ボタンは type=submit で `?/importPack` form action に
+  紐付いた <form> の内側に配置されている (= 押下で必ず form action が発火する)。
+  旧 dead-end (ボタンが form に紐付かず無反応) の component 層回帰検出。
+-->
+<Story
+	name="ImportButtonWiredToFormAction"
+	args={{ typeCode: 'activity-pack', presets: activityPresets, onimported: fn(), onclose: fn() }}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		const btn = canvas.getByTestId('marketplace-preset-import-kinder-starter');
+		// submit ボタンであること (押下で form submit が発火する前提)
+		await expect(btn).toHaveAttribute('type', 'submit');
+		// 親 <form> が `?/importPack` action に紐付いていること (dead-end でない構造保証)
+		const form = btn.closest('form');
+		await expect(form).not.toBeNull();
+		await expect(form as HTMLFormElement).toHaveAttribute('action', expect.stringContaining('importPack'));
+		await expect(form as HTMLFormElement).toHaveAttribute('method', 'POST');
+	}}
+/>

@@ -20,6 +20,7 @@
  *   query signal は Lambda subdomain で代替済 → env-only に単一化完了
  */
 
+import * as devalue from 'devalue';
 import type { TypedEnv } from '$lib/runtime/env';
 
 /** デモモードで書き込みを no-op 化する HTTP メソッド。 */
@@ -81,4 +82,54 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
  */
 export function isDemoWriteAllowed(path: string): boolean {
 	return DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix));
+}
+
+/**
+ * SvelteKit form action (`use:enhance` / 公式 fetch pattern) のリクエストか判定する。
+ *
+ * `use:enhance` および手動 fetch (admin/checklists / admin/rewards 参照) は
+ * `x-sveltekit-action: true` header を付与する。SvelteKit クライアントは
+ * action レスポンスを `deserialize()` で `ActionResult` ({ type: 'success' | ... })
+ * として解釈するため、demo no-op が素の `{ ok: true, demo: true }` を返すと
+ * `result.type` が `undefined` になり、UI 側の `result.type === 'success'` 分岐が
+ * 永久に false → 「ボタンを押しても何も起きない / dialog が閉じない」(機能 dead-end)。
+ */
+export function isSvelteKitActionRequest(headers: Headers): boolean {
+	return headers.get('x-sveltekit-action') === 'true';
+}
+
+/**
+ * デモ状態の write no-op レスポンス body を構築する (#2558 bug-1 構造的修正)。
+ *
+ * 背景 (実害): 初顧客レビューで marketplace 取込ダイアログの「追加」ボタンが無反応・
+ *   dialog が閉じない (機能 dead-end) を実ユーザーが 1 分で発見。原因は demo no-op が
+ *   素の `{ ok: true, demo: true }` を返し、SvelteKit `use:enhance` がこれを
+ *   `ActionResult` として解釈すると `result.type === undefined` になり、UI 側の
+ *   `result.type === 'success'` 分岐 (onimported / onclose 呼出) が永久に発火しなかったこと。
+ *
+ * 修正方針:
+ *   - **form action リクエスト** (`x-sveltekit-action: true`): SvelteKit が認識可能な
+ *     正規 `ActionResult` (`{ type: 'success', status: 200, data: <devalue stringified> }`)
+ *     を返す。`data.demo === true` を含めることで UI 側が「デモではお試し用」の feedback を
+ *     表示し dialog を閉じられる (= dead-end 解消)。これは import に限らず admin 配下の
+ *     全 `use:enhance` form に効く構造的修正。
+ *   - **それ以外** (API fetch / 旧 client、`.ok` を見るだけのもの): 後方互換で
+ *     従来の `{ ok: true, demo: true }` を維持する。
+ *
+ * 注意: SvelteKit の success ActionResult の `data` は devalue で stringify された
+ *   **文字列** である (node_modules/@sveltejs/kit/src/runtime/server/page/actions.js §stringify_action_response)。
+ *   クライアントの `deserialize()` が `parsed.data` を `devalue.parse()` で復元する。
+ */
+export function buildDemoNoopResponseBody(headers: Headers): Record<string, unknown> {
+	if (isSvelteKitActionRequest(headers)) {
+		return {
+			type: 'success',
+			status: 200,
+			// data は devalue stringified 文字列 (SvelteKit action_json 仕様)。
+			// demo: true を UI 側が検出し「デモではお試しできません」feedback を出す。
+			data: devalue.stringify({ demo: true, imported: 0, skipped: 0 }),
+		};
+	}
+	// 後方互換: API fetch / `.ok` を見るだけの client 向け。
+	return { ok: true, demo: true };
 }
