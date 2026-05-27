@@ -31,14 +31,19 @@ services:
 
   # Scheduled backup service (runs daily at 3:00 AM JST)
   # Enable: docker compose --profile backup up -d
+  #
+  # #2519: backup → restore 検証を chain する。backup の「存在」だけでなく
+  # 「restore 可能 + 中身が壊れていない」を毎日確認し、verify 失敗時は
+  # verify-backup-restore.cjs が Discord alert を送る (DISCORD_ALERT_WEBHOOK_URL)。
+  # GDrive アップロードは BACKUP_POST_HOOK (.env) 経由で backup-db.cjs が実行する。
   backup:
     build: .
     entrypoint: /bin/sh
     command:
       - -c
       - |
-        echo "0 3 * * * cd /app && node scripts/backup-to-gdrive.cjs >> /proc/1/fd/1 2>&1" | crontab -
-        echo "[Backup] Cron scheduled: daily 3:00 AM JST (local + GDrive)"
+        echo "0 3 * * * cd /app && node scripts/backup-db.cjs >> /proc/1/fd/1 2>&1 && node scripts/verify-backup-restore.cjs >> /proc/1/fd/1 2>&1" | crontab -
+        echo "[Backup] Cron scheduled: daily 3:00 AM JST (backup + restore verification)"
         crond -f
     volumes:
       - ./data:/app/data

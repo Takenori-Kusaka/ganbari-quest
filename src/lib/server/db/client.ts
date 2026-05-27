@@ -4,11 +4,35 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { SQL_CREATE_TABLES } from './create-tables';
+import { assertNoDataOrphans, type OrphanReport } from './migration/data-integrity-guards';
 import { applyLazyStartupMigrations } from './migration/lazy-startup-migrations';
 import * as schema from './schema';
 import { validateAndMigrate } from './schema-validator';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? './data/ganbari-quest.db';
+
+/**
+ * data orphan 検出時の Discord alert 送出 (#2519)。fire-and-forget。
+ * `discord-alert.ts` を **dynamic import** して startup module が
+ * `$env/dynamic/private` を eager load しないようにする。webhook 未設定環境
+ * (dev / CI) では `sendDiscordAlert` 側が no-op で抜ける。
+ */
+function emitOrphanAlert(report: OrphanReport): void {
+	const detail = Object.entries(report.counts)
+		.map(([table, count]) => `${table}=${count}`)
+		.join(' ');
+	import('../discord-alert')
+		.then(({ sendDiscordAlert }) =>
+			sendDiscordAlert({
+				level: 'critical',
+				message: `DATA ORPHAN 検出: core 4 table が child_activities(id) を参照できません (合計 ${report.total} 行)`,
+				errorSummary: `${detail}\n復旧: docs/runbooks/activities-data-recovery.md`,
+			}),
+		)
+		.catch((err) => {
+			console.error('[data-integrity-guard #2519] Discord alert 送出失敗', err);
+		});
+}
 
 const sqlite = new Database(DATABASE_URL);
 
@@ -59,6 +83,13 @@ if ((process.env.DATA_SOURCE ?? 'sqlite') === 'sqlite') {
 			process.exit(1);
 		}
 	}
+
+	// 4. runtime data orphan gate (#2519)。dim 4 (data copy migration) の漏れ /
+	//    別 backend からの誤った backfill 等で core 4 table が child_activities に
+	//    存在しない activity_id を指す orphan 状態 (= UI 表示 0 / history 消失、
+	//    Issue #2510 と同型) を startup で必ず検出する。orphan を検出しても起動は
+	//    止めず (復旧 script は app 経由で実行するため)、Discord alert で気付かせる。
+	assertNoDataOrphans(sqlite, { onOrphan: emitOrphanAlert });
 }
 
 export const db = drizzle(sqlite, { schema });
