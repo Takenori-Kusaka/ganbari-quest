@@ -10,7 +10,7 @@
 ## trust but verify で精緻化した前提 (2 点)
 
 - 「任意タイミング開始」= **無料プラン (サブスク非保有) からその時点で新規 trial サブスク作成**。既存サブスクへの trial 追加は Stripe 禁止だが本件は該当せず標準実装可 (Phase 5 で明示)
-- `missing_payment_method` は `cancel` (即キャンセル) / `pause` (一時停止→カード追加で同一サブスク再開) の 2 値。**転換 UX は pause が有利** (動線 1 本化) → Open question A
+- `missing_payment_method` は Stripe 上 `cancel` (即キャンセル) / `pause` (一時停止→カード追加で同一サブスク再開) の 2 選択肢が存在する。deep-research 時点では転換 UX 観点で pause を有利と見ていたが、**OQ-A で `cancel` を採用 (二値完結・SSOT モデル整合、pause は三値化・滞留・リークで不採用)**。本要件は `cancel` で確定 (FR-5 / NFR-1 / OQ-A)
 
 ## 最重要論点: トライアルで試すプラン → 【確定 PO 2026-05-27】family 固定
 
@@ -37,7 +37,7 @@
 
 ## 非機能要件 (NFR)
 
-- NFR-1 (信頼): カード未登録で勝手に課金しない (Stripe `if_required` + cancel/pause)
+- NFR-1 (信頼): カード未登録で勝手に課金しない (Stripe `payment_method_collection=if_required` + `trial_settings.end_behavior.missing_payment_method=cancel`)。end_behavior は **cancel に固定** (FR-5 / OQ-A 確定の二値モデル整合)。`pause` は OQ-A で不採用 (三値化・滞留・リーク回避)
 - NFR-2 (Anti-engagement / ADR-0012): trial 導線は親管理画面のみ、子供側 UI 非露出、通知は親宛 3 通 cap
 - NFR-3 (LP truth / ADR-0013): LP の 7日間/カード登録不要 訴求は実装と一致 (TRIAL_TERMS SSOT)
 - NFR-4 (Pre-PMF / ADR-0010): trial 中プラン変更・複数回 trial・複雑分岐は実装しない

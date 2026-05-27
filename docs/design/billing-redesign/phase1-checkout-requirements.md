@@ -10,7 +10,7 @@
 
 | ID | 要件 | 設計意図 + 根拠 |
 |----|------|----------------|
-| FR-1 | **2 Product (standard/family) × 月額/年額 = 4 Price** を Stripe に定義、アプリは **lookup_key 参照** | 価格改定時のコード変更ゼロ化。Stripe build-subscriptions 公式推奨。lifetime 廃止と整合 |
+| FR-1 | **1 Product (例: 「がんばりクエスト」) に standard/family × 月額/年額 = 4 Price** を Stripe に定義、アプリは **lookup_key 参照** | 価格改定時のコード変更ゼロ化。Stripe build-subscriptions 公式推奨。lifetime 廃止と整合。**同一 Product 別 Price 構成はプラン変更要件 ([plan-change](phase1-plan-change-requirements.md) §最重要制約 / FR-2) が要求する Portal 期末ダウングレード成立の前提** (別 Product だと Portal 期末ダウンが効かず credit proration 事故)。最終 Dashboard 構成の確認・再設計は Phase 5 へ申し送り (plan-change Open question 1) |
 | FR-2 | プラン選択 UI = **月額/年額トグル + プランカード 2 枚**、トグルで表示価格同期切替 | 業界収束パターン |
 | FR-3 | 年額カードに **月あたり換算 + 月額取り消し線 + 「2ヶ月分おトク」** 明示 | ユーザーに計算させない。両プラン 16.7% off = 2ヶ月無料 (業界ど真ん中) |
 | FR-4 | Checkout Session 作成時に必ず **Customer object を渡す** | 重複検出 + 権限紐付けの前提。account-first で signup 時に Customer 確定済 |
