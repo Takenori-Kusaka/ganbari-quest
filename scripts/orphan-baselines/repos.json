@@ -1,0 +1,20 @@
+{
+	"allowed": [
+		"src/lib/server/db/dynamodb/auth-keys.ts",
+		"src/lib/server/db/dynamodb/bulk-delete.ts",
+		"src/lib/server/db/dynamodb/client.ts",
+		"src/lib/server/db/dynamodb/counter.ts",
+		"src/lib/server/db/dynamodb/keys.ts",
+		"src/lib/server/db/dynamodb/repo-helpers.ts"
+	],
+	"reasons": {
+		"src/lib/server/db/dynamodb/auth-keys.ts": "DynamoDB internal helper (auth keys 構築)。同 layer 内 sibling-import 専用、facade 経由不要。",
+		"src/lib/server/db/dynamodb/bulk-delete.ts": "DynamoDB internal helper (bulk delete 操作)。同 layer 内 sibling-import 専用。",
+		"src/lib/server/db/dynamodb/client.ts": "DynamoDB client 初期化 helper。同 layer 内 sibling-import 専用。",
+		"src/lib/server/db/dynamodb/counter.ts": "DynamoDB counter atomic 操作 helper。同 layer 内 sibling-import 専用。",
+		"src/lib/server/db/dynamodb/keys.ts": "DynamoDB partition/sort key 構築 helper。同 layer 内 sibling-import 専用。",
+		"src/lib/server/db/dynamodb/repo-helpers.ts": "DynamoDB repo 共通 helper。同 layer 内 sibling-import 専用。"
+	},
+	"version": "1.0.0",
+	"generated": "2026-05-26T00:00:00.000Z"
+}

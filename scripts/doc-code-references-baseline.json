@@ -83,6 +83,7 @@
 			"tests/manual/trigger-marketing.mjs",
 			"tests/manual/trigger-weekly-report.mjs"
 		],
+		"docs/operations/orphan-audit-2026-05-26.md": ["scripts/hooks/gdrive-upload.cjs"],
 		"docs/operations/stripe-dashboard-runbook.md": ["src/lib/server/stripe/webhook.ts"],
 		"docs/rationale/05-textlint-prh-evaluation.md": ["scripts/lp-canonical-terms.yml"],
 		"docs/rationale/06-milestones-thresholds-rationale.md": [
@@ -119,7 +120,8 @@
 		],
 		"docs/security/security-code-review-2026-03.md": [
 			"src/lib/server/services/email-otp-service.ts"
-		]
+		],
+		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-21T15:46:31.839Z"
+	"generatedAt": "2026-05-26T23:47:39.907Z"
 }

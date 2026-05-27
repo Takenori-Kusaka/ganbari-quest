@@ -392,7 +392,6 @@ if (onlyName) {
 // Main capture function
 // ============================================================
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 async function captureScreenshots() {
 	console.log('=== HP用スクリーンショット撮影 ===');
 	console.log(`Base URL: ${BASE_URL}`);

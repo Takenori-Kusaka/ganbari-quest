@@ -1,0 +1,98 @@
+name: Orphan resource detection (EPIC #2362 follow-up)
+
+# 10 種類の orphan detection script を統合実行し、新規 orphan の流入を block する CI gate。
+#
+# 設計背景:
+#   EPIC #2362 / Path B 系の cleanup 過程で `activities` table / `sibling_challenges` 等の
+#   orphan が累積していた事故 (audit ベースで見落とされていた既存 dead code) を二度と起こさない
+#   構造的予防。10 種類 (tables / services / repos / fixtures / labels / ui / assets / env /
+#   skip-deadlines / routes) について「production 経路参照ゼロ」を検出する。
+#
+# Baseline 機構:
+#   scripts/orphan-baselines/<category>.json に「既知の例外」を allowlist 化。
+#   現在の orphan を baseline に登録した上で、新規 1 件で hard fail する設計。
+#   baseline 編集は PO レビュー前提 (`--update-baseline` で自動更新可だが PR 経由で commit)。
+#
+# 修正方針:
+#   - 真の orphan → 該当 file / table / export を削除する cleanup PR を別途起票
+#   - 意図的に残す (Pre-PMF Bucket B 等) → baseline JSON に追加して reason を明記
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'static/**'
+      - 'site/**'
+      - 'scripts/check-orphan-*.mjs'
+      - 'scripts/check-skip-deadlines.mjs'
+      - 'scripts/lib/orphan-utils.mjs'
+      - 'scripts/orphan-baselines/**'
+      - '.env.example'
+      - '.github/workflows/orphan-check.yml'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  orphan-detection:
+    name: 'Orphan resource detection'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      # 10 script を順次実行。1 つでも fail したら job fail。
+      # 各 script の baseline は scripts/orphan-baselines/<name>.json で管理。
+      - name: 'check-orphan-tables (Drizzle schema → production usage)'
+        run: node scripts/check-orphan-tables.mjs
+
+      - name: 'check-orphan-services (services/ → caller imports)'
+        run: node scripts/check-orphan-services.mjs
+
+      - name: 'check-orphan-repos (db/{sqlite,demo,dynamodb}/ → facade/factory)'
+        run: node scripts/check-orphan-repos.mjs
+
+      - name: 'check-orphan-fixtures (demo/demo-data.ts DEMO_* exports)'
+        run: node scripts/check-orphan-fixtures.mjs
+
+      - name: 'check-orphan-labels (labels.ts / terms.ts namespace exports)'
+        run: node scripts/check-orphan-labels.mjs
+
+      - name: 'check-orphan-ui (ui/{primitives,components,features}/*.svelte)'
+        run: node scripts/check-orphan-ui.mjs
+
+      - name: 'check-orphan-assets (static/site assets — image/SVG references)'
+        run: node scripts/check-orphan-assets.mjs
+
+      - name: 'check-orphan-env (.env.example → process.env usage)'
+        run: node scripts/check-orphan-env.mjs
+
+      - name: 'check-skip-deadlines (tests/ .skip → Issue/deadline/owner metadata)'
+        run: node scripts/check-skip-deadlines.mjs
+
+      - name: 'check-orphan-routes (src/routes → href/goto/legacy-url-map)'
+        run: node scripts/check-orphan-routes.mjs
+
+      - name: 'Summary'
+        if: always()
+        run: |
+          echo "## Orphan Detection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "10 detection scripts executed sequentially. Any new orphan (not in baseline) hard-fails the job." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "If you intentionally need to allow a new orphan (Pre-PMF Bucket B etc), update the baseline:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo 'node scripts/check-orphan-<category>.mjs --update-baseline' >> $GITHUB_STEP_SUMMARY
+          echo '# Then edit scripts/orphan-baselines/<category>.json to fill reason field' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

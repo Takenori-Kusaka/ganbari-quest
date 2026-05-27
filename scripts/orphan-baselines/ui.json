@@ -1,0 +1,18 @@
+{
+	"allowed": [
+		"src/lib/ui/components/FeatureGate.svelte",
+		"src/lib/ui/components/LoadingButton.svelte",
+		"src/lib/ui/components/PremiumModal.svelte",
+		"src/lib/ui/components/RedemptionResultOverlay.svelte",
+		"src/lib/ui/components/Skeleton.svelte"
+	],
+	"reasons": {
+		"src/lib/ui/components/FeatureGate.svelte": "PR_initial baseline — feature flag gate component。後続 follow-up PR で利用復活 or 削除判断。",
+		"src/lib/ui/components/LoadingButton.svelte": "PR_initial baseline — stories のみ参照、Button.svelte loading prop に統合済の可能性。後続 cleanup PR。",
+		"src/lib/ui/components/PremiumModal.svelte": "PR_initial baseline — premium 表示 modal、利用箇所撤去で dead。後続 cleanup PR。",
+		"src/lib/ui/components/RedemptionResultOverlay.svelte": "PR_initial baseline — 報酬交換結果 overlay、現在 Dialog primitive に統合済の可能性。後続 cleanup PR。",
+		"src/lib/ui/components/Skeleton.svelte": "PR_initial baseline — stories のみ参照。Loading state を別パターンに置換した残骸。後続 cleanup PR。"
+	},
+	"version": "1.0.0",
+	"generated": "2026-05-26T00:00:00.000Z"
+}
