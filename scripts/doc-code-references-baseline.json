@@ -31,7 +31,9 @@
 			"tests/e2e/helpers/demo-screenshot.ts"
 		],
 		"docs/design/08-データベース設計書.md": [
-			"src/lib/features/admin/components/ArchiveBanner.svelte"
+			"scripts/check-schema-migration-completeness.mjs",
+			"src/lib/features/admin/components/ArchiveBanner.svelte",
+			"src/lib/server/db/migration/lazy-startup-migrations.ts"
 		],
 		"docs/design/09-テスト設計書.md": ["tests/unit/services/decay-service.test.ts"],
 		"docs/design/10-SaaS展開ロードマップ.md": ["infra/cdk"],
@@ -117,6 +119,9 @@
 		"docs/research/2097-multi-lambda-oop-solid-uml-design.md": [
 			"scripts/check-no-escape-language.mjs",
 			"src/lib/services/PhotoBrowser.ts"
+		],
+		"docs/runbooks/activities-data-recovery.md": [
+			"src/lib/server/db/migration/lazy-startup-migrations.ts"
 		],
 		"docs/security/security-code-review-2026-03.md": [
 			"src/lib/server/services/email-otp-service.ts"
