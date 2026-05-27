@@ -56,6 +56,24 @@
 
 UI 変更 PR では必ず実行。詳細は `docs/sessions/qa-checklist-ui-quality.md` 参照。
 
+### §2.4 Self-Review HONESTY（false PASS 主張の禁止、Issue #2475）
+
+Dev Self-Review で「PASS」と自己宣言したが QM Re-Review で実態 FAIL という事象が連続再発した（Issue #2475、3 PR 連続: PR-4/5/6）。**各観点に機械検証コマンド + ローカル実行結果を必ず添付**する。証跡コマンド添付なしの「PASS」は **false PASS と同等扱い**（= FAIL 判定）。
+
+特に以下の観点は report に機械検証コマンド + 結果を必ず含める:
+
+| 観点 | 必須添付 |
+|---|---|
+| #1 破綻なし | `npm run pre-ready -- --pr <N>` の出力末尾 5 行 |
+| #2 テスト十分性 | `npx vitest run` の `Test Files X passed (X)` 行 + `git diff main --stat` の test file 件数 |
+| #5 過去 QA 指摘事前回避 | `gh pr view <N> --json commits` で先行 PR の fix commit を grep し回避済み確認 |
+| #8 場当たり対応 | `grep -rn "TODO\|FIXME" <変更 file>` 0 件 / `npx stylelint --no-fix <変更 .svelte>` PASS |
+| #15 セキュリティ | tenant 外 childId を 403 reject する unit test 名を列挙（CWE-598 関連時） |
+
+**test count の自己宣言が stale にならないよう注意**: facade / strategy rewrite 後に「X PASS / Y FAIL」と書く時は、rewrite 後の実 capture コマンド（`npx vitest run > tmp/vitest-full-output.txt 2>&1`）で取り直す。pre-rewrite の数字をそのまま流用しない（#2475 7 件目再発の原因）。
+
+verdict table には「false PASS 主張ゼロを目視確認済」を明記する。QA team が merge 前に加えた fix の頻出パターンは [../sessions/dev-process/qa-fix-patterns.md](../sessions/dev-process/qa-fix-patterns.md) を参照し、事前回避する。
+
 ---
 
 ## §3 Agent spawn テンプレート

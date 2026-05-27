@@ -356,6 +356,21 @@ gh pr create --draft --title "<type>: #<num> <subject>" --body-file tmp/pr-bodie
 # 3. 完了後: rm tmp/pr-bodies/<slug>.md
 ```
 
+## 開発プロセス各論（dev-process/）
+
+開発プロセスで蓄積した「思い出すべき運用知」は [dev-process/](dev-process/README.md) に各論として集約する（memory に閉じない git 管理 SSOT、#2516）。本ファイルは全体像（overall map）、各論は下表から入る。
+
+| 各論 | 内容 | いつ読むか |
+|---|---|---|
+| [完遂原則](dev-process/completion-principles.md) | やりきり / 全 AC 完遂 / fix-forward / はりぼて禁止 / Done 基準 | Issue 着手前 / 困難遭遇時 / Done 判定時 |
+| [アンチパターン集](dev-process/anti-patterns.md) | scope 外言い訳 / 越境 / assertion 弱体化 / ラバースタンプ / CI 前 Ready / 段階リリース禁止 等 | PR 着手前 / レビュー前 / 「逃げたく」なった時 |
+| [QA fix パターン集](dev-process/qa-fix-patterns.md) | QA team が merge 前に加えた fix の頻出パターン | PR 着手前 / merge 通知受領後 |
+| [並列 Agent / worktree 運用](dev-process/parallel-agent-ops.md) | 分離必須 / push verify / stacked PR 不可 / CI trigger 仕様 / 待機運用 | 並列 Agent 起動前 / push 報告受領後 / CI が動かない時 |
+| [調査規律](dev-process/research-discipline.md) | 正しい問い → 仮説中立 framing → 反証確認 | deep research / 技術調査の着手前 |
+| [機能変更時の横展開確認](dev-process/feature-change-lateral-spread.md) | 用語 grep 全件 / LP・pricing・faq 波及 / DB schema SSOT 群同期 | 機能変更 Issue 起票時 / 用語・ラベル変更時 |
+
+Self-Review の運用 SSOT は [self-review-agent.md](../operations/self-review-agent.md)。
+
 ## 参照ドキュメント
 
 | ドキュメント | 用途 |
