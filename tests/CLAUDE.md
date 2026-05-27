@@ -92,7 +92,7 @@ marketplace seed 等) を検証する専用 spec 群。本番 cognito E2E では
 
 ### dialog / form / menu の必須パターン
 
-「open → act → 副作用 verify」を 1 セットで書く。helper `tests/helpers/goal-flows.ts` の `completeImportFlow` / `expectListGrew` / `expectDialogClosed` / `expectDialogCancellable` を使う (assertion 内包、`playwright/expect-expect` の `assertFunctionNames` に登録済)。
+「open → act → 副作用 verify」を 1 セットで書く。helper `tests/e2e/helpers/goal-flows.ts` の `completeImportFlow` / `expectListGrew` / `expectDialogClosed` / `expectDialogCancellable` を使う (assertion 内包、`playwright/expect-expect` の `assertFunctionNames` に登録済)。
 
 ```ts
 // before (render-only、PASS するが dead-end を見逃す)
