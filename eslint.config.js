@@ -133,6 +133,11 @@ export default [
 	// Playwright: tests/**/*.ts で非推奨 API の新規流入を error で自動拒否 (#1259 Phase 3)
 	// - no-wait-for-timeout: 固定待機禁止 (tests/CLAUDE.md 明記済み、Phase 2 で既存箇所排除)
 	// - no-networkidle: Playwright 公式 API ref で DISCOURAGED (Phase 1 で既存箇所排除)
+	// - expect-expect: assert ゼロ test を CI 拒否 (#2544 / UnifiedImportHub 事故)。
+	//   goal-flows.ts の helper (completeImportFlow 等、assertion 内包) を assertFunctionNames に
+	//   登録し、helper 呼び出しも assertion とみなす。これにより「click だけして expect ゼロ」を床上げ。
+	//   限界: expect が 1 個でもあれば PASS するため、render-only (toBeVisible だけ) は素通りする。
+	//   それは tests/CLAUDE.md §interactive flow の規律 + goal-flows helper で補う (#2544 research §E)。
 	{
 		files: ['tests/**/*.ts'],
 		plugins: {
@@ -144,6 +149,43 @@ export default [
 		rules: {
 			'playwright/no-wait-for-timeout': 'error',
 			'playwright/no-networkidle': 'error',
+			'playwright/expect-expect': [
+				'error',
+				{
+					// goal-flows.ts の helper (assertion 内包) を assert としてカウント。
+					// `expect*` / `assert*` / `verify*` の命名規約も登録 (#2544 research §E)。
+					assertFunctionNames: [
+						'expect',
+						'completeImportFlow',
+						'expectListGrew',
+						'expectDialogClosed',
+						'expectDialogCancellable',
+						'expectImportSucceeds',
+					],
+					assertFunctionPatterns: ['^expect.*', '^assert.*', '^verify.*'],
+				},
+			],
+		},
+	},
+	// #2544: expect-expect gate を error 化した時点で「assert ゼロ test」を持つ既存 spec を
+	// baseline として warn に降格 (一括変換は Issue B / #2459 P2-P5 送り、新規 spec のみ error 強制)。
+	// 内訳: ① helper 内で到達検証する spec (loginAs / loginAndSave、本来 assert 相当だが名前が pattern 外)、
+	//       ② screenshot 撮影専用 spec (assert なしが性質上合理的)。
+	// Issue B で ① は helper を assertFunctionNames に追加 / ② は撮影完了 assert を足して warn を解消する。
+	{
+		files: [
+			'tests/e2e/auth.setup.ts',
+			'tests/e2e/cognito-auth.spec.ts',
+			'tests/e2e/downgrade-visual.spec.ts',
+			'tests/e2e/screenshots-pmf-survey.spec.ts',
+			'tests/e2e/tutorial-quickmode-screenshots.spec.ts',
+			'tests/e2e/upgrade-flow.spec.ts',
+		],
+		plugins: {
+			playwright,
+		},
+		rules: {
+			'playwright/expect-expect': 'warn',
 		},
 	},
 ];

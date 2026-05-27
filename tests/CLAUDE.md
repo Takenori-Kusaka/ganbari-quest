@@ -69,6 +69,67 @@ marketplace seed 等) を検証する専用 spec 群。本番 cognito E2E では
 - **追加対象**: 新規 demo Lambda 固有動作 / `AnonymousAuthProvider` 仕様変更 / DEMO_WRITE_ALLOWLIST 増減 /
   `src/lib/server/demo/demo-data.ts` 仕様変更 を伴う PR は本ディレクトリに回帰テスト追加
 
+## interactive flow は「操作 → 結果」を必須検証する (render-only 禁止) — #2544 / #2459 / UnifiedImportHub 事故
+
+初顧客レビュー直前、実ユーザーが marketplace 取込ダイアログを 1 分操作しただけで「追加ボタン無反応・キャンセル不能」(機能 dead-end) を発見した。一方 E2E `admin-unified-import-hub.spec.ts` は **ダイアログが render される / testid visible だけを assert して PASS**。「追加 click → 活動が増える」= ユーザーの goal 完遂を一度も検証していなかった (render proxy は緑、goal 完遂は壊れている)。同じ機能を `marketplace-checklist-import.spec.ts:109-113` は **正しく `importBtn.click()` → imported バッジ visible を assert** している (= dead-end なら必ず fail)。**正解 pattern はリポジトリ内に既に存在**し、不足しているのは「それを default に強制する規律」である (#2544 research、既存ツールの過小活用が原因)。
+
+### 原則 (render-only 禁止 / act → outcome assert 必須)
+
+- **click / fill / submit を行う test は、その後に「結果の state 変化」を必ず assert する**。visible / count / attribute だけで終える test は interactive flow に対しては不可。
+- 検証すべき「結果」(副作用 verify) は次のいずれか 1 つ以上:
+  1. **network**: `page.waitForResponse(...)` + `resp.ok()` (form action / API が実際に発火したか)
+  2. **UI 反映**: `toHaveText` / `toContainText` / 完了バッジ visible / dialog が `toBeHidden` / `toHaveCount(0)`
+  3. **永続**: 一覧件数の増減 (`toHaveCount(before ± 1)`) / 残高数値の変化
+- **dead-end 検出**: submit 系は必ず ① 発火 (network or loading) と ② 結果反映 を両方 assert する。「ボタンを押しても何も起きない」を捕捉する。
+- **cancel 経路を別 assert で検証**: dialog を開く test は「close / cancel / backdrop → `toBeHidden`」も置く (今回 cancel も壊れていた)。
+- **query 方針**: `getByRole` / text / label を優先。`getByTestId` は他で取れない場合の最終手段 (Testing Library 原則)。既存 testid を消す必要はないが、新規は role/text を先に検討する。
+
+### render-only が許容される例外 (interactive flow ではないため対象外)
+
+- 純粋表示 component (Logo / Badge 等、操作なし) の表示検証
+- LP CSP / legal docs render / 404 fallback 等、**そもそも表示検証が目的**のもの
+- アクセシビリティ / レイアウト回帰 (Storybook visual / a11y addon)
+
+### dialog / form / menu の必須パターン
+
+「open → act → 副作用 verify」を 1 セットで書く。helper `tests/helpers/goal-flows.ts` の `completeImportFlow` / `expectListGrew` / `expectDialogClosed` / `expectDialogCancellable` を使う (assertion 内包、`playwright/expect-expect` の `assertFunctionNames` に登録済)。
+
+```ts
+// before (render-only、PASS するが dead-end を見逃す)
+await page.getByTestId('menu-item-import').click();
+await expect(page.getByTestId('add-activity-dialog')).toBeVisible(); // ← ここで終了 = NG
+
+// after (goal 完遂、無反応 / cancel 不能なら必ず fail)
+import { completeImportFlow, expectDialogCancellable } from '../helpers/goal-flows';
+await completeImportFlow(page, { /* trigger → act → result assert */ });
+await expectDialogCancellable(page, { /* cancel → dialog 閉じる assert */ });
+```
+
+### 2 層 cadence (検証の段階分け、ADR-0007 EPIC-merge tier)
+
+全 PR で全 critical journey を貫通させると CI が肥大化するため、検証は 2 層に分ける。**横断 cadence ポリシーの SSOT は ADR-0007** (本節はその tests/ 視点の抜粋)。
+
+| 層 | いつ | 何を (機械・高速 / 半自動・人間判断) |
+|---|---|---|
+| **per-PR (軽量)** | 全 PR / push | 変更領域の targeted E2E (該当 spec のみ、`npx playwright test tests/e2e/<spec>`) + 型 (svelte-check) + Storybook 目視 / play (`npm run test:storybook`) + 用語 coherence lint (`check-internal-terms` / `check-add-path-coherence`) + add-path check。機械・高速。 |
+| **EPIC-merge / 顧客レビュー gate (この規模だけ)** | EPIC 完了時 / 顧客レビュー前 | 全 critical user journey の goal 完遂貫通 E2E + Cognitive Walkthrough 4 質問 (#2459 C-2) + a11y (addon-a11y) + visual (pixelmatch) + 実機 1 クリック貫通。per-PR では重すぎるものをここに集約。 |
+
+per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ 全網羅貫通や Cognitive Walkthrough は EPIC-merge gate に置く。「rendering + 型 + targeted で per-PR は十分、ただし interactive flow には outcome 必須」が原則 (#2459 やらないこと #3 の precise 化と整合)。
+
+### CUJ (Critical User Journey) — EPIC-merge gate で完遂貫通
+
+本アプリの core CUJ は最低限以下を「起動」でなく「goal 1 つ完遂」で持つ。各 CUJ は「途中で詰まる (dead-end)」を検出する assert を 1 つ以上含む:
+
+1. 活動を追加する (admin → `+` → import dialog → 一覧に反映) ← 今回壊れた経路、最優先
+2. 子供が活動を記録する (確認 → 記録 → ポイント加算 → home 復帰)
+3. ごほうびを交換する (交換 → ポイント残高減 → 交換済み反映)
+4. 報酬リクエスト承認 (child 申請 → admin 承認 → 状態変化)
+5. チェックリスト import → child で表示
+
+### Storybook interaction test (component 層、server 不要で配線健全性検証)
+
+interactive component (Dialog / Form / UnifiedImportHub / Menu) は `play` 関数で「操作 → callback 発火 (`fn()` spy) / disabled 制御 / cancel 発火」を component 層で検証する。server 反映 (DB) は Playwright (統合層) に委ね、component 層は配線健全性に限定する (二重防御)。`play` 内 `expect` / `userEvent` / `fn` は **`storybook/test`** (Storybook 10 同梱) から import し、`npm run test:storybook` (`vitest run --project storybook`) で CI 実行する。exemplar: `src/lib/marketplace/ui/UnifiedImportHub.stories.svelte`。
+
 ## 禁止事項
 
 - **カバレッジ閾値の引き下げ** — `vite.config.ts` `thresholds` 引き下げ PR は CI 自動拒否（`scripts/check-coverage-threshold.js`）。引き下げ必要なら ADR で復元計画と同時コミット
