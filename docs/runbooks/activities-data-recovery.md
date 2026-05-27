@@ -176,14 +176,19 @@ ssh kusaka-server@192.168.68.79 "docker start ganbari-quest-app-1"
 
 ---
 
-## 6. 恒久 fix (本 runbook の前提)
+## 6. 恒久 fix (実装済 — PR #2513)
 
-本 runbook は **緊急対応** のみを扱う。再発防止のための **恒久 fix** は #2510 で実施:
+本 runbook は **緊急対応** のみを扱う。再発防止のための **恒久 fix** は **PR #2513 で実装完遂済**:
 
-- `src/lib/server/db/migration/lazy-startup-migrations.ts` に `migrateActivitiesLegacyDataCopy()` 関数を append (PR #2509 マージ後)
-- 同 file の `applyLazyStartupMigrations()` 呼出順を `migrateActivityFkSwitchover` の直後に挿入
-- 新規 NUC environment / dev / CI でも自動適用される
-- 本 runbook はリカバリ手順として残存 (DynamoDB 等別 backend で同型問題が起きた際に利用)
+- ✅ `src/lib/server/db/migration/lazy-startup-migrations.ts` に `migrateActivitiesLegacyDataCopy()` 関数を実装
+- ✅ 同 file の `applyLazyStartupMigrations()` 呼出順を `migrateActivityFkSwitchover` の **直後** に挿入 (FK target 切替後でないと remap が整合しないため順序固定)
+- ✅ guards (冪等): `activities`/`child_activities`/`children` 不在 OR `child_activities` 非空 OR 4 table orphan ゼロ で skip
+- ✅ source/target 双方に存在する column のみ copy (古い schema の column 欠落に耐える) + age 列無し旧 schema では referenced のみ copy
+- ✅ orphan = 0 post-condition を transaction 内 assert (残れば throw → ROLLBACK)
+- ✅ 新規 NUC environment / dev / CI でも startup 時に自動適用される
+- ✅ 回帰テスト: `tests/unit/db/lazy-startup-migrations.test.ts` (data copy 5 ケース: referenced ∪ age 適合 / 5 年齢モード分岐 / 冪等 / orphan ゼロ skip / age 列無し) + `tests/integration/db/startup-upgrade-path.test.ts` (startup full path で UI 一覧 + 履歴 JOIN 成立)
+
+**通常運用では本 runbook の手動実行は不要** (startup migration が自動修復)。本 runbook はリカバリ参照手順として残存 (DynamoDB 等別 backend で同型問題が起きた際 / NUC で明示再実行したい際に利用)。`scripts/recover-activities-data.mjs` は同 logic の NUC container 単発実行版として維持 (runtime 都合で `.ts` helper を import 共有できないため SQL logic を 2 箇所同期、#2513)。
 
 ---
 
@@ -209,8 +214,9 @@ PR #2480 (checklist_templates flip) は **PR #2509 で per-child → assignments
 ## 8. 関連リソース
 
 - 緊急復旧 script: `scripts/recover-activities-data.mjs`
-- 関連 Issue: [#2510](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2510)
-- in-flight 関連 PR: [#2509](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2509) (lazy-startup-migrations.ts 枠組)
+- 恒久 fix 実装: `src/lib/server/db/migration/lazy-startup-migrations.ts` `migrateActivitiesLegacyDataCopy()` (PR #2513)
+- 関連 Issue: [#2510](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2510) (umbrella) / [#2513](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2513) (恒久 fix)
+- 関連 PR: [#2509](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2509) (lazy-startup-migrations.ts 枠組) / [#2512](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2512) (緊急 recovery script + runbook)
 - 原因 PR: [#2487](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2487) (activity-repo facade rewrite)
 - 同型対応 ref PR: [#2509](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2509) (checklist_templates flip data copy)
 - ADR: [ADR-0002](../decisions/0002-critical-fix-quality-gate.md) (Critical 5 要件)、[ADR-0031](../decisions/archive/0031-schema-change-compat-testing.md) (SQLite ADD COLUMN only)、[ADR-0010](../decisions/0010-pre-pmf-scope-judgment.md) (Bucket A)

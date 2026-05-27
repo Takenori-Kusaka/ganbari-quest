@@ -32,8 +32,7 @@
 		],
 		"docs/design/08-データベース設計書.md": [
 			"scripts/check-schema-migration-completeness.mjs",
-			"src/lib/features/admin/components/ArchiveBanner.svelte",
-			"src/lib/server/db/migration/lazy-startup-migrations.ts"
+			"src/lib/features/admin/components/ArchiveBanner.svelte"
 		],
 		"docs/design/09-テスト設計書.md": ["tests/unit/services/decay-service.test.ts"],
 		"docs/design/10-SaaS展開ロードマップ.md": ["infra/cdk"],
@@ -120,13 +119,9 @@
 			"scripts/check-no-escape-language.mjs",
 			"src/lib/services/PhotoBrowser.ts"
 		],
-		"docs/runbooks/activities-data-recovery.md": [
-			"src/lib/server/db/migration/lazy-startup-migrations.ts"
-		],
 		"docs/security/security-code-review-2026-03.md": [
 			"src/lib/server/services/email-otp-service.ts"
-		],
-		"tests/CLAUDE.md": ["infra/node_modules"]
+		]
 	},
-	"generatedAt": "2026-05-26T23:47:39.907Z"
+	"generatedAt": "2026-05-27T02:58:51.027Z"
 }
