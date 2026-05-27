@@ -57,7 +57,8 @@
 | [docs/decisions/README.md](decisions/README.md) | ADR インベントリ + supersede 関係 (TOP 10 active + archive) |
 | [docs/design/parallel-implementations.md](design/parallel-implementations.md) | 並行実装ペア一覧 (修正前必須チェック: labels / 年齢モード / demo / ナビ / DB / チュートリアル) |
 | [docs/sessions/po-session.md](sessions/po-session.md) | PO 補佐セッション (Issue 起票・優先度・事業判断) |
-| [docs/sessions/dev-session.md](sessions/dev-session.md) | Dev セッション (実装・CI/CD・設計書同期) |
+| [docs/sessions/dev-session.md](sessions/dev-session.md) | Dev セッション (実装・CI/CD・設計書同期、overall map) |
+| [docs/sessions/dev-process/README.md](sessions/dev-process/README.md) | 開発プロセス運用知 各論 (完遂原則 / アンチパターン / QA fix / 並列 Agent / 調査規律 / 横展開、#2516) |
 | [docs/sessions/qa-session.md](sessions/qa-session.md) | QA セッション (PR レビュー・品質ゲート) |
 | [docs/design/06-UI設計書.md](design/06-UI設計書.md) | UI 機能・画面・オーバーレイ仕様 |
 | [docs/design/07-API設計書.md](design/07-API設計書.md) | API エンドポイント定義 |
