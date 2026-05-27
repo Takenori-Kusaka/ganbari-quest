@@ -255,6 +255,92 @@ describe('startup upgrade path (legacy NUC production DB → new schema)', () =>
 		}
 	});
 
+	it('PR #2487 起因の activities data 消失 (orphan) を startup で復旧し UI 一覧 + 履歴が成立する (#2510 / #2513)', () => {
+		const db = new Database(':memory:');
+		db.pragma('foreign_keys = ON');
+
+		try {
+			seedLegacyProductionDb(db);
+
+			// --- PR #2487 後の NUC 状態を再現 ---
+			// children / activities (旧 per-table) に実データ。child_activities は空。
+			// activity_logs 等は FK target = activities (switchover 前) → switchover で
+			// child_activities に切替わるが参照先が無く全件 orphan 化する。
+			db.prepare("INSERT INTO children (nickname, age) VALUES ('elementary-A', 9)").run();
+			db.prepare("INSERT INTO children (nickname, age) VALUES ('teen-B', 15)").run();
+			db.prepare("INSERT INTO activities (name) VALUES ('walk')").run(); // id=1
+			db.prepare("INSERT INTO activities (name) VALUES ('study')").run(); // id=2
+			// 履歴 (activity_logs): child A が walk を 2 回、child B が study を 1 回
+			db.prepare(
+				"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (1, 1, 10, '2026-05-27')",
+			).run();
+			db.prepare(
+				"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (1, 1, 5, '2026-05-26')",
+			).run();
+			db.prepare(
+				"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (2, 2, 8, '2026-05-26')",
+			).run();
+			db.prepare(
+				"INSERT INTO daily_missions (child_id, mission_date, activity_id) VALUES (1, '2026-05-27', 1)",
+			).run();
+			db.prepare(
+				'INSERT INTO activity_mastery (child_id, activity_id, total_count) VALUES (1, 1, 2)',
+			).run();
+
+			// === startup シーケンス (client.ts と同順) ===
+			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
+			expect(() => db.exec(SQL_CREATE_TABLES)).not.toThrow();
+			expect(validateAndMigrate(db).errors).toEqual([]);
+
+			// --- UI 一覧表示が成立: 各 child に child_activities が生成された ---
+			const childAActivities = (
+				db.prepare('SELECT COUNT(*) AS c FROM child_activities WHERE child_id = 1').get() as {
+					c: number;
+				}
+			).c;
+			expect(childAActivities).toBeGreaterThan(0);
+
+			// --- 履歴が成立: activity_logs が orphan ゼロ (= child_activities を正しく参照) ---
+			const orphanLogs = (
+				db
+					.prepare(
+						`SELECT COUNT(*) AS c FROM activity_logs al
+						 WHERE NOT EXISTS (SELECT 1 FROM child_activities ca WHERE ca.id = al.activity_id)`,
+					)
+					.get() as { c: number }
+			).c;
+			expect(orphanLogs).toBe(0);
+
+			// --- 履歴が child ごとに正しく辿れる (UI の活動別履歴表示が成立) ---
+			// child A の walk 履歴 2 件が child A の child_activities 経由で JOIN できる
+			const childAWalkLogs = (
+				db
+					.prepare(
+						`SELECT COUNT(*) AS c FROM activity_logs al
+						 JOIN child_activities ca ON ca.id = al.activity_id
+						 WHERE al.child_id = 1 AND ca.child_id = 1 AND ca.name = 'walk'`,
+					)
+					.get() as { c: number }
+			).c;
+			expect(childAWalkLogs).toBe(2);
+
+			// daily_missions / activity_mastery も orphan ゼロ
+			for (const table of ['daily_missions', 'activity_mastery']) {
+				const orphan = (
+					db
+						.prepare(
+							`SELECT COUNT(*) AS c FROM ${table} t
+							 WHERE NOT EXISTS (SELECT 1 FROM child_activities ca WHERE ca.id = t.activity_id)`,
+						)
+						.get() as { c: number }
+				).c;
+				expect(orphan, `${table} orphan`).toBe(0);
+			}
+		} finally {
+			db.close();
+		}
+	});
+
 	it('既に新 schema 状態の DB に対して再起動シーケンスを流しても no-error (冪等)', () => {
 		const db = new Database(':memory:');
 		db.pragma('foreign_keys = ON');

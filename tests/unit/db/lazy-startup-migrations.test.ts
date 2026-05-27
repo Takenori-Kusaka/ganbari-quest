@@ -323,6 +323,357 @@ describe('applyLazyStartupMigrations', () => {
 		});
 	});
 
+	describe('activities → child_activities data copy (#2510 / #2513 dim 4)', () => {
+		/**
+		 * PR #2487 後の NUC production を再現する fixture:
+		 * - `activities`: 旧 per-table、age_min/age_max + 全 child_activities 互換 column
+		 * - `child_activities`: 新 SSOT、空 (= data copy 漏れ状態)
+		 * - `activity_logs` 等: FK target は **既に child_activities** (switchover 済) だが
+		 *   参照先が空のため全件 orphan
+		 *
+		 * 本 fixture は switchover 済前提なので、FK target を最初から child_activities に
+		 * 設定する (migrateActivityFkSwitchover が no-op になり、data copy だけが走る)。
+		 */
+		function seedActivitiesDataLossSchema(db: Database.Database): void {
+			db.pragma('foreign_keys = OFF');
+			db.exec(`
+				CREATE TABLE children (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					nickname TEXT NOT NULL,
+					age INTEGER NOT NULL DEFAULT 5,
+					is_archived INTEGER NOT NULL DEFAULT 0
+				);
+				CREATE TABLE categories (
+					id INTEGER PRIMARY KEY,
+					code TEXT NOT NULL UNIQUE,
+					name TEXT NOT NULL
+				);
+				-- 旧 per-table activities (age_min / age_max + 全 copy 対象 column)
+				CREATE TABLE activities (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					name TEXT NOT NULL,
+					category_id INTEGER REFERENCES categories(id),
+					icon TEXT NOT NULL DEFAULT '⭐',
+					base_points INTEGER NOT NULL DEFAULT 5,
+					is_visible INTEGER NOT NULL DEFAULT 1,
+					daily_limit INTEGER,
+					sort_order INTEGER NOT NULL DEFAULT 0,
+					source TEXT NOT NULL DEFAULT 'seed',
+					name_kana TEXT,
+					name_kanji TEXT,
+					trigger_hint TEXT,
+					is_main_quest INTEGER NOT NULL DEFAULT 0,
+					created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					is_archived INTEGER NOT NULL DEFAULT 0,
+					archived_reason TEXT,
+					source_preset_id TEXT,
+					priority TEXT NOT NULL DEFAULT 'optional',
+					age_min INTEGER,
+					age_max INTEGER
+				);
+				-- 新 SSOT child_activities (create-tables.ts と同形)、空
+				CREATE TABLE child_activities (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL REFERENCES children(id),
+					name TEXT NOT NULL,
+					category_id INTEGER REFERENCES categories(id),
+					icon TEXT NOT NULL DEFAULT '⭐',
+					base_points INTEGER NOT NULL DEFAULT 5,
+					is_visible INTEGER NOT NULL DEFAULT 1,
+					daily_limit INTEGER,
+					sort_order INTEGER NOT NULL DEFAULT 0,
+					source TEXT NOT NULL DEFAULT 'seed',
+					name_kana TEXT,
+					name_kanji TEXT,
+					trigger_hint TEXT,
+					is_main_quest INTEGER NOT NULL DEFAULT 0,
+					created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					is_archived INTEGER NOT NULL DEFAULT 0,
+					archived_reason TEXT,
+					source_preset_id TEXT,
+					priority TEXT NOT NULL DEFAULT 'optional'
+				);
+				-- FK target は既に child_activities (switchover 済)。checklist_templates は
+				-- 新 schema にしておき (kind 無し / tenant_id NOT NULL)、他 migration を no-op 化。
+				CREATE TABLE checklist_templates (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					tenant_id TEXT NOT NULL DEFAULT 'default',
+					name TEXT NOT NULL
+				);
+				CREATE TABLE activity_logs (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL REFERENCES children(id),
+					activity_id INTEGER NOT NULL REFERENCES child_activities(id),
+					points INTEGER NOT NULL,
+					streak_days INTEGER NOT NULL DEFAULT 1,
+					streak_bonus INTEGER NOT NULL DEFAULT 0,
+					recorded_date TEXT NOT NULL,
+					recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					cancelled INTEGER NOT NULL DEFAULT 0
+				);
+				CREATE TABLE daily_missions (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL REFERENCES children(id),
+					mission_date TEXT NOT NULL,
+					activity_id INTEGER NOT NULL REFERENCES child_activities(id),
+					completed INTEGER NOT NULL DEFAULT 0,
+					completed_at TEXT
+				);
+				CREATE TABLE activity_mastery (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL REFERENCES children(id),
+					activity_id INTEGER NOT NULL REFERENCES child_activities(id),
+					total_count INTEGER NOT NULL DEFAULT 0,
+					level INTEGER NOT NULL DEFAULT 1,
+					updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				);
+				CREATE TABLE child_activity_preferences (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+					activity_id INTEGER NOT NULL REFERENCES child_activities(id) ON DELETE CASCADE,
+					is_pinned INTEGER NOT NULL DEFAULT 0,
+					pin_order INTEGER,
+					created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				);
+			`);
+			db.pragma('foreign_keys = ON');
+		}
+
+		function orphanCount(db: Database.Database, table: string): number {
+			return (
+				db
+					.prepare(
+						`SELECT COUNT(*) AS c FROM ${table} t
+						 WHERE NOT EXISTS (SELECT 1 FROM child_activities ca WHERE ca.id = t.activity_id)`,
+					)
+					.get() as { c: number }
+			).c;
+		}
+
+		/**
+		 * orphan 行 (child_activities に存在しない activity_id を持つ行) を seed する。
+		 * NUC では FK switchover (dim 3) で FK target が child_activities に切替わった後、
+		 * data copy (dim 4) が漏れたため既存行が全件 orphan 化した状態を再現する。
+		 * SQLite は table 再作成時の既存行に FK を再検証しないが、本テストは
+		 * `:memory:` で新規 INSERT するため `foreign_keys = OFF` で投入して同状態を作る。
+		 */
+		function insertOrphanRows(db: Database.Database, fn: () => void): void {
+			const before = db.pragma('foreign_keys', { simple: true });
+			db.pragma('foreign_keys = OFF');
+			try {
+				fn();
+			} finally {
+				db.pragma(`foreign_keys = ${before ? 'ON' : 'OFF'}`);
+			}
+		}
+
+		/**
+		 * 5 年齢モード (baby=1 / preschool=4 / elementary=9 / junior=14 / senior=17) の
+		 * child + age 帯の異なる activities 5 件 + in-age/out-of-age 混在 logs 10 件を seed。
+		 * (per-child instance のため、年齢ごとに age 適合 copy が分岐することを検証)
+		 */
+		function seedFiveAgeModeFixture(db: Database.Database): void {
+			db.prepare("INSERT INTO categories (id, code, name) VALUES (1, 'undou', '運動')").run();
+			// 5 年齢モード代表 child
+			const childAges = [
+				{ nickname: 'baby', age: 1 },
+				{ nickname: 'preschool', age: 4 },
+				{ nickname: 'elementary', age: 9 },
+				{ nickname: 'junior', age: 14 },
+				{ nickname: 'senior', age: 17 },
+			];
+			for (const c of childAges) {
+				db.prepare('INSERT INTO children (nickname, age) VALUES (?, ?)').run(c.nickname, c.age);
+			}
+			// age 帯の異なる activities 5 件 (age_min/age_max を散らす)
+			const acts = [
+				{ name: 'all-ages', min: 0, max: 18 },
+				{ name: 'preschool-only', min: 3, max: 5 },
+				{ name: 'elementary-only', min: 6, max: 12 },
+				{ name: 'teen-only', min: 13, max: 18 },
+				{ name: 'archived-act', min: 0, max: 18, archived: 1 },
+			];
+			for (const a of acts) {
+				db.prepare(
+					'INSERT INTO activities (name, category_id, age_min, age_max, is_archived) VALUES (?, 1, ?, ?, ?)',
+				).run(a.name, a.min, a.max, a.archived ?? 0);
+			}
+		}
+
+		it('referenced (history) ∪ age 適合 activity を child_activities に copy し 4 table を remap する', () => {
+			seedActivitiesDataLossSchema(db);
+			seedFiveAgeModeFixture(db);
+
+			// elementary child (id=3, age 9) の history を作る: 'elementary-only' (id=3) を参照
+			insertOrphanRows(db, () => {
+				db.prepare(
+					"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (3, 3, 10, '2026-05-27')",
+				).run();
+				db.prepare(
+					"INSERT INTO daily_missions (child_id, mission_date, activity_id) VALUES (3, '2026-05-27', 3)",
+				).run();
+				db.prepare(
+					'INSERT INTO activity_mastery (child_id, activity_id, total_count) VALUES (3, 3, 5)',
+				).run();
+				db.prepare(
+					'INSERT INTO child_activity_preferences (child_id, activity_id, is_pinned) VALUES (3, 3, 1)',
+				).run();
+				// teen child (id=4, age 14) は 'teen-only' (id=4) の log を持つが age 適合は別途
+				db.prepare(
+					"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (4, 4, 7, '2026-05-26')",
+				).run();
+			});
+
+			// 全 4 table が orphan 状態であることを前提確認
+			expect(orphanCount(db, 'activity_logs')).toBeGreaterThan(0);
+
+			applyLazyStartupMigrations(db);
+
+			// child_activities が生成された
+			const caCount = (
+				db.prepare('SELECT COUNT(*) AS c FROM child_activities').get() as { c: number }
+			).c;
+			expect(caCount).toBeGreaterThan(0);
+
+			// 4 table の orphan = 0
+			expect(orphanCount(db, 'activity_logs')).toBe(0);
+			expect(orphanCount(db, 'daily_missions')).toBe(0);
+			expect(orphanCount(db, 'activity_mastery')).toBe(0);
+			expect(orphanCount(db, 'child_activity_preferences')).toBe(0);
+
+			// elementary child (id=3) は referenced 'elementary-only' + age 適合 (all-ages,
+			// elementary-only) を持つ。'teen-only' (age 13-18) は age 不適合のため含まれない。
+			const elemActs = db
+				.prepare(`SELECT ca.name FROM child_activities ca WHERE ca.child_id = 3 ORDER BY ca.name`)
+				.all() as { name: string }[];
+			const elemNames = elemActs.map((r) => r.name);
+			expect(elemNames).toContain('elementary-only'); // referenced + age 適合
+			expect(elemNames).toContain('all-ages'); // age 適合
+			expect(elemNames).not.toContain('teen-only'); // age 不適合 + 未参照
+			expect(elemNames).not.toContain('archived-act'); // archived は age 適合から除外
+
+			// teen child (id=4) は referenced 'teen-only' (age 適合でもある) を必ず持つ (history 保全)
+			const teenNames = (
+				db.prepare(`SELECT name FROM child_activities WHERE child_id = 4`).all() as {
+					name: string;
+				}[]
+			).map((r) => r.name);
+			expect(teenNames).toContain('teen-only');
+		});
+
+		it('5 年齢モードそれぞれで age 適合した activity 数が age 帯に応じて分岐する', () => {
+			seedActivitiesDataLossSchema(db);
+			seedFiveAgeModeFixture(db);
+			// 各 child に 1 件ずつ all-ages (id=1) の log を入れ orphan 状態を作る
+			insertOrphanRows(db, () => {
+				for (let childId = 1; childId <= 5; childId++) {
+					db.prepare(
+						"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (?, 1, 5, '2026-05-27')",
+					).run(childId);
+				}
+			});
+
+			applyLazyStartupMigrations(db);
+
+			const countFor = (childId: number) =>
+				(
+					db
+						.prepare('SELECT COUNT(*) AS c FROM child_activities WHERE child_id = ?')
+						.get(childId) as { c: number }
+				).c;
+
+			// preschool (age 4): all-ages + preschool-only = 2
+			expect(countFor(2)).toBe(2);
+			// elementary (age 9): all-ages + elementary-only = 2
+			expect(countFor(3)).toBe(2);
+			// junior (age 14): all-ages + teen-only = 2
+			expect(countFor(4)).toBe(2);
+			// senior (age 17): all-ages + teen-only = 2
+			expect(countFor(5)).toBe(2);
+			// baby (age 1): all-ages のみ = 1 (preschool-only は age_min 3 で不適合)
+			expect(countFor(1)).toBe(1);
+		});
+
+		it('冪等性: 2 回実行で child_activities が重複生成されない (no-op)', () => {
+			seedActivitiesDataLossSchema(db);
+			seedFiveAgeModeFixture(db);
+			insertOrphanRows(db, () => {
+				db.prepare(
+					"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (3, 3, 10, '2026-05-27')",
+				).run();
+			});
+
+			applyLazyStartupMigrations(db);
+			const after1 = (
+				db.prepare('SELECT COUNT(*) AS c FROM child_activities').get() as { c: number }
+			).c;
+			expect(after1).toBeGreaterThan(0);
+
+			// 2 回目: child_activities 非空 guard で skip → 重複生成なし
+			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
+			const after2 = (
+				db.prepare('SELECT COUNT(*) AS c FROM child_activities').get() as { c: number }
+			).c;
+			expect(after2).toBe(after1);
+			// orphan も維持 (0)
+			expect(orphanCount(db, 'activity_logs')).toBe(0);
+		});
+
+		it('orphan が 1 件も無い場合は data copy を skip する (既正常 DB)', () => {
+			seedActivitiesDataLossSchema(db);
+			seedFiveAgeModeFixture(db);
+			// child_activities を 1 件手動投入し、log もその新 id を指す (orphan ゼロ)
+			db.prepare(
+				"INSERT INTO child_activities (id, child_id, name, category_id) VALUES (100, 3, 'existing', 1)",
+			).run();
+			db.prepare(
+				"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (3, 100, 10, '2026-05-27')",
+			).run();
+
+			applyLazyStartupMigrations(db);
+
+			// child_activities 非空 guard で skip。手動投入の 1 件のみ。
+			const caCount = (
+				db.prepare('SELECT COUNT(*) AS c FROM child_activities').get() as { c: number }
+			).c;
+			expect(caCount).toBe(1);
+		});
+
+		it('age 列が無い旧 activities schema でも referenced のみで copy + orphan 解消する', () => {
+			// age_min/age_max 無しの activities table を再構築
+			db.pragma('foreign_keys = OFF');
+			db.exec(`
+				CREATE TABLE children (id INTEGER PRIMARY KEY AUTOINCREMENT, nickname TEXT NOT NULL, age INTEGER NOT NULL DEFAULT 5, is_archived INTEGER NOT NULL DEFAULT 0);
+				CREATE TABLE activities (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, is_archived INTEGER NOT NULL DEFAULT 0);
+				CREATE TABLE child_activities (id INTEGER PRIMARY KEY AUTOINCREMENT, child_id INTEGER NOT NULL REFERENCES children(id), name TEXT NOT NULL);
+				CREATE TABLE checklist_templates (id INTEGER PRIMARY KEY, tenant_id TEXT NOT NULL DEFAULT 'default', name TEXT NOT NULL);
+				CREATE TABLE activity_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, child_id INTEGER NOT NULL REFERENCES children(id), activity_id INTEGER NOT NULL REFERENCES child_activities(id), points INTEGER NOT NULL, recorded_date TEXT NOT NULL);
+			`);
+			db.pragma('foreign_keys = ON');
+			db.prepare("INSERT INTO children (nickname, age) VALUES ('A', 8)").run();
+			db.prepare("INSERT INTO activities (name) VALUES ('walk')").run();
+			db.prepare("INSERT INTO activities (name) VALUES ('study')").run();
+			insertOrphanRows(db, () => {
+				db.prepare(
+					"INSERT INTO activity_logs (child_id, activity_id, points, recorded_date) VALUES (1, 1, 10, '2026-05-27')",
+				).run();
+			});
+
+			expect(orphanCount(db, 'activity_logs')).toBe(1);
+			applyLazyStartupMigrations(db);
+
+			// referenced 'walk' (id=1) のみ copy。age 列無しなので age 適合 'study' は copy されない。
+			const names = (
+				db.prepare('SELECT name FROM child_activities WHERE child_id = 1').all() as {
+					name: string;
+				}[]
+			).map((r) => r.name);
+			expect(names).toEqual(['walk']);
+			expect(orphanCount(db, 'activity_logs')).toBe(0);
+		});
+	});
+
 	describe('foreign_keys pragma 状態の保全', () => {
 		it('呼び出し前後で foreign_keys=ON の状態が維持される', () => {
 			seedLegacyProductionSchema(db);
