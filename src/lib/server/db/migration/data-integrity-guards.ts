@@ -56,6 +56,7 @@
 // 詳細: docs/design/08-データベース設計書.md §8.6。
 
 import type Database from 'better-sqlite3';
+import { getEnv } from '$lib/runtime/env';
 
 /** orphan 検査対象の 1 table 定義 (core 4 table、AC6)。 */
 interface OrphanCheck {
@@ -143,7 +144,10 @@ export interface AssertNoDataOrphansOptions {
 }
 
 function isTestEnv(): boolean {
-	return process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+	// env 直接参照禁止 (ADR-0040) のため $lib/runtime/env 経由。vitest は起動時に
+	// VITEST='true' を設定するため、CI / unit test では throwOnOrphan 既定 true。
+	const env = getEnv();
+	return env.NODE_ENV === 'test' || env.VITEST === 'true';
 }
 
 /**

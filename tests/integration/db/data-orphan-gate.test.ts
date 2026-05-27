@@ -17,7 +17,7 @@
 // チェックでも鳴らなかった。本テストはその構造的盲点が再発しないことを保証する。
 
 import Database from 'better-sqlite3';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SQL_CREATE_TABLES } from '../../../src/lib/server/db/create-tables';
 import {
 	assertNoDataOrphans,
@@ -144,16 +144,9 @@ function seedLegacyDataWithReferences(db: Database.Database): void {
 }
 
 describe('runtime data orphan gate (#2519)', () => {
-	const prevNodeEnv = process.env.NODE_ENV;
-	const prevVitest = process.env.VITEST;
-
-	beforeEach(() => {
-		// test 環境では assertNoDataOrphans が自動 throw する (NODE_ENV=test or VITEST)
-		process.env.VITEST = 'true';
-	});
+	// 注: vitest は起動時に VITEST='true' を設定するため、$lib/runtime/env 経由の
+	// isTestEnv() は本テスト runtime で true。throwOnOrphan を明示しない呼出は throw する。
 	afterEach(() => {
-		process.env.NODE_ENV = prevNodeEnv;
-		process.env.VITEST = prevVitest;
 		vi.restoreAllMocks();
 	});
 
