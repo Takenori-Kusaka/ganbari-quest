@@ -59,6 +59,16 @@
 | 4 | ダウングレード期末適用中の UI 表示 | 「○月○日に standard に変わります / member ○人アーカイブ」を PlanStatusCard に (Phase 3) |
 | 5 | 年→月ダウン時の年額割引 credit | Stripe 既定 (次回充当) で十分。解約孫 #2536 と連動 |
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | ダウングレード前リソース選択 (`src/lib/features/admin/components/SaasLicensePanel.svelte`:951) / `DowngradeResourceSelector` (`src/lib/features/admin/components/DowngradeResourceSelector.svelte`) | 骨格維持 (超過データのアーカイブ選択) | ✅ 実装済み |
+| 2 | 現行別 Product 示唆 (`STRIPE_PRICE_STANDARD_*` / `STRIPE_PRICE_FAMILY_*`) | 同一 Product 別 Price (期末ダウン用) | **変更** (Phase 5 アーキ確認) |
+| 3 | ライセンスキー方式の二経路 | Portal 経由に一本化 | **無効化** (Open question 3) |
+
+**影響範囲**: plan-change 処理自体は Stripe Portal 遷移に委譲。ダウングレード前リソース整理 (`DowngradeResourceSelector`) は `SaasLicensePanel.svelte` に配置済み。Dashboard の設定は Phase 5 / 本格実装は Phase 6/7。行位置は 2026-05-28 検証済。
+
 ## 関連 (2026-05-28 補強)
 
 - [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename / コンポーネント (SaasLicensePanel → SaasSubscriptionPanel) / atom 影響範囲 308+218+450 件

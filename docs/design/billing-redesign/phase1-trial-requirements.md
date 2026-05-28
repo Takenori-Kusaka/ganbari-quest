@@ -50,6 +50,17 @@
 4. 何もしなければ7日後に無料へ、上限超はアーカイブ表示
 5. 2回目試行時「トライアルは利用済み(ご家族で1回)」+ 有料案内
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | `startTrial` 1回制限・期間指定 (`src/lib/server/services/trial-service.ts`:18) | 骨格維持 (family 固定で運用) | ✅ 実装済み |
+| 2 | `trial-notification-service` 通知 (`src/lib/server/services/trial-notification-service.ts`:15) | 骨格維持 | ✅ 実装済み |
+| 3 | trial 終了時の決済未登録挙動 | **cancel** 固定で無料に戻る | **確定** (FR-5, NFR-1) |
+| 4 | 自動 trial 開始 / 任意プラン選択 | feature gate 経由に統一 (family 固定) | **変更** (FR-2, FR-11) |
+
+**影響範囲**: `trial-service.ts` の `startTrial` は対象プランを受け取るが、呼び出し側を `family` に固定。終了通知は現状維持。終了時の Stripe 設定は `trial_settings.end_behavior.missing_payment_method=cancel` を適用。実装は Phase 6/7。行位置は 2026-05-28 検証済。
+
 ## Open question (PO 判断)
 
 | # | 論点 | 結論 | 状態 |

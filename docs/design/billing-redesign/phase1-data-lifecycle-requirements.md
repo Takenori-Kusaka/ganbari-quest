@@ -55,6 +55,17 @@ dunning最終(canceled) → plan=undefined/suspended → ★解約と同一。fr
 - 消去は**復元不可能な手段**で (NFR-1)
 - 子供データの年齢別特別規定は**日本法になし** (COPPA 適用外妥当、過剰防衛しない ADR-0010)
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | ダウングレード時の超過リソースアーカイブ (未実装) | 超過分は物理削除せずアーカイブ (`is_archived=true`) | **新規** (FR-4) |
+| 2 | 退会フロー (`src/lib/server/services/account-deletion-service.ts` 未実装) | グレースピリオド後に全物理削除 + Stripe Customer 削除 | **新規** (FR-5, FR-6, OQ-4) |
+| 3 | プラン別履歴保持と物理削除 cron (`src/lib/server/services/retention-service.ts` 未実装) | 日次 cron で cutoff 以前を物理削除 | **新規** (FR-1) |
+| 4 | データエクスポート (未実装) | ユーザーUIからセルフサービスエクスポート機能 | **新規** (FR-8, OQ-3) |
+
+**影響範囲**: 物理削除の `cron` やデータエクスポートのセルフサービスUI等、大きな新規実装が必要。退会フローは Stripe Customer の削除を含む。超過リソースのアーカイブロジックも追加。これらは実装規模が大きいため Phase 6/7 へ。行位置は 2026-05-28 検証済。
+
 ## Open question
 
 | # | 論点 | 結論/状態 |
