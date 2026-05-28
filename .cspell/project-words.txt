@@ -399,3 +399,11 @@ PATHCONV
 # ===== #2455 security CWE-639 / per-child URL param =====
 IDOR
 childid
+
+# ===== #2618 ADR-0056 §D worktree HEAD verify gate / QM drift research terms =====
+# worktree = git worktree (CLI sub-command + 並列開発分離 dir、.claude/worktrees/ 配下で使用)
+# Goodhart('s) = Goodhart's Law (measurement → target 化で proxy 化、Adversarial Reviewer 設計根拠)
+# Hubinger = Evan Hubinger (Anthropic Alignment researcher、role drift 構造的対処の理論的支柱)
+worktree
+Goodhart
+Hubinger
