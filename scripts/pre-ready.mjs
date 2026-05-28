@@ -125,7 +125,7 @@ Steps:
   6.  sync-lp-fallback.mjs        — LP fallback テキスト同期検査 (LP / labels.ts 変更時のみ、#1945)
   7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972 / Phase 5 F1 / #1918)
   8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
-  9.  check-pr-body.mjs           — PR body 必須セクション / 禁止語 / AC マップ / mergeable (PR 番号必須)
+  9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
   10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
   11. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
 
@@ -310,14 +310,32 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'pr-body',
+			// #2632: Step 9 ラベルに「Ready checklist + AC 4 列 + forbidden-terms」を明示。
+			// 本日 (2026-05-29) 7 連続再発 (#2625 / #2626 / #2629 / #2630) で「Step 9 が何を見ているか」が
+			// 実装者に伝わっていない問題が露出した。check-pr-body.mjs は既に Ready checklist `[ ]` / AC 4 列 /
+			// forbidden-terms / 必須セクション / BOM / mojibake / CONFLICTING を一括検出するが、ラベル
+			// が `check-pr-body.mjs` だけだと「PR body 表面チェック」と誤認され skip されやすい。
+			// ADR-0056 §E (#2632 で新設) 整合の構造的予防。
 			label: args.pr
-				? `Step 9/11: check-pr-body.mjs --pr ${args.pr}`
-				: 'Step 9/11: check-pr-body.mjs (--pr 未指定 — skip)',
+				? `Step 9/11: Readiness gate (Ready checklist + AC 4 列 + forbidden-terms + 必須セクション、check-pr-body.mjs --pr ${args.pr})`
+				: 'Step 9/11: Readiness gate (--pr 未指定 — skip、Ready 化前は --pr 必須)',
 			skip: args.skipPrBody || !args.pr,
 			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
 			fixHint:
-				'  PR body の必須セクション欠落 / 禁止語混入 / AC マップ未記入 / CONFLICTING など。\n' +
-				'  詳細は scripts/check-pr-body.mjs --help を参照。',
+				'  Readiness gate FAIL — Ready 化前必須 (本日 7 連続再発 #2625 / #2626 / #2629 / #2630、#2632 で gate 強化)\n' +
+				'  検出対象:\n' +
+				'    1. Ready for Review チェックリスト未チェック残置 (`- [ ]` 1 件で BLOCK)\n' +
+				'    2. AC 検証マップ 4 列形式違反 (2 列簡略 / 空セル / 列数 < 4)\n' +
+				'    3. PR body 禁止語混入 (予定 / follow-up / TODO / PENDING / DEFERRED / 別途 / 個別起票)\n' +
+				'    4. 必須セクション 13 個の見出し欠落\n' +
+				'    5. BOM / `??` mojibake (heredoc cp932 由来、#2562 / #2576)\n' +
+				'    6. PR mergeable: CONFLICTING (rebase 必要)\n' +
+				'    7. hotfix label PR の ADR-0006 env 配布証跡欄欠落 (#2343)\n' +
+				'  対応:\n' +
+				'    - PR body L<N> Ready checklist を全 [x] 化 (「QA 承認・動作確認が完了している」も Dev 自身で [x])\n' +
+				'    - AC マップを 4 列形式 (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`) に置換\n' +
+				'    - 禁止語は PR で完遂 or Issue 起票して PR から完全除去 (partial PR 禁止)\n' +
+				'    - 詳細は scripts/check-pr-body.mjs --help を参照。',
 		},
 		{
 			name: 'doc-code-references',

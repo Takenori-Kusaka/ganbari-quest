@@ -5,6 +5,20 @@ description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari
 
 > **親 SSOT**: [Dev Session](../../../docs/sessions/dev-session.md) / **対称 Skill**: [LP Review (PO Goal 2)](../lp-review/SKILL.md) / [Issue Triage (PO Goal 1)](../issue-triage/SKILL.md)
 
+## ⚠️ Ready 化前必須 (本 SKILL 違反で複数 PR が CI fail 観察、#2632、QA self-implement 第 5 弾)
+
+**`gh pr ready <N>` 実行前に必ず以下 5 項目を完遂すること**。本日 (2026-05-29) 7 連続再発 (#2625 / #2626 / #2629 / #2630 等で Ready checklist 未チェック / AC 2 列 / forbidden-terms 混入 / rebase drift) + Persona Drift 4 連続観察 (#2613 RR #4 / #2625 / #2629 / #2630) の構造的予防策:
+
+1. **`npm run pre-ready -- --pr <N>` 全 step PASS** — Step 9 Readiness gate (`check-pr-body.mjs`) で下記 2-4 を一括検出
+2. **PR body Ready checklist 全 `[x]` 化** — 「QA 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言、QM が re-verify する )
+3. **AC 検証マップ 4 列形式** (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`) — 2 列簡略形式は `ac-map-incomplete` で exit 1
+4. **forbidden-terms 0 件** (「予定」「follow-up」「TODO」「PENDING」「DEFERRED」「別途」「個別起票」) — PR で完遂 or Issue 起票して PR から除去 (partial PR 禁止)
+5. **rebase 完了** (`git fetch origin main && git rebase origin/main`) — 本日 deploy 全 file 取込、mergeable: CONFLICTING でないこと
+
+これらは Step 9 で自動 verify されるが、**実装者は pre-ready を skip しない**。「Step 9 は PR body 表面チェックだから」という誤認で skip した結果、本日 #2625-#2630 で 4 連続 CI fail → QA Tier 2 Review BLOCK 列挙工程化 → QM 本質判定時間圧迫 = QA チーム時間効率 (user 明示 priority) 毀損。
+
+詳細は ADR-0056 §E (#2632) + `docs/sessions/dev-session.md` §「Ready 化前 5 項目 SSOT」を参照。
+
 # Dev PR 起票ワークフロー
 
 Dev Agent が PR を `gh pr create --draft --body-file` で起票する際の **4 ステップ手順** + Ready 化前の **4 必須 CI gate チェックリスト**。

@@ -55,6 +55,18 @@ node scripts/check-recent-deploy-deletion.mjs --pr <N>   # 真正実行
 
 **#2618 deploy 後 (本 PR)**: `scripts/check-recent-deploy-deletion.mjs` 自身が `--pr` 指定時に worktree HEAD ≠ PR HEAD を検出すると exit 3 で BLOCK する self-defense を実装済 (defense in depth 第 2 層)。**ただし Agent SKILL ルール (本 prelude) は引き続き第 1 層として必須** — gate 本体 self-defense は最終 backstop であり、Agent 側で事前 checkout する習慣を default 化することで gate 起動回数自体を最小化する。
 
+### ⚠️ Ready 化前 5 項目 SSOT (#2632、本日 7 連続再発予防、QA self-implement 第 5 弾)
+
+`gh pr ready <N>` 実行前、Dev Agent は **必ず以下 5 項目を完遂** すること。本日 (2026-05-29) #2625 / #2626 / #2629 / #2630 等で連続再発した「Step 9 skip / Ready checklist 未チェック / AC 2 列 / forbidden-terms 混入 / rebase drift」への構造的対処:
+
+1. **`npm run pre-ready -- --pr <N>` 全 step PASS** — Step 9 Readiness gate で 2-4 を一括 verify
+2. **Ready checklist 全 `[x]` 化**「QA 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言)
+3. **AC 検証マップ 4 列形式** (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`)
+4. **forbidden-terms 0 件** (「予定」「follow-up」「TODO」「PENDING」「DEFERRED」「別途」「個別起票」)
+5. **rebase 完了** (`git fetch origin main && git rebase origin/main` で本日 deploy 全 file 取込)
+
+詳細 SSOT: `.claude/skills/dev-open-pr/SKILL.md` 冒頭 §「Ready 化前必須」+ ADR-0056 §E (#2632 で新設、Persona Drift §C fallback 自動化と連動)。
+
 ### PR 運用
 
 - PR body 必須セクション欠落・禁止語があれば修正（`scripts/check-pr-body.mjs` が検出）
