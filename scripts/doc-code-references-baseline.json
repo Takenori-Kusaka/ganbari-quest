@@ -121,7 +121,8 @@
 		],
 		"docs/security/security-code-review-2026-03.md": [
 			"src/lib/server/services/email-otp-service.ts"
-		]
+		],
+		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
 	"generatedAt": "2026-05-27T02:58:51.027Z"
 }

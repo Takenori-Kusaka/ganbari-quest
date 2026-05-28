@@ -15,7 +15,7 @@
 |---|---|---|
 | gate disable + tooltip + プランページ遷移 | `FeatureGate.svelte:49` (disabled button + title tooltip) / `ActivityLimitBanner.svelte:16` (banner + `/admin/license` link) / `PremiumDialog.svelte:52` (`window.location.href = '/admin/license'`) | ✅ 既存堅牢 |
 | ヘッダの現在プランボタン → 遷移 | `AdminLayout.svelte:220` で badge 表示 / `:212-218` で無料時のみ「アップグレード」ボタン → `/admin/license` / **有料プラン時の `plan-badge` はクリック遷移なし** | △ **部分実装、有料時遷移リンク欠落** |
-| LP pricing 購入動線説明 | `site/pricing.html:297-301` (signup + 直接購入 CTA) / `:403-420` (trial 3 ステップ) / `:475` (解約経路 FAQ) | ✅ 既存あり (CTA / 手順 / 解約) |
+| LP pricing 購入動線説明 | [`site/pricing.html` L297-L301](../../../site/pricing.html) (signup + 直接購入 CTA) / [L403-L420](../../../site/pricing.html) (trial 3 ステップ) / [L475](../../../site/pricing.html) (解約経路 FAQ) | ✅ 既存あり (CTA / 手順 / 解約) |
 
 ## 業界呼称・モデルの整合
 
@@ -112,7 +112,7 @@ stateDiagram-v2
 |---|---|---|
 | **谷① プラン選択困惑** | Pricing Table (3 tier 視覚化) | 「お勧め」バッジ (standard に) / 比較表差分強調 / 診断ナビ ("家族の人数は?") |
 | **谷② 金額説得力** | ❌ Stripe 範囲外 | LP/pricing で `1 日 ¥16` framing / 家族 1 人あたり ¥260 (family) / 比較 anchor (学習教材 1 ヶ月) |
-| **谷③ 解約柔軟性** | Customer Portal (cancel UI / cancellation reasons) | CTA 直下に `CANCEL_TERMS.anytimeOk` 必須 + Portal 体験リンク / FAQ で解約 3 ステップ明示 (既存 `site/pricing.html:475` あり、強化) |
+| **谷③ 解約柔軟性** | Customer Portal (cancel UI / cancellation reasons) | CTA 直下に `CANCEL_TERMS.anytimeOk` 必須 + Portal 体験リンク / FAQ で解約 3 ステップ明示 (既存 [`site/pricing.html` L475](../../../site/pricing.html) あり、強化) |
 | **谷④ 購入動線探索** | ❌ Stripe 範囲外 | gate tooltip 既存 ✅ / ヘッダ有料時遷移 (改善要) / LP pricing 動線説明 既存 ✅ / LP→app→pricing→checkout 統一 CTA |
 
 ## 改善要項目 (Phase 3 UI / Phase 4 動線 / Phase 5 アーキ への申し送り)
@@ -192,12 +192,12 @@ LP pricing / checkout 最終確認画面で**法的義務として**表示:
 | 2 | 「お勧め」バッジを standard に付けるか family に付けるか | Phase 3 UI で要 PO 判断 (decoy 効果) |
 | 3 | 診断ナビ採用可否 (「家族の人数は?」slider) | Phase 3 UI 設計の規模感判断 |
 | 4 | 特商法最終確認 = Stripe `custom_text` vs 自社確認画面 | Phase 3/5 で実装方式 |
-| 5 | LP `site/pricing.html:475` FAQ 解約手順の強化 (Customer Portal 動画 / GIF) | Phase 4 動線で判断 |
+| 5 | LP [`site/pricing.html` L475](../../../site/pricing.html) FAQ 解約手順の強化 (Customer Portal 動画 / GIF) | Phase 4 動線で判断 |
 | 6 | Stripe Pricing Table 採用 (app `/admin/license` 内) | Phase 5 アーキ判断 (現状自前で問題なし) |
 
 ## 根拠
 
-- **既存実装 (Explore 照合 2026-05-28)**: `FeatureGate.svelte:49` / `ActivityLimitBanner.svelte:16` / `PremiumDialog.svelte:52` / `AdminLayout.svelte:212-220` / `PlanStatusCard.svelte:76` / `site/pricing.html:297-301, 403-420, 475`
+- **既存実装 (Explore 照合 2026-05-28)**: `FeatureGate.svelte:49` / `ActivityLimitBanner.svelte:16` / `PremiumDialog.svelte:52` / `AdminLayout.svelte:212-220` / `PlanStatusCard.svelte:76` / [`site/pricing.html`](../../../site/pricing.html) L297-L301 / L403-L420 / L475
 - **deep-research (2026-05-28)**: 谷 14 件 (Baymard cart abandonment / Iyengar Paradox of Choice / Cancel anytime 論文 Journal of Retailing 2024 / RevenueCat cost-per-day framing) / in-app upgrade prompts 5 パターン (Userpilot / Plotline / Webuild) / LP→app 動線 (Vercel / Netlify / Linear / Notion) / Stripe Pricing Table 公式 docs
 - Phase 1 phase1-checkout-requirements.md / phase1-legal (特商法 5 項目) / phase1-trial (Reverse Trial パターン C) / phase1-cancellation
 - ADR-0012 (Anti-engagement、子供 UI 全 upgrade prompts 禁止) / ADR-0013 (LP truth) / ADR-0045 (terms/labels SSOT) / ADR-0050 (Parent-Gate)
