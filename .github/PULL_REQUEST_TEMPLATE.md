@@ -20,12 +20,17 @@ closes #
 
 ## AC 検証マップ (ADR-0004)
 
-<!-- ⚠️ 必須: Issue の Acceptance Criteria 1 行ごとに 1 行。検証手段は機械検証可能なコマンド / ファイルパス / スクリーンショット番号で書く。
-     例外: ac-verification-skip コメントで対象外化（監査ログに記録）→ <!-- ac-verification-skip: 理由 --> -->
+<!-- ⚠️ 必須: Issue の Acceptance Criteria 1 行ごとに 1 行。
+     ⚠️ 4 列固定 (`AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス`) — 2 列簡略形式禁止 (#1775 AC2 / #2586)
+     検証手段は機械検証可能なコマンド / ファイルパス / スクリーンショット番号で書く。
+     結果 / エビデンス列には HEAD SHA + file:line + grep / 実体根拠を必ず付与する。
+     例外: ac-verification-skip コメントで対象外化（監査ログに記録）→ <!-- ac-verification-skip: 理由 -->
+     参考 PR (4 列 SSOT 実装例): #2588 / #2599 -->
 
 | AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
 |---------|--------|---------|------------------|
-| AC1 | <!-- 例: Mobile 高 ≤ 15000px --> | <!-- 例: `node scripts/measure-lp-dimensions.mjs` --> | <!-- 例: mobile=11469px PASS --> |
+| AC1 | <!-- 例: Mobile 高 ≤ 15000px --> | <!-- 例: `node scripts/measure-lp-dimensions.mjs` --> | <!-- 例: HEAD `abc1234` / mobile=11469px PASS / output L42 --> |
+| AC2 | <!-- 例: AC 内容 を簡潔に --> | <!-- 例: `npx vitest run tests/unit/foo.test.ts` --> | <!-- 例: HEAD `abc1234` / 12 passed (L8-19) / tests/unit/foo.test.ts:42 --> |
 
 ## 変更タイプ
 

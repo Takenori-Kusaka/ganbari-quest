@@ -341,12 +341,37 @@ describe('detectMojibake (#2562 / #2576)', () => {
 		expect(result[0]?.message).toMatch(/--body-file/);
 	});
 
-	it('AC-2: `??` が 10 件以上含まれる body を検出する', () => {
-		const body = '文字化けして ???????????????????? になりました';
+	it('AC-1: BOM 検出 error message は heredoc 禁止 + UTF-8 file 投入手順を含む (#2576)', () => {
+		const body = '﻿## タイトル';
+		const result = detectMojibake(body);
+		expect(result).toHaveLength(1);
+		const msg = result[0]?.message ?? '';
+		// 修正手順を含む (heredoc 禁止 + body-file 必須を明示)
+		expect(msg).toMatch(/heredoc/);
+		expect(msg).toMatch(/--body-file/);
+		expect(msg).toMatch(/UTF-8/);
+		expect(msg).toMatch(/tmp\/pr-bodies/);
+	});
+
+	it('AC-2: `??` が 5 マッチ以上含まれる body を検出する (#2576 で 10 → 5 に閾値強化)', () => {
+		// 注: 正規表現 /\?\?/g は非重複マッチのため、10 文字の `?` = 5 マッチ
+		// 5 マッチ = 新閾値の最小トリガ
+		const body = '文字化けして ?????????? になりました'; // 10 個 ? = 5 マッチ
 		const result = detectMojibake(body);
 		expect(result).toHaveLength(1);
 		expect(result[0]?.id).toBe('mojibake-heuristic');
 		expect(result[0]?.message).toMatch(/--body-file/);
+		// 新閾値 5 件以上が message に明示されている
+		expect(result[0]?.message).toMatch(/閾値 5 件以上/);
+	});
+
+	it('AC-2: 旧閾値 10 で許容されていた 7 マッチ (14 文字) は新閾値 5 で fail (#2576 強化)', () => {
+		// 旧 threshold 10 では 7 マッチは許容 (7 < 10)、新 threshold 5 では fail (7 >= 5)
+		// 14 個 ? = 7 マッチ (非重複)
+		const body = '?????????????? ← 14 個 = 7 マッチ';
+		const result = detectMojibake(body);
+		expect(result).toHaveLength(1);
+		expect(result[0]?.id).toBe('mojibake-heuristic');
 	});
 
 	it('AC-1 + AC-2 両方含まれる body は両方検出する', () => {
@@ -357,8 +382,9 @@ describe('detectMojibake (#2562 / #2576)', () => {
 		expect(result.some((r) => r.id === 'mojibake-heuristic')).toBe(true);
 	});
 
-	it('境界値: `??` が 9 件 (閾値 10 未満) の body は検出しない', () => {
-		const body = '????????? ← 9 個だけ';
+	it('境界値: `??` が 4 マッチ (新閾値 5 未満) の body は検出しない', () => {
+		// 8 個 ? = 4 マッチ (4 < 5、新閾値で許容)
+		const body = '???????? ← 8 個 = 4 マッチ';
 		const result = detectMojibake(body);
 		expect(result).toHaveLength(0);
 	});
@@ -367,5 +393,54 @@ describe('detectMojibake (#2562 / #2576)', () => {
 		const body = '正常なテキストです。?? は 2 個だけ。本当に？？';
 		const result = detectMojibake(body);
 		expect(result).toHaveLength(0);
+	});
+});
+
+describe('checkAcMap error message (#2586)', () => {
+	it('AC マップ列数不足時の error message は 4 列形式期待 + 参考 PR を含む', () => {
+		// 2 列 (簡略形式) の AC マップ — re-review 浪費の根本原因 pattern
+		const body = `
+## AC 検証マップ (ADR-0004)
+
+| AC | 結果 |
+|-----|------|
+| AC1 | PASS |
+
+## 次
+`;
+		const result = checkAcMap(body);
+		expect(result?.id).toBe('ac-map-incomplete');
+		const msg = result?.message ?? '';
+		// 4 列形式の期待を明示
+		expect(msg).toMatch(/4 列/);
+		// 参考 PR を明示
+		expect(msg).toMatch(/#2588/);
+		expect(msg).toMatch(/#2599/);
+		// 修正手順を明示
+		expect(msg).toMatch(/修正手順/);
+	});
+
+	it('AC マップが 4 列で全セル埋まっていれば PASS (dogfood)', () => {
+		const body = `
+## AC 検証マップ (ADR-0004)
+
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---------|--------|---------|------------------|
+| AC1 | BOM heuristic threshold 強化 | npx vitest | HEAD abc1234 / 12 passed |
+| AC2 | AC 4 列 SSOT enforcement | check-pr-body | dogfood PASS |
+
+## 次
+`;
+		expect(checkAcMap(body)).toBeNull();
+	});
+
+	it('AC マップデータ 0 件時の error message も 4 列形式期待 + 参考 PR を含む', () => {
+		const body = `## AC 検証マップ (ADR-0004)\n\n| AC 番号 | AC 内容 | 検証手段 | 結果 |\n|---------|---------|---------|------|\n\n## 次\n`;
+		const result = checkAcMap(body);
+		expect(result?.id).toBe('ac-map-empty');
+		const msg = result?.message ?? '';
+		expect(msg).toMatch(/4 列/);
+		expect(msg).toMatch(/#2588/);
+		expect(msg).toMatch(/#2599/);
 	});
 });

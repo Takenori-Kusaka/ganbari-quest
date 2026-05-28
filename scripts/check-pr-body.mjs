@@ -214,7 +214,9 @@ export function checkAcMap(body) {
 		return {
 			id: 'ac-map-empty',
 			message:
-				'AC 検証マップのデータ行が 1 行もありません。Issue の Acceptance Criteria 1 行ごとに 1 行を埋めてください。',
+				'AC 検証マップのデータ行が 1 行もありません。Issue の Acceptance Criteria 1 行ごとに 1 行を埋めてください。\n' +
+				'  期待形式 (4 列固定): `| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`\n' +
+				'  参考 PR (4 列 SSOT 実装例): #2588 / #2599',
 		};
 	}
 
@@ -243,7 +245,10 @@ export function checkAcMap(body) {
 				emptyRows
 					.slice(0, 5)
 					.map((e) => `  - ${e.reason}: ${e.row.slice(0, 100)}`)
-					.join('\n'),
+					.join('\n') +
+				`\n  期待形式 (4 列固定): \`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |\`\n` +
+				`  参考 PR (4 列 SSOT 実装例): #2588 / #2599\n` +
+				`  修正手順: PR body の AC マップを上記 4 列 header に置換、各セルに HEAD SHA + file:line + grep + 実体根拠を付与する (2 列簡略形式禁止、#1775 AC2 / #2586)`,
 		};
 	}
 
@@ -399,13 +404,15 @@ export function detectMojibake(body) {
 		});
 	}
 
-	// AC-2: `??` のヒューリスティック検出 (閾値: 10件以上)
+	// AC-2: `??` のヒューリスティック検出 (閾値: 5件以上、#2576 で 10 → 5 に強化)
+	// 2026-05-28 に 4 連続再発 (#2562 / #2563 / #2566 / #2583) を観測したため
+	// threshold を too lenient な 10 から 5 に下げて fail-fast を強化する。
 	const questionMarks = body.match(/\?\?/g) ?? [];
-	if (questionMarks.length >= 10) {
+	if (questionMarks.length >= 5) {
 		violations.push({
 			id: 'mojibake-heuristic',
 			message:
-				`PR body 内に \`??\` が ${questionMarks.length} 件 (閾値 10 件以上) 検出されました。` +
+				`PR body 内に \`??\` が ${questionMarks.length} 件 (閾値 5 件以上、#2576 で 10 → 5 に強化) 検出されました。` +
 				`cp932 mojibake の疑いがあります。\n` +
 				'  原因: heredoc (`gh pr create --body "$(cat <<EOF ... EOF)"`) を Windows cp932 環境で実行した場合、\n' +
 				'        non-ASCII 文字が cp932 化されて GitHub 投入時に `??` mojibake が混入する。\n' +
@@ -589,7 +596,7 @@ Detected violations:
   4. Ready for Review / 完了チェックリストの未チェック残置
   5. PR が CONFLICTING (--pr 指定時)
   6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
-  7. PR body の文字化け (BOM / \`??\` 10 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
+  7. PR body の文字化け (BOM / \`??\` 5 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
 
 Exit codes:
   0 = OK
