@@ -100,9 +100,7 @@ export default async (page, capture) => {
 	// --- 4) バックアップから復元 ダイアログ (旧 UnifiedImportHub file セクション独立化) ---
 	await waitForMenuOpen(page, 'header-overflow-menu-btn', 'menu-item-restore');
 	await page.getByTestId('menu-item-restore').click();
-	await page
-		.getByTestId('restore-activities-dialog')
-		.waitFor({ state: 'visible', timeout: 5_000 });
+	await page.getByTestId('restore-activities-dialog').waitFor({ state: 'visible', timeout: 5_000 });
 	// transition / layout commit
 	await page.evaluate(
 		() =>
