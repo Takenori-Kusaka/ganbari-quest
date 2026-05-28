@@ -69,9 +69,15 @@ async function dismissChildHomeOverlays(page: Page) {
 		// activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうるため dismiss 対象に追加
 		// (#2558 fix で elementary tablet 起動時の干渉として観察された)。cancel button = やめる。
 		() => page.getByTestId('confirm-cancel-btn'),
-		() => page.locator('button:has-text("うれしい！")'),
-		() => page.locator('button:has-text("ありがとう！")'),
-		() => page.locator('button:has-text("やったね！")'),
+		// #2558 真因 fix: cheer/parent-message dialog の confirm button は Ark UI Dialog 内に
+		// あるため `[data-scope="dialog"]` で scope する。素の `button:has-text("ありがとう！")`
+		// は activity card (例: 「あいさつした」 triggerHint=「おはよう、ありがとう！」、
+		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
+		// click → handleActivityTap → confirm-dialog auto-open → helpBtn click が dialog に
+		// intercept される infinite loop が成立する (elementary tablet 全 retry fail の根本原因)。
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("うれしい！")'),
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("やったね！")'),
 	];
 	for (let pass = 0; pass < 5; pass++) {
 		let anyDismissed = false;

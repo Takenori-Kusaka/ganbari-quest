@@ -70,9 +70,17 @@ async function dismissChildHomeOverlays(page: Page) {
 		() => page.getByTestId('login-bonus-confirm'),
 		() => page.getByTestId('pin-gate-onboarding-close'),
 		() => page.getByTestId('weekly-redeem-confirm'),
-		() => page.locator('button:has-text("うれしい！")'),
-		() => page.locator('button:has-text("ありがとう！")'),
-		() => page.locator('button:has-text("やったね！")'),
+		// #2558 fix: activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうる
+		() => page.getByTestId('confirm-cancel-btn'),
+		// #2558 真因 fix: cheer/parent-message dialog の confirm button は Ark UI Dialog 内に
+		// あるため `[data-scope="dialog"]` で scope する。素の `button:has-text("ありがとう！")`
+		// は activity card (例: 「あいさつした」 triggerHint=「おはよう、ありがとう！」、
+		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
+		// click → handleActivityTap → confirm-dialog auto-open → helpBtn click が dialog に
+		// intercept される infinite loop が成立する (elementary tablet 全 retry fail の根本原因)。
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("うれしい！")'),
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("やったね！")'),
 	];
 	for (let pass = 0; pass < 5; pass++) {
 		let anyDismissed = false;
@@ -142,7 +150,22 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 			await gotoChildHome(page, uiMode);
 
 			// チュートリアル起動 (force: true で auto-open dialog 被さりを無視)
-			await page.locator('[data-testid="header-help-btn"]').click({ force: true });
+			// #2558 fix: 単発 click は flaky (helpBtn click が rapid onMount/effect 後の hydration 過渡で
+			// 静かに消える事象を観察、確率 ~30%)。data-tutorial-active が set されるまで 3 回 retry。
+			const helpBtn = page.locator('[data-testid="header-help-btn"]');
+			for (let attempt = 0; attempt < 3; attempt++) {
+				await helpBtn.click({ force: true });
+				try {
+					await page.waitForFunction(
+						() => document.documentElement.hasAttribute('data-tutorial-active'),
+						null,
+						{ timeout: 3_000 },
+					);
+					break;
+				} catch {
+					// fallthrough → re-click
+				}
+			}
 			// tutorial active flag を待つ (cheer overlay の backdrop と衝突しない)
 			await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 
