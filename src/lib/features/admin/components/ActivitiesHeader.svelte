@@ -2,20 +2,29 @@
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
 
-type AddMode = 'manual' | 'ai' | 'import';
+// #2558 段階2: 「追加」「一括追加」「別の子からコピー」を 1 つの + 追加メニューに統合。
+// `browse` は admin 内ブラウズ UI を撤去し /marketplace へ画面遷移する (PO 方針: マーケットプレイス一本化)。
+type AddMode = 'manual' | 'ai' | 'browse' | 'copy' | 'bulk';
 
 interface Props {
 	onClearAll: () => void;
 	clearConfirmOpen: boolean;
 	canAdd: boolean;
 	onAddSelect: (mode: AddMode) => void;
+	/** #2558 段階2: バックアップから復元ダイアログを開く (旧 UnifiedImportHub file セクション独立化) */
+	onRestore: () => void;
+	/** #2558 段階2: 「別のお子さまからコピー」は 2 child 以上のときのみ提示 */
+	canCopyFromChild: boolean;
 }
 
-let { onClearAll, clearConfirmOpen, canAdd, onAddSelect }: Props = $props();
+let { onClearAll, clearConfirmOpen, canAdd, onAddSelect, onRestore, canCopyFromChild }: Props =
+	$props();
 
 const L = FEATURES_LABELS.activitiesHeader;
 
-// + 追加 dropdown menu items (EPIC #2253 / #2255)
+// + 追加 dropdown menu items (EPIC #2253 / #2255 / #2558 段階2 で copy / bulk / browse を統合)
+// メニュー構成 (DESIGN.md §10 Hick's Law / add 経路 ≤ 4 整合、browse は marketplace 一本化のため別カウント):
+//   手動で1つ追加 / AI で提案してもらう / みんなのテンプレートから探す / 別のお子さまからコピー / 複数のお子さまにまとめて追加
 const addMenuItems = $derived<MenuItem[]>([
 	{
 		id: 'manual',
@@ -30,19 +39,42 @@ const addMenuItems = $derived<MenuItem[]>([
 		onSelect: () => onAddSelect('ai'),
 	},
 	{
-		id: 'import',
-		label: L.addImportLabel,
-		icon: L.addImportIcon,
-		onSelect: () => onAddSelect('import'),
+		id: 'browse',
+		label: L.addBrowseTemplatesLabel,
+		icon: L.addBrowseTemplatesIcon,
+		onSelect: () => onAddSelect('browse'),
+	},
+	...(canCopyFromChild
+		? [
+				{
+					id: 'copy',
+					label: L.addCopyFromChildLabel,
+					icon: L.addCopyFromChildIcon,
+					onSelect: () => onAddSelect('copy'),
+				} satisfies MenuItem,
+			]
+		: []),
+	{
+		id: 'bulk',
+		label: L.addBulkLabel,
+		icon: L.addBulkIcon,
+		onSelect: () => onAddSelect('bulk'),
 	},
 ]);
 
-// ︙ overflow menu items (EPIC #2253 / #2257)
+// ︙ overflow menu items (EPIC #2253 / #2257 + #2558 段階2 で restore を独立配置)
 // #2371 (EPIC #2362 PO 指摘 ③ 物理解消): `introduce` 項目撤去。ヘッダー `?` ボタン (PR #2388 で
 // PageGuideOverlay v2 + PageGuideRegistry 経由に統一済) を唯一のガイド経路に統一する。旧
 // `/admin/activities/introduce` URL は `legacy-url-map.ts` で `/admin/activities` に 308
 // リダイレクトされる (ブックマーク救済)。
+// #2558 段階2: マーケットプレイスとは別概念の「バックアップから復元」を overflow menu に独立配置。
 const overflowItems = $derived<MenuItem[]>([
+	{
+		id: 'restore',
+		label: L.restoreLabel,
+		icon: L.restoreIcon,
+		onSelect: onRestore,
+	},
 	{
 		id: 'export',
 		label: L.exportLabel,

@@ -2,7 +2,8 @@
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 
-type AddMode = 'manual' | 'import';
+// #2558 段階2: secondary link は admin 内ブラウズ UI でなく /marketplace への遷移 (`browse`)
+type AddMode = 'manual' | 'browse';
 
 interface Props {
 	hasFilter: boolean;
@@ -24,12 +25,12 @@ const L = FEATURES_LABELS.activityEmptyState;
 		<Button variant="primary" size="sm" onclick={() => onAdd('manual')}>
 			{L.addBtn}
 		</Button>
-		<!-- bulk import bridge (EPIC #2253 / #2256) -->
+		<!-- bulk import bridge (EPIC #2253 / #2256、#2558 段階2 で /marketplace 遷移に統一) -->
 		<button
 			type="button"
 			class="empty-state__import-link"
 			data-testid="empty-state-import-link"
-			onclick={() => onAdd('import')}
+			onclick={() => onAdd('browse')}
 		>
 			{L.secondaryImportLink}
 		</button>

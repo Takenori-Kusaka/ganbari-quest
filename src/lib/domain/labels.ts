@@ -6184,29 +6184,51 @@ export const FEATURES_LABELS = {
 		exportAriaLabel: 'エクスポート',
 		introduceAriaLabel: '活動の紹介',
 		clearAllAriaLabel: '全クリア',
-		// + dropdown menu (manual / ai / import の 3 経路、EPIC #2253 / #2255)
+		// + dropdown menu に統合 (EPIC #2253 / #2255 / #2558 段階2)
+		// #2558 段階2 (PO 方針: マーケットプレイス一本化): 「追加」と「一括追加」を 1 つの
+		// 「+ 追加」メニューに統合。`import` 項目は admin 内ブラウズ UI を撤去し /marketplace へ画面遷移する。
 		addButtonLabel: '+ 追加',
 		addMenuAriaLabel: '活動を追加するメニューを開く',
-		addManualLabel: '手動で追加',
+		addManualLabel: '手動で1つ追加',
 		addManualIcon: '✏️',
-		addAiLabel: 'AI で追加',
+		addAiLabel: 'AI で提案してもらう',
 		addAiIcon: '✨',
-		// #2558 bug-3: 内部語彙「パック」を排し TEMPLATE_TERMS (みんなのテンプレート / テンプレート) に統一
-		addImportLabel: `${TEMPLATE_TERMS.short}から追加`,
-		addImportIcon: '📥',
+		// #2558 段階2 (bug-3 / bug-4 根治): 内部語彙「パック」を排し、admin 内ブラウズ UI でなく
+		// みんなのテンプレート (/marketplace) への画面遷移を表す文言に統一。
+		addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+		addBrowseTemplatesIcon: '🔍',
+		// #2558 段階2: copy / bulk を + 追加メニューに統合 (トップレベル独立ボタンを撤去)
+		addCopyFromChildLabel: `別の${CHILD_TERMS.honorific}からコピー`,
+		addCopyFromChildIcon: '📋',
+		addBulkLabel: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+		addBulkIcon: '👨‍👩‍👧‍👦',
 		// Add Dialog title (mode 別、#2260 Fix-2 で +page.svelte hardcode を SSOT 化)
 		addDialogTitleManual: '+ 手動で追加',
 		addDialogTitleAi: '✨ AI で活動を追加',
-		// #2558 bug-3: 「📥 パックからインポート」→ TEMPLATE_TERMS 経由
-		addDialogTitleImport: `📥 ${TEMPLATE_TERMS.short}から取り込む`,
-		// ︙ overflow menu (export / clear-all、EPIC #2253 / #2257)
+		// ︙ overflow menu (restore / export / clear-all、EPIC #2253 / #2257 + #2558 段階2)
 		// #2371 (EPIC #2362 PO 指摘 ③): introduce 撤去 (PR #2388 で PageGuideOverlay v2 + PageGuideRegistry 経由 `?` ボタンに統一済)
+		// #2558 段階2: マーケットプレイスとは別概念の「バックアップから復元」をブラウズ UI 撤去に伴い overflow menu に独立配置
 		overflowMenuAriaLabel: 'その他の操作',
 		overflowTriggerLabel: '︙',
+		restoreLabel: OVERFLOW_MENU_TERMS.itemRestore,
+		restoreIcon: OVERFLOW_MENU_TERMS.itemRestoreIcon,
 		exportLabel: 'エクスポート',
 		exportIcon: '📤',
 		clearAllLabel: 'すべて削除',
 		clearAllIcon: '🗑',
+		// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクションの独立化)
+		restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
+		restoreDialogDesc:
+			'以前エクスポートした活動データ (JSON / CSV) を読み込んで復元します。みんなのテンプレートの取り込みとは別の機能です。',
+		restoreSubmitBtn: '読み込む',
+		restoreProcessing: '読み込み中…',
+		restoreSuccess: (name: string, imported: number, skipped: number) =>
+			skipped > 0
+				? `✨ 「${name}」から ${imported} 件を復元しました (${skipped} 件は既存のためスキップ)`
+				: `✨ 「${name}」から ${imported} 件を復元しました`,
+		restoreAllDuplicates: (name: string) => `「${name}」の活動はすべて既に登録済みです`,
+		restoreFailed: '復元に失敗しました',
+		restoreDemo: 'デモではお試し用です（実際の復元は行われません）',
 	},
 
 	// ---- features/admin/components/NotificationPermissionBanner ----
@@ -6315,8 +6337,8 @@ export const FEATURES_LABELS = {
 		filteredText: 'この条件に一致する活動はありません',
 		noActivities: '活動がまだ登録されていません',
 		addBtn: '+ 最初の活動を追加',
-		// #2558 bug-3: 「パックから」→ TEMPLATE_TERMS 経由
-		secondaryImportLink: `または、${TEMPLATE_TERMS.short}から一括追加もできます`,
+		// #2558 段階2 (bug-3 / bug-4 根治): admin 内ブラウズ UI でなく /marketplace への遷移を表す文言に統一
+		secondaryImportLink: `または、${TEMPLATE_TERMS.userFacing}から探す`,
 	},
 
 	// ---- features/admin/components/ChildListCard ----

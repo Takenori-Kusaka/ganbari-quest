@@ -1,5 +1,4 @@
 import { fail } from '@sveltejs/kit';
-import { getMarketplaceIndex } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
@@ -69,19 +68,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const activityLimit = await checkActivityLimit(tenantId, licenseStatus);
 
-	// プリセットパック一覧（marketplace SSOT から activity-pack のみ抽出してレガシー形状に整形）
-	const activityPacks = getMarketplaceIndex()
-		.filter((m) => m.type === 'activity-pack')
-		.map((m) => ({
-			packId: m.itemId,
-			packName: m.name,
-			description: m.description,
-			icon: m.icon,
-			targetAgeMin: m.targetAgeMin,
-			targetAgeMax: m.targetAgeMax,
-			tags: m.tags,
-			activityCount: m.itemCount,
-		}));
+	// #2558 段階2: admin 内マーケットプレイス風ブラウズ UI 撤去に伴い activityPacks load を削除。
+	// プリセット閲覧・選択は /marketplace 側でのみ行う (PO 方針: マーケットプレイス一本化)。
+	// 取込実行は marketplace 詳細 → /admin/activities?import=<presetId> → importPackToChildren で行う。
 
 	const isPremium = isPaidTier(
 		await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan),
@@ -96,7 +85,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		categoryDefs: CATEGORY_DEFS,
 		logCounts,
 		activityLimit,
-		activityPacks,
 		isPremium,
 		mainQuestCount,
 		mainQuestMax: MAIN_QUEST_MAX,

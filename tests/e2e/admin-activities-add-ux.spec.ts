@@ -84,12 +84,20 @@ test.describe('EPIC #2253 — admin/activities add UX', () => {
 		await expect(addBtn).toBeVisible();
 	});
 
-	// --- 子 ②: header + dropdown menu の 3 経路 ---
-	test('header + ボタンで manual / ai / import 3 menu item が出現', async ({ page }) => {
+	// --- 子 ②: header + dropdown menu の経路 (#2558 段階2: import → browse + copy/bulk 統合) ---
+	test('header + ボタンで manual / ai / browse / bulk menu item が出現 (#2558 段階2)', async ({
+		page,
+	}) => {
 		await openMenu(page, 'header-add-activity-btn');
 		await expect(page.getByTestId('menu-item-manual')).toBeVisible();
 		await expect(page.getByTestId('menu-item-ai')).toBeVisible();
-		await expect(page.getByTestId('menu-item-import')).toBeVisible();
+		// #2558 段階2: 旧 import (admin 内ブラウズ UI) → browse (/marketplace 遷移) に置換
+		await expect(page.getByTestId('menu-item-browse')).toBeVisible();
+		await expect(page.getByTestId('menu-item-import')).toHaveCount(0);
+		// #2558 段階2: 一括追加を + 追加メニューに統合 (トップレベル独立ボタンを撤去)
+		await expect(page.getByTestId('menu-item-bulk')).toBeVisible();
+		// 旧トップレベル「一括追加」ボタンは撤去済 (bug-2 解消)
+		await expect(page.getByTestId('bulk-create-btn')).toHaveCount(0);
 	});
 
 	test('menu-item-manual click で manual Dialog + ActivityCreateForm が直接起動 (#2260 Fix-3)', async ({
@@ -102,23 +110,26 @@ test.describe('EPIC #2253 — admin/activities add UX', () => {
 		await expect(page.getByTestId('activity-create-form')).toBeVisible();
 		// AddActivityModeSelector の card UI は撤去済 (撤去確認)
 		await expect(page.locator('.add-mode-grid')).toHaveCount(0);
-		// import panel / ai panel は同時表示されない
+		// #2558 段階2: admin 内ブラウズ UI (activity-import-panel) は撤去済 / ai panel も同時表示されない
 		await expect(page.getByTestId('activity-import-panel')).toHaveCount(0);
 		await expect(page.getByTestId('ai-suggest-panel')).toHaveCount(0);
 	});
 
-	test('menu-item-import click で ActivityImportPanel が直接起動 (#2260 Fix-3)', async ({
+	// #2558 段階2 (PO 方針: マーケットプレイス一本化): 旧「menu-item-import で ActivityImportPanel 起動」を
+	// 置換。「みんなのテンプレートから探す」は admin 内ブラウズ UI を出さず /marketplace へ画面遷移する。
+	test('menu-item-browse click で /marketplace (activity-pack) に画面遷移する (#2558 段階2)', async ({
 		page,
 	}) => {
 		await openMenu(page, 'header-add-activity-btn');
-		await page.getByTestId('menu-item-import').click();
-		// Fix-3: ActivityImportPanel 固有 testid を assert (Dialog 一般可視性のみだと
-		//        manual / ai / import の区別が付かず ADR-0006 assertion 弱体に該当)
-		await expect(page.getByTestId('add-activity-dialog')).toBeVisible();
-		await expect(page.getByTestId('activity-import-panel')).toBeVisible();
-		// 他 panel は同時表示されない
-		await expect(page.getByTestId('activity-create-form')).toHaveCount(0);
-		await expect(page.getByTestId('ai-suggest-panel')).toHaveCount(0);
+		await Promise.all([
+			page.waitForURL(/\/marketplace(\?|$)/, { timeout: 15_000 }),
+			page.getByTestId('menu-item-browse').click(),
+		]);
+		// activity-pack に絞って遷移する (正規経路の入口)
+		expect(new URL(page.url()).searchParams.get('type')).toBe('activity-pack');
+		// admin 内ブラウズ UI (activity-import-panel) は一切開かない (二重管理 UI 撤去の確認)
+		await expect(page.getByTestId('activity-import-panel')).toHaveCount(0);
+		await expect(page.getByTestId('add-activity-dialog')).toHaveCount(0);
 	});
 
 	test('menu-item-ai click で AiSuggestPanel が直接起動 (#2260 Fix-3)', async ({ page }) => {
@@ -130,15 +141,27 @@ test.describe('EPIC #2253 — admin/activities add UX', () => {
 		await expect(page.getByTestId('activity-import-panel')).toHaveCount(0);
 	});
 
-	// --- 子 ④: ︙ overflow menu ---
+	// --- 子 ④: ︙ overflow menu (#2558 段階2: restore を独立配置) ---
 	// #2371 (EPIC #2362 PO 指摘 ③): `introduce` 項目を撤去。`?` page-guide-btn (v2 PageGuideOverlay、PR #2388) に統一
-	test('header ︙ ボタンで export / clear-all overflow menu が出現 (introduce は撤去済)', async ({
+	test('header ︙ ボタンで restore / export / clear-all overflow menu が出現 (introduce は撤去済)', async ({
 		page,
 	}) => {
 		await openMenu(page, 'header-overflow-menu-btn');
 		await expect(page.getByTestId('menu-item-introduce')).toHaveCount(0);
+		// #2558 段階2: マーケットプレイスとは別概念の「バックアップから復元」を独立配置
+		await expect(page.getByTestId('menu-item-restore')).toBeVisible();
 		await expect(page.getByTestId('menu-item-export')).toBeVisible();
 		await expect(page.getByTestId('menu-item-clear-all')).toBeVisible();
+	});
+
+	// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクション独立化) の起動検証
+	test('menu-item-restore click で復元ダイアログ (file 入力) が起動する (#2558 段階2)', async ({
+		page,
+	}) => {
+		await openMenu(page, 'header-overflow-menu-btn');
+		await page.getByTestId('menu-item-restore').click();
+		await expect(page.getByTestId('restore-activities-dialog')).toBeVisible();
+		await expect(page.getByTestId('restore-file-input')).toBeVisible();
 	});
 
 	// #2371 BLOCK-5: assertion 強化 — `?` ボタンが表示されるだけでなく、クリックで PageGuideOverlay

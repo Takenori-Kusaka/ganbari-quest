@@ -1,6 +1,6 @@
 <script lang="ts">
 import { deserialize } from '$app/forms';
-import { invalidateAll } from '$app/navigation';
+import { goto, invalidateAll } from '$app/navigation';
 import { splitIcon } from '$lib/domain/icon-utils';
 import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
@@ -19,7 +19,6 @@ import ActivityListItem from '$lib/features/admin/components/ActivityListItem.sv
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
-import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import ChildSelectionDialog, {
 	type ChildOption,
@@ -43,8 +42,14 @@ let showClearConfirm = $state(false);
 let clearLoading = $state(false);
 
 // 追加ダイアログ (EPIC #2253 / #2255: header + dropdown menu で必ず mode が確定する)
+// #2558 段階2: 'import' (admin 内マーケットプレイス風ブラウズ UI) を撤去。みんなのテンプレートは
+// /marketplace への画面遷移に一本化したため、add dialog の mode は manual / ai のみ。
 let showAddDialog = $state(false);
-let addMode = $state<'manual' | 'ai' | 'import' | null>(null);
+let addMode = $state<'manual' | 'ai' | null>(null);
+
+// #2558 段階2: バックアップから復元ダイアログ (マーケットプレイスとは別概念のファイル復元)
+let showRestoreDialog = $state(false);
+let restoreLoading = $state(false);
 
 // #2362 PR-3 Phase 4: 子供タブ切替 UI
 // `?childId=<n>` query で初期 child 復元、未指定なら最初の child
@@ -167,9 +172,28 @@ const filteredActivities = $derived.by(() => {
 const hiddenActivities = $derived(data.activities.filter((a) => !a.isVisible));
 const canAdd = $derived(!activityLimit || activityLimit.allowed);
 
-function openAddDialog(mode: 'manual' | 'ai' | 'import') {
-	addMode = mode;
-	showAddDialog = true;
+// #2558 段階2: + 追加メニュー (manual / ai / browse / copy / bulk) の選択ハンドラ。
+// PO 方針 (マーケットプレイス一本化): browse は admin 内ブラウズ UI を出さず /marketplace へ画面遷移。
+// 「みんなのテンプレートで内容確認 → インポート → 活動管理に取り込み」の正規経路に合流させる。
+function handleAddSelect(mode: 'manual' | 'ai' | 'browse' | 'copy' | 'bulk') {
+	switch (mode) {
+		case 'manual':
+		case 'ai':
+			addMode = mode;
+			showAddDialog = true;
+			break;
+		case 'browse':
+			// activity-pack に絞ってマーケットプレイス一覧へ遷移。詳細で取込 →
+			// /admin/activities?import=<presetId> に戻り ChildSelectionDialog auto-open (正規経路)。
+			void goto('/marketplace?type=activity-pack');
+			break;
+		case 'copy':
+			showCopyFromChildDialog = true;
+			break;
+		case 'bulk':
+			showBulkCreateDialog = true;
+			break;
+	}
 }
 
 function closeAddDialog() {
@@ -222,6 +246,57 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 function handleChildSelectionCancel() {
 	pendingImportPresetId = null;
 	showChildSelectionDialog = false;
+}
+
+// #2558 段階2: バックアップから復元 (JSON / CSV ファイルを ?/importFile に POST)。
+// マーケットプレイス取込とは別概念。旧 UnifiedImportHub file セクションを独立ダイアログ化した。
+async function handleRestoreSubmit(event: SubmitEvent) {
+	event.preventDefault();
+	const form = event.currentTarget as HTMLFormElement;
+	const fileInput = form.querySelector<HTMLInputElement>('input[type="file"]');
+	const file = fileInput?.files?.[0];
+	if (!file) {
+		actionMessage = 'ファイルを選択してください';
+		return;
+	}
+	restoreLoading = true;
+	const formData = new FormData();
+	formData.append('file', file);
+	try {
+		const resp = await fetch('?/importFile', { method: 'POST', body: formData });
+		if (!resp.ok) {
+			actionMessage = FEATURES_LABELS.activitiesHeader.restoreFailed;
+			return;
+		}
+		const result = deserialize(await resp.text());
+		if (result.type === 'success' && result.data) {
+			const d = result.data as Record<string, unknown>;
+			// #2558 bug-1 整合: デモ環境では書き込みが no-op 化される。成功偽装しない。
+			if (d.demo === true) {
+				actionMessage = FEATURES_LABELS.activitiesHeader.restoreDemo;
+			} else {
+				const imported = Number(d.imported ?? 0);
+				const skipped = Number(d.skipped ?? 0);
+				const name = String(d.packName ?? 'ファイル');
+				actionMessage =
+					imported === 0 && skipped > 0
+						? FEATURES_LABELS.activitiesHeader.restoreAllDuplicates(name)
+						: FEATURES_LABELS.activitiesHeader.restoreSuccess(name, imported, skipped);
+			}
+			showRestoreDialog = false;
+			await invalidateAll();
+		} else if (result.type === 'failure') {
+			const err = (result.data as Record<string, unknown> | undefined)?.error;
+			actionMessage =
+				typeof err === 'string' ? err : FEATURES_LABELS.activitiesHeader.restoreFailed;
+		} else {
+			actionMessage = FEATURES_LABELS.activitiesHeader.restoreFailed;
+		}
+	} catch {
+		actionMessage = FEATURES_LABELS.activitiesHeader.restoreFailed;
+	} finally {
+		restoreLoading = false;
+	}
 }
 
 // 「他の子供から copy」action
@@ -297,7 +372,9 @@ function selectChild(childId: number) {
 		clearConfirmOpen={showClearConfirm}
 		onClearAll={() => { showClearConfirm = true; }}
 		{canAdd}
-		onAddSelect={openAddDialog}
+		onAddSelect={handleAddSelect}
+		onRestore={() => { showRestoreDialog = true; }}
+		canCopyFromChild={data.children.length >= 2}
 	/>
 
 	<!-- #2362 PR-3 Phase 4: 子供タブ切替 UI -->
@@ -324,28 +401,8 @@ function selectChild(childId: number) {
 				</Button>
 			{/each}
 
-			<!-- 兄弟共通化 actions (右寄せ) -->
-			<div class="child-tab-actions">
-				{#if data.children.length >= 2}
-					<Button
-						variant="ghost"
-						size="sm"
-						data-testid="copy-from-child-btn"
-						onclick={() => { showCopyFromChildDialog = true; }}
-					>
-						{ADMIN_ACTIVITIES_PAGE_LABELS.copyFromChildButton}
-					</Button>
-				{/if}
-				<Button
-					variant="ghost"
-					size="sm"
-					data-testid="bulk-create-btn"
-					disabled={!canAdd}
-					onclick={() => { showBulkCreateDialog = true; }}
-				>
-					{ADMIN_ACTIVITIES_PAGE_LABELS.bulkCreateButton}
-				</Button>
-			</div>
+			<!-- #2558 段階2: 兄弟共通化 actions (別の子からコピー / 一括追加) は header「+ 追加」メニューに
+			     統合済 (bug-2 解消: トップレベル独立ボタンを撤去)。child タブ row はタブ表示のみに純化。 -->
 		</div>
 
 		{#if selectedChild}
@@ -431,7 +488,7 @@ function selectChild(childId: number) {
 			<ActivityEmptyState
 				hasFilter={Boolean(searchQuery || filterCategoryId)}
 				{canAdd}
-				onAdd={(mode) => openAddDialog(mode)}
+				onAdd={(mode) => handleAddSelect(mode)}
 			/>
 		{/each}
 	</div>
@@ -441,7 +498,8 @@ function selectChild(childId: number) {
 		logCounts={data.logCounts}
 	/>
 
-	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? FEATURES_LABELS.activitiesHeader.addDialogTitleAi : addMode === 'import' ? FEATURES_LABELS.activitiesHeader.addDialogTitleImport : FEATURES_LABELS.activitiesHeader.addDialogTitleManual} testid="add-activity-dialog">
+	<!-- #2558 段階2: 'import' (admin 内マーケットプレイス風ブラウズ UI) を撤去。manual / ai のみ。 -->
+	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? FEATURES_LABELS.activitiesHeader.addDialogTitleAi : FEATURES_LABELS.activitiesHeader.addDialogTitleManual} testid="add-activity-dialog">
 		{#if addMode === 'ai'}
 			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.planTier === 'family'} />
 		{:else if addMode === 'manual'}
@@ -456,24 +514,43 @@ function selectChild(childId: number) {
 				initialNameKanji={prefillNameKanji}
 				oncreated={() => { closeAddDialog(); }}
 			/>
-		{:else if addMode === 'import'}
-			<!-- #2370 (EPIC #2362 P4): UnifiedImportHub に置換、PO 指摘 ② 直接解決 -->
-			<UnifiedImportHub
-				typeCode="activity-pack"
-				presets={{
-					'activity-pack': data.activityPacks.map((p) => ({
-						itemId: p.packId,
-						name: p.packName,
-						icon: p.icon,
-						itemCount: p.activityCount,
-						targetAgeMin: p.targetAgeMin,
-						targetAgeMax: p.targetAgeMax,
-					})),
-				}}
-				onimported={(msg) => { actionMessage = msg; closeAddDialog(); }}
-				onclose={() => { closeAddDialog(); }}
-			/>
 		{/if}
+	</Dialog>
+
+	<!-- #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクション独立化)。
+	     マーケットプレイスの取込とは別概念。?/importFile action 経由で JSON / CSV を読み込む。 -->
+	<Dialog
+		bind:open={showRestoreDialog}
+		title={FEATURES_LABELS.activitiesHeader.restoreDialogTitle}
+		testid="restore-activities-dialog"
+	>
+		<p class="restore-dialog-desc">{FEATURES_LABELS.activitiesHeader.restoreDialogDesc}</p>
+		<form class="restore-form" onsubmit={handleRestoreSubmit} data-testid="restore-activities-form">
+			<input
+				type="file"
+				name="file"
+				accept=".json,.csv"
+				class="restore-file-input"
+				required
+				disabled={restoreLoading}
+				data-testid="restore-file-input"
+			/>
+			<div class="restore-footer">
+				<Button variant="ghost" onclick={() => { showRestoreDialog = false; }}>
+					{ADMIN_ACTIVITIES_PAGE_LABELS.copyDialogCancel}
+				</Button>
+				<Button
+					type="submit"
+					variant="primary"
+					disabled={restoreLoading}
+					data-testid="restore-submit"
+				>
+					{restoreLoading
+						? FEATURES_LABELS.activitiesHeader.restoreProcessing
+						: FEATURES_LABELS.activitiesHeader.restoreSubmitBtn}
+				</Button>
+			</div>
+		</form>
 	</Dialog>
 
 	<!-- #2362 PR-3 Phase 4: ChildSelectionDialog (`?import=<presetId>` auto-open) -->
@@ -669,11 +746,6 @@ function selectChild(childId: number) {
 		opacity: 0.8;
 		margin-left: 0.25rem;
 	}
-	.child-tab-actions {
-		display: flex;
-		gap: 0.25rem;
-		margin-left: auto;
-	}
 	.child-context-banner {
 		padding: 0.5rem 0.75rem;
 		background: var(--color-surface-accent);
@@ -811,5 +883,28 @@ function selectChild(childId: number) {
 		gap: 0.5rem;
 		padding: 0.25rem;
 		font-size: 0.9rem;
+	}
+
+	/* #2558 段階2: バックアップから復元ダイアログ */
+	.restore-dialog-desc {
+		font-size: 0.85rem;
+		color: var(--color-text-secondary);
+		margin-bottom: 0.75rem;
+		line-height: 1.5;
+	}
+	.restore-form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	.restore-file-input {
+		font-size: 0.875rem;
+	}
+	.restore-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border-light);
 	}
 </style>

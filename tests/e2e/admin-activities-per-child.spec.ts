@@ -12,6 +12,7 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { openMenu } from './helpers/goal-flows';
 
 test.describe('admin/activities per-child UX (Phase 4)', () => {
 	test('子供タブ row + actions が表示される', async ({ page }) => {
@@ -137,7 +138,11 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 		await expect.poll(() => parseTabCount(babyTabAfter), { timeout: 30_000 }).toBeGreaterThan(0);
 	});
 
-	test('「他の子供から copy」 dialog open + radio 選択 → コピー実行', async ({ page }) => {
+	// #2558 段階2: copy / bulk のトップレベル独立ボタンを撤去し header「+ 追加」メニューに統合 (bug-2 解消)。
+	// dialog 起動経路を menu-item-copy / menu-item-bulk 経由に更新 (dialog 自体の挙動は不変)。
+	test('「別のお子さまからコピー」 dialog open + radio 選択 → コピー実行 (+ 追加メニュー経由)', async ({
+		page,
+	}) => {
 		await page.goto('/admin/activities');
 		const tabs = page.locator('[data-testid^="child-tab-"]');
 		const count = await tabs.count();
@@ -148,9 +153,9 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 			'2 child 以上の seed が必要 (global-setup.ts TEST_CHILDREN 参照)',
 		).toBeGreaterThanOrEqual(2);
 
-		const copyBtn = page.getByTestId('copy-from-child-btn');
-		await expect(copyBtn).toBeVisible();
-		await copyBtn.click();
+		// #2558 段階2: copy 経路は + 追加メニュー内の menu-item-copy (children >= 2 でのみ提示)
+		await openMenu(page, 'header-add-activity-btn', 'menu-item-copy');
+		await page.getByTestId('menu-item-copy').click();
 
 		await expect(page.getByTestId('copy-from-child-dialog')).toBeVisible();
 		// 他の child が選択肢として並ぶ (selectedChild は除外される)
@@ -163,11 +168,13 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 		await expect(page.getByTestId('copy-from-child-confirm')).toBeEnabled();
 	});
 
-	test('「一括追加」 dialog open + form 入力 + 全員選択', async ({ page }) => {
+	test('「複数のお子さまにまとめて追加」 dialog open + form 入力 + 全員選択 (+ 追加メニュー経由)', async ({
+		page,
+	}) => {
 		await page.goto('/admin/activities');
-		const bulkBtn = page.getByTestId('bulk-create-btn');
-		await expect(bulkBtn).toBeVisible();
-		await bulkBtn.click();
+		// #2558 段階2: bulk 経路は + 追加メニュー内の menu-item-bulk
+		await openMenu(page, 'header-add-activity-btn', 'menu-item-bulk');
+		await page.getByTestId('menu-item-bulk').click();
 
 		const dialog = page.getByTestId('bulk-create-dialog');
 		await expect(dialog).toBeVisible();
