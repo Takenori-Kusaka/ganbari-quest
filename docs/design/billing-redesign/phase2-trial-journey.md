@@ -10,6 +10,9 @@
 | URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では設計指針は新名、既存実装 reference は現名を維持 |
 | プラン命名 + 課金期間 | `family` → **`プレミアム`** rename / trial **プレミアム固定 7 日** (旧 family 固定 rename のみ) / **月額のみ (年額廃止)** (Phase 7 実装予定、[phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照)。本ジャーニー内では表示は新名、内部識別子 (`DEFAULT_TRIAL_TIER='family'` / `tier='family'` / `family-tenant 単位`) は現名維持 |
 
+> **`premium` 階層 signal 打消** (本 PR scope、refs #2594 D-2):
+> `premium` は機能本格度を示す signal であり、**無料プランへの exclusion 意図なし**。LP コピー (Phase 4 実装) で `FREE_PLAN_TERMS.forever` (永久無料) / `FREE_TERMS.start` (まずは無料) 等を併記し、階層 signal を構造的に打消す verification を Phase 4 移行 gate に含める。
+
 ## 業界呼称の確定: Reverse Trial (リバーストライアル)
 
 がんばりクエストのトライアルは業界用語で **Reverse Trial** に該当する。定義 (ProdPad / Elena Verna / OpenView 一貫):

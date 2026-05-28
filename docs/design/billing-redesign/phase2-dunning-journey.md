@@ -9,6 +9,9 @@
 | URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では既存実装 reference (`stripe-service.ts:346/394` 等) は現名を維持 |
 | プラン命名 + 課金期間 | `family` → **`プレミアム`** rename / **月額のみ (年額廃止、年額決済失敗 retry/access 削除)** (Phase 7 実装予定、[phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照)。本ジャーニー内では表示は新名、内部識別子は現名維持 |
 
+> **`premium` 階層 signal 打消** (本 PR scope、refs #2594 D-2):
+> `premium` は機能本格度を示す signal であり、**無料プランへの exclusion 意図なし**。LP コピー (Phase 4 実装) で `FREE_PLAN_TERMS.forever` (永久無料) / `FREE_TERMS.start` (まずは無料) 等を併記し、階層 signal を構造的に打消す verification を Phase 4 移行 gate に含める。
+
 ## 既存実装の事実 (Phase 1 照合)
 
 - `handlePaymentFailed` (stripe-service.ts:346): `GRACE_PERIOD_DAYS=7` を app で独自計算 (→ 要件で Stripe Smart Retries 2週 SSOT へ)
