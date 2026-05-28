@@ -64,6 +64,16 @@
 | 4 | 解約理由収集のタイミング | ✅ PO 確定 2026-05-27: **解約確定後に任意収集 (skip 可)**。既存「必須」から変更。特商法リスク回避 + churn データ両立 |
 | 5 | 退会時に有料期間残の扱い | 退会前に解約を促す警告 (引き止めにならない範囲)、推奨で確定 |
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | cancellation-service 3分類+自由記述 (cancellation-service.ts:51-87) / cancelSubscription 冪等 (stripe-service.ts:165-207) / Portal (portal/+server.ts) | 骨格維持 | ✅ 実装済み |
+| 2 | **即時キャンセルのみ** (`stripe.subscriptions.cancel`) | **期末解約** (cancel_at_period_end=true) | **変更** (FR-1) |
+| 3 | 解約理由 **必須** (呼び出し側で強制) | 解約確定後に**任意収集 (skip 可)** | **変更** (FR-4) |
+
+**影響範囲**: 解約猶予 (grace-period-service standard 7日) は読み取り専用猶予で別概念、変更なし。実装は Phase 6/7。
+
 ## 根拠 (primary source)
 
 - Stripe cancel / configure-portal (cancel_at_period_end 推奨、無返金デフォルト、retention coupon OFF)

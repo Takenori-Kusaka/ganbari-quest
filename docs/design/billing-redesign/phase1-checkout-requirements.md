@@ -50,6 +50,18 @@
 | 4 | トライアル→有料化の動線文言 | standard も併置 (family 固定 trial 後のダウンセル経路) | トライアル要件と整合、確定 |
 | 5 | 年額の解約・日割り扱い | — | **解約孫 #2536 で確定** (Phase 1 早期に PO 判断要) |
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | createCheckoutSession (stripe-service.ts:66-101) / webhook SSOT fulfillment (:245-303) / customer 紐づけ / 4 Price 構成 (config.ts:39-70) | 維持 | ✅ 実装済み |
+| 2 | priceId リテラル依存 (config.ts 環境変数直読) | lookup_key 参照 | **変更** (FR-1、Stripe Dashboard 設定も) |
+| 3 | success ページ「準備中」+ polling なし | 準備中表示 + session status polling | **新規実装** (FR-6、Phase 3 UI) |
+| 4 | `checkout.session.async_payment_succeeded/failed` 購読なし (現状 completed/invoice.paid/payment_failed のみ) | 購読追加 | **新規** (NFR-3) |
+| 5 | ライセンスキー発行 (handleCheckoutCompleted stripe-service.ts:267-296) | **撤去** (license key 廃止) | **削除** (領域 12 連動) |
+
+**影響範囲**: 実装は Phase 6/7。lookup_key は Stripe Dashboard 設定連動。ライセンスキー発行ブロック撤去は領域 12 (#2514) と連動。
+
 ## 根拠 (primary source)
 
 - Stripe build-subscriptions / checkout/fulfillment / limit-subscriptions (Product/Price/lookup_key, webhook SSOT, processing gap polling, 重複防止 built-in)
