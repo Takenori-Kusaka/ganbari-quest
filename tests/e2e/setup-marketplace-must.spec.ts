@@ -13,9 +13,71 @@
 // 認証コンテキストが事前に確立されている前提。ローカル AUTH_MODE=local では
 // hooks.server.ts の自動セットアップ + global-setup.ts のテナント seed が使われる。
 
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
+// #2558 fix: 並列 worker (workers: 2 + 他 spec) が kinder-starter pack の
+// activity を tenant に import すると `isFullyImported = true` となり、
+// `+page.svelte` L113 `{#if !pack.isFullyImported}` で form (および
+// applyMustDefault input) が render されなくなる flake が観察された。
+// テスト開始前に kinder-starter pack 由来 activity を tenant から削除して
+// form が必ず表示される状態に戻す (DB 直接操作)。
+async function clearKinderStarterActivities(): Promise<void> {
+	if (process.env.AUTH_MODE && process.env.AUTH_MODE !== 'local') {
+		// cognito-dev / aws 環境では DB 直接操作不可。preview/local のみ実行。
+		return;
+	}
+	const DB_PATH = path.resolve('data/ganbari-quest.db');
+	const { default: Database } = await import('better-sqlite3');
+	const db = new Database(DB_PATH);
+	try {
+		// kinder-starter pack の 30 件の活動名 (src/lib/data/marketplace/activity-packs/kinder-starter.json)
+		const KINDER_NAMES = [
+			'はみがきした',
+			'おきがえした',
+			'おかたづけした',
+			'てをあらった',
+			'はやおきした',
+			'おてつだいした',
+			'しょっきをはこんだ',
+			'テーブルをふいた',
+			'くつをそろえた',
+			'しょくぶつのみずやり',
+			'からだをうごかした',
+			'なわとびした',
+			'ダンスした',
+			'かけっこした',
+			'のぼりぼうをした',
+			'おえかきした',
+			'こうさくした',
+			'おうたをうたった',
+			'ねんどでつくった',
+			'ごっこあそびをした',
+			'えほんをよんだ',
+			'すうじをかぞえた',
+			'ひらがなれんしゅう',
+			'かたちをみつけた',
+			'しぜんをかんさつした',
+			'いっしょにあそんだ',
+			'じゅんばんをまもった',
+			'あいさつした',
+			'ありがとうをいった',
+			'ごめんなさいをいった',
+		];
+		const placeholders = KINDER_NAMES.map(() => '?').join(',');
+		db.prepare(`DELETE FROM activities WHERE name IN (${placeholders})`).run(...KINDER_NAMES);
+	} catch {
+		// activities テーブル不在 or schema 不一致は warning のみ (テスト本体側で fail させる)
+	} finally {
+		db.close();
+	}
+}
+
 test.describe('#1758 marketplace 移行 — must 推奨インポート', () => {
+	test.beforeEach(async () => {
+		await clearKinderStarterActivities();
+	});
+
 	test('admin/packs で activity-pack に「おやくそく推奨 N件」Badge と must Badge が表示される', async ({
 		page,
 	}) => {
