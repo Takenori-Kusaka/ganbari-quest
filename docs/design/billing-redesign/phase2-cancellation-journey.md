@@ -6,6 +6,7 @@
 | 親 | #2527 (Phase 2 UX) / 上位 #2525 |
 | ステータス | 既存実装前提で設計 (2026-05-28、Phase 1 で cancellation-service / account-deletion-flow 照合済) |
 | 対応 Phase 1 要件 | phase1-cancellation-requirements.md (#2536: 期末解約・解約理由は確定後任意 skip 可・退会は全削除) |
+| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では既存実装 reference (`cancellation-service.ts` / `account-deletion-flow.md` 等) は現名を維持 |
 
 ## 既存実装の事実 (Phase 1 照合)
 
