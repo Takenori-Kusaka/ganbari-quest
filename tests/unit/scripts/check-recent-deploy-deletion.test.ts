@@ -32,6 +32,7 @@ import {
 	helpText,
 	isIgnored,
 	parseArgs,
+	verifyWorktreeHeadMatchesPrHead,
 } from '../../../scripts/check-recent-deploy-deletion.mjs';
 
 describe('parseArgs', () => {
@@ -263,6 +264,108 @@ describe('helpText', () => {
 		expect(text).toContain('--base');
 		expect(text).toContain('Exit codes:');
 		expect(text).toContain('Issue #2603');
+	});
+
+	// #2618: help text に worktree HEAD verify gate (ADR-0056 §D) の説明が含まれる
+	it('#2618: help text に worktree HEAD verify gate (ADR-0056 §D) が記載される', () => {
+		const text = helpText();
+		expect(text).toContain('#2618');
+		expect(text).toContain('ADR-0056 §D');
+		expect(text).toContain('worktree HEAD');
+	});
+});
+
+/**
+ * #2618 / ADR-0056 §D: worktree HEAD verify gate (機構運用層 self-defense)
+ *
+ * Fix Agent worktree モードで `origin/main` HEAD 空 worktree のまま gate を回した際の
+ * 偽陽性 (PR #2613 Round 3 で legal critical 506 行喪失寸前まで進んだ実害観察) を
+ * 構造的に防ぐ verify gate。
+ */
+describe('verifyWorktreeHeadMatchesPrHead (#2618)', () => {
+	// AC-1: worktree HEAD = PR HEAD で ok: true
+	it('worktree HEAD = PR HEAD → ok: true', () => {
+		const prHead = '13b28cb7e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5';
+		const ghViewFn = () => prHead;
+		const gitRevParseHeadFn = () => prHead;
+		const result = verifyWorktreeHeadMatchesPrHead('2618', ghViewFn, gitRevParseHeadFn);
+		expect(result.ok).toBe(true);
+	});
+
+	// AC-2 (CORE): worktree HEAD ≠ PR HEAD で head-mismatch 検出
+	// これが PR #2613 Round 3 で発生した偽陽性経路を構造的に止める核心テスト
+	it('AC-2 (CORE): worktree HEAD ≠ PR HEAD → ok: false, reason: head-mismatch (PR #2613 偽陽性経路)', () => {
+		const prHead = '13b28cb7e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5'; // Fix Round 3 push 後 PR HEAD
+		const worktreeHead = 'f367006a1234567890abcdef1234567890abcdef'; // origin/main HEAD (空 worktree)
+		const ghViewFn = () => prHead;
+		const gitRevParseHeadFn = () => worktreeHead;
+		const result = verifyWorktreeHeadMatchesPrHead('2613', ghViewFn, gitRevParseHeadFn);
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error('result must be { ok: false } for type narrowing');
+		expect(result.reason).toBe('head-mismatch');
+		expect(result.prHead).toBe(prHead);
+		expect(result.worktreeHead).toBe(worktreeHead);
+	});
+
+	// AC-3: 末尾改行 / 空白を trim して比較する
+	it('AC-3: trailing newline / whitespace を trim して比較', () => {
+		const prHead = '13b28cb7e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5';
+		const ghViewFn = () => `${prHead}\n`; // gh は trailing newline 含む
+		const gitRevParseHeadFn = () => `  ${prHead}  \n`; // git も trailing newline
+		const result = verifyWorktreeHeadMatchesPrHead('2618', ghViewFn, gitRevParseHeadFn);
+		expect(result.ok).toBe(true);
+	});
+
+	// AC-4: gh pr view 失敗時 (null 返却) → ok: false, reason: gh-pr-view-failed
+	it('AC-4: gh pr view 失敗 (null) → ok: false, reason: gh-pr-view-failed', () => {
+		const ghViewFn = () => null;
+		const gitRevParseHeadFn = () => 'f367006a';
+		const result = verifyWorktreeHeadMatchesPrHead('99999', ghViewFn, gitRevParseHeadFn);
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error('result must be { ok: false } for type narrowing');
+		expect(result.reason).toBe('gh-pr-view-failed');
+		expect(result.prHead).toBeNull();
+		expect(result.worktreeHead).toBeNull();
+	});
+
+	// AC-5: gh pr view が空文字を返した場合 → ok: false, reason: gh-pr-view-empty
+	it('AC-5: gh pr view 空文字 → ok: false, reason: gh-pr-view-empty', () => {
+		const ghViewFn = () => '   \n  ';
+		const gitRevParseHeadFn = () => 'f367006a';
+		const result = verifyWorktreeHeadMatchesPrHead('2618', ghViewFn, gitRevParseHeadFn);
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error('result must be { ok: false } for type narrowing');
+		expect(result.reason).toBe('gh-pr-view-empty');
+	});
+
+	// AC-6: git rev-parse HEAD 失敗時 → ok: false, reason: git-rev-parse-failed
+	it('AC-6: git rev-parse HEAD 失敗 (null) → ok: false, reason: git-rev-parse-failed', () => {
+		const prHead = '13b28cb7e9f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5';
+		const ghViewFn = () => prHead;
+		const gitRevParseHeadFn = () => null;
+		const result = verifyWorktreeHeadMatchesPrHead('2618', ghViewFn, gitRevParseHeadFn);
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error('result must be { ok: false } for type narrowing');
+		expect(result.reason).toBe('git-rev-parse-failed');
+		expect(result.prHead).toBe(prHead);
+		expect(result.worktreeHead).toBeNull();
+	});
+
+	// AC-7: head-mismatch 時、PR HEAD と worktree HEAD の両方が返却される
+	// (stderr guidance で "git checkout <PR HEAD>" が出せるようにするため)
+	it('AC-7: head-mismatch 時、両 HEAD が result に含まれ guidance に利用可能', () => {
+		const prHead = '13b28cb7';
+		const worktreeHead = 'f367006a';
+		const result = verifyWorktreeHeadMatchesPrHead(
+			'2613',
+			() => prHead,
+			() => worktreeHead,
+		);
+		expect(result.ok).toBe(false);
+		if (result.ok) throw new Error('result must be { ok: false } for type narrowing');
+		// stderr guidance "git checkout <prHead>" を生成するために PR HEAD が含まれる
+		expect(result.prHead).toBe(prHead);
+		expect(result.worktreeHead).toBe(worktreeHead);
 	});
 });
 
