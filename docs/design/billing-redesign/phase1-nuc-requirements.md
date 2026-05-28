@@ -52,6 +52,16 @@
 - US-N2: NUC 利用者として、license key を入力させられたくない (配布物自体が正規の証跡)
 - US-N3: 開発者として、license key 撤廃で NUC が記録不能にならないことを E2E で保証したい (capabilities.ts:77 回帰防止)
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | `NucLicensePanel` UI (`src/lib/features/admin/components/NucLicensePanel.svelte`) | 骨格維持 (ライセンス入力欄なし) | ✅ 実装済み |
+| 2 | NUC 環境の書き込み制御 (`src/lib/domain/authorization/capabilities.ts`:77) | `nuc-prod && !licenseKey.valid` による deny 撤廃 | **変更** (FR-2) |
+| 3 | NUC のライセンス評価 (`src/lib/domain/authorization/evaluation-context.ts`:42) | 関連型や capabilities の撤廃 | **変更** (FR-3) |
+
+**影響範囲**: `capabilities.ts` や `evaluation-context.ts` におけるライセンスキー関連の制限撤廃が必須。これを外さないと NUC 環境で記録が不能になる。実装は Phase 6/7。行位置は 2026-05-28 検証済。
+
 ## Open question (PO 事業判断)
 
 | # | 論点 | 状態 |

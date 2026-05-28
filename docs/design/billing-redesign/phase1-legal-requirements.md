@@ -52,6 +52,16 @@ Stripe Checkout は 5 項目のうち①②③④を自動表示できるが、*
 - **terms.html**: 第7条 (自動更新 記載済、微修正) / 第8条 (family 固定7日明示) / 第13条 (データ保持期間とアカウント削除猶予の 2 概念を書き分け、#2538 連動)
 - **privacy.html**: §6 に退会時 Stripe Customer 削除追記 (微修正)。越境移転 (§28)・削除権・未成年保護は既存充実
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | ライセンスキー関連の LP / labels (`src/lib/domain/labels.ts`:1309) | ライセンスキー言及全削除 | **変更** (FR-L5) |
+| 2 | 退会時 Stripe Customer 削除言及 (未記載) | `privacy.html` / `terms.html` に明記 | **変更** (FR-L6) |
+| 3 | 特商法最終確認画面の 5 項目 | Stripe Checkout と LP の補完で実装 | **新規** (FR-L1) |
+
+**影響範囲**: 法務文書 (`site/terms.html`, `site/tokushoho.html`, `site/privacy.html`) および関連するラベル類 (`src/lib/domain/labels.ts`) の大幅な改訂が必要。これらは LP パートとして Phase 2/3 の UI 変更と連動して実施する。行位置は 2026-05-28 検証済。
+
 ## Open question
 
 | # | 論点 | 状態 |

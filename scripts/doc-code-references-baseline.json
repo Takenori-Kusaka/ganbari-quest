@@ -50,6 +50,13 @@
 			"site/screenshots",
 			"src/routes/demo"
 		],
+		"docs/design/billing-redesign/phase1-data-lifecycle-requirements.md": [
+			"src/lib/server/services/retention-service.ts"
+		],
+		"docs/design/billing-redesign/phase1-nuc-requirements.md": [
+			"src/lib/domain/authorization/capabilities.ts",
+			"src/lib/domain/authorization/evaluation-context.ts"
+		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
 		],
