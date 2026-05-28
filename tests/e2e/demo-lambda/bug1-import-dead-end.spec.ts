@@ -32,9 +32,19 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 async function firstImportButton(page: Page): Promise<Locator> {
 	await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
 	await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
-	const presetBtns = page.locator('[data-testid^="marketplace-preset-import-"]');
-	await expect(presetBtns.first()).toBeVisible({ timeout: 15_000 });
-	return presetBtns.first();
+	// #2558 fix: demo Lambda の checklist preset 一覧には event-pool / event-school-start が
+	// 既に pre-imported 状態 (CHECKLISTS_BY_CHILD: 903→'event-pool', 904→'event-school-start'、
+	// `src/lib/server/demo/demo-data.ts` §MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD) として
+	// 配置されている。`alreadyImported = true` なら button は `disabled` でレンダリングされる
+	// (`UnifiedImportHub.svelte` L237) ため `.first()` (event-school-start) では click できない。
+	// 取込可能 (enabled = `:not([disabled])`) な最初の preset を選び、本テストの ACT
+	// (実際の import POST 発火 → UI 反映) を検証する。
+	const enabledPresetBtns = page.locator(
+		'[data-testid^="marketplace-preset-import-"]:not([disabled])',
+	);
+	await expect(enabledPresetBtns.first()).toBeVisible({ timeout: 15_000 });
+	await expect(enabledPresetBtns.first()).toBeEnabled({ timeout: 5_000 });
+	return enabledPresetBtns.first();
 }
 
 test.describe('bug-1: marketplace 取込 dead-end (demo Lambda、#2558)', () => {
