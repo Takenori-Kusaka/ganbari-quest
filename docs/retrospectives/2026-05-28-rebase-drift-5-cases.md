@@ -1,12 +1,14 @@
-# Retrospective 2026-05-28: rebase drift 5 連続再発
+# Retrospective 2026-05-28 → 2026-05-29: rebase drift 9 連続再発 (race condition 4 ラウンド連続を含む)
 
-> **Status**: open (本 PR で構造的対処 deploy、6 ヶ月後再評価予定)
-> **関連 Issue**: #2603 / #2598 / #2599 / #2582 / #2595 / #2602 / #2560
-> **関連 ADR**: ADR-0056 (QM drift prevention 案 1、本日 deploy)、ADR-0010 (Pre-PMF Bucket A 判断)、ADR-0001 (設計書 SSOT)
+> **Status**: open (#2603 第 1 弾 + #2607 第 2 弾 + #2615 time-aware 拡張で構造的対処 deploy、6 ヶ月後再評価予定)
+> **関連 Issue**: #2603 / #2598 / #2599 / #2582 / #2595 / #2602 / #2560 / #2607 / #2615 / #2618
+> **関連 ADR**: ADR-0056 (QM drift prevention 案 1、2026-05-28 deploy)、ADR-0010 (Pre-PMF Bucket A 判断)、ADR-0001 (設計書 SSOT)
 
 ---
 
 ## 1. 起こったこと
+
+### 2026-05-28: rebase drift 5 連続再発 (起源 cases)
 
 2026-05-28 単日、**5 件の PR で rebase drift が連続再発**した:
 
@@ -19,6 +21,23 @@
 | #2560 | marketplace 4 bugs | 同上、ADR-0056 関連 file 削除を検出 | Fix Agent 進行中 (commit `a2cf679a62ea49cd1`) |
 
 特に **#2602 / #2560 は当日 deploy した PR #2599 (ADR-0056 + adversarial reviewer + PreToolUse Hook + JSON Schema 強制) の関連 file (hook 259 行 / skill 112 行 / unit test 251 行 / verify script 95 行 / ADR + research doc) を削除する状態**で Review Agent honest verify が事前 gate した。Echoing 抑制 / Persona Drift 対処の中核機構が、deploy された当日に rebase drift で消失する寸前まで進んだ。
+
+### 2026-05-28 → 2026-05-29: race condition 4 ラウンド連続観察 (#2615 起因事例、6-9 件目)
+
+PR #2607 (`check-recent-deploy-deletion.mjs` 自体の deploy) で **Round 1-4 連続 BLOCK** 発生 (本日 6-9 件目に該当):
+
+| Round | 観察事象 | 構造的原因 |
+|---|---|---|
+| Round 1 (6 件目) | Fix Agent push 後の Re-Review で削除検出 → BLOCK | Fix Agent が古い main から rebase 開始、push までの間に新規 deploy 追加 |
+| Round 2 (7 件目) | 再 rebase → push → Re-Review で再度 BLOCK | 同上、本日 ~18min/commit ペースで main 進化が止まらない |
+| Round 3 (8 件目) | rebase + force-push 時点では gate PASS → Re-Review 時に再 BLOCK | **Time-of-Check vs Time-of-Use race**: push 時 `origin/main` (M1) と Re-Review 開始時 `origin/main` (M2) が不一致 |
+| Round 4 (9 件目) | 4 度目の rebase で convergence、Round 5 で MERGE 達成 | race window 自体は短く本日特有の高頻度 deploy で連鎖 |
+
+**race condition 構造的根因**: gate logic が `--days 7` 全体比較 = main 進化の新規追加 file まで含めて compare していたため、**main 進化 (新規 file 追加) を「PR 削除」と誤検出**する race condition が成立。Pre-PMF 期高頻度 main 進行 (本日 11+ deploy 観察) と Fix Agent → QM Re-Review turnaround (5-30min) の重なりで発生。
+
+### 関連: #2618 機構運用層 bypass (別 PR で対処)
+
+#2613 Fix Agent Round 3 が "gate PASS" 報告したが、QM Re-Review #3 で実 PR HEAD checkout すると BLOCK 検出 = Fix Agent の worktree HEAD が原 main HEAD と同一化していた偽陽性。Issue #2618 で第 4 弾 candidate として起票済 (本 PR scope 外、別 PR で対処)。本 PR (#2615) は **同じ gate に time window 限定 flag を追加**することで race の発生条件自体を構造的に取り除く相補的対処。
 
 ---
 
@@ -80,6 +99,8 @@
 
 - [ ] **#2598 Dev Agent rebase SKILL deploy** — push 直前 rebase 強制 + `git diff origin/main..HEAD --stat` verify を SKILL 化 (本 PR の L1 layer 補完)
 - [ ] **CI gate 化判断** — `scripts/check-recent-deploy-deletion.mjs` を `pr-quality-gate.yml` に組み込むか QM Tier 2 Review 単独で十分かの 6 月最終週 retrospective で評価
+- [x] **time-aware flag 拡張 (#2615)** — `--since <ISO>` / `--since-ref <SHA>` / `--since-recent <N>` 追加。本 PR で deploy 済 (2026-05-29)
+- [ ] **#2618 worktree HEAD verify gate** — `check-recent-deploy-deletion.mjs` 冒頭で PR HEAD verify 必須化 (第 4 弾 candidate、機構運用層 bypass 防止)
 
 ### 中期 (1-3 ヶ月)
 

@@ -165,6 +165,14 @@ ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不
 
 本 §E と並行で Dev Agent 側にも `Ready 化前 5 項目 SSOT` を明示 (`docs/sessions/dev-session.md` + `.claude/skills/dev-open-pr/SKILL.md`)。Persona Drift が QM 側で発生してもなお Dev 側で `pre-ready -- --pr <N>` PASS が verify されていれば、QA Tier 2 Review (BLOCK 列挙工程) の発生回数自体が減り QM 本質判定時間が確保される (defense in depth 第 3 層)。
 
+### 第 2 弾 gate (recent-deploy-deletion) 補強履歴
+
+| 補強 PR | 内容 |
+|---|---|
+| #2607 (deploy) | `scripts/check-recent-deploy-deletion.mjs` 初出 (#2603 で起票、QM Tier 2 Step 5 D 項目) |
+| #2618 (deploy、第 4 弾) | 機構運用層 bypass (worktree HEAD verify) 検出条文 §D 追加 + script self-defense exit 3 実装 |
+| **#2615 (本 PR、time-aware flag 拡張)** | gate に `--since <ISO>` / `--since-ref <SHA>` / `--since-recent <N>` flag 追加。Fix Agent push → Re-Review 間の main 進化による Time-of-Check vs Time-of-Use race 4 ラウンド連続観察 (PR #2607 Round 5) を構造解決。time window 指定で main 進化新規 file を比較対象外化、main 進化 (新規追加) を「削除」と誤検出しない |
+
 ## 関連
 
 - **Research SSOT**: [docs/research/qm-drift-prevention-2026-05-28.md](../research/qm-drift-prevention-2026-05-28.md)

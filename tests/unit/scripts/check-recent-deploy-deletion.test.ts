@@ -1,5 +1,5 @@
 /**
- * tests/unit/scripts/check-recent-deploy-deletion.test.ts (#2603)
+ * tests/unit/scripts/check-recent-deploy-deletion.test.ts (#2603 / #2615)
  *
  * scripts/check-recent-deploy-deletion.mjs の純粋関数を unit test する。
  *
@@ -17,9 +17,19 @@
  *   AC-6: --days 引数で window 調整可能
  *   AC-7: PR 番号未指定時のデフォルト動作
  *
+ * **Issue #2615 time-aware flag 拡張 case (追加)**:
+ *
+ *   AC-2615-1: --since <ISO> で ISO timestamp 直接指定 → resolveSinceWindow が iso mode を返す
+ *   AC-2615-2: --since-ref <SHA> で commit SHA 指定 → ref mode で commit date 取得を試みる
+ *   AC-2615-3: --since-recent <N> で直近 N deploy tag 推論 → recent-deploy mode で試行
+ *   AC-2615-4: backward compatibility: `--since*` 未指定時は既存 `--days` fallback (days mode)
+ *   AC-2615-5: 優先順位: --since > --since-ref > --since-recent > --days
+ *   AC-2615-6: --since-ref / --since-recent 解決失敗時は --days fallback (degrade safe)
+ *
  * 関連:
  *   - Issue #2603 (本 test 起票 Issue)
  *   - Issue #2598 (Dev Agent rebase 予防、QM review 側補完)
+ *   - Issue #2615 (time-aware flag race condition 構造解決)
  *   - ADR-0056 (QM drift prevention、本 script は案 1 deploy 保全機構)
  */
 
@@ -32,6 +42,7 @@ import {
 	helpText,
 	isIgnored,
 	parseArgs,
+	resolveSinceWindow,
 	verifyWorktreeHeadMatchesPrHead,
 } from '../../../scripts/check-recent-deploy-deletion.mjs';
 
@@ -44,6 +55,10 @@ describe('parseArgs', () => {
 		expect(opts.base).toBe(DEFAULT_BASE);
 		expect(opts.ignorePatterns).toEqual([]);
 		expect(opts.help).toBe(false);
+		// AC-2615-4: backward compatibility - time-aware flag は未指定で null
+		expect(opts.sinceIso).toBeNull();
+		expect(opts.sinceRef).toBeNull();
+		expect(opts.sinceRecent).toBeNull();
 	});
 
 	// AC-7: --pr 引数で PR 番号を指定可能
@@ -273,6 +288,16 @@ describe('helpText', () => {
 		expect(text).toContain('ADR-0056 §D');
 		expect(text).toContain('worktree HEAD');
 	});
+
+	// AC-2615: time-aware flag (--since / --since-ref / --since-recent) の help 説明
+	it('help text に time-aware flag (#2615) 説明が含まれる', () => {
+		const text = helpText();
+		expect(text).toContain('--since');
+		expect(text).toContain('--since-ref');
+		expect(text).toContain('--since-recent');
+		expect(text).toContain('time-aware');
+		expect(text).toContain('#2615');
+	});
 });
 
 /**
@@ -366,6 +391,127 @@ describe('verifyWorktreeHeadMatchesPrHead (#2618)', () => {
 		// stderr guidance "git checkout <prHead>" を生成するために PR HEAD が含まれる
 		expect(result.prHead).toBe(prHead);
 		expect(result.worktreeHead).toBe(worktreeHead);
+	});
+});
+
+// Issue #2615: time-aware flag parsing
+describe('parseArgs (#2615 time-aware flag)', () => {
+	// AC-2615-1: --since <ISO> で ISO timestamp 指定
+	it('--since <ISO> → sinceIso にセット、他 time-aware flag は null', () => {
+		const opts = parseArgs(['--since', '2026-05-28T12:00:00Z']);
+		expect(opts.sinceIso).toBe('2026-05-28T12:00:00Z');
+		expect(opts.sinceRef).toBeNull();
+		expect(opts.sinceRecent).toBeNull();
+	});
+
+	// AC-2615-2: --since-ref <SHA> で commit SHA 指定
+	it('--since-ref <SHA> → sinceRef にセット', () => {
+		const opts = parseArgs(['--since-ref', 'b3fa59c123abc']);
+		expect(opts.sinceRef).toBe('b3fa59c123abc');
+		expect(opts.sinceIso).toBeNull();
+		expect(opts.sinceRecent).toBeNull();
+	});
+
+	// AC-2615-3: --since-recent <N> で deploy tag 件数指定
+	it('--since-recent 5 → sinceRecent に Number 5 セット', () => {
+		const opts = parseArgs(['--since-recent', '5']);
+		expect(opts.sinceRecent).toBe(5);
+		expect(opts.sinceIso).toBeNull();
+		expect(opts.sinceRef).toBeNull();
+	});
+
+	// 全 time-aware flag + 既存 flag 同時指定
+	it('time-aware flag と既存 flag を同時指定可能', () => {
+		const opts = parseArgs([
+			'--pr',
+			'2615',
+			'--since',
+			'2026-05-28T12:00:00Z',
+			'--ignore-pattern',
+			'^tmp/',
+			'--base',
+			'origin/main',
+		]);
+		expect(opts.prNumber).toBe('2615');
+		expect(opts.sinceIso).toBe('2026-05-28T12:00:00Z');
+		expect(opts.ignorePatterns).toHaveLength(1);
+		expect(opts.base).toBe('origin/main');
+	});
+
+	// AC-2615-4: backward compat - 既存使用 (`--pr <N>` 単独 / `--days <N>`) は影響なし
+	it('既存使用 (--pr のみ) → time-aware flag null, days default (backward compat)', () => {
+		const opts = parseArgs(['--pr', '2607']);
+		expect(opts.prNumber).toBe('2607');
+		expect(opts.days).toBe(DEFAULT_DAYS);
+		expect(opts.sinceIso).toBeNull();
+		expect(opts.sinceRef).toBeNull();
+		expect(opts.sinceRecent).toBeNull();
+	});
+});
+
+// Issue #2615: time window resolution (priority chain)
+describe('resolveSinceWindow (#2615 priority chain)', () => {
+	// AC-2615-1: --since <ISO> 指定時は iso mode で直接 value 採用
+	it('--since <ISO> 指定 → iso mode で ISO value をそのまま採用', () => {
+		const opts = parseArgs(['--since', '2026-05-28T12:00:00Z']);
+		const window = resolveSinceWindow(opts);
+		expect(window.mode).toBe('iso');
+		expect(window.since).toBe('2026-05-28T12:00:00Z');
+		expect(window.note).toContain('--since');
+		expect(window.note).toContain('2026-05-28T12:00:00Z');
+	});
+
+	// AC-2615-4: --since* 未指定時は days mode で `<N> days ago` を採用 (backward compat)
+	it('time-aware flag 未指定 → days mode で fallback (既存挙動維持)', () => {
+		const opts = parseArgs([]);
+		const window = resolveSinceWindow(opts);
+		expect(window.mode).toBe('days');
+		expect(window.since).toBe(`${DEFAULT_DAYS} days ago`);
+		expect(window.note).toContain(`--days ${DEFAULT_DAYS}`);
+	});
+
+	// AC-2615-4: --days 14 単独 → days mode で 14 days ago
+	it('--days 14 単独指定 → days mode で `14 days ago`', () => {
+		const opts = parseArgs(['--days', '14']);
+		const window = resolveSinceWindow(opts);
+		expect(window.mode).toBe('days');
+		expect(window.since).toBe('14 days ago');
+	});
+
+	// AC-2615-5: 優先順位 --since > --since-ref (両方指定された場合 --since 採用)
+	it('--since と --since-ref 両方指定 → --since (iso) 優先', () => {
+		const opts = parseArgs(['--since', '2026-05-28T12:00:00Z', '--since-ref', 'b3fa59c123abc']);
+		const window = resolveSinceWindow(opts);
+		expect(window.mode).toBe('iso');
+		expect(window.since).toBe('2026-05-28T12:00:00Z');
+	});
+
+	// AC-2615-5: 優先順位 --since > --since-recent
+	it('--since と --since-recent 両方指定 → --since (iso) 優先', () => {
+		const opts = parseArgs(['--since', '2026-05-28T12:00:00Z', '--since-recent', '5']);
+		const window = resolveSinceWindow(opts);
+		expect(window.mode).toBe('iso');
+	});
+
+	// AC-2615-6: --since-ref 解決失敗時は --days fallback (degrade safe)
+	// (実 git repo 操作を伴うため、存在しない SHA を渡して fallback を verify)
+	it('--since-ref 解決失敗 (存在しない SHA) → --days fallback (mode=days)', () => {
+		const opts = parseArgs(['--since-ref', '0000000000000000000000000000000000000000']);
+		const window = resolveSinceWindow(opts);
+		// 存在しない SHA → getCommitDate が null → fallback
+		expect(window.mode).toBe('days');
+		expect(window.since).toBe(`${DEFAULT_DAYS} days ago`);
+	});
+
+	// AC-2615-5: 優先順位 --since-ref > --since-recent (ref 解決成功時)
+	// 実 git repo の HEAD は必ず存在するので、HEAD を ref に渡せば ref mode が選ばれる
+	it('--since-ref HEAD (解決可能) → ref mode で commit date を採用', () => {
+		const opts = parseArgs(['--since-ref', 'HEAD', '--since-recent', '5']);
+		const window = resolveSinceWindow(opts);
+		// HEAD は必ず解決できるので ref mode
+		expect(window.mode).toBe('ref');
+		// since には ISO 形式の日時が入る (HEAD の committer date)
+		expect(window.since).toMatch(/^\d{4}-\d{2}-\d{2}/);
 	});
 });
 

@@ -17,11 +17,23 @@
  * 構造的に弱く、本 script は QM review 側の machine-verify gate を追加して
  * Defense in Depth を確立する。
  *
+ * **time-aware flag 拡張 (#2615)**:
+ *
+ * 2026-05-28 / 29 にかけ PR #2607 Round 5 で **race condition 4 ラウンド連続 BLOCK**
+ * を観察 (本日 deploy 19 件 / 6h = ~18min/commit + Fix Agent → QM Re-Review turnaround
+ * 5-30min)。Time-of-Check vs Time-of-Use race:
+ *   - Fix Agent push 時の `origin/main` (M1) と Re-Review 開始時の `origin/main` (M2)
+ *     が異なり、`days` 全体比較では M2 で新規追加された file まで含めて compare → 偽陽性
+ * 対処として `--since <ISO>` / `--since-ref <SHA>` / `--since-recent <N>` で
+ * 時間 window を限定する flag を追加。指定時刻 / commit / 直近 N deploy tag 以降の
+ * merge file のみを比較対象にし、main 進化 (新規追加) は本 PR の責任ではないので除外。
+ *
  * **設計根拠** (本 script 自身の justification):
  *
  * - **arXiv:2412.00804 (Persona Drift)**: identity drift しても機械検証で gate
  * - **ADR-0056 §結果 escalate trigger**: 案 1 deploy 自身の保全機構
- * - **ADR-0010 Pre-PMF Bucket A**: 本日 5 連続再発 = 実観察 defect への直接対処
+ * - **ADR-0010 Pre-PMF Bucket A**: 本日 5 連続再発 + race condition 4 連続観察 =
+ *   実観察 defect への直接対処
  *
  * **判定ロジック**:
  *
@@ -46,7 +58,14 @@
  * **CLI 引数**:
  *
  *   --pr <number>            対象 PR 番号 (報告 / verify メッセージ用、省略時は HEAD)
- *   --days <N>               遡及 window 日数 (default 7)
+ *   --days <N>               遡及 window 日数 (default 7、`--since*` 未指定時のみ有効)
+ *   --since <ISO>            指定時刻以降の main merge のみ対象 (例: 2026-05-28T12:00:00Z)
+ *                            time-aware mode、`--days` より優先 (#2615)
+ *   --since-ref <SHA>        指定 commit (の committer date) 以降の main merge のみ対象
+ *                            time-aware mode、`--days` より優先 (#2615)
+ *   --since-recent <N>       直近 N 件の `deploy-YYYYMMDD-HHMMSS-<sha>` tag 以降の main
+ *                            merge のみ対象 (deploy tag pattern 推論、default 5)
+ *                            time-aware mode、`--days` より優先 (#2615)
  *   --ignore-pattern <regex> 除外 path regex (複数指定可、繰り返し)
  *   --base <ref>             比較 base (default origin/main)
  *   --help                   この help を表示
@@ -104,6 +123,9 @@ export const DEFAULT_BASE = 'origin/main';
  * @typedef {object} CliOptions
  * @property {string | null} prNumber
  * @property {number} days
+ * @property {string | null} sinceIso     `--since <ISO>` time-aware mode (#2615)
+ * @property {string | null} sinceRef     `--since-ref <SHA>` time-aware mode (#2615)
+ * @property {number | null} sinceRecent  `--since-recent <N>` time-aware mode (#2615)
  * @property {RegExp[]} ignorePatterns
  * @property {string} base
  * @property {boolean} help
@@ -165,6 +187,89 @@ export function getDeletedFiles(base) {
 }
 
 /**
+ * 指定 commit SHA の committer date (ISO 8601) を取得する (#2615)。
+ *
+ * @param {string} ref commit SHA / branch name
+ * @returns {string | null} ISO 8601 committer date、解決失敗時 null
+ */
+export function getCommitDate(ref) {
+	const output = runGit(['log', '-1', '--pretty=format:%cI', ref]);
+	if (output === null) return null;
+	const trimmed = output.trim();
+	return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * 直近 N 件の `deploy-YYYYMMDD-HHMMSS-<sha>` tag を取得し、その中で最も古い tag の
+ * commit date (ISO 8601) を返す (#2615)。
+ *
+ * tag 命名規約は本 repo の deploy 運用 (`deploy-YYYYMMDD-HHMMSS-<short_sha>`、本日 11 件
+ * 観察済) に依存。マッチする tag が 0 件の場合は null を返し、呼び出し側で fallback
+ * (`--days`) に切替えるべき。
+ *
+ * @param {number} count 直近何件の deploy tag を window にするか (例: 5)
+ * @returns {string | null} 最古 deploy tag の commit ISO 日時、tag 0 件で null
+ */
+export function getSinceFromRecentDeployTags(count) {
+	// git tag --list "deploy-*" --sort=-creatordate を使って新しい順に取得
+	const output = runGit(['tag', '--list', 'deploy-*', '--sort=-creatordate']);
+	if (output === null) return null;
+	const tags = output
+		.split(/\r?\n/)
+		.map((l) => l.trim())
+		.filter((l) => /^deploy-\d{8}-\d{6}-[0-9a-f]+$/.test(l));
+	if (tags.length === 0) return null;
+	// 直近 count 件のうち最も古い (= index = min(count, length) - 1) の tag を境界に
+	const boundaryIdx = Math.min(count, tags.length) - 1;
+	const boundaryTag = tags[boundaryIdx];
+	if (!boundaryTag) return null;
+	return getCommitDate(boundaryTag);
+}
+
+/**
+ * CLI options から time window (`--since=<git log spec>`) を解決する (#2615)。
+ *
+ * 優先順位 (高 → 低):
+ *   1. `--since <ISO>`      指定 ISO timestamp をそのまま使用
+ *   2. `--since-ref <SHA>`  ref の commit date を取得して使用
+ *   3. `--since-recent <N>` 直近 N deploy tag のうち最古の commit date を使用
+ *   4. fallback             `<days> days ago` (既存 backward compat)
+ *
+ * @param {CliOptions} opts CLI parse 結果
+ * @returns {{since: string, mode: 'iso' | 'ref' | 'recent-deploy' | 'days', note: string}}
+ *   解決後の `--since=` value と debug 用 mode/note。
+ *   解決失敗時は fallback の `<days> days ago` に degrade する。
+ */
+export function resolveSinceWindow(opts) {
+	if (opts.sinceIso) {
+		return { since: opts.sinceIso, mode: 'iso', note: `--since ${opts.sinceIso}` };
+	}
+	if (opts.sinceRef) {
+		const date = getCommitDate(opts.sinceRef);
+		if (date) {
+			return { since: date, mode: 'ref', note: `--since-ref ${opts.sinceRef} (${date})` };
+		}
+		// ref 解決失敗時は fallback (本来は exit すべきだが backward compat 優先)
+	}
+	if (typeof opts.sinceRecent === 'number' && opts.sinceRecent > 0) {
+		const date = getSinceFromRecentDeployTags(opts.sinceRecent);
+		if (date) {
+			return {
+				since: date,
+				mode: 'recent-deploy',
+				note: `--since-recent ${opts.sinceRecent} (${date})`,
+			};
+		}
+		// deploy tag 0 件で fallback
+	}
+	return {
+		since: `${opts.days} days ago`,
+		mode: 'days',
+		note: `--days ${opts.days}`,
+	};
+}
+
+/**
  * 直近 N 日に main に merge された commit から、touch した file 一覧を収集する。
  *
  * `git log --merges --since=<N days ago> --name-only --pretty='format:%H|%ai' <base>`
@@ -175,10 +280,26 @@ export function getDeletedFiles(base) {
  * @returns {Array<{commit: string, date: string, files: string[]}>|null}
  */
 export function getRecentMergedFiles(base, days) {
+	return getMergedFilesSince(base, `${days} days ago`);
+}
+
+/**
+ * 任意の `--since=<spec>` (git log の `--since=` accepts ISO 8601 / `N days ago`
+ * / human-readable strings) に基づき main の merged file 一覧を収集する (#2615)。
+ *
+ * `getRecentMergedFiles(base, days)` の内部実装としても利用される (`days` を
+ * `${N} days ago` に組み立てて pass)。time-aware mode (`--since` / `--since-ref`
+ * / `--since-recent`) では ISO timestamp が直接渡される。
+ *
+ * @param {string} base 対象 ref (例: 'origin/main')
+ * @param {string} sinceSpec git log `--since=` の値 (ISO 8601 / `N days ago` 等)
+ * @returns {Array<{commit: string, date: string, files: string[]}>|null}
+ */
+export function getMergedFilesSince(base, sinceSpec) {
 	const output = runGit([
 		'log',
 		'--merges',
-		`--since=${days} days ago`,
+		`--since=${sinceSpec}`,
 		'--name-only',
 		'--pretty=format:__COMMIT__%H|%ai',
 		base,
@@ -206,7 +327,7 @@ export function getRecentMergedFiles(base, days) {
 	const squashOutput = runGit([
 		'log',
 		'--no-merges',
-		`--since=${days} days ago`,
+		`--since=${sinceSpec}`,
 		'--name-only',
 		'--pretty=format:__COMMIT__%H|%ai',
 		base,
@@ -328,6 +449,9 @@ export function parseArgs(argv) {
 	const opts = {
 		prNumber: null,
 		days: Number(process.env.RECENT_DEPLOY_CHECK_DAYS ?? DEFAULT_DAYS),
+		sinceIso: null,
+		sinceRef: null,
+		sinceRecent: null,
 		ignorePatterns: [],
 		base: process.env.RECENT_DEPLOY_CHECK_BASE ?? DEFAULT_BASE,
 		help: false,
@@ -342,6 +466,15 @@ export function parseArgs(argv) {
 			i++;
 		} else if (arg === '--days' && typeof next === 'string') {
 			opts.days = Number(next);
+			i++;
+		} else if (arg === '--since' && typeof next === 'string') {
+			opts.sinceIso = next;
+			i++;
+		} else if (arg === '--since-ref' && typeof next === 'string') {
+			opts.sinceRef = next;
+			i++;
+		} else if (arg === '--since-recent' && typeof next === 'string') {
+			opts.sinceRecent = Number(next);
 			i++;
 		} else if (arg === '--ignore-pattern' && typeof next === 'string') {
 			opts.ignorePatterns.push(new RegExp(next));
@@ -362,7 +495,10 @@ export function helpText() {
 		'Usage: node scripts/check-recent-deploy-deletion.mjs [options]',
 		'',
 		'  --pr <number>            対象 PR 番号 (報告メッセージ用)',
-		'  --days <N>               遡及 window 日数 (default 7)',
+		'  --days <N>               遡及 window 日数 (default 7、`--since*` 未指定時のみ有効)',
+		'  --since <ISO>            time-aware mode: 指定 ISO 時刻以降の merge のみ対象 (#2615)',
+		'  --since-ref <SHA>        time-aware mode: 指定 commit 以降の merge のみ対象 (#2615)',
+		'  --since-recent <N>       time-aware mode: 直近 N 件の deploy tag 以降のみ対象 (#2615)',
 		'  --ignore-pattern <regex> 除外 path regex (繰り返し可)',
 		'  --base <ref>             比較 base (default origin/main)',
 		'  --help                   この help',
@@ -375,7 +511,7 @@ export function helpText() {
 		'#2618 / ADR-0056 §D: --pr 指定時は worktree HEAD = PR HEAD verify が走り、',
 		'  不一致時は exit 3 で BLOCK (機構運用層 bypass 防止、Fix Agent 偽陽性対策)。',
 		'',
-		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 / Issue #2618 for context.',
+		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 / #2615 (time-aware) / #2618 (worktree verify) for context.',
 	].join('\n');
 }
 
@@ -458,10 +594,12 @@ async function main() {
 		return 0;
 	}
 
-	const recentMerges = getRecentMergedFiles(opts.base, opts.days);
+	// #2615: resolve time-aware window (--since / --since-ref / --since-recent) or fallback to --days
+	const window = resolveSinceWindow(opts);
+	const recentMerges = getMergedFilesSince(opts.base, window.since);
 	if (recentMerges === null) {
 		process.stderr.write(
-			`[check-recent-deploy-deletion] ERROR: git log failed for base=${opts.base}.\n`,
+			`[check-recent-deploy-deletion] ERROR: git log failed for base=${opts.base} since=${window.since}.\n`,
 		);
 		return 3;
 	}
@@ -470,13 +608,13 @@ async function main() {
 
 	if (violations.length === 0) {
 		process.stdout.write(
-			`[check-recent-deploy-deletion] OK: ${deletedFiles.length} file(s) deleted, none overlap with last ${opts.days} days of merges${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
+			`[check-recent-deploy-deletion] OK: ${deletedFiles.length} file(s) deleted, none overlap with merges since ${window.note}${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
 		);
 		return 0;
 	}
 
 	process.stderr.write(
-		`[check-recent-deploy-deletion] BLOCK: ${violations.length} file(s) deleted that were touched by recent (≤${opts.days}d) main merges${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
+		`[check-recent-deploy-deletion] BLOCK: ${violations.length} file(s) deleted that were touched by main merges since ${window.note}${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
 	);
 	process.stderr.write('  This is the typical symptom of rebase drift (#2603 / 5 連続再発).\n');
 	process.stderr.write(
