@@ -82,7 +82,7 @@
 |---|---|---|
 | #2567 | `/admin/subscription` プランページ (SaasSubscriptionPanel 責務純化) | [phase3-subscription-page-ui-design](phase3-subscription-page-ui-design.md) |
 | #2568 | AdminLayout header (plan-badge クリック遷移) | 着手予定 |
-| #2569 | ActivityLimitBanner | 着手予定 |
+| #2569 | ActivityLimitBanner | [phase3-activity-limit-banner-ui-design](phase3-activity-limit-banner-ui-design.md) |
 | #2570 | FeatureGate + tooltip | 着手予定 |
 | #2571 | TrialBanner (Reverse Trial 進捗フレーミング) | 着手予定 |
 | #2572 | success ページ + webhook polling | 着手予定 |
