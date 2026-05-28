@@ -156,7 +156,7 @@
 | ディレクトリ | 役割 |
 |---|---|
 | `.claude/agents/` | セッション ロール定義 (po-session.md / dev-session.md / qa-session.md、起動時自動活性化) |
-| `.claude/skills/` | タスク固有 Skills (13 件): `pr-review` / `issue-triage` / `pre-pmf-check` / `dev-open-pr` / `lp-review` / `db-migration` / `cost-review` / `age-mode-check` / `brand-check` / `customer-voice` / `deploy-verify` / `flake-hunt` / `regression-check` |
+| `.claude/skills/` | タスク固有 Skills (14 件): `pr-review` / `issue-triage` / `pre-pmf-check` / `dev-open-pr` / `lp-review` / `db-migration` / `cost-review` / `age-mode-check` / `brand-check` / `customer-voice` / `deploy-verify` / `flake-hunt` / `regression-check` / **`impact-analysis`** (rename/モデル変更/大規模リファクタリングの Change Impact Analysis、4 layer 防御 + 21 カテゴリ checklist、2026-05-28 追加) |
 | `.claude/settings.json` | 全体設定 (permissions / hooks / env) |
 | `.claude/worktrees/` | 並行 Agent 用 worktree 分離 dir (Agent tool `isolation: "worktree"` 必須) |
 
