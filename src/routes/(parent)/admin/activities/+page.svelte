@@ -256,7 +256,7 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 	const fileInput = form.querySelector<HTMLInputElement>('input[type="file"]');
 	const file = fileInput?.files?.[0];
 	if (!file) {
-		actionMessage = 'ファイルを選択してください';
+		actionMessage = FEATURES_LABELS.activitiesHeader.restoreFileRequired;
 		return;
 	}
 	restoreLoading = true;
@@ -277,7 +277,7 @@ async function handleRestoreSubmit(event: SubmitEvent) {
 			} else {
 				const imported = Number(d.imported ?? 0);
 				const skipped = Number(d.skipped ?? 0);
-				const name = String(d.packName ?? 'ファイル');
+				const name = String(d.packName ?? FEATURES_LABELS.activitiesHeader.restoreFileFallbackName);
 				actionMessage =
 					imported === 0 && skipped > 0
 						? FEATURES_LABELS.activitiesHeader.restoreAllDuplicates(name)

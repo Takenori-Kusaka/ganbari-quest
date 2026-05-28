@@ -6229,6 +6229,8 @@ export const FEATURES_LABELS = {
 		restoreAllDuplicates: (name: string) => `「${name}」の活動はすべて既に登録済みです`,
 		restoreFailed: '復元に失敗しました',
 		restoreDemo: 'デモではお試し用です（実際の復元は行われません）',
+		restoreFileRequired: 'ファイルを選択してください',
+		restoreFileFallbackName: 'ファイル',
 	},
 
 	// ---- features/admin/components/NotificationPermissionBanner ----
