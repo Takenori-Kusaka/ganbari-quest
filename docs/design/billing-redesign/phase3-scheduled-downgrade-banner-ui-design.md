@@ -257,6 +257,55 @@ stateDiagram-v2
 | 5 | banner 撤去後の archived 表示 UI (#2575) との視覚的継承 | **トーン継続** 推奨。Alert variant=info の青系で「保護」を継続表現、archived 一覧画面の上部にも同色の小 banner で「アーカイブ X 件 ・ ワンクリック復活」を出す (#2575 で本格設計) |
 | 6 | 「子供 N 人」「活動 M 件」の N/M 取得失敗時 (preview API エラー) のフォールバック | **件数を hide して文言短縮** 推奨。「子供と活動は保護されています」のみ表示、N/M を出さない |
 
+### Adversarial Reviewer 3 軸 Open question (#2611 QM Re-Review feedback、2026-05-28)
+
+QM Tier 2 Re-Review で Adversarial Reviewer (ADR-0056 / `.claude/skills/adversarial-reviewer/`) が 3 軸で「賛同を疑え」観点を提示。本 banner UI 設計が「Notion / Kinde 業界整合」を根拠に CTA 1 個絞り + `assertive` + 復活 CTA 単独動線を即決した点について、以下 3 件は PO 判断 / a11y 専門判断 / Phase 5(アーキ)・Phase 7(実装) 申し送りに振り分ける。
+
+#### #7 復活 CTA 単独 vs プラン比較再表示併設 (PO 判断)
+
+**Adversarial Reviewer business 軸指摘**: Notion / Kinde win-back UX のリサーチでは取消ユーザーの 30〜40% が誤クリックではなく「期末まで残された期間で価値を再検討した上での意思決定」であるという観察がある。本設計の Open question #4 で採用した「復活 CTA 1 個絞り、Stripe Portal 等の secondary 動線は不併設」という Hick's Law 解釈は、誤クリック復活を主動機と仮定したものであり、**意図的な再検討フローに対しては動線が痩せすぎている可能性**がある (LTV 維持観点で弱い)。
+
+**判断ポイント**:
+
+- 「プラン比較再表示 (`/admin/subscription` への neutral link)」を復活 CTA の secondary として併設するかどうか
+- 併設する場合の文言: 「やっぱり family を続ける」(復活) と「他のプランも見る」(neutral) の 2 動線にすると、Hick's Law 違反だが「意思を保留したユーザー」の離脱を防げる
+- 不併設のままで進める場合、Phase 7 実装段階で「期末まで 3 日以内になったら secondary 動線を出す」等の段階的露出を採用するか
+
+**現状の §3 default 仕様**: secondary 動線なし (`復活する` 1 個のみ)。
+
+**変更可否**: PO 判断 (本 PR では設計書に Open question として記録、Phase 7 実装前に確定)。
+
+#### #8 aria-live "assertive" vs "polite" 統一 (a11y 専門判断)
+
+**Adversarial Reviewer UX 軸指摘**: Kinde Best Practices には「`aria-live="assertive"` は破壊的アクション直前 (現在 focus している入力等を中断してでも告知すべき緊急情報) でのみ使用する」という制約がある。本設計の Open question #3 では C variant (today、当日告知) で `assertive` を採用したが、「admin 画面に入るたびに `assertive` で読み上げが割り込む」のは VoiceOver / NVDA / TalkBack ユーザーにとって**音声 noise + 操作中断**となりうる。
+
+**判断ポイント**:
+
+- C variant `aria-live="assertive"` 採用根拠の具体性 — 「当日告知は破壊的アクション直前」と扱う妥当性 (Kinde 推奨「破壊的アクション直前のみ」との整合)
+- 代替案 A: 全 variant (A/B/C) を `polite` 統一し、`aria-atomic="true"` で初回読切りを保証 (VoiceOver 連打を回避)
+- 代替案 B: C variant でも `polite` のまま、初回 admin route navigation 時のみ `assertive` (`role="alertdialog"` 相当の境界条件付き) を許容
+
+**現状の §3.4 default 仕様**: A/B = `polite`、C = `assertive` + `aria-atomic="true"`。
+
+**変更可否**: a11y 専門レビュー判断 (Phase 7 Storybook + axe-core + VoiceOver 実機検証で再確認、本 PR では設計書に Open question として記録)。
+
+#### #9 `subscription_schedule.release()` 認可境界 + ADR-0049 retention 整合 + N/M 値挙動 (Phase 5 / 7 申し送り)
+
+**Adversarial Reviewer security 軸指摘**: 本設計 §3.2 / §6 は banner UI 仕様としては完結しているが、復活 CTA (`POST /api/subscription/schedule-release`) と「期末ダウン期間中の状態」周辺で以下 3 件が未定義:
+
+1. **`subscription_schedule.release()` の認可境界**: 復活 CTA を叩けるのは owner role のみか / parent role 含めるか / CSRF token 検証 / IDOR (他家族の subscription_schedule を release する攻撃) の防御。Phase 5 アーキ設計で `/api/subscription/*` 系統と一括で扱う方針か、本 banner 専用エンドポイントを切るかも要決定。
+2. **family→standard 期末降格時の「どの子供をアーカイブするか」決定ロジック**: 本設計 §5 では「3 人目以降をアーカイブ」とのみ記載。アーカイブ対象選定 (古い順 / 最終活動日順 / 親が選択) と ADR-0049 (retention 物理削除) との整合 — アーカイブ後の活動ログ retention 期間は family プラン基準 (90 日) のままか、standard プラン基準 (30 日) に短縮するか。
+3. **期末ダウン期間中の子供追加挙動 (N/M 値の動的更新)**: 期末まで残された期間中に family プランで子供を追加した場合、本 banner の「子供 N 人」表記は動的に更新されるか / family→standard 降格時にアーカイブ対象が増えるロジックは妥当か。
+
+**判断ポイント**:
+
+- §5 「期末ダウン期間中の挙動」に上記 3 件の認可境界 + 選定ロジック + N/M 動的挙動を追記するか、Phase 5 アーキ設計 / Phase 7 実装の申し送りとするか
+- ADR-0049 (retention 物理削除拡張) と本 banner の archived 状態 (Open question #5、#2575) との整合確認は Phase 5 で `data-model-resource-scope.md` と統合判断
+
+**現状の §5 / §6**: banner UI 仕様としては記述完結、上記 3 件は未定義。
+
+**変更可否**: Phase 5 (アーキ設計、subscription_schedule + Stripe 認可境界 + ADR-0049 retention 整合) / Phase 7 (実装、CSRF / IDOR テスト + N/M 動的更新 spec) の申し送りに格上げ。
+
 ## 13. 根拠
 
 - **deep-research (2026-05-28)**:
