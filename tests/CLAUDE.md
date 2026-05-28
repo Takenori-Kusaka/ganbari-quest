@@ -130,6 +130,42 @@ per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ
 
 interactive component (Dialog / Form / UnifiedImportHub / Menu) は `play` 関数で「操作 → callback 発火 (`fn()` spy) / disabled 制御 / cancel 発火」を component 層で検証する。server 反映 (DB) は Playwright (統合層) に委ね、component 層は配線健全性に限定する (二重防御)。`play` 内 `expect` / `userEvent` / `fn` は **`storybook/test`** (Storybook 10 同梱) から import し、`npm run test:storybook` (`vitest run --project storybook`) で CI 実行する。exemplar: `src/lib/marketplace/ui/UnifiedImportHub.stories.svelte`。
 
+## 顧客レビュー前 CX 版 DoR (8 条件 SSOT、#2553)
+
+初顧客レビューで機能 E2E (#2544 goal 完遂) が緑でも実ユーザーが 1 分で 4 件発見した教訓 (#2558 bug-1〜4)。**機能 + UX + visual + exploratory を統合した 8 条件**を顧客レビュー前の Definition of Ready (DoR) として SSOT 化する。設計根拠は `tmp/research-cx-quality-verification.md` §4 / §G、Issue #2553。
+
+**過剰防止 (ADR-0010)**: critical user journey (活動追加 / 報酬交換 等、CUJ §「2 層 cadence」を参照) のみに限定。**全画面網羅 / 多人数 user testing / eye-tracking は不採用**。
+
+| # | 条件 | 層 | 検証手段 | 担当 SSOT |
+|---|---|---|---|---|
+| 1 | critical user journey が機能的に goal 完遂する (dead-end ゼロ) | 機能 | 上記「act → outcome assert」E2E (helper `goal-flows.ts`) + Storybook play | **#2544 (実装済 基盤)** |
+| 2 | 同一 CUJ を **Cognitive Walkthrough 4 質問**で 1 周し全 Yes | UX | PO or AI が初見 persona × 4 質問 (Q1 正しい結果を得ようとするか / Q2 正しい操作が利用可能と気づくか / Q3 操作 ↔ 結果結びつけ / Q4 進捗 visible) | **#2554 (skill 実装) / `.claude/skills/cognitive-walkthrough/`** |
+| 3 | UI 実テキストが用語 SSOT 準拠 (謎用語 / 内部語彙ゼロ) | [`check-terminology-coherence.ts`](../scripts/check-terminology-coherence.ts) 警告 0 + [`check-hardcoded-strings.mjs`](../scripts/check-hardcoded-strings.mjs) / [`check-no-plan-literals.mjs`](../scripts/check-no-plan-literals.mjs) を `pre-ready` Step 4 で自動実行 | **PR #2587 (#2555) で `terms.ts` 直接 import 拡充済** |
+| 4 | 同一リソースの add 経路 ≤ 4 + 用語重複なし (Hick's Law) | [`check-terminology-coherence.ts`](../scripts/check-terminology-coherence.ts) (旧 `check-add-path-coherence.mjs` from PR #2587 rename) warning 0 | **#2544 で最小導入 → PR #2587 で拡充済 (DESIGN.md §10 構造ルール整合)** |
+| 5 | critical flow の screenshot を vision LLM に task-grounded prompt で review → 人間 filter 済 | visual/UX | §3 flow (research §3-3 prompt)、capture.mjs 連番 → vision LLM → PO filter | **C-5 別 Issue (POC 中、opt-in)** |
+| 6 | charter ベース exploratory 1 セッション (add/cancel 連打・空送信) で dead-end ゼロ | exploratory | AI exploratory agent or 人間 45 分 session | **C-6 別 Issue (POC 中、opt-in)** |
+| 7 | 実機 1 クリック貫通 (人間 or AI が実ブラウザで critical flow を 1 回貫通) | 機能+CX | Playwright trace/video 証跡 + 実機操作 (NUC or `AUTH_MODE=anonymous DATA_SOURCE=demo` preview) | **#2544 AC6 と合流 (実装済)** |
+| 8 | 5 mode visual baseline + primitives 準拠 (独自 UI 逸脱なし) | visual | 既存 pixelmatch (`scripts/check-lp-visual-regression.mjs`) + Storybook play (#2544 AC4) + 5 年齢モード SS | **既存 + #2544 (実装済)** |
+
+### 適用タイミング (2 層 cadence 整合)
+
+- **per-PR (軽量)**: 条件 3 / 4 = 自動 lint 必須 (`pre-ready` で実行)。条件 1 / 8 = 該当領域変更時に targeted E2E + Storybook play (CI 自動実行)
+- **EPIC-merge / 顧客レビュー gate (重量)**: 全 8 条件を満たした証跡 (条件 2 = walkthrough session sheet 添付 / 条件 7 = 実機貫通 trace) を PR body or EPIC umbrella に集約。条件 5 / 6 は opt-in (C-5/C-6 POC 採用後に必須化判定)
+
+### 禁忌
+
+- **「機能 E2E 緑 = 顧客レビュー可」と判定する**: #2558 で実証された通り、機能緑のまま bug-2/3/4 が露出する。条件 2-4 を必ず併走させる
+- **条件 5 (AI vision review) を主担保にする**: open-ended audit は false-positive 80% (Baymard)。task-grounded persona prompt + 人間 filter 必須 (research §3-1)
+- **多人数 user testing 招集を Pre-PMF で要求する**: 5-user rule (NN/G) で 85% UX 問題は捕捉できる、それ以上は ROI 低 (research §B-4 / §7)
+
+### 関連
+
+- 親 EPIC: #2459 (Test Strategy 全体最適化、Pyramid 55/30/15)
+- 基盤: #2544 (機能基盤、ADR-0007 EPIC-merge tier)
+- 兄弟: C-2 #2554 (Cognitive Walkthrough skill) / C-3 #2555 (用語 coherence lint、PR #2587 で実装)
+- 横展開: `.claude/skills/dev-open-pr/SKILL.md` (PR 起票時 CX-DoR ガイダンス) / `.github/PULL_REQUEST_TEMPLATE.md` (customer-facing PR 用 8 条件チェック)
+- 研究: `tmp/research-cx-quality-verification.md` §4 / §G / §3
+
 ## 禁止事項
 
 - **カバレッジ閾値の引き下げ** — `vite.config.ts` `thresholds` 引き下げ PR は CI 自動拒否（`scripts/check-coverage-threshold.js`）。引き下げ必要なら ADR で復元計画と同時コミット
