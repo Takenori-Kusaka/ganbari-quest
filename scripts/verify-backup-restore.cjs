@@ -58,14 +58,13 @@ const DB_PATH = process.env.DATABASE_URL
 const BACKUP_DIR = process.env.BACKUP_DIR
 	? path.resolve(process.env.BACKUP_DIR)
 	: path.join(path.dirname(DB_PATH), 'backups');
-const ALLOW_EMPTY = process.env.ALLOW_EMPTY === '1';
 // 明示 backup file 指定 (test / 単発検証用)。未指定なら BACKUP_DIR の最新を使う。
 const EXPLICIT_BACKUP = process.env.VERIFY_BACKUP_FILE
 	? path.resolve(process.env.VERIFY_BACKUP_FILE)
 	: '';
 
-// row > 0 を要求する core table (空 backup = 復旧不能の検出)
-const REQUIRED_NONEMPTY_TABLES = ['children', 'child_activities', 'activity_logs', 'point_ledger'];
+// row > 0 を要求または監視する core table
+const MONITORED_TABLES = ['children', 'child_activities', 'activity_logs', 'point_ledger'];
 
 // 失敗時の Discord alert webhook (任意)。`src/lib/server/discord-alert.ts` と同 env を参照。
 // .cjs (cron) からは SvelteKit module を import できないため、ここで最小限の fetch を行う。
@@ -152,28 +151,31 @@ function verifyRestoredDb(restoredPath) {
 		// 3. 主要 table row count > 0
 		const counts = [];
 		let totalRows = 0;
-		for (const table of REQUIRED_NONEMPTY_TABLES) {
+		const cMap = {};
+		for (const table of MONITORED_TABLES) {
 			if (!tableExists(db, table)) {
 				failures.push(`required table missing: ${table}`);
+				cMap[table] = 0;
 				continue;
 			}
 			const c = db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get().c;
 			counts.push(`${table}=${c}`);
+			cMap[table] = c;
 			totalRows += c;
 		}
 		console.log(`[verify] row counts: ${counts.join(' ')}`);
 
 		// ALLOW_EMPTY=1 のとき「全 table 0 行」は PASS (初回起動直後 backup を許容)。
-		// そうでなければ各 table > 0 を要求する。
-		if (totalRows === 0 && ALLOW_EMPTY) {
-			console.log('[verify] all required tables empty but ALLOW_EMPTY=1 → treated as PASS');
+		const allowEmpty = process.env.ALLOW_EMPTY === '1';
+		if (totalRows === 0 && allowEmpty) {
+			console.log('[verify] all monitored tables empty but ALLOW_EMPTY=1 → treated as PASS');
 		} else {
-			for (const table of REQUIRED_NONEMPTY_TABLES) {
-				if (!tableExists(db, table)) continue;
-				const c = db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get().c;
-				if (c === 0) {
-					failures.push(`required table empty (data loss risk): ${table}`);
-				}
+			// AC1: children > 0 なのに child_activities = 0 は fail
+			// AC2: children > 0 + child_activities > 0 であれば、activity_logs / point_ledger が 0 (day-0) でも PASS
+			if (cMap['children'] === 0) {
+				failures.push('required table empty (data loss risk): children');
+			} else if (cMap['child_activities'] === 0) {
+				failures.push('data loss risk: children > 0 but child_activities is empty');
 			}
 		}
 	} finally {
@@ -231,7 +233,11 @@ async function main() {
 	process.exit(1);
 }
 
-main().catch((err) => {
-	console.error('[verify] Fatal error:', err);
-	process.exit(1);
-});
+module.exports = { verifyRestoredDb };
+
+if (require.main === module) {
+	main().catch((err) => {
+		console.error('[verify] Fatal error:', err);
+		process.exit(1);
+	});
+}
