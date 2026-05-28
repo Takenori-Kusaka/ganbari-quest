@@ -8,6 +8,7 @@
 | 対応 Phase 1 要件 | phase1-checkout-requirements.md (#2534) |
 | deep-research | SaaS 購入時の谷 14 件 + Stripe 担保/自社責任分類 + in-app upgrade prompts 5 パターン + LP→app 動線設計 (2026-05-28) |
 | Explore 照合 | 既存実装 3 点 (FeatureGate / ヘッダ planBadge / LP pricing 動線) 2026-05-28 |
+| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では設計指針・mermaid は新名、既存実装 reference (`FeatureGate.svelte:49` 等) は現名を維持 |
 
 ## 既存実装の事実 (Explore 照合)
 
@@ -23,7 +24,7 @@ deep-research 結果 (#2547 トライアル調査と統合):
 
 - 自プロダクトの購入動線は **Reverse Trial パターン C** = `LP CTA → app signup → trial 自動付与 → in-app paywall → checkout` (Linear / Notion 整合)
 - LP に Stripe Pricing Table 直埋めは「app で家族を作って体験」前提と衝突 → **不採用**
-- **app `/admin/license` で Stripe Pricing Table or 既存 Checkout Session API** が整合 (現状は後者で実装済)
+- **app `/admin/subscription` で Stripe Pricing Table or 既存 Checkout Session API** が整合 (現状は後者で実装済、URL は Phase 7 で rename)
 
 ## ジャーニー (PO 指摘 4 谷 + 既存実装統合)
 
@@ -60,7 +61,7 @@ flowchart TB
     LP[LP site/pricing.html<br/>CTA: 無料で始める / 今すぐ購入] -->|signup| SignUp
     LP -->|FAQ| FAQ[購入手順 / 解約手順]
     SignUp[auth/signup] -->|自動ログイン| Admin[/admin]
-    Admin -->|gate disable + tooltip<br/>FeatureGate.svelte:49| Pricing[/admin/license<br/>プランページ]
+    Admin -->|gate disable + tooltip<br/>FeatureGate.svelte:49| Pricing[/admin/subscription<br/>プランページ]
     Admin -->|ActivityLimitBanner<br/>:16 + linkLabel| Pricing
     Admin -->|ヘッダの<br/>「アップグレード」ボタン<br/>無料時のみ AdminLayout:212-218| Pricing
     Admin -.->|有料時 plan-badge<br/>**クリック遷移なし (改善要)**| Pricing
@@ -96,7 +97,7 @@ stateDiagram-v2
 |---|---|---|---|---|---|
 | 0 | 無料利用中、上限/制約に到達 | gate で disable | 物足りない | — | ✅ `FeatureGate.svelte:49` |
 | 1 | **購入動線探索 (LP / app 内)** | tooltip / banner / ヘッダから探す | 「どこから買う?」 | **谷④購入動線探索 (新)** | 既存実装 ✅ + **ヘッダ有料時遷移を改善要** |
-| 2 | プランページ到達 `/admin/license` | プラン一覧表示 | — | — | 既存 |
+| 2 | プランページ到達 `/admin/subscription` (Phase 7 rename、現コードは `/admin/license`) | プラン一覧表示 | — | — | 既存 |
 | 3 | **プラン選択 (standard / family)** | どっちが自分に合うか | 「どれを選べば?」 | **谷①プラン選択困惑 (新)** | 改善要: お勧めバッジ / 比較表差分強調 / 診断ナビ (Phase 3 UI) |
 | 4 | **金額確認 (月年トグル + 価格)** | ¥500/¥780 (税込) | 「妥当か?」 | **谷②金額説得力 (新)** | 改善要: 1 日換算 / 家族 1 人あたり / 比較 anchor (Phase 3 UI) |
 | 5 | **解約柔軟性確認** | CTA 直下「いつでも解約」 | 「縛りは?」 | **谷③解約柔軟性 (新)** | 改善要: `CANCEL_TERMS.anytimeOk` CTA 直下併記 + Portal 言及 (Phase 3 UI) |
@@ -118,12 +119,12 @@ stateDiagram-v2
 ## 改善要項目 (Phase 3 UI / Phase 4 動線 / Phase 5 アーキ への申し送り)
 
 ### Phase 3 (UI) 申し送り
-1. **`/admin/license` プランページの再設計**:
+1. **`/admin/subscription` プランページの再設計** (Phase 7 rename、現コードは `/admin/license`):
    - standard に「お勧め」「人気」バッジ (decoy 効果)
    - 比較表で差分のみハイライト
    - `1 日あたり ¥16` / `家族 1 人あたり ¥260` ROI framing
    - CTA 直下に `CANCEL_TERMS.anytimeOk` 必須併記
-2. **AdminLayout 有料時 plan-badge にクリック遷移追加** (`AdminLayout.svelte:220`、href `/admin/license`)
+2. **AdminLayout 有料時 plan-badge にクリック遷移追加** (`AdminLayout.svelte:220`、href `/admin/subscription`、Phase 7 rename 後)
 3. **success ページ polling UI** (Phase 1 FR-6 新規)
 4. **特商法最終確認画面 5 項目** (Stripe Checkout `custom_text` API or 自社確認画面)
 
@@ -193,7 +194,7 @@ LP pricing / checkout 最終確認画面で**法的義務として**表示:
 | 3 | 診断ナビ採用可否 (「家族の人数は?」slider) | Phase 3 UI 設計の規模感判断 |
 | 4 | 特商法最終確認 = Stripe `custom_text` vs 自社確認画面 | Phase 3/5 で実装方式 |
 | 5 | LP [`site/pricing.html` L475](../../../site/pricing.html) FAQ 解約手順の強化 (Customer Portal 動画 / GIF) | Phase 4 動線で判断 |
-| 6 | Stripe Pricing Table 採用 (app `/admin/license` 内) | Phase 5 アーキ判断 (現状自前で問題なし) |
+| 6 | Stripe Pricing Table 採用 (app `/admin/subscription` 内、Phase 7 rename 後) | Phase 5 アーキ判断 (現状自前で問題なし) |
 
 ## 根拠
 

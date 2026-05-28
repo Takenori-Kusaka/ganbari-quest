@@ -7,6 +7,7 @@
 | ステータス | **2026-05-28 全面再構成**: 業界呼称「**Reverse Trial**」確定 + カスタマイズ持続型を価値訴求の中心に + mermaid 3 図 |
 | 対応 Phase 1 要件 | phase1-trial-requirements.md (#2533: family 固定・7日・カード登録なし・cancel で無料復帰・1回制限 family-tenant) |
 | deep-research | Reverse Trial 業界事例 (Notion/Slack/Figma/Canva/Calendly) + PLG ベストプラクティス + ADR-0012 整合性検証完了 |
+| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では設計指針は新名、既存実装 reference は現名を維持 |
 
 ## 業界呼称の確定: Reverse Trial (リバーストライアル)
 

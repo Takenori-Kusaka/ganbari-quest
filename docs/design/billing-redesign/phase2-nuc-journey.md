@@ -6,6 +6,7 @@
 | 親 | #2527 (Phase 2 UX) / 上位 #2525 |
 | ステータス | 既存実装前提で設計 (2026-05-28、ADR-0051 NUC-SaaS Bifurcation 整合) |
 | 対応 Phase 1 要件 | phase1-nuc-requirements.md (#2539: 完全無料 OSS / 信頼ベース DRM なし / family 固定) |
+| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。NUC 側は `NucLicensePanel` → Phase 5 design review (内部識別子 `LICENSE_KEY_STATUS` enum 等は legacy 互換のため現名維持)、`/ops/license/*` は ops internal tool で rename 対象外 |
 
 ## 既存実装の事実
 

@@ -6,6 +6,7 @@
 | 親 | #2527 (Phase 2 UX) / 上位 #2525 |
 | ステータス | 既存実装前提で設計 (2026-05-28、Phase 1 で stripe-service handlePaymentFailed/Deleted 照合済) |
 | 対応 Phase 1 要件 | phase1-dunning-requirements.md (#2537: past_due=grace 有料維持・2週8回・canceled→無料・子供画面非表示) |
+| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では既存実装 reference (`stripe-service.ts:346/394` 等) は現名を維持 |
 
 ## 既存実装の事実 (Phase 1 照合)
 
