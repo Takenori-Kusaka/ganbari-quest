@@ -415,8 +415,9 @@ function printNewViolationReport(newByFile) {
 	console.error(
 		'\n対応方針:\n' +
 			'  1. 実装側の現在のパスに参照を更新する (推奨)\n' +
+			'     (例: bare path 表記の代わりに Markdown link 形式 `[site/pricing.html L297-301](path/to/file)` に変換するとチェック対象外になります)\n' +
 			'  2. ドキュメント全体が陳腐化しているなら冒頭に `<!-- doc-status: deprecated -->` を追加\n' +
-			'  3. 意図的に違反を増やす場合は `node scripts/check-doc-code-references.mjs --update-baseline` で baseline 更新',
+			'  3. 意図的に新規参照を追加する場合のみ `node scripts/check-doc-code-references.mjs --update-baseline` を使って baseline を更新してください',
 	);
 }
 

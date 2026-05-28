@@ -58,6 +58,7 @@ const SKIP_FLAGS = {
 	'--skip-plan-literals': 'skipPlanLiterals',
 	'--skip-lp-labels': 'skipLpLabels',
 	'--skip-pr-body': 'skipPrBody',
+	'--skip-doc-code-references': 'skipDocCodeReferences',
 	'--skip-capture': 'skipCapture',
 };
 
@@ -73,6 +74,7 @@ function parseArgs(argv) {
 		skipPlanLiterals: false,
 		skipLpLabels: false,
 		skipPrBody: false,
+		skipDocCodeReferences: false,
 		skipCapture: false,
 		help: false,
 	};
@@ -97,7 +99,7 @@ pre-ready — Ready for Review 前のローカル一括セルフチェック (Is
 
 Usage:
   npm run pre-ready -- --pr <number>
-  npm run pre-ready                                # PR 未作成時 (Step 9/10 はスキップ)
+  npm run pre-ready                                # PR 未作成時 (Step 9/11 はスキップ)
 
 Options:
   --pr <num>             GitHub PR 番号 (Step 9 PR body / mergeable 検証用)
@@ -110,7 +112,8 @@ Options:
   --skip-plan-literals   Step 7 plan/status リテラル直書き検査をスキップ (#972 / Phase 5 F1)
   --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
   --skip-pr-body         Step 9 PR body 検査をスキップ
-  --skip-capture         Step 10 capture (UI 変更時のみ) をスキップ
+  --skip-doc-code-references Step 10 デッドリンク検査をスキップ
+  --skip-capture         Step 11 capture (UI 変更時のみ) をスキップ
   --help, -h             このヘルプ
 
 Steps:
@@ -123,7 +126,8 @@ Steps:
   7.  check-no-plan-literals.mjs  — プラン / ステータスリテラル直書き検査 (#972 / Phase 5 F1 / #1918)
   8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
   9.  check-pr-body.mjs           — PR body 必須セクション / 禁止語 / AC マップ / mergeable (PR 番号必須)
-  10. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
+  10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
+  11. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
 
 Exit codes:
   0 = 全 Step PASS
@@ -216,7 +220,7 @@ function buildSteps(args, changedFiles) {
 	return [
 		{
 			name: 'biome',
-			label: 'Step 1/10: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
+			label: 'Step /11: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
 			skip: args.skipBiome,
 			// #2503 (Issue #2475 14 件目): pre-ready Step 1 は CI .github/workflows/ci.yml
 			// lint-and-test の `npx biome check --error-on-warnings .` と完全一致させる。
@@ -228,14 +232,14 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'svelte-check',
-			label: 'Step 2/10: svelte-check (TS strict)',
+			label: 'Step /11: svelte-check (TS strict)',
 			skip: args.skipSvelteCheck,
 			runner: () => run('svelte-check', ['npx', 'svelte-check', '--tsconfig', './tsconfig.json']),
 			fixHint: '  型エラー箇所を修正。`as any` / `// @ts-expect-error` の追加は禁止 (ADR-0006)。',
 		},
 		{
 			name: 'vitest',
-			label: 'Step 3/10: vitest run (unit test)',
+			label: 'Step /11: vitest run (unit test)',
 			skip: args.skipVitest,
 			runner: () => run('vitest', ['npx', 'vitest', 'run']),
 			fixHint:
@@ -244,7 +248,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'hardcoded-strings',
-			label: 'Step 4/10: check-hardcoded-strings.mjs (#1452 Phase A)',
+			label: 'Step /11: check-hardcoded-strings.mjs (#1452 Phase A)',
 			skip: args.skipHardcoded,
 			runner: () => run('check-hardcoded-strings', ['node', 'scripts/check-hardcoded-strings.mjs']),
 			fixHint:
@@ -253,7 +257,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-dimensions',
-			label: `Step 5/10: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step /11: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpDimensions || !lpChanged,
 			runner: () => run('measure-lp-dimensions', ['node', 'scripts/measure-lp-dimensions.mjs']),
 			fixHint:
@@ -264,7 +268,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-fallback',
-			label: `Step 6/10: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
+			label: `Step /11: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpFallback || !lpFallbackTrigger,
 			runner: () => run('sync-lp-fallback', ['node', 'scripts/sync-lp-fallback.mjs', '--check']),
 			fixHint:
@@ -278,8 +282,8 @@ function buildSteps(args, changedFiles) {
 		{
 			name: 'plan-literals',
 			label: planLiteralsScriptExists
-				? 'Step 7/10: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
-				: 'Step 7/10: check-no-plan-literals.mjs (script 未配備 — skip)',
+				? 'Step /11: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
+				: 'Step /11: check-no-plan-literals.mjs (script 未配備 — skip)',
 			skip: args.skipPlanLiterals || !planLiteralsScriptExists,
 			runner: () => run('check-no-plan-literals', ['node', 'scripts/check-no-plan-literals.mjs']),
 			fixHint:
@@ -294,8 +298,8 @@ function buildSteps(args, changedFiles) {
 		{
 			name: 'lp-labels',
 			label: !lpLabelsScriptExists
-				? 'Step 8/10: generate-lp-labels --check (script 未配備 — skip)'
-				: `Step 8/10: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
+				? 'Step /11: generate-lp-labels --check (script 未配備 — skip)'
+				: `Step /11: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpLabels || !lpLabelsScriptExists || !lpLabelsTrigger,
 			runner: () =>
 				run('generate-lp-labels --check', ['node', 'scripts/generate-lp-labels.mjs', '--check']),
@@ -307,8 +311,8 @@ function buildSteps(args, changedFiles) {
 		{
 			name: 'pr-body',
 			label: args.pr
-				? `Step 9/10: check-pr-body.mjs --pr ${args.pr}`
-				: 'Step 9/10: check-pr-body.mjs (--pr 未指定 — skip)',
+				? `Step 9/11: check-pr-body.mjs --pr ${args.pr}`
+				: 'Step 9/11: check-pr-body.mjs (--pr 未指定 — skip)',
 			skip: args.skipPrBody || !args.pr,
 			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
 			fixHint:
@@ -316,8 +320,18 @@ function buildSteps(args, changedFiles) {
 				'  詳細は scripts/check-pr-body.mjs --help を参照。',
 		},
 		{
+			name: 'doc-code-references',
+			label: 'Step 10/11: check-doc-code-references.mjs (#2577)',
+			skip: args.skipDocCodeReferences,
+			runner: () => run('check-doc-code-references', ['node', 'scripts/check-doc-code-references.mjs']),
+			fixHint:
+				'  ドキュメント内の実装コードパスが実在しません (デッドリンク)。\n' +
+				'  修正: bare path 表記を Markdown link 形式 `[site/pricing.html L297-301](path/to/file)` に変更するか、\n' +
+				'        意図的な追加なら `node scripts/check-doc-code-references.mjs --update-baseline` を実行してください。',
+		},
+		{
 			name: 'capture',
-			label: `Step 10/10: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step 11/11: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipCapture || !uiChanged || !args.pr,
 			runner: async () => {
 				console.log(
