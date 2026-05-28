@@ -77,6 +77,10 @@
 			"tests/e2e/a11y",
 			"tests/e2e/subscription-confirm.spec.ts"
 		],
+		"docs/design/billing-redesign/phase4-reactivation-flow-design.md": [
+			"tests/e2e/admin-reactivation-banner.spec.ts",
+			"tests/e2e/age-mode"
+		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
 		],
@@ -151,5 +155,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-28T11:47:54.634Z"
+	"generatedAt": "2026-05-28T23:33:43.052Z"
 }
