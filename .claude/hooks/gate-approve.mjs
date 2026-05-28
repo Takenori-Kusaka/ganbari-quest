@@ -144,7 +144,8 @@ export function verifyEvidence(prNumber, cwd = process.cwd()) {
 	try {
 		data = JSON.parse(readFileSync(path, 'utf8'));
 	} catch (err) {
-		return { ok: false, reason: `evidence file JSON parse fail: ${String(err.message ?? err)}` };
+		const msg = err instanceof Error ? err.message : String(err);
+		return { ok: false, reason: `evidence file JSON parse fail: ${msg}` };
 	}
 
 	if (typeof data.pr_number !== 'number' || data.pr_number !== prNumber) {
