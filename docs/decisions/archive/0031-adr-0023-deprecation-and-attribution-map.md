@@ -1,6 +1,10 @@
 # 0031. ADR-0023 廃案 + sub-Issue 7 件帰属マップ
 
-- **Status**: Accepted
+> **archived (2026-05-28)**: 本 ADR の役割 (旧 ADR-0023 sub-Issue 7 件の帰属再構成) は完了済 (sub-Issue 全件 CLOSED + 帰属 comment 配布完了 + 帰属先 ADR 0010 / 0012 / 0013 / 0025 / 0028 に統合済)。現場の常時参照ルールではなく historical record として archive へ移動。
+>
+> archive 理由: README.md §2026-05-27 棚卸の P1 課題「ADR-0031 の archive 判断 (内容が完全に統合済かの確認後)」を 1-in-1-out 履行で消化 (ADR-0056 起票と引き換え)。新規参照は ADR-0010 / 0012 / 0013 / 0025 / 0028 + 本 archive の帰属マップを SSOT として参照する。
+
+- **Status**: Accepted (archived 2026-05-28)
 - **Date**: 2026-05-01
 - **Related Issue**: #1780
 - **Supersedes**: ADR-0023 (LP マーケティングポリシー Pre-PMF / LP SSOT 注入機構 第 2 世代)
