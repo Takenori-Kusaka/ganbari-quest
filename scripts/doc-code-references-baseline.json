@@ -1,17 +1,31 @@
 {
 	"_comment": "#2240 Split A baseline (#2259 C1 で path 配列化): ドキュメント内の実装コードパス参照のうち実在しないものを path 配列で pin する。新規 path 1 件で CI fail (set diff)。Split C は Pre-PMF 過剰防衛 (ADR-0010 §3 Bucket B) として skip し、本 baseline で防衛ラインを成立させる。意図的増減時のみ --update-baseline で更新。",
 	"paths": {
-		"docs/codebase-map.md": ["site/screenshots"],
-		"docs/decisions/0011-baby-mode-as-parent-preparation.md": ["src/lib/server/marketplace"],
-		"docs/decisions/0029-lp-csp-and-cdn-sri-strategy.md": ["site/vendor"],
-		"docs/decisions/0045-terms-ssot-2-layer.md": ["scripts/check-terms-literal-leak.mjs"],
-		"docs/decisions/0046-svelte5-service-interface-context-di.md": ["src/routes/demo"],
+		"docs/codebase-map.md": [
+			"site/screenshots"
+		],
+		"docs/decisions/0011-baby-mode-as-parent-preparation.md": [
+			"src/lib/server/marketplace"
+		],
+		"docs/decisions/0029-lp-csp-and-cdn-sri-strategy.md": [
+			"site/vendor"
+		],
+		"docs/decisions/0045-terms-ssot-2-layer.md": [
+			"scripts/check-terms-literal-leak.mjs"
+		],
+		"docs/decisions/0046-svelte5-service-interface-context-di.md": [
+			"src/routes/demo"
+		],
 		"docs/decisions/0047-demo-prod-ui-contract-ssot.md": [
 			"scripts/check-no-escape-language.mjs",
 			"src/routes/demo"
 		],
-		"docs/decisions/0048-multi-lambda-demo-deployment.md": ["scripts/check-multi-lambda-cost.mjs"],
-		"docs/decisions/adr-inventory-2026-04-20.md": ["scripts/check-no-assertion-weakening.mjs"],
+		"docs/decisions/0048-multi-lambda-demo-deployment.md": [
+			"scripts/check-multi-lambda-cost.mjs"
+		],
+		"docs/decisions/adr-inventory-2026-04-20.md": [
+			"scripts/check-no-assertion-weakening.mjs"
+		],
 		"docs/decisions/archive/0019-dialog-fsm-scrap-and-rebuild.md": [
 			"src/lib/features/child-home/dialog-state-machine.test.ts"
 		],
@@ -23,7 +37,9 @@
 		"docs/decisions/archive/0042-marketplace-gender-variant-policy.md": [
 			"src/lib/data/activity-packs"
 		],
-		"docs/decisions/forbidden-escape-language.md": ["scripts/check-no-escape-language.mjs"],
+		"docs/decisions/forbidden-escape-language.md": [
+			"scripts/check-no-escape-language.mjs"
+		],
 		"docs/design/06-UI設計書.md": [
 			"site/screenshots/v2",
 			"src/lib/ui/components/OmikujiStampOverlay.svelte",
@@ -31,20 +47,31 @@
 			"tests/e2e/helpers/demo-screenshot.ts"
 		],
 		"docs/design/08-データベース設計書.md": [
-			"scripts/check-schema-migration-completeness.mjs",
 			"src/lib/features/admin/components/ArchiveBanner.svelte"
 		],
-		"docs/design/09-テスト設計書.md": ["tests/unit/services/decay-service.test.ts"],
-		"docs/design/10-SaaS展開ロードマップ.md": ["infra/cdk"],
-		"docs/design/19-プライシング戦略書.md": ["src/lib/server/services/xp-service.ts"],
-		"docs/design/21-プラン用語統一規約.md": ["src/routes/demo/signup/+page.svelte"],
-		"docs/design/24-ソフトウェアアーキテクチャ設計書.md": ["src/routes/demo"],
+		"docs/design/09-テスト設計書.md": [
+			"tests/unit/services/decay-service.test.ts"
+		],
+		"docs/design/10-SaaS展開ロードマップ.md": [
+			"infra/cdk"
+		],
+		"docs/design/19-プライシング戦略書.md": [
+			"src/lib/server/services/xp-service.ts"
+		],
+		"docs/design/21-プラン用語統一規約.md": [
+			"src/routes/demo/signup/+page.svelte"
+		],
+		"docs/design/24-ソフトウェアアーキテクチャ設計書.md": [
+			"src/routes/demo"
+		],
 		"docs/design/26-ゲーミフィケーション設計書.md": [
 			"src/lib/server/db/custom-achievement-repo.ts",
 			"src/lib/server/services/custom-achievement-service.ts",
 			"src/routes/demo"
 		],
-		"docs/design/43-ユーザーオンボーディング監査.md": ["tests/e2e/tutorial-verification.spec.ts"],
+		"docs/design/43-ユーザーオンボーディング監査.md": [
+			"tests/e2e/tutorial-verification.spec.ts"
+		],
 		"docs/design/asset-catalog.md": [
 			"site/hero-illustration.png",
 			"site/screenshots",
@@ -67,6 +94,10 @@
 			"src/routes/api/v1/admin/scheduled-change/release/+server.ts",
 			"tests/e2e/scheduled-downgrade-banner.spec.ts"
 		],
+		"docs/design/billing-redesign/phase3-subscription-confirm-tokushoho-ui-design.md": [
+			"tests/e2e/a11y",
+			"tests/e2e/subscription-confirm.spec.ts"
+		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
 		],
@@ -81,14 +112,20 @@
 			"src/lib/data/tutorial-chapters.ts",
 			"src/routes/demo/admin/packs"
 		],
-		"docs/design/marketplace-preset-activity-audit.md": ["src/lib/data/activity-packs"],
-		"docs/design/marketplace-preset-reward-audit.md": ["src/lib/ui/features/StampGallery.svelte"],
+		"docs/design/marketplace-preset-activity-audit.md": [
+			"src/lib/data/activity-packs"
+		],
+		"docs/design/marketplace-preset-reward-audit.md": [
+			"src/lib/ui/features/StampGallery.svelte"
+		],
 		"docs/design/parallel-implementations.md": [
 			"src/lib/domain/navigation.ts",
 			"src/lib/features/tutorial/tutorial-chapters.ts",
 			"src/routes/demo"
 		],
-		"docs/operations/license-key-secrets.md": ["tests/unit/server/license-key-service.test.ts"],
+		"docs/operations/license-key-secrets.md": [
+			"tests/unit/server/license-key-service.test.ts"
+		],
 		"docs/operations/notification-runbook.md": [
 			"tests/e2e/email-lifecycle.spec.ts",
 			"tests/e2e/email-marketing.spec.ts",
@@ -101,9 +138,15 @@
 			"tests/manual/trigger-marketing.mjs",
 			"tests/manual/trigger-weekly-report.mjs"
 		],
-		"docs/operations/orphan-audit-2026-05-26.md": ["scripts/hooks/gdrive-upload.cjs"],
-		"docs/operations/stripe-dashboard-runbook.md": ["src/lib/server/stripe/webhook.ts"],
-		"docs/rationale/05-textlint-prh-evaluation.md": ["scripts/lp-canonical-terms.yml"],
+		"docs/operations/orphan-audit-2026-05-26.md": [
+			"scripts/hooks/gdrive-upload.cjs"
+		],
+		"docs/operations/stripe-dashboard-runbook.md": [
+			"src/lib/server/stripe/webhook.ts"
+		],
+		"docs/rationale/05-textlint-prh-evaluation.md": [
+			"scripts/lp-canonical-terms.yml"
+		],
 		"docs/rationale/06-milestones-thresholds-rationale.md": [
 			"tests/unit/server/services/value-preview-service.test.ts"
 		],
@@ -118,7 +161,9 @@
 		"docs/reference/06b-research-marketplace-completion-supplement.md": [
 			"src/routes/api/marketplace"
 		],
-		"docs/reference/07-research-child-collapsible-prior-art.md": ["src/routes/demo"],
+		"docs/reference/07-research-child-collapsible-prior-art.md": [
+			"src/routes/demo"
+		],
 		"docs/research/2097-legacy-demo-routes-inventory.md": [
 			"src/lib/features/child-home/components/DashboardView.svelte",
 			"src/routes/demo",
@@ -139,7 +184,9 @@
 		"docs/security/security-code-review-2026-03.md": [
 			"src/lib/server/services/email-otp-service.ts"
 		],
-		"tests/CLAUDE.md": ["infra/node_modules"]
+		"tests/CLAUDE.md": [
+			"infra/node_modules"
+		]
 	},
-	"generatedAt": "2026-05-27T02:58:51.027Z"
+	"generatedAt": "2026-05-28T11:47:54.634Z"
 }
