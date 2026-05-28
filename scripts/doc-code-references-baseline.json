@@ -61,6 +61,12 @@
 			"tests/e2e/admin-header-plan-badge.spec.ts",
 			"tests/unit/components/admin-header-trial-badge.test.ts"
 		],
+		"docs/design/billing-redesign/phase3-scheduled-downgrade-banner-ui-design.md": [
+			"src/lib/features/admin/components/ScheduledDowngradeBanner.svelte",
+			"src/lib/ui/primitives/ScheduledDowngradeBanner.stories.svelte",
+			"src/routes/api/v1/admin/scheduled-change/release/+server.ts",
+			"tests/e2e/scheduled-downgrade-banner.spec.ts"
+		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
 		],
