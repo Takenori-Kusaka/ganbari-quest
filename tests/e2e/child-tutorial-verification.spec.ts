@@ -79,7 +79,8 @@ async function dismissChildHomeOverlays(page: Page) {
 		// click → handleActivityTap → confirm-dialog auto-open → helpBtn click が dialog に
 		// intercept される infinite loop が成立する (elementary tablet 全 retry fail の根本原因)。
 		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("うれしい！")'),
-		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
+		() =>
+			page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
 		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("やったね！")'),
 	];
 	for (let pass = 0; pass < 5; pass++) {
