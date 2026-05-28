@@ -83,6 +83,22 @@ export const DEFAULT_DAYS = 7;
 export const DEFAULT_BASE = 'origin/main';
 
 /**
+ * @typedef {object} MergeEntry
+ * @property {string} commit
+ * @property {string} date
+ * @property {string[]} files
+ */
+
+/**
+ * @typedef {object} CliOptions
+ * @property {string | null} prNumber
+ * @property {number} days
+ * @property {RegExp[]} ignorePatterns
+ * @property {string} base
+ * @property {boolean} help
+ */
+
+/**
  * git コマンドを実行し stdout を返す。exit code != 0 で null を返す。
  *
  * @param {string[]} args git 引数
@@ -121,13 +137,16 @@ export function getDeletedFiles(base) {
 	if (output === null) {
 		return null;
 	}
+	/** @type {string[]} */
 	const deleted = [];
 	for (const line of output.split(/\r?\n/)) {
 		if (!line) continue;
 		// 'D\tpath/to/file' 形式。rename は 'R<similarity>\told\tnew' 形式 (3 cols) で除外
 		const cols = line.split('\t');
-		if (cols.length === 2 && cols[0] === 'D') {
-			deleted.push(cols[1]);
+		const status = cols[0];
+		const filePath = cols[1];
+		if (cols.length === 2 && status === 'D' && typeof filePath === 'string') {
+			deleted.push(filePath);
 		}
 		// rename ('R100' / 'R85' 等) は skip
 	}
@@ -156,13 +175,15 @@ export function getRecentMergedFiles(base, days) {
 	if (output === null) {
 		return null;
 	}
+	/** @type {MergeEntry[]} */
 	const merges = [];
+	/** @type {MergeEntry | null} */
 	let current = null;
 	for (const line of output.split(/\r?\n/)) {
 		if (line.startsWith('__COMMIT__')) {
 			if (current) merges.push(current);
 			const [sha, date] = line.replace('__COMMIT__', '').split('|');
-			current = { commit: sha, date: date ?? '', files: [] };
+			current = { commit: sha ?? '', date: date ?? '', files: [] };
 		} else if (line && current) {
 			current.files.push(line);
 		}
@@ -180,12 +201,13 @@ export function getRecentMergedFiles(base, days) {
 		base,
 	]);
 	if (squashOutput !== null) {
+		/** @type {MergeEntry | null} */
 		let squashCurrent = null;
 		for (const line of squashOutput.split(/\r?\n/)) {
 			if (line.startsWith('__COMMIT__')) {
 				if (squashCurrent) merges.push(squashCurrent);
 				const [sha, date] = line.replace('__COMMIT__', '').split('|');
-				squashCurrent = { commit: sha, date: date ?? '', files: [] };
+				squashCurrent = { commit: sha ?? '', date: date ?? '', files: [] };
 			} else if (line && squashCurrent) {
 				squashCurrent.files.push(line);
 			}
@@ -236,9 +258,10 @@ export function findViolations(deletedFiles, recentMerges, ignorePatterns) {
  * CLI 引数を parse する。
  *
  * @param {string[]} argv process.argv.slice(2)
- * @returns {{prNumber: string|null, days: number, ignorePatterns: RegExp[], base: string, help: boolean}}
+ * @returns {CliOptions}
  */
 export function parseArgs(argv) {
+	/** @type {CliOptions} */
 	const opts = {
 		prNumber: null,
 		days: Number(process.env.RECENT_DEPLOY_CHECK_DAYS ?? DEFAULT_DAYS),
@@ -248,16 +271,21 @@ export function parseArgs(argv) {
 	};
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i];
+		const next = argv[i + 1];
 		if (arg === '--help' || arg === '-h') {
 			opts.help = true;
-		} else if (arg === '--pr' && argv[i + 1]) {
-			opts.prNumber = argv[++i];
-		} else if (arg === '--days' && argv[i + 1]) {
-			opts.days = Number(argv[++i]);
-		} else if (arg === '--ignore-pattern' && argv[i + 1]) {
-			opts.ignorePatterns.push(new RegExp(argv[++i]));
-		} else if (arg === '--base' && argv[i + 1]) {
-			opts.base = argv[++i];
+		} else if (arg === '--pr' && typeof next === 'string') {
+			opts.prNumber = next;
+			i++;
+		} else if (arg === '--days' && typeof next === 'string') {
+			opts.days = Number(next);
+			i++;
+		} else if (arg === '--ignore-pattern' && typeof next === 'string') {
+			opts.ignorePatterns.push(new RegExp(next));
+			i++;
+		} else if (arg === '--base' && typeof next === 'string') {
+			opts.base = next;
+			i++;
 		}
 	}
 	return opts;

@@ -72,11 +72,17 @@ describe('parseArgs', () => {
 			'^tmp/',
 		]);
 		expect(opts.ignorePatterns).toHaveLength(2);
-		expect(opts.ignorePatterns[0]).toBeInstanceOf(RegExp);
+		// noUncheckedIndexedAccess narrowing: assert defined before accessing .test()
+		// (ADR-0006 test code exception: non-null assert acceptable in tests for clarity)
+		const pat0 = opts.ignorePatterns[0];
+		const pat1 = opts.ignorePatterns[1];
+		expect(pat0).toBeInstanceOf(RegExp);
+		expect(pat1).toBeInstanceOf(RegExp);
+		if (!pat0 || !pat1) throw new Error('ignorePatterns[0..1] must be defined');
 		// Note: RegExp.source escapes '/' as '\/' in Node, so we test by .test() behavior
-		expect(opts.ignorePatterns[0].test('docs/decisions/archive/0031-foo.md')).toBe(true);
-		expect(opts.ignorePatterns[0].test('docs/decisions/0056-active.md')).toBe(false);
-		expect(opts.ignorePatterns[1].test('tmp/foo.md')).toBe(true);
+		expect(pat0.test('docs/decisions/archive/0031-foo.md')).toBe(true);
+		expect(pat0.test('docs/decisions/0056-active.md')).toBe(false);
+		expect(pat1.test('tmp/foo.md')).toBe(true);
 	});
 
 	it('--base origin/develop → base 差替', () => {
@@ -147,9 +153,12 @@ describe('findViolations', () => {
 		];
 		const violations = findViolations(deleted, merges, []);
 		expect(violations).toHaveLength(1);
-		expect(violations[0].file).toBe('docs/decisions/0056-qm-drift-prevention.md');
-		expect(violations[0].commit).toBe('b86181f3');
-		expect(violations[0].date).toBe('2026-05-28 10:00:00 +0900');
+		// noUncheckedIndexedAccess narrowing: assert defined before accessing properties
+		const v0 = violations[0];
+		if (!v0) throw new Error('violations[0] must be defined');
+		expect(v0.file).toBe('docs/decisions/0056-qm-drift-prevention.md');
+		expect(v0.commit).toBe('b86181f3');
+		expect(v0.date).toBe('2026-05-28 10:00:00 +0900');
 	});
 
 	// AC-2: 直近 merge file が PR diff で削除なし → exit 0
@@ -205,7 +214,10 @@ describe('findViolations', () => {
 		];
 		const violations = findViolations(deleted, merges, [/^docs\/decisions\/0031-/]);
 		expect(violations).toHaveLength(1);
-		expect(violations[0].file).toBe('scripts/check-recent-deploy-deletion.mjs');
+		// noUncheckedIndexedAccess narrowing: assert defined before accessing .file
+		const v0 = violations[0];
+		if (!v0) throw new Error('violations[0] must be defined');
+		expect(v0.file).toBe('scripts/check-recent-deploy-deletion.mjs');
 	});
 
 	// 複数 merge commit にまたがる削除も全件報告
