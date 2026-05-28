@@ -885,7 +885,7 @@ function selectChild(childId: number) {
 		font-size: 0.9rem;
 	}
 
-	/* #2558 段階2: バックアップから復元ダイアログ */
+	/* #2558 stage 2: restore-from-backup dialog (CSS comments use ASCII to satisfy local/no-hardcoded-jp-text in style blocks) */
 	.restore-dialog-desc {
 		font-size: 0.85rem;
 		color: var(--color-text-secondary);
