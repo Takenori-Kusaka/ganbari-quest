@@ -367,6 +367,59 @@ export function checkEnvDistributionForHotfix(body, labels) {
 }
 
 // ---------------------------------------------------------------------------
+// 文字化け検出 (BOM / heuristic) — #2562 / #2576
+// ---------------------------------------------------------------------------
+
+/**
+ * PR body の文字化け (BOM / `??` 連続) を検出する。
+ *
+ * 検出原因 (#2562 再発防止):
+ *   - heredoc (`gh pr create --body "$(cat <<EOF ... EOF)"`) を Windows cp932 環境で実行すると、
+ *     non-ASCII 文字が cp932 化 → GitHub 投入 → `??` mojibake / BOM 残留が発生する。
+ *   - 対応: PR body は必ず `--body-file <path>` 経由で UTF-8 file を投入する。
+ *
+ * @param {string} body
+ * @returns {{ id: string; message: string }[]}
+ */
+export function detectMojibake(body) {
+	const violations = [];
+
+	// AC-1: BOM (﻿) 検出
+	if (body.startsWith('﻿')) {
+		violations.push({
+			id: 'mojibake-bom',
+			message:
+				'PR body 冒頭に BOM (\\uFEFF) が検出されました。cp932 mojibake 由来の可能性が高いです。\n' +
+				'  原因: heredoc (`gh pr create --body "$(cat <<EOF ... EOF)"`) を Windows cp932 環境で実行した場合、\n' +
+				'        non-ASCII 文字が cp932 化されて GitHub 投入時に BOM / `??` mojibake が混入する。\n' +
+				'  対応: `--body-file` 経由で UTF-8 file を投入してください。\n' +
+				'    1. tmp/pr-bodies/<slug>.md に Write tool / `cat > ... << EOF` で UTF-8 で保存\n' +
+				'    2. `gh pr edit <pr-number> --body-file tmp/pr-bodies/<slug>.md`\n' +
+				'    3. `node scripts/check-pr-body.mjs --pr <pr-number>` で PASS 確認',
+		});
+	}
+
+	// AC-2: `??` のヒューリスティック検出 (閾値: 10件以上)
+	const questionMarks = body.match(/\?\?/g) ?? [];
+	if (questionMarks.length >= 10) {
+		violations.push({
+			id: 'mojibake-heuristic',
+			message:
+				`PR body 内に \`??\` が ${questionMarks.length} 件 (閾値 10 件以上) 検出されました。` +
+				`cp932 mojibake の疑いがあります。\n` +
+				'  原因: heredoc (`gh pr create --body "$(cat <<EOF ... EOF)"`) を Windows cp932 環境で実行した場合、\n' +
+				'        non-ASCII 文字が cp932 化されて GitHub 投入時に `??` mojibake が混入する。\n' +
+				'  対応: `--body-file` 経由で UTF-8 file を投入してください。\n' +
+				'    1. tmp/pr-bodies/<slug>.md に Write tool / `cat > ... << EOF` で UTF-8 で保存\n' +
+				'    2. `gh pr edit <pr-number> --body-file tmp/pr-bodies/<slug>.md`\n' +
+				'    3. `node scripts/check-pr-body.mjs --pr <pr-number>` で PASS 確認',
+		});
+	}
+
+	return violations;
+}
+
+// ---------------------------------------------------------------------------
 // mergeable: CONFLICTING 事前検知（GitHub API）
 // ---------------------------------------------------------------------------
 
@@ -536,6 +589,7 @@ Detected violations:
   4. Ready for Review / 完了チェックリストの未チェック残置
   5. PR が CONFLICTING (--pr 指定時)
   6. hotfix label PR (${HOTFIX_LABELS.join(' / ')}) で ADR-0006 配布証跡欄が空 (#2343)
+  7. PR body の文字化け (BOM / \`??\` 10 件以上) — heredoc 由来 cp932 mojibake (#2562 / #2576)
 
 Exit codes:
   0 = OK
@@ -639,6 +693,12 @@ function collectViolations(body, requiredSections, args) {
 	// #2343: hotfix label PR の配布証跡欄強化チェック
 	const hotfixEnvCheck = checkEnvDistributionForHotfix(body, labels);
 	if (hotfixEnvCheck) violations.push({ ...hotfixEnvCheck, issue: '#2343' });
+
+	// #2562 / #2576: PR body 文字化け検出 (BOM / `??` heuristic)
+	const mojibake = detectMojibake(body);
+	for (const m of mojibake) {
+		violations.push({ ...m, issue: '#2562/#2576' });
+	}
 
 	return violations;
 }

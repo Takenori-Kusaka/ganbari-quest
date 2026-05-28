@@ -116,11 +116,29 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 
 ## ステップ 4: Draft PR 起票 → CI 通過後 Ready 化
 
+### PR body 作成ルール (`--body-file` 経由必須、heredoc 禁止) — #2562 / #2576
+
+**PR body は必ず `--body-file <path>` 経由で UTF-8 file を投入すること**。以下は禁止:
+
+| 禁止 pattern | 理由 |
+|---|---|
+| `gh pr create --body "$(cat <<'EOF' ... EOF)"` (heredoc inline) | Windows cp932 環境で non-ASCII 文字が cp932 化 → GitHub 投入時に BOM (﻿) / `??` mojibake が混入する (#2562 実観測、3 ラウンド再発) |
+| `gh pr edit <N> --body "..."` (inline string with non-ASCII) | 同上、PowerShell / cmd.exe からも cp932 経路で mojibake する |
+| Web UI コピペ後の `--body "..."` 投入 | エディタによっては BOM が残るため、`tmp/` ファイル経由を経て中身確認すること |
+
+**正しい運用**:
+1. PR body を `tmp/pr-bodies/<num>-<slug>.md` に `Write` tool / `cat > ... << 'EOF'` で **UTF-8 で** 保存
+2. `gh pr create --draft --body-file tmp/pr-bodies/<num>-<slug>.md` または `gh pr edit <N> --body-file tmp/pr-bodies/<num>-<slug>.md`
+3. `node scripts/check-pr-body.mjs --pr <N>` で BOM / `??` mojibake 不在を verify (#2576 で `detectMojibake` ガード追加)
+4. 完了後 `rm tmp/pr-bodies/<num>-<slug>.md` (一時ファイル、#1804)
+
+`scripts/check-pr-body.mjs` は BOM 検出 (`mojibake-bom`) と `??` 10 件以上検出 (`mojibake-heuristic`) で exit 1。CI gate (`pre-ready` Step 6/7) が同 script を呼ぶため heredoc 起因 mojibake は Ready 化前に必ず止まる。
+
 ```bash
 # gh アカウント確認 (ADR-0022 / #1728)
 node scripts/check-gh-account-before-pr.mjs
 
-# Draft PR 起票（`--body-file` 必須、#1172 / [Skill: issue-triage SSOT](../issue-triage/SKILL.md) §「`--body-file` 運用」）
+# Draft PR 起票（`--body-file` 必須、#1172 / #2562 / #2576 / [Skill: issue-triage SSOT](../issue-triage/SKILL.md) §「`--body-file` 運用」）
 gh pr create --draft \
   --title "<type>: #<num> <subject>" \
   --body-file tmp/pr-bodies/<num>-<slug>.md

@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	checkAcMap,
 	checkEnvDistributionForHotfix,
+	detectMojibake,
 	extractAcMapSection,
 	extractEnvDistributionSection,
 	extractRequiredSections,
@@ -328,5 +329,43 @@ describe('findUncheckedReadyChecklist (#1481)', () => {
 - [x] C
 `;
 		expect(findUncheckedReadyChecklist(body)).toEqual([]);
+	});
+});
+
+describe('detectMojibake (#2562 / #2576)', () => {
+	it('AC-1: BOM (\\uFEFF) が冒頭にある body を検出する', () => {
+		const body = '﻿## タイトル\n本文';
+		const result = detectMojibake(body);
+		expect(result).toHaveLength(1);
+		expect(result[0]?.id).toBe('mojibake-bom');
+		expect(result[0]?.message).toMatch(/--body-file/);
+	});
+
+	it('AC-2: `??` が 10 件以上含まれる body を検出する', () => {
+		const body = '文字化けして ???????????????????? になりました';
+		const result = detectMojibake(body);
+		expect(result).toHaveLength(1);
+		expect(result[0]?.id).toBe('mojibake-heuristic');
+		expect(result[0]?.message).toMatch(/--body-file/);
+	});
+
+	it('AC-1 + AC-2 両方含まれる body は両方検出する', () => {
+		const body = '﻿文字化け ????????????????????';
+		const result = detectMojibake(body);
+		expect(result).toHaveLength(2);
+		expect(result.some((r) => r.id === 'mojibake-bom')).toBe(true);
+		expect(result.some((r) => r.id === 'mojibake-heuristic')).toBe(true);
+	});
+
+	it('境界値: `??` が 9 件 (閾値 10 未満) の body は検出しない', () => {
+		const body = '????????? ← 9 個だけ';
+		const result = detectMojibake(body);
+		expect(result).toHaveLength(0);
+	});
+
+	it('正常な日本語テキストは検出しない (BOM 無し / `??` 2 件)', () => {
+		const body = '正常なテキストです。?? は 2 個だけ。本当に？？';
+		const result = detectMojibake(body);
+		expect(result).toHaveLength(0);
 	});
 });
