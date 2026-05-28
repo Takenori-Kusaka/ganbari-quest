@@ -54,13 +54,13 @@
 
 | # | 既存実装 (file:line) | 本要件 | 扱い |
 |---|---|---|---|
-| 1 | createCheckoutSession (stripe-service.ts:66-101) / webhook SSOT fulfillment (:245-303) / customer 紐づけ / 4 Price 構成 (config.ts:39-70) | 維持 | ✅ 実装済み |
+| 1 | createCheckoutSession (`src/lib/server/services/stripe-service.ts`:43-105) / webhook SSOT fulfillment (handleCheckoutCompleted `src/lib/server/services/stripe-service.ts`:245-303) / customer 紐づけ / 4 Price 構成 (`src/lib/server/stripe/config.ts`:39-70) | 維持 | ✅ 実装済み |
 | 2 | priceId リテラル依存 (config.ts 環境変数直読) | lookup_key 参照 | **変更** (FR-1、Stripe Dashboard 設定も) |
 | 3 | success ページ「準備中」+ polling なし | 準備中表示 + session status polling | **新規実装** (FR-6、Phase 3 UI) |
 | 4 | `checkout.session.async_payment_succeeded/failed` 購読なし (現状 completed/invoice.paid/payment_failed のみ) | 購読追加 | **新規** (NFR-3) |
-| 5 | ライセンスキー発行 (handleCheckoutCompleted stripe-service.ts:267-296) | **撤去** (license key 廃止) | **削除** (領域 12 連動) |
+| 5 | ライセンスキー発行 (handleCheckoutCompleted `src/lib/server/services/stripe-service.ts`:267-296) | **撤去** (license key 廃止) | **削除** (領域 12 連動) |
 
-**影響範囲**: 実装は Phase 6/7。lookup_key は Stripe Dashboard 設定連動。ライセンスキー発行ブロック撤去は領域 12 (#2514) と連動。
+**影響範囲**: 実装は Phase 6/7。lookup_key は Stripe Dashboard 設定連動。ライセンスキー発行ブロック撤去は領域 12 (#2514) と連動。`src/lib/server/services/stripe-service.ts` の関数位置: createCheckoutSession=L43 / handleCheckoutCompleted=L245 (verified 2026-05-28)。
 
 ## 根拠 (primary source)
 
