@@ -134,6 +134,37 @@ ADR-0056 系列の全 machine-verify gate (Adversarial Reviewer hook / recent-de
 
 両方を実装する。**第 4 弾 deploy** (#2618) = 機構運用層 self-defense 第一例。今後同種 gate 追加時も両層実装を default 化する。
 
+## §E. Persona Drift §C fallback 経路自動化 (#2632、2026-05-29 追記)
+
+ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不可環境での QM 自筆 fallback を許可する設計だが、本日 (2026-05-29) 観察で **subagent dispatch 可能環境でも Persona Drift 発生** が 4 連続で実証された:
+
+| PR | Drift 現象 |
+|---|---|
+| **#2613 RR #4** | subagent が evidence を agent worktree 内のみに生成、main repo に転送されず QM が探索失敗 |
+| **#2625** | subagent が「QM Orchestrator に approve action 進行可を報告」のみで停止、QM action 不実行で stuck |
+| **#2629** | 同上 (subagent 報告 → QM action skip) |
+| **#2630** | 同上 + subagent が `must_object_count: 3` schema を満たすが evidence file が `tmp/adversarial-evidence/` 直下でなく subagent worktree 配下 |
+
+42 回再発の延長線上で、**subagent dispatch を成功させても evidence 流通 / action 接続点で drift する**ことが判明。
+
+### 対策 (構造化)
+
+1. **evidence 配置 SSOT**: `tmp/adversarial-evidence/<pr>.json` は **main repo 直下** 必須 (subagent worktree 内のみは NG)。Adversarial Reviewer skill instruction で「main repo 絶対パスで Write すること」を明示
+2. **QM 自身が evidence 存在 verify**: subagent dispatch 後、必ず `ls tmp/adversarial-evidence/<pr>.json` で物理存在確認。不在なら §C fallback (QM 自筆) を即実行 (subagent 再 dispatch ループに陥らない)
+3. **approve action 責務明確化**: QM Orchestrator が approve + auto-merge SET を必ず**自分で実行**する (subagent に委ねない)。subagent は evidence 生成までが責務 (action 実行は QM 専権)
+4. **`scripts/verify-adversarial-output.mjs` の TTL 厳格化候補**: 現状 TTL 30 分超過時 warning text のみで exit 0、Persona Drift 観察を踏まえ TTL 切れ時 exit 1 に厳格化する案 (別 follow-up Issue 起票判断、本 ADR §E では SSOT 明示のみ)
+
+### 一般化原則: subagent ≠ QM (役割分離 SSOT)
+
+- **subagent (Adversarial Reviewer)**: evidence 生成 (反対理由 3 件 structured JSON) が責務、approve action 不可
+- **QM Orchestrator**: subagent 起動 → evidence verify → approve action 実行が責務、evidence 生成不可 (Echoing 抑制)
+
+両者を混同すると drift が再発する (subagent が approve action を肩代わり / QM が evidence 生成を肩代わりで bias)。本 §E は ADR-0056 §B (採用案) の運用層で「役割分離 SSOT」を明示する補強。
+
+### #2632 統合 (Ready 化前 5 項目 SSOT)
+
+本 §E と並行で Dev Agent 側にも `Ready 化前 5 項目 SSOT` を明示 (`docs/sessions/dev-session.md` + `.claude/skills/dev-open-pr/SKILL.md`)。Persona Drift が QM 側で発生してもなお Dev 側で `pre-ready -- --pr <N>` PASS が verify されていれば、QA Tier 2 Review (BLOCK 列挙工程) の発生回数自体が減り QM 本質判定時間が確保される (defense in depth 第 3 層)。
+
 ## 関連
 
 - **Research SSOT**: [docs/research/qm-drift-prevention-2026-05-28.md](../research/qm-drift-prevention-2026-05-28.md)
@@ -141,4 +172,5 @@ ADR-0056 系列の全 machine-verify gate (Adversarial Reviewer hook / recent-de
 - **ADR-0022**: admin bypass 禁止 + ganbariquestsupport-lab QM Approve 体制 (本 ADR はその QM 役を補強)
 - **ADR-0010**: Pre-PMF スコープ判断 (本 ADR は Bucket A — 本日 #2588 実観察 defect への直接対処)
 - **#2618 (§D 起票元)**: Fix Agent gate 実行時の worktree HEAD verify bypass 脆弱性 (QA self-implement 第 4 弾、2026-05-29 deploy)
+- **#2632 (§E 起票元)**: pre-ready CLI Ready checklist gate 統合 + Persona Drift §C fallback 自動化 (QA self-implement 第 5 弾、2026-05-29 deploy)
 - **archive**: ADR-0031 (1-in-1-out 履行で本 PR で archive 移動)

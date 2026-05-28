@@ -444,3 +444,118 @@ describe('checkAcMap error message (#2586)', () => {
 		expect(msg).toMatch(/#2599/);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// #2632: Readiness gate 統合検証 (Ready checklist + AC 4 列 + forbidden-terms)
+// QA self-implement 第 5 弾。本日 (2026-05-29) 7 連続再発の構造的予防。
+// 既存 unit (findUncheckedReadyChecklist / checkAcMap / scanForbiddenTerms) は単独テスト済。
+// 本 describe では「Readiness gate として 3 検査が同一 body に対して整合的に動く」ことを統合的に verify。
+// pre-ready.mjs Step 9 ラベル変更 (label: 'Readiness gate ...') 整合の dogfood test 群。
+// ---------------------------------------------------------------------------
+
+describe('#2632 Readiness gate 統合 (Ready checklist + AC 4 列 + forbidden-terms)', () => {
+	const READY_PASS_BODY = `
+## Ready for Review チェックリスト
+
+- [x] 実装完了
+- [x] QA 承認・動作確認が完了している
+- [x] pre-ready 全 step PASS
+
+## AC 検証マップ (ADR-0004)
+
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---------|--------|---------|------------------|
+| AC1 | pre-ready Step 9 強化 | npx vitest run tests/unit/scripts/check-pr-body.test.ts | HEAD abc1234 / dogfood PASS |
+| AC2 | SKILL.md prelude 追加 | node scripts/check-pr-body.mjs --body-file | dogfood PASS |
+`;
+
+	it('AC1: Ready checklist 全 [x] + AC 4 列 + 禁止語 0 の body は 3 検査すべて pass (#2632 dogfood)', () => {
+		const body = READY_PASS_BODY;
+		expect(findUncheckedReadyChecklist(body)).toEqual([]);
+		expect(checkAcMap(body)).toBeNull();
+		expect(scanForbiddenTerms(body)).toEqual([]);
+	});
+
+	it('AC2: Ready checklist 1 件 [ ] 残置で Readiness gate BLOCK (本日 #2625 / #2630 再発 pattern)', () => {
+		const body = `
+## Ready for Review チェックリスト
+
+- [x] 実装完了
+- [ ] QA 承認・動作確認が完了している
+`;
+		const result = findUncheckedReadyChecklist(body);
+		expect(result).toHaveLength(1);
+		expect(result[0]?.uncheckedCount).toBe(1);
+	});
+
+	it('AC3: AC 検証マップ 2 列簡略形式は BLOCK (本日 #2626 再発 pattern)', () => {
+		const body = `
+## AC 検証マップ (ADR-0004)
+
+| AC | 結果 |
+|-----|------|
+| AC1 | PASS |
+
+## 次
+`;
+		const result = checkAcMap(body);
+		expect(result?.id).toBe('ac-map-incomplete');
+	});
+
+	it('AC4: forbidden-terms (「予定」「follow-up」「TODO」等) 混入で BLOCK', () => {
+		const body = `
+## 補足
+
+実装は予定通り完遂。
+follow-up は別 PR で対応。
+TODO: 後日テスト追加。
+`;
+		const violations = scanForbiddenTerms(body);
+		expect(violations.length).toBeGreaterThanOrEqual(3);
+		const detectedTerms = new Set(violations.map((v) => v.term));
+		expect(detectedTerms.has('予定')).toBe(true);
+		expect(detectedTerms.has('follow-up')).toBe(true);
+		expect(detectedTerms.has('TODO')).toBe(true);
+	});
+
+	it('AC5: 同一 body に 3 違反共存時、全検査が独立して BLOCK 返す (gate 整合性)', () => {
+		const body = `
+## Ready for Review チェックリスト
+
+- [ ] 未完了
+- [ ] QA 承認・動作確認が完了している
+
+## AC 検証マップ (ADR-0004)
+
+| AC | 結果 |
+|-----|------|
+| AC1 | PASS |
+
+## 補足
+
+予定通り進行中。
+
+## 次
+`;
+		// 全 3 検査が独立して BLOCK 検出
+		const unchecked = findUncheckedReadyChecklist(body);
+		expect(unchecked.length).toBeGreaterThanOrEqual(1);
+		expect(unchecked[0]?.uncheckedCount).toBe(2);
+
+		const acResult = checkAcMap(body);
+		expect(acResult?.id).toBe('ac-map-incomplete');
+
+		const forbidden = scanForbiddenTerms(body);
+		expect(forbidden.length).toBeGreaterThanOrEqual(1);
+		expect(forbidden.some((v) => v.term === '予定')).toBe(true);
+	});
+
+	it('AC6: dogfood — 本 PR (#2632) の AC 4 列形式雛形が gate PASS する', () => {
+		// 本 PR 自身が新 gate を満たすことの dogfood 検証 (self-implement 第 5 弾、AC3)
+		const body = READY_PASS_BODY;
+		// 3 検査すべて null / 空配列 = PASS
+		expect(findUncheckedReadyChecklist(body)).toEqual([]);
+		expect(checkAcMap(body)).toBeNull();
+		expect(scanForbiddenTerms(body)).toEqual([]);
+	});
+});
