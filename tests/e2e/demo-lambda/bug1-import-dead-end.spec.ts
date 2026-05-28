@@ -15,7 +15,7 @@
 //     正規 ActionResult (`{ type: 'success', status: 200, data: devalue({demo:true}) }`) を返す
 //   - UI は `d.demo === true` を検出し「デモではお試し用です」feedback + state 反映
 //
-// #2558 段階2 retarget: admin/activities 内のマーケットプレイス風ブラウズ UI を撤去し
+// #2558 段階2 — 検証対象切替: admin/activities 内のマーケットプレイス風ブラウズ UI を撤去し
 //   /marketplace への画面遷移に一本化したため、本 spec の検証対象を、UnifiedImportHub の
 //   in-page browse UI を継続使用する `/admin/checklists` に振り替えた (同じ demo no-op response
 //   形式 + 同じ UnifiedImportHub component の dead-end を検証する。`marketplace-preset-import-*`
