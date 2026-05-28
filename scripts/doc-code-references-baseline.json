@@ -31,7 +31,6 @@
 			"tests/e2e/helpers/demo-screenshot.ts"
 		],
 		"docs/design/08-データベース設計書.md": [
-			"scripts/check-schema-migration-completeness.mjs",
 			"src/lib/features/admin/components/ArchiveBanner.svelte"
 		],
 		"docs/design/09-テスト設計書.md": ["tests/unit/services/decay-service.test.ts"],
@@ -66,6 +65,10 @@
 			"src/lib/ui/primitives/ScheduledDowngradeBanner.stories.svelte",
 			"src/routes/api/v1/admin/scheduled-change/release/+server.ts",
 			"tests/e2e/scheduled-downgrade-banner.spec.ts"
+		],
+		"docs/design/billing-redesign/phase3-subscription-confirm-tokushoho-ui-design.md": [
+			"tests/e2e/a11y",
+			"tests/e2e/subscription-confirm.spec.ts"
 		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
@@ -141,5 +144,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-27T02:58:51.027Z"
+	"generatedAt": "2026-05-28T11:47:54.634Z"
 }
