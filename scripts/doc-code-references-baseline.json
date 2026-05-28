@@ -57,6 +57,10 @@
 			"src/lib/domain/authorization/capabilities.ts",
 			"src/lib/domain/authorization/evaluation-context.ts"
 		],
+		"docs/design/billing-redesign/phase3-admin-header-ui-design.md": [
+			"tests/e2e/admin-header-plan-badge.spec.ts",
+			"tests/unit/components/admin-header-trial-badge.test.ts"
+		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
 		],
