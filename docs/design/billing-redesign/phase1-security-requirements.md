@@ -56,6 +56,17 @@
 | 3 | cancellation_reason 自由記述の自社保持期間 | #2538 で 90日確定済 |
 | 4 | IP allowlist 将来再評価トリガ | PMF 後・不正 webhook 観測時に ADR で再評価、推奨で確定 |
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | tenantId サーバ側取得 (`src/routes/api/stripe/checkout/+server.ts`:29) / owner-parent 認可 (`src/routes/api/stripe/checkout/+server.ts`:24-26) / 署名検証 (`src/routes/api/stripe/webhook/+server.ts`:24-32) / metadata に PII なし | 維持 | ✅ 実装済み |
+| 2 | webhook tenant 再検証なし (metadata tenantId をそのまま信頼 `src/lib/server/services/stripe-service.ts`:246、handleCheckoutCompleted=L245 の内側) | サーバ側で tenant 対応を再検証してから権限付与 | **新規構築** (FR-2) |
+| 3 | webhook 冪等性 (event.id dedup) なし | event.id 冪等性 | **新規構築** (NFR-1、DB table。dunning と共用) |
+| 4 | plan を client metadata planId で信頼 (`src/lib/server/services/stripe-service.ts`:257、handleCheckoutCompleted=L245 の内側) | webhook 由来の自社 DB を SSOT | **変更** (FR-7) |
+
+**影響範囲**: webhook 冪等性 DB は dunning (#2537) と共用。実装は Phase 6/7。既存の認可境界・署名検証・PII 非保存は維持。関数位置は 2026-05-28 検証済 (handleCheckoutCompleted=L245)。
+
 ## 根拠 (primary source)
 
 - Stripe webhooks (署名検証/replay/冪等) / security guide (HTTPS mandatory・IP allowlist recommended) / metadata (PII 保存禁止) / カード情報保管ガイド (PCI 最小化)

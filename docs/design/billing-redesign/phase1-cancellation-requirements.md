@@ -9,7 +9,7 @@
 ## 既存実装で大部分充足済み
 
 - `account-deletion-flow.md §0` で **解約 ≠ 退会の区別は SSOT 化済み**
-- `cancellation-service.ts` で **3分類 + 自由記述 (全プラン必須)** 実装済み (ADR-0012 引き止め UI 出さない意図明記)
+- `src/lib/server/services/cancellation-service.ts` で **3分類 + 自由記述 (全プラン必須)** 実装済み (ADR-0012 引き止め UI 出さない意図明記)
 - 退会猶予 (free 即時/standard 7日/family 30日) 既存。retention (ADR-0049: free 90日/standard 1年/family 無制限) は別軸
 
 → 新規決定は主に Open question (PO 判断) のみ。要件自体は Stripe 公式・日本法令と整合、大きな再設計は不要。
@@ -64,8 +64,18 @@
 | 4 | 解約理由収集のタイミング | ✅ PO 確定 2026-05-27: **解約確定後に任意収集 (skip 可)**。既存「必須」から変更。特商法リスク回避 + churn データ両立 |
 | 5 | 退会時に有料期間残の扱い | 退会前に解約を促す警告 (引き止めにならない範囲)、推奨で確定 |
 
+## 既存実装の現状と変更点 (delta、2026-05-28 補強)
+
+| # | 既存実装 (file:line) | 本要件 | 扱い |
+|---|---|---|---|
+| 1 | cancellation-service 3分類+自由記述 (`src/lib/server/services/cancellation-service.ts`:51-87、submitCancellationReason=L51) / cancelSubscription 冪等 (`src/lib/server/services/stripe-service.ts`:165-207、cancelSubscription=L165) / Portal (`src/routes/api/stripe/portal/+server.ts`) | 骨格維持 | ✅ 実装済み |
+| 2 | **即時キャンセルのみ** (`stripe.subscriptions.cancel`) | **期末解約** (cancel_at_period_end=true) | **変更** (FR-1) |
+| 3 | 解約理由 **必須** (呼び出し側で強制) | 解約確定後に**任意収集 (skip 可)** | **変更** (FR-4) |
+
+**影響範囲**: 解約猶予 (grace-period-service standard 7日) は読み取り専用猶予で別概念、変更なし。実装は Phase 6/7。関数位置は 2026-05-28 検証済。
+
 ## 根拠 (primary source)
 
 - Stripe cancel / configure-portal (cancel_at_period_end 推奨、無返金デフォルト、retention coupon OFF)
 - 日本法令: 消費者契約法 第3条 (令和5年6月施行、解除権情報提供 努力義務) / 特商法 (令和4年、最終確認画面 解約方法明示義務・ダークパターン規制)
-- 既存: account-deletion-flow.md §0/§4/§5 / cancellation-service.ts / ADR-0049 / ADR-0012 / ADR-0013
+- 既存: account-deletion-flow.md §0/§4/§5 / `src/lib/server/services/cancellation-service.ts` / ADR-0049 / ADR-0012 / ADR-0013
