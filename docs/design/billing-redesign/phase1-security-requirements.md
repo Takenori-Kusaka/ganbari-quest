@@ -56,6 +56,10 @@
 | 3 | cancellation_reason 自由記述の自社保持期間 | #2538 で 90日確定済 |
 | 4 | IP allowlist 将来再評価トリガ | PMF 後・不正 webhook 観測時に ADR で再評価、推奨で確定 |
 
+## 関連 (2026-05-28 補強)
+
+- [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename / コンポーネント / atom 影響範囲 308+218+450 件
+
 ## 既存実装の現状と変更点 (delta、2026-05-28 補強)
 
 | # | 既存実装 (file:line) | 本要件 | 扱い |

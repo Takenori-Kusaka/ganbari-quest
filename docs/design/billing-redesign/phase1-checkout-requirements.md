@@ -50,6 +50,10 @@
 | 4 | トライアル→有料化の動線文言 | standard も併置 (family 固定 trial 後のダウンセル経路) | トライアル要件と整合、確定 |
 | 5 | 年額の解約・日割り扱い | — | **解約孫 #2536 で確定** (Phase 1 早期に PO 判断要) |
 
+## 関連 (2026-05-28 補強)
+
+- [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename / コンポーネント / atom 影響範囲 308+218+450 件
+
 ## 既存実装の現状と変更点 (delta、2026-05-28 補強)
 
 | # | 既存実装 (file:line) | 本要件 | 扱い |

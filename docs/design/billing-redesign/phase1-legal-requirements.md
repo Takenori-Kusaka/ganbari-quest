@@ -62,6 +62,10 @@ Stripe Checkout は 5 項目のうち①②③④を自動表示できるが、*
 | 4 | 最終確認画面の実装方式 (Stripe Checkout vs 自前) | Phase 3 UI / Phase 5 アーキで確定 (法務要件は「5項目1画面」充足) |
 | 5 | lifetime 購入者の経過措置 | **既存ユーザーゼロ → 不要** |
 
+## 関連 (2026-05-28 補強)
+
+- [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename / コンポーネント / atom 影響範囲 308+218+450 件 (法務文書「ライセンス」言及あれば「サブスクリプション」/「プラン」置換)
+
 ## 根拠 (primary source)
 
 - 特商法 第12条の6 (最終確認画面 5 項目、令和4年6月施行) / 消費者庁 申込み段階表示ガイドライン

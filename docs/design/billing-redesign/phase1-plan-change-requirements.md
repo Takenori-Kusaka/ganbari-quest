@@ -59,6 +59,10 @@
 | 4 | ダウングレード期末適用中の UI 表示 | 「○月○日に standard に変わります / member ○人アーカイブ」を PlanStatusCard に (Phase 3) |
 | 5 | 年→月ダウン時の年額割引 credit | Stripe 既定 (次回充当) で十分。解約孫 #2536 と連動 |
 
+## 関連 (2026-05-28 補強)
+
+- [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename / コンポーネント (SaasLicensePanel → SaasSubscriptionPanel) / atom 影響範囲 308+218+450 件
+
 ## 根拠 (primary source)
 
 - Stripe upgrade-downgrade / prorations / configure-portal / mixed-interval / subscription-schedules (proration 方向・Portal 期末ダウン制約・interval 変更)

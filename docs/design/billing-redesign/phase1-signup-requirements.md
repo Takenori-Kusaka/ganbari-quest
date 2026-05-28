@@ -55,6 +55,10 @@
 2. PIPC 3 年見直し (子供データ責務強化、閾値 16 歳案) の将来対応 (要件に「保護者同意を明示記録」と織り込み済)
 3. 越境移転同意文言が PIPC §28 を満たすかの法務レビュー (法務孫 #2541 で扱う)
 
+## 関連 (2026-05-28 補強)
+
+- [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename / コンポーネント / atom 影響範囲 308+218+450 件
+
 ## 根拠 (primary source)
 
 - AWS Cognito signup: docs.aws.amazon.com/cognito/latest/developerguide/signing-up-users-in-your-app.html

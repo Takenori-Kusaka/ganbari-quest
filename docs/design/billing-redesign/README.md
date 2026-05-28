@@ -17,7 +17,7 @@
 - **account-first** (signup → login → checkout) / **webhook が権限付与 SSOT** / **任意タイミングトライアル**
 - 詳細: [billing-redesign-policy.md](billing-redesign-policy.md)
 
-## 10 機能領域の要件 (索引)
+## 10 機能領域 + 1 補強 要件 (索引)
 
 | 機能領域 | 孫 issue | 主要確定事項 | ファイル |
 |---|---|---|---|
@@ -31,6 +31,7 @@
 | NUC | #2539 | 完全無料 OSS・信頼ベース(DRM なし)・family 固定 | [nuc](phase1-nuc-requirements.md) |
 | セキュリティ | #2540 | webhook tenant 再検証・認可境界・PII/PCI 最小化・過剰防衛除外 | [security](phase1-security-requirements.md) |
 | 法務 | #2541 | キー言及削除・特商法最終確認画面5項目・tokushoho 改訂・トライアル後自動課金なし整合 | [legal](phase1-legal-requirements.md) |
+| **URL/命名/用語の意味的整合性** (補強 2026-05-28) | #2526 補強 | `/admin/license` → `/admin/subscription` rename / 完全置換型 / `SUBSCRIPTION_*_TERMS` 新規不要 / 既存 atom (PLAN/PRICE/TRIAL/CANCEL) 流用 / 影響範囲 308 件 URL + 218 件 atom + 450 件 JP | [naming-url-integrity](phase1-naming-url-integrity-requirements.md) |
 
 ## Phase 2 — UX ジャーニーマップ (7 ジャーニー索引)
 
@@ -76,7 +77,11 @@
 
 ## Phase 3-7 への接続
 
-- **Phase 3 (UI, #2528)** / **Phase 4 (動線, #2529)** / **Phase 5 (アーキ, #2530)** / **Phase 6 (実装詳細, #2514)** / **Phase 7 (実装, #2531)**
+- **Phase 3 (UI, #2528)**: 新 URL/コンポーネント名 (`SubscriptionPanel` 等) 前提で UI 設計。子 issue #2567-2575 (現在 Phase 1+2 補強完了まで中断)
+- **Phase 4 (動線, #2529)**: ⭐ **URL rename 本拠地**。`/admin/license` → `/admin/subscription` の IA / LEGACY_URL_MAP / 動線確定。Phase 1 補強要件 (naming-url-integrity) を実装計画に落とし込む
+- **Phase 5 (アーキ, #2530)**: labels.ts / atom SSOT 設計確定 (`SUBSCRIPTION_*_TERMS` 新規不要、既存 atom 流用)
+- **Phase 6 (実装詳細, #2514)**: 機械置換 28 件の手順 + 文脈判断 6 件の確定 (`AUTH_LICENSE_STATUS` / `LICENSE_PLAN` enum 改名是非 / `/ops/license/*` 改名是非)
+- **Phase 7 (実装, #2531)**: 一括 rename PR + LEGACY_URL_MAP entry 追加 + tests
 
 ## 横断確定事項
 
