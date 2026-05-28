@@ -256,21 +256,44 @@ export const PLAN_CHANGE_TERMS = {
   changeVerb: 'プランを変更',     // 「アップグレード」「ダウングレード」煽り回避で統一
   archive: 'アーカイブ',
   restore: '復活',
-  protected: '保護されています',  // 「失う」「消える」を排除
-  resumeReady: 'いつでも復活できます',
+  // protected は plan 別 variant (ADR-0049 retention 物理削除整合、景表法 5 条不当表示回避)
+  // - free plan: 90 日間 archived 保持後物理削除 → 「期限内に課金切替で復活可能」訴求 (誤認防止)
+  // - paid plan: 永続保持 → 「いつでも復活できます」訴求 (Notion / Calendly 業界標準整合)
+  protectedFree: '90 日間アーカイブとして保持されます',
+  protectedPaid: '保護されています',  // 永続保持時のみ「保護」訴求 (誤認防止)
+  resumeReadyFree: '期限内にプラン切替で復活可能です',
+  resumeReadyPaid: 'いつでも復活できます',
+  // 後方互換 alias: 旧文言を使う既存 atom 経路は paid 版を fallback として参照
+  protected: '保護されています',     // = protectedPaid alias、free 文脈では未使用
+  resumeReady: 'いつでも復活できます', // = resumeReadyPaid alias、free 文脈では未使用
 } as const
 ```
+
+**ADR-0049 retention 整合 (景表法 5 条不当表示回避、QM Tier 2 Re-Review #2614 反映)**:
+
+ADR-0049「プラン別履歴保持期間ポリシー」で free plan archived データは **90 日経過後物理削除**対象に拡張された (2026-05-19)。一方、paid plan (standard / family / 旧 premium) では archived データは subscription 継続中は永続保持。文言を plan 別に分岐させずに「削除されません」「いつでも復活できます」と単一表現すると、free plan ユーザに対して 90 日経過後の物理削除という事実を伝達できず、**景表法 5 条 1 号 (優良誤認表示) のリスク**が発生する。本 atom 設計で `protectedFree` / `protectedPaid` / `resumeReadyFree` / `resumeReadyPaid` の 4 variant を提供し、Phase 7 実装時に `+layout.server.ts` から渡される `planTier` / `archivedSummary.retentionDaysRemaining` に応じて compound 側で適切な variant を選択する。
 
 ### labels.ts compound 新規追加 (Phase 7 実装時)
 
 ```ts
 // src/lib/domain/labels.ts 追加
+// PlanRetentionContext は +layout.server.ts から渡される { planTier, retentionDaysRemaining }
+// (planTier === 'free' ? protectedFree : protectedPaid) を compound 側で分岐選択する
+type PlanRetentionContext = {
+  planTier: 'free' | 'standard' | 'family'
+  retentionDaysRemaining?: number  // free のみ存在、ADR-0049 90 日カウントダウン
+}
+
 export const PLAN_CHANGE_LABELS = {
-  // archived banner
-  archivedBannerTitle: (total: number) =>
-    `${total}件のデータは${PLAN_CHANGE_TERMS.protected}`,
-  archivedBannerDesc:
-    `${PLAN_FULL_TERMS.premium}にすることで${PLAN_CHANGE_TERMS.resumeReady}。`,
+  // archived banner (plan 別 variant)
+  archivedBannerTitle: (total: number, ctx: PlanRetentionContext) =>
+    ctx.planTier === 'free'
+      ? `${total}件のデータは${PLAN_CHANGE_TERMS.protectedFree}`
+      : `${total}件のデータは${PLAN_CHANGE_TERMS.protectedPaid}`,
+  archivedBannerDesc: (ctx: PlanRetentionContext) =>
+    ctx.planTier === 'free'
+      ? `${PLAN_FULL_TERMS.premium}にすることで${PLAN_CHANGE_TERMS.resumeReadyFree}。`
+      : `${PLAN_FULL_TERMS.premium}にすることで${PLAN_CHANGE_TERMS.resumeReadyPaid}。`,
   archivedBreakdown: (c: { children: number; activities: number; checklists: number }) =>
     [
       c.children > 0 && `お子さま ${c.children}人`,
@@ -280,13 +303,23 @@ export const PLAN_CHANGE_LABELS = {
   archivedBannerCta: `${PLAN_FULL_TERMS.premium}にする`,
   archivedBannerLink: '一覧を見る',
   // archived listing (read-only)
-  listingTitle: `${PLAN_CHANGE_TERMS.protected.replace(/います$/, '')}いるデータ`,  // 「保護されているデータ」
+  listingTitle: (ctx: PlanRetentionContext) =>
+    ctx.planTier === 'free'
+      ? 'アーカイブとして保持されているデータ'
+      : '保護されているデータ',
   listingChildrenSection: (n: number) => `お子さま (${n}人)`,
   listingActivitiesSection: (n: number) => `活動 (${n}個)`,
   listingChecklistsSection: (n: number) => `チェックリスト (${n}個)`,
   listingItemRestoreHint: `${PLAN_CHANGE_TERMS.restore}は${PLAN_FULL_TERMS.premium}化`,
-  listingFooter:
-    `これらのデータは削除されません。${PLAN_FULL_TERMS.premium}にすることで、${PLAN_CHANGE_TERMS.resumeReady}。`,
+  // listingFooter: ADR-0049 retention 整合の plan 別 variant
+  // - free: 90 日間 archived 保持 + 期限内 plan 切替で復活可能 (景表法 5 条整合)
+  // - paid: 永続保持 + いつでも復活可能 (Notion / Calendly 業界標準)
+  listingFooter: (ctx: PlanRetentionContext) =>
+    ctx.planTier === 'free'
+      ? (ctx.retentionDaysRemaining !== undefined
+          ? `これらのデータは ${ctx.retentionDaysRemaining}日後にアーカイブから削除されます。${PLAN_FULL_TERMS.premium}にすることで、${PLAN_CHANGE_TERMS.resumeReadyFree}。`
+          : `これらのデータは 90 日間アーカイブとして保持されます。${PLAN_FULL_TERMS.premium}にすることで、${PLAN_CHANGE_TERMS.resumeReadyFree}。`)
+      : `これらのデータは削除されません。${PLAN_FULL_TERMS.premium}にすることで、${PLAN_CHANGE_TERMS.resumeReadyPaid}。`,
 } as const
 ```
 
@@ -339,7 +372,7 @@ export const PLAN_CHANGE_LABELS = {
 
 ### 3. E2E 不在 assert (Phase 7 実装時)
 
-`tests/e2e/admin-archived-resource-banner.spec.ts` (新規) で `/preschool/home` / `/elementary/home` / `/junior/home` / `/senior/home` / `/baby/home` の 5 mode で:
+Phase 7 実装時に新規追加する admin-archived-resource-banner.spec.ts (tests/e2e/ 配下) で `/preschool/home` / `/elementary/home` / `/junior/home` / `/senior/home` / `/baby/home` の 5 mode で:
 
 ```ts
 expect(page.locator('[data-testid="archived-resource-banner"]')).toHaveCount(0)
@@ -413,9 +446,9 @@ expect(page.locator('[data-archived="true"]')).toHaveCount(0)
 | テスト種別 | 対象 |
 |---|---|
 | **Storybook test** | 5 variant + listing 2 variant 全表示確認 |
-| **E2E** | `tests/e2e/admin-archived-resource-banner.spec.ts` (新規) — 5 mode で子供画面 banner 不在 assert + 親画面 4 variant 表示 assert + CTA 遷移先 URL 確認 |
+| **E2E** | Phase 7 実装時に新規追加する admin-archived-resource-banner.spec.ts (tests/e2e/ 配下) — 5 mode で子供画面 banner 不在 assert + 親画面 4 variant 表示 assert + CTA 遷移先 URL 確認 |
 | **E2E (回帰)** | 既存 `tests/e2e/downgrade-flow.spec.ts` に reactivation step を追加 — downgrade → archive → banner 表示 → CTA クリック → checkout (mock) → restoreArchivedResources → banner 消失 + item 復元 |
-| **unit** | `tests/unit/services/archive-summary-extended.test.ts` (新規) — reason 別件数集計 / activity / checklist 件数返却 / mixed 状態 |
+| **unit** | Phase 7 実装時に新規追加する archive-summary-extended.test.ts (tests/unit/services/ 配下) — reason 別件数集計 / activity / checklist 件数返却 / mixed 状態 |
 | **integration** | 既存 `tests/integration/services/resource-archive.test.ts` に拡張 — `getArchivedResourceSummary` 拡張版の reason 別返却検証 |
 | **Playwright SS UX レビュー** | 5 SS × 3 ペルソナ (1人っ子家庭 / 兄弟複数 / 卒業期) で「保護されている安心感」「Win-Back の押付けにならないか」 |
 | **アクセシビリティ** | axe-core 自動チェック + コントラスト比 (`opacity: 0.6` の listing item) 手動測定 + SR (NVDA / VoiceOver) で banner / listing 読み上げ確認 |
@@ -435,9 +468,10 @@ expect(page.locator('[data-archived="true"]')).toHaveCount(0)
 8. **`(parent)/admin/+layout.svelte` 拡張**: TrialBanner 横に ArchivedResourceBanner を condition 付き配置 (mixed variant 時は TrialBanner archived 文言抑止)
 9. **`SaasSubscriptionPanel.svelte` (Phase 7 rename 後) #archived セクション追加** (~80 行、listing)
 10. **`/admin/subscription/+page.server.ts`** に `archivedListing` load を追加 (`findArchivedChildren` + `findArchivedActivities` + `findArchivedChecklistTemplates` 結合)
-11. **Storybook 7 variant 追加 + Playwright SS 5 件撮影 + E2E + unit + integration test**
-12. **`scripts/check-no-plan-literals.mjs` 拡張**: 禁止語彙 6 件追加 (`失う` / `消える` / `使えなくなる` / `ロックされる` / `制限されています` / `閲覧できなくなります`)
-13. **impact-analysis skill 4 layer 防御 + 21 カテゴリ checklist** を Phase 7 PR body に記載
+11. **Storybook 7 variant 追加 + Playwright SS 5 件撮影 + E2E + unit + integration test** (free / paid plan 別 listingFooter 文言の表示確認 variant を含める)
+12. **`getArchivedResourceSummary(tenantId)` 戻り値に plan 別 retention 真実伝達条件を含める** (ADR-0049 retention 物理削除整合、QM Tier 2 Re-Review #2614 反映): free plan = `retentionDaysRemaining` (90 日カウントダウン、`archived_at + 90 - now` で算出) を返却 / paid plan = `unlimited: true` を返却。`+layout.server.ts` から `PlanRetentionContext` として banner / listing compound に渡す
+13. **`scripts/check-no-plan-literals.mjs` 拡張**: 禁止語彙 6 件追加 (`失う` / `消える` / `使えなくなる` / `ロックされる` / `制限されています` / `閲覧できなくなります`) + ADR-0049 整合チェック (free plan 文脈で `protectedPaid` / `resumeReadyPaid` を直接参照する atom 使用を検出)
+14. **impact-analysis skill 4 layer 防御 + 21 カテゴリ checklist** を Phase 7 PR body に記載
 
 ## Open question (PO 判断、Phase 7 実装時に確認)
 
@@ -449,6 +483,9 @@ expect(page.locator('[data-archived="true"]')).toHaveCount(0)
 | 4 | `/admin/subscription#archived` listing の表示件数上限 (10 件超で「もっと見る」展開等) | **暫定: 全件表示** (archived 件数が爆発的に増えるユースケース不在、Pre-PMF 段階で十分)。Phase 8 以降で件数 > 30 時の UX 検討 |
 | 5 | reactivation 後の banner / listing 消失タイミング (server SSOT 即時 vs 楽観 UI) | **暫定: server SSOT 即時** (webhook 反映後の再 load、楽観 UI は副作用ゼロ原則 phase1 NFR 整合) |
 | 6 | downgrade `DowngradeResourceSelector` 内の `restoreNote` 文言 (既存) と本 PR `PLAN_CHANGE_LABELS.listingFooter` の統合可否 | **暫定: 文言を `PLAN_CHANGE_TERMS` atom 経由に統一**、表示文字列は両者で共有 (Phase 7 で `DOWNGRADE_RESOURCE_SELECTOR_LABELS.restoreNote` を deprecate し `PLAN_CHANGE_LABELS.listingFooter` 経由に置換) |
+| 7 (business, ADR-0049 整合 / 景表法 5 条) | retention 物理削除分岐の plan 別 variant (free 90 日 / paid 永続) の文言設計を本 PR 案で確定するか、別 Issue (景表法 5 条不当表示 review、`docs/design/14-セキュリティ設計書.md` 連携) で消費者庁ガイドライン照合後に最終決定するか | **PO 判断必要** (QM Tier 2 Re-Review #2614 で BLOCK 検出)。暫定: 本 PR 案で `protectedFree` / `protectedPaid` / `resumeReadyFree` / `resumeReadyPaid` 4 variant 確定 + Phase 7 実装時に消費者庁優良誤認表示ガイドライン (5 条 1 号) との突合チェックを CI に追加 (`check-no-plan-literals.mjs` で free plan 文脈で paid atom 使用を検出) / `retentionDaysRemaining` カウントダウン表示の閾値 (7 日切ったら強調等) は本 PR scope 外、Phase 7 SS UX レビューで決定 |
+| 8 (UX, 常時 banner 表示条件 / 滞在時間 anti-engagement 整合) | archived banner の表示条件を「該当 listing 閲覧時のみ subtle 表示」(Notion / Calendly 業界標準) vs 「`/admin/*` 全画面常時 banner」(Win-Back rate 最大化、Stigg / Userpilot 業界 banner 原則) のどちらを採用するか | **PO 判断必要**。暫定: 「`/admin/*` 全画面常時 banner、ただし dismiss 可・dismiss 状態は session ストレージで保持」(Win-Back rate と ADR-0012 滞在時間最短化のバランス、Notion 型 Pattern A 整合)。Phase 7 SS UX レビュー (3 ペルソナ) で「侵襲感」「煽り感」を体感計測 + 業界比較 (Notion `/help/plan-downgrade` view-only banner / Calendly `/help/.../event-types` 上部 banner 常時表示) を SS 並列対比してから最終決定 |
+| 9 (security, RTBF + cross-tenant 認可境界) | (a) 退会 (`CANCEL_TERMS.account`) 時の archived データ即時物理削除義務 (GDPR / 個人情報保護法 30 条「保有個人データ等の利用停止等」整合) と、(b) Phase 7 step 4 で新規追加する `findArchivedActivities(tenantId)` / `findArchivedChecklistTemplates(tenantId)` の cross-tenant 認可境界 (tenant A の archived が tenant B から fetch されないことの保証) を本 PR で明示するか、別 Issue (security review #1683 系) で対応するか | **PO 判断必要 + security 必須**。暫定: (a) 退会時の archived 即時物理削除は `docs/design/account-deletion-flow.md` に明記必要 (Phase 7 実装時の追加対象)。(b) cross-tenant 認可境界は Phase 7 step 4 repository 追加時の必須テスト (unit test で tenant ID mismatch 時の空配列返却 assert + E2E で API 層 archived filter bypass を試行する攻撃シナリオ assert)。本 PR では設計言及のみ、実装は Phase 7 |
 
 ## 6 観点 自己検証チェック (per-issue-execution-workflow SSOT)
 
