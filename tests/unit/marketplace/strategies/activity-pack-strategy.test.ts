@@ -24,6 +24,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockFindActivities = vi.fn();
 const mockFindAllChildren = vi.fn();
 const mockInsertActivitiesBulk = vi.fn();
+// #2558: per-child dedup 用 (importActivities が buildExistingNamesByChild 経由で呼ぶ)
+const mockFindActivitiesByChild = vi.fn();
 
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
@@ -37,6 +39,9 @@ vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		childActivity: {
 			insertActivitiesBulk: (...args: unknown[]) => mockInsertActivitiesBulk(...args),
+			// #2558: per-child dedup — buildExistingNamesByChild が cid ごとに呼ぶ。
+			// dedup 効果を検証するテストは個別 mockResolvedValue で上書きする。
+			findActivitiesByChild: (...args: unknown[]) => mockFindActivitiesByChild(...args),
 		},
 	}),
 }));
@@ -83,6 +88,8 @@ beforeEach(() => {
 	// childIds 未指定 ctx の test ではこの child に per-child instance が bulk insert される。
 	mockFindAllChildren.mockResolvedValue([{ id: 100 }]);
 	mockInsertActivitiesBulk.mockResolvedValue(undefined);
+	// #2558: per-child dedup mock — 既存活動なしを default に。
+	mockFindActivitiesByChild.mockResolvedValue([]);
 });
 
 // =====================================================
@@ -209,7 +216,9 @@ describe('activityPackStrategy.apply', () => {
 	});
 
 	it('重複ありなら skipped=重複件数', async () => {
-		mockFindActivities.mockResolvedValue([{ name: 'A' }]);
+		// #2558: dedup は child 単位 (importActivities が findActivitiesByChild で読む)。
+		// fallback bind 先 child=100 に 'A' を既存として持たせ、A は skip / B は import される。
+		mockFindActivitiesByChild.mockResolvedValue([{ name: 'A' }]);
 		const payload = {
 			activities: [
 				makeActivity({ name: 'A' }),
