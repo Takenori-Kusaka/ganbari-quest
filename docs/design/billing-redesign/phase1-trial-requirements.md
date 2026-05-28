@@ -62,6 +62,10 @@
 | F | 未使用 free 全員へのバナー | 管理画面なので許容 | 推奨で確定 (FR-12) |
 | G | signup `?plan=X` trial 自動開始撤去 | 撤去 | 新規申込要件で確定済 |
 
+## 関連 (2026-05-28 補強)
+
+- [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename / コンポーネント / atom 影響範囲 308+218+450 件
+
 ## 根拠 (primary source)
 
 - Stripe trials / free-trials / webhooks (trial_will_end 3日前 / cancel・pause / Customer Portal 転換)

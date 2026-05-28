@@ -62,6 +62,10 @@
 | 4 | 既存 NUC dogfood 機 (192.168.68.79) の license key 撤廃移行手順 | Phase 7 実装で扱う |
 | 5 | AWS_LICENSE_SECRET / ALLOW_LEGACY_LICENSE_KEYS env の SaaS 側残存範囲 | Phase 6 (#2514 実装詳細) lateral spread で扱う |
 
+## 関連 (2026-05-28 補強)
+
+- [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename (※ NUC `/ops/license/*` は ops internal tool で rename 対象外、`NucLicensePanel` も後方互換のため Phase 5 design review)
+
 ## 根拠 (primary source)
 
 - ADR-0051 (NUC-SaaS Bifurcation、Edition 配布形態) / nuc-saas-runtime-bifurcation.md

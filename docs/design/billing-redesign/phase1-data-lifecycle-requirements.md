@@ -65,6 +65,10 @@ dunning最終(canceled) → plan=undefined/suspended → ★解約と同一。fr
 | 4 | 退会時 Stripe Customer 削除 | ✅ PO 確定 2026-05-27: **Customer も削除** (PII 残さない、PIPC 消去整合) |
 | 5 | judgment 保留テーブル (childCustomVoices/childAchievements) の retention 対象 | 卒業振り返り価値 vs 保存制限、Phase 5/法務 #2541 で確定 |
 
+## 関連 (2026-05-28 補強)
+
+- [URL/命名/用語の意味的整合性](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 (#2526)。`/admin/license` → `/admin/subscription` rename / コンポーネント / atom 影響範囲 308+218+450 件
+
 ## 根拠 (primary source)
 
 - PIPC FAQ (法第22条 消去努力義務 / 法第35条 消去請求応諾 / 復元不可能な消去 / 子供年齢別規定なし)
