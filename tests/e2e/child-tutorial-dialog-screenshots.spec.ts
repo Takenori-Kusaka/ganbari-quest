@@ -85,6 +85,9 @@ async function dismissChildHomeOverlays(page: Page) {
 		() => page.getByTestId('login-bonus-confirm'),
 		() => page.getByTestId('pin-gate-onboarding-close'),
 		() => page.getByTestId('weekly-redeem-confirm'),
+		// activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうるため dismiss 対象に追加
+		// (#2558 fix で elementary tablet 起動時の干渉として観察された)。cancel button = やめる。
+		() => page.getByTestId('confirm-cancel-btn'),
 		() => page.locator('button:has-text("うれしい！")'),
 		() => page.locator('button:has-text("ありがとう！")'),
 		() => page.locator('button:has-text("やったね！")'),
@@ -143,8 +146,26 @@ async function clearTutorialProgress(page: Page) {
 async function startChildTutorial(page: Page) {
 	const helpBtn = page.locator('[data-testid="header-help-btn"]');
 	await expect(helpBtn).toBeVisible({ timeout: 10_000 });
-	// force: true — auto-open dialog (cheer/message 等) が overlay として被さっても tutorial 起動を強行
-	await helpBtn.click({ force: true });
+	// auto-open dialog (cheer/message/activity confirm 等) が overlay として被さっても tutorial 起動を強行。
+	// click が静かに失敗する flake (#2558 fix 観察、 elementary tablet で再現) 対策で最大 3 回 retry。
+	// data-tutorial-active が set されるか、もしくは tutorial-resume-dialog が visible になれば成功。
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await helpBtn.click({ force: true });
+		try {
+			await page.waitForFunction(
+				() =>
+					document.documentElement.hasAttribute('data-tutorial-active') ||
+					document.querySelector('[data-testid="tutorial-resume-dialog"][data-state="open"]') !==
+						null,
+				null,
+				{ timeout: 3_000 },
+			);
+			return;
+		} catch {
+			// fallthrough → re-click
+		}
+	}
+	// 最終 fall-through: 後続の waitForSelector が自分で時間切れ判定するため throw しない
 }
 
 /** Web Animations API で dialog の開閉 animation 完了を待つ (#1259 waitForTimeout 代替) */

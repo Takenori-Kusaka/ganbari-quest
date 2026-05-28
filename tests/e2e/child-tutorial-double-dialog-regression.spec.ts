@@ -66,6 +66,9 @@ async function dismissChildHomeOverlays(page: Page) {
 		() => page.getByTestId('login-bonus-confirm'),
 		() => page.getByTestId('pin-gate-onboarding-close'),
 		() => page.getByTestId('weekly-redeem-confirm'),
+		// activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうるため dismiss 対象に追加
+		// (#2558 fix で elementary tablet 起動時の干渉として観察された)。cancel button = やめる。
+		() => page.getByTestId('confirm-cancel-btn'),
 		() => page.locator('button:has-text("うれしい！")'),
 		() => page.locator('button:has-text("ありがとう！")'),
 		() => page.locator('button:has-text("やったね！")'),
@@ -114,9 +117,21 @@ async function dismissChildHomeOverlays(page: Page) {
 async function startTutorialAndOpenExitConfirm(page: Page) {
 	const helpBtn = page.locator('[data-testid="header-help-btn"]');
 	await expect(helpBtn).toBeVisible({ timeout: 10_000 });
-	// force: true — auto-open dialog (cheer/message 等) が overlay として被さっても tutorial 起動を強行
-	await helpBtn.click({ force: true });
-
+	// auto-open dialog (cheer/message/activity confirm 等) が overlay として被さっても tutorial 起動を強行。
+	// click が静かに失敗する flake (#2558 fix 観察、 elementary tablet で再現) 対策で最大 3 回 retry。
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await helpBtn.click({ force: true });
+		try {
+			await page.waitForFunction(
+				() => document.documentElement.hasAttribute('data-tutorial-active'),
+				null,
+				{ timeout: 3_000 },
+			);
+			break;
+		} catch {
+			// fallthrough → re-click
+		}
+	}
 	// tutorial active flag (data-tutorial-active attr) を待つ。`.tutorial-overlay-bg` は
 	// cheer overlay の Dialog backdrop と被る可能性があるため使わない
 	await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
