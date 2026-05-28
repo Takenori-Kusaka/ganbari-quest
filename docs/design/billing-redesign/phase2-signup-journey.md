@@ -7,6 +7,7 @@
 | ステータス | **2026-05-28 全面再構成**: 主体を親に統一・2 山構造 (中間山 setup 完遂 + 最終山 初回記録) ・マーケットプレイス推奨自動採用とデフォルト表示ページ選択を既存実装ベースで組み込み |
 | 対応 Phase 1 要件 | phase1-signup-requirements.md (補強済 #2561) |
 | URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では設計指針は新名、既存実装 reference は現名を維持 |
+| プラン命名 + 課金期間 | `family` → **`プレミアム`** rename + **月額のみ (年額廃止)** (Phase 7 実装予定、[phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照)。本ジャーニー内では表示プラン名は新名 (atom 1 行修正で Phase 7 自動伝播)、内部識別子 (`'family'` enum / `family-tenant` 等) は現名維持 |
 
 ## 設計の核 (PO 整理を反映)
 

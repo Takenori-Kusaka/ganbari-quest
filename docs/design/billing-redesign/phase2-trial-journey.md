@@ -8,6 +8,7 @@
 | 対応 Phase 1 要件 | phase1-trial-requirements.md (#2533: family 固定・7日・カード登録なし・cancel で無料復帰・1回制限 family-tenant) |
 | deep-research | Reverse Trial 業界事例 (Notion/Slack/Figma/Canva/Calendly) + PLG ベストプラクティス + ADR-0012 整合性検証完了 |
 | URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では設計指針は新名、既存実装 reference は現名を維持 |
+| プラン命名 + 課金期間 | `family` → **`プレミアム`** rename / trial **プレミアム固定 7 日** (旧 family 固定 rename のみ) / **月額のみ (年額廃止)** (Phase 7 実装予定、[phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照)。本ジャーニー内では表示は新名、内部識別子 (`DEFAULT_TRIAL_TIER='family'` / `tier='family'` / `family-tenant 単位`) は現名維持 |
 
 ## 業界呼称の確定: Reverse Trial (リバーストライアル)
 

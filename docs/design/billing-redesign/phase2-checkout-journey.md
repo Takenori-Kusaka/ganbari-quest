@@ -9,6 +9,7 @@
 | deep-research | SaaS 購入時の谷 14 件 + Stripe 担保/自社責任分類 + in-app upgrade prompts 5 パターン + LP→app 動線設計 (2026-05-28) |
 | Explore 照合 | 既存実装 3 点 (FeatureGate / ヘッダ planBadge / LP pricing 動線) 2026-05-28 |
 | URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では設計指針・mermaid は新名、既存実装 reference (`FeatureGate.svelte:49` 等) は現名を維持 |
+| プラン命名 + 課金期間 | `family` → **`プレミアム`** rename / **月額のみ (年額廃止、月年トグル削除)** / **ROI framing = F1-F11 顧客不安 + V1-V5 framing 軸 + 不安→解マッピング** (per-seat / cost-per-day / 比較 anchor 削除、Phase 7 実装予定、[phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照) |
 
 ## 既存実装の事実 (Explore 照合)
 
@@ -42,8 +43,7 @@ journey
       LP からの購入経路: 2: 親
     section プラン理解
       プラン一覧 (3 tier): 3: 親
-      月年トグル: 3: 親
-      金額の妥当性判断: 2: 親
+      金額の妥当性判断 (月額のみ): 2: 親
       解約柔軟性確認: 4: 親
     section 申込
       Stripe Checkout (カード): 3: 親
@@ -65,7 +65,7 @@ flowchart TB
     Admin -->|ActivityLimitBanner<br/>:16 + linkLabel| Pricing
     Admin -->|ヘッダの<br/>「アップグレード」ボタン<br/>無料時のみ AdminLayout:212-218| Pricing
     Admin -.->|有料時 plan-badge<br/>**クリック遷移なし (改善要)**| Pricing
-    Pricing -->|プラン選択 + 月年トグル| Checkout[Stripe Checkout]
+    Pricing -->|プラン選択 (月額のみ)| Checkout[Stripe Checkout]
     Checkout --> Success[success ページ<br/>準備中 polling]
     Success -->|webhook| Activated[権限付与<br/>family 機能解放]
     style Admin fill:#e3f2fd
@@ -99,7 +99,7 @@ stateDiagram-v2
 | 1 | **購入動線探索 (LP / app 内)** | tooltip / banner / ヘッダから探す | 「どこから買う?」 | **谷④購入動線探索 (新)** | 既存実装 ✅ + **ヘッダ有料時遷移を改善要** |
 | 2 | プランページ到達 `/admin/subscription` (Phase 7 rename、現コードは `/admin/license`) | プラン一覧表示 | — | — | 既存 |
 | 3 | **プラン選択 (standard / family)** | どっちが自分に合うか | 「どれを選べば?」 | **谷①プラン選択困惑 (新)** | 改善要: お勧めバッジ / 比較表差分強調 / 診断ナビ (Phase 3 UI) |
-| 4 | **金額確認 (月年トグル + 価格)** | ¥500/¥780 (税込) | 「妥当か?」 | **谷②金額説得力 (新)** | 改善要: 1 日換算 / 家族 1 人あたり / 比較 anchor (Phase 3 UI) |
+| 4 | **金額確認 (月額のみ、¥500/¥780 税込)** | 月額本体シンプル | 「妥当か?」 | **谷②金額説得力 (新)** | 改善要: V1-V5 framing 軸 + 不安→解マッピング ([phase1-plan-naming-pricing-axis-requirements.md FR-4](phase1-plan-naming-pricing-axis-requirements.md) 参照)、Phase 3 UI で実装 |
 | 5 | **解約柔軟性確認** | CTA 直下「いつでも解約」 | 「縛りは?」 | **谷③解約柔軟性 (新)** | 改善要: `CANCEL_TERMS.anytimeOk` CTA 直下併記 + Portal 言及 (Phase 3 UI) |
 | 6 | 申込決断 | 「申し込む」CTA | 決断 | — | 既存 |
 | 7 | Stripe Checkout (カード入力) | Stripe ホスト画面 | 緊張 (PCI 担保) | 谷⑤カード入力 | ✅ Stripe Checkout (PCI 担保) |
@@ -112,7 +112,7 @@ stateDiagram-v2
 | 谷 | Stripe 側担保 | 自社対応 |
 |---|---|---|
 | **谷① プラン選択困惑** | Pricing Table (3 tier 視覚化) | 「お勧め」バッジ (standard に) / 比較表差分強調 / 診断ナビ ("家族の人数は?") |
-| **谷② 金額説得力** | ❌ Stripe 範囲外 | LP/pricing で `1 日 ¥16` framing / 家族 1 人あたり ¥260 (family) / 比較 anchor (学習教材 1 ヶ月) |
+| **谷② 金額説得力** | ❌ Stripe 範囲外 | **F1-F11 顧客不安 + V1-V5 framing 軸 + 不安→解マッピング** ([phase1-plan-naming-pricing-axis-requirements.md FR-4](phase1-plan-naming-pricing-axis-requirements.md) 参照)。per-seat / cost-per-day は flat-rate に構造矛盾で不採用。F1+F3 → V1+V2 (月額本体 + 機能 anchor) / F2 → V4 (decoy: プレミアム最右 + standard 推奨) / F5+F6+F11 → V5 (commitment 安全装置「いつでも解約」「カード登録不要」) |
 | **谷③ 解約柔軟性** | Customer Portal (cancel UI / cancellation reasons) | CTA 直下に `CANCEL_TERMS.anytimeOk` 必須 + Portal 体験リンク / FAQ で解約 3 ステップ明示 (既存 [`site/pricing.html` L475](../../../site/pricing.html) あり、強化) |
 | **谷④ 購入動線探索** | ❌ Stripe 範囲外 | gate tooltip 既存 ✅ / ヘッダ有料時遷移 (改善要) / LP pricing 動線説明 既存 ✅ / LP→app→pricing→checkout 統一 CTA |
 
@@ -145,7 +145,7 @@ stateDiagram-v2
 | 1 | priceId 環境変数直読 (config.ts) | lookup_key 参照 | 変更 (FR-1) |
 | 2 | success polling なし | session status polling + 準備中 | 新規 (FR-6) |
 | 3 | `handleCheckoutCompleted` で license key 発行 | 撤去 | 削除 (領域 12 連動) |
-| 4 | 月/年の扱い | 月/年トグル月額デフォルト・2ヶ月おトク併置 | Phase 1 確定 |
+| 4 | 課金期間 | **月額のみ (年額廃止)**、Spotify Family 2026 廃止整合 + ADR-0012 sunk cost lock-in 回避 | Phase 1 補強 2 確定 ([phase1-plan-naming-pricing-axis-requirements.md FR-2](phase1-plan-naming-pricing-axis-requirements.md)) |
 | 5 | createCheckoutSession/webhook SSOT/customer 紐づけ | 維持 | ✅ |
 | 6 | gate disable + tooltip (FeatureGate) | 維持・前面化 | ✅ |
 | 7 | ActivityLimitBanner | 維持 | ✅ |

@@ -7,6 +7,7 @@
 | ステータス | 既存実装前提で設計 (2026-05-28、Phase 1 で stripe-service handlePaymentFailed/Deleted 照合済) |
 | 対応 Phase 1 要件 | phase1-dunning-requirements.md (#2537: past_due=grace 有料維持・2週8回・canceled→無料・子供画面非表示) |
 | URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では既存実装 reference (`stripe-service.ts:346/394` 等) は現名を維持 |
+| プラン命名 + 課金期間 | `family` → **`プレミアム`** rename / **月額のみ (年額廃止、年額決済失敗 retry/access 削除)** (Phase 7 実装予定、[phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照)。本ジャーニー内では表示は新名、内部識別子は現名維持 |
 
 ## 既存実装の事実 (Phase 1 照合)
 
