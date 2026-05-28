@@ -58,14 +58,13 @@ const DB_PATH = process.env.DATABASE_URL
 const BACKUP_DIR = process.env.BACKUP_DIR
 	? path.resolve(process.env.BACKUP_DIR)
 	: path.join(path.dirname(DB_PATH), 'backups');
-const ALLOW_EMPTY = process.env.ALLOW_EMPTY === '1';
 // 明示 backup file 指定 (test / 単発検証用)。未指定なら BACKUP_DIR の最新を使う。
 const EXPLICIT_BACKUP = process.env.VERIFY_BACKUP_FILE
 	? path.resolve(process.env.VERIFY_BACKUP_FILE)
 	: '';
 
-// row > 0 を要求する core table (空 backup = 復旧不能の検出)
-const REQUIRED_NONEMPTY_TABLES = ['children', 'child_activities', 'activity_logs', 'point_ledger'];
+// row > 0 を要求または監視する core table
+const MONITORED_TABLES = ['children', 'child_activities', 'activity_logs', 'point_ledger'];
 
 // 失敗時の Discord alert webhook (任意)。`src/lib/server/discord-alert.ts` と同 env を参照。
 // .cjs (cron) からは SvelteKit module を import できないため、ここで最小限の fetch を行う。
@@ -75,6 +74,9 @@ const DISCORD_WEBHOOK =
 /**
  * 検証失敗を Discord に通知 (#2519 AC2)。webhook 未設定なら no-op。
  * cron 経路で fail-loud にするための最小実装。
+ *
+ * @param {string} backupPath
+ * @param {string[]} failures
  */
 async function notifyFailure(backupPath, failures) {
 	if (!DISCORD_WEBHOOK) return;
@@ -101,11 +103,18 @@ async function notifyFailure(backupPath, failures) {
 		});
 		console.log('[verify] Discord alert sent');
 	} catch (err) {
-		console.error('[verify] Discord alert failed (non-fatal):', err.message);
+		console.error(
+			'[verify] Discord alert failed (non-fatal):',
+			err instanceof Error ? err.message : String(err),
+		);
 	}
 }
 
-/** BACKUP_DIR から最新の backup file path を返す (無ければ null)。 */
+/**
+ * BACKUP_DIR から最新の backup file path を返す (無ければ null)。
+ *
+ * @returns {string | null}
+ */
 function findLatestBackup() {
 	if (!fs.existsSync(BACKUP_DIR)) return null;
 	const files = fs
@@ -113,26 +122,36 @@ function findLatestBackup() {
 		.filter((f) => f.startsWith('ganbari-quest-') && f.endsWith('.db'))
 		.sort()
 		.reverse();
-	return files.length > 0 ? path.join(BACKUP_DIR, files[0]) : null;
+	const first = files[0];
+	return first ? path.join(BACKUP_DIR, first) : null;
 }
 
-/** table が存在するか (PRAGMA / sqlite_master)。 */
+/**
+ * table が存在するか (PRAGMA / sqlite_master)。
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} name
+ * @returns {boolean}
+ */
 function tableExists(db, name) {
 	return !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(name);
 }
 
 /**
  * 復元済 backup に対し integrity_check / foreign_key_check / row count を検査。
- * @returns { ok: boolean, failures: string[] }
+ *
+ * @param {string} restoredPath
+ * @returns {{ ok: boolean, failures: string[] }}
  */
 function verifyRestoredDb(restoredPath) {
 	const failures = [];
 	const db = new Database(restoredPath, { readonly: true });
 	try {
 		// 1. integrity_check
-		const integrity = db.pragma('integrity_check');
+		/** @type {Array<{ integrity_check: string }>} */
+		const integrity = /** @type {any} */ (db.pragma('integrity_check'));
 		const integrityOk =
-			Array.isArray(integrity) && integrity.length === 1 && integrity[0].integrity_check === 'ok';
+			Array.isArray(integrity) && integrity.length === 1 && integrity[0]?.integrity_check === 'ok';
 		if (integrityOk) {
 			console.log('[verify] PRAGMA integrity_check: ok');
 		} else {
@@ -140,7 +159,8 @@ function verifyRestoredDb(restoredPath) {
 		}
 
 		// 2. foreign_key_check (空配列 = orphan なし)
-		const fkViolations = db.pragma('foreign_key_check');
+		/** @type {Array<Record<string, unknown>>} */
+		const fkViolations = /** @type {any} */ (db.pragma('foreign_key_check'));
 		if (Array.isArray(fkViolations) && fkViolations.length === 0) {
 			console.log('[verify] PRAGMA foreign_key_check: clean (0 violations)');
 		} else {
@@ -152,28 +172,35 @@ function verifyRestoredDb(restoredPath) {
 		// 3. 主要 table row count > 0
 		const counts = [];
 		let totalRows = 0;
-		for (const table of REQUIRED_NONEMPTY_TABLES) {
+		/** @type {Record<string, number>} */
+		const cMap = {};
+		for (const table of MONITORED_TABLES) {
 			if (!tableExists(db, table)) {
 				failures.push(`required table missing: ${table}`);
+				cMap[table] = 0;
 				continue;
 			}
-			const c = db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get().c;
+			const row = /** @type {{ c: number }} */ (
+				db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get()
+			);
+			const c = row.c;
 			counts.push(`${table}=${c}`);
+			cMap[table] = c;
 			totalRows += c;
 		}
 		console.log(`[verify] row counts: ${counts.join(' ')}`);
 
 		// ALLOW_EMPTY=1 のとき「全 table 0 行」は PASS (初回起動直後 backup を許容)。
-		// そうでなければ各 table > 0 を要求する。
-		if (totalRows === 0 && ALLOW_EMPTY) {
-			console.log('[verify] all required tables empty but ALLOW_EMPTY=1 → treated as PASS');
+		const allowEmpty = process.env.ALLOW_EMPTY === '1';
+		if (totalRows === 0 && allowEmpty) {
+			console.log('[verify] all monitored tables empty but ALLOW_EMPTY=1 → treated as PASS');
 		} else {
-			for (const table of REQUIRED_NONEMPTY_TABLES) {
-				if (!tableExists(db, table)) continue;
-				const c = db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get().c;
-				if (c === 0) {
-					failures.push(`required table empty (data loss risk): ${table}`);
-				}
+			// AC1: children > 0 なのに child_activities = 0 は fail
+			// AC2: children > 0 + child_activities > 0 であれば、activity_logs / point_ledger が 0 (day-0) でも PASS
+			if (cMap.children === 0) {
+				failures.push('required table empty (data loss risk): children');
+			} else if (cMap.child_activities === 0) {
+				failures.push('data loss risk: children > 0 but child_activities is empty');
 			}
 		}
 	} finally {
@@ -214,7 +241,10 @@ async function main() {
 		try {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		} catch (err) {
-			console.warn('[verify] temp cleanup failed (non-fatal):', err.message);
+			console.warn(
+				'[verify] temp cleanup failed (non-fatal):',
+				err instanceof Error ? err.message : String(err),
+			);
 		}
 	}
 
@@ -231,7 +261,11 @@ async function main() {
 	process.exit(1);
 }
 
-main().catch((err) => {
-	console.error('[verify] Fatal error:', err);
-	process.exit(1);
-});
+module.exports = { verifyRestoredDb };
+
+if (require.main === module) {
+	main().catch((err) => {
+		console.error('[verify] Fatal error:', err);
+		process.exit(1);
+	});
+}
