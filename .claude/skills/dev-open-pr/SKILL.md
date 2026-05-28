@@ -193,6 +193,34 @@ rm tmp/pr-bodies/<num>-<slug>.md
 
 一括検証: `npm run pre-ready -- --pr <num>` (Step 6 = `check-pr-body.mjs` で gate 1+2+3 検出、Step 7 = capture が gate 4 補助)。Wave 1 で 4 Agent が同じ初回 fail を踏んだため、本チェックリストを必ず通してから Ready 化する。
 
+### customer-facing PR の CX-DoR 8 条件確認 (#2553)
+
+**critical user journey (活動追加 / 報酬交換 / 子供記録 等) に触れる PR** (`type:feat` / `type:fix` で UI 変更 or marketplace import 系) は、4 必須 CI gate に加えて **CX 版 DoR 8 条件** (`tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR」) を確認する。#2558 で実証された通り、機能 E2E 緑のまま謎用語 / 経路重複 / dead-end が顧客 1 分露出する事故への構造的対策。
+
+| # | 条件 | 軽量 (per-PR) | 重量 (EPIC-merge / 顧客レビュー gate) |
+|---|---|---|---|
+| 1 | goal 完遂 dead-end ゼロ | 該当 CUJ targeted E2E | 全 CUJ 貫通 |
+| 2 | Cognitive Walkthrough 4 質問 全 Yes | — | session sheet 添付 (#2554 skill) |
+| 3 | 用語 SSOT 準拠 | `node scripts/check-terminology-coherence.ts` warning 0 (`pre-ready` Step 4 に統合済) | 同 |
+| 4 | add 経路 ≤ 4 + 用語重複なし | 同 #3 (両者同 script) | 同 |
+| 5 | vision LLM review + 人間 filter | — | C-5 POC 採用後に opt-in |
+| 6 | exploratory 1 セッション dead-end ゼロ | — | C-6 POC 採用後に opt-in |
+| 7 | 実機 1 クリック貫通 (NUC or demo Lambda preview) | UI 変更時は人間 1 回 | trace/video 証跡 (#2544 AC6) |
+| 8 | 5 mode visual + primitives 準拠 | UI 変更時 5 年齢 SS | 同 + pixelmatch + Storybook play |
+
+**判定 flow**:
+
+1. 「該当 PR が customer-facing か」を Issue / 変更 file から判定 (`src/routes/**` UI 変更 or `src/lib/marketplace/**` or `src/lib/features/**` に該当)
+2. customer-facing なら 8 条件のうち per-PR 列を満たすことを `pre-ready` + 該当 E2E + SS で確認
+3. EPIC 完了時 / 顧客レビュー前は重量列も満たし、PR body or EPIC umbrella の「テスト & 安全装置セルフチェック」section に証跡を集約
+
+**禁忌**:
+- customer-facing PR で「機能 E2E 緑だけで Ready 化」(条件 1 だけで判定すると bug-2/3/4 級が露出する、#2558 教訓)
+- 条件 5 (AI vision review) を主担保にする (research §3-1 false-positive 80%、必ず人間 filter)
+- 全画面網羅 / 多人数 user testing 招集を Pre-PMF で要求する (5-user rule で 85% 捕捉、ADR-0010)
+
+詳細 SSOT: `tests/CLAUDE.md` §「顧客レビュー前 CX 版 DoR (8 条件 SSOT、#2553)」 / 研究: `tmp/research-cx-quality-verification.md` §4 / §G。
+
 ## kind 別 template 選択ガイド
 
 | kind | 用途 | 追加セクション |
