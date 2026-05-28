@@ -16,17 +16,28 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
-// #2558 真因 fix (3 ラウンド目): 並列 worker (workers: 2 + 他 spec が kinder-starter
-// を import) で `isFullyImported = true` となる根本原因は、`+page.server.ts` の
-// `getActivities(tenantId)` が **`child_activities` table** (per-child instance) を
-// query することにある (#2362 PR-3 / ADR-0055)。旧 `activities` (master) table の
-// DELETE では `child_activities` は残るため、テスト開始時点で既に
-// `seedChildActivitiesIfMissing()` で seed 済 + 他 worker が `importPackToChildren`
-// で追加した instance が `existingNames` に積まれ続け、`isFullyImported = true` 確定。
+// #2558 真因 fix (3 ラウンド目 + cross-spec 配慮): 並列 worker (workers: 2 +
+// 他 spec が kinder-starter を import) で `isFullyImported = true` となる根本原因は、
+// `+page.server.ts` の `getActivities(tenantId)` が **`child_activities` table**
+// (per-child instance) を query することにある (#2362 PR-3 / ADR-0055)。旧
+// `activities` (master) table の DELETE では `child_activities` は残るため、
+// テスト開始時点で既に `seedChildActivitiesIfMissing()` で seed 済 + 他 worker が
+// `importPackToChildren` で追加した instance が `existingNames` に積まれ続け、
+// `isFullyImported = true` 確定。
 //
-// 真の修正は **`child_activities` から KINDER_NAMES を削除**する。FK 依存 row
-// (activity_logs / activity_mastery / daily_missions) は事前 cascade DELETE して
-// FK constraint violation を回避。
+// 真の修正は **`child_activities` から KINDER_NAMES (27 件、must seed 3 件除く)
+// を削除**する。FK 依存 row (activity_logs / activity_mastery / daily_missions)
+// は事前 cascade DELETE して FK constraint violation を回避。
+//
+// **must seed 3 件 (はみがきした / おきがえした / おかたづけした) は削除対象外**:
+//   - global-setup.ts L290 で `priority='must'` を seed する 3 件
+//   - 他 spec (child-must-card-badge.spec.ts) が「preschool 子供に must activity
+//     カードが visible」を assert する依存
+//   - 削除すると tablet 先 / mobile 後で進行する CI で mobile が fail (#2558 R3 観測)
+//   - 27 件削除すれば `importedCount=3 < activityCount=30` で `isFullyImported=false`
+//     確定し、form (および applyMustDefault checkbox) が描画される
+//   - mustDefault 3 件はちょうど must seed 3 件と一致するため、テスト assertion
+//     (`おやくそく推奨 3件` Badge + 個別 `おやくそく推奨` Badge) は満たされる
 //
 // ADR-0006 厳守 (retry / timeout で誤魔化さない): retry 回数増 / waitForTimeout
 // 追加 / assertion 弱体化はせず、`child_activities` 直接 cleanup で structural fix。
@@ -39,11 +50,12 @@ async function clearKinderStarterActivities(): Promise<void> {
 	const { default: Database } = await import('better-sqlite3');
 	const db = new Database(DB_PATH);
 	try {
-		// kinder-starter pack の 30 件の活動名 (src/lib/data/marketplace/activity-packs/kinder-starter.json)
-		const KINDER_NAMES = [
-			'はみがきした',
-			'おきがえした',
-			'おかたづけした',
+		// kinder-starter pack の 30 件の活動名から、must seed 3 件を除いた 27 件。
+		// (src/lib/data/marketplace/activity-packs/kinder-starter.json 全 30 件 -
+		//  must seed: 'はみがきした', 'おきがえした', 'おかたづけした')
+		const KINDER_NAMES_NON_MUST = [
+			// must 3 件は削除しない (他 spec 依存):
+			// 'はみがきした', 'おきがえした', 'おかたづけした',
 			'てをあらった',
 			'はやおきした',
 			'おてつだいした',
@@ -72,7 +84,7 @@ async function clearKinderStarterActivities(): Promise<void> {
 			'ありがとうをいった',
 			'ごめんなさいをいった',
 		];
-		const placeholders = KINDER_NAMES.map(() => '?').join(',');
+		const placeholders = KINDER_NAMES_NON_MUST.map(() => '?').join(',');
 
 		// transaction で atomicity 保証 (FK 依存 → child_activities → activities 順)
 		const tx = db.transaction(() => {
@@ -80,21 +92,21 @@ async function clearKinderStarterActivities(): Promise<void> {
 			try {
 				db.prepare(
 					`DELETE FROM activity_logs WHERE activity_id IN (SELECT id FROM child_activities WHERE name IN (${placeholders}))`,
-				).run(...KINDER_NAMES);
+				).run(...KINDER_NAMES_NON_MUST);
 			} catch {
 				// activity_logs 不在 or schema 不一致は無視 (古い DB)
 			}
 			try {
 				db.prepare(
 					`DELETE FROM activity_mastery WHERE activity_id IN (SELECT id FROM child_activities WHERE name IN (${placeholders}))`,
-				).run(...KINDER_NAMES);
+				).run(...KINDER_NAMES_NON_MUST);
 			} catch {
 				// activity_mastery 不在 or schema 不一致は無視
 			}
 			try {
 				db.prepare(
 					`DELETE FROM daily_missions WHERE activity_id IN (SELECT id FROM child_activities WHERE name IN (${placeholders}))`,
-				).run(...KINDER_NAMES);
+				).run(...KINDER_NAMES_NON_MUST);
 			} catch {
 				// daily_missions 不在 or schema 不一致は無視
 			}
@@ -102,11 +114,13 @@ async function clearKinderStarterActivities(): Promise<void> {
 
 			// 2. child_activities (per-child instance) を削除 — これが本質的修正
 			db.prepare(`DELETE FROM child_activities WHERE name IN (${placeholders})`).run(
-				...KINDER_NAMES,
+				...KINDER_NAMES_NON_MUST,
 			);
 
 			// 3. activities (master) も削除 (現状参照は無いが念のため)
-			db.prepare(`DELETE FROM activities WHERE name IN (${placeholders})`).run(...KINDER_NAMES);
+			db.prepare(`DELETE FROM activities WHERE name IN (${placeholders})`).run(
+				...KINDER_NAMES_NON_MUST,
+			);
 		});
 		tx();
 	} catch {
