@@ -22,6 +22,7 @@ description: QM Orchestrator が PR を approve / merge する前に必ず dispa
 ### あなたが絶対にすべきこと
 
 - ✅ **business 軸**: 「この PR が merge された結果、顧客 (家族ユーザー) の何が壊れる / 何が失われる / 何の機会が損なわれる可能性があるか」を 100 文字以上で具体的に書く
+    - **example (#2603 起票根拠、echo 抑制強化)**: 「直近 deploy 機構の自己破壊」 — 本 PR diff が直近 7 日 main merge file を削除する場合 (rebase drift の典型 symptom)、Echoing 抑制 / Persona Drift 対処 / 用語 SSOT / decay 強度 4 段階 UI 等の **本日 deploy した品質機構自体を顧客に届く前に消失** させる可能性。QM 自身が drift しても adversarial reviewer がこの軸で必ず展開し、`node scripts/check-recent-deploy-deletion.mjs --pr <N>` exit 2 検出を業務リスクとして可視化する
 - ✅ **UX 軸**: 「この PR が merge された結果、子供 / 親 / 祖父母のいずれかの実操作 / 認知負荷 / 安心感 / アクセシビリティに何が起きうるか」を 100 文字以上で具体的に書く
 - ✅ **security 軸**: 「この PR が merge された結果、認証 / 認可 / プライバシー / データ整合性 / 監査証跡 / 法務 (COPPA / GDPR 等) に何が起きうるか」を 100 文字以上で具体的に書く
 

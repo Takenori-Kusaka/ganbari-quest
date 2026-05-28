@@ -1,11 +1,11 @@
 ---
 name: PR Review
-description: Use when reviewing a pull request. Enforces the mandatory 8-point checklist (file existence, dependencies, AC verification, E2E, lateral spread, CSS, design docs, documentation).
+description: Use when reviewing a pull request. Enforces the mandatory 9-point checklist (file existence, dependencies, AC verification, E2E, lateral spread, CSS, design docs, documentation, recent-deploy deletion guard).
 ---
 
 # PR レビューチェックリスト
 
-## 必須 8 項目（A〜H 全項目）
+## 必須 9 項目（A〜I 全項目）
 
 ### A. ファイル存在・依存関係
 - [ ] import 先のファイルが全て実在するか
@@ -48,6 +48,12 @@ description: Use when reviewing a pull request. Enforces the mandatory 8-point c
 ### H. 文書化
 - [ ] レビュー指摘を全て文書化（ADR-0006: 指摘ゼロでマージは禁止）
 - [ ] 発見事項は PR コメントまたは Issue で記録
+
+### I. 直近 deploy file 削除なし（#2603、rebase drift 5 連続再発教訓）
+- [ ] `node scripts/check-recent-deploy-deletion.mjs --pr <N>` が exit 0
+- [ ] 直近 7 日に main merge された file を本 PR が削除していない（rebase drift の典型 symptom）
+- [ ] archive 移動 (ADR 1-in-1-out 等) の legitimate な delete なら `--ignore-pattern` で除外
+- [ ] exit 2 検出時は **Fix Agent dispatch → `git rebase origin/main` 強制** + screenshots branch 再 push (#2063)
 
 ## 判定
 

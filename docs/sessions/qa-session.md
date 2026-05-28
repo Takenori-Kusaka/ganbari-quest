@@ -130,6 +130,20 @@ gh pr checks <num>
 
 ### 手順 5: 承認/マージ判断
 
+#### 直近 deploy file 削除 verify (#2603、5 連続再発教訓)
+
+approve & merge コマンドを発行する前に、本 PR diff が **直近 7 日に main へ merge された file を削除していないか** を機械検証する。2026-05-28 単日に rebase drift で「main 進化を取り込まずに古い base から派生 → 過去 merge を revert する状態」が 5 連続再発 (#2582 / #2595 / #2598 / #2602 / #2560) し、特に #2602 / #2560 では当日 deploy した PR #2599 (ADR-0056 + QM drift prevention 案 1) 関連 file を削除する状態が Review Agent honest verify で事前 gate された。Dev 側 SKILL (#2598) は構造的に弱く、QM review 側に machine-verify を追加する Defense in Depth が必要。
+
+```bash
+node scripts/check-recent-deploy-deletion.mjs --pr <N>
+```
+
+- exit 0 → 直近 deploy file 削除なし、approve 判断へ進む
+- exit 2 → **BLOCK 必須**。rebase 不足の典型 symptom。Fix Agent dispatch で `git rebase origin/main` (または `git merge origin/main`) を要求し、`screenshots` branch も再 push (#2063)
+- exit 3 → internal error。base ref / git config を確認
+
+archive 移動 (ADR 1-in-1-out 等) の legitimate な delete は `--ignore-pattern '^docs/decisions/archive/'` で除外可能。
+
 #### 全手順 Pass → approve & merge
 
 ```bash
