@@ -16,6 +16,15 @@
 - リポジトリ: Takenori-Kusaka/ganbari-quest
 - 作業ディレクトリ: C:\Users\kokor\OneDrive\Document\GitHub\ganbari-quest
 
+## 必須: PR Head の Authoritative 検証 (#2557)
+GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、Tier 2 5 手順に着手する前に必ず以下で cross-check を行ってください:
+1. `git ls-remote origin refs/heads/<branch>` で authoritative な最新コミット SHA を取得
+2. `gh pr view <num> --json headRefOid` の値と比較
+3. 乖離がある場合は ls-remote を信頼し、`git fetch origin <branch>` で最新を取得してから手順 1 (Issue 照合) に進む
+4. 以降の `git show <sha>:<file>` / `git diff` / `gh api ...` すべてで ls-remote の SHA を stable な reference として使う
+
+ヘルパー: `node scripts/verify-pr-head.mjs <num> <branch>` で自動 cross-check 可能 (exit 2 で乖離警告)。
+
 ## ミッション
 `docs/sessions/qa-session.md` の Tier 2 5 手順を最初から読み、PR #<num> に対し手順 1〜5 を全て実行する。
 

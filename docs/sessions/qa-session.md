@@ -45,6 +45,15 @@ gh pr view <num> --repo Takenori-Kusaka/ganbari-quest
 gh pr diff <num> --repo Takenori-Kusaka/ganbari-quest --name-only
 ```
 
+#### Authoritative HEAD 検証 (#2557)
+
+`gh pr view --json headRefOid` は GitHub API cache の eventual consistency により stale 値を返すことがあり、誤診断 (force-push 直後の「古い HEAD で再 BLOCK」事故 / 修正 commit drop 誤検知) の原因となる。Tier 2 5 手順を開始する前に **必ず** `git ls-remote origin refs/heads/<branch>` で authoritative HEAD SHA を取得し、以降の `git show <sha>:<file>` / `git diff` / `gh api ...` 全検証で stable な reference として固定する。`gh pr view` の値と乖離があれば ls-remote を信頼し `git fetch origin <branch>` 後に検証着手。詳細・helper script: `scripts/verify-pr-head.mjs` / `docs/sessions/dev-process/github-api-head-staleness.md`。
+
+```bash
+git ls-remote origin refs/heads/<branch>    # → 返値 SHA を以降の検証で固定参照
+node scripts/verify-pr-head.mjs <num> <branch>   # ls-remote と gh pr view の乖離を自動警告
+```
+
 ### 手順 1: Issue 照合
 
 ```bash
