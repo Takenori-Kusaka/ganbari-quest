@@ -123,106 +123,107 @@ async function clearKinderStarterActivities(): Promise<void> {
 // page server load の interleaving)、serial 化して同 worker 内で順次実行する。
 // 他 spec (admin-activities-per-child / setup-flow-marketplace-integrated 等) からの
 // import race は `child_activities` 直接 DELETE で構造的に解消済 (上記 clearKinderStarterActivities 参照)。
-test.describe.serial('#1758 marketplace 移行 — must 推奨インポート', () => {
-	test.beforeEach(async () => {
-		await clearKinderStarterActivities();
-	});
-
-	test('admin/packs で activity-pack に「おやくそく推奨 N件」Badge と must Badge が表示される', async ({
-		page,
-	}) => {
-		// #2558 fix: 並列 worker (workers: 2) が kinder-starter を import し続けるため、
-		// beforeEach delete だけでは race で fail する。page.goto 直前に再 delete + reload で
-		// race window を最小化する (最大 3 回試行)。「インポート済」badge visible = 並列 worker が
-		// 直前に import してしまった状態。`!isFullyImported` 状態 (form 表示) になるまで retry。
-		for (let attempt = 0; attempt < 3; attempt++) {
+test.describe
+	.serial('#1758 marketplace 移行 — must 推奨インポート', () => {
+		test.beforeEach(async () => {
 			await clearKinderStarterActivities();
-			await page.goto('/admin/packs');
-			await expect(page).toHaveURL(/\/admin\/packs/);
-			const importedBadge = page
-				.locator('button:has-text("ようじキッズ")')
-				.filter({ hasText: 'インポート済' });
-			if (await importedBadge.isVisible({ timeout: 1_000 }).catch(() => false)) {
-				continue; // 他 worker が再 import 済 → 再削除 + reload
+		});
+
+		test('admin/packs で activity-pack に「おやくそく推奨 N件」Badge と must Badge が表示される', async ({
+			page,
+		}) => {
+			// #2558 fix: 並列 worker (workers: 2) が kinder-starter を import し続けるため、
+			// beforeEach delete だけでは race で fail する。page.goto 直前に再 delete + reload で
+			// race window を最小化する (最大 3 回試行)。「インポート済」badge visible = 並列 worker が
+			// 直前に import してしまった状態。`!isFullyImported` 状態 (form 表示) になるまで retry。
+			for (let attempt = 0; attempt < 3; attempt++) {
+				await clearKinderStarterActivities();
+				await page.goto('/admin/packs');
+				await expect(page).toHaveURL(/\/admin\/packs/);
+				const importedBadge = page
+					.locator('button:has-text("ようじキッズ")')
+					.filter({ hasText: 'インポート済' });
+				if (await importedBadge.isVisible({ timeout: 1_000 }).catch(() => false)) {
+					continue; // 他 worker が再 import 済 → 再削除 + reload
+				}
+				break;
 			}
-			break;
-		}
 
-		// kinder-starter パックを展開する（mustDefault: 3 件 = はみがきした/おきがえした/おかたづけした）
-		const kinderStarter = page.getByText(/ようじキッズ|kinder.starter/i).first();
-		await kinderStarter.waitFor({ state: 'visible', timeout: 10000 });
-		await kinderStarter.click();
+			// kinder-starter パックを展開する（mustDefault: 3 件 = はみがきした/おきがえした/おかたづけした）
+			const kinderStarter = page.getByText(/ようじキッズ|kinder.starter/i).first();
+			await kinderStarter.waitFor({ state: 'visible', timeout: 10000 });
+			await kinderStarter.click();
 
-		// パック header に「おやくそく推奨 N件」Badge（PACKS_PAGE_LABELS.mustDefaultCount）
-		// 文言は labels.ts SSOT で定義された日本語固定。複数パックに同じ文言が出るため
-		// `.first()` で最初の要素を取って厳密一致させる（assertion 弱体化禁止）。
-		const mustBadge = page.locator('text=/おやくそく推奨\\s*\\d+件/').first();
-		await expect(mustBadge).toBeVisible({ timeout: 5000 });
+			// パック header に「おやくそく推奨 N件」Badge（PACKS_PAGE_LABELS.mustDefaultCount）
+			// 文言は labels.ts SSOT で定義された日本語固定。複数パックに同じ文言が出るため
+			// `.first()` で最初の要素を取って厳密一致させる（assertion 弱体化禁止）。
+			const mustBadge = page.locator('text=/おやくそく推奨\\s*\\d+件/').first();
+			await expect(mustBadge).toBeVisible({ timeout: 5000 });
 
-		// 展開された活動リスト内に個別 must Badge（PACKS_PAGE_LABELS.mustDefaultBadge）が
-		// 少なくとも 1 件存在する。Badge 文言は固定で「おやくそく推奨」。
-		const individualMustBadge = page.locator('text=/^おやくそく推奨$/').first();
-		await expect(individualMustBadge).toBeVisible({ timeout: 5000 });
+			// 展開された活動リスト内に個別 must Badge（PACKS_PAGE_LABELS.mustDefaultBadge）が
+			// 少なくとも 1 件存在する。Badge 文言は固定で「おやくそく推奨」。
+			const individualMustBadge = page.locator('text=/^おやくそく推奨$/').first();
+			await expect(individualMustBadge).toBeVisible({ timeout: 5000 });
 
-		// チェックボックス UI が表示される（applyMustDefault input、name="applyMustDefault"）
-		const checkbox = page.locator('input[name="applyMustDefault"]').first();
-		await expect(checkbox).toBeVisible({ timeout: 5000 });
-		// 既定 ON
-		await expect(checkbox).toBeChecked();
-	});
+			// チェックボックス UI が表示される（applyMustDefault input、name="applyMustDefault"）
+			const checkbox = page.locator('input[name="applyMustDefault"]').first();
+			await expect(checkbox).toBeVisible({ timeout: 5000 });
+			// 既定 ON
+			await expect(checkbox).toBeChecked();
+		});
 
-	test('admin/packs チェックボックス OFF 操作後も UI 状態が保持される（applyMustDefault state）', async ({
-		page,
-	}) => {
-		// シナリオ 2: チェックボックスを OFF にすると applyMustDefault state が false に
-		// 切り替わる。次回 form submit 時に applyMustDefault が送信されない（既定 OFF）。
-		// 注: 実際の DB 挿入結果は activity-import-service の unit テスト
-		// (#1758 セクション 5 件) で検証済。ここでは UI state 切り替えのみ確認する。
-		// #2558 fix: 1 つ目の test と同じ race 対策 (clear → goto → 確認 → 必要なら retry)
-		for (let attempt = 0; attempt < 3; attempt++) {
-			await clearKinderStarterActivities();
-			await page.goto('/admin/packs');
-			const importedBadge = page
-				.locator('button:has-text("ようじキッズ")')
-				.filter({ hasText: 'インポート済' });
-			if (await importedBadge.isVisible({ timeout: 1_000 }).catch(() => false)) {
-				continue;
+		test('admin/packs チェックボックス OFF 操作後も UI 状態が保持される（applyMustDefault state）', async ({
+			page,
+		}) => {
+			// シナリオ 2: チェックボックスを OFF にすると applyMustDefault state が false に
+			// 切り替わる。次回 form submit 時に applyMustDefault が送信されない（既定 OFF）。
+			// 注: 実際の DB 挿入結果は activity-import-service の unit テスト
+			// (#1758 セクション 5 件) で検証済。ここでは UI state 切り替えのみ確認する。
+			// #2558 fix: 1 つ目の test と同じ race 対策 (clear → goto → 確認 → 必要なら retry)
+			for (let attempt = 0; attempt < 3; attempt++) {
+				await clearKinderStarterActivities();
+				await page.goto('/admin/packs');
+				const importedBadge = page
+					.locator('button:has-text("ようじキッズ")')
+					.filter({ hasText: 'インポート済' });
+				if (await importedBadge.isVisible({ timeout: 1_000 }).catch(() => false)) {
+					continue;
+				}
+				break;
 			}
-			break;
-		}
 
-		const kinderStarter = page.getByText(/ようじキッズ/).first();
-		await kinderStarter.waitFor({ state: 'visible', timeout: 10000 });
-		await kinderStarter.click();
+			const kinderStarter = page.getByText(/ようじキッズ/).first();
+			await kinderStarter.waitFor({ state: 'visible', timeout: 10000 });
+			await kinderStarter.click();
 
-		const checkbox = page.locator('input[name="applyMustDefault"]').first();
-		await expect(checkbox).toBeVisible({ timeout: 5000 });
-		// 既定 ON
-		await expect(checkbox).toBeChecked();
+			const checkbox = page.locator('input[name="applyMustDefault"]').first();
+			await expect(checkbox).toBeVisible({ timeout: 5000 });
+			// 既定 ON
+			await expect(checkbox).toBeChecked();
 
-		// OFF に切り替え
-		await checkbox.uncheck();
-		await expect(checkbox).not.toBeChecked();
+			// OFF に切り替え
+			await checkbox.uncheck();
+			await expect(checkbox).not.toBeChecked();
+		});
+
+		test('admin/packs 表示で 12 件すべての activity-pack が描画される', async ({ page }) => {
+			// #1212-A で activity-pack は 4 年齢 × neutral (4) + 性別バリアント (8) = 12 件構成
+			// この件数が削減されていないことを確認（marketplace 移行の副作用検出）。
+			await page.goto('/admin/packs');
+
+			const expectedNames = [
+				'ようじキッズ', // kinder-starter
+				'しょうがくせいチャレンジ', // elementary-challenge
+				'中学生チャレンジ', // junior-high-challenge
+				'高校生チャレンジ', // senior-high-challenge
+			];
+
+			for (const name of expectedNames) {
+				const pack = page.getByText(name).first();
+				await expect(pack).toBeVisible({ timeout: 10000 });
+			}
+		});
 	});
-
-	test('admin/packs 表示で 12 件すべての activity-pack が描画される', async ({ page }) => {
-		// #1212-A で activity-pack は 4 年齢 × neutral (4) + 性別バリアント (8) = 12 件構成
-		// この件数が削減されていないことを確認（marketplace 移行の副作用検出）。
-		await page.goto('/admin/packs');
-
-		const expectedNames = [
-			'ようじキッズ', // kinder-starter
-			'しょうがくせいチャレンジ', // elementary-challenge
-			'中学生チャレンジ', // junior-high-challenge
-			'高校生チャレンジ', // senior-high-challenge
-		];
-
-		for (const name of expectedNames) {
-			const pack = page.getByText(name).first();
-			await expect(pack).toBeVisible({ timeout: 10000 });
-		}
-	});
-});
 
 test.describe('#1758 marketplace 移行 — routine checklist 削除確認', () => {
 	test('削除済 routine checklist (morning-kinder) は 404 を返す', async ({ page }) => {
