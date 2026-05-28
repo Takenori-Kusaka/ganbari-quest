@@ -76,9 +76,23 @@
 
 **Phase 1 からの申し送り (継続)**: Product 構成 (#2535→Phase 5) / 最終確認画面実装方式 (#2541→Phase 3/5) / judgment 保留テーブル (#2538→Phase 5)
 
+## Phase 3 — UI 設計 (子 issue 索引)
+
+| 子 issue | UI 設計対象 | docs |
+|---|---|---|
+| #2567 | `/admin/subscription` プランページ (SaasSubscriptionPanel 責務純化) | [phase3-subscription-page-ui-design](phase3-subscription-page-ui-design.md) |
+| #2568 | AdminLayout header (plan-badge クリック遷移) | 着手予定 |
+| #2569 | ActivityLimitBanner | 着手予定 |
+| #2570 | FeatureGate + tooltip | 着手予定 |
+| #2571 | TrialBanner (Reverse Trial 進捗フレーミング) | 着手予定 |
+| #2572 | success ページ + webhook polling | 着手予定 |
+| #2573 | 特商法最終確認画面 (`/admin/subscription/confirm`) | 着手予定 |
+| #2574 | 期末ダウン banner | 着手予定 |
+| #2575 | archived リソース表示 + One-click reactivation | 着手予定 |
+
 ## Phase 3-7 への接続
 
-- **Phase 3 (UI, #2528)**: 新 URL/コンポーネント名 (`SubscriptionPanel` 等) 前提で UI 設計。子 issue #2567-2575 (現在 Phase 1+2 補強完了まで中断)
+- **Phase 3 (UI, #2528)**: 新 URL/コンポーネント名 (`SubscriptionPanel` 等) + プラン名 (プレミアム) + 月額のみ前提で UI 設計。子 issue #2567-2575 (Phase 1+2 補強完了で 2026-05-28 再開)
 - **Phase 4 (動線, #2529)**: ⭐ **URL rename 本拠地**。`/admin/license` → `/admin/subscription` の IA / LEGACY_URL_MAP / 動線確定。Phase 1 補強要件 (naming-url-integrity) を実装計画に落とし込む
 - **Phase 5 (アーキ, #2530)**: labels.ts / atom SSOT 設計確定 (`SUBSCRIPTION_*_TERMS` 新規不要、既存 atom 流用)
 - **Phase 6 (実装詳細, #2514)**: 機械置換 28 件の手順 + 文脈判断 6 件の確定 (`AUTH_LICENSE_STATUS` / `LICENSE_PLAN` enum 改名是非 / `/ops/license/*` 改名是非)
