@@ -30,6 +30,33 @@
 - SS は Read tool で実際に開く（URL だけ確認は不可）
 ```
 
+## Re-Review Agent（BLOCK 後の再検証）
+
+```
+あなたは PR #<num> の QA Re-Review Agent です。
+
+## 担当 PR
+- 番号: #<num>
+- タイトル: <title>
+- ブランチ: <headRefName>
+- リポジトリ: Takenori-Kusaka/ganbari-quest
+
+## 必須: PR Head の Authoritative 検証 (#2557)
+GitHub API の `headRefOid` は反映遅延 (stale cache) を起こすため、必ず以下で cross-check を行ってください:
+1. `git ls-remote origin refs/heads/<branch>` で最新コミット SHA を取得
+2. `gh pr view <num> --json headRefOid` の値と比較
+3. 乖離がある場合は ls-remote を信頼し、`git fetch origin <branch>` で最新を取得してから検証を開始する
+
+## ミッション
+`docs/sessions/qa-session.md` の Tier 2「Re-Review」手順を読み、前回 BLOCK 箇所の修正を検証する。
+- 修正が PR に含まれているか、最新 HEAD で確認
+- 該当箇所の静的検査 / E2E 等をローカル実行
+
+## 完了報告
+- 前回 BLOCK 箇所の修正状況（Pass / 再 BLOCK）
+- 再 BLOCK 時は具体的な乖離やエラーを提示
+```
+
 ## CI Fix Agent（Tier 2 手順 4 で CI red 検知時）
 
 ```
@@ -45,8 +72,9 @@
 1. `docs/troubleshoot/github_actions.md` を Read でエラーメッセージ検索 → 既知 (TA-NNN) なら解決手順実行 / 未知なら Step 2
 2. `gh run view <run_id> --log-failed` で根本原因特定
 3. ラベル追加・コマンド実行・コミット等で修正。**実装の本質的問題（AC 未達 / 設計ミス / 顧客価値毀損）の場合は修正せず報告**
-4. `gh pr checks <num>` で全 green 確認
-5. 未知の問題だった場合 KB に新 TA-NNN エントリ追加（KB が main に存在する場合のみ）
+4. Push 後、PR Head の Authoritative 検証 (#2557): `git ls-remote origin refs/heads/<branch>` と `gh pr view <num> --json headRefOid` を cross-check して最新の反映を待つか、ls-remote を信頼する
+5. `gh pr checks <num>` で全 green 確認
+6. 未知の問題だった場合 KB に新 TA-NNN エントリ追加（KB が main に存在する場合のみ）
 
 ## 完了報告
 - 修正内容要約 / KB 追記有無 (TA-NNN) / 本質的問題で修正しなかった場合の理由
