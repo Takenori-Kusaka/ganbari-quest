@@ -1,4 +1,5 @@
 <script lang="ts">
+import { deserialize } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { splitIcon } from '$lib/domain/icon-utils';
 import {
@@ -200,11 +201,19 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	formData.append('childIds', childIdsValue);
 
 	const resp = await fetch('?/importPackToChildren', { method: 'POST', body: formData });
+	// #2558: imported 件数を読んで正直に出し分ける。
+	// imported=0 (選んだ子に全て追加済み) を generic な「完了」で誤魔化さない。
 	if (resp.ok) {
-		actionMessage = '取込が完了しました';
+		const result = deserialize(await resp.text());
+		const imported =
+			result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
+		actionMessage =
+			imported > 0
+				? ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported)
+				: ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates;
 		await invalidateAll();
 	} else {
-		actionMessage = '取込に失敗しました';
+		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
 	}
 	pendingImportPresetId = null;
 	showChildSelectionDialog = false;

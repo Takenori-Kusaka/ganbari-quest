@@ -3949,6 +3949,11 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	bulkTargetChildAgeSuffix: '歳',
 	bulkDialogCancel: 'キャンセル',
 	bulkDialogConfirm: '追加する',
+	// 取込ダイアログ後の result メッセージ (#2558: imported 件数で正直に出し分ける)
+	importSuccess: (count: number) => `✨ ${count} 件の活動を追加しました`,
+	// imported=0 (選んだ子に全て追加済み) — generic な「完了」で誤魔化さない
+	importAllDuplicates: `選んだ${CHILD_TERMS.honorific}にはすでに追加済みです`,
+	importFailed: '取込に失敗しました',
 } as const;
 
 /**

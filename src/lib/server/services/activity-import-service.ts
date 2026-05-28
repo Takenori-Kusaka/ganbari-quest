@@ -11,6 +11,14 @@
 //   parallel write (family master + per-child instance) を停止。childIds 未指定時は
 //   facade 経由 (= tenant 最初の child に bind) のみ、指定時は per-child bulk 配信のみ。
 //   旧 activities table への write はゼロ。
+// #2558 (2026-05-28): dedup scope を tenant 全体から child 単位に修正。
+//   activity は ADR-0055 で per-child instance scope (data-model-resource-scope.md §3)。
+//   旧実装は `findActivities(tenantId)` (tenant aggregate) で名前重複を見ていたため、
+//   1 人目に取込済のパックを 2 人目に取込むと全 skip → imported:0 となり、UI 上
+//   「追加を押しても無反応」(顧客クレーム) を生んでいた (#2458-A1 facade rewrite で混入)。
+//   修正後は child ごとに既存 activity 名 Set を構築し、「その child に未存在のときだけ
+//   その child へ instance を追加」する。imported は「いずれかの child に新規 instance を
+//   生んだ activity 数」、skipped は「全 target child で既存だった activity 数」。
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
@@ -118,28 +126,23 @@ function normalizeOptions(options?: ImportActivitiesOptions | string): ImportAct
 }
 
 /**
- * 1 件分の activity の validate + family master insert を試みる。
- * 成功時に per-child instance input も組み立てて返す (childIds 未指定なら空配列)。
+ * 1 件分の activity の category 解決 + priority 判定を行う。
+ * per-child dedup は呼び出し側 (`importActivities`) が child ごとの既存名 Set で行うため、
+ * 本 helper では category 妥当性のみを判定する (#2558)。
  */
-async function importOneActivity(
+function resolveActivityMeta(
 	a: ActivityPackItem,
-	_tenantId: string,
-	presetId: string | undefined,
 	applyMustDefault: boolean,
-	childIds: readonly number[],
-): Promise<{
+): {
 	ok: boolean;
-	skipReason?: 'duplicate' | 'invalid-category' | 'insert-failed';
 	error?: string;
 	categoryId?: number;
 	priority?: 'must' | 'optional';
-	childInputs?: InsertChildActivityInput[];
-}> {
+} {
 	const categoryId = CATEGORY_CODE_TO_ID[a.categoryCode];
 	if (!categoryId) {
 		return {
 			ok: false,
-			skipReason: 'invalid-category',
 			error: `「${a.name}」: カテゴリ「${a.categoryCode}」が不明`,
 		};
 	}
@@ -149,28 +152,34 @@ async function importOneActivity(
 	const priority: 'must' | 'optional' =
 		applyMustDefault && a.mustDefault === true ? 'must' : 'optional';
 
-	// #2458-A1: legacy family master insert (旧 `activities` table) を撤去。
-	// childIds 指定時は per-child instance 配信のみ (本 function 戻り値の childInputs)、
-	// childIds 未指定時 caller (`importActivities`) 側で fallback bind (tenant 最初の child)
-	// を行う設計に変更。本 phase では family master insert なしで成功扱いとする。
-	// 旧 activities table への write はゼロ (#2458-C drop ready)。
+	return { ok: true, categoryId, priority };
+}
 
-	// per-child 配信: 各 child の instance を組み立て
-	const childInputs: InsertChildActivityInput[] =
-		childIds.length > 0
-			? childIds.map((cid) => ({
-					childId: cid,
-					name: a.name,
-					categoryId,
-					icon: a.icon,
-					basePoints: a.basePoints,
-					triggerHint: a.triggerHint ?? null,
-					sourcePresetId: presetId ?? null,
-					priority,
-				}))
-			: [];
-
-	return { ok: true, categoryId, priority, childInputs };
+/**
+ * #2558: child ごとの既存 activity 名 Set を構築する。
+ * activity は per-child instance scope (ADR-0055) のため、dedup も child 単位で行う。
+ * 各 child を `findActivitiesByChild` で読み、name を Set 化して返す。
+ * read 失敗は空 Set にフォールバックし、import 自体は継続する (errors に記録)。
+ */
+async function buildExistingNamesByChild(
+	childIds: readonly number[],
+	tenantId: string,
+	errors: string[],
+): Promise<Map<number, Set<string>>> {
+	const repos = getRepos();
+	const byChild = new Map<number, Set<string>>();
+	for (const cid of childIds) {
+		try {
+			const existing = await repos.childActivity.findActivitiesByChild(cid, tenantId, {
+				includeArchived: true,
+			});
+			byChild.set(cid, new Set(existing.map((a) => a.name)));
+		} catch (e) {
+			errors.push(`[child=${cid}] 既存活動の読み取りに失敗: ${String(e)}`);
+			byChild.set(cid, new Set());
+		}
+	}
+	return byChild;
 }
 
 /**
@@ -219,33 +228,55 @@ export async function importActivities(
 	const childIds: readonly number[] = await _fallbackChildIds(tenantId, opts.childIds ?? []);
 	const applyMustDefault = opts.applyMustDefault === true;
 
-	const existing = await findActivities(tenantId);
-	const existingNames = new Set(existing.map((a) => a.name));
 	const errors: string[] = [];
 	let imported = 0;
 	let skipped = 0;
+
+	// #2558: dedup を child 単位で行う (ADR-0055 per-child instance scope)。
+	// 各 target child の既存 activity 名 Set を事前構築し、その child に未存在の場合のみ
+	// instance を追加する。tenant 全体 dedup (旧実装) は別の子への取込を全 skip させ、
+	// imported:0 → 「追加を押しても無反応」の顧客クレームを生んでいた。
+	const existingNamesByChild = await buildExistingNamesByChild(childIds, tenantId, errors);
 
 	// #2362 PR-3 (ADR-0055): per-child instance バッチ。
 	const childInputsByChild: Map<number, InsertChildActivityInput[]> = new Map();
 	for (const cid of childIds) childInputsByChild.set(cid, []);
 
 	for (const a of activities) {
-		if (existingNames.has(a.name)) {
+		const meta = resolveActivityMeta(a, applyMustDefault);
+		if (!meta.ok) {
+			if (meta.error) errors.push(meta.error);
+			continue;
+		}
+		const categoryId = meta.categoryId as number;
+		const priority = meta.priority as 'must' | 'optional';
+
+		// child 単位 dedup: その child に同名が無いときだけ instance を生成する。
+		let createdForAnyChild = false;
+		for (const cid of childIds) {
+			const childNames = existingNamesByChild.get(cid);
+			// 既存 + 同一 import 内での重複の両方を防ぐため Set を逐次更新する。
+			if (childNames?.has(a.name)) continue;
+			childNames?.add(a.name);
+			childInputsByChild.get(cid)?.push({
+				childId: cid,
+				name: a.name,
+				categoryId,
+				icon: a.icon,
+				basePoints: a.basePoints,
+				triggerHint: a.triggerHint ?? null,
+				sourcePresetId: presetId ?? null,
+				priority,
+			});
+			createdForAnyChild = true;
+		}
+
+		// imported = いずれかの child に新規 instance を生んだ activity 数。
+		// skipped = 全 target child で既存だった (どこにも追加しなかった) activity 数。
+		if (createdForAnyChild) {
+			imported++;
+		} else {
 			skipped++;
-			continue;
-		}
-		const r = await importOneActivity(a, tenantId, presetId, applyMustDefault, childIds);
-		if (!r.ok) {
-			if (r.error) errors.push(r.error);
-			continue;
-		}
-		imported++;
-		existingNames.add(a.name);
-		// per-child 入力を子供別マップに振り分け
-		if (r.childInputs && r.childInputs.length > 0) {
-			for (const input of r.childInputs) {
-				childInputsByChild.get(input.childId)?.push(input);
-			}
 		}
 	}
 

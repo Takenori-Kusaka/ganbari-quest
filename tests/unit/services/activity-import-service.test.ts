@@ -6,6 +6,12 @@
 // childIds 未指定時は fallback で tenant 最初の child に bind されるため、`mockInsertActivitiesBulk`
 // が常に呼ばれることを assert する。
 // 旧 `mockInsertActivity` (facade) は assert 対象外 (内部実装としても呼ばれない)。
+//
+// #2558 (2026-05-28): dedup scope を tenant 全体から child 単位に修正。
+// dedup は `findActivitiesByChild` (child 単位) で行うため、importActivities 系テストは
+// `mockFindActivitiesByChild` を既存名 source に使う (旧 `mockFindActivities` は
+// previewActivityImport 専用)。末尾の「#2558 per-child dedup 回帰」describe が
+// 顧客クレーム (2 人目に同パック取込 → imported:0 退行) を捕捉する。
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityPackItem } from '../../../src/lib/domain/activity-pack';
@@ -15,6 +21,8 @@ import type { ActivityPackItem } from '../../../src/lib/domain/activity-pack';
 const mockFindActivities = vi.fn();
 // #2362 PR-3: per-child instance 配信
 const mockInsertActivitiesBulk = vi.fn();
+// #2558: per-child dedup 用 (child ごとの既存 activity 名読み取り)
+const mockFindActivitiesByChild = vi.fn();
 // #2458-A1: childIds 未指定 fallback 用
 const mockFindAllChildren = vi.fn();
 
@@ -26,6 +34,7 @@ vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		childActivity: {
 			insertActivitiesBulk: (...args: unknown[]) => mockInsertActivitiesBulk(...args),
+			findActivitiesByChild: (...args: unknown[]) => mockFindActivitiesByChild(...args),
 		},
 	}),
 }));
@@ -74,6 +83,8 @@ beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindActivities.mockResolvedValue([]);
 	mockInsertActivitiesBulk.mockResolvedValue([]);
+	// #2558: 既定では各 child に既存 activity なし (per-child dedup の baseline)
+	mockFindActivitiesByChild.mockResolvedValue([]);
 	mockFindAllChildren.mockResolvedValue([{ id: FIRST_CHILD_ID, nickname: 'first' }]);
 });
 
@@ -188,8 +199,10 @@ describe('importActivities', () => {
 		expect(bulkArgs[1]).toMatchObject({ childId: FIRST_CHILD_ID, name: '読書' });
 	});
 
-	it('重複がスキップされる', async () => {
-		mockFindActivities.mockResolvedValue([{ name: 'サッカー' }]);
+	it('重複がスキップされる (#2558: fallback child の既存名で per-child dedup)', async () => {
+		// #2558: dedup は findActivitiesByChild (child 単位) で行う。
+		// fallback bind 先 FIRST_CHILD_ID に既に「サッカー」がある状態を再現。
+		mockFindActivitiesByChild.mockResolvedValue([{ name: 'サッカー' }]);
 
 		const items = [
 			makeItem({ name: 'サッカー', categoryCode: 'undou' }),
@@ -238,7 +251,8 @@ describe('importActivities', () => {
 	});
 
 	it('混合シナリオ: 新規 + 重複 + カテゴリエラー', async () => {
-		mockFindActivities.mockResolvedValue([{ name: '既存活動' }]);
+		// #2558: per-child dedup (fallback child に「既存活動」あり)
+		mockFindActivitiesByChild.mockResolvedValue([{ name: '既存活動' }]);
 
 		const items = [
 			makeItem({ name: '既存活動', categoryCode: 'undou' }),
@@ -437,7 +451,7 @@ describe('importActivities', () => {
 	// #2458-A1 fallback: tenant に child が 0 件
 	// ──────────────────────────────────────────────────────────
 
-	it('tenant に child が 0 件 -> per-child bulk は呼ばれない (imported は別 channel)', async () => {
+	it('tenant に child が 0 件 -> per-child bulk は呼ばれず imported=0 (#2558 honest count)', async () => {
 		mockFindAllChildren.mockResolvedValue([]);
 
 		const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
@@ -445,8 +459,12 @@ describe('importActivities', () => {
 		const result = await importActivities(items, TENANT);
 
 		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
-		// imported は per-child 配信前の進捗カウンタとして残る
-		expect(result.imported).toBe(1);
+		// #2558: 配信先 child が 1 件も無いので実 instance は作られない。
+		// imported は「実際に新規 instance を生んだ activity 数」なので 0 が honest。
+		// (旧実装は per-child 配信前の進捗カウンタとして 1 を返していたが、これは
+		//  どこにも永続しない fiction だったため修正。skipped に計上する)
+		expect(result.imported).toBe(0);
+		expect(result.skipped).toBe(1);
 	});
 
 	// ──────────────────────────────────────────────────────────
@@ -505,7 +523,10 @@ describe('importActivities', () => {
 		});
 
 		it('duplicate でスキップされた activity は per-child 配信からも除外', async () => {
-			mockFindActivities.mockResolvedValue([{ name: '既存' }]);
+			// #2558: child 101 に既に「既存」がある -> その child では skip、「新規」のみ配信
+			mockFindActivitiesByChild.mockImplementation(async (cid: number) =>
+				cid === 101 ? [{ name: '既存' }] : [],
+			);
 
 			const items = [
 				makeItem({ name: '既存', categoryCode: 'undou' }),
@@ -538,6 +559,97 @@ describe('importActivities', () => {
 				priority: 'must',
 				sourcePresetId: 'kinder-starter',
 			});
+		});
+	});
+
+	// ──────────────────────────────────────────────────────────
+	// #2558 回帰: child 単位 dedup (顧客クレーム「2 人目に追加しても無反応」)
+	// ──────────────────────────────────────────────────────────
+	describe('#2558 per-child dedup 回帰 (tenant 全体 dedup 退行の捕捉)', () => {
+		it('child1 に取込済の同一パックを child2 に取込 -> child2 に N 件 instance が作られる (imported=N, 0 でない)', async () => {
+			// 顧客クレームの再現: 1 人目 (101) に kinder-starter を取込済。
+			// 同じパックを 2 人目 (202) に取込もうとすると、旧 tenant 全体 dedup では
+			// 101 に存在する名前で全 skip → imported:0 → UI 上「無反応」になっていた。
+			// per-child dedup では 202 にはまだ無いので全件 instance 化されるべき。
+			const packItems = [
+				makeItem({ name: 'からだをうごかした', categoryCode: 'undou' }),
+				makeItem({ name: 'えほんをよんだ', categoryCode: 'benkyou' }),
+				makeItem({ name: 'おてつだいした', categoryCode: 'seikatsu' }),
+			];
+
+			// 101 は全件取込済、202 は未取込
+			mockFindActivitiesByChild.mockImplementation(async (cid: number) =>
+				cid === 101 ? packItems.map((p) => ({ name: p.name })) : [],
+			);
+
+			const result = await importActivities(packItems, TENANT, {
+				childIds: [202],
+				presetId: 'kinder-starter',
+			});
+
+			// 202 には 3 件すべて新規 instance が作られる (退行なら imported=0)
+			expect(result.imported).toBe(3);
+			expect(result.skipped).toBe(0);
+			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
+			const [bulkArgs, tenantArg] = mockInsertActivitiesBulk.mock.calls[0] ?? [];
+			expect(tenantArg).toBe(TENANT);
+			expect(bulkArgs).toHaveLength(3);
+			for (const arg of bulkArgs) {
+				expect(arg.childId).toBe(202);
+			}
+			expect(bulkArgs.map((a: { name: string }) => a.name)).toEqual([
+				'からだをうごかした',
+				'えほんをよんだ',
+				'おてつだいした',
+			]);
+		});
+
+		it('複数 child のうち一部だけ取込済 -> 取込済 child は skip、未取込 child のみ instance 化', async () => {
+			const packItems = [
+				makeItem({ name: 'A', categoryCode: 'undou' }),
+				makeItem({ name: 'B', categoryCode: 'benkyou' }),
+			];
+
+			// 101 は A のみ取込済、202 は未取込
+			mockFindActivitiesByChild.mockImplementation(async (cid: number) =>
+				cid === 101 ? [{ name: 'A' }] : [],
+			);
+
+			const result = await importActivities(packItems, TENANT, { childIds: [101, 202] });
+
+			// A は 202 に作られ、B は 101/202 両方に作られる -> どちらも「いずれかの child に新規」
+			// なので imported=2、skip 0 (全 child で既存だった activity は無い)
+			expect(result.imported).toBe(2);
+			expect(result.skipped).toBe(0);
+
+			// 101 への配信は B のみ (1 件)、202 への配信は A,B (2 件)
+			const callsByChild = new Map<number, string[]>();
+			for (const call of mockInsertActivitiesBulk.mock.calls) {
+				const inputs = call[0] as Array<{ childId: number; name: string }>;
+				if (inputs.length === 0) continue;
+				const cid = inputs[0]?.childId as number;
+				callsByChild.set(
+					cid,
+					inputs.map((i) => i.name),
+				);
+			}
+			expect(callsByChild.get(101)).toEqual(['B']);
+			expect(callsByChild.get(202)?.sort()).toEqual(['A', 'B']);
+		});
+
+		it('全 target child で既存 -> 全 skip (imported=0)。これは正当な skip であり退行ではない', async () => {
+			const packItems = [makeItem({ name: 'X', categoryCode: 'undou' })];
+			// 唯一の target 101 に X が既存
+			mockFindActivitiesByChild.mockImplementation(async (cid: number) =>
+				cid === 101 ? [{ name: 'X' }] : [],
+			);
+
+			const result = await importActivities(packItems, TENANT, { childIds: [101] });
+
+			expect(result.imported).toBe(0);
+			expect(result.skipped).toBe(1);
+			// 配信入力が 0 件なので bulk insert は呼ばれない
+			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 		});
 	});
 });

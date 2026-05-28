@@ -75,21 +75,38 @@ test.describe('Demo Lambda marketplace seed (#2131 PR-B7)', () => {
 		await expect(page.locator('main').first()).toBeVisible();
 	});
 
-	test('marketplace 由来の活動は source=marketplace 属性で識別できる', async ({ request }) => {
-		// API 経由で 902 の活動一覧を取得し、source=marketplace の activity が存在することを検証
+	test('seed 由来の per-child 活動は source 属性 + sourcePresetId で識別できる', async ({
+		request,
+	}) => {
+		// API 経由で活動一覧を取得し、seed 由来の per-child activity が存在することを検証。
 		// `/api/v1/activities` は本番ルート (src/routes/api/v1/activities/+server.ts) のため
 		// demo Lambda 環境でも 200 を返すことを期待する。
+		//
+		// #2558 (per-child flip 後の source 修正): #2362 PR-3 / ADR-0055 で activity が
+		// per-child instance scope に移行し、demo seed は `DEMO_CHILD_ACTIVITIES`
+		// (source='demo-per-child') を SSOT とするようになった。旧 `source='marketplace'`
+		// (DEMO_MARKETPLACE_ACTIVITIES / family master 由来) は per-child fixture が優先される
+		// ため API には現れない。本 assert を「demo-per-child が存在 + sourcePresetId で
+		// preset 由来が辿れる」に実態合わせで修正 (ADR-0006: 弱体化ではなく source 値の正常化)。
 		const res = await request.get('/api/v1/activities?childId=902');
 		expect(res.status()).toBe(200);
 		const body = (await res.json()) as {
-			activities?: Array<{ source?: string; name?: string }>;
+			activities?: Array<{ source?: string; name?: string; sourcePresetId?: string | null }>;
 		};
 		expect(body.activities).toBeDefined();
 		expect(body.activities!.length).toBeGreaterThan(0);
 
-		// kinder-starter pack の activity は source='marketplace' (demo-data.ts §convertMarketplaceActivitiesToDomain)
-		const marketplaceActs = body.activities!.filter((a) => a.source === 'marketplace');
-		// 902 は kinder-starter 30 件持つはずなので 0 件は異常 (#2131 PR-B7 退行)
-		expect(marketplaceActs.length).toBeGreaterThan(0);
+		// per-child fixture は source='demo-per-child' (demo-data.ts §buildChildActivity)
+		const perChildSeedActs = body.activities!.filter((a) => a.source === 'demo-per-child');
+		// 全 child に per-child seed があるはずなので 0 件は異常 (#2131 PR-B7 / #2362 PR-3 退行)
+		expect(perChildSeedActs.length).toBeGreaterThan(0);
+
+		// seed 由来は sourcePresetId ('demo:<masterId>') で preset との紐付けが辿れる
+		// (ADR-0055 §3.1 / demo-data.ts §DEMO_CHILD_ACTIVITIES design)。
+		// ad-hoc 手入力ではなく preset/marketplace 由来であることを構造的に保証する。
+		const seedDerived = perChildSeedActs.filter(
+			(a) => typeof a.sourcePresetId === 'string' && a.sourcePresetId.length > 0,
+		);
+		expect(seedDerived.length).toBeGreaterThan(0);
 	});
 });
