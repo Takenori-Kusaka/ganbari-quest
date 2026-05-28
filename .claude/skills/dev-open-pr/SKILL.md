@@ -122,7 +122,7 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 
 | 禁止 pattern | 理由 |
 |---|---|
-| `gh pr create --body "$(cat <<'EOF' ... EOF)"` (heredoc inline) | Windows cp932 環境で non-ASCII 文字が cp932 化 → GitHub 投入時に BOM (﻿) / `??` mojibake が混入する (#2562 実観測、3 ラウンド再発) |
+| `gh pr create --body "$(cat <<'EOF' ... EOF)"` (heredoc inline) | Windows cp932 環境で non-ASCII 文字が cp932 化 → GitHub 投入時に BOM (﻿) / `??` mojibake が混入する (#2562 実観測、4 ラウンド再発: #2562 / #2563 / #2566 / #2583) |
 | `gh pr edit <N> --body "..."` (inline string with non-ASCII) | 同上、PowerShell / cmd.exe からも cp932 経路で mojibake する |
 | Web UI コピペ後の `--body "..."` 投入 | エディタによっては BOM が残るため、`tmp/` ファイル経由を経て中身確認すること |
 
@@ -132,7 +132,36 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 3. `node scripts/check-pr-body.mjs --pr <N>` で BOM / `??` mojibake 不在を verify (#2576 で `detectMojibake` ガード追加)
 4. 完了後 `rm tmp/pr-bodies/<num>-<slug>.md` (一時ファイル、#1804)
 
-`scripts/check-pr-body.mjs` は BOM 検出 (`mojibake-bom`) と `??` 10 件以上検出 (`mojibake-heuristic`) で exit 1。CI gate (`pre-ready` Step 6/7) が同 script を呼ぶため heredoc 起因 mojibake は Ready 化前に必ず止まる。
+`scripts/check-pr-body.mjs` は BOM 検出 (`mojibake-bom`) と `??` 5 件以上検出 (`mojibake-heuristic`、#2576 で 10 → 5 に閾値強化) で exit 1。CI gate (`pre-ready` Step 6/7) が同 script を呼ぶため heredoc 起因 mojibake は Ready 化前に必ず止まる。
+
+### AC 検証マップは必ず 4 列形式 — #1775 AC2 / #2586
+
+**PR body の AC 検証マップは 4 列固定** (`AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス`)、**2 列簡略形式は禁止**:
+
+| 禁止 pattern | 理由 |
+|---|---|
+| `\| AC \| 結果 \|` (2 列簡略) | 検証手段・エビデンスが省略され、QM Re-Review で 4 列要求で BLOCK 再発 (2026-05-28 に 5 連続再発: #2583 / #2585 / #2588 / #2596 / #2593) |
+| `\| AC1 \| PASS \|` (結果のみ) | HEAD SHA / file:line / grep 実体根拠が記録されず、ADR-0004 AC 検証義務を満たさない |
+| 列数 3 以下 | `scripts/check-pr-body.mjs` の `ac-map-incomplete` チェックが exit 1 |
+
+**正しい運用 (4 列 SSOT)**:
+
+```markdown
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---------|--------|---------|------------------|
+| AC1 | 機能 A 実装 | `npx vitest run tests/unit/foo.test.ts` | HEAD `abc1234` / 12 passed / tests/unit/foo.test.ts:42 |
+| AC2 | LP メトリクス維持 | `node scripts/measure-lp-dimensions.mjs` | HEAD `abc1234` / mobile=11469px PASS |
+```
+
+各セルの埋め方:
+- **AC 番号**: Issue 本文の AC 番号 (`AC1`, `AC2` 等) を Issue 順序通り
+- **AC 内容**: Issue の Acceptance Criteria を 1 行で要約 (Issue 本文と意味的同一)
+- **検証手段**: 機械検証可能なコマンド / ファイルパス / SS 番号 (人間判断のみは不可)
+- **結果 / エビデンス**: `HEAD <SHA> + file:line + 実体根拠` の組合せ (合格値だけは不可、`PASS` だけも不可)
+
+**参考 PR (4 列 SSOT 実装例)**: #2588 / #2599
+
+`scripts/check-pr-body.mjs` の `ac-map-incomplete` / `ac-map-empty` は 4 列未満 or 空セルを exit 1 で検出する。Ready 化前に必ず `node scripts/check-pr-body.mjs --pr <N>` PASS を verify する。
 
 ```bash
 # gh アカウント確認 (ADR-0022 / #1728)
