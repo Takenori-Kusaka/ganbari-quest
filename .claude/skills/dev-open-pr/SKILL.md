@@ -201,7 +201,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 |---|---|---|---|
 | 1 | goal 完遂 dead-end ゼロ | 該当 CUJ targeted E2E | 全 CUJ 貫通 |
 | 2 | Cognitive Walkthrough 4 質問 全 Yes | — | session sheet 添付 (#2554 skill) |
-| 3 | 用語 SSOT 準拠 | `node scripts/check-terminology-coherence.ts` warning 0 (`pre-ready` Step 4 に統合済) | 同 |
+| 3 | 用語 SSOT 準拠 | [`check-terminology-coherence.ts`](../../../scripts/check-terminology-coherence.ts) warning 0 (`pre-ready` Step 4 に統合済) | 同 |
 | 4 | add 経路 ≤ 4 + 用語重複なし | 同 #3 (両者同 script) | 同 |
 | 5 | vision LLM review + 人間 filter | — | C-5 POC 採用後に opt-in |
 | 6 | exploratory 1 セッション dead-end ゼロ | — | C-6 POC 採用後に opt-in |
