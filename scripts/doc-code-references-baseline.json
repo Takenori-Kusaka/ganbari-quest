@@ -60,6 +60,13 @@
 			"tests/e2e/admin-header-plan-badge.spec.ts",
 			"tests/unit/components/admin-header-trial-badge.test.ts"
 		],
+		"docs/design/billing-redesign/phase3-checkout-success-polling-ui-design.md": [
+			"src/lib/server/services/session-status-service.ts",
+			"src/routes/api/stripe/session-status/+server.ts",
+			"tests/e2e/checkout-success-polling.spec.ts",
+			"tests/unit/components/checkout-success-state-machine.test.ts",
+			"tests/unit/services/session-status-service.test.ts"
+		],
 		"docs/design/billing-redesign/phase3-scheduled-downgrade-banner-ui-design.md": [
 			"src/lib/features/admin/components/ScheduledDowngradeBanner.svelte",
 			"src/lib/ui/primitives/ScheduledDowngradeBanner.stories.svelte",
