@@ -60,7 +60,7 @@
  *
  *   0 = OK (直近 deploy file を削除していない / 削除があっても全て ignore-pattern にマッチ)
  *   2 = 直近 deploy file の削除を検出 (BLOCK)
- *   3 = internal error (git 失敗 / base ref 不在 等)
+ *   3 = internal error (git 失敗 / base ref 不在 等 + **worktree HEAD ≠ PR HEAD mismatch (#2618)**)
  *
  * **想定実行環境**:
  *
@@ -70,10 +70,21 @@
  *
  * **テスト**: `tests/unit/scripts/check-recent-deploy-deletion.test.ts` (vitest)
  *
+ * **#2618: worktree HEAD verify gate (機構運用層 self-defense、ADR-0056 §D)**:
+ *
+ *   `--pr <N>` 指定時は本体実行前に `gh pr view <N> --json headRefOid` で PR HEAD を取得し、
+ *   `git rev-parse HEAD` (worktree HEAD) と一致を verify する。不一致なら exit 3 + 「PR HEAD
+ *   を明示 checkout してください」guidance。Fix Agent worktree で `origin/main` HEAD 空 worktree
+ *   で本 gate を回した際に削除 file 0 件と誤認する偽陽性 (PR #2613 Round 3 で legal critical 506
+ *   行喪失寸前) への defense in depth。`--pr` 省略時は HEAD 検証を skip (gh CLI 不要、開発者
+ *   local の単独 self-check 互換)。
+ *
  * **関連**:
  *   - Issue #2603 (本 script 起票 Issue、5 連続再発の構造的予防)
  *   - Issue #2598 (Dev Agent rebase 予防 SKILL、本 script は QM review 側補完)
+ *   - Issue #2618 (機構運用層 bypass 防止、本 worktree HEAD verify gate の起票元)
  *   - ADR-0056 (QM drift prevention 案 1、本 script 自身が deploy 保全機構)
+ *   - ADR-0056 §D (機構運用層 bypass 防止、本 verify は §D の defense in depth 実装)
  */
 
 import { spawnSync } from 'node:child_process';
@@ -230,6 +241,58 @@ export function isIgnored(filePath, ignorePatterns) {
 }
 
 /**
+ * worktree HEAD と PR HEAD の一致を verify する純粋関数 (#2618、ADR-0056 §D)。
+ *
+ * Fix Agent worktree モードで `origin/main` HEAD 空 worktree のまま本 gate を呼ぶと
+ * `origin/main..HEAD` diff が空 → 削除 file 0 件 → 偽陽性 exit 0 となる。本関数は
+ * 入力された worktree HEAD と PR HEAD を厳格比較し、不一致を機構運用層で検出する。
+ *
+ * @param {string} prNumber 対象 PR 番号 (string、`--pr` 値)
+ * @param {(args: string[]) => string|null} ghViewFn `gh pr view --json headRefOid -q .headRefOid` 相当を返す関数 (test injectable)
+ * @param {() => string|null} gitRevParseHeadFn `git rev-parse HEAD` 相当を返す関数 (test injectable)
+ * @returns {{ ok: true } | { ok: false, reason: string, prHead: string|null, worktreeHead: string|null }}
+ */
+export function verifyWorktreeHeadMatchesPrHead(prNumber, ghViewFn, gitRevParseHeadFn) {
+	const prHeadRaw = ghViewFn(['pr', 'view', prNumber, '--json', 'headRefOid', '-q', '.headRefOid']);
+	if (prHeadRaw === null) {
+		return {
+			ok: false,
+			reason: 'gh-pr-view-failed',
+			prHead: null,
+			worktreeHead: null,
+		};
+	}
+	const prHead = prHeadRaw.trim();
+	if (prHead === '') {
+		return {
+			ok: false,
+			reason: 'gh-pr-view-empty',
+			prHead: null,
+			worktreeHead: null,
+		};
+	}
+	const worktreeHeadRaw = gitRevParseHeadFn();
+	if (worktreeHeadRaw === null) {
+		return {
+			ok: false,
+			reason: 'git-rev-parse-failed',
+			prHead,
+			worktreeHead: null,
+		};
+	}
+	const worktreeHead = worktreeHeadRaw.trim();
+	if (prHead !== worktreeHead) {
+		return {
+			ok: false,
+			reason: 'head-mismatch',
+			prHead,
+			worktreeHead,
+		};
+	}
+	return { ok: true };
+}
+
+/**
  * 違反検出のコアロジック。
  *
  * @param {string[]} deletedFiles PR 側の削除 file
@@ -307,10 +370,30 @@ export function helpText() {
 		'Exit codes:',
 		'  0 = OK',
 		'  2 = 直近 deploy file 削除を検出 (BLOCK)',
-		'  3 = internal error',
+		'  3 = internal error または worktree HEAD ≠ PR HEAD mismatch (#2618)',
 		'',
-		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 for context.',
+		'#2618 / ADR-0056 §D: --pr 指定時は worktree HEAD = PR HEAD verify が走り、',
+		'  不一致時は exit 3 で BLOCK (機構運用層 bypass 防止、Fix Agent 偽陽性対策)。',
+		'',
+		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 / Issue #2618 for context.',
 	].join('\n');
+}
+
+/**
+ * `gh` コマンドを実行し stdout を返す。exit code != 0 で null を返す。
+ *
+ * @param {string[]} args gh 引数
+ * @returns {string|null}
+ */
+function runGh(args) {
+	const result = spawnSync('gh', args, {
+		encoding: 'utf8',
+		shell: false,
+	});
+	if (result.status !== 0) {
+		return null;
+	}
+	return result.stdout ?? '';
 }
 
 /**
@@ -321,6 +404,43 @@ async function main() {
 	if (opts.help) {
 		process.stdout.write(`${helpText()}\n`);
 		return 0;
+	}
+
+	// #2618 / ADR-0056 §D: worktree HEAD verify gate (機構運用層 self-defense)
+	// `--pr` 指定時のみ verify (省略時は gh CLI 不要、開発者 local self-check 互換)。
+	if (opts.prNumber !== null) {
+		const verifyResult = verifyWorktreeHeadMatchesPrHead(
+			opts.prNumber,
+			(args) => runGh(args),
+			() => runGit(['rev-parse', 'HEAD']),
+		);
+		if (!verifyResult.ok) {
+			process.stderr.write(
+				`[check-recent-deploy-deletion] FAIL: worktree HEAD verify failed (reason=${verifyResult.reason}, PR #${opts.prNumber}).\n`,
+			);
+			if (verifyResult.reason === 'head-mismatch') {
+				process.stderr.write(`  worktree HEAD: ${verifyResult.worktreeHead}\n`);
+				process.stderr.write(`  PR HEAD:       ${verifyResult.prHead}\n`);
+				process.stderr.write(
+					`  対処: PR HEAD を明示 checkout してください (git checkout ${verifyResult.prHead}).\n`,
+				);
+			} else if (
+				verifyResult.reason === 'gh-pr-view-failed' ||
+				verifyResult.reason === 'gh-pr-view-empty'
+			) {
+				process.stderr.write(
+					`  対処: 'gh auth status' で gh CLI 認証を verify し、PR ${opts.prNumber} が存在するか確認してください。\n`,
+				);
+			} else if (verifyResult.reason === 'git-rev-parse-failed') {
+				process.stderr.write(
+					`  対処: 現在の cwd が git worktree 内か確認してください ('git rev-parse HEAD').\n`,
+				);
+			}
+			process.stderr.write(
+				`  根拠: Issue #2618 (機構運用層 bypass 防止 / 昨日 PR #2613 で legal critical 506 行喪失寸前まで進んだ実害観察) / ADR-0056 §D.\n`,
+			);
+			return 3;
+		}
 	}
 
 	const deletedFiles = getDeletedFiles(opts.base);

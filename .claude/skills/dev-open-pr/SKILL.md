@@ -75,6 +75,25 @@ Agent が実装完了後、Skill 出力の雛形に対して以下を埋める:
 
 ## ステップ 3: PR body 検証
 
+### ⚠️ gate 実行前 worktree HEAD verify (#2618 / ADR-0056 §D、critical)
+
+`scripts/check-recent-deploy-deletion.mjs` 等の machine-verify gate (および `pre-ready` 経由の全 Step) を実行する前に、**worktree HEAD = PR HEAD 一致を必須 verify**。Fix Agent worktree で空 worktree (HEAD = origin/main) 状態のまま gate を回すと、`origin/main..HEAD` diff が空 → 削除 file 0 件 → 偽陽性 exit 0 を返す (#2613 Round 3 で legal critical 506 行喪失寸前まで進んだ実害観察):
+
+```bash
+PR_HEAD=$(gh pr view <N> --json headRefOid -q .headRefOid)
+WORKTREE_HEAD=$(git rev-parse HEAD)
+if [ "$PR_HEAD" != "$WORKTREE_HEAD" ]; then
+  echo "FATAL: worktree HEAD ($WORKTREE_HEAD) != PR HEAD ($PR_HEAD)"
+  echo "      明示 checkout してから gate を実行してください"
+  git checkout $PR_HEAD || exit 1
+fi
+node scripts/check-recent-deploy-deletion.mjs --pr <N>   # 真正実行
+node scripts/check-pr-body.mjs --pr <N>
+npm run pre-ready -- --pr <N>
+```
+
+**#2618 deploy 後**: `check-recent-deploy-deletion.mjs` 自身が `--pr` 指定時に HEAD mismatch を検出すると exit 3 で BLOCK する self-defense を実装済 (ADR-0056 §D defense in depth 第 2 層)。**ただし本 prelude (第 1 層) は引き続き必須**。Agent 側で事前 checkout する習慣を default 化することで gate 起動回数自体を最小化する。
+
 ```bash
 # 雛形に直接ローカル検証（PR 未作成でも動く）
 node scripts/check-pr-body.mjs --body-file tmp/pr-bodies/<slug>.md --skip-mergeable
