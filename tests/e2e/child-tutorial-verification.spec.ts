@@ -141,6 +141,28 @@ async function waitForBubbleAnimations(bubble: ReturnType<Page['locator']>) {
 	);
 }
 
+/**
+ * helpBtn click → tutorial active flag set を 3 retry で確実に発火させる (#2558 fix)。
+ * 単発 click は rapid onMount/effect の hydration 過渡で ~30% flake するため、
+ * `data-tutorial-active` が set されるまで再 click する。
+ */
+async function startTutorialWithRetry(page: Page) {
+	const helpBtn = page.locator('[data-testid="header-help-btn"]');
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await helpBtn.click({ force: true });
+		try {
+			await page.waitForFunction(
+				() => document.documentElement.hasAttribute('data-tutorial-active'),
+				null,
+				{ timeout: 3_000 },
+			);
+			return;
+		} catch {
+			// fallthrough → re-click
+		}
+	}
+}
+
 // mobile project からの実行は `playwright.config.ts` の mobile.testIgnore で除外済 (#2393)。
 test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証', () => {
 	test.setTimeout(180_000);
@@ -150,23 +172,8 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 			await page.setViewportSize({ width: 1280, height: 800 });
 			await gotoChildHome(page, uiMode);
 
-			// チュートリアル起動 (force: true で auto-open dialog 被さりを無視)
-			// #2558 fix: 単発 click は flaky (helpBtn click が rapid onMount/effect 後の hydration 過渡で
-			// 静かに消える事象を観察、確率 ~30%)。data-tutorial-active が set されるまで 3 回 retry。
-			const helpBtn = page.locator('[data-testid="header-help-btn"]');
-			for (let attempt = 0; attempt < 3; attempt++) {
-				await helpBtn.click({ force: true });
-				try {
-					await page.waitForFunction(
-						() => document.documentElement.hasAttribute('data-tutorial-active'),
-						null,
-						{ timeout: 3_000 },
-					);
-					break;
-				} catch {
-					// fallthrough → re-click
-				}
-			}
+			// チュートリアル起動 (force: true で auto-open dialog 被さりを無視、3 retry で flake 解消)
+			await startTutorialWithRetry(page);
 			// tutorial active flag を待つ (cheer overlay の backdrop と衝突しない)
 			await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 
