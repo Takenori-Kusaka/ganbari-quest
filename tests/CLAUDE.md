@@ -126,6 +126,16 @@ per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ
 4. 報酬リクエスト承認 (child 申請 → admin 承認 → 状態変化)
 5. チェックリスト import → child で表示
 
+#### マーケットプレイス インポート CUJ (#2554 follow-up P1 / 研究 SSOT)
+
+5 type (activity-pack / reward-set / checklist / rule-preset / challenge-set) の B1 dead-end 5 type 横展開を担保するため、以下 3 type の terminal goal verify を `?import=<presetId>` ＋ ChildSelectionDialog 確定動線で配備済 (research `tmp/research-marketplace-import-coverage-matrix-2026-05-29.md` §4-A P1):
+
+- **CUJ-A3** (activity-pack): `tests/e2e/admin-activities-import-marketplace.spec.ts` — `?import=kinder-starter` → `import-child-selection-dialog` 全員選択 → 確定 → 全 child タブ件数 sum が grew
+- **CUJ-R2** (reward-set): `tests/e2e/admin-rewards-import-marketplace.spec.ts` — `?import=kinder-rewards` → `reward-import-child-selection-dialog` 全員選択 → 確定 → 全 child タブ件数 sum が grew
+- **CUJ-CH2** (challenge-set): `tests/e2e/admin-challenges-import-marketplace.spec.ts` — `?marketplace-import=japan-annual-events` → UnifiedImportHub 内 preset visible + import form action wired (partial、ChildSelectionDialog auto-open は別 PR scope、honest scope statement)
+
+既存 `tests/e2e/marketplace-checklist-import.spec.ts` の checklist 「`marketplace-preset-import-event-pool` click → imported badge visible + reload で永続」が exemplar (5 type 中 1 type 唯一の完全 terminal verify、#2362 PR-5)。本 follow-up はその pattern を残 4 type に横展開する第 1 弾。残 gap (B5 per-child dedup unit regression / B10 永続化 5 type 揃い / B7 5 age mode 取込後表示) は research SSOT §4-B Phase 1-4 で別 PR で順次扱う。
+
 ### Storybook interaction test (component 層、server 不要で配線健全性検証)
 
 interactive component (Dialog / Form / UnifiedImportHub / Menu) は `play` 関数で「操作 → callback 発火 (`fn()` spy) / disabled 制御 / cancel 発火」を component 層で検証する。server 反映 (DB) は Playwright (統合層) に委ね、component 層は配線健全性に限定する (二重防御)。`play` 内 `expect` / `userEvent` / `fn` は **`storybook/test`** (Storybook 10 同梱) から import し、`npm run test:storybook` (`vitest run --project storybook`) で CI 実行する。exemplar: `src/lib/marketplace/ui/UnifiedImportHub.stories.svelte`。
