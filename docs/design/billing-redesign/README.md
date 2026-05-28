@@ -31,7 +31,8 @@
 | NUC | #2539 | 完全無料 OSS・信頼ベース(DRM なし)・family 固定 | [nuc](phase1-nuc-requirements.md) |
 | セキュリティ | #2540 | webhook tenant 再検証・認可境界・PII/PCI 最小化・過剰防衛除外 | [security](phase1-security-requirements.md) |
 | 法務 | #2541 | キー言及削除・特商法最終確認画面5項目・tokushoho 改訂・トライアル後自動課金なし整合 | [legal](phase1-legal-requirements.md) |
-| **URL/命名/用語の意味的整合性** (補強 2026-05-28) | #2526 補強 | `/admin/license` → `/admin/subscription` rename / 完全置換型 / `SUBSCRIPTION_*_TERMS` 新規不要 / 既存 atom (PLAN/PRICE/TRIAL/CANCEL) 流用 / 影響範囲 308 件 URL + 218 件 atom + 450 件 JP | [naming-url-integrity](phase1-naming-url-integrity-requirements.md) |
+| **URL/命名/用語の意味的整合性** (補強 1 2026-05-28) | #2526 補強 1 | `/admin/license` → `/admin/subscription` rename / 完全置換型 / `SUBSCRIPTION_*_TERMS` 新規不要 / 既存 atom (PLAN/PRICE/TRIAL/CANCEL) 流用 / 影響範囲 308 件 URL + 218 件 atom + 450 件 JP | [naming-url-integrity](phase1-naming-url-integrity-requirements.md) |
+| **プラン命名 + 課金期間 + 訴求軸** (補強 2 2026-05-28) | #2526 補強 2 | `family` → **`プレミアム`** rename / **月額のみ (年額廃止)** / trial プレミアム固定 7 日 / 顧客不安 F1-F11 + framing 軸 V1-V5 / 影響範囲 95 件 atom + 9 件年額 + 35 件 LP + 5 件法務 | [plan-naming-pricing-axis](phase1-plan-naming-pricing-axis-requirements.md) |
 
 ## Phase 2 — UX ジャーニーマップ (7 ジャーニー索引)
 
