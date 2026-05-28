@@ -26,22 +26,23 @@ test.describe('#2544 goal 完遂 exemplar', () => {
 	test.setTimeout(180_000); // Vite dev コールドコンパイル耐性
 
 	// ============================================================
-	// CUJ-1: 活動を追加する経路 (今回壊れた経路) で cancel が機能する
-	//   = dead-end (cancel 不能) でないことを貫通検証する。
-	//   render-only spec (admin-unified-import-hub.spec.ts) が見逃した「cancel 不能」を捕捉する。
+	// CUJ-1: 活動を追加する経路で cancel が機能する = dead-end (cancel 不能) でないことを貫通検証。
+	//   #2558 段階2: 旧 import 項目 (admin 内ブラウズ UI、撤去済) は /marketplace 画面遷移に置換され、
+	//   add dialog を開かなくなった。代表として manual 追加 dialog (add-activity-dialog) の
+	//   cancel 可能性を検証する (同じ Dialog primitive、cancel 不能なら fail)。
 	// ============================================================
-	test('admin/activities: import dialog を開いて閉じられる (cancel 不能 dead-end でない)', async ({
+	test('admin/activities: 手動追加 dialog を開いて閉じられる (cancel 不能 dead-end でない)', async ({
 		page,
 	}) => {
 		test.slow();
 		await page.goto('/admin/activities', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('header-add-activity-btn')).toBeVisible({ timeout: 30_000 });
 
-		// header + dropdown → import 項目 → dialog 表示 → とじる → dialog が閉じる
-		// cancel が壊れていれば最後の toBeHidden が必ず fail する (今回 bug の 1 つ)。
+		// header + dropdown → 手動で1つ追加 → dialog 表示 → とじる → dialog が閉じる
+		// cancel が壊れていれば最後の toBeHidden が必ず fail する。
 		await expectDialogCancellable(page, {
 			trigger: 'header-add-activity-btn',
-			menuItem: 'menu-item-import',
+			menuItem: 'menu-item-manual',
 			dialogTestid: 'add-activity-dialog',
 			// Dialog primitive の close trigger は aria-label='とじる' (UI_PRIMITIVES_LABELS.closeAriaLabel)。
 			// Testing Library 原則に従い role/label で取得する。

@@ -1084,10 +1084,20 @@ Material Design 3「画面 FAB 1 個原則」+ Notion / Linear / Asana / Todoist
 
 同一リソース (活動 / 子供 / 報酬 / 等) の add 経路 (CTA 種別 × UI 配置) が 4 を超えたら、menu / dropdown / command palette のいずれかで集約する。
 
+**#2558 段階2 事例 (admin/activities の add 経路集約)**: 「`+ 追加`」「`一括追加`」「`別の子からコピー`」が別々の独立ボタンとして並存し顧客が混乱した (bug-2)。これを **1 つの `+ 追加` dropdown menu に集約**し、トップレベルの独立ボタンを撤去した。menu 項目 = `手動で1つ追加` / `AI で提案してもらう` / `みんなのテンプレートから探す` / `別のお子さまからコピー` / `複数のお子さまにまとめて追加`。同一リソースの add 系操作は「1 つの `+ 追加` 入口に集約する」ことを原則とする (Notion / Linear の `+` パターンに整合)。
+
+#### marketplace 取込はマーケットプレイス画面に一本化 (admin 内ブラウズ UI 二重管理禁止、#2558)
+
+プリセット (みんなのテンプレート) の **閲覧・選択 UI は `/marketplace` 配下でのみ実装**する。親管理画面内に marketplace 風のブラウズ UI を埋め込む (= 二重管理) ことは禁止する。
+
+- admin 画面の「みんなのテンプレートから探す」は `/marketplace?type=<typeCode>` への**画面遷移**とし、in-page ブラウズ UI を出さない。取込実行は marketplace 詳細 → `?import=<presetId>` → `ChildSelectionDialog` の正規経路 (`marketplace-import-flow.md` §3.1) に合流させる。
+- **ファイル復元 (JSON / CSV import) はマーケットプレイスとは別概念**。`UnifiedImportHub` がブラウズ UI とファイル復元を兼ねている場合、ブラウズ UI のみ撤去し、ファイル復元は独立した導線 (例: `︙` overflow menu の「バックアップから復元」+ 専用ダイアログ、`OVERFLOW_MENU_TERMS.itemRestore`) として保持する。
+- 例外: checklist / rule-preset / challenge-set の admin 画面は現状 in-page `UnifiedImportHub` を維持 (#2558 段階2 は activities のみ対象)。将来統一するかは別 Issue で判断。
+
 #### bulk import bridge ルール
 
 bulk import / 一括取込機能がある場合、以下の両方を提供する:
-1. **empty state からの secondary link** (初期 setup 期の発見性)
+1. **empty state からの secondary link** (初期 setup 期の発見性、#2558 段階2 以降は `/marketplace` 遷移トリガ)
 2. **header `+` メニュー内の 1 階層内アクセス** (運用期の到達性)
 
 #### admin scope z-index トークン化

@@ -306,6 +306,18 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		await expect(cancelTestCard).toBeVisible();
 
 		const exchangeBtn = cancelTestCard.locator('button[data-testid^="exchange-btn-"]');
+		// #2558 fix: 並列 worker (workers: 2) が point_ledger を同時更新するため、
+		// beforeEach の resetKinderChildBalance 完了後でも shop ページ load 時点で残高 < 50pt に
+		// 落ちている flake が観察された。残高再 reset + page reload で復旧を試みる (最大 3 回)。
+		// 試行ごとに resetKinderChildBalance を再実行することで他 worker の干渉を打ち消す。
+		let enabled = await exchangeBtn.isEnabled().catch(() => false);
+		for (let attempt = 0; attempt < 3 && !enabled; attempt++) {
+			await resetKinderChildBalance();
+			await page.reload();
+			await expect(page.getByTestId('shop-page')).toBeVisible();
+			await expect(cancelTestCard).toBeVisible();
+			enabled = await exchangeBtn.isEnabled().catch(() => false);
+		}
 		await expect(exchangeBtn).toBeEnabled();
 		await exchangeBtn.click();
 

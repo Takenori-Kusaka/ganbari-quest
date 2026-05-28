@@ -11,6 +11,9 @@ const { Story } = defineMeta({
 		onClearAll: () => {},
 		canAdd: true,
 		onAddSelect: () => {},
+		// #2558 段階2: restore (バックアップから復元) + copy/bulk 統合に伴う新規 props
+		onRestore: () => {},
+		canCopyFromChild: true,
 	},
 });
 </script>
@@ -18,3 +21,4 @@ const { Story } = defineMeta({
 <Story name="Default" />
 <Story name="Clear confirm open (clear-all hidden from overflow)" args={{ clearConfirmOpen: true }} />
 <Story name="Add disabled (limit reached)" args={{ canAdd: false }} />
+<Story name="Single child (copy item hidden)" args={{ canCopyFromChild: false }} />

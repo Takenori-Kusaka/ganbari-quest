@@ -85,9 +85,19 @@ async function dismissChildHomeOverlays(page: Page) {
 		() => page.getByTestId('login-bonus-confirm'),
 		() => page.getByTestId('pin-gate-onboarding-close'),
 		() => page.getByTestId('weekly-redeem-confirm'),
-		() => page.locator('button:has-text("うれしい！")'),
-		() => page.locator('button:has-text("ありがとう！")'),
-		() => page.locator('button:has-text("やったね！")'),
+		// activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうるため dismiss 対象に追加
+		// (#2558 fix で elementary tablet 起動時の干渉として観察された)。cancel button = やめる。
+		() => page.getByTestId('confirm-cancel-btn'),
+		// #2558 真因 fix: cheer/parent-message dialog の confirm button は Ark UI Dialog 内に
+		// あるため `[data-scope="dialog"]` で scope する。素の `button:has-text("ありがとう！")`
+		// は activity card (例: 「あいさつした」 triggerHint=「おはよう、ありがとう！」、
+		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
+		// click → handleActivityTap → confirm-dialog auto-open → helpBtn click が dialog に
+		// intercept される infinite loop が成立する (elementary tablet 全 retry fail の根本原因)。
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("うれしい！")'),
+		() =>
+			page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("やったね！")'),
 	];
 	for (let pass = 0; pass < 5; pass++) {
 		let anyDismissed = false;
@@ -143,8 +153,30 @@ async function clearTutorialProgress(page: Page) {
 async function startChildTutorial(page: Page) {
 	const helpBtn = page.locator('[data-testid="header-help-btn"]');
 	await expect(helpBtn).toBeVisible({ timeout: 10_000 });
-	// force: true — auto-open dialog (cheer/message 等) が overlay として被さっても tutorial 起動を強行
-	await helpBtn.click({ force: true });
+	// #2558 fix 観察 (elementary tablet で `click({force:true})` 3 retry 全 fail):
+	// `force: true` click は actionability check (visibility / stable / receives events) を
+	// スキップするが、browser hit-testing で別 element が上に被さっていると click event が
+	// `?` button の onclick handler に到達しない。dispatchEvent('click') は hit-testing を
+	// 完全にバイパスし要素自身の event listener を直接発火させるため、auto-open dialog
+	// (activity confirm / cheer / message 等) との干渉を確実に回避する。
+	// data-tutorial-active or resume dialog visible で成功判定 (act → outcome 検証維持)。
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await helpBtn.dispatchEvent('click');
+		try {
+			await page.waitForFunction(
+				() =>
+					document.documentElement.hasAttribute('data-tutorial-active') ||
+					document.querySelector('[data-testid="tutorial-resume-dialog"][data-state="open"]') !==
+						null,
+				null,
+				{ timeout: 3_000 },
+			);
+			return;
+		} catch {
+			// fallthrough → re-dispatch
+		}
+	}
+	// 最終 fall-through: 後続の waitForSelector が自分で時間切れ判定するため throw しない
 }
 
 /** Web Animations API で dialog の開閉 animation 完了を待つ (#1259 waitForTimeout 代替) */

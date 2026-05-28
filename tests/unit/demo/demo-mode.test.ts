@@ -9,12 +9,15 @@
 // - 旧 cookie/path/query signal 由来の API (DEMO_MODE_COOKIE / isDemoLambda) が
 //   完全撤去されているか (import error で構造的に検出)
 
+import * as devalue from 'devalue';
 import { describe, expect, it } from 'vitest';
 import type { TypedEnv } from '../../../src/lib/runtime/env';
 import {
+	buildDemoNoopResponseBody,
 	DEMO_WRITE_ALLOWLIST,
 	DEMO_WRITE_METHODS,
 	isDemoWriteAllowed,
+	isSvelteKitActionRequest,
 	resolveDemoActive,
 } from '../../../src/lib/server/demo/demo-mode';
 
@@ -104,6 +107,53 @@ describe('DEMO_WRITE_ALLOWLIST — PR-B3 で /demo/** 撤去後の最小集合',
 	it('allowlist 外パス (例: /admin/activities) は isDemoWriteAllowed=false (no-op 対象維持)', () => {
 		expect(isDemoWriteAllowed('/admin/activities')).toBe(false);
 		expect(isDemoWriteAllowed('/api/v1/children')).toBe(false);
+	});
+});
+
+describe('buildDemoNoopResponseBody — #2558 bug-1 form action 認識可能な ActionResult', () => {
+	it('x-sveltekit-action: true → SvelteKit が認識する success ActionResult を返す', () => {
+		// AC1: 機能 dead-end の根本原因 = demo no-op が素の {ok,demo} を返し
+		// use:enhance が result.type を解決できなかったこと。form action には
+		// { type: 'success', status, data: <devalue> } を返す。
+		const headers = new Headers({ 'x-sveltekit-action': 'true' });
+		const body = buildDemoNoopResponseBody(headers);
+		expect(body.type).toBe('success');
+		expect(body.status).toBe(200);
+		// data は devalue stringified 文字列 (SvelteKit action_json 仕様)。復元して demo flag 検証。
+		expect(typeof body.data).toBe('string');
+		const parsed = devalue.parse(body.data as string) as Record<string, unknown>;
+		expect(parsed.demo).toBe(true);
+		expect(parsed.imported).toBe(0);
+		expect(parsed.skipped).toBe(0);
+	});
+
+	it('SvelteKit deserialize() 相当の経路で result.type === "success" になる (UI 分岐が発火する)', () => {
+		// dead-end の回帰防止: クライアント (use:enhance) は JSON.parse 後
+		// parsed.data を devalue.parse する。result.type === 'success' && result.data の
+		// 両方が真になることを確認する (= onimported / onclose が発火する条件)。
+		const headers = new Headers({ 'x-sveltekit-action': 'true' });
+		const wire = JSON.stringify(buildDemoNoopResponseBody(headers));
+		const parsed = JSON.parse(wire) as { type: string; data?: string };
+		const result = {
+			type: parsed.type,
+			data: parsed.data ? (devalue.parse(parsed.data) as Record<string, unknown>) : undefined,
+		};
+		expect(result.type).toBe('success');
+		expect(result.data).toBeDefined();
+		expect(result.data?.demo).toBe(true);
+	});
+
+	it('x-sveltekit-action header なし → 後方互換の {ok:true,demo:true} を返す', () => {
+		// API fetch / `.ok` を見るだけの client (demo-lambda spec が検証する /api/v1/* 等) は
+		// 従来形式を維持する。
+		const body = buildDemoNoopResponseBody(new Headers());
+		expect(body).toEqual({ ok: true, demo: true });
+	});
+
+	it('isSvelteKitActionRequest は header の有無を厳密判定する', () => {
+		expect(isSvelteKitActionRequest(new Headers({ 'x-sveltekit-action': 'true' }))).toBe(true);
+		expect(isSvelteKitActionRequest(new Headers({ 'x-sveltekit-action': 'false' }))).toBe(false);
+		expect(isSvelteKitActionRequest(new Headers())).toBe(false);
 	});
 });
 

@@ -225,12 +225,17 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			| { type: 'error'; error: unknown };
 
 		if (actionResult.type === 'success') {
-			const imp = Number(actionResult.data?.imported ?? 0);
-			actionMessage =
-				imp === 0
-					? ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates
-					: ADMIN_REWARDS_PAGE_LABELS.importSuccess(imp);
-			await invalidateAll();
+			// #2558 bug-1: デモ環境 no-op (data.demo === true) は成功偽装せず明示。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				actionMessage = ADMIN_REWARDS_PAGE_LABELS.importDemo;
+			} else {
+				const imp = Number(actionResult.data?.imported ?? 0);
+				actionMessage =
+					imp === 0
+						? ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates
+						: ADMIN_REWARDS_PAGE_LABELS.importSuccess(imp);
+				await invalidateAll();
+			}
 		} else if (actionResult.type === 'failure') {
 			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.importFailed);
 		} else {

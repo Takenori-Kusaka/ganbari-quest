@@ -70,9 +70,18 @@ async function dismissChildHomeOverlays(page: Page) {
 		() => page.getByTestId('login-bonus-confirm'),
 		() => page.getByTestId('pin-gate-onboarding-close'),
 		() => page.getByTestId('weekly-redeem-confirm'),
-		() => page.locator('button:has-text("うれしい！")'),
-		() => page.locator('button:has-text("ありがとう！")'),
-		() => page.locator('button:has-text("やったね！")'),
+		// #2558 fix: activity 記録確認 dialog (`confirm-dialog`) も後発で auto-open しうる
+		() => page.getByTestId('confirm-cancel-btn'),
+		// #2558 真因 fix: cheer/parent-message dialog の confirm button は Ark UI Dialog 内に
+		// あるため `[data-scope="dialog"]` で scope する。素の `button:has-text("ありがとう！")`
+		// は activity card (例: 「あいさつした」 triggerHint=「おはよう、ありがとう！」、
+		// 「ありがとうとつたえた」 triggerHint=「ありがとう って つたえよう！」) も誤マッチし、
+		// click → handleActivityTap → confirm-dialog auto-open → helpBtn click が dialog に
+		// intercept される infinite loop が成立する (elementary tablet 全 retry fail の根本原因)。
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("うれしい！")'),
+		() =>
+			page.locator('[data-scope="dialog"][data-part="content"] button:has-text("ありがとう！")'),
+		() => page.locator('[data-scope="dialog"][data-part="content"] button:has-text("やったね！")'),
 	];
 	for (let pass = 0; pass < 5; pass++) {
 		let anyDismissed = false;
@@ -132,6 +141,28 @@ async function waitForBubbleAnimations(bubble: ReturnType<Page['locator']>) {
 	);
 }
 
+/**
+ * helpBtn click → tutorial active flag set を 3 retry で確実に発火させる (#2558 fix)。
+ * 単発 click は rapid onMount/effect の hydration 過渡で ~30% flake するため、
+ * `data-tutorial-active` が set されるまで再 click する。
+ */
+async function startTutorialWithRetry(page: Page) {
+	const helpBtn = page.locator('[data-testid="header-help-btn"]');
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await helpBtn.click({ force: true });
+		try {
+			await page.waitForFunction(
+				() => document.documentElement.hasAttribute('data-tutorial-active'),
+				null,
+				{ timeout: 3_000 },
+			);
+			return;
+		} catch {
+			// fallthrough → re-click
+		}
+	}
+}
+
 // mobile project からの実行は `playwright.config.ts` の mobile.testIgnore で除外済 (#2393)。
 test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証', () => {
 	test.setTimeout(180_000);
@@ -141,8 +172,8 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 			await page.setViewportSize({ width: 1280, height: 800 });
 			await gotoChildHome(page, uiMode);
 
-			// チュートリアル起動 (force: true で auto-open dialog 被さりを無視)
-			await page.locator('[data-testid="header-help-btn"]').click({ force: true });
+			// チュートリアル起動 (force: true で auto-open dialog 被さりを無視、3 retry で flake 解消)
+			await startTutorialWithRetry(page);
 			// tutorial active flag を待つ (cheer overlay の backdrop と衝突しない)
 			await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });
 

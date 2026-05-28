@@ -11,6 +11,7 @@ import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode'
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { applyDebugPlanOverride, getDebugLicenseKeyOverride } from '$lib/server/debug-plan';
 import {
+	buildDemoNoopResponseBody,
 	DEMO_WRITE_ALLOWLIST,
 	DEMO_WRITE_METHODS,
 	resolveDemoActive,
@@ -287,8 +288,13 @@ export const handle: Handle = ({ event, resolve }) =>
 
 		// 3) デモ状態なら書き込みを 200 no-op で抑止
 		//
-		// UI 側の form actions / fetch は「成功した」と認識して正常に
-		// リダイレクト・再描画するので、子供向け UX にエラーが出ない。
+		// #2558 bug-1 構造的修正: form action (`x-sveltekit-action: true`) には SvelteKit が
+		// 認識可能な `ActionResult` ({ type: 'success', data: devalue(...) }) を返す。
+		// 従来の素の `{ ok: true, demo: true }` は `use:enhance` の `deserialize()` 後
+		// `result.type === undefined` となり、UI の `result.type === 'success'` 分岐
+		// (onimported / onclose) が永久に発火せず「ボタン無反応・dialog 閉じない」(機能
+		// dead-end) を生んでいた (初顧客レビューで 1 分で発覚)。`buildDemoNoopResponseBody`
+		// が SSOT で body 形状を決める (admin 配下の全 use:enhance form に効く)。
 		// 実際の DB・外部 API は呼ばれないので副作用なし（Stripe test mode と同じ設計）。
 		//
 		// ADR-0040 P4 (#1217): 判定は `shouldReturnDemoNoop` に切り出し Policy Gate
@@ -300,7 +306,7 @@ export const handle: Handle = ({ event, resolve }) =>
 				requestId: event.locals.requestId,
 				path,
 			});
-			return json({ ok: true, demo: true });
+			return json(buildDemoNoopResponseBody(event.request.headers));
 		}
 
 		// 4) デモ時はダミー context を合成（本番ルートをそのまま駆動する）

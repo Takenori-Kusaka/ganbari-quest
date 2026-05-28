@@ -896,9 +896,9 @@ export const MARKETPLACE_LABELS = {
 	/** #2297: 各 challenge の詳細行 (カテゴリ ・ 目標 N回 ・ ごほうび +NP) */
 	detailChallengeMeta: (category: string, baseTarget: number, rewardPoints: number) =>
 		`${category} ・ 目標 ${baseTarget}回 ・ ごほうび +${rewardPoints}P`,
-	detailLegacyPackNote: '既存の活動パックから使えるようになります。詳しくは',
-	detailLegacyPackLink: 'パック詳細ページ',
-	detailLegacyPackSuffix: 'をご覧ください。',
+	// #2558 bug-3: detailLegacyPackNote / detailLegacyPackLink / detailLegacyPackSuffix
+	// は参照ゼロの dead label (内部語彙「パック」露出元) のため削除。marketplace 取込の
+	// ユーザー向けラベルは TEMPLATE_TERMS (みんなのテンプレート / テンプレート) に統一。
 	detailRulePointCost: '必要ポイント',
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
@@ -3949,6 +3949,11 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	bulkTargetChildAgeSuffix: '歳',
 	bulkDialogCancel: 'キャンセル',
 	bulkDialogConfirm: '追加する',
+	// 取込ダイアログ後の result メッセージ (#2558: imported 件数で正直に出し分ける)
+	importSuccess: (count: number) => `✨ ${count} 件の活動を追加しました`,
+	// imported=0 (選んだ子に全て追加済み) — generic な「完了」で誤魔化さない
+	importAllDuplicates: `選んだ${CHILD_TERMS.honorific}にはすでに追加済みです`,
+	importFailed: '取込に失敗しました',
 } as const;
 
 /**
@@ -3981,6 +3986,8 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	importSuccess: (count: number) => `✨ ${count} 件のごほうびを追加しました`,
 	importAllDuplicates: 'このごほうびセットは既に追加済みです',
 	importFailed: '取込に失敗しました',
+	// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
+	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	copySuccess: (count: number) => `📋 ${count} 件のごほうびをコピーしました`,
 	copyFailed: 'コピーに失敗しました',
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
@@ -4541,6 +4548,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 		`「${presetName}」を取込み、${distributedCount}名のお子さまに配信しました`,
 	importToastDuplicate: (presetName: string) =>
 		`「${presetName}」は既に取込済みです（配信先のみ更新できます）`,
+	// #2558 bug-1: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
+	importToastDemo: 'デモではお試し用です（実際の追加は行われません）',
 	importToastError: (presetName: string) =>
 		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
 	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
@@ -6175,27 +6184,53 @@ export const FEATURES_LABELS = {
 		exportAriaLabel: 'エクスポート',
 		introduceAriaLabel: '活動の紹介',
 		clearAllAriaLabel: '全クリア',
-		// + dropdown menu (manual / ai / import の 3 経路、EPIC #2253 / #2255)
+		// + dropdown menu に統合 (EPIC #2253 / #2255 / #2558 段階2)
+		// #2558 段階2 (PO 方針: マーケットプレイス一本化): 「追加」と「一括追加」を 1 つの
+		// 「+ 追加」メニューに統合。`import` 項目は admin 内ブラウズ UI を撤去し /marketplace へ画面遷移する。
 		addButtonLabel: '+ 追加',
 		addMenuAriaLabel: '活動を追加するメニューを開く',
-		addManualLabel: '手動で追加',
+		addManualLabel: '手動で1つ追加',
 		addManualIcon: '✏️',
-		addAiLabel: 'AI で追加',
+		addAiLabel: 'AI で提案してもらう',
 		addAiIcon: '✨',
-		addImportLabel: 'パックから追加',
-		addImportIcon: '📥',
+		// #2558 段階2 (bug-3 / bug-4 根治): 内部語彙「パック」を排し、admin 内ブラウズ UI でなく
+		// みんなのテンプレート (/marketplace) への画面遷移を表す文言に統一。
+		addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+		addBrowseTemplatesIcon: '🔍',
+		// #2558 段階2: copy / bulk を + 追加メニューに統合 (トップレベル独立ボタンを撤去)
+		addCopyFromChildLabel: `別の${CHILD_TERMS.honorific}からコピー`,
+		addCopyFromChildIcon: '📋',
+		addBulkLabel: `複数の${CHILD_TERMS.honorific}にまとめて追加`,
+		addBulkIcon: '👨‍👩‍👧‍👦',
 		// Add Dialog title (mode 別、#2260 Fix-2 で +page.svelte hardcode を SSOT 化)
 		addDialogTitleManual: '+ 手動で追加',
 		addDialogTitleAi: '✨ AI で活動を追加',
-		addDialogTitleImport: '📥 パックからインポート',
-		// ︙ overflow menu (export / clear-all、EPIC #2253 / #2257)
+		// ︙ overflow menu (restore / export / clear-all、EPIC #2253 / #2257 + #2558 段階2)
 		// #2371 (EPIC #2362 PO 指摘 ③): introduce 撤去 (PR #2388 で PageGuideOverlay v2 + PageGuideRegistry 経由 `?` ボタンに統一済)
+		// #2558 段階2: マーケットプレイスとは別概念の「バックアップから復元」をブラウズ UI 撤去に伴い overflow menu に独立配置
 		overflowMenuAriaLabel: 'その他の操作',
 		overflowTriggerLabel: '︙',
+		restoreLabel: OVERFLOW_MENU_TERMS.itemRestore,
+		restoreIcon: OVERFLOW_MENU_TERMS.itemRestoreIcon,
 		exportLabel: 'エクスポート',
 		exportIcon: '📤',
 		clearAllLabel: 'すべて削除',
 		clearAllIcon: '🗑',
+		// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクションの独立化)
+		restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
+		restoreDialogDesc:
+			'以前エクスポートした活動データ (JSON / CSV) を読み込んで復元します。みんなのテンプレートの取り込みとは別の機能です。',
+		restoreSubmitBtn: '読み込む',
+		restoreProcessing: '読み込み中…',
+		restoreSuccess: (name: string, imported: number, skipped: number) =>
+			skipped > 0
+				? `✨ 「${name}」から ${imported} 件を復元しました (${skipped} 件は既存のためスキップ)`
+				: `✨ 「${name}」から ${imported} 件を復元しました`,
+		restoreAllDuplicates: (name: string) => `「${name}」の活動はすべて既に登録済みです`,
+		restoreFailed: '復元に失敗しました',
+		restoreDemo: 'デモではお試し用です（実際の復元は行われません）',
+		restoreFileRequired: 'ファイルを選択してください',
+		restoreFileFallbackName: 'ファイル',
 	},
 
 	// ---- features/admin/components/NotificationPermissionBanner ----
@@ -6304,7 +6339,8 @@ export const FEATURES_LABELS = {
 		filteredText: 'この条件に一致する活動はありません',
 		noActivities: '活動がまだ登録されていません',
 		addBtn: '+ 最初の活動を追加',
-		secondaryImportLink: 'または、パックから一括追加もできます',
+		// #2558 段階2 (bug-3 / bug-4 根治): admin 内ブラウズ UI でなく /marketplace への遷移を表す文言に統一
+		secondaryImportLink: `または、${TEMPLATE_TERMS.userFacing}から探す`,
 	},
 
 	// ---- features/admin/components/ChildListCard ----
@@ -8179,6 +8215,9 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 			: `「${name}」を取り込みました（追加 ${imported} 件）`,
 	resultAllDuplicates: (name: string) => `「${name}」はすべて重複していました（追加 0 件）`,
 	resultError: '取り込みに失敗しました',
+	// #2558 bug-1: デモ環境では書き込みが no-op 化されるため、成功偽装ではなく
+	// 「お試し用」であることを明示して dialog を閉じる (dead-end 解消)。
+	resultDemo: 'デモではお試し用です（実際の追加は行われません）',
 	// Pack / set 説明 (type 表示用)
 	itemCountSuffix: (count: number) => `（${count} 件）`,
 	targetAgeRange: (min: number, max: number) => `対象年齢 ${min} 〜 ${max} 歳`,

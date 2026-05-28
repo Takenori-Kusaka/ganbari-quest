@@ -8,7 +8,8 @@
 // 制御する形に切り替えることで以下 3 状態の visibility を高速・決定的に検証する。
 //
 // AC #2256 AC1: empty 状態 (canAdd && !hasFilter) で `empty-state-import-link` が visible
-// AC #2256 AC2: click で onAdd('import') が呼ばれる (import mode で開く)
+// AC #2256 AC2: click で onAdd('browse') が呼ばれる (#2558 段階2: admin 内ブラウズ UI 撤去に伴い
+//               /marketplace へ画面遷移する 'browse' mode に変更。旧 'import' (dialog 開) は廃止)
 // AC #2256 AC3: hasFilter=true (filter 結果空) の時は primary CTA のみで import link は非表示
 // AC #2256 AC4: canAdd=false (上限到達) の時は CTA / link 共に非表示
 
@@ -46,8 +47,8 @@ describe('ActivityEmptyState — visibility matrix (#2253 / #2256)', () => {
 		});
 	});
 
-	describe('AC2: secondary import link click で onAdd("import") が呼ばれる', () => {
-		it('click すると onAdd callback に "import" が渡る', async () => {
+	describe('AC2: secondary import link click で onAdd("browse") が呼ばれる (#2558 段階2)', () => {
+		it('click すると onAdd callback に "browse" が渡る (/marketplace 遷移トリガ)', async () => {
 			const onAdd = vi.fn();
 			render(ActivityEmptyState, {
 				hasFilter: false,
@@ -56,7 +57,8 @@ describe('ActivityEmptyState — visibility matrix (#2253 / #2256)', () => {
 			});
 			const link = screen.getByTestId('empty-state-import-link');
 			await fireEvent.click(link);
-			expect(onAdd).toHaveBeenCalledWith('import');
+			// #2558 段階2: admin 内ブラウズ UI 撤去 → /marketplace へ画面遷移する 'browse' mode に変更
+			expect(onAdd).toHaveBeenCalledWith('browse');
 		});
 	});
 
