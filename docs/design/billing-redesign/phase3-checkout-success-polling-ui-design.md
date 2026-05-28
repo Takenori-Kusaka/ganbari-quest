@@ -6,12 +6,12 @@
 | 親 | #2528 (Phase 3 UI) / Epic #2525 |
 | 対応 Phase 1 要件 | [phase1-checkout-requirements.md FR-5 / FR-6 / NFR-3](phase1-checkout-requirements.md) |
 | 対応 Phase 2 ジャーニー | [phase2-checkout-journey.md 谷⑥ processing gap (#9 success ページ)](phase2-checkout-journey.md) |
-| 関連 Phase 3 設計 | [phase3-admin-header-ui-design.md](phase3-admin-header-ui-design.md) (#2568) — header `[プレミアム]` badge で「権限付与済」可視化と接続 |
+| 関連 Phase 3 設計 | [phase3-admin-header-ui-design.md](phase3-admin-header-ui-design.md) (#2568) — header `[ファミリー]` plan-badge で「権限付与済」可視化と接続 (Phase 7 で `ファミリー` → `プレミアム` 表記書き戻しを実施予定、#2609 / atom rename 整合) |
 | Phase 7 rename 方針 | success ページの最終配置は `/admin/subscription/success` ([phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md))。本 docs 内では設計指針は新名で記述、既存実装 reference (`/api/stripe/checkout/+server.ts` L48 `successBase = '/admin/license'`) は現名を維持 |
 | impact-analysis skill 適用 | L1 grep (success_url / sessionId / session_id) + L2 意味 (`payment_status` enum vs `status` enum) + L3 構造 (新規 route 1 + 新規 API endpoint 1 + 既存 webhook handler 維持) + L4 派生 21 カテゴリ (docs のため該当なし、Phase 7 実装時に再確認) |
 | 採用案 | 業界整合「Stripe `/v1/checkout/sessions/{id}` retrieve + アプリ DB 状態 cross-check + 短時間 polling (8s → 2 分タイムアウト) + 静的「準備中」表示」 (Stripe custom flow quickstart / Vercel checkout / Linear billing 整合) |
 | 既存 SSOT との関係 | webhook が権限付与 SSOT ([billing-redesign-policy.md L41 / L62](billing-redesign-policy.md))、success ページは UX 専用 (権限付与しない、idempotent check のみ) |
-| `premium` 階層 signal 打消 | success ページは「権限付与の事実確認」が主目的で、「プレミアム獲得おめでとう!」型の射幸的 celebration UI は不採用 (refs #2594 D-2、ADR-0012 連続演出禁止整合) |
+| 階層 signal 打消 | success ページは「権限付与の事実確認」が主目的で、「上位プラン獲得おめでとう!」型の射幸的 celebration UI は不採用 (refs #2594 D-2、ADR-0012 連続演出禁止整合)。現状 atom は `PLAN_FULL_TERMS.family` (「ファミリープラン」) を使用、Phase 7 で `premium` への atom rename + UI 文言書き戻しを実施予定 (#2609 SSOT 整合) |
 
 ## 設計背景 (なぜこの設計が必要か)
 
@@ -227,7 +227,7 @@ flowchart TB
 ┌──────────────────────────────────────────────────────────────┐
 │  ✓ ご利用ありがとうございます                                  │
 │                                                                │
-│    プレミアムプランへのお申し込みが完了しました。              │
+│    お選びのプランへのお申し込みが完了しました。                │
 │    まもなく自動的にホームへ移動します。                        │
 │                                                                │
 │    [ホームへ移動]                                              │
@@ -237,7 +237,7 @@ flowchart TB
 
 - 色: success 系 (`var(--color-feedback-success-bg)` / `var(--color-feedback-success-text)`)
 - アイコン: ✓ チェックマーク (静的 SVG、emoji 非依存)
-- 「プレミアムプラン」「スタンダードプラン」は plan に応じ `${PLAN_FULL_TERMS.premium}` / `.standard` (Phase 7 rename 後) atom 経由
+- ASCII 上は「お選びのプラン」(既存 `CHECKOUT_TERMS.chosenPlanFeature` 流用ニュアンス) で表記。実装では plan に応じ `${PLAN_FULL_TERMS.family}` / `${PLAN_FULL_TERMS.standard}` を動的差し込み (現状 atom: `free` / `standard` / `family` のみ)。Phase 7 で `premium` atom rename + `${PLAN_FULL_TERMS.premium}` への書き戻しを実施予定 (#2609 委譲)
 - 「ご利用ありがとうございます」「お申し込み」は `SIGNUP_TERMS.canonical` 流用検討
 
 ### B. 準備中 (complete + paid + !app_db_synced)
@@ -370,16 +370,17 @@ export const CHECKOUT_SUCCESS_TERMS = {
 import { CHECKOUT_SUCCESS_TERMS, PLAN_FULL_TERMS } from './terms';
 
 export const CHECKOUT_SUCCESS_LABELS = {
-  // variant A の plan 名動的差し込み
-  successBody: (planKey: 'standard' | 'premium') =>
+  // variant A の plan 名動的差し込み (現状 atom: 'standard' | 'family'、Phase 7 で 'family' → 'premium' rename 連動)
+  successBody: (planKey: 'standard' | 'family') =>
     `${PLAN_FULL_TERMS[planKey]}${CHECKOUT_SUCCESS_TERMS.successBodyTemplate}`,
 
   // 各 variant の aria-live 用 announce 文言
   ariaAnnouncePreparingShort: `${CHECKOUT_SUCCESS_TERMS.preparingHeading}。${CHECKOUT_SUCCESS_TERMS.preparingBody}`,
-  ariaAnnounceSuccessShort: (planKey: 'standard' | 'premium') =>
+  ariaAnnounceSuccessShort: (planKey: 'standard' | 'family') =>
     `${CHECKOUT_SUCCESS_TERMS.successHeading}。${PLAN_FULL_TERMS[planKey]}${CHECKOUT_SUCCESS_TERMS.successBodyTemplate}`,
 
   // 既存 SIGNUP_TERMS.canonical 「お申し込み」流用検討 (Phase 7 で確定)
+  // 注 (#2609 委譲): planKey 型注釈は現状 atom に整合させた 'family'。Phase 7 atom rename PR で 'premium' に書き戻す
 } as const;
 ```
 
@@ -405,7 +406,7 @@ export const CHECKOUT_SUCCESS_LABELS = {
 |---|---|
 | 子供 UI に課金圧をかけない | ✅ success ページは構造的に `(parent)/admin/*` 配下、子供 UI には到達不能 |
 | 滞在時間を伸ばさない | ✅ variant A は 2 秒で自動遷移、variant B は polling 完了次第即遷移、UI 内に無意味な滞在時間誘導なし |
-| サプライズ濫用禁止 | ✅ 「プレミアム獲得おめでとう!」「✨パチパチ✨」型の celebration UI を不採用、静的なお礼のみ |
+| サプライズ濫用禁止 | ✅ 「上位プラン獲得おめでとう!」「✨パチパチ✨」型の celebration UI を不採用、静的なお礼のみ |
 | 連続演出 / 煽り禁止 | ✅ spinner 回転は 1.5 秒/回転以下のゆったり、`prefers-reduced-motion` で完全停止 |
 | 失敗時の煽り禁止 | ✅ variant D / E は「もう一度!」型ではなく冷静な事実通知 + 再開動線 |
 | 解約動線を隠さない | ✅ success ページから `/admin` 帰還可能、Customer Portal 経由解約は通常動線で controllable |
@@ -443,19 +444,23 @@ export const CHECKOUT_SUCCESS_LABELS = {
 本 PR は UI 設計 docs のみで、A-G 全カテゴリ (DB / cache / SaaS / 分析 / 顧客接点 / CI/CD / テスト) の派生 artifact 影響なし。Phase 7 実装 PR で以下を必須確認:
 
 - [ ] **B-4 Service Worker / browser cache**: 新規 route `/admin/subscription/success` の SW 登録
-- [ ] **C-7 Stripe rate limit**: polling 2 秒間隔 × tenantId per (1 ユーザ) で rate limit 1% 未満消費見込
+- [ ] **C-7 Stripe rate limit (詳細試算 Phase 7 必須)**: polling 2 秒間隔 × 最大 60 回 × N 並行ユーザ = N × 30 req/min。Stripe API rate limit 公式値は live mode 100 read req/sec (公式 docs: [docs.stripe.com/rate-limits](https://docs.stripe.com/rate-limits))。試算: N = 100 並行で 3,000 req/min = 50 req/sec → 公称上限の 50% 消費。Phase 7 PR で実数値表 + 同時並行ユーザ数の事業見込み (Pre-PMF Bucket A 範囲) を必須掲載。endpoint side 1 秒 cache (Open question #6) で消費を 1/2 に圧縮可能。Stripe API 429 観測時の backoff (exponential、UI 上は variant B 継続表示) は Phase 7 実装スコープ
+- [ ] **C-7b session_id 漏洩経路の defense in depth (Phase 7 必須)**: Stripe `session_id` (cs_xxx) は URL query / referer / browser history / 各種 log に残る前提。Stripe API 仕様上 session_id は「秘密ではない」(retrieve 自体は同じ Stripe account からの request なら誰でも可能) ため漏洩自体は CWE 該当外。ただし「他人の session_id を query に差し込めばその session 情報が見える」状態は **CWE-639 (Authorization Bypass Through User-Controlled Key)** 該当。Phase 7 実装で必須対策: (a) `/api/stripe/session-status` で `session.customer` と `locals.user.stripeCustomerId` の一致を検証 (mismatch → 403)、(b) tenant ID の cross-check (multi-tenant 想定で session が自 tenant のものか検証)、(c) referer policy `strict-origin-when-cross-origin` の確認 (既存 hooks.server.ts の Security Header 設定で対応済か Phase 7 で確認)
+- [ ] **C-7c Rate limit on /api/stripe/session-status (CWE-770、Phase 7 必須)**: polling endpoint を保護しないと **CWE-770 (Allocation of Resources Without Limits or Throttling)** 該当。Phase 7 必須実装: per-tenant 60 req/min + per-IP 120 req/min (本 ADR 2 秒 × 60 回 polling = 30 req/min + 余裕分)。`src/lib/server/security/rate-limiter.ts` 既存実装を流用、超過時は 429 + Retry-After header。UI 側は 429 観測時 polling 一時停止 + variant B 継続表示
+- [ ] **C-7d 監査ログ (Phase 7 必須、Pre-PMF Bucket A スコープ判断)**: session retrieve 操作の最小監査ログ。fields: `tenantId / userId / sourceIP / session_id / timestamp / outcome (200/403/429)` のみ、PII (email / 氏名 / カード番号) を redact。保持期間 30 日 (Pre-PMF 期は短期で十分、ADR-0010 Bucket A)、暗号化 at-rest は既存 DynamoDB / DB の標準暗号化に依存 (専用機構不要)。S3 + Athena は ADR-0010 過剰防衛のため不採用
 - [ ] **G-19 Storybook**: 5 variant の Storybook stories (`CheckoutSuccessPage.stories.svelte`)
 - [ ] **G-19 Playwright SS**: 5 variant 撮影 (mock session-status API で variant 強制可能)
-- [ ] **G-20 E2E**: `tests/e2e/checkout-success-polling.spec.ts` (新規)
+- [ ] **G-20 E2E**: `tests/e2e/checkout-success-polling.spec.ts` (新規) — CWE-639 試験 (他人 session_id 試行 → 403) / CWE-770 試験 (rate limit 突破試行 → 429) を含む
 - [ ] **E-13 Help Center / FAQ**: 「決済後に画面が固まったら?」FAQ 追記検討
-- [ ] **F-16 lifecycle email**: variant C の async_payment_succeeded 通知メール (Phase 5 連動)
+- [ ] **F-16 lifecycle email**: variant C の async_payment_succeeded 通知メール (Phase 5 連動、別 PR 分割。本 #2572 では variant A/B/D/E のみ実装対象、variant C は async_payment 全体仕様確定後の別 PR で実装、下記 Open question #4 参照)
+- [ ] **security skill 適用 (Phase 7 必須)**: 上記 CWE-639 / CWE-770 対策は `security skill` で実装前審査を必須化 (skill 適用結果を Phase 7 PR body に貼る)
 
 ## Storybook stories 設計 (Phase 7 実装時)
 
 ```typescript
 // CheckoutSuccessPage.stories.svelte
 - VariantA_StandardSynced     // A: スタンダードプラン 申し込み完了 (DB 反映済)
-- VariantA_PremiumSynced      // A: プレミアムプラン 申し込み完了 (DB 反映済)
+- VariantA_FamilySynced       // A: ファミリープラン 申し込み完了 (DB 反映済、Phase 7 で `VariantA_PremiumSynced` に rename 予定 / #2609 atom rename 連動)
 - VariantB_Preparing          // B: 準備中 (polling 中)
 - VariantC_AsyncProcessing    // C: 確認中 (コンビニ等 async)
 - VariantD_Expired            // D: セッション切れ
@@ -469,7 +474,7 @@ export const CHECKOUT_SUCCESS_LABELS = {
 | 変数 | URL | mock state | 用途 |
 |---|---|---|---|
 | `checkout-success-a-standard` | `/admin/subscription/success?session_id=mock_a_std` | mock: complete/paid/synced | variant A スタンダード |
-| `checkout-success-a-premium` | `/admin/subscription/success?session_id=mock_a_premium` | mock: complete/paid/synced | variant A プレミアム |
+| `checkout-success-a-family` | `/admin/subscription/success?session_id=mock_a_family` | mock: complete/paid/synced | variant A ファミリー (Phase 7 で `checkout-success-a-premium` / `mock_a_premium` に rename 予定 / #2609 連動) |
 | `checkout-success-b-preparing` | `/admin/subscription/success?session_id=mock_b` | mock: complete/paid/unsynced | variant B 準備中 |
 | `checkout-success-c-async` | `/admin/subscription/success?session_id=mock_c` | mock: complete/processing | variant C 確認中 |
 | `checkout-success-d-failed` | `/admin/subscription/success?session_id=mock_d` | mock: expired or unpaid | variant D 失敗 |
@@ -493,9 +498,9 @@ export const CHECKOUT_SUCCESS_LABELS = {
 
 ## Phase 7 実装手順 (本 #2572 は docs のみ、実装は Phase 7)
 
-1. `src/routes/(parent)/admin/subscription/success/+page.ts` 作成: session_id query 検証 + tenant 検証
-2. `src/routes/(parent)/admin/subscription/success/+page.svelte` 作成: 5 variant + polling state machine ($state / $derived / $effect)
-3. `src/routes/api/stripe/session-status/+server.ts` 作成: Stripe `sessions.retrieve` + DB cross-check + JSON 返却
+1. `src/routes/(parent)/admin/subscription/success/+page.ts` 作成: session_id query 検証 + tenant 検証 + session.customer × locals.user.stripeCustomerId 一致検証 (CWE-639 対策)
+2. `src/routes/(parent)/admin/subscription/success/+page.svelte` 作成: 5 variant + polling state machine ($state / $derived / $effect)。**variant E (タイムアウト) → 再読込 click → variant B 再開の race condition mitigation 必須**: (a) 「再読込」button は debounce 1 秒 (連打で polling 多重起動を防止)、(b) `$effect` cleanup で前回 polling fetch を `AbortController` で abort し完了 await してから新 polling 開始 (中途 fetch が late で variant 上書きする事故を防止)、(c) 「再読込」再開回数は上限 3 回 (累積 6 分の polling、それ以降は variant E のまま contact mailto 提示のみ — Stripe API rate limit 過剰消費防止 + CWE-770 自衛)。回数 state は session-scoped (`+page.svelte` の `$state` 内に保持、reload で reset)
+3. `src/routes/api/stripe/session-status/+server.ts` 作成: Stripe `sessions.retrieve` + DB cross-check + JSON 返却 + rate-limiter 適用 (per-tenant 60 req/min + per-IP 120 req/min、CWE-770 対策) + session.customer × locals.user.stripeCustomerId 一致検証 (CWE-639 対策、403 返却) + 監査ログ emit (`tenantId / userId / sourceIP / session_id / timestamp / outcome` のみ、PII redact)
 4. `src/lib/server/services/session-status-service.ts` 作成: `app_db_synced` 導出ロジック (5 状態テーブル網羅)
 5. `src/lib/domain/terms.ts` に `CHECKOUT_SUCCESS_TERMS` 追加
 6. `src/lib/domain/labels.ts` に `CHECKOUT_SUCCESS_LABELS` compound 追加
@@ -513,10 +518,11 @@ export const CHECKOUT_SUCCESS_LABELS = {
 | 1 | polling 間隔 (2 秒 vs 3 秒 vs 5 秒) | 暫定 2 秒 (Linear / Notion 整合)、Stripe rate limit 試算後に Phase 7 で確定 |
 | 2 | タイムアウト (2 分 vs 3 分 vs 5 分) | 暫定 2 分、Phase 1 Open question 3 「数分後に再読込」整合 |
 | 3 | variant A 自動遷移 (2 秒 vs 3 秒 vs ユーザ click 必須) | 暫定 2 秒 auto-redirect、ADR-0012 滞在時間最短化整合 |
-| 4 | variant C async_payment 対応の Phase | NFR-3 申し送り済、Phase 5 で実装可否 PO 判断 |
+| 4 | variant C async_payment 対応の Phase 分割 | **本 #2572 / Phase 7 実装スコープは variant A / B / D / E の 4 種に限定**。variant C (コンビニ / 銀行振込) は Phase 5 (#2533 async_payment 仕様確定) 連動の別 PR で実装。理由: (a) `checkout.session.async_payment_succeeded` / `async_payment_failed` の webhook 購読変更が必要 (NFR-3 申し送り)、(b) async fail 時の lifecycle email (F-16) と密結合、(c) Pre-PMF Bucket A 段階で即対応必須ではない (Stripe Checkout デフォルト card のみ、async 経路は明示 opt-in しない限り発火しない)。本 docs は variant C の UI 仕様を**先行確定** (Phase 5 後の実装迷いを排除)、実装着手のみ別 PR |
 | 5 | variant D 「お問い合わせください」リンク先 | 既存 footer mailto (ADR-0028 founder inquiry) で十分か、専用 form 必要か |
 | 6 | session-status endpoint cache (Stripe API call 軽減) | endpoint side で短時間 (1 秒) cache する案、Phase 7 で rate limit 試算後判断 |
 | 7 | mobile タップ target (44px Material 最小) | 「ホームへ移動」「プランページに戻る」button は既存 `Button.svelte` primitive で 44px 確保済 (確認のみ) |
+| 8 | variant E 「再読込」再開回数上限 (暫定 3 回) の根拠 | 累積 6 分 = Stripe webhook 復旧の業界平均 (数秒〜数十秒) を 10 倍以上カバー。5 分超は Stripe Status Page 確認が現実的 next action。回数無制限は CWE-770 (rate limit 自衛) の観点で却下。Phase 7 で実 webhook 遅延ログ観測後に再調整 |
 
 ## 6 観点 自己検証チェック (per-issue-execution-workflow SSOT)
 
@@ -527,7 +533,7 @@ export const CHECKOUT_SUCCESS_LABELS = {
 | 3 | **UX 変更時のテスト項目追加** | E2E `checkout-success-polling.spec.ts` 新規 / unit (service / UI) / Storybook / Playwright SS UX レビュー (3 ペルソナ) / rate limit 検証計画記載 |
 | 4 | **用語 SSOT 化** | 新規 `CHECKOUT_SUCCESS_TERMS` (atom) + `CHECKOUT_SUCCESS_LABELS` (compound) 設計、既存 `CHECKOUT_TERMS` (custom_text 用) との namespace 区別明示、PLAN_FULL_TERMS 流用、`SIGNUP_TERMS.canonical` 「お申し込み」整合検討 |
 | 5 | **影響範囲事後検証** | impact-analysis 4 layer 適用 (L1: 1 箇所のみ既存修正 / L2: payment_status vs subscription.status 同名異義整理 / L3: 新規 2 file + 既存 1 file 修正 + webhook handler 無変更 / L4: docs のため該当なし、Phase 7 実装時 21 カテゴリ確認計画) |
-| 6 | **目的達成 / 大方針整合** | Phase 1 FR-5 (webhook SSOT) / FR-6 (準備中 + polling) / NFR-1 (冪等) / NFR-3 (async_payment) 全件設計 / Phase 2 谷⑥ processing gap 解消 / Phase 3 admin-header と接続 (success → header `[プレミアム]` badge 即可視化) / ADR-0012 (静的 / 連続演出禁止 / 滞在時間最短) / ADR-0045 (terms/labels SSOT) / ADR-0001 後方互換 (legacy-url-map redirect 計画) / premium 階層 signal 打消整合 |
+| 6 | **目的達成 / 大方針整合** | Phase 1 FR-5 (webhook SSOT) / FR-6 (準備中 + polling) / NFR-1 (冪等) / NFR-3 (async_payment) 全件設計 / Phase 2 谷⑥ processing gap 解消 / Phase 3 admin-header と接続 (success → header `[ファミリー]` plan-badge 即可視化、Phase 7 で `[プレミアム]` 表記書き戻し #2609) / ADR-0012 (静的 / 連続演出禁止 / 滞在時間最短) / ADR-0045 (terms/labels SSOT) / ADR-0001 後方互換 (legacy-url-map redirect 計画) / 階層 signal 打消整合 |
 
 ## 根拠
 
