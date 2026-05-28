@@ -81,8 +81,22 @@ test.describe('#1758 marketplace 移行 — must 推奨インポート', () => {
 	test('admin/packs で activity-pack に「おやくそく推奨 N件」Badge と must Badge が表示される', async ({
 		page,
 	}) => {
-		await page.goto('/admin/packs');
-		await expect(page).toHaveURL(/\/admin\/packs/);
+		// #2558 fix: 並列 worker (workers: 2) が kinder-starter を import し続けるため、
+		// beforeEach delete だけでは race で fail する。page.goto 直前に再 delete + reload で
+		// race window を最小化する (最大 3 回試行)。「インポート済」badge visible = 並列 worker が
+		// 直前に import してしまった状態。`!isFullyImported` 状態 (form 表示) になるまで retry。
+		for (let attempt = 0; attempt < 3; attempt++) {
+			await clearKinderStarterActivities();
+			await page.goto('/admin/packs');
+			await expect(page).toHaveURL(/\/admin\/packs/);
+			const importedBadge = page
+				.locator('button:has-text("ようじキッズ")')
+				.filter({ hasText: 'インポート済' });
+			if (await importedBadge.isVisible({ timeout: 1_000 }).catch(() => false)) {
+				continue; // 他 worker が再 import 済 → 再削除 + reload
+			}
+			break;
+		}
 
 		// kinder-starter パックを展開する（mustDefault: 3 件 = はみがきした/おきがえした/おかたづけした）
 		const kinderStarter = page.getByText(/ようじキッズ|kinder.starter/i).first();
@@ -114,7 +128,18 @@ test.describe('#1758 marketplace 移行 — must 推奨インポート', () => {
 		// 切り替わる。次回 form submit 時に applyMustDefault が送信されない（既定 OFF）。
 		// 注: 実際の DB 挿入結果は activity-import-service の unit テスト
 		// (#1758 セクション 5 件) で検証済。ここでは UI state 切り替えのみ確認する。
-		await page.goto('/admin/packs');
+		// #2558 fix: 1 つ目の test と同じ race 対策 (clear → goto → 確認 → 必要なら retry)
+		for (let attempt = 0; attempt < 3; attempt++) {
+			await clearKinderStarterActivities();
+			await page.goto('/admin/packs');
+			const importedBadge = page
+				.locator('button:has-text("ようじキッズ")')
+				.filter({ hasText: 'インポート済' });
+			if (await importedBadge.isVisible({ timeout: 1_000 }).catch(() => false)) {
+				continue;
+			}
+			break;
+		}
 
 		const kinderStarter = page.getByText(/ようじキッズ/).first();
 		await kinderStarter.waitFor({ state: 'visible', timeout: 10000 });

@@ -117,10 +117,10 @@ async function dismissChildHomeOverlays(page: Page) {
 async function startTutorialAndOpenExitConfirm(page: Page) {
 	const helpBtn = page.locator('[data-testid="header-help-btn"]');
 	await expect(helpBtn).toBeVisible({ timeout: 10_000 });
-	// auto-open dialog (cheer/message/activity confirm 等) が overlay として被さっても tutorial 起動を強行。
-	// click が静かに失敗する flake (#2558 fix 観察、 elementary tablet で再現) 対策で最大 3 回 retry。
+	// #2558 fix: dispatchEvent('click') で hit-testing をバイパス (詳細は
+	// child-tutorial-dialog-screenshots.spec.ts の同名関数コメントを参照)。
 	for (let attempt = 0; attempt < 3; attempt++) {
-		await helpBtn.click({ force: true });
+		await helpBtn.dispatchEvent('click');
 		try {
 			await page.waitForFunction(
 				() => document.documentElement.hasAttribute('data-tutorial-active'),
@@ -129,7 +129,7 @@ async function startTutorialAndOpenExitConfirm(page: Page) {
 			);
 			break;
 		} catch {
-			// fallthrough → re-click
+			// fallthrough → re-dispatch
 		}
 	}
 	// tutorial active flag (data-tutorial-active attr) を待つ。`.tutorial-overlay-bg` は

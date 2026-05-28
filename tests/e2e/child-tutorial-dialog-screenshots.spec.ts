@@ -146,11 +146,15 @@ async function clearTutorialProgress(page: Page) {
 async function startChildTutorial(page: Page) {
 	const helpBtn = page.locator('[data-testid="header-help-btn"]');
 	await expect(helpBtn).toBeVisible({ timeout: 10_000 });
-	// auto-open dialog (cheer/message/activity confirm 等) が overlay として被さっても tutorial 起動を強行。
-	// click が静かに失敗する flake (#2558 fix 観察、 elementary tablet で再現) 対策で最大 3 回 retry。
-	// data-tutorial-active が set されるか、もしくは tutorial-resume-dialog が visible になれば成功。
+	// #2558 fix 観察 (elementary tablet で `click({force:true})` 3 retry 全 fail):
+	// `force: true` click は actionability check (visibility / stable / receives events) を
+	// スキップするが、browser hit-testing で別 element が上に被さっていると click event が
+	// `?` button の onclick handler に到達しない。dispatchEvent('click') は hit-testing を
+	// 完全にバイパスし要素自身の event listener を直接発火させるため、auto-open dialog
+	// (activity confirm / cheer / message 等) との干渉を確実に回避する。
+	// data-tutorial-active or resume dialog visible で成功判定 (act → outcome 検証維持)。
 	for (let attempt = 0; attempt < 3; attempt++) {
-		await helpBtn.click({ force: true });
+		await helpBtn.dispatchEvent('click');
 		try {
 			await page.waitForFunction(
 				() =>
@@ -162,7 +166,7 @@ async function startChildTutorial(page: Page) {
 			);
 			return;
 		} catch {
-			// fallthrough → re-click
+			// fallthrough → re-dispatch
 		}
 	}
 	// 最終 fall-through: 後続の waitForSelector が自分で時間切れ判定するため throw しない
