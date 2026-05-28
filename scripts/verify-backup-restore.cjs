@@ -74,6 +74,9 @@ const DISCORD_WEBHOOK =
 /**
  * 検証失敗を Discord に通知 (#2519 AC2)。webhook 未設定なら no-op。
  * cron 経路で fail-loud にするための最小実装。
+ *
+ * @param {string} backupPath
+ * @param {string[]} failures
  */
 async function notifyFailure(backupPath, failures) {
 	if (!DISCORD_WEBHOOK) return;
@@ -100,11 +103,18 @@ async function notifyFailure(backupPath, failures) {
 		});
 		console.log('[verify] Discord alert sent');
 	} catch (err) {
-		console.error('[verify] Discord alert failed (non-fatal):', err.message);
+		console.error(
+			'[verify] Discord alert failed (non-fatal):',
+			err instanceof Error ? err.message : String(err),
+		);
 	}
 }
 
-/** BACKUP_DIR から最新の backup file path を返す (無ければ null)。 */
+/**
+ * BACKUP_DIR から最新の backup file path を返す (無ければ null)。
+ *
+ * @returns {string | null}
+ */
 function findLatestBackup() {
 	if (!fs.existsSync(BACKUP_DIR)) return null;
 	const files = fs
@@ -112,26 +122,36 @@ function findLatestBackup() {
 		.filter((f) => f.startsWith('ganbari-quest-') && f.endsWith('.db'))
 		.sort()
 		.reverse();
-	return files.length > 0 ? path.join(BACKUP_DIR, files[0]) : null;
+	const first = files[0];
+	return first ? path.join(BACKUP_DIR, first) : null;
 }
 
-/** table が存在するか (PRAGMA / sqlite_master)。 */
+/**
+ * table が存在するか (PRAGMA / sqlite_master)。
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} name
+ * @returns {boolean}
+ */
 function tableExists(db, name) {
 	return !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?").get(name);
 }
 
 /**
  * 復元済 backup に対し integrity_check / foreign_key_check / row count を検査。
- * @returns { ok: boolean, failures: string[] }
+ *
+ * @param {string} restoredPath
+ * @returns {{ ok: boolean, failures: string[] }}
  */
 function verifyRestoredDb(restoredPath) {
 	const failures = [];
 	const db = new Database(restoredPath, { readonly: true });
 	try {
 		// 1. integrity_check
-		const integrity = db.pragma('integrity_check');
+		/** @type {Array<{ integrity_check: string }>} */
+		const integrity = /** @type {any} */ (db.pragma('integrity_check'));
 		const integrityOk =
-			Array.isArray(integrity) && integrity.length === 1 && integrity[0].integrity_check === 'ok';
+			Array.isArray(integrity) && integrity.length === 1 && integrity[0]?.integrity_check === 'ok';
 		if (integrityOk) {
 			console.log('[verify] PRAGMA integrity_check: ok');
 		} else {
@@ -139,7 +159,8 @@ function verifyRestoredDb(restoredPath) {
 		}
 
 		// 2. foreign_key_check (空配列 = orphan なし)
-		const fkViolations = db.pragma('foreign_key_check');
+		/** @type {Array<Record<string, unknown>>} */
+		const fkViolations = /** @type {any} */ (db.pragma('foreign_key_check'));
 		if (Array.isArray(fkViolations) && fkViolations.length === 0) {
 			console.log('[verify] PRAGMA foreign_key_check: clean (0 violations)');
 		} else {
@@ -151,6 +172,7 @@ function verifyRestoredDb(restoredPath) {
 		// 3. 主要 table row count > 0
 		const counts = [];
 		let totalRows = 0;
+		/** @type {Record<string, number>} */
 		const cMap = {};
 		for (const table of MONITORED_TABLES) {
 			if (!tableExists(db, table)) {
@@ -158,7 +180,10 @@ function verifyRestoredDb(restoredPath) {
 				cMap[table] = 0;
 				continue;
 			}
-			const c = db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get().c;
+			const row = /** @type {{ c: number }} */ (
+				db.prepare(`SELECT COUNT(*) AS c FROM ${table}`).get()
+			);
+			const c = row.c;
 			counts.push(`${table}=${c}`);
 			cMap[table] = c;
 			totalRows += c;
@@ -216,7 +241,10 @@ async function main() {
 		try {
 			fs.rmSync(tmpDir, { recursive: true, force: true });
 		} catch (err) {
-			console.warn('[verify] temp cleanup failed (non-fatal):', err.message);
+			console.warn(
+				'[verify] temp cleanup failed (non-fatal):',
+				err instanceof Error ? err.message : String(err),
+			);
 		}
 	}
 
