@@ -132,9 +132,17 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 			await page.goto('/marketplace/rule-preset/early-bird', { waitUntil: 'domcontentloaded' });
 			await page.getByTestId('rule-import-bonus-redirect').click();
 			await page.waitForURL(/\/admin\/settings\/rules/);
+			// #2558 真因 fix (3 ラウンド目): client-side `$effect` での auto-import + invalidateAll
+			// は非同期 (form submit → action POST → DB write → invalidateAll → page re-render)。
+			// `waitForURL` は URL match 直後に resolve するため、count() を即座に呼ぶと
+			// re-render 前の DOM (0 件) を読む。Test L102-107 のように `toBeVisible` で
+			// auto-retry を効かせてから count を取る (ADR-0006 厳守: assertion 弱体化禁止、
+			// 「element 出現待ち → 個数検証」の 2 段 assertion で本質的検証は変えない)。
+			await expect(page.getByTestId('rules-bonus-preset-early-bird')).toBeVisible({
+				timeout: 30_000,
+			});
 			// 一覧に 1 件のみ表示 (重複追加されない)
-			const count = await page.getByTestId('rules-bonus-preset-early-bird').count();
-			expect(count).toBe(1);
+			await expect(page.getByTestId('rules-bonus-preset-early-bird')).toHaveCount(1);
 		} else {
 			await expect(page.getByTestId('rule-import-signup-redirect')).toBeVisible();
 		}

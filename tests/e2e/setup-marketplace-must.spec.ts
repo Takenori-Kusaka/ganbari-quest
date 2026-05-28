@@ -16,12 +16,20 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
-// #2558 fix: 並列 worker (workers: 2 + 他 spec) が kinder-starter pack の
-// activity を tenant に import すると `isFullyImported = true` となり、
-// `+page.svelte` L113 `{#if !pack.isFullyImported}` で form (および
-// applyMustDefault input) が render されなくなる flake が観察された。
-// テスト開始前に kinder-starter pack 由来 activity を tenant から削除して
-// form が必ず表示される状態に戻す (DB 直接操作)。
+// #2558 真因 fix (3 ラウンド目): 並列 worker (workers: 2 + 他 spec が kinder-starter
+// を import) で `isFullyImported = true` となる根本原因は、`+page.server.ts` の
+// `getActivities(tenantId)` が **`child_activities` table** (per-child instance) を
+// query することにある (#2362 PR-3 / ADR-0055)。旧 `activities` (master) table の
+// DELETE では `child_activities` は残るため、テスト開始時点で既に
+// `seedChildActivitiesIfMissing()` で seed 済 + 他 worker が `importPackToChildren`
+// で追加した instance が `existingNames` に積まれ続け、`isFullyImported = true` 確定。
+//
+// 真の修正は **`child_activities` から KINDER_NAMES を削除**する。FK 依存 row
+// (activity_logs / activity_mastery / daily_missions) は事前 cascade DELETE して
+// FK constraint violation を回避。
+//
+// ADR-0006 厳守 (retry / timeout で誤魔化さない): retry 回数増 / waitForTimeout
+// 追加 / assertion 弱体化はせず、`child_activities` 直接 cleanup で structural fix。
 async function clearKinderStarterActivities(): Promise<void> {
 	if (process.env.AUTH_MODE && process.env.AUTH_MODE !== 'local') {
 		// cognito-dev / aws 環境では DB 直接操作不可。preview/local のみ実行。
@@ -65,7 +73,42 @@ async function clearKinderStarterActivities(): Promise<void> {
 			'ごめんなさいをいった',
 		];
 		const placeholders = KINDER_NAMES.map(() => '?').join(',');
-		db.prepare(`DELETE FROM activities WHERE name IN (${placeholders})`).run(...KINDER_NAMES);
+
+		// transaction で atomicity 保証 (FK 依存 → child_activities → activities 順)
+		const tx = db.transaction(() => {
+			// 1. FK 依存 row を先に削除 (NO ACTION onDelete のため明示削除必須)
+			try {
+				db.prepare(
+					`DELETE FROM activity_logs WHERE activity_id IN (SELECT id FROM child_activities WHERE name IN (${placeholders}))`,
+				).run(...KINDER_NAMES);
+			} catch {
+				// activity_logs 不在 or schema 不一致は無視 (古い DB)
+			}
+			try {
+				db.prepare(
+					`DELETE FROM activity_mastery WHERE activity_id IN (SELECT id FROM child_activities WHERE name IN (${placeholders}))`,
+				).run(...KINDER_NAMES);
+			} catch {
+				// activity_mastery 不在 or schema 不一致は無視
+			}
+			try {
+				db.prepare(
+					`DELETE FROM daily_missions WHERE activity_id IN (SELECT id FROM child_activities WHERE name IN (${placeholders}))`,
+				).run(...KINDER_NAMES);
+			} catch {
+				// daily_missions 不在 or schema 不一致は無視
+			}
+			// child_activity_preferences は onDelete: CASCADE なので明示不要
+
+			// 2. child_activities (per-child instance) を削除 — これが本質的修正
+			db.prepare(`DELETE FROM child_activities WHERE name IN (${placeholders})`).run(
+				...KINDER_NAMES,
+			);
+
+			// 3. activities (master) も削除 (現状参照は無いが念のため)
+			db.prepare(`DELETE FROM activities WHERE name IN (${placeholders})`).run(...KINDER_NAMES);
+		});
+		tx();
 	} catch {
 		// activities テーブル不在 or schema 不一致は warning のみ (テスト本体側で fail させる)
 	} finally {
@@ -73,7 +116,14 @@ async function clearKinderStarterActivities(): Promise<void> {
 	}
 }
 
-test.describe('#1758 marketplace 移行 — must 推奨インポート', () => {
+// #2558 真因 fix (3 ラウンド目): `test.describe.serial` で同 file 内テストを直列化。
+// 並列 worker が同 file の 2 つのテストを別 worker で同時実行すると、
+// worker A が clearKinderStarterActivities 直後 worker B が
+// `admin/packs` を render する race window が残るため (DB write commit と
+// page server load の interleaving)、serial 化して同 worker 内で順次実行する。
+// 他 spec (admin-activities-per-child / setup-flow-marketplace-integrated 等) からの
+// import race は `child_activities` 直接 DELETE で構造的に解消済 (上記 clearKinderStarterActivities 参照)。
+test.describe.serial('#1758 marketplace 移行 — must 推奨インポート', () => {
 	test.beforeEach(async () => {
 		await clearKinderStarterActivities();
 	});
