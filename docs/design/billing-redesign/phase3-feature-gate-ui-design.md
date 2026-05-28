@@ -222,7 +222,7 @@ UI_COMPONENTS_LABELS = {
 ## impact-analysis skill 4 layer 防御適用
 
 ### L1 構文 (ast-grep / ripgrep)
-- 旧 `featureGateLockTitle` / `featureGateLockText` 参照: 1 ファイル (`src/lib/ui/components/FeatureGate.svelte:49, 59`) — Phase 7 atom rename で完結
+- 旧 `featureGateLockTitle` / `featureGateLockText` 参照: 1 ファイル ([src/lib/ui/components/FeatureGate.svelte L49 / L59](../../../src/lib/ui/components/FeatureGate.svelte)) — Phase 7 atom rename で完結
 - `PLAN_GATE_LABELS` 参照: 8 ファイル既存 (`errors.ts` / `cloud-export-service.ts` / `admin/reports/+page.server.ts` 等) — 新メソッド `tooltipFor` 追加で影響なし
 
 ### L2 意味 (型 / 同名異義)
