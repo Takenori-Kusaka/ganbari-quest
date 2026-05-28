@@ -1,9 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import Database from 'better-sqlite3';
-import { verifyRestoredDb } from '../../../scripts/verify-backup-restore.cjs';
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
+import Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { verifyRestoredDb } from '../../../scripts/verify-backup-restore.cjs';
 
 describe('verify-backup-restore.cjs (#2542)', () => {
 	let dbPath: string;

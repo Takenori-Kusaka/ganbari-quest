@@ -172,9 +172,9 @@ function verifyRestoredDb(restoredPath) {
 		} else {
 			// AC1: children > 0 なのに child_activities = 0 は fail
 			// AC2: children > 0 + child_activities > 0 であれば、activity_logs / point_ledger が 0 (day-0) でも PASS
-			if (cMap['children'] === 0) {
+			if (cMap.children === 0) {
 				failures.push('required table empty (data loss risk): children');
-			} else if (cMap['child_activities'] === 0) {
+			} else if (cMap.child_activities === 0) {
 				failures.push('data loss risk: children > 0 but child_activities is empty');
 			}
 		}
