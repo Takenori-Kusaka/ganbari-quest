@@ -60,7 +60,7 @@ src/ignored.ts も実在しませんが無視されます。
 
 			// src/non-existent.ts のみが検出されるはず
 			expect(violations).toHaveLength(1);
-			expect(violations[0].path).toBe('src/non-existent.ts');
+			expect(violations[0]?.path).toBe('src/non-existent.ts');
 		});
 
 		it('連続する ignore-line も正しく処理される', () => {
@@ -75,7 +75,7 @@ src/non-existent2.ts
 
 			const violations = findViolationsInFile(testFile, tmpDir);
 			expect(violations).toHaveLength(1);
-			expect(violations[0].path).toBe('src/non-existent2.ts');
+			expect(violations[0]?.path).toBe('src/non-existent2.ts');
 		});
 	});
 });
