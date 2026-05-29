@@ -51,13 +51,18 @@ const BASE_TEST_IGNORE = [
 	...(process.env.CI ? ['**/visual-regression.spec.ts'] : []),
 ];
 
-// #2648 Phase A Step A-1: per-worker SQLite isolation 基盤の動作確認段階。
-// webServer を配列起動に切り替える前段として WORKER_COUNT=1 で配列化のみ実行。
-// Step A-4 で WORKER_COUNT=2 + DATABASE_URL env 注入 (per-worker `data/e2e-worker-${i}.db`) に移行。
+// #2648 Phase A Step A-4: per-worker SQLite file isolation 完成。
+// WORKER_COUNT=2 に増やし、各 webServer に env.DATABASE_URL=`./data/e2e-worker-${i}.db` を注入。
+// global-setup.ts が template (data/ganbari-quest.db) を作成後、helpers/per-worker-db.ts 経由で
+// 各 worker DB を `db.backup()` で複製済の前提 (WAL/shm 整合 snapshot)。
+//
 // BASE_PORT=5190 は本番 (5173) / cognito-dev (5174) / demo Lambda (5180) / matrix (5201-5205) と被らない。
 // (Step A-1 初回 5180 採用 → demo Lambda preview server (`playwright.demo.config.ts:68`) と衝突して
 // `reuseExistingServer: !CI` 経由で demo モード server に hit され `/switch` 動作異常を起こした学びから 5190 へ修正)
-const WORKER_COUNT = 1;
+//
+// global-setup.ts 側の WORKER_COUNT と一致させること (現状: 両方 2)。
+// Phase B / Phase D で 4 復帰判断。
+const WORKER_COUNT = 2;
 const BASE_PORT = 5190;
 
 export default defineConfig({
@@ -129,10 +134,17 @@ export default defineConfig({
 			},
 		},
 	],
-	// #2648 Phase A Step A-1: webServer を object 形式 → 配列形式に変更。
-	// WORKER_COUNT=1 のため 1 server のみ起動 (port 5180)。
-	// Step A-4 で WORKER_COUNT=2 + env DATABASE_URL=./data/e2e-worker-${i}.db を追加し
-	// per-worker SQLite file isolation を完成させる (Mainmatter blog / Playwright 公式 fixture pattern)。
+	// #2648 Phase A Step A-4: per-worker SQLite file isolation 完成。
+	// WORKER_COUNT=2 で 2 server 起動 (port 5190 / 5191)。
+	// 各 server に env.DATABASE_URL=`./data/e2e-worker-${i}.db` を注入し
+	// global-setup.ts が事前に `db.backup()` 複製した worker DB だけを touch させる。
+	// SvelteKit (`src/lib/server/db/client.ts:12`) は `process.env.DATABASE_URL ?? './data/ganbari-quest.db'`
+	// で接続するため env 注入で自然に振り分けられる。
+	//
+	// 注意: Step A-6 時点では pin-activity.spec.ts のみが `fixtures.ts` 経由で
+	// `workerBaseURL` (`http://localhost:${BASE_PORT + parallelIndex}`) を読む。
+	// 他 spec は引き続き `use.baseURL` (= port 5190) を使うため事実上 worker[0] にのみ
+	// 振り分けられる (Phase B で順次 fixtures 経由に切替予定)。
 	webServer: Array.from({ length: WORKER_COUNT }, (_, i) => ({
 		command: process.env.CI
 			? `npm run preview -- --port ${BASE_PORT + i}`
@@ -140,5 +152,8 @@ export default defineConfig({
 		port: BASE_PORT + i,
 		reuseExistingServer: !process.env.CI,
 		timeout: 30_000,
+		env: {
+			DATABASE_URL: `./data/e2e-worker-${i}.db`,
+		},
 	})),
 });
