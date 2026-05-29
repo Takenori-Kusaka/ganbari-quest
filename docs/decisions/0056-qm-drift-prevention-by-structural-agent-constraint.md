@@ -210,6 +210,28 @@ PR 未作成の初回 push 時は 2-3 を skip (PR_NUM 空)、2nd push 以降 (F
 
 `git push --no-verify` で skip 可能だが、ADR-0026 で discouraged。本日 7+ 連続 BLOCK の root cause 解消が目的のため、通常 push で skip すると本 hook の存在意義を毀損する。緊急 hotfix 等の極限ケースのみ skip 許容。
 
+### §F 補足 (#2647 hotfix、第 9 弾 deploy、2026-05-29 追記)
+
+第 8 弾 #2645 deploy 直後の Fix Agent (#2644、`a5170826a8750e065`) で **Step 2.2 設計バグ**観察:
+
+| 段階 | 観察 |
+|---|---|
+| 第 8 弾 #2645 deploy 当初実装 | `node scripts/check-recent-deploy-deletion.mjs --pr "$PR_NUM"` |
+| `--pr <N>` 指定時の内部挙動 (#2628 第 4 弾) | `gh pr view <N> --json headRefOid` で **remote PR HEAD** 取得 → `git rev-parse HEAD` (**worktree HEAD**) と比較 → mismatch で exit 3 |
+| push 前 hook 経路での side effect | local が rebase + new commit を持つため **worktree HEAD ≠ remote PR HEAD** → 構造的に常時 BLOCK → Fix Agent が `--no-verify` 強制利用 |
+| 結果 | hook 自身が QA 機構毀損 (User 明示 priority「QA チーム時間取り戻し」と真逆動作) |
+
+#### Step 2.2 仕様 (#2647 hotfix 確定後)
+
+Step 2.2 (`check-recent-deploy-deletion.mjs`) は **引数なしで呼ぶ** = delete check のみ実行:
+
+- ✅ push 前 hook: local が rebase + new commit で local HEAD ≠ remote PR HEAD でも構造 BLOCK なく動作
+- ✅ defense in depth 維持: CI 経路 + QM Re-Review / Fix Agent worktree mode で `--pr` 付き gate が真正実行 (PR HEAD = checkout HEAD 一致状態で worktree HEAD verify が意味を持つ)
+- ❌ NEVER: hook 内で `--pr "$PR_NUM"` 付与 (push 前 mismatch で構造 BLOCK = 第 8 弾 #2645 deploy 直後発見 bug)
+
+由来: PR #2645 第 8 弾 deploy 直後の Fix Agent (#2644) 実観察、Issue #2647 で hot fix (第 9 弾 deploy)。
+unit test 検証: `tests/unit/scripts/check-recent-deploy-deletion.test.ts` §「#2647 hook context」 — 引数なし時の `prNumber === null` + worktree HEAD verify skip 仕様を pin。
+
 ## 関連
 
 - **Research SSOT**: [docs/research/qm-drift-prevention-2026-05-28.md](../research/qm-drift-prevention-2026-05-28.md)
@@ -219,4 +241,5 @@ PR 未作成の初回 push 時は 2-3 を skip (PR_NUM 空)、2nd push 以降 (F
 - **#2618 (§D 起票元)**: Fix Agent gate 実行時の worktree HEAD verify bypass 脆弱性 (QA self-implement 第 4 弾、2026-05-29 deploy)
 - **#2632 (§E 起票元)**: pre-ready CLI Ready checklist gate 統合 + Persona Drift §C fallback 自動化 (QA self-implement 第 5 弾、2026-05-29 deploy)
 - **#2598 (§F 起票元)**: `.husky/pre-push` 軽量 verify chain (QA self-implement 第 8 弾、2026-05-29 deploy、本日 7+ 連続 BLOCK 構造的予防)
+- **#2647 (§F 補足 hotfix 起票元)**: Step 2.2 `--pr` 引数撤去 (QA self-implement 第 9 弾 hotfix deploy、2026-05-29 deploy、第 8 弾 deploy 直後の hook 設計バグ修正、Fix Agent `--no-verify` 強制利用解消)
 - **archive**: ADR-0031 (1-in-1-out 履行で本 PR で archive 移動)

@@ -92,8 +92,15 @@ fi
 if [ -n "$PR_NUM" ]; then
 	echo "[pre-push] (2/3) 本日 deploy 全 file 削除 0 verify (PR #$PR_NUM)"
 	# 本 step は本日 merged PR の全 file 削除を検出する (#2603 第 4 弾 gate)。
-	# `--pr <num>` 指定で worktree HEAD = PR HEAD verify が走り、不一致なら exit 3 で BLOCK (#2618)。
-	node scripts/check-recent-deploy-deletion.mjs --pr "$PR_NUM" || {
+	#
+	# #2647 hotfix (第 9 弾): `--pr "$PR_NUM"` 引数は **付与しない**。
+	# 理由: `--pr <N>` 指定時は worktree HEAD = remote PR HEAD verify gate (#2618 第 4 弾) が走るが、
+	# push 前 hook 経路では local が rebase + new commit を持つため worktree HEAD ≠ remote PR HEAD
+	# となり構造的に常時 BLOCK + Fix Agent が `--no-verify` 強制利用 = hook 自身が QA 機構毀損。
+	# 引数なしで呼ぶと verify gate skip + 削除 check のみ実行され、push 前 hook 意図と整合する。
+	# defense in depth は CI 経路 + QM Re-Review / Fix Agent worktree mode で `--pr` 付き gate が
+	# 真正実行 (PR HEAD = checkout HEAD 一致) されるため失われない。詳細は ADR-0056 §F 補足参照。
+	node scripts/check-recent-deploy-deletion.mjs || {
 		EXIT_CODE=$?
 		echo "[pre-push] FAIL: 本日 deploy 全 file 削除検出 (exit $EXIT_CODE)"
 		echo "          対処: 削除した file が本日 merged の effort を revert していないか確認"
