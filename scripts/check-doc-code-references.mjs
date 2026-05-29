@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * scripts/check-doc-code-references.mjs
  *
@@ -65,6 +66,7 @@
  *   #2226 (CLOSED) 旧巨大 PR の close 候補 / #2259 QM Tier 2 Review Fix
  */
 
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -180,10 +182,13 @@ function normalizePath(raw) {
 /**
  * 実装パス記法かを判定 (glob / 変数展開 / 短すぎる断片を除外)。
  */
-function isCheckableImplPath(p) {
+export function isCheckableImplPath(p) {
 	if (!CODEBASE_PREFIXES.some((prefix) => p.startsWith(prefix))) return false;
 	if (p.includes('*') || p.includes('{') || p.includes('$')) return false;
 	if (p.length < 5) return false;
+	// AC2: 表セル内の自然言語列挙 (例: "src tests docs site") の誤検出防止
+	// パスである以上、必ず '/' を最低 1 つ含むべき
+	if (!p.includes('/')) return false;
 	return true;
 }
 
@@ -191,7 +196,7 @@ function isCheckableImplPath(p) {
  * Case-sensitive 版 existsSync。Windows / macOS の case-insensitive FS で Linux CI と
  * 挙動を一致させるため、各セグメントを readdirSync で実体名と strict 比較する。
  */
-function existsCaseSensitive(absRoot, relPath) {
+export function existsCaseSensitive(absRoot, relPath) {
 	const abs = path.join(absRoot, relPath);
 	if (!fs.existsSync(abs)) return false;
 	const segments = relPath.split(/[/\\]/).filter(Boolean);
@@ -255,11 +260,27 @@ function collectMdFiles(repoRoot) {
 /**
  * 1 ファイルを走査して違反 (実在しないパス参照) を返す。
  */
-function findViolationsInFile(file, repoRoot) {
+export function findViolationsInFile(file, repoRoot) {
 	const original = fs.readFileSync(file, 'utf-8');
 	if (isMarkedDeprecated(original)) return [];
 
-	const content = stripFencedCodeBlocks(original);
+	// AC1: `<!-- doc-code-refs: ignore-line -->` の直後の行を除外
+	const lines = original.split(/\r?\n/);
+	const filteredLines = [];
+	let ignoreNext = false;
+	for (const line of lines) {
+		if (line.includes('<!-- doc-code-refs: ignore-line -->')) {
+			ignoreNext = true;
+			continue;
+		}
+		if (ignoreNext) {
+			ignoreNext = false;
+			continue;
+		}
+		filteredLines.push(line);
+	}
+
+	const content = stripFencedCodeBlocks(filteredLines.join('\n'));
 
 	const inlinePaths = new Set();
 	const inlineRe = /`([^`\n]+)`/g;
@@ -336,6 +357,12 @@ function saveBaseline(violationsByFile) {
 	};
 	const json = JSON.stringify(data, null, '\t');
 	fs.writeFileSync(BASELINE_PATH, `${json}\n`, 'utf-8');
+	try {
+		console.log(`[check-doc-code-references] Formatting baseline file: ${BASELINE_PATH}`);
+		execSync(`npx biome format --write "${BASELINE_PATH}"`, { stdio: 'inherit' });
+	} catch (err) {
+		console.error(`[check-doc-code-references] WARN: Failed to format baseline: ${err.message}`);
+	}
 }
 
 /**
@@ -417,7 +444,8 @@ function printNewViolationReport(newByFile) {
 			'  1. 実装側の現在のパスに参照を更新する (推奨)\n' +
 			'     (例: bare path 表記の代わりに Markdown link 形式 `[site/pricing.html L297-301](path/to/file)` に変換するとチェック対象外になります)\n' +
 			'  2. ドキュメント全体が陳腐化しているなら冒頭に `<!-- doc-status: deprecated -->` を追加\n' +
-			'  3. 意図的に新規参照を追加する場合のみ `node scripts/check-doc-code-references.mjs --update-baseline` を使って baseline を更新してください',
+			'  3. 表セル内での自然言語列挙などの場合は `<!-- doc-code-refs: ignore-line -->` を直前に追記\n' +
+			'  4. 意図的に新規参照を追加する場合のみ `node scripts/check-doc-code-references.mjs --update-baseline` を使って baseline を更新してください',
 	);
 }
 

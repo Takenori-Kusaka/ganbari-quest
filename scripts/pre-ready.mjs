@@ -101,7 +101,7 @@ pre-ready — Ready for Review 前のローカル一括セルフチェック (Is
 
 Usage:
   npm run pre-ready -- --pr <number>
-  npm run pre-ready                                # PR 未作成時 (Step 9/12 はスキップ)
+  npm run pre-ready                                # PR 未作成時 (Step 9, 12 はスキップ)
 
 Options:
   --pr <num>             GitHub PR 番号 (Step 9 PR body / mergeable 検証用)
@@ -398,7 +398,7 @@ async function main() {
 	}
 
 	console.log('[pre-ready] Ready for Review 前のローカル一括セルフチェック (Issue #1775)');
-	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 9/10 はスキップ)'}`);
+	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 9, 12 はスキップ)'}`);
 
 	// 変更ファイル取得 (LP / UI 変更検知用)
 	const changedFiles = await getChangedFiles();
