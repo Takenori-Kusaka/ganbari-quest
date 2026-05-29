@@ -81,6 +81,21 @@
 			"tests/e2e/admin-reactivation-banner.spec.ts",
 			"tests/e2e/age-mode"
 		],
+		"docs/design/billing-redesign/phase5-webhook-idempotency-architecture.md": [
+			"infra/lib/data-stack.ts",
+			"src/lib/server/cron/retention-cron.ts",
+			"src/lib/server/db/demo/webhook-event-repo.ts",
+			"src/lib/server/db/dynamodb/webhook-event-repo.ts",
+			"src/lib/server/db/interfaces/webhook-event-repo.interface.ts",
+			"src/lib/server/db/sqlite/webhook-event-repo.ts",
+			"tests/e2e/billing/webhook-idempotency.spec.ts",
+			"tests/integration/db/dynamodb",
+			"tests/integration/db/dynamodb/webhook-event-repo.test.ts",
+			"tests/unit/db/webhook-event-repo-cross-backend.test.ts",
+			"tests/unit/db/webhook-event-repo.test.ts",
+			"tests/unit/services/retention-service.webhook.test.ts",
+			"tests/unit/services/stripe-service.dedup.test.ts"
+		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
 		],
@@ -155,5 +170,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-28T23:33:43.052Z"
+	"generatedAt": "2026-05-29T02:33:39.927Z"
 }
