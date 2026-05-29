@@ -6,7 +6,11 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DB_PATH = path.resolve('data/ganbari-quest.db');
+// #2648 Phase A Step A-2: DATABASE_URL env を受け入れる (default は従来通り `data/ganbari-quest.db`)。
+// Step A-4 で webServer 配列ごとに `DATABASE_URL=./data/e2e-worker-${i}.db` を env 経由で注入し
+// per-worker SQLite file isolation を完成させる。env 未指定の callers (CI shard 一部 / 手動 migrate) は
+// fallback path で動くため既存挙動を破壊しない (research §7.1)。
+const DB_PATH = path.resolve(process.env.DATABASE_URL ?? 'data/ganbari-quest.db');
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export default async function globalSetup() {
