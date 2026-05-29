@@ -1,6 +1,8 @@
 // tests/e2e/global-setup.ts
 // E2E テスト用 DB 確認・クリーンアップスクリプト
 // playwright.config.ts の globalSetup から呼ばれる
+//
+// cspell:words Mainmatter
 
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
