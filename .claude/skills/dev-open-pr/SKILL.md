@@ -19,6 +19,28 @@ description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari
 
 詳細は ADR-0056 §E (#2632) + `docs/sessions/dev-session.md` §「Ready 化前 5 項目 SSOT」を参照。
 
+## push 時自己検証 hook (#2598、QA self-implement 第 8 弾、defense in depth 第 4 層)
+
+Dev が本 SKILL の `pre-ready` を skip した場合でも、`git push` 実行時に `.husky/pre-push` が以下を **機械的に自動検証** し、bypass 不可な systematic verify を提供する:
+
+| Step | 検証内容 | 起動 trigger | bypass |
+|---|---|---|---|
+| 1 | origin/main rebase drift verify (#2557 / 本日 7+ 連続 BLOCK の root cause) | 全 push | `--no-verify` で skip 可だが discouraged (ADR-0026) |
+| 2 | 本日 deploy 全 file 削除 0 verify (#2603 / #2628 第 4 弾) | PR 存在時のみ | 同上 |
+| 3 | PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify (#2576 / #2586 / #2633 第 5 弾) | PR 存在時のみ | 同上 |
+| 4 | biome check (軽量 lint) | 全 push | 同上 |
+
+重い検査 (vitest / playwright / svelte-check) は CI 委ね、本 hook は **軽量 check のみ** (push 速度保持 + Pre-PMF / ADR-0010 整合)。
+
+### 4 層 defense in depth (#2598 で完成)
+
+1. **機構層**: `pre-ready` Step 9 + `check-pr-body` (#2633)
+2. **Agent SKILL ルール**: 本 SKILL.md + `dev-session.md` Ready 化前 5 項目 (#2632)
+3. **ADR SSOT**: ADR-0056 §A-§F (本 PR §F 追加)
+4. **push 時自己検証**: `.husky/pre-push` 軽量 verify chain (本 §、#2598)
+
+実装者は本 SKILL 経路で `pre-ready` を完遂することで、push 時に hook が再度 fail することを予防できる。詳細は ADR-0056 §F + `.husky/pre-push` 冒頭コメントを参照。
+
 # Dev PR 起票ワークフロー
 
 Dev Agent が PR を `gh pr create --draft --body-file` で起票する際の **4 ステップ手順** + Ready 化前の **4 必須 CI gate チェックリスト**。

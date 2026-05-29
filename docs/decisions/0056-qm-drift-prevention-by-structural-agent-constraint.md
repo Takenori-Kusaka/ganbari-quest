@@ -173,6 +173,43 @@ ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不
 | #2618 (deploy、第 4 弾) | 機構運用層 bypass (worktree HEAD verify) 検出条文 §D 追加 + script self-defense exit 3 実装 |
 | **#2615 (本 PR、time-aware flag 拡張)** | gate に `--since <ISO>` / `--since-ref <SHA>` / `--since-recent <N>` flag 追加。Fix Agent push → Re-Review 間の main 進化による Time-of-Check vs Time-of-Use race 4 ラウンド連続観察 (PR #2607 Round 5) を構造解決。time window 指定で main 進化新規 file を比較対象外化、main 進化 (新規追加) を「削除」と誤検出しない |
 
+
+## §F. push 時自己検証機構 (第 8 弾 deploy、#2598、2026-05-29 追記)
+
+第 5 弾 #2633 deploy (`pre-ready` CLI Step 9 Readiness gate 強化 + SKILL.md prelude 強化) は Dev 経路で `pre-ready` を経由する場合に systematic verify を強制する設計だが、**Dev が pre-ready を skip して直接 `git push` した場合は依然 push される**事象が本日 7+ 連続観察された (#2625 / #2626 / #2629 / #2630 / #2634 / #2635 / #2636 等)。これらは全て push 前に Dev 自己検証で気づける pattern (rebase drift / PR body 13 セクション欠落 / 禁止語混入 / 本日 deploy 全 file 削除) であり、**push レイヤで機械強制する** 第 4 層 (defense in depth) が必要であることが判明した。
+
+### 対策 (`.husky/pre-push` 軽量 verify chain)
+
+既存 husky pre-push (#1879、gh アカウント verify 単独) に push 時 systematic verify chain を追加:
+
+1. **origin/main rebase drift verify** (#2557 / 本日 7+ 連続 BLOCK の root cause): `git merge-base origin/main HEAD` vs `git rev-parse origin/main` で同期確認、未取込なら exit 1 + 修正手順 stderr
+2. **本日 deploy 全 file 削除 0 verify** (PR 存在時のみ、#2603 / #2628 第 4 弾 gate 経由): `scripts/check-recent-deploy-deletion.mjs --pr <N>` 実行
+3. **PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時のみ、#2060 / #2576 / #2586 / #2633 第 5 弾): `scripts/check-pr-body.mjs --pr <N> --skip-mergeable` 実行
+4. **biome check** (軽量 lint): 重い svelte-check / vitest / playwright は CI 委ね、push レイヤは lint のみ
+
+### 設計境界 (Pre-PMF / ADR-0010 整合)
+
+重い検査 (vitest / playwright / svelte-check) は本 hook に **追加しない**:
+
+- **理由 1**: push 速度を保ち、push の bypass 誘惑を減らす (`--no-verify` 常態化の予防)
+- **理由 2**: 同 step は CI / `npm run pre-ready` が二重で実行する設計 (defense in depth)
+- **理由 3**: ADR-0010 Pre-PMF 過剰防衛境界内 — 軽量 check のみ「BLOCK 早期検出 cost」と「push 速度」のバランス
+
+PR 未作成の初回 push 時は 2-3 を skip (PR_NUM 空)、2nd push 以降 (Fix Agent 修正 push) は PR 存在のため verify 実行。
+
+### Defense in depth 4 層 (本 §F で完成)
+
+| 層 | 機構 | 起動 trigger |
+|---|---|---|
+| 1. 機構層 | `scripts/check-pr-body.mjs` / `scripts/check-recent-deploy-deletion.mjs` / `pre-ready` Step 9 (#2633) | `pre-ready` CLI 実行時 / CI workflow |
+| 2. Agent SKILL ルール | `.claude/agents/dev-session.md` + `.claude/skills/dev-open-pr/SKILL.md` Ready 化前 5 項目 (#2632) | Dev / Fix Agent 自己確認時 |
+| 3. ADR SSOT | ADR-0056 §A-§F SSOT 体系 | 全 stakeholder 参照時 |
+| **4. push 時自己検証** | `.husky/pre-push` 軽量 verify chain (本 §F、#2598) | 全 `git push` 時 (`--no-verify` 以外) |
+
+### bypass 規定
+
+`git push --no-verify` で skip 可能だが、ADR-0026 で discouraged。本日 7+ 連続 BLOCK の root cause 解消が目的のため、通常 push で skip すると本 hook の存在意義を毀損する。緊急 hotfix 等の極限ケースのみ skip 許容。
+
 ## 関連
 
 - **Research SSOT**: [docs/research/qm-drift-prevention-2026-05-28.md](../research/qm-drift-prevention-2026-05-28.md)
@@ -181,4 +218,5 @@ ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不
 - **ADR-0010**: Pre-PMF スコープ判断 (本 ADR は Bucket A — 本日 #2588 実観察 defect への直接対処)
 - **#2618 (§D 起票元)**: Fix Agent gate 実行時の worktree HEAD verify bypass 脆弱性 (QA self-implement 第 4 弾、2026-05-29 deploy)
 - **#2632 (§E 起票元)**: pre-ready CLI Ready checklist gate 統合 + Persona Drift §C fallback 自動化 (QA self-implement 第 5 弾、2026-05-29 deploy)
+- **#2598 (§F 起票元)**: `.husky/pre-push` 軽量 verify chain (QA self-implement 第 8 弾、2026-05-29 deploy、本日 7+ 連続 BLOCK 構造的予防)
 - **archive**: ADR-0031 (1-in-1-out 履行で本 PR で archive 移動)

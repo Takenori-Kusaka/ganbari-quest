@@ -1,14 +1,143 @@
 #!/usr/bin/env sh
-# .husky/pre-push (#1879)
+# .husky/pre-push (#1879 で初出、#2598 で QA self-implement 第 8 弾 verify chain 追加)
 #
-# git push 直前に active gh アカウントが Takenori-Kusaka であることを検証する。
+# git push 直前に push アカウント検証 + 軽量 systematic verify chain を実行する。
+#
+# # 段階 1 (#1879): active gh アカウントが Takenori-Kusaka であることを検証
 # QA アカウント (ganbariquestsupport-lab) のままでの push を機械的に防止し、
 # その後の `gh pr create` での起票アカウント違反を構造的に発生させない。
 #
-# 既存ガード scripts/check-gh-account-before-pr.mjs を再利用 (二重定義回避)。
+# # 段階 2 (#2598、QA self-implement 第 8 弾): push 時自己検証 chain
+# Dev が pre-ready CLI (#2633 第 5 弾) を skip した場合でも push レイヤで以下を機械検出:
+#   1. origin/main rebase drift verify (#2557 stale cache / 本日 7+ 連続 BLOCK の root cause)
+#   2. 本日 deploy 全 file 削除 0 verify (#2603 / #2628 第 4 弾 gate を branch ベースで実行)
+#   3. PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify
+#      (#2576 / #2586 / #2633 第 5 弾、PR が既に存在する場合のみ)
+#   4. biome check (軽量 lint、重い vitest / playwright は CI 委ね)
 #
-# 関連: ADR-0022 amendment 1 / amendment 3 (#1879) / docs/sessions/qa-session.md
+# # 設計境界 (Pre-PMF / ADR-0010 整合)
+# 重い検査 (vitest / playwright / svelte-check) は本 hook に **追加しない**。
+# 理由: push 速度を保ち、BLOCK 早期検出と push hook cost のバランスを取る。
+# 全 step は CI / `npm run pre-ready` が二重で実行する設計 (defense in depth)。
 #
-# bypass: --no-verify は禁止 (ADR-0026 に追記予定 / 本 hook の存在意義を毀損)。
+# # 既存 script 再利用 (二重定義回避)
+#   - scripts/check-gh-account-before-pr.mjs (#1879)
+#   - scripts/check-recent-deploy-deletion.mjs (#2603 / #2618 第 4 弾)
+#   - scripts/check-pr-body.mjs (#2060 / #2576 / #2586)
+#
+# # 関連
+#   - ADR-0022 amendment 1 / amendment 3 (#1879) / docs/sessions/qa-session.md
+#   - ADR-0056 §F (本 PR で新設、push 時自己検証機構 SSOT)
+#   - ADR-0030 (pre-ready CLI と本 hook の defense in depth 関係)
+#   - #2598 (本実装、QA self-implement 第 8 弾、本日 7+ 連続 BLOCK 構造的予防)
+#   - #2633 (第 5 弾 pre-ready Step 9 強化 — 本 hook と相補的に Dev / push 経路を 2 層化)
+#
+# # bypass
+# `git push --no-verify` で skip 可能だが、ADR-0026 で discouraged。
+# 緊急 hotfix 等の極限ケースのみ。本日 7+ 連続 BLOCK の root cause 解消が目的のため、
+# 通常 push で skip すると本 hook の存在意義を毀損する。
 
+set -e
+
+# ============================================================
+# 段階 1: gh アカウント検証 (#1879)
+# ============================================================
 node scripts/check-gh-account-before-pr.mjs
+
+# ============================================================
+# 段階 2: push 時 systematic 自己検証 chain (#2598、QA self-implement 第 8 弾)
+# ============================================================
+
+echo "[pre-push] QA self-implement 第 8 弾 verify chain (#2598)"
+
+# --- Step 2.1: origin/main rebase drift verify (#2557 / 本日 7+ 連続 BLOCK の root cause) ---
+# 本 step は git fetch を伴うため network access が前提。
+# offline 環境では `git fetch` が fail し、本 hook 全体が exit するため
+# offline で push したい場合は `--no-verify` を使うこと (ADR-0026 例外運用)。
+echo "[pre-push] (1/3) origin/main rebase drift verify"
+git fetch origin main --quiet 2>/dev/null || {
+	echo "[pre-push] WARN: git fetch origin main 失敗 (offline?) — rebase verify を skip"
+	echo "          通常 push では network 接続を確認してください"
+}
+
+# origin/main が手元 branch に取り込まれているか検証
+# MERGE_BASE = 手元 HEAD と origin/main の共通祖先
+# MAIN_HEAD = origin/main の最新 commit
+# MERGE_BASE != MAIN_HEAD なら手元は origin/main の最新を取り込んでいない
+if MERGE_BASE=$(git merge-base origin/main HEAD 2>/dev/null) && MAIN_HEAD=$(git rev-parse origin/main 2>/dev/null); then
+	if [ "$MERGE_BASE" != "$MAIN_HEAD" ]; then
+		AHEAD_COMMITS=$(git rev-list --count "$MERGE_BASE..$MAIN_HEAD" 2>/dev/null || echo "?")
+		echo "[pre-push] FAIL: origin/main が $AHEAD_COMMITS commits ahead (rebase drift)"
+		echo "          対処: git fetch origin main && git rebase origin/main"
+		echo "          理由: 本日 7+ 連続 BLOCK の root cause (#2557 / #2598)。"
+		echo "                rebase せず push すると過去 merged PR を revert する diff が混入する。"
+		echo "          skip (非推奨): git push --no-verify (ADR-0026 で discouraged)"
+		exit 1
+	fi
+	echo "[pre-push]     OK: origin/main 同期済"
+else
+	echo "[pre-push] WARN: rebase verify を skip (offline / origin/main 未取得)"
+fi
+
+# --- Step 2.2 / 2.3: PR が既に存在する場合のみ deploy 削除 + PR body verify ---
+# 新規 branch の初回 push 時は PR 未作成のため両 step を skip する。
+# 2nd push 以降 (Fix Agent 修正 push 等) は PR が存在するため verify を実行する。
+PR_NUM=""
+if command -v gh >/dev/null 2>&1; then
+	# `gh pr view` の exit code が 0 なら PR が存在する。
+	# 失敗時 (PR 未作成 / network 未接続) は PR_NUM 空のまま step を skip する。
+	PR_NUM=$(gh pr view --json number -q .number 2>/dev/null || echo "")
+fi
+
+if [ -n "$PR_NUM" ]; then
+	echo "[pre-push] (2/3) 本日 deploy 全 file 削除 0 verify (PR #$PR_NUM)"
+	# 本 step は本日 merged PR の全 file 削除を検出する (#2603 第 4 弾 gate)。
+	# `--pr <num>` 指定で worktree HEAD = PR HEAD verify が走り、不一致なら exit 3 で BLOCK (#2618)。
+	node scripts/check-recent-deploy-deletion.mjs --pr "$PR_NUM" || {
+		EXIT_CODE=$?
+		echo "[pre-push] FAIL: 本日 deploy 全 file 削除検出 (exit $EXIT_CODE)"
+		echo "          対処: 削除した file が本日 merged の effort を revert していないか確認"
+		echo "                false positive の場合は --ignore-pattern で除外指定"
+		exit 1
+	}
+	echo "[pre-push]     OK: 本日 deploy 削除 0 件"
+
+	echo "[pre-push] (3/3) PR body 13 セクション + AC 4 列 + 禁止語 verify (PR #$PR_NUM)"
+	# 本 step は PR body の 13 セクション網羅 + AC 4 列 + 禁止語 0 件 + mojibake 不在を検証する
+	# (#2060 / #2576 / #2586 / #2633 第 5 弾)。
+	node scripts/check-pr-body.mjs --pr "$PR_NUM" --skip-mergeable || {
+		EXIT_CODE=$?
+		echo "[pre-push] FAIL: PR body 検証 fail (exit $EXIT_CODE)"
+		echo "          対処: tmp/pr-bodies/<slug>.md を編集 + gh pr edit --body-file"
+		echo "                詳細: .claude/skills/dev-open-pr/SKILL.md §「Ready 化前必須」"
+		exit 1
+	}
+	echo "[pre-push]     OK: PR body 13 セクション + AC 4 列 + 禁止語 0 件"
+else
+	echo "[pre-push] (2/3) PR 未作成のため deploy 削除 / PR body verify を skip"
+	echo "[pre-push] (3/3) (同上)"
+fi
+
+# --- Step 2.4: biome check (軽量 lint、変更 file 絞り込み) ---
+# 重い svelte-check / vitest / playwright は CI 委ね。
+# biome check のみ push レイヤで実行することで CI で初めて lint fail に気づく事故を予防。
+# origin/main..HEAD で変更 file を抽出し、biome 対象拡張子のみ check (Pre-PMF 整合、push 速度保持)。
+echo "[pre-push] biome check (軽量 lint、変更 file 絞り込み)"
+if command -v npx >/dev/null 2>&1; then
+	# 変更 file 抽出 (added / modified、削除 file は対象外)
+	CHANGED_LINT_FILES=$(git diff --name-only --diff-filter=AM origin/main..HEAD 2>/dev/null | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|svelte|css|json|jsonc)$' || true)
+	if [ -n "$CHANGED_LINT_FILES" ]; then
+		echo "$CHANGED_LINT_FILES" | head -5
+		echo "$CHANGED_LINT_FILES" | xargs npx biome check 2>&1 | tail -3 || {
+			echo "[pre-push] FAIL: biome check fail"
+			echo "          対処: npx biome check --write <file> で自動修正"
+			exit 1
+		}
+		echo "[pre-push]     OK: biome check (lint 対象 file)"
+	else
+		echo "[pre-push]     OK: biome 対象 file 変更なし、skip"
+	fi
+else
+	echo "[pre-push] WARN: npx 未インストール、biome check skip"
+fi
+echo "[pre-push] OK: QA self-implement 第 8 弾 verify chain 全 PASS (#2598)"
