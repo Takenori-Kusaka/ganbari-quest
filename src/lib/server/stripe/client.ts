@@ -5,7 +5,7 @@ import Stripe from 'stripe';
 
 type StripeApiVersion = NonNullable<ConstructorParameters<typeof Stripe>[1]>['apiVersion'];
 
-const STRIPE_API_VERSION = '2026-04-22.dahlia' as StripeApiVersion;
+const STRIPE_API_VERSION = '2026-05-27.dahlia' as StripeApiVersion;
 
 let _client: Stripe | null = null;
 
