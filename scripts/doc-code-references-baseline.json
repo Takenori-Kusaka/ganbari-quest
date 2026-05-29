@@ -81,6 +81,17 @@
 			"tests/e2e/admin-reactivation-banner.spec.ts",
 			"tests/e2e/age-mode"
 		],
+		"docs/design/billing-redesign/phase5-archive-unified-architecture.md": [
+			"src/lib/domain/archive-types.ts",
+			"src/lib/server/db/migration/2026-06-archived-reason-backfill.sql",
+			"src/lib/server/db/schema.ts:40,70,109,430",
+			"src/routes/api/v1/admin/downgrade-archive/+server.ts:7,37",
+			"tests/e2e/age-mode",
+			"tests/e2e/dunning-canceled-archive.spec.ts",
+			"tests/fixtures/legacy-schema/2026-05.sql:46,69,85,100",
+			"tests/integration/db/archived-reason-migration.test.ts",
+			"tests/integration/services/stripe-webhook.test.ts"
+		],
 		"docs/design/billing-redesign/phase5-webhook-idempotency-architecture.md": [
 			"infra/lib/data-stack.ts",
 			"src/lib/server/cron/retention-cron.ts",
@@ -170,5 +181,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-29T02:33:39.927Z"
+	"generatedAt": "2026-05-29T03:10:40.035Z"
 }
