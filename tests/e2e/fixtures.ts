@@ -32,7 +32,7 @@
 //      内で行う代わりに、context-options override で実現する (workerInfo.parallelIndex 経由)
 
 import path from 'node:path';
-import { test as base } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 
 // playwright.config.ts と一致させる必要あり (research §7.5)。
 // 将来 dotenv / shared config に集約する候補だが、Phase A scope では 2 箇所 hardcode で OK。
@@ -54,6 +54,7 @@ type WorkerFixtures = {
 
 export const test = base.extend<{ baseURL: string }, WorkerFixtures>({
 	workerDbPath: [
+		// biome-ignore lint/correctness/noEmptyPattern: Playwright fixture system requires `{}` for dependency-free worker fixtures (https://playwright.dev/docs/test-fixtures)
 		async ({}, use, workerInfo) => {
 			const dbPath = path.resolve(`data/e2e-worker-${workerInfo.parallelIndex}.db`);
 			await use(dbPath);
@@ -61,6 +62,7 @@ export const test = base.extend<{ baseURL: string }, WorkerFixtures>({
 		{ scope: 'worker' },
 	],
 	workerBaseURL: [
+		// biome-ignore lint/correctness/noEmptyPattern: Playwright fixture system requires `{}` for dependency-free worker fixtures (https://playwright.dev/docs/test-fixtures)
 		async ({}, use, workerInfo) => {
 			const url = `http://localhost:${BASE_PORT + workerInfo.parallelIndex}`;
 			await use(url);
@@ -82,4 +84,4 @@ export const test = base.extend<{ baseURL: string }, WorkerFixtures>({
 	},
 });
 
-export { expect } from '@playwright/test';
+export { expect };
