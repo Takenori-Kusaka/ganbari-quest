@@ -51,6 +51,15 @@ const BASE_TEST_IGNORE = [
 	...(process.env.CI ? ['**/visual-regression.spec.ts'] : []),
 ];
 
+// #2648 Phase A Step A-1: per-worker SQLite isolation 基盤の動作確認段階。
+// webServer を配列起動に切り替える前段として WORKER_COUNT=1 で配列化のみ実行。
+// Step A-4 で WORKER_COUNT=2 + DATABASE_URL env 注入 (per-worker `data/e2e-worker-${i}.db`) に移行。
+// BASE_PORT=5190 は本番 (5173) / cognito-dev (5174) / demo Lambda (5180) / matrix (5201-5205) と被らない。
+// (Step A-1 初回 5180 採用 → demo Lambda preview server (`playwright.demo.config.ts:68`) と衝突して
+// `reuseExistingServer: !CI` 経由で demo モード server に hit され `/switch` 動作異常を起こした学びから 5190 へ修正)
+const WORKER_COUNT = 1;
+const BASE_PORT = 5190;
+
 export default defineConfig({
 	testDir: 'tests/e2e',
 	testIgnore: BASE_TEST_IGNORE,
@@ -62,7 +71,11 @@ export default defineConfig({
 	// が 2 連続実行のうち 1 度 flake したため 2 に降格。
 	// fullyParallel: true は維持。さらなる短縮は次フェーズ（shard / DB 分離）で。
 	// CI / ローカルとも同値のため三項演算子は不要（意図せず差を入れる事故防止）。
-	workers: 2,
+	//
+	// #2648 Phase A Step A-1 (一時退行): WORKER_COUNT=1 で webServer 配列化動作確認のみ。
+	// CI 時間は 6m → 12m+ に一時退行するが Step A-4 で per-worker DB isolation を導入して
+	// WORKER_COUNT=2 に戻し、Phase 2 で 5 age mode 全部 per-worker 化後 workers=4 復帰判断する。
+	workers: WORKER_COUNT,
 	timeout: 30_000,
 	// CI shard 時は blob reporter で結果を個別出力し、merge-reports で集約する。
 	// ローカル / 非 shard CI では従来の list + html + json を維持。
@@ -72,12 +85,15 @@ export default defineConfig({
 	globalSetup: './tests/e2e/global-setup.ts',
 	globalTeardown: './tests/e2e/global-teardown.ts',
 	use: {
-		baseURL: 'http://localhost:5173',
+		// #2648 Phase A Step A-1: BASE_PORT (5180) で webServer 配列起動。
+		// WORKER_COUNT=1 のため第 1 worker (port 5180) を全 test が使用。
+		// 全 worker が異なる port を使う Step A-4 では worker fixture で動的化する。
+		baseURL: `http://localhost:${BASE_PORT}`,
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		actionTimeout: 10_000,
 		extraHTTPHeaders: {
-			Origin: 'http://localhost:5173',
+			Origin: `http://localhost:${BASE_PORT}`,
 		},
 		// #1292: headless Chromium では document.hidden が true になり自動スリープ E2E が失敗する。
 		// --disable-renderer-backgrounding でバックグラウンドタブ throttling を無効化し
@@ -113,10 +129,16 @@ export default defineConfig({
 			},
 		},
 	],
-	webServer: {
-		command: process.env.CI ? 'npm run preview -- --port 5173' : 'npm run dev',
-		port: 5173,
+	// #2648 Phase A Step A-1: webServer を object 形式 → 配列形式に変更。
+	// WORKER_COUNT=1 のため 1 server のみ起動 (port 5180)。
+	// Step A-4 で WORKER_COUNT=2 + env DATABASE_URL=./data/e2e-worker-${i}.db を追加し
+	// per-worker SQLite file isolation を完成させる (Mainmatter blog / Playwright 公式 fixture pattern)。
+	webServer: Array.from({ length: WORKER_COUNT }, (_, i) => ({
+		command: process.env.CI
+			? `npm run preview -- --port ${BASE_PORT + i}`
+			: `npm run dev -- --port ${BASE_PORT + i}`,
+		port: BASE_PORT + i,
 		reuseExistingServer: !process.env.CI,
 		timeout: 30_000,
-	},
+	})),
 });
