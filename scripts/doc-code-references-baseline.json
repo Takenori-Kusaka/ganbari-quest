@@ -145,6 +145,10 @@
 			"tests/unit/lib/server/stripe/client.test.ts",
 			"tests/unit/lib/server/stripe/config.test.ts"
 		],
+		"docs/design/billing-redesign/phase6-test-clock-scenarios.md": [
+			"tests/e2e/billing",
+			"tests/e2e/billing/helpers/stripe-fixture.ts"
+		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
 		],
@@ -219,5 +223,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-29T22:35:30.800Z"
+	"generatedAt": "2026-05-29T22:37:07.791Z"
 }
