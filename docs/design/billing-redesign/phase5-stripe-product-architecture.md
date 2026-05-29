@@ -107,7 +107,7 @@
 
 | 項目 | 現行 | 新 |
 |---|---|---|
-| `src/lib/server/stripe/client.ts:8` | `'2026-04-22.dahlia'` | `'2026-05-27.dahlia'` |
+| `src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数 | `'2026-04-22.dahlia'` | `'2026-05-27.dahlia'` |
 
 [Stripe 公式 API versioning](https://docs.stripe.com/api/versioning) より、dahlia 月次 bump は 72 時間 rollback window が確保される。本 PR で同梱する理由:
 
@@ -188,24 +188,24 @@ webhook 購読 event リストに追加 (Phase 7 Dashboard 設定):
 |---|---|---|---|
 | 1 | **Test mode** Dashboard で新 Product + 2 Price (`standard_monthly` / `premium_monthly` lookup_key、`inclusive` 税込) + Portal config + Webhook (`disabled`) 作成 | PO 手動 (#2627) | Dashboard UI で目視 + Stripe CLI `stripe products list` |
 | 2 | Phase 5 子 1 PR (本 PR、lookup_key 参照 + apiVersion bump コード変更含む統合 PR) を draft 起票 — **本 PR は docs のみ、コード変更は Phase 7 統合 PR で実施** | Dev | docs 設計確定 |
-| 3 | Test clock シナリオ E2E 計画 (`tests/e2e/billing/upgrade.spec.ts` / `downgrade.spec.ts` / `cancel-pending.spec.ts`) | Dev | tests 追加計画ドキュメント |
+| 3 | Test clock シナリオ E2E 計画 (E2E spec 3 種: upgrade / downgrade / cancel-pending、Phase 7 新規作成予定) | Dev | tests 追加計画ドキュメント |
 | 4 | Phase 5 子 1 マージ (本 PR、docs アーキ確定) | Dev | QM Approve |
 | 5 | **Production mode** Dashboard で同じ Product / 2 Price / Portal config / Webhook (`disabled`) 作成 | PO 手動 (#2627) | Dashboard UI で目視 |
 | 6 | Phase 7 統合 PR マージ (UI rename (#2567-2575) + Phase 3 hybrid confirm (#2573) + lookup_key コード切替 + apiVersion bump + 新 webhook event 購読) | Dev | E2E + smoke test |
 | 7 | 旧 4 Price archive、旧 Webhook disable | PO 手動 | Dashboard UI |
-| 8 | 1 週間 smoke test → 旧 env var (`STRIPE_PRICE_*`) を `infra/cdk.json` / GitHub Secrets から削除 | Dev | CDK diff + deploy |
+| 8 | 1 週間 smoke test → 旧 env var (`STRIPE_PRICE_*`) を CDK 設定 (infra 配下 cdk.json) / GitHub Secrets から削除 | Dev | CDK diff + deploy |
 
 ## 6. テスト計画 (Phase 7 一括実行)
 
-| カテゴリ | テスト内容 | ファイル (新規) | 実行 phase |
+| カテゴリ | テスト内容 | ファイル (Phase 7 新規作成予定) | 実行 phase |
 |---|---|---|---|
-| **Test clock E2E** | アップ即時 (standard → premium) で proration 差額が即時請求される | `tests/e2e/billing/upgrade-immediate.spec.ts` | Phase 7 |
-| **Test clock E2E** | ダウン期末 (premium → standard) で期末まで premium capability 維持、期末に standard 適用 | `tests/e2e/billing/downgrade-at-period-end.spec.ts` | Phase 7 |
-| **Test clock E2E** | ダウン予約中の Portal 操作ロック検出 + 自社 UI cancel-pending 経由解除 | `tests/e2e/billing/cancel-pending-downgrade.spec.ts` | Phase 7 |
-| **unit test** | lookup_key 解決ロジック (`getPlans()` rewrite) で Stripe API mock | `tests/unit/server/stripe/config.test.ts` (拡張) | Phase 7 |
-| **unit test** | apiVersion `2026-05-27.dahlia` 設定の確認 | `tests/unit/server/stripe/client.test.ts` (新規) | Phase 7 |
-| **integration** | webhook `subscription_schedule.aborted` 受信時の DB 反映 | `tests/integration/stripe/webhook-schedule-aborted.test.ts` (新規) | Phase 7 |
-| **Storybook (Phase 3 #2573)** | hybrid confirm UI で Preview API 結果表示 (upgrade / downgrade variant) | `src/lib/features/admin/SubscriptionConfirmModal.stories.svelte` (Phase 3 連動) | Phase 7 |
+| **Test clock E2E** | アップ即時 (standard → premium) で proration 差額が即時請求される | E2E billing spec ディレクトリ配下 upgrade-immediate spec (Phase 7 新規) | Phase 7 |
+| **Test clock E2E** | ダウン期末 (premium → standard) で期末まで premium capability 維持、期末に standard 適用 | E2E billing spec ディレクトリ配下 downgrade-at-period-end spec (Phase 7 新規) | Phase 7 |
+| **Test clock E2E** | ダウン予約中の Portal 操作ロック検出 + 自社 UI cancel-pending 経由解除 | E2E billing spec ディレクトリ配下 cancel-pending-downgrade spec (Phase 7 新規) | Phase 7 |
+| **unit test** | lookup_key 解決ロジック (`getPlans()` rewrite) で Stripe API mock | unit テスト ディレクトリ (stripe 配下) config test 拡張 (Phase 7) | Phase 7 |
+| **unit test** | apiVersion `2026-05-27.dahlia` 設定の確認 | unit テスト ディレクトリ (stripe 配下) client test 新規 (Phase 7) | Phase 7 |
+| **integration** | webhook `subscription_schedule.aborted` 受信時の DB 反映 | integration テスト ディレクトリ (stripe 配下) webhook-schedule-aborted test 新規 (Phase 7) | Phase 7 |
+| **Storybook (Phase 3 #2573)** | hybrid confirm UI で Preview API 結果表示 (upgrade / downgrade variant) | src/lib/features/admin/ 配下 SubscriptionConfirmModal stories 新規 (Phase 3 #2573 連動) | Phase 7 |
 
 ## 7. 影響範囲事後検証 (4 layer impact-analysis)
 
@@ -215,19 +215,19 @@ webhook 購読 event リストに追加 (Phase 7 Dashboard 設定):
 
 | 検出パターン | 件数 (推定、Phase 7 で実測) |
 |---|---|
-| `STRIPE_PRICE_STANDARD_MONTHLY` / `_STANDARD_YEARLY` / `_FAMILY_MONTHLY` / `_FAMILY_YEARLY` env var 直読 | 4 件 (config.ts:42,49,56,63) |
-| `apiVersion` 'dahlia' string | 1 件 (client.ts:8) |
+| `STRIPE_PRICE_STANDARD_MONTHLY` / `_STANDARD_YEARLY` / `_FAMILY_MONTHLY` / `_FAMILY_YEARLY` env var 直読 | 4 件 (`src/lib/server/stripe/config.ts` の `STRIPE_PRICES` 定数定義箇所) |
+| `apiVersion` 'dahlia' string | 1 件 (`src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数) |
 | `'family'` / `'premium'` plan tier enum | Phase 1 補強 2 範囲 (95 件、本 PR scope 外) |
 
 ### L2: 意味 (型 / 同名異義)
 
-- `STRIPE_PRICE_*` env var は infra/cdk Lambda function env / GitHub Actions Variables / .env.example の 3 系統 (同一名で物理的に異なる管理対象) — 撤去手順は Phase 7 step 8 で明文化
+- `STRIPE_PRICE_*` env var は CDK 設定 (infra 配下) Lambda function env / GitHub Actions Variables / .env.example の 3 系統 (同一名で物理的に異なる管理対象) — 撤去手順は Phase 7 step 8 で明文化
 - `family` 同名異義: Phase 1 補強 2 で premium rename 対象 (本 PR scope 外、Phase 7 で同時実施)
 
 ### L3: 構造 (依存グラフ)
 
 - `src/lib/server/stripe/config.ts` → `services/stripe-service.ts` → `routes/api/stripe/*` の 3 hop 依存。lookup_key 移行は config.ts 単体 rewrite で完結
-- 副次的影響: `tests/unit/server/stripe/config.test.ts` の mock 構造変更 (Stripe API mock を導入)
+- 副次的影響: unit テスト ディレクトリ (stripe 配下) config テストの mock 構造変更 (Stripe API mock を導入)
 
 ### L4: 派生 artifact (21 カテゴリ checklist)
 
@@ -247,7 +247,7 @@ webhook 購読 event リストに追加 (Phase 7 Dashboard 設定):
 | 14 | bookmarks / SEO | なし (Stripe Dashboard 内部) |
 | 15 | 法務文書 | なし (Phase 1 補強 2 NFR-4 で別途対応) |
 | 16 | GitHub Actions / pipeline | Phase 7 で `STRIPE_PRICE_*` GitHub Variables 削除 |
-| 17 | **deployment env / secrets** | **本 PR の Phase 7 step 8 対象** — `STRIPE_PRICE_*` を `infra/cdk.json` / Lambda env / GitHub Secrets から削除 |
+| 17 | **deployment env / secrets** | **本 PR の Phase 7 step 8 対象** — `STRIPE_PRICE_*` を CDK 設定 (infra/ 配下) / Lambda env / GitHub Secrets から削除 |
 | 18 | i18n platform | なし |
 | 19 | fixture / seed / golden | tests/fixtures に Stripe price ID mock 追加 (Phase 7) |
 | 20 | 過去 PR / commit / Issue / ADR | 検索性のため更新しない |
@@ -289,20 +289,22 @@ webhook 購読 event リストに追加 (Phase 7 Dashboard 設定):
 | 1 | **business** | 新 Product 名は `がんばりクエスト サブスクリプション` で確定?他案 (例: `がんばりクエスト 月額プラン` / `がんばりクエスト ペアレンタル管理`)? | `がんばりクエスト サブスクリプション` (Phase 1 補強 1 `/admin/subscription` rename と整合) | Phase 7 PO 確定待ち |
 | 2 | **UX** | subscription_schedule 既存時の自社 UI 誘導 (副次制約 4.2) は banner + CTA 1 段で十分?Phase 3 #2573 hybrid confirm UI でモーダル必要? | banner + CTA 1 段で十分 (Pre-PMF、複雑化回避)。モーダル化は PMF 後の A/B 候補 | Phase 3 #2573 連動 |
 | 3 | **security** | webhook 新規購読 event (`subscription_schedule.aborted` / `_canceled` / `_completed`) の handler 不備時の挙動 (silent failure vs alert) | Sentry alert + Discord 通知 (Phase 1 security FR-1 webhook tenant 再検証と整合) | Phase 7 webhook 実装時に確定 |
+| 4 | **security (adversarial)** | webhook 新規購読 event 3 種 (`product.created` / `price.created` / `price.updated`) を Dashboard で購読する際、handler 不備時 (未実装 endpoint / 404 / 5xx) の fail-safe をどう設計するか?Stripe 側自動 retry (24h) で再送、その間 priceId 切替がトリガできず stale state が滞留するリスク | Phase 7 で 3 種 handler を最低限 no-op (200 OK + Sentry alert) で実装し、24h retry window 内に観測 → 修正可能化する。Dashboard 購読は handler 実装後に有効化 (順序逆転禁止) | Phase 7 webhook 実装時に確定 |
+| 5 | **security (adversarial)** | lookup_key で旧 Price → 新 Price へ切替える際、旧 priceId は immutable のため archive のみ可能。Phase 7 step 6 (新 Price 有効) → step 7 (旧 archive) の間に、active subscription が旧 priceId を参照する状態と新 priceId 参照する webhook event が同時到達する可能性。冪等性 (idempotency) はどう設計するか? | (a) DB 側で `tenants.stripePriceId` の更新は webhook の `event.id` で重複検出 (Stripe `event.id` の 24h idempotency 保証を活用), (b) 二重 priceId 期間中 (step 6→7、1 週間 smoke test) は both lookup_key 解決可能化 (lookup_key の transfer 経由)、(c) Phase 1 補強 2 Open question 4「active subscription 0 件」確定により実害ゼロだが、PMF 後再評価必要 | Phase 7 webhook 実装時に確定 + ADR-0010 Pre-PMF Bucket A (課金) 整合確認 |
 
 ## 11. 既存実装の現状と変更点 (delta、2026-05-29 検証)
 
-| # | 既存実装 (file:line) | 本要件 | 扱い |
+| # | 既存実装 (シンボル参照) | 本要件 | 扱い |
 |---|---|---|---|
-| 1 | env var 直読 `process.env.STRIPE_PRICE_*` (`src/lib/server/stripe/config.ts`:42,49,56,63) | `prices.list({ lookup_keys: ['standard_monthly', 'premium_monthly'] })` 経由 | **変更** (Phase 7、本 PR は設計のみ) |
-| 2 | apiVersion `'2026-04-22.dahlia'` (`src/lib/server/stripe/client.ts`:8) | `'2026-05-27.dahlia'` | **変更** (Phase 7、本 PR は設計のみ) |
-| 3 | 4 種別 plan config (MONTHLY / YEARLY / FAMILY_MONTHLY / FAMILY_YEARLY、`config.ts`:41-69) | 2 種別 (standard_monthly / premium_monthly) | **変更** (Phase 1 補強 2 連動、Phase 7 で同時実施) |
+| 1 | env var 直読 `process.env.STRIPE_PRICE_*` (`src/lib/server/stripe/config.ts` の `STRIPE_PRICES` 定数定義箇所) | `prices.list({ lookup_keys: ['standard_monthly', 'premium_monthly'] })` 経由 | **変更** (Phase 7、本 PR は設計のみ) |
+| 2 | apiVersion `'2026-04-22.dahlia'` (`src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数) | `'2026-05-27.dahlia'` | **変更** (Phase 7、本 PR は設計のみ) |
+| 3 | 4 種別 plan config (MONTHLY / YEARLY / FAMILY_MONTHLY / FAMILY_YEARLY、`src/lib/server/stripe/config.ts` の `STRIPE_PRICES` 定数全体) | 2 種別 (standard_monthly / premium_monthly) | **変更** (Phase 1 補強 2 連動、Phase 7 で同時実施) |
 | 4 | `docs/guides/stripe-setup-guide.md` 4 商品手動作成手順 (Step 3-2 〜 3-5) | 1 Product 2 Price + lookup_key 手順 | **変更** (Phase 7、本 PR は設計のみ) |
 | 5 | webhook 購読 event 5 種 (`docs/guides/stripe-setup-guide.md` Step 5) | 8 種 (`subscription_schedule.*` 3 種追加) | **変更** (Phase 7、本 PR は設計のみ) |
 | 6 | Customer Portal 設定 (`docs/guides/stripe-setup-guide.md` Step 4 簡易記載) | §3.2 の 11 項目詳細設定 | **変更** (Phase 7、本 PR は設計のみ) |
-| 7 | `stripe-service.ts` createCheckoutSession (`src/lib/server/services/stripe-service.ts`:43-105) | `subscriptions.update` + `subscriptionSchedules.create/release` パターン拡張 | **拡張** (Phase 1 plan-change FR-3/FR-4 整合、Phase 7 実装) |
+| 7 | `src/lib/server/services/stripe-service.ts` の `createCheckoutSession` 関数 | `subscriptions.update` + `subscriptionSchedules.create/release` パターン拡張 | **拡張** (Phase 1 plan-change FR-3/FR-4 整合、Phase 7 実装) |
 
-行位置は 2026-05-29 検証済。
+シンボル位置は 2026-05-29 検証済 (行番号は Phase 7 実装で陳腐化するためシンボル名・関数名・定数名でのみ参照)。
 
 ## 12. 関連 (2026-05-29 整合)
 
