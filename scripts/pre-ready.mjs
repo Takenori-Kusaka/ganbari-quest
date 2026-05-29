@@ -59,6 +59,7 @@ const SKIP_FLAGS = {
 	'--skip-lp-labels': 'skipLpLabels',
 	'--skip-pr-body': 'skipPrBody',
 	'--skip-doc-code-references': 'skipDocCodeReferences',
+	'--skip-terminology-coherence': 'skipTerminologyCoherence',
 	'--skip-capture': 'skipCapture',
 };
 
@@ -75,6 +76,7 @@ function parseArgs(argv) {
 		skipLpLabels: false,
 		skipPrBody: false,
 		skipDocCodeReferences: false,
+		skipTerminologyCoherence: false,
 		skipCapture: false,
 		help: false,
 	};
@@ -99,7 +101,7 @@ pre-ready — Ready for Review 前のローカル一括セルフチェック (Is
 
 Usage:
   npm run pre-ready -- --pr <number>
-  npm run pre-ready                                # PR 未作成時 (Step 9/11 はスキップ)
+  npm run pre-ready                                # PR 未作成時 (Step 9/12 はスキップ)
 
 Options:
   --pr <num>             GitHub PR 番号 (Step 9 PR body / mergeable 検証用)
@@ -113,7 +115,8 @@ Options:
   --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
   --skip-pr-body         Step 9 PR body 検査をスキップ
   --skip-doc-code-references Step 10 デッドリンク検査をスキップ
-  --skip-capture         Step 11 capture (UI 変更時のみ) をスキップ
+  --skip-terminology-coherence Step 11 用語不統一・add 経路重複検査をスキップ
+  --skip-capture         Step 12 capture (UI 変更時のみ) をスキップ
   --help, -h             このヘルプ
 
 Steps:
@@ -127,7 +130,8 @@ Steps:
   8.  generate-lp-labels --check  — site/shared-labels.js 同期検査 (labels.ts / terms.ts / age-tier.ts 変更時のみ、Phase 1 B1 / #1917)
   9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
   10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
-  11. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
+  11. check-terminology-coherence.ts — 用語不統一・add 経路重複検知 (#2555)
+  12. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
 
 Exit codes:
   0 = 全 Step PASS
@@ -220,7 +224,7 @@ function buildSteps(args, changedFiles) {
 	return [
 		{
 			name: 'biome',
-			label: 'Step 1/11: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
+			label: 'Step 1/12: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
 			skip: args.skipBiome,
 			// #2503 (Issue #2475 14 件目): pre-ready Step 1 は CI .github/workflows/ci.yml
 			// lint-and-test の `npx biome check --error-on-warnings .` と完全一致させる。
@@ -232,14 +236,14 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'svelte-check',
-			label: 'Step 2/11: svelte-check (TS strict)',
+			label: 'Step 2/12: svelte-check (TS strict)',
 			skip: args.skipSvelteCheck,
 			runner: () => run('svelte-check', ['npx', 'svelte-check', '--tsconfig', './tsconfig.json']),
 			fixHint: '  型エラー箇所を修正。`as any` / `// @ts-expect-error` の追加は禁止 (ADR-0006)。',
 		},
 		{
 			name: 'vitest',
-			label: 'Step 3/11: vitest run (unit test)',
+			label: 'Step 3/12: vitest run (unit test)',
 			skip: args.skipVitest,
 			runner: () => run('vitest', ['npx', 'vitest', 'run']),
 			fixHint:
@@ -248,7 +252,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'hardcoded-strings',
-			label: 'Step 4/11: check-hardcoded-strings.mjs (#1452 Phase A)',
+			label: 'Step 4/12: check-hardcoded-strings.mjs (#1452 Phase A)',
 			skip: args.skipHardcoded,
 			runner: () => run('check-hardcoded-strings', ['node', 'scripts/check-hardcoded-strings.mjs']),
 			fixHint:
@@ -257,7 +261,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-dimensions',
-			label: `Step 5/11: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step 5/12: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpDimensions || !lpChanged,
 			runner: () => run('measure-lp-dimensions', ['node', 'scripts/measure-lp-dimensions.mjs']),
 			fixHint:
@@ -268,7 +272,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-fallback',
-			label: `Step 6/11: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
+			label: `Step 6/12: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpFallback || !lpFallbackTrigger,
 			runner: () => run('sync-lp-fallback', ['node', 'scripts/sync-lp-fallback.mjs', '--check']),
 			fixHint:
@@ -282,8 +286,8 @@ function buildSteps(args, changedFiles) {
 		{
 			name: 'plan-literals',
 			label: planLiteralsScriptExists
-				? 'Step 7/11: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
-				: 'Step 7/11: check-no-plan-literals.mjs (script 未配備 — skip)',
+				? 'Step 7/12: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
+				: 'Step 7/12: check-no-plan-literals.mjs (script 未配備 — skip)',
 			skip: args.skipPlanLiterals || !planLiteralsScriptExists,
 			runner: () => run('check-no-plan-literals', ['node', 'scripts/check-no-plan-literals.mjs']),
 			fixHint:
@@ -298,8 +302,8 @@ function buildSteps(args, changedFiles) {
 		{
 			name: 'lp-labels',
 			label: !lpLabelsScriptExists
-				? 'Step 8/11: generate-lp-labels --check (script 未配備 — skip)'
-				: `Step 8/11: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
+				? 'Step 8/12: generate-lp-labels --check (script 未配備 — skip)'
+				: `Step 8/12: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpLabels || !lpLabelsScriptExists || !lpLabelsTrigger,
 			runner: () =>
 				run('generate-lp-labels --check', ['node', 'scripts/generate-lp-labels.mjs', '--check']),
@@ -317,8 +321,8 @@ function buildSteps(args, changedFiles) {
 			// が `check-pr-body.mjs` だけだと「PR body 表面チェック」と誤認され skip されやすい。
 			// ADR-0056 §E (#2632 で新設) 整合の構造的予防。
 			label: args.pr
-				? `Step 9/11: Readiness gate (Ready checklist + AC 4 列 + forbidden-terms + 必須セクション、check-pr-body.mjs --pr ${args.pr})`
-				: 'Step 9/11: Readiness gate (--pr 未指定 — skip、Ready 化前は --pr 必須)',
+				? `Step 9/12: Readiness gate (Ready checklist + AC 4 列 + forbidden-terms + 必須セクション、check-pr-body.mjs --pr ${args.pr})`
+				: 'Step 9/12: Readiness gate (--pr 未指定 — skip、Ready 化前は --pr 必須)',
 			skip: args.skipPrBody || !args.pr,
 			runner: () => run('check-pr-body', ['node', 'scripts/check-pr-body.mjs', '--pr', args.pr]),
 			fixHint:
@@ -339,7 +343,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'doc-code-references',
-			label: 'Step 10/11: check-doc-code-references.mjs (#2577)',
+			label: 'Step 10/12: check-doc-code-references.mjs (#2577)',
 			skip: args.skipDocCodeReferences,
 			runner: () =>
 				run('check-doc-code-references', ['node', 'scripts/check-doc-code-references.mjs']),
@@ -349,8 +353,22 @@ function buildSteps(args, changedFiles) {
 				'        意図的な追加なら `node scripts/check-doc-code-references.mjs --update-baseline` を実行してください。',
 		},
 		{
+			name: 'terminology-coherence',
+			label: 'Step 11/12: check-terminology-coherence.ts (#2555)',
+			skip: args.skipTerminologyCoherence,
+			runner: () =>
+				run('check-terminology-coherence', [
+					'npx',
+					'tsx',
+					'scripts/check-terminology-coherence.ts',
+				]),
+			fixHint:
+				'  用語の不統一、または add 経路の重複を検知しました。\n' +
+				'  修正: labels.ts の当該箇所を SSOT 用語 (terms.ts) に合わせるか、add 経路を集約してください。',
+		},
+		{
 			name: 'capture',
-			label: `Step 11/11: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step 12/12: capture.mjs (UI 変更検知: ${uiChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipCapture || !uiChanged || !args.pr,
 			runner: async () => {
 				console.log(

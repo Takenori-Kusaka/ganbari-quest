@@ -902,18 +902,20 @@ export const MARKETPLACE_LABELS = {
 	detailRulePointCost: '必要ポイント',
 	detailRulePointBonus: 'ボーナス',
 	detailCtaSignup: 'がんばりクエストに登録して使ってみる',
-	// #2362 PR-3 Phase 5: activity-pack 取込 CTA (CWE-598: marketplace 側で childId を扱わず親管理画面に delegate)
-	/** activity-pack ログイン済 + 子供登録済: 親管理画面に遷移して child 選択ダイアログを開く動線 */
-	detailCtaImportActivityPack: '親管理画面で取り込む',
+	// #2362 PR-3 Phase 5: activity-pack 取込 CTA (CWE-598: marketplace 側で childId を扱わずご家族の見守り画面に delegate)
+	/** activity-pack ログイン済 + 子供登録済: ご家族の見守り画面に遷移して child 選択ダイアログを開く動線 */
+	detailCtaImportActivityPack: 'ご家族の見守り画面で取り込む',
 	/** activity-pack ログイン済 + 子供登録済: 件数付き CTA */
 	detailCtaImportActivityPackWithCount: (count: number) =>
-		`親管理画面で取り込む (${count}件の活動)`,
+		`ご家族の見守り画面で取り込む (${count}件の活動)`,
 	/** activity-pack ログイン済 + 子供未登録 */
 	detailCtaImportActivityPackNoChildren: 'まずはお子さまを登録してください',
 	/** activity-pack 未ログイン CTA 説明 (誤新規登録防止) */
-	detailCtaImportActivityPackSignedOut: 'ログイン後、親管理画面でお子さまを選んで取り込みます',
+	detailCtaImportActivityPackSignedOut:
+		'ログイン後、ご家族の見守り画面でお子さまを選んで取り込みます',
 	/** activity-pack 説明 */
-	detailCtaImportActivityPackDesc: '取り込む際は親管理画面で「どのお子さまに追加するか」を選びます',
+	detailCtaImportActivityPackDesc:
+		'取り込む際はご家族の見守り画面で「どのお子さまに追加するか」を選びます',
 	/** #2136 MP-1: reward-set 一括追加 CTA */
 	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
 	/** #2136 MP-1: 件数付き一括追加 CTA */
@@ -934,7 +936,8 @@ export const MARKETPLACE_LABELS = {
 	/** #2136 MP-1: お子さま未登録時の誘導 */
 	detailRewardImportNoChildren: 'まずはお子さまを登録してください',
 	/** #2362 PR-4 (ADR-0055 / CWE-598): marketplace 取込ボタン下のヒント (admin 側でダイアログ) */
-	detailRewardImportPerChildHint: '取り込む際は親管理画面で「どのお子さまに追加するか」を選びます',
+	detailRewardImportPerChildHint:
+		'取り込む際はご家族の見守り画面で「どのお子さまに追加するか」を選びます',
 	// #2137 (MP-2): event-checklist 一括追加 CTA
 	detailCtaImportChecklist: '一括追加',
 	detailCtaImportChecklistDesc:
@@ -949,14 +952,14 @@ export const MARKETPLACE_LABELS = {
 	detailCtaImportRule: '一括追加',
 	detailCtaImportRuleWithCount: (count: number) => `📜 このルールセットを一括追加 (${count}件)`,
 	detailCtaImportRuleDescBonus:
-		'親管理画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
+		'ご家族の見守り画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
 	detailCtaImportRuleDescExchange:
 		'お子さまの「ごほうび」一覧にポイント交換アイテムとして追加されます',
 	detailCtaImportRuleDescPenalty:
 		'⚠️ penalty タイプは ADR-0012 anti-engagement 細則により慎重審査中です。取込試行は警告として記録されます。',
 	detailCtaImportRuleDescSpecial: '⚠️ special タイプは将来枠です。本取込は記録のみで no-op です。',
 	detailRuleImportSuccessBonus: (presetName: string) =>
-		`✨ 「${presetName}」を追加しました。親管理画面の「ルール」で ON/OFF できます。`,
+		`✨ 「${presetName}」を追加しました。ご家族の見守り画面の「ルール」で ON/OFF できます。`,
 	detailRuleImportSuccessExchange: (presetName: string, count: number) =>
 		`✨ 「${presetName}」: ${count} 件のポイント交換アイテムを追加しました`,
 	detailRuleImportDuplicate: (presetName: string) => `⚠️ 「${presetName}」は既に取込済みです`,
@@ -2272,7 +2275,8 @@ export const CANCELLATION_LABELS = {
 
 	// 3 categories - radio button options
 	categoryGraduationLabel: '卒業',
-	categoryGraduationHint: '子供が自律した・がんばりクエストを使う必要がなくなった',
+	categoryGraduationHint:
+		'子供が自分で計画できるようになった・がんばりクエストを使う必要がなくなった',
 	categoryChurnLabel: '離反',
 	categoryChurnHint: '機能が合わない・期待と違った',
 	categoryPauseLabel: '中断',
@@ -5253,13 +5257,13 @@ export const LP_VERSUS_LABELS = {
 	// #1844: ですます → 体言止め
 	row4DigitalDesc: 'スマホ・タブレットで連続記録が途切れない',
 	// #1784: 各 row の scrshot alt テキスト（PO 指摘: vc-digital カードに scrshot ゼロ → 4 scrshot 配置）
-	row1ShotAlt: '親管理画面の活動カスタマイズ画面',
+	row1ShotAlt: 'ご家族の見守り画面の活動カスタマイズ画面',
 	row2ShotAlt: `${CHILD_TERMS.neutral}入力画面の過去の記録画面`,
 	row3ShotAlt: '卒業マイルストーンと履歴エクスポート画面',
 	// #2199: feature-cheer-message 撮影元を /admin/messages (親→子おうえんメッセージ送信フォーム + 履歴)
 	//   に振り替え。alt も実画面と LP 訴求「旅行先・祖父母宅でも続けられる」(離れていても家族で
 	//   応援が届く) 双方に一致するように rename。
-	row4ShotAlt: '家族からおうえんメッセージを送る親管理画面 — 離れていても家族で繋がれる',
+	row4ShotAlt: '家族からおうえんメッセージを送るご家族の見守り画面 — 離れていても家族で繋がれる',
 } as const;
 
 // ============================================================
@@ -6775,7 +6779,7 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k21: 'デモを見る',
 	k22: '漢字 + 情報密度で 15 年継続できる UI',
 	k23: '小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット',
-	k24: '小学校以降はより自律的により多くの活動をより楽しく',
+	k24: '小学校以降は自分で計画してより多くの活動をより楽しく',
 	k25: 'デモを見る',
 	k26: '&#x1F476; 0〜2 歳のお子様は「',
 	k27: '準備モード',
@@ -7475,7 +7479,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k13: '<a href="https://demo.ganbari-quest.com/" class="btn btn-demo">デモを見る</a>',
 	k14: '漢字 + 情報密度で 15 年継続できる UI',
 	k15: '小学生以降 UI: 漢字 / 情報密度 / 学年別プリセット',
-	k16: '小学校以降はより自律的により多くの活動をより楽しく',
+	k16: '小学校以降は自分で計画してより多くの活動をより楽しく',
 	// #1801 M-MIN-2: hero CTA との重複を排除し、[02b] age-panel CTA を「デモを見る」のみに簡略化
 	k17: '<a href="https://demo.ganbari-quest.com/" class="btn btn-demo">デモを見る</a>',
 	// #1910 AC6 (UIUX-A-6): age-panel scrshot vs body 高低差を埋める body 内チェックリスト 6 件

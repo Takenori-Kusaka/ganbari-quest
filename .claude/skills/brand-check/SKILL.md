@@ -29,8 +29,8 @@ npx stylelint "src/routes/**/*.svelte" "src/lib/features/**/*.svelte"
 ## 用語辞書チェック
 
 ```bash
-# ハードコードされたラベルを検出
-grep -r "がんばりクエスト\|スタンダード\|ファミリー" src/routes/ --include="*.svelte" | grep -v labels
+# ハードコードされたラベルおよび謎用語の検知
+npx tsx scripts/check-terminology-coherence.ts
 ```
 
 ## スクリーンショットチェック
