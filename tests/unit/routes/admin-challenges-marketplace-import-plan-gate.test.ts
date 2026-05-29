@@ -169,6 +169,14 @@ describe('/admin/challenges page.server — #2402 family プランゲート (OWA
 			total: 0,
 			errors: [],
 		});
+		// #2554 follow-up CUJ-CH2 完全化: CWE-598 guard 用に tenantChildren 解決を mock。
+		// family プラン ゲート通過後に `getAllChildren()` で tenant 配下 child set を解決して
+		// 渡された childIds が含まれるか検証する (admin-rewards `importPresetToChildren` 同型)。
+		mockGetAllChildren.mockResolvedValue([
+			{ id: 902, nickname: 'preschool', tenantId: 'tenant-1' },
+			{ id: 903, nickname: 'elementary', tenantId: 'tenant-1' },
+			{ id: 904, nickname: 'junior', tenantId: 'tenant-1' },
+		]);
 	});
 
 	describe('importMarketplaceChallengeSet action (UnifiedImportHub 経路)', () => {

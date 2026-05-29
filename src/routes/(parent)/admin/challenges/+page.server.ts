@@ -293,43 +293,54 @@ export const actions: Actions = {
 		// #2554 follow-up CUJ-CH2 完全化: ChildSelectionDialog からの POST は CSV (`childIds=1,2,3`) or
 		// `'all'` 形式を許容 (admin-rewards `importPresetToChildren` 同型)。
 		// UnifiedImportHub から直接 POST する旧経路 (childIds repeated form field) も後方互換維持。
-		const childIdsCsvRaw = String(fd.get('childIds') ?? '').trim();
-		const tenantChildren = await getAllChildren(tenantId);
+		//
+		// 解析戦略:
+		//   1. `getAll('childIds')` で複数値が来た = UnifiedImportHub 旧 repeated form 経路
+		//   2. 単一値で `'all'` = ChildSelectionDialog の「全員に追加」
+		//   3. 単一値で CSV ('1,2,3') = ChildSelectionDialog の個別選択
+		//   4. 単一値で純数値 = (CSV と同形だが要素 1 件)
+		const childIdsRawAll = fd.getAll('childIds');
+		const childIdsSingle = String(childIdsRawAll[0] ?? '').trim();
+		// tenantChildren は CWE-598 guard と 'all' 経路の両方で参照する。
+		const tenantChildren = (await getAllChildren(tenantId)) ?? [];
 		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
 		let childIds: number[];
-		if (childIdsCsvRaw === 'all') {
+		if (childIdsRawAll.length > 1) {
+			// 経路 1: 後方互換 repeated form (UnifiedImportHub の旧 multipart)
+			childIds = childIdsRawAll.map((v) => Number(v)).filter((n) => Number.isInteger(n) && n > 0);
+		} else if (childIdsSingle === 'all') {
+			// 経路 2: ChildSelectionDialog 「全員に追加」
 			childIds = tenantChildren.map((c) => c.id);
-		} else if (childIdsCsvRaw.includes(',') || /^\d+$/.test(childIdsCsvRaw)) {
-			// CSV / 単一 numeric (ChildSelectionDialog 経由、admin-rewards 同型)
-			childIds = childIdsCsvRaw
+		} else if (childIdsSingle.length > 0) {
+			// 経路 3/4: CSV or 単一 numeric (ChildSelectionDialog 個別、admin-rewards 同型)
+			childIds = childIdsSingle
 				.split(',')
 				.map((s) => Number(s.trim()))
 				.filter((n) => Number.isInteger(n) && n > 0);
 		} else {
-			// 後方互換: getAll('childIds') で repeated form field (旧 UnifiedImportHub 経路)
-			childIds = fd
-				.getAll('childIds')
-				.map((v) => Number(v))
-				.filter((n) => Number.isInteger(n) && n > 0);
+			childIds = [];
 		}
 		if (childIds.length === 0) {
 			return fail(400, { error: 'お子さまを 1 名以上選択してください' });
 		}
 
 		// #2554 follow-up CUJ-CH2 / PR #2474 CWE-598 guard 整合:
-		// 'all' 経路は構造的に tenant 配下のみだが、明示的ユーザ指定 (CSV) で他 tenant ID を
+		// 'all' 経路は構造的に tenant 配下のみだが、明示的ユーザ指定 (CSV / repeated) で他 tenant ID を
 		// 紛れ込ませた場合に orphan challenge / IDOR にならないよう必ず検証する。
-		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
-		if (foreignChildIds.length > 0) {
-			logger.warn(
-				'[admin/challenges] tenant 外 child ID が importMarketplaceChallengeSet に指定された',
-				{
-					context: { presetId, foreignChildIds, tenantId },
-				},
-			);
-			return fail(403, {
-				error: '指定されたお子さまの一部が見つかりませんでした',
-			});
+		// 'all' 経路は tenantChildren から構築済のため skip 可能 (tenant 集合 = childIds)。
+		if (childIdsSingle !== 'all') {
+			const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
+			if (foreignChildIds.length > 0) {
+				logger.warn(
+					'[admin/challenges] tenant 外 child ID が importMarketplaceChallengeSet に指定された',
+					{
+						context: { presetId, foreignChildIds, tenantId },
+					},
+				);
+				return fail(403, {
+					error: '指定されたお子さまの一部が見つかりませんでした',
+				});
+			}
 		}
 
 		try {
