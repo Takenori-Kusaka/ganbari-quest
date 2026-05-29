@@ -1,0 +1,388 @@
+# Phase 1 補強 1 文脈判断 6 件 + lookup_key 段階移行 + API version bump SSOT (Epic #2525 Phase 6 子 4)
+
+| 項目 | 内容 |
+|------|------|
+| 孫 issue | #2664 (Phase 6 グループ B 並列) |
+| 親 | Phase 6 親 (#2660) / Epic #2525 |
+| 前提 | Phase 1 補強 1 ([phase1-naming-url-integrity-requirements](phase1-naming-url-integrity-requirements.md)) Open question 5 件 / Phase 5 子 1 ([phase5-stripe-product-architecture](phase5-stripe-product-architecture.md)) Step 3 lookup_key + Step 3 API version bump |
+| 並列対象 | Phase 6 子 2 (#2662 Test clock) / 子 3 (#2663 DB migration script) |
+| 連動 (Phase 7) | Phase 6 子 1 ([phase6-phase7-execution-ssot](phase6-phase7-execution-ssot.md)) Step 3 / Stripe Dashboard #2627 / 実装 PR #2531 |
+| ステータス | 設計確定 (本 PR で SSOT 化、コード変更は Phase 7) |
+| 起点 | Phase 1 補強 1 で「文脈判断 6 件」と確定された個別判断を、推奨案 + 業界根拠 + PO 判断票で SSOT 化 + lookup_key 段階移行 4 step + API version bump 72h rollback monitoring を確定する |
+
+> **位置づけ**: Phase 6 グループ B 並列子 (子 2 Test clock / 子 3 DB migration script と独立)。Phase 1 補強 1 で「Open question 5 件 + FR-5 残対象 6 件」として明文化された個別判断を、Phase 5 子 1 の lookup_key + API version bump 戦略と統合し、Phase 7 統合 PR 5 step (子 1 SSOT) Step 3 + Step 5 で参照される PO 判断票 + 実装手順 SSOT として確定する。
+
+## 1. 設計背景
+
+### 1.1 課題: Phase 1 補強 1 の「文脈判断 6 件」が PO 判断票として SSOT 化されていない
+
+Phase 1 補強 1 ([phase1-naming-url-integrity-requirements](phase1-naming-url-integrity-requirements.md)) は「機械置換 28 件 + 文脈判断 6 件 + 残す 13 件」と整理した。機械置換 28 件は Phase 7 統合 PR Step 2-3 (子 1 SSOT) で一括 rename されるが、**文脈判断 6 件は PO の個別判断が必要**であり、判断材料 (業界根拠 / 影響範囲 / 推奨案) が散在しているため Phase 7 実装着手時に決定が滞留するリスクがある。
+
+文脈判断 6 件 (Phase 1 補強 1 §Open question + FR-5 残対象):
+
+1. `AUTH_LICENSE_STATUS` enum → `AUTH_PLAN_STATUS` rename 是非
+2. `LICENSE_PLAN` enum 名称変更是非 (billing namespace consistency)
+3. `/ops/license/*` ops internal tool rename 是非
+4. `site/help/license-key.html` 更新範囲 (legacy guide 性質保持 vs subscription 案内置換)
+5. メール文面の「ライセンス」言及 5 件処理
+6. DB schema 内 `license_key_status` enum (NUC で残存) 扱い
+
+### 1.2 課題: lookup_key 段階移行手順が Stripe 公式 `transfer_lookup_key` パターンに整合していない
+
+Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env var (`STRIPE_PRICE_*` 4 件) から新 lookup_key (`standard_monthly` / `premium_monthly` 2 件) への切替手順**が docs 化されていない。Stripe 公式 [manage-prices](https://docs.stripe.com/products-prices/manage-prices) は `transfer_lookup_key` API による段階移行を推奨するが、本プロダクトでの適用手順 (caching layer / feature flag / 並行運用期間) が散在している。
+
+### 1.3 課題: Stripe API version bump (`2026-04-22.dahlia` → `2026-05-27.dahlia`) の 72h rollback window 活用手順が docs 化されていない
+
+Phase 5 子 1 §3.4 で API version bump を確定したが、`src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数 1 行修正だけでは不十分で、(a) Webhook destination の API version 同期 (Stripe Dashboard #2627)、(b) Stripe Changelog `2026-04-22.dahlia` → `2026-05-27.dahlia` の breaking change 全件確認、(c) 72h rollback window 監視計画 (Sentry / Discord alert thresholds) が docs 化されていない。
+
+### 1.4 設計がなかった場合に何が困るか
+
+1. **Phase 7 実装着手時の PO 判断滞留**: 文脈判断 6 件の決定が散在 → 実装者が独断で進めるか / PO 確認待ちで blocker 化
+2. **lookup_key 移行で stale Price 状態発生**: 段階移行手順 (旧 env var + 新 lookup_key の二重 priceId 解決期間) が docs 化されていない → cutover で priceId 切替競合が発生し active subscription の請求停止リスク (Pre-PMF Bucket A 課金別格 [[billing-critical-extra-caution]] 整合)
+3. **API version bump で 72h rollback window 逸失**: breaking change 確認不足 → Webhook event field 構造変化を見逃す → handler 破壊 → rollback window (72h) 内に検知できない長期 incident 化
+4. **Webhook destination の API version 不一致**: Dashboard 側 Webhook の `default_api_version` と SDK の `apiVersion` 乖離 → event の field 構造が SDK 期待値と異なり handler エラー (Phase 5 子 1 R5 と同一リスク、本 PR で手順 SSOT 化により予防)
+
+## 2. 設計原則
+
+| 原則 | 内容 | 根拠 |
+|------|------|------|
+| **文脈判断 6 件は SSOT 1 表で PO 判断票化** | 推奨案 + 業界根拠 + 影響範囲 + PO 判断要否を 1 表に集約、Phase 7 実装着手前に PO が 6 件を一括判断可能 | ADR-0008 (設計ポリシー先行確認フロー) / Phase 1 補強 1 Open question 5 件 |
+| **lookup_key 段階移行は 4 step + 1 feature flag** | (1) caching layer 設計 / (2) 並行運用 (旧 env var + 新 lookup_key 両解決) / (3) cutover (新 lookup_key 直読) / (4) 旧 Price archive | Stripe 公式 `transfer_lookup_key` / [manage-prices](https://docs.stripe.com/products-prices/manage-prices) |
+| **API version bump は 4 step + 72h rollback window 監視** | (1) Changelog breaking change 全件確認 / (2) Webhook destination 同期 / (3) SDK 1 行修正 + smoke test / (4) 72h 監視 (Sentry / Discord alert) | Stripe 公式 [api/versioning](https://docs.stripe.com/api/versioning) 72h policy |
+| **PO 判断推奨案は Pre-PMF 過剰防衛回避を優先** | rename 候補は「rename しない」推奨を基本、業界根拠で「rename する」が必要な場合のみ推奨に転換 | ADR-0010 Pre-PMF 過剰追加回避 / [[adr0010-interpretation]] |
+| **NUC 互換性最優先** | DB schema 内 `license_key_status` enum / `licenseKey()` DynamoDB prefix / `license-key-service.ts` は NUC edition で billing proof として残存、rename 禁止 | Phase 1 補強 1 FR-5 残対象 13 件整合 |
+| **monitoring は既存 alert pipeline 流用** | Sentry / Discord alert は Phase 1 security FR-1 (webhook tenant 再検証) と統合、新規 monitoring 機構導入禁止 | ADR-0010 Pre-PMF 最小構成 |
+| **本 PR は docs のみ、コード変更なし** | 実装は Phase 7 統合 PR Step 3 (lookup_key + API version bump) で実施、本 PR は SSOT 確定のみ | [[per-issue-execution-workflow]] / Phase 6 子 1 SSOT |
+
+## 3. 文脈判断 6 件 PO 判断票 ⭐ 本 docs の核
+
+各論点で「推奨案 + 業界根拠 + 影響範囲 + 推奨判断 + PO 判断必要 ON/OFF」を SSOT 化する。PO は本表 6 件を一括判断後、Phase 7 統合 PR Step 2-3 (atom rename) に反映する。
+
+### 3.1 論点 1: `AUTH_LICENSE_STATUS` enum → `AUTH_PLAN_STATUS` rename 是非
+
+| 項目 | 内容 |
+|---|---|
+| **現状** | `src/lib/domain/constants/auth-license-status.ts` で定義、user plan subscription status (subscribed / trial / expired 等) を表現する**内部識別子** |
+| **影響範囲** | enum 参照 43 件 (Explore 照合 2026-05-29、`AUTH_LICENSE_STATUS` + `LICENSE_PLAN` 合算) |
+| **業界根拠** | (a) Stripe SDK は `subscription.status` (active / past_due / canceled 等) を使用、`license_status` という概念は存在しない (b) `AUTH_PLAN_STATUS` の方が Stripe SSOT + Phase 1 plan-change 整合 (c) Phase 1 補強 2 で `family` → `premium` rename も同 Phase 7 で実施、同タイミングで rename することで cognitive load を 1 回に集約 |
+| **デメリット** | enum 名 rename は machinable replace (28 件)、文脈判断不要だが、DB に persist された値は internal identifier のため変更不要 (enum 名 ≠ 値の string literal) |
+| **推奨案** | **rename する** (`AUTH_LICENSE_STATUS` → `AUTH_PLAN_STATUS`)。Stripe SSOT + Phase 1 補強 2 同期で Phase 7 Step 2-4 (atom rename) と同時実施。enum 値 (string literal) は変更しない (Phase 1 補強 1 FR-5 「DB schema 後方互換」整合)。 |
+| **PO 判断必要** | **ON** (rename 是非 + Phase 7 Step 2-4 同期是非) |
+
+### 3.2 論点 2: `LICENSE_PLAN` enum 名称変更是非
+
+| 項目 | 内容 |
+|---|---|
+| **現状** | `src/lib/domain/constants/license-plan.ts` で定義、plan billing tier (FREE / MONTHLY / YEARLY / FAMILY_MONTHLY / FAMILY_YEARLY / LIFETIME) を表現する**内部識別子** |
+| **影響範囲** | 論点 1 と合算 43 件 (Explore 照合) |
+| **業界根拠** | (a) Stripe SDK は `Plan` という概念を持つが、本プロダクトの `LICENSE_PLAN` は実質 SubscriptionPlan / BillingPlan 相当 (b) Phase 1 補強 2 で `family` → `premium` rename 後、`LICENSE_PLAN.FAMILY_MONTHLY` も `LICENSE_PLAN.PREMIUM_MONTHLY` に rename する必要が出るが、enum 名自体は `LICENSE_PLAN` のままでも内部識別子として支障なし (c) NUC edition で license key は唯一の billing proof として残存 (Phase 1 補強 1 FR-5)、`LICENSE_PLAN` という名前は NUC 文脈で意味を持つ |
+| **デメリット** | rename した場合 (`PLAN_TIER` / `BILLING_PLAN` 等)、NUC license-key-service.ts との concept 乖離が発生、コード review で「ここの PLAN_TIER は何の Plan?」という混乱を招く |
+| **推奨案** | **rename しない** (`LICENSE_PLAN` 維持)。NUC edition の license key billing proof と概念整合。enum 値 `FAMILY_MONTHLY` → `PREMIUM_MONTHLY` の rename は Phase 1 補強 2 範囲で別途実施 (本論点とは独立)。 |
+| **PO 判断必要** | **OFF** (rename しない推奨で進行、PO 確認は不要、ただし PO 反対時は再判断) |
+
+### 3.3 論点 3: `/ops/license/*` ops internal tool rename 是非
+
+| 項目 | 内容 |
+|---|---|
+| **現状** | `src/routes/ops/license/+page.server.ts` + `[key]/` + `issue/` + `legacy-count/` (4 subroute)、ops group (Cognito ops group ADR-0033) 専用 internal tool でライセンスキー検索 + 詳細閲覧 + 発行 + legacy count を提供 |
+| **影響範囲** | route file 4 件 + label `OPS_LICENSE_PAGE_LABELS` + nav `OPS_LAYOUT_LABELS.navLicense` (`/ops/+layout.svelte` L16) |
+| **業界根拠** | (a) ops internal tool は user-facing URL と異なり業界 SaaS でも一貫した命名なし (Stripe Dashboard / Notion admin / Linear admin 各社独自) (b) ライセンスキー検索は NUC edition で残存する billing proof の運用画面で、`/ops/license` という URL が機能的に正確 (c) rename した場合 (`/ops/subscription` / `/ops/billing` 等)、ライセンスキー固有の検索 UI (key 文字列 prefix 検索等) が「subscription」名称と乖離 |
+| **デメリット** | rename した場合、ops 担当者 (PO) の operational muscle memory (10 ヶ月以上 `/ops/license` 運用) を破壊、internal tool は user-facing rename と独立層であるべき (Phase 1 補強 1 FR-5 整合) |
+| **推奨案** | **rename しない** (`/ops/license/*` 維持)。Phase 1 補強 1 FR-5 「`/ops/license/*` routes ops internal tool、ユーザー向け rename と独立層」と整合。`OPS_LICENSE_PAGE_LABELS` / `OPS_LAYOUT_LABELS.navLicense` も維持。 |
+| **PO 判断必要** | **OFF** (rename しない推奨で進行、Phase 1 補強 1 FR-5 で既に方向性は確定済、本 PR は再確認のみ) |
+
+### 3.4 論点 4: `site/help/license-key.html` 更新範囲
+
+| 項目 | 内容 |
+|---|---|
+| **現状** | LP `site/help/license-key.html` (NUC edition ライセンスキー仕様詳細ガイド)、`/admin/license` href 含有 |
+| **影響範囲** | 1 HTML file + LP analytics tracking + existing external links (NUC edition 既存ユーザー / docs) |
+| **業界根拠** | (a) NUC edition で license key は唯一の billing proof として残存、ガイド削除すると NUC ユーザーの onboarding 体験が毀損 (b) `/admin/license` href は Phase 4 LEGACY_URL_MAP 永久リダイレクト (Phase 1 補強 1 FR-6) で `/admin/subscription` に自動転送される → href 自体は更新不要だが、ユーザー体験的には新 URL 直接表記が望ましい (c) Phase 1 補強 1 FR-7 では「`/admin/license` href → `/admin/subscription` に置換」と明記 |
+| **デメリット** | legacy guide 性質保持 (ライセンスキー = NUC billing proof として残存する旨を明示) と新 URL 案内 (現代的命名) のバランスが必要、完全 subscription 案内置換は legacy ユーザー混乱 |
+| **推奨案** | **legacy guide 性質保持 + 新 URL 案内併記** (`/admin/license` href のみ `/admin/subscription` に置換、本文 (ライセンスキー仕様 / NUC billing proof としての位置づけ) は維持)。Phase 1 補強 1 FR-7 整合。 |
+| **PO 判断必要** | **ON** (置換範囲の細部、特に「ライセンスキー」用語を「サブスクリプション」に置換する箇所の選定) |
+
+### 3.5 論点 5: メール文面の「ライセンス」言及 5 件処理
+
+| 項目 | 内容 |
+|---|---|
+| **現状** | `src/lib/server/services/lifecycle-email-service.ts` 等で「ライセンス」言及 5 件未満 (Phase 1 補強 1 FR-8 推定) |
+| **影響範囲** | email template 5 件未満 + `LIFECYCLE_EMAIL_LABELS` atom |
+| **業界根拠** | (a) Phase 1 補強 1 FR-8「endpoint 名 license → subscription に置換、文面は『ご利用プラン』に統一 (`PLAN_TERMS` 経由)」と整合 (b) Spotify / Apple / Netflix の billing email 文面は「subscription」「membership」「plan」を文脈で使い分け、license という単語は使用しない (c) `PLAN_TERMS` atom 経由参照で 1 行修正で全 5 件伝播 (ADR-0045) |
+| **デメリット** | 「ライセンス」直書きを残すと用語不統一でユーザー混乱、`PLAN_TERMS` atom 経由化で SSOT 整合 |
+| **推奨案** | **`PLAN_TERMS` 経由化** (文面の「ライセンス」を「ご利用プラン」/ `PLAN_TERMS.standard` 等で参照に置換)。Phase 7 Step 2-3 (atom rename) で `LIFECYCLE_EMAIL_LABELS` 内部の「ライセンス」を `${PLAN_TERMS.standard}` 等の template literal 参照に rewrite。 |
+| **PO 判断必要** | **OFF** (Phase 1 補強 1 FR-8 で方向性確定済、本 PR は実装手順 SSOT のみ) |
+
+### 3.6 論点 6: DB schema 内 `license_key_status` enum (NUC で残存) 扱い
+
+| 項目 | 内容 |
+|---|---|
+| **現状** | `LICENSE_KEY_STATUS` enum (`src/lib/domain/constants/license-key-status.ts` 想定 + `src/lib/server/db/dynamodb/auth-repo.ts` 参照) — NUC license key 内部状態 (consumed / revoked / migrated) を表現 |
+| **影響範囲** | enum 定義 + DynamoDB `auth-repo.ts` + `license-key-service.ts` (NUC edition で唯一の billing proof) |
+| **業界根拠** | (a) Phase 1 補強 1 FR-5「`LICENSE_KEY_STATUS` enum NUC license key 内部状態 (consumed/revoked/migrated)、DB schema 後方互換」で「残す」と明記済 (b) NUC edition で license key は唯一の billing proof として残存、enum 名 rename は NUC migration コスト発生 (c) DB persist 値は internal identifier、ユーザー露出なし |
+| **デメリット** | rename した場合 (`SUBSCRIPTION_KEY_STATUS` 等)、NUC migration 必須 + 既存 DB レコード backfill 必要、Pre-PMF Bucket A (DB schema 変更) で過剰防衛 |
+| **推奨案** | **rename しない** (`LICENSE_KEY_STATUS` enum 維持)。Phase 1 補強 1 FR-5 で確定済、本 PR は再確認のみ。 |
+| **PO 判断必要** | **OFF** (rename しない推奨で進行、Phase 1 補強 1 FR-5 で既に方向性は確定済) |
+
+### 3.7 PO 判断票サマリ
+
+| 論点 | 推奨案 | PO 判断必要 |
+|---|---|---|
+| 1. `AUTH_LICENSE_STATUS` → `AUTH_PLAN_STATUS` | rename する | **ON** |
+| 2. `LICENSE_PLAN` enum 名称 | rename しない | OFF |
+| 3. `/ops/license/*` rename | rename しない | OFF |
+| 4. `site/help/license-key.html` 更新範囲 | legacy 性質保持 + href のみ新 URL | **ON** |
+| 5. メール文面「ライセンス」5 件 | `PLAN_TERMS` 経由化 | OFF |
+| 6. `LICENSE_KEY_STATUS` enum 扱い | rename しない | OFF |
+
+PO 判断必要 = 2 件 (論点 1 + 4)。Phase 7 統合 PR Step 2-3 着手前に PO 確認、判断結果を本 docs §3.1 / §3.4 に追記する運用。
+
+## 4. lookup_key 段階移行 4 step (Stripe 公式 `transfer_lookup_key`)
+
+Phase 5 子 1 §3.4 で確定した lookup_key 経由参照を、Stripe 公式 [manage-prices](https://docs.stripe.com/products-prices/manage-prices) の `transfer_lookup_key` パターンで段階移行する。Phase 7 統合 PR Step 3 (子 1 SSOT) で実装。
+
+### 4.1 4 step 順序
+
+| Step | 工程 | feature flag | 期間 (目安) |
+|---|---|---|---|
+| **1. caching layer 設計** | `stripeCache.getPriceByLookupKey(key)` 関数を新設、Stripe API 呼び出し結果を in-memory cache (TTL: 5 min) | — | 1 PR (~1 day、Phase 7 Step 3 内部) |
+| **2. 並行運用** (旧 env var + 新 lookup_key 両解決) | `USE_LOOKUP_KEY=false` で env var fallback、`true` で lookup_key 優先解決 (失敗時 env var fallback) | `USE_LOOKUP_KEY=false` (デフォルト) | 1-2 weeks |
+| **3. cutover** (新 lookup_key 直読) | `USE_LOOKUP_KEY=true` に切替、env var fallback は kill switch として残存 | `USE_LOOKUP_KEY=true` | cutover 1 日 + 1 週間 smoke test |
+| **4. 旧 Price archive** (active=false) | Stripe Dashboard #2627 領域 G で旧 4 Price archive、env var (`STRIPE_PRICE_*` 4 件) を CDK / Lambda env / GitHub Secrets から削除 | — | Phase 7 統合 PR Step 5 (子 1 SSOT) |
+
+### 4.2 caching layer 設計 (Step 1)
+
+```typescript
+// src/lib/server/stripe/cache.ts (Phase 7 で新設)
+const priceCache = new Map<string, { priceId: string; expiresAt: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+
+export async function getPriceByLookupKey(lookupKey: string): Promise<string> {
+  const cached = priceCache.get(lookupKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.priceId;
+  const stripe = getStripeClient();
+  const prices = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
+  if (prices.data.length === 0) throw new Error(`INVALID_LOOKUP_KEY: ${lookupKey}`);
+  const priceId = prices.data[0].id;
+  priceCache.set(lookupKey, { priceId, expiresAt: Date.now() + CACHE_TTL_MS });
+  return priceId;
+}
+```
+
+**TTL = 5 min 根拠**: Stripe Dashboard で Price 更新が反映される最大遅延 (Stripe 公式 SLA 暗黙的) + Lambda cold start 影響最小化のバランス。`transfer_lookup_key` で lookup_key 移行時は cache flush 不要 (新 priceId が次回解決で取得される)。
+
+### 4.3 並行運用 (Step 2) の feature flag SSOT
+
+`.env.example` に追加 (Phase 7 統合 PR Step 3):
+
+```bash
+# Stripe lookup_key 解決の段階移行 (Phase 7 Step 3 / Phase 5 子 1 §3.4)
+# false (default、Step 2 並行運用): env var STRIPE_PRICE_* 直読、lookup_key は副次照合
+# true (Step 3 cutover): prices.list({ lookup_keys }) で解決、env var fallback は kill switch
+USE_LOOKUP_KEY=false
+```
+
+Phase 6 子 1 SSOT §5.3 で確定した 2 feature flag (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) の片方。
+
+### 4.4 cutover (Step 3) の検証手順
+
+| 検証項目 | 手段 | PASS 条件 |
+|---|---|---|
+| lookup_key 解決成功 | Stripe Dashboard test mode で `prices.list({ lookup_keys })` 手動実行 | `data.length === 1` |
+| cache hit rate | Lambda CloudWatch metric (Phase 7 で追加) | > 90% (5 min TTL 整合) |
+| env var fallback 動作 | `USE_LOOKUP_KEY=false` 強制、checkout 経路で旧 env var priceId 解決 | PASS |
+| 二重 priceId 期間中の冪等性 | webhook event の `event.id` で重複検出 (Stripe 24h idempotency 保証、Phase 5 子 1 §10 Open question 5 整合) | PASS |
+
+### 4.5 旧 Price archive (Step 4) の前提
+
+Phase 1 補強 2 Open question 4「active subscription 0 件」が PO 確定済 (Pre-PMF stage で実 customer 不在) のため、旧 Price archive 後の請求継続失敗リスクはゼロ。Phase 7 統合 PR Step 5 直前に PO が再確認する手順を子 1 SSOT §3 Step 5 AC (d) に組込済。
+
+## 5. Stripe API version bump 手順 + 72h rollback monitoring
+
+Phase 5 子 1 §3.4 で確定した apiVersion bump (`2026-04-22.dahlia` → `2026-05-27.dahlia`) を、Stripe 公式 [api/versioning](https://docs.stripe.com/api/versioning) の 72h rollback window 活用手順で実施する。Phase 7 統合 PR Step 3 (子 1 SSOT) で実装。
+
+### 5.1 4 step 順序
+
+| Step | 工程 | 検証 |
+|---|---|---|
+| **1. Changelog breaking change 全件確認** | Stripe Changelog `2026-04-22.dahlia` → `2026-05-27.dahlia` の差分を精査、webhook event の field 構造変化 / API request schema 変化 / response field rename 等を全件リスト化 | リスト化結果を本 docs §5.4 に追記 (Phase 7 着手時) |
+| **2. Webhook destination 同期** | Stripe Dashboard #2627 領域 C (Test mode) + F (Production mode) で Webhook destination の API version を `2026-05-27.dahlia` に bump | Dashboard UI で目視 |
+| **3. SDK 1 行修正 + smoke test** | `src/lib/server/stripe/client.ts` L7 `STRIPE_API_VERSION = '2026-05-27.dahlia'` に変更、Test mode で checkout / portal / webhook の 3 経路を smoke test | unit test (Phase 7 新規 client.test.ts) + Test clock E2E (Phase 6 子 2 #2662 SSOT) |
+| **4. 72h 監視** (Sentry / Discord alert) | Step 3 cutover 後 72h 以内に Sentry error rate / Stripe webhook handler エラー / Discord alert を監視、breaking change 漏れによる incident を検知 | Sentry dashboard / Discord channel 監視 |
+
+### 5.2 72h rollback window 監視計画
+
+Stripe 公式 [api/versioning](https://docs.stripe.com/api/versioning) より、apiVersion bump 後 72h 以内であれば Dashboard で旧 apiVersion に巻き戻し可能。本プロダクトの監視 threshold:
+
+| metric | threshold | 検出時の対応 |
+|---|---|---|
+| Sentry error rate (Stripe SDK 由来) | > 0.5% / 1 hour | Discord alert + 1 名以上の Dev エンジニアに通知 |
+| Stripe webhook handler エラー率 | > 1% / 1 hour | apiVersion 即時 rollback (Stripe Dashboard で旧 `2026-04-22.dahlia` に戻し) + SDK 側も revert |
+| Stripe webhook silent drop (Phase 5 子 3 dedup table 経由検出) | > 0 件 / 24 hour | apiVersion bump とは独立だが、Phase 7 Step 4-a shadow mode (子 1 SSOT) と重ねて検証 |
+| customer inquiry (Discord / メール) | > 3 件 / 24 hour | PO 判断で rollback 実施 |
+
+### 5.3 Webhook destination の API version 同期 (Step 2 詳細)
+
+Phase 5 子 1 R5「Webhook API version vs SDK apiVersion 乖離」と統合。Stripe Dashboard #2627 領域 C / F で:
+
+- **Test mode (領域 C)**: Webhook destination 新規作成時に `default_api_version: '2026-05-27.dahlia'` を明示
+- **Production mode (領域 F)**: 旧 destination の API version も同期 (cutover 時に旧 / 新両方が `2026-05-27.dahlia` で動作する状態を担保)
+
+Dashboard 操作は PO 手動 (#2627)、本 PR では手順 SSOT のみ確定。
+
+### 5.4 Changelog breaking change 確認結果 (Phase 7 着手時に追記)
+
+`docs.stripe.com/changelog/dahlia/2026-05-27` を確認後、breaking change を本節に列挙する。本 PR 時点では確認未完了 (Phase 7 着手時の Dev タスク)。確認項目:
+
+| カテゴリ | 確認内容 |
+|---|---|
+| webhook event field 構造 | `subscription_schedule.aborted` / `_canceled` / `_completed` (Phase 5 子 1 §4.3 で新規購読対象) の field 変化 |
+| API request schema | `subscriptions.update` / `subscriptionSchedules.create` / `prices.list` の request schema 変化 |
+| API response field | `subscription.schedule` / `subscription.items.data[].price` 等の field rename |
+| TypeScript 型定義 | `stripe-node` 最新版で apiVersion 整合性確認 |
+
+**Phase 7 着手時 AC**: 本節 §5.4 を埋めずに Phase 7 Step 3 着手禁止 (子 1 SSOT §3 Step 3 ロールバック判断基準 (b) 整合)。
+
+## 6. impact-analysis 4 layer 防御 + 21 カテゴリ checklist
+
+本 PR は **docs 設計のみ** で新規 1 ファイル追加。L1-L4 影響範囲は最小だが、Phase 7 統合 PR Step 3 (子 1 SSOT) に向けた事前見積として記録。
+
+### L1 構文 (ast-grep / ripgrep)
+
+| 検出パターン | 件数 (Explore 照合 2026-05-29) | 影響 step |
+|---|---|---|
+| `STRIPE_PRICE_*` env var 直読 | 4 件 (`src/lib/server/stripe/config.ts` 内部、`.env.example` L89-92) | Phase 7 Step 3 (lookup_key 切替) + Step 5 (env var 削除) |
+| `STRIPE_API_VERSION` 定数 | 1 件 (`src/lib/server/stripe/client.ts` L7) | Phase 7 Step 3 (1 行修正) |
+| `AUTH_LICENSE_STATUS` + `LICENSE_PLAN` enum 参照 | 43 件 (Explore 照合) | Phase 7 Step 2-4 (atom rename、論点 1 PO 判断後) |
+| `/ops/license/*` route 参照 | route file 4 件 + `OPS_LAYOUT_LABELS.navLicense` (`/ops/+layout.svelte` L16) | rename しない推奨 (論点 3) |
+| `LICENSE_KEY_STATUS` 参照 | `src/lib/server/db/dynamodb/auth-repo.ts` 内部 | rename しない推奨 (論点 6) |
+| `site/help/license-key.html` 内 `/admin/license` href | LP 1 file | Phase 7 Step 2-3 で href のみ更新 (論点 4) |
+| `lifecycle-email-service.ts` 内「ライセンス」言及 | 5 件未満 (Phase 1 補強 1 FR-8 推定) | Phase 7 Step 2-3 で `PLAN_TERMS` 経由化 (論点 5) |
+
+### L2 意味 (型 / 同名異義)
+
+- **`AUTH_LICENSE_STATUS` enum 名 vs 値**: enum 名は rename 候補 (論点 1)、値 (string literal、DB persist) は変更不要 (Phase 1 補強 1 FR-5 後方互換)
+- **`LICENSE_PLAN` enum 名 vs 値**: enum 名は維持 (論点 2)、enum 値 `FAMILY_MONTHLY` → `PREMIUM_MONTHLY` rename は Phase 1 補強 2 範囲 (本 PR scope 外)
+- **`STRIPE_PRICE_*` env var の 3 系統**: CDK 設定 (infra/lib/compute-stack.ts) Lambda env / GitHub Actions Variables / .env.example の 3 系統 (Phase 5 子 1 §7 L2 整合) — Phase 7 Step 5 で 3 系統同時撤去
+
+### L3 構造 (依存グラフ)
+
+```
+src/lib/server/stripe/client.ts (apiVersion bump、Step 3-3)
+  ↓
+src/lib/server/stripe/cache.ts (新設、Step 3-1)
+  ↓
+src/lib/server/stripe/config.ts (lookup_key 解決切替、Step 3-3)
+  ↓
+src/lib/server/services/stripe-service.ts (priceId 参照経路)
+  ↓
+src/routes/api/stripe/* (checkout / webhook handler)
+```
+
+論点 1-6 の rename は labels.ts / routes / email / DB の各層に独立波及、依存 chain なし (各層が ADR-0045 atom/compound SSOT 経由で独立)。
+
+### L4 派生 artifact 21 カテゴリ checklist (主要項目)
+
+| # | カテゴリ | 影響 step |
+|---|---|---|
+| 1 | DB schema | 影響なし (論点 6 で rename しない確定、enum 値 string literal 不変) |
+| 2 | DB 保存済 string value | 影響なし (`LICENSE_KEY_STATUS` 値不変、`AUTH_LICENSE_STATUS` 値も不変 — enum 名のみ rename) |
+| 7 | Stripe Product / Price / Webhook | Phase 7 Step 3 (apiVersion bump + lookup_key 切替) + Step 5 (旧 Price archive) |
+| 10 | email template | 論点 5 で `PLAN_TERMS` 経由化、Phase 7 Step 2-3 で `LIFECYCLE_EMAIL_LABELS` 内部 rewrite |
+| 13 | Help Center / FAQ | 論点 4 で `site/help/license-key.html` href 更新、Phase 7 Step 2-3 で実施 |
+| 16 | GitHub Actions / pipeline | Phase 7 Step 5 で `STRIPE_PRICE_*` GitHub Variables 4 件削除 |
+| 17 | deployment env / secrets | Phase 7 Step 5 で CDK / Lambda env / GitHub Secrets 撤去 (Phase 5 子 1 §7 L4 #17 整合) |
+| 19 | fixture / seed / golden | Phase 7 Step 3 で `tests/fixtures` に Stripe lookup_key mock 追加 (Phase 5 子 1 §7 L4 #19 整合) |
+| 21 | audit log / 過去レコード | 影響なし (Phase 1 補強 2 Open question 4 active subscription 0 件確定) |
+
+## 7. 想定リスク + ロールバック
+
+| # | リスク | 検出 | ロールバック手順 |
+|---|---|---|---|
+| R1 | 論点 1 PO 判断遅延 → Phase 7 Step 2-4 着手 blocker | Phase 7 着手時に判断未確定検出 | 暫定的に rename しない (推奨案 OFF 側) で進行、Phase 7 Step 2-4 完了後に別 PR で rename PR を起票 |
+| R2 | 論点 4 PO 判断で「完全 subscription 案内置換」が選択された場合 | PR レビューで legacy 性質毀損検出 | 部分置換 PR を revert、legacy 性質保持 + href のみ新 URL の中間案で再 PR |
+| R3 | lookup_key Step 2 並行運用期間中に env var fallback が失敗 (lookup_key も env var も両方解決失敗) | Sentry alert / Lambda CloudWatch alarm | `USE_LOOKUP_KEY=false` で env var 直読のみに即時切替 (kill switch、Phase 6 子 1 SSOT §5.3 整合) |
+| R4 | apiVersion bump cutover 後 72h 以内に breaking change 漏れ検出 | Sentry error rate > 0.5% / 1 hour | Stripe Dashboard で apiVersion 即時 rollback (旧 `2026-04-22.dahlia`)、SDK 側も revert (Phase 5 子 1 R7 整合) |
+| R5 | Webhook destination 同期遅延 → SDK apiVersion bump 後 destination 側未更新で event field 構造乖離 | Webhook handler エラー (`event.data.object.<field>` undefined) | PO に Discord alert 通知、Dashboard で destination API version 即時同期 (Phase 6 子 1 SSOT §4.3 同期失敗時の検出ポイント整合) |
+| R6 | 論点 5 `PLAN_TERMS` 経由化漏れ → email 文面で「ライセンス」直書き残存 | `npm run pre-ready` Step 7 (`check-no-plan-literals`) で検出 | Phase 7 Step 2-3 で個別 email template に直接修正、`PLAN_TERMS` template literal 参照に rewrite |
+
+詳細は Phase 6 子 5 #2665 (ロールバック詳細 SSOT) に集約 (本 docs では主要 6 件のみ)。
+
+## 8. Open question (PO 判断、Phase 7 で確定)
+
+| # | 軸 | 論点 | 推奨案 | 状態 |
+|---|---|------|------|------|
+| 1 | **business** | 論点 1 `AUTH_LICENSE_STATUS` rename を Phase 1 補強 2 `family` → `premium` rename と同タイミングで実施するか?分割するか? | 同タイミング推奨 (Phase 7 Step 2-4 で一括、cognitive load 集約)。分割すると 2 度の rename PR + 2 度のレビュー工数 | Phase 7 Step 2-4 着手時 PO 判断 |
+| 2 | **UX** | 論点 4 `site/help/license-key.html` で「ライセンスキー」用語を「サブスクリプション」に置換する箇所は?(NUC edition では license key が唯一の billing proof として残存するため、全置換は legacy ユーザー混乱) | legacy guide 性質保持 + href のみ新 URL 推奨。本文は「ライセンスキー」用語維持 (NUC billing proof として残存する旨を明示)。URL 案内のみ `/admin/subscription` に更新 | Phase 7 Step 2-3 着手時 PO 判断 |
+| 3 | **security** | lookup_key Step 2 並行運用期間 (1-2 weeks) を delay する場合、staging で 1 週間以上の検証期間を設ける?Pre-Ready 必須化? | 1 週間 staging 検証推奨 (Pre-PMF 課金別格 [[billing-critical-extra-caution]] 整合)、Phase 7 統合 PR Step 3 Pre-Ready チェックリストに「staging で 1 週間 USE_LOOKUP_KEY=true 検証 PASS」を追加 | Phase 7 Step 3 Pre-Ready 設計時に確定 |
+| 4 | **security (adversarial)** | apiVersion bump で `2026-05-27.dahlia` Changelog 確認 (本 docs §5.4) を未完了のまま Phase 7 Step 3 着手された場合の防御策は?CI gate で自動拒否可能? | 自動拒否推奨 (PR body に「Changelog 確認結果」セクション必須、CI gate `scripts/check-stripe-api-version-bump.mjs` 新設で確認、本 PR scope 外)。本 docs §5.4 が空のまま Phase 7 Step 3 着手された場合は QM Re-Review で BLOCK | Phase 7 Step 3 着手前に CI gate 整備 (別 Issue、本 PR scope 外) |
+| 5 | **security (adversarial)** | 旧 Price archive (Step 4) 前に「active subscription 0 件」確認を再度実施 (Phase 1 補強 2 Open question 4 PO 確定済) する場合、誰がいつ確認?Stripe Dashboard 手動 vs API 経由自動? | API 経由自動推奨 (Phase 7 統合 PR Step 5 Pre-Ready CI で `stripe.subscriptions.list({ status: 'active' })` を実行、`data.length === 0` を assert)。Dashboard 手動は人為ミスリスク | Phase 7 Step 5 Pre-Ready 設計時に確定 |
+
+## 9. 関連 (2026-05-29 整合)
+
+### Phase 1 (上位要件)
+
+- [naming-url-integrity-requirements](phase1-naming-url-integrity-requirements.md) — Phase 1 補強 1 (文脈判断 6 件 SSOT、本 PR §3 の元)
+- [plan-naming-pricing-axis-requirements](phase1-plan-naming-pricing-axis-requirements.md) — Phase 1 補強 2 (`family` → `premium` rename、論点 1 同タイミング判断)
+
+### Phase 5 (アーキ、全 5 子)
+
+- [phase5-stripe-product-architecture](phase5-stripe-product-architecture.md) (子 1 #2639) — §3.4 apiVersion bump + §3 lookup_key (本 PR §4 + §5 の元)
+- [phase5-atom-ssot-architecture](phase5-atom-ssot-architecture.md) (子 5 #2643) — atom 統合 5 step (Phase 7 Step 2 内部)
+
+### Phase 6 同位 (本 PR 関連子 issue)
+
+- [phase6-phase7-execution-ssot](phase6-phase7-execution-ssot.md) (子 1 #2661 / マージ済 #2667) — Phase 7 統合 PR 5 step (本 PR は Step 3 + Step 5 の詳細 SSOT)
+- 子 2 #2662 (Test clock 6 シナリオ、グループ B 並列)
+- 子 3 #2663 (DB migration script、グループ B 並列)
+- 子 5 #2665 (ロールバック詳細 + kill switch SSOT + Phase 1 構造的欠落 3 件、グループ C)
+
+### Phase 7 (実装、本 PR の落とし先)
+
+- #2531 (Phase 7 実装) — 本 PR §3 PO 判断結果 + §4 lookup_key + §5 apiVersion bump を Step 3 + Step 5 に反映
+- #2627 (Stripe Dashboard PO 手動操作) — 本 PR §5.3 Webhook destination 同期整合
+
+### ADR (関連)
+
+- ADR-0008 (設計ポリシー先行確認フロー、本 PR §3 PO 判断票の運用根拠)
+- ADR-0010 (Pre-PMF、過剰追加回避、論点 2 / 3 / 6 で「rename しない」推奨の根拠)
+- ADR-0014 (OSS 先調査ルール、Stripe 公式 `transfer_lookup_key` パターン採用)
+- ADR-0033 (Cognito ops group authz、論点 3 `/ops/license/*` 維持の整合)
+- ADR-0045 (atom/compound 2 階層、論点 5 `PLAN_TERMS` 経由化の根拠)
+
+### memory (関連)
+
+- [[per-issue-execution-workflow]] — 6 観点 + git workflow
+- [[impact-analysis-methodology]] — 4 layer 防御 + 21 カテゴリ
+- [[branch-base-main-freshness]] — main 最新化 + push 前 rebase
+- [[pr-body-encoding-powershell-stdin]] — Bash here-doc UTF-8
+- [[pause-and-replan-on-stuck]] — 詰まり時立ち戻り 4 ステップ
+- [[pr-review-recurring-blocks]] — QM BLOCK 予防 4 項目
+- [[billing-critical-extra-caution]] — 課金は Bucket A でもさらに別格
+- [[adr0010-interpretation]] — Pre-PMF は「過剰追加」回避、品質を削る口実ではない
+- [[oss-first-principle]] — Stripe 公式 `transfer_lookup_key` パターン採用根拠
+
+## 10. 根拠 (primary source)
+
+### Stripe 公式
+
+- [Stripe manage-prices (transfer_lookup_key)](https://docs.stripe.com/products-prices/manage-prices) — 本 docs §4 lookup_key 段階移行の元
+- [Stripe API versioning (72h rollback window)](https://docs.stripe.com/api/versioning) — 本 docs §5 apiVersion bump の元
+- [Stripe set-version (Node SDK apiVersion)](https://docs.stripe.com/sdks/set-version) — §5.3 SDK 1 行修正
+- [Stripe build-subscriptions (lookup_key recommended pattern)](https://docs.stripe.com/billing/subscriptions/build-subscriptions) — §4.2 caching layer 設計
+- [Stripe prices.list API (lookup_keys parameter)](https://docs.stripe.com/api/prices/list) — §4.4 cutover 検証手段
+- [Stripe webhooks (at-least-once delivery / idempotency)](https://docs.stripe.com/webhooks) — §4.4 二重 priceId 期間中の冪等性
+
+### 業界根拠 (論点 1-6)
+
+- Spotify / Apple Subscriptions / Apple Family Sharing — 論点 1 (subscription status 命名整合) / 論点 4 (legacy guide パターン) / 論点 5 (billing email 「subscription」「plan」使い分け)
+- Stripe SDK (`Plan` / `Subscription` 概念) — 論点 2 `LICENSE_PLAN` 維持判断
+- Notion / Linear / Slack admin tool — 論点 3 ops internal tool URL は各社独自
+- Adobe Creative Cloud / Microsoft 365 — ライセンスキー → サブスク移行事例 (Phase 1 補強 1 §FR-2 完全置換型整合)
+
+### 自プロダクト関連
+
+- [Phase 6 計画書 v2](../../../tmp/reviews/phase6-execution-plan.md) — 本 PR の起点
+- [Phase 5 子 1 deep-research](../../../tmp/reviews/phase5-stripe-product-research.md) — Stripe 公式 14 URL 検証済 SSOT
+- Phase 1 補強 1 `phase1-naming-url-integrity-requirements.md` §Open question + FR-5 残対象 6 件 — 本 PR §3 の元
+- Phase 6 子 1 `phase6-phase7-execution-ssot.md` §3 Step 3 + Step 5 + §5.3 feature flag SSOT — 本 PR §4 + §5 の整合先
