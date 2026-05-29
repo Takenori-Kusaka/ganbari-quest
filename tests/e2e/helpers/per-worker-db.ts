@@ -1,5 +1,7 @@
 // tests/e2e/helpers/per-worker-db.ts
 //
+// cspell:words Mainmatter
+//
 // #2648 Phase A Step A-3 + CI fix: per-worker SQLite file isolation helper。
 //
 // 設計根拠 (deep research `a70be0e3278d98fd2` §7.3 + 試行錯誤ログ §3 Step A-3 + CI 再 fix):
