@@ -11,6 +11,14 @@ import { validateAndMigrate } from './schema-validator';
 
 const DATABASE_URL = process.env.DATABASE_URL ?? './data/ganbari-quest.db';
 
+// #2648 Round 10 (debug 一時): preview server の DB open 時の挙動可視化。
+// CI fail 真因 H-3 (env merge fail) / H-1 (schema cache invalidation) の判定に使う。
+// preview server の DATABASE_URL が `./data/e2e-worker-${i}.db` か `./data/ganbari-quest.db` かを露出させる。
+// Round 11 で revert する。
+console.info(
+	`[client.ts] PID=${process.pid} DATABASE_URL=${DATABASE_URL} cwd=${process.cwd()} NODE_ENV=${process.env.NODE_ENV ?? 'unset'}`,
+);
+
 /**
  * data orphan 検出時の Discord alert 送出 (#2519)。fire-and-forget。
  * `discord-alert.ts` を **dynamic import** して startup module が
@@ -60,6 +68,26 @@ if ((process.env.DATA_SOURCE ?? 'sqlite') === 'sqlite') {
 
 	// 2. 新規 table / index を idempotent に作成
 	sqlite.exec(SQL_CREATE_TABLES);
+
+	// #2648 Round 10 (debug 一時): DB open + auto-init 後の children count。
+	// H-1 (schema cache invalidation) / H-2 (silent backup fail) の判定に使う。
+	// 期待:
+	//   - DATABASE_URL=./data/e2e-worker-${i}.db に正しく env 注入されており、かつ
+	//     global-setup が backup を完了してから preview server が起動した場合 → > 0
+	//   - env 注入されているが preview server が global-setup より先に新規空 DB を init
+	//     した場合 (H-1 schema cache 不整合) → 0 (init で空 schema 作成)
+	//   - env 注入失敗で `./data/ganbari-quest.db` を見ている場合 (H-3) → template と同等の seed count
+	// preview server の log で children=0 + DATABASE_URL=worker-N.db を確認できれば H-1 確定。
+	try {
+		const childCount = sqlite.prepare('SELECT COUNT(*) AS c FROM children').get() as {
+			c: number;
+		};
+		console.info(`[client.ts] PID=${process.pid} children count after init: ${childCount.c}`);
+	} catch (e) {
+		console.info(
+			`[client.ts] PID=${process.pid} children count ERROR: ${e instanceof Error ? e.message : String(e)}`,
+		);
+	}
 
 	// 3. スキーマバリデーション + 安全な自動マイグレーション（カラム追加）
 	const schemaResult = validateAndMigrate(sqlite);

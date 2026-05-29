@@ -76,6 +76,18 @@ const TEMPLATE_DB_PATH = path.resolve('data/ganbari-quest.db');
 export async function ensureWorkerDb(parallelIndex: number): Promise<string> {
 	const workerDbPath = path.resolve(`data/e2e-worker-${parallelIndex}.db`);
 
+	// #2648 Round 10 (debug 一時): STAGE-1 state 観察。
+	// workerDbPath の絶対 path / 既存有無 / template 存在を log で可視化。
+	console.info(
+		`[PerWorkerDB#${parallelIndex}] STAGE-1 before backup: workerDbPath=${workerDbPath}`,
+	);
+	console.info(
+		`[PerWorkerDB#${parallelIndex}] STAGE-1 fs.existsSync(workerDbPath)=${fs.existsSync(workerDbPath)}`,
+	);
+	console.info(
+		`[PerWorkerDB#${parallelIndex}] STAGE-1 fs.existsSync(TEMPLATE_DB_PATH)=${fs.existsSync(TEMPLATE_DB_PATH)}`,
+	);
+
 	if (!fs.existsSync(TEMPLATE_DB_PATH)) {
 		throw new Error(
 			`[per-worker-db] template DB not found: ${TEMPLATE_DB_PATH}. ` +
@@ -91,9 +103,54 @@ export async function ensureWorkerDb(parallelIndex: number): Promise<string> {
 	// 新 seed data を読めるようになる (#2648 CI fix)。
 	const src = new Database(TEMPLATE_DB_PATH, { readonly: true });
 	try {
-		await src.backup(workerDbPath);
+		// #2648 Round 10 (debug 一時): STAGE-2 template の row 数 (期待: > 0)。
+		try {
+			const templateChildCount = src.prepare('SELECT COUNT(*) AS c FROM children').get() as {
+				c: number;
+			};
+			console.info(
+				`[PerWorkerDB#${parallelIndex}] STAGE-2 template children count: ${templateChildCount.c}`,
+			);
+		} catch (e) {
+			console.info(
+				`[PerWorkerDB#${parallelIndex}] STAGE-2 template children count ERROR: ${e instanceof Error ? e.message : String(e)}`,
+			);
+		}
+
+		// #2648 Round 10 (debug 一時): STAGE-3 backup を try/catch wrap、success/error log。
+		// H-2 (silent backup fail) 判定のため SQLITE_BUSY / lock 競合等の error を露出させる。
+		try {
+			await src.backup(workerDbPath);
+			console.info(`[PerWorkerDB#${parallelIndex}] STAGE-3 backup SUCCESS`);
+		} catch (e) {
+			console.info(
+				`[PerWorkerDB#${parallelIndex}] STAGE-3 backup ERROR: ${e instanceof Error ? e.message : String(e)}`,
+			);
+			throw e;
+		}
 	} finally {
 		src.close();
+	}
+
+	// #2648 Round 10 (debug 一時): STAGE-4 backup 後の別 connection で workerDbPath を
+	// read-only open、children 行数を verify。期待: > 0 (template と同等)。
+	// H-2 (silent backup fail) で 0 なら確定、H-1 (preview cache 不整合) との切り分けに使う。
+	try {
+		const dst = new Database(workerDbPath, { readonly: true });
+		try {
+			const dstChildCount = dst.prepare('SELECT COUNT(*) AS c FROM children').get() as {
+				c: number;
+			};
+			console.info(
+				`[PerWorkerDB#${parallelIndex}] STAGE-4 verification: backup-DB children count=${dstChildCount.c}`,
+			);
+		} finally {
+			dst.close();
+		}
+	} catch (e) {
+		console.info(
+			`[PerWorkerDB#${parallelIndex}] STAGE-4 verification ERROR: ${e instanceof Error ? e.message : String(e)}`,
+		);
 	}
 
 	return workerDbPath;
@@ -119,10 +176,16 @@ export function cleanupWorkerDb(parallelIndex: number): void {
 		if (fs.existsSync(filePath)) {
 			try {
 				fs.unlinkSync(filePath);
-			} catch {
+				// #2648 Round 10 (debug 一時): cleanup の成否 log。
+				console.info(`[PerWorkerDB#${parallelIndex}] cleanup removed: ${filePath}`);
+			} catch (e) {
 				// preview server が WAL/shm を保持している可能性あり (Windows EBUSY)。
 				// 次回 ensureWorkerDb の `db.backup()` が in-place overwrite するため
 				// 残骸を残しても整合性は保たれる (#2648 CI fix)。
+				// #2648 Round 10 (debug 一時): cleanup 失敗も log で観察。
+				console.info(
+					`[PerWorkerDB#${parallelIndex}] cleanup ERROR for ${filePath}: ${e instanceof Error ? e.message : String(e)}`,
+				);
 			}
 		}
 	}
