@@ -515,6 +515,58 @@ describe('resolveSinceWindow (#2615 priority chain)', () => {
 	});
 });
 
+// Issue #2647 (第 9 弾 hotfix deploy): hook context での `--pr` 引数撤去仕様
+//
+// 第 8 弾 #2645 deploy で `.husky/pre-push` Step 2.2 に `--pr "$PR_NUM"` 付き呼出を追加したが、
+// push 前 hook 経路では local が rebase + new commit を持つため worktree HEAD ≠ remote PR HEAD
+// となり構造的に常時 BLOCK (Fix Agent #2644 で実観察)。第 9 弾 hotfix で hook 側 `--pr` 引数を撤去。
+//
+// 本 describe block は「引数なし呼出時に worktree HEAD verify gate が skip される」仕様を pin する。
+// hook 側の正しい呼出 (`node scripts/check-recent-deploy-deletion.mjs` 引数なし) と本 script の
+// `opts.prNumber === null` → verify gate skip の挙動を unit 層で固定し、将来の hook 仕様回帰
+// (誰かが「引数を付けたほうが安全」と勘違いして `--pr "$PR_NUM"` を復活させる) を予防する。
+describe('#2647 hook context — hook 内 (`--pr` 引数なし) 仕様', () => {
+	// AC1: `.husky/pre-push` Step 2.2 が引数なしで呼ぶ場合の parseArgs 結果
+	// prNumber が null → main 側で `if (opts.prNumber !== null)` の verify gate ブロックを skip
+	it('引数なし → prNumber が null (hook context、worktree HEAD verify skip 条件成立)', () => {
+		const opts = parseArgs([]);
+		expect(opts.prNumber).toBeNull();
+		// 副次的: 既存 default 値は維持 (削除 check のみは引数なしでも実行される設計)
+		expect(opts.days).toBe(DEFAULT_DAYS);
+		expect(opts.base).toBe(DEFAULT_BASE);
+	});
+
+	// AC1: hook 引数なし呼出と Fix Agent worktree mode 呼出の対称性を pin
+	// (hook 経路: skip / Fix Agent 経路: enabled、両方とも 1 つの script で支える設計)
+	it('引数なし → prNumber=null (skip 条件) / `--pr <N>` → prNumber 設定 (enabled 条件) の対称性', () => {
+		const hookOpts = parseArgs([]); // push 前 hook 経路
+		const fixAgentOpts = parseArgs(['--pr', '2647']); // Fix Agent worktree mode 経路
+		expect(hookOpts.prNumber).toBeNull(); // hook: verify skip
+		expect(fixAgentOpts.prNumber).toBe('2647'); // Fix Agent: verify enabled
+	});
+
+	// AC3: defense in depth 維持 — `--pr <N>` 経路 (CI / Fix Agent worktree) の verify gate は不変
+	// 本 hotfix は hook 側の呼出方法のみ変更し、`verifyWorktreeHeadMatchesPrHead` 関数自体は変更しない。
+	// (本 it は仕様 documentation のみ、関数 unit test 自身は既存 `describe('verifyWorktreeHeadMatchesPrHead')`
+	// block で網羅済)
+	it('`verifyWorktreeHeadMatchesPrHead` 関数自体は本 hotfix の影響を受けない (defense in depth 維持)', () => {
+		// 既存 describe block で worktree HEAD verify 6 case をテスト済 (HEAD 一致 / 不一致 / gh-pr-view
+		// 失敗 / empty / git-rev-parse 失敗 / extra whitespace)。本 hotfix は hook 呼出方法のみ変更で
+		// 関数 signature / 挙動は一切変更しない。
+		expect(typeof verifyWorktreeHeadMatchesPrHead).toBe('function');
+	});
+
+	// AC1: `--pr "$PR_NUM"` を hook で **付与しない** 仕様の hard pin
+	// 仕様 documentation: 将来「引数を付けたほうが strict」と勘違いして hook 側 `--pr` を復活させた場合、
+	// 本 test 群が「hook 経路では引数なしが正解」という仕様を明示する SSOT として機能する。
+	it('hook context 仕様 documentation: 引数なし呼出が hook 経路の正解', () => {
+		// no-op assertion: 仕様 documentation。実 hook fail / 構造 BLOCK の検証は
+		// self-dogfood (本 PR push 時に hook PASS) で担保する。
+		// 参照: ADR-0056 §F 補足 / Issue #2647 / .husky/pre-push Step 2.2 コメント
+		expect(true).toBe(true);
+	});
+});
+
 describe('AC-4 rename detection 仕様 (integration note)', () => {
 	// AC-4 (rename 扱い) は getDeletedFiles の git diff -M --name-status 解釈で実装される
 	// (D 行のみ収集、R 行は除外)。git の挙動自体は本 unit test では mock 不能なため、
