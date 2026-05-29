@@ -37,11 +37,12 @@ const FORBIDDEN_TERMS = [
 		reason: '#561 LP年齢区分統一で「ようじキッズ」に変更',
 		replacement: 'ようじキッズ',
 	},
-	{
-		term: 'プレミアムプラン',
-		reason: 'プラン用語統一規約（docs/design/21）でスタンダードプランに統一',
-		replacement: 'スタンダードプラン',
-	},
+	// 旧: 「プレミアムプラン」禁止 → 2026-05-29 #2609 解消で削除済
+	// 旧版方針 (プラン名に「プレミアム」を使わない) は docs/design/21 §7 で撤回。
+	// family → premium rename (#2588 Phase 1 補強 2) 採用に伴い、「プレミアムプラン」は
+	// 正規プラン名として allowlist 化 (= 禁止語 list から削除)。
+	// Phase 7 (#2656 系 atom rename) 完遂後は「ファミリープラン」を本 list に追加する判断を行う
+	// (移行期両用許可、docs/design/21 §4 参照)。
 	{
 		term: 'ベーシックプラン',
 		reason: 'プラン用語統一規約（docs/design/21）で無料プランに統一',
