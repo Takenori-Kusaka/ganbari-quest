@@ -67,6 +67,19 @@ node scripts/check-recent-deploy-deletion.mjs --pr <N>   # 真正実行
 
 詳細 SSOT: `.claude/skills/dev-open-pr/SKILL.md` 冒頭 §「Ready 化前必須」+ ADR-0056 §E (#2632 で新設、Persona Drift §C fallback 自動化と連動)。
 
+### push 時自己検証 hook (#2598、本日 7+ 連続 BLOCK 予防、QA self-implement 第 8 弾)
+
+`git push` 実行時、`.husky/pre-push` が以下を **機械的に自動検証** する (Dev が pre-ready を skip しても push レイヤで bypass 不可):
+
+1. **origin/main rebase drift verify** (#2557 / 本日 7+ 連続 BLOCK の root cause)
+2. **本日 deploy 全 file 削除 0 verify** (PR 存在時、#2603 / #2628 第 4 弾 gate)
+3. **PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify** (PR 存在時、#2576 / #2586 / #2633 第 5 弾)
+4. **biome check** (軽量 lint)
+
+重い検査 (vitest / playwright / svelte-check) は CI 委ね、本 hook は **軽量 check のみ**。Pre-PMF / ADR-0010 整合。
+
+`--no-verify` で skip 可能だが ADR-0026 で discouraged。緊急 hotfix 以外で skip すると本 hook の存在意義を毀損する。詳細 SSOT: ADR-0056 §F (#2598 で新設、defense in depth 4 層完成)。
+
 ### PR 運用
 
 - PR body 必須セクション欠落・禁止語があれば修正（`scripts/check-pr-body.mjs` が検出）
