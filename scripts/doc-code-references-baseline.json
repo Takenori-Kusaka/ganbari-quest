@@ -36,7 +36,6 @@
 		"docs/design/09-テスト設計書.md": ["tests/unit/services/decay-service.test.ts"],
 		"docs/design/10-SaaS展開ロードマップ.md": ["infra/cdk"],
 		"docs/design/19-プライシング戦略書.md": ["src/lib/server/services/xp-service.ts"],
-		"docs/design/21-プラン用語統一規約.md": ["src/routes/demo/signup/+page.svelte"],
 		"docs/design/24-ソフトウェアアーキテクチャ設計書.md": ["src/routes/demo"],
 		"docs/design/26-ゲーミフィケーション設計書.md": [
 			"src/lib/server/db/custom-achievement-repo.ts",
@@ -106,6 +105,21 @@
 			"tests/unit/db/webhook-event-repo.test.ts",
 			"tests/unit/services/retention-service.webhook.test.ts",
 			"tests/unit/services/stripe-service.dedup.test.ts"
+		],
+		"docs/design/billing-redesign/phase6-phase7-execution-ssot.md": [
+			"src/lib/domain/archive-types.ts",
+			"src/lib/server/db/demo/webhook-event-repo.ts",
+			"src/lib/server/db/interfaces/webhook-event-repo.interface.ts",
+			"src/lib/server/db/repos/webhook-event-repo.ts",
+			"src/routes/api/stripe/webhook-v2/+server.ts",
+			"tests/e2e/billing",
+			"tests/integration/db/archived-reason-migration.test.ts",
+			"tests/integration/stripe-webhook-dedup.test.ts",
+			"tests/integration/stripe-webhook-schedule-aborted.test.ts",
+			"tests/unit/lib/domain",
+			"tests/unit/lib/server/stripe",
+			"tests/unit/lib/server/stripe/client.test.ts",
+			"tests/unit/lib/server/stripe/config.test.ts"
 		],
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
@@ -181,5 +195,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-29T03:10:40.035Z"
+	"generatedAt": "2026-05-29T11:38:16.262Z"
 }
