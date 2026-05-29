@@ -106,6 +106,30 @@
 			"tests/unit/services/retention-service.webhook.test.ts",
 			"tests/unit/services/stripe-service.dedup.test.ts"
 		],
+		"docs/design/billing-redesign/phase6-db-migration-plan.md": [
+			"infra/scripts/snapshot-db.sh",
+			"src/lib/domain/archive-types.ts",
+			"src/lib/server/db/create-tables.ts:末尾",
+			"src/lib/server/db/demo/activity-repo.ts:既存",
+			"src/lib/server/db/demo/checklist-repo.ts:既存",
+			"src/lib/server/db/demo/child-activity-repo.ts:既存",
+			"src/lib/server/db/demo/child-repo.ts:既存",
+			"src/lib/server/db/demo/webhook-event-repo.ts",
+			"src/lib/server/db/dynamodb/keys.ts:末尾",
+			"src/lib/server/db/interfaces/webhook-event-repo.interface.ts",
+			"src/lib/server/db/migration/lazy-startup-migrations.ts:末尾",
+			"src/lib/server/db/schema.ts:40,70,109,430",
+			"src/lib/server/db/schema.ts:末尾",
+			"tests/e2e/dunning-canceled-archive.spec.ts",
+			"tests/e2e/global-setup.ts:既存",
+			"tests/e2e/stripe-webhook-idempotency.spec.ts",
+			"tests/fixtures/legacy-schema/2026-05.sql:末尾",
+			"tests/integration/db/archived-reason-migration.test.ts",
+			"tests/integration/db/stripe-webhook-events-crud.test.ts",
+			"tests/unit/domain/archive-types.test.ts",
+			"tests/unit/helpers/test-db.test.ts",
+			"tests/unit/helpers/test-db.ts:64,91,120,402,824-906"
+		],
 		"docs/design/billing-redesign/phase6-phase7-execution-ssot.md": [
 			"src/lib/domain/archive-types.ts",
 			"src/lib/server/db/demo/webhook-event-repo.ts",
@@ -195,5 +219,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-29T11:38:16.262Z"
+	"generatedAt": "2026-05-29T22:35:30.800Z"
 }
