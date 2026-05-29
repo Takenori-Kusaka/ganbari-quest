@@ -132,9 +132,9 @@ per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ
 
 - **CUJ-A3** (activity-pack): `tests/e2e/admin-activities-import-marketplace.spec.ts` — `?import=kinder-starter` → `import-child-selection-dialog` 全員選択 → 確定 → 全 child タブ件数 sum が grew
 - **CUJ-R2** (reward-set): `tests/e2e/admin-rewards-import-marketplace.spec.ts` — `?import=kinder-rewards` → `reward-import-child-selection-dialog` 全員選択 → 確定 → 全 child タブ件数 sum が grew
-- **CUJ-CH2** (challenge-set): `tests/e2e/admin-challenges-import-marketplace.spec.ts` — `?marketplace-import=japan-annual-events` → UnifiedImportHub 内 preset visible + import form action wired (partial、ChildSelectionDialog auto-open は別 PR scope、honest scope statement)
+- **CUJ-CH2** (challenge-set): `tests/e2e/admin-challenges-import-marketplace.spec.ts` — `?marketplace-import=japan-annual-events` → `challenge-import-child-selection-dialog` 全員選択 → 確定 → admin チャレンジ group 数が grew (#2554 follow-up で partial → 完全 terminal verify に upgrade、admin-rewards CUJ-R2 と同型の `grew || hadSkips` dual condition、PR-CH2 #2638)
 
-既存 `tests/e2e/marketplace-checklist-import.spec.ts` の checklist 「`marketplace-preset-import-event-pool` click → imported badge visible + reload で永続」が exemplar (5 type 中 1 type 唯一の完全 terminal verify、#2362 PR-5)。本 follow-up はその pattern を残 4 type に横展開する第 1 弾。残 gap (B5 per-child dedup unit regression / B10 永続化 5 type 揃い / B7 5 age mode 取込後表示) は research SSOT §4-B Phase 1-4 で別 PR で順次扱う。
+既存 `tests/e2e/marketplace-checklist-import.spec.ts` の checklist 「`marketplace-preset-import-event-pool` click → imported badge visible + reload で永続」が exemplar (#2362 PR-5)。本 follow-up はその pattern を残 4 type に横展開する第 1 弾。**2026-05-29 時点 5 type 中 4 type (checklist / activity-pack / reward-set / challenge-set) が完全 terminal verify**。残 1 type (rule-preset) の terminal verify + 残 gap (B5 per-child dedup unit regression / B10 永続化 5 type 揃い / B7 5 age mode 取込後表示) は research SSOT §4-B Phase 1-4 で別 PR で順次扱う。
 
 ### Storybook interaction test (component 層、server 不要で配線健全性検証)
 

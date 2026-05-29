@@ -1,5 +1,5 @@
 <script lang="ts">
-import { enhance } from '$app/forms';
+import { deserialize, enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { todayDateJST } from '$lib/domain/date-utils';
 import {
@@ -12,6 +12,9 @@ import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
 import SiblingChallengeComparison from '$lib/ui/features/admin/SiblingChallengeComparison.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
+import ChildSelectionDialog, {
+	type ChildOption,
+} from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
@@ -21,6 +24,110 @@ const isFamily = $derived(data.planTier === 'family');
 let creating = $state(false);
 
 let marketplaceImportMessage = $state('');
+
+// #2554 follow-up CUJ-CH2 完全化: ChildSelectionDialog state (per-child 取込時 auto-open)
+// admin-rewards / admin-activities と同型 pattern (ADR-0055 per-child fan-out + CWE-598)。
+let showChildSelectionDialog = $state(false);
+let pendingImportPresetId = $state<string | null>(null);
+
+// ChildSelectionDialog 用の ChildOption 配列
+const childOptions = $derived<ChildOption[]>(
+	data.children.map((c) => ({
+		id: c.id,
+		nickname: c.nickname,
+		age: c.age,
+		icon: undefined,
+	})),
+);
+
+// `?marketplace-import=<presetId>` で auto-open (server load で validation 済)
+$effect(() => {
+	if (data.importPresetId && !showChildSelectionDialog) {
+		pendingImportPresetId = data.importPresetId;
+		showChildSelectionDialog = true;
+	}
+});
+
+// 取込失敗 / invalid preset の guidance
+$effect(() => {
+	if (data.importPresetInvalid) {
+		marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importInvalidPreset;
+	}
+});
+
+// #2474 must-2 (admin-rewards 同型 CWE-598 fetch wiring):
+// `x-sveltekit-action: true` + `accept: application/json` header が無いと 303 redirect で
+// JSON parse 常時 fail。公式 enhance と同じ header を付与 + `deserialize()` で正しい
+// ActionResult を取得する。dead-end (無反応 / 件数誤表示) を構造的に防ぐ。
+async function handleChildSelectionConfirm(result: 'all' | number[]) {
+	if (!pendingImportPresetId) {
+		showChildSelectionDialog = false;
+		return;
+	}
+	const childIdsValue = result === 'all' ? 'all' : result.join(',');
+	const formData = new FormData();
+	formData.append('presetId', pendingImportPresetId);
+	formData.append('childIds', childIdsValue);
+
+	try {
+		const resp = await fetch('?/importMarketplaceChallengeSet', {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true',
+			},
+			body: formData,
+		});
+		const actionResult = deserialize(await resp.text()) as
+			| {
+					type: 'success';
+					data?: { imported?: number; skipped?: number; total?: number; demo?: boolean };
+			  }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+
+		if (actionResult.type === 'success') {
+			// #2558 bug-1 整合: デモ環境 no-op (data.demo === true) は成功偽装せず明示。
+			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
+				marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importDemo;
+			} else {
+				const imp = Number(actionResult.data?.imported ?? 0);
+				marketplaceImportMessage =
+					imp === 0
+						? ADMIN_CHALLENGES_PAGE_LABELS.importAllDuplicates
+						: ADMIN_CHALLENGES_PAGE_LABELS.importSuccess(imp);
+				await invalidateAll();
+			}
+		} else if (actionResult.type === 'failure') {
+			marketplaceImportMessage = String(
+				actionResult.data?.error ?? ADMIN_CHALLENGES_PAGE_LABELS.importFailed,
+			);
+		} else {
+			marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importFailed;
+		}
+	} catch {
+		marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importFailed;
+	}
+	pendingImportPresetId = null;
+	showChildSelectionDialog = false;
+	// URL から marketplace-import param を除去 (戻り遷移時に再 open しない、admin-rewards 同型)
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.delete('marketplace-import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
+
+function handleChildSelectionCancel() {
+	pendingImportPresetId = null;
+	showChildSelectionDialog = false;
+	if (typeof window !== 'undefined') {
+		const url = new URL(window.location.href);
+		url.searchParams.delete('marketplace-import');
+		window.history.replaceState({}, '', url.toString());
+	}
+}
 
 interface RewardConfig {
 	points: number;
@@ -374,4 +481,15 @@ function tabHref(childId: number | 'all'): string {
 	{/if}
 
 	{/if}<!-- /isFamily -->
+
+	<!-- #2554 follow-up CUJ-CH2 完全化: ChildSelectionDialog (`?marketplace-import=<presetId>` auto-open)
+	     admin-rewards / admin-activities と同型 (ADR-0055 per-child fan-out + CWE-598 guard) -->
+	<ChildSelectionDialog
+		bind:open={showChildSelectionDialog}
+		children={childOptions}
+		allowMultiple={true}
+		onConfirm={handleChildSelectionConfirm}
+		onCancel={handleChildSelectionCancel}
+		testid="challenge-import-child-selection-dialog"
+	/>
 </div>
