@@ -4219,6 +4219,14 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 	// per-child empty state
 	perChildEmptyTitle: 'このお子さまのチャレンジはまだありません',
 	perChildEmptyDesc: 'みんなのテンプレートから取り込むか、新規作成してください',
+	// #2554 follow-up CUJ-CH2 完全化: marketplace 取込 → ChildSelectionDialog auto-open → 確定 result toast
+	// (admin-rewards / admin-activities と同型 pattern、ADR-0055 per-child + family-only gate 整合)
+	importSuccess: (count: number) => `✨ ${count} 件のチャレンジを追加しました`,
+	importAllDuplicates: 'このチャレンジ集は既に追加済みです',
+	importFailed: '取込に失敗しました',
+	// #2558 bug-1 整合: デモ環境では書き込みが no-op 化される。成功偽装せず明示する。
+	importDemo: 'デモではお試し用です（実際の追加は行われません）',
+	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
 } as const;
 
 export const CERTIFICATES_PAGE_LABELS = {

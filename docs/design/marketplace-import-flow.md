@@ -136,6 +136,13 @@ challenge-set は **#2362 PR-7 (ADR-0055、User §6) で activity-pack と同型
 - 同じ source preset から作成された複数 child instance は `source_template_id: 'challenge-set:<presetId>:<title>'` を共有し、admin/challenges 画面で `SiblingChallengeComparison.svelte` により兄弟連動表示される
 - family-only plan-gate は本 PR 維持 (LP/pricing 整合性確認は別 PR #2457 plan-limit と連携)
 
+**#2554 follow-up CUJ-CH2 完全化 (本 PR、2026-05-29)**: 上記 #2362 PR-7 動線のうち、`/admin/challenges` 側の **ChildSelectionDialog auto-open 配線が長期未実装**だった (data.marketplaceImport を受領するが UI ハンドラ無し、CUJ-CH2 が partial だった構造的原因)。本 PR で activities/rewards と同型の以下を移植して完全化:
+- `+page.svelte`: `ChildSelectionDialog` import + `?marketplace-import=<presetId>` を `$effect` で検出して auto-open + `handleChildSelectionConfirm` で `?/importMarketplaceChallengeSet` に CSV 形式で POST
+- `+page.server.ts` load: `importPresetId` / `importPresetInvalid` を export (rewards `?import=` 同型、dialog auto-open trigger 用)
+- `+page.server.ts` action `importMarketplaceChallengeSet`: CSV (`childIds=1,2,3` or `'all'`) 受領サポート追加 (旧 `getAll('childIds')` repeated 形式は後方互換維持) + **CWE-598 guard 追加** (`tenantChildren` の ID set に含まれない `childId` を 1 件でも検出すると 403 reject、admin-rewards `importPresetToChildren` 同型)
+- `tests/e2e/admin-challenges-import-marketplace.spec.ts`: CUJ-CH2 を **partial → 完全 terminal goal verify** に upgrade (admin-rewards CUJ-R2 と同型の `grew || hadSkips` dual condition で dev DB 永続状態 robust)
+- `src/lib/domain/labels.ts` `ADMIN_CHALLENGES_PAGE_LABELS`: `importSuccess / importAllDuplicates / importFailed / importDemo / importInvalidPreset` を追加 (admin-rewards 同型)
+
 #### reward-set 取込フロー (EPIC #2362 PR-4 で実装済)
 
 reward-set も `MarketplaceTypeDescriptor.requiresChildId: true` を宣言する per-child instance type。本 PR の実装で以下の動線が CWE-598 整合となっている (activity-pack と同型):

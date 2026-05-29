@@ -76,26 +76,12 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 		expect(res.status()).toBeLessThan(500);
 	});
 
-	// CUJ-CH2 (research §1-D 「B1 dead-end 5 type 横展開」 P1):
-	//   ?marketplace-import=<presetId> で /admin/challenges に到達した時に
-	//   UnifiedImportHub 内で対象 preset が visible + import action 経路が wired であることを
-	//   貫通検証する (auto-open dialog → 確定 → 件数増加 までの**部分**カバレッジ)。
-	//
-	// 注意 (honest scope statement、本 PR scope に含まれない follow-up):
-	//   research §1-D は CUJ-CH2 を「partial (preset visible のみ、terminal 0)」と判定。
-	//   challenges +page.svelte は activities/rewards と異なり ChildSelectionDialog の
-	//   auto-open 配線が未実装 (data.marketplaceImport を受領するが UI ハンドラ無し)。
-	//   そのため本 test は activities/rewards と同型の「dialog 確定 → 件数 grew」までは
-	//   検証せず、preset 描画 + import form action wiring の dead-end 1 階層手前まで担保する。
-	//   完全な terminal goal verify (B5/B6/B10 fix) は別 PR (challenges page wiring) で扱う。
-	//
-	// 設計 (tests/CLAUDE.md §interactive flow / #2544、ADR-0006 厳守):
-	//   - 副作用 A: preset (`marketplace-preset-import-japan-annual-events`) が UnifiedImportHub
-	//     に visible + type='submit' で form action に wired (#2369 type 漏れ非退行)
-	//   - 副作用 B: 該当 preset の name (SSOT 「日本年間行事パック」) が page に visible
-	//     (challenges-marketplace-import-section 内描画)
-	//   - timeout は 10_000 / 30_000、retry / dispatchEvent / dialog ghost cleanup helper 不採用
-	test('CUJ-CH2: ?marketplace-import=japan-annual-events で UnifiedImportHub 内 preset visible + form action wired (partial terminal goal、ChildSelectionDialog auto-open は別 PR scope)', async ({
+	// CUJ-CH2 partial sub-test (#2636 由来、横展開回帰 trip wire として残置):
+	//   `?marketplace-import=<presetId>` で /admin/challenges に到達した時に UnifiedImportHub 内で
+	//   対象 preset が visible + import form action が wired であることの static structural 担保。
+	//   (admin-rewards.spec.ts の `?import=<presetId> で ChildSelectionDialog が auto-open する` の
+	//    structural visible 担保と同型。CUJ 本体は下の `CUJ-CH2:` test で完遂検証する。)
+	test('?marketplace-import=japan-annual-events で UnifiedImportHub 内 preset visible + form action wired (structural trip wire)', async ({
 		page,
 	}) => {
 		test.slow(); // Vite dev コールドコンパイル耐性
@@ -122,7 +108,7 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 		await expect(importBtn).toBeEnabled();
 
 		// 副作用 A.3: form action が `?/importMarketplaceChallengeSet` に wired
-		// (UnifiedImportHub.svelte L122 で type 別 action 名規約)
+		// (UnifiedImportHub.svelte で type 別 action 名規約)
 		const form = importBtn.locator('xpath=ancestor::form');
 		await expect(form, 'import button が <form> 内に配置されている').toHaveCount(1);
 		await expect(form).toHaveAttribute('action', /\?\/importMarketplaceChallengeSet/);
@@ -132,11 +118,94 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 		// src/lib/data/marketplace/challenge-sets/japan-annual-events.json) が section 内に visible
 		// (preset 配信 + 描画パイプライン全体の非退行)。
 		await expect(section.getByText('日本年間行事パック').first()).toBeVisible({ timeout: 10_000 });
+	});
 
-		// honest scope statement:
-		// 「button click → ChildSelectionDialog → 全員選択 → 確定 → child_challenges row 追加」の
-		// 完全 terminal goal verify は challenges page の auto-open 配線 (follow-up PR) 完了後に
-		// admin-activities/rewards と同型 pattern で実装する。本 test は B6 5 type UX 横ばらつき
-		// 検出 (preset visible のみ vs 完全配信) の partial 担保。
+	// CUJ-CH2 (research §1-D 「B1 dead-end 5 type 横展開」 P1、#2554 follow-up 完全化):
+	//   ?marketplace-import=<presetId> auto-open ChildSelectionDialog → 全員に追加 (default) → 確定 →
+	//   admin チャレンジ一覧の child タブ件数 sum が grew (terminal goal verify、dead-end ならここで fail)。
+	//
+	// PR #2636 で partial (preset visible のみ、terminal 0) だった CUJ-CH2 を、本 PR で
+	// admin-rewards CUJ-R2 / admin-activities CUJ-A3 と同型の完全 terminal goal verify に upgrade。
+	// 「マーケットプレイス インポート機能を顧客レビューできる状態」goal の challenge-set 5 type
+	// 完全化 (research §4-A 完遂)。
+	//
+	// 設計 (tests/CLAUDE.md §interactive flow / #2544、ADR-0006 厳守):
+	//   - 副作用 A: importMarketplaceChallengeSet network 発火 (resp.ok())
+	//   - 副作用 C: 永続反映 = admin チャレンジ一覧 child タブ count 増加 (`invalidateAll()` 反映)
+	//     OR response body に skipped>=1 (dedupe 機能、dev DB 永続状態 robust、CUJ-R2 dual condition)
+	//   - timeout は 10_000 / 30_000、retry / dispatchEvent / dialog ghost cleanup helper 不採用
+	test('CUJ-CH2: ?marketplace-import=japan-annual-events → ChildSelectionDialog 全員選択 → 確定 → admin チャレンジ一覧件数が grew (terminal goal verify)', async ({
+		page,
+	}) => {
+		test.slow(); // Vite dev コールドコンパイル耐性
+
+		// Step 0: before 状態を記録 — clean な /admin/challenges で child タブ件数 sum を取得。
+		await page.goto('/admin/challenges', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('admin-challenges-child-tabs')).toBeVisible({
+			timeout: 30_000,
+		});
+
+		// 全 challenge group の instances を数える (per-child 取込 → 兄弟分 instances 追加)。
+		// admin-challenges page は admin-challenges-group ごとに instances を render する。
+		const groupsBefore = page.getByTestId('admin-challenges-group');
+		const groupCountBefore = await groupsBefore.count();
+
+		// Step 1: ?marketplace-import=<presetId> auto-open
+		// japan-annual-events は challenge-set marketplace SSOT に実在する preset id
+		// (src/lib/data/marketplace/challenge-sets/japan-annual-events.json)。
+		await page.goto(`/admin/challenges?marketplace-import=${JAPAN_ANNUAL_EVENTS_PRESET}`, {
+			waitUntil: 'domcontentloaded',
+		});
+
+		const dialog = page.getByTestId('challenge-import-child-selection-dialog');
+		await expect(dialog, 'ChildSelectionDialog auto-open (dead-end でない前提)').toBeVisible({
+			timeout: 10_000,
+		});
+
+		// Step 2: default = 「全員に追加」radio 選択済。確認ボタンが enabled → click。
+		const confirm = page.getByTestId('child-selection-confirm');
+		await expect(confirm).toBeEnabled();
+
+		// 副作用 A: importMarketplaceChallengeSet network 発火 + response OK + body shape 検証
+		// (action dispatch / Strategy / DB write の貫通検証)。
+		// dead-end (ボタン無反応 / app crash) なら waitForResponse が timeout または !resp.ok() で fail。
+		const [resp] = await Promise.all([
+			page.waitForResponse((r) => /\?\/importMarketplaceChallengeSet/.test(r.url())),
+			confirm.click(),
+		]);
+		expect(
+			resp.ok(),
+			`importMarketplaceChallengeSet response not OK (status ${resp.status()})`,
+		).toBeTruthy();
+		const respBody = await resp.text();
+		// SvelteKit ActionResult JSON ({"type":"success", ...}) を含む。japan-annual-events
+		// (年間行事 challenges) が全 children に dispatch されたことを正味の文字列で確認 (presetId が含まれる)。
+		expect(
+			respBody.includes(JAPAN_ANNUAL_EVENTS_PRESET),
+			'response body に対象 presetId が含まれる (Strategy dispatch 完了)',
+		).toBeTruthy();
+
+		// Step 3: 副作用 C = 永続反映 (両者 OK のいずれかで dead-end 解消を確認):
+		//   case A (fresh state, dev/CI 1st run): challenge group 数が grew (groupCountAfter > groupCountBefore)
+		//   case B (polluted dev DB、dev 2nd+ run): grew = 0 だが skipped > 0 で dedupe が動作した
+		//     ことを示す = action は正しく実行されたが既存 data あり (CUJ-R2 と同型 terminal goal dual)
+		// dead-end (click → 全く反応せず + state 不変) なら groupCountAfter==groupCountBefore かつ
+		// response body に skip 情報がない → 必ず fail。
+		await page.goto('/admin/challenges', { waitUntil: 'domcontentloaded' });
+		await expect(page.getByTestId('admin-challenges-child-tabs')).toBeVisible({
+			timeout: 30_000,
+		});
+		const groupsAfter = page.getByTestId('admin-challenges-group');
+		const groupCountAfter = await groupsAfter.count();
+
+		const grew = groupCountAfter > groupCountBefore;
+		// dedupe skip pattern: japan-annual-events は per-child fan-out で 1 preset × N children × M challenges
+		// 件取込試行。skipped が 1 以上含まれる ≒ 「既存 data あり、dedupe が機能」を意味する。
+		// (response shape: imported / skipped はそれぞれ数値、payload body に文字列として現れる)
+		const hadSkips = /\\"skipped\\":[1-9]/.test(respBody) || /skipped[^,]*[1-9]/.test(respBody);
+		expect(
+			grew || hadSkips,
+			`terminal goal verify: 取込後 group 数が grew (${groupCountBefore}→${groupCountAfter}) もしくは response body に skipped>=1 (dedupe 機能) のいずれか必須 (dead-end 検出)`,
+		).toBe(true);
 	});
 });

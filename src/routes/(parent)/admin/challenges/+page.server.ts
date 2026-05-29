@@ -50,15 +50,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		childIdParam && childIdParam !== 'all' ? Number(childIdParam) : ('all' as const);
 
 	// 取込時 ChildSelectionDialog auto-open (#2362 PR-7, CWE-598)
-	const importPresetId = url.searchParams.get('marketplace-import');
+	// クエリ名は `?marketplace-import=<presetId>` (PR #2636 partial CUJ-CH2 当時から踏襲)。
+	// rewards/activities は `?import=<presetId>` のため命名は揃わないが、後方互換のため改名しない
+	// (existing CUJ-CH2 partial test + UnifiedImportHub message 表示が依存)。
+	const importPresetIdRaw = url.searchParams.get('marketplace-import')?.trim() || null;
 	let marketplaceImport: {
 		presetId: string;
 		presetName: string;
 		presetDescription: string;
 		challenges: ChallengeSetPayload['challenges'];
 	} | null = null;
-	if (importPresetId) {
-		const item = getMarketplaceItem('challenge-set', importPresetId);
+	if (importPresetIdRaw) {
+		const item = getMarketplaceItem('challenge-set', importPresetIdRaw);
 		if (item) {
 			const payload = item.payload as ChallengeSetPayload;
 			marketplaceImport = {
@@ -69,6 +72,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			};
 		}
 	}
+
+	// #2554 follow-up CUJ-CH2 完全化: ChildSelectionDialog auto-open trigger
+	// (admin-rewards `?import=` 経路と同型、ADR-0055 per-child fan-out + CWE-598 guard 整合)
+	const importPresetId = marketplaceImport ? marketplaceImport.presetId : null;
+	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
 
 	const challengePresets = getMarketplaceIndex()
 		.filter((m) => m.type === 'challenge-set')
@@ -89,6 +97,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		marketplaceImport,
 		challengePresets,
 		selectedChildId,
+		// #2554 follow-up CUJ-CH2: dialog auto-open trigger 用 (rewards 同型)
+		importPresetId,
+		importPresetInvalid,
 	};
 };
 
@@ -279,12 +290,46 @@ export const actions: Actions = {
 		if (!presetId) return fail(400, { error: 'presetId が必要です' });
 
 		// #2362 PR-7: per-child 配信 (childIds body 必須、URL には出さない = CWE-598)
-		const childIds = fd
-			.getAll('childIds')
-			.map((v) => Number(v))
-			.filter((n) => !Number.isNaN(n));
+		// #2554 follow-up CUJ-CH2 完全化: ChildSelectionDialog からの POST は CSV (`childIds=1,2,3`) or
+		// `'all'` 形式を許容 (admin-rewards `importPresetToChildren` 同型)。
+		// UnifiedImportHub から直接 POST する旧経路 (childIds repeated form field) も後方互換維持。
+		const childIdsCsvRaw = String(fd.get('childIds') ?? '').trim();
+		const tenantChildren = await getAllChildren(tenantId);
+		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
+		let childIds: number[];
+		if (childIdsCsvRaw === 'all') {
+			childIds = tenantChildren.map((c) => c.id);
+		} else if (childIdsCsvRaw.includes(',') || /^\d+$/.test(childIdsCsvRaw)) {
+			// CSV / 単一 numeric (ChildSelectionDialog 経由、admin-rewards 同型)
+			childIds = childIdsCsvRaw
+				.split(',')
+				.map((s) => Number(s.trim()))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		} else {
+			// 後方互換: getAll('childIds') で repeated form field (旧 UnifiedImportHub 経路)
+			childIds = fd
+				.getAll('childIds')
+				.map((v) => Number(v))
+				.filter((n) => Number.isInteger(n) && n > 0);
+		}
 		if (childIds.length === 0) {
 			return fail(400, { error: 'お子さまを 1 名以上選択してください' });
+		}
+
+		// #2554 follow-up CUJ-CH2 / PR #2474 CWE-598 guard 整合:
+		// 'all' 経路は構造的に tenant 配下のみだが、明示的ユーザ指定 (CSV) で他 tenant ID を
+		// 紛れ込ませた場合に orphan challenge / IDOR にならないよう必ず検証する。
+		const foreignChildIds = childIds.filter((id) => !allowedChildIdSet.has(id));
+		if (foreignChildIds.length > 0) {
+			logger.warn(
+				'[admin/challenges] tenant 外 child ID が importMarketplaceChallengeSet に指定された',
+				{
+					context: { presetId, foreignChildIds, tenantId },
+				},
+			);
+			return fail(403, {
+				error: '指定されたお子さまの一部が見つかりませんでした',
+			});
 		}
 
 		try {
