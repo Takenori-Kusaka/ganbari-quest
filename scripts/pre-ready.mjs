@@ -224,7 +224,7 @@ function buildSteps(args, changedFiles) {
 	return [
 		{
 			name: 'biome',
-			label: 'Step /12: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
+			label: 'Step 1/12: biome check (--error-on-warnings, CI と整合 — PR #2503 教訓)',
 			skip: args.skipBiome,
 			// #2503 (Issue #2475 14 件目): pre-ready Step 1 は CI .github/workflows/ci.yml
 			// lint-and-test の `npx biome check --error-on-warnings .` と完全一致させる。
@@ -236,14 +236,14 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'svelte-check',
-			label: 'Step /12: svelte-check (TS strict)',
+			label: 'Step 2/12: svelte-check (TS strict)',
 			skip: args.skipSvelteCheck,
 			runner: () => run('svelte-check', ['npx', 'svelte-check', '--tsconfig', './tsconfig.json']),
 			fixHint: '  型エラー箇所を修正。`as any` / `// @ts-expect-error` の追加は禁止 (ADR-0006)。',
 		},
 		{
 			name: 'vitest',
-			label: 'Step /12: vitest run (unit test)',
+			label: 'Step 3/12: vitest run (unit test)',
 			skip: args.skipVitest,
 			runner: () => run('vitest', ['npx', 'vitest', 'run']),
 			fixHint:
@@ -252,7 +252,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'hardcoded-strings',
-			label: 'Step /12: check-hardcoded-strings.mjs (#1452 Phase A)',
+			label: 'Step 4/12: check-hardcoded-strings.mjs (#1452 Phase A)',
 			skip: args.skipHardcoded,
 			runner: () => run('check-hardcoded-strings', ['node', 'scripts/check-hardcoded-strings.mjs']),
 			fixHint:
@@ -261,7 +261,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-dimensions',
-			label: `Step /12: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
+			label: `Step 5/12: measure-lp-dimensions.mjs (LP 変更検知: ${lpChanged ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpDimensions || !lpChanged,
 			runner: () => run('measure-lp-dimensions', ['node', 'scripts/measure-lp-dimensions.mjs']),
 			fixHint:
@@ -272,7 +272,7 @@ function buildSteps(args, changedFiles) {
 		},
 		{
 			name: 'lp-fallback',
-			label: `Step /12: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
+			label: `Step 6/12: sync-lp-fallback.mjs --check (LP / labels.ts 変更検知: ${lpFallbackTrigger ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpFallback || !lpFallbackTrigger,
 			runner: () => run('sync-lp-fallback', ['node', 'scripts/sync-lp-fallback.mjs', '--check']),
 			fixHint:
@@ -286,8 +286,8 @@ function buildSteps(args, changedFiles) {
 		{
 			name: 'plan-literals',
 			label: planLiteralsScriptExists
-				? 'Step /12: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
-				: 'Step /12: check-no-plan-literals.mjs (script 未配備 — skip)',
+				? 'Step 7/12: check-no-plan-literals.mjs (#972 / Phase 5 F1)'
+				: 'Step 7/12: check-no-plan-literals.mjs (script 未配備 — skip)',
 			skip: args.skipPlanLiterals || !planLiteralsScriptExists,
 			runner: () => run('check-no-plan-literals', ['node', 'scripts/check-no-plan-literals.mjs']),
 			fixHint:
@@ -302,8 +302,8 @@ function buildSteps(args, changedFiles) {
 		{
 			name: 'lp-labels',
 			label: !lpLabelsScriptExists
-				? 'Step /12: generate-lp-labels --check (script 未配備 — skip)'
-				: `Step /12: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
+				? 'Step 8/12: generate-lp-labels --check (script 未配備 — skip)'
+				: `Step 8/12: generate-lp-labels --check (labels.ts / terms.ts / age-tier.ts 変更検知: ${lpLabelsTrigger ? 'YES' : 'NO — skip'})`,
 			skip: args.skipLpLabels || !lpLabelsScriptExists || !lpLabelsTrigger,
 			runner: () =>
 				run('generate-lp-labels --check', ['node', 'scripts/generate-lp-labels.mjs', '--check']),
