@@ -127,7 +127,7 @@
 		"eslint-plugin-sonarjs": "^4.0.3",
 		"eslint-plugin-storybook": "^10.3.6",
 		"eslint-plugin-svelte": "^3.17.1",
-		"googleapis": "^171.4.0",
+		"googleapis": "^173.0.0",
 		"husky": "^9.1.7",
 		"jscpd": "^4.0.9",
 		"jsdom": "^29.1.1",
