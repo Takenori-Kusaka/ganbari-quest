@@ -42,27 +42,17 @@ type WorkerFixtures = {
 	/**
 	 * 本 worker が touch すべき SQLite file の絶対 path。
 	 * test 内で SQLite を直接読みたい spec (将来追加候補) が参照する。
-	 * Step A-6 時点では pin-activity は本 fixture を実際には読まないが、
-	 * Phase B 横展開時に `WHERE child_id = ?` 直接 verify したい spec で使えるよう公開しておく。
 	 */
 	workerDbPath: string;
 
 	/**
 	 * 本 worker が接続すべき preview/dev server の base URL。
 	 * `http://localhost:${BASE_PORT + parallelIndex}` (e.g. worker[0] = 5190, worker[1] = 5191)。
-	 * fixture は baseURL を override しないが、spec 側で `page.goto(workerBaseURL + '/...')`
-	 * や test.use({ baseURL: workerBaseURL }) で利用できる。
-	 *
-	 * **Note**: pin-activity.spec.ts は Step A-6 で本 fixture を読むだけで、page.goto() は
-	 * 相対 path のまま (`/switch` 等)。Playwright は `use.baseURL` を解決するため、worker[0] は
-	 * use.baseURL (port 5190 = worker[0] DB) を使う = pin-activity は worker[0] DB のみを touch。
-	 * 真の 2 worker 並列実行で race 検証するには Phase B で他 spec の fixtures.ts 経由化 +
-	 * test.use({ baseURL: workerBaseURL }) の override が必要。
 	 */
 	workerBaseURL: string;
 };
 
-export const test = base.extend<Record<string, never>, WorkerFixtures>({
+export const test = base.extend<{ baseURL: string }, WorkerFixtures>({
 	workerDbPath: [
 		async ({}, use, workerInfo) => {
 			const dbPath = path.resolve(`data/e2e-worker-${workerInfo.parallelIndex}.db`);
@@ -77,6 +67,19 @@ export const test = base.extend<Record<string, never>, WorkerFixtures>({
 		},
 		{ scope: 'worker' },
 	],
+	/**
+	 * `baseURL` を override し worker fixture の値で配布する。
+	 * これにより `import { test } from './fixtures'` した spec の `page.goto('/switch')` 等は
+	 * 自動的に `http://localhost:${BASE_PORT + parallelIndex}` 経由で解決される。
+	 * = pin-activity が worker[1] (port 5191、DB e2e-worker-1.db) に振り分けられた場合
+	 *   並列実行中の他 spec (worker[0] = port 5190 = e2e-worker-0.db) と SQLite file が分離される。
+	 *
+	 * Playwright 公式 pattern (https://playwright.dev/docs/test-fixtures#overriding-fixtures):
+	 * test fixture を worker fixture から resolve する。
+	 */
+	baseURL: async ({ workerBaseURL }, use) => {
+		await use(workerBaseURL);
+	},
 });
 
 export { expect } from '@playwright/test';
