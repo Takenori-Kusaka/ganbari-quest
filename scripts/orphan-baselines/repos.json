@@ -5,7 +5,8 @@
 		"src/lib/server/db/dynamodb/client.ts",
 		"src/lib/server/db/dynamodb/counter.ts",
 		"src/lib/server/db/dynamodb/keys.ts",
-		"src/lib/server/db/dynamodb/repo-helpers.ts"
+		"src/lib/server/db/dynamodb/repo-helpers.ts",
+		"src/lib/server/db/demo/webhook-event-repo.ts"
 	],
 	"reasons": {
 		"src/lib/server/db/dynamodb/auth-keys.ts": "DynamoDB internal helper (auth keys 構築)。同 layer 内 sibling-import 専用、facade 経由不要。",
@@ -13,8 +14,9 @@
 		"src/lib/server/db/dynamodb/client.ts": "DynamoDB client 初期化 helper。同 layer 内 sibling-import 専用。",
 		"src/lib/server/db/dynamodb/counter.ts": "DynamoDB counter atomic 操作 helper。同 layer 内 sibling-import 専用。",
 		"src/lib/server/db/dynamodb/keys.ts": "DynamoDB partition/sort key 構築 helper。同 layer 内 sibling-import 専用。",
-		"src/lib/server/db/dynamodb/repo-helpers.ts": "DynamoDB repo 共通 helper。同 layer 内 sibling-import 専用。"
+		"src/lib/server/db/dynamodb/repo-helpers.ts": "DynamoDB repo 共通 helper。同 layer 内 sibling-import 専用。",
+		"src/lib/server/db/demo/webhook-event-repo.ts": "Phase 7 PR-1 expand 段階で配備 (in-memory webhook event repo for demo backend)。facade (`db/webhook-events.ts`) / factory (`factory.ts` `createWebhookEventRepo`) からの import は Phase 7 PR-4a (webhook handler 統合 + sqlite/dynamodb repo 実装と同時) で追加。expand-then-contract pattern 整合 (Phase 6 子 5 #2678 SSOT)。本 PR では in-memory 実装 + unit test (tests/unit/db/webhook-event-repo.test.ts) のみ配備し、PR-4a 着手時に本 entry を baseline から削除する。"
 	},
 	"version": "1.0.0",
-	"generated": "2026-05-26T00:00:00.000Z"
+	"generated": "2026-05-30T09:55:00.000Z"
 }
