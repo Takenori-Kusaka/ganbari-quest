@@ -112,9 +112,16 @@ export function detectBreakingChanges(diff) {
 	const addedText = added.join('\n');
 
 	// drizzle column 定義行から "列名" を抜き出す helper
-	//   例: `	childId: integer('child_id').notNull().references(() => children.id),`
-	//   → fieldName = childId / dbColumn = child_id
-	const COLUMN_RE = /^\s*(\w+)\s*:\s*(integer|text|real|blob)\s*\(\s*['"]([\w]+)['"]\s*\)/;
+	//   例 1: `	childId: integer('child_id').notNull().references(() => children.id),`
+	//        → fieldName = childId / dbColumn = child_id
+	//   例 2 (#2689 fix): `	archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),`
+	//        → fieldName = archivedReason / dbColumn = archived_reason
+	//
+	// 旧正規表現 (Phase 7 PR-2a #2689 fix 前) は `\(\s*['"]([\w]+)['"]\s*\)` で **閉じ括弧** を必須として
+	// いたため、`text('archived_reason', { enum: ... })` のように追加引数を持つ定義行を全くマッチ
+	// できず、列名抽出に失敗 → 「削除側にのみ存在する列」= DROP COLUMN と誤判定していた。
+	// 第 2 引数 (drizzle column options) を許容するため、列名直後を「クォート閉じ + 任意の追加引数」に拡張。
+	const COLUMN_RE = /^\s*(\w+)\s*:\s*(integer|text|real|blob)\s*\(\s*['"]([\w]+)['"]/;
 
 	/**
 	 * @param {string} text

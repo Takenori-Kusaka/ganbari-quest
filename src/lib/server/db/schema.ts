@@ -40,7 +40,11 @@ export const children = sqliteTable('children', {
 	isArchived: integer('is_archived').notNull().default(0),
 	// Phase 7 PR-2a (#2688): enum 制約 + sqlite repo 型強制を同時適用 (PR-1 #2685 で
 	// 配備済の `ARCHIVED_REASONS` domain SSOT を drizzle 層で参照、`reason: ArchivedReason`
-	// 型を select / insert に自動伝播)。SQLite CHECK 制約として 3 reason のみ受理。
+	// 型を select / insert に自動伝播)。
+	// 注 (#2689 Round 1 訂正): drizzle `text(name, { enum })` は **TypeScript 型強制のみ**で、
+	// SQLite DDL 出力に CHECK 制約は生成されない (drizzle-orm 仕様)。runtime の値検証 (任意文字列を
+	// reject する application-layer validation) は本 PR scope 外で valibot / zod など別途実装する
+	// 必要がある (Phase 7 後続 follow-up Issue で扱う)。本 atom は compile-time の型安全に限定。
 	// SSOT: `src/lib/domain/archive-types.ts`
 	archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 });
@@ -74,7 +78,11 @@ export const activities = sqliteTable('activities', {
 	isArchived: integer('is_archived').notNull().default(0),
 	// Phase 7 PR-2a (#2688): enum 制約 + sqlite repo 型強制を同時適用 (PR-1 #2685 で
 	// 配備済の `ARCHIVED_REASONS` domain SSOT を drizzle 層で参照、`reason: ArchivedReason`
-	// 型を select / insert に自動伝播)。SQLite CHECK 制約として 3 reason のみ受理。
+	// 型を select / insert に自動伝播)。
+	// 注 (#2689 Round 1 訂正): drizzle `text(name, { enum })` は **TypeScript 型強制のみ**で、
+	// SQLite DDL 出力に CHECK 制約は生成されない (drizzle-orm 仕様)。runtime の値検証 (任意文字列を
+	// reject する application-layer validation) は本 PR scope 外で valibot / zod など別途実装する
+	// 必要がある (Phase 7 後続 follow-up Issue で扱う)。本 atom は compile-time の型安全に限定。
 	// SSOT: `src/lib/domain/archive-types.ts`
 	archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
@@ -442,7 +450,11 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	isArchived: integer('is_archived').notNull().default(0),
 	// Phase 7 PR-2a (#2688): enum 制約 + sqlite repo 型強制を同時適用 (PR-1 #2685 で
 	// 配備済の `ARCHIVED_REASONS` domain SSOT を drizzle 層で参照、`reason: ArchivedReason`
-	// 型を select / insert に自動伝播)。SQLite CHECK 制約として 3 reason のみ受理。
+	// 型を select / insert に自動伝播)。
+	// 注 (#2689 Round 1 訂正): drizzle `text(name, { enum })` は **TypeScript 型強制のみ**で、
+	// SQLite DDL 出力に CHECK 制約は生成されない (drizzle-orm 仕様)。runtime の値検証 (任意文字列を
+	// reject する application-layer validation) は本 PR scope 外で valibot / zod など別途実装する
+	// 必要がある (Phase 7 後続 follow-up Issue で扱う)。本 atom は compile-time の型安全に限定。
 	// SSOT: `src/lib/domain/archive-types.ts`
 	archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 	// #1755 (#1709-A): kind 列削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）

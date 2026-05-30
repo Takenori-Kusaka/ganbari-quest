@@ -32,7 +32,7 @@
 //   LOGIN_TERMS      — ログイン / サインイン 表記の atom（TECH-F、#1914）
 //   TRIAL_PERIOD_TERMS — 7 日間無料トライアル compound atom（TECH-F 中頻度、#1915）
 //   UPGRADE_TERMS    — プラン変更 / アップグレード / 上位プラン atom（TECH-F 中頻度、#1915）
-//   PLAN_CHANGE_TERMS — プラン変更 / archive / restore / protected atom（Phase 5 #2656 + Phase 7 PR-2a、#2688）
+//   PLAN_CHANGE_TERMS — プラン変更 / archive / restore atom（Phase 5 #2656 + Phase 7 PR-2a、#2688 / Round 1 #2689 で atom-only に絞込）
 //   GRADUATION_TERMS — 卒業 / 最終ゴール atom（TECH-F 中頻度、#1915）
 //   ADVENTURE_TERMS  — 冒険 / メインクエスト atom（TECH-F 中頻度、#1915）
 //   MECHANISM_TERMS  — 仕組み / 工夫 / 設計 atom（TECH-F 中頻度、#1915）
@@ -41,8 +41,8 @@
 //   REWARD_TERMS     — ごほうび管理 / ごほうびショップ / プリセット atom（EPIC #2266、#2276）
 //   TEMPLATE_TERMS   — みんなのテンプレート / テンプレート atom（EPIC #2266、#2276）
 //   CHECKOUT_TERMS   — Stripe Checkout custom_text atom（景品表示法対応、EPIC #2345 / #2346）
-//   TOKUSHOHO_TERMS  — 特商法第12条の6 6 項目見出し + 補足文言 atom（Phase 3 #2573 + Phase 7 PR-2a、#2688）
-//   CHECKOUT_SUCCESS_TERMS — Stripe Checkout 完了後 success ページ atom（Phase 3 #2572 + Phase 7 PR-2a、#2688）
+//   TOKUSHOHO_TERMS  — 特商法第12条の6 6 項目見出し + 短い名詞 atom（Phase 3 #2573 + Phase 7 PR-2a、#2688 / Round 1 #2689 で 6 見出し + cancelButtonLabel に絞込、法令文 compound は labels.ts 側へ移動）
+//   CHECKOUT_SUCCESS_TERMS — Stripe Checkout 完了後 success ページ atom（Phase 3 #2572 + Phase 7 PR-2a、#2688 / Round 1 #2689 で 5 variant 見出し + ボタンラベルに絞込、本文 compound は labels.ts 側へ移動）
 //
 // 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a)
 
@@ -552,41 +552,33 @@ export const UPGRADE_TERMS = {
 //   - ADR-0058 (family → premium rename): premium plan 文脈の compound 組立は PR-4 以降
 //
 // 統合判断の根拠 (Phase 5 §2 原則 3、本 PR で SSOT 化):
-//   - #2574 提案の 11 key を主軸 (banner / reactivation 動線で全 key 使用)
-//   - #2575 提案の `protectedFree` / `resumeReadyFree` を追加 (景表法 5 条 1 号整合)
-//   - alias key を残す (`resumeReady` = `resumeReadyPaid` alias / `protected` = `protectedPaid` alias)
-//     → Phase 7 段階的撤去判断で参照側選択肢確保 (ADR-0010 Pre-PMF 段階適用)
+//   - #2574 提案の主軸 key (banner / reactivation 動線で参照)
+//   - 旧版 11 key のうち、#2689 Round 1 で compound 句 (`restoreAble` / `resumeReady*` /
+//     `protected*` / `keepCurrent`) は labels.ts `PLAN_CHANGE_LABELS` に移動 (Phase 7 PR-2b)
 //
-// 設計指針 (key 別):
+// 設計指針 (key 別、Round 1 後):
 //   - 動詞: changeVerb / changeNoun ("プランを変更" / "プラン変更")
-//   - ダウン確定状態: scheduledChange ("切り替わります"、#2574 banner 専用)
+//   - ダウン確定状態: scheduledChange ("切り替わります"、#2574 banner 専用、単語 atom)
 //   - archive 行為: archive / archiveVerb ("アーカイブ" / "アーカイブされます")
-//   - 復活: restore / restoreAble / resumeReady (paid alias) / resumeReadyPaid / resumeReadyFree
-//   - 保護: protected (paid alias) / protectedReason / protectedPaid / protectedFree
-//   - CTA: keepCurrent ("現プランのまま続ける"、#2574 専用)
+//   - 復活: restore ("復活"、単語 atom のみ)
+//   - 保護 atom / CTA compound: PR-2b で labels.ts compound として組立 (ADR-0045 §3.3 整合)
 
+// #2689 Round 1 (Adversarial business 軸 + ADR-0045 §3.3 整合):
+// 旧版では `restoreAble: 'すぐに復活できます'` / `resumeReady*` / `protected*` / `keepCurrent` など
+// 助詞・複数 atom 結合の compound 句が混在していた。ADR-0045 §3.3 「terms.ts に compound (複数 atom
+// 組立文) を追加禁止」に整合させ、本 atom には**単一概念の動詞・名詞**のみを残す。
+// 旧 compound 句は labels.ts `PLAN_CHANGE_LABELS` (Phase 7 PR-2b で追加予定) に template literal 経由で移動する。
 export const PLAN_CHANGE_TERMS = {
 	// 動詞 (#2574 + #2575 共通)
 	changeVerb: 'プランを変更',
 	changeNoun: 'プラン変更',
-	// ダウン確定状態 (#2574 専用)
+	// ダウン確定状態 (#2574 専用、単語 atom)
 	scheduledChange: '切り替わります',
-	// archive 行為 (#2574 + #2575 共通)
+	// archive 行為 (#2574 + #2575 共通、単語 atom)
 	archive: 'アーカイブ',
 	archiveVerb: 'アーカイブされます',
-	// 復活 (#2574 + #2575 共通、value 統一)
+	// 復活 (#2574 + #2575 共通、単語 atom)
 	restore: '復活',
-	restoreAble: 'すぐに復活できます',
-	resumeReady: 'いつでもワンクリックで復活できます', // = paid plan 文脈 alias
-	resumeReadyPaid: 'いつでも復活できます', // #2575 ADR-0049 retention 整合 paid
-	resumeReadyFree: '期限内にプラン切替で復活可能です', // #2575 ADR-0049 retention 整合 free
-	// 保護 (#2574 + #2575 共通、ADR-0049 retention 整合で 4 variant)
-	protected: '保護されています', // = paid alias
-	protectedReason: '保護のため',
-	protectedPaid: '保護されています', // #2575 paid 明示
-	protectedFree: '90 日間アーカイブとして保持されます', // #2575 free 明示 (景表法 5 条整合)
-	// CTA (#2574 専用)
-	keepCurrent: '現プランのまま続ける',
 } as const;
 
 // ============================================================
@@ -805,41 +797,36 @@ export const CHECKOUT_TERMS = {
 //   - TRIAL_TERMS — 7 日間 / カード登録不要は既存
 //   - CANCEL_TERMS — 解約 (いつでも解約) は既存
 //   - CHECKOUT_TERMS — 「お選びのプランの機能」(景品表示法対応) は既存
-//   - TOKUSHOHO_TERMS — 本 atom、特商法 6 項目の見出し + 主要文言
+//   - TOKUSHOHO_TERMS — 本 atom、特商法 6 項目の見出し + 短い名詞 atom のみ
+//     (法令文 compound は #2689 Round 1 で labels.ts 側に移動、ADR-0045 §3.3 整合)
 //
-// 設計指針:
-//   - 6 ブロック見出し (heading1-6): 法令で定められた表示順序を厳密維持
-//   - 重要事項補足: subscriptionType / pciNote / noAdditionalFee
-//   - 解約方法 (Customer Portal 動線): cancelMethodFull / cancelAfterPolicy
-//   - 同意取得文言: consentLabel / confirmButtonLabel / cancelButtonLabel
-//   - 自動更新明示 (第12条の6第1項第2号): autoRenewalNotice / noProrationRefund
+// 設計指針 (Round 1 後):
+//   - 6 ブロック見出し (heading1-6): 法令で定められた表示順序を厳密維持、各見出しは単一名詞句
+//   - cancelButtonLabel: 'やめる' (短い動詞句、compound 組立用)
+//   - 法令文 compound (subscriptionType / pciNote / noAdditionalFee / cancelMethodFull /
+//     cancelAfterPolicy / consentLabel / confirmButtonLabel / autoRenewalNotice /
+//     noProrationRefund): labels.ts `TOKUSHOHO_LABELS` で template literal 組立 (Phase 7 PR-2b)
 //
 // 関連 compound: SUBSCRIPTION_CONFIRM_LABELS (Phase 7 PR-2b で追加、本 PR scope 外)
 
+// #2689 Round 1 (Adversarial business 軸 + ADR-0045 §3.3 整合):
+// 旧版では `cancelMethodFull` / `cancelAfterPolicy` / `autoRenewalNotice` / `pciNote` / `noAdditionalFee`
+// / `consentLabel` / `subscriptionType` 等の法令文 (複数 atom 結合の文章) が混在していた。
+// ADR-0045 §3.3 「terms.ts に compound 追加禁止」に整合させ、本 atom には**6 ブロック見出し** (法令で
+// 表示順序が定められた単一名詞句) と**短い名詞 atom** のみを残す。
+// 旧 compound 句は labels.ts `TOKUSHOHO_LABELS` (Phase 7 PR-2b で追加予定) に template literal 経由で
+// 移動する。法令改正時の影響範囲を可視化するため、compound 側で他 atom (CANCEL_TERMS /
+// STRIPE_PORTAL_TERMS / ADMIN_VIEW_TERMS / PRICE_TERMS) と結合する責務を持たせる。
 export const TOKUSHOHO_TERMS = {
-	// 6 ブロック見出し
+	// 6 ブロック見出し (法令で定められた表示順序を厳密維持、各見出しは単一名詞句 atom)
 	heading1Quantity: '分量',
 	heading2Price: '販売価格',
 	heading3Payment: '支払時期・方法',
 	heading4Delivery: '引渡時期・自動更新',
 	heading5Cancel: '申込撤回・解約方法',
 	heading6Important: '重要事項',
-	// 重要事項補足
-	subscriptionType: '月額自動更新のサブスクリプション契約',
-	pciNote: 'カード情報はStripeで安全に保管されます（当社では保存しません）',
-	noAdditionalFee: '表示価格以外の追加料金は一切ありません',
-	// 解約方法 (Customer Portal 動線)
-	cancelMethodFull:
-		'「ご家族の見守り画面」→「ご請求情報」から、または Stripe の請求管理ページから手続き',
-	cancelAfterPolicy:
-		'解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。',
-	// 同意取得文言 (法的に「申込完了意思の明確化」が必要 — 第12条の6第2項誤認防止)
-	consentLabel: '上記内容を確認し、お申し込みに同意します',
-	confirmButtonLabel: '上記内容で申し込む',
+	// 短い名詞 atom (compound 組立用、単一概念)
 	cancelButtonLabel: 'やめる',
-	// 自動更新明示 (第12条の6第1項第2号 定期購入特則)
-	autoRenewalNotice: '自動更新を停止しない限り、月額が毎月課金されます',
-	noProrationRefund: '日割り計算による返金は行いません',
 } as const;
 
 // ============================================================
@@ -851,7 +838,8 @@ export const TOKUSHOHO_TERMS = {
 //
 // 既存 `CHECKOUT_TERMS` (Checkout 直前 custom_text 用) とは意味文脈が異なるため別 atom 化:
 //   - CHECKOUT_TERMS: Stripe Checkout `custom_text.submit` / `after_submit` の限定文言
-//   - CHECKOUT_SUCCESS_TERMS: success ページ (5 variant) の見出し / 本文 / ボタン
+//   - CHECKOUT_SUCCESS_TERMS: success ページ (5 variant) の見出し + ボタンラベル
+//     (本文 *Body* は #2689 Round 1 で labels.ts compound 側に移動、ADR-0045 §3.3 整合)
 //
 // 5 variant 設計 (Phase 3 #2572 polling 設計):
 //   - variant A: success (Webhook 即時反映、2 秒後自動 redirect)
@@ -864,31 +852,30 @@ export const TOKUSHOHO_TERMS = {
 // 関連 ADR:
 //   - ADR-0045 (terms.ts 2 階層): atom 単一文言、compound 組立 (plan 名動的差し込み) は labels.ts 側
 
+// #2689 Round 1 (Adversarial UX 軸 + ADR-0045 §3.3 整合):
+// 旧版では 5 variant (success / preparing / processing / failed / timeout) の本文 (`*Body*`) を atom 化
+// していたが、これらは「保護者の決済完了ストレス局面でのコピーライティング A/B 最適化」を阻害する
+// 構造的越境 (本文は複数 atom の組立 = compound) であった。Adversarial UX 軸の指摘通り、本文は
+// labels.ts `CHECKOUT_SUCCESS_LABELS` (Phase 7 PR-2b で追加予定) に template literal 経由で移動する。
+// `successBodyTemplate` (動的差し込み template) は特に compound 側に置くべき責務であり、atom と称しつつ
+// concat を強制すると SSOT が二重管理化する (Adversarial UX 軸 §2)。
+//
+// 本 atom には 5 variant の**見出し** (短い単一名詞句) と**ボタンラベル** (動詞句) のみを残す。
+// 本文 (`*Body*`) は compound 側で見出し + ボタン + 動的差し込み (plan 名等) と組み合わせる。
 export const CHECKOUT_SUCCESS_TERMS = {
 	// variant A: success (Webhook 即時反映、2 秒後自動 redirect)
 	successHeading: 'ご利用ありがとうございます',
-	successBodyTemplate: 'へのお申し込みが完了しました。まもなく自動的にホームへ移動します。',
 	goHomeButton: 'ホームへ移動',
 	// variant B: preparing (Webhook 待機中、polling 5 秒間隔、最大 60 秒)
 	preparingHeading: '準備中',
-	preparingBody:
-		'お支払いを確認しています。このページは自動的に更新されます。しばらくお待ちください。',
-	preparingFootnote: '(画面を閉じても処理は継続されます)',
 	// variant C: processing (コンビニ / 銀行振込等の確認時間)
 	processingHeading: 'お支払いの確認をしています',
-	processingBody:
-		'コンビニ / 銀行振込等のお支払いは確認に時間がかかります。確認できしだい、ご登録のメールアドレスにご連絡します。',
 	goHomeBackButton: 'ホームへ戻る',
 	// variant D: failed (Webhook 失敗)
 	failedHeading: 'お支払いが完了していません',
-	failedBody:
-		'決済処理が完了しませんでした。お手数ですが、もう一度プランページからお手続きをお願いします。',
 	backToPlanButton: 'プランページに戻る',
 	// variant E: timeout (polling timeout)
 	timeoutHeading: '処理に時間がかかっています',
-	timeoutBody:
-		'お支払いは正常に処理されている可能性があります。数分後にもう一度ページを再読込してください。',
-	timeoutContactNote: '問題が続く場合はお問い合わせください。',
 	reloadButton: '再読込',
 } as const;
 
