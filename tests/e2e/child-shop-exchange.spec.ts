@@ -14,8 +14,7 @@
 //   AC3: 親が却下（ポイント変動なし確認）
 //   AC4: ポイント不足時は交換ボタンが disabled
 
-import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { dismissOverlays, selectKinderChild } from './helpers';
 
 // ============================================================
@@ -23,10 +22,15 @@ import { dismissOverlays, selectKinderChild } from './helpers';
 // ============================================================
 // workers: 2 の並列実行環境では他テストが point_ledger を汚染するため、
 // 各テスト実行前に残高を 100pt に強制リセットする（beforeAll では不十分）
-async function resetKinderChildBalance(): Promise<void> {
-	const DB_PATH = path.resolve('data/ganbari-quest.db');
+//
+// #2648 Phase A Round 15 (H-9 fix): `path.resolve('data/ganbari-quest.db')` (template DB)
+// 直接 seed を `workerDbPath` fixture 経由に置換。
+// Phase A Step A-4 で webServer が `DATABASE_URL=./data/e2e-worker-<i>.db` を使う設計に
+// 変えたため、template DB に seed しても preview server (worker DB を見る) からは
+// 不可視 = 5 spec で flake (Round 14 §0.1 / §3.1)。
+async function resetKinderChildBalance(workerDbPath: string): Promise<void> {
 	const { default: Database } = await import('better-sqlite3');
-	const db = new Database(DB_PATH);
+	const db = new Database(workerDbPath);
 	try {
 		const child = db
 			.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
@@ -66,11 +70,11 @@ async function resetKinderChildBalance(): Promise<void> {
 // AC2/AC3 テスト: 子供側 UI フローを経由せず DB に pending 申請を直接挿入し、
 // 親側（admin）の承認・却下フローのみを E2E 検証する
 async function insertPendingRedemption(
+	workerDbPath: string,
 	rewardTitle: string,
 ): Promise<{ childId: number; rewardId: number; requestId: number; rewardPoints: number }> {
-	const DB_PATH = path.resolve('data/ganbari-quest.db');
 	const { default: Database } = await import('better-sqlite3');
-	const db = new Database(DB_PATH);
+	const db = new Database(workerDbPath);
 	try {
 		const child = db
 			.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
@@ -118,11 +122,11 @@ async function insertPendingRedemption(
  * `reference_id = ?` で完全分離できる。
  */
 async function getRedemptionLedgerEntries(
+	workerDbPath: string,
 	requestId: number,
 ): Promise<Array<{ amount: number; type: string }>> {
-	const DB_PATH = path.resolve('data/ganbari-quest.db');
 	const { default: Database } = await import('better-sqlite3');
-	const db = new Database(DB_PATH);
+	const db = new Database(workerDbPath);
 	try {
 		return db
 			.prepare(
@@ -140,8 +144,8 @@ test.describe.configure({ mode: 'serial' });
 test.describe('#1335: ごほうびショップ 交換フロー', () => {
 	// workers: 2 の並列実行で他テストが point_ledger を汚染するため、
 	// 各テスト実行前に残高を 100pt に強制リセットする（beforeAll では不十分）
-	test.beforeEach(async () => {
-		await resetKinderChildBalance();
+	test.beforeEach(async ({ workerDbPath }) => {
+		await resetKinderChildBalance(workerDbPath);
 	});
 
 	test('ショップページが表示される', async ({ page }) => {
@@ -292,7 +296,7 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		expect(templateCols).toMatch(/px/);
 	});
 
-	test('キャンセルでダイアログが閉じる', async ({ page }) => {
+	test('キャンセルでダイアログが閉じる', async ({ page, workerDbPath }) => {
 		await selectKinderChild(page);
 		await dismissOverlays(page);
 		await page.goto('/preschool/shop');
@@ -312,7 +316,7 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		// 試行ごとに resetKinderChildBalance を再実行することで他 worker の干渉を打ち消す。
 		let enabled = await exchangeBtn.isEnabled().catch(() => false);
 		for (let attempt = 0; attempt < 3 && !enabled; attempt++) {
-			await resetKinderChildBalance();
+			await resetKinderChildBalance(workerDbPath);
 			await page.reload();
 			await expect(page.getByTestId('shop-page')).toBeVisible();
 			await expect(cancelTestCard).toBeVisible();
@@ -343,14 +347,15 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 	// 書き換えるため、total balance 比較 (`getPointBalance(childId)`) は flake する。
 	// 代わりに「この申請に紐づく reward_redemption 台帳エントリ」を直接検証する
 	// (`reference_id = requestId`、ADR-0006: assertion 強化方向)。
-	test('AC2: 親が申請を承認するとポイントが減算される', async ({ page }) => {
+	test('AC2: 親が申請を承認するとポイントが減算される', async ({ page, workerDbPath }) => {
 		// DB に pending 申請を直接挿入（交換可 = 50pt）
 		const { requestId, rewardPoints } = await insertPendingRedemption(
+			workerDbPath,
 			'E2Eテスト用ごほうび（交換可）',
 		);
 
 		// 承認前: この申請に紐づく reward_redemption エントリは 0 件
-		const ledgerBefore = await getRedemptionLedgerEntries(requestId);
+		const ledgerBefore = await getRedemptionLedgerEntries(workerDbPath, requestId);
 		expect(ledgerBefore.length).toBe(0);
 
 		// #2269: 申請承認は /admin/rewards/requests に分離されたため直接遷移
@@ -369,7 +374,7 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		// 承認後: この申請に紐づく reward_redemption エントリが
 		// ちょうど 1 件、amount = -rewardPoints で挿入されていることを DB で確認
 		// (`reward-redemption-service.ts:163-172` の insertPointEntry 呼び出しと対応)
-		const ledgerAfter = await getRedemptionLedgerEntries(requestId);
+		const ledgerAfter = await getRedemptionLedgerEntries(workerDbPath, requestId);
 		expect(ledgerAfter.length).toBe(1);
 		expect(ledgerAfter[0]?.amount).toBe(-rewardPoints);
 	});
@@ -381,12 +386,15 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 	// 却下フローは service 層 (`reward-redemption-service.ts:206-240`) で
 	// `insertPointEntry` を呼ばないため、この申請に紐づく
 	// reward_redemption ledger エントリは 0 件のまま (前後共に 0)。
-	test('AC3: 親が申請を却下してもポイントは変動しない', async ({ page }) => {
+	test('AC3: 親が申請を却下してもポイントは変動しない', async ({ page, workerDbPath }) => {
 		// DB に pending 申請を直接挿入（キャンセル確認用 = 50pt）
-		const { requestId } = await insertPendingRedemption('E2Eテスト用ごほうび（キャンセル確認用）');
+		const { requestId } = await insertPendingRedemption(
+			workerDbPath,
+			'E2Eテスト用ごほうび（キャンセル確認用）',
+		);
 
 		// 却下前: この申請に紐づく reward_redemption エントリは 0 件
-		const ledgerBefore = await getRedemptionLedgerEntries(requestId);
+		const ledgerBefore = await getRedemptionLedgerEntries(workerDbPath, requestId);
 		expect(ledgerBefore.length).toBe(0);
 
 		// #2269: 申請承認は /admin/rewards/requests に分離されたため直接遷移
@@ -422,7 +430,7 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 
 		// 却下後: この申請に紐づく reward_redemption エントリは 0 件のままであることを DB で確認
 		// (rejectRedemption はステータス更新のみで point_ledger を変更しないため)
-		const ledgerAfter = await getRedemptionLedgerEntries(requestId);
+		const ledgerAfter = await getRedemptionLedgerEntries(workerDbPath, requestId);
 		expect(ledgerAfter.length).toBe(0);
 	});
 });

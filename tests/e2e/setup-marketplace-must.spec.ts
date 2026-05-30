@@ -13,8 +13,7 @@
 // 認証コンテキストが事前に確立されている前提。ローカル AUTH_MODE=local では
 // hooks.server.ts の自動セットアップ + global-setup.ts のテナント seed が使われる。
 
-import path from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // #2558 真因 fix (3 ラウンド目 + cross-spec 配慮): 並列 worker (workers: 2 +
 // 他 spec が kinder-starter を import) で `isFullyImported = true` となる根本原因は、
@@ -41,14 +40,15 @@ import { expect, test } from '@playwright/test';
 //
 // ADR-0006 厳守 (retry / timeout で誤魔化さない): retry 回数増 / waitForTimeout
 // 追加 / assertion 弱体化はせず、`child_activities` 直接 cleanup で structural fix。
-async function clearKinderStarterActivities(): Promise<void> {
+// #2648 Phase A Round 15 (H-9 fix): template DB 直接 DELETE を `workerDbPath` fixture
+// 経由に置換。Phase A Step A-4 で webServer が worker DB を見る設計に変えたため。
+async function clearKinderStarterActivities(workerDbPath: string): Promise<void> {
 	if (process.env.AUTH_MODE && process.env.AUTH_MODE !== 'local') {
 		// cognito-dev / aws 環境では DB 直接操作不可。preview/local のみ実行。
 		return;
 	}
-	const DB_PATH = path.resolve('data/ganbari-quest.db');
 	const { default: Database } = await import('better-sqlite3');
-	const db = new Database(DB_PATH);
+	const db = new Database(workerDbPath);
 	try {
 		// kinder-starter pack の 30 件の活動名から、must seed 3 件を除いた 27 件。
 		// (src/lib/data/marketplace/activity-packs/kinder-starter.json 全 30 件 -
@@ -139,19 +139,20 @@ async function clearKinderStarterActivities(): Promise<void> {
 // import race は `child_activities` 直接 DELETE で構造的に解消済 (上記 clearKinderStarterActivities 参照)。
 test.describe
 	.serial('#1758 marketplace 移行 — must 推奨インポート', () => {
-		test.beforeEach(async () => {
-			await clearKinderStarterActivities();
+		test.beforeEach(async ({ workerDbPath }) => {
+			await clearKinderStarterActivities(workerDbPath);
 		});
 
 		test('admin/packs で activity-pack に「おやくそく推奨 N件」Badge と must Badge が表示される', async ({
 			page,
+			workerDbPath,
 		}) => {
 			// #2558 fix: 並列 worker (workers: 2) が kinder-starter を import し続けるため、
 			// beforeEach delete だけでは race で fail する。page.goto 直前に再 delete + reload で
 			// race window を最小化する (最大 3 回試行)。「インポート済」badge visible = 並列 worker が
 			// 直前に import してしまった状態。`!isFullyImported` 状態 (form 表示) になるまで retry。
 			for (let attempt = 0; attempt < 3; attempt++) {
-				await clearKinderStarterActivities();
+				await clearKinderStarterActivities(workerDbPath);
 				await page.goto('/admin/packs');
 				await expect(page).toHaveURL(/\/admin\/packs/);
 				const importedBadge = page
@@ -188,6 +189,7 @@ test.describe
 
 		test('admin/packs チェックボックス OFF 操作後も UI 状態が保持される（applyMustDefault state）', async ({
 			page,
+			workerDbPath,
 		}) => {
 			// シナリオ 2: チェックボックスを OFF にすると applyMustDefault state が false に
 			// 切り替わる。次回 form submit 時に applyMustDefault が送信されない（既定 OFF）。
@@ -195,7 +197,7 @@ test.describe
 			// (#1758 セクション 5 件) で検証済。ここでは UI state 切り替えのみ確認する。
 			// #2558 fix: 1 つ目の test と同じ race 対策 (clear → goto → 確認 → 必要なら retry)
 			for (let attempt = 0; attempt < 3; attempt++) {
-				await clearKinderStarterActivities();
+				await clearKinderStarterActivities(workerDbPath);
 				await page.goto('/admin/packs');
 				const importedBadge = page
 					.locator('button:has-text("ようじキッズ")')

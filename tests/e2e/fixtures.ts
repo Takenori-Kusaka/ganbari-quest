@@ -84,4 +84,9 @@ export const test = base.extend<{ baseURL: string }, WorkerFixtures>({
 	},
 });
 
+// Re-export Playwright types so spec files importing from './fixtures' can stay
+// fully self-contained (no need to mix `@playwright/test` for type-only imports
+// when seed helpers / fixtures originate from this module).
+// #2648 Round 15 (H-9 fix): added when migrating 5 spec to fixture-based seeding.
+export type { APIRequestContext, Locator, Page, Request, Route } from '@playwright/test';
 export { expect };

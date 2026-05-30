@@ -14,10 +14,17 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('#1781 grace-period soft-delete API contract', () => {
+	// #2648 Phase A Round 15 (B-6 timeout 緩和): preview server の **1st HTTP request** 時に
+	// `client.ts/lazy` の `getOrInitDb()` (schema migration + validateAndMigrate +
+	// assertNoDataOrphans) が走るため、デフォルト `actionTimeout: 10_000` (playwright.config.ts:99)
+	// が刻まれた状態でも latency が +50-100ms 発生する。Round 14 §6.1 / §7.3 で
+	// 「ADR-0006 違反でない妥当 budget 設定」として確認済。spec 全体で 5000ms timeout 明示。
+	test.setTimeout(15_000);
+
 	test('GET /api/v1/admin/account/grace-status: 応答構造（未認証 401 または 200）', async ({
 		request,
 	}) => {
-		const res = await request.get('/api/v1/admin/account/grace-status');
+		const res = await request.get('/api/v1/admin/account/grace-status', { timeout: 5000 });
 		const status = res.status();
 		// ローカル auto-auth: 200 / cognito-dev 未認証: 401
 		expect([200, 401]).toContain(status);
@@ -40,7 +47,7 @@ test.describe('#1781 grace-period soft-delete API contract', () => {
 	test('POST /api/v1/admin/account/restore: 未認証で 401 または 認証済みで 400/200', async ({
 		request,
 	}) => {
-		const res = await request.post('/api/v1/admin/account/restore');
+		const res = await request.post('/api/v1/admin/account/restore', { timeout: 5000 });
 		const status = res.status();
 		// 401 (cognito 未認証) / 400 (soft-delete されていない) / 200 (復元成功)
 		expect([200, 400, 401, 403]).toContain(status);
@@ -57,6 +64,7 @@ test.describe('#1781 grace-period soft-delete API contract', () => {
 		const res = await request.post('/api/v1/admin/account/delete', {
 			headers: { 'Content-Type': 'application/json' },
 			data: { pattern: 'owner-only' },
+			timeout: 5000,
 		});
 		const status = res.status();
 		// 401 (未認証) / 403 (role 不一致) / 200 (成功) のいずれか
@@ -81,6 +89,7 @@ test.describe('#1781 grace-period soft-delete API contract', () => {
 		const res = await request.post('/api/v1/admin/account/delete', {
 			headers: { 'Content-Type': 'application/json' },
 			data: { pattern: 'owner-full-delete' },
+			timeout: 5000,
 		});
 		const status = res.status();
 		expect([200, 401, 403, 500]).toContain(status);
@@ -99,6 +108,7 @@ test.describe('#1781 grace-period soft-delete API contract', () => {
 		const res = await request.post('/api/v1/admin/account/delete', {
 			headers: { 'Content-Type': 'application/json' },
 			data: { pattern: 'owner-with-transfer', newOwnerId: 'unknown-user-id' },
+			timeout: 5000,
 		});
 		const status = res.status();
 		// 401 / 403 / 400 (移譲先存在せず) / 500 (Cognito 未設定) のいずれか。
@@ -114,6 +124,7 @@ test.describe('#1781 grace-period soft-delete API contract', () => {
 			const res = await request.post('/api/v1/admin/account/delete', {
 				headers: { 'Content-Type': 'application/json' },
 				data: { pattern },
+				timeout: 5000,
 			});
 			const status = res.status();
 			expect([200, 400, 401, 403, 500]).toContain(status);
