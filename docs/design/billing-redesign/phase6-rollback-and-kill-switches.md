@@ -27,7 +27,7 @@ Phase 5 子 1 (#2639) の deep-research SSOT (`tmp/reviews/phase5-stripe-product
 3. 顧客が `subscription_schedule` 作成済の状態で Portal 再操作 → Stripe Portal が「subscription_update / cancel UI 非表示」のロック仕様 → 顧客が反応せず混乱
 4. lookup_key 解決時に Stripe API 障害 (5xx) → `prices.list({ lookup_keys })` 失敗 → アプリ起動失敗 (Lambda cold start で全 request 500)
 5. Webhook destination の `default_api_version` vs SDK `apiVersion` 乖離 → event field 構造変化 → handler コード参照プロパティが undefined
-6. proration_date が `createPreview` と `subscriptions.update` で 5 分超過 → Stripe 拒否 (`InvalidProrationDate` error)
+6. proration_date が `createPreview` と `subscriptions.update` で 30 分超過 → Stripe 拒否 (`InvalidProrationDate` error)
 7. dunning Smart Retries 8 attempts 枯渇後 → `customer.subscription.deleted` 受信 → `handleSubscriptionDeleted` が archive 機構未呼出 (Phase 1 #2537 FR-3 未成立)
 
 Phase 7 実装者が本 docs を参照しない場合、各リスクごとに **検知 method (CloudWatch alarm / Sentry / Discord alert / log polling 等が散在)** と **ロールバック手順 (revert PR / env var 切替 / Dashboard 再操作 / Stripe API 再呼出 が散在)** を独自判断することになり、本番 cutover 失敗時の MTTR (Mean Time To Recovery) が 1 時間超過するリスク。
@@ -127,14 +127,14 @@ Phase 1 + Phase 6 子 1-4 経由で以下 3 件の構造的欠落が判明した
 | **ロールバック手順** | (1) PO #2627 で Webhook destination の `default_api_version` を新 `2026-05-27.dahlia` に同期 (Dashboard UI / Stripe API `webhookEndpoints.update({api_version})`、5 分以内) (2) Sentry log で TypeError 発生時刻以降の event を Stripe API `events.retrieve` で再取得 → 手動 replay (3) 復旧不能なら apiVersion を旧版に巻き戻し (Stripe 公式 72h rollback window 利用、Stripe Dashboard "Versions" tab) + SDK 1 行修正 PR 即時 merge |
 | **再発防止** | Phase 7 Step 3 PR Pre-Ready checklist に「Webhook destination api_version 同期確認 (Stripe API `webhookEndpoints.retrieve` で assert)」+ Phase 7 Step 4-a smoke test に「全 8 event 種で field 構造 schema validation」追加 (Phase 5 子 3 #2641 §3.1 webhook table の `event_type` 別 schema check) |
 
-### 3.6 R6: proration_date 5 分超過
+### 3.6 R6: proration_date 30 分超過
 
 | 項目 | 内容 |
 |---|---|
-| **シナリオ** | Phase 5 子 2 #2640 §3 アップ即時で `invoices.createPreview({proration_date})` 取得後、顧客が同意画面で 5 分超過 → `subscriptions.update({proration_date: 同一値})` 送信 → Stripe API が「proration_date too old」error (5 分制約は実機検証で確認、子 2 #2674 シナリオ 2 でも同一現象 fixed: `proration_date` は 30 分有効、5 分超過の文言は誤りで実機は 30 分以上有効) |
+| **シナリオ** | Phase 5 子 2 #2640 §3 アップ即時で `invoices.createPreview({proration_date})` 取得後、顧客が同意画面で 30 分超過 → `subscriptions.update({proration_date: 同一値})` 送信 → Stripe API が「proration_date too old」error (実機検証で確認、`proration_date` は約 30 分有効、子 2 #2674 シナリオ 2 で再現) |
 | **検知 method** | (a) Sentry `Stripe: InvalidProrationDate` error (b) `/admin/subscription/confirm` の submit エラー率 |
-| **ロールバック手順** | (1) 顧客 UI でエラー表示 + 「再度プレビューから始めてください」リンク表示 (2) 顧客は再度 `/admin/subscription` → 「プラン変更」CTA → 新 `proration_date` 取得 → 同意 (3) 5 分以内に再 submit 強制 |
-| **再発防止** | Phase 7 Step 3 hybrid confirm UI 実装時 (Phase 3 #2572 連動) に「`proration_date` 取得後 5 分タイマー、超過時に preview 強制再取得 CTA 表示」を組み込む。Phase 6 子 2 #2674 シナリオ 2 で E2E assert |
+| **ロールバック手順** | (1) 顧客 UI でエラー表示 + 「再度プレビューから始めてください」リンク表示 (2) 顧客は再度 `/admin/subscription` → 「プラン変更」CTA → 新 `proration_date` 取得 → 同意 (3) 30 分以内に再 submit 強制 |
+| **再発防止** | Phase 7 Step 3 hybrid confirm UI 実装時 (Phase 3 #2572 連動) に「`proration_date` 取得後 30 分タイマー (Stripe API の実機検証値、UI 側は 25 分経過時点でフロント警告表示推奨)、超過時に preview 強制再取得 CTA 表示」を組み込む。Phase 6 子 2 #2674 シナリオ 2 で E2E assert |
 
 ### 3.7 R7: dunning Smart Retries 8 attempts 枯渇 → archive 機構未呼出
 
@@ -155,7 +155,7 @@ Phase 1 + Phase 6 子 1-4 経由で以下 3 件の構造的欠落が判明した
 | R3 | Portal ロック顧客混乱 | 顧客 inquiry + シナリオ 6 E2E | `cancelPendingRedirect` atom 表示 + 自社 UI 直接 access | Step 2 atom 追加 + Phase 3 #2573 banner |
 | R4 | lookup_key API 障害 | Lambda alarm + Discord alert | `USE_LOOKUP_KEY=false` Lambda env 即時切替 | シナリオ 2 kill switch dry-run + Step 3 unit test |
 | R5 | apiVersion 乖離 | Sentry TypeError + Webhook "Failed" rate | Dashboard `default_api_version` 同期 + 72h rollback | Step 3 Pre-Ready (`webhookEndpoints.retrieve` assert) |
-| R6 | proration_date 期限超過 | Sentry InvalidProrationDate | 顧客 UI 再 preview CTA + 5 分タイマー | Step 3 hybrid confirm UI 実装 + シナリオ 2 E2E |
+| R6 | proration_date 期限超過 | Sentry InvalidProrationDate | 顧客 UI 再 preview CTA + 30 分タイマー | Step 3 hybrid confirm UI 実装 + シナリオ 2 E2E |
 | R7 | archive 未呼出 (forward-fix) | シナリオ 5 E2E + cutover 後整合チェック | Phase 7 PR-X で `handleSubscriptionDeleted` archive 追加 | シナリオ 5 Pre-Ready 必須化 + integration test |
 
 ## 4. #2627 Stripe Dashboard ロールバック 3 期間別マトリクス (§4)
