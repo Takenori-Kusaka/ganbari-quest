@@ -143,6 +143,7 @@ Phase 1 + Phase 6 子 1-4 経由で以下 3 件の構造的欠落が判明した
 | **シナリオ** | Phase 1 #2537 dunning FR-3 で「unpaid/canceled で plan を無料に戻す + archive」と確定済だが、現状 `handleSubscriptionDeleted` (`src/lib/server/services/stripe-service.ts`:394) は status を SUSPENDED にするのみで **archive 機構未呼出**。Phase 7 Step 4-b cutover 後、初回 dunning cycle 完走 (約 14 日後) で `customer.subscription.deleted` 受信時に archive スキップ → 課金停止顧客のリソースが active 表示のまま → 翌月の payment retry / 顧客 inquiry 蓄積 |
 | **検知 method** | (a) Phase 6 子 2 #2674 シナリオ 5 (dunning 8 attempts) E2E で「`archived_reason='dunning_canceled'` の row 数 > 0」assert (b) Phase 7 cutover 後 14 日時点で `archived_reason='dunning_canceled'` 件数 vs `customer.subscription.deleted` event 受信数の整合チェック (c) 顧客 inquiry「課金停止したのに data 残っている」 |
 | **ロールバック手順** | (本リスクは「未実装による顧客被害」のため rollback ではなく **forward-fix 必須**) (1) Phase 7 Step 4-b の **新 PR-X** で `handleSubscriptionDeleted` に `resourceArchiveService.archiveForDowngrade({reason: 'dunning_canceled'})` 呼出を追加 (Phase 5 子 4 #2642 統合 archive service 整合) (2) past 14 日分の `customer.subscription.deleted` event を Stripe API `events.list({type})` で取得 → 手動 archive (3) 再発防止として Phase 7 Step 4-a 内に新 PR-X を組み込む (本 docs §6.1 で SSOT 化) |
+<!-- doc-code-refs: ignore-line -->
 | **再発防止** | Phase 7 PR-X 実装後、Phase 6 子 2 #2674 シナリオ 5 で「dunning 8 attempts → archive 実行」を Pre-Ready E2E 必須化、`tests/integration/dunning-canceled-archive.spec.ts` 新規 (Phase 5 子 4 §7.3 整合) |
 
 ### 3.8 想定リスク 7 件 SSOT サマリ表
@@ -297,6 +298,7 @@ Phase 1 + Phase 6 子 1-4 経由で判明した 3 件の構造的欠落を、Pha
 | **Phase 7 反映方針** | **Step 4-b cutover の内部 sub PR (= 新 PR-X)** で対処。具体的には Phase 7 Step 4-b PR の前に PR-X を独立 merge: (1) `handleSubscriptionDeleted` に `resourceArchiveService.archiveForDowngrade({ tenantId, reason: 'dunning_canceled' })` 呼出追加 (Phase 5 子 4 #2642 統合 archive service 整合) (2) `tenants.plan_tier = 'free'` に巻き戻し (3) Phase 6 子 2 #2674 シナリオ 5 dunning E2E で「dunning 8 attempts → `archived_reason='dunning_canceled'` row > 0」assert |
 | **担当 PR** | Phase 7 PR-X (Step 4-b 内部、推定 100 行) |
 | **依存** | Step 1 (DB migration、`archived_reason` enum 配備) + Step 2-4 (atom `PLAN_TERMS.premium` rename) |
+<!-- doc-code-refs: ignore-line -->
 | **再発防止** | (a) Phase 6 子 2 #2674 シナリオ 5 を Pre-Ready 必須化 (b) `tests/integration/dunning-canceled-archive.spec.ts` 新規 (Phase 5 子 4 §7.3 整合) (c) 本 docs §3.7 R7 SSOT |
 
 ### 6.2 欠落 #2: tax_behavior 一致制約 (Phase 5 子 1 副次制約 1)
@@ -367,6 +369,7 @@ Phase 6 子 1 #2667 §3 Step 4-b ロールバック判断基準を補完し、3 
 |---|---|---|---|---|
 | 1 | **Stripe webhook 失敗率** | > 1% / 1 hour | Stripe Dashboard Webhook destination "Failed" rate + CloudWatch metric (Phase 7 Step 4-a 実装、`stripe_webhook_events.handler_result='error'` 行数 / total 行数) | Dev (Sentry alert 即時受信、5 分以内に PO 判断 escalation) |
 | 2 | **顧客 inquiry 件数** | ≥ 3 件 / 24 hour | Discord support channel + `/admin/ops` inquiry log (Phase 1 補強 1 FR-9 整合) | PO (Discord alert 受信後 30 分以内に rollback 判断) |
+<!-- doc-code-refs: ignore-line -->
 | 3 | **DB inconsistency 検知** | ≥ 1 件 (`stripe_webhook_events` dedup miss = 同一 `event.id` で `retry_count > 0` かつ `handler_result='error'` の row 存在) | `tests/integration/stripe-webhook-dedup.test.ts` 新規 (Phase 5 子 3 §7 整合) + cron で `SELECT * FROM stripe_webhook_events WHERE retry_count > 0 AND handler_result='error'` 日次実行 (Phase 7 Step 4 で配備) | Dev (cron alert 受信、即時 rollback 判断) |
 
 ### 8.2 3 指標の組合せ判断 (mermaid)
@@ -519,6 +522,7 @@ QM BLOCK 予防 4 項目 (memory `feedback_pr_review_recurring_blocks`) で「Op
 |---|---|---|
 | 1 | **着手時 deep-research** | Phase 5 子 1 deep-research SSOT (`tmp/reviews/phase5-stripe-product-research.md` §「想定リスク 7 件」) を再利用 + Phase 6 計画書 v2 §「業界根拠 primary source 22 URL」を継承。新規調査: Stripe `migrate-snapshot-to-thin-events` 5 phase / `migrate-subscriptions toolkit` 10h window / LaunchDarkly / Unleash 4 OSS 比較 (本 docs §7)。自プロダクト既存実装 Explore 照合 (`src/lib/server/services/stripe-service.ts`:394 `handleSubscriptionDeleted` / `src/lib/server/stripe/config.ts` / `.env.example` / `docs/decisions/README.md` active 39 件) を 2026-05-30 検証済 ([[deep-research-product-specific]] 整合) |
 | 2 | **UI SS + a11y** | 本 PR は docs only、UI 変更ゼロ。Phase 7 Step 2-2 で `cancelPendingRedirect` atom 表示時に Phase 3 #2573 既設計 banner UI で a11y 確認 (本 docs §6.3) |
+<!-- doc-code-refs: ignore-line -->
 | 3 | **UX テスト計画** | 本 docs §3.7 想定リスク 7 件のうち R3 (Portal ロック顧客混乱) + R7 (archive 未呼出) は UX 影響あり、Phase 6 子 2 #2674 §6 シナリオ 5+6 で E2E 検証。kill switch dry-run (本 docs §5.5) を Pre-Ready 必須化 (`tests/e2e/billing/upgrade-immediate.spec.ts` 3 phase serial、子 2 #2674 §6) |
 | 4 | **用語 SSOT** | `SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom を本 docs §6.3 で新規確定 (Phase 5 子 5 #2643 §6 atom 統合 5 step に追補)。`STRIPE_PORTAL_TERMS.canonical` 既存 atom を template literal `${STRIPE_PORTAL_TERMS.canonical}` で参照 (ADR-0045 整合) |
 | 5 | **影響範囲事後検証** | §9 で L1-L4 + 21 カテゴリ checklist 完遂 (L1: 6 検索パターン / L2: enum 値 + env 3 系統 / L3: 4 依存グラフ / L4: 8 カテゴリ主要影響)。impact-analysis methodology (memory `reference_impact_analysis_methodology`) 4 layer 防御 + Bohner & Arnold 3 分類 (Traceability/Dependency/Experiential) 整合 |
