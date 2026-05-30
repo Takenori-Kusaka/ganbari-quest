@@ -308,12 +308,17 @@ describe('補強 PR #2684 命名変更整合性 (代替案 D 採用に伴う ren
 });
 
 // ============================================================
-// 既存 LICENSE_PAGE_LABELS との共存確認 (PR-2c で rename される、本 PR では削除しない)
+// LICENSE_PAGE_LABELS alias 共存確認 (PR-2c #2699 で SUBSCRIPTION_PAGE_LABELS に rename + 統合済)
 // ============================================================
-describe('既存 LICENSE_PAGE_LABELS との共存 (Phase 7 PR-2c で SUBSCRIPTION_PAGE_LABELS に rename 計画)', () => {
-	it('LICENSE_PAGE_LABELS は本 PR では削除されておらず、SUBSCRIPTION_PAGE_LABELS と共存する', async () => {
+//
+// Phase 7 PR-2c (#2699) で `LICENSE_PAGE_LABELS` (96 key) を `SUBSCRIPTION_PAGE_LABELS` (105 key) に
+// rename + 既存 9 key と統合。`LICENSE_PAGE_LABELS` は alias export として共存期間中存続する。
+describe('LICENSE_PAGE_LABELS alias と SUBSCRIPTION_PAGE_LABELS 共存 (Phase 7 PR-2c #2699 で rename + 統合済)', () => {
+	it('LICENSE_PAGE_LABELS は alias として残存し、SUBSCRIPTION_PAGE_LABELS と同一参照を返す', async () => {
 		const labels = await import('../../../src/lib/domain/labels');
 		expect(labels).toHaveProperty('LICENSE_PAGE_LABELS');
 		expect(labels).toHaveProperty('SUBSCRIPTION_PAGE_LABELS');
+		// alias は本体と同一参照
+		expect(labels.LICENSE_PAGE_LABELS).toBe(labels.SUBSCRIPTION_PAGE_LABELS);
 	});
 });

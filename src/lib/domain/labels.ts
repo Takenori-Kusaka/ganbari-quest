@@ -7,7 +7,7 @@
 // #1958 (Phase 7 H1): CTA_TERMS を ACTION_LABELS / TRIAL_LABELS から参照（freeTrial / freeTrialWord / freeTrialDesc）
 // #1960 (Phase 7 H3): PRICING_PAGE_LABELS subtitle1 で FREE_TERMS を追加 import
 // #1961 (Phase 7 H4): PRICE_TERMS を PREMIUM_MODAL_LABELS から参照
-// #1963 (Phase 7 H6): LICENSE_PAGE_LABELS で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
+// #1963 (Phase 7 H6): SUBSCRIPTION_PAGE_LABELS (旧 LICENSE_PAGE_LABELS) で PRICE_TERMS を新規参照（plan / 期間 / 価格 atom 直書き撤廃）
 // #1898 (PO-4-12): LP_FAQ_TERMS を LP_LEGAL_DISCLAIMER_LABELS から参照（liabilityBody / liabilityLinks / cancelDisclaimerLinks の「FAQ」直書きを atom 経由に置換）
 // #1913 (UIUX-E): AGE_RANGE_TERMS / POINT_TERMS / CURRENCY_TERMS / FREE_PLAN_TERMS 追加（年齢レンジ / ポイント / 通貨 / 無料プラン訴求 atom 集約）
 // #2058 (UIUX-F-16): AUTONOMY_TERMS 追加（「自律」「自走」→「自分から動きだす」「自分で計画する」LP リフレーム atom、法務文書は法務 review 後の別 PR で対応）
@@ -1644,7 +1644,35 @@ export const SETTINGS_NAV_LABELS = {
 	externalIndicatorHub: '別ページへ',
 } as const;
 
-export const LICENSE_PAGE_LABELS = {
+// ============================================================
+// SUBSCRIPTION_PAGE_LABELS — /admin/subscription プランページ (旧 LICENSE_PAGE_LABELS)
+// ============================================================
+//
+// Phase 7 PR-2c (#2699): 旧 LICENSE_PAGE_LABELS を本 namespace に rename + Phase 3 #2567
+// §文言 atom 確定済 9 key を統合 (105 key)。Phase 5 SSOT §4.1 整合。
+// rename 後の正本として `SaasLicensePanel.svelte` 等 96 件から参照される。
+// 旧 LICENSE_PAGE_LABELS は本ファイル末尾で alias export として残存 (共存期間)。
+
+export const SUBSCRIPTION_PAGE_LABELS = {
+	// Phase 3 #2567 §文言 atom 確定 9 key (PR-2b で先行配備、本 PR で統合)
+	pageTitle: 'ご家族のプラン管理',
+	currentPlan: '現在のプラン',
+	// trial active 中の表示 (Phase 3 #2571 TrialBanner と機能領域として隣接)
+	trialActive: `${PLAN_FULL_TERMS.family}${TRIAL_TERMS.durationSpaced}無料体験中`,
+	// アップグレード CTA (Kinde 「what happens when clicked」原則、Phase 4 #2624 §2.1 整合)
+	upgradeCta: `${PLAN_FULL_TERMS.family}にする`,
+	// CTA 直下「いつでも解約」併記 (frictionless、Kinde 整合)
+	cancelAnytime: CANCEL_TERMS.anytimeOk,
+	// trial CTA 直下「クレカ登録不要」(Phase 3 #2571 整合)
+	noCreditCard: TRIAL_TERMS.noCreditCardMid,
+	// 請求情報リンク (BILLING_LABELS と隣接)
+	billingLink: 'ご請求情報を確認',
+	// 解約リンク (frictionless 控えめ表示、Kinde 整合)
+	cancelLink: `${CANCEL_TERMS.canonical}をご検討の方`,
+	// V4 framing 軸 decoy bait (standard 推奨バッジ、Phase 1 補強 2 F9 解消)
+	standardRecommendBadge: '✓ お勧め',
+
+	// === 旧 LICENSE_PAGE_LABELS 統合 (96 key) ===
 	// 現在のプラン
 	currentPlanTitle: '現在のプラン',
 	currentPlanLabel: 'プラン',
@@ -1841,43 +1869,25 @@ export const LICENSE_PAGE_LABELS = {
 } as const;
 
 // ============================================================
-// SUBSCRIPTION_PAGE_LABELS — /admin/subscription プランページ (Phase 3 #2567 / Phase 7 PR-2b)
+// LICENSE_PAGE_LABELS — 旧名称 alias (共存期間、Phase 7 PR-2c #2699 で rename)
 // ============================================================
 //
-// Phase 3 #2567 §文言 atom + Phase 5 子 5 #2656 §4.1 SSOT 配置確定。
-// rename 元 LICENSE_PAGE_LABELS は本 PR では削除せず**共存**させ、Phase 7 PR-2c で
-// 218 件参照を本 SUBSCRIPTION_PAGE_LABELS に一括 rename + LICENSE_PAGE_LABELS 撤去する。
+// 旧 `LICENSE_PAGE_LABELS` (96 key) は本 PR で `SUBSCRIPTION_PAGE_LABELS` に rename + 統合済 (上記)。
+// 既存参照を段階的に置換する共存期間中、本 alias export で後方互換性を維持する。
+// Phase 7 後続 PR (PR-2d 以降) で全参照が `SUBSCRIPTION_PAGE_LABELS` に移行完了後、本 alias を削除する。
 //
 // 設計意図:
-//   - `/admin/license` → `/admin/subscription` URL rename (Phase 4 #2620 LEGACY_URL_MAP) と
-//     compound 命名整合
+//   - Phase 5 SSOT §4.1: `LICENSE_PAGE_LABELS` → `SUBSCRIPTION_PAGE_LABELS` 統合 (105 key、新規 9 key + 旧 96 key)
+//   - `/admin/license` → `/admin/subscription` URL rename (Phase 4 #2620 LEGACY_URL_MAP) と compound 命名整合
 //   - V4 framing 軸 decoy (standard 「✓ お勧め」+ premium 最右配置) で 1 人っ子家庭の除外感回避
 //     (Phase 1 補強 2 F9 / Phase 3 #2567 §FR-4)
 //
 // 関連 ADR:
-//   - ADR-0058 (family → premium rename): Phase 7 PR-2d 以降で `PLAN_TERMS.family` を
-//     `.premium` に rename。本 PR では既存 atom 値を参照、rename 後 1 行修正で自動伝播
+//   - ADR-0058 (family → premium rename): Phase 7 PR-2e 以降で `PLAN_TERMS.family` を `.premium` に rename
 //   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_FULL_TERMS.*}` template literal 経由
 //   - ADR-0013 (LP truth): 実装事実と LP の整合、月額のみ (Phase 1 補強 2 FR-2)
 
-export const SUBSCRIPTION_PAGE_LABELS = {
-	pageTitle: 'ご家族のプラン管理',
-	currentPlan: '現在のプラン',
-	// trial active 中の表示 (Phase 3 #2571 TrialBanner と機能領域として隣接)
-	trialActive: `${PLAN_FULL_TERMS.family}${TRIAL_TERMS.durationSpaced}無料体験中`,
-	// アップグレード CTA (Kinde 「what happens when clicked」原則、Phase 4 #2624 §2.1 整合)
-	upgradeCta: `${PLAN_FULL_TERMS.family}にする`,
-	// CTA 直下「いつでも解約」併記 (frictionless、Kinde 整合)
-	cancelAnytime: CANCEL_TERMS.anytimeOk,
-	// trial CTA 直下「クレカ登録不要」(Phase 3 #2571 整合)
-	noCreditCard: TRIAL_TERMS.noCreditCardMid,
-	// 請求情報リンク (BILLING_LABELS と隣接)
-	billingLink: 'ご請求情報を確認',
-	// 解約リンク (frictionless 控えめ表示、Kinde 整合)
-	cancelLink: `${CANCEL_TERMS.canonical}をご検討の方`,
-	// V4 framing 軸 decoy bait (standard 推奨バッジ、Phase 1 補強 2 F9 解消)
-	standardRecommendBadge: '✓ お勧め',
-} as const;
+export const LICENSE_PAGE_LABELS = SUBSCRIPTION_PAGE_LABELS;
 
 // ============================================================
 // UPGRADE_FLOW_LABELS — アップグレード動線 4 段階 funnel (Phase 4 #2624 / Phase 7 PR-2b)
