@@ -125,7 +125,9 @@ export const childActivities = sqliteTable(
 		isArchived: integer('is_archived').notNull().default(0),
 		// Phase 7 PR-2a (#2688): enum 制約 + sqlite repo 型強制を同時適用 (PR-1 #2685 で
 		// 配備済の `ARCHIVED_REASONS` domain SSOT を drizzle 層で参照、`reason: ArchivedReason`
-		// 型を select / insert に自動伝播)。SQLite CHECK 制約として 3 reason のみ受理。
+		// 型を select / insert に自動伝播)。drizzle 0.x enum 制約は TypeScript 型強制のみで
+		// SQLite CHECK 制約は生成されない。runtime validation は別途 application layer
+		// (repo / service) で実装する必要がある。
 		// SSOT: `src/lib/domain/archive-types.ts`
 		archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 		sourcePresetId: text('source_preset_id'),
