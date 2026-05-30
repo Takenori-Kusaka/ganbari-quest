@@ -155,10 +155,11 @@ export default defineConfig({
 		env: {
 			DATABASE_URL: `./data/e2e-worker-${i}.db`,
 		},
-		// #2648 Round 10 (debug 一時): preview server の stdout/stderr を CI 出力に出すため
-		// pipe を有効化。Round 11 で revert する。これにより client.ts module load 時の
-		// `[client.ts] PID=... DATABASE_URL=... children count=...` log が CI log に出る。
-		// H-3 (env merge fail) / H-1 (schema cache invalidation) の判定に使う。
+		// #2648 Round 12 (debug 一時、安定化後 revert 検討): preview server の stdout/stderr を
+		// CI 出力に出すため pipe を有効化。これにより client.ts lazy init の
+		// `[client.ts/lazy] getOrInitDb called: PID=... DATABASE_URL=...` log が CI log に出る。
+		// Option γ-extended の発火 timing (preview module load 時 → 1st HTTP request 時) を
+		// 実証検証するため Round 12 では維持する。
 		stdout: 'pipe',
 		stderr: 'pipe',
 	})),

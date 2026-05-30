@@ -2,9 +2,10 @@
 //
 // cspell:words Mainmatter
 //
-// #2648 Phase A Step A-3 + CI fix: per-worker SQLite file isolation helper。
+// #2648 Phase A Step A-3 + CI fix + Round 12 Option γ-extended: per-worker SQLite file isolation helper。
 //
-// 設計根拠 (deep research `a70be0e3278d98fd2` §7.3 + 試行錯誤ログ §3 Step A-3 + CI 再 fix):
+// 設計根拠 (deep research `a70be0e3278d98fd2` §7.3 + 試行錯誤ログ §3 Step A-3 + CI 再 fix
+// + Round 11 deep research `tmp/research-round11-fix-path-product-fit-2026-05-30.md`):
 //
 // 1. **template DB → worker DB の複製は `db.backup()` 経由必須** (better-sqlite3 v12.9.0+):
 //    - `fs.copyFile()` 経由は WAL / shm 整合性が壊れる既知問題
@@ -18,28 +19,16 @@
 //    - webServer 配列起動時 (Step A-4) で `env: { DATABASE_URL: './data/e2e-worker-${i}.db' }` を渡し
 //      各 worker は自分の DB file のみ touch
 //
-// 3. **CI fail 真因 (2026-05-29 PR #2657 → 本 fix)**:
-//    - playwright runner は **plugin (webServer) setup を globalSetup より先に**実行する
-//      (`node_modules/playwright/lib/runner/index.js:5828` `createGlobalSetupTasks` 配置順)
-//    - つまり CI では vite preview が `npm run preview -- --port 5190` で起動 →
-//      SvelteKit が `client.ts` で `new Database('./data/e2e-worker-0.db')` を **OPEN** →
-//      schema が無いので auto-init (`SQL_CREATE_TABLES` 実行) で **空 schema + 0 行** 状態に
-//    - その後 globalSetup が `cleanupWorkerDb` で `fs.unlinkSync` → Linux POSIX は
-//      open FD を保持したまま directory entry のみ削除 → 同名 path に新規 inode 作成
-//    - 後続 `ensureWorkerDb` の `db.backup()` は新 inode に seeded data を書き込むが、
-//      vite preview server は **古い inode (空 schema)** を読み続けるため全 test fail
-//      (`けんたくん の child-select ボタンが seed されていること` 等)
-//    - Local Windows は `fs.unlinkSync` が open file で `EBUSY` を投げるため別現象として顕在化
+// 3. **Round 12 Option γ-extended (本 fix の中心)**:
+//    - 旧 Round 8 fix (`fs.unlinkSync` 撤去 + in-place overwrite) は preview server の
+//      schema cache invalidation 問題 (H-1) を解決しなかった (Round 10 debug で実証)
+//    - Round 12 で `src/lib/server/db/client.ts` を lazy DB init pattern に rewrite
+//      (`new Database()` を module load → 1st HTTP request 時に遅延)
+//    - これにより preview server module load 時 (T+0s) に空 DB を open する経路が消え、
+//      globalSetup 完了後 (T+5s 以降) の 1st HTTP request で初めて DB open される
+//    - 本 helper は引き続き template DB → worker DB の seed 複製を担当
 //
-// 4. **CI fix 方針 (本 file)**:
-//    - **`fs.unlinkSync` を撤去** — 既存 file を残し `db.backup()` で **in-place 上書き** する
-//    - SQLite Online Backup API は destination DB が存在する場合 page-level に overwrite し
-//      WAL/shm を含む整合性を保つ。preview server の open connection も同じ inode を
-//      参照し続けるため backup commit 後の新 data を読み出せる
-//    - WAL/shm 残骸の lock 競合は `db.backup()` が SQLite EXCLUSIVE lock で吸収する
-//    - cleanupWorkerDb は **`-wal` / `-shm` 残骸のみ** 削除する (`.db` 本体は触らない)
-//
-// 5. **既存 helpers (test-user-factory.ts 等) との互換**:
+// 4. **互換性**:
 //    - `process.env.TEST_WORKER_INDEX` を読む既存 fallback pattern と整合
 //    - 本 helper は SQLite file 操作のみ責務、Playwright worker fixture 連携は
 //      `tests/e2e/fixtures.ts` (Step A-5) に分離
@@ -61,11 +50,13 @@ const TEMPLATE_DB_PATH = path.resolve('data/ganbari-quest.db');
 /**
  * worker `parallelIndex` 用の SQLite file path を返す (絶対 path)。
  *
- * **CI fix 後の挙動 (in-place overwrite pattern)**:
+ * **挙動 (Round 12 Option γ-extended)**:
  * 既存 file が存在しても **必ず template から再 backup する** (in-place overwrite)。
- * 理由は file header のコメント §3 / §4 参照 — vite preview server が既に worker DB を
- * 開いている状態でも SQLite Online Backup API が page-level に上書きするため、
- * preview server は同じ inode 経由で新 data を読める。
+ * Round 12 で preview server が lazy DB init になったため、preview server module load
+ * 時点では DB を open していない = backup 操作と preview server の DB connection が衝突しない。
+ * (旧 Round 8 では preview server が既に open している状態で backup する必要があったが
+ *  Round 12 では globalSetup 完了 → 1st HTTP request 時に preview server が初めて
+ *  open する順序が保証される)
  *
  * Mainmatter blog pattern: `data/e2e-worker-${parallelIndex}.db` を採用。
  * `.gitignore` の `*.db` で自動 ignore 済 (確認: Step A-0 audit prerequisite #9)。
@@ -75,18 +66,6 @@ const TEMPLATE_DB_PATH = path.resolve('data/ganbari-quest.db');
  */
 export async function ensureWorkerDb(parallelIndex: number): Promise<string> {
 	const workerDbPath = path.resolve(`data/e2e-worker-${parallelIndex}.db`);
-
-	// #2648 Round 10 (debug 一時): STAGE-1 state 観察。
-	// workerDbPath の絶対 path / 既存有無 / template 存在を log で可視化。
-	console.info(
-		`[PerWorkerDB#${parallelIndex}] STAGE-1 before backup: workerDbPath=${workerDbPath}`,
-	);
-	console.info(
-		`[PerWorkerDB#${parallelIndex}] STAGE-1 fs.existsSync(workerDbPath)=${fs.existsSync(workerDbPath)}`,
-	);
-	console.info(
-		`[PerWorkerDB#${parallelIndex}] STAGE-1 fs.existsSync(TEMPLATE_DB_PATH)=${fs.existsSync(TEMPLATE_DB_PATH)}`,
-	);
 
 	if (!fs.existsSync(TEMPLATE_DB_PATH)) {
 		throw new Error(
@@ -99,57 +78,30 @@ export async function ensureWorkerDb(parallelIndex: number): Promise<string> {
 	// better-sqlite3 v7.0.0+ で対応、本 repo は v12.9.0 (prerequisite #7 で確認済)。
 	//
 	// **in-place overwrite**: workerDbPath が既存でも `db.backup()` が page 単位で
-	// 上書きする。これにより preview server (CI で先行起動) が同じ inode 経由で
-	// 新 seed data を読めるようになる (#2648 CI fix)。
+	// 上書きする。Round 12 では preview server がまだ open していないため安全。
 	const src = new Database(TEMPLATE_DB_PATH, { readonly: true });
 	try {
-		// #2648 Round 10 (debug 一時): STAGE-2 template の row 数 (期待: > 0)。
-		try {
-			const templateChildCount = src.prepare('SELECT COUNT(*) AS c FROM children').get() as {
-				c: number;
-			};
-			console.info(
-				`[PerWorkerDB#${parallelIndex}] STAGE-2 template children count: ${templateChildCount.c}`,
-			);
-		} catch (e) {
-			console.info(
-				`[PerWorkerDB#${parallelIndex}] STAGE-2 template children count ERROR: ${e instanceof Error ? e.message : String(e)}`,
-			);
-		}
-
-		// #2648 Round 10 (debug 一時): STAGE-3 backup を try/catch wrap、success/error log。
-		// H-2 (silent backup fail) 判定のため SQLITE_BUSY / lock 競合等の error を露出させる。
-		try {
-			await src.backup(workerDbPath);
-			console.info(`[PerWorkerDB#${parallelIndex}] STAGE-3 backup SUCCESS`);
-		} catch (e) {
-			console.info(
-				`[PerWorkerDB#${parallelIndex}] STAGE-3 backup ERROR: ${e instanceof Error ? e.message : String(e)}`,
-			);
-			throw e;
-		}
+		await src.backup(workerDbPath);
 	} finally {
 		src.close();
 	}
 
-	// #2648 Round 10 (debug 一時): STAGE-4 backup 後の別 connection で workerDbPath を
-	// read-only open、children 行数を verify。期待: > 0 (template と同等)。
-	// H-2 (silent backup fail) で 0 なら確定、H-1 (preview cache 不整合) との切り分けに使う。
+	// #2648 Round 12 (debug 一時、安定化後 revert 検討): backup 後の row 数を log で観察。
+	// preview server log の `[client.ts/lazy] children count after init: N` と
+	// 一致するか比較できる。期待: > 0 (template と同等)。
 	try {
 		const dst = new Database(workerDbPath, { readonly: true });
 		try {
 			const dstChildCount = dst.prepare('SELECT COUNT(*) AS c FROM children').get() as {
 				c: number;
 			};
-			console.info(
-				`[PerWorkerDB#${parallelIndex}] STAGE-4 verification: backup-DB children count=${dstChildCount.c}`,
-			);
+			console.info(`[PerWorkerDB#${parallelIndex}] backup-DB children count=${dstChildCount.c}`);
 		} finally {
 			dst.close();
 		}
 	} catch (e) {
 		console.info(
-			`[PerWorkerDB#${parallelIndex}] STAGE-4 verification ERROR: ${e instanceof Error ? e.message : String(e)}`,
+			`[PerWorkerDB#${parallelIndex}] verification ERROR: ${e instanceof Error ? e.message : String(e)}`,
 		);
 	}
 
@@ -176,16 +128,10 @@ export function cleanupWorkerDb(parallelIndex: number): void {
 		if (fs.existsSync(filePath)) {
 			try {
 				fs.unlinkSync(filePath);
-				// #2648 Round 10 (debug 一時): cleanup の成否 log。
-				console.info(`[PerWorkerDB#${parallelIndex}] cleanup removed: ${filePath}`);
-			} catch (e) {
+			} catch {
 				// preview server が WAL/shm を保持している可能性あり (Windows EBUSY)。
 				// 次回 ensureWorkerDb の `db.backup()` が in-place overwrite するため
 				// 残骸を残しても整合性は保たれる (#2648 CI fix)。
-				// #2648 Round 10 (debug 一時): cleanup 失敗も log で観察。
-				console.info(
-					`[PerWorkerDB#${parallelIndex}] cleanup ERROR for ${filePath}: ${e instanceof Error ? e.message : String(e)}`,
-				);
 			}
 		}
 	}
