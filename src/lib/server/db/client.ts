@@ -83,18 +83,10 @@ let _db: ReturnType<typeof drizzle> | null = null;
  * `hooks.server.ts` の handle 1st-request guard から先頭で呼ぶ + Proxy の trap でも
  * 自動的に呼ばれる (二重防御、idempotent なので無害)。
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: schema 自動初期化フロー (pragma → applyLazyStartupMigrations → SQL_CREATE_TABLES → validateAndMigrate → assertNoDataOrphans の 5 段直列) が長い構造的事情によるもの。旧 eager init 時代から同 complexity (Round 12 で関数化しただけ)、別 Issue でリファクタ予定 (#2648 follow-up)。
 export function getOrInitDb(): ReturnType<typeof drizzle> {
 	if (_db) return _db;
 
-	// #2648 Round 12 (debug 一時、Round 13 で revert 判断): lazy init の発火 timing を観察。
-	// preview server で 1st HTTP request 時に呼ばれることを CI log で実証する。
-	// 期待: globalSetup 完了後の 1st request 時 (T+5s 以降) に発火し、children > 0 を返す。
 	const DATABASE_URL = process.env.DATABASE_URL ?? './data/ganbari-quest.db';
-	console.info(
-		`[client.ts/lazy] getOrInitDb called: PID=${process.pid} DATABASE_URL=${DATABASE_URL} cwd=${process.cwd()}`,
-	);
-
 	const sqlite = new Database(DATABASE_URL);
 
 	// WAL mode for better concurrent read performance
@@ -121,21 +113,6 @@ export function getOrInitDb(): ReturnType<typeof drizzle> {
 
 		// 2. 新規 table / index を idempotent に作成
 		sqlite.exec(SQL_CREATE_TABLES);
-
-		// #2648 Round 12 (debug 一時): schema init 完了後の row 数を log。
-		// Option γ-extended の効果検証: 期待 children > 0 (globalSetup backup 後の seeded DB を読む)。
-		try {
-			const childCount = sqlite.prepare('SELECT COUNT(*) AS c FROM children').get() as {
-				c: number;
-			};
-			console.info(
-				`[client.ts/lazy] PID=${process.pid} children count after init: ${childCount.c}`,
-			);
-		} catch (e) {
-			console.info(
-				`[client.ts/lazy] PID=${process.pid} children count ERROR: ${e instanceof Error ? e.message : String(e)}`,
-			);
-		}
 
 		// 3. スキーマバリデーション + 安全な自動マイグレーション（カラム追加）
 		const schemaResult = validateAndMigrate(sqlite);
