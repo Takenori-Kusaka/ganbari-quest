@@ -62,6 +62,42 @@ export default async function globalSetup() {
 				}
 			}
 
+			// #2641 / Phase 5 子 3 / Phase 6 子 3 #2675 / Phase 7 PR-1:
+			// stripe_webhook_events table + 2 index (Stripe Webhook 冪等性 dedup)
+			try {
+				db.exec(`
+					CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+						event_id TEXT PRIMARY KEY,
+						event_type TEXT NOT NULL,
+						processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+						handler_result TEXT NOT NULL,
+						error_message TEXT,
+						retry_count INTEGER NOT NULL DEFAULT 0,
+						tenant_id TEXT
+					);
+					CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_processed_at
+						ON stripe_webhook_events(processed_at);
+					CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_type_result
+						ON stripe_webhook_events(event_type, handler_result);
+				`);
+				console.log('[E2E Setup]   Added stripe_webhook_events table + 2 index (#2641).');
+			} catch {
+				// 既に存在する場合は無視
+			}
+
+			// #2642 / Phase 5 子 4 / Phase 6 子 3 #2675 / Phase 7 PR-1:
+			// 既存 archived レコードの archived_reason NULL → 'downgrade_user_selected' 補充
+			// (Phase 5 子 4 §2 原則 4 default 補充、4 location 同期)
+			for (const table of ['children', 'activities', 'child_activities', 'checklist_templates']) {
+				try {
+					db.exec(
+						`UPDATE ${table} SET archived_reason = 'downgrade_user_selected' WHERE is_archived = 1 AND archived_reason IS NULL`,
+					);
+				} catch {
+					// table 未存在は無視
+				}
+			}
+
 			// #1755 (#1709-A): checklist_templates.kind 列削除 + activities.priority 列追加
 			//   - 旧 kind='routine' のテンプレート群を削除（持ち物純化、ADR-0010 Pre-PMF 利用者ゼロ前提）
 			//   - 新規 priority カラム ('must' | 'optional', default 'optional')

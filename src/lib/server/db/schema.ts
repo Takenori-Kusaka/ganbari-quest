@@ -37,6 +37,11 @@ export const children = sqliteTable('children', {
 	_sv: integer('_sv'),
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
+	// Phase 7 PR-1 (#2685): enum 制約 (`{ enum: ARCHIVED_REASONS }`) は Phase 7 PR-2a で
+	// 既存 sqlite/dynamodb/demo repo 4 file の `reason: string` → `reason: ArchivedReason`
+	// 型強制 (atom 統合) と同時に適用する。本 PR は expand 段階で code 変更ゼロ原則のため、
+	// DB 列定義は `text('archived_reason')` のままで domain SSOT (`archive-types.ts`) のみ配備。
+	// SSOT: `src/lib/domain/archive-types.ts`
 	archivedReason: text('archived_reason'),
 });
 
@@ -67,6 +72,11 @@ export const activities = sqliteTable('activities', {
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
+	// Phase 7 PR-1 (#2685): enum 制約 (`{ enum: ARCHIVED_REASONS }`) は Phase 7 PR-2a で
+	// 既存 sqlite/dynamodb/demo repo 4 file の `reason: string` → `reason: ArchivedReason`
+	// 型強制 (atom 統合) と同時に適用する。本 PR は expand 段階で code 変更ゼロ原則のため、
+	// DB 列定義は `text('archived_reason')` のままで domain SSOT (`archive-types.ts`) のみ配備。
+	// SSOT: `src/lib/domain/archive-types.ts`
 	archivedReason: text('archived_reason'),
 	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
 	sourcePresetId: text('source_preset_id'),
@@ -106,6 +116,11 @@ export const childActivities = sqliteTable(
 		isMainQuest: integer('is_main_quest').notNull().default(0),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		isArchived: integer('is_archived').notNull().default(0),
+		// Phase 7 PR-1 (#2685): enum 制約 (`{ enum: ARCHIVED_REASONS }`) は Phase 7 PR-2a で
+		// 既存 sqlite/dynamodb/demo repo 4 file の `reason: string` → `reason: ArchivedReason`
+		// 型強制 (atom 統合) と同時に適用する。本 PR は expand 段階で code 変更ゼロ原則のため、
+		// DB 列定義は `text('archived_reason')` のままで domain SSOT (`archive-types.ts`) のみ配備。
+		// SSOT: `src/lib/domain/archive-types.ts`
 		archivedReason: text('archived_reason'),
 		sourcePresetId: text('source_preset_id'),
 		priority: text('priority', { enum: ['must', 'optional'] })
@@ -427,6 +442,11 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
+	// Phase 7 PR-1 (#2685): enum 制約 (`{ enum: ARCHIVED_REASONS }`) は Phase 7 PR-2a で
+	// 既存 sqlite/dynamodb/demo repo 4 file の `reason: string` → `reason: ArchivedReason`
+	// 型強制 (atom 統合) と同時に適用する。本 PR は expand 段階で code 変更ゼロ原則のため、
+	// DB 列定義は `text('archived_reason')` のままで domain SSOT (`archive-types.ts`) のみ配備。
+	// SSOT: `src/lib/domain/archive-types.ts`
 	archivedReason: text('archived_reason'),
 	// #1755 (#1709-A): kind 列削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
 	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
@@ -1102,5 +1122,47 @@ export const graduationConsent = sqliteTable(
 		index('idx_graduation_consent_tenant').on(table.tenantId),
 		index('idx_graduation_consent_consented_date').on(table.consented, table.consentedAt),
 		index('idx_graduation_consent_date').on(table.consentedAt),
+	],
+);
+
+// ============================================================
+// stripe_webhook_events - Stripe Webhook 冪等性 dedup (Phase 5 子 3 #2641 / Phase 7 PR-1)
+// ============================================================
+// 同一 event.id 重複処理時の二重課金 / 二重ライセンス発行を防ぐ dedup ログ。
+// Stripe at-least-once delivery + CLI `stripe events resend` で同一 event.id 再送が正規動作。
+// 30 日 retention (Stripe Events API 保持期間 = 30 日と同期、ADR-0049 整合)。
+//
+// 設計 SSOT:
+// - docs/design/billing-redesign/phase5-webhook-idempotency-architecture.md §3.1 (4 backend schema)
+// - docs/design/billing-redesign/phase6-db-migration-plan.md §3.1 (本 PR 投入対象)
+//
+// 関連:
+// - dedup 判定 (`findByEventId` SK 単点 lookup) は Phase 7 PR-4a で `stripe-service.ts` の
+//   `handleWebhookEvent` dispatcher 入口 (L221) に統合
+// - retention cron は Phase 7 PR-5 で実装 (本 PR では schema 配備のみ)
+// - DynamoDB 側は schemaless で `storage-stack.ts:29 timeToLiveAttribute='ttl'` 既設定のため CDK 変更なし
+export const stripeWebhookEvents = sqliteTable(
+	'stripe_webhook_events',
+	{
+		// Stripe event.id (`evt_*`)、immutable、Stripe 側 SSOT
+		eventId: text('event_id').primaryKey(),
+		// event.type (`checkout.session.completed` / `invoice.paid` / `subscription_schedule.aborted` 等)
+		eventType: text('event_type').notNull(),
+		// handler 実行完了時刻 (ISO 8601)、retention cutoff の基準
+		processedAt: text('processed_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		// 'success' | 'error' | 'skipped' (未購読 event 型) — Phase 7 PR-4a の dispatcher で書込み
+		handlerResult: text('handler_result', { enum: ['success', 'error', 'skipped'] }).notNull(),
+		// handler 例外時の error message (Stripe.Error.message 最大 500 文字 truncate、PII strip Phase 7 PR-4a)
+		errorMessage: text('error_message'),
+		// 同一 event.id の再到達回数 (初回 = 0、replay/resend で increment)
+		retryCount: integer('retry_count').notNull().default(0),
+		// 関連 tenant_id (handler が解決できた場合のみ、analytics 用、PII ではない)
+		tenantId: text('tenant_id'),
+	},
+	(table) => [
+		// 30 日 retention cron 用 (processed_at で範囲 delete)
+		index('idx_stripe_webhook_events_processed_at').on(table.processedAt),
+		// analytics 用 (handler_result='error' の件数集計、event_type 別件数)
+		index('idx_stripe_webhook_events_type_result').on(table.eventType, table.handlerResult),
 	],
 );
