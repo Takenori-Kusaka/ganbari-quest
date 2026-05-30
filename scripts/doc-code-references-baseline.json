@@ -138,12 +138,16 @@
 			"src/routes/api/stripe/webhook-v2/+server.ts",
 			"tests/e2e/billing",
 			"tests/integration/db/archived-reason-migration.test.ts",
+			"tests/integration/stripe-webhook-api-version-immutable.test.ts",
+			"tests/integration/stripe-webhook-credit-note.test.ts",
 			"tests/integration/stripe-webhook-dedup.test.ts",
-			"tests/integration/stripe-webhook-schedule-aborted.test.ts",
 			"tests/unit/lib/domain",
 			"tests/unit/lib/server/stripe",
 			"tests/unit/lib/server/stripe/client.test.ts",
 			"tests/unit/lib/server/stripe/config.test.ts"
+		],
+		"docs/design/billing-redesign/phase6-rollback-and-kill-switches.md": [
+			"tests/e2e/billing/downgrade-credit-display.spec.ts"
 		],
 		"docs/design/billing-redesign/phase6-test-clock-scenarios.md": [
 			"tests/e2e/billing",
@@ -223,5 +227,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-29T22:37:07.791Z"
+	"generatedAt": "2026-05-30T07:36:22.519Z"
 }

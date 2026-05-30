@@ -1,16 +1,22 @@
-# 0059. Phase 7 統合 PR cutover シーケンスと kill switch 戦略 (Stripe 公式 5 phase + env var 2 件、LaunchDarkly / Unleash 不採用)
+# 0059. Phase 7 統合 PR cutover シーケンスと kill switch 戦略 (Stripe 公式 5 phase + env var 2 件、LaunchDarkly / Unleash 不採用、#2683 補強で 2 Product 構成 + 副次制約 4 連動)
 
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |
-| 日付 | 2026-05-30 |
+| 日付 | 2026-05-30 (#2683 補強で同日更新) |
 | 起票者 | Claude (補佐、PO 判断適用) |
-| 関連 Issue | #2665 (Phase 6 子 5) / #2525 (Epic) / #2531 (Phase 7 実装) / #2627 (Stripe Dashboard PO 操作) / #2667 (Phase 6 子 1) |
-| 関連 docs SSOT | [phase6-rollback-and-kill-switches.md](../design/billing-redesign/phase6-rollback-and-kill-switches.md) (本 ADR の元) / [phase6-phase7-execution-ssot.md](../design/billing-redesign/phase6-phase7-execution-ssot.md) §3 + §10 OQ-3 |
+| 関連 Issue | #2665 (Phase 6 子 5) / #2525 (Epic) / #2531 (Phase 7 実装) / #2627 (Stripe Dashboard PO 操作) / #2667 (Phase 6 子 1) / **#2683 (補強 — 代替案 D 適用 + API ver 訂正 + Webhook immutable 副次制約 4 連動)** |
+| 関連 docs SSOT | [phase6-rollback-and-kill-switches.md](../design/billing-redesign/phase6-rollback-and-kill-switches.md) (本 ADR の元) / [phase6-phase7-execution-ssot.md](../design/billing-redesign/phase6-phase7-execution-ssot.md) §3 + §10 OQ-3 + §5 Webhook 5 phase migration (#2683 で副次制約 4 を根拠化) / [phase5-stripe-product-architecture.md §4.4](../design/billing-redesign/phase5-stripe-product-architecture.md) (#2683 副次制約 4 SSOT) |
 
 ## コンテキスト
 
-Epic #2525 (課金/プラン体系再設計) Phase 7 で Stripe webhook handler の旧 endpoint → 新 endpoint 移行 + lookup_key 経由参照への切替 + Stripe API version bump を統合 PR 5 step (Step 1 DB migration → Step 2 atom 統合 → Step 3 lookup_key → Step 4 webhook shadow/cutover/retire → Step 5 旧 env var 削除) で実施する。
+Epic #2525 (課金/プラン体系再設計) Phase 7 で Stripe webhook handler の旧 endpoint → 新 endpoint 移行 + lookup_key 経由参照への切替を統合 PR 5 step (Step 1 DB migration → Step 2 atom 統合 → Step 3 lookup_key → Step 4 webhook shadow/cutover/retire → Step 5 旧 env var 削除) で実施する。
+
+**#2683 補強 (2026-05-30)**: 本 ADR 起票後の追加発見により、以下 3 点を反映:
+
+1. **代替案 D 採用 (2 Product 各 1 Price)**: Test mode 2026-05-30 PO 手動検証で「1 Product 内 2 Price + Portal 期末ダウン」構成が Stripe Dashboard UI 制約により不可能と判明 → `prod_STANDARD` + `prod_PREMIUM` の 2 Product 各 1 Price + Portal `subscription_update.products` に 2 entries 構成に変更。ダウン方式は Subscription Schedule (期末ダウン) → `subscriptions.update` + `proration_behavior='always_invoice'` (即時 + Stripe credit memo 自動発行) に統一 (Slack / Notion / Atlassian / Linear 等 50% SaaS 採用、業界収束) ([phase5-stripe-product-architecture.md §3](../design/billing-redesign/phase5-stripe-product-architecture.md))
+2. **API version 維持判断 (`'2026-04-22.dahlia'`)**: 旧計画の `'2026-05-27.dahlia'` への bump は preview リリース (production 非推奨) と判明 → Phase 7 では現行 stable `'2026-04-22.dahlia'` 維持。次回 stable リリース採用時に別 PR で 5 phase migration を発動
+3. **副次制約 4 (Webhook destination api_version immutable) 新規追加**: Stripe API は既存 destination の api_version 変更を拒否する仕様 → Phase 7 Step 4 の Webhook 5 phase migration ([phase6-phase7-execution-ssot.md §5](../design/billing-redesign/phase6-phase7-execution-ssot.md)) が**強制必須**となる根拠を本 ADR + [phase5-stripe-product-architecture.md §4.4](../design/billing-redesign/phase5-stripe-product-architecture.md) で SSOT 化
 
 cutover 失敗時の MTTR (Mean Time To Recovery) を最小化するため、以下 3 要素を確定する必要がある:
 
@@ -84,15 +90,15 @@ cutover 失敗時の MTTR (Mean Time To Recovery) を最小化するため、以
 
 ## 結果
 
-### 1. Phase 7 統合 PR cutover シーケンス (5 step + Dashboard 7 領域)
+### 1. Phase 7 統合 PR cutover シーケンス (5 step + Dashboard 7 領域、#2683 補強で 2 Product 構成 + apiVersion bump scope 外化)
 
 | Step | コード PR | Stripe Dashboard 同期 | kill switch |
 |---|---|---|---|
 | Step 1 | DB migration (子 3 #2675 13 file) | なし | なし |
-| Step 2 | atom 統合 5 sub step (子 5 #2643 §6) | なし | なし |
-| Step 3 | lookup_key 移行 + apiVersion bump | 領域 A+B (Test mode Product/Price/Portal) | `USE_LOOKUP_KEY` 配備 |
-| Step 4-a | webhook shadow mode | 領域 C (Test mode Webhook disabled) | `STRIPE_WEBHOOK_SHADOW_MODE=true` |
-| Step 4-b | webhook cutover | 領域 E+F (Production Product/Price/Portal + Webhook 有効化) | `STRIPE_WEBHOOK_SHADOW_MODE=false` |
+| Step 2 | atom 統合 5 sub step (子 5 #2643 §6、#2683 で `cancelPendingRedirect` atom 不要化) | なし | なし |
+| Step 3 (#2683 訂正) | lookup_key 移行 (apiVersion は `'2026-04-22.dahlia'` 維持) | 領域 A+B (Test mode **2 Product 各 1 Price** + Portal `subscription_update.products` 2 entries) | `USE_LOOKUP_KEY` 配備 |
+| Step 4-a | webhook shadow mode (5 event 購読: `customer.subscription.*` 2 + `invoice.payment_*` 2 + `credit_note.created` 1、#2683 訂正) | 領域 C (Test mode Webhook disabled) | `STRIPE_WEBHOOK_SHADOW_MODE=true` |
+| Step 4-b | webhook cutover | 領域 E+F (Production 2 Product + Webhook 有効化、副次制約 4 #2683 で新 destination 作成必須) | `STRIPE_WEBHOOK_SHADOW_MODE=false` |
 | Step 4-c | webhook retire | 領域 G (旧 destination delete) | なし |
 | Step 5 | 旧 env var 削除 + 旧 4 Price archive | 領域 G (旧 Price archive) | (Phase 7 OQ-2 で削除判断) |
 
@@ -133,13 +139,19 @@ STRIPE_WEBHOOK_SHADOW_MODE=false     # Phase 7 Step 4-a: webhook 二重 destinat
 
 `docs/decisions/README.md` active 39 件 (2026-05-28 棚卸時点) で TOP 10 ルール超過中。本 ADR で +1 → 40 件。1-in-1-out 履行は **2026-06 月 1 棚卸 (docs/CLAUDE.md §「ADR 月 1 棚卸」、次回 2026-06 最終週)** で archive 候補確定後に実施 (ADR-0014 proposed のまま 1 ヶ月超過 / ADR-0017 rejected archive 候補 / per-ADR ボリューム超過 6 件 のいずれかから 1 件以上を archive 移動)。
 
-### 6. ADR との関係
+### 6. 副次制約 4 (#2683 新規): Webhook destination api_version immutable
+
+[phase5-stripe-product-architecture.md §4.4](../design/billing-redesign/phase5-stripe-product-architecture.md) (#2683 補強で SSOT 化) で確定した副次制約 4「Webhook destination api_version 不変性」が、本 ADR §1 Step 4 の Webhook 5 phase migration を**強制必須**にする根拠となる。Stripe API `webhookEndpoints.update({api_version})` は既存 destination の api_version 変更を `400 Bad Request` で拒否するため、新 destination 作成 → shadow → cutover → retire の 5 phase 以外に apiVersion bump 経路はない。
+
+Phase 7 では apiVersion = `'2026-04-22.dahlia'` 維持判断 (#2683) のため本副次制約は発動しないが、将来の stable リリース採用時に本 ADR + [phase6-phase7-execution-ssot.md §5](../design/billing-redesign/phase6-phase7-execution-ssot.md) を参照することで誤った rollback 手順 (Dashboard UI で既存 destination 更新試行) を防止する。
+
+### 7. ADR との関係
 
 - ADR-0010 (Pre-PMF): LaunchDarkly / Unleash 不採用判断根拠
 - ADR-0014 (OSS 先調査): 4 件比較を本 ADR §「検討した選択肢」に verbatim 記載
 - ADR-0020 (PR size ≤ 500 行): Phase 7 Step 1-5 + PR-X 各分割の根拠
 - ADR-0031 (DB migration 互換性): Step 1 DB migration の整合
-- ADR-0045 (atom / compound): `SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom 配置
+- ADR-0045 (atom / compound): `SUBSCRIPTION_PAGE_LABELS` atom 配置 (#2683 で `cancelPendingRedirect` atom は不要化)
 - ADR-0049 (retention): webhook events 30 日 cleanup
 
 詳細実装手順は [phase6-rollback-and-kill-switches.md](../design/billing-redesign/phase6-rollback-and-kill-switches.md) §3-§8 を参照。本 ADR は判断原則のみ SSOT 化、詳細手順は補助 docs に集約 (per-ADR ≤ 150 行 / 章立て ≤ 7 セクション ルール整合)。

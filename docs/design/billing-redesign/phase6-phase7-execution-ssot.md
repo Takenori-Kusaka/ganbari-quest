@@ -1,13 +1,13 @@
-# Phase 7 統合 PR 実行手順 SSOT — Stripe webhook 5 phase migration 整合 (Epic #2525 Phase 6 子 1)
+# Phase 7 統合 PR 実行手順 SSOT — Stripe webhook 5 phase migration 整合 (Epic #2525 Phase 6 子 1、#2683 補強)
 
 | 項目 | 内容 |
 |------|------|
-| 孫 issue | #2661 (Phase 6 グループ A 最優先) |
+| 孫 issue | #2661 (Phase 6 グループ A 最優先) / #2683 (補強 — 2 Product 構成 + API ver 訂正 + 副次制約 4 反映) |
 | 親 | Phase 6 親 (Phase 5 → Phase 7 橋渡し SSOT) / Epic #2525 |
-| 上位 (Phase 5) | #2639 (子 1 Stripe Product / Price) / #2640 (子 2 proration) / #2641 (子 3 webhook 冪等性) / #2642 (子 4 archive 統合) / #2643 (子 5 atom / compound 配置) |
+| 上位 (Phase 5) | #2639 (子 1 Stripe Product / Price、**#2683 で 2 Product 各 1 Price 代替案 D に変更**) / #2640 (子 2 proration、**#2683 でダウン即時 + Stripe credit memo パターンに変更**) / #2641 (子 3 webhook 冪等性) / #2642 (子 4 archive 統合) / #2643 (子 5 atom / compound 配置) |
 | 連動 (Phase 7) | #2531 (実装 PR 群) / #2627 (Stripe Dashboard PO 手動操作) |
-| ステータス | 設計確定 (本 PR で確定、コード変更なし) |
-| 起点 | Phase 5 全 5 子の確定事項 (1 Product 2 Price + proration + webhook 冪等性 + 共通 archive + atom SSOT) を Phase 7 統合 PR の実行手順に落とし込み、cutover 失敗 / migration 順序事故 / kill switch 不在を構造的に防止 |
+| ステータス | 設計確定 (本 PR で確定、コード変更なし) / **2026-05-30 補強 #2683: 2 Product 各 1 Price 反映 + API version 維持判断 (`2026-04-22.dahlia`) + 副次制約 4 Webhook immutable を 5 phase migration 根拠として明文化** |
+| 起点 | Phase 5 全 5 子の確定事項 (2 Product 各 1 Price + proration + webhook 冪等性 + 共通 archive + atom SSOT) を Phase 7 統合 PR の実行手順に落とし込み、cutover 失敗 / migration 順序事故 / kill switch 不在を構造的に防止 |
 
 > **位置づけ**: Phase 6 グループ A の最優先成果物。Phase 5 で確定したアーキ層 5 子 + Phase 7 子 #2627 (Stripe Dashboard PO 手動操作) を「**Phase 7 統合 PR 5 step × 各 step AC + ロールバックポイント + 実 file path**」「**Stripe Dashboard #2627 7 領域 (A-G) 同期 timeline**」「**Stripe webhook migration 5 phase (setup→shadow→cutover→retire) の自プロダクト転用**」の 3 観点で統合 SSOT 化する。Phase 7 実装者は本 docs を参照するだけで cutover 順序を一意に決定できる状態を確立する。
 
@@ -17,13 +17,13 @@
 
 Phase 5 で確定した 5 子のアーキ:
 
-| 子 | docs SSOT | 確定事項 |
+| 子 | docs SSOT | 確定事項 (#2683 補強後) |
 |---|---|---|
-| #2639 | [phase5-stripe-product-architecture](phase5-stripe-product-architecture.md) | 1 Product 2 Price + lookup_key + apiVersion bump + Webhook 8 event 購読 + 副次制約 3 件 |
-| #2640 | [phase5-proration-architecture](phase5-proration-architecture.md) | アップ即時 (`always_invoice`) / ダウン期末 (`subscription_schedules` + `release`) / Preview API |
+| #2639 | [phase5-stripe-product-architecture](phase5-stripe-product-architecture.md) | **2 Product 各 1 Price + lookup_key** (#2683 代替案 D) + apiVersion **`'2026-04-22.dahlia'` 維持** (#2683 訂正) + Webhook 5 event 購読 (`subscription_schedule.*` 3 種は #2683 で scope 外) + **副次制約 4 件** (#2683 で Webhook destination immutable を追加) |
+| #2640 | [phase5-proration-architecture](phase5-proration-architecture.md) | アップ即時 (`always_invoice`) / **ダウン即時 + Stripe credit memo** (#2683 訂正、`subscription_schedules` API 不使用) / Preview API |
 | #2641 | [phase5-webhook-idempotency-architecture](phase5-webhook-idempotency-architecture.md) | `stripe_webhook_events` dedup table + 4 backend / 30 日 retention / dispatcher 入口 dedup |
 | #2642 | [phase5-archive-unified-architecture](phase5-archive-unified-architecture.md) | `archived_reason` enum (3 値: `trial_expired` / `downgrade_user_selected` / `dunning_canceled`) + 4 backend |
-| #2643 | [phase5-atom-ssot-architecture](phase5-atom-ssot-architecture.md) | terms.ts 3 atom + labels.ts 5 compound 配置 + atom 統合 5 step PR 計画 |
+| #2643 | [phase5-atom-ssot-architecture](phase5-atom-ssot-architecture.md) | terms.ts 3 atom + labels.ts 5 compound 配置 + atom 統合 5 step PR 計画 (#2683 で `cancelPendingRedirect` atom 不要化、subscription_schedule 不使用のため) |
 
 しかし**「Phase 7 統合 PR をどの順序でマージするか」「DB migration / atom rename / Stripe Dashboard 同期がどの timeline で動くか」が docs 横断で散在**し、Phase 7 実装者の自由裁量に委ねられる。並列 PR 衝突 / cutover 順序事故 / kill switch 不在のリスクを抱えたまま実装段階に入る。
 
@@ -86,29 +86,29 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 | **Stripe Dashboard 同期** | なし (本 step は labels / routes のみ) |
 | **前提 PR** | Step 1 (DB migration) マージ済 |
 
-### Step 3: lookup_key 移行 (子 4 #2664 + 子 1 #2639 連動、推定 300 行)
+### Step 3: lookup_key 移行 (子 4 #2664 + 子 1 #2639 連動、推定 250 行、#2683 補強で apiVersion bump scope 外化)
 
 | 項目 | 内容 |
 |---|---|
-| **目的** | env var 直読 (`STRIPE_PRICE_STANDARD_MONTHLY` 等 4 件) を `prices.list({ lookup_keys })` 経由参照に切替 + apiVersion bump (`2026-04-22.dahlia` → `2026-05-27.dahlia`) + lookup_key 段階移行 (Stripe `transfer_lookup_key` 経由) |
-| **対象 file** | `src/lib/server/stripe/config.ts` (`STRIPE_PRICES` 定数 → `getPlans()` lookup_key 解決関数に rewrite) / `src/lib/server/stripe/client.ts` (`STRIPE_API_VERSION` 定数 bump) / [tests/unit/lib/server/stripe/config.test.ts](tests/unit/lib/server/stripe/config.test.ts) (新規 lookup_key 解決 mock) / [tests/unit/lib/server/stripe/client.test.ts](tests/unit/lib/server/stripe/client.test.ts) (新規 apiVersion 検証) / `.env.example` (`USE_LOOKUP_KEY` feature flag 追加、デフォルト `true`) / `docs/guides/stripe-setup-guide.md` (4 商品手動作成 → 1 Product 2 Price + lookup_key 手順に全面改訂) |
-| **AC** | (a) lookup_key 解決成功時に新 priceId を返す + 失敗時に env var fallback 動作 (`USE_LOOKUP_KEY=false` で旧経路、kill switch) (b) `npx vitest run src/lib/server/stripe/` PASS (c) apiVersion `2026-05-27.dahlia` で SDK 起動確認 (d) `docs/guides/stripe-setup-guide.md` の手順で PO が Test mode Dashboard を構築可能なことを確認 (e) `npm run pre-ready -- --pr <step3-pr>` PASS |
-| **ロールバック判断基準** | (a) lookup_key 解決 Stripe API 障害が複数回連続 → `USE_LOOKUP_KEY=false` で env var fallback 即時切替 (b) apiVersion bump で既存 webhook handler 破壊 (event field 構造変化) → Dashboard で apiVersion を旧版に巻き戻し (72h rollback window) |
+| **目的** | env var 直読 (`STRIPE_PRICE_STANDARD_MONTHLY` 等 4 件) を `prices.list({ lookup_keys })` 経由参照に切替 + lookup_key 段階移行 (Stripe `transfer_lookup_key` 経由)。**apiVersion は `'2026-04-22.dahlia'` 維持** (#2683 訂正: `'2026-05-27.dahlia'` は preview リリースで本番不採用、本 step では bump しない) |
+| **対象 file** | `src/lib/server/stripe/config.ts` (`STRIPE_PRICES` 定数 → `getPlans()` lookup_key 解決関数に rewrite) / [tests/unit/lib/server/stripe/config.test.ts](tests/unit/lib/server/stripe/config.test.ts) (新規 lookup_key 解決 mock) / [tests/unit/lib/server/stripe/client.test.ts](tests/unit/lib/server/stripe/client.test.ts) (新規 apiVersion `'2026-04-22.dahlia'` 維持 assert) / `.env.example` (`USE_LOOKUP_KEY` feature flag 追加、デフォルト `true`) / `docs/guides/stripe-setup-guide.md` (4 商品手動作成 → **2 Product 各 1 Price + lookup_key** 手順に全面改訂、#2683 代替案 D 反映) |
+| **AC** | (a) lookup_key 解決成功時に新 priceId を返す + 失敗時に env var fallback 動作 (`USE_LOOKUP_KEY=false` で旧経路、kill switch) (b) `npx vitest run src/lib/server/stripe/` PASS (c) apiVersion `'2026-04-22.dahlia'` を維持していることを unit test で assert (#2683) (d) `docs/guides/stripe-setup-guide.md` の手順で PO が Test mode Dashboard を 2 Product 構成で構築可能なことを確認 (e) `npm run pre-ready -- --pr <step3-pr>` PASS |
+| **ロールバック判断基準** | (a) lookup_key 解決 Stripe API 障害が複数回連続 → `USE_LOOKUP_KEY=false` で env var fallback 即時切替 (b) #2683 訂正で apiVersion bump 廃止のため、本 step での apiVersion 関連 rollback は発生しない |
 | **kill switch** | `USE_LOOKUP_KEY` env var (デフォルト `true`、`false` で env var 直読の旧コード経路) |
-| **Stripe Dashboard 同期** | **Test mode で先行作成必須** (本 step マージ前に PO #2627 で Test mode の Product / 2 Price / lookup_key / Webhook 構築済の状態を担保) |
+| **Stripe Dashboard 同期** | **Test mode で先行作成必須** (本 step マージ前に PO #2627 で Test mode の **2 Product / 各 1 Price / lookup_key** / Webhook 構築済の状態を担保、#2683 代替案 D 反映) |
 | **前提 PR** | Step 1 + Step 2 マージ済 + Stripe Dashboard Test mode 構築完了 (PO #2627) |
 
-### Step 4: Webhook shadow / cutover / retire (子 3 #2641 + Stripe 公式 5 phase 整合、推定 400 行)
+### Step 4: Webhook shadow / cutover / retire (子 3 #2641 + Stripe 公式 5 phase 整合、推定 400 行、#2683 補強で event 一覧変更)
 
 | 項目 | 内容 |
 |---|---|
-| **目的** | dispatcher 入口 dedup (`handleWebhookEvent` 冒頭、L221) + Webhook 購読 event 5 → 8 種拡張 (`subscription_schedule.aborted` / `_canceled` / `_completed`) + shadow mode → cutover → retire の 3 sub step |
+| **目的** | dispatcher 入口 dedup (`handleWebhookEvent` 冒頭、L221) + Webhook 購読 event 5 種維持 (#2683 訂正: 旧計画の `subscription_schedule.*` 3 種は scope 外、代わりに `invoice.payment_succeeded` / `invoice.payment_failed` / `credit_note.created` 3 種を追加して 5 種維持) + shadow mode → cutover → retire の 3 sub step。**Phase 5 子 1 #2644 §4.4 副次制約 4 (Webhook destination api_version immutable)** が本 step の 5 phase migration 設計根拠 (#2683 で明文化、Step 4-a で新 destination 作成 → Step 4-b cutover → Step 4-c retire の手順は Stripe API 仕様により**強制必須**) |
 | **詳細順序** | 本 step を以下 3 sub step に分割 (Stripe webhook migration 5 phase 整合): |
 | | **4-a (shadow mode)**: 新 Webhook handler (`/api/stripe/webhook-v2`) を新規 route で実装、DB write せず log のみ。`STRIPE_WEBHOOK_SHADOW_MODE=true` で 24-48h 検証 |
 | | **4-b (cutover)**: shadow mode log で 0 件 silent drop 確認後、新 handler に切替 + 旧 handler は 200 OK + log のみ (`STRIPE_WEBHOOK_SHADOW_MODE=false`)。Stripe Dashboard で新 Webhook destination を有効化 + 旧 destination は disabled |
 | | **4-c (retire)**: cutover 後 1 週間 smoke test PASS で旧 Webhook destination を delete + 旧 handler コードを削除 |
-| **対象 file** | `src/lib/server/services/stripe-service.ts` (`handleWebhookEvent` dispatcher 入口で `webhookEventRepo.findByEventId` dedup) / [src/routes/api/stripe/webhook-v2/+server.ts](src/routes/api/stripe/webhook-v2/+server.ts) (新規 route、4-a) / `src/routes/api/stripe/webhook/+server.ts` (旧 route、4-c で削除) / `.env.example` (`STRIPE_WEBHOOK_SHADOW_MODE` feature flag) / [src/lib/server/db/repos/webhook-event-repo.ts](src/lib/server/db/repos/webhook-event-repo.ts) (sqlite / dynamodb 実装、子 3 §3) / [tests/integration/stripe-webhook-dedup.test.ts](tests/integration/stripe-webhook-dedup.test.ts) (新規) / [tests/integration/stripe-webhook-schedule-aborted.test.ts](tests/integration/stripe-webhook-schedule-aborted.test.ts) (新規) |
-| **AC** | (a) 4-a で同一 event.id 重複到達時に `retry_count` increment + handler 1 回のみ実行 (b) 4-b で新 8 event 全種を受信 + DB に `handler_result='success'` 物理確認 (c) 4-c で旧 destination delete 後 1 週間 smoke test PASS (d) `npm run pre-ready -- --pr <step4-pr>` PASS |
+| **対象 file** | `src/lib/server/services/stripe-service.ts` (`handleWebhookEvent` dispatcher 入口で `webhookEventRepo.findByEventId` dedup) / [src/routes/api/stripe/webhook-v2/+server.ts](src/routes/api/stripe/webhook-v2/+server.ts) (新規 route、4-a) / `src/routes/api/stripe/webhook/+server.ts` (旧 route、4-c で削除) / `.env.example` (`STRIPE_WEBHOOK_SHADOW_MODE` feature flag) / [src/lib/server/db/repos/webhook-event-repo.ts](src/lib/server/db/repos/webhook-event-repo.ts) (sqlite / dynamodb 実装、子 3 §3) / [tests/integration/stripe-webhook-dedup.test.ts](tests/integration/stripe-webhook-dedup.test.ts) (新規) / [tests/integration/stripe-webhook-credit-note.test.ts](tests/integration/stripe-webhook-credit-note.test.ts) (#2683 新規、ダウン即時の credit memo 受信検証) / [tests/integration/stripe-webhook-api-version-immutable.test.ts](tests/integration/stripe-webhook-api-version-immutable.test.ts) (#2683 新規、副次制約 4 検証) |
+| **AC** | (a) 4-a で同一 event.id 重複到達時に `retry_count` increment + handler 1 回のみ実行 (b) 4-b で新 5 event 全種 (`customer.subscription.updated` / `_deleted` / `invoice.payment_succeeded` / `_failed` / `credit_note.created`) を受信 + DB に `handler_result='success'` 物理確認 (c) 4-c で旧 destination delete 後 1 週間 smoke test PASS (d) #2683 副次制約 4: `webhookEndpoints.update({api_version})` が Stripe API 400 を返すことを unit test で assert (e) `npm run pre-ready -- --pr <step4-pr>` PASS |
 | **ロールバック判断基準** | (a) 4-a で silent drop > 0 件 → 旧 handler 継続、新 handler 修正 (b) 4-b でエラー率 > 1% / 顧客 inquiry > 3 件 → `STRIPE_WEBHOOK_SHADOW_MODE=true` で 4-a 状態に即時戻し + Stripe Dashboard で旧 destination 再有効化 (c) 4-c で DB inconsistency 検出 → 旧 destination un-delete (Stripe 公式 archive 解除) + コード revert |
 | **kill switch** | `STRIPE_WEBHOOK_SHADOW_MODE` env var (4-a/4-b/4-c 各段階で個別切替可) |
 | **Stripe Dashboard 同期** | **4-a 前**: Test mode で新 Webhook destination 作成 (disabled)。**4-b**: Production mode で新 destination 有効化 + 旧 destination disabled。**4-c**: 旧 destination delete |
@@ -130,16 +130,16 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 
 Stripe Dashboard #2627 で PO が手動操作する 7 領域 (A-G) と、Phase 7 統合 PR 5 step のマージ timing の整合性を表で確定する。**「コード PR マージ vs Stripe Dashboard 反映」の片方先行禁止ゾーン**を明示する。
 
-### 4.1 7 領域 (A-G)
+### 4.1 7 領域 (A-G、#2683 補強で 2 Product 構成反映)
 
 | 領域 | Stripe Dashboard 操作 | Phase 7 step 同期 timing |
 |---|---|---|
-| **A** | Test mode で Product `がんばりクエスト サブスクリプション` 作成 + 2 Price (`standard_monthly` / `premium_monthly` lookup_key、`inclusive` 税込) | **Step 3 マージ前**必須 (Step 3 PR の Pre-Ready CI が Test mode lookup_key 解決確認を含む) |
-| **B** | Test mode で Customer Portal config 設定 (子 1 §3.2 の 11 項目) | Step 3 マージ前 (A と同時、PO 1 セッションで完遂) |
-| **C** | Test mode で Webhook destination 作成 (disabled、子 1 §4.3 の 8 event 購読) | **Step 4-a マージ前**必須 |
-| **D** | Test mode で Test clock customer 作成 (子 2 #2662 連動、6 シナリオ用) | Step 4-a 着手前 (E2E 計画段階で PO が事前構築) |
-| **E** | Production mode で Product / 2 Price / lookup_key / Customer Portal config を Test mode と同設定で作成 | **Step 4-b マージ前**必須 (Production cutover 前) |
-| **F** | Production mode で Webhook destination 作成 (disabled、Step 4-b マージ時に有効化) | Step 4-b マージ時に PO が Dashboard で有効化 (同期コミット) |
+| **A** | Test mode で **2 Product (`prod_STANDARD` + `prod_PREMIUM`) 各 1 Price** (`standard_monthly` / `premium_monthly` lookup_key、`inclusive` 税込) (#2683 代替案 D) | **Step 3 マージ前**必須 (Step 3 PR の Pre-Ready CI が Test mode lookup_key 解決確認を含む) |
+| **B** | Test mode で Customer Portal config 設定 (子 1 §3.2 の 12 項目、**`subscription_update.products` に 2 entries** + `proration_behavior='always_invoke'` + `schedule_at_period_end` 撤去、#2683) | Step 3 マージ前 (A と同時、PO 1 セッションで完遂) |
+| **C** | Test mode で Webhook destination 作成 (disabled、子 1 §4.3 の **5 event** 購読: `customer.subscription.*` 2 + `invoice.payment_*` 2 + `credit_note.created` 1、#2683 訂正) | **Step 4-a マージ前**必須 |
+| **D** | Test mode で Test clock customer 作成 (子 2 #2662 連動、6 シナリオ用、#2683 でダウンシナリオは即時 + credit memo 検証に変更) | Step 4-a 着手前 (E2E 計画段階で PO が事前構築) |
+| **E** | Production mode で 2 Product / 各 1 Price / lookup_key / Customer Portal config を Test mode と同設定で作成 (#2683 反映) | **Step 4-b マージ前**必須 (Production cutover 前) |
+| **F** | Production mode で Webhook destination 作成 (disabled、Step 4-b マージ時に有効化、#2683 副次制約 4: api_version は新 destination 作成時の Dashboard 設定値で immutable) | Step 4-b マージ時に PO が Dashboard で有効化 (同期コミット) |
 | **G** | Production mode で旧 4 Price archive + 旧 Webhook destination delete | **Step 5 マージ後** 1 週間 smoke test PASS 後 |
 
 ### 4.2 片方先行禁止ゾーン (mermaid timeline)
@@ -177,12 +177,14 @@ gantt
 | A+B 未完で Step 3 マージ | Step 3 PR の Pre-Ready で `prices.list({ lookup_keys })` mock 解決成功するが、本番 staging 起動で `INVALID_LOOKUP_KEY` | Step 3 を revert、PO #2627 で A+B 完遂後再 push |
 | C 未完で Step 4-a マージ | shadow mode で event 受信 0 件、log に新 destination 反映なし | Step 4-a を `STRIPE_WEBHOOK_SHADOW_MODE=false` に切替、PO #2627 で C 完遂後 shadow mode 再有効化 |
 | E 未完で Step 4-b マージ | Production cutover で新 lookup_key 解決失敗 (Production mode Price 不在) | Step 4-b 即時 revert (kill switch `USE_LOOKUP_KEY=false` 有効化)、PO #2627 で E 完遂後再 push |
-| F 同期遅延 (Step 4-b マージ後 Dashboard 未有効化) | 新 8 event のうち 3 種新規 (`subscription_schedule.*`) が silent drop | PO に Discord alert 通知、Dashboard で F 即時有効化 (5 分以内対応) |
+| F 同期遅延 (Step 4-b マージ後 Dashboard 未有効化) | 新 5 event のうち 3 種新規 (`invoice.payment_succeeded` / `_failed` / `credit_note.created`、#2683 訂正) が silent drop | PO に Discord alert 通知、Dashboard で F 即時有効化 (5 分以内対応) |
 | G 早期実行 (Step 5 マージ前に旧 4 Price archive) | active subscription 顧客の請求継続失敗 (Phase 1 補強 2 Open question 4 が崩れた場合) | Stripe API で旧 4 Price un-archive (Stripe 公式 archive 解除)、Step 5 マージまで再 archive 保留 |
 
-## 5. Stripe Webhook migration 5 phase 自プロダクト転用 (§5)
+## 5. Stripe Webhook migration 5 phase 自プロダクト転用 (§5、#2683 補強で副次制約 4 を根拠化)
 
 Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks/migrate-snapshot-to-thin-events) の 5 phase migration パターンを本プロダクトの Phase 7 Step 4 に転用する。
+
+> **#2683 補強 (2026-05-30)**: 本 5 phase migration が**強制必須**となる根拠は、Phase 5 子 1 #2644 #2683 補強で SSOT 化された**副次制約 4: Webhook destination api_version immutable** ([phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md))。Stripe API は既存 destination の api_version 変更を `400 Bad Request` で拒否するため、SDK apiVersion 変更時 (本 Phase 7 では現状 `'2026-04-22.dahlia'` 維持のため bump なし、将来の stable リリース採用時に発動) は新 destination 作成 → cutover → 旧 delete の 5 phase 必須。本 §5 は将来の apiVersion bump 時の SSOT としても機能する。
 
 ### 5.1 5 phase の対応関係
 
