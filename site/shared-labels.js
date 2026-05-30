@@ -352,7 +352,19 @@
 			"faqCancelVsDeleteA": "解約は有料プランの自動更新を停止し、猶予期間後に無料プランへ自動移行します。データは無料プランの保持期間（90 日）を超えたものから順次削除されます。アカウント退会は、ログイン後にご自身で実施いただくことで全データを猶予期間後に完全削除します。",
 			"existingCustomerCancelLinkPrefix": "すでに有料プランをご利用中の方の",
 			"existingCustomerCancelLinkLabel": "解約はこちら",
-			"existingCustomerCancelLinkSuffix": "（ご家族の見守り画面に移動します）"
+			"existingCustomerCancelLinkSuffix": "（ご家族の見守り画面に移動します）",
+			"ctaTrialVerb": "7日間無料で試す",
+			"faqPurchaseStepsQ": "どうやって有料プランを始めますか？",
+			"faqPurchaseStepsAIntro": "以下の 3 ステップで簡単に始められます。",
+			"faqPurchaseStepsStep1": "1. LP の「無料で試す」または「無料で始める」ボタンから お申し込みページへ進みます。",
+			"faqPurchaseStepsStep2": "2. アカウント登録後、ご家族の見守り画面のヘッダにある「プラン」ボタンを押し、希望のプランを選択します。",
+			"faqPurchaseStepsStep3": "3. お申し込み内容のご確認画面 (重要事項) でチェックを入れて同意し、Stripe の決済画面でカード情報を入力すると 7日間の無料体験が始まります (カード登録不要)。",
+			"faqCancelStepsQ": "有料プランを解約するにはどうすればよいですか？",
+			"faqCancelStepsAIntro": "以下の 3 ステップで、いつでもご自身で解約することができます（契約期間の縛りはありません）。",
+			"faqCancelStepsStep1": "1. アプリにログイン後、ご家族の見守り画面の「プラン・お支払い」セクションを開きます。",
+			"faqCancelStepsStep2": "2. 「請求管理ページを開く」ボタンを押し、Stripe の請求管理ページに移動します。",
+			"faqCancelStepsStep3": "3. 請求管理ページの画面で「サブスクリプションを解約する」を選択すると、解約が完了します。次回更新日まで有料機能はご利用いただけます。",
+			"faqCancelStepsClosing": "いつでも解約できます（契約期間の縛りなし）。解約の理由をお聞かせいただくと、サービス改善の参考にさせていただきます。"
 		},
 		"licenseKey": {
 			"text1": "ライセンスキーの使い方 - がんばりクエスト ヘルプ",

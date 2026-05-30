@@ -18,6 +18,15 @@
 // #2276 (EPIC #2266): CHEER_TERMS / REWARD_TERMS / TEMPLATE_TERMS 追加（応援 / ごほうび管理 / みんなのテンプレート atom）
 // EPIC #2362 PR-2: OVERFLOW_MENU_TERMS / CHILD_SELECTION_TERMS / VISIBILITY_CHIP_TERMS 追加
 //   （admin route 共通 ⋮ menu / per-child 取込ダイアログ / family master visibility chip atom、UX 規約 SSOT）
+// Phase 7 PR-2b (#2697): PLAN_CHANGE_TERMS / TOKUSHOHO_TERMS を追加 import
+//   - PR-2a (#2689) で terms.ts に atom-only 6 / 7 / 9 key で配備済
+//   - 本 PR-2b で SUBSCRIPTION_PAGE_LABELS / UPGRADE_FLOW_LABELS / IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS /
+//     PHASE4_REACTIVATION_FLOW_LABELS / LP_PRICING_LABELS 拡張の 5 compound で参照
+//   - 補強 PR #2684 (代替案 D = 2 Product 各 1 Price + ダウン即時 + Stripe credit memo) を反映し、
+//     旧 SCHEDULED_DOWNGRADE_BANNER_LABELS → IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS に命名変更
+//   - CHECKOUT_SUCCESS_TERMS の compound (CHECKOUT_SUCCESS_LABELS) は Phase 5 §4.6 SSOT で
+//     「本 PR scope 外、Phase 3 #2572 関連 compound として別 PR (例: PR-2b 後続) で追加」と明示
+//     されているため、本 PR では import 不要
 import {
 	ADMIN_VIEW_TERMS,
 	ADVENTURE_TERMS,
@@ -42,6 +51,7 @@ import {
 	OYAKAGI_TERMS,
 	PARENT_TERMS,
 	PIN_DEFAULT_TERMS,
+	PLAN_CHANGE_TERMS,
 	PLAN_FULL_TERMS,
 	PLAN_TERMS,
 	POINT_TERMS,
@@ -50,6 +60,7 @@ import {
 	SIGNUP_TERMS,
 	STRIPE_PORTAL_TERMS,
 	TEMPLATE_TERMS,
+	TOKUSHOHO_TERMS,
 	TRIAL_PERIOD_TERMS,
 	TRIAL_TERMS,
 	UPGRADE_TERMS,
@@ -1830,6 +1841,78 @@ export const LICENSE_PAGE_LABELS = {
 } as const;
 
 // ============================================================
+// SUBSCRIPTION_PAGE_LABELS — /admin/subscription プランページ (Phase 3 #2567 / Phase 7 PR-2b)
+// ============================================================
+//
+// Phase 3 #2567 §文言 atom + Phase 5 子 5 #2656 §4.1 SSOT 配置確定。
+// rename 元 LICENSE_PAGE_LABELS は本 PR では削除せず**共存**させ、Phase 7 PR-2c で
+// 218 件参照を本 SUBSCRIPTION_PAGE_LABELS に一括 rename + LICENSE_PAGE_LABELS 撤去する。
+//
+// 設計意図:
+//   - `/admin/license` → `/admin/subscription` URL rename (Phase 4 #2620 LEGACY_URL_MAP) と
+//     compound 命名整合
+//   - V4 framing 軸 decoy (standard 「✓ お勧め」+ premium 最右配置) で 1 人っ子家庭の除外感回避
+//     (Phase 1 補強 2 F9 / Phase 3 #2567 §FR-4)
+//
+// 関連 ADR:
+//   - ADR-0058 (family → premium rename): Phase 7 PR-2d 以降で `PLAN_TERMS.family` を
+//     `.premium` に rename。本 PR では既存 atom 値を参照、rename 後 1 行修正で自動伝播
+//   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_FULL_TERMS.*}` template literal 経由
+//   - ADR-0013 (LP truth): 実装事実と LP の整合、月額のみ (Phase 1 補強 2 FR-2)
+
+export const SUBSCRIPTION_PAGE_LABELS = {
+	pageTitle: 'ご家族のプラン管理',
+	currentPlan: '現在のプラン',
+	// trial active 中の表示 (Phase 3 #2571 TrialBanner と機能領域として隣接)
+	trialActive: `${PLAN_FULL_TERMS.family}${TRIAL_TERMS.durationSpaced}無料体験中`,
+	// アップグレード CTA (Kinde 「what happens when clicked」原則、Phase 4 #2624 §2.1 整合)
+	upgradeCta: `${PLAN_FULL_TERMS.family}にする`,
+	// CTA 直下「いつでも解約」併記 (frictionless、Kinde 整合)
+	cancelAnytime: CANCEL_TERMS.anytimeOk,
+	// trial CTA 直下「クレカ登録不要」(Phase 3 #2571 整合)
+	noCreditCard: TRIAL_TERMS.noCreditCardMid,
+	// 請求情報リンク (BILLING_LABELS と隣接)
+	billingLink: 'ご請求情報を確認',
+	// 解約リンク (frictionless 控えめ表示、Kinde 整合)
+	cancelLink: `${CANCEL_TERMS.canonical}をご検討の方`,
+	// V4 framing 軸 decoy bait (standard 推奨バッジ、Phase 1 補強 2 F9 解消)
+	standardRecommendBadge: '✓ お勧め',
+} as const;
+
+// ============================================================
+// UPGRADE_FLOW_LABELS — アップグレード動線 4 段階 funnel (Phase 4 #2624 / Phase 7 PR-2b)
+// ============================================================
+//
+// Phase 4 #2624 §4.2 SSOT 配置確定 + Phase 5 子 5 #2656 §4.2 配置 (LICENSE_PAGE_LABELS 直後)。
+// `/admin/subscription/confirm` 上部 context-passing 文言 (`?from=...` クエリ別)。
+//
+// 設計意図:
+//   - gate → subscription → /confirm → Checkout の 4 段階 conversion funnel で
+//     `?from=feature-gate&feature=<id>` / `?from=trial-end` / `?from=header-badge` / `?from=banner` の
+//     context-passing を /confirm 上部 1 行 context line として表示 (Phase 4 #2624 §3.3)
+//   - 補強 PR #2684 (代替案 D): アップは即時実行 + `proration_behavior='always_invoice'` の
+//     業界収束パターン (Slack / Notion / Atlassian / Linear) を採用、本 compound は context 表示のみ
+//
+// 関連 ADR:
+//   - ADR-0045 (terms.ts 2 階層): atom (PLAN_FULL_TERMS / FEATURE_LABELS) を `${...}` 経由参照
+//   - ADR-0012 (Anti-engagement): 煽り回避「what happens when clicked」原則 (Kinde 整合)
+
+export const UPGRADE_FLOW_LABELS = {
+	// ?from=feature-gate&feature=<id> 経由 (Phase 3 #2570 gate → /confirm 動線)
+	contextFromFeatureGate: (featureLabel: string, tierLabel: string) =>
+		`${featureLabel} を解放するため ${tierLabel} にアップグレードします`,
+	// ?from=trial-end 経由 (Phase 4 #2622 trial→paywall 動線)
+	contextFromTrialEnd: (tierLabel: string) =>
+		`体験は終了しました。継続される場合は ${tierLabel} へアップグレードしてください`,
+	// ?from=header-badge 経由 (Phase 3 #2568 plan-badge → /confirm 動線、context なし標準表示)
+	contextFromHeaderBadge: '',
+	// ?from=banner 経由 (上限到達 banner → /confirm 動線、Phase 3 #2572 連動)
+	contextFromBanner: (tierLabel: string) => `上限到達のため ${tierLabel} へアップグレードします`,
+	// ?from パラメータ非該当時のフォールバック (任意の値が来た場合の安全表示)
+	contextFallback: '',
+} as const;
+
+// ============================================================
 // NUC_LICENSE_LABELS — NUC セルフホスト版 license panel (EPIC #2327 / #2329)
 // ============================================================
 //
@@ -2236,6 +2319,92 @@ export const BILLING_LABELS = {
 	dialogCancelButton: 'キャンセル',
 	dialogConfirmLoading: '確認中…',
 	dialogConfirmButton: `${STRIPE_PORTAL_TERMS.short}へ`,
+} as const;
+
+// ============================================================
+// IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS — 即時ダウン + Stripe credit memo banner (Phase 3 #2574 + 補強 PR #2684 / Phase 7 PR-2b)
+// ============================================================
+//
+// **命名変更履歴 (補強 PR #2684、代替案 D 採用)**:
+//   旧名: SCHEDULED_DOWNGRADE_BANNER_LABELS (Phase 3 #2574 当初設計、期末ダウン予約 3 variant banner)
+//   新名: IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS (本 PR、代替案 D で命名整合)
+//
+// 命名変更理由 (補強 PR #2684 / 代替案 D):
+//   PO 手動検証 (2026-05-30) で Stripe Dashboard が「同一 Product 内 2 Price を Customer Portal
+//   `subscription_update.products` 配列に登録不可」と判明 → 1 Product 2 Price 案は破棄、
+//   **2 Product 各 1 Price + ダウン即時 + Stripe `proration_behavior='always_invoice'`** の
+//   業界収束パターン (Slack / Notion / Atlassian / Linear 等 50% SaaS 採用) に変更。
+//   Subscription Schedule API は別 Product 間で機能しないため不使用、ダウンは即時実行 + 未消費期間が
+//   credit memo として自動発行 → 次回 invoice で控除される。よって旧「期末ダウン予約残日数 banner」は
+//   scope 外となり、本 compound は「ダウン即時実行済 + credit memo 残高表示」に再設計。
+//
+// 想定リスク R8 (補強 PR #2684 / phase6-rollback-and-kill-switches.md §3.8) 対処:
+//   「顧客が credit 残高を `/admin/subscription` で確認できない → 信頼毀損」を回避するため、
+//   本 banner で「ダウン即時実行済 + 次回 invoice で ¥X 自動控除見込み」を可視化する。
+//
+// 設計意図:
+//   - ダウン即時完了直後の透明性 (credit memo 発行額 + 次回控除見込みを 1 文で伝達)
+//   - 顧客が「ダウンしたのに金が戻らない」と認識するインシデント (R8) の構造的予防
+//   - ADR-0012 煽り回避: 「失う / 消える / 使えなくなる」atom を含めず、事実説明 + 復活可能性のみ
+//
+// 関連 ADR:
+//   - ADR-0012 (Anti-engagement): 子供 UI 非露出、親 admin 限定、静的 1 件 (連続演出なし)
+//   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_CHANGE_TERMS.*}` 経由
+//   - ADR-0059 (Phase 7 cutover): kill switch (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) で
+//     ダウン即時動線を on/off 切替可能、本 compound は両モードで使用
+
+export const IMMEDIATE_DOWNGRADE_CREDIT_BANNER_LABELS = {
+	// ダウン即時完了 banner title (代替案 D 採用後の主訴求、credit memo 発行を明示)
+	completedTitle: (targetPlan: string) => `${targetPlan} に切り替わりました`,
+	// credit memo 残高 + 次回控除見込みの透明性 (R8 対処の核、Phase 3 hybrid confirm UI 連動)
+	creditBalanceLine: (creditAmount: string, nextInvoiceDate: string) =>
+		`未消費期間分の ${creditAmount} は、次回ご請求 (${nextInvoiceDate}) で自動的に差し引かれます`,
+	// アーカイブ予告 (Phase 3 #2575 archived listing と機能領域として隣接)
+	archiveNotice: (childCount: number, activityCount: number) =>
+		`お子さま ${childCount} 人 ・ 活動 ${activityCount} 件は${PLAN_CHANGE_TERMS.archiveVerb}が、上位プランで再開すればすぐ${PLAN_CHANGE_TERMS.restore}できます`,
+	// 復活 CTA (アップグレード動線への bridge、Phase 4 #2624 UPGRADE_FLOW_LABELS と隣接)
+	ctaReactivate: (sourcePlan: string) => `${sourcePlan} に戻す`,
+	ctaReactivateAria: `${PLAN_CHANGE_TERMS.changeVerb}でアップグレードして元のプランに戻る`,
+	// 請求履歴詳細リンク (BILLING_LABELS と機能領域として隣接、credit memo 詳細表示)
+	viewBillingHistoryLink: 'ご請求履歴で credit memo を確認する',
+	// banner dismiss (session storage 経由、再表示は次セッション、ADR-0012 連続演出回避)
+	dismissAriaLabel: 'バナーを閉じる',
+} as const;
+
+// ============================================================
+// PHASE4_REACTIVATION_FLOW_LABELS — reactivation banner 動線文言 (Phase 4 #2623 / Phase 7 PR-2b)
+// ============================================================
+//
+// Phase 4 #2623 §文言 atom + Phase 5 子 5 #2656 §4.4 SSOT 配置確定。
+// archived → reactivation 動線で全 admin 画面で banner 常時表示 (Phase 4 #2623 §2 原則 1)、
+// `?from=reactivation-banner` / `?from=reactivation-listing` クエリ重畳で context-passing。
+//
+// 設計意図:
+//   - Phase 3 #2575 archived listing UI と表裏 (アーカイブ → 復活 動線の SSOT 文言)
+//   - 補強 PR #2684 (代替案 D) の影響なし: 本 compound は archived データの再 reactivation 文言で、
+//     ダウン即時 / credit memo とは独立 (archived は 90 日 retention 経由の物理削除前救済動線)
+//
+// 関連 ADR:
+//   - ADR-0049 (retention 90 日): free plan archived データの 90 日保持 → 物理削除前の救済動線
+//   - ADR-0045 (terms.ts 2 階層): `${PLAN_CHANGE_TERMS.restore}` 経由参照
+//   - ADR-0012 (Anti-engagement): 「失う / 消える / 使えなくなる」atom 含めず、「復活させる」事実説明
+
+export const PHASE4_REACTIVATION_FLOW_LABELS = {
+	// banner dismiss 関連 (session storage で次タブ open まで非表示、ADR-0012 連続演出回避)
+	bannerDismissAriaLabel: 'バナーを閉じる',
+	bannerDismissHint: '次回タブを開くまで表示されません',
+	// subscription page 上部 context line (?from=reactivation-banner 時)
+	contextFromBanner: (total: number) =>
+		`${total}件のデータを${PLAN_CHANGE_TERMS.restore}させるために、プランをご検討ください`,
+	// subscription page 上部 context line (?from=reactivation-listing 時、archived listing 経由)
+	contextFromListing: (total: number) =>
+		`${total}件のデータを${PLAN_CHANGE_TERMS.restore}させて、お子さまの記録を引き継ぎませんか`,
+	// /confirm 画面 (Phase 3 #2573) 上部 context line
+	confirmContext: (total: number) =>
+		`お申し込み後、${total}件のアーカイブデータが自動的に${PLAN_CHANGE_TERMS.restore}します`,
+	// reactivation 完了 toast (Phase 3 #2572 success polling 経路、Toast.svelte primitive 流用、3s 自動消失)
+	toastReactivationSuccess: (total: number) =>
+		`${total}件のデータを${PLAN_CHANGE_TERMS.restore}しました`,
 } as const;
 
 // ============================================================
@@ -5090,6 +5259,36 @@ export const LP_PRICING_LABELS = {
 	existingCustomerCancelLinkPrefix: 'すでに有料プランをご利用中の方の',
 	existingCustomerCancelLinkLabel: `${CANCEL_TERMS.canonical}はこちら`,
 	existingCustomerCancelLinkSuffix: `（${ADMIN_VIEW_TERMS.canonical}に移動します）`,
+
+	// ============================================================
+	// Phase 7 PR-2b (#2697): Phase 4 #2621 LP_PRICING_LABELS 拡張 (新規 namespace 起こさず key 追加)
+	// ============================================================
+	// 設計意図:
+	//   - Phase 4 #2621 §3.1 LP「CTA 動詞句」統合: 既存 `${CTA_TERMS.freeTrialVerb}` を atom 経由参照、
+	//     LP pricing.html `data-lp-key="pricingB.ctaTrialVerb"` で文字列値配信 (#1917 機構整合)
+	//   - Phase 4 #2621 §4.1 新規 FAQ「購入手順 3 ステップ」: Phase 2 #2548 谷④購入動線探索の解消
+	//   - Phase 4 #2621 §4.2 新規 FAQ「解約手順 3 ステップ」: Phase 2 #2548 谷③解約柔軟性 + Kinde frictionless
+	//   - 補強 PR #2684 (代替案 D = ダウン即時 + Stripe credit memo) 反映: 解約後の credit memo / 次回控除
+	//     見込みは Stripe Portal で確認可能、本 LP 文言では「解約完了 → 次回更新日まで有料機能継続」を維持
+	// 関連 ADR: ADR-0045 (terms.ts 2 階層、atom 経由 template literal 参照) / ADR-0013 (LP truth)
+
+	// CTA 動詞句 (Phase 4 #2621 §3.1、site/pricing.html L297 / L322 を data-lp-key="pricingB.ctaTrialVerb" で参照)
+	ctaTrialVerb: `${TRIAL_TERMS.duration}${CTA_TERMS.freeTrialVerb}`,
+
+	// FAQ 購入手順 3 ステップ (Phase 4 #2621 §4.1、Phase 2 #2548 谷④購入動線探索 解消)
+	faqPurchaseStepsQ: 'どうやって有料プランを始めますか？',
+	faqPurchaseStepsAIntro: '以下の 3 ステップで簡単に始められます。',
+	faqPurchaseStepsStep1: `1. LP の「${CTA_TERMS.freeTrialVerb}」または「${FREE_TERMS.tryFree}」ボタンから ${SIGNUP_TERMS.canonical}ページへ進みます。`,
+	faqPurchaseStepsStep2: `2. アカウント登録後、${ADMIN_VIEW_TERMS.canonical}のヘッダにある「プラン」ボタンを押し、希望のプランを選択します。`,
+	faqPurchaseStepsStep3: `3. お申し込み内容のご確認画面 (${TOKUSHOHO_TERMS.heading6Important}) でチェックを入れて同意し、Stripe の決済画面でカード情報を入力すると ${TRIAL_TERMS.duration}の無料体験が始まります (${TRIAL_TERMS.noCreditCardMid})。`,
+
+	// FAQ 解約手順 3 ステップ (Phase 4 #2621 §4.2、Phase 2 #2548 谷③解約柔軟性 解消、Kinde frictionless 整合)
+	faqCancelStepsQ: `有料プランを${CANCEL_TERMS.canonicalVerb}にはどうすればよいですか？`,
+	faqCancelStepsAIntro: `以下の 3 ステップで、いつでもご自身で${CANCEL_TERMS.canonicalVerb}ことができます（契約期間の縛りはありません）。`,
+	faqCancelStepsStep1: `1. アプリにログイン後、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」セクションを開きます。`,
+	faqCancelStepsStep2: `2. 「${STRIPE_PORTAL_TERMS.short}を開く」ボタンを押し、${STRIPE_PORTAL_TERMS.canonical}に移動します。`,
+	faqCancelStepsStep3: `3. ${STRIPE_PORTAL_TERMS.short}の画面で「サブスクリプションを${CANCEL_TERMS.canonicalVerb}」を選択すると、${CANCEL_TERMS.canonical}が完了します。次回更新日まで有料機能はご利用いただけます。`,
+	faqCancelStepsClosing: `${CANCEL_TERMS.anytimeOk}。${CANCEL_TERMS.canonical}の理由をお聞かせいただくと、サービス改善の参考にさせていただきます。`,
 } as const;
 
 // #1594 ADR-0023 I8 で導入された LP「開発者に直接相談」セクションは、
