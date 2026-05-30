@@ -23,8 +23,11 @@
  * - `downgrade_user_selected`: 手動ダウン時にユーザー選択 archive (`archiveForDowngrade` 経路)
  * - `dunning_canceled`: dunning Smart Retries 枯渇 → subscription.deleted → free 復帰時 archive (Phase 7 新規)
  *
- * 順序は `as const` array の宣言順を保ち、`drizzle-orm` の enum 制約に渡したときに
- * SQLite CHECK 制約として展開される (drizzle-orm 0.x 仕様)。
+ * 順序は `as const` array の宣言順を保ち、`drizzle-orm` の enum 制約に渡すことで
+ * select / insert 型に literal union を自動伝播させる。
+ * drizzle 0.x の enum 制約は TypeScript 型強制のみで SQLite CHECK 制約は生成されない
+ * (Round 3 / Adversarial security 軸 SSOT 一貫性訂正、本 PR #2689 schema.ts と整合)。
+ * runtime validation は別途 application layer (repo / service) で実装する必要がある。
  */
 export const ARCHIVED_REASONS = [
 	'trial_expired',
