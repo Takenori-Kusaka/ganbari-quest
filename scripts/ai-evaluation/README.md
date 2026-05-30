@@ -26,6 +26,19 @@ User goal「立ち会うだけ」を **15-30 分 / type の User filter session*
 
 ## Prerequisite
 
+### Mock mode (cost $0、CI smoke test / pipeline 健全性検証)
+
+何も配備不要。`--mock` flag を付けるだけで動作:
+
+```bash
+node scripts/ai-evaluation/run-poc.mjs --mock --age preschool
+```
+
+実 Claude API call なし / 実 browser 起動なし / 実 axe-core 起動なし。realistic dummy response で
+5 Role × 3 runs × 5 step pipeline の structural 健全性のみ検証する用途。
+
+### 実 Claude API 実機実測 (cost $10-30、Day 3 別 thread、User 判断後実施)
+
 ```bash
 # 1. POC 依存 install (本 PR で完了済)
 npm install -D @browserbasehq/stagehand@^3.4 @axe-core/playwright@^4.11 @anthropic-ai/sdk@^0.100
@@ -37,16 +50,26 @@ echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env.local
 AUTH_MODE=anonymous DATA_SOURCE=demo npm run preview -- --port 5180
 ```
 
+実 Claude API 評価は **Pre-PMF Bucket A 適合** (ADR-0010、cost $10-30/type で顧客 review 基盤を実証)。
+本 thread (Issue #2692) では実行禁止、User 判断後に別 thread で Issue #2693 として実施する。
+
 ## 使い方
 
 ```bash
+# === Mock smoke test (cost $0、推奨初回検証) ===
+# pipeline structural 健全性のみ検証、demo Lambda env / API key 一切不要
+node scripts/ai-evaluation/run-poc.mjs --mock --age preschool
+node scripts/ai-evaluation/run-poc.mjs --mock --age preschool --mock-runs 3
+node scripts/ai-evaluation/run-poc.mjs --mock --age all              # 5 age mode 全部 (cost $0)
+
+# === 実 Claude API 実機実測 (Day 3 別 thread) ===
 # preschool 1 age mode で full POC (推奨初回実行、約 $5-10)
 node scripts/ai-evaluation/run-poc.mjs --type activity-pack --age preschool
 
 # 5 age mode 全部 (約 $25-50、要注意)
 node scripts/ai-evaluation/run-poc.mjs --type activity-pack --age all
 
-# Stagehand + axe smoke test のみ (API cost 0、key 不要、Stagehand 動作確認)
+# Stagehand + axe smoke test のみ (API cost 0、demo Lambda env 必要、Stagehand 実機動作確認)
 node scripts/ai-evaluation/run-poc.mjs --age preschool --skipMultiAgent
 
 # 既存 SS を使い Multi-Agent のみ再実行 (prompt 調整時に有用)
@@ -55,6 +78,25 @@ node scripts/ai-evaluation/run-poc.mjs --age preschool --skipStagehand
 # ヘルプ
 node scripts/ai-evaluation/run-poc.mjs --help
 ```
+
+## Mock mode vs 実 Claude API の構造的差異
+
+| 項目 | Mock mode (`--mock`) | 実 Claude API 実機実測 |
+|---|---|---|
+| cost | $0 | $10-30/type (5 age mode × 5 Role × 3 runs) |
+| 必要 dep | なし | `@browserbasehq/stagehand` / `@axe-core/playwright` / `@anthropic-ai/sdk` |
+| 必要 env | なし | `ANTHROPIC_API_KEY` + demo Lambda env (port 5180) |
+| 検証範囲 | pipeline structural 健全性のみ (集約 logic / matrix 構造 / filter session md 構成) | 実 Recall / FP / FN / Kappa / User 立ち会い時間 (5 軸定量実測) |
+| SS | 1x1 PNG dummy 5 × age mode | 780×1688 mobile-like fullPage SS 5 × age mode |
+| axe violations | dummy 5 件 (critical 1 / serious 2 / moderate 2) | 実 WCAG 2.2 AA + tapSize per age 実測 |
+| Multi-Agent response | realistic dummy (issue type 多様、severity 1-4 混在) | 実 Claude Opus 5 Role 評価 |
+| filter session md | 5-axis table mock data 表示 + ⚠️ MOCK note 明示 | 5-axis table の数値は User filter 後算出 |
+| 用途 | CI smoke test / pipeline 動作検証 / prompt 調整 dry-run | Day 3 顧客 review feedback ループ実証 |
+
+5 軸定量実測の前提条件:
+1. ground truth は User filter で確定する (Section 1 Yes/No 承認 + Section 2 AI 正/誤判定 + Section 3 違和感記録)
+2. dummy mock では 5 軸 metrics は "structural test" のみ意味あり (集約 logic / certainty 帯分布 / matrix 構造の確認のみ)
+3. 実 LLM 評価でしか realistic Recall / FP / FN / Kappa は得られない (Pre-PMF Bucket A、ADR-0010)
 
 ## ディレクトリ structure
 

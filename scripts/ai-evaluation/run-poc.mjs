@@ -61,6 +61,8 @@ function parseCliArgs() {
 			baseUrl: { type: 'string', default: process.env.AI_EVAL_BASE_URL || 'http://localhost:5180' },
 			skipStagehand: { type: 'boolean', default: false }, // SS 既出 + Multi-Agent のみ
 			skipMultiAgent: { type: 'boolean', default: false }, // Stagehand + axe のみ (API cost 抑制)
+			mock: { type: 'boolean', default: false }, // mock smoke test (cost $0、Issue #2692)
+			'mock-runs': { type: 'string', default: '3' }, // mock 時の Self-Consistency runs 数
 			help: { type: 'boolean', short: 'h', default: false },
 		},
 		allowPositionals: false,
@@ -84,22 +86,29 @@ Options:
   --baseUrl <url>        demo Lambda env URL (default: http://localhost:5180)
   --skipStagehand        既存 SS を使い Multi-Agent のみ実行 (API cost 確認用)
   --skipMultiAgent       Stagehand + axe のみ実行 (Anthropic API 不使用、smoke test)
+  --mock                 Mock mode: 実 Claude API / browser / axe-core 起動なし
+                         realistic dummy response で pipeline structural 健全性のみ検証 (cost $0)
+  --mock-runs <N>        Mock 時の Self-Consistency runs 数 (default: 3)
   --help, -h             ヘルプ表示
 
-Prerequisite:
-  - .env.local に ANTHROPIC_API_KEY を配備 (--skipMultiAgent 時は不要)
-  - demo Lambda env を別 terminal で起動:
+Prerequisite (--mock 不使用時):
+  - .env.local に ANTHROPIC_API_KEY を配備 (--skipMultiAgent / --mock 時は不要)
+  - demo Lambda env を別 terminal で起動 (--mock 時は不要):
       AUTH_MODE=anonymous DATA_SOURCE=demo npm run preview -- --port 5180
 
 Examples:
-  # preschool 1 age mode で full POC
+  # preschool 1 age mode で full POC (実 Claude API、cost $5-10)
   node scripts/ai-evaluation/run-poc.mjs --type activity-pack --age preschool
 
-  # 5 age mode 全部 (約 $50-150、要注意)
+  # 5 age mode 全部 (実 Claude API、約 $25-50、要注意)
   node scripts/ai-evaluation/run-poc.mjs --type activity-pack --age all
 
-  # Stagehand + axe smoke test のみ (API cost 0)
+  # Stagehand + axe smoke test のみ (API cost 0、demo Lambda env 必要)
   node scripts/ai-evaluation/run-poc.mjs --age preschool --skipMultiAgent
+
+  # Mock smoke test (cost $0、demo Lambda env / API key 一切不要、pipeline 動作検証用)
+  node scripts/ai-evaluation/run-poc.mjs --mock --age preschool
+  node scripts/ai-evaluation/run-poc.mjs --mock --age preschool --mock-runs 3
 `);
 }
 
@@ -147,9 +156,11 @@ async function runMultiAgentForAge({
 	ageMode,
 	screenshots,
 	axeReports,
+	mock = false,
 }) {
+	const callBudget = 5 * runs;
 	console.log(
-		`[poc] age=${ageMode} で Multi-Agent 評価 (5 Role × ${runs} runs = ${5 * runs} API call) 開始`,
+		`[poc] age=${ageMode} で Multi-Agent 評価 (5 Role × ${runs} runs = ${callBudget} ${mock ? 'MOCK call' : 'API call'}) 開始`,
 	);
 	const contextExtra = {
 		axe_summary: axeReports.map((r) => ({
@@ -174,6 +185,7 @@ async function runMultiAgentForAge({
 		ageMode,
 		screenshotPaths: screenshots,
 		contextExtra,
+		mock,
 	});
 
 	const evalJsonPath = resolve(OUTPUT_DIR, `evaluation-${type}-${ageMode}.json`);
@@ -220,21 +232,25 @@ async function main() {
 
 	const type = args.type;
 	const ageInputs = args.age === 'all' ? AGE_MODES : [args.age];
-	const runs = Number(args.runs);
+	const mock = args.mock === true;
+	// mock 時は mock-runs を優先、それ以外は runs
+	const runs = mock ? Number(args['mock-runs']) : Number(args.runs);
 	const baseUrl = args.baseUrl;
 	const model = args.model;
 	const apiKey = process.env.ANTHROPIC_API_KEY;
 
 	console.log(
-		`[poc] type=${type}, ages=${ageInputs.join(',')}, runs=${runs}, model=${model}, baseUrl=${baseUrl}`,
+		`[poc] type=${type}, ages=${ageInputs.join(',')}, runs=${runs}, model=${model}, baseUrl=${baseUrl}, mock=${mock}`,
 	);
 
-	if (!args.skipMultiAgent && !apiKey) {
+	// Mock mode 時は API key check / demo Lambda check 不要 (cost $0)
+	if (!mock && !args.skipMultiAgent && !apiKey) {
 		console.error(
 			'\n[poc] ERROR: ANTHROPIC_API_KEY 未設定。\n' +
 				'  - .env.local に ANTHROPIC_API_KEY=sk-ant-... を配備\n' +
 				'  - または `export ANTHROPIC_API_KEY=...` で env 設定\n' +
-				'  - smoke test (API 不使用) なら `--skipMultiAgent` を付与\n',
+				'  - smoke test (API 不使用) なら `--skipMultiAgent` を付与\n' +
+				'  - mock smoke test (cost $0) なら `--mock` を付与\n',
 		);
 		process.exit(2);
 	}
@@ -252,11 +268,12 @@ async function main() {
 
 	try {
 		if (!args.skipStagehand) {
-			console.log(`[poc] Stagehand 初期化中 (baseUrl=${baseUrl})…`);
+			console.log(`[poc] Stagehand 初期化中 (baseUrl=${baseUrl}, mock=${mock})…`);
 			stagehand = await createStagehand({
 				baseUrl,
 				apiKey: apiKey || 'dummy-for-stagehand-init',
 				model,
+				mock,
 			});
 		}
 
@@ -296,6 +313,7 @@ async function main() {
 				ageMode,
 				screenshots,
 				axeReports,
+				mock,
 			});
 			results[ageMode] = { screenshots, axeReports, ...multiResult };
 		}

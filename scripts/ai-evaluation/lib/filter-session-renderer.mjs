@@ -34,11 +34,15 @@ export function renderFilterSession(aggregated) {
 	const highSev34 = highCert.filter((m) => (m.severity ?? 0) >= 3);
 	const lowAny = lowCert;
 
+	const mockNote = aggregated.mock_mode
+		? `\n> ⚠️ **MOCK mode**: 本 file は realistic dummy data から生成された structural test 出力。\n> Recall / FP / FN / Kappa 等の達成判定 5 軸は実 Claude API 評価 + User filter session を経ないと意味ある数値にならない。\n> 実 Claude API 評価は別 thread で User 判断後実施 (cost $10-30、Issue #2693)。\n`
+		: '';
+
 	let md = `# 並走 path Review Filter — ${type} × ${ageMode} (${date})
 
 > AI 評価日時: ${date} / User filter 推定所要時間: 15-30 分
 > Stack: Stagehand v3 + Claude Opus (${aggregated.model}) + axe-core + Self-Consistency ${aggregated.self_consistency_runs} runs
-> Issue #2692 / EPIC #2691 POC 出力
+> Issue #2692 / EPIC #2691 POC 出力${mockNote}
 
 ## 集約サマリ
 

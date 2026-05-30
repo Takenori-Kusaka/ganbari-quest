@@ -7,6 +7,12 @@
  *   - 各 step で SS + axe-core report 撮影
  *   - Stagehand init / act / observe を wrap (v3 API は変動するため最小依存)
  *
+ * Mock mode (--mock flag、Day 3 mock smoke test 用、Issue #2692):
+ *   - 実 browser 起動なし、Stagehand 依存 load なし
+ *   - createStagehand → MockStagehand instance を返す (page/screenshot/observe は dummy 動作)
+ *   - executeStep → dummy SS placeholder (1x1 PNG) + dummy observed 文字列を返す
+ *   - 「pipeline structural 健全性のみ検証 (cost $0)」目的、実 Claude API 評価は別 thread
+ *
  * SSOT:
  *   - tmp/round18-parallel-path-first-review-plan-2026-05-30.md §3
  *   - src/lib/server/demo/demo-data.ts (5 fixture child 901-906)
@@ -24,6 +30,15 @@
 
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
+
+/**
+ * 1x1 PNG dummy bytes (Stagehand mock SS placeholder 用、base64 decoded)
+ * red dot PNG (smallest valid PNG with alpha channel)
+ */
+const DUMMY_PNG_1X1 = Buffer.from(
+	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+	'base64',
+);
 
 /**
  * 5 fixture child SSOT (src/lib/server/demo/demo-data.ts L10-14)
@@ -102,17 +117,87 @@ async function loadStagehand() {
 }
 
 /**
+ * Mock Stagehand instance (--mock flag 用、Issue #2692 mock smoke test)
+ *
+ * page / page.context / page.screenshot / page.observe / page.act / page.goto / page.$$eval を
+ * dummy 動作で wrap。実 browser / Stagehand SDK 起動なし、cost $0、Anthropic key 不要。
+ * 「pipeline structural 健全性のみ検証」目的。
+ */
+function createMockStagehand({ baseUrl }) {
+	const cookies = [];
+	const mockPage = {
+		_mockMode: true, // axe-runner.mjs が `page?._mockMode` で分岐するため必須
+		_currentUrl: baseUrl,
+		context() {
+			return {
+				async addCookies(c) {
+					cookies.push(...c);
+				},
+			};
+		},
+		async goto(url) {
+			this._currentUrl = url;
+			return null;
+		},
+		async screenshot({ path }) {
+			// dummy 1x1 PNG を書き込む (structural test 用 placeholder)
+			await fs.mkdir(dirname(path), { recursive: true });
+			await fs.writeFile(path, DUMMY_PNG_1X1);
+			return DUMMY_PNG_1X1;
+		},
+		async observe({ instruction }) {
+			return [{ description: `[MOCK observed] ${instruction.slice(0, 80)}` }];
+		},
+		async act({ action }) {
+			// dummy act: no-op
+			return { success: true, message: `[MOCK act] ${action.slice(0, 60)}` };
+		},
+		async $$eval(_selector, _fn) {
+			// runChildFriendlyAudit が呼ぶ。realistic dummy: 大半は OK、一部 tap size 違反混入
+			return [
+				{ tag: 'button', w: 64, h: 64, text: 'OKボタン' },
+				{ tag: 'button', w: 48, h: 48, text: 'キャンセル' }, // baby=120/preschool=80 で違反
+				{ tag: 'a', w: 100, h: 32, text: 'リンク' }, // 全 mode で違反 (h<44)
+				{ tag: 'button', w: 88, h: 88, text: 'みんなのテンプレートから探す' },
+				{ tag: '[role="button"]', w: 72, h: 72, text: 'インポート' },
+				{ tag: 'button', w: 40, h: 40, text: '✕' }, // 全 mode 違反候補
+				{ tag: 'a', w: 200, h: 56, text: '詳細を見る' },
+			];
+		},
+	};
+	return {
+		page: mockPage,
+		_mockMode: true,
+		async close() {
+			// no-op
+		},
+	};
+}
+
+/**
  * Stagehand v3 instance を本 product POC 標準設定で初期化
  *
  * @param {Object} opts
  * @param {string} opts.baseUrl - http://localhost:5180 等 (demo Lambda env)
- * @param {string} opts.apiKey - ANTHROPIC_API_KEY (Stagehand LLM client 用)
+ * @param {string} opts.apiKey - ANTHROPIC_API_KEY (Stagehand LLM client 用、mock=true 時は不要)
  * @param {string} [opts.modelName='claude-opus-4-7'] - Stagehand 内部 LLM model
- * @returns {Promise<Stagehand>} initialized Stagehand instance
+ * @param {boolean} [opts.mock=false] - true で Mock Stagehand instance を返す (cost $0、Issue #2692)
+ * @returns {Promise<Stagehand>} initialized Stagehand instance (or Mock)
  */
-export async function createStagehand({ baseUrl, apiKey, modelName = 'claude-opus-4-7' }) {
+export async function createStagehand({
+	baseUrl,
+	apiKey,
+	modelName = 'claude-opus-4-7',
+	mock = false,
+}) {
 	if (!baseUrl) throw new Error('baseUrl 必須 (例: http://localhost:5180)');
-	if (!apiKey) throw new Error('apiKey 必須 (ANTHROPIC_API_KEY)');
+
+	if (mock) {
+		console.log('[stagehand] MOCK mode: 実 browser / SDK 起動なし、dummy SS 生成のみ');
+		return createMockStagehand({ baseUrl });
+	}
+
+	if (!apiKey) throw new Error('apiKey 必須 (ANTHROPIC_API_KEY、mock=true 時は不要)');
 
 	const Stagehand = await loadStagehand();
 	// Stagehand v3 init parameters (公式 README + types)

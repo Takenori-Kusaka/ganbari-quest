@@ -5,6 +5,11 @@
  *   - WCAG 2.2 AA 自動 audit (5 age mode × 5 step = 25 cycle)
  *   - 本 product 子供向け custom audit (tapSize per age = age-tier.ts SSOT 整合)
  *
+ * Mock mode (page._mockMode === true):
+ *   - axe-core SDK load 回避
+ *   - realistic dummy violations 5 件 (critical 1 / serious 2 / moderate 2)
+ *   - tapSize 違反は MockStagehand.$$eval が dummy DOM を返すので runChildFriendlyAudit 共通
+ *
  * SSOT:
  *   - src/lib/domain/validation/age-tier.ts AGE_TIER_CONFIG (tapSize: baby=120 / preschool=80 /
  *     elementary=56 / junior=48 / senior=44)
@@ -19,6 +24,60 @@
 
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
+
+/**
+ * Mock axe violations (mock smoke test 用 realistic dummy、Issue #2692)
+ *
+ * 5 件 = critical 1 + serious 2 + moderate 2、Day 3 mock pipeline で structural test を埋める
+ * realistic 度。実 Claude API call で意味ある数値になる metrics は別 thread。
+ */
+const MOCK_AXE_VIOLATIONS = [
+	{
+		id: 'color-contrast',
+		impact: 'critical',
+		description: 'Elements must have sufficient color contrast',
+		help: 'Elements must have sufficient color contrast',
+		helpUrl: 'https://dequeuniversity.com/rules/axe/4.10/color-contrast',
+		nodes: [
+			{
+				target: ['.demo-only-notice'],
+				html: '<div class="demo-only-notice">MOCK contrast violation</div>',
+			},
+		],
+	},
+	{
+		id: 'label',
+		impact: 'serious',
+		description: 'Form elements must have labels',
+		help: 'Form elements must have labels',
+		helpUrl: 'https://dequeuniversity.com/rules/axe/4.10/label',
+		nodes: [{ target: ['input[name="search"]'], html: '<input type="search" name="search">' }],
+	},
+	{
+		id: 'aria-required-attr',
+		impact: 'serious',
+		description: 'Required ARIA attributes must be provided',
+		help: 'Required ARIA attributes must be provided',
+		helpUrl: 'https://dequeuniversity.com/rules/axe/4.10/aria-required-attr',
+		nodes: [{ target: ['[role="dialog"]'], html: '<div role="dialog">MOCK dialog</div>' }],
+	},
+	{
+		id: 'heading-order',
+		impact: 'moderate',
+		description: 'Heading levels should only increase by one',
+		help: 'Heading levels should only increase by one',
+		helpUrl: 'https://dequeuniversity.com/rules/axe/4.10/heading-order',
+		nodes: [{ target: ['h4'], html: '<h4>MOCK heading skip</h4>' }],
+	},
+	{
+		id: 'region',
+		impact: 'moderate',
+		description: 'All page content should be contained by landmarks',
+		help: 'All page content should be contained by landmarks',
+		helpUrl: 'https://dequeuniversity.com/rules/axe/4.10/region',
+		nodes: [{ target: ['.tour-card'], html: '<div class="tour-card">MOCK no landmark</div>' }],
+	},
+];
 
 /**
  * age mode → 期待最小 tapSize (px)
@@ -57,6 +116,29 @@ async function loadAxeBuilder() {
  * @returns {Promise<{ violations: any[], critical: number, serious: number, moderate: number, minor: number }>}
  */
 export async function runAxeAudit(page, jsonPath) {
+	// Mock mode: realistic dummy violations 5 件で structural test
+	if (page?._mockMode) {
+		const summary = { critical: 1, serious: 2, moderate: 2, minor: 0 };
+		await fs.mkdir(dirname(jsonPath), { recursive: true });
+		await fs.writeFile(
+			jsonPath,
+			JSON.stringify(
+				{
+					url: '[MOCK] http://localhost:5180/mock',
+					timestamp: new Date().toISOString(),
+					summary,
+					violations: MOCK_AXE_VIOLATIONS,
+					passes_count: 42, // dummy
+					_mock: true,
+				},
+				null,
+				2,
+			),
+			'utf-8',
+		);
+		return { violations: MOCK_AXE_VIOLATIONS, ...summary };
+	}
+
 	const AxeBuilder = await loadAxeBuilder();
 	const results = await new AxeBuilder({ page }).withTags(['wcag22aa', 'best-practice']).analyze();
 
