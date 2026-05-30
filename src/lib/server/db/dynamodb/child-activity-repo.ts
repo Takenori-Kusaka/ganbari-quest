@@ -9,6 +9,7 @@
 // (main Lambda は sqlite local file + S3 backup を使用)。本 stub が production で
 // 呼ばれる可能性はないが、factory.ts の型整合のため stub として配置する。
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	Child,
 	ChildActivity,
@@ -94,15 +95,19 @@ export async function copyActivitiesAcrossChildren(
 	return notImplemented('copyActivitiesAcrossChildren');
 }
 
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 export async function archiveActivities(
 	_ids: number[],
-	_reason: string,
+	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	return notImplemented('archiveActivities');
 }
 
-export async function restoreArchivedActivities(_reason: string, _tenantId: string): Promise<void> {
+export async function restoreArchivedActivities(
+	_reason: ArchivedReason,
+	_tenantId: string,
+): Promise<void> {
 	return notImplemented('restoreArchivedActivities');
 }
 

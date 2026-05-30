@@ -183,10 +183,11 @@ describe('#2458-A1: 旧 activities table への write 0 件保証', () => {
 		);
 		const beforeOld = countActivitiesTable(dbHolder.sqlite);
 
-		await activityRepo.archiveActivities([a.id, b.id], 'test-reason', TENANT);
+		// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
+		await activityRepo.archiveActivities([a.id, b.id], 'trial_expired', TENANT);
 		expect(countActivitiesTable(dbHolder.sqlite)).toBe(beforeOld);
 
-		await activityRepo.restoreArchivedActivities('test-reason', TENANT);
+		await activityRepo.restoreArchivedActivities('trial_expired', TENANT);
 		expect(countActivitiesTable(dbHolder.sqlite)).toBe(beforeOld);
 	});
 

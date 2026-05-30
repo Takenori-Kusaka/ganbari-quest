@@ -1,4 +1,5 @@
 import { eq, isNull, or } from 'drizzle-orm';
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { db } from '../client';
 import { hydrate } from '../migration';
@@ -159,8 +160,10 @@ export async function deleteChild(id: number, _tenantId: string) {
 }
 
 // #783: archive / restore
+// Phase 7 PR-2a (#2688): reason 引数を `ArchivedReason` 型に強制 (PR-1 #2685 で配備済の
+// `ARCHIVED_REASONS` SSOT integration)。schema.ts L45 の enum 制約と同期で型安全担保。
 
-export async function archiveChildren(ids: number[], reason: string, _tenantId: string) {
+export async function archiveChildren(ids: number[], reason: ArchivedReason, _tenantId: string) {
 	if (ids.length === 0) return;
 	for (const id of ids) {
 		db.update(children)
@@ -170,7 +173,7 @@ export async function archiveChildren(ids: number[], reason: string, _tenantId: 
 	}
 }
 
-export async function restoreArchivedChildren(reason: string, _tenantId: string) {
+export async function restoreArchivedChildren(reason: ArchivedReason, _tenantId: string) {
 	db.update(children)
 		.set({ isArchived: 0, archivedReason: null, updatedAt: new Date().toISOString() })
 		.where(eq(children.archivedReason, reason))

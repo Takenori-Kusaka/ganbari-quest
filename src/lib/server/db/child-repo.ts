@@ -1,5 +1,6 @@
 // src/lib/server/db/child-repo.ts — Facade (delegates to factory)
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { getRepos } from './factory';
 import type { InsertChildInput, UpdateChildInput } from './types';
 
@@ -23,10 +24,11 @@ export async function deleteChild(id: number, tenantId: string) {
 }
 
 // #783: archive / restore
-export async function archiveChildren(ids: number[], reason: string, tenantId: string) {
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
+export async function archiveChildren(ids: number[], reason: ArchivedReason, tenantId: string) {
 	return getRepos().child.archiveChildren(ids, reason, tenantId);
 }
-export async function restoreArchivedChildren(reason: string, tenantId: string) {
+export async function restoreArchivedChildren(reason: ArchivedReason, tenantId: string) {
 	return getRepos().child.restoreArchivedChildren(reason, tenantId);
 }
 export async function findArchivedChildren(tenantId: string) {

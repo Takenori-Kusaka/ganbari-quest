@@ -6,6 +6,7 @@
 //   旧 per-child instance (`childId` 列) は migrate-local.ts で family master 化済み。
 
 import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { db } from '../client';
 import {
 	checklistLogs,
@@ -325,11 +326,13 @@ export async function deleteByTenantId(_tenantId: string): Promise<void> {
 
 // ============================================================
 // #783: archive / restore (family scope)
+// Phase 7 PR-2a (#2688): reason 引数を `ArchivedReason` 型に強制 (PR-1 #2685 で配備済の
+// `ARCHIVED_REASONS` SSOT integration)。schema.ts L448 の enum 制約と同期で型安全担保。
 // ============================================================
 
 export async function archiveChecklistTemplates(
 	ids: number[],
-	reason: string,
+	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
 	if (ids.length === 0) return;
@@ -342,7 +345,7 @@ export async function archiveChecklistTemplates(
 }
 
 export async function restoreArchivedChecklistTemplates(
-	reason: string,
+	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
 	db.update(checklistTemplates)

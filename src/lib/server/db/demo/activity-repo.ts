@@ -24,6 +24,7 @@
 //   - ADR-0048 demo Lambda stateless 原則
 //   - docs/design/data-model-resource-scope.md §4.1
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import {
 	DEMO_ACTIVITIES,
 	DEMO_ACTIVITY_LOGS,
@@ -420,16 +421,20 @@ export async function findMustActivitiesWithToday(
 }
 
 // ---------- Archive / Restore ----------
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
 export async function archiveActivities(
 	_ids: number[],
-	_reason: string,
+	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
 }
 
-export async function restoreArchivedActivities(_reason: string, _tenantId: string): Promise<void> {
+export async function restoreArchivedActivities(
+	_reason: ArchivedReason,
+	_tenantId: string,
+): Promise<void> {
 	// Stub: no-op
 }
 

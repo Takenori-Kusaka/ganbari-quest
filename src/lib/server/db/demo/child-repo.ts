@@ -1,6 +1,7 @@
 // Demo IChildRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { DEMO_CHILDREN } from '$lib/server/demo/demo-data';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
@@ -56,16 +57,20 @@ export async function deleteChild(_id: number, _tenantId: string): Promise<void>
 }
 
 // ---------- Archive / Restore ----------
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
 export async function archiveChildren(
 	_ids: number[],
-	_reason: string,
+	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
 }
 
-export async function restoreArchivedChildren(_reason: string, _tenantId: string): Promise<void> {
+export async function restoreArchivedChildren(
+	_reason: ArchivedReason,
+	_tenantId: string,
+): Promise<void> {
 	// Stub: no-op
 }
 

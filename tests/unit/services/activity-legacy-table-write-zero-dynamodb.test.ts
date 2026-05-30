@@ -159,16 +159,18 @@ describe('#2458-A2 dynamodb: 旧 activities partition への write 0 件保証',
 	});
 
 	it('archiveActivities: NotImplementedError throw + DynamoDB Client 未到達', async () => {
+		// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
 		await expect(
-			dynamoActivityRepo.archiveActivities([1, 2, 3], 'test-reason', TENANT),
+			dynamoActivityRepo.archiveActivities([1, 2, 3], 'trial_expired', TENANT),
 		).rejects.toThrow(/archiveActivities not implemented/);
 
 		expect(mockSend).not.toHaveBeenCalled();
 	});
 
 	it('restoreArchivedActivities: NotImplementedError throw + DynamoDB Client 未到達', async () => {
+		// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
 		await expect(
-			dynamoActivityRepo.restoreArchivedActivities('test-reason', TENANT),
+			dynamoActivityRepo.restoreArchivedActivities('trial_expired', TENANT),
 		).rejects.toThrow(/restoreArchivedActivities not implemented/);
 
 		expect(mockSend).not.toHaveBeenCalled();
@@ -229,7 +231,11 @@ describe('#2458-A2 dynamodb: 旧 activities partition への write 0 件保証',
 					),
 			],
 			['updateActivity', () => dynamoActivityRepo.updateActivity(1, { name: 'x' }, TENANT)],
-			['archiveActivities', () => dynamoActivityRepo.archiveActivities([1], 'r', TENANT)],
+			// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
+			[
+				'archiveActivities',
+				() => dynamoActivityRepo.archiveActivities([1], 'trial_expired', TENANT),
+			],
 		];
 
 		for (const [name, fn] of methods) {

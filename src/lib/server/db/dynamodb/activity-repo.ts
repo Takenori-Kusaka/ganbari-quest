@@ -35,6 +35,7 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	Activity,
 	ActivityFilter,
@@ -962,14 +963,18 @@ export async function findMustActivitiesWithToday(
 
 // #783: archive / restore — #2458-A2: 旧 activities partition への write 停止
 
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 export async function archiveActivities(
 	_ids: number[],
-	_reason: string,
+	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	return notImplementedWrite('archiveActivities');
 }
 
-export async function restoreArchivedActivities(_reason: string, _tenantId: string): Promise<void> {
+export async function restoreArchivedActivities(
+	_reason: ArchivedReason,
+	_tenantId: string,
+): Promise<void> {
 	return notImplementedWrite('restoreArchivedActivities');
 }

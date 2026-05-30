@@ -263,7 +263,8 @@ describe('sqlite/child-activity-repo', () => {
 				TENANT,
 			);
 
-			await archiveActivities([a.id], 'unit-test-reason', TENANT);
+			// Phase 7 PR-2a (#2688): ArchivedReason 型強制で任意文字列 → ARCHIVED_REASONS 正規値
+			await archiveActivities([a.id], 'trial_expired', TENANT);
 
 			const defaultList = await findActivitiesByChild(1, TENANT);
 			expect(defaultList.length).toBe(0);
@@ -273,7 +274,7 @@ describe('sqlite/child-activity-repo', () => {
 			});
 			expect(includeArchivedList.length).toBe(1);
 			expect(includeArchivedList[0]?.isArchived).toBe(1);
-			expect(includeArchivedList[0]?.archivedReason).toBe('unit-test-reason');
+			expect(includeArchivedList[0]?.archivedReason).toBe('trial_expired');
 		});
 
 		it('restoreArchivedActivities は reason 一致で復活', async () => {
@@ -281,8 +282,9 @@ describe('sqlite/child-activity-repo', () => {
 				{ childId: 1, name: 'restoreテスト', categoryId: 1, icon: '♻', basePoints: 5 },
 				TENANT,
 			);
-			await archiveActivities([a.id], 'restore-target', TENANT);
-			await restoreArchivedActivities('restore-target', TENANT);
+			// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
+			await archiveActivities([a.id], 'downgrade_user_selected', TENANT);
+			await restoreArchivedActivities('downgrade_user_selected', TENANT);
 
 			const list = await findActivitiesByChild(1, TENANT);
 			expect(list.length).toBe(1);
@@ -291,7 +293,8 @@ describe('sqlite/child-activity-repo', () => {
 		});
 
 		it('archive ids 空配列は no-op', async () => {
-			await archiveActivities([], 'noop', TENANT);
+			// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
+			await archiveActivities([], 'trial_expired', TENANT);
 			// no throw / no side effect
 		});
 	});

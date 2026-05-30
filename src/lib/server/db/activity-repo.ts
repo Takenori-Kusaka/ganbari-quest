@@ -1,5 +1,6 @@
 // src/lib/server/db/activity-repo.ts — Facade (delegates to factory)
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { getRepos } from './factory';
 import type {
 	ActivityFilter,
@@ -146,10 +147,11 @@ export async function countPointLedgerEntriesByTypeAndDate(
 }
 
 // #783: archive / restore
-export async function archiveActivities(ids: number[], reason: string, tenantId: string) {
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
+export async function archiveActivities(ids: number[], reason: ArchivedReason, tenantId: string) {
 	return getRepos().activity.archiveActivities(ids, reason, tenantId);
 }
-export async function restoreArchivedActivities(reason: string, tenantId: string) {
+export async function restoreArchivedActivities(reason: ArchivedReason, tenantId: string) {
 	return getRepos().activity.restoreArchivedActivities(reason, tenantId);
 }
 

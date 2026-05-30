@@ -14,6 +14,7 @@
  *   - docs/design/marketplace-import-flow.md §3 (取込時 child binding sequence)
  */
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	Child,
 	ChildActivity,
@@ -81,8 +82,9 @@ export interface IChildActivityRepo {
 	): Promise<ChildActivity[]>;
 
 	// ── archive / restore (#783) ──────────────────────────────────
-	archiveActivities(ids: number[], reason: string, tenantId: string): Promise<void>;
-	restoreArchivedActivities(reason: string, tenantId: string): Promise<void>;
+	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
+	archiveActivities(ids: number[], reason: ArchivedReason, tenantId: string): Promise<void>;
+	restoreArchivedActivities(reason: ArchivedReason, tenantId: string): Promise<void>;
 
 	// ── Child convenience lookup ─────────────────────────────────
 	findChildById(id: number, tenantId: string): Promise<Child | undefined>;

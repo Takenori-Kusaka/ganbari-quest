@@ -32,6 +32,7 @@
 //   LOGIN_TERMS      — ログイン / サインイン 表記の atom（TECH-F、#1914）
 //   TRIAL_PERIOD_TERMS — 7 日間無料トライアル compound atom（TECH-F 中頻度、#1915）
 //   UPGRADE_TERMS    — プラン変更 / アップグレード / 上位プラン atom（TECH-F 中頻度、#1915）
+//   PLAN_CHANGE_TERMS — プラン変更 / archive / restore atom（Phase 5 #2656 + Phase 7 PR-2a、#2688 / Round 1 #2689 で atom-only に絞込）
 //   GRADUATION_TERMS — 卒業 / 最終ゴール atom（TECH-F 中頻度、#1915）
 //   ADVENTURE_TERMS  — 冒険 / メインクエスト atom（TECH-F 中頻度、#1915）
 //   MECHANISM_TERMS  — 仕組み / 工夫 / 設計 atom（TECH-F 中頻度、#1915）
@@ -40,8 +41,10 @@
 //   REWARD_TERMS     — ごほうび管理 / ごほうびショップ / プリセット atom（EPIC #2266、#2276）
 //   TEMPLATE_TERMS   — みんなのテンプレート / テンプレート atom（EPIC #2266、#2276）
 //   CHECKOUT_TERMS   — Stripe Checkout custom_text atom（景品表示法対応、EPIC #2345 / #2346）
+//   TOKUSHOHO_TERMS  — 特商法第12条の6 6 項目見出し + 短い名詞 atom（Phase 3 #2573 + Phase 7 PR-2a、#2688 / Round 1 #2689 で 6 見出し + cancelButtonLabel に絞込、法令文 compound は labels.ts 側へ移動）
+//   CHECKOUT_SUCCESS_TERMS — Stripe Checkout 完了後 success ページ atom（Phase 3 #2572 + Phase 7 PR-2a、#2688 / Round 1 #2689 で 5 variant 見出し + ボタンラベルに絞込、本文 compound は labels.ts 側へ移動）
 //
-// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346
+// 参照: docs/DESIGN.md §6 / Issue #1916 / Issue #1917 (template literal parser) / Issue #1958 / Issue #1896 / Issue #1898 / Issue #1913 / Issue #2058 / Issue #1914 / Issue #1915 / Issue #2266 / Issue #2276 / Issue #2345 / Issue #2346 / Issue #2688 (Phase 7 PR-2a)
 
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
@@ -527,6 +530,58 @@ export const UPGRADE_TERMS = {
 } as const;
 
 // ============================================================
+// PLAN_CHANGE_TERMS — プラン変更 (アップ / ダウン / archive / restore / protected) atom
+// ============================================================
+//
+// Phase 5 グループ C #2656 §2 原則 3 + §3.1 で確定された atom (Phase 7 PR-2a)。
+// Phase 3 #2574 (期末ダウン banner) + #2575 (archived reactivation) + #2623 (Phase 4 動線)
+// で共通参照される SSOT atom を 1 namespace に統合。
+//
+// 設計意図:
+//   プラン変更 (アップ / ダウン 双方) と「archive / restore / protected」関連の
+//   単一用語 atom 集約。ADR-0049 retention 90 日整合で free / paid variant を併設し、
+//   景表法 5 条 1 号 (優良誤認表示) 回避を構造担保する。
+//
+// 関連 ADR:
+//   - ADR-0012 (Anti-engagement): 「失う / 消える / 使えなくなる」atom を含めない
+//                                  (煽り回避、Phase 5 §2 原則 3 統合判断 + Phase 3 #2575 §文言)
+//   - ADR-0045 (terms.ts 2 階層): atom 単一用語、compound 組立は labels.ts 側
+//                                  (`PLAN_CHANGE_LABELS` は PR-2b で追加、本 PR scope 外)
+//   - ADR-0049 (retention 90 日): protectedFree / resumeReadyFree variant で
+//                                  free plan 90 日物理削除事実を伝達 (景表法 5 条整合)
+//   - ADR-0058 (family → premium rename): premium plan 文脈の compound 組立は PR-4 以降
+//
+// 統合判断の根拠 (Phase 5 §2 原則 3、本 PR で SSOT 化):
+//   - #2574 提案の主軸 key (banner / reactivation 動線で参照)
+//   - 旧版 11 key のうち、#2689 Round 1 で compound 句 (`restoreAble` / `resumeReady*` /
+//     `protected*` / `keepCurrent`) は labels.ts `PLAN_CHANGE_LABELS` に移動 (Phase 7 PR-2b)
+//
+// 設計指針 (key 別、Round 1 後):
+//   - 動詞: changeVerb / changeNoun ("プランを変更" / "プラン変更")
+//   - ダウン確定状態: scheduledChange ("切り替わります"、#2574 banner 専用、単語 atom)
+//   - archive 行為: archive / archiveVerb ("アーカイブ" / "アーカイブされます")
+//   - 復活: restore ("復活"、単語 atom のみ)
+//   - 保護 atom / CTA compound: PR-2b で labels.ts compound として組立 (ADR-0045 §3.3 整合)
+
+// #2689 Round 1 (Adversarial business 軸 + ADR-0045 §3.3 整合):
+// 旧版では `restoreAble: 'すぐに復活できます'` / `resumeReady*` / `protected*` / `keepCurrent` など
+// 助詞・複数 atom 結合の compound 句が混在していた。ADR-0045 §3.3 「terms.ts に compound (複数 atom
+// 組立文) を追加禁止」に整合させ、本 atom には**単一概念の動詞・名詞**のみを残す。
+// 旧 compound 句は labels.ts `PLAN_CHANGE_LABELS` (Phase 7 PR-2b で追加予定) に template literal 経由で移動する。
+export const PLAN_CHANGE_TERMS = {
+	// 動詞 (#2574 + #2575 共通)
+	changeVerb: 'プランを変更',
+	changeNoun: 'プラン変更',
+	// ダウン確定状態 (#2574 専用、単語 atom)
+	scheduledChange: '切り替わります',
+	// archive 行為 (#2574 + #2575 共通、単語 atom)
+	archive: 'アーカイブ',
+	archiveVerb: 'アーカイブされます',
+	// 復活 (#2574 + #2575 共通、単語 atom)
+	restore: '復活',
+} as const;
+
+// ============================================================
 // GRADUATION_TERMS — 卒業 (旧「ゴール」「最終地点」) atom (TECH-F 中頻度 / #1915)
 // ============================================================
 //
@@ -722,6 +777,106 @@ export const TEMPLATE_TERMS = {
 
 export const CHECKOUT_TERMS = {
 	chosenPlanFeature: 'お選びのプランの機能',
+} as const;
+
+// ============================================================
+// TOKUSHOHO_TERMS — 特商法第12条の6 6 項目見出し + 補足文言 atom (#2573 / Phase 7 PR-2a)
+// ============================================================
+//
+// 特商法 6 項目は **法務文書 (tokushoho.html) / Stripe Checkout `custom_text` /
+// `/admin/subscription/confirm` 画面** の 3 経路で **同一文言** を維持する必要があり、
+// SSOT 化が必須 (Phase 5 グループ C #2656 §3.2 配置確定、Phase 3 #2573 §4.1 SSOT)。
+//
+// 法的根拠:
+//   - 改正特商法 (令和3年改正) 第12条の6 第1項各号
+//   - 消費者庁「通信販売の申込み段階における表示についてのガイドライン」(令和4年6月)
+//   - 景品表示法第5条1号 (優良誤認、CHECKOUT_TERMS と相補)
+//
+// 既存 atom との関係:
+//   - PRICE_TERMS — 価格本体 (¥500 / ¥780 / ¥0 / 税込) は既存
+//   - TRIAL_TERMS — 7 日間 / カード登録不要は既存
+//   - CANCEL_TERMS — 解約 (いつでも解約) は既存
+//   - CHECKOUT_TERMS — 「お選びのプランの機能」(景品表示法対応) は既存
+//   - TOKUSHOHO_TERMS — 本 atom、特商法 6 項目の見出し + 短い名詞 atom のみ
+//     (法令文 compound は #2689 Round 1 で labels.ts 側に移動、ADR-0045 §3.3 整合)
+//
+// 設計指針 (Round 1 後):
+//   - 6 ブロック見出し (heading1-6): 法令で定められた表示順序を厳密維持、各見出しは単一名詞句
+//   - cancelButtonLabel: 'やめる' (短い動詞句、compound 組立用)
+//   - 法令文 compound (subscriptionType / pciNote / noAdditionalFee / cancelMethodFull /
+//     cancelAfterPolicy / consentLabel / confirmButtonLabel / autoRenewalNotice /
+//     noProrationRefund): labels.ts `TOKUSHOHO_LABELS` で template literal 組立 (Phase 7 PR-2b)
+//
+// 関連 compound: SUBSCRIPTION_CONFIRM_LABELS (Phase 7 PR-2b で追加、本 PR scope 外)
+
+// #2689 Round 1 (Adversarial business 軸 + ADR-0045 §3.3 整合):
+// 旧版では `cancelMethodFull` / `cancelAfterPolicy` / `autoRenewalNotice` / `pciNote` / `noAdditionalFee`
+// / `consentLabel` / `subscriptionType` 等の法令文 (複数 atom 結合の文章) が混在していた。
+// ADR-0045 §3.3 「terms.ts に compound 追加禁止」に整合させ、本 atom には**6 ブロック見出し** (法令で
+// 表示順序が定められた単一名詞句) と**短い名詞 atom** のみを残す。
+// 旧 compound 句は labels.ts `TOKUSHOHO_LABELS` (Phase 7 PR-2b で追加予定) に template literal 経由で
+// 移動する。法令改正時の影響範囲を可視化するため、compound 側で他 atom (CANCEL_TERMS /
+// STRIPE_PORTAL_TERMS / ADMIN_VIEW_TERMS / PRICE_TERMS) と結合する責務を持たせる。
+export const TOKUSHOHO_TERMS = {
+	// 6 ブロック見出し (法令で定められた表示順序を厳密維持、各見出しは単一名詞句 atom)
+	heading1Quantity: '分量',
+	heading2Price: '販売価格',
+	heading3Payment: '支払時期・方法',
+	heading4Delivery: '引渡時期・自動更新',
+	heading5Cancel: '申込撤回・解約方法',
+	heading6Important: '重要事項',
+	// 短い名詞 atom (compound 組立用、単一概念)
+	cancelButtonLabel: 'やめる',
+} as const;
+
+// ============================================================
+// CHECKOUT_SUCCESS_TERMS — Stripe Checkout 完了後 success ページ atom (#2572 / Phase 7 PR-2a)
+// ============================================================
+//
+// `/admin/subscription/success` (Checkout 完了直後の 5 variant 画面) で使う SSOT atom
+// (Phase 5 グループ C #2656 §3.3 配置確定、Phase 3 #2572 §文言 atom SSOT)。
+//
+// 既存 `CHECKOUT_TERMS` (Checkout 直前 custom_text 用) とは意味文脈が異なるため別 atom 化:
+//   - CHECKOUT_TERMS: Stripe Checkout `custom_text.submit` / `after_submit` の限定文言
+//   - CHECKOUT_SUCCESS_TERMS: success ページ (5 variant) の見出し + ボタンラベル
+//     (本文 *Body* は #2689 Round 1 で labels.ts compound 側に移動、ADR-0045 §3.3 整合)
+//
+// 5 variant 設計 (Phase 3 #2572 polling 設計):
+//   - variant A: success (Webhook 即時反映、2 秒後自動 redirect)
+//   - variant B: preparing (Webhook 待機中、polling 5 秒間隔、最大 60 秒)
+//   - variant C: processing (コンビニ / 銀行振込等の確認時間、メール通知後手動 redirect)
+//   - variant D: failed (Webhook 失敗、プランページ手動戻り)
+//   - variant E: timeout (polling timeout、再読込促し)
+//
+// 関連 compound: CHECKOUT_SUCCESS_LABELS (Phase 7 PR-2b で追加、本 PR scope 外)
+// 関連 ADR:
+//   - ADR-0045 (terms.ts 2 階層): atom 単一文言、compound 組立 (plan 名動的差し込み) は labels.ts 側
+
+// #2689 Round 1 (Adversarial UX 軸 + ADR-0045 §3.3 整合):
+// 旧版では 5 variant (success / preparing / processing / failed / timeout) の本文 (`*Body*`) を atom 化
+// していたが、これらは「保護者の決済完了ストレス局面でのコピーライティング A/B 最適化」を阻害する
+// 構造的越境 (本文は複数 atom の組立 = compound) であった。Adversarial UX 軸の指摘通り、本文は
+// labels.ts `CHECKOUT_SUCCESS_LABELS` (Phase 7 PR-2b で追加予定) に template literal 経由で移動する。
+// `successBodyTemplate` (動的差し込み template) は特に compound 側に置くべき責務であり、atom と称しつつ
+// concat を強制すると SSOT が二重管理化する (Adversarial UX 軸 §2)。
+//
+// 本 atom には 5 variant の**見出し** (短い単一名詞句) と**ボタンラベル** (動詞句) のみを残す。
+// 本文 (`*Body*`) は compound 側で見出し + ボタン + 動的差し込み (plan 名等) と組み合わせる。
+export const CHECKOUT_SUCCESS_TERMS = {
+	// variant A: success (Webhook 即時反映、2 秒後自動 redirect)
+	successHeading: 'ご利用ありがとうございます',
+	goHomeButton: 'ホームへ移動',
+	// variant B: preparing (Webhook 待機中、polling 5 秒間隔、最大 60 秒)
+	preparingHeading: '準備中',
+	// variant C: processing (コンビニ / 銀行振込等の確認時間)
+	processingHeading: 'お支払いの確認をしています',
+	goHomeBackButton: 'ホームへ戻る',
+	// variant D: failed (Webhook 失敗)
+	failedHeading: 'お支払いが完了していません',
+	backToPlanButton: 'プランページに戻る',
+	// variant E: timeout (polling timeout)
+	timeoutHeading: '処理に時間がかかっています',
+	reloadButton: '再読込',
 } as const;
 
 // ============================================================

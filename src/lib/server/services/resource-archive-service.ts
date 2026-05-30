@@ -1,6 +1,7 @@
 // src/lib/server/services/resource-archive-service.ts
 // #783: トライアル終了時の超過リソース archive / アップグレード時の restore
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import {
 	archiveActivities,
 	findActivities,
@@ -19,9 +20,11 @@ import {
 } from '$lib/server/db/child-repo';
 import { getPlanLimits } from './plan-limit-service';
 
-const ARCHIVE_REASON = 'trial_expired';
+// Phase 7 PR-2a (#2688): ARCHIVED_REASONS SSOT (domain) に整合させ ArchivedReason 型注釈で
+// repo 層の enum 制約と接続。caller 側の文字列 widening を防ぐ。
+const ARCHIVE_REASON: ArchivedReason = 'trial_expired';
 // #738: downgrade-service と同じ値。循環参照を避けるため直接定義
-const DOWNGRADE_ARCHIVE_REASON = 'downgrade_user_selected';
+const DOWNGRADE_ARCHIVE_REASON: ArchivedReason = 'downgrade_user_selected';
 
 /**
  * トライアル終了時に free プランの上限を超えるリソースを archive する。

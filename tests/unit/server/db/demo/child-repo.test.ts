@@ -70,8 +70,13 @@ describe('demo/child-repo', () => {
 		});
 
 		it('archiveChildren / restoreArchivedChildren は no-op で例外を投げない', async () => {
-			await expect(childRepo.archiveChildren([902], 'test', 'demo')).resolves.toBeUndefined();
-			await expect(childRepo.restoreArchivedChildren('test', 'demo')).resolves.toBeUndefined();
+			// Phase 7 PR-2a (#2688): ArchivedReason 型強制で 'test' → 'trial_expired' (ARCHIVED_REASONS SSOT)
+			await expect(
+				childRepo.archiveChildren([902], 'trial_expired', 'demo'),
+			).resolves.toBeUndefined();
+			await expect(
+				childRepo.restoreArchivedChildren('trial_expired', 'demo'),
+			).resolves.toBeUndefined();
 		});
 	});
 

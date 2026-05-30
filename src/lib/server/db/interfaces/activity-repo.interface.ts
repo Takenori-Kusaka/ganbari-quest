@@ -1,3 +1,4 @@
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	Activity,
 	ActivityFilter,
@@ -129,8 +130,9 @@ export interface IActivityRepo {
 	}>;
 
 	// #783: archive / restore
-	archiveActivities(ids: number[], reason: string, tenantId: string): Promise<void>;
-	restoreArchivedActivities(reason: string, tenantId: string): Promise<void>;
+	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
+	archiveActivities(ids: number[], reason: ArchivedReason, tenantId: string): Promise<void>;
+	restoreArchivedActivities(reason: ArchivedReason, tenantId: string): Promise<void>;
 
 	// Point Ledger
 	insertPointLedger(input: InsertPointLedgerInput, tenantId: string): Promise<void>;

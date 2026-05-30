@@ -48,6 +48,28 @@ describe('detectBreakingChanges (#2520 AC6/AC7)', () => {
 			// dbColumn 'display_name' は両方に存在するため DROP ではない
 			expect(detectBreakingChanges(diff).some((b) => b.reason.includes('DROP COLUMN'))).toBe(false);
 		});
+
+		it('text(name, { enum: ... }) で enum 制約が追加されても DROP 扱いしない (#2689 regression)', () => {
+			// Phase 7 PR-2a (#2689) で発覚した false positive 回帰防止。
+			// drizzle `text('name')` → `text('name', { enum: ARCHIVED_REASONS })` への変更は
+			// TypeScript 型強制のみで DDL 変更を伴わない (CHECK 制約ではない) ため破壊的でない。
+			// 旧正規表現は閉じ括弧 `\)` を必須としていたため第 2 引数を持つ + 側がマッチせず
+			// DROP COLUMN と誤判定 → CI fail を招いていた (本 PR で正規表現を緩和)。
+			const diff = [
+				"-	archivedReason: text('archived_reason'),",
+				"+	archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),",
+			].join('\n');
+			expect(detectBreakingChanges(diff).some((b) => b.reason.includes('DROP COLUMN'))).toBe(false);
+		});
+
+		it('既存列に追加引数 ($type<T>()) が付与されても DROP 扱いしない (#2689 regression)', () => {
+			// 同様の false positive ガード: drizzle の `$type<T>()` 型 caster 追加も DDL 変更なし。
+			const diff = [
+				"-	reason: text('reason'),",
+				"+	reason: text('reason', { enum: REASONS }).$type<ReasonType>(),",
+			].join('\n');
+			expect(detectBreakingChanges(diff).some((b) => b.reason.includes('DROP COLUMN'))).toBe(false);
+		});
 	});
 
 	describe('FK target 変更', () => {

@@ -1,3 +1,4 @@
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	ChecklistLog,
 	ChecklistOverride,
@@ -113,8 +114,9 @@ export interface IChecklistRepo {
 
 	// ── #783: archive / restore ─────────────────────────────────────
 
-	archiveChecklistTemplates(ids: number[], reason: string, tenantId: string): Promise<void>;
-	restoreArchivedChecklistTemplates(reason: string, tenantId: string): Promise<void>;
+	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
+	archiveChecklistTemplates(ids: number[], reason: ArchivedReason, tenantId: string): Promise<void>;
+	restoreArchivedChecklistTemplates(reason: ArchivedReason, tenantId: string): Promise<void>;
 
 	// ── Tenant bulk deletion ────────────────────────────────────────
 
