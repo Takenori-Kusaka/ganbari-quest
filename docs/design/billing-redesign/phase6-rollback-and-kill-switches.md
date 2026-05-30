@@ -1,34 +1,36 @@
-# Phase 6 子 5 — ロールバック詳細 + kill switch SSOT + Phase 1 構造的欠落 3 件 反映方針
+# Phase 6 子 5 — ロールバック詳細 + kill switch SSOT + Phase 1 構造的欠落 3 件 反映方針 (#2683 補強)
 
 | 項目 | 内容 |
 |------|------|
-| 孫 issue | #2665 (Phase 6 グループ C 最後、子 1-4 全マージ済が前提) |
+| 孫 issue | #2665 (Phase 6 グループ C 最後、子 1-4 全マージ済が前提) / #2683 (補強 — 2 Product 構成リスク R8 追加 + R3 / R5 / R6 訂正 + 副次制約 4 連動 + §6.3 Portal ロック誘導文言不要化) |
 | 親 | Phase 6 親 (Phase 7 統合 PR 5 step Step 4 + Step 5 ロールバック SSOT) / Epic #2525 |
 | 上位 (Phase 6 子 1) | #2667 ([phase6-phase7-execution-ssot](phase6-phase7-execution-ssot.md)) §5.2-5.3 ロールバック起点 + §10 OQ-3 kill switch dry-run の補完 |
 | 上位 (Phase 6 子 2) | #2674 ([phase6-test-clock-scenarios](phase6-test-clock-scenarios.md)) §6 kill switch dry-run シナリオ整合 |
 | 上位 (Phase 6 子 3) | #2675 ([phase6-db-migration-plan](phase6-db-migration-plan.md)) §5.3 rollback 不可逆性 + 13 file 一覧 整合 |
-| 上位 (Phase 6 子 4) | #2673 ([phase6-context-decisions-6](phase6-context-decisions-6.md)) lookup_key 段階移行 + API version bump |
-| 前提 (Phase 5) | #2639 ([phase5-stripe-product-architecture](phase5-stripe-product-architecture.md)) 「想定リスク 7 件」 / #2640 / #2641 / #2642 / #2643 |
-| 連動 (Phase 7) | #2531 (実装 PR 群) — Phase 7 Step 1-5 全 step で本 docs §3 リスク 7 件 + §4 #2627 timeline + §5 kill switch を参照 |
-| Phase 1 連動 | #2537 dunning FR-3 (handleSubscriptionDeleted archive 未呼出、本 docs §6.1) / 副次制約 1 tax_behavior (§6.2) / 副次制約 2 Portal ロック banner (§6.3) |
-| ステータス | 設計確定 (本 PR で docs SSOT、コード変更は Phase 7 各 Step / ADR 起票は本 PR で同時実施) |
+| 上位 (Phase 6 子 4) | #2673 ([phase6-context-decisions-6](phase6-context-decisions-6.md)) lookup_key 段階移行 + **API version 維持判断** (#2683 訂正) |
+| 前提 (Phase 5) | #2639 ([phase5-stripe-product-architecture](phase5-stripe-product-architecture.md)) 「想定リスク 7 件 → #2683 補強で 8 件 (R8 新規、R3 / R5 / R7 historical 化)」 / #2640 / #2641 / #2642 / #2643 |
+| 連動 (Phase 7) | #2531 (実装 PR 群) — Phase 7 Step 1-5 全 step で本 docs §3 リスク 8 件 (#2683 補強) + §4 #2627 timeline + §5 kill switch を参照 |
+| Phase 1 連動 | #2537 dunning FR-3 (handleSubscriptionDeleted archive 未呼出、本 docs §6.1) / 副次制約 1 tax_behavior (§6.2) / **副次制約 2 Portal ロック banner (#2683 で historical 化、§6.3)** / 副次制約 4 Webhook immutable (#2683 で新規追加、§6.4 連動) |
+| ステータス | 設計確定 (本 PR で docs SSOT、コード変更は Phase 7 各 Step / ADR 起票は本 PR で同時実施) / **2026-05-30 補強 #2683: 代替案 D 採用に伴う scope 変更を反映** |
 | 作業姿勢 (#2525 critical) | 課金は別格 ([[billing-critical-extra-caution]])。ロールバック手順は「実際に Test mode で 1 度実演」できる粒度まで具体化。Pre-PMF Bucket A (ADR-0010) 整合、kill switch は LaunchDarkly / Unleash 等の SaaS / OSS feature flag platform を不採用、env var 2 件 (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) で最小構成 |
 
 > **位置づけ**: Phase 6 グループ C 最後の子 (グループ A=#2667 / グループ B=#2674-#2675 / #2673 完了後)。Phase 5 子 1 §「想定リスク 7 件」を **検知 → ロールバック → 再発防止** の 3 観点で実装手順化し、#2627 Stripe Dashboard ロールバックを **3 期間 (Phase 7 マージ前 / マージ後 24h / マージ後 1 週間)** で詳細化、feature flag kill switch を `.env.example` + `src/lib/server/stripe/config.ts` の SSOT 1 箇所で統合管理する。さらに Phase 1 で確定済の構造的欠落 3 件 (handleSubscriptionDeleted archive 未呼出 / tax_behavior 一致 / Portal ロック誘導文言) の Phase 7 反映方針を確定。最後に ADR-0014 整合の OSS 4 件比較で本 PR と同時に新規 ADR を起票する。
 
 ## 1. 設計背景 (§1)
 
-### 1.1 課題: Phase 5 子 1 §想定リスク 7 件が docs 化されていない
+### 1.1 課題: Phase 5 子 1 §想定リスク 7 件 → #2683 補強で 8 件への更新
 
-Phase 5 子 1 (#2639) の deep-research SSOT (`tmp/reviews/phase5-stripe-product-research.md`) §「想定リスク 7 件」で以下 7 件が列挙されたが、**「検知 → ロールバック → 再発防止」の 3 観点で実装手順化されていない**:
+Phase 5 子 1 (#2639 #2683 補強) の deep-research SSOT (`tmp/reviews/phase5-stripe-product-research.md`) §「想定リスク」で以下 8 件 (#2683 で R8 / R9 追加、R3 / R5 / R7 historical 化) が列挙され、**「検知 → ロールバック → 再発防止」の 3 観点で実装手順化されていない**:
 
 1. Phase 7 マージ前に新 Webhook 有効化 → 旧 handler に新 event 到達 → 404 (handler 不在で silent drop)
 2. tax_behavior 不一致 (Price = `inclusive` だが Customer Portal config = `exclusive`) → Portal ダウン UI 非表示、自社 UI からのダウン経路しか機能しない
-3. 顧客が `subscription_schedule` 作成済の状態で Portal 再操作 → Stripe Portal が「subscription_update / cancel UI 非表示」のロック仕様 → 顧客が反応せず混乱
+3. **(#2683 historical 化)** 顧客が `subscription_schedule` 作成済の状態で Portal 再操作 → Stripe Portal が「subscription_update / cancel UI 非表示」のロック仕様 → 顧客が反応せず混乱 → **代替案 D で subscription_schedule 不使用のため scope 外**
 4. lookup_key 解決時に Stripe API 障害 (5xx) → `prices.list({ lookup_keys })` 失敗 → アプリ起動失敗 (Lambda cold start で全 request 500)
-5. Webhook destination の `default_api_version` vs SDK `apiVersion` 乖離 → event field 構造変化 → handler コード参照プロパティが undefined
+5. **(#2683 historical 化)** Webhook destination の `default_api_version` vs SDK `apiVersion` 乖離 → event field 構造変化 → handler コード参照プロパティが undefined → **#2683 で API version `'2026-04-22.dahlia'` 維持判断、Phase 7 では bump なし**
 6. proration_date が `createPreview` と `subscriptions.update` で 30 分超過 → Stripe 拒否 (`InvalidProrationDate` error)
 7. dunning Smart Retries 8 attempts 枯渇後 → `customer.subscription.deleted` 受信 → `handleSubscriptionDeleted` が archive 機構未呼出 (Phase 1 #2537 FR-3 未成立)
+8. **(#2683 新規 R8)** ダウン即時 + Stripe proration credit でユーザーに過大返金または credit 残高蓄積、顧客が credit memo 残高を把握できず信頼毀損
+9. **(#2683 新規 R9)** Webhook destination api_version immutable を Phase 7 着手時 (将来の stable apiVersion bump 時) に見落とす → 新規 destination 作成 skip → 既存 destination の api_version 変更試行 → Stripe API 400 → cutover blocker
 
 Phase 7 実装者が本 docs を参照しない場合、各リスクごとに **検知 method (CloudWatch alarm / Sentry / Discord alert / log polling 等が散在)** と **ロールバック手順 (revert PR / env var 切替 / Dashboard 再操作 / Stripe API 再呼出 が散在)** を独自判断することになり、本番 cutover 失敗時の MTTR (Mean Time To Recovery) が 1 時間超過するリスク。
 
@@ -100,14 +102,11 @@ Phase 1 + Phase 6 子 1-4 経由で以下 3 件の構造的欠落が判明した
 | **ロールバック手順** | (1) PO #2627 で Customer Portal config を Test/Production mode 両方で `tax_behavior=inclusive` に再設定 (5 分以内、Stripe Dashboard 操作のみ) (2) Test mode で test_clock customer 1 件で Portal access → "Change plan" UI 表示確認 (3) Production で同確認 |
 | **再発防止** | Phase 6 子 1 #2667 §4 領域 A (Test mode Product 作成) + 領域 E (Production Product 作成) の手順チェックリストに「Price `tax_behavior=inclusive` と Portal config `tax_behavior` 一致を画面で確認」を 1 行追加 |
 
-### 3.3 R3: subscription_schedule 既存時の Portal ロック → 顧客が反応せず
+### 3.3 R3: subscription_schedule 既存時の Portal ロック (#2683 で historical 化、scope 外)
 
-| 項目 | 内容 |
-|---|---|
-| **シナリオ** | Phase 5 子 1 §3.2 副次制約 2: 顧客が subscription_schedule 作成済 (例: 自社 UI または Portal でダウン期末を実施済) の状態で、再度 Portal を開いて操作試行 → Stripe Portal の仕様で `subscription_update` / `cancel` UI が非表示になり、顧客は「壊れている」と認識 → 自社 UI へ誘導されないと cancel-pending CTA に到達しない |
-| **検知 method** | (a) 顧客 inquiry「Portal を開いたら操作できない」(b) Phase 6 子 2 #2674 シナリオ 6 Portal E2E で「schedule 既存時の Portal ロック」を assert (c) Phase 3 #2573 ArchivedResourceBanner / cancel-pending banner の表示率を `/admin/analytics` で監視 |
-| **ロールバック手順** | (1) 自社 UI `/admin/subscription` で **`SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom 表示** (本 docs §6.3 で追加 SSOT 化、Phase 7 Step 2 で実装、Phase 5 子 5 #2643 atom 統合 5 step 整合)。文言例: 「プラン変更予約中は Portal でなく、この画面の『予約取消』ボタンから操作してください」(2) Portal リダイレクト経由ではなく自社 UI 直接 access |
-| **再発防止** | Phase 7 Step 2 atom 統合 5 step (子 5 #2643 §6) で `SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` 追加 + Phase 3 #2573 既設計の cancel-pending banner UI で表示 + Phase 6 子 2 #2674 シナリオ 6 で E2E assert |
+> **#2683 補強 (2026-05-30)**: 代替案 D (2 Product 各 1 Price) + ダウン即時 + Stripe credit memo パターン採用に伴い、本プロダクトは **subscription_schedule API を使用しない**。よって R3「Portal ロック」は**現行設計では発生しない**ため scope 外。
+>
+> historical record: 旧設計 (1 Product 2 Price + Portal `schedule_at_period_end=true`) では schedule 作成後の Portal 再操作で UI が非表示になる Stripe 公式制約を回避するため、自社 UI `cancelPendingRedirect` atom + Phase 3 #2573 banner で誘導する設計だった。代替案 D で即時ダウン完結のため scope 外。Phase 6 子 2 #2674 シナリオ 6 の「schedule 既存時 Portal ロック検証」も scope 外。`SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom (§6.3) も不要化。
 
 ### 3.4 R4: lookup_key 解決 Stripe API 障害 → 起動失敗
 
@@ -118,14 +117,13 @@ Phase 1 + Phase 6 子 1-4 経由で以下 3 件の構造的欠落が判明した
 | **ロールバック手順** | (1) Lambda env `USE_LOOKUP_KEY=false` を AWS Console / CDK env override で即時切替 (2) Lambda 再 deploy なし、Lambda の env 変更は次 invocation で反映 (Lambda 仕様、約 30 秒) (3) env var fallback 経路 (`STRIPE_PRICE_STANDARD_MONTHLY` 等 4 env var 直読) で復旧 (4) Stripe API 復旧後 `USE_LOOKUP_KEY=true` に再切替 |
 | **再発防止** | (a) Phase 7 Step 3 PR の `src/lib/server/stripe/config.ts` に「lookup_key 解決失敗時 env var fallback (kill switch 動作)」の unit test (b) Phase 6 子 2 #2674 シナリオ 2 (アップ即時 + kill switch dry-run) を Pre-Ready 必須化 (c) Step 3 Pre-Ready checklist に「kill switch 切替後 30 秒以内 fallback 動作 assert」 |
 
-### 3.5 R5: Webhook API version vs SDK 乖離
+### 3.5 R5: Webhook API version vs SDK 乖離 (#2683 で historical 化、Phase 7 では scope 外)
 
-| 項目 | 内容 |
-|---|---|
-| **シナリオ** | Phase 7 Step 3 で SDK `apiVersion='2026-05-27.dahlia'` に bump 済だが、Stripe Dashboard Webhook destination の `default_api_version` を `2026-04-22.dahlia` (旧) のまま放置 → Stripe 配信 event の field 構造が旧 version (例: `payment_intent.next_action` field 構造変化) → SDK 期待値と乖離 → handler で `event.data.object.next_action.use_stripe_sdk` が undefined → `TypeError` |
-| **検知 method** | (a) Sentry `webhook handler TypeError: Cannot read property 'use_stripe_sdk' of undefined` (b) Stripe Dashboard Webhook destination "Failed" rate > 0.5% (c) Discord alert `stripe-webhook-handler-typeerror` |
-| **ロールバック手順** | (1) PO #2627 で Webhook destination の `default_api_version` を新 `2026-05-27.dahlia` に同期 (Dashboard UI / Stripe API `webhookEndpoints.update({api_version})`、5 分以内) (2) Sentry log で TypeError 発生時刻以降の event を Stripe API `events.retrieve` で再取得 → 手動 replay (3) 復旧不能なら apiVersion を旧版に巻き戻し (Stripe 公式 72h rollback window 利用、Stripe Dashboard "Versions" tab) + SDK 1 行修正 PR 即時 merge |
-| **再発防止** | Phase 7 Step 3 PR Pre-Ready checklist に「Webhook destination api_version 同期確認 (Stripe API `webhookEndpoints.retrieve` で assert)」+ Phase 7 Step 4-a smoke test に「全 8 event 種で field 構造 schema validation」追加 (Phase 5 子 3 #2641 §3.1 webhook table の `event_type` 別 schema check) |
+> **#2683 補強 (2026-05-30)**: Phase 5 子 1 §3.4 で `'2026-04-22.dahlia'` → `'2026-05-27.dahlia'` への bump を採用候補としていたが、`'2026-05-27.dahlia'` は **preview リリース** で production 非推奨と判明 ([phase5-stripe-product-architecture.md §3.4](phase5-stripe-product-architecture.md) #2683 訂正)。Phase 7 では SDK apiVersion = `'2026-04-22.dahlia'` (stable 最新) **維持判断**、Webhook destination の api_version も同じ stable バージョンで新規作成 → 乖離リスク発生しない。
+>
+> **将来の stable apiVersion bump 時の発動準備**: 副次制約 4 (Webhook destination api_version immutable、[phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md)) により、apiVersion bump 時は新 destination 新規作成必須 → 旧 destination は旧 api_version で stale 状態で残るため**乖離は構造的に発生する**。Phase 6 子 1 #2667 §5 Webhook 5 phase migration で shadow → cutover → retire の手順を遵守することで乖離期間を 1 週間以内に限定 (本 R5 の将来発動シナリオ、本 docs §6.4 連動)。
+
+historical record (旧設計): Sentry TypeError 検知 + Dashboard `webhookEndpoints.update({api_version})` で同期する想定だったが、副次制約 4 (#2683) により Stripe API は既存 destination の api_version 変更を拒否 (400 Bad Request) → 旧設計の rollback 手順は **構造的に不可能**。代わりに新 destination 作成 + 旧 destination 再有効化 (cutover 巻き戻し) が正しい手順。
 
 ### 3.6 R6: proration_date 30 分超過
 
@@ -146,17 +144,37 @@ Phase 1 + Phase 6 子 1-4 経由で以下 3 件の構造的欠落が判明した
 <!-- doc-code-refs: ignore-line -->
 | **再発防止** | Phase 7 PR-X 実装後、Phase 6 子 2 #2674 シナリオ 5 で「dunning 8 attempts → archive 実行」を Pre-Ready E2E 必須化、`tests/integration/dunning-canceled-archive.spec.ts` 新規 (Phase 5 子 4 §7.3 整合) |
 
-### 3.8 想定リスク 7 件 SSOT サマリ表
+### 3.8 R8 (#2683 新規): ダウン即時 + Stripe credit memo の顧客信頼毀損
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | Phase 5 子 1 #2644 #2683 補強で確定した「ダウン即時 + Stripe `proration_behavior='always_invoice'` で credit memo 自動発行」パターンで、Stripe が未消費期間を credit memo として発行 → 次回 invoice で控除されるが、**顧客が自身の credit 残高を `/admin/subscription` で確認できない** → 「ダウンしたのに金が戻らない / 金額不明」と認識 → 信頼毀損 + Discord 問合せ蓄積 |
+| **検知 method** | (a) 顧客 inquiry「ダウンしたのに credit 残高が見えない」(b) Sentry custom event「credit_note display missing」(c) Phase 6 子 2 #2674 シナリオ 3 (ダウン即時 + credit memo) E2E で「`/admin/subscription` 請求履歴に credit memo 表示」を assert |
+| **ロールバック手順** | (1) Phase 3 hybrid confirm UI (Phase 5 子 2 #2640 §6) で「ダウン時の credit memo 発行額 + 次回 invoice での控除見込み額」を必ず表示する設計を確認 (2) `/admin/subscription` 請求履歴セクションで `credit_note.created` webhook 受信時に credit memo を一覧表示 (3) credit 残高を「次回 ¥X 自動控除」と顧客可視化 |
+| **再発防止** | Phase 7 Step 3 (Phase 3 #2573 hybrid confirm UI 実装時) に「ダウン variant で credit memo 発行額 + 次回控除見込み額 表示」を必須化 + Phase 6 子 2 #2674 シナリオ 3 を Pre-Ready 必須化 + `tests/e2e/billing/downgrade-credit-display.spec.ts` 新規 |
+
+### 3.9 R9 (#2683 新規): Webhook destination api_version immutable を見落とす (副次制約 4 連動)
+
+| 項目 | 内容 |
+|---|---|
+| **シナリオ** | 将来の stable apiVersion bump 時 (Phase 7 では `'2026-04-22.dahlia'` 維持判断のため発動しないが、将来発動)、Dev エンジニアが Stripe Dashboard で既存 destination の api_version を Dashboard UI で更新試行 → Stripe API が `400 Bad Request` を返す (副次制約 4 [phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md)) → cutover blocker、再度 5 phase migration ([phase6-phase7-execution-ssot.md §5](phase6-phase7-execution-ssot.md)) を最初からやり直し |
+| **検知 method** | (a) Dashboard UI で「api_version cannot be modified」エラー表示 (b) `webhookEndpoints.update({api_version})` API 呼出が Stripe SDK で `StripeInvalidRequestError` を throw (c) Phase 6 子 1 #2667 §5 Webhook 5 phase migration の手順を skip した PR が本副次制約に抵触 |
+| **ロールバック手順** | (1) Dashboard で **新 destination を新 api_version で新規作成** (副次制約 4 整合) (2) Phase 6 子 1 #2667 §3 Step 4-a (shadow mode) → §3 Step 4-b (cutover) → §3 Step 4-c (retire) の 5 phase migration を改めて実施 (3) 旧 destination は cutover 完了まで disabled で残置 |
+| **再発防止** | (a) [phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md) #2683 副次制約 4 を SSOT として参照必須化 (b) Phase 7 Step 4 (および将来の apiVersion bump PR) の Pre-Ready unit test で **`webhookEndpoints.update({api_version})` が 400 を返すことを assert** (c) Phase 6 子 1 #2667 §5 Webhook 5 phase migration を Pre-Ready 必須化 |
+
+### 3.10 想定リスク 8 件 SSOT サマリ表 (#2683 補強で +R8 / +R9、R3 / R5 historical 化)
 
 | # | リスク | 検知 method (主) | ロールバック手順 (簡略) | 再発防止 (CI / Pre-Ready) |
 |---|---|---|---|---|
 | R1 | 旧 handler silent drop | Sentry warning + Discord alert | Dashboard destination 即時 disabled + event 手動 replay | Step 4-a unit test (destination state) |
 | R2 | tax_behavior 不一致 | Phase 6 子 2 #2674 シナリオ 6 + Dashboard 目視 | Portal config 再設定 (5 分) | #2627 領域 A+E 手順 checklist |
-| R3 | Portal ロック顧客混乱 | 顧客 inquiry + シナリオ 6 E2E | `cancelPendingRedirect` atom 表示 + 自社 UI 直接 access | Step 2 atom 追加 + Phase 3 #2573 banner |
+| ~~R3~~ (#2683 historical) | ~~Portal ロック顧客混乱~~ | **代替案 D で subscription_schedule 不使用、scope 外** | n/a | n/a |
 | R4 | lookup_key API 障害 | Lambda alarm + Discord alert | `USE_LOOKUP_KEY=false` Lambda env 即時切替 | シナリオ 2 kill switch dry-run + Step 3 unit test |
-| R5 | apiVersion 乖離 | Sentry TypeError + Webhook "Failed" rate | Dashboard `default_api_version` 同期 + 72h rollback | Step 3 Pre-Ready (`webhookEndpoints.retrieve` assert) |
+| ~~R5~~ (#2683 historical) | ~~apiVersion 乖離 (`2026-05-27.dahlia` preview 採用想定)~~ | **API version `'2026-04-22.dahlia'` 維持判断、Phase 7 では発生しない** | n/a (将来の stable bump 時に副次制約 4 整合で対応) | n/a |
 | R6 | proration_date 期限超過 | Sentry InvalidProrationDate | 顧客 UI 再 preview CTA + 30 分タイマー | Step 3 hybrid confirm UI 実装 + シナリオ 2 E2E |
 | R7 | archive 未呼出 (forward-fix) | シナリオ 5 E2E + cutover 後整合チェック | Phase 7 PR-X で `handleSubscriptionDeleted` archive 追加 | シナリオ 5 Pre-Ready 必須化 + integration test |
+| **R8 (#2683 新規)** | **ダウン credit memo の顧客信頼毀損** | 顧客 inquiry + シナリオ 3 E2E | Phase 3 hybrid confirm UI + 請求履歴 credit memo 表示 | Step 3 hybrid confirm UI 実装 + シナリオ 3 E2E |
+| **R9 (#2683 新規)** | **Webhook destination api_version immutable 見落とし** | Dashboard UI エラー + Stripe SDK `StripeInvalidRequestError` | 新 destination 新規作成 + 5 phase migration 再実施 | Pre-Ready unit test (`webhookEndpoints.update({api_version})` 400 assert) + Phase 6 子 1 §5 Webhook 5 phase migration 必須化 |
 
 ## 4. #2627 Stripe Dashboard ロールバック 3 期間別マトリクス (§4)
 
@@ -312,25 +330,22 @@ Phase 1 + Phase 6 子 1-4 経由で判明した 3 件の構造的欠落を、Pha
 | **依存** | なし (Step 3 マージ前に PO #2627 が完了する前提) |
 | **再発防止** | (a) Phase 6 子 2 #2674 シナリオ 6 で「Portal 'Change plan' UI 存在を assert」(b) `docs/guides/stripe-setup-guide.md` セットアップ手順 §「Customer Portal config」に tax_behavior 一致確認を明示 (c) 本 docs §3.7 R2 SSOT |
 
-### 6.3 欠落 #3: subscription_schedule 既存時 Portal ロック誘導文言 (副次制約 2)
+### 6.3 欠落 #3: subscription_schedule 既存時 Portal ロック誘導文言 (#2683 で historical 化、不要化)
 
-| 項目 | 内容 |
-|---|---|
-| **現状** | 顧客が subscription_schedule 作成済で Portal 再操作 → Stripe Portal の仕様で `subscription_update` / `cancel` UI 非表示 → 顧客が「壊れている」と認識 → 自社 UI cancel-pending CTA への誘導文言が不在 |
-| **Phase 5 子 1 副次制約 2** | 顧客は schedule 存在中は Portal で操作不可、自社 UI に誘導が必要 |
-| **Phase 7 反映方針** | **`SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom 追加** (本 docs で新規確定、Phase 5 子 5 #2643 atom 統合 5 step に追補)。Phase 7 Step 2-2 (labels.ts 5 compound 追加) のタイミングで `SUBSCRIPTION_PAGE_LABELS` 内に追加し、Phase 3 #2573 ArchivedResourceBanner / cancel-pending banner UI で表示 |
-| **atom 提案 (本 docs SSOT)** | `SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect`: 「プラン変更予約中は ${STRIPE_PORTAL_TERMS.canonical} ではなく、こちらの『予約取消』ボタンから操作してください。」(${...} template literal で既存 atom `STRIPE_PORTAL_TERMS.canonical = 'Stripe の請求管理ページ'` を参照、ADR-0045 整合) |
-| **担当 PR** | Phase 7 Step 2-2 PR (atom 統合 5 step の Step 2-2、推定 30 行)、Phase 3 #2573 banner UI 連動 |
-| **依存** | Step 1 (DB migration) + Phase 5 子 5 #2643 §6 atom 統合 5 step の前 sub step (Step 2-1 terms.ts 配備) |
-| **再発防止** | (a) Phase 6 子 2 #2674 シナリオ 6 Portal E2E で「cancelPendingRedirect 表示」を assert (b) Phase 3 #2573 既設計 banner UI で文言表示 (c) 本 docs §3.7 R3 SSOT |
+> **#2683 補強 (2026-05-30)**: 代替案 D (2 Product 各 1 Price) + ダウン即時 + Stripe credit memo パターン採用に伴い、本プロダクトは **subscription_schedule API を使用しない**。よって本欠落 #3 (Portal ロック誘導文言) は**現行設計では発生しない**ため scope 外。`SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom 追加は**不要化**。
+>
+> **Phase 7 反映方針 (訂正)**: Phase 7 Step 2-2 atom 統合 5 step で `cancelPendingRedirect` atom 追加を **skip**。Phase 3 #2573 cancel-pending banner UI も**削除判断** (別 follow-up Issue で UI 削除 PR 起票)。代わりに本 docs §3.8 R8 (credit memo の顧客可視化) で `SUBSCRIPTION_PAGE_LABELS.creditMemoBalance` atom を新規追加するか検討 (#2683 follow-up)。
+>
+> historical record (旧設計): 1 Product 2 Price + Portal `schedule_at_period_end=true` のもとで schedule 作成済 → 顧客が再 Portal 操作 → Portal UI 非表示で混乱 → 自社 UI cancel-pending banner で誘導する設計だった。`SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom 文言は「プラン変更予約中は ${STRIPE_PORTAL_TERMS.canonical} ではなく、こちらの『予約取消』ボタンから操作してください。」だったが、代替案 D で不要化。
 
-### 6.4 3 件欠落の Phase 7 PR 担当マトリクス
+### 6.4 3 件欠落の Phase 7 PR 担当マトリクス (#2683 補強で #3 不要化、Webhook immutable を新規 #4 として追加)
 
 | 欠落 | 担当 PR | 担当 Step | 推定行数 | 依存 |
 |---|---|---|---|---|
 | #1 archive 未呼出 | **新 PR-X** (Phase 7 内部 sub) | Step 4-b 直前 | 100 行 | Step 1 + Step 2-4 |
 | #2 tax_behavior | **コード PR なし** (PO #2627 + docs/guides 改訂) | Step 3 PR docs 同梱 | 0 行 (docs only) | なし |
-| #3 cancelPendingRedirect | **Step 2-2 PR** | Step 2-2 (子 5 #2643 §6) | 30 行 (atom + LP 再生成) | Step 1 + Step 2-1 |
+| ~~#3 cancelPendingRedirect~~ (#2683 不要化) | **不要** (代替案 D で subscription_schedule 不使用、scope 外) | n/a | 0 行 | n/a |
+| **#4 Webhook destination immutable (#2683 新規)** | **コード PR なし** (Phase 7 では `'2026-04-22.dahlia'` 維持、将来の stable bump PR で発動) | (将来の apiVersion bump PR で 5 phase migration 実装) | 0 行 (Phase 7 では) | なし (Phase 7 着手時) |
 
 ## 7. OSS 4 件比較 (kill switch / feature flag platform、ADR 起票根拠、§7)
 

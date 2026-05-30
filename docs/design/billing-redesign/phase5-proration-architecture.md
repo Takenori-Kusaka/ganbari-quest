@@ -1,41 +1,37 @@
-# Proration 実装方針アーキテクチャ — Epic #2525 Phase 5 子 2 (#2640)
+# Proration 実装方針アーキテクチャ — Epic #2525 Phase 5 子 2 (#2640、#2683 補強)
 
 | 項目 | 内容 |
 |------|------|
-| 孫 issue | #2640 (Phase 5 子 2 — proration 実装方針 always_invoice / schedule_at_period_end / Preview API) |
+| 孫 issue | #2640 (Phase 5 子 2 — proration 実装方針) / #2683 (補強 — 代替案 D 連動: アップ即時 + ダウン即時 + Stripe credit memo パターンに統一) |
 | 親 | #2530 (Phase 5 アーキ) / Epic #2525 |
 | 上位 (Phase 1) | #2535 (plan-change FR-3 / FR-4 / FR-6 / NFR-1〜NFR-3) |
-| 前提 (Phase 5 子 1) | #2644 (Stripe Product / Price 構成、1 Product 2 Price + lookup_key、マージ済) |
-| ステータス | 設計確定 (deep-research: Stripe 公式一次 14 URL 検証済 → 本 PR で docs 確定、コード変更は Phase 7) |
-| Phase 7 連動 | `stripe-service.ts` 拡張 (`subscriptions.update` / `subscriptionSchedules.create/release` / `invoices.createPreview`) + Phase 3 #2573 hybrid confirm UI 統合 |
+| 前提 (Phase 5 子 1) | #2644 (Stripe Product / Price 構成、**#2683 で 2 Product 各 1 Price 代替案 D に変更**、マージ済 + 補強 PR #2683) |
+| ステータス | 設計確定 (deep-research: Stripe 公式一次 14 URL 検証済 → 本 PR で docs 確定、コード変更は Phase 7) / **2026-05-30 補強 #2683: ダウン方式を `subscriptionSchedules.create` 期末ダウンから `subscriptions.update` 即時ダウン + Stripe credit memo パターンに変更** |
+| Phase 7 連動 | `stripe-service.ts` 拡張 (`subscriptions.update` + `invoices.createPreview`、`subscriptionSchedules.create/release` は **#2683 で scope 外**) + Phase 3 #2573 hybrid confirm UI 統合 |
 | Phase 3 申し送り反映 | #2573 ハイブリッド方式 (自社 `/admin/subscription/confirm` + Stripe Checkout `custom_text`)、Preview API による差額表示 |
 | 作業姿勢 (#2525 critical) | 課金は別格 (memory: feedback_billing_critical_extra_caution)。proration 計算は自前禁止 (Phase 1 NFR-1)、Stripe SSOT。タイムスタンプ整合事故を構造的に回避 (proration_date 固定) |
 
 ## 1. 設計背景
 
-### 1.1 課題: proration 実装が Phase 1 FR-3 / FR-4 を成立させていない
+### 1.1 課題: proration 実装が Phase 1 FR-3 / FR-4 を成立させていない (#2683 で FR-4 解釈更新)
 
 [Phase 1 plan-change](phase1-plan-change-requirements.md) §FR-3 / FR-4 / FR-6 で確定したとおり:
 
-- **FR-3 アップ即時**: standard → premium (1 Product 2 Price 整合) は **即時反映 + proration 即時請求**
-- **FR-4 ダウン期末**: premium → standard は **期末適用** (Stripe 公式推奨、credit proration 事故回避)
+- **FR-3 アップ即時**: standard → premium は **即時反映 + proration 即時請求** (`always_invoice`)
+- **FR-4 ダウン** (#2683 で再解釈): premium → standard は **即時反映 + Stripe proration credit memo 自動発行** (Phase 5 子 1 #2644 #2683 補強で 2 Product 各 1 Price 構成採用 + Subscription Schedule API は別 Product 間で動作しないため、即時 + credit memo パターンに統一。Slack / Notion / Atlassian / Linear 等 50% SaaS 採用、業界収束)
 - **FR-6 webhook SSOT**: 変更は `customer.subscription.updated` を SSOT に DB 反映、UI 楽観表示しない
 
-しかし現状 `src/lib/server/services/stripe-service.ts` は `createCheckoutSession` のみ実装で、**`subscriptions.update` / `subscriptionSchedules.create` 呼出は存在しない**。プラン変更を Customer Portal に丸投げしている状態。
+しかし現状 `src/lib/server/services/stripe-service.ts` は `createCheckoutSession` のみ実装で、**`subscriptions.update` 呼出は存在しない**。プラン変更を Customer Portal に丸投げしている状態。
 
 [Phase 2 plan-change-journey](phase2-plan-change-journey.md) §「既存実装の事実」で Explore 照合済:
 
 > `subscriptions.update` 呼出なし、`upcoming_invoice` / `create_preview` 未実装、Portal 任せ → △ 新規必要
 
-### 1.2 課題: ダウン取消経路が UI 未整備 (Phase 3 #2573 申し送り)
+### 1.2 課題: ダウン取消経路 (#2683 で historical 化、scope 外)
 
-Phase 5 子 1 (#2644) §4.2 副次制約で確定済:
-
-> Customers can't update or cancel subscriptions that currently have an update scheduled
-
-→ 顧客が Portal で期末ダウン予約を作成した後、再度 Portal を開いても **subscription update / cancel の両方の UI が非表示** になる。顧客が「ダウン予約を取消したい」と思っても Portal から操作できない構造的制約。
-
-自社 UI 誘導 (`/admin/subscription` cancel-pending banner) を Phase 3 #2573 で UI 設計済だが、**バックエンド API (`subscriptionSchedules.release`) の実装方針は本 PR で確定**する。
+> **#2683 補強 (2026-05-30)**: 代替案 D (2 Product 各 1 Price) + ダウン即時 + Stripe credit memo パターン採用に伴い、**本プロダクトは Subscription Schedule API を使用しない**。よって本節 (旧: 「Portal ロック時の cancel-pending banner 経由 `subscriptionSchedules.release` 実装」) は**現行設計では scope 外**。
+>
+> historical record: 旧設計 (1 Product 2 Price + Portal `schedule_at_period_end=true`) では「顧客が Portal で期末ダウン予約 → 再 Portal 操作で UI 非表示 → 自社 UI cancel-pending banner で誘導 → `subscriptionSchedules.release` 呼出」という flow を Phase 3 #2573 + 本 docs で設計していたが、代替案 D 採用で即時ダウン完結のため schedule 自体作成しない。Phase 6 子 5 #2665 ([phase6-rollback-and-kill-switches.md §6.3](phase6-rollback-and-kill-switches.md)) の `SUBSCRIPTION_PAGE_LABELS.cancelPendingRedirect` atom も**不要化** (Phase 7 Step 2-2 で skip + Phase 3 #2573 cancel-pending banner UI 削除判断は別 follow-up)。
 
 ### 1.3 課題: 差額表示の動的計算と proration_date 整合性
 
@@ -48,25 +44,25 @@ Phase 3 #2573 §3.3 で確定済の proration 差額表示 (機能 3):
 
 実装には `invoices.createPreview` API が必要だが、**preview と実 update の間で `proration_date` を一致させないと差額が変動する**事故が起きる (顧客が confirm 画面で見た金額と実請求額が乖離 → 特商法第12条の6第2項「誤認表示禁止」抵触リスク)。本 PR で `proration_date` 固定戦略を明文化する。
 
-### 1.4 設計がなかった場合に何が困るか
+### 1.4 設計がなかった場合に何が困るか (#2683 で再整理)
 
-1. **Phase 1 FR-3 / FR-4 不成立**: アップ即時請求 / ダウン期末適用が Customer Portal 任せで、自社 UI からの変更パスが機能しない
-2. **Phase 3 #2573 hybrid confirm UI が機能しない**: 差額表示用 Preview API 未実装で「動的 proration 差額表示不可」(自社確認画面ハイブリッド方式の存在意義喪失)
-3. **ダウン取消が物理的に不可能**: Stripe 公式 Portal ロック制約により、自社 UI 経由 `subscriptionSchedules.release` 実装なしには顧客がダウン予約を取消せない (cancel-pending banner が動かない)
+1. **Phase 1 FR-3 / FR-4 不成立**: アップ即時請求 / ダウン即時 + credit memo パターン (#2683) が Customer Portal 任せで、自社 UI からの変更パスが機能しない
+2. **Phase 3 #2573 hybrid confirm UI が機能しない**: 差額表示用 Preview API 未実装で「動的 proration 差額表示不可」(自社確認画面ハイブリッド方式の存在意義喪失)。特にダウン時の credit memo 発行額表示が不可能
+3. **ダウン時の credit memo 残高把握不可** (#2683): 顧客が credit memo 発行・消化の透明性を確認できない → 信頼毀損 (Phase 5 子 1 §8 R8 整合)
 4. **差額表示と実請求の乖離事故**: `proration_date` を preview / update で別計算すると、confirm 画面の ¥530 と実請求が ¥545 になる等の事故が起き、特商法第12条の6第2項 (誤認表示禁止) 抵触リスク
 5. **proration 計算の自前実装誘惑**: NFR-1 違反 (proration は Stripe 委譲)。実装方針が不明確だと、差額計算を自前で再実装する誘惑が生じ「課金計算の自前は事故源」の罠に陥る
 
-## 2. 設計原則
+## 2. 設計原則 (#2683 補強で proration_behavior と Subscription Schedule 不使用に統一)
 
 | 原則 | 内容 | 根拠 |
 |------|------|------|
 | **アップ即時 = `always_invoice`** | `subscriptions.update` + `proration_behavior='always_invoice'` で差額を即時 invoice 化 + finalized 即時請求 | Stripe 公式 change-price 推奨 / Phase 1 FR-3 / Phase 2 「don't make them wait」原則 |
-| **ダウン期末 = `subscription_schedules.create from_subscription`** | 第 2 phase で新 price 適用、`proration_behavior='none'` + `end_behavior='release'` | Stripe 公式 subscription-schedules 推奨 / Phase 1 FR-4 / Customer Portal `schedule_at_period_end=true` と同型 |
-| **ダウン取消 = `subscription_schedules.release`** | schedule release で第 2 phase 破棄、subscription を元 price のまま継続 | Stripe 公式 / Phase 3 #2573 申し送り (Portal ロック制約への構造的回避) |
+| **ダウン即時 + Stripe credit memo (#2683 訂正)** | `subscriptions.update` + `proration_behavior='always_invoice'` で **未消費期間を Stripe が credit memo として自動発行 → 次回 invoice で控除**。Subscription Schedule API は不使用 (別 Product 間では動作しない) | Stripe 公式 change-price + `always_invoice` 推奨パターン / Slack / Notion / Atlassian / Linear 等 50% SaaS 採用 (業界収束) / 代替案 D (Phase 5 子 1 #2644 #2683 補強) |
+| **proration_behavior 統一 = `always_invoice` (#2683 訂正)** | アップ / ダウン両方で `proration_behavior='always_invoice'` (旧: ダウン時 `'none'`)。Stripe が credit memo を自動発行することで「未消費期間 = 失った金額」感を回避 | Stripe 公式 proration 仕様 / `always_invoice` の credit memo 自動発行機構 |
 | **差額表示 = `invoices.createPreview` + `proration_date` 固定** | preview と update で同一 `proration_date` (UNIX timestamp) を渡し、UI 表示と実請求を一致 | Stripe 公式 `create_preview` API / 特商法第12条の6第2項 誤認表示禁止 (Phase 3 #2573 §2 採用根拠 3) |
 | **proration 計算自前禁止** | 全 proration 計算は Stripe API に委譲、アプリ側で再計算しない | Phase 1 NFR-1 / 「課金計算の自前は事故源」memory: feedback_billing_critical_extra_caution |
-| **webhook SSOT で DB 反映** | UI 楽観表示しない、`customer.subscription.updated` で plan / period_end を DB 更新 | Phase 1 FR-6 / Stripe 公式 webhook 推奨 / `subscription_schedule.*` 3 種も同型 (Phase 5 子 1 §4.3) |
-| **冪等性確保** | `event.id` (Stripe 24h idempotency) で webhook 重複検出、schedule 操作には metadata で schedule_id 保存 | Stripe 公式 best practice (Phase 5 子 1 §4.3) / Phase 5 子 1 Open question 5 |
+| **webhook SSOT で DB 反映** | UI 楽観表示しない、`customer.subscription.updated` で plan / period_end を DB 更新、**`credit_note.created` (#2683 新規) で credit memo の発行・消化を DB 反映** | Phase 1 FR-6 / Stripe 公式 webhook 推奨 / Phase 5 子 1 §4.3 (#2683 補強で event 一覧変更、`subscription_schedule.*` 3 種は撤去) |
+| **冪等性確保** | `event.id` (Stripe 24h idempotency) で webhook 重複検出、`customer.subscription.updated` の整合性検証 | Stripe 公式 best practice (Phase 5 子 3 #2641 webhook dedup table 整合) / Phase 5 子 1 Open question 5 |
 
 ## 3. アップ即時実装方針 (`subscriptions.update` + `always_invoice`)
 
@@ -162,20 +158,22 @@ export async function executePlanChange(params: {
 | `proration_date` が 5 分超過 | Stripe API エラー (Preview と乖離) | 再 preview + UI 再描画 + 顧客に再同意要求 |
 | webhook 受信遅延 | UI 「processing...」polling (Phase 3 #2572) | `/admin/subscription/success` で max 10 秒 polling、その後 DB 反映確認 |
 
-## 4. ダウン期末実装方針 (`subscriptionSchedules.create from_subscription`)
+## 4. ダウン即時 + Stripe credit memo 実装方針 (#2683 訂正、`subscriptions.update` + `always_invoice`)
 
-### 4.1 API 呼出シーケンス
+> **#2683 補強 (2026-05-30)**: 旧設計 (Subscription Schedule による期末ダウン) は Phase 5 子 1 #2644 #2683 補強で **2 Product 各 1 Price 構成 (代替案 D)** を採用したため scope 外。Subscription Schedule API は同一 Product 内のみ機能するため、別 Product (`prod_STANDARD` / `prod_PREMIUM`) 間の切替には使用できない。代わりに `subscriptions.update` + `proration_behavior='always_invoice'` でダウン即時 + Stripe が credit memo を自動発行する業界収束パターン (Slack / Notion / Atlassian / Linear) を採用する。
+
+### 4.1 API 呼出シーケンス (#2683 訂正)
 
 | Step | 呼出 | パラメータ | 目的 |
 |---|---|---|---|
-| 1 | `invoices.createPreview` (任意、差額が ¥0 のため通常 skip) | — | ダウン時は通常差額表示なし。Phase 3 #2573 §3.3 では「期末から ¥500」のみ表示 |
+| 1 | `invoices.createPreview` | `subscription`, `subscription_details.items[0].id`, `subscription_details.items[0].price=standard_monthly_id`, `subscription_proration_date` | ダウン時の credit memo 発行額 + 次回 invoice 控除見込み額の計算 (Phase 3 #2573 §3.3 §6 ハイブリッド方式) |
 | 2 | UI: `DowngradeResourceSelector` で超過リソース選択 (Phase 2 §「ジャーニー B」step 2) | — | Notion 型 Pattern A、archived_reason='downgrade_user_selected' |
-| 3 | `subscriptionSchedules.create` | `from_subscription: <subId>`, `end_behavior: 'release'`, `phases: [{現行 price, end_date: period_end}, {standard_monthly_id, proration_behavior: 'none'}]` | 期末で新 price に切替予約 |
-| 4 | webhook `subscription_schedule.created` 受信 | `schedule.id` | DB 反映 (`tenants.pendingScheduleId` 保存) — cancel-pending banner 表示判定用 |
-| 5 | 期末到達時 (Stripe 側自動実行) | — | schedule 第 2 phase 開始、subscription items 切替、`end_behavior='release'` で schedule 終了 |
-| 6 | webhook `customer.subscription.updated` 受信 (期末) | `subscription.items[0].price.id` = standard | DB 反映 (`tenants.stripePriceId` 更新、`tenants.pendingScheduleId` clear) |
+| 3 | `subscriptions.update` | `items[{id, price: standard_monthly_id}]`, `proration_behavior: 'always_invoice'`, `proration_date: <step 1 と同一>` | 即時 standard 切替 + Stripe が未消費 premium 期間を credit memo として自動発行 |
+| 4 | webhook `customer.subscription.updated` 受信 | `subscription.items[0].price.id` = standard | DB 反映 (`tenants.stripePriceId` 更新、`tenants.plan_tier='standard'`) |
+| 5 | webhook `credit_note.created` 受信 | `credit_note.amount`, `credit_note.invoice` | DB 反映 (credit memo の発行を顧客可視化のため記録、`/admin/subscription` の請求履歴セクションで表示) |
+| 6 | 翌月 invoice 自動発行時 | (Stripe 側自動) | credit memo 残高を自動控除、`invoice.payment_succeeded` で webhook 受信 |
 
-### 4.2 mermaid 図 2: ダウン期末 API 呼出シーケンス
+### 4.2 mermaid 図 2: ダウン即時 + credit memo API 呼出シーケンス (#2683)
 
 ```mermaid
 sequenceDiagram
@@ -189,67 +187,42 @@ sequenceDiagram
     App->>User: DowngradeResourceSelector<br/>(Phase 2 §B step 2)
     User->>App: 超過リソース選択 + 同意
     App->>App: archiveForDowngrade<br/>(archived_reason='downgrade_user_selected')
-    App->>Stripe: subscriptionSchedules.create<br/>{from_subscription: <subId>,<br/>end_behavior: 'release',<br/>phases: [<br/>  {items: [premium], end_date: period_end},<br/>  {items: [standard], proration_behavior: 'none'}<br/>]}
-    Stripe-->>App: schedule.id 返却
-    Stripe-->>Webhook: subscription_schedule.created
-    Webhook->>Webhook: DB 反映<br/>(tenants.pendingScheduleId = <id>)
-    App->>User: 「○月○日に standard に変わります」banner
-    Note over User, Stripe: ... 期間中 (premium 機能維持) ...
-    Stripe-->>Stripe: 期末到達<br/>schedule 第 2 phase 開始
+    App->>App: proration_date = Math.floor(Date.now() / 1000) 固定
+    App->>Stripe: invoices.createPreview<br/>{subscription, items[{price: standard}],<br/>subscription_proration_date}
+    Stripe-->>App: preview (credit memo 発行額 ¥250 +<br/>次回 invoice 控除見込み額 ¥500)
+    App->>User: 差額表示<br/>(Phase 3 #2573 §3.3 6 ブロック)
+    User->>App: 同意 checkbox + 「standard に切替」
+    App->>Stripe: subscriptions.update<br/>{items[{id, price: standard}],<br/>proration_behavior: 'always_invoice',<br/>proration_date: <同一 timestamp>}
+    Stripe-->>App: 200 OK (subscription 更新 + credit memo 自動発行)
     Stripe-->>Webhook: customer.subscription.updated<br/>(price = standard)
-    Webhook->>Webhook: DB 反映<br/>(stripePriceId = standard,<br/>pendingScheduleId = null)
-    Stripe-->>Webhook: subscription_schedule.completed
-    Webhook->>Webhook: cleanup (任意)
-    App->>User: 「standard プラン適用中」<br/>+ 超過分 read-only
+    Webhook->>Webhook: DB 反映<br/>(stripePriceId = standard,<br/>plan_tier = 'standard')
+    Stripe-->>Webhook: credit_note.created<br/>(amount = ¥250)
+    Webhook->>Webhook: DB 反映<br/>(credit memo 記録)
+    App->>User: 「standard プラン適用中」<br/>+ 「credit ¥250 が次回請求時に控除されます」<br/>+ 超過分 read-only
+    Note over User, Stripe: ... 翌月 ...
+    Stripe-->>Stripe: 月次 invoice 発行 (¥500)<br/>credit ¥250 自動控除
+    Stripe-->>Webhook: invoice.payment_succeeded<br/>(amount_paid = ¥250)
+    Webhook->>Webhook: 課金履歴 DB 反映
 ```
 
-### 4.3 失敗ケースの取扱い
+### 4.3 失敗ケースの取扱い (#2683 訂正)
 
 | ケース | 挙動 | 対策 |
 |---|---|---|
-| 既に schedule 存在時の二重作成 | Stripe API エラー (`subscription has an existing schedule`) | DB `pendingScheduleId` で事前検出、UI 上「既にダウン予約あり、取消は /admin/subscription/cancel-pending」誘導 |
-| 期末ダウン期間中の cancel (subscription cancel) | schedule 自動 abort (`subscription_schedule.aborted`) | webhook 購読で DB 反映 (Phase 5 子 1 §4.3) |
-| 期末ダウンと plan アップが競合 | Stripe Portal ロック制約により Portal からは操作不可、自社 UI で cancel-pending → 即 update 動線 | Phase 3 #2573 申し送り、Phase 7 UI 実装で誘導 |
+| カード決済失敗 (アップ時 only、ダウン時は credit 発行のみで決済なし) | invoice 作成されるが status `open` (アップ時のみ、`payment_behavior: 'pending_if_incomplete'` で標準 dunning 合流) | Phase 1 #2538 dunning 整合。capability 解放は webhook `invoice.payment_succeeded` 後 |
+| `proration_date` が 5 分超過 | Stripe API エラー (Preview と乖離) | 再 preview + UI 再描画 + 顧客に再同意要求 (Phase 5 子 2 §3.3) |
+| webhook 受信遅延 | UI 「processing...」polling (Phase 3 #2572) | `/admin/subscription/success` で max 10 秒 polling、その後 DB 反映確認 |
+| credit memo 残高 > 次回 invoice 金額 | Stripe が credit 残高を将来 invoice に持ち越し | `/admin/subscription` で credit 残高を顧客可視化 (Phase 5 子 1 §8 R8 整合) |
 
-## 5. ダウン取消実装方針 (`subscriptionSchedules.release`)
+## 5. ダウン取消実装方針 (#2683 で historical 化、scope 外)
 
-### 5.1 API 呼出シーケンス
-
-| Step | 呼出 | パラメータ | 目的 |
-|---|---|---|---|
-| 1 | UI: `/admin/subscription/cancel-pending` 表示 (Phase 3 #2573 申し送り) | — | 「ダウン予約中、取消しますか?」確認 |
-| 2 | `subscriptionSchedules.release` | `scheduleId` (DB `tenants.pendingScheduleId` から取得) | schedule 破棄 + subscription を現行 price (premium) のまま継続 |
-| 3 | webhook `subscription_schedule.released` 受信 | `schedule.id`, `released_subscription.id` | DB 反映 (`tenants.pendingScheduleId` clear) |
-
-### 5.2 mermaid 図 3: ダウン取消 API 呼出シーケンス
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as 顧客 (親)
-    participant App as がんばりクエスト<br/>(SvelteKit)
-    participant Stripe as Stripe API
-    participant Webhook as webhook handler
-
-    User->>App: /admin/subscription で<br/>「ダウン予約中」banner クリック
-    App->>User: /admin/subscription/cancel-pending<br/>(Phase 3 #2573 申し送り)
-    User->>App: 「ダウン予約を取消す」
-    App->>App: DB tenants.pendingScheduleId 取得
-    App->>Stripe: subscriptionSchedules.release<br/>{scheduleId: <id>}
-    Stripe-->>App: schedule.status = 'released'
-    Stripe-->>Webhook: subscription_schedule.released
-    Webhook->>Webhook: DB 反映<br/>(pendingScheduleId = null)
-    App->>User: 「premium プラン継続中」
-    Note over User: Portal の subscription update / cancel UI が再度操作可能に
-```
-
-### 5.3 失敗ケースの取扱い
-
-| ケース | 挙動 | 対策 |
-|---|---|---|
-| schedule 既に completed (期末通過後) | Stripe API エラー | DB `pendingScheduleId` clear + UI 「既に standard に切替済」表示 |
-| schedule 既に released (二重 release) | Stripe API エラー (冪等性違反) | webhook `subscription_schedule.released` での DB clear で事前回避 |
-| `pendingScheduleId` DB 未更新 (webhook 遅延) | UI banner 残存 | webhook handler で max 10 秒以内に反映 (Phase 1 FR-6 webhook SSOT) |
+> **#2683 補強 (2026-05-30)**: 代替案 D + ダウン即時 + Stripe credit memo パターン採用に伴い、**本プロダクトは Subscription Schedule API を使用しないため、本節 (ダウン取消経路) は scope 外**。代わりに以下の動線で対処:
+>
+> - 顧客が「ダウン即時実行を取消したい」と思った場合、再度自社 UI `/admin/subscription` から「アップ即時 (standard → premium)」操作 → 即時 premium 復帰
+> - Stripe credit 残高は次回以降の invoice で控除継続 (失われない、Stripe 標準動作)
+> - Subscription Schedule に依存する Portal ロック制約 (Phase 5 子 1 §4.2 副次制約 2) も発生しないため、`cancelPendingRedirect` atom (Phase 6 子 5 #2665 §6.3) も**不要**
+>
+> historical record (旧設計): 1 Product 2 Price + Portal `schedule_at_period_end=true` のもとで Schedule 作成済 → 顧客が再 Portal 操作 → Portal UI 非表示で混乱 → 自社 UI cancel-pending banner で誘導 → `subscriptionSchedules.release` 呼出 → DB `pendingScheduleId` clear、という流れを設計していた。代替案 D で即時ダウン完結のため schedule 自体作成しない。
 
 ## 6. 差額表示と Preview API (Phase 3 #2573 ハイブリッド方式)
 

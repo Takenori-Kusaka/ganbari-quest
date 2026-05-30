@@ -1,14 +1,14 @@
-# Phase 1 補強 1 文脈判断 6 件 + lookup_key 段階移行 + API version bump SSOT (Epic #2525 Phase 6 子 4)
+# Phase 1 補強 1 文脈判断 6 件 + lookup_key 段階移行 + API version 維持判断 SSOT (Epic #2525 Phase 6 子 4、#2683 補強)
 
 | 項目 | 内容 |
 |------|------|
-| 孫 issue | #2664 (Phase 6 グループ B 並列) |
+| 孫 issue | #2664 (Phase 6 グループ B 並列) / #2683 (補強 — API version `2026-04-22.dahlia` 維持判断 + 副次制約 4 連動) |
 | 親 | Phase 6 親 (#2660) / Epic #2525 |
-| 前提 | Phase 1 補強 1 ([phase1-naming-url-integrity-requirements](phase1-naming-url-integrity-requirements.md)) Open question 5 件 / Phase 5 子 1 ([phase5-stripe-product-architecture](phase5-stripe-product-architecture.md)) Step 3 lookup_key + Step 3 API version bump |
+| 前提 | Phase 1 補強 1 ([phase1-naming-url-integrity-requirements](phase1-naming-url-integrity-requirements.md)) Open question 5 件 / Phase 5 子 1 ([phase5-stripe-product-architecture](phase5-stripe-product-architecture.md)) Step 3 lookup_key (#2683 で 2 Product 各 1 Price 構成に変更) + API version `'2026-04-22.dahlia'` 維持 (#2683 訂正) |
 | 並列対象 | Phase 6 子 2 (#2662 Test clock) / 子 3 (#2663 DB migration script) |
 | 連動 (Phase 7) | Phase 6 子 1 ([phase6-phase7-execution-ssot](phase6-phase7-execution-ssot.md)) Step 3 / Stripe Dashboard #2627 / 実装 PR #2531 |
-| ステータス | 設計確定 (本 PR で SSOT 化、コード変更は Phase 7) |
-| 起点 | Phase 1 補強 1 で「文脈判断 6 件」と確定された個別判断を、推奨案 + 業界根拠 + PO 判断票で SSOT 化 + lookup_key 段階移行 4 step + API version bump 72h rollback monitoring を確定する |
+| ステータス | 設計確定 (本 PR で SSOT 化、コード変更は Phase 7) / **2026-05-30 補強 #2683: API version 維持判断 + Webhook immutable 副次制約 4 を本 docs から phase5 子 1 §4.4 へ参照集約** |
+| 起点 | Phase 1 補強 1 で「文脈判断 6 件」と確定された個別判断を、推奨案 + 業界根拠 + PO 判断票で SSOT 化 + lookup_key 段階移行 4 step + **API version 維持判断 (`'2026-04-22.dahlia'`)** + 72h rollback window 監視計画 (将来の stable bump 時に発動) を確定する |
 
 > **位置づけ**: Phase 6 グループ B 並列子 (子 2 Test clock / 子 3 DB migration script と独立)。Phase 1 補強 1 で「Open question 5 件 + FR-5 残対象 6 件」として明文化された個別判断を、Phase 5 子 1 の lookup_key + API version bump 戦略と統合し、Phase 7 統合 PR 5 step (子 1 SSOT) Step 3 + Step 5 で参照される PO 判断票 + 実装手順 SSOT として確定する。
 
@@ -31,9 +31,13 @@ Phase 1 補強 1 ([phase1-naming-url-integrity-requirements](phase1-naming-url-i
 
 Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env var (`STRIPE_PRICE_*` 4 件) から新 lookup_key (`standard_monthly` / `premium_monthly` 2 件) への切替手順**が docs 化されていない。Stripe 公式 [manage-prices](https://docs.stripe.com/products-prices/manage-prices) は `transfer_lookup_key` API による段階移行を推奨するが、本プロダクトでの適用手順 (caching layer / feature flag / 並行運用期間) が散在している。
 
-### 1.3 課題: Stripe API version bump (`2026-04-22.dahlia` → `2026-05-27.dahlia`) の 72h rollback window 活用手順が docs 化されていない
+### 1.3 課題: Stripe API version 維持判断 (#2683 訂正) と将来 bump 時の 5 phase migration 必須性
 
-Phase 5 子 1 §3.4 で API version bump を確定したが、`src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数 1 行修正だけでは不十分で、(a) Webhook destination の API version 同期 (Stripe Dashboard #2627)、(b) Stripe Changelog `2026-04-22.dahlia` → `2026-05-27.dahlia` の breaking change 全件確認、(c) 72h rollback window 監視計画 (Sentry / Discord alert thresholds) が docs 化されていない。
+> **#2683 補強 (2026-05-30、訂正)**: 旧設計 (本 docs 元版) では `'2026-04-22.dahlia'` → `'2026-05-27.dahlia'` への bump を採用候補としていたが、Stripe 公式 [API versioning](https://docs.stripe.com/api/versioning) を再確認した結果、`'2026-05-27.dahlia'` は **preview リリース** (production 非推奨、backward incompatible change の評価用) であることが判明。本プロダクトは**現行 stable `'2026-04-22.dahlia'` を維持** ([phase5-stripe-product-architecture.md §3.4](phase5-stripe-product-architecture.md) #2683 訂正)、次回 stable 月次リリース (例: `'2026-06-XX.dahlia'`) が公開され次第、別 PR で bump 判断する。
+
+**将来の stable apiVersion bump 時の必須手順** (本 docs SSOT、Phase 7 着手時には bump なしのため使用しないが、将来の発動準備):
+
+`src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数 1 行修正だけでは不十分で、副次制約 4 (Webhook destination api_version immutable、[phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md)) により**新規 destination 作成 → cutover → 旧 delete の 5 phase migration が強制必須**。具体的に: (a) Webhook destination の API version は immutable のため**新規作成必須** (Stripe Dashboard #2627)、(b) Stripe Changelog `'2026-04-22.dahlia'` → 新 stable バージョンの breaking change 全件確認、(c) 72h rollback window 監視計画 (Sentry / Discord alert thresholds) を本 docs §5 で SSOT 化。
 
 ### 1.4 設計がなかった場合に何が困るか
 
@@ -197,51 +201,51 @@ Phase 6 子 1 SSOT §5.3 で確定した 2 feature flag (`USE_LOOKUP_KEY` / `STR
 
 Phase 1 補強 2 Open question 4「active subscription 0 件」が PO 確定済 (Pre-PMF stage で実 customer 不在) のため、旧 Price archive 後の請求継続失敗リスクはゼロ。Phase 7 統合 PR Step 5 直前に PO が再確認する手順を子 1 SSOT §3 Step 5 AC (d) に組込済。
 
-## 5. Stripe API version bump 手順 + 72h rollback monitoring
+## 5. Stripe API version 維持判断 + 将来 bump 時の 5 phase migration 手順 (#2683 訂正)
 
-Phase 5 子 1 §3.4 で確定した apiVersion bump (`2026-04-22.dahlia` → `2026-05-27.dahlia`) を、Stripe 公式 [api/versioning](https://docs.stripe.com/api/versioning) の 72h rollback window 活用手順で実施する。Phase 7 統合 PR Step 3 (子 1 SSOT) で実装。
+> **#2683 補強 (2026-05-30)**: Phase 7 統合 PR では apiVersion = `'2026-04-22.dahlia'` (stable 最新) **維持判断** ([phase5-stripe-product-architecture.md §3.4](phase5-stripe-product-architecture.md) #2683 訂正)。`'2026-05-27.dahlia'` は preview リリースで production 非推奨のため不採用。次回 stable リリース採用時の手順を本 §5 で SSOT 化 (将来の発動準備)。
 
-### 5.1 4 step 順序
+### 5.1 4 step 順序 (将来の stable apiVersion bump 時に発動)
 
 | Step | 工程 | 検証 |
 |---|---|---|
-| **1. Changelog breaking change 全件確認** | Stripe Changelog `2026-04-22.dahlia` → `2026-05-27.dahlia` の差分を精査、webhook event の field 構造変化 / API request schema 変化 / response field rename 等を全件リスト化 | リスト化結果を本 docs §5.4 に追記 (Phase 7 着手時) |
-| **2. Webhook destination 同期** | Stripe Dashboard #2627 領域 C (Test mode) + F (Production mode) で Webhook destination の API version を `2026-05-27.dahlia` に bump | Dashboard UI で目視 |
-| **3. SDK 1 行修正 + smoke test** | `src/lib/server/stripe/client.ts` L7 `STRIPE_API_VERSION = '2026-05-27.dahlia'` に変更、Test mode で checkout / portal / webhook の 3 経路を smoke test | unit test (Phase 7 新規 client.test.ts) + Test clock E2E (Phase 6 子 2 #2662 SSOT) |
+| **1. Changelog breaking change 全件確認** | Stripe Changelog `'2026-04-22.dahlia'` → 新 stable バージョンの差分を精査、webhook event の field 構造変化 / API request schema 変化 / response field rename 等を全件リスト化 | リスト化結果を本 docs §5.4 に追記 (apiVersion bump PR 着手時) |
+| **2. Webhook destination 新規作成** (副次制約 4 #2683) | 副次制約 4 (Webhook destination api_version immutable、[phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md)) により**既存 destination の api_version 変更不可** → Stripe Dashboard #2627 領域 C (Test mode) + F (Production mode) で**新規 destination を新 api_version で作成** ([phase6-phase7-execution-ssot.md §5 Webhook 5 phase migration](phase6-phase7-execution-ssot.md) と同型) | Dashboard UI で目視 + Stripe API `webhookEndpoints.retrieve` で `api_version` field 確認 |
+| **3. SDK 1 行修正 + 5 phase shadow → cutover → retire** | `src/lib/server/stripe/client.ts` の `STRIPE_API_VERSION` 定数を新 stable バージョンに変更、Phase 6 子 1 #2667 §5 Webhook 5 phase migration と同型で shadow mode → cutover → retire (旧 destination delete) | unit test (apiVersion bump PR で新規 client.test.ts 拡張) + Test clock E2E (Phase 6 子 2 #2662 SSOT) |
 | **4. 72h 監視** (Sentry / Discord alert) | Step 3 cutover 後 72h 以内に Sentry error rate / Stripe webhook handler エラー / Discord alert を監視、breaking change 漏れによる incident を検知 | Sentry dashboard / Discord channel 監視 |
 
-### 5.2 72h rollback window 監視計画
+### 5.2 72h rollback window 監視計画 (将来の stable apiVersion bump 時に発動)
 
-Stripe 公式 [api/versioning](https://docs.stripe.com/api/versioning) より、apiVersion bump 後 72h 以内であれば Dashboard で旧 apiVersion に巻き戻し可能。本プロダクトの監視 threshold:
+Stripe 公式 [api/versioning](https://docs.stripe.com/api/versioning) より、apiVersion bump 後 72h 以内であれば Dashboard で旧 apiVersion に巻き戻し可能。ただし副次制約 4 (Webhook destination api_version immutable、#2683) により Dashboard 側は新 destination 作成 + 旧 destination 再有効化のセット、SDK 側は revert PR 即時 merge となる。本プロダクトの監視 threshold:
 
 | metric | threshold | 検出時の対応 |
 |---|---|---|
 | Sentry error rate (Stripe SDK 由来) | > 0.5% / 1 hour | Discord alert + 1 名以上の Dev エンジニアに通知 |
-| Stripe webhook handler エラー率 | > 1% / 1 hour | apiVersion 即時 rollback (Stripe Dashboard で旧 `2026-04-22.dahlia` に戻し) + SDK 側も revert |
+| Stripe webhook handler エラー率 | > 1% / 1 hour | apiVersion 即時 rollback (Stripe Dashboard で旧 destination 再有効化 + 新 destination 即時 disabled、副次制約 4 整合) + SDK 側も旧 stable バージョン `'2026-04-22.dahlia'` に revert |
 | Stripe webhook silent drop (Phase 5 子 3 dedup table 経由検出) | > 0 件 / 24 hour | apiVersion bump とは独立だが、Phase 7 Step 4-a shadow mode (子 1 SSOT) と重ねて検証 |
 | customer inquiry (Discord / メール) | > 3 件 / 24 hour | PO 判断で rollback 実施 |
 
-### 5.3 Webhook destination の API version 同期 (Step 2 詳細)
+### 5.3 Webhook destination の api_version immutable (#2683 副次制約 4、Step 2 詳細)
 
-Phase 5 子 1 R5「Webhook API version vs SDK apiVersion 乖離」と統合。Stripe Dashboard #2627 領域 C / F で:
+副次制約 4 ([phase5-stripe-product-architecture.md §4.4](phase5-stripe-product-architecture.md) #2683)「Webhook destination api_version 不変性」により、Stripe Dashboard #2627 領域 C / F で:
 
-- **Test mode (領域 C)**: Webhook destination 新規作成時に `default_api_version: '2026-05-27.dahlia'` を明示
-- **Production mode (領域 F)**: 旧 destination の API version も同期 (cutover 時に旧 / 新両方が `2026-05-27.dahlia` で動作する状態を担保)
+- **Test mode (領域 C)**: Webhook destination **新規作成時**に `default_api_version: <新 stable バージョン>` を明示。既存 destination の api_version を Dashboard UI で変更しようとすると Stripe API が `400 Bad Request` を返す (#2683 副次制約 4 検証手順)
+- **Production mode (領域 F)**: 旧 destination とは別の新 destination を新 api_version で作成、5 phase migration (shadow → cutover → retire、[phase6-phase7-execution-ssot.md §5](phase6-phase7-execution-ssot.md)) で cutover
 
 Dashboard 操作は PO 手動 (#2627)、本 PR では手順 SSOT のみ確定。
 
-### 5.4 Changelog breaking change 確認結果 (Phase 7 着手時に追記)
+### 5.4 Changelog breaking change 確認結果 (将来の stable apiVersion bump 時に追記)
 
-`docs.stripe.com/changelog/dahlia/2026-05-27` を確認後、breaking change を本節に列挙する。本 PR 時点では確認未完了 (Phase 7 着手時の Dev タスク)。確認項目:
+Phase 7 では apiVersion bump なし (`'2026-04-22.dahlia'` 維持、#2683 訂正)。将来の次回 stable リリース採用 PR 着手時、`docs.stripe.com/changelog/dahlia/<新 stable>` を確認後、breaking change を本節に列挙する。確認項目:
 
 | カテゴリ | 確認内容 |
 |---|---|
-| webhook event field 構造 | `subscription_schedule.aborted` / `_canceled` / `_completed` (Phase 5 子 1 §4.3 で新規購読対象) の field 変化 |
-| API request schema | `subscriptions.update` / `subscriptionSchedules.create` / `prices.list` の request schema 変化 |
-| API response field | `subscription.schedule` / `subscription.items.data[].price` 等の field rename |
+| webhook event field 構造 | 新規購読 event の field 変化 (Phase 7 Step 4 で 5 event 購読対象、`customer.subscription.*` / `invoice.payment_*` / `credit_note.created`、#2683 訂正) |
+| API request schema | `subscriptions.update` / `prices.list` の request schema 変化 |
+| API response field | `subscription.items.data[].price` 等の field rename |
 | TypeScript 型定義 | `stripe-node` 最新版で apiVersion 整合性確認 |
 
-**Phase 7 着手時 AC**: 本節 §5.4 を埋めずに Phase 7 Step 3 着手禁止 (子 1 SSOT §3 Step 3 ロールバック判断基準 (b) 整合)。
+**将来の apiVersion bump PR 着手時 AC**: 本節 §5.4 を埋めずに当該 PR 着手禁止 (子 1 SSOT §3 Step 3 ロールバック判断基準 (b) 整合)。
 
 ## 6. impact-analysis 4 layer 防御 + 21 カテゴリ checklist
 
