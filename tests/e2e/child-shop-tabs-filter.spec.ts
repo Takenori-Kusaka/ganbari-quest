@@ -9,8 +9,7 @@
 //   #2160 AC2: 「いまこうかんできる」フィルタが残高比較で機能する
 //   #2160 AC3: フィルタ適用中はバッジ表示 + リセットボタン
 
-import path from 'node:path';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures';
 import { dismissOverlays, selectKinderChild } from './helpers';
 
 /**
@@ -36,11 +35,15 @@ function activeTabPanel(page: Page) {
  * #2157 / #2160 用に 3 系統 × ポイント帯のテストデータを seed する。
  * 既存 child-shop-exchange.spec.ts のシードを汚さないように
  * 専用 category='shop_tabs_e2e' でマーキング。
+ *
+ * #2648 Phase A Round 15 (H-9 fix): template DB 直接 seed を `workerDbPath` fixture
+ * 経由に置換。Phase A Step A-4 で webServer が worker DB を見る設計に変えたため。
  */
-async function seedThreeCategoryRewards(): Promise<{ childId: number; balance: number }> {
-	const DB_PATH = path.resolve('data/ganbari-quest.db');
+async function seedThreeCategoryRewards(
+	workerDbPath: string,
+): Promise<{ childId: number; balance: number }> {
 	const { default: Database } = await import('better-sqlite3');
-	const db = new Database(DB_PATH);
+	const db = new Database(workerDbPath);
 	try {
 		const child = db
 			.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
@@ -95,10 +98,9 @@ async function seedThreeCategoryRewards(): Promise<{ childId: number; balance: n
 	}
 }
 
-async function cleanupSeeds(): Promise<void> {
-	const DB_PATH = path.resolve('data/ganbari-quest.db');
+async function cleanupSeeds(workerDbPath: string): Promise<void> {
 	const { default: Database } = await import('better-sqlite3');
-	const db = new Database(DB_PATH);
+	const db = new Database(workerDbPath);
 	try {
 		db.prepare("DELETE FROM special_rewards WHERE category = 'shop_tabs_e2e'").run();
 		db.prepare("DELETE FROM point_ledger WHERE type = 'shop_tabs_test_seed'").run();
@@ -110,12 +112,16 @@ async function cleanupSeeds(): Promise<void> {
 test.describe.configure({ mode: 'serial' });
 
 test.describe('#2157 / #2160: ごほうびショップ 3 系統タブ + カテゴリ・フィルタ', () => {
-	test.beforeEach(async () => {
-		await seedThreeCategoryRewards();
+	test.beforeEach(async ({ workerDbPath }) => {
+		await seedThreeCategoryRewards(workerDbPath);
 	});
 
-	test.afterAll(async () => {
-		await cleanupSeeds();
+	// #2648 Round 15: afterAll は workerInfo 経由で worker DB path を生成して cleanup する
+	// (afterAll 内では test fixture が直接使えないため、playwright の workerInfo を経由)。
+	test.afterAll(async ({ browser: _browser }, testInfo) => {
+		const path = await import('node:path');
+		const workerDbPath = path.resolve(`data/e2e-worker-${testInfo.parallelIndex}.db`);
+		await cleanupSeeds(workerDbPath);
 	});
 
 	test('#2157 AC1: 4 タブ (すべて/もの/おこづかい/とくべつ) が描画される', async ({ page }) => {

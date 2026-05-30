@@ -10,13 +10,13 @@
 //
 // 認証: AUTH_MODE=local の自動セットアップで /admin 配下に到達できる前提
 
-import path from 'node:path';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from './fixtures';
 
-async function cleanupRulePresetState(): Promise<void> {
-	const DB_PATH = path.resolve('data/ganbari-quest.db');
+// #2648 Phase A Round 15 (H-9 fix): template DB 直接 DELETE を `workerDbPath` fixture
+// 経由に置換。Phase A Step A-4 で webServer が worker DB を見る設計に変えたため。
+async function cleanupRulePresetState(workerDbPath: string): Promise<void> {
 	const { default: Database } = await import('better-sqlite3');
-	const db = new Database(DB_PATH);
+	const db = new Database(workerDbPath);
 	try {
 		db.prepare("DELETE FROM settings WHERE key = 'rule_preset_bonus_overrides'").run();
 		db.prepare("DELETE FROM settings WHERE key = 'rule_preset_import_warnings'").run();
@@ -70,8 +70,8 @@ async function openMenu(page: Page, triggerTestid: string): Promise<void> {
 test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
 	test.setTimeout(180_000);
 
-	test.beforeEach(async () => {
-		await cleanupRulePresetState();
+	test.beforeEach(async ({ workerDbPath }) => {
+		await cleanupRulePresetState(workerDbPath);
 	});
 
 	test('admin/settings/rules: family-wide 一覧、per-child タブ非表示', async ({ page }) => {

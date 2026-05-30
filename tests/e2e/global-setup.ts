@@ -1,12 +1,24 @@
 // tests/e2e/global-setup.ts
 // E2E テスト用 DB 確認・クリーンアップスクリプト
 // playwright.config.ts の globalSetup から呼ばれる
+//
+// cspell:words Mainmatter
 
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { cleanupWorkerDb, ensureWorkerDb } from './helpers/per-worker-db';
 
-const DB_PATH = path.resolve('data/ganbari-quest.db');
+// #2648 Phase A Step A-4: per-worker SQLite file isolation の worker 数。
+// playwright.config.ts の WORKER_COUNT と一致させる必要あり (Mainmatter pattern + research §7.4)。
+// Phase A 完遂時点では 2 (pin-activity 検証用)、Phase B / Phase D で 4 復帰判断。
+const WORKER_COUNT = 2;
+
+// #2648 Phase A Step A-2: DATABASE_URL env を受け入れる (default は従来通り `data/ganbari-quest.db`)。
+// Step A-4 で webServer 配列ごとに `DATABASE_URL=./data/e2e-worker-${i}.db` を env 経由で注入し
+// per-worker SQLite file isolation を完成させる。env 未指定の callers (CI shard 一部 / 手動 migrate) は
+// fallback path で動くため既存挙動を破壊しない (research §7.1)。
+const DB_PATH = path.resolve(process.env.DATABASE_URL ?? 'data/ganbari-quest.db');
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
 export default async function globalSetup() {
@@ -1278,6 +1290,20 @@ export default async function globalSetup() {
 		db.close();
 	} catch (e) {
 		console.log('[E2E Setup]   Test data setup error:', e);
+	}
+
+	// #2648 Phase A Step A-4: per-worker SQLite file isolation。
+	// template (DB_PATH = data/ganbari-quest.db) を Step A-3 helper 経由で
+	// `data/e2e-worker-${i}.db` に複製し、webServer 配列 (playwright.config.ts) 起動時に
+	// `env.DATABASE_URL` で各 worker server に配布する。
+	//
+	// 前回 run の残骸がある可能性のため先に cleanup → 確実な fresh snapshot で再生成。
+	// `db.backup()` は WAL/shm 整合 snapshot を作成 (better-sqlite3 v12.9.0+)。
+	console.log(`[E2E Setup] Provisioning ${WORKER_COUNT} per-worker DB file(s) (#2648 Phase A)...`);
+	for (let i = 0; i < WORKER_COUNT; i++) {
+		cleanupWorkerDb(i);
+		const workerDbPath = await ensureWorkerDb(i);
+		console.log(`[E2E Setup]   worker[${i}] DB ready: ${workerDbPath}`);
 	}
 
 	console.log('[E2E Setup] Database ready.');

@@ -1,8 +1,14 @@
 // tests/e2e/pin-activity.spec.ts
 // #0115 ピン留め機能の E2E テスト
 // #0153 で追加
+//
+// #2648 Phase A Step A-6: fixtures.ts 経由化 (per-worker SQLite file isolation 配線完了)。
+// - 旧: `import { test, expect } from '@playwright/test';` (default base URL = port 5190 = worker[0])
+// - 新: `import { test, expect } from './fixtures';` (workerDbPath / workerBaseURL fixture 取得可能)
+// 本 spec 内では fixture を実際には参照しないが、import 元差替えで Phase B 横展開時の
+// `test.use({ baseURL: workerBaseURL })` 経路を準備済としておく (research §7.6)。
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import {
 	dismissOverlays,
 	expandFirstCategory,

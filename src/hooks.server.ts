@@ -9,6 +9,7 @@ import { env } from '$lib/runtime/env';
 import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evaluation-context';
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
+import { getOrInitDb } from '$lib/server/db/client';
 import { applyDebugPlanOverride, getDebugLicenseKeyOverride } from '$lib/server/debug-plan';
 import {
 	buildDemoNoopResponseBody,
@@ -160,6 +161,18 @@ export const handle: Handle = ({ event, resolve }) =>
 
 		// リクエストID 生成（相関ID）
 		event.locals.requestId = randomUUID();
+
+		// #2648 Phase A Round 12 (Option γ-extended): 1st-request DB init guard。
+		// `client.ts` は lazy DB init pattern を採用しており、`new Database(DATABASE_URL)` は
+		// module load 時でなく初回 `db` access 時に実行される。`hooks.server.ts` の handle
+		// 先頭で `getOrInitDb()` を呼ぶことで「any HTTP request の前に DB connection が
+		// 確立されている」を保証する。idempotent (2nd 以降は cached) のため副作用なし。
+		//
+		// E2E 環境 (Playwright webServer → globalSetup の順) ではこの guard により
+		// preview server module load 時 (T+0s) でなく 1st HTTP request 時 (T+5s 以降、
+		// globalSetup 完了後) に DB が open されるため、Round 10 H-1 (schema cache
+		// invalidation 失敗) が構造的に解消される。
+		getOrInitDb();
 
 		// 0-a) メンテナンスモード（Lambda環境変数で切替）
 		if (MAINTENANCE_MODE && path !== '/api/health') {

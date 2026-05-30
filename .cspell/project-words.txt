@@ -407,3 +407,8 @@ childid
 worktree
 Goodhart
 Hubinger
+
+# ===== #2648 Round 11 deep research (Phase A E2E flake research) =====
+# pglite = PostgreSQL WASM impl by ElectricSQL、Round 11 §3.4 で testcontainers
+# alternative として評価 (本 product では不採用、in-memory + NUC SSOT 破壊のため)
+pglite
