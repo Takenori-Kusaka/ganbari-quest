@@ -525,6 +525,36 @@ export function graduationConsentKey(consentedAt: string, id: string): DynamoKey
 
 export const GRADUATION_CONSENT_PK = 'GRADUATION_CONSENT';
 
+/**
+ * Stripe Webhook events dedup (#2641 / Phase 5 子 3 / Phase 7 PR-1):
+ *   PK = STRIPE_WEBHOOK_EVENT
+ *   SK = <event.id>           (例: evt_1ABCxyz)
+ *
+ * 用途: handleWebhookEvent dispatcher 入口 (Phase 7 PR-4a) で SK 一致を check し、
+ * 既存時は handler skip、不在時は handler 実行後に PutItem。
+ *
+ * Global single-partition (write rate 想定: Pre-PMF で <100/日、PMF 後でも <10k/日)。
+ * hot partition 懸念は `cancellation_reasons` (#1596) / `graduation_consent` (#1603) /
+ * `analytics_aggregate` (#1693) と同じ既存単一 partition 運用パターン。
+ *
+ * TTL: 30 日 (Stripe Events API 保持期間と同期、ADR-0049 整合)。
+ * `infra/lib/storage-stack.ts:29 timeToLiveAttribute='ttl'` 既設定により AWS が自動削除し、
+ * 自社 retention cron 不要 (sqlite 側は別途 `lazy-startup-migrations.ts` から cron 起動)。
+ *
+ * #1596 cancellationReasonKey と同じパターン (兄弟テーブル)。
+ */
+export function stripeWebhookEventKey(eventId: string): DynamoKey {
+	return {
+		PK: STRIPE_WEBHOOK_EVENT_PK,
+		SK: eventId,
+	};
+}
+
+export const STRIPE_WEBHOOK_EVENT_PK = 'STRIPE_WEBHOOK_EVENT';
+
+/** Stripe Webhook events retention 日数 (ADR-0049 整合、Stripe Events API 30 日保持と同期)。 */
+export const STRIPE_WEBHOOK_EVENT_TTL_DAYS = 30;
+
 /** ID counter: PK=COUNTER, SK=<entity> */
 export function counterKey(entity: string, tenantId: string): DynamoKey {
 	return {

@@ -762,4 +762,19 @@ export const SQL_CREATE_TABLES = `
 	CREATE INDEX IF NOT EXISTS idx_graduation_consent_date
 		ON graduation_consent(consented_at);
 
+	-- #2641 / Phase 5 子 3 / Phase 7 PR-1: Stripe Webhook 冪等性 dedup (30 日 retention、ADR-0049 整合)
+	CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+		event_id TEXT PRIMARY KEY,
+		event_type TEXT NOT NULL,
+		processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		handler_result TEXT NOT NULL,
+		error_message TEXT,
+		retry_count INTEGER NOT NULL DEFAULT 0,
+		tenant_id TEXT
+	);
+	CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_processed_at
+		ON stripe_webhook_events(processed_at);
+	CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_type_result
+		ON stripe_webhook_events(event_type, handler_result);
+
 `;

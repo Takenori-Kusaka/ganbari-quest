@@ -706,6 +706,94 @@ function migrateChecklistTemplatesFamilyFlip(db: Database.Database): void {
 }
 
 /**
+ * #2641 + #2642 / Phase 5 子 3+4 / Phase 6 子 3 #2675 / Phase 7 PR-1:
+ * Billing 再設計 Phase 6 の DB 配備 (expand 段階、非破壊・後方互換)。
+ *
+ * 2 つの責務を 1 関数に集約:
+ *
+ * 1. `stripe_webhook_events` table 存在チェック → 不在時に CREATE TABLE + 2 index
+ *    (`create-tables.ts` SQL_CREATE_TABLES と diff 0 維持、idempotent)
+ * 2. 既存 archived レコードの `archived_reason IS NULL` を `'downgrade_user_selected'` で補充
+ *    (Phase 5 子 4 §2 原則 4 default 補充、4 location: children / activities /
+ *    child_activities / checklist_templates)
+ *
+ * 実行順序:
+ * - `SQL_CREATE_TABLES` (create-tables.ts) より **前** に呼ぶ必要はない
+ *   (新規 table + UPDATE のみ、shadow-table recreation 不要、`ALTER TABLE` 不要)
+ * - だが `applyLazyStartupMigrations` 内で structural migrations と同時に呼ぶことで
+ *   NUC startup での自動実行を保証 (`migrate-local.ts` のみだと production / NUC で実行されない、
+ *   #2508 教訓と同型 fail-mode)
+ *
+ * rollback (子 5 #2665 / Phase 6 子 5 SSOT):
+ * - `DROP TABLE stripe_webhook_events` + 既存 archived 補充は data loss 許容
+ *   (補充前後の判別不能、Phase 6 子 3 #2675 §5.3 で SSOT 確定)
+ *
+ * #2509 fix: 1 transaction で囲み、(1)(2) の途中 fail 時に partial state を残さない。
+ */
+function migrateBillingPhase6(db: Database.Database): void {
+	const run = db.transaction(() => {
+		// (1) stripe_webhook_events table 配備 (新規 DB / 旧 DB 両対応、idempotent)
+		if (!tableExists(db, 'stripe_webhook_events')) {
+			db.exec(`
+				CREATE TABLE stripe_webhook_events (
+					event_id TEXT PRIMARY KEY,
+					event_type TEXT NOT NULL,
+					processed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					handler_result TEXT NOT NULL,
+					error_message TEXT,
+					retry_count INTEGER NOT NULL DEFAULT 0,
+					tenant_id TEXT
+				);
+				CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_processed_at
+					ON stripe_webhook_events(processed_at);
+				CREATE INDEX IF NOT EXISTS idx_stripe_webhook_events_type_result
+					ON stripe_webhook_events(event_type, handler_result);
+			`);
+			console.info('[lazy-migrate #2641 Phase 6] created stripe_webhook_events table + 2 index');
+		}
+
+		// (2) 既存 archived レコード の reason 補充 (Phase 5 子 4 §2 原則 4 default 補充)
+		const targetTables = [
+			'children',
+			'activities',
+			'child_activities',
+			'checklist_templates',
+		] as const;
+		let totalBackfilled = 0;
+		for (const table of targetTables) {
+			if (!tableExists(db, table)) continue;
+			// is_archived / archived_reason 列が共に存在する table のみ対象
+			// (旧 production schema #783 以前は両列が無い、本 migration は #783 以後の DB に対する補充のみ実施)
+			if (!hasColumn(db, table, 'is_archived') || !hasColumn(db, table, 'archived_reason')) {
+				continue;
+			}
+			// `is_archived = 1 AND archived_reason IS NULL` を補充。3 経路 (trial / downgrade /
+			// dunning) 中で `'downgrade_user_selected'` を default にする理由 (Phase 5 子 4 §2
+			// 原則 4): 既存実装で archived を生むのは `downgrade-service.ts` 経由が中心、
+			// `trial_expired` 経路は `(parent)/admin/+layout.server.ts:120-145` で reason 必須設定済
+			const result = db
+				.prepare(
+					`UPDATE ${table} SET archived_reason = 'downgrade_user_selected'
+					 WHERE is_archived = 1 AND archived_reason IS NULL`,
+				)
+				.run();
+			if (result.changes > 0) {
+				totalBackfilled += result.changes;
+				console.info(
+					`[lazy-migrate #2642 Phase 6] backfilled ${result.changes} rows in ${table} (archived_reason → 'downgrade_user_selected')`,
+				);
+			}
+		}
+		if (totalBackfilled === 0) {
+			console.info(
+				'[lazy-migrate #2642 Phase 6] no archived rows with NULL reason found (idempotent skip)',
+			);
+		}
+	});
+	run();
+}
+
+/**
  * startup 時に `SQL_CREATE_TABLES` 実行より **前** に呼ぶ。
  *
  * - 各 migration は冪等 (既に新形式なら skip)
@@ -734,6 +822,10 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// FK target が child_activities になった後でないと remap が整合しないため順序固定。
 		migrateActivitiesLegacyDataCopy(db);
 		migrateChecklistTemplatesFamilyFlip(db);
+		// #2641 + #2642 / Phase 6 子 3 #2675 / Phase 7 PR-1: Billing 再設計 expand 段階
+		// (`stripe_webhook_events` table + archived_reason NULL 補充)。
+		// 既存 tables に対する純粋追加なので structural migrations の **後** に実行。
+		migrateBillingPhase6(db);
 	} catch (err) {
 		// #2509: tx 内で失敗した場合 better-sqlite3 が自動 ROLLBACK 済。partial state
 		// は残らないが、後続の `SQL_CREATE_TABLES` / `validateAndMigrate` 実行は危険

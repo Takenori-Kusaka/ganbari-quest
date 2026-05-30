@@ -30,3 +30,5 @@ export type { IStatusRepo } from './status-repo.interface';
 export type { IStorageRepo } from './storage.interface';
 // #2295 (EPIC #2294 ①): ITenantEventRepo / ISeasonEventRepo 削除済 (2026-05-19)
 export type { ITrialHistoryRepo } from './trial-history-repo.interface';
+// #2641 / Phase 5 子 3 / Phase 7 PR-1: Stripe Webhook 冪等性 dedup interface (4 backend SSOT)
+export type { IWebhookEventRepo, WebhookEventRecord } from './webhook-event-repo.interface';

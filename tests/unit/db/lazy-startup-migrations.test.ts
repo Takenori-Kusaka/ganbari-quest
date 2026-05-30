@@ -696,4 +696,137 @@ describe('applyLazyStartupMigrations', () => {
 			expect(db.pragma('foreign_keys', { simple: true })).toBe(0);
 		});
 	});
+
+	// ============================================================
+	// #2641 + #2642 / Phase 5 子 3+4 / Phase 6 子 3 #2675 / Phase 7 PR-1:
+	// Billing 再設計 expand 段階 (stripe_webhook_events table + archived_reason NULL 補充)
+	// ============================================================
+	describe('migrateBillingPhase6 (#2641 + #2642 / Phase 7 PR-1)', () => {
+		beforeEach(() => {
+			seedLegacyProductionSchema(db);
+		});
+
+		it('stripe_webhook_events table を新規作成し、event_id PK + 2 index が機能する', () => {
+			expect(tableExists(db, 'stripe_webhook_events')).toBe(false);
+
+			applyLazyStartupMigrations(db);
+
+			expect(tableExists(db, 'stripe_webhook_events')).toBe(true);
+
+			// schema 列確認
+			const cols = getColumns(db, 'stripe_webhook_events');
+			const colNames = cols.map((c) => c.name).sort();
+			expect(colNames).toEqual(
+				[
+					'error_message',
+					'event_id',
+					'event_type',
+					'handler_result',
+					'processed_at',
+					'retry_count',
+					'tenant_id',
+				].sort(),
+			);
+
+			// PK 機能確認: event_id 重複 insert は fail
+			db.prepare(
+				`INSERT INTO stripe_webhook_events (event_id, event_type, handler_result)
+				 VALUES ('evt_1ABC', 'checkout.session.completed', 'success')`,
+			).run();
+			expect(() => {
+				db.prepare(
+					`INSERT INTO stripe_webhook_events (event_id, event_type, handler_result)
+					 VALUES ('evt_1ABC', 'invoice.paid', 'success')`,
+				).run();
+			}).toThrow(/UNIQUE constraint failed/);
+
+			// 2 index 確認 (sqlite_master から index 取得)
+			const indices = (
+				db
+					.prepare(
+						"SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='stripe_webhook_events' ORDER BY name",
+					)
+					.all() as { name: string }[]
+			).map((r) => r.name);
+			expect(indices).toContain('idx_stripe_webhook_events_processed_at');
+			expect(indices).toContain('idx_stripe_webhook_events_type_result');
+		});
+
+		it('既存 archived レコードの NULL archived_reason を downgrade_user_selected で補充する (4 location)', () => {
+			// 補充前: legacy schema には is_archived / archived_reason 列がない可能性があるため
+			// child_activities を含む 4 location を直接 patch
+			db.exec(`
+				ALTER TABLE children ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE children ADD COLUMN archived_reason TEXT;
+				ALTER TABLE activities ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE activities ADD COLUMN archived_reason TEXT;
+				ALTER TABLE child_activities ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE child_activities ADD COLUMN archived_reason TEXT;
+			`);
+
+			// 各 table に「archived だが reason NULL」の row を seed
+			db.prepare(
+				"INSERT INTO children (nickname, age, is_archived, archived_reason) VALUES ('legacy-archived', 10, 1, NULL)",
+			).run();
+			db.prepare(
+				"INSERT INTO children (nickname, age, is_archived, archived_reason) VALUES ('active', 8, 0, NULL)",
+			).run();
+			db.prepare(
+				"INSERT INTO activities (name, is_archived, archived_reason) VALUES ('legacy-act', 1, NULL)",
+			).run();
+			db.prepare(
+				"INSERT INTO child_activities (child_id, name, is_archived, archived_reason) VALUES (1, 'legacy-ca', 1, NULL)",
+			).run();
+
+			applyLazyStartupMigrations(db);
+
+			// archived 1 row は補充される
+			const childArchived = db
+				.prepare("SELECT archived_reason FROM children WHERE nickname = 'legacy-archived'")
+				.get() as { archived_reason: string };
+			expect(childArchived.archived_reason).toBe('downgrade_user_selected');
+
+			// active row (is_archived = 0) は NULL のまま (補充されない)
+			const childActive = db
+				.prepare("SELECT archived_reason FROM children WHERE nickname = 'active'")
+				.get() as { archived_reason: string | null };
+			expect(childActive.archived_reason).toBeNull();
+
+			// activities / child_activities も同様に補充される
+			const actArchived = db
+				.prepare("SELECT archived_reason FROM activities WHERE name = 'legacy-act'")
+				.get() as { archived_reason: string };
+			expect(actArchived.archived_reason).toBe('downgrade_user_selected');
+
+			const caArchived = db
+				.prepare("SELECT archived_reason FROM child_activities WHERE name = 'legacy-ca'")
+				.get() as { archived_reason: string };
+			expect(caArchived.archived_reason).toBe('downgrade_user_selected');
+		});
+
+		it('複数回呼んでも idempotent (table 再作成しない + 既補充 reason を上書きしない)', () => {
+			db.exec(`
+				ALTER TABLE children ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE children ADD COLUMN archived_reason TEXT;
+			`);
+			db.prepare(
+				"INSERT INTO children (nickname, age, is_archived, archived_reason) VALUES ('a', 5, 1, 'trial_expired')",
+			).run();
+
+			applyLazyStartupMigrations(db);
+			// 既に reason 設定済の row は上書きしない (idempotent)
+			const after1 = db
+				.prepare("SELECT archived_reason FROM children WHERE nickname = 'a'")
+				.get() as { archived_reason: string };
+			expect(after1.archived_reason).toBe('trial_expired');
+
+			// 2 回目: table 既存 → 作成 skip、archived row 既補充 → UPDATE noop
+			applyLazyStartupMigrations(db);
+			expect(tableExists(db, 'stripe_webhook_events')).toBe(true);
+			const after2 = db
+				.prepare("SELECT archived_reason FROM children WHERE nickname = 'a'")
+				.get() as { archived_reason: string };
+			expect(after2.archived_reason).toBe('trial_expired');
+		});
+	});
 });

@@ -1,6 +1,8 @@
 {
-	"allowed": [],
-	"reasons": {},
+	"allowed": ["stripe_webhook_events"],
+	"reasons": {
+		"stripe_webhook_events": "Phase 7 PR-1 expand 段階で配備、production code 経路への参照は PR-4a (webhook handler 統合) で追加。本 PR では schema + 4 backend fixture + interfaces/webhook-event-repo.interface.ts + demo/webhook-event-repo.ts (in-memory) + dynamodb/keys.ts (SSOT 定数) のみ配備し、sqlite/dynamodb repo 実装と services 経路統合は PR-4a で contract 段階として実施。expand-then-contract pattern (Phase 6 子 5 #2678 SSOT 整合)。PR-4a 着手時に本 entry を baseline から削除する。"
+	},
 	"version": "1.0.0",
-	"generated": "2026-05-26T00:00:00.000Z"
+	"generated": "2026-05-30T09:30:00.000Z"
 }
