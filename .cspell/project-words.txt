@@ -412,3 +412,10 @@ Hubinger
 # pglite = PostgreSQL WASM impl by ElectricSQL、Round 11 §3.4 で testcontainers
 # alternative として評価 (本 product では不採用、in-memory + NUC SSOT 破壊のため)
 pglite
+
+# ===== #2697 Phase 7 PR-2b labels.ts compounds (billing redesign #2620) =====
+# Kinde = SaaS UX "what happens when clicked" copywriting principle 引用元
+# (labels.ts コメント + tests/unit/domain/labels-phase7-pr2b.test.ts、6 出現)
+# cutover = Phase 4 #2620 migration 用語 (immutable webhook → reactivation cutover)
+Kinde
+cutover
