@@ -16,6 +16,7 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	ChecklistLog,
 	ChecklistOverride,
@@ -596,9 +597,10 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 // #783: archive / restore (family scope)
 // ============================================================
 
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 export async function archiveChecklistTemplates(
 	ids: number[],
-	reason: string,
+	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
 	for (const id of ids) {
@@ -620,7 +622,7 @@ export async function archiveChecklistTemplates(
 }
 
 export async function restoreArchivedChecklistTemplates(
-	reason: string,
+	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;

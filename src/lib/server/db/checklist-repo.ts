@@ -3,6 +3,7 @@
 // #2362 PR-5 (ADR-0055): family master + assignments method を facade に追加。
 //   既存 callsite (`findTemplatesByChild` / `findTemplateById` 等) は後方互換維持。
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { getRepos } from './factory';
 import type {
 	InsertChecklistOverrideInput,
@@ -124,10 +125,15 @@ export async function deleteOverride(id: number, tenantId: string) {
 
 // ── #783: archive / restore ─────────────────────────────────────
 
-export async function archiveChecklistTemplates(ids: number[], reason: string, tenantId: string) {
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
+export async function archiveChecklistTemplates(
+	ids: number[],
+	reason: ArchivedReason,
+	tenantId: string,
+) {
 	return getRepos().checklist.archiveChecklistTemplates(ids, reason, tenantId);
 }
 
-export async function restoreArchivedChecklistTemplates(reason: string, tenantId: string) {
+export async function restoreArchivedChecklistTemplates(reason: ArchivedReason, tenantId: string) {
 	return getRepos().checklist.restoreArchivedChecklistTemplates(reason, tenantId);
 }

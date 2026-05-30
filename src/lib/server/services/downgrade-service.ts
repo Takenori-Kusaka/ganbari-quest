@@ -1,6 +1,7 @@
 // src/lib/server/services/downgrade-service.ts
 // #738: ダウングレード前の超過リソースプレビュー・選択アーカイブ
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	ActivityPreview,
 	ChecklistTemplatePreview,
@@ -15,7 +16,9 @@ import { getPlanLimits } from './plan-limit-service';
 
 export type { DowngradePreview };
 
-const ARCHIVE_REASON = 'downgrade_user_selected';
+// Phase 7 PR-2a (#2688): ARCHIVED_REASONS SSOT (domain) に整合させ ArchivedReason 型注釈で
+// repo 層の enum 制約と接続。caller 側の文字列 widening を防ぐ。
+const ARCHIVE_REASON: ArchivedReason = 'downgrade_user_selected';
 
 export interface ArchiveSelection {
 	childIds: number[];

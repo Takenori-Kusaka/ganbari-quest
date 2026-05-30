@@ -8,6 +8,7 @@
 //   - `findTemplatesByChild` は既存 fixture の childId を直接使う (after migration の挙動と等価)。
 //   - assignments は fixture から仮想生成 (1 template = 1 child assignment)。
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import {
 	DEMO_CHECKLIST_ITEMS,
 	DEMO_CHECKLIST_TEMPLATES,
@@ -276,17 +277,18 @@ export async function deleteOverride(_id: number, _tenantId: string): Promise<vo
 }
 
 // ---------- Archive / Restore ----------
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
 export async function archiveChecklistTemplates(
 	_ids: number[],
-	_reason: string,
+	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
 }
 
 export async function restoreArchivedChecklistTemplates(
-	_reason: string,
+	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op

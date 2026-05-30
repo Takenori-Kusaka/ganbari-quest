@@ -35,6 +35,7 @@ import {
 	or,
 	sql,
 } from 'drizzle-orm';
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { db } from '../client';
 import { activityLogs, childActivities, children, dailyMissions, pointLedger } from '../schema';
 import type { Activity, ActivityFilter, InsertActivityInput, UpdateActivityInput } from '../types';
@@ -307,9 +308,12 @@ export async function deleteActivity(id: number, tenantId: string): Promise<Acti
 }
 
 // #783: archive / restore — child_activities 経由
+// Phase 7 PR-2a (#2688): reason 引数を `ArchivedReason` 型に強制 (PR-1 #2685 で配備済の
+// `ARCHIVED_REASONS` SSOT integration)。schema.ts L79 の `text('archived_reason', { enum: … })`
+// と同期で型安全を担保 (3 reason 以外の値は compile-time / runtime 両方で reject)。
 export async function archiveActivities(
 	ids: number[],
-	reason: string,
+	reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	if (ids.length === 0) return;
@@ -319,7 +323,10 @@ export async function archiveActivities(
 		.run();
 }
 
-export async function restoreArchivedActivities(reason: string, _tenantId: string): Promise<void> {
+export async function restoreArchivedActivities(
+	reason: ArchivedReason,
+	_tenantId: string,
+): Promise<void> {
 	db.update(childActivities)
 		.set({ isArchived: 0, archivedReason: null })
 		.where(eq(childActivities.archivedReason, reason))

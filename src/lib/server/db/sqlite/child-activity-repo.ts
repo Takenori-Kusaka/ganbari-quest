@@ -8,6 +8,7 @@
 // Phase 6/7 で全 callsite 移行後に drop。
 
 import { and, count, eq, inArray, isNull, or } from 'drizzle-orm';
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { db } from '../client';
 import { childActivities, children } from '../schema';
 import type {
@@ -228,11 +229,13 @@ export async function copyActivitiesAcrossChildren(
 
 // ============================================================
 // archive / restore (#783)
+// Phase 7 PR-2a (#2688): reason 引数を `ArchivedReason` 型に強制 (PR-1 #2685 で配備済の
+// `ARCHIVED_REASONS` SSOT integration)。schema.ts L79 の enum 制約と同期で型安全担保。
 // ============================================================
 
 export async function archiveActivities(
 	ids: number[],
-	reason: string,
+	reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	if (ids.length === 0) return;
@@ -242,7 +245,10 @@ export async function archiveActivities(
 		.run();
 }
 
-export async function restoreArchivedActivities(reason: string, _tenantId: string): Promise<void> {
+export async function restoreArchivedActivities(
+	reason: ArchivedReason,
+	_tenantId: string,
+): Promise<void> {
 	db.update(childActivities)
 		.set({ isArchived: 0, archivedReason: null })
 		.where(eq(childActivities.archivedReason, reason))

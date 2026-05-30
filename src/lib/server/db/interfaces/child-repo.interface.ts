@@ -1,3 +1,4 @@
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
 
 export interface IChildRepo {
@@ -9,7 +10,8 @@ export interface IChildRepo {
 	deleteChild(id: number, tenantId: string): Promise<void>;
 
 	// #783: archive / restore
-	archiveChildren(ids: number[], reason: string, tenantId: string): Promise<void>;
-	restoreArchivedChildren(reason: string, tenantId: string): Promise<void>;
+	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
+	archiveChildren(ids: number[], reason: ArchivedReason, tenantId: string): Promise<void>;
+	restoreArchivedChildren(reason: ArchivedReason, tenantId: string): Promise<void>;
 	findArchivedChildren(tenantId: string): Promise<Child[]>;
 }

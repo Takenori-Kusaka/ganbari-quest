@@ -4,6 +4,7 @@
 
 import { sql } from 'drizzle-orm';
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { ARCHIVED_REASONS } from '$lib/domain/archive-types';
 
 // ============================================================
 // categories - カテゴリマスタ
@@ -37,12 +38,11 @@ export const children = sqliteTable('children', {
 	_sv: integer('_sv'),
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
-	// Phase 7 PR-1 (#2685): enum 制約 (`{ enum: ARCHIVED_REASONS }`) は Phase 7 PR-2a で
-	// 既存 sqlite/dynamodb/demo repo 4 file の `reason: string` → `reason: ArchivedReason`
-	// 型強制 (atom 統合) と同時に適用する。本 PR は expand 段階で code 変更ゼロ原則のため、
-	// DB 列定義は `text('archived_reason')` のままで domain SSOT (`archive-types.ts`) のみ配備。
+	// Phase 7 PR-2a (#2688): enum 制約 + sqlite repo 型強制を同時適用 (PR-1 #2685 で
+	// 配備済の `ARCHIVED_REASONS` domain SSOT を drizzle 層で参照、`reason: ArchivedReason`
+	// 型を select / insert に自動伝播)。SQLite CHECK 制約として 3 reason のみ受理。
 	// SSOT: `src/lib/domain/archive-types.ts`
-	archivedReason: text('archived_reason'),
+	archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 });
 
 // ============================================================
@@ -72,12 +72,11 @@ export const activities = sqliteTable('activities', {
 	createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
-	// Phase 7 PR-1 (#2685): enum 制約 (`{ enum: ARCHIVED_REASONS }`) は Phase 7 PR-2a で
-	// 既存 sqlite/dynamodb/demo repo 4 file の `reason: string` → `reason: ArchivedReason`
-	// 型強制 (atom 統合) と同時に適用する。本 PR は expand 段階で code 変更ゼロ原則のため、
-	// DB 列定義は `text('archived_reason')` のままで domain SSOT (`archive-types.ts`) のみ配備。
+	// Phase 7 PR-2a (#2688): enum 制約 + sqlite repo 型強制を同時適用 (PR-1 #2685 で
+	// 配備済の `ARCHIVED_REASONS` domain SSOT を drizzle 層で参照、`reason: ArchivedReason`
+	// 型を select / insert に自動伝播)。SQLite CHECK 制約として 3 reason のみ受理。
 	// SSOT: `src/lib/domain/archive-types.ts`
-	archivedReason: text('archived_reason'),
+	archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
 	sourcePresetId: text('source_preset_id'),
 	// #1755 (#1709-A): 「今日のおやくそく」優先度 — 'must' = 今日のおやくそく / 'optional' = ふつうの活動
@@ -116,12 +115,11 @@ export const childActivities = sqliteTable(
 		isMainQuest: integer('is_main_quest').notNull().default(0),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		isArchived: integer('is_archived').notNull().default(0),
-		// Phase 7 PR-1 (#2685): enum 制約 (`{ enum: ARCHIVED_REASONS }`) は Phase 7 PR-2a で
-		// 既存 sqlite/dynamodb/demo repo 4 file の `reason: string` → `reason: ArchivedReason`
-		// 型強制 (atom 統合) と同時に適用する。本 PR は expand 段階で code 変更ゼロ原則のため、
-		// DB 列定義は `text('archived_reason')` のままで domain SSOT (`archive-types.ts`) のみ配備。
+		// Phase 7 PR-2a (#2688): enum 制約 + sqlite repo 型強制を同時適用 (PR-1 #2685 で
+		// 配備済の `ARCHIVED_REASONS` domain SSOT を drizzle 層で参照、`reason: ArchivedReason`
+		// 型を select / insert に自動伝播)。SQLite CHECK 制約として 3 reason のみ受理。
 		// SSOT: `src/lib/domain/archive-types.ts`
-		archivedReason: text('archived_reason'),
+		archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 		sourcePresetId: text('source_preset_id'),
 		priority: text('priority', { enum: ['must', 'optional'] })
 			.notNull()
@@ -442,12 +440,11 @@ export const checklistTemplates = sqliteTable('checklist_templates', {
 	updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	// #783: トライアル終了時の超過リソース archive
 	isArchived: integer('is_archived').notNull().default(0),
-	// Phase 7 PR-1 (#2685): enum 制約 (`{ enum: ARCHIVED_REASONS }`) は Phase 7 PR-2a で
-	// 既存 sqlite/dynamodb/demo repo 4 file の `reason: string` → `reason: ArchivedReason`
-	// 型強制 (atom 統合) と同時に適用する。本 PR は expand 段階で code 変更ゼロ原則のため、
-	// DB 列定義は `text('archived_reason')` のままで domain SSOT (`archive-types.ts`) のみ配備。
+	// Phase 7 PR-2a (#2688): enum 制約 + sqlite repo 型強制を同時適用 (PR-1 #2685 で
+	// 配備済の `ARCHIVED_REASONS` domain SSOT を drizzle 層で参照、`reason: ArchivedReason`
+	// 型を select / insert に自動伝播)。SQLite CHECK 制約として 3 reason のみ受理。
 	// SSOT: `src/lib/domain/archive-types.ts`
-	archivedReason: text('archived_reason'),
+	archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 	// #1755 (#1709-A): kind 列削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管）
 	// #1254 G1: マーケットプレイスプリセット由来の識別子（import 時の preset_duplicate 検知に利用）
 	sourcePresetId: text('source_preset_id'),

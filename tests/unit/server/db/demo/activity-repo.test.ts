@@ -98,7 +98,10 @@ describe('demo/activity-repo', () => {
 				),
 			).resolves.toBeUndefined();
 			await expect(activityRepo.deleteActivity(99999, 'demo')).resolves.toBeUndefined();
-			await expect(activityRepo.archiveActivities([1], 'test', 'demo')).resolves.toBeUndefined();
+			// Phase 7 PR-2a (#2688): ArchivedReason 型強制で 'test' → 'trial_expired' (ARCHIVED_REASONS SSOT)
+			await expect(
+				activityRepo.archiveActivities([1], 'trial_expired', 'demo'),
+			).resolves.toBeUndefined();
 		});
 
 		it('deleteActivityLogsBeforeDate は 0 件削除を返す (stateless)', async () => {

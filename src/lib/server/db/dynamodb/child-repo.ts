@@ -8,6 +8,7 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import { hydrate, withVersion } from '../migration';
 import { writeBackDynamoDB } from '../migration/writeback';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
@@ -244,10 +245,11 @@ export async function deleteChild(id: number, tenantId: string): Promise<void> {
 }
 
 // #783: archive / restore
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
 export async function archiveChildren(
 	ids: number[],
-	reason: string,
+	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<void> {
 	for (const id of ids) {
@@ -266,7 +268,10 @@ export async function archiveChildren(
 	}
 }
 
-export async function restoreArchivedChildren(reason: string, tenantId: string): Promise<void> {
+export async function restoreArchivedChildren(
+	reason: ArchivedReason,
+	tenantId: string,
+): Promise<void> {
 	const result = await getDocClient().send(
 		new ScanCommand({
 			TableName: TABLE_NAME,

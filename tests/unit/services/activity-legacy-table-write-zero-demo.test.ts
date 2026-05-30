@@ -110,13 +110,14 @@ describe('#2458-A2 demo: 旧 fixture mutation 0 件保証', () => {
 		const beforeChildArchive = DEMO_CHILD_ACTIVITIES.map((a) => a.isArchived);
 		const targetIds = DEMO_ACTIVITIES.slice(0, 2).map((a) => a.id);
 
-		await demoActivityRepo.archiveActivities(targetIds, 'demo-test', TENANT);
+		// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
+		await demoActivityRepo.archiveActivities(targetIds, 'trial_expired', TENANT);
 		// Stub no-op: archive flag が mutate されていない
 		expect(DEMO_ACTIVITIES.map((a) => a.isArchived)).toEqual(beforeMasterArchive);
 		expect(DEMO_MARKETPLACE_ACTIVITIES.map((a) => a.isArchived)).toEqual(beforeMarketplaceArchive);
 		expect(DEMO_CHILD_ACTIVITIES.map((a) => a.isArchived)).toEqual(beforeChildArchive);
 
-		await demoActivityRepo.restoreArchivedActivities('demo-test', TENANT);
+		await demoActivityRepo.restoreArchivedActivities('trial_expired', TENANT);
 		expect(DEMO_ACTIVITIES.map((a) => a.isArchived)).toEqual(beforeMasterArchive);
 		expect(DEMO_MARKETPLACE_ACTIVITIES.map((a) => a.isArchived)).toEqual(beforeMarketplaceArchive);
 		expect(DEMO_CHILD_ACTIVITIES.map((a) => a.isArchived)).toEqual(beforeChildArchive);

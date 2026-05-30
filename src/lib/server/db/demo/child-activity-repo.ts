@@ -7,6 +7,7 @@
 // 旧 master DEMO_ACTIVITIES を per-child 視点で投影する legacy fallback を維持。
 // Phase 7 で旧 master fallback を撤去予定。
 
+import type { ArchivedReason } from '$lib/domain/archive-types';
 import {
 	DEMO_ACTIVITIES,
 	DEMO_CHILD_ACTIVITIES,
@@ -194,15 +195,19 @@ export async function copyActivitiesAcrossChildren(
 	return sourceList.map((a) => ({ ...a, childId: targetChildId }));
 }
 
+// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 export async function archiveActivities(
 	_ids: number[],
-	_reason: string,
+	_reason: ArchivedReason,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op
 }
 
-export async function restoreArchivedActivities(_reason: string, _tenantId: string): Promise<void> {
+export async function restoreArchivedActivities(
+	_reason: ArchivedReason,
+	_tenantId: string,
+): Promise<void> {
 	// Stub: no-op
 }
 
