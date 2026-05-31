@@ -49,21 +49,41 @@
 // ============================================================
 // PLAN_TERMS — プラン名（短縮形、PLAN_SHORT_LABELS の atom）
 // ============================================================
+//
+// Phase 7 PR-2d/e (#2706): family → premium atom rename (ADR-0058 適用)。
+// 補強 PR #2684 で SSOT 確定値「プレミアム」を採用。family key は alias として
+// premium を参照することで、Phase 7 共存期間中の後方互換性を維持する
+// (PR-2c #2700 の LICENSE_PAGE_LABELS = SUBSCRIPTION_PAGE_LABELS パターン整合)。
+// 全参照を .premium に移行後、Phase 7 後続 PR (cleanup PR-5) で family alias を削除する。
+//
+// 関連:
+//   - ADR-0058 (family → premium rename、PO 判断適用)
+//   - ADR-0045 (terms.ts 2 階層): 1 行修正で全 LP・アプリ本体・法務文書に伝播
+//   - Phase 5 子 5 SSOT #2656 §4.1 Step 4
+//   - Phase 6 子 4 #2673 文脈判断: LICENSE_PLAN.FAMILY 等の内部 enum / DB schema enum /
+//     legacy メール文面の「ファミリー」は本 rename 対象外 (legacy 性質保持)
 
 export const PLAN_TERMS = {
 	free: '無料',
 	standard: 'スタンダード',
-	family: 'ファミリー',
+	premium: 'プレミアム',
+	/** @deprecated Phase 7 後続 PR で .premium に移行完了後削除。alias for backward compat (PR-2d/e #2706)。 */
+	family: 'プレミアム',
 } as const;
 
 // ============================================================
 // PLAN_FULL_TERMS — プラン名（フル形、「〜プラン」付き、PLAN_LABELS の atom）
 // ============================================================
+//
+// Phase 7 PR-2d/e (#2706): family → premium atom rename (ADR-0058 / 補強 PR #2684)。
+// family alias は premium を参照し共存期間中の後方互換性を維持する。
 
 export const PLAN_FULL_TERMS = {
 	free: '無料プラン',
 	standard: 'スタンダードプラン',
-	family: 'ファミリープラン',
+	premium: 'プレミアムプラン',
+	/** @deprecated Phase 7 後続 PR で .premium に移行完了後削除。alias for backward compat (PR-2d/e #2706)。 */
+	family: 'プレミアムプラン',
 } as const;
 
 // ============================================================

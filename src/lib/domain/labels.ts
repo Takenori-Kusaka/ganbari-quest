@@ -351,13 +351,13 @@ export function getAgeTierShortLabel(mode: string | null | undefined): string {
 export const PLAN_LABELS = {
 	free: `${PLAN_FULL_TERMS.free}`,
 	standard: `${PLAN_FULL_TERMS.standard}`,
-	family: `${PLAN_FULL_TERMS.family}`,
+	family: `${PLAN_FULL_TERMS.premium}`,
 } as const;
 
 export const PLAN_SHORT_LABELS = {
 	free: `${PLAN_TERMS.free}`,
 	standard: `${PLAN_TERMS.standard}`,
-	family: `${PLAN_TERMS.family}`,
+	family: `${PLAN_TERMS.premium}`,
 } as const;
 
 export type PlanKey = keyof typeof PLAN_LABELS;
@@ -404,7 +404,7 @@ export const PLAN_GATE_LABELS = {
 	 *   - suggest-plan-gate.ts: '${featureLabel}はファミリープランでご利用いただけます'
 	 *   - admin/checklists/+page.server.ts: 'AI チェックリスト提案はファミリープランでご利用いただけます'
 	 */
-	familyOnlyFor: (feature: string) => `${feature}は${PLAN_FULL_TERMS.family}でご利用いただけます`,
+	familyOnlyFor: (feature: string) => `${feature}は${PLAN_FULL_TERMS.premium}でご利用いただけます`,
 
 	/**
 	 * "{feature}はファミリープラン限定です"
@@ -412,7 +412,7 @@ export const PLAN_GATE_LABELS = {
 	 * カバー対象:
 	 *   - admin/messages/+page.server.ts: '自由テキストメッセージはファミリープラン限定です'
 	 */
-	familyLimitedFor: (feature: string) => `${feature}は${PLAN_FULL_TERMS.family}限定です`,
+	familyLimitedFor: (feature: string) => `${feature}は${PLAN_FULL_TERMS.premium}限定です`,
 
 	/**
 	 * "この機能はスタンダードプラン以上でご利用いただけます。プランをアップグレードしてください。"
@@ -429,7 +429,7 @@ export const PLAN_GATE_LABELS = {
 	 *   - admin/settings/+page.server.ts: 'きょうだいランキングはファミリープラン限定です。アップグレードすると利用できます。'
 	 */
 	familyLimitedWithUpgradeFor: (feature: string) =>
-		`${feature}は${PLAN_FULL_TERMS.family}限定です。アップグレードすると利用できます。`,
+		`${feature}は${PLAN_FULL_TERMS.premium}限定です。アップグレードすると利用できます。`,
 
 	/**
 	 * "ファミリープラン限定の機能です"
@@ -437,7 +437,7 @@ export const PLAN_GATE_LABELS = {
 	 * カバー対象:
 	 *   - api/v1/admin/viewer-tokens/+server.ts: 'ファミリープラン限定の機能です'
 	 */
-	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.family}限定の機能です`,
+	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.premium}限定の機能です`,
 } as const;
 
 export const LICENSE_PLAN_LABELS: Record<string, string> = {
@@ -1415,7 +1415,7 @@ export const SETTINGS_LABELS = {
 	siblingChallengeMode: 'チャレンジモード',
 	siblingRankingLabel: 'きょうだいランキングを表示する',
 	// #1960 Phase 7 H3: terms.ts atom 参照化
-	siblingRankingUpsell: `きょうだいランキングは${PLAN_FULL_TERMS.family}限定の機能です。`,
+	siblingRankingUpsell: `きょうだいランキングは${PLAN_FULL_TERMS.premium}限定の機能です。`,
 	siblingRankingUpsellLink: 'プランのアップグレード',
 	siblingRankingUpsellSuffix: 'で利用できます。',
 	siblingSaveAction: '設定を保存',
@@ -1511,7 +1511,7 @@ export const SETTINGS_LABELS = {
 	// #1960 Phase 7 H3: terms.ts atom 参照化
 	cloudUpsellPlan: `${PLAN_FULL_TERMS.standard}`,
 	cloudUpsellSuffix: ' 以上でご利用いただけます。',
-	cloudUpsellDesc: `家族のデータをクラウドに保管して、PINコードで別端末や他のアカウントと共有できます（${PLAN_TERMS.standard}: 3枠 / ${PLAN_TERMS.family}: 10枠）。`,
+	cloudUpsellDesc: `家族のデータをクラウドに保管して、PINコードで別端末や他のアカウントと共有できます（${PLAN_TERMS.standard}: 3枠 / ${PLAN_TERMS.premium}: 10枠）。`,
 	cloudUpsellCta: 'プランを見る',
 	cloudExportDesc: '設定やデータをクラウドに保管してPINコードで他のアカウントと共有できます。',
 	cloudExportType: 'エクスポートタイプ',
@@ -1658,9 +1658,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	pageTitle: 'ご家族のプラン管理',
 	currentPlan: '現在のプラン',
 	// trial active 中の表示 (Phase 3 #2571 TrialBanner と機能領域として隣接)
-	trialActive: `${PLAN_FULL_TERMS.family}${TRIAL_TERMS.durationSpaced}無料体験中`,
+	trialActive: `${PLAN_FULL_TERMS.premium}${TRIAL_TERMS.durationSpaced}無料体験中`,
 	// アップグレード CTA (Kinde 「what happens when clicked」原則、Phase 4 #2624 §2.1 整合)
-	upgradeCta: `${PLAN_FULL_TERMS.family}にする`,
+	upgradeCta: `${PLAN_FULL_TERMS.premium}にする`,
 	// CTA 直下「いつでも解約」併記 (frictionless、Kinde 整合)
 	cancelAnytime: CANCEL_TERMS.anytimeOk,
 	// trial CTA 直下「クレカ登録不要」(Phase 3 #2571 整合)
@@ -1725,8 +1725,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
 	planLabelMonthly: `${PLAN_TERMS.standard}月額（${PRICE_TERMS.standard}/月）`,
 	planLabelYearly: `${PLAN_TERMS.standard}年額（¥5,000/年）`,
-	planLabelFamilyMonthly: `${PLAN_TERMS.family}月額（${PRICE_TERMS.family}/月）`,
-	planLabelFamilyYearly: `${PLAN_TERMS.family}年額（¥7,800/年）`,
+	planLabelFamilyMonthly: `${PLAN_TERMS.premium}月額（${PRICE_TERMS.family}/月）`,
+	planLabelFamilyYearly: `${PLAN_TERMS.premium}年額（¥7,800/年）`,
 	planLabelLifetime: '永久ライセンス',
 	planLabelFree: `${PLAN_FULL_TERMS.free}`,
 
@@ -1783,7 +1783,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 
 	// ファミリープラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
-	familyPlanName: `${PLAN_TERMS.family}`,
+	familyPlanName: `${PLAN_TERMS.premium}`,
 	familyPlanDesc: '家族みんなで見守る+永久保持',
 	familyPriceMonthly: `${PRICE_TERMS.family}`,
 	familyPriceYearly: '¥7,800',
@@ -1796,7 +1796,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	checkoutButton: (tier: string, loading: boolean) =>
 		loading
 			? '処理中...'
-			: `${tier === 'family' ? PLAN_TERMS.family : PLAN_TERMS.standard}プランで始める`,
+			: `${tier === 'family' ? PLAN_TERMS.premium : PLAN_TERMS.standard}プランで始める`,
 	checkoutNote: `いつでも${CANCEL_TERMS.canonical}・プラン変更可能`,
 
 	// 支払い履歴
@@ -1862,7 +1862,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 		'であり、\n\t\t\t\t\t\t\t\t他のアカウントでは使えなくなることに同意します',
 	// #1963: tier 分岐内 atom (PLAN_TERMS) を terms.ts から参照
 	demoCheckoutButton: (tier: string) =>
-		`${tier === 'family' ? PLAN_TERMS.family : PLAN_TERMS.standard}プランで始める`,
+		`${tier === 'family' ? PLAN_TERMS.premium : PLAN_TERMS.standard}プランで始める`,
 	demoCheckoutNote: 'デモでは実際の決済は行われません',
 	demoPlanManagementTitle: 'プラン管理',
 	demoPaymentHistoryTitle: '支払い履歴',
@@ -1883,7 +1883,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 //     (Phase 1 補強 2 F9 / Phase 3 #2567 §FR-4)
 //
 // 関連 ADR:
-//   - ADR-0058 (family → premium rename): Phase 7 PR-2e 以降で `PLAN_TERMS.family` を `.premium` に rename
+//   - ADR-0058 (family → premium rename): Phase 7 PR-2e 以降で `PLAN_TERMS.premium` を `.premium` に rename
 //   - ADR-0045 (terms.ts 2 階層): atom 直書き禁止、`${PLAN_FULL_TERMS.*}` template literal 経由
 //   - ADR-0013 (LP truth): 実装事実と LP の整合、月額のみ (Phase 1 補強 2 FR-2)
 
@@ -2198,7 +2198,7 @@ export const SIGNUP_LABELS = {
 	licenseKeyHelpOnce: '一回限りの使用',
 	licenseKeyHelpOnceDesc: '一度有効化すると、他のアカウントでは使用できません。',
 	licenseKeyHelpAutoDetect: 'プラン自動判定',
-	licenseKeyHelpAutoDetectDesc: `キーに応じて${PLAN_TERMS.standard} / ${PLAN_FULL_TERMS.family}が自動で付与されます。`,
+	licenseKeyHelpAutoDetectDesc: `キーに応じて${PLAN_TERMS.standard} / ${PLAN_FULL_TERMS.premium}が自動で付与されます。`,
 	licenseKeyHelpBound: '紐付け先',
 	licenseKeyHelpBoundDesc:
 		'現在登録中のアカウント（家族）に紐付きます。後から他の家族に付け替えることはできません。',
@@ -2236,7 +2236,7 @@ export const SIGNUP_LABELS = {
 	trialPlanNote: (planName: string) =>
 		`セットアップ後に ${planName}プランのトライアルが開始されます`,
 	trialPlanStandard: PLAN_TERMS.standard,
-	trialPlanFamily: PLAN_TERMS.family,
+	trialPlanFamily: PLAN_TERMS.premium,
 	loginLink: '既にアカウントをお持ちの方はこちら',
 	legalNote: '有料プランをご利用の前に',
 	legalTokushoho: '特定商取引法に基づく表記',
@@ -2250,7 +2250,7 @@ export const SIGNUP_LABELS = {
 	licenseConfirmOnce: '一回',
 	licenseConfirmOnceDesc: 'しか使用できません。有効化後は他のアカウントで再利用できません。',
 	licenseConfirmPlanPrefix: 'キーに対応する',
-	licenseConfirmPlanStrong: `プラン（${PLAN_TERMS.standard} / ${PLAN_TERMS.family}）`,
+	licenseConfirmPlanStrong: `プラン（${PLAN_TERMS.standard} / ${PLAN_TERMS.premium}）`,
 	licenseConfirmPlanSuffix: 'が自動で付与されます。',
 	licenseConfirmBoundPrefix: 'このキーは',
 	licenseConfirmBoundEmail: (email: string) => `「${email || '入力中のアカウント'}」`,
@@ -2868,7 +2868,7 @@ export const DEMO_SIGNUP_LABELS = {
 	pricingFreePrice: '（¥0）からスタート。スタンダード・ファミリーの2プランをご用意。',
 	pricingStandardLabel: `${PLAN_TERMS.standard}`,
 	pricingStandardPrice: '（月額¥500〜）と',
-	pricingFamilyLabel: `${PLAN_TERMS.family}`,
+	pricingFamilyLabel: `${PLAN_TERMS.premium}`,
 	pricingFamilyPrice: '（月額¥780〜）。',
 	pricingTrialNote: 'スタンダード・ファミリープランはすべて7日間の無料トライアル付き',
 	pricingDetailsLink: 'プランの詳細を料金ページで見る →',
@@ -3494,7 +3494,7 @@ export const STATUS_LABELS = {
 export const PRICING_PAGE_LABELS = {
 	heading: '料金プラン',
 	// #1960 Phase 7 H3: terms.ts atom 参照化 (FREE_TERMS / PLAN_TERMS / TRIAL_TERMS / PLAN_FULL_TERMS)
-	subtitle1: `${FREE_TERMS.base}ではじめられます。${PLAN_TERMS.standard}・${PLAN_TERMS.family}プランはすべて`,
+	subtitle1: `${FREE_TERMS.base}ではじめられます。${PLAN_TERMS.standard}・${PLAN_TERMS.premium}プランはすべて`,
 	subtitleTrialDays: `${TRIAL_TERMS.duration}の無料体験`,
 	subtitle2: '付き',
 	// #1912 (F-6): LP 訴求文の「ログインボーナス」「連続達成ボーナス」がギャンブル系語彙のため
@@ -3517,7 +3517,7 @@ export const PRICING_PAGE_LABELS = {
 	// #1647 R42 + #1643 R38 + #1733 R16: 実装 grace-period-service.ts の {free:0, standard:7, family:30} に合わせる
 	// アプリ内 /pricing と LP /site/pricing.html / faq.html / index.html の全てで同一表現を返す SSOT
 	// #1960 Phase 7 H3: PLAN_FULL_TERMS atom 参照化（grace 日数 7/30 は server SSOT grace-period-service.ts と整合）
-	faqCancelA: `プランによって猶予期間が異なります。${PLAN_FULL_TERMS.free}: 解約申請後すべてのデータが即時削除されます（猶予期間なし）。${PLAN_FULL_TERMS.standard}: 解約申請から 7 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。${PLAN_FULL_TERMS.family}: 解約申請から 30 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。猶予期間中はログインしてエクスポート可能です。`,
+	faqCancelA: `プランによって猶予期間が異なります。${PLAN_FULL_TERMS.free}: 解約申請後すべてのデータが即時削除されます（猶予期間なし）。${PLAN_FULL_TERMS.standard}: 解約申請から 7 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。${PLAN_FULL_TERMS.premium}: 解約申請から 30 日間の読み取り専用猶予期間後、すべてのデータが完全に削除されます（復旧不可）。猶予期間中はログインしてエクスポート可能です。`,
 	faqBillingDateQ: '課金日はいつですか？',
 	faqBillingDateA: 'お申し込み日を起算日として毎月（または毎年）自動更新されます。',
 	faqPaymentQ: '支払い方法は？',
@@ -3998,7 +3998,7 @@ export const DEMO_ADMIN_HOME_LABELS = {
 	planSwitcherLabel: 'デモ: プランを切り替えて体験',
 	freePlanButton: `${PLAN_FULL_TERMS.free}`,
 	standardPlanButton: `⭐ ${PLAN_TERMS.standard}`,
-	familyPlanButton: `⭐⭐ ${PLAN_TERMS.family}`,
+	familyPlanButton: `⭐⭐ ${PLAN_TERMS.premium}`,
 	statsActivityLabel: 'カスタム活動',
 	statsChildLabel: 'こども',
 	statsRetentionLabel: 'データ保持',
@@ -5033,7 +5033,7 @@ export const LP_LEGAL_DISCLAIMER_LABELS = {
 	// #1912 (F-9): SaaS / 法律用語「読み取り専用猶予期間」を顧客語彙へ。
 	//   IT リテラシーなし親 P1 が直感的に理解できる「データを見られる期間」表現。
 	//   特商法 (tokushoho.html) と利用規約 第14条「卒業」では法的精度のため「猶予期間」を維持。
-	cancelDisclaimer: `※解約後、${PLAN_TERMS.standard}は 7 日間、${PLAN_TERMS.family}は 30 日間はデータを見られます（${PLAN_TERMS.free}は即時）。その後すべてのデータが完全に削除されます。日割り返金はありません。`,
+	cancelDisclaimer: `※解約後、${PLAN_TERMS.standard}は 7 日間、${PLAN_TERMS.premium}は 30 日間はデータを見られます（${PLAN_TERMS.free}は即時）。その後すべてのデータが完全に削除されます。日割り返金はありません。`,
 	// #1898: 「FAQ」を LP_FAQ_TERMS.canonicalShort 参照に置換（4 回目指摘の構造的再発ブロック）
 	cancelDisclaimerLinks: `${LP_FAQ_TERMS.canonicalShort} / 特定商取引法に基づく表記`,
 	// #1838: cta-bottom セクション全削除に伴い cancelDisclaimerCta / cancelDisclaimerCtaLink を削除。
@@ -5087,7 +5087,7 @@ export const LP_PRICING_LABELS = {
 	//        「500円」「780円」は atom (¥500 / ¥780) から ¥ を除去して「円」連結する compound のため、
 	//        実装上は PRICE_TERMS.standard.replace('¥', '') 等を避け、atom 値を直接担保する parse-time 設計を取らず
 	//        ここでは PLAN_TERMS のみ参照（価格数値「500」「780」は atom 直接対応がないため直書き維持）。
-	metaDescription: `がんばりクエストの料金プラン。基本無料で始められます。${PLAN_TERMS.standard}月額500円（税込）、${PLAN_TERMS.family}月額780円（税込）。すべての有料プランに7日間の無料体験付き。`,
+	metaDescription: `がんばりクエストの料金プラン。基本無料で始められます。${PLAN_TERMS.standard}月額500円（税込）、${PLAN_TERMS.premium}月額780円（税込）。すべての有料プランに7日間の無料体験付き。`,
 	ogTitle: '料金プラン - がんばりクエスト',
 	// #1912 (F-6): og:description の「ログインボーナス」→「毎日のごほうび」へ日本語化
 	ogDescription:
@@ -5136,7 +5136,7 @@ export const LP_PRICING_LABELS = {
 
 	// Plan card: Family (#1645 R40 + #1651 R45)
 	// #1947: planFamilyName / planFamilyPrice の atom (ファミリー / ¥780) を terms.ts 参照化
-	planFamilyName: `${PLAN_TERMS.family}`,
+	planFamilyName: `${PLAN_TERMS.premium}`,
 	planFamilyPrice: `${PRICE_TERMS.family}`,
 	planFamilyUnit: '/月（税込）',
 	planFamilyYearly: '年額 ¥7,800（税込・2ヶ月分お得）',
@@ -5256,7 +5256,7 @@ export const LP_PRICING_LABELS = {
 	billingToggleMonthly: '月額',
 	billingToggleYearly: '年額（2ヶ月分お得）',
 	planStandardDirectCta: `今すぐ購入（${PLAN_TERMS.standard}）`,
-	planFamilyDirectCta: `今すぐ購入（${PLAN_TERMS.family}）`,
+	planFamilyDirectCta: `今すぐ購入（${PLAN_TERMS.premium}）`,
 	directPurchaseNote: '※ 決済情報の入力が必要です。購入後ライセンスキーをメールでお送りします',
 	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）`,
 
@@ -6001,7 +6001,7 @@ export const UI_COMPONENTS_LABELS = {
 	// ---- FeatureGate ----
 	featureGateFree: '無料',
 	featureGateStandard: `${PLAN_TERMS.standard}`,
-	featureGateFamily: `${PLAN_TERMS.family}`,
+	featureGateFamily: `${PLAN_TERMS.premium}`,
 	featureGateLockTitle: (plan: string) => `${plan}プラン以上で利用可能`,
 	featureGateLockText: (plan: string) => `${plan}プラン以上で利用可能`,
 	featureGateUpgrade: 'アップグレード',
@@ -6695,7 +6695,7 @@ export const LP_FAQ_LABELS = {
 	text17: `有料プランを継続したい場合のみ、${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から明示的にアップグレードしてください。クレジットカード情報の入力はアップグレード操作の中で初めて求められます。`,
 	text18: `途中で${CANCEL_TERMS.canonical}するとどうなりますか？`,
 	// #1955 (Phase 3 D10): プラン名 atom (PLAN_TERMS) を terms.ts 参照化。猶予期間は data deletion 文脈で TRIAL_TERMS と意味が異なるため文字列直書き維持。
-	text19: `プラン別の猶予期間（読み取り専用）— ${PLAN_TERMS.free}: 即時削除 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日`,
+	text19: `プラン別の猶予期間（読み取り専用）— ${PLAN_TERMS.free}: 即時削除 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日`,
 	text20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
 	text21: '猶予期間終了後: すべてのデータが完全に削除',
 	text22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータエクスポート（JSON / CSV）をお願いします。`,
@@ -6703,7 +6703,7 @@ export const LP_FAQ_LABELS = {
 	text24: 'はい、残ります。',
 	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	text26: '解約後に再開することはできますか？',
-	text27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
+	text27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
 	text28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
 	text29: '料金・課金について',
 	text30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
@@ -6725,9 +6725,9 @@ export const LP_FAQ_LABELS = {
 	text46: '兄弟姉妹で使うと、どちらかだけがゲーミフィケーションされて不公平になりませんか？',
 	text47: '片方だけが得をする構造にはなりません',
 	text48: `${PLAN_FULL_TERMS.standard}`,
-	text49: `${PLAN_FULL_TERMS.family}`,
+	text49: `${PLAN_FULL_TERMS.premium}`,
 	text50: '無制限',
-	text51: `きょうだいランキング機能（${PLAN_FULL_TERMS.family}）では、年齢差を考慮した調整もできるため「上の子が有利すぎる」状況を緩和できます。`,
+	text51: `きょうだいランキング機能（${PLAN_FULL_TERMS.premium}）では、年齢差を考慮した調整もできるため「上の子が有利すぎる」状況を緩和できます。`,
 	text52: '支払い方法は何が使えますか？',
 	text53:
 		'クレジットカード（Visa / Mastercard / JCB / American Express）に対応しています。Stripe による安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
@@ -6792,7 +6792,7 @@ export const LP_FAQ_LABELS = {
 	text105:
 		'「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	text106: '祖父母や親戚も使えますか？',
-	text107: `${PLAN_FULL_TERMS.family}`,
+	text107: `${PLAN_FULL_TERMS.premium}`,
 	text108: '無制限',
 	text109:
 		'招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
@@ -6825,7 +6825,7 @@ export const LP_FAQ_LABELS = {
 		'a href="mailto:ganbari.quest.support@gmail.com?subject=FAQページからのお問い合わせ" data-contact-context="FAQ bottom"',
 } as const;
 
-// #1944 Phase 3 D4: '基本無料' (FREE_TERMS.base) と 'ファミリープラン' (PLAN_FULL_TERMS.family) を atom 参照化。
+// #1944 Phase 3 D4: '基本無料' (FREE_TERMS.base) と 'ファミリープラン' (PLAN_FULL_TERMS.premium) を atom 参照化。
 //   text32 '基本無料 / 有料プランあり' / text44 'ファミリープランで利用可' の 2 件。
 //   その他のラベルは「セルフホスト版独自の運用語彙」（Docker / GitHub / SaaS版 / RAM 等）が中心で
 //   plan / 価格 / 期間 / 解約 / 無料訴求の atom 群とは交わらない構造。
@@ -6877,8 +6877,8 @@ export const LP_SELFHOST_LABELS = {
 	text41: '&#x2705; どこからでも',
 	text42: 'VPN や外部公開の設定が必要',
 	text43: 'AI 機能',
-	// #1944 Phase 3 D4: 'ファミリープラン' を PLAN_FULL_TERMS.family 参照化。
-	text44: `&#x2705; ${PLAN_FULL_TERMS.family}で利用可`,
+	// #1944 Phase 3 D4: 'ファミリープラン' を PLAN_FULL_TERMS.premium 参照化。
+	text44: `&#x2705; ${PLAN_FULL_TERMS.premium}で利用可`,
 	text45: 'API キーの自前設定が必要',
 	text46: '迷ったら SaaS版がおすすめ',
 	text47: '&#x1F91D; コントリビュート',
@@ -7171,10 +7171,10 @@ export const LP_PAMPHLET_LABELS = {
 	k48: 'データのダウンロード',
 	k49: '1年間の履歴保持',
 	k50: 'メールサポート',
-	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.family、
+	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.premium、
 	//   '7日間無料体験' = TRIAL_TERMS.duration + CTA_TERMS.freeTrialNoun、
 	//   'スタンダードの全機能' = PLAN_TERMS.standard + 'の全機能'（#1947 LP_PRICING_EXTRA_LABELS k19 と同パターン）
-	k51: `${PLAN_TERMS.family}`,
+	k51: `${PLAN_TERMS.premium}`,
 	k52: '/月（税込）',
 	k53: `${TRIAL_TERMS.duration}${CTA_TERMS.freeTrialNoun}`,
 	k54: `${PLAN_TERMS.standard}の全機能`,
@@ -7199,10 +7199,10 @@ export const LP_PAMPHLET_LABELS = {
 	//   ('&#x2753; よくあるご質問' に統一)。本 namespace は pamphlet.html FAQ 見出し。
 	k72: `&#x2753; ${LP_FAQ_TERMS.canonicalLong}`,
 	k73: '料金はかかりますか？',
-	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、'ファミリープラン' = PLAN_FULL_TERMS.family。
+	// #1956 (Phase 3 D11): 'スタンダード' = PLAN_TERMS.standard、'ファミリープラン' = PLAN_FULL_TERMS.premium。
 	//   '7 日間' は半角スペース有りで TRIAL_TERMS.duration と一致しないため直書き継続。
 	// #1915 (TECH-F 中頻度 D-1): TRIAL_PERIOD_TERMS atom 経由
-	k74: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.family}は ${TRIAL_PERIOD_TERMS.full}付きです。`,
+	k74: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.premium}は ${TRIAL_PERIOD_TERMS.full}付きです。`,
 	k75: '何歳から使えますか？',
 	k76: '3歳から18歳までのお子さま向けに設計しています。3歳からはお子さま自身がタップして記録、年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。0〜2歳のお子さまは「準備モード」（保護者が記録するモード）で記録のみご利用いただけます（お子さま向けゲーミフィケーションは適用されません）。',
 	k77: '子供のデータは安全ですか？',
@@ -7262,7 +7262,7 @@ export const LP_PRICING_EXTRA_LABELS = {
 	//        スタンダード / ファミリーのみ atom 参照化する。
 	k28: 'フリー',
 	k29: `${PLAN_TERMS.standard}`,
-	k30: `${PLAN_TERMS.family}`,
+	k30: `${PLAN_TERMS.premium}`,
 	k31: '基本',
 	k32: 'お子さまの登録人数',
 	k33: '2人まで',
@@ -7459,7 +7459,7 @@ export const STORYBOOK_LABELS = {
 		labelPlan: 'プラン',
 		optionPlanFree: 'フリープラン',
 		optionPlanStandard: `${PLAN_FULL_TERMS.standard}`,
-		optionPlanFamily: `${PLAN_FULL_TERMS.family} (準備中)`,
+		optionPlanFamily: `${PLAN_FULL_TERMS.premium} (準備中)`,
 		optionThemeForest: 'もりのテーマ',
 		optionThemeOcean: 'うみのテーマ',
 		optionThemeSpace: 'うちゅうのテーマ',
@@ -7910,7 +7910,7 @@ export const LP_PRICING_PHASEB_LABELS = {
 	// #1947: k27-k29 のプラン名 atom を terms.ts 参照化。「フリー」は UI 表記揺れのため直書き維持。
 	k27: 'フリー',
 	k28: `${PLAN_TERMS.standard}`,
-	k29: `${PLAN_TERMS.family}`,
+	k29: `${PLAN_TERMS.premium}`,
 	k30: '<td colspan="4">基本</td>',
 	k31: '<td>お子さまの登録人数</td><td>2人まで</td><td class="check">無制限</td><td class="check">無制限</td>',
 	k32: '<td>プリセット活動の利用</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td>',
@@ -7961,7 +7961,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	// #1943 (Phase 3 D3): 「いつでも解約」atom を CANCEL_TERMS.anytime 参照化。
 	//   注: 「解約」(単独) / 「7 日間」(半角空白あり、TRIAL_TERMS.duration='7日間' と不一致) は char-by-char
 	//   一致を維持するため直書き継続 (#1949 section13 / #1954 ctaBottomDesc と同方針)。
-	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「解約」から${CANCEL_TERMS.anytime}できます。解約を申請すると、ご利用プランに応じた読み取り専用の<strong>猶予期間</strong>に入ります（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7 日間 / ${PLAN_FULL_TERMS.family}: 30 日間）。`,
+	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「解約」から${CANCEL_TERMS.anytime}できます。解約を申請すると、ご利用プランに応じた読み取り専用の<strong>猶予期間</strong>に入ります（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7 日間 / ${PLAN_FULL_TERMS.premium}: 30 日間）。`,
 	k20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
 	k21: '猶予期間終了後: すべてのデータが完全に削除',
 	k22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータエクスポート（JSON / CSV）をお願いします。`,
@@ -7969,7 +7969,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
 	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
 	k26: '解約後に再開することはできますか？',
-	k27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.family}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
+	k27: `プラン別の猶予期間中（${PLAN_TERMS.free}: 不可 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日）であれば、${ADMIN_VIEW_TERMS.canonical}から解約申請を取り消して有料プランを継続できます。`,
 	k28: `猶予期間終了後にデータが完全に削除された場合は、新規${SIGNUP_TERMS.canonical}からのやり直しとなります（過去のデータ復旧はできません）。`,
 	k29: '<span class="faq-category-num">2</span>料金・課金について',
 	k30: '3 つのプラン（フリー / スタンダード / ファミリー）と、課金の仕組みについて。',
@@ -7993,8 +7993,8 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k47: '同じ家族アカウント内で複数のお子さまをまとめて管理できます。ポイント・シール・レベル称号はお子さまごとに独立して蓄積され、<strong>片方だけが得をする構造にはなりません</strong>。',
 	k48: `<strong>${PLAN_FULL_TERMS.free}</strong>: お子さま 2 人まで登録可能（招待機能なし、ご本人の端末のみ）`,
 	k49: `<strong>${PLAN_FULL_TERMS.standard}</strong>: お子さま無制限で登録可能・家族メンバー招待は <strong>4 人まで</strong>（核家族でのご利用想定）`,
-	k50: `<strong>${PLAN_FULL_TERMS.family}</strong>: お子さま無制限で登録可能・家族メンバー招待は <strong>無制限</strong>（祖父母・おじおばなど拡張家族でのご利用想定）`,
-	k51: `きょうだいランキング機能（${PLAN_FULL_TERMS.family}）では、年齢差を考慮した調整もできるため「上の子が有利すぎる」状況を緩和できます。`,
+	k50: `<strong>${PLAN_FULL_TERMS.premium}</strong>: お子さま無制限で登録可能・家族メンバー招待は <strong>無制限</strong>（祖父母・おじおばなど拡張家族でのご利用想定）`,
+	k51: `きょうだいランキング機能（${PLAN_FULL_TERMS.premium}）では、年齢差を考慮した調整もできるため「上の子が有利すぎる」状況を緩和できます。`,
 	k52: '支払い方法は何が使えますか？',
 	k53: 'クレジットカード（Visa / Mastercard / JCB / American Express）に対応しています。Stripe による安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
 	k54: '年額プランを途中で解約した場合の返金は？',
@@ -8054,7 +8054,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k104: '15 分の無操作で画面が自動で閉じる使いすぎ防止タイマーで、長時間滞在を防止',
 	k105: '「スクリーンタイムを奪うのではなく、リアルの行動を促す」動機付けツールとしてお使いください。',
 	k106: '祖父母や親戚も使えますか？',
-	k107: `<strong>${PLAN_FULL_TERMS.family}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}は 4 人までの招待が可能です）。`,
+	k107: `<strong>${PLAN_FULL_TERMS.premium}</strong>では、保護者側のメンバーを<strong>無制限</strong>に招待できます。祖父母・おじおば・離れて暮らす親御さまなどが、同じお子さまの成長を見守れます（${PLAN_FULL_TERMS.standard}は 4 人までの招待が可能です）。`,
 	k108: '招待されたメンバーには閲覧権限を割り当てられ、お子さまへのコメントやスタンプ送付も可能です。',
 	k109: '<span class="faq-category-num">5</span>技術的なご質問',
 	k110: 'デバイス・ブラウザ対応と、ソースコードの公開について。',
@@ -8076,10 +8076,10 @@ export const LP_FAQ_PHASEB_LABELS = {
 // #1956 (Phase 3 D11) + #1944 (Phase 3 D4) 統合:
 //   terms.ts atom 参照化対象（PLAN_TERMS / PLAN_FULL_TERMS / FREE_TERMS / TRIAL_TERMS）。
 //   char-by-char 一致厳守。
-//   - #1956 D11: PLAN_TERMS.standard / PLAN_FULL_TERMS.family / FREE_TERMS.start を atom 化。
+//   - #1956 D11: PLAN_TERMS.standard / PLAN_FULL_TERMS.premium / FREE_TERMS.start を atom 化。
 //   - #1944 D4: '7 日間' (半角空白入り) を TRIAL_TERMS.durationSpaced 独立 atom として追加し、
 //               k39 / k49 / k67 の 3 キー（計 4 occurrence、7 日間 x3 + ファミリープラン x1）を atom 化。
-//               k47 'ファミリー' (短縮形) は PLAN_TERMS.family と char-by-char 一致するが、
+//               k47 'ファミリー' (短縮形) は PLAN_TERMS.premium と char-by-char 一致するが、
 //               pamphlet.html プラン比較表ヘッダの短縮ラベルとして「ファミリー」表記設計のため別 Issue 扱い。
 //   - 直書き継続: '&#xA5;500' / '&#xA5;780' (HTML エンティティ) は PRICE_TERMS.standard / family
 //                 ('¥500' / '¥780', U+00A5) と char-by-char 一致しないため直書き継続（#2007 と同方針）。
@@ -8141,11 +8141,11 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k44: '<span class="check">&#x2713;</span>データのダウンロード',
 	k45: '<span class="check">&#x2713;</span>1年間の履歴保持',
 	k46: '<span class="check">&#x2713;</span>メールサポート',
-	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.family、
+	// #1956 (Phase 3 D11): 'ファミリー' = PLAN_TERMS.premium、
 	//   'スタンダードの全機能' = PLAN_TERMS.standard + 'の全機能' 部分参照化。
 	// #1913 (UIUX-E-5): k48 を「&#xA5;780」HTML エンティティから「¥780」(PRICE_TERMS.family) に統一。
 	//   AC7 = `&#xA5;` HTML entity が 0 件、「¥」直書き統一。表示文字は同一 (U+00A5) で UI 影響ゼロ。
-	k47: `${PLAN_TERMS.family}`,
+	k47: `${PLAN_TERMS.premium}`,
 	k48: `${PRICE_TERMS.family}<small>/月（税込）</small>`,
 	// #1944 Phase 3 D4: '7 日間' を TRIAL_TERMS.durationSpaced 参照化。
 	// #1956 Phase 3 D11: 'スタンダード' を PLAN_TERMS.standard 参照化。
@@ -8170,9 +8170,9 @@ export const LP_PAMPHLET_PHASEB_LABELS = {
 	k65: `&#x2753; ${LP_FAQ_TERMS.canonicalLong}`,
 	k66: '料金はかかりますか？',
 	// #1956 (Phase 3 D11) + #1944 (Phase 3 D4) 統合:
-	//   'スタンダード' = PLAN_TERMS.standard / 'ファミリープラン' = PLAN_FULL_TERMS.family /
+	//   'スタンダード' = PLAN_TERMS.standard / 'ファミリープラン' = PLAN_FULL_TERMS.premium /
 	//   '7 日間' = TRIAL_TERMS.durationSpaced（D4 で独立 atom 追加済）。
-	k67: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.family}は ${TRIAL_TERMS.durationSpaced}無料トライアル付きです。`,
+	k67: `基本機能は無料でずっとお使いいただけます。有料プランはより多くのお子さまの登録や高度な分析機能が必要な場合にご検討ください。${PLAN_TERMS.standard}・${PLAN_FULL_TERMS.premium}は ${TRIAL_TERMS.durationSpaced}無料トライアル付きです。`,
 	k68: '何歳から使えますか？',
 	k69: '3歳から18歳までのお子さま向けに設計しています。3歳からはお子さま自身がタップして記録、年齢に合わせて画面が自動で変わるので、きょうだいでも安心です。0〜2歳のお子さまは「準備モード」（保護者が記録するモード）で記録のみご利用いただけます（お子さま向けゲーミフィケーションは適用されません）。',
 	k70: '子供のデータは安全ですか？',
@@ -8221,7 +8221,7 @@ export const LP_LEGAL_PRIVACY_LABELS = {
 		'<h2>第5条（利用者の権利）</h2><p>利用者は、自己の個人情報について、以下の権利を有します。</p><ol><li><strong>開示請求</strong> — 運営者が保有する自己の個人情報の開示を請求できます。</li><li><strong>訂正請求</strong> — 個人情報の内容が事実でない場合、訂正を請求できます。</li><li><strong>削除請求</strong> — 個人情報の削除を請求できます。</li><li><strong>利用停止請求</strong> — 個人情報の利用停止を請求できます。</li></ol><p>上記の請求は、本サービスの設定画面から行うか、下記のお問い合わせ先までご連絡ください。</p>',
 	// #1948 Phase 4 E1: PLAN 名 / トライアル期間 atom を terms.ts 参照に統一
 	// （文字列差分ゼロ維持、法的文書 char-by-char 一致厳守）
-	section6: `<h2>第6条（データの削除）</h2><ol><li><strong>個別データの削除</strong>: 特定の活動記録やお子さまの情報の削除は、本サービスの${ADMIN_VIEW_TERMS.canonical}から即時実行できます。</li><li><strong>アカウント全体の削除</strong>: アカウント削除を申請後、ご利用プランに応じた猶予期間を設けます（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: ${TRIAL_TERMS.duration} / ${PLAN_FULL_TERMS.family}: 30日間）。猶予期間中は削除の取消しが可能です。</li><li><strong>バックアップからの完全消去</strong>: アカウント削除後90日以内に、バックアップデータからも完全に消去されます。</li></ol>`,
+	section6: `<h2>第6条（データの削除）</h2><ol><li><strong>個別データの削除</strong>: 特定の活動記録やお子さまの情報の削除は、本サービスの${ADMIN_VIEW_TERMS.canonical}から即時実行できます。</li><li><strong>アカウント全体の削除</strong>: アカウント削除を申請後、ご利用プランに応じた猶予期間を設けます（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: ${TRIAL_TERMS.duration} / ${PLAN_FULL_TERMS.premium}: 30日間）。猶予期間中は削除の取消しが可能です。</li><li><strong>バックアップからの完全消去</strong>: アカウント削除後90日以内に、バックアップデータからも完全に消去されます。</li></ol>`,
 	section6_2:
 		'<h2>第6条の2（卒業フローと事例公開承諾）</h2><p>本サービスは「お子さまが自律して使う必要がなくなった」ことを「卒業」と定義し、ポジティブな解約として扱います。卒業選択時に表示される専用ページで、ご家庭が任意で「事例として公開してもよい」旨を承諾された場合、以下の情報を保管します。</p><ol><li><strong>保管する情報</strong>: ご家庭が任意指定したニックネーム（実名禁止）、卒業時点の残ポイント数、ご利用期間（日数）、任意の卒業メッセージ。</li><li><strong>利用目的</strong>: サービス紹介ページ等での事例として公開し、他のご家庭の参考となる卒業ストーリーの提示に活用します。</li><li><strong>公開時の取り扱い</strong>: 実名は使用せず、お預かりしたニックネームのみを表示します。お子さまが特定されない形でのみ公開します。</li><li><strong>承諾の撤回</strong>: 公開承諾の撤回は、サービス問い合わせ窓口からご連絡いただくことで対応します。撤回後は当該事例を 30 日以内に非公開化します。</li><li><strong>承諾なしの場合</strong>: 公開を承諾されない場合も「卒業者数」「平均利用期間」等の集計値（個人を特定しない形式）には含まれます。</li></ol>',
 	section7:
@@ -8276,7 +8276,7 @@ export const LP_LEGAL_TERMS_LABELS = {
 	section11:
 		'<h2>第11条（サービスの中断・停止）</h2><ol><li>運営者は、以下の場合、事前の通知なく本サービスの全部または一部を中断・停止することがあります。<ul><li>システムの保守・点検・更新を行う場合</li><li>地震、落雷、火災、停電、天災等の不可抗力により本サービスの提供が困難な場合</li><li>その他、運営者がサービスの中断・停止が必要と判断した場合</li></ul></li><li>サービスの中断・停止により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、運営者は責任を負いません。</li></ol>',
 	section12: `<h2>第12条（免責事項）</h2><ol><li>本サービスは個人開発者が運営するものであり、「現状有姿（AS IS）」で提供されます。運営者は、本サービスの正確性、完全性、信頼性、適時性、安全性、特定目的への適合性について、明示的または黙示的を問わず一切の保証をしません。</li><li>本サービスはこどもの教育効果や行動変容を保証するものではなく、結果について運営者は責任を負いません。</li><li>運営者は、本サービスの利用により利用者に生じた損害について、運営者の故意または重大な過失による場合を除き、一切の責任を負いません。</li><li>運営者は、以下に起因する損害について、一切の責任を負いません。<ul><li>データの消失、破損、改ざん、または復旧の不能</li><li>サービスの中断、遅延、停止、または終了</li><li>第三者サービス（AWS、Stripe、Google等）の障害、仕様変更、またはサービス停止</li><li>不正アクセス、コンピュータウイルス、その他のセキュリティ侵害</li><li>利用者間のトラブルまたは紛争</li><li>利用者の操作ミスまたはアカウント管理の不備</li></ul></li><li>運営者は、間接損害、特別損害、偶発的損害、結果的損害、逸失利益、およびデータの喪失について、たとえその可能性を事前に告知されていた場合であっても、責任を負いません。</li><li>前各項の規定にかかわらず、消費者契約法その他の強行法規の適用により運営者の責任が認められる場合、運営者が利用者に対して賠償する金額は、当該利用者が損害発生月を含む直近3ヶ月間に本サービスに対して実際に支払った利用料の総額を上限とします。${PLAN_FULL_TERMS.free}の利用者については、運営者の賠償額の上限は0円とします。</li></ol>`,
-	section13: `<h2>第13条（利用者データの取扱い）</h2><ol><li>利用者は、自己のコンテンツについて、いつでも削除を申請することができます。</li><li><strong>アカウント削除はログインして行った時のみ全データの完全削除が実行されるもの</strong>であり、サブスクリプションの解約（第7条）とは別の手続きです。アカウント削除はご家族の見守り画面の設定から本人が実施してください。なりすまし防止のため、運営者がご本人に代わってアカウント削除を実施することはありません。</li><li>アカウント削除を申請した場合、ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7日間 / ${PLAN_FULL_TERMS.family}: 30日間）の後、全データが完全に削除されます。猶予期間中は削除の取消しが可能です。</li><li>運営者はデータのバックアップを実施していますが、データの復旧を保証するものではありません。</li></ol>`,
+	section13: `<h2>第13条（利用者データの取扱い）</h2><ol><li>利用者は、自己のコンテンツについて、いつでも削除を申請することができます。</li><li><strong>アカウント削除はログインして行った時のみ全データの完全削除が実行されるもの</strong>であり、サブスクリプションの解約（第7条）とは別の手続きです。アカウント削除はご家族の見守り画面の設定から本人が実施してください。なりすまし防止のため、運営者がご本人に代わってアカウント削除を実施することはありません。</li><li>アカウント削除を申請した場合、ご利用プランに応じた猶予期間（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7日間 / ${PLAN_FULL_TERMS.premium}: 30日間）の後、全データが完全に削除されます。猶予期間中は削除の取消しが可能です。</li><li>運営者はデータのバックアップを実施していますが、データの復旧を保証するものではありません。</li></ol>`,
 	section14: `<h2>第14条（卒業 — ポジティブな解約について）</h2><ol><li><strong>哲学</strong>: 本サービスは、お子さまが日常活動を自律的に行えるようになった時点で、本サービスの継続利用を推奨しません。これを「卒業」と呼びます。卒業は、お子さまが成長し、本サービスの動機づけがなくても自分の力で日々の活動に取り組めるようになった、ポジティブな節目です。</li><li><strong>卒業時の手続き</strong>: 利用者は、本サービスの${ADMIN_VIEW_TERMS.canonical}から「卒業手続き」を行うことで、本契約を終了し、データのエクスポートまたは削除を選択することができます。具体的な手続き UI は別途提供します（実装は今後のリリースで提供予定）。</li><li><strong>残ポイントの還元</strong>: 卒業時に保有しているポイントについて、現金または物品での還元を希望される場合は、別途運営者までご連絡ください。還元の対象範囲・方法については、運営者が個別に案内します。</li><li><strong>通常の解約との関係</strong>: 卒業は、利用者の意思による契約終了の一形態であり、本規約第7条に定める通常の解約手続きと並存します。利用者は、卒業手続きの代わりに通常の解約手続きを選択することもできます。</li></ol>`,
 	section15:
 		'<h2>第15条（サービスの終了）</h2><ol><li>運営者は、運営者の判断により、本サービスの全部または一部を終了することがあります。</li><li>本サービスを終了する場合、運営者は終了日の30日前までに本サービス上または登録メールアドレスへの通知により利用者にお知らせします。</li><li>サービス終了時、利用者は終了日までに自己のデータをエクスポートすることができます。</li><li>サービスの終了により利用者に生じた損害について、運営者は一切の責任を負いません。</li></ol>',
@@ -8396,7 +8396,7 @@ export const LP_LEGAL_SLA_LABELS = {
 // ============================================================
 export const LP_LEGAL_TOKUSHOHO_LABELS = {
 	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p>',
-	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込） / 年額5,000円（税込）<br>${PLAN_FULL_TERMS.family}: 月額780円（税込） / 年額7,800円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金<br>年額プラン: 毎年契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${STRIPE_PORTAL_TERMS.short}の「プラン変更・支払い管理」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.family}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
+	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込） / 年額5,000円（税込）<br>${PLAN_FULL_TERMS.premium}: 月額780円（税込） / 年額7,800円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金<br>年額プラン: 毎年契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${STRIPE_PORTAL_TERMS.short}の「プラン変更・支払い管理」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.premium}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
 	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
 } as const;
 

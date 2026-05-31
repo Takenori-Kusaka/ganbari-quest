@@ -57,14 +57,14 @@ function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 			amount: 780,
 			interval: 'month',
 			tier: 'family',
-			label: `${PLAN_TERMS.family}月額（${PRICE_TERMS.family}/月）`,
+			label: `${PLAN_TERMS.premium}月額（${PRICE_TERMS.family}/月）`,
 		},
 		[LICENSE_PLAN.FAMILY_YEARLY]: {
 			priceId: process.env.STRIPE_PRICE_FAMILY_YEARLY ?? '',
 			amount: 7800,
 			interval: 'year',
 			tier: 'family',
-			label: `${PLAN_TERMS.family}年額（¥7,800/年）`,
+			label: `${PLAN_TERMS.premium}年額（¥7,800/年）`,
 		},
 	};
 }

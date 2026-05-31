@@ -232,7 +232,7 @@ export const PLAN_TERMS = {
 
 export const LP_PLAN_LABELS = {
 	standardLabel: \`\${PLAN_TERMS.standard}プラン\`,
-	familyLabel: \`\${PLAN_TERMS.family}プラン\`,
+	familyLabel: \`\${PLAN_TERMS.premium}プラン\`,
 	mixedNote: 'これは静的テキスト',
 };
 `;
