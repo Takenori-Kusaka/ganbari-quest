@@ -36,8 +36,10 @@ vi.mock('$lib/server/stripe/config', () => ({
 
 vi.mock('$lib/server/stripe/client', async () => {
 	const StripeImport = (await import('stripe')).default;
+	type StripeApiVersion = NonNullable<ConstructorParameters<typeof StripeImport>[1]>['apiVersion'];
 	const stripeVerify = new StripeImport('sk_test_dummy_for_v2_unit', {
-		apiVersion: '2026-04-22.dahlia',
+		// Phase 7 PR-3b #2721: `'2026-04-22.dahlia'` (stable) を維持 (`client.ts` と同パターン cast)
+		apiVersion: '2026-04-22.dahlia' as StripeApiVersion,
 	});
 	return { getStripeClient: () => stripeVerify, isStripeEnabled: () => true };
 });
@@ -46,8 +48,10 @@ const mockHandleWebhookEvent = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('$lib/server/services/stripe-service', async () => {
 	const StripeImport = (await import('stripe')).default;
+	type StripeApiVersion = NonNullable<ConstructorParameters<typeof StripeImport>[1]>['apiVersion'];
 	const stripeVerify = new StripeImport('sk_test_dummy_for_v2_service', {
-		apiVersion: '2026-04-22.dahlia',
+		// Phase 7 PR-3b #2721: `'2026-04-22.dahlia'` (stable) を維持 (`client.ts` と同パターン cast)
+		apiVersion: '2026-04-22.dahlia' as StripeApiVersion,
 	});
 	return {
 		handleWebhookEvent: (...args: unknown[]) => mockHandleWebhookEvent(...args),
