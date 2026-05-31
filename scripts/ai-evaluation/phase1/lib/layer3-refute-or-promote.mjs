@@ -92,9 +92,10 @@ function buildMockStageD(survivors) {
 export async function runLayerC({
 	layerBOutput,
 	mock = false,
-	anthropicApiKey,
+	// Phase 1.2 Real mode 実装互換性維持のため interface 保持 (#2711)
+	anthropicApiKey: _anthropicApiKey,
 	geminiApiKey,
-	screenshotPaths = [],
+	screenshotPaths: _screenshotPaths = [],
 }) {
 	const candidates = layerBOutput.aggregated || [];
 

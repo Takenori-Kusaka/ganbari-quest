@@ -17,6 +17,7 @@
  */
 
 const KS_THRESHOLD = 0.05; // arXiv 2510.12697 公式 spec
+// biome-ignore lint/correctness/noUnusedVariables: Phase 1.2 実装用 SSOT (#2711) — shouldStopDebate の window=3 (= consecutive 2 KS-tests) 算出根拠
 const CONSECUTIVE_ROUNDS_FOR_STOP = 2;
 const MAX_ROUNDS = 5;
 
@@ -125,7 +126,7 @@ function buildMockAgentResponse(role, round, candidates) {
 				},
 			]),
 			kills:
-				round >= 2 ? candidates.slice(0, 1).map((c, i) => `mock-l2-heur-${round - 1}-${i}`) : [],
+				round >= 2 ? candidates.slice(0, 1).map((_c, i) => `mock-l2-heur-${round - 1}-${i}`) : [],
 			upholds: candidates.slice(1, 2).map((_, i) => `mock-l2-heur-${round}-${i + 1}`),
 		};
 	}
@@ -138,13 +139,14 @@ function buildMockAgentResponse(role, round, candidates) {
  */
 export async function runLayerB({
 	layerAOutput,
-	runs = 1, // round 内の Self-Consistency は本 layer 不要 (debate 自体が diversity)
-	model = 'claude-opus-4-7',
+	// Phase 1.2 Real mode 実装互換性維持のため interface 保持 (#2711)
+	runs: _runs = 1, // round 内の Self-Consistency は本 layer 不要 (debate 自体が diversity)
+	model: _model = 'claude-opus-4-7',
 	mock = false,
-	anthropicApiKey,
-	screenshotPaths = [],
-	systemPromptByRole = {},
-	userInstruction = '',
+	anthropicApiKey: _anthropicApiKey,
+	screenshotPaths: _screenshotPaths = [],
+	systemPromptByRole: _systemPromptByRole = {},
+	userInstruction: _userInstruction = '',
 }) {
 	const candidates = layerAOutput.aggregated.filter((f) => f.escalate_to === 'layer-bc');
 

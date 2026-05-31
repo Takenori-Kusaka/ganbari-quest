@@ -18,6 +18,7 @@
  *   - Dedup embedding: $0.5-1
  */
 
+// biome-ignore lint/correctness/noUnusedVariables: Phase 1.2 実装用 SSOT (#2711) — Real mode の split prompt (1-5 / 6-10) に逐語埋め込み
 const NIELSEN_HEURISTICS = {
 	'1-5': [
 		'1. Visibility of system status',
@@ -105,8 +106,9 @@ export function deduplicateAcrossScreens(findings, opts = { similarityThreshold:
 export async function runLayerE({
 	layerDOutput,
 	mock = false,
-	anthropicApiKey,
-	model = 'claude-opus-4-7',
+	// Phase 1.2 Real mode 実装互換性維持のため interface 保持 (#2711)
+	anthropicApiKey: _anthropicApiKey,
+	model: _model = 'claude-opus-4-7',
 }) {
 	const candidates = layerDOutput.aggregated || [];
 

@@ -110,8 +110,9 @@ function buildMockCritique(candidate, index) {
 export async function runLayerD({
 	layerCOutput,
 	mock = false,
-	anthropicApiKey,
-	model = 'claude-opus-4-7',
+	// Phase 1.2 Real mode 実装互換性維持のため interface 保持 (#2711)
+	anthropicApiKey: _anthropicApiKey,
+	model: _model = 'claude-opus-4-7',
 }) {
 	const candidates = layerCOutput.aggregated || [];
 
