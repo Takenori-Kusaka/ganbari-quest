@@ -37,7 +37,7 @@ vi.mock('$lib/server/stripe/config', () => ({
 vi.mock('$lib/server/stripe/client', async () => {
 	const StripeImport = (await import('stripe')).default;
 	const stripeVerify = new StripeImport('sk_test_dummy_for_v2_unit', {
-		apiVersion: '2026-04-22.dahlia',
+		apiVersion: '2026-05-27.dahlia',
 	});
 	return { getStripeClient: () => stripeVerify, isStripeEnabled: () => true };
 });
@@ -47,7 +47,7 @@ const mockHandleWebhookEvent = vi.fn().mockResolvedValue(undefined);
 vi.mock('$lib/server/services/stripe-service', async () => {
 	const StripeImport = (await import('stripe')).default;
 	const stripeVerify = new StripeImport('sk_test_dummy_for_v2_service', {
-		apiVersion: '2026-04-22.dahlia',
+		apiVersion: '2026-05-27.dahlia',
 	});
 	return {
 		handleWebhookEvent: (...args: unknown[]) => mockHandleWebhookEvent(...args),

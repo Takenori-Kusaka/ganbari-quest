@@ -114,6 +114,19 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 | **Stripe Dashboard 同期** | **4-a 前**: Test mode で新 Webhook destination 作成 (disabled)。**4-b**: Production mode で新 destination 有効化 + 旧 destination disabled。**4-c**: 旧 destination delete |
 | **前提 PR** | Step 1 + Step 2 + Step 3 マージ済 + Stripe Dashboard Production mode 構築完了 (PO #2627) |
 
+#### Step 4-a 実装完了記録 (PR #2714 / Issue #2713)
+
+| 項目 | 内容 |
+|---|---|
+| **実装 PR** | [#2714 feat: #2713 Phase 7 PR-4a Webhook shadow mode endpoint 実装](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2714) |
+| **対象 Issue** | #2713 |
+| **マージ commit** | (Ready 化 + QM Approve 後追記) |
+| **配備 file** | `src/routes/api/stripe/webhook-v2/+server.ts` (新規 84 行) + `src/lib/server/stripe/config.ts` (`getWebhookSecretForShadow` / `isWebhookShadowModeEnabled` 関数 +37 行) + `.env.example` (`STRIPE_WEBHOOK_SHADOW_MODE` / `STRIPE_WEBHOOK_SECRET_TEST` 配備 +26 行) |
+| **テスト追加** | `tests/unit/routes/api-stripe-webhook-v2.test.ts` (8 ケース、shadow / cutover / security 3 グループ) + `tests/unit/server/stripe/webhook-shadow-mode-config.test.ts` (env 解釈 + fallback) |
+| **本 PR scope (Step 4-a only)** | shadow phase の log only handler + signature 検証 + `STRIPE_WEBHOOK_SHADOW_MODE` kill switch 配備のみ。dedup 本格実装 (`webhookEventRepo.findByEventId`) は Step 4-b cutover (別 PR) に持ち越し (ADR-0010 Pre-PMF、scope ≤ 500 行遵守) |
+| **本番影響** | default `STRIPE_WEBHOOK_SHADOW_MODE=false` で env 配備のみ。Stripe Dashboard で新 destination を有効化しない限り event は到達せず、production 動作は不変 |
+| **次工程** | PR-4a マージ後の別 Issue で 24-48h shadow 観測 → silent drop 0 件確認 → PR-4b (cutover) 着手 |
+
 ### Step 5: 旧 env var 削除 + 旧 4 Price archive (推定 100 行)
 
 | 項目 | 内容 |
