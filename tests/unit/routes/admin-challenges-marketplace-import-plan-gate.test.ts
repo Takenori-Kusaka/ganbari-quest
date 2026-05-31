@@ -196,7 +196,7 @@ describe('/admin/challenges page.server — #2402 family プランゲート (OWA
 				upgradeUrl: '/admin/license',
 			});
 			expect(err.message).toContain('きょうだいチャレンジ');
-			expect(err.message).toContain('ファミリープラン');
+			expect(err.message).toContain('プレミアムプラン');
 			expect(mockDispatchImport).not.toHaveBeenCalled();
 			expect(mockLoadFromMarketplace).not.toHaveBeenCalled();
 		});
