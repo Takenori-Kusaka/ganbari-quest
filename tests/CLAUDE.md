@@ -140,41 +140,51 @@ per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ
 
 interactive component (Dialog / Form / UnifiedImportHub / Menu) は `play` 関数で「操作 → callback 発火 (`fn()` spy) / disabled 制御 / cancel 発火」を component 層で検証する。server 反映 (DB) は Playwright (統合層) に委ね、component 層は配線健全性に限定する (二重防御)。`play` 内 `expect` / `userEvent` / `fn` は **`storybook/test`** (Storybook 10 同梱) から import し、`npm run test:storybook` (`vitest run --project storybook`) で CI 実行する。exemplar: `src/lib/marketplace/ui/UnifiedImportHub.stories.svelte`。
 
-## 顧客レビュー前 CX 版 DoR (8 条件 SSOT、#2553)
+## 顧客レビュー前 CX 版 DoR (12 条件 SSOT、#2553 + #2657 後段フェーズ拡張 2026-05-30)
 
-初顧客レビューで機能 E2E (#2544 goal 完遂) が緑でも実ユーザーが 1 分で 4 件発見した教訓 (#2558 bug-1〜4)。**機能 + UX + visual + exploratory を統合した 8 条件**を顧客レビュー前の Definition of Ready (DoR) として SSOT 化する。設計根拠は `tmp/research-cx-quality-verification.md` §4 / §G、Issue #2553。
+初顧客レビューで機能 E2E (#2544 goal 完遂) が緑でも実ユーザーが 1 分で 4 件発見した教訓 (#2558 bug-1〜4)。**機能 + UX + visual + accessibility + exploratory を統合した 12 条件**を顧客レビュー前の Definition of Ready (DoR) として SSOT 化する。設計根拠は `tmp/research-cx-quality-verification.md` §4 / §G (DoR #1-#8 起源、Issue #2553) + `tmp/research-usability-test-comprehensiveness-2026-05-30.md` §3 (DoR #9-#12 拡張、PR #2657 後段フェーズ Round 1 deep research)。
 
-**過剰防止 (ADR-0010)**: critical user journey (活動追加 / 報酬交換 等、CUJ §「2 層 cadence」を参照) のみに限定。**全画面網羅 / 多人数 user testing / eye-tracking は不採用**。
+**2026-05-30 拡張経緯** (PR #2657 後段フェーズ): User 直接指針「**機能テストだけでは顧客品質になりません。UI/UX など見た目、導線、情報の統一性、体験の統一性などあらゆるユーザビリティが含まれていなければなりません**」を受け、業界 usability test 体系 (NN/G 10 Heuristics / ISO 9241-110 / WCAG 2.2 / Cognitive Walkthrough / Heuristic Evaluation / Empty-Error-Loading audit) と本 product 既存 DoR 8 条件の gap 分析の結果、**8 条件 = 約 50% カバー、機能 E2E PASS のみ = 20-30% カバー** と判明。Pre-PMF 適合性 (ADR-0010、5-user rule、4-5 evaluator で 80% 検出) を満たす最小有効セットとして **DoR #9-#12 を Bucket A 必須として追加**。
+
+**過剰防止 (ADR-0010、Bucket B/C 不採用)**: critical user journey (活動追加 / 報酬交換 / マーケットプレイス インポート 等、CUJ §「2 層 cadence」を参照) のみに限定。**Bucket B (PMF gate 追加候補) 不採用**: First-Click Test 5+ / Tree Testing 15-20+ / Think-Aloud 5+ / SUS 12-15+ / Card sorting 20+ — いずれも実 user 確保コストが Pre-PMF で過剰。**Bucket C (Scale gate 追加候補) 不採用**: A/B testing / heatmap / 5 age mode × 2 viewport completeness matrix / 国際化 (現状日本語 only)。
 
 | # | 条件 | 層 | 検証手段 | 担当 SSOT |
 |---|---|---|---|---|
 | 1 | critical user journey が機能的に goal 完遂する (dead-end ゼロ) | 機能 | 上記「act → outcome assert」E2E (helper `goal-flows.ts`) + Storybook play | **#2544 (実装済 基盤)** |
-| 2 | 同一 CUJ を **Cognitive Walkthrough 4 質問**で 1 周し全 Yes | UX | PO or AI が初見 persona × 4 質問 (Q1 正しい結果を得ようとするか / Q2 正しい操作が利用可能と気づくか / Q3 操作 ↔ 結果結びつけ / Q4 進捗 visible)。AI は H2 / H4 / H8 担当、**H3 / H6 / H9 は人間が必ず検証** (AI 弱点、Baymard false-positive 80% 抑制、research §3-1) | **`.claude/skills/cognitive-walkthrough/SKILL.md` (#2554、本 skill SSOT)** |
-| 3 | UI 実テキストが用語 SSOT 準拠 (謎用語 / 内部語彙ゼロ) | [`check-terminology-coherence.ts`](../scripts/check-terminology-coherence.ts) 警告 0 + [`check-hardcoded-strings.mjs`](../scripts/check-hardcoded-strings.mjs) / [`check-no-plan-literals.mjs`](../scripts/check-no-plan-literals.mjs) を `pre-ready` Step 4 で自動実行 | **PR #2587 (#2555) で `terms.ts` 直接 import 拡充済** |
-| 4 | 同一リソースの add 経路 ≤ 4 + 用語重複なし (Hick's Law) | [`check-terminology-coherence.ts`](../scripts/check-terminology-coherence.ts) (旧 `check-add-path-coherence.mjs` from PR #2587 rename) warning 0 | **#2544 で最小導入 → PR #2587 で拡充済 (DESIGN.md §10 構造ルール整合)** |
-| 5 | critical flow の screenshot を vision LLM に task-grounded prompt で review → 人間 filter 済 | visual/UX | §3 flow (research §3-3 prompt)、capture.mjs 連番 → vision LLM → PO filter | **C-5 別 Issue (POC 中、opt-in)** |
-| 6 | charter ベース exploratory 1 セッション (add/cancel 連打・空送信) で dead-end ゼロ | exploratory | AI exploratory agent or 人間 45 分 session | **C-6 別 Issue (POC 中、opt-in)** |
+| 2 | 同一 CUJ を **Cognitive Walkthrough 4 質問**で 1 周し全 Yes | UX (体験) | PO or AI が初見 persona × 4 質問 (Q1 正しい結果を得ようとするか / Q2 正しい操作が利用可能と気づくか / Q3 操作 ↔ 結果結びつけ / Q4 進捗 visible)。AI は H2 / H4 / H8 担当、**H3 / H6 / H9 は人間が必ず検証** (AI 弱点、Baymard false-positive 80% 抑制、research §3-1) | **`.claude/skills/cognitive-walkthrough/SKILL.md` (#2554、本 skill SSOT)** |
+| 3 | UI 実テキストが用語 SSOT 準拠 (謎用語 / 内部語彙ゼロ) | 情報統一性 | [`check-terminology-coherence.ts`](../scripts/check-terminology-coherence.ts) 警告 0 + [`check-hardcoded-strings.mjs`](../scripts/check-hardcoded-strings.mjs) / [`check-no-plan-literals.mjs`](../scripts/check-no-plan-literals.mjs) を `pre-ready` Step 4 で自動実行 | **PR #2587 (#2555) で `terms.ts` 直接 import 拡充済** |
+| 4 | 同一リソースの add 経路 ≤ 4 + 用語重複なし (Hick's Law) | 導線 + 統一性 | [`check-terminology-coherence.ts`](../scripts/check-terminology-coherence.ts) (旧 `check-add-path-coherence.mjs` from PR #2587 rename) warning 0 | **#2544 で最小導入 → PR #2587 で拡充済 (DESIGN.md §10 構造ルール整合)** |
+| 5 | critical flow の screenshot を vision LLM に task-grounded prompt で review → 人間 filter 済 | 見た目 | §3 flow (research §3-3 prompt)、capture.mjs 連番 → vision LLM → PO filter | **C-5 別 Issue (POC 中、opt-in)** |
+| 6 | charter ベース exploratory 1 セッション (add/cancel 連打・空送信) で dead-end ゼロ | 体験 + dead-end | AI exploratory agent or 人間 45 分 session | **C-6 別 Issue (POC 中、opt-in)** |
 | 7 | 実機 1 クリック貫通 (人間 or AI が実ブラウザで critical flow を 1 回貫通) | 機能+CX | Playwright trace/video 証跡 + 実機操作 (NUC or `AUTH_MODE=anonymous DATA_SOURCE=demo` preview) | **#2544 AC6 と合流 (実装済)** |
-| 8 | 5 mode visual baseline + primitives 準拠 (独自 UI 逸脱なし) | visual | 既存 pixelmatch (`scripts/check-lp-visual-regression.mjs`) + Storybook play (#2544 AC4) + 5 年齢モード SS | **既存 + #2544 (実装済)** |
+| 8 | 5 mode visual baseline + primitives 準拠 (独自 UI 逸脱なし) | 見た目 | 既存 pixelmatch (`scripts/check-lp-visual-regression.mjs`) + Storybook play (#2544 AC4) + 5 年齢モード SS | **既存 + #2544 (実装済)** |
+| **9 (新規 2026-05-30)** | **Heuristic Evaluation 10 原則 × critical flow matrix で severity 3-4 違反ゼロ** | 体験 + 見た目 + 導線 | NN/G 10 原則 ([How to Conduct Heuristic Evaluation](https://www.nngroup.com/articles/how-to-conduct-a-heuristic-evaluation/)) を AI 1 次 + User 2 次 review で 2 evaluator 扱い (業界基準 3-5 で 60-80% 検出、Pre-PMF AI + 人間で部分実施)。各違反に severity 0-4 付け、3-4 ゼロを Ready 化条件。AI は NN/G #1/#2/#4/#7/#8/#10 担当、**#3 (User control) / #5 (Error prevention) / #6 (Recognition) / #9 (Error help) は人間検証必須** (主観・mental model 判断、Baymard 95% vs GPT-4 20% 精度差) | **Round 1 deep research `tmp/research-usability-test-comprehensiveness-2026-05-30.md` §3.3 (本 Round 1 起源 SSOT)、別 Issue #XXX で実装手順書化検討** |
+| **10 (新規 2026-05-30)** | **Accessibility audit (WCAG 2.2 AA、axe-core) で critical / serious violation ゼロ** | accessibility | [WCAG 2.2 AA](https://www.w3.org/TR/WCAG22/) ([WebAIM checklist](https://webaim.org/standards/wcag/checklist)) + Material 3 default。AI 80% 主分担 (`@axe-core/playwright` 等で機械化)、User 20% は子供 ターゲット読字発達整合判断 (font size / contrast / tapSize per age) | **`age-tier.ts` tapSize SSOT + DESIGN.md §8 既存、axe-core 導入は別 Issue #XXX で検討** |
+| **11 (新規 2026-05-30)** | **3 状態 (Empty / Error / Loading) inventory + audit で「default error」「blank empty」「無限 loading」ゼロ** | 体験統一性 | critical flow 各 state を grep + 目視で inventory ([Raw Studio: hidden UX moments](https://raw.studio/blog/empty-states-error-states-onboarding-the-hidden-ux-moments-users-notice/))、AI 70% 主分担 + User 30% filter。Empty state は既存 `UnifiedEmptyState.svelte` (#2362) を SSOT として活用 | **`UnifiedEmptyState.svelte` / `UnifiedImportHub.svelte` 既存、inventory script 別 Issue #XXX で検討** |
+| **12 (新規 2026-05-30)** | **Mental model / glossary audit (`check-internal-terms` lint + atom 用語 SSOT 整合)** | 情報統一性 | atom 用語 SSOT (`terms.ts`、ADR-0045) を起点に critical flow UI 文言を audit ([Terminology spine](https://www.1stopasia.com/blog/terminology-drift-enterprise-software-localization/) drift 防止)。AI 80% 主分担 (lint 既存)、User 20% は親の自然言語 vs 内部用語の mental model 適合判断 | **`check-internal-terms.mjs` 既存 (DoR #3 と連携)、Mental model audit 別 Issue #XXX で検討** |
 
 ### 適用タイミング (2 層 cadence 整合)
 
-- **per-PR (軽量)**: 条件 3 / 4 = 自動 lint 必須 (`pre-ready` で実行)。条件 1 / 8 = 該当領域変更時に targeted E2E + Storybook play (CI 自動実行)
-- **EPIC-merge / 顧客レビュー gate (重量)**: 全 8 条件を満たした証跡 (条件 2 = walkthrough session sheet 添付 / 条件 7 = 実機貫通 trace) を PR body or EPIC umbrella に集約。条件 5 / 6 は opt-in (C-5/C-6 POC 採用後に必須化判定)
+- **per-PR (軽量)**: 条件 3 / 4 / 12 = 自動 lint 必須 (`pre-ready` で実行)。条件 1 / 8 = 該当領域変更時に targeted E2E + Storybook play (CI 自動実行)。条件 10 (Accessibility axe-core) = 該当領域変更時に CI 実行 (axe-core 導入後)
+- **EPIC-merge / 顧客レビュー gate (重量)**: 全 12 条件を満たした証跡 (条件 2 = walkthrough session sheet 添付 / 条件 7 = 実機貫通 trace / 条件 9 = Heuristic Evaluation 違反 matrix / 条件 10 = axe-core report / 条件 11 = 3 状態 inventory) を PR body or EPIC umbrella に集約。条件 5 / 6 は opt-in (C-5/C-6 POC 採用後に必須化判定)
 
 ### 禁忌
 
 - **「機能 E2E 緑 = 顧客レビュー可」と判定する**: #2558 で実証された通り、機能緑のまま bug-2/3/4 が露出する。条件 2-4 を必ず併走させる
+- **「DoR 8 条件で十分」と判定する** (2026-05-30 拡張根拠): User 指摘「機能テストだけでは顧客品質にならない、見た目/導線/情報統一性/体験統一性などあらゆるユーザビリティ含む」+ 業界網羅 Heuristic Evaluation / Accessibility / 3 状態 / Mental model audit のいずれかが欠落 = DoR 8 条件のみは約 50% カバー (gap = NN/G #1 Loading state / #3 undo / #5 error prevention / #9 error help / Empty state inventory / Mental model audit)
 - **条件 5 (AI vision review) を主担保にする**: open-ended audit は false-positive 80% (Baymard)。task-grounded persona prompt + 人間 filter 必須 (research §3-1)
-- **多人数 user testing 招集を Pre-PMF で要求する**: 5-user rule (NN/G) で 85% UX 問題は捕捉できる、それ以上は ROI 低 (research §B-4 / §7)
+- **条件 9 (Heuristic Evaluation) を AI 単独で運用する**: Baymard 95% 精度は専用 training、GPT-4 一般用途 20% / false positive 80% ([NN/G AI tool accuracy](https://www.nngroup.com/articles/baymard-ai-tool-accuracy/))。**人間 2 次 review 必須**
+- **条件 11 (3 状態 inventory) を SS 自動撮影だけで Done とする**: Empty / Error は意図的に発生させる試行錯誤 (空 form 送信 / network 切断 simulation) が必要、AI 単独で網羅困難
+- **多人数 user testing 招集を Pre-PMF で要求する**: 5-user rule (NN/G) で 85% UX 問題は捕捉できる、それ以上は ROI 低 (research §B-4 / §7、Bucket B 不採用根拠)
 
 ### 関連
 
 - 親 EPIC: #2459 (Test Strategy 全体最適化、Pyramid 55/30/15)
 - 基盤: #2544 (機能基盤、ADR-0007 EPIC-merge tier)
 - 兄弟: C-2 #2554 (Cognitive Walkthrough skill、`.claude/skills/cognitive-walkthrough/SKILL.md` で実装) / C-3 #2555 (用語 coherence lint、PR #2587 で実装)
-- 横展開: `.claude/skills/dev-open-pr/SKILL.md` (PR 起票時 CX-DoR ガイダンス) / `.github/PULL_REQUEST_TEMPLATE.md` (customer-facing PR 用 8 条件チェック)
-- 研究: `tmp/research-cx-quality-verification.md` §4 / §G / §3
+- 拡張根拠: **PR #2657 後段フェーズ Round 1 deep research** (`tmp/research-usability-test-comprehensiveness-2026-05-30.md` §3 業界網羅 + DoR gap 分析、2026-05-30)
+- 横展開: `.claude/skills/dev-open-pr/SKILL.md` (PR 起票時 CX-DoR 12 条件ガイダンス) / `.github/PULL_REQUEST_TEMPLATE.md` (customer-facing PR 用 12 条件チェック)
+- 研究: `tmp/research-cx-quality-verification.md` §4 / §G / §3 (DoR 1-8 起源) + `tmp/research-usability-test-comprehensiveness-2026-05-30.md` §1-§9 (DoR 9-12 拡張根拠)
 
 ## 禁止事項
 

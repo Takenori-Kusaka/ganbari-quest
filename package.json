@@ -90,7 +90,9 @@
 		"verify:pack-coverage": "node scripts/verify-pack-coverage.mjs"
 	},
 	"devDependencies": {
+		"@anthropic-ai/sdk": "^0.100.1",
 		"@biomejs/biome": "2.4.10",
+		"@browserbasehq/stagehand": "^3.4.0",
 		"@chromatic-com/storybook": "^5.1.2",
 		"@cspell/dict-fonts": "^4.0.6",
 		"@cspell/dict-software-terms": "^5.2.2",
@@ -118,6 +120,7 @@
 		"@typescript-eslint/parser": "^8.60.0",
 		"@vitest/browser-playwright": "^4.1.7",
 		"@vitest/coverage-v8": "^4.1.2",
+		"axe-core": "^4.11.4",
 		"cross-env": "^10.1.0",
 		"cspell": "^10.0.0",
 		"dompurify": "^3.4.7",
