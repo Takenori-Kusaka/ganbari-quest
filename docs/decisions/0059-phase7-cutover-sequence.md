@@ -96,7 +96,7 @@ cutover 失敗時の MTTR (Mean Time To Recovery) を最小化するため、以
 |---|---|---|---|
 | Step 1 | DB migration (子 3 #2675 13 file) | なし | なし |
 | Step 2 | atom 統合 5 sub step (子 5 #2643 §6、#2683 で `cancelPendingRedirect` atom 不要化) | なし | なし |
-| Step 3 (#2683 訂正) | lookup_key 移行 (apiVersion は `'2026-04-22.dahlia'` 維持) | 領域 A+B (Test mode **2 Product 各 1 Price** + Portal `subscription_update.products` 2 entries) | `USE_LOOKUP_KEY` 配備 |
+| Step 3 (#2683 訂正、#2718 staging SSOT 確定) | lookup_key 移行 (apiVersion は `'2026-04-22.dahlia'` 維持)。**PR-3a (caching layer、shadow) → PR-3b (cutover) 間の staging 検証期間 + AC SSOT は [phase7-staging-validation-protocol.md](../design/billing-redesign/phase7-staging-validation-protocol.md) (#2718) で確定 — 2-3 日案 (本 docs §2 推奨) + 1 営業週間案 (上流 OQ-3 推奨案 fallback) を併記、QM 再協議で確定** | 領域 A+B (Test mode **2 Product 各 1 Price** + Portal `subscription_update.products` 2 entries) | `USE_LOOKUP_KEY` 配備 |
 | Step 4-a | webhook shadow mode (5 event 購読: `customer.subscription.*` 2 + `invoice.payment_*` 2 + `credit_note.created` 1、#2683 訂正) | 領域 C (Test mode Webhook disabled) | `STRIPE_WEBHOOK_SHADOW_MODE=true` |
 | Step 4-b | webhook cutover | 領域 E+F (Production 2 Product + Webhook 有効化、副次制約 4 #2683 で新 destination 作成必須) | `STRIPE_WEBHOOK_SHADOW_MODE=false` |
 | Step 4-c | webhook retire | 領域 G (旧 destination delete) | なし |
