@@ -25,6 +25,8 @@ import { describe, expect, it } from 'vitest';
 // Pre-PMF fallback に置換された 12 repo
 import * as autoChallengeRepo from '../../../src/lib/server/db/dynamodb/auto-challenge-repo';
 import * as battleRepo from '../../../src/lib/server/db/dynamodb/battle-repo';
+// #2263 regression hotfix (本 PR): child-activity-repo (PR #2455 = #2362 PR-3 で 2026-05-24 導入)
+import * as childActivityRepo from '../../../src/lib/server/db/dynamodb/child-activity-repo';
 import * as cloudExportRepo from '../../../src/lib/server/db/dynamodb/cloud-export-repo';
 import * as messageRepo from '../../../src/lib/server/db/dynamodb/message-repo';
 import * as reportDailySummaryRepo from '../../../src/lib/server/db/dynamodb/report-daily-summary-repo';
@@ -82,6 +84,49 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 			await expect(battleRepo.completeBattle(1, 'win', 10, 3, TENANT)).resolves.toBeUndefined();
 			await expect(battleRepo.findCollection(1, TENANT)).resolves.toEqual([]);
 			await expect(battleRepo.upsertCollectionEntry(1, 1, TENANT)).resolves.toBeUndefined();
+		});
+	});
+
+	describe('child-activity-repo (#2263 regression hotfix)', () => {
+		it('全 read method は安全値を返す (本番 /preschool/home 500 防止)', async () => {
+			await expect(childActivityRepo.findActivitiesByChild(1, TENANT)).resolves.toEqual([]);
+			await expect(
+				childActivityRepo.findActivitiesByChild(1, TENANT, { includeArchived: true }),
+			).resolves.toEqual([]);
+			await expect(childActivityRepo.findActivityById(1, 1, TENANT)).resolves.toBeUndefined();
+			await expect(childActivityRepo.countMainQuestActivities(1, TENANT)).resolves.toBe(0);
+			await expect(childActivityRepo.findChildById(1, TENANT)).resolves.toBeUndefined();
+		});
+
+		it('write method は throw する (Pre-PMF で本番到達禁止を構造的に強制)', async () => {
+			await expect(
+				childActivityRepo.insertActivity(
+					{
+						childId: 1,
+						categoryId: 1,
+						name: 'n',
+						icon: '★',
+						basePoints: 1,
+						isMainQuest: 0,
+						isVisible: 1,
+						sortOrder: 0,
+						priority: 'optional',
+					} as never,
+					TENANT,
+				),
+			).rejects.toThrow(/not implemented/);
+			await expect(childActivityRepo.updateActivity(1, 1, {} as never, TENANT)).rejects.toThrow(
+				/not implemented/,
+			);
+			await expect(childActivityRepo.setActivityVisibility(1, 1, true, TENANT)).rejects.toThrow(
+				/not implemented/,
+			);
+			await expect(childActivityRepo.deleteActivity(1, 1, TENANT)).rejects.toThrow(
+				/not implemented/,
+			);
+			await expect(
+				childActivityRepo.archiveActivities([1], 'manual' as never, TENANT),
+			).rejects.toThrow(/not implemented/);
 		});
 	});
 
@@ -249,14 +294,17 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('regression guard: 全 9 repo の Promise.all で reject されない', () => {
-		it('SSR で典型的な 9 repo 並列呼び出しが全 fulfill する', async () => {
+	describe('regression guard: 全 10 repo の Promise.all で reject されない', () => {
+		it('SSR /preschool/home の典型的な 10 repo 並列呼び出しが全 fulfill する', async () => {
 			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
 			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
-			// 本番 Lambda /preschool/home SSR の代表的経路を模擬
+			// #2263 regression hotfix (本 PR): childActivityRepo.findActivitiesByChild 追加 (9 → 10 repo)
+			//   → PR #2455 で stub 化されていた child-activity が SSR `Promise.all` で reject → 500 を引き起こす
+			//     時限爆弾を Pre-PMF fallback に置換して解消
 			const results = await Promise.allSettled([
 				autoChallengeRepo.findActiveByChild(1, TENANT),
 				battleRepo.findTodayBattle(1, TODAY, TENANT),
+				childActivityRepo.findActivitiesByChild(1, TENANT, { childAge: 5 } as never),
 				cloudExportRepo.findByTenant(TENANT),
 				messageRepo.findUnshownMessage(1, TENANT),
 				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),
