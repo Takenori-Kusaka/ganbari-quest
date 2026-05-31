@@ -6,6 +6,7 @@
 
 import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
 import { PLAN_TERMS, PRICE_TERMS } from '$lib/domain/terms';
+import { getPriceByLookupKey, type LookupKey } from './price-cache';
 
 /** Stripe で購入可能なプラン (lifetime は Stripe サブスク対象外) */
 export type PlanId = Exclude<LicensePlan, typeof LICENSE_PLAN.LIFETIME>;
@@ -141,4 +142,102 @@ export function getWebhookSecretForShadow(): string {
  */
 export function isWebhookShadowModeEnabled(): boolean {
 	return process.env.STRIPE_WEBHOOK_SHADOW_MODE === 'true';
+}
+
+/**
+ * lookup_key 経路 feature flag (Phase 7 PR-3a / Issue #2716 / ADR-0059)
+ *
+ * `USE_LOOKUP_KEY=true` の場合のみ true を返す。それ以外 (未設定 /
+ * `'false'` / `''` / 任意の他文字列) は false。
+ *
+ * Stripe 公式 `transfer_lookup_key` 4 step migration の **Step 2 (並行運用)** で
+ * 旧 env var (`STRIPE_PRICE_*` 4 件) と新 lookup_key (`standard_monthly` /
+ * `premium_monthly`) を並行運用する kill switch。
+ *
+ * 本 PR (PR-3a) では default `false` で env 配備 + 関数経由化のみ。実際の cutover
+ * (`USE_LOOKUP_KEY=true` 切替 + Production 物理配備) は PR-3b で実施する。
+ * 次の AWS Lambda invocation (約 30 秒) で反映される。
+ *
+ * 設計 SSOT: docs/decisions/0059-phase7-cutover-sequence.md §「結果」§2 kill switch
+ * 関連 docs: docs/design/billing-redesign/phase6-context-decisions-6.md §4.3 並行運用
+ *           / docs/design/billing-redesign/phase6-rollback-and-kill-switches.md §S6
+ */
+export function isLookupKeyEnabled(): boolean {
+	return process.env.USE_LOOKUP_KEY === 'true';
+}
+
+/**
+ * Phase 7 PR-3a / Issue #2716: plan + interval から Stripe Price ID を解決する関数経由化。
+ *
+ * `USE_LOOKUP_KEY` flag による並行運用切替を集約。本 PR では既存呼出箇所を関数経由化
+ * (動作変更なし、default `false` で env var 直読を維持) し、PR-3b cutover で env var
+ * 直読撤廃の準備を整える。
+ *
+ * 動作:
+ * - `USE_LOOKUP_KEY=true`: caching 経由で lookup_key → priceId 解決。Stripe API 障害時は
+ *   env var fallback (kill switch、context-decisions-6 §4.1 Step 2 並行運用)
+ * - `USE_LOOKUP_KEY=false` (default): env var 直読 (`STRIPE_PRICE_STANDARD_MONTHLY` 等 4 種、
+ *   既存 `buildPlanConfigs()` と同経路 + 旧名 fallback 整合 #2347)
+ *
+ * @param plan - プラン種別 (`'standard'` / `'premium'`)
+ * @param interval - 課金周期 (`'monthly'`、yearly は PR-3b 以降で追加)
+ * @returns 解決された Price ID
+ * @throws lookup_key / env var 双方未解決の場合 (`MISSING_PRICE_ID`)
+ *
+ * 設計 SSOT:
+ *   - docs/design/billing-redesign/phase6-context-decisions-6.md §4 lookup_key 段階移行
+ *   - docs/decisions/0059-phase7-cutover-sequence.md §「結果」§1 Step 3
+ *
+ * @example
+ *   const priceId = await getPriceId('standard', 'monthly');
+ *   // → 'price_1Abc...' (`USE_LOOKUP_KEY=true` なら lookup_key 経由、false なら env 経由)
+ */
+export async function getPriceId(
+	plan: 'standard' | 'premium',
+	interval: 'monthly',
+): Promise<string> {
+	// 1. 旧 env var (`STRIPE_PRICE_*` 4 件) を解決 (fallback / default 経路の SSOT)
+	const envPriceId = resolveEnvPriceId(plan, interval);
+
+	// 2. lookup_key flag OFF (default): env var 直読のみ (本番動作不変)
+	if (!isLookupKeyEnabled()) {
+		if (!envPriceId) {
+			throw new Error(`MISSING_PRICE_ID: plan=${plan}, interval=${interval} (env var 未設定)`);
+		}
+		return envPriceId;
+	}
+
+	// 3. lookup_key flag ON: caching 経由で解決、失敗時 env var fallback (kill switch)
+	const lookupKey: LookupKey = `${plan}_${interval}` as LookupKey;
+	try {
+		return await getPriceByLookupKey(lookupKey);
+	} catch (err) {
+		// Stripe API 障害 / Price 未発行 → env var fallback (kill switch、context-decisions-6 §4.3)
+		if (envPriceId) {
+			return envPriceId;
+		}
+		// 双方 NG → throw (caller で error log / Discord alert)
+		throw new Error(
+			`MISSING_PRICE_ID: plan=${plan}, interval=${interval}, lookupKey=${lookupKey} ` +
+				`(lookup_key 解決失敗 + env var fallback も未設定): ${err instanceof Error ? err.message : String(err)}`,
+		);
+	}
+}
+
+/**
+ * 内部: plan + interval から env var を直読する (旧経路 + 旧名 fallback、#2347 整合)。
+ *
+ * `buildPlanConfigs()` 内のロジックと同型。Phase 7 PR-3b cutover (env var 削除) 時に
+ * `buildPlanConfigs()` ごと統合判断する想定。本 PR では `getPriceId()` の fallback 経路として
+ * 切り出した (重複を避けるため private export 化せず module 内 helper として定義)。
+ */
+function resolveEnvPriceId(plan: 'standard' | 'premium', interval: 'monthly'): string | null {
+	if (plan === 'standard' && interval === 'monthly') {
+		return process.env.STRIPE_PRICE_STANDARD_MONTHLY ?? process.env.STRIPE_PRICE_MONTHLY ?? null;
+	}
+	if (plan === 'premium' && interval === 'monthly') {
+		// premium = family (PLAN_TERMS.premium / .family は同値 'プレミアム'、ADR-0058 rename 過渡期)
+		return process.env.STRIPE_PRICE_FAMILY_MONTHLY ?? null;
+	}
+	return null;
 }
