@@ -105,3 +105,40 @@ export function getWebhookSecret(): string {
 	}
 	return secret;
 }
+
+/**
+ * Webhook shadow mode 用署名シークレット (Phase 7 PR-4a / Issue #2713 / ADR-0059)
+ *
+ * Test mode で新規 Webhook destination (#2627) を作成した際の signing secret。
+ * shadow mode (`STRIPE_WEBHOOK_SHADOW_MODE=true`) では `STRIPE_WEBHOOK_SECRET_TEST`
+ * を優先し、未設定なら本番 `STRIPE_WEBHOOK_SECRET` に fallback する。
+ *
+ * 設計 SSOT: docs/decisions/0059-phase7-cutover-sequence.md §「結果」
+ * 関連 docs: docs/design/billing-redesign/phase6-phase7-execution-ssot.md §3 Step 4-a
+ */
+export function getWebhookSecretForShadow(): string {
+	const secret = process.env.STRIPE_WEBHOOK_SECRET_TEST ?? process.env.STRIPE_WEBHOOK_SECRET;
+	if (!secret) {
+		throw new Error(
+			'STRIPE_WEBHOOK_SECRET_TEST or STRIPE_WEBHOOK_SECRET must be set for shadow mode',
+		);
+	}
+	return secret;
+}
+
+/**
+ * Webhook shadow mode feature flag (Phase 7 PR-4a / Issue #2713 / ADR-0059)
+ *
+ * `STRIPE_WEBHOOK_SHADOW_MODE=true` の場合のみ true を返す。それ以外 (未設定 /
+ * `'false'` / `''` / 任意の他文字列) は false。
+ *
+ * Stripe 公式 5 phase migration (setup → discovery → shadow → cutover → retire)
+ * の **shadow phase** (Phase 7 Step 4-a) で 24-48h log only 検証する際に
+ * `true` に切替える kill switch。次の AWS Lambda invocation (約 30 秒) で反映される。
+ *
+ * 設計 SSOT: docs/decisions/0059-phase7-cutover-sequence.md §「結果」
+ * 関連 docs: docs/design/billing-redesign/phase6-rollback-and-kill-switches.md §S6
+ */
+export function isWebhookShadowModeEnabled(): boolean {
+	return process.env.STRIPE_WEBHOOK_SHADOW_MODE === 'true';
+}
