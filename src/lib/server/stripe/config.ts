@@ -6,6 +6,7 @@
 
 import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
 import { PLAN_TERMS, PRICE_TERMS } from '$lib/domain/terms';
+import { notifyStripeAlert } from './alert';
 import { getPriceByLookupKey, type LookupKey } from './price-cache';
 
 /** Stripe で購入可能なプラン (lifetime は Stripe サブスク対象外) */
@@ -212,14 +213,30 @@ export async function getPriceId(
 	try {
 		return await getPriceByLookupKey(lookupKey);
 	} catch (err) {
+		const errMsg = err instanceof Error ? err.message : String(err);
 		// Stripe API 障害 / Price 未発行 → env var fallback (kill switch、context-decisions-6 §4.3)
 		if (envPriceId) {
+			// #2720 Adversarial security 軸: silent degradation 防止。fallback 発動を観測可能化。
+			// alert kind=stripe-lookup-failed は phase6-rollback-and-kill-switches.md §6 R4 SSOT。
+			// fire-and-forget (課金 path をブロックしない、既存 license-key-service.ts L351 pattern 整合)。
+			notifyStripeAlert({
+				kind: 'stripe-lookup-failed',
+				message: `lookup_key 解決失敗 → env var fallback 起動 (kill switch 動作、課金 path 継続)`,
+				errorSummary: `lookup_failed:${lookupKey}:${errMsg.slice(0, 100)}`,
+				tags: { plan, interval, lookupKey, fallbackUsed: true },
+			});
 			return envPriceId;
 		}
-		// 双方 NG → throw (caller で error log / Discord alert)
+		// 双方 NG → 致命: alert (level=error) + throw (caller で 5xx 返却)
+		notifyStripeAlert({
+			kind: 'stripe-lookup-failed',
+			message: `lookup_key 解決失敗 + env var fallback も未設定 (致命、課金 path 停止)`,
+			errorSummary: `missing_price_id:${lookupKey}:${errMsg.slice(0, 100)}`,
+			tags: { plan, interval, lookupKey, fallbackUsed: false },
+		});
 		throw new Error(
 			`MISSING_PRICE_ID: plan=${plan}, interval=${interval}, lookupKey=${lookupKey} ` +
-				`(lookup_key 解決失敗 + env var fallback も未設定): ${err instanceof Error ? err.message : String(err)}`,
+				`(lookup_key 解決失敗 + env var fallback も未設定): ${errMsg}`,
 		);
 	}
 }

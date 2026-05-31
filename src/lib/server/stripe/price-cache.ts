@@ -21,6 +21,19 @@
 //   Stripe Dashboard で Price 更新が反映される最大遅延 (Stripe 公式 SLA 暗黙的) +
 //   Lambda cold start 影響最小化のバランス。`transfer_lookup_key` で lookup_key 移行時は
 //   cache flush 不要 (新 priceId が次回解決で取得される)。
+//
+// TOCTOU 検討 (#2720 Adversarial security 軸):
+//   cache 5 min window 内に Stripe Dashboard で `transfer_lookup_key` を実行した場合、
+//   1. cache hit で旧 priceId を返す (TOCTOU = time-of-check vs time-of-use 乖離) が、
+//   2. `transfer_lookup_key` は **新 Price を新 lookup_key にひもづけ、旧 Price の lookup_key
+//      を空にする** Stripe 公式仕様 (https://docs.stripe.com/products-prices/manage-prices)
+//      = 旧 Price 自体は active のまま (subscription / invoice 既存契約は破壊されない)
+//   3. 次回 TTL 切れ後の Stripe API 呼出で新 priceId が cache に格納される (eventual consistency)
+//   4. Pre-PMF Bucket A (ADR-0010) として「5 min eventual consistency window」を許容
+//      (Stripe migration は計画的に実施され、運用 SOP で `clearPriceCacheForTesting`
+//      経由 cache flush は不要、Lambda 再 deploy = cold start で自然 reset)。
+//   5. 観測強化: config.ts `getPriceId()` の fallback 経路で `notifyStripeAlert` 起動済
+//      (#2720)、cache TTL window 中の異常を Discord alert で検出可能。
 
 import { getStripeClient } from './client';
 
