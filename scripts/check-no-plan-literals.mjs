@@ -60,7 +60,15 @@ const VALUE_LITERAL_RULES = [
 const TERM_LITERAL_RULES = [
 	// プラン (フル形)
 	{ pattern: 'スタンダードプラン', constant: 'PLAN_FULL_TERMS.standard', kind: 'term' },
-	{ pattern: 'ファミリープラン', constant: 'PLAN_FULL_TERMS.family', kind: 'term' },
+	// Phase 7 PR-2d/e (#2706): family → premium rename。新規 SSOT 値は「プレミアムプラン」。
+	// alias 共存期間中も rename 後の値で検出 (直書き禁止対象は「プレミアムプラン」、
+	// 旧「ファミリープラン」直書きは alias 経由参照に置換すべき検出対象として残存)。
+	{ pattern: 'プレミアムプラン', constant: 'PLAN_FULL_TERMS.premium', kind: 'term' },
+	{
+		pattern: 'ファミリープラン',
+		constant: 'PLAN_FULL_TERMS.premium (旧 .family alias)',
+		kind: 'term',
+	},
 	{ pattern: '無料プラン', constant: 'PLAN_FULL_TERMS.free', kind: 'term' },
 	// 価格
 	{

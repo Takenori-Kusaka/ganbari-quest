@@ -173,7 +173,7 @@ describe('trial-notification-service', () => {
 		it('family プランの3日前メールを送信する', async () => {
 			await sendTrialEnding3DaysEmail('test@example.com', '2026-04-20', 'family');
 			const call = mockSendEmail.mock.calls[0]?.[0];
-			expect(call.htmlBody).toContain('ファミリー');
+			expect(call.htmlBody).toContain('プレミアム');
 		});
 	});
 
@@ -192,7 +192,7 @@ describe('trial-notification-service', () => {
 			expect(result).toBe(true);
 			const call = mockSendEmail.mock.calls[0]?.[0];
 			expect(call.subject).toContain('終了しました');
-			expect(call.htmlBody).toContain('ファミリー');
+			expect(call.htmlBody).toContain('プレミアム');
 		});
 	});
 

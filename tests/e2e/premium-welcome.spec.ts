@@ -92,7 +92,7 @@ test.describe('#778 PremiumWelcome モーダル — family', () => {
 
 	test('family プラン初回 /admin で歓迎モーダルが表示される', async ({ page }) => {
 		await page.goto('/admin');
-		const dialog = page.getByRole('dialog', { name: /ファミリー.*ようこそ/ });
+		const dialog = page.getByRole('dialog', { name: /プレミアム.*ようこそ/ });
 		await expect(dialog).toBeVisible();
 		// family 固有の項目（PREMIUM_UNLOCKED_FEATURES.family より）
 		await expect(dialog.getByText('きょうだいランキング')).toBeVisible();

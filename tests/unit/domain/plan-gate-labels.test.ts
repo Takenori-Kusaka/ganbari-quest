@@ -56,14 +56,14 @@ describe('PLAN_GATE_LABELS.standardOrAboveFor', () => {
 describe('PLAN_GATE_LABELS.familyOnlyFor', () => {
 	it('AI チェックリスト提案 (admin/checklists) の既存メッセージと一致する', () => {
 		expect(PLAN_GATE_LABELS.familyOnlyFor('AI チェックリスト提案')).toBe(
-			'AI チェックリスト提案はファミリープランでご利用いただけます',
+			'AI チェックリスト提案はプレミアムプランでご利用いただけます',
 		);
 	});
 
 	it('動的 featureLabel (suggest-plan-gate.ts) の既存メッセージと一致する', () => {
-		// suggest-plan-gate.ts は ${featureLabel}はファミリープランでご利用いただけます 形式
+		// suggest-plan-gate.ts は ${featureLabel}はプレミアムプランでご利用いただけます 形式
 		expect(PLAN_GATE_LABELS.familyOnlyFor('AI 提案')).toBe(
-			'AI 提案はファミリープランでご利用いただけます',
+			'AI 提案はプレミアムプランでご利用いただけます',
 		);
 	});
 });
@@ -71,7 +71,7 @@ describe('PLAN_GATE_LABELS.familyOnlyFor', () => {
 describe('PLAN_GATE_LABELS.familyLimitedFor', () => {
 	it('自由テキストメッセージ (admin/messages) の既存メッセージと一致する', () => {
 		expect(PLAN_GATE_LABELS.familyLimitedFor('自由テキストメッセージ')).toBe(
-			'自由テキストメッセージはファミリープラン限定です',
+			'自由テキストメッセージはプレミアムプラン限定です',
 		);
 	});
 });
@@ -87,14 +87,14 @@ describe('PLAN_GATE_LABELS.standardOrAboveGenericWithUpgrade', () => {
 describe('PLAN_GATE_LABELS.familyLimitedWithUpgradeFor', () => {
 	it('きょうだいランキング (admin/settings) の既存メッセージと一致する', () => {
 		expect(PLAN_GATE_LABELS.familyLimitedWithUpgradeFor('きょうだいランキング')).toBe(
-			'きょうだいランキングはファミリープラン限定です。アップグレードすると利用できます。',
+			'きょうだいランキングはプレミアムプラン限定です。アップグレードすると利用できます。',
 		);
 	});
 });
 
 describe('PLAN_GATE_LABELS.viewerTokenFamilyOnly', () => {
 	it('viewer-tokens (api/v1/admin/viewer-tokens) の既存メッセージと一致する', () => {
-		expect(PLAN_GATE_LABELS.viewerTokenFamilyOnly).toBe('ファミリープラン限定の機能です');
+		expect(PLAN_GATE_LABELS.viewerTokenFamilyOnly).toBe('プレミアムプラン限定の機能です');
 	});
 });
 
@@ -114,7 +114,7 @@ describe('PLAN_GATE_LABELS — atom 連動性', () => {
 		const onlyFor = PLAN_GATE_LABELS.familyOnlyFor('機能');
 		const limitedFor = PLAN_GATE_LABELS.familyLimitedFor('機能');
 		expect(onlyFor).not.toBe(limitedFor);
-		expect(onlyFor).toContain('ファミリープランでご利用いただけます');
-		expect(limitedFor).toContain('ファミリープラン限定です');
+		expect(onlyFor).toContain('プレミアムプランでご利用いただけます');
+		expect(limitedFor).toContain('プレミアムプラン限定です');
 	});
 });

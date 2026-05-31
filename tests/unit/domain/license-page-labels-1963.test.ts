@@ -9,8 +9,8 @@ describe('#1963 SUBSCRIPTION_PAGE_LABELS — atom 直書き撤廃後の文字列
 	it('プランラベル: terms.ts 参照後も文字列値が一致', () => {
 		expect(SUBSCRIPTION_PAGE_LABELS.planLabelMonthly).toBe('スタンダード月額（¥500/月）');
 		expect(SUBSCRIPTION_PAGE_LABELS.planLabelYearly).toBe('スタンダード年額（¥5,000/年）');
-		expect(SUBSCRIPTION_PAGE_LABELS.planLabelFamilyMonthly).toBe('ファミリー月額（¥780/月）');
-		expect(SUBSCRIPTION_PAGE_LABELS.planLabelFamilyYearly).toBe('ファミリー年額（¥7,800/年）');
+		expect(SUBSCRIPTION_PAGE_LABELS.planLabelFamilyMonthly).toBe('プレミアム月額（¥780/月）');
+		expect(SUBSCRIPTION_PAGE_LABELS.planLabelFamilyYearly).toBe('プレミアム年額（¥7,800/年）');
 		expect(SUBSCRIPTION_PAGE_LABELS.planLabelFree).toBe('無料プラン');
 	});
 
@@ -27,14 +27,14 @@ describe('#1963 SUBSCRIPTION_PAGE_LABELS — atom 直書き撤廃後の文字列
 		expect(SUBSCRIPTION_PAGE_LABELS.standardPriceMonthly).toBe('¥500');
 	});
 
-	it('ファミリープラン詳細: terms.ts 参照後も文字列値が一致', () => {
-		expect(SUBSCRIPTION_PAGE_LABELS.familyPlanName).toBe('ファミリー');
+	it('プレミアムプラン詳細: terms.ts 参照後も文字列値が一致', () => {
+		expect(SUBSCRIPTION_PAGE_LABELS.familyPlanName).toBe('プレミアム');
 		expect(SUBSCRIPTION_PAGE_LABELS.familyPriceMonthly).toBe('¥780');
 	});
 
 	it('checkoutButton: tier 分岐後も文字列値が一致', () => {
 		expect(SUBSCRIPTION_PAGE_LABELS.checkoutButton('family', false)).toBe(
-			'ファミリープランで始める',
+			'プレミアムプランで始める',
 		);
 		expect(SUBSCRIPTION_PAGE_LABELS.checkoutButton('standard', false)).toBe(
 			'スタンダードプランで始める',
@@ -43,7 +43,7 @@ describe('#1963 SUBSCRIPTION_PAGE_LABELS — atom 直書き撤廃後の文字列
 	});
 
 	it('demoCheckoutButton: tier 分岐後も文字列値が一致', () => {
-		expect(SUBSCRIPTION_PAGE_LABELS.demoCheckoutButton('family')).toBe('ファミリープランで始める');
+		expect(SUBSCRIPTION_PAGE_LABELS.demoCheckoutButton('family')).toBe('プレミアムプランで始める');
 		expect(SUBSCRIPTION_PAGE_LABELS.demoCheckoutButton('standard')).toBe(
 			'スタンダードプランで始める',
 		);
