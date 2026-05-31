@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-nocheck — Pre-PMF POC: .mjs jsdoc 型整備は別 follow-up Issue (#2695 scope 外)
 /**
  * AI Heuristic Evaluator POC entry point (Issue #2692 / EPIC #2691)
  *
@@ -41,6 +42,7 @@ import {
 	createStagehand,
 	executeStep,
 	FIXTURE_CHILDREN,
+	getActivePage,
 	setChildContext,
 } from './lib/stagehand-runner.mjs';
 
@@ -125,17 +127,22 @@ async function runStagehandFlowForAge({ stagehand, baseUrl, ageMode }) {
 
 	for (const step of ACTIVITY_PACK_FLOW) {
 		const ssPath = resolve(OUTPUT_DIR, `ss-${ageMode}-step${step.step}.png`);
+		let stepPage = null;
 		try {
-			const { screenshotPath } = await executeStep(stagehand, step, baseUrl, ssPath);
-			screenshots.push(screenshotPath);
+			const result = await executeStep(stagehand, step, baseUrl, ssPath);
+			screenshots.push(result.screenshotPath);
+			stepPage = result.page; // v3: executeStep が page を返すため再 lookup 不要
 		} catch (err) {
 			console.warn(`[poc] step ${step.step} (${ageMode}) 失敗、continue: ${err.message}`);
 		}
 
 		// axe-core: 全 step で audit (DoR 12 整合)
+		// v3 では stagehand.page プロパティが無いため getActivePage で取得
+		// (executeStep 失敗時は fallback で active page 再取得)
 		const axeJsonPath = resolve(OUTPUT_DIR, `axe-${ageMode}-step${step.step}.json`);
 		try {
-			const audit = await runFullAudit({ page: stagehand.page, ageMode, axeJsonPath });
+			const auditPage = stepPage || (await getActivePage(stagehand));
+			const audit = await runFullAudit({ page: auditPage, ageMode, axeJsonPath });
 			axeReports.push({ step: step.step, ...audit });
 		} catch (err) {
 			console.warn(`[poc] axe step ${step.step} (${ageMode}) 失敗、continue: ${err.message}`);

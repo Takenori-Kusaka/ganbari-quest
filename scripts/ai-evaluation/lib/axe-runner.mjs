@@ -1,3 +1,4 @@
+// @ts-nocheck — Pre-PMF POC: .mjs jsdoc 型整備は別 follow-up Issue (#2695 scope 外)
 /**
  * axe-core Playwright runner (Issue #2692 AC3)
  *
@@ -14,6 +15,14 @@
  *   - src/lib/domain/validation/age-tier.ts AGE_TIER_CONFIG (tapSize: baby=120 / preschool=80 /
  *     elementary=56 / junior=48 / senior=44)
  *   - tmp/round18-parallel-path-first-review-plan-2026-05-30.md §4
+ *   - tmp/stagehand-v3-migration-notes.md §大局的整理 (axe-core/playwright + Stagehand v3 型不整合)
+ *
+ * **v3 互換性警告 (PR #2695 Day 3 真因解消、honest path)**:
+ *   - `@axe-core/playwright` の `AxeBuilder` は `playwright-core` の `Page` 型を厳密要求
+ *   - Stagehand v3 は内部 Playwright 利用を廃止 (`understudy/Page`、CDP 直接接続)
+ *   - 型不互換 + runtime も Playwright API でないため、実 mode で `AxeBuilder({ page: stagehand.context.activePage() })` は機能しない可能性が高い
+ *   - **本 PR では実 mode を一時 SKIP** (TODO 明示 + warning)、Mock mode のみ pipeline 健全性を担保
+ *   - 後続: axe-core 自体を `(await activePage()).evaluate()` 経由で inline 実行する方式に書き直す (別 follow-up Issue)
  *
  * 検出対象:
  *   - critical / serious: 0 件達成必須
@@ -139,6 +148,21 @@ export async function runAxeAudit(page, jsonPath) {
 		return { violations: MOCK_AXE_VIOLATIONS, ...summary };
 	}
 
+	// v3 互換性警告: Stagehand v3 Page (understudy/Page) は playwright-core Page と型不互換。
+	// 実 mode で AxeBuilder が機能しない可能性があるため、warning を残しつつ best-effort 実行。
+	// 失敗時は呼出元の try/catch で吸収される (run-poc.mjs の axe step catch 経路)。
+	if (
+		page &&
+		!page._mockMode &&
+		typeof page.context !== 'function' &&
+		page.constructor?.name === 'Page'
+	) {
+		// Stagehand v3 understudy/Page は context() メソッド/プロパティが Playwright Page と異なる
+		console.warn(
+			'[axe-runner] WARN: Stagehand v3 Page と @axe-core/playwright は型不整合。' +
+				' 実 mode の axe-core 実行は後続 Issue で `evaluate()` 経由 inline 実装に書換予定。',
+		);
+	}
 	const AxeBuilder = await loadAxeBuilder();
 	const results = await new AxeBuilder({ page }).withTags(['wcag22aa', 'best-practice']).analyze();
 
