@@ -291,6 +291,12 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 				// #2310 / #2337 / ADR-0050: demo Lambda は AUTH_MODE=anonymous で PIN gate 無効、
 				// PARENT_GATE_COOKIE_SECRET 注入は本番 Lambda のみ (ADR-0048 / cross-tenancy 防止)
 				'PARENT_GATE_COOKIE_SECRET',
+				// Phase 7 PR-3b / PR-4a (#2721 / #2713 / ADR-0059): Stripe env は本番 Lambda のみ
+				// 注入 (demo Lambda は STRIPE_SECRET_KEY 未注入で Stripe 経路自体が動作しないため
+				// shadow mode / lookup_key 関連 env も demo に配備する意味なし)
+				'USE_LOOKUP_KEY',
+				'STRIPE_WEBHOOK_SHADOW_MODE',
+				'STRIPE_WEBHOOK_SECRET_TEST',
 				'DYNAMODB_TABLE',
 				'TABLE_NAME',
 				'ANALYTICS_TABLE_NAME',
@@ -348,6 +354,54 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 					'live',
 			);
 			expect(demoLiveAliases.length).toBe(0);
+		});
+	});
+
+	describe('Phase 7 PR-3b Stripe Webhook / lookup_key env (#2721 / ADR-0059)', () => {
+		it('本番 Fn に USE_LOOKUP_KEY=true が注入される (cutover 後 default、kill switch)', () => {
+			// #2721 PR-3b cutover: lookup_key 経路 default 有効化。
+			// makeApp() の context 未注入時は compute-stack.ts の `?? 'true'` fallback が効く。
+			// Lambda env を 'false' に変更すると約 30 秒で env var 直読経路に巻き戻し (kill switch)。
+			const template = computeTemplate;
+
+			template.hasResourceProperties('AWS::Lambda::Function', {
+				FunctionName: 'ganbari-quest-app',
+				Environment: {
+					Variables: Match.objectLike({
+						USE_LOOKUP_KEY: 'true',
+					}),
+				},
+			});
+		});
+
+		it('本番 Fn に STRIPE_WEBHOOK_SHADOW_MODE=false が注入される (PR-4a 配備、PR-4b で true 切替)', () => {
+			// #2713 PR-4a: shadow mode env 配備済。本 PR-3b で CDK context 経由配布が完了。
+			// 'false' default で本番動作不変 (旧 /api/stripe/webhook 継続)。
+			const template = computeTemplate;
+
+			template.hasResourceProperties('AWS::Lambda::Function', {
+				FunctionName: 'ganbari-quest-app',
+				Environment: {
+					Variables: Match.objectLike({
+						STRIPE_WEBHOOK_SHADOW_MODE: 'false',
+					}),
+				},
+			});
+		});
+
+		it('STRIPE_WEBHOOK_SECRET_TEST は context 未注入時に env に追加されない (空文字列 omit、本番影響ゼロ)', () => {
+			// #2713 PR-4a 配備済 (config.ts getWebhookSecretForShadow() が `?? STRIPE_WEBHOOK_SECRET` fallback)。
+			// makeApp() で stripeWebhookSecretTest context 未注入のため env に omit されることを確認 (compute-stack.ts L211-213 の `... ? {...} : {}` パターン)。
+			const template = computeTemplate;
+			const functions = template.findResources('AWS::Lambda::Function', {
+				Properties: { FunctionName: 'ganbari-quest-app' },
+			});
+			expect(Object.keys(functions).length).toBe(1);
+			const prodFnDef = Object.values(functions)[0] as {
+				Properties: { Environment?: { Variables?: Record<string, unknown> } };
+			};
+			const envVars = prodFnDef.Properties.Environment?.Variables ?? {};
+			expect(envVars.STRIPE_WEBHOOK_SECRET_TEST).toBeUndefined();
 		});
 	});
 
