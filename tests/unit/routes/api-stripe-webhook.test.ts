@@ -48,7 +48,7 @@ vi.mock('$lib/server/services/stripe-service', async () => {
 	// （getStripeClient() のモックを避けるため直接 Stripe インスタンスを生成）
 	const StripeImport = (await import('stripe')).default;
 	const stripeVerify = new StripeImport('sk_test_dummy_for_verification_only', {
-		apiVersion: '2026-05-27.dahlia',
+		apiVersion: '2026-04-22.dahlia',
 	});
 	return {
 		handleWebhookEvent: (...args: unknown[]) => mockHandleWebhookEvent(...args),
