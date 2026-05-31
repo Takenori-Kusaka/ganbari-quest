@@ -288,10 +288,18 @@ export async function createStagehand({
 	//   - modelName / modelClientOptions → model (ModelConfiguration、model.d.ts §1)
 	//   - headless → localBrowserLaunchOptions.headless にネスト
 	//   - domSettleTimeoutMs → domSettleTimeout (リネーム)
+	//
+	// v3 model name 形式: `provider/model` (anthropic/claude-opus-4-7 等)
+	// docs: https://docs.stagehand.dev/v3/configuration/models#configuration-setup
+	// `claude-` prefix で始まる場合は anthropic を自動付与し後方互換維持
+	const stagehandModelName =
+		typeof modelName === 'string' && !modelName.includes('/') && modelName.startsWith('claude-')
+			? `anthropic/${modelName}`
+			: modelName;
 	const stagehand = new Stagehand({
 		env: 'LOCAL',
 		model: {
-			modelName,
+			modelName: stagehandModelName,
 			apiKey,
 		},
 		localBrowserLaunchOptions: {

@@ -236,13 +236,21 @@ async function callSingleRole({
 	];
 
 	try {
-		const res = await client.messages.create({
+		// Claude Opus 4.x (4 / 4.5 / 4.7) は extended thinking 系で temperature が deprecated。
+		// model 名で分岐し Opus 4.x 系では omit、それ以外は 0.7 (multi-agent diversity 確保用)。
+		// docs: https://docs.anthropic.com/en/docs/about-claude/models/all-models#feature-comparison
+		const isOpus4Family = /claude-opus-4[-.]?\d*/.test(model);
+		/** @type {Record<string, unknown>} */
+		const apiParams = {
 			model,
 			max_tokens: 4000,
-			temperature: 0.7,
 			system: systemPrompt,
 			messages: [{ role: 'user', content: userContent }],
-		});
+		};
+		if (!isOpus4Family) {
+			apiParams.temperature = 0.7;
+		}
+		const res = await client.messages.create(apiParams);
 
 		// text block 抽出 + JSON parse
 		const textBlocks = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text);

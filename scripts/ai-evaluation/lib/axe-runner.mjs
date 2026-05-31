@@ -168,12 +168,25 @@ export const AGE_TAP_SIZE_MIN = {
  */
 async function loadAxeSource() {
 	try {
-		/** @type {{ source: string }} */
+		// axe-core v4.x は CJS 設計 (package.json main='axe.js', module 指定なし)。
+		// Node ESM の import() では namespace object に包まれ、`source` プロパティは default 配下に入る。
+		// 互換性のため `mod.source` (古い ESM 互換用) → `mod.default.source` (CJS interop) の順で fallback。
+		/** @type {any} */
 		const mod = await import('axe-core');
-		if (!mod.source || typeof mod.source !== 'string') {
-			throw new Error('axe-core module loaded but `source` property missing or not a string');
+		const cjsDefault = mod?.default;
+		const source =
+			typeof mod?.source === 'string'
+				? mod.source
+				: typeof cjsDefault?.source === 'string'
+					? cjsDefault.source
+					: null;
+		if (!source) {
+			throw new Error(
+				`axe-core module loaded but \`source\` property missing on both mod and mod.default ` +
+					`(mod keys sample: ${Object.keys(mod).slice(0, 5).join(',')}; default? ${!!cjsDefault})`,
+			);
 		}
-		return { source: mod.source };
+		return { source };
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
 		throw new Error(
@@ -240,7 +253,8 @@ async function runAxeInPage(page, runOptions) {
  */
 export async function runAxeAudit(page, jsonPath) {
 	// Mock mode: realistic dummy violations 5 件で structural test
-	if (page?._mockMode) {
+	// strict `=== true` check: 実 understudy/Page で偶然 _mockMode が truthy になる事故を防ぐ
+	if (page?._mockMode === true) {
 		const summary = { critical: 1, serious: 2, moderate: 2, minor: 0 };
 		await fs.mkdir(dirname(jsonPath), { recursive: true });
 		await fs.writeFile(
@@ -322,7 +336,7 @@ export async function runChildFriendlyAudit(page, ageMode) {
 
 	/** @type {TapTarget[]} */
 	let targets;
-	if (page?._mockMode && typeof page.$$eval === 'function') {
+	if (page?._mockMode === true && typeof page.$$eval === 'function') {
 		// Mock 後方互換: stagehand-runner.mjs mockPage が dummy 配列を返す
 		targets = /** @type {TapTarget[]} */ (
 			await page.$$eval('button, a, [role="button"], [role="link"]', () => [])
