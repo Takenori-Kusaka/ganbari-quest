@@ -1,6 +1,5 @@
-// @ts-nocheck — Pre-PMF POC: .mjs jsdoc 型整備は別 follow-up Issue (#2695 scope 外)
 /**
- * axe-core Playwright runner (Issue #2692 AC3)
+ * axe-core inline runner (Issue #2692 / PR #2695 follow-up α)
  *
  * 役割:
  *   - WCAG 2.2 AA 自動 audit (5 age mode × 5 step = 25 cycle)
@@ -9,7 +8,7 @@
  * Mock mode (page._mockMode === true):
  *   - axe-core SDK load 回避
  *   - realistic dummy violations 5 件 (critical 1 / serious 2 / moderate 2)
- *   - tapSize 違反は MockStagehand.$$eval が dummy DOM を返すので runChildFriendlyAudit 共通
+ *   - tapSize 違反は MockStagehand.evaluate が dummy DOM を返すので runChildFriendlyAudit 共通
  *
  * SSOT:
  *   - src/lib/domain/validation/age-tier.ts AGE_TIER_CONFIG (tapSize: baby=120 / preschool=80 /
@@ -17,12 +16,20 @@
  *   - tmp/round18-parallel-path-first-review-plan-2026-05-30.md §4
  *   - tmp/stagehand-v3-migration-notes.md §大局的整理 (axe-core/playwright + Stagehand v3 型不整合)
  *
- * **v3 互換性警告 (PR #2695 Day 3 真因解消、honest path)**:
- *   - `@axe-core/playwright` の `AxeBuilder` は `playwright-core` の `Page` 型を厳密要求
- *   - Stagehand v3 は内部 Playwright 利用を廃止 (`understudy/Page`、CDP 直接接続)
- *   - 型不互換 + runtime も Playwright API でないため、実 mode で `AxeBuilder({ page: stagehand.context.activePage() })` は機能しない可能性が高い
- *   - **本 PR では実 mode を一時 SKIP** (TODO 明示 + warning)、Mock mode のみ pipeline 健全性を担保
- *   - 後続: axe-core 自体を `(await activePage()).evaluate()` 経由で inline 実行する方式に書き直す (別 follow-up Issue)
+ * **v3 互換性 (#2695 follow-up α、本 file で完遂)**:
+ *   旧来 `@axe-core/playwright::AxeBuilder` は `playwright-core` の `Page` 型を厳密要求 (`@axe-core/playwright/dist/index.d.ts` §2)。
+ *   Stagehand v3 は内部 Playwright を廃止 (`understudy/Page`、CDP 直接接続) のため AxeBuilder は機能しない。
+ *
+ *   本 file では axe-core 公式 inline pattern (https://github.com/dequelabs/axe-core README §"Use axe to find accessibility issues"):
+ *     1. `axe.source` (1.2MB JS source string) を `page.evaluate(<source string>)` で page context に inject
+ *     2. `axe.run(options)` を `page.evaluate(fn, arg)` で実行し JSON 結果取得
+ *
+ *   v3 Page.evaluate signature (page.d.ts §276):
+ *     `evaluate<R, Arg>(pageFunctionOrExpression: string | ((arg: Arg) => R | Promise<R>), arg?: Arg): Promise<R>`
+ *
+ *   → string 形式 = expression として実行、function 形式 = stringify + Arg を JSON-serialize して page context に渡す。
+ *      Playwright と signature 互換 (内部実装は CDP 直接) のため `@axe-core/playwright` の暗黙依存 (Page.frames() 等)
+ *      を経由せず動作する。
  *
  * 検出対象:
  *   - critical / serious: 0 件達成必須
@@ -35,10 +42,56 @@ import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
 
 /**
+ * @typedef {Object} AxeNode
+ * @property {string[]} target
+ * @property {string} html
+ *
+ * @typedef {Object} AxeViolation
+ * @property {string} id
+ * @property {string|null} impact  - 'critical' | 'serious' | 'moderate' | 'minor' | null
+ * @property {string} description
+ * @property {string} help
+ * @property {string} helpUrl
+ * @property {AxeNode[]} nodes
+ *
+ * @typedef {Object} AxeSummary
+ * @property {number} critical
+ * @property {number} serious
+ * @property {number} moderate
+ * @property {number} minor
+ *
+ * @typedef {Object} AxeAuditResult
+ * @property {AxeViolation[]} violations
+ * @property {number} critical
+ * @property {number} serious
+ * @property {number} moderate
+ * @property {number} minor
+ *
+ * @typedef {Object} TapTarget
+ * @property {string} tag
+ * @property {number} w
+ * @property {number} h
+ * @property {string} [text]
+ *
+ * @typedef {Object} ChildFriendlyAuditResult
+ * @property {number} expectedMin
+ * @property {number} totalTargets
+ * @property {TapTarget[]} violations
+ *
+ * @typedef {Object} StagehandV3Page
+ *   v3 understudy/Page surface subset we depend on (page.d.ts §138 / §206 / §276 直読 SSOT).
+ *   Mock mode では `_mockMode: true` + `evaluate(fn, arg)` のみで本 file は動作する。
+ * @property {boolean} [_mockMode]
+ * @property {(pageFunctionOrExpression: string | ((arg?: unknown) => unknown), arg?: unknown) => Promise<unknown>} evaluate
+ */
+
+/**
  * Mock axe violations (mock smoke test 用 realistic dummy、Issue #2692)
  *
  * 5 件 = critical 1 + serious 2 + moderate 2、Day 3 mock pipeline で structural test を埋める
  * realistic 度。実 Claude API call で意味ある数値になる metrics は別 thread。
+ *
+ * @type {AxeViolation[]}
  */
 const MOCK_AXE_VIOLATIONS = [
 	{
@@ -93,6 +146,8 @@ const MOCK_AXE_VIOLATIONS = [
  *
  * SSOT: src/lib/domain/validation/age-tier.ts AGE_TIER_CONFIG
  * (DESIGN.md §8 / §4 で同値定義済、本 file は POC 専用 mirror)
+ *
+ * @type {Record<'baby' | 'preschool' | 'elementary' | 'junior' | 'senior', number>}
  */
 export const AGE_TAP_SIZE_MIN = {
 	baby: 120,
@@ -103,26 +158,85 @@ export const AGE_TAP_SIZE_MIN = {
 };
 
 /**
- * @axe-core/playwright を lazy import
+ * axe-core (`axe.source` + `axe.run` ハンドル) を lazy import。
+ * `@axe-core/playwright` ではなく axe-core 単体を使う点が #2695 follow-up α の核心。
+ *
+ * @returns {Promise<{ source: string }>}
+ *   `source`: axe.min.js 全文 (1.2MB)、page.evaluate(<string expression>) で page context に inject
+ *
+ *   注: `axe.run` は inject 後の `window.axe.run(...)` を呼ぶため、ここでは source のみ返す。
  */
-async function loadAxeBuilder() {
+async function loadAxeSource() {
 	try {
-		const mod = await import('@axe-core/playwright');
-		return mod.default || mod.AxeBuilder;
+		/** @type {{ source: string }} */
+		const mod = await import('axe-core');
+		if (!mod.source || typeof mod.source !== 'string') {
+			throw new Error('axe-core module loaded but `source` property missing or not a string');
+		}
+		return { source: mod.source };
 	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
 		throw new Error(
-			`@axe-core/playwright load 失敗: ${err.message}\n` +
-				`本 POC は npm install -D @axe-core/playwright@^4.11 が前提です。`,
+			`axe-core load 失敗: ${msg}\n本 POC は npm install -D axe-core@^4.11 が前提です。`,
 		);
 	}
 }
 
 /**
+ * axe-core source を page context に inject + `axe.run(opts)` を実行
+ *
+ * 公式 inline pattern (https://github.com/dequelabs/axe-core/blob/develop/doc/API.md#section-3-API-Reference):
+ *   1. `await page.evaluate(axe.source)` — page context に `window.axe` を定義
+ *   2. `await page.evaluate(opts => window.axe.run(opts), runOptions)` — 結果 JSON 取得
+ *
+ * v3 Page.evaluate (page.d.ts §276) は string と function 両方受け付ける Playwright-style 互換 signature。
+ * CDP 直接実装でも Playwright 暗黙依存 (frames() 等) を介在させない点が `@axe-core/playwright` との
+ * 互換性破綻ポイント。本 file は v3 Page の `evaluate` 1 つだけ使うため依存最小。
+ *
+ * @param {StagehandV3Page} page
+ * @param {Record<string, unknown>} runOptions  axe.run(options) に渡す runOptions
+ * @returns {Promise<{ violations: AxeViolation[], passes: unknown[], incomplete: unknown[], url: string, timestamp: string }>}
+ */
+async function runAxeInPage(page, runOptions) {
+	const { source } = await loadAxeSource();
+
+	// Step 1: inject axe-core source (page context に window.axe を定義)
+	await page.evaluate(source);
+
+	// Step 2: axe.run を page context で実行 (Promise を返す関数を string 化 → evaluate)
+	// 第 2 引数 (Arg) は JSON-serialize されて page context の fn 引数に渡る (v3 page.d.ts §276)
+	// typedef の signature `(arg?: unknown) => unknown` に整合させるため、page context fn の引数は `unknown` で受ける
+	/** @type {{ violations: AxeViolation[], passes: unknown[], incomplete: unknown[], url: string, timestamp: string }} */
+	const results = /** @type {any} */ (
+		await page.evaluate(
+			/**
+			 * @param {unknown} opts  axe.run(options) に渡る runOptions、page context 内では `Record<string, unknown>` として扱われる
+			 * @returns {Promise<unknown>}
+			 */
+			(opts) => {
+				// page context: window.axe は inject 済 (上記 evaluate(source))
+				/** @type {{ run: (options: unknown) => Promise<unknown> }} */
+				const axe = /** @type {any} */ (
+					/** @type {{ axe?: unknown }} */ (/** @type {unknown} */ (globalThis)).axe
+				);
+				if (!axe || typeof axe.run !== 'function') {
+					throw new Error('axe.source inject 失敗: window.axe.run が未定義');
+				}
+				return axe.run(opts);
+			},
+			runOptions,
+		)
+	);
+
+	return results;
+}
+
+/**
  * 単一 page で axe-core WCAG 2.2 AA audit を実行 + JSON 出力
  *
- * @param {Page} page - Playwright Page instance (Stagehand.page 含む)
+ * @param {StagehandV3Page} page - Stagehand v3 understudy/Page (CDP 直接、Playwright 不使用)
  * @param {string} jsonPath - JSON 出力先 absolute path
- * @returns {Promise<{ violations: any[], critical: number, serious: number, moderate: number, minor: number }>}
+ * @returns {Promise<AxeAuditResult>}
  */
 export async function runAxeAudit(page, jsonPath) {
 	// Mock mode: realistic dummy violations 5 件で structural test
@@ -148,23 +262,14 @@ export async function runAxeAudit(page, jsonPath) {
 		return { violations: MOCK_AXE_VIOLATIONS, ...summary };
 	}
 
-	// v3 互換性警告: Stagehand v3 Page (understudy/Page) は playwright-core Page と型不互換。
-	// 実 mode で AxeBuilder が機能しない可能性があるため、warning を残しつつ best-effort 実行。
-	// 失敗時は呼出元の try/catch で吸収される (run-poc.mjs の axe step catch 経路)。
-	if (
-		page &&
-		!page._mockMode &&
-		typeof page.context !== 'function' &&
-		page.constructor?.name === 'Page'
-	) {
-		// Stagehand v3 understudy/Page は context() メソッド/プロパティが Playwright Page と異なる
-		console.warn(
-			'[axe-runner] WARN: Stagehand v3 Page と @axe-core/playwright は型不整合。' +
-				' 実 mode の axe-core 実行は後続 Issue で `evaluate()` 経由 inline 実装に書換予定。',
-		);
-	}
-	const AxeBuilder = await loadAxeBuilder();
-	const results = await new AxeBuilder({ page }).withTags(['wcag22aa', 'best-practice']).analyze();
+	// 実 mode: axe-core inline 実行 (#2695 follow-up α、@axe-core/playwright 撤去)
+	const runOptions = {
+		runOnly: {
+			type: 'tag',
+			values: ['wcag2a', 'wcag2aa', 'wcag22aa', 'best-practice'],
+		},
+	};
+	const results = await runAxeInPage(page, runOptions);
 
 	// category summary (DoR 12 整合)
 	const summary = {
@@ -189,7 +294,7 @@ export async function runAxeAudit(page, jsonPath) {
 				timestamp: results.timestamp,
 				summary,
 				violations: results.violations,
-				passes_count: results.passes?.length || 0,
+				passes_count: Array.isArray(results.passes) ? results.passes.length : 0,
 			},
 			null,
 			2,
@@ -203,26 +308,43 @@ export async function runAxeAudit(page, jsonPath) {
 /**
  * 子供向け固有 audit: button / a / [role="button"] の tapSize per age 違反検出
  *
- * @param {Page} page - Playwright Page instance
+ * v3 互換: `page.$$eval` は understudy/Page に存在しないため `page.evaluate(fn)` 経由で全要素列挙する。
+ * Mock mode では `_mockMode: true` の page が dummy tap target 配列を直接返す形に統一済
+ * (`stagehand-runner.mjs` mockPage.$$eval / mockPage.evaluate どちらも互換維持)。
+ *
+ * @param {StagehandV3Page & { $$eval?: (selector: string, fn: (els: Element[]) => TapTarget[]) => Promise<TapTarget[]> }} page
  * @param {keyof typeof AGE_TAP_SIZE_MIN} ageMode - 'baby' | 'preschool' | ...
- * @returns {Promise<{ expectedMin: number, totalTargets: number, violations: Array<{tag, w, h, text?}> }>}
+ * @returns {Promise<ChildFriendlyAuditResult>}
  */
 export async function runChildFriendlyAudit(page, ageMode) {
 	const expectedMin = AGE_TAP_SIZE_MIN[ageMode];
 	if (!expectedMin) throw new Error(`Unknown ageMode: ${ageMode}`);
 
-	// 全 tap target を DOM から抽出 (text 短縮で IDOR / 個人情報露出回避)
-	const targets = await page.$$eval('button, a, [role="button"], [role="link"]', (els) =>
-		els.map((el) => {
-			const rect = el.getBoundingClientRect();
-			return {
-				tag: el.tagName.toLowerCase(),
-				w: Math.round(rect.width),
-				h: Math.round(rect.height),
-				text: (el.textContent || '').trim().slice(0, 40),
-			};
-		}),
-	);
+	/** @type {TapTarget[]} */
+	let targets;
+	if (page?._mockMode && typeof page.$$eval === 'function') {
+		// Mock 後方互換: stagehand-runner.mjs mockPage が dummy 配列を返す
+		targets = /** @type {TapTarget[]} */ (
+			await page.$$eval('button, a, [role="button"], [role="link"]', () => [])
+		);
+	} else {
+		// 実 mode: v3 Page.evaluate(fn) で page context 内で DOM 抽出
+		targets = /** @type {TapTarget[]} */ (
+			await page.evaluate(() => {
+				/** @type {NodeListOf<Element>} */
+				const els = document.querySelectorAll('button, a, [role="button"], [role="link"]');
+				return Array.from(els).map((el) => {
+					const rect = el.getBoundingClientRect();
+					return {
+						tag: el.tagName.toLowerCase(),
+						w: Math.round(rect.width),
+						h: Math.round(rect.height),
+						text: (el.textContent || '').trim().slice(0, 40),
+					};
+				});
+			})
+		);
+	}
 
 	// visible target のみ判定 (display: none / hidden は除外)
 	const visible = targets.filter((t) => t.w > 0 && t.h > 0);
@@ -237,6 +359,9 @@ export async function runChildFriendlyAudit(page, ageMode) {
 
 /**
  * axe-core + 子供向け custom audit を統合実行 (Issue #2692 AC3 用)
+ *
+ * @param {{ page: StagehandV3Page & { $$eval?: any }, ageMode: keyof typeof AGE_TAP_SIZE_MIN, axeJsonPath: string }} opts
+ * @returns {Promise<{ axe: AxeAuditResult, childFriendly: ChildFriendlyAuditResult }>}
  */
 export async function runFullAudit({ page, ageMode, axeJsonPath }) {
 	const axe = await runAxeAudit(page, axeJsonPath);
