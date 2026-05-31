@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// @ts-nocheck — Pre-PMF POC: .mjs jsdoc 型整備は別 follow-up Issue (#2695 scope 外)
 /**
  * AI Heuristic Evaluator POC entry point (Issue #2692 / EPIC #2691)
  *

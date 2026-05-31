@@ -1,5 +1,3 @@
-// @ts-nocheck — Pre-PMF POC: .mjs jsdoc 型整備は別 follow-up Issue (#2695 scope 外)
-// 本ファイルは v3 API 整合に書き直し済 (PR #2695 Day 3 真因解消)。型は実 SDK + Mock で動作確認済
 /**
  * Stagehand v3 自動探索 runner (Issue #2692 / EPIC #2691 POC)
  *
@@ -118,8 +116,9 @@ async function loadStagehand() {
 		const { Stagehand } = await import('@browserbasehq/stagehand');
 		return Stagehand;
 	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
 		throw new Error(
-			`@browserbasehq/stagehand load 失敗: ${err.message}\n` +
+			`@browserbasehq/stagehand load 失敗: ${msg}\n` +
 				`本 POC は npm install -D @browserbasehq/stagehand@^3.4 が前提です。`,
 		);
 	}
@@ -136,15 +135,33 @@ async function loadStagehand() {
  *
  * 「pipeline structural 健全性のみ検証」目的。
  */
+/**
+ * @param {{ baseUrl: string }} opts
+ * @returns {{
+ *   _mockMode: true,
+ *   context: {
+ *     addCookies: (cookies: Array<Record<string, unknown>>) => Promise<void>,
+ *     activePage: () => any,
+ *     _getCookiesForTest: () => Array<Record<string, unknown>>,
+ *   },
+ *   act: (instruction: unknown, options?: unknown) => Promise<{ success: boolean, message: string }>,
+ *   observe: (instruction: unknown, options?: unknown) => Promise<Array<{ description: string }>>,
+ *   extract: (instruction?: unknown, schema?: unknown, options?: unknown) => Promise<{ extraction: string }>,
+ *   close: () => Promise<void>,
+ * }}
+ */
 function createMockStagehand({ baseUrl }) {
+	/** @type {Array<Record<string, unknown>>} */
 	const cookies = [];
 	const mockPage = {
-		_mockMode: true, // axe-runner.mjs が `page?._mockMode` で分岐するため必須
+		_mockMode: /** @type {const} */ (true), // axe-runner.mjs が `page?._mockMode` で分岐するため必須
 		_currentUrl: baseUrl,
+		/** @param {string} url */
 		async goto(url) {
 			this._currentUrl = url;
 			return null;
 		},
+		/** @param {{ path: string }} opts */
 		async screenshot({ path }) {
 			// dummy 1x1 PNG を書き込む (structural test 用 placeholder)
 			await fs.mkdir(dirname(path), { recursive: true });
@@ -154,11 +171,19 @@ function createMockStagehand({ baseUrl }) {
 		url() {
 			return this._currentUrl;
 		},
+		/**
+		 * @param {unknown} _fnOrExpr
+		 * @param {unknown} [_arg]
+		 */
 		async evaluate(_fnOrExpr, _arg) {
 			// v3 Page.evaluate (page.d.ts §276). runChildFriendlyAudit が呼ぶ
 			// (実 mode は axe-runner 側で別途実装、本 mock は structural test only)
 			return null;
 		},
+		/**
+		 * @param {string} _selector
+		 * @param {unknown} _fn
+		 */
 		async $$eval(_selector, _fn) {
 			// 後方互換 (v3 Page には $$eval 存在しないが、axe-runner.mjs runChildFriendlyAudit が
 			// 現状この API を使うため mock では維持。実 mode 移行時は evaluate ベースに書き直す TODO)
@@ -174,6 +199,7 @@ function createMockStagehand({ baseUrl }) {
 		},
 	};
 	const mockContext = {
+		/** @param {Array<Record<string, unknown>>} c */
 		async addCookies(c) {
 			cookies.push(...c);
 		},
@@ -187,9 +213,13 @@ function createMockStagehand({ baseUrl }) {
 		},
 	};
 	return {
-		_mockMode: true,
+		_mockMode: /** @type {const} */ (true),
 		context: mockContext,
 		// v3 では stagehand.act / observe は instance 直呼出 (v3.d.ts §150 / §169)
+		/**
+		 * @param {unknown} instructionOrAction
+		 * @param {unknown} [_options]
+		 */
 		async act(instructionOrAction, _options) {
 			const desc =
 				typeof instructionOrAction === 'string'
@@ -197,13 +227,23 @@ function createMockStagehand({ baseUrl }) {
 					: JSON.stringify(instructionOrAction);
 			return { success: true, message: `[MOCK act] ${desc.slice(0, 60)}` };
 		},
+		/**
+		 * @param {unknown} instructionOrOptions
+		 * @param {unknown} [_options]
+		 */
 		async observe(instructionOrOptions, _options) {
 			const text =
 				typeof instructionOrOptions === 'string'
 					? instructionOrOptions
-					: instructionOrOptions?.instruction || '(no instruction)';
+					: /** @type {{ instruction?: string }} */ (instructionOrOptions)?.instruction ||
+						'(no instruction)';
 			return [{ description: `[MOCK observed] ${text.slice(0, 80)}` }];
 		},
+		/**
+		 * @param {unknown} [_instruction]
+		 * @param {unknown} [_schema]
+		 * @param {unknown} [_options]
+		 */
 		async extract(_instruction, _schema, _options) {
 			return { extraction: '[MOCK extract] dummy text' };
 		},
@@ -216,12 +256,16 @@ function createMockStagehand({ baseUrl }) {
 /**
  * Stagehand v3 instance を本 product POC 標準設定で初期化
  *
+ * 戻り値は実 SDK の `import('@browserbasehq/stagehand').Stagehand` または Mock instance
+ * (`createMockStagehand` 戻り) のいずれか。型は `Promise<unknown>` で広げ、test 側 / run-poc.mjs 側で
+ * `as unknown as` narrow する運用。Mock instance は `_mockMode: true` で識別可能。
+ *
  * @param {Object} opts
  * @param {string} opts.baseUrl - http://localhost:5180 等 (demo Lambda env)
- * @param {string} opts.apiKey - ANTHROPIC_API_KEY (Stagehand LLM client 用、mock=true 時は不要)
+ * @param {string} [opts.apiKey] - ANTHROPIC_API_KEY (Stagehand LLM client 用、mock=true 時は不要)
  * @param {string} [opts.modelName='claude-opus-4-7'] - Stagehand 内部 LLM model
  * @param {boolean} [opts.mock=false] - true で Mock Stagehand instance を返す (cost $0、Issue #2692)
- * @returns {Promise<Stagehand>} initialized Stagehand instance (or Mock)
+ * @returns {Promise<unknown>} initialized Stagehand instance (or Mock instance with `_mockMode: true`)
  */
 export async function createStagehand({
 	baseUrl,
@@ -268,6 +312,10 @@ export async function createStagehand({
  * selectedChildId 1 件で child filter 条件切替可。
  *
  * v3 API: `stagehand.context.addCookies(cookies)` (context.d.ts §154、v2 の page.context() 経由を撤去)
+ *
+ * @param {{ context: { addCookies: (cookies: Array<Record<string, unknown>>) => Promise<void> } }} stagehand
+ * @param {string} baseUrl
+ * @param {string|number} childId
  */
 export async function setChildContext(stagehand, baseUrl, childId) {
 	const url = new URL(baseUrl);
@@ -287,6 +335,9 @@ export async function setChildContext(stagehand, baseUrl, childId) {
  * Note: context.d.ts §64 で activePage() は **同期** `Page | undefined` を返す。
  * Promise は付かないが、互換性のため await 可能な形で wrap (mock も同形態)。
  * 戻り値は `understudy/Page` 型 (CDP 直接、Playwright 不使用)。
+ *
+ * @param {{ context: { activePage: () => any | undefined } }} stagehand
+ * @returns {Promise<any>}
  */
 export async function getActivePage(stagehand) {
 	const page = stagehand.context.activePage();
@@ -306,10 +357,15 @@ export async function getActivePage(stagehand) {
  *   - `stagehand.page` プロパティ撤去 → `await getActivePage(stagehand)` で Page 取得
  *   - act / observe は V3 instance 直呼出 (page 経由しない)
  *
- * @param {Stagehand} stagehand
- * @param {Object} step - ACTIVITY_PACK_FLOW item
+ * @param {{
+ *   context: { activePage: () => any | undefined },
+ *   act: (instruction: string, options?: unknown) => Promise<unknown>,
+ *   observe: (instruction: string, options?: unknown) => Promise<unknown>,
+ * }} stagehand
+ * @param {{ step: number, label: string, url: string, action: string | null, nngFocus: string }} step - ACTIVITY_PACK_FLOW item
+ * @param {string} baseUrl
  * @param {string} ssPath - SS 出力先 absolute path
- * @returns {Promise<{ observed: any, screenshotPath: string, page: Page }>}
+ * @returns {Promise<{ observed: unknown, screenshotPath: string, page: any }>}
  */
 export async function executeStep(stagehand, step, baseUrl, ssPath) {
 	const fullUrl = new URL(step.url, baseUrl).toString();
@@ -328,7 +384,8 @@ export async function executeStep(stagehand, step, baseUrl, ssPath) {
 			await stagehand.act(step.action);
 		} catch (err) {
 			// action 失敗時は SS だけ撮って続行 (POC は best-effort、Stagehand v3 API 変動対応)
-			console.warn(`[stagehand] step ${step.step} act 失敗: ${err.message}`);
+			const msg = err instanceof Error ? err.message : String(err);
+			console.warn(`[stagehand] step ${step.step} act 失敗: ${msg}`);
 		}
 	}
 
@@ -339,13 +396,15 @@ export async function executeStep(stagehand, step, baseUrl, ssPath) {
 
 	// observe で現在 UI state extract (LLM 経由、optional)
 	// v3 observe(instruction, options) signature (v3.d.ts §169)
+	/** @type {unknown} */
 	let observed = null;
 	try {
 		observed = await stagehand.observe(
 			`Briefly describe what is visible on screen for step ${step.step}: ${step.label}`,
 		);
 	} catch (err) {
-		console.warn(`[stagehand] step ${step.step} observe 失敗: ${err.message}`);
+		const msg = err instanceof Error ? err.message : String(err);
+		console.warn(`[stagehand] step ${step.step} observe 失敗: ${msg}`);
 	}
 
 	return { observed, screenshotPath: ssPath, page };
@@ -353,11 +412,13 @@ export async function executeStep(stagehand, step, baseUrl, ssPath) {
 
 /**
  * Stagehand instance を安全に close (POC error path でも resource leak しない)
+ * @param {{ close: () => Promise<void> }} stagehand
  */
 export async function closeStagehand(stagehand) {
 	try {
 		await stagehand.close();
 	} catch (err) {
-		console.warn(`[stagehand] close 失敗 (無視): ${err.message}`);
+		const msg = err instanceof Error ? err.message : String(err);
+		console.warn(`[stagehand] close 失敗 (無視): ${msg}`);
 	}
 }

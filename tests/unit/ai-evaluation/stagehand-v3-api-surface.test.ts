@@ -1,6 +1,3 @@
-// @ts-nocheck — .mjs file dynamic import で TypeScript 型推論が効かないため。
-// 動作検証は vitest runtime (`npx vitest run tests/unit/ai-evaluation/`) で 17 tests PASS で担保済。
-// 型整備は別 follow-up (本 PR scope = v3 API 移行 + Mock 強化 + structural test 追加)
 /**
  * Stagehand v3 API surface assertion test (PR #2695 Day 3 fatal 真因解消)
  *
@@ -28,19 +25,95 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// 動的 import (Stagehand v3 module は SDK install 済前提だが、test env で実 SDK load を回避するため Mock 経路で )
-async function loadModule(): Promise<
-	typeof import('../../../scripts/ai-evaluation/lib/stagehand-runner.mjs')
-> {
-	// @ts-expect-error — .mjs file dynamic import
-	return import('../../../scripts/ai-evaluation/lib/stagehand-runner.mjs');
+/**
+ * Mock / runtime narrow type — `.mjs` 戻り値 (`Promise<unknown>`) を test 側で扱うため。
+ * 実 SDK の Stagehand class とは別 contract で、`_mockMode: true` を含む Mock 経路の API surface
+ * のみを assert する (runtime invariant は vitest expect で担保)。
+ */
+interface MockPage {
+	_mockMode: true;
+	goto: (...args: unknown[]) => Promise<unknown>;
+	screenshot: (opts: { path: string }) => Promise<unknown>;
+	url: () => string;
+	evaluate: (...args: unknown[]) => Promise<unknown>;
+	$$eval: (...args: unknown[]) => Promise<unknown[]>;
+	context?: unknown; // anti-regression: v2 page.context() を持たない事を assert する用
 }
 
-async function loadAxe(): Promise<
-	typeof import('../../../scripts/ai-evaluation/lib/axe-runner.mjs')
-> {
-	// @ts-expect-error — .mjs file dynamic import
-	return import('../../../scripts/ai-evaluation/lib/axe-runner.mjs');
+interface MockContext {
+	addCookies: (cookies: unknown[]) => Promise<void>;
+	activePage: () => MockPage;
+	_getCookiesForTest: () => Array<Record<string, unknown>>;
+}
+
+interface MockStagehand {
+	_mockMode: true;
+	context: MockContext;
+	act: (instruction: unknown, opts?: unknown) => Promise<{ success: boolean; message: string }>;
+	observe: (instruction: unknown, opts?: unknown) => Promise<Array<{ description: string }>>;
+	extract: (
+		instruction?: unknown,
+		schema?: unknown,
+		opts?: unknown,
+	) => Promise<{ extraction: string }>;
+	close: () => Promise<void>;
+}
+
+interface StagehandRunnerModule {
+	createStagehand: (opts: {
+		baseUrl: string;
+		apiKey?: string;
+		modelName?: string;
+		mock?: boolean;
+	}) => Promise<MockStagehand>;
+	setChildContext: (sh: MockStagehand, baseUrl: string, childId: number) => Promise<void>;
+	executeStep: (
+		sh: MockStagehand,
+		step: { step: number; label: string; url: string; action: string | null; nngFocus: string },
+		baseUrl: string,
+		ssPath: string,
+	) => Promise<{ observed: unknown; screenshotPath: string; page: MockPage }>;
+	getActivePage: (sh: MockStagehand) => Promise<MockPage>;
+	ACTIVITY_PACK_FLOW: Array<{
+		step: number;
+		label: string;
+		url: string;
+		action: string | null;
+		nngFocus: string;
+	}>;
+	FIXTURE_CHILDREN: Record<string, number>;
+	AGE_MODES: string[];
+}
+
+interface AxeRunnerModule {
+	runAxeAudit: (
+		page: { _mockMode?: boolean },
+		jsonPath: string,
+	) => Promise<{
+		violations: Array<{ id: string; impact: string | null }>;
+		critical: number;
+		serious: number;
+		moderate: number;
+		minor: number;
+	}>;
+	runChildFriendlyAudit: (
+		page: { _mockMode?: boolean; $$eval?: (...args: unknown[]) => Promise<unknown[]> },
+		ageMode: 'baby' | 'preschool' | 'elementary' | 'junior' | 'senior',
+	) => Promise<{ expectedMin: number; totalTargets: number; violations: unknown[] }>;
+	AGE_TAP_SIZE_MIN: Record<'baby' | 'preschool' | 'elementary' | 'junior' | 'senior', number>;
+}
+
+// 動的 import (.mjs file の TypeScript 型推論は any 同等のため、narrow interface で受け直す)
+async function loadModule(): Promise<StagehandRunnerModule> {
+	return (await import(
+		'../../../scripts/ai-evaluation/lib/stagehand-runner.mjs'
+	)) as unknown as StagehandRunnerModule;
+}
+
+async function loadAxe(): Promise<AxeRunnerModule> {
+	return (await import(
+		'../../../scripts/ai-evaluation/lib/axe-runner.mjs'
+	)) as unknown as AxeRunnerModule;
 }
 
 describe('Stagehand v3 module export surface', () => {
@@ -97,7 +170,11 @@ describe('Mock Stagehand instance — v3 API surface 整合', () => {
 
 			const obsResult = await sh.observe('Describe screen');
 			expect(Array.isArray(obsResult)).toBe(true);
-			expect(obsResult[0].description).toContain('[MOCK observed]');
+			expect(obsResult.length).toBeGreaterThan(0);
+			const firstObs = obsResult[0];
+			expect(firstObs).toBeDefined();
+			if (!firstObs) throw new Error('unreachable: length guard 後');
+			expect(firstObs.description).toContain('[MOCK observed]');
 
 			const extractResult = await sh.extract('dummy');
 			expect(extractResult).toHaveProperty('extraction');
@@ -150,7 +227,10 @@ describe('setChildContext / executeStep — v3 形態で動作', () => {
 		const tmp = await mkdtemp(join(tmpdir(), 'stagehand-v3-test-'));
 		try {
 			const ssPath = join(tmp, 'ss-step1.png');
-			const result = await executeStep(sh, ACTIVITY_PACK_FLOW[0], 'http://localhost:5180', ssPath);
+			const step1 = ACTIVITY_PACK_FLOW[0];
+			expect(step1).toBeDefined();
+			if (!step1) throw new Error('unreachable: ACTIVITY_PACK_FLOW[0] guard');
+			const result = await executeStep(sh, step1, 'http://localhost:5180', ssPath);
 
 			expect(result.screenshotPath).toBe(ssPath);
 			// SS dummy file が物理書き込みされている
@@ -213,8 +293,9 @@ describe('axe-runner — mock mode で realistic 5 violations', () => {
 		expect(AGE_TAP_SIZE_MIN.senior).toBe(44);
 
 		// senior mode (44px 最小) で mock $$eval が返す 7 件中、44px 未満は 2 件
-		// (h=32, h=40)
+		// (h=32, h=40)。_mockMode=true で stagehand-runner.mjs mockPage 後方互換 path を踏む。
 		const mockPage = {
+			_mockMode: true,
 			$$eval: async () => [
 				{ tag: 'button', w: 64, h: 64, text: 'OKボタン' }, // OK
 				{ tag: 'button', w: 48, h: 48, text: 'キャンセル' }, // OK (44 以上)
@@ -234,6 +315,7 @@ describe('axe-runner — mock mode で realistic 5 violations', () => {
 	it('runChildFriendlyAudit baby mode (120px 最小) で violations が多い', async () => {
 		const { runChildFriendlyAudit } = await loadAxe();
 		const mockPage = {
+			_mockMode: true,
 			$$eval: async () => [
 				{ tag: 'button', w: 64, h: 64, text: 'OK' }, // 違反 (64 < 120)
 				{ tag: 'button', w: 130, h: 130, text: 'OKK' }, // OK

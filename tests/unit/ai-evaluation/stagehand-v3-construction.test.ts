@@ -1,5 +1,3 @@
-// @ts-nocheck — .mjs file dynamic import + 実 SDK 型 (V3Options) 厳格すぎ。
-// 動作検証は vitest runtime で担保 (createStagehand error path + Stagehand construction)
 /**
  * Stagehand v3 SDK construction structural smoke test (PR #2695 Day 3 fatal class 防止)
  *
