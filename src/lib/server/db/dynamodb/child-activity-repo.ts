@@ -5,7 +5,7 @@
 //   本番 cognito Lambda は `AUTH_MODE=cognito + DATA_SOURCE=dynamodb` で main Lambda
 //   として稼働する (`infra/lib/compute-stack.ts:159` で固定)。当初コメントの
 //   「DATA_SOURCE='dynamodb' は ADR-0048 Multi-Lambda 設計外」は誤りで、本 stub の
-//   `throw new Error('not implemented')` が `/preschool/home` 等の 5 age mode SSR で
+//   read method 全件 NotImplementedError 化が `/preschool/home` 等の 5 age mode SSR で
 //   `Promise.all([..., getChildActivities(...)])` 経路を reject し 500 を引き起こす
 //   (子供 3-18 歳が本番アプリにアクセス不能)。ADR-0002 Critical 修正対象。
 //
