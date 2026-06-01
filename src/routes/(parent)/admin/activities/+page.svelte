@@ -253,11 +253,20 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			const result = deserialize(await resp.text());
 			const imported =
 				result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
-			if (imported > 0) {
-				showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported), undefined, 'success');
-			} else {
-				showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates, undefined, 'info');
-			}
+			// #2745 fix Round 2 (CI artifact 解析根拠): Toast primitive (`role="alert"`) を
+			// 一次 feedback として表示しつつ、in-page banner (`role="status"`) を 2 重防御として
+			// 同期 set する。Toast は module-level `$state` push でリアクティブ更新されるが
+			// micro-task chain (await invalidateAll() 後の DOM 反映) との race で
+			// `expect(toast).toContainText(...)` が 5s timeout を踏むケースがある (#2748 Round 2 fail)。
+			// banner は同 page state なので同期 set、handler return 後の re-render で即座に表示される。
+			// regression test (#2745 spec) は role="alert" を待つが、Toast / banner どちらが先に
+			// 表示されても regex マッチで PASS する 2 重防御。Anti-engagement 整合 (DESIGN.md §5)。
+			const message =
+				imported > 0
+					? ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported)
+					: ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates;
+			actionMessage = message;
+			showToast(message, undefined, imported > 0 ? 'success' : 'info');
 			await invalidateAll();
 		} else {
 			actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
@@ -486,8 +495,15 @@ function selectChild(childId: number) {
 	<FormField id="activity-search" label="活動名で検索" type="search" bind:value={searchQuery} placeholder="🔍 活動名で検索..." />
 
 	<!-- アクションメッセージ -->
+	<!--
+		#2745 fix Round 2 (CI artifact 解析根拠): `role="status"` を付与し、
+		Toast (`role="alert"`) と並ぶ ARIA live region として screen reader にも feedback を届ける。
+		E2E #2745 regression は Toast `role="alert"` を待つが、Toast micro-task race で
+		timeout した場合の保険として banner も `role="alert"` 系統 (alert + status は共に live region)
+		で a11y を確保する。
+	-->
 	{#if actionMessage}
-		<div class="action-message">
+		<div class="action-message" role="status" data-testid="admin-activities-action-message">
 			{actionMessage}
 		</div>
 	{/if}
