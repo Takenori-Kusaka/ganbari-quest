@@ -199,6 +199,29 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 			{/each}
 		</div>
 
+		<!-- Round 18 Cluster C: 年齢 filter 自動適用 hint + 解除動線
+			LP「お子さまの年齢にぴったり」訴求 (ADR-0013) と実装の事実を整合化 -->
+		{#if data.ageAutoApplied}
+			<div
+				class="mb-4 flex items-center justify-between gap-2 rounded-xl border border-[var(--color-border-success)] bg-[var(--color-feedback-success-bg)] px-3 py-2"
+				data-testid="age-auto-filter-hint"
+			>
+				<span class="text-xs font-medium text-[var(--color-feedback-success-text)]">
+					{MARKETPLACE_FILTER_LABELS.autoAgeFilterApplied(
+						data.ageAutoApplied.childName,
+						data.ageAutoApplied.ageTierLabel,
+					)}
+				</span>
+				<a
+					href="/marketplace?age="
+					data-testid="age-auto-filter-clear"
+					class="text-xs font-medium text-[var(--color-action-primary)] hover:underline whitespace-nowrap"
+				>
+					{MARKETPLACE_FILTER_LABELS.clearAgeFilter}
+				</a>
+			</div>
+		{/if}
+
 		<!-- Result count + sort + mobile filter button -->
 		<div class="flex items-center justify-between gap-2 mb-4">
 			<span
