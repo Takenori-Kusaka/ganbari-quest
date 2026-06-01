@@ -21,6 +21,9 @@ vi.mock('$lib/server/stripe/client', () => ({
 	getStripeClient: () => mockGetStripeClient(),
 }));
 
+// #2719 (Phase 7 PR-3b prerequisite): yearly 経路廃止に伴い `getPlans()` mock を monthly 2 種に絞る。
+// historical yearly tenant の MRR 計算は `HISTORICAL_YEARLY_AMOUNTS` (stripe-metrics-service 内)
+// による fallback で継続する (本 test の `calculateMRR` 期待値はこれを前提とする)。
 vi.mock('$lib/server/stripe/config', () => ({
 	getPlans: () => ({
 		monthly: {
@@ -30,26 +33,12 @@ vi.mock('$lib/server/stripe/config', () => ({
 			tier: 'standard',
 			label: '月額',
 		},
-		yearly: {
-			priceId: 'price_yearly',
-			amount: 5000,
-			interval: 'year',
-			tier: 'standard',
-			label: '年額',
-		},
 		'family-monthly': {
 			priceId: 'price_fm',
 			amount: 780,
 			interval: 'month',
 			tier: 'family',
 			label: 'ファミリー月額',
-		},
-		'family-yearly': {
-			priceId: 'price_fy',
-			amount: 7800,
-			interval: 'year',
-			tier: 'family',
-			label: 'ファミリー年額',
 		},
 	}),
 }));

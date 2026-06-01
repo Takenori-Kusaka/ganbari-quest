@@ -71,18 +71,20 @@ const envSchema = z.object({
 	// ----- Stripe -----
 	STRIPE_SECRET_KEY: z.string().optional(),
 	STRIPE_WEBHOOK_SECRET: z.string().optional(),
-	// #2347 (EPIC #2345): 設計書 SSOT (docs/design/19-プライシング戦略書.md / 21-プラン用語統一規約.md /
-	// plan-change-flow.md) は `STRIPE_PRICE_STANDARD_MONTHLY` / `STRIPE_PRICE_STANDARD_YEARLY` /
-	// `STRIPE_PRICE_FAMILY_MONTHLY` / `STRIPE_PRICE_FAMILY_YEARLY` の 4 種名称。
-	// 旧名 `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_YEARLY` も production env と CDK で
-	// 配布済のため後方互換として継続許容。`config.ts` が STANDARD 系を優先しつつ
-	// 旧名 fallback を行う (#2347 設計書同期 + production 破壊回避)。
-	STRIPE_PRICE_MONTHLY: z.string().optional(),
-	STRIPE_PRICE_YEARLY: z.string().optional(),
+	// #2719 (Phase 7 PR-3b prerequisite、Pre-PMF YAGNI 整合):
+	// Phase 1 補強 2 FR-2 (`phase1-plan-naming-pricing-axis-requirements.md`) + 補強 PR #2684
+	// で「課金期間 = 月額のみ」が確定 (年額プラン物理削除方針)。
+	// 旧 yearly env var 4 種 (`STRIPE_PRICE_*_YEARLY` + legacy `STRIPE_PRICE_MONTHLY` /
+	// `STRIPE_PRICE_YEARLY`) は本 PR で物理削除し、code 側 yearly 経路の silent failure
+	// risk を解消する (QA #2722 BLOCK V-3 直対処)。
+	//
+	// 維持される 2 env var は `config.ts` `buildPlanConfigs()` / `getPriceId()` / Phase 7
+	// PR-3a lookup_key 経路 (USE_LOOKUP_KEY=true 時の fallback) で参照される。
+	//
+	// 注: Production Stripe Dashboard の旧 yearly Price (4 件) archive は PR-5 cleanup
+	// で実施。本 PR は code 側削除のみ。
 	STRIPE_PRICE_STANDARD_MONTHLY: z.string().optional(),
-	STRIPE_PRICE_STANDARD_YEARLY: z.string().optional(),
 	STRIPE_PRICE_FAMILY_MONTHLY: z.string().optional(),
-	STRIPE_PRICE_FAMILY_YEARLY: z.string().optional(),
 	STRIPE_MOCK: booleanStringSchema,
 
 	// ----- License (ADR-0026) -----
