@@ -4138,10 +4138,12 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	importAllDuplicates: `選んだ${CHILD_TERMS.honorific}にはすでに追加済みです`,
 	importFailed: '取込に失敗しました',
 	// #2744 AC4 Delete UI (family scope): 一覧から活動を削除する確認 Dialog + 完了 Toast
+	// #2754 Fix Round 1 B2: undo 経路不在の business risk を文言で明示
+	// (ログ有 → 非表示で活動履歴は保全 / ログ無 → 物理削除でレコード復元不能)
 	deleteBtn: '削除',
 	deleteConfirmTitle: (name: string) => `${name} を削除しますか?`,
 	deleteConfirmBody:
-		'この活動はログがあれば「非表示」、なければ完全に削除されます。この操作は取り消せません。',
+		'この操作は取り消せません。活動ログがある場合は「非表示」になり履歴は保全されますが、ログがない場合は完全に削除され復元できません。続行しますか?',
 	deleteConfirmAction: '削除する',
 	deleteCancel: 'キャンセル',
 	deleteProcessing: '削除中...',

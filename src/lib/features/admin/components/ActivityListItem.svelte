@@ -104,16 +104,19 @@ function dailyLimitLabel(val: number | null): string {
 					</button>
 				</form>
 			{/if}
-			<!-- #2744 AC4: 削除 button + 確認 Dialog (既存 ?/delete server action 呼出) -->
-			<button
+			<!-- #2744 AC4 / #2754 Fix Round 1 B3-a: 削除 trigger を Button primitive 経由化
+			     (DESIGN.md §5 「ボタンは必ず Button.svelte を使用」整合、raw button 直書き負債を増やさない) -->
+			<Button
 				type="button"
-				class="px-2 py-1 rounded text-xs font-bold bg-[var(--color-feedback-error-bg)] text-[var(--color-feedback-error-text)] hover:bg-[var(--color-feedback-error-bg-strong)] transition-colors"
+				variant="danger"
+				size="sm"
+				class="text-xs"
 				data-testid="activity-delete-btn-{activity.id}"
 				aria-label={DL.deleteConfirmTitle(getActivityDisplayNameForAdult(activity))}
 				onclick={() => { showDeleteConfirm = true; }}
 			>
 				{DL.deleteBtn}
-			</button>
+			</Button>
 		</div>
 	</div>
 </div>

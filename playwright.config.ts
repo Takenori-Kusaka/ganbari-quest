@@ -45,6 +45,10 @@ const BASE_TEST_IGNORE = [
 	'**/integration/stripe-checkout-monthly-yearly.spec.ts',
 	// #1598 PR #1675: スクリーンショット撮影専用 spec (cognito-dev mode 専用、CI 既定実行から除外)
 	'**/screenshots-pmf-survey.spec.ts',
+	// #2754 Fix Round 1 B1: /admin/activities Delete UI SS 撮影専用 spec
+	// CI 既定実行から除外、`SS_LABEL=after npx playwright test tests/e2e/admin-activities-delete-screenshots.spec.ts`
+	// で手動実行する。
+	...(process.env.SS_LABEL ? [] : ['**/admin-activities-delete-screenshots.spec.ts']),
 	'**/production-smoke.spec.ts',
 	// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
 	// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
