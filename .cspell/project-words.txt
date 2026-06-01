@@ -163,6 +163,7 @@ hanami
 healthcheck
 hina
 hinamatsuri
+hostedzone
 keisuke
 kenta
 HSTS
@@ -300,6 +301,7 @@ tailwindcss
 taisou
 Takenori
 TESTIDS
+TESTPOOL
 textareas
 tmpl
 Tmpls
