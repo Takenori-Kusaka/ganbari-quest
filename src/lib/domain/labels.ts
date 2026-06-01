@@ -4161,6 +4161,15 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	deleteProcessing: '削除中...',
 	deleteSuccess: '✨ 活動を削除しました',
 	deleteFailed: '削除に失敗しました',
+	// Round 18 Cluster J (#1870 評価 Round 3): family master activity の年齢適合フィルタ hint。
+	// preschool 児童 context で「アルバイト」「大学受験」等 senior 向け activity が混在表示される
+	// per-child scope 不整合を解消し、選択中 child の age に合う活動のみ既定表示する旨を明示。
+	ageFilterAppliedHint: (name: string, age: number, visible: number, total: number) =>
+		`${name}${CHILD_TERMS.honorific} (${age}歳) の年齢に合う ${visible} 件を表示中 (全 ${total} 件)`,
+	ageFilterShowAll: '全件を表示',
+	ageFilterBypassedHint: (name: string, age: number) =>
+		`年齢フィルタ無効 (${name}${CHILD_TERMS.honorific} ${age}歳)。全 family scope activity を表示中`,
+	ageFilterReapply: '年齢フィルタを再適用',
 } as const;
 
 /**
