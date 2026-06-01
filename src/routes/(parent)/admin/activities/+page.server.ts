@@ -273,10 +273,18 @@ export const actions: Actions = {
 		try {
 			if (await hasActivityLogs(id, tenantId)) {
 				await setActivityVisibility(id, false, tenantId);
+				// #2754 Fix Round 1 B3-b: audit trail (活動非表示化、活動ログ保全)
+				logger.info('[admin/activities] 活動非表示化 (ログ有 soft delete)', {
+					context: { activityId: id, tenantId, mode: 'hidden' },
+				});
 				return { hidden: true };
 			}
 
 			await deleteActivityWithCleanup(id, tenantId);
+			// #2754 Fix Round 1 B3-b: audit trail (活動物理削除、復元不能)
+			logger.info('[admin/activities] 活動削除 (ログ無 hard delete)', {
+				context: { activityId: id, tenantId, mode: 'deleted' },
+			});
 			return { deleted: true };
 		} catch (e) {
 			logger.error('[admin/activities] 活動削除失敗', {

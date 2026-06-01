@@ -1,13 +1,25 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
-import { ACTIVITY_PRIORITY_FORM_LABELS, FEATURES_LABELS } from '$lib/domain/labels';
+import {
+	ACTIVITY_PRIORITY_FORM_LABELS,
+	ADMIN_ACTIVITIES_PAGE_LABELS,
+	FEATURES_LABELS,
+} from '$lib/domain/labels';
 import { getActivityDisplayNameForAdult, getCategoryById } from '$lib/domain/validation/activity';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
+import Button from '$lib/ui/primitives/Button.svelte';
+import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import type { ActivityItem } from './activity-types';
 
 // #1756 (#1709-B): インライン編集を削除し、編集は /admin/activities/[id]/edit に独立 URL 分離。
 //   props categoryDefs / logCount / isEditing / onedit / oncanceledit は残骸を整理した。
+//
+// #2744 AC4 Delete UI: 既存 `?/delete` server action (+page.server.ts:266-289) を呼ぶ削除 button
+// + 確認 Dialog を追加。delete action は活動ログがあれば hidden 化 (soft) / なければ
+// deleteActivityWithCleanup (hard) と二段階分岐するため、UI 側は完了 toast のみ示し
+// 成否判定は action result を待って分岐する。
 interface Props {
 	activity: ActivityItem;
 	mainQuestCount: number;
@@ -18,6 +30,10 @@ let { activity, mainQuestCount, mainQuestMax }: Props = $props();
 
 const category = $derived(getCategoryById(activity.categoryId));
 const L = FEATURES_LABELS.activityListItem;
+const DL = ADMIN_ACTIVITIES_PAGE_LABELS;
+
+let showDeleteConfirm = $state(false);
+let deleteLoading = $state(false);
 
 function dailyLimitLabel(val: number | null): string {
 	if (val === null) return L.dailyLimitDefault;
@@ -88,9 +104,72 @@ function dailyLimitLabel(val: number | null): string {
 					</button>
 				</form>
 			{/if}
+			<!-- #2744 AC4 / #2754 Fix Round 1 B3-a: 削除 trigger を Button primitive 経由化
+			     (DESIGN.md §5 「ボタンは必ず Button.svelte を使用」整合、raw button 直書き負債を増やさない) -->
+			<Button
+				type="button"
+				variant="danger"
+				size="sm"
+				class="text-xs"
+				data-testid="activity-delete-btn-{activity.id}"
+				aria-label={DL.deleteConfirmTitle(getActivityDisplayNameForAdult(activity))}
+				onclick={() => { showDeleteConfirm = true; }}
+			>
+				{DL.deleteBtn}
+			</Button>
 		</div>
 	</div>
 </div>
+
+<!-- #2744 AC4: 削除確認 Dialog (Dialog primitive、DESIGN.md §5 整合) -->
+<Dialog
+	bind:open={showDeleteConfirm}
+	title={DL.deleteConfirmTitle(getActivityDisplayNameForAdult(activity))}
+	testid="activity-delete-confirm-{activity.id}"
+>
+	<p class="delete-confirm-body" data-testid="activity-delete-confirm-body-{activity.id}">
+		{DL.deleteConfirmBody}
+	</p>
+	<form
+		method="POST"
+		action="?/delete"
+		class="delete-confirm-actions"
+		use:enhance={() => {
+			deleteLoading = true;
+			return async ({ result, update }) => {
+				deleteLoading = false;
+				showDeleteConfirm = false;
+				if (result.type === 'success') {
+					showToast(DL.deleteSuccess, undefined, 'success');
+				} else if (result.type === 'failure') {
+					showToast(DL.deleteFailed, undefined, 'error');
+				}
+				await update({ reset: false });
+			};
+		}}
+	>
+		<input type="hidden" name="id" value={activity.id} />
+		<Button
+			type="button"
+			variant="ghost"
+			size="sm"
+			onclick={() => { showDeleteConfirm = false; }}
+			disabled={deleteLoading}
+			data-testid="activity-delete-cancel-{activity.id}"
+		>
+			{DL.deleteCancel}
+		</Button>
+		<Button
+			type="submit"
+			variant="danger"
+			size="sm"
+			disabled={deleteLoading}
+			data-testid="activity-delete-confirm-submit-{activity.id}"
+		>
+			{deleteLoading ? DL.deleteProcessing : DL.deleteConfirmAction}
+		</Button>
+	</form>
+</Dialog>
 
 <style>
 	.activity-list-item {
@@ -158,5 +237,19 @@ function dailyLimitLabel(val: number | null): string {
 		padding: 0.0625rem 0.5rem;
 		border-radius: var(--radius-full, 9999px);
 		white-space: nowrap;
+	}
+
+	/* #2744 AC4: delete confirm Dialog inner content */
+	.delete-confirm-body {
+		font-size: 0.875rem;
+		color: var(--color-text-secondary);
+		margin-bottom: var(--sp-md);
+		line-height: 1.5;
+	}
+
+	.delete-confirm-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
 	}
 </style>
