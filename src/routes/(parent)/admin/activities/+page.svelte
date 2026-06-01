@@ -229,26 +229,47 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	formData.append('packId', pendingImportPresetId);
 	formData.append('childIds', childIdsValue);
 
-	const resp = await fetch('?/importPackToChildren', { method: 'POST', body: formData });
+	// #2745 fix: SvelteKit form action を fetch で叩く際は `x-sveltekit-action: true`
+	// + `accept: application/json` ヘッダー必須 (admin/rewards `importPresetToChildren`
+	// と同型)。ヘッダーなしでは ActionResult 形式が返されず `deserialize` が throw、
+	// その後の showToast / dialog close / state reset が全て skip され dialog open のまま
+	// + Toast 不在のまま停止する dead-end になる (PR #2748 E2E #2745 fail 真因)。
+	// 加えて try/catch で safety net: 想定外の throw 時も dialog close + actionMessage
+	// fallback でユーザに「動作したが結果不明」を必ず伝える (Anti-engagement 整合)。
 	// #2558: imported 件数を読んで正直に出し分ける。
 	// imported=0 (選んだ子に全て追加済み) を generic な「完了」で誤魔化さない。
 	// #2745 (CX bug-5): success / 重複時は Toast primitive (DESIGN.md §5「操作完了の成功フィードバック」)、
 	// failure (resp.ok=false) は in-page banner 維持 (恒久表示でユーザが原因確認できる方が良い)。
-	if (resp.ok) {
-		const result = deserialize(await resp.text());
-		const imported =
-			result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
-		if (imported > 0) {
-			showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported), undefined, 'success');
+	try {
+		const resp = await fetch('?/importPackToChildren', {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true',
+			},
+			body: formData,
+		});
+		if (resp.ok) {
+			const result = deserialize(await resp.text());
+			const imported =
+				result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
+			if (imported > 0) {
+				showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported), undefined, 'success');
+			} else {
+				showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates, undefined, 'info');
+			}
+			await invalidateAll();
 		} else {
-			showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates, undefined, 'info');
+			actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
 		}
-		await invalidateAll();
-	} else {
+	} catch {
+		// SvelteKit deserialize / network exception を捕捉。in-page banner で
+		// 「失敗した」事実を残しつつ dialog は必ず close して dead-end を回避する。
 		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
+	} finally {
+		pendingImportPresetId = null;
+		showChildSelectionDialog = false;
 	}
-	pendingImportPresetId = null;
-	showChildSelectionDialog = false;
 }
 
 function handleChildSelectionCancel() {
