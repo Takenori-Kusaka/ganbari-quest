@@ -350,4 +350,38 @@ describe('marketplace dispatcher + activity-pack', () => {
 		expect(result.imported).toBe(1);
 		expect(result.total).toBe(1);
 	});
+
+	// Round 18 Cluster H (#13/#16/#20/#25/#28): subset 取込 — `+page.server.ts` の
+	// `importPackToChildren` action が `selectedIndexes` を受け取った時に payload.activities を
+	// slice してから dispatchImport へ渡す動線を、subset 後 payload で逆方向に検証する。
+	// preschool 親「30 件は多すぎる、歯磨きとお片付けだけ欲しい」の subset 結果が正しく取り込まれることを担保。
+	it('subset 取込 (#13/#16/#20/#25/#28): 30 件から 2 件 slice した payload は 2 件のみ insert される', async () => {
+		const { dispatchImport } = await import('../../../../src/lib/marketplace');
+
+		// 30 件 fixture (preschool starter pack 規模)
+		const allActivities = Array.from({ length: 30 }, (_, i) =>
+			makeActivity({ name: `activity-${i}`, categoryCode: 'seikatsu' as const }),
+		);
+		// 「歯磨きとお片付けだけ欲しい」を index 3, 7 でシミュレート
+		const selectedIndexes = [3, 7];
+		const subset = selectedIndexes.map((i) => allActivities[i]);
+		const slicedPayload = { activities: subset };
+
+		const result = await dispatchImport({
+			typeCode: 'activity-pack',
+			rawPayload: slicedPayload,
+			displayName: 'kinder-starter (subset)',
+			ctx: { tenantId: TENANT, presetId: 'kinder-starter' },
+		});
+		// subset = 2 件のみ insert / 残り 28 件は payload に含まれないため skip すらされない
+		expect(result.imported).toBe(2);
+		expect(result.total).toBe(2);
+		// bulk write が 1 回 / 2 inputs (subset 件数) で呼ばれる (#2458-A1: per-child bulk path)
+		expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(1);
+		const [inputs] = mockInsertActivitiesBulk.mock.calls[0] as [unknown[]];
+		expect(inputs).toHaveLength(2);
+		// subset で選んだ activity の name が伝播していること (順序 = selectedIndexes 順)
+		const names = (inputs as Array<{ name: string }>).map((a) => a.name);
+		expect(names).toEqual(['activity-3', 'activity-7']);
+	});
 });

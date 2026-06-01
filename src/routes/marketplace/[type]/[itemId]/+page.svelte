@@ -92,6 +92,43 @@ let importingRule = $state(false);
 const childOptions = $derived(
 	(data.children ?? []).map((c) => ({ value: String(c.id), label: c.nickname })),
 );
+
+// Round 18 Cluster H (#13/#16/#20/#25/#28): activity-pack subset 選択 UI state
+// 既存活動 name と一致するものは default unchecked (重複取込で hidden delete 発生回避)
+// それ以外は default checked (現状の 30 件一括取込 UX を後方互換維持)
+const activityPackActivities = $derived(
+	isActivityPack ? (item.payload as ActivityPackPayload).activities : [],
+);
+const existingNameSet = $derived(new Set(data.existingActivityNames ?? []));
+// svelte-ignore state_referenced_locally
+let activitySelections = $state<boolean[]>(
+	isActivityPack
+		? (item.payload as ActivityPackPayload).activities.map(
+				(a) => !(data.existingActivityNames ?? []).includes(a.name),
+			)
+		: [],
+);
+const selectedCount = $derived(activitySelections.filter((b) => b).length);
+const totalCount = $derived(activityPackActivities.length);
+const importUrlWithSubset = $derived.by(() => {
+	if (!isActivityPack) return '';
+	const indexes = activitySelections
+		.map((selected, i) => (selected ? i : -1))
+		.filter((i) => i >= 0);
+	// 全件選択 (既定 = 既存重複除く全て) は indexes 省略 (後方互換)、subset は CSV で URL に乗せる。
+	// CWE-598: childId は乗せない。activity index は機微情報ではない (公開 marketplace SSOT の index)。
+	const params = new URLSearchParams({ import: item.itemId });
+	if (indexes.length !== totalCount) {
+		params.set('indexes', indexes.join(','));
+	}
+	return `/admin/activities?${params.toString()}`;
+});
+function selectAllActivities() {
+	activitySelections = activitySelections.map(() => true);
+}
+function deselectAllActivities() {
+	activitySelections = activitySelections.map(() => false);
+}
 </script>
 
 <svelte:head>
@@ -184,18 +221,77 @@ const childOptions = $derived(
 
 			{#if isActivityPack}
 				{@const payload = item.payload as ActivityPackPayload}
+				<!-- Round 18 Cluster H (#13/#16/#20/#25/#28): subset 選択 UI
+					ADR-0012 Anti-engagement: 既定で「既存と重複しないもののみ checked」、preschool 親が
+					「30 件は多すぎる、歯磨きとお片付けだけ欲しい」「既存と重複する activity の事前説明なし」
+					不満に直接回答する。「すべて選ぶ / すべて外す」で 0 摩擦の subset 編集を提供。 -->
+				{#if data.isAuthenticated && data.children.length > 0}
+					<div
+						class="flex items-center justify-between mb-3 pb-2 border-b border-[var(--color-border-default)]"
+					>
+						<p
+							class="text-xs font-bold text-[var(--color-text-secondary)]"
+							data-testid="activity-pack-selected-count"
+						>
+							{MARKETPLACE_LABELS.detailActivityPackSelectedCount(selectedCount, totalCount)}
+						</p>
+						<div class="flex gap-2">
+							<button
+								type="button"
+								class="text-xs text-[var(--color-action-primary)] underline hover:no-underline"
+								onclick={selectAllActivities}
+								data-testid="activity-pack-select-all"
+							>
+								{MARKETPLACE_LABELS.detailActivityPackSelectAll}
+							</button>
+							<button
+								type="button"
+								class="text-xs text-[var(--color-action-primary)] underline hover:no-underline"
+								onclick={deselectAllActivities}
+								data-testid="activity-pack-deselect-all"
+							>
+								{MARKETPLACE_LABELS.detailActivityPackDeselectAll}
+							</button>
+						</div>
+					</div>
+					<p class="text-xs text-[var(--color-text-tertiary)] mb-3">
+						{MARKETPLACE_LABELS.detailActivityPackSelectHint}
+					</p>
+				{/if}
 				<div class="space-y-2">
-					{#each payload.activities as act}
-						<div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0">
+					{#each payload.activities as act, i}
+						{@const isExisting = existingNameSet.has(act.name)}
+						<label
+							class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 cursor-pointer"
+							data-testid="activity-pack-row"
+							data-existing={isExisting ? 'true' : 'false'}
+						>
+							{#if data.isAuthenticated && data.children.length > 0}
+								<input
+									type="checkbox"
+									bind:checked={activitySelections[i]}
+									class="w-4 h-4 accent-[var(--color-action-primary)]"
+									data-testid="activity-pack-checkbox-{i}"
+									aria-label={act.name}
+								/>
+							{/if}
 							<span class="text-lg">{act.icon}</span>
 							<div class="flex-1">
 								<span class="text-sm font-medium text-[var(--color-text-primary)]">{act.name}</span>
+								{#if isExisting}
+									<span
+										class="ml-2 text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)] px-2 py-0.5 rounded-full"
+										data-testid="activity-pack-existing-badge"
+									>
+										{MARKETPLACE_LABELS.detailActivityPackAlreadyExistsBadge}
+									</span>
+								{/if}
 								{#if act.triggerHint}
 									<p class="text-xs text-[var(--color-text-tertiary)]">{act.triggerHint}</p>
 								{/if}
 							</div>
 							<span class="text-xs text-[var(--color-text-tertiary)]">+{act.basePoints}P</span>
-						</div>
+						</label>
 					{/each}
 				</div>
 			{:else if isRewardSet}
@@ -556,22 +652,33 @@ const childOptions = $derived(
 				<!-- #2362 PR-3 Phase 5 (CWE-598): activity-pack ログイン済 + 子供登録済
 					→ 親管理画面に遷移して ChildSelectionDialog を auto-open (Phase 4 admin の mechanism と接続)。
 					URL に childId を渡さず itemId のみ。child binding は admin 側ダイアログで決定する。
-					(docs/design/marketplace-import-flow.md §3.1 取込フロー sequence 整合) -->
-				{@const activityPackPayload = item.payload as ActivityPackPayload}
+					(docs/design/marketplace-import-flow.md §3.1 取込フロー sequence 整合)
+					Round 18 Cluster H: subset 選択 (indexes CSV) を URL に追加。
+					selectedCount === 0 のときは CTA を disable (誤遷移防止)。 -->
 				<p class="text-xs text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailCtaImportActivityPackDesc}
 				</p>
-				<a
-					href="/admin/activities?import={item.itemId}"
-					class="block"
-					data-testid="activity-pack-import-cta"
-				>
-					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportActivityPackWithCount(
-							activityPackPayload.activities.length,
-						)}
+				{#if selectedCount > 0}
+					<a
+						href={importUrlWithSubset}
+						class="block"
+						data-testid="activity-pack-import-cta"
+					>
+						<Button variant="primary" size="lg" class="w-full">
+							{MARKETPLACE_LABELS.detailCtaImportActivityPackSelected(selectedCount)}
+						</Button>
+					</a>
+				{:else}
+					<Button
+						variant="primary"
+						size="lg"
+						class="w-full"
+						disabled
+						data-testid="activity-pack-import-cta-disabled"
+					>
+						{MARKETPLACE_LABELS.detailActivityPackSelectedZero}
 					</Button>
-				</a>
+				{/if}
 			{:else if isActivityPack && data.isAuthenticated && data.children.length === 0}
 				<!-- #2362 PR-3 Phase 5: activity-pack ログイン済 + 子供未登録 → setup 誘導 -->
 				<div

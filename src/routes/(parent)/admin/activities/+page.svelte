@@ -261,6 +261,12 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	const formData = new FormData();
 	formData.append('packId', pendingImportPresetId);
 	formData.append('childIds', childIdsValue);
+	// Round 18 Cluster H (#13/#16/#20/#25/#28): activity-pack subset 取込。
+	// marketplace 詳細で選んだ index を URL → load → state 経由でそのまま action へ転送する。
+	// 未指定なら全件 (server action 側で後方互換 fallback)。
+	if (data.importSelectedIndexes && data.importSelectedIndexes.length > 0) {
+		formData.append('selectedIndexes', data.importSelectedIndexes.join(','));
+	}
 
 	// #2745 fix: SvelteKit form action を fetch で叩く際は `x-sveltekit-action: true`
 	// + `accept: application/json` ヘッダー必須 (admin/rewards `importPresetToChildren`

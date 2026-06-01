@@ -130,6 +130,27 @@ POC #2693 EPIC #2724 Round 18 で「activity-pack 取込完了後に何のフィ
 
 **他 type への波及方針**: reward-set (`admin/rewards/importPresetToChildren`) も既に `x-sveltekit-action` header + ActionResult deserialize の同型実装。checklist / rule-preset / challenge-set の admin 動線で fetch ActionResult 経由を採用する場合、本 SSOT 3 件 (Toast + 2 重防御 + `x-sveltekit-action` header) を必ず複製すること。
 
+##### Round 18 Cluster H (#13/#16/#20/#25/#28) subset 取込 (2026-06-02)
+
+Round 18 Round 3 評価で「30 件一括取込で個別選択不可」「既存重複 activity の事前説明なし」「3 歳児親には 30 件は多すぎる」が 5 件 (Cluster H) 表面化した。これに対し、activity-pack 詳細での **subset 選択 UI + 既存重複 detection + 件数連動 CTA** を導入する (PR scope: activity-pack のみ、他 type は別 Issue)。
+
+| 動線要素 | 修正内容 | 実装位置 |
+|---|---|---|
+| **既存活動 fetch** | marketplace 詳細 `load` で `type === 'activity-pack'` のときに `findActivities(tenantId)` を呼び、`existingActivityNames: string[]` を unique 集約して返す。`getAllChildren` 取得と同じ try/catch で囲み、tenant 解決失敗時は空配列 fallback | `src/routes/marketplace/[type]/[itemId]/+page.server.ts` `load` |
+| **subset 選択 UI** | activity-pack の preview list 各行に checkbox を追加。既存活動と name match した行は default unchecked + 「登録済み」 badge (`MARKETPLACE_LABELS.detailActivityPackAlreadyExistsBadge`)、それ以外は default checked。「すべて選ぶ / すべて外す」ボタンで一括変更 | `src/routes/marketplace/[type]/[itemId]/+page.svelte` activity-pack branch |
+| **件数連動 CTA** | `selectedCount` (`$derived`) を CTA 文言に反映 (`MARKETPLACE_LABELS.detailCtaImportActivityPackSelected(count)`)。`selectedCount === 0` のときは disabled (`MARKETPLACE_LABELS.detailActivityPackSelectedZero` 文言、誤遷移防止) | 同上 |
+| **subset URL 渡し** | CTA href を `/admin/activities?import=<itemId>&indexes=<csv>` 形式に拡張。全件選択時 (`selectedCount === totalCount`) は `indexes` 省略で後方互換維持。CWE-598 (childId 露出禁止) は崩れない (`indexes` は SSOT 内 activity 配列の index = 機微情報ではない) | `importUrlWithSubset` `$derived` |
+| **subset query 受領** | admin/activities `load` で `?indexes=<csv>` を parse し `importSelectedIndexes: number[] \| null` として返す。空 / 未指定 / 不正値は null (= 全件 / 後方互換) | `src/routes/(parent)/admin/activities/+page.server.ts` `load` |
+| **subset action 送信** | ChildSelectionDialog confirm 時、`data.importSelectedIndexes` が空でなければ `selectedIndexes` (CSV) を `FormData` に追加して `?/importPackToChildren` に POST | `src/routes/(parent)/admin/activities/+page.svelte` `handleChildSelectionConfirm` |
+| **subset payload slice** | `importPackToChildren` action で `selectedIndexes` を parse → unique 化 → `source.payload.activities` を index で slice してから `dispatchImport` に渡す。subset 結果が 0 件なら fail 400 (`'取り込む活動が選択されていません'`) | 同 `+page.server.ts` `importPackToChildren` action |
+
+**dedup 連携**: subset で選んだ activity が target child 側で既に存在する場合、`activity-import-service.ts` の per-child dedup (`#2558`) で skip される。subset slice + per-child dedup の 2 段防御で、preschool 親「既存と重複する activity の事前説明なし」(Cluster H #25) と「個別選択不可」(#20) を同時解決する。
+
+**CWE-598 整合性検証**:
+- URL に乗るのは `import=<itemId>` (公開 SSOT 識別子) + `indexes=<csv>` (公開 activity 配列 index) のみ
+- childId は依然として ChildSelectionDialog 経由でのみ確定 (URL/body 直接受領なし)
+- subset slice 結果も payload 内に直接含まれ、URL に乗らない
+
 #### per-child type の重複判定 (dedup) scope ルール (#2558、必読)
 
 **per-child instance type (activity / reward / challenge) の import 重複判定は必ず child 単位で行う。** tenant 全体での dedup は禁止。
