@@ -87,10 +87,12 @@ export class ComputeStack extends cdk.Stack {
 		// --- Stripe 設定（CDK context 経由で GitHub Actions Secrets から取得） ---
 		const stripeSecretKey = this.node.tryGetContext('stripeSecretKey') ?? '';
 		const stripeWebhookSecret = this.node.tryGetContext('stripeWebhookSecret') ?? '';
-		const stripePriceMonthly = this.node.tryGetContext('stripePriceMonthly') ?? '';
-		const stripePriceYearly = this.node.tryGetContext('stripePriceYearly') ?? '';
+		// #2719 (Phase 7 PR-3b prerequisite): yearly 4 種 + legacy `stripePriceMonthly` /
+		// `stripePriceYearly` は物理削除済。monthly 2 種のみ Lambda env に inject する。
+		// 過去 yearly 契約者の MRR 表示は `stripe-metrics-service.ts` の `HISTORICAL_YEARLY_AMOUNTS`
+		// fallback で継続計算 (SSOT: docs/design/billing-redesign/phase7-staging-validation-protocol.md)。
+		const stripePriceStandardMonthly = this.node.tryGetContext('stripePriceStandardMonthly') ?? '';
 		const stripePriceFamilyMonthly = this.node.tryGetContext('stripePriceFamilyMonthly') ?? '';
-		const stripePriceFamilyYearly = this.node.tryGetContext('stripePriceFamilyYearly') ?? '';
 
 		// --- Cron Endpoint Bearer Secret (#820 PR-D / ADR-0033) ---
 		// /api/cron/retention-cleanup の Bearer 認証に使用。
@@ -205,12 +207,12 @@ export class ComputeStack extends cdk.Stack {
 				...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
 				...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
 				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
-				...(stripePriceMonthly ? { STRIPE_PRICE_MONTHLY: stripePriceMonthly } : {}),
-				...(stripePriceYearly ? { STRIPE_PRICE_YEARLY: stripePriceYearly } : {}),
+				...(stripePriceStandardMonthly
+					? { STRIPE_PRICE_STANDARD_MONTHLY: stripePriceStandardMonthly }
+					: {}),
 				...(stripePriceFamilyMonthly
 					? { STRIPE_PRICE_FAMILY_MONTHLY: stripePriceFamilyMonthly }
 					: {}),
-				...(stripePriceFamilyYearly ? { STRIPE_PRICE_FAMILY_YEARLY: stripePriceFamilyYearly } : {}),
 				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 				SES_CONFIG_SET_NAME: 'ganbari-quest-config',
