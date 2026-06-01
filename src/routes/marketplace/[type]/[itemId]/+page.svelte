@@ -145,7 +145,7 @@ const childOptions = $derived(
 			{#each item.tags as tag}
 				<a
 					href="/marketplace?tag={tag}"
-					class="text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2 py-0.5 rounded-full hover:text-[var(--color-text-secondary)]"
+					class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)]"
 				>
 					{tag}
 				</a>

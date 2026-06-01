@@ -141,7 +141,7 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 					{#each data.tags as tag (tag)}
 						<a
 							href={filterUrl({ tag: activeTag === tag ? null : tag })}
-							class="px-2 py-0.5 rounded-full text-[10px] font-medium transition-all {activeTag === tag
+							class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all {activeTag === tag
 								? 'bg-[var(--color-action-primary)] text-white'
 								: 'bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}"
 						>
