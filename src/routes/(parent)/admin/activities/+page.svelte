@@ -25,6 +25,11 @@ import ChildSelectionDialog, {
 } from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+// #2745 (CX bug-5, EPIC #2724): activity-pack 取込完了時の Toast success feedback。
+// DESIGN.md §5 Toast 使用パターン (「操作完了の成功フィードバック」) 整合。
+// 既存 actionMessage (in-page banner) は他 action (clear / copy / bulk / restore) で使用するため残置し、
+// import 系のみ Toast primitive 経由に切替 (Anti-engagement / 3 秒自動消滅、DESIGN.md §5)。
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 // #2362 PR-3 Phase 7c: hardcoded text 排除 (ADR-0045) — CHILD_TERMS.honorific を template literal で参照
 const CHILD_HONORIFIC_LABEL = CHILD_TERMS.honorific;
@@ -227,14 +232,17 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	const resp = await fetch('?/importPackToChildren', { method: 'POST', body: formData });
 	// #2558: imported 件数を読んで正直に出し分ける。
 	// imported=0 (選んだ子に全て追加済み) を generic な「完了」で誤魔化さない。
+	// #2745 (CX bug-5): success / 重複時は Toast primitive (DESIGN.md §5「操作完了の成功フィードバック」)、
+	// failure (resp.ok=false) は in-page banner 維持 (恒久表示でユーザが原因確認できる方が良い)。
 	if (resp.ok) {
 		const result = deserialize(await resp.text());
 		const imported =
 			result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
-		actionMessage =
-			imported > 0
-				? ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported)
-				: ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates;
+		if (imported > 0) {
+			showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported), undefined, 'success');
+		} else {
+			showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates, undefined, 'info');
+		}
 		await invalidateAll();
 	} else {
 		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
