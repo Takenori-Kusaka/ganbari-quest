@@ -420,3 +420,22 @@ pglite
 # cutover = Phase 4 #2620 migration 用語 (immutable webhook → reactivation cutover)
 Kinde
 cutover
+
+# ===== #2738 Stripe alert PII redaction (Phase 7 PR-3b BLOCK V-3) =====
+# Luhn = Luhn algorithm (credit card number checksum validation、業界標準)
+# seti = SetupIntent prefix (Stripe API resource ID、例: seti_1Abc...)
+# Fwsq / Zhnattb = test fixture pseudo-random strings (PII redaction unit test 用)
+# MTTR = Mean Time To Recovery (incident response 指標、Phase 6 rollback doc)
+# revertable = ロールバック可能 (Phase 6 rollback design 用語)
+# flagsmith = Flagsmith (kill switch OSS、Phase 6 §design alternative として参照)
+# typeerror = TypeScript 型エラー (rollback doc CI failure scenario)
+# Bohner = "From Eternity to Here" 著者 (Phase 6 doc rollback philosophy 引用)
+Bohner
+flagsmith
+Fwsq
+Luhn
+MTTR
+revertable
+seti
+typeerror
+Zhnattb

@@ -151,3 +151,69 @@ describe('notifyStripeAlert — 3 種 alert kind 全て発火可能 (#2720、pha
 		expect(sendDiscordAlertMock.mock.calls[0]?.[0]?.message).toContain(`[${kind}]`);
 	});
 });
+
+describe('notifyStripeAlert — PII redaction (#2738、QA Adversarial security 軸 V-3 解消)', () => {
+	it('message に含まれる email は Discord/logger 両方で redact される', () => {
+		notifyStripeAlert({
+			kind: 'stripe-webhook-handler-typeerror',
+			message: 'Customer foo@example.com の subscription 更新失敗',
+		});
+
+		const loggerMsg = loggerWarnMock.mock.calls[0]?.[0] as string;
+		const discordMsg = sendDiscordAlertMock.mock.calls[0]?.[0]?.message;
+		expect(loggerMsg).not.toContain('foo@example.com');
+		expect(loggerMsg).toContain('<EMAIL_REDACTED>');
+		expect(discordMsg).not.toContain('foo@example.com');
+		expect(discordMsg).toContain('<EMAIL_REDACTED>');
+	});
+
+	it('errorSummary に含まれる card last4 は redact される', () => {
+		notifyStripeAlert({
+			kind: 'stripe-webhook-handler-typeerror',
+			message: 'Payment failed',
+			errorSummary: 'card ending in 4242 declined',
+		});
+
+		const loggerCtx = loggerWarnMock.mock.calls[0]?.[1]?.context as Record<string, unknown>;
+		const discordSummary = sendDiscordAlertMock.mock.calls[0]?.[0]?.errorSummary;
+		expect(String(loggerCtx?.errorSummary)).not.toContain('4242');
+		expect(String(loggerCtx?.errorSummary)).toContain('<CARD_REDACTED>');
+		expect(discordSummary).not.toContain('4242');
+		expect(discordSummary).toContain('<CARD_REDACTED>');
+	});
+
+	it('tags の string value のみ redact、Stripe ID + 数値 / boolean は維持', () => {
+		notifyStripeAlert({
+			kind: 'stripe-lookup-failed',
+			message: 'fallback 起動',
+			tags: {
+				customerEmail: 'user@example.com',
+				customerId: 'cus_NyP8b3FwsqLpBJ',
+				plan: 'premium',
+				fallbackUsed: true,
+				attempts: 3,
+			},
+		});
+
+		const loggerCtx = loggerWarnMock.mock.calls[0]?.[1]?.context as Record<string, unknown>;
+		expect(loggerCtx?.customerEmail).toBe('<EMAIL_REDACTED>');
+		expect(loggerCtx?.customerId).toBe('cus_NyP8b3FwsqLpBJ');
+		expect(loggerCtx?.plan).toBe('premium');
+		expect(loggerCtx?.fallbackUsed).toBe(true);
+		expect(loggerCtx?.attempts).toBe(3);
+	});
+
+	it('PII を含まない正常な alert は変化しない (false positive 防止)', () => {
+		notifyStripeAlert({
+			kind: 'stripe-lookup-failed',
+			message: 'lookup_key 解決失敗 → env var fallback 起動',
+			errorSummary: 'lookup_failed:standard_monthly',
+			tags: { plan: 'standard', interval: 'monthly' },
+		});
+
+		const loggerMsg = loggerWarnMock.mock.calls[0]?.[0] as string;
+		expect(loggerMsg).toContain('lookup_key 解決失敗');
+		expect(loggerMsg).not.toContain('<EMAIL_REDACTED>');
+		expect(loggerMsg).not.toContain('<CARD_REDACTED>');
+	});
+});

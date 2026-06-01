@@ -128,6 +128,59 @@ describe('discord-alert', () => {
 		env.DISCORD_ALERT_WEBHOOK_URL = original;
 	});
 
+	it('attack scenario: 大量の同一 stripe error 発火でも Discord rate limit を保護 (#2738)', async () => {
+		// QA Adversarial security 軸: stripe error が大量発火する攻撃シナリオで
+		// Discord webhook が rate limit (429) に到達しないことを確認。
+		// throttle 機構が同一 (path:errorSummary) key で 3 件目以降は無音化する。
+		const opts = {
+			level: 'error' as const,
+			message: 'Stripe webhook handler error',
+			path: '/api/stripe/webhook',
+			errorSummary: 'stripe-webhook-handler-typeerror',
+		};
+
+		// 100 件連続発火 (attack scenario)
+		for (let i = 0; i < 100; i++) {
+			await sendDiscordAlert({ ...opts, requestId: `attack-${i}` });
+		}
+
+		// 期待: 1st (normal) + 2nd (normal) + 3rd (throttled summary) = 3 件のみ送信
+		// 4th 以降 (97 件) は throttle により silent
+		expect(mockFetch).toHaveBeenCalledTimes(3);
+
+		// throttle map に全 requestId が記録されている (証跡保持)
+		const map = _getThrottleMap();
+		const entry = map.get('/api/stripe/webhook:stripe-webhook-handler-typeerror');
+		expect(entry).toBeDefined();
+		expect(entry?.count).toBe(100);
+		expect(entry?.requestIds.length).toBe(100);
+	});
+
+	it('throttle 機構は path+errorSummary を key とし、異なる kind なら独立 throttle (#2738)', async () => {
+		// 異なる alert kind は throttle が独立しているため、両方を観測可能
+		const lookupFailedOpts = {
+			level: 'error' as const,
+			message: 'Lookup key failed',
+			path: '/api/stripe/checkout',
+			errorSummary: 'stripe-lookup-failed',
+		};
+		const webhookErrorOpts = {
+			level: 'error' as const,
+			message: 'Webhook handler error',
+			path: '/api/stripe/webhook',
+			errorSummary: 'stripe-webhook-handler-typeerror',
+		};
+
+		// 各 kind を 2 件ずつ発火 (どちらも throttle 閾値 3 未満)
+		await sendDiscordAlert({ ...lookupFailedOpts, requestId: 'l1' });
+		await sendDiscordAlert({ ...lookupFailedOpts, requestId: 'l2' });
+		await sendDiscordAlert({ ...webhookErrorOpts, requestId: 'w1' });
+		await sendDiscordAlert({ ...webhookErrorOpts, requestId: 'w2' });
+
+		// 異なる kind は throttle が独立 = 4 件全て送信される
+		expect(mockFetch).toHaveBeenCalledTimes(4);
+	});
+
 	it('includes all fields in embed when provided', async () => {
 		await sendDiscordAlert({
 			level: 'error',
