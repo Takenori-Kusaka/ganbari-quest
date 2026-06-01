@@ -4,13 +4,29 @@
 // MRR / ARR / ARPU / 有料数 / トライアル→有料転換率 / 月次解約率 を提供。
 // 12-事業計画書.md §7.2 / 19-プライシング戦略書.md §8.1 の KPI 定義に準拠。
 
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { getStripeClient, isStripeEnabled } from '$lib/server/stripe/client';
 import { getPlans, type PlanConfig, type PlanId } from '$lib/server/stripe/config';
+
+/**
+ * #2719 (Phase 7 PR-3b prerequisite): historical yearly tenant の MRR 計算用 amount map。
+ *
+ * Phase 1 補強 2 FR-2 で年額廃止確定後、`getPlans()` は monthly 2 種のみ返すため、
+ * 過去 yearly 契約者の `tenant.plan === 'yearly' | 'family-yearly'` を `plans[plan]` で
+ * 引くと undefined になる。MRR 計算は historical record でも継続する必要があるため、
+ * yearly tenant 向けに amount snapshot を保持する。
+ *
+ * 注: 本 map は historical compat のみが目的で、新規 yearly checkout は `stripe-service`
+ * 側で reject される。本 map の値変更は過去契約者の MRR 表示にのみ影響する。
+ */
+const HISTORICAL_YEARLY_AMOUNTS: Partial<Record<LicensePlan, number>> = {
+	[LICENSE_PLAN.YEARLY]: 5000, // 旧 STANDARD_YEARLY
+	[LICENSE_PLAN.FAMILY_YEARLY]: 7800, // 旧 FAMILY_YEARLY
+};
 
 // ============================================================
 // Types
@@ -104,6 +120,9 @@ function generateMockMetrics(): StripeMetricsWithTrend {
 /**
  * テナントのプラン情報から MRR を算出。
  * 月額は額面、年額は /12 で月次換算。
+ *
+ * #2719: 年額廃止後も historical yearly 契約者の MRR を継続計算するため、
+ * `getPlans()` で未解決 (monthly 2 種以外) の場合は `HISTORICAL_YEARLY_AMOUNTS` で fallback。
  */
 export function calculateMRR(tenants: Tenant[]): number {
 	const plans = getPlans();
@@ -114,14 +133,21 @@ export function calculateMRR(tenants: Tenant[]): number {
 	for (const tenant of activeTenants) {
 		if (!tenant.plan) continue;
 		const planConfig = plans[tenant.plan as PlanId] as PlanConfig | undefined;
-		if (!planConfig) continue;
 
-		if (planConfig.interval === 'month') {
-			mrr += planConfig.amount;
-		} else if (planConfig.interval === 'year') {
-			mrr += Math.round(planConfig.amount / 12);
+		if (planConfig) {
+			// monthly 2 種は plans 経由 (新規購入後の active tenant)
+			if (planConfig.interval === 'month') {
+				mrr += planConfig.amount;
+			}
+			continue;
 		}
-		// lifetime は MRR 対象外
+
+		// #2719 historical yearly fallback: 過去 yearly 契約者の MRR を継続計算
+		const yearlyAmount = HISTORICAL_YEARLY_AMOUNTS[tenant.plan as LicensePlan];
+		if (yearlyAmount !== undefined) {
+			mrr += Math.round(yearlyAmount / 12);
+		}
+		// lifetime / 未知の plan は MRR 対象外
 	}
 
 	return mrr;

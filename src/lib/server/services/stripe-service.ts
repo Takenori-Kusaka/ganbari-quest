@@ -2,7 +2,7 @@
 // Stripe 決済サービス (#0131)
 
 import type Stripe from 'stripe';
-import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
+import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { CHECKOUT_LABELS, PLAN_LABELS } from '$lib/domain/labels';
@@ -18,6 +18,7 @@ import {
 	GRACE_PERIOD_DAYS,
 	getPlans,
 	getWebhookSecret,
+	type PlanId,
 	planIdFromPriceId,
 } from '$lib/server/stripe/config';
 
@@ -27,8 +28,12 @@ import {
 
 export interface CreateCheckoutInput {
 	tenantId: string;
-	/** lifetime は Checkout 対象外。Stripe サブスク対象のみ。 */
-	planId: Exclude<LicensePlan, typeof LICENSE_PLAN.LIFETIME>;
+	/**
+	 * Stripe Checkout 対象プラン。
+	 * #2719 (Phase 7 PR-3b prerequisite): 年額廃止に伴い `PlanId` は monthly 2 種のみ。
+	 * `LICENSE_PLAN.YEARLY` / `FAMILY_YEARLY` / `LIFETIME` は新規 checkout 対象外。
+	 */
+	planId: PlanId;
 	successUrl: string;
 	cancelUrl: string;
 }
@@ -53,7 +58,9 @@ export async function createCheckoutSession(
 
 	const plans = getPlans();
 	const plan = plans[input.planId];
-	if (!plan.priceId) return { error: 'INVALID_PLAN' };
+	// #2719: yearly 廃止後、`PlanId` 型は monthly 2 種のみだが、`tenants.plan` 由来の
+	// historical record 値が input.planId として渡る可能性に備え undefined ガード追加。
+	if (!plan?.priceId) return { error: 'INVALID_PLAN' };
 
 	const stripe = getStripeClient();
 

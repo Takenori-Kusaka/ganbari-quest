@@ -31,12 +31,11 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const body = await request.json();
 	const planId = body.planId;
 	const returnPath: string | undefined = body.returnPath;
-	const validPlanIds: string[] = [
-		LICENSE_PLAN.MONTHLY,
-		LICENSE_PLAN.YEARLY,
-		LICENSE_PLAN.FAMILY_MONTHLY,
-		LICENSE_PLAN.FAMILY_YEARLY,
-	];
+	// #2719 (Phase 7 PR-3b prerequisite): Phase 1 補強 2 FR-2 (年額廃止確定) 整合。
+	// 新規購入経路は月額 2 種 (`MONTHLY` / `FAMILY_MONTHLY`) のみ受け付ける。
+	// `LICENSE_PLAN.YEARLY` / `FAMILY_YEARLY` は historical record (過去契約者の plan label)
+	// として constants に残置されるが、新規 checkout の入力としては reject される。
+	const validPlanIds: string[] = [LICENSE_PLAN.MONTHLY, LICENSE_PLAN.FAMILY_MONTHLY];
 	if (!validPlanIds.includes(planId)) {
 		error(400, 'プランが正しくありません');
 	}

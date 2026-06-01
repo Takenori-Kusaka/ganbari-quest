@@ -19,15 +19,21 @@ const WEBHOOK_SECRET = 'whsec_test_for_unit_tests_only_1497';
 
 // ---------- Mocks ----------
 
+// #2719 (Phase 7 PR-3b prerequisite): yearly 経路廃止に伴い `getPlans()` mock を monthly 2 種に絞る。
 vi.mock('$lib/server/stripe/config', () => ({
 	getWebhookSecret: () => WEBHOOK_SECRET,
 	getPlans: () => ({
 		monthly: { priceId: 'price_monthly_123', amount: 500, interval: 'month', label: '月額' },
-		yearly: { priceId: 'price_yearly_456', amount: 5000, interval: 'year', label: '年額' },
+		'family-monthly': {
+			priceId: 'price_family_monthly_789',
+			amount: 780,
+			interval: 'month',
+			label: 'プレミアム月額',
+		},
 	}),
 	planIdFromPriceId: (priceId: string) => {
 		if (priceId === 'price_monthly_123') return 'monthly';
-		if (priceId === 'price_yearly_456') return 'yearly';
+		if (priceId === 'price_family_monthly_789') return 'family-monthly';
 		return null;
 	},
 	TRIAL_PERIOD_DAYS: 7,
