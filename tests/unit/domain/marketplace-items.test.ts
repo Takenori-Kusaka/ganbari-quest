@@ -63,10 +63,26 @@ describe('marketplace データ整合性', () => {
 		}
 	});
 
-	it('getAllTags が unique かつ昇順ソート済み', () => {
+	it('getAllTags が unique かつ人気順 (frequency desc) sort 済 (Round 18 Cluster I)', () => {
 		const tags = getAllTags();
+		// uniqueness
 		expect(new Set(tags).size).toBe(tags.length);
-		const sorted = [...tags].sort();
-		expect(tags).toEqual(sorted);
+
+		// popularity (frequency desc) sort assertion
+		// LP filter sidebar が default 8 件で人気 tag を優先表示するため必須
+		const items = getMarketplaceIndex();
+		const frequency = new Map<string, number>();
+		for (const item of items) {
+			for (const tag of item.tags) {
+				frequency.set(tag, (frequency.get(tag) ?? 0) + 1);
+			}
+		}
+		for (let i = 0; i < tags.length - 1; i++) {
+			const fa = frequency.get(tags[i]) ?? 0;
+			const fb = frequency.get(tags[i + 1]) ?? 0;
+			// 同 frequency 内は localeCompare('ja') asc は要件として強制しない
+			// (test brittle 防止、上位 N 件で人気が前に来る性質のみ assert)
+			expect(fa).toBeGreaterThanOrEqual(fb);
+		}
 	});
 });

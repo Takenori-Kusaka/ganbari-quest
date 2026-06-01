@@ -86,4 +86,50 @@ test.describe('#1171 Marketplace filter UI', () => {
 		expect(text).toContain('幼児');
 		expect(text).toContain('小学生');
 	});
+
+	// Round 18 Cluster I (#11/#15/#19): 50+ tag が並列表示されて Hick's Law 違反していた認知負荷を、
+	// default 人気 8 件 + expansion で削減した変更の回帰防止
+	test('タグは default 8 件のみ表示され、「もっと見る」で展開可能 (Cluster I)', async ({
+		page,
+	}, testInfo) => {
+		const isMobile = testInfo.project.name === 'mobile';
+		const variant = isMobile ? 'mobile' : 'desktop';
+		await page.goto('/marketplace');
+		await openFilterIfMobile(page, isMobile);
+
+		const panelSelector = `[data-testid="filter-panel-${variant}"]`;
+		const panel = page.locator(panelSelector).first();
+		const toggle = panel.locator(`[data-testid="filter-tag-toggle-${variant}"]`);
+
+		// expansion link 表示中 (= total > 8 件 = seed では 50+) の状態を確認
+		await expect(toggle).toBeVisible();
+		const initialLabel = (await toggle.textContent()) ?? '';
+		expect(initialLabel).toContain('もっと見る');
+
+		// default は 8 件以下 (chip = filter-tag-* testid count)
+		const chipCount = await panel
+			.locator(
+				'[data-testid^="filter-tag-"]:not([data-testid$="-toggle-desktop"]):not([data-testid$="-toggle-mobile"])',
+			)
+			.count();
+		expect(chipCount).toBeLessThanOrEqual(8);
+
+		// click で expansion (aria-expanded true + label が「たたむ」へ)
+		await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+		const expandedLabel = (await toggle.textContent()) ?? '';
+		expect(expandedLabel).toContain('たたむ');
+
+		// expansion 後は全 tag が見える (8 件超)
+		const expandedCount = await panel
+			.locator(
+				'[data-testid^="filter-tag-"]:not([data-testid$="-toggle-desktop"]):not([data-testid$="-toggle-mobile"])',
+			)
+			.count();
+		expect(expandedCount).toBeGreaterThan(8);
+
+		// collapse 動線も確認
+		await toggle.click();
+		await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+	});
 });
