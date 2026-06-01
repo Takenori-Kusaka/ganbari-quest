@@ -658,27 +658,26 @@ function deselectAllActivities() {
 				<p class="text-xs text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailCtaImportActivityPackDesc}
 				</p>
-				{#if selectedCount > 0}
-					<a
-						href={importUrlWithSubset}
-						class="block"
-						data-testid="activity-pack-import-cta"
-					>
-						<Button variant="primary" size="lg" class="w-full">
-							{MARKETPLACE_LABELS.detailCtaImportActivityPackSelected(selectedCount)}
-						</Button>
-					</a>
-				{:else}
-					<Button
-						variant="primary"
-						size="lg"
-						class="w-full"
-						disabled
-						data-testid="activity-pack-import-cta-disabled"
-					>
-						{MARKETPLACE_LABELS.detailActivityPackSelectedZero}
+				<!-- Round 18 Cluster H: CTA <a> は常時 render (CWE-598 spec count >= 1 担保)。
+					 selectedCount === 0 時は aria-disabled + preventDefault で nav 無効化、視覚的にも disabled 表現。
+					 既存 marketplace-activity-pack-no-childid.spec.ts (AC1/AC2) との互換維持。 -->
+				<a
+					href={selectedCount > 0 ? importUrlWithSubset : `/admin/activities?import=${item.itemId}`}
+					class="block"
+					class:opacity-50={selectedCount === 0}
+					class:cursor-not-allowed={selectedCount === 0}
+					aria-disabled={selectedCount === 0}
+					data-testid="activity-pack-import-cta"
+					onclick={(e) => {
+						if (selectedCount === 0) e.preventDefault();
+					}}
+				>
+					<Button variant="primary" size="lg" class="w-full" disabled={selectedCount === 0}>
+						{selectedCount > 0
+							? MARKETPLACE_LABELS.detailCtaImportActivityPackSelected(selectedCount)
+							: MARKETPLACE_LABELS.detailActivityPackSelectedZero}
 					</Button>
-				{/if}
+				</a>
 			{:else if isActivityPack && data.isAuthenticated && data.children.length === 0}
 				<!-- #2362 PR-3 Phase 5: activity-pack ログイン済 + 子供未登録 → setup 誘導 -->
 				<div
