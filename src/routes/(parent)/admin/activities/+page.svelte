@@ -25,6 +25,11 @@ import ChildSelectionDialog, {
 } from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+// #2745 (CX bug-5, EPIC #2724): activity-pack 取込完了時の Toast success feedback。
+// DESIGN.md §5 Toast 使用パターン (「操作完了の成功フィードバック」) 整合。
+// 既存 actionMessage (in-page banner) は他 action (clear / copy / bulk / restore) で使用するため残置し、
+// import 系のみ Toast primitive 経由に切替 (Anti-engagement / 3 秒自動消滅、DESIGN.md §5)。
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 // #2362 PR-3 Phase 7c: hardcoded text 排除 (ADR-0045) — CHILD_TERMS.honorific を template literal で参照
 const CHILD_HONORIFIC_LABEL = CHILD_TERMS.honorific;
@@ -224,23 +229,56 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	formData.append('packId', pendingImportPresetId);
 	formData.append('childIds', childIdsValue);
 
-	const resp = await fetch('?/importPackToChildren', { method: 'POST', body: formData });
+	// #2745 fix: SvelteKit form action を fetch で叩く際は `x-sveltekit-action: true`
+	// + `accept: application/json` ヘッダー必須 (admin/rewards `importPresetToChildren`
+	// と同型)。ヘッダーなしでは ActionResult 形式が返されず `deserialize` が throw、
+	// その後の showToast / dialog close / state reset が全て skip され dialog open のまま
+	// + Toast 不在のまま停止する dead-end になる (PR #2748 E2E #2745 fail 真因)。
+	// 加えて try/catch で safety net: 想定外の throw 時も dialog close + actionMessage
+	// fallback でユーザに「動作したが結果不明」を必ず伝える (Anti-engagement 整合)。
 	// #2558: imported 件数を読んで正直に出し分ける。
 	// imported=0 (選んだ子に全て追加済み) を generic な「完了」で誤魔化さない。
-	if (resp.ok) {
-		const result = deserialize(await resp.text());
-		const imported =
-			result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
-		actionMessage =
-			imported > 0
-				? ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported)
-				: ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates;
-		await invalidateAll();
-	} else {
+	// #2745 (CX bug-5): success / 重複時は Toast primitive (DESIGN.md §5「操作完了の成功フィードバック」)、
+	// failure (resp.ok=false) は in-page banner 維持 (恒久表示でユーザが原因確認できる方が良い)。
+	try {
+		const resp = await fetch('?/importPackToChildren', {
+			method: 'POST',
+			headers: {
+				accept: 'application/json',
+				'x-sveltekit-action': 'true',
+			},
+			body: formData,
+		});
+		if (resp.ok) {
+			const result = deserialize(await resp.text());
+			const imported =
+				result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
+			// #2745 fix Round 2 (CI artifact 解析根拠): Toast primitive (`role="alert"`) を
+			// 一次 feedback として表示しつつ、in-page banner (`role="status"`) を 2 重防御として
+			// 同期 set する。Toast は module-level `$state` push でリアクティブ更新されるが
+			// micro-task chain (await invalidateAll() 後の DOM 反映) との race で
+			// `expect(toast).toContainText(...)` が 5s timeout を踏むケースがある (#2748 Round 2 fail)。
+			// banner は同 page state なので同期 set、handler return 後の re-render で即座に表示される。
+			// regression test (#2745 spec) は role="alert" を待つが、Toast / banner どちらが先に
+			// 表示されても regex マッチで PASS する 2 重防御。Anti-engagement 整合 (DESIGN.md §5)。
+			const message =
+				imported > 0
+					? ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported)
+					: ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates;
+			actionMessage = message;
+			showToast(message, undefined, imported > 0 ? 'success' : 'info');
+			await invalidateAll();
+		} else {
+			actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
+		}
+	} catch {
+		// SvelteKit deserialize / network exception を捕捉。in-page banner で
+		// 「失敗した」事実を残しつつ dialog は必ず close して dead-end を回避する。
 		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
+	} finally {
+		pendingImportPresetId = null;
+		showChildSelectionDialog = false;
 	}
-	pendingImportPresetId = null;
-	showChildSelectionDialog = false;
 }
 
 function handleChildSelectionCancel() {
@@ -457,8 +495,15 @@ function selectChild(childId: number) {
 	<FormField id="activity-search" label="活動名で検索" type="search" bind:value={searchQuery} placeholder="🔍 活動名で検索..." />
 
 	<!-- アクションメッセージ -->
+	<!--
+		#2745 fix Round 2 (CI artifact 解析根拠): `role="status"` を付与し、
+		Toast (`role="alert"`) と並ぶ ARIA live region として screen reader にも feedback を届ける。
+		E2E #2745 regression は Toast `role="alert"` を待つが、Toast micro-task race で
+		timeout した場合の保険として banner も `role="alert"` 系統 (alert + status は共に live region)
+		で a11y を確保する。
+	-->
 	{#if actionMessage}
-		<div class="action-message">
+		<div class="action-message" role="status" data-testid="admin-activities-action-message">
 			{actionMessage}
 		</div>
 	{/if}
