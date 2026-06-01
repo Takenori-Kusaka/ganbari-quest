@@ -275,7 +275,10 @@ const childOptions = $derived(
 		</Card>
 
 		<!-- CTA -->
-		<div class="mt-6 space-y-3" data-testid="marketplace-detail-cta">
+		<div
+			class="mt-6 space-y-3 marketplace-cta-sticky"
+			data-testid="marketplace-detail-cta"
+		>
 			{#if isRewardSet && data.isAuthenticated && data.children.length > 0}
 				<!-- #2362 PR-4 (ADR-0055 / CWE-598): child 選択 UI を marketplace 側から削除。
 				     「取込」 button のみ表示し、押下後は admin/rewards へ `?import=<itemId>`
@@ -618,3 +621,38 @@ const childOptions = $derived(
 		</div>
 	</div>
 </div>
+
+<style>
+	/* #2744 Cluster F: mobile sticky CTA で fold 外発見性問題を解消
+	 * DESIGN.md §10 z-index banner トークン使用 (modal より下、normal より上)
+	 * desktop (≥ 768px) では normal flow 維持 (画面幅広く scroll cost 低)
+	 * ADR-0012 Anti-engagement: visibility 改善目的、滞在時間延伸目的でない */
+	.marketplace-cta-sticky {
+		position: sticky;
+		bottom: 0;
+		z-index: var(--z-banner);
+		background: var(--color-surface);
+		padding-top: 0.75rem;
+		padding-bottom: env(safe-area-inset-bottom, 0);
+		margin-left: -1rem;
+		margin-right: -1rem;
+		padding-left: 1rem;
+		padding-right: 1rem;
+		box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+	}
+
+	@media (min-width: 768px) {
+		/* desktop: normal flow 復帰 (画面幅広く scroll cost 低) */
+		.marketplace-cta-sticky {
+			position: static;
+			box-shadow: none;
+			background: transparent;
+			padding-top: 0;
+			padding-bottom: 0;
+			padding-left: 0;
+			padding-right: 0;
+			margin-left: 0;
+			margin-right: 0;
+		}
+	}
+</style>
