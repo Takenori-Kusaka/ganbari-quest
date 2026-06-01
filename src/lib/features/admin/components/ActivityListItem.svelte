@@ -236,7 +236,7 @@ function dailyLimitLabel(val: number | null): string {
 		white-space: nowrap;
 	}
 
-	/* #2744 AC4: 削除確認 Dialog 内コンテンツ */
+	/* #2744 AC4: delete confirm Dialog inner content */
 	.delete-confirm-body {
 		font-size: 0.875rem;
 		color: var(--color-text-secondary);

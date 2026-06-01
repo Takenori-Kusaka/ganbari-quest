@@ -43,47 +43,67 @@ async function openDeleteDialog(triggerBtn: Locator, dialog: Locator): Promise<v
 	});
 }
 
+/**
+ * test isolation: 各 test で API 経由で dedicated activity を新規作成 → その特定 id を削除。
+ * seed 済 activity (id=1 等) を破壊して `features.spec.ts:135` 等の後続 spec を壊さない。
+ */
+async function createDedicatedActivity(
+	request: import('@playwright/test').APIRequestContext,
+	suffix: string,
+): Promise<number> {
+	const res = await request.post('/api/v1/activities', {
+		data: {
+			name: `#2744-delete-test-${suffix}-${Date.now()}`,
+			icon: '🗑',
+			basePoints: 1,
+			categoryId: 1,
+			ageMin: null,
+			ageMax: null,
+		},
+	});
+	expect(res.status()).toBe(201);
+	const body = await res.json();
+	expect(body.id).toBeDefined();
+	return body.id;
+}
+
 test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
-	test.beforeEach(async ({ page }) => {
+	test('family 一覧の各行に「削除」button が visible (entry point 担保)', async ({
+		page,
+		request,
+	}) => {
+		// dedicated activity を 1 件作成して a) 一覧 >= 1 件保証 b) seed 非破壊
+		const testId = await createDedicatedActivity(request, 'entry');
 		await page.goto('/admin/activities');
 		await page.waitForLoadState('domcontentloaded');
-	});
 
-	test('family 一覧の各行に「削除」button が visible (entry point 担保)', async ({ page }) => {
-		// family 一覧が >= 1 件存在することを precondition で assert
-		// (global-setup.ts seed 整合性も担保、ADR-0006 §3 — assertion 弱体化禁止)
-		const deleteButtons = page.locator('[data-testid^="activity-delete-btn-"]');
-		const count = await deleteButtons.count();
-		expect(
-			count,
-			'family 活動 seed が >= 1 件必要 (global-setup.ts TEST_ACTIVITIES 参照)',
-		).toBeGreaterThanOrEqual(1);
+		const dedicatedBtn = page.getByTestId(`activity-delete-btn-${testId}`);
+		await expect(dedicatedBtn).toBeVisible();
+		await expect(dedicatedBtn).toBeEnabled();
 
-		// 最初の削除 button が visible + enabled
-		const firstBtn = deleteButtons.first();
-		await expect(firstBtn).toBeVisible();
-		await expect(firstBtn).toBeEnabled();
+		// cleanup: API 経由で削除 (UI 経由は他 test で verify、entry point test 自体は破壊不要)
+		await request.delete(`/api/v1/activities/${testId}`);
 	});
 
 	test('削除 button click → 確認 Dialog 表示 → 確定 → 一覧件数 -1 + Toast success', async ({
 		page,
+		request,
 	}) => {
-		const deleteButtons = page.locator('[data-testid^="activity-delete-btn-"]');
-		const beforeCount = await deleteButtons.count();
-		expect(beforeCount).toBeGreaterThanOrEqual(1);
+		// dedicated activity を作成 → その特定 id を UI から削除する (seed 非破壊)
+		const testId = await createDedicatedActivity(request, 'confirm');
+		await page.goto('/admin/activities');
+		await page.waitForLoadState('domcontentloaded');
 
-		// 最初の削除 button click → Dialog open (hydration race を openDeleteDialog で吸収)
-		const firstBtn = deleteButtons.first();
-		const btnTestId = await firstBtn.getAttribute('data-testid');
-		const activityId = btnTestId?.replace('activity-delete-btn-', '');
-		expect(activityId).toBeTruthy();
+		const dedicatedBtn = page.getByTestId(`activity-delete-btn-${testId}`);
+		const beforeCount = await page.locator('[data-testid^="activity-delete-btn-"]').count();
+		await expect(dedicatedBtn).toBeVisible();
 
-		const dialog = page.getByTestId(`activity-delete-confirm-${activityId}`);
-		await openDeleteDialog(firstBtn, dialog);
-		await expect(page.getByTestId(`activity-delete-confirm-body-${activityId}`)).toBeVisible();
+		const dialog = page.getByTestId(`activity-delete-confirm-${testId}`);
+		await openDeleteDialog(dedicatedBtn, dialog);
+		await expect(page.getByTestId(`activity-delete-confirm-body-${testId}`)).toBeVisible();
 
 		// 確定 click → action 完了まで wait (act → outcome assert)
-		const confirmBtn = page.getByTestId(`activity-delete-confirm-submit-${activityId}`);
+		const confirmBtn = page.getByTestId(`activity-delete-confirm-submit-${testId}`);
 		await expect(confirmBtn).toBeVisible();
 		await Promise.all([
 			page.waitForResponse(
@@ -106,20 +126,24 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		);
 	});
 
-	test('削除 button click → キャンセル click → Dialog 閉じる + 件数不変', async ({ page }) => {
-		const deleteButtons = page.locator('[data-testid^="activity-delete-btn-"]');
-		const beforeCount = await deleteButtons.count();
-		expect(beforeCount).toBeGreaterThanOrEqual(1);
+	test('削除 button click → キャンセル click → Dialog 閉じる + 件数不変', async ({
+		page,
+		request,
+	}) => {
+		// dedicated activity を作成 → その特定 id の削除を cancel する (seed 非破壊)
+		const testId = await createDedicatedActivity(request, 'cancel');
+		await page.goto('/admin/activities');
+		await page.waitForLoadState('domcontentloaded');
 
-		const firstBtn = deleteButtons.first();
-		const btnTestId = await firstBtn.getAttribute('data-testid');
-		const activityId = btnTestId?.replace('activity-delete-btn-', '');
+		const dedicatedBtn = page.getByTestId(`activity-delete-btn-${testId}`);
+		const beforeCount = await page.locator('[data-testid^="activity-delete-btn-"]').count();
+		await expect(dedicatedBtn).toBeVisible();
 
-		const dialog = page.getByTestId(`activity-delete-confirm-${activityId}`);
-		await openDeleteDialog(firstBtn, dialog);
+		const dialog = page.getByTestId(`activity-delete-confirm-${testId}`);
+		await openDeleteDialog(dedicatedBtn, dialog);
 
 		// キャンセル click → Dialog close (act → outcome assert)
-		const cancelBtn = page.getByTestId(`activity-delete-cancel-${activityId}`);
+		const cancelBtn = page.getByTestId(`activity-delete-cancel-${testId}`);
 		await expect(cancelBtn).toBeVisible();
 		await cancelBtn.click();
 
@@ -129,5 +153,8 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		// outcome 2: 件数は不変 (キャンセル経路の dead-end 検出)
 		// web-first assertion で auto-retry
 		await expect(page.locator('[data-testid^="activity-delete-btn-"]')).toHaveCount(beforeCount);
+
+		// cleanup: API 経由で削除 (cancel test は cancel path 検証のみ、後始末は API で)
+		await request.delete(`/api/v1/activities/${testId}`);
 	});
 });
