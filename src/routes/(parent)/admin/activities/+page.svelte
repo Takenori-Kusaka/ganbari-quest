@@ -163,8 +163,9 @@ const displayActivities = $derived<DisplayActivity[]>([
 			if (bypassAgeFilter) return true;
 			const childAge = selectedChild?.age;
 			if (childAge == null) return true;
-			const min = a.ageMin ?? Number.NEGATIVE_INFINITY;
-			const max = a.ageMax ?? Number.POSITIVE_INFINITY;
+			const activity = a as { ageMin?: number | null; ageMax?: number | null };
+			const min = activity.ageMin ?? Number.NEGATIVE_INFINITY;
+			const max = activity.ageMax ?? Number.POSITIVE_INFINITY;
 			return min <= childAge && childAge <= max;
 		})
 		.map((a) => ({
