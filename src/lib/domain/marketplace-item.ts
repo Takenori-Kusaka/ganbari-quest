@@ -6,6 +6,7 @@
  */
 
 import { AGE_TIER_LABELS } from './labels.js';
+import { TEMPLATE_TERMS } from './terms.js';
 import type { CategoryCode, GradeLevel } from './validation/activity.js';
 import type { UiMode } from './validation/age-tier-types.js';
 import type { RewardCategory } from './validation/special-reward.js';
@@ -195,8 +196,12 @@ export interface MarketplaceItemMeta {
 
 // ── Type labels ──────────────────────────────────────────────
 
+// Round 18 Cluster A (ADR-0045): かつどうパック → TEMPLATE_TERMS atom 経由化。
+// type label は同 marketplace 内で type 識別子として並ぶため、TEMPLATE_TERMS.userFacing
+// 単独では情報量不足。サブ識別子 (活動 / ごほうび / 持ち物 等) を添えて「みんなの
+// テンプレート (活動)」形式で統一する。
 export const MARKETPLACE_TYPE_LABELS: Record<MarketplaceItemType, string> = {
-	'activity-pack': 'かつどうパック',
+	'activity-pack': `${TEMPLATE_TERMS.userFacing}（活動）`,
 	'reward-set': 'ごほうびセット',
 	checklist: 'チェックリスト',
 	'rule-preset': 'とくべつルール',

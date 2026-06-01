@@ -110,7 +110,8 @@ export const PAGE_TITLES = {
 	certificates: 'がんばり証明書',
 	license: 'プラン・お支払い',
 	statusBenchmark: 'ベンチマーク管理',
-	packs: '活動パック',
+	// #2276 / Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由化
+	packs: TEMPLATE_TERMS.userFacing,
 	// 認証
 	login: `${LOGIN_TERMS.canonical}`,
 	signup: `${SIGNUP_TERMS.canonical}`,
@@ -153,7 +154,8 @@ export const PAGE_TITLES = {
 	setupComplete: 'ぼうけんのはじまり！',
 	setupChildren: '子供登録',
 	setupFirstAdventure: 'はじめてのぼうけん',
-	setupPacks: '活動パック選択',
+	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
+	setupPacks: `${TEMPLATE_TERMS.userFacing}を選ぶ`,
 	// #2140 MP-5: setup wizard β 採用
 	setupRewards: 'ごほうびセット選択',
 	setupRules: 'おうちのルール選択',
@@ -876,8 +878,8 @@ export const MARKETPLACE_LABELS = {
 	pageTitle: TEMPLATE_TERMS.userFacing,
 	navShort: TEMPLATE_TERMS.short,
 	pageDescription: 'お子さまの年齢にぴったりの活動・ごほうび・チェックリストを見つけよう',
-	metaDescription:
-		'活動パック・ごほうびセット・チェックリスト・特別ルールを探そう。がんばりクエストの公式テンプレート集です。',
+	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
+	metaDescription: `${TEMPLATE_TERMS.userFacing} — 活動・ごほうび・チェックリスト・特別ルールを探そう。がんばりクエストの公式${TEMPLATE_TERMS.short}集です。`,
 	filterClear: 'フィルタをクリア',
 	emptyState: '条件に合うコンテンツがありません',
 	ctaHeading: `${TEMPLATE_TERMS.short}を使うには`,
@@ -886,7 +888,8 @@ export const MARKETPLACE_LABELS = {
 	backToHome: 'トップページへ',
 	backToDemo: 'デモを体験',
 	breadcrumbRoot: TEMPLATE_TERMS.short,
-	recommendedSection: 'おすすめパック',
+	// Round 18 Cluster A (ADR-0045): おすすめパック → TEMPLATE_TERMS atom 経由
+	recommendedSection: `おすすめ${TEMPLATE_TERMS.short}`,
 	importCta: '使ってみる',
 	questsBadge: 'クエスト集',
 	tabs: {
@@ -4436,7 +4439,8 @@ export const CERTIFICATES_PAGE_LABELS = {
 } as const;
 
 export const PACKS_PAGE_LABELS = {
-	pageTitle: '活動パック',
+	// Round 18 Cluster A (ADR-0045): 活動パック → TEMPLATE_TERMS atom 経由
+	pageTitle: TEMPLATE_TERMS.userFacing,
 	pageDesc:
 		'年齢に合わせた活動セットをインポートできます。同じ名前の活動は自動的にスキップされます。',
 	recommendedBadge: 'おすすめ',
@@ -4530,10 +4534,11 @@ export const DEMO_LAYOUT_LABELS = {
 } as const;
 
 export const SETUP_PACKS_LABELS = {
-	pageTitle: 'かつどうパックをえらぼう',
+	// Round 18 Cluster A (ADR-0045): かつどうパック → TEMPLATE_TERMS atom 経由
+	pageTitle: `${TEMPLATE_TERMS.userFacing}をえらぼう`,
 	pageDesc: 'お子さまの年齢にあわせた活動セットを選んでください。あとから追加・変更できます。',
 	recommendedBadge: 'おすすめ',
-	autoAddOption: 'おすすめパックを自動で追加してすすむ',
+	autoAddOption: `おすすめ${TEMPLATE_TERMS.short}を自動で追加してすすむ`,
 	backButton: 'もどる',
 	importingLabel: 'インポート中...',
 	addPacksButton: (count: number) => `${count}件のパックを追加`,
