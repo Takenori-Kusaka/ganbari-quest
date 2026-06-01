@@ -1030,6 +1030,12 @@ export const MARKETPLACE_FILTER_LABELS = {
 		newest: '新着順',
 		ageFit: '年齢順',
 	},
+	// Round 18 Cluster C: 年齢 filter 既定 ON 化 (selectedChildId 経由) 時の hint + 解除動線
+	autoAgeFilterApplied: (childName: string, ageTierLabel: string) =>
+		childName
+			? `${childName}${CHILD_TERMS.honorific} (${ageTierLabel}) に合わせて表示中`
+			: `${CHILD_TERMS.honorific} (${ageTierLabel}) に合わせて表示中`,
+	clearAgeFilter: 'すべての年齢を表示',
 } as const;
 
 export type MarketplaceGender = 'boy' | 'girl' | 'neutral';
