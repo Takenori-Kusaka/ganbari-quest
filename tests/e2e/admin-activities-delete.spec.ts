@@ -16,7 +16,7 @@
  * (memory feedback_no_manual_fallback_for_automation_failure 整合)。
  */
 
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { expect, type Locator, test } from '@playwright/test';
 
 /**
  * Ark UI Dialog primitive の trigger button を click し dialog が data-state="open" に
@@ -25,11 +25,7 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
  * ADR-0006 適合: assertion 自体は強化 (`toBeVisible` の hard signal を assert)、
  * interaction の retry のみで安定化 (skip / weakening ではない)。
  */
-async function openDeleteDialog(
-	page: Page,
-	triggerBtn: Locator,
-	dialog: Locator,
-): Promise<void> {
+async function openDeleteDialog(triggerBtn: Locator, dialog: Locator): Promise<void> {
 	await expect(triggerBtn).toBeVisible();
 	await expect(triggerBtn).toBeEnabled();
 	await triggerBtn.scrollIntoViewIfNeeded();
@@ -83,7 +79,7 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		expect(activityId).toBeTruthy();
 
 		const dialog = page.getByTestId(`activity-delete-confirm-${activityId}`);
-		await openDeleteDialog(page, firstBtn, dialog);
+		await openDeleteDialog(firstBtn, dialog);
 		await expect(page.getByTestId(`activity-delete-confirm-body-${activityId}`)).toBeVisible();
 
 		// 確定 click → action 完了まで wait (act → outcome assert)
@@ -120,7 +116,7 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		const activityId = btnTestId?.replace('activity-delete-btn-', '');
 
 		const dialog = page.getByTestId(`activity-delete-confirm-${activityId}`);
-		await openDeleteDialog(page, firstBtn, dialog);
+		await openDeleteDialog(firstBtn, dialog);
 
 		// キャンセル click → Dialog close (act → outcome assert)
 		const cancelBtn = page.getByTestId(`activity-delete-cancel-${activityId}`);
