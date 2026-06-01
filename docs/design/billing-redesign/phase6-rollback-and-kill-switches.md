@@ -303,6 +303,19 @@ Phase 7 Step 3 + Step 4-a の各 PR Pre-Ready checklist に以下 1 行追加:
 
 - [ ] Test mode で kill switch (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) 切替 dry-run を 1 回実演し、両方の経路で動作確認済 (Phase 6 子 2 #2674 §6 シナリオ 2 整合、本 docs §5.5)
 
+### 5.7-a CloudWatch Logs retention 30 日 SSOT (#2735、QA Adversarial security 軸 推奨)
+
+`notifyStripeAlert` の structured logger 経路は AWS CloudWatch Logs `/aws/lambda/ganbari-quest-app` に書き込まれ、post-mortem triage は `docs/operations/stripe-post-mortem-runbook.md` §2 の Logs Insights query で実行する。本 query が機能するためには **本番 App LogGroup の retention を 30 日以上維持** する必要がある。
+
+| LogGroup | retention | 根拠 |
+|---|---|---|
+| `/aws/lambda/ganbari-quest-app` | **30 日** (`RetentionDays.ONE_MONTH`) | 課金 path 系統 (Stripe webhook / checkout / `getPriceId` fallback)、post-mortem SSOT (#2735) |
+| `/aws/lambda/ganbari-quest-cron-dispatcher` | 3 日 (現状維持) | cron は HTTP POST のみ、Stripe API call せず |
+| `/aws/lambda/ganbari-quest-app-demo` | 3 日 (現状維持) | demo Lambda は課金 path 到達不可 (IAM isolation) |
+| `/aws/lambda/ganbari-quest-health-check` | 3 日 (現状維持) | 死活監視のみ、Stripe 関連なし |
+
+実体: `infra/lib/compute-stack.ts` `AppLogGroup` 定義。CDK deploy 後の post-deploy verification 手順は `docs/operations/stripe-post-mortem-runbook.md` §4.2 参照。retention を 30 日未満に下げる PR は Pre-PMF Bucket A `feedback_billing_critical_extra_caution` 違反 + 本 SSOT 違反として QM Adversarial security 軸 BLOCK 対象。
+
 ### 5.7 Stripe alert PII redaction (#2738、QA Adversarial security 軸 V-3 解消)
 
 `notifyStripeAlert` (PR #2727 / `src/lib/server/stripe/alert.ts`) の Discord webhook + structured logger 経路に Stripe error message 由来の PII を redact する責務を追加する。Pre-PMF Bucket A critical (ADR-0010 整合、課金別格慎重対処)。
