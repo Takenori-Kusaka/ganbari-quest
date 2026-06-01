@@ -303,6 +303,20 @@ Phase 7 Step 3 + Step 4-a の各 PR Pre-Ready checklist に以下 1 行追加:
 
 - [ ] Test mode で kill switch (`USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE`) 切替 dry-run を 1 回実演し、両方の経路で動作確認済 (Phase 6 子 2 #2674 §6 シナリオ 2 整合、本 docs §5.5)
 
+### 5.7 Stripe alert PII redaction (#2738、QA Adversarial security 軸 V-3 解消)
+
+`notifyStripeAlert` (PR #2727 / `src/lib/server/stripe/alert.ts`) の Discord webhook + structured logger 経路に Stripe error message 由来の PII を redact する責務を追加する。Pre-PMF Bucket A critical (ADR-0010 整合、課金別格慎重対処)。
+
+| 項目 | 内容 |
+|---|---|
+| **対象 PII** | (a) email → `<EMAIL_REDACTED>` (b) phone → `<PHONE_REDACTED>` (c) card last4 / full 数値 → `<CARD_REDACTED>` |
+| **維持対象** | Stripe 内部 ID (`cus_*` / `sub_*` / `price_*` / `pi_*` / `ch_*` / `evt_*` 等) は debug 用途で維持 (PII ではない、Stripe 公式 ID handling 整合) |
+| **適用範囲** | `notifyStripeAlert({ message, errorSummary, tags })` の string 全フィールド + Discord dispatch failure 時の err.message。汎用 logging 全般への適用は scope 外 (過剰防衛回避) |
+| **performance 要件** | < 1ms / call (alert path 非ブロッキング、fire-and-forget 整合)、unit test で 1000 回呼出 < 100ms assert |
+| **実体** | `src/lib/server/stripe/pii-redaction.ts` (`redactPii` / `redactPiiInTags` / `PII_REDACTION_MARKERS` SSOT) |
+| **OSS 先調査** | `pii-redactor` (採用実績乏しい) / `@privacy-aware/pii-redact` (採用ほぼゼロ) / `gitleaks` (CLI のみ) で適合 OSS なし、ADR-0014 「OSS 採用コスト > Pre-PMF benefit」基準で正規表現独自実装 (~30 行) 採用 |
+| **再発防止** | (a) `tests/unit/server/stripe/pii-redaction.test.ts` (false negative 4 series + false positive 4 series + performance regression) (b) `tests/unit/server/stripe/alert.test.ts` PII redaction 4 ケース追加 (c) `tests/unit/services/discord-alert.test.ts` attack scenario (100 件 → 3 件 throttle) + 異なる kind 独立 throttle 検証追加 |
+
 ## 6. Phase 1 構造的欠落 3 件の Phase 7 反映方針 (§6)
 
 Phase 1 + Phase 6 子 1-4 経由で判明した 3 件の構造的欠落を、Phase 7 のどの PR で対処するか SSOT 化する。

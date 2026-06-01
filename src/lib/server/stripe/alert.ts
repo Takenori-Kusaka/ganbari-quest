@@ -23,6 +23,7 @@
 
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
+import { redactPii, redactPiiInTags } from '$lib/server/stripe/pii-redaction';
 
 /**
  * Stripe 領域の Discord alert kind (Phase 6 子 5 §3 §6 SSOT)。
@@ -70,15 +71,23 @@ export interface StripeAlertOptions {
 export function notifyStripeAlert(options: StripeAlertOptions): void {
 	const { kind, message, errorSummary, tags } = options;
 
+	// PII redaction (Issue #2738 / QA Adversarial security 軸 V-3 解消):
+	//   Stripe error message に含まれる customer email / phone / card last4 を
+	//   Discord webhook + structured logger 送信前に redact する。Stripe 内部 ID
+	//   (cus_* / sub_* 等) は debug 用途で維持。
+	const redactedMessage = redactPii(message);
+	const redactedErrorSummary = errorSummary ? redactPii(errorSummary) : undefined;
+	const redactedTags = redactPiiInTags(tags);
+
 	// 1. structured logger (CloudWatch Logs Insights 検索 key: `kind` / `tags.*`)
 	//    Sentry SaaS 統合は別 Issue だが、本 logger output は CloudWatch Logs Insights で
 	//    `fields @timestamp, kind, message | filter kind = "stripe-lookup-failed"` で query 可能
-	logger.warn(`[stripe-alert] ${kind}: ${message}`, {
+	logger.warn(`[stripe-alert] ${kind}: ${redactedMessage}`, {
 		service: 'stripe',
 		context: {
 			kind,
-			...(errorSummary ? { errorSummary } : {}),
-			...(tags ?? {}),
+			...(redactedErrorSummary ? { errorSummary: redactedErrorSummary } : {}),
+			...(redactedTags ?? {}),
 		},
 	});
 
@@ -86,10 +95,13 @@ export function notifyStripeAlert(options: StripeAlertOptions): void {
 	//    既存 license-key-service.ts L351 pattern 整合
 	void sendDiscordAlert({
 		level: 'error',
-		message: `[${kind}] ${message}`,
-		errorSummary: errorSummary ?? kind,
+		message: `[${kind}] ${redactedMessage}`,
+		errorSummary: redactedErrorSummary ?? kind,
 	}).catch((err) => {
 		// alert 自体の失敗は logger.warn で記録 (recursive alert を避ける)
-		logger.warn(`[stripe-alert] Discord alert dispatch failed for ${kind}: ${String(err)}`);
+		//   err.message にも PII が含まれる可能性があるため redact
+		logger.warn(
+			`[stripe-alert] Discord alert dispatch failed for ${kind}: ${redactPii(String(err))}`,
+		);
 	});
 }
