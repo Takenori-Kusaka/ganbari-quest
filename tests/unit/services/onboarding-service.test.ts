@@ -323,7 +323,9 @@ describe('onboarding-service', () => {
 			expect(result.items[0]?.key).toBe('children');
 			expect(result.items[0]?.label).toBe('子供を登録する');
 			expect(result.items[1]?.key).toBe('activities');
-			expect(result.items[1]?.label).toBe('活動パックを選ぶ');
+			// Round 18 Cluster A (ADR-0045): 「活動パックを選ぶ」→「みんなのテンプレートを選ぶ」
+			// onboarding-service.ts が PAGE_TITLES.setupPacks (TEMPLATE_TERMS atom 由来) を参照する
+			expect(result.items[1]?.label).toBe('みんなのテンプレートを選ぶ');
 			expect(result.items[2]?.key).toBe('rewards');
 			expect(result.items[2]?.label).toBe('ごほうびプリセットを選ぶ');
 			expect(result.items[3]?.key).toBe('pin');

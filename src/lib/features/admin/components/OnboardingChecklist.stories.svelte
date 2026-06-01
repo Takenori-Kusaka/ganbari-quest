@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { PAGE_TITLES } from '$lib/domain/labels';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
 
 const basePath = '/admin';
@@ -14,7 +15,8 @@ const allItems = [
 	},
 	{
 		key: 'activities',
-		label: '活動パックを選ぶ',
+		// Round 18 Cluster A (ADR-0045): 活動パック → labels.ts SSOT 経由 (TEMPLATE_TERMS atom 由来)
+		label: PAGE_TITLES.setupPacks,
 		completed: false,
 		href: `${basePath}/activities`,
 		required: true,

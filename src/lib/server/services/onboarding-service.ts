@@ -1,7 +1,7 @@
 // src/lib/server/services/onboarding-service.ts
 // オンボーディングチェックリスト — 自動完了検知
 
-import { OYAKAGI_LABELS } from '$lib/domain/labels';
+import { OYAKAGI_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import { findTemplatesByChild } from '$lib/server/db/checklist-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { getActivities } from '$lib/server/services/activity-service';
@@ -63,7 +63,8 @@ export async function getOnboardingProgress(
 		},
 		{
 			key: 'activities',
-			label: '活動パックを選ぶ',
+			// Round 18 Cluster A (ADR-0045): 活動パック → labels.ts SSOT 経由 (TEMPLATE_TERMS atom 由来)
+			label: PAGE_TITLES.setupPacks,
 			completed: activities.length > 0,
 			href: `${basePath}/activities`,
 			required: true,
