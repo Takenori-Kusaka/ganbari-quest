@@ -219,6 +219,9 @@ jobs:
             -c stripePriceYearly=${{ vars.STRIPE_PRICE_YEARLY }} \
             -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }} \
             -c stripePriceFamilyYearly=${{ vars.STRIPE_PRICE_FAMILY_YEARLY }} \
+            -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }} \
+            -c stripeWebhookShadowMode=${{ vars.STRIPE_WEBHOOK_SHADOW_MODE || 'false' }} \
+            -c stripeWebhookSecretTest=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }} \
             -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }} \
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
@@ -244,6 +247,9 @@ jobs:
           -c stripePriceYearly=${{ vars.STRIPE_PRICE_YEARLY }}
           -c stripePriceFamilyMonthly=${{ vars.STRIPE_PRICE_FAMILY_MONTHLY }}
           -c stripePriceFamilyYearly=${{ vars.STRIPE_PRICE_FAMILY_YEARLY }}
+          -c useLookupKey=${{ vars.USE_LOOKUP_KEY || 'true' }}
+          -c stripeWebhookShadowMode=${{ vars.STRIPE_WEBHOOK_SHADOW_MODE || 'false' }}
+          -c stripeWebhookSecretTest=${{ secrets.STRIPE_WEBHOOK_SECRET_TEST }}
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}

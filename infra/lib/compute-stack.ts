@@ -92,6 +92,26 @@ export class ComputeStack extends cdk.Stack {
 		const stripePriceFamilyMonthly = this.node.tryGetContext('stripePriceFamilyMonthly') ?? '';
 		const stripePriceFamilyYearly = this.node.tryGetContext('stripePriceFamilyYearly') ?? '';
 
+		// --- Phase 7 PR-3b / PR-4a 配備済 Stripe Webhook + lookup_key 関連 env (#2721 / #2713 / #2716) ---
+		// 参照 SSOT:
+		//   - docs/decisions/0059-phase7-cutover-sequence.md
+		//   - docs/design/billing-redesign/phase6-phase7-execution-ssot.md §3 Step 3 / Step 4
+		//   - docs/design/billing-redesign/phase6-context-decisions-6.md §4 lookup_key 段階移行
+		//
+		// useLookupKey (PR-3b cutover): default 'true' で Production cutover を反映する。
+		//   - lookup_key (`standard_monthly` / `premium_monthly`) 経由 Price ID 解決
+		//   - Stripe API 障害時は env var `STRIPE_PRICE_*` fallback (kill switch、isLookupKeyEnabled())
+		//   - 旧 env var 4 件は PR-5 cleanup (1 週間 smoke test 完了後) で削除
+		// stripeWebhookShadowMode (PR-4a 配備、cutover は PR-4b): default 'false'。
+		//   - PR-4a で env 配備のみ実施済 (#2714)、CDK context 配布が本 PR で完了
+		//   - PR-4b cutover 時に 'true' に切替て shadow mode 検証 (24-48h)
+		// stripeWebhookSecretTest (PR-4a 配備): Test mode webhook signing secret (#2627 §C)。
+		//   - shadow mode + cutover で `STRIPE_WEBHOOK_SHADOW_MODE=true` 時に getWebhookSecretForShadow()
+		//     経由で参照される (config.ts:120)
+		const useLookupKey = this.node.tryGetContext('useLookupKey') ?? 'true';
+		const stripeWebhookShadowMode = this.node.tryGetContext('stripeWebhookShadowMode') ?? 'false';
+		const stripeWebhookSecretTest = this.node.tryGetContext('stripeWebhookSecretTest') ?? '';
+
 		// --- Cron Endpoint Bearer Secret (#820 PR-D / ADR-0033) ---
 		// /api/cron/retention-cleanup の Bearer 認証に使用。
 		// /ops ダッシュボードは Cognito ops group 認可に移行したため、この鍵は共有しない。
@@ -211,6 +231,18 @@ export class ComputeStack extends cdk.Stack {
 					? { STRIPE_PRICE_FAMILY_MONTHLY: stripePriceFamilyMonthly }
 					: {}),
 				...(stripePriceFamilyYearly ? { STRIPE_PRICE_FAMILY_YEARLY: stripePriceFamilyYearly } : {}),
+				// Phase 7 PR-3b cutover (#2721): default 'true' で lookup_key 経路有効化。
+				// Stripe API 障害時は env var fallback (config.ts isLookupKeyEnabled() / getPriceId())。
+				// kill switch: Lambda env を 'false' に変更すると約 30 秒で env var 直読経路に巻き戻し。
+				USE_LOOKUP_KEY: useLookupKey,
+				// Phase 7 PR-4a 配備 (#2713): default 'false'。PR-4b cutover で 'true' 切替。
+				// shadow mode = log only handler (`/api/stripe/webhook-v2`)、本番動作不変。
+				STRIPE_WEBHOOK_SHADOW_MODE: stripeWebhookShadowMode,
+				// Phase 7 PR-4a 配備 (#2713 / #2627 §C): Test mode webhook signing secret。
+				// shadow / cutover で getWebhookSecretForShadow() (config.ts:120) 経由参照。
+				// 空文字 fallback で本番 STRIPE_WEBHOOK_SECRET に flow。Production cutover 後に
+				// 本番 secret に置換 (PR-4b マージ時、#2627 §F)。
+				...(stripeWebhookSecretTest ? { STRIPE_WEBHOOK_SECRET_TEST: stripeWebhookSecretTest } : {}),
 				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
 				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
 				SES_CONFIG_SET_NAME: 'ganbari-quest-config',

@@ -98,6 +98,32 @@ Stripe 公式 [migrate-snapshot-to-thin-events](https://docs.stripe.com/webhooks
 | **Stripe Dashboard 同期** | **Test mode で先行作成必須** (本 step マージ前に PO #2627 で Test mode の **2 Product / 各 1 Price / lookup_key** / Webhook 構築済の状態を担保、#2683 代替案 D 反映) |
 | **前提 PR** | Step 1 + Step 2 マージ済 + Stripe Dashboard Test mode 構築完了 (PO #2627) |
 
+#### Step 3-a 実装完了記録 (PR #2717 / Issue #2716)
+
+| 項目 | 内容 |
+|---|---|
+| **実装 PR** | [#2717 feat(billing): #2716 Phase 7 PR-3a — Stripe lookup_key caching layer + USE_LOOKUP_KEY flag 配備](https://github.com/Takenori-Kusaka/ganbari-quest/pull/2717) |
+| **対象 Issue** | #2716 |
+| **マージ commit** | `af430e0a` (2026-05-30) |
+| **配備 file** | `src/lib/server/stripe/price-cache.ts` (新規 caching layer) + `src/lib/server/stripe/config.ts` (`isLookupKeyEnabled` / `getPriceId` 関数経由化) + `.env.example` (USE_LOOKUP_KEY default `false` 配備) |
+| **テスト追加** | `tests/unit/server/stripe/price-cache.test.ts` + `tests/unit/server/stripe/lookup-key-config.test.ts` (flag 分岐 + lookup_key 経路 + env var fallback) |
+| **本 PR scope (Step 3-a only)** | caching layer 実装 + `USE_LOOKUP_KEY=false` default で配備のみ、本番動作不変 (env var 直読継続)。Production cutover は PR-3b (#2721) に持ち越し |
+| **本番影響** | default `USE_LOOKUP_KEY=false` で本番 Lambda 動作不変。Production Stripe Dashboard の lookup_key 発行も PO 手動操作で Test mode のみ完了 |
+| **次工程** | PR-3b (#2721) で `USE_LOOKUP_KEY=true` 物理 cutover + CDK env 配備 + GitHub Actions Variables 経路追加 |
+
+#### Step 3-b 実装完了記録 (PR #2721 候補 / Issue #2721) — 本 PR
+
+| 項目 | 内容 |
+|---|---|
+| **対象 Issue** | #2721 |
+| **配備 file** | `src/lib/server/stripe/client.ts` (`STRIPE_API_VERSION` 物理 bump `'2026-05-27.dahlia'` → `'2026-04-22.dahlia'`、補強 PR #2684 docs SSOT との物理同期) + `infra/lib/compute-stack.ts` (Lambda env 3 件配備: `USE_LOOKUP_KEY` / `STRIPE_WEBHOOK_SHADOW_MODE` / `STRIPE_WEBHOOK_SECRET_TEST`) + `.github/workflows/deploy.yml` (CDK context 3 件追加: cdk diff + cdk deploy の 2 箇所) + `.env.example` (USE_LOOKUP_KEY default `true` 更新) |
+| **テスト追加** | `tests/unit/server/stripe/client-api-version.test.ts` (新規、stable / preview 厳密 assert regression gate) + `tests/unit/infra/multi-lambda-cdk.test.ts` (3 ケース追加: 本番 Fn env 配備 + demo Fn omit 検証) |
+| **本 PR scope (Step 3-b cutover)** | (1) apiVersion 物理 bump (補強 PR #2684 で docs 訂正のみ実施、client.ts 物理同期が漏れていた構造的欠落の補修) + (2) PR-3a 配備済 `USE_LOOKUP_KEY` の Production cutover (`true` default 配備) + (3) PR-4a 配備済 `STRIPE_WEBHOOK_SHADOW_MODE` / `STRIPE_WEBHOOK_SECRET_TEST` の CDK context 経由配布完了 (PR-4a では env 配備のみで GitHub Actions → CDK 経路が未配線だった) |
+| **本番影響** | (a) apiVersion `'2026-04-22.dahlia'` stable 化により preview リリース脱却。副次制約 4 (Webhook destination api_version immutable) には未触 (Webhook destination 自体は PR-4b で新規作成) (b) Production Lambda env に `USE_LOOKUP_KEY=true` 配備で lookup_key 経路 cutover (Stripe API 障害時は env var fallback、kill switch 有効) (c) shadow mode 関連 env は default `false` のまま、PR-4b cutover まで本番 Webhook 動作不変 |
+| **前提** | **#2627 Production Stripe Dashboard 同期完了 (PO 手動操作、2026-05-31)**: 2 Product + Price 各 1 (lookup_key=`standard_monthly` / `premium_monthly`、内税) + Customer Portal (代替案 D) + Tax + Branding が Production mode で配備済 (#2627 comment confirmation) |
+| **kill switch 操作** | (a) `USE_LOOKUP_KEY` cutover 失敗時: GitHub Actions Variables に `USE_LOOKUP_KEY=false` 設定 → CDK redeploy で env var 直読経路に巻き戻し (約 30 秒で反映) (b) apiVersion ロールバック: `client.ts:8` を `'2026-05-27.dahlia'` (旧値) に戻す revert PR + Lambda 再 deploy (Webhook destination は PR-4b 未実施のため不整合発生せず) |
+| **次工程** | (a) 1-2 week staging 検証 (Sentry error rate < 0.5% / Stripe API 障害率 / lookup_key cache hit rate) (b) PR-4b (Webhook cutover) 着手判断 (c) PR-5 (旧 env var 物理削除 + 旧 Webhook destination retire) |
+
 ### Step 4: Webhook shadow / cutover / retire (子 3 #2641 + Stripe 公式 5 phase 整合、推定 400 行、#2683 補強で event 一覧変更)
 
 | 項目 | 内容 |
