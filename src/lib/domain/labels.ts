@@ -4140,6 +4140,9 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// imported=0 (選んだ子に全て追加済み) — generic な「完了」で誤魔化さない
 	importAllDuplicates: `選んだ${CHILD_TERMS.honorific}にはすでに追加済みです`,
 	importFailed: '取込に失敗しました',
+	// Round 18 Cluster G (per-child scope badge): 英語内部語彙「per-child」UI 露出撤去 (ADR-0045 §9)
+	// 「お子さま別」= per-child scope (個別 child に紐付く activity) を親向けに明示する短い表示
+	scopeBadgePerChild: `${CHILD_TERMS.honorific}別`,
 	// #2744 AC4 Delete UI (family scope): 一覧から活動を削除する確認 Dialog + 完了 Toast
 	// #2754 Fix Round 1 B2: undo 経路不在の business risk を文言で明示
 	// (ログ有 → 非表示で活動履歴は保全 / ログ無 → 物理削除でレコード復元不能)
