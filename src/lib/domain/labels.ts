@@ -4137,6 +4137,16 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// imported=0 (選んだ子に全て追加済み) — generic な「完了」で誤魔化さない
 	importAllDuplicates: `選んだ${CHILD_TERMS.honorific}にはすでに追加済みです`,
 	importFailed: '取込に失敗しました',
+	// #2744 AC4 Delete UI (family scope): 一覧から活動を削除する確認 Dialog + 完了 Toast
+	deleteBtn: '削除',
+	deleteConfirmTitle: (name: string) => `${name} を削除しますか?`,
+	deleteConfirmBody:
+		'この活動はログがあれば「非表示」、なければ完全に削除されます。この操作は取り消せません。',
+	deleteConfirmAction: '削除する',
+	deleteCancel: 'キャンセル',
+	deleteProcessing: '削除中...',
+	deleteSuccess: '✨ 活動を削除しました',
+	deleteFailed: '削除に失敗しました',
 } as const;
 
 /**
