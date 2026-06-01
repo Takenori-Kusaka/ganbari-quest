@@ -38,23 +38,29 @@ const NIELSEN_HEURISTICS = {
 
 /**
  * Mock split prompt response (heuristics 1-5 / 6-10 別)
+ *
+ * @param {string} heuristicRange
+ * @param {Array<Record<string, any>>} candidates
+ * @returns {Array<Record<string, any>>}
  */
 function buildMockSplitResponse(heuristicRange, candidates) {
-	const baseFindings = candidates.slice(0, 4).map((c, i) => ({
-		id: `mock-l5-${heuristicRange}-${i}`,
-		heuristic: heuristicRange === '1-5' ? (i % 5) + 1 : (i % 5) + 6,
-		step: c.step ?? (i % 5) + 1,
-		age_tier: c.age_tier ?? 'elementary',
-		viewport: c.viewport ?? 'mobile',
-		result: i % 3 === 0 ? 'No' : 'Partial',
-		severity: ((c.severity ?? c.avg_severity ?? 2) + i) % 5,
-		rationale: `Synthetic HE H${heuristicRange === '1-5' ? (i % 5) + 1 : (i % 5) + 6} 観点で finding。${c.rationales?.[0]?.slice(0, 60) ?? c.rationale?.slice(0, 60) ?? '本 product 子供向け context'}`,
-		evidence_ss_name:
-			c.evidence_ss_name ?? `mock-${c.age_tier ?? 'elementary'}-step${c.step ?? 1}.webp`,
-		evidence_term_quote: c.evidence_term_quote ?? 'N/A',
-		confidence: 0.6,
-		cross_screen_unified: i % 4 === 0, // 25% が cross-screen 集約済
-	}));
+	const baseFindings = candidates
+		.slice(0, 4)
+		.map((/** @type {Record<string, any>} */ c, /** @type {number} */ i) => ({
+			id: `mock-l5-${heuristicRange}-${i}`,
+			heuristic: heuristicRange === '1-5' ? (i % 5) + 1 : (i % 5) + 6,
+			step: c.step ?? (i % 5) + 1,
+			age_tier: c.age_tier ?? 'elementary',
+			viewport: c.viewport ?? 'mobile',
+			result: i % 3 === 0 ? 'No' : 'Partial',
+			severity: ((c.severity ?? c.avg_severity ?? 2) + i) % 5,
+			rationale: `Synthetic HE H${heuristicRange === '1-5' ? (i % 5) + 1 : (i % 5) + 6} 観点で finding。${c.rationales?.[0]?.slice(0, 60) ?? c.rationale?.slice(0, 60) ?? '本 product 子供向け context'}`,
+			evidence_ss_name:
+				c.evidence_ss_name ?? `mock-${c.age_tier ?? 'elementary'}-step${c.step ?? 1}.webp`,
+			evidence_term_quote: c.evidence_term_quote ?? 'N/A',
+			confidence: 0.6,
+			cross_screen_unified: i % 4 === 0, // 25% が cross-screen 集約済
+		}));
 	return baseFindings;
 }
 
@@ -62,6 +68,10 @@ function buildMockSplitResponse(heuristicRange, candidates) {
  * Cosine similarity 簡易実装 (Mock 用、Real は OpenAI / Anthropic embeddings API)
  *
  * Mock では文字列の Jaccard 類似度で近似 (Phase 1.2 で本格 embedding に upgrade)
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {number}
  */
 function mockCosineSimilarity(a, b) {
 	const tokensA = new Set(a.toLowerCase().split(/\s+|、|。/));
@@ -73,16 +83,23 @@ function mockCosineSimilarity(a, b) {
 
 /**
  * Cross-screen aggregation dedup (cosine similarity 0.85+ で merge)
+ *
+ * @param {Array<Record<string, any>>} findings
+ * @param {{similarityThreshold: number}} [opts]
+ * @returns {Array<Record<string, any>>}
  */
 export function deduplicateAcrossScreens(findings, opts = { similarityThreshold: 0.85 }) {
+	/** @type {Array<Array<Record<string, any>>>} */
 	const groups = [];
 	for (const f of findings) {
 		let assigned = false;
 		for (const group of groups) {
-			const sim = mockCosineSimilarity(f.rationale, group[0].rationale);
+			const head = group[0];
+			if (!head) continue;
+			const sim = mockCosineSimilarity(f.rationale, head.rationale);
 			if (
-				f.heuristic === group[0].heuristic &&
-				f.step === group[0].step &&
+				f.heuristic === head.heuristic &&
+				f.step === head.step &&
 				sim >= opts.similarityThreshold
 			) {
 				group.push(f);
@@ -92,16 +109,27 @@ export function deduplicateAcrossScreens(findings, opts = { similarityThreshold:
 		}
 		if (!assigned) groups.push([f]);
 	}
-	return groups.map((group) => ({
-		...group[0],
-		cross_screen_unified: true,
-		affected_age_tiers: [...new Set(group.map((f) => f.age_tier))],
-		aggregated_count: group.length,
-	}));
+	return groups.map((group) => {
+		const head = group[0];
+		if (!head) throw new Error('[layer-e] empty group in deduplicateAcrossScreens');
+		return {
+			...head,
+			cross_screen_unified: true,
+			affected_age_tiers: [...new Set(group.map((f) => f.age_tier))],
+			aggregated_count: group.length,
+		};
+	});
 }
 
 /**
  * Layer E run (Real / Mock 両対応)
+ *
+ * @param {Object} opts
+ * @param {{aggregated?: Array<Record<string, any>>}} opts.layerDOutput
+ * @param {boolean} [opts.mock]
+ * @param {string|undefined} [opts.anthropicApiKey]
+ * @param {string} [opts.model]
+ * @returns {Promise<Record<string, any>>}
  */
 export async function runLayerE({
 	layerDOutput,

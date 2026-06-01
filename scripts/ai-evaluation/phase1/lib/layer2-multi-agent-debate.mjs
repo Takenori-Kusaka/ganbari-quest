@@ -23,6 +23,9 @@ const MAX_ROUNDS = 5;
 
 /**
  * KS 2-sample test (severity distribution の最大 CDF 差)
+ * @param {number[]} s1
+ * @param {number[]} s2
+ * @returns {number}
  */
 export function ksTwoSample(s1, s2) {
 	if (s1.length === 0 && s2.length === 0) return 0;
@@ -41,18 +44,18 @@ export function ksTwoSample(s1, s2) {
 
 /**
  * Adaptive stop 判定: 直近 3 round の severity distribution KS-test が 2 consecutive ε 未満
+ * @param {Array<Array<{findings?: Array<{severity?: number}>}>>} history
+ * @returns {boolean}
  */
 export function shouldStopDebate(history) {
 	if (history.length < 3) return false;
-	const latest = history[history.length - 1].flatMap((r) =>
-		(r.findings || []).map((f) => f.severity ?? 0),
-	);
-	const prev1 = history[history.length - 2].flatMap((r) =>
-		(r.findings || []).map((f) => f.severity ?? 0),
-	);
-	const prev2 = history[history.length - 3].flatMap((r) =>
-		(r.findings || []).map((f) => f.severity ?? 0),
-	);
+	const latestRound = history[history.length - 1];
+	const prev1Round = history[history.length - 2];
+	const prev2Round = history[history.length - 3];
+	if (!latestRound || !prev1Round || !prev2Round) return false;
+	const latest = latestRound.flatMap((r) => (r.findings || []).map((f) => f.severity ?? 0));
+	const prev1 = prev1Round.flatMap((r) => (r.findings || []).map((f) => f.severity ?? 0));
+	const prev2 = prev2Round.flatMap((r) => (r.findings || []).map((f) => f.severity ?? 0));
 	const ks1 = ksTwoSample(latest, prev1);
 	const ks2 = ksTwoSample(prev1, prev2);
 	return ks1 < KS_THRESHOLD && ks2 < KS_THRESHOLD;
@@ -65,6 +68,11 @@ export function shouldStopDebate(history) {
  *   - Round 0: 多めの finding
  *   - Round 1: KS shift → severity 修正
  *   - Round 2-3: KS-test ε 未満 → adaptive stop trigger
+ *
+ * @param {string} role
+ * @param {number} round
+ * @param {Array<Record<string, any>>} candidates
+ * @returns {Record<string, any>}
  */
 function buildMockAgentResponse(role, round, candidates) {
 	const noise = round >= 2 ? 0 : 0.1 * (2 - round); // round 進行で noise 削減
@@ -136,6 +144,17 @@ function buildMockAgentResponse(role, round, candidates) {
 
 /**
  * Layer B run (Real / Mock 両対応)
+ *
+ * @param {Object} opts
+ * @param {{aggregated: Array<Record<string, any>>}} opts.layerAOutput
+ * @param {number} [opts.runs]
+ * @param {string} [opts.model]
+ * @param {boolean} [opts.mock]
+ * @param {string|undefined} [opts.anthropicApiKey]
+ * @param {string[]} [opts.screenshotPaths]
+ * @param {Record<string, string>} [opts.systemPromptByRole]
+ * @param {string} [opts.userInstruction]
+ * @returns {Promise<{layer: string, aggregated: Array<Record<string, any>>, findings_in: number, findings_out: number, kill_rate: number, rounds_executed?: number, max_rounds?: number, adaptive_stop_triggered?: boolean, adversarial_objections?: Array<any>}>}
  */
 export async function runLayerB({
 	layerAOutput,
@@ -154,6 +173,7 @@ export async function runLayerB({
 		console.log(
 			`[layer-b] MOCK mode: ${candidates.length} candidates から debate (max ${MAX_ROUNDS} rounds)`,
 		);
+		/** @type {Array<Array<Record<string, any>>>} */
 		const history = [];
 		let stoppedAtRound = MAX_ROUNDS;
 		for (let t = 0; t < MAX_ROUNDS; t++) {
@@ -172,12 +192,16 @@ export async function runLayerB({
 
 		// 最終 round の majority + adversarial kills 反映
 		const finalRound = history[history.length - 1];
+		if (!finalRound) {
+			throw new Error('[layer-b] history が空です (MAX_ROUNDS=0?)');
+		}
 		const advReviewer = finalRound.find((r) => r.agent_role === 'adversarial_reviewer');
+		/** @type {Set<string>} */
 		const killSet = new Set(advReviewer?.kills || []);
 		const finalFindings = finalRound
 			.filter((r) => r.findings)
 			.flatMap((r) => r.findings || [])
-			.filter((f) => !killSet.has(f.id));
+			.filter((/** @type {{id: string}} */ f) => !killSet.has(f.id));
 
 		return {
 			layer: 'B',

@@ -23,8 +23,11 @@ const TEMPERATURES = [0.7, 0.75, 0.85]; // k=3、Phase 1.2 で k=5-10 + temperat
 
 /**
  * SS path 配列を Anthropic Messages content block (base64 image) に変換
+ * @param {string[]} screenshotPaths
+ * @returns {Promise<Array<{type: string, source: {type: string, media_type: string, data: string}}>>}
  */
 async function attachScreenshots(screenshotPaths) {
+	/** @type {Array<{type: string, source: {type: string, media_type: string, data: string}}>} */
 	const blocks = [];
 	for (const ssPath of screenshotPaths) {
 		try {
@@ -38,7 +41,8 @@ async function attachScreenshots(screenshotPaths) {
 				},
 			});
 		} catch (err) {
-			console.warn(`[layer-a] SS load 失敗 (skip): ${ssPath} — ${err.message}`);
+			const msg = err instanceof Error ? err.message : String(err);
+			console.warn(`[layer-a] SS load 失敗 (skip): ${ssPath} — ${msg}`);
 		}
 	}
 	return blocks;
@@ -46,6 +50,8 @@ async function attachScreenshots(screenshotPaths) {
 
 /**
  * CISC severity bucket 化 (key clustering 用)
+ * @param {number} s
+ * @returns {string}
  */
 function severityBucket(s) {
 	if (s <= 1) return '0-1';
@@ -61,6 +67,10 @@ function severityBucket(s) {
  *   - 3 runs 中 3/3 全員一致 → certainty 1.0 (ai-single ルート、Layer B/C skip 候補)
  *   - 3 runs 中 2/3 → certainty 0.67 (layer-bc escalate)
  *   - 3 runs 中 1/3 のみ → certainty 0.33 (user-filter pool)
+ *
+ * @param {number} runIndex
+ * @param {string} type
+ * @returns {{findings: Array<Record<string, unknown>>, metadata: {model: string, temperature: number, run_index: number}}}
  */
 function buildMockResponse(runIndex, type) {
 	const driftKey = runIndex % 2 === 0 ? 'A' : 'B';
@@ -133,8 +143,9 @@ async function loadAnthropic() {
 		const mod = await import(/* @vite-ignore */ specName);
 		return mod.default ?? mod;
 	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
 		throw new Error(
-			`@anthropic-ai/sdk load 失敗: ${err.message}\n` +
+			`@anthropic-ai/sdk load 失敗: ${msg}\n` +
 				`本 layer は npm install -D @anthropic-ai/sdk@^0.40 が前提です (PR #2695 で既存採用済)。`,
 		);
 	}
@@ -142,6 +153,8 @@ async function loadAnthropic() {
 
 /**
  * 単一 run を Anthropic API で呼出
+ * @param {{client: any, model: string, systemPrompt: string, userInstruction: string, ssBlocks: Array<Record<string, unknown>>, runIndex: number}} args
+ * @returns {Promise<{parsed?: any, raw: string, runIndex: number, error?: string}>}
  */
 async function callSingleRun({ client, model, systemPrompt, userInstruction, ssBlocks, runIndex }) {
 	const userContent = [
@@ -158,7 +171,9 @@ async function callSingleRun({ client, model, systemPrompt, userInstruction, ssB
 		system: systemPrompt,
 		messages: [{ role: 'user', content: userContent }],
 	});
-	const textBlocks = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text);
+	const textBlocks = /** @type {Array<{type: string, text: string}>} */ (res.content || [])
+		.filter((/** @type {{type: string}} */ b) => b.type === 'text')
+		.map((/** @type {{text: string}} */ b) => b.text);
 	const raw = textBlocks.join('\n').trim();
 	const jsonStr = raw
 		.replace(/^```(?:json)?\s*/i, '')
@@ -167,7 +182,8 @@ async function callSingleRun({ client, model, systemPrompt, userInstruction, ssB
 	try {
 		return { parsed: JSON.parse(jsonStr), raw, runIndex };
 	} catch (parseErr) {
-		return { error: `JSON parse 失敗: ${parseErr.message}`, raw, runIndex };
+		const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+		return { error: `JSON parse 失敗: ${msg}`, raw, runIndex };
 	}
 }
 
@@ -181,11 +197,15 @@ async function callSingleRun({ client, model, systemPrompt, userInstruction, ssB
  *   - "ai-single"  : 4/5 以上 + certainty ≥ 0.7   (AI 単独判定、Layer B/C skip)
  *   - "layer-bc"   : 3/5 以上 + certainty ≥ 0.4   (Layer B/C escalate)
  *   - "user-filter": それ以下                     (User filter pool)
+ *
+ * @param {Array<{parsed?: any, raw?: string, runIndex: number, error?: string}>} runs
+ * @returns {{layer: string, runs_total: number, runs_parsed: number, runs_failed: number, findings_in: number, findings_out: number, kill_rate: number, aggregated: Array<Record<string, any>>, errors: string[]}}
  */
 function ciscAggregate(runs) {
 	const parsed = runs.filter((r) => r.parsed);
 	const k = runs.length;
 
+	/** @type {Map<string, {count: number, confidenceSum: number, severitySum: number, rationales: string[], ids: string[], runIndices: number[], evidence_ss_name: string, evidence_term_quote: string}>} */
 	const findings = new Map();
 	for (const r of parsed) {
 		for (const f of r.parsed.findings || []) {
@@ -194,11 +214,11 @@ function ciscAggregate(runs) {
 				count: 0,
 				confidenceSum: 0,
 				severitySum: 0,
-				rationales: [],
-				ids: [],
-				runIndices: [],
-				evidence_ss_name: f.evidence_ss_name,
-				evidence_term_quote: f.evidence_term_quote,
+				rationales: /** @type {string[]} */ ([]),
+				ids: /** @type {string[]} */ ([]),
+				runIndices: /** @type {number[]} */ ([]),
+				evidence_ss_name: /** @type {string} */ (f.evidence_ss_name),
+				evidence_term_quote: /** @type {string} */ (f.evidence_term_quote),
 			};
 			agg.count += 1;
 			agg.confidenceSum += f.confidence ?? 0.5;
@@ -248,7 +268,7 @@ function ciscAggregate(runs) {
 		findings_out: aggregated.length,
 		kill_rate: 0, // Layer A は kill しない、escalate のみ
 		aggregated,
-		errors: runs.filter((r) => r.error).map((r) => r.error),
+		errors: runs.filter((r) => r.error).map((r) => /** @type {string} */ (r.error)),
 	};
 }
 
@@ -257,13 +277,14 @@ function ciscAggregate(runs) {
  *
  * @param {Object} opts
  * @param {string} opts.type - 'activity-pack' 等
- * @param {number} opts.runs - k=3 (POC naive)
- * @param {string} opts.model - 'claude-opus-4-7'
- * @param {boolean} opts.mock - true で realistic dummy
- * @param {string|undefined} opts.anthropicApiKey - Real mode 必須
- * @param {string[]} opts.screenshotPaths - 50 SS の path 配列
- * @param {string} opts.systemPrompt - SYSTEM_PROMPT_HEURISTIC_EVALUATOR (prompt-templates から構築)
- * @param {string} opts.userInstruction - flow description
+ * @param {number} [opts.runs] - k=3 (POC naive)
+ * @param {string} [opts.model] - 'claude-opus-4-7'
+ * @param {boolean} [opts.mock] - true で realistic dummy
+ * @param {string} [opts.anthropicApiKey] - Real mode 必須
+ * @param {string[]} [opts.screenshotPaths] - 50 SS の path 配列
+ * @param {string} [opts.systemPrompt] - SYSTEM_PROMPT_HEURISTIC_EVALUATOR (prompt-templates から構築)
+ * @param {string} [opts.userInstruction] - flow description
+ * @returns {Promise<{layer: string, runs_total: number, runs_parsed: number, runs_failed: number, findings_in: number, findings_out: number, kill_rate: number, aggregated: Array<Record<string, any>>, errors: string[]}>}
  */
 export async function runLayerA({
 	type,

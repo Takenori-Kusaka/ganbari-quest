@@ -70,8 +70,13 @@ export const CONSTITUTION_PRINCIPLES = [
  *   - index % 7 == 1 → P2 violates (engagement 推奨)
  *   - index % 5 == 0 → P5 violates (Pre-PMF 過剰要求) → severity 降格 (kill ではなく)
  *   - その他 → uphold
+ *
+ * @param {Record<string, any>} candidate
+ * @param {number} index
+ * @returns {{candidate_id: string, principle_violations: Array<{principle_id: string, violates: boolean, explanation: string}>, revised_severity: number, confidence: number, overall_verdict: string}}
  */
 function buildMockCritique(candidate, index) {
+	/** @type {Array<{principle_id: string, violates: boolean, explanation: string}>} */
 	const violations = [];
 	let revisedSeverity = candidate.severity ?? candidate.avg_severity ?? 0;
 
@@ -106,6 +111,13 @@ function buildMockCritique(candidate, index) {
 
 /**
  * Layer D run (Real / Mock 両対応)
+ *
+ * @param {Object} opts
+ * @param {{aggregated?: Array<Record<string, any>>}} opts.layerCOutput
+ * @param {boolean} [opts.mock]
+ * @param {string|undefined} [opts.anthropicApiKey]
+ * @param {string} [opts.model]
+ * @returns {Promise<Record<string, any>>}
  */
 export async function runLayerD({
 	layerCOutput,
@@ -118,15 +130,19 @@ export async function runLayerD({
 
 	if (mock) {
 		console.log(`[layer-d] MOCK mode: ${candidates.length} candidates に P1-P7 critique`);
-		const critiques = candidates.map((c, i) => buildMockCritique(c, i));
+		const critiques = candidates.map(
+			(/** @type {Record<string, any>} */ c, /** @type {number} */ i) => buildMockCritique(c, i),
+		);
 		const killed = critiques.filter((cr) => cr.overall_verdict === 'kill');
 		const upheld = critiques.filter((cr) => cr.overall_verdict === 'uphold');
 		const survivors = upheld
 			.map((cr) => {
-				const orig = candidates.find((c) => c.id === cr.candidate_id);
+				const orig = candidates.find(
+					(/** @type {Record<string, any>} */ c) => c.id === cr.candidate_id,
+				);
 				return orig ? { ...orig, severity: cr.revised_severity, constitution_passed: true } : null;
 			})
-			.filter(Boolean);
+			.filter((/** @type {unknown} */ s) => s !== null);
 
 		console.log(`[layer-d] killed=${killed.length} upheld=${upheld.length}`);
 

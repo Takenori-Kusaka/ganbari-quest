@@ -28,8 +28,11 @@ const PROMPT_DIR = resolve(__dirname, 'prompt-templates');
 
 /**
  * Prompt template (5 Role の .md ファイル) 全件読込
+ *
+ * @returns {Promise<Record<string, string>>}
  */
 export async function loadPromptTemplates() {
+	/** @type {Record<string, string>} */
 	const templates = {};
 	const files = [
 		'role-toddler-parent.md',
@@ -51,11 +54,15 @@ export async function loadPromptTemplates() {
  * Stub SS path 生成 (Mock 時、本 SS 撮影は PR #2695 経由)
  *
  * 5 age tier × 2 viewport × 5 step = 50 stub path
+ *
+ * @param {string} type
+ * @returns {string[]}
  */
 function generateStubScreenshotPaths(type) {
 	const ageTiers = ['baby', 'preschool', 'elementary', 'junior', 'senior'];
 	const viewports = ['mobile', 'desktop'];
 	const steps = [1, 2, 3, 4, 5];
+	/** @type {string[]} */
 	const paths = [];
 	for (const tier of ageTiers) {
 		for (const vp of viewports) {
@@ -72,12 +79,13 @@ function generateStubScreenshotPaths(type) {
  *
  * @param {Object} opts
  * @param {string} opts.type - 'activity-pack' 等
- * @param {number} opts.runs - Self-Consistency k=3
- * @param {string} opts.model - 'claude-opus-4-7'
- * @param {boolean} opts.mock - true で全 layer Mock smoke
- * @param {string|undefined} opts.anthropicApiKey - Real mode 必須
- * @param {string|undefined} opts.geminiApiKey - Layer C Stage D 必須 (Real mode)
- * @param {string|undefined} opts.screenshotsDir - 既存 SS dir (default: stub)
+ * @param {number} [opts.runs] - Self-Consistency k=3
+ * @param {string} [opts.model] - 'claude-opus-4-7'
+ * @param {boolean} [opts.mock] - true で全 layer Mock smoke
+ * @param {string} [opts.anthropicApiKey] - Real mode 必須
+ * @param {string} [opts.geminiApiKey] - Layer C Stage D 必須 (Real mode)
+ * @param {string} [opts.screenshotsDir] - 既存 SS dir (default: stub)
+ * @returns {Promise<Record<string, any>>}
  */
 export async function runPipeline({
 	type,

@@ -277,6 +277,10 @@ describe('Phase 1.1 POC — Pipeline E2E Mock smoke (6 layer integrate)', () => 
 		const _layerC = result.layers.find((l: { layer: string }) => l.layer === 'C');
 		const layerF = result.layers.find((l: { layer: string }) => l.layer === 'F');
 
+		expect(layerA).toBeDefined();
+		expect(layerF).toBeDefined();
+		if (!layerA || !layerF) throw new Error('layerA / layerF が未定義 (pipeline schema 退行)');
+
 		// Layer C は 79% kill rate 主担保、Layer A から減衰確認
 		// (Mock では candidates が少ないので strict 単調減少までは要求しない)
 		expect(layerA.findings_out).toBeGreaterThan(0);
@@ -289,12 +293,14 @@ describe('Phase 1.1 POC — Pipeline E2E Mock smoke (6 layer integrate)', () => 
 			runs: 3,
 			mock: true,
 		});
-		const layerC = result.layers.find((l: { layer: string; kill_rate: number }) => l.layer === 'C');
+		const layerC = result.layers.find((l: { layer: string }) => l.layer === 'C');
 		expect(layerC).toBeDefined();
+		if (!layerC) throw new Error('layerC が未定義 (pipeline schema 退行)');
 		// Mock では 60-90% 範囲を許容 (Stage A 60% kill + Stage B 50% kill + Stage D 25% kill の積)
 		// 実際は Mock candidates 数に依存、空でなければ 0-1 範囲
-		expect(layerC.kill_rate).toBeGreaterThanOrEqual(0);
-		expect(layerC.kill_rate).toBeLessThanOrEqual(1);
+		const killRate = (layerC as { kill_rate: number }).kill_rate;
+		expect(killRate).toBeGreaterThanOrEqual(0);
+		expect(killRate).toBeLessThanOrEqual(1);
 	}, 30000);
 
 	it('Mock mode で Layer B adaptive_stop_triggered が記録される', async () => {
@@ -304,11 +310,14 @@ describe('Phase 1.1 POC — Pipeline E2E Mock smoke (6 layer integrate)', () => 
 			mock: true,
 		});
 		const layerB = result.layers.find((l: { layer: string }) => l.layer === 'B');
+		expect(layerB).toBeDefined();
+		if (!layerB) throw new Error('layerB が未定義 (pipeline schema 退行)');
 		expect(layerB).toHaveProperty('adaptive_stop_triggered');
 		expect(layerB).toHaveProperty('rounds_executed');
 		// rounds_executed は 1-5 範囲 (MAX_ROUNDS=5)
-		expect(layerB.rounds_executed).toBeGreaterThanOrEqual(1);
-		expect(layerB.rounds_executed).toBeLessThanOrEqual(5);
+		const rounds = (layerB as { rounds_executed?: number }).rounds_executed;
+		expect(rounds).toBeGreaterThanOrEqual(1);
+		expect(rounds).toBeLessThanOrEqual(5);
 	}, 30000);
 
 	it('Mock mode で Layer F achievement 判定が evaluateAchievementPath schema', async () => {

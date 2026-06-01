@@ -24,9 +24,14 @@
  * Cohen's Kappa = (p₀ - pₑ) / (1 - pₑ)
  *
  * 各 (step, heuristic, age_tier, viewport) を unique key として bool 化 (uphold/kill) で計算
+ *
+ * @param {Array<Record<string, any>>} groundTruth
+ * @param {Array<Record<string, any>>} aiOutput
+ * @returns {number}
  */
 export function computeCohenKappa(groundTruth, aiOutput) {
 	if (groundTruth.length === 0 && aiOutput.length === 0) return 1; // 両方 empty は完全一致
+	/** @type {(item: Record<string, any>) => string} */
 	const matchKey = (item) =>
 		`${item.step ?? ''}|${item.heuristic ?? ''}|${item.age_tier ?? ''}|${item.viewport ?? ''}`;
 	const gtKeys = new Set(groundTruth.map(matchKey));
@@ -56,6 +61,9 @@ export function computeCohenKappa(groundTruth, aiOutput) {
 
 /**
  * κ 閾値で layer 重み判定 (Judge's Verdict thresholds)
+ *
+ * @param {number} kappa
+ * @returns {number}
  */
 export function kappaToWeight(kappa) {
 	if (kappa >= 0.81) return 1.0;
@@ -69,8 +77,14 @@ export function kappaToWeight(kappa) {
  * 5 軸定量実測 (AC4 達成判定用)
  *
  * Severity 3-4 のみ集計 (本 POC 主目標域、severity 0-1 は cosmetic で除外)
+ *
+ * @param {Array<Record<string, any>>} groundTruth
+ * @param {Array<Record<string, any>>} aiOutput
+ * @param {number} [userFilterTimeSeconds]
+ * @returns {{recall: number, precision: number, fp_rate: number, fn_rate: number, cohen_kappa: number, user_filter_time_min: number, tp: number, fp: number, fn: number}}
  */
 export function computeMetrics(groundTruth, aiOutput, userFilterTimeSeconds = 0) {
+	/** @type {(item: Record<string, any>) => string} */
 	const matchKey = (item) =>
 		`${item.heuristic ?? ''}|${item.step ?? ''}|${item.cross_screen_unified ? 'ALL' : (item.age_tier ?? '')}`;
 	const gt34 = groundTruth.filter((g) => (g.severity ?? 0) >= 3);
@@ -104,6 +118,9 @@ export function computeMetrics(groundTruth, aiOutput, userFilterTimeSeconds = 0)
 
 /**
  * AC4 達成判定 path (5 軸全達成 → Phase 1.2 / 1-2 件未達 → 1.5 / 3+ 件未達 → 1-E)
+ *
+ * @param {{recall: number, fp_rate: number, fn_rate: number, cohen_kappa: number, user_filter_time_min: number}} metrics
+ * @returns {{checks: Record<string, boolean>, passed: number, failed: number, next_phase: string}}
  */
 export function evaluateAchievementPath(metrics) {
 	const checks = {
@@ -131,6 +148,14 @@ export function evaluateAchievementPath(metrics) {
 
 /**
  * Layer F run (calibration、Real / Mock 両対応)
+ *
+ * @param {Object} opts
+ * @param {{aggregated?: Array<Record<string, any>>}} opts.layerEOutput
+ * @param {Array<Record<string, any>>} [opts.groundTruth]
+ * @param {number} [opts.userFilterTimeSeconds]
+ * @param {Record<string, {aggregated?: Array<Record<string, any>>}>} [opts.layerOutputs]
+ * @param {boolean} [opts.mock]
+ * @returns {Promise<Record<string, any>>}
  */
 export async function runLayerF({
 	layerEOutput,
@@ -146,17 +171,21 @@ export async function runLayerF({
 		groundTruth.length > 0
 			? groundTruth
 			: mock
-				? finalFindings.slice(0, Math.ceil(finalFindings.length * 0.9)).map((f, i) => ({
-						...f,
-						id: `gt-mock-${i}`,
-						severity: f.severity ?? f.avg_severity ?? 3, // ground truth は明確 severity
-					}))
+				? finalFindings
+						.slice(0, Math.ceil(finalFindings.length * 0.9))
+						.map((/** @type {Record<string, any>} */ f, /** @type {number} */ i) => ({
+							...f,
+							id: `gt-mock-${i}`,
+							severity: f.severity ?? f.avg_severity ?? 3, // ground truth は明確 severity
+						}))
 				: [];
 
 	const metrics = computeMetrics(effectiveGroundTruth, finalFindings, userFilterTimeSeconds);
 
 	// 各 layer の κ を実測 (mock では sample で simulate)
+	/** @type {Record<string, number>} */
 	const layerKappa = {};
+	/** @type {Record<string, number>} */
 	const layerWeights = {};
 	for (const [layerKey, output] of Object.entries(layerOutputs)) {
 		const layerFindings = output.aggregated || [];

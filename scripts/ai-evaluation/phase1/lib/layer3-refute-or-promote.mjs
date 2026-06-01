@@ -32,6 +32,9 @@
  * Mock Stage A response
  *
  * 79% kill rate を再現するため、candidate 数の 60-70% を Stage A で kill、20-30% を escalate
+ *
+ * @param {Array<Record<string, any>>} candidates
+ * @returns {{stage: string, killed: Array<Record<string, any>>, survived: Array<Record<string, any>>, escalated: Array<Record<string, any>>}}
  */
 function buildMockStageA(candidates) {
 	const results = candidates.map((c, i) => {
@@ -53,6 +56,9 @@ function buildMockStageA(candidates) {
  * Mock Stage B response (escalated のみ評価)
  *
  * Stage B では senior tier weight 込みで effective kills ≥ 3 → 50% kill 想定
+ *
+ * @param {Array<Record<string, any>>} escalated
+ * @returns {{stage: string, killed: Array<Record<string, any>>, survived: Array<Record<string, any>>}}
  */
 function buildMockStageB(escalated) {
 	const results = escalated.map((c, i) => ({
@@ -71,6 +77,9 @@ function buildMockStageB(escalated) {
  * Mock Stage D Cross-Model Critic (Gemini 2.5 Pro)
  *
  * Stage A/B survived → Cross-Model 独立批判 → 25% kill 想定
+ *
+ * @param {Array<Record<string, any>>} survivors
+ * @returns {{stage: string, killed: Array<Record<string, any>>, survived: Array<Record<string, any>>, skipped?: boolean}}
  */
 function buildMockStageD(survivors) {
 	const results = survivors.map((c, i) => ({
@@ -88,6 +97,14 @@ function buildMockStageD(survivors) {
 
 /**
  * Layer C run (Real / Mock 両対応)
+ *
+ * @param {Object} opts
+ * @param {{aggregated?: Array<Record<string, any>>}} opts.layerBOutput
+ * @param {boolean} [opts.mock]
+ * @param {string|undefined} [opts.anthropicApiKey]
+ * @param {string|undefined} [opts.geminiApiKey]
+ * @param {string[]} [opts.screenshotPaths]
+ * @returns {Promise<Record<string, any>>}
  */
 export async function runLayerC({
 	layerBOutput,
@@ -113,6 +130,7 @@ export async function runLayerC({
 
 		const stageDInput = [...stageA.survived, ...stageB.survived];
 		// geminiApiKey 未配備の Mock 時は skip 想定 simulate (cost 削減 fallback)
+		/** @type {{stage: string, killed: Array<Record<string, any>>, survived: Array<Record<string, any>>, skipped?: boolean}} */
 		const stageD =
 			geminiApiKey === 'mock-disabled'
 				? { stage: 'D', killed: [], survived: stageDInput, skipped: true }
