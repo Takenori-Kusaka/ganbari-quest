@@ -1,6 +1,7 @@
 import { getAllTags, getMarketplaceCounts, getMarketplaceIndex } from '$lib/data/marketplace';
 import { getAgeTierShortLabel, type MarketplaceSortKey } from '$lib/domain/labels';
 import { AGE_BANDS, type AgeBand, type MarketplaceGender } from '$lib/domain/marketplace-item';
+import { logger } from '$lib/server/logger';
 import { getChildById } from '$lib/server/services/child-service';
 import type { PageServerLoad } from './$types';
 
@@ -11,6 +12,7 @@ const VALID_GENDERS: readonly MarketplaceGender[] = ['boy', 'girl', 'neutral'] a
  * Round 18 Cluster C: selectedChildId cookie + child.uiMode から自動 age filter を解決する。
  * - anonymous access (no auth context / no cookie) では null を返し従来挙動 (filter 未適用) を維持。
  * - tenant boundary 違反や stale cookie は silent fail し null を返す (UX 影響なし)。
+ * - parse 失敗 / 非整数 cookie 値 は logger.warn で観測性確保 (QM Adversarial security 軸 推奨、Fix Round 1 B6)。
  * 戻り値: { ageBand: AgeBand id, childName: 表示名 } | null
  */
 async function resolveAutoAgeFilter(
@@ -22,14 +24,28 @@ async function resolveAutoAgeFilter(
 	const childIdStr = cookies.get('selectedChildId');
 	if (!childIdStr) return null;
 	const childId = Number(childIdStr);
-	if (!Number.isFinite(childId)) return null;
+	// Fix Round 1 B6: Number.isInteger guard で非整数・NaN・Infinity を一括 reject + logger.warn で観測性確保
+	if (!Number.isInteger(childId) || childId <= 0) {
+		logger.warn('[marketplace] selectedChildId cookie が不正値', {
+			service: 'marketplace',
+			tenantId,
+			context: { childIdStrLength: childIdStr.length },
+		});
+		return null;
+	}
 	try {
 		const child = await getChildById(childId, tenantId);
 		if (!child?.uiMode) return null;
 		const uiMode = child.uiMode as AgeBand;
 		if (!AGE_BANDS.some((b) => b.id === uiMode)) return null;
 		return { ageBand: uiMode, childName: child.nickname ?? '' };
-	} catch {
+	} catch (err) {
+		// Fix Round 1 B6: tenant boundary 違反 / stale cookie / DB エラーを silent fail しつつ観測性確保
+		logger.warn('[marketplace] selectedChildId 自動 filter 解決失敗', {
+			service: 'marketplace',
+			tenantId,
+			error: err instanceof Error ? err.message : String(err),
+		});
 		return null;
 	}
 }
