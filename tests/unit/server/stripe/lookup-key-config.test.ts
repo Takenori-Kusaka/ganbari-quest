@@ -16,7 +16,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../../../../src/lib/server/stripe/price-cache', () => ({
 	getPriceByLookupKey: vi.fn(),
 }));
+// alert を mock (#2720: notifyStripeAlert 呼出 assert 用)
+vi.mock('../../../../src/lib/server/stripe/alert', () => ({
+	notifyStripeAlert: vi.fn(),
+}));
 
+import { notifyStripeAlert } from '$lib/server/stripe/alert';
 import { getPriceId, isLookupKeyEnabled } from '$lib/server/stripe/config';
 import { getPriceByLookupKey } from '$lib/server/stripe/price-cache';
 
@@ -36,11 +41,13 @@ function clearEnvKeys() {
 let originalEnv: Record<string, string | undefined> = {};
 
 const getPriceByLookupKeyMock = vi.mocked(getPriceByLookupKey);
+const notifyStripeAlertMock = vi.mocked(notifyStripeAlert);
 
 beforeEach(() => {
 	originalEnv = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
 	clearEnvKeys();
 	getPriceByLookupKeyMock.mockReset();
+	notifyStripeAlertMock.mockReset();
 });
 
 afterEach(() => {
@@ -115,10 +122,45 @@ describe('getPriceId — USE_LOOKUP_KEY=true (lookup_key 経路) (#2716)', () =>
 		expect(await getPriceId('standard', 'monthly')).toBe('price_std_env_fallback');
 	});
 
+	it('fallback 発動時に notifyStripeAlert が起動する (#2720 silent degradation 防止)', async () => {
+		process.env.STRIPE_PRICE_STANDARD_MONTHLY = 'price_std_env_fallback';
+		getPriceByLookupKeyMock.mockRejectedValue(new Error('Stripe API 500'));
+
+		const result = await getPriceId('standard', 'monthly');
+
+		expect(result).toBe('price_std_env_fallback'); // 課金 path は継続 (fire-and-forget)
+		expect(notifyStripeAlertMock).toHaveBeenCalledTimes(1);
+		const callArg = notifyStripeAlertMock.mock.calls[0]?.[0];
+		expect(callArg?.kind).toBe('stripe-lookup-failed');
+		expect(callArg?.tags?.fallbackUsed).toBe(true);
+		expect(callArg?.tags?.plan).toBe('standard');
+		expect(callArg?.tags?.lookupKey).toBe('standard_monthly');
+	});
+
 	it('lookup_key 失敗 + env var 双方 NG なら MISSING_PRICE_ID で throw', async () => {
 		getPriceByLookupKeyMock.mockRejectedValue(new Error('INVALID_LOOKUP_KEY'));
 		// env var も未設定
 		await expect(getPriceId('standard', 'monthly')).rejects.toThrowError(/MISSING_PRICE_ID/);
+	});
+
+	it('lookup_key 失敗 + env var 双方 NG 時も notifyStripeAlert が起動する (致命 alert、fallbackUsed=false)', async () => {
+		getPriceByLookupKeyMock.mockRejectedValue(new Error('INVALID_LOOKUP_KEY'));
+		// env var も未設定
+
+		await expect(getPriceId('premium', 'monthly')).rejects.toThrowError(/MISSING_PRICE_ID/);
+		expect(notifyStripeAlertMock).toHaveBeenCalledTimes(1);
+		const callArg = notifyStripeAlertMock.mock.calls[0]?.[0];
+		expect(callArg?.kind).toBe('stripe-lookup-failed');
+		expect(callArg?.tags?.fallbackUsed).toBe(false);
+		expect(callArg?.tags?.plan).toBe('premium');
+	});
+
+	it('lookup_key 成功時は notifyStripeAlert を起動しない (正常 path で alert 抑制、Discord channel ノイズ防止)', async () => {
+		getPriceByLookupKeyMock.mockResolvedValue('price_std_via_lookup');
+
+		await getPriceId('standard', 'monthly');
+
+		expect(notifyStripeAlertMock).not.toHaveBeenCalled();
 	});
 });
 
