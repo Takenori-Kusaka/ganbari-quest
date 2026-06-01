@@ -526,7 +526,9 @@ function selectChild(childId: number) {
 					<span class="per-child-item__icon">{activity.icon}</span>
 					<span class="per-child-item__name">{activity.name}</span>
 					<span class="per-child-item__points">{activity.basePoints} pt</span>
-					<span class="per-child-item__scope-badge">per-child</span>
+					<span class="per-child-item__scope-badge"
+						>{ADMIN_ACTIVITIES_PAGE_LABELS.scopeBadgePerChild}</span
+					>
 				</div>
 			{/if}
 		{:else}
