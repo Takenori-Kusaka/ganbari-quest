@@ -623,10 +623,10 @@ const childOptions = $derived(
 </div>
 
 <style>
-	/* #2744 Cluster F: mobile sticky CTA で fold 外発見性問題を解消
-	 * DESIGN.md §10 z-index banner トークン使用 (modal より下、normal より上)
-	 * desktop (≥ 768px) では normal flow 維持 (画面幅広く scroll cost 低)
-	 * ADR-0012 Anti-engagement: visibility 改善目的、滞在時間延伸目的でない */
+	/* Round 18 Cluster F: mobile sticky CTA for fold visibility
+	 * DESIGN.md §10 --z-banner token (below modal, above normal flow)
+	 * desktop (>= 768px) keeps normal flow (wider viewport, low scroll cost)
+	 * ADR-0012 Anti-engagement: visibility purpose only, not session extension */
 	.marketplace-cta-sticky {
 		position: sticky;
 		bottom: 0;
@@ -642,7 +642,7 @@ const childOptions = $derived(
 	}
 
 	@media (min-width: 768px) {
-		/* desktop: normal flow 復帰 (画面幅広く scroll cost 低) */
+		/* desktop: normal flow restore (wider viewport, low scroll cost) */
 		.marketplace-cta-sticky {
 			position: static;
 			box-shadow: none;
