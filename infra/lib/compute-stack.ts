@@ -55,10 +55,16 @@ export class ComputeStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props: ComputeStackProps) {
 		super(scope, id, props);
 
-		// --- CloudWatch Log Group (3-day retention) ---
+		// --- CloudWatch Log Group ---
+		// retention 30 日 SSOT (Issue #2735 / QA Adversarial security 軸 follow-up、Phase 7 PR-3b prerequisite):
+		//   本 AppLogGroup は Stripe webhook handler / checkout / getPriceId fallback 経路の
+		//   structured log を受ける課金 path 系統。post-mortem (`docs/operations/stripe-post-mortem-runbook.md`)
+		//   で CloudWatch Logs Insights query `filter service = "stripe" and context.kind = "stripe-lookup-failed"`
+		//   を 30 日以内に実行可能とする必要がある (Pre-PMF Bucket A、ADR-0010 整合、compliance + post-mortem)。
+		//   その他の非課金 LogGroup (cron-dispatcher / demo / health-check) は 3-day retention を維持。
 		const logGroup = new logs.LogGroup(this, 'AppLogGroup', {
 			logGroupName: '/aws/lambda/ganbari-quest-app',
-			retention: logs.RetentionDays.THREE_DAYS,
+			retention: logs.RetentionDays.ONE_MONTH, // 30 日、課金 path post-mortem SSOT
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 
