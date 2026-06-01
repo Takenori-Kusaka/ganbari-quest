@@ -78,8 +78,11 @@ describe('marketplace データ整合性', () => {
 			}
 		}
 		for (let i = 0; i < tags.length - 1; i++) {
-			const fa = frequency.get(tags[i]) ?? 0;
-			const fb = frequency.get(tags[i + 1]) ?? 0;
+			const tagA = tags[i];
+			const tagB = tags[i + 1];
+			if (tagA === undefined || tagB === undefined) continue;
+			const fa = frequency.get(tagA) ?? 0;
+			const fb = frequency.get(tagB) ?? 0;
 			// 同 frequency 内は localeCompare('ja') asc は要件として強制しない
 			// (test brittle 防止、上位 N 件で人気が前に来る性質のみ assert)
 			expect(fa).toBeGreaterThanOrEqual(fb);
