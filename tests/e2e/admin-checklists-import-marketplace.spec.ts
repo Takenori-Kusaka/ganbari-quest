@@ -61,8 +61,8 @@ test.describe('#2367 marketplace -> checklist -> import (EPIC #2362 P3 / Strangl
 		const childIdValue = await page.evaluate(() => {
 			// admin/checklists は selectedChildId を複数 form の hidden input に展開している
 			// (template create form / per-template action form 等)。最初に見つかった有効値を採用。
-			const hiddens = document.querySelectorAll<HTMLInputElement>('input[name="childId"]');
-			for (const h of Array.from(hiddens)) {
+			const hiddenInputs = document.querySelectorAll<HTMLInputElement>('input[name="childId"]');
+			for (const h of Array.from(hiddenInputs)) {
 				if (h.value && h.value !== '' && h.value !== 'all') return h.value;
 			}
 			return '';
@@ -84,8 +84,8 @@ test.describe('#2367 marketplace -> checklist -> import (EPIC #2362 P3 / Strangl
 		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
 		const childIdValue = await page.evaluate(() => {
-			const hiddens = document.querySelectorAll<HTMLInputElement>('input[name="childId"]');
-			for (const h of Array.from(hiddens)) {
+			const hiddenInputs = document.querySelectorAll<HTMLInputElement>('input[name="childId"]');
+			for (const h of Array.from(hiddenInputs)) {
 				if (h.value && h.value !== '' && h.value !== 'all') return h.value;
 			}
 			return '';

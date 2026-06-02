@@ -20,7 +20,7 @@
 // 関連: #2544 / #2459 / ADR-0007 / tests/CLAUDE.md §interactive flow
 
 import { expect, test } from '@playwright/test';
-import { expectDialogCancellable, expectImportSucceeds } from './helpers/goal-flows';
+import { expectDialogCancellable } from './helpers/goal-flows';
 
 test.describe('#2544 goal 完遂 exemplar', () => {
 	test.setTimeout(180_000); // Vite dev コールドコンパイル耐性
@@ -51,21 +51,59 @@ test.describe('#2544 goal 完遂 exemplar', () => {
 	});
 
 	// ============================================================
-	// CUJ-5: checklist 取込で goal 完遂 (click → 取込済バッジ visible) を貫通検証する。
-	//   render-only でなく「実際に取り込まれた」結果を assert する正解 pattern の手本。
-	//   (出典: marketplace-checklist-import.spec.ts:84-117 を helper 化)
+	// CUJ-5: checklist 取込で goal 完遂 を貫通検証する (#2558 段階3 新 flow / PR #2773)。
+	//
+	// #2558 段階3 (PR #2773): admin/checklists 内 in-page UnifiedImportHub browse UI を撤去
+	// (DESIGN.md §10「marketplace 取込はマーケットプレイス画面に一本化」)。
+	// 新 flow:
+	//   1. `/marketplace/checklist/event-pool` 詳細 → CTA `checklist-import-submit` click
+	//   2. `?/importChecklist` action → admin/checklists?import=event-pool に redirect
+	//   3. ChildSelectionDialog (`checklist-import-child-selection-dialog`) auto-open
+	//   4. 全員選択 (default) → `child-selection-confirm` click
+	//   5. `?/importPresetToChildren` action 発火 → `checklists-action-message` に成功 toast
+	//
+	// dead-end (click 無反応 / dialog 開かない / action message 出ない) なら必ず fail する。
 	// ============================================================
-	test('admin/checklists: event-pool 取込 → 取込済バッジ visible (goal 完遂、dead-end なら fail)', async ({
+	test('admin/checklists: event-pool 取込 → 成功 action message visible (goal 完遂、dead-end なら fail)', async ({
 		page,
 	}) => {
 		test.slow();
-		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
+		// Step 1: marketplace 詳細から CTA click → admin/checklists?import=event-pool に redirect
+		await page.goto('/marketplace/checklist/event-pool', { waitUntil: 'domcontentloaded' });
+		const cta = page.getByTestId('checklist-import-submit');
+		await expect(cta, '取込 CTA visible (dead-end でない前提)').toBeVisible({ timeout: 30_000 });
 
-		// click → 取込済バッジ visible + ボタン disabled。無反応 (dead-end) なら必ず fail する。
-		await expectImportSucceeds(page, {
-			presetTestid: 'marketplace-preset-import-event-pool',
-			importedTestid: 'marketplace-preset-imported-event-pool',
+		await Promise.all([
+			page.waitForURL(/\/admin\/checklists\?import=event-pool/, { timeout: 30_000 }),
+			cta.click(),
+		]);
+
+		// Step 2: ChildSelectionDialog auto-open
+		const dialog = page.getByTestId('checklist-import-child-selection-dialog');
+		await expect(dialog, 'ChildSelectionDialog auto-open (dead-end でない前提)').toBeVisible({
+			timeout: 30_000,
 		});
+
+		// Step 3: 全員選択 (default) → 確定 click → importPresetToChildren 発火
+		const confirm = page.getByTestId('child-selection-confirm');
+		await expect(confirm).toBeEnabled();
+
+		// 副作用 A: importPresetToChildren network 発火 + response OK (form action dispatch)
+		const [resp] = await Promise.all([
+			page.waitForResponse((r) => /\?\/importPresetToChildren/.test(r.url())),
+			confirm.click(),
+		]);
+		expect(
+			resp.ok(),
+			`importPresetToChildren response not OK (status ${resp.status()})`,
+		).toBeTruthy();
+
+		// Step 4: 副作用 B: 成功 / 重複 action message が visible になる (永続反映 / dead-end 検出)
+		// `importToastSuccess` / `importToastDuplicate` の両形式に対応。
+		const actionMessage = page.getByTestId('checklists-action-message');
+		await expect(actionMessage, 'action message visible (goal 完遂)').toBeVisible({
+			timeout: 30_000,
+		});
+		await expect(actionMessage).toContainText(/取込み|取込済|配信/);
 	});
 });
