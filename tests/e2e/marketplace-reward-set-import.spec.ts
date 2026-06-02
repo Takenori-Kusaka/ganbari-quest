@@ -18,9 +18,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('#2136 MP-1 / PR-4 (#2474): marketplace reward-set 一括追加 (新動線)', () => {
-	test('reward-set 詳細ページの CTA は child 選択 UI を含まない (CWE-598)', async ({
-		page,
-	}) => {
+	test('reward-set 詳細ページの CTA は child 選択 UI を含まない (CWE-598)', async ({ page }) => {
 		await page.goto('/marketplace/reward-set/kinder-rewards');
 		await expect(page).toHaveURL(/\/marketplace\/reward-set\/kinder-rewards/);
 
