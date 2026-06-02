@@ -12,6 +12,10 @@ import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 // #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
 import { dispatchImport } from '$lib/marketplace';
+// #2775 (Issue #2774 Phase 2): rule-preset exchange を本画面 ?import= 受領フローに統合するため
+// Strategy + identity を直接 import (rule-preset 固有 warnings / ruleType を扱うため Registry
+// 経由 generic dispatch ではなく拡張 method `applyRulePreset` を呼ぶ)。
+import { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 // #2362 PR-4 (ADR-0055): per-child reward 兄弟共通化 copy
@@ -64,13 +68,34 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}),
 	);
 
-	// #2362 PR-4: `?import=<presetId>` query で ChildSelectionDialog auto-open
+	// #2362 PR-4 / #2775: `?import=<presetId>` query で ChildSelectionDialog auto-open。
+	// reward-set または rule-preset (exchange) の preset id を受け付ける (Issue #2774 Phase 2、
+	// 5 type 統一)。bonus / penalty / special は本画面の受領対象外 (bonus は
+	// /admin/settings/rules、penalty / special は marketplace 詳細で warning 表示)。
 	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
-	// presetId が marketplace に存在するか確認 (invalid 時は null + UI 警告表示)
-	const importPresetId =
-		importPresetIdRaw && getMarketplaceItem('reward-set', importPresetIdRaw)
-			? importPresetIdRaw
-			: null;
+	let importPresetId: string | null = null;
+	let importPresetTypeCode: 'reward-set' | 'rule-preset' | null = null;
+	if (importPresetIdRaw) {
+		const rewardSetItem = getMarketplaceItem('reward-set', importPresetIdRaw);
+		if (rewardSetItem) {
+			importPresetId = importPresetIdRaw;
+			importPresetTypeCode = 'reward-set';
+		} else {
+			const rulePresetItem = getMarketplaceItem('rule-preset', importPresetIdRaw);
+			// rule-preset は exchange のみ受領 (special_rewards に挿入される ruleType)。
+			// bonus / penalty / special は別フロー (admin/settings/rules or warning) のため
+			// 本画面の `?import=` 対象外として invalid 扱い → UI 警告。
+			if (rulePresetItem) {
+				const ruleType = (
+					rulePresetItem.payload as { ruleType?: 'exchange' | 'bonus' | 'penalty' | 'special' }
+				).ruleType;
+				if (ruleType === 'exchange') {
+					importPresetId = importPresetIdRaw;
+					importPresetTypeCode = 'rule-preset';
+				}
+			}
+		}
+	}
 	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
 	// `?childId=<n>` query で初期 child 選択復元 (refresh / share link 対応)
 	const initialChildIdRaw = url.searchParams.get('childId');
@@ -96,6 +121,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		planTier: tier,
 		pendingRequestsCount: pendingRequests.length,
 		importPresetId,
+		// #2775: rule-preset (exchange) も `?import=` で受領可能化 — typeCode を svelte に伝達して
+		// fetch action 振り分けに使う
+		importPresetTypeCode,
 		importPresetInvalid,
 		initialChildId,
 	};
@@ -285,26 +313,74 @@ export const actions: Actions = {
 			});
 		}
 
-		const item = getMarketplaceItem('reward-set', presetId);
-		if (!item) {
+		// #2775 (Issue #2774 Phase 2): reward-set または rule-preset (exchange) を判別。
+		// 同じ `?import=` query 経路で 2 type 取り込めるよう dispatcher を分岐する。
+		const rewardSetItem = getMarketplaceItem('reward-set', presetId);
+		const rulePresetItem = !rewardSetItem ? getMarketplaceItem('rule-preset', presetId) : null;
+		if (!rewardSetItem && !rulePresetItem) {
 			return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
 		}
 
 		try {
-			// #2366 / PR-4: Strategy + dispatchImport 経由 (ctx.childIds で per-child fan-out)
-			const result = await dispatchImport({
-				typeCode: 'reward-set',
-				rawPayload: item.payload,
-				displayName: item.name,
-				ctx: { tenantId, presetId, childIds },
-			});
+			if (rewardSetItem) {
+				// #2366 / PR-4: Strategy + dispatchImport 経由 (ctx.childIds で per-child fan-out)
+				const result = await dispatchImport({
+					typeCode: 'reward-set',
+					rawPayload: rewardSetItem.payload,
+					displayName: rewardSetItem.name,
+					ctx: { tenantId, presetId, childIds },
+				});
+				return {
+					perChildImport: true,
+					packName: result.packName,
+					imported: result.imported,
+					skipped: result.skipped,
+					total: result.total,
+					errors: result.errors,
+					presetId,
+				};
+			}
+
+			// rule-preset (exchange) 経路: special_rewards に childId 単位で挿入。
+			// rulePresetStrategy.applyRulePreset を child ごとに呼出して fan-out する
+			// (reward-set Strategy が built-in fan-out 持つのと異なり、rule-preset Strategy は
+			//  single-child / single-tenant 単位で動作する設計のため、本 callsite で fan-out する)。
+			// rulePresetItem は L289 の判定で non-null と確定済 (defensive guard for biome)
+			if (!rulePresetItem) {
+				return fail(404, { error: `プリセット「${presetId}」が見つかりません` });
+			}
+			const item = rulePresetItem;
+			const payload = item.payload as Parameters<typeof rulePresetStrategy.applyRulePreset>[1];
+			if (payload.ruleType !== 'exchange') {
+				// exchange 以外は本画面の受領対象外 (server load の query validation で弾かれる想定だが防御)
+				return fail(400, {
+					error: 'このプリセットは exchange ruleType ではないため、本画面で取り込めません',
+				});
+			}
+			const identity = {
+				presetId: item.itemId,
+				presetName: item.name,
+				presetIcon: item.icon,
+			};
+			let totalImported = 0;
+			let totalSkipped = 0;
+			const allErrors: string[] = [];
+			for (const childId of childIds) {
+				const result = await rulePresetStrategy.applyRulePreset(identity, payload, {
+					tenantId,
+					childId,
+				});
+				totalImported += result.imported;
+				totalSkipped += result.skipped;
+				allErrors.push(...result.errors, ...result.warnings);
+			}
 			return {
 				perChildImport: true,
-				packName: result.packName,
-				imported: result.imported,
-				skipped: result.skipped,
-				total: result.total,
-				errors: result.errors,
+				packName: item.name,
+				imported: totalImported,
+				skipped: totalSkipped,
+				total: totalImported + totalSkipped,
+				errors: allErrors,
 				presetId,
 			};
 		} catch (e) {

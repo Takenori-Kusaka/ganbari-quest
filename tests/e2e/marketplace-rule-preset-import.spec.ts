@@ -67,9 +67,12 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 	});
 
 	// ============================================================
-	// 1b. 詳細ページ CTA — exchange
+	// 1b. 詳細ページ CTA — exchange (#2775 Issue #2774 Phase 2)
+	// 旧: 「CTA visible」のみ assert (render-only)
+	// 新: click → /admin/rewards 遷移 + ChildSelectionDialog auto-open
+	//     (5 type 統一 `<a href="/admin/rewards?import=...">` 経路の貫通検証)
 	// ============================================================
-	test('marketplace/rule-preset/screen-time-exchange 詳細ページに CTA が表示される (exchange)', async ({
+	test('marketplace/rule-preset/screen-time-exchange 詳細ページ exchange CTA は /admin/rewards?import= に遷移 + ChildSelectionDialog auto-open (#2775)', async ({
 		page,
 	}) => {
 		test.slow();
@@ -78,8 +81,27 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 		});
 		expect(res?.status()).toBe(200);
 
-		const cta = page.getByTestId('marketplace-detail-cta');
-		await expect(cta).toBeVisible();
+		// #2775: exchange CTA は `<a href="/admin/rewards?import={itemId}">` 形式
+		// (旧 `<form action="?/importRulePreset">` + NativeSelect childId 選択 UI は撤去)
+		const exchangeCta = page.getByTestId('rule-preset-import-cta');
+		const signupCta = page.getByTestId('rule-import-signup-redirect');
+		const isLoggedIn = (await exchangeCta.count()) > 0;
+		if (isLoggedIn) {
+			// href 属性確認 (CWE-598 整合: childId が URL に出現しない)
+			await expect(exchangeCta).toHaveAttribute(
+				'href',
+				/\/admin\/rewards\?import=screen-time-exchange/,
+			);
+			// click → admin/rewards 遷移 → ChildSelectionDialog auto-open (dead-end 検出)
+			await exchangeCta.click();
+			await page.waitForURL(/\/admin\/rewards/);
+			await expect(page.getByTestId('reward-import-child-selection-dialog')).toBeVisible({
+				timeout: 30_000,
+			});
+		} else {
+			// 未ログイン: signup CTA が見える (回帰防止)
+			await expect(signupCta).toBeVisible();
+		}
 	});
 
 	// ============================================================

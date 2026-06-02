@@ -1,19 +1,13 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
-import type { MarketplaceItemType, RulePresetPayload } from '$lib/domain/marketplace-item';
-// #2366 / #2367 / #2368 / #2369 (ADR-0052 / EPIC #2362 P3): reward-set / checklist / rule-preset /
-// challenge-set を新 Strategy + dispatchImport 経由に移行。
-// `$lib/marketplace` の eager-load (`./types/reward-set` / `./types/checklist` / `./types/rule-preset` /
-// `./types/challenge-set`) で Registry 登録される。
-// #2138 (MP-3) / #2368: rule-preset 4 ruleType 全対応の一括取込
-// 新 SSOT: marketplaceRegistry.get('rule-preset').strategy 経由 (Strategy 内部 sub-dispatcher)
-// #2458-B: challenge-set / reward-set / checklist は admin 画面 ?import=<itemId> redirect モデルへ統一済
-// (CWE-598 整合)。dispatchImport / loadFromMarketplace は本 file では未使用。
-import { marketplaceRegistry } from '$lib/marketplace';
-import type { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
+import type { MarketplaceItemType } from '$lib/domain/marketplace-item';
+// #2775 (Issue #2774 Phase 2): rule-preset exchange を `<a href>` 統一形式に移行した結果、
+// `marketplaceRegistry` / `rulePresetStrategy` / `RulePresetPayload` / `fail` / `redirect` は
+// 本 file で未使用となったため import 撤去。5 type 全て admin 側 `?import=` 経路に集約。
+// (#2366 / #2367 / #2368 / #2369 / ADR-0052 の Strategy / dispatcher は admin/rewards 等の
+//  受領先 page で参照される。本 marketplace 詳細 page では type 判別と load のみ。)
 import { requireTenantId } from '$lib/server/auth/factory';
 import { findActivities } from '$lib/server/db/activity-repo';
-import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -80,101 +74,10 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 };
 
 export const actions: Actions = {
-	// #2774: 5 type 取込 CTA 統一 (User 指摘 #2 #4 根治) で reward-set / checklist /
-	// challenge-set server action を撤去。新 SSOT は marketplace 詳細 svelte 側 `<a href>`
-	// 直接遷移 (`/admin/<page>?import=<itemId>`)。CWE-598 整合性は維持。
-	// 旧 `importRewardSet` / `importChecklist` / `importChallengeSet` は本 PR で削除。
-	//
-	// rule-preset exchange のみは admin/rewards 側 ChildSelectionDialog 受領機構が未整備のため
-	// 暫定的に本 action を残す (Issue #2774 Phase 2 で per-child fan-out 機構を整備し統一予定)。
-
-	// #2138 (MP-3): rule-preset 4 ruleType 全対応 の一括取込 action
-	// CTA「一括追加」ボタンの form action。
-	// - exchange: childId 必須 (special_rewards に挿入)
-	// - bonus:    childId 不要 (settings KVS に tenant スコープで保存)
-	// - penalty / special: 取込試行を warning として返却 + audit log 記録
-	importRulePreset: async ({ params, request, locals }) => {
-		const tenantId = locals.context?.tenantId;
-		if (!tenantId) {
-			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
-			redirect(302, `/auth/login?next=/marketplace/rule-preset/${params.itemId}`);
-		}
-
-		if (params.type !== 'rule-preset') {
-			return fail(400, { error: 'ルールセットではありません' });
-		}
-
-		const item = getMarketplaceItem('rule-preset', params.itemId);
-		if (!item) {
-			return fail(404, { error: 'プリセットが見つかりません' });
-		}
-
-		const payload = item.payload as RulePresetPayload;
-		const formData = await request.formData();
-		const childIdRaw = formData.get('childId');
-		const childId = childIdRaw ? Number(childIdRaw) : undefined;
-
-		// #2362 PR-6: bonus は family scope。marketplace 経由の in-page import を
-		// 撤去し /admin/settings/rules?import=<itemId> 経由に統一 (CWE-598 整合)。
-		// 直接 POST してきた場合 (form 撤去後の互換 / 攻撃) は admin 側へ redirect。
-		if (payload.ruleType === 'bonus') {
-			redirect(303, `/admin/settings/rules?import=${params.itemId}`);
-		}
-
-		// exchange は childId 必須
-		if (payload.ruleType === 'exchange') {
-			if (!childId || Number.isNaN(childId)) {
-				return fail(400, { error: 'お子さまを選択してください' });
-			}
-			const children = await getAllChildren(tenantId);
-			if (!children.some((c) => c.id === childId)) {
-				return fail(400, { error: 'お子さまが見つかりません' });
-			}
-		}
-
-		try {
-			// #2368: Strategy 経由 (Registry 経由で本番 / demo 環境とも同一動作)
-			const strategy = marketplaceRegistry.get('rule-preset').strategy as typeof rulePresetStrategy;
-			const identity = {
-				presetId: item.itemId,
-				presetName: item.name,
-				presetIcon: item.icon,
-			};
-			const ctx = { tenantId, childId };
-
-			const preview = await strategy.previewRulePreset(identity, payload, ctx);
-
-			if (preview.alreadyImported) {
-				return {
-					ruleImport: {
-						alreadyImported: true,
-						presetName: preview.presetName,
-						ruleType: preview.ruleType,
-					},
-				};
-			}
-
-			const result = await strategy.applyRulePreset(identity, payload, ctx);
-			return {
-				ruleImport: {
-					alreadyImported: false,
-					presetName: preview.presetName,
-					ruleType: preview.ruleType,
-					imported: result.imported,
-					skipped: result.skipped,
-					warnings: result.warnings,
-					errors: result.errors,
-				},
-			};
-		} catch (e) {
-			logger.error('[marketplace/rule-preset] インポート失敗', {
-				error: e instanceof Error ? e.message : String(e),
-				context: { itemId: params.itemId, childId, ruleType: payload.ruleType },
-			});
-			return fail(500, { error: 'インポートに失敗しました' });
-		}
-	},
-
-	// #2774: importChallengeSet action は 5 type 取込 CTA 統一で撤去。
-	// 新 SSOT は marketplace 詳細 svelte 側 `<a href="/admin/challenges?import=${itemId}">`。
+	// #2774 / #2775 (Issue #2774 Phase 2): 5 type 取込 CTA 統一を完遂。
+	// reward-set / checklist / challenge-set / rule-preset (exchange + bonus) の全 server action を撤去し、
+	// marketplace 詳細 svelte 側 `<a href="/admin/<page>?import=<itemId>">` 直接遷移に統一。
+	// CWE-598 整合: childId は URL/form body どちらにも露出せず、admin 側 ChildSelectionDialog で
+	// per-child fan-out を決定する SSOT に集約 (docs/design/marketplace-import-flow.md §3.1-3.5)。
+	// 旧 `importRewardSet` / `importChecklist` / `importChallengeSet` / `importRulePreset` は撤去済。
 };
