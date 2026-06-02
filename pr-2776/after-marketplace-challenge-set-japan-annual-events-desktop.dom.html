@@ -15,7 +15,7 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1amflqm--><!----><title>子供登録 - がんばりクエスト セットアップ</title>
+		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--7zr1g4--><meta name="description" content="お正月・節分・ひな祭り・こどもの日・七夕・お盆・お月見・ハロウィン・クリスマス…。家族で取り組む日本の年中行事 15 件をまとめた協力チャレンジ集です。" class="svelte-7zr1g4"> <meta property="og:title" content="日本年間行事パック - がんばりクエスト みんなのテンプレート" class="svelte-7zr1g4"> <meta property="og:description" content="お正月・節分・ひな祭り・こどもの日・七夕・お盆・お月見・ハロウィン・クリスマス…。家族で取り組む日本の年中行事 15 件をまとめた協力チャレンジ集です。" class="svelte-7zr1g4"> <meta property="og:type" content="website" class="svelte-7zr1g4"><!----><title>がんばりクエスト</title>
 		<style data-sveltekit="">/*! tailwindcss v4.3.0 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
@@ -4155,156 +4155,66 @@ h1, h2, h3, h4 {
 	}
  .svelte-1p67wbu{}
 
-	.setup-page.svelte-a9mpxv {
-		min-height: 100dvh;
-		background: linear-gradient(to bottom, var(--color-brand-100), var(--color-brand-200));
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 16px;
+	/* Round 18 Cluster F: mobile sticky CTA for fold visibility
+	 * DESIGN.md §10 --z-banner token (below modal, above normal flow)
+	 * desktop (>= 768px) keeps normal flow (wider viewport, low scroll cost)
+	 * ADR-0012 Anti-engagement: visibility purpose only, not session extension */
+	.marketplace-cta-sticky.svelte-7zr1g4 {
+		position: sticky;
+		bottom: 0;
+		z-index: var(--z-banner);
+		background: var(--color-surface);
+		padding-top: 0.75rem;
+		padding-bottom: env(safe-area-inset-bottom, 0);
+		margin-left: -1rem;
+		margin-right: -1rem;
+		padding-left: 1rem;
+		padding-right: 1rem;
+		box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 	}
 
-	.step.svelte-a9mpxv {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
+	@media (min-width: 768px) {
+		/* desktop: normal flow restore (wider viewport, low scroll cost) */
+		.marketplace-cta-sticky.svelte-7zr1g4 {
+			position: static;
+			box-shadow: none;
+			background: transparent;
+			padding-top: 0;
+			padding-bottom: 0;
+			padding-left: 0;
+			padding-right: 0;
+			margin-left: 0;
+			margin-right: 0;
+		}
 	}
-
-	.step-circle.svelte-a9mpxv {
-		width: 32px;
-		height: 32px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.875rem;
-		font-weight: 700;
-		background: var(--color-neutral-200);
-		color: var(--color-neutral-400);
-		transition: all 0.2s;
-	}
-
-	.step--active.svelte-a9mpxv .step-circle:where(.svelte-a9mpxv) { background: var(--color-brand-600); color: white; }
-	.step--done.svelte-a9mpxv .step-circle:where(.svelte-a9mpxv) { background: var(--color-success); color: white; }
-
-	.step-label.svelte-a9mpxv { font-size: 0.75rem; color: var(--color-neutral-400); white-space: nowrap; }
-	.step--active.svelte-a9mpxv .step-label:where(.svelte-a9mpxv) { color: var(--color-brand-600); font-weight: 600; }
-	.step--done.svelte-a9mpxv .step-label:where(.svelte-a9mpxv) { color: var(--color-success); }
-
-	.step-line.svelte-a9mpxv { width: 24px; height: 2px; background: var(--color-neutral-200); margin-bottom: 20px; }
-	.step-line--done.svelte-a9mpxv { background: var(--color-success); }
- .svelte-a9mpxv{}
-
-	.logo-wrapper.svelte-1n7r250 {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		vertical-align: middle;
-	}
-	.logo.svelte-1n7r250 {
-		display: inline-block;
-		vertical-align: middle;
-		object-fit: contain;
-	}
-	.plan-label.svelte-1n7r250 {
-		font-size: 0.6rem;
-		font-weight: 700;
-		padding: 0.125rem 0.375rem;
-		border-radius: 9999px;
-		white-space: nowrap;
-		line-height: 1.4;
-	}
-	.plan-label--standard.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #f3e8ff);
-		color: var(--plan-badge-text, #6d28d9);
-	}
-	.plan-label--family.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #fef3c7);
-		color: var(--plan-badge-text, #92400e);
-	}
- .svelte-1n7r250{}
-
-	.theme-card.svelte-1amflqm {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		padding: 12px 8px;
-		border: 2px solid var(--color-neutral-200);
-		border-radius: 12px;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.theme-card.svelte-1amflqm:hover {
-		border-color: var(--color-neutral-300);
-	}
-
-	.peer:checked ~ .theme-card--pink.svelte-1amflqm {
-		border-color: var(--color-pink-400);
-		background-color: var(--color-pink-50);
-	}
-
-	.peer:checked ~ .theme-card--blue.svelte-1amflqm {
-		border-color: var(--color-blue-400);
-		background-color: var(--color-blue-50);
-	}
- .svelte-1amflqm{}
-
-	.password-toggle.svelte-pwdxgn {
-		position: absolute;
-		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 4px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 4px;
-		transition: color 0.15s;
-	}
-
-	.password-toggle.svelte-pwdxgn:hover {
-		color: var(--color-text);
-	}
-
-	.password-toggle.svelte-pwdxgn:focus-visible {
-		outline: 2px solid var(--color-brand-500);
-		outline-offset: 2px;
-	}
- .svelte-pwdxgn{}</style>
+ .svelte-7zr1g4{}</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div class="setup-page svelte-a9mpxv"><div class="w-full max-w-[480px] svelte-a9mpxv"><div class="text-center mb-6 svelte-a9mpxv"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="200" height="81" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----> <p class="text-sm text-[var(--color-text-muted)] mt-1 svelte-a9mpxv">初期セットアップ</p></div> <div class="flex items-center justify-center mb-6 svelte-a9mpxv"><!--[--><div class="step svelte-a9mpxv step--active"><div class="step-circle svelte-a9mpxv"><!--[-1-->1<!--]--></div> <span class="step-label svelte-a9mpxv">子供登録</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->2<!--]--></div> <span class="step-label svelte-a9mpxv">かんたん質問</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->3<!--]--></div> <span class="step-label svelte-a9mpxv">活動</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->4<!--]--></div> <span class="step-label svelte-a9mpxv">ごほうび</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->5<!--]--></div> <span class="step-label svelte-a9mpxv">ルール</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->6<!--]--></div> <span class="step-label svelte-a9mpxv">活動初期設定</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->7<!--]--></div> <span class="step-label svelte-a9mpxv">家族チャレンジ</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->8<!--]--></div> <span class="step-label svelte-a9mpxv">はじめての冒険</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->9<!--]--></div> <span class="step-label svelte-a9mpxv">冒険の始まり</span></div> <!--[-1--><!--]--><!--]--></div> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><!--[-1--><!--[--><h2 class="text-lg font-bold text-[var(--color-text)] mb-2 svelte-1amflqm">子供を登録しよう</h2> <p class="text-sm text-[var(--color-text-muted)] mb-4 svelte-1amflqm">がんばりクエストを使う子供を登録してください（1人以上）。</p> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <form method="POST" action="?/addChild" class="flex flex-col gap-3 mb-4 p-4 bg-[var(--color-surface-muted)] rounded-lg border border-[var(--color-border-default)] svelte-1amflqm"><h3 class="text-sm font-bold text-[var(--color-text-secondary)] svelte-1amflqm">子供を追加</h3> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-ニックネーム" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">ニックネーム</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="text" id="field-ニックネーム" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="nickname" required="" placeholder="たろうくん" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-年齢" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">年齢</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="number" id="field-年齢" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="age" min="0" max="18" required="" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="svelte-1amflqm"><label for="theme" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1 svelte-1amflqm">テーマカラー</label> <div class="grid grid-cols-2 gap-2 svelte-1amflqm"><label class="theme-option svelte-1amflqm"><input type="radio" name="theme" value="pink" checked="" class="sr-only peer svelte-1amflqm" style=""> <div class="theme-card theme-card--pink svelte-1amflqm"><span class="text-2xl svelte-1amflqm">👧</span> <span class="text-sm font-medium text-[var(--color-text)] svelte-1amflqm">ピンク</span></div></label> <label class="theme-option svelte-1amflqm"><input type="radio" name="theme" value="blue" class="sr-only peer svelte-1amflqm" style=""> <div class="theme-card theme-card--blue svelte-1amflqm"><span class="text-2xl svelte-1amflqm">👦</span> <span class="text-sm font-medium text-[var(--color-text)] svelte-1amflqm">ブルー</span></div></label></div></div> <!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--color-success)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" type="submit"><!---->追加する<!----></button><!--]--><!----></form> <!--[-1--><!--]--> <div class="mt-4 text-center svelte-1amflqm"><a href="/" class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)] svelte-1amflqm" data-testid="setup-skip-link">ホームに戻る</a></div><!--]--><!--]--><!----><!----></div> <!--[-1--><!--]--></section><!----></div></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[0--><div class="sticky top-0 z-50 flex items-center gap-2 px-3 py-2 text-sm border-b bg-[var(--color-feedback-warning-bg)] border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)]" role="status" data-testid="demo-banner"><span class="shrink-0" aria-hidden="true">🧪</span> <div class="flex-1 min-w-0"><p class="font-bold leading-tight">おためしモード</p> <p class="text-xs leading-snug opacity-90">これはおためしです。記録やせっていはほぞんされません。</p></div> <a href="https://www.ganbari-quest.com/auth/signup" class="shrink-0 px-3 py-1 rounded-lg bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-xs font-bold whitespace-nowrap" data-testid="demo-banner-signup">本当に始める</a> <a href="https://www.ganbari-quest.com/" class="shrink-0 px-2 py-1 text-xs underline whitespace-nowrap" data-testid="demo-banner-exit">おためしをやめる</a></div><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--[--><div class="min-h-dvh bg-[var(--color-surface-base)] svelte-7zr1g4"><div class="max-w-2xl mx-auto px-4 py-8 svelte-7zr1g4"><nav class="text-xs text-[var(--color-text-tertiary)] mb-6 svelte-7zr1g4"><a href="/marketplace" class="hover:text-[var(--color-action-primary)] svelte-7zr1g4">テンプレート</a> <span class="mx-1 svelte-7zr1g4">/</span> <a href="/marketplace?type=challenge-set" class="hover:text-[var(--color-action-primary)] svelte-7zr1g4">チャレンジ集</a> <span class="mx-1 svelte-7zr1g4">/</span> <span class="text-[var(--color-text-secondary)] svelte-7zr1g4">日本年間行事パック</span></nav> <div class="flex items-start gap-4 mb-6 svelte-7zr1g4"><span class="text-5xl svelte-7zr1g4">🎌</span> <div class="flex-1 svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎯 チャレンジ集<!----></span><!----> <span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->4〜15歳<!----></span><!----></div> <h1 class="text-xl font-bold text-[var(--color-text-primary)] svelte-7zr1g4">日本年間行事パック</h1> <p class="text-sm text-[var(--color-text-secondary)] mt-1 svelte-7zr1g4">お正月・節分・ひな祭り・こどもの日・七夕・お盆・お月見・ハロウィン・クリスマス…。家族で取り組む日本の年中行事 15 件をまとめた協力チャレンジ集です。</p></div></div> <div class="flex flex-wrap gap-1 mb-4 svelte-7zr1g4"><!--[--><a href="/marketplace?tag=年中行事" class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)] svelte-7zr1g4">年中行事</a><a href="/marketplace?tag=日本文化" class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)] svelte-7zr1g4">日本文化</a><a href="/marketplace?tag=家族で取り組む" class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)] svelte-7zr1g4">家族で取り組む</a><a href="/marketplace?tag=季節" class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)] svelte-7zr1g4">季節</a><!--]--></div> <!--[0--><div class="flex flex-wrap gap-1 mb-6 svelte-7zr1g4"><!--[--><span class="text-[10px] bg-[var(--color-brand-50)] text-[var(--color-brand-700)] px-2 py-0.5 rounded-full svelte-7zr1g4">習慣づくり</span><span class="text-[10px] bg-[var(--color-brand-50)] text-[var(--color-brand-700)] px-2 py-0.5 rounded-full svelte-7zr1g4">達成志向</span><span class="text-[10px] bg-[var(--color-brand-50)] text-[var(--color-brand-700)] px-2 py-0.5 rounded-full svelte-7zr1g4">第一子</span><span class="text-[10px] bg-[var(--color-brand-50)] text-[var(--color-brand-700)] px-2 py-0.5 rounded-full svelte-7zr1g4">きょうだいあり</span><!--]--></div><!--]--> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-3 svelte-7zr1g4"><!--[4-->ふくまれるチャレンジ<!--]--></h2> <!--[4--><div class="space-y-2 svelte-7zr1g4" data-testid="challenge-set-preview"><!--[--><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🎍</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">お正月の家族ミッション</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">01-07・7日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">おせちのお手伝い・年賀状書き・大掃除の総仕上げ。家族で新しい年をむかえる準備をしよう。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">せいかつ ・ 目標 5回 ・ ごほうび +50P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">👹</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">節分の鬼退治チャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">02-03・3日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">豆まきの準備・恵方巻きづくり・節分の絵本読み。家族で福をよびこむ協力ミッション。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">こうりゅう ・ 目標 3回 ・ ごほうび +30P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🎎</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">ひな祭り大そうじ + 飾りつけ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">03-03・3日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">ひな人形の飾りつけ・お部屋のお片付け・ちらし寿司のお手伝い。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">せいかつ ・ 目標 3回 ・ ごほうび +30P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🌸</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">春のお花見じゅんびチャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">04-05・7日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">桜のかんさつ・お弁当のお手伝い・公園での自然あそび。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">うんどう ・ 目標 5回 ・ ごほうび +40P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🎏</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">こどもの日プロジェクト</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">05-05・5日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">こいのぼり飾りつけ・かぶと作り・しょうぶ湯のじゅんび。家族でお祝いしよう。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">そうぞう ・ 目標 4回 ・ ごほうび +50P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">☔</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">梅雨のおうち時間チャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">06-15・14日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">雨の日でも楽しめる読書・工作・室内うんどう。家族で『雨の日リスト』を消化していこう。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">そうぞう ・ 目標 10回 ・ ごほうび +60P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🎋</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">七夕短冊チャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">07-07・7日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">短冊にねがいごとを書く・笹かざりを作る・夜空の星をみる。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">そうぞう ・ 目標 3回 ・ ごほうび +30P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">📚</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">夏休み読書記録チャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">08-31・42日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">夏休みの自由読書を家族でカウントアップ。読書感想文の下じゅんびにも。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">べんきょう ・ 目標 10回 ・ ごほうび +100P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🏮</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">お盆のおてつだいチャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">08-15・5日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">お墓まいり・親せきのおむかえ・夏野菜のおてつだい。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">こうりゅう ・ 目標 3回 ・ ごほうび +30P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🌕</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">お月見だんご作りチャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">09-21・5日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">お月見だんごを家族で作る・ススキを飾る・夜にお月さまをかんさつ。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">そうぞう ・ 目標 3回 ・ ごほうび +30P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">👴</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">敬老の日メッセージ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">09-15・7日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">おじいちゃん・おばあちゃんへ手紙やイラストを書く・電話する・直接会いに行く。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">こうりゅう ・ 目標 3回 ・ ごほうび +50P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🎃</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">ハロウィン仮装プロジェクト</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">10-31・7日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">仮装の準備・かぼちゃのランタン作り・お菓子の交換。家族でハロウィンを楽しもう。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">そうぞう ・ 目標 4回 ・ ごほうび +40P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">👘</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">七五三の準備チャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">11-15・7日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">晴れ着の用意・写真撮影の前じゅんび・神社へのお参り。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">せいかつ ・ 目標 3回 ・ ごほうび +30P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🎄</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">クリスマス家族プロジェクト</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">12-25・10日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">ツリーの飾りつけ・プレゼント準備のお手伝い・ケーキ作り・家族で歌う。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">そうぞう ・ 目標 5回 ・ ごほうび +60P</p></div><div class="p-3 rounded-lg bg-[var(--color-surface-muted)] svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🧹</span> <span class="text-sm font-bold text-[var(--color-text-primary)] svelte-7zr1g4">年末大そうじチャレンジ</span> <span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto svelte-7zr1g4">12-31・7日間</span></div> <p class="text-xs text-[var(--color-text-secondary)] ml-8 svelte-7zr1g4">家族で分担して大そうじ。窓ふき・げんかん・お風呂・自分のお部屋まで。</p> <p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1 svelte-7zr1g4">せいかつ ・ 目標 7回 ・ ごほうび +70P</p></div><!--]--></div><!--]--><!----></div> <!--[-1--><!--]--></section><!----> <div class="mt-6 space-y-3 marketplace-cta-sticky svelte-7zr1g4" data-testid="marketplace-detail-cta"><!--[11--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">家族の見守り画面でフォームに反映されます。家族でお祝いしたい行事だけ選んで保存してください。</p> <a href="/admin/challenges?import=japan-annual-events" class="block svelte-7zr1g4" data-testid="challenge-set-import-cta"><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-8 py-5 text-xl rounded-[var(--radius-lg)] min-h-20 font-bold w-full"><!---->🎯 このチャレンジ集を使ってみる (15件)<!----></button><!--]--><!----></a><!--]--></div> <div class="text-center mt-6 svelte-7zr1g4"><a href="/marketplace?type=challenge-set" class="text-sm text-[var(--color-action-primary)] hover:underline svelte-7zr1g4">チャレンジ集一覧に戻る</a></div></div></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
 			
 			<script>
 				{
 					__sveltekit_dev = {
-						base: new URL("..", location).pathname.slice(0, -1),
+						base: new URL("../..", location).pathname.slice(0, -1),
 						env: {}
 					};
 
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/@fs/C:/Users/kokor/ganbari-quest/node_modules/@sveltejs/kit/src/runtime/client/entry.js"),
-						import("/@fs/C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-ae8b955887cd10ca2/.svelte-kit/generated/client/app.js")
+						import("/@fs/C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/node_modules/@sveltejs/kit/src/runtime/client/entry.js"),
+						import("/@fs/C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a0c248fd0e530a367/.svelte-kit/generated/client/app.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
-							node_ids: [0, 7, 75],
-							data: [{type:"data",data:{role:"owner",requestId:"0f34f9c7-778a-4896-994d-99fa59d5d426",isDemo:false},uses:{}},null,{type:"data",data:{children:[]},uses:{}}],
+							node_ids: [0, 59],
+							data: [{type:"data",data:{role:"owner",requestId:"687f4cee-5d61-4f1d-9f37-c1101d32034d",isDemo:true},uses:{}},{type:"data",data:{item:{type:"challenge-set",itemId:"japan-annual-events",name:"日本年間行事パック",description:"お正月・節分・ひな祭り・こどもの日・七夕・お盆・お月見・ハロウィン・クリスマス…。家族で取り組む日本の年中行事 15 件をまとめた協力チャレンジ集です。",icon:"🎌",targetAgeMin:4,targetAgeMax:15,tags:["年中行事","日本文化","家族で取り組む","季節"],personas:["routine-focused","achievement-focused","first-child","sibling"],curator:"official",gender:"neutral",payload:{challenges:[{title:"お正月の家族ミッション",description:"おせちのお手伝い・年賀状書き・大掃除の総仕上げ。家族で新しい年をむかえる準備をしよう。",monthDay:"01-07",durationDays:7,categoryId:3,baseTarget:5,rewardPoints:50,icon:"🎍"},{title:"節分の鬼退治チャレンジ",description:"豆まきの準備・恵方巻きづくり・節分の絵本読み。家族で福をよびこむ協力ミッション。",monthDay:"02-03",durationDays:3,categoryId:4,baseTarget:3,rewardPoints:30,icon:"👹"},{title:"ひな祭り大そうじ + 飾りつけ",description:"ひな人形の飾りつけ・お部屋のお片付け・ちらし寿司のお手伝い。",monthDay:"03-03",durationDays:3,categoryId:3,baseTarget:3,rewardPoints:30,icon:"🎎"},{title:"春のお花見じゅんびチャレンジ",description:"桜のかんさつ・お弁当のお手伝い・公園での自然あそび。",monthDay:"04-05",durationDays:7,categoryId:1,baseTarget:5,rewardPoints:40,icon:"🌸"},{title:"こどもの日プロジェクト",description:"こいのぼり飾りつけ・かぶと作り・しょうぶ湯のじゅんび。家族でお祝いしよう。",monthDay:"05-05",durationDays:5,categoryId:5,baseTarget:4,rewardPoints:50,icon:"🎏"},{title:"梅雨のおうち時間チャレンジ",description:"雨の日でも楽しめる読書・工作・室内うんどう。家族で『雨の日リスト』を消化していこう。",monthDay:"06-15",durationDays:14,categoryId:5,baseTarget:10,rewardPoints:60,icon:"☔"},{title:"七夕短冊チャレンジ",description:"短冊にねがいごとを書く・笹かざりを作る・夜空の星をみる。",monthDay:"07-07",durationDays:7,categoryId:5,baseTarget:3,rewardPoints:30,icon:"🎋"},{title:"夏休み読書記録チャレンジ",description:"夏休みの自由読書を家族でカウントアップ。読書感想文の下じゅんびにも。",monthDay:"08-31",durationDays:42,categoryId:2,baseTarget:10,rewardPoints:100,icon:"📚"},{title:"お盆のおてつだいチャレンジ",description:"お墓まいり・親せきのおむかえ・夏野菜のおてつだい。",monthDay:"08-15",durationDays:5,categoryId:4,baseTarget:3,rewardPoints:30,icon:"🏮"},{title:"お月見だんご作りチャレンジ",description:"お月見だんごを家族で作る・ススキを飾る・夜にお月さまをかんさつ。",monthDay:"09-21",durationDays:5,categoryId:5,baseTarget:3,rewardPoints:30,icon:"🌕"},{title:"敬老の日メッセージ",description:"おじいちゃん・おばあちゃんへ手紙やイラストを書く・電話する・直接会いに行く。",monthDay:"09-15",durationDays:7,categoryId:4,baseTarget:3,rewardPoints:50,icon:"👴"},{title:"ハロウィン仮装プロジェクト",description:"仮装の準備・かぼちゃのランタン作り・お菓子の交換。家族でハロウィンを楽しもう。",monthDay:"10-31",durationDays:7,categoryId:5,baseTarget:4,rewardPoints:40,icon:"🎃"},{title:"七五三の準備チャレンジ",description:"晴れ着の用意・写真撮影の前じゅんび・神社へのお参り。",monthDay:"11-15",durationDays:7,categoryId:3,baseTarget:3,rewardPoints:30,icon:"👘"},{title:"クリスマス家族プロジェクト",description:"ツリーの飾りつけ・プレゼント準備のお手伝い・ケーキ作り・家族で歌う。",monthDay:"12-25",durationDays:10,categoryId:5,baseTarget:5,rewardPoints:60,icon:"🎄"},{title:"年末大そうじチャレンジ",description:"家族で分担して大そうじ。窓ふき・げんかん・お風呂・自分のお部屋まで。",monthDay:"12-31",durationDays:7,categoryId:3,baseTarget:7,rewardPoints:70,icon:"🧹"}]}},isAuthenticated:true,isLoggedIn:true,children:[{id:901,nickname:"たろうくん"},{id:902,nickname:"ひなちゃん"},{id:903,nickname:"けんたくん"},{id:904,nickname:"さくらちゃん"},{id:906,nickname:"けいすけくん"}],existingActivityNames:[]},uses:{params:["type","itemId"]}}],
 							form: null,
 							error: null
 						});
 					});
 
 					if ('serviceWorker' in navigator) {
-						const script_url = '../service-worker.js';
+						const script_url = '../../service-worker.js';
 						const policy = globalThis?.window?.trustedTypes?.createPolicy(
 							'sveltekit-trusted-url',
 							{ createScriptURL(url) { return url; } }

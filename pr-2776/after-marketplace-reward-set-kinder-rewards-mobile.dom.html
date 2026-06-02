@@ -15,7 +15,7 @@
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
 		<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
 		<link rel="manifest" href="/manifest.webmanifest">
-		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--1amflqm--><!----><title>子供登録 - がんばりクエスト セットアップ</title>
+		<!--12qhfyh--><meta name="description" content="子供の活動をゲーミフィケーションで動機付けする家庭内Webアプリ"><!----><!--7zr1g4--><meta name="description" content="3〜5歳向け。承認・シール集め・ちょっとした特別ごほうびで「自発性」を伸ばす幼児向けセット。" class="svelte-7zr1g4"> <meta property="og:title" content="ようじごほうび - がんばりクエスト みんなのテンプレート" class="svelte-7zr1g4"> <meta property="og:description" content="3〜5歳向け。承認・シール集め・ちょっとした特別ごほうびで「自発性」を伸ばす幼児向けセット。" class="svelte-7zr1g4"> <meta property="og:type" content="website" class="svelte-7zr1g4"><!----><title>がんばりクエスト</title>
 		<style data-sveltekit="">/*! tailwindcss v4.3.0 | MIT License | https://tailwindcss.com */
 @layer properties;
 @layer theme, base, components, utilities;
@@ -4155,156 +4155,66 @@ h1, h2, h3, h4 {
 	}
  .svelte-1p67wbu{}
 
-	.setup-page.svelte-a9mpxv {
-		min-height: 100dvh;
-		background: linear-gradient(to bottom, var(--color-brand-100), var(--color-brand-200));
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 16px;
+	/* Round 18 Cluster F: mobile sticky CTA for fold visibility
+	 * DESIGN.md §10 --z-banner token (below modal, above normal flow)
+	 * desktop (>= 768px) keeps normal flow (wider viewport, low scroll cost)
+	 * ADR-0012 Anti-engagement: visibility purpose only, not session extension */
+	.marketplace-cta-sticky.svelte-7zr1g4 {
+		position: sticky;
+		bottom: 0;
+		z-index: var(--z-banner);
+		background: var(--color-surface);
+		padding-top: 0.75rem;
+		padding-bottom: env(safe-area-inset-bottom, 0);
+		margin-left: -1rem;
+		margin-right: -1rem;
+		padding-left: 1rem;
+		padding-right: 1rem;
+		box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 	}
 
-	.step.svelte-a9mpxv {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
+	@media (min-width: 768px) {
+		/* desktop: normal flow restore (wider viewport, low scroll cost) */
+		.marketplace-cta-sticky.svelte-7zr1g4 {
+			position: static;
+			box-shadow: none;
+			background: transparent;
+			padding-top: 0;
+			padding-bottom: 0;
+			padding-left: 0;
+			padding-right: 0;
+			margin-left: 0;
+			margin-right: 0;
+		}
 	}
-
-	.step-circle.svelte-a9mpxv {
-		width: 32px;
-		height: 32px;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.875rem;
-		font-weight: 700;
-		background: var(--color-neutral-200);
-		color: var(--color-neutral-400);
-		transition: all 0.2s;
-	}
-
-	.step--active.svelte-a9mpxv .step-circle:where(.svelte-a9mpxv) { background: var(--color-brand-600); color: white; }
-	.step--done.svelte-a9mpxv .step-circle:where(.svelte-a9mpxv) { background: var(--color-success); color: white; }
-
-	.step-label.svelte-a9mpxv { font-size: 0.75rem; color: var(--color-neutral-400); white-space: nowrap; }
-	.step--active.svelte-a9mpxv .step-label:where(.svelte-a9mpxv) { color: var(--color-brand-600); font-weight: 600; }
-	.step--done.svelte-a9mpxv .step-label:where(.svelte-a9mpxv) { color: var(--color-success); }
-
-	.step-line.svelte-a9mpxv { width: 24px; height: 2px; background: var(--color-neutral-200); margin-bottom: 20px; }
-	.step-line--done.svelte-a9mpxv { background: var(--color-success); }
- .svelte-a9mpxv{}
-
-	.logo-wrapper.svelte-1n7r250 {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.375rem;
-		vertical-align: middle;
-	}
-	.logo.svelte-1n7r250 {
-		display: inline-block;
-		vertical-align: middle;
-		object-fit: contain;
-	}
-	.plan-label.svelte-1n7r250 {
-		font-size: 0.6rem;
-		font-weight: 700;
-		padding: 0.125rem 0.375rem;
-		border-radius: 9999px;
-		white-space: nowrap;
-		line-height: 1.4;
-	}
-	.plan-label--standard.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #f3e8ff);
-		color: var(--plan-badge-text, #6d28d9);
-	}
-	.plan-label--family.svelte-1n7r250 {
-		background: var(--plan-badge-bg, #fef3c7);
-		color: var(--plan-badge-text, #92400e);
-	}
- .svelte-1n7r250{}
-
-	.theme-card.svelte-1amflqm {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		padding: 12px 8px;
-		border: 2px solid var(--color-neutral-200);
-		border-radius: 12px;
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.theme-card.svelte-1amflqm:hover {
-		border-color: var(--color-neutral-300);
-	}
-
-	.peer:checked ~ .theme-card--pink.svelte-1amflqm {
-		border-color: var(--color-pink-400);
-		background-color: var(--color-pink-50);
-	}
-
-	.peer:checked ~ .theme-card--blue.svelte-1amflqm {
-		border-color: var(--color-blue-400);
-		background-color: var(--color-blue-50);
-	}
- .svelte-1amflqm{}
-
-	.password-toggle.svelte-pwdxgn {
-		position: absolute;
-		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 4px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 4px;
-		transition: color 0.15s;
-	}
-
-	.password-toggle.svelte-pwdxgn:hover {
-		color: var(--color-text);
-	}
-
-	.password-toggle.svelte-pwdxgn:focus-visible {
-		outline: 2px solid var(--color-brand-500);
-		outline-offset: 2px;
-	}
- .svelte-pwdxgn{}</style>
+ .svelte-7zr1g4{}</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
-		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[0--><!--[--><div class="setup-page svelte-a9mpxv"><div class="w-full max-w-[480px] svelte-a9mpxv"><div class="text-center mb-6 svelte-a9mpxv"><span class="logo-wrapper  svelte-1n7r250"><img src="/logo-compact.png" alt="がんばりクエスト" width="200" height="81" class="logo svelte-1n7r250"> <!--[-1--><!--]--></span><!----> <p class="text-sm text-[var(--color-text-muted)] mt-1 svelte-a9mpxv">初期セットアップ</p></div> <div class="flex items-center justify-center mb-6 svelte-a9mpxv"><!--[--><div class="step svelte-a9mpxv step--active"><div class="step-circle svelte-a9mpxv"><!--[-1-->1<!--]--></div> <span class="step-label svelte-a9mpxv">子供登録</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->2<!--]--></div> <span class="step-label svelte-a9mpxv">かんたん質問</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->3<!--]--></div> <span class="step-label svelte-a9mpxv">活動</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->4<!--]--></div> <span class="step-label svelte-a9mpxv">ごほうび</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->5<!--]--></div> <span class="step-label svelte-a9mpxv">ルール</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->6<!--]--></div> <span class="step-label svelte-a9mpxv">活動初期設定</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->7<!--]--></div> <span class="step-label svelte-a9mpxv">家族チャレンジ</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->8<!--]--></div> <span class="step-label svelte-a9mpxv">はじめての冒険</span></div> <!--[0--><div class="step-line svelte-a9mpxv"></div><!--]--><div class="step svelte-a9mpxv"><div class="step-circle svelte-a9mpxv"><!--[-1-->9<!--]--></div> <span class="step-label svelte-a9mpxv">冒険の始まり</span></div> <!--[-1--><!--]--><!--]--></div> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><!--[-1--><!--[--><h2 class="text-lg font-bold text-[var(--color-text)] mb-2 svelte-1amflqm">子供を登録しよう</h2> <p class="text-sm text-[var(--color-text-muted)] mb-4 svelte-1amflqm">がんばりクエストを使う子供を登録してください（1人以上）。</p> <!--[-1--><!--]--> <!--[-1--><!--]--> <!--[-1--><!--]--> <form method="POST" action="?/addChild" class="flex flex-col gap-3 mb-4 p-4 bg-[var(--color-surface-muted)] rounded-lg border border-[var(--color-border-default)] svelte-1amflqm"><h3 class="text-sm font-bold text-[var(--color-text-secondary)] svelte-1amflqm">子供を追加</h3> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-ニックネーム" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">ニックネーム</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="text" id="field-ニックネーム" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="nickname" required="" placeholder="たろうくん" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="flex flex-col gap-1  svelte-pwdxgn"><label for="field-年齢" class="text-sm font-medium text-[var(--color-text)] svelte-pwdxgn">年齢</label> <!--[-1--><div class="relative svelte-pwdxgn"><input type="number" id="field-年齢" class="w-full px-3 py-2 border rounded-[var(--input-radius)] bg-[var(--input-bg)] text-sm border-[var(--input-border)] focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors  svelte-pwdxgn" name="age" min="0" max="18" required="" style=""> <!--[-1--><!--]--></div><!--]--> <!--[-1--><!--]--></div><!----> <div class="svelte-1amflqm"><label for="theme" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-1 svelte-1amflqm">テーマカラー</label> <div class="grid grid-cols-2 gap-2 svelte-1amflqm"><label class="theme-option svelte-1amflqm"><input type="radio" name="theme" value="pink" checked="" class="sr-only peer svelte-1amflqm" style=""> <div class="theme-card theme-card--pink svelte-1amflqm"><span class="text-2xl svelte-1amflqm">👧</span> <span class="text-sm font-medium text-[var(--color-text)] svelte-1amflqm">ピンク</span></div></label> <label class="theme-option svelte-1amflqm"><input type="radio" name="theme" value="blue" class="sr-only peer svelte-1amflqm" style=""> <div class="theme-card theme-card--blue svelte-1amflqm"><span class="text-2xl svelte-1amflqm">👦</span> <span class="text-sm font-medium text-[var(--color-text)] svelte-1amflqm">ブルー</span></div></label></div></div> <!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--color-success)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" type="submit"><!---->追加する<!----></button><!--]--><!----></form> <!--[-1--><!--]--> <div class="mt-4 text-center svelte-1amflqm"><a href="/" class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)] svelte-1amflqm" data-testid="setup-skip-link">ホームに戻る</a></div><!--]--><!--]--><!----><!----></div> <!--[-1--><!--]--></section><!----></div></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
+		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[0--><div class="sticky top-0 z-50 flex items-center gap-2 px-3 py-2 text-sm border-b bg-[var(--color-feedback-warning-bg)] border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)]" role="status" data-testid="demo-banner"><span class="shrink-0" aria-hidden="true">🧪</span> <div class="flex-1 min-w-0"><p class="font-bold leading-tight">おためしモード</p> <p class="text-xs leading-snug opacity-90">これはおためしです。記録やせっていはほぞんされません。</p></div> <a href="https://www.ganbari-quest.com/auth/signup" class="shrink-0 px-3 py-1 rounded-lg bg-[var(--color-action-primary)] text-[var(--color-text-inverse)] text-xs font-bold whitespace-nowrap" data-testid="demo-banner-signup">本当に始める</a> <a href="https://www.ganbari-quest.com/" class="shrink-0 px-2 py-1 text-xs underline whitespace-nowrap" data-testid="demo-banner-exit">おためしをやめる</a></div><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><!--[--><div class="min-h-dvh bg-[var(--color-surface-base)] svelte-7zr1g4"><div class="max-w-2xl mx-auto px-4 py-8 svelte-7zr1g4"><nav class="text-xs text-[var(--color-text-tertiary)] mb-6 svelte-7zr1g4"><a href="/marketplace" class="hover:text-[var(--color-action-primary)] svelte-7zr1g4">テンプレート</a> <span class="mx-1 svelte-7zr1g4">/</span> <a href="/marketplace?type=reward-set" class="hover:text-[var(--color-action-primary)] svelte-7zr1g4">ごほうびセット</a> <span class="mx-1 svelte-7zr1g4">/</span> <span class="text-[var(--color-text-secondary)] svelte-7zr1g4">ようじごほうび</span></nav> <div class="flex items-start gap-4 mb-6 svelte-7zr1g4"><span class="text-5xl svelte-7zr1g4">🎁</span> <div class="flex-1 svelte-7zr1g4"><div class="flex items-center gap-2 mb-1 svelte-7zr1g4"><span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->🎁 ごほうびセット<!----></span><!----> <span class="inline-flex items-center gap-1 rounded-[var(--badge-radius)] font-bold bg-blue-100 text-blue-700 text-xs px-2 py-0.5 "><!---->3〜5歳<!----></span><!----></div> <h1 class="text-xl font-bold text-[var(--color-text-primary)] svelte-7zr1g4">ようじごほうび</h1> <p class="text-sm text-[var(--color-text-secondary)] mt-1 svelte-7zr1g4">3〜5歳向け。承認・シール集め・ちょっとした特別ごほうびで「自発性」を伸ばす幼児向けセット。</p></div></div> <div class="flex flex-wrap gap-1 mb-4 svelte-7zr1g4"><!--[--><a href="/marketplace?tag=年齢別" class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)] svelte-7zr1g4">年齢別</a><a href="/marketplace?tag=幼児" class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)] svelte-7zr1g4">幼児</a><a href="/marketplace?tag=承認・シール" class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)] svelte-7zr1g4">承認・シール</a><a href="/marketplace?tag=自発性" class="text-xs bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] px-2.5 py-1.5 rounded-full hover:text-[var(--color-text-secondary)] svelte-7zr1g4">自発性</a><!--]--></div> <!--[0--><div class="flex flex-wrap gap-1 mb-6 svelte-7zr1g4"><!--[--><span class="text-[10px] bg-[var(--color-brand-50)] text-[var(--color-brand-700)] px-2 py-0.5 rounded-full svelte-7zr1g4">習慣づくり</span><span class="text-[10px] bg-[var(--color-brand-50)] text-[var(--color-brand-700)] px-2 py-0.5 rounded-full svelte-7zr1g4">のんびり型</span><!--]--></div><!--]--> <section class="rounded-[var(--card-radius)] overflow-hidden bg-[var(--card-bg)] shadow-[var(--card-shadow)] border border-[var(--color-border-default)] "><!--[-1--><!--]--> <div class="p-6"><h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-3 svelte-7zr1g4"><!--[1-->ふくまれるごほうび<!--]--></h2> <!--[1--><div class="space-y-2 svelte-7zr1g4"><!--[--><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🏞️</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">こうえんで30ぷんあそぶ</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">こうえんで じゆうに あそべるよ</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">20P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🍭</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">おやつをえらべる</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">きょうの おやつは きみがえらぼう</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">15P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🎬</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">すきなえいがをみる</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">すきな えいがを いっしょにみよう</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">30P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🧁</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">おかしづくり</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">おとなと いっしょに おかしを つくろう</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">50P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🧸</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">おもちゃ10ぷん</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">すきな おもちゃで じっくりあそぼう</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">15P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🫧</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">シャボンだまあそび</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">おそとで シャボンだまを とばそう</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">20P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🛏️</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">おとうさん・おかあさん と ねる</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">こんやは いっしょに ねんね</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">30P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">📚</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">すきな えほんを 3さつよんでもらう</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">すきな えほんを 3さつ よんでもらおう</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">25P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🧩</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">すきな おもちゃで 30ぷん</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">すきな おもちゃで 30ぷん じっくりあそぼう</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">20P</span></div><div class="flex items-center gap-2 py-1 border-b border-[var(--color-border-subtle)] last:border-0 svelte-7zr1g4"><span class="text-lg svelte-7zr1g4">🥤</span> <div class="flex-1 svelte-7zr1g4"><span class="text-sm font-medium text-[var(--color-text-primary)] svelte-7zr1g4">すきな のみものえらべる</span> <!--[0--><p class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">きょうは すきな のみものが のめるよ</p><!--]--></div> <span class="text-xs text-[var(--color-text-tertiary)] svelte-7zr1g4">15P</span></div><!--]--></div><!--]--><!----></div> <!--[-1--><!--]--></section><!----> <div class="mt-6 space-y-3 marketplace-cta-sticky svelte-7zr1g4" data-testid="marketplace-detail-cta"><!--[0--><a href="/admin/rewards?import=kinder-rewards" class="block svelte-7zr1g4" data-testid="reward-set-import-cta"><!--[-1--><button class="tap-target inline-flex items-center justify-center font-bold transition-all bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-8 py-5 text-xl rounded-[var(--radius-lg)] min-h-20 font-bold w-full"><!---->🎁 このごほうびセットを一括追加 (10件)<!----></button><!--]--><!----></a> <p class="text-xs text-center text-[var(--color-text-tertiary)] svelte-7zr1g4">取り込む際はご家族の見守り画面で「どのお子さまに追加するか」を選びます</p><!--]--></div> <div class="text-center mt-6 svelte-7zr1g4"><a href="/marketplace?type=reward-set" class="text-sm text-[var(--color-action-primary)] hover:underline svelte-7zr1g4">ごほうびセット一覧に戻る</a></div></div></div><!--]--><!--]--><!----> <!--[-1--><!--]--><!--]--><!--]--> <!--[-1--><!--]--><!--]-->
 			
 			<script>
 				{
 					__sveltekit_dev = {
-						base: new URL("..", location).pathname.slice(0, -1),
+						base: new URL("../..", location).pathname.slice(0, -1),
 						env: {}
 					};
 
 					const element = document.currentScript.parentElement;
 
 					Promise.all([
-						import("/@fs/C:/Users/kokor/ganbari-quest/node_modules/@sveltejs/kit/src/runtime/client/entry.js"),
-						import("/@fs/C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-ae8b955887cd10ca2/.svelte-kit/generated/client/app.js")
+						import("/@fs/C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/node_modules/@sveltejs/kit/src/runtime/client/entry.js"),
+						import("/@fs/C:/Users/kokor/OneDrive/Document/GitHub/ganbari-quest/.claude/worktrees/agent-a0c248fd0e530a367/.svelte-kit/generated/client/app.js")
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
-							node_ids: [0, 7, 75],
-							data: [{type:"data",data:{role:"owner",requestId:"20b4c3e4-996b-41af-9040-01f78fb2e3b2",isDemo:false},uses:{}},null,{type:"data",data:{children:[]},uses:{}}],
+							node_ids: [0, 59],
+							data: [{type:"data",data:{role:"owner",requestId:"46ebbdab-b41c-4615-8cf2-ccaa995aa750",isDemo:true},uses:{}},{type:"data",data:{item:{type:"reward-set",itemId:"kinder-rewards",name:"ようじごほうび",description:"3〜5歳向け。承認・シール集め・ちょっとした特別ごほうびで「自発性」を伸ばす幼児向けセット。",icon:"🎁",targetAgeMin:3,targetAgeMax:5,tags:["年齢別","幼児","承認・シール","自発性"],personas:["routine-focused","relaxed"],curator:"official",payload:{rewards:[{title:"こうえんで30ぷんあそぶ",points:20,icon:"🏞️",category:"sports",description:"こうえんで じゆうに あそべるよ"},{title:"おやつをえらべる",points:15,icon:"🍭",category:"other",description:"きょうの おやつは きみがえらぼう"},{title:"すきなえいがをみる",points:30,icon:"🎬",category:"creative",description:"すきな えいがを いっしょにみよう"},{title:"おかしづくり",points:50,icon:"🧁",category:"creative",description:"おとなと いっしょに おかしを つくろう"},{title:"おもちゃ10ぷん",points:15,icon:"🧸",category:"other",description:"すきな おもちゃで じっくりあそぼう"},{title:"シャボンだまあそび",points:20,icon:"🫧",category:"sports",description:"おそとで シャボンだまを とばそう"},{title:"おとうさん・おかあさん と ねる",points:30,icon:"🛏️",category:"social",description:"こんやは いっしょに ねんね"},{title:"すきな えほんを 3さつよんでもらう",points:25,icon:"📚",category:"academic",description:"すきな えほんを 3さつ よんでもらおう"},{title:"すきな おもちゃで 30ぷん",points:20,icon:"🧩",category:"other",description:"すきな おもちゃで 30ぷん じっくりあそぼう"},{title:"すきな のみものえらべる",points:15,icon:"🥤",category:"life",description:"きょうは すきな のみものが のめるよ"}]}},isAuthenticated:true,isLoggedIn:true,children:[{id:901,nickname:"たろうくん"},{id:902,nickname:"ひなちゃん"},{id:903,nickname:"けんたくん"},{id:904,nickname:"さくらちゃん"},{id:906,nickname:"けいすけくん"}],existingActivityNames:[]},uses:{params:["type","itemId"]}}],
 							form: null,
 							error: null
 						});
 					});
 
 					if ('serviceWorker' in navigator) {
-						const script_url = '../service-worker.js';
+						const script_url = '../../service-worker.js';
 						const policy = globalThis?.window?.trustedTypes?.createPolicy(
 							'sveltekit-trusted-url',
 							{ createScriptURL(url) { return url; } }
