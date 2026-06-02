@@ -47,8 +47,12 @@ vi.mock('$lib/server/services/stripe-service', async () => {
 	// verifyWebhookSignature は Stripe の constructEvent を使った実装をインライン化する
 	// （getStripeClient() のモックを避けるため直接 Stripe インスタンスを生成）
 	const StripeImport = (await import('stripe')).default;
+	type StripeApiVersion = NonNullable<ConstructorParameters<typeof StripeImport>[1]>['apiVersion'];
 	const stripeVerify = new StripeImport('sk_test_dummy_for_verification_only', {
-		apiVersion: '2026-05-27.dahlia',
+		// Phase 7 PR-3b #2721: `'2026-04-22.dahlia'` (stable) を維持。Stripe SDK 22.2.0 の
+		// LatestApiVersion type は `'2026-05-27.dahlia'` (preview) のため、`client.ts` と
+		// 同パターンで `as StripeApiVersion` cast する (副次制約 4 整合、preview 不採用)。
+		apiVersion: '2026-04-22.dahlia' as StripeApiVersion,
 	});
 	return {
 		handleWebhookEvent: (...args: unknown[]) => mockHandleWebhookEvent(...args),
