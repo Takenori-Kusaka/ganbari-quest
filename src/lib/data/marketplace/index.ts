@@ -148,15 +148,26 @@ export function getMarketplaceItem(
 	return itemMap.get(`${type}/${itemId}`) ?? null;
 }
 
-/** Get all unique tags across all items */
+/**
+ * Get all unique tags across all items, sorted by popularity (frequency desc, alphabetical asc as tiebreaker).
+ * Round 18 Cluster I (#tag-filter-collapse): 50+ tag が並列表示されて Hick's Law 違反していたため、
+ * 人気順を SSOT 化して LP / filter sidebar が頻出 tag を優先表示できるようにした。
+ */
 export function getAllTags(): string[] {
-	const tags = new Set<string>();
+	const frequency = new Map<string, number>();
 	for (const item of allItems) {
 		for (const tag of item.tags) {
-			tags.add(tag);
+			frequency.set(tag, (frequency.get(tag) ?? 0) + 1);
 		}
 	}
-	return [...tags].sort();
+	return [...frequency.entries()]
+		.sort((a, b) => {
+			// Frequency desc
+			if (b[1] !== a[1]) return b[1] - a[1];
+			// Alphabetical asc as tiebreaker (stable, locale-aware for JP)
+			return a[0].localeCompare(b[0], 'ja');
+		})
+		.map(([tag]) => tag);
 }
 
 /** Count items by type */

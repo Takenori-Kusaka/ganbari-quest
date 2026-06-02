@@ -73,6 +73,16 @@ function onSortChange(details: { value: string[] }) {
 }
 
 const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
+
+// Round 18 Cluster I (#11/#15/#19): tag chip 50+ 件並列が認知負荷過多のため、
+// 人気 8 件 default + expansion (DESIGN.md §10 Hick's Law / ADR-0012 Anti-engagement)
+// data.tags は getAllTags() で popularity 順 (frequency desc) に sort 済
+const DEFAULT_TAG_LIMIT = 8;
+let tagsExpandedDesktop = $state(false);
+let tagsExpandedMobile = $state(false);
+const totalTags = $derived(data.tags.length);
+const hasMoreTags = $derived(totalTags > DEFAULT_TAG_LIMIT);
+const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 </script>
 
 <svelte:head>
@@ -131,16 +141,19 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 			</div>
 		</div>
 
-		<!-- Tag cloud -->
+		<!-- Tag cloud (Round 18 Cluster I: default 人気 8 件 + expansion) -->
 		{#if data.tags.length > 0}
+			{@const expanded = variant === 'desktop' ? tagsExpandedDesktop : tagsExpandedMobile}
+			{@const visibleTags = expanded ? data.tags : data.tags.slice(0, DEFAULT_TAG_LIMIT)}
 			<div>
 				<h3 class="text-xs font-bold text-[var(--color-text-primary)] mb-2">
 					{MARKETPLACE_FILTER_LABELS.tag}
 				</h3>
 				<div class="flex flex-wrap gap-1">
-					{#each data.tags as tag (tag)}
+					{#each visibleTags as tag (tag)}
 						<a
 							href={filterUrl({ tag: activeTag === tag ? null : tag })}
+							data-testid="filter-tag-{tag}"
 							class="px-2.5 py-1.5 rounded-full text-xs font-medium transition-all {activeTag === tag
 								? 'bg-[var(--color-action-primary)] text-white'
 								: 'bg-[var(--color-surface-muted)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}"
@@ -149,6 +162,22 @@ const genderKeys: MarketplaceGender[] = ['boy', 'girl', 'neutral'];
 						</a>
 					{/each}
 				</div>
+				{#if hasMoreTags}
+					<button
+						type="button"
+						data-testid="filter-tag-toggle-{variant}"
+						onclick={() => {
+							if (variant === 'desktop') tagsExpandedDesktop = !tagsExpandedDesktop;
+							else tagsExpandedMobile = !tagsExpandedMobile;
+						}}
+						class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--color-action-primary)] hover:underline"
+						aria-expanded={expanded}
+					>
+						{expanded
+							? MARKETPLACE_FILTER_LABELS.collapseTags
+							: MARKETPLACE_FILTER_LABELS.expandTags(hiddenTagsCount)}
+					</button>
+				{/if}
 			</div>
 		{/if}
 

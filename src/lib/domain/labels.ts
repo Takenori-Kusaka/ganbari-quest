@@ -1036,6 +1036,10 @@ export const MARKETPLACE_FILTER_LABELS = {
 			? `${childName}${CHILD_TERMS.honorific} (${ageTierLabel}) に合わせて表示中`
 			: `${CHILD_TERMS.honorific} (${ageTierLabel}) に合わせて表示中`,
 	clearAgeFilter: 'すべての年齢を表示',
+	// Round 18 Cluster I (#11/#15/#19): 50+ 件 tag 並列が認知負荷過多のため、人気 N 件 default + expansion
+	// Hick's Law (DESIGN.md §10) + ADR-0012 (Anti-engagement、user 意図的操作のみで展開) 整合
+	expandTags: (remainingCount: number) => `もっと見る (残 ${remainingCount} 件)`,
+	collapseTags: 'タグをたたむ',
 } as const;
 
 export type MarketplaceGender = 'boy' | 'girl' | 'neutral';
