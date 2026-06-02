@@ -17,7 +17,9 @@ const ts = new Date().toISOString();
 
 console.warn(`[backup-to-gdrive STUB ${ts}] no-op exit 0 (GDrive upload 未実装)`);
 console.warn(`[backup-to-gdrive STUB] backup file: ${backupPath ?? '(none)'}`);
-console.warn(`[backup-to-gdrive STUB] 推奨: .env BACKUP_POST_HOOK を未設定 or scripts/hooks/gdrive-upload.cjs 実装後にそちらへ更新`);
+console.warn(
+	`[backup-to-gdrive STUB] 推奨: .env BACKUP_POST_HOOK を未設定 or scripts/hooks/gdrive-upload.cjs 実装後にそちらへ更新`,
+);
 
 // no-op exit 0 (backup 自体は正常完了済、本 hook 失敗で backup-db.cjs を fail させない)
 process.exit(0);
