@@ -76,12 +76,15 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 		expect(res.status()).toBeLessThan(500);
 	});
 
-	// CUJ-CH2 partial sub-test (#2636 由来、横展開回帰 trip wire として残置):
-	//   `?marketplace-import=<presetId>` で /admin/challenges に到達した時に UnifiedImportHub 内で
-	//   対象 preset が visible + import form action が wired であることの static structural 担保。
-	//   (admin-rewards.spec.ts の `?import=<presetId> で ChildSelectionDialog が auto-open する` の
-	//    structural visible 担保と同型。CUJ 本体は下の `CUJ-CH2:` test で完遂検証する。)
-	test('?marketplace-import=japan-annual-events で UnifiedImportHub 内 preset visible + form action wired (structural trip wire)', async ({
+	// #2558 段階3 (PR #2773): admin 内 in-page UnifiedImportHub browse UI を撤去
+	// (DESIGN.md §10 構造的ルール「marketplace 取込はマーケットプレイス画面に一本化」)。
+	// 旧 structural trip wire (`marketplace-preset-import-*` button + `?/importMarketplaceChallengeSet`
+	// form 配線) は永続的に意味を失ったため削除。
+	//
+	// 新規 trip wire: `challenges-marketplace-browse-link` 経由で marketplace へ画面遷移する
+	// secondary link が配置されていることを確認 (empty state / 運用期到達性、DESIGN.md §10
+	// 「bulk import bridge ルール」整合)。in-page browse UI が再導入されないことを併せて担保。
+	test('?marketplace-import=japan-annual-events で marketplace browse link visible + in-page browse UI 不出 (二重 UI 不出 trip wire / #2558 段階3)', async ({
 		page,
 	}) => {
 		test.slow(); // Vite dev コールドコンパイル耐性
@@ -90,34 +93,31 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 			waitUntil: 'domcontentloaded',
 		});
 
-		// 副作用 A.1: challenges-marketplace-import-section が render される
-		// (Family plan tier 必須 — local mode は family のため通過、ADR-0050 plan-limit 整合)
+		// 副作用 A.1: challenges-marketplace-import-section は ChildSelectionDialog auto-open +
+		// 取込結果メッセージ表示 section として保持される (Family plan tier 必須 — local mode は
+		// family のため通過、ADR-0050 plan-limit 整合)
 		const section = page.getByTestId('challenges-marketplace-import-section');
 		await expect(
 			section,
 			'challenges-marketplace-import-section が visible (Family tier ガード通過)',
 		).toBeVisible({ timeout: 30_000 });
 
-		// 副作用 A.2: 対象 preset の import ボタンが visible + enabled
-		// (#2369 type 漏れ非退行: challenge-set strategy 経由で UnifiedImportHub に preset 配信)
-		const importBtn = page.getByTestId(`marketplace-preset-import-${JAPAN_ANNUAL_EVENTS_PRESET}`);
+		// 副作用 A.2: marketplace への secondary link が配置されている (DESIGN.md §10 bulk import
+		// bridge ルール、empty state / 運用期到達性) → href = /marketplace?type=challenge-set
+		const browseLink = section.getByTestId('challenges-marketplace-browse-link');
+		await expect(browseLink, 'marketplace browse link が visible (運用期到達性)').toBeVisible({
+			timeout: 10_000,
+		});
+		await expect(browseLink).toHaveAttribute('href', '/marketplace?type=challenge-set');
+
+		// 副作用 A.3: 旧 in-page browse UI (UnifiedImportHub の preset 一覧 button +
+		// `?/importMarketplaceChallengeSet` form 配線) は撤去済 (二重 UI 不出 trip wire)。
+		// 再導入されないことを担保 — DESIGN.md §10「marketplace 取込はマーケットプレイス画面に
+		// 一本化、admin 内ブラウズ UI 二重管理禁止」明示禁忌。
 		await expect(
-			importBtn,
-			'対象 preset の import ボタンが visible (dead-end 一階層手前)',
-		).toBeVisible({ timeout: 10_000 });
-		await expect(importBtn).toBeEnabled();
-
-		// 副作用 A.3: form action が `?/importMarketplaceChallengeSet` に wired
-		// (UnifiedImportHub.svelte で type 別 action 名規約)
-		const form = importBtn.locator('xpath=ancestor::form');
-		await expect(form, 'import button が <form> 内に配置されている').toHaveCount(1);
-		await expect(form).toHaveAttribute('action', /\?\/importMarketplaceChallengeSet/);
-		await expect(form).toHaveAttribute('method', /post/i);
-
-		// 副作用 B: 対象 preset の name (SSOT「日本年間行事パック」、
-		// src/lib/data/marketplace/challenge-sets/japan-annual-events.json) が section 内に visible
-		// (preset 配信 + 描画パイプライン全体の非退行)。
-		await expect(section.getByText('日本年間行事パック').first()).toBeVisible({ timeout: 10_000 });
+			page.getByTestId(`marketplace-preset-import-${JAPAN_ANNUAL_EVENTS_PRESET}`),
+			'in-page preset import button は撤去済 (#2558 段階3)',
+		).toHaveCount(0);
 	});
 
 	// CUJ-CH2 (research §1-D 「B1 dead-end 5 type 横展開」 P1、#2554 follow-up 完全化):

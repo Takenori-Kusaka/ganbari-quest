@@ -22,29 +22,50 @@ import { expect, test } from '@playwright/test';
 test.describe('#2367 marketplace -> checklist -> import (EPIC #2362 P3 / Strangler Fig 完了)', () => {
 	test.setTimeout(180_000);
 
-	test('/admin/checklists にマーケットプレイス preset 3 件 が表示される', async ({ page }) => {
+	// #2558 段階3 (PR #2773): admin/checklists 内 in-page UnifiedImportHub browse UI を撤去
+	// (DESIGN.md §10 構造的ルール「marketplace 取込はマーケットプレイス画面に一本化」)。
+	// 旧期待 (`marketplace-preset-import-event-pool` 等 3 件 button visible) は永続的に意味を失う。
+	//
+	// 新規期待: `checklists-marketplace-browse-link` 経由で /marketplace?type=checklist へ画面遷移
+	// する secondary link が visible (empty state / 運用期到達性、DESIGN.md §10「bulk import
+	// bridge ルール」整合)。in-page browse UI が再導入されないことを併せて担保。
+	test('/admin/checklists に marketplace browse link visible + in-page browse UI 不出 (二重 UI 不出 trip wire / #2558 段階3)', async ({
+		page,
+	}) => {
 		test.slow();
 		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
 
-		// #2391 (Phase 2): UnifiedImportHub 統合で `marketplace-preset-row-*` (container) は廃止。
-		// `marketplace-preset-import-*` (button) で同等の確認。
-		await expect(page.getByTestId('marketplace-preset-import-event-pool')).toBeVisible();
-		await expect(page.getByTestId('marketplace-preset-import-event-school-start')).toBeVisible();
-		await expect(page.getByTestId('marketplace-preset-import-event-field-trip')).toBeVisible();
+		// 副作用 A.1: marketplace への secondary link が配置されている → href = /marketplace?type=checklist
+		const browseLink = page.getByTestId('checklists-marketplace-browse-link');
+		await expect(browseLink, 'marketplace browse link が visible (運用期到達性)').toBeVisible({
+			timeout: 10_000,
+		});
+		await expect(browseLink).toHaveAttribute('href', '/marketplace?type=checklist');
+
+		// 副作用 A.2: 旧 in-page browse UI (UnifiedImportHub の preset 一覧 button) は撤去済
+		// (二重 UI 不出 trip wire)。DESIGN.md §10「marketplace 取込はマーケットプレイス画面に
+		// 一本化、admin 内ブラウズ UI 二重管理禁止」明示禁忌。
+		await expect(page.getByTestId('marketplace-preset-import-event-pool')).toHaveCount(0);
+		await expect(page.getByTestId('marketplace-preset-import-event-school-start')).toHaveCount(0);
+		await expect(page.getByTestId('marketplace-preset-import-event-field-trip')).toHaveCount(0);
 	});
 
 	test('?/importMarketplace action: 不存在 presetId は fail() で扱われる', async ({ page }) => {
-		// /admin/checklists を開いて childId を動的取得 (testChildIds は AUTO_INCREMENT のため固定値不可)
+		// /admin/checklists を開いて childId を動的取得 (testChildIds は AUTO_INCREMENT のため固定値不可)。
+		// #2558 段階3 (PR #2773) で marketplace-import-section 内から in-page browse UI を撤去したため
+		// hidden input は同 section 内には存在しない。template create / edit form 等の任意の
+		// childId hidden input から有効値を取得する。
 		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
-		// 任意の preset row 内の childId select から有効な ID を 1 つ取得
 		const childIdValue = await page.evaluate(() => {
-			// admin/checklists は selectedChildId を hidden input に展開している (#2367 spec time)
-			const hidden = document.querySelector<HTMLInputElement>(
-				'[data-testid="marketplace-import-section"] input[name="childId"]',
-			);
-			return hidden?.value || '';
+			// admin/checklists は selectedChildId を複数 form の hidden input に展開している
+			// (template create form / per-template action form 等)。最初に見つかった有効値を採用。
+			const hiddens = document.querySelectorAll<HTMLInputElement>('input[name="childId"]');
+			for (const h of Array.from(hiddens)) {
+				if (h.value && h.value !== '' && h.value !== 'all') return h.value;
+			}
+			return '';
 		});
 		expect(childIdValue).not.toBe('');
 
@@ -58,14 +79,16 @@ test.describe('#2367 marketplace -> checklist -> import (EPIC #2362 P3 / Strangl
 	});
 
 	test('?/importMarketplace action: 有効な presetId + childId で 200 系応答', async ({ page }) => {
+		// #2558 段階3 (PR #2773): marketplace-import-section 内 hidden input は撤去済のため
+		// page 全体の childId hidden input から有効値を取得する (上 test と同 pattern)。
 		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
 		const childIdValue = await page.evaluate(() => {
-			// admin/checklists は selectedChildId を hidden input に展開している (#2367 spec time)
-			const hidden = document.querySelector<HTMLInputElement>(
-				'[data-testid="marketplace-import-section"] input[name="childId"]',
-			);
-			return hidden?.value || '';
+			const hiddens = document.querySelectorAll<HTMLInputElement>('input[name="childId"]');
+			for (const h of Array.from(hiddens)) {
+				if (h.value && h.value !== '' && h.value !== 'all') return h.value;
+			}
+			return '';
 		});
 		expect(childIdValue).not.toBe('');
 
