@@ -930,6 +930,26 @@ export const MARKETPLACE_LABELS = {
 	/** activity-pack 説明 */
 	detailCtaImportActivityPackDesc:
 		'取り込む際はご家族の見守り画面で「どのお子さまに追加するか」を選びます',
+	// Round 18 Cluster H (#13/#16/#20/#25/#28): activity-pack subset 選択 UI 用 labels
+	/** Cluster H: subset 選択セクション見出し */
+	detailActivityPackSelectHeading: '取り込む活動を選ぶ',
+	/** Cluster H: 選択ヒント (preschool 親「30 件は多すぎる」「歯磨きとお片付けだけ欲しい」への直接回答) */
+	detailActivityPackSelectHint:
+		'チェックを外すと取り込みません。既に登録済みの活動は最初からチェックを外しています。',
+	/** Cluster H: 既存活動と name 一致した場合のバッジラベル */
+	detailActivityPackAlreadyExistsBadge: '登録済み',
+	/** Cluster H: 全て選択ボタン */
+	detailActivityPackSelectAll: 'すべて選ぶ',
+	/** Cluster H: 全て解除ボタン */
+	detailActivityPackDeselectAll: 'すべて外す',
+	/** Cluster H: 選択件数表示 (例: 「12件 / 30件 を取り込みます」) */
+	detailActivityPackSelectedCount: (selected: number, total: number) =>
+		`${selected}件 / ${total}件 を取り込みます`,
+	/** Cluster H: 0 件選択時の inert 状態説明 */
+	detailActivityPackSelectedZero: '取り込む活動を 1 件以上選んでください',
+	/** Cluster H: 件数連動 CTA (subset 選択結果を反映、選択件数 = N) */
+	detailCtaImportActivityPackSelected: (count: number) =>
+		`ご家族の見守り画面で取り込む (${count}件を選択中)`,
 	/** #2136 MP-1: reward-set 一括追加 CTA */
 	detailCtaImportReward: '🎁 このごほうびセットを一括追加',
 	/** #2136 MP-1: 件数付き一括追加 CTA */

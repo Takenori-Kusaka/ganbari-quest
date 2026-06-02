@@ -92,7 +92,11 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 		it('詳細画面 activity-pack ログイン済 CTA は /admin/activities?import= へ遷移する (#2362 PR-3 Phase 5)', () => {
 			// #2362 PR-3 Phase 5: activity-pack ログイン済 + 子供登録済の CTA は admin/activities へ
 			// (ChildSelectionDialog auto-open mechanism Phase 4 と接続)
-			expect(content).toMatch(/href=["']\/admin\/activities\?import=\{item\.itemId\}["']/);
+			// Round 18 Cluster H (#2767): href が template literal の動的式に変更されたため、
+			// 静的 href={...} だけでなく `/admin/activities?import=${item.itemId}` 形式も許容。
+			expect(content).toMatch(
+				/href=["']\/admin\/activities\?import=\{item\.itemId\}["']|\/admin\/activities\?import=\$\{item\.itemId\}/,
+			);
 		});
 
 		it('詳細画面に /auth/signup 直接遷移が残っていない (data integrity 保護)', () => {

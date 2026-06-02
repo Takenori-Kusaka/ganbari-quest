@@ -12,6 +12,7 @@ import type { MarketplaceItemType, RulePresetPayload } from '$lib/domain/marketp
 import { marketplaceRegistry } from '$lib/marketplace';
 import type { rulePresetStrategy } from '$lib/marketplace/strategies/rule-preset-strategy';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { findActivities } from '$lib/server/db/activity-repo';
 import { logger } from '$lib/server/logger';
 import { getAllChildren } from '$lib/server/services/child-service';
 import type { Actions, PageServerLoad } from './$types';
@@ -44,14 +45,26 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// type 区別せず一括ロード（無駄に大きい呼び出しではないため pre-PMF で問題なし）。
 	const isAuthenticated = !!locals.context;
 	let children: { id: number; nickname: string }[] = [];
+	// Round 18 Cluster H (#13/#16/#20/#25/#28): activity-pack subset 選択用に、
+	// 既存活動の name を集めて preschool 親が「[既存]」ラベルで重複を一目で見分けられるようにする。
+	// per-child / family master 並存期 (ADR-0055) のため tenant aggregate (`findActivities`) で
+	// 全 child の既存活動 name を集約。重複判定は name match のみ (icon は SSOT が活動 master のため
+	// 比較に含めない)。空配列で初期化、未認証時はそのまま空配列のまま返る。
+	let existingActivityNames: string[] = [];
 	if (isAuthenticated) {
 		try {
 			const tenantId = requireTenantId(locals);
 			const allChildren = await getAllChildren(tenantId);
 			children = allChildren.map((c) => ({ id: c.id, nickname: c.nickname }));
+
+			if (type === 'activity-pack') {
+				const existing = await findActivities(tenantId);
+				existingActivityNames = Array.from(new Set(existing.map((a) => a.name)));
+			}
 		} catch {
 			// 認証コンテキストはあるがテナント解決失敗 — 未認証扱いにフォールバック
 			children = [];
+			existingActivityNames = [];
 		}
 	}
 
@@ -61,6 +74,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		// #2137: MP-2 側 svelte が `data.isLoggedIn` を参照するためのエイリアス
 		isLoggedIn: isAuthenticated,
 		children,
+		// Round 18 Cluster H: activity-pack 詳細で「[既存]」ラベル表示用 (未認証時 / 他 type 時は空配列)
+		existingActivityNames,
 	};
 };
 
