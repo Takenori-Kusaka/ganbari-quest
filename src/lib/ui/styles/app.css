@@ -103,6 +103,7 @@
 	--color-neutral-700: #334155;
 	--color-neutral-600: #475569;
 	--color-neutral-500: #64748b;
+
 	/* #2632 DoR #10 (WCAG 1.4.3): #8b8b8b → #6b6b6b。muted/tertiary テキストの白背景コントラストを
 	   3.54:1 (AA fail) → 5.49:1 (AA pass) に引き上げ。border 用途 (3:1 で十分) にも無害な微暗化。 */
 	--color-neutral-400: #6b6b6b;
@@ -114,6 +115,7 @@
 	/* ---- Common Colors (セマンティックカラー) ---- */
 	--color-bg: #fffdf7;
 	--color-text: #2d2d2d;
+
 	/* #2632 DoR #10 (WCAG 1.4.3): #8b8b8b → #6b6b6b で白背景コントラスト 3.54:1 → 5.49:1 (AA pass)。 */
 	--color-text-muted: #6b6b6b;
 	--color-success: #4caf50;
