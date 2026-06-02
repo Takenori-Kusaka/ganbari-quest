@@ -9,7 +9,7 @@
 // (取込試行は audit log として settings.rule_preset_import_warnings に記録されるのみ)。
 
 import { fail } from '@sveltejs/kit';
-import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { getMarketplaceItem } from '$lib/data/marketplace';
 // #2391 (Phase 2): rule-preset in-page UnifiedImportHub のため dispatcher 経由 import 追加
 import { dispatchImport } from '$lib/marketplace';
 // #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
@@ -32,17 +32,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		logger.error('[admin/settings/rules] loadBonusOverrides 失敗', { error: String(e) });
 	}
 
-	// #2391 (Phase 2): rule-preset の UnifiedImportHub preset 一覧
-	const rulePresets = getMarketplaceIndex()
-		.filter((m) => m.type === 'rule-preset')
-		.map((m) => ({
-			itemId: m.itemId,
-			name: m.name,
-			icon: m.icon,
-			itemCount: m.itemCount,
-			targetAgeMin: m.targetAgeMin,
-			targetAgeMax: m.targetAgeMax,
-		}));
+	// #2558 段階2 横展開: admin 内 marketplace 風 browse UI を撤去し
+	// `/marketplace?type=rule-preset` への画面遷移に統一 (DESIGN.md §10 構造的ルール
+	// 「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI 二重管理禁止」)。
+	// 旧 `rulePresets` (UnifiedImportHub feed) は本 page で未参照になったため load 出力から削除。
+	// 取込実行は marketplace 詳細 → `?import=<presetId>` → 即取込 + toast の正規経路
+	// (marketplace-import-flow.md §3.1) に合流させる。
 
 	// #2362 PR-6: `?import=<presetId>` で marketplace から遷移した場合、
 	// 自動取込のために presetId を validate し client 側 $effect で `?/importMarketplaceRulePreset`
@@ -69,7 +64,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	return {
 		bonusPresets: bonusOverrides.presets,
-		rulePresets,
 		importPresetId,
 		importPresetIdRaw,
 		importPresetError,

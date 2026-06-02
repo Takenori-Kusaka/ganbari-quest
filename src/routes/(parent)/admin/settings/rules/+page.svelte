@@ -5,7 +5,9 @@ import { invalidateAll, replaceState } from '$app/navigation';
 import { page } from '$app/state';
 import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, OVERFLOW_MENU_LABELS } from '$lib/domain/labels';
 // #2391 (Phase 2): in-page rule-preset 取込 UI を統一
-import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
+// #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
+// `/marketplace?type=rule-preset` への画面遷移に統一 (DESIGN.md §10)。
+import { TEMPLATE_TERMS } from '$lib/domain/terms';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -238,8 +240,16 @@ function formatImportedAt(iso: string): string {
 		</Card>
 	{/if}
 
-	<!-- #2391 (Phase 2): in-page UnifiedImportHub (5 admin UX 統一)。
-	     bonusPresets が空でも非空でも常時表示し「もう 1 セット追加」導線を提供。 -->
+	<!--
+		#2558 段階2 横展開: in-page UnifiedImportHub (admin 内 marketplace 風 browse UI、
+		二重管理) を撤去し marketplace への画面遷移に統一 (DESIGN.md §10 構造的ルール
+		「marketplace 取込はマーケットプレイス画面に一本化」)。取込実行は marketplace 詳細
+		→ `?import=<presetId>` → 即取込 + toast の正規経路 (marketplace-import-flow.md §3.1)
+		に合流させる。
+
+		marketplace 取込メッセージ + secondary link「みんなのテンプレートを見る」
+		(empty state / 運用期到達性、DESIGN.md §10「bulk import bridge ルール」整合) は保持。
+	-->
 	<section data-testid="rules-marketplace-import-section">
 		{#if marketplaceImportMessage}
 			<div
@@ -249,16 +259,13 @@ function formatImportedAt(iso: string): string {
 				{marketplaceImportMessage}
 			</div>
 		{/if}
-		<UnifiedImportHub
-			typeCode="rule-preset"
-			presets={{
-				'rule-preset': data.rulePresets,
-			}}
-			onimported={(msg) => {
-				marketplaceImportMessage = msg;
-				invalidateAll();
-			}}
-		/>
+		<a
+			href="/marketplace?type=rule-preset"
+			class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
+			data-testid="rules-marketplace-browse-link"
+		>
+			📦 {TEMPLATE_TERMS.browse}
+		</a>
 	</section>
 
 	{#if data.bonusPresets.length > 0}

@@ -1138,7 +1138,7 @@ Material Design 3「画面 FAB 1 個原則」+ Notion / Linear / Asana / Todoist
 
 - admin 画面の「みんなのテンプレートから探す」は `/marketplace?type=<typeCode>` への**画面遷移**とし、in-page ブラウズ UI を出さない。取込実行は marketplace 詳細 → `?import=<presetId>` → `ChildSelectionDialog` の正規経路 (`marketplace-import-flow.md` §3.1) に合流させる。
 - **ファイル復元 (JSON / CSV import) はマーケットプレイスとは別概念**。`UnifiedImportHub` がブラウズ UI とファイル復元を兼ねている場合、ブラウズ UI のみ撤去し、ファイル復元は独立した導線 (例: `︙` overflow menu の「バックアップから復元」+ 専用ダイアログ、`OVERFLOW_MENU_TERMS.itemRestore`) として保持する。
-- 例外: checklist / rule-preset / challenge-set の admin 画面は現状 in-page `UnifiedImportHub` を維持 (#2558 段階2 は activities のみ対象)。将来統一するかは別 Issue で判断。
+- **適用範囲**: #2558 段階2 (activities) + 段階3 (rewards / challenges / checklists / settings/rules) で**全 5 type の admin 画面で in-page browse UI を撤去完了**。`UnifiedImportHub.svelte` component 自体は Storybook / unit test / 将来用途 (LP 経由公開ブラウズ等) のため存続させる。詳細は [marketplace-import-flow.md §5.1](design/marketplace-import-flow.md)。
 
 #### bulk import bridge ルール
 

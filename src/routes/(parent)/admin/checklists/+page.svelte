@@ -10,8 +10,8 @@ import {
 } from '$lib/domain/labels';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
-// #2391 (Phase 2): 独自 marketplace UI を UnifiedImportHub に統一
-import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
+// #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
+// `/marketplace?type=checklist` への画面遷移に統一 (DESIGN.md §10)。
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -498,51 +498,36 @@ function getChildName(childId: number): string {
 			<input type="hidden" name="items" value={aiItemsJson} />
 		</form>
 
-		<!-- #2391 (Phase 2): UnifiedImportHub に統一 (旧 #2137 MP-2 独自 UI を置換) -->
-		{#if data.marketplaceChecklists.length > 0}
-			<Card variant="elevated" padding="lg">
-				{#snippet children()}
-				<div class="space-y-3" data-testid="marketplace-import-section">
-					<div class="flex items-center justify-between">
-						<h2 class="text-sm font-bold text-[var(--color-text-primary)]">
-							{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSectionTitle}
-						</h2>
-						<a
-							href="/marketplace?type=checklist"
-							class="text-xs text-[var(--color-action-primary)] hover:underline"
-						>
-							{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
-						</a>
-					</div>
-					{#if marketplaceImportMessage}
-						<div
-							class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
-							data-testid="marketplace-admin-result-success"
-						>
-							{marketplaceImportMessage}
-						</div>
-					{/if}
-					<UnifiedImportHub
-						typeCode="checklist"
-						presets={{
-							checklist: data.marketplaceChecklists.map((p) => ({
-								itemId: p.itemId,
-								name: p.name,
-								icon: p.icon,
-								itemCount: p.itemCount,
-							})),
-						}}
-						selectedChildId={selectedChildId}
-						importedPresetIds={importedPresetIds}
-						onimported={(msg) => {
-							marketplaceImportMessage = msg;
-							invalidateAll();
-						}}
-					/>
+		<!--
+			#2558 段階2 横展開: in-page UnifiedImportHub (admin 内 marketplace 風 browse UI、
+			二重管理) を撤去し marketplace への画面遷移に統一 (DESIGN.md §10 構造的ルール)。
+			取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open
+			の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
+
+			marketplace 取込メッセージ + secondary link「みんなのテンプレートを見る」
+			(empty state / 運用期到達性、DESIGN.md §10「bulk import bridge ルール」整合) は保持。
+		-->
+		<!-- testid `marketplace-import-section` は ChildSelectionDialog auto-open + 取込結果メッセージ
+		     表示 section として E2E (marketplace-checklist-import / bug1-import-dead-end /
+		     goal-flows-exemplar) が依存しているため testid を維持する。in-page UnifiedImportHub
+		     browse UI は本 PR で撤去し、marketplace への遷移 link に置換 (DESIGN.md §10)。 -->
+		<section data-testid="marketplace-import-section">
+			{#if marketplaceImportMessage}
+				<div
+					class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
+					data-testid="marketplace-admin-result-success"
+				>
+					{marketplaceImportMessage}
 				</div>
-				{/snippet}
-			</Card>
-		{/if}
+			{/if}
+			<a
+				href="/marketplace?type=checklist"
+				class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
+				data-testid="checklists-marketplace-browse-link"
+			>
+				📦 {ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
+			</a>
+		</section>
 
 		<!-- #1755 (#1709-A): kind 削除 — 全テンプレート一覧表示 -->
 		{#if filteredTemplates.length === 0}
