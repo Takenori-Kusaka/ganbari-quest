@@ -322,13 +322,14 @@ Phase 7 Step 3 + Step 4-a の各 PR Pre-Ready checklist に以下 1 行追加:
 
 | 項目 | 内容 |
 |---|---|
-| **対象 PII** | (a) email → `<EMAIL_REDACTED>` (b) phone → `<PHONE_REDACTED>` (c) card last4 / full 数値 → `<CARD_REDACTED>` |
+| **対象 PII** | (a) email → `<EMAIL_REDACTED>` (b) phone → `<PHONE_REDACTED>` (c) card last4 / full 数値 / spaced (Luhn 合格) → `<CARD_REDACTED>` (d) IDN punycode domain (`xn--*`) → `<IDN_REDACTED>` (#2749 で追加) |
 | **維持対象** | Stripe 内部 ID (`cus_*` / `sub_*` / `price_*` / `pi_*` / `ch_*` / `evt_*` 等) は debug 用途で維持 (PII ではない、Stripe 公式 ID handling 整合) |
 | **適用範囲** | `notifyStripeAlert({ message, errorSummary, tags })` の string 全フィールド + Discord dispatch failure 時の err.message。汎用 logging 全般への適用は scope 外 (過剰防衛回避) |
-| **performance 要件** | < 1ms / call (alert path 非ブロッキング、fire-and-forget 整合)、unit test で 1000 回呼出 < 100ms assert |
+| **performance 要件** | < 1ms / call (alert path 非ブロッキング、fire-and-forget 整合)、unit test で 1000 回呼出 < 100ms assert (#2749 で NFKC + homograph fold 追加後も baseline 維持を assert) |
 | **実体** | `src/lib/server/stripe/pii-redaction.ts` (`redactPii` / `redactPiiInTags` / `PII_REDACTION_MARKERS` SSOT) |
-| **OSS 先調査** | `pii-redactor` (採用実績乏しい) / `@privacy-aware/pii-redact` (採用ほぼゼロ) / `gitleaks` (CLI のみ) で適合 OSS なし、ADR-0014 「OSS 採用コスト > Pre-PMF benefit」基準で正規表現独自実装 (~30 行) 採用 |
-| **再発防止** | (a) `tests/unit/server/stripe/pii-redaction.test.ts` (false negative 4 series + false positive 4 series + performance regression) (b) `tests/unit/server/stripe/alert.test.ts` PII redaction 4 ケース追加 (c) `tests/unit/services/discord-alert.test.ts` attack scenario (100 件 → 3 件 throttle) + 異なる kind 独立 throttle 検証追加 |
+| **OSS 先調査** | `pii-redactor` (採用実績乏しい) / `@privacy-aware/pii-redact` (採用ほぼゼロ) / `gitleaks` (CLI のみ) で適合 OSS なし、ADR-0014 「OSS 採用コスト > Pre-PMF benefit」基準で正規表現独自実装 (~60 行、#2749 で NFKC + homograph fold + Luhn + IDN 拡張) 採用 |
+| **bypass 対策 (#2749、Adversarial security 軸 critical follow-up)** | (1) **Unicode NFKC 正規化** で全角英数 / Mathematical Alphanumeric Symbols email を半角化 (2) **Cyrillic / Greek homograph variant fold** で NFKC では潰せない script-level look-alike (例: `fοο@example.com` Greek omicron) を Latin に折りたたみ (3) **IDN `xn--` punycode** を独立 pattern で検出して `<IDN_REDACTED>` (4) **credit card spaced/hyphen 区切り** (`4242 4242 4242 4242`) を Luhn 合格時のみ redact (false positive 防止)。homograph table は Unicode TR#39 confusables の Stripe 課金 path 実用 subset (Cyrillic 24 + Greek 17 文字) に限定し Pre-PMF 過剰防衛 (ADR-0010) 回避 |
+| **再発防止** | (a) `tests/unit/server/stripe/pii-redaction.test.ts` 57 test (false negative + false positive + performance regression + **#2749 で AC1/2/3/4 4 軸 33 test 追加**: NFKC bypass / Cyrillic-Greek homograph / IDN / spaced card Luhn / 3 軸 bypass simulation / NFKC 後 performance regression) (b) `tests/unit/server/stripe/alert.test.ts` PII redaction 4 ケース (c) `tests/unit/services/discord-alert.test.ts` throttle 検証 |
 
 ## 6. Phase 1 構造的欠落 3 件の Phase 7 反映方針 (§6)
 
