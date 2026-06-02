@@ -237,17 +237,9 @@ $effect(() => {
 });
 
 // OverflowMenu items
+// #2778 (Cluster D): marketplace は `+ 追加` dropdown menu に統合済 (User 指摘 #1 重複解消)。
+// OverflowMenu には restore / export / help の 3 items のみ残す (file 復元 / 設定 / help の意味専用)。
 const overflowItems = $derived<OverflowMenuItem[]>([
-	{
-		type: 'action',
-		id: OVERFLOW_MENU_LABELS.items.marketplace.id,
-		label: OVERFLOW_MENU_LABELS.items.marketplace.label,
-		icon: OVERFLOW_MENU_LABELS.items.marketplace.icon,
-		onSelect: () => {
-			window.location.href = '/marketplace?type=checklist';
-		},
-	},
-	{ type: 'divider', id: 'divider-1' },
 	{
 		type: 'action',
 		id: OVERFLOW_MENU_LABELS.items.restore.id,
@@ -266,7 +258,7 @@ const overflowItems = $derived<OverflowMenuItem[]>([
 			exportDialogOpen = true;
 		},
 	},
-	{ type: 'divider', id: 'divider-2' },
+	{ type: 'divider', id: 'divider-1' },
 	{
 		type: 'action',
 		id: OVERFLOW_MENU_LABELS.items.help.id,

@@ -23,21 +23,22 @@ test.describe('admin/checklists family master UX (#2362 PR-5 Phase 2)', () => {
 		await expect(overflowBtn).toBeVisible();
 	});
 
-	test('OverflowMenu クリックで 4 menu items (marketplace / restore / export / help) が表示される', async ({
+	test('OverflowMenu クリックで 3 menu items (restore / export / help) が表示される', async ({
 		page,
 	}) => {
+		// #2778 Cluster D: marketplace は `+ 追加` dropdown menu に統合済 (User 指摘 #1 重複解消)。
+		// OverflowMenu には restore / export / help の 3 items のみ残す。
 		await page.goto('/admin/checklists');
 		await expect(page.getByTestId('admin-checklists-page')).toBeVisible({ timeout: 15_000 });
 		await page.getByTestId('checklists-overflow-menu').click();
 
 		// Ark UI Menu Portal で render される menu item を確認
 		// 各 item は overflow-menu-item-<id> data-testid を持つ
-		await expect(page.getByTestId('overflow-menu-item-marketplace')).toBeVisible({
-			timeout: 5_000,
-		});
-		await expect(page.getByTestId('overflow-menu-item-restore')).toBeVisible();
+		await expect(page.getByTestId('overflow-menu-item-restore')).toBeVisible({ timeout: 5_000 });
 		await expect(page.getByTestId('overflow-menu-item-export')).toBeVisible();
 		await expect(page.getByTestId('overflow-menu-item-help')).toBeVisible();
+		// marketplace は `+ 追加` menu (browse-marketplace) に移動済のため OverflowMenu に存在しない
+		await expect(page.getByTestId('overflow-menu-item-marketplace')).toHaveCount(0);
 	});
 
 	test('?import=<presetId> で ChildSelectionDialog auto-open', async ({ page }) => {
