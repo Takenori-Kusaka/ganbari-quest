@@ -102,12 +102,23 @@ if (ctx.mode === 'nuc-prod' && !ctx.licenseKey?.valid) return deny('license-key-
 
 | 対象 | 手法 |
 |---|---|
-| `site/help/license-key.html` | `/admin/license` href → `/admin/subscription` + 内容判断 (削除 or subscription 案内) |
+| `site/help/license-key.html` | **完全削除** (OQ-3 確定) + LEGACY_URL_MAP で `/help/license-key` → `/admin/subscription` 301 redirect |
 | `site/pricing.html` L301/L326 | 「購入後ライセンスキーをメールでお送りします」→「購入後すぐ有料機能をご利用いただけます」等 |
-| `site/shared-labels.js` licenseKey namespace (47 key) | LP rewrite と同期 |
+| `site/shared-labels.js` licenseKey namespace (47 key) | LP file 削除と同期 (namespace 撤去) |
 | `email-service.ts` 件名「ライセンスキーをお届け」 | 削除 (SaaS subscription welcome mail に置換) |
-| `auth-repo.ts` (4 backend) `licenseKey` 列 | **dead column 化** (列残し書込経路のみ削除、前方互換維持。Pre-PMF 列削除しない) |
-| `LICENSE_KEY_STATUS` / `LICENSE_PLAN` enum | `LicenseRecord` 状態で Tenant.status と独立、判断保留 (dead 化判定) |
+| `auth-repo.ts` (4 backend) `licenseKey` 列 | **物理削除** (OQ-4 確定、破壊的 migration、§3.8 慎重手順) |
+| `LICENSE_KEY_STATUS` / `LICENSE_PLAN` enum | **物理削除** (OQ-4 確定、§3.8) |
+
+### 3.8 DB 列・enum 物理削除の慎重手順 (OQ-4 完全削除、破壊的)
+
+OQ-4 で「列も enum も migration で物理削除」確定。破壊的変更で前方互換が崩れるため、Phase 6 子 3 #2675 の `lazy-startup-migrations.ts` 4 dimension SSOT に乗せた expand-contract:
+
+1. **expand (PR-L1〜L3)**: 書込経路削除 (列は残すが NULL 化、enum 参照削除)
+2. **観測期間**: 旧 code (列読込) が完全に消えたことを確認 (1 PR 分の安定)
+3. **contract (PR-L5)**: migration script で `licenseKey` 列 DROP + `LICENSE_KEY_STATUS`/`LICENSE_PLAN` enum 定義削除 + `LicenseRecord` table DROP (4 backend: sqlite/dynamodb/demo/fixture)
+4. **rollback 不可点**: 列 DROP 後は revert 不可、forward-fix のみ (Pre-PMF 顧客ゼロ前提で許容、`feedback_billing_critical_extra_caution` 整合で慎重実施)
+
+⚠️ Pre-PMF 顧客ゼロ前提が崩れている場合、列 DROP 前に本番 DynamoDB の `licenseKey()` prefix item 確認必須 (OQ-1 は skip 確定だが contract 直前に最終確認推奨)。
 
 ### 3.5 LEGACY_URL_MAP redirect
 
@@ -119,7 +130,7 @@ if (ctx.mode === 'nuc-prod' && !ctx.licenseKey?.valid) return deny('license-key-
 
 | 旧 | 新 |
 |---|---|
-| `ops/license/issue` (campaign キー発行) | Stripe Coupon / Promotion Code (実需要は PO 判断、ADR-0010) |
+| `ops/license/issue` (campaign キー発行) | **Stripe Coupon / Promotion Code 代替** (OQ-2 確定)。ops 発行 UI 撤去、割引配布は Stripe Dashboard Coupon で運用 |
 | `cron/license-expire` (期限管理) | `customer.subscription.deleted` webhook (Phase 5 子 4 #2650 archive 機構) |
 | `legacy-count` | 用途消失、削除 + EventBridge Scheduled Rule (CDK) 撤去 |
 
@@ -138,7 +149,7 @@ if (ctx.mode === 'nuc-prod' && !ctx.licenseKey?.valid) return deny('license-key-
 | **PR-L2 (contract、最慎重)** | `capabilities.ts:77` deny 撤廃 + 型/evaluator + `EvaluationLicenseKey` + `getDebugLicenseKeyOverride`。**NUC write E2E 必須** | 低 (NUC 回帰のみ) |
 | **PR-L3** | routes 物理削除 (admin/license は Phase 7 Step 2-3 rename 統合) + ops + cron + api + `license-key-service.ts` | なし |
 | **PR-L4** | LP / メール / LEGACY_URL_MAP + CI gate (`check-license-key-leak.mjs`) | なし |
-| **PR-L5** | env 撤去 (CDK、最後) + DB 列 dead 化判断 | 中 (CDK deploy) |
+| **PR-L5 (contract)** | env 撤去 (CDK、最後) + **DB 列・enum 物理削除** (§3.8、`licenseKey` 列 DROP + `LICENSE_KEY_STATUS`/`LICENSE_PLAN` enum + `LicenseRecord` table、rollback 不可点) | 中 (CDK deploy + 破壊的 migration) |
 
 Phase 7 既存 5 step と直交。PR-L0〜L2 を Phase 7 Step 1 並行/前置、PR-L3 admin/license を Step 2-3 統合、PR-L5 を Step 5 統合。
 
@@ -161,12 +172,12 @@ Phase 7 既存 5 step と直交。PR-L0〜L2 を Phase 7 Step 1 並行/前置、
 
 ## §6 Open question (PO 判断待ち)
 
-| # | 軸 | 論点 | 推奨 | 状態 |
+| # | 軸 | 論点 | 確定 | 状態 |
 |---|---|---|---|---|
-| OQ-1 | business | 本番 license key 発行件数 | Pre-PMF 顧客ゼロ前提で救済 skip | ✅ PO 確定 2026-06-02 (skip) |
-| OQ-2 | business | campaign 配布 (`ops/license/issue`) 実需要 | 実需要なし → 単純撤去 (Stripe Coupon 不要) | PO 判断 |
-| OQ-3 | UX | `site/help/license-key.html` 処遇 | 削除 or subscription 案内に書換 | PO 判断 |
-| OQ-4 | security | `LICENSE_KEY_STATUS`/`LICENSE_PLAN` enum dead 化 vs 残す | dead 化 (前方互換のため列削除しない) | PO 判断 |
+| OQ-1 | business | 本番 license key 発行件数 | Pre-PMF 顧客ゼロ前提で救済 skip (PR-L5 contract 直前に最終確認推奨) | ✅ PO 確定 2026-06-02 (skip) |
+| OQ-2 | business | campaign 配布 (`ops/license/issue`) 実需要 | **Stripe Coupon / Promotion Code 代替** (ops 発行 UI 撤去、§3.6) | ✅ PO 確定 2026-06-03 |
+| OQ-3 | UX | `site/help/license-key.html` 処遇 | **完全削除 + `/admin/subscription` 301 redirect** (§3.4) | ✅ PO 確定 2026-06-03 |
+| OQ-4 | security | `LICENSE_KEY_STATUS`/`LICENSE_PLAN` enum + `licenseKey` 列 | **物理削除** (列 DROP + enum 削除、expand-contract §3.8、rollback 不可点) | ✅ PO 確定 2026-06-03 |
 
 ---
 
