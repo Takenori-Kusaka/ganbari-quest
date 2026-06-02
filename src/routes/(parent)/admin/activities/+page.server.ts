@@ -2,6 +2,9 @@ import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+// #2767 Fix Round 1 B3 (Adversarial security): indexes query を Zod ベース input validation
+// 経由でパースし、NaN / 負数 / 非整数 / 空文字 / 重複の 4 edge case を回帰固定する。
+import { parseImportIndexes } from '$lib/domain/validation/marketplace-import-params';
 // #2365 (ADR-0052): activity-pack を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/activity-pack`) で Registry 登録される。
 import { dispatchImport } from '$lib/marketplace';
@@ -62,16 +65,9 @@ export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	// Round 18 Cluster H (#13/#16/#20/#25/#28): activity-pack subset 選択。
 	// `?indexes=0,2,5,...` CSV で取込対象 activity の index (payload.activities[i] の i) を受け取る。
 	// 空 / 未指定なら全件 (後方互換)、indexes が指定されたら subset を action 経由で渡す。
-	const importIndexesRaw = url.searchParams.get('indexes')?.trim() || '';
-	let importSelectedIndexes: number[] | null = null;
-	if (importIndexesRaw) {
-		const parsed = importIndexesRaw
-			.split(',')
-			.map((s) => Number(s.trim()))
-			.filter((n) => Number.isInteger(n) && n >= 0);
-		// 重複除去 + 並び順保持
-		importSelectedIndexes = Array.from(new Set(parsed));
-	}
+	// #2767 Fix Round 1 B3: parseImportIndexes (Zod 経由) で 4 edge case を回帰固定
+	// (NaN / 負数 / 非整数 / 空文字 / 重複)。詳細: marketplace-import-params.ts.
+	const importSelectedIndexes = parseImportIndexes(url.searchParams.get('indexes'));
 	// `?childId=<n>` query で初期選択 child 復元 (refresh / share link 対応)
 	const initialChildIdRaw = url.searchParams.get('childId');
 	const initialChildId =
@@ -411,16 +407,13 @@ export const actions: Actions = {
 
 		// Round 18 Cluster H: subset 取込 — selectedIndexes が指定されたら payload を slice。
 		// 未指定 / 空文字 / 不正値のみは全件取込で後方互換維持。
-		let selectedIndexes: number[] | null = null;
-		if (selectedIndexesRaw) {
-			const parsed = selectedIndexesRaw
-				.split(',')
-				.map((s) => Number(s.trim()))
-				.filter((n) => Number.isInteger(n) && n >= 0);
-			selectedIndexes = Array.from(new Set(parsed));
-			if (selectedIndexes.length === 0) {
-				return fail(400, { error: '取り込む活動が選択されていません' });
-			}
+		// #2767 Fix Round 1 B3: 共通 helper (parseImportIndexes) 経由で edge case を回帰固定。
+		// raw が指定されているのに全要素 drop された (= 全て NaN/負数/小数) ケースは null 帰着で
+		// 全件 fallback だが、UX 整合 (画面で 0 件選択状態は CTA disable) を保つため
+		// 明示的な空指定 ('' でない空 csv 例: ',,,') は次の `=== ''` 分岐で fail させる。
+		const selectedIndexes = parseImportIndexes(selectedIndexesRaw);
+		if (selectedIndexesRaw !== '' && selectedIndexes === null) {
+			return fail(400, { error: '取り込む活動が選択されていません' });
 		}
 
 		try {
