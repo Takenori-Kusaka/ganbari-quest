@@ -157,7 +157,7 @@ test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
 		test.slow();
 		await page.goto('/marketplace/rule-preset/streak-bonus', { waitUntil: 'domcontentloaded' });
 
-		const bonusRedirect = page.getByTestId('rule-import-bonus-redirect');
+		const bonusRedirect = page.getByTestId('rule-preset-import-bonus-cta');
 		const signupRedirect = page.getByTestId('rule-import-signup-redirect');
 		const isLoggedIn = (await bonusRedirect.count()) > 0;
 
@@ -190,7 +190,7 @@ test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
 		test.slow();
 		await page.goto('/marketplace/rule-preset/weekend-special', { waitUntil: 'domcontentloaded' });
 
-		const bonusRedirect = page.getByTestId('rule-import-bonus-redirect');
+		const bonusRedirect = page.getByTestId('rule-preset-import-bonus-cta');
 		const signupRedirect = page.getByTestId('rule-import-signup-redirect');
 		const isLoggedIn = (await bonusRedirect.count()) > 0;
 

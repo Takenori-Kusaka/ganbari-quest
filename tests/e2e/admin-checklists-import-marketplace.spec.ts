@@ -104,33 +104,24 @@ test.describe('#2367 marketplace -> checklist -> import (EPIC #2362 P3 / Strangl
 		expect(body).toContain('imported');
 	});
 
-	test('?/importChecklist action: /marketplace/checklist/event-pool は admin/checklists?import= へ redirect (#2362 PR-5 Phase 2 / CWE-598)', async ({
+	test('checklist-import-cta: /marketplace/checklist/event-pool は <a href> で admin/checklists?import= に直接遷移 (#2774 5 type 統一 / CWE-598)', async ({
 		page,
 	}) => {
-		// Phase 2: marketplace 側 action は childId を持たず admin へ redirect する。
-		// childId を一切送らない (CWE-598 整合)。
-		// SvelteKit form action は redirect でも HTTP 200 + ActionResult JSON
-		// (`{type: 'redirect', status: 303, location: '...'}`) を返す仕様
-		// (https://kit.svelte.dev/docs/form-actions#redirects 経由の internal wrap)。
-		// よって `status=200` + body に redirect type + location 文字列を assert する。
-		const res = await page.request.post('/marketplace/checklist/event-pool?/importChecklist', {
-			multipart: {},
-			maxRedirects: 0,
-		});
-		expect(res.status()).toBe(200);
-		const body = await res.text();
-		// ActionResult JSON 形式で type=redirect + location が admin/checklists?import=event-pool を含む
-		// (未ログイン時は /auth/login?redirect=... へ redirect される可能性も許容するため、
-		// 「redirect type が返ること + final location が admin/checklists?import= か login redirect か」
-		// のいずれかを assert する。本 E2E はログインなし fetch なので /auth/login redirect 経路。)
-		expect(body).toContain('"type":"redirect"');
-		// childId を含まない (CWE-598 整合の中核 assertion)
-		expect(body).not.toContain('childId');
-		// admin/checklists?import= OR /auth/login?redirect= のいずれかへ redirect
-		const hasAdminRedirect = body.includes('/admin/checklists?import=event-pool');
-		const hasLoginRedirect = body.includes(
-			'/auth/login?redirect=/marketplace/checklist/event-pool',
-		);
-		expect(hasAdminRedirect || hasLoginRedirect).toBe(true);
+		// #2774 (5 type 統一): 旧 server action `?/importChecklist` 撤去、
+		// CTA は `<a href="/admin/checklists?import=<itemId>">` 直接 navigation。
+		// childId 露出ゼロ (CWE-598)、testid `checklist-import-cta` 統一規約。
+		await page.goto('/marketplace/checklist/event-pool');
+
+		// CTA visible (E2E ローカル mode は全 child seed 済の認証済 state)
+		const cta = page.getByTestId('checklist-import-cta');
+		await expect(
+			cta,
+			'checklist-import-cta が表示されない (認証 / 子供登録 / プラン状態を確認)',
+		).toBeVisible({ timeout: 10_000 });
+
+		// href が `/admin/checklists?import=<itemId>` を指す (childId 露出ゼロ、CWE-598)
+		const href = await cta.getAttribute('href');
+		expect(href).toBe('/admin/checklists?import=event-pool');
+		expect(href).not.toContain('childId');
 	});
 });

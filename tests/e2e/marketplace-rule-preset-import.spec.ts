@@ -60,7 +60,7 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 
 		// #2362 PR-6: bonus は family scope → in-page form 撤去、admin redirect link に変更
 		// AUTH_MODE=local ではログイン済 → bonus redirect link、未ログイン → signup link
-		const bonusRedirect = page.getByTestId('rule-import-bonus-redirect');
+		const bonusRedirect = page.getByTestId('rule-preset-import-bonus-cta');
 		const signupLink = page.getByTestId('rule-import-signup-redirect');
 		const eitherVisible = (await bonusRedirect.count()) > 0 || (await signupLink.count()) > 0;
 		expect(eitherVisible).toBe(true);
@@ -92,7 +92,7 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 		test.slow();
 		await page.goto('/marketplace/rule-preset/streak-bonus', { waitUntil: 'domcontentloaded' });
 
-		const bonusRedirect = page.getByTestId('rule-import-bonus-redirect');
+		const bonusRedirect = page.getByTestId('rule-preset-import-bonus-cta');
 		// AUTH_MODE=local では import 可能。ログイン環境 / 未ログイン環境のいずれでも assertion を切り替える。
 		const isLoggedIn = (await bonusRedirect.count()) > 0;
 		if (isLoggedIn) {
@@ -118,7 +118,7 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 	test('bonus 同 preset を 2 回目追加 → admin 一覧で 1 件のみ表示', async ({ page }) => {
 		test.slow();
 		await page.goto('/marketplace/rule-preset/early-bird', { waitUntil: 'domcontentloaded' });
-		const bonusRedirect = page.getByTestId('rule-import-bonus-redirect');
+		const bonusRedirect = page.getByTestId('rule-preset-import-bonus-cta');
 		const isLoggedIn = (await bonusRedirect.count()) > 0;
 		if (isLoggedIn) {
 			// 1 回目
@@ -130,7 +130,7 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 
 			// 2 回目 (再度 marketplace に戻って同 preset を取り込み)
 			await page.goto('/marketplace/rule-preset/early-bird', { waitUntil: 'domcontentloaded' });
-			await page.getByTestId('rule-import-bonus-redirect').click();
+			await page.getByTestId('rule-preset-import-bonus-cta').click();
 			await page.waitForURL(/\/admin\/settings\/rules/);
 			// #2558 真因 fix (3 ラウンド目): client-side `$effect` での auto-import + invalidateAll
 			// は非同期 (form submit → action POST → DB write → invalidateAll → page re-render)。
@@ -156,7 +156,7 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 		test.slow();
 		// 事前に 1 件取込 (link click 経由)
 		await page.goto('/marketplace/rule-preset/weekend-special', { waitUntil: 'domcontentloaded' });
-		const bonusRedirect = page.getByTestId('rule-import-bonus-redirect');
+		const bonusRedirect = page.getByTestId('rule-preset-import-bonus-cta');
 		const isLoggedIn = (await bonusRedirect.count()) > 0;
 		if (isLoggedIn) {
 			await bonusRedirect.click();
