@@ -435,7 +435,10 @@ export const actions: Actions = {
 				if (subset.length === 0) {
 					return fail(400, { error: '取り込む活動が選択されていません' });
 				}
-				rawPayload = { ...source.payload, activities: subset } as typeof source.payload;
+				rawPayload = {
+					...(source.payload as Record<string, unknown>),
+					activities: subset,
+				} as typeof source.payload;
 			}
 			const result = await dispatchImport({
 				typeCode: 'activity-pack',
