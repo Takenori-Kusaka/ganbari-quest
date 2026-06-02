@@ -84,12 +84,12 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 	// 新規 trip wire: `challenges-marketplace-browse-link` 経由で marketplace へ画面遷移する
 	// secondary link が配置されていることを確認 (empty state / 運用期到達性、DESIGN.md §10
 	// 「bulk import bridge ルール」整合)。in-page browse UI が再導入されないことを併せて担保。
-	test('?marketplace-import=japan-annual-events で marketplace browse link visible + in-page browse UI 不出 (二重 UI 不出 trip wire / #2558 段階3)', async ({
+	test('?import=japan-annual-events で marketplace browse link visible + in-page browse UI 不出 (二重 UI 不出 trip wire / #2558 段階3)', async ({
 		page,
 	}) => {
 		test.slow(); // Vite dev コールドコンパイル耐性
 
-		await page.goto(`/admin/challenges?marketplace-import=${JAPAN_ANNUAL_EVENTS_PRESET}`, {
+		await page.goto(`/admin/challenges?import=${JAPAN_ANNUAL_EVENTS_PRESET}`, {
 			waitUntil: 'domcontentloaded',
 		});
 
@@ -121,7 +121,7 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 	});
 
 	// CUJ-CH2 (research §1-D 「B1 dead-end 5 type 横展開」 P1、#2554 follow-up 完全化):
-	//   ?marketplace-import=<presetId> auto-open ChildSelectionDialog → 全員に追加 (default) → 確定 →
+	//   ?import=<presetId> auto-open ChildSelectionDialog → 全員に追加 (default) → 確定 →
 	//   admin チャレンジ一覧の child タブ件数 sum が grew (terminal goal verify、dead-end ならここで fail)。
 	//
 	// PR #2636 で partial (preset visible のみ、terminal 0) だった CUJ-CH2 を、本 PR で
@@ -134,7 +134,7 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 	//   - 副作用 C: 永続反映 = admin チャレンジ一覧 child タブ count 増加 (`invalidateAll()` 反映)
 	//     OR response body に skipped>=1 (dedupe 機能、dev DB 永続状態 robust、CUJ-R2 dual condition)
 	//   - timeout は 10_000 / 30_000、retry / dispatchEvent / dialog ghost cleanup helper 不採用
-	test('CUJ-CH2: ?marketplace-import=japan-annual-events → ChildSelectionDialog 全員選択 → 確定 → admin チャレンジ一覧件数が grew (terminal goal verify)', async ({
+	test('CUJ-CH2: ?import=japan-annual-events → ChildSelectionDialog 全員選択 → 確定 → admin チャレンジ一覧件数が grew (terminal goal verify)', async ({
 		page,
 	}) => {
 		test.slow(); // Vite dev コールドコンパイル耐性
@@ -150,10 +150,10 @@ test.describe('#2369 marketplace -> challenge-set -> import (type 漏れ解消)'
 		const groupsBefore = page.getByTestId('admin-challenges-group');
 		const groupCountBefore = await groupsBefore.count();
 
-		// Step 1: ?marketplace-import=<presetId> auto-open
+		// Step 1: ?import=<presetId> auto-open
 		// japan-annual-events は challenge-set marketplace SSOT に実在する preset id
 		// (src/lib/data/marketplace/challenge-sets/japan-annual-events.json)。
-		await page.goto(`/admin/challenges?marketplace-import=${JAPAN_ANNUAL_EVENTS_PRESET}`, {
+		await page.goto(`/admin/challenges?import=${JAPAN_ANNUAL_EVENTS_PRESET}`, {
 			waitUntil: 'domcontentloaded',
 		});
 

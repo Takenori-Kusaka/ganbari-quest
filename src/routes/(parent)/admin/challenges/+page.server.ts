@@ -50,10 +50,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		childIdParam && childIdParam !== 'all' ? Number(childIdParam) : ('all' as const);
 
 	// 取込時 ChildSelectionDialog auto-open (#2362 PR-7, CWE-598)
-	// クエリ名は `?marketplace-import=<presetId>` (PR #2636 partial CUJ-CH2 当時から踏襲)。
-	// rewards/activities は `?import=<presetId>` のため命名は揃わないが、後方互換のため改名しない
-	// (existing CUJ-CH2 partial test + ChildSelectionDialog auto-open が依存)。
-	const importPresetIdRaw = url.searchParams.get('marketplace-import')?.trim() || null;
+	// #2774: 5 type 取込 CTA 統一 — `?import=<presetId>` query 一本化 (User 指摘 #2 #4 根治)。
+	// 旧 `?marketplace-import=` 名は廃止 (marketplace-import-flow.md §3.1)。
+	// rewards / activities / checklists / settings/rules 同型の正規 query 名に統一。
+	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
 	let marketplaceImport: {
 		presetId: string;
 		presetName: string;
@@ -82,8 +82,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// `/marketplace?type=challenge-set` へ画面遷移する方式に統一 (DESIGN.md §10 構造的ルール
 	// 「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI 二重管理禁止」)。
 	// 旧 `challengePresets` (UnifiedImportHub feed) は本 page で未参照になったため load 出力から削除。
-	// 取込実行は marketplace 詳細 → `?marketplace-import=<presetId>` → ChildSelectionDialog
-	// auto-open の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
+	// 取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog
+	// auto-open の正規経路 (marketplace-import-flow.md §3.1、#2774 で 5 type 統一) に合流させる。
 
 	return {
 		challengeGroups,

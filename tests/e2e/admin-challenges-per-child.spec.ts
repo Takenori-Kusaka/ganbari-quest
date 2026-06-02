@@ -50,10 +50,11 @@ test.describe('admin/challenges per-child UX (#2362 PR-7)', () => {
 		await expect.poll(() => new URL(page.url()).searchParams.get('childId')).toBe(childId);
 	});
 
-	test('?marketplace-import=<presetId> で取込確認 dialog 表示 (CWE-598 = URL に childId なし)', async ({
+	test('?import=<presetId> で取込確認 dialog 表示 (CWE-598 = URL に childId なし)', async ({
 		page,
 	}) => {
-		await page.goto(`/admin/challenges?marketplace-import=${JAPAN_ANNUAL_EVENTS_PRESET}`);
+		// #2774: 5 type 取込 CTA 統一で `?marketplace-import=` → `?import=` rename。
+		await page.goto(`/admin/challenges?import=${JAPAN_ANNUAL_EVENTS_PRESET}`);
 		// CWE-598: URL に childId / nickname なし
 		const url = new URL(page.url());
 		expect(url.searchParams.get('childId')).toBeNull();
@@ -64,12 +65,13 @@ test.describe('admin/challenges per-child UX (#2362 PR-7)', () => {
 		page,
 	}) => {
 		await page.goto(`/marketplace/challenge-set/${JAPAN_ANNUAL_EVENTS_PRESET}`);
-		// 詳細ページの取込 CTA も `?marketplace-import=<presetId>` パターンを使うはず
+		// #2774: 5 type 取込 CTA 統一で `?import=<presetId>` query 一本化。
 		const cta = page.getByTestId('challenge-set-import-cta');
 		const exists = await cta.isVisible().catch(() => false);
 		if (exists) {
 			const href = await cta.getAttribute('href');
-			expect(href).toContain('marketplace-import=');
+			expect(href).toContain('?import=');
+			expect(href).not.toContain('marketplace-import=');
 			expect(href).not.toContain('childId=');
 			expect(href).not.toContain('nickname=');
 		}

@@ -80,44 +80,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 };
 
 export const actions: Actions = {
-	// #2362 PR-4 (ADR-0055 / CWE-598): reward-set marketplace action は child 情報を
-	// 持たず、admin/rewards へ `?import=<itemId>` で遷移するだけ。
-	// 取込実行 (per-child fan-out) は admin/rewards 側の ChildSelectionDialog 経由で行う。
-	// 旧来 form data (`childId`) は受信せず、URL/body に child 情報を一切露出させない
-	// (User §7.3 直接判断 + marketplace-import-flow.md §2.1)。
-	importRewardSet: async ({ params, locals }) => {
-		const { type, itemId } = params;
-
-		if (type !== 'reward-set') {
-			return fail(400, { error: 'このコンテンツタイプは一括追加に対応していません' });
-		}
-
-		if (!locals.context) {
-			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
-			redirect(303, `/auth/login?redirect=/marketplace/${type}/${itemId}`);
-		}
-
-		// presetId のみ持って親管理画面へ遷移 (childId は URL/body どこにも露出させない)
-		redirect(303, `/admin/rewards?import=${encodeURIComponent(itemId)}`);
-	},
-
-	// #2362 PR-5 Phase 2 (ADR-0055 / CWE-598): checklist marketplace action は child 情報を
-	// 持たず、admin/checklists へ `?import=<itemId>` で遷移するだけ。
-	// 取込実行 (family scope + 配信先選択) は admin/checklists 側の ChecklistDistributionDialog
-	// 経由で行う (User §7.3 / marketplace-import-flow.md §2.1)。
-	importChecklist: async ({ params, locals }) => {
-		if (params.type !== 'checklist') {
-			return fail(400, { error: 'チェックリストではありません' });
-		}
-
-		if (!locals.context) {
-			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
-			redirect(303, `/auth/login?redirect=/marketplace/checklist/${params.itemId}`);
-		}
-
-		// presetId のみ持って親管理画面へ遷移 (childId は URL/body どこにも露出させない)
-		redirect(303, `/admin/checklists?import=${encodeURIComponent(params.itemId)}`);
-	},
+	// #2774: 5 type 取込 CTA 統一 (User 指摘 #2 #4 根治) で reward-set / checklist /
+	// challenge-set server action を撤去。新 SSOT は marketplace 詳細 svelte 側 `<a href>`
+	// 直接遷移 (`/admin/<page>?import=<itemId>`)。CWE-598 整合性は維持。
+	// 旧 `importRewardSet` / `importChecklist` / `importChallengeSet` は本 PR で削除。
+	//
+	// rule-preset exchange のみは admin/rewards 側 ChildSelectionDialog 受領機構が未整備のため
+	// 暫定的に本 action を残す (Issue #2774 Phase 2 で per-child fan-out 機構を整備し統一予定)。
 
 	// #2138 (MP-3): rule-preset 4 ruleType 全対応 の一括取込 action
 	// CTA「一括追加」ボタンの form action。
@@ -206,21 +175,6 @@ export const actions: Actions = {
 		}
 	},
 
-	// #2458-B: marketplace challenge-set action は child 情報を持たず、
-	// admin/challenges へ `?marketplace-import=<itemId>` で遷移するだけ。
-	// 取込実行 (per-child 配信) は admin/challenges 側の ChildSelectionDialog 経由で行う。
-	// (User §7.3 / marketplace-import-flow.md §2.1: CWE-598 整合 = childIds を URL/body に出さない)
-	importChallengeSet: async ({ params, locals }) => {
-		if (params.type !== 'challenge-set') {
-			return fail(400, { error: 'チャレンジ集ではありません' });
-		}
-
-		if (!locals.context) {
-			// #2303: 未ログイン redirect は /auth/login 経由 (誤新規登録防止 / data integrity 保護)
-			redirect(303, `/auth/login?redirect=/marketplace/challenge-set/${params.itemId}`);
-		}
-
-		// presetId のみ持って親管理画面へ遷移 (childIds は URL/body どこにも露出させない)
-		redirect(303, `/admin/challenges?marketplace-import=${encodeURIComponent(params.itemId)}`);
-	},
+	// #2774: importChallengeSet action は 5 type 取込 CTA 統一で撤去。
+	// 新 SSOT は marketplace 詳細 svelte 側 `<a href="/admin/challenges?import=${itemId}">`。
 };
