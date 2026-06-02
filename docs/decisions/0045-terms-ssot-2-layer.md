@@ -119,6 +119,18 @@ labels.ts (compound、≈6700 行)
 - **トレードオフ**: import 経路が 1 段増える（`terms.ts → labels.ts → component`）が、ファイル境界による責務分離の利点が上回る
 - **ADR-0014 機構導入時の互換性**: i18n ライブラリ導入時も terms.ts は ICU の atom 入力として再利用可能
 
+## 補遺: DESIGN.md は全 export をミラーしない（2026-06-03）
+
+`docs/DESIGN.md` §6 は AI エージェントが最初に読むデザイン SSOT だが、当初は `scripts/generate-design-md-sections.mjs` が `labels.ts` の全 export 名（190+）と `terms.ts` の全 atom 値を AUTOGEN ブロックとして列挙していた。これが DESIGN.md を 44k 文字まで肥大させ、Claude Code の「Large file がパフォーマンスに影響」警告（40k 超）を恒常的に発生させていた。
+
+**決定**: DESIGN.md §6 は「ルール + SSOT 参照 + 主要例」のみを保持し、**全 export のミラーは持たない**。
+
+- **labels 列挙（AUTOGEN:labels）は廃止**。理由: (1) 値を持たない export 名の羅列で参照価値が低い、(2) 再生成のたびに肥大、(3) **SSOT 整合性は本 ADR §3.4 の CI（`check-no-plan-literals` / `check-hardcoded-strings`）が担保しており、DESIGN.md の列挙は load-bearing ではない**。発見性は `grep -n "_LABELS" src/lib/domain/labels.ts` / IDE 補完で代替する。
+- **terms 値（AUTOGEN:terms）は保持**。理由: atom の正規文字列（`'¥500'` / `'7日間'` 等）そのものが §1.2 の「直書きしてはならない対象」を可視化し、本 ADR の再発防止意図と直結するため。ただし書式は 1 namespace = 1 行にコンパクト化する。
+- **colors / primitives は保持**（コンパクト書式）。app.css / primitives ディレクトリの即時参照として有用。
+
+この方針は ADR-0009 / 本 ADR の「SSOT はコード（terms.ts / labels.ts）」という原則と矛盾しない。DESIGN.md はルールの SSOT であり、インベントリの SSOT ではない。
+
 ## 関連
 
 - ADR-0001（設計書 SSOT）— 本 ADR は labels 領域への 2 階層構造化

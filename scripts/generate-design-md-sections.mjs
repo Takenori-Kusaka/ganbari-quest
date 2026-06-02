@@ -10,7 +10,9 @@
  *   - AUTOGEN:colors    — app.css @theme ブロックからセマンティックトークン抽出
  *   - AUTOGEN:primitives — src/lib/ui/primitives/*.svelte 一覧
  *   - AUTOGEN:terms      — src/lib/domain/terms.ts の atom 定数 (#1923 / ADR-0045)
- *   - AUTOGEN:labels     — src/lib/domain/labels.ts の compound export 定数
+ *
+ * 注: AUTOGEN:labels は廃止 (ADR-0045 補遺)。labels.ts 全 export のミラーは
+ *     参照価値が低く再生成のたびに肥大するため、DESIGN.md §6 はルール + 主要例のみを手書きで保持する。
  */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -48,15 +50,12 @@ function extractSemanticTokens() {
 		else categories.その他.push({ name, value });
 	}
 
+	// トークン消費削減のため category ごとに 1 行コンパクト列挙 (旧: token ごとに table 行)。
 	let md = '';
 	for (const [cat, tokens] of Object.entries(categories)) {
 		if (tokens.length === 0) continue;
-		md += `#### ${cat}\n\n`;
-		md += '| トークン | 値 |\n|---------|----|\n';
-		for (const t of tokens) {
-			md += `| \`${t.name}\` | \`${t.value}\` |\n`;
-		}
-		md += '\n';
+		const cells = tokens.map((t) => `\`${t.name}\`=\`${t.value}\``);
+		md += `- **${cat}**: ${cells.join(' / ')}\n`;
 	}
 	return md.trimEnd();
 }
@@ -136,14 +135,12 @@ function parseTermNamespace(body) {
 
 function renderTermNamespace(ns) {
 	if (ns.entries.length === 0) return '';
-	let md = `#### ${ns.name}\n\n`;
-	md += '| key | 値 |\n|-----|----|\n';
-	for (const e of ns.entries) {
-		const valueCell = e.type === 'string' ? `\`'${e.value}'\`` : `\`${e.value}\``;
-		md += `| \`${e.key}\` | ${valueCell} |\n`;
-	}
-	md += '\n';
-	return md;
+	// トークン消費削減のため namespace ごとに 1 行コンパクト列挙 (旧: entry ごとに table 行)。
+	// atom 値そのものは ADR-0045「直書き禁止対象の可視化」のため引用符付きで保持する。
+	const cells = ns.entries.map((e) =>
+		e.type === 'string' ? `\`${e.key}\`=\`'${e.value}'\`` : `\`${e.key}\`=\`${e.value}\``,
+	);
+	return `- **${ns.name}**: ${cells.join(' / ')}\n`;
 }
 
 function extractTerms() {
@@ -159,51 +156,12 @@ function extractTerms() {
 }
 
 // --- Labels ---
-function extractLabels() {
-	const src = readFileSync(resolve(ROOT, 'src/lib/domain/labels.ts'), 'utf-8');
-	const exports = [];
-
-	const constPattern = /export const (\w+)/g;
-	for (const match of src.matchAll(constPattern)) {
-		exports.push({ name: match[1], type: 'const' });
-	}
-
-	const funcPattern = /export function (\w+)/g;
-	for (const match of src.matchAll(funcPattern)) {
-		exports.push({ name: match[1], type: 'function' });
-	}
-
-	const typePattern = /export type (\w+)/g;
-	for (const match of src.matchAll(typePattern)) {
-		exports.push({ name: match[1], type: 'type' });
-	}
-
-	let md = '| エクスポート | 種類 | 用途 |\n|------------|------|------|\n';
-	const descriptions = {
-		NAV_CATEGORIES: 'ナビゲーションカテゴリ名',
-		NAV_ITEM_LABELS: 'ナビゲーション項目ラベル',
-		AGE_TIER_LABELS: '年齢区分ラベル（フル）',
-		AGE_TIER_SHORT_LABELS: '年齢区分ラベル（短縮）',
-		PLAN_LABELS: 'プラン名（フル）',
-		PLAN_SHORT_LABELS: 'プラン名（短縮）',
-		PAID_PLAN_LABEL: '有料プラン総称ラベル',
-		THEME_LABELS: 'テーマ名',
-		THEME_EMOJIS: 'テーマ絵文字',
-		FEATURE_LABELS: '機能名ラベル',
-		getAgeTierLabel: '年齢区分ラベル取得',
-		getAgeTierShortLabel: '年齢区分短縮ラベル取得',
-		getPlanLabel: 'プランラベル取得',
-		getPlanShortLabel: 'プラン短縮ラベル取得',
-		getThemeLabel: 'テーマラベル取得',
-		getThemeOptions: 'テーマ選択肢一覧',
-	};
-
-	for (const e of exports) {
-		const desc = descriptions[e.name] || '';
-		md += `| \`${e.name}\` | ${e.type} | ${desc} |\n`;
-	}
-	return md.trimEnd();
-}
+//
+// labels.ts は 135+ namespace / ≈6700 行に肥大しており、その全 export 名を DESIGN.md に
+// ミラーしても (1) 値を持たない名前の羅列で参照価値が低い、(2) 再生成のたびに肥大、
+// (3) SSOT 整合性は CI (check-no-plan-literals / check-hardcoded-strings) が担保するため
+// load-bearing でない、という理由で AUTOGEN 列挙を廃止した (ADR-0045 補遺)。
+// DESIGN.md §6 は「使う前に labels.ts を grep する」ルール + 主要 namespace 例のみを手書きで保持する。
 
 // --- Main ---
 function main() {
@@ -213,7 +171,6 @@ function main() {
 		colors: extractSemanticTokens(),
 		primitives: listPrimitives(),
 		terms: extractTerms(),
-		labels: extractLabels(),
 	};
 
 	for (const [key, value] of Object.entries(sections)) {
@@ -228,7 +185,6 @@ function main() {
 	console.log(`  - colors: ${sections.colors.split('\n').length} lines`);
 	console.log(`  - primitives: ${sections.primitives.split('\n').length} lines`);
 	console.log(`  - terms: ${sections.terms.split('\n').length} lines`);
-	console.log(`  - labels: ${sections.labels.split('\n').length} lines`);
 }
 
 function escapeRegex(s) {
