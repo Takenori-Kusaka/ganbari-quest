@@ -4744,6 +4744,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	upgradeDesc: 'スタンダード以上にアップグレードすると無制限に作成できます。',
 	addTemplateButton: '+ テンプレート作成',
 	addOverrideButton: '📅 ワンオフ追加',
+	// #2778 (Cluster D / User 指摘 #1 ボタン重複解消): 2 並列 button → 「+ 追加」dropdown menu 集約 (Hick's Law)
+	addMenuButton: '+ 追加',
 	todayOverrideTitle: '📅 本日のワンオフ',
 	formKindLabel: '種別',
 	formIconLabel: 'アイコン',
