@@ -117,22 +117,23 @@ test.describe('marketplace reward-set: childId 排除 (#2362 PR-4 / CWE-598)', (
 		expect(await childIdInput.count()).toBe(0);
 	});
 
-	test('marketplace 取込 CTA click → /admin/rewards へ ?import= 経由で navigate', async ({
+	test('marketplace 取込 button 押下 → /admin/rewards へ ?import= 経由で redirect', async ({
 		page,
 	}) => {
-		// #2774 (5 type 統一): 旧 <form action="?/importRewardSet"> + button を <a href> に置換。
-		// server action `importRewardSet` 撤去、CTA は <a> 直接 navigation。
-		// testid 規約統一: `reward-import-cta` (`<typeCode>-import-cta`)。
+		// PR-3 と同型: marketplace は child 情報を持たず admin へ遷移
+		// #2774 (5 type 統一): 旧 <form action="?/importRewardSet"> を <a href> に置換、
+		// server action 撤去 (`importRewardSet` 削除済)。CTA は `<a>` 直接 navigation。
 		await page.goto('/marketplace/reward-set/kinder-rewards');
 
-		// reward-import-cta visible (E2E ローカル mode は認証済 + child seed 済)
-		const cta = page.getByTestId('reward-import-cta');
+		// 取込 CTA (data-testid="reward-set-import-cta")
+		// #2774: testid 規約統一 (`<typeCode>-import-cta`)、typeCode は `reward-set`。
+		const cta = page.getByTestId('reward-set-import-cta');
 		await expect(
 			cta,
-			'reward-import-cta が表示されない (認証 / 子供登録 / プラン状態を確認)',
+			'reward-set-import-cta が表示されない (認証 / 子供登録 / プラン状態を確認)',
 		).toBeVisible({ timeout: 10_000 });
 
-		// href が /admin/rewards?import=<itemId> を指す (childId 露出ゼロ、CWE-598 整合)
+		// href が `/admin/rewards?import=<itemId>` を指す (childId 露出ゼロ、CWE-598)
 		const href = await cta.getAttribute('href');
 		expect(href).toBe('/admin/rewards?import=kinder-rewards');
 		expect(href).not.toContain('childId');
