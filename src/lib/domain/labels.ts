@@ -4742,6 +4742,18 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 		`チェックリスト ${current} / ${max}`,
 	upgradeLink: 'アップグレード →',
 	upgradeDesc: 'スタンダード以上にアップグレードすると無制限に作成できます。',
+	// #2778 (Cluster D / User 指摘 #1 / #2558 AC10 横展開): 「+ テンプレート作成」「📅 ワンオフ追加」の
+	// 2 並列ボタンを `+ 追加` dropdown menu に集約 (admin/activities #2558 段階2 pattern 踏襲)。
+	// DESIGN.md §10 Hick's Law / add 経路 ≤ 4 整合。
+	addButtonLabel: '+ 追加',
+	addMenuAriaLabel: '持ち物チェックリストを追加するメニューを開く',
+	addTemplateMenuLabel: 'テンプレート作成',
+	addTemplateMenuIcon: '✏️',
+	addOverrideMenuLabel: 'ワンオフ追加',
+	addOverrideMenuIcon: '📅',
+	addBrowseTemplatesMenuLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesMenuIcon: '📦',
+	// 旧 keys (本 PR で参照ゼロ化、test SSOT 等の他参照箇所残置確認後に削除)
 	addTemplateButton: '+ テンプレート作成',
 	addOverrideButton: '📅 ワンオフ追加',
 	todayOverrideTitle: '📅 本日のワンオフ',

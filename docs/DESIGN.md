@@ -1132,6 +1132,8 @@ Material Design 3「画面 FAB 1 個原則」+ Notion / Linear / Asana / Todoist
 
 **#2558 段階2 事例 (admin/activities の add 経路集約)**: 「`+ 追加`」「`一括追加`」「`別の子からコピー`」が別々の独立ボタンとして並存し顧客が混乱した (bug-2)。これを **1 つの `+ 追加` dropdown menu に集約**し、トップレベルの独立ボタンを撤去した。menu 項目 = `手動で1つ追加` / `AI で提案してもらう` / `みんなのテンプレートから探す` / `別のお子さまからコピー` / `複数のお子さまにまとめて追加`。同一リソースの add 系操作は「1 つの `+ 追加` 入口に集約する」ことを原則とする (Notion / Linear の `+` パターンに整合)。
 
+**#2778 事例 (admin/checklists の add 経路集約、User 指摘 #1 / Cluster D)**: 「`+ テンプレート作成`」と「`📅 ワンオフ追加`」の 2 並列 Button が常時可視で並存し、初顧客レビューで「ボタンの重複」「マーケットプレイス導線の分裂」と指摘された (#2558 AC10 横展開)。admin/activities と同 pattern で **`+ 追加` 単一 primary button + dropdown menu に集約**。menu 項目 = `✏️ テンプレート作成` / `📅 ワンオフ追加` / `📦 みんなのテンプレートから探す` (3 items、Hick's Law ≤ 4 維持)。marketplace 取込導線は PR #2773 で確立した `/marketplace?type=checklist` 画面遷移を 3 番目の menu item として統合。rewards / settings-rules / challenges の add 経路 dropdown 化は同 pattern で順次適用 (`+` menu = `手動作成` / `みんなのテンプレートから探す` を基本)。
+
 #### marketplace 取込はマーケットプレイス画面に一本化 (admin 内ブラウズ UI 二重管理禁止、#2558)
 
 プリセット (みんなのテンプレート) の **閲覧・選択 UI は `/marketplace` 配下でのみ実装**する。親管理画面内に marketplace 風のブラウズ UI を埋め込む (= 二重管理) ことは禁止する。

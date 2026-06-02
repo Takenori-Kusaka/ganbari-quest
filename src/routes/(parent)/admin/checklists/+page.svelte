@@ -1,6 +1,6 @@
 <script lang="ts">
 import { deserialize, enhance } from '$app/forms';
-import { invalidateAll } from '$app/navigation';
+import { goto, invalidateAll } from '$app/navigation';
 import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
@@ -10,8 +10,8 @@ import {
 } from '$lib/domain/labels';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
-// #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
-// `/marketplace?type=checklist` への画面遷移に統一 (DESIGN.md §10)。
+// #2391 (Phase 2): 独自 marketplace UI を UnifiedImportHub に統一
+import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -20,6 +20,9 @@ import ChildSelectionDialog, {
 } from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+// #2778 (Cluster D / User 指摘 #1): 2 並列 Button (+ テンプレート作成 / 📅 ワンオフ追加) を
+// `+ 追加` dropdown menu に集約 (admin/activities #2558 段階2 pattern 踏襲、DESIGN.md §10 Hick's Law)。
+import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 import OverflowMenu, { type OverflowMenuItem } from '$lib/ui/primitives/OverflowMenu.svelte';
 import VisibilityChipGroup, {
@@ -275,6 +278,33 @@ const overflowItems = $derived<OverflowMenuItem[]>([
 	},
 ]);
 
+// #2778 (Cluster D / User 指摘 #1 / #2558 AC10 横展開): `+ 追加` dropdown menu items
+// 旧: 2 並列 Button (`+ テンプレート作成` / `📅 ワンオフ追加`) が常時可視で並列配置されており、
+//     初見ユーザーから「ボタンの重複」「マーケットプレイス導線の分裂」と顧客指摘された。
+// 新: admin/activities #2558 段階2 pattern を踏襲し、`+ 追加` 単一 primary button + dropdown menu
+//     に集約 (DESIGN.md §10 Hick's Law / add 経路 ≤ 4 整合)。
+const addMenuItems = $derived<MenuItem[]>([
+	{
+		id: 'add-template',
+		label: ADMIN_CHECKLISTS_PAGE_LABELS.addTemplateMenuLabel,
+		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addTemplateMenuIcon,
+		onSelect: openAddTemplate,
+		disabled: atLimit,
+	},
+	{
+		id: 'add-override',
+		label: ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideMenuLabel,
+		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideMenuIcon,
+		onSelect: openOverride,
+	},
+	{
+		id: 'browse-marketplace',
+		label: ADMIN_CHECKLISTS_PAGE_LABELS.addBrowseTemplatesMenuLabel,
+		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addBrowseTemplatesMenuIcon,
+		onSelect: () => goto('/marketplace?type=checklist'),
+	},
+]);
+
 // ChildSelectionDialog confirm: family preset 取込 + 配信先 children 設定
 //
 // PR-4 reward (#2474 must-2): SvelteKit form action を fetch で直接呼ぶ場合、
@@ -498,36 +528,51 @@ function getChildName(childId: number): string {
 			<input type="hidden" name="items" value={aiItemsJson} />
 		</form>
 
-		<!--
-			#2558 段階2 横展開: in-page UnifiedImportHub (admin 内 marketplace 風 browse UI、
-			二重管理) を撤去し marketplace への画面遷移に統一 (DESIGN.md §10 構造的ルール)。
-			取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open
-			の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
-
-			marketplace 取込メッセージ + secondary link「みんなのテンプレートを見る」
-			(empty state / 運用期到達性、DESIGN.md §10「bulk import bridge ルール」整合) は保持。
-		-->
-		<!-- testid `marketplace-import-section` は ChildSelectionDialog auto-open + 取込結果メッセージ
-		     表示 section として E2E (marketplace-checklist-import / bug1-import-dead-end /
-		     goal-flows-exemplar) が依存しているため testid を維持する。in-page UnifiedImportHub
-		     browse UI は本 PR で撤去し、marketplace への遷移 link に置換 (DESIGN.md §10)。 -->
-		<section data-testid="marketplace-import-section">
-			{#if marketplaceImportMessage}
-				<div
-					class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
-					data-testid="marketplace-admin-result-success"
-				>
-					{marketplaceImportMessage}
+		<!-- #2391 (Phase 2): UnifiedImportHub に統一 (旧 #2137 MP-2 独自 UI を置換) -->
+		{#if data.marketplaceChecklists.length > 0}
+			<Card variant="elevated" padding="lg">
+				{#snippet children()}
+				<div class="space-y-3" data-testid="marketplace-import-section">
+					<div class="flex items-center justify-between">
+						<h2 class="text-sm font-bold text-[var(--color-text-primary)]">
+							{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSectionTitle}
+						</h2>
+						<a
+							href="/marketplace?type=checklist"
+							class="text-xs text-[var(--color-action-primary)] hover:underline"
+						>
+							{ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
+						</a>
+					</div>
+					{#if marketplaceImportMessage}
+						<div
+							class="px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
+							data-testid="marketplace-admin-result-success"
+						>
+							{marketplaceImportMessage}
+						</div>
+					{/if}
+					<UnifiedImportHub
+						typeCode="checklist"
+						presets={{
+							checklist: data.marketplaceChecklists.map((p) => ({
+								itemId: p.itemId,
+								name: p.name,
+								icon: p.icon,
+								itemCount: p.itemCount,
+							})),
+						}}
+						selectedChildId={selectedChildId}
+						importedPresetIds={importedPresetIds}
+						onimported={(msg) => {
+							marketplaceImportMessage = msg;
+							invalidateAll();
+						}}
+					/>
 				</div>
-			{/if}
-			<a
-				href="/marketplace?type=checklist"
-				class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
-				data-testid="checklists-marketplace-browse-link"
-			>
-				📦 {ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
-			</a>
-		</section>
+				{/snippet}
+			</Card>
+		{/if}
 
 		<!-- #1755 (#1709-A): kind 削除 — 全テンプレート一覧表示 -->
 		{#if filteredTemplates.length === 0}
@@ -719,25 +764,17 @@ function getChildName(childId: number): string {
 			</div>
 		{/if}
 
-		<!-- Actions -->
-		<div class="flex gap-2 items-center">
-			<Button
-				variant="primary"
-				size="md"
-				class="flex-1"
+		<!-- Actions (#2778 / Cluster D): 2 並列 Button を `+ 追加` dropdown menu に集約 -->
+		<div class="checklist-actions">
+			<Menu
+				items={addMenuItems}
+				placement="bottom-end"
+				ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuAriaLabel}
+				testid="checklists-add-menu-trigger"
+				triggerClass="checklist-add-btn"
+				triggerLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addButtonLabel}
 				disabled={atLimit}
-				onclick={openAddTemplate}
-			>
-				{ADMIN_CHECKLISTS_PAGE_LABELS.addTemplateButton}
-			</Button>
-			<Button
-				variant="outline"
-				size="md"
-				class="flex-1"
-				onclick={openOverride}
-			>
-				{ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideButton}
-			</Button>
+			/>
 			{#if !data.isPremium}
 				<PremiumBadge size="sm" label={ADMIN_CHECKLISTS_PAGE_LABELS.premiumBadgeLabel} />
 			{/if}
@@ -994,3 +1031,36 @@ function getChildName(childId: number): string {
 		{ADMIN_CHECKLISTS_PAGE_LABELS.exportNotImplementedDesc}
 	</p>
 </Dialog>
+
+<style>
+	/* #2778 (Cluster D / User feedback #1): `+ Add` dropdown menu trigger button styling.
+	 * Aligned with admin/activities .add-btn pattern (FEATURES_LABELS.activitiesHeader / ActivitiesHeader.svelte). */
+	.checklist-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	/* #2260 Fix-1 pattern: Menu primitive pass-through requires :global selector for parent scope visibility */
+	:global(.checklist-actions .checklist-add-btn) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.5rem 1rem;
+		border: none;
+		border-radius: var(--radius-md);
+		background: var(--color-action-primary);
+		color: var(--color-text-inverse);
+		font-size: 0.9375rem;
+		font-weight: 700;
+		cursor: pointer;
+		transition: filter 0.15s;
+		flex: 1;
+	}
+	:global(.checklist-actions .checklist-add-btn:hover:not(:disabled)) {
+		filter: brightness(0.9);
+	}
+	:global(.checklist-actions .checklist-add-btn:disabled) {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+</style>
