@@ -35,7 +35,7 @@ import {
 } from '$lib/server/services/plan-limit-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = async ({ locals, url, cookies }) => {
 	const tenantId = requireTenantId(locals);
 	const activities = await getActivities(tenantId, { includeHidden: true });
 	const logCounts = await getActivityLogCounts(tenantId);
@@ -64,6 +64,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const initialChildId =
 		initialChildIdRaw && /^\d+$/.test(initialChildIdRaw) ? Number(initialChildIdRaw) : null;
 
+	// Round 18 Cluster K (#1870 評価 Round 3): selectedChildId cookie fallback
+	// `?childId=` 未指定時は cookie に保存された前回選択 child を採用する。
+	// 既存 (child) 配下 route の selectedChildId cookie SSOT (src/routes/(child)/+layout.server.ts) と整合。
+	// preschool 親が marketplace (ひな選択) → admin/activities 遷移時、たろうくんタブが active になる
+	// 不整合 (memory `feedback_per_child_scope_consistency`) を解消し、選択 child の文脈を保持する。
+	const cookieChildIdRaw = cookies.get('selectedChildId');
+	const initialChildIdFromCookie = (() => {
+		if (!cookieChildIdRaw) return null;
+		const n = Number(cookieChildIdRaw);
+		return Number.isInteger(n) && n > 0 ? n : null;
+	})();
+
 	// プラン制限情報
 	const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 	const activityLimit = await checkActivityLimit(tenantId, licenseStatus);
@@ -82,6 +94,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		childActivitiesByChild,
 		importPresetId,
 		initialChildId,
+		initialChildIdFromCookie,
 		categoryDefs: CATEGORY_DEFS,
 		logCounts,
 		activityLimit,

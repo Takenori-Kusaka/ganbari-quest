@@ -57,7 +57,10 @@ let showRestoreDialog = $state(false);
 let restoreLoading = $state(false);
 
 // #2362 PR-3 Phase 4: 子供タブ切替 UI
-// `?childId=<n>` query で初期 child 復元、未指定なら最初の child
+// `?childId=<n>` query で初期 child 復元、未指定なら cookie の selectedChildId、最後に最初の child
+// Round 18 Cluster K (#1870 評価 Round 3): cookie fallback を fallback chain に追加。
+// marketplace (ひな選択) → admin/activities 遷移時に「たろうくんタブが active」になる
+// per-child scope 不整合を解消 (memory `feedback_per_child_scope_consistency` 整合)。
 let childIdOverride = $state<number | undefined>(
 	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
 		? data.initialChildId
@@ -66,7 +69,10 @@ let childIdOverride = $state<number | undefined>(
 const selectedChildId = $derived(
 	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
 		? childIdOverride
-		: (data.children[0]?.id ?? 0),
+		: data.initialChildIdFromCookie != null &&
+				data.children.some((c) => c.id === data.initialChildIdFromCookie)
+			? data.initialChildIdFromCookie
+			: (data.children[0]?.id ?? 0),
 );
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
@@ -127,6 +133,14 @@ type DisplayActivity = {
 	nameKanji: string | null;
 };
 
+// Round 18 Cluster J (#1870 評価 Round 3): family master activity の年齢適合フィルタ。
+// per-child 型は既に child binding 済 (createActivity で childId 必須) なのでフィルタ不要、
+// family master Activity は tenant 全 child 共有のため ageMin/ageMax と selectedChild.age を比較し
+// 適合しない activity (例: preschool 児童 context で「アルバイトした」「大学受験勉強した」等
+// senior 向け) を非表示にする。ADR-0055 per-child 主軸データモデル原則整合。
+// 「全件を表示」trigger で一時的に bypass 可能 (ユーザ確認用)。
+let bypassAgeFilter = $state(false);
+
 const displayActivities = $derived<DisplayActivity[]>([
 	...perChildActivities.map((a) => ({
 		id: a.id,
@@ -141,8 +155,19 @@ const displayActivities = $derived<DisplayActivity[]>([
 		nameKanji: a.nameKanji,
 	})),
 	// Phase 6/7 完全切替まで family master も表示 (旧来 admin UX 維持)
+	// Round 18 Cluster J: ageMin/ageMax で selectedChild.age 適合分のみ。
+	// ageMin/ageMax が両方 null の activity は全 age 適合扱い (LP 訴求カスタマイズ自由度)。
 	...data.activities
 		.filter((a) => a.isVisible)
+		.filter((a) => {
+			if (bypassAgeFilter) return true;
+			const childAge = selectedChild?.age;
+			if (childAge == null) return true;
+			const activity = a as { ageMin?: number | null; ageMax?: number | null };
+			const min = activity.ageMin ?? Number.NEGATIVE_INFINITY;
+			const max = activity.ageMax ?? Number.POSITIVE_INFINITY;
+			return min <= childAge && childAge <= max;
+		})
 		.map((a) => ({
 			id: a.id,
 			scope: 'family' as const,
@@ -156,6 +181,14 @@ const displayActivities = $derived<DisplayActivity[]>([
 			nameKanji: a.nameKanji,
 		})),
 ]);
+
+// Round 18 Cluster J: age filter 適用状態 (banner 表示判定用)
+// family master 全件 (visible 限定) vs displayActivities の family scope 件数を比較
+const visibleFamilyTotal = $derived(data.activities.filter((a) => a.isVisible).length);
+const visibleFamilyShown = $derived(displayActivities.filter((a) => a.scope === 'family').length);
+const ageFilterApplied = $derived(
+	!bypassAgeFilter && selectedChild?.age != null && visibleFamilyShown < visibleFamilyTotal,
+);
 
 const filteredActivities = $derived.by(() => {
 	let result = displayActivities;
@@ -451,6 +484,44 @@ function selectChild(childId: number) {
 				<span class="child-context-banner__hint">
 					{ADMIN_ACTIVITIES_PAGE_LABELS.childContextHint}
 				</span>
+			</div>
+		{/if}
+
+		<!-- Round 18 Cluster J (#1870 評価 Round 3): age filter 適用 hint banner。
+		     family master activity を ageMin/ageMax で selectedChild.age 適合分のみ表示中の旨を明示し、
+		     「全件を表示」trigger で一時 bypass 可能 (顧客確認用 escape hatch)。 -->
+		{#if ageFilterApplied && selectedChild}
+			<div class="age-filter-banner" data-testid="age-filter-banner" role="status">
+				<span class="age-filter-banner__text">
+					{ADMIN_ACTIVITIES_PAGE_LABELS.ageFilterAppliedHint(
+						selectedChild.nickname,
+						selectedChild.age,
+						visibleFamilyShown,
+						visibleFamilyTotal,
+					)}
+				</span>
+				<Button
+					variant="ghost"
+					size="sm"
+					data-testid="age-filter-bypass-btn"
+					onclick={() => { bypassAgeFilter = true; }}
+				>
+					{ADMIN_ACTIVITIES_PAGE_LABELS.ageFilterShowAll}
+				</Button>
+			</div>
+		{:else if bypassAgeFilter && selectedChild}
+			<div class="age-filter-banner" data-testid="age-filter-banner" role="status">
+				<span class="age-filter-banner__text">
+					{ADMIN_ACTIVITIES_PAGE_LABELS.ageFilterBypassedHint(selectedChild.nickname, selectedChild.age)}
+				</span>
+				<Button
+					variant="ghost"
+					size="sm"
+					data-testid="age-filter-reapply-btn"
+					onclick={() => { bypassAgeFilter = false; }}
+				>
+					{ADMIN_ACTIVITIES_PAGE_LABELS.ageFilterReapply}
+				</Button>
 			</div>
 		{/if}
 	{/if}
@@ -810,6 +881,24 @@ function selectChild(childId: number) {
 	.child-context-banner__hint {
 		font-size: 0.75rem;
 		color: var(--color-text-muted);
+	}
+
+	/* Round 18 Cluster J: age filter applied / bypassed hint banner */
+	.age-filter-banner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		background: var(--color-surface-info);
+		border-left: 3px solid var(--color-feedback-info-border);
+		border-radius: var(--radius-sm);
+		font-size: 0.85rem;
+		color: var(--color-feedback-info-text);
+	}
+	.age-filter-banner__text {
+		flex: 1;
+		line-height: 1.4;
 	}
 
 	/* per-child activity simple list (Phase 5: list item refactor pending) */
