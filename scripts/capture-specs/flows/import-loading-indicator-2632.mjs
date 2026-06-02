@@ -27,13 +27,23 @@
  *     --pr 2632
  */
 
+import { mkdirSync, writeFileSync } from 'node:fs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5267';
+// DOM snapshot 出力先 (#1747 / #1766: SS と同一 page で取得した DOM を併保)。
+const DOM_OUT_DIR = process.env.DOM_OUT_DIR || 'tmp/screenshots/pr-2632-dom';
 
 /**
  * @param {import('playwright').Page} page
  * @param {(label: string) => Promise<string>} capture
  */
 export default async (page, capture) => {
+	mkdirSync(DOM_OUT_DIR, { recursive: true });
+	const dumpDom = async (/** @type {string} */ label) => {
+		const html = await page.evaluate(() => document.documentElement.outerHTML);
+		writeFileSync(`${DOM_OUT_DIR}/${label}.dom.html`, html, 'utf-8');
+	};
+
 	const rafSettle = () =>
 		page.evaluate(
 			() =>
@@ -50,6 +60,7 @@ export default async (page, capture) => {
 		.catch(() => {});
 	await rafSettle();
 	await capture('pr2632-before-confirm-idle');
+	await dumpDom('import-loading-before');
 
 	// --- 2) After: confirm click 直後の loading 状態 ---
 	// `?/importPresetToChildren` POST を 8s 遅延させ loading window を保持する
@@ -75,4 +86,5 @@ export default async (page, capture) => {
 		.catch(() => {});
 	await rafSettle();
 	await capture('pr2632-after-confirm-loading');
+	await dumpDom('import-loading-after');
 };

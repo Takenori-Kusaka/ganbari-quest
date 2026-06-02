@@ -1,6 +1,6 @@
 <script module>
-import { expect, within } from 'storybook/test';
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { expect, within } from 'storybook/test';
 import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Button from './Button.svelte';
 
