@@ -1,6 +1,8 @@
 // tests/unit/routes/marketplace-auth-redirect.test.ts
 // #2303: マーケプレ未ログイン CTA リダイレクト先が /auth/login であることを保証する
 // #2774: 5 type 取込 CTA 統一 — `<a>` 形式 + `?import=` query 一本化を保証
+// #2775 (Issue #2774 Phase 2): rule-preset exchange も `<a href>` 統一形式に統合した結果、
+//                              marketplace 詳細 page の server action は 0 件となる
 //
 // 設計背景:
 // - 旧実装は /auth/signup へ redirect していたが、既存ユーザが CTA を押すと
@@ -14,20 +16,23 @@
 // - 1) `src/routes/marketplace/+page.svelte` 一覧画面の CTA `href` が `/auth/login`
 // - 2) `src/routes/marketplace/[type]/[itemId]/+page.svelte` 詳細画面の各 CTA
 //      (reward / checklist / rule-preset / challenge-set / fallback) `href` が `/auth/login`
-// - 3) `src/routes/marketplace/[type]/[itemId]/+page.server.ts` action の
-//      未ログイン redirect 先が `/auth/login` (rule-preset exchange のみ残存)
-// - 4) #2774: 認証済 CTA が `<a href="/admin/<page>?import=${itemId}">` 形式に統一
-//      (reward-set / checklist / rule-preset bonus / challenge-set / activity-pack 5 type)
+// - 3) `src/routes/marketplace/[type]/[itemId]/+page.server.ts` action が全て撤去済
+//      (#2775: rule-preset exchange を含む 5 type 取込 CTA が `<a href>` 統一済のため
+//       marketplace 詳細 page の server action は 0 件)
+// - 4) #2774 / #2775: 認証済 CTA が `<a href="/admin/<page>?import=${itemId}">` 形式に統一
+//      (reward-set / checklist / rule-preset bonus / rule-preset exchange /
+//       challenge-set / activity-pack 5 type 完全統一)
 //
 // 並行実装ペア:
 // - marketplace 配下に `/auth/signup` 直接 href が 0 件 (回帰防止)
 // - marketplace 配下に `?marketplace-import=` query が 0 件 (#2774、5 type 統一)
+// - marketplace 配下に `<form action="?/import...">` が 0 件 (#2775、完全 `<a href>` 統一)
 //
 // AC マッピング:
 // - AC1 (一覧画面 href) → it('一覧画面 CTA は /auth/login')
 // - AC2 (詳細画面 href × 5) → it('詳細画面 ... CTA は /auth/login') 5 件
-// - AC3 (server-side action × 1) → it('server action の未ログイン redirect は /auth/login') 1 件 (rule-preset のみ)
-// - AC4 (#2774): 認証済 CTA が `<a href>` + testid `<typeCode>-import-cta` 統一
+// - AC3 (server-side action 0 件) → it('server action が完全撤去済') 1 件
+// - AC4 (#2774 / #2775): 認証済 CTA が `<a href>` + testid `<typeCode>-import-cta` 統一
 
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -125,13 +130,14 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 	describe('AC3 server action (`src/routes/marketplace/[type]/[itemId]/+page.server.ts`)', () => {
 		const content = readMarketplaceFile('src/routes/marketplace/[type]/[itemId]/+page.server.ts');
 
-		it('importRulePreset action の未ログイン redirect は /auth/login', () => {
-			// `redirect(302, \`/auth/login?next=/marketplace/rule-preset/${params.itemId}\`)`
-			// #2774: rule-preset exchange のみ残存。reward-set / checklist / challenge-set は
-			// `<a href="/admin/<page>?import=">` 直遷移に統一されたため server action は撤去済。
-			expect(content).toMatch(
-				/redirect\(\d+,\s*`\/auth\/login\?next=\/marketplace\/rule-preset\/\$\{params\.itemId\}`\)/,
-			);
+		it('#2775: marketplace 詳細 page の server action は 0 件 (5 type 完全 `<a href>` 統一)', () => {
+			// #2775 (Issue #2774 Phase 2) で rule-preset exchange も `<a href>` 化されたため、
+			// marketplace 詳細 page には server action が一切無くなる。回帰防止: 再追加で
+			// `<form action="?/import...">` 経路が再生するのを防ぐ。
+			expect(content).not.toMatch(/importRewardSet:\s*async/);
+			expect(content).not.toMatch(/importChecklist:\s*async/);
+			expect(content).not.toMatch(/importChallengeSet:\s*async/);
+			expect(content).not.toMatch(/importRulePreset:\s*async/);
 		});
 
 		it('server action に /auth/signup redirect が残っていない (data integrity 保護)', () => {
@@ -139,12 +145,10 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 			expect(content).not.toMatch(/redirect\([^)]*\/auth\/signup/);
 		});
 
-		it('#2774: 撤去済 server action (importRewardSet / importChecklist / importChallengeSet) が再生していない', () => {
-			// 5 type 取込 CTA 統一 (User 指摘 #2 #4 根治) で 3 action を撤去した。
-			// 再追加で `<form action="?/import...">` 経路が再生するのを回帰防止。
-			expect(content).not.toMatch(/importRewardSet:\s*async/);
-			expect(content).not.toMatch(/importChecklist:\s*async/);
-			expect(content).not.toMatch(/importChallengeSet:\s*async/);
+		it('#2775: marketplace 詳細 page server file に redirect() を含む import 経路が残っていない', () => {
+			// #2775: 5 type 完全 `<a href>` 統一で server action が消滅 → /auth/login への redirect
+			// 経路も消滅。未ログイン CTA は svelte 側 `<a href="/auth/login?next=...">` に統一。
+			expect(content).not.toMatch(/redirect\([^)]*\/auth\/login\?next=/);
 		});
 	});
 
@@ -166,6 +170,14 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 			expect(content).toMatch(/data-testid=["']rule-preset-import-bonus-cta["']/);
 		});
 
+		it('#2775: rule-preset exchange 認証済 CTA は `<a href="/admin/rewards?import=...">` + testid=rule-preset-import-cta', () => {
+			// Issue #2774 Phase 2 (#2775): exchange は admin/rewards 側 ChildSelectionDialog
+			// auto-open mechanism (PR #2474 / #2773) に統合し `<a href>` 化。
+			// special_rewards テーブルに per-child fan-out で挿入される (Strategy `applyRulePreset`)。
+			expect(content).toMatch(/href=["']\/admin\/rewards\?import=\{item\.itemId\}["']/);
+			expect(content).toMatch(/data-testid=["']rule-preset-import-cta["']/);
+		});
+
 		it('challenge-set CTA は `<a href="/admin/challenges?import=...">` (旧 ?marketplace-import= 廃止)', () => {
 			expect(content).toMatch(/href=["']\/admin\/challenges\?import=\{item\.itemId\}["']/);
 			expect(content).toMatch(/data-testid=["']challenge-set-import-cta["']/);
@@ -185,13 +197,13 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 			expect(content).not.toMatch(/\?marketplace-import=/);
 		});
 
-		it('marketplace 詳細画面に form action="?/import..." が残っていない (rule-preset exchange を除く)', () => {
-			// `<form method="POST" action="?/importRewardSet">` 等が撤去済 (5 type のうち
-			// reward-set / checklist / challenge-set 3 件)。残存可能性は rule-preset exchange のみ
-			// (Phase 2 で撤去予定、本 PR scope 外)。
+		it('#2775: marketplace 詳細画面に form action="?/import..." が完全 0 件 (5 type 完全統一)', () => {
+			// #2775 (Issue #2774 Phase 2): rule-preset exchange も撤去 → 5 type 完全 `<a href>` 統一。
+			// `<form method="POST" action="?/import...">` 経路が再生するのを回帰防止。
 			expect(content).not.toMatch(/action=["']\?\/importRewardSet["']/);
 			expect(content).not.toMatch(/action=["']\?\/importChecklist["']/);
 			expect(content).not.toMatch(/action=["']\?\/importChallengeSet["']/);
+			expect(content).not.toMatch(/action=["']\?\/importRulePreset["']/);
 		});
 	});
 });

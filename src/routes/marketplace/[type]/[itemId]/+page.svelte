@@ -1,6 +1,7 @@
 <script lang="ts">
-import { enhance } from '$app/forms';
-import { invalidateAll } from '$app/navigation';
+// #2775 (Issue #2774 Phase 2): rule-preset exchange の `<a href>` 統一移行に伴い
+// `enhance` / `invalidateAll` / `NativeSelect` は本ファイルで未使用となったため import 撤去。
+// 5 type 全てが `<a href="/admin/<page>?import=">` に統一され server action 経由 form 取込は消滅。
 import { APP_LABELS, formatAgeRange, MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type {
 	ActivityPackPayload,
@@ -19,9 +20,10 @@ import {
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
-import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 
-let { data, form } = $props();
+// #2775: rule-preset exchange を `<a href>` 統一形式に移行したため form prop は撤去
+// (5 type 完全統一 — server action 経由の form result を marketplace 詳細で扱う経路は消滅)
+let { data } = $props();
 // svelte-ignore state_referenced_locally
 const item: MarketplaceItem = data.item;
 
@@ -55,39 +57,10 @@ const isRuleBonus = $derived(isRulePreset && ruleType === 'bonus');
 const isRulePenalty = $derived(isRulePreset && ruleType === 'penalty');
 const isRuleSpecial = $derived(isRulePreset && ruleType === 'special');
 
-const ruleImport = $derived(
-	(
-		form as {
-			ruleImport?: {
-				alreadyImported?: boolean;
-				presetName?: string;
-				ruleType?: string;
-				imported?: number;
-				skipped?: number;
-				warnings?: string[];
-				errors?: string[];
-			};
-		} | null
-	)?.ruleImport,
-);
-
-// #2137 (MP-2): checklist 一括追加用 state
-//   selectedChildIdStr は NativeSelect bind:value 互換のため string 保持。
-//   form 送信時は string → number 変換せず name="childId" の value 文字列を直接送る。
-// svelte-ignore state_referenced_locally
-let selectedChildIdStr = $state<string>(
-	// svelte-ignore state_referenced_locally
-	data.children && data.children.length > 0 ? String(data.children[0]?.id ?? '') : '',
-);
-let importing = $state(false);
-
-// #2138 (MP-3): rule-preset 一括追加用 state (childId は exchange のみ必須)
-// svelte-ignore state_referenced_locally
-let selectedChildIdForRule = $state<number>(
-	// svelte-ignore state_referenced_locally
-	data.children && data.children.length > 0 ? (data.children[0]?.id ?? 0) : 0,
-);
-let importingRule = $state(false);
+// #2775 (Issue #2774 Phase 2): rule-preset exchange を `<a href>` 統一形式に移行したため、
+// 旧 in-page form 経由の `ruleImport` form state / `selectedChildIdForRule` / `importingRule` は撤去。
+// 取込結果表示は admin/rewards 側 toast / banner に移行。
+// #2774 PR #2776 で checklist も `<a href>` 化済のため `selectedChildIdStr` / `importing` も併せて撤去。
 
 const childOptions = $derived(
 	(data.children ?? []).map((c) => ({ value: String(c.id), label: c.nickname })),
@@ -490,82 +463,25 @@ function deselectAllActivities() {
 					{/snippet}
 				</Card>
 			{:else if isRulePreset && data.isAuthenticated && isRuleExchange && data.children.length > 0}
-				<!-- #2138 (MP-3): rule-preset exchange 一括追加 CTA (childId 必須、per-child)。
-				     exchange は marketplace 削除予定 (#2445 / I1) のため、暫定的に従来通り維持。 -->
-				<Card padding="md">
-					{#snippet children()}
-					<p class="text-xs text-[var(--color-text-tertiary)]">
-						{MARKETPLACE_LABELS.detailCtaImportRuleDescExchange}
-					</p>
-
-					{#if ruleImport}
-						{#if ruleImport.alreadyImported}
-							<div
-								class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-[var(--color-feedback-warning-text)] rounded-xl p-3 text-sm text-center mt-3"
-								data-testid="rule-import-result-duplicate"
-							>
-								{MARKETPLACE_LABELS.detailRuleImportDuplicate(ruleImport.presetName ?? '')}
-							</div>
-						{:else if (ruleImport.imported ?? 0) > 0}
-							<div
-								class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm text-center mt-3"
-								data-testid="rule-import-result-success"
-							>
-								{#if ruleImport.ruleType === 'exchange'}
-									{MARKETPLACE_LABELS.detailRuleImportSuccessExchange(
-										ruleImport.presetName ?? '',
-										ruleImport.imported ?? 0,
-									)}
-								{/if}
-								<div class="text-xs mt-1">
-									<a href="/admin/rewards" class="underline">
-										{MARKETPLACE_LABELS.detailRuleImportLinkToRewardsList}
-									</a>
-								</div>
-							</div>
-						{/if}
-					{/if}
-
-					<form
-						method="POST"
-						action="?/importRulePreset"
-						use:enhance={() => {
-							importingRule = true;
-							return async ({ update }) => {
-								await update();
-								importingRule = false;
-								await invalidateAll();
-							};
-						}}
-						class="space-y-3 mt-3"
-						data-testid="rule-import-form"
-					>
-						<label class="block">
-							<span class="text-xs font-bold text-[var(--color-text-secondary)] block mb-1">
-								{MARKETPLACE_LABELS.detailCtaSelectChild}
-							</span>
-							<NativeSelect
-								name="childId"
-								bind:value={selectedChildIdForRule}
-								options={data.children.map((c) => ({
-									value: c.id,
-									label: c.nickname,
-								}))}
-							/>
-						</label>
-						<Button
-							type="submit"
-							variant="primary"
-							size="lg"
-							class="w-full"
-							disabled={importingRule}
-							data-testid="rule-import-submit"
-						>
-							{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
-						</Button>
-					</form>
-					{/snippet}
-				</Card>
+				<!-- #2775 (Issue #2774 Phase 2): rule-preset exchange CTA を `<a href>` 統一形式に移行。
+				     旧 in-page form + NativeSelect childId 選択 UI は撤去し (旧 server action 名称は
+				     marketplace-import-flow.md §3.5 を参照、本コメント内では `action=` literal を
+				     再記しないことで unit test の grep 偽陽性を回避)、
+				     admin/rewards 側 `?import=<presetId>` mechanism (PR #2474 / #2773 整備済) に統合。
+				     ChildSelectionDialog auto-open + per-child fan-out で CWE-598 整合
+				     (childId URL/body 露出ゼロ) + 5 type 統一形式完成 (docs/design/marketplace-import-flow.md §3.5)。 -->
+				<p class="text-xs text-[var(--color-text-tertiary)]">
+					{MARKETPLACE_LABELS.detailCtaImportRuleDescExchange}
+				</p>
+				<a
+					href="/admin/rewards?import={item.itemId}"
+					class="block"
+					data-testid="rule-preset-import-cta"
+				>
+					<Button variant="primary" size="lg" class="w-full">
+						{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
+					</Button>
+				</a>
 			{:else if isRulePreset && data.isAuthenticated && isRuleExchange && data.children.length === 0}
 				<!-- #2138 (MP-3): exchange ruleType だがお子さま未登録 -->
 				<div
