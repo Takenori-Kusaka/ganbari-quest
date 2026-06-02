@@ -45,8 +45,8 @@ setupResizeScrollTracking();
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="tutorial-overlay" onclick={handleOverlayClick}>
-		<!-- Dark overlay with spotlight cutout -->
-		<svg class="tutorial-overlay-svg" xmlns="http://www.w3.org/2000/svg">
+		<!-- Dark overlay with spotlight cutout (装飾的マスクのみ。情報は TutorialBubble が保持するため SR は skip) -->
+		<svg class="tutorial-overlay-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<defs>
 				<mask id="tutorial-spotlight">
 					<rect width="100%" height="100%" fill="white" />
