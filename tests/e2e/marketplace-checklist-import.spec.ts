@@ -2,15 +2,20 @@
 // #2137 (MP-2): event-checklist 一括追加フロー E2E
 // #2362 PR-5 Phase 2 (ADR-0055 / CWE-598): marketplace 詳細ページから childId 排除、
 //   admin/checklists?import= 経由の auto-open dialog 動線に rewrite。
+// #2558 段階3 (PR #2773): admin/checklists 内 in-page UnifiedImportHub browse UI を撤去
+//   (DESIGN.md §10「marketplace 取込はマーケットプレイス画面に一本化」)。
+//   旧 `marketplace-preset-import-<itemId>` button 期待を撤去し、新 flow に rewrite:
+//   marketplace 詳細 CTA → admin/checklists?import= → ChildSelectionDialog auto-open →
+//   confirm → `?/importPresetToChildren` action → action message 表示。
 //
-// 検証対象:
+// 検証対象 (新 flow):
 // 1. /marketplace/checklist/event-pool 詳細ページに「取込」CTA が描画される
 //    (ログイン済 = AUTH_MODE=local 認証通過後)
-// 2. /admin/checklists にマーケットプレイス取込セクションが表示される
-//    (event-pool / event-school-start / event-field-trip 3 件 + 「一括追加」ボタン)
-// 3. /admin/checklists 経由で event-pool の preset を一括追加 → 同 preset が
-//    取込済 Badge に切り替わり、ボタンが disabled になる
-// 4. 同一 preset の重複 import は alreadyImported Result が返り、テンプレート総数が増えない
+// 2. /admin/checklists に browse link (`/marketplace?type=checklist` 遷移) が visible
+//    + in-page browse UI 不出 (二重 UI 不出 trip wire)
+// 3. marketplace 詳細 → CTA click → admin/checklists?import= redirect →
+//    ChildSelectionDialog auto-open → 全員選択 → confirm → 成功 action message 表示
+// 4. 同 preset の重複取込でも action message 表示 (重複扱い、Strategy 経由 200 path)
 //
 // 認証: AUTH_MODE=local の自動セットアップで /admin 配下に到達できる前提
 //   (hooks.server.ts + tests/e2e/global-setup.ts の tenant seed)。
@@ -61,93 +66,127 @@ test.describe('#2137 マーケットプレイス checklist 一括追加', () => 
 	});
 
 	// ============================================================
-	// 2. admin/checklists の「マーケットプレイスから一括追加」セクション
+	// 2. admin/checklists の marketplace 取込 section (#2558 段階3 / PR #2773)
+	//
+	// PR #2773 で admin/checklists 内 in-page UnifiedImportHub browse UI を撤去
+	// (DESIGN.md §10「marketplace 取込はマーケットプレイス画面に一本化」)。
+	// 旧期待 (`marketplace-preset-import-<itemId>` button 3 件 visible) は永続的に廃止。
+	// 新期待: `checklists-marketplace-browse-link` 経由で /marketplace?type=checklist へ画面遷移
+	// する secondary link が visible (empty state / 運用期到達性、DESIGN.md §10 bridge ルール)。
+	// in-page browse UI が再導入されないことを併せて担保 (二重 UI 不出 trip wire)。
 	// ============================================================
-	test('/admin/checklists にマーケットプレイス取込セクションが描画される', async ({ page }) => {
+	test('/admin/checklists に marketplace browse link visible + in-page browse UI 不出 (二重 UI 不出 trip wire)', async ({
+		page,
+	}) => {
 		test.slow();
 		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
 
-		// マーケットプレイス section
+		// marketplace 取込 section (action message + browse link container) は visible
 		const section = page.getByTestId('marketplace-import-section');
 		await expect(section).toBeVisible({ timeout: 30_000 });
 
-		// #2391 (Phase 2): UnifiedImportHub 統合で `marketplace-preset-row-{itemId}` (container)
-		// は廃止。`marketplace-preset-import-{itemId}` (button) で同等の見え方を確認する。
-		await expect(page.getByTestId('marketplace-preset-import-event-pool')).toBeVisible();
-		await expect(page.getByTestId('marketplace-preset-import-event-school-start')).toBeVisible();
-		await expect(page.getByTestId('marketplace-preset-import-event-field-trip')).toBeVisible();
+		// 新 secondary link → /marketplace?type=checklist
+		const browseLink = page.getByTestId('checklists-marketplace-browse-link');
+		await expect(browseLink, 'marketplace browse link が visible (運用期到達性)').toBeVisible({
+			timeout: 10_000,
+		});
+		await expect(browseLink).toHaveAttribute('href', '/marketplace?type=checklist');
+
+		// 旧 in-page browse UI (UnifiedImportHub preset 一覧 button) は撤去済 (DESIGN.md §10 禁忌)
+		await expect(page.getByTestId('marketplace-preset-import-event-pool')).toHaveCount(0);
+		await expect(page.getByTestId('marketplace-preset-import-event-school-start')).toHaveCount(0);
+		await expect(page.getByTestId('marketplace-preset-import-event-field-trip')).toHaveCount(0);
 	});
 
 	// ============================================================
-	// 3-4. 一括追加 → 取込済 Badge → 重複時スキップ
+	// 3-4. marketplace 詳細 → CTA click → admin/checklists?import= redirect →
+	//      ChildSelectionDialog auto-open → 全員選択 → 確定 → action message visible
+	//      (goal 完遂貫通検証、dead-end なら必ず fail)
 	// ============================================================
-	test('admin/checklists から event-pool を一括追加 → 取込済 Badge + ボタン disabled', async ({
+	test('marketplace → admin/checklists 取込貫通 → 成功 action message visible (goal 完遂)', async ({
 		page,
 	}) => {
 		test.slow();
-		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
+		// Step 1: marketplace 詳細から CTA click → admin/checklists?import=event-pool redirect
+		await page.goto('/marketplace/checklist/event-pool', { waitUntil: 'domcontentloaded' });
+		const cta = page.getByTestId('checklist-import-submit');
+		await expect(cta).toBeVisible({ timeout: 30_000 });
 
-		const importBtn = page.getByTestId('marketplace-preset-import-event-pool');
-		await expect(importBtn).toBeVisible();
+		await Promise.all([
+			page.waitForURL(/\/admin\/checklists\?import=event-pool/, { timeout: 30_000 }),
+			cta.click(),
+		]);
 
-		// 既に取込済の可能性がある場合は (alreadyImported badge) skip
-		const alreadyImported = page.getByTestId('marketplace-preset-imported-event-pool');
-		const wasAlreadyImported = (await alreadyImported.count()) > 0;
+		// Step 2: ChildSelectionDialog auto-open
+		const dialog = page.getByTestId('checklist-import-child-selection-dialog');
+		await expect(dialog).toBeVisible({ timeout: 30_000 });
 
-		if (wasAlreadyImported) {
-			// 既に取込済 → ボタンが disabled かつ Badge が visible
-			await expect(alreadyImported).toBeVisible();
-			await expect(importBtn).toBeDisabled();
-			return;
-		}
+		// Step 3: default = 全員選択 → confirm → importPresetToChildren network 発火
+		const confirm = page.getByTestId('child-selection-confirm');
+		await expect(confirm).toBeEnabled();
 
-		// 取込前: ボタンが enabled
-		await expect(importBtn).toBeEnabled();
+		const [resp] = await Promise.all([
+			page.waitForResponse((r) => /\?\/importPresetToChildren/.test(r.url())),
+			confirm.click(),
+		]);
+		expect(
+			resp.ok(),
+			`importPresetToChildren response not OK (status ${resp.status()})`,
+		).toBeTruthy();
 
-		// 一括追加 button を押下
-		await importBtn.click();
-
-		// Action + invalidateAll() 完了後、取込済 Badge が表示されボタンが disabled になる
-		// (form prop は invalidate で消える可能性があるため、永続的な state 変化のみ assert)
-		await expect(page.getByTestId('marketplace-preset-imported-event-pool')).toBeVisible({
-			timeout: 30_000,
-		});
-		await expect(page.getByTestId('marketplace-preset-import-event-pool')).toBeDisabled();
+		// Step 4: 成功 / 重複 action message が visible (永続反映、dead-end なら fail)
+		const actionMessage = page.getByTestId('checklists-action-message');
+		await expect(actionMessage).toBeVisible({ timeout: 30_000 });
+		await expect(actionMessage).toContainText(/取込み|取込済|配信/);
 	});
 
-	test('admin/checklists で同 preset を再度押下しても重複扱い (alreadyImported)', async ({
-		page,
-	}) => {
+	test('admin/checklists で同 preset を再度取込 → 重複扱い (alreadyImported)', async ({ page }) => {
 		test.slow();
-		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
+		// Step 1: 1 回目取込 (event-school-start 経由)
+		await page.goto('/marketplace/checklist/event-school-start', { waitUntil: 'domcontentloaded' });
+		const cta1 = page.getByTestId('checklist-import-submit');
+		await expect(cta1).toBeVisible({ timeout: 30_000 });
+		await Promise.all([
+			page.waitForURL(/\/admin\/checklists\?import=event-school-start/, { timeout: 30_000 }),
+			cta1.click(),
+		]);
 
-		// event-school-start を 2 回 import 試行
-		const importBtn = page.getByTestId('marketplace-preset-import-event-school-start');
-		await expect(importBtn).toBeVisible();
+		const dialog1 = page.getByTestId('checklist-import-child-selection-dialog');
+		await expect(dialog1).toBeVisible({ timeout: 30_000 });
+		const confirm1 = page.getByTestId('child-selection-confirm');
+		await expect(confirm1).toBeEnabled();
+		const [resp1] = await Promise.all([
+			page.waitForResponse((r) => /\?\/importPresetToChildren/.test(r.url())),
+			confirm1.click(),
+		]);
+		expect(resp1.ok()).toBeTruthy();
 
-		// 既に取込済なら disabled、その場合は POST が走らないため UI のみ確認
-		if (await importBtn.isDisabled().catch(() => false)) {
-			await expect(
-				page.getByTestId('marketplace-preset-imported-event-school-start'),
-			).toBeVisible();
-			return;
-		}
+		const msg1 = page.getByTestId('checklists-action-message');
+		await expect(msg1).toBeVisible({ timeout: 30_000 });
 
-		// 1 回目 import → 永続的な state 変化 (Badge + disabled) を assert
-		await importBtn.click();
-		await expect(page.getByTestId('marketplace-preset-imported-event-school-start')).toBeVisible({
-			timeout: 30_000,
-		});
-		await expect(page.getByTestId('marketplace-preset-import-event-school-start')).toBeDisabled();
+		// Step 2: 2 回目取込 (重複) → action message に「取込済」相当が表示される
+		await page.goto('/marketplace/checklist/event-school-start', { waitUntil: 'domcontentloaded' });
+		const cta2 = page.getByTestId('checklist-import-submit');
+		await expect(cta2).toBeVisible({ timeout: 30_000 });
+		await Promise.all([
+			page.waitForURL(/\/admin\/checklists\?import=event-school-start/, { timeout: 30_000 }),
+			cta2.click(),
+		]);
 
-		// reload しても重複扱い (state 永続性確認)
-		await page.reload({ waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
-		await expect(page.getByTestId('marketplace-preset-imported-event-school-start')).toBeVisible({
-			timeout: 30_000,
-		});
-		await expect(page.getByTestId('marketplace-preset-import-event-school-start')).toBeDisabled();
+		const dialog2 = page.getByTestId('checklist-import-child-selection-dialog');
+		await expect(dialog2).toBeVisible({ timeout: 30_000 });
+		const confirm2 = page.getByTestId('child-selection-confirm');
+		await expect(confirm2).toBeEnabled();
+		const [resp2] = await Promise.all([
+			page.waitForResponse((r) => /\?\/importPresetToChildren/.test(r.url())),
+			confirm2.click(),
+		]);
+		expect(resp2.ok()).toBeTruthy();
+
+		// 重複扱い (`importToastDuplicate` / 「取込済」表記、imported === 0) も成功 path として 200
+		// 返るため、action message の verify で「取込済」 or 「取込み...配信」のいずれかを assert。
+		const msg2 = page.getByTestId('checklists-action-message');
+		await expect(msg2).toBeVisible({ timeout: 30_000 });
+		await expect(msg2).toContainText(/取込み|取込済|配信/);
 	});
 });

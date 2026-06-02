@@ -1,8 +1,11 @@
 // /admin/rewards — ごほうび管理 (#336, #501, #581 プリセット追加, #728 プランゲート, #787 PlanLimitError 統一, #1337 申請タブ追加, #2136 MP-1 マーケットプレイス一括追加, #2268 CRUD 整備 + 命名訂正 + 検索 + grant→add リネーム + 申請タブ削除)
 
 import { fail } from '@sveltejs/kit';
-import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
-import { PRESET_REWARD_GROUPS } from '$lib/data/preset-rewards';
+import { getMarketplaceItem } from '$lib/data/marketplace';
+// #2558 段階2 横展開: admin 内 marketplace 風 in-page browse UI を撤去し
+// `/marketplace?type=reward-set` への画面遷移に統一 (DESIGN.md §10 構造的ルール
+// 「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI 二重管理禁止」)。
+// 旧 `PRESET_REWARD_GROUPS` の in-page render は撤去済 (本 file の load 出力からも削除)。
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
@@ -80,27 +83,18 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		status: 'pending_parent_approval',
 	});
 
-	// #2136 MP-1: マーケットプレイス reward-set 一覧（preview 用）
-	const rewardSetMetas = getMarketplaceIndex().filter((m) => m.type === 'reward-set');
-	const rewardSets = rewardSetMetas.map((m) => ({
-		itemId: m.itemId,
-		name: m.name,
-		description: m.description,
-		icon: m.icon,
-		targetAgeMin: m.targetAgeMin,
-		targetAgeMax: m.targetAgeMax,
-		itemCount: m.itemCount,
-	}));
+	// #2558 段階2 横展開: 旧 in-page marketplace browse UI で参照していた `rewardSets` /
+	// `presetGroups` は、marketplace への画面遷移統一に伴い load 出力から削除。
+	// 取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open
+	// の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
 
 	return {
 		children: childrenWithRewards,
 		childRewardsByChild,
 		templates,
-		presetGroups: PRESET_REWARD_GROUPS,
 		isPremium,
 		planTier: tier,
 		pendingRequestsCount: pendingRequests.length,
-		rewardSets,
 		importPresetId,
 		importPresetInvalid,
 		initialChildId,

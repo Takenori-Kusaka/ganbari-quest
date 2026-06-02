@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
 import { createPlanLimitError } from '$lib/domain/errors';
@@ -90,20 +90,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// #723: UI 側で「残り何個作れるか」を表示するための上限情報
 	const checklistTemplateMax = getPlanLimits(tier).maxChecklistTemplates;
 
-	// #2137 (MP-2): マーケットプレイス checklist preset (event-* 3 件) を一覧化
-	// childrenWithChecklists.sourcePresetId と突き合わせて「取込済」判定を UI で行う
-	const marketplaceChecklists = getMarketplaceIndex()
-		.filter((m) => m.type === 'checklist')
-		.map((m) => ({
-			itemId: m.itemId,
-			name: m.name,
-			description: m.description,
-			icon: m.icon,
-			targetAgeMin: m.targetAgeMin,
-			targetAgeMax: m.targetAgeMax,
-			tags: m.tags,
-			itemCount: m.itemCount,
-		}));
+	// #2558 段階2 横展開: admin 内 marketplace 風 browse UI を撤去し
+	// `/marketplace?type=checklist` へ画面遷移する方式に統一 (DESIGN.md §10 構造的ルール
+	// 「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI 二重管理禁止」)。
+	// 旧 marketplaceChecklists (UnifiedImportHub feed) は本 page で未参照になったため load 出力から削除。
+	// 取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open
+	// の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
 
 	// #2362 PR-5 Phase 2: `?import=<presetId>` query で ChecklistDistributionDialog auto-open
 	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
@@ -119,7 +111,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		today,
 		isPremium,
 		checklistTemplateMax,
-		marketplaceChecklists,
 		importPresetId,
 		importPresetInvalid,
 	};

@@ -18,7 +18,7 @@ import {
 	PAGE_TITLES,
 	REWARDS_LABELS,
 } from '$lib/domain/labels';
-import { CHILD_TERMS } from '$lib/domain/terms';
+import { CHILD_TERMS, TEMPLATE_TERMS } from '$lib/domain/terms';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -106,7 +106,6 @@ let customPoints = $state(100);
 let customIcon = $state('🎁');
 let customCategory = $state('とくべつ');
 let grantSuccess = $state(false);
-let showPresets = $state(false);
 
 function selectTemplate(tmpl: { title: string; points: number; icon?: string; category: string }) {
 	selectedTemplate = { ...tmpl, icon: tmpl.icon ?? '🎁' };
@@ -153,15 +152,9 @@ const filteredTemplates = $derived(
 		: data.templates,
 );
 const hasSearchActive = $derived(searchQuery.trim().length > 0);
-const allEmpty = $derived(
-	hasSearchActive &&
-		filteredTemplates.length === 0 &&
-		data.presetGroups.every(
-			(g) =>
-				g.rewards.filter((r) => r.title.toLowerCase().includes(searchQuery.trim().toLowerCase()))
-					.length === 0,
-		),
-);
+// #2558 段階2 横展開: 旧 in-page preset browse UI 撤去に伴い、
+// allEmpty 判定は user-created templates のみで行う。
+const allEmpty = $derived(hasSearchActive && filteredTemplates.length === 0);
 
 // #2268: overflow menu (申請承認等)
 const overflowMenuItems = $derived<MenuItem[]>([
@@ -483,55 +476,24 @@ async function handleCopyFromChild() {
 		</div>
 	</section>
 
-	<!-- Preset Catalog -->
-	<section>
-		<button
-			type="button"
-			class="text-sm font-bold text-[var(--color-text-link)] cursor-pointer bg-transparent border-none p-0 hover:underline"
-			onclick={() => { showPresets = !showPresets; }}
-		>
-			{REWARDS_LABELS.presetToggle(showPresets)}
-		</button>
+	<!--
+		#2558 段階2 横展開: 旧 Preset Catalog (admin 内 marketplace 風 in-page browse UI、
+		二重管理) を撤去し marketplace への画面遷移に統一 (DESIGN.md §10 構造的ルール
+		「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI 二重管理禁止」)。
+		取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open
+		の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
 
-		{#if showPresets}
-			<div class="mt-2 space-y-3">
-				{#each data.presetGroups as group}
-					{@const filteredRewards = hasSearchActive
-						? group.rewards.filter((r) =>
-								r.title.toLowerCase().includes(searchQuery.trim().toLowerCase()),
-							)
-						: group.rewards}
-					{#if filteredRewards.length > 0}
-						<div>
-							<p class="text-xs font-bold text-[var(--color-text-muted)] mb-1">{group.groupIcon} {group.groupName}</p>
-							<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-								{#each filteredRewards as preset}
-									<form method="POST" action="?/addPreset" use:enhance={() => {
-										return async ({ update }) => { await update(); };
-									}}>
-										<input type="hidden" name="title" value={preset.title} />
-										<input type="hidden" name="points" value={preset.points} />
-										<input type="hidden" name="icon" value={preset.icon} />
-										<input type="hidden" name="category" value={preset.category} />
-										<Button
-											type="submit"
-											variant="ghost"
-											size="sm"
-											disabled={!data.isPremium}
-											class="w-full bg-[var(--color-surface-card)] rounded-xl p-2 shadow-sm text-center hover:shadow-md flex-col h-auto"
-										>
-											<span class="text-xl block">{preset.icon}</span>
-											<p class="text-xs font-bold text-[var(--color-text-muted)] mt-0.5">{preset.title}</p>
-											<p class="text-xs text-[var(--color-point)] font-bold">{preset.points}P</p>
-										</Button>
-									</form>
-								{/each}
-							</div>
-						</div>
-					{/if}
-				{/each}
-			</div>
-		{/if}
+		secondary link「みんなのテンプレートを見る」(empty state / 運用期到達性、
+		DESIGN.md §10「bulk import bridge ルール」整合) を保持。
+	-->
+	<section data-testid="rewards-marketplace-browse-section">
+		<a
+			href="/marketplace?type=reward-set"
+			class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
+			data-testid="rewards-marketplace-browse-link"
+		>
+			📦 {TEMPLATE_TERMS.browse}
+		</a>
 	</section>
 
 	<!-- Add Form (旧: Grant Form、#2268 リネーム) -->

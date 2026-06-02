@@ -249,21 +249,21 @@ CWE-598 (Information Exposure Through Query Strings in GET Request) 整合。
 
 ---
 
-## 5. UnifiedImportHub との関係 (EPIC #2362 L2 / #2558 段階2 で admin/activities から撤去)
+## 5. UnifiedImportHub との関係 (EPIC #2362 L2 / #2558 段階2 admin/activities / 段階3 残 4 type 撤去)
 
 EPIC #2362 で実装済の `UnifiedImportHub` (#2370 / PR #2384) は **type 別の marketplace preset 一覧 (browse) + file source を埋め込む in-page hub**。
 
-### 5.1 #2558 段階2: admin/activities からは撤去 (マーケットプレイス一本化)
+### 5.1 #2558 段階2 (activities) / 段階3 (残 4 type): 全 5 type で admin 内 browse UI 撤去 (マーケットプレイス一本化完遂)
 
-顧客クレーム (bug-3「追加メニュー内に『パックから追加』という見知らぬ用語」/ bug-4「『パックから追加』がマーケットプレイスに行かず独自 UI を開く」) を受け、PO 方針「**マーケットプレイス (みんなのテンプレート) で内容確認 → インポート → 活動管理に取り込み、に一本化する。親管理画面内にマーケットプレイス風の簡易画面を出さない (二重管理)**」に従い、**admin/activities の `UnifiedImportHub` (activity-pack) 埋め込みを撤去**した。
+顧客クレーム (bug-3「追加メニュー内に『パックから追加』という見知らぬ用語」/ bug-4「『パックから追加』がマーケットプレイスに行かず独自 UI を開く」+ User 直接指摘「親管理画面で簡単なマーケットプレイス画面があるなど見た瞬間に指摘される」) を受け、PO 方針「**マーケットプレイス (みんなのテンプレート) で内容確認 → インポート → 親管理画面に取り込み、に一本化する。親管理画面内にマーケットプレイス風の簡易画面を出さない (二重管理)**」に従い、**全 admin 画面 (`activities` / `rewards` / `challenges` / `checklists` / `settings/rules`) の in-page browse UI を撤去**した (DESIGN.md §10 構造的ルール明示禁忌)。
 
-- admin/activities の「みんなのテンプレートから探す」menu 項目は `/marketplace?type=activity-pack` へ**画面遷移**する (§3.1 の正規 sequence に合流)。in-dialog の marketplace 風ブラウズ UI は出さない。
-- 旧 `UnifiedImportHub` の **file source セクション (`?/importFile` による JSON/CSV 復元)** は marketplace とは別概念のため、admin/activities では `︙` overflow menu の「バックアップから復元」項目 + 専用ダイアログとして**独立保持**した。
-- `UnifiedImportHub.svelte` component 自体は **`/admin/checklists` / `/admin/settings/rules` / `/admin/challenges` で継続使用** (これらは in-page browse UI を維持)。component は削除せず存続。
+- 各 admin 画面の「みんなのテンプレートから探す」link / menu 項目は `/marketplace?type=<typeCode>` へ**画面遷移**する (§3.1 の正規 sequence に合流)。in-page の marketplace 風ブラウズ UI は出さない。typeCode 対応: activities → `activity-pack` / rewards → `reward-set` / challenges → `challenge-set` / checklists → `checklist` / settings/rules → `rule-preset`。
+- 旧 `UnifiedImportHub` の **file source セクション (`?/importFile` による JSON/CSV 復元)** は marketplace とは別概念のため、admin/activities では `︙` overflow menu の「バックアップから復元」項目 + 専用ダイアログとして**独立保持**した (`OVERFLOW_MENU_TERMS.itemRestore` 経由)。他 admin 画面では現状 file 復元 UI を提供していない (必要に応じて follow-up Issue で同 pattern 横展開)。
+- `UnifiedImportHub.svelte` component 自体は **本 PR の admin 画面群からは参照されなくなった** が、Storybook story / unit test (`tests/unit/marketplace/ui/UnifiedImportHub.test.ts`) / 将来の用途 (LP 経由公開ブラウズ等) のため component 自体は削除せず存続させる (knip での dead-code 検出が出るか別 Issue で判断)。
 
-### 5.2 継続使用ページ (checklist / rule-preset / challenge-set)
+### 5.2 ChildSelectionDialog auto-open mechanism (5 type 共通の正規取込経路)
 
-PR-2 (Framework) で取込ダイアログコンポーネントを `src/lib/marketplace/ui/` 配下 (既存 `UnifiedImportHub.svelte` / `UnifiedEmptyState.svelte` と並ぶ) に追加し、UnifiedImportHub から呼び出す。各 strategy はダイアログ完了後に `apply()` を実行。これら family master / 他 per-child type の admin 画面では in-page browse UI を維持しており、将来 admin/activities と同様に marketplace 一本化するかは別 Issue で判断する。
+各 admin page の server load は引き続き `?import=<presetId>` (rewards / checklists / settings-rules / activities) または `?marketplace-import=<presetId>` (challenges、後方互換維持) を validation し、page svelte 側の `$effect` で `ChildSelectionDialog` を auto-open する mechanism を保持する。Marketplace 詳細 → 「取込」button → 上記 query で admin 画面に戻る → ダイアログで child binding 決定 → server action へ POST、の正規経路 (§3.1) は本 PR で**変更なし**。本 PR は in-page browse UI のみを撤去し、取込実行 path は触らない。
 
 ---
 

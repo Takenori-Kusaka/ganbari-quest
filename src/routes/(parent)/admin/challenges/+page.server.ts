@@ -6,7 +6,7 @@
 // 本 page は新 child_challenges (per-child instance) を SSOT として扱う。
 
 import { fail } from '@sveltejs/kit';
-import { getMarketplaceIndex, getMarketplaceItem } from '$lib/data/marketplace';
+import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
@@ -52,7 +52,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// 取込時 ChildSelectionDialog auto-open (#2362 PR-7, CWE-598)
 	// クエリ名は `?marketplace-import=<presetId>` (PR #2636 partial CUJ-CH2 当時から踏襲)。
 	// rewards/activities は `?import=<presetId>` のため命名は揃わないが、後方互換のため改名しない
-	// (existing CUJ-CH2 partial test + UnifiedImportHub message 表示が依存)。
+	// (existing CUJ-CH2 partial test + ChildSelectionDialog auto-open が依存)。
 	const importPresetIdRaw = url.searchParams.get('marketplace-import')?.trim() || null;
 	let marketplaceImport: {
 		presetId: string;
@@ -78,16 +78,12 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const importPresetId = marketplaceImport ? marketplaceImport.presetId : null;
 	const importPresetInvalid = Boolean(importPresetIdRaw) && !importPresetId;
 
-	const challengePresets = getMarketplaceIndex()
-		.filter((m) => m.type === 'challenge-set')
-		.map((m) => ({
-			itemId: m.itemId,
-			name: m.name,
-			icon: m.icon,
-			itemCount: m.itemCount,
-			targetAgeMin: m.targetAgeMin,
-			targetAgeMax: m.targetAgeMax,
-		}));
+	// #2558 段階2 横展開: admin 内 marketplace 風 in-page browse UI を撤去し
+	// `/marketplace?type=challenge-set` へ画面遷移する方式に統一 (DESIGN.md §10 構造的ルール
+	// 「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI 二重管理禁止」)。
+	// 旧 `challengePresets` (UnifiedImportHub feed) は本 page で未参照になったため load 出力から削除。
+	// 取込実行は marketplace 詳細 → `?marketplace-import=<presetId>` → ChildSelectionDialog
+	// auto-open の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
 
 	return {
 		challengeGroups,
@@ -95,7 +91,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		planTier,
 		familyStreak,
 		marketplaceImport,
-		challengePresets,
 		selectedChildId,
 		// #2554 follow-up CUJ-CH2: dialog auto-open trigger 用 (rewards 同型)
 		importPresetId,

@@ -8,7 +8,7 @@ import {
 	CHALLENGES_LABELS,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
-import UnifiedImportHub from '$lib/marketplace/ui/UnifiedImportHub.svelte';
+import { TEMPLATE_TERMS } from '$lib/domain/terms';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
 import SiblingChallengeComparison from '$lib/ui/features/admin/SiblingChallengeComparison.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -263,7 +263,15 @@ function tabHref(childId: number | 'all'): string {
 		</Button>
 	</div>
 
-	<!-- in-page UnifiedImportHub: marketplace 取込 → ChildSelectionDialog auto-open (PR-7 では Hub 側で対応) -->
+	<!--
+		#2558 段階2 横展開: in-page UnifiedImportHub (admin 内 marketplace 風 browse UI、二重管理)
+		を撤去 (DESIGN.md §10 構造的ルール「marketplace 取込はマーケットプレイス画面に一本化」)。
+		marketplace 詳細 → `?marketplace-import=<presetId>` → ChildSelectionDialog auto-open の
+		正規経路 (marketplace-import-flow.md §3.1) に合流させる。
+
+		marketplace 取込メッセージ + secondary link「みんなのテンプレートを見る」(empty state /
+		運用期到達性、DESIGN.md §10「bulk import bridge ルール」整合) は保持。
+	-->
 	<section data-testid="challenges-marketplace-import-section">
 		{#if marketplaceImportMessage}
 			<div
@@ -273,16 +281,13 @@ function tabHref(childId: number | 'all'): string {
 				{marketplaceImportMessage}
 			</div>
 		{/if}
-		<UnifiedImportHub
-			typeCode="challenge-set"
-			presets={{
-				'challenge-set': data.challengePresets,
-			}}
-			onimported={(msg) => {
-				marketplaceImportMessage = msg;
-				invalidateAll();
-			}}
-		/>
+		<a
+			href="/marketplace?type=challenge-set"
+			class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
+			data-testid="challenges-marketplace-browse-link"
+		>
+			📦 {TEMPLATE_TERMS.browse}
+		</a>
 	</section>
 
 	{#if form?.error}

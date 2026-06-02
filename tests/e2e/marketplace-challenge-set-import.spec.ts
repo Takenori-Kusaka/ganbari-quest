@@ -71,45 +71,60 @@ test.describe('#2297 marketplace challenge-set 一括追加', () => {
 		expect(eitherVisible).toBe(true);
 	});
 
-	test('CTA → /admin/challenges?marketplace-import=japan-annual-events 遷移 + UnifiedImportHub UI', async ({
+	test('CTA → /admin/challenges?marketplace-import=japan-annual-events → ChildSelectionDialog auto-open', async ({
 		page,
 	}) => {
-		// #2362 PR-7 (#2479): query-param dialog 経路の preview UI は撤去され
-		// in-page UnifiedImportHub に統合された (per-child 配信、CWE-598 整合)。
-		// marketplace 詳細 CTA の URL `?marketplace-import=...` は preset 識別の hint
-		// として保持され、UnifiedImportHub セクションが描画される。
+		// #2558 段階3 (PR #2773): admin/challenges 内 in-page UnifiedImportHub browse UI を撤去
+		// (DESIGN.md §10「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI
+		// 二重管理禁止」)。新 flow: `?marketplace-import=<presetId>` query → ChildSelectionDialog
+		// auto-open → 全員選択 → confirm → `?/importMarketplaceChallengeSet` action 発火。
 		const res = await page.goto('/admin/challenges?marketplace-import=japan-annual-events', {
 			waitUntil: 'domcontentloaded',
 		});
 		expect(res?.status()).toBe(200);
 
-		// UnifiedImportHub セクションが描画される (challenge-set 系統)
+		// marketplace 取込 section は visible (action message + browse link container)
 		const hubSection = page.getByTestId('challenges-marketplace-import-section');
-		await expect(hubSection).toBeVisible();
-		const hub = page.getByTestId('unified-import-hub-marketplace');
-		await expect(hub).toBeVisible();
+		await expect(hubSection).toBeVisible({ timeout: 30_000 });
 
-		// japan-annual-events preset が一覧に含まれ取込ボタン (per-preset) が表示される
-		const presetImportBtn = page.getByTestId('marketplace-preset-import-japan-annual-events');
-		await expect(presetImportBtn).toBeVisible();
+		// 旧 UnifiedImportHub UI (unified-import-hub-marketplace) は撤去済 (二重 UI 不出 trip wire、DESIGN.md §10)
+		await expect(page.getByTestId('unified-import-hub-marketplace')).toHaveCount(0);
+		// per-preset import button も撤去済
+		await expect(page.getByTestId('marketplace-preset-import-japan-annual-events')).toHaveCount(0);
+
+		// ChildSelectionDialog が auto-open (`?marketplace-import=` server load で validation 済 → effect)
+		const dialog = page.getByTestId('challenge-import-child-selection-dialog');
+		await expect(dialog, 'ChildSelectionDialog auto-open (dead-end でない前提)').toBeVisible({
+			timeout: 30_000,
+		});
+
+		// 確認ボタンが enabled (全員選択 default state) → goal 完遂 path (dead-end 無い)
+		const confirm = page.getByTestId('child-selection-confirm');
+		await expect(confirm).toBeEnabled();
 	});
 
-	test('不正な presetId でも /admin/challenges 自体は 200 で開ける (UnifiedImportHub 表示)', async ({
+	test('不正な presetId でも /admin/challenges 自体は 200 で開ける (browse link + invalid message)', async ({
 		page,
 	}) => {
-		// #2362 PR-7 (#2479): 不正 presetId は marketplaceImport=null になるが、
-		// 画面自体は UnifiedImportHub があるため 200 で表示される (旧 preview UI のみ非表示)。
+		// #2558 段階3 (PR #2773): 不正 presetId は server load で importPresetInvalid=true になり、
+		// page は 200 で表示される (in-page browse UI 撤去済、ChildSelectionDialog auto-open しない、
+		// invalid guidance message を action message に表示)。
 		const res = await page.goto('/admin/challenges?marketplace-import=nonexistent-preset', {
 			waitUntil: 'domcontentloaded',
 		});
 		expect(res?.status()).toBe(200);
 
-		// 旧 preview UI (marketplace-challenge-set-import testid) は撤去済 → 描画されない
-		const oldPreview = page.getByTestId('marketplace-challenge-set-import');
-		await expect(oldPreview).toHaveCount(0);
+		// 旧 preview UI (marketplace-challenge-set-import testid) は撤去済
+		await expect(page.getByTestId('marketplace-challenge-set-import')).toHaveCount(0);
+		// 旧 UnifiedImportHub UI も撤去済
+		await expect(page.getByTestId('unified-import-hub-marketplace')).toHaveCount(0);
 
-		// UnifiedImportHub は描画される
+		// 新 marketplace 取込 section は描画される (action message + browse link container)
 		const hubSection = page.getByTestId('challenges-marketplace-import-section');
-		await expect(hubSection).toBeVisible();
+		await expect(hubSection).toBeVisible({ timeout: 30_000 });
+
+		// ChildSelectionDialog は auto-open しない (invalid preset の場合)
+		const dialog = page.getByTestId('challenge-import-child-selection-dialog');
+		await expect(dialog).toBeHidden({ timeout: 5_000 });
 	});
 });
