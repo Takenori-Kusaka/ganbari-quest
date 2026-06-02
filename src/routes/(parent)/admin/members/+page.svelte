@@ -293,8 +293,8 @@ const roleLabel = (role: string) => {
 						bind:value={inviteRole}
 						onchange={() => { inviteChildId = undefined; }}
 						options={[
-							{ value: 'parent', label: '保護者' },
-							{ value: 'child', label: 'こども' },
+							{ value: 'parent', label: MEMBERS_LABELS.roleParent },
+							{ value: 'child', label: MEMBERS_LABELS.roleChild },
 						]}
 					/>
 				{/snippet}
