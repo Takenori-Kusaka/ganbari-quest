@@ -376,26 +376,20 @@ function deselectAllActivities() {
 			data-testid="marketplace-detail-cta"
 		>
 			{#if isRewardSet && data.isAuthenticated && data.children.length > 0}
-				<!-- #2362 PR-4 (ADR-0055 / CWE-598): child 選択 UI を marketplace 側から削除。
-				     「取込」 button のみ表示し、押下後は admin/rewards へ `?import=<itemId>`
-				     遷移、admin 側で ChildSelectionDialog auto-open する。
-				     URL/body どこにも childId / nickname を露出しない。 -->
-				<form
-					method="POST"
-					action="?/importRewardSet"
-					use:enhance
-					data-testid="reward-import-form"
+				<!-- #2774 (Issue #2774 / User 指摘 #2 #4): 5 type 取込 CTA 統一 — `<a>` 形式 +
+				     `?import=` query 一本化。reward-set は admin/rewards 側で
+				     ChildSelectionDialog auto-open する mechanism が既存 (#2362 PR-4)、
+				     marketplace 側は <a href> 1 行に簡素化。CWE-598 整合維持
+				     (URL/body どこにも childId / nickname を露出しない)。 -->
+				<a
+					href="/admin/rewards?import={item.itemId}"
+					class="block"
+					data-testid="reward-set-import-cta"
 				>
-					<Button
-						type="submit"
-						variant="primary"
-						size="lg"
-						class="w-full"
-						data-testid="reward-import-submit"
-					>
+					<Button variant="primary" size="lg" class="w-full">
 						{MARKETPLACE_LABELS.detailCtaImportRewardWithCount(rewardCount)}
 					</Button>
-				</form>
+				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailRewardImportPerChildHint}
 				</p>
@@ -429,30 +423,23 @@ function deselectAllActivities() {
 					{MARKETPLACE_LABELS.detailCtaImportRewardSignedOut}
 				</p>
 			{:else if isChecklist && data.isLoggedIn && data.children && data.children.length > 0}
-				<!-- #2362 PR-5 Phase 2 (ADR-0055 / CWE-598): family scope のため child 選択 UI を
-				     marketplace 側から削除。「取込」 button のみ表示し、押下後は admin/checklists へ
-				     `?import=<itemId>` 遷移、admin 側で ChecklistDistributionDialog auto-open する。
-				     URL/body どこにも childId / nickname を露出しない (PR-4 reward-set と同型)。 -->
+				<!-- #2774 (Issue #2774 / User 指摘 #2 #4): 5 type 取込 CTA 統一 — `<a>` 形式 +
+				     `?import=` query 一本化。checklist は admin/checklists 側で
+				     ChecklistDistributionDialog auto-open する mechanism が既存 (#2362 PR-5)、
+				     marketplace 側は <a href> 1 行に簡素化。CWE-598 整合維持。 -->
 				<p class="text-xs text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailCtaImportChecklistDesc}
 				</p>
 
-				<form
-					method="POST"
-					action="?/importChecklist"
-					use:enhance
-					data-testid="checklist-import-form"
+				<a
+					href="/admin/checklists?import={item.itemId}"
+					class="block"
+					data-testid="checklist-import-cta"
 				>
-					<Button
-						type="submit"
-						variant="primary"
-						size="lg"
-						class="w-full"
-						data-testid="checklist-import-submit"
-					>
+					<Button variant="primary" size="lg" class="w-full">
 						{MARKETPLACE_LABELS.detailCtaImportChecklist}
 					</Button>
-				</form>
+				</a>
 			{:else if isChecklist && data.isLoggedIn && data.children && data.children.length === 0}
 				<!-- ログイン済だが子供未登録 -->
 				<div
@@ -494,7 +481,7 @@ function deselectAllActivities() {
 					<a
 						href="/admin/settings/rules?import={item.itemId}"
 						class="block mt-3"
-						data-testid="rule-import-bonus-redirect"
+						data-testid="rule-preset-import-bonus-cta"
 					>
 						<Button variant="primary" size="lg" class="w-full">
 							{MARKETPLACE_LABELS.detailCtaImportRuleWithCount(ruleCount)}
@@ -625,7 +612,7 @@ function deselectAllActivities() {
 					{MARKETPLACE_LABELS.detailCtaImportChallengeSetDesc}
 				</p>
 				<a
-					href="/admin/challenges?marketplace-import={item.itemId}"
+					href="/admin/challenges?import={item.itemId}"
 					class="block"
 					data-testid="challenge-set-import-cta"
 				>

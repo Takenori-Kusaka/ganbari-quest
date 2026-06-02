@@ -6,7 +6,7 @@
  * 2. `?type=challenge-set` で challenge-set 系のみに絞り込まれる
  * 3. /marketplace/challenge-set/japan-annual-events 詳細ページが描画される
  * 4. 詳細ページに「使ってみる」CTA + challenge-set-preview (15 件) が表示される
- * 5. CTA をクリックすると /admin/challenges?marketplace-import=japan-annual-events に遷移する
+ * 5. CTA をクリックすると /admin/challenges?import=japan-annual-events に遷移する
  * 6. /admin/challenges 側で marketplace-challenge-set-import preview UI が描画される
  * 7. 一括追加ボタン押下 → 取込結果 banner が表示される
  *
@@ -64,21 +64,21 @@ test.describe('#2297 marketplace challenge-set 一括追加', () => {
 		const cta = page.getByTestId('marketplace-detail-cta');
 		await expect(cta).toBeVisible();
 
-		// AUTH_MODE=local では認証済 → /admin/challenges?marketplace-import=... に遷移する CTA
+		// AUTH_MODE=local では認証済 → /admin/challenges?import=... に遷移する CTA
 		const importCta = page.getByTestId('challenge-set-import-cta');
 		const signupCta = page.getByTestId('challenge-set-signup-redirect');
 		const eitherVisible = (await importCta.count()) > 0 || (await signupCta.count()) > 0;
 		expect(eitherVisible).toBe(true);
 	});
 
-	test('CTA → /admin/challenges?marketplace-import=japan-annual-events → ChildSelectionDialog auto-open', async ({
+	test('CTA → /admin/challenges?import=japan-annual-events → ChildSelectionDialog auto-open', async ({
 		page,
 	}) => {
 		// #2558 段階3 (PR #2773): admin/challenges 内 in-page UnifiedImportHub browse UI を撤去
 		// (DESIGN.md §10「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI
-		// 二重管理禁止」)。新 flow: `?marketplace-import=<presetId>` query → ChildSelectionDialog
+		// 二重管理禁止」)。新 flow: `?import=<presetId>` query → ChildSelectionDialog
 		// auto-open → 全員選択 → confirm → `?/importMarketplaceChallengeSet` action 発火。
-		const res = await page.goto('/admin/challenges?marketplace-import=japan-annual-events', {
+		const res = await page.goto('/admin/challenges?import=japan-annual-events', {
 			waitUntil: 'domcontentloaded',
 		});
 		expect(res?.status()).toBe(200);
@@ -92,7 +92,7 @@ test.describe('#2297 marketplace challenge-set 一括追加', () => {
 		// per-preset import button も撤去済
 		await expect(page.getByTestId('marketplace-preset-import-japan-annual-events')).toHaveCount(0);
 
-		// ChildSelectionDialog が auto-open (`?marketplace-import=` server load で validation 済 → effect)
+		// ChildSelectionDialog が auto-open (`?import=` server load で validation 済 → effect)
 		const dialog = page.getByTestId('challenge-import-child-selection-dialog');
 		await expect(dialog, 'ChildSelectionDialog auto-open (dead-end でない前提)').toBeVisible({
 			timeout: 30_000,
@@ -109,7 +109,7 @@ test.describe('#2297 marketplace challenge-set 一括追加', () => {
 		// #2558 段階3 (PR #2773): 不正 presetId は server load で importPresetInvalid=true になり、
 		// page は 200 で表示される (in-page browse UI 撤去済、ChildSelectionDialog auto-open しない、
 		// invalid guidance message を action message に表示)。
-		const res = await page.goto('/admin/challenges?marketplace-import=nonexistent-preset', {
+		const res = await page.goto('/admin/challenges?import=nonexistent-preset', {
 			waitUntil: 'domcontentloaded',
 		});
 		expect(res?.status()).toBe(200);

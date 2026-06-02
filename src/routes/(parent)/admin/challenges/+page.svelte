@@ -40,7 +40,7 @@ const childOptions = $derived<ChildOption[]>(
 	})),
 );
 
-// `?marketplace-import=<presetId>` で auto-open (server load で validation 済)
+// #2774: `?import=<presetId>` で auto-open (server load で validation 済、5 type 統一)
 $effect(() => {
 	if (data.importPresetId && !showChildSelectionDialog) {
 		pendingImportPresetId = data.importPresetId;
@@ -114,7 +114,7 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	// URL から marketplace-import param を除去 (戻り遷移時に再 open しない、admin-rewards 同型)
 	if (typeof window !== 'undefined') {
 		const url = new URL(window.location.href);
-		url.searchParams.delete('marketplace-import');
+		url.searchParams.delete('import');
 		window.history.replaceState({}, '', url.toString());
 	}
 }
@@ -124,7 +124,7 @@ function handleChildSelectionCancel() {
 	showChildSelectionDialog = false;
 	if (typeof window !== 'undefined') {
 		const url = new URL(window.location.href);
-		url.searchParams.delete('marketplace-import');
+		url.searchParams.delete('import');
 		window.history.replaceState({}, '', url.toString());
 	}
 }
@@ -266,8 +266,8 @@ function tabHref(childId: number | 'all'): string {
 	<!--
 		#2558 段階2 横展開: in-page UnifiedImportHub (admin 内 marketplace 風 browse UI、二重管理)
 		を撤去 (DESIGN.md §10 構造的ルール「marketplace 取込はマーケットプレイス画面に一本化」)。
-		marketplace 詳細 → `?marketplace-import=<presetId>` → ChildSelectionDialog auto-open の
-		正規経路 (marketplace-import-flow.md §3.1) に合流させる。
+		marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open の
+		正規経路 (marketplace-import-flow.md §3.1、#2774 で 5 type 統一) に合流させる。
 
 		marketplace 取込メッセージ + secondary link「みんなのテンプレートを見る」(empty state /
 		運用期到達性、DESIGN.md §10「bulk import bridge ルール」整合) は保持。
@@ -487,8 +487,9 @@ function tabHref(childId: number | 'all'): string {
 
 	{/if}<!-- /isFamily -->
 
-	<!-- #2554 follow-up CUJ-CH2 完全化: ChildSelectionDialog (`?marketplace-import=<presetId>` auto-open)
-	     admin-rewards / admin-activities と同型 (ADR-0055 per-child fan-out + CWE-598 guard) -->
+	<!-- #2554 follow-up CUJ-CH2 完全化 + #2774 (5 type 統一): ChildSelectionDialog
+	     (`?import=<presetId>` auto-open) admin-rewards / admin-activities と同型
+	     (ADR-0055 per-child fan-out + CWE-598 guard) -->
 	<ChildSelectionDialog
 		bind:open={showChildSelectionDialog}
 		children={childOptions}

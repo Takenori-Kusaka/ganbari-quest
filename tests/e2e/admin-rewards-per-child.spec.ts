@@ -121,35 +121,26 @@ test.describe('marketplace reward-set: childId 排除 (#2362 PR-4 / CWE-598)', (
 		page,
 	}) => {
 		// PR-3 と同型: marketplace は child 情報を持たず admin へ遷移
+		// #2774 (5 type 統一): 旧 <form action="?/importRewardSet"> を <a href> に置換、
+		// server action 撤去 (`importRewardSet` 削除済)。CTA は `<a>` 直接 navigation。
 		await page.goto('/marketplace/reward-set/kinder-rewards');
 
-		// 取込 button (data-testid="reward-import-submit")
-		// PR #2474 must-5 (Copilot must-5 / ADR-0006): 旧版は `count===0` で return する
-		// skip-on-missing pattern (assertion 弱体化) があったが、本 spec は global-setup で
-		// 認証済 + 子供 5 件 seed 済の前提なので precondition assert に強化する。
-		const submitBtn = page.getByTestId('reward-import-submit');
+		// 取込 CTA (data-testid="reward-set-import-cta")
+		// #2774: testid 規約統一 (`<typeCode>-import-cta`)、typeCode は `reward-set`。
+		const cta = page.getByTestId('reward-set-import-cta');
 		await expect(
-			submitBtn,
-			'reward-import-submit が表示されない (認証 / 子供登録 / プラン状態を確認)',
+			cta,
+			'reward-set-import-cta が表示されない (認証 / 子供登録 / プラン状態を確認)',
 		).toBeVisible({ timeout: 10_000 });
 
-		// PR #2474 must-5 (Round 2): `use:enhance` の場合、ActionResult type='redirect' は
-		// applyAction → goto() 経由で client-side navigation する。Playwright で確実に検出する
-		// ため、playwright の `page.waitForResponse` でアクション response を待ち、その後
-		// 遷移先 URL を `expect.poll` で確認する。
-		// 注意: `waitForResponse` は 200 OK (ActionResult を JSON で body に持つ) を待つ。
-		const responsePromise = page.waitForResponse(
-			(resp) => resp.url().includes('?/importRewardSet') && resp.request().method() === 'POST',
-			{ timeout: 15_000 },
-		);
-		await submitBtn.click();
-		const response = await responsePromise;
-		expect(response.status()).toBeLessThan(400);
+		// href が `/admin/rewards?import=<itemId>` を指す (childId 露出ゼロ、CWE-598)
+		const href = await cta.getAttribute('href');
+		expect(href).toBe('/admin/rewards?import=kinder-rewards');
+		expect(href).not.toContain('childId');
 
-		// Client-side navigation の完了を URL で待つ (load event 経由しない場合もあるため poll)
-		await expect
-			.poll(() => page.url(), { timeout: 15_000 })
-			.toMatch(/\/admin\/rewards\?import=kinder-rewards/);
+		// CTA click → client-side navigation で /admin/rewards?import=... へ遷移
+		await cta.click();
+		await page.waitForURL(/\/admin\/rewards\?import=kinder-rewards/, { timeout: 15_000 });
 
 		// admin/rewards 側で ChildSelectionDialog が auto-open される
 		await expect(page.getByTestId('reward-import-child-selection-dialog')).toBeVisible({

@@ -18,38 +18,31 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('#2136 MP-1 / PR-4 (#2474): marketplace reward-set 一括追加 (新動線)', () => {
-	test('reward-set 詳細ページの一括追加 CTA は child 選択 UI を含まない (CWE-598)', async ({
-		page,
-	}) => {
+	test('reward-set 詳細ページの CTA は child 選択 UI を含まない (CWE-598)', async ({ page }) => {
 		await page.goto('/marketplace/reward-set/kinder-rewards');
 		await expect(page).toHaveURL(/\/marketplace\/reward-set\/kinder-rewards/);
 
 		// 詳細ページの header
 		await expect(page.getByRole('heading', { level: 1 })).toHaveText(/ようじごほうび/);
 
-		// 一括追加 form が visible (#2474 で簡略化: child 選択 UI なし)
-		const importForm = page.getByTestId('reward-import-form');
-		await expect(importForm).toBeVisible({ timeout: 10_000 });
+		// PR #2776 (5 type 統一): <form>+submit → <a href="/admin/rewards?import=<id>"> 形式
+		const ctaLink = page.getByTestId('reward-set-import-cta');
+		await expect(ctaLink).toBeVisible({ timeout: 10_000 });
 
-		// submit ボタンが visible
-		const submitBtn = page.getByTestId('reward-import-submit');
-		await expect(submitBtn).toBeVisible();
-
-		// PR #2474 ADR-0055 + CWE-598: child 選択 UI (NativeSelect / input) は撤去済
-		const childIdInput = page.locator(
-			'[data-testid="reward-import-form"] input[name="childId"], [data-testid="reward-import-form"] select[name="childId"]',
-		);
-		expect(await childIdInput.count()).toBe(0);
+		// CTA href が /admin/rewards?import=<itemId> 形式で childId を含まない (CWE-598)
+		const href = await ctaLink.getAttribute('href');
+		expect(href).toMatch(/\/admin\/rewards\?import=kinder-rewards/);
+		expect(href).not.toContain('childId');
 	});
 
-	test('一括追加 submit → /admin/rewards?import=<itemId> へ redirect する', async ({ page }) => {
+	test('CTA click → /admin/rewards?import=<itemId> へ navigate する', async ({ page }) => {
 		await page.goto('/marketplace/reward-set/kinder-rewards');
-		const submitBtn = page.getByTestId('reward-import-submit');
-		await expect(submitBtn).toBeVisible({ timeout: 10_000 });
+		const ctaLink = page.getByTestId('reward-set-import-cta');
+		await expect(ctaLink).toBeVisible({ timeout: 10_000 });
 
 		await Promise.all([
 			page.waitForURL(/\/admin\/rewards\?import=kinder-rewards/, { timeout: 10_000 }),
-			submitBtn.click(),
+			ctaLink.click(),
 		]);
 
 		// admin/rewards 側で URL に ?import= が設定される

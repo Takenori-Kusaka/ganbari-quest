@@ -1140,6 +1140,18 @@ Material Design 3「画面 FAB 1 個原則」+ Notion / Linear / Asana / Todoist
 - **ファイル復元 (JSON / CSV import) はマーケットプレイスとは別概念**。`UnifiedImportHub` がブラウズ UI とファイル復元を兼ねている場合、ブラウズ UI のみ撤去し、ファイル復元は独立した導線 (例: `︙` overflow menu の「バックアップから復元」+ 専用ダイアログ、`OVERFLOW_MENU_TERMS.itemRestore`) として保持する。
 - **適用範囲**: #2558 段階2 (activities) + 段階3 (rewards / challenges / checklists / settings/rules) で**全 5 type の admin 画面で in-page browse UI を撤去完了**。`UnifiedImportHub.svelte` component 自体は Storybook / unit test / 将来用途 (LP 経由公開ブラウズ等) のため存続させる。詳細は [marketplace-import-flow.md §5.1](design/marketplace-import-flow.md)。
 
+#### marketplace 取込 CTA 5 type 統一原則 (#2774、User 指摘 #2/#4 根治)
+
+marketplace 詳細 (`/marketplace/<typeCode>/<itemId>`) の認証済取込 CTA は、**全 5 type で
+`<a href="/admin/<page>?import=${itemId}">` 形式に統一**する。`<form action="?/import...">` +
+server action 経由の取込起動は不採用 (admin 画面側 `?import=` query → ChildSelectionDialog
+auto-open mechanism が既存、直 navigation で十分)。testid 命名規約は `<typeCode>-import-cta`
+(`activity-pack-import-cta` / `reward-set-import-cta` / `checklist-import-cta` /
+`rule-preset-import-bonus-cta` / `challenge-set-import-cta`) で統一する。challenges の旧
+`?marketplace-import=` query は廃止 (5 type 完全統一)。`rule-preset exchange` のみ Phase 2
+(Issue #2774 follow-up) で統一予定 (admin/rewards 側 ChildSelectionDialog 受領機構整備が必要)。
+詳細は [marketplace-import-flow.md §3.1](design/marketplace-import-flow.md)。
+
 #### bulk import bridge ルール
 
 bulk import / 一括取込機能がある場合、以下の両方を提供する:
