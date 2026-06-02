@@ -43,6 +43,14 @@ DDD Anti-Corruption Layer: Marketplace → AdminApp 遷移で Marketplace 側の
 
 「誰に追加 / 全員」のダイアログ UI は **AdminApp 側 1 箇所のみで実装** (PR-2 Framework で抽象化)。各 type の取込フロー (`activity-pack` / `reward-set` / `checklist` / `rule-preset` / `challenge-set`) は同じダイアログを呼び出す。
 
+#### 取込実行中の loading 表示 (#2632、NN/G #1 visibility of system status)
+
+`ChildSelectionDialog` の取込確定ボタンは `confirmLoading` prop で「取込実行中」を visible 表示する。各 admin 画面 (`?import=` 受領) の `handleChildSelectionConfirm` は async 取込 fetch の await 中 `isImporting=true` を set し、`confirmLoading={isImporting}` + `closeOnConfirm={false}` で dialog を渡す。これにより:
+
+- confirm ボタンが spinner + `disabled` + `aria-busy="true"` 化し「処理中である」を機械的に伝える (再クリック誤動作防止)
+- 実行中は cancel / backdrop / Esc / ✕ による close を抑止 (`closable={!confirmLoading}`)、処理完了後 (finally) に親が `open=false` する
+- 旧状態 (`Button.svelte` に `loading` prop 不在、`LoadingButton` routes import 0 件) ではクリック後 visible feedback ゼロで「動作しないインポート」と誤認される構造的 UX 欠落があった (CX-DoR #9 audit §B-1)。実体は `src/lib/ui/primitives/Button.svelte` (`loading` prop) + `ChildSelectionDialog.svelte` (`confirmLoading` prop) + 各 admin `+page.svelte` (`isImporting` state)。詳細は `docs/DESIGN.md §5`「Button の `loading` prop」参照
+
 ### 2.3 family master type の "全員" default 挙動
 
 `checklist` / `rule-preset` 等の family master type も同じダイアログを表示。ただし default 選択を「全員」に置き、ダイアログ side で 1 record 登録に集約 (per-child instance type と同じ UX、内部は 1 record で済む)。

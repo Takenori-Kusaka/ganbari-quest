@@ -5856,6 +5856,8 @@ export const UI_PRIMITIVES_LABELS = {
 	selectPlaceholder: '選択してください',
 	// Menu (#2254 / EPIC #2253)
 	menuOpenAriaLabel: 'メニューを開く',
+	// Button loading spinner (#2632 CX-DoR #9 NN/G #1、スクリーンリーダー向け)
+	loadingAriaLabel: '処理中',
 } as const;
 
 // ============================================================
@@ -5909,6 +5911,7 @@ export const CHILD_SELECTION_LABELS = {
 	dialogTitle: `${CHILD_SELECTION_TERMS.dialogTitleQuestion}${CHILD_TERMS.honorific}${CHILD_SELECTION_TERMS.dialogTitleSuffix}`,
 	allOption: `${CHILD_SELECTION_TERMS.allOptionLabel}`,
 	confirm: `${CHILD_SELECTION_TERMS.confirmLabel}`,
+	confirmLoading: `${CHILD_SELECTION_TERMS.confirmLoadingLabel}`,
 	cancel: `${CHILD_SELECTION_TERMS.cancelLabel}`,
 	listAriaLabel: `${CHILD_SELECTION_TERMS.listAriaLabel}`,
 	ageUnitSuffix: `${CHILD_SELECTION_TERMS.ageUnitSuffix}`,
@@ -7401,6 +7404,7 @@ export const STORYBOOK_LABELS = {
 		medium: '中',
 		large: '大',
 		disabled: '無効',
+		loading: '取込中',
 	},
 	loadingButton: {
 		save: '保存',

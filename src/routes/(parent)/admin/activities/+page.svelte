@@ -84,6 +84,8 @@ const perChildActivities = $derived(
 // ChildSelectionDialog state (per-child 取込時 auto-open)
 let showChildSelectionDialog = $state(false);
 let pendingImportPresetId = $state<string | null>(null);
+// #2632 CX-DoR #9 NN/G #1: 取込実行中フラグ (confirm ボタン loading 表示)
+let isImporting = $state(false);
 
 // 「他の子供から copy」dialog
 let showCopyFromChildDialog = $state(false);
@@ -268,6 +270,9 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		formData.append('selectedIndexes', data.importSelectedIndexes.join(','));
 	}
 
+	// #2632 CX-DoR #9 NN/G #1: 取込実行中は confirm ボタンを loading 表示する。
+	isImporting = true;
+
 	// #2745 fix: SvelteKit form action を fetch で叩く際は `x-sveltekit-action: true`
 	// + `accept: application/json` ヘッダー必須 (admin/rewards `importPresetToChildren`
 	// と同型)。ヘッダーなしでは ActionResult 形式が返されず `deserialize` が throw、
@@ -315,6 +320,7 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		// 「失敗した」事実を残しつつ dialog は必ず close して dead-end を回避する。
 		actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
 	} finally {
+		isImporting = false;
 		pendingImportPresetId = null;
 		showChildSelectionDialog = false;
 	}
@@ -684,6 +690,8 @@ function selectChild(childId: number) {
 		allowMultiple={true}
 		onConfirm={handleChildSelectionConfirm}
 		onCancel={handleChildSelectionCancel}
+		confirmLoading={isImporting}
+		closeOnConfirm={false}
 		testid="import-child-selection-dialog"
 	/>
 

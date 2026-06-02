@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
+import { UI_PRIMITIVES_LABELS } from '$lib/domain/labels';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success' | 'outline' | 'warning';
 type Size = 'sm' | 'md' | 'lg';
@@ -10,15 +11,24 @@ interface Props extends HTMLButtonAttributes {
 	href?: string;
 	variant?: Variant;
 	size?: Size;
+	/**
+	 * 非同期処理の実行中フラグ (#2632 CX-DoR #9 NN/G #1 visibility of system status)。
+	 * `true` で spinner 表示 + `disabled` + `aria-busy="true"` を強制し、クリック後に
+	 * 「処理中である」visible feedback を出す。再クリック誤動作も防止する。
+	 * `<button>` 描画時のみ有効（href 指定の `<a>` は navigation のため loading 非対応）。
+	 */
+	loading?: boolean;
 	children: Snippet;
 }
 
 let {
 	variant = 'primary',
 	size = 'md',
+	loading = false,
 	children,
 	class: className = '',
 	href,
+	disabled,
 	...rest
 }: Props = $props();
 
@@ -41,7 +51,7 @@ const sizeClasses: Record<Size, string> = {
 };
 
 const baseClass = $derived(
-	`tap-target inline-flex items-center justify-center font-bold transition-all ${variantClasses[variant]} ${sizeClasses[size]} ${className}`,
+	`tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed ${variantClasses[variant]} ${sizeClasses[size]} ${className}`,
 );
 </script>
 
@@ -56,8 +66,17 @@ const baseClass = $derived(
 {:else}
 <button
 	class={baseClass}
+	disabled={loading || disabled}
+	aria-busy={loading}
 	{...rest}
 >
+	{#if loading}
+		<span
+			class="inline-block w-[1em] h-[1em] border-2 border-current border-r-transparent rounded-full motion-safe:animate-spin"
+			aria-hidden="true"
+		></span>
+		<span class="sr-only">{UI_PRIMITIVES_LABELS.loadingAriaLabel}</span>
+	{/if}
 	{@render children()}
 </button>
 {/if}

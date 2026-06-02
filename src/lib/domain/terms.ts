@@ -1021,6 +1021,8 @@ export const CHILD_SELECTION_TERMS = {
 	dialogTitleQuestion: 'どの',
 	allOptionLabel: '全員に追加',
 	confirmLabel: '追加',
+	/** 取込実行中の confirm ボタン文言 (#2632 CX-DoR #9 NN/G #1 visibility) */
+	confirmLoadingLabel: '追加しています…',
 	cancelLabel: 'キャンセル',
 	listAriaLabel: 'お子さま一覧',
 	/** 年齢 suffix (UI 表示用、例: "5 歳" の "歳") */
