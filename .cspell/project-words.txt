@@ -441,3 +441,25 @@ revertable
 seti
 typeerror
 Zhnattb
+
+# ===== #2749 PII redaction Unicode bypass (Phase 7 PR-3b BLOCK V-3) =====
+# alnum = alphanumeric (regex 説明 comment 内、IDN_PATTERN docstring)
+# confusables = Unicode TR#39 confusables (homograph list 用語、HOMOGLYPH_MAP docstring)
+# Homoglyphs = visually similar characters (function 名 foldHomoglyphs / 解説 comment)
+# fullwidth = 全角 (Unicode NFKC test fixture 用語、Stripe Customer phone field)
+# NOSEP = NO SEParator (test fixture name、区切り無し card 番号 pattern test)
+# 𝐞𝐱𝐚𝐦𝐩𝐥𝐞 = Mathematical Bold "example" (Unicode bypass test fixture、AC1 NFKC 対象)
+# 𝗲𝘅𝗮𝗺𝗽𝗹𝗲 = Mathematical Sans-Serif Bold "example" (同上、Math Bold Sans variant)
+# аррӏе = Cyrillic homograph for "apple" (IDN homograph attack test fixture、xn--80ak6aa92e.com 復号形)
+# aррӏ = partial Cyrillic homograph (mixed Latin + Cyrillic prefix test、homograph fold 対象)
+alnum
+confusables
+Homoglyphs
+fullwidth
+NOSEP
+𝐞𝐱𝐚𝐦𝐩𝐥𝐞
+𝗲𝘅𝗮𝗺𝗽𝗹𝗲
+аррӏе
+aррӏ
+# xample = `xample` is the literal Latin token left over after the leading character was substituted by a full-width Latin e (U+FF45) in the fuzz fixture for PR #2770
+xample

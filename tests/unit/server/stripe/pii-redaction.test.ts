@@ -356,3 +356,52 @@ describe('redactPii — Issue #2749 performance regression (NFKC 追加後 basel
 		expect(elapsedMs).toBeLessThan(500);
 	});
 });
+
+describe('redactPii — PR #2770 Adversarial security #3: zero-width / bidi control bypass', () => {
+	it.each([
+		// zero-width space (U+200B) を email 内に挿入
+		['foo​@example.com'],
+		['fo​o@example.com'],
+		['foo@​example.com'],
+		// zero-width non-joiner (U+200C)
+		['foo‌@example.com'],
+		// zero-width joiner (U+200D)
+		['foo‍@example.com'],
+		// LRM / RLM (U+200E / U+200F)
+		['foo‎@example.com'],
+		['foo‏@example.com'],
+		// bidi formatting LRE / RLE / PDF / LRO / RLO (U+202A-U+202E)
+		['foo‪@example.com'],
+		['foo‮@example.com'],
+		// bidi isolation LRI / RLI / FSI / PDI (U+2066-U+2069)
+		['foo⁦@example.com'],
+		['foo⁩@example.com'],
+		// BOM (U+FEFF)
+		['foo﻿@example.com'],
+	])('zero-width / bidi 制御文字 %s を挟んだ email を redact する', (obfuscated) => {
+		const output = redactPii(`customer email: ${obfuscated} で課金失敗`);
+		expect(output).toContain(PII_REDACTION_MARKERS.EMAIL);
+		// 不可視文字が含んだままで `@` が残る形ではないこと
+		expect(output).not.toMatch(/[A-Za-z0-9]+@[A-Za-z0-9.]+\.[A-Za-z]{2,}/);
+	});
+
+	it('zero-width + Cyrillic homograph + 全角 の三段 bypass (本番 errMsg fuzz) を redact する', () => {
+		// fо​о@ｅxample.com — Cyrillic о + zero-width + 全角 e の組合せ
+		const input = 'customer fо​о@ｅxample.com phone +81-90​-1234-5678 declined';
+		const output = redactPii(input);
+		expect(output).toContain(PII_REDACTION_MARKERS.EMAIL);
+		// 原形 PII が残っていないこと (Cyrillic / 全角 / zero-width いずれを通っても)
+		expect(output).not.toMatch(/[A-Za-z0-9]+@[A-Za-z0-9.]+\.[A-Za-z]{2,}/);
+	});
+
+	it('正常な日本語文字列 (zero-width / bidi 含まない) は誤って redact しない (false positive 防止)', () => {
+		const input = '顧客の課金が失敗しました — Stripe error for cus_NyP8b3FwsqLpBJ';
+		const output = redactPii(input);
+		expect(output).toContain('顧客');
+		expect(output).toContain('cus_NyP8b3FwsqLpBJ');
+		expect(output).not.toContain(PII_REDACTION_MARKERS.EMAIL);
+		expect(output).not.toContain(PII_REDACTION_MARKERS.PHONE);
+		expect(output).not.toContain(PII_REDACTION_MARKERS.CARD);
+		expect(output).not.toContain(PII_REDACTION_MARKERS.IDN);
+	});
+});

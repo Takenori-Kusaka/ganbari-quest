@@ -170,8 +170,27 @@ const HOMOGLYPH_MAP: Record<string, string> = {
 };
 
 /**
+ * Issue #2749 AC1 補強 (PR #2770 Adversarial security 軸 #3 取込):
+ * 不可視 Unicode 制御文字を削除するための pattern。zero-width space / joiner /
+ * non-joiner / left-to-right mark 等の bidirectional control や BOM は、NFKC
+ * 正規化でも HOMOGLYPH_MAP fold でも削除されず、`fo<U+200B>o@example.com` 等の
+ * 形式で email pattern を bypass する経路として残る。`foldHomoglyphs` の末尾で
+ * 一括削除し、Stripe 課金 path での残 bypass を防ぐ。
+ *
+ * 対象範囲 (Unicode TR9 / TR39 — Bidirectional Algorithm + Security Mechanisms):
+ *   - U+200B-U+200F : zero-width space / joiner / non-joiner / LRM / RLM
+ *   - U+202A-U+202E : LRE / RLE / PDF / LRO / RLO (bidi formatting)
+ *   - U+2066-U+2069 : LRI / RLI / FSI / PDI (isolation formatting)
+ *   - U+FEFF       : zero-width no-break space (BOM)
+ */
+const ZERO_WIDTH_BIDI_PATTERN = /[​-‏‪-‮⁦-⁩﻿]/g;
+
+/**
  * Issue #2749 AC1: Cyrillic / Greek look-alike を Latin に variant fold する。
  * NFKC では潰せない script-level homograph に対応。
+ *
+ * PR #2770 補強: 末尾で zero-width / bidi control 文字を削除し、
+ * `fo<U+200B>o@example.com` 等の不可視文字 bypass を防ぐ (Adversarial security 軸 #3)。
  *
  * @internal — テスト時 export 用、本番は redactPii 経由でのみ呼ばれる
  */
@@ -180,7 +199,7 @@ function foldHomoglyphs(input: string): string {
 	for (const ch of input) {
 		out += HOMOGLYPH_MAP[ch] ?? ch;
 	}
-	return out;
+	return out.replace(ZERO_WIDTH_BIDI_PATTERN, '');
 }
 
 /**
