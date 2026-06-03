@@ -32,17 +32,13 @@ import { trackServerError } from '$lib/server/services/analytics-service';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
-import { assertLicenseKeyConfigured } from '$lib/server/services/license-key-service';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 
-// #806: production で AWS_LICENSE_SECRET が未設定だと署名付きキーの偽造が可能になる。
-// モジュールロード時に明示的に失敗させることで、誤デプロイを早期検知する。
-// `building` は vite build / prerender 中のみ true。ビルド時は env が無くても通す。
-// ADR-0048: AUTH_MODE=anonymous (demo Lambda) はライセンスキー機能を持たないため assert 不要
-// (AnonymousAuthProvider が licenseStatus=ACTIVE を返すスタブで、署名検証は走らない)。
-if (!building && env.AUTH_MODE !== 'anonymous') {
-	assertLicenseKeyConfigured();
-}
+// Epic #2525 Phase 7 Step 0 PR-L0 (#2806): license key 完全全廃 (#2788) の expand 起点。
+// 旧来の `assertLicenseKeyConfigured()` 起動時呼び出し (AWS_LICENSE_SECRET 未設定時に
+// production で throw) を撤去し、起動不能リスクを消滅させる (throw 源除去)。
+// license key は Stripe subscription = entitlement SSOT への移行に伴い冗長層であり、
+// 撤去で振る舞いは不変。`license-key-service.ts` の関数本体は PR-L3 の service 物理削除で除去する。
 
 /**
  * Accept ヘッダーを検査し、ブラウザ（HTML）リクエストかどうかを判定する
