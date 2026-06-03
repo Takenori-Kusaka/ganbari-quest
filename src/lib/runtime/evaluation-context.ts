@@ -2,8 +2,11 @@
  * EvaluationContext (ADR-0040 Phase 3 / #1215)
  *
  * リクエスト単位の "文脈オブジェクト"。OpenFeature の evaluation context 概念を参考に、
- * mode × user × plan × licenseKey × now を 1 つに束ねて hooks.server.ts で 1 回だけ
+ * mode × user × plan × now を 1 つに束ねて hooks.server.ts で 1 回だけ
  * 構築し、#788 の AsyncLocalStorage に注入する。
+ *
+ * #2813 (Epic #2525 Phase 7 PR-L2): license key 全廃に伴い `licenseKey` 因子を撤廃。
+ * NUC は信頼ベース (判定なし) に移行し、認可は subscription tier (plan) のみで決まる。
  *
  * 目的:
  * - P4 Policy Gate の `can(ctx, capability)` が 4 因子を個別取得する必要を無くす
@@ -39,12 +42,6 @@ export interface EvaluationPlan {
 	trialState: 'none' | 'active' | 'expired';
 }
 
-/** ライセンスキー検証結果（ADR-0026、nuc-prod モードのみ） */
-export interface EvaluationLicenseKey {
-	valid: boolean;
-	expiresAt: Date | null;
-}
-
 /**
  * リクエスト単位の文脈オブジェクト。
  *
@@ -57,8 +54,6 @@ export interface EvaluationContext {
 	user: EvaluationUser | null;
 	/** ライセンスプラン。未認証 / demo / プラン未確定のうちは null */
 	plan: EvaluationPlan | null;
-	/** NUC モードのみ ADR-0026 のライセンスキー検証結果が入る。それ以外は null */
-	licenseKey: EvaluationLicenseKey | null;
 	/** 現在時刻。テストで固定化するためのファネル */
 	now: Date;
 }
@@ -68,7 +63,6 @@ export interface BuildEvaluationContextInput {
 	mode: RuntimeMode;
 	user?: EvaluationUser | null;
 	plan?: EvaluationPlan | null;
-	licenseKey?: EvaluationLicenseKey | null;
 	/** 省略時は `new Date()`。テスト時は固定化したい日時を渡す */
 	now?: Date;
 }
@@ -84,7 +78,6 @@ export function buildEvaluationContext(input: BuildEvaluationContextInput): Eval
 		mode: input.mode,
 		user: input.user ?? null,
 		plan: input.plan ?? null,
-		licenseKey: input.licenseKey ?? null,
 		now: input.now ?? new Date(),
 	};
 }

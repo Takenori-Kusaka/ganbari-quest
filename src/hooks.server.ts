@@ -10,7 +10,7 @@ import { buildEvaluationContext, setEvaluationContext } from '$lib/runtime/evalu
 import { type RuntimeMode, resolveRuntimeMode } from '$lib/runtime/runtime-mode';
 import { getAuthMode, getAuthProvider } from '$lib/server/auth/factory';
 import { getOrInitDb } from '$lib/server/db/client';
-import { applyDebugPlanOverride, getDebugLicenseKeyOverride } from '$lib/server/debug-plan';
+import { applyDebugPlanOverride } from '$lib/server/debug-plan';
 import {
 	buildDemoNoopResponseBody,
 	DEMO_WRITE_ALLOWLIST,
@@ -89,7 +89,7 @@ const COGNITO_DEV_MODE = process.env.COGNITO_DEV_MODE === 'true';
  * ADR-0040 P4 (#1217): Policy Gate `can(ctx, 'write.db')` 経由で "demo 書き込み no-op"
  * を判定する参考実装。hooks main handler の cognitive complexity を上げないために、
  * 判定をここへ切り出している。true を返したら呼び側で 200 `{ ok: true, demo: true }`
- * を返す。他の write 拒否理由 (build-time-readonly / license-key-invalid) は
+ * を返す。他の write 拒否理由 (build-time-readonly) は
  * 本ブロックではなく P4.1 以降で個別ガードに置き換える想定。
  */
 function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): boolean {
@@ -99,22 +99,6 @@ function shouldReturnDemoNoop(method: string, path: string, mode: RuntimeMode): 
 	return (
 		!DEMO_WRITE_ALLOWLIST.some((prefix) => path.startsWith(prefix)) && !path.startsWith('/_app/')
 	);
-}
-
-/**
- * ADR-0040 P5 (#1221): EvaluationContext ビルダのラッパー。
- *
- * nuc-prod モードで `DEBUG_LICENSE_KEY_VALID` env が立っていれば licenseKey を注入する。
- * Playwright matrix (`playwright.matrix.config.ts`) で license valid/invalid を
- * 切り替えるための dev-only フック。本番ビルドでは `getDebugLicenseKeyOverride()` が
- * 常に null を返すため常に従来通りの動作になる。
- */
-function resolveEvaluationContextForRequest(mode: RuntimeMode) {
-	const debugLicense = mode === 'nuc-prod' ? getDebugLicenseKeyOverride() : null;
-	return buildEvaluationContext({
-		mode,
-		licenseKey: debugLicense ? { valid: debugLicense.valid, expiresAt: null } : null,
-	});
 }
 
 // Initialize analytics providers (lazy, environment-variable gated)
@@ -308,8 +292,7 @@ export const handle: Handle = ({ event, resolve }) =>
 		//
 		// ADR-0040 P4 (#1217): 判定は `shouldReturnDemoNoop` に切り出し Policy Gate
 		// `can(ctx, 'write.db')` 経由で評価する。`demo-readonly` 理由のみ no-op にし、
-		// 他の write 拒否理由 (build-time-readonly / license-key-invalid) は P4.1 以降
-		// で個別ガードに置き換える。
+		// 他の write 拒否理由 (build-time-readonly) は P4.1 以降で個別ガードに置き換える。
 		if (shouldReturnDemoNoop(event.request.method, path, event.locals.runtimeMode)) {
 			logger.info(`Demo write no-op: ${event.request.method} ${path}`, {
 				requestId: event.locals.requestId,
@@ -383,10 +366,12 @@ export const handle: Handle = ({ event, resolve }) =>
 		}
 
 		// ADR-0040 P3 (#1215): 認証解決完了後の EvaluationContext を注入。
-		// P3 スコープでは mode のみ真面目に投影し、user / plan / licenseKey の詳細投影は
-		// P4 で capability 判定が必要になった時点で追加する（resolvePlanTier の I/O を
-		// hooks で先取りしないため）。既存の event.locals.* は互換のため変更しない。
-		setEvaluationContext(resolveEvaluationContextForRequest(event.locals.runtimeMode));
+		// P3 スコープでは mode のみ真面目に投影し、user / plan の詳細投影は P4 で
+		// capability 判定が必要になった時点で追加する（resolvePlanTier の I/O を hooks で
+		// 先取りしないため）。既存の event.locals.* は互換のため変更しない。
+		// #2813 (Phase 7 PR-L2): license key 全廃により licenseKey 注入経路を撤廃。
+		// NUC は信頼ベースで mode のみから write 可否が決まる (capabilities.ts canWriteDb)。
+		setEvaluationContext(buildEvaluationContext({ mode: event.locals.runtimeMode }));
 
 		// 2) ルート保護
 

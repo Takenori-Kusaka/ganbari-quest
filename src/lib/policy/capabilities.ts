@@ -29,9 +29,12 @@ import { error } from '@sveltejs/kit';
 import type { EvaluationContext } from '$lib/runtime/evaluation-context';
 
 /**
- * 代表 10 capability。ADR-0040 Epic (#1202) §P4 に従う。
+ * capability 一覧。ADR-0040 Epic (#1202) §P4 に従う。
  *
  * 増減する場合は ADR-0040 §第 3 層 の code example も同期更新すること。
+ *
+ * #2813 (Epic #2525 Phase 7 PR-L2): `redeem.license_key` を撤廃。license key 全廃に伴い
+ * NUC の正規性判定機構を削除し、信頼ベースに移行した (phase1-nuc FR-3 / ADR-0051)。
  */
 export type Capability =
 	| 'record.activity'
@@ -42,8 +45,7 @@ export type Capability =
 	| 'write.db'
 	| 'debug.plan_override'
 	| 'view.ops_license_dashboard'
-	| 'manage.child_profile'
-	| 'redeem.license_key';
+	| 'manage.child_profile';
 
 /**
  * Deny の理由。UI では i18n キーにマップして表示する想定（直接露出はしない）。
@@ -54,7 +56,6 @@ export type DenyReason =
 	| 'unauthenticated' // user=null
 	| 'role-insufficient' // role が要件を満たさない (owner/parent/child)
 	| 'plan-tier-insufficient' // プランティアが要件を満たさない
-	| 'license-key-invalid' // NUC モードでライセンスキー invalid
 	| 'mode-mismatch' // capability が別モード専用
 	| 'dev-only' // local-debug 専用
 	| 'ops-only'; // Cognito groups に 'ops' が必要
@@ -74,7 +75,10 @@ const deny = (reason: DenyReason): PolicyResult => ({ allowed: false, reason });
 function canWriteDb(ctx: EvaluationContext): PolicyResult {
 	if (ctx.mode === 'demo') return deny('demo-readonly');
 	if (ctx.mode === 'build') return deny('build-time-readonly');
-	if (ctx.mode === 'nuc-prod' && !ctx.licenseKey?.valid) return deny('license-key-invalid');
+	// #2813 (Epic #2525 Phase 7 PR-L2): license key 全廃に伴い nuc-prod の
+	// `!licenseKey.valid` deny を撤廃。NUC は信頼ベース (判定なし) で常時 write 可能
+	// (phase1-nuc FR-2 / US-N3、配布物自体が正規の証跡)。これにより NUC が license key
+	// 不在で記録不能になる経路を完全に除去した。
 	return ALLOW;
 }
 
@@ -122,13 +126,6 @@ const evaluators: Record<Capability, CapabilityEvaluator> = {
 		if (!ctx.user) return deny('unauthenticated');
 		if (ctx.user.role === 'child') return deny('role-insufficient');
 		return canWriteDb(ctx);
-	},
-
-	'redeem.license_key': (ctx) => {
-		if (ctx.mode !== 'nuc-prod') return deny('mode-mismatch');
-		if (!ctx.user) return deny('unauthenticated');
-		if (ctx.user.role !== 'owner') return deny('role-insufficient');
-		return ALLOW;
 	},
 };
 

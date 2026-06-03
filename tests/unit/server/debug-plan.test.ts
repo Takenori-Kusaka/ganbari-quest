@@ -14,7 +14,6 @@ vi.mock('$app/environment', () => ({
 import type { AuthContext } from '$lib/server/auth/types';
 import {
 	applyDebugPlanOverride,
-	getDebugLicenseKeyOverride,
 	getDebugPlanOverride,
 	getDebugPlanSummary,
 	getDebugTrialOverride,
@@ -30,7 +29,6 @@ describe('debug-plan', () => {
 		delete process.env.DEBUG_PLAN;
 		delete process.env.DEBUG_TRIAL;
 		delete process.env.DEBUG_TRIAL_TIER;
-		delete process.env.DEBUG_LICENSE_KEY_VALID;
 	});
 
 	afterEach(() => {
@@ -163,40 +161,8 @@ describe('debug-plan', () => {
 		});
 	});
 
-	describe('getDebugLicenseKeyOverride (ADR-0040 P5 / #1221)', () => {
-		it('dev=false なら常に null（本番セーフガード）', () => {
-			devState.dev = false;
-			process.env.DEBUG_LICENSE_KEY_VALID = 'true';
-			expect(getDebugLicenseKeyOverride()).toBeNull();
-		});
-
-		it('env 未設定なら null', () => {
-			expect(getDebugLicenseKeyOverride()).toBeNull();
-		});
-
-		it('DEBUG_LICENSE_KEY_VALID=true → { valid: true }', () => {
-			process.env.DEBUG_LICENSE_KEY_VALID = 'true';
-			expect(getDebugLicenseKeyOverride()).toEqual({ valid: true });
-		});
-
-		it('DEBUG_LICENSE_KEY_VALID=false → { valid: false }', () => {
-			process.env.DEBUG_LICENSE_KEY_VALID = 'false';
-			expect(getDebugLicenseKeyOverride()).toEqual({ valid: false });
-		});
-
-		it('大文字小文字混在も許容', () => {
-			process.env.DEBUG_LICENSE_KEY_VALID = ' TRUE ';
-			expect(getDebugLicenseKeyOverride()).toEqual({ valid: true });
-		});
-
-		it('無効値は null を返して警告', () => {
-			const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-			process.env.DEBUG_LICENSE_KEY_VALID = 'yes';
-			expect(getDebugLicenseKeyOverride()).toBeNull();
-			expect(warn).toHaveBeenCalled();
-			warn.mockRestore();
-		});
-	});
+	// #2813 (Epic #2525 Phase 7 PR-L2): `getDebugLicenseKeyOverride` / `DEBUG_LICENSE_KEY_VALID`
+	// は license key 全廃に伴い撤廃済。`DEBUG_PLAN` (subscription tier 切替) / `DEBUG_TRIAL` は維持。
 
 	describe('isDebugPlanActive / getDebugPlanSummary', () => {
 		it('env 未設定 → false / null', () => {
@@ -221,12 +187,6 @@ describe('debug-plan', () => {
 			process.env.DEBUG_PLAN = 'standard';
 			process.env.DEBUG_TRIAL = 'expired';
 			expect(getDebugPlanSummary()).toBe('plan=standard trial=expired');
-		});
-
-		it('DEBUG_LICENSE_KEY_VALID も summary に含まれる', () => {
-			process.env.DEBUG_LICENSE_KEY_VALID = 'false';
-			expect(isDebugPlanActive()).toBe(true);
-			expect(getDebugPlanSummary()).toBe('license=false');
 		});
 
 		it('dev=false では summary も null', () => {

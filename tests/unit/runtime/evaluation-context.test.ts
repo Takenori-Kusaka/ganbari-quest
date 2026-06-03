@@ -17,8 +17,9 @@ describe('runtime/evaluation-context buildEvaluationContext (ADR-0040 P3 / #1215
 		expect(ctx.mode).toBe('local-debug');
 		expect(ctx.user).toBeNull();
 		expect(ctx.plan).toBeNull();
-		expect(ctx.licenseKey).toBeNull();
 		expect(ctx.now).toBeInstanceOf(Date);
+		// #2813 (Phase 7 PR-L2): licenseKey 因子は撤廃済。context に残っていないことを保証する。
+		expect('licenseKey' in ctx).toBe(false);
 	});
 
 	it('returns the exact provided values (pure builder)', () => {
@@ -29,13 +30,11 @@ describe('runtime/evaluation-context buildEvaluationContext (ADR-0040 P3 / #1215
 			mode: 'aws-prod',
 			user,
 			plan,
-			licenseKey: { valid: true, expiresAt: new Date('2027-01-01Z') },
 			now,
 		});
 		expect(ctx.mode).toBe('aws-prod');
 		expect(ctx.user).toEqual(user);
 		expect(ctx.plan).toEqual(plan);
-		expect(ctx.licenseKey).toEqual({ valid: true, expiresAt: new Date('2027-01-01Z') });
 		expect(ctx.now).toBe(now);
 	});
 
@@ -101,19 +100,11 @@ describe('runtime/evaluation-context buildEvaluationContext (ADR-0040 P3 / #1215
 		}
 	});
 
-	it('accepts licenseKey with valid=true/false and expiresAt', () => {
-		const expires = new Date('2030-01-01Z');
-		const ctxValid = buildEvaluationContext({
-			mode: 'nuc-prod',
-			licenseKey: { valid: true, expiresAt: expires },
-		});
-		expect(ctxValid.licenseKey).toEqual({ valid: true, expiresAt: expires });
-
-		const ctxInvalid = buildEvaluationContext({
-			mode: 'nuc-prod',
-			licenseKey: { valid: false, expiresAt: null },
-		});
-		expect(ctxInvalid.licenseKey).toEqual({ valid: false, expiresAt: null });
+	it('nuc-prod context は licenseKey 因子を持たない (#2813 license key 全廃)', () => {
+		// NUC は信頼ベースに移行し、認可は mode + plan のみで決まる。
+		const ctx = buildEvaluationContext({ mode: 'nuc-prod' });
+		expect(ctx.mode).toBe('nuc-prod');
+		expect('licenseKey' in ctx).toBe(false);
 	});
 
 	it('now defaults to a fresh Date, but can be injected for test stabilization', () => {
@@ -143,7 +134,6 @@ describe('runtime/evaluation-context AsyncLocalStorage integration', () => {
 			mode: 'nuc-prod',
 			user: { id: 'u-1', role: 'owner', groups: [] },
 			plan: { tier: 'family', status: 'active', trialState: 'none' },
-			licenseKey: { valid: true, expiresAt: new Date('2030-12-31Z') },
 			now: new Date('2026-04-19T00:00:00Z'),
 		});
 

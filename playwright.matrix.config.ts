@@ -1,21 +1,26 @@
 /**
  * ADR-0040 P5 (#1221): mode × plan マトリクス専用 Playwright config。
  *
- * 5 つの実行モード × プラン / ライセンス状態の組合せで smoke test を走らせ、
+ * 4 つの実行モード × プラン状態の組合せで smoke test を走らせ、
  * 3 層アーキテクチャ（env.ts → evaluation-context.ts → capabilities.ts）が
  * 境界条件で破綻しないことを機械検証する。
+ *
+ * #2813 (Epic #2525 Phase 7 PR-L2): license key 全廃に伴い nuc-prod の
+ * license valid/invalid 2 project を「nuc-prod 信頼ベース write 可能」1 project に統合。
+ * NUC は `DEBUG_LICENSE_KEY_VALID` env 無しで常に write 可能であることを smoke で担保する
+ * (phase1-nuc FR-2 / US-N3 = license key 撤廃で NUC が記録不能にならない保証)。
  *
  * ## 使い方
  *
  * ```bash
  * npm run test:e2e:matrix
  * # または単一 project のみ:
- * npx playwright test --config playwright.matrix.config.ts --project=nuc-prod-license-expired
+ * npx playwright test --config playwright.matrix.config.ts --project=nuc-prod-trust-based
  * ```
  *
  * ## 注意
  *
- * - 5 つの dev server を port 5201-5205 で同時起動するため、起動に 30-60 秒程度かかる
+ * - 4 つの dev server を port 5201-5204 で同時起動するため、起動に 30-60 秒程度かかる
  * - デフォルト CI には含めない（追加時は e2e-test ジョブのタイムアウトを要確認）
  * - DEBUG_* env の上書きは `dev === true` でのみ効く（ADR-0029 safety）
  */
@@ -50,16 +55,10 @@ const SCENARIOS: readonly Scenario[] = [
 		description: 'mode=aws-prod × trial=expired → upgrade CTA 表示',
 	},
 	{
-		project: 'nuc-prod-license-valid',
+		project: 'nuc-prod-trust-based',
 		port: 5204,
-		env: { APP_MODE: 'nuc-prod', DEBUG_LICENSE_KEY_VALID: 'true' },
-		description: 'mode=nuc-prod × license=valid → write.db allowed',
-	},
-	{
-		project: 'nuc-prod-license-expired',
-		port: 5205,
-		env: { APP_MODE: 'nuc-prod', DEBUG_LICENSE_KEY_VALID: 'false' },
-		description: 'mode=nuc-prod × license=invalid → write.db denies with license-key-invalid',
+		env: { APP_MODE: 'nuc-prod' },
+		description: 'mode=nuc-prod → 信頼ベースで write.db 常時 allowed (license key 撤廃、#2813)',
 	},
 ] as const;
 
