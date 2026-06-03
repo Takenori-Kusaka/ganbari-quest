@@ -64,19 +64,21 @@ const baseClass = $derived(
 	{@render children()}
 </a>
 {:else}
+<!--
+	loading spinner / sr-only label と children の間に whitespace-only text node を作らない
+	ため {#if}…{/if} と {@render children()} を改行で区切らず連結する (#2632 follow / #2792)。
+	区切ると Svelte 5 が {#if} の comment anchor 直後の whitespace text node を保持し、
+	button.textContent に先頭スペースが混入する (`" とじる"`)。これにより Playwright の
+	anchored RegExp `hasText: /^とじる$/` (RegExp は trim しない) が match せず、
+	pin-activity.spec.ts の close ボタン検出が deterministic に fail していた。
+-->
 <button
 	class={baseClass}
 	disabled={loading || disabled}
 	aria-busy={loading}
 	{...rest}
->
-	{#if loading}
-		<span
+>{#if loading}<span
 			class="inline-block w-[1em] h-[1em] border-2 border-current border-r-transparent rounded-full motion-safe:animate-spin"
 			aria-hidden="true"
-		></span>
-		<span class="sr-only">{UI_PRIMITIVES_LABELS.loadingAriaLabel}</span>
-	{/if}
-	{@render children()}
-</button>
+		></span><span class="sr-only">{UI_PRIMITIVES_LABELS.loadingAriaLabel}</span>{/if}{@render children()}</button>
 {/if}
