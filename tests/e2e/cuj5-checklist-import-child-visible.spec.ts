@@ -11,11 +11,12 @@
  *
  *   本 spec は CUJ-5 (tests/CLAUDE.md §CUJ 5「チェックリスト import → child で表示」) の
  *   terminal goal を貫通する:
- *     1. admin で event-pool checklist を `?import=` auto-open ChildSelectionDialog から
+ *     1. admin で event-field-trip checklist を `?import=` auto-open ChildSelectionDialog から
  *        「全員に追加」で配信 (importPresetToChildren, childIds='all')
  *     2. /switch で elementary 子供 (けんたくん) を選択 → /checklist へ遷移
- *     3. 取込した checklist テンプレート (プールの もちもの) とその item が child 画面に visible
+ *     3. 取込した checklist テンプレート (えんそく…もちもの) とその item が child 画面に visible
  *   配信が壊れていれば child の /checklist に出ず、最終 assert が必ず fail する (dead-end 検出)。
+ *   preset 選定理由 (event-field-trip / CI dedup 回避) は下の const 定義コメント参照。
  *
  * video record (C-7):
  *   critical CUJ の顧客レビュー証跡を補完するため、本 spec のみ
@@ -37,10 +38,18 @@ import { expect, test } from '@playwright/test';
 // C-7: critical CUJ の顧客レビュー証跡。fail 時のみ video を保存 (CI 負荷を抑える)。
 test.use({ video: 'retain-on-failure' });
 
-const PRESET_ID = 'event-pool';
-const PRESET_TEMPLATE_NAME = 'プールの もちもの'; // src/lib/data/marketplace/checklists/event-pool.json
-const PRESET_FIRST_ITEM_LABEL = 'みずぎ・ラッシュガード'; // 同 preset payload.items[0].label
-// elementary 子供 (age 8、event-pool の targetAge 4-12 内)。global-setup.ts TEST_CHILDREN 参照。
+// event-field-trip を使う理由 (CI 安定化、#2544 dedup 早期 return 回避):
+//   checklist import (importPresetToChildren) は template が既存だと
+//   `imported:0 / skipped:1` で **配信せず早期 return** する
+//   (checklist-template-import-service.ts:179-185)。event-pool / event-school-start は
+//   既存 spec (marketplace-checklist-import.spec.ts) が `?import=` → 確定で template 取込
+//   するため、同 worker DB で本 spec が後続実行すると template 既存 → 配信 skip →
+//   child /checklist に出ず fail する (CI shard 1 で実証)。event-field-trip は他 spec が
+//   詳細ページ閲覧のみで import せず本 spec が唯一の取込者のため、常に新規作成 + 配信される。
+const PRESET_ID = 'event-field-trip';
+const PRESET_TEMPLATE_NAME = 'えんそく・こうがいがくしゅう もちもの'; // src/lib/data/marketplace/checklists/event-field-trip.json
+const PRESET_FIRST_ITEM_LABEL = 'おべんとう'; // 同 preset payload.items[0].label
+// elementary 子供 (age 8、event-field-trip の targetAge 4-12 内)。global-setup.ts TEST_CHILDREN 参照。
 const CHILD_NICKNAME = 'けんたくん';
 
 test.describe('CUJ-5: チェックリスト import → child で表示 (admin→child terminal verify)', () => {
@@ -48,13 +57,13 @@ test.describe('CUJ-5: チェックリスト import → child で表示 (admin→
 	test.describe.configure({ mode: 'serial' });
 	test.setTimeout(180_000); // Vite dev コールドコンパイル耐性
 
-	test('admin で event-pool を全員に配信 → 子供の /checklist に取込テンプレート + item が visible', async ({
+	test('admin で event-field-trip を全員に配信 → 子供の /checklist に取込テンプレート + item が visible', async ({
 		page,
 	}) => {
 		test.slow();
 
 		// ============================================================
-		// Step 1: admin で `?import=event-pool` → ChildSelectionDialog auto-open →
+		// Step 1: admin で `?import=event-field-trip` → ChildSelectionDialog auto-open →
 		//         「全員に追加」→ 確定 (importPresetToChildren, childIds='all')
 		// ============================================================
 		await page.goto(`/admin/checklists?import=${PRESET_ID}`, {
