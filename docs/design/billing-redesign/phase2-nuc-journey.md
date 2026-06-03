@@ -6,7 +6,7 @@
 | 親 | #2527 (Phase 2 UX) / 上位 #2525 |
 | ステータス | 既存実装前提で設計 (2026-05-28、ADR-0051 NUC-SaaS Bifurcation 整合) |
 | 対応 Phase 1 要件 | phase1-nuc-requirements.md (#2539: 完全無料 OSS / 信頼ベース DRM なし / family 固定) |
-| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。NUC 側は `NucLicensePanel` → Phase 5 design review (内部識別子 `LICENSE_KEY_STATUS` enum 等は legacy 互換のため現名維持)、`/ops/license/*` は ops internal tool で rename 対象外 |
+| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename (Phase 7 担当、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。NUC 側は `NucLicensePanel` → Phase 5 design review。**ライセンスキー全廃** ([phase1-license-key-removal-final-requirements.md](phase1-license-key-removal-final-requirements.md) §3.4/§3.8 + OQ-4 確定): `LICENSE_KEY_STATUS` / `LICENSE_PLAN` enum + `licenseKey` 列 + `LicenseRecord` table + `/ops/license/*` 発行 UI + `license-key-service.ts` は SaaS / NUC 問わず物理削除 (legacy 互換維持はしない、expand-contract §3.8)。NUC は信頼ベースで Edition flag 判定のみ、ライセンスキー判定は存在しない |
 | プラン命名 + 課金期間 | `family` → **`プレミアム`** rename / NUC は **完全無料 OSS で課金概念なし** ([phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照)。NUC では `family 相当 capability` → 表示「プレミアム相当 capability」rename、内部 `IS_NUC_DEPLOY=true` / `PLAN_LIMITS.family` 等は現名維持 |
 
 > **`premium` 階層 signal 打消** (本 PR scope、refs #2594 D-2):
@@ -14,10 +14,10 @@
 
 ## 既存実装の事実
 
-- ADR-0051 NUC-SaaS Bifurcation: NUC は Edition badge + 簡略表示型、license/billing 領域は SaaS と分岐
+- ADR-0051 NUC-SaaS Bifurcation: NUC は Edition badge + 簡略表示型、billing 領域は SaaS と分岐
 - `IS_NUC_DEPLOY` edition flag で実行モード判別 (既存)
 - NUC は OSS (セルフホスト)、DRM なし (信頼ベース)、機能上は family 相当
-- SaaS 側のライセンスキー / Stripe / dunning / trial 等の課金機構は NUC では存在しない (badge で明示)
+- **ライセンスキー機構は SaaS / NUC 双方から全廃済** ([phase1-license-key-removal-final-requirements.md](phase1-license-key-removal-final-requirements.md) §2.1): SaaS の認可は Stripe Subscription ベース (ライセンスキーは冗長な入力経路に過ぎず除去)、NUC は信頼ベースで Edition flag のみ判定 (`nuc-prod && !licenseKey.valid` deny も撤廃)。NUC では Stripe / dunning / trial 等の課金機構も存在しない (badge で明示)
 
 ## NUC ジャーニー (保護者視点)
 

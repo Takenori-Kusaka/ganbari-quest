@@ -26,7 +26,7 @@
 | # | ステップ | 既存実装 | 親の体験 | 感情 | 谷/山 |
 |---|---|---|---|---|---|
 | 0 | LP | `site/index.html` | 価値・安全性・無料を確認 | 期待/不安 | — |
-| 1 | signup 入力 | `auth/signup/+page.svelte` (**license key 欄撤去**) | email/pw/3同意 | 不安 (3同意・越境) | — |
+| 1 | signup 入力 | `auth/signup/+page.svelte` (**ライセンスキー概念 全廃**: 旧キー入力欄は撤去済、認証/認可は Stripe Subscription + Cognito 一本化) | email/pw/3同意 | 不安 (3同意・越境) | — |
 | 2 | **Cognito sign-up 確認コード入力** (MFA でなく初回 email 所有確認) | `auth/signup` SignUp→ConfirmSignUp action | 6 桁コード受信→入力 | **苛立ち (届かない・spam) ← 谷①** | 谷① |
 | 3 | 自動ログイン → /admin + provisioning | `auth/signup/+page.server.ts:249-404` | 自動遷移 | 安堵 | — |
 | 4 | **/setup/children (必須)** | `setup/children` (年齢→UIMode 自動: 0-2=baby/3-5=preschool/6-12=elementary/13-15=junior/16-18=senior) | 子供のニックネーム+年齢 | 期待 | — |
@@ -56,11 +56,13 @@
 - 親代行 OK で軽減。「ご家族で一緒に最初の記録を」等の文言で親の負担感を下げる (Phase 3)
 - ログイン後デフォルト表示ページ選択 (既存) で「最初に誰のホームを開くか」を親が制御 → 自然な動線
 
-## 既存からの変更点 (delta、ライセンスキー撤廃 + 補強)
+## 既存からの変更点 (delta、ライセンスキー全廃 + 補強)
+
+> **ライセンスキー全廃の確定** ([phase1-license-key-removal-final-requirements.md](phase1-license-key-removal-final-requirements.md) §3 + OQ-3/OQ-4 確定 2026-06-03): signup の旧「ライセンスキー入力」は**入力欄の撤去にとどまらず、ライセンスキー概念そのものを全廃**する。SaaS の認可は `tenant.stripeSubscriptionId` + `tenant.status` から計算され (`cognito.ts` L147-152)、ライセンスキーを一切読まない。プラン状態の唯一 SSOT は Stripe Subscription であり、signup ジャーニーにライセンスキーの入力・検証・配布動線は存在しない。
 
 | # | 既存 | 要件 | 扱い |
 |---|---|---|---|
-| 1 | signup に license key 欄 | 撤去 | 変更 |
+| 1 | signup にライセンスキー入力欄 | 全廃 (入力欄撤去 + 概念消滅、Stripe Checkout 一本化) | 変更 |
 | 2 | `?plan=X` trial 自動開始 (signup) | 撤去 (任意タイミング) | 変更 (trial ジャーニー #2547 と整合) |
 | 3 | マーケットプレイス推奨自動採用 (setup/packs:120-142) | 維持・前面化 | ✅ 既存活用 (中間山の核) |
 | 4 | `default_child_id` + `selectedChildId` cookie (ログイン後遷移) | 維持・signup 直後の動線で活用 | ✅ 既存活用 (橋渡し) |

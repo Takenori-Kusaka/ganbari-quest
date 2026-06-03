@@ -8,7 +8,7 @@
 | 対応 Phase 1 要件 | phase1-plan-change-requirements.md (#2535) |
 | deep-research | Tier Change UX / proration / 超過リソース 5 パターン対比 / Win-Back (2026-05-28) |
 | Explore 照合 | 既存実装 4 点 (SaasLicensePanel / downgrade-service / resource-archive-service / DowngradeResourceSelector) (2026-05-28) |
-| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename / `SaasLicensePanel` → `SaasSubscriptionPanel` rename (Phase 7 実装予定、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では既存実装 reference (`SaasLicensePanel.svelte:165-763` 等) は現名を維持 |
+| URL/コンポーネント命名 | `/admin/license` → `/admin/subscription` rename / `SaasLicensePanel` → `SaasSubscriptionPanel` rename (Phase 7 担当、[phase1-naming-url-integrity-requirements.md](phase1-naming-url-integrity-requirements.md) 参照)。本ジャーニー内では既存実装 reference (`SaasLicensePanel.svelte:165-763` 等) は現名を維持。**注**: `SaasLicensePanel` / `/admin/license` の "license" は **プラン状態表示パネル / プラン管理 URL の旧命名**であり、**ライセンスキー概念とは無関係**。ライセンスキー機構自体は全廃済 ([phase1-license-key-removal-final-requirements.md](phase1-license-key-removal-final-requirements.md))、本ジャーニーのアップ/ダウンは Stripe Subscription (`subscriptions.update` proration) を唯一 SSOT とする |
 | プラン命名 + 課金期間 | `family` → **`プレミアム`** rename / **月額のみ (年額廃止、interval 変更 4 パターン → 2 パターンに簡素化)** (Phase 7 実装予定、[phase1-plan-naming-pricing-axis-requirements.md](phase1-plan-naming-pricing-axis-requirements.md) 参照)。本ジャーニー内では表示は新名、stateDiagram の状態名 (`free`/`standard`/`family`) は現名維持 (Phase 7 で enum rename) |
 
 > **`premium` 階層 signal 打消** (本 PR scope、refs #2594 D-2):
