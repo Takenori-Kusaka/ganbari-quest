@@ -25,7 +25,7 @@ import { describe, expect, it } from 'vitest';
 // Pre-PMF fallback に置換された 12 repo
 import * as autoChallengeRepo from '../../../src/lib/server/db/dynamodb/auto-challenge-repo';
 import * as battleRepo from '../../../src/lib/server/db/dynamodb/battle-repo';
-// #2818 (ADR-0055): child-activity-repo は本実装済のため stub fallback テスト対象外。
+// #2824 (ADR-0055): child-activity-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-child-activity-repo.test.ts (AWS SDK mock) で検証する。
 import * as cloudExportRepo from '../../../src/lib/server/db/dynamodb/cloud-export-repo';
 import * as messageRepo from '../../../src/lib/server/db/dynamodb/message-repo';
@@ -87,7 +87,7 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	// #2818 (ADR-0055): child-activity-repo は本実装済 (stub 除外)。
+	// #2824 (ADR-0055): child-activity-repo は本実装済 (stub 除外)。
 	//   marketplace per-child 取込 (importActivities → insertActivitiesBulk) が本番 DynamoDB
 	//   Lambda で永続する。本実装の機能等価性テストは dynamodb-child-activity-repo.test.ts に分離。
 	//   ここで stub 前提の assert を残すと「実装済なのに stub 期待」で誤った退行 gate になるため
@@ -262,7 +262,7 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
 			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
 			// #2263 regression hotfix: childActivityRepo を stub fallback に置換 (9 → 10 repo)
-			// #2818 (ADR-0055): childActivityRepo を本実装化したため stub fallback guard から除外
+			// #2824 (ADR-0055): childActivityRepo を本実装化したため stub fallback guard から除外
 			//   (本実装は AWS SDK mock 必須 → dynamodb-child-activity-repo.test.ts で検証)。10 → 9 repo
 			const results = await Promise.allSettled([
 				autoChallengeRepo.findActiveByChild(1, TENANT),

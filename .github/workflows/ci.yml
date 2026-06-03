@@ -179,7 +179,7 @@ jobs:
       - name: DynamoDB stub/no-op implementation check (#1021 / ADR-0034)
         run: node scripts/check-dynamodb-stub.mjs
 
-      - name: DynamoDB stub parity guard (#2818 / ADR-0055)
+      - name: DynamoDB stub parity guard (#2824 / ADR-0055)
         # helper 経由 stub (return notImplemented(...) / warnRead(...) / warnWrite(...)) を
         # inventory 化し、baseline を超える新規 stub 追加を block する。
         # check-dynamodb-stub.mjs が拾えない helper indirection pattern を補完。

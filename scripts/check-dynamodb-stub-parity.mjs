@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * #2818 / ADR-0055 — DynamoDB repo stub parity guard
+ * #2824 / ADR-0055 — DynamoDB repo stub parity guard
  *
  * 背景: per-child / family repo の interface を拡張したのに DynamoDB 実装を stub
  *   (`notImplemented(...)` throw / `warnRead(...)` / `warnWrite(...)` 空返却) のまま
  *   放置すると、本番 cognito Lambda (AUTH_MODE=cognito + DATA_SOURCE=dynamodb) で
- *   write 経路が永続せず、UI が「N 件登録しました」と偽る (#2818 marketplace 取込 CRITICAL)。
+ *   write 経路が永続せず、UI が「N 件登録しました」と偽る (#2824 marketplace 取込 CRITICAL)。
  *
  * 本 guard は `src/lib/server/db/dynamodb/*.ts` の stub call-site を inventory 化し、
  *   既知 baseline (`scripts/dynamodb-stub-baseline.json`) を超える「新規 stub」を検出すると
@@ -114,7 +114,7 @@ if (violations.length > 0) {
 	console.error('[dynamodb-stub-parity] FAIL: baseline を超える新規 stub を検出しました。');
 	console.error(
 		'  DynamoDB は本番 cognito Lambda (DATA_SOURCE=dynamodb) で稼働します。' +
-			'interface を拡張したら DynamoDB 実装も本実装してください (ADR-0055 / #2818)。',
+			'interface を拡張したら DynamoDB 実装も本実装してください (ADR-0055 / #2824)。',
 	);
 	for (const v of violations) console.error(`  - ${v}`);
 	console.error(

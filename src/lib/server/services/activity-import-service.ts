@@ -186,7 +186,7 @@ async function buildExistingNamesByChild(
  * per-child 配信 (#2362 PR-3): 各 child に instance を bulk insert。
  * child 単位で失敗しても他は継続 (partial success)。
  *
- * #2818 (取込永続 honesty): 「実際に persist できた activity 名」を集合として返す。
+ * #2824 (取込永続 honesty): 「実際に persist できた activity 名」を集合として返す。
  *   旧実装は imported を write 前 (計画時) に確定していたため、insertActivitiesBulk が
  *   throw しても (本番 DynamoDB stub / 容量超過 / 権限不足 等) imported が減らず、UI が
  *   「N 件登録しました」と偽った。本 helper は persist 成功分の名前のみ報告し、呼び出し側で
@@ -214,7 +214,7 @@ async function dispatchPerChildBulk(
 }
 
 /**
- * #2818: per-child bulk を実行し、実際に persist できた activity 数 (imported) を返す。
+ * #2824: per-child bulk を実行し、実際に persist できた activity 数 (imported) を返す。
  * 計画したのに persist できなかった分 (DynamoDB stub / 容量超過 等) は errors に記録する。
  * child が 0 件のときは write を行わず imported=0 (honest)。
  */
@@ -316,7 +316,7 @@ export async function importActivities(
 	const childInputsByChild: Map<number, InsertChildActivityInput[]> = new Map();
 	for (const cid of childIds) childInputsByChild.set(cid, []);
 
-	// #2818: 「いずれかの child に新規 instance を生成しようと計画した」名前。
+	// #2824: 「いずれかの child に新規 instance を生成しようと計画した」名前。
 	//   imported は計画時ではなく実 persist 後に確定する (下記参照)。
 	const plannedNewNames = new Set<string>();
 	const planCtx: PlanContext = { presetId, childIds, existingNamesByChild, childInputsByChild };
@@ -341,7 +341,7 @@ export async function importActivities(
 		}
 	}
 
-	// #2818 (取込永続 honesty): imported は「実際に DB に persist できた activity 数」。
+	// #2824 (取込永続 honesty): imported は「実際に DB に persist できた activity 数」。
 	//   write を行わずに plannedNewNames.size を返すと、persist が全失敗 (本番 DynamoDB
 	//   stub / 容量超過 等) でも UI が「N 件登録しました」と偽る。dispatchPerChildBulk が
 	//   返す persist 成功名のみを imported に算入し、計画したのに persist できなかった分は

@@ -318,7 +318,7 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			// banner は同 page state なので同期 set、handler return 後の re-render で即座に表示される。
 			// regression test (#2745 spec) は role="alert" を待つが、Toast / banner どちらが先に
 			// 表示されても regex マッチで PASS する 2 重防御。Anti-engagement 整合 (DESIGN.md §5)。
-			// #2818 (取込永続 honesty): server が errors を返したら「N 件登録しました」と
+			// #2824 (取込永続 honesty): server が errors を返したら「N 件登録しました」と
 			// 偽らず、保存できなかった事実を出す。imported=0 を「追加済み」(importAllDuplicates)
 			// で誤魔化す経路は errors=0 (= 純粋な重複) のときに限定する。
 			let message: string;

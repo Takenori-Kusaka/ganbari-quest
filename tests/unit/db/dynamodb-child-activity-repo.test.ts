@@ -1,7 +1,7 @@
 /**
  * tests/unit/db/dynamodb-child-activity-repo.test.ts
  *
- * #2818 / ADR-0055: DynamoDB per-child activity-repo 本実装の単体テスト。
+ * #2824 / ADR-0055: DynamoDB per-child activity-repo 本実装の単体テスト。
  *
  * AWS SDK を vi.hoisted mock で置き換え、SQLite 実装 (sqlite/child-activity-repo.ts、
  * 挙動 SSOT) と機能等価であることを method ごとに検証する:

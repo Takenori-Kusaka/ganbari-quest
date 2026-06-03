@@ -87,7 +87,7 @@ beforeEach(() => {
 	// #2458-A1: fallback bind helper — tenant 最初の child を返す。
 	// childIds 未指定 ctx の test ではこの child に per-child instance が bulk insert される。
 	mockFindAllChildren.mockResolvedValue([{ id: 100 }]);
-	// #2818 (取込永続 honesty): insertActivitiesBulk は本実装と同様に「作成した row (name 込み)」
+	// #2824 (取込永続 honesty): insertActivitiesBulk は本実装と同様に「作成した row (name 込み)」
 	//   を返す。importActivities は imported を実 persist 結果から算出するため、mock も入力を
 	//   echo する (旧 `mockResolvedValue(undefined)` は persist 0 件相当で imported を偽る経路を隠す)。
 	mockInsertActivitiesBulk.mockImplementation(async (inputs: Array<{ name: string }>) =>
@@ -306,8 +306,8 @@ describe('activityPackStrategy.apply', () => {
 		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 	});
 
-	it('insertActivitiesBulk が throw した場合 imported=0 + errors に記録 (#2818 honesty)', async () => {
-		// #2818 取込永続 honesty: bulk write が全失敗したら 1 件も persist していない。
+	it('insertActivitiesBulk が throw した場合 imported=0 + errors に記録 (#2824 honesty)', async () => {
+		// #2824 取込永続 honesty: bulk write が全失敗したら 1 件も persist していない。
 		//   旧 spec は imported=2 を期待していたが、これは「N 件登録しました」と偽る根因。
 		//   fallback child 1 件 (id=100) への bulk が reject → persist 0 → imported=0 が honest。
 		mockInsertActivitiesBulk.mockRejectedValueOnce(new Error('DB error'));
