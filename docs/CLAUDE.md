@@ -48,6 +48,18 @@
 
 conflict 時は判定 skip + warning 通知（PR 側で main rebase 必要）。詳細は ADR-0042 / `lp-metrics.yml`。
 
+### visual regression 3 層 (LP / child-home / app)
+
+pixelmatch baseline (ADR-0053) は LP のみでなく、アプリ本体 critical 画面にも 3 層で適用する。比較ロジックは `scripts/check-lp-visual-regression.mjs` (汎用 `--baseline-dir` / `--current-dir`) を全層で再利用する (使い捨て script 禁止 #1442)。
+
+| 層 | baseline dir | 撮影 script / workflow | 対象 | 段階 |
+|---|---|---|---|---|
+| LP | `scripts/lp-screenshot-baseline/` | `capture-hp-screenshots.mjs` / `lp-visual-regression.yml` (#2401) | LP 全 SS (mobile + desktop) | hard-fail (diff > 10%) |
+| child home | `scripts/child-home-baseline/` | `capture-hp-screenshots.mjs` / `child-home-visual-regression.yml` (#2520) | child home 4 mode (preschool/elementary/junior/senior) + battle | warn (continue-on-error) |
+| app | `scripts/app-screenshot-baseline/` | `capture-app-baseline.mjs` / `app-visual-regression.yml` (CX-DoR #8) | baby home (5 番目 age mode) + admin/activities + admin/checklists (marketplace 取込 CUJ 受領先) | warn (continue-on-error) |
+
+3 層合算で **5 age mode home (baby/preschool/elementary/junior/senior) + admin critical 画面** の見た目回帰を機械検出する (`tests/CLAUDE.md` 条件 8)。意図的変更時は各 baseline を `--update-baseline` で更新し git commit する (LP と同パターン)。app 層の撮影は決定的環境 (`AUTH_MODE=anonymous` + `DATA_SOURCE=demo`、ADR-0048) で本番ルートを demo fixture data で描画する。
+
 ## ADR 管理
 
 - 作成: `docs/decisions/NNNN-kebab-case-title.md`（テンプレート: `docs/decisions/README.md`）
