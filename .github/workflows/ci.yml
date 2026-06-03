@@ -467,6 +467,60 @@ jobs:
           path: test-results/
           retention-days: 7
 
+  # CX-DoR #10 Accessibility — axe-core WCAG 2.2 AA gate (A-5)
+  # critical CUJ (marketplace 一覧/詳細 + 受領 admin 3 page + 子供 home 2 mode) を
+  # @axe-core/playwright で scan し、critical / serious 違反 0 件を機械検証する。
+  # Pre-PMF (ADR-0010): 重い full-matrix でなく a11y-critical-cuj.spec.ts 1 本のみ実行。
+  # 既知違反は tests/e2e/a11y-baseline.json に rule id 単位で pin (silent cap 禁止、log で件数明示)。
+  a11y:
+    runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Build for E2E (preview mode)
+        run: npm run build
+
+      - name: Run a11y critical CUJ scan (WCAG 2.2 AA)
+        # E2E と同じくダミー固定 secret を注入 (vite preview NODE_ENV=production 要求)。
+        env:
+          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
+          PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
+        run: npx playwright test tests/e2e/a11y-critical-cuj.spec.ts
+
+      - name: Upload a11y test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: a11y-test-results
+          path: test-results/
+          retention-days: 7
+
   # #1006: shard 分割された E2E blob レポートを集約し、HTML レポートを生成
   e2e-merge-reports:
     runs-on: ubuntu-latest
@@ -786,6 +840,7 @@ jobs:
         unit-test-merge,
         storybook-test,
         e2e-test,
+        a11y,
         e2e-merge-reports,
         e2e-cognito-dev,
         e2e-demo-lambda,
