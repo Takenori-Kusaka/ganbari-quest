@@ -135,13 +135,13 @@ describe('findActivitiesByChild', () => {
 		mockSend.mockResolvedValueOnce({
 			Items: [
 				makeItem({ id: 1, name: 'active', isArchived: 0 }),
-				makeItem({ id: 2, name: 'nullarch', isArchived: null }),
+				makeItem({ id: 2, name: 'nullArch', isArchived: null }),
 				makeItem({ id: 3, name: 'archived', isArchived: 1 }),
 			],
 		});
 		const { findActivitiesByChild } = await loadRepo();
 		const result = await findActivitiesByChild(CHILD_ID, TENANT);
-		expect(result.map((a) => a.name)).toEqual(['active', 'nullarch']);
+		expect(result.map((a) => a.name)).toEqual(['active', 'nullArch']);
 	});
 
 	it('includeArchived=true で archived も返す', async () => {

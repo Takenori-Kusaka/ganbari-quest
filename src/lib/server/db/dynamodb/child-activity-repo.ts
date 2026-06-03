@@ -403,8 +403,8 @@ async function findChildActivityKeysByIds(
 	tenantId: string,
 ): Promise<{ PK: string; SK: string }[]> {
 	const idSet = new Set(ids);
-	const all = await scanChildActivities(' AND begins_with(PK, :tprefix)', {
-		':tprefix': tenantPK('CHILD#', tenantId),
+	const all = await scanChildActivities(' AND begins_with(PK, :tenantPrefix)', {
+		':tenantPrefix': tenantPK('CHILD#', tenantId),
 	});
 	// id は SK = CHILDACT#<paddedId> から復元 (Scan 結果は PK/SK のみ projection)。
 	return all.filter((k) => idSet.has(Number(k.SK.replace('CHILDACT#', ''))));
@@ -414,8 +414,8 @@ async function findChildActivityKeysByReason(
 	reason: ArchivedReason,
 	tenantId: string,
 ): Promise<{ PK: string; SK: string }[]> {
-	return scanChildActivities(' AND begins_with(PK, :tprefix) AND archivedReason = :reason', {
-		':tprefix': tenantPK('CHILD#', tenantId),
+	return scanChildActivities(' AND begins_with(PK, :tenantPrefix) AND archivedReason = :reason', {
+		':tenantPrefix': tenantPK('CHILD#', tenantId),
 		':reason': reason,
 	});
 }
