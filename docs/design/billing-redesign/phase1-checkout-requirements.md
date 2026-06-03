@@ -10,9 +10,9 @@
 
 | ID | 要件 | 設計意図 + 根拠 |
 |----|------|----------------|
-| FR-1 | **1 Product (例: 「がんばりクエスト」) に standard/family × 月額/年額 = 4 Price** を Stripe に定義、アプリは **lookup_key 参照** | 価格改定時のコード変更ゼロ化。Stripe build-subscriptions 公式推奨。lifetime 廃止と整合。**同一 Product 別 Price 構成はプラン変更要件 ([plan-change](phase1-plan-change-requirements.md) §最重要制約 / FR-2) が要求する Portal 期末ダウングレード成立の前提** (別 Product だと Portal 期末ダウンが効かず credit proration 事故)。最終 Dashboard 構成の確認・再設計は Phase 5 へ申し送り (plan-change Open question 1) |
-| FR-2 | プラン選択 UI = **月額/年額トグル + プランカード 2 枚**、トグルで表示価格同期切替 | 業界収束パターン |
-| FR-3 | 年額カードに **月あたり換算 + 月額取り消し線 + 「2ヶ月分おトク」** 明示 | ユーザーに計算させない。両プラン 16.7% off = 2ヶ月無料 (業界ど真ん中) |
+| FR-1 | **2 Product (standard / family) に各 1 Price (月額のみ)** を Stripe に定義、アプリは **lookup_key 参照** | 価格改定時のコード変更ゼロ化。Stripe build-subscriptions 公式推奨。lifetime 廃止と整合。**Phase 5 アーキテクチャ再評価 (#2683 代替案 D) により、プラン変更は Portal ダウングレードを廃止し、自前で `subscription_schedules` を組む構成に変更したため、2 Product 構成が確定済。** |
+| FR-2 | プラン選択 UI = **プランカード 2 枚 (月額のみ)** | 年額廃止に伴いトグル撤去 (#2588 補強2) |
+| FR-3 | (削除) 年額廃止に伴い撤去 | 年額廃止 (#2588 補強2) に伴い関連UI撤去 |
 | FR-4 | Checkout Session 作成時に必ず **Customer object を渡す** | 重複検出 + 権限紐付けの前提。account-first で signup 時に Customer 確定済 |
 | FR-5 | **`checkout.session.completed` webhook で権限付与 (SSOT)**、success_url は UX 専用 | 公式の唯一信頼できる fulfillment 起点 (success_url 単独で付与禁止) |
 | FR-6 | success ページは **「準備中」表示 + session status polling で自動解禁** | processing gap の信頼毀損回避。Stripe は webhook を最大10秒待って redirect |
@@ -30,15 +30,14 @@
 
 ## ユーザーストーリー
 
-1. プランを選び (月/年トグル + カード)、年額のおトク額が一目で分かる
+1. プランを選び (カードから選択)、決済に進む
 2. 決済直後「準備中」を見た後、操作不要で自動的に有料機能が解禁
 3. すでに課金中なら二重課金されず契約管理画面に案内
 4. 無料/トライアルで feature gate に当たった時その場から checkout に進める
 
 ## 月額/年額の提示
 
-- 年額は両プラン **16.7% off = 2ヶ月無料** にぴったり一致 → **「2ヶ月分おトク」表現を推奨** (コンシューマ向けは % off より高転換)。年額選択時は月換算 (standard ¥417/月相当 / family ¥650/月相当) 併記
-- **デフォルト選択**: **月額デフォルト (PO 確定 2026-05-27)**。年額は「2ヶ月おトク」として併置。Anti-engagement 整合、Pre-PMF で始めやすさ優先
+- **年額プランは廃止 (月額のみ)**: Phase 1 補強 2 (#2588) の方針決定により、年額プランは提供しない。UI 上のトグルや「2ヶ月分おトク」の提示は撤去された。
 
 ## Open question
 
