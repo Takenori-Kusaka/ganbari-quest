@@ -130,16 +130,30 @@ async function main() {
 
 	// Execute post-hook
 	if (POST_HOOK) {
-		console.log(`[Hook] Running: ${POST_HOOK} "${backupPath}"`);
 		try {
-			execSync(`${POST_HOOK} "${backupPath}"`, {
-				stdio: 'inherit',
-				cwd: path.join(__dirname, '..'),
-				timeout: 120000,
-			});
-			console.log('[Hook] OK');
+			// hook command の file 存在チェック (command の第 2 token = file path 想定)
+			const tokens = POST_HOOK.split(' ');
+			const hookFile = tokens[1]; // e.g. "node scripts/hooks/gdrive-upload.cjs" → "scripts/hooks/gdrive-upload.cjs"
+
+			// backup-db.cjs の実行ディレクトリに依存せず判定できるよう repoRoot ベースで解決
+			const repoRoot = path.join(__dirname, '..');
+			if (hookFile && !fs.existsSync(path.resolve(repoRoot, hookFile))) {
+				console.warn(
+					`[backup-db] WARNING: BACKUP_POST_HOOK file not found: ${hookFile}, skipping hook (backup itself succeeded)`,
+				);
+			} else {
+				console.log(`[Hook] Running: ${POST_HOOK} "${backupPath}"`);
+				execSync(`${POST_HOOK} "${backupPath}"`, {
+					stdio: 'inherit',
+					cwd: repoRoot,
+					timeout: 120000,
+				});
+				console.log('[Hook] OK');
+			}
 		} catch (err) {
-			console.error('[Hook] FAILED:', err.message);
+			console.warn(
+				`[backup-db] WARNING: BACKUP_POST_HOOK failed: ${err.message}, backup itself succeeded`,
+			);
 			// Hook failure is non-fatal - local backup is already saved
 		}
 	}
