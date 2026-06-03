@@ -5,7 +5,8 @@
 | 孫 issue | #2623 (Phase 4 子、One-click reactivation 動線統合) |
 | 親 | #2529 (Phase 4 動線) / Epic #2525 |
 | 依存 | Phase 4 子 1 (#2620 URL マッピング、merged #2626) / Phase 3 #2575 (archived listing + reactivation UI) / Phase 3 #2567 (`/admin/subscription` 純化) / Phase 2 #2549 (Tier Change / Win-Back) |
-| Phase 7 rename 方針 | `/admin/license` → `/admin/subscription` / `family` → `プレミアム` (atom 1 行) / 月額のみ。本 docs は Phase 7 rename 後の名称前提で記述、既存 reference (`SaasLicensePanel.svelte` 等) は現名維持 |
+| Phase 7 rename 方針 | `/admin/license` → `/admin/subscription` (308) / `family` → `プレミアム` (atom 1 行) / 月額のみ。本 docs は Phase 7 rename 後の名称前提で記述、既存 reference (`SaasLicensePanel.svelte` → Phase 7 で `SaasSubscriptionPanel.svelte` rename) は現名維持 |
+| #2790 license key 全廃整合 | Phase 1 補強 3 (#2790、PR #2790 マージ済) で **license key = SaaS / NUC 問わず完全全廃** に確定。本 reactivation 動線は **Stripe Subscription (`tenant.status=ACTIVE`) を entitlement 唯一 SSOT** とする (license key を読まない、#2790 §2.1)。webhook `customer.subscription.updated` → `restoreArchivedResources` 自動呼出 (本書 §2 原則 4) は license key 非経由で正しい。`/help/license-key` 削除 + `/ops/license/*` 削除 (#2790 §3.4 / §3.5) は本書動線 (admin 内) に直接影響なし |
 | 採用案 | Notion 型 Pattern A (Phase 2 #2549) + Calendly 型 One-click reactivation (Phase 3 #2575) を **動線レイヤで全 admin 画面常時表示 + 1 click confirm + ms 単位即時復活** に統合 |
 | `premium` 階層 signal 打消 | 動線全体で「データ保護」を主訴求、「プレミアム化で復活」は副訴求にとどめる (refs #2594 D-2)。常時 banner も dismiss 可・「Phase 7 で session ストレージ保持」を SSOT 化し滞在時間最短化と Win-Back を両立 |
 
