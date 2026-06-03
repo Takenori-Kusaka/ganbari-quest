@@ -81,7 +81,6 @@
 			"tests/e2e/age-mode"
 		],
 		"docs/design/billing-redesign/phase5-archive-unified-architecture.md": [
-			"src/lib/domain/archive-types.ts",
 			"src/lib/server/db/migration/2026-06-archived-reason-backfill.sql",
 			"src/lib/server/db/schema.ts:40,70,109,430",
 			"src/routes/api/v1/admin/downgrade-archive/+server.ts:7,37",
@@ -94,29 +93,23 @@
 		"docs/design/billing-redesign/phase5-webhook-idempotency-architecture.md": [
 			"infra/lib/data-stack.ts",
 			"src/lib/server/cron/retention-cron.ts",
-			"src/lib/server/db/demo/webhook-event-repo.ts",
 			"src/lib/server/db/dynamodb/webhook-event-repo.ts",
-			"src/lib/server/db/interfaces/webhook-event-repo.interface.ts",
 			"src/lib/server/db/sqlite/webhook-event-repo.ts",
 			"tests/e2e/billing/webhook-idempotency.spec.ts",
 			"tests/integration/db/dynamodb",
 			"tests/integration/db/dynamodb/webhook-event-repo.test.ts",
 			"tests/unit/db/webhook-event-repo-cross-backend.test.ts",
-			"tests/unit/db/webhook-event-repo.test.ts",
 			"tests/unit/services/retention-service.webhook.test.ts",
 			"tests/unit/services/stripe-service.dedup.test.ts"
 		],
 		"docs/design/billing-redesign/phase6-db-migration-plan.md": [
 			"infra/scripts/snapshot-db.sh",
-			"src/lib/domain/archive-types.ts",
 			"src/lib/server/db/create-tables.ts:末尾",
 			"src/lib/server/db/demo/activity-repo.ts:既存",
 			"src/lib/server/db/demo/checklist-repo.ts:既存",
 			"src/lib/server/db/demo/child-activity-repo.ts:既存",
 			"src/lib/server/db/demo/child-repo.ts:既存",
-			"src/lib/server/db/demo/webhook-event-repo.ts",
 			"src/lib/server/db/dynamodb/keys.ts:末尾",
-			"src/lib/server/db/interfaces/webhook-event-repo.interface.ts",
 			"src/lib/server/db/migration/lazy-startup-migrations.ts:末尾",
 			"src/lib/server/db/schema.ts:40,70,109,430",
 			"src/lib/server/db/schema.ts:末尾",
@@ -126,16 +119,11 @@
 			"tests/fixtures/legacy-schema/2026-05.sql:末尾",
 			"tests/integration/db/archived-reason-migration.test.ts",
 			"tests/integration/db/stripe-webhook-events-crud.test.ts",
-			"tests/unit/domain/archive-types.test.ts",
 			"tests/unit/helpers/test-db.test.ts",
 			"tests/unit/helpers/test-db.ts:64,91,120,402,824-906"
 		],
 		"docs/design/billing-redesign/phase6-phase7-execution-ssot.md": [
-			"src/lib/domain/archive-types.ts",
-			"src/lib/server/db/demo/webhook-event-repo.ts",
-			"src/lib/server/db/interfaces/webhook-event-repo.interface.ts",
 			"src/lib/server/db/repos/webhook-event-repo.ts",
-			"src/routes/api/stripe/webhook-v2/+server.ts",
 			"tests/e2e/billing",
 			"tests/integration/db/archived-reason-migration.test.ts",
 			"tests/integration/stripe-webhook-api-version-immutable.test.ts",
@@ -222,10 +210,11 @@
 			"scripts/check-no-escape-language.mjs",
 			"src/lib/services/PhotoBrowser.ts"
 		],
+		"docs/runbooks/lp-visual-regression-baseline.md": ["site/screenshots"],
 		"docs/security/security-code-review-2026-03.md": [
 			"src/lib/server/services/email-otp-service.ts"
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-05-30T07:36:22.519Z"
+	"generatedAt": "2026-06-03T08:17:21.220Z"
 }
