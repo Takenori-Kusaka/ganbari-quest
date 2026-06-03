@@ -114,11 +114,11 @@ test.describe
 			await expect(guideBar).toContainText('おやの画面をみよう');
 			await expect(page).toHaveURL(/\/demo\/admin/);
 
-			// Step 4 → Step 5 (matchPath: /demo/admin/subscription) — #817 ライセンスキー体験
+			// Step 4 → Step 5 (matchPath: /admin/subscription) — #817 ライセンスキー体験 / #2818 で subscription に rename
 			await page.getByTestId('demo-guide-next').click();
 			await expect(stepIndicator).toHaveText('5');
 			await expect(guideBar).toContainText('プラン・お支払いを みよう');
-			await expect(page).toHaveURL(/\/demo\/admin\/license/);
+			await expect(page).toHaveURL(/\/admin\/subscription/);
 
 			// Step 5 → Step 6 (matchPath: /demo/signup) — 最終ステップ
 			await page.getByTestId('demo-guide-next').click();

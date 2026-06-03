@@ -1,6 +1,10 @@
 # ADR-0026: ライセンスキーアーキテクチャ
 
+<!-- doc-status: deprecated -->
+
 > **archived (2026-04-20)**: no longer active-primary, kept for historical reference (#1262 sub-B)
+>
+> **deprecated (2026-06-04, Phase 7 #2813 / PR-L3 #2818)**: 本 ADR が前提とするライセンスキー機構は Phase 7 で全廃された。`license-key-service.ts` / `/admin/license` / `/ops/license/*` / `/api/v1/admin/license` / `/api/cron/license-expire` 等の実装ファイルは PR-L2 (#2813、認可撤廃) → PR-L3 (#2818、物理削除) で消滅している。本文中のファイルパス参照は当時の実装を示す歴史記録であり、現存しない。
 
 
 | 項目 | 内容 |

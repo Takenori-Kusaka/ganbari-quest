@@ -146,7 +146,7 @@ test.describe('#757 free ユーザートライアル開始フロー', () => {
 		// href が /pricing を含む（または /admin/subscription）
 		const href = await cta.getAttribute('href');
 		expect(href).toBeTruthy();
-		// CTA は /pricing またはライセンスページへのリンク
-		expect(href).toMatch(/\/(pricing|admin\/license)/);
+		// CTA は /pricing またはサブスクリプションページへのリンク (#2818 で /admin/license → /admin/subscription)
+		expect(href).toMatch(/\/(pricing|admin\/subscription)/);
 	});
 });

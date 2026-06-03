@@ -79,7 +79,8 @@ $ grep -rln "biome-ignore.*complexity" src/ | sort -u | wc -l
 | 25 | `src/routes/api/v1/admin/account/delete/+server.ts` | cognitive | 1 | MID (削除 flow) | 中 | MID | TBD |
 | 26 | `src/routes/api/v1/admin/cleanup-orphans/+server.ts` | cognitive | 1 | LOW (admin ops) | 低 | LOW | TBD |
 | 27 | `src/routes/api/v1/children/[id]/avatar/+server.ts` | cognitive | 1 | LOW (画像) | 低 | LOW | TBD |
-| 28 | `src/routes/ops/license/issue/+page.server.ts` | cognitive | 1 | LOW (ops only) | 低 | LOW | TBD |
+<!-- doc-code-refs: ignore-line -->
+| 28 | 旧 `src/routes/ops/license/issue/+page.server.ts` (PR-L3 #2818 で物理削除済、対象外) | cognitive | 1 | LOW (ops only) | 低 | DELETED | N/A |
 | 29 | `src/routes/(parent)/admin/activities/[id]/edit/+page.server.ts` | cognitive | 1 | LOW (form 分解、ignore 妥当) | 低 | **KEEP** | N/A |
 | 30 | `src/lib/features/admin/components/SaasLicensePanel.svelte` | cognitive | 1 | MID (PIN gate、ignore 妥当) | 低 | **KEEP** | N/A |
 | 31 | `src/lib/server/services/certificate-service.ts` | useMaxParams | 1 | MID | 低 | MID | TBD |

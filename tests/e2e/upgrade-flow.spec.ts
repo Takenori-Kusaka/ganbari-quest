@@ -138,7 +138,7 @@ test.describe('#753 /admin/rewards → アップグレード導線', () => {
 
 		// CTA をクリックすると /admin/subscription に遷移する
 		await cta.click();
-		await page.waitForURL(/\/admin\/license/, { timeout: 30_000 });
+		await page.waitForURL(/\/admin\/subscription/, { timeout: 30_000 });
 	});
 });
 
@@ -170,7 +170,7 @@ test.describe('#753 /admin/activities AI → アップグレード導線', () =>
 
 		// CTA をクリックすると /admin/subscription に遷移する
 		await cta.click();
-		await page.waitForURL(/\/admin\/license/, { timeout: 30_000 });
+		await page.waitForURL(/\/admin\/subscription/, { timeout: 30_000 });
 	});
 });
 

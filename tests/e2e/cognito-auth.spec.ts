@@ -198,7 +198,7 @@ test.describe('parent ロール詳細', () => {
 	test('parent ロールで /admin/subscription にアクセスできる', async ({ page }) => {
 		await loginAs(page, 'parent@example.com', 'Gq!Dev#Parent2026', /\/admin/);
 		await page.goto('/admin/subscription');
-		await expect(page).toHaveURL(/\/admin\/license/);
+		await expect(page).toHaveURL(/\/admin\/subscription/);
 	});
 
 	test('parent ロールで /admin/members にアクセスできる', async ({ page }) => {

@@ -1,6 +1,10 @@
 {
-	"allowed": [],
-	"reasons": {},
+	"allowed": [
+		"src/lib/server/services/rate-limit-service.ts"
+	],
+	"reasons": {
+		"src/lib/server/services/rate-limit-service.ts": "Phase 7 PR-L3 #2818 で唯一の production importer (admin/license/+page.server.ts、license key 検証のレート制限) が物理削除されたため orphan 化。license key 機構全廃に伴う dead service。物理削除は PR-L4 (#2818 follow-up) で実施予定。本 PR は routes 削除 scope のため baseline pin で対応。"
+	},
 	"version": "1.0.0",
-	"generated": "2026-05-26T00:00:00.000Z"
+	"generated": "2026-06-03T23:06:53.928Z"
 }

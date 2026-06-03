@@ -21,6 +21,9 @@
 		"DEMO_TOP_LABELS",
 		"LICENSE_PLAN_LABELS",
 		"NavCategoryId",
+		"OPS_LICENSE_ISSUE_LABELS",
+		"OPS_LICENSE_KEY_LABELS",
+		"OPS_LICENSE_PAGE_LABELS",
 		"PAID_PLAN_LABEL",
 		"THEME_EMOJIS",
 		"ThemeKey"
@@ -49,8 +52,11 @@
 		"DEMO_CHALLENGES_LABELS": "PR_initial baseline — PR-B3 #2188 demo 撤去に伴う dead。後続 cleanup PR。",
 		"DEMO_CHILD_ACHIEVEMENTS_LABELS": "PR_initial baseline — PR-B3 #2188 demo 撤去に伴う dead。後続 cleanup PR。",
 		"PAID_PLAN_LABEL": "pre-existing orphan (PR #2801 起因ではない)。origin/main の labels.ts でも外部参照ゼロを確認済。'スタンダードプラン以上' compound だが現状未使用 — 後続 cleanup PR で削除候補。本 PR (backup-db.cjs graceful fallback) は labels.ts を変更しないため baseline pin のみで対応。",
-		"THEME_EMOJIS": "pre-existing orphan (PR #2801 起因ではない)。labels.ts 内部の getThemeOptions()/getThemeLabel フォールバックで load-bearing (line 488/498) のため削除不可だが、export 自体は外部直接参照ゼロ。getThemeOptions は ChildProfileCard / admin/children 等で利用される。origin/main でも同状態を確認済。本 PR は labels.ts 非変更のため baseline pin で対応。"
+		"THEME_EMOJIS": "pre-existing orphan (PR #2801 起因ではない)。labels.ts 内部の getThemeOptions()/getThemeLabel フォールバックで load-bearing (line 488/498) のため削除不可だが、export 自体は外部直接参照ゼロ。getThemeOptions は ChildProfileCard / admin/children 等で利用される。origin/main でも同状態を確認済。本 PR は labels.ts 非変更のため baseline pin で対応。",
+		"OPS_LICENSE_ISSUE_LABELS": "Phase 7 PR-L3 #2818 で /ops/license/issue route 物理削除に伴う dead label。labels.ts からの削除は LP / メール / ラベル系を担う PR-L4 (#2818 follow-up) で実施予定。本 PR は routes 削除 scope のため baseline pin で対応。",
+		"OPS_LICENSE_KEY_LABELS": "Phase 7 PR-L3 #2818 で /ops/license/[key] route 物理削除に伴う dead label。labels.ts からの削除は PR-L4 (#2818 follow-up) で実施予定。本 PR は routes 削除 scope のため baseline pin で対応。",
+		"OPS_LICENSE_PAGE_LABELS": "Phase 7 PR-L3 #2818 で /ops/license route 物理削除に伴う dead label。labels.ts からの削除は PR-L4 (#2818 follow-up) で実施予定。本 PR は routes 削除 scope のため baseline pin で対応。"
 	},
 	"version": "1.0.0",
-	"generated": "2026-06-03T02:00:14.858Z"
+	"generated": "2026-06-03T23:06:53.341Z"
 }

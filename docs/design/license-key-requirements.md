@@ -1,5 +1,9 @@
 # ライセンスキー要件定義書（should-be / user stories）
 
+<!-- doc-status: deprecated -->
+
+> **deprecated (2026-06-04, Phase 7 #2813 / PR-L3 #2818)**: 本書が定義するライセンスキー要件は Phase 7 で全廃された (NUC は信頼ベース化、license key を読まない)。`license-key-service.ts` / `/admin/license` 等の実装ファイルは PR-L2 (#2813、認可撤廃) → PR-L3 (#2818、物理削除) で消滅済。本文中のファイルパス参照は当時の実装を示す歴史記録であり、現存しない。
+
 | 項目 | 値 |
 |------|-----|
 | 版数 | 1.0 |

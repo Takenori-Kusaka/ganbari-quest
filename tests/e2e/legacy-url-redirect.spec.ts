@@ -386,10 +386,15 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 	});
 
 	// /demo/admin/* + クエリ保持
-	test('/demo/admin/license?plan=family → /admin/license?plan=family (308 + クエリ保持)', async ({
+	// #2818 Phase 7 PR-L3: /admin/license 撤去 → /admin/subscription 救済 (1 段化)。クエリ保持
+	test('/demo/admin/license?plan=family → /admin/subscription?plan=family (308 + クエリ保持)', async ({
 		request,
 	}) => {
-		await expectRedirect(request, '/demo/admin/license?plan=family', '/admin/license?plan=family');
+		await expectRedirect(
+			request,
+			'/demo/admin/license?plan=family',
+			'/admin/subscription?plan=family',
+		);
 	});
 
 	// 親 fallback: 未登録 sub path も /admin に救済

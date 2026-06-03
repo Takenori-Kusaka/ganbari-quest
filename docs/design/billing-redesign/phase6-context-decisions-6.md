@@ -96,7 +96,8 @@ Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env va
 
 | 項目 | 内容 |
 |---|---|
-| **現状** | `src/routes/ops/license/+page.server.ts` + `[key]/` + `issue/` + `legacy-count/` (4 subroute)、ops group (Cognito ops group ADR-0033) 専用 internal tool でライセンスキー検索 + 詳細閲覧 + 発行 + legacy count を提供 |
+<!-- doc-code-refs: ignore-line -->
+| **現状 (削除前)** | 旧 `src/routes/ops/license/+page.server.ts` + `[key]/` + `issue/` + `legacy-count/` (4 subroute)、ops group (Cognito ops group ADR-0033) 専用 internal tool でライセンスキー検索 + 詳細閲覧 + 発行 + legacy count を提供 (PR-L3 #2818 で物理削除済) |
 | **影響範囲** | route file 4 件 + label `OPS_LICENSE_PAGE_LABELS` + nav `OPS_LAYOUT_LABELS.navLicense` (`/ops/+layout.svelte` L16) |
 | **業界根拠** | (a) ops internal tool は user-facing URL と異なり業界 SaaS でも一貫した命名なし (Stripe Dashboard / Notion admin / Linear admin 各社独自) (b) ライセンスキー検索は NUC edition で残存する billing proof の運用画面 — **だったが、#2788 で license key 完全全廃が確定し、検索対象 (license key) そのものが消滅するため、画面の存在意義が消える** (c) campaign キー発行 (`issue/`) の用途は Stripe Coupon / Promotion Code で代替する |
 | **🔄 再評価 (#2788、2026-06-03)** | 元推奨「rename しない (維持)」は「`/ops/license` は license key 運用画面として機能的に正確」前提に依存していた。[phase1-license-key-removal-final-requirements.md §3.1 / §3.6](phase1-license-key-removal-final-requirements.md) で **`/ops/license/*` (`+page` / `[key]` / `issue` / `legacy-count` の 4 subroute) は物理削除** と確定。代替: campaign キー発行 (`issue/`) は **Stripe Coupon / Promotion Code (OQ-2 確定)**、期限管理 (`legacy-count` 関連の cron) は `customer.subscription.deleted` webhook。ops internal tool のため redirect 不要 (削除のみ)。 |
