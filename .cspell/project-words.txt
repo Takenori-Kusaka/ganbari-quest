@@ -117,6 +117,7 @@ daisuki
 dedup
 dependabot
 Dependabot
+Deque
 describedby
 dflt
 dmarc
