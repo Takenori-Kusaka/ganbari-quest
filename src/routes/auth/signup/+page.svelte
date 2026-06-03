@@ -3,16 +3,11 @@ import { onDestroy } from 'svelte';
 import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import { APP_LABELS, PAGE_TITLES, SIGNUP_LABELS } from '$lib/domain/labels';
-import {
-	LICENSE_KEY_LEGACY_FORMAT,
-	LICENSE_KEY_SIGNED_FORMAT,
-	SIGNUP_CODE_EXPIRY_MINUTES,
-} from '$lib/domain/validation/auth';
+import { SIGNUP_CODE_EXPIRY_MINUTES } from '$lib/domain/validation/auth';
 import GoogleSignInButton from '$lib/ui/components/GoogleSignInButton.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
-import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import Divider from '$lib/ui/primitives/Divider.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 
@@ -21,18 +16,6 @@ let { form } = $props();
 let email = $state('');
 let password = $state('');
 let passwordConfirm = $state('');
-let licenseKeyRaw = $state('');
-const licenseKey = $derived(licenseKeyRaw.toUpperCase().trim());
-const licenseKeyValid = $derived(
-	licenseKey === '' ||
-		LICENSE_KEY_LEGACY_FORMAT.test(licenseKey) ||
-		LICENSE_KEY_SIGNED_FORMAT.test(licenseKey),
-);
-const licenseKeyError = $derived(
-	licenseKeyRaw && !licenseKeyValid
-		? 'GQ-XXXX-XXXX-XXXX または GQ-XXXX-XXXX-XXXX-XXXXX 形式で入力してください'
-		: undefined,
-);
 let codeRaw = $state('');
 const code = $derived(codeRaw.replace(/\s/g, ''));
 let loading = $state(false);
@@ -40,19 +23,11 @@ let resending = $state(false);
 let agreedTerms = $state(false);
 let agreedPrivacy = $state(false);
 let agreedCrossBorder = $state(false);
-let showLicenseKey = $state(false);
-
-// #799 ライセンスキー使用時の追加ガード
-let agreedLicenseOnce = $state(false); // 「一回限り使用に同意」
-let showLicenseHelp = $state(false); // 折りたたみヘルプの開閉
-let showLicenseConfirmDialog = $state(false); // 確認ダイアログ
-let signupFormEl: HTMLFormElement | null = $state(null); // dialog から submit を呼ぶため
 
 // #588: フォーム送信試行追跡（未入力フィールドのエラー表示用）
 let submitAttempted = $state(false);
 
 // #588: 送信可能かの判定
-// #799: showLicenseKey 時は「一回限り使用に同意」も必須
 // #1638: 個人情報保護法 §28 — 米国（AWS バージニア北部リージョン）への域外移転同意も必須
 const canSubmit = $derived(
 	!loading &&
@@ -62,8 +37,7 @@ const canSubmit = $derived(
 		password === passwordConfirm &&
 		agreedTerms &&
 		agreedPrivacy &&
-		agreedCrossBorder &&
-		(!showLicenseKey || (!!licenseKey && licenseKeyValid && agreedLicenseOnce)),
+		agreedCrossBorder,
 );
 
 // #588: 送信不可理由
@@ -75,9 +49,6 @@ const submitBlockReason = $derived(() => {
 	if (!agreedTerms) return SIGNUP_LABELS.blockTermsRequired;
 	if (!agreedPrivacy) return SIGNUP_LABELS.blockPrivacyRequired;
 	if (!agreedCrossBorder) return SIGNUP_LABELS.blockCrossBorderRequired;
-	if (showLicenseKey && (!licenseKey || !licenseKeyValid))
-		return SIGNUP_LABELS.blockLicenseKeyInvalid;
-	if (showLicenseKey && !agreedLicenseOnce) return SIGNUP_LABELS.blockLicenseOnceRequired;
 	return '';
 });
 
@@ -116,10 +87,6 @@ let confirmStep = $derived(form?.confirmStep ?? false);
 // サーバーレスポンス（form）からフォーム値を復元
 $effect(() => {
 	if (typeof form?.email === 'string') email = form.email;
-	if (typeof form?.licenseKey === 'string') {
-		licenseKeyRaw = form.licenseKey;
-		if (form.licenseKey) showLicenseKey = true;
-	}
 });
 
 // 再送成功時にクールダウン開始
@@ -169,7 +136,6 @@ $effect(() => {
 			>
 				<input type="hidden" name="email" value={email} />
 				<input type="hidden" name="password" value={password} />
-				<input type="hidden" name="licenseKey" value={licenseKey} />
 				<input type="hidden" name="plan" value={planParam ?? ''} />
 
 				<p class="text-sm text-[var(--color-text-muted)] text-center leading-relaxed">
@@ -227,7 +193,6 @@ $effect(() => {
 				class="mt-4 text-center"
 			>
 				<input type="hidden" name="email" value={email} />
-				<input type="hidden" name="licenseKey" value={licenseKey} />
 				<input type="hidden" name="plan" value={planParam ?? ''} />
 				<Button
 					type="submit"
@@ -251,7 +216,6 @@ $effect(() => {
 
 			<!-- 登録フォーム -->
 			<form
-				bind:this={signupFormEl}
 				method="POST"
 				action="?/signup"
 				use:enhance={() => {
@@ -306,84 +270,6 @@ $effect(() => {
 					error={passwordConfirm && password !== passwordConfirm ? SIGNUP_LABELS.passwordMismatchError : undefined}
 					hint={passwordConfirm && password === passwordConfirm ? SIGNUP_LABELS.passwordMatchHint : undefined}
 				/>
-
-				{#if showLicenseKey}
-					<FormField
-						label={SIGNUP_LABELS.licenseKeyLabel}
-						id="licenseKey"
-						hint={SIGNUP_LABELS.licenseKeyHint}
-						error={licenseKeyError}
-					>
-						{#snippet children()}
-							<input
-								id="licenseKey"
-								name="licenseKey"
-								type="text"
-								bind:value={licenseKeyRaw}
-								placeholder="GQ-XXXX-XXXX-XXXX-XXXXX"
-								required
-								autocomplete="off"
-								class="w-full px-3 py-2 border border-[var(--input-border)] rounded-[var(--input-radius)] text-sm uppercase font-mono tracking-wider
-									focus:border-[var(--input-border-focus)] focus:outline-none focus:ring-2 focus:ring-opacity-30 transition-colors"
-							/>
-						{/snippet}
-					</FormField>
-
-					<!-- #799: 折りたたみヘルプ「ライセンスキーについて」 -->
-					<div class="-mt-3">
-						<button
-							type="button"
-							class="text-xs text-[var(--color-text-link)] underline hover:no-underline"
-							aria-expanded={showLicenseHelp}
-							aria-controls="license-key-help"
-							onclick={() => { showLicenseHelp = !showLicenseHelp; }}
-							data-testid="signup-license-help-toggle"
-						>
-							{showLicenseHelp ? '▼' : '▶'} {SIGNUP_LABELS.licenseKeyHelpToggle}
-						</button>
-						{#if showLicenseHelp}
-							<div
-								id="license-key-help"
-								class="mt-2 p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-muted)] leading-relaxed space-y-1.5"
-								data-testid="signup-license-help"
-							>
-								<p><strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyHelpOnce}</strong>: {SIGNUP_LABELS.licenseKeyHelpOnceDesc}</p>
-								<p><strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyHelpAutoDetect}</strong>: {SIGNUP_LABELS.licenseKeyHelpAutoDetectDesc}</p>
-								<p><strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyHelpBound}</strong>: {SIGNUP_LABELS.licenseKeyHelpBoundDesc}</p>
-								<p><strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyHelpExpiry}</strong>: {SIGNUP_LABELS.licenseKeyHelpExpiryDesc}</p>
-							</div>
-						{/if}
-					</div>
-
-					<!-- #799: 一回限り使用に同意 -->
-					<FormField label="" error={submitAttempted && !agreedLicenseOnce ? SIGNUP_LABELS.licenseKeyOnceAgreeError : undefined}>
-						{#snippet children()}
-							<label class="flex items-start gap-2 cursor-pointer">
-								<input
-									type="checkbox"
-									bind:checked={agreedLicenseOnce}
-									class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
-									data-testid="signup-license-once-checkbox"
-								/>
-								<span class="text-[0.8rem] text-[var(--color-text-muted)] leading-relaxed">
-									{SIGNUP_LABELS.licenseKeyOnceAgreePrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseKeyOnceAgreeStrong}</strong>{SIGNUP_LABELS.licenseKeyOnceAgreeSuffix}
-								</span>
-							</label>
-						{/snippet}
-					</FormField>
-
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline -mt-3 !p-0"
-						onclick={() => { showLicenseKey = false; licenseKeyRaw = ''; agreedLicenseOnce = false; showLicenseHelp = false; }}
-					>
-						{SIGNUP_LABELS.licenseKeySkipButton}
-					</Button>
-				{:else}
-					<input type="hidden" name="licenseKey" value="" />
-				{/if}
 
 				<div class="-mt-1">
 					<FormField label="" error={submitAttempted && !agreedTerms ? SIGNUP_LABELS.termsAgreeError : undefined}>
@@ -461,20 +347,12 @@ $effect(() => {
 						if (!canSubmit) {
 							e.preventDefault();
 							submitAttempted = true;
-							return;
-						}
-						// #799: ライセンスキー使用時は確認ダイアログを経由
-						if (showLicenseKey) {
-							e.preventDefault();
-							showLicenseConfirmDialog = true;
 						}
 					}}
 				>
 					{#if loading}
 						<span class="inline-block w-4 h-4 border-2 border-current border-r-transparent rounded-full animate-spin" aria-hidden="true"></span>
 						{SIGNUP_LABELS.submitLoading}
-					{:else if showLicenseKey}
-						{SIGNUP_LABELS.submitWithLicenseKey}
 					{:else if planParam}
 						{SIGNUP_LABELS.submitWithTrial}
 					{:else}
@@ -488,21 +366,6 @@ $effect(() => {
 					</p>
 				{/if}
 			</form>
-
-			<!-- ライセンスキー / プランの切り替えリンク -->
-			<div class="mt-3 text-center">
-				{#if !showLicenseKey}
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						class="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-link)] underline !p-0"
-						onclick={() => { showLicenseKey = true; }}
-					>
-						{SIGNUP_LABELS.licenseKeyLinkButton}
-					</Button>
-				{/if}
-			</div>
 		{/if}
 
 		<div class="mt-5 text-center">
@@ -524,67 +387,3 @@ $effect(() => {
 		{/snippet}
 	</Card>
 </div>
-
-<!-- #799: ライセンスキー有効化 確認ダイアログ -->
-<Dialog
-	bind:open={showLicenseConfirmDialog}
-	title={SIGNUP_LABELS.licenseConfirmTitle}
-	size="md"
-	testid="signup-license-confirm-dialog"
->
-	{#snippet children()}
-		<div class="space-y-4 text-sm">
-			<div class="p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]">
-				<p class="text-xs text-[var(--color-text-tertiary)] mb-1">{SIGNUP_LABELS.licenseConfirmKeyLabel}</p>
-				<p class="font-mono text-[var(--color-text-primary)] break-all" data-testid="signup-license-confirm-key">
-					{licenseKey}
-				</p>
-			</div>
-
-			<ul class="space-y-2 text-[var(--color-text-secondary)]">
-				<li class="flex gap-2">
-					<span aria-hidden="true">⚠️</span>
-					<span>{SIGNUP_LABELS.licenseConfirmBoundPrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseConfirmOnce}</strong>{SIGNUP_LABELS.licenseConfirmOnceDesc}</span>
-				</li>
-				<li class="flex gap-2">
-					<span aria-hidden="true">📦</span>
-					<span>{SIGNUP_LABELS.licenseConfirmPlanPrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseConfirmPlanStrong}</strong>{SIGNUP_LABELS.licenseConfirmPlanSuffix}</span>
-				</li>
-				<li class="flex gap-2">
-					<span aria-hidden="true">👤</span>
-					<span>{SIGNUP_LABELS.licenseConfirmBoundPrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseConfirmBoundEmail(email)}</strong>{SIGNUP_LABELS.licenseConfirmBoundSuffix}</span>
-				</li>
-				<li class="flex gap-2">
-					<span aria-hidden="true">⏳</span>
-					<span>{SIGNUP_LABELS.licenseConfirmBoundPrefix}<strong class="text-[var(--color-text-primary)]">{SIGNUP_LABELS.licenseConfirmExpiry}</strong>{SIGNUP_LABELS.licenseConfirmExpirySuffix}</span>
-				</li>
-			</ul>
-
-			<div class="flex gap-2 pt-2">
-				<Button
-					type="button"
-					variant="secondary"
-					size="md"
-					class="flex-1"
-					data-testid="signup-license-confirm-cancel"
-					onclick={() => { showLicenseConfirmDialog = false; }}
-				>
-					{SIGNUP_LABELS.licenseConfirmCancel}
-				</Button>
-				<Button
-					type="button"
-					variant="primary"
-					size="md"
-					class="flex-1"
-					data-testid="signup-license-confirm-ok"
-					onclick={() => {
-						showLicenseConfirmDialog = false;
-						signupFormEl?.requestSubmit();
-					}}
-				>
-					{SIGNUP_LABELS.licenseConfirmOk}
-				</Button>
-			</div>
-		</div>
-	{/snippet}
-</Dialog>

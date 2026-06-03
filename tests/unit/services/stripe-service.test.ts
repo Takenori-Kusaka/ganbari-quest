@@ -57,8 +57,12 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 	notifyBillingEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Phase 1 補強 3 §3.3: stripe-service は冗長層 (issueLicenseKey / sendLicenseKeyEmail)
+// 削除後にこれらを import しないが、回帰防止のため「呼ばれないこと」を assert する目的で
+// spy mock を残す。
+const mockSendLicenseKeyEmail = vi.fn();
 vi.mock('$lib/server/services/email-service', () => ({
-	sendLicenseKeyEmail: vi.fn().mockResolvedValue(undefined),
+	sendLicenseKeyEmail: (...args: unknown[]) => mockSendLicenseKeyEmail(...args),
 }));
 
 const mockIssueLicenseKey = vi.fn();
@@ -244,7 +248,7 @@ describe('createPortalSession', () => {
 // ==========================================================
 
 describe('handleWebhookEvent', () => {
-	it('checkout.session.completed → テナント更新 + ライセンスキー発行', async () => {
+	it('checkout.session.completed → テナント更新 (entitlement = status=active、license key 経由しない)', async () => {
 		const event = {
 			type: 'checkout.session.completed',
 			data: {
@@ -261,6 +265,8 @@ describe('handleWebhookEvent', () => {
 
 		await handleWebhookEvent(event as never);
 
+		// entitlement (Stripe Subscription) は tenant.status=active + plan で確定する。
+		// 認可は stripeSubscriptionId + status から計算され license key を読まない。
 		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
 			't-test',
 			expect.objectContaining({
@@ -271,24 +277,17 @@ describe('handleWebhookEvent', () => {
 			}),
 		);
 
-		// #801: Stripe 経由の発行は常に kind='purchase'、issuedBy に session ID を記録
-		expect(mockIssueLicenseKey).toHaveBeenCalledWith(
-			expect.objectContaining({
-				tenantId: 't-test',
-				plan: 'monthly',
-				stripeSessionId: 'cs_test',
-				kind: 'purchase',
-				issuedBy: 'stripe:cs_test',
-			}),
-		);
+		// Phase 1 補強 3 §3.3: ライセンスキー発行 + メール送信の冗長層を削除済。
+		// entitlement は updateTenantStripe で既付与のため license key は発行しない。
+		expect(mockIssueLicenseKey).not.toHaveBeenCalled();
+		expect(mockSendLicenseKeyEmail).not.toHaveBeenCalled();
 	});
 
 	it('checkout.session.completed — 100% OFF プロモコード (amount_total=0) でも同じフロー (#803)', async () => {
 		// Stripe Dashboard で発行した 100% OFF Coupon + Promotion code が適用された Checkout
 		// が完了したときの payload。`amount_total=0` / `total_details.amount_discount` が全額分
 		// になるが、session.metadata と subscription は通常購入と同じ形で付与される。
-		// license は `kind='purchase'` / `issuedBy='stripe:<sessionId>'` で通常どおり発行され、
-		// tenant.plan も通常どおり昇格する（Checkout を経由していれば 100% OFF でも
+		// tenant.plan / status も通常どおり昇格する（Checkout を経由していれば 100% OFF でも
 		// 「Stripe で本人確認を通った正規購入」扱い）。
 		const event = {
 			type: 'checkout.session.completed',
@@ -309,7 +308,7 @@ describe('handleWebhookEvent', () => {
 
 		await handleWebhookEvent(event as never);
 
-		// 通常購入と同じく tenant.plan と subscription が紐付けられる
+		// 通常購入と同じく tenant.plan と subscription が紐付けられる (entitlement)
 		expect(mockUpdateTenantStripe).toHaveBeenCalledWith(
 			't-promo',
 			expect.objectContaining({
@@ -320,16 +319,9 @@ describe('handleWebhookEvent', () => {
 			}),
 		);
 
-		// license も通常どおり kind='purchase' で発行 (campaign key ではない)
-		expect(mockIssueLicenseKey).toHaveBeenCalledWith(
-			expect.objectContaining({
-				tenantId: 't-promo',
-				plan: 'monthly',
-				stripeSessionId: 'cs_promo_100off',
-				kind: 'purchase',
-				issuedBy: 'stripe:cs_promo_100off',
-			}),
-		);
+		// Phase 1 補強 3 §3.3: 冗長層削除後は 100% OFF でも license key を発行しない
+		expect(mockIssueLicenseKey).not.toHaveBeenCalled();
+		expect(mockSendLicenseKeyEmail).not.toHaveBeenCalled();
 	});
 
 	it('checkout.session.completed — metadata に tenantId なし → 何もしない', async () => {

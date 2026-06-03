@@ -60,11 +60,11 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 }));
 
 // --- License Key Service モック ---
-// #795: consumeLicenseKey の戻り値は { ok: true | false } 構造
-const mockValidateLicenseKey = vi.fn().mockResolvedValue({ valid: true, key: null });
+// Phase 1 補強 3 §3.1: signup の license key 入力経路を削除済。
+// confirm action は license-key-service を import しないため本 mock は発火しないが、
+// 「license key 経路が呼ばれないこと」を回帰防止 assert する目的で consumeLicenseKey spy を残す。
 const mockConsumeLicenseKey = vi.fn().mockResolvedValue({ ok: true, plan: 'monthly' });
 vi.mock('$lib/server/services/license-key-service', () => ({
-	validateLicenseKey: (...args: unknown[]) => mockValidateLicenseKey(...args),
 	consumeLicenseKey: (...args: unknown[]) => mockConsumeLicenseKey(...args),
 }));
 
@@ -89,9 +89,7 @@ beforeEach(() => {
 	mockResolveContext.mockReset();
 	mockRecordConsent.mockReset();
 	mockRecordConsent.mockResolvedValue(undefined);
-	// #795: license key モックも毎回リセット
-	mockValidateLicenseKey.mockReset();
-	mockValidateLicenseKey.mockResolvedValue({ valid: true, key: null });
+	// license key モックも毎回リセット（回帰防止 assert 用）
 	mockConsumeLicenseKey.mockReset();
 	mockConsumeLicenseKey.mockResolvedValue({ ok: true, plan: 'monthly' });
 	// #766: startTrial モックのデフォルトは成功
@@ -485,16 +483,14 @@ describe('confirm action', () => {
 		expect(mockRecordConsent).not.toHaveBeenCalled();
 	});
 
-	// #795: ライセンスキー消費は fire-and-forget を撤廃し、await する
-	it('#795: licenseKey 指定時は consumeLicenseKey を await して /admin へ進む', async () => {
+	// Phase 1 補強 3 §3.1: signup の license key 入力経路を削除。
+	// entitlement は Stripe Subscription (tenant.status=ACTIVE) が唯一 SSOT のため、
+	// confirm action は license key を読まず /admin へ進む。
+	it('Phase 1 補強 3: licenseKey フォーム値を渡しても consumeLicenseKey は呼ばれず /admin へ進む', async () => {
 		setupSuccessfulAutoLogin();
-		mockConsumeLicenseKey.mockResolvedValue({
-			ok: true,
-			plan: 'yearly',
-			planExpiresAt: '2027-04-11T00:00:00Z',
-		});
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		// 後方互換: 旧フォーム由来の licenseKey が万一 POST されても無視される
 		const event = createConfirmEvent({
 			email: 'test@example.com',
 			code: '123456',
@@ -509,78 +505,6 @@ describe('confirm action', () => {
 		} catch (e) {
 			expect((e as { status: number }).status).toBe(302);
 			expect((e as { location: string }).location).toBe('/admin');
-		}
-
-		// tenant 解決後のテナントIDで consumeLicenseKey が呼ばれる
-		expect(mockConsumeLicenseKey).toHaveBeenCalledWith('GQ-ABCD-EFGH-JKLM', 'tenant-abc');
-	});
-
-	it('#795: licenseKey が無効（ok:false）でも /admin に進む（ログのみで続行）', async () => {
-		setupSuccessfulAutoLogin();
-		mockConsumeLicenseKey.mockResolvedValue({
-			ok: false,
-			reason: 'このライセンスキーは既に使用されています',
-		});
-
-		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const event = createConfirmEvent({
-			email: 'test@example.com',
-			code: '123456',
-			password: 'Password1',
-			licenseKey: 'GQ-CONSUMED-KEY-XXXX',
-		});
-
-		// Cognito 確認済みで戻せないため、consume 失敗時も /admin に進む設計
-		try {
-			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)(event);
-			expect.unreachable('should have thrown redirect');
-		} catch (e) {
-			expect((e as { status: number }).status).toBe(302);
-			expect((e as { location: string }).location).toBe('/admin');
-		}
-		expect(mockConsumeLicenseKey).toHaveBeenCalled();
-	});
-
-	it('#795: consumeLicenseKey が例外を投げても /admin に進む（fire-and-forget 互換）', async () => {
-		setupSuccessfulAutoLogin();
-		mockConsumeLicenseKey.mockRejectedValue(new Error('DynamoDB unavailable'));
-
-		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const event = createConfirmEvent({
-			email: 'test@example.com',
-			code: '123456',
-			password: 'Password1',
-			licenseKey: 'GQ-ABCD-EFGH-JKLM',
-		});
-
-		try {
-			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)(event);
-			expect.unreachable('should have thrown redirect');
-		} catch (e) {
-			// fire-and-forget 互換で /admin に進む（ログは error で記録済み）
-			expect((e as { status: number }).status).toBe(302);
-			expect((e as { location: string }).location).toBe('/admin');
-		}
-	});
-
-	it('#795: licenseKey 未指定時は consumeLicenseKey は呼ばれない', async () => {
-		setupSuccessfulAutoLogin();
-
-		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
-		const event = createConfirmEvent({
-			email: 'test@example.com',
-			code: '123456',
-			password: 'Password1',
-		});
-
-		try {
-			// biome-ignore lint/suspicious/noExplicitAny: test mock
-			await (actions.confirm as any)(event);
-			expect.unreachable('should have thrown redirect');
-		} catch (e) {
-			expect((e as { status: number }).status).toBe(302);
 		}
 
 		expect(mockConsumeLicenseKey).not.toHaveBeenCalled();
@@ -731,10 +655,11 @@ describe('confirm action', () => {
 		});
 	});
 
-	it('#766: ライセンスキー指定時は plan=standard でも startTrial は呼ばれない（ライセンス優先）', async () => {
+	it('Phase 1 補強 3: licenseKey フォーム値が残っていても plan=standard なら startTrial が呼ばれる（license 優先ロジック撤廃）', async () => {
 		setupSuccessfulAutoLogin();
 
 		const { actions } = await import('../../../src/routes/auth/signup/+page.server');
+		// 旧フォーム互換で licenseKey が POST されても無視され、plan に従いトライアル開始
 		const event = createConfirmEvent({
 			email: 'test@example.com',
 			code: '123456',
@@ -751,9 +676,13 @@ describe('confirm action', () => {
 			expect((e as { status: number }).status).toBe(302);
 		}
 
-		// ライセンスキー消費は呼ばれているが、トライアル開始はスキップ
-		expect(mockConsumeLicenseKey).toHaveBeenCalled();
-		expect(mockStartTrial).not.toHaveBeenCalled();
+		// license key は読まれず（consumeLicenseKey 不呼出）、plan に従いトライアル開始
+		expect(mockConsumeLicenseKey).not.toHaveBeenCalled();
+		expect(mockStartTrial).toHaveBeenCalledWith({
+			tenantId: 'tenant-abc',
+			source: 'user_initiated',
+			tier: 'standard',
+		});
 	});
 
 	it('#766: startTrial が false を返しても（既に使用済み等） /admin に進む', async () => {
