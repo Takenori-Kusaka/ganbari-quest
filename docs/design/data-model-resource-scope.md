@@ -137,6 +137,19 @@ child_activities
 - ✅ regression test: `tests/unit/db/sqlite/activity-pref-repo.test.ts` (5 test) — AC-1 旧 activities table 空のまま child_activities 経由で集計成立 / AC-2 別 categoryId 除外 / AC-3 別 childId 除外 / AC-4 isPinned=0 除外 / AC-5 pin 0 件 fallback
 - ⏳ 18 caller migrate (PR-C-3) / seed.ts 変更 (PR-C-2) / DEMO_ACTIVITIES (PR-C-4) / 最終 drop (PR-C-5) は別 PR で順次実施
 
+#### tenant isolation の現状 SSOT（意図的 no-op、#2494 Phase 1）
+
+`child_activities` は **tenant_id 列を持たず childId scope** で運用する（§2.1 per-child 主軸と整合）。repo interface が受ける `tenantId` 引数の扱いは backend ごとに以下が現設計であり、**乖離ではなく意図的 no-op**:
+
+| backend | 現設計 | 根拠 |
+|---|---|---|
+| SQLite (`sqlite/child-activity-repo.ts`) | `_tenantId` 受領のみで filter しない（意図的 no-op） | SQLite が選ばれる process は認証 tenantId が `'local'`/`'demo'` 固定の **1 process = 1 DB = 1 tenant**（`auth/providers/local.ts` / `db/factory.ts`）。別 tenant の childId が入力される経路が構造的に存在せず、行レベル tenant filter は冗長 |
+| DynamoDB (`dynamodb/child-activity-repo.ts`) | **Pre-PMF stub**（read = `warnRead` + 空返却 / write = throw）。tenant filter 以前に実装自体を ADR-0055 per-child schema 本実装まで封鎖 | ADR-0010 Bucket B の構造的強制（同ファイル冒頭コメント参照） |
+
+- **SQLite を multi-tenant 共有 DB として使う構成は非想定**（SaaS は DynamoDB）。この前提が崩れる設計変更時は tenant_id 列追加が必須化する
+- child 越境（同一 tenant 内の child A→B）IDOR は `findActivityByIdForChild`（id + childId の 2 軸検証）で対処済み（#2524）
+- **Phase 2（tenant_id 列追加 + 全 query filter = interface contract と実装の完全一致）は #2828 で管理**。PO 基準: 「DB リポジトリ層の共通化のために有用であれば必須」— 有用性評価を先行し、有用なら実施する
+
 ### 4.2 checklist (PR-5 Phase 1 完了 / Phase 2 UX 化進行中)
 
 **実装状況** (2026-05-25 PR-5 Phase 1):

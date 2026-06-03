@@ -2,7 +2,13 @@
 // per-child activity instance repository — SQLite 実装 (#2362 PR-3, ADR-0055)
 //
 // 旧 `activity-repo.ts` (family master + age filter) の後継。
-// `childId` 必須 + tenant isolation を強制し、cross-child access を構造的に防ぐ。
+// `childId` 必須で cross-child access を構造的に防ぐ。
+//
+// tenant isolation について (#2494 Phase 1):
+//   本実装の `_tenantId` 引数は意図的 no-op (SQLite は 1 process = 1 DB = 1 tenant で
+//   tenant 越境入力が構造的に不能なため)。SSOT は
+//   docs/design/data-model-resource-scope.md §4.1「tenant isolation の現状 SSOT」。
+//   tenant_id 列追加 + filter (Phase 2) は #2828 で管理 (repo 層共通化に有用なら必須)。
 //
 // 並存原則 (Phase 2 段階): 旧 activities table は drop しない。
 // Phase 6/7 で全 callsite 移行後に drop。
