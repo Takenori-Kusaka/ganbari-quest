@@ -24,7 +24,6 @@ function ctx(
 		mode: overrides.mode,
 		user: overrides.user ?? null,
 		plan: overrides.plan ?? null,
-		licenseKey: overrides.licenseKey ?? null,
 		now: overrides.now,
 	});
 }
@@ -48,29 +47,15 @@ describe('policy/capabilities can() — write.db', () => {
 		});
 	});
 
-	it('nuc-prod + licenseKey valid = allowed', () => {
-		expect(
-			can(
-				ctx({ mode: 'nuc-prod', user: owner, licenseKey: { valid: true, expiresAt: null } }),
-				'write.db',
-			),
-		).toEqual({ allowed: true });
+	// #2813 (Epic #2525 Phase 7 PR-L2): license key 全廃。NUC は信頼ベースで
+	// licenseKey に依存せず常時 write 可能 (phase1-nuc FR-2 / US-N3 = NUC が記録不能に
+	// ならないことの回帰防止)。
+	it('nuc-prod = allowed (license key 無し、信頼ベースで常時 write 可能)', () => {
+		expect(can(ctx({ mode: 'nuc-prod', user: owner }), 'write.db')).toEqual({ allowed: true });
 	});
 
-	it('nuc-prod + licenseKey invalid = license-key-invalid', () => {
-		expect(
-			can(
-				ctx({ mode: 'nuc-prod', user: owner, licenseKey: { valid: false, expiresAt: null } }),
-				'write.db',
-			),
-		).toEqual({ allowed: false, reason: 'license-key-invalid' });
-	});
-
-	it('nuc-prod + licenseKey=null = license-key-invalid', () => {
-		expect(can(ctx({ mode: 'nuc-prod', user: owner }), 'write.db')).toEqual({
-			allowed: false,
-			reason: 'license-key-invalid',
-		});
+	it('nuc-prod + user 無しでも allowed (mode のみで write 可否が決まる)', () => {
+		expect(can(ctx({ mode: 'nuc-prod' }), 'write.db')).toEqual({ allowed: true });
 	});
 
 	it('aws-prod = allowed (user 不要、共通判定のみ)', () => {
@@ -99,13 +84,24 @@ describe('policy/capabilities can() — record.activity', () => {
 		});
 	});
 
-	it('nuc-prod + licenseKey invalid = license-key-invalid', () => {
-		expect(
-			can(
-				ctx({ mode: 'nuc-prod', user: child, licenseKey: { valid: false, expiresAt: null } }),
-				'record.activity',
-			),
-		).toEqual({ allowed: false, reason: 'license-key-invalid' });
+	// #2813 (Epic #2525 Phase 7 PR-L2): NUC write 回帰防止 (phase1-nuc US-N3)。
+	// 5 年齢モード (baby/preschool/elementary/junior/senior) いずれの子供も NUC で
+	// 活動記録が可能であることを保証する。年齢モードは UI 層 (uiMode) の差で、認可は
+	// role=child + mode=nuc-prod のみで決まるため、record.activity が NUC で常時許可される
+	// ことが「license key 撤廃で記録不能にならない」保証となる。
+	it('nuc-prod + child = allowed (license key 無し、子供の活動記録が NUC で常時可能)', () => {
+		expect(can(ctx({ mode: 'nuc-prod', user: child }), 'record.activity')).toEqual({
+			allowed: true,
+		});
+	});
+
+	it('nuc-prod + owner / parent / child いずれも記録可能 (5 年齢モード横断の NUC write 保証)', () => {
+		for (const user of [owner, parent, child]) {
+			expect(
+				can(ctx({ mode: 'nuc-prod', user }), 'record.activity'),
+				`role=${user.role} が nuc-prod で記録できない`,
+			).toEqual({ allowed: true });
+		}
 	});
 });
 
@@ -227,17 +223,10 @@ describe('policy/capabilities can() — purchase.upgrade', () => {
 	});
 
 	it('nuc-prod = mode-mismatch (NUC は Stripe を使わない)', () => {
-		expect(
-			can(
-				ctx({
-					mode: 'nuc-prod',
-					user: owner,
-					plan: free,
-					licenseKey: { valid: true, expiresAt: null },
-				}),
-				'purchase.upgrade',
-			),
-		).toEqual({ allowed: false, reason: 'mode-mismatch' });
+		expect(can(ctx({ mode: 'nuc-prod', user: owner, plan: free }), 'purchase.upgrade')).toEqual({
+			allowed: false,
+			reason: 'mode-mismatch',
+		});
 	});
 
 	it('parent role = role-insufficient', () => {
@@ -296,27 +285,8 @@ describe('policy/capabilities can() — manage.child_profile', () => {
 	});
 });
 
-describe('policy/capabilities can() — redeem.license_key', () => {
-	it('nuc-prod + owner = allowed', () => {
-		expect(can(ctx({ mode: 'nuc-prod', user: owner }), 'redeem.license_key')).toEqual({
-			allowed: true,
-		});
-	});
-
-	it('aws-prod = mode-mismatch', () => {
-		expect(can(ctx({ mode: 'aws-prod', user: owner }), 'redeem.license_key')).toEqual({
-			allowed: false,
-			reason: 'mode-mismatch',
-		});
-	});
-
-	it('parent role = role-insufficient', () => {
-		expect(can(ctx({ mode: 'nuc-prod', user: parent }), 'redeem.license_key')).toEqual({
-			allowed: false,
-			reason: 'role-insufficient',
-		});
-	});
-});
+// #2813 (Epic #2525 Phase 7 PR-L2): `redeem.license_key` capability は license key 全廃に伴い
+// 撤廃済。NUC は信頼ベース (判定なし) のため key 引換機構そのものが存在しない (phase1-nuc FR-3)。
 
 describe('policy/capabilities ensureCan()', () => {
 	it('allowed の時は throw しない', () => {

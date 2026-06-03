@@ -18,9 +18,6 @@ export type DebugPlan = 'free' | 'standard' | 'family';
 /** 許容される DEBUG_TRIAL 値 */
 export type DebugTrial = 'active' | 'expired' | 'not-started';
 
-/** 許容される DEBUG_LICENSE_KEY_VALID 値 */
-export type DebugLicenseKeyValid = 'true' | 'false';
-
 export interface DebugPlanOverride {
 	licenseStatus: AuthContext['licenseStatus'];
 	plan?: string;
@@ -103,33 +100,13 @@ export function getDebugTrialOverride(): DebugTrialOverride | null {
 }
 
 /**
- * DEBUG_LICENSE_KEY_VALID env に基づくライセンスキー状態の上書きを返す。
- * ADR-0040 P5 (#1221): nuc-prod モードの E2E マトリクスで license valid/invalid を切り替える。
- *
- * dev モード (`dev === true`) 以外では常に null を返す（本番ビルドで無効化）。
- */
-export function getDebugLicenseKeyOverride(): { valid: boolean } | null {
-	if (!dev) return null;
-	const raw = process.env.DEBUG_LICENSE_KEY_VALID?.trim().toLowerCase();
-	if (!raw) return null;
-	if (raw !== 'true' && raw !== 'false') {
-		console.warn(
-			`[debug-plan] DEBUG_LICENSE_KEY_VALID="${raw}" is invalid. Expected one of: true, false`,
-		);
-		return null;
-	}
-	return { valid: raw === 'true' };
-}
-
-/**
  * デバッグ上書きが有効かどうか（インジケータ表示用）
+ *
+ * #2813 (Epic #2525 Phase 7 PR-L2): license key 全廃に伴い `DEBUG_LICENSE_KEY_VALID`
+ * 上書きを撤廃。`DEBUG_PLAN` (subscription tier 切替) / `DEBUG_TRIAL` は残す。
  */
 export function isDebugPlanActive(): boolean {
-	return (
-		getDebugPlanOverride() !== null ||
-		getDebugTrialOverride() !== null ||
-		getDebugLicenseKeyOverride() !== null
-	);
+	return getDebugPlanOverride() !== null || getDebugTrialOverride() !== null;
 }
 
 /**
@@ -150,10 +127,6 @@ export function getDebugPlanSummary(): string | null {
 		const tierStr =
 			rawTrial === 'active' && rawTier && VALID_TRIAL_TIERS.has(rawTier) ? `(${rawTier})` : '';
 		parts.push(`trial=${rawTrial}${tierStr}`);
-	}
-	const rawLicense = process.env.DEBUG_LICENSE_KEY_VALID?.trim().toLowerCase();
-	if (rawLicense === 'true' || rawLicense === 'false') {
-		parts.push(`license=${rawLicense}`);
 	}
 	return parts.length > 0 ? parts.join(' ') : null;
 }

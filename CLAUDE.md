@@ -28,7 +28,7 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 
 ### 開発プラン切替 (#758、dev only)
 
-`.env.local` で `DEBUG_PLAN` / `DEBUG_TRIAL` / `DEBUG_TRIAL_TIER` / `DEBUG_LICENSE_KEY_VALID` 上書き（本番ビルド無効）。詳細: `.env.example` / `src/lib/server/debug-plan.ts`
+`.env.local` で `DEBUG_PLAN` / `DEBUG_TRIAL` / `DEBUG_TRIAL_TIER` 上書き（本番ビルド無効）。詳細: `.env.example` / `src/lib/server/debug-plan.ts`（`DEBUG_LICENSE_KEY_VALID` は #2813 で license key 全廃に伴い撤廃済）
 
 ### サブディレクトリ別局所テストコマンド (#2184)
 
