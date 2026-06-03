@@ -247,8 +247,20 @@ const visibilityChildren = $derived<VisibilityChild[]>(
 );
 
 // `?import=<presetId>` で ChildSelectionDialog auto-open
+//
+// #2773 後 dead-end 再発防止 (bug1-import-dead-end.spec.ts で検出): confirm / cancel 後に
+// `await invalidateAll()` で load が再走すると、URL から `?import=` を除去する前に
+// `data.importPresetId` が依然 truthy のまま本 effect が再発火し dialog が再 open する
+// (取込済なのに dialog が出続ける dead-end ループ)。`consumedImportPresetId` で
+// 「処理済みの presetId」をラッチし、同一 presetId に対しては 1 回だけ auto-open する。
+let consumedImportPresetId = $state<string | null>(null);
 $effect(() => {
-	if (data.importPresetId && !showChildSelectionDialog && pendingImportPresetId === null) {
+	if (
+		data.importPresetId &&
+		data.importPresetId !== consumedImportPresetId &&
+		!showChildSelectionDialog &&
+		pendingImportPresetId === null
+	) {
 		pendingImportPresetId = data.importPresetId;
 		showChildSelectionDialog = true;
 	}
@@ -315,6 +327,9 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		showChildSelectionDialog = false;
 		return;
 	}
+	// 取込確定した presetId をラッチし、invalidateAll 後の effect 再発火による
+	// dialog 再 open (dead-end ループ) を防ぐ (#2773 後 bug1 spec で検出)。
+	consumedImportPresetId = pendingImportPresetId;
 	const childIdsValue = result === 'all' ? 'all' : result.join(',');
 	const formData = new FormData();
 	formData.append('presetId', pendingImportPresetId);
@@ -390,6 +405,11 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 }
 
 function handleChildSelectionCancel() {
+	// cancel した presetId もラッチし、effect 再発火による dialog 再 open を防ぐ
+	// (#2773 後 bug1 spec で検出。cancel しても `data.importPresetId` は truthy のまま)。
+	if (pendingImportPresetId) {
+		consumedImportPresetId = pendingImportPresetId;
+	}
 	pendingImportPresetId = null;
 	showChildSelectionDialog = false;
 	if (typeof window !== 'undefined') {
