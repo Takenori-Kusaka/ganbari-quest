@@ -9,6 +9,8 @@ import {
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { TEMPLATE_TERMS } from '$lib/domain/terms';
+// CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
 import SiblingChallengeComparison from '$lib/ui/features/admin/SiblingChallengeComparison.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -395,26 +397,24 @@ function tabHref(childId: number | 'all'): string {
 	{/if}
 
 	<!-- チャレンジ group 一覧 (per-child instance + 兄弟連動表示) -->
+	<!-- CX-DoR #9・#11 横展開 (Round 18): 独自 empty markup を UnifiedEmptyState SSOT に統一。
+	     icon / filter-aware title (noItemsText) / desc (descText) / marketplace CTA (link mode) を
+	     override props で渡し文言不変。selectedChildId='all' / per-child の文言分岐を維持。 -->
 	{#if filteredGroups.length === 0}
-		<div class="rounded-xl border bg-white p-8 text-center space-y-3" data-testid="admin-challenges-empty-state">
-			<p class="text-2xl">{CHALLENGES_LABELS.noChallengeTitleIcon}</p>
-			<p class="mt-2 text-sm font-semibold text-[var(--color-text-muted)]">
-				{selectedChildId === 'all'
-					? CHALLENGES_LABELS.noChallengeTitle
-					: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyTitle}
-			</p>
-			<p class="text-xs text-[var(--color-text-tertiary)]">
-				{selectedChildId === 'all'
-					? CHALLENGES_LABELS.emptyStateDesc
-					: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyDesc}
-			</p>
-			<a
-				href="/marketplace?type=challenge-set"
-				class="inline-block mt-2 rounded-lg bg-[var(--color-action-primary)] px-4 py-2 text-sm font-bold text-[var(--color-text-inverse)]"
-			>
-				{CHALLENGES_LABELS.templateCta}
-			</a>
-		</div>
+		<UnifiedEmptyState
+			testid="admin-challenges-empty-state"
+			icon={CHALLENGES_LABELS.noChallengeTitleIcon}
+			noItemsText={selectedChildId === 'all'
+				? CHALLENGES_LABELS.noChallengeTitle
+				: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyTitle}
+			descText={selectedChildId === 'all'
+				? CHALLENGES_LABELS.emptyStateDesc
+				: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyDesc}
+			showPrimary={false}
+			secondaryMode="link"
+			browseHref="/marketplace?type=challenge-set"
+			importLinkLabel={CHALLENGES_LABELS.templateCta}
+		/>
 	{:else}
 		<div class="space-y-3">
 			{#each filteredGroups as group (group.groupKey)}

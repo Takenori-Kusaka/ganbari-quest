@@ -21,6 +21,8 @@ import {
 import { CHILD_TERMS, TEMPLATE_TERMS } from '$lib/domain/terms';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
+// CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import ChildSelectionDialog, {
@@ -455,11 +457,18 @@ async function handleCopyFromChild() {
 	<!-- AI Suggest Reward Panel (#719) -->
 	<AiSuggestRewardPanel onaccept={acceptAiReward} isFamily={data.planTier === 'family'} />
 
-	<!-- #2268: 検索結果 0 件メッセージ -->
+	<!-- #2268: 検索結果 0 件メッセージ。CX-DoR #9・#11 横展開 (Round 18): 独自 banner markup を
+	     UnifiedEmptyState SSOT に統一 (NN/G #4 consistency)。filter 結果空のため hasFilter mode +
+	     filteredText に既存文言を渡し、primary CTA / import link は出さない (検索条件下のため)。
+	     testid は E2E 互換のため rewards-search-empty を維持。 -->
 	{#if allEmpty}
-		<div class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm text-center" data-testid="rewards-search-empty">
-			{REWARDS_LABELS.searchEmptyMessage}
-		</div>
+		<UnifiedEmptyState
+			testid="rewards-search-empty"
+			hasFilter
+			filteredText={REWARDS_LABELS.searchEmptyMessage}
+			showPrimary={false}
+			canImport={false}
+		/>
 	{/if}
 
 	<!-- ごほうび一覧 (旧: テンプレートを選択 → プリセットを選択) -->
