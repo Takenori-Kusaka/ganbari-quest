@@ -89,6 +89,7 @@ certificatemanager
 chibi
 chukichi
 CHILDACT
+CHILDCHAL
 CKLOG
 CKOVER
 CKTPL
