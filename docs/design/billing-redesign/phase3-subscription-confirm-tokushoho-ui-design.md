@@ -7,6 +7,7 @@
 | Phase 1+2 整合 | Phase 1 #2541 法務 (FR-L1〜L7) / Phase 1 #2534 checkout (FR-1〜FR-8) / Phase 1 #2588 plan naming-pricing-axis (月額のみ確定) / Phase 2 #2548 checkout journey (谷⑤特商法最終確認) |
 | Phase 7 rename 方針 | `/admin/subscription/confirm` (新 URL、本画面の rename は無し、Phase 7 初出) / `family` atom 表示名は現状「ファミリー」を維持 (Phase 1 #2588 + Phase 3 #2609 SSOT 衝突解決で「プレミアム」表記は採用しない) |
 | 上位 #2567 採用案 C 整合 | 4 ページ分割の機能 3, 8 (proration 差額表示 + 特商法 6 項目) を本画面に分離。`SaasSubscriptionPanel.svelte` (旧 `SaasLicensePanel`) からの遷移先 |
+| license key 全廃 / rename 整合 (#2788) | 本画面は Stripe Subscription 開設の最終確認 (特商法 6 項目 + proration) 専用で **license key の入力・適用・表示要素を含まない** ため license key 全廃 (#2788、PR #2790) の影響なし。`SaasSubscriptionPanel.svelte` (旧 `SaasLicensePanel`) は namespace / component の naming rename であり、license key 概念削除 (全廃軸) とは別軸 (Phase 5 補強 #2798 §2 原則 4 踏襲) |
 | 作業姿勢 (#2525 critical) | 法令適合性最優先 / 全文言に設計意図 + 法的根拠 / Stripe vs 自社判断は deep-research primary source で裏付け / 個別法律解釈は法務確認必須 |
 | deep-research | (1) Stripe Checkout `custom_text` API 仕様 (4 field × 1200 文字 Markdown) / (2) JP 改正特商法第12条の6 6 項目 + 同意取得方法 / (3) Stripe Japan 公式特商法対応ガイド + Qiita 実装事例 / (4) Stripe 標準機能の限界 (定期購入各回代金 / 動的 proration / 解約手続詳細) |
 

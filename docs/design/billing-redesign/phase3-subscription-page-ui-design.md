@@ -6,6 +6,7 @@
 | 親 | #2528 (Phase 3 UI) / Epic #2525 |
 | Phase 1+2 整合 | 補強 1 (#2583 URL) + 補強 2 (#2588 プラン命名 / 月額のみ / ROI framing) + Phase 2 補強 (#2585 URL / #2596 プラン命名) |
 | Phase 7 rename 方針 | `/admin/license` → `/admin/subscription` / `SaasLicensePanel` → `SaasSubscriptionPanel` / `family` → `プレミアム` (atom 1 行) / 月額のみ (年額 9 件削除) |
+| license key 全廃整合 (#2788) | Phase 1 補強 3 (`phase1-license-key-removal-final-requirements.md`、PR #2790 マージ済) で license key = SaaS / NUC 問わず**全廃**確定。本 UI 設計の「ライセンスキー適用 UI」section は **完全削除** (license key 概念消滅、SaaS 認可は `tenant.status=ACTIVE` が唯一 SSOT、NUC は信頼ベースで billing proof 不要)。**naming rename (`/admin/license` → `/admin/subscription`、`SaasLicensePanel` → `SaasSubscriptionPanel`) と license key 概念削除は別軸** (Phase 5 補強 #2798 §2 原則 4 整合)。rename は namespace / route 名の変更、license key 削除は機能の全廃で、rename 完了と license key 削除完了を同一視しない |
 | impact-analysis skill 適用 | L1 grep + L2 意味 (表示 vs 内部識別子) + L3 構造 + L4 派生 artifact 21 カテゴリ (docs のため該当なし) |
 | 採用案 | C: 4 ページ分割 (`/admin/subscription` + `/confirm` + `/admin/billing` + `/admin/billing/cancel`) |
 | `premium` 階層 signal 打消 | `premium` は機能本格度を示す signal であり、**無料プランへの exclusion 意図なし** (refs #2594 D-2)。本 UI 設計で「✓ お勧め」バッジを standard に付与することで「premium = 必須ではない上位選択肢」を視覚化、無料・standard・premium 3 段階で「無料が排除されている印象を与えない」設計を貫徹。LP コピー verification (`FREE_PLAN_TERMS.forever` / `FREE_TERMS.start` 併記) は Phase 4 移行 gate で別途確認 |
@@ -36,7 +37,7 @@
 | 7 | 超過リソース選択フロー | **維持** (#2575) | 既存 |
 | 8 | 特商法最終確認画面 | **削除** (→ `/admin/subscription/confirm`、#2573) | 別画面分離 |
 | 9 | Stripe Portal 遷移ボタン (642-650) | **削除** | `/admin/billing` 一本化 (二重実装解消) |
-| 10 | ライセンスキー適用 UI (385-544、170 行) | **削除** | ライセンスキー撤廃 (NUC は別画面 `NucSubscriptionPanel`) |
+| 10 | ライセンスキー適用 UI (385-544、170 行) | **完全削除** | license key 全廃 (#2788、概念消滅)。入力フォーム / 適用ボタン / ヘルプ全廃。NUC は信頼ベース (billing proof 不要、`NucSubscriptionPanel` は Edition badge / 全機能無制限ステータス表示のみ、license key 適用 UI は移設しない) |
 | 11 | 支払い履歴セクション (764-796) | **削除** | `/admin/billing` link のみ |
 
 → 削除 5 + 改善 4 + 維持 3 = 純化後 ~400 行 (Phase 7 実装見積)。
@@ -89,7 +90,7 @@ flowchart LR
     Old[現状 SaasLicensePanel<br/>763 行 7 セクション] --> Pure[/admin/subscription<br/>純化後 ~400 行]
     Old -- 削除 --> Conf[/admin/subscription/confirm<br/>特商法 = #2573]
     Old -- 削除 --> Bill[/admin/billing<br/>Portal / 履歴 SSOT 一本化]
-    Old -- 削除 --> Key[ライセンスキー UI 完全削除<br/>NUC は NucSubscriptionPanel]
+    Old -- 削除 --> Key[ライセンスキー UI 完全削除<br/>license key 全廃 #2788 概念消滅<br/>NUC も信頼ベースで billing proof 不要]
     Pure -- 新規追加 --> Cancel[/admin/billing/cancel<br/>解約導線 = 既存]
     style Old fill:#f8d7da
     style Pure fill:#d4edda
@@ -219,7 +220,8 @@ SUBSCRIPTION_PAGE_LABELS = {
 - `family` (英語、表示文): atom 経由 95 件 (Phase 7 atom 1 行修正)
 
 ### L2 意味 (型 / 同名異義)
-- 表示プラン名 (`PLAN_TERMS.family`) vs 内部識別子 (`'family'` enum / `family-tenant` / `LICENSE_KEY_STATUS` 等) の区別: Phase 1 補強 2 FR-5 で明文化済
+- 表示プラン名 (`PLAN_TERMS.family`) vs 内部識別子 (`'family'` enum / `family-tenant`) の区別: Phase 1 補強 2 FR-5 で明文化済
+- `LICENSE_KEY_STATUS` / `LICENSE_PLAN` enum + `licenseKey` 列は license key 全廃軸 (#2788 §3.8) で**物理削除**対象 (本 UI 設計と直交、Phase 7 実装 PR-L5 で対応)。本画面に license key の表示・入力要素は残さない
 
 ### L3 構造 (依存グラフ)
 - `SaasLicensePanel.svelte` 依存: 11 件 (削除候補ファイル特定済、Phase 7 実装で対応)
@@ -264,7 +266,7 @@ SUBSCRIPTION_PAGE_LABELS = {
 2. コンポーネント rename: `SaasLicensePanel.svelte` → `SaasSubscriptionPanel.svelte`
 3. ルート rename: `/admin/license/` → `/admin/subscription/`
 4. `LEGACY_URL_MAP` 永久エントリ追加
-5. 削除 5 セクション (Portal / 履歴 / 特商法 / ライセンスキー / 月年トグル) 実装
+5. 削除 5 セクション (Portal / 履歴 / 特商法 / ライセンスキー / 月年トグル) 実装。**ライセンスキー section 削除は license key 全廃軸 (#2788、naming rename とは別軸)** — 入力フォーム / 適用ボタン / ヘルプを完全撤去し、移設先 (NUC 含む) を作らない
 6. 改善 4 項目 (お勧めバッジ standard / 比較表差分強調 / cancel-anytime CTA / 解約導線) 実装
 7. Storybook + Playwright SS 撮影 + UX レビュー
 8. impact-analysis skill 4 layer 防御 + 21 カテゴリ checklist を PR body に記載
@@ -280,7 +282,8 @@ SUBSCRIPTION_PAGE_LABELS = {
 
 ## 根拠
 
-- Phase 1 補強 1 (#2583 naming-url-integrity)・補強 2 (#2588 plan-naming-pricing-axis)
+- Phase 1 補強 1 (#2583 naming-url-integrity)・補強 2 (#2588 plan-naming-pricing-axis)・補強 3 (#2788 / PR #2790 license-key-removal-final-requirements、license key 全廃 = naming rename と別軸)
+- Phase 5 補強 (#2798) §2 原則 4「naming rename ≠ license key 削除」を Phase 3 UI 設計でも踏襲
 - Phase 2 補強 (#2585 URL / #2596 プラン命名)
 - 既存実装: `SaasLicensePanel.svelte:165-763` (現名、Phase 7 で rename)
 - ADR-0012 (Anti-engagement) / ADR-0045 (terms.ts 2 階層) / ADR-0051 (NUC-SaaS Bifurcation)
