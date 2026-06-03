@@ -8,6 +8,8 @@ import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, OVERFLOW_MENU_LABELS } from '$lib/
 // #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
 // `/marketplace?type=rule-preset` への画面遷移に統一 (DESIGN.md §10)。
 import { TEMPLATE_TERMS } from '$lib/domain/terms';
+// CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -218,24 +220,21 @@ function formatImportedAt(iso: string): string {
 	{/if}
 
 	{#if data.bonusPresets.length === 0}
-		<!-- 取込済が無い場合 -->
+		<!-- 取込済が無い場合。CX-DoR #9・#11 横展開 (Round 18): 独自 markup を UnifiedEmptyState
+		     SSOT に統一。文言 (emptyTitle / emptyDesc / browseLink) を override props で渡し視覚回帰最小。
+		     marketplace browse は link mode (form 不要 page、SvelteKit 標準遷移)。testid は E2E 互換維持。 -->
 		<Card padding="lg" variant="elevated">
 			{#snippet children()}
-			<div class="text-center space-y-3" data-testid="rules-empty-state">
-				<p class="text-sm font-bold text-[var(--color-text-primary)]">
-					{ADMIN_RULES_PAGE_LABELS.emptyTitle}
-				</p>
-				<p class="text-xs text-[var(--color-text-tertiary)]">
-					{ADMIN_RULES_PAGE_LABELS.emptyDesc}
-				</p>
-				<a
-					href="/marketplace?type=rule-preset"
-					class="text-sm text-[var(--color-action-primary)] hover:underline"
-					data-testid="rules-browse-marketplace"
-				>
-					{ADMIN_RULES_PAGE_LABELS.browseLink}
-				</a>
-			</div>
+			<UnifiedEmptyState
+				testid="rules-empty-state"
+				noItemsText={ADMIN_RULES_PAGE_LABELS.emptyTitle}
+				descText={ADMIN_RULES_PAGE_LABELS.emptyDesc}
+				showPrimary={false}
+				secondaryMode="link"
+				browseHref="/marketplace?type=rule-preset"
+				importLinkLabel={ADMIN_RULES_PAGE_LABELS.browseLink}
+				importTestid="rules-browse-marketplace"
+			/>
 			{/snippet}
 		</Card>
 	{/if}

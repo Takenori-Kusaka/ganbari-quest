@@ -12,6 +12,8 @@ import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSugg
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 // #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
 // `/marketplace?type=checklist` への画面遷移に統一 (DESIGN.md §10)。
+// CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -556,13 +558,19 @@ function getChildName(childId: number): string {
 		</section>
 
 		<!-- #1755 (#1709-A): kind 削除 — 全テンプレート一覧表示 -->
+		<!-- CX-DoR #9・#11 横展開 (Round 18): 独自 empty markup を UnifiedEmptyState SSOT に統一。
+		     文言 (🎒 + emptyChecklistMessage) を override props で渡し視覚回帰ゼロ。add は header `+`
+		     menu / marketplace browse link が別途あるため shell 内 CTA は出さない (showPrimary/canImport=false)。 -->
 		{#if filteredTemplates.length === 0}
 			<Card variant="elevated" padding="lg">
 				{#snippet children()}
-				<div class="text-center text-[var(--color-text-tertiary)]">
-					<p class="text-3xl mb-2">🎒</p>
-					<p>{ADMIN_CHECKLISTS_PAGE_LABELS.emptyChecklistMessage}</p>
-				</div>
+				<UnifiedEmptyState
+					testid="admin-checklists-empty-state"
+					icon="🎒"
+					noItemsText={ADMIN_CHECKLISTS_PAGE_LABELS.emptyChecklistMessage}
+					showPrimary={false}
+					canImport={false}
+				/>
 				{/snippet}
 			</Card>
 		{/if}
