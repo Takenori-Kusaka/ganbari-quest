@@ -1,0 +1,9 @@
+{
+	"_comment": "CX-DoR #10 Accessibility — axe-core WCAG 2.2 AA baseline pin (A-5). knownViolations に pin した axe rule id の critical/serious 違反は a11y-critical-cuj.spec.ts で fail させず件数を log するのみ (段階導入、silent cap 禁止)。新規 rule id の critical/serious 違反は 1 件で fail する。pin した違反は follow-up Issue で解消し knownViolations から削除する。PR-A11Y-2 初回 scan (2026-06-03、tablet project /marketplace + /marketplace/checklist/event-pool + /admin/{activities,checklists,rewards} + /preschool|elementary/home) で検出した既知違反を pin。各 rule の根治は別 fix PR (shared primitive 修正のため本 gate PR scope 外、Round 18 A-1〜A-4 fix 系統と並走) で実施し、解消ごとに本 object から削除する。理想は本 object が空であること。",
+	"knownViolations": {
+		"color-contrast": "[serious] WCAG 1.4.3。/marketplace の `.opacity-70.text-xs` (filter tab 補助テキスト 46 nodes) / admin の `.plan-badge` / `.page-description__link` 等で AA 4.5:1 未達。PR-A11Y-1 (#2787) で semantic token (--color-text-muted 等) は是正済だが、opacity-70 等の component 局所合成色が残存。別 fix PR で opacity 撤去 or token 化して解消する。",
+		"button-name": "[critical] WCAG 4.1.2。/marketplace の Ark UI Select trigger (`#select:s1:trigger`) に discernible text なし。`Select.svelte` primitive の trigger に aria-label / 可視ラベルを付与する別 fix PR で解消する。",
+		"select-name": "[critical] WCAG 4.1.2。/admin/rewards の `NativeSelect.svelte` 由来 `<select>` (`#native-select-field-*`) に accessible name なし。`NativeSelect.svelte` primitive で label 関連付け (aria-label / <label for>) を強制する別 fix PR で解消する。",
+		"aria-required-children": "[critical] WCAG 1.3.1。/admin/rewards の `.child-tab-row` (role 付与 container) が要求される child role を欠く。tab row component の ARIA role 構造を是正する別 fix PR で解消する。"
+	}
+}
