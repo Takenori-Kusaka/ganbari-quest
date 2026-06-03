@@ -124,7 +124,7 @@ per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ
 2. 子供が活動を記録する (確認 → 記録 → ポイント加算 → home 復帰)
 3. ごほうびを交換する (交換 → ポイント残高減 → 交換済み反映)
 4. 報酬リクエスト承認 (child 申請 → admin 承認 → 状態変化)
-5. チェックリスト import → child で表示
+5. チェックリスト import → child で表示 (admin で配信 → child の `/checklist` に出る、`tests/e2e/cuj5-checklist-import-child-visible.spec.ts`、CX-DoR #1/#7、C-3/C-7)
 
 #### マーケットプレイス インポート CUJ (#2554 follow-up P1 / 研究 SSOT)
 
@@ -135,6 +135,12 @@ per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ
 - **CUJ-CH2** (challenge-set): `tests/e2e/admin-challenges-import-marketplace.spec.ts` — `?marketplace-import=japan-annual-events` → `challenge-import-child-selection-dialog` 全員選択 → 確定 → admin チャレンジ group 数が grew (#2554 follow-up で partial → 完全 terminal verify に upgrade、admin-rewards CUJ-R2 と同型の `grew || hadSkips` dual condition、PR-CH2 #2638)
 
 既存 `tests/e2e/marketplace-checklist-import.spec.ts` の checklist 「`marketplace-preset-import-event-pool` click → imported badge visible + reload で永続」が exemplar (#2362 PR-5)。本 follow-up はその pattern を残 4 type に横展開する第 1 弾。**2026-05-29 時点 5 type 中 4 type (checklist / activity-pack / reward-set / challenge-set) が完全 terminal verify**。残 1 type (rule-preset) の terminal verify + 残 gap (B5 per-child dedup unit regression / B10 永続化 5 type 揃い / B7 5 age mode 取込後表示) は research SSOT §4-B Phase 1-4 で別 PR で順次扱う。
+
+#### CUJ-5 child visible terminal verify + critical CUJ video record (C-3 / C-7、2026-06-03)
+
+上記 CUJ-A3 / R2 / CH2 は **admin 側の child タブ件数 grew** までを terminal verify する。これに対し **CUJ-5 (checklist)** は #2544 dead-end と同型の「**admin の success message ≠ child 側で実際に表示される**」gap (C-3、Round 18 CX-DoR audit) を埋めるため、admin import (`?import=event-field-trip` → ChildSelectionDialog 全員選択 → 確定) の後に **`/switch` で子供を選択 → `/checklist` に遷移し、取込テンプレート + item が child 画面に visible** であることまで貫通検証する (`tests/e2e/cuj5-checklist-import-child-visible.spec.ts`)。admin で取込 → child に届く end-to-end goal の完遂を保証し、配信が壊れていれば child の `/checklist` に出ず必ず fail する。**preset 選定注意**: checklist import は template 既存だと配信せず早期 return する (`checklist-template-import-service.ts`) ため、本 spec は他 spec が取込しない `event-field-trip` を専有して使う (event-pool / event-school-start は `marketplace-checklist-import.spec.ts` が template 取込するため同 worker DB で配信 skip → child 非表示で fail する、CI shard で実証済)。
+
+**critical CUJ video record (C-7)**: 同 spec は `test.use({ video: 'retain-on-failure' })` で video 録画を有効化し、顧客レビュー証跡 (CX-DoR 条件 #7「実機 1 クリック貫通」の Playwright trace/video 証跡) を補完する。trace は `playwright.config.ts` で全 config `on-first-retry` 統一済 (CI 負荷を抑えるため全 spec video=on は不採用、ADR-0010 Pre-PMF / critical CUJ に限定して fail 時のみ保存)。
 
 ### Storybook interaction test (component 層、server 不要で配線健全性検証)
 
