@@ -152,3 +152,39 @@ jobs:
             if (existing) {
               await github.rest.issues.deleteComment({ owner, repo, comment_id: existing.id });
             }
+
+  # #2495 観察1: PR title 接頭辞を SSOT として type:* label を自動付与。
+  # actions/labeler (labeler.yml) は area:* file-glob のみで PR title を見ないため、
+  # title→type:* 機構を本 job が補完する (責務分離: title→type / file-glob→area)。
+  type-label:
+    name: title 接頭辞から type:* label 付与
+    runs-on: ubuntu-latest
+    if: "github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            // PR title 接頭辞 (Conventional Commits 風) を SSOT とし type:* label を derive する。
+            // type 集合は PULL_REQUEST_TEMPLATE.md「## 変更タイプ」8 件 + gh label list の
+            // type:* 8 件と一致 (feat/fix/refactor/design/infra/test/docs/marketing)。
+            // build/chore/ci/perf/style 等は label 不在のため map しない。
+            const title = context.payload.pull_request.title || '';
+            const m = title.match(/^(feat|fix|refactor|design|infra|test|docs|marketing)(\(.+\))?!?:/i);
+            if (!m) {
+              core.info(`title 接頭辞が type:* 対象外のため無干渉: "${title}"`);
+              return;
+            }
+            const want = `type:${m[1].toLowerCase()}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const cur = context.payload.pull_request.labels.map((l) => l.name);
+            // 既存の異なる type:* を 1 回 remove (手動上書きとの二重化防止、idempotent)
+            for (const l of cur.filter((n) => n.startsWith('type:') && n !== want)) {
+              await github.rest.issues.removeLabel({ owner, repo, issue_number, name: l }).catch(() => {});
+            }
+            if (!cur.includes(want)) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: [want] });
+              core.info(`付与: ${want}`);
+            } else {
+              core.info(`既付与のためスキップ: ${want}`);
+            }

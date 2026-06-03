@@ -108,6 +108,14 @@ AC 検証マップ (`pr-ac-verification-check.yml`) も hard-fail。
 
 セットアップ: Branch Ruleset の `required_status_checks` に 5 ジョブ追加（管理者作業）。
 
+### type:* label 自動付与 — title 接頭辞が SSOT（#2495）
+
+`type:*` label は **PR title 接頭辞を SSOT** とし `pr-info.yml` の `type-label` job が自動付与する（`feat`/`fix`/`refactor`/`design`/`infra`/`test`/`docs`/`marketing` の 8 種）。`## 変更タイプ` checkbox は人間可読の補助で label の source ではない（title と乖離時は title が正）。`area:*` は `labeler.yml`（file-glob, actions/labeler）が担い、両者は責務分離。
+
+- title 接頭辞が 8 種いずれにも一致しない場合（`build`/`chore`/`ci` 等の label 不在 type を含む）は無干渉（既存 label を保持）
+- 既存の異なる `type:*` を 1 回 remove してから付与するため、title を変更すれば label も追従する（idempotent）
+- Dependabot / Renovate は exempt（actor 判定で skip）
+
 ## 新規 env / secret 追加時（ADR-0006）
 
 `scripts/check-new-required-env.mjs` が以下を検出: `assert*Configured()` / `throw new Error('XXX is required')` / `process.env.X || (() => { throw })()`。
