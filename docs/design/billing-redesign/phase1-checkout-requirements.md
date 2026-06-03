@@ -25,8 +25,8 @@
 - NFR-2: webhook **署名検証必須** (construct_event)、未検証は reject
 - NFR-3: `checkout.session.async_payment_succeeded/failed` も購読 (将来の遅延決済対応)
 - NFR-4: サブスク状態を **アプリ DB にキャッシュ** (ログイン毎の Stripe API 照会回避)
-- NFR-5 (ADR-0012): 年額誘導は煽らず、トグルは中立操作可能
-- NFR-6 (ADR-0013): 「2ヶ月無料」は実価格 (16.7% off) と一致するため記載可
+- NFR-5 (ADR-0012): プラン選択は月額のみで提示し、年額誘導・期間トグルを設けない (年額廃止 #2588 補強2 / Anti-engagement 整合)
+- NFR-6 (ADR-0013): 「2ヶ月無料」等の年額割引訴求は廃止 (年額プラン非提供のため実価格と整合しない表記を出さない)
 
 ## ユーザーストーリー
 
@@ -43,11 +43,11 @@
 
 | # | 論点 | 推奨 | 状態 |
 |---|------|------|------|
-| 1 | 月/年トグルのデフォルト | **月額デフォルト** (年額は「2ヶ月おトク」併置) | ✅ PO 確定 2026-05-27 (Anti-engagement 整合) |
+| 1 | プラン選択 UI の課金期間 | **月額のみ** (期間トグルなし) | ✅ 年額廃止 (#2588 補強2) で確定。トグル論点は消失 (Anti-engagement 整合) |
 | 2 | 重複防止の実装方式 | Stripe built-in 自動 redirect | 推奨で確定 (UX 文言制御は Phase 3 で評価) |
 | 3 | success polling 上限 | webhook 10秒待ち後 polling、タイムアウト時「数分後に再読込」 | 実装詳細 (Phase 5-6) |
 | 4 | トライアル→有料化の動線文言 | standard も併置 (family 固定 trial 後のダウンセル経路) | トライアル要件と整合、確定 |
-| 5 | 年額の解約・日割り扱い | — | **解約孫 #2536 で確定** (Phase 1 早期に PO 判断要) |
+| 5 | 解約・日割り (proration) 扱い | 月額のみのため年額日割り論点は消失。月額の proration は Phase 5 #2640 (ダウン即時 + Stripe credit memo) で確定 | **解約孫 #2536 + Phase 5 #2640 で確定** |
 
 ## 関連 (2026-05-28 補強)
 
@@ -57,7 +57,8 @@
 
 | # | 既存実装 (file:line) | 本要件 | 扱い |
 |---|---|---|---|
-| 1 | createCheckoutSession (`src/lib/server/services/stripe-service.ts`:43-105) / webhook SSOT fulfillment (handleCheckoutCompleted `src/lib/server/services/stripe-service.ts`:245-303) / customer 紐づけ / 4 Price 構成 (`src/lib/server/stripe/config.ts`:39-70) | 維持 | ✅ 実装済み |
+| 1 | createCheckoutSession (`src/lib/server/services/stripe-service.ts`:43-105) / webhook SSOT fulfillment (handleCheckoutCompleted `src/lib/server/services/stripe-service.ts`:245-303) / customer 紐づけ | 維持 | ✅ 実装済み |
+| 1-b | 既存 4 Price 構成 (`src/lib/server/stripe/config.ts`:39-70、月額/年額 × standard/family) | **2 Product (standard / premium) 各 1 Price (月額のみ) + lookup_key** に再構成 (FR-1) | **変更** (Phase 5 #2639 代替案 D / 年額廃止 #2588 補強2、Phase 6/7 実装) |
 | 2 | priceId リテラル依存 (config.ts 環境変数直読) | lookup_key 参照 | **変更** (FR-1、Stripe Dashboard 設定も) |
 | 3 | success ページ「準備中」+ polling なし | 準備中表示 + session status polling | **新規実装** (FR-6、Phase 3 UI) |
 | 4 | `checkout.session.async_payment_succeeded/failed` 購読なし (現状 completed/invoice.paid/payment_failed のみ) | 購読追加 | **新規** (NFR-3) |
@@ -68,6 +69,6 @@
 ## 根拠 (primary source)
 
 - Stripe build-subscriptions / checkout/fulfillment / limit-subscriptions (Product/Price/lookup_key, webhook SSOT, processing gap polling, 重複防止 built-in)
-- 月額年額: innerTrends (16.7%=2ヶ月無料 標準) / Paddle (月換算併記)
+- 月額のみ採用根拠: Spotify Family 2026 年額廃止 / Netflix 月額のみ / SaaS 27% monthly-only (年額 sunk cost lock-in 回避、ADR-0012 整合。詳細は phase1-plan-naming-pricing-axis-requirements.md FR-2)
 - ADR-0012 (Anti-engagement) / ADR-0013 (LP truth)
 - 既存: src/lib/server/stripe/ / terms.ts (PRICE_TERMS / TRIAL_TERMS / PLAN_FULL_TERMS)
