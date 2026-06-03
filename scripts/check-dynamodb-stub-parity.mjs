@@ -53,10 +53,8 @@ function collectInventory() {
 		for (const line of content.split('\n')) {
 			// helper 定義行 (`function notImplemented(method: string)`) は除外
 			if (/^\s*function\s+(?:notImplemented|warnRead|warnWrite)/.test(line)) continue;
-			let m;
-			STUB_CALL_RE.lastIndex = 0;
-			while ((m = STUB_CALL_RE.exec(line)) !== null) {
-				methods.add(m[1]);
+			for (const match of line.matchAll(STUB_CALL_RE)) {
+				methods.add(match[1]);
 			}
 		}
 		if (methods.size > 0) {
