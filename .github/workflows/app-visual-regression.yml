@@ -1,0 +1,163 @@
+name: App Visual Regression (pixelmatch baseline)
+
+# CX-DoR #8 / ADR-0053 app 拡張
+#
+# 目的:
+#   既存 LP visual regression (lp-visual-regression.yml、#2401) +
+#   child-home visual regression (child-home-visual-regression.yml、#2520) で拾えていない
+#   **アプリ本体 critical CUJ の age-mode 補完 + admin 画面** の見た目回帰を pixelmatch baseline で検出する。
+#
+#   3 層 visual regression 体制を完成させる:
+#     - LP (lp-screenshot-baseline/、#2401)
+#     - child home 4 mode + battle (child-home-baseline/、#2520)
+#     - app: baby home + admin 代表 2 画面 (app-screenshot-baseline/、本 workflow)
+#
+#   撮影元: `scripts/capture-app-baseline.mjs --webp` (本番ルート /baby/home /admin/activities
+#   /admin/checklists を demo fixture data で撮影、AUTH_MODE=anonymous + DATA_SOURCE=demo、ADR-0048)
+#   比較: `scripts/check-lp-visual-regression.mjs` の汎用 pixelmatch ロジックを
+#   `--baseline-dir scripts/app-screenshot-baseline --current-dir tmp/app-baseline-current` で再利用
+#
+# 段階運用:
+#   - 初回は warn (continue-on-error: true)。安定後に hard-fail へ昇格判断 (別 Issue)。
+#     child-home-visual-regression.yml (#2520) と同じ段階運用ポリシー。
+#   - 閾値: diff > 10% (check-lp-visual-regression の DEFAULT_THRESHOLD_PCT)
+#
+# scope (Pre-PMF ADR-0010、過剰回避):
+#   - baby home (#2520 未カバーの 5 番目 age mode、ADR-0011 準備モード)
+#   - admin/activities + admin/checklists (marketplace 取込 CUJ 受領先)
+#   - 全画面×5 mode×複数 viewport は維持コスト爆発のため却下 (#2520 research §4 整合)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "src/routes/(child)/**"
+      - "src/routes/(parent)/admin/activities/**"
+      - "src/routes/(parent)/admin/checklists/**"
+      - "src/lib/features/admin/**"
+      - "scripts/capture-app-baseline.mjs"
+      - "scripts/check-lp-visual-regression.mjs"
+      - "scripts/app-screenshot-baseline/**"
+      - ".github/workflows/app-visual-regression.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/routes/(child)/**"
+      - "src/routes/(parent)/admin/activities/**"
+      - "src/routes/(parent)/admin/checklists/**"
+      - "src/lib/features/admin/**"
+      - "scripts/capture-app-baseline.mjs"
+      - "scripts/check-lp-visual-regression.mjs"
+      - "scripts/app-screenshot-baseline/**"
+      - ".github/workflows/app-visual-regression.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: app-visual-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app-visual-regression-check:
+    name: App visual regression (pixelmatch diff, warn)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Build app for preview
+        run: npm run build
+
+      - name: Start preview server
+        env:
+          AWS_LICENSE_SECRET: app-vr-capture-secret-do-not-use-in-production
+          AUTH_MODE: anonymous
+          DATA_SOURCE: demo
+        run: |
+          npm run preview -- --port 5173 --host 0.0.0.0 > /tmp/preview.log 2>&1 &
+          echo "PREVIEW_PID=$!" >> $GITHUB_ENV
+          for i in {1..120}; do
+            if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+              echo "Preview server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Preview server failed to start within 120s"
+          cat /tmp/preview.log
+          exit 1
+
+      - name: Capture app baseline screens (current state)
+        env:
+          BASE_URL: http://localhost:5173
+        # 撮影 1 件失敗でも回帰検出を継続させる (baseline 内 image が存在する限り比較する)
+        continue-on-error: true
+        run: |
+          node scripts/capture-app-baseline.mjs --webp
+
+      - name: Stop preview server
+        if: always()
+        run: |
+          if [ -n "$PREVIEW_PID" ]; then
+            kill $PREVIEW_PID 2>/dev/null || true
+          fi
+
+      - name: Run app visual regression check (warn)
+        # 初回は warn (continue-on-error)。diff > 10% でも CI を止めず、安定後に hard-fail 昇格判断。
+        continue-on-error: true
+        run: |
+          node scripts/check-lp-visual-regression.mjs \
+            --baseline-dir scripts/app-screenshot-baseline \
+            --current-dir tmp/app-baseline-current \
+            --diff-dir tmp/app-visual-diffs
+
+      - name: Generate JSON report (artifact)
+        if: always()
+        run: |
+          node scripts/check-lp-visual-regression.mjs \
+            --baseline-dir scripts/app-screenshot-baseline \
+            --current-dir tmp/app-baseline-current \
+            --json > app-visual-regression.json || true
+
+      - name: Upload visual regression report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: app-visual-regression
+          path: |
+            app-visual-regression.json
+            tmp/app-visual-diffs/
+            tmp/app-baseline-current/
+          retention-days: 14
