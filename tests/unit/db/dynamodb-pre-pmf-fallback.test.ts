@@ -25,8 +25,8 @@ import { describe, expect, it } from 'vitest';
 // Pre-PMF fallback に置換された 12 repo
 import * as autoChallengeRepo from '../../../src/lib/server/db/dynamodb/auto-challenge-repo';
 import * as battleRepo from '../../../src/lib/server/db/dynamodb/battle-repo';
-// #2263 regression hotfix (本 PR): child-activity-repo (PR #2455 = #2362 PR-3 で 2026-05-24 導入)
-import * as childActivityRepo from '../../../src/lib/server/db/dynamodb/child-activity-repo';
+// #2824 (ADR-0055): child-activity-repo は本実装済のため stub fallback テスト対象外。
+//   機能等価性は tests/unit/db/dynamodb-child-activity-repo.test.ts (AWS SDK mock) で検証する。
 import * as cloudExportRepo from '../../../src/lib/server/db/dynamodb/cloud-export-repo';
 import * as messageRepo from '../../../src/lib/server/db/dynamodb/message-repo';
 import * as reportDailySummaryRepo from '../../../src/lib/server/db/dynamodb/report-daily-summary-repo';
@@ -87,48 +87,11 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('child-activity-repo (#2263 regression hotfix)', () => {
-		it('全 read method は安全値を返す (本番 /preschool/home 500 防止)', async () => {
-			await expect(childActivityRepo.findActivitiesByChild(1, TENANT)).resolves.toEqual([]);
-			await expect(
-				childActivityRepo.findActivitiesByChild(1, TENANT, { includeArchived: true }),
-			).resolves.toEqual([]);
-			await expect(childActivityRepo.findActivityById(1, 1, TENANT)).resolves.toBeUndefined();
-			await expect(childActivityRepo.countMainQuestActivities(1, TENANT)).resolves.toBe(0);
-			await expect(childActivityRepo.findChildById(1, TENANT)).resolves.toBeUndefined();
-		});
-
-		it('write method は throw する (Pre-PMF で本番到達禁止を構造的に強制)', async () => {
-			await expect(
-				childActivityRepo.insertActivity(
-					{
-						childId: 1,
-						categoryId: 1,
-						name: 'n',
-						icon: '★',
-						basePoints: 1,
-						isMainQuest: 0,
-						isVisible: 1,
-						sortOrder: 0,
-						priority: 'optional',
-					} as never,
-					TENANT,
-				),
-			).rejects.toThrow(/not implemented/);
-			await expect(childActivityRepo.updateActivity(1, 1, {} as never, TENANT)).rejects.toThrow(
-				/not implemented/,
-			);
-			await expect(childActivityRepo.setActivityVisibility(1, 1, true, TENANT)).rejects.toThrow(
-				/not implemented/,
-			);
-			await expect(childActivityRepo.deleteActivity(1, 1, TENANT)).rejects.toThrow(
-				/not implemented/,
-			);
-			await expect(
-				childActivityRepo.archiveActivities([1], 'manual' as never, TENANT),
-			).rejects.toThrow(/not implemented/);
-		});
-	});
+	// #2824 (ADR-0055): child-activity-repo は本実装済 (stub 除外)。
+	//   marketplace per-child 取込 (importActivities → insertActivitiesBulk) が本番 DynamoDB
+	//   Lambda で永続する。本実装の機能等価性テストは dynamodb-child-activity-repo.test.ts に分離。
+	//   ここで stub 前提の assert を残すと「実装済なのに stub 期待」で誤った退行 gate になるため
+	//   除外する (他 11 repo の fallback assert は維持 = assertion 弱体化に該当しない)。
 
 	describe('cloud-export-repo', () => {
 		it('全 method が throw しない', async () => {
@@ -294,17 +257,16 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('regression guard: 全 10 repo の Promise.all で reject されない', () => {
-		it('SSR /preschool/home の典型的な 10 repo 並列呼び出しが全 fulfill する', async () => {
+	describe('regression guard: 全 9 repo の Promise.all で reject されない', () => {
+		it('SSR /preschool/home の典型的な 9 repo 並列呼び出しが全 fulfill する', async () => {
 			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
 			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
-			// #2263 regression hotfix (本 PR): childActivityRepo.findActivitiesByChild 追加 (9 → 10 repo)
-			//   → PR #2455 で stub 化されていた child-activity が SSR `Promise.all` で reject → 500 を引き起こす
-			//     時限爆弾を Pre-PMF fallback に置換して解消
+			// #2263 regression hotfix: childActivityRepo を stub fallback に置換 (9 → 10 repo)
+			// #2824 (ADR-0055): childActivityRepo を本実装化したため stub fallback guard から除外
+			//   (本実装は AWS SDK mock 必須 → dynamodb-child-activity-repo.test.ts で検証)。10 → 9 repo
 			const results = await Promise.allSettled([
 				autoChallengeRepo.findActiveByChild(1, TENANT),
 				battleRepo.findTodayBattle(1, TODAY, TENANT),
-				childActivityRepo.findActivitiesByChild(1, TENANT, { childAge: 5 } as never),
 				cloudExportRepo.findByTenant(TENANT),
 				messageRepo.findUnshownMessage(1, TENANT),
 				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),

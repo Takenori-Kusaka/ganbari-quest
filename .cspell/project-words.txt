@@ -88,6 +88,7 @@ catchcopy
 certificatemanager
 chibi
 chukichi
+CHILDACT
 CKLOG
 CKOVER
 CKTPL

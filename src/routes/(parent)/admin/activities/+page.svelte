@@ -301,17 +301,15 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		});
 		if (resp.ok) {
 			const result = deserialize(await resp.text());
+			const data = result.type === 'success' ? result.data : undefined;
 			// デモ環境 no-op (data.demo===true) は成功偽装せず明示 (reward / challenge と統一)。
-			if (
-				result.type === 'success' &&
-				(result.data as Record<string, unknown> | undefined)?.demo === true
-			) {
+			if (data?.demo === true) {
 				actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importDemo;
 				showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importDemo, undefined, 'info');
 				return;
 			}
-			const imported =
-				result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
+			const imported = Number((data?.imported as number | undefined) ?? 0);
+			const errorsCount = Array.isArray(data?.errors) ? (data.errors as unknown[]).length : 0;
 			// #2745 fix Round 2 (CI artifact 解析根拠): Toast primitive (`role="alert"`) を
 			// 一次 feedback として表示しつつ、in-page banner (`role="status"`) を 2 重防御として
 			// 同期 set する。Toast は module-level `$state` push でリアクティブ更新されるが
@@ -320,12 +318,23 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			// banner は同 page state なので同期 set、handler return 後の re-render で即座に表示される。
 			// regression test (#2745 spec) は role="alert" を待つが、Toast / banner どちらが先に
 			// 表示されても regex マッチで PASS する 2 重防御。Anti-engagement 整合 (DESIGN.md §5)。
-			const message =
-				imported > 0
-					? ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported)
-					: ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates;
+			// #2824 (取込永続 honesty): server が errors を返したら「N 件登録しました」と
+			// 偽らず、保存できなかった事実を出す。imported=0 を「追加済み」(importAllDuplicates)
+			// で誤魔化す経路は errors=0 (= 純粋な重複) のときに限定する。
+			let message: string;
+			let tone: 'success' | 'info' | 'error';
+			if (errorsCount > 0) {
+				message = ADMIN_ACTIVITIES_PAGE_LABELS.importPartialFailure(imported, errorsCount);
+				tone = 'error';
+			} else if (imported > 0) {
+				message = ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported);
+				tone = 'success';
+			} else {
+				message = ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates;
+				tone = 'info';
+			}
 			actionMessage = message;
-			showToast(message, undefined, imported > 0 ? 'success' : 'info');
+			showToast(message, undefined, tone);
 			await invalidateAll();
 		} else {
 			actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;

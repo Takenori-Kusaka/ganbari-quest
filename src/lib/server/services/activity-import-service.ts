@@ -185,21 +185,57 @@ async function buildExistingNamesByChild(
 /**
  * per-child 配信 (#2362 PR-3): 各 child に instance を bulk insert。
  * child 単位で失敗しても他は継続 (partial success)。
+ *
+ * #2824 (取込永続 honesty): 「実際に persist できた activity 名」を集合として返す。
+ *   旧実装は imported を write 前 (計画時) に確定していたため、insertActivitiesBulk が
+ *   throw しても (本番 DynamoDB stub / 容量超過 / 権限不足 等) imported が減らず、UI が
+ *   「N 件登録しました」と偽った。本 helper は persist 成功分の名前のみ報告し、呼び出し側で
+ *   imported を実 persist 数から算出させることで「偽の成功件数」を構造的に防ぐ。
+ *
+ * @returns persist に成功した activity 名の集合 (どこか 1 child でも成功した名前を含む)
  */
 async function dispatchPerChildBulk(
 	inputsByChild: Map<number, InsertChildActivityInput[]>,
 	tenantId: string,
 	errors: string[],
-): Promise<void> {
+): Promise<Set<string>> {
 	const repos = getRepos();
+	const persistedNames = new Set<string>();
 	for (const [cid, inputs] of inputsByChild) {
 		if (inputs.length === 0) continue;
 		try {
-			await repos.childActivity.insertActivitiesBulk(inputs, tenantId);
+			const created = await repos.childActivity.insertActivitiesBulk(inputs, tenantId);
+			for (const a of created) persistedNames.add(a.name);
 		} catch (e) {
 			errors.push(`[child=${cid}] per-child instance 作成失敗: ${String(e)}`);
 		}
 	}
+	return persistedNames;
+}
+
+/**
+ * #2824: per-child bulk を実行し、実際に persist できた activity 数 (imported) を返す。
+ * 計画したのに persist できなかった分 (DynamoDB stub / 容量超過 等) は errors に記録する。
+ * child が 0 件のときは write を行わず imported=0 (honest)。
+ */
+async function persistAndCountImported(
+	childIds: readonly number[],
+	childInputsByChild: Map<number, InsertChildActivityInput[]>,
+	plannedNewNames: Set<string>,
+	tenantId: string,
+	errors: string[],
+): Promise<number> {
+	if (childIds.length === 0) return 0;
+	const persistedNames = await dispatchPerChildBulk(childInputsByChild, tenantId, errors);
+	let imported = 0;
+	for (const name of plannedNewNames) {
+		if (persistedNames.has(name)) imported++;
+	}
+	const failedToPersist = plannedNewNames.size - imported;
+	if (failedToPersist > 0) {
+		errors.push(`${failedToPersist} 件の活動を保存できませんでした`);
+	}
+	return imported;
 }
 
 /**
@@ -218,6 +254,45 @@ async function _fallbackChildIds(
 	return [];
 }
 
+/** planActivityForChildren の per-import 共通コンテキスト (param 数削減のため集約)。 */
+interface PlanContext {
+	presetId: string | undefined;
+	childIds: readonly number[];
+	existingNamesByChild: Map<number, Set<string>>;
+	childInputsByChild: Map<number, InsertChildActivityInput[]>;
+}
+
+/**
+ * 1 activity を全 target child の per-child input に展開する (child 単位 dedup)。
+ * @returns その activity がいずれかの child に「新規計画」されたか
+ */
+function planActivityForChildren(
+	a: ActivityPackItem,
+	categoryId: number,
+	priority: 'must' | 'optional',
+	ctx: PlanContext,
+): boolean {
+	let plannedForAnyChild = false;
+	for (const cid of ctx.childIds) {
+		const childNames = ctx.existingNamesByChild.get(cid);
+		// 既存 + 同一 import 内での重複の両方を防ぐため Set を逐次更新する。
+		if (childNames?.has(a.name)) continue;
+		childNames?.add(a.name);
+		ctx.childInputsByChild.get(cid)?.push({
+			childId: cid,
+			name: a.name,
+			categoryId,
+			icon: a.icon,
+			basePoints: a.basePoints,
+			triggerHint: a.triggerHint ?? null,
+			sourcePresetId: ctx.presetId ?? null,
+			priority,
+		});
+		plannedForAnyChild = true;
+	}
+	return plannedForAnyChild;
+}
+
 export async function importActivities(
 	activities: ActivityPackItem[],
 	tenantId: string,
@@ -229,7 +304,6 @@ export async function importActivities(
 	const applyMustDefault = opts.applyMustDefault === true;
 
 	const errors: string[] = [];
-	let imported = 0;
 	let skipped = 0;
 
 	// #2558: dedup を child 単位で行う (ADR-0055 per-child instance scope)。
@@ -242,52 +316,49 @@ export async function importActivities(
 	const childInputsByChild: Map<number, InsertChildActivityInput[]> = new Map();
 	for (const cid of childIds) childInputsByChild.set(cid, []);
 
+	// #2824: 「いずれかの child に新規 instance を生成しようと計画した」名前。
+	//   imported は計画時ではなく実 persist 後に確定する (下記参照)。
+	const plannedNewNames = new Set<string>();
+	const planCtx: PlanContext = { presetId, childIds, existingNamesByChild, childInputsByChild };
+
 	for (const a of activities) {
 		const meta = resolveActivityMeta(a, applyMustDefault);
 		if (!meta.ok) {
 			if (meta.error) errors.push(meta.error);
 			continue;
 		}
-		const categoryId = meta.categoryId as number;
-		const priority = meta.priority as 'must' | 'optional';
-
-		// child 単位 dedup: その child に同名が無いときだけ instance を生成する。
-		let createdForAnyChild = false;
-		for (const cid of childIds) {
-			const childNames = existingNamesByChild.get(cid);
-			// 既存 + 同一 import 内での重複の両方を防ぐため Set を逐次更新する。
-			if (childNames?.has(a.name)) continue;
-			childNames?.add(a.name);
-			childInputsByChild.get(cid)?.push({
-				childId: cid,
-				name: a.name,
-				categoryId,
-				icon: a.icon,
-				basePoints: a.basePoints,
-				triggerHint: a.triggerHint ?? null,
-				sourcePresetId: presetId ?? null,
-				priority,
-			});
-			createdForAnyChild = true;
-		}
-
-		// imported = いずれかの child に新規 instance を生んだ activity 数。
-		// skipped = 全 target child で既存だった (どこにも追加しなかった) activity 数。
-		if (createdForAnyChild) {
-			imported++;
+		const planned = planActivityForChildren(
+			a,
+			meta.categoryId as number,
+			meta.priority as 'must' | 'optional',
+			planCtx,
+		);
+		if (planned) {
+			plannedNewNames.add(a.name);
 		} else {
+			// 全 target child で既存だった (どこにも追加しない) activity。
 			skipped++;
 		}
 	}
 
-	if (childIds.length > 0) {
-		await dispatchPerChildBulk(childInputsByChild, tenantId, errors);
-	}
+	// #2824 (取込永続 honesty): imported は「実際に DB に persist できた activity 数」。
+	//   write を行わずに plannedNewNames.size を返すと、persist が全失敗 (本番 DynamoDB
+	//   stub / 容量超過 等) でも UI が「N 件登録しました」と偽る。dispatchPerChildBulk が
+	//   返す persist 成功名のみを imported に算入し、計画したのに persist できなかった分は
+	//   errors として可視化する。これにより「偽の成功件数」を構造的に出さない。
+	const imported = await persistAndCountImported(
+		childIds,
+		childInputsByChild,
+		plannedNewNames,
+		tenantId,
+		errors,
+	);
 
 	logger.info('[activity-import] インポート完了', {
 		context: {
 			tenantId,
 			imported,
+			plannedNew: plannedNewNames.size,
 			skipped,
 			errors: errors.length,
 			presetId: presetId ?? null,

@@ -94,6 +94,29 @@ export function activityKeyWithGSI2(
 	};
 }
 
+/**
+ * Child activity instance (#2362 PR-3 / ADR-0055): PK=CHILD#<cId>, SK=CHILDACT#<id>
+ *
+ * per-child instance を child partition 配下に配置する (activity_logs / point_ledger /
+ * status 等と同じ child scope レイアウト)。これにより `findActivitiesByChild` は
+ * 単一 partition Query (begins_with(SK, 'CHILDACT#')) で完結し、GSI を追加せず
+ * cross-child access を構造的に防ぐ (ADR-0055 §3.1)。
+ *
+ * 旧 family-master `ACTIVITY#<id>` (SK=MASTER) とは別 partition のため、移行中も
+ * 名前空間が衝突しない。SQLite `child_activities` table と機能等価。
+ */
+export function childActivityKey(childId: number, activityId: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `CHILDACT#${padId(activityId)}`,
+	};
+}
+
+/** Child activity SK prefix for querying all activities of a child */
+export function childActivityPrefix(): string {
+	return 'CHILDACT#';
+}
+
 /** Activity log: PK=CHILD#<cId>, SK=LOG#<date>#<id> */
 export function activityLogKey(
 	childId: number,
@@ -712,6 +735,7 @@ export const ENTITY_NAMES = {
 	child: 'child',
 	category: 'category',
 	activity: 'activity',
+	childActivity: 'childActivity',
 	activityLog: 'activityLog',
 	pointLedger: 'pointLedger',
 	status: 'status',

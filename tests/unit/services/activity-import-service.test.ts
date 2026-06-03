@@ -82,7 +82,14 @@ function makeItem(overrides: Partial<ActivityPackItem> = {}): ActivityPackItem {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindActivities.mockResolvedValue([]);
-	mockInsertActivitiesBulk.mockResolvedValue([]);
+	// #2824 (取込永続 honesty): insertActivitiesBulk は SQLite / DynamoDB 本実装と同様に
+	//   「作成した row (name 込み)」を返す。importActivities は imported を実 persist 結果
+	//   (返り値の name 集合) から算出するため、mock も入力を echo する必要がある。
+	//   旧 mock の `mockResolvedValue([])` は「persist 0 件」を意味し、imported を偽る経路を
+	//   隠してしまうため echo に変更した (ADR-0006 assertion 弱体化ではなく現実即応の強化)。
+	mockInsertActivitiesBulk.mockImplementation(async (inputs: Array<{ name: string }>) =>
+		inputs.map((i, idx) => ({ id: idx + 1, ...i })),
+	);
 	// #2558: 既定では各 child に既存 activity なし (per-child dedup の baseline)
 	mockFindActivitiesByChild.mockResolvedValue([]);
 	mockFindAllChildren.mockResolvedValue([{ id: FIRST_CHILD_ID, nickname: 'first' }]);
@@ -233,21 +240,26 @@ describe('importActivities', () => {
 		expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
 	});
 
-	it('per-child bulk が例外をスロー -> エラー記録され処理継続', async () => {
+	it('per-child bulk が全件スロー -> imported=0 (偽の成功件数を出さない、#2824)', async () => {
+		// #2824 取込永続 honesty: insertActivitiesBulk が throw したら persist 0 件。
+		//   旧テストは imported=2 を期待していたが、これは「N 件登録しました」と偽る根因
+		//   そのものだった。本番 DynamoDB stub / 容量超過 等で全 write が失敗しても UI に
+		//   成功件数を出していた。修正後は persist 成功 0 → imported=0、errors に失敗を記録する。
 		mockInsertActivitiesBulk.mockRejectedValueOnce(new Error('DB constraint violation'));
 
 		const items = [
 			makeItem({ name: '失敗する活動', categoryCode: 'undou' }),
-			makeItem({ name: '成功する活動', categoryCode: 'benkyou' }),
+			makeItem({ name: 'もうひとつの活動', categoryCode: 'benkyou' }),
 		];
 
 		const result = await importActivities(items, TENANT);
 
-		// imported は family master 段階での成功件数。bulk 失敗は別 channel (errors)
-		expect(result.imported).toBe(2);
-		expect(result.errors).toHaveLength(1);
-		expect(result.errors[0]).toContain('per-child instance 作成失敗');
-		expect(result.errors[0]).toContain('DB constraint violation');
+		expect(result.imported).toBe(0);
+		// errors: ① per-child bulk 失敗 ② 「2 件を保存できませんでした」
+		expect(result.errors.length).toBeGreaterThanOrEqual(2);
+		expect(result.errors.some((e) => e.includes('per-child instance 作成失敗'))).toBe(true);
+		expect(result.errors.some((e) => e.includes('DB constraint violation'))).toBe(true);
+		expect(result.errors.some((e) => e.includes('保存できませんでした'))).toBe(true);
 	});
 
 	it('混合シナリオ: 新規 + 重複 + カテゴリエラー', async () => {
@@ -506,19 +518,23 @@ describe('importActivities', () => {
 			expect(calledChildIds).toEqual([101, 202, 303]);
 		});
 
-		it('1 child の bulk insert が失敗しても他 child は継続する (partial success)', async () => {
+		it('1 child の bulk insert が失敗しても他 child で persist 成功すれば imported=1 (partial success)', async () => {
+			// #2824: child=101 は失敗するが、202/303 で 'A' が persist 成功する。
+			//   imported は「いずれかの child に persist できた activity 数」= 1 が honest。
+			//   返り値は実 row (name 込み) を返すことで imported を実 persist から算出させる。
 			mockInsertActivitiesBulk
 				.mockRejectedValueOnce(new Error('child=101 disk full'))
-				.mockResolvedValueOnce([{ id: 99 }])
-				.mockResolvedValueOnce([{ id: 100 }]);
+				.mockResolvedValueOnce([{ id: 99, name: 'A' }])
+				.mockResolvedValueOnce([{ id: 100, name: 'A' }]);
 
 			const items = [makeItem({ name: 'A', categoryCode: 'undou' })];
 
 			const result = await importActivities(items, TENANT, { childIds: [101, 202, 303] });
 
+			// 202/303 で persist 成功したので imported=1 (どこにも持続していない fiction でない)
 			expect(result.imported).toBe(1);
-			expect(result.errors).toHaveLength(1);
-			expect(result.errors[0]).toContain('child=101');
+			// errors: child=101 の失敗のみ ('A' は他 child で persist 成功 → 保存失敗 error なし)
+			expect(result.errors.some((e) => e.includes('child=101'))).toBe(true);
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(3);
 		});
 
@@ -650,6 +666,65 @@ describe('importActivities', () => {
 			expect(result.skipped).toBe(1);
 			// 配信入力が 0 件なので bulk insert は呼ばれない
 			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+		});
+	});
+
+	// ──────────────────────────────────────────────────────────
+	// #2824 取込永続 honesty: imported は実 persist 数のみを反映する
+	// (本番 cognito Lambda + DATA_SOURCE=dynamodb で write が永続しない CRITICAL の根治)
+	// ──────────────────────────────────────────────────────────
+	describe('#2824 取込永続 honesty (imported が偽らない)', () => {
+		it('write が全失敗 (DynamoDB stub 相当) -> imported=0 + 保存失敗 error。35 件偽装を防ぐ', async () => {
+			// 顧客レビューで観察された CRITICAL の再現: 35 件取込しようとしたが本番
+			// DynamoDB repo が throw (旧 stub) → 0 件しか persist しないのに UI が
+			// 「35 件登録しました」と偽った。imported は実 persist 数でなければならない。
+			mockInsertActivitiesBulk.mockRejectedValue(new Error('not implemented (dynamodb stub)'));
+
+			const items = Array.from({ length: 35 }, (_, i) =>
+				makeItem({ name: `活動${i}`, categoryCode: 'undou' }),
+			);
+
+			const result = await importActivities(items, TENANT, { childIds: [101] });
+
+			// 1 件も persist できていない -> imported=0 が honest
+			expect(result.imported).toBe(0);
+			expect(
+				result.errors.some((e) => e.includes('35 件') && e.includes('保存できませんでした')),
+			).toBe(true);
+		});
+
+		it('一部のみ persist 成功 -> imported は persist できた数だけ', async () => {
+			// 3 件計画したが、insertActivitiesBulk は 2 件しか返さない (1 件 silent drop)。
+			mockInsertActivitiesBulk.mockResolvedValueOnce([
+				{ id: 1, name: 'A' },
+				{ id: 2, name: 'B' },
+			]);
+
+			const items = [
+				makeItem({ name: 'A', categoryCode: 'undou' }),
+				makeItem({ name: 'B', categoryCode: 'benkyou' }),
+				makeItem({ name: 'C', categoryCode: 'seikatsu' }),
+			];
+
+			const result = await importActivities(items, TENANT, { childIds: [101] });
+
+			// A/B は persist 成功、C は未 persist -> imported=2、C は保存失敗として可視化
+			expect(result.imported).toBe(2);
+			expect(
+				result.errors.some((e) => e.includes('1 件') && e.includes('保存できませんでした')),
+			).toBe(true);
+		});
+
+		it('write が全成功 -> imported は計画件数と一致 (正常系で error を出さない)', async () => {
+			const items = [
+				makeItem({ name: 'A', categoryCode: 'undou' }),
+				makeItem({ name: 'B', categoryCode: 'benkyou' }),
+			];
+
+			const result = await importActivities(items, TENANT, { childIds: [101] });
+
+			expect(result.imported).toBe(2);
+			expect(result.errors).toEqual([]);
 		});
 	});
 });

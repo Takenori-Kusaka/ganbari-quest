@@ -4171,6 +4171,12 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	importAllDuplicates: `選んだ${CHILD_TERMS.honorific}にはすでに追加済みです`,
 	importFailed: '取込に失敗しました',
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
+	// #2818: 一部 (または全件) が保存できなかったとき正直に出す。
+	//   「N 件登録しました」と偽らず、追加できた件数と保存できなかった件数を分けて表示する。
+	importPartialFailure: (imported: number, failed: number) =>
+		imported > 0
+			? `${imported} 件を追加しましたが、${failed} 件は保存できませんでした`
+			: '保存に失敗しました。もう一度お試しください',
 	// Round 18 Cluster G (per-child scope badge): 英語内部語彙「per-child」UI 露出撤去 (ADR-0045 §9)
 	// 「お子さま別」= per-child scope (個別 child に紐付く activity) を親向けに明示する短い表示
 	scopeBadgePerChild: `${CHILD_TERMS.honorific}別`,
