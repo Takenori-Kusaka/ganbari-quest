@@ -8,6 +8,7 @@
 | Phase 2 整合 | [phase2-plan-change-journey.md](phase2-plan-change-journey.md) (#2549) ジャーニー B-7 (再アップで瞬時復元 = 最終山) / Pattern A (Notion 型) 採用根拠 / 文言 atom 拡張 (`PLAN_CHANGE_TERMS.protected` / `.resumeReady`) |
 | Phase 3 兄弟 | [phase3-admin-header-ui-design.md](phase3-admin-header-ui-design.md) (#2568 plan-badge) / [phase3-subscription-page-ui-design.md](phase3-subscription-page-ui-design.md) (#2567 `/admin/subscription` 純化) / [phase3-activity-limit-banner-ui-design.md](phase3-activity-limit-banner-ui-design.md) (#2569 ActivityLimitBanner) |
 | Phase 7 rename 方針 | `/admin/license` → `/admin/subscription` / `family` → `プレミアム` (atom 1 行) / 月額のみ (年額廃止)。本 docs 内では Phase 7 rename 後の名称を前提に記述、既存実装 reference (`SaasLicensePanel.svelte` 等) は現名維持 |
+| license key 全廃 / rename 整合 (#2788) | 本 docs の reactivation banner / archived listing は **license key UI を含まない**ため license key 全廃 (#2788、PR #2790) の影響なし。本文中の `license +page.server.ts` 等の `license` を含むパス・名称は **現名の既存実装 reference** で、Phase 7 で `/admin/subscription/` に rename される (naming rename)。naming rename と license key 概念削除 (全廃軸、`tenant.status=ACTIVE` が唯一の entitlement SSOT) は別軸 (Phase 5 補強 #2798 §2 原則 4 踏襲) |
 | 採用案 | Notion 型 Pattern A (Phase 2 #2549 既確定) + Calendly 型 「toggle-back restore」(One-click) を融合。read-only listing + 常時表示 reactivation banner |
 | `premium` 階層 signal 打消 | reactivation banner は **「データは保護されています」**を主訴求とし、「上位プランで restore」を副訴求にとどめる (上位プラン誘導を一次目的化しない)。LP コピー (`FREE_PLAN_TERMS.forever` 等) と連動して「無料が排除されている印象を与えない」設計を貫徹 (refs #2594 D-2) |
 

@@ -7,6 +7,7 @@
 | 対応 Phase 1 要件 | [phase1-plan-change-requirements.md](phase1-plan-change-requirements.md) (#2535) §FR-4 / §Open question 4 |
 | 対応 Phase 2 ジャーニー | [phase2-plan-change-journey.md](phase2-plan-change-journey.md) (#2549) §「ダウン ジャーニー詳細 #5」/ §「Phase 3 申し送り 3」 |
 | ステータス | Phase 3 UI 設計 draft 2026-05-28 (deep-research: Notion / Kinde / Stripe 公式 + 既存実装 Explore: SaasLicensePanel.svelte + Alert primitive + MilestoneBanner) |
+| license key 全廃 / rename 整合 (#2788) | 本 banner は期末ダウン状態の表示専用で **license key UI を含まない** ため license key 全廃 (#2788、PR #2790) の影響なし。本文中の `SaasLicensePanel.svelte` は **既存実装 reference (現名維持)**。Phase 7 で `SaasSubscriptionPanel.svelte` に rename されるが、naming rename と license key 概念削除は別軸 (Phase 5 補強 #2798 §2 原則 4) |
 
 > **目的範囲**: 期末ダウン**確定後・期末到達まで**の親 admin 画面に表示する **1 件静的 banner** の UI 設計のみ。期末到達後の archived リソース UI は #2575 (別子 issue)、確認モーダル / proration 表示は #2549 Phase 2 / #2573 で別途扱う。
 
