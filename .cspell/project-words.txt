@@ -116,6 +116,7 @@ daidaikichi
 daikichi
 daisuki
 dedup
+Denorm
 dependabot
 Dependabot
 Deque
@@ -261,6 +262,7 @@ quickmode
 recalc
 reconsent
 Reconsent
+REDEMPT
 REVD
 Roboto
 sakura
