@@ -1,0 +1,233 @@
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title data-lp-key="growthRoadmap.pageTitle">成長ロードマップ - がんばりクエスト</title>
+<meta name="description" content="がんばりクエストの 5 ステージ成長ロードマップ。幼児（3-5歳）から高校生（16-18歳）、そして「卒業」まで、UI と機能が成長に合わせて変化していく様子を実画面付きで紹介。">
+<meta property="og:title" content="成長ロードマップ - がんばりクエスト">
+<meta property="og:description" content="3 歳から 18 歳まで、そして「卒業」へ。お子さまの成長に合わせて UI と機能が変化していく 5 ステージを実画面付きで紹介。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.ganbari-quest.com/graduation.html">
+<meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
+<link rel="canonical" href="https://www.ganbari-quest.com/graduation.html">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="stylesheet" href="shared.css">
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer=""></script>
+<style>
+/* Hero (graduation.html 専用) */
+.graduation-hero{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 50%,var(--brand-200) 100%);padding:64px 16px 48px;text-align:center}
+.graduation-hero h1{font-size:2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px;line-height:1.4}
+.graduation-hero p{font-size:1rem;color:var(--gray-700);max-width:680px;margin:0 auto;line-height:1.7}
+.graduation-breadcrumb{max-width:1080px;margin:0 auto;padding:14px 16px;font-size:.85rem;color:var(--gray-500)}
+.graduation-breadcrumb a{color:var(--brand-700);text-decoration:none}
+.graduation-breadcrumb a:hover{text-decoration:underline}
+.graduation-breadcrumb .sep{margin:0 8px;color:var(--gray-300)}
+
+/* 5 ステージ詳細 (#1848: LP から graduation.html へ移管。
+   gr-shot は LP 本体の max-height:96px から専用ページの 240px に拡張。
+   その他 gr-* スタイルは LP 本体 #growth-roadmap (#1613 R9 / #1785 R-CRT-2 / #1801 U-MIN-6) と同等を維持 */
+.graduation-detail{padding:48px 16px 64px;background:var(--gray-50)}
+.graduation-detail-inner{max-width:1080px;margin:0 auto}
+.gr-track{display:flex;flex-direction:column;gap:16px;position:relative}
+/* 全カードは #fff + 1px var(--gray-300) で統一（#1785 R-CRT-2） */
+.gr-stage{display:grid;grid-template-columns:88px 1fr;gap:16px;align-items:start;background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:18px 18px}
+.gr-age{font-size:.78rem;font-weight:700;color:var(--brand-700);background:var(--brand-50);border-radius:6px;padding:10px 6px;text-align:center;line-height:1.3}
+.gr-age strong{display:block;font-size:1.2rem;color:var(--brand-700)}
+.gr-body h2{font-size:1.1rem;font-weight:700;margin-bottom:10px;color:var(--gray-900);line-height:1.5}
+.gr-body p{font-size:.92rem;color:var(--gray-700);line-height:1.7;margin:0 0 8px}
+/* #1848 AC: gr-shot を LP 本体 96px → 240px に拡張。別ページなのでスクロール許容 */
+.gr-body .gr-shot{overflow:hidden;aspect-ratio:390/844;max-height:240px;margin:10px 0}
+.gr-body .gr-shot img{width:100%;height:100%;object-fit:contain;object-position:center}
+.gr-body .gr-benefit{font-size:.85rem;line-height:1.6;margin:6px 0;color:var(--gray-700)}
+.gr-body .gr-benefit strong{color:var(--brand-700);font-weight:700}
+.gr-body .gr-benefit-child strong{color:var(--gray-800)}
+/* graduate stage は --gold-500 (2px) border で「特別」を表現 (#1801 U-MIN-6) */
+.gr-stage[data-stage="graduate"]{border:2px solid var(--gold-500)}
+.gr-stage[data-stage="graduate"] .gr-age strong{color:var(--brand-800)}
+@media(min-width:1024px){
+  .gr-stage{grid-template-columns:120px 1fr;gap:24px;padding:24px 28px}
+  .gr-body .gr-shot{max-height:320px}
+}
+@media(max-width:768px){
+  .graduation-hero h1{font-size:1.5rem}
+  .graduation-hero p{font-size:.92rem}
+  .gr-stage{grid-template-columns:1fr;text-align:center}
+  .gr-age{padding:8px}
+}
+
+/* CTA bottom (LP に戻す動線) */
+.graduation-cta{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 100%);padding:56px 16px;text-align:center}
+.graduation-cta h2{font-size:1.4rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
+.graduation-cta p{color:var(--gray-700);margin-bottom:20px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.7}
+.graduation-cta-buttons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.graduation-cta-buttons .btn{padding:12px 28px;font-size:.95rem;font-weight:600;border-radius:2rem;text-decoration:none;display:inline-block;transition:all .2s}
+.graduation-cta-buttons .btn-primary{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff;border:0}
+.graduation-cta-buttons .btn-primary:hover{transform:translateY(-1px);opacity:.92}
+.graduation-cta-buttons .btn-secondary{background:#fff;color:var(--brand-700);border:2px solid var(--brand-300)}
+.graduation-cta-buttons .btn-secondary:hover{background:var(--brand-50)}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+    </a>
+    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
+    <nav id="main-nav" class="header-nav">
+      <a href="index.html" class="nav-text" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="pricing.html" class="nav-text" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="faq.html" class="nav-text" data-lp-key="nav.faq" onclick="this.parentElement.classList.remove('open')">よくあるご質問</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary nav-signup" data-lp-key="common.ctaSignup" onclick="this.parentElement.classList.remove('open')">無料で始める</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-lp-key="nav.login" onclick="this.parentElement.classList.remove('open')">ログイン</a>
+    </nav>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="graduation-hero">
+  <h1 data-lp-key="growthRoadmap.pageHeroTitle">3 歳から 18 歳まで、そして「卒業」へ</h1>
+  <p data-lp-key="growthRoadmap.pageHeroLead">お子さまの成長に合わせて UI と機能が変化。最後は「アプリを使わなくても自分で計画できる」自律へ。</p>
+</section>
+
+<!-- Breadcrumb -->
+<nav class="graduation-breadcrumb" aria-label="パンくずリスト">
+  <a href="index.html" data-lp-key="growthRoadmap.breadcrumbHome">ホーム</a>
+  <span class="sep">›</span>
+  <span data-lp-key="growthRoadmap.breadcrumbCurrent">成長ロードマップ</span>
+</nav>
+
+<!-- 5 ステージ詳細 -->
+<section class="graduation-detail" id="growth-roadmap-detail">
+  <div class="graduation-detail-inner">
+    <div class="gr-track">
+      <article class="gr-stage" data-stage="preschool">
+        <div class="gr-age"><span data-lp-key="growthRoadmap.preschoolAge">幼児</span><strong data-lp-key="growthRoadmap.preschoolRange">3-5</strong><span data-lp-key="growthRoadmap.preschoolUnit">歳</span></div>
+        <div class="gr-body">
+          <h2 data-lp-key="growthRoadmap.preschoolTitle">「はをみがいてー」「おかたづけしてー」が要らなくなる</h2>
+          <div class="gr-shot">
+            <picture>
+              <source srcset="screenshots/growth-stage-preschool-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/growth-stage-preschool.webp" alt="幼児ホーム画面 — 大きな絵文字ボタンと達成スタンプ" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+          <p data-lp-key="growthRoadmap.preschoolDesc" data-budoux-applied="true">大きなボタンとひらがな UI で「自分で押した！」の達成感を毎日体験。</p>
+          <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.preschoolParentBenefit">「やって」と言わなくても、子供が自分で動き始める</span></p>
+          <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.preschoolChildExperience">大きな絵文字ボタンを押すだけで褒められる達成感</span></p>
+        </div>
+      </article>
+      <article class="gr-stage" data-stage="elementary">
+        <div class="gr-age"><span data-lp-key="growthRoadmap.elementaryAge">小学生</span><strong data-lp-key="growthRoadmap.elementaryRange">6-12</strong><span data-lp-key="growthRoadmap.elementaryUnit">歳</span></div>
+        <div class="gr-body">
+          <h2 data-lp-key="growthRoadmap.elementaryTitle">「宿題やった？」を聞かなくても、子供から見せてくれる</h2>
+          <div class="gr-shot">
+            <picture>
+              <source srcset="screenshots/growth-stage-elementary-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/growth-stage-elementary.webp" alt="小学生ホーム画面 — ポイント・レベル・チャレンジ" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+          <p data-lp-key="growthRoadmap.elementaryDesc" data-budoux-applied="true">漢字 UI に切替、ウィークリーチャレンジで「次は何をやろう？」と自分で目標を立てる力が育ちます。</p>
+          <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.elementaryParentBenefit">声かけ回数が減り、子供から達成報告が来るようになる</span></p>
+          <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.elementaryChildExperience">ポイントとチャレンジが積み重なり、「次は何をやろう」と自分で計画する楽しさ</span></p>
+        </div>
+      </article>
+      <article class="gr-stage" data-stage="junior">
+        <div class="gr-age"><span data-lp-key="growthRoadmap.juniorAge">中学生</span><strong data-lp-key="growthRoadmap.juniorRange">13-15</strong><span data-lp-key="growthRoadmap.juniorUnit">歳</span></div>
+        <div class="gr-body">
+          <h2 data-lp-key="growthRoadmap.juniorTitle">部活と塾の両立を、子供が自分で計画する</h2>
+          <div class="gr-shot">
+            <picture>
+              <source srcset="screenshots/growth-stage-junior-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/growth-stage-junior.webp" alt="中学生ホーム画面 — 月次レポートと自己ペース可視化" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+          <p data-lp-key="growthRoadmap.juniorDesc" data-budoux-applied="true">月次レポートで「自分のペース」を客観視し、自律的なリズム調整が可能に。</p>
+          <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.juniorParentBenefit">時間管理を子供任せにできて、過干渉を手放せる</span></p>
+          <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.juniorChildExperience">月次レポートで自分のペースを見える化し、無理せず続けられる</span></p>
+        </div>
+      </article>
+      <article class="gr-stage" data-stage="senior">
+        <div class="gr-age"><span data-lp-key="growthRoadmap.seniorAge">高校生</span><strong data-lp-key="growthRoadmap.seniorRange">16-18</strong><span data-lp-key="growthRoadmap.seniorUnit">歳</span></div>
+        <div class="gr-body">
+          <h2 data-lp-key="growthRoadmap.seniorTitle">進路相談で「これだけやってきた」を子供自身が語れる</h2>
+          <div class="gr-shot">
+            <picture>
+              <source srcset="screenshots/growth-stage-senior-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/growth-stage-senior.webp" alt="高校生ホーム画面 — 15 年分のログと進路素材" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+          <p data-lp-key="growthRoadmap.seniorDesc" data-budoux-applied="true">15 年分の活動ログが「自分はこれだけやってきた」という自信に。</p>
+          <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.seniorParentBenefit">進路面談で子供自身が活動履歴を語れるようになる</span></p>
+          <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.seniorChildExperience">15 年分の積み重ねが履歴として残り、自分の自信になる</span></p>
+        </div>
+      </article>
+      <article class="gr-stage" data-stage="graduate">
+        <div class="gr-age"><span data-lp-key="growthRoadmap.graduateLabel">そして</span><strong data-lp-key="growthRoadmap.graduateAccent">卒業</strong></div>
+        <div class="gr-body">
+          <h2 data-lp-key="growthRoadmap.graduateTitle">アプリを開かなくなった日 — それは家族の卒業式</h2>
+          <div class="gr-shot">
+            <picture>
+              <source srcset="screenshots/growth-stage-graduate-desktop.webp" media="(min-width:1024px)" type="image/webp">
+              <img src="screenshots/growth-stage-graduate.webp" alt="卒業画面 — 履歴エクスポートと家族の手元に残す記録" loading="lazy" data-lightbox="">
+            </picture>
+          </div>
+          <p data-lp-key="growthRoadmap.graduateDesc" data-budoux-applied="true">「使わなくなる」ことががんばりクエストの成功。15 年分の記録はいつでも書き出してご家族の手元に残せます。</p>
+          <p class="gr-benefit gr-benefit-parent" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.parentBenefitLabel">家族で実感できること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.graduateParentBenefit">子供が自律したことを、ログイン頻度の低下で確認できる</span></p>
+          <p class="gr-benefit gr-benefit-child" data-budoux-applied="true"><strong data-lp-key="growthRoadmap.childExperienceLabel">子供が体験すること</strong><budoux-ja>: </budoux-ja><span data-lp-key="growthRoadmap.graduateChildExperience">アプリを開かなくても自分で計画できる、大人になった実感</span></p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- CTA bottom -->
+<section class="graduation-cta">
+  <h2 data-lp-key="growthRoadmap.ctaBottomTitle">家族で全部使ってから、続けるか決める</h2>
+  <p data-lp-key="growthRoadmap.ctaBottomDesc">7 日間の無料体験で、お子さまに合うかを家族でゆっくり試せます。</p>
+  <div class="graduation-cta-buttons">
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="common.ctaSignup">無料で始める</a>
+    <a href="index.html" class="btn btn-secondary" data-lp-key="nav.home">ホーム</a>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h3 data-lp-key="footer.brandName">がんばりクエスト</h3>
+      <p data-lp-key="footer.brandTagline">お子さまの「がんばり」を冒険に変える家庭向けWebアプリ</p>
+    </div>
+    <div class="footer-links">
+      <h4 data-lp-key="footer.linksHeading">リンク</h4>
+      <a href="index.html" data-lp-key="nav.home">ホーム</a>
+      <a href="pricing.html" data-lp-key="footer.pricingLink">料金プラン</a>
+      <a href="faq.html" data-lp-key="footer.faqLink">よくあるご質問</a>
+      <a href="graduation.html" data-lp-key="footer.graduationLink">成長ロードマップ</a>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink">GitHub</a>
+      <a href="mailto:ganbari.quest.support@gmail.com?subject=%5B%E6%88%90%E9%95%B7%E3%83%AD%E3%83%BC%E3%83%89%E3%83%9E%E3%83%83%E3%83%97%5D%20%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B&amp;body=%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E7%A8%AE%E5%88%A5%3A%20%0A%E3%81%94%E5%88%A9%E7%94%A8%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%20(%E7%99%BB%E9%8C%B2%E3%83%A1%E3%83%BC%E3%83%AB%E3%82%A2%E3%83%89%E3%83%AC%E3%82%B9)%3A%20%0A%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E5%86%85%E5%AE%B9%3A%20%0A%0A%0A---%0A%E5%8F%82%E7%85%A7%E3%83%9A%E3%83%BC%E3%82%B8%3A%20graduation.html%0A%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%3A%20Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20HeadlessChrome%2F147.0.7727.15%20Safari%2F537.36" data-contact-context="成長ロードマップ" data-lp-key="footer.contactLink">お問い合わせ</a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka" data-lp-key="footer.sponsorLink">Sponsor</a>
+    </div>
+    <div class="footer-links">
+      <h4 data-lp-key="footer.legalHeading">法的情報</h4>
+      <a href="terms.html" data-lp-key="footer.termsLink">利用規約</a>
+      <a href="privacy.html" data-lp-key="footer.privacyLink">プライバシーポリシー</a>
+      <a href="sla.html" data-lp-key="footer.slaLink">SLA</a>
+      <a href="tokushoho.html" data-lp-key="footer.tokushohoLink">特定商取引法に基づく表記</a>
+    </div>
+  </div>
+  <div class="footer-copy">
+    <p data-lp-key="footer.copyright">© 2026 がんばりクエスト（運営: 日下武紀／個人事業主）. All rights reserved.</p>
+  </div>
+</footer>
+
+<script src="shared-labels.js"></script>
+<script src="js/contact.js"></script>
+<!-- #1786: BudouX 全長文セクション自動 wrap (ADR-0016 整合) -->
+<script src="js/auto-budoux.js" defer=""></script>
+
+
+</body></html>

@@ -1,0 +1,592 @@
+<html lang="ja"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ADR-0029 (#1719): LP CSP 多層防御。DOMPurify サニタイズ (ADR-0025) と並ぶ第二層 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title data-lp-key="pricing.pageTitle">料金プラン - がんばりクエスト</title>
+<meta name="description" content="がんばりクエストの料金プラン。基本無料で始められます。スタンダード月額500円（税込）、ファミリー月額780円（税込）。すべての有料プランに 7 日間無料トライアル付き。">
+<meta property="og:title" content="料金プラン - がんばりクエスト">
+<meta property="og:description" content="基本無料で始められます。お子さまのポイント・レベルアップ・毎日のごほうび（おみくじ + スタンプカード）などの冒険体験は無料プランでも一切制限ありません。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.ganbari-quest.com/pricing.html">
+<meta property="og:image" content="https://www.ganbari-quest.com/ogp.png">
+<link rel="canonical" href="https://www.ganbari-quest.com/pricing.html">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="stylesheet" href="shared.css">
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js" defer=""></script>
+<style>
+/* Hero (#1652 R46: 価格 anchor band + Hero CTA) */
+.pricing-hero{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 50%,var(--brand-200) 100%);padding:var(--lp-pricing-hero-padding-top) var(--lp-pricing-hero-padding-x) var(--lp-pricing-hero-padding-bottom);text-align:center}
+.pricing-hero h1{font-size:2.2rem;font-weight:800;color:var(--gray-900);margin-bottom:12px}
+.pricing-hero p{font-size:1.05rem;color:var(--gray-500);max-width:600px;margin:0 auto 8px}
+.pricing-hero .highlight{color:var(--brand-700);font-weight:700}
+.hero-price-band{display:inline-block;margin:18px auto 8px;padding:10px 20px;background:#fff;border:2px solid var(--brand-300);border-radius:2rem;font-size:.95rem;font-weight:600;color:var(--brand-700)}
+.hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.hero-cta .btn{padding:12px 28px;font-size:.95rem;font-weight:600;border-radius:2rem;text-decoration:none;display:inline-block;transition:all .2s}
+/* #1823 (#1820 波及): hover 時の box-shadow rgba(56,120,184) を撤去。
+   インタラクション feedback は opacity / transform / background の hover で実現 */
+.hero-cta .btn-primary{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff;border:0}
+.hero-cta .btn-primary:hover{transform:translateY(-1px);opacity:.92}
+.hero-cta .btn-secondary{background:#fff;color:var(--brand-700);border:2px solid var(--brand-300)}
+.hero-cta .btn-secondary:hover{background:var(--brand-50)}
+
+/* Plan Grid */
+.plans-section{padding:var(--lp-plans-section-padding-y-top) var(--lp-plans-section-padding-x) var(--lp-plans-section-padding-y-bottom)}
+.plans-inner{max-width:960px;margin:0 auto}
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:48px}
+/* #1823 (#1820 波及): 5 系統 → 1 種統一 — 全 plan-card を共通枠 (#fff + 1px var(--gray-300)) に揃え、
+   recommended の box-shadow rgba(56,120,184) は撤去。差別化は border-color (--brand-600) と
+   .plan-badge の背景色のみで実現（index.html versus / soft-card と同方式） */
+.plan-card{background:#fff;border:1px solid var(--gray-300);border-radius:var(--radius);padding:var(--lp-plan-card-padding-y) var(--lp-plan-card-padding-x);display:flex;flex-direction:column;position:relative}
+.plan-card.recommended{border-color:var(--brand-600)}
+.plan-badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--brand-600);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
+/* #1657 R50 B-2: Free カードに「永久無料」バッジ */
+.plan-badge-free{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--green-500);color:#fff;font-size:.75rem;font-weight:700;padding:4px 16px;border-radius:2rem;white-space:nowrap}
+.plan-name{font-size:1.1rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
+.plan-price{font-size:2.2rem;font-weight:800;color:var(--gray-900)}
+.plan-price .unit{font-size:.9rem;font-weight:400;color:var(--gray-500)}
+.plan-price-sub{font-size:.82rem;color:var(--gray-500);margin-bottom:8px;min-height:20px}
+/* #1651 R45: ペルソナ別 Job 訴求 */
+.plan-persona{font-size:.78rem;color:var(--brand-700);background:var(--brand-50);border:1px solid var(--brand-200);border-radius:8px;padding:8px 10px;margin-bottom:14px;line-height:1.5;font-weight:500}
+.plan-desc{font-size:.85rem;color:var(--gray-500);margin-bottom:20px;line-height:1.6}
+.plan-cta{display:block;text-align:center;padding:12px 24px;border-radius:2rem;font-size:.95rem;font-weight:600;transition:all .2s;text-decoration:none;margin-bottom:12px}
+.plan-cta-free{background:var(--gray-100);color:var(--gray-700)}
+.plan-cta-free:hover{background:var(--gray-200);text-decoration:none}
+/* #1823 (#1820 波及): plan-cta hover の box-shadow rgba(56,120,184) を撤去。
+   インタラクション feedback は opacity / transform で実現 */
+.plan-cta-standard{background:linear-gradient(135deg,var(--brand-500),var(--brand-700));color:#fff}
+.plan-cta-standard:hover{text-decoration:none;transform:translateY(-1px);opacity:.92}
+.plan-cta-family{background:linear-gradient(135deg,var(--brand-600),var(--brand-800));color:#fff}
+.plan-cta-family:hover{text-decoration:none;transform:translateY(-1px);opacity:.92}
+/* #1646 R41: CTA 直下打消し表示 */
+.cta-disclaimer{font-size:.72rem;color:var(--gray-700);background:var(--green-50,#f0fdf4);border:1px solid var(--green-200,#bbf7d0);border-radius:8px;padding:8px 10px;margin-bottom:18px;line-height:1.6;text-align:center}
+.cta-disclaimer .badges{font-weight:600;color:var(--green-700,#15803d);display:block;margin-bottom:2px}
+.cta-disclaimer small{display:block;font-size:.7rem;color:var(--gray-500)}
+/* #2102 F-1: Tower 型二段 CTA — 既存「7 日間無料体験」CTA と新規「今すぐ購入」CTA の並列配置
+   padding / margin はすべて --space-* Base トークン経由 (ADR-0042 / docs/DESIGN.md §4) */
+.plan-cta-direct{background:#fff;color:var(--brand-700);border:2px solid var(--brand-600);display:block;text-align:center;padding:var(--space-3) var(--space-6);border-radius:2rem;font-size:.9rem;font-weight:600;text-decoration:none;margin-bottom:var(--space-2);transition:all .2s}
+.plan-cta-direct:hover{background:var(--brand-50);text-decoration:none}
+.cta-trial-note{font-size:.7rem;color:var(--gray-500);text-align:center;margin:0 0 var(--space-2);line-height:1.5}
+.cta-direct-note{font-size:.7rem;color:var(--gray-700);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:var(--space-2) var(--space-2);margin:0 0 var(--space-3);line-height:1.5;text-align:center}
+/* #2102 F-1: 月額/年額トグル (radio) */
+.billing-toggle{display:flex;justify-content:center;align-items:center;gap:var(--space-2);margin-bottom:var(--space-6);font-size:.85rem;color:var(--gray-700)}
+.billing-toggle fieldset{border:1px solid var(--brand-300);border-radius:2rem;padding:var(--space-1);display:inline-flex;gap:var(--space-1);background:#fff}
+.billing-toggle legend{padding:0 var(--space-2);font-size:.78rem;color:var(--gray-500);font-weight:500}
+.billing-toggle label{cursor:pointer;padding:var(--space-2) var(--space-4);border-radius:2rem;font-size:.82rem;font-weight:500;color:var(--gray-700);transition:all .15s}
+.billing-toggle input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+.billing-toggle input[type=radio]:checked + span{background:var(--brand-600);color:#fff;border-radius:2rem;padding:var(--space-2) var(--space-4);display:inline-block;margin:calc(-1 * var(--space-2)) calc(-1 * var(--space-4));font-weight:600}
+.billing-toggle label:hover span{color:var(--brand-700)}
+.billing-toggle input[type=radio]:focus-visible + span{outline:2px solid var(--brand-500);outline-offset:2px;border-radius:2rem}
+/* #2103 F-2: CTA-bottom 直下の解約 small リンク (既存有料ユーザー誘導) */
+.existing-cancel-link{font-size:.82rem;color:var(--gray-700);margin-top:var(--space-4);line-height:1.6}
+.existing-cancel-link a{color:var(--brand-700);text-decoration:underline}
+.existing-cancel-link a:hover{color:var(--brand-800)}
+/* #2102 F-1: スクリーンリーダー専用 legend (visually hidden, modern clip-path 方式で負値を回避) */
+.billing-toggle .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.plan-features{list-style:none;padding:0;flex:1}
+.plan-features li{font-size:.85rem;color:var(--gray-700);padding:6px 0 6px 24px;position:relative;line-height:1.5}
+.plan-features li::before{content:'\2713';position:absolute;left:0;color:var(--green-500);font-weight:700}
+/* #1906 TECH-D-5: gray-300 (#cbd5e1) on white = 1.6:1 (WCAG AA fail)。
+   gray-500 (#64748b) on white = 4.6:1 PASS。disabled feature も SR で「未対応」と
+   読み上げられるよう visually distinguish はそのまま (line-through) で十分。 */
+.plan-features li.disabled{color:var(--gray-500);text-decoration:line-through;text-decoration-color:var(--gray-300)}
+.plan-features li.disabled::before{content:'\2014';color:var(--gray-500)}
+.plan-divider{border-top:1px solid var(--gray-200);margin:12px 0;padding:0}
+
+/* Comparison Table (#1657 R50 B-1: tbody 列強調 / #1659 R52: モバイル可読性) */
+.comparison-section{padding:0 var(--lp-comparison-section-padding-x) var(--lp-comparison-section-padding-bottom)}
+.comparison-inner{max-width:960px;margin:0 auto}
+.comparison-title{font-size:1.5rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:32px}
+.comparison-table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.comparison-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.comparison-table thead th{background:var(--gray-50);border-bottom:2px solid var(--gray-300);padding:12px 8px;text-align:center;font-weight:700;color:var(--gray-900)}
+.comparison-table thead th:first-child{text-align:left}
+.comparison-table thead th.highlight-col{background:var(--brand-100);color:var(--brand-700)}
+.comparison-table tbody td{border-bottom:1px solid var(--gray-200);padding:10px 8px;text-align:center;color:var(--gray-700)}
+.comparison-table tbody td:first-child{text-align:left;font-weight:500}
+/* #1657 R50 B-1: Standard 列を tbody まで強調継続 */
+.comparison-table tbody td:nth-child(3){background:var(--brand-50)}
+.comparison-table .cat-row td{background:var(--gray-50);font-weight:700;font-size:.8rem;color:var(--gray-500);text-transform:uppercase;letter-spacing:.05em}
+.comparison-table .cat-row td:nth-child(3){background:var(--gray-50)}
+.check{color:var(--green-500);font-weight:700}
+/* #1906 TECH-D-5 (#2047 Re-Review fix): gray-300 (#cbd5e1) on white = 1.6:1 (WCAG AA fail)。
+   gray-500 (#64748b) on white = 4.6:1 PASS。実態の 11 dash セル (k39/k40/k43/k44/k45/k47/k48 等)
+   が white 背景に乗っているため、L74 の `.plan-features li.disabled`（dead CSS、disabled class
+   要素 0 件）ではなく `.dash` セレクタ側を実態的に修正する。Option A 採用。 */
+.dash{color:var(--gray-500)}
+
+/* Trial Info */
+.trial-section{padding:var(--lp-trial-section-padding-y) var(--lp-trial-section-padding-x)}
+.trial-inner{max-width:720px;margin:0 auto}
+.trial-box{background:linear-gradient(135deg,var(--brand-50) 0%,var(--brand-100) 100%);border:2px solid var(--brand-300);border-radius:var(--radius);padding:var(--lp-trial-box-padding-y) var(--lp-trial-box-padding-x)}
+.trial-heading{font-size:1.4rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:8px}
+.trial-subheading{font-size:.95rem;color:var(--gray-500);text-align:center;margin-bottom:28px}
+.trial-steps{list-style:none;padding:0;display:flex;flex-direction:column;gap:16px;margin-bottom:28px}
+.trial-step{display:flex;align-items:flex-start;gap:14px;font-size:.92rem;color:var(--gray-700);line-height:1.6}
+.trial-step-icon{flex-shrink:0;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700}
+.trial-step-icon.blue{background:var(--brand-200);color:var(--brand-800)}
+.trial-step-icon.green{background:var(--green-100);color:var(--green-500)}
+.trial-step-icon.gold{background:var(--gold-100);color:var(--gold-600)}
+.trial-step-icon.brand{background:var(--brand-200);color:var(--brand-800)}
+.trial-step strong{color:var(--gray-900)}
+.trial-step-note{margin-bottom:28px;background:var(--brand-50);border:1px solid var(--brand-200);border-radius:8px;padding:12px 16px}
+.trial-reassure{background:#fff;border-radius:8px;padding:16px 20px;display:flex;align-items:flex-start;gap:12px;font-size:.88rem;color:var(--gray-700);line-height:1.7;border:1px solid var(--gray-200)}
+.trial-reassure-icon{font-size:1.5rem;flex-shrink:0}
+.trial-reassure-text p{margin:0 0 8px}
+.trial-reassure-text p:last-child{margin:0}
+@media(max-width:768px){
+  .trial-box{padding:var(--lp-trial-box-padding-y-sm) var(--lp-trial-box-padding-x-sm)}
+  .trial-heading{font-size:1.2rem}
+}
+
+/* Family Patterns */
+.family-patterns{padding:var(--lp-family-patterns-padding-y) var(--lp-family-patterns-padding-x);background:#fff}
+.family-patterns-inner{max-width:960px;margin:0 auto}
+.family-patterns-title{font-size:1.5rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:12px}
+.family-patterns-subtitle{font-size:.95rem;color:var(--gray-500);text-align:center;margin-bottom:40px;max-width:600px;margin-left:auto;margin-right:auto}
+.pattern-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:32px}
+.pattern-card{background:var(--gray-50);border-radius:var(--radius);padding:var(--lp-pattern-card-padding);text-align:center}
+.pattern-card img{width:100%;max-width:400px;height:auto;border-radius:8px;margin-bottom:16px}
+.pattern-card h3{font-size:1.05rem;font-weight:700;color:var(--gray-900);margin-bottom:8px}
+.pattern-card p{font-size:.85rem;color:var(--gray-500);line-height:1.7}
+.pattern-card .pattern-tag{display:inline-block;font-size:.75rem;font-weight:600;color:var(--brand-700);background:var(--brand-100);padding:3px 12px;border-radius:2rem;margin-bottom:12px}
+@media(max-width:768px){
+  .pattern-grid{grid-template-columns:1fr;max-width:400px;margin-left:auto;margin-right:auto}
+}
+
+/* FAQ */
+.faq-section{padding:var(--lp-faq-section-padding-y) var(--lp-faq-section-padding-x);background:var(--gray-50)}
+.faq-inner{max-width:720px;margin:0 auto}
+.faq-title{font-size:1.5rem;font-weight:700;color:var(--gray-900);text-align:center;margin-bottom:32px}
+.faq-item{border-bottom:1px solid var(--gray-300);padding:20px 0}
+.faq-item summary{font-size:1rem;font-weight:600;color:var(--gray-900);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.faq-item summary::before{content:"Q.";color:var(--brand-700);font-weight:700;font-size:1.1rem}
+.faq-item[open] summary{margin-bottom:12px}
+.faq-answer{font-size:.9rem;color:var(--gray-500);padding-left:28px;line-height:1.7}
+
+/* CTA bottom */
+.cta-bottom{background:linear-gradient(135deg,var(--brand-100) 0%,var(--brand-50) 100%);padding:var(--lp-cta-bottom-padding-y) var(--lp-cta-bottom-padding-x);text-align:center}
+.cta-bottom h2{font-size:1.6rem;font-weight:700;color:var(--gray-900);margin-bottom:12px}
+.cta-bottom p{color:var(--gray-500);margin-bottom:24px;max-width:500px;margin-left:auto;margin-right:auto}
+.cta-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+/* #1626 R22: 不安解消 3 バッジ */
+/* #1824: 絵文字 (💳🚫🔄) を SVG 化 (OS 依存解消、line-height 内に収めるよう vertical-align:middle) */
+/* #1910 AC3: 16→18px に拡大、docs/design/asset-catalog.md 既定値整合 */
+.cta-trust-badges{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;list-style:none;padding:0;margin:18px auto 0;max-width:560px;font-size:.82rem;color:var(--gray-700)}
+.cta-trust-badges li{display:inline-flex;align-items:center;gap:4px}
+.cta-trust-badges li img{width:18px;height:18px;flex-shrink:0;vertical-align:middle}
+
+/* #1658 R51: タブレット中間 1024px breakpoint (案 A: 2 列 + Family を下段中央) */
+@media(max-width:1024px) and (min-width:769px){
+  .plan-grid{grid-template-columns:repeat(2,1fr);gap:20px}
+  .plan-grid > .plan-card:nth-child(3){grid-column:1 / -1;max-width:50%;margin:0 auto}
+  .comparison-table{font-size:.82rem}
+  .pricing-hero h1{font-size:2rem}
+}
+
+@media(max-width:768px){
+  .pricing-hero h1{font-size:1.6rem}
+  .plan-grid{grid-template-columns:1fr;max-width:400px;margin-left:auto;margin-right:auto}
+  .plan-card.recommended{order:-1}
+  /* #1659 R52: モバイル比較表は横スクロール + WCAG 推奨 14px */
+  .comparison-table{font-size:.875rem;min-width:600px}
+  .comparison-table thead th,.comparison-table tbody td{padding:10px 6px}
+  .hero-price-band{font-size:.85rem;padding:8px 14px}
+  .hero-cta .btn{width:100%;max-width:280px}
+}
+</style>
+</head>
+<body>
+
+<!-- #1906 TECH-D-4: skip-to-content link -->
+<a href="#main-content" class="skip-link" data-lp-key="nav.skipToContent">本文へスキップ</a>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <img src="logo-compact.png" alt="がんばりクエスト" height="44">
+    </a>
+    <button class="hamburger" aria-label="メニュー" aria-expanded="false" aria-controls="main-nav" onclick="var n=this.nextElementSibling;n.classList.toggle('open');var o=n.classList.contains('open');this.textContent=o?'✕':'☰';this.setAttribute('aria-expanded',o)">☰</button>
+    <nav id="main-nav" class="header-nav">
+      <a href="index.html" class="nav-text" data-lp-key="nav.home" onclick="this.parentElement.classList.remove('open')">ホーム</a>
+      <a href="pricing.html" class="nav-text" data-lp-key="nav.pricing" onclick="this.parentElement.classList.remove('open')">料金プラン</a>
+      <a href="faq.html" class="nav-text" data-lp-key="nav.faq" onclick="this.parentElement.classList.remove('open')">よくあるご質問</a>
+      <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary nav-signup" data-lp-key="common.ctaSignup" onclick="this.parentElement.classList.remove('open')">無料で始める</a>
+      <a href="https://ganbari-quest.com/auth/login" class="nav-login" data-lp-key="nav.login" onclick="this.parentElement.classList.remove('open')">ログイン</a>
+    </nav>
+  </div>
+</header>
+
+<!-- #1906 TECH-D-4: <main> ラッパー (skip-link target) -->
+<main id="main-content" tabindex="-1">
+
+<!-- Hero (#1652 R46) -->
+<section class="pricing-hero">
+  <h1 data-lp-key="pricing.heroTitle">料金プラン</h1>
+  <p>
+    <span data-lp-key="pricing.heroLead1">お子さまの成長を冒険に変える。</span><br>
+    <span class="highlight" data-lp-key="pricing.heroLeadHighlight">基本無料</span><span data-lp-key="pricing.heroLead2">で今日から始められます。</span>
+  </p>
+  <p style="font-size:.9rem;color:var(--gray-500)">
+    <span data-lp-key="pricing.heroSubtext">有料プランはすべて</span><strong data-lp-key="pricing.heroSubtextStrong">7日間の無料体験</strong><span data-lp-key="pricing.heroSubtextSuffix">付き（クレジットカード登録不要）</span>
+  </p>
+  <div class="hero-price-band" data-lp-key="pricing.heroPriceBand">基本無料 ・ 月 ¥500（税込）から ・ 有料は 7 日間無料体験 ・ いつでも解約できます（契約期間の縛りなし）</div>
+  <p class="hero-cancel-disclaimer" style="font-size:.78rem;color:var(--gray-600);margin:8px auto 0;max-width:680px;line-height:1.6"><span data-lp-key="pricing.heroCancelDisclaimer">※「いつでも解約できます」について: 解約申請後 30 日間は読み取り専用（閲覧・エクスポート可能）となり、その後すべてのデータが完全に削除されます。日割り返金はありません。</span> [<a href="faq.html#cancel">FAQ</a> / <a href="tokushoho.html">特商法表記</a>]</p>
+  <div class="hero-cta">
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary" data-lp-key="pricing.heroCtaPrimary">7 日間無料トライアル</a>
+    <a href="#plans" class="btn btn-secondary" data-lp-key="pricing.heroCtaSecondary">プランを比較する</a>
+  </div>
+</section>
+
+<!-- Plan Cards -->
+<section class="plans-section" id="plans">
+  <div class="plans-inner">
+
+    <!-- #2102 F-1: 月額/年額トグル — Standard / Family の直接購入 CTA で参照 -->
+    <div class="billing-toggle">
+      <fieldset>
+        <legend class="sr-only" data-lp-key="pricing.billingToggleLegend">お支払い周期を選択</legend>
+        <label>
+          <input type="radio" name="billing-cycle" value="monthly" checked="" style="">
+          <span data-lp-key="pricing.billingToggleMonthly">月額</span>
+        </label>
+        <label>
+          <input type="radio" name="billing-cycle" value="yearly" style="">
+          <span data-lp-key="pricing.billingToggleYearly">年額（2ヶ月分お得）</span>
+        </label>
+      </fieldset>
+    </div>
+
+    <div class="plan-grid">
+
+      <!-- Free (#1657 R50 B-2: 永久無料バッジ + #1651 R45 ペルソナ + #1645 R40 税込) -->
+      <div class="plan-card">
+        <span class="plan-badge-free" data-lp-key="pricing.planFreeBadge">永久無料</span>
+        <div class="plan-name" data-lp-key="pricing.planFreeName">フリー</div>
+        <div class="plan-price" data-lp-key="pricing.planFreePrice">¥0</div>
+        <!-- #1913 (UIUX-E-7): SEO fallback も「ずっと無料」→「永久無料」(FREE_PLAN_TERMS.forever) に統一 -->
+        <div class="plan-price-sub" data-lp-key="pricing.planFreePriceSub">永久無料 ・ クレカ登録不要</div>
+        <div class="plan-persona" data-lp-key="pricing.planFreePersona">まずはお子さま 1〜2 人で試したいご家族へ</div>
+        <div class="plan-desc" data-lp-key="pricing.planFreeDesc">デフォルト提供の活動プリセットを使って無料で始められます。</div>
+        <a href="https://ganbari-quest.com/auth/signup" class="plan-cta plan-cta-free" data-lp-key="common.ctaSignup">無料で始める</a>
+        <!-- #1646 R41: CTA 直下打消し表示 -->
+        <ul class="plan-features">
+          <li data-lp-key="pricingB.k1">お子さまの登録：2人まで</li>
+          <li data-lp-key="pricingB.k2">プリセット活動の利用</li>
+          <li data-lp-key="pricingB.k3">オリジナル活動の作成：3個まで</li>
+          <li data-lp-key="pricingB.k4">レベル・ポイント・おみくじ・スタンプカード</li>
+          <li data-lp-key="pricingB.k5">毎日のごほうび・続けるごほうび</li>
+          <li data-lp-key="pricingB.k6">持ち物チェックリスト 3個/子まで</li>
+          <li data-lp-key="pricingB.k7">90日間の履歴保持</li>
+          <li data-lp-key="pricingB.k8">メールサポート（標準）</li>
+        </ul>
+      </div>
+
+      <!-- Standard (#1644 R39 + #1645 R40 + #1651 R45 + #1655 R49) -->
+      <div class="plan-card recommended">
+        <span class="plan-badge" data-lp-key="pricing.planStandardBadge">おすすめ</span>
+        <div class="plan-name" data-lp-key="pricing.planStandardName">スタンダード</div>
+        <div class="plan-price"><span data-lp-key="pricing.planStandardPrice">¥500</span> <span class="unit" data-lp-key="pricing.planStandardUnit">/月（税込）</span></div>
+        <div class="plan-price-sub" data-lp-key="pricing.planStandardYearly">年額 ¥5,000（税込・2ヶ月分お得）</div>
+        <div class="plan-persona" data-lp-key="pricing.planStandardPersona">お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ</div>
+        <div class="plan-desc" data-lp-key="pricing.planStandardDesc">カスタマイズ自由自在。お子さまにぴったりの環境を作れます。</div>
+        <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-standard" data-lp-key="common.trialPeriodLabel">7 日間無料トライアル</a>
+        <p class="cta-trial-note" data-lp-key="pricing.trialCtaNote">※ クレジットカード登録不要（7 日間の無料体験経路）</p>
+        <!-- #2102 F-1: 直接購入 CTA (Tower 型二段 CTA 下段) — billing-cycle トグルで URL を切替 -->
+        <a href="https://ganbari-quest.com/auth/signup?plan=standard&amp;direct=true&amp;billing=monthly" class="plan-cta-direct" data-direct-purchase="standard" data-lp-key="pricing.planStandardDirectCta">今すぐ購入（スタンダード）</a>
+        <p class="cta-direct-note" data-lp-key="pricing.directPurchaseNote">※ 決済情報の入力が必要です。購入後ライセンスキーをメールでお送りします</p>
+        <ul class="plan-features">
+          <li data-lp-key="pricingB.k9">お子さまの登録人数：無制限</li>
+          <li data-lp-key="pricingB.k10">オリジナル活動の作成：無制限</li>
+          <li data-lp-key="pricingB.k11">チェックリスト自由作成（無制限）</li>
+          <li data-lp-key="pricingB.k12">家族メンバー招待：4人まで</li>
+          <li data-lp-key="pricingB.k13">特別なごほうび設定（即時付与）</li>
+          <li data-lp-key="pricingB.k14">家族のデータ預かり枠（同時保管 3 件・自分でダウンロード可）</li>
+          <li data-lp-key="pricingB.k15">データのダウンロード</li>
+          <li data-lp-key="pricingB.k16">1年間の履歴保持</li>
+          <li data-lp-key="pricingB.k17">メールサポート</li>
+        </ul>
+      </div>
+
+      <!-- Family (#1644 R39 + #1645 R40 + #1651 R45) -->
+      <div class="plan-card">
+        <div class="plan-name" data-lp-key="pricing.planFamilyName">ファミリー</div>
+        <div class="plan-price"><span data-lp-key="pricing.planFamilyPrice">¥780</span> <span class="unit" data-lp-key="pricing.planFamilyUnit">/月（税込）</span></div>
+        <div class="plan-price-sub" data-lp-key="pricing.planFamilyYearly">年額 ¥7,800（税込・2ヶ月分お得）</div>
+        <div class="plan-persona" data-lp-key="pricing.planFamilyPersona">祖父母・離れた家族と一緒に応援したいご家族へ</div>
+        <div class="plan-desc" data-lp-key="pricing.planFamilyDesc">家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。</div>
+        <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-family" data-lp-key="common.trialPeriodLabel">7 日間無料トライアル</a>
+        <p class="cta-trial-note" data-lp-key="pricing.trialCtaNote">※ クレジットカード登録不要（7 日間の無料体験経路）</p>
+        <!-- #2102 F-1: 直接購入 CTA (Tower 型二段 CTA 下段) — billing-cycle トグルで URL を切替 -->
+        <a href="https://ganbari-quest.com/auth/signup?plan=family&amp;direct=true&amp;billing=monthly" class="plan-cta-direct" data-direct-purchase="family" data-lp-key="pricing.planFamilyDirectCta">今すぐ購入（ファミリー）</a>
+        <p class="cta-direct-note" data-lp-key="pricing.directPurchaseNote">※ 決済情報の入力が必要です。購入後ライセンスキーをメールでお送りします</p>
+        <ul class="plan-features">
+          <li data-lp-key="pricingB.k18">スタンダードの全機能</li>
+          <li data-lp-key="pricingB.k19">家族メンバー招待：無制限</li>
+          <li data-lp-key="pricingB.k20">✨ AI 自動提案（活動・ごほうび・チェックリスト）</li>
+          <li data-lp-key="pricingB.k21">きょうだいランキング</li>
+          <li data-lp-key="pricingB.k22">ひとことメッセージ（自由テキスト）</li>
+          <li data-lp-key="pricingB.k23">家族のデータ預かり枠（同時保管 10 件・自分でダウンロード可）</li>
+          <!-- #1911 (B-5): plan-card 3 種で項目数 8/9/8 不揃い → 9 項目に揃える -->
+          <li data-lp-key="pricingB.k23b">データのダウンロード</li>
+          <li data-lp-key="pricingB.k24">無制限の履歴保持</li>
+          <li data-lp-key="pricingB.k25">メールサポート</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Note (#1650 R44 括弧書き軽減: 本文中で簡潔に説明) -->
+    <p style="text-align:center;font-size:.85rem;color:var(--gray-500);margin-bottom:48px">
+      <span data-lp-key="pricing.allPlansNote">💡 お子さまが楽しめる冒険の仕組み（レベル・おみくじ・スタンプカード・毎日のごほうび・続けるごほうびなど）は</span><strong data-lp-key="pricing.allPlansNoteStrong">全プラン共通</strong><span data-lp-key="pricing.allPlansNoteSuffix">で制限なし</span>
+    </p>
+  </div>
+</section>
+
+<!-- Comparison Table -->
+<section class="comparison-section">
+  <div class="comparison-inner">
+    <h2 class="comparison-title" data-lp-key="pricing.comparisonTitle">機能比較表</h2>
+    <p style="text-align:center;font-size:.85rem;color:var(--gray-500);margin-bottom:24px" data-lp-key="pricing.comparisonSubtitle">冒険の仕組みは全プラン共通で制限なく楽しめます</p>
+    <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th style="width:40%" data-lp-key="pricingB.k26">機能</th>
+          <th style="width:20%" data-lp-key="pricingB.k27">フリー</th>
+          <th style="width:20%" class="highlight-col" data-lp-key="pricingB.k28">スタンダード</th>
+          <th style="width:20%" data-lp-key="pricingB.k29">ファミリー</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="cat-row" data-lp-key="pricingB.k30"><td xmlns="http://www.w3.org/1999/xhtml">基本</td></tr>
+        <tr data-lp-key="pricingB.k31"><td xmlns="http://www.w3.org/1999/xhtml">お子さまの登録人数</td><td xmlns="http://www.w3.org/1999/xhtml">2人まで</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">無制限</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">無制限</td></tr>
+        <tr data-lp-key="pricingB.k32"><td xmlns="http://www.w3.org/1999/xhtml">プリセット活動の利用</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+        <tr data-lp-key="pricingB.k33"><td xmlns="http://www.w3.org/1999/xhtml">オリジナル活動の作成</td><td xmlns="http://www.w3.org/1999/xhtml">3個まで</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">無制限</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">無制限</td></tr>
+        <tr data-lp-key="pricingB.k34"><td xmlns="http://www.w3.org/1999/xhtml">活動履歴の保持</td><td xmlns="http://www.w3.org/1999/xhtml">90日</td><td xmlns="http://www.w3.org/1999/xhtml">1年</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">無制限</td></tr>
+
+        <tr class="cat-row" data-lp-key="pricingB.k35"><td xmlns="http://www.w3.org/1999/xhtml">カスタマイズ</td></tr>
+        <tr data-lp-key="pricingB.k36"><td xmlns="http://www.w3.org/1999/xhtml">持ち物チェックリスト（登校・おでかけ）</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+        <!-- #1708 R3-A: pricingB.k37 (旧 朝夜の習慣リスト / 旧 ルーチン-CL) は削除（kind=routine 廃止、毎日 must は活動マスタ priority 属性へ移管） -->
+        <tr data-lp-key="pricingB.k38"><td xmlns="http://www.w3.org/1999/xhtml">持ち物チェックリスト自由作成</td><td xmlns="http://www.w3.org/1999/xhtml">3個/子まで</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">無制限</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">無制限</td></tr>
+        <tr data-lp-key="pricingB.k39"><td xmlns="http://www.w3.org/1999/xhtml">特別なごほうび設定（即時付与）</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+        <tr data-lp-key="pricingB.k40"><td xmlns="http://www.w3.org/1999/xhtml">AI 自動提案（活動・ごほうび・チェックリスト）</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+
+        <tr class="cat-row" data-lp-key="pricingB.k41"><td xmlns="http://www.w3.org/1999/xhtml">レポート・家族機能</td></tr>
+        <tr data-lp-key="pricingB.k42"><td xmlns="http://www.w3.org/1999/xhtml">日次サマリー</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+        <tr data-lp-key="pricingB.k43"><td xmlns="http://www.w3.org/1999/xhtml">家族メンバー招待（別端末からアクセス）</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml">4人まで</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">無制限</td></tr>
+        <tr data-lp-key="pricingB.k44"><td xmlns="http://www.w3.org/1999/xhtml">きょうだいランキング</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+        <tr data-lp-key="pricingB.k45"><td xmlns="http://www.w3.org/1999/xhtml">ひとことメッセージ（自由テキスト）</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+
+        <tr class="cat-row" data-lp-key="pricingB.k46"><td xmlns="http://www.w3.org/1999/xhtml">データ管理</td></tr>
+        <tr data-lp-key="pricingB.k47"><td xmlns="http://www.w3.org/1999/xhtml">データのダウンロード（手動エクスポート）</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+        <tr data-lp-key="pricingB.k48"><td xmlns="http://www.w3.org/1999/xhtml">家族のデータ預かり枠（自分でダウンロード同時保管数）</td><td xmlns="http://www.w3.org/1999/xhtml" class="dash">—</td><td xmlns="http://www.w3.org/1999/xhtml">3 件</td><td xmlns="http://www.w3.org/1999/xhtml">10 件</td></tr>
+
+        <tr class="cat-row" data-lp-key="pricingB.k49"><td xmlns="http://www.w3.org/1999/xhtml">サポート</td></tr>
+        <tr data-lp-key="pricingB.k50"><td xmlns="http://www.w3.org/1999/xhtml">メールサポート</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td><td xmlns="http://www.w3.org/1999/xhtml" class="check">✓</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- Trial Info (#1641 R36 + #1642 R37: 経路汎用化 + 並列構造) -->
+<section class="trial-section">
+  <div class="trial-inner">
+    <div class="trial-box">
+      <h2 class="trial-heading" data-lp-key="pricing.trialHeading">7 日間無料トライアル</h2>
+      <p class="trial-subheading" data-lp-key="pricing.trialSubheading">7 日間無料トライアル期間中は、選択したプランの全機能を制限なくお試しいただけます</p>
+      <ol class="trial-steps">
+        <li class="trial-step">
+          <span class="trial-step-icon blue">1</span>
+          <div><strong data-lp-key="pricing.trialStep1Title">いつでも好きなタイミングで開始</strong><br><span data-lp-key="pricing.trialStep1Desc">アカウント登録後、ご家族の見守り画面からワンタップで無料体験を開始できます。クレジットカードの登録は不要です。</span></div>
+        </li>
+        <li class="trial-step">
+          <span class="trial-step-icon brand">2</span>
+          <div><strong data-lp-key="pricing.trialStep2Title">7日間、選択したプランの全機能が使い放題</strong><br><span data-lp-key="pricing.trialStep2Desc">スタンダード/ファミリーいずれもプランの全機能（カスタム活動・レポート・データエクスポート・AI 自動提案・きょうだいランキング・離れた家族応援メッセージなど）を制限なくお試しいただけます。</span></div>
+        </li>
+        <li class="trial-step">
+          <span class="trial-step-icon green">3</span>
+          <div><strong data-lp-key="pricing.trialStep3Title">終了後は自動で無料プランに戻ります</strong><br><span data-lp-key="pricing.trialStep3Desc">無料体験期間が終わると、自動的に無料プランへ移行します。勝手にお金がかかることは一切ありません。</span></div>
+        </li>
+      </ol>
+      <p class="trial-step trial-step-note">
+        <span class="trial-step-icon gold">★</span>
+        <span><strong data-lp-key="pricing.trialStepHighlight">無料体験中にいつでもプラン選択可能</strong><br><span data-lp-key="pricing.trialStepHighlightDesc">気に入ったら無料体験中にそのままプランを選択できます。もちろん、何もしなければ自動で無料プランに戻ります。</span></span>
+      </p>
+      <div class="trial-reassure">
+        <span class="trial-reassure-icon">🔒</span>
+        <div class="trial-reassure-text">
+          <p><strong data-lp-key="pricing.trialDataReassureLine1Strong">無料体験中に作成したオリジナル活動・ごほうび・もちものチェックリスト・シール・レベル・お子さま登録</strong><span data-lp-key="pricing.trialDataReassureLine1Suffix">は、無料プランに移行した後もそのまま保持されます。</span></p>
+          <p>ただし<strong data-lp-key="pricing.trialDataReassureLine2Strong">活動履歴・ポイント獲得履歴・毎日のごほうび履歴</strong><span data-lp-key="pricing.trialDataReassureLine2Suffix">は無料プランの保持期間（90 日）を超えたものから順次削除されます。</span></p>
+          <p data-lp-key="pricing.trialDataReassureLine3">有料プランにアップグレードすれば、より長期間（スタンダード: 1 年 / ファミリー: 無制限）の履歴をご利用いただけます。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Family Usage Patterns -->
+<section class="family-patterns">
+  <div class="family-patterns-inner">
+    <h2 class="family-patterns-title" data-lp-key="pricing.familyPatternsTitle">家族での使い方</h2>
+    <p class="family-patterns-subtitle" data-lp-key="pricing.familyPatternsSubtitle">ご家庭の環境に合わせて、2つのスタイルからお選びいただけます</p>
+    <div class="pattern-grid">
+      <div class="pattern-card">
+        <span class="pattern-tag" data-lp-key="pricing.familyPatternSharedTag">全プラン対応</span>
+        <img src="assets/family-pattern-shared.jpg" alt="親アカウント共用型の図解：親が1つのアカウントで管理し、同じ端末でお子さまと画面を切り替えて使う" width="800" height="450" loading="lazy">
+        <h3 data-lp-key="pricing.familyPatternSharedTitle">親アカウント共用型</h3>
+        <p data-lp-key="pricing.familyPatternSharedDesc">親が1つのアカウントを作成し、同じ端末でお子さまと画面を切り替えて使います。設定も操作もシンプルで、すぐに始められます。無料プランを含む全プランで利用できます。</p>
+      </div>
+      <div class="pattern-card">
+        <span class="pattern-tag" data-lp-key="pricing.familyPatternInviteTag">スタンダード以上</span>
+        <img src="assets/family-pattern-invite.jpg" alt="個別アカウント＋招待リンク型の図解：家族それぞれが自分のアカウントで参加し、家族メンバーが離れた場所から見守れる" width="800" height="450" loading="lazy">
+        <h3 data-lp-key="pricing.familyPatternInviteTitle">個別アカウント＋招待リンク型</h3>
+        <p data-lp-key="pricing.familyPatternInviteDesc">家族グループを作成し、招待リンクで家族を招待。家族メンバーがそれぞれの端末からアクセスでき、離れた場所からもお子さまの成長を見守れます。スタンダードは4人まで、ファミリープランは無制限で招待できます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ (#1647 R42 + #1643 R38 + #1653 R47) -->
+<section class="faq-section">
+  <div class="faq-inner">
+    <h2 class="faq-title" data-lp-key="pricing.faqHeading">よくあるご質問</h2>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqFreeQ" data-budoux-applied="true">無料プランでも十分使えますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqFreeA" data-budoux-applied="true">はい。プリセットの活動とチェックリストで基本的な機能はすべてお使いいただけます。お子さまの冒険体験（レベル、ポイント、おみくじ、スタンプカード、毎日のごほうび）は無料プランでも一切制限ありません。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqAfterTrialQ" data-budoux-applied="true">無料体験後はどうなりますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqAfterTrialA" data-budoux-applied="true">7日間の無料体験終了後は無料プランに移行します。有料プランをご希望の場合は、ご家族の見守り画面からアップグレードしてください。クレジットカードの事前登録は不要です。無料体験中に作成したオリジナル活動・ごほうび・チェックリスト・シール・レベルは保持されますが、活動履歴・ポイント獲得履歴・毎日のごほうび履歴は無料プランの保持期間（90 日）を超えたものから順次削除されます。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqCancelQ" data-budoux-applied="true">解約したらデータはすぐに削除されますか？</summary>
+      <div class="faq-answer" data-budoux-applied="true">
+        <p data-lp-key="pricing.faqCancelA">プランによって異なります。スタンダードプランは解約申請から 7 日間、ファミリープランは解約申請から 30 日間はデータを見られます。その後すべてのデータが完全に削除されます（復旧不可）。この期間中はログインしてダウンロードが可能です。</p>
+        <!-- #2103 F-2: 解約経路明示 -->
+        <p data-lp-key="pricing.faqCancelPathNote">解約経路: ログイン後 [プラン・お支払い] → [請求管理ページを開く] (Stripe の請求管理ページ) でいつでもお手続きいただけます。</p>
+      </div>
+    </details>
+
+    <!-- #2103 F-2: 解約 vs アカウント退会の違い -->
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqCancelVsDeleteQ" data-budoux-applied="true">解約とアカウント退会は何が違いますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqCancelVsDeleteA" data-budoux-applied="true">解約は有料プランの自動更新を停止し、猶予期間後に無料プランへ自動移行します。データは無料プランの保持期間（90 日）を超えたものから順次削除されます。アカウント退会は、ログイン後にご自身で実施いただくことで全データを猶予期間後に完全削除します。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqBillingDateQ" data-budoux-applied="true">お支払い日はいつですか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqBillingDateA" data-budoux-applied="true">お申し込み日を起算日として、月額プランは毎月、年額プランは毎年自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日（月額）または翌年4月15日（年額）です。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqYearlyCancelQ" data-budoux-applied="true">年額プランを途中解約した場合は？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqYearlyCancelA" data-budoux-applied="true">年額プランを途中解約しても、お支払い済みの残り期間は引き続きご利用いただけます。日割りでの返金は行っておりません。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqPaymentQ" data-budoux-applied="true">支払い方法は？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqPaymentA" data-budoux-applied="true">クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqPlanChangeQ" data-budoux-applied="true">プランの変更はできますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqPlanChangeA" data-budoux-applied="true">はい。スタンダード↔ファミリー、月額↔年額の切り替えが可能です。ご家族の見守り画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqAdsQ" data-budoux-applied="true">子供の画面に広告は出ますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqAdsA" data-budoux-applied="true">いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。</div>
+    </details>
+
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqMultiDeviceQ" data-budoux-applied="true">家族で複数端末から使えますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqMultiDeviceA" data-budoux-applied="true">はい。スタンダード以上のプランで、家族メンバーを招待して複数端末からアクセスできます。スタンダードプランは4人まで、ファミリープランは無制限に招待可能です。無料プランでも1つの端末でお子さまを切り替えて使えます。</div>
+    </details>
+
+    <!-- #1653 R47: 「卒業」概念 FAQ（機能訴求 NG・FAQ で価値観を言及） -->
+    <details class="faq-item">
+      <summary data-lp-key="pricing.faqGraduationQ" data-budoux-applied="true">ずっと使い続ける必要がありますか？</summary>
+      <div class="faq-answer" data-lp-key="pricing.faqGraduationA" data-budoux-applied="true">いいえ、お子さまが自立して習慣化できたら「卒業」していただいて構いません。がんばりクエストは「子供の自立」を最終ゴールとして設計されており、ずっと依存して使い続けることを想定していません。卒業の目安は小学校高学年〜中学生頃です。</div>
+    </details>
+  </div>
+</section>
+
+<!-- CTA (#1626 R22: CTA 直下に不安解消 3 バッジを追加) -->
+<section class="cta-bottom">
+  <h2 data-lp-key="pricing.ctaBottomTitle">お子さまの冒険を始めよう</h2>
+  <p data-lp-key="pricing.ctaBottomDesc">まずは無料ではじめて、お子さまの反応を見てみませんか？</p>
+  <div class="cta-buttons">
+    <a href="https://ganbari-quest.com/auth/signup" class="btn btn-primary btn-lg" data-lp-key="common.ctaSignup">無料で始める</a>
+    <a href="https://demo.ganbari-quest.com/" class="btn btn-outline btn-lg" data-lp-key="common.ctaDemo">デモを見る</a>
+  </div>
+  <!-- #2103 F-2: 既存有料ユーザー向け解約導線 (small リンク、subtle) -->
+  <p class="existing-cancel-link"><span data-lp-key="pricing.existingCustomerCancelLinkPrefix">すでに有料プランをご利用中の方の</span><a href="https://ganbari-quest.com/admin/billing" data-lp-key="pricing.existingCustomerCancelLinkLabel">解約はこちら</a><span data-lp-key="pricing.existingCustomerCancelLinkSuffix">（ご家族の見守り画面に移動します）</span></p>
+</section>
+
+</main>
+<!-- /#1906 TECH-D-4 -->
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h3 data-lp-key="footer.brandName">がんばりクエスト</h3>
+      <p data-lp-key="footer.brandTagline">お子さまの「がんばり」を冒険に変える家庭向けWebアプリ</p>
+    </div>
+    <div class="footer-links">
+      <h4 data-lp-key="footer.linksHeading">リンク</h4>
+      <a href="index.html" data-lp-key="nav.home">ホーム</a>
+      <a href="pricing.html" data-lp-key="footer.pricingLink">料金プラン</a>
+      <a href="faq.html" data-lp-key="footer.faqLink">よくあるご質問</a>
+      <a href="graduation.html" data-lp-key="footer.graduationLink">成長ロードマップ</a>
+      <a href="https://github.com/Takenori-Kusaka/ganbari-quest" data-lp-key="footer.githubLink">GitHub</a>
+      <a href="mailto:ganbari.quest.support@gmail.com?subject=%5B%E6%96%99%E9%87%91%E3%83%97%E3%83%A9%E3%83%B3%5D%20%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B&amp;body=%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E7%A8%AE%E5%88%A5%3A%20%0A%E3%81%94%E5%88%A9%E7%94%A8%E3%82%A2%E3%82%AB%E3%82%A6%E3%83%B3%E3%83%88%20(%E7%99%BB%E9%8C%B2%E3%83%A1%E3%83%BC%E3%83%AB%E3%82%A2%E3%83%89%E3%83%AC%E3%82%B9)%3A%20%0A%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B%E5%86%85%E5%AE%B9%3A%20%0A%0A%0A---%0A%E5%8F%82%E7%85%A7%E3%83%9A%E3%83%BC%E3%82%B8%3A%20pricing%0A%E3%83%96%E3%83%A9%E3%82%A6%E3%82%B6%3A%20Mozilla%2F5.0%20(Windows%20NT%2010.0%3B%20Win64%3B%20x64)%20AppleWebKit%2F537.36%20(KHTML%2C%20like%20Gecko)%20HeadlessChrome%2F148.0.7778.96%20Safari%2F537.36" data-contact-context="料金プラン" data-lp-key="footer.contactLink">お問い合わせ</a>
+      <a href="https://github.com/sponsors/Takenori-Kusaka" data-lp-key="footer.sponsorLink">Sponsor</a>
+    </div>
+    <div class="footer-links">
+      <h4 data-lp-key="footer.legalHeading">法的情報</h4>
+      <a href="terms.html" data-lp-key="footer.termsLink">利用規約</a>
+      <a href="privacy.html" data-lp-key="footer.privacyLink">プライバシーポリシー</a>
+      <a href="sla.html" data-lp-key="footer.slaLink">SLA</a>
+      <a href="tokushoho.html" data-lp-key="footer.tokushohoLink">特定商取引法に基づく表記</a>
+    </div>
+  </div>
+  <div class="footer-copy">
+    <p data-lp-key="footer.copyright">© 2026 がんばりクエスト（運営: 日下武紀／個人事業主）. All rights reserved.</p>
+  </div>
+</footer>
+
+<script src="shared-labels.js"></script>
+<script src="js/contact.js"></script>
+<!-- #1786: BudouX 全長文セクション自動 wrap (ADR-0016 整合) -->
+<script src="js/auto-budoux.js" defer=""></script>
+<!-- #2102 F-1: 月額/年額トグルで直接購入 CTA の URL を切替 -->
+<script>
+(function(){
+  'use strict';
+  var radios = document.querySelectorAll('input[name="billing-cycle"]');
+  var directCtas = document.querySelectorAll('a[data-direct-purchase]');
+  if (!radios.length || !directCtas.length) return;
+  function updateDirectCtaUrls(billing){
+    directCtas.forEach(function(a){
+      var plan = a.getAttribute('data-direct-purchase');
+      a.setAttribute('href', 'https://ganbari-quest.com/auth/signup?plan=' + encodeURIComponent(plan) + '&direct=true&billing=' + encodeURIComponent(billing));
+    });
+  }
+  radios.forEach(function(r){
+    r.addEventListener('change', function(){
+      if (r.checked) updateDirectCtaUrls(r.value);
+    });
+  });
+})();
+</script>
+
+
+</body></html>
