@@ -161,6 +161,35 @@ POC #2693 EPIC #2724 Round 18 で「activity-pack 取込完了後に何のフィ
 
 **他 type への波及方針**: reward-set (`admin/rewards/importPresetToChildren`) も既に `x-sveltekit-action` header + ActionResult deserialize の同型実装。checklist / rule-preset / challenge-set の admin 動線で fetch ActionResult 経由を採用する場合、本 SSOT 3 件 (Toast + 2 重防御 + `x-sveltekit-action` header) を必ず複製すること。
 
+##### `?import=<presetId>` auto-open 後の dialog 再 open 防止 (consumed latch、#2773 後 bug1 spec 検出)
+
+`?import=<presetId>` で `ChildSelectionDialog` を auto-open する `$effect` は `data.importPresetId`
+(load 由来) を読む。confirm / cancel 後に **`await invalidateAll()` が `?import=` 残存 URL のまま
+load を再走させると `data.importPresetId` が依然 truthy** のため effect が再発火し dialog が
+即 再 open する (取込済なのに dialog が出続ける dead-end ループ)。これを防ぐため、auto-open する
+admin page (`?import=` を `await invalidateAll()` と併用する page) は **`consumedImportPresetId`
+ラッチ** を持ち、confirm / cancel 時に処理済 presetId を記録して同一 presetId の再 open を抑止する:
+
+```svelte
+let consumedImportPresetId = $state<string | null>(null);
+$effect(() => {
+	if (
+		data.importPresetId &&
+		data.importPresetId !== consumedImportPresetId && // 処理済 presetId は再 open しない
+		!showChildSelectionDialog &&
+		pendingImportPresetId === null
+	) {
+		pendingImportPresetId = data.importPresetId;
+		showChildSelectionDialog = true;
+	}
+});
+// confirm / cancel handler 冒頭: consumedImportPresetId = pendingImportPresetId;
+```
+
+実装位置: `src/routes/(parent)/admin/checklists/+page.svelte` (#2773 後 dead-end 再発を
+`tests/e2e/demo-lambda/bug1-import-dead-end.spec.ts` の dialog close assert で検出)。`?import=` +
+`invalidateAll()` を併用する他 admin page (rewards 等) で同パターンが必要になった場合は本ラッチを複製する。
+
 ##### Round 18 Cluster H (#13/#16/#20/#25/#28) subset 取込 (2026-06-02)
 
 Round 18 Round 3 評価で「30 件一括取込で個別選択不可」「既存重複 activity の事前説明なし」「3 歳児親には 30 件は多すぎる」が 5 件 (Cluster H) 表面化した。これに対し、activity-pack 詳細での **subset 選択 UI + 既存重複 detection + 件数連動 CTA** を導入する (PR scope: activity-pack のみ、他 type は別 Issue)。

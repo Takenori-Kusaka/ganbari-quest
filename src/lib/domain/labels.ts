@@ -4170,6 +4170,7 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	// imported=0 (選んだ子に全て追加済み) — generic な「完了」で誤魔化さない
 	importAllDuplicates: `選んだ${CHILD_TERMS.honorific}にはすでに追加済みです`,
 	importFailed: '取込に失敗しました',
+	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	// Round 18 Cluster G (per-child scope badge): 英語内部語彙「per-child」UI 露出撤去 (ADR-0045 §9)
 	// 「お子さま別」= per-child scope (個別 child に紐付く activity) を親向けに明示する短い表示
 	scopeBadgePerChild: `${CHILD_TERMS.honorific}別`,

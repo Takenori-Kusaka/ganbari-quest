@@ -1,65 +1,74 @@
 // tests/e2e/demo-lambda/bug1-import-dead-end.spec.ts
 //
 // #2558 bug-1 (機能 dead-end、初顧客レビューで 1 分で発覚): demo Lambda 上で
-// marketplace 取込ダイアログの「追加」ボタンが無反応・dialog が閉じない回帰テスト。
+// marketplace 取込の「追加」ボタンが無反応・dialog が閉じない回帰テスト。
 //
 // 根本原因 (`src/lib/server/demo/demo-mode.ts` §buildDemoNoopResponseBody 導入前):
-//   - `?/importMarketplace*` form action は POST (`use:enhance`、x-sveltekit-action header 付き)
+//   - 取込 form action は POST (`x-sveltekit-action` header 付き fetch / use:enhance)
 //   - hooks.server.ts の `shouldReturnDemoNoop` が素の `{ ok: true, demo: true }` を返していた
-//   - SvelteKit `use:enhance` は deserialize 後 `result.type === undefined` となり、
-//     UI の `result.type === 'success'` 分岐 (onimported / onclose) が永久に発火しない
+//   - SvelteKit クライアントは `deserialize()` で `result.type === undefined` となり、
+//     UI の `result.type === 'success'` 分岐 (取込済 state 反映) が永久に発火しない
 //   - 結果: 追加ボタンを押しても dialog が閉じず feedback も出ない (= dead-end)
 //
 // 修正 (#2558):
 //   - form action リクエスト (`x-sveltekit-action: true`) には SvelteKit 認識可能な
-//     正規 ActionResult (`{ type: 'success', status: 200, data: devalue({demo:true}) }`) を返す
+//     正規 ActionResult (`{ type: 'success', status: 200, data: devalue({demo:true,...}) }`) を返す
 //   - UI は `d.demo === true` を検出し「デモではお試し用です」feedback + state 反映
 //
-// #2558 段階2 — 検証対象切替: admin/activities 内のマーケットプレイス風ブラウズ UI を撤去し
-//   /marketplace への画面遷移に一本化したため、本 spec の検証対象を、UnifiedImportHub の
-//   in-page browse UI を継続使用する `/admin/checklists` に振り替えた (同じ demo no-op response
-//   形式 + 同じ UnifiedImportHub component の dead-end を検証する。`marketplace-preset-import-*`
-//   testid は共通)。admin/activities の取込は marketplace 詳細 → ?import= → ChildSelectionDialog
-//   の正規経路に移行済 (admin-activities-per-child.spec.ts の goal 完遂テストで担保)。
+// #2773 段階3 — 検証対象切替 (marketplace 一本化、DESIGN.md §10):
+//   admin 内 in-page marketplace 風 browse UI (UnifiedImportHub の per-preset button) を
+//   全 5 admin page で撤去し、取込実行は marketplace 詳細 → `?import=<presetId>` →
+//   `ChildSelectionDialog` auto-open → 配信先確定 → `?/importPresetToChildren` POST の
+//   正規経路 (marketplace-import-flow.md §3.1) に一本化した。
+//   本 spec は旧 in-page UI (`marketplace-preset-import-*` button) を検証していたため、
+//   新 flow (`?import=` → ChildSelectionDialog → 確定) に検証対象を振り替える。dead-end
+//   回帰ガードの意図 (User 指摘 #2「動作しないインポート機能」検出) は維持し、demo no-op
+//   POST が SvelteKit action 形式で返り取込済 state に反映されることを引き続き検証する。
 //
 // 本 spec は demo Lambda 環境 (AUTH_MODE=anonymous + DATA_SOURCE=demo) 上で
-// (1) 取込 POST が SvelteKit action 形式 (type=success + demo flag) で返ること
-// (2) 実際の UI 操作で取込済 state に反映されること
+// (1) `?/importPresetToChildren` POST が SvelteKit action 形式 (type=success + demo flag) で返ること
+// (2) 実際の UI 操作 (?import= → dialog → 全員選択 → 確定) で取込済 state に反映されること
+// (3) dialog の cancel 経路が機能すること (旧 dead-end では cancel も無反応だった、bug-4)
 // を検証する。本番 cognito E2E では再現不可 (本番では実 import が走る) ため demo 専用 spec。
 
-import { expect, type Locator, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
-async function firstImportButton(page: Page): Promise<Locator> {
-	await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
-	await expect(page.getByTestId('marketplace-import-section')).toBeVisible({ timeout: 30_000 });
-	// #2558 fix: demo Lambda の checklist preset 一覧には event-pool / event-school-start が
-	// 既に pre-imported 状態 (CHECKLISTS_BY_CHILD: 903→'event-pool', 904→'event-school-start'、
-	// `src/lib/server/demo/demo-data.ts` §MARKETPLACE_CHECKLIST_TEMPLATES_BY_CHILD) として
-	// 配置されている。`alreadyImported = true` なら button は `disabled` でレンダリングされる
-	// (`UnifiedImportHub.svelte` L237) ため `.first()` (event-school-start) では click できない。
-	// 取込可能 (enabled = `:not([disabled])`) な最初の preset を選び、本テストの ACT
-	// (実際の import POST 発火 → UI 反映) を検証する。
-	const enabledPresetBtns = page.locator(
-		'[data-testid^="marketplace-preset-import-"]:not([disabled])',
-	);
-	await expect(enabledPresetBtns.first()).toBeVisible({ timeout: 15_000 });
-	await expect(enabledPresetBtns.first()).toBeEnabled({ timeout: 5_000 });
-	return enabledPresetBtns.first();
+// admin/checklists?import= で受け取る checklist preset。demo Lambda の checklist 一覧では
+// 一部 preset が pre-imported だが、ChildSelectionDialog 経由の取込は preset の取込済/未取込に
+// 関わらず実行され、結果メッセージ (imported / duplicate のいずれか) が必ず表示されるため、
+// dead-end 検出には十分。安定のため event-pool を使う。
+const IMPORT_PRESET_ID = 'event-pool';
+
+/**
+ * admin/checklists?import= で ChildSelectionDialog を auto-open させる。
+ *
+ * 本 spec は admin 側 demo no-op の挙動が検証対象のため、marketplace 詳細ページの CTA
+ * レンダリングは検証対象外。直接 `?import=` で dialog を開く (CTA → 遷移は
+ * marketplace-checklist-import.spec.ts が別途貫通検証している)。
+ */
+async function openImportDialog(page: Page) {
+	await page.goto(`/admin/checklists?import=${IMPORT_PRESET_ID}`, {
+		waitUntil: 'domcontentloaded',
+	});
+	const dialog = page.getByTestId('checklist-import-child-selection-dialog');
+	await expect(dialog).toBeVisible({ timeout: 30_000 });
+	return dialog;
 }
 
-test.describe('bug-1: marketplace 取込 dead-end (demo Lambda、#2558)', () => {
-	test('?/importMarketplaceChecklist POST は SvelteKit action 形式 (type=success + demo flag) で返る (素の {ok,demo} ではない)', async ({
+test.describe('bug-1: marketplace 取込 dead-end (demo Lambda、#2558 / #2773)', () => {
+	test('?/importPresetToChildren POST は SvelteKit action 形式 (type=success + demo flag) で返る (素の {ok,demo} ではない)', async ({
 		page,
 	}) => {
 		test.slow();
-		const importBtn = await firstImportButton(page);
+		await openImportDialog(page);
 
-		// ACT: import を実行し、form action レスポンスを捕捉する
+		// ACT: 全員選択 → 確定で import POST を発火し、form action レスポンスを捕捉する。
+		await page.getByTestId('child-selection-all').click();
 		const [resp] = await Promise.all([
 			page.waitForResponse(
-				(r) => /\?\/importMarketplace/.test(r.url()) && r.request().method() === 'POST',
+				(r) => /\?\/importPresetToChildren/.test(r.url()) && r.request().method() === 'POST',
 			),
-			importBtn.click(),
+			page.getByTestId('child-selection-confirm').click(),
 		]);
 
 		expect(resp.status()).toBe(200);
@@ -67,7 +76,7 @@ test.describe('bug-1: marketplace 取込 dead-end (demo Lambda、#2558)', () => 
 
 		// 修正の核心: SvelteKit が認識する ActionResult 形式であること (dead-end 回帰検出)。
 		// 旧 dead-end では body = `{ ok: true, demo: true }` (type 欠落) で
-		// use:enhance が result.type を解決できず onimported / state 反映が不発火だった。
+		// クライアントが result.type を解決できず取込済 state 反映が不発火だった。
 		expect(body).toMatchObject({ type: 'success', status: 200 });
 		// data は devalue stringified 文字列。demo フラグを含む (UI が feedback 表示に使う)。
 		expect(typeof body.data).toBe('string');
@@ -76,23 +85,38 @@ test.describe('bug-1: marketplace 取込 dead-end (demo Lambda、#2558)', () => 
 		expect(body).not.toMatchObject({ ok: true, demo: true });
 	});
 
-	test('import preset を click すると取込済 state に反映される (無反応 dead-end なら fail)', async ({
+	test('?import= → 全員選択 → 確定で取込済 state に反映される (無反応 dead-end なら fail)', async ({
 		page,
 	}) => {
 		test.slow();
-		const importBtn = await firstImportButton(page);
-		const presetTestid = (await importBtn.getAttribute('data-testid')) as string;
-		expect(presetTestid, 'preset import button testid が取得できること').toBeTruthy();
-		const itemId = presetTestid.replace('marketplace-preset-import-', '');
+		await openImportDialog(page);
 
-		await importBtn.click();
+		await page.getByTestId('child-selection-all').click();
+		await page.getByTestId('child-selection-confirm').click();
 
-		// 副作用: 取込成功 feedback (success result メッセージ) が表示されること。
+		// 副作用: 取込結果 feedback (action message banner) が表示されること。
 		// 旧 dead-end ではここで永久に無反応だった。demo no-op でも UI feedback は出る。
-		await expect(page.getByTestId('marketplace-admin-result-success')).toBeVisible({
+		await expect(page.getByTestId('checklists-action-message')).toBeVisible({
 			timeout: 30_000,
 		});
-		// preset 行自体は引き続き表示されている (dialog ではなく in-page section のため)
-		await expect(page.getByTestId(`marketplace-preset-import-${itemId}`)).toBeVisible();
+
+		// 確定後は dialog が閉じること (旧 dead-end では dialog が閉じなかった)。
+		await expect(page.getByTestId('checklist-import-child-selection-dialog')).toBeHidden({
+			timeout: 15_000,
+		});
+	});
+
+	test('取込 dialog の cancel で dialog が閉じる (無反応 cancel dead-end なら fail、bug-4)', async ({
+		page,
+	}) => {
+		test.slow();
+		const dialog = await openImportDialog(page);
+
+		// cancel ボタンで dialog を閉じる (旧 dead-end では cancel も無反応で閉じなかった)。
+		await page.getByRole('button', { name: 'キャンセル' }).click();
+
+		await expect(dialog).toBeHidden({ timeout: 15_000 });
+		// 取込は実行されていない (action message banner は出ない)。
+		await expect(page.getByTestId('checklists-action-message')).toHaveCount(0);
 	});
 });

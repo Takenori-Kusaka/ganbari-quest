@@ -44,11 +44,17 @@ const childOptions = $derived<ChildOption[]>(
 	})),
 );
 
-// #2774: `?import=<presetId>` で auto-open (server load で validation 済、5 type 統一)
+// #2774: `?import=<presetId>` で auto-open (5 type 統一)。presetId 単位の one-shot guard で、
+// 確定後に effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
+let consumedImportPresetId = $state<string | null>(null);
 $effect(() => {
-	if (data.importPresetId && !showChildSelectionDialog) {
-		pendingImportPresetId = data.importPresetId;
+	const pid = data.importPresetId;
+	if (pid && pid !== consumedImportPresetId) {
+		consumedImportPresetId = pid;
+		pendingImportPresetId = pid;
 		showChildSelectionDialog = true;
+	} else if (!pid) {
+		consumedImportPresetId = null;
 	}
 });
 
