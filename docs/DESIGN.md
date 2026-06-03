@@ -105,7 +105,7 @@
 | トークン | 値 |
 |---------|----|
 | `--color-text` | `#2d2d2d` |
-| `--color-text-muted` | `#8b8b8b` |
+| `--color-text-muted` | `#6b6b6b` |
 | `--color-text-inverse` | `white` |
 | `--color-text-accent` | `var(--theme-accent)` |
 | `--color-text-link` | `var(--color-brand-700)` |

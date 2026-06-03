@@ -110,8 +110,8 @@ const bubbleStyle = $derived.by(() => {
 		aria-labelledby="page-guide-title"
 		tabindex="-1"
 	>
-		<!-- Dark overlay with spotlight cutout -->
-		<svg class="guide-overlay-svg" xmlns="http://www.w3.org/2000/svg">
+		<!-- Dark overlay with spotlight cutout (装飾的マスクのみ。情報は dialog 本文が保持するため SR は skip) -->
+		<svg class="guide-overlay-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 			<defs>
 				<mask id="guide-spotlight">
 					<rect width="100%" height="100%" fill="white" />
