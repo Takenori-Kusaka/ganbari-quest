@@ -1,20 +1,24 @@
 <script lang="ts">
 /**
- * SaasLicensePanel.svelte — AWS SaaS 版ライセンス画面 (EPIC #2327 / #2330)
+ * SaasLicensePanel.svelte — AWS SaaS 版サブスクリプション画面 (EPIC #2327 / #2330)
  *
- * 既存 /admin/license/+page.svelte (940 行) の AWS 用ロジックを分離移行。
+ * 既存 /admin/subscription/+page.svelte (旧 /admin/license、940 行) の AWS 用ロジックを分離移行。
  * 主な変更点 (EPIC #2327 子#2330):
  *   1. 「現在のプラン」表示を license.plan → planTier (resolveFullPlanTier 経由) に統一
  *      (header badge との表示矛盾解消、PO 報告 2026-05-20 Q3)
  *   2. 「決済機能は現在準備中です」placeholder 削除
  *      (stripeEnabled false 分岐は production 環境で到達不能、PO 報告 Q2)
  *
- * 維持セクション: trial banner / 現在のプラン / プラン選択 / ライセンスキー /
+ * Epic #2525 Phase 7 PR-L3 (#2818): license key 全廃 (Phase 1 補強 3 #2788) に伴い
+ *   ライセンスキー適用 UI section (入力フォーム / 適用ボタン / ヘルプ / 確認ダイアログ /
+ *   license.licenseKey 表示行) を完全撤去。subscription 管理 (プラン表示 / 選択 / Stripe Portal /
+ *   trial / PIN ゲート / DowngradeResourceSelector) のみ残す。
+ *
+ * 維持セクション: trial banner / 現在のプラン / プラン選択 /
  *   PIN ゲート / DowngradeResourceSelector / Stripe Customer Portal 遷移
  *
- * 親コンポーネント: /admin/license/+page.svelte (薄ラッパー、子#2331)
+ * 親コンポーネント: /admin/subscription/+page.svelte (薄ラッパー、子#2331)
  */
-import { enhance } from '$app/forms';
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
@@ -34,7 +38,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
-let { data, form } = $props();
+let { data } = $props();
 
 const license = $derived(data.license);
 // EPIC #2327 子#2330 AC3: stripeEnabled false 分岐 (placeholder) は撤去したが、
@@ -43,7 +47,6 @@ const stripeEnabled = $derived(data.stripeEnabled);
 const planTier = $derived(data.planTier ?? 'free');
 const planStats = $derived(data.planStats);
 const trialStatus = $derived(data.trialStatus);
-const isOwner = $derived(data.userRole === 'owner');
 // #771: プラン変更時の二段階確認 (PIN 設定済みなら PIN 必須、未設定なら確認フレーズ)
 const pinConfigured = $derived(data.pinConfigured);
 // #736: 解約時のダウングレード先 (free) の保持期間。PLAN_LIMITS 由来の動的値。
@@ -72,23 +75,6 @@ let downgradePreview = $state<DowngradePreview | null>(null);
 let showDowngradeSelector = $state(false);
 let downgradeLoading = $state(false);
 let downgradeError = $state<string | null>(null);
-
-// #796 ライセンスキー適用 UI 状態
-let licenseKeyInput = $state('');
-let applyLoading = $state(false);
-let showApplyConfirm = $state(false);
-// #799 折りたたみヘルプ・一回限り使用同意
-let showLicenseHelp = $state(false);
-let agreedLicenseOnce = $state(false);
-let applyFormEl: HTMLFormElement | null = $state(null);
-// form は startTrial と applyLicenseKey の union なので、apply キーの存在で narrow する
-const applyResult = $derived(
-	form && typeof form === 'object' && 'apply' in form
-		? (form.apply as { error?: string; success?: boolean } | undefined)
-		: undefined,
-);
-const applyError = $derived(applyResult?.error ?? null);
-const applySuccess = $derived(applyResult?.success === true);
 
 // EPIC #2327 子#2330 AC2: 表示矛盾解消。
 // 旧実装は license.plan (Stripe subscription tier) を表示していたため、NUC や free 状態で
@@ -349,15 +335,6 @@ async function openPortal() {
 				</div>
 			{/if}
 
-			{#if license.licenseKey}
-				<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
-					<span class="text-sm text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.currentPlanLicenseKey}</span>
-					<code class="text-xs bg-[var(--color-surface-muted)] px-2 py-1 rounded font-mono text-[var(--color-text-secondary)]">
-						{license.licenseKey}
-					</code>
-				</div>
-			{/if}
-
 			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
 				<span class="text-sm text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.currentPlanFamilyName}</span>
 				<span class="text-sm text-[var(--color-text-primary)]">{license.tenantName}</span>
@@ -384,169 +361,6 @@ async function openPortal() {
 			retentionDays={planStats.retentionDays}
 			{trialStatus}
 		/>
-	{/if}
-
-	<!-- ライセンスキー適用 (#796) -->
-	{#if isOwner && license.plan !== 'lifetime'}
-		<Card variant="default" padding="lg">
-			{#snippet children()}
-			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-2">
-				{SUBSCRIPTION_PAGE_LABELS.licenseKeyTitle}
-			</h3>
-			<p class="text-sm text-[var(--color-text-muted)] mb-4">
-				{SUBSCRIPTION_PAGE_LABELS.licenseKeyDesc}
-			</p>
-
-			{#if applySuccess}
-				<Alert variant="success" class="mb-3">
-					{#snippet children()}
-					{SUBSCRIPTION_PAGE_LABELS.licenseKeyApplySuccess}
-					{/snippet}
-				</Alert>
-			{/if}
-			{#if applyError}
-				<Alert variant="danger" class="mb-3">
-					{#snippet children()}
-					{applyError}
-					{/snippet}
-				</Alert>
-			{/if}
-
-			<form
-				bind:this={applyFormEl}
-				method="POST"
-				action="?/applyLicenseKey"
-				use:enhance={() => {
-					applyLoading = true;
-					return async ({ update }) => {
-						await update();
-						applyLoading = false;
-						showApplyConfirm = false;
-						if (applySuccess) {
-							licenseKeyInput = '';
-							agreedLicenseOnce = false;
-						}
-					};
-				}}
-			>
-				<label for="licenseKey" class="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-					{SUBSCRIPTION_PAGE_LABELS.licenseKeyInputLabel}
-				</label>
-				<input
-					id="licenseKey"
-					name="licenseKey"
-					type="text"
-					bind:value={licenseKeyInput}
-					placeholder="GQ-XXXX-XXXX-XXXX"
-					autocomplete="off"
-					data-testid="license-key-input"
-					class="w-full rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-card)] px-3 py-2 font-mono text-sm text-[var(--color-text-primary)] focus:border-[var(--color-border-focus)] focus:outline-none"
-				/>
-
-				<div class="mt-2">
-					<button
-						type="button"
-						class="text-xs text-[var(--color-text-link)] underline hover:no-underline"
-						aria-expanded={showLicenseHelp}
-						aria-controls="admin-license-help"
-						onclick={() => { showLicenseHelp = !showLicenseHelp; }}
-						data-testid="license-help-toggle"
-					>
-						{showLicenseHelp ? '▼' : '▶'} {SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpToggle}
-					</button>
-					{#if showLicenseHelp}
-						<div
-							id="admin-license-help"
-							class="mt-2 p-3 rounded-[var(--radius-sm)] bg-[var(--color-surface-muted)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-muted)] leading-relaxed space-y-1.5"
-							data-testid="license-help-body"
-						>
-							<p><strong class="text-[var(--color-text-primary)]">{SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpOnce}</strong>: {SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpOnceDesc}</p>
-							<p><strong class="text-[var(--color-text-primary)]">{SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpOverwrite}</strong>: {SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpOverwriteDesc}</p>
-							<p><strong class="text-[var(--color-text-primary)]">{SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpBound}</strong>: {SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpBoundDesc}</p>
-							<p><strong class="text-[var(--color-text-primary)]">{SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpIrreversible}</strong>: {SUBSCRIPTION_PAGE_LABELS.licenseKeyHelpIrreversibleDesc}</p>
-						</div>
-					{/if}
-				</div>
-
-				<Button
-					type="button"
-					variant="primary"
-					size="md"
-					class="mt-3 w-full"
-					disabled={!licenseKeyInput.trim() || applyLoading}
-					data-testid="license-key-apply-button"
-					onclick={() => {
-						agreedLicenseOnce = false;
-						showApplyConfirm = true;
-					}}
-				>
-					{SUBSCRIPTION_PAGE_LABELS.licenseKeyApplyButton}
-				</Button>
-
-			</form>
-
-				<Dialog
-					bind:open={showApplyConfirm}
-					title={SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmTitle}
-					testid="license-key-confirm-dialog"
-				>
-					{#snippet children()}
-					<div class="space-y-3 text-sm text-[var(--color-text-primary)]">
-						<p>
-							{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmDesc}
-						</p>
-						<ul class="list-disc pl-5 text-[var(--color-text-muted)] space-y-1">
-							<li><strong>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmOnce}</strong>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmOnceDesc}</li>
-							<li>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmPlanPrefix}<strong>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmPlan}</strong>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmPlanDesc}</li>
-							<li>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmBoundPrefix}<strong>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmBoundSuffix(license.tenantName)}</strong></li>
-							<li>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmIrreversiblePrefix}<strong>{SUBSCRIPTION_PAGE_LABELS.licenseKeyConfirmIrreversible}</strong></li>
-						</ul>
-						<div class="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
-							<p class="text-[10px] text-[var(--color-text-tertiary)] mb-0.5">{SUBSCRIPTION_PAGE_LABELS.licenseKeyEnteredKey}</p>
-							<p class="font-mono text-xs text-[var(--color-text-secondary)] break-all" data-testid="license-key-confirm-display">
-								{licenseKeyInput}
-							</p>
-						</div>
-
-						<label class="flex items-start gap-2 cursor-pointer pt-1">
-							<input
-								type="checkbox"
-								bind:checked={agreedLicenseOnce}
-								class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--theme-primary)]"
-								data-testid="license-key-once-checkbox"
-							/>
-							<span class="text-xs text-[var(--color-text-muted)] leading-relaxed">
-								{SUBSCRIPTION_PAGE_LABELS.licenseKeyAgreePrefix}<strong class="text-[var(--color-text-primary)]">{SUBSCRIPTION_PAGE_LABELS.licenseKeyAgreeOnce}</strong>{SUBSCRIPTION_PAGE_LABELS.licenseKeyAgreeOnceDesc}
-							</span>
-						</label>
-					</div>
-					<div class="mt-4 flex justify-end gap-2">
-						<Button
-							type="button"
-							variant="secondary"
-							size="md"
-							onclick={() => (showApplyConfirm = false)}
-							disabled={applyLoading}
-						>
-							{SUBSCRIPTION_PAGE_LABELS.licenseKeyCancel}
-						</Button>
-						<Button
-							type="button"
-							variant="primary"
-							size="md"
-							disabled={applyLoading || !agreedLicenseOnce}
-							data-testid="license-key-confirm-button"
-							onclick={() => {
-								applyFormEl?.requestSubmit();
-							}}
-						>
-							{applyLoading ? SUBSCRIPTION_PAGE_LABELS.licenseKeyApplyLoading : SUBSCRIPTION_PAGE_LABELS.licenseKeyApplyConfirm}
-						</Button>
-					</div>
-					{/snippet}
-				</Dialog>
-			{/snippet}
-		</Card>
 	{/if}
 
 	<!-- 無料トライアル -->

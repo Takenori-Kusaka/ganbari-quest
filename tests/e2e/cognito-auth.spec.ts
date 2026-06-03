@@ -195,9 +195,9 @@ test.describe('サインアップ', () => {
 // 10. parent ロールのアクセス制御
 // ============================================================
 test.describe('parent ロール詳細', () => {
-	test('parent ロールで /admin/license にアクセスできる', async ({ page }) => {
+	test('parent ロールで /admin/subscription にアクセスできる', async ({ page }) => {
 		await loginAs(page, 'parent@example.com', 'Gq!Dev#Parent2026', /\/admin/);
-		await page.goto('/admin/license');
+		await page.goto('/admin/subscription');
 		await expect(page).toHaveURL(/\/admin\/license/);
 	});
 
@@ -212,9 +212,9 @@ test.describe('parent ロール詳細', () => {
 // 11. child ロール詳細
 // ============================================================
 test.describe('child ロール詳細', () => {
-	test('child ロールで /admin/license にアクセスできない', async ({ page }) => {
+	test('child ロールで /admin/subscription にアクセスできない', async ({ page }) => {
 		await loginAs(page, 'child@example.com', 'Gq!Dev#Child2026x', /\/switch/);
-		await page.goto('/admin/license');
+		await page.goto('/admin/subscription');
 		await expect(page).toHaveURL(/\/switch/);
 	});
 
@@ -243,10 +243,10 @@ test.describe('child ロール詳細', () => {
 // 12. 未ログイン時の保護ルート（追加）
 // ============================================================
 test.describe('未ログイン時の保護ルート', () => {
-	test('未ログインで /admin/license にアクセスすると /auth/login にリダイレクトされる', async ({
+	test('未ログインで /admin/subscription にアクセスすると /auth/login にリダイレクトされる', async ({
 		page,
 	}) => {
-		await page.goto('/admin/license');
+		await page.goto('/admin/subscription');
 		await expect(page).toHaveURL(/\/auth\/login/);
 	});
 

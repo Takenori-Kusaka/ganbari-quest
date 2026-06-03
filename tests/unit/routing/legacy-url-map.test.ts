@@ -87,6 +87,28 @@ describe('legacy-url-map', () => {
 			expect(entry).toBeDefined();
 			expect(entry?.to).toBe('/admin/challenges');
 		});
+
+		// #2525 Phase 4 (#2620) / Phase 7 PR-L3 (#2818): /admin/license → /admin/subscription rename
+		it('/admin/license → /admin/subscription (308) エントリが存在する', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/admin/license');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/admin/subscription');
+			// status 省略 = 308 Permanent Redirect (規約デフォルト、CLAUDE.md `#578`)
+			expect(entry?.status).toBeUndefined();
+			expect(entry?.issue).toBe('#2525');
+		});
+
+		it('/demo/admin/license も最終 hop は /admin/subscription に直接 redirect (#2818 1 段化)', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/demo/admin/license');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/admin/subscription');
+		});
+
+		it('/admin/license は前方一致で sub path (将来追加分) も救済する', () => {
+			const result = findLegacyRedirect('/admin/license/key');
+			expect(result?.to).toBe('/admin/subscription');
+			expect(rewriteLegacyPath('/admin/license/key', result!)).toBe('/admin/subscription/key');
+		});
 	});
 
 	describe('findLegacyRedirect()', () => {
@@ -135,6 +157,10 @@ describe('legacy-url-map', () => {
 			['/admin/events', '/admin/events'],
 			['/admin/events/new', '/admin/events'],
 			['/admin/challenges', null],
+			// #2525 Phase 7 PR-L3 (#2818): /admin/license 廃止 → /admin/subscription redirect
+			['/admin/license', '/admin/license'],
+			['/admin/license/key', '/admin/license'],
+			['/admin/subscription', null],
 			['/demo/admin/points', '/demo/admin/points'],
 			['/demo/admin/reports', '/demo/admin/reports'],
 			['/demo/admin/rewards', '/demo/admin/rewards'],
@@ -249,7 +275,8 @@ describe('legacy-url-map', () => {
 			['/demo/admin/children', '/admin/children'],
 			// #2295 (EPIC #2294 ①): /demo/admin/events も最終 hop を /admin/challenges に更新
 			['/demo/admin/events', '/admin/challenges'],
-			['/demo/admin/license', '/admin/license'],
+			// #2818 Phase 7 PR-L3: /demo/admin/license も最終 hop を /admin/subscription に 1 段化
+			['/demo/admin/license', '/admin/subscription'],
 			['/demo/admin/members', '/admin/members'],
 			// #2270 / #2275 (EPIC #2266): 1 段化済 (/demo/admin/messages → 直接 /admin/cheer)
 			['/demo/admin/messages', '/admin/cheer'],
@@ -274,6 +301,9 @@ describe('legacy-url-map', () => {
 			// #2295 (EPIC #2294 ①): /admin/events → /admin/challenges (308)
 			['/admin/events', '/admin/challenges'],
 			['/admin/events/new', '/admin/challenges/new'],
+			// #2818 Phase 7 PR-L3: /admin/license → /admin/subscription (308)
+			['/admin/license', '/admin/subscription'],
+			['/admin/license/key', '/admin/subscription/key'],
 			// #2175: 子供画面 achievements → challenges (5 年齢モード)
 			['/baby/achievements', '/baby/challenges'],
 			['/preschool/achievements', '/preschool/challenges'],

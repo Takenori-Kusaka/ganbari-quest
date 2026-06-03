@@ -9,7 +9,7 @@
 //   2. dev-tenant-free ユーザーでログインし、API を直接呼んで
 //      signup 後のトライアル自動開始と同等の状態を作成
 //   3. トライアル開始後に /admin で TrialBanner が「残り 7 日」を表示
-//   4. /admin/license で planTier が standard に昇格していること
+//   4. /admin/subscription で planTier が standard に昇格していること
 //
 // #1535: loginAsPlan() を storageState ベースに移行
 //
@@ -124,11 +124,11 @@ test.describe('#757 free ユーザートライアル開始フロー', () => {
 		await expect(page.getByTestId('trial-banner-active-cta')).toBeVisible();
 	});
 
-	test('トライアル開始後に /admin/license で planTier が standard に昇格している', async ({
+	test('トライアル開始後に /admin/subscription で planTier が standard に昇格している', async ({
 		page,
 	}) => {
 		// 前のテストでトライアルが開始されている前提（同一 tenant DB が共有）
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		// PlanStatusCard にトライアルバッジが表示される
 		const trialBadge = page.getByTestId('plan-status-trial-badge');
@@ -143,7 +143,7 @@ test.describe('#757 free ユーザートライアル開始フロー', () => {
 		const cta = page.getByTestId('trial-banner-active-cta');
 		await expect(cta).toBeVisible({ timeout: 30_000 });
 
-		// href が /pricing を含む（または /admin/license）
+		// href が /pricing を含む（または /admin/subscription）
 		const href = await cta.getAttribute('href');
 		expect(href).toBeTruthy();
 		// CTA は /pricing またはライセンスページへのリンク

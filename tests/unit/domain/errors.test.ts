@@ -23,7 +23,7 @@ describe('#744 PlanLimitError', () => {
 				message: 'AI 活動提案はスタンダードプラン以上でご利用いただけます',
 				currentTier: 'free',
 				requiredTier: 'standard',
-				upgradeUrl: '/admin/license',
+				upgradeUrl: '/admin/subscription',
 			});
 		});
 
@@ -35,12 +35,12 @@ describe('#744 PlanLimitError', () => {
 			);
 			expect(err.currentTier).toBe('standard');
 			expect(err.requiredTier).toBe('family');
-			expect(err.upgradeUrl).toBe('/admin/license');
+			expect(err.upgradeUrl).toBe('/admin/subscription');
 		});
 
-		it('upgradeUrl は常に /admin/license で固定', () => {
+		it('upgradeUrl は常に /admin/subscription で固定', () => {
 			const err = createPlanLimitError('free', 'family', 'msg');
-			expect(err.upgradeUrl).toBe('/admin/license');
+			expect(err.upgradeUrl).toBe('/admin/subscription');
 		});
 	});
 
@@ -51,7 +51,7 @@ describe('#744 PlanLimitError', () => {
 				message: 'test',
 				currentTier: 'free',
 				requiredTier: 'standard',
-				upgradeUrl: '/admin/license',
+				upgradeUrl: '/admin/subscription',
 			};
 			expect(isPlanLimitError(err)).toBe(true);
 		});
@@ -63,7 +63,7 @@ describe('#744 PlanLimitError', () => {
 					message: 'test',
 					currentTier: 'free',
 					requiredTier: 'standard',
-					upgradeUrl: '/admin/license',
+					upgradeUrl: '/admin/subscription',
 				}),
 			).toBe(false);
 		});
@@ -75,7 +75,7 @@ describe('#744 PlanLimitError', () => {
 					message: 'test',
 					currentTier: 'premium',
 					requiredTier: 'standard',
-					upgradeUrl: '/admin/license',
+					upgradeUrl: '/admin/subscription',
 				}),
 			).toBe(false);
 		});
@@ -87,7 +87,7 @@ describe('#744 PlanLimitError', () => {
 					message: 'test',
 					currentTier: 'free',
 					requiredTier: 'free',
-					upgradeUrl: '/admin/license',
+					upgradeUrl: '/admin/subscription',
 				}),
 			).toBe(false);
 		});

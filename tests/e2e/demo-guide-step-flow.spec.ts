@@ -14,7 +14,7 @@
 //
 // #2097 PR-B2 (#2187) + PR-B3 (#2188): /demo/(child)/* + /demo/(parent)/admin/* + /demo/signup
 // 全撤去 + legacy redirect 化により、demo guide 全 6 step の matchPath / href は本番 routes
-// (`/preschool/home` / `/admin` / `/admin/license` / `/auth/signup` 等) に切り替わった。
+// (`/preschool/home` / `/admin` / `/admin/subscription` / `/auth/signup` 等) に切り替わった。
 // /demo entry point (`/demo` landing) は撤去済のため、本 spec は `/demo` 直接アクセスを
 // `legacy-url-redirect.spec.ts` でカバー (308 → /)。本 spec は guide 起動経路を `/preschool/home`
 // 直接アクセス + `startGuide()` script 呼出で代替する。
@@ -62,7 +62,7 @@ test.describe.configure({ timeout: 120_000 });
 // `goto('/')` + 起動ボタン click 経路で再活性化する。それまで本 spec は skip。
 //
 // 本 PR では guide 機構自体は `demo-guide-state.svelte.ts` Step 4-6 を本番 path
-// (`/admin` / `/admin/license` / `/auth/signup`) に切り替え、demo Lambda 環境で
+// (`/admin` / `/admin/subscription` / `/auth/signup`) に切り替え、demo Lambda 環境で
 // guide が起動できれば全 step が正しく遷移する状態を保持している。
 test.describe
 	.skip('#702 デモガイド: 全ステップ順次遷移 (PR-B3 撤去・PR-B4 再設計)', () => {
@@ -114,7 +114,7 @@ test.describe
 			await expect(guideBar).toContainText('おやの画面をみよう');
 			await expect(page).toHaveURL(/\/demo\/admin/);
 
-			// Step 4 → Step 5 (matchPath: /demo/admin/license) — #817 ライセンスキー体験
+			// Step 4 → Step 5 (matchPath: /demo/admin/subscription) — #817 ライセンスキー体験
 			await page.getByTestId('demo-guide-next').click();
 			await expect(stepIndicator).toHaveText('5');
 			await expect(guideBar).toContainText('プラン・お支払いを みよう');

@@ -83,7 +83,7 @@ function acceptPreview() {
 				{COMMON.familyOnlyDescription(L.kind)}
 			</p>
 			<a
-				href="/admin/license"
+				href="/admin/subscription"
 				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold hover:opacity-90 transition-colors"
 				data-testid="ai-suggest-upgrade-cta"
 			>

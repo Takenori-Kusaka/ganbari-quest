@@ -231,7 +231,7 @@ function tabHref(childId: number | 'all'): string {
 		<div class="rounded-xl border border-[var(--color-feedback-warning-border)] bg-[var(--color-feedback-warning-bg)] p-4 text-center">
 			<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">{CHALLENGES_LABELS.familyPlanTitle}</p>
 			<p class="text-xs text-[var(--color-feedback-warning-text)] mt-1">{CHALLENGES_LABELS.familyPlanDesc}</p>
-			<a href="/admin/license" class="inline-block mt-2 px-3 py-1 text-xs font-bold rounded-lg bg-[var(--color-stat-amber)] text-white">
+			<a href="/admin/subscription" class="inline-block mt-2 px-3 py-1 text-xs font-bold rounded-lg bg-[var(--color-stat-amber)] text-white">
 				{CHALLENGES_LABELS.familyPlanButton}
 			</a>
 		</div>

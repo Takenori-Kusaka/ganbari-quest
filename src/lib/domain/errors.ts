@@ -25,7 +25,7 @@ import type { PlanTier } from '$lib/server/services/plan-limit-service';
  *     "message": "<PLAN_GATE_LABELS.standardOrAboveFor('AI 活動提案') の戻り値>",
  *     "currentTier": "free",
  *     "requiredTier": "standard",
- *     "upgradeUrl": "/admin/license"
+ *     "upgradeUrl": "/admin/subscription"
  *   }
  * }
  * ```
@@ -53,8 +53,8 @@ export interface PlanLimitError {
 	currentTier: PlanTier;
 	/** この操作を許可する最小プラン */
 	requiredTier: Exclude<PlanTier, 'free'>;
-	/** アップグレード導線 URL。常に '/admin/license' */
-	upgradeUrl: '/admin/license';
+	/** アップグレード導線 URL。常に '/admin/subscription' */
+	upgradeUrl: '/admin/subscription';
 }
 
 /** レスポンス body のエラー部分（`{ error: ... }` の値） */
@@ -92,7 +92,7 @@ export function createPlanLimitError(
 		message,
 		currentTier,
 		requiredTier,
-		upgradeUrl: '/admin/license',
+		upgradeUrl: '/admin/subscription',
 	};
 }
 
@@ -109,7 +109,7 @@ export function isPlanLimitError(value: unknown): value is PlanLimitError {
 		typeof v.message === 'string' &&
 		(v.currentTier === 'free' || v.currentTier === 'standard' || v.currentTier === 'family') &&
 		(v.requiredTier === 'standard' || v.requiredTier === 'family') &&
-		v.upgradeUrl === '/admin/license'
+		v.upgradeUrl === '/admin/subscription'
 	);
 }
 

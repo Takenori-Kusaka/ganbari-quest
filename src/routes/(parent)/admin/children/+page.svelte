@@ -53,7 +53,7 @@ const addCalculatedAge = $derived(
 				<p class="children-page__limit-desc">
 					{ADMIN_CHILDREN_PAGE_LABELS.limitBannerDesc(childLimit.current, childLimit.max ?? 0)}
 				</p>
-				<a href="/admin/license" class="children-page__limit-link">
+				<a href="/admin/subscription" class="children-page__limit-link">
 					{ADMIN_CHILDREN_PAGE_LABELS.limitUpgradeLink}
 				</a>
 			</div>

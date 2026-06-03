@@ -82,21 +82,21 @@ describe('authorizeCognito', () => {
 		});
 	});
 
-	describe('/admin/license — owner + parent', () => {
+	describe('/admin/subscription — owner + parent', () => {
 		it('owner はアクセス可能', () => {
-			expect(authorizeCognito('/admin/license', cognitoIdentity, ownerContext)).toEqual({
+			expect(authorizeCognito('/admin/subscription', cognitoIdentity, ownerContext)).toEqual({
 				allowed: true,
 			});
 		});
 
 		it('parent はアクセス可能', () => {
-			expect(authorizeCognito('/admin/license', cognitoIdentity, parentContext)).toEqual({
+			expect(authorizeCognito('/admin/subscription', cognitoIdentity, parentContext)).toEqual({
 				allowed: true,
 			});
 		});
 
 		it('child は /admin にリダイレクト', () => {
-			const result = authorizeCognito('/admin/license', cognitoIdentity, childContext);
+			const result = authorizeCognito('/admin/subscription', cognitoIdentity, childContext);
 			expect(result).toEqual({ allowed: false, redirect: '/admin', status: 403 });
 		});
 	});
@@ -141,18 +141,18 @@ describe('authorizeCognito', () => {
 	});
 
 	describe('ライセンス状態', () => {
-		it('expired → /admin/license にリダイレクト', () => {
+		it('expired → /admin/subscription にリダイレクト', () => {
 			const expired: AuthContext = { tenantId: 't-1', role: 'owner', licenseStatus: 'expired' };
 			const result = authorizeCognito('/admin', cognitoIdentity, expired);
 			expect(result).toEqual({
 				allowed: false,
-				redirect: '/admin/license?reason=expired',
+				redirect: '/admin/subscription?reason=expired',
 			});
 		});
 
-		it('expired でも /admin/license はアクセス可能', () => {
+		it('expired でも /admin/subscription はアクセス可能', () => {
 			const expired: AuthContext = { tenantId: 't-1', role: 'owner', licenseStatus: 'expired' };
-			expect(authorizeCognito('/admin/license', cognitoIdentity, expired)).toEqual({
+			expect(authorizeCognito('/admin/subscription', cognitoIdentity, expired)).toEqual({
 				allowed: true,
 			});
 		});

@@ -3,7 +3,7 @@
 //
 // AUTH_MODE=cognito + COGNITO_DEV_MODE=true で実行。
 // DevCognitoAuthProvider のプラン別ダミーユーザーでログインし、
-// 各起点画面からアップグレード導線が /admin/license に到達するかを検証。
+// 各起点画面からアップグレード導線が /admin/subscription に到達するかを検証。
 //
 // Stripe Checkout / Webhook の統合テストはモック化:
 //  - POST /api/stripe/checkout は Stripe が無効な環境では 503 を返す
@@ -19,13 +19,13 @@ import { expect, test } from '@playwright/test';
 // ============================================================
 // 1. PlanStatusCard からのアップグレード CTA（free）
 // ============================================================
-test.describe('#753 PlanStatusCard → /admin/license — free', () => {
+test.describe('#753 PlanStatusCard → /admin/subscription — free', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free プランの PlanStatusCard に「スタンダードにアップグレード」CTA がある', async ({
 		page,
 	}) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
@@ -37,7 +37,7 @@ test.describe('#753 PlanStatusCard → /admin/license — free', () => {
 	});
 
 	test('free プランの PlanStatusCard に「ファミリーへ」CTA がある', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const familyCta = page.getByTestId('plan-status-family-cta');
 		const count = await familyCta.count();
@@ -56,13 +56,13 @@ test.describe('#753 PlanStatusCard → /admin/license — free', () => {
 // ============================================================
 // 1. PlanStatusCard からのアップグレード CTA（standard）
 // ============================================================
-test.describe('#753 PlanStatusCard → /admin/license — standard', () => {
+test.describe('#753 PlanStatusCard → /admin/subscription — standard', () => {
 	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard プランの PlanStatusCard にファミリーアップグレード CTA がある', async ({
 		page,
 	}) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
@@ -90,11 +90,11 @@ test.describe('#753 PlanStatusCard → /admin/license — standard', () => {
 // ============================================================
 // 1. PlanStatusCard からのアップグレード CTA（family）
 // ============================================================
-test.describe('#753 PlanStatusCard → /admin/license — family', () => {
+test.describe('#753 PlanStatusCard → /admin/subscription — family', () => {
 	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('family プランの PlanStatusCard にアップグレード CTA は表示されない', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
@@ -120,12 +120,12 @@ test.describe('#753 PlanStatusCard → /admin/license — family', () => {
 });
 
 // ============================================================
-// 2. /admin/rewards からの disabled CTA → /admin/license（free）
+// 2. /admin/rewards からの disabled CTA → /admin/subscription（free）
 // ============================================================
 test.describe('#753 /admin/rewards → アップグレード導線', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
-	test('free プランで rewards-upgrade-banner が表示され、CTA が /admin/license へリンクする', async ({
+	test('free プランで rewards-upgrade-banner が表示され、CTA が /admin/subscription へリンクする', async ({
 		page,
 	}) => {
 		await page.goto('/admin/rewards', { waitUntil: 'commit', timeout: 30_000 });
@@ -136,19 +136,21 @@ test.describe('#753 /admin/rewards → アップグレード導線', () => {
 		const cta = page.getByTestId('rewards-upgrade-cta');
 		await expect(cta).toBeVisible();
 
-		// CTA をクリックすると /admin/license に遷移する
+		// CTA をクリックすると /admin/subscription に遷移する
 		await cta.click();
 		await page.waitForURL(/\/admin\/license/, { timeout: 30_000 });
 	});
 });
 
 // ============================================================
-// 3. /admin/activities の AiSuggestPanel disabled CTA → /admin/license（free）
+// 3. /admin/activities の AiSuggestPanel disabled CTA → /admin/subscription（free）
 // ============================================================
 test.describe('#753 /admin/activities AI → アップグレード導線', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
-	test('free プランで AI パネルの upgrade-cta が /admin/license へリンクする', async ({ page }) => {
+	test('free プランで AI パネルの upgrade-cta が /admin/subscription へリンクする', async ({
+		page,
+	}) => {
 		await page.goto('/admin/activities', { waitUntil: 'commit', timeout: 30_000 });
 
 		// EPIC #2253 / #2255: header + dropdown menu から AI を選択
@@ -166,14 +168,14 @@ test.describe('#753 /admin/activities AI → アップグレード導線', () =>
 		const cta = page.getByTestId('ai-suggest-upgrade-cta');
 		await expect(cta).toBeVisible();
 
-		// CTA をクリックすると /admin/license に遷移する
+		// CTA をクリックすると /admin/subscription に遷移する
 		await cta.click();
 		await page.waitForURL(/\/admin\/license/, { timeout: 30_000 });
 	});
 });
 
 // ============================================================
-// 4. /pricing からのサインアップ → /admin/license 導線（free）
+// 4. /pricing からのサインアップ → /admin/subscription 導線（free）
 // ============================================================
 test.describe('#753 /pricing → アップグレード導線', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
@@ -196,7 +198,7 @@ test.describe('#753 /pricing → アップグレード導線', () => {
 });
 
 // ============================================================
-// 5. /admin/license でプラン選択 → Stripe Checkout 遷移 (mock)
+// 5. /admin/subscription でプラン選択 → Stripe Checkout 遷移 (mock)
 //    （認証不要な API テスト）
 // ============================================================
 test.describe('#753 Stripe Checkout 遷移 — API', () => {
@@ -226,13 +228,13 @@ test.describe('#753 Stripe Checkout 遷移 — API', () => {
 });
 
 // ============================================================
-// 6. /admin/license のプラン選択 UI（free）
+// 6. /admin/subscription のプラン選択 UI（free）
 // ============================================================
-test.describe('#753 /admin/license プラン選択 UI — free', () => {
+test.describe('#753 /admin/subscription プラン選択 UI — free', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
-	test('free プランで /admin/license にプラン選択カードが表示される', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+	test('free プランで /admin/subscription にプラン選択カードが表示される', async ({ page }) => {
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		// Stripe 有効環境ではプラン選択カードが表示される。Stripe 無効では plan card 全体非表示 (#2330)
 		// プラン選択カード visible なら通常検証、無ければ Stripe 未設定環境として skip。
@@ -262,15 +264,15 @@ test.describe('#753 /admin/license プラン選択 UI — free', () => {
 });
 
 // ============================================================
-// 6. /admin/license のプラン選択 UI（standard）
+// 6. /admin/subscription のプラン選択 UI（standard）
 // ============================================================
-test.describe('#753 /admin/license プラン選択 UI — standard', () => {
+test.describe('#753 /admin/subscription プラン選択 UI — standard', () => {
 	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard プランでは Stripe Portal ボタンが表示される（サブスク有りの場合）', async ({
 		page,
 	}) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		// standard はサブスクリプション有りなので Portal ボタンが出る、
 		// または Stripe 未設定環境では plan card 全体非表示 (#2330 で placeholder 削除済)

@@ -127,7 +127,7 @@ describe('checkLicenseKeyRateLimit', () => {
 		expect(mockNotifyIncident).toHaveBeenCalledTimes(1);
 	});
 
-	it('license-apply アクションの通知パスが /admin/license になる', async () => {
+	it('license-apply アクションの通知パスが /admin/subscription になる', async () => {
 		mockNotifyIncident.mockResolvedValue(undefined);
 		const ip = '10.0.0.5';
 
@@ -138,7 +138,7 @@ describe('checkLicenseKeyRateLimit', () => {
 
 		expect(mockNotifyIncident).toHaveBeenCalledWith(
 			expect.any(String),
-			expect.objectContaining({ path: '/admin/license' }),
+			expect.objectContaining({ path: '/admin/subscription' }),
 		);
 	});
 });

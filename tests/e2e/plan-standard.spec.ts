@@ -20,8 +20,8 @@ import { expect, test } from '@playwright/test';
 test.use({ storageState: 'playwright/.auth/standard.json' });
 
 test.describe('#779 standard プラン — 機能疎通', () => {
-	test('/admin/license の PlanStatusCard が standard を示す', async ({ page }) => {
-		await page.goto('/admin/license');
+	test('/admin/subscription の PlanStatusCard が standard を示す', async ({ page }) => {
+		await page.goto('/admin/subscription');
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible();
 		await expect(card).toHaveAttribute('data-plan-tier', 'standard');

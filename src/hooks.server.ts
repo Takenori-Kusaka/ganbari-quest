@@ -38,7 +38,7 @@ import { isSetupRequired } from '$lib/server/services/setup-service';
 // 旧来の `assertLicenseKeyConfigured()` 起動時呼び出し (AWS_LICENSE_SECRET 未設定時に
 // production で throw) を撤去し、起動不能リスクを消滅させる (throw 源除去)。
 // license key は Stripe subscription = entitlement SSOT への移行に伴い冗長層であり、
-// 撤去で振る舞いは不変。`license-key-service.ts` の関数本体は PR-L3 の service 物理削除で除去する。
+// 撤去で振る舞いは不変。`license-key-service.ts` の関数本体は PR-L3 (#2818) で物理削除済。
 
 /**
  * Accept ヘッダーを検査し、ブラウザ（HTML）リクエストかどうかを判定する

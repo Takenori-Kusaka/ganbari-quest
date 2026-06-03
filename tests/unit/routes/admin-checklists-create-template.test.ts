@@ -150,7 +150,7 @@ describe('POST /admin/checklists?/createTemplate (#723)', () => {
 			code: 'PLAN_LIMIT_EXCEEDED',
 			currentTier: 'free',
 			requiredTier: 'standard',
-			upgradeUrl: '/admin/license',
+			upgradeUrl: '/admin/subscription',
 		});
 		expect(mockCreateTemplate).not.toHaveBeenCalled();
 	});

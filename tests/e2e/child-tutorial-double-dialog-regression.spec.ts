@@ -3,7 +3,7 @@
 // 子供画面 (CHILD_TUTORIAL_CHAPTERS) での #2105 二重ダイアログ回帰防止 E2E。
 //
 // 旧 tests/e2e/tutorial-double-dialog-bug-2105.spec.ts の代替:
-//   - 旧 spec は /admin/license から v1 TutorialOverlay を起動して dark backdrop click →
+//   - 旧 spec は /admin/subscription から v1 TutorialOverlay を起動して dark backdrop click →
 //     exit confirm 表示中に TutorialBubble が背景に被っていないか検証していた
 //   - 子供画面 (`(child)/+layout.svelte`) は v1 TutorialOverlay を継続稼働するため
 //     同じバグ (TutorialOverlay L43 `{#if !showExitConfirm}` ガード) の回帰検証を子供 path で再構築

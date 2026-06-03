@@ -78,7 +78,7 @@ test.describe('ページヘルス: Admin', () => {
 		{ path: '/admin/status', name: 'ステータス管理' },
 		{ path: '/admin/settings', name: '設定' },
 		{ path: '/admin/members', name: 'メンバー管理' },
-		{ path: '/admin/license', name: 'ライセンス' },
+		{ path: '/admin/subscription', name: 'ライセンス' },
 		{ path: '/admin/billing', name: '請求管理' },
 	];
 
@@ -154,7 +154,10 @@ test.describe('ページヘルス: Demo (本番 path で代替)', () => {
 		{ path: '/preschool/status', name: 'デモ ステータス (preschool)' },
 		{ path: '/preschool/battle', name: 'デモ バトル (preschool)' },
 		// 管理画面 (#2097 PR-B3 で本番 path に切替)
-		{ path: '/admin/license', name: 'デモ プラン・お支払い (旧 /demo/admin/license #790)' },
+		{
+			path: '/admin/subscription',
+			name: 'デモ プラン・お支払い (旧 /demo/admin/license #790、#2818 で rename)',
+		},
 	];
 
 	for (const { path, name } of demoPages) {

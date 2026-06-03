@@ -20,10 +20,10 @@ import { expect, test } from '@playwright/test';
 test.use({ storageState: 'playwright/.auth/free.json' });
 
 test.describe('#751 free プラン — 機能ゲート', () => {
-	test('/admin/license の PlanStatusCard が free を示し、アップグレード CTA が見える', async ({
+	test('/admin/subscription の PlanStatusCard が free を示し、アップグレード CTA が見える', async ({
 		page,
 	}) => {
-		await page.goto('/admin/license');
+		await page.goto('/admin/subscription');
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible();
 		await expect(card).toHaveAttribute('data-plan-tier', 'free');

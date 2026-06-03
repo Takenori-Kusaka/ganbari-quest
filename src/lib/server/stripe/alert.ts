@@ -12,7 +12,7 @@
 //   - docs/design/billing-redesign/phase6-rollback-and-kill-switches.md §3 §6 alert SSOT
 //     (`stripe-webhook-unknown-type` / `stripe-lookup-failed` / `stripe-webhook-handler-typeerror`)
 //   - docs/decisions/0059-phase7-cutover-sequence.md §「結果」§2 kill switch
-//   - 既存 pattern: src/lib/server/services/license-key-service.ts L351 (fire-and-forget)
+//   - 既存 pattern: discord-alert.ts の fire-and-forget 通知 (旧 license-key-service.ts は #2818 で削除済)
 //
 // 設計原則:
 //   - **silent degradation 禁止**: silent fallback (silent return) は QM Adversarial security
@@ -92,7 +92,7 @@ export function notifyStripeAlert(options: StripeAlertOptions): void {
 	});
 
 	// 2. Discord alert (fire-and-forget、課金 path をブロックしない)
-	//    既存 license-key-service.ts L351 pattern 整合
+	//    discord-alert.ts の fire-and-forget pattern 整合
 	void sendDiscordAlert({
 		level: 'error',
 		message: `[${kind}] ${redactedMessage}`,

@@ -17,7 +17,8 @@ import type { Construct } from 'constructs';
 // CDK tsconfig rootDir は infra/ 固定のため、utcCronExpression + name のみインライン定義する。
 // Lambda (cron-dispatcher/index.ts) は esbuild バンドル経由で schedule-registry.ts を直接 import する。
 const CRON_JOBS = [
-	{ name: 'license-expire', utcCronExpression: 'cron(0 15 * * ? *)' },
+	// Epic #2525 Phase 7 PR-L3 (#2818): license key 全廃に伴い `license-expire` EventBridge Rule を撤去
+	// (CronRuleLicenseExpire)。期限管理は customer.subscription.deleted webhook に代替。
 	{ name: 'retention-cleanup', utcCronExpression: 'cron(0 16 * * ? *)' },
 	{ name: 'trial-notifications', utcCronExpression: 'cron(0 0 * * ? *)' },
 	// #1601 (ADR-0023 §5 I11): 期限切れ前リマインド + 休眠復帰メール

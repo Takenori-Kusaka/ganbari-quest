@@ -49,7 +49,7 @@ const categoryNames: Record<string, string> = {
 		<div class="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-sm">
 			<span>⭐</span>
 			<p class="text-[var(--color-feedback-warning-text)]">
-				{CERTIFICATES_PAGE_LABELS.freePlanNotePrefix}<a href="/admin/license" class="underline font-medium">{CERTIFICATES_PAGE_LABELS.freePlanNoteLink}</a>{CERTIFICATES_PAGE_LABELS.freePlanNoteSuffix}
+				{CERTIFICATES_PAGE_LABELS.freePlanNotePrefix}<a href="/admin/subscription" class="underline font-medium">{CERTIFICATES_PAGE_LABELS.freePlanNoteLink}</a>{CERTIFICATES_PAGE_LABELS.freePlanNoteSuffix}
 			</p>
 		</div>
 	{/if}

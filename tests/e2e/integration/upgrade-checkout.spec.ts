@@ -6,7 +6,7 @@
 // #1535: tests/e2e/integration/ に移動 + storageState ベースに移行
 //
 // Stripe Checkout API を page.route() でモック化し、
-// /admin/license のアップグレード CTA → Stripe Checkout 遷移の導線を検証する。
+// /admin/subscription のアップグレード CTA → Stripe Checkout 遷移の導線を検証する。
 //
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts upgrade-checkout
 
@@ -31,7 +31,7 @@ test.describe('#1497 Stripe Checkout 遷移 — page.route() モック', () => {
 			});
 		});
 
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		// Stripe が有効な場合のみプラン選択カードが表示される
 		// 無効な環境では plan-card section 自体が非表示 (#2330 で「決済機能は現在準備中です」placeholder 削除済)
@@ -85,7 +85,7 @@ test.describe('#1497 Stripe Checkout 遷移 — page.route() モック', () => {
 				parsedHostname = '';
 			}
 			const isStripeOrLicense =
-				parsedHostname === 'checkout.stripe.com' || currentUrl.includes('/admin/license');
+				parsedHostname === 'checkout.stripe.com' || currentUrl.includes('/admin/subscription');
 			expect(isStripeOrLicense).toBe(true);
 		}
 	});

@@ -174,7 +174,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		// EPIC #2327 / #2328: locals.runtimeMode を全 admin route の client data に配布。
 		// hooks.server.ts (307 行) で全リクエストに注入済みの ADR-0040 SSOT (`nuc-prod` /
 		// `aws-prod` / `local-debug` / `demo` / `build`) を UI 層に橋渡し。
-		// /admin/license での NucLicensePanel / SaasLicensePanel 2 分岐に使用するほか、
+		// /admin/subscription での NucLicensePanel / SaasLicensePanel 2 分岐に使用するほか、
 		// 将来的に他 admin route の NUC/SaaS 分岐が必要になった際の SSOT 起点となる。
 		runtimeMode: locals.runtimeMode,
 	};

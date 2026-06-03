@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
 	{ href: '/admin/settings/data', label: SETTINGS_NAV_LABELS.data, icon: '💾' },
 	{ href: '/admin/settings/support', label: SETTINGS_NAV_LABELS.support, icon: '💬' },
 	{
-		href: '/admin/license',
+		href: '/admin/subscription',
 		label: SETTINGS_NAV_LABELS.plan,
 		icon: '💎',
 		external: true,

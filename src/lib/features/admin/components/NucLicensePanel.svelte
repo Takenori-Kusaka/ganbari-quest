@@ -12,7 +12,7 @@
  *   - 7 日間 trial CTA — 全機能既に有効
  *   - 支払い履歴 / 請求書 link — 課金なし
  *
- * 親コンポーネント: /admin/license/+page.svelte (薄ラッパー、子#2331)
+ * 親コンポーネント: /admin/subscription/+page.svelte (薄ラッパー、子#2331)
  */
 import { APP_LABELS, NUC_LICENSE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
 import Card from '$lib/ui/primitives/Card.svelte';

@@ -98,7 +98,7 @@ type PlanLimitErrorShape = {
 	message: string;
 	currentTier: 'free' | 'standard' | 'family';
 	requiredTier: 'standard' | 'family';
-	upgradeUrl: '/admin/license';
+	upgradeUrl: '/admin/subscription';
 };
 type ActionResult = {
 	status?: number;
@@ -193,7 +193,7 @@ describe('/admin/challenges page.server — #2402 family プランゲート (OWA
 				code: 'PLAN_LIMIT_EXCEEDED',
 				currentTier: 'free',
 				requiredTier: 'family',
-				upgradeUrl: '/admin/license',
+				upgradeUrl: '/admin/subscription',
 			});
 			expect(err.message).toContain('きょうだいチャレンジ');
 			expect(err.message).toContain('プレミアムプラン');
@@ -214,7 +214,7 @@ describe('/admin/challenges page.server — #2402 family プランゲート (OWA
 				code: 'PLAN_LIMIT_EXCEEDED',
 				currentTier: 'standard',
 				requiredTier: 'family',
-				upgradeUrl: '/admin/license',
+				upgradeUrl: '/admin/subscription',
 			});
 			expect(mockDispatchImport).not.toHaveBeenCalled();
 			expect(mockLoadFromMarketplace).not.toHaveBeenCalled();

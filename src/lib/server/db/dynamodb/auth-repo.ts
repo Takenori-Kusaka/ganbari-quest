@@ -666,7 +666,7 @@ export const findAllConsents: IAuthRepo['findAllConsents'] = async (tenantId) =>
 // License Key (#0247)
 // ============================================================
 
-import type { LicenseRecord } from '$lib/server/services/license-key-service';
+import type { LicenseRecord } from '$lib/server/db/interfaces/license-record.types';
 
 export const saveLicenseKey: IAuthRepo['saveLicenseKey'] = async (record) => {
 	const keys = licenseKeyFn(record.licenseKey);

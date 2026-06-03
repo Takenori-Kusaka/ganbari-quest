@@ -112,10 +112,10 @@ export async function sendTrialEnding3DaysEmail(
       </ul>
       <p>引き続きすべての機能をご利用いただくには、本契約へのお申し込みをお願いいたします。</p>
       <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin/license" class="button">プランを確認する</a>
+        <a href="https://ganbari-quest.com/admin/subscription" class="button">プランを確認する</a>
       </p>
     `),
-		textBody: `トライアル期間が残り3日です\n\n${tierLabel}プランのトライアル期間は ${trialEndDate} に終了します。\n引き続きご利用いただくには、本契約へのお申し込みをお願いいたします。\n\nプラン確認: https://ganbari-quest.com/admin/license`,
+		textBody: `トライアル期間が残り3日です\n\n${tierLabel}プランのトライアル期間は ${trialEndDate} に終了します。\n引き続きご利用いただくには、本契約へのお申し込みをお願いいたします。\n\nプラン確認: https://ganbari-quest.com/admin/subscription`,
 	});
 }
 
@@ -137,10 +137,10 @@ export async function sendTrialEnding1DayEmail(
       <p>トライアル終了後、フリープランの上限を超えるリソース（子供・活動など）は自動的にアーカイブされます。</p>
       <p><strong>データは削除されません。</strong>アップグレードすればいつでも復元できます。</p>
       <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin/license" class="button">今すぐアップグレード</a>
+        <a href="https://ganbari-quest.com/admin/subscription" class="button">今すぐアップグレード</a>
       </p>
     `),
-		textBody: `トライアルが明日終了します\n\n${tierLabel}プランのトライアル期間は明日（${trialEndDate}）に終了します。\nアップグレード: https://ganbari-quest.com/admin/license`,
+		textBody: `トライアルが明日終了します\n\n${tierLabel}プランのトライアル期間は明日（${trialEndDate}）に終了します。\nアップグレード: https://ganbari-quest.com/admin/subscription`,
 	});
 }
 
@@ -160,11 +160,11 @@ export async function sendTrialEndedTodayEmail(
       <p><strong>${tierLabel}プラン</strong>のトライアル期間が終了しました。現在はフリープランでご利用いただいています。</p>
       <p>フリープランの上限を超えるリソースはアーカイブされています。データは安全に保管されており、アップグレードすれば復元できます。</p>
       <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin/license" class="button">プランをアップグレード</a>
+        <a href="https://ganbari-quest.com/admin/subscription" class="button">プランをアップグレード</a>
       </p>
       <p style="font-size: 12px; color: #999;">アーカイブされたデータは、アップグレード後にすべて復元されます。</p>
     `),
-		textBody: `トライアル期間が終了しました\n\n${tierLabel}プランのトライアル期間が終了しました。\nフリープランでのご利用となります。\n\nアップグレード: https://ganbari-quest.com/admin/license`,
+		textBody: `トライアル期間が終了しました\n\n${tierLabel}プランのトライアル期間が終了しました。\nフリープランでのご利用となります。\n\nアップグレード: https://ganbari-quest.com/admin/subscription`,
 	});
 }
 

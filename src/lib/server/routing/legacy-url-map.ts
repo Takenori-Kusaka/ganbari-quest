@@ -421,10 +421,13 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 	},
 	{
 		from: '/demo/admin/license',
-		to: '/admin/license',
+		// #2525 Phase 7 PR-L3 (#2818): /admin/license 自体も /admin/subscription に rename されたため、
+		//   /demo/admin/license も最終 hop を /admin/subscription に更新 (中間 hop 削減 / 永久 308)
+		to: '/admin/subscription',
 		deletedAt: '2026-05-17',
 		issue: '#2188',
-		reason: '#2097 PR-B3: /demo/admin/* 撤去に伴う本番ルート直接 redirect',
+		reason:
+			'#2097 PR-B3: /demo/admin/* 撤去 + #2525 Phase 7 PR-L3 /admin/license → /admin/subscription rename → redirect を 1 段化',
 	},
 	{
 		from: '/demo/admin/members',
@@ -525,6 +528,21 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		issue: '#2295',
 		reason:
 			'シーズンイベント機構撤去 (ADR-0012 + ADR-0013 二重違反 + 業界事例ゼロ)、代替価値はチャレンジ機能',
+	},
+	// #2525 Phase 4 (#2620) / Phase 7 PR-L3 (#2818): /admin/license 廃止 + /admin/subscription 完全置換
+	// Epic #2525 ライセンスキー販売モデル撤廃 → サブスクリプションモデル統一 rename。
+	// Phase 1 補強 1 (#2583) で意味的整合性確定 (Spotify / Apple / Stripe / Lingokids 業界整合、
+	// 家庭向け B2C SaaS で `license` URL 事例ゼロ)。Phase 3 #2567 で UI 設計の前提となり、
+	// Phase 7 PR-L3 (#2818) で実 mv (git mv) + license key UI 撤去 + service 物理削除を実施。
+	// 前方一致のため `/admin/license/foo` も `/admin/subscription/foo` に救済される。
+	// 永久保持: src/routes/CLAUDE.md `#578` 旧 URL 廃止ルール (ブックマーク維持のため削除禁止)。
+	{
+		from: '/admin/license',
+		to: '/admin/subscription',
+		deletedAt: '2026-06-04',
+		issue: '#2525',
+		reason:
+			'ライセンスキー販売モデル撤廃 → サブスクリプションモデル統一 rename (Epic #2525 Phase 4 / Phase 7 PR-L3、業界整合: Spotify / Apple / Stripe / Lingokids)',
 	},
 	// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 + 応援機能 /admin/cheer に統合
 	// PO 報告 (2026-05-19) 「メッセージだけ送る機能は意味なし、応援は任意理由 + 直接 P 付与が核」

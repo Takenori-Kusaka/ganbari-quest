@@ -58,7 +58,7 @@ export const POST: RequestHandler = async ({ locals, url, request }) => {
 		}
 	}
 
-	const result = await createPortalSession(tenantId, `${url.origin}/admin/license`);
+	const result = await createPortalSession(tenantId, `${url.origin}/admin/subscription`);
 
 	if ('error' in result) {
 		const statusMap: Record<string, number> = {

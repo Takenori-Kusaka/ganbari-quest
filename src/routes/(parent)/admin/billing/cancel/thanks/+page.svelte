@@ -38,7 +38,7 @@ let { data } = $props();
 					{CANCELLATION_LABELS.successProceedButton}
 				</Button>
 			{:else}
-				<Button variant="secondary" size="md" href="/admin/license">
+				<Button variant="secondary" size="md" href="/admin/subscription">
 					{CANCELLATION_LABELS.successFreeProceed}
 				</Button>
 			{/if}

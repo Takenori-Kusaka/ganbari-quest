@@ -208,7 +208,7 @@ export async function getPriceId(plan: 'standard' | 'premium'): Promise<string> 
 		if (envPriceId) {
 			// #2720 Adversarial security 軸: silent degradation 防止。fallback 発動を観測可能化。
 			// alert kind=stripe-lookup-failed は phase6-rollback-and-kill-switches.md §6 R4 SSOT。
-			// fire-and-forget (課金 path をブロックしない、既存 license-key-service.ts L351 pattern 整合)。
+			// fire-and-forget (課金 path をブロックしない、discord-alert.ts fire-and-forget pattern 整合)。
 			notifyStripeAlert({
 				kind: 'stripe-lookup-failed',
 				message: `lookup_key 解決失敗 → env var fallback 起動 (kill switch 動作、課金 path 継続)`,

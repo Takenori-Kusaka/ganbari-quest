@@ -8,15 +8,15 @@
  * translate EventBridge payloads into HTTP calls to the SvelteKit Lambda.
  *
  * Architecture (#1376):
- *   EventBridge Rule (cron(0 15 * * ? *))
- *     → CronDispatcherFn { cronJob: 'license-expire' }
- *       → POST https://<fn-url>/api/cron/license-expire  (Bearer <CRON_SECRET>)
+ *   EventBridge Rule (cron(0 16 * * ? *))
+ *     → CronDispatcherFn { cronJob: 'retention-cleanup' }
+ *       → POST https://<fn-url>/api/cron/retention-cleanup  (Bearer <CRON_SECRET>)
  *
  * Schedule SSOT: src/lib/server/cron/schedule-registry.ts
  * Auth: ADR-0033 (archive) — Bearer token (CRON_SECRET) with OPS_SECRET_KEY fallback (#1586)
  *
  * dryRun mode (#1586):
- *   `{ "cronJob": "license-expire", "dryRun": true }` を渡すと、env 検証のみ実行し
+ *   `{ "cronJob": "retention-cleanup", "dryRun": true }` を渡すと、env 検証のみ実行し
  *   実際の HTTP POST はせずに `{ statusCode: 200, dryRun: true }` を返す。
  *   deploy.yml の post-deploy smoke test で env 注入の正常性を検証する用途。
  */
@@ -27,7 +27,7 @@ import * as https from 'node:https';
 // SSOT: schedule-registry.ts (inlined for CDK tsconfig rootDir compatibility)
 // Matches the `endpoint` field in schedule-registry.ts exactly.
 const KNOWN_ENDPOINTS: Record<string, string> = {
-	'license-expire': '/api/cron/license-expire',
+	// Epic #2525 Phase 7 PR-L3 (#2818): license-expire は license key 全廃に伴い撤去
 	'retention-cleanup': '/api/cron/retention-cleanup',
 	'trial-notifications': '/api/cron/trial-notifications',
 	'lifecycle-emails': '/api/cron/lifecycle-emails',
