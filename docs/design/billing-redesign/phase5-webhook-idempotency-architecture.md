@@ -27,7 +27,9 @@
 
 dedup なしのまま放置すると以下が発生する (Stripe 公式 docs の `Handle duplicate events` 警告に該当):
 
-1. **`checkout.session.completed` 重複 → license key 二重発行**: `handleCheckoutCompleted` (L245-303) は `issueLicenseKey` (L271) を呼んで license key を発行し、Stripe Customer のメールに送信する。同一 event.id が 2 回到達すると 2 通のメール送信 + DB に 2 行 license_keys insert で顧客困惑を招く
+> **license key 全廃整合 (#2788 / PR #2790、2026-06-03 反映)**: Phase 1 補強 3 (`phase1-license-key-removal-final-requirements.md` §3.3 冗長層削除) で `handleCheckoutCompleted` 内の `issueLicenseKey` + `sendLicenseKeyEmail` (L274-303) は**削除**確定。entitlement は L266-272 の `tenant.status=ACTIVE` で既付与され、**license key を経由しない**。よって以下の項目 1 / §4.3 / §10 R1 / §13 OQ-2 の「license key 二重発行」は、license key 削除後は **「welcome メール 2 通送信 + entitlement (tenant.status=ACTIVE) 二重適用」に読み替える** (key 概念消滅、`license_keys` table 二重 insert / `revokeLicenseKey` 救済も不要)。**dedup 機構自体は引き続き必須** — checkout welcome メール重複送信 / invoice past_due↔active 振動 / subscription_schedule 二重適用は license key とは無関係に発生するため、本 PR の event.id dedup table は license key 全廃後も価値が変わらない。
+
+1. **`checkout.session.completed` 重複 → entitlement 二重適用 + welcome メール 2 通** (旧「license key 二重発行」、#2788 で読み替え): `handleCheckoutCompleted` (L245-303) は `tenant.status=ACTIVE` を付与し welcome メールを送信する (license key 削除後)。同一 event.id が 2 回到達すると welcome メール 2 通送信 + entitlement 二重適用で顧客困惑を招く
 2. **`invoice.paid` / `invoice.payment_failed` 重複 → past_due ↔ active 遷移の振動**: dunning grace period 中に同一 event が複数回到達すると、past_due → active → past_due の不要な遷移が連鎖し、Phase 1 dunning NFR-3 (子供の利用体験は支払い状態で**突然中断しない**) に反する
 3. **`customer.subscription.deleted` 重複 → 解約 → 即時再活性化 → 解約の振動**: 退会フローで Stripe Customer 削除と subscription cancel が両方発火し、両 webhook が冪等性なく処理されると、tenant の `plan` 列が `free` ↔ `standard` を振動
 
