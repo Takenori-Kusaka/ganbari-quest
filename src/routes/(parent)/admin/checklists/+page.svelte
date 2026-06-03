@@ -26,6 +26,10 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 import OverflowMenu, { type OverflowMenuItem } from '$lib/ui/primitives/OverflowMenu.svelte';
+// CX-DoR #9 NN/G #4 consistency (Round 18): 取込/配信結果を Toast primitive で一次通知。
+// admin/activities (#2745/#2748 fix) と同型の 2 層防御 — Toast (`role="alert"`) を primary、
+// in-page banner (`role="status"`) を Toast micro-task race の保険として同期 set する。
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 import VisibilityChipGroup, {
 	type VisibilityChild,
 } from '$lib/ui/primitives/VisibilityChipGroup.svelte';
@@ -254,6 +258,7 @@ $effect(() => {
 $effect(() => {
 	if (data.importPresetInvalid) {
 		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importInvalidPreset;
+		showToast(ADMIN_CHECKLISTS_PAGE_LABELS.importInvalidPreset, undefined, 'info');
 	}
 });
 
@@ -346,6 +351,7 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			// #2558 bug-1: デモ環境 no-op (data.demo === true) は成功偽装せず明示。
 			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
 				actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importToastDemo;
+				showToast(ADMIN_CHECKLISTS_PAGE_LABELS.importToastDemo, undefined, 'info');
 			} else {
 				const packName = actionResult.data?.packName ?? '';
 				const distributedCount = Number(actionResult.data?.distributedCount ?? 0);
@@ -354,16 +360,20 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 					imp === 0
 						? ADMIN_CHECKLISTS_PAGE_LABELS.importToastDuplicate(packName)
 						: ADMIN_CHECKLISTS_PAGE_LABELS.importToastSuccess(packName, distributedCount);
+				showToast(actionMessage, undefined, imp > 0 ? 'success' : 'info');
 			}
 		} else if (actionResult.type === 'failure') {
 			actionMessage =
 				actionResult.data?.error ??
 				ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId);
+			showToast(actionMessage, undefined, 'error');
 		} else {
 			actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId);
+			showToast(actionMessage, undefined, 'error');
 		}
 	} catch {
 		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId);
+		showToast(actionMessage, undefined, 'error');
 	}
 
 	pendingImportPresetId = null;
@@ -441,11 +451,14 @@ async function saveDistribution() {
 				added === 0 && removed === 0
 					? ADMIN_CHECKLISTS_PAGE_LABELS.distributionNoChange
 					: ADMIN_CHECKLISTS_PAGE_LABELS.distributionUpdated(added, removed);
+			showToast(actionMessage, undefined, added === 0 && removed === 0 ? 'info' : 'success');
 		} else if (actionResult.type === 'failure') {
 			actionMessage = actionResult.data?.error ?? '配信先の保存に失敗しました';
+			showToast(actionMessage, undefined, 'error');
 		}
 	} catch {
 		actionMessage = '配信先の保存に失敗しました';
+		showToast(actionMessage, undefined, 'error');
 	}
 
 	closeDistributionDialog();
@@ -482,6 +495,7 @@ function getChildName(childId: number): string {
 	{#if actionMessage}
 		<div
 			class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm"
+			role="status"
 			data-testid="checklists-action-message"
 		>
 			{actionMessage}

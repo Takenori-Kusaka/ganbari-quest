@@ -32,6 +32,10 @@ import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
+// CX-DoR #9 NN/G #4 consistency (Round 18): 取込/copy 結果を Toast primitive で一次通知。
+// admin/activities (#2745/#2748 fix) と同型の 2 層防御 — Toast (`role="alert"`) を primary、
+// in-page banner (`role="status"`) を Toast micro-task race の保険として同期 set する。
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 // #2362 PR-4: hardcoded text 排除 (ADR-0045) — CHILD_TERMS.honorific を template literal で参照
 const CHILD_HONORIFIC_LABEL = CHILD_TERMS.honorific;
@@ -82,6 +86,7 @@ $effect(() => {
 $effect(() => {
 	if (data.importPresetInvalid) {
 		actionMessage = ADMIN_REWARDS_PAGE_LABELS.importInvalidPreset;
+		showToast(ADMIN_REWARDS_PAGE_LABELS.importInvalidPreset, undefined, 'info');
 	}
 });
 
@@ -228,21 +233,26 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			// #2558 bug-1: デモ環境 no-op (data.demo === true) は成功偽装せず明示。
 			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
 				actionMessage = ADMIN_REWARDS_PAGE_LABELS.importDemo;
+				showToast(ADMIN_REWARDS_PAGE_LABELS.importDemo, undefined, 'info');
 			} else {
 				const imp = Number(actionResult.data?.imported ?? 0);
 				actionMessage =
 					imp === 0
 						? ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates
 						: ADMIN_REWARDS_PAGE_LABELS.importSuccess(imp);
+				showToast(actionMessage, undefined, imp > 0 ? 'success' : 'info');
 				await invalidateAll();
 			}
 		} else if (actionResult.type === 'failure') {
 			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.importFailed);
+			showToast(actionMessage, undefined, 'error');
 		} else {
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importFailed;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.importFailed, undefined, 'error');
 		}
 	} catch {
 		actionMessage = ADMIN_REWARDS_PAGE_LABELS.importFailed;
+		showToast(ADMIN_REWARDS_PAGE_LABELS.importFailed, undefined, 'error');
 	} finally {
 		isImporting = false;
 	}
@@ -274,6 +284,7 @@ function handleChildSelectionCancel() {
 async function handleCopyFromChild() {
 	if (!copySourceChildId || !selectedChildId || copySourceChildId === selectedChildId) {
 		actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySameChild;
+		showToast(ADMIN_REWARDS_PAGE_LABELS.copySameChild, undefined, 'info');
 		return;
 	}
 	const formData = new FormData();
@@ -298,16 +309,20 @@ async function handleCopyFromChild() {
 		if (actionResult.type === 'success') {
 			const cnt = Number(actionResult.data?.copiedCount ?? 0);
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt);
+			showToast(ADMIN_REWARDS_PAGE_LABELS.copySuccess(cnt), undefined, 'success');
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
 			await invalidateAll();
 		} else if (actionResult.type === 'failure') {
 			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.copyFailed);
+			showToast(actionMessage, undefined, 'error');
 		} else {
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copyFailed;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.copyFailed, undefined, 'error');
 		}
 	} catch {
 		actionMessage = ADMIN_REWARDS_PAGE_LABELS.copyFailed;
+		showToast(ADMIN_REWARDS_PAGE_LABELS.copyFailed, undefined, 'error');
 	}
 }
 </script>
@@ -441,6 +456,7 @@ async function handleCopyFromChild() {
 	{#if actionMessage}
 		<div
 			class="action-message"
+			role="status"
 			data-testid="rewards-action-message"
 		>
 			{actionMessage}
