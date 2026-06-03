@@ -29,6 +29,8 @@ let marketplaceImportMessage = $state('');
 // admin-rewards / admin-activities と同型 pattern (ADR-0055 per-child fan-out + CWE-598)。
 let showChildSelectionDialog = $state(false);
 let pendingImportPresetId = $state<string | null>(null);
+// #2632 CX-DoR #9 NN/G #1: 取込実行中フラグ (confirm ボタン loading 表示)
+let isImporting = $state(false);
 
 // ChildSelectionDialog 用の ChildOption 配列
 const childOptions = $derived<ChildOption[]>(
@@ -69,6 +71,9 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	formData.append('presetId', pendingImportPresetId);
 	formData.append('childIds', childIdsValue);
 
+	// #2632 CX-DoR #9 NN/G #1: 取込実行中は confirm ボタンを loading 表示する。
+	isImporting = true;
+
 	try {
 		const resp = await fetch('?/importMarketplaceChallengeSet', {
 			method: 'POST',
@@ -108,6 +113,8 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		}
 	} catch {
 		marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importFailed;
+	} finally {
+		isImporting = false;
 	}
 	pendingImportPresetId = null;
 	showChildSelectionDialog = false;
@@ -496,6 +503,8 @@ function tabHref(childId: number | 'all'): string {
 		allowMultiple={true}
 		onConfirm={handleChildSelectionConfirm}
 		onCancel={handleChildSelectionCancel}
+		confirmLoading={isImporting}
+		closeOnConfirm={false}
 		testid="challenge-import-child-selection-dialog"
 	/>
 </div>

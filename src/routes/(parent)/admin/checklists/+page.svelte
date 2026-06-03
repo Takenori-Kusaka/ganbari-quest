@@ -207,6 +207,8 @@ const importedPresetIds = $derived(
 let showChildSelectionDialog = $state(false);
 let pendingImportPresetId = $state<string | null>(null);
 let actionMessage = $state('');
+// #2632 CX-DoR #9 NN/G #1: 取込実行中フラグ (confirm ボタン loading 表示)
+let isImporting = $state(false);
 
 // ChecklistDistributionDialog (template 別の配信先 children 設定)
 let showDistributionDialog = $state(false);
@@ -311,6 +313,9 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	formData.append('presetId', pendingImportPresetId);
 	formData.append('childIds', childIdsValue);
 
+	// #2632 CX-DoR #9 NN/G #1: 取込実行中は confirm ボタンを loading 表示する。
+	isImporting = true;
+
 	try {
 		const resp = await fetch('?/importPresetToChildren', {
 			method: 'POST',
@@ -362,6 +367,7 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	pendingImportPresetId = null;
 	showChildSelectionDialog = false;
 	await invalidateAll();
+	isImporting = false;
 
 	// URL から ?import=<presetId> を取り除く
 	if (typeof window !== 'undefined') {
@@ -956,6 +962,8 @@ function getChildName(childId: number): string {
 	allowMultiple={true}
 	onConfirm={handleChildSelectionConfirm}
 	onCancel={handleChildSelectionCancel}
+	confirmLoading={isImporting}
+	closeOnConfirm={false}
 	testid="checklist-import-child-selection-dialog"
 />
 

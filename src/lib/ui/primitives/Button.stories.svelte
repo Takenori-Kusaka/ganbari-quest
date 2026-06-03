@@ -1,5 +1,6 @@
 <script module>
 import { defineMeta } from '@storybook/addon-svelte-csf';
+import { expect, within } from 'storybook/test';
 import { STORYBOOK_LABELS } from '$lib/domain/labels';
 import Button from './Button.svelte';
 
@@ -44,6 +45,25 @@ const { Story } = defineMeta({
 
 <Story name="Disabled">
   <Button variant="primary" disabled>{STORYBOOK_LABELS.button.disabled}</Button>
+</Story>
+
+<!--
+  Loading (#2632 CX-DoR #9 NN/G #1 visibility of system status):
+  loading=true で spinner + disabled + aria-busy="true" を強制し、クリック後に
+  「処理中である」visible feedback を出す。再クリック誤動作防止の component 層回帰。
+-->
+<Story
+  name="Loading"
+  play={async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // loading=true の button は aria-busy="true" + disabled で一意。
+    // role 単独だと docs view 等で複数 button が match するため属性で絞り込む。
+    const btn = canvas.getByRole('button', { busy: true });
+    await expect(btn).toBeDisabled();
+    await expect(btn).toHaveAttribute('aria-busy', 'true');
+  }}
+>
+  <Button variant="primary" loading>{STORYBOOK_LABELS.button.loading}</Button>
 </Story>
 
 <Story name="AllVariants">

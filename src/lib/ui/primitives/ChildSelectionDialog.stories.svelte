@@ -158,6 +158,32 @@ const { Story } = defineMeta({
 	}}
 />
 
+<!--
+  ConfirmLoading (#2632 CX-DoR #9 NN/G #1 visibility of system status):
+  confirmLoading=true で confirm ボタンが spinner + disabled + aria-busy 化し、cancel も
+  disabled になる。取込実行中に「処理中である」visible feedback を出し再クリック誤動作を
+  防ぐ component 層回帰。closeOnConfirm=false 併用時も dialog は open 維持。
+-->
+<Story
+	name="ConfirmLoading"
+	args={{
+		children: threeChildren,
+		open: true,
+		allowMultiple: true,
+		confirmLoading: true,
+		closeOnConfirm: false,
+		onConfirm: fn(),
+		onCancel: fn(),
+	}}
+	play={async () => {
+		// Portal 経由 → screen + waitFor (Dialog mount 完了待ち)
+		const confirm = await waitFor(() => screen.getByTestId('child-selection-confirm'));
+		// 取込実行中: confirm ボタンは disabled + aria-busy で「処理中」を機械的に伝える
+		await expect(confirm).toBeDisabled();
+		await expect(confirm).toHaveAttribute('aria-busy', 'true');
+	}}
+/>
+
 <style>
 	:global(.sb-story) {
 		min-height: 500px;

@@ -51,6 +51,19 @@ interface Props {
 	onCancel?: () => void;
 	/** 任意の testid (Dialog content に付与) */
 	testid?: string;
+	/**
+	 * 取込実行中フラグ (#2632 CX-DoR #9 NN/G #1 visibility of system status)。
+	 * `true` で confirm ボタンを spinner + disabled + aria-busy 化し、cancel と
+	 * backdrop / Esc / ✕ による close を抑止する。呼び出し側の async 取込処理 await 中に
+	 * bind し、処理完了後 (finally) で `open=false` する運用 (closeOnConfirm=false 併用)。
+	 */
+	confirmLoading?: boolean;
+	/**
+	 * confirm 時に dialog 自身が即 close するか (既定 true、後方互換)。
+	 * `false` の場合は close を呼び出し側に委譲する (confirmLoading を表示してから
+	 * await 完了後に親が `open=false` するパターン)。
+	 */
+	closeOnConfirm?: boolean;
 }
 
 let {
@@ -60,6 +73,8 @@ let {
 	onConfirm,
 	onCancel,
 	testid = 'child-selection-dialog',
+	confirmLoading = false,
+	closeOnConfirm = true,
 }: Props = $props();
 
 type Selection = 'all' | { type: 'individual'; ids: number[] };
@@ -67,6 +82,11 @@ type Selection = 'all' | { type: 'individual'; ids: number[] };
 let selection = $state<Selection>('all');
 
 function handleOpenChange(details: { open: boolean }) {
+	// 取込実行中は backdrop / Esc による close を無視 (#2632 NN/G #1 — 処理中に
+	// dialog が消えると「動いているか不明」になる。close は実行完了後に親が行う)。
+	if (confirmLoading && !details.open) {
+		return;
+	}
 	open = details.open;
 	if (!details.open) {
 		onCancel?.();
@@ -105,8 +125,13 @@ function handleConfirm() {
 	} else {
 		onConfirm(selection.ids);
 	}
-	open = false;
-	selection = 'all';
+	// closeOnConfirm=false の場合は close を呼び出し側に委譲する (#2632)。
+	// 親が confirmLoading を表示してから async 取込完了後に open=false する運用のため、
+	// ここで即 close すると loading state が一瞬も見えない。
+	if (closeOnConfirm) {
+		open = false;
+		selection = 'all';
+	}
 }
 
 function handleCancelClick() {
@@ -129,6 +154,7 @@ const inputType = $derived(allowMultiple ? 'checkbox' : 'radio');
 	title={CHILD_SELECTION_LABELS.dialogTitle}
 	{testid}
 	size="md"
+	closable={!confirmLoading}
 	ariaLabel={CHILD_SELECTION_LABELS.dialogTitle}
 >
 	<div class="child-selection-list" role="group" aria-label={CHILD_SELECTION_LABELS.listAriaLabel}>
@@ -168,16 +194,17 @@ const inputType = $derived(allowMultiple ? 'checkbox' : 'radio');
 		{/each}
 	</div>
 	<div class="child-selection-footer">
-		<Button variant="ghost" onclick={handleCancelClick}>
+		<Button variant="ghost" disabled={confirmLoading} onclick={handleCancelClick}>
 			{CHILD_SELECTION_LABELS.cancel}
 		</Button>
 		<Button
 			variant="primary"
 			disabled={!canConfirm}
+			loading={confirmLoading}
 			onclick={handleConfirm}
 			data-testid="child-selection-confirm"
 		>
-			{CHILD_SELECTION_LABELS.confirm}
+			{confirmLoading ? CHILD_SELECTION_LABELS.confirmLoading : CHILD_SELECTION_LABELS.confirm}
 		</Button>
 	</div>
 </Dialog>
