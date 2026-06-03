@@ -7584,6 +7584,15 @@ export const STORYBOOK_LABELS = {
 		childHina: 'ひな (5 歳)',
 		childKenta: 'けんた (1 歳)',
 	},
+	// Dialog primitive (CX-DoR #8、modal / 子供 最頻 UX の play coverage)
+	dialog: {
+		title: 'お知らせ',
+		bodyText: 'この内容でよろしいですか？',
+		confirmButton: 'はい',
+		cancelButton: 'いいえ',
+		ariaLabel: '確認ダイアログ',
+		openTrigger: 'ダイアログを開く',
+	},
 } as const;
 
 // ============================================================
