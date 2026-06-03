@@ -74,18 +74,6 @@
 		"findByTenantAndDateRange",
 		"upsert"
 	],
-	"src/lib/server/db/dynamodb/reward-redemption-repo.ts": [
-		"deleteByTenantId",
-		"expireOldRedemptions",
-		"findPendingByChildAndReward",
-		"findRedemptionRequestsByChild",
-		"findRedemptionRequestsByTenant",
-		"findUnshownResultByChild",
-		"hasPendingByReward",
-		"insertRedemptionRequest",
-		"markRedemptionResultShown",
-		"updateRedemptionRequestStatus"
-	],
 	"src/lib/server/db/dynamodb/sibling-cheer-repo.ts": [
 		"countTodayCheersFrom",
 		"deleteByTenantId",
