@@ -24,7 +24,7 @@ import { defineMeta } from '@storybook/addon-svelte-csf';
 // `screen` (document.body 起点の Testing Library query) を使う。
 // 参考: Storybook docs "Interaction tests" + Ark UI Portal の仕様。
 import { expect, fn, screen, waitFor } from 'storybook/test';
-import { STORYBOOK_LABELS } from '$lib/domain/labels';
+import { CHILD_SELECTION_LABELS, STORYBOOK_LABELS } from '$lib/domain/labels';
 import ChildSelectionDialog from './ChildSelectionDialog.svelte';
 
 const L = STORYBOOK_LABELS.childSelectionDialog;
@@ -105,6 +105,30 @@ const { Story } = defineMeta({
 		await expect(args.onConfirm).toHaveBeenCalledTimes(1);
 		// 引数 shape: 'all' でなく number[]、選択 id を含む
 		await expect(args.onConfirm).toHaveBeenCalledWith([1, 2]);
+	}}
+/>
+
+<!--
+  Cancel: キャンセル click → onCancel 発火 / onConfirm は呼ばれない
+  (顧客指摘「キャンセルもできない」の component 層保証)。
+-->
+<Story
+	name="Cancel"
+	args={{
+		children: threeChildren,
+		open: true,
+		allowMultiple: false,
+		onConfirm: fn(),
+		onCancel: fn(),
+	}}
+	play={async ({ args }) => {
+		const cancel = await waitFor(() =>
+			screen.getByRole('button', { name: CHILD_SELECTION_LABELS.cancel }),
+		);
+		await expect(cancel).toBeVisible();
+		await cancel.click();
+		await expect(args.onCancel).toHaveBeenCalledTimes(1);
+		await expect(args.onConfirm).not.toHaveBeenCalled();
 	}}
 />
 

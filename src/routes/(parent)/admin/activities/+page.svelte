@@ -94,11 +94,17 @@ let copySourceChildId = $state<number | null>(null);
 // 「一括追加」dialog (manual create で複数 child 同時 create)
 let showBulkCreateDialog = $state(false);
 
-// `?import=<presetId>` で auto-open
+// `?import=<presetId>` で auto-open。presetId 単位の one-shot guard で、確定後に
+// effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
+let consumedImportPresetId = $state<string | null>(null);
 $effect(() => {
-	if (data.importPresetId && !showChildSelectionDialog) {
-		pendingImportPresetId = data.importPresetId;
+	const pid = data.importPresetId;
+	if (pid && pid !== consumedImportPresetId) {
+		consumedImportPresetId = pid;
+		pendingImportPresetId = pid;
 		showChildSelectionDialog = true;
+	} else if (!pid) {
+		consumedImportPresetId = null;
 	}
 });
 
@@ -295,6 +301,15 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		});
 		if (resp.ok) {
 			const result = deserialize(await resp.text());
+			// デモ環境 no-op (data.demo===true) は成功偽装せず明示 (reward / challenge と統一)。
+			if (
+				result.type === 'success' &&
+				(result.data as Record<string, unknown> | undefined)?.demo === true
+			) {
+				actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importDemo;
+				showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importDemo, undefined, 'info');
+				return;
+			}
 			const imported =
 				result.type === 'success' ? Number((result.data?.imported as number | undefined) ?? 0) : 0;
 			// #2745 fix Round 2 (CI artifact 解析根拠): Toast primitive (`role="alert"`) を

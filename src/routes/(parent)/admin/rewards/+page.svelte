@@ -74,11 +74,17 @@ let isImporting = $state(false);
 let showCopyFromChildDialog = $state(false);
 let copySourceChildId = $state<number | null>(null);
 
-// `?import=<presetId>` で auto-open (server load で validation 済)
+// `?import=<presetId>` で auto-open。presetId 単位の one-shot guard で、確定後に
+// effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
+let consumedImportPresetId = $state<string | null>(null);
 $effect(() => {
-	if (data.importPresetId && !showChildSelectionDialog) {
-		pendingImportPresetId = data.importPresetId;
+	const pid = data.importPresetId;
+	if (pid && pid !== consumedImportPresetId) {
+		consumedImportPresetId = pid;
+		pendingImportPresetId = pid;
 		showChildSelectionDialog = true;
+	} else if (!pid) {
+		consumedImportPresetId = null;
 	}
 });
 
