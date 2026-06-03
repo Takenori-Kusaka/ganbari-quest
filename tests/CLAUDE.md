@@ -144,7 +144,23 @@ per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ
 
 ### Storybook interaction test (component 層、server 不要で配線健全性検証)
 
-interactive component (Dialog / Form / UnifiedImportHub / Menu) は `play` 関数で「操作 → callback 発火 (`fn()` spy) / disabled 制御 / cancel 発火」を component 層で検証する。server 反映 (DB) は Playwright (統合層) に委ね、component 層は配線健全性に限定する (二重防御)。`play` 内 `expect` / `userEvent` / `fn` は **`storybook/test`** (Storybook 10 同梱) から import し、`npm run test:storybook` (`vitest run --project storybook`) で CI 実行する。exemplar: `src/lib/marketplace/ui/UnifiedImportHub.stories.svelte`。
+interactive component (Dialog / Form / UnifiedImportHub / Menu) は `play` 関数で「操作 → callback 発火 (`fn()` spy) / disabled 制御 / cancel 発火」を component 層で検証する。server 反映 (DB) は Playwright (統合層) に委ね、component 層は配線健全性に限定する (二重防御)。`play` 内 `expect` / `userEvent` / `fn` は **`storybook/test`** (Storybook 10 同梱) から import し、`npm run test:storybook` (`vitest run --project storybook`) で CI 実行する。exemplar: `src/lib/marketplace/ui/UnifiedImportHub.stories.svelte` / `src/lib/ui/primitives/ChildSelectionDialog.stories.svelte`。
+
+#### play coverage 状況 (CX-DoR #8、Round 18 §C-6 解消)
+
+interactive primitive の play 関数 coverage:
+
+| primitive | play で検証する操作 → 結果 | 備考 |
+|---|---|---|
+| `Dialog` | close button click → `onOpenChange({open:false})` / `closable=false` で × button 非 render / `role=dialog` + accessible name | Esc / backdrop close は Ark UI のグローバル listener 依存で Storybook vitest 環境では非決定的 → Playwright (統合層) に委譲 |
+| `Menu` | trigger click → item visible → item select → `onSelect` 発火 / disabled item は `data-disabled` | Ark UI Menu は `userEvent.click` (full pointer sequence) で select、`element.click()` では発火しない |
+| `OverflowMenu` | ⋮ trigger click → item visible → select → `onSelect` 発火 | 同上 (Ark UI Menu wrapper) |
+| `FormField` | input type → value 反映 / `WithError` で `role=alert` + `aria-invalid=true` / `Disabled` で input 編集不可 | canvasElement 内 render、`within` 使用 |
+| `PinInput` | 全桁入力 → `onComplete({valueAsString})` 発火 | mask=false (unmasked) で `role=textbox` query 可能。mask=true は type=password で role 無し |
+| `VisibilityChipGroup` | chip click → `onToggle(id,false)` / 「全員 OFF」shortcut → ON child 分のみ `onToggle` | family master type 配信先選択 UI |
+| `ChildSelectionDialog` | confirm → `onConfirm('all')` / 複数選択 → `onConfirm([id...])` / empty children 防御 | per-child 取込 SSOT、Portal 経由のため `screen` 使用 |
+
+**Portal 経由 component の query 原則**: Dialog / Menu / OverflowMenu / ChildSelectionDialog は Ark UI `<Portal>` で document.body 直下に render するため、`canvasElement` 起点の `within` では届かない。`screen` (document.body 起点の Testing Library query) + `waitFor` (非同期 mount 待ち) を使う。
 
 ## 顧客レビュー前 CX 版 DoR (12 条件 SSOT、#2553 + #2657 後段フェーズ拡張 2026-05-30)
 
