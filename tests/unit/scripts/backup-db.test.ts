@@ -1,9 +1,9 @@
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import path from 'node:path';
 import Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 describe('backup-db.cjs (#2781 graceful fallback)', () => {
 	let tmpDir: string;
