@@ -1,0 +1,112 @@
+{
+	"src/lib/server/db/dynamodb/activity-repo.ts": [
+		"archiveActivities",
+		"deleteActivity",
+		"insertActivity",
+		"insertActivityLog",
+		"insertPointLedger",
+		"restoreArchivedActivities",
+		"setActivityVisibility",
+		"updateActivity"
+	],
+	"src/lib/server/db/dynamodb/auto-challenge-repo.ts": [
+		"deleteByTenantId",
+		"expireOldChallenges",
+		"findActiveByChild",
+		"findByChild",
+		"findByChildAndWeek",
+		"insert",
+		"update"
+	],
+	"src/lib/server/db/dynamodb/battle-repo.ts": [
+		"completeBattle",
+		"countConsecutiveLosses",
+		"findCollection",
+		"findRecentBattles",
+		"findTodayBattle",
+		"insertDailyBattle",
+		"upsertCollectionEntry"
+	],
+	"src/lib/server/db/dynamodb/certificate-repo.ts": [
+		"findCertificateById",
+		"findCertificates",
+		"hasCertificate",
+		"issueCertificate"
+	],
+	"src/lib/server/db/dynamodb/child-challenge-repo.ts": [
+		"claimReward",
+		"copyAcrossChildren",
+		"delete",
+		"deleteByTenantId",
+		"findActiveByChildId",
+		"findActiveOrUnclaimedByChildId",
+		"findAllByTenant",
+		"findByChildId",
+		"findById",
+		"insert",
+		"insertBulk",
+		"markCompleted",
+		"update",
+		"updateProgress"
+	],
+	"src/lib/server/db/dynamodb/cloud-export-repo.ts": [
+		"countByTenant",
+		"deleteById",
+		"deleteExpired",
+		"findById",
+		"findByPin",
+		"findByTenant",
+		"incrementDownloadCount",
+		"insert"
+	],
+	"src/lib/server/db/dynamodb/message-repo.ts": [
+		"countUnshownMessages",
+		"deleteByTenantId",
+		"findMessages",
+		"findUnshownMessage",
+		"insertMessage",
+		"markMessageShown"
+	],
+	"src/lib/server/db/dynamodb/report-daily-summary-repo.ts": [
+		"deleteByTenantId",
+		"deleteOlderThan",
+		"findByChildAndDateRange",
+		"findByTenantAndDateRange",
+		"upsert"
+	],
+	"src/lib/server/db/dynamodb/reward-redemption-repo.ts": [
+		"deleteByTenantId",
+		"expireOldRedemptions",
+		"findPendingByChildAndReward",
+		"findRedemptionRequestsByChild",
+		"findRedemptionRequestsByTenant",
+		"findUnshownResultByChild",
+		"hasPendingByReward",
+		"insertRedemptionRequest",
+		"markRedemptionResultShown",
+		"updateRedemptionRequestStatus"
+	],
+	"src/lib/server/db/dynamodb/sibling-cheer-repo.ts": [
+		"countTodayCheersFrom",
+		"deleteByTenantId",
+		"findUnshownCheers",
+		"insertCheer",
+		"markShown"
+	],
+	"src/lib/server/db/dynamodb/stamp-card-repo.ts": [
+		"deleteByTenantId",
+		"findCardByChildAndWeek",
+		"findEntriesWithMasterByCardId",
+		"insertCard",
+		"insertEntry",
+		"updateCardStatus",
+		"updateCardStatusIfCollecting"
+	],
+	"src/lib/server/db/dynamodb/viewer-token-repo.ts": [
+		"deleteById",
+		"findByTenant",
+		"findByToken",
+		"insert",
+		"revoke"
+	]
+}
