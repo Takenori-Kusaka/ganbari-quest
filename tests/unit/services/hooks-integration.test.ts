@@ -98,9 +98,8 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 	notifyIncident: vi.fn(async () => {}),
 }));
 
-vi.mock('$lib/server/services/license-key-service', () => ({
-	assertLicenseKeyConfigured: vi.fn(),
-}));
+// Epic #2525 Phase 7 PR-L0 (#2806): hooks.server.ts は assertLicenseKeyConfigured() を
+// import しなくなったため、本 mock は不要 (撤去)。
 
 let currentAuthMode: 'local' | 'cognito' = 'local';
 

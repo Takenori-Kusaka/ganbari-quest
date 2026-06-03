@@ -141,8 +141,9 @@ export function generateLicenseKey(): string {
 	}
 
 	// #2404 Phase 2.1: production で secret 未設定下の legacy 発行を物理的に止める。
-	// production では assertLicenseKeyConfigured() で起動時 throw 済みのため secret は必ず設定されているはずだが、
-	// 実装層でも legacy fallback を fail-closed に強化し、Phase 3 (legacy code 物理削除) への構造的前進を確保する。
+	// Epic #2525 Phase 7 PR-L0 (#2806) で hooks.server.ts 起動時の assertLicenseKeyConfigured()
+	// 呼び出しを撤去したため、本 isProduction() fail-closed check が production での唯一の guard となる
+	// (license key service 自体の物理削除は PR-L3 担当)。
 	// dev / test では legacy 発行を継続 (既存テスト互換 + ローカル開発フロー維持)。
 	if (isProduction()) {
 		throw new Error(
