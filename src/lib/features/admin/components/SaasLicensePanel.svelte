@@ -19,7 +19,7 @@
  *
  * 親コンポーネント: /admin/subscription/+page.svelte (薄ラッパー、子#2331)
  */
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
 import {
@@ -95,15 +95,15 @@ const planTierLabel = $derived.by(() => {
 
 const planLabel = (plan: string) => {
 	switch (plan) {
-		case LICENSE_PLAN.MONTHLY:
+		case SUBSCRIPTION_PLAN.MONTHLY:
 			return SUBSCRIPTION_PAGE_LABELS.planLabelMonthly;
-		case LICENSE_PLAN.YEARLY:
+		case SUBSCRIPTION_PLAN.YEARLY:
 			return SUBSCRIPTION_PAGE_LABELS.planLabelYearly;
-		case LICENSE_PLAN.FAMILY_MONTHLY:
+		case SUBSCRIPTION_PLAN.FAMILY_MONTHLY:
 			return SUBSCRIPTION_PAGE_LABELS.planLabelFamilyMonthly;
-		case LICENSE_PLAN.FAMILY_YEARLY:
+		case SUBSCRIPTION_PLAN.FAMILY_YEARLY:
 			return SUBSCRIPTION_PAGE_LABELS.planLabelFamilyYearly;
-		case LICENSE_PLAN.LIFETIME:
+		case SUBSCRIPTION_PLAN.LIFETIME:
 			return SUBSCRIPTION_PAGE_LABELS.planLabelLifetime;
 		case 'free':
 			return SUBSCRIPTION_PAGE_LABELS.planLabelFree;

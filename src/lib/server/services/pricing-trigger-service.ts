@@ -3,7 +3,7 @@
 // docs/design/19-プライシング戦略書.md §8.2 の 5 トリガーを自動判定
 
 import { env } from '$env/dynamic/private';
-import { FAMILY_PLANS } from '$lib/domain/constants/license-plan';
+import { FAMILY_PLANS } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';

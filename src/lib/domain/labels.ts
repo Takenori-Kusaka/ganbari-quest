@@ -442,7 +442,7 @@ export const PLAN_GATE_LABELS = {
 	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.premium}限定の機能です`,
 } as const;
 
-export const LICENSE_PLAN_LABELS: Record<string, string> = {
+export const SUBSCRIPTION_PLAN_LABELS: Record<string, string> = {
 	monthly: 'スタンダード月額',
 	yearly: 'スタンダード年額',
 	'family-monthly': 'ファミリー月額',
@@ -455,9 +455,9 @@ export function getPlanLabel(tier: string): string {
 	return PLAN_LABELS[tier as PlanKey] ?? tier;
 }
 
-/** ライセンスプランラベルを取得 (license-plan.ts の値 → 表示ラベル) */
-export function getLicensePlanLabel(plan: string): string {
-	return LICENSE_PLAN_LABELS[plan] ?? plan;
+/** サブスクリプションプランラベルを取得 (subscription-plan.ts の値 → 表示ラベル) */
+export function getSubscriptionPlanLabel(plan: string): string {
+	return SUBSCRIPTION_PLAN_LABELS[plan] ?? plan;
 }
 
 // ============================================================

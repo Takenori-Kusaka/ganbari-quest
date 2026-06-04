@@ -4,7 +4,7 @@
 // MRR / ARR / ARPU / 有料数 / トライアル→有料転換率 / 月次解約率 を提供。
 // 12-事業計画書.md §7.2 / 19-プライシング戦略書.md §8.1 の KPI 定義に準拠。
 
-import { LICENSE_PLAN, type LicensePlan } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN, type SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
@@ -23,9 +23,9 @@ import { getPlans, type PlanConfig, type PlanId } from '$lib/server/stripe/confi
  * 注: 本 map は historical compat のみが目的で、新規 yearly checkout は `stripe-service`
  * 側で reject される。本 map の値変更は過去契約者の MRR 表示にのみ影響する。
  */
-const HISTORICAL_YEARLY_AMOUNTS: Partial<Record<LicensePlan, number>> = {
-	[LICENSE_PLAN.YEARLY]: 5000, // 旧 STANDARD_YEARLY
-	[LICENSE_PLAN.FAMILY_YEARLY]: 7800, // 旧 FAMILY_YEARLY
+const HISTORICAL_YEARLY_AMOUNTS: Partial<Record<SubscriptionPlan, number>> = {
+	[SUBSCRIPTION_PLAN.YEARLY]: 5000, // 旧 STANDARD_YEARLY
+	[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: 7800, // 旧 FAMILY_YEARLY
 };
 
 // ============================================================
@@ -143,7 +143,7 @@ export function calculateMRR(tenants: Tenant[]): number {
 		}
 
 		// #2719 historical yearly fallback: 過去 yearly 契約者の MRR を継続計算
-		const yearlyAmount = HISTORICAL_YEARLY_AMOUNTS[tenant.plan as LicensePlan];
+		const yearlyAmount = HISTORICAL_YEARLY_AMOUNTS[tenant.plan as SubscriptionPlan];
 		if (yearlyAmount !== undefined) {
 			mrr += Math.round(yearlyAmount / 12);
 		}
@@ -168,7 +168,9 @@ export function calculateARPU(mrr: number, activePaidCount: number): number {
 export function countActivePaid(tenants: Tenant[]): number {
 	return tenants.filter(
 		(t) =>
-			t.status === SUBSCRIPTION_STATUS.ACTIVE && t.plan != null && t.plan !== LICENSE_PLAN.LIFETIME,
+			t.status === SUBSCRIPTION_STATUS.ACTIVE &&
+			t.plan != null &&
+			t.plan !== SUBSCRIPTION_PLAN.LIFETIME,
 	).length;
 }
 

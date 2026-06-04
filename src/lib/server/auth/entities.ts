@@ -1,7 +1,7 @@
 // src/lib/server/auth/entities.ts
 // マルチテナント認証エンティティの型定義 (#0123)
 
-import type { LicensePlan } from '$lib/domain/constants/license-plan';
+import type { SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import type { SubscriptionStatus } from '$lib/domain/constants/subscription-status';
 import type { Role } from './types';
 
@@ -27,7 +27,7 @@ export interface Tenant {
 	name: string;
 	ownerId: string;
 	status: SubscriptionStatus;
-	plan?: LicensePlan;
+	plan?: SubscriptionPlan;
 	stripeCustomerId?: string;
 	stripeSubscriptionId?: string;
 	planExpiresAt?: string;

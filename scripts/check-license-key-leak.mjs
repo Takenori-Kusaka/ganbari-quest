@@ -8,6 +8,13 @@
  * src/ + site/ で grep し、allowlist 外の **コード行** (= コメント以外) で 1 件でも検出したら
  * exit 1 する。LP / メール / ラベル / UI から license key 概念が再導入されることを構造的に防ぐ。
  *
+ * --- PR-L5 #2879: `LICENSE_PLAN` / `LicensePlan` / `license-plan` も検出対象に追加 ---
+ *
+ * Tenant の課金プラン enum は実体が Stripe Subscription の plan 種別であり、license key とは
+ * 無関係だが、命名上 `license` 語彙を含んでいたため `SUBSCRIPTION_PLAN` / `SubscriptionPlan` /
+ * `subscription-plan.ts` へ rename した (#2879)。rename 後の src/ + site/ には `license-plan` 系
+ * 識別子が完全ゼロのため、本 pattern を追加して license 語彙の再導入を構造的に防ぐ。
+ *
  * --- allowlist 設計 (PR-L5 #2860 で contract 完了、DB 層 allowlist 撤去) ---
  *
  * 1. FILE_ALLOWLIST: PR-L5 (#2860) で license key の DB 列 / enum / table / repository を物理削除
@@ -46,6 +53,10 @@ export const PATTERNS = [
 	/license-key/,
 	/LICENSE_KEY/,
 	/LicenseKey/,
+	// PR-L5 #2879: SUBSCRIPTION_PLAN への rename 後、license-plan 系識別子の再導入を防ぐ
+	/LICENSE_PLAN/,
+	/LicensePlan/,
+	/license-plan/,
 ];
 
 // ---------------------------------------------------------------------------

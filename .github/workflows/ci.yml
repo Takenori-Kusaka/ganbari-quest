@@ -81,7 +81,7 @@ jobs:
               - 'src/lib/server/services/plan-limit-service.ts'
               # プランデバッグ・定数
               - 'src/lib/server/debug-plan.ts'
-              - 'src/lib/domain/constants/license-plan.ts'
+              - 'src/lib/domain/constants/subscription-plan.ts'
               - 'src/lib/domain/constants/subscription-status.ts'
               - 'src/lib/domain/constants/auth-license-status.ts'
               - 'src/lib/domain/constants/license-key-status.ts'

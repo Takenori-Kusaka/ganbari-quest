@@ -136,7 +136,7 @@ describe('shouldExclude (Issue #1918 AC2 — allowlist)', () => {
 
 	it('src/lib/domain/constants/ 配下は exclude (#972 既存)', () => {
 		assert.equal(
-			shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/constants/license-plan.ts')),
+			shouldExclude(path.join(REPO_ROOT, 'src/lib/domain/constants/subscription-plan.ts')),
 			true,
 		);
 	});
@@ -364,7 +364,7 @@ describe('checkFile (Issue #1918 AC5 — エラーメッセージに atom 名)',
 		assert.equal(findings.length, 1);
 		assert.equal(findings[0].pattern, 'family-monthly');
 		assert.equal(findings[0].kind, 'value');
-		assert.match(findings[0].constant, /LICENSE_PLAN\.FAMILY_MONTHLY/);
+		assert.match(findings[0].constant, /SUBSCRIPTION_PLAN\.FAMILY_MONTHLY/);
 	});
 });
 

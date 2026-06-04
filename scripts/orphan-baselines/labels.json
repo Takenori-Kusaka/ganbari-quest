@@ -19,15 +19,15 @@
 		"DEMO_SIGNUP_LABELS",
 		"DEMO_STATUS_LABELS",
 		"DEMO_TOP_LABELS",
-		"LICENSE_PLAN_LABELS",
 		"NavCategoryId",
 		"PAID_PLAN_LABEL",
+		"SUBSCRIPTION_PLAN_LABELS",
 		"THEME_EMOJIS",
 		"ThemeKey"
 	],
 	"reasons": {
 		"NavCategoryId": "PR_initial baseline — type export、import 確認後 cleanup 検討。後続 follow-up PR で削除候補。",
-		"LICENSE_PLAN_LABELS": "PR_initial baseline — cleanup 候補。LICENSE_PAGE_LABELS 等 別 namespace に統合済の可能性。",
+		"SUBSCRIPTION_PLAN_LABELS": "PR_initial baseline (旧 LICENSE_PLAN_LABELS、#2860 PR-L5 で rename) — cleanup 候補。SUBSCRIPTION_PAGE_LABELS 等 別 namespace に統合済の可能性。",
 		"ThemeKey": "PR_initial baseline — type export、cleanup 検討。後続 follow-up PR で削除候補。",
 		"ACTIVITY_PRIORITY_LABELS": "PR_initial baseline — ACTIVITY_PRIORITY_FORM_LABELS が後継。確認後 cleanup 候補。",
 		"DEMO_SIGNUP_LABELS": "PR_initial baseline — PR-B3 #2188 src/routes/demo/** 全削除に伴う dead label。後続 follow-up PR で labels.ts から削除予定。",

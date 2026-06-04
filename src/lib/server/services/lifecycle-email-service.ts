@@ -7,7 +7,7 @@
 // 実行タイミング: lifecycle-emails cron (毎日 09:30 JST、cron-dispatcher 経由)。
 // 詳細仕様: ADR-0023 §3.2 / §3.3 / §5 I11。
 
-import { getLicensePlanLabel } from '$lib/domain/labels';
+import { getSubscriptionPlanLabel } from '$lib/domain/labels';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { sendDormantReactivationEmail, sendLicenseRenewalReminderEmail } from './email-service';
@@ -182,7 +182,7 @@ async function processTenant(
 			email: ctx.email,
 			tenantId: ctx.tenantId,
 			ownerName: ctx.ownerName,
-			planLabel: getLicensePlanLabel(ctx.plan ?? ''),
+			planLabel: getSubscriptionPlanLabel(ctx.plan ?? ''),
 			expiresAt: formatExpiresAt(ctx.planExpiresAt as string),
 			daysRemaining: daysRemaining as number,
 		});

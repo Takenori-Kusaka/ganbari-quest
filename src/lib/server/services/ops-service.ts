@@ -1,7 +1,7 @@
 // src/lib/server/services/ops-service.ts
 // 運営管理ダッシュボード: テナントKPI集計サービス (#0176)
 
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
 import type { Tenant } from '$lib/server/auth/entities';
@@ -80,11 +80,11 @@ async function getTenantStats(): Promise<TenantStats> {
 function countPlans(tenants: Tenant[]) {
 	const activeTenants = tenants.filter((t) => t.status === SUBSCRIPTION_STATUS.ACTIVE);
 	return {
-		monthly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.MONTHLY).length,
-		yearly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.YEARLY).length,
-		familyMonthly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.FAMILY_MONTHLY).length,
-		familyYearly: activeTenants.filter((t) => t.plan === LICENSE_PLAN.FAMILY_YEARLY).length,
-		lifetime: activeTenants.filter((t) => t.plan === LICENSE_PLAN.LIFETIME).length,
+		monthly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.MONTHLY).length,
+		yearly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.YEARLY).length,
+		familyMonthly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.FAMILY_MONTHLY).length,
+		familyYearly: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.FAMILY_YEARLY).length,
+		lifetime: activeTenants.filter((t) => t.plan === SUBSCRIPTION_PLAN.LIFETIME).length,
 		noPlan: activeTenants.filter((t) => !t.plan).length,
 	};
 }

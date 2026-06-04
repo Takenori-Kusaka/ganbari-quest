@@ -97,6 +97,26 @@ describe('check-license-key-leak (#2836)', () => {
 			const content = ['const a = 1;', 'const b = 2;'].join('\n');
 			expect(findViolationsInContent('site/index.html', content)).toHaveLength(0);
 		});
+
+		// PR-L5 #2879: SUBSCRIPTION_PLAN rename 後の license-plan 系識別子の再導入防止
+		it.each([
+			"import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';",
+			'const plan: LicensePlan = ...;',
+			"import x from '$lib/domain/constants/license-plan';",
+		])('rename 後の license-plan 系識別子をコード行で検出する: %s', (line) => {
+			const content = ['const ok = true;', line, 'const done = false;'].join('\n');
+			const result = findViolationsInContent('src/lib/features/foo.svelte', content);
+			expect(result).toHaveLength(1);
+			expect(result[0]?.line).toBe(2);
+		});
+
+		it('license-plan 系のコメント行は許容する (検出ゼロ)', () => {
+			const content = [
+				'// 旧 LICENSE_PLAN は SUBSCRIPTION_PLAN へ rename 済 (#2879)',
+				'const ok = true;',
+			].join('\n');
+			expect(findViolationsInContent('src/lib/features/foo.svelte', content)).toHaveLength(0);
+		});
 	});
 
 	describe('findAllViolations (実 repo gate)', () => {

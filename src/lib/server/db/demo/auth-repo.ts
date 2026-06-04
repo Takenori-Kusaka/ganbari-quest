@@ -2,7 +2,7 @@
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 // Demo Lambda は AnonymousAuthProvider 経由で認証なし、ユーザ / テナント情報は dummy のみ返す。
 
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type {
 	AuthUser,
@@ -55,7 +55,7 @@ export async function findTenantById(tenantId: string): Promise<Tenant | undefin
 		name: 'がんばり家 (デモ)',
 		ownerId: 'demo-owner',
 		status: SUBSCRIPTION_STATUS.ACTIVE,
-		plan: LICENSE_PLAN.FAMILY_MONTHLY,
+		plan: SUBSCRIPTION_PLAN.FAMILY_MONTHLY,
 		// #1601: 最終活動時刻
 		lastActiveAt: DEMO_NOW,
 		createdAt: DEMO_NOW,

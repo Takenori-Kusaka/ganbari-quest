@@ -2,7 +2,7 @@
 // セキュリティ: 認証必須 + owner/parent ロールのみ + tenantId はサーバー側から取得（改ざん不可）
 
 import { error, json } from '@sveltejs/kit';
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { createCheckoutSession } from '$lib/server/services/stripe-service';
 import type { RequestHandler } from './$types';
 
@@ -33,9 +33,9 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	const returnPath: string | undefined = body.returnPath;
 	// #2719 (Phase 7 PR-3b prerequisite): Phase 1 補強 2 FR-2 (年額廃止確定) 整合。
 	// 新規購入経路は月額 2 種 (`MONTHLY` / `FAMILY_MONTHLY`) のみ受け付ける。
-	// `LICENSE_PLAN.YEARLY` / `FAMILY_YEARLY` は historical record (過去契約者の plan label)
+	// `SUBSCRIPTION_PLAN.YEARLY` / `FAMILY_YEARLY` は historical record (過去契約者の plan label)
 	// として constants に残置されるが、新規 checkout の入力としては reject される。
-	const validPlanIds: string[] = [LICENSE_PLAN.MONTHLY, LICENSE_PLAN.FAMILY_MONTHLY];
+	const validPlanIds: string[] = [SUBSCRIPTION_PLAN.MONTHLY, SUBSCRIPTION_PLAN.FAMILY_MONTHLY];
 	if (!validPlanIds.includes(planId)) {
 		error(400, 'プランが正しくありません');
 	}

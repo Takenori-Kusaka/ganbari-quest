@@ -1,5 +1,5 @@
 <script lang="ts">
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -108,7 +108,7 @@ const trialTierLabel = $derived(
 					class="plan-status__cta--upgrade-btn"
 					disabled={upgradeLoading}
 					data-testid="plan-status-trial-cta"
-					onclick={() => onUpgrade?.(LICENSE_PLAN.MONTHLY)}
+					onclick={() => onUpgrade?.(SUBSCRIPTION_PLAN.MONTHLY)}
 				>
 					{upgradeLoading ? FEATURES_LABELS.planStatusCard.processingText : FEATURES_LABELS.planStatusCard.makeContractBtn}
 				</Button>
@@ -129,7 +129,7 @@ const trialTierLabel = $derived(
 					class="plan-status__cta--upgrade-btn"
 					disabled={upgradeLoading}
 					data-testid="plan-status-free-cta"
-					onclick={() => onUpgrade?.(LICENSE_PLAN.MONTHLY)}
+					onclick={() => onUpgrade?.(SUBSCRIPTION_PLAN.MONTHLY)}
 				>
 					{upgradeLoading ? FEATURES_LABELS.planStatusCard.processingText : FEATURES_LABELS.planStatusCard.upgradeBtn}
 				</Button>
@@ -152,7 +152,7 @@ const trialTierLabel = $derived(
 						class="plan-status__cta--family-btn"
 						disabled={upgradeLoading}
 						data-testid="plan-status-family-cta"
-						onclick={() => onUpgrade?.(LICENSE_PLAN.FAMILY_MONTHLY)}
+						onclick={() => onUpgrade?.(SUBSCRIPTION_PLAN.FAMILY_MONTHLY)}
 					>
 						{upgradeLoading ? FEATURES_LABELS.planStatusCard.processingText : FEATURES_LABELS.planStatusCard.familyUpgradeBtn}
 					</Button>
