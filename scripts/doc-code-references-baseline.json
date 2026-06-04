@@ -25,6 +25,7 @@
 		],
 		"docs/decisions/forbidden-escape-language.md": ["scripts/check-no-escape-language.mjs"],
 		"docs/design/06-UI設計書.md": [
+			"site/help/license-key.html",
 			"site/screenshots/v2",
 			"src/lib/ui/components/OmikujiStampOverlay.svelte",
 			"src/routes/demo",
@@ -48,8 +49,16 @@
 			"site/screenshots",
 			"src/routes/demo"
 		],
+		"docs/design/billing-redesign/billing-redesign-policy.md": ["site/help/license-key.html"],
 		"docs/design/billing-redesign/phase1-data-lifecycle-requirements.md": [
 			"src/lib/server/services/retention-service.ts"
+		],
+		"docs/design/billing-redesign/phase1-legal-requirements.md": ["site/help/license-key.html"],
+		"docs/design/billing-redesign/phase1-license-key-removal-final-requirements.md": [
+			"site/help/license-key.html"
+		],
+		"docs/design/billing-redesign/phase1-naming-url-integrity-requirements.md": [
+			"site/help/license-key.html"
 		],
 		"docs/design/billing-redesign/phase1-nuc-requirements.md": [
 			"src/lib/domain/authorization/capabilities.ts",
@@ -80,6 +89,7 @@
 			"tests/e2e/admin-reactivation-banner.spec.ts",
 			"tests/e2e/age-mode"
 		],
+		"docs/design/billing-redesign/phase4-url-mapping-design.md": ["site/help/license-key.html"],
 		"docs/design/billing-redesign/phase5-archive-unified-architecture.md": [
 			"src/lib/server/db/migration/2026-06-archived-reason-backfill.sql",
 			"src/lib/server/db/schema.ts:40,70,109,430",
@@ -102,6 +112,7 @@
 			"tests/unit/services/retention-service.webhook.test.ts",
 			"tests/unit/services/stripe-service.dedup.test.ts"
 		],
+		"docs/design/billing-redesign/phase6-context-decisions-6.md": ["site/help/license-key.html"],
 		"docs/design/billing-redesign/phase6-db-migration-plan.md": [
 			"infra/scripts/snapshot-db.sh",
 			"src/lib/server/db/create-tables.ts:末尾",
@@ -123,6 +134,7 @@
 			"tests/unit/helpers/test-db.ts:64,91,120,402,824-906"
 		],
 		"docs/design/billing-redesign/phase6-phase7-execution-ssot.md": [
+			"site/help/license-key.html",
 			"src/lib/server/db/repos/webhook-event-repo.ts",
 			"tests/e2e/billing",
 			"tests/integration/db/archived-reason-migration.test.ts",
@@ -144,6 +156,7 @@
 		"docs/design/license-subscription-causality.md": [
 			"src/routes/api/v1/stripe/webhook/+server.ts"
 		],
+		"docs/design/lp-content-map.md": ["site/help/license-key.html"],
 		"docs/design/lp-deploy-pipeline.md": [
 			"site/screenshots",
 			"src/routes/demo",
@@ -216,5 +229,5 @@
 		],
 		"tests/CLAUDE.md": ["infra/node_modules"]
 	},
-	"generatedAt": "2026-06-03T08:17:21.220Z"
+	"generatedAt": "2026-06-04T02:24:44.845Z"
 }
