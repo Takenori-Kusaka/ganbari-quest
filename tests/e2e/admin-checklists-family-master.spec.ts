@@ -64,7 +64,9 @@ test.describe('admin/checklists family master UX (#2362 PR-5 Phase 2)', () => {
 		// 配信先設定セクション (distribution-section) が存在する場合は visible (precondition)
 		// あるいは empty state (emptyChecklistMessage) が表示される。
 		const distributionSections = page.locator('[data-testid^="checklist-distribution-section-"]');
-		const emptyMessage = page.locator('text=/持ち物チェックリストがまだありません/');
+		// #2899: 「持ち物チェックリスト管理」→「チェックリスト管理」是正に伴い empty message も
+		// 「（家族の）チェックリストがまだありません」に統一。両 empty state 共通の語尾で照合。
+		const emptyMessage = page.locator('text=/チェックリストがまだありません/');
 		const eitherVisible =
 			(await distributionSections.count()) > 0 || (await emptyMessage.count()) > 0;
 		expect(eitherVisible, 'family templates または empty message のいずれかが表示されること').toBe(

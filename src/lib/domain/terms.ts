@@ -970,6 +970,42 @@ export const PIN_DEFAULT_TERMS = {
 } as const;
 
 // ============================================================
+// CONCEPT_ICONS — システム概念 → 絵文字アイコンの SSOT atom (#2899)
+// ============================================================
+//
+// システム上の固定概念 (活動 / ごほうび / チェックリスト / ルール / チャレンジ /
+// みんなのテンプレート / AI 提案 / ヘルプ) に紐づくアイコン絵文字を 1 箇所に集約する。
+// CSS 3 層トークン (ADR-0042) / terms.ts 2 層 (ADR-0045) と同型で、
+// 「同一概念 = 同一アイコン」を SSOT で保証する。
+//
+// 設計指針 (#2899 / research T4 / DESIGN.md §7):
+//   - 対象は「システム文言に付く固定概念アイコン」のみ。
+//   - **ユーザーがカスタマイズする活動・チェックリスト項目のアイコンは対象外**
+//     (asset-catalog.md「活動アイコンはユーザーがカスタマイズする前提」)。
+//     COMMON_ICONS picker / item.icon / stamp emoji 等のデータ値は本 atom の管轄外。
+//   - marketplace / overflow menu / 各 admin 一覧の「概念を指すアイコン」のみ集約する。
+//
+// 値の根拠:
+//   - activity  : 活動管理ページ title が既に 📋 を使用 (一覧の「活動」概念)
+//   - reward    : ごほうび = ギフト 🎁 (MARKETPLACE_TYPE_ICONS 既存値)
+//   - checklist : チェック ✅ (MARKETPLACE_TYPE_ICONS 既存値)
+//   - rule      : ルール = 巻物 📜 (MARKETPLACE_TYPE_ICONS 既存値)
+//   - challenge : チャレンジ = 的 🎯 (MARKETPLACE_TYPE_ICONS 既存値)
+//   - template  : みんなのテンプレート = 店先 🏪 (取込元 marketplace。旧 📦 を統一)
+//   - aiSuggest : AI 提案 🤖 / help : ヘルプ ❓ (OVERFLOW_MENU_TERMS 既存値の昇格)
+
+export const CONCEPT_ICONS = {
+	activity: '📋',
+	reward: '🎁',
+	checklist: '✅',
+	rule: '📜',
+	challenge: '🎯',
+	template: '🏪',
+	aiSuggest: '🤖',
+	help: '❓',
+} as const;
+
+// ============================================================
 // OVERFLOW_MENU_TERMS — admin route 共通 ⋮ menu atom (EPIC #2362 PR-2)
 // ============================================================
 //
@@ -988,15 +1024,15 @@ export const PIN_DEFAULT_TERMS = {
 export const OVERFLOW_MENU_TERMS = {
 	openLabel: 'メニューを開く',
 	itemMarketplace: 'みんなのテンプレから取込',
-	itemMarketplaceIcon: '📦',
+	itemMarketplaceIcon: CONCEPT_ICONS.template,
 	itemAiSuggest: 'AI で提案してもらう',
-	itemAiSuggestIcon: '🤖',
+	itemAiSuggestIcon: CONCEPT_ICONS.aiSuggest,
 	itemRestore: 'バックアップから復元',
 	itemRestoreIcon: '⬇',
 	itemExport: 'エクスポート',
 	itemExportIcon: '⬆',
 	itemHelp: 'このページのヘルプ',
-	itemHelpIcon: '❓',
+	itemHelpIcon: CONCEPT_ICONS.help,
 } as const;
 
 // ============================================================

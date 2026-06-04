@@ -7,7 +7,7 @@ import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, OVERFLOW_MENU_LABELS } from '$lib/
 // #2391 (Phase 2): in-page rule-preset 取込 UI を統一
 // #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
 // `/marketplace?type=rule-preset` への画面遷移に統一 (DESIGN.md §10)。
-import { TEMPLATE_TERMS } from '$lib/domain/terms';
+import { CONCEPT_ICONS, TEMPLATE_TERMS } from '$lib/domain/terms';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
@@ -279,7 +279,7 @@ function formatImportedAt(iso: string): string {
 			class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
 			data-testid="rules-marketplace-browse-link"
 		>
-			📦 {TEMPLATE_TERMS.browse}
+			{CONCEPT_ICONS.template} {TEMPLATE_TERMS.browse}
 		</a>
 	</section>
 

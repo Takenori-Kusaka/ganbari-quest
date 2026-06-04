@@ -10,7 +10,7 @@ import {
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 } from '$lib/domain/labels';
-import { TEMPLATE_TERMS } from '$lib/domain/terms';
+import { CONCEPT_ICONS, TEMPLATE_TERMS } from '$lib/domain/terms';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
@@ -322,7 +322,7 @@ function tabHref(childId: number | 'all'): string {
 			class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
 			data-testid="challenges-marketplace-browse-link"
 		>
-			📦 {TEMPLATE_TERMS.browse}
+			{CONCEPT_ICONS.template} {TEMPLATE_TERMS.browse}
 		</a>
 	</section>
 

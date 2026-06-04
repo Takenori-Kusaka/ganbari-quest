@@ -37,6 +37,7 @@ import {
 	CHEER_TERMS,
 	CHILD_SELECTION_TERMS,
 	CHILD_TERMS,
+	CONCEPT_ICONS,
 	CTA_TERMS,
 	CURRENCY_TERMS,
 	FREE_PLAN_TERMS,
@@ -4574,9 +4575,10 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	tabAriaLabel: 'チェックリスト種別',
 	// #1755 (#1709-A): kind 削除 — emptyChecklistMessage に統合
 	emptyKindSuffix: 'がまだありません',
-	emptyChecklistMessage: '持ち物チェックリストがまだありません',
+	// #2899: title は汎用チェックリスト機能のため「持ち物」限定表記を外す
+	emptyChecklistMessage: 'チェックリストがまだありません',
 	// #1755 (#1709-A): kind 選択削除に伴うダイアログタイトル / プレースホルダ統合
-	addTemplateDialogTitle: '持ち物チェックリスト作成',
+	addTemplateDialogTitle: 'チェックリスト作成',
 	namePlaceholderItem: '例: がっこうのもちもの',
 	inactiveBadge: '無効',
 	deleteButton: '削除',
@@ -4600,9 +4602,9 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	overrideDialogTitle: 'ワンオフ追加/除外',
 	premiumBadgeLabel: 'スタンダード以上',
 	// #2137 (MP-2): マーケットプレイス checklist 一括追加セクション (#2272: UI ラベルは TEMPLATE_TERMS atom 経由)
-	marketplaceSectionTitle: `🏪 ${TEMPLATE_TERMS.userFacing}から一括追加`,
+	marketplaceSectionTitle: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.userFacing}から一括追加`,
 	marketplaceSectionDesc:
-		'季節やイベント時の持ち物リストをワンタップで取込めます（重複時はスキップ）',
+		'季節やイベント時のチェックリストをワンタップで取込めます（重複時はスキップ）',
 	marketplaceItemCount: (n: number) => `${n}項目`,
 	marketplaceImportButton: '一括追加',
 	marketplaceImportedBadge: '取込済',
@@ -4612,18 +4614,19 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 		`⚠️ 「${presetName}」は既に取込済みのためスキップしました`,
 	marketplaceSeeMore: 'すべてのチェックリストを見る →',
 	// #2362 PR-5 Phase 2: family master UX (ChecklistDistributionDialog / OverflowMenu / per-child progress)
-	pageTitle: '持ち物チェックリスト管理',
-	familyChecklistsSectionTitle: '家族の持ち物リスト',
+	// #2899: 汎用チェックリスト機能のため「持ち物」限定表記を「チェックリスト / リスト」へ是正
+	pageTitle: 'チェックリスト管理',
+	familyChecklistsSectionTitle: '家族のチェックリスト',
 	familyChecklistsSectionDesc:
 		'1 つのリストを家族全員のお子さまに配信できます。お子さまごとの進捗は配信後に表示されます。',
-	emptyFamilyMessage: '家族の持ち物リストがまだありません',
+	emptyFamilyMessage: '家族のチェックリストがまだありません',
 	emptyFamilyDesc: `みんなのテンプレートから取込むか、「${OVERFLOW_MENU_TERMS.itemMarketplace}」メニューから追加できます`,
-	browseMarketplaceLink: `🏪 ${TEMPLATE_TERMS.browse} →`,
+	browseMarketplaceLink: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.browse} →`,
 	distributionSectionTitle: '配信先のお子さま',
 	distributionEmpty: '誰にも配信されていません',
 	distributionConfigureButton: '配信先を設定',
 	distributionDialogTitle: '配信先のお子さまを選ぶ',
-	distributionDialogDesc: 'チェックを入れたお子さまの画面に、この持ち物リストが表示されます。',
+	distributionDialogDesc: 'チェックを入れたお子さまの画面に、このチェックリストが表示されます。',
 	distributionSaveButton: '配信先を保存',
 	distributionUpdated: (added: number, removed: number) =>
 		`配信先を更新しました（追加 ${added} 件 / 解除 ${removed} 件）`,
@@ -4634,8 +4637,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 		`${childName}: 今日のぶん ${total}/${total} 完了`,
 	perChildProgressPartial: (childName: string, done: number, total: number) =>
 		`${childName}: ${done}/${total}`,
-	overflowMenuAriaLabel: '持ち物チェックリスト管理メニュー',
-	helpDialogTitle: '持ち物チェックリスト ヘルプ',
+	overflowMenuAriaLabel: 'チェックリスト管理メニュー',
+	helpDialogTitle: 'チェックリスト ヘルプ',
 	helpDialogDesc: `家族で 1 つのリストを作成し、配信先のお子さまを選ぶことで、同じリストを複数の${CHILD_TERMS.honorific}で共有できます。${CHILD_TERMS.honorific}ごとに今日の進捗が記録されます。`,
 	restoreNotImplementedTitle: 'バックアップから復元',
 	restoreNotImplementedDesc: '本機能は今後のアップデートで対応予定です。',
@@ -4662,7 +4665,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	pageDescription: `${TEMPLATE_TERMS.userFacing}から取込んだ bonus / exchange 系ルールを管理します。bonus は ON/OFF で有効化を切り替えられます。`,
 	emptyTitle: '取込済のルールがありません',
 	emptyDesc: `${TEMPLATE_TERMS.userFacing}から bonus / exchange ルールを取込むとここに表示されます`,
-	browseLink: `🏪 ${TEMPLATE_TERMS.browse} →`,
+	browseLink: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.browse} →`,
 	sectionBonusTitle: '🎯 ボーナスルール',
 	sectionBonusDesc:
 		'活動記録時に発火するボーナスポイント。enabled な preset のみが活動記録時に評価されます。',

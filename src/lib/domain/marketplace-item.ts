@@ -6,7 +6,7 @@
  */
 
 import { AGE_TIER_LABELS } from './labels.js';
-import { TEMPLATE_TERMS } from './terms.js';
+import { CONCEPT_ICONS } from './terms.js';
 import type { CategoryCode, GradeLevel } from './validation/activity.js';
 import type { UiMode } from './validation/age-tier-types.js';
 import type { RewardCategory } from './validation/special-reward.js';
@@ -196,22 +196,25 @@ export interface MarketplaceItemMeta {
 
 // ── Type labels ──────────────────────────────────────────────
 
-// Round 18 Cluster A (ADR-0045): かつどうパック → TEMPLATE_TERMS atom 経由化。
-// type label は同 marketplace 内で type 識別子として並ぶため、TEMPLATE_TERMS.userFacing
-// 単独では情報量不足。サブ識別子 (活動 / ごほうび / 持ち物 等) を添えて「みんなの
-// テンプレート (活動)」形式で統一する。
+// #2899: type label はページタイトル「みんなのテンプレート」と重複させず、兄弟 type
+// (ごほうびセット / チェックリスト / とくべつルール / チャレンジ集) と同型の単独名詞に
+// する。「みんなのテンプレート（活動）」(旧) は page title と重複し命名規則も不一致
+// だったため「活動セット」(= 活動の束、ごほうびセットと同型) に是正した。
+// 命名規則は DESIGN.md §6「marketplace type 命名規則」を参照。
 export const MARKETPLACE_TYPE_LABELS: Record<MarketplaceItemType, string> = {
-	'activity-pack': `${TEMPLATE_TERMS.userFacing}（活動）`,
+	'activity-pack': '活動セット',
 	'reward-set': 'ごほうびセット',
 	checklist: 'チェックリスト',
 	'rule-preset': 'とくべつルール',
 	'challenge-set': 'チャレンジ集',
 };
 
+// #2899: 概念アイコンは CONCEPT_ICONS atom (terms.ts) を SSOT とする。
+// 活動 = 📋 (旧 📦 段ボールは活動概念に不適合のため是正)、他 4 type は既存値を維持。
 export const MARKETPLACE_TYPE_ICONS: Record<MarketplaceItemType, string> = {
-	'activity-pack': '📦',
-	'reward-set': '🎁',
-	checklist: '✅',
-	'rule-preset': '📜',
-	'challenge-set': '🎯',
+	'activity-pack': CONCEPT_ICONS.activity,
+	'reward-set': CONCEPT_ICONS.reward,
+	checklist: CONCEPT_ICONS.checklist,
+	'rule-preset': CONCEPT_ICONS.rule,
+	'challenge-set': CONCEPT_ICONS.challenge,
 };

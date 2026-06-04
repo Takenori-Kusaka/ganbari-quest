@@ -10,6 +10,7 @@ import {
 	PLAN_GATE_LABELS,
 	UI_LABELS,
 } from '$lib/domain/labels';
+import { CONCEPT_ICONS } from '$lib/domain/terms';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 // #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
@@ -608,7 +609,7 @@ function getChildName(childId: number): string {
 				class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
 				data-testid="checklists-marketplace-browse-link"
 			>
-				📦 {ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
+				{CONCEPT_ICONS.template} {ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
 			</a>
 		</section>
 
