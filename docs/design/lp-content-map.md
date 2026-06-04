@@ -22,7 +22,7 @@
 ### 1.2 スコープ
 
 - **対象**: `site/index.html`, `site/pricing.html`, `site/selfhost.html`, `site/pamphlet.html`, 関連フッター
-- **対象外**: アプリ内 (`src/routes/`) の画面設計、SEO 文言詳細、広告クリエイティブ、`site/help/license-key.html`（既存ユーザーへの操作ガイドであり LP スコープ外。#1736 m-MIN-11）
+- **対象外**: アプリ内 (`src/routes/`) の画面設計、SEO 文言詳細、広告クリエイティブ（旧 `site/help/license-key.html` は Epic #2525 Phase 7 PR-L4 #2836 でライセンスキー販売モデル撤廃に伴い完全削除、`/help/license-key` → `/admin/subscription` 301 redirect で救済）
 
 ---
 
@@ -89,7 +89,6 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 ├── /pricing             ← 3 プラン比較・FAQ・家族での使い方
 ├── /selfhost            ← OSS/技術者向け分離ページ
 ├── /pamphlet            ← 配布用 A4 PDF 化前提の静的紹介
-├── /help/license-key    ← ライセンスキー購入者向け手順
 ├── /privacy             ← 法務: 広告なし・データ主権訴求を含む
 ├── /terms               ← 法務: 利用規約
 ├── /tokushoho           ← 法務: 特定商取引法
@@ -105,7 +104,6 @@ baby/preschool では 404、elementary+ で通常動作。詳細は #1323 (B4+5-
 | `/pricing` | **比較させて決めさせる**: 3 プラン詳細比較表 + 家族での使い方 + 料金 FAQ | LP 内の料金サマリから CTA で流す |
 | `/selfhost` | **OSS/技術者向け**: 独立ページ。LP 本体では **footer テキストリンク** のみ | footer に 1 リンク。本文では訴求しない |
 | `/pamphlet` | **配布用静的ページ**: A4 印刷/PDF 化前提。LP の「要約版」 | LP と別メンテナンス。LP IA 変更時は最低限の同期のみ |
-| `/help/license-key` | **ライセンス購入者向け手順**: 自己申込み経路 | LP からは footer のみ |
 | `/privacy` | **法務 + 安心訴求**: 「広告なし・家族限定・データ主権」 | LP [08] 安心訴求からリンク |
 | `/terms` `/tokushoho` `/sla` | **純法務**: 契約根拠 | footer のみ |
 

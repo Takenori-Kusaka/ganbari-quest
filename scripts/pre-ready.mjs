@@ -56,6 +56,7 @@ const SKIP_FLAGS = {
 	'--skip-lp-dimensions': 'skipLpDimensions',
 	'--skip-lp-fallback': 'skipLpFallback',
 	'--skip-plan-literals': 'skipPlanLiterals',
+	'--skip-license-key-leak': 'skipLicenseKeyLeak',
 	'--skip-lp-labels': 'skipLpLabels',
 	'--skip-pr-body': 'skipPrBody',
 	'--skip-doc-code-references': 'skipDocCodeReferences',
@@ -73,6 +74,7 @@ function parseArgs(argv) {
 		skipLpDimensions: false,
 		skipLpFallback: false,
 		skipPlanLiterals: false,
+		skipLicenseKeyLeak: false,
 		skipLpLabels: false,
 		skipPrBody: false,
 		skipDocCodeReferences: false,
@@ -112,6 +114,7 @@ Options:
   --skip-lp-dimensions   Step 5 LP 寸法・禁止語検査をスキップ (LP 変更時のみ自動実行)
   --skip-lp-fallback     Step 6 LP fallback 同期検査をスキップ (LP / labels.ts 変更時のみ自動実行)
   --skip-plan-literals   Step 7 plan/status リテラル直書き検査をスキップ (#972 / Phase 5 F1)
+  --skip-license-key-leak Step 7b license key 再導入防止検査をスキップ (#2836 / Phase 7 PR-L4)
   --skip-lp-labels       Step 8 LP labels 同期検査をスキップ (labels.ts / terms.ts / age-tier.ts 変更時のみ自動実行、Phase 1 B1)
   --skip-pr-body         Step 9 PR body 検査をスキップ
   --skip-doc-code-references Step 10 デッドリンク検査をスキップ
@@ -220,6 +223,9 @@ function buildSteps(args, changedFiles) {
 	const lpLabelsScript = resolve(repoRoot, 'scripts/generate-lp-labels.mjs');
 	const planLiteralsScriptExists = existsSync(planLiteralsScript);
 	const lpLabelsScriptExists = existsSync(lpLabelsScript);
+	// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃の再導入防止 gate
+	const licenseKeyLeakScript = resolve(repoRoot, 'scripts/check-license-key-leak.mjs');
+	const licenseKeyLeakScriptExists = existsSync(licenseKeyLeakScript);
 
 	return [
 		{
@@ -295,6 +301,21 @@ function buildSteps(args, changedFiles) {
 				'  - 修正: $lib/domain/constants/license-plan.ts 等の定数経由に置換\n' +
 				"  - 例: 'family-monthly' → LICENSE_PLAN.FAMILY_MONTHLY\n" +
 				"  - 例: 'grace_period' → SUBSCRIPTION_STATUS.GRACE_PERIOD",
+		},
+		// Step 7b: check-license-key-leak (#2836 / Epic #2525 Phase 7 PR-L4)
+		// license key 全廃の再導入防止。allowlist 外のコード行に license key 参照を検出したら fail。
+		{
+			name: 'license-key-leak',
+			label: licenseKeyLeakScriptExists
+				? 'Step 7b/12: check-license-key-leak.mjs (#2836 / Phase 7 PR-L4)'
+				: 'Step 7b/12: check-license-key-leak.mjs (script 未配備 — skip)',
+			skip: args.skipLicenseKeyLeak || !licenseKeyLeakScriptExists,
+			runner: () => run('check-license-key-leak', ['node', 'scripts/check-license-key-leak.mjs']),
+			fixHint:
+				'  allowlist 外のコード行に license key 参照を検出しました (#2836)。\n' +
+				'  - LP / メール / ラベル / UI で license key 概念を再導入しないでください。\n' +
+				'  - entitlement は Stripe Subscription (tenant.status=ACTIVE) が唯一 SSOT です。\n' +
+				'  - DB 層 / LEGACY_URL_MAP entry は PR-L5 担当の allowlist (FILE_ALLOWLIST)。',
 		},
 		// Step 8: generate-lp-labels --check (Phase 1 B1 / #1917)
 		// Issue #1920 graceful degradation: 検査 script が未配備なら skip + warning。

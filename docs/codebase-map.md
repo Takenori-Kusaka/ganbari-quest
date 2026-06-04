@@ -120,7 +120,6 @@
 | `site/selfhost.html` | NUC セルフホスト訴求 |
 | `site/graduation.html` | 卒業ジャーニー訴求 |
 | `site/privacy.html` / `terms.html` / `sla.html` / `tokushoho.html` | 法務文書 |
-| `site/help/license-key.html` | ライセンスキー仕様詳細 |
 | `site/shared.css` | LP 共通 CSS (`:root` Base / Semantic spacing トークン、ADR-0042) |
 | `site/shared-labels.js` | LP labels (terms.ts / labels.ts から `scripts/generate-lp-labels.mjs` で生成、ADR-0045) |
 | `site/assets/` | LP 専用画像 (`trust-*.svg` / `cta-trust-*.svg` / hero 等) |

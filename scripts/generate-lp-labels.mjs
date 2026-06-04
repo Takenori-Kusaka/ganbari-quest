@@ -337,7 +337,8 @@ const LP_NAMESPACE_TABLE = [
 	// Phase 5 R44 (#1650): pricing.html SSOT 同期
 	{ constName: 'LP_PRICING_LABELS', returnKey: 'lpPricingLabels' },
 	// 注: ADR-0028 (#1713 R7) で LP の founder 直接相談 namespace は #1772 で完全撤去済
-	{ constName: 'LP_LICENSEKEY_LABELS', returnKey: 'lpLicenseKeyLabels' },
+	// 注: LP_LICENSEKEY_LABELS (旧 site/help/license-key.html 用) は Epic #2525 Phase 7 PR-L4 (#2836)
+	//     license key 全廃 + help ページ完全削除に伴い撤去済 (lpLicenseKeyLabels namespace 消滅)。
 	{ constName: 'LP_FAQ_LABELS', returnKey: 'lpFaqLabels' },
 	{ constName: 'LP_SELFHOST_LABELS', returnKey: 'lpSelfhostLabels' },
 	{ constName: 'LP_INDEX_EXTRA_LABELS', returnKey: 'lpIndexExtraLabels' },

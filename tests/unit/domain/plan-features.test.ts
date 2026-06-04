@@ -17,6 +17,7 @@ import {
 	PRICING_PAGE_FEATURES,
 	PRICING_PAGE_META,
 } from '../../../src/lib/domain/plan-features';
+import { PLAN_TERMS } from '../../../src/lib/domain/terms';
 
 describe('plan-features.ts SSOT', () => {
 	describe('PRICING_PAGE_FEATURES', () => {
@@ -202,10 +203,11 @@ describe('plan-features.ts SSOT', () => {
 			expect(PRICING_PAGE_META.family).toBeDefined();
 		});
 
-		it('プラン名は #749 ブランドガイドライン §7.1 準拠（フリー / スタンダード / ファミリー）', () => {
+		// Phase 7 PR-L4 (#2836): family→premium rename (ADR-0058) で family.name は PLAN_TERMS.premium 参照に統一。
+		it('プラン名は terms.ts atom (フリー / スタンダード / プレミアム) と一致する', () => {
 			expect(PRICING_PAGE_META.free.name).toBe('フリー');
-			expect(PRICING_PAGE_META.standard.name).toBe('スタンダード');
-			expect(PRICING_PAGE_META.family.name).toBe('ファミリー');
+			expect(PRICING_PAGE_META.standard.name).toBe(PLAN_TERMS.standard);
+			expect(PRICING_PAGE_META.family.name).toBe(PLAN_TERMS.premium);
 		});
 
 		it('価格表記は半角 ¥ + スラッシュ月額形式（#749 §7.2）', () => {

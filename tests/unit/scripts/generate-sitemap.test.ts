@@ -45,7 +45,9 @@ describe('resolvePriority (#1908 AC3)', () => {
 	});
 
 	it('help/ 配下は priority 0.5 / monthly (#1908 AC4)', () => {
-		expect(resolvePriority('/help/license-key.html')).toEqual({
+		// resolvePriority は path prefix ルールの純関数。`/help/` 配下の代表パスで検証。
+		// (旧 /help/license-key.html は #2836 PR-L4 で削除済だが prefix ルール自体は維持)
+		expect(resolvePriority('/help/getting-started.html')).toEqual({
 			priority: '0.5',
 			changefreq: 'monthly',
 		});
@@ -149,8 +151,9 @@ describe('collectHtmlFiles (#1908 AC1 / AC4)', () => {
 });
 
 describe('full sitemap structure (#1908 AC4 / AC5 integration)', () => {
-	it('実際の site/ を走査した sitemap が faq / graduation / help/license-key を含む', () => {
-		// 実 repo の site/ をそのまま読む。Issue #1908 で stale 解消した 3 ページを必ず含むこと
+	it('実際の site/ を走査した sitemap が faq / graduation を含む', () => {
+		// 実 repo の site/ をそのまま読む。Issue #1908 で stale 解消したページを必ず含むこと
+		// 注: 旧 help/license-key は Epic #2525 Phase 7 PR-L4 (#2836) license key 全廃で削除済。
 		const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
 		const siteDir = path.join(repoRoot, 'site').replace(/^\\/, ''); // Windows 互換
 		const siteDirNormalized = fs.existsSync(siteDir) ? siteDir : path.resolve('site');
@@ -159,10 +162,11 @@ describe('full sitemap structure (#1908 AC4 / AC5 integration)', () => {
 			return;
 		}
 		const urls = collectHtmlFiles(siteDirNormalized);
-		// AC4: faq / graduation / help/license-key の 3 ページが網羅されること
+		// AC4: faq / graduation が網羅されること
 		expect(urls).toContain('/faq.html');
 		expect(urls).toContain('/graduation.html');
-		expect(urls).toContain('/help/license-key.html');
+		// 旧 help/license-key.html は削除済のため sitemap に含まれないこと (#2836 PR-L4)
+		expect(urls).not.toContain('/help/license-key.html');
 		// 既存の 8 ページも維持されていること
 		expect(urls).toContain('/');
 		expect(urls).toContain('/pricing.html');

@@ -11,6 +11,7 @@
 
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import { PLAN_FULL_TERMS, PLAN_TERMS } from '../../../src/lib/domain/terms';
 import AiSuggestPanel from '../../../src/lib/features/admin/components/AiSuggestPanel.svelte';
 
 describe('AiSuggestPanel プランゲート (#722)', () => {
@@ -32,11 +33,12 @@ describe('AiSuggestPanel プランゲート (#722)', () => {
 			expect(panel.getAttribute('data-plan-locked')).toBe('true');
 		});
 
-		it('ロックバッジ（ファミリー限定）が表示される', () => {
+		// Phase 7 PR-L4 (#2836): family→premium rename (ADR-0058) でバッジ文言は PLAN_TERMS.premium 参照。
+		it('ロックバッジ（プレミアム限定）が表示される', () => {
 			render(AiSuggestPanel, props);
 			const badge = screen.getByTestId('ai-suggest-locked-badge');
 			expect(badge).toBeDefined();
-			expect(badge.textContent).toContain('ファミリー');
+			expect(badge.textContent).toContain(PLAN_TERMS.premium);
 		});
 
 		it('アップセルカードが表示される', () => {
@@ -44,12 +46,12 @@ describe('AiSuggestPanel プランゲート (#722)', () => {
 			expect(screen.getByTestId('ai-suggest-upgrade-card')).toBeDefined();
 		});
 
-		it('「ファミリープランにアップグレード」CTA が /admin/subscription へ導線する', () => {
+		it('「プレミアムプランにアップグレード」CTA が /admin/subscription へ導線する', () => {
 			render(AiSuggestPanel, props);
 			const cta = screen.getByTestId('ai-suggest-upgrade-cta');
 			expect(cta).toBeDefined();
 			expect(cta.getAttribute('href')).toBe('/admin/subscription');
-			expect(cta.textContent).toContain('ファミリープラン');
+			expect(cta.textContent).toContain(PLAN_FULL_TERMS.premium);
 		});
 
 		it('入力フィールドが disabled で入力不可', () => {

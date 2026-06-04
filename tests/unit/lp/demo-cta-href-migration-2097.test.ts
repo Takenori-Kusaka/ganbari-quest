@@ -31,13 +31,13 @@ import { describe, expect, it } from 'vitest';
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
+// 注: site/help/license-key.html は Epic #2525 Phase 7 PR-L4 (#2836) license key 全廃で完全削除済のため対象外。
 const LP_FILES = [
 	'site/index.html',
 	'site/faq.html',
 	'site/pricing.html',
 	'site/sla.html',
 	'site/tokushoho.html',
-	'site/help/license-key.html',
 	'site/shared-labels.js',
 ];
 
@@ -65,7 +65,7 @@ describe('LP demo CTA href migration (#2097 Phase B-10, ADR-0048)', () => {
 		});
 	}
 
-	it(`AC2: LP 配下ファイル合計で新 URL '${NEW_URL}' が 13 件出現すること`, () => {
+	it(`AC2: LP 配下ファイル合計で新 URL '${NEW_URL}' が 12 件出現すること`, () => {
 		let total = 0;
 		for (const rel of LP_FILES) {
 			const abs = path.join(REPO_ROOT, rel);
@@ -73,17 +73,16 @@ describe('LP demo CTA href migration (#2097 Phase B-10, ADR-0048)', () => {
 			const matches = content.match(/https:\/\/demo\.ganbari-quest\.com\//g);
 			if (matches) total += matches.length;
 		}
-		// 内訳 (2026-05-16 時点):
+		// 内訳 (#2836 PR-L4 で help/license-key.html 削除後):
 		//   site/index.html         : 4 (hero CTA + age-panel k13 + age-panel k17 + age-switcher k18)
 		//   site/faq.html           : 1 (bottom CTA)
 		//   site/pricing.html       : 1 (bottom CTA)
 		//   site/sla.html           : 1 (header nav)
 		//   site/tokushoho.html     : 1 (header nav)
-		//   site/help/license-key.html : 1 (header nav)
 		//   site/shared-labels.js   : 4 (midHref + k13 + k17 + k18)
 		//   ─────────────────────────────
-		//   合計                    : 13
-		expect(total).toBe(13);
+		//   合計                    : 12
+		expect(total).toBe(12);
 	});
 
 	it(`AC3: labels.ts SSOT に新 URL '${NEW_URL}' が 4 箇所存在すること (midHref / k13 / k17 / k18)`, () => {

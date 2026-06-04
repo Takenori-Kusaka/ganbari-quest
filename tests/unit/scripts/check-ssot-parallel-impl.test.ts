@@ -99,7 +99,6 @@ export const LP_NESTED_LABELS = {
 			['retention', 'LP_RETENTION_LABELS'],
 			['coreloop', 'LP_CORELOOP_LABELS'],
 			['nav', 'LP_NAV_LABELS'],
-			['licenseKey', 'LP_LICENSEKEY_LABELS'],
 			['growthRoadmap', 'LP_GROWTH_ROADMAP_LABELS'],
 			['legalDisclaimer', 'LP_LEGAL_DISCLAIMER_LABELS'],
 			['indexExtra', 'LP_INDEX_EXTRA_LABELS'],
@@ -113,7 +112,6 @@ export const LP_NESTED_LABELS = {
 		});
 
 		it('alias (lpFaqLabels 等) は null を返す', () => {
-			expect(shortNameToLabelsTsName('lpLicenseKeyLabels')).toBeNull();
 			expect(shortNameToLabelsTsName('lpFaqLabels')).toBeNull();
 			expect(shortNameToLabelsTsName('lpSelfhostLabels')).toBeNull();
 		});

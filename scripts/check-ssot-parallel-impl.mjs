@@ -179,7 +179,6 @@ export function extractSharedLabelsJsLpNamespaces(src) {
  *   indexB / pricingB / faqB / pamphletB → LP_<X>_PHASEB_LABELS
  *   indexExtra → LP_INDEX_EXTRA_LABELS
  *   pricingExtra → LP_PRICING_EXTRA_LABELS
- *   licenseKey → LP_LICENSEKEY_LABELS
  *   growthRoadmap → LP_GROWTH_ROADMAP_LABELS
  *   legalDisclaimer → LP_LEGAL_DISCLAIMER_LABELS
  *
@@ -190,7 +189,6 @@ export function shortNameToLabelsTsName(shortName) {
 	// 特殊マッピング (camelCase → 正式 name)
 	/** @type {Record<string, string | null>} */
 	const overrides = {
-		licenseKey: 'LP_LICENSEKEY_LABELS',
 		growthRoadmap: 'LP_GROWTH_ROADMAP_LABELS',
 		legalDisclaimer: 'LP_LEGAL_DISCLAIMER_LABELS',
 		indexExtra: 'LP_INDEX_EXTRA_LABELS',
@@ -200,8 +198,7 @@ export function shortNameToLabelsTsName(shortName) {
 		faqB: 'LP_FAQ_PHASEB_LABELS',
 		pamphletB: 'LP_PAMPHLET_PHASEB_LABELS',
 		// duplicated alias (generate-lp-labels.mjs の互換性のため shared-labels.js に
-		// 残っている `lpLicenseKeyLabels` 等は本検証では namespace としてカウントしない)
-		lpLicenseKeyLabels: null,
+		// 残っている alias は本検証では namespace としてカウントしない)
 		lpFaqLabels: null,
 		lpSelfhostLabels: null,
 	};

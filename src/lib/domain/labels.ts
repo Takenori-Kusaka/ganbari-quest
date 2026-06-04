@@ -1711,48 +1711,12 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	currentPlanLabel: 'プラン',
 	currentPlanStatus: 'ステータス',
 	currentPlanExpiry: '有効期限',
-	currentPlanLicenseKey: 'ライセンスキー',
 	currentPlanFamilyName: '家族名',
 	currentPlanCreatedAt: '登録日',
 
-	// ライセンスキー適用
-	licenseKeyTitle: 'ライセンスキーを適用',
-	licenseKeyDesc:
-		'キャンペーン・サポート窓口から受け取ったライセンスキーを入力して、プランを有効化できます。',
-	licenseKeyApplySuccess: 'ライセンスキーを適用しました。プランが更新されています。',
-	licenseKeyInputLabel: 'ライセンスキー',
-	licenseKeyHelpToggle: 'ライセンスキーについて',
-	licenseKeyHelpOnce: '一回限りの使用',
-	licenseKeyHelpOnceDesc: '一度有効化すると、他のアカウントでは使用できません。',
-	licenseKeyHelpOverwrite: 'プラン上書き',
-	licenseKeyHelpOverwriteDesc: '現在のプランはキーに対応するプランに上書きされます。',
-	licenseKeyHelpBound: '紐付け先',
-	licenseKeyHelpBoundDesc:
-		'現在のアカウント（家族）に紐付き、他の家族へ付け替えることはできません。',
-	licenseKeyHelpIrreversible: '取り消し不可',
-	licenseKeyHelpIrreversibleDesc: '適用後に取り消すことはできません。',
-	licenseKeyApplyButton: 'ライセンスキーを適用',
-
-	// ライセンスキー確認ダイアログ
-	licenseKeyConfirmTitle: 'ライセンスキーを有効化しますか？',
-	licenseKeyConfirmDesc: '入力されたライセンスキーを現在のアカウントに適用します。',
-	licenseKeyConfirmOnce: '一回限り',
-	licenseKeyConfirmOnceDesc: '使用可能です（適用後は他アカウントで使えなくなります）',
-	licenseKeyConfirmPlan: 'プラン',
-	licenseKeyConfirmPlanDesc: 'が自動で付与され、現在のプランは上書きされます',
-	licenseKeyConfirmBoundPrefix: 'このキーは',
-	licenseKeyConfirmBoundSuffix: (tenantName: string) =>
-		`「${tenantName}」に紐付けられ、他の家族に付け替えできません`,
-	licenseKeyConfirmIrreversible: '取り消すことはできません',
-	licenseKeyEnteredKey: '入力されたキー',
-	licenseKeyAgreeOnce: '一回限り使用',
-	licenseKeyAgreeOnceDesc: 'であり、他のアカウントでは使えなくなることに同意します',
-	licenseKeyAgreePrefix: 'このライセンスキーが',
-	licenseKeyCancel: 'キャンセル',
-	licenseKeyConfirmPlanPrefix: 'キーに対応する',
-	licenseKeyConfirmIrreversiblePrefix: '適用を',
-	licenseKeyApplyLoading: '適用中…',
-	licenseKeyApplyConfirm: '適用する',
+	// 注: ライセンスキー適用 / 確認ダイアログ系 key (licenseKey* / currentPlanLicenseKey) は
+	//     Epic #2525 Phase 7 PR-L4 (#2836) license key 全廃に伴い撤去済。entitlement は Stripe
+	//     Subscription (tenant.status=ACTIVE) が唯一 SSOT で、キー入力 UI / 適用ダイアログは存在しない。
 
 	// プランラベル
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
@@ -1868,11 +1832,6 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	demoNoticeOperationsDisabled: '実際の操作はできません',
 	demoNoticeToast: (notice: string) => `${notice} - 実際の操作はできません`,
 	demoNoticeToastText: 'デモでは実際の操作はできません',
-	demoNoticeDesc:
-		'本番の /admin/license と同じ画面構成ですが、Stripe決済・ライセンスキー適用・トライアル開始はすべて無効化されています。クリックしても課金は発生しません。',
-	demoApplySuccessTitle: 'ライセンスキーが適用されました（デモ）',
-	demoApplySuccessDesc: (planName: string) =>
-		`プランが ${planName} に変更されました。これはデモの模擬動作です。実際のプラン変更は行われていません。`,
 	demoCurrentPlanTitle: '現在のプラン（デモ）',
 	demoPlanUsageTitle: 'プラン利用状況',
 	demoPlanUsageActivity: 'カスタム活動',
@@ -1881,18 +1840,8 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	demoPlanUsageRetentionValue: (days: number | null) => (days === null ? '無制限' : `${days}日間`),
 	demoPlanUsageMaxValue: (max: number | null) => (max === null ? '無制限' : String(max)),
 	demoTrialNote: 'デモではトライアルは開始できません',
-	demoLicenseKeyTitle: '💎 ライセンスキーをお持ちの方',
-	demoLicenseKeyDesc: '買い切りライセンスキーをお持ちの場合は、こちらで適用できます。',
-	demoLicenseKeyNote: 'デモでは実際の適用は行われません（画面の変化を体験できます）', // full text including parenthesized part
-	demoLicenseKeyHelpAutoGrant: 'プラン自動付与',
-	demoLicenseKeyHelpAutoGrantDesc: 'キーに対応するプランが自動で付与されます。',
-	demoLicenseKeyHelpBoundDesc: '現在のアカウント（家族）に紐付き、他の家族に付け替えできません。',
-	demoLicenseKeyHelpIrreversibleDesc: '適用後の取り消しはできません。',
-	demoLicenseKeyConfirmBound: (name: string) => `このキーは「${name}」に紐付けられます`,
-	demoLicenseKeyConfirmPlanDesc: 'が自動で付与されます',
-	demoLicenseKeyMockNote: 'これはデモの模擬操作です。実際のキー消費やプラン変更は行われません。',
-	demoLicenseKeyAgreeDesc:
-		'であり、\n\t\t\t\t\t\t\t\t他のアカウントでは使えなくなることに同意します',
+	// 注: demoLicenseKey* / demoApplySuccess* / demoNoticeDesc 等のライセンスキー適用デモ UI 文言は
+	//     Epic #2525 Phase 7 PR-L4 (#2836) license key 全廃に伴い撤去済 (キー適用 UI 不存在)。
 	// #1963: tier 分岐内 atom (PLAN_TERMS) を terms.ts から参照
 	demoCheckoutButton: (tier: string) =>
 		`${tier === 'family' ? PLAN_TERMS.premium : PLAN_TERMS.standard}プランで始める`,
@@ -2225,24 +2174,9 @@ export const SIGNUP_LABELS = {
 	passwordConfirmPlaceholder: 'パスワードを再入力',
 	passwordMismatchError: 'パスワードが一致しません',
 	passwordMatchHint: 'パスワードが一致しました',
-	licenseKeyLabel: 'ライセンスキー',
-	licenseKeyHint: '購入済みのライセンスキーを入力してください',
-	licenseKeyHelpToggle: 'ライセンスキーについて',
-	licenseKeyHelpOnce: '一回限りの使用',
-	licenseKeyHelpOnceDesc: '一度有効化すると、他のアカウントでは使用できません。',
-	licenseKeyHelpAutoDetect: 'プラン自動判定',
-	licenseKeyHelpAutoDetectDesc: `キーに応じて${PLAN_TERMS.standard} / ${PLAN_FULL_TERMS.premium}が自動で付与されます。`,
-	licenseKeyHelpBound: '紐付け先',
-	licenseKeyHelpBoundDesc:
-		'現在登録中のアカウント（家族）に紐付きます。後から他の家族に付け替えることはできません。',
-	licenseKeyHelpExpiry: '有効期限',
-	licenseKeyHelpExpiryDesc: '発行日から所定の期間で失効します（失効後は使用不可）。',
-	licenseKeyOnceAgreePrefix: 'このライセンスキーが',
-	licenseKeyOnceAgreeStrong: '一回限り使用',
-	licenseKeyOnceAgreeSuffix: 'であり、他のアカウントでは使えなくなることに同意します',
-	licenseKeyOnceAgreeError: '一回限り使用への同意が必要です',
-	licenseKeySkipButton: 'ライセンスキーなしで続ける',
-	licenseKeyLinkButton: 'ライセンスキーをお持ちの方',
+	// 注: signup のライセンスキー入力欄 / ヘルプ / 同意 (licenseKey* / submitWithLicenseKey /
+	//     licenseConfirm* / blockLicense*) は Epic #2525 Phase 7 PR-L1 (#2810) でキー入力経路を
+	//     削除済 + PR-L4 (#2836) で残存 label を撤去。サインアップは無料 / トライアル経路のみ。
 	termsAgreePrefix: '',
 	termsAgreeLink: '利用規約',
 	termsAgreeSuffix: 'に同意します',
@@ -2263,7 +2197,6 @@ export const SIGNUP_LABELS = {
 	crossBorderAgreeError: 'サービス提供に必要なデータ保存・処理への同意が必要です',
 	parentalConsentNote: '※ 本サービスは子供のデータを扱います。保護者として上記に同意してください。',
 	submitLoading: '登録中...',
-	submitWithLicenseKey: 'ライセンスキーで登録',
 	submitWithTrial: `${TRIAL_TERMS.duration} 無料体験をはじめる`,
 	submitFree: '無料ではじめる',
 	trialPlanNote: (planName: string) =>
@@ -2277,22 +2210,6 @@ export const SIGNUP_LABELS = {
 	legalSla: 'SLA',
 	legalNoteEnd: 'をご確認ください',
 
-	// ライセンスキー確認ダイアログ
-	licenseConfirmTitle: 'ライセンスキーを有効化しますか？',
-	licenseConfirmKeyLabel: '入力されたキー',
-	licenseConfirmOnce: '一回',
-	licenseConfirmOnceDesc: 'しか使用できません。有効化後は他のアカウントで再利用できません。',
-	licenseConfirmPlanPrefix: 'キーに対応する',
-	licenseConfirmPlanStrong: `プラン（${PLAN_TERMS.standard} / ${PLAN_TERMS.premium}）`,
-	licenseConfirmPlanSuffix: 'が自動で付与されます。',
-	licenseConfirmBoundPrefix: 'このキーは',
-	licenseConfirmBoundEmail: (email: string) => `「${email || '入力中のアカウント'}」`,
-	licenseConfirmBoundSuffix: 'に紐付けられ、後から他の家族に付け替えることはできません。',
-	licenseConfirmExpiry: '有効期限',
-	licenseConfirmExpirySuffix: 'が設定されています。発行から一定期間で失効します。',
-	licenseConfirmCancel: 'キャンセル',
-	licenseConfirmOk: '有効化する',
-
 	// submitBlockReason (JS, shown in template)
 	blockEmailRequired: 'メールアドレスを入力してください',
 	blockPasswordRequired: 'パスワードを入力してください',
@@ -2301,8 +2218,6 @@ export const SIGNUP_LABELS = {
 	blockTermsRequired: '利用規約への同意が必要です',
 	blockPrivacyRequired: 'プライバシーポリシーへの同意が必要です',
 	blockCrossBorderRequired: '米国への個人データ移転への同意が必要です',
-	blockLicenseKeyInvalid: 'ライセンスキーを正しく入力してください',
-	blockLicenseOnceRequired: 'ライセンスキーが一回限り使用であることに同意してください',
 } as const;
 
 // ANALYTICS_LABELS: 削除 (#2284 EPIC #2283)
@@ -2647,61 +2562,9 @@ export const OPS_CANCELLATION_LABELS = {
 	freeTextCategory: (category: string) => `カテゴリ: ${category}`,
 } as const satisfies Record<string, unknown>;
 
-export const OPS_LICENSE_ISSUE_LABELS = {
-	pageTitle: 'OPS - キャンペーンキー発行',
-	backLink: '← ライセンス一覧に戻る',
-
-	// Issue form card
-	cardTitle: 'キャンペーンキー一括発行',
-	cardDesc1:
-		'Stripe を経由せず、プレゼント・サポート補償・キャンペーン配布用のライセンスキーを発行します。',
-	cardDesc2:
-		'発行結果は CSV ダウンロードで受け取り、運営ツール (メール/LINE 等) で配布してください。',
-	cardDesc3: '発行操作はすべて監査ログに記録されます。',
-
-	// Stripe promo details
-	promoCodeSummary: 'Stripe 100% OFF プロモコードを使う場合（#803）',
-	promoCodeDesc1:
-		'公開キャンペーン（SNS 等で URL を配布する）や、Stripe の本人確認を通したい場合は、',
-	promoCodeDesc2Prefix: 'この画面ではなく ',
-	promoCodeDesc2Strong: 'Stripe Dashboard の Coupons / Promotion codes',
-	promoCodeDesc2Suffix1: ' を使ってください。',
-	promoCodeDesc2Suffix2:
-		'100% OFF の Coupon + Promotion code を発行し、「プランを契約する」ボタンから Checkout → プロモコード適用のフローでプランが解放されます。',
-	promoCodeList1: '使い分け・運用手順:',
-	promoCodeList1CodePath: 'docs/design/19-プライシング戦略書.md §8',
-	promoCodeList2:
-		'流出対策: Coupon 作成時に Max redemptions / Expires at / First-time order only を必ず設定',
-	promoCodeList3Prefix: '経路 A (本画面) と経路 B (Stripe) の両方とも、発行結果は ',
-	promoCodeList3Link: '/ops の監査ログ',
-	promoCodeList3Suffix: ' または Stripe Dashboard で確認可能',
-	promoCodeDashboardLink: 'Stripe Dashboard → Coupons を開く',
-
-	// Form fields
-	planLabel: 'プラン（必須）',
-	quantityLabel: '数量（必須・1〜500）',
-	reasonLabel: 'キャンペーン名 / 理由（必須）',
-	reasonPlaceholder: '例: 2026春_幼稚園キャンペーン / CS-1234 補填',
-	reasonHint: '監査ログとレコードの tenantId に記録されます。',
-	expiresAtLabel: '有効期限',
-	expiresAtDefault: 'デフォルト (発行から 90 日)',
-	expiresAtNever: '期限なし (lifetime 的扱い)',
-	tenantIdLabel: '発行プール ID（任意）',
-	tenantIdPlaceholder: '省略時は campaign:<理由> を自動採番',
-	tenantIdHint: 'record.tenantId に入る値。同一キャンペーンで揃えると後から検索しやすい。',
-	submitLoading: '発行中...',
-	submitButton: 'キーを発行する',
-
-	// Issue result
-	resultTitle: (count: number | string) => `発行結果 (${count} 件)`,
-	resultPlanPrefix: 'プラン: ',
-	resultReasonPrefix: '／ 理由: ',
-	resultExpiresPrefix: '／ 有効期限: ',
-	copyAllButton: '全てコピー',
-	downloadCsvButton: 'CSV ダウンロード',
-	errorCount: (count: number | string) =>
-		`${count} 件は発行に失敗しました（ログを確認してください）。`,
-} as const;
+// 注: OPS_LICENSE_ISSUE_LABELS (旧 /ops/license/issue キャンペーンキー発行) は Epic #2525 Phase 7
+//     PR-L4 (#2836) license key 全廃に伴い撤去済 (route は PR-L3 #2818 で物理削除)。割引配布は
+//     Stripe Dashboard の Coupon / Promotion Code 運用に代替 (Phase 1 補強 3 #2788 §3.6 OQ-2)。
 
 export const OPS_REVENUE_LABELS = {
 	pageTitle: 'OPS - 収益',
@@ -3425,46 +3288,9 @@ export const ERROR_PAGE_LABELS = {
 } as const;
 
 // ============================================================
-// Ops ライセンスキー詳細ページ (#1452 Phase B)
+// 注: OPS_LICENSE_KEY_LABELS (旧 /ops/license/[key] 詳細ページ) は Epic #2525 Phase 7 PR-L4
+//     (#2836) license key 全廃に伴い撤去済 (route は PR-L3 #2818 で物理削除)。
 // ============================================================
-
-export const OPS_LICENSE_KEY_LABELS = {
-	// Navigation
-	backLink: '← ライセンス一覧に戻る',
-
-	// Key info
-	keyLabel: 'ライセンスキー',
-	missingRecord: 'レコードなし',
-	noRecordNote:
-		'このキーの永続レコードが見つかりません（SQLite ローカルモードでは永続化されません）。',
-
-	// Detail fields
-	fieldPlan: 'プラン',
-	fieldKind: '種別',
-	fieldIssuedAt: '発行日時',
-	fieldExpiresAt: '有効期限',
-	fieldIssuedBy: '発行者',
-	fieldConsumedBy: '使用テナント',
-	fieldConsumedAt: '使用日時',
-	fieldRevokedAt: '失効日時',
-	fieldRevokedReason: '失効理由',
-	fieldRevokedBy: '失効実行者',
-
-	// Revoke button
-	revokeButton: 'このキーを失効させる',
-
-	// Revoke result messages
-	revokedSuccess: (reason: string) => `キーを失効させました (理由: ${reason})`,
-
-	// Revoke modal
-	modalTitle: 'ライセンスキーを失効させる',
-	modalDesc: 'この操作は取り消せません。失効後、このキーはすぐに validate で拒否されます。',
-	reasonLabel: '失効理由（必須）',
-	noteLabel: 'メモ（任意）',
-	notePlaceholder: 'CS チケット番号や状況メモ',
-	cancelButton: 'キャンセル',
-	submitButton: (submitting: boolean) => (submitting ? '処理中...' : '失効を確定'),
-} as const;
 
 // ============================================================
 // ベンチマーク管理ページ (#1452 Phase B)
@@ -4890,13 +4716,8 @@ export const SWITCH_PAGE_LABELS = {
 	adminLink: `🔒 ${ADMIN_VIEW_TERMS.parent}`,
 } as const;
 
-export const OPS_LICENSE_PAGE_LABELS = {
-	pageTitle: 'OPS - ライセンスキー管理',
-	issueButton: '＋ キャンペーンキーを発行',
-	searchTitle: 'ライセンスキー検索',
-	keyInputLabel: 'ライセンスキー',
-	searchButton: '検索',
-} as const;
+// 注: OPS_LICENSE_PAGE_LABELS (旧 /ops/license dashboard) は Epic #2525 Phase 7 PR-L4 (#2836)
+//     license key 全廃に伴い撤去済 (route は PR-L3 #2818 で物理削除、割引配布は Stripe Coupon 代替)。
 
 export const DEMO_CHALLENGES_LABELS = {
 	sectionTitle: '👥 きょうだいチャレンジ',
@@ -5319,7 +5140,9 @@ export const LP_PRICING_LABELS = {
 	ctaBottomSecondary: 'デモで体験する',
 
 	// #2102 F-1: Tower 型二段 CTA — 「7 日間無料体験」(既存) + 「今すぐ購入」(新規) を並列配置
-	// 月額/年額トグルで billing cycle 選択、Stripe Checkout 経由のライセンスキー発行動線（#815 SES メール配布、#847 /admin/license 適用 UI と連携）。
+	// 月額/年額トグルで billing cycle 選択、Stripe Checkout 経由のサブスクリプション課金動線。
+	// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃に伴い「購入後ライセンスキーをメールで…」を
+	// サブスクリプション整合の文言に置換 (決済後 tenant.status=ACTIVE で即時利用可、key 配布なし)。
 	// #2104 F-3: 既存「CC 登録不要」訴求 5 箇所 (heroSubtextSuffix / planFreePriceSub / trialStep1Desc /
 	// faqAfterTrialA + cta-trust-credit-card.svg) は γ 既存維持で無修正。新 CTA 周辺のみ「決済情報入力必須」注記を併記。
 	billingToggleLegend: 'お支払い周期を選択',
@@ -5327,7 +5150,7 @@ export const LP_PRICING_LABELS = {
 	billingToggleYearly: '年額（2ヶ月分お得）',
 	planStandardDirectCta: `今すぐ購入（${PLAN_TERMS.standard}）`,
 	planFamilyDirectCta: `今すぐ購入（${PLAN_TERMS.premium}）`,
-	directPurchaseNote: '※ 決済情報の入力が必要です。購入後ライセンスキーをメールでお送りします',
+	directPurchaseNote: '※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます',
 	trialCtaNote: `※ ${TRIAL_TERMS.noCreditCard}（${TRIAL_TERMS.durationSpaced}の無料体験経路）`,
 
 	// #2103 F-2: 解約 CTA + FAQ 経路明示（γ ハイブリッド: アプリ内 1-click → Stripe Customer Portal）
@@ -6134,8 +5957,9 @@ export const UI_COMPONENTS_LABELS = {
 
 	// ---- Logo ----
 	logoAlt: 'がんばりクエスト',
-	logoPlanStandard: '⭐ スタンダード',
-	logoPlanFamily: '⭐⭐ ファミリー',
+	logoPlanStandard: `⭐ ${PLAN_TERMS.standard}`,
+	// Phase 7 PR-L4 (#2836): 顧客可視の header plan badge を premium atom 参照化 (ADR-0058)。
+	logoPlanFamily: `⭐⭐ ${PLAN_TERMS.premium}`,
 
 	// #2295 (EPIC #2294 ①): MonthlyRewardDialog 関連ラベル削除済 (2026-05-19)
 
@@ -6351,11 +6175,12 @@ export const FEATURES_LABELS = {
 	},
 
 	// ---- features/admin/components/ AI suggest 共通 ----
+	// Phase 7 PR-L4 (#2836): 顧客可視の AI suggest gate 文言を premium atom 参照化 (ADR-0058)。
 	aiSuggestCommon: {
-		familyOnlyBadge: 'ファミリー限定',
-		familyOnlyError: (kind: string) => `${kind}はファミリープランでご利用いただけます`,
-		familyOnlyDescription: (kind: string) => `${kind}はファミリープランで解放されます。`,
-		familyUpgradeBtn: 'ファミリープランにアップグレード',
+		familyOnlyBadge: `${PLAN_TERMS.premium}限定`,
+		familyOnlyError: (kind: string) => `${kind}は${PLAN_FULL_TERMS.premium}でご利用いただけます`,
+		familyOnlyDescription: (kind: string) => `${kind}は${PLAN_FULL_TERMS.premium}で解放されます。`,
+		familyUpgradeBtn: `${PLAN_FULL_TERMS.premium}にアップグレード`,
 		thinkingLabel: '考え中...',
 		suggestBtn: '提案する',
 		retryBtn: 'やり直す',
@@ -6594,8 +6419,11 @@ export const FEATURES_LABELS = {
 	// ---- features/admin/components/PlanStatusCard ----
 	planStatusCard: {
 		freePlan: `${PLAN_FULL_TERMS.free}`,
-		standardPlan: 'スタンダード プラン',
-		familyPlan: 'ファミリー プラン',
+		// Phase 7 PR-L4 (#2836): /admin/subscription の現在プランカードを premium atom 参照化 (ADR-0058)。
+		// 旧「スタンダード プラン」「ファミリー プラン」直書きは family→premium rename 漏れだった。
+		// 短縮 atom + 「 プラン」(空白付き) で従来の表示文字列を維持する。
+		standardPlan: `${PLAN_TERMS.standard} プラン`,
+		familyPlan: `${PLAN_TERMS.premium} プラン`,
 		unlimited: '無制限',
 		retentionDays: (days: number) => `${days}日間`,
 		trialBadge: (days: number) => `トライアル中（残り${days}日）`,
@@ -6608,7 +6436,8 @@ export const FEATURES_LABELS = {
 		makeContractBtn: '本契約する',
 		upgradeBtn: '⭐ スタンダードにアップグレード',
 		planDetailLink: 'プランの詳細',
-		familyUpgradeBtn: '⭐⭐ ファミリーへ',
+		// Phase 7 PR-L4 (#2836): premium atom 参照化 (ADR-0058、family→premium rename 漏れ)。
+		familyUpgradeBtn: `⭐⭐ ${PLAN_TERMS.premium}へ`,
 	},
 
 	// ---- features/admin/components/ActivityImportPanel (#2391 で物理削除済) ----
@@ -6706,64 +6535,9 @@ export const PUSH_NOTIFICATION_LABELS = {
 // LP Pages added dynamically
 // ============================================================
 
-// #1957 (Phase 3 D12): LP_LICENSEKEY_LABELS atom 化対象は text125 ('無料で始める') のみ。
-//                     既に `${FREE_TERMS.tryFree}` 参照済 (#1916/#1917 系)。他 text* は
-//                     ライセンスキー仕様 / FAQ / お問い合わせ連絡用文言で terms.ts atom 該当なし。
-//                     PLAN/PRICE/TRIAL/CANCEL/CTA いずれの atom にも合致するリテラルを含まない。
-export const LP_LICENSEKEY_LABELS = {
-	text1: 'ライセンスキーの使い方 - がんばりクエスト ヘルプ',
-	text2: 'ライセンスキーの使い方',
-	text3: '最終更新日: 2026年4月17日',
-	text4: 'ライセンスキーとは',
-	text5: 'ライセンスキーは ',
-	text6: ' から始まる英数字のコードで、以下のような形式です。',
-	text7: `購入完了後、ご登録のメールアドレスに自動で送信されます。${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページでもいつでも確認できます。`,
-	text8: '適用手順（3ステップ）',
-	text9: `${ADMIN_VIEW_TERMS.canonical}にログイン`,
-	text10: 'ライセンスキーを入力',
-	text11: '「適用する」を押す',
-	text12: 'ライセンス管理を開く',
-	text13: 'ご注意',
-	text14: '1回限りの使用',
-	text15: '有効期限',
-	text16: '第三者への共有禁止',
-	// #1896 (PO-4-10): 旧 text17: 'よくある質問' を LP_FAQ_TERMS.canonicalLong 参照化
-	//   ('よくあるご質問' に統一)。本 namespace は selfhost.html license key 管理 FAQ 見出し。
-	text17: `${LP_FAQ_TERMS.canonicalLong}`,
-	text18: 'メールが届きません',
-	text19: '迷惑メールフォルダをご確認ください。',
-	text20: ' からのメールが届いていない場合、以下をお試しください。',
-	text21: `${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページでキーを直接確認する`,
-	text22: `${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からサポートに連絡する`,
-	text23: '「ライセンスキーが不正です」と表示されます',
-	text24: 'キーの入力ミスの可能性があります。以下を確認してください。',
-	text25: 'メールからコピー＆ペーストで入力する（手入力だとミスが起きやすいです）',
-	text26: '先頭や末尾に余分なスペースがないか確認する',
-	text27: '大文字・小文字は自動で変換されるので気にしなくて大丈夫です',
-	text28: '「このライセンスキーは既に使用されています」と表示されます',
-	text29: 'キーは1回限り有効です。既に別のアカウントで使用済みの場合は再利用できません。',
-	text30: `身に覚えがない場合は、${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からサポートにご連絡ください。`,
-	text31: '「このライセンスキーは有効期限が切れています」と表示されます',
-	text32: 'ライセンスキーには有効期限（通常90日）があり、期限を過ぎると使用できなくなります。',
-	text33: `新しいキーの発行が必要な場合は、${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からサポートにご連絡ください。`,
-	text34: '別のデバイスでもキーを使えますか？',
-	text35:
-		'ライセンスキーは1つのアカウント（家族グループ）に対して有効です。同じアカウントでログインすれば、どのデバイスからでも有料機能をご利用いただけます。',
-	text36: 'お問い合わせ',
-	text37: `上記で解決しない場合は、${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からご連絡ください。`,
-	text38: 'お問い合わせの際は、以下の情報を添えていただけるとスムーズです。',
-	text39: 'ご登録のメールアドレス',
-	text40: 'ライセンスキーの最初の7文字（例: GQ-ABCD）',
-	text41: '表示されたエラーメッセージ',
-	text44: 'ライセンスキーは、がんばりクエストの有料プランを有効にするためのコードです。',
-	text45: `購入後にメールでお届けするキーを、${ADMIN_VIEW_TERMS.canonical}から入力するだけで有料機能が使えるようになります。`,
-	text46:
-		'がんばりクエストにログインし、左メニューまたはナビゲーションから「ライセンス」ページを開きます。',
-	text47: '「ライセンスキーを入力」欄に、メールで届いたキーをコピー＆ペーストします。',
-	text48: '手入力の場合はハイフンも含めて正確に入力してください。',
-	text49: 'ボタンを押すと、有料プランが即座に有効になります。',
-	text50: '画面に「適用完了」と表示されれば成功です。',
-} as const;
+// 注: LP_LICENSEKEY_LABELS (旧 site/help/license-key.html 用) は Epic #2525 Phase 7 PR-L4 (#2836)
+//     license key 全廃 + help ページ完全削除に伴い撤去済。`/help/license-key` → `/admin/subscription`
+//     301 redirect (LEGACY_URL_MAP) で bookmark / 外部リンクを救済する。
 
 // #1896 (PO-4-10): text1 / text2 を LP_FAQ_TERMS.canonicalLong 参照化（用語 SSOT 集約）。
 export const LP_FAQ_LABELS = {
