@@ -4608,6 +4608,21 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	addOverrideButton: '📅 ワンオフ追加',
 	// #2778 (Cluster D / User 指摘 #1 ボタン重複解消): 2 並列 button → 「+ 追加」dropdown menu 集約 (Hick's Law)
 	addMenuButton: '+ 追加',
+	// #2903 (EPIC #2897): add 経路を activities (ActivitiesHeader) と同型に統一。
+	//   AI 提案パネル直置きを撤去し「+ 追加」dropdown 内の選択肢 (手動 / AI / テンプレから探す / ワンオフ) に格納する。
+	//   icon / 文言は activities header の add menu (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
+	//   両ページの add 経路構成 (種類・順序) が一致することを E2E で assert 可能にする (AC3 同型性固定)。
+	addMenuAriaLabel: 'チェックリストを追加するメニューを開く',
+	addManualLabel: '手動で1つ追加',
+	addManualIcon: '✏️',
+	addAiLabel: 'AI で提案してもらう',
+	addAiIcon: '✨',
+	addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesIcon: '🔍',
+	addOverrideMenuLabel: 'ワンオフ追加',
+	addOverrideMenuIcon: '📅',
+	// add dialog title (mode 別、activities の addDialogTitle* と同型)
+	addDialogTitleAi: 'AI で提案してもらう',
 	todayOverrideTitle: '📅 本日のワンオフ',
 	formKindLabel: '種別',
 	formIconLabel: 'アイコン',
