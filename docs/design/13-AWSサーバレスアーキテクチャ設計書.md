@@ -130,7 +130,6 @@
 
 | ルール名 | スケジュール (UTC) | JST 換算 | 対応ジョブ |
 |---------|-----------------|---------|----------|
-| `ganbari-quest-cron-license-expire` | `cron(0 15 * * ? *)` | 00:00 | license-expire |
 | `ganbari-quest-cron-retention-cleanup` | `cron(0 16 * * ? *)` | 01:00 | retention-cleanup |
 | `ganbari-quest-cron-trial-notifications` | `cron(0 0 * * ? *)` | 09:00 | trial-notifications |
 | `ganbari-quest-cron-lifecycle-emails` (#1601) | `cron(30 0 * * ? *)` | 09:30 | lifecycle-emails (期限切れ前リマインド + 休眠復帰メール) |
@@ -141,6 +140,7 @@
 
 - スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
 - ターゲット: `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`)
+- `ganbari-quest-cron-license-expire` は license key 全廃 (#2822 / Epic #2525 Phase 7 PR-L3) で撤去済。期限管理は Stripe `customer.subscription.deleted` webhook に代替
 - `lifecycle-emails` (#1601, ADR-0023 §5 I11): 親オーナー宛のみ送信。年 6 回マーケティングメール上限を遵守。List-Unsubscribe ヘッダ + 配信停止リンク必須。Anti-engagement 整合 (中立トーン)。
 - `deletion-warning-emails` (#2399, **Phase 1 計画**): `softDeleteTenant` で `physical_deletion_date` が記録されたテナントの所有者宛に削除予告メールを送信。family プラン 14 日前 / standard プラン 1 日前 (グレース 7 日のため 14 日前は到達不能)。idempotency は `settings.deletion_warning_sent_at` で保証。**法務通知扱いのため `marketing-email-counter` (年 6 回上限) には乗せない**。詳細は [`docs/runbooks/account-deletion-email-automation.md`](../runbooks/account-deletion-email-automation.md) (#2399 本 PR で計画策定)
 - **検証手順 / runbook**: [`docs/runbooks/cron-3-endpoints-verification.md`](../runbooks/cron-3-endpoints-verification.md) (#1377 Sub A-3)
