@@ -43,14 +43,6 @@
 		"incrementDownloadCount",
 		"insert"
 	],
-	"src/lib/server/db/dynamodb/message-repo.ts": [
-		"countUnshownMessages",
-		"deleteByTenantId",
-		"findMessages",
-		"findUnshownMessage",
-		"insertMessage",
-		"markMessageShown"
-	],
 	"src/lib/server/db/dynamodb/report-daily-summary-repo.ts": [
 		"deleteByTenantId",
 		"deleteOlderThan",
