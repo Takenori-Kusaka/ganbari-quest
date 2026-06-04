@@ -87,7 +87,9 @@ let levelTitleInputs: Record<number, string> = $state({});
 	<title>{PAGE_TITLES.statusBenchmark}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-6">
+<!-- #2905: ❓ ページガイド (STATUS_GUIDE) のアンカー。全 admin ページで ? が機能する規約のため
+	page-guide-registry に登録し、本 wrapper を起点ステップの selector に紐付ける。 -->
+<div class="space-y-6" data-tutorial="status-report">
 	<div class="flex items-center justify-end">
 		<a
 			href="/admin/children"
@@ -105,7 +107,7 @@ let levelTitleInputs: Record<number, string> = $state({});
 			</h3>
 
 			<!-- ベンチマーク比較レーダーチャート (G7) -->
-			<div class="flex justify-center mb-4">
+			<div class="flex justify-center mb-4" data-tutorial="status-radar">
 				<RadarChart
 					categories={previewRadarCategories}
 					comparisonValues={previewChild.benchmarkValues}

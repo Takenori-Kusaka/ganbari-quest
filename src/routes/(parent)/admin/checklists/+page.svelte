@@ -506,8 +506,9 @@ function getChildName(childId: number): string {
 	<title>{PAGE_TITLES.checklists}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-4" data-testid="admin-checklists-page">
+<div class="space-y-4" data-testid="admin-checklists-page" data-tutorial="checklists-page">
 	<!-- #2362 PR-5 Phase 2: page header + OverflowMenu (top-right ⋮) -->
+	<!-- #2905: ❓ ページガイド (CHECKLISTS_GUIDE) の起点アンカーは本 wrapper (data-tutorial="checklists-page")。 -->
 	<header class="flex items-start justify-between gap-2">
 		<div class="space-y-1 flex-1 min-w-0">
 			<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
@@ -595,7 +596,7 @@ function getChildName(childId: number): string {
 		     表示 section として E2E (marketplace-checklist-import / bug1-import-dead-end /
 		     goal-flows-exemplar) が依存しているため testid を維持する。in-page UnifiedImportHub
 		     browse UI は本 PR で撤去し、marketplace への遷移 link に置換 (DESIGN.md §10)。 -->
-		<section data-testid="marketplace-import-section">
+		<section data-testid="marketplace-import-section" data-tutorial="checklists-marketplace">
 			{#if marketplaceImportMessage}
 				<div
 					class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"

@@ -223,7 +223,9 @@ function tabHref(childId: number | 'all'): string {
 	<title>{PAGE_TITLES.challenges}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-4">
+<!-- #2905: ❓ ページガイド (CHALLENGES_GUIDE) のアンカー。free-plan gate 表示でも常に存在する
+	最外 wrapper に紐付け、page-guide-registry 登録で全 admin ページの ? 機能を回復する。 -->
+<div class="space-y-4" data-tutorial="challenges-page">
 	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
 		<div class="rounded-xl border bg-white p-4">
 			<div class="flex items-center gap-2 mb-2">
@@ -298,7 +300,7 @@ function tabHref(childId: number | 'all'): string {
 		marketplace 取込メッセージ + secondary link「みんなのテンプレートを見る」(empty state /
 		運用期到達性、DESIGN.md §10「bulk import bridge ルール」整合) は保持。
 	-->
-	<section data-testid="challenges-marketplace-import-section">
+	<section data-testid="challenges-marketplace-import-section" data-tutorial="challenges-marketplace">
 		{#if marketplaceImportMessage}
 			<div
 				class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] flex flex-wrap items-center gap-2"
