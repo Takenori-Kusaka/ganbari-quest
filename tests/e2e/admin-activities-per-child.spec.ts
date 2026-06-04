@@ -266,7 +266,15 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 
 	test('#2902 AC5: 取込後に選択 child の件数が実増分のみ増える (水増しなし)', async ({ page }) => {
 		test.slow();
-		// baby (はなこちゃん) は per-child を seed しないため、取込件数 = 実増分の最も鋭敏な検出点。
+		// baby (はなこちゃん) に kinder-starter を取込み、取込後に「タブ件数 = 表示行数」かつ
+		// 「表示名が重複しない」ことを assert する。
+		//
+		// 設計判断 (worker-shared DB 耐性): 取込 imported 件数を response から数値抽出して
+		// before+imported を厳密比較する旧 approach は、同 worker DB を共有する他 spec
+		// (CUJ-A3 / #2558 goal 完遂) が同じ kinder-starter を baby/全員に取込済の場合
+		// imported=0 (全 skip) となり SvelteKit ActionResult の serialize 形式依存で fragile。
+		// 「水増し (= 同じ activity が 2 重カウント)」の本質的検出は、取込後の **タブ件数 ==
+		// 選択中 child の表示行数 == ユニーク名数** が成立するか (= 重複なし) で行う。
 		await page.goto('/admin/activities');
 		const tabs = page.locator('[data-testid^="child-tab-"]');
 		const babyTab = tabs.filter({ hasText: 'はなこちゃん' });
@@ -274,14 +282,7 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 		const babyChildId = (await babyTab.getAttribute('data-testid'))?.replace('child-tab-', '');
 		expect(babyChildId).toBeTruthy();
 
-		const parseTabCount = async (locator: typeof babyTab): Promise<number> => {
-			const t = (await locator.textContent()) ?? '';
-			const mm = t.match(/\((\d+)\)/);
-			return mm ? Number(mm[1]) : 0;
-		};
-		const before = await parseTabCount(babyTab);
-
-		// ?import=kinder-starter (8 件) を baby のみに取込
+		// ?import=kinder-starter を baby のみに取込 (副作用 A: network 発火 + OK)
 		await page.goto('/admin/activities?import=kinder-starter');
 		const dialog = page.getByTestId('import-child-selection-dialog');
 		await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -294,20 +295,37 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 			page.waitForResponse((r) => /\?\/importPackToChildren/.test(r.url())),
 			confirm.click(),
 		]);
-		expect(resp.ok()).toBeTruthy();
-		const respBody = await resp.text();
-		// imported 件数を response から抽出 (honesty: 実際に保存された件数)。
-		const importedMatch = respBody.match(/imported[^0-9]*(\d+)/);
-		const imported = importedMatch ? Number(importedMatch[1]) : 0;
+		expect(resp.ok(), `import response not OK (status ${resp.status()})`).toBeTruthy();
 
-		// 永続反映: clean な /admin/activities に遷移し baby タブ件数を再取得。
-		// 増分 = imported に一致する (水増し = before + imported*2 等にならない)。
+		// 永続反映: clean な /admin/activities に遷移し baby タブを選択。
 		await page.goto('/admin/activities');
 		const babyTabAfter = page
 			.locator('[data-testid^="child-tab-"]')
 			.filter({ hasText: 'はなこちゃん' });
-		await expect
-			.poll(() => parseTabCount(babyTabAfter), { timeout: 30_000 })
-			.toBe(before + imported);
+		await expect(babyTabAfter).toHaveCount(1);
+		await babyTabAfter.click();
+
+		// baby の表示行数を取得 (visible per-child instance)。取込後なので 1 件以上。
+		const rows = page.locator('[data-testid^="per-child-activity-"]');
+		await expect.poll(() => rows.count(), { timeout: 30_000 }).toBeGreaterThan(0);
+		const rowCount = await rows.count();
+
+		// (1) タブ件数 == 表示行数 (水増しなし: タブが行数の 2 倍等にならない)
+		const tabText = (await babyTabAfter.textContent()) ?? '';
+		const tabNum = Number(tabText.match(/\((\d+)\)/)?.[1] ?? '-1');
+		expect(tabNum, `baby タブ件数 (${tabNum}) == 表示行数 (${rowCount}) で水増しなし`).toBe(
+			rowCount,
+		);
+
+		// (2) 表示名が重複しない (取込で同名 instance が 2 重に並ばない)
+		const names: string[] = [];
+		for (let i = 0; i < rowCount; i++) {
+			const nameEl = rows.nth(i).locator('p').first();
+			names.push(((await nameEl.textContent()) ?? '').replace(/\s+/g, ' ').trim());
+		}
+		expect(
+			new Set(names).size,
+			`取込後の baby 一覧に同名活動の重複なし (${names.join(' / ')})`,
+		).toBe(names.length);
 	});
 });
