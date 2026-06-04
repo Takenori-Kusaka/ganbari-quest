@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	checkAcMap,
 	checkEnvDistributionForHotfix,
+	checkSelfReviewEvidence,
 	detectMojibake,
 	extractAcMapSection,
 	extractEnvDistributionSection,
@@ -557,5 +558,82 @@ TODO: 後日テスト追加。
 		expect(findUncheckedReadyChecklist(body)).toEqual([]);
 		expect(checkAcMap(body)).toBeNull();
 		expect(scanForbiddenTerms(body)).toEqual([]);
+	});
+});
+
+describe('checkSelfReviewEvidence (#2475 Phase 2 / #2815 D-1)', () => {
+	it('[x] 自己宣言があり証跡コマンドが 1 件も無い → violation', () => {
+		const body = [
+			'## コード品質セルフレビュー (#1481)',
+			'',
+			'- [x] **SOLID**: 単一責任を確認した',
+			'- [x] **DRY**: 重複なしを確認した',
+			'',
+			'## QM レビュー結果',
+			'',
+			'問題なし',
+		].join('\n');
+		const v = checkSelfReviewEvidence(body);
+		expect(v).not.toBeNull();
+		expect(v?.id).toBe('self-review-evidence-missing');
+		expect(v?.message).toContain('2 件');
+	});
+
+	it('[x] 自己宣言 + 証跡コマンド (backtick grep) がある → null', () => {
+		const body = [
+			'## AC 検証マップ (ADR-0004)',
+			'',
+			'| AC1 | 重複除去 | `grep -rn "dup" src/` | PASS: 0 件 |',
+			'',
+			'## コード品質セルフレビュー (#1481)',
+			'',
+			'- [x] **DRY**: 上記 grep で重複なしを確認',
+		].join('\n');
+		expect(checkSelfReviewEvidence(body)).toBeNull();
+	});
+
+	it('セルフレビュー系セクションに [x] が 1 件も無い → null (空テンプレ段階は対象外)', () => {
+		const body = [
+			'## コード品質セルフレビュー (#1481)',
+			'',
+			'- [ ] **SOLID**: 未確認',
+			'',
+			'## 横展開・影響波及チェック',
+			'',
+			'- [x] N/A — 並行実装の影響範囲外',
+		].join('\n');
+		// セルフレビュー外セクションの [x] はカウントしない
+		expect(checkSelfReviewEvidence(body)).toBeNull();
+	});
+
+	it('テスト & 安全装置セルフチェックの [x] も検出対象 (証跡なしなら violation)', () => {
+		const body = [
+			'## テスト & 安全装置セルフチェック',
+			'',
+			'- [x] 追加・変更したテストの概要: N/A',
+		].join('\n');
+		const v = checkSelfReviewEvidence(body);
+		expect(v?.id).toBe('self-review-evidence-missing');
+	});
+
+	it('証跡は fenced code block 内のコマンドでも認める', () => {
+		const body = [
+			'## テスト & 安全装置セルフチェック',
+			'',
+			'- [x] vitest PASS を確認:',
+			'',
+			'実行: `npx vitest run tests/unit/scripts/` → 12 passed',
+		].join('\n');
+		expect(checkSelfReviewEvidence(body)).toBeNull();
+	});
+
+	it('markdown コメント内の [x] はカウントしない', () => {
+		const body = [
+			'## コード品質セルフレビュー (#1481)',
+			'',
+			'<!-- - [x] テンプレ例: ここはコメント -->',
+			'- [ ] **SOLID**: 未確認',
+		].join('\n');
+		expect(checkSelfReviewEvidence(body)).toBeNull();
 	});
 });
