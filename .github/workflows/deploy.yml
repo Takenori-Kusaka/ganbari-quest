@@ -302,7 +302,7 @@ jobs:
         run: |
           aws lambda invoke \
             --function-name ganbari-quest-cron-dispatcher \
-            --payload '{"cronJob":"license-expire","dryRun":true}' \
+            --payload '{"cronJob":"retention-cleanup","dryRun":true}' \
             --cli-binary-format raw-in-base64-out \
             --region $AWS_REGION \
             cron-dispatcher-response.json
