@@ -25,7 +25,7 @@
 ### 0.2 関連ドキュメント
 
 - 解約フロー詳細: [`plan-change-flow.md`](plan-change-flow.md) §3 / §3.0 / §3.0.6
-- ライセンスキー期限切れと無料プラン移行: [`license-key-requirements.md`](license-key-requirements.md) §2.9
+- 解約・失効と無料プラン移行: `docs/design/billing-redesign/` (license key は Epic #2525 で全廃。`license-key-requirements.md` §2.9 は deprecated、歴史記録)
 - 利用規約での明示: [`site/terms.html`](../../site/terms.html) 第7条 / 第13条
 
 ---

@@ -587,7 +587,9 @@ Customer Portal 経由のみ。Portal 内の「プラン変更」UI から切り
 
 ---
 
-## 11. ライセンスキー方式でのプラン変更 — Phase 1 α（#2100 PO 8 項目 #5 を反映）
+## 11. ライセンスキー方式でのプラン変更 — Phase 1 α（#2100 PO 8 項目 #5 を反映）— deprecated (Epic #2525 で全廃)
+
+> **deprecated (Epic #2525 license key 全廃)**: 本章が記述する「ライセンスキー方式でのプラン変更」は全廃された。プラン変更は Stripe Subscription (Customer Portal / Checkout) が唯一の経路で、license key の発行・併存・revoke は消滅した。`license-key-requirements.md` / `license-subscription-causality.md` はいずれも deprecated (歴史記録)。現行のプラン変更フロー SSOT は `docs/design/billing-redesign/` (`phase1-plan-change-requirements.md` 等)。本章は当時の設計の歴史記録として残す。
 
 ### 11.1 設計背景
 

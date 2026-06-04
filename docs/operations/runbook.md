@@ -3,7 +3,7 @@
 ## 関連 runbook
 
 - [stripe-dashboard-runbook.md](stripe-dashboard-runbook.md) — Stripe Dashboard 立ち上げ / 月次運用 / Refund / Chargeback / Customer 検索（#2101）
-- [license-key-secrets.md](license-key-secrets.md) — HMAC シークレット運用 / 鍵ローテーション
+- [license-key-secrets.md](license-key-secrets.md) — HMAC シークレット運用 / 鍵ローテーション (deprecated — license key 全廃 Epic #2525 / PR-L5 #2879 完遂、`AWS_LICENSE_SECRET` は CI/CDK から撤去済。歴史記録)
 - [notification-runbook.md](notification-runbook.md) — 通知機能（#2 Push + #3 Email）動作確認 / トラブルシューティング（#2190）
 
 ---
@@ -100,9 +100,11 @@ curl -s https://ganbari-quest.com/api/health | jq .
 
 ## シークレット運用
 
+> **注 (deprecated — license key 全廃 Epic #2525 / PR-L5 #2879 完遂)**: 本節の `AWS_LICENSE_SECRET` (ライセンスキー HMAC シークレット) は license key 機構全廃に伴い CI / CDK / GitHub Secrets から撤去済。entitlement 付与は Stripe Subscription webhook が唯一の経路となり、HMAC シークレットの生成・ローテーション・漏洩時対応は現役運用手順ではない。以下表行は歴史記録。
+
 | 対象 | 手順書 |
 |------|-------|
-| ライセンスキー HMAC シークレット (`AWS_LICENSE_SECRET`) | [license-key-secrets.md](./license-key-secrets.md) — 生成・ローテーション・漏洩時対応 |
+| ライセンスキー HMAC シークレット (`AWS_LICENSE_SECRET`、deprecated) | [license-key-secrets.md](./license-key-secrets.md) — 生成・ローテーション・漏洩時対応 (deprecated — license key 全廃 Epic #2525 / PR-L5 #2879 完遂、`AWS_LICENSE_SECRET` は CI/CDK から撤去済。歴史記録) |
 
 ## 連絡先・リソース
 

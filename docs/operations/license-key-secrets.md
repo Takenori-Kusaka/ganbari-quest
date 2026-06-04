@@ -1,5 +1,9 @@
 # ライセンスキー HMAC シークレット運用手順書
 
+<!-- doc-status: deprecated -->
+
+> **deprecated (2026-06-04, Epic #2525 license key 全廃 PR-L0〜L5 #2807/#2812/#2814/#2822/#2841/#2879)**: 本書が対象とする `AWS_LICENSE_SECRET` / `AWS_LICENSE_SECRET_PREVIOUS` シークレットは license key 機構の全廃に伴い PR-L5 (PR #2879) で CDK / Secrets / GitHub Variables の 3 系統から撤去された。HMAC 署名・キー検証は消滅したため本シークレット運用は不要。歴史的記録として保全する。
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |
