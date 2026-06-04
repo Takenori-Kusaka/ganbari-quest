@@ -1,6 +1,6 @@
 <script lang="ts">
 import { deserialize, enhance } from '$app/forms';
-import { invalidateAll } from '$app/navigation';
+import { goto, invalidateAll } from '$app/navigation';
 import { getActionErrorDisplay } from '$lib/domain/errors';
 import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
@@ -83,6 +83,11 @@ let overrideAction = $state('add');
 let overrideName = $state('');
 let overrideIcon = $state('📦');
 
+// #2903 (EPIC #2897): AI 提案ダイアログ。
+//   従来は AI 提案パネルをページ本文に直置きしていたが、activities (ActivitiesHeader) と同型に
+//   「+ 追加」dropdown 内の選択肢 → Dialog で開く方式に統一する (DESIGN.md §10 add 経路 ≤ 4)。
+let aiDialogOpen = $state(false);
+
 const FREQUENCY_OPTIONS = [
 	{ value: 'daily', label: 'まいにち' },
 	{ value: 'weekday:月', label: '月よう' },
@@ -123,22 +128,38 @@ function timeSlotLabel(slot: string): string {
 const COMMON_ICONS = ['🏫', '👕', '👟', '🎨', '🎵', '📚', '🧹', '🍱', '💧', '📦', '🎒', '✏️'];
 
 // Dialog exclusion: only one dialog open at a time
-const anyDialogOpen = $derived(addItemOpen || addTemplateOpen || overrideOpen);
+const anyDialogOpen = $derived(addItemOpen || addTemplateOpen || overrideOpen || aiDialogOpen);
 
-// #2778 (Cluster D / User 指摘 #1 ボタン重複解消): 2 並列 button (テンプレート作成 / ワンオフ追加) を
-// 「+ 追加」dropdown menu に集約 (Hick's Law / DESIGN.md §10「add 経路 ≤ 4 ルール」/ #2558 段階2 横展開)。
+// #2903 (EPIC #2897): 「+ 追加」dropdown を activities (ActivitiesHeader.addMenuItems) と同型に統一する。
+//   旧: AI 提案パネル本文直置き + dropdown は (テンプレート作成 / ワンオフ追加) の 2 項目 (#2778)。
+//   新: dropdown 内に (手動 / AI / みんなのテンプレートから探す / ワンオフ) を格納し、活動管理と
+//       「操作の入口が同じ」状態にする (PO 指摘 #6b「UI を統一」)。
+//   並び順は activities と同一 (manual → ai → browse → page 固有) にし、両ページの add 経路構成
+//   (種類・順序) が一致することを E2E (admin-add-path-isomorphism.spec.ts) が assert する (AC3)。
 const addMenuItems = $derived<MenuItem[]>([
 	{
-		id: 'add-template',
-		label: ADMIN_CHECKLISTS_PAGE_LABELS.addTemplateButton,
-		icon: '✏️',
+		id: 'manual',
+		label: ADMIN_CHECKLISTS_PAGE_LABELS.addManualLabel,
+		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addManualIcon,
 		disabled: atLimit,
 		onSelect: openAddTemplate,
 	},
 	{
-		id: 'add-override',
-		label: ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideButton,
-		icon: '📅',
+		id: 'ai',
+		label: ADMIN_CHECKLISTS_PAGE_LABELS.addAiLabel,
+		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addAiIcon,
+		onSelect: openAiDialog,
+	},
+	{
+		id: 'browse',
+		label: ADMIN_CHECKLISTS_PAGE_LABELS.addBrowseTemplatesLabel,
+		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addBrowseTemplatesIcon,
+		onSelect: handleAddBrowse,
+	},
+	{
+		id: 'override',
+		label: ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideMenuLabel,
+		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideMenuIcon,
 		onSelect: openOverride,
 	},
 ]);
@@ -172,6 +193,19 @@ function openOverride() {
 	overrideOpen = true;
 }
 
+// #2903 (EPIC #2897): AI 提案を dropdown 内の選択肢 → Dialog で開く (activities の addMode='ai' と同型)。
+function openAiDialog() {
+	if (anyDialogOpen) return;
+	aiDialogOpen = true;
+}
+
+// #2903 (EPIC #2897): 「みんなのテンプレートから探す」は admin 内 browse UI を出さず /marketplace へ遷移
+//   (activities handleAddSelect('browse') と同型、DESIGN.md §10 マーケットプレイス一本化)。
+//   取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog の正規経路に合流する。
+function handleAddBrowse() {
+	void goto('/marketplace?type=checklist');
+}
+
 function frequencyLabel(freq: string): string {
 	const opt = FREQUENCY_OPTIONS.find((o) => o.value === freq);
 	return opt?.label ?? freq;
@@ -192,6 +226,8 @@ function acceptAiChecklist(preview: ChecklistPreviewData) {
 	aiTemplateName = preview.templateName;
 	aiTemplateIcon = preview.templateIcon;
 	aiItemsJson = JSON.stringify(preview.items);
+	// #2903: 採用したら AI ダイアログを閉じる (activities の acceptAiPreview → dialog 閉じと同型)。
+	aiDialogOpen = false;
 	// tick 後にフォーム送信
 	requestAnimationFrame(() => {
 		aiFormEl?.requestSubmit();
@@ -506,8 +542,9 @@ function getChildName(childId: number): string {
 	<title>{PAGE_TITLES.checklists}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-4" data-testid="admin-checklists-page">
+<div class="space-y-4" data-testid="admin-checklists-page" data-tutorial="checklists-page">
 	<!-- #2362 PR-5 Phase 2: page header + OverflowMenu (top-right ⋮) -->
+	<!-- #2905: ❓ ページガイド (CHECKLISTS_GUIDE) の起点アンカーは本 wrapper (data-tutorial="checklists-page")。 -->
 	<header class="flex items-start justify-between gap-2">
 		<div class="space-y-1 flex-1 min-w-0">
 			<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
@@ -563,8 +600,8 @@ function getChildName(childId: number): string {
 	{#if selectedChild}
 		<!-- #1755 (#1709-A): kind タブ削除 — 持ち物純化（旧 'routine' は activities.priority='must' に役割移管） -->
 
-		<!-- #720: AI チェックリスト提案パネル -->
-		<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={data.planTier === 'family'} />
+		<!-- #2903 (EPIC #2897): AI 提案パネルの本文直置きを撤去。activities (ActivitiesHeader) と同型に
+		     「+ 追加」dropdown → AI ダイアログ (下部 aiDialogOpen) で開く方式に統一した (PO 指摘 #6b)。 -->
 
 		<!-- #720: AI提案の隠しフォーム -->
 		<form
@@ -595,7 +632,7 @@ function getChildName(childId: number): string {
 		     表示 section として E2E (marketplace-checklist-import / bug1-import-dead-end /
 		     goal-flows-exemplar) が依存しているため testid を維持する。in-page UnifiedImportHub
 		     browse UI は本 PR で撤去し、marketplace への遷移 link に置換 (DESIGN.md §10)。 -->
-		<section data-testid="marketplace-import-section">
+		<section data-testid="marketplace-import-section" data-tutorial="checklists-marketplace">
 			{#if marketplaceImportMessage}
 				<div
 					class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
@@ -1017,6 +1054,13 @@ function getChildName(childId: number): string {
 			{ADMIN_CHECKLISTS_PAGE_LABELS.addButton}
 		</Button>
 	</form>
+</Dialog>
+
+<!-- #2903 (EPIC #2897): AI 提案ダイアログ。activities (addMode='ai' → Dialog 内 AiSuggestPanel) と同型。
+     プレミアム gate の文脈提示は AiSuggestChecklistPanel 内部の familyOnlyDescription(kind) が
+     機能名 (AI チェックリスト提案) 込みで担う (#2901 contextual paywall 整合、AC2)。 -->
+<Dialog bind:open={aiDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.addDialogTitleAi} testid="checklists-ai-dialog">
+	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={data.planTier === 'family'} />
 </Dialog>
 
 <!-- #2362 PR-5 Phase 2: ChildSelectionDialog (auto-open via `?import=<presetId>`) -->
