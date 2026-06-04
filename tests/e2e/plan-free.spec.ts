@@ -43,6 +43,26 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await expect(page.getByTestId('plan-status-free-cta')).toBeVisible();
 	});
 
+	// #2901 AC4 (contextual paywall): free / trial 未使用ユーザーの TrialBanner (not-started) は
+	// 「全機能無料」だけでなく「無料版で制限される機能」を機能名込みで列挙し、
+	// やりたい事をやろうとしたら無料版では出来ない、に気づける状態を作る (PO 指摘 #4)。
+	test('/admin ホームの TrialBanner が制限機能を機能名込みで列挙する (#2901 AC4)', async ({
+		page,
+	}) => {
+		await page.goto('/admin');
+		// not-started バナー本体が出る (dev-tenant-free は trial 未使用)。
+		const banner = page.getByTestId('trial-banner-not-started');
+		await expect(banner).toBeVisible({ timeout: 30_000 });
+		// 制限機能の列挙ブロックが表示される (contextual paywall の核)。
+		const gated = page.getByTestId('trial-banner-gated-features');
+		await expect(gated).toBeVisible();
+		// 機能名 (FEATURE_LABELS SSOT 由来) が読める形で出る = generic な訴求ではない。
+		await expect(gated).toContainText('AI');
+		await expect(gated).toContainText('ごほうび');
+		// アップグレード/トライアル開始導線が併置される (NN/G #9 error recovery 同型)。
+		await expect(page.getByTestId('trial-banner-start-button')).toBeVisible();
+	});
+
 	test('/admin/reports — weekly-report-upsell バナーが表示される', async ({ page }) => {
 		await page.goto('/admin/reports');
 		// #735: 無料プラン向け upsell はタブの外に出し、ページ到達時点で常に表示される

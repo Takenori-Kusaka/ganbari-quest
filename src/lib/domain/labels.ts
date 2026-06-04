@@ -647,6 +647,20 @@ export const TRIAL_LABELS = {
 	bannerDescNotStarted: `${PLAN_LABELS.standard}のすべての機能をお使いいただけます。${TRIAL_TERMS.noCreditCardMid}。`,
 	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
 	bannerCtaStart: `${TRIAL_TERMS.duration} ${ACTION_LABELS.freeTrialWord}`,
+	// #2901 AC2 (contextual paywall): generic な「全機能無料」訴求だけでは「どの機能が
+	// 無料版で使えないのか」をユーザーが recognition できない (PO 指摘 #4、NN/G #6
+	// recognition rather than recall)。not-started バナーに free 版で制限される主要機能を
+	// 列挙し「やりたい事をやろうとしたら無料版では出来ない、に気づく」体験を作る。
+	// 機能名は FEATURE_LABELS / CHILD_TERMS SSOT から参照し直書きしない (ADR-0045)。
+	// ダークパターン (偽の緊急性・解約妨害) は含めない (ADR-0012 anti-engagement)。
+	bannerGatedHeading: '無料版では制限される機能',
+	bannerGatedFeatures: [
+		`${FEATURE_LABELS.activity}の作成を無制限に`,
+		`${CHILD_TERMS.honorific}の登録を無制限に`,
+		FEATURE_LABELS.aiActivitySuggest,
+		`特別な${FEATURE_LABELS.reward}設定`,
+		FEATURE_LABELS.dataExport,
+	] as readonly string[],
 	bannerCtaSubmitting: ACTION_LABELS.submitting,
 	bannerTitleExpired: `${ACTION_LABELS.freeTrial}が終了しました`,
 	bannerDescExpired: `${ACTION_LABELS.upgrade}で全機能をご利用いただけます。`,
