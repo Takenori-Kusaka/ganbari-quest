@@ -185,11 +185,3 @@ aws dynamodb update-item \
 > 本 migration の default `'parent'` は **送信側で skip されない安全側の値**（`notification-service.ts` の二重防御を通過）。`'owner'` への昇格が必要な場合のみ手動修正する。
 
 `subscriberRole` 属性自体を削除する逆 migration は **意図的に提供しない**（NULL 混在防止 / ADR-0031 の趣旨）。
-
----
-
-## 8. 履歴
-
-| 日付 | 版 | 変更内容 |
-|------|----|---------|
-| 2026-04-29 | 1.0 | 初版（#1666） |

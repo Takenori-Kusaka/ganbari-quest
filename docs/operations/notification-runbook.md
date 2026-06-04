@@ -209,14 +209,6 @@ aws ses get-identity-verification-attributes \
 
 ---
 
-## 改訂履歴
-
-| 日付 | 版数 | 内容 |
-|------|------|------|
-| 2026-05-18 | 1.0 | #2190 初版作成（EPIC 統括 doc、8 通知種別の動作確認手順 + トラブルシューティング SSOT 化）|
-
----
-
 ## 付録: 詳細動作確認 runbook (Push + Email 8 系統、#2227 PR-B 統合)
 
 # Notification Runbook — Push + Email 配布証跡 + 動作確認
