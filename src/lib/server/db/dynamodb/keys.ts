@@ -117,6 +117,32 @@ export function childActivityPrefix(): string {
 	return 'CHILDACT#';
 }
 
+/**
+ * Child challenge instance (#2362 PR-7 / ADR-0055): PK=CHILD#<cId>, SK=CHILDCHAL#<id>
+ *
+ * per-child challenge instance を child partition 配下に配置する (child_activities /
+ * activity_logs 等と同じ child scope レイアウト)。これにより `findByChildId` は
+ * 単一 partition Query (begins_with(SK, 'CHILDCHAL#')) で完結し、GSI を追加せず
+ * cross-child access を構造的に防ぐ (ADR-0055 §3.1)。
+ *
+ * SQLite `child_challenges` table と機能等価。childActivityKey と同型 (Phase 1 #2820)。
+ */
+export function childChallengeKey(
+	childId: number,
+	challengeId: number,
+	tenantId: string,
+): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `CHILDCHAL#${padId(challengeId)}`,
+	};
+}
+
+/** Child challenge SK prefix for querying all challenges of a child */
+export function childChallengePrefix(): string {
+	return 'CHILDCHAL#';
+}
+
 /** Activity log: PK=CHILD#<cId>, SK=LOG#<date>#<id> */
 export function activityLogKey(
 	childId: number,
@@ -736,6 +762,7 @@ export const ENTITY_NAMES = {
 	category: 'category',
 	activity: 'activity',
 	childActivity: 'childActivity',
+	childChallenge: 'childChallenge',
 	activityLog: 'activityLog',
 	pointLedger: 'pointLedger',
 	status: 'status',

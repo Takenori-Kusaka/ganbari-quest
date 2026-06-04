@@ -33,22 +33,6 @@
 		"hasCertificate",
 		"issueCertificate"
 	],
-	"src/lib/server/db/dynamodb/child-challenge-repo.ts": [
-		"claimReward",
-		"copyAcrossChildren",
-		"delete",
-		"deleteByTenantId",
-		"findActiveByChildId",
-		"findActiveOrUnclaimedByChildId",
-		"findAllByTenant",
-		"findByChildId",
-		"findById",
-		"insert",
-		"insertBulk",
-		"markCompleted",
-		"update",
-		"updateProgress"
-	],
 	"src/lib/server/db/dynamodb/cloud-export-repo.ts": [
 		"countByTenant",
 		"deleteById",
