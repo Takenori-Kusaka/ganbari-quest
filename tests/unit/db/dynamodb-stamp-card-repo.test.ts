@@ -361,6 +361,7 @@ describe('updateCardStatus', () => {
 	});
 
 	it('card が見つからないとき Update せず no-op', async () => {
+		// 全ページ走査 (LastEvaluatedKey 無し) して 1 件も一致しない → undefined → no-op。
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { updateCardStatus } = await loadRepo();
 		await updateCardStatus(
@@ -370,6 +371,60 @@ describe('updateCardStatus', () => {
 		);
 		// Scan のみ、Update 0 件。
 		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+
+	it('対象 card が 2 ページ目に来る Scan でも見つけて Update する (#2842 Limit:1+Filter 誤用回帰)', async () => {
+		// DynamoDB Scan の Limit は filter 適用「前」の評価上限。旧実装は Limit:1 のため
+		// 1 ページ目に対象が無いと空振りして silent no-op → redeem が黙って失敗していた。
+		// 本テストは「1 ページ目 = 非一致 (filter 落ち) で空 Items + LastEvaluatedKey、
+		// 2 ページ目 = 対象 card」を emulate し、pagination で必ず到達することを固定する。
+		mockSend
+			// 1) findCardItemById Scan page 1: filter で全部落ちて Items 空 + 続きあり
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p1', SK: 'p1' } })
+			// 2) findCardItemById Scan page 2: 対象 card がここで一致
+			.mockResolvedValueOnce({
+				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: `STMPCARD#${WEEK_START}` }],
+			})
+			// 3) UpdateCommand
+			.mockResolvedValueOnce({});
+
+		const { updateCardStatus } = await loadRepo();
+		await updateCardStatus(
+			CARD_ID,
+			{
+				status: 'redeemed',
+				redeemedPoints: 60,
+				redeemedAt: '2026-06-07T00:00:00Z',
+				updatedAt: '2026-06-07T00:00:00Z',
+			},
+			TENANT,
+		);
+
+		// Scan 2 ページ + Update 1 回 = 3 send。Update に正しい PK/SK が渡る。
+		expect(mockSend).toHaveBeenCalledTimes(3);
+		const page1 = mockSend.mock.calls[0]?.[0] as { input: { ExclusiveStartKey?: unknown } };
+		const page2 = mockSend.mock.calls[1]?.[0] as { input: { ExclusiveStartKey?: unknown } };
+		// 旧実装は Limit:1 で 1 ページ目しか引かず、ExclusiveStartKey も渡していなかった。
+		expect(page1.input.ExclusiveStartKey).toBeUndefined();
+		expect(page2.input.ExclusiveStartKey).toEqual({ PK: 'p1', SK: 'p1' });
+		const upd = mockSend.mock.calls[2]?.[0] as { input: { Key?: { PK: string; SK: string } } };
+		expect(upd.input.Key?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
+		expect(upd.input.Key?.SK).toBe(`STMPCARD#${WEEK_START}`);
+	});
+
+	it('Scan に Limit を付けない (filter 前評価上限による空振り防止、#2842)', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: `STMPCARD#${WEEK_START}` }],
+		});
+		mockSend.mockResolvedValueOnce({});
+		const { updateCardStatus } = await loadRepo();
+		await updateCardStatus(
+			CARD_ID,
+			{ status: 'redeemed', redeemedPoints: 60, redeemedAt: 't', updatedAt: 't' },
+			TENANT,
+		);
+		const scan = mockSend.mock.calls[0]?.[0] as { input: { Limit?: number } };
+		expect(scan.input.Limit).toBeUndefined();
 	});
 });
 
@@ -421,6 +476,23 @@ describe('updateCardStatusIfCollecting', () => {
 			),
 		).toBe(0);
 		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+
+	it('対象 card が 2 ページ目に来る Scan でも見つけて 1 を返す (#2842 回帰)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p1', SK: 'p1' } })
+			.mockResolvedValueOnce({
+				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: `STMPCARD#${WEEK_START}` }],
+			})
+			.mockResolvedValueOnce({});
+		const { updateCardStatusIfCollecting } = await loadRepo();
+		const affected = await updateCardStatusIfCollecting(
+			CARD_ID,
+			{ status: 'redeemed', redeemedPoints: 50, redeemedAt: 't', updatedAt: 't' },
+			TENANT,
+		);
+		expect(affected).toBe(1);
+		expect(mockSend).toHaveBeenCalledTimes(3);
 	});
 });
 

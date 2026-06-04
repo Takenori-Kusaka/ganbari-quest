@@ -20,7 +20,9 @@
 //       渡らない) ため card 自身を partition key にした専用 partition に置く。
 //       単一 partition Query で全 entry を取得でき追加 GSI 不要 (ADR-0055 §3.1)。
 //   cardId だけで引く updateCardStatus* は低頻度 (週次 redeem) のため tenant Scan + id filter
-//   で PK/SK を解決する (reward-redemption-repo.updateRedemptionRequestStatus と同パターン)。
+//   で PK/SK を解決する。Scan は ExclusiveStartKey で全ページ走査し一致 item を探す
+//   (DynamoDB Scan の Limit は filter 適用「前」の評価件数上限なので Limit:1 + Filter は
+//    対象が scan 順先頭でない限り空振りする。#2842 修正)。
 //
 // stamp master JOIN:
 //   SQLite の findEntriesWithMasterByCardId は stamp_entries LEFT JOIN stamp_masters で
@@ -321,28 +323,40 @@ async function queryCardEntries(
 /**
  * cardId だけ受け取る update* 用に、tenant 配下を Scan して card item (PK/SK) を解決する。
  * card は child partition (PK=CHILD#<cId>, SK=STMPCARD#<weekStart>) に分散し childId が
- * 不明なため、tenant Scan + id filter で 1 件特定する (reward-redemption-repo と同パターン)。
+ * 不明なため、tenant Scan + id filter で 1 件特定する。
  * redeem は週次・低頻度のため Pre-PMF では GSI 不要 (ADR-0010)。
+ *
+ * 重要 (#2842): DynamoDB Scan の `Limit` は **FilterExpression 適用前**に評価する item 数の
+ * 上限であり、filter 通過後の返却件数ではない。`Limit: 1` + Filter だと「scan 順の先頭 item が
+ * たまたま対象 card」でない限り Items が空になり、updateCardStatus* が silent no-op → redeem
+ * が黙って失敗していた。よって `Limit` は付けず `ExclusiveStartKey` で全ページを走査し、
+ * 一致 item を見つけ次第 early return する (queryCardEntries の entry Query loop と同じ
+ * ページング正パターン)。1 件も無ければ全ページ走査後に undefined を返す。
  */
 async function findCardItemById(
 	cardId: number,
 	tenantId: string,
 ): Promise<{ PK: string; SK: string } | undefined> {
-	const result = await getDocClient().send(
-		new ScanCommand({
-			TableName: TABLE_NAME,
-			FilterExpression:
-				'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
-			ExpressionAttributeValues: {
-				':tenantPrefix': tenantPK('CHILD#', tenantId),
-				':skPrefix': CARD_PREFIX,
-				':id': cardId,
-			},
-			ProjectionExpression: 'PK, SK',
-			Limit: 1,
-		}),
-	);
-	const item = (result.Items ?? [])[0];
-	if (!item) return undefined;
-	return { PK: item.PK as string, SK: item.SK as string };
+	const doc = getDocClient();
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await doc.send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
+				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
+					':skPrefix': CARD_PREFIX,
+					':id': cardId,
+				},
+				ProjectionExpression: 'PK, SK',
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		const item = (result.Items ?? [])[0];
+		if (item) return { PK: item.PK as string, SK: item.SK as string };
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+	return undefined;
 }
