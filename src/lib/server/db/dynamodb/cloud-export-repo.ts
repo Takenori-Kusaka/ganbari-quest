@@ -19,16 +19,11 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import type { CloudExportRecord, InsertCloudExportInput } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import {
-	cloudExportKey,
-	cloudExportSKPrefix,
-	cloudExportTenantPK,
-	ENTITY_NAMES,
-} from './keys';
+import { cloudExportKey, cloudExportSKPrefix, cloudExportTenantPK, ENTITY_NAMES } from './keys';
 import { stripKeys } from './repo-helpers';
-import type { CloudExportRecord, InsertCloudExportInput } from '../types';
 
 function mapItem(item: Record<string, unknown>): CloudExportRecord {
 	return stripKeys(item) as unknown as CloudExportRecord;

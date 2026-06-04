@@ -12,12 +12,18 @@
 //     (cancellation-reason-repo と同じ Pre-PMF 方針、ADR-0010)。
 //   - id は SQLite auto-increment 互換のため counter.ts で採番し item 属性に保持。
 
-import { DeleteCommand, GetCommand, PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	DeleteCommand,
+	GetCommand,
+	PutCommand,
+	ScanCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
+import type { InsertViewerTokenInput, ViewerToken } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import { ENTITY_NAMES, VIEWER_TOKEN_PK_PREFIX, viewerTokenKey } from './keys';
 import { stripKeys } from './repo-helpers';
-import type { InsertViewerTokenInput, ViewerToken } from '../types';
 
 function mapItem(item: Record<string, unknown>): ViewerToken {
 	return stripKeys(item) as unknown as ViewerToken;
