@@ -19,7 +19,7 @@ import {
 	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
 } from '$lib/domain/labels';
-import { CHILD_TERMS, TEMPLATE_TERMS } from '$lib/domain/terms';
+import { CHILD_TERMS, CONCEPT_ICONS, TEMPLATE_TERMS } from '$lib/domain/terms';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
@@ -560,7 +560,7 @@ async function handleCopyFromChild() {
 			class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
 			data-testid="rewards-marketplace-browse-link"
 		>
-			📦 {TEMPLATE_TERMS.browse}
+			{CONCEPT_ICONS.template} {TEMPLATE_TERMS.browse}
 		</a>
 	</section>
 

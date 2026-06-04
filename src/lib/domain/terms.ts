@@ -970,6 +970,52 @@ export const PIN_DEFAULT_TERMS = {
 } as const;
 
 // ============================================================
+// CONCEPT_ICONS — システム概念 → 絵文字アイコンの SSOT atom (#2899)
+// ============================================================
+//
+// システム上の固定概念 (活動 / ごほうび / チェックリスト / ルール / チャレンジ /
+// みんなのテンプレート / AI 提案 / ヘルプ) に紐づくアイコン絵文字を 1 箇所に集約する。
+// CSS 3 層トークン (ADR-0042) / terms.ts 2 層 (ADR-0045) と同型で、
+// 「同一概念 = 同一アイコン」を SSOT で保証する。
+//
+// 設計指針 (#2899 / research T4 / DESIGN.md §7):
+//   - 対象は「システム文言に付く固定概念アイコン」のみ。
+//   - **ユーザーがカスタマイズする活動・チェックリスト項目のアイコンは対象外**
+//     (asset-catalog.md「活動アイコンはユーザーがカスタマイズする前提」)。
+//     COMMON_ICONS picker / item.icon / stamp emoji 等のデータ値は本 atom の管轄外。
+//   - marketplace / overflow menu / 各 admin 一覧の「概念を指すアイコン」のみ集約する。
+//
+// 値の根拠 (既存 SSOT との整合を最優先。同一概念に複数アイコンが既に存在する場合は
+//          リポジトリ既存の正規アイコンへ合わせる):
+//   - activity  : 📝 (ノート / 記入)。実績バッジ activity_master が 📝 を使用
+//                 (asset-catalog.md「実績バッジ一覧」)。checklist の 📋 と視覚的に
+//                 区別でき、活動 = 記録する行為のメタファに整合する。
+//                 旧 📦 (段ボール) は「箱詰め」の含意で活動概念に不適合だったため是正。
+//   - reward    : ごほうび = ギフト 🎁 (MARKETPLACE_TYPE_ICONS 既存値)
+//   - checklist : 📋 (クリップボード)。`src/lib/domain/icons.ts` の ICON_CHECKLIST が
+//                 既に 📋 をチェックリスト概念の正規アイコンとして定義済 (子供ナビ
+//                 /checklist タブ + DB default)。本 atom は同値に合わせ「同一概念 =
+//                 同一アイコン」を担保する (✅ は activity との混同を招くため不採用)。
+//                 ※ icons.ts は domain 内 nav アイコン層で本 atom (marketplace / overflow
+//                   概念アイコン層) とは責務が異なるため import 共有はせず、値一致 +
+//                   本コメントで紐付ける (層を跨ぐ循環 import を避ける)。
+//   - rule      : ルール = 巻物 📜 (MARKETPLACE_TYPE_ICONS 既存値)
+//   - challenge : チャレンジ = 的 🎯 (MARKETPLACE_TYPE_ICONS 既存値)
+//   - template  : みんなのテンプレート = 店先 🏪 (取込元 marketplace。旧 📦 を統一)
+//   - aiSuggest : AI 提案 🤖 / help : ヘルプ ❓ (OVERFLOW_MENU_TERMS 既存値の昇格)
+
+export const CONCEPT_ICONS = {
+	activity: '📝',
+	reward: '🎁',
+	checklist: '📋', // = src/lib/domain/icons.ts ICON_CHECKLIST と同値 (checklist 概念 SSOT)
+	rule: '📜',
+	challenge: '🎯',
+	template: '🏪',
+	aiSuggest: '🤖',
+	help: '❓',
+} as const;
+
+// ============================================================
 // OVERFLOW_MENU_TERMS — admin route 共通 ⋮ menu atom (EPIC #2362 PR-2)
 // ============================================================
 //
@@ -988,15 +1034,15 @@ export const PIN_DEFAULT_TERMS = {
 export const OVERFLOW_MENU_TERMS = {
 	openLabel: 'メニューを開く',
 	itemMarketplace: 'みんなのテンプレから取込',
-	itemMarketplaceIcon: '📦',
+	itemMarketplaceIcon: CONCEPT_ICONS.template,
 	itemAiSuggest: 'AI で提案してもらう',
-	itemAiSuggestIcon: '🤖',
+	itemAiSuggestIcon: CONCEPT_ICONS.aiSuggest,
 	itemRestore: 'バックアップから復元',
 	itemRestoreIcon: '⬇',
 	itemExport: 'エクスポート',
 	itemExportIcon: '⬆',
 	itemHelp: 'このページのヘルプ',
-	itemHelpIcon: '❓',
+	itemHelpIcon: CONCEPT_ICONS.help,
 } as const;
 
 // ============================================================

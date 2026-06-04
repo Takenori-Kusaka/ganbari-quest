@@ -109,6 +109,46 @@ const TERM_LITERAL_RULES = [
 ];
 
 // ---------------------------------------------------------------------------
+// CONCEPT_ICON_RULES (#2899) — システム概念アイコンの直書き検出
+//
+// 設計指針 (research T4 / DESIGN.md §6-§7):
+//   - システム概念 (みんなのテンプレート / marketplace 取込) を指すアイコン絵文字は
+//     `src/lib/domain/terms.ts` の CONCEPT_ICONS atom 経由で参照させる。
+//   - **ユーザーがカスタマイズする活動・チェックリスト項目のアイコン (item.icon /
+//     COMMON_ICONS picker / stamp emoji 等のデータ値) は対象外** (asset-catalog.md)。
+//     そのため「概念 emoji を一律禁止」ではなく、marketplace 取込導線で概念アイコンを
+//     SSOT を介さず直書きする pattern (旧 `📦 {TEMPLATE_TERMS.browse}` 等) のみを検出する。
+//   - matcher は「概念 emoji + 空白 + {TEMPLATE_TERMS.* / marketplaceSeeMore / .browse}」を
+//     ピンポイントで捕捉し、誤検知 (データ値の 📦 等) を出さない。
+//   - 検出時の修正方針: `{CONCEPT_ICONS.template} {TEMPLATE_TERMS.browse}` の形に置換する。
+//
+// 対象 emoji: 📦 (旧 marketplace concept icon、🏪 へ統一) / 🏪 (template) を marketplace
+//             取込導線で直書きした場合。
+//
+// 【守備範囲の明示 (#2899 QM Re-Review AC5 正直化)】:
+//   本ルールは「全 8 概念アイコンの直書きを一律検出する全面ガードではない」。
+//   template 概念 (📦/🏪) が marketplace 取込導線 (`{TEMPLATE_TERMS.* / .browse /
+//   marketplaceSeeMore}` 隣接) で直書きされる **特定アンチパターンの regression guard**
+//   に限定する。他 7 概念アイコン (📝 activity / 📋 checklist / 🎁 reward / 📜 rule /
+//   🎯 challenge / 🤖 aiSuggest / ❓ help) を bare emoji で検出しないのは、これらが
+//   ユーザーデータ値 (item.icon / COMMON_ICONS picker / stamp emoji / badge emoji /
+//   tutorial chapter icon 等) として正当に多用され、raw regex では概念 vs データ値を
+//   判別できず false-positive 多発が不可避なため (本 script が短縮プラン名「スタンダード」
+//   を検出対象外とする L54-57 の保守的設計方針と整合)。概念アイコンの SSOT 集約自体は
+//   CONCEPT_ICONS atom + コードレビューで担保し、本 lint は再発頻度の高い 1 パターンに
+//   絞った機械ガードとして機能する。
+// ---------------------------------------------------------------------------
+
+const CONCEPT_ICON_RULES = [
+	{
+		// 旧 `📦 {TEMPLATE_TERMS.browse}` / 新 `🏪 {TEMPLATE_TERMS.browse}` 等の直書き
+		matcher: /[📦🏪]\s*\{\s*(?:TEMPLATE_TERMS\.|[A-Z_]+\.(?:browse|marketplaceSeeMore))/u,
+		constant: 'CONCEPT_ICONS.template',
+		kind: 'concept-icon',
+	},
+];
+
+// ---------------------------------------------------------------------------
 // SEARCH_ROOTS / EXTENSIONS
 // ---------------------------------------------------------------------------
 
@@ -253,6 +293,8 @@ function checkFile(filePath) {
 	const allRules = [
 		...VALUE_LITERAL_RULES.map((r) => ({ ...r, matcher: makeValueMatcher(r.pattern) })),
 		...TERM_LITERAL_RULES.map((r) => ({ ...r, matcher: makeTermMatcher(r.pattern) })),
+		// CONCEPT_ICON_RULES (#2899) は matcher を直接持つ (pattern は report 用 label)
+		...CONCEPT_ICON_RULES.map((r) => ({ ...r, pattern: 'concept-icon 直書き' })),
 	];
 
 	let inBlockComment = false;
@@ -300,9 +342,10 @@ function main() {
 	}
 	const valueFindings = allFindings.filter((f) => f.kind === 'value');
 	const termFindings = allFindings.filter((f) => f.kind === 'term');
+	const iconFindings = allFindings.filter((f) => f.kind === 'concept-icon');
 	console.error(
 		`[check-no-plan-literals] NG — ${allFindings.length} 件のリテラル直書きを検出しました ` +
-			`(value: ${valueFindings.length} 件 / term: ${termFindings.length} 件):\n`,
+			`(value: ${valueFindings.length} 件 / term: ${termFindings.length} 件 / concept-icon: ${iconFindings.length} 件):\n`,
 	);
 	for (const f of allFindings) {
 		console.error(`  ${f.file}:${f.line}`);
@@ -319,13 +362,16 @@ function main() {
 		'  - kind=term : src/lib/domain/terms.ts の atom (PLAN_FULL_TERMS / PRICE_TERMS / TRIAL_TERMS / CANCEL_TERMS / FREE_TERMS) を import (#1916 ADR-0045)',
 	);
 	console.error(
+		'  - kind=concept-icon (#2899): src/lib/domain/terms.ts の CONCEPT_ICONS atom を import し、marketplace 取込導線では `{CONCEPT_ICONS.template} {TEMPLATE_TERMS.browse}` の形にする (概念アイコン直書き禁止)。ユーザーカスタマイズ item.icon / COMMON_ICONS は対象外',
+	);
+	console.error(
 		'  - allowlist (Phase 5 F1 #1918): src/lib/domain/terms.ts / src/lib/domain/labels.ts / docs/ / tests/ / *.test.ts / *.spec.ts',
 	);
 	process.exit(1);
 }
 
 // テスト用 export
-export { checkFile, shouldExclude, TERM_LITERAL_RULES, VALUE_LITERAL_RULES };
+export { CONCEPT_ICON_RULES, checkFile, shouldExclude, TERM_LITERAL_RULES, VALUE_LITERAL_RULES };
 
 // CLI エントリ (直接実行時のみ)
 const isMain =

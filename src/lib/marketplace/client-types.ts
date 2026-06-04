@@ -64,9 +64,10 @@ export const MARKETPLACE_TYPE_METAS_CLIENT: readonly MarketplaceTypeMeta[] = [
 	},
 	{
 		typeCode: 'rule-preset',
-		displayLabel: 'ルールセット',
+		// #2899: server registry Descriptor / MARKETPLACE_TYPE_LABELS と一致 (UnifiedImportHub.test.ts L82 parity)
+		displayLabel: 'とくべつルール',
 		description:
-			'マーケットプレイス公式のルールセット (例: ポイント交換 / 連続ボーナス、4 ruleType 対応)',
+			'マーケットプレイス公式のとくべつルール (例: ポイント交換 / 連続ボーナス、4 ruleType 対応)',
 		requiresChildId: false,
 	},
 	{

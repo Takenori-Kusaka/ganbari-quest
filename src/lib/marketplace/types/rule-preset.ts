@@ -29,9 +29,11 @@ import type { MarketplaceTypeDescriptor } from '$lib/marketplace/types.js';
 /** rule-preset Descriptor (Registry に登録される本体) */
 export const rulePresetDescriptor: MarketplaceTypeDescriptor<'rule-preset', RulePresetPayload> = {
 	typeCode: 'rule-preset',
-	displayLabel: 'ルールセット',
+	// #2899: MARKETPLACE_TYPE_LABELS['rule-preset'] (marketplace-item.ts) と一致させる
+	// (DESIGN.md §6 marketplace type 命名規則「2 つの SSOT を一致させる」)。
+	displayLabel: 'とくべつルール',
 	description:
-		'マーケットプレイス公式のルールセット (例: ポイント交換 / 連続ボーナス、4 ruleType 対応)',
+		'マーケットプレイス公式のとくべつルール (例: ポイント交換 / 連続ボーナス、4 ruleType 対応)',
 	strategy: rulePresetStrategy,
 	requiresChildId: false,
 	schema: RulePresetPayloadSchema,
