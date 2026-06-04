@@ -126,26 +126,33 @@
   - `dryRun: true` payload で env 注入確認のみ実行可 (副作用なし、smoke test 用)
 - 実装: `infra/lambda/cron-dispatcher/index.ts`
 
-**EventBridge Rules (#1376):**
+**Cron ジョブ一覧 (#1376):**
 
-| ルール名 | スケジュール (UTC) | JST 換算 | 対応ジョブ |
-|---------|-----------------|---------|----------|
-| `ganbari-quest-cron-retention-cleanup` | `cron(0 16 * * ? *)` | 01:00 | retention-cleanup |
-| `ganbari-quest-cron-trial-notifications` | `cron(0 0 * * ? *)` | 09:00 | trial-notifications |
-| `ganbari-quest-cron-lifecycle-emails` (#1601) | `cron(30 0 * * ? *)` | 09:30 | lifecycle-emails (期限切れ前リマインド + 休眠復帰メール) |
-| `ganbari-quest-cron-pmf-survey` (#1598) | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | pmf-survey (Sean Ellis Test 配信) |
-| `ganbari-quest-cron-analytics-aggregator-daily` (#1693) | `cron(0 18 * * ? *)` | 03:00 | analytics-aggregator-daily (前日分 funnel + cancellation 事前集計) |
-| `ganbari-quest-cron-challenge-aggregator-daily` (#1742) | `cron(30 18 * * ? *)` | 03:30 | challenge-aggregator-daily (当日分の全テナント `questionnaire_challenges` スナップショット集計、`/ops/analytics` プリセット分布画面の N+1 移行用) |
-| `ganbari-quest-cron-deletion-warning-emails` (#2399, **Phase 1 で追加予定**) | `cron(0 0 * * ? *)` | 09:00 | deletion-warning-emails (アカウント削除予約済テナントの所有者へ削除予告メール送信。family プラン 14 日前 / standard プラン 1 日前) |
+スケジュール SSOT は `src/lib/server/cron/schedule-registry.ts`。本表は registry の全 8 ジョブと 1:1 で対応する。
+「EventBridge」列は AWS 本番でジョブを駆動する EventBridge Rule (`infra/lib/compute-stack.ts` の `CRON_JOBS`) の有無、
+「dispatcher」列は cron-dispatcher Lambda の `KNOWN_ENDPOINTS` (`infra/lambda/cron-dispatcher/index.ts`) への登録有無を示す。
+NUC セルフホスト版は AWS を経由せず `scripts/scheduler.ts` が registry 全 8 ジョブを node-cron で直接駆動するため、
+EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 
-- スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
-- ターゲット: `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`)
+| ジョブ (registry name) | スケジュール (UTC) | JST 換算 | EventBridge | dispatcher | 概要 |
+|---------|-----------------|---------|:-:|:-:|----------|
+| retention-cleanup | `cron(0 16 * * ? *)` | 毎日 01:00 | ✓ | ✓ | 保存期間超過データの自動削除バッチ (#717 / #729) |
+| trial-notifications | `cron(0 0 * * ? *)` | 毎日 09:00 | ✓ | ✓ | トライアル終了通知バッチ (#737) |
+| age-recalc | `cron(0 15 * * ? *)` | 毎日 00:00 | ✗ | ✗ | 子供の年齢自動インクリメント (#1381)。**AWS EventBridge / dispatcher 未登録のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** (`schedule-consistency.test.ts` で既知 drift として明示) |
+| lifecycle-emails | `cron(30 0 * * ? *)` | 毎日 09:30 | ✓ | ✓ | 期限切れ前リマインド + 休眠復帰メール (#1601, ADR-0023 §5 I11) |
+| grace-period-deletion | `cron(0 17 * * ? *)` | 毎日 02:00 | ✗ | ✓ | グレースピリオド期限切れテナントの物理削除バッチ (#1648 R43, `grace-period-service.ts`)。**dispatcher には登録済だが AWS EventBridge Rule 未作成のため AWS 本番では未駆動、現状は NUC scheduler のみで起動** |
+| pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
+| analytics-aggregator-daily | `cron(0 18 * * ? *)` | 毎日 03:00 | ✓ | ✓ | 前日分 funnel + cancellation 事前集計バッチ (#1693, #1639 follow-up) |
+| challenge-aggregator-daily | `cron(30 18 * * ? *)` | 毎日 03:30 | ✓ | ✓ | 当日分の全テナント `questionnaire_challenges` スナップショット集計、`/ops/analytics` プリセット分布画面の N+1 移行用 (#1742, #1602) |
+
+- ターゲット: AWS では `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`) が EventBridge から起動され `/api/cron/:job` を HTTP POST する
+- AWS EventBridge Rule 名は `ganbari-quest-cron-<job-name>` (例: `ganbari-quest-cron-retention-cleanup`)
 - `ganbari-quest-cron-license-expire` は license key 全廃 (#2822 / Epic #2525 Phase 7 PR-L3) で撤去済。期限管理は Stripe `customer.subscription.deleted` webhook に代替
 - `lifecycle-emails` (#1601, ADR-0023 §5 I11): 親オーナー宛のみ送信。年 6 回マーケティングメール上限を遵守。List-Unsubscribe ヘッダ + 配信停止リンク必須。Anti-engagement 整合 (中立トーン)。
-- `deletion-warning-emails` (#2399, **Phase 1 計画**): `softDeleteTenant` で `physical_deletion_date` が記録されたテナントの所有者宛に削除予告メールを送信。family プラン 14 日前 / standard プラン 1 日前 (グレース 7 日のため 14 日前は到達不能)。idempotency は `settings.deletion_warning_sent_at` で保証。**法務通知扱いのため `marketing-email-counter` (年 6 回上限) には乗せない**。詳細は [`docs/runbooks/account-deletion-email-automation.md`](../runbooks/account-deletion-email-automation.md) (#2399 本 PR で計画策定)
+- **registry 外の endpoint**: `/api/cron/expire-redemptions` (#1337, 30 日以上 pending の交換申請を expired に移行) は endpoint として存在するが registry / EventBridge / dispatcher いずれにも未登録のため、自動スケジュール駆動はされない (手動 / 外部呼び出し前提)
 - **検証手順 / runbook**: [`docs/runbooks/cron-3-endpoints-verification.md`](../runbooks/cron-3-endpoints-verification.md) (#1377 Sub A-3)
 - **認証ヘッダ**: dispatcher は `Authorization: Bearer <CRON_SECRET>` を送信。endpoint 側は `verifyCronAuth` (`src/lib/server/auth/cron-auth.ts`) で `Authorization: Bearer` と `x-cron-secret` の両ヘッダを受理する (#1377 で統一、NUC scheduler / AWS dispatcher 双方互換)
-- **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の三者整合性を CI で 0 tolerance で検出する。`scripts/check-cron-observability.mjs` (`npm run check:cron-observability`) が logger / Alarm 定義の存在を静的検査する
+- **Sub A-3 検証層** (#1377): `tests/unit/cron/schedule-consistency.test.ts` が registry / CDK / dispatcher の整合性を検証する。Sub A-3 対象 endpoint (retention-cleanup / trial-notifications) は 0 tolerance で厳密検証する一方、`age-recalc` は EventBridge / dispatcher 未反映の既知 drift として `KNOWN_DRIFT_OUT_OF_SCOPE` で除外している (上表「✗」と整合)。`scripts/check-cron-observability.mjs` (`npm run check:cron-observability`) が logger / Alarm 定義の存在を静的検査する
 
 ### 3.4 OpsStack（監視・コスト防衛）
 
