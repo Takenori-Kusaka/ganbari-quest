@@ -1,36 +1,42 @@
 // src/lib/server/db/dynamodb/activity-repo.ts
 // DynamoDB implementation of IActivityRepo
 //
-// #2458-A2 (2026-05-26): facade rewrite — 旧 `activities` partition (SK=MASTER) への
-// write を全て NotImplementedError に置き換えた。これにより sqlite と同型に
-// 「旧 activities table への write 0 件」を 3 backend (sqlite / demo / dynamodb) で
-// 達成。次 PR #2458-C で旧 activities partition / 旧 dynamodb activity-repo は
-// 物理削除される予定。
+// #2824 Wave 4A (2026-06-04 / ADR-0055): write 8 method を本実装化。
+//   本番 main Lambda (`ganbari-quest-app`、infra/lib/compute-stack.ts、AUTH_MODE=cognito)
+//   は **DATA_SOURCE=dynamodb** で稼働する (旧コメントの「production 未使用 / main Lambda は
+//   sqlite」は stale な誤記だった)。そのため write 8 method が NotImplementedError throw のままだと:
+//     - insertActivityLog: 子供の活動記録 (activity-log-service L211) が throw → 記録不能 (CRITICAL)
+//     - insertPointLedger: ポイント台帳 → ポイント付与不能 (CRITICAL)
+//     - insertActivity 等 6: family-master activity CRUD が throw
+//   というコアループ全停止 gap になっていた。本 PR で根治する。
 //
-// 設計の前提:
-//   - ADR-0048 Multi-Lambda Demo Deployment で main Lambda は sqlite local file +
-//     S3 backup を使用。`DATA_SOURCE='dynamodb'` は production 未使用 (factory.ts
-//     interface 整合のため stub 保持)。
-//   - production で本 file の write 経路が呼ばれることはないが、cross-backend test
-//     等で interface 契約 (IActivityRepo) を満たす必要があるため type 整合は維持。
-//   - write 系を NotImplementedError 化することで「将来 dynamodb 本実装を再開する
-//     際に必ず `dynamodb/child-activity-repo.ts` (ADR-0055 per-child schema) 経由で
-//     実装し直す」ことを構造的に強制する (旧 activities partition への退行を防止)。
-//
-// 読み込み系 (findActivities / findActivityById / findActivityLogs 等) は依然として
-// activities partition (SK=MASTER) / activity_logs LOG# partition を Scan / Query で
-// 取得する legacy 実装を保持。production 未使用のため write 0 化が達成できれば
-// 残 read 経路は #2458-C で削除される。
+// 設計 (read 整合と family-master 判断):
+//   - insertActivityLog / insertPointLedger は log/ledger エンティティ。read 側
+//     (findDailyLog / findStreakLogs / findActivityLogs / findActivityLogById /
+//     countTodayActiveRecords / getCategoryCountsByDate / findTodayLogsWithCategory 等) が
+//     既に期待する key 形式 (LOG#<date>#<id> / POINT#<createdAt>#<id>) と denormalized 属性
+//     (activityName / activityIcon / categoryId) に整合する形で write する。
+//     denormalize は insert 時に child_activities instance を lookup して埋める
+//     (SQLite の innerJoin (activityLogs ⋈ childActivities) と機能等価)。
+//   - family-master CRUD (insertActivity / updateActivity / setActivityVisibility /
+//     deleteActivity / archiveActivities / restoreArchivedActivities) は SQLite 側
+//     (#2458-A1 facade rewrite) と同じく **per-child `child_activities` 経由** に統一する。
+//     live app の `activity-service.ts` は CRUD を `getRepos().childActivity.*` で直接
+//     叩いており、本 facade の family-master write を呼ぶのは barrel 経由の
+//     archive / restore (downgrade-service / resource-archive-service) のみ。これらを
+//     child-activity-repo の per-child 実装に委譲することで signature 不変のまま
+//     live schema (child_activities) に write する (旧 activities partition への退行ゼロ)。
 //
 // 関連:
-//   - PR #2487 (#2458-A1 sqlite facade rewrite、本 PR の reference pattern)
+//   - PR #2487 (#2458-A1 sqlite facade rewrite、本 PR の挙動 SSOT)
+//   - PR #2820 (dynamodb/child-activity-repo.ts 本実装、委譲先)
 //   - ADR-0055 §3.1 per-child primary data model
-//   - ADR-0048 §2 demo Lambda stateless 原則
-//   - docs/design/data-model-resource-scope.md §4.1
+//   - docs/design/08-データベース設計書.md / data-model-resource-scope.md §4.1
 
 import {
 	BatchWriteCommand,
 	GetCommand,
+	PutCommand,
 	QueryCommand,
 	ScanCommand,
 	UpdateCommand,
@@ -42,18 +48,25 @@ import type {
 	ActivityLog,
 	ActivityLogSummary,
 	Child,
+	ChildActivity,
 	InsertActivityInput,
 	InsertActivityLogInput,
 	InsertPointLedgerInput,
 	UpdateActivityInput,
+	UpdateChildActivityInput,
 } from '../types';
+import * as childActivityRepo from './child-activity-repo';
 import { getDocClient, TABLE_NAME } from './client';
+import { nextId } from './counter';
 import {
 	activityKey,
 	activityLogDatePrefix,
+	activityLogKey,
 	activityLogPrefix,
 	childKey,
 	childPK,
+	ENTITY_NAMES,
+	pointLedgerKey,
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
@@ -117,17 +130,60 @@ async function queryAll(
 }
 
 /**
- * #2458-A2: 旧 `activities` partition への write を発生させない構造的ガード。
- * `dynamodb/child-activity-repo.ts` も全 method が NotImplemented stub のため、
- * 本実装の write 経路を再開する際は ADR-0055 per-child schema (`child_activities`
- * partition) を先に実装してから本 throw を解除する必要がある。
+ * activity_id (= child_activities instance id) から所属 childId を逆引きする (tenant 内)。
+ *
+ * facade signature `(id, …, tenantId)` は childId を受けないため、family-master write の
+ * 委譲先 child-activity-repo (per-child) には childId が必須。child_activities は
+ * child partition (PK=CHILD#<cId>) に分散するため GSI なしの逆引きは Scan が必要。
+ * これらの write (insert を除く CRUD) は低頻度 (admin 操作 / プラン降格) のため
+ * Pre-PMF (ADR-0010) では Scan + 属性フィルタで十分。SQLite の `_resolveChildIdForActivity`
+ * (childActivities を id で 1 行 lookup) と機能等価。
  */
-function notImplementedWrite(method: string): never {
-	throw new Error(
-		`[activity-repo.dynamodb] ${method} not implemented (#2458-A2 旧 activities partition への write 防止). ` +
-			'DynamoDB backend は ADR-0048 で production 未使用 (main Lambda は sqlite). ' +
-			'再実装時は dynamodb/child-activity-repo.ts (ADR-0055 per-child) 経由で実装すること。',
-	);
+async function resolveChildIdForActivity(
+	id: number,
+	tenantId: string,
+): Promise<number | undefined> {
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
+				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
+					':skPrefix': 'CHILDACT#',
+					':id': id,
+				},
+				ProjectionExpression: 'childId',
+				ExclusiveStartKey: lastKey,
+				Limit: 100,
+			}),
+		);
+		const hit = result.Items?.[0];
+		if (hit) return hit.childId as number;
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+	return undefined;
+}
+
+/**
+ * tenant 内の最初の child (id 昇順) を返す。insertActivity の bind 先解決用。
+ * SQLite `_findFirstChild` と機能等価 (children を id 順で先頭 1 件)。
+ */
+async function findFirstChild(tenantId: string): Promise<{ id: number } | undefined> {
+	const items = await scanAll({
+		TableName: TABLE_NAME,
+		FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk',
+		ExpressionAttributeValues: {
+			':prefix': tenantPK('CHILD#', tenantId),
+			':sk': 'PROFILE',
+		},
+		ProjectionExpression: 'id',
+	});
+	if (items.length === 0) return undefined;
+	const ids = items.map((it) => it.id as number).sort((a, b) => a - b);
+	return { id: ids[0] as number };
 }
 
 // ============================================================
@@ -206,65 +262,142 @@ export async function findActivityById(
 }
 
 /**
- * 活動を作成 — #2458-A2: 旧 activities partition への write を停止。
- * dynamodb/child-activity-repo.ts (NotImplemented stub) 経由で実装する設計に shift。
+ * ChildActivity (per-child instance) を facade の Activity shape に変換する。
+ * family-master 列 (ageMin / ageMax / gradeLevel / subcategory / description) は
+ * per-child instance に存在しないため null で埋める (SQLite `_toActivityShape` と同型)。
+ */
+function toActivityShape(c: ChildActivity): Activity {
+	return {
+		id: c.id,
+		name: c.name,
+		categoryId: c.categoryId,
+		icon: c.icon,
+		basePoints: c.basePoints,
+		ageMin: null,
+		ageMax: null,
+		isVisible: c.isVisible,
+		dailyLimit: c.dailyLimit,
+		sortOrder: c.sortOrder,
+		source: c.source,
+		gradeLevel: null,
+		subcategory: null,
+		description: null,
+		nameKana: c.nameKana,
+		nameKanji: c.nameKanji,
+		triggerHint: c.triggerHint,
+		isMainQuest: c.isMainQuest,
+		isArchived: c.isArchived,
+		archivedReason: c.archivedReason,
+		createdAt: c.createdAt,
+		sourcePresetId: c.sourcePresetId ?? null,
+		priority: c.priority,
+	};
+}
+
+/**
+ * 活動を作成 — #2824: 旧 activities partition ではなく child_activities (per-child) に作成。
+ * SQLite (#2458-A1) と同じく tenant の最初の child に bind する (signature 不変)。
  */
 export async function insertActivity(
-	_input: InsertActivityInput,
-	_tenantId: string,
+	input: InsertActivityInput,
+	tenantId: string,
 ): Promise<Activity> {
-	return notImplementedWrite('insertActivity');
+	const firstChild = await findFirstChild(tenantId);
+	if (!firstChild) {
+		throw new Error('insertActivity: tenant に child が存在しないため作成不可');
+	}
+	const row = await childActivityRepo.insertActivity(
+		{
+			childId: firstChild.id,
+			name: input.name,
+			categoryId: input.categoryId,
+			icon: input.icon,
+			basePoints: input.basePoints,
+			triggerHint: input.triggerHint ?? null,
+			isMainQuest: input.isMainQuest ?? 0,
+			sourcePresetId: input.sourcePresetId ?? null,
+			priority: input.priority ?? 'optional',
+		},
+		tenantId,
+	);
+	return toActivityShape(row);
 }
 
 /**
- * 活動を更新 — #2458-A2: 旧 activities partition への write を停止。
+ * 活動を更新 — #2824: child_activities (per-child) を id 逆引き → child scope 更新。
  */
 export async function updateActivity(
-	_id: number,
-	_input: UpdateActivityInput,
-	_tenantId: string,
+	id: number,
+	input: UpdateActivityInput,
+	tenantId: string,
 ): Promise<Activity | undefined> {
-	return notImplementedWrite('updateActivity');
+	const childId = await resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	// ChildActivity に存在しない field (ageMin / ageMax) は drop (SQLite と同型)。
+	const updateInput: UpdateChildActivityInput = {};
+	if (input.name !== undefined) updateInput.name = input.name;
+	if (input.categoryId !== undefined) updateInput.categoryId = input.categoryId;
+	if (input.icon !== undefined) updateInput.icon = input.icon;
+	if (input.basePoints !== undefined) updateInput.basePoints = input.basePoints;
+	if (input.triggerHint !== undefined) updateInput.triggerHint = input.triggerHint;
+	if (input.priority !== undefined) updateInput.priority = input.priority;
+	if (input.isMainQuest !== undefined) updateInput.isMainQuest = input.isMainQuest;
+	const row = await childActivityRepo.updateActivity(id, childId, updateInput, tenantId);
+	return row ? toActivityShape(row) : undefined;
 }
 
 /**
- * 活動の表示/非表示を切り替え — #2458-A2: 旧 activities partition への write を停止。
+ * 活動の表示/非表示を切り替え — #2824: child_activities (per-child) 経由。
  */
 export async function setActivityVisibility(
-	_id: number,
-	_visible: boolean,
-	_tenantId: string,
+	id: number,
+	visible: boolean,
+	tenantId: string,
 ): Promise<Activity | undefined> {
-	return notImplementedWrite('setActivityVisibility');
+	const childId = await resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	const row = await childActivityRepo.setActivityVisibility(id, childId, visible, tenantId);
+	return row ? toActivityShape(row) : undefined;
 }
 
 /**
- * 活動を削除 — #2458-A2: 旧 activities partition への write を停止。
+ * 活動を削除 — #2824: child_activities (per-child) 経由 (削除した行を返す)。
  */
-export async function deleteActivity(
-	_id: number,
-	_tenantId: string,
-): Promise<Activity | undefined> {
-	return notImplementedWrite('deleteActivity');
+export async function deleteActivity(id: number, tenantId: string): Promise<Activity | undefined> {
+	const childId = await resolveChildIdForActivity(id, tenantId);
+	if (childId === undefined) return undefined;
+	const row = await childActivityRepo.deleteActivity(id, childId, tenantId);
+	return row ? toActivityShape(row) : undefined;
 }
 
 /** 活動にログが存在するか確認 */
 export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
-	// Scan LOG# items filtered by activityId, limit 1 for efficiency
-	const result = await getDocClient().send(
-		new ScanCommand({
-			TableName: TABLE_NAME,
-			FilterExpression: 'begins_with(SK, :skPrefix) AND #activityId = :activityId',
-			ExpressionAttributeNames: { '#activityId': 'activityId' },
-			ExpressionAttributeValues: {
-				':skPrefix': 'LOG#',
-				':activityId': activityId,
-			},
-			Limit: 1,
-		}),
-	);
+	// #2842: DynamoDB は FilterExpression より先に Limit を評価するため、Limit:1 では
+	//   「最初に scan された 1 件が match しない」だけで false negative になる
+	//   (= ログを持つ活動が hard-delete され子供の履歴が永久消失する)。
+	//   Limit は付けず scanAll と同型の do/while + ExclusiveStartKey で全 page を走査し、
+	//   filter match を 1 件見つけ次第 early-return true、page 尽きたら false を返す。
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(SK, :skPrefix) AND #activityId = :activityId',
+				ExpressionAttributeNames: { '#activityId': 'activityId' },
+				ExpressionAttributeValues: {
+					':skPrefix': 'LOG#',
+					':activityId': activityId,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		if ((result.Items?.length ?? 0) > 0) {
+			return true;
+		}
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
 
-	return (result.Items?.length ?? 0) > 0;
+	return false;
 }
 
 /** 全活動のログ数を取得（キャンセル除外） */
@@ -402,15 +535,57 @@ export async function findStreakLogs(
 }
 
 /**
- * 活動ログを挿入 — #2458-A2: 旧 activities partition への write 経路 (lookup の Put) を停止。
- * activity_logs LOG# partition への write も同時停止 (activity 表に依存するため)。
- * 再実装時は dynamodb/child-activity-repo.ts (ADR-0055) 経由で。
+ * 活動ログを挿入 — #2824 (CRITICAL): 子供の活動記録の本経路 (activity-log-service L211)。
+ *
+ * key: PK=CHILD#<cId>, SK=LOG#<recordedDate>#<paddedId> (read 側 findDailyLog /
+ * findStreakLogs / findActivityLogs 等が begins_with(SK, 'LOG#…') で読む形式)。
+ *
+ * 非正規化: read 側の `findActivityLogs` (ActivityLogSummary) / `getCategoryCountsByDate` /
+ * `findTodayLogsWithCategory` / `countActiveActivityLogsByCategory` は LOG item の
+ * activityName / activityIcon / categoryId を直接読む (SQLite では innerJoin で解決)。
+ * そのため insert 時に child_activities instance を lookup し非正規化属性として埋める。
+ * instance が見つからない場合 (理論上発生しないが防御) は空文字 / 0 で埋める。
  */
 export async function insertActivityLog(
-	_input: InsertActivityLogInput,
-	_tenantId: string,
+	input: InsertActivityLogInput,
+	tenantId: string,
 ): Promise<ActivityLog> {
-	return notImplementedWrite('insertActivityLog');
+	const id = await nextId(ENTITY_NAMES.activityLog, tenantId);
+
+	// JOIN 代替: child_activities instance から denormalize する属性を解決。
+	const activity = await childActivityRepo.findActivityById(
+		input.activityId,
+		input.childId,
+		tenantId,
+	);
+
+	const log: ActivityLog = {
+		id,
+		childId: input.childId,
+		activityId: input.activityId,
+		points: input.points,
+		streakDays: input.streakDays,
+		streakBonus: input.streakBonus,
+		recordedDate: input.recordedDate,
+		recordedAt: input.recordedAt,
+		cancelled: 0,
+	};
+
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...activityLogKey(input.childId, input.recordedDate, id, tenantId),
+				...log,
+				// 非正規化 (read 側 ActivityLogSummary / category 集計の JOIN 代替)
+				activityName: activity?.name ?? '',
+				activityIcon: activity?.icon ?? '',
+				categoryId: activity?.categoryId ?? 0,
+			},
+		}),
+	);
+
+	return log;
 }
 
 /** IDで活動ログを取得（childId不明のためScanが必要） */
@@ -418,29 +593,13 @@ export async function findActivityLogById(
 	id: number,
 	_tenantId: string,
 ): Promise<ActivityLog | undefined> {
-	const result = await getDocClient().send(
-		new ScanCommand({
-			TableName: TABLE_NAME,
-			FilterExpression: 'begins_with(SK, :skPrefix) AND #id = :id',
-			ExpressionAttributeNames: { '#id': 'id' },
-			ExpressionAttributeValues: {
-				':skPrefix': 'LOG#',
-				':id': id,
-			},
-			Limit: 100,
-		}),
-	);
-
-	// Since Limit with FilterExpression may not find the item on first page, paginate
-	let items = result.Items ?? [];
-	let lastKey = result.LastEvaluatedKey;
-
-	if (items.length > 0) {
-		return stripKeys(items[0] as Record<string, unknown>) as unknown as ActivityLog;
-	}
-
-	while (lastKey && items.length === 0) {
-		const nextResult = await getDocClient().send(
+	// #2842: DynamoDB は FilterExpression より先に Limit を評価するため、Limit を付けると
+	//   1 page 内に match が無いだけで取りこぼす。Limit は外し、scanAll と同型の
+	//   do/while + ExclusiveStartKey で全 page を走査する。各 page では filter match した
+	//   全 Items を走査し (`items[0]` だけ見ない)、最初の match を返す。
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
 				FilterExpression: 'begins_with(SK, :skPrefix) AND #id = :id',
@@ -450,15 +609,13 @@ export async function findActivityLogById(
 					':id': id,
 				},
 				ExclusiveStartKey: lastKey,
-				Limit: 100,
 			}),
 		);
-		items = nextResult.Items ?? [];
-		lastKey = nextResult.LastEvaluatedKey;
-		if (items.length > 0) {
-			return stripKeys(items[0] as Record<string, unknown>) as unknown as ActivityLog;
+		for (const item of result.Items ?? []) {
+			return stripKeys(item as Record<string, unknown>) as unknown as ActivityLog;
 		}
-	}
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
 
 	return undefined;
 }
@@ -852,16 +1009,41 @@ export async function countPointLedgerEntriesByTypeAndDate(
 }
 
 // ============================================================
-// Point Ledger — #2458-A2: 旧 activities partition への write 停止に伴い同時停止
+// Point Ledger — #2824 (CRITICAL): ポイント台帳 (記録 → ポイント付与の本経路)
 // ============================================================
-// point_ledger 自体は activities partition を直接 update しないが、activity_logs 経由の
-// bonus 付与 chain が write 停止になるため、本実装も整合のため stub 化する。
 
+/**
+ * ポイント台帳エントリを挿入する。
+ *
+ * key: PK=CHILD#<cId>, SK=POINT#<createdAt>#<paddedId> (read 側
+ * countPointLedgerEntriesByType / countPointLedgerEntriesByTypeAndDate /
+ * getComboPointsGranted が begins_with(SK, 'POINT#…') + type / createdAt / description /
+ * amount で読む形式)。createdAt は ISO 文字列 (SQLite schema default の datetime と整合、
+ * `countPointLedgerEntriesByTypeAndDate` の begins_with(createdAt, :date) prefix 一致のため
+ * `YYYY-MM-DD…` 形式)。SQLite の `pointLedger` insert と機能等価。
+ */
 export async function insertPointLedger(
-	_input: InsertPointLedgerInput,
-	_tenantId: string,
+	input: InsertPointLedgerInput,
+	tenantId: string,
 ): Promise<void> {
-	return notImplementedWrite('insertPointLedger');
+	const id = await nextId(ENTITY_NAMES.pointLedger, tenantId);
+	const createdAt = new Date().toISOString();
+
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...pointLedgerKey(input.childId, createdAt, id, tenantId),
+				id,
+				childId: input.childId,
+				amount: input.amount,
+				type: input.type,
+				description: input.description,
+				referenceId: input.referenceId ?? null,
+				createdAt,
+			},
+		}),
+	);
 }
 
 // ============================================================
@@ -961,20 +1143,19 @@ export async function findMustActivitiesWithToday(
 	return { logged, total: enriched.length, activities: enriched };
 }
 
-// #783: archive / restore — #2458-A2: 旧 activities partition への write 停止
-
+// #783: archive / restore — #2824: child_activities (per-child) 経由に委譲。
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 export async function archiveActivities(
-	_ids: number[],
-	_reason: ArchivedReason,
-	_tenantId: string,
+	ids: number[],
+	reason: ArchivedReason,
+	tenantId: string,
 ): Promise<void> {
-	return notImplementedWrite('archiveActivities');
+	return childActivityRepo.archiveActivities(ids, reason, tenantId);
 }
 
 export async function restoreArchivedActivities(
-	_reason: ArchivedReason,
-	_tenantId: string,
+	reason: ArchivedReason,
+	tenantId: string,
 ): Promise<void> {
-	return notImplementedWrite('restoreArchivedActivities');
+	return childActivityRepo.restoreArchivedActivities(reason, tenantId);
 }

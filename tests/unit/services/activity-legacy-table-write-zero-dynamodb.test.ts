@@ -1,21 +1,26 @@
 // tests/unit/services/activity-legacy-table-write-zero-dynamodb.test.ts
 //
-// #2458-A2 regression test (dynamodb backend): dynamodb activity-repo の全 write
-// method が NotImplementedError を throw することを保証する。
+// #2458-A2 → #2824 Wave 4A regression test (dynamodb backend):
+//   旧 `activities` partition (SK=MASTER) への write が物理的に発生しないことを保証する。
 //
-// ADR-0048 で DynamoDB backend は production 未使用 (main Lambda は sqlite local
-// file + S3 backup)。本テストは「旧 activities partition (SK=MASTER) への write が
-// 物理的に発生しない」ことを構造的にガードする。再実装時は ADR-0055 per-child
-// schema (dynamodb/child-activity-repo.ts) 経由で実装し直す必要がある。
+// 経緯:
+//   - #2458-A2 では「全 write method が NotImplementedError throw」でこの不変条件を担保していた
+//     (= そもそも write しないので MASTER partition も触らない)。
+//   - #2824 で本番 main Lambda (DATA_SOURCE=dynamodb) のコアループ gap を根治するため write 8
+//     method を本実装化した。write は child_activities (CHILDACT#) / activity_logs (LOG#) /
+//     point_ledger (POINT#) に書く。旧 `activities` partition (SK=MASTER) には依然として
+//     一切 write しない。
 //
-// AWS SDK は hoisted mock で置き換え、mockSend が呼ばれなかったことも assert する
-// (NotImplementedError は DynamoDB Client に到達する前に throw されるべき)。
+// 本テストはこの不変条件 (write が成功し、かつ SK=MASTER への Put/Update が 0 件) を構造的に
+// ガードする。assertion は「throw する」(旧) から「write は成功するが MASTER partition を
+// 触らない」(現) へ強化されており、弱体化ではない (ADR-0006)。
+//
+// AWS SDK は hoisted mock で置き換え、全 send 呼び出しの Item.SK / Key.SK を検査する。
 //
 // 関連:
-//   - PR #2487 (#2458-A1 sqlite facade rewrite、reference pattern)
+//   - PR #2487 (#2458-A1 sqlite facade rewrite)
+//   - PR #2820 (dynamodb/child-activity-repo.ts 本実装、委譲先)
 //   - ADR-0055 §3.1 per-child primary data model
-//   - ADR-0048 §2 demo Lambda stateless 原則
-//   - tests/unit/db/dynamodb-push-subscription-repo.test.ts (mock pattern reference)
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -31,43 +36,7 @@ const {
 	MockBatchWriteCommand,
 } = vi.hoisted(() => {
 	const send = vi.fn();
-	class GetCmd {
-		input: unknown;
-		constructor(input: unknown) {
-			this.input = input;
-		}
-	}
-	class PutCmd {
-		input: unknown;
-		constructor(input: unknown) {
-			this.input = input;
-		}
-	}
-	class QueryCmd {
-		input: unknown;
-		constructor(input: unknown) {
-			this.input = input;
-		}
-	}
-	class DeleteCmd {
-		input: unknown;
-		constructor(input: unknown) {
-			this.input = input;
-		}
-	}
-	class UpdateCmd {
-		input: unknown;
-		constructor(input: unknown) {
-			this.input = input;
-		}
-	}
-	class ScanCmd {
-		input: unknown;
-		constructor(input: unknown) {
-			this.input = input;
-		}
-	}
-	class BatchWriteCmd {
+	class Cmd {
 		input: unknown;
 		constructor(input: unknown) {
 			this.input = input;
@@ -75,13 +44,13 @@ const {
 	}
 	return {
 		mockSend: send,
-		MockGetCommand: GetCmd,
-		MockPutCommand: PutCmd,
-		MockQueryCommand: QueryCmd,
-		MockDeleteCommand: DeleteCmd,
-		MockUpdateCommand: UpdateCmd,
-		MockScanCommand: ScanCmd,
-		MockBatchWriteCommand: BatchWriteCmd,
+		MockGetCommand: class GetCmd extends Cmd {},
+		MockPutCommand: class PutCmd extends Cmd {},
+		MockQueryCommand: class QueryCmd extends Cmd {},
+		MockDeleteCommand: class DeleteCmd extends Cmd {},
+		MockUpdateCommand: class UpdateCmd extends Cmd {},
+		MockScanCommand: class ScanCmd extends Cmd {},
+		MockBatchWriteCommand: class BatchWriteCmd extends Cmd {},
 	};
 });
 
@@ -107,173 +76,139 @@ vi.mock('$lib/server/db/dynamodb/client', () => ({
 
 import * as dynamoActivityRepo from '$lib/server/db/dynamodb/activity-repo';
 
-const TENANT = 't-dynamodb-2458-write-zero';
+const TENANT = 't-dynamodb-2824-write-zero';
 
-describe('#2458-A2 dynamodb: 旧 activities partition への write 0 件保証', () => {
-	beforeEach(() => {
-		mockSend.mockClear();
-	});
-
-	it('insertActivity: NotImplementedError throw + DynamoDB Client 未到達', async () => {
-		await expect(
-			dynamoActivityRepo.insertActivity(
-				{
-					name: 'たいそうした',
-					categoryId: 1,
-					icon: '🤸',
-					basePoints: 5,
-					ageMin: 3,
-					ageMax: 12,
-					triggerHint: null,
-				},
-				TENANT,
-			),
-		).rejects.toThrow(/insertActivity not implemented/);
-
-		// AC: AWS SDK send() が呼ばれていない (write が物理的に発生しない)
-		expect(mockSend).not.toHaveBeenCalled();
-	});
-
-	it('updateActivity: NotImplementedError throw + DynamoDB Client 未到達', async () => {
-		await expect(dynamoActivityRepo.updateActivity(1, { name: '更新後' }, TENANT)).rejects.toThrow(
-			/updateActivity not implemented/,
-		);
-
-		expect(mockSend).not.toHaveBeenCalled();
-	});
-
-	it('setActivityVisibility: NotImplementedError throw + DynamoDB Client 未到達', async () => {
-		await expect(dynamoActivityRepo.setActivityVisibility(1, false, TENANT)).rejects.toThrow(
-			/setActivityVisibility not implemented/,
-		);
-
-		expect(mockSend).not.toHaveBeenCalled();
-	});
-
-	it('deleteActivity: NotImplementedError throw + DynamoDB Client 未到達', async () => {
-		await expect(dynamoActivityRepo.deleteActivity(1, TENANT)).rejects.toThrow(
-			/deleteActivity not implemented/,
-		);
-
-		expect(mockSend).not.toHaveBeenCalled();
-	});
-
-	it('archiveActivities: NotImplementedError throw + DynamoDB Client 未到達', async () => {
-		// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
-		await expect(
-			dynamoActivityRepo.archiveActivities([1, 2, 3], 'trial_expired', TENANT),
-		).rejects.toThrow(/archiveActivities not implemented/);
-
-		expect(mockSend).not.toHaveBeenCalled();
-	});
-
-	it('restoreArchivedActivities: NotImplementedError throw + DynamoDB Client 未到達', async () => {
-		// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
-		await expect(
-			dynamoActivityRepo.restoreArchivedActivities('trial_expired', TENANT),
-		).rejects.toThrow(/restoreArchivedActivities not implemented/);
-
-		expect(mockSend).not.toHaveBeenCalled();
-	});
-
-	it('insertActivityLog: NotImplementedError throw + DynamoDB Client 未到達', async () => {
-		await expect(
-			dynamoActivityRepo.insertActivityLog(
-				{
-					childId: 1,
-					activityId: 100,
-					points: 5,
-					streakDays: 1,
-					streakBonus: 0,
-					recordedDate: '2026-05-26',
-					recordedAt: '2026-05-26T10:00:00Z',
-				},
-				TENANT,
-			),
-		).rejects.toThrow(/insertActivityLog not implemented/);
-
-		expect(mockSend).not.toHaveBeenCalled();
-	});
-
-	it('insertPointLedger: NotImplementedError throw + DynamoDB Client 未到達', async () => {
-		await expect(
-			dynamoActivityRepo.insertPointLedger(
-				{
-					childId: 1,
-					amount: 100,
-					type: 'combo_bonus',
-					description: 'test',
-				},
-				TENANT,
-			),
-		).rejects.toThrow(/insertPointLedger not implemented/);
-
-		expect(mockSend).not.toHaveBeenCalled();
-	});
-
-	it('全 write エラー message に再実装方針が含まれる (ADR-0055 child-activity-repo 経由)', async () => {
-		// エラー文言が誘導すべき: dynamodb/child-activity-repo.ts (ADR-0055 per-child) 経由
-		const methods: Array<[string, () => Promise<unknown>]> = [
-			[
-				'insertActivity',
-				() =>
-					dynamoActivityRepo.insertActivity(
-						{
-							name: 'x',
-							categoryId: 1,
-							icon: 'x',
-							basePoints: 1,
-							ageMin: null,
-							ageMax: null,
-							triggerHint: null,
-						},
-						TENANT,
-					),
-			],
-			['updateActivity', () => dynamoActivityRepo.updateActivity(1, { name: 'x' }, TENANT)],
-			// Phase 7 PR-2a (#2688): ArchivedReason 型強制 (ARCHIVED_REASONS SSOT)
-			[
-				'archiveActivities',
-				() => dynamoActivityRepo.archiveActivities([1], 'trial_expired', TENANT),
-			],
-		];
-
-		for (const [name, fn] of methods) {
-			try {
-				await fn();
-				expect.fail(`${name} should throw`);
-			} catch (e) {
-				const msg = (e as Error).message;
-				expect(msg).toContain('ADR-0055');
-				expect(msg).toContain('child-activity-repo');
-			}
+/**
+ * mockSend の全呼び出しが旧 `activities` partition (SK=MASTER) を一切 Put/Update/Delete して
+ * いないことを検証する。Put は Item.SK、Update/Delete は Key.SK を見る。
+ */
+function expectNoMasterPartitionWrite() {
+	for (const call of mockSend.mock.calls) {
+		const cmd = call[0] as { constructor?: { name?: string }; input?: Record<string, unknown> };
+		const name = cmd.constructor?.name ?? '';
+		const input = cmd.input ?? {};
+		const itemSk = (input.Item as { SK?: string } | undefined)?.SK;
+		const keySk = (input.Key as { SK?: string } | undefined)?.SK;
+		// 旧 activities partition は SK === 'MASTER'。write 系 Command が MASTER を触っていないこと。
+		if (name === 'PutCmd' || name === 'UpdateCmd' || name === 'DeleteCmd') {
+			expect(itemSk).not.toBe('MASTER');
+			expect(keySk).not.toBe('MASTER');
 		}
+	}
+}
+
+describe('#2824 dynamodb: write は本実装され、旧 activities partition (SK=MASTER) への write は 0 件', () => {
+	beforeEach(() => {
+		mockSend.mockReset();
+	});
+
+	it('insertActivity: child_activities (CHILDACT#) に Put、MASTER partition 不可触', async () => {
+		mockSend
+			// findFirstChild Scan (PROFILE)
+			.mockResolvedValueOnce({ Items: [{ id: 5 }] })
+			// childActivityRepo.insertActivity nextId
+			.mockResolvedValueOnce({ Attributes: { counter: 1 } })
+			// childActivityRepo.insertActivity Put
+			.mockResolvedValueOnce({});
+
+		const row = await dynamoActivityRepo.insertActivity(
+			{
+				name: 'たいそうした',
+				categoryId: 1,
+				icon: '🤸',
+				basePoints: 5,
+				ageMin: 3,
+				ageMax: 12,
+				triggerHint: null,
+			},
+			TENANT,
+		);
+
+		expect(row.id).toBe(1);
+		const put = mockSend.mock.calls[2]?.[0] as { input: { Item?: { SK?: string } } };
+		expect(put.input.Item?.SK).toMatch(/^CHILDACT#/);
+		expectNoMasterPartitionWrite();
+	});
+
+	it('insertActivityLog: activity_logs (LOG#) に Put、MASTER partition 不可触', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Attributes: { counter: 1 } }) // nextId(activityLog)
+			.mockResolvedValueOnce({ Item: undefined }) // child_activities lookup
+			.mockResolvedValueOnce({}); // Put
+
+		await dynamoActivityRepo.insertActivityLog(
+			{
+				childId: 1,
+				activityId: 100,
+				points: 5,
+				streakDays: 1,
+				streakBonus: 0,
+				recordedDate: '2026-06-04',
+				recordedAt: '2026-06-04T10:00:00Z',
+			},
+			TENANT,
+		);
+
+		const put = mockSend.mock.calls[2]?.[0] as { input: { Item?: { SK?: string } } };
+		expect(put.input.Item?.SK).toMatch(/^LOG#/);
+		expectNoMasterPartitionWrite();
+	});
+
+	it('insertPointLedger: point_ledger (POINT#) に Put、MASTER partition 不可触', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Attributes: { counter: 1 } }) // nextId(pointLedger)
+			.mockResolvedValueOnce({}); // Put
+
+		await dynamoActivityRepo.insertPointLedger(
+			{ childId: 1, amount: 100, type: 'combo_bonus', description: 'test' },
+			TENANT,
+		);
+
+		const put = mockSend.mock.calls[1]?.[0] as { input: { Item?: { SK?: string } } };
+		expect(put.input.Item?.SK).toMatch(/^POINT#/);
+		expectNoMasterPartitionWrite();
+	});
+
+	it('updateActivity: child_activities を Update、MASTER partition 不可触', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [{ childId: 5 }] }) // resolveChildIdForActivity Scan
+			.mockResolvedValueOnce({
+				Attributes: { PK: `T#${TENANT}#CHILD#5`, SK: 'CHILDACT#00000001', id: 1, name: '更新後' },
+			}); // Update ALL_NEW
+
+		const row = await dynamoActivityRepo.updateActivity(1, { name: '更新後' }, TENANT);
+		expect(row?.name).toBe('更新後');
+		const upd = mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK?: string } } };
+		expect(upd.input.Key?.SK).toMatch(/^CHILDACT#/);
+		expectNoMasterPartitionWrite();
+	});
+
+	it('archiveActivities: child_activities を Update、MASTER partition 不可触', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [{ PK: `T#${TENANT}#CHILD#5`, SK: 'CHILDACT#00000001' }] })
+			.mockResolvedValueOnce({}); // Update
+		await dynamoActivityRepo.archiveActivities([1], 'trial_expired', TENANT);
+		expectNoMasterPartitionWrite();
 	});
 });
 
-describe('#2458-A2 dynamodb: read 経路は引き続き activities partition を Scan/Query', () => {
+describe('#2824 dynamodb: read 経路は引き続き Scan/Query (write は発生しない)', () => {
 	beforeEach(() => {
-		mockSend.mockClear();
+		mockSend.mockReset();
 	});
 
 	it('findActivities: Scan 1 回呼ばれる (write は発生しない)', async () => {
-		// Scan は空配列を返すよう mock
 		mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
-
 		const list = await dynamoActivityRepo.findActivities(TENANT, {});
-
 		expect(list).toEqual([]);
 		expect(mockSend).toHaveBeenCalledTimes(1);
-		// AC: 呼ばれたのは ScanCommand であり Put/Update/Delete ではない
 		const call = mockSend.mock.calls[0]?.[0];
 		expect(call?.constructor?.name).toBe('ScanCmd');
 	});
 
 	it('findActivityById: Get 1 回呼ばれる (write は発生しない)', async () => {
 		mockSend.mockResolvedValueOnce({ Item: undefined });
-
 		const result = await dynamoActivityRepo.findActivityById(1, TENANT);
-
 		expect(result).toBeUndefined();
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
