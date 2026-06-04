@@ -312,11 +312,7 @@ describe('insertActivity (family-master → child_activities)', () => {
 		mockSend
 			// findFirstChild Scan (PROFILE)
 			.mockResolvedValueOnce({
-				Items: [
-					{ id: 900 },
-					{ id: 42 },
-					{ id: 100 },
-				],
+				Items: [{ id: 900 }, { id: 42 }, { id: 100 }],
 			})
 			// childActivityRepo.insertActivity: nextId(childActivity)
 			.mockResolvedValueOnce({ Attributes: { counter: 9 } })
@@ -513,7 +509,10 @@ describe('write 8 method が stub (NotImplementedError throw) に後退してい
 		mockSend.mockResolvedValueOnce({ Attributes: { counter: 1 } }).mockResolvedValueOnce({});
 		const { insertPointLedger } = await loadRepo();
 		await expect(
-			insertPointLedger({ childId: CHILD_ID, amount: 1, type: 'activity', description: 'x' }, TENANT),
+			insertPointLedger(
+				{ childId: CHILD_ID, amount: 1, type: 'activity', description: 'x' },
+				TENANT,
+			),
 		).resolves.toBeUndefined();
 		expect(mockSend).toHaveBeenCalled();
 	});

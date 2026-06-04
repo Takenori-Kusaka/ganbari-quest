@@ -148,7 +148,8 @@ async function resolveChildIdForActivity(
 		const result = await getDocClient().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
 				ExpressionAttributeValues: {
 					':tenantPrefix': tenantPK('CHILD#', tenantId),
 					':skPrefix': 'CHILDACT#',
@@ -362,10 +363,7 @@ export async function setActivityVisibility(
 /**
  * 活動を削除 — #2824: child_activities (per-child) 経由 (削除した行を返す)。
  */
-export async function deleteActivity(
-	id: number,
-	tenantId: string,
-): Promise<Activity | undefined> {
+export async function deleteActivity(id: number, tenantId: string): Promise<Activity | undefined> {
 	const childId = await resolveChildIdForActivity(id, tenantId);
 	if (childId === undefined) return undefined;
 	const row = await childActivityRepo.deleteActivity(id, childId, tenantId);
