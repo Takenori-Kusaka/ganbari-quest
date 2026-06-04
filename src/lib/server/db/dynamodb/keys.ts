@@ -342,6 +342,30 @@ export function specialRewardPrefix(): string {
 }
 
 /**
+ * Reward redemption request (#1337 / #2824 Phase 2A / ADR-0055):
+ *   PK = T#<tenantId>#CHILD#<childId>, SK = REDEMPT#<paddedId>
+ *
+ * per-child instance を child partition 配下に置き (special_rewards / activity_logs と同居)、
+ * `findRedemptionRequestsByChild` を単一 partition Query (begins_with(SK, 'REDEMPT#')) で
+ * 完結させる。child 軸を構造的に担保し追加 GSI 不要 (ADR-0055 §3.1)。
+ */
+export function rewardRedemptionKey(
+	childId: number,
+	requestId: number,
+	tenantId: string,
+): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `REDEMPT#${padId(requestId)}`,
+	};
+}
+
+/** Reward redemption SK prefix for querying all requests of a child */
+export function rewardRedemptionPrefix(): string {
+	return 'REDEMPT#';
+}
+
+/**
  * Checklist template: PK=T#<tenantId>#CKTPL, SK=CKTPL#<id>
  * #2362 PR-5 (ADR-0055): family master 化に伴い CHILD#<cId> 配下 → tenant scope に変更。
  */
@@ -774,6 +798,7 @@ export const ENTITY_NAMES = {
 	title: 'title',
 	childTitle: 'childTitle',
 	specialReward: 'specialReward',
+	rewardRedemption: 'rewardRedemption',
 	checklistTemplate: 'checklistTemplate',
 	checklistAssignment: 'checklistAssignment',
 	checklistItem: 'checklistItem',
