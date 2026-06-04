@@ -13,10 +13,13 @@
 //
 // 認証状態について:
 //   AUTH_MODE=local の E2E では `locals.context` が常に設定されるため、本 spec の全 case は
-//   「認証済み」= 戻り導線 visible のパスを検証する。未認証 (公開閲覧) で導線が非表示になる
-//   ことは demo Lambda (AUTH_MODE=anonymous) E2E
-//   `tests/e2e/demo-lambda/marketplace-back-nav-anonymous.spec.ts` + unit
-//   `tests/unit/routes/marketplace-auth-redirect.test.ts` で担保する。
+//   「認証済み」= 戻り導線 visible のパスを検証する。
+//   - production cognito 未認証 (context null) で導線が非表示になることは unit
+//     `tests/unit/routes/marketplace-auth-redirect.test.ts` (isAuthenticated=`!!locals.context`
+//     + svelte 側 `{#if data.isAuthenticated}` 条件描画の static source 検証) で担保する。
+//   - demo Lambda (AUTH_MODE=anonymous) は AnonymousAuthProvider が synthetic context を返すため
+//     導線は表示される (デモ=本番同一体験、ADR-0048)。その挙動は demo-lambda E2E
+//     `tests/e2e/demo-lambda/marketplace-back-nav-anonymous.spec.ts` で担保する。
 
 import { expect, test } from '@playwright/test';
 
