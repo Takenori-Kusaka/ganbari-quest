@@ -68,7 +68,8 @@ test.afterAll(async () => {
 	await new Promise<void>((resolvePromise) => server.close(() => resolvePromise()));
 });
 
-// 対象ページ一覧（ADR-0029 §決定 1: site/*.html 全 10 ファイル）
+// 対象ページ一覧（ADR-0029 §決定 1: site/*.html）
+// 注: /help/license-key.html は Epic #2525 Phase 7 PR-L4 (#2836) license key 全廃で完全削除済のため対象外。
 const LP_PAGES = [
 	'/index.html',
 	'/pricing.html',
@@ -79,7 +80,6 @@ const LP_PAGES = [
 	'/terms.html',
 	'/sla.html',
 	'/tokushoho.html',
-	'/help/license-key.html',
 ] as const;
 
 test.describe('#1719 / ADR-0029 LP CSP 多層防御', () => {

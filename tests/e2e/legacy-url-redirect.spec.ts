@@ -344,6 +344,13 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/demo/admin/license', '/admin/subscription');
 	});
 
+	// #2525 Phase 7 PR-L4 (#2836): site/help/license-key.html 完全削除 → /admin/subscription 301 redirect
+	test('/help/license-key → /admin/subscription (301, #2836 help ページ完全削除)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/help/license-key', '/admin/subscription', 301);
+	});
+
 	test('/demo/admin/members → /admin/members (308)', async ({ request }) => {
 		await expectRedirect(request, '/demo/admin/members', '/admin/members');
 	});

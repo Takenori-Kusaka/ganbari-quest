@@ -4,12 +4,7 @@
 
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
-import {
-	getLicensePlanLabel,
-	LIFECYCLE_EMAIL_LABELS,
-	PIN_RESET_LABELS,
-	PMF_SURVEY_LABELS,
-} from '$lib/domain/labels';
+import { LIFECYCLE_EMAIL_LABELS, PIN_RESET_LABELS, PMF_SURVEY_LABELS } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
@@ -370,11 +365,6 @@ export async function sendMemberJoinedEmail(
 }
 
 // ============================================================
-// ライセンスキー配布メール (#815)
-// プランラベルは labels.ts (SSOT) の getLicensePlanLabel() を使用
-// ============================================================
-
-// ============================================================
 // PIN reset メール (#2353 設計欠陥 4)
 // ============================================================
 
@@ -408,90 +398,6 @@ export async function sendPinResetEmail(email: string, magicLinkUrl: string): Pr
 		labels.emailNote,
 	].join('\n');
 	return sendEmail({ to: email, subject, htmlBody, textBody });
-}
-
-/** ライセンスキー配布メール (#0247, #815 テンプレート刷新) */
-export async function sendLicenseKeyEmail(
-	email: string,
-	licenseKey: string,
-	plan: string,
-	expiresAt?: string,
-): Promise<boolean> {
-	const planLabel = getLicensePlanLabel(plan);
-	const expiresLabel = expiresAt
-		? new Date(expiresAt).toLocaleDateString('ja-JP', {
-				year: 'numeric',
-				month: 'long',
-				day: 'numeric',
-			})
-		: undefined;
-
-	return sendEmail({
-		to: email,
-		subject: '【がんばりクエスト】ライセンスキーをお届けしました',
-		htmlBody: wrapTemplate(`
-      <h2>ライセンスキーをお届けしました</h2>
-      <p>がんばりクエスト（${planLabel}）のご購入ありがとうございます。</p>
-
-      <div style="background: #f5f3ff; border: 2px solid #6366f1; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
-        <p style="font-size: 12px; color: #666; margin: 0 0 8px 0;">ライセンスキー</p>
-        <p style="font-size: 28px; font-weight: bold; color: #4f46e5; letter-spacing: 4px; margin: 0; font-family: 'Courier New', monospace;">${licenseKey}</p>
-        <p style="font-size: 12px; color: #666; margin: 8px 0 0 0;">プラン: ${planLabel}${expiresLabel ? ` / 有効期限: ${expiresLabel}` : ''}</p>
-      </div>
-
-      <h3 style="color: #4f46e5; font-size: 16px; margin: 24px 0 12px 0;">適用手順（3ステップ）</h3>
-      <ol style="padding-left: 20px; margin: 0 0 24px 0;">
-        <li style="margin-bottom: 8px;">がんばりクエストにログインし、${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページを開きます</li>
-        <li style="margin-bottom: 8px;">「ライセンスキーを入力」欄に上記のキーをコピー＆ペーストします</li>
-        <li style="margin-bottom: 8px;">「適用する」ボタンを押すと、有料プランが即座に有効になります</li>
-      </ol>
-
-      <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin/subscription" class="button">ライセンス管理を開く</a>
-      </p>
-
-      <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 24px 0;">
-        <p style="font-weight: bold; margin: 0 0 8px 0;">ご注意</p>
-        <ul style="padding-left: 20px; margin: 0; font-size: 13px; color: #666;">
-          <li>このキーは1回限り使用できます。適用後は再利用できません。</li>
-          <li>キーは第三者に共有しないでください。</li>
-          <li>${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページでいつでもキーを確認できます。</li>
-        </ul>
-      </div>
-
-      <p style="font-size: 13px; color: #666;">
-        使い方がわからない場合は
-        <a href="https://www.ganbari-quest.com/help/license-key" style="color: #4f46e5;">ライセンスキーの使い方ガイド</a>
-        をご覧ください。
-      </p>
-      <p style="font-size: 13px; color: #666;">
-        お困りの際は${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からご連絡ください。
-      </p>
-    `),
-		textBody: [
-			'【がんばりクエスト】ライセンスキーをお届けしました',
-			'',
-			`がんばりクエスト（${planLabel}）のご購入ありがとうございます。`,
-			'',
-			`ライセンスキー: ${licenseKey}`,
-			`プラン: ${planLabel}`,
-			...(expiresLabel ? [`有効期限: ${expiresLabel}`] : []),
-			'',
-			'■ 適用手順（3ステップ）',
-			`1. がんばりクエストにログインし、${ADMIN_VIEW_TERMS.canonical}の「ライセンス」ページを開きます`,
-			'2. 「ライセンスキーを入力」欄に上記のキーをコピー＆ペーストします',
-			'3. 「適用する」ボタンを押すと、有料プランが即座に有効になります',
-			'',
-			'ライセンス管理: https://ganbari-quest.com/admin/subscription',
-			'',
-			'■ ご注意',
-			'- このキーは1回限り使用できます。適用後は再利用できません。',
-			'- キーは第三者に共有しないでください。',
-			'',
-			'使い方ガイド: https://www.ganbari-quest.com/help/license-key',
-			`お困りの際は${ADMIN_VIEW_TERMS.canonical}の「せってい」→「お問い合わせ」からご連絡ください。`,
-		].join('\n'),
-	});
 }
 
 /** 週次活動レポート */

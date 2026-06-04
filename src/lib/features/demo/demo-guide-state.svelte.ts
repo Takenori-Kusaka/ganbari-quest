@@ -63,7 +63,9 @@ export const GUIDE_STEPS: GuideStep[] = [
 	{
 		id: 5,
 		title: 'プラン・お支払いを みよう',
-		description: 'ライセンスキーの 適用を たいけんしてみましょう',
+		// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃に伴いキー適用デモ文言を撤去し、
+		//   subscription (プランかんり) のデモ案内に置換。
+		description: 'プランかんりの 画面を たいけんしてみましょう',
 		matchPath: '/admin/subscription',
 		href: '/admin/subscription',
 	},

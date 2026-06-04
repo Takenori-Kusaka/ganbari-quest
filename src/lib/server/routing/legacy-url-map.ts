@@ -544,6 +544,22 @@ export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
 		reason:
 			'ライセンスキー販売モデル撤廃 → サブスクリプションモデル統一 rename (Epic #2525 Phase 4 / Phase 7 PR-L3、業界整合: Spotify / Apple / Stripe / Lingokids)',
 	},
+	// #2525 Phase 4 (#2620) / Phase 7 PR-L4 (#2836): site/help/license-key.html 完全削除 → /admin/subscription 301
+	// ライセンスキー販売モデル撤廃 (Phase 1 補強 3 #2788 §3.4 OQ-3 確定) で help ページ自体が用途消失。
+	// href 置換ではなくページ完全削除 + LEGACY_URL_MAP redirect で bookmark / 外部リンクを救済する。
+	// GET 専用の help ページ削除のため 301 Moved Permanently (method 保持不要)。
+	// 注: site/help/license-key.html は GitHub Pages 配信のため本 entry はアプリ Lambda 経由アクセスに効く
+	//   (LP 直 URL の物理削除後は GitHub Pages 404)。LP 内部リンク・sitemap からの参照は本 PR で削除済。
+	// 永久保持: src/routes/CLAUDE.md `#578` 旧 URL 廃止ルール (ブックマーク維持のため削除禁止)。
+	{
+		from: '/help/license-key',
+		to: '/admin/subscription',
+		status: 301,
+		deletedAt: '2026-06-04',
+		issue: '#2525',
+		reason:
+			'ライセンスキー販売モデル撤廃に伴う help ページ完全削除 (Epic #2525 Phase 7 PR-L4 / Phase 1 補強 3 #2788 §3.4 OQ-3)',
+	},
 	// #2270 / #2275 (EPIC #2266): /admin/messages 廃止 + 応援機能 /admin/cheer に統合
 	// PO 報告 (2026-05-19) 「メッセージだけ送る機能は意味なし、応援は任意理由 + 直接 P 付与が核」
 	// 旧 messages は P 付与なし = 子供から見て価値が薄いため廃止。スタンプ/メッセージは応援機能の付随要素として cheer に統合。

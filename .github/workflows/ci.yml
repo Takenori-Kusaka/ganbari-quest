@@ -166,6 +166,12 @@ jobs:
       - name: No plan/status literal direct write check (#972)
         run: node scripts/check-no-plan-literals.mjs
 
+      - name: License key re-introduction guard (#2836 / Epic #2525 Phase 7 PR-L4)
+        # license key 全廃 (Phase 1 補強 3 #2788) の再導入防止。allowlist 外のコード行に
+        # ライセンスキー / licenseKey / license-key / LICENSE_KEY 参照を検出したら fail。
+        # DB 層 / LEGACY_URL_MAP entry は PR-L5 担当の FILE_ALLOWLIST、履歴コメントは許容。
+        run: node scripts/check-license-key-leak.mjs
+
       - name: Internal terms UI exposure check (#2288 AN-5 #2180 補強)
         # 親 UI (admin / 親管理画面) で内部用語 (DynamoDB / Pre-PMF Bucket A /
         # アクティベーションファネル / リテンションコホート / テナント等) の UI 露出を検知。

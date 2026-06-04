@@ -109,6 +109,16 @@ describe('legacy-url-map', () => {
 			expect(result?.to).toBe('/admin/subscription');
 			expect(rewriteLegacyPath('/admin/license/key', result!)).toBe('/admin/subscription/key');
 		});
+
+		// #2525 Phase 7 PR-L4 (#2836): /help/license-key → /admin/subscription (301、help ページ完全削除)
+		it('/help/license-key → /admin/subscription (301) エントリが存在する', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/help/license-key');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/admin/subscription');
+			// help ページ完全削除 (OQ-3) に伴う恒久移動、GET 専用のため 301 Moved Permanently
+			expect(entry?.status).toBe(301);
+			expect(entry?.issue).toBe('#2525');
+		});
 	});
 
 	describe('findLegacyRedirect()', () => {
@@ -161,6 +171,8 @@ describe('legacy-url-map', () => {
 			['/admin/license', '/admin/license'],
 			['/admin/license/key', '/admin/license'],
 			['/admin/subscription', null],
+			// #2525 Phase 7 PR-L4 (#2836): /help/license-key 廃止 → /admin/subscription 301
+			['/help/license-key', '/help/license-key'],
 			['/demo/admin/points', '/demo/admin/points'],
 			['/demo/admin/reports', '/demo/admin/reports'],
 			['/demo/admin/rewards', '/demo/admin/rewards'],
@@ -304,6 +316,8 @@ describe('legacy-url-map', () => {
 			// #2818 Phase 7 PR-L3: /admin/license → /admin/subscription (308)
 			['/admin/license', '/admin/subscription'],
 			['/admin/license/key', '/admin/subscription/key'],
+			// #2836 Phase 7 PR-L4: /help/license-key → /admin/subscription (301)
+			['/help/license-key', '/admin/subscription'],
 			// #2175: 子供画面 achievements → challenges (5 年齢モード)
 			['/baby/achievements', '/baby/challenges'],
 			['/preschool/achievements', '/preschool/challenges'],

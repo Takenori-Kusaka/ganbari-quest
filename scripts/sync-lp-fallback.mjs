@@ -43,7 +43,9 @@ const SHARED_LABELS_JS = path.join(REPO_ROOT, 'site/shared-labels.js');
 
 /**
  * 対象 HTML ファイル一覧 (Issue #1945 AC4)。
- * Phase 3 D5 は site/ 直下 10 ファイル + site/help/license-key.html (LP_LICENSEKEY_LABELS 参照) を対象。
+ * site/ 直下 10 ファイルを対象。
+ * 注: 旧 site/help/license-key.html (LP_LICENSEKEY_LABELS 参照) は Epic #2525 Phase 7 PR-L4
+ *     (#2836) license key 全廃に伴い完全削除済のため対象外。
  */
 const TARGET_HTML_FILES = [
 	'site/index.html',
@@ -56,7 +58,6 @@ const TARGET_HTML_FILES = [
 	'site/sla.html',
 	'site/graduation.html',
 	'site/selfhost.html',
-	'site/help/license-key.html',
 ];
 
 const args = process.argv.slice(2);
