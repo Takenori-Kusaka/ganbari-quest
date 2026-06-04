@@ -6,6 +6,8 @@
 // こちらはメタ情報（名前・価格・CTA・バッジ）と #749 ブランドガイドライン準拠を検証。
 
 import { expect, test } from '@playwright/test';
+// Phase 7 PR-L4 (#2836): family→premium rename (ADR-0058) でプラン名は PLAN_TERMS.premium 参照。
+import { PLAN_TERMS } from '../../src/lib/domain/terms';
 
 test.describe('#765 /pricing プランメタ情報 SSOT', () => {
 	test.beforeEach(async ({ page }) => {
@@ -21,13 +23,11 @@ test.describe('#765 /pricing プランメタ情報 SSOT', () => {
 		await expect(cards.nth(2)).toHaveAttribute('data-plan', 'family');
 	});
 
-	test('プラン名は #749 §7.1 ブランド表記（フリー / スタンダード / ファミリー）', async ({
-		page,
-	}) => {
+	test('プラン名は terms.ts atom（フリー / スタンダード / プレミアム）', async ({ page }) => {
 		const names = page.getByTestId('pricing-plan-name');
 		await expect(names.nth(0)).toHaveText('フリー');
-		await expect(names.nth(1)).toHaveText('スタンダード');
-		await expect(names.nth(2)).toHaveText('ファミリー');
+		await expect(names.nth(1)).toHaveText(PLAN_TERMS.standard);
+		await expect(names.nth(2)).toHaveText(PLAN_TERMS.premium);
 	});
 
 	test('価格表記は半角 ¥（#749 §7.2）', async ({ page }) => {

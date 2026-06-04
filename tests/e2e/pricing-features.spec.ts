@@ -6,6 +6,8 @@
 // 文言の微調整は許容するため、substring マッチで検証する。
 
 import { expect, test } from '@playwright/test';
+// Phase 7 PR-L4 (#2836): family→premium rename (ADR-0058) で family カード名は PLAN_TERMS.premium 表示。
+import { PLAN_TERMS } from '../../src/lib/domain/terms';
 
 test.describe('#792 /pricing features 棚卸し', () => {
 	test.beforeEach(async ({ page }) => {
@@ -26,10 +28,10 @@ test.describe('#792 /pricing features 棚卸し', () => {
 		await expect(standardCard).toContainText('1年間の履歴保持');
 	});
 
-	test('family カードに棚卸しで確定したファミリー固有機能が表示される', async ({ page }) => {
+	test('family カードに棚卸しで確定したプレミアム固有機能が表示される', async ({ page }) => {
 		// family は .plan-card の 3 番目（recommended でも not recommended でも family 固有のクラスはない）
-		// → プラン名で特定する
-		const familyCard = page.locator('.plan-card', { hasText: 'ファミリー' }).first();
+		// → プラン名 (PLAN_TERMS.premium、ADR-0058 rename) で特定する
+		const familyCard = page.locator('.plan-card', { hasText: PLAN_TERMS.premium }).first();
 		await expect(familyCard).toBeVisible();
 
 		// family 固有の差別化項目（#722: AI 自動提案を追加）
@@ -44,7 +46,7 @@ test.describe('#792 /pricing features 棚卸し', () => {
 	test('棚卸しで削除された項目は standard / family カードに表示されない', async ({ page }) => {
 		// #792 棚卸し: plan-gate されていない or 未稼働のため削除
 		const standardCard = page.locator('.plan-card.recommended');
-		const familyCard = page.locator('.plan-card', { hasText: 'ファミリー' }).first();
+		const familyCard = page.locator('.plan-card', { hasText: PLAN_TERMS.premium }).first();
 
 		// 月次比較レポート: plan-gate されていないため全プラン参照可
 		await expect(familyCard).not.toContainText('月次比較レポート');
