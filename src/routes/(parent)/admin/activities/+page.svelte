@@ -89,7 +89,7 @@ const perChildActivities = $derived(
 // 旧実装は「selected child の per-child」+「tenant 全 child 集約 (data.activities)」を
 // 単純連結し、selected child の instance が 2 重に出る + 件数水増し (35+35) + 兄弟の活動が
 // 混在する 3 重の不整合を起こしていた。本 PR で表示軸を selected child の per-child のみに
-// 一本化する (Strangler Fig façade 原則: 内部並存を UI に漏らさない、deep research T3)。
+// 一本化する (Strangler Fig facade 原則: 内部並存を UI に漏らさない、deep research T3)。
 const visiblePerChildActivities = $derived(perChildActivities.filter((a) => Boolean(a.isVisible)));
 const hiddenPerChildActivities = $derived(perChildActivities.filter((a) => !a.isVisible));
 
