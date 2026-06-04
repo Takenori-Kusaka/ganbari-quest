@@ -209,6 +209,124 @@ export function hasDomSnapshotReference(body) {
 }
 
 // ---------------------------------------------------------------------------
+// #2918: SS embed 未完了 (未来形記述 / GitHub 表示可能な embed 画像不在) の検出
+//
+// QM レビューで UI 変更 PR が「SS は後で push する」という未来形記述のまま Ready 化され、
+// CI screenshot-check fail で BLOCK → Fix Agent 往復 が 4 件連続 (#2913 / #2914 / #2915 /
+// #2909) 発生した。実装品質は高いが「SS 撮影 → screenshots branch push → body embed」の
+// 最終ステップだけが省略される構造に対し、Ready 化前 (ローカル pre-ready) で hard-fail する。
+//
+// CI screenshot-check (main 処理) とロジック SSOT を共有するため、検出関数は本ファイルに集約し
+// pre-ready は env SCREENSHOT_EMBED_GATE 経由で本検証のみを error モードで起動する (二重実装しない)。
+// ---------------------------------------------------------------------------
+
+// 未来形 / 予告記述パターン。「SS は (後で) push する」「添付予定」「撮影予定」等の未完了宣言。
+// 「push 済み」「添付しました」等の完了形は誤検出しないよう、予告を示す語尾のみに限定する。
+const FUTURE_TENSE_PATTERNS = [
+	/screenshots?\s*branch\s*へ?\s*(?:後で|あとで)?\s*push\s*(?:する|します|予定)/i,
+	/(?:スクリーンショット|スクショ|SS|画像)\s*(?:は|を)?\s*(?:後で|あとで|別途|のちほど)/,
+	/(?:添付|撮影|貼付|貼り付け|push|アップロード)\s*(?:予定|します|する予定|したい|する)\b/,
+	/(?:後で|あとで|のちほど|別途)\s*(?:添付|撮影|貼付|貼り付け|push|アップロード|追加)/,
+	/(?:TODO|todo)\s*[:：]?\s*(?:SS|スクショ|スクリーンショット|画像)/,
+];
+
+/**
+ * PR body 内に「SS は後で push する / 添付予定」等の未来形・未完了宣言が含まれるかを判定 (#2918)。
+ *
+ * 例 (fail とすべき記述):
+ * - 「SS は screenshots branch へ push する」
+ * - 「スクリーンショットは後で添付します」
+ * - 「TODO: スクショ追加」
+ *
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function hasFutureTenseScreenshotMarker(body) {
+	return FUTURE_TENSE_PATTERNS.some((p) => p.test(body));
+}
+
+/**
+ * PR body 内に GitHub Web 上で表示可能な (= remote URL の) スクリーンショット embed 画像が
+ * 1 件以上あるかを判定 (#2918)。
+ *
+ * - ローカルパス (tmp/ / .tmp-screenshots/) のみの参照は embed とみなさない (detectLocalPaths で別途 fail)
+ * - http(s) URL かつ画像拡張子 (.png/.jpg/.jpeg/.webp/.gif) を持つものを embed として数える
+ *
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function hasEmbeddedScreenshotImage(body) {
+	const urls = extractImageUrls(body);
+	return urls.some((url) => /^https?:\/\//i.test(url) && isScreenshotUrl(url));
+}
+
+/**
+ * Ready 化前 SS embed ゲート (#2918)。
+ *
+ * UI 変更があり exempt でない PR について、PR body に GitHub 表示可能な embed 画像が無い、
+ * または未来形記述 (「後で push する」) が残っている場合に違反を返す。
+ *
+ * skip 条件 (CI screenshot-check と同一 SSOT):
+ * - UI 関連ファイル変更なし (isUiPr=false)
+ * - 「該当なし（refactor / docs / chore）」「UI 変更なし」明示 (hasUiNotApplicableMarker)
+ * - ラベル refactor:internal-no-doc-impact (hasInternalRefactorLabel)
+ *
+ * @param {{ body: string; files: string[]; labels: string[] }} input
+ * @returns {{ skipped: boolean; skipReason: string | null; violations: { id: string; issue: string; message: string }[] }}
+ */
+export function checkScreenshotEmbedReadiness({ body, files, labels }) {
+	const violations = [];
+
+	// ローカルパス参照は UI PR かどうかに関わらず常に違反 (#1741 と同方針)
+	const localViolation = checkLocalPathViolation(body);
+	if (localViolation) violations.push(localViolation);
+
+	if (!isUiPr(files)) {
+		return { skipped: true, skipReason: 'UI 関連ファイル変更なし', violations };
+	}
+	if (hasUiNotApplicableMarker(body)) {
+		return { skipped: true, skipReason: '「該当なし」明示記述あり', violations };
+	}
+	if (hasInternalRefactorLabel(labels)) {
+		return {
+			skipped: true,
+			skipReason: `PR ラベル '${INTERNAL_REFACTOR_LABEL}' により内部 refactor として exempt (#2017 / ADR-0003 §4)`,
+			violations,
+		};
+	}
+
+	// 未来形記述の検出 (#2918)
+	if (hasFutureTenseScreenshotMarker(body)) {
+		violations.push({
+			id: 'future-tense-screenshot',
+			issue: '#2918',
+			message:
+				'PR body に「SS は後で push する / 添付予定」等の未来形・未完了の記述が残っています。\n' +
+				'Ready 化前に SS 撮影 → screenshots branch push → body embed を完了してください。\n' +
+				'  - node scripts/capture.mjs --pr <N> で撮影 (SS + DOM HTML が screenshots branch に push されます)\n' +
+				'  - 出力された Markdown スニペット (raw.githubusercontent.com の embed) を PR body に貼り付け\n' +
+				'  - UI 変更を含まない PR の場合は「該当なし（refactor / docs / chore）」と明記してください。',
+		});
+	}
+
+	// GitHub 表示可能な embed 画像の不在検出 (#2918)
+	if (!hasEmbeddedScreenshotImage(body)) {
+		violations.push({
+			id: 'screenshot-embed-missing',
+			issue: '#2918',
+			message:
+				'UI 変更 PR ですが、PR body に GitHub Web 上で表示可能な SS embed 画像が 1 件もありません。\n' +
+				'(テキスト表のみ / ローカルパス参照のみ / embed 0 件 は Ready 化前 fail です — #2913 / #2914 / #2915 / #2909)\n' +
+				'  - node scripts/capture.mjs --pr <N> で撮影 → screenshots branch push\n' +
+				'  - raw.githubusercontent.com/.../screenshots/pr-<N>/ 形式の embed 画像を 1 件以上 body に貼り付け\n' +
+				'  - UI 変更を含まない PR の場合は「該当なし（refactor / docs / chore）」と明記してください。',
+		});
+	}
+
+	return { skipped: false, skipReason: null, violations };
+}
+
+// ---------------------------------------------------------------------------
 // メイン処理
 // ---------------------------------------------------------------------------
 
@@ -339,6 +457,42 @@ function main() {
 	return isError ? 1 : 0;
 }
 
+/**
+ * #2918: Ready 化前 SS embed ゲートの CLI エントリ。
+ *
+ * pre-ready Step から `SCREENSHOT_EMBED_GATE=1` env で起動される。UI 変更 + SS 未 embed /
+ * 未来形記述を hard-fail (exit 1) する。検証ロジックは checkScreenshotEmbedReadiness に集約
+ * (CI screenshot-check と同一 SSOT 関数を再利用)。
+ *
+ * @returns {number} exit code (0 = PASS / skip, 1 = 違反)
+ */
+function mainEmbedGate() {
+	const { skipped, skipReason, violations } = checkScreenshotEmbedReadiness({
+		body: PR_BODY,
+		files: PR_FILES,
+		labels: PR_LABELS,
+	});
+
+	if (skipped && violations.length === 0) {
+		console.log(`[screenshot-embed-gate] ${skipReason} — SS embed 検証をスキップ`);
+		return 0;
+	}
+
+	if (violations.length === 0) {
+		console.log('[screenshot-embed-gate] OK — SS embed 済み (違反なし)');
+		return 0;
+	}
+
+	for (const v of violations) {
+		console.log(`\n[screenshot-embed-gate] ERROR (${v.id}, ${v.issue}):`);
+		console.log(v.message);
+	}
+	console.log(
+		`\n[screenshot-embed-gate] violations=${violations.length} — Ready 化前に SS embed を完了してください (#2918)`,
+	);
+	return 1;
+}
+
 import { resolve as pathResolve } from 'node:path';
 // CLI 実行時のみ main を呼ぶ（テスト import 時は呼ばない）
 // Windows では import.meta.url が file:///C:/... 形式、process.argv[1] が C:\... 形式になるため
@@ -355,7 +509,14 @@ const isMain = (() => {
 
 if (isMain) {
 	try {
-		process.exit(main());
+		// #2918: SCREENSHOT_EMBED_GATE=1 で Ready 化前 SS embed ゲートを起動 (pre-ready Step 用)。
+		// 未設定時は従来の CI screenshot-check (before/after / DOM / ローカルパス) を実行する。
+		const runner =
+			(process.env.SCREENSHOT_EMBED_GATE || '').toLowerCase() === '1' ||
+			(process.env.SCREENSHOT_EMBED_GATE || '').toLowerCase() === 'true'
+				? mainEmbedGate
+				: main;
+		process.exit(runner());
 	} catch (err) {
 		console.error('[screenshot-check] internal error:', err);
 		process.exit(2);
