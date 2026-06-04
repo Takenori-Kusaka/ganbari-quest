@@ -115,6 +115,20 @@ function deselectAllActivities() {
 
 <div class="min-h-dvh bg-[var(--color-surface-base)]">
 	<div class="max-w-2xl mx-auto px-4 py-8">
+		<!-- #2900: 認証済みの親向け header 戻り導線 (browse-first journey の dead-end 解消)。
+			未認証 (公開閲覧) では非表示にして marketplace の公開ページ性を維持。 -->
+		{#if data.isAuthenticated}
+			<div class="mb-4">
+				<a
+					href="/admin"
+					data-testid="marketplace-back-to-admin"
+					class="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-action-primary)] hover:underline"
+				>
+					{MARKETPLACE_LABELS.backToAdmin}
+				</a>
+			</div>
+		{/if}
+
 		<!-- Breadcrumb -->
 		<nav class="text-xs text-[var(--color-text-tertiary)] mb-6">
 			<a href="/marketplace" class="hover:text-[var(--color-action-primary)]">{MARKETPLACE_LABELS.breadcrumbRoot}</a>

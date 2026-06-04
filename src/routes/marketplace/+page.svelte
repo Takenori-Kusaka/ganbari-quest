@@ -198,6 +198,20 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 
 <div class="min-h-dvh bg-[var(--color-surface-base)]">
 	<div class="max-w-5xl mx-auto px-4 py-8">
+		<!-- #2900: 認証済みの親向け header 戻り導線 (browse-first journey の dead-end 解消)。
+			未認証 (公開閲覧) では非表示にして marketplace の公開ページ性を維持。 -->
+		{#if data.isAuthenticated}
+			<div class="mb-4">
+				<a
+					href="/admin"
+					data-testid="marketplace-back-to-admin"
+					class="inline-flex items-center gap-1 text-sm font-medium text-[var(--color-action-primary)] hover:underline"
+				>
+					{MARKETPLACE_LABELS.backToAdmin}
+				</a>
+			</div>
+		{/if}
+
 		<!-- Header -->
 		<div class="text-center mb-8">
 			<div class="flex justify-center mb-3">
