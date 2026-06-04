@@ -388,6 +388,33 @@ export function parentMessagePrefix(): string {
 }
 
 /**
+ * Sibling cheer (#2267 / #2824 Wave 5B / ADR-0055):
+ *   PK = T#<tenantId>#CHILD#<toChildId>, SK = CHEER#<paddedId>
+ *
+ * きょうだい間おうえんスタンプを **受信 child (toChildId)** の partition 配下に置く
+ * (activity_logs / point_ledger / parent_message と同居)。最頻 read の
+ * `findUnshownCheers(toChildId)` を単一 partition Query (begins_with(SK, 'CHEER#'))
+ * で完結させ、SiblingCheerOverlay の表示経路を child 軸で構造的に担保する (追加 GSI 不要、ADR-0055 §3.1)。
+ *
+ * 送信側 read の `countTodayCheersFrom(fromChildId)` は送信時の 1 日上限チェック
+ * (≤5 回/日、低頻度) のため、tenant Scan + fromChildId + sentAt filter で集計する。
+ * `markShown(cheerIds[])` は cheerId のみ受けるため tenant Scan + id filter で PK/SK を
+ * 解決する (message-repo.findMessageItemById / stamp-card-repo.findCardItemById と同パターン、
+ * SiblingCheerOverlay 表示直後の低頻度経路)。
+ */
+export function siblingCheerKey(toChildId: number, cheerId: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${toChildId}`, tenantId),
+		SK: `CHEER#${padId(cheerId)}`,
+	};
+}
+
+/** Sibling cheer SK prefix for querying all cheers received by a child / tenant cleanup */
+export function siblingCheerPrefix(): string {
+	return 'CHEER#';
+}
+
+/**
  * Stamp card (#2824 Wave 3B / ADR-0055): PK=CHILD#<cId>, SK=STMPCARD#<weekStart>
  *
  * per-child instance を child partition 配下に置き (special_rewards / activity_logs と同居)、
@@ -911,6 +938,7 @@ export const ENTITY_NAMES = {
 	specialReward: 'specialReward',
 	rewardRedemption: 'rewardRedemption',
 	parentMessage: 'parentMessage',
+	siblingCheer: 'siblingCheer',
 	stampCard: 'stampCard',
 	dailyBattle: 'dailyBattle',
 	enemyCollection: 'enemyCollection',
