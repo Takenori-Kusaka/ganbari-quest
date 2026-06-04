@@ -164,7 +164,7 @@ PO 補佐 (Claude Code) が今後 Issue 起票時に競合・OSS・design patter
 | 3 | `.github/CLAUDE.md` | Issue ラベル / phase / blocked_by | 重複なし |
 | 4 | `docs/decisions/0003-issue-quality-standard.md` | 根本原因 + AC 全境界条件 | 起票時の調査責務未定義 |
 | 5 | `docs/decisions/0010-pre-pmf-scope-judgment.md` | Pre-PMF scope 判断 3 bucket | 過剰研究コスト判断と関連 |
-| 6 | `docs/decisions/0014-labels-i18n-mechanism.md` | OSS 先調査 2 件比較 | 機械強制実装は本 Issue C で |
+| 6 | OSS 先調査ルール（`docs/decisions/README.md` §OSS 先調査ルール、旧 ADR-0014 は #2440 PR-A5 で削除） | OSS 先調査 2 件比較 | 機械強制実装は本 Issue C で |
 
 ### 4.2 案 C-1: S-1 即時 (現状維持 + po-session.md 1 セクション追加)
 
@@ -302,7 +302,7 @@ PO 補佐 (Claude Code) が今後 Issue 起票時に競合・OSS・design patter
 | `docs/sessions/po-session.md` §タスク 4 | 本 SSOT の運用手順 |
 | `docs/decisions/0003-issue-quality-standard.md` | Issue 品質 ADR |
 | `docs/decisions/0010-pre-pmf-scope-judgment.md` | Pre-PMF scope ADR |
-| `docs/decisions/0014-labels-i18n-mechanism.md` | OSS 先調査の代表事例 ADR |
+| `docs/decisions/README.md` §OSS 先調査ルール | OSS 先調査ルール SSOT（旧 ADR-0014 は #2440 PR-A5 で削除、git 履歴参照） |
 | `.claude/skills/issue-triage/SKILL.md` | 起票フェーズゲート (Issue B で本 SSOT を統合予定) |
 | `.github/ISSUE_TEMPLATE/process_ticket.yml` | Issue C (#2090) で No-gos / weight 追加予定 |
 

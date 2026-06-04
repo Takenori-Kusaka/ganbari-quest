@@ -183,7 +183,7 @@ aws cognito-idp delete-user-pool --user-pool-id <NEW_POOL_ID>
 
 ## 参考
 
-- [ADR-0018](../decisions/0018-cognito-user-pool-logical-id-replacement.md) — Pool 再作成の判断基準
-- [ADR-0021](../decisions/0021-cognito-pool-migration-user-preservation.md) — ユーザー保全戦略
+- 旧 ADR-0018 (Cognito User Pool 論理 ID 変更による Replacement、Pool 再作成の判断基準) — #2440 PR-A5 で削除、決定経緯は git 履歴参照
+- 旧 ADR-0021 (Cognito Pool 移行ユーザー保全戦略) — #2440 PR-A5 で削除、決定経緯は git 履歴参照
 - [infra/CLAUDE.md](../../infra/CLAUDE.md) — NUC/Lambda デプロイ手順
 - Issue #1399 — 本ランブックの起点

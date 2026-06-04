@@ -230,5 +230,5 @@ weight: 大規模 (Rust RFC full + Spike escalation 経路)
 | `docs/sessions/po-session.md` §タスク 4 | 本 SSOT の運用手順 |
 | `docs/decisions/0003-issue-quality-standard.md` | Issue 品質 SSOT |
 | `docs/decisions/0010-pre-pmf-scope-judgment.md` | Pre-PMF scope 判断 (OSS 調査コスト判断) |
-| `docs/decisions/0014-labels-i18n-mechanism.md` | OSS 先調査の代表事例 |
+| `docs/decisions/README.md` §OSS 先調査ルール | OSS 先調査ルール SSOT（旧 ADR-0014 は #2440 PR-A5 で削除） |
 | `.claude/skills/issue-triage/SKILL.md` | 7 ステップフェーズゲート (本 SSOT は ステップ 1.7 として組み込む将来計画) |
