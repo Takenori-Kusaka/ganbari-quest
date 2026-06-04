@@ -4860,6 +4860,8 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	importToastError: (presetName: string) =>
 		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
 	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
+	// #2823: demo 環境の no-op 取込を正直に明示 (他 4 type と同文言、5 type 統一)。
+	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 } as const;
 
 export const DEMO_ACTIVITIES_LABELS = {
