@@ -15,9 +15,9 @@
 
 UI ラベル・用語は `src/lib/domain/labels.ts` が SSOT。デモと本番で同じラベル使用必須。変更時は `grep` で全件確認。
 
-### 年齢帯 variant（ADR-0015）
+### 年齢帯 variant
 
-7 アンチパターン (A1-A7) は ADR-0015 参照。基本: `if (uiMode === 'baby')` 散在 / runtime 動的変換 / Feature Flag 代替 等を避け、`getLabel(key, ctx)` 経由で labels.ts に集約。`+layout.server.ts` で `{ ageTier: params.uiMode }` を context 注入。
+基本原則: `if (uiMode === 'baby')` 散在 / runtime 動的変換 / Feature Flag 代替 等を避け、`getLabel(key, ctx)` 経由で labels.ts に集約。`+layout.server.ts` で `{ ageTier: params.uiMode }` を context 注入。7 アンチパターン (A1-A7) の網羅と検出方法の詳細は git 履歴 (旧 `docs/decisions/0015-age-tier-variant-architecture.md`、#2898 で削除) 参照。
 
 ### 日本語テキスト折り返し（ADR-0016）
 

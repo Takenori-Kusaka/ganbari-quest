@@ -2,7 +2,7 @@
 
 > **archived (2026-05-15、#2097 ADR-0048 起票に伴う 1-in-1-out)**: ADR-0017 は rejected (deploy failed) で superseded by ADR-0018。active 一覧に置く必要なし。docs/decisions/README.md の 1-in-1-out ルール (TOP10 active 維持) に従い、本 ADR を archive 送り、ADR-0048 (Multi-Lambda Demo Deployment) を active に登録する。
 
-- **Status**: Rejected (deployment failed 2026-04-21) — superseded by [ADR-0018](../0018-cognito-user-pool-logical-id-replacement.md)
+- **Status**: Rejected (deployment failed 2026-04-21) — superseded by 旧 ADR-0018 (git 履歴、#2898 で削除)
 - **Date**: 2026-04-21
 - **Related Issue**: #1366 (ADR-0018 で再設計して解決)
 
@@ -21,7 +21,7 @@
 **復旧手順 (実施済)**:
 1. `aws cloudformation continue-update-rollback --stack-name GanbariQuestAuth --resources-to-skip UserPool6BA7E5F2` で UserPool を skip して rollback 完走 → stack = `UPDATE_ROLLBACK_COMPLETE`
 2. revert 案は**却下** (2026-04-21 PO 指摘: 「revert ではなくて、ちゃんと目的を達成できるように修正してもらいたい」)
-3. [ADR-0018](0018-cognito-user-pool-logical-id-replacement.md) で**論理 ID を変更する明示的 Replacement 方式**に切り替えて #1366 を根本解決する設計に再起動
+3. 旧 ADR-0018 (git 履歴、#2898 で削除) で**論理 ID を変更する明示的 Replacement 方式**に切り替えて #1366 を根本解決する設計に再起動
 
 **根本原因**:
 - CloudFormation `AWS::Cognito::UserPool` の `Mutable` 属性変更は **Update requires: Replacement** と AWS 公式ドキュメントに記載されているが、**CloudFormation 側がそれを Update にしか使わない** (置換トリガーとして扱わない) という既知のギャップがある
@@ -32,7 +32,7 @@
 - 本番 deploy 先行の破壊的変更は、まず **staging / CDK synth diff** で Replacement 挙動を確認する段取りが ADR に含まれていなかったのが構造的欠陥
 - Pre-PMF だから破壊可能、だから staging 省略、という連鎖は `ADR-0010` の誤適用
 
-**後続 ADR で再設計する点** → [ADR-0018](0018-cognito-user-pool-logical-id-replacement.md) で採択済み (2026-04-21):
+**後続 ADR で再設計する点** → 旧 ADR-0018 (git 履歴、#2898 で削除) で採択済み (2026-04-21):
 - ~~User Pool 論理 ID を変える~~ → **採用** (`UserPool` → `UserPoolV2`)
 - ~~bulk import 手順~~ → **不要** (ユーザー全員 Pre-PMF テストアカウントで消失許容と確認済み)
 - SSM パラメータは CDK が自動追従
