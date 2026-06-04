@@ -130,7 +130,8 @@ function getSyncedTableNames() {
 			if (!line.startsWith('+') && !line.startsWith('-')) continue;
 			// snake_case 識別子 + クォート内文字列の両方をトークンとして拾う
 			for (const m of line.matchAll(/['"]?\b([a-z][a-z0-9_]+)\b['"]?/g)) {
-				synced.add(m[1]);
+				const token = m[1];
+				if (token) synced.add(token);
 			}
 		}
 	}
@@ -158,9 +159,10 @@ function collectColumnsInAddedTables(added, addedTables, removedTables) {
 	for (const line of added) {
 		const tableStart = line.match(TABLE_START_RE);
 		if (tableStart) {
-			const name = tableStart[1];
+			const name = tableStart[1] ?? '';
 			// 真の新規 table (追加側のみ) のときだけ追跡開始。rename / 行移動は対象外。
-			currentNewTable = addedTables.has(name) && !removedTables.has(name) ? name : null;
+			currentNewTable =
+				name !== '' && addedTables.has(name) && !removedTables.has(name) ? name : null;
 			continue;
 		}
 		// table ブロック終端 (drizzle 定義の閉じ `}` / `});`) で追跡解除
@@ -311,10 +313,14 @@ export function detectBreakingChanges(diff, options = {}) {
 	const TABLE_RE = /sqliteTable\(\s*['"]([\w]+)['"]/g;
 	/** @type {Set<string>} */
 	const removedTables = new Set();
-	for (const m of removedText.matchAll(TABLE_RE)) removedTables.add(m[1]);
+	for (const m of removedText.matchAll(TABLE_RE)) {
+		if (m[1]) removedTables.add(m[1]);
+	}
 	/** @type {Set<string>} */
 	const addedTables = new Set();
-	for (const m of addedText.matchAll(TABLE_RE)) addedTables.add(m[1]);
+	for (const m of addedText.matchAll(TABLE_RE)) {
+		if (m[1]) addedTables.add(m[1]);
+	}
 	for (const tableName of addedTables) {
 		if (removedTables.has(tableName)) continue; // rename / 行移動は新規ではない
 		if (syncedTableNames.has(tableName)) continue; // create-tables / lazy に同期済
