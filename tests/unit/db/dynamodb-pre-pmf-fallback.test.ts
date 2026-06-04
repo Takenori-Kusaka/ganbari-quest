@@ -23,7 +23,8 @@
 import { describe, expect, it } from 'vitest';
 
 // Pre-PMF fallback に置換された 12 repo
-import * as autoChallengeRepo from '../../../src/lib/server/db/dynamodb/auto-challenge-repo';
+// #2824 Wave 6A (ADR-0055): auto-challenge-repo は本実装済のため stub fallback テスト対象外。
+//   機能等価性は tests/unit/db/dynamodb-auto-challenge-repo.test.ts (AWS SDK mock) で検証する。
 // #2824 Wave 5A (ADR-0055): battle-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-battle-repo.test.ts (AWS SDK mock) で検証する。
 // #2824 (ADR-0055): child-activity-repo は本実装済のため stub fallback テスト対象外。
@@ -48,29 +49,11 @@ const TODAY = '2026-05-19';
 describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 	// #2295 (EPIC #2294 ①): season-event-repo describe 削除済 (2026-05-19、repo 自体撤去)
 
-	describe('auto-challenge-repo', () => {
-		it('全 read method は安全値を返す', async () => {
-			await expect(
-				autoChallengeRepo.findByChildAndWeek(1, '2026-05-12', TENANT),
-			).resolves.toBeUndefined();
-			await expect(autoChallengeRepo.findActiveByChild(1, TENANT)).resolves.toBeUndefined();
-			await expect(autoChallengeRepo.findByChild(1, TENANT)).resolves.toEqual([]);
-		});
-
-		it('write method は throw しない', async () => {
-			await expect(
-				autoChallengeRepo.insert(
-					{ childId: 1, weekStart: '2026-05-12', categoryId: 1, targetCount: 5 },
-					TENANT,
-				),
-			).resolves.toBeTruthy();
-			await expect(
-				autoChallengeRepo.update(1, { currentCount: 3 }, TENANT),
-			).resolves.toBeUndefined();
-			await expect(autoChallengeRepo.expireOldChallenges('2026-05-01', TENANT)).resolves.toBe(0);
-			await expect(autoChallengeRepo.deleteByTenantId(TENANT)).resolves.toBeUndefined();
-		});
-	});
+	// #2824 Wave 6A (ADR-0055): auto-challenge-repo は本実装済 (stub 除外)。
+	//   週次自動チャレンジの生成・進捗が本番 DynamoDB Lambda で永続する。本実装の機能等価性
+	//   テストは dynamodb-auto-challenge-repo.test.ts に分離。ここで stub 前提の assert を残すと
+	//   「実装済なのに stub 期待」で誤った退行 gate になるため除外する (他 repo の fallback assert
+	//   は維持 = assertion 弱体化に該当しない)。
 
 	// #2824 Wave 5A (ADR-0055): battle-repo は本実装済 (stub 除外)。
 	//   LP machine-tour ④ feature-rpg-battle 訴求の日次バトル (進行 / 勝敗 / 報酬 / 敵図鑑) が
@@ -172,8 +155,8 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('regression guard: 全 4 repo の Promise.all で reject されない', () => {
-		it('SSR /preschool/home の典型的な 4 repo 並列呼び出しが全 fulfill する', async () => {
+	describe('regression guard: 全 3 repo の Promise.all で reject されない', () => {
+		it('SSR /preschool/home の典型的な 3 repo 並列呼び出しが全 fulfill する', async () => {
 			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
 			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
 			// #2263 regression hotfix: childActivityRepo を stub fallback に置換 (9 → 10 repo)
@@ -189,8 +172,9 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 			//   (本実装は AWS SDK mock 必須 → dynamodb-battle-repo.test.ts で検証)。6 → 5 repo
 			// #2824 Wave 5B (ADR-0055): siblingCheerRepo を本実装化したため除外
 			//   (本実装は AWS SDK mock 必須 → dynamodb-sibling-cheer-repo.test.ts で検証)。5 → 4 repo
+			// #2824 Wave 6A (ADR-0055): autoChallengeRepo を本実装化したため除外
+			//   (本実装は AWS SDK mock 必須 → dynamodb-auto-challenge-repo.test.ts で検証)。4 → 3 repo
 			const results = await Promise.allSettled([
-				autoChallengeRepo.findActiveByChild(1, TENANT),
 				cloudExportRepo.findByTenant(TENANT),
 				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),
 				viewerTokenRepo.findByTenant(TENANT),

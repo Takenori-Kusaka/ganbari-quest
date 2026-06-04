@@ -1,19 +1,4 @@
 {
-	"src/lib/server/db/dynamodb/auto-challenge-repo.ts": [
-		"deleteByTenantId",
-		"expireOldChallenges",
-		"findActiveByChild",
-		"findByChild",
-		"findByChildAndWeek",
-		"insert",
-		"update"
-	],
-	"src/lib/server/db/dynamodb/certificate-repo.ts": [
-		"findCertificateById",
-		"findCertificates",
-		"hasCertificate",
-		"issueCertificate"
-	],
 	"src/lib/server/db/dynamodb/cloud-export-repo.ts": [
 		"countByTenant",
 		"deleteById",
