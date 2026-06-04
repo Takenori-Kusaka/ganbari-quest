@@ -28,7 +28,6 @@ describe('check-license-key-leak (#2836)', () => {
 			'src/lib/domain/validation/auth.ts',
 			'src/lib/server/auth/entities.ts',
 			'src/lib/server/services/license-service.ts',
-			'src/lib/server/services/rate-limit-service.ts',
 			'src/lib/runtime/env.ts',
 			'src/lib/server/routing/legacy-url-map.ts',
 		])('PR-L5 担当 / LEGACY_URL_MAP file は allowlist: %s', (rel) => {

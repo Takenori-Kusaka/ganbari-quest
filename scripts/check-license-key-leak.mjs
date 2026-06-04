@@ -15,7 +15,7 @@
  *      expand-contract §3.8) で削除する。本 PR-L4 (LP/メール/ラベル) の scope 外のため allowlist。
  *    - `src/lib/server/db/**` / `license-record.types.ts` / `license-key-status.ts` /
  *      `license-plan.ts` / `license-service.ts` / `validation/auth.ts` / `auth/entities.ts` /
- *      `runtime/env.ts` (ALLOW_LEGACY_LICENSE_KEYS) / `rate-limit-service.ts` 等
+ *      `runtime/env.ts` (ALLOW_LEGACY_LICENSE_KEYS) 等
  *    - `legacy-url-map.ts`: `/help/license-key` → `/admin/subscription` 301 redirect の `from` entry
  *      は永久保持 (CLAUDE.md #578) のため allowlist。
  *
@@ -65,10 +65,9 @@ export const FILE_ALLOWLIST = [
 	/^src[\\/]lib[\\/]domain[\\/]constants[\\/]license-key-status\.ts$/,
 	/^src[\\/]lib[\\/]domain[\\/]constants[\\/]license-plan\.ts$/,
 	/^src[\\/]lib[\\/]domain[\\/]validation[\\/]auth\.ts$/,
-	// 認可・実行モード・service 層 (PR-L5: 列読込経路 / dead service 撤去)
+	// 認可・実行モード・service 層 (PR-L5: 列読込経路)
 	/^src[\\/]lib[\\/]server[\\/]auth[\\/]entities\.ts$/,
 	/^src[\\/]lib[\\/]server[\\/]services[\\/]license-service\.ts$/,
-	/^src[\\/]lib[\\/]server[\\/]services[\\/]rate-limit-service\.ts$/,
 	/^src[\\/]lib[\\/]runtime[\\/]env\.ts$/,
 	// LEGACY_URL_MAP: /help/license-key → /admin/subscription 301 entry (永久保持、CLAUDE.md #578)
 	/^src[\\/]lib[\\/]server[\\/]routing[\\/]legacy-url-map\.ts$/,
