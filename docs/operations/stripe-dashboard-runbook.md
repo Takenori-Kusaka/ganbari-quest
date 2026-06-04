@@ -21,11 +21,13 @@ Phase 2 月次運用 / Phase 3 incident は頻度低 / ad-hoc のため最小限
 
 ### 関連ドキュメント
 
+> **注 (Epic #2525 license key 全廃)**: 本書中の License Key 関連手順 (因果関係 / 要件 / HMAC シークレット / キャンペーンキー発行) はすべて deprecated。entitlement は Stripe Subscription webhook が唯一の付与経路。campaign 配布は Stripe Coupon / Promotion Code で代替。現行の課金・entitlement SSOT は `docs/design/billing-redesign/`。以下 License Key 系リンク先 (`license-subscription-causality.md` / `license-key-requirements.md` / `license-key-secrets.md`) はいずれも歴史記録。
+
 - 価格・プラン体系: [`docs/design/19-プライシング戦略書.md`](../design/19-プライシング戦略書.md)
-- License Key ↔ Stripe 因果関係: [`docs/design/license-subscription-causality.md`](../design/license-subscription-causality.md)
-- License Key 要件: [`docs/design/license-key-requirements.md`](../design/license-key-requirements.md)
-- HMAC シークレット運用: [`docs/operations/license-key-secrets.md`](license-key-secrets.md)
-- ライセンスキー方式でのプラン変更（Phase 1 α）: [`docs/design/plan-change-flow.md`](../design/plan-change-flow.md) §11
+- 課金・entitlement 仕様 (現行): [`docs/design/billing-redesign/`](../design/billing-redesign/)
+- License Key ↔ Stripe 因果関係 (deprecated): [`docs/design/license-subscription-causality.md`](../design/license-subscription-causality.md)
+- License Key 要件 (deprecated): [`docs/design/license-key-requirements.md`](../design/license-key-requirements.md)
+- HMAC シークレット運用 (deprecated): [`docs/operations/license-key-secrets.md`](license-key-secrets.md)
 
 ---
 
@@ -288,7 +290,7 @@ Phase 1 立ち上げで頻出する 5 系統の問題と切り分け手順。各
 1. 該当 Charge を検索（Customer email or Subscription ID で）
 2. Refund payment ボタン押下、理由を選択（`Requested by customer` 等）
 3. 全額 / 一部金額を指定
-4. アプリ側で license / tenant plan の手動調整が必要（`/ops/license` / `/ops/tenants`）。詳細は [`docs/design/license-subscription-causality.md`](../design/license-subscription-causality.md) §2.6 参照
+4. tenant plan は `customer.subscription.deleted` / `customer.subscription.updated` webhook で自動同期される（`/ops/tenants` で確認可。`/ops/license` は Epic #2525 で削除済）。`license-subscription-causality.md` §2.6 は deprecated (歴史記録)
 
 ### Chargeback（チャージバック）
 

@@ -172,6 +172,25 @@ Phase 7 既存 5 step と直交。PR-L0〜L2 を Phase 7 Step 1 並行/前置、
 9. `AWS_LICENSE_SECRET` 等 env 撤去 (3 系統)
 10. 設計書同期 (FR-5 訂正 + `docs/design/license-*.md` 5 件 + 08-DB + 07-API)
 
+### §5.1 検証結果サマリ (2026-06-04、ADR-0060 横断原則化)
+
+PR-L0〜L5 (#2807 / #2812 / #2814 / #2822 / #2841 / #2879、全マージ済) 完了後の 10 項目検証結果。検証は独立 grep / CI gate で実施 (ADR-0060 = 実装 Agent 自己申告でなく独立検証):
+
+| # | 項目 | 検証方法 | 結果 |
+|---|---|---|---|
+| 1 | 機械削除完了 (import 残存 0) | `check-license-key-leak.mjs` + grep | ✅ PASS (PR-L3 #2822 / PR-L5 #2879、leak gate 完全ゼロ化) |
+| 2 | 認可移行 E2E + build 起動 | 5 年齢モード NUC write E2E + production build | ✅ PASS (PR-L2 #2814、NUC 信頼ベース化回帰) |
+| 3 | 冗長層削除 (key 経由しない entitlement) | Stripe Checkout → `tenant.status=ACTIVE` integration test | ✅ PASS (PR-L1 #2812) |
+| 4 | DB 全 backend 整合 | sqlite / dynamodb / demo / fixture | ✅ PASS (PR-L5 #2879、4 backend 列 DROP + enum 削除) |
+| 5 | LP / メール / 法務書換 | `site/help/license-key.html` 削除 + 件名書換 grep | ✅ PASS (PR-L4 #2841) |
+| 6 | LEGACY_URL_MAP redirect + E2E | `/admin/license` → `/admin/subscription` 308 + spec | ✅ PASS (PR-L3 #2822) |
+| 7 | 用語 grep 0 + CI gate 恒久化 | `check-license-key-leak.mjs` CI hard-fail 組込 | ✅ PASS (PR-L4 #2841) |
+| 8 | ops 発行フロー代替確認 | Stripe Coupon / Promotion Code + `customer.subscription.deleted` webhook | ✅ PASS (OQ-2 確定、§3.6) |
+| 9 | env 撤去 (3 系統) | CDK / Secrets / GitHub Variables から `AWS_LICENSE_SECRET` 撤去 | ✅ PASS (PR-L5 #2879) |
+| 10 | 設計書 archive / deprecation 同期 | 5 file deprecation header + 参照元 link 同期 | ✅ **本 PR #2892 で完遂** (07-API / 08-DB / 19-pricing / 24-arch / account-deletion-flow / plan-change-flow / stripe-dashboard-runbook) |
+
+**項目 9 補足 (GitHub Secrets `AWS_LICENSE_SECRET` 実体)**: CDK / `.env` 配布証跡からの参照撤去は PR-L5 #2879 で完了済。GitHub Actions Secrets store に残存する `AWS_LICENSE_SECRET` の実体削除は PO 操作 (Repository Settings → Secrets) で行う運用。コードからの参照は 0 のため起動 / CI に影響しない。
+
 ---
 
 ## §6 Open question (PO 判断待ち)

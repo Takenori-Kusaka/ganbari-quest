@@ -2,7 +2,7 @@
 
 <!-- doc-status: deprecated -->
 
-> **deprecated (2026-06-04, Phase 7 #2813 / PR-L3 #2818)**: 本移行計画が対象とするライセンスキー機構そのものが Phase 7 で全廃された (NUC は信頼ベース化、license key を読まない)。HMAC 移行は不要となり、`license-key-service.ts` / `tests/unit/services/license-key-service.test.ts` 等の実装ファイルは PR-L2 (#2813、認可撤廃) → PR-L3 (#2818、物理削除) で消滅済。本文中のファイルパス参照は当時の実装を示す歴史記録であり、現存しない。
+> **deprecated (2026-06-04, Epic #2525 license key 全廃 PR-L0〜L5 #2807/#2812/#2814/#2822/#2841/#2879)**: 本移行計画が対象とするライセンスキー機構そのものが Epic #2525 で全廃された (NUC は信頼ベース化、license key を読まない)。HMAC 移行は不要となり、`license-key-service.ts` / `tests/unit/services/license-key-service.test.ts` 等の実装ファイルは PR-L2 (PR #2814、認可撤廃) → PR-L3 (PR #2822、物理削除) で消滅済。本文中のファイルパス参照は当時の実装を示す歴史記録であり、現存しない。現行 SSOT は `docs/design/billing-redesign/` + ADR-0060。
 
 | 項目 | 内容 |
 |------|------|

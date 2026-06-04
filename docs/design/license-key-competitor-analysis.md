@@ -1,5 +1,9 @@
 # ライセンスキー競合分析ドキュメント
 
+<!-- doc-status: deprecated -->
+
+> **deprecated (2026-06-04, Epic #2525 license key 全廃 PR-L0〜L5 #2807/#2812/#2814/#2822/#2841/#2879)**: 本書が比較分析するライセンスキー機構自体が Epic #2525 で全廃された (NUC は信頼ベース化、license key を読まない)。`license-key-service.ts` 等の実装ファイルは PR-L2 (PR #2814、認可撤廃) → PR-L3 (PR #2822、物理削除) で消滅済。歴史的記録として保全する。現行 SSOT は `docs/design/billing-redesign/` + ADR-0060。
+
 | 項目 | 内容 |
 |------|------|
 | ステータス | accepted |

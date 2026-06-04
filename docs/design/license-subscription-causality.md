@@ -1,5 +1,9 @@
 # License ↔ Stripe Subscription 因果関係マップ
 
+<!-- doc-status: deprecated -->
+
+> **deprecated (2026-06-04, Epic #2525 license key 全廃 PR-L0〜L5 #2807/#2812/#2814/#2822/#2841/#2879)**: 本書が定義する License Key ↔ Stripe Subscription の因果関係マップのうち、License Key 側が Epic #2525 で全廃された。entitlement は Stripe Subscription (`tenant.stripeSubscriptionId` + `tenant.status`) が唯一の SSOT となり、license key を経由しない。`license-key-service.ts` 等の実装ファイルは PR-L2 (PR #2814、認可撤廃) → PR-L3 (PR #2822、物理削除) で消滅済。歴史的記録として保全する。現行 SSOT は `docs/design/billing-redesign/` + ADR-0060。
+
 | 項目 | 値 |
 |------|-----|
 | 版数 | 1.1 |
