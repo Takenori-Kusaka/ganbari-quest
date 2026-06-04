@@ -89,6 +89,7 @@ catchcopy
 certificatemanager
 chibi
 chukichi
+CEXPORT
 CHILDACT
 CHILDCHAL
 CKLOG
@@ -343,6 +344,7 @@ Vitest
 VOICEID
 vorbis
 Vorbis
+VTOKEN
 wakeup
 webp
 webpush

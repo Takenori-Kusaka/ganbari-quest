@@ -942,6 +942,102 @@ export function notificationLogDatePrefix(date: string): string {
 }
 
 // ============================================================
+// Report daily summary (#2824 Wave 6B / ADR-0055)
+// ============================================================
+//
+// 設計方針 (GSI 不要):
+//   per-child の日次サマリーだが、アクセスパターンは
+//     (a) findByChildAndDateRange  — child + date 範囲
+//     (b) findByTenantAndDateRange — tenant + date 範囲 (全 child 横断)
+//     (c) upsert                   — (tenant, child, date) 複合キーで冪等上書き
+//     (d) deleteOlderThan          — tenant + date <= cutoff
+//   の 4 つ。tenant 横断 (b)/(d) を GSI なしで満たすため、partition を
+//   tenant 単位 (PK = T#<tenant>#RDS) にし、SK = <date>#<childId> とする。
+//     - date が SK 先頭 → 日付範囲 (BETWEEN / <=) を Query / 範囲削除で表現可能
+//     - childId が SK 後続 → (a) は同 PK + FilterExpression(childId) で取得 (低件数)
+//     - (c) は SK 決定的 → PutItem 上書きで onConflictDoUpdate 等価
+//   per-child だが child PK を採らないのは、tenant 横断クエリ (b)/(d) が
+//   レポート集計 cron で必須なため。SQLite 側 idx_report_daily_tenant_date と等価。
+
+const REPORT_DAILY_SUMMARY_SK_PAD = 8;
+
+/** Report daily summary: PK=T#<tenant>#RDS, SK=<date>#<childId> */
+export function reportDailySummaryKey(childId: number, date: string, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK('RDS', tenantId),
+		SK: `${date}#${String(childId).padStart(REPORT_DAILY_SUMMARY_SK_PAD, '0')}`,
+	};
+}
+
+/** Report daily summary PK for tenant Query */
+export function reportDailySummaryTenantPK(tenantId: string): string {
+	return tenantPK('RDS', tenantId);
+}
+
+// ============================================================
+// Cloud export (#2824 Wave 6B / ADR-0055) — NUC→cloud バックアップ受領
+// ============================================================
+//
+// 設計方針 (GSI 不要):
+//   アクセスパターン:
+//     (a) findByTenant   — tenant 単位の全件 (createdAt desc)
+//     (b) findByPin      — pinCode (グローバル unique) 1 件 lookup (no tenant)
+//     (c) findById       — id + tenant
+//     (d) insert / incrementDownloadCount / deleteById / deleteExpired / countByTenant
+//   pinCode lookup (b) は tenantId を受けないグローバル経路のため、
+//   pinCode を含むグローバル pointer item を別に持つと 2 item 管理になり整合が崩れる。
+//   そこで主 item を PK=T#<tenant>#CEXPORT, SK=EXPORT#<id> とし、(b) findByPin は
+//   pinCode が S3 配布される稀な download 経路 (低頻度) なので属性フィルタ Scan で対応
+//   (cancellation-reason-repo と同じ Pre-PMF 方針、ADR-0010 — GSI 追加は過剰防衛)。
+//   (d) deleteExpired は tenant 横断 + expiresAt < now なので Scan + 属性フィルタ。
+
+const CLOUD_EXPORT_SK_PAD = 8;
+
+/** Cloud export: PK=T#<tenant>#CEXPORT, SK=EXPORT#<id> */
+export function cloudExportKey(id: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK('CEXPORT', tenantId),
+		SK: `EXPORT#${String(id).padStart(CLOUD_EXPORT_SK_PAD, '0')}`,
+	};
+}
+
+/** Cloud export PK for tenant Query */
+export function cloudExportTenantPK(tenantId: string): string {
+	return tenantPK('CEXPORT', tenantId);
+}
+
+/** Cloud export SK prefix for tenant-scoped Query */
+export function cloudExportSKPrefix(): string {
+	return 'EXPORT#';
+}
+
+// ============================================================
+// Viewer token (#2824 Wave 6B / #371) — 閲覧専用リンク token
+// ============================================================
+//
+// 設計方針 (GSI 不要):
+//   アクセスパターン:
+//     (a) findByToken — token (グローバル unique) 1 件 lookup (no tenant) ← hot path
+//                       (閲覧専用リンクアクセスのたびに発火)
+//     (b) findByTenant / revoke(id) / deleteById(id) — tenant 管理操作 (低頻度)
+//   (a) を GetItem 1 回で引くため、主 item を token 軸の global partition に置く:
+//     PK = VTOKEN#<token>, SK = META
+//   (b) は admin の token 管理画面でのみ発火する低頻度操作なので、tenantId
+//   属性フィルタ Scan で対応 (cancellation-reason-repo と同じ Pre-PMF 方針)。
+//   id は SQLite auto-increment 互換のため counter.ts で採番し item 属性に保持。
+
+/** Viewer token: PK=VTOKEN#<token>, SK=META (global, token 軸 lookup) */
+export function viewerTokenKey(token: string): DynamoKey {
+	return {
+		PK: `VTOKEN#${token}`,
+		SK: 'META',
+	};
+}
+
+/** Viewer token PK prefix for tenant Scan filtering */
+export const VIEWER_TOKEN_PK_PREFIX = 'VTOKEN#';
+
+// ============================================================
 // GSI2 key builders (for category-based activity queries)
 // ============================================================
 
@@ -1007,6 +1103,10 @@ export const ENTITY_NAMES = {
 	voice: 'voice',
 	pushSubscription: 'pushSubscription',
 	notificationLog: 'notificationLog',
+	// #2824 Wave 6B (ADR-0055): 最終 3 repo 本実装
+	reportDailySummary: 'reportDailySummary',
+	cloudExport: 'cloudExport',
+	viewerToken: 'viewerToken',
 } as const;
 
 export type EntityName = (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES];

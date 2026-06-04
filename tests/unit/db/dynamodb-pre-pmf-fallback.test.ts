@@ -20,28 +20,33 @@
  * 関連: ADR-0010 Pre-PMF Bucket B (まだ作らない) / ADR-0002 Critical 修正の品質ゲート
  */
 
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it, vi } from 'vitest';
 
-// Pre-PMF fallback に置換された 12 repo
+// Pre-PMF fallback に置換されていた repo は Wave 群 (#2824) ですべて DynamoDB 本実装に移行済。
 // #2824 Wave 6A (ADR-0055): auto-challenge-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-auto-challenge-repo.test.ts (AWS SDK mock) で検証する。
 // #2824 Wave 5A (ADR-0055): battle-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-battle-repo.test.ts (AWS SDK mock) で検証する。
 // #2824 (ADR-0055): child-activity-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-child-activity-repo.test.ts (AWS SDK mock) で検証する。
-import * as cloudExportRepo from '../../../src/lib/server/db/dynamodb/cloud-export-repo';
 // #2824 Wave 3A (ADR-0055): message-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-message-repo.test.ts (AWS SDK mock) で検証する。
-import * as reportDailySummaryRepo from '../../../src/lib/server/db/dynamodb/report-daily-summary-repo';
 // #2824 Phase 2A (ADR-0055): reward-redemption-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-reward-redemption-repo.test.ts (AWS SDK mock) で検証する。
+// #2824 Wave 6B (ADR-0055、本 PR): cloud-export-repo / report-daily-summary-repo /
+//   viewer-token-repo を DynamoDB 本実装に置換し stub を全廃 (baseline 0)。これら 3 repo の
+//   機能等価性は dynamodb-{cloud-export,report-daily-summary,viewer-token}-repo.test.ts
+//   (AWS SDK mock) で検証する。本実装後 stub に退行していないことの guard は本ファイル末尾の
+//   describe('#2824 Wave 6B 本実装 repo の stub 退行禁止') が担う。
 // #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 // #2458 (Path B sibling drop): sibling-challenge-repo 削除済 (2026-05-26)、child-challenge-repo へ移行
 // #2824 Wave 5B (ADR-0055): sibling-cheer-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-sibling-cheer-repo.test.ts (AWS SDK mock) で検証する。
 // #2824 Wave 3B (ADR-0055): stamp-card-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-stamp-card-repo.test.ts (AWS SDK mock) で検証する。
-import * as viewerTokenRepo from '../../../src/lib/server/db/dynamodb/viewer-token-repo';
 
 const TENANT = 'test-tenant';
 const TODAY = '2026-05-19';
@@ -65,68 +70,20 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 	//   marketplace per-child 取込 (importActivities → insertActivitiesBulk) が本番 DynamoDB
 	//   Lambda で永続する。本実装の機能等価性テストは dynamodb-child-activity-repo.test.ts に分離。
 	//   ここで stub 前提の assert を残すと「実装済なのに stub 期待」で誤った退行 gate になるため
-	//   除外する (他 11 repo の fallback assert は維持 = assertion 弱体化に該当しない)。
-
-	describe('cloud-export-repo', () => {
-		it('全 method が throw しない', async () => {
-			await expect(cloudExportRepo.findByTenant(TENANT)).resolves.toEqual([]);
-			await expect(cloudExportRepo.findByPin('1234')).resolves.toBeUndefined();
-			await expect(cloudExportRepo.findById(1, TENANT)).resolves.toBeUndefined();
-			await expect(
-				cloudExportRepo.insert({
-					tenantId: TENANT,
-					exportType: 'full',
-					pinCode: '1234',
-					s3Key: 'k',
-					fileSizeBytes: 0,
-					expiresAt: TODAY,
-				}),
-			).resolves.toBeTruthy();
-			await expect(cloudExportRepo.incrementDownloadCount(1)).resolves.toBeUndefined();
-			await expect(cloudExportRepo.deleteById(1, TENANT)).resolves.toBeUndefined();
-			await expect(cloudExportRepo.deleteExpired(TODAY)).resolves.toBe(0);
-			await expect(cloudExportRepo.countByTenant(TENANT)).resolves.toBe(0);
-		});
-	});
+	//   除外する (残 fallback repo の assert は維持 = assertion 弱体化に該当しない)。
 
 	// #2824 Wave 3A (ADR-0055): message-repo は本実装済 (stub 除外)。
 	//   おうえんメッセージ (親→子、LP feature-cheer-message 訴求) が本番 DynamoDB Lambda で
-	//   永続する。本実装の機能等価性テストは dynamodb-message-repo.test.ts に分離。ここで stub
-	//   前提の assert を残すと「実装済なのに stub 期待」で誤った退行 gate になるため除外する
-	//   (他 repo の fallback assert は維持 = assertion 弱体化に該当しない)。
-
-	describe('report-daily-summary-repo', () => {
-		it('全 method が throw しない', async () => {
-			await expect(
-				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),
-			).resolves.toEqual([]);
-			await expect(
-				reportDailySummaryRepo.findByTenantAndDateRange(TENANT, TODAY, TODAY),
-			).resolves.toEqual([]);
-			await expect(
-				reportDailySummaryRepo.upsert({
-					tenantId: TENANT,
-					childId: 1,
-					date: TODAY,
-					activityCount: 0,
-					categoryBreakdown: '{}',
-					checklistCompletion: '{}',
-					level: 1,
-					totalPoints: 0,
-					streakDays: 0,
-					newAchievements: 0,
-				}),
-			).resolves.toBeUndefined();
-			await expect(reportDailySummaryRepo.deleteOlderThan(TENANT, TODAY)).resolves.toBe(0);
-			await expect(reportDailySummaryRepo.deleteByTenantId(TENANT)).resolves.toBeUndefined();
-		});
-	});
+	//   永続する。本実装の機能等価性テストは dynamodb-message-repo.test.ts に分離。
 
 	// #2824 Phase 2A (ADR-0055): reward-redemption-repo は本実装済 (stub 除外)。
 	//   ごほうび交換 (記録 → ポイント → 交換) が本番 DynamoDB Lambda で永続する。本実装の
-	//   機能等価性テストは dynamodb-reward-redemption-repo.test.ts に分離。ここで stub 前提の
-	//   assert を残すと「実装済なのに stub 期待」で誤った退行 gate になるため除外する
-	//   (他 repo の fallback assert は維持 = assertion 弱体化に該当しない)。
+	//   機能等価性テストは dynamodb-reward-redemption-repo.test.ts に分離。
+
+	// #2824 Wave 6B (ADR-0055、本 PR): cloud-export-repo / report-daily-summary-repo /
+	//   viewer-token-repo は DynamoDB 本実装に置換し stub を全廃 (baseline 0)。これら 3 repo の
+	//   機能等価性テストは dynamodb-{cloud-export,report-daily-summary,viewer-token}-repo.test.ts
+	//   に分離。stub 退行禁止 guard は本ファイル末尾の describe を参照。
 
 	// #2458 (Path B sibling drop): sibling-challenge-repo describe 削除済 (2026-05-26)、
 	// repo / table 物理 drop 済。per-child child-challenge-repo に移行 (ADR-0055 / User §6)。
@@ -139,50 +96,66 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 
 	// #2824 Wave 3B (ADR-0055): stamp-card-repo は本実装済 (stub 除外)。
 	//   子供 home 自動押印 (?/loginStamp) → スタンプ獲得 → 週末 redeem が本番 DynamoDB Lambda
-	//   で永続する。本実装の機能等価性テストは dynamodb-stamp-card-repo.test.ts に分離。ここで
-	//   stub 前提の assert を残すと「実装済なのに stub 期待」で誤った退行 gate になるため除外する
-	//   (他 repo の fallback assert は維持 = assertion 弱体化に該当しない)。
+	//   で永続する。本実装の機能等価性テストは dynamodb-stamp-card-repo.test.ts に分離。
 
 	// #2295 (EPIC #2294 ①): tenant-event-repo describe 削除済 (2026-05-19、repo 自体撤去)
 
-	describe('viewer-token-repo', () => {
-		it('全 method が throw しない', async () => {
-			await expect(viewerTokenRepo.findByTenant(TENANT)).resolves.toEqual([]);
-			await expect(viewerTokenRepo.findByToken('tok')).resolves.toBeUndefined();
-			await expect(viewerTokenRepo.insert({ token: 'tok' }, TENANT)).resolves.toBeTruthy();
-			await expect(viewerTokenRepo.revoke(1, TENANT)).resolves.toBeUndefined();
-			await expect(viewerTokenRepo.deleteById(1, TENANT)).resolves.toBeUndefined();
+	// #2824 Wave 6A (main / #2854) + Wave 6B (本 PR) の両 Wave 完了により、SSR 経路で
+	//   呼ばれる DynamoDB repo はすべて本実装に移行し stub fallback は全廃した
+	//   (stub baseline = 空)。これにより本ファイルの「method が throw しない」型の
+	//   stub fallback assert (cloud-export / report-daily-summary / viewer-token /
+	//   auto-challenge) は不要となり全て除外する。本実装後の機能等価性は各 repo 個別の
+	//   dynamodb-*-repo.test.ts (AWS SDK mock) で、stub 退行禁止は末尾 describe で担保する。
+	//
+	// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
+	// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
+	// #2263 regression hotfix: childActivityRepo を stub fallback に置換 (9 → 10 repo)
+	// #2824 系で childActivity / rewardRedemption / message / stampCard / battle /
+	//   siblingCheer / autoChallenge / cloudExport / reportDailySummary / viewerToken を
+	//   本実装化 (10 → 0 repo)。これで stub fallback repo は SSR 経路から消滅した。
+	describe('regression guard: stub fallback repo が SSR 経路から全廃された', () => {
+		it('Pre-PMF stub fallback baseline は空 (新規 stub なし) である', () => {
+			// #2263 root cause: SSR の Promise.all 経路で 1 repo でも throw すると 500 になる。
+			//   本実装移行後は stub fallback repo がゼロのため、並列呼び出しで reject される
+			//   stub fallback 自体が存在しない。stub への退行は parity guard
+			//   (scripts/check-dynamodb-stub-parity.mjs、baseline=空) と末尾 describe が機械検出する。
+			const baselinePath = join(
+				dirname(fileURLToPath(import.meta.url)),
+				'../../../scripts/dynamodb-stub-baseline.json',
+			);
+			const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')) as Record<string, string[]>;
+			expect(Object.keys(baseline)).toEqual([]);
 		});
 	});
 
-	describe('regression guard: 全 3 repo の Promise.all で reject されない', () => {
-		it('SSR /preschool/home の典型的な 3 repo 並列呼び出しが全 fulfill する', async () => {
-			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
-			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
-			// #2263 regression hotfix: childActivityRepo を stub fallback に置換 (9 → 10 repo)
-			// #2824 (ADR-0055): childActivityRepo を本実装化したため stub fallback guard から除外
-			//   (本実装は AWS SDK mock 必須 → dynamodb-child-activity-repo.test.ts で検証)。10 → 9 repo
-			// #2824 Phase 2A (ADR-0055): rewardRedemptionRepo を本実装化したため除外
-			//   (本実装は AWS SDK mock 必須 → dynamodb-reward-redemption-repo.test.ts で検証)。9 → 8 repo
-			// #2824 Wave 3A (ADR-0055): messageRepo を本実装化したため除外
-			//   (本実装は AWS SDK mock 必須 → dynamodb-message-repo.test.ts で検証)。8 → 7 repo
-			// #2824 Wave 3B (ADR-0055): stampCardRepo を本実装化したため除外
-			//   (本実装は AWS SDK mock 必須 → dynamodb-stamp-card-repo.test.ts で検証)。7 → 6 repo
-			// #2824 Wave 5A (ADR-0055): battleRepo を本実装化したため除外
-			//   (本実装は AWS SDK mock 必須 → dynamodb-battle-repo.test.ts で検証)。6 → 5 repo
-			// #2824 Wave 5B (ADR-0055): siblingCheerRepo を本実装化したため除外
-			//   (本実装は AWS SDK mock 必須 → dynamodb-sibling-cheer-repo.test.ts で検証)。5 → 4 repo
-			// #2824 Wave 6A (ADR-0055): autoChallengeRepo を本実装化したため除外
-			//   (本実装は AWS SDK mock 必須 → dynamodb-auto-challenge-repo.test.ts で検証)。4 → 3 repo
-			const results = await Promise.allSettled([
-				cloudExportRepo.findByTenant(TENANT),
-				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),
-				viewerTokenRepo.findByTenant(TENANT),
-			]);
+	// #2824 Wave 6B 本実装 repo の stub 退行禁止 (read=空 / write=no-op への退行 guard)。
+	//   本実装した 3 repo が将来うっかり stub (read=[] / write=no-op) に差し戻されると、
+	//   有料本番 SaaS で write 永続 gap が再発する (#2263 / #2824 の根本 defect)。AWS SDK を
+	//   呼ばずに「stub 化 = read が必ず空を返す」を検出するため、各 repo を mock client で
+	//   1 件返すよう仕込み、空配列が返ってこない (= 実 Query を発行している) ことを確認する。
+	describe('#2824 Wave 6B 本実装 repo の stub 退行禁止', () => {
+		it('cloud-export / report-daily-summary / viewer-token は mock client 経由で実 Query を発行する', async () => {
+			vi.resetModules();
+			const mockSend = vi.fn().mockResolvedValue({ Items: [], Count: 0 });
+			vi.doMock('../../../src/lib/server/db/dynamodb/client', () => ({
+				getDocClient: () => ({ send: mockSend }),
+				TABLE_NAME: 'test-table',
+			}));
 
-			// 1 件でも rejected があれば 500 を引き起こす (#2263 root cause)
-			const rejected = results.filter((r) => r.status === 'rejected');
-			expect(rejected).toEqual([]);
+			const cloudExport = await import('../../../src/lib/server/db/dynamodb/cloud-export-repo');
+			const reportDailySummary = await import(
+				'../../../src/lib/server/db/dynamodb/report-daily-summary-repo'
+			);
+			const viewerToken = await import('../../../src/lib/server/db/dynamodb/viewer-token-repo');
+
+			await cloudExport.findByTenant(TENANT);
+			await reportDailySummary.findByTenantAndDateRange(TENANT, TODAY, TODAY);
+			await viewerToken.findByTenant(TENANT);
+
+			// stub なら client.send は 1 度も呼ばれず空配列を直返しする。本実装は必ず send する。
+			expect(mockSend).toHaveBeenCalled();
+			vi.doUnmock('../../../src/lib/server/db/dynamodb/client');
+			vi.resetModules();
 		});
 	});
 });
