@@ -128,5 +128,5 @@ ADR ガバナンスの将来判断のため、ADR-0023 を **Deprecated** にし
 - [ADR-0013: LP は実装の事実を SSOT とする](0013-lp-truth-from-implementation.md) — 旧 ADR-0023 LP 訴求論点の帰属先（#1591 / #1597 / #1600 / #1603 帰属）
 - [ADR-0016: 日本語テキスト折り返し方針](0016-japanese-text-wrap.md) — 帰属マップ参考（LP 表示品質）
 - [ADR-0025: LP SSOT 注入機構 + XSS 設計](0025-lp-ssot-html-injection-with-xss-protection.md) — 旧 ADR-0023 第 2 世代「LP SSOT 注入機構」の正規化先
-- [ADR-0028: Pre-PMF 期 founder 直対応動線は LP 不要](0028-pre-pmf-founder-inquiry-removal.md) — 旧 ADR-0023 §I8 supersede 先
+- 旧 ADR-0028: Pre-PMF 期 founder 直対応動線は LP 不要 (git 履歴、#2898 で削除) — 旧 ADR-0023 §I8 supersede 先
 - [ADR-0023 (archive)](archive/0023-marketing-policy-pre-pmf.md) — 廃案対象（history 保持のため archive）
