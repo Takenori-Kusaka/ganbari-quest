@@ -10,58 +10,29 @@
 | 関連 ADR | ADR-0001 (設計書 SSOT) / ADR-0009 (LP labels.ts SSOT) / ADR-0013 (LP truth from implementation) / ADR-0025 (LP SSOT 注入機構) / ADR-0032 (LP 静的コンテンツ コンポーネント設計原則) |
 | 関連監視機構 | #1840 / PR #1841 (`cumulative-lp-metrics` ジョブ — pre-merge cumulative gate) |
 
+> **詳細仕様の SSOT**: Base / Semantic トークンの一覧・値・用途、設計原則表、禁忌、適用範囲、実体（定義 / 参照ファイル）は [`docs/DESIGN.md` §4「LP Spacing/Layout 3 層トークン」](../DESIGN.md) を参照。全 `--lp-*` Semantic トークンの網羅列挙は実装の事実である `site/shared.css` の `:root` ブロックを正とする。本 ADR は**意思決定の核（なぜ 3 層化したか / 選択肢比較 / トレードオフ）**のみを記録する。
+
 ## 1. コンテキスト
 
-LP (`site/index.html` ほか) の section padding / margin / heading 余白 / faq 内 padding 等の Layout 系設計値が、**過去 5 PR で多層的に圧縮**されている状態。
+LP (`site/index.html` ほか) の section padding / margin / heading 余白 / faq 内 padding 等の Layout 系設計値が、**過去 5 PR (#1759 / #1798 / #1827 / #1831 / #1836) で多層的に圧縮**された結果、`<style>` ブロック内に同種設計値（`28px` / `14px` / `36px` 等）が**散在**し、次回 ratchet 違反時に**どこを削るべきか判断不能**な状態に陥っていた。
 
-### 1.1 多層圧縮の経緯
+§2 カラートークンは既に **Base → Semantic → Component の 3 層 SSOT** で運用済み（`docs/DESIGN.md` §2）。Spacing/Layout も同水準の設計品質に揃えるべき、という観点で本 ADR を起票した。
 
-| PR | 圧縮対象 | Before → After |
-|----|--------|---------------|
-| #1759 | hero / soft-features padding | 初期 |
-| #1798 | `.cta-bottom` padding-bottom | 56 → 80 (拡大、後に再圧縮) |
-| #1827 | LP copy / IA bundle 全般 | section padding 微調整 |
-| #1831 | `.cta-bottom` / `.faq-item` padding | 56 → 40 / 18 → 14 |
-| #1836 | `.section` / `.section-desc` / `.cta-bottom` padding | 40 → 28 / 16 → 14 / 40 → 28 |
-
-5 PR にわたる漸進的圧縮の結果、`site/index.html` `<style>` ブロック内に同種設計値（`28px` / `14px` / `36px` 等）が**散在**し、次回 ratchet 違反時に**どこを削るべきか判断不能**な状態に陥っていた。
-
-### 1.2 同種多層化の前例 (Color)
-
-§2 カラートークンは既に **Base → Semantic → Component の 3 層 SSOT** で運用済み（`docs/DESIGN.md` §2）。Spacing/Layout も同水準の設計品質に揃えるべき、という観点で本 ADR を起票。
-
-### 1.3 累積監視機構との関係 (#1840)
-
-Issue #1840 で「PR ごとの累積 desktopHeight 監視機構（pre-merge cumulative gate）」が PR #1841 で実装済み。`.github/workflows/lp-metrics.yml` に `cumulative-lp-metrics` ジョブが追加され、過去 N PR の累積膨張を pre-merge で検出する設計。
-
-**本リファクタは累積監視機構と相補的に機能する**:
-
-| 防御層 | 役割 | 担当 |
-|-------|------|------|
-| 実装側 (本 ADR) | 多層化を**防ぐ** (Semantic トークンに集約させ、Component 側に値を散らさない) | Dev / PR レビュー |
-| CI 側 (#1840) | 累積膨張を**検出する** (Semantic トークン値の変化が累積で閾値を超えたら fail) | CI / pre-merge gate |
-
-実装側だけでは新規 Component 追加で散在を再発する可能性があり、CI 側だけでは多層化の温床（散在した直書き値）を残してしまう。両者を組み合わせて**多層防御**とする。
+なお Issue #1840 で実装された累積 desktopHeight 監視機構（`cumulative-lp-metrics` ジョブ、PR #1841）とは**相補的に機能する**。実装側 (本 ADR) で多層化を**防ぎ**（Semantic トークンに集約させ Component 側に値を散らさない）、CI 側 (#1840) で累積膨張を**検出する**。実装側だけでは新規 Component 追加で散在が再発し、CI 側だけでは多層化の温床（散在した直書き値）を残してしまうため、両者を組み合わせて多層防御とする。
 
 ## 2. 検討した選択肢（OSS / 確立パターン 2 件以上 — #1350）
 
-調査した一次資料:
-
-- **MDN — CSS custom properties (variables)** — `:root` 変数で base token 化、変数差替えで variant を実現する確立パターン
-- **Tailwind CSS spacing scale** — 4px グリッド (0 / 1 / 2 / ... / 16) を utility class で提供。industry de facto standard
-- **Material Design — spacing system** — 8dp grid をベースに `dp1` / `dp2` / ... の token 体系を提供
-- **Bootstrap 5 — spacers utility** — `$spacer * 0.25` / `$spacer * 0.5` / ... を Sass 変数で管理
-- **CUBE CSS / Every Layout (Andy Bell)** — utility class (`u-stack-md` 等) で spacing variant を表現
+調査した一次資料: **MDN — CSS custom properties** (`:root` 変数で base token 化、変数差替えで variant 実現の確立パターン) / **Tailwind CSS spacing scale** (4px グリッド、industry de facto standard) / **Material Design — spacing system** (8dp grid token 体系) / **Bootstrap 5 — spacers utility** (Sass 変数で管理) / **CUBE CSS / Every Layout (Andy Bell)** (utility class での spacing variant)。
 
 ### 選択肢 1: CSS Custom Properties で 3 層トークン化 (採用)
 
-- 概要: `site/shared.css` の `:root` に Base spacing (`--space-0` 〜 `--space-16`、4px グリッド 14 段階) と Semantic LP トークン (`--lp-section-padding-y` 等 12 種) を定義し、`site/index.html` の `<style>` から Semantic 経由で参照
+- 概要: `site/shared.css` の `:root` に Base spacing (`--space-*`、4px グリッド) と Semantic LP トークン (`--lp-section-padding-y` 等) を定義し、`site/index.html` の `<style>` から Semantic 経由で参照
 - メリット:
   - **build pipeline ゼロ** — LP は GitHub Pages 静的配信のため、PostCSS / Tailwind 等の build step 追加は Pre-PMF 過剰投資 (ADR-0010 バケット C)
   - **既存 Color 3 層と同じパターン** — DESIGN.md §2 に既存記述があり、設計同型
   - **ADR-0025 SSOT 注入機構と無干渉** — `data-lp-key` 注入経路に影響なし
 - デメリット: stylelint で hard-fail 化するまでは直書きを禁止できない（Phase 2 で対応）
-- Pre-PMF コスト: `:root` 定義 14 + 12 行追加 + Component 側の置換のみ。build 影響ゼロ
+- Pre-PMF コスト: `:root` 定義 + Component 側の置換のみ。build 影響ゼロ
 
 ### 選択肢 2: PostCSS / Sass のビルドパイプライン導入
 
@@ -85,127 +56,13 @@ Issue #1840 で「PR ごとの累積 desktopHeight 監視機構（pre-merge cumu
 
 ## 3. 決定
 
-`site/shared.css` の `:root` ブロックに以下の 3 層トークンを定義し、`site/index.html` `<style>` から Semantic 経由で参照する。
+`site/shared.css` の `:root` ブロックに **Base Spacing トークン (4px グリッド)** と **Semantic LP Spacing トークン (`--lp-*`)** を定義し、`site/index.html` 等の `<style>` から **Semantic 経由でのみ参照**する。3 層 (Base → Semantic → Component) の責務分離は §2 カラートークンと同型とする。
 
-### 3.1 Base Spacing (4px グリッド、14 段階)
+- **Base / Semantic トークンの一覧・値・用途**、設計原則表、禁忌、適用範囲、実体（定義 / 参照ファイル）は [`docs/DESIGN.md` §4](../DESIGN.md) が SSOT。全 `--lp-*` Semantic トークンの網羅列挙は実装の事実である `site/shared.css` の `:root` ブロックを正とする（DESIGN.md §4 §実体）。
+- 命名規約は「`--lp-<部位>-<軸 or 用途>`」に固定し、variant 爆発を防ぐ。
+- baseline pin 機構: `scripts/check-lp-inline-style.mjs` + `scripts/lp-inline-style-baseline.json` で残ローカル装飾値 (gap / 微小余白 / 絵文字 padding 等) を pin し、新規違反 1 件で CI fail (`lp-metrics.yml` `inline-style-check` ジョブ、#1851)。意図的増減時のみ `--update-baseline` で更新する。
 
-`--space-0` (0) / `--space-1` (4px) / `--space-2` (8px) / `--space-3` (12px) / `--space-4` (16px) / `--space-5` (20px) / `--space-6` (24px) / `--space-7` (28px) / `--space-8` (32px) / `--space-9` (36px) / `--space-10` (40px) / `--space-12` (48px) / `--space-14` (56px) / `--space-16` (64px)
-
-Tailwind / Material Design 系列に整合。4px グリッド外の値（14px = `--space-3` と `--space-4` の中間）は Semantic 側で直値定義する。
-
-### 3.2 Semantic LP Spacing (12 種)
-
-| トークン | 値 | 用途 |
-|---------|----|------|
-| `--lp-section-padding-y` | `var(--space-7)` | `.section` 縦 padding (28px、#1836 圧縮済み) |
-| `--lp-section-padding-x` | `var(--space-4)` | `.section` 横 padding (16px) |
-| `--lp-section-title-mb` | `var(--space-1)` | `.section-title` 下マージン (4px、#1831 圧縮済み) |
-| `--lp-section-desc-mb-default` | `14px` | `.section-desc` 下マージン (#1836、4px グリッド外のため直値) |
-| `--lp-faq-item-padding-y` | `14px` | `.faq-item` 上下 padding (#1831、4px グリッド外のため直値) |
-| `--lp-hero-padding-top` | `var(--space-12)` | `.hero` 上 padding (48px) |
-| `--lp-hero-padding-bottom` | `var(--space-9)` | `.hero` 下 padding (36px) |
-| `--lp-card-padding-y` | `var(--space-4)` | card 系統合 (`.tour-card` / `.soft-card` / `.core-loop-card`) 縦 padding 既定 (16px、#1911 B-1 で `var(--space-5)` から圧縮) — 詳細は §3.5 |
-| `--lp-card-padding-x` | `14px` | card 系統合 横 padding 既定 (14px、4px グリッド外のため直値、#1911 B-1 で `var(--space-4)` から圧縮) — 詳細は §3.5 |
-| `--lp-card-gap` | `var(--space-5)` | grid 間隔 (20px) |
-| `--lp-container-max` | `1080px` | section-inner / header-inner / footer-inner の最大幅 |
-| `--lp-container-max-wide` | `1280px` | hero / machine-tour / guide 用ワイド版 |
-
-### 3.3 Component (置換対象)
-
-Phase 1 で `site/index.html` の主要 6 セレクタを Semantic 経由参照に置換: `.section` / `.section-title` / `.section-desc` / `.hero` / `.faq-item` / `#core-loop`。
-
-**注**: 当初は 7 セレクタ目に `.cta-bottom` を含んでいたが、PR #1842 (#1838) で `.cta-bottom` セクション自体が全削除されたため、本 PR の rebase 時に `.cta-bottom` 関連 CSS ルールおよび Semantic トークン (`--lp-cta-bottom-padding-top/-bottom`) も併せて削除。Phase 1 完了時点で `.cta-bottom` は LP に存在しない。
-
-### 3.4 段階適用
-
-| Phase | 対象 | 担当 | ステータス |
-|-------|------|------|----------|
-| Phase 1 (PR #1850) | `:root` トークン整備 + 主要 6 セレクタ置換 | Dev | **完了 (2026-05-02)** |
-| Phase 2 (#1851 / 本 PR) | 残り構造的 padding/margin の Semantic 化 + `pricing.html` 波及 + `scripts/check-lp-inline-style.mjs` baseline pin 機構の導入 | Dev | **完了 (2026-05-06)** |
-| Phase 3 (#2395) | `pamphlet.html` / `faq.html` / `selfhost.html` / `graduation.html` へ同パターンで波及 (4 HTML baseline 72 → 0、削減率 100%) | Dev | **完了 (2026-05-22)** |
-
-### 3.5 Phase 2 で追加された Semantic トークン
-
-`site/index.html` 用 (構造的 padding/margin):
-
-| トークン | 値 | 用途 |
-|---------|----|------|
-| `--lp-card-padding-y` / `-x` (#1911 B-1) | `var(--space-4)` / `14px` | card 系統合 (`.tour-card` / `.soft-card` / `.core-loop-card`) 既定 (16px / 14px) |
-| `--lp-card-padding-y-md` / `-x-md` (#1911 B-1) | `var(--space-6)` / `22px` | card 系統合 @≥1024px (24px / 22px) |
-| `--lp-card-padding-y-lg` / `-x-lg` (#1911 B-1) | `var(--space-7)` / `var(--space-6)` | card 系統合 @≥1440px (28px / 24px) |
-| `--lp-card-shot-aspect-ratio` (#1911 B-3) | `390/844` | card 系 scrshot 枠 (`.tour-shot` / `.soft-shot` / `.age-panel-shot`) aspect-ratio 統一値 |
-| `--lp-trust-badge-padding-y` / `-x` | `var(--space-6)` / `var(--space-5)` | `.trust-badge` (24px / 20px) |
-| `--lp-trust-badge-padding-y-lg` / `-x-lg` | `var(--space-5)` / `var(--space-4)` | `.trust-badge` @≥1024px (20px / 16px) |
-| `--lp-trust-disclaimer-margin-top` | `var(--space-8)` | `.trust-disclaimer` (32px) |
-| `--lp-trust-disclaimer-padding-y` / `-x` | `var(--space-4)` / `var(--space-5)` | `.trust-disclaimer` (16px / 20px) |
-| `--lp-versus-card-padding-y` / `-x` | `10px` / `var(--space-3)` | `.versus-card` 既定 (10px / 12px) |
-| `--lp-versus-card-padding-y-sm` / `-x-sm` | `var(--space-2)` / `10px` | `.versus-card` @≤640px (8px / 10px) |
-| `--lp-pp-band-padding-y` / `-x` | `var(--space-6)` / `22px` | `.pp-band` 既定 (24px / 22px) |
-| `--lp-pp-band-padding-y-sm` / `-x-sm` | `18px` / `14px` | `.pp-band` @≤640px |
-| `--lp-floating-cta-padding-y` / `-x` | `10px` / `var(--space-4)` | `.floating-cta` (10px / 16px) |
-| `--lp-floating-cta-btn-padding-y` / `-x` | `var(--space-2)` / `var(--space-4)` | `.floating-cta .btn` (8px / 16px) |
-| `--lp-age-panel-padding-y` / `-x` | `var(--space-8)` / `var(--space-7)` | `.age-panel` 既定 (32px / 28px) |
-| `--lp-age-panel-padding-y-sm` / `-x-sm` | `var(--space-6)` / `var(--space-5)` | `.age-panel` @≤640px (24px / 20px) |
-| (`--lp-core-loop-card-padding` 削除、#1911 B-1) | — | `.core-loop-card` は `--lp-card-padding-*` に統合 |
-| `--lp-growth-roadmap-padding-y` / `-x` | `var(--space-6)` / `var(--space-4)` | `#growth-roadmap` (24px / 16px) |
-| `--lp-versus-section-padding-y` / `-x` | `var(--space-4)` / `var(--space-4)` | `#versus` (16px / 16px) |
-
-`site/pricing.html` 用 (AC3 波及):
-
-| トークン | 値 | 用途 |
-|---------|----|------|
-| `--lp-pricing-hero-padding-top` / `-bottom` / `-x` | `80px` / `60px` / `var(--space-4)` | `.pricing-hero` |
-| `--lp-plans-section-padding-y-top` / `-bottom` / `-x` | `var(--space-12)` / `var(--space-16)` / `var(--space-4)` | `.plans-section` (48px / 64px / 16px) |
-| `--lp-plan-card-padding-y` / `-x` | `var(--space-8)` / `var(--space-6)` | `.plan-card` (32px / 24px) |
-| `--lp-trial-section-padding-y` / `-x` | `var(--space-16)` / `var(--space-4)` | `.trial-section` (64px / 16px) |
-| `--lp-trial-box-padding-y` / `-x` | `var(--space-10)` / `var(--space-8)` | `.trial-box` 既定 (40px / 32px) |
-| `--lp-trial-box-padding-y-sm` / `-x-sm` | `var(--space-7)` / `var(--space-5)` | `.trial-box` @≤768px (28px / 20px) |
-| `--lp-faq-section-padding-y` / `-x` | `var(--space-16)` / `var(--space-4)` | `.faq-section` (64px / 16px) |
-| `--lp-cta-bottom-padding-y` / `-x` | `var(--space-16)` / `var(--space-4)` | `.cta-bottom` (64px / 16px) |
-| `--lp-family-patterns-padding-y` / `-x` | `var(--space-16)` / `var(--space-4)` | `.family-patterns` (64px / 16px) |
-| `--lp-pattern-card-padding` | `var(--space-6)` | `.pattern-card` (24px) |
-| `--lp-comparison-section-padding-x` / `-bottom` | `var(--space-4)` / `var(--space-16)` | `.comparison-section` (16px / 64px) |
-
-### 3.6 Phase 2 baseline pin 機構
-
-`scripts/check-lp-inline-style.mjs` + `scripts/lp-inline-style-baseline.json` で **残ローカル装飾値 (gap / 微小余白 / 絵文字 padding 等) を pin**。新規違反 1 件で CI fail。意図的増加時のみ `--update-baseline` で更新。
-
-`.github/workflows/lp-metrics.yml` に `inline-style-check` ジョブ追加 (#1851)。
-
-#### Phase 2 baseline 初期値 (2026-05-06)
-
-| ファイル | violation 数 | 内訳 |
-|---------|------------|------|
-| `site/index.html` | 51 | 主に gap / 微小余白 / 絵文字 padding (構造的 padding/margin は全 Semantic 化済) |
-| `site/pricing.html` | 46 | 同上 |
-| `site/faq.html` | 28 | Phase 3 で同パターン適用予定 |
-| `site/graduation.html` | 17 | Phase 3 |
-| `site/selfhost.html` | 20 | Phase 3 |
-| `site/pamphlet.html` | 7 | Phase 3 |
-| `site/privacy.html` | 7 | legal page、リファクタ予定なし |
-| `site/tokushoho.html` | 4 | legal page |
-| `site/sla.html` / `site/terms.html` | 0 | shared.css + 直書き極小 |
-
-#### Phase 3 baseline 結果 (2026-05-22、#2395)
-
-| ファイル | Phase 2 baseline | Phase 3 baseline | 削減 |
-|---------|-----------------|-----------------|------|
-| `site/faq.html` | 28 | **0** | -28 (100%) |
-| `site/graduation.html` | 17 | **0** | -17 (100%) |
-| `site/selfhost.html` | 20 | **0** | -20 (100%) |
-| `site/pamphlet.html` | 7 | **0** | -7 (100%) |
-| **4 HTML 合計** | **72** | **0** | **-72 (100%)** |
-
-Phase 3 で追加された Semantic トークン群 (`site/shared.css` `:root`):
-
-- **content 共通 hero / CTA / section spacing** (`--lp-content-hero-*` / `--lp-content-cta-*` / `--lp-content-section-*` / `--lp-content-hero-title-mb`) — faq / graduation / selfhost で共有
-- **selfhost hero 専用** (`--lp-selfhost-hero-padding-y-top` / `-bottom` / `-x` / `-desc-mb`) — 60px グリッド外 padding を独立定義
-- **faq 専用** (`--lp-faq-toc-*` / `--lp-faq-sections-*` / `--lp-faq-category-*` / `--lp-faq-item-*` / `--lp-faq-answer-*` / `--lp-faq-cta-trust-mt` / `--lp-faq-contact-mt`) — toc / sections / category / item / answer 階層
-- **graduation 専用** (`--lp-graduation-breadcrumb-*` / `--lp-graduation-detail-*` / `--lp-gr-stage-*` / `--lp-gr-age-*` / `--lp-gr-body-*` / `--lp-gr-shot-margin-y` / `--lp-gr-benefit-margin-y` / `--lp-graduation-cta-*`) — breadcrumb / 5 stage カード / CTA
-- **selfhost 専用** (`--lp-selfhost-setup-code-*` / `--lp-selfhost-feature-list-*` / `--lp-selfhost-table-*` / `--lp-selfhost-note-box-*` / `--lp-selfhost-req-*`) — code / list / table / note-box / req-grid
-- **pamphlet 専用** (`--lp-pamphlet-control-*` / `--lp-pamphlet-screen-controls-*` / `--lp-pamphlet-page-num-*` / `--lp-pamphlet-fi-layer-badge-*`) — 印刷用ページ frame + 操作 UI (mm 単位は対象外)
-
-注: pamphlet.html の本文 padding/margin は印刷用 mm 単位 (`docs/troubleshoot/screenshot_capture.md` 規約) で、`check-lp-inline-style.mjs` の検出範囲 (`px|em|rem|%`) 外。今回置換対象は `px` 単位の screen-controls / page frame / fi-layer-badge のみ。
+段階適用は Phase 1 (PR #1850、`:root` トークン整備 + 主要 6 セレクタ置換) → Phase 2 (#1851、残構造的 padding/margin の Semantic 化 + `pricing.html` 波及 + baseline pin 機構導入) → Phase 3 (#2395、`pamphlet.html` / `faq.html` / `selfhost.html` / `graduation.html` へ波及、4 HTML baseline 72 → 0) の順で完遂済み。各 Phase で追加された Semantic トークン群と baseline 数値は DESIGN.md §4 §実体および `site/shared.css` を参照。
 
 ## 4. 帰結 (Consequences)
 
@@ -219,7 +76,7 @@ Phase 3 で追加された Semantic トークン群 (`site/shared.css` `:root`):
 ### 4.2 ネガティブ / リスク
 
 - Phase 2 完了まで直書きと Semantic 経由が混在する（リスク低、Phase 2 で stylelint hard-fail 化により恒久解消）
-- Semantic トークン名 (`--lp-*`) の命名規約が緩いと variant 爆発のリスク → 命名規則「`--lp-<部位>-<軸 or 用途>`」を本 ADR §3.2 で固定
+- Semantic トークン名 (`--lp-*`) の命名規約が緩いと variant 爆発のリスク → 命名規則「`--lp-<部位>-<軸 or 用途>`」を §3 で固定
 
 ### 4.3 維持すべき不変条件
 
@@ -243,10 +100,3 @@ Phase 3 で追加された Semantic トークン群 (`site/shared.css` `:root`):
 - LP メトリクス: cta-bottom 削除済み main を base としても `mobileHeight ≤ 15000` / `desktopHeight ≤ 8000` / `forbiddenTerms=0` / `ctaVariants ≤ 3` 全閾値内
 - before/after スクリーンショット: 視覚的差異ゼロ（mobile / desktop の md5 ハッシュ完全一致を Phase 1 で担保）
 - `npm run pre-ready -- --pr 1850` の 7 Step 全 PASS
-
-## 7. 改訂履歴
-
-| 日付 | 改訂内容 |
-|------|---------|
-| 2026-05-02 | 初版（Phase 1 実装に伴う ADR 起票） |
-| 2026-05-06 | Phase 2 完了 (#1851 PR)。残構造的 padding/margin の Semantic 化 + `pricing.html` 波及 + baseline pin 機構 (`scripts/check-lp-inline-style.mjs` + `lp-metrics.yml inline-style-check` ジョブ) 追加。Phase 2 で追加された Semantic トークン 30 種を §3.5 に明記、baseline 初期値を §3.6 に明記 |
