@@ -962,11 +962,7 @@ export function notificationLogDatePrefix(date: string): string {
 const REPORT_DAILY_SUMMARY_SK_PAD = 8;
 
 /** Report daily summary: PK=T#<tenant>#RDS, SK=<date>#<childId> */
-export function reportDailySummaryKey(
-	childId: number,
-	date: string,
-	tenantId: string,
-): DynamoKey {
+export function reportDailySummaryKey(childId: number, date: string, tenantId: string): DynamoKey {
 	return {
 		PK: tenantPK('RDS', tenantId),
 		SK: `${date}#${String(childId).padStart(REPORT_DAILY_SUMMARY_SK_PAD, '0')}`,

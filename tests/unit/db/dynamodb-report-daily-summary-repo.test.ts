@@ -108,7 +108,10 @@ describe('findByTenantAndDateRange', () => {
 
 	it('ページングする', async () => {
 		mockSend
-			.mockResolvedValueOnce({ Items: [row(1, '2026-05-01')], LastEvaluatedKey: { PK: 'c', SK: 'c' } })
+			.mockResolvedValueOnce({
+				Items: [row(1, '2026-05-01')],
+				LastEvaluatedKey: { PK: 'c', SK: 'c' },
+			})
 			.mockResolvedValueOnce({ Items: [row(2, '2026-05-02')], LastEvaluatedKey: undefined });
 		const { findByTenantAndDateRange } = await loadRepo();
 		const result = await findByTenantAndDateRange(TENANT, '2026-05-01', '2026-05-31');
