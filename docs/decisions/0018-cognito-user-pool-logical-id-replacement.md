@@ -3,171 +3,98 @@
 - **Status**: Accepted
 - **Date**: 2026-04-21
 - **Related Issue**: #1366
-- **Supersedes**: [ADR-0017](0017-cognito-pool-recreation-email-mutable.md) (Rejected — in-place Update 失敗)
+- **Supersedes**: [ADR-0017](archive/0017-cognito-pool-recreation-email-mutable.md) (Rejected — in-place Update 失敗)
 
 ## 背景
 
-ADR-0017 で `email: { mutable: false → true }` を CloudFormation に deploy したところ、AWS::Cognito::UserPool の `Mutable` 属性変更は `Update requires: Replacement` とドキュメント記載があるにも関わらず、実際には **CloudFormation が in-place UpdateUserPool を試行** し、Cognito から `Invalid AttributeDataType input` を受けて `UPDATE_ROLLBACK_FAILED` で stuck した。
+ADR-0017 で `email: { mutable: false → true }` を deploy したところ、`AWS::Cognito::UserPool` の `Mutable` 属性変更は `Update requires: Replacement` とドキュメント記載があるにも関わらず、CloudFormation が in-place UpdateUserPool を試行し、Cognito から `Invalid AttributeDataType input` を受けて `UPDATE_ROLLBACK_FAILED` で stuck した（ポストモーテム詳細は ADR-0017 / git 履歴）。
 
-ADR-0017 ポストモーテム（2026-04-21 07:43 JST 記録）で以下が判明:
+ポストモーテムで判明した教訓:
 
 - CloudFormation は `Mutable` 変更を Replacement ではなく Update として扱う実装ギャップを持つ
-- 「Replacement を強制する」には **論理 ID (Logical ID) を変更して別リソースとして認識させる**、または **RemovalPolicy.DESTROY + parallel stack** 方式が必要
+- Replacement を強制するには **論理 ID (Logical ID) を変更して別リソースとして認識させる**、または **RemovalPolicy.DESTROY + parallel stack** 方式が必要
 
 本 ADR は前者（論理 ID 変更）を採用し、#1366 の根本解決である `email: mutable` 化を実行する。
 
 ## 決定
 
-### 1. `infra/lib/auth-stack.ts` の User Pool 論理 ID を変更
+### 1. User Pool 論理 ID を `UserPool` → `UserPoolV2` に変更
+
+`infra/lib/auth-stack.ts` で論理 ID を変更（実装と race 対処コメントは同ファイルが SSOT）:
 
 ```ts
-// Before (ADR-0017 の in-place 更新試行で UPDATE_ROLLBACK_COMPLETE 状態で残存)
-this.userPool = new cognito.UserPool(this, 'UserPool', { ... });
-
-// After
 this.userPool = new cognito.UserPool(this, 'UserPoolV2', {
   userPoolName: 'ganbari-quest-users-v2',
   standardAttributes: { email: { required: true, mutable: true } },
-  removalPolicy: cdk.RemovalPolicy.RETAIN, // 継続
+  removalPolicy: cdk.RemovalPolicy.RETAIN,
   ...
 });
 ```
 
-CloudFormation は `UserPool6BA7E5F2` と `UserPoolV2XXXXX` を**別リソース**として認識し、
-
-- 新 User Pool (`UserPoolV2`) を **Create**
-- 旧 User Pool (`UserPool`) を **Delete** 試行 → `removalPolicy: RETAIN` により実体は残存 (orphan)
-
-という動作になる。旧 Pool は deploy 成功後に AWS Console または CLI で手動削除する。
+CloudFormation は旧 `UserPool` と `UserPoolV2` を**別リソース**として認識し、新 Pool を **Create** / 旧 Pool を **Delete** 試行 → `removalPolicy: RETAIN` により実体は orphan として残存する。旧 Pool は deploy 成功後に手動削除する。
 
 ### 2. 関連子リソースも新 Pool に紐づけ直される
 
-CDK は以下の子リソースを自動で新 Pool 側に再作成する（論理 ID が `UserPoolV2` の子として展開されるため）:
-
-- `UserPoolClient` (PublicClient)
-- `CognitoDomain` (auth.ganbari-quest.com)
-- `UserPoolIdentityProviderGoogle` (GoogleIdP)
-- `CfnUserPoolGroup` (OpsGroup)
-- `UserPoolOperation.CUSTOM_MESSAGE` trigger (CustomMessageFn)
-
-Route53 `AuthDomainAlias` は旧 domain resource の削除 → 新 domain resource の作成に伴い alias target が更新される。ACM 証明書は共用可能なので再利用される。
+`UserPoolClient` / `CognitoDomain` / `UserPoolIdentityProviderGoogle` / `CfnUserPoolGroup` (OpsGroup) / `CUSTOM_MESSAGE` trigger は CDK が新 Pool 側に自動再作成する。Route53 `AuthDomainAlias` は alias target が更新され、ACM 証明書は共用可能なので再利用される。
 
 ### 3. SSM パラメータの自動追従
 
-`/ganbari-quest/cognito/user-pool-id` 等の SSM パラメータは CDK が `this.userPool.userPoolId` から値を取るため、自動で新 Pool の ID に更新される。compute-stack は SSM 経由で Pool ID を読むので、次回 cold start で新 Pool に切り替わる。
+`/ganbari-quest/cognito/user-pool-id` 等は CDK が `this.userPool.userPoolId` から取るため自動更新される。compute-stack は SSM 経由で読むので、次回 cold start で新 Pool に切り替わる。
 
 ### 4. 既存 federated ユーザー (3 名) は消失
 
-Pre-PMF 境界内で全員 PO テストアカウントのみと確認済み (2026-04-21 ユーザー明示確認: 「ユーザは全員いなくなっても問題ない」)。再度 Google OAuth でサインアップし直す。
+Pre-PMF 境界内で全員 PO テストアカウントのみと確認済み（2026-04-21 ユーザー明示確認: 「ユーザは全員いなくなっても問題ない」）。再度 Google OAuth でサインアップし直す。
 
 ### 5. Deploy 後の手動クリーンアップ
 
-CloudFormation stack が新 Pool にクリーンに sync された後、以下を実施:
+新 Pool に stack が sync された後、旧 Pool を手動削除する（`removalPolicy: RETAIN` のため CloudFormation は触らない）:
 
 ```bash
-# 旧 Pool の確認 (ganbari-quest-users のはず)
 aws cognito-idp list-user-pools --max-results 10 --region us-east-1
-
-# 旧 Pool を手動削除 (RETAIN により CloudFormation は触らないため)
 aws cognito-idp delete-user-pool --user-pool-id <旧 Pool ID> --region us-east-1
 ```
 
+> 初回 deploy では 2 つの副次問題が発覚した（rollback 経緯詳細は git 履歴 / #1366）: ① 旧 Pool が `auth.ganbari-quest.com` カスタムドメインを保持したままで新 Pool が claim できず、`delete-user-pool-domain` での **事前**手動解放が必要だった ② `UserPoolClient` が `UserPoolIdentityProviderGoogle` 作成前に並列作成され "The provider Google does not exist" で失敗したため、`userPoolClient.node.addDependency(googleIdP)` を明示追加した。①②の恒久対処は `infra/lib/auth-stack.ts` のコメント（SSOT）と runbook [cognito-pool-migration.md](../runbooks/cognito-pool-migration.md) に反映済み。
+
 ## 代替案と却下理由
 
-### 代替案 A: RemovalPolicy.DESTROY + parallel stack 方式
-
-- **メリット**: 新旧 Pool を併存させる期間を長く取れる（カットオーバーを段階的に実施可能）
-- **デメリット**: 新 stack 作成 / SSM パラメータ二重化 / cutover スクリプト追加が必要で、作業量が論理 ID 変更の 3〜4 倍
-- **却下**: Pre-PMF で既存ユーザー全員消失 OK という前提なら過剰。ADR-0010 (Pre-PMF スコープ判断) の趣旨に反する
-
-### 代替案 B: 既存ユーザー bulk import (`aws cognito-idp admin-create-user`)
-
-- **メリット**: 既存ユーザーの email/paswword アカウントを新 Pool に移行できる
-- **デメリット**: federated (Google OAuth) ユーザーは Provider 側の sub が変わらないので import しても再紐付け不可。email/password のみ import する意味が薄い
-- **却下**: ユーザー明示確認で「全員消えて OK」と承認済み
-
-### 代替案 C: ADR-0017 のまま mutable: false に revert
-
-- **メリット**: stack を安定化させられる
-- **デメリット**: **#1366 未解決のまま**。Google OAuth 再ログイン不能を放置することになる
-- **却下**: 2026-04-21 ユーザー指摘「revert ではなくて、ちゃんと目的を達成できるように修正してもらいたい」により明確に NG
+| 代替案 | 却下理由 |
+|-------|---------|
+| **A: RemovalPolicy.DESTROY + parallel stack** | 段階カットオーバー可能だが新 stack / SSM 二重化 / cutover script が必要で作業量 3〜4 倍。既存ユーザー全消失 OK の前提では過剰（ADR-0010 趣旨に反する） |
+| **B: 既存ユーザー bulk import** (`admin-create-user`) | federated (Google) ユーザーは Provider 側 sub が変わらず再紐付け不可。email/password のみ import する意味が薄い。ユーザー明示確認で「全員消えて OK」承認済み |
+| **C: ADR-0017 のまま `mutable: false` に revert** | stack は安定化できるが **#1366 未解決**。2026-04-21 ユーザー指摘「revert ではなくちゃんと目的を達成できるように修正」で明確に NG |
 
 ## 結果
 
 ### 期待される効果
 
-- `#1366` (Google OAuth セッション期限後の再ログイン失敗) が根本解決される
+- `#1366`（Google OAuth セッション期限後の再ログイン失敗）が根本解決される
 - `email: mutable: true` により、Google 側で email が変更されても次回 OAuth で Cognito に追従反映される
-- `#1365` (Refresh Token 実装) のブロッカー解消
+- `#1365`（Refresh Token 実装）のブロッカー解消
 
 ### トレードオフ
 
-- **既存 federated ユーザー全消失** (Pre-PMF 許容)
-- **Deploy 中に短時間 (数分) の認証機能停止**: Hosted UI Domain の Route53 alias 更新タイミングで一時的に auth.ganbari-quest.com が 503 を返す可能性あり
-- **CloudFormation stack に orphan resource (旧 User Pool) が残る**: deploy 成功後に手動削除する運用タスクが発生
+- **既存 federated ユーザー全消失**（Pre-PMF 許容）
+- **Deploy 中に短時間 (数分) の認証機能停止**: Hosted UI Domain の Route53 alias 更新タイミングで `auth.ganbari-quest.com` が一時的に 503 を返す可能性
+- **CloudFormation stack に orphan resource (旧 User Pool) が残る**: deploy 後の手動削除タスクが発生
 
 ### リスクと緩和策
 
 | リスク | 緩和策 |
 |-------|-------|
-| 新 User Pool の Hosted UI Domain 作成が証明書検証で失敗 | 旧 Pool で使用中の ACM 証明書 ARN は共用可能（別 User Pool で参照しても問題ない）。`auth.ganbari-quest.com` の DNS は新 Pool の CloudFront に auto-switch される |
-| Lambda (CustomMessage trigger) のアタッチ失敗 | CDK が `userPool.addTrigger()` を新 Pool 側に実行するので自動追従。Lambda の resource policy も CDK が付け直す |
-| SSM パラメータ切替タイミングで compute-stack が旧 Pool ID を参照 | auth-stack → compute-stack の順で CDK deploy される。deploy 完了後に Lambda を明示的に再起動することでコールドスタート時に新 Pool ID を読み直す。`deploy.yml` は CDK deploy all なので自動で compute-stack も更新される |
-| deploy 途中失敗で旧 Pool が残ったまま stack が壊れる | `removalPolicy: RETAIN` により旧 Pool の実体は保護される。rollback 時は論理 ID を元に戻して再 deploy すれば旧 Pool が再紐付けされる |
+| 新 Pool の Hosted UI Domain 作成が証明書検証で失敗 | 旧 Pool の ACM 証明書 ARN は別 Pool で参照しても共用可能。DNS は新 Pool の CloudFront に auto-switch |
+| Lambda (CustomMessage trigger) のアタッチ失敗 | CDK が `addTrigger()` を新 Pool 側に実行し resource policy も付け直すため自動追従 |
+| SSM 切替タイミングで compute-stack が旧 Pool ID を参照 | auth-stack → compute-stack の順で deploy。deploy 完了後の cold start で新 Pool ID を読み直す（`deploy.yml` は deploy all） |
+| deploy 途中失敗で旧 Pool が残ったまま stack が壊れる | `RETAIN` で旧 Pool 実体を保護。rollback 時は論理 ID を戻して再 deploy で旧 Pool が再紐付けされる |
 
-## 初回 deploy で発覚した 2 つの副次問題 (2026-04-21 15:40 JST)
-
-本 ADR で論理 ID 変更のみを実施して deploy したところ、新 Pool 自体は `CREATE_COMPLETE` で作成されたものの以下 2 点で rollback した:
-
-### 問題 1: `UserPoolDomain: "Domain already exists"`
-
-旧 User Pool (`us-east-1_npIBAB80w`) が `auth.ganbari-quest.com` カスタムドメインを保持したまま残存していたため、新 Pool が同じドメインを claim できなかった。
-
-**対処**: CloudFormation は User Pool Custom Domain に `RETAIN` 指定を適用しないため、旧 Pool の domain は deploy 前に手動で解放する必要がある:
-
-```bash
-aws cognito-idp delete-user-pool-domain \
-  --domain auth.ganbari-quest.com \
-  --user-pool-id us-east-1_npIBAB80w \
-  --region us-east-1
-```
-
-本 ADR の「Deploy 後の手動クリーンアップ」手順より**前に**実施すること。
-
-### 問題 2: `UserPoolClient: "The provider Google does not exist"`
-
-新 Pool の `UserPoolClient` (`supportedIdentityProviders: [COGNITO, GOOGLE]` 指定) が、`UserPoolIdentityProviderGoogle` 作成完了より先に CloudFormation で作成開始され、Google IdP 未登録エラーで失敗した。CDK の暗黙依存は UserPool への参照しか張られず、IdP と Client は並列作成される。
-
-**対処**: `auth-stack.ts` で `userPoolClient.node.addDependency(googleIdP)` を明示的に追加。これで CloudFormation が GoogleIdP を先に作成してから Client を作成する。
-
-### 新 Pool の orphan (deploy 失敗時)
-
-rollback 時に `UserPoolV2` は `DELETE_SKIPPED` になる (removalPolicy: RETAIN のため)。次回 deploy は新しい物理 Pool を CREATE するため orphan が累積する。失敗直後に以下で削除:
-
-```bash
-aws cognito-idp delete-user-pool --user-pool-id <orphan Pool ID> --region us-east-1
-```
-
-## Post-deploy 検証チェックリスト (Issue #1366 AC 連動)
-
-- [ ] `git push` → GitHub Actions `deploy.yml` 成功 (test → CDK deploy all)
-- [ ] CloudFormation stack `GanbariQuestAuth` が `UPDATE_COMPLETE` (旧 `UPDATE_ROLLBACK_COMPLETE` から抜ける)
-- [ ] 新 User Pool ID が `/ganbari-quest/cognito/user-pool-id` に反映
-- [ ] Google OAuth で新規サインアップ → `/admin` 到達
-- [ ] 1 時間以上放置 → 再度 Google OAuth → エラーなくログイン可能 (#1366 AC)
-- [ ] email/password サインアップフローの E2E regression なし
-- [ ] 旧 User Pool を手動削除 (`aws cognito-idp delete-user-pool`)
-- [ ] `docs/design/14-セキュリティ設計書.md` / `07-API設計書.md` の Cognito 記述を新 Pool 前提に更新
-
-## 今後のために起票する Issue
-
-- **Cognito ユーザーバックアップ / リストア運用確立** (#1366 派生): DynamoDB 側の user ID との紐付け方法を含め、Pool 再作成時にユーザーを失わないための運用手順を策定する。Pre-PMF 終了までに必ず整備する（Post-PMF 以降は本 ADR のような破壊的変更が許容されない）
-- **CDK synth diff を deploy 前チェックに組み込む**: ADR-0017 の根本欠陥 (「staging で Replacement 挙動を確認する段取りが無かった」) への構造的対策。`cdk diff --strict` を deploy job の必須ステップにし、`Replacement` / `requires replacement` を含む diff が出たら deploy を block する案
+Post-deploy 検証チェックリスト（#1366 AC 連動: deploy 成功 / stack `UPDATE_COMPLETE` / 新 Pool ID の SSM 反映 / Google OAuth 再ログイン / 旧 Pool 手動削除 / セキュリティ設計書・API 設計書の Cognito 記述更新）は #1366 の AC として追跡する。
 
 ## 関連
 
-- [ADR-0017](0017-cognito-pool-recreation-email-mutable.md) — 本 ADR の前身 (Rejected)
+- [ADR-0017](archive/0017-cognito-pool-recreation-email-mutable.md) — 本 ADR の前身 (Rejected)
+- [ADR-0021](0021-cognito-pool-migration-user-preservation.md) — Pool 再作成時のユーザー保全戦略
+- [ADR-0019](0019-cdk-replacement-detection-gate.md) — `cdk diff` Replacement 検知ゲート（ADR-0017 の根本欠陥への構造的対策）
 - [ADR-0010](0010-pre-pmf-scope-judgment.md) — Pre-PMF 境界内での破壊的変更許容
-- #1366 — 本 ADR の起票 Issue
-- #1365 — Refresh Token 実装 (本 ADR 後にアンブロック)
-- AWS CloudFormation docs: `AWS::Cognito::UserPool` `Update requires: Replacement` (実装ギャップの公式明記箇所)
+- [cognito-pool-migration.md](../runbooks/cognito-pool-migration.md) — Pool 再作成の運用手順 SSOT
+- `infra/lib/auth-stack.ts` — 論理 ID 変更・IdP 依存 race 対処の実装 SSOT
+- #1366（起票）/ #1365（Refresh Token 実装、本 ADR 後にアンブロック）
