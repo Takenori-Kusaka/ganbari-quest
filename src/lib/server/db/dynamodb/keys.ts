@@ -388,6 +388,53 @@ export function parentMessagePrefix(): string {
 }
 
 /**
+ * Stamp card (#2824 Wave 3B / ADR-0055): PK=CHILD#<cId>, SK=STMPCARD#<weekStart>
+ *
+ * per-child instance を child partition 配下に置き (special_rewards / activity_logs と同居)、
+ * `findCardByChildAndWeek` を childId + weekStart 既知の GetItem 1 回で完結させる
+ * (weekStart は child 内で一意 = SQLite uniqueIndex(child_id, week_start) と等価)。
+ * child 軸を構造的に担保し追加 GSI 不要 (ADR-0055 §3.1)。cardId だけで引く
+ * updateCardStatus* は低頻度 (週次 redeem) のため tenant Scan + id filter で解決する。
+ */
+export function stampCardKey(childId: number, weekStart: string, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `STMPCARD#${weekStart}`,
+	};
+}
+
+/** Stamp card SK prefix for querying all cards of a child / tenant cleanup */
+export function stampCardPrefix(): string {
+	return 'STMPCARD#';
+}
+
+/**
+ * Stamp entry (#2824 Wave 3B / ADR-0055): PK=STMPCARD#<cardId>, SK=STMPENT#<paddedSlot>
+ *
+ * entry は cardId だけで lookup される (`findEntriesWithMasterByCardId(cardId)` に childId が
+ * 渡らない) ため、card 自身を partition key にした専用 partition へ配置する。これにより
+ * 単一 partition Query (begins_with(SK, 'STMPENT#')) で全 entry を取得でき GSI 不要。
+ * SK の paddedSlot は SQLite uniqueIndex(card_id, slot) と等価 (slot は週内 1〜5 枠で一意)。
+ * stamp master との JOIN は固定 16 件 SSOT (getDefaultStampMasters) を in-memory で解決する。
+ */
+export function stampEntryKey(cardId: number, slot: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`STMPCARD#${cardId}`, tenantId),
+		SK: `STMPENT#${padId(slot)}`,
+	};
+}
+
+/** Stamp entry partition PK for a given card (Query all entries of a card). */
+export function stampEntryCardPK(cardId: number, tenantId: string): string {
+	return tenantPK(`STMPCARD#${cardId}`, tenantId);
+}
+
+/** Stamp entry SK prefix for querying all entries of a card. */
+export function stampEntryPrefix(): string {
+	return 'STMPENT#';
+}
+
+/**
  * Checklist template: PK=T#<tenantId>#CKTPL, SK=CKTPL#<id>
  * #2362 PR-5 (ADR-0055): family master 化に伴い CHILD#<cId> 配下 → tenant scope に変更。
  */
@@ -822,6 +869,7 @@ export const ENTITY_NAMES = {
 	specialReward: 'specialReward',
 	rewardRedemption: 'rewardRedemption',
 	parentMessage: 'parentMessage',
+	stampCard: 'stampCard',
 	checklistTemplate: 'checklistTemplate',
 	checklistAssignment: 'checklistAssignment',
 	checklistItem: 'checklistItem',

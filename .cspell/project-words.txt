@@ -290,6 +290,8 @@ Splide
 splidejs
 SSOT
 STATHIST
+STMPCARD
+STMPENT
 stylelint
 Stylelint
 subresource

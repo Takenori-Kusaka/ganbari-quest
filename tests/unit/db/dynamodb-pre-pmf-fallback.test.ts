@@ -36,7 +36,8 @@ import * as reportDailySummaryRepo from '../../../src/lib/server/db/dynamodb/rep
 // #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 // #2458 (Path B sibling drop): sibling-challenge-repo 削除済 (2026-05-26)、child-challenge-repo へ移行
 import * as siblingCheerRepo from '../../../src/lib/server/db/dynamodb/sibling-cheer-repo';
-import * as stampCardRepo from '../../../src/lib/server/db/dynamodb/stamp-card-repo';
+// #2824 Wave 3B (ADR-0055): stamp-card-repo は本実装済のため stub fallback テスト対象外。
+//   機能等価性は tests/unit/db/dynamodb-stamp-card-repo.test.ts (AWS SDK mock) で検証する。
 import * as viewerTokenRepo from '../../../src/lib/server/db/dynamodb/viewer-token-repo';
 
 const TENANT = 'test-tenant';
@@ -171,48 +172,11 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('stamp-card-repo', () => {
-		it('全 method が throw しない', async () => {
-			// findEnabledStampMasters は本番 loginStamp 500 を防ぐため
-			// DEFAULT_STAMP_MASTERS_DATA SSOT (16 件) を返す (空配列を返すと service が
-			// 'No enabled stamps available' で 500 を返していた 2026-05-20 Critical の回避策)
-			const stamps = await stampCardRepo.findEnabledStampMasters(TENANT);
-			expect(stamps.length).toBe(16);
-			expect(stamps.every((s) => s.isEnabled === 1)).toBe(true);
-			expect(stamps.every((s) => ['N', 'R', 'SR', 'UR'].includes(s.rarity))).toBe(true);
-			await expect(
-				stampCardRepo.findCardByChildAndWeek(1, '2026-05-12', TENANT),
-			).resolves.toBeUndefined();
-			await expect(
-				stampCardRepo.insertCard(
-					{ childId: 1, weekStart: '2026-05-12', weekEnd: '2026-05-18' },
-					TENANT,
-				),
-			).resolves.toBeTruthy();
-			await expect(stampCardRepo.findEntriesWithMasterByCardId(1, TENANT)).resolves.toEqual([]);
-			await expect(
-				stampCardRepo.insertEntry(
-					{ cardId: 1, stampMasterId: 1, omikujiRank: null, slot: 0, loginDate: TODAY },
-					TENANT,
-				),
-			).resolves.toBeUndefined();
-			await expect(
-				stampCardRepo.updateCardStatus(
-					1,
-					{ status: 'redeemed', redeemedPoints: 10, redeemedAt: TODAY, updatedAt: TODAY },
-					TENANT,
-				),
-			).resolves.toBeUndefined();
-			await expect(
-				stampCardRepo.updateCardStatusIfCollecting(
-					1,
-					{ status: 'completed', redeemedPoints: null, redeemedAt: null, updatedAt: TODAY },
-					TENANT,
-				),
-			).resolves.toBe(0);
-			await expect(stampCardRepo.deleteByTenantId(TENANT)).resolves.toBeUndefined();
-		});
-	});
+	// #2824 Wave 3B (ADR-0055): stamp-card-repo は本実装済 (stub 除外)。
+	//   子供 home 自動押印 (?/loginStamp) → スタンプ獲得 → 週末 redeem が本番 DynamoDB Lambda
+	//   で永続する。本実装の機能等価性テストは dynamodb-stamp-card-repo.test.ts に分離。ここで
+	//   stub 前提の assert を残すと「実装済なのに stub 期待」で誤った退行 gate になるため除外する
+	//   (他 repo の fallback assert は維持 = assertion 弱体化に該当しない)。
 
 	// #2295 (EPIC #2294 ①): tenant-event-repo describe 削除済 (2026-05-19、repo 自体撤去)
 
@@ -226,8 +190,8 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('regression guard: 全 7 repo の Promise.all で reject されない', () => {
-		it('SSR /preschool/home の典型的な 7 repo 並列呼び出しが全 fulfill する', async () => {
+	describe('regression guard: 全 6 repo の Promise.all で reject されない', () => {
+		it('SSR /preschool/home の典型的な 6 repo 並列呼び出しが全 fulfill する', async () => {
 			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
 			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
 			// #2263 regression hotfix: childActivityRepo を stub fallback に置換 (9 → 10 repo)
@@ -237,13 +201,14 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 			//   (本実装は AWS SDK mock 必須 → dynamodb-reward-redemption-repo.test.ts で検証)。9 → 8 repo
 			// #2824 Wave 3A (ADR-0055): messageRepo を本実装化したため除外
 			//   (本実装は AWS SDK mock 必須 → dynamodb-message-repo.test.ts で検証)。8 → 7 repo
+			// #2824 Wave 3B (ADR-0055): stampCardRepo を本実装化したため除外
+			//   (本実装は AWS SDK mock 必須 → dynamodb-stamp-card-repo.test.ts で検証)。7 → 6 repo
 			const results = await Promise.allSettled([
 				autoChallengeRepo.findActiveByChild(1, TENANT),
 				battleRepo.findTodayBattle(1, TODAY, TENANT),
 				cloudExportRepo.findByTenant(TENANT),
 				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),
 				siblingCheerRepo.findUnshownCheers(1, TENANT),
-				stampCardRepo.findCardByChildAndWeek(1, '2026-05-12', TENANT),
 				viewerTokenRepo.findByTenant(TENANT),
 			]);
 
