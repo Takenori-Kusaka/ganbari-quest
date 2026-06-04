@@ -1,14 +1,14 @@
 /**
- * #2362 PR-3 Phase 4 — admin/activities per-child UX E2E 回帰
+ * #2362 PR-3 Phase 4 / #2902 Phase A — admin/activities per-child UX E2E 回帰
  *
  * 子供別タブ切替 / ChildSelectionDialog auto-open (`?import=<presetId>`) /
  * 「他の子供から copy」 action / 「一括追加」 action を検証する。
  *
- * 既存 `admin-activities-add-ux.spec.ts` / `admin-activities-import-marketplace.spec.ts`
- * は family master 動線を継続検証。本 spec は per-child 動線専用。
- *
- * Phase 4 段階では family master と per-child の並存表示状態を前提とし、
- * Phase 6/7 で family master drop 後に rewrite 予定 (PR description 参照)。
+ * #2902 Phase A: activity-service の master 系 API は per-child repo 経由に rewrite 済で
+ * 「family master table」は物理的に存在しない。admin 一覧は **選択中 child の per-child
+ * instance のみ** を単一表示し (旧 family 集約並存を撤去)、全表示行がフル CRUD
+ * (ActivityListItem) を持つ。本 spec はこの single-axis 表示の回帰と、AC5
+ * (ユーザーメンタルモデル assert: 2 重表示なし / 全行から編集に到達 / 取込件数の整合) を検証する。
  */
 
 import { expect, test } from '@playwright/test';
@@ -190,14 +190,142 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 		await expect(page.getByTestId('bulk-create-confirm')).toBeEnabled();
 	});
 
-	test('per-child + family master 並存表示 (Phase 4 過渡期)', async ({ page }) => {
+	// #2902 Phase A AC5: ユーザーメンタルモデル assert
+	// (M3 対策: 旧 CUJ テストが「sum が grew」で並存を正として固定していた gap を埋める)
+
+	test('#2902 AC5: 選択中 child タブで同名活動が 2 重表示されない (single-axis、件数水増しなし)', async ({
+		page,
+	}) => {
+		// elementary fixture (けんたくん) は global-setup で per-child activity を複数 seed する。
+		// 旧実装は「selected child の per-child」+「tenant 全 child 集約」を連結し、selected child の
+		// instance が 2 重に出ていた (35+35=70)。single-axis 化後は各 activity 名が 1 行のみ。
 		await page.goto('/admin/activities');
-		// Phase 4 では family master Activity と per-child ChildActivity が並存
-		// per-child が 0 件でも family master は表示される
-		const allTab = page.locator('[data-testid^="child-tab-"]').first();
-		await expect(allTab).toBeVisible();
-		// activity list は最低 1 件以上 (seed の family master が表示される)
-		const list = page.locator('[data-tutorial="activity-list"]');
-		await expect(list).toBeVisible();
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		const elementaryTab = tabs.filter({ hasText: 'けんたくん' });
+		await expect(elementaryTab, 'けんたくんタブが存在すること').toHaveCount(1);
+		await elementaryTab.click();
+
+		// 一覧に出る per-child 行 (data-testid="per-child-activity-<id>") を列挙し、
+		// 表示名の重複が無いことを assert (2 重表示 = 名前が 2 回出る → 必ず fail)。
+		const rows = page.locator('[data-testid^="per-child-activity-"]');
+		const rowCount = await rows.count();
+		expect(rowCount, '選択中 child に visible 活動が 1 件以上 (seed 前提)').toBeGreaterThan(0);
+
+		// 活動名は ActivityListItem の最初の <p> (font-bold) に出る。row 全体の textContent は
+		// 編集/表示/削除ボタン label を含み全 row 同一になるため、名前要素のみを抽出する。
+		const names: string[] = [];
+		for (let i = 0; i < rowCount; i++) {
+			const nameEl = rows.nth(i).locator('p').first();
+			names.push(((await nameEl.textContent()) ?? '').replace(/\s+/g, ' ').trim());
+		}
+		const uniqueNames = new Set(names);
+		expect(uniqueNames.size, `同名活動が 2 重表示されている (名前: ${names.join(' / ')})`).toBe(
+			names.length,
+		);
+
+		// 「すべて」フィルタ chip の件数 = 表示行数 (水増しなし)。
+		const allChip = page.locator('[data-tutorial="category-filter"] button').first();
+		const chipText = (await allChip.textContent()) ?? '';
+		const m = chipText.match(/\((\d+)\)/);
+		expect(m, 'すべてフィルタに件数表示がある').not.toBeNull();
+		expect(Number(m?.[1]), 'カテゴリ「すべて」件数 = 表示行数 (水増しなし)').toBe(rowCount);
+	});
+
+	test('#2902 AC5: 全表示行が編集 UI (フル CRUD) に到達できる', async ({ page }) => {
+		await page.goto('/admin/activities');
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		const elementaryTab = tabs.filter({ hasText: 'けんたくん' });
+		await expect(elementaryTab).toHaveCount(1);
+		await elementaryTab.click();
+
+		const rows = page.locator('[data-testid^="per-child-activity-"]');
+		const rowCount = await rows.count();
+		expect(rowCount, '選択中 child に visible 活動が 1 件以上').toBeGreaterThan(0);
+
+		// 各行に編集 link (activity-edit-link) + 削除ボタン (activity-delete-btn-*) が存在する。
+		// 旧実装は per-child 行が read-only badge のみで編集 UI が欠落していた (ゴミデータに見える原因)。
+		const editLinks = page.locator(
+			'[data-testid^="per-child-activity-"] [data-testid="activity-edit-link"]',
+		);
+		await expect(editLinks).toHaveCount(rowCount);
+		const deleteBtns = page.locator(
+			'[data-testid^="per-child-activity-"] [data-testid^="activity-delete-btn-"]',
+		);
+		await expect(deleteBtns).toHaveCount(rowCount);
+
+		// 1 行目の編集 link をクリック → 編集ページに遷移できる (dead-end でない)。
+		const firstEdit = editLinks.first();
+		const href = await firstEdit.getAttribute('href');
+		expect(href, '編集 link が /admin/activities/<id>/edit を指す').toMatch(
+			/\/admin\/activities\/\d+\/edit/,
+		);
+		await Promise.all([page.waitForURL(/\/admin\/activities\/\d+\/edit/), firstEdit.click()]);
+		// 編集ページが描画され保存ボタンが操作可能 (dead-end でなく編集を完遂できる)。
+		await expect(page.getByTestId('activity-edit-save')).toBeVisible();
+	});
+
+	test('#2902 AC5: 取込後に選択 child の件数が実増分のみ増える (水増しなし)', async ({ page }) => {
+		test.slow();
+		// baby (はなこちゃん) に kinder-starter を取込み、取込後に「タブ件数 = 表示行数」かつ
+		// 「表示名が重複しない」ことを assert する。
+		//
+		// 設計判断 (worker-shared DB 耐性): 取込 imported 件数を response から数値抽出して
+		// before+imported を厳密比較する旧 approach は、同 worker DB を共有する他 spec
+		// (CUJ-A3 / #2558 goal 完遂) が同じ kinder-starter を baby/全員に取込済の場合
+		// imported=0 (全 skip) となり SvelteKit ActionResult の serialize 形式依存で fragile。
+		// 「水増し (= 同じ activity が 2 重カウント)」の本質的検出は、取込後の **タブ件数 ==
+		// 選択中 child の表示行数 == ユニーク名数** が成立するか (= 重複なし) で行う。
+		await page.goto('/admin/activities');
+		const tabs = page.locator('[data-testid^="child-tab-"]');
+		const babyTab = tabs.filter({ hasText: 'はなこちゃん' });
+		await expect(babyTab).toHaveCount(1);
+		const babyChildId = (await babyTab.getAttribute('data-testid'))?.replace('child-tab-', '');
+		expect(babyChildId).toBeTruthy();
+
+		// ?import=kinder-starter を baby のみに取込 (副作用 A: network 発火 + OK)
+		await page.goto('/admin/activities?import=kinder-starter');
+		const dialog = page.getByTestId('import-child-selection-dialog');
+		await expect(dialog).toBeVisible({ timeout: 10_000 });
+		const childOption = page.getByTestId(`child-selection-${babyChildId}`);
+		await expect(childOption).toBeVisible();
+		await childOption.check();
+		const confirm = page.getByTestId('child-selection-confirm');
+		await expect(confirm).toBeEnabled();
+		const [resp] = await Promise.all([
+			page.waitForResponse((r) => /\?\/importPackToChildren/.test(r.url())),
+			confirm.click(),
+		]);
+		expect(resp.ok(), `import response not OK (status ${resp.status()})`).toBeTruthy();
+
+		// 永続反映: clean な /admin/activities に遷移し baby タブを選択。
+		await page.goto('/admin/activities');
+		const babyTabAfter = page
+			.locator('[data-testid^="child-tab-"]')
+			.filter({ hasText: 'はなこちゃん' });
+		await expect(babyTabAfter).toHaveCount(1);
+		await babyTabAfter.click();
+
+		// baby の表示行数を取得 (visible per-child instance)。取込後なので 1 件以上。
+		const rows = page.locator('[data-testid^="per-child-activity-"]');
+		await expect.poll(() => rows.count(), { timeout: 30_000 }).toBeGreaterThan(0);
+		const rowCount = await rows.count();
+
+		// (1) タブ件数 == 表示行数 (水増しなし: タブが行数の 2 倍等にならない)
+		const tabText = (await babyTabAfter.textContent()) ?? '';
+		const tabNum = Number(tabText.match(/\((\d+)\)/)?.[1] ?? '-1');
+		expect(tabNum, `baby タブ件数 (${tabNum}) == 表示行数 (${rowCount}) で水増しなし`).toBe(
+			rowCount,
+		);
+
+		// (2) 表示名が重複しない (取込で同名 instance が 2 重に並ばない)
+		const names: string[] = [];
+		for (let i = 0; i < rowCount; i++) {
+			const nameEl = rows.nth(i).locator('p').first();
+			names.push(((await nameEl.textContent()) ?? '').replace(/\s+/g, ' ').trim());
+		}
+		expect(
+			new Set(names).size,
+			`取込後の baby 一覧に同名活動の重複なし (${names.join(' / ')})`,
+		).toBe(names.length);
 	});
 });

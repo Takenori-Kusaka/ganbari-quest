@@ -602,3 +602,80 @@ describe('#1757 tryGrantMustCompletionBonus', () => {
 		expect(pointLedgerCount(1, MUST_COMPLETION_BONUS_TYPE)).toBe(0);
 	});
 });
+
+// ============================================================
+// #2902 Phase A: createActivity childId 指定 (per-child single-axis 表示の前提)
+//
+// admin/activities は per-child 主軸に一本化され、manual create は「選択中タブの child」に
+// 作成する。createActivity の optional 第 3 引数 childId が指定 child に instance を作る
+// こと / 兄弟 child の一覧には混ざらないこと / 不正・未指定時は先頭 child に fallback する
+// ことを検証する (memory `feedback_per_child_scope_consistency` 整合: child scope を全 read で守る)。
+// ============================================================
+describe('#2902 createActivity childId 指定 (per-child single-axis)', () => {
+	beforeEach(() => {
+		// 2 child seed: child 1 (id=1、seedBase 由来) + child 2 (id=2、空)。
+		seedBase();
+		testDb
+			.insert(schema.children)
+			.values({ nickname: 'おとうとくん', age: 8, theme: 'blue' })
+			.run();
+	});
+
+	it('UT-ACT-2902-01: childId 指定で当該 child に instance が作成される', async () => {
+		const created = await createActivity(
+			{
+				name: 'なわとびした',
+				categoryId: 1,
+				icon: '🤸',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+			},
+			'test-tenant',
+			2,
+		);
+		expect(created.childId).toBe(2);
+
+		// child 2 の一覧に出る
+		const child2 = await getChildActivities(2, 'test-tenant');
+		expect(child2.map((a) => a.name)).toContain('なわとびした');
+
+		// child 1 の一覧には混ざらない (兄弟 scope 分離)
+		const child1 = await getChildActivities(1, 'test-tenant');
+		expect(child1.map((a) => a.name)).not.toContain('なわとびした');
+	});
+
+	it('UT-ACT-2902-02: childId 未指定なら先頭 child (id=1) に作成 (後方互換)', async () => {
+		const created = await createActivity(
+			{
+				name: 'おてつだいした',
+				categoryId: 3,
+				icon: '🧹',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+			},
+			'test-tenant',
+		);
+		expect(created.childId).toBe(1);
+		const child1 = await getChildActivities(1, 'test-tenant');
+		expect(child1.map((a) => a.name)).toContain('おてつだいした');
+	});
+
+	it('UT-ACT-2902-03: 当該 tenant に存在しない childId は先頭 child に fallback (不正 id を弾く)', async () => {
+		const created = await createActivity(
+			{
+				name: 'ふせいid活動',
+				categoryId: 1,
+				icon: '❓',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+			},
+			'test-tenant',
+			999,
+		);
+		// 999 は存在しないため先頭 child (id=1) に fallback
+		expect(created.childId).toBe(1);
+	});
+});

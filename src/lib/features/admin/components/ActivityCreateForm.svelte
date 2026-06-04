@@ -21,6 +21,11 @@ interface Props {
 	initialPoints?: number;
 	initialNameKana?: string;
 	initialNameKanji?: string;
+	/**
+	 * #2902 Phase A: 作成先 child (admin/activities の選択中タブ)。
+	 * 未指定なら server action が一番古い child に fallback する (後方互換)。
+	 */
+	childId?: number;
 	oncreated: () => void;
 }
 
@@ -33,6 +38,7 @@ let {
 	initialPoints = 5,
 	initialNameKana = '',
 	initialNameKanji = '',
+	childId,
 	oncreated,
 }: Props = $props();
 
@@ -118,6 +124,10 @@ function resetForm() {
 	class="bg-[var(--color-surface-card)] rounded-xl p-4 shadow-sm space-y-4"
 	data-testid="activity-create-form"
 >
+	<!-- #2902 Phase A: 選択中タブの child に作成 (未指定なら server で fallback) -->
+	{#if childId != null}
+		<input type="hidden" name="childId" value={childId} />
+	{/if}
 	<h3 class="font-bold text-[var(--color-text)]">{L.createTitle}</h3>
 
 	<!-- 名前 -->
