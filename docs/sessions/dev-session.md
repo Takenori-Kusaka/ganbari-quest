@@ -5,6 +5,8 @@
 > **PR 起票**: [Skill: dev-open-pr](../../.claude/skills/dev-open-pr/SKILL.md)（PR body 雛形 + Issue 自動穴埋め、#1863）
 >
 > **SSOT**: ADR-0005（テスト品質）/ ADR-0006（assertion 禁止）/ ADR-0008（設計ポリシー先行確認）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）/ ADR-0026（force push 禁止）/ ADR-0030（pre-ready CLI）
+>
+> **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（feature は `develop` から切り `develop` 向けに PR、main 直行は hotfix のみ。gate 二層 = 個別 PR 軽量 / develop→main 統合 PR 最重厚）
 
 ## セッション設計原則
 
