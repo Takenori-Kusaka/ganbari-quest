@@ -156,7 +156,7 @@
 
 | ディレクトリ | 役割 |
 |---|---|
-| `.claude/agents/` | セッション ロール定義 (po-session.md / dev-session.md / qa-session.md、起動時自動活性化)。外部品質監査チームの役割定義は [docs/sessions/audit-team.md](../sessions/audit-team.md) が SSOT (audit-manager + 8 チーム + ポリシー準拠判定、新設 skill = competitive-research / policy-compliance / audit-manager の 3 点に限定、実装は EPIC #2861 の B 系 sub-issue が担う) |
+| `.claude/agents/` | セッション ロール定義 (po-session.md / dev-session.md / qa-session.md、起動時自動活性化)。外部品質監査チームの役割定義は [docs/sessions/audit-team.md](sessions/audit-team.md) が SSOT (audit-manager + 8 チーム + ポリシー準拠判定、新設 skill = competitive-research / policy-compliance / audit-manager の 3 点に限定、実装は EPIC #2861 の B 系 sub-issue が担う) |
 | `.claude/skills/` | タスク固有 Skills (14 件): `pr-review` / `issue-triage` / `pre-pmf-check` / `dev-open-pr` / `lp-review` / `db-migration` / `cost-review` / `age-mode-check` / `brand-check` / `customer-voice` / `deploy-verify` / `flake-hunt` / `regression-check` / **`impact-analysis`** (rename/モデル変更/大規模リファクタリングの Change Impact Analysis、4 layer 防御 + 21 カテゴリ checklist、2026-05-28 追加) |
 | `.claude/settings.json` | 全体設定 (permissions / hooks / env) |
 | `.claude/worktrees/` | 並行 Agent 用 worktree 分離 dir (Agent tool `isolation: "worktree"` 必須) |
