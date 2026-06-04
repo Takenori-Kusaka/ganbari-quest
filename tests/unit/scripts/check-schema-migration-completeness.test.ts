@@ -109,4 +109,93 @@ describe('detectBreakingChanges (#2520 AC6/AC7)', () => {
 			expect(result.some((b) => b.reason.includes('cross-table flip'))).toBe(true);
 		});
 	});
+
+	// ---- #2827: 検出漏れ 2 経路 (新規 table 追加同期漏れ / 新規 NOT NULL no-default 列) ----
+
+	describe('(5) 新規 table 追加同期漏れ (#2827 穴A)', () => {
+		const newTableDiff = [
+			'@@ -200,0 +201,4 @@',
+			"+export const familyEvents = sqliteTable('family_events', {",
+			"+	id: integer('id').primaryKey({ autoIncrement: true }),",
+			"+	tenantId: text('tenant_id').notNull().default(''),",
+			'+});',
+		].join('\n');
+
+		it('新規 table が追加され create-tables / lazy に同期が無い → 破壊 (blocker)', () => {
+			// syncedTableNames を渡さない = 同期なし扱い
+			const result = detectBreakingChanges(newTableDiff);
+			expect(
+				result.some(
+					(b) => b.reason.includes('新規 table 追加') && b.reason.includes('family_events'),
+				),
+			).toBe(true);
+		});
+
+		it('新規 table だが create-tables / lazy の同 PR diff に該当 table 名が出現 → 非検出', () => {
+			// 境界ケース: create-tables.ts または lazy-startup-migrations.ts に 'family_events' が出現
+			const result = detectBreakingChanges(newTableDiff, {
+				syncedTableNames: new Set(['family_events']),
+			});
+			expect(result.some((b) => b.reason.includes('新規 table 追加'))).toBe(false);
+		});
+
+		it('table の rename (削除側にも同名 sqliteTable) は新規扱いしない', () => {
+			// 削除側と追加側の両方に同名 table → 行移動 / rename であり新規ではない
+			const diff = [
+				"-export const familyEvents = sqliteTable('family_events', {",
+				"+export const familyEvents = sqliteTable('family_events', {",
+			].join('\n');
+			const result = detectBreakingChanges(diff);
+			expect(result.some((b) => b.reason.includes('新規 table 追加'))).toBe(false);
+		});
+	});
+
+	describe('(6) 新規 NOT NULL no-default 列追加 (#2827 穴B)', () => {
+		it('既存 table に notNull かつ DEFAULT なし列を新規追加 → 破壊 (blocker)', () => {
+			const diff = ["+	ownerId: text('owner_id').notNull(),"].join('\n');
+			const result = detectBreakingChanges(diff);
+			expect(
+				result.some(
+					(b) =>
+						b.reason.includes('新規 NOT NULL no-default 列追加') && b.reason.includes('owner_id'),
+				),
+			).toBe(true);
+		});
+
+		it('境界ケース: 新規 notNull 列でも .default() があれば非検出', () => {
+			const diff = ["+	ownerId: text('owner_id').notNull().default(''),"].join('\n');
+			const result = detectBreakingChanges(diff);
+			expect(result.some((b) => b.reason.includes('新規 NOT NULL no-default 列追加'))).toBe(false);
+		});
+
+		it('境界ケース: 新規列でも nullable (notNull なし) なら非検出', () => {
+			const diff = ["+	memo: text('memo'),"].join('\n');
+			const result = detectBreakingChanges(diff);
+			expect(result.some((b) => b.reason.includes('新規 NOT NULL no-default 列追加'))).toBe(false);
+		});
+
+		it('境界ケース: 新規 table 配下の notNull no-default 列は (6) の対象外 (CREATE TABLE 経路)', () => {
+			// 新規 table 丸ごと追加時、その配下の notNull no-default 列は validateAndMigrate の
+			// missing-table 判定が先行し ALTER ADD COLUMN 経路に乗らないため (6) では flag しない。
+			// (table 自体は (5) で同期検証される)
+			const diff = [
+				"+export const familyEvents = sqliteTable('family_events', {",
+				"+	id: integer('id').primaryKey({ autoIncrement: true }),",
+				"+	label: text('label').notNull(),",
+				'+});',
+			].join('\n');
+			const result = detectBreakingChanges(diff, {
+				syncedTableNames: new Set(['family_events']),
+			});
+			expect(result.some((b) => b.reason.includes('新規 NOT NULL no-default 列追加'))).toBe(false);
+		});
+
+		it('既存列の notNull 反転 (両側に存在) は (3) の責務で (6) では検出しない', () => {
+			const diff = ["-	memo: text('memo'),", "+	memo: text('memo').notNull(),"].join('\n');
+			const result = detectBreakingChanges(diff);
+			// (3) NOT NULL 変更で検出されるが、(6) では検出しない
+			expect(result.some((b) => b.reason.includes('NOT NULL 変更'))).toBe(true);
+			expect(result.some((b) => b.reason.includes('新規 NOT NULL no-default 列追加'))).toBe(false);
+		});
+	});
 });
