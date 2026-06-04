@@ -190,6 +190,14 @@ interactive primitive の play 関数 coverage:
 - **per-PR (軽量)**: 条件 3 / 4 / 12 = 自動 lint 必須 (`pre-ready` で実行)。条件 1 / 8 = 該当領域変更時に targeted E2E + Storybook play (CI 自動実行)。条件 10 (Accessibility axe-core) = CI `a11y` job が `app` 変更時に自動実行 (PR-A11Y-2 で導入済、`tests/e2e/a11y-critical-cuj.spec.ts`)
 - **EPIC-merge / 顧客レビュー gate (重量)**: 全 12 条件を満たした証跡 (条件 2 = walkthrough session sheet 添付 / 条件 7 = 実機貫通 trace / 条件 9 = Heuristic Evaluation 違反 matrix / 条件 10 = axe-core report / 条件 11 = 3 状態 inventory) を PR body or EPIC umbrella に集約。条件 5 / 6 は opt-in (C-5/C-6 POC 採用後に必須化判定)
 
+#### M5 — NN/G #1 (visibility) / #6 (recognition) の人間検証強制 (#2901 AC3)
+
+機能 / 課金境界 UI (feature gate / paywall / trial バナー / upsell) を含む顧客レビュー前 gate では、**条件 9 の NN/G #1 (visibility of system status) と #6 (recognition rather than recall) を人間が必ず 1 周検証する**ことを強制項目とする。AI / 機械 E2E が緑でも、generic な訴求 (例:「7日間全機能無料」だけ) が出るだけで「**どの機能が制限されているのか・なぜ今操作できないのか**」をユーザーが recognition できない状態を見逃すため (#2901 = PO が実画面で発見、機能 E2E は緑のまま)。
+
+- **強制チェック (人間)**: 制限機能に到達したユーザーが ① 何が制限されているか (機能名) ② それを解消する導線 (アップグレード / トライアル開始) を **同一視界内で recognition できるか** を実画面で確認する。「やりたい事をやろうとしたら無料版では出来ない、に気づく」体験になっているか (PO 指摘 #4)。
+- **AI 単独不可の理由**: 条件 9 で既述の通り #6 (recognition) は人間検証必須項目。generic な販促文言は機能としては valid に描画され機械検証を通過するため、「文脈欠如」は人間の mental model 照合でしか捕捉できない。
+- **新規 CI script は追加しない**: 本項は既存 12 条件 gate (条件 9 人間検証) の運用明確化であり、機械化は条件 9 の Heuristic Evaluation matrix に内包する (Pre-PMF 過剰防衛回避、ADR-0010)。
+
 ### 禁忌
 
 - **「機能 E2E 緑 = 顧客レビュー可」と判定する**: #2558 で実証された通り、機能緑のまま bug-2/3/4 が露出する。条件 2-4 を必ず併走させる

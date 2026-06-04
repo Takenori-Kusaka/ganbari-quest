@@ -52,6 +52,19 @@ let submitting = $state(false);
 		<div class="trial-content">
 			<p class="trial-title">{TRIAL_LABELS.bannerTitleNotStarted}</p>
 			<p class="trial-desc">{TRIAL_LABELS.bannerDescNotStarted}</p>
+			<!--
+				#2901 AC2 (contextual paywall): 「全機能無料」だけでは「どの機能が無料版で
+				使えないのか」をユーザーが recognition できない (PO 指摘 #4)。free 版で制限される
+				主要機能を列挙し「やりたい事をやろうとしたら無料版では出来ない、に気づく」体験を作る。
+			-->
+			<div class="trial-gated" data-testid="trial-banner-gated-features">
+				<p class="trial-gated-heading">{TRIAL_LABELS.bannerGatedHeading}</p>
+				<ul class="trial-gated-list">
+					{#each TRIAL_LABELS.bannerGatedFeatures as feature (feature)}
+						<li class="trial-gated-item">{feature}</li>
+					{/each}
+				</ul>
+			</div>
 		</div>
 		<form
 			method="POST"
@@ -140,6 +153,42 @@ let submitting = $state(false);
 		font-size: 0.75rem;
 		color: var(--color-text-secondary);
 		margin: 4px 0 0;
+	}
+
+	/* #2901 AC2: contextual paywall — free 版で制限される機能の列挙 */
+	.trial-gated {
+		margin-top: 8px;
+	}
+
+	.trial-gated-heading {
+		font-size: 0.7rem;
+		font-weight: 600;
+		color: var(--color-text-secondary);
+		margin: 0 0 4px;
+	}
+
+	.trial-gated-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 8px;
+	}
+
+	.trial-gated-item {
+		font-size: 0.7rem;
+		color: var(--color-text-primary);
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-trial);
+		border-radius: 6px;
+		padding: 2px 8px;
+	}
+
+	.trial-gated-item::before {
+		content: '🔒';
+		margin-right: 4px;
+		font-size: 0.65rem;
 	}
 
 	.trial-cta {

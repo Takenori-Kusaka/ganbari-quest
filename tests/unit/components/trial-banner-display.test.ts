@@ -15,6 +15,7 @@
 
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import { TRIAL_LABELS } from '../../../src/lib/domain/labels';
 import TrialBanner from '../../../src/lib/features/admin/components/TrialBanner.svelte';
 
 describe('TrialBanner 表示', () => {
@@ -51,6 +52,19 @@ describe('TrialBanner 表示', () => {
 			render(TrialBanner, props);
 			expect(screen.queryByTestId('trial-banner-active-cta')).toBeNull();
 			expect(screen.queryByTestId('trial-banner-expired-cta')).toBeNull();
+		});
+
+		// #2901 AC2 (contextual paywall): generic な「全機能無料」だけでなく
+		// 「無料版で制限される機能」を列挙し recognition できる体験を作る。
+		it('無料版で制限される機能の列挙が表示される（contextual paywall）', () => {
+			render(TrialBanner, props);
+			const gated = screen.getByTestId('trial-banner-gated-features');
+			expect(gated).toBeDefined();
+			// 見出し + 各機能名 (FEATURE_LABELS SSOT 由来) が出る。
+			expect(gated.textContent).toContain(TRIAL_LABELS.bannerGatedHeading);
+			for (const feature of TRIAL_LABELS.bannerGatedFeatures) {
+				expect(gated.textContent).toContain(feature);
+			}
 		});
 	});
 
