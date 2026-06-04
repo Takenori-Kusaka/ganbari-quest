@@ -71,8 +71,9 @@ export default async (page, capture) => {
 	await page.keyboard.press('Escape');
 	await page.waitForFunction(
 		() =>
-			document.querySelector('[data-testid="checklists-add-menu"]')?.getAttribute('aria-expanded') ===
-			'false',
+			document
+				.querySelector('[data-testid="checklists-add-menu"]')
+				?.getAttribute('aria-expanded') === 'false',
 		undefined,
 		{ timeout: 3_000 },
 	);
@@ -80,9 +81,7 @@ export default async (page, capture) => {
 	// --- 3) 「+ 追加 → AI」で AI 提案ダイアログを開いた状態 (activities の add → ai と同型) ---
 	await waitForMenuOpen(page, 'checklists-add-menu');
 	await page.getByTestId('menu-item-ai').click();
-	await page
-		.getByTestId('checklists-ai-dialog')
-		.waitFor({ state: 'visible', timeout: 5_000 });
+	await page.getByTestId('checklists-ai-dialog').waitFor({ state: 'visible', timeout: 5_000 });
 	await page.evaluate(
 		() =>
 			new Promise((resolve) =>
