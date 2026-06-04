@@ -187,7 +187,7 @@ PR-L0〜L5 (#2807 / #2812 / #2814 / #2822 / #2841 / #2879、全マージ済) 完
 | 7 | 用語 grep 0 + CI gate 恒久化 | `check-license-key-leak.mjs` CI hard-fail 組込 | ✅ PASS (PR-L4 #2841) |
 | 8 | ops 発行フロー代替確認 | Stripe Coupon / Promotion Code + `customer.subscription.deleted` webhook | ✅ PASS (OQ-2 確定、§3.6) |
 | 9 | env 撤去 (3 系統) | CDK / Secrets / GitHub Variables から `AWS_LICENSE_SECRET` 撤去 | ✅ PASS (PR-L5 #2879) |
-| 10 | 設計書 archive / deprecation 同期 | 5 file deprecation header + 参照元 link 同期 | ✅ **本 PR #2892 で完遂** (07-API / 08-DB / 19-pricing / 24-arch / account-deletion-flow / plan-change-flow / stripe-dashboard-runbook) |
+| 10 | 設計書 archive / deprecation 同期 | 5 file deprecation header + 参照元 link 同期 | ✅ **本 PR #2892 で完遂** (07-API / 08-DB / 19-pricing / 24-arch / account-deletion-flow / plan-change-flow / stripe-dashboard-runbook / runbook) |
 
 **項目 9 補足 (GitHub Secrets `AWS_LICENSE_SECRET` 実体)**: CDK / `.env` 配布証跡からの参照撤去は PR-L5 #2879 で完了済。GitHub Actions Secrets store に残存していた `AWS_LICENSE_SECRET` の実体は PO 承認のもと 2026-06-04 に削除済 (`gh secret delete`、削除後 `gh secret list` で LICENSE 系 secret 0 件確認)。
 

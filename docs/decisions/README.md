@@ -316,7 +316,7 @@ active 総数: 39 件 (棚卸後、ADR-0056 +1 / ADR-0031 -1 で net 0)。
 **完了項目**:
 
 1. **ADR-0060 新規追加**: 「全対応完了」宣言の 10 項目検証義務 (チケット close ≠ 完了)。Epic #2525 Phase 7 で「関連チケット close = 完了」と誤判断し虚偽完了報告 → PO が 5 秒 grep で 125+ file 残存を発見した構造的失敗の直対処。DoD checklist (Scrum) + CI gate 併用 (選択肢 C)、新規 script 不要で導入コスト最小 (Pre-PMF Bucket A、ADR-0010 整合)。10 項目 SSOT: [phase1-license-key-removal-final-requirements.md §5](../design/billing-redesign/phase1-license-key-removal-final-requirements.md)
-2. **本 PR (#2892) で license key 全廃の項目 10 (設計書同期) を完遂**: stale 設計書 5 file (`license-key-lifecycle` / `license-key-requirements` / `license-key-competitor-analysis` / `license-subscription-causality` / `license-hmac-migration-plan`) に deprecation header 付与 + 参照元設計書 (07-API / 08-DB / 19-pricing / 24-arch / account-deletion-flow / plan-change-flow / stripe-dashboard-runbook) の link 同期
+2. **本 PR (#2892) で license key 全廃の項目 10 (設計書同期) を完遂**: stale 設計書 5 file (`license-key-lifecycle` / `license-key-requirements` / `license-key-competitor-analysis` / `license-subscription-causality` / `license-hmac-migration-plan`) に deprecation header 付与 + 参照元設計書 (07-API / 08-DB / 19-pricing / 24-arch / account-deletion-flow / plan-change-flow / stripe-dashboard-runbook / operations/runbook) の link 同期
 
 **1-in-1-out 履行**: ADR-0059 起票時 (#2665) と同様、active 大幅超過 (40 件) の現状を踏まえ 1-in-1-out は **2026-06 最終週の月 1 棚卸** (`docs/CLAUDE.md` §ADR 月 1 棚卸) で archive 候補 (ADR-0014 proposed のまま / ADR-0017 rejected archive 候補 / per-ADR ボリューム超過 6 件) のいずれかと併せて消化する (本 PR scope 外)。
 
