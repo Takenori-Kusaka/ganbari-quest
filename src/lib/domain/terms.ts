@@ -985,19 +985,29 @@ export const PIN_DEFAULT_TERMS = {
 //     COMMON_ICONS picker / item.icon / stamp emoji 等のデータ値は本 atom の管轄外。
 //   - marketplace / overflow menu / 各 admin 一覧の「概念を指すアイコン」のみ集約する。
 //
-// 値の根拠:
-//   - activity  : 活動管理ページ title が既に 📋 を使用 (一覧の「活動」概念)
+// 値の根拠 (既存 SSOT との整合を最優先。同一概念に複数アイコンが既に存在する場合は
+//          リポジトリ既存の正規アイコンへ合わせる):
+//   - activity  : 📝 (ノート / 記入)。実績バッジ activity_master が 📝 を使用
+//                 (asset-catalog.md「実績バッジ一覧」)。checklist の 📋 と視覚的に
+//                 区別でき、活動 = 記録する行為のメタファに整合する。
+//                 旧 📦 (段ボール) は「箱詰め」の含意で活動概念に不適合だったため是正。
 //   - reward    : ごほうび = ギフト 🎁 (MARKETPLACE_TYPE_ICONS 既存値)
-//   - checklist : チェック ✅ (MARKETPLACE_TYPE_ICONS 既存値)
+//   - checklist : 📋 (クリップボード)。`src/lib/domain/icons.ts` の ICON_CHECKLIST が
+//                 既に 📋 をチェックリスト概念の正規アイコンとして定義済 (子供ナビ
+//                 /checklist タブ + DB default)。本 atom は同値に合わせ「同一概念 =
+//                 同一アイコン」を担保する (✅ は activity との混同を招くため不採用)。
+//                 ※ icons.ts は domain 内 nav アイコン層で本 atom (marketplace / overflow
+//                   概念アイコン層) とは責務が異なるため import 共有はせず、値一致 +
+//                   本コメントで紐付ける (層を跨ぐ循環 import を避ける)。
 //   - rule      : ルール = 巻物 📜 (MARKETPLACE_TYPE_ICONS 既存値)
 //   - challenge : チャレンジ = 的 🎯 (MARKETPLACE_TYPE_ICONS 既存値)
 //   - template  : みんなのテンプレート = 店先 🏪 (取込元 marketplace。旧 📦 を統一)
 //   - aiSuggest : AI 提案 🤖 / help : ヘルプ ❓ (OVERFLOW_MENU_TERMS 既存値の昇格)
 
 export const CONCEPT_ICONS = {
-	activity: '📋',
+	activity: '📝',
 	reward: '🎁',
-	checklist: '✅',
+	checklist: '📋', // = src/lib/domain/icons.ts ICON_CHECKLIST と同値 (checklist 概念 SSOT)
 	rule: '📜',
 	challenge: '🎯',
 	template: '🏪',

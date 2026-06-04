@@ -124,6 +124,19 @@ const TERM_LITERAL_RULES = [
 //
 // 対象 emoji: 📦 (旧 marketplace concept icon、🏪 へ統一) / 🏪 (template) を marketplace
 //             取込導線で直書きした場合。
+//
+// 【守備範囲の明示 (#2899 QM Re-Review AC5 正直化)】:
+//   本ルールは「全 8 概念アイコンの直書きを一律検出する全面ガードではない」。
+//   template 概念 (📦/🏪) が marketplace 取込導線 (`{TEMPLATE_TERMS.* / .browse /
+//   marketplaceSeeMore}` 隣接) で直書きされる **特定アンチパターンの regression guard**
+//   に限定する。他 7 概念アイコン (📝 activity / 📋 checklist / 🎁 reward / 📜 rule /
+//   🎯 challenge / 🤖 aiSuggest / ❓ help) を bare emoji で検出しないのは、これらが
+//   ユーザーデータ値 (item.icon / COMMON_ICONS picker / stamp emoji / badge emoji /
+//   tutorial chapter icon 等) として正当に多用され、raw regex では概念 vs データ値を
+//   判別できず false-positive 多発が不可避なため (本 script が短縮プラン名「スタンダード」
+//   を検出対象外とする L54-57 の保守的設計方針と整合)。概念アイコンの SSOT 集約自体は
+//   CONCEPT_ICONS atom + コードレビューで担保し、本 lint は再発頻度の高い 1 パターンに
+//   絞った機械ガードとして機能する。
 // ---------------------------------------------------------------------------
 
 const CONCEPT_ICON_RULES = [

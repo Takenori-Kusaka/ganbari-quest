@@ -115,7 +115,8 @@ describe('UnifiedImportHub client-types ↔ Registry SSOT 整合 (Issue #2370)',
 		const checklist = marketplaceRegistry.get('checklist');
 		expect(checklist.displayLabel).toBe('チェックリスト');
 		const rule = marketplaceRegistry.get('rule-preset');
-		expect(rule.displayLabel).toBe('ルールセット');
+		// #2899: MARKETPLACE_TYPE_LABELS['rule-preset'] と一致 (DESIGN.md §6 命名規則)
+		expect(rule.displayLabel).toBe('とくべつルール');
 		const challenge = marketplaceRegistry.get('challenge-set');
 		expect(challenge.displayLabel).toBe('チャレンジ集');
 	});

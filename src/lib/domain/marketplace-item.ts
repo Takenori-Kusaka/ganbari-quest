@@ -210,7 +210,9 @@ export const MARKETPLACE_TYPE_LABELS: Record<MarketplaceItemType, string> = {
 };
 
 // #2899: 概念アイコンは CONCEPT_ICONS atom (terms.ts) を SSOT とする。
-// 活動 = 📋 (旧 📦 段ボールは活動概念に不適合のため是正)、他 4 type は既存値を維持。
+// activity = 📝 (旧 📦 段ボールは活動概念に不適合のため是正。📋 は checklist 概念の
+// 正規アイコン ICON_CHECKLIST と衝突するため不採用)、checklist = 📋 (ICON_CHECKLIST と
+// 同値)、他 3 type は既存値を維持。値の根拠は CONCEPT_ICONS 定義コメントを参照。
 export const MARKETPLACE_TYPE_ICONS: Record<MarketplaceItemType, string> = {
 	'activity-pack': CONCEPT_ICONS.activity,
 	'reward-set': CONCEPT_ICONS.reward,

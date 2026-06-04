@@ -997,7 +997,8 @@ export const MARKETPLACE_LABELS = {
 	detailImportError: 'インポートに失敗しました',
 	// #2138 (MP-3): rule-preset 一括追加 CTA
 	detailCtaImportRule: '一括追加',
-	detailCtaImportRuleWithCount: (count: number) => `📜 このルールセットを一括追加 (${count}件)`,
+	detailCtaImportRuleWithCount: (count: number) =>
+		`${CONCEPT_ICONS.rule} このルールセットを一括追加 (${count}件)`,
 	detailCtaImportRuleDescBonus:
 		'ご家族の見守り画面の「ルール」セクションに追加されます（取込後 ON/OFF できます）',
 	detailCtaImportRuleDescExchange:
