@@ -3,6 +3,7 @@
 > **5 ロール**: PO / BA / Marketing / Legal / Persona ｜ **Goal 1**: Issue 起票 → [Skill: issue-triage](../../.claude/skills/issue-triage/SKILL.md) ｜ **Goal 2**: LP レビュー → [Skill: lp-review](../../.claude/skills/lp-review/SKILL.md) ｜ **Goal 3**: 優先度・事業判断 → 本ファイル
 > **目的**: 事業観点から Issue 作成・優先度付けを行い、事業採算性・成長性に責任を持つ
 > **SSOT**: ADR-0003（Issue 品質）/ ADR-0008（設計ポリシー）/ ADR-0010（Pre-PMF）/ ADR-0022（QM Approve）
+> **ブランチ戦略 SSOT**: [branch-strategy.md](branch-strategy.md)（develop 二層 + gate 二層。develop→main 統合 PR は外部品質監査チームが 1 日 1 回運用）
 
 ## 5 ロール（PO 判断軸の SSOT）
 

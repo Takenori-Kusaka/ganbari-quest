@@ -112,6 +112,7 @@ cp docs/rationale/_template.md docs/rationale/NN-機能名-rationale.md
 | [04-stamp-card-spec-rationale.md](04-stamp-card-spec-rationale.md) | スタンプカード正仕様 | — | — |
 | [05-textlint-prh-evaluation.md](05-textlint-prh-evaluation.md) | textlint-rule-prh 必要性評価 (Phase 5 F4) | 2026-05-08 | #1921, #1909, #1918 |
 | [10-admin-nav-restructure-rationale.md](10-admin-nav-restructure-rationale.md) | 親管理画面 5 tab 化 + family カテゴリ新設 (subject-first 上位化) | 2026-05-18 | #2176, #2177, #2178, #2179, #2180 |
+| [11-branch-strategy-rationale.md](11-branch-strategy-rationale.md) | git ブランチ戦略 (develop 二層 + gate 二層、3 案比較) | 2026-06-04 | #2858 |
 
 ---
 
