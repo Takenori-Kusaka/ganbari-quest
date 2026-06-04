@@ -11,7 +11,12 @@
 // reward_templates / onboarding_child_screen_visited を書き換えると ambient な onboarding
 // 状態が非決定になるため、各 test 前に worker DB を直接操作して **必ず「進行中 (未完了)」
 // 状態に固定** する (rewards 設定 + child_screen フラグを削除)。完了状態の検証時のみ
-// additive に設定を書き、最後に afterAll で除去して sibling spec への影響を残さない。
+// additive に設定を書く。
+//
+// #2851: 本 spec は global-setup が seed した reward_templates を削除する。afterAll で
+// 「削除した値」を消すだけでは seed 値が復元されず、同 worker 後続 spec
+// (features.spec.ts #0025 が templates.length > 0 を要求) が決定的に fail していた。
+// beforeAll で削除前の seed 値を snapshot し、afterAll で元の seed 状態へ完全復元する。
 //
 // act → outcome (#2544 / tests/CLAUDE.md): バナー表示だけでなく「CTA click → 別画面に着地
 // (URL 変化) → そこに文脈バナーが出る」= dead-end ゼロを assert する。
@@ -37,6 +42,47 @@ function forceOnboardingIncomplete(dbPath: string): void {
 	}
 }
 
+// #2851: 削除前の seed 値スナップショット。`null` = その key が settings に存在しなかった。
+type SettingsSnapshot = { reward: string | null; childScreen: string | null };
+
+// 削除/書換の前に、worker DB の現在値 (global-setup が seed した reward_templates 等) を退避する。
+function snapshotOnboardingSettings(dbPath: string): SettingsSnapshot {
+	const db = openDb(dbPath);
+	try {
+		const read = (key: string): string | null => {
+			const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+				| { value: string }
+				| undefined;
+			return row ? row.value : null;
+		};
+		return { reward: read(REWARD_KEY), childScreen: read(CHILD_SCREEN_KEY) };
+	} finally {
+		db.close();
+	}
+}
+
+// スナップショットした seed 値を worker DB に書き戻す (非 null は INSERT OR REPLACE、null は DELETE)。
+// sibling spec (features.spec.ts #0025 が reward_templates 由来の templates.length > 0 を要求) への
+// 影響を残さないため、afterAll で元の seed 状態へ完全復元する。
+function restoreOnboardingSettings(dbPath: string, snapshot: SettingsSnapshot): void {
+	const db = openDb(dbPath);
+	try {
+		const apply = (key: string, value: string | null): void => {
+			if (value === null) {
+				db.prepare('DELETE FROM settings WHERE key = ?').run(key);
+			} else {
+				db.prepare(
+					'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+				).run(key, value);
+			}
+		};
+		apply(REWARD_KEY, snapshot.reward);
+		apply(CHILD_SCREEN_KEY, snapshot.childScreen);
+	} finally {
+		db.close();
+	}
+}
+
 // onboarding を完了させる (不足していた required item を満たす)。
 function forceOnboardingComplete(dbPath: string): void {
 	const db = openDb(dbPath);
@@ -57,10 +103,27 @@ function forceOnboardingComplete(dbPath: string): void {
 // AWS / cognito 環境では local テナント seed / settings 直接操作が成立しないため未登録。
 if (!isAwsEnv()) {
 	test.describe('#2821 セットアップ再開導線 (SetupResumeBanner)', () => {
-		// sibling spec への影響を残さないため additive 設定を後始末する。
+		// #2851: 最初の削除前に worker DB の seed 値 (reward_templates 等) を退避し、
+		// afterAll で元の seed 状態へ完全復元する。これがないと本 spec が seed 済設定を
+		// 削除したまま終了し、同 worker 後続 spec (features.spec.ts #0025 が
+		// templates.length > 0 を要求) が決定的に fail する。
+		let seedSnapshot: SettingsSnapshot | null = null;
+
+		test.beforeAll(({ workerDbPath }) => {
+			try {
+				seedSnapshot = snapshotOnboardingSettings(workerDbPath);
+			} catch {
+				// DB 未生成 (全 skip 等) は無視。
+				seedSnapshot = null;
+			}
+		});
+
+		// sibling spec への影響を残さないため、本 spec が削除/書換した seed 設定を元へ復元する。
 		test.afterAll(({ workerDbPath }) => {
 			try {
-				forceOnboardingIncomplete(workerDbPath);
+				if (seedSnapshot) {
+					restoreOnboardingSettings(workerDbPath, seedSnapshot);
+				}
 			} catch {
 				// DB 未生成 (全 skip 等) は無視。
 			}
