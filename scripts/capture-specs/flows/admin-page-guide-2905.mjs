@@ -69,6 +69,9 @@ export default async (page, capture) => {
 
 		// 次ページのため overlay を閉じる
 		await page.keyboard.press('Escape');
-		await page.locator(GUIDE_OVERLAY).waitFor({ state: 'hidden', timeout: 5_000 }).catch(() => {});
+		await page
+			.locator(GUIDE_OVERLAY)
+			.waitFor({ state: 'hidden', timeout: 5_000 })
+			.catch(() => {});
 	}
 };
