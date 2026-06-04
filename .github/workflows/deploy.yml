@@ -80,21 +80,20 @@ jobs:
       # #1586: 本番デプロイに必須の GitHub Secrets が登録されているかを deploy 前に検証する。
       # - OPS_SECRET_KEY: cron-dispatcher の Bearer 認証 fallback (CRON_SECRET 未登録時)
       # - AWS_OIDC_IAMROLE_ARN: AWS 認証
-      # - AWS_LICENSE_SECRET: ライセンスキー HMAC 署名 (cold start 必須)
       # - STRIPE_SECRET_KEY: Stripe 課金
       # 欠落するとサイレントに secret 注入が抜けて本番で fail するため、CI 段階で hard-fail させる。
+      # Epic #2525 Phase 7 PR-L5 (#2860): AWS_LICENSE_SECRET は license key 全廃 contract で撤去済。
       - name: Validate required secrets
         env:
           OPS_SECRET_KEY: ${{ secrets.OPS_SECRET_KEY }}
           AWS_OIDC_IAMROLE_ARN: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
-          AWS_LICENSE_SECRET: ${{ secrets.AWS_LICENSE_SECRET }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           # #2310 / #2337 / ADR-0050: parent-gate-session.ts が production で必須要求。
           # 未注入だと /admin/* cold start で throw して 500 連発 (PR #2325 で実害発生)。
           PARENT_GATE_COOKIE_SECRET: ${{ secrets.PARENT_GATE_COOKIE_SECRET }}
         run: |
           missing=0
-          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN AWS_LICENSE_SECRET STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET; do
+          for s in OPS_SECRET_KEY AWS_OIDC_IAMROLE_ARN STRIPE_SECRET_KEY PARENT_GATE_COOKIE_SECRET; do
             val=$(eval echo "\$$s")
             if [ -z "$val" ]; then
               echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
@@ -223,7 +222,6 @@ jobs:
             -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }} \
             -c cronSecret=${{ secrets.CRON_SECRET }} \
             -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
-            -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} \
             -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
             -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }} \
             ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }} \
@@ -249,7 +247,6 @@ jobs:
           -c discordWebhookSupport=${{ secrets.DISCORD_WEBHOOK_SUPPORT }}
           -c cronSecret=${{ secrets.CRON_SECRET }}
           -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
-          -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }}
           -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
           -c discordWebhookHealth=${{ secrets.DISCORD_WEBHOOK_HEALTH }}
           ${{ secrets.GOOGLE_OAUTH_CLIENT_ID && format('-c googleClientId={0}', secrets.GOOGLE_OAUTH_CLIENT_ID) || '' }}

@@ -2,7 +2,6 @@
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 // Demo Lambda は AnonymousAuthProvider 経由で認証なし、ユーザ / テナント情報は dummy のみ返す。
 
-import type { LicenseKeyStatus } from '$lib/domain/constants/license-key-status';
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type {
@@ -17,15 +16,7 @@ import type {
 	RecordConsentInput,
 	Tenant,
 } from '$lib/server/auth/entities';
-import type {
-	LicenseRecord,
-	LicenseRevokeReason,
-} from '$lib/server/db/interfaces/license-record.types';
-import type {
-	IAuthRepo,
-	LicenseKeyCountFilter,
-	LicenseKeyPage,
-} from '../interfaces/auth-repo.interface';
+import type { IAuthRepo } from '../interfaces/auth-repo.interface';
 
 const DEMO_TENANT_ID = 'demo';
 const DEMO_NOW = '2026-03-27T09:00:00.000Z';
@@ -89,7 +80,6 @@ export async function createTenant(input: CreateTenantInput): Promise<Tenant> {
 		name: input.name,
 		ownerId: input.ownerId,
 		status: SUBSCRIPTION_STATUS.ACTIVE,
-		licenseKey: input.licenseKey,
 		createdAt: DEMO_NOW,
 		updatedAt: DEMO_NOW,
 	};
@@ -111,7 +101,6 @@ export async function updateTenantStripe(
 		planExpiresAt?: string;
 		trialUsedAt?: string;
 		status?: Tenant['status'];
-		licenseKey?: string;
 	},
 ): Promise<void> {
 	// Stub: no-op
@@ -245,60 +234,6 @@ export async function findAllConsents(_tenantId: string): Promise<ConsentRecord[
 	return [];
 }
 
-// ---------- License Key ----------
-
-export async function saveLicenseKey(_record: LicenseRecord): Promise<void> {
-	// Stub: no-op
-}
-
-export async function findLicenseKey(_key: string): Promise<LicenseRecord | undefined> {
-	return undefined;
-}
-
-export async function updateLicenseKeyStatus(
-	_key: string,
-	_status: LicenseRecord['status'],
-	_consumedBy?: string,
-): Promise<void> {
-	// Stub: no-op
-}
-
-export async function revokeLicenseKey(_params: {
-	licenseKey: string;
-	reason: LicenseRevokeReason;
-	revokedBy: string;
-	revokedAt: string;
-}): Promise<void> {
-	// Stub: no-op
-}
-
-export async function listLicenseKeysByTenant(
-	_tenantId: string,
-	_limit?: number,
-	_cursor?: string,
-): Promise<LicenseKeyPage> {
-	return { items: [], cursor: null };
-}
-
-export async function listLicenseKeysByStatus(
-	_status: LicenseKeyStatus,
-	_options?: { format?: 'legacy' | 'signed'; limit?: number; cursor?: string },
-): Promise<LicenseKeyPage> {
-	return { items: [], cursor: null };
-}
-
-export async function listExpiringSoon(_days: number): Promise<LicenseRecord[]> {
-	return [];
-}
-
-export async function countLicenseKeys(_filter?: LicenseKeyCountFilter): Promise<number> {
-	return 0;
-}
-
-export async function listActiveExpiredKeys(_now: string): Promise<LicenseRecord[]> {
-	return [];
-}
-
 // Type-check: 全 method が IAuthRepo を満たすことを確認
 const _typecheck: IAuthRepo = {
 	findUserByEmail,
@@ -327,14 +262,5 @@ const _typecheck: IAuthRepo = {
 	recordConsent,
 	findLatestConsent,
 	findAllConsents,
-	saveLicenseKey,
-	findLicenseKey,
-	updateLicenseKeyStatus,
-	revokeLicenseKey,
-	listLicenseKeysByTenant,
-	listLicenseKeysByStatus,
-	listExpiringSoon,
-	countLicenseKeys,
-	listActiveExpiredKeys,
 };
 void _typecheck;

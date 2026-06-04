@@ -461,12 +461,10 @@ jobs:
 
       - name: Run E2E tests (shard ${{ matrix.shard }}/3)
         # #806: vite preview は NODE_ENV=production で起動するため、
-        # hooks.server.ts の assertLicenseKeyConfigured() が AWS_LICENSE_SECRET を要求する。
         # E2E はダミーの固定値で良い（本番シークレットとは別物）。
         # #2310 / #2337 / ADR-0050: parent-gate-session.ts の getSecret() が production で
         # 必須要求するため同じくダミー値で注入する (length >= 16 satisfy)。
         env:
-          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
         run: npx playwright test --shard=${{ matrix.shard }}/3
 
@@ -528,7 +526,6 @@ jobs:
       - name: Run a11y critical CUJ scan (WCAG 2.2 AA)
         # E2E と同じくダミー固定 secret を注入 (vite preview NODE_ENV=production 要求)。
         env:
-          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
         run: npx playwright test tests/e2e/a11y-critical-cuj.spec.ts
 
@@ -615,7 +612,6 @@ jobs:
         env:
           AUTH_MODE: cognito
           COGNITO_DEV_MODE: "true"
-          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
           # #2310 / #2337 / ADR-0050: parent-gate-session.ts E2E requirement
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
         run: npm run build
@@ -624,7 +620,6 @@ jobs:
         env:
           AUTH_MODE: cognito
           COGNITO_DEV_MODE: "true"
-          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
           # #2310 / #2337 / ADR-0050: parent-gate-session.ts E2E requirement
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
           CI: "true"
@@ -699,7 +694,6 @@ jobs:
         env:
           AUTH_MODE: anonymous
           DATA_SOURCE: demo
-          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
           # #2310 / #2337 / ADR-0050: AUTH_MODE=anonymous で PIN gate は無効だが
           # parent-gate-session.ts module load 時に process.env.NODE_ENV='production'
           # 環境では getSecret() がデフォルト fallback で警告のみ。env 注入は不要。
@@ -711,7 +705,6 @@ jobs:
         env:
           AUTH_MODE: anonymous
           DATA_SOURCE: demo
-          AWS_LICENSE_SECRET: e2e-test-secret-do-not-use-in-production
           # #2310 / #2337 / ADR-0050: 同上
           PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
           CI: "true"

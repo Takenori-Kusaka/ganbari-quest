@@ -72,41 +72,23 @@ describe('loginSchema', () => {
 	});
 });
 
-describe('signupSchema — licenseKey', () => {
+// Epic #2525 Phase 7 PR-L5 (#2860): license key 全廃に伴い signupSchema の licenseKey 欄は撤去済。
+// entitlement は Stripe Subscription (tenant.status) が唯一 SSOT のため、email + password のみ検証する。
+describe('signupSchema', () => {
 	const base = { email: 'test@example.com', password: 'Password1' };
 
-	it('空文字のライセンスキーを受け入れる', () => {
-		const result = signupSchema.safeParse({ ...base, licenseKey: '' });
+	it('email + password のみで受け入れる (licenseKey 欄なし)', () => {
+		const result = signupSchema.safeParse(base);
 		expect(result.success).toBe(true);
 	});
 
-	it('旧形式（3グループ）のライセンスキーを受け入れる', () => {
-		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-ABCD-EFGH-JKLM' });
-		expect(result.success).toBe(true);
-	});
-
-	it('署名付き形式（4グループ）のライセンスキーを受け入れる', () => {
-		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-ABCD-EFGH-JKLM-NPRST' });
-		expect(result.success).toBe(true);
-	});
-
-	it('不正なプレフィックスを拒否する', () => {
-		const result = signupSchema.safeParse({ ...base, licenseKey: 'XX-ABCD-EFGH-JKLM' });
+	it('不正な email を拒否する', () => {
+		const result = signupSchema.safeParse({ ...base, email: 'not-an-email' });
 		expect(result.success).toBe(false);
 	});
 
-	it('セグメント不足を拒否する', () => {
-		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-ABCD-EFGH' });
-		expect(result.success).toBe(false);
-	});
-
-	it('チェックサム長が不正な場合を拒否する', () => {
-		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-ABCD-EFGH-JKLM-NP' });
-		expect(result.success).toBe(false);
-	});
-
-	it('特殊文字を含むキーを拒否する', () => {
-		const result = signupSchema.safeParse({ ...base, licenseKey: 'GQ-AB!D-EFGH-JKLM' });
+	it('8 文字未満のパスワードを拒否する', () => {
+		const result = signupSchema.safeParse({ ...base, password: 'short' });
 		expect(result.success).toBe(false);
 	});
 });

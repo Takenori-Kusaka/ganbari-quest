@@ -123,9 +123,9 @@ AC 検証マップ (`pr-ac-verification-check.yml`) も hard-fail。
 PR body に必須記載:
 ```markdown
 ## 配布済み env / secret (ADR-0006)
-- 配布済み: AWS_LICENSE_SECRET → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)
-- 配布済み: AWS_LICENSE_SECRET → SSM Parameter Store /ganbari-quest/prod/aws_license_secret
-- 配布済み: AWS_LICENSE_SECRET → NUC .env (本機 + バックアップ機)
+- 配布済み: PARENT_GATE_COOKIE_SECRET → GitHub Actions Secrets (deploy.yml, deploy-nuc.yml)
+- 配布済み: PARENT_GATE_COOKIE_SECRET → SSM Parameter Store /ganbari-quest/prod/parent_gate_cookie_secret
+- 配布済み: PARENT_GATE_COOKIE_SECRET → NUC .env (本機 + バックアップ機)
 ```
 
 ADR-0006 禁止 5 項目: warn 化 / `NODE_ENV` skip / `ALLOW_*=true` / retry 延長 / `.skip` 追加（Issue + owner + 30 日 deadline 必須）。詳細: ADR-0006

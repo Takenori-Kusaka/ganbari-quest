@@ -27,7 +27,6 @@ export interface Tenant {
 	name: string;
 	ownerId: string;
 	status: SubscriptionStatus;
-	licenseKey?: string;
 	plan?: LicensePlan;
 	stripeCustomerId?: string;
 	stripeSubscriptionId?: string;
@@ -50,7 +49,6 @@ export interface Tenant {
 export interface CreateTenantInput {
 	name: string;
 	ownerId: string;
-	licenseKey?: string;
 }
 
 /** メンバーシップ（ユーザー × テナント、1ユーザー=1テナント） */

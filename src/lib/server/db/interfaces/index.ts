@@ -2,7 +2,8 @@
 // All repository interfaces re-exported for factory pattern
 
 export type { IActivityRepo } from './activity-repo.interface';
-export type { IAuthRepo, LicenseKeyCountFilter, LicenseKeyPage } from './auth-repo.interface';
+// Epic #2525 Phase 7 PR-L5 (#2860): LicenseKeyCountFilter / LicenseKeyPage 撤去 (license key 全廃)
+export type { IAuthRepo } from './auth-repo.interface';
 export type { IAutoChallengeRepo } from './auto-challenge-repo.interface';
 export type { IBattleRepo } from './battle-repo.interface';
 export type {

@@ -102,7 +102,6 @@ jobs:
 
       - name: Start preview server
         env:
-          AWS_LICENSE_SECRET: app-vr-capture-secret-do-not-use-in-production
           AUTH_MODE: anonymous
           DATA_SOURCE: demo
         run: |

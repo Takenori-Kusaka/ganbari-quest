@@ -82,16 +82,8 @@ describe('runtime/env Typed Config Object (ADR-0040 P1)', () => {
 		}
 	});
 
-	it('rejects AWS_LICENSE_SECRET shorter than 32 chars (ADR-0026)', () => {
-		process.env.AWS_LICENSE_SECRET = 'too-short';
-		expect(() => getEnv()).toThrow(/AWS_LICENSE_SECRET/);
-	});
-
-	it('accepts AWS_LICENSE_SECRET at exactly 32 chars', () => {
-		process.env.AWS_LICENSE_SECRET = 'a'.repeat(32);
-		const env = getEnv();
-		expect(env.AWS_LICENSE_SECRET).toBe('a'.repeat(32));
-	});
+	// Epic #2525 Phase 7 PR-L5 (#2860): AWS_LICENSE_SECRET の env schema を撤去 (license key 全廃)
+	// したため、旧 32 文字長検証テスト 2 件を削除。
 
 	it('rejects CRON_SECRET shorter than 32 chars', () => {
 		process.env.CRON_SECRET = 'short';

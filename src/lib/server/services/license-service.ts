@@ -7,7 +7,6 @@ import { getRepos } from '$lib/server/db/factory';
 export interface LicenseInfo {
 	plan: Tenant['plan'] | 'free';
 	status: Tenant['status'];
-	licenseKey?: string;
 	tenantName: string;
 	stripeCustomerId?: string;
 	stripeSubscriptionId?: string;
@@ -25,7 +24,6 @@ export async function getLicenseInfo(tenantId: string): Promise<LicenseInfo | nu
 	return {
 		plan: tenant.plan ?? 'free',
 		status: tenant.status,
-		licenseKey: tenant.licenseKey,
 		tenantName: tenant.name,
 		stripeCustomerId: tenant.stripeCustomerId,
 		stripeSubscriptionId: tenant.stripeSubscriptionId,

@@ -44,22 +44,13 @@ export function tenantMemberKey(tenantId: string, userId: string): DynamoKey {
 }
 
 // ============================================================
-// License keys
-// ============================================================
-
-/** License: PK=LICENSE#<licenseKey>, SK=META */
-export function licenseKey(key: string): DynamoKey {
-	return { PK: `LICENSE#${key}`, SK: 'META' };
-}
-
-/** Tenant license: PK=TENANT#<tenantId>, SK=LICENSE */
-export function tenantLicenseKey(tenantId: string): DynamoKey {
-	return { PK: `${AUTH_PREFIX.TENANT}#${tenantId}`, SK: 'LICENSE' };
-}
-
-// ============================================================
 // Invite keys
 // ============================================================
+//
+// Epic #2525 Phase 7 PR-L5 (#2860): license key 全廃 contract に伴い旧 `licenseKey()` /
+// `tenantLicenseKey()` (LICENSE# partition / TENANT#<id> SK=LICENSE) を撤去。
+// entitlement は Stripe Subscription (tenant.status) が唯一 SSOT。
+// 本番 DynamoDB に残存する LICENSE# item は dead data (コード参照ゼロで到達不能、放置)。
 
 /** Invite: PK=INVITE#<inviteCode>, SK=META */
 export function inviteKey(inviteCode: string): DynamoKey {

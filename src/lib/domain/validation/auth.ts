@@ -31,20 +31,12 @@ export const emailLoginSchema = z.object({
 	password: z.string().min(8, 'パスワードは8文字以上です'),
 });
 
-/** 旧形式: GQ-XXXX-XXXX-XXXX */
-export const LICENSE_KEY_LEGACY_FORMAT = /^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-/** 新形式: GQ-XXXX-XXXX-XXXX-YYYYY (HMAC署名付き) */
-export const LICENSE_KEY_SIGNED_FORMAT = /^GQ-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{5}$/;
-
+// Epic #2525 Phase 7 PR-L5 (#2860): license key 全廃 contract。signup の licenseKey 入力欄 +
+// 形式 regex は PR-L1 (#2812) で入力経路撤去済、本 PR で schema からも撤去 (entitlement は
+// Stripe Subscription = tenant.status が唯一 SSOT)。
 export const signupSchema = z.object({
 	email: z.string().email('有効なメールアドレスを入力してください'),
 	password: z.string().min(8, 'パスワードは8文字以上です'),
-	licenseKey: z
-		.string()
-		.refine(
-			(v) => v === '' || LICENSE_KEY_LEGACY_FORMAT.test(v) || LICENSE_KEY_SIGNED_FORMAT.test(v),
-			'ライセンスキーの形式が不正です（GQ-XXXX-XXXX-XXXX または GQ-XXXX-XXXX-XXXX-XXXXX）',
-		),
 });
 
 // --- 確認コード有効期限（UI 表示用 — #591: 2026-04-09 セキュリティ改善） ---

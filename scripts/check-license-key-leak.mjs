@@ -8,22 +8,18 @@
  * src/ + site/ で grep し、allowlist 外の **コード行** (= コメント以外) で 1 件でも検出したら
  * exit 1 する。LP / メール / ラベル / UI から license key 概念が再導入されることを構造的に防ぐ。
  *
- * --- allowlist 設計 ---
+ * --- allowlist 設計 (PR-L5 #2860 で contract 完了、DB 層 allowlist 撤去) ---
  *
- * 1. FILE_ALLOWLIST (PR-L5 担当の DB / 認可・実行モード・service 層)
- *    - license key の DB 列 / enum / table / repository は PR-L5 (env 撤去 + 列・enum 物理削除、
- *      expand-contract §3.8) で削除する。本 PR-L4 (LP/メール/ラベル) の scope 外のため allowlist。
- *    - `src/lib/server/db/**` / `license-record.types.ts` / `license-key-status.ts` /
- *      `license-plan.ts` / `license-service.ts` / `validation/auth.ts` / `auth/entities.ts` /
- *      `runtime/env.ts` (ALLOW_LEGACY_LICENSE_KEYS) 等
+ * 1. FILE_ALLOWLIST: PR-L5 (#2860) で license key の DB 列 / enum / table / repository を物理削除
+ *    したため、旧 DB / 認可・実行モード・service 層の allowlist は不要になり撤去。残るのは:
  *    - `legacy-url-map.ts`: `/help/license-key` → `/admin/subscription` 301 redirect の `from` entry
  *      は永久保持 (CLAUDE.md #578) のため allowlist。
  *
  * 2. コメント行 (line が `//` / `*` / `<!--` / `#` で始まる) は履歴記述として許容。
- *    license key 撤去の経緯コメント (`#2818` 等) は全 file に分散するため、path ではなく
+ *    license key 撤去の経緯コメント (`#2818` / `#2860` 等) は全 file に分散するため、path ではなく
  *    line 単位で許容する。
  *
- * 上記いずれにも該当しない **コード行** の license key 参照 = 再導入とみなし fail。
+ * 上記いずれにも該当しない **コード行** の license key 参照 = 再導入とみなし fail (完全ゼロ化)。
  *
  * 使用法: node scripts/check-license-key-leak.mjs
  * CI: 検出時は exit 1。
@@ -53,22 +49,13 @@ export const PATTERNS = [
 ];
 
 // ---------------------------------------------------------------------------
-// FILE_ALLOWLIST — PR-L5 担当の DB / 認可・実行モード・service 層 + LEGACY_URL_MAP
+// FILE_ALLOWLIST — LEGACY_URL_MAP のみ (PR-L5 #2860 で DB 層 allowlist 撤去、完全ゼロ化)
 //
-// これらの file は license key の DB 列 / enum / repository / 永久 redirect entry を保持し、
-// 物理削除は PR-L5 (env 撤去 + 列・enum DROP、expand-contract §3.8) で実施する。
-// 本 PR-L4 の scope 外。path 区切りは / と \ の両方を許容する。
+// PR-L5 (#2860) で license key の DB 列 / enum / table / repository を物理削除したため、
+// 旧 DB / service 層 file の allowlist は不要になった。残るのは永久保持の redirect entry のみ。
+// path 区切りは / と \ の両方を許容する。
 // ---------------------------------------------------------------------------
 export const FILE_ALLOWLIST = [
-	// DB 層 (PR-L5: 列・enum・table 物理削除)
-	/^src[\\/]lib[\\/]server[\\/]db[\\/]/,
-	/^src[\\/]lib[\\/]domain[\\/]constants[\\/]license-key-status\.ts$/,
-	/^src[\\/]lib[\\/]domain[\\/]constants[\\/]license-plan\.ts$/,
-	/^src[\\/]lib[\\/]domain[\\/]validation[\\/]auth\.ts$/,
-	// 認可・実行モード・service 層 (PR-L5: 列読込経路)
-	/^src[\\/]lib[\\/]server[\\/]auth[\\/]entities\.ts$/,
-	/^src[\\/]lib[\\/]server[\\/]services[\\/]license-service\.ts$/,
-	/^src[\\/]lib[\\/]runtime[\\/]env\.ts$/,
 	// LEGACY_URL_MAP: /help/license-key → /admin/subscription 301 entry (永久保持、CLAUDE.md #578)
 	/^src[\\/]lib[\\/]server[\\/]routing[\\/]legacy-url-map\.ts$/,
 ];

@@ -87,9 +87,10 @@ const envSchema = z.object({
 	STRIPE_PRICE_FAMILY_MONTHLY: z.string().optional(),
 	STRIPE_MOCK: booleanStringSchema,
 
-	// ----- License (ADR-0026) -----
-	AWS_LICENSE_SECRET: z.string().min(32).optional(),
-	ALLOW_LEGACY_LICENSE_KEYS: booleanStringSchema,
+	// Epic #2525 Phase 7 PR-L5 (#2860): license key 全廃 contract。AWS_LICENSE_SECRET (HMAC 署名秘密鍵) /
+	// ALLOW_LEGACY_LICENSE_KEYS (旧形式受入フラグ) を env schema から撤去。コード参照は 0 件、
+	// entitlement は Stripe Subscription (tenant.status) が唯一 SSOT。GitHub Secrets / CDK 側の実体撤去は
+	// PR body「PO 手動操作」セクション参照。
 
 	// ----- Ops (ADR-0033) -----
 	CRON_SECRET: z.string().min(32).optional(),

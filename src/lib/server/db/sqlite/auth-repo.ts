@@ -103,31 +103,6 @@ export const findLatestConsent: IAuthRepo['findLatestConsent'] = async () => {
 export const findAllConsents: IAuthRepo['findAllConsents'] = async () => {
 	return [];
 };
-export const saveLicenseKey: IAuthRepo['saveLicenseKey'] = async () => {
-	// no-op in local mode
-};
-export const findLicenseKey: IAuthRepo['findLicenseKey'] = async () => {
-	return undefined;
-};
-export const updateLicenseKeyStatus: IAuthRepo['updateLicenseKeyStatus'] = async () => {
-	// no-op in local mode
-};
-export const revokeLicenseKey: IAuthRepo['revokeLicenseKey'] = async () => {
-	// no-op in local mode (#797)
-};
-export const listLicenseKeysByTenant: IAuthRepo['listLicenseKeysByTenant'] = async () => {
-	return { items: [], cursor: null }; // no-op in local mode (#816)
-};
-export const listLicenseKeysByStatus: IAuthRepo['listLicenseKeysByStatus'] = async () => {
-	return { items: [], cursor: null }; // no-op in local mode (#816)
-};
-export const listExpiringSoon: IAuthRepo['listExpiringSoon'] = async () => {
-	return []; // no-op in local mode (#816)
-};
-export const countLicenseKeys: IAuthRepo['countLicenseKeys'] = async () => {
-	return 0; // no-op in local mode (#816)
-};
-export const listActiveExpiredKeys: IAuthRepo['listActiveExpiredKeys'] = async () => {
-	// no-op in local mode (#821)。local モードはライセンスキーを保存しないため常に空配列。
-	return [];
-};
+// Epic #2525 Phase 7 PR-L5 (#2860): license key 全廃 contract。local (SQLite) モードは元々
+// licenseKey 列を持たず method 群は no-op stub だったため、IAuthRepo から license key API を撤去した
+// のに合わせて本 stub 群も削除。SQLite の DROP COLUMN migration は不要 (列が初めから存在しない)。
