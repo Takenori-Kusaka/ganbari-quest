@@ -8,7 +8,8 @@
  *   - `childId` を必須引数化 (cross-child cross access を構造的に防ぐ)
  *   - `tenantId` 引数の現セマンティクス (#2494 Phase 1): SQLite 実装では**意図的 no-op**
  *     (1 process = 1 DB = 1 tenant で越境入力が構造的に不能)、DynamoDB 実装は
- *     Pre-PMF stub (ADR-0055 本実装まで封鎖)。filter 強制 (Phase 2) は #2828 で管理。
+ *     partition key (`T#<tenantId>#CHILD#<childId>`) で tenant isolation を構造的に
+ *     強制 (#2820 本実装)。SQLite 側の filter 化 (Phase 2) は #2828 で管理。
  *     SSOT: docs/design/data-model-resource-scope.md §4.1「tenant isolation の現状 SSOT」
  *   - 旧 `IActivityRepo` は PR-3 期間中は並存。完全切替時に削除
  *
