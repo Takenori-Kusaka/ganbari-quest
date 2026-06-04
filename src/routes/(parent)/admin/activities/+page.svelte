@@ -832,8 +832,8 @@ function selectChild(childId: number) {
 		color: var(--color-text-muted);
 	}
 
-	/* #2902 Phase A: 旧 .age-filter-banner / .per-child-item* (read-only 簡易行) は
-	   表示一本化 (ActivityListItem へ集約) により撤去済。 */
+	/* #2902 Phase A: old .age-filter-banner / .per-child-item* (read-only rows) removed —
+	   display unified into ActivityListItem (ASCII comment to satisfy local/no-hardcoded-jp-text). */
 
 	/* Copy dialog */
 	.copy-dialog-desc {
