@@ -73,15 +73,31 @@ type ImportFormResult = {
 	total?: number;
 	errors?: string[];
 	presetId?: string;
+	// #2823: demo write-guard (buildDemoNoopResponseBody) が返す no-op マーカー。
+	// demo 応答は presetId を含まないため、real 経路 (presetId 必須) とは別分岐で扱う。
+	demo?: boolean;
 };
 
 // 同一 form result の二重発火防止 — invalidateAll 後の re-render / 別 form action 後にも
 // effect 再実行されるため、最後に処理した import result のシリアライズを記録して比較する。
 let lastProcessedImportFingerprint = $state<string | null>(null);
+// #2823: demo no-op の二重 toast 防止 (real 経路と同様、effect 再走で多重発火しないよう 1 回のみ)。
+let demoNoopToastShown = $state(false);
 
 $effect(() => {
 	if (!form) return;
 	const r = form as ImportFormResult;
+	// #2823: demo 環境の no-op 取込 ({demo:true, imported:0} で presetId なし) を正直に明示。
+	// activity / reward / challenge / checklist と同文言で 5 type の体験を統一する (NN/G #1 / #4)。
+	// real 経路 (presetId 必須) より先に判定し、demo 応答が無言で素通りするのを防ぐ。
+	if (r.demo === true) {
+		if (!demoNoopToastShown) {
+			demoNoopToastShown = true;
+			showToast(ADMIN_RULES_PAGE_LABELS.importDemo, undefined, 'info');
+			cleanupImportQueryParam();
+		}
+		return;
+	}
 	if (r.presetId && typeof r.imported === 'number') {
 		// fingerprint: presetId + imported + skipped で同一 import result の識別。
 		// 同じ result の effect 再実行では toast を出さない。
