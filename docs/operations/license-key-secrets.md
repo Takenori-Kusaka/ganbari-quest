@@ -250,11 +250,3 @@ export function verifyLicenseKey(licenseKey: string): boolean {
 | [license-key-requirements.md](../design/license-key-requirements.md) | 要件定義書（should-be） |
 | [license-subscription-causality.md](../design/license-subscription-causality.md) | License ↔ Stripe 因果関係マップ |
 | [runbook.md](./runbook.md) | 障害対応ランブック（上位） |
-
----
-
-## 更新履歴
-
-| 日付 | 更新内容 | 更新者 |
-|------|---------|--------|
-| 2026-04-11 | 初版作成 (#807) | Claude Code |
