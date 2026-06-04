@@ -36,7 +36,8 @@ import * as reportDailySummaryRepo from '../../../src/lib/server/db/dynamodb/rep
 //   機能等価性は tests/unit/db/dynamodb-reward-redemption-repo.test.ts (AWS SDK mock) で検証する。
 // #2295 (EPIC #2294 ①): season-event-repo / tenant-event-repo 削除済 (2026-05-19)
 // #2458 (Path B sibling drop): sibling-challenge-repo 削除済 (2026-05-26)、child-challenge-repo へ移行
-import * as siblingCheerRepo from '../../../src/lib/server/db/dynamodb/sibling-cheer-repo';
+// #2824 Wave 5B (ADR-0055): sibling-cheer-repo は本実装済のため stub fallback テスト対象外。
+//   機能等価性は tests/unit/db/dynamodb-sibling-cheer-repo.test.ts (AWS SDK mock) で検証する。
 // #2824 Wave 3B (ADR-0055): stamp-card-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-stamp-card-repo.test.ts (AWS SDK mock) で検証する。
 import * as viewerTokenRepo from '../../../src/lib/server/db/dynamodb/viewer-token-repo';
@@ -147,17 +148,11 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 	// #2458 (Path B sibling drop): sibling-challenge-repo describe 削除済 (2026-05-26)、
 	// repo / table 物理 drop 済。per-child child-challenge-repo に移行 (ADR-0055 / User §6)。
 
-	describe('sibling-cheer-repo', () => {
-		it('全 method が throw しない', async () => {
-			await expect(
-				siblingCheerRepo.insertCheer({ fromChildId: 1, toChildId: 2, stampCode: 'star' }, TENANT),
-			).resolves.toBeTruthy();
-			await expect(siblingCheerRepo.findUnshownCheers(2, TENANT)).resolves.toEqual([]);
-			await expect(siblingCheerRepo.markShown([1], TENANT)).resolves.toBeUndefined();
-			await expect(siblingCheerRepo.countTodayCheersFrom(1, TENANT)).resolves.toBe(0);
-			await expect(siblingCheerRepo.deleteByTenantId(TENANT)).resolves.toBeUndefined();
-		});
-	});
+	// #2824 Wave 5B (ADR-0055): sibling-cheer-repo は本実装済 (stub 除外)。
+	//   きょうだいおうえん送信 (SiblingCheerOverlay) が本番 DynamoDB Lambda で永続する。
+	//   本実装の機能等価性テストは dynamodb-sibling-cheer-repo.test.ts に分離。ここで stub 前提の
+	//   assert を残すと「実装済なのに stub 期待」で誤った退行 gate になるため除外する
+	//   (他 repo の fallback assert は維持 = assertion 弱体化に該当しない)。
 
 	// #2824 Wave 3B (ADR-0055): stamp-card-repo は本実装済 (stub 除外)。
 	//   子供 home 自動押印 (?/loginStamp) → スタンプ獲得 → 週末 redeem が本番 DynamoDB Lambda
@@ -177,8 +172,8 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('regression guard: 全 5 repo の Promise.all で reject されない', () => {
-		it('SSR /preschool/home の典型的な 5 repo 並列呼び出しが全 fulfill する', async () => {
+	describe('regression guard: 全 4 repo の Promise.all で reject されない', () => {
+		it('SSR /preschool/home の典型的な 4 repo 並列呼び出しが全 fulfill する', async () => {
 			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
 			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
 			// #2263 regression hotfix: childActivityRepo を stub fallback に置換 (9 → 10 repo)
@@ -192,11 +187,12 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 			//   (本実装は AWS SDK mock 必須 → dynamodb-stamp-card-repo.test.ts で検証)。7 → 6 repo
 			// #2824 Wave 5A (ADR-0055): battleRepo を本実装化したため除外
 			//   (本実装は AWS SDK mock 必須 → dynamodb-battle-repo.test.ts で検証)。6 → 5 repo
+			// #2824 Wave 5B (ADR-0055): siblingCheerRepo を本実装化したため除外
+			//   (本実装は AWS SDK mock 必須 → dynamodb-sibling-cheer-repo.test.ts で検証)。5 → 4 repo
 			const results = await Promise.allSettled([
 				autoChallengeRepo.findActiveByChild(1, TENANT),
 				cloudExportRepo.findByTenant(TENANT),
 				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),
-				siblingCheerRepo.findUnshownCheers(1, TENANT),
 				viewerTokenRepo.findByTenant(TENANT),
 			]);
 

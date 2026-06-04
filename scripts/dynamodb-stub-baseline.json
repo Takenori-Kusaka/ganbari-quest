@@ -31,13 +31,6 @@
 		"findByTenantAndDateRange",
 		"upsert"
 	],
-	"src/lib/server/db/dynamodb/sibling-cheer-repo.ts": [
-		"countTodayCheersFrom",
-		"deleteByTenantId",
-		"findUnshownCheers",
-		"insertCheer",
-		"markShown"
-	],
 	"src/lib/server/db/dynamodb/viewer-token-repo.ts": [
 		"deleteById",
 		"findByTenant",
