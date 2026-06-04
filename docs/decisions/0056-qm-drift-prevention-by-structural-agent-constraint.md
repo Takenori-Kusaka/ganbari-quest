@@ -161,6 +161,14 @@ ADR-0056 §C (Persona Drift 対策 fallback) は Task subagent dispatch tool 不
 
 両者を混同すると drift が再発する (subagent が approve action を肩代わり / QM が evidence 生成を肩代わりで bias)。本 §E は ADR-0056 §B (採用案) の運用層で「役割分離 SSOT」を明示する補強。
 
+### §E 追補: Re-Review agent への射程拡張 + V-7 Orchestrator 専権 (#2756 / #2815 Q-1、2026-06-04 DR 会議)
+
+§E の役割分離は Adversarial Reviewer subagent だけでなく **Tier 2 Review / Re-Review を担う全 agent** に適用する。hook/§E 配備 (5/28) 後も「approve に進みます」と宣言して tool call せず exit する drift が 2 件再発 (#2748 / #2754) し、PreToolUse hook は tool call の**不在**を原理的に検出できないため、prompt/template 強化では止まらないことが実証された (DR 会議全会一致、業界デファクト「不可逆 side-effect は agent でなく orchestrator が実行」整合):
+
+- Review / Re-Review agent の責務は **V-0〜V-6 (semantic verify + evidence 生成・報告) で完結**。V-7 approve action (account switch → approve → merge → 復帰 → cleanup) は **QM Orchestrator 本体が完了報告受領後に直接実行** (qa-session.md §「全手順 Pass → approve & merge」)
+- Orchestrator 本体 (`CLAUDE_SUBAGENT_ID` 未設定) 経路は gate-approve hook の evidence 検証が確実に発火する正規経路 (subagent context の無条件 allow を通らない)
+- Orchestrator 自身の忘却対策: 「evidence verify 済・approve 未実行」PR を queue とし、次 PR 着手前に未処理 queue を確認する (Tier 1 Step 4)
+
 ### #2632 統合 (Ready 化前 5 項目 SSOT)
 
 本 §E と並行で Dev Agent 側にも `Ready 化前 5 項目 SSOT` を明示 (`docs/sessions/dev-session.md` + `.claude/skills/dev-open-pr/SKILL.md`)。Persona Drift が QM 側で発生してもなお Dev 側で `pre-ready -- --pr <N>` PASS が verify されていれば、QA Tier 2 Review (BLOCK 列挙工程) の発生回数自体が減り QM 本質判定時間が確保される (defense in depth 第 3 層)。

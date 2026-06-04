@@ -93,6 +93,19 @@ node scripts/check-recent-deploy-deletion.mjs --pr <N>   # 真正実行
 - PR 最終状態（Ready / mergeable / CI）
 - 残課題があれば明記
 
+### Fix 完遂検証 log（物理 verification 証跡、#2690 / #2815 D-4）
+
+Fix Agent / Dev Agent が「全件解消」「全件追加」等の完遂を報告する際、**自己宣言だけで turn を閉じない**。各 Fix item に対し、実行した検証コマンドと output 件数を必ず表で添付する（証跡なき「全件解消」は false claim 同等扱い — #2690 で「4 location 全件解消」と報告し実際は 60% 完遂だった事例の構造的予防）:
+
+| Fix item | 検証コマンド（実行したものをそのまま） | output 件数 | 判定 |
+|---|---|---|---|
+| B1 (X 全件解消) | `grep -rn "対象文字列" src/ scripts/ docs/` | 0 件 | ✓ |
+| B2 (Y 全件追加) | `grep -rn "追加対象" src/ scripts/` | N 件 | ✓ |
+
+- **「全件」と書く前に必ず全 scope を grep し、残存 0 を物理確認する**（特定 1 file だけ見て「全件」と書かない）
+- grep pattern は完遂宣言の意味と一致させる（pattern が甘いと残存を見逃す）。QM が pattern の妥当性を再判定できるよう、コマンド文字列は原文のまま記載する
+- 件数が想定と違う場合は完遂報告せず、残数を BLOCK 一覧に記録して再 Fix する
+
 ## 作業の進め方
 
 ### コミット前チェック（全て通過必須）
