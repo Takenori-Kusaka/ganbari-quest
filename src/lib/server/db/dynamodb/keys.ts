@@ -366,6 +366,28 @@ export function rewardRedemptionPrefix(): string {
 }
 
 /**
+ * Parent message (#2266 / #2824 Wave 3A / ADR-0055):
+ *   PK = T#<tenantId>#CHILD#<childId>, SK = MSG#<paddedId>
+ *
+ * おうえんメッセージ (親→子) を child partition 配下に置き (activity_logs / point_ledger と同居)、
+ * `findMessages` / `findUnshownMessage` / `countUnshownMessages` を単一 partition Query
+ * (begins_with(SK, 'MSG#')) で完結させる。read は全て child 軸のため追加 GSI 不要 (ADR-0055 §3.1)。
+ * `markMessageShown` は messageId のみ受けるため tenant Scan + id filter で 1 件特定する
+ * (reward-redemption-repo.findRedemptionItemById と同じパターン、低頻度経路)。
+ */
+export function parentMessageKey(childId: number, messageId: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `MSG#${padId(messageId)}`,
+	};
+}
+
+/** Parent message SK prefix for querying all messages of a child */
+export function parentMessagePrefix(): string {
+	return 'MSG#';
+}
+
+/**
  * Checklist template: PK=T#<tenantId>#CKTPL, SK=CKTPL#<id>
  * #2362 PR-5 (ADR-0055): family master 化に伴い CHILD#<cId> 配下 → tenant scope に変更。
  */
@@ -799,6 +821,7 @@ export const ENTITY_NAMES = {
 	childTitle: 'childTitle',
 	specialReward: 'specialReward',
 	rewardRedemption: 'rewardRedemption',
+	parentMessage: 'parentMessage',
 	checklistTemplate: 'checklistTemplate',
 	checklistAssignment: 'checklistAssignment',
 	checklistItem: 'checklistItem',
