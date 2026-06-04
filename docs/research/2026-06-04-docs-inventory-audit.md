@@ -69,4 +69,4 @@ ADR 棚卸は supersede chain・README 表・1-in-1-out を伴う**意味変更*
 
 ## 4. 再混入防止 gate（PO 判断 Q4 の research 結論）
 
-専用 script は**新設しない**（check-* script の ratchet 骨格が 5-7 本でコピペ重複している実態 = #2668 で既認知。個別最適 script の増殖を避ける）。`scripts/check-internal-terms.mjs` の対象 glob 引数化 + banlist 外部 JSON 化（`scripts/check-doc-code-references.mjs` の `--baseline-path` 引数化が先行事例）で「docs 履歴メタ banlist」を config として渡す。ratchet 共通骨格は #2668 の `scripts/lib/baseline-utils.mjs` 切り出しに相乗り。**棚卸本体（削除 PR 群）を先行**し、gate は #2668 着手時に後付け。
+専用 script は**新設しない**（check-* script の ratchet 骨格が 5-7 本でコピペ重複している実態 = #2668 で既認知。個別最適 script の増殖を避ける）。`scripts/check-internal-terms.mjs` の対象 glob 引数化 + banlist 外部 JSON 化（`scripts/check-doc-code-references.mjs` の `--baseline-path` 引数化が先行事例）で「docs 履歴メタ banlist」を config として渡す。ratchet 共通骨格は #2668 が提案する baseline-utils 共通モジュール（未作成、#2668 AC-2）の切り出しに相乗り。**棚卸本体（削除 PR 群）を先行**し、gate は #2668 着手時に後付け。
