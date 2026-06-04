@@ -1,14 +1,4 @@
 {
-	"src/lib/server/db/dynamodb/activity-repo.ts": [
-		"archiveActivities",
-		"deleteActivity",
-		"insertActivity",
-		"insertActivityLog",
-		"insertPointLedger",
-		"restoreArchivedActivities",
-		"setActivityVisibility",
-		"updateActivity"
-	],
 	"src/lib/server/db/dynamodb/auto-challenge-repo.ts": [
 		"deleteByTenantId",
 		"expireOldChallenges",
