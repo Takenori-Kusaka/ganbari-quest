@@ -1,0 +1,297 @@
+/**
+ * tests/unit/db/dynamodb-cloud-export-repo.test.ts
+ *
+ * #2824 Wave 6B (ADR-0055) — cloud-export-repo DynamoDB 本実装の単体テスト。
+ *
+ * 旧 stub (#2263 hotfix: read = 空 / write = no-op) を DynamoDB 本実装に置換したため、
+ * AWS SDK を hoisted mock で置き換え、SQLite 機能等価の 8 関数を網羅する。
+ *
+ * キー設計 (keys.ts cloudExportKey): PK = T#<tenant>#CEXPORT, SK = EXPORT#<id>
+ *   - tenant list / count / id lookup → Query / GetItem
+ *   - findByPin (no tenant) / deleteExpired / incrementDownloadCount(id) → Scan + 属性フィルタ
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const {
+	mockSend,
+	MockGetCommand,
+	MockPutCommand,
+	MockQueryCommand,
+	MockScanCommand,
+	MockDeleteCommand,
+	MockUpdateCommand,
+} = vi.hoisted(() => {
+	const send = vi.fn();
+	class Cmd {
+		input: unknown;
+		constructor(input: unknown) {
+			this.input = input;
+		}
+	}
+	return {
+		mockSend: send,
+		MockGetCommand: class extends Cmd {},
+		MockPutCommand: class extends Cmd {},
+		MockQueryCommand: class extends Cmd {},
+		MockScanCommand: class extends Cmd {},
+		MockDeleteCommand: class extends Cmd {},
+		MockUpdateCommand: class extends Cmd {},
+	};
+});
+
+vi.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: class {} }));
+vi.mock('@aws-sdk/lib-dynamodb', () => ({
+	DynamoDBDocumentClient: { from: () => ({ send: mockSend }) },
+	GetCommand: MockGetCommand,
+	PutCommand: MockPutCommand,
+	QueryCommand: MockQueryCommand,
+	ScanCommand: MockScanCommand,
+	DeleteCommand: MockDeleteCommand,
+	UpdateCommand: MockUpdateCommand,
+}));
+
+async function loadRepo() {
+	return import('../../../src/lib/server/db/dynamodb/cloud-export-repo');
+}
+
+const TENANT = 'tenant-1';
+
+function callOf(idx: number): { input: Record<string, unknown> } {
+	return mockSend.mock.calls[idx]?.[0] as { input: Record<string, unknown> };
+}
+
+beforeEach(() => {
+	mockSend.mockReset();
+});
+afterEach(() => {
+	vi.clearAllMocks();
+});
+
+describe('findByTenant', () => {
+	it('Query で tenant の全レコードを createdAt desc で返す', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				{
+					PK: `T#${TENANT}#CEXPORT`,
+					SK: 'EXPORT#00000001',
+					id: 1,
+					tenantId: TENANT,
+					exportType: 'full',
+					pinCode: '1111',
+					s3Key: 'k1',
+					fileSizeBytes: 100,
+					label: null,
+					description: null,
+					expiresAt: '2026-06-01',
+					downloadCount: 0,
+					maxDownloads: 10,
+					createdAt: '2026-05-01T00:00:00.000Z',
+				},
+				{
+					PK: `T#${TENANT}#CEXPORT`,
+					SK: 'EXPORT#00000002',
+					id: 2,
+					tenantId: TENANT,
+					exportType: 'template',
+					pinCode: '2222',
+					s3Key: 'k2',
+					fileSizeBytes: 200,
+					label: 'l',
+					description: null,
+					expiresAt: '2026-06-02',
+					downloadCount: 1,
+					maxDownloads: 5,
+					createdAt: '2026-05-03T00:00:00.000Z',
+				},
+			],
+		});
+
+		const { findByTenant } = await loadRepo();
+		const result = await findByTenant(TENANT);
+
+		expect(result).toHaveLength(2);
+		// createdAt desc → id=2 が先頭
+		expect(result[0]?.id).toBe(2);
+		expect(result[1]?.id).toBe(1);
+		// PK/SK が stripKeys で除去されている
+		expect((result[0] as unknown as Record<string, unknown>).PK).toBeUndefined();
+		const arg = callOf(0).input;
+		expect(arg.KeyConditionExpression).toContain('PK = :pk');
+		expect((arg.ExpressionAttributeValues as Record<string, string>)[':pk']).toBe(
+			`T#${TENANT}#CEXPORT`,
+		);
+	});
+
+	it('LastEvaluatedKey でページングする', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [{ id: 1, tenantId: TENANT, createdAt: '2026-05-01T00:00:00.000Z' }],
+				LastEvaluatedKey: { PK: 'c', SK: 'c' },
+			})
+			.mockResolvedValueOnce({
+				Items: [{ id: 2, tenantId: TENANT, createdAt: '2026-05-02T00:00:00.000Z' }],
+				LastEvaluatedKey: undefined,
+			});
+		const { findByTenant } = await loadRepo();
+		const result = await findByTenant(TENANT);
+		expect(result).toHaveLength(2);
+		expect(mockSend).toHaveBeenCalledTimes(2);
+	});
+
+	it('0 件のとき空配列', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [] });
+		const { findByTenant } = await loadRepo();
+		expect(await findByTenant(TENANT)).toEqual([]);
+	});
+});
+
+describe('findByPin', () => {
+	it('Scan + 属性フィルタで pinCode 一致を 1 件返す', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [{ id: 7, tenantId: TENANT, pinCode: '9999', createdAt: '2026-05-01T00:00:00.000Z' }],
+		});
+		const { findByPin } = await loadRepo();
+		const r = await findByPin('9999');
+		expect(r?.id).toBe(7);
+		const arg = callOf(0).input;
+		expect(arg.FilterExpression).toContain('pinCode = :pin');
+		expect((arg.ExpressionAttributeValues as Record<string, string>)[':pin']).toBe('9999');
+	});
+
+	it('該当なしで undefined (ページング末尾まで)', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+		const { findByPin } = await loadRepo();
+		expect(await findByPin('0000')).toBeUndefined();
+	});
+});
+
+describe('findById', () => {
+	it('GetItem で id+tenant を引く', async () => {
+		mockSend.mockResolvedValueOnce({
+			Item: { id: 3, tenantId: TENANT, createdAt: '2026-05-01T00:00:00.000Z' },
+		});
+		const { findById } = await loadRepo();
+		const r = await findById(3, TENANT);
+		expect(r?.id).toBe(3);
+		const arg = callOf(0).input;
+		expect((arg.Key as Record<string, string>).PK).toBe(`T#${TENANT}#CEXPORT`);
+		expect((arg.Key as Record<string, string>).SK).toBe('EXPORT#00000003');
+	});
+
+	it('不在で undefined', async () => {
+		mockSend.mockResolvedValueOnce({ Item: undefined });
+		const { findById } = await loadRepo();
+		expect(await findById(99, TENANT)).toBeUndefined();
+	});
+});
+
+describe('insert', () => {
+	it('counter 採番 → PutItem。downloadCount=0 / maxDownloads 既定 10', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Attributes: { counter: 42 } }) // nextId
+			.mockResolvedValueOnce({}); // PutCommand
+		const { insert } = await loadRepo();
+		const r = await insert({
+			tenantId: TENANT,
+			exportType: 'full',
+			pinCode: '1234',
+			s3Key: 's3://k',
+			fileSizeBytes: 500,
+			expiresAt: '2026-06-01',
+		});
+		expect(r.id).toBe(42);
+		expect(r.downloadCount).toBe(0);
+		expect(r.maxDownloads).toBe(10);
+		expect(r.label).toBeNull();
+		// PutCommand の Item に key + record
+		const putArg = callOf(1).input;
+		const item = putArg.Item as Record<string, unknown>;
+		expect(item.PK).toBe(`T#${TENANT}#CEXPORT`);
+		expect(item.SK).toBe('EXPORT#00000042');
+		expect(item.s3Key).toBe('s3://k');
+	});
+
+	it('maxDownloads 明示時はそれを使う', async () => {
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 1 } }).mockResolvedValueOnce({});
+		const { insert } = await loadRepo();
+		const r = await insert({
+			tenantId: TENANT,
+			exportType: 'template',
+			pinCode: 'p',
+			s3Key: 'k',
+			fileSizeBytes: 1,
+			expiresAt: '2026-06-01',
+			maxDownloads: 3,
+		});
+		expect(r.maxDownloads).toBe(3);
+	});
+});
+
+describe('incrementDownloadCount', () => {
+	it('Scan で id の raw key を引き当て ADD downloadCount +1', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [{ PK: `T#${TENANT}#CEXPORT`, SK: 'EXPORT#00000005' }],
+			})
+			.mockResolvedValueOnce({}); // UpdateCommand
+		const { incrementDownloadCount } = await loadRepo();
+		await incrementDownloadCount(5);
+		const upArg = callOf(1).input;
+		expect(upArg.UpdateExpression).toContain('ADD downloadCount :one');
+		expect((upArg.Key as Record<string, string>).SK).toBe('EXPORT#00000005');
+	});
+
+	it('該当なしなら Update を呼ばない', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+		const { incrementDownloadCount } = await loadRepo();
+		await incrementDownloadCount(999);
+		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('deleteById', () => {
+	it('DeleteItem で id+tenant の key を削除', async () => {
+		mockSend.mockResolvedValueOnce({});
+		const { deleteById } = await loadRepo();
+		await deleteById(8, TENANT);
+		const arg = callOf(0).input;
+		expect((arg.Key as Record<string, string>).SK).toBe('EXPORT#00000008');
+	});
+});
+
+describe('deleteExpired', () => {
+	it('Scan で expiresAt < now を集めて削除し件数を返す', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [
+					{ PK: `T#${TENANT}#CEXPORT`, SK: 'EXPORT#00000001' },
+					{ PK: `T#${TENANT}#CEXPORT`, SK: 'EXPORT#00000002' },
+				],
+			})
+			.mockResolvedValueOnce({}) // delete 1
+			.mockResolvedValueOnce({}); // delete 2
+		const { deleteExpired } = await loadRepo();
+		const n = await deleteExpired('2026-05-10');
+		expect(n).toBe(2);
+		const scanArg = callOf(0).input;
+		expect(scanArg.FilterExpression).toContain('expiresAt < :now');
+	});
+
+	it('該当なしで 0', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+		const { deleteExpired } = await loadRepo();
+		expect(await deleteExpired('2026-05-10')).toBe(0);
+	});
+});
+
+describe('countByTenant', () => {
+	it('Select=COUNT で件数を集計 (ページング合算)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Count: 3, LastEvaluatedKey: { PK: 'c', SK: 'c' } })
+			.mockResolvedValueOnce({ Count: 2, LastEvaluatedKey: undefined });
+		const { countByTenant } = await loadRepo();
+		expect(await countByTenant(TENANT)).toBe(5);
+		expect(callOf(0).input.Select).toBe('COUNT');
+	});
+});
