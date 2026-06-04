@@ -14,7 +14,7 @@ import type {
 	RecordConsentInput,
 	Tenant,
 } from '$lib/server/auth/entities';
-import type { LicenseRecord, LicenseRevokeReason } from '$lib/server/services/license-key-service';
+import type { LicenseRecord, LicenseRevokeReason } from './license-record.types';
 
 /** ページネーション用カーソル (#816) */
 export interface LicenseKeyPage {
@@ -151,9 +151,9 @@ export interface IAuthRepo {
 
 	/**
 	 * #821: status='active' かつ expiresAt <= now のキーを列挙する。
-	 * 日次の期限切れ revoke バッチ (/api/cron/license-expire) で対象抽出に使う。
-	 * 件数は通常数十件/日を想定。DynamoDB 側は LICENSE# パーティションの Scan
-	 * + FilterExpression で実装する（GSI を足すほど頻度が高くない）。
+	 * (#2818 Phase 7 PR-L3: 旧呼び出し元の日次 revoke バッチ /api/cron/license-expire は物理削除済。
+	 *  本 DB interface メソッドは dead 化のまま PR-L5 の列・enum・table 物理削除まで残す)
+	 * DynamoDB 側は LICENSE# パーティションの Scan + FilterExpression で実装する。
 	 */
 	listActiveExpiredKeys(now: string): Promise<LicenseRecord[]>;
 }

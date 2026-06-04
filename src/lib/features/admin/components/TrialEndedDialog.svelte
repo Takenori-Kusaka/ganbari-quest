@@ -40,7 +40,7 @@ const L = FEATURES_LABELS.trialEndedDialog;
 				variant="warning"
 				size="md"
 				class="w-full"
-				onclick={() => { window.location.href = '/admin/license'; }}
+				onclick={() => { window.location.href = '/admin/subscription'; }}
 				data-testid="trial-ended-upgrade-cta"
 			>
 				{L.ctaBtn}

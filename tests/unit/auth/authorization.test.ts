@@ -69,11 +69,11 @@ describe('authorizeCognito', () => {
 		const protectedPaths = [
 			'/admin',
 			'/admin/settings',
-			'/admin/license',
+			'/admin/subscription',
 			'/admin/members',
 			'/preschool/home',
 			'/api/v1/activities',
-			'/api/v1/admin/license',
+			'/api/v1/admin/downgrade-preview',
 		];
 
 		for (const path of protectedPaths) {
@@ -122,8 +122,8 @@ describe('authorizeCognito', () => {
 			it('/admin/settings にアクセス可能', () => {
 				expect(authorizeCognito('/admin/settings', id, ctx).allowed).toBe(true);
 			});
-			it('/admin/license にアクセス可能', () => {
-				expect(authorizeCognito('/admin/license', id, ctx).allowed).toBe(true);
+			it('/admin/subscription にアクセス可能', () => {
+				expect(authorizeCognito('/admin/subscription', id, ctx).allowed).toBe(true);
 			});
 			it('/admin/members にアクセス可能', () => {
 				expect(authorizeCognito('/admin/members', id, ctx).allowed).toBe(true);
@@ -134,8 +134,8 @@ describe('authorizeCognito', () => {
 			it('/api/v1/activities にアクセス可能', () => {
 				expect(authorizeCognito('/api/v1/activities', id, ctx).allowed).toBe(true);
 			});
-			it('/api/v1/admin/license にアクセス可能', () => {
-				expect(authorizeCognito('/api/v1/admin/license', id, ctx).allowed).toBe(true);
+			it('/api/v1/admin/downgrade-preview にアクセス可能', () => {
+				expect(authorizeCognito('/api/v1/admin/downgrade-preview', id, ctx).allowed).toBe(true);
 			});
 		});
 
@@ -146,8 +146,8 @@ describe('authorizeCognito', () => {
 			it('/admin にアクセス可能', () => {
 				expect(authorizeCognito('/admin', id, ctx).allowed).toBe(true);
 			});
-			it('/admin/license にアクセス可能', () => {
-				expect(authorizeCognito('/admin/license', id, ctx).allowed).toBe(true);
+			it('/admin/subscription にアクセス可能', () => {
+				expect(authorizeCognito('/admin/subscription', id, ctx).allowed).toBe(true);
 			});
 			it('/admin/members にアクセス可能', () => {
 				expect(authorizeCognito('/admin/members', id, ctx).allowed).toBe(true);
@@ -173,8 +173,8 @@ describe('authorizeCognito', () => {
 				const result = authorizeCognito('/admin/settings', id, ctx);
 				expect(result.allowed).toBe(false);
 			});
-			it('/admin/license にアクセス不可', () => {
-				const result = authorizeCognito('/admin/license', id, ctx);
+			it('/admin/subscription にアクセス不可', () => {
+				const result = authorizeCognito('/admin/subscription', id, ctx);
 				expect(result.allowed).toBe(false);
 				if (!result.allowed) expect(result.redirect).toBe('/admin');
 			});
@@ -188,8 +188,8 @@ describe('authorizeCognito', () => {
 			it('/api/v1/activities にアクセス可能', () => {
 				expect(authorizeCognito('/api/v1/activities', id, ctx).allowed).toBe(true);
 			});
-			it('/api/v1/admin/license にアクセス不可', () => {
-				const result = authorizeCognito('/api/v1/admin/license', id, ctx);
+			it('/api/v1/admin/downgrade-preview にアクセス不可', () => {
+				const result = authorizeCognito('/api/v1/admin/downgrade-preview', id, ctx);
 				expect(result.allowed).toBe(false);
 			});
 		});
@@ -212,9 +212,9 @@ describe('authorizeCognito', () => {
 			expect(authorizeCognito('/admin', id, ctx).allowed).toBe(true);
 		});
 
-		it('expired: /admin/license はアクセス可能', () => {
+		it('expired: /admin/subscription はアクセス可能', () => {
 			const ctx = makeContext({ licenseStatus: 'expired' });
-			expect(authorizeCognito('/admin/license', id, ctx).allowed).toBe(true);
+			expect(authorizeCognito('/admin/subscription', id, ctx).allowed).toBe(true);
 		});
 
 		it('expired: /api/stripe はアクセス可能', () => {
@@ -227,18 +227,18 @@ describe('authorizeCognito', () => {
 			expect(authorizeCognito('/pricing', id, ctx).allowed).toBe(true);
 		});
 
-		it('expired: 一般ルートは /admin/license にリダイレクト', () => {
+		it('expired: 一般ルートは /admin/subscription にリダイレクト', () => {
 			const ctx = makeContext({ licenseStatus: 'expired' });
 			const result = authorizeCognito('/admin', id, ctx);
 			expect(result.allowed).toBe(false);
-			if (!result.allowed) expect(result.redirect).toBe('/admin/license?reason=expired');
+			if (!result.allowed) expect(result.redirect).toBe('/admin/subscription?reason=expired');
 		});
 
 		it('expired: 子供画面も制限', () => {
 			const ctx = makeContext({ licenseStatus: 'expired' });
 			const result = authorizeCognito('/preschool/home', id, ctx);
 			expect(result.allowed).toBe(false);
-			if (!result.allowed) expect(result.redirect).toBe('/admin/license?reason=expired');
+			if (!result.allowed) expect(result.redirect).toBe('/admin/subscription?reason=expired');
 		});
 
 		it('suspended: 全ルートアクセス可能（読み取り専用は API レイヤで制御）', () => {

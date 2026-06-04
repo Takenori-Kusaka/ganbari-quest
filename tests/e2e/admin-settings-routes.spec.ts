@@ -29,10 +29,10 @@ test.describe('#2320 /admin/settings 6 グループ child routes', () => {
 			'href',
 			'/admin/settings/account',
 		);
-		// plan カードは /admin/license への deep link
+		// plan カードは /admin/subscription への deep link
 		await expect(page.getByTestId('settings-hub-card-plan')).toHaveAttribute(
 			'href',
-			'/admin/license',
+			'/admin/subscription',
 		);
 	});
 

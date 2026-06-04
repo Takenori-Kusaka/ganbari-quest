@@ -71,7 +71,7 @@ describe('TrialBanner 表示', () => {
 			render(TrialBanner, props);
 			const cta = screen.getByTestId('trial-banner-active-cta');
 			expect(cta).toBeDefined();
-			expect(cta.getAttribute('href')).toBe('/admin/license');
+			expect(cta.getAttribute('href')).toBe('/admin/subscription');
 
 			// タイトル本文に残り日数が含まれる
 			expect(document.body.textContent).toContain('残り7日');
@@ -132,7 +132,7 @@ describe('TrialBanner 表示', () => {
 			render(TrialBanner, props);
 			const cta = screen.getByTestId('trial-banner-expired-cta');
 			expect(cta).toBeDefined();
-			expect(cta.getAttribute('href')).toBe('/admin/license');
+			expect(cta.getAttribute('href')).toBe('/admin/subscription');
 			expect(cta.textContent).toContain('アップグレード');
 		});
 

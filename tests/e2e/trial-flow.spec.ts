@@ -82,14 +82,14 @@ test.describe('#752 トライアルフロー — free ユーザー', () => {
 	});
 
 	// ========================================================
-	// 3. トライアル開始後 — /admin/license でトライアルステータス表示
+	// 3. トライアル開始後 — /admin/subscription でトライアルステータス表示
 	// ========================================================
-	test('トライアル開始後に /admin/license でトライアル情報が表示される', async ({ page }) => {
+	test('トライアル開始後に /admin/subscription でトライアル情報が表示される', async ({ page }) => {
 		// Note: 前のテストでトライアルが開始されている前提（同一 tenant DB が共有）。
 		// トライアル中は resolvePlanTier() が planTier='standard' に昇格させるため、
 		// license ページの `{#if planTier === 'free'}` トライアルセクションは表示されない。
 		// 代わりに PlanStatusCard の trial-badge（isTrialActive で描画）で検証する。
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const trialBadge = page.getByTestId('plan-status-trial-badge');
 		await expect(trialBadge).toBeVisible({ timeout: 30_000 });
@@ -130,10 +130,10 @@ test.describe('#752 トライアルフロー — trial-expired ユーザー', ()
 	});
 
 	// ========================================================
-	// 6. 期限切れ後に /admin/license でトライアル終了状態が表示される
+	// 6. 期限切れ後に /admin/subscription でトライアル終了状態が表示される
 	// ========================================================
-	test('期限切れ後の /admin/license でトライアル終了が反映される', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+	test('期限切れ後の /admin/subscription でトライアル終了が反映される', async ({ page }) => {
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		// license ページの PlanStatusCard が free を示す
 		const card = page.getByTestId('plan-status-card');

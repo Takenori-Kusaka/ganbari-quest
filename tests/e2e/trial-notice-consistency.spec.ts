@@ -3,7 +3,7 @@
 //「7日間無料トライアル付き」という付帯表記を出さないことを検証する。
 //
 // 仕様メモ:
-//  - トライアルは /admin/license で明示操作した場合のみ開始（アプリ内 trial-service）
+//  - トライアルは /admin/subscription で明示操作した場合のみ開始（アプリ内 trial-service）
 //  - Stripe Checkout 側は trial_period_days を使用しない（stripe-service.ts #314）
 //  - カード登録不要 / 7日経過後の自動課金なし
 //  → 「登録 / 購入すれば自動付帯」と誤認させる表記は景品表示法リスク

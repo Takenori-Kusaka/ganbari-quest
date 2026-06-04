@@ -44,7 +44,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 	// #767: returnPath が指定された場合、Checkout 完了後にその画面に戻す
 	// オープンリダイレクト防止: 相対パスのみ許可
 	const safePath = validateReturnPath(returnPath);
-	const successBase = returnPath ? safePath : '/admin/license';
+	const successBase = returnPath ? safePath : '/admin/subscription';
 	const successUrl = `${origin}${successBase}${successBase.includes('?') ? '&' : '?'}session_id={CHECKOUT_SESSION_ID}`;
 	const cancelUrl = returnPath ? `${origin}${safePath}` : `${origin}/pricing`;
 

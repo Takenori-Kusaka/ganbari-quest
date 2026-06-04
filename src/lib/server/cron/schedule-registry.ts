@@ -20,14 +20,9 @@ export interface CronJob {
 	description: string;
 }
 
+// Epic #2525 Phase 7 PR-L3 (#2818): license key 全廃に伴い `license-expire` ジョブを撤去。
+// 期限管理は `customer.subscription.deleted` webhook (Phase 5 archive 機構) に代替。
 export const scheduleRegistry: CronJob[] = [
-	{
-		name: 'license-expire',
-		endpoint: '/api/cron/license-expire',
-		cronExpression: '0 0 * * *', // 毎日 00:00 JST
-		utcCronExpression: 'cron(0 15 * * ? *)', // 毎日 15:00 UTC = 翌日 00:00 JST
-		description: 'ライセンスキー期限切れ自動失効バッチ (#821)',
-	},
 	{
 		name: 'retention-cleanup',
 		endpoint: '/api/cron/retention-cleanup',

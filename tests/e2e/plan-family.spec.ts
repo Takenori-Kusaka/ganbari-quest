@@ -19,8 +19,8 @@ import { expect, test } from '@playwright/test';
 test.use({ storageState: 'playwright/.auth/family.json' });
 
 test.describe('#779 family プラン — 全機能解放確認', () => {
-	test('/admin/license の PlanStatusCard が family を示す', async ({ page }) => {
-		await page.goto('/admin/license');
+	test('/admin/subscription の PlanStatusCard が family を示す', async ({ page }) => {
+		await page.goto('/admin/subscription');
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible();
 		await expect(card).toHaveAttribute('data-plan-tier', 'family');

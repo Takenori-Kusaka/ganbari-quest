@@ -64,8 +64,8 @@ export const GUIDE_STEPS: GuideStep[] = [
 		id: 5,
 		title: 'プラン・お支払いを みよう',
 		description: 'ライセンスキーの 適用を たいけんしてみましょう',
-		matchPath: '/admin/license',
-		href: '/admin/license',
+		matchPath: '/admin/subscription',
+		href: '/admin/subscription',
 	},
 	{
 		id: 6,

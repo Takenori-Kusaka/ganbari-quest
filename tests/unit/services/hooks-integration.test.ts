@@ -315,7 +315,7 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			}
 		});
 
-		it('ライセンス期限切れ → /admin/license にリダイレクト', async () => {
+		it('ライセンス期限切れ → /admin/subscription にリダイレクト', async () => {
 			currentAuthMode = 'cognito';
 			const identity: Identity = { type: 'cognito', userId: 'u-1', email: 'a@b.com' };
 			const context: AuthContext = { tenantId: 't-1', role: 'owner', licenseStatus: 'expired' };
@@ -323,7 +323,7 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 			mockResolveContext.mockResolvedValue(context);
 			mockAuthorize.mockReturnValue({
 				allowed: false,
-				redirect: '/admin/license?reason=expired',
+				redirect: '/admin/subscription?reason=expired',
 			});
 
 			const event = createMockEvent('/admin');
@@ -335,7 +335,7 @@ describe('hooks.server.ts handle（結合テスト）', { timeout: 30_000 }, () 
 				expect.fail('redirect should have been thrown');
 			} catch (e) {
 				expect(e).toBeInstanceOf(RedirectError);
-				expect((e as RedirectError).location).toBe('/admin/license?reason=expired');
+				expect((e as RedirectError).location).toBe('/admin/subscription?reason=expired');
 			}
 		});
 	});

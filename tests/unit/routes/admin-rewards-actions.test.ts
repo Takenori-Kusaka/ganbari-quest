@@ -78,7 +78,7 @@ type PlanLimitErrorShape = {
 	message: string;
 	currentTier: 'free' | 'standard' | 'family';
 	requiredTier: 'standard' | 'family';
-	upgradeUrl: '/admin/license';
+	upgradeUrl: '/admin/subscription';
 };
 // #2268: grant → add リネーム
 const grantAction = mod.actions.add as unknown as (event: {
@@ -186,7 +186,7 @@ describe('/admin/rewards page.server', () => {
 				code: 'PLAN_LIMIT_EXCEEDED',
 				currentTier: 'free',
 				requiredTier: 'standard',
-				upgradeUrl: '/admin/license',
+				upgradeUrl: '/admin/subscription',
 			});
 			expect(mockGrantSpecialReward).not.toHaveBeenCalled();
 		});

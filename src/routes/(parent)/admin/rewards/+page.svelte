@@ -387,7 +387,7 @@ async function handleCopyFromChild() {
 				</div>
 			</div>
 			<a
-				href="/admin/license"
+				href="/admin/subscription"
 				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
 				data-testid="rewards-upgrade-cta"
 			>

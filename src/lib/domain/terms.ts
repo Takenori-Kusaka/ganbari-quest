@@ -903,7 +903,7 @@ export const CHECKOUT_SUCCESS_TERMS = {
 // NUC_EDITION_TERMS — NUC セルフホスト版 atom (EPIC #2327 / #2329)
 // ============================================================
 //
-// PO 報告 (2026-05-20): NUC ローカル版で /admin/license が冗長表示 (ライセンスキー /
+// PO 報告 (2026-05-20): NUC ローカル版で /admin/subscription (旧 /admin/license) が冗長表示 (ライセンスキー /
 // placeholder / 支払い履歴 等)、業界 prior art (Mattermost Team Edition / Bitwarden
 // self-hosted / GitLab CE) の Edition badge + 簡略表示型に統合 (案 B 採用)。
 //

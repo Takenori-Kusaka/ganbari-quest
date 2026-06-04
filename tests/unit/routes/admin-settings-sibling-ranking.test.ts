@@ -131,7 +131,7 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 			code: 'PLAN_LIMIT_EXCEEDED',
 			currentTier: 'free',
 			requiredTier: 'family',
-			upgradeUrl: '/admin/license',
+			upgradeUrl: '/admin/subscription',
 		});
 		expect(mockSetSetting).not.toHaveBeenCalled();
 	});

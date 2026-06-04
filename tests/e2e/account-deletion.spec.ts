@@ -319,7 +319,7 @@ test.describe('#755 プラン別サインアップ → プラン確認 — free'
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('free ユーザーでログイン → plan=free 確認', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
@@ -332,7 +332,7 @@ test.describe('#755 プラン別サインアップ → プラン確認 — stand
 	test.use({ storageState: 'playwright/.auth/standard.json' });
 
 	test('standard ユーザーでログイン → plan=standard 確認', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });
@@ -345,7 +345,7 @@ test.describe('#755 プラン別サインアップ → プラン確認 — famil
 	test.use({ storageState: 'playwright/.auth/family.json' });
 
 	test('family ユーザーでログイン → plan=family 確認', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const card = page.getByTestId('plan-status-card');
 		await expect(card).toBeVisible({ timeout: 30_000 });

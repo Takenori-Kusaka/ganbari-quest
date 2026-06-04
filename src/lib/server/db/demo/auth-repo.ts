@@ -17,7 +17,10 @@ import type {
 	RecordConsentInput,
 	Tenant,
 } from '$lib/server/auth/entities';
-import type { LicenseRecord, LicenseRevokeReason } from '$lib/server/services/license-key-service';
+import type {
+	LicenseRecord,
+	LicenseRevokeReason,
+} from '$lib/server/db/interfaces/license-record.types';
 import type {
 	IAuthRepo,
 	LicenseKeyCountFilter,

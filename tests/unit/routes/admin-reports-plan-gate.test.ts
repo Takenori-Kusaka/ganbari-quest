@@ -174,7 +174,7 @@ describe('POST /admin/reports?/updateSettings — server side plan gate (#735)',
 			code: 'PLAN_LIMIT_EXCEEDED',
 			currentTier: 'free',
 			requiredTier: 'standard',
-			upgradeUrl: '/admin/license',
+			upgradeUrl: '/admin/subscription',
 		});
 		expect(mockSetSetting).not.toHaveBeenCalled();
 	});

@@ -49,7 +49,7 @@ function handleOpenChange(details: { open: boolean }) {
 	</div>
 
 	<div class="modal-actions">
-		<Button variant="primary" size="lg" class="w-full" onclick={() => { window.location.href = '/admin/license'; }}>
+		<Button variant="primary" size="lg" class="w-full" onclick={() => { window.location.href = '/admin/subscription'; }}>
 			{PREMIUM_MODAL_LABELS.ctaUpgrade}
 		</Button>
 		<button type="button" class="later-link" onclick={onclose}>

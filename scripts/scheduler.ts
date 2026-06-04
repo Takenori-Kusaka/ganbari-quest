@@ -30,9 +30,9 @@ async function callEndpoint(job: { name: string; endpoint: string }): Promise<vo
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
-				// license-expire は Authorization: Bearer を使用。
 				// retention-cleanup / trial-notifications は x-cron-secret を使用。
-				// 両ヘッダを送ることで既存 endpoint の auth パターン差異を吸収する。
+				// 一部 endpoint は Authorization: Bearer を使用するため、両ヘッダを送ることで
+				// 既存 endpoint の auth パターン差異を吸収する。
 				Authorization: `Bearer ${CRON_SECRET}`,
 				'x-cron-secret': CRON_SECRET,
 			},

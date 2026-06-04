@@ -51,7 +51,7 @@ function handlePrint() {
 			<div class="flex items-center gap-2 p-3 rounded-lg bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] text-sm">
 				<span>⭐</span>
 				<p class="text-[var(--color-feedback-warning-text)]">
-					{GROWTH_BOOK_LABELS.premiumNotePrefix}<a href="/admin/license" class="underline font-medium">{GROWTH_BOOK_LABELS.premiumNoteLink}</a>{GROWTH_BOOK_LABELS.premiumNoteSuffix}
+					{GROWTH_BOOK_LABELS.premiumNotePrefix}<a href="/admin/subscription" class="underline font-medium">{GROWTH_BOOK_LABELS.premiumNoteLink}</a>{GROWTH_BOOK_LABELS.premiumNoteSuffix}
 				</p>
 			</div>
 		{/if}

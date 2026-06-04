@@ -13,7 +13,7 @@ let { children }: { children: Snippet } = $props();
 			<a href="/ops/revenue">{OPS_LAYOUT_LABELS.navRevenue}</a>
 			<a href="/ops/business">{OPS_LAYOUT_LABELS.navBusiness}</a>
 			<a href="/ops/costs">{OPS_LAYOUT_LABELS.navCosts}</a>
-			<a href="/ops/license">{OPS_LAYOUT_LABELS.navLicense}</a>
+			<!-- #2818 Phase 7 PR-L3: /ops/license 物理削除 (license key 全廃、Stripe Coupon 代替) -->
 			<a href="/ops/analytics">{OPS_LAYOUT_LABELS.navAnalytics}</a>
 			<a href="/ops/cohort">{OPS_LAYOUT_LABELS.navCohort}</a>
 			<a href="/ops/pmf-survey">{OPS_LAYOUT_LABELS.navPmfSurvey}</a>

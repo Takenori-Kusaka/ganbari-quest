@@ -3,7 +3,7 @@
 // TutorialQuickCompleteDialog 系 dialog の視覚証跡を撮影する E2E。
 //
 // 旧 tests/e2e/tutorial-dialog-primitive-screenshots.spec.ts の代替:
-//   - 旧 spec は /admin/license から `[data-tutorial="tutorial-restart"]` クリックで
+//   - 旧 spec は /admin/subscription から `[data-tutorial="tutorial-restart"]` クリックで
 //     v1 tutorial を起動していたが、admin v1 tutorial 撤去 (PR #2388) で経路消失
 //   - 本 spec は子供画面 (preschool/elementary/junior/senior) の Header `?` ボタン
 //     (`[data-testid="header-help-btn"]` = `[data-tutorial="tutorial-restart"]`) 経由で起動

@@ -42,7 +42,7 @@ let submitting = $state(false);
 			</p>
 			<p class="trial-desc">{TRIAL_LABELS.bannerDescActive}</p>
 		</div>
-		<a href="/admin/license" class="trial-cta" data-testid="trial-banner-active-cta">
+		<a href="/admin/subscription" class="trial-cta" data-testid="trial-banner-active-cta">
 			{TRIAL_LABELS.bannerCtaNotStarted}
 		</a>
 	</div>
@@ -55,7 +55,7 @@ let submitting = $state(false);
 		</div>
 		<form
 			method="POST"
-			action="/admin/license?/startTrial"
+			action="/admin/subscription?/startTrial"
 			use:enhance={() => {
 				submitting = true;
 				return async ({ result, update }) => {
@@ -88,7 +88,7 @@ let submitting = $state(false);
 				<p class="trial-desc">{TRIAL_LABELS.bannerDescExpired}</p>
 			{/if}
 		</div>
-		<a href="/admin/license" class="trial-cta upgrade" data-testid="trial-banner-expired-cta">
+		<a href="/admin/subscription" class="trial-cta upgrade" data-testid="trial-banner-expired-cta">
 			{TRIAL_LABELS.bannerCtaExpired}
 		</a>
 	</div>

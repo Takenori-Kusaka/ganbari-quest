@@ -447,7 +447,7 @@ export async function sendLicenseKeyEmail(
       </ol>
 
       <p style="text-align: center; margin: 24px 0;">
-        <a href="https://ganbari-quest.com/admin/license" class="button">ライセンス管理を開く</a>
+        <a href="https://ganbari-quest.com/admin/subscription" class="button">ライセンス管理を開く</a>
       </p>
 
       <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -482,7 +482,7 @@ export async function sendLicenseKeyEmail(
 			'2. 「ライセンスキーを入力」欄に上記のキーをコピー＆ペーストします',
 			'3. 「適用する」ボタンを押すと、有料プランが即座に有効になります',
 			'',
-			'ライセンス管理: https://ganbari-quest.com/admin/license',
+			'ライセンス管理: https://ganbari-quest.com/admin/subscription',
 			'',
 			'■ ご注意',
 			'- このキーは1回限り使用できます。適用後は再利用できません。',
@@ -637,7 +637,7 @@ export async function sendLicenseRenewalReminderEmail(
 	const { email, tenantId, ownerName, planLabel, expiresAt, daysRemaining } = params;
 	const unsubscribeUrl = buildUnsubscribeUrl(tenantId, 'marketing');
 	const subject = labels.renewalSubject(daysRemaining);
-	const ctaUrl = `${getAppBaseUrl()}/admin/license`;
+	const ctaUrl = `${getAppBaseUrl()}/admin/subscription`;
 
 	const htmlContent = `
       <h2>${labels.renewalHeading}</h2>

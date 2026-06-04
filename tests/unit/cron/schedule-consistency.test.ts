@@ -10,8 +10,9 @@
 //   silent fail を起こすため (#1586 で実例)、CI で 0 tolerance で検出する。
 //
 // 検証範囲 (本 Issue Sub A-3 の Dev スコープ):
-//   1. Sub A-3 対象 3 endpoint (license-expire / retention-cleanup / trial-notifications)
+//   1. Sub A-3 対象 endpoint (retention-cleanup / trial-notifications)
 //      が registry に存在し、name / endpoint パスが期待値と一致すること
+//      (#2818 Phase 7 PR-L3: license key 全廃に伴い license-expire を SUB_A3_ENDPOINTS から除外)
 //   2. registry 全 endpoint name の集合 ⊆ dispatcher KNOWN_ENDPOINTS
 //      (registry にあるのに dispatcher が知らない job を弾く)
 //   3. dispatcher KNOWN_ENDPOINTS の各 endpoint パスが registry の endpoint と一致
@@ -23,8 +24,9 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { scheduleRegistry } from '../../../src/lib/server/cron/schedule-registry';
 
-// Sub A-3 で検証対象となる既存 3 endpoint
-const SUB_A3_ENDPOINTS = ['license-expire', 'retention-cleanup', 'trial-notifications'] as const;
+// Sub A-3 で検証対象となる既存 endpoint
+// (#2818 Phase 7 PR-L3: license key 全廃で license-expire 撤去、3 → 2 endpoint)
+const SUB_A3_ENDPOINTS = ['retention-cleanup', 'trial-notifications'] as const;
 
 // dispatcher / CDK のソースコードを文字列で読んで KNOWN_ENDPOINTS / CRON_JOBS を抽出する。
 // import すると Node エイリアスや CDK 依存解決が必要になり脆弱なため、構文解析的に最小限読む。
@@ -96,8 +98,8 @@ describe('#1377 schedule consistency — registry ↔ dispatcher KNOWN_ENDPOINTS
 	// 現在 registry にあるが dispatcher / CDK には未登録の job が `age-recalc` 1 件存在する。
 	// `age-recalc` は #1381 で登録された JST=00:00 のジョブだが、AWS EventBridge 化が
 	// dispatcher 側 KNOWN_ENDPOINTS / CDK CRON_JOBS には反映されていない。
-	// 本 Issue (#1377) のスコープは既存 3 endpoint (license-expire / retention-cleanup /
-	// trial-notifications) の検証であるため、age-recalc の不整合は本 PR では修正対象外
+	// 本 Issue (#1377) のスコープは既存 endpoint (retention-cleanup /
+	// trial-notifications、#2818 で license-expire 撤去) の検証であるため、age-recalc の不整合は本 PR では修正対象外
 	// (別 Issue で対応)。`SUB_A3_ENDPOINTS` の整合性のみ厳密に検証する。
 	const KNOWN_DRIFT_OUT_OF_SCOPE = ['age-recalc'];
 

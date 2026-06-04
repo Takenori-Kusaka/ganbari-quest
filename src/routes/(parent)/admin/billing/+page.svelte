@@ -204,7 +204,7 @@ const statusLabel = $derived.by(() => {
 				{#snippet children()}
 				{#if !hasCustomer}
 					{BILLING_LABELS.noCustomerAlert}
-					<a href="/admin/license" class="underline text-[var(--color-text-link)]">{BILLING_LABELS.noCustomerAlertSelectPlan}</a>{BILLING_LABELS.noCustomerAlertSuffix}
+					<a href="/admin/subscription" class="underline text-[var(--color-text-link)]">{BILLING_LABELS.noCustomerAlertSelectPlan}</a>{BILLING_LABELS.noCustomerAlertSuffix}
 				{:else}
 					{BILLING_LABELS.noSubscriptionAlert}
 				{/if}
@@ -214,9 +214,9 @@ const statusLabel = $derived.by(() => {
 		{/snippet}
 	</Card>
 
-	<!-- /admin/license へのリンク -->
+	<!-- /admin/subscription へのリンク -->
 	<div class="billing-nav-links">
-		<a href="/admin/license" class="billing-nav-link" data-testid="billing-to-license">
+		<a href="/admin/subscription" class="billing-nav-link" data-testid="billing-to-license">
 			<span class="billing-nav-link__icon">💎</span>
 			<span class="billing-nav-link__text">
 				<span class="billing-nav-link__title">{BILLING_LABELS.navLinkTitle}</span>

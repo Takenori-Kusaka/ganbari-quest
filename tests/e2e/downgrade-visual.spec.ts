@@ -5,7 +5,7 @@
 // 視覚検証を事後で行い、スクリーンショットをエビデンスとして残す。
 //
 // ローカルモード（plan=family 相当）で以下を検証:
-// - /admin/license ページの PlanStatusCard 表示
+// - /admin/subscription ページの PlanStatusCard 表示
 // - 「プラン変更・支払い管理」ボタンからダウングレードプレビュー取得
 // - DowngradeResourceSelector ダイアログの表示
 // - 超過子供リスト（全 5 年齢モード baby/preschool/elementary/junior/senior）
@@ -28,7 +28,7 @@ const AGE_MODES = ['baby', 'preschool', 'elementary', 'junior', 'senior'] as con
  * 全テストで最低 1 つの意味あるアサーションを保証する。
  */
 async function navigateToLicensePage(page: import('@playwright/test').Page) {
-	await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
+	await page.goto('/admin/subscription', { waitUntil: 'domcontentloaded' });
 	await page.locator('body').waitFor({ state: 'visible', timeout: 30_000 });
 
 	// 全テスト共通: PlanStatusCard が表示されることを必ずアサート

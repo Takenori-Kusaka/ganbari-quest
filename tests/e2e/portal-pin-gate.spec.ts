@@ -19,10 +19,10 @@ test.describe('#771 Portal PIN gate', () => {
 		expect([401, 403]).toContain(res.status());
 	});
 
-	// UI: /admin/license のポータルボタン → 確認ダイアログ表示
-	test('/admin/license でプラン変更ボタンが確認ダイアログを開く', async ({ page }) => {
+	// UI: /admin/subscription のポータルボタン → 確認ダイアログ表示
+	test('/admin/subscription でプラン変更ボタンが確認ダイアログを開く', async ({ page }) => {
 		test.slow();
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
+		await page.goto('/admin/subscription', { waitUntil: 'domcontentloaded' });
 
 		// ポータルボタンがあればクリックして確認ダイアログが出ることを検証
 		const portalButton = page.getByTestId('open-portal-button');

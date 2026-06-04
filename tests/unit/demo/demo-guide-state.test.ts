@@ -183,7 +183,7 @@ describe('demo-guide-state (#702)', () => {
 			checkAutoAdvance('/demo/admin'); // step 4 nav
 			visited.push(guide.currentStep + 1); // 4
 			advanceStep();
-			checkAutoAdvance('/demo/admin/license'); // step 5 nav
+			checkAutoAdvance('/demo/admin/subscription'); // step 5 nav
 			visited.push(guide.currentStep + 1); // 5
 			advanceStep();
 			checkAutoAdvance('/demo/signup'); // step 6 nav

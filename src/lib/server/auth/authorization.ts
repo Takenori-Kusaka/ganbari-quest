@@ -21,9 +21,9 @@ interface RouteRule {
  * #0123 チケットの認可マトリクスに基づく
  */
 const ROUTE_RULES: RouteRule[] = [
-	// ライセンス管理 — owner + parent
+	// サブスクリプション管理 — owner + parent (#2818: /admin/license → /admin/subscription rename)
 	{
-		pattern: '/admin/license',
+		pattern: '/admin/subscription',
 		roles: ['owner', 'parent'],
 		unauthRedirect: '/auth/login',
 		forbiddenRedirect: '/admin',
@@ -147,16 +147,16 @@ function checkLicenseAccess(path: string, context: AuthContext): AuthResult {
 	}
 
 	if (licenseStatus === AUTH_LICENSE_STATUS.EXPIRED) {
-		// ライセンス管理・決済ページは期限切れでもアクセス可能（更新促進）
+		// サブスクリプション管理・決済ページは期限切れでもアクセス可能（更新促進）
+		// #2818: /admin/license → /admin/subscription rename + /api/v1/admin/license 物理削除
 		if (
-			path.startsWith('/admin/license') ||
-			path.startsWith('/api/v1/admin/license') ||
+			path.startsWith('/admin/subscription') ||
 			path.startsWith('/api/stripe') ||
 			path.startsWith('/pricing')
 		) {
 			return { allowed: true };
 		}
-		return { allowed: false, redirect: '/admin/license?reason=expired' };
+		return { allowed: false, redirect: '/admin/subscription?reason=expired' };
 	}
 
 	if (licenseStatus === AUTH_LICENSE_STATUS.SUSPENDED) {

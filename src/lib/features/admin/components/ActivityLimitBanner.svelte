@@ -13,7 +13,7 @@ let { current, max }: Props = $props();
 	<span>⚠️</span>
 	<div>
 		<p class="limit-banner__title">{FEATURES_LABELS.activityLimitBanner.title(current, max)}</p>
-		<a href="/admin/license" class="limit-banner__link">{FEATURES_LABELS.activityLimitBanner.linkLabel}</a>
+		<a href="/admin/subscription" class="limit-banner__link">{FEATURES_LABELS.activityLimitBanner.linkLabel}</a>
 	</div>
 </div>
 

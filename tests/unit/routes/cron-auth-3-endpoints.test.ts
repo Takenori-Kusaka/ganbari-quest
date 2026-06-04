@@ -1,5 +1,8 @@
 // tests/unit/routes/cron-auth-3-endpoints.test.ts
-// #1377 (#1374 Sub A-3): 既存 3 cron endpoint の認証共通検証
+// #1377 (#1374 Sub A-3): 既存 cron endpoint の認証共通検証
+//
+// Epic #2525 Phase 7 PR-L3 (#2818): license key 全廃に伴い license-expire endpoint を物理削除したため、
+// 本ファイルは retention-cleanup / trial-notifications の 2 endpoint を対象とする (旧 3 endpoint)。
 //
 // 検証範囲:
 //   1. CRON_SECRET 未設定時の挙動 (AUTH_MODE=local skip / それ以外 500)
@@ -27,11 +30,6 @@ vi.mock('$lib/server/logger', () => ({
 		request: vi.fn(),
 		requestError: vi.fn(),
 	},
-}));
-
-const expireLicenseKeysMock = vi.fn();
-vi.mock('$lib/server/services/license-key-service', () => ({
-	expireLicenseKeys: expireLicenseKeysMock,
 }));
 
 const cleanupExpiredDataMock = vi.fn();
@@ -64,18 +62,6 @@ interface EndpointConfig {
 }
 
 const ENDPOINTS: EndpointConfig[] = [
-	{
-		name: 'license-expire',
-		path: '/api/cron/license-expire',
-		importPath: '../../../src/routes/api/cron/license-expire/+server',
-		successResultMock: () =>
-			expireLicenseKeysMock.mockResolvedValue({
-				scanned: 0,
-				revoked: 0,
-				failures: [],
-				dryRun: true,
-			}),
-	},
 	{
 		name: 'retention-cleanup',
 		path: '/api/cron/retention-cleanup',

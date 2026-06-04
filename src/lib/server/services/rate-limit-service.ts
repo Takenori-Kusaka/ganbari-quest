@@ -185,7 +185,7 @@ async function notifyRateLimitBreach(
 
 	await notifyIncident(`⚠️ ライセンスキー検証のレート制限超過 (${type}, ${count}回目)`, {
 		method: 'POST',
-		path: action === 'signup' ? '/auth/signup' : '/admin/license',
+		path: action === 'signup' ? '/auth/signup' : '/admin/subscription',
 	}).catch(() => {
 		// Discord 通知失敗は握りつぶし（レート制限自体は機能する）
 	});

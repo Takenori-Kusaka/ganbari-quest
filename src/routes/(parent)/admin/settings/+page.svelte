@@ -60,7 +60,7 @@ const groupCards: GroupCard[] = [
 		testid: 'settings-hub-card-support',
 	},
 	{
-		href: '/admin/license',
+		href: '/admin/subscription',
 		title: SETTINGS_LABELS.groupPlanTitle,
 		desc: SETTINGS_LABELS.groupPlanDesc,
 		icon: '💎',

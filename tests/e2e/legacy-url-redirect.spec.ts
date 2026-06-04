@@ -315,8 +315,33 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 		await expectRedirect(request, '/admin/events', '/admin/challenges');
 	});
 
-	test('/demo/admin/license → /admin/license (308)', async ({ request }) => {
-		await expectRedirect(request, '/demo/admin/license', '/admin/license');
+	// ============================================================
+	// #2525 Phase 7 PR-L3 (#2818): /admin/license 廃止 → /admin/subscription 308 redirect
+	// ライセンスキー販売モデル撤廃 → サブスクリプションモデル統一 rename (Epic #2525)。
+	// ============================================================
+	test('/admin/license → /admin/subscription (308, #2818)', async ({ request }) => {
+		await expectRedirect(request, '/admin/license', '/admin/subscription');
+	});
+
+	test('/admin/license/key → /admin/subscription/key (308, サブパス保持 #2818)', async ({
+		request,
+	}) => {
+		await expectRedirect(request, '/admin/license/key', '/admin/subscription/key');
+	});
+
+	test('/admin/license?reason=expired → /admin/subscription?reason=expired (クエリ保持 #2818)', async ({
+		request,
+	}) => {
+		await expectRedirect(
+			request,
+			'/admin/license?reason=expired',
+			'/admin/subscription?reason=expired',
+		);
+	});
+
+	// #2818 Phase 7 PR-L3: /admin/license 撤去 → /admin/subscription 救済 (1 段化)
+	test('/demo/admin/license → /admin/subscription (308, #2818 で 1 段化)', async ({ request }) => {
+		await expectRedirect(request, '/demo/admin/license', '/admin/subscription');
 	});
 
 	test('/demo/admin/members → /admin/members (308)', async ({ request }) => {
@@ -361,10 +386,15 @@ test.describe('#578 旧 URL の中央リダイレクト', () => {
 	});
 
 	// /demo/admin/* + クエリ保持
-	test('/demo/admin/license?plan=family → /admin/license?plan=family (308 + クエリ保持)', async ({
+	// #2818 Phase 7 PR-L3: /admin/license 撤去 → /admin/subscription 救済 (1 段化)。クエリ保持
+	test('/demo/admin/license?plan=family → /admin/subscription?plan=family (308 + クエリ保持)', async ({
 		request,
 	}) => {
-		await expectRedirect(request, '/demo/admin/license?plan=family', '/admin/license?plan=family');
+		await expectRedirect(
+			request,
+			'/demo/admin/license?plan=family',
+			'/admin/subscription?plan=family',
+		);
 	});
 
 	// 親 fallback: 未登録 sub path も /admin に救済

@@ -1,8 +1,11 @@
 // tests/unit/services/cron-idempotency.test.ts
-// #1377 (#1374 Sub A-3 Common AC): 既存 3 cron service の idempotency 検証
+// #1377 (#1374 Sub A-3 Common AC): 既存 cron service の idempotency 検証
+//
+// Epic #2525 Phase 7 PR-L3 (#2818): license key 全廃に伴い expireLicenseKeys を物理削除したため、
+// 本ファイルは cleanupExpiredData / processTrialNotifications の 2 service を対象とする (旧 3 service)。
 //
 // 検証範囲:
-//   - expireLicenseKeys / cleanupExpiredData / processTrialNotifications を
+//   - cleanupExpiredData / processTrialNotifications を
 //     2 回連続実行しても、副作用が「2 回目以降に増えない」こと
 //   - すなわち N 回呼んでも DB / 外部 API 呼び出し回数は 1 回分の sweep に近づく
 //
@@ -30,82 +33,6 @@ vi.mock('$lib/server/logger', () => ({
 		requestError: vi.fn(),
 	},
 }));
-
-// ============================================================
-// expireLicenseKeys (license-expire endpoint)
-// ============================================================
-
-describe('#1377 idempotency — expireLicenseKeys', () => {
-	const listActiveExpiredKeysMock = vi.fn();
-	const revokeLicenseKeyMock = vi.fn();
-
-	beforeEach(() => {
-		vi.resetModules();
-		vi.clearAllMocks();
-		vi.doMock('$lib/server/db/factory', () => ({
-			getRepos: () => ({
-				auth: {
-					listActiveExpiredKeys: listActiveExpiredKeysMock,
-				},
-			}),
-		}));
-		// revokeLicenseKey は同じファイル内 export なので spyOn できないため、
-		// 同モジュール内の関数を直接 mock するために再エクスポートを別経路で差し替える。
-		vi.doMock('$lib/server/services/license-key-service', async () => {
-			const actual = await vi.importActual<
-				typeof import('../../../src/lib/server/services/license-key-service')
-			>('../../../src/lib/server/services/license-key-service');
-			return {
-				...actual,
-				revokeLicenseKey: revokeLicenseKeyMock,
-			};
-		});
-	});
-
-	afterEach(() => {
-		vi.doUnmock('$lib/server/db/factory');
-		vi.doUnmock('$lib/server/services/license-key-service');
-	});
-
-	it('1 回目で全件 revoke、2 回目は対象なしで revoke 0 (副作用増加なし)', async () => {
-		// 1 回目: 期限切れ 2 件
-		listActiveExpiredKeysMock.mockResolvedValueOnce([
-			{ licenseKey: 'lk_aaa1', expiresAt: '2024-01-01T00:00:00Z' },
-			{ licenseKey: 'lk_bbb2', expiresAt: '2024-01-02T00:00:00Z' },
-		]);
-		// 2 回目: 1 回目で revoke 済みなので空
-		listActiveExpiredKeysMock.mockResolvedValueOnce([]);
-		revokeLicenseKeyMock.mockResolvedValue({ ok: true });
-
-		// 対象モジュールを動的に import (mock 適用後に評価される)
-		const { expireLicenseKeys } = await import(
-			'../../../src/lib/server/services/license-key-service'
-		);
-
-		const r1 = await expireLicenseKeys();
-		expect(r1.scanned).toBe(2);
-
-		const r2 = await expireLicenseKeys();
-		expect(r2.scanned).toBe(0);
-		expect(r2.revoked).toBe(0);
-		expect(r2.failures).toEqual([]);
-	});
-
-	it('dryRun=true は revoke を呼ばない (副作用なし保証)', async () => {
-		listActiveExpiredKeysMock.mockResolvedValueOnce([
-			{ licenseKey: 'lk_dry1', expiresAt: '2024-01-01T00:00:00Z' },
-		]);
-
-		const { expireLicenseKeys } = await import(
-			'../../../src/lib/server/services/license-key-service'
-		);
-
-		const r = await expireLicenseKeys({ dryRun: true });
-		expect(r.scanned).toBe(1);
-		expect(r.revoked).toBe(0);
-		expect(revokeLicenseKeyMock).not.toHaveBeenCalled();
-	});
-});
 
 // ============================================================
 // cleanupExpiredData (retention-cleanup endpoint)

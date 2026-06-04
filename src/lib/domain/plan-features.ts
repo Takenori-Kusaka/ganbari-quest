@@ -4,7 +4,7 @@
 // これまで料金プラン機能リストは以下の 4 箇所で並行実装されていた:
 //  - src/routes/pricing/+page.svelte
 //  - src/lib/features/admin/components/PremiumWelcome.svelte
-//  - src/routes/(parent)/admin/license/+page.svelte
+//  - src/routes/(parent)/admin/subscription/+page.svelte
 //  - site/index.html, site/pricing.html, site/pamphlet.html（LP）
 //
 // このファイルを SSOT とし、アプリ側（TS/Svelte）の features 配列は
@@ -82,7 +82,7 @@ export const PRICING_PAGE_FEATURES: Record<PlanKey, readonly string[]> = {
 // - ひとことメッセージ（自由テキスト）は #772、きょうだいランキングは #782 で family 専用化済み
 
 /**
- * ご家族の見守り画面のプラン選択カード（/admin/license/+page.svelte）に表示する
+ * ご家族の見守り画面のプラン選択カード（/admin/subscription/+page.svelte）に表示する
  * 短い機能ハイライトリスト。料金ページよりも簡潔な 4〜5 項目に絞る。
  */
 export const LICENSE_PAGE_HIGHLIGHTS: Record<'standard' | 'family', readonly string[]> = {

@@ -33,11 +33,11 @@ test.describe('#768 Billing page', () => {
 		await page.goto('/admin/billing', { waitUntil: 'domcontentloaded' });
 		const link = page.getByTestId('billing-to-license');
 		await expect(link).toBeVisible();
-		await expect(link).toHaveAttribute('href', '/admin/license');
+		await expect(link).toHaveAttribute('href', '/admin/subscription');
 	});
 
-	test('/admin/license から /admin/billing へのリンクが存在する', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
+	test('/admin/subscription から /admin/billing へのリンクが存在する', async ({ page }) => {
+		await page.goto('/admin/subscription', { waitUntil: 'domcontentloaded' });
 		const link = page.getByTestId('license-to-billing');
 		await expect(link).toBeVisible();
 		await expect(link).toHaveAttribute('href', '/admin/billing');

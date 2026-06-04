@@ -170,10 +170,10 @@ test.describe('#754 ダウングレードフロー — UI', () => {
 		test.slow(); // Vite dev のコールドコンパイルでタイムアウトを延長
 	});
 
-	test('/admin/license でプラン管理ボタンをクリックするとダウングレード警告が表示される', async ({
+	test('/admin/subscription でプラン管理ボタンをクリックするとダウングレード警告が表示される', async ({
 		page,
 	}) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
+		await page.goto('/admin/subscription', { waitUntil: 'domcontentloaded' });
 
 		// EPIC #2327 子#2330 AC3: 「決済機能は現在準備中です」placeholder 撤去。
 		// stripeEnabled false 環境ではプラン管理 section ごと {#if stripeEnabled} で
@@ -388,8 +388,10 @@ test.describe('#754 ChurnPreventionModal — UI', () => {
 		test.slow();
 	});
 
-	test('/admin/license ページに ChurnPreventionModal のトリガー要素がある', async ({ page }) => {
-		await page.goto('/admin/license', { waitUntil: 'domcontentloaded' });
+	test('/admin/subscription ページに ChurnPreventionModal のトリガー要素がある', async ({
+		page,
+	}) => {
+		await page.goto('/admin/subscription', { waitUntil: 'domcontentloaded' });
 
 		// ChurnPreventionModal は loyalty 情報がある場合にのみ存在
 		// ローカルモードでは loyalty 情報がない場合があるためオプショナルに確認

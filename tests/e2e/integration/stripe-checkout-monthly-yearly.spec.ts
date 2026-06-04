@@ -2,7 +2,7 @@
 // #2347 (EPIC #2345): 月額/年額切替 + 年額表示強化の E2E
 //
 // 目的:
-//   - /admin/license の月額/年額タブ切替 UI が `billingInterval` $state 経由で
+//   - /admin/subscription の月額/年額タブ切替 UI が `billingInterval` $state 経由で
 //     正しく Stripe price 連動すること (UI 既実装活用、Research 根本原因 a/b 解消)。
 //   - 年額表示強化「月換算 ¥417 (約 17% off)」の表示確認 (AC4 UX 改善)。
 //   - bypass 経路 (旧 `/checkout?plan=monthly` 等の単一固定パス) が site/ + src/ に
@@ -13,7 +13,7 @@
 
 import { expect, test } from '@playwright/test';
 
-test.describe('#2347 月額/年額切替 + 年額表示強化 — /admin/license', () => {
+test.describe('#2347 月額/年額切替 + 年額表示強化 — /admin/subscription', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
 	test('billingInterval ボタンで月額/年額タブ切替できる (UI 既実装活用)', async ({ page }) => {
@@ -25,7 +25,7 @@ test.describe('#2347 月額/年額切替 + 年額表示強化 — /admin/license
 			});
 		});
 
-		await page.goto('/admin/license', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		// Stripe 未設定環境はスキップ (既存 upgrade-checkout.spec.ts と整合)
 		// #2330 で「決済機能は現在準備中です」placeholder が削除されたため、月額ボタン自体の visible 判定で skip 検出に変更

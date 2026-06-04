@@ -106,7 +106,7 @@ async function handleShareDownload() {
 			{:else}
 				<div class="flex items-center gap-2">
 					<span class="text-xs text-[var(--color-text-tertiary)]">{CERTIFICATE_DETAIL_LABELS.pdfUpgradeNote}</span>
-					<a href="/admin/license" class="text-xs text-[var(--color-feedback-info-text)] hover:underline">{CERTIFICATE_DETAIL_LABELS.upgradeLink}</a>
+					<a href="/admin/subscription" class="text-xs text-[var(--color-feedback-info-text)] hover:underline">{CERTIFICATE_DETAIL_LABELS.upgradeLink}</a>
 				</div>
 			{/if}
 		</div>

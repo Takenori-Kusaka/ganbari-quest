@@ -732,14 +732,13 @@ test.describe('#0129: 招待 API', () => {
 
 test.describe('#0130: ライセンスご家族の見守り画面', () => {
 	test('ライセンスご家族の見守り画面が表示される', async ({ page }) => {
-		await page.goto('/admin/license');
-		// #796 の確認ダイアログに「現在のプランが上書きされます」という警告文があり、
-		// getByText('現在のプラン') だと strict-mode 違反になるため role で一意化
+		// #2818 Phase 7 PR-L3: /admin/subscription → /admin/subscription rename。
+		await page.goto('/admin/subscription');
 		await expect(page.getByRole('heading', { name: '現在のプラン' })).toBeVisible();
 	});
 
 	test('プラン情報が表示される', async ({ page }) => {
-		await page.goto('/admin/license');
+		await page.goto('/admin/subscription');
 		// EPIC #2327 子#2330 AC2: 「現在のプラン」表示を license.plan → data.planTier
 		// (resolveFullPlanTier 経由) に SSOT 統一。e2e ローカル環境は family plan のため
 		// 「無料プラン」固定ではなく planTier に応じたラベル (`saas-current-plan` testid) を
@@ -747,8 +746,7 @@ test.describe('#0130: ライセンスご家族の見守り画面', () => {
 		const planRow = page.locator('main').getByTestId('saas-current-plan');
 		await planRow.scrollIntoViewIfNeeded();
 		await expect(planRow).toBeVisible();
-		// ステータスバッジが表示される（#796 のキー適用UIでも「有効化」が出てしまうため、
-		// アイコン付きのバッジテキストで一意に絞り込む）
+		// ステータスバッジが表示される（アイコン付きのバッジテキストで一意に絞り込む）
 		const statusBadge = page.locator('main').getByText('✅ 有効');
 		await expect(statusBadge).toBeVisible();
 	});
@@ -761,7 +759,7 @@ test.describe('#0130: ライセンスご家族の見守り画面', () => {
 	});
 
 	test('プラン管理セクションが表示される', async ({ page }) => {
-		await page.goto('/admin/license');
+		await page.goto('/admin/subscription');
 		// EPIC #2327 子#2330 AC3: 「決済機能は現在準備中です」placeholder 撤去。
 		// stripeEnabled false 環境ではプラン管理 section ごと {#if stripeEnabled} で
 		// 非表示になる (placeholder section の削除)。Stripe 有効環境では section が見える。
@@ -781,22 +779,15 @@ test.describe('#0130: ライセンスご家族の見守り画面', () => {
 	});
 
 	test('支払い履歴セクションが表示される', async ({ page }) => {
-		await page.goto('/admin/license');
+		await page.goto('/admin/subscription');
 		const paymentHistory = page.getByText('支払い履歴はまだありません');
 		await paymentHistory.scrollIntoViewIfNeeded();
 		await expect(paymentHistory).toBeVisible();
 	});
 });
 
-test.describe('#0130: ライセンス API', () => {
-	test('ライセンス情報 API が 200 を返す', async ({ request }) => {
-		const res = await request.get('/api/v1/admin/license');
-		expect(res.status()).toBe(200);
-		const data = await res.json();
-		expect(data.license).toBeDefined();
-		expect(data.license.status).toBeDefined();
-	});
-});
+// #0130 ライセンス情報 API (/api/v1/admin/subscription) は #2818 Phase 7 PR-L3 で物理削除。
+// subscription 情報は /admin/subscription page load (getLicenseInfo) で取得する。
 
 // ============================================================
 // #0131 準備: 法的ページ（利用規約・プライバシーポリシー・特定商取引法）

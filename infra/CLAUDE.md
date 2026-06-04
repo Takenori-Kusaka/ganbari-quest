@@ -123,7 +123,8 @@ docker compose logs -f scheduler
 
 ## EventBridge Cron Rules (#1376)
 
-3 つの定期ジョブは `EventBridge Rule → ganbari-quest-cron-dispatcher Lambda → HTTP POST → SvelteKit /api/cron/:job`。
+定期ジョブは `EventBridge Rule → ganbari-quest-cron-dispatcher Lambda → HTTP POST → SvelteKit /api/cron/:job`。
+(#2818 Phase 7 PR-L3: license key 全廃に伴い `license-expire` ジョブ + CronRuleLicenseExpire を撤去済)
 
 - スケジュール SSOT: `src/lib/server/cron/schedule-registry.ts`
 - CDK: `infra/lib/compute-stack.ts` (CRON_JOBS は SSOT 参照)
@@ -132,7 +133,7 @@ docker compose logs -f scheduler
 ```bash
 aws events list-rules --name-prefix ganbari-quest-cron --region us-east-1
 aws logs tail /aws/lambda/ganbari-quest-cron-dispatcher --region us-east-1 --follow
-aws lambda invoke --function-name ganbari-quest-cron-dispatcher --payload '{"cronJob":"license-expire","dryRun":true}' --cli-binary-format raw-in-base64-out --region us-east-1 response.json
+aws lambda invoke --function-name ganbari-quest-cron-dispatcher --payload '{"cronJob":"retention-cleanup","dryRun":true}' --cli-binary-format raw-in-base64-out --region us-east-1 response.json
 ```
 
 ### Secret 注入 (#1586)

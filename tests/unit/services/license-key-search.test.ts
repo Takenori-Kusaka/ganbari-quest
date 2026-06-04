@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LICENSE_KEY_STATUS } from '$lib/domain/constants/license-key-status';
 import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
-import type { LicenseRecord } from '$lib/server/services/license-key-service';
+import type { LicenseRecord } from '$lib/server/db/interfaces/license-record.types';
 
 // ============================================================
 // Mock: SQLite local mode (no-op stubs)
