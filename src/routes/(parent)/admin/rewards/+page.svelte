@@ -11,6 +11,7 @@
 
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import type { PlanLimitError } from '$lib/domain/errors';
 import { getErrorMessage } from '$lib/domain/errors';
 import {
 	ADMIN_REWARDS_PAGE_LABELS,
@@ -231,7 +232,10 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 					type: 'success';
 					data?: { imported?: number; skipped?: number; total?: number };
 			  }
-			| { type: 'failure'; data?: { error?: string } }
+			// #2894 AC3: plan gate 拒否 (#728/#787) は error が PlanLimitError オブジェクト。
+			// 旧型は `error?: string` のみで、`String(error)` だと「[object Object]」になり
+			// plan-limit メッセージも件数表示も壊れていた (Issue 証拠④)。
+			| { type: 'failure'; data?: { error?: string | PlanLimitError } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 
@@ -250,7 +254,12 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 				await invalidateAll();
 			}
 		} else if (actionResult.type === 'failure') {
-			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.importFailed);
+			// #2894 AC3: getErrorMessage が string / PlanLimitError どちらでも message を取り出す。
+			// plan gate 403 (free tier) のときは PlanLimitError.message =
+			// PLAN_GATE_LABELS.standardOrAboveFor('ごほうび管理') が表示される。
+			// アップグレード誘導は画面上部の rewards-upgrade-banner (!data.isPremium 時) が担う。
+			actionMessage =
+				getErrorMessage(actionResult.data?.error) || ADMIN_REWARDS_PAGE_LABELS.importFailed;
 			showToast(actionMessage, undefined, 'error');
 		} else {
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importFailed;
@@ -308,7 +317,9 @@ async function handleCopyFromChild() {
 		});
 		const actionResult = deserialize(await resp.text()) as
 			| { type: 'success'; data?: { copiedCount?: number } }
-			| { type: 'failure'; data?: { error?: string } }
+			// #2894 AC3: copyFromChild も plan gate (#728) で PlanLimitError を返すため
+			// error は string | PlanLimitError。
+			| { type: 'failure'; data?: { error?: string | PlanLimitError } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 
@@ -320,7 +331,9 @@ async function handleCopyFromChild() {
 			copySourceChildId = null;
 			await invalidateAll();
 		} else if (actionResult.type === 'failure') {
-			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.copyFailed);
+			// #2894 AC3: getErrorMessage で PlanLimitError / string を一貫表示。
+			actionMessage =
+				getErrorMessage(actionResult.data?.error) || ADMIN_REWARDS_PAGE_LABELS.copyFailed;
 			showToast(actionMessage, undefined, 'error');
 		} else {
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copyFailed;
