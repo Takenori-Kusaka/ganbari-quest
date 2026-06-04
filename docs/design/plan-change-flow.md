@@ -711,12 +711,3 @@ Stripe Checkout の `custom_text` 文言は `src/lib/domain/labels.ts` の `CHEC
 `CHECKOUT_TERMS.chosenPlanFeature` = 「お選びのプランの機能」を `terms.ts` の atom として保持し、上記 compound は `${CHECKOUT_TERMS.chosenPlanFeature}` 経由参照する (ADR-0045 atom / compound 責務分離)。「すべての機能」リテラルは production code path 上から完全排除済 (回帰防止: `tests/e2e/integration/stripe-checkout-labels.spec.ts`)。
 
 法的根拠 + 5 項目チェックリストは [19-プライシング戦略書.md §2.4](19-プライシング戦略書.md) 参照。
-
----
-
-## 更新履歴
-
-| 日付 | 版数 | 内容 |
-|------|------|------|
-| 2026-04-11 | 1.0 | #747 初版作成（実装状態を反映） |
-| 2026-05-20 | 1.1 | #2346 / EPIC #2345 — Stripe Checkout `custom_text` SSOT 化 (CHECKOUT_LABELS / CHECKOUT_TERMS) + 景品表示法 5 条 1 号対応 + custom_text 図解追記 |
