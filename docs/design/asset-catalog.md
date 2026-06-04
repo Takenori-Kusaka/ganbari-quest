@@ -61,13 +61,12 @@ Claude Code がUI実装時に「絵文字で済ませるか、画像アセット
 | `trust-no-ads.svg` | 広告ブロック (円 + 斜線 + AD 文字) | #1「広告なし」 |
 | `trust-family-circle.svg` | 家族の輪 (4 人シルエット + 中央ハート) | #2「家族限定」 |
 | `trust-lock.svg` | 南京錠 (鍵穴付き) | #3「保護者専用のカギ付き」 |
-| `trust-data-local.svg` | 家のシルエット + データレイヤー 3 段 + 鍵穴 | #4「データを家族の手元に」（旧「広告ゼロ・データは家族の手元に」を #1 と訴求重複していたため `広告` を外しリフレーム） |
+| `trust-data-local.svg` | 家のシルエット + データレイヤー 3 段 + 鍵穴 | #4「データを家族の手元に」 |
 
 LP は GitHub Pages で `site/` がドキュメントルート扱い。`site/index.html` から `assets/ui/trust-*.svg` の相対パスで参照する。
 アプリ側 (SvelteKit) で同じ SVG を使いたくなった場合は `static/assets/ui/` 配下を参照する想定（現時点で参照箇所は無し、二重配置は将来 ADR で整理）。
 
 CSS では `.trust-badge .tb-icon{display:flex;...;height:32px}` + `.tb-icon img{width:32px;height:32px}` で配置。
-旧来の `font-size:2rem` 絵文字依存は `site/index.html` 内 `.trust-badge .tb-icon` 定義から撤去済（#1796 R-MAJ-6）。
 
 #### cta-trust-* SVG 一覧（#1824 で導入）
 
@@ -160,11 +159,7 @@ LP `site/index.html` の hero carousel / machine-tour / soft-features / growth-r
 | **`growth-stage-elementary{,-desktop}.webp`** (#1712 / #2097) | growth-roadmap elementary | `/elementary/home` | 780×1688 / 2880×1800 |
 | **`growth-stage-junior{,-desktop}.webp`** (#1712 / #2097) | growth-roadmap junior | `/junior/home` | 780×1688 / 2880×1800 |
 | **`growth-stage-senior{,-desktop}.webp`** (#1712 / #2097) | growth-roadmap senior | `/senior/home` | 780×1688 / 2880×1800 |
-| **`growth-stage-graduate{,-desktop}.webp`** (#1712 / #2097 / #2175) | graduation.html / growth-roadmap graduate | `/elementary/challenges` (#2175 で achievements → challenges rename) | 780×1688 / 2880×1800 |
-
-> **#1901 削除済 dead 撮影定義**: `feature-titles{,-desktop}.webp` (旧: machine-tour ② 称号セクション、#1708 で LP 削除済) と `feature-routine-checklist{,-desktop}.webp` (旧: machine-tour ③ ルーティン、#1708 で LP 削除済) は LP HTML 参照ゼロ + ETag 重複ペアの根本原因のため `capture-hp-screenshots.mjs` から削除。
->
-> **#1901 carousel SS の URL 同期**: `carousel-4-admin-sub` の撮影元 URL を旧 `/admin/activities` から `/admin/children` に振り替え。`feature-settings` との URL/ETag 重複を解消。LP `site/index.html` の data-label / alt も「子供管理 ― 家族メンバーの登録と切替」に同期。
+| **`growth-stage-graduate{,-desktop}.webp`** (#1712 / #2097 / #2175) | graduation.html / growth-roadmap graduate | `/elementary/challenges` | 780×1688 / 2880×1800 |
 
 ### 撮影方法
 
