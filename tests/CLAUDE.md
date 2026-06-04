@@ -254,6 +254,7 @@ CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.
 - DB スキーマ変更時は `tests/e2e/global-setup.ts` のテストデータ投入も更新
 - 全 4 年齢コアモード (preschool/elementary/junior/senior) のテストデータ必要
 - 活動記録の完全フロー (確認→記録→コンボ→スタンプ→レベルアップ→ホーム復帰) を検証
+- **worker DB 共有 spec が seed 済 setting を削除する場合、削除前 snapshot + afterAll で復元が必須** (#2851、`features.spec.ts` #0025 が `templates.length > 0` を要求する `reward_templates` を `setup-resume-path.spec.ts` が削除したまま終了し決定的 fail した教訓)。afterAll で「自分が追加した値」を消すだけでは seed 値が復元されず不十分。beforeAll で削除前の seed 値を `SELECT` で退避し、afterAll で `INSERT OR REPLACE` (snapshot 非 null) / `DELETE` (snapshot null) で元の seed 状態へ完全復元する
 
 ## プラン別 seed fixture（#759）
 
