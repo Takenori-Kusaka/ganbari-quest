@@ -74,6 +74,17 @@ Dev Self-Review で「PASS」と自己宣言したが QM Re-Review で実態 FAI
 
 verdict table には「false PASS 主張ゼロを目視確認済」を明記する。QA team が merge 前に加えた fix の頻出パターンは [../sessions/dev-process/qa-fix-patterns.md](../sessions/dev-process/qa-fix-patterns.md) を参照し、事前回避する。
 
+### §2.4-2 機械 gate 対応表 + 観点一括 CLI 不採用判断（#2815 D-2）
+
+17 観点の機械検証は **既存 4 層 gate**（pre-ready 12 step / `.husky/pre-push` verify chain / CI lint-and-test / check-pr-body）が担う。**観点一括実行の専用 CLI（run-self-review.mjs）は新設しない**（PO 指示の deep research 判断: 機械化可能観点は既存 gate で充足済みで、新 CLI は pre-ready のサブセット再実装 = 二重管理 #1442 / ADR-0010 Bucket C。証跡なき `[x]` の検出は check-pr-body の `self-review-evidence-missing` gate が担う）。
+
+| 観点群 | 機械化 | 担う既存 gate |
+|---|---|---|
+| #1 破綻なし / #4 Storybook / #8 場当たり禁止 / #9 AC マップ / #10 必須セクション / #11 禁止語 | 完全機械化（充足済み） | pre-ready Step1-3 + CI lint-and-test / `test:storybook` CI / stylelint + `check-no-plan-literals.mjs` + `check-hardcoded-strings.mjs` / `check-pr-body.mjs`（pre-ready Step9・pre-push・CI gate の 3 層） |
+| #6 docs SSOT（履歴メタ 0 件） | 機械化可・未 gate | grep 手動（gate 化は #2440 棚卸 Phase 4 で ratchet 化判断） |
+| #2 テスト十分性 / #5 過去指摘 / #12 label / #13 並行実装 / #15 セキュリティ / #16 リーク / #17 性能 | 半機械（候補抽出のみ機械） | `check-test-antipatterns` + coverage ratchet / `lint:parallel` / pr-info type-label 等 — **要否・妥当性の最終判断は人/LLM**（§2.4 の証跡必須が適用される） |
+| #3 SS 期待 UX / #7 SOLID / #14 Research 適合 | 機械化不可 | 人/LLM 判断必須（証跡コマンド添付は §2.4 で強制） |
+
 ---
 
 ## §3 Agent spawn テンプレート

@@ -223,6 +223,7 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 詳細は ADR-0022 / ADR-0026。要点:
 
 - **CI 緑 = approve**（#1197 / #1198）/ SS 未視認で approve / Issue を開かず approve / 「見ました」だけの所見
+- **Dev の self-report（pre-ready `[x]` / 完遂宣言）を独立検証なしに信用して approve**（#2815 post-mortem 事例: pre-ready 自己申告と CI の乖離 = PR #2503 / Self-Review false PASS 3 連発 = #2475 / Fix Agent「全件解消」が実 60% = #2690 / approve 宣言のみで tool call せず exit = #2756）。Re-Review 手順 4 の物理 verification（grep 件数突合）と CI 実結果を必ず照合する
 - 1 Agent で複数 PR / 独自フォーマットの approve body / `--admin` bypass（ADR-0022 完全禁止）
 - CI 失敗のゼロベーストラブルシュート（KB 参照 → Fix Agent spawn が標準）
 - **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は **3 層機械強制機構** で abort される:
