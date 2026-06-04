@@ -332,6 +332,58 @@ describe('markMessageShown', () => {
 		// Scan のみ、Update は呼ばない
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
+
+	// ----------------------------------------------------------
+	// #2842 回帰: Scan の Limit は filter 前評価。対象 item が scan 順で先頭ページに
+	//   無いケースを LastEvaluatedKey で再現し、ページングで必ず見つけることを固定する。
+	//   旧 `Limit: 1` 単発実装ではこのケースで Items=[] となり markMessageShown が
+	//   無言で no-op になっていた (Issue #2842)。
+	// ----------------------------------------------------------
+	it('#2842: 対象 item が先頭ページに無くても LastEvaluatedKey でページングして見つける', async () => {
+		// 1) 1 ページ目: 別 id の item のみ (target 不在) + LastEvaluatedKey
+		mockSend.mockResolvedValueOnce({
+			Items: [],
+			LastEvaluatedKey: { PK: 'cursor', SK: 'cursor' },
+		});
+		// 2) 2 ページ目: 目的の id=7 が見つかる
+		mockSend.mockResolvedValueOnce({
+			Items: [makeItem({ id: 7, shownAt: null })],
+		});
+		// 3) UpdateCommand
+		mockSend.mockResolvedValueOnce({
+			Attributes: makeItem({ id: 7, shownAt: '2026-06-04T02:00:00.000Z' }),
+		});
+
+		const { markMessageShown } = await loadRepo();
+		const result = await markMessageShown(7, TENANT);
+
+		// 2 ページ走査して target を見つけ、Update まで到達できる (no-op しない)
+		expect(result?.shownAt).toBe('2026-06-04T02:00:00.000Z');
+		// Scan 2 回 + Update 1 回
+		expect(mockSend).toHaveBeenCalledTimes(3);
+
+		// 2 回目の Scan に ExclusiveStartKey が渡り、Limit が付いていないこと (filter 前評価の罠回避)
+		const secondScan = mockSend.mock.calls[1]?.[0] as {
+			input: { ExclusiveStartKey?: Record<string, unknown>; Limit?: number };
+		};
+		expect(secondScan.input.ExclusiveStartKey).toEqual({ PK: 'cursor', SK: 'cursor' });
+		expect(secondScan.input.Limit).toBeUndefined();
+	});
+
+	it('#2842: 全ページ走査しても target が無ければ undefined (Update を呼ばない)', async () => {
+		// 1) 1 ページ目: target 不在 + LastEvaluatedKey
+		mockSend.mockResolvedValueOnce({
+			Items: [],
+			LastEvaluatedKey: { PK: 'cursor', SK: 'cursor' },
+		});
+		// 2) 2 ページ目: 依然 target 不在 + LastEvaluatedKey 無し (走査終端)
+		mockSend.mockResolvedValueOnce({ Items: [] });
+
+		const { markMessageShown } = await loadRepo();
+		expect(await markMessageShown(404, TENANT)).toBeUndefined();
+		// Scan 2 回のみ、Update は呼ばない
+		expect(mockSend).toHaveBeenCalledTimes(2);
+	});
 });
 
 // ============================================================

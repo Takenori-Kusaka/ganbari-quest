@@ -201,27 +201,38 @@ async function queryChildMessages(
 
 /**
  * messageId だけ受け取る markMessageShown 用に、tenant 配下を Scan して PK/SK + item を
- * 解決する。SK は MSG#<id> だが childId が不明なため tenant Scan + id filter で 1 件特定する
- * (reward-redemption-repo.findRedemptionItemById と同じパターン、低頻度経路)。
+ * 解決する。SK は MSG#<id> だが childId が不明なため tenant Scan + id filter で 1 件特定する。
+ *
+ * #2842: DynamoDB の Scan `Limit` は **FilterExpression 適用前に評価された item 数** を
+ *   上限とするため、`Limit: 1` + Filter では「scan 順で先頭に来た 1 件」が filter に一致
+ *   しない限り `Items` が空になり markMessageShown が無言で no-op になる致命バグだった。
+ *   正しくは `Limit` を付けず (= page ごと最大 1MB を評価)、`ExclusiveStartKey` で
+ *   `LastEvaluatedKey` が尽きるまでページングし、一致 item を見つけた時点で早期 return する。
+ *   一致が無ければ全ページ走査後に undefined を返す (queryChildMessages と同じページング正パターン)。
  */
 async function findMessageItemById(
 	id: number,
 	tenantId: string,
 ): Promise<({ PK: string; SK: string } & Record<string, unknown>) | undefined> {
-	const result = await getDocClient().send(
-		new ScanCommand({
-			TableName: TABLE_NAME,
-			FilterExpression:
-				'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
-			ExpressionAttributeValues: {
-				':tenantPrefix': tenantPK('CHILD#', tenantId),
-				':skPrefix': PREFIX,
-				':id': id,
-			},
-			Limit: 1,
-		}),
-	);
-	const item = (result.Items ?? [])[0];
-	if (!item) return undefined;
-	return item as { PK: string; SK: string } & Record<string, unknown>;
+	const doc = getDocClient();
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await doc.send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
+				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
+					':skPrefix': PREFIX,
+					':id': id,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		const item = (result.Items ?? [])[0];
+		if (item) return item as { PK: string; SK: string } & Record<string, unknown>;
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+	return undefined;
 }
