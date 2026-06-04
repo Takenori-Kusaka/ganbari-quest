@@ -59,14 +59,11 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 	notifyNewSignup: vi.fn().mockResolvedValue(undefined),
 }));
 
-// --- License Key Service モック ---
-// Phase 1 補強 3 §3.1: signup の license key 入力経路を削除済。
-// confirm action は license-key-service を import しないため本 mock は発火しないが、
-// 「license key 経路が呼ばれないこと」を回帰防止 assert する目的で consumeLicenseKey spy を残す。
-const mockConsumeLicenseKey = vi.fn().mockResolvedValue({ ok: true, plan: 'monthly' });
-vi.mock('$lib/server/services/license-key-service', () => ({
-	consumeLicenseKey: (...args: unknown[]) => mockConsumeLicenseKey(...args),
-}));
+// Phase 1 補強 3 §3.1 / PR-L5 (#2860): signup の license key 入力経路 +
+// license-key-service.ts を物理削除済。confirm action は license key を一切 import せず、
+// entitlement は Stripe Subscription (tenant.status=ACTIVE) が唯一 SSOT。
+// 旧 consumeLicenseKey spy mock は対象 module 不在で dead 化したため撤去
+// (回帰防止は「licenseKey フォーム値を渡しても /admin へ進む」redirect assert で担保)。
 
 // --- Trial Service モック (#766) ---
 const mockStartTrial = vi.fn();
@@ -89,9 +86,6 @@ beforeEach(() => {
 	mockResolveContext.mockReset();
 	mockRecordConsent.mockReset();
 	mockRecordConsent.mockResolvedValue(undefined);
-	// license key モックも毎回リセット（回帰防止 assert 用）
-	mockConsumeLicenseKey.mockReset();
-	mockConsumeLicenseKey.mockResolvedValue({ ok: true, plan: 'monthly' });
 	// #766: startTrial モックのデフォルトは成功
 	mockStartTrial.mockReset();
 	mockStartTrial.mockResolvedValue(true);
@@ -506,8 +500,6 @@ describe('confirm action', () => {
 			expect((e as { status: number }).status).toBe(302);
 			expect((e as { location: string }).location).toBe('/admin');
 		}
-
-		expect(mockConsumeLicenseKey).not.toHaveBeenCalled();
 	});
 
 	// ========================================================
@@ -676,8 +668,7 @@ describe('confirm action', () => {
 			expect((e as { status: number }).status).toBe(302);
 		}
 
-		// license key は読まれず（consumeLicenseKey 不呼出）、plan に従いトライアル開始
-		expect(mockConsumeLicenseKey).not.toHaveBeenCalled();
+		// license key は読まれず、plan に従いトライアル開始
 		expect(mockStartTrial).toHaveBeenCalledWith({
 			tenantId: 'tenant-abc',
 			source: 'user_initiated',
