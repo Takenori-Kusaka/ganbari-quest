@@ -298,8 +298,8 @@ function buildSteps(args, changedFiles) {
 			runner: () => run('check-no-plan-literals', ['node', 'scripts/check-no-plan-literals.mjs']),
 			fixHint:
 				'  プラン / ステータスのリテラル直書きが検出されました (#972)。\n' +
-				'  - 修正: $lib/domain/constants/license-plan.ts 等の定数経由に置換\n' +
-				"  - 例: 'family-monthly' → LICENSE_PLAN.FAMILY_MONTHLY\n" +
+				'  - 修正: $lib/domain/constants/subscription-plan.ts 等の定数経由に置換\n' +
+				"  - 例: 'family-monthly' → SUBSCRIPTION_PLAN.FAMILY_MONTHLY\n" +
 				"  - 例: 'grace_period' → SUBSCRIPTION_STATUS.GRACE_PERIOD",
 		},
 		// Step 7b: check-license-key-leak (#2836 / Epic #2525 Phase 7 PR-L4)

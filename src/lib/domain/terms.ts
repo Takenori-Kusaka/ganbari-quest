@@ -60,7 +60,7 @@
 //   - ADR-0058 (family → premium rename、PO 判断適用)
 //   - ADR-0045 (terms.ts 2 階層): 1 行修正で全 LP・アプリ本体・法務文書に伝播
 //   - Phase 5 子 5 SSOT #2656 §4.1 Step 4
-//   - Phase 6 子 4 #2673 文脈判断: LICENSE_PLAN.FAMILY 等の内部 enum / DB schema enum /
+//   - Phase 6 子 4 #2673 文脈判断: SUBSCRIPTION_PLAN.FAMILY 等の内部 enum / DB schema enum /
 //     legacy メール文面の「ファミリー」は本 rename 対象外 (legacy 性質保持)
 
 export const PLAN_TERMS = {

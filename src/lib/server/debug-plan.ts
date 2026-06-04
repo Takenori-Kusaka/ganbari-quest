@@ -7,7 +7,7 @@
 
 import { dev } from '$app/environment';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { toJSTDateString } from '$lib/domain/date-utils';
 import type { AuthContext } from '$lib/server/auth/types';
 import type { TrialTier } from '$lib/server/services/trial-service';
@@ -51,9 +51,9 @@ export function getDebugPlanOverride(): DebugPlanOverride | null {
 		case 'free':
 			return { licenseStatus: AUTH_LICENSE_STATUS.NONE, plan: undefined };
 		case 'standard':
-			return { licenseStatus: AUTH_LICENSE_STATUS.ACTIVE, plan: LICENSE_PLAN.MONTHLY };
+			return { licenseStatus: AUTH_LICENSE_STATUS.ACTIVE, plan: SUBSCRIPTION_PLAN.MONTHLY };
 		case 'family':
-			return { licenseStatus: AUTH_LICENSE_STATUS.ACTIVE, plan: LICENSE_PLAN.FAMILY_MONTHLY };
+			return { licenseStatus: AUTH_LICENSE_STATUS.ACTIVE, plan: SUBSCRIPTION_PLAN.FAMILY_MONTHLY };
 	}
 }
 

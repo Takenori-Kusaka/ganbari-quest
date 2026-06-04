@@ -2,7 +2,7 @@
 // Stripe 決済サービス (#0131)
 
 import type Stripe from 'stripe';
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import { MS_PER_DAY } from '$lib/domain/constants/time';
 import { CHECKOUT_LABELS, PLAN_LABELS } from '$lib/domain/labels';
@@ -29,7 +29,7 @@ export interface CreateCheckoutInput {
 	/**
 	 * Stripe Checkout 対象プラン。
 	 * #2719 (Phase 7 PR-3b prerequisite): 年額廃止に伴い `PlanId` は monthly 2 種のみ。
-	 * `LICENSE_PLAN.YEARLY` / `FAMILY_YEARLY` / `LIFETIME` は新規 checkout 対象外。
+	 * `SUBSCRIPTION_PLAN.YEARLY` / `FAMILY_YEARLY` / `LIFETIME` は新規 checkout 対象外。
 	 */
 	planId: PlanId;
 	successUrl: string;
@@ -264,7 +264,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 	// 認可は `tenant.stripeSubscriptionId` + `tenant.status` から計算される
 	// (license key を読まない)。Phase 1 補強 3 §3.3 でライセンスキー発行 +
 	// メール送信の冗長層 (issueLicenseKey / sendLicenseKeyEmail) を削除した。
-	const plan = (planId as Tenant['plan']) ?? LICENSE_PLAN.MONTHLY;
+	const plan = (planId as Tenant['plan']) ?? SUBSCRIPTION_PLAN.MONTHLY;
 	const repos = getRepos();
 	await repos.auth.updateTenantStripe(tenantId, {
 		stripeCustomerId: customerId ?? undefined,
@@ -301,7 +301,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
 	const repos = getRepos();
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
 		status: SUBSCRIPTION_STATUS.ACTIVE,
-		plan: plan ?? tenant.plan ?? LICENSE_PLAN.MONTHLY,
+		plan: plan ?? tenant.plan ?? SUBSCRIPTION_PLAN.MONTHLY,
 	});
 
 	logger.info(`[STRIPE] Invoice paid: tenant=${tenant.tenantId}`);
@@ -357,7 +357,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
 				: SUBSCRIPTION_STATUS.SUSPENDED;
 
 	await repos.auth.updateTenantStripe(tenant.tenantId, {
-		plan: plan ?? tenant.plan ?? LICENSE_PLAN.MONTHLY,
+		plan: plan ?? tenant.plan ?? SUBSCRIPTION_PLAN.MONTHLY,
 		status,
 	});
 

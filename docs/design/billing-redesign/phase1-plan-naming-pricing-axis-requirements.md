@@ -174,6 +174,7 @@ Phase 1 trial 要件 (#2533) の「family 固定 7 日」は本 FR-1 連動で�
   - [User Intuition: Annual vs Monthly Trade-offs](https://www.userintuition.ai/reference-guides/annual-vs-monthly-plans-commitment-cash-and-churn-trade-offs)
   - [Crowell: FTC Click-to-Cancel 2025](https://www.crowell.com/en/insights/client-alerts/ftcs-new-click-to-cancel-and-what-it-means-for-businesses-with-any-form-of-subscription-membership-or-auto-renew-or-recurring-payment-program)
   - [Prosperity Issue: Subscription Overload Families](https://prosperityissue.com/subscription-overload-how-recurring-costs-are-quietly-impacting-families)
+<!-- doc-code-refs: ignore-line -->
 - **Explore (2026-05-28)**: `src/lib/server/stripe/config.ts` (4 Price) / `src/lib/domain/constants/license-plan.ts` (MONTHLY/YEARLY_PLANS) / `src/lib/domain/terms.ts` (PLAN_TERMS / PRICE_TERMS) / `src/lib/domain/labels.ts` (95 件 atom 経由参照) / `site/*.html` (35 件) / 法務文書 (5 件)
 - 関連 ADR: ADR-0010 (Pre-PMF) / ADR-0012 (Anti-engagement) / ADR-0013 (LP truth) / ADR-0014 (OSS 先調査) / ADR-0028 (引き止めない) / ADR-0045 (atom/compound 2 階層) / ADR-0049 (retention)
 - 関連 memory: [[plan-name-implementation-gap]] / [[roi-framing-customer-anxiety-axis]] / [[replan-on-unforeseen-blocker]] (本セッション教訓)

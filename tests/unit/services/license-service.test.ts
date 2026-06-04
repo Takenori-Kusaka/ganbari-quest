@@ -37,7 +37,6 @@ describe('license-service', () => {
 				ownerId: 'user-1',
 				status: 'active',
 				plan: 'monthly',
-				licenseKey: 'LIC-123',
 				stripeCustomerId: 'cus_abc',
 				stripeSubscriptionId: 'sub_xyz',
 				planExpiresAt: '2027-01-01T00:00:00Z',
@@ -51,7 +50,6 @@ describe('license-service', () => {
 			const info = result as LicenseInfo;
 			expect(info.plan).toBe('monthly');
 			expect(info.status).toBe('active');
-			expect(info.licenseKey).toBe('LIC-123');
 			expect(info.tenantName).toBe('テスト家族');
 			expect(info.stripeCustomerId).toBe('cus_abc');
 			expect(info.stripeSubscriptionId).toBe('sub_xyz');
@@ -67,7 +65,6 @@ describe('license-service', () => {
 				ownerId: 'user-2',
 				status: 'active',
 				plan: null,
-				licenseKey: undefined,
 				stripeCustomerId: undefined,
 				stripeSubscriptionId: undefined,
 				planExpiresAt: undefined,
@@ -105,7 +102,6 @@ describe('license-service', () => {
 				ownerId: 'user-full',
 				status: 'grace_period' as const,
 				plan: 'yearly' as const,
-				licenseKey: 'LIC-FULL',
 				stripeCustomerId: 'cus_full',
 				stripeSubscriptionId: 'sub_full',
 				planExpiresAt: '2028-12-31T00:00:00Z',
@@ -119,7 +115,6 @@ describe('license-service', () => {
 			expect(result).toEqual({
 				plan: 'yearly',
 				status: 'grace_period',
-				licenseKey: 'LIC-FULL',
 				tenantName: 'フル家族',
 				stripeCustomerId: 'cus_full',
 				stripeSubscriptionId: 'sub_full',
@@ -145,7 +140,6 @@ describe('license-service', () => {
 				ownerId: 'user-min',
 				status: 'active',
 				plan: 'monthly',
-				licenseKey: undefined,
 				stripeCustomerId: undefined,
 				stripeSubscriptionId: undefined,
 				planExpiresAt: undefined,
@@ -156,7 +150,6 @@ describe('license-service', () => {
 			const result = await getLicenseInfo('tenant-minimal');
 
 			expect(result).not.toBeNull();
-			expect(result?.licenseKey).toBeUndefined();
 			expect(result?.stripeCustomerId).toBeUndefined();
 			expect(result?.stripeSubscriptionId).toBeUndefined();
 			expect(result?.planExpiresAt).toBeUndefined();

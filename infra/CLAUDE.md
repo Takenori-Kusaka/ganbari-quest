@@ -39,13 +39,12 @@ CloudFront はグローバル（geoRestriction `JP`）。新規 region 言及は
 | 3 | Lambda 本番 (`deploy.yml` deploy → CDK) | GitHub Secrets → CDK context → Lambda env | `CDK Deploy all stacks` の `-c` + `compute-stack.ts` `tryGetContext` + `environment` |
 | 4 | NUC ローカル (`deploy-nuc.yml`) | GitHub Secrets → self-hosted runner → `.env` 生成 | `Generate .env from GitHub Secrets` ステップ + `gh secret set <NAME>` |
 
-**重要**: #3 と #4 は **同一値** 必須（両環境で署名したライセンスキーが相互検証できる）。
+**注**: Epic #2525 Phase 7 PR-L5 (#2860) で license key 全廃に伴い `AWS_LICENSE_SECRET` (Lambda / NUC 同値必須だった HMAC 署名鍵) を撤去。現在 Lambda / NUC 同値必須の env はない。
 
 ### 必須 production env
 
 | env | 用途 | 本番要否 |
 |---|---|---|
-| `AWS_LICENSE_SECRET` | ライセンスキー HMAC 署名 (#806) | Lambda + NUC 必須、両方同値 |
 | `PARENT_GATE_COOKIE_SECRET` | /admin/* PIN gate cookie 署名 (#2310 / ADR-0050 / #2337) | Lambda + NUC 必須、同値不要 |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe 課金 | Lambda 必須 / NUC 無効 |
 | `GEMINI_API_KEY` | Gemini API | 任意 |
@@ -91,12 +90,12 @@ main push で GitHub Actions 自動実行 (`deploy.yml`)。フロー: test → S
 ### Secret 配布フロー（PR #913 改訂後）
 
 ```bash
-gh secret set AWS_LICENSE_SECRET --body "<64桁hex>" --repo Takenori-Kusaka/ganbari-quest
+gh secret set PARENT_GATE_COOKIE_SECRET --body "<64桁hex>" --repo Takenori-Kusaka/ganbari-quest
 # → 次回 deploy-nuc.yml 実行時に self-hosted runner が C:\Docker\ganbari-quest\.env を再生成
 # → curl http://<NUC_HOST>:3000/api/health で 200 確認
 ```
 
-`AWS_LICENSE_SECRET` は Lambda と同値必須（別値だと NUC 発行ライセンスが Lambda で検証失敗）。GitHub Secrets 1 回登録で deploy.yml + deploy-nuc.yml 両方に配布される。
+GitHub Secrets 1 回登録で deploy.yml + deploy-nuc.yml 両方に配布される。Epic #2525 Phase 7 PR-L5 (#2860) で `AWS_LICENSE_SECRET` (Lambda / NUC 同値必須だった HMAC 鍵) は license key 全廃に伴い撤去済。
 
 ### NUC デプロイ順序（必須）
 

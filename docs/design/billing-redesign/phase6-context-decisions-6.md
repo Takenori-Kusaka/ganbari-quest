@@ -84,6 +84,7 @@ Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env va
 
 | 項目 | 内容 |
 |---|---|
+<!-- doc-code-refs: ignore-line -->
 | **現状** | `src/lib/domain/constants/license-plan.ts` で定義、plan billing tier (FREE / MONTHLY / YEARLY / FAMILY_MONTHLY / FAMILY_YEARLY / LIFETIME) を表現する**内部識別子** |
 | **影響範囲** | 論点 1 と合算 43 件 (Explore 照合) |
 | **業界根拠** | (a) Stripe SDK は `Plan` という概念を持つが、本プロダクトの `LICENSE_PLAN` は実質 SubscriptionPlan / BillingPlan 相当 (b) Phase 1 補強 2 で `family` → `premium` rename 後、`LICENSE_PLAN.FAMILY_MONTHLY` も `LICENSE_PLAN.PREMIUM_MONTHLY` に rename する必要が出るが、enum 名自体は `LICENSE_PLAN` のままでも内部識別子として支障なし — **だったが、#2788 で license key 完全全廃が確定し「NUC で license key は billing proof」前提が崩れたため、enum 自体が dead concept 化** |
@@ -132,6 +133,7 @@ Phase 5 子 1 §3.4 で lookup_key 経由参照を確定したが、**旧 env va
 
 | 項目 | 内容 |
 |---|---|
+<!-- doc-code-refs: ignore-line -->
 | **現状** | `LICENSE_KEY_STATUS` enum (`src/lib/domain/constants/license-key-status.ts` 想定 + `src/lib/server/db/dynamodb/auth-repo.ts` 参照) — NUC license key 内部状態 (consumed / revoked / migrated) を表現 |
 | **影響範囲** | enum 定義 + DynamoDB `auth-repo.ts` の `licenseKey` 列 + `LicenseRecord` table + `license-key-service.ts` (#2788 で全て物理削除対象、旧「NUC で唯一の billing proof」は FR-5 自己矛盾訂正で撤回) |
 | **業界根拠** | (a) Phase 1 補強 1 FR-5「`LICENSE_KEY_STATUS` enum NUC license key 内部状態 (consumed/revoked/migrated)、DB schema 後方互換」で「残す」と明記済 — **だったが、補強 3 §1.2 で FR-5 は SSOT 内部の自己矛盾フラグメントと判明し訂正済** (b) NUC は信頼ベース (family 固定) で license key を読まないため、`LICENSE_KEY_STATUS` enum も `LicenseRecord` table も参照されない dead schema 化 (c) DB persist 値は internal identifier だが、参照経路が全廃されるため列ごと撤去可能 |

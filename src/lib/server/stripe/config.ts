@@ -7,11 +7,11 @@
 // #2719 (Phase 7 PR-3b prerequisite、Pre-PMF YAGNI 整合):
 // Phase 1 補強 2 FR-2 + 補強 PR #2684 で年額廃止確定。本ファイルから yearly 経路を
 // 物理削除し、新規購入経路は月額のみ受け付ける形に統一。
-// historical record (過去 yearly 契約者の plan label / MRR 計算) は `LICENSE_PLAN.YEARLY` /
+// historical record (過去 yearly 契約者の plan label / MRR 計算) は `SUBSCRIPTION_PLAN.YEARLY` /
 // `FAMILY_YEARLY` constants と `ops-analytics-service` / `cohort-analysis-service` で
 // 別途維持される (本ファイル `getPlans()` の対象外)。
 
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { PLAN_TERMS, PRICE_TERMS } from '$lib/domain/terms';
 import { notifyStripeAlert } from './alert';
 import { getPriceByLookupKey, type LookupKey } from './price-cache';
@@ -19,11 +19,11 @@ import { getPriceByLookupKey, type LookupKey } from './price-cache';
 /**
  * Stripe で新規購入可能なプラン (#2719: yearly 廃止後の monthly 2 種限定)。
  *
- * 旧来 `Exclude<LicensePlan, LIFETIME>` で yearly を含んでいたが、年額廃止確定により
+ * 旧来 `Exclude<SubscriptionPlan, LIFETIME>` で yearly を含んでいたが、年額廃止確定により
  * Stripe checkout / Portal で扱う Price 構成は monthly 2 種のみ。
- * historical record (過去 yearly 契約者の display) は `LicensePlan` 全体型を別途使用する。
+ * historical record (過去 yearly 契約者の display) は `SubscriptionPlan` 全体型を別途使用する。
  */
-export type PlanId = typeof LICENSE_PLAN.MONTHLY | typeof LICENSE_PLAN.FAMILY_MONTHLY;
+export type PlanId = typeof SUBSCRIPTION_PLAN.MONTHLY | typeof SUBSCRIPTION_PLAN.FAMILY_MONTHLY;
 
 export interface PlanConfig {
 	priceId: string;
@@ -44,14 +44,14 @@ export interface PlanConfig {
  */
 function buildPlanConfigs(): Record<PlanId, PlanConfig> {
 	return {
-		[LICENSE_PLAN.MONTHLY]: {
+		[SUBSCRIPTION_PLAN.MONTHLY]: {
 			priceId: process.env.STRIPE_PRICE_STANDARD_MONTHLY ?? '',
 			amount: 500,
 			interval: 'month',
 			tier: 'standard',
 			label: `${PLAN_TERMS.standard}月額（${PRICE_TERMS.standard}/月）`,
 		},
-		[LICENSE_PLAN.FAMILY_MONTHLY]: {
+		[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]: {
 			priceId: process.env.STRIPE_PRICE_FAMILY_MONTHLY ?? '',
 			amount: 780,
 			interval: 'month',

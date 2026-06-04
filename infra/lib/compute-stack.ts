@@ -130,23 +130,10 @@ export class ComputeStack extends cdk.Stack {
 		const cronSecret = this.node.tryGetContext('cronSecret') ?? '';
 		const legacyOpsSecretKey = this.node.tryGetContext('opsSecretKey') ?? '';
 
-		// --- License Key HMAC Secret (#806, #911) ---
-		// production で未設定だと hooks.server.ts の assertLicenseKeyConfigured() が
-		// 起動時に throw するため、Lambda 環境変数として必ず注入する。
-		// ADR-0026 §G2 の grace period 実装までは process.env 直読み方式を維持する。
-		// 恒久的には AWS Secrets Manager 経由の読み込み (#810) に移行予定。
-		const awsLicenseSecret = this.node.tryGetContext('awsLicenseSecret') ?? '';
-		if (!awsLicenseSecret) {
-			// 必須 Secret が未設定のまま誤デプロイされると、Lambda cold start 時に
-			// assertLicenseKeyConfigured() が throw して本番障害になるため、
-			// CDK 側で明示的に失敗させる（addError は deploy を阻止する）。
-			cdk.Annotations.of(this).addError(
-				'[ComputeStack] awsLicenseSecret context is empty. ' +
-					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax, not JS template literal
-					'Pass -c awsLicenseSecret=${{ secrets.AWS_LICENSE_SECRET }} in the deploy workflow. ' +
-					'See docs/decisions/archive/0026-license-key-architecture.md and infra/CLAUDE.md.',
-			);
-		}
+		// Epic #2525 Phase 7 PR-L5 (#2860): license key 全廃 contract に伴い AWS_LICENSE_SECRET の
+		// CDK context 取得 + 必須検証 (addError) + Lambda env 注入を撤去。assertLicenseKeyConfigured()
+		// は PR-L0 (#2806) で no-op 化済のため起動失敗リスクなし。entitlement は Stripe Subscription
+		// (tenant.status) が唯一 SSOT。GitHub Secrets 実体 + deploy workflow の -c 引数撤去は PO 手動。
 
 		// --- Parent-Gate Cookie Secret (#2310 / #2337 / ADR-0050) ---
 		// /admin/* PIN gate の cookie-signature HMAC-SHA256 署名キー。
@@ -221,10 +208,7 @@ export class ComputeStack extends cdk.Stack {
 				...(discordWebhookIncident ? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident } : {}),
 				...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
 				...(legacyOpsSecretKey ? { OPS_SECRET_KEY: legacyOpsSecretKey } : {}),
-				// #911 / #806: assertLicenseKeyConfigured() が必須要求する。
-				// 未設定だと Lambda cold start 時に throw して 500 連発するため、
-				// GitHub Actions Secrets 経由で必ず注入する。
-				...(awsLicenseSecret ? { AWS_LICENSE_SECRET: awsLicenseSecret } : {}),
+				// Epic #2525 Phase 7 PR-L5 (#2860): AWS_LICENSE_SECRET 注入を撤去 (license key 全廃)。
 				// #2310 / #2337 / ADR-0050: parent-gate-session.ts の getSecret() が production
 				// cognito mode で必須要求する。未注入だと /admin/* cold start 時に throw して
 				// 500 連発 (2026-05-20 実害発生)。AWS_LICENSE_SECRET と同じ運用。
@@ -429,7 +413,6 @@ export class ComputeStack extends cdk.Stack {
 				//   - COGNITO_* / CONTEXT_TOKEN_SECRET (Cognito)
 				//   - STRIPE_* (Stripe)
 				//   - GEMINI_API_KEY (Gemini)
-				//   - AWS_LICENSE_SECRET (License HMAC)
 				//   - CRON_SECRET / OPS_SECRET_KEY (cron / ops)
 				//   - DISCORD_WEBHOOK_* (Discord)
 				//   - SES_SENDER_EMAIL / SES_CONFIG_SET_NAME (SES)

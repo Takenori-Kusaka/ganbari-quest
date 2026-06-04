@@ -8,7 +8,7 @@
  * 2 種類のルールを内蔵:
  *
  * 1. VALUE_LITERAL_RULES (#972)
- *    - LicensePlan / SubscriptionStatus / LicenseKeyStatus 等の値リテラル
+ *    - SubscriptionPlan / SubscriptionStatus / LicenseKeyStatus 等の値リテラル
  *    - 例: 'family-monthly' / 'grace_period'
  *    - 用途: `$lib/domain/constants/*` の定数経由で参照させる
  *
@@ -31,7 +31,7 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 // ---------------------------------------------------------------------------
-// VALUE_LITERAL_RULES (#972) — LicensePlan 等の値リテラル
+// VALUE_LITERAL_RULES (#972) — SubscriptionPlan 等の値リテラル
 //
 // 検出ルール (曖昧性のない = 他ドメインで流用されない値のみ)
 //  - 'monthly' / 'yearly' / 'terminated' / 'consumed' / 'revoked' / 'lifetime' は
@@ -40,8 +40,8 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 // ---------------------------------------------------------------------------
 
 const VALUE_LITERAL_RULES = [
-	{ pattern: 'family-monthly', constant: 'LICENSE_PLAN.FAMILY_MONTHLY', kind: 'value' },
-	{ pattern: 'family-yearly', constant: 'LICENSE_PLAN.FAMILY_YEARLY', kind: 'value' },
+	{ pattern: 'family-monthly', constant: 'SUBSCRIPTION_PLAN.FAMILY_MONTHLY', kind: 'value' },
+	{ pattern: 'family-yearly', constant: 'SUBSCRIPTION_PLAN.FAMILY_YEARLY', kind: 'value' },
 	{ pattern: 'grace_period', constant: 'SUBSCRIPTION_STATUS.GRACE_PERIOD', kind: 'value' },
 ];
 
@@ -313,7 +313,7 @@ function main() {
 	}
 	console.error('修正方針:');
 	console.error(
-		'  - kind=value: src/lib/domain/constants/{license-plan,subscription-status,license-key-status,auth-license-status}.ts の定数を import',
+		'  - kind=value: src/lib/domain/constants/{subscription-plan,subscription-status,license-key-status,auth-license-status}.ts の定数を import',
 	);
 	console.error(
 		'  - kind=term : src/lib/domain/terms.ts の atom (PLAN_FULL_TERMS / PRICE_TERMS / TRIAL_TERMS / CANCEL_TERMS / FREE_TERMS) を import (#1916 ADR-0045)',

@@ -5,7 +5,7 @@
 //
 // +page.server.ts からビジネスロジックを抽出（アーキテクチャ規約準拠）。
 
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '$lib/server/auth/entities';
 import { getRepos } from '$lib/server/db/factory';
@@ -138,10 +138,10 @@ export interface OpsAnalyticsData {
 
 /** プラン別 MRR 単価 (monthly 換算) */
 const PLAN_MRR_UNIT: Record<string, number> = {
-	[LICENSE_PLAN.MONTHLY]: 500,
-	[LICENSE_PLAN.YEARLY]: Math.round(5000 / 12),
-	[LICENSE_PLAN.FAMILY_MONTHLY]: 780,
-	[LICENSE_PLAN.FAMILY_YEARLY]: Math.round(7800 / 12),
+	[SUBSCRIPTION_PLAN.MONTHLY]: 500,
+	[SUBSCRIPTION_PLAN.YEARLY]: Math.round(5000 / 12),
+	[SUBSCRIPTION_PLAN.FAMILY_MONTHLY]: 780,
+	[SUBSCRIPTION_PLAN.FAMILY_YEARLY]: Math.round(7800 / 12),
 };
 
 // ============================================================

@@ -10,7 +10,7 @@
 // デフォルトは free（サインアップ後の体験との乖離を防ぐ — #956）。
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
-import { LICENSE_PLAN } from '$lib/domain/constants/license-plan';
+import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import type { AuthContext } from '$lib/server/auth/types';
 
 export type DemoPlan = 'free' | 'standard' | 'family';
@@ -50,13 +50,13 @@ export function applyDemoPlanToContext(base: AuthContext, demoPlan: DemoPlan): A
 			return {
 				...base,
 				licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
-				plan: LICENSE_PLAN.MONTHLY,
+				plan: SUBSCRIPTION_PLAN.MONTHLY,
 			};
 		case 'family':
 			return {
 				...base,
 				licenseStatus: AUTH_LICENSE_STATUS.ACTIVE,
-				plan: LICENSE_PLAN.FAMILY_MONTHLY,
+				plan: SUBSCRIPTION_PLAN.FAMILY_MONTHLY,
 			};
 	}
 }

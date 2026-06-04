@@ -95,7 +95,6 @@ jobs:
         # AUTH_MODE=anonymous + DATA_SOURCE=demo で起動 (Multi-Lambda demo Lambda 同型、ADR-0048)
         # capture-hp-screenshots.mjs が本番ルート `/(child)/[uiMode]/home` を demo fixture data で撮影できる
         env:
-          AWS_LICENSE_SECRET: lp-vr-capture-secret-do-not-use-in-production
           AUTH_MODE: anonymous
           DATA_SOURCE: demo
         run: |

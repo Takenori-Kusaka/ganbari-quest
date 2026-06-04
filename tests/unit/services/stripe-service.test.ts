@@ -57,19 +57,10 @@ vi.mock('$lib/server/services/discord-notify-service', () => ({
 	notifyBillingEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Phase 1 補強 3 §3.3: stripe-service は冗長層 (issueLicenseKey / sendLicenseKeyEmail)
-// 削除後にこれらを import しないが、回帰防止のため「呼ばれないこと」を assert する目的で
-// spy mock を残す。
-const mockSendLicenseKeyEmail = vi.fn();
-vi.mock('$lib/server/services/email-service', () => ({
-	sendLicenseKeyEmail: (...args: unknown[]) => mockSendLicenseKeyEmail(...args),
-}));
-
-const mockIssueLicenseKey = vi.fn();
-
-vi.mock('$lib/server/services/license-key-service', () => ({
-	issueLicenseKey: (...args: unknown[]) => mockIssueLicenseKey(...args),
-}));
+// Epic #2525 Phase 7 PR-L5 (#2860): license key 全廃 contract。`license-key-service.ts` は PR-L3 で
+// 物理削除され、`email-service.sendLicenseKeyEmail` も PR-L4 で撤去済。stripe-service は冗長層
+// (issueLicenseKey / sendLicenseKeyEmail) を一切 import しないため、旧 spy mock + 「呼ばれない」
+// assertion は撤去 (削除済モジュールへの vi.mock は不要、回帰は leak gate + 物理削除で構造保証)。
 
 // ---------- Import after mocks ----------
 
@@ -104,7 +95,6 @@ beforeEach(() => {
 	mockIsStripeEnabled.mockReturnValue(true);
 	mockFindTenantById.mockResolvedValue(makeTenant());
 	mockUpdateTenantStripe.mockResolvedValue(undefined);
-	mockIssueLicenseKey.mockResolvedValue({ licenseKey: 'LK-TEST-001' });
 });
 
 // ==========================================================
@@ -277,10 +267,8 @@ describe('handleWebhookEvent', () => {
 			}),
 		);
 
-		// Phase 1 補強 3 §3.3: ライセンスキー発行 + メール送信の冗長層を削除済。
-		// entitlement は updateTenantStripe で既付与のため license key は発行しない。
-		expect(mockIssueLicenseKey).not.toHaveBeenCalled();
-		expect(mockSendLicenseKeyEmail).not.toHaveBeenCalled();
+		// Epic #2525 Phase 7 PR-L5 (#2860): entitlement は updateTenantStripe で既付与。
+		// license key 発行 / メール送信の冗長層は物理削除済 (上記 mock 撤去理由参照)。
 	});
 
 	it('checkout.session.completed — 100% OFF プロモコード (amount_total=0) でも同じフロー (#803)', async () => {
@@ -319,9 +307,7 @@ describe('handleWebhookEvent', () => {
 			}),
 		);
 
-		// Phase 1 補強 3 §3.3: 冗長層削除後は 100% OFF でも license key を発行しない
-		expect(mockIssueLicenseKey).not.toHaveBeenCalled();
-		expect(mockSendLicenseKeyEmail).not.toHaveBeenCalled();
+		// Epic #2525 Phase 7 PR-L5 (#2860): 100% OFF でも license key 発行の冗長層は物理削除済。
 	});
 
 	it('checkout.session.completed — metadata に tenantId なし → 何もしない', async () => {

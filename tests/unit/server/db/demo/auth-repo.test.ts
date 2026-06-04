@@ -63,20 +63,9 @@ describe('demo/auth-repo', () => {
 		});
 	});
 
-	describe('License Key (常に存在しない、demo Lambda は Secrets Manager 権限なし)', () => {
-		it('findLicenseKey は undefined を返す', async () => {
-			expect(await authRepo.findLicenseKey('any-key')).toBeUndefined();
-		});
-
-		it('listLicenseKeysByTenant は空ページを返す', async () => {
-			const page = await authRepo.listLicenseKeysByTenant('demo');
-			expect(page).toEqual({ items: [], cursor: null });
-		});
-
-		it('countLicenseKeys は 0', async () => {
-			expect(await authRepo.countLicenseKeys()).toBe(0);
-		});
-	});
+	// Epic #2525 Phase 7 PR-L5 (#2860): license key 全廃 contract に伴い License Key 系 method
+	// (findLicenseKey / listLicenseKeysByTenant / countLicenseKeys) を IAuthRepo から撤去したため
+	// 該当 describe ブロックを削除。entitlement は Stripe Subscription (tenant.status) が唯一 SSOT。
 
 	describe('Consent (Stub)', () => {
 		it('recordConsent は input から ConsentRecord を返す (no-op)', async () => {
