@@ -24,7 +24,8 @@ import { describe, expect, it } from 'vitest';
 
 // Pre-PMF fallback に置換された 12 repo
 import * as autoChallengeRepo from '../../../src/lib/server/db/dynamodb/auto-challenge-repo';
-import * as battleRepo from '../../../src/lib/server/db/dynamodb/battle-repo';
+// #2824 Wave 5A (ADR-0055): battle-repo は本実装済のため stub fallback テスト対象外。
+//   機能等価性は tests/unit/db/dynamodb-battle-repo.test.ts (AWS SDK mock) で検証する。
 // #2824 (ADR-0055): child-activity-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-child-activity-repo.test.ts (AWS SDK mock) で検証する。
 import * as cloudExportRepo from '../../../src/lib/server/db/dynamodb/cloud-export-repo';
@@ -70,25 +71,11 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('battle-repo', () => {
-		it('全 method が throw しない (read = safe / write = no-op)', async () => {
-			await expect(battleRepo.findTodayBattle(1, TODAY, TENANT)).resolves.toBeUndefined();
-			await expect(battleRepo.findRecentBattles(1, 10, TENANT)).resolves.toEqual([]);
-			await expect(battleRepo.countConsecutiveLosses(1, TENANT)).resolves.toBe(0);
-			await expect(
-				battleRepo.insertDailyBattle(
-					1,
-					1,
-					TODAY,
-					{ hp: 100, atk: 10, def: 5, spd: 5, rec: 2 },
-					TENANT,
-				),
-			).resolves.toBe(0);
-			await expect(battleRepo.completeBattle(1, 'win', 10, 3, TENANT)).resolves.toBeUndefined();
-			await expect(battleRepo.findCollection(1, TENANT)).resolves.toEqual([]);
-			await expect(battleRepo.upsertCollectionEntry(1, 1, TENANT)).resolves.toBeUndefined();
-		});
-	});
+	// #2824 Wave 5A (ADR-0055): battle-repo は本実装済 (stub 除外)。
+	//   LP machine-tour ④ feature-rpg-battle 訴求の日次バトル (進行 / 勝敗 / 報酬 / 敵図鑑) が
+	//   本番 DynamoDB Lambda で永続する。本実装の機能等価性テストは dynamodb-battle-repo.test.ts
+	//   に分離。ここで stub 前提の assert を残すと「実装済なのに stub 期待」で誤った退行 gate に
+	//   なるため除外する (他 repo の fallback assert は維持 = assertion 弱体化に該当しない)。
 
 	// #2824 (ADR-0055): child-activity-repo は本実装済 (stub 除外)。
 	//   marketplace per-child 取込 (importActivities → insertActivitiesBulk) が本番 DynamoDB
@@ -190,8 +177,8 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 		});
 	});
 
-	describe('regression guard: 全 6 repo の Promise.all で reject されない', () => {
-		it('SSR /preschool/home の典型的な 6 repo 並列呼び出しが全 fulfill する', async () => {
+	describe('regression guard: 全 5 repo の Promise.all で reject されない', () => {
+		it('SSR /preschool/home の典型的な 5 repo 並列呼び出しが全 fulfill する', async () => {
 			// #2295 (EPIC #2294 ①): seasonEventRepo / tenantEventRepo 削除済 (2026-05-19)、12 → 10 repo
 			// #2458 (Path B sibling drop): siblingChallengeRepo 削除済 (2026-05-26)、10 → 9 repo
 			// #2263 regression hotfix: childActivityRepo を stub fallback に置換 (9 → 10 repo)
@@ -203,9 +190,10 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 			//   (本実装は AWS SDK mock 必須 → dynamodb-message-repo.test.ts で検証)。8 → 7 repo
 			// #2824 Wave 3B (ADR-0055): stampCardRepo を本実装化したため除外
 			//   (本実装は AWS SDK mock 必須 → dynamodb-stamp-card-repo.test.ts で検証)。7 → 6 repo
+			// #2824 Wave 5A (ADR-0055): battleRepo を本実装化したため除外
+			//   (本実装は AWS SDK mock 必須 → dynamodb-battle-repo.test.ts で検証)。6 → 5 repo
 			const results = await Promise.allSettled([
 				autoChallengeRepo.findActiveByChild(1, TENANT),
-				battleRepo.findTodayBattle(1, TODAY, TENANT),
 				cloudExportRepo.findByTenant(TENANT),
 				reportDailySummaryRepo.findByChildAndDateRange(1, TODAY, TODAY, TENANT),
 				siblingCheerRepo.findUnshownCheers(1, TENANT),
