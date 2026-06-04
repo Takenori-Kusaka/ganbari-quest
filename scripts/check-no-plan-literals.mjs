@@ -129,8 +129,7 @@ const TERM_LITERAL_RULES = [
 const CONCEPT_ICON_RULES = [
 	{
 		// 旧 `📦 {TEMPLATE_TERMS.browse}` / 新 `🏪 {TEMPLATE_TERMS.browse}` 等の直書き
-		matcher:
-			/[📦🏪]\s*\{\s*(?:TEMPLATE_TERMS\.|[A-Z_]+\.(?:browse|marketplaceSeeMore))/,
+		matcher: /[📦🏪]\s*\{\s*(?:TEMPLATE_TERMS\.|[A-Z_]+\.(?:browse|marketplaceSeeMore))/u,
 		constant: 'CONCEPT_ICONS.template',
 		kind: 'concept-icon',
 	},
@@ -359,7 +358,7 @@ function main() {
 }
 
 // テスト用 export
-export { checkFile, CONCEPT_ICON_RULES, shouldExclude, TERM_LITERAL_RULES, VALUE_LITERAL_RULES };
+export { CONCEPT_ICON_RULES, checkFile, shouldExclude, TERM_LITERAL_RULES, VALUE_LITERAL_RULES };
 
 // CLI エントリ (直接実行時のみ)
 const isMain =
