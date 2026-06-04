@@ -265,6 +265,25 @@ export const actions: Actions = {
 
 		if (!packId) return fail(400, { error: 'パックIDが必要です' });
 
+		// #2894 AC2: marketplace 取込経路でも free tier のカスタム活動上限を enforce
+		// (importPackToChildren と同型、`create` 単発の gate を取込経路に横展開)。
+		const importPackLicenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const importPackLimitCheck = await checkActivityLimit(tenantId, importPackLicenseStatus);
+		if (!importPackLimitCheck.allowed) {
+			const tier = await resolveFullPlanTier(
+				tenantId,
+				importPackLicenseStatus,
+				locals.context?.plan,
+			);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`カスタム活動は最大${importPackLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+				),
+			});
+		}
+
 		// #2365 (ADR-0052): Strategy + dispatchImport 経由
 		try {
 			const source = loadFromMarketplace('activity-pack', packId);
@@ -388,6 +407,23 @@ export const actions: Actions = {
 
 		if (!packId) return fail(400, { error: 'パックIDが必要です' });
 		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+
+		// #2894 AC2: free tier のカスタム活動上限 (maxActivities=3, tenant-wide) を取込経路でも
+		// enforce する。`create` action には上限 check があったが import 経路は漏れており
+		// (root cause: SSOT 上の上限が取込で bypass されていた)、free tier が上限超過で取込できた。
+		// `create` と同じ PlanLimitError 形式で 403 を返し、UI 側で構造化メッセージ + upgrade 導線を出す。
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const activityLimitCheck = await checkActivityLimit(tenantId, licenseStatus);
+		if (!activityLimitCheck.allowed) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`カスタム活動は最大${activityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+				),
+			});
+		}
 
 		// childIds: 'all' or comma-separated number list
 		let childIds: number[] | undefined;
@@ -532,6 +568,20 @@ export const actions: Actions = {
 			return fail(400, { error: 'カテゴリを選択してください' });
 		}
 		if (!childIdsRaw) return fail(400, { error: '対象のお子さまを選択してください' });
+
+		// #2894 AC2: bulk create も free tier のカスタム活動上限を enforce (`create` 単発と同型)。
+		const bulkLicenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const bulkActivityLimitCheck = await checkActivityLimit(tenantId, bulkLicenseStatus);
+		if (!bulkActivityLimitCheck.allowed) {
+			const tier = await resolveFullPlanTier(tenantId, bulkLicenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`カスタム活動は最大${bulkActivityLimitCheck.max}個まで作成できます。プランをアップグレードしてください。`,
+				),
+			});
+		}
 
 		let childIds: number[];
 		if (childIdsRaw === 'all') {

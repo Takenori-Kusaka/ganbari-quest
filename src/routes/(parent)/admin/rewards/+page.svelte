@@ -11,11 +11,12 @@
 
 import { deserialize, enhance } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
-import { getErrorMessage } from '$lib/domain/errors';
+import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
 import {
 	ADMIN_REWARDS_PAGE_LABELS,
 	APP_LABELS,
 	PAGE_TITLES,
+	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
 } from '$lib/domain/labels';
 import { CHILD_TERMS, TEMPLATE_TERMS } from '$lib/domain/terms';
@@ -67,6 +68,10 @@ const perChildRewards = $derived(
 let showChildSelectionDialog = $state(false);
 let pendingImportPresetId = $state<string | null>(null);
 let actionMessage = $state('');
+// #2894 AC3: PlanLimitError 受領時のアップグレード導線 URL (null=非表示)。
+// banner / toast 文字列化壊れ (`[object Object]`) を getActionErrorDisplay で根治し、
+// free tier の取込失敗時に /admin/subscription へのリンクを併記する (NN/G #9)。
+let actionUpgradeUrl = $state<string | null>(null);
 // #2632 CX-DoR #9 NN/G #1: 取込実行中フラグ (confirm ボタン loading 表示)
 let isImporting = $state(false);
 
@@ -214,6 +219,8 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 
 	// #2632 CX-DoR #9 NN/G #1: 取込実行中は confirm ボタンを loading 表示する。
 	isImporting = true;
+	// #2894 AC3: 新しい取込試行ごとに前回のアップグレード導線をクリアする。
+	actionUpgradeUrl = null;
 
 	try {
 		const resp = await fetch('?/importPresetToChildren', {
@@ -250,14 +257,23 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 				await invalidateAll();
 			}
 		} else if (actionResult.type === 'failure') {
-			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.importFailed);
+			// #2894 AC3: PlanLimitError オブジェクトを `String()` で `[object Object]` 化していた
+			// 壊れ表示を getActionErrorDisplay で根治。free tier には upgrade 導線も併記する。
+			const display = getActionErrorDisplay(
+				actionResult.data?.error,
+				ADMIN_REWARDS_PAGE_LABELS.importFailed,
+			);
+			actionMessage = display.message;
+			actionUpgradeUrl = display.upgradeUrl;
 			showToast(actionMessage, undefined, 'error');
 		} else {
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importFailed;
+			actionUpgradeUrl = null;
 			showToast(ADMIN_REWARDS_PAGE_LABELS.importFailed, undefined, 'error');
 		}
 	} catch {
 		actionMessage = ADMIN_REWARDS_PAGE_LABELS.importFailed;
+		actionUpgradeUrl = null;
 		showToast(ADMIN_REWARDS_PAGE_LABELS.importFailed, undefined, 'error');
 	} finally {
 		isImporting = false;
@@ -296,6 +312,8 @@ async function handleCopyFromChild() {
 	const formData = new FormData();
 	formData.append('sourceChildId', String(copySourceChildId));
 	formData.append('targetChildId', String(selectedChildId));
+	// #2894 AC3: 新しい copy 試行ごとに前回のアップグレード導線をクリアする。
+	actionUpgradeUrl = null;
 
 	try {
 		const resp = await fetch('?/copyFromChild', {
@@ -320,7 +338,13 @@ async function handleCopyFromChild() {
 			copySourceChildId = null;
 			await invalidateAll();
 		} else if (actionResult.type === 'failure') {
-			actionMessage = String(actionResult.data?.error ?? ADMIN_REWARDS_PAGE_LABELS.copyFailed);
+			// #2894 AC3: PlanLimitError 壊れ表示の根治 (import 経路と同型)。
+			const display = getActionErrorDisplay(
+				actionResult.data?.error,
+				ADMIN_REWARDS_PAGE_LABELS.copyFailed,
+			);
+			actionMessage = display.message;
+			actionUpgradeUrl = display.upgradeUrl;
 			showToast(actionMessage, undefined, 'error');
 		} else {
 			actionMessage = ADMIN_REWARDS_PAGE_LABELS.copyFailed;
@@ -465,7 +489,13 @@ async function handleCopyFromChild() {
 			role="status"
 			data-testid="rewards-action-message"
 		>
-			{actionMessage}
+			<span>{actionMessage}</span>
+			<!-- #2894 AC3: PlanLimitError 受領時はアップグレード導線を併記 (NN/G #9) -->
+			{#if actionUpgradeUrl}
+				<a class="action-upgrade-link" href={actionUpgradeUrl} data-testid="rewards-upgrade-link">
+					{PLAN_GATE_LABELS.upgradeLinkLabel}
+				</a>
+			{/if}
 		</div>
 	{/if}
 
@@ -739,6 +769,15 @@ async function handleCopyFromChild() {
 		border: 1px solid var(--color-feedback-info-border);
 		color: var(--color-feedback-info-text);
 		font-size: 0.85rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.action-upgrade-link {
+		font-weight: 600;
+		color: var(--color-text-link);
+		text-decoration: underline;
 	}
 
 	/* Copy dialog */

@@ -2,11 +2,13 @@
 import { deserialize, enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { todayDateJST } from '$lib/domain/date-utils';
+import { getActionErrorDisplay } from '$lib/domain/errors';
 import {
 	ADMIN_CHALLENGES_PAGE_LABELS,
 	APP_LABELS,
 	CHALLENGES_LABELS,
 	PAGE_TITLES,
+	PLAN_GATE_LABELS,
 } from '$lib/domain/labels';
 import { TEMPLATE_TERMS } from '$lib/domain/terms';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
@@ -26,6 +28,8 @@ const isFamily = $derived(data.planTier === 'family');
 let creating = $state(false);
 
 let marketplaceImportMessage = $state('');
+// #2894 AC3: PlanLimitError 受領時のアップグレード導線 URL (null=非表示)。
+let marketplaceImportUpgradeUrl = $state<string | null>(null);
 
 // #2554 follow-up CUJ-CH2 完全化: ChildSelectionDialog state (per-child 取込時 auto-open)
 // admin-rewards / admin-activities と同型 pattern (ADR-0055 per-child fan-out + CWE-598)。
@@ -81,6 +85,8 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 
 	// #2632 CX-DoR #9 NN/G #1: 取込実行中は confirm ボタンを loading 表示する。
 	isImporting = true;
+	// #2894 AC3: 新しい取込試行ごとに前回のアップグレード導線をクリアする。
+	marketplaceImportUpgradeUrl = null;
 
 	try {
 		const resp = await fetch('?/importMarketplaceChallengeSet', {
@@ -113,9 +119,14 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 				await invalidateAll();
 			}
 		} else if (actionResult.type === 'failure') {
-			marketplaceImportMessage = String(
-				actionResult.data?.error ?? ADMIN_CHALLENGES_PAGE_LABELS.importFailed,
+			// #2894 AC3: PlanLimitError オブジェクトの `[object Object]` 化壊れ表示を根治。
+			// challenge 取込は family-only gate のため free / standard で PlanLimitError が返る。
+			const display = getActionErrorDisplay(
+				actionResult.data?.error,
+				ADMIN_CHALLENGES_PAGE_LABELS.importFailed,
 			);
+			marketplaceImportMessage = display.message;
+			marketplaceImportUpgradeUrl = display.upgradeUrl;
 		} else {
 			marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importFailed;
 		}
@@ -290,10 +301,20 @@ function tabHref(childId: number | 'all'): string {
 	<section data-testid="challenges-marketplace-import-section">
 		{#if marketplaceImportMessage}
 			<div
-				class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
+				class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] flex flex-wrap items-center gap-2"
 				data-testid="challenges-marketplace-import-result"
 			>
-				{marketplaceImportMessage}
+				<span>{marketplaceImportMessage}</span>
+				<!-- #2894 AC3: PlanLimitError 受領時はアップグレード導線を併記 (NN/G #9) -->
+				{#if marketplaceImportUpgradeUrl}
+					<a
+						href={marketplaceImportUpgradeUrl}
+						class="font-semibold underline text-[var(--color-text-link)]"
+						data-testid="challenges-upgrade-link"
+					>
+						{PLAN_GATE_LABELS.upgradeLinkLabel}
+					</a>
+				{/if}
 			</div>
 		{/if}
 		<a

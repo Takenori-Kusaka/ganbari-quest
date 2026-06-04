@@ -1,12 +1,14 @@
 <script lang="ts">
 import { deserialize } from '$app/forms';
 import { goto, invalidateAll } from '$app/navigation';
+import { getActionErrorDisplay } from '$lib/domain/errors';
 import { splitIcon } from '$lib/domain/icon-utils';
 import {
 	ADMIN_ACTIVITIES_PAGE_LABELS,
 	APP_LABELS,
 	FEATURES_LABELS,
 	PAGE_TITLES,
+	PLAN_GATE_LABELS,
 	UI_LABELS,
 } from '$lib/domain/labels';
 import { CHILD_TERMS } from '$lib/domain/terms';
@@ -43,6 +45,8 @@ const activityLimit = $derived(
 let filterCategoryId = $state(0);
 let searchQuery = $state('');
 let actionMessage = $state('');
+// #2894 AC3: PlanLimitError 受領時のアップグレード導線 URL (null=非表示)。
+let actionUpgradeUrl = $state<string | null>(null);
 let showClearConfirm = $state(false);
 let clearLoading = $state(false);
 
@@ -259,6 +263,21 @@ function acceptAiPreview(preview: AiPreviewData) {
 	addMode = 'manual';
 }
 
+// #2894 AC3: 取込失敗 (resp.ok=false) 時に ActionResult を deserialize し、PlanLimitError を
+// `[object Object]` 化せず構造化メッセージ + upgrade 導線として banner / toast に出す。
+// handleChildSelectionConfirm の cognitive complexity を上げないため helper に切り出す。
+function applyImportFailure(failText: string) {
+	const failResult = deserialize(failText);
+	const failError =
+		failResult.type === 'failure'
+			? (failResult.data as { error?: unknown } | undefined)?.error
+			: undefined;
+	const display = getActionErrorDisplay(failError, ADMIN_ACTIVITIES_PAGE_LABELS.importFailed);
+	actionMessage = display.message;
+	actionUpgradeUrl = display.upgradeUrl;
+	showToast(display.message, undefined, 'error');
+}
+
 // ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
 async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	if (!pendingImportPresetId) {
@@ -278,6 +297,8 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 
 	// #2632 CX-DoR #9 NN/G #1: 取込実行中は confirm ボタンを loading 表示する。
 	isImporting = true;
+	// #2894 AC3: 新しい取込試行ごとに前回のアップグレード導線をクリアする。
+	actionUpgradeUrl = null;
 
 	// #2745 fix: SvelteKit form action を fetch で叩く際は `x-sveltekit-action: true`
 	// + `accept: application/json` ヘッダー必須 (admin/rewards `importPresetToChildren`
@@ -337,7 +358,10 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			showToast(message, undefined, tone);
 			await invalidateAll();
 		} else {
-			actionMessage = ADMIN_ACTIVITIES_PAGE_LABELS.importFailed;
+			// #2894 AC3: 403 (PlanLimitError) を含む失敗 body を deserialize し、
+			// `[object Object]` 化せず構造化メッセージ + upgrade 導線を表示する (helper 経由)。
+			// 旧実装は resp.ok=false 時に error body を読まず generic な importFailed のみ出していた。
+			applyImportFailure(await resp.text());
 		}
 	} catch {
 		// SvelteKit deserialize / network exception を捕捉。in-page banner で
@@ -611,7 +635,13 @@ function selectChild(childId: number) {
 	-->
 	{#if actionMessage}
 		<div class="action-message" role="status" data-testid="admin-activities-action-message">
-			{actionMessage}
+			<span>{actionMessage}</span>
+			<!-- #2894 AC3: PlanLimitError 受領時はアップグレード導線を併記 (NN/G #9) -->
+			{#if actionUpgradeUrl}
+				<a class="action-upgrade-link" href={actionUpgradeUrl} data-testid="activities-upgrade-link">
+					{PLAN_GATE_LABELS.upgradeLinkLabel}
+				</a>
+			{/if}
 		</div>
 	{/if}
 
@@ -877,6 +907,15 @@ function selectChild(childId: number) {
 		border: 1px solid var(--color-feedback-warning-border);
 		color: var(--color-feedback-warning-text);
 		font-size: 0.85rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.action-upgrade-link {
+		font-weight: 600;
+		color: var(--color-text-link);
+		text-decoration: underline;
 	}
 
 	/* #2362 PR-3 Phase 4: child tabs */
