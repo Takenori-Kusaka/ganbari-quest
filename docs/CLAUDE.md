@@ -24,6 +24,22 @@
 
 **禁忌**: 会話で確定した仕様を反映せずに実装進行 / 「設計書は後で」と先送り / 設計書更新を別 Issue 切出しで本体 Done。アーキ図は drawio (`docs/design/diagrams/`)、ASCII 図禁止。
 
+## docs SSOT 原則（#2440 — 経緯メタ情報の混入禁止）
+
+設計 docs は「**現状の正解**」のみを端的に記述する。変更履歴・検討経緯は git / 専用層に置く:
+
+| 内容 | 正しい置き場所 |
+|---|---|
+| 設計仕様の現状 | 設計 docs（`docs/design/` 等）— 端的・無駄なし |
+| 変更履歴・supersede 経緯・修正理由 | **git commit / PR description**（docs 本文に書かない） |
+| 機能設計の検討 narrative・棄却案比較 | `docs/rationale/` |
+| 意思決定の supersede / deprecated 記録 | ADR（`docs/decisions/`）— ADR では正当な本務 |
+| 調査の計測結果・比較分析 | `docs/research/` |
+
+**設計 docs 本文で禁止**: 「変更履歴」節 / strikethrough 履歴表 / 「旧 X は #NNNN で撤去済」型の inline 経緯注記 / 「YYYY-MM-DD 時点」datestamp 記述（Issue 番号の参照自体は可。禁止対象は「経緯の物語」であって出典 pointer ではない）。
+
+既存混入の整形は #2440 確定計画（粒度 = 同質性 × diff 行数 × 機械検証の 3 条件、`docs/research/2026-06-04-docs-inventory-audit.md` が基準書）で段階消化。再混入防止 gate は `check-internal-terms.mjs` の config 駆動化 + #2668 baseline-utils へ相乗り（専用 script は新設しない）。
+
 ## LP メトリクス ratchet (#1163)
 
 `site/**` 変更 PR は `scripts/measure-lp-dimensions.mjs` の閾値必達。CI (`lp-metrics.yml`) 自動 FAIL:
