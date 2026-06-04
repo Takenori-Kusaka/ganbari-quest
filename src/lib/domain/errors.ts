@@ -134,3 +134,39 @@ export function getErrorMessage(value: unknown): string {
 	}
 	return '';
 }
+
+/**
+ * admin 取込フローの action error 表示情報 (#2894 AC3)。
+ *
+ * banner / toast に出す確定済みメッセージと、PlanLimitError の場合のみ非 null になる
+ * アップグレード導線 URL をまとめて返す。
+ */
+export interface ActionErrorDisplay {
+	/** banner / toast に表示する確定済みメッセージ（空にはならない） */
+	message: string;
+	/** PlanLimitError の場合のみ設定されるアップグレード導線 URL。それ以外は null */
+	upgradeUrl: PlanLimitError['upgradeUrl'] | null;
+}
+
+/**
+ * ActionResult の `data.error` を admin 取込フローの banner / toast 用の表示情報に正規化する (#2894 AC3)。
+ *
+ * marketplace 5 type (activities / rewards / checklists / challenges / rules) の
+ * `handleChildSelectionConfirm` 等が `String(error)` で PlanLimitError オブジェクトを
+ * `"[object Object]"` 化していた壊れ表示 (#2894 根本原因 #4) を共通 helper で根治する。
+ *
+ * - error が PlanLimitError → 構造化された `message`（上限/プラン名込み）+ `/admin/subscription`
+ *   への upgradeUrl を返す（NN/G #9 error recovery、呼び出し側がアップグレードリンクを併記する）
+ * - error が文字列 / `.message` を持つオブジェクト → そのメッセージ
+ * - error が空 / 未知形状 → `fallback`
+ *
+ * @param value `result.data?.error` の生値
+ * @param fallback message が空になる場合に使う既定メッセージ（page 固有の「取込に失敗しました」等）
+ */
+export function getActionErrorDisplay(value: unknown, fallback: string): ActionErrorDisplay {
+	if (isPlanLimitError(value)) {
+		return { message: value.message, upgradeUrl: value.upgradeUrl };
+	}
+	const message = getErrorMessage(value);
+	return { message: message || fallback, upgradeUrl: null };
+}

@@ -201,6 +201,7 @@ PR-L0〜L5 (#2807 / #2812 / #2814 / #2822 / #2841 / #2879、全マージ済) 完
 | OQ-2 | business | campaign 配布 (`ops/license/issue`) 実需要 | **Stripe Coupon / Promotion Code 代替** (ops 発行 UI 撤去、§3.6) | ✅ PO 確定 2026-06-03 |
 | OQ-3 | UX | `site/help/license-key.html` 処遇 | **完全削除 + `/admin/subscription` 301 redirect** (§3.4) | ✅ PO 確定 2026-06-03 |
 | OQ-4 | security | `LICENSE_KEY_STATUS` enum + `licenseKey` 列 (+ 当初 `LICENSE_PLAN` も含めていた) | **物理削除** (列 DROP + enum 削除、expand-contract §3.8、rollback 不可点)。ただし `LICENSE_PLAN` は判断時に license key 関連と誤分類していたもので、実体は Tenant 課金プラン enum のため **物理削除でなく `SUBSCRIPTION_PLAN` へ rename** (PR-L5 #2879) | ✅ PO 確定 2026-06-03 (LICENSE_PLAN rename 修正 2026-06-04) |
+| OQ-5 | business | license 時代に paid だった既存テナント (Stripe subscription を持たない) の entitlement 処遇 (#2894 で表面化) | **移行措置なし、free 降格が正**。entitlement SSOT は Stripe subscription (OQ-1 顧客ゼロ前提と整合)。license 由来の暫定 grant は作らない。paid 機能は trial 開始 or Stripe subscribe で得る | ✅ PO 確定 2026-06-04 (#2894) |
 
 ---
 

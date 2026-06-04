@@ -1,11 +1,13 @@
 <script lang="ts">
 import { deserialize, enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { getActionErrorDisplay } from '$lib/domain/errors';
 import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
 	OVERFLOW_MENU_LABELS,
 	PAGE_TITLES,
+	PLAN_GATE_LABELS,
 	UI_LABELS,
 } from '$lib/domain/labels';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
@@ -213,6 +215,8 @@ const importedPresetIds = $derived(
 let showChildSelectionDialog = $state(false);
 let pendingImportPresetId = $state<string | null>(null);
 let actionMessage = $state('');
+// #2894 AC3: PlanLimitError 受領時のアップグレード導線 URL (null=非表示)。
+let actionUpgradeUrl = $state<string | null>(null);
 // #2632 CX-DoR #9 NN/G #1: 取込実行中フラグ (confirm ボタン loading 表示)
 let isImporting = $state(false);
 
@@ -337,6 +341,8 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 
 	// #2632 CX-DoR #9 NN/G #1: 取込実行中は confirm ボタンを loading 表示する。
 	isImporting = true;
+	// #2894 AC3: 新しい取込試行ごとに前回のアップグレード導線をクリアする。
+	actionUpgradeUrl = null;
 
 	try {
 		const resp = await fetch('?/importPresetToChildren', {
@@ -378,9 +384,14 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 				showToast(actionMessage, undefined, imp > 0 ? 'success' : 'info');
 			}
 		} else if (actionResult.type === 'failure') {
-			actionMessage =
-				actionResult.data?.error ??
-				ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId);
+			// #2894 AC3: PlanLimitError オブジェクトの `[object Object]` 化壊れ表示を根治。
+			// free tier の per-child テンプレ上限超過時は構造化メッセージ + upgrade 導線を出す。
+			const display = getActionErrorDisplay(
+				actionResult.data?.error,
+				ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId),
+			);
+			actionMessage = display.message;
+			actionUpgradeUrl = display.upgradeUrl;
 			showToast(actionMessage, undefined, 'error');
 		} else {
 			actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.importToastError(pendingImportPresetId);
@@ -514,11 +525,21 @@ function getChildName(childId: number): string {
 
 	{#if actionMessage}
 		<div
-			class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm"
+			class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm flex flex-wrap items-center gap-2"
 			role="status"
 			data-testid="checklists-action-message"
 		>
-			{actionMessage}
+			<span>{actionMessage}</span>
+			<!-- #2894 AC3: PlanLimitError 受領時はアップグレード導線を併記 (NN/G #9) -->
+			{#if actionUpgradeUrl}
+				<a
+					href={actionUpgradeUrl}
+					class="font-semibold underline text-[var(--color-text-link)]"
+					data-testid="checklists-upgrade-link"
+				>
+					{PLAN_GATE_LABELS.upgradeLinkLabel}
+				</a>
+			{/if}
 		</div>
 	{/if}
 

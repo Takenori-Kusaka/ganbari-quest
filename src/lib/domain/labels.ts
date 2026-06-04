@@ -440,6 +440,15 @@ export const PLAN_GATE_LABELS = {
 	 *   - api/v1/admin/viewer-tokens/+server.ts: 'ファミリープラン限定の機能です'
 	 */
 	viewerTokenFamilyOnly: `${PLAN_FULL_TERMS.premium}限定の機能です`,
+
+	/**
+	 * プラン制限エラー banner / toast に併記するアップグレード導線リンクのラベル (#2894 AC3)。
+	 *
+	 * PlanLimitError (`upgradeUrl='/admin/subscription'`) を受領した admin 取込フローで、
+	 * エラーメッセージの隣に表示する `<a>` のテキスト。NN/G #9 (error recovery) 整合で
+	 * 「どこへ行けば解消できるか」を必ず提示する。
+	 */
+	upgradeLinkLabel: `${UPGRADE_TERMS.actionVerb}する`,
 } as const;
 
 export const SUBSCRIPTION_PLAN_LABELS: Record<string, string> = {

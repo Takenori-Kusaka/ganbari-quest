@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	createPlanLimitError,
+	getActionErrorDisplay,
 	getErrorMessage,
 	isPlanLimitError,
 	type PlanLimitError,
@@ -156,5 +157,49 @@ describe('#787 getErrorMessage', () => {
 	it('プリミティブ（数値 / boolean）は空文字', () => {
 		expect(getErrorMessage(403)).toBe('');
 		expect(getErrorMessage(true)).toBe('');
+	});
+});
+
+describe('#2894 getActionErrorDisplay', () => {
+	it('PlanLimitError から message + upgradeUrl を返す（[object Object] 化しない）', () => {
+		const err = createPlanLimitError(
+			'free',
+			'standard',
+			'ごほうび管理はスタンダードプラン以上でご利用いただけます',
+		);
+		const display = getActionErrorDisplay(err, '取込に失敗しました');
+		expect(display.message).toBe('ごほうび管理はスタンダードプラン以上でご利用いただけます');
+		expect(display.upgradeUrl).toBe('/admin/subscription');
+		// 旧 String(err) は '[object Object]' を返していた。新 helper では絶対に含まない。
+		expect(display.message).not.toContain('[object Object]');
+	});
+
+	it('文字列エラーはそのまま message、upgradeUrl は null', () => {
+		const display = getActionErrorDisplay('こどもを選択してください', 'fallback');
+		expect(display.message).toBe('こどもを選択してください');
+		expect(display.upgradeUrl).toBeNull();
+	});
+
+	it('error が undefined / null のとき fallback を使い upgradeUrl は null', () => {
+		expect(getActionErrorDisplay(undefined, '取込に失敗しました')).toEqual({
+			message: '取込に失敗しました',
+			upgradeUrl: null,
+		});
+		expect(getActionErrorDisplay(null, '取込に失敗しました')).toEqual({
+			message: '取込に失敗しました',
+			upgradeUrl: null,
+		});
+	});
+
+	it('空文字 error も fallback に置換する（空 banner を出さない）', () => {
+		const display = getActionErrorDisplay('', 'コピーに失敗しました');
+		expect(display.message).toBe('コピーに失敗しました');
+		expect(display.upgradeUrl).toBeNull();
+	});
+
+	it('message プロパティを持つ任意オブジェクトは message を抽出し upgradeUrl は null', () => {
+		const display = getActionErrorDisplay({ message: 'バリデーションエラー' }, 'fallback');
+		expect(display.message).toBe('バリデーションエラー');
+		expect(display.upgradeUrl).toBeNull();
 	});
 });
