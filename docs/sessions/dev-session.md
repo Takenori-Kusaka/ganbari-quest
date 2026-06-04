@@ -167,6 +167,14 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /admin/children --presets mobi
 - mobile 390px / desktop 1280px の両ビューポート
 - 色 / 形 / 用語 / 間隔 / 状態 / アクセシビリティ / 読解容易性
 
+### SS push + embed 完了までは Ready 化禁止 (#2918)
+
+UI 変更（`.svelte` / `.css` / `.scss` / `site/`）を含む PR は、**SS 撮影 → screenshots branch push → PR body への embed 完了までは `gh pr ready` を実行しない**。「SS は後で push する」「添付予定」等の未来形記述のまま Ready 化すると、CI `screenshot-check` fail で BLOCK → QM が Fix Agent を spawn して往復するコスト（1 PR あたり 20-40 分）が発生する（#2913 / #2914 / #2915 / #2909 で 4 件連続再発した教訓）。
+
+- **Ready 化前に `npm run pre-ready -- --pr <N>` の Step 11b（SS embed gate）が PASS することを必須確認**。本 gate は CI `screenshot-check` と同一 SSOT 関数（`scripts/check-pr-screenshot.mjs` の `checkScreenshotEmbedReadiness`）を Ready 化前のローカルで前倒し実行し、UI 変更 + SS 未 embed / ローカルパス（`tmp/`）参照 / 未来形記述を hard-fail する。
+- **embed する URL は GitHub Web 上で表示できるもの**（`raw.githubusercontent.com/.../screenshots/pr-<N>/` または user-attachments）。`tmp/...` 相対パス・テキスト表のみ・embed 0 件はいずれも fail。
+- **UI 変更を含まない PR**（純粋な docs / refactor / chore）は PR body に「該当なし（refactor / docs / chore）」と明記すれば skip される。視覚差分ゼロの内部 refactor は `refactor:internal-no-doc-impact` ラベル（#2017 / ADR-0003 §4）で exempt。
+
 ## 「描画変化なし」主張のルール (#1744)
 
 「描画変化なし」「pixel-perfect 同一」を主張する場合、以下を PR 本文に箇条書きで明記。1 文字でも目視差分が出る変更は「描画変化なし」ではない:

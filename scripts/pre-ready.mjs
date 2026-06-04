@@ -61,6 +61,7 @@ const SKIP_FLAGS = {
 	'--skip-pr-body': 'skipPrBody',
 	'--skip-doc-code-references': 'skipDocCodeReferences',
 	'--skip-terminology-coherence': 'skipTerminologyCoherence',
+	'--skip-ss-embed-gate': 'skipSsEmbedGate',
 	'--skip-capture': 'skipCapture',
 };
 
@@ -79,6 +80,7 @@ function parseArgs(argv) {
 		skipPrBody: false,
 		skipDocCodeReferences: false,
 		skipTerminologyCoherence: false,
+		skipSsEmbedGate: false,
 		skipCapture: false,
 		help: false,
 	};
@@ -119,6 +121,7 @@ Options:
   --skip-pr-body         Step 9 PR body 検査をスキップ
   --skip-doc-code-references Step 10 デッドリンク検査をスキップ
   --skip-terminology-coherence Step 11 用語不統一・add 経路重複検査をスキップ
+  --skip-ss-embed-gate   Step 11b SS embed gate (UI 変更 PR の SS 未 embed hard-fail、#2918) をスキップ
   --skip-capture         Step 12 capture (UI 変更時のみ) をスキップ
   --help, -h             このヘルプ
 
@@ -134,6 +137,7 @@ Steps:
   9.  Readiness gate              — Ready checklist [x] 完了 / AC 4 列 / forbidden-terms / 必須セクション 13 個 / mergeable (check-pr-body.mjs、PR 番号必須、#2632)
   10. check-doc-code-references.mjs — ドキュメントのデッドリンク検知 (#2577)
   11. check-terminology-coherence.ts — 用語不統一・add 経路重複検知 (#2555)
+  11b. check-pr-screenshot.mjs (SS embed gate) — UI 変更 PR の SS embed 未完了を hard-fail (#2918、CI screenshot-check と SSOT 共有)
   12. capture.mjs --pr            — UI 変更検知時のみ撮影 (現状は手動推奨。本 step は実行ガイダンスのみ)
 
 Exit codes:
@@ -193,6 +197,64 @@ async function getChangedFiles() {
 			);
 		});
 		child.on('error', () => resolveP([]));
+	});
+}
+
+/**
+ * 子プロセスを spawn し、追加 env を渡して exit code を返す (#2918 SS embed gate 用)。
+ * stdout/stderr は親に inherit する。
+ *
+ * @param {string} cmd 表示用ラベル
+ * @param {string[]} argv 実行コマンド (argv[0] が executable)
+ * @param {Record<string, string>} extraEnv 追加環境変数
+ * @returns {Promise<number>} exit code
+ */
+function runWithEnv(cmd, argv, extraEnv) {
+	return new Promise((resolveP) => {
+		console.log(`\n[pre-ready] ▶ ${cmd}`);
+		const child = spawn(argv[0], argv.slice(1), {
+			cwd: repoRoot,
+			stdio: 'inherit',
+			shell: true,
+			env: { ...process.env, ...extraEnv },
+		});
+		child.on('exit', (code) => resolveP(code ?? 1));
+		child.on('error', (err) => {
+			console.error(`[pre-ready] ${cmd} error:`, err.message);
+			resolveP(1);
+		});
+	});
+}
+
+/**
+ * `gh pr view <num> --json body,labels` で PR body / ラベル一覧を取得する (#2918)。
+ * gh 失敗時は null を返す (gate 側で skip + warning に倒す)。
+ *
+ * @param {string} prNumber
+ * @returns {Promise<{ body: string; labels: string[] } | null>}
+ */
+function fetchPrBodyAndLabels(prNumber) {
+	return new Promise((resolveP) => {
+		const child = spawn('gh', ['pr', 'view', String(prNumber), '--json', 'body,labels'], {
+			cwd: repoRoot,
+			stdio: ['ignore', 'pipe', 'ignore'],
+			shell: true,
+		});
+		let out = '';
+		child.stdout.on('data', (d) => (out += d.toString()));
+		child.on('exit', (code) => {
+			if (code !== 0) return resolveP(null);
+			try {
+				const parsed = JSON.parse(out);
+				resolveP({
+					body: parsed.body || '',
+					labels: (parsed.labels || []).map((l) => l.name).filter(Boolean),
+				});
+			} catch {
+				resolveP(null);
+			}
+		});
+		child.on('error', () => resolveP(null));
 	});
 }
 
@@ -386,6 +448,48 @@ function buildSteps(args, changedFiles) {
 			fixHint:
 				'  用語の不統一、または add 経路の重複を検知しました。\n' +
 				'  修正: labels.ts の当該箇所を SSOT 用語 (terms.ts) に合わせるか、add 経路を集約してください。',
+		},
+		// Step 11b: SS embed gate (#2918)
+		// UI 変更 PR が「SS は後で push する」未来形のまま / embed 画像なしで Ready 化され、
+		// CI screenshot-check fail → Fix Agent 往復 が 4 件連続 (#2913 / #2914 / #2915 / #2909) した
+		// 構造への対策。CI screenshot-check と同一 SSOT 関数 (checkScreenshotEmbedReadiness) を
+		// SCREENSHOT_EMBED_GATE=1 env で error モード起動し、Ready 化前に hard-fail する。
+		// UI 変更がない / --pr 未指定 / exempt label 時は gate 内部で skip。
+		{
+			name: 'ss-embed-gate',
+			label:
+				uiChanged && args.pr
+					? 'Step 11b/12: SS embed gate (check-pr-screenshot.mjs、UI 変更 PR の SS embed 未完了を hard-fail、#2918)'
+					: `Step 11b/12: SS embed gate (${!args.pr ? '--pr 未指定 — skip' : 'UI 変更なし — skip'}、#2918)`,
+			skip: args.skipSsEmbedGate || !uiChanged || !args.pr,
+			runner: async () => {
+				const pr = await fetchPrBodyAndLabels(args.pr);
+				if (!pr) {
+					console.log(
+						'[pre-ready] WARN: gh pr view で PR body / labels 取得失敗 — SS embed gate を skip (#2918)',
+					);
+					return 0;
+				}
+				const tmpFiles = changedFiles.join('\n');
+				return runWithEnv(
+					'check-pr-screenshot (SS embed gate)',
+					['node', 'scripts/check-pr-screenshot.mjs'],
+					{
+						SCREENSHOT_EMBED_GATE: '1',
+						PR_BODY: pr.body,
+						PR_FILES: tmpFiles,
+						PR_LABELS: pr.labels.join(','),
+					},
+				);
+			},
+			fixHint:
+				'  UI 変更 PR ですが SS embed が未完了です (#2918、#2913 / #2914 / #2915 / #2909 の再発防止)。\n' +
+				'  Ready 化前に以下を完了してください:\n' +
+				'    1. node scripts/capture.mjs --pr <N> で撮影 → screenshots branch push\n' +
+				'    2. raw.githubusercontent.com/.../screenshots/pr-<N>/ 形式の embed 画像を PR body に貼付\n' +
+				'    3. 「後で push する」「添付予定」等の未来形記述を完了形 (実 embed) に置換\n' +
+				'  UI 変更を含まない PR の場合は PR body に「該当なし（refactor / docs / chore）」と明記、\n' +
+				'  または視覚差分ゼロの内部 refactor なら refactor:internal-no-doc-impact ラベルを付与。',
 		},
 		{
 			name: 'capture',

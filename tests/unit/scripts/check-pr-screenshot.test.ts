@@ -8,10 +8,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	checkScreenshotEmbedReadiness,
 	detectBeforeAfterLabels,
 	detectLocalPaths,
 	extractImageUrls,
 	hasDomSnapshotReference,
+	hasEmbeddedScreenshotImage,
+	hasFutureTenseScreenshotMarker,
 	hasUiNotApplicableMarker,
 	isScreenshotUrl,
 	isUiPr,
@@ -189,5 +192,145 @@ describe('hasDomSnapshotReference (#1766 / #1747 AC4)', () => {
 		const body = 'DOM スナップショット (.dom.html) は未対応';
 		// URL ではなく説明文中の言及なので検出されない
 		expect(hasDomSnapshotReference(body)).toBe(false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #2918: SS embed 未完了 (未来形 / embed 不在) の検出 + Ready 化前ゲート
+// ---------------------------------------------------------------------------
+
+describe('hasFutureTenseScreenshotMarker (#2918)', () => {
+	it('「screenshots branch へ push する」を検出', () => {
+		expect(hasFutureTenseScreenshotMarker('SS は screenshots branch へ push する')).toBe(true);
+	});
+
+	it('「スクリーンショットは後で添付します」を検出', () => {
+		expect(hasFutureTenseScreenshotMarker('スクリーンショットは後で添付します')).toBe(true);
+	});
+
+	it('「TODO: スクショ追加」を検出', () => {
+		expect(hasFutureTenseScreenshotMarker('TODO: スクショ追加')).toBe(true);
+	});
+
+	it('「SS は別途撮影します」を検出', () => {
+		expect(hasFutureTenseScreenshotMarker('SS は別途撮影します')).toBe(true);
+	});
+
+	it('embed 済みの完了形 PR body は false', () => {
+		const body =
+			'## SS\n![after-mobile](https://raw.githubusercontent.com/x/y/screenshots/pr-1/a.png)';
+		expect(hasFutureTenseScreenshotMarker(body)).toBe(false);
+	});
+});
+
+describe('hasEmbeddedScreenshotImage (#2918)', () => {
+	it('GitHub raw URL の embed 画像があれば true', () => {
+		const body =
+			'![after](https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-1/after.png)';
+		expect(hasEmbeddedScreenshotImage(body)).toBe(true);
+	});
+
+	it('HTML img の remote URL embed も true', () => {
+		expect(hasEmbeddedScreenshotImage('<img src="https://example.com/a.webp">')).toBe(true);
+	});
+
+	it('ローカルパス参照のみは false (embed とみなさない)', () => {
+		expect(hasEmbeddedScreenshotImage('![x](tmp/screenshots/pr-1/x.png)')).toBe(false);
+	});
+
+	it('テキストのみ・画像 0 件は false', () => {
+		expect(hasEmbeddedScreenshotImage('## SS\n| 修正前 | 修正後 |\n|---|---|\n| a | b |')).toBe(
+			false,
+		);
+	});
+
+	it('拡張子なし user-attachments の uuid は false (screenshot URL 判定不可)', () => {
+		expect(
+			hasEmbeddedScreenshotImage(
+				'![x](https://github.com/user-attachments/assets/9c6c8430-1234-5678-aaaa-bbbb)',
+			),
+		).toBe(false);
+	});
+});
+
+describe('checkScreenshotEmbedReadiness (#2918 — Ready 化前ゲート)', () => {
+	// case 1: UI 変更あり + SS embed なし → fail (違反検出)
+	it('UI 変更あり + SS embed なし → violations を返す (fail)', () => {
+		const result = checkScreenshotEmbedReadiness({
+			body: '## 変更内容\nボタンの色を変えた。SS は後で push する。',
+			files: ['src/routes/admin/+page.svelte'],
+			labels: [],
+		});
+		expect(result.skipped).toBe(false);
+		expect(result.violations.length).toBeGreaterThan(0);
+		const ids = result.violations.map((v) => v.id);
+		expect(ids).toContain('screenshot-embed-missing');
+		expect(ids).toContain('future-tense-screenshot');
+	});
+
+	it('UI 変更あり + テキスト表のみ (embed 0 件) → fail (#2914 再現)', () => {
+		const result = checkScreenshotEmbedReadiness({
+			body: '## SS\n| 修正前 | 修正後 |\n|---|---|\n| 旧 | 新 |',
+			files: ['src/lib/ui/primitives/Button.svelte'],
+			labels: [],
+		});
+		expect(result.skipped).toBe(false);
+		expect(result.violations.map((v) => v.id)).toContain('screenshot-embed-missing');
+	});
+
+	it('UI 変更あり + ローカルパス参照のみ → fail (#2913 再現)', () => {
+		const result = checkScreenshotEmbedReadiness({
+			body: '![before](tmp/screenshots/2894/before.png)',
+			files: ['src/routes/admin/+page.svelte'],
+			labels: [],
+		});
+		expect(result.skipped).toBe(false);
+		const ids = result.violations.map((v) => v.id);
+		// ローカルパス禁止 (#1741) + embed 不在 (#2918) の両方を検出
+		expect(ids).toContain('local-path-forbidden');
+		expect(ids).toContain('screenshot-embed-missing');
+	});
+
+	// case 2: UI 変更あり + SS embed あり → pass (違反なし)
+	it('UI 変更あり + GitHub raw URL embed あり → 違反なし (pass)', () => {
+		const result = checkScreenshotEmbedReadiness({
+			body: '## SS\n![after-mobile](https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-2918/after-mobile.png)',
+			files: ['src/routes/admin/+page.svelte'],
+			labels: [],
+		});
+		expect(result.skipped).toBe(false);
+		expect(result.violations).toHaveLength(0);
+	});
+
+	// case 3: docs-only → skip (UI 変更なしで検証スキップ)
+	it('docs / .ts のみ変更 (UI 変更なし) → skip (違反なし)', () => {
+		const result = checkScreenshotEmbedReadiness({
+			body: '本文に embed 画像なし',
+			files: ['docs/CLAUDE.md', 'src/lib/server/db/schema.ts'],
+			labels: [],
+		});
+		expect(result.skipped).toBe(true);
+		expect(result.skipReason).toBe('UI 関連ファイル変更なし');
+		expect(result.violations).toHaveLength(0);
+	});
+
+	it('UI 変更あり + 「該当なし（refactor）」明示 → skip', () => {
+		const result = checkScreenshotEmbedReadiness({
+			body: 'SS: 該当なし（refactor / docs / chore）',
+			files: ['src/lib/ui/primitives/Button.svelte'],
+			labels: [],
+		});
+		expect(result.skipped).toBe(true);
+		expect(result.violations).toHaveLength(0);
+	});
+
+	it('UI 変更あり + refactor:internal-no-doc-impact ラベル → skip (exempt 互換維持)', () => {
+		const result = checkScreenshotEmbedReadiness({
+			body: '内部 refactor。SS は後で push する。', // 未来形があっても exempt label で skip
+			files: ['src/lib/ui/primitives/Button.svelte'],
+			labels: ['refactor:internal-no-doc-impact'],
+		});
+		expect(result.skipped).toBe(true);
+		expect(result.violations).toHaveLength(0);
 	});
 });
