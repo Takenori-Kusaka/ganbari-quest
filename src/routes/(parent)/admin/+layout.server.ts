@@ -11,6 +11,10 @@ import { getDebugPlanSummary } from '$lib/server/debug-plan';
 import { logger } from '$lib/server/logger';
 import { getGracePeriodStatus } from '$lib/server/services/grace-period-service';
 import {
+	getOnboardingProgress,
+	type OnboardingProgress,
+} from '$lib/server/services/onboarding-service';
+import {
 	PARENT_SESSION_COOKIE_NAME,
 	refreshParentSession,
 	verifyParentSession,
@@ -153,6 +157,21 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	// #1781: 解約後グレースピリオド状態（settings 画面で「あと N 日 / 復元」UI を出すため）
 	const gracePeriodStatus = await getGracePeriodStatus(tenantId);
 
+	// #2821: setup 由来の admin 遷移 (`?from=setup`) で文脈バナーを出すための onboarding 進捗。
+	// 「みんなのテンプレートから追加 → 活動管理に着地 → setup 文脈消失」の迷子を防ぐ。
+	// query が無ければ取得もしない (運用期の admin 通常利用に I/O を足さない)。
+	// 完了済み (allCompleted) なら banner 側で描画されないため、文脈バナーも自然に消える。
+	// admin home (`/admin` 自体) は OnboardingChecklist が既に出るため文脈バナーは重複回避で出さない。
+	const fromSetup = url.searchParams.get('from') === 'setup' && url.pathname !== '/admin';
+	let setupOnboarding: OnboardingProgress | null = null;
+	if (fromSetup) {
+		try {
+			setupOnboarding = await getOnboardingProgress(tenantId, '/admin');
+		} catch {
+			setupOnboarding = null;
+		}
+	}
+
 	return {
 		pointSettings,
 		authMode,
@@ -171,6 +190,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		archivedSummary,
 		debugPlanSummary: getDebugPlanSummary(),
 		gracePeriodStatus,
+		// #2821: setup 由来遷移時のみ非 null。admin +layout.svelte が文脈バナーに使う。
+		setupOnboarding,
 		// EPIC #2327 / #2328: locals.runtimeMode を全 admin route の client data に配布。
 		// hooks.server.ts (307 行) で全リクエストに注入済みの ADR-0040 SSOT (`nuc-prod` /
 		// `aws-prod` / `local-debug` / `demo` / `build`) を UI 層に橋渡し。

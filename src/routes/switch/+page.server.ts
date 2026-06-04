@@ -3,6 +3,10 @@ import { dev } from '$app/environment';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
+import {
+	getOnboardingProgress,
+	type OnboardingProgress,
+} from '$lib/server/services/onboarding-service';
 import { PARENT_SESSION_COOKIE_NAME } from '$lib/server/services/parent-gate-session';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -31,7 +35,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const adminLink = authMode === 'cognito' ? '/auth/login' : '/admin';
 	// child ロールにはご家族の見守り画面リンクを非表示（local モードでは常に表示）
 	const showAdminLink = authMode === 'local' || locals.context?.role !== 'child';
-	return { children, adminLink, showAdminLink, reason, pinRequired, nextPath };
+
+	// #2821: セットアップ再開導線。親が登録 (≥1 child) 後に setup を離脱して /switch に
+	// 着地したとき、残りの初期設定 step への再入口が UI 上消えていた問題への対処。
+	// 子ロールには出さない (親の見守り設定タスクのため)。onboarding 取得失敗は導線非表示で
+	// ページ全体を守る。Anti-engagement (ADR-0012): allCompleted なら banner は描画されない。
+	const isParentContext = authMode === 'local' || locals.context?.role !== 'child';
+	let onboarding: OnboardingProgress | null = null;
+	if (isParentContext) {
+		try {
+			onboarding = await getOnboardingProgress(tenantId, '/admin');
+		} catch {
+			onboarding = null;
+		}
+	}
+
+	return { children, adminLink, showAdminLink, reason, pinRequired, nextPath, onboarding };
 };
 
 export const actions: Actions = {

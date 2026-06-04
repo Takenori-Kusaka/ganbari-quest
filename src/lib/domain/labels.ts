@@ -5491,6 +5491,26 @@ export const ONBOARDING_LABELS = {
 } as const;
 
 // ============================================================
+// #2821: セットアップ再開導線 (離脱後の再入口) — SetupResumeBanner
+// 顧客レビュー (2026-06-03) で「こども追加後ホームに戻ると次 step が分からない /
+// テンプレ追加で活動管理に着地して迷子」が指摘された。OnboardingChecklist は /admin に
+// しか出ないため、親が実際に着地する /switch・子供ホーム、および setup 由来の admin 遷移に
+// 再開導線を出す。NN/G #1 (visibility of system status) / Anti-engagement (ADR-0012: 完了後は消える)。
+// ============================================================
+export const SETUP_RESUME_LABELS = {
+	// /switch・子供ホームに出す「続きをやる」バナー
+	resumeTitle: 'セットアップの続き',
+	progressText: (done: number, total: number) => `あと ${total - done} ステップで準備完了`,
+	resumeCta: '続きをする',
+	// setup 由来で admin に着地したときの文脈バナー (?from=setup)
+	contextTitle: '初期セットアップの途中です',
+	contextDesc: '追加できたら、続きのステップに戻れます',
+	backToSetupCta: 'セットアップに戻る',
+	// 「・次は『<step 名>』」の追記句 (区切り・鉤括弧を SSOT に集約、hardcoded JP 増加回避)。
+	nextStepSuffix: (label: string) => `・次は「${label}」`,
+} as const;
+
+// ============================================================
 // LP [02] アナログ vs デジタル 比較セクション (#1614 R10)
 // SSOT: site/index.html [02] セクション用ラベル
 // 親 P1 が「シール帳・ホワイトボードでも続けばよいのでは」と離脱する直前の優位訴求
@@ -7599,6 +7619,14 @@ export const STORYBOOK_LABELS = {
 		cancelButton: 'いいえ',
 		ariaLabel: '確認ダイアログ',
 		openTrigger: 'ダイアログを開く',
+	},
+	// #2821: SetupResumeBanner story の mock onboarding item label
+	// (onboarding-service.ts の文言を反映。Storybook 専用 namespace、本番 SSOT と独立)。
+	setupResumeBanner: {
+		itemChildren: '子供を登録する',
+		itemRewards: 'ごほうびプリセットを選ぶ',
+		itemChecklist: 'チェックリストを作る',
+		itemChildScreen: '子供の画面を確認する',
 	},
 } as const;
 

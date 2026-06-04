@@ -134,9 +134,12 @@ const autoUiLabel = $derived(autoUiMode ? AGE_TIER_CONFIG[autoUiMode].label : ''
 {/if}
 
 <!-- Escape hatch: セットアップに誤リダイレクトされた場合の脱出用 -->
+<!-- #2821: 離脱先を / でなく /switch に固定。/ は子供 1 人だと child home に自動 redirect され -->
+<!-- 親向けの SetupResumeBanner が見えず AC1 の first-view 視認が壊れる。/switch は親向けの子供選択 -->
+<!-- 画面で、残りの初期設定 step を案内する resume バナーを先頭に出す。詳細は SetupResumeBanner.svelte。 -->
 <div class="mt-4 text-center">
 	<a
-		href="/"
+		href="/switch"
 		class="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text-link)]"
 		data-testid="setup-skip-link"
 	>{SETUP_CHILDREN_LABELS.backToHome}</a>

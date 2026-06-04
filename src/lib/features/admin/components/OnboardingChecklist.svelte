@@ -12,6 +12,15 @@ let { onboarding }: Props = $props();
 const requiredItems = $derived(onboarding.items.filter((i: OnboardingItem) => i.required));
 const optionalItems = $derived(onboarding.items.filter((i: OnboardingItem) => !i.required));
 
+// #2821: checklist の各 step・次のおすすめへの遷移には `from=setup` を付与し、
+// 着地した admin 画面で文脈バナー (SetupResumeBanner variant=context) が出るようにする。
+// 「テンプレ追加 → 着地 → 何をすべきか分からない」迷子の連鎖を断つ (AC2/AC3)。
+// admin 外 href (/switch 等) には付けない。
+function withFromSetup(href: string): string {
+	if (!href.startsWith('/admin')) return href;
+	return href.includes('?') ? `${href}&from=setup` : `${href}?from=setup`;
+}
+
 const progressPct = $derived(
 	onboarding.totalCount > 0
 		? Math.round((onboarding.completedCount / onboarding.totalCount) * 100)
@@ -40,7 +49,7 @@ const progressPct = $derived(
 				<span>{item.completed ? '✅' : '☐'}</span>
 				<span class="item-label">{item.label}</span>
 				{#if !item.completed}
-					<a href={item.href} class="item-link">→</a>
+					<a href={withFromSetup(item.href)} class="item-link">→</a>
 				{/if}
 			</li>
 		{/each}
@@ -57,7 +66,7 @@ const progressPct = $derived(
 						<span>{item.completed ? '✅' : '☐'}</span>
 						<span class="item-label">{item.label}</span>
 						{#if !item.completed}
-							<a href={item.href} class="item-link">→</a>
+							<a href={withFromSetup(item.href)} class="item-link">→</a>
 						{/if}
 					</li>
 				{/each}
@@ -69,7 +78,7 @@ const progressPct = $derived(
 		<div class="next-rec">
 			<span>→</span>
 			<span>{ONBOARDING_LABELS.nextRecLabel}</span>
-			<a href={onboarding.nextRecommendation.href} class="rec-link">
+			<a href={withFromSetup(onboarding.nextRecommendation.href)} class="rec-link">
 				{onboarding.nextRecommendation.label}
 			</a>
 		</div>
