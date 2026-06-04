@@ -76,10 +76,22 @@ const selectedChildId = $derived(
 );
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
-// 選択中 child の per-child activity 一覧 (Phase 6/7 で完全切替予定、現状は family master と並存表示)
+// #2902 Phase A: 選択中 child の per-child activity 一覧 (visible / hidden 双方を含む)。
+// activity-service の master 系 API は全て per-child repo (getRepos().childActivity) 経由に
+// rewrite 済 (#2362 PR-3、ADR-0055) で「family master table」は既に物理的に存在しない。
+// childActivitiesByChild は findActivitiesByChild(visibleOnly=false) で selected child の
+// instance を非表示分も含めて取得済 (+page.server.ts)。これが本画面の唯一の表示軸。
 const perChildActivities = $derived(
 	selectedChildId ? (data.childActivitiesByChild[selectedChildId] ?? []) : [],
 );
+
+// #2902 Phase A: 選択中 child の per-child instance を visible / hidden に分離する。
+// 旧実装は「selected child の per-child」+「tenant 全 child 集約 (data.activities)」を
+// 単純連結し、selected child の instance が 2 重に出る + 件数水増し (35+35) + 兄弟の活動が
+// 混在する 3 重の不整合を起こしていた。本 PR で表示軸を selected child の per-child のみに
+// 一本化する (Strangler Fig façade 原則: 内部並存を UI に漏らさない、deep research T3)。
+const visiblePerChildActivities = $derived(perChildActivities.filter((a) => Boolean(a.isVisible)));
+const hiddenPerChildActivities = $derived(perChildActivities.filter((a) => !a.isVisible));
 
 // ChildSelectionDialog state (per-child 取込時 auto-open)
 let showChildSelectionDialog = $state(false);
@@ -127,79 +139,14 @@ let prefillPoints = $state(5);
 let prefillNameKana = $state('');
 let prefillNameKanji = $state('');
 
-// #2362 PR-3 Phase 4: child タブで選択中 child の per-child + family master 両方を一覧
-// per-child は ChildActivity (childId 必須)、family master Activity (childId なし) と並存期間表示
-type DisplayActivity = {
-	id: number;
-	scope: 'per-child' | 'family';
-	categoryId: number;
-	name: string;
-	icon: string;
-	basePoints: number;
-	isVisible: boolean;
-	nameKana: string | null;
-	nameKanji: string | null;
-};
-
-// Round 18 Cluster J (#1870 評価 Round 3): family master activity の年齢適合フィルタ。
-// per-child 型は既に child binding 済 (createActivity で childId 必須) なのでフィルタ不要、
-// family master Activity は tenant 全 child 共有のため ageMin/ageMax と selectedChild.age を比較し
-// 適合しない activity (例: preschool 児童 context で「アルバイトした」「大学受験勉強した」等
-// senior 向け) を非表示にする。ADR-0055 per-child 主軸データモデル原則整合。
-// 「全件を表示」trigger で一時的に bypass 可能 (ユーザ確認用)。
-let bypassAgeFilter = $state(false);
-
-const displayActivities = $derived<DisplayActivity[]>([
-	...perChildActivities.map((a) => ({
-		id: a.id,
-		scope: 'per-child' as const,
-		categoryId: a.categoryId,
-		name: a.name,
-		icon: a.icon,
-		basePoints: a.basePoints,
-		// ChildActivity.isVisible は SQLite 0/1 (number)、family master は boolean のため正規化
-		isVisible: Boolean(a.isVisible),
-		nameKana: a.nameKana,
-		nameKanji: a.nameKanji,
-	})),
-	// Phase 6/7 完全切替まで family master も表示 (旧来 admin UX 維持)
-	// Round 18 Cluster J: ageMin/ageMax で selectedChild.age 適合分のみ。
-	// ageMin/ageMax が両方 null の activity は全 age 適合扱い (LP 訴求カスタマイズ自由度)。
-	...data.activities
-		.filter((a) => a.isVisible)
-		.filter((a) => {
-			if (bypassAgeFilter) return true;
-			const childAge = selectedChild?.age;
-			if (childAge == null) return true;
-			const activity = a as { ageMin?: number | null; ageMax?: number | null };
-			const min = activity.ageMin ?? Number.NEGATIVE_INFINITY;
-			const max = activity.ageMax ?? Number.POSITIVE_INFINITY;
-			return min <= childAge && childAge <= max;
-		})
-		.map((a) => ({
-			id: a.id,
-			scope: 'family' as const,
-			categoryId: a.categoryId,
-			name: a.name,
-			icon: a.icon,
-			basePoints: a.basePoints,
-			// Activity (SQLite 0/1 number) / ChildActivity (boolean) 双方を boolean に正規化
-			isVisible: Boolean(a.isVisible),
-			nameKana: a.nameKana,
-			nameKanji: a.nameKanji,
-		})),
-]);
-
-// Round 18 Cluster J: age filter 適用状態 (banner 表示判定用)
-// family master 全件 (visible 限定) vs displayActivities の family scope 件数を比較
-const visibleFamilyTotal = $derived(data.activities.filter((a) => a.isVisible).length);
-const visibleFamilyShown = $derived(displayActivities.filter((a) => a.scope === 'family').length);
-const ageFilterApplied = $derived(
-	!bypassAgeFilter && selectedChild?.age != null && visibleFamilyShown < visibleFamilyTotal,
-);
-
+// #2902 Phase A: 表示軸 = 選択中 child の visible per-child instance のみ。
+// ActivityListItem (フル CRUD: 編集 link / 表示切替 / メインクエスト / 削除) に
+// そのまま流せるよう ChildActivity 全フィールドを保持する (旧 DisplayActivity の
+// scope / family 分岐は撤去)。ChildActivity は ageMin/ageMax を持たない per-child
+// instance のため、旧 family master 用の年齢適合フィルタ (Round 18 Cluster J) は不要。
+// instance 化時点で対象 child に適合済であり、cross-child 年齢ミスマッチが構造的に発生しない。
 const filteredActivities = $derived.by(() => {
-	let result = displayActivities;
+	let result = visiblePerChildActivities;
 	if (filterCategoryId) {
 		result = result.filter((a) => a.categoryId === filterCategoryId);
 	}
@@ -215,7 +162,9 @@ const filteredActivities = $derived.by(() => {
 	return result;
 });
 
-const hiddenActivities = $derived(data.activities.filter((a) => !a.isVisible));
+// #2902 Phase A: 非表示セクションも選択中 child scope に揃える (旧 data.activities
+// 全 child 集約は撤去)。tab を切り替えると当該 child の非表示活動のみ表示する。
+const hiddenActivities = $derived(hiddenPerChildActivities);
 const canAdd = $derived(!activityLimit || activityLimit.allowed);
 
 // #2558 段階2: + 追加メニュー (manual / ai / browse / copy / bulk) の選択ハンドラ。
@@ -493,7 +442,9 @@ function selectChild(childId: number) {
 			aria-label={ADMIN_ACTIVITIES_PAGE_LABELS.childTabsAriaLabel}
 		>
 			{#each data.children as child (child.id)}
-				{@const count = (data.childActivitiesByChild[child.id] ?? []).length}
+				<!-- #2902 Phase A: タブ件数は visible per-child instance のみ (一覧表示と一致)。
+				     非表示活動は別 HiddenActivitiesSection に集約されるため件数から除外し水増しを防ぐ。 -->
+				{@const count = (data.childActivitiesByChild[child.id] ?? []).filter((a) => Boolean(a.isVisible)).length}
 				<Button
 					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
 					size="sm"
@@ -515,7 +466,7 @@ function selectChild(childId: number) {
 		{#if selectedChild}
 			<div class="child-context-banner" data-testid="child-context-banner">
 				<span class="child-context-banner__label">
-					{selectedChild.nickname}{ADMIN_ACTIVITIES_PAGE_LABELS.childContextActivitiesSuffix(perChildActivities.length)}
+					{selectedChild.nickname}{ADMIN_ACTIVITIES_PAGE_LABELS.childContextActivitiesSuffix(visiblePerChildActivities.length)}
 				</span>
 				<span class="child-context-banner__hint">
 					{ADMIN_ACTIVITIES_PAGE_LABELS.childContextHint}
@@ -523,43 +474,10 @@ function selectChild(childId: number) {
 			</div>
 		{/if}
 
-		<!-- Round 18 Cluster J (#1870 評価 Round 3): age filter 適用 hint banner。
-		     family master activity を ageMin/ageMax で selectedChild.age 適合分のみ表示中の旨を明示し、
-		     「全件を表示」trigger で一時 bypass 可能 (顧客確認用 escape hatch)。 -->
-		{#if ageFilterApplied && selectedChild}
-			<div class="age-filter-banner" data-testid="age-filter-banner" role="status">
-				<span class="age-filter-banner__text">
-					{ADMIN_ACTIVITIES_PAGE_LABELS.ageFilterAppliedHint(
-						selectedChild.nickname,
-						selectedChild.age,
-						visibleFamilyShown,
-						visibleFamilyTotal,
-					)}
-				</span>
-				<Button
-					variant="ghost"
-					size="sm"
-					data-testid="age-filter-bypass-btn"
-					onclick={() => { bypassAgeFilter = true; }}
-				>
-					{ADMIN_ACTIVITIES_PAGE_LABELS.ageFilterShowAll}
-				</Button>
-			</div>
-		{:else if bypassAgeFilter && selectedChild}
-			<div class="age-filter-banner" data-testid="age-filter-banner" role="status">
-				<span class="age-filter-banner__text">
-					{ADMIN_ACTIVITIES_PAGE_LABELS.ageFilterBypassedHint(selectedChild.nickname, selectedChild.age)}
-				</span>
-				<Button
-					variant="ghost"
-					size="sm"
-					data-testid="age-filter-reapply-btn"
-					onclick={() => { bypassAgeFilter = false; }}
-				>
-					{ADMIN_ACTIVITIES_PAGE_LABELS.ageFilterReapply}
-				</Button>
-			</div>
-		{/if}
+		<!-- #2902 Phase A: 旧 Round 18 Cluster J「年齢適合フィルタ banner」は撤去。
+		     per-child instance は instance 化時点で対象 child に適合済のため、family master
+		     全 child 共有 activity の年齢ミスマッチ (escape hatch が必要だった問題) が
+		     構造的に発生しない。表示軸が selected child の per-child のみに一本化された。 -->
 	{/if}
 
 	{#if showClearConfirm}
@@ -583,10 +501,10 @@ function selectChild(childId: number) {
 			class="filter-chip {filterCategoryId === 0 ? '' : 'filter-chip--inactive'}"
 			onclick={() => filterCategoryId = 0}
 		>
-			{UI_LABELS.all} ({displayActivities.length})
+			{UI_LABELS.all} ({visiblePerChildActivities.length})
 		</Button>
 		{#each data.categoryDefs as catDef}
-			{@const count = displayActivities.filter(a => a.categoryId === catDef.id).length}
+			{@const count = visiblePerChildActivities.filter(a => a.categoryId === catDef.id).length}
 			<Button
 				variant={filterCategoryId === catDef.id ? 'primary' : 'ghost'}
 				size="sm"
@@ -615,29 +533,18 @@ function selectChild(childId: number) {
 		</div>
 	{/if}
 
-	<!-- 活動一覧（メインコンテンツ）— per-child + family master 並存表示 (Phase 6/7 で完全切替予定) -->
+	<!-- #2902 Phase A: 活動一覧（メインコンテンツ）— 選択中 child の per-child instance を
+	     単一表示。全行が ActivityListItem (編集 / 表示切替 / メインクエスト / 削除のフル CRUD)。
+	     旧 per-child read-only badge 行 + family master 並存表示は撤去 (二重表示 / 件数水増し解消)。 -->
 	<div class="space-y-1" data-tutorial="activity-list">
-		{#each filteredActivities as activity (`${activity.scope}-${activity.id}`)}
-			{#if activity.scope === 'family'}
-				<!-- family master Activity (旧来 ActivityListItem を使用) -->
-				{#each data.activities.filter((a) => a.id === activity.id && a.isVisible) as origActivity}
-					<ActivityListItem
-						activity={origActivity}
-						mainQuestCount={data.mainQuestCount ?? 0}
-						mainQuestMax={data.mainQuestMax ?? 3}
-					/>
-				{/each}
-			{:else}
-				<!-- per-child ChildActivity (簡易表示、Phase 5 で list item refactor 予定) -->
-				<div class="per-child-item" data-testid="per-child-activity-{activity.id}">
-					<span class="per-child-item__icon">{activity.icon}</span>
-					<span class="per-child-item__name">{activity.name}</span>
-					<span class="per-child-item__points">{activity.basePoints} pt</span>
-					<span class="per-child-item__scope-badge"
-						>{ADMIN_ACTIVITIES_PAGE_LABELS.scopeBadgePerChild}</span
-					>
-				</div>
-			{/if}
+		{#each filteredActivities as activity (activity.id)}
+			<div data-testid="per-child-activity-{activity.id}">
+				<ActivityListItem
+					{activity}
+					mainQuestCount={data.mainQuestCount ?? 0}
+					mainQuestMax={data.mainQuestMax ?? 3}
+				/>
+			</div>
 		{:else}
 			<ActivityEmptyState
 				hasFilter={Boolean(searchQuery || filterCategoryId)}
@@ -655,10 +562,14 @@ function selectChild(childId: number) {
 	<!-- #2558 段階2: 'import' (admin 内マーケットプレイス風ブラウズ UI) を撤去。manual / ai のみ。 -->
 	<Dialog bind:open={showAddDialog} title={addMode === 'ai' ? FEATURES_LABELS.activitiesHeader.addDialogTitleAi : FEATURES_LABELS.activitiesHeader.addDialogTitleManual} testid="add-activity-dialog">
 		{#if addMode === 'ai'}
-			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.planTier === 'family'} />
+			<!-- #2902 Phase A: load は planTier を返さず isPremium を返す。
+			     旧 `data.planTier === 'family'` は常に undefined === 'family' = false で機能不全だった。
+			     有料判定 (isPremium) を渡して AI 提案パネルの premium gating を正しく評価する。 -->
+			<AiSuggestPanel onaccept={acceptAiPreview} isFamily={data.isPremium} />
 		{:else if addMode === 'manual'}
 			<ActivityCreateForm
 				categoryDefs={data.categoryDefs}
+				childId={selectedChildId}
 				initialName={prefillName}
 				initialCategoryId={prefillCategoryId}
 				initialMainIcon={prefillMainIcon}
@@ -921,52 +832,8 @@ function selectChild(childId: number) {
 		color: var(--color-text-muted);
 	}
 
-	/* Round 18 Cluster J: age filter applied / bypassed hint banner */
-	.age-filter-banner {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		background: var(--color-surface-info);
-		border-left: 3px solid var(--color-feedback-info-border);
-		border-radius: var(--radius-sm);
-		font-size: 0.85rem;
-		color: var(--color-feedback-info-text);
-	}
-	.age-filter-banner__text {
-		flex: 1;
-		line-height: 1.4;
-	}
-
-	/* per-child activity simple list (Phase 5: list item refactor pending) */
-	.per-child-item {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		background: var(--color-surface-card);
-		border: 1px solid var(--color-border-light);
-		border-radius: var(--radius-sm);
-	}
-	.per-child-item__icon {
-		font-size: 1.25rem;
-	}
-	.per-child-item__name {
-		flex: 1;
-		font-weight: 500;
-	}
-	.per-child-item__points {
-		font-size: 0.85rem;
-		color: var(--color-text-muted);
-	}
-	.per-child-item__scope-badge {
-		font-size: 0.7rem;
-		padding: 0.125rem 0.5rem;
-		background: var(--color-feedback-info-bg);
-		color: var(--color-feedback-info-text);
-		border-radius: 9999px;
-	}
+	/* #2902 Phase A: 旧 .age-filter-banner / .per-child-item* (read-only 簡易行) は
+	   表示一本化 (ActivityListItem へ集約) により撤去済。 */
 
 	/* Copy dialog */
 	.copy-dialog-desc {

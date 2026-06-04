@@ -152,6 +152,11 @@ export const actions: Actions = {
 		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
+		// #2902 Phase A: 作成先 child (選択中タブ)。未指定 / 不正値は service 側で
+		// 一番古い child に fallback する (後方互換)。
+		const childIdRaw = formData.get('childId');
+		const childId =
+			childIdRaw != null && /^\d+$/.test(String(childIdRaw)) ? Number(childIdRaw) : undefined;
 
 		if (!name) return fail(400, { error: '名前を入力してください' });
 		if (!categoryId || categoryId < 1 || categoryId > 5) {
@@ -189,6 +194,7 @@ export const actions: Actions = {
 					triggerHint,
 				},
 				tenantId,
+				childId,
 			);
 			return { created: true };
 		} catch (e) {

@@ -228,20 +228,28 @@ export async function getActivityById(id: number, tenantId: string) {
 	return getRepos().childActivity.findActivityById(id, childId, tenantId);
 }
 
-export async function createActivity(input: CreateActivityInput, tenantId: string) {
-	// signature 不変のため input に childId が無い。Phase 7b-2c で callsite 側に childId を
-	// 渡す signature 拡張が必要。本 phase は暫定 fallback として一番古い child (sortOrder
-	// 最小 = `findAllChildren` の先頭) に作成する。tenant に child が 0 件なら error。
+export async function createActivity(
+	input: CreateActivityInput,
+	tenantId: string,
+	childId?: number,
+) {
+	// #2902 Phase A: 作成先 child を明示できる optional 第 3 引数 childId を追加。
+	// admin/activities は選択中タブの child に作成する (single-axis 表示と一致し、
+	// 「追加したのに別の子のタブに出る」混乱を防ぐ)。childId 未指定の旧 callsite
+	// (api/v1/activities 等) は従来通り一番古い child (sortOrder 最小 = findAllChildren
+	// の先頭) に作成する後方互換 fallback。tenant に child が 0 件なら error。
 	const children = await findAllChildren(tenantId);
 	if (children.length === 0) {
 		throw new Error('createActivity: tenant に child が存在しないため作成不可');
 	}
-	const firstChild = children[0];
-	if (!firstChild) {
+	// 指定 childId が当該 tenant に属する場合のみ採用 (cross-tenant / 不正 id を弾く)。
+	const targetChild = childId != null ? children.find((c) => c.id === childId) : undefined;
+	const resolvedChild = targetChild ?? children[0];
+	if (!resolvedChild) {
 		throw new Error('createActivity: tenant に child が存在しないため作成不可');
 	}
 	return getRepos().childActivity.insertActivity(
-		_toChildActivityInsertInput(input, firstChild.id),
+		_toChildActivityInsertInput(input, resolvedChild.id),
 		tenantId,
 	);
 }
