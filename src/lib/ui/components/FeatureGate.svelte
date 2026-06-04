@@ -1,6 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { PLAN_TERMS } from '$lib/domain/terms';
 import PremiumBadge from './PremiumBadge.svelte';
 
 type PlanTier = 'free' | 'standard' | 'family';
@@ -30,10 +31,11 @@ let {
 }: Props = $props();
 
 const TIER_ORDER: Record<PlanTier, number> = { free: 0, standard: 1, family: 2 };
+// Phase 7 PR-L4 (#2836): 顧客可視の gate ラベルを premium atom 参照化 (ADR-0045 / ADR-0058)。
 const TIER_LABELS: Record<PlanTier, string> = {
-	free: '無料',
-	standard: 'スタンダード',
-	family: 'ファミリー',
+	free: PLAN_TERMS.free,
+	standard: PLAN_TERMS.standard,
+	family: PLAN_TERMS.premium,
 };
 
 const isLocked = $derived(TIER_ORDER[currentTier] < TIER_ORDER[requiredTier]);

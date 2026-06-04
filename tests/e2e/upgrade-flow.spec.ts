@@ -15,6 +15,8 @@
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts upgrade-flow
 
 import { expect, test } from '@playwright/test';
+// Phase 7 PR-L4 (#2836): family→premium rename (ADR-0058) で CTA 文言は PLAN_TERMS.premium 参照。
+import { PLAN_TERMS } from '../../src/lib/domain/terms';
 
 // ============================================================
 // 1. PlanStatusCard からのアップグレード CTA（free）
@@ -36,7 +38,7 @@ test.describe('#753 PlanStatusCard → /admin/subscription — free', () => {
 		await expect(freeCta).toBeVisible();
 	});
 
-	test('free プランの PlanStatusCard に「ファミリーへ」CTA がある', async ({ page }) => {
+	test('free プランの PlanStatusCard に「プレミアムへ」CTA がある', async ({ page }) => {
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
 		const familyCta = page.getByTestId('plan-status-family-cta');
@@ -49,7 +51,7 @@ test.describe('#753 PlanStatusCard → /admin/subscription — free', () => {
 			return;
 		}
 		await expect(familyCta).toBeVisible({ timeout: 10_000 });
-		await expect(familyCta).toContainText(/ファミリー/);
+		await expect(familyCta).toContainText(PLAN_TERMS.premium);
 	});
 });
 

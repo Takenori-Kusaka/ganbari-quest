@@ -21,6 +21,7 @@
 
 import type { PlanKey } from './labels';
 import { ACTION_LABELS, TRIAL_LABELS } from './labels';
+import { PLAN_TERMS } from './terms';
 
 /**
  * プラン料金カードに表示する機能リスト（/pricing/+page.svelte 用）
@@ -172,7 +173,8 @@ export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 	},
 	standard: {
 		id: 'standard',
-		name: 'スタンダード',
+		// Phase 7 PR-L4 (#2836): プラン名を atom 参照化 (ADR-0045 / ADR-0058)。
+		name: PLAN_TERMS.standard,
 		price: '¥500',
 		unit: '/月',
 		yearlyPrice: '年額 ¥5,000（2ヶ月分お得）',
@@ -184,7 +186,8 @@ export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 	},
 	family: {
 		id: 'family',
-		name: 'ファミリー',
+		// Phase 7 PR-L4 (#2836): family→premium rename 漏れを atom 参照化 (ADR-0058)。
+		name: PLAN_TERMS.premium,
 		price: '¥780',
 		unit: '/月',
 		yearlyPrice: '年額 ¥7,800（2ヶ月分お得）',

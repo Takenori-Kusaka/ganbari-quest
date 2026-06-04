@@ -5957,8 +5957,9 @@ export const UI_COMPONENTS_LABELS = {
 
 	// ---- Logo ----
 	logoAlt: 'がんばりクエスト',
-	logoPlanStandard: '⭐ スタンダード',
-	logoPlanFamily: '⭐⭐ ファミリー',
+	logoPlanStandard: `⭐ ${PLAN_TERMS.standard}`,
+	// Phase 7 PR-L4 (#2836): 顧客可視の header plan badge を premium atom 参照化 (ADR-0058)。
+	logoPlanFamily: `⭐⭐ ${PLAN_TERMS.premium}`,
 
 	// #2295 (EPIC #2294 ①): MonthlyRewardDialog 関連ラベル削除済 (2026-05-19)
 
@@ -6174,11 +6175,12 @@ export const FEATURES_LABELS = {
 	},
 
 	// ---- features/admin/components/ AI suggest 共通 ----
+	// Phase 7 PR-L4 (#2836): 顧客可視の AI suggest gate 文言を premium atom 参照化 (ADR-0058)。
 	aiSuggestCommon: {
-		familyOnlyBadge: 'ファミリー限定',
-		familyOnlyError: (kind: string) => `${kind}はファミリープランでご利用いただけます`,
-		familyOnlyDescription: (kind: string) => `${kind}はファミリープランで解放されます。`,
-		familyUpgradeBtn: 'ファミリープランにアップグレード',
+		familyOnlyBadge: `${PLAN_TERMS.premium}限定`,
+		familyOnlyError: (kind: string) => `${kind}は${PLAN_FULL_TERMS.premium}でご利用いただけます`,
+		familyOnlyDescription: (kind: string) => `${kind}は${PLAN_FULL_TERMS.premium}で解放されます。`,
+		familyUpgradeBtn: `${PLAN_FULL_TERMS.premium}にアップグレード`,
 		thinkingLabel: '考え中...',
 		suggestBtn: '提案する',
 		retryBtn: 'やり直す',
@@ -6417,8 +6419,11 @@ export const FEATURES_LABELS = {
 	// ---- features/admin/components/PlanStatusCard ----
 	planStatusCard: {
 		freePlan: `${PLAN_FULL_TERMS.free}`,
-		standardPlan: 'スタンダード プラン',
-		familyPlan: 'ファミリー プラン',
+		// Phase 7 PR-L4 (#2836): /admin/subscription の現在プランカードを premium atom 参照化 (ADR-0058)。
+		// 旧「スタンダード プラン」「ファミリー プラン」直書きは family→premium rename 漏れだった。
+		// 短縮 atom + 「 プラン」(空白付き) で従来の表示文字列を維持する。
+		standardPlan: `${PLAN_TERMS.standard} プラン`,
+		familyPlan: `${PLAN_TERMS.premium} プラン`,
 		unlimited: '無制限',
 		retentionDays: (days: number) => `${days}日間`,
 		trialBadge: (days: number) => `トライアル中（残り${days}日）`,
@@ -6431,7 +6436,8 @@ export const FEATURES_LABELS = {
 		makeContractBtn: '本契約する',
 		upgradeBtn: '⭐ スタンダードにアップグレード',
 		planDetailLink: 'プランの詳細',
-		familyUpgradeBtn: '⭐⭐ ファミリーへ',
+		// Phase 7 PR-L4 (#2836): premium atom 参照化 (ADR-0058、family→premium rename 漏れ)。
+		familyUpgradeBtn: `⭐⭐ ${PLAN_TERMS.premium}へ`,
 	},
 
 	// ---- features/admin/components/ActivityImportPanel (#2391 で物理削除済) ----
