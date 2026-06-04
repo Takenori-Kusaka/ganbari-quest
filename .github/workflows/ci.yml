@@ -197,6 +197,13 @@ jobs:
         # 既存 72 件 (40 ファイル) は scripts/doc-code-references-baseline.json で pin (#2240 Split C skip 判定 / #2259 C1 で path 配列化)。
         run: node scripts/check-doc-code-references.mjs
 
+      - name: Terminology coherence check (#2555 / #2815 D-3 C+)
+        # pre-ready Step 11 と同一検査の CI 化 (#2815 D-3 敵対的レビュー所見:
+        # pre-ready 12 step 中、本 step だけ CI のどの workflow にも非搭載で
+        # 「ローカル self-report と CI の乖離を CI green が吸収する」前提が破れていた)。
+        # 用語不統一・add 経路重複 (Hick's Law ≤4) を warning 0 で gate (CX-DoR 条件 3/4)。
+        run: npx tsx scripts/check-terminology-coherence.ts
+
       - name: Scripts unit tests (node:test for check-doc-code-references.mjs) (#2259 C3)
         # #2259 C3 fix: vitest config は tests/unit/** / tests/integration/** のみで
         # scripts/__tests__/*.test.mjs は vitest 対象外。node --test を CI gate に組み込む。

@@ -427,6 +427,54 @@ export function detectMojibake(body) {
 }
 
 // ---------------------------------------------------------------------------
+// Self-Review 証跡検出 (#2475 Phase 2 / #2815 D-1、PO 判断 2026-06-04: 導入必須)
+// ---------------------------------------------------------------------------
+
+const SELF_REVIEW_SECTION_RE = /セルフレビュー|セルフチェック/;
+// 機械検証コマンド証跡: backtick 内が npx/npm/node/grep/rg/git/gh/ls で始まるコマンド文字列。
+// AC 検証マップ「検証手段」列・各 [x] の根拠記載が該当する。
+const EVIDENCE_COMMAND_RE = /`(?:npx|npm|node|grep|rg|git|gh|ls)\s[^`]+`/;
+
+/**
+ * Self-Review 系セクション（コード品質セルフレビュー / テスト & 安全装置セルフチェック /
+ * Ready for Review チェックリスト）に `[x]` の自己宣言があるのに、body 全体に機械検証
+ * コマンドの証跡が 1 件も無い場合に violation を返す。
+ *
+ * 背景 (self-review-agent.md §2.4): 「証跡コマンド添付なしの PASS は false PASS と同等扱い」。
+ * 観点を [x] で埋めるだけの形骸化 (rubber-stamp) を機械検出する。
+ *
+ * @param {string} body
+ * @returns {{ id: string; message: string } | null}
+ */
+export function checkSelfReviewEvidence(body) {
+	const stripped = stripMarkdownComments(body);
+	const lines = stripped.split('\n');
+	let inSelfReview = false;
+	let checkedClaims = 0;
+	for (const line of lines) {
+		if (/^##\s/.test(line)) {
+			inSelfReview = SELF_REVIEW_SECTION_RE.test(line);
+			continue;
+		}
+		if (inSelfReview && /^\s*-\s*\[x\]/i.test(line)) {
+			checkedClaims += 1;
+		}
+	}
+	// 自己宣言ゼロ（セクション欠落は必須セクション gate が別途検出）
+	if (checkedClaims === 0) return null;
+	// 証跡コマンドが body のどこかに 1 件以上あれば PASS
+	if (EVIDENCE_COMMAND_RE.test(stripped)) return null;
+	return {
+		id: 'self-review-evidence-missing',
+		message:
+			`Self-Review 系セクションに [x] 自己宣言が ${checkedClaims} 件あるのに、` +
+			'機械検証コマンドの証跡 (`npx ...` / `grep ...` 等の backtick コマンド) が PR body に 1 件もありません。\n' +
+			'  対応: AC 検証マップ「検証手段」列や各 [x] の根拠に、実行した検証コマンドと結果を添付する\n' +
+			'        (docs/operations/self-review-agent.md §2.4: 証跡なき PASS は false PASS と同等扱い)。',
+	};
+}
+
+// ---------------------------------------------------------------------------
 // mergeable: CONFLICTING 事前検知（GitHub API）
 // ---------------------------------------------------------------------------
 
@@ -705,6 +753,12 @@ function collectViolations(body, requiredSections, args) {
 	const mojibake = detectMojibake(body);
 	for (const m of mojibake) {
 		violations.push({ ...m, issue: '#2562/#2576' });
+	}
+
+	// #2475 Phase 2 / #2815 D-1: Self-Review 証跡なき [x] 自己宣言の検出 (PO 判断 2026-06-04)
+	const selfReviewEvidence = checkSelfReviewEvidence(body);
+	if (selfReviewEvidence) {
+		violations.push({ ...selfReviewEvidence, issue: '#2475/#2815 D-1' });
 	}
 
 	return violations;
