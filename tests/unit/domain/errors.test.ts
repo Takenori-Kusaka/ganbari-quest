@@ -158,6 +158,25 @@ describe('#787 getErrorMessage', () => {
 		expect(getErrorMessage(403)).toBe('');
 		expect(getErrorMessage(true)).toBe('');
 	});
+
+	// #2894 AC3 回帰: admin/rewards の handleChildSelectionConfirm / handleCopyFromChild が
+	// form action failure の data.error を `String(error)` していたため、reward 系 action の
+	// plan gate 403 (PlanLimitError オブジェクト) が「[object Object]」と表示され、
+	// plan-limit メッセージも件数表示も壊れていた (Issue #2894 証拠④)。
+	// 修正後は getErrorMessage 経由で PlanLimitError.message を正しく取り出す。
+	it('#2894: PlanLimitError を String() すると壊れるが getErrorMessage は message を返す', () => {
+		const planLimitError = createPlanLimitError(
+			'free',
+			'standard',
+			'ごほうび管理はスタンダードプラン以上でご利用いただけます',
+		);
+		// 旧バグ経路 (String) は壊れた表示になる — この回帰を二度と踏まないことを明示
+		expect(String(planLimitError)).toBe('[object Object]');
+		// 修正経路 (getErrorMessage) は人間可読な plan-limit メッセージを返す
+		expect(getErrorMessage(planLimitError)).toBe(
+			'ごほうび管理はスタンダードプラン以上でご利用いただけます',
+		);
+	});
 });
 
 describe('#2894 getActionErrorDisplay', () => {
