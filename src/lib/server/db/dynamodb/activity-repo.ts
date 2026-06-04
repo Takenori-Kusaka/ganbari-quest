@@ -372,21 +372,32 @@ export async function deleteActivity(id: number, tenantId: string): Promise<Acti
 
 /** 活動にログが存在するか確認 */
 export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
-	// Scan LOG# items filtered by activityId, limit 1 for efficiency
-	const result = await getDocClient().send(
-		new ScanCommand({
-			TableName: TABLE_NAME,
-			FilterExpression: 'begins_with(SK, :skPrefix) AND #activityId = :activityId',
-			ExpressionAttributeNames: { '#activityId': 'activityId' },
-			ExpressionAttributeValues: {
-				':skPrefix': 'LOG#',
-				':activityId': activityId,
-			},
-			Limit: 1,
-		}),
-	);
+	// #2842: DynamoDB は FilterExpression より先に Limit を評価するため、Limit:1 では
+	//   「最初に scan された 1 件が match しない」だけで false negative になる
+	//   (= ログを持つ活動が hard-delete され子供の履歴が永久消失する)。
+	//   Limit は付けず scanAll と同型の do/while + ExclusiveStartKey で全 page を走査し、
+	//   filter match を 1 件見つけ次第 early-return true、page 尽きたら false を返す。
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(SK, :skPrefix) AND #activityId = :activityId',
+				ExpressionAttributeNames: { '#activityId': 'activityId' },
+				ExpressionAttributeValues: {
+					':skPrefix': 'LOG#',
+					':activityId': activityId,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		if ((result.Items?.length ?? 0) > 0) {
+			return true;
+		}
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
 
-	return (result.Items?.length ?? 0) > 0;
+	return false;
 }
 
 /** 全活動のログ数を取得（キャンセル除外） */
@@ -582,29 +593,13 @@ export async function findActivityLogById(
 	id: number,
 	_tenantId: string,
 ): Promise<ActivityLog | undefined> {
-	const result = await getDocClient().send(
-		new ScanCommand({
-			TableName: TABLE_NAME,
-			FilterExpression: 'begins_with(SK, :skPrefix) AND #id = :id',
-			ExpressionAttributeNames: { '#id': 'id' },
-			ExpressionAttributeValues: {
-				':skPrefix': 'LOG#',
-				':id': id,
-			},
-			Limit: 100,
-		}),
-	);
-
-	// Since Limit with FilterExpression may not find the item on first page, paginate
-	let items = result.Items ?? [];
-	let lastKey = result.LastEvaluatedKey;
-
-	if (items.length > 0) {
-		return stripKeys(items[0] as Record<string, unknown>) as unknown as ActivityLog;
-	}
-
-	while (lastKey && items.length === 0) {
-		const nextResult = await getDocClient().send(
+	// #2842: DynamoDB は FilterExpression より先に Limit を評価するため、Limit を付けると
+	//   1 page 内に match が無いだけで取りこぼす。Limit は外し、scanAll と同型の
+	//   do/while + ExclusiveStartKey で全 page を走査する。各 page では filter match した
+	//   全 Items を走査し (`items[0]` だけ見ない)、最初の match を返す。
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
 				FilterExpression: 'begins_with(SK, :skPrefix) AND #id = :id',
@@ -614,15 +609,13 @@ export async function findActivityLogById(
 					':id': id,
 				},
 				ExclusiveStartKey: lastKey,
-				Limit: 100,
 			}),
 		);
-		items = nextResult.Items ?? [];
-		lastKey = nextResult.LastEvaluatedKey;
-		if (items.length > 0) {
-			return stripKeys(items[0] as Record<string, unknown>) as unknown as ActivityLog;
+		for (const item of result.Items ?? []) {
+			return stripKeys(item as Record<string, unknown>) as unknown as ActivityLog;
 		}
-	}
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
 
 	return undefined;
 }

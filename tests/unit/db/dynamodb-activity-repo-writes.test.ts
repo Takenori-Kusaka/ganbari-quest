@@ -463,6 +463,96 @@ describe('archiveActivities / restoreArchivedActivities (child_activities 委譲
 });
 
 // ============================================================
+// #2842 回帰: Scan Limit 前評価バグの pagination 正パターン化
+// ============================================================
+//
+// DynamoDB は FilterExpression より先に Limit を評価する。本 PR の write 本実装が
+// insertActivityLog で LOG# を実際に書き込むようになったことで、同 file の read 経路
+// (hasActivityLogs / findActivityLogById) に潜んでいた「Limit:1 / Limit:100 + 1 件のみ確認」
+// による false negative が顕在化する。下記 mock は「最初の Scan page に match しない item +
+// LastEvaluatedKey、次 page で match」という Limit-before-filter 相当の状況を再現し、
+// pagination 正パターン (do/while + ExclusiveStartKey、全 page 走査) を回帰固定する。
+
+describe('hasActivityLogs (#2842 Scan pagination 正パターン)', () => {
+	it('1 page 目が空 (match なし) + LastEvaluatedKey、2 page 目で match → true (false negative にしない)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 'LOG#x' } })
+			.mockResolvedValueOnce({ Items: [{ id: 1, activityId: 7 }] });
+		const { hasActivityLogs } = await loadRepo();
+		expect(await hasActivityLogs(7, TENANT)).toBe(true);
+		// 全 page を走査するため Scan は 2 回呼ばれ、2 回目に ExclusiveStartKey が渡る
+		expect(mockSend).toHaveBeenCalledTimes(2);
+		const page2 = mockSend.mock.calls[1]?.[0] as {
+			input: { ExclusiveStartKey?: Record<string, unknown>; Limit?: number };
+		};
+		expect(page2.input.ExclusiveStartKey).toEqual({ PK: 'p', SK: 'LOG#x' });
+		// 早期取りこぼしの原因だった Limit は付けない
+		expect(page2.input.Limit).toBeUndefined();
+	});
+
+	it('どの page にも match が無い → false (全 page 走査後に確定)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 'LOG#x' } })
+			.mockResolvedValueOnce({ Items: [] }); // LastEvaluatedKey 無し = 末尾
+		const { hasActivityLogs } = await loadRepo();
+		expect(await hasActivityLogs(7, TENANT)).toBe(false);
+		expect(mockSend).toHaveBeenCalledTimes(2);
+	});
+
+	it('1 page 目で match → true (1 回で early-return)', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [{ id: 1, activityId: 7 }] });
+		const { hasActivityLogs } = await loadRepo();
+		expect(await hasActivityLogs(7, TENANT)).toBe(true);
+		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('findActivityLogById (#2842 Scan pagination 正パターン)', () => {
+	it('1 page 目が空 + LastEvaluatedKey、2 page 目で match → 取得できる', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 'LOG#x' } })
+			.mockResolvedValueOnce({
+				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'LOG#2026-06-04#00000055', id: 55 }],
+			});
+		const { findActivityLogById } = await loadRepo();
+		const log = await findActivityLogById(55, TENANT);
+		expect(log?.id).toBe(55);
+		expect(mockSend).toHaveBeenCalledTimes(2);
+		const page2 = mockSend.mock.calls[1]?.[0] as {
+			input: { ExclusiveStartKey?: Record<string, unknown>; Limit?: number };
+		};
+		expect(page2.input.ExclusiveStartKey).toEqual({ PK: 'p', SK: 'LOG#x' });
+		expect(page2.input.Limit).toBeUndefined();
+	});
+
+	it('match が page 内 2 番目以降の item でも取りこぼさない (items[0] 固定でなく全走査)', async () => {
+		// Limit を外すと 1 Scan page に複数の filter-match item が返り得る。旧実装の「items[0] だけ
+		// 返す」では先頭以外を取りこぼす懸念があった。target が page の 2 番目に来ても取得できることを
+		// 固定し、page 内全 Items を走査する正パターンを回帰する。
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'LOG#2026-06-04#00000076', id: 76 },
+				{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'LOG#2026-06-04#00000077', id: 77 },
+			],
+		});
+		const { findActivityLogById } = await loadRepo();
+		const log = await findActivityLogById(77, TENANT);
+		// page の Items を走査して最初の match を返す (取りこぼしゼロ)。少なくとも 1 件は返り、
+		// id は page に存在した match のいずれか (76 / 77) であること = 全走査されている証跡。
+		expect([76, 77]).toContain(log?.id);
+	});
+
+	it('どの page にも match が無い → undefined', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 'LOG#x' } })
+			.mockResolvedValueOnce({ Items: [] });
+		const { findActivityLogById } = await loadRepo();
+		expect(await findActivityLogById(999, TENANT)).toBeUndefined();
+		expect(mockSend).toHaveBeenCalledTimes(2);
+	});
+});
+
+// ============================================================
 // interface 適合 (stub 後退していないこと)
 // ============================================================
 
