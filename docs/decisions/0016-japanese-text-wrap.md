@@ -1,8 +1,8 @@
 # 0016. 日本語テキスト折り返し方針（CSS 第一 + BudouX フォールバック）
 
-- **Status**: Proposed
-- **Date**: 2026-04-21
-- **Related Issue**: #1353（B8 吸収）/ #584（CLOSED、BudouX 導入検討起源）
+- **Status**: Accepted（2026-06-04 昇格、#2440 PR-A5）— `app.css` の `text-wrap: balance; word-break: auto-phrase;` 実装 + BudouX フォールバック導入済、DESIGN.md §3 で運用定着
+- **Date**: 2026-04-21（proposed）/ 2026-06-04（accepted）
+- **Related Issue**: #1353（B8 吸収）/ #584（CLOSED、BudouX 導入検討起源）/ #2440（PR-A5 昇格）
 
 ## コンテキスト
 

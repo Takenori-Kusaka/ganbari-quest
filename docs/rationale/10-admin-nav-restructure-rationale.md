@@ -87,5 +87,5 @@ Family Link 流の subject-first を最優先採用。理由: ターゲットユ
 - **関連 ADR**:
   - [ADR-0010 Pre-PMF scope 判断](../decisions/0010-pre-pmf-scope-judgment.md)
   - [ADR-0013 LP truth](../decisions/0013-lp-truth-from-implementation.md) — aspirational/committed 分離
-  - [ADR-0014 labels / i18n 機構選定](../decisions/0014-labels-i18n-mechanism.md) — OSS 先調査整合
-  - [ADR-0015 年齢帯 variant 管理](../decisions/0015-age-tier-variant-architecture.md) — 親管理画面は年齢非依存
+  - 旧 ADR-0014 labels / i18n 機構選定（OSS 先調査整合、#2440 PR-A5 で削除。OSS 先調査ルールは [docs/decisions/README.md](../decisions/README.md) + issue-triage SKILL に移管、git 履歴参照）
+  - 旧 ADR-0015 年齢帯 variant 管理（親管理画面は年齢非依存、#2440 PR-A5 で削除。variant 管理パターンは `src/routes/CLAUDE.md` §年齢帯 variant が SSOT、git 履歴参照）

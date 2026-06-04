@@ -84,4 +84,4 @@
 
 - **議論源 Issue / PR**: #1921 (Phase 5 F4) / #1909 (TECH-MAJ-1) / #1918 (Phase 5 F1) / #1916 (Phase 1 基盤) / #1922 (ADR-0045 起票)
 - **影響を受ける設計書**: `docs/DESIGN.md` §6（用語辞書 2 階層 SSOT 図）
-- **関連 ADR**: [ADR-0010](../decisions/0010-pre-pmf-scope-judgment.md)（Pre-PMF スコープ判断）/ [ADR-0014](../decisions/0014-labels-i18n-mechanism.md)（OSS 先調査）/ [ADR-0045](../decisions/0045-terms-ssot-2-layer.md)（terms.ts SSOT 2 階層化）/ ADR-0009 (archived, superseded by 0045)
+- **関連 ADR**: [ADR-0010](../decisions/0010-pre-pmf-scope-judgment.md)（Pre-PMF スコープ判断）/ OSS 先調査ルール（[docs/decisions/README.md §OSS 先調査ルール](../decisions/README.md)、旧 ADR-0014 は #2440 PR-A5 で削除し本 README + issue-triage SKILL に移管）/ [ADR-0045](../decisions/0045-terms-ssot-2-layer.md)（terms.ts SSOT 2 階層化）/ ADR-0009 (archived, superseded by 0045)
