@@ -35,15 +35,23 @@
  * - **ADR-0010 Pre-PMF Bucket A**: 本日 5 連続再発 + race condition 4 連続観察 =
  *   実観察 defect への直接対処
  *
- * **判定ロジック**:
+ * **判定ロジック** (#2877 で three-dot 化):
  *
- * 1. `git merge-base origin/main HEAD` を取得し、`origin/main..HEAD` の削除 file を列挙
+ * 1. `git diff -M --name-status origin/main...HEAD` (**three-dot = merge-base 比較**) で
+ *    PR 自身の diff が削除する file を列挙 (main 進化の追加 file を誤算入しない)
+ * 1.5. `git merge-base --is-ancestor origin/main HEAD` が真 (rebase 済) かつ削除 0 件なら
+ *    即 exit 0 (AC2 fast-path、recent merge 走査を省略)
  * 2. 直近 N 日 (default 7) に main に merge された commit (`--merges`) を `git log` で取得
  * 3. 各 merge commit が touch した file (additions / modifications / deletions 不問) と
  *    PR の削除 file を path level で照合
  * 4. 重複 file が存在し、かつ `--ignore-pattern` regex にマッチしない場合 → exit 2
  *    + stderr に違反 listing (file:commit:date)
  * 5. 重複なし → exit 0
+ *
+ * **two-dot → three-dot 化 (#2877)**: two-dot (`origin/main..HEAD`) は端点 tree 比較で、
+ * PR が削除していなくても main 進化で base 以降追加された file が HEAD tree に無いだけで
+ * D 判定する偽陽性があった (単日 4 PR #2853/#2857/#2855/#2859 連続誤 BLOCK)。three-dot は
+ * merge-base 起点で PR 側変更のみを抽出し、squash merge の実セマンティクスと一致する。
  *
  * **Edge cases**:
  *
@@ -158,15 +166,29 @@ export function runGit(args, options = {}) {
 /**
  * PR diff から削除 file 一覧を取得する。
  *
- * `git diff -M --name-status <base>..HEAD` を実行し、
+ * `git diff -M --name-status <base>...HEAD` (**three-dot = merge-base 比較**) を実行し、
  *   - 'D' status の file → 削除 file として収集
  *   - 'R' status の file → rename として除外 (legitimate な move を保護、archive 移動等)
+ *
+ * **three-dot (merge-base) を使う理由 (#2877)**:
+ *
+ * two-dot (`<base>..HEAD`) は **端点同士の tree 比較** であり、「PR が何も削除して
+ * いないのに、PR base 以降 main へ **追加** された file が HEAD tree に無い」だけで
+ * D 判定する。sibling PR が高頻度 merge される日には、fresh に rebase 済みでも数
+ * commit 遅れた瞬間に全 PR が偽陽性 BLOCK する (#2853 / #2857 / #2855 / #2859 で
+ * 単日 4 PR 連続誤 BLOCK)。
+ *
+ * three-dot (`<base>...HEAD`) は **merge-base (共通祖先) を起点に HEAD 側の変更のみ**を
+ * 抽出するため、「PR 自身の diff が削除する file」だけを検出する。これは squash merge
+ * 時に main に landing する実セマンティクス (PR の変更だけが反映される) と一致し、
+ * main 側の進化 (新規追加) を PR の責任に誤算入しない。意図的削除 (#2822 / #2841) は
+ * three-dot でも D として残るため、真陽性の検出能力は維持される。
  *
  * @param {string} base 比較 base (例: 'origin/main')
  * @returns {string[]|null} 削除 file path 配列、git 失敗時 null
  */
 export function getDeletedFiles(base) {
-	const output = runGit(['diff', '-M', '--name-status', `${base}..HEAD`]);
+	const output = runGit(['diff', '-M', '--name-status', `${base}...HEAD`]);
 	if (output === null) {
 		return null;
 	}
@@ -184,6 +206,30 @@ export function getDeletedFiles(base) {
 		// rename ('R100' / 'R85' 等) は skip
 	}
 	return deleted;
+}
+
+/**
+ * `<base>` が HEAD の ancestor か (= PR が base の最新を取り込み済か) を判定する (#2877)。
+ *
+ * `git merge-base --is-ancestor <base> HEAD` は exit 0 で ancestor、exit 1 で非 ancestor
+ * を返す。`runGit` は exit != 0 で null を返すため、本関数では `spawnSync` の status を
+ * 直接判定する (null=falsy だと「非 ancestor」と「git エラー」を区別できないため)。
+ *
+ * 早期 fast-path (AC2) の用途: base が ancestor (rebase 済) かつ three-dot 削除 0 件なら、
+ * 削除が一切無いことが確定するので即 exit 0 にできる (recent merge 走査を省略)。
+ *
+ * @param {string} base 比較 base (例: 'origin/main')
+ * @returns {boolean | null} ancestor なら true / 非 ancestor なら false / git 失敗時 null
+ */
+export function isAncestor(base) {
+	const result = spawnSync('git', ['merge-base', '--is-ancestor', base, 'HEAD'], {
+		encoding: 'utf8',
+		shell: false,
+	});
+	// is-ancestor の慣習: status 0 = ancestor, 1 = 非 ancestor, それ以外 = error
+	if (result.status === 0) return true;
+	if (result.status === 1) return false;
+	return null;
 }
 
 /**
@@ -511,7 +557,11 @@ export function helpText() {
 		'#2618 / ADR-0056 §D: --pr 指定時は worktree HEAD = PR HEAD verify が走り、',
 		'  不一致時は exit 3 で BLOCK (機構運用層 bypass 防止、Fix Agent 偽陽性対策)。',
 		'',
-		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 / #2615 (time-aware) / #2618 (worktree verify) for context.',
+		'#2877: 削除判定は three-dot (merge-base) diff `<base>...HEAD` で「PR 自身の削除」のみを',
+		'  検出する (main 進化の追加 file を誤算入しない)。<base> が ancestor (rebase 済) かつ',
+		'  削除 0 件なら early fast-path で即 exit 0 する。',
+		'',
+		'See docs/sessions/qa-session.md §Step 5 / Issue #2603 / #2615 (time-aware) / #2618 (worktree verify) / #2877 (three-dot) for context.',
 	].join('\n');
 }
 
@@ -579,6 +629,8 @@ async function main() {
 		}
 	}
 
+	// #2877: three-dot (merge-base) 比較で「PR 自身の diff が削除する file」のみを抽出。
+	// two-dot (端点比較) は main 進化 (新規追加) を PR の削除と誤認するため不採用。
 	const deletedFiles = getDeletedFiles(opts.base);
 	if (deletedFiles === null) {
 		process.stderr.write(
@@ -587,10 +639,23 @@ async function main() {
 		return 3;
 	}
 
+	// #2877 AC2: 早期 fast-path — base が ancestor (= PR が base 最新を取り込み済) かつ
+	// three-dot 削除 0 件なら、削除が一切無いことが確定するので recent merge 走査を省略して
+	// 即 exit 0。is-ancestor が偽 (rebase drift 中) でも three-dot は PR 自身の削除のみを見る
+	// ため偽陽性は出ないが、本 fast-path で「rebase 済 + 削除 0」の最頻 case を最短化する。
+	const ancestor = isAncestor(opts.base);
 	if (deletedFiles.length === 0) {
-		process.stdout.write(
-			`[check-recent-deploy-deletion] OK: no deleted files in ${opts.base}..HEAD${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
-		);
+		if (ancestor === true) {
+			process.stdout.write(
+				`[check-recent-deploy-deletion] OK: ${opts.base} is ancestor of HEAD and no files deleted in ${opts.base}...HEAD (fast-path)${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
+			);
+		} else {
+			// 非 ancestor (rebase drift) / is-ancestor 判定失敗でも、three-dot 削除 0 件なら
+			// PR 自身は何も削除していないので OK。
+			process.stdout.write(
+				`[check-recent-deploy-deletion] OK: no files deleted in ${opts.base}...HEAD (merge-base diff)${opts.prNumber ? ` (PR #${opts.prNumber})` : ''}.\n`,
+			);
+		}
 		return 0;
 	}
 
