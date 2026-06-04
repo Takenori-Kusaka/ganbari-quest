@@ -2,7 +2,6 @@
 // CognitoAuthProvider — Email/Password + MFA + マルチテナント (#0123)
 
 import type { RequestEvent } from '@sveltejs/kit';
-import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import {
 	CONTEXT_COOKIE_NAME,
@@ -14,6 +13,7 @@ import { logger } from '$lib/server/logger';
 import { acceptInvite, getInvite } from '$lib/server/services/invite-service';
 import { authorizeCognito } from '../authorization';
 import { getContextMaxAge, signContext, verifyContext } from '../context-token';
+import { deriveTenantLicenseStatus } from '../tenant-license-status';
 import type { AuthContext, AuthProvider, AuthResult, Identity } from '../types';
 import { verifyIdentityToken } from './cognito-jwt';
 import { refreshCognitoIdToken } from './cognito-oauth';
@@ -143,13 +143,11 @@ export class CognitoAuthProvider implements AuthProvider {
 			// テナントステータスを取得
 			const tenant = await repos.auth.findTenantById(membership.tenantId);
 
-			// Stripe サブスクリプション状態からライセンスステータスを判定
-			const licenseStatus: AuthContext['licenseStatus'] = tenant?.stripeSubscriptionId
-				? tenant.status === SUBSCRIPTION_STATUS.ACTIVE ||
-					tenant.status === SUBSCRIPTION_STATUS.GRACE_PERIOD
-					? AUTH_LICENSE_STATUS.ACTIVE
-					: AUTH_LICENSE_STATUS.SUSPENDED
-				: AUTH_LICENSE_STATUS.NONE;
+			// ライセンスステータスを判定 (#2894 SSOT)。
+			// Stripe subscription を持つテナントは status を正規化し、
+			// license 時代に課金していた既存テナント (Stripe を持たないが plan を持つ) は
+			// cutover 後も entitlement を保全する (`deriveTenantLicenseStatus` 参照)。
+			const licenseStatus: AuthContext['licenseStatus'] = deriveTenantLicenseStatus(tenant);
 
 			const context: AuthContext = {
 				tenantId: membership.tenantId,

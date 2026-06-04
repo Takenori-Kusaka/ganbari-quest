@@ -14,11 +14,7 @@
 // - `/api/cron/retention-cleanup/+server.ts` (EventBridge スケジュール経由)
 // - 手動実行（CRON_SECRET Bearer 認証 / ADR-0033）
 
-import {
-	AUTH_LICENSE_STATUS,
-	type AuthLicenseStatus,
-} from '$lib/domain/constants/auth-license-status';
-import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { deriveTenantLicenseStatus } from '$lib/server/auth/tenant-license-status';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import {
@@ -40,28 +36,6 @@ export interface RetentionCleanupResult {
 export interface RetentionCleanupOptions {
 	/** true の場合、削除を実行せず件数カウントのみ返す */
 	dryRun?: boolean;
-}
-
-/**
- * 指定 tenant の licenseStatus を Tenant エンティティから導出する。
- *
- * `cognito.ts` の認証ハンドラと同じロジックを踏襲:
- * - stripeSubscriptionId あり + status = active/grace_period → 'active'
- * - stripeSubscriptionId あり + その他 status → 'suspended'
- * - stripeSubscriptionId なし → 'none' (トライアル/無料)
- */
-function deriveLicenseStatus(tenant: {
-	stripeSubscriptionId?: string;
-	status: string;
-}): AuthLicenseStatus {
-	if (!tenant.stripeSubscriptionId) return AUTH_LICENSE_STATUS.NONE;
-	if (
-		tenant.status === SUBSCRIPTION_STATUS.ACTIVE ||
-		tenant.status === SUBSCRIPTION_STATUS.GRACE_PERIOD
-	) {
-		return AUTH_LICENSE_STATUS.ACTIVE;
-	}
-	return AUTH_LICENSE_STATUS.SUSPENDED;
 }
 
 /**
@@ -104,7 +78,11 @@ export async function cleanupExpiredData(
 
 	for (const tenant of tenants) {
 		try {
-			const licenseStatus = deriveLicenseStatus(tenant);
+			// #2894: license 全廃 cutover の entitlement 保全を retention にも適用する。
+			// Stripe を持たないが legacy plan を持つ既存テナント (license 時代 paid) を NONE と
+			// 誤判定すると free 扱いになり 90 日超のデータを誤って物理削除してしまうため、
+			// 認証経路と同じ `deriveTenantLicenseStatus` SSOT を共用する。
+			const licenseStatus = deriveTenantLicenseStatus(tenant);
 			const tier: PlanTier = await resolveFullPlanTier(tenant.tenantId, licenseStatus, tenant.plan);
 
 			const cutoffDate = getHistoryCutoffDate(tier);
