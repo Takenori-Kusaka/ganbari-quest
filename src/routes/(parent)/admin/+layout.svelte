@@ -2,8 +2,10 @@
 import type { Snippet } from 'svelte';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import FeedbackDialog from '$lib/features/admin/components/FeedbackDialog.svelte';
+import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
+import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
 import FeedbackFab from '$lib/ui/components/FeedbackFab.svelte';
 
@@ -24,6 +26,8 @@ interface Props {
 			archivedChildCount: number;
 			hasArchivedResources: boolean;
 		};
+		// #2821: setup 由来遷移 (`?from=setup`) 時のみ非 null
+		setupOnboarding?: OnboardingProgress | null;
 	};
 	children: Snippet;
 }
@@ -55,6 +59,12 @@ let showFeedback = $state(false);
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode}>
+	<!-- #2821: setup 由来で admin に着地したときの文脈バナー (続きの step へ戻る導線) -->
+	{#if data.setupOnboarding}
+		<div style:margin-bottom="16px">
+			<SetupResumeBanner onboarding={data.setupOnboarding} variant="context" />
+		</div>
+	{/if}
 	{#if showTrialBanner && trial}
 		<div style:margin-bottom="16px">
 			<TrialBanner

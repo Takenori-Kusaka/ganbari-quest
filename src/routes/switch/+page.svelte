@@ -2,6 +2,7 @@
 import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
+import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -108,6 +109,13 @@ async function handlePinComplete(details: { valueAsString: string }) {
 	</header>
 
 	<main class="flex-1 px-4 pb-6 max-w-[480px] mx-auto w-full">
+		<!-- #2821: セットアップ離脱後の再開導線 (進行中のみ表示) -->
+		{#if data.onboarding}
+			<div class="mb-4">
+				<SetupResumeBanner onboarding={data.onboarding} variant="resume" />
+			</div>
+		{/if}
+
 		<h1 class="text-2xl font-bold text-center text-[var(--color-neutral-900)] mb-6">{SWITCH_PAGE_LABELS.heading}</h1>
 
 		{#if data.children.length === 0}
