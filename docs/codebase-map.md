@@ -60,6 +60,8 @@
 | [docs/sessions/dev-session.md](sessions/dev-session.md) | Dev セッション (実装・CI/CD・設計書同期、overall map) |
 | [docs/sessions/dev-process/README.md](sessions/dev-process/README.md) | 開発プロセス運用知 各論 (完遂原則 / アンチパターン / QA fix / 並列 Agent / 調査規律 / 横展開、#2516) |
 | [docs/sessions/qa-session.md](sessions/qa-session.md) | QA セッション (PR レビュー・品質ゲート) |
+| [docs/sessions/branch-strategy.md](sessions/branch-strategy.md) | ブランチ戦略 SSOT (develop 二層 + gate 二層 + merge 責任分担、#2858) |
+| [docs/sessions/audit-team.md](sessions/audit-team.md) | 外部品質監査チーム役割定義 SSOT (マネージャ + 8 チーム + ポリシー準拠判定、2 段 gate 境界、#2862 / EPIC #2861) |
 | [docs/design/06-UI設計書.md](design/06-UI設計書.md) | UI 機能・画面・オーバーレイ仕様 |
 | [docs/design/07-API設計書.md](design/07-API設計書.md) | API エンドポイント定義 |
 | [docs/design/08-データベース設計書.md](design/08-データベース設計書.md) | DB テーブル・カラム仕様 |
@@ -154,7 +156,7 @@
 
 | ディレクトリ | 役割 |
 |---|---|
-| `.claude/agents/` | セッション ロール定義 (po-session.md / dev-session.md / qa-session.md、起動時自動活性化) |
+| `.claude/agents/` | セッション ロール定義 (po-session.md / dev-session.md / qa-session.md、起動時自動活性化)。外部品質監査チームの役割定義は [docs/sessions/audit-team.md](../sessions/audit-team.md) が SSOT (audit-manager + 8 チーム + ポリシー準拠判定、新設 skill = competitive-research / policy-compliance / audit-manager の 3 点に限定、実装は EPIC #2861 の B 系 sub-issue が担う) |
 | `.claude/skills/` | タスク固有 Skills (14 件): `pr-review` / `issue-triage` / `pre-pmf-check` / `dev-open-pr` / `lp-review` / `db-migration` / `cost-review` / `age-mode-check` / `brand-check` / `customer-voice` / `deploy-verify` / `flake-hunt` / `regression-check` / **`impact-analysis`** (rename/モデル変更/大規模リファクタリングの Change Impact Analysis、4 layer 防御 + 21 カテゴリ checklist、2026-05-28 追加) |
 | `.claude/settings.json` | 全体設定 (permissions / hooks / env) |
 | `.claude/worktrees/` | 並行 Agent 用 worktree 分離 dir (Agent tool `isolation: "worktree"` 必須) |
