@@ -57,15 +57,6 @@
 		"insertCheer",
 		"markShown"
 	],
-	"src/lib/server/db/dynamodb/stamp-card-repo.ts": [
-		"deleteByTenantId",
-		"findCardByChildAndWeek",
-		"findEntriesWithMasterByCardId",
-		"insertCard",
-		"insertEntry",
-		"updateCardStatus",
-		"updateCardStatusIfCollecting"
-	],
 	"src/lib/server/db/dynamodb/viewer-token-repo.ts": [
 		"deleteById",
 		"findByTenant",
