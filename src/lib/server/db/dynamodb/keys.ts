@@ -435,6 +435,48 @@ export function stampEntryPrefix(): string {
 }
 
 /**
+ * Daily battle (#2824 Wave 5A / ADR-0055): PK=CHILD#<cId>, SK=BATTLE#<date>
+ *
+ * per-child instance を child partition 配下に置き (stamp_cards / activity_logs と同居)、
+ * `findTodayBattle` を childId + date 既知の GetItem 1 回で完結させる
+ * (date は child 内で一意 = SQLite uniqueIndex(child_id, date) と等価)。`findRecentBattles` /
+ * `countConsecutiveLosses` は child partition の begins_with(SK, 'BATTLE#') Query で取得し
+ * (date は YYYY-MM-DD で SK 辞書順 = 日付順)、追加 GSI 不要 (ADR-0055 §3.1)。
+ * battleId だけで引く `completeBattle` は 1 日 1 戦の低頻度のため tenant Scan + id filter で解決する。
+ */
+export function dailyBattleKey(childId: number, date: string, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `BATTLE#${date}`,
+	};
+}
+
+/** Daily battle SK prefix for querying all battles of a child / tenant cleanup. */
+export function dailyBattlePrefix(): string {
+	return 'BATTLE#';
+}
+
+/**
+ * Enemy collection (#2824 Wave 5A / ADR-0055): PK=CHILD#<cId>, SK=ENEMYCOL#<paddedEnemyId>
+ *
+ * per-child 敵図鑑を child partition 配下に置く。`findCollection` は child partition の
+ * begins_with(SK, 'ENEMYCOL#') Query で全件取得、`upsertCollectionEntry` は childId + enemyId
+ * 既知の GetItem → 不在なら Put / 既存なら defeatCount を ADD する (childId が常に渡るため
+ * Scan 不要)。SK の paddedEnemyId は SQLite uniqueIndex(child_id, enemy_id) と等価。
+ */
+export function enemyCollectionKey(childId: number, enemyId: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `ENEMYCOL#${padId(enemyId)}`,
+	};
+}
+
+/** Enemy collection SK prefix for querying all entries of a child / tenant cleanup. */
+export function enemyCollectionPrefix(): string {
+	return 'ENEMYCOL#';
+}
+
+/**
  * Checklist template: PK=T#<tenantId>#CKTPL, SK=CKTPL#<id>
  * #2362 PR-5 (ADR-0055): family master 化に伴い CHILD#<cId> 配下 → tenant scope に変更。
  */
@@ -870,6 +912,8 @@ export const ENTITY_NAMES = {
 	rewardRedemption: 'rewardRedemption',
 	parentMessage: 'parentMessage',
 	stampCard: 'stampCard',
+	dailyBattle: 'dailyBattle',
+	enemyCollection: 'enemyCollection',
 	checklistTemplate: 'checklistTemplate',
 	checklistAssignment: 'checklistAssignment',
 	checklistItem: 'checklistItem',

@@ -18,15 +18,6 @@
 		"insert",
 		"update"
 	],
-	"src/lib/server/db/dynamodb/battle-repo.ts": [
-		"completeBattle",
-		"countConsecutiveLosses",
-		"findCollection",
-		"findRecentBattles",
-		"findTodayBattle",
-		"insertDailyBattle",
-		"upsertCollectionEntry"
-	],
 	"src/lib/server/db/dynamodb/certificate-repo.ts": [
 		"findCertificateById",
 		"findCertificates",
