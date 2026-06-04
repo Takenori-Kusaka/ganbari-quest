@@ -15,6 +15,11 @@ const GUIDE_LOADERS: Record<
 	'/admin/children': () => import('../../../routes/(parent)/admin/children/_guide'),
 	'/admin/activities': () => import('../../../routes/(parent)/admin/activities/_guide'),
 	'/admin/rewards': () => import('../../../routes/(parent)/admin/rewards/_guide'),
+	// #2905: #2294 EPIC 新設ページ (checklists / challenges) + status を登録し、
+	// ❓ ページガイドが全 admin ページで機能する規約を回復する (PO 指摘 #8)。
+	'/admin/checklists': () => import('../../../routes/(parent)/admin/checklists/_guide'),
+	'/admin/challenges': () => import('../../../routes/(parent)/admin/challenges/_guide'),
+	'/admin/status': () => import('../../../routes/(parent)/admin/status/_guide'),
 	'/admin/points': () => import('../../../routes/(parent)/admin/points/_guide'),
 	'/admin/reports': () => import('../../../routes/(parent)/admin/reports/_guide'),
 	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer (応援) に統合
@@ -28,6 +33,10 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	'/admin/children': 'CHILDREN_GUIDE',
 	'/admin/activities': 'ACTIVITIES_GUIDE',
 	'/admin/rewards': 'REWARDS_GUIDE',
+	// #2905: 新設 3 ページの export 名マッピング
+	'/admin/checklists': 'CHECKLISTS_GUIDE',
+	'/admin/challenges': 'CHALLENGES_GUIDE',
+	'/admin/status': 'STATUS_GUIDE',
 	'/admin/points': 'POINTS_GUIDE',
 	'/admin/reports': 'REPORTS_GUIDE',
 	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer に統合
@@ -61,6 +70,10 @@ export const ALL_PAGE_IDS = [
 	'admin-children',
 	'admin-activities',
 	'admin-rewards',
+	// #2905: 新設 3 ページの pageId
+	'admin-checklists',
+	'admin-challenges',
+	'admin-status',
 	'admin-points',
 	'admin-reports',
 	// #2270 / #2274 (EPIC #2266): admin-messages 廃止 → admin-cheer (応援) に統合
