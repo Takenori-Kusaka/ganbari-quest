@@ -67,6 +67,7 @@ arigatou
 arpu
 Arpu
 ARPU
+AUTOCHAL
 autocheckpoint
 autocomplete
 autodocs
