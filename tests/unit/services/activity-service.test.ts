@@ -615,7 +615,10 @@ describe('#2902 createActivity childId 指定 (per-child single-axis)', () => {
 	beforeEach(() => {
 		// 2 child seed: child 1 (id=1、seedBase 由来) + child 2 (id=2、空)。
 		seedBase();
-		testDb.insert(schema.children).values({ nickname: 'おとうとくん', age: 8, theme: 'blue' }).run();
+		testDb
+			.insert(schema.children)
+			.values({ nickname: 'おとうとくん', age: 8, theme: 'blue' })
+			.run();
 	});
 
 	it('UT-ACT-2902-01: childId 指定で当該 child に instance が作成される', async () => {
@@ -644,7 +647,14 @@ describe('#2902 createActivity childId 指定 (per-child single-axis)', () => {
 
 	it('UT-ACT-2902-02: childId 未指定なら先頭 child (id=1) に作成 (後方互換)', async () => {
 		const created = await createActivity(
-			{ name: 'おてつだいした', categoryId: 3, icon: '🧹', basePoints: 5, ageMin: null, ageMax: null },
+			{
+				name: 'おてつだいした',
+				categoryId: 3,
+				icon: '🧹',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+			},
 			'test-tenant',
 		);
 		expect(created.childId).toBe(1);
@@ -654,7 +664,14 @@ describe('#2902 createActivity childId 指定 (per-child single-axis)', () => {
 
 	it('UT-ACT-2902-03: 当該 tenant に存在しない childId は先頭 child に fallback (不正 id を弾く)', async () => {
 		const created = await createActivity(
-			{ name: 'ふせいid活動', categoryId: 1, icon: '❓', basePoints: 5, ageMin: null, ageMax: null },
+			{
+				name: 'ふせいid活動',
+				categoryId: 1,
+				icon: '❓',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+			},
 			'test-tenant',
 			999,
 		);

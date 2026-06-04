@@ -219,10 +219,9 @@ test.describe('admin/activities per-child UX (Phase 4)', () => {
 			names.push(((await nameEl.textContent()) ?? '').replace(/\s+/g, ' ').trim());
 		}
 		const uniqueNames = new Set(names);
-		expect(
-			uniqueNames.size,
-			`同名活動が 2 重表示されている (名前: ${names.join(' / ')})`,
-		).toBe(names.length);
+		expect(uniqueNames.size, `同名活動が 2 重表示されている (名前: ${names.join(' / ')})`).toBe(
+			names.length,
+		);
 
 		// 「すべて」フィルタ chip の件数 = 表示行数 (水増しなし)。
 		const allChip = page.locator('[data-tutorial="category-filter"] button').first();
