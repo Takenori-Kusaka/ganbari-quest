@@ -133,6 +133,10 @@ export const load: PageServerLoad = async ({ url, cookies, locals }) => {
 	}
 
 	return {
+		// #2900: 認証済み (locals.context あり) なら header に「← 見守り画面へ」戻り導線を出す。
+		// marketplace は未認証でも閲覧可能な公開ルートのため、未認証時は false で導線を非表示にする
+		// (browse-first journey の dead-end を解消しつつ公開ページ性を維持)。
+		isAuthenticated: !!locals.context,
 		items,
 		tags: getAllTags(),
 		counts: getMarketplaceCounts(),

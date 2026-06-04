@@ -896,6 +896,9 @@ export const MARKETPLACE_LABELS = {
 	ctaStart: '無料で はじめる',
 	backToHome: 'トップページへ',
 	backToDemo: 'デモを体験',
+	// #2900: 認証済みの親が marketplace を開いた際の header 戻り導線
+	// (AdminLayout の「← 子供画面へ」と同型。ADR-0045 atom 経由で SSOT 統一)
+	backToAdmin: `← ${ADMIN_VIEW_TERMS.short}へ`,
 	breadcrumbRoot: TEMPLATE_TERMS.short,
 	// Round 18 Cluster A (ADR-0045): おすすめパック → TEMPLATE_TERMS atom 経由
 	recommendedSection: `おすすめ${TEMPLATE_TERMS.short}`,

@@ -207,3 +207,45 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 		});
 	});
 });
+
+describe('#2900 marketplace → 見守り画面 戻り導線 (browse-first journey dead-end 解消)', () => {
+	describe('一覧画面 (`src/routes/marketplace/+page.svelte`)', () => {
+		const content = readMarketplaceFile('src/routes/marketplace/+page.svelte');
+
+		it('認証済みガード `data.isAuthenticated` で戻り導線を条件描画する', () => {
+			// 未認証 (公開閲覧) では導線を出さない = marketplace の公開ページ性を維持する。
+			expect(content).toMatch(/\{#if data\.isAuthenticated\}/);
+		});
+
+		it('戻り導線は `<a href="/admin">` + testid=marketplace-back-to-admin', () => {
+			expect(content).toMatch(/href=["']\/admin["']/);
+			expect(content).toMatch(/data-testid=["']marketplace-back-to-admin["']/);
+		});
+
+		it('戻り導線ラベルは MARKETPLACE_LABELS.backToAdmin (用語ハードコード禁止 / ADR-0045)', () => {
+			expect(content).toMatch(/MARKETPLACE_LABELS\.backToAdmin/);
+		});
+	});
+
+	describe('詳細画面 (`src/routes/marketplace/[type]/[itemId]/+page.svelte`)', () => {
+		const content = readMarketplaceFile('src/routes/marketplace/[type]/[itemId]/+page.svelte');
+
+		it('認証済みガード `data.isAuthenticated` で戻り導線を条件描画する', () => {
+			expect(content).toMatch(/\{#if data\.isAuthenticated\}/);
+		});
+
+		it('戻り導線は `<a href="/admin">` + testid=marketplace-back-to-admin + MARKETPLACE_LABELS.backToAdmin', () => {
+			expect(content).toMatch(/href=["']\/admin["']/);
+			expect(content).toMatch(/data-testid=["']marketplace-back-to-admin["']/);
+			expect(content).toMatch(/MARKETPLACE_LABELS\.backToAdmin/);
+		});
+	});
+
+	describe('一覧 server load (`src/routes/marketplace/+page.server.ts`)', () => {
+		const content = readMarketplaceFile('src/routes/marketplace/+page.server.ts');
+
+		it('isAuthenticated を `!!locals.context` で返す (公開ルートのため未認証は false)', () => {
+			expect(content).toMatch(/isAuthenticated:\s*!!locals\.context/);
+		});
+	});
+});
