@@ -272,11 +272,13 @@ REDEMPT
 REVD
 Roboto
 sakura
+SARIF
 scrollbar
 scrshot
 Segoe
 seikatsu
 selfhost
+selftest
 semgrep
 SES
 setsubun

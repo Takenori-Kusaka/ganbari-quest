@@ -1,0 +1,194 @@
+# 外部品質監査チーム — 機械検証 audit run (手動トリガー)
+#
+# EPIC #2861 / B4 = #2867。audit-manager (Claude session) が監査 run を回す際、
+# **機械検証可能項目**だけを CI で実行し artifact 化する workflow。
+#
+# 設計境界 (重要):
+#   - schedule trigger は付けない (daily 自動化 = C3 = #2871 の範囲、EPIC P2)。本 workflow は
+#     workflow_dispatch のみ (手動 baseline / 統合 run 用)。
+#   - hard gate (= CI が block) は rules-based 自動チェックのみ (EPIC 設計原則 1)。LLM 判定
+#     (policy-compliance / adversarial / 8 領域 finding) は CI に載せず audit-manager が advisory
+#     として扱う。本 workflow は finding を「起票」しない (起票は audit-manager 専権、ADR-0056 §E)。
+#   - 各 job は continue-on-error で全件発露し、結果を artifact に集める (1 件の fail で残りを
+#     止めない。「全件発露 → filter → 起票」運用、audit-team.md §3.6)。
+#
+# 役割定義 SSOT: docs/sessions/audit-team.md / .claude/agents/audit-manager.md
+# pipeline 詳細: scripts/audit/README.md
+name: Audit Run (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: 'baseline (main 全体) | integration (develop→main 差分)'
+        required: true
+        type: choice
+        default: baseline
+        options:
+          - baseline
+          - integration
+      run_id:
+        description: 'run 識別子 (例: baseline-20260610 / 2950-20260610)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  # 機械検証 ① a11y (axe-core WCAG 2.2 AA、ci.yml の a11y job を再利用)
+  a11y-scan:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Build for E2E (preview mode)
+        run: npm run build
+      - name: Run a11y critical CUJ scan (WCAG 2.2 AA)
+        env:
+          PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
+        run: npx playwright test tests/e2e/a11y-critical-cuj.spec.ts
+      - name: Upload a11y artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: audit-${{ inputs.run_id }}-a11y
+          path: test-results/
+          retention-days: 30
+
+  # 機械検証 ② LP メトリクス (lp-metrics.yml の measure-lp-dimensions を再利用)
+  lp-metrics:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Measure LP dimensions (forbidden terms / height ratchet)
+        env:
+          SKIP_SCREENSHOT_EXISTENCE_CHECK: '1'
+        run: node scripts/measure-lp-dimensions.mjs | tee lp-metrics.txt
+      - name: Upload LP metrics artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: audit-${{ inputs.run_id }}-lp-metrics
+          path: lp-metrics.txt
+          retention-days: 30
+
+  # 機械検証 ③ rules-based check 系 scripts (SSOT 整合 / 用語 / hardcoded strings 等)
+  rules-based-checks:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run rules-based check scripts (全件発露、1 件 fail で止めない)
+        run: |
+          set +e
+          {
+            echo "# rules-based checks ($(date -u +%FT%TZ))"
+            for chk in \
+              "node scripts/check-hardcoded-strings.mjs" \
+              "node scripts/check-no-plan-literals.mjs" \
+              "node scripts/check-internal-terms.mjs" \
+              "node scripts/check-forbidden-terms.mjs"; do
+              echo ""
+              echo "## $chk"
+              $chk
+              echo "exit: $?"
+            done
+          } | tee rules-based-checks.txt
+      - name: Upload rules-based checks artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: audit-${{ inputs.run_id }}-rules-based-checks
+          path: rules-based-checks.txt
+          retention-days: 30
+
+  # 機械検証 ④ vitest coverage (ADR-0005 ratchet — テスト品質領域)
+  coverage:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Vitest with coverage
+        run: npx vitest run --coverage --coverage.reporter=json-summary --coverage.reporter=text | tee coverage.txt
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: audit-${{ inputs.run_id }}-coverage
+          path: |
+            coverage.txt
+            coverage/coverage-summary.json
+          retention-days: 30
+
+  # finding pipeline 検証 — evidence schema / dedup / severity filter の unit test を実行し、
+  # pipeline CLI が動作することを保証する (この job は hard gate: pipeline 自体が壊れたら止める)
+  pipeline-selftest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Pipeline pure-function unit tests
+        run: npx vitest run tests/unit/audit/
+      - name: Pipeline CLI smoke (sample fixture → 集約レポート)
+        # 固定 fixture (scripts/audit/fixtures/sample-evidence.json) を evidence dir に置き、
+        # verify → run-pipeline --strict が exit 0 になることを確認する (pipeline 配線の健全性)。
+        run: |
+          mkdir -p tmp/audit-evidence
+          cp scripts/audit/fixtures/sample-evidence.json tmp/audit-evidence/sample.json
+          node scripts/audit/verify-audit-evidence.mjs --file tmp/audit-evidence/sample.json
+          node scripts/audit/run-pipeline.mjs --run-id "${{ inputs.run_id }}" --scope "${{ inputs.scope }}" --strict
+      - name: Upload pipeline report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: audit-${{ inputs.run_id }}-pipeline-report
+          path: tmp/audit-run-*.md
+          retention-days: 30
