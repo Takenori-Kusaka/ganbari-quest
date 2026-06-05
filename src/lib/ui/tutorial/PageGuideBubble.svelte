@@ -9,14 +9,12 @@ interface Props {
 	progress: { current: number; total: number };
 	isFirst: boolean;
 	isLast: boolean;
-	bubbleStyle: { top: string; left: string; width: string };
 	onEnd: () => void;
 	onPrev: () => void;
 	onNext: () => void;
 }
 
-let { step, guide, progress, isFirst, isLast, bubbleStyle, onEnd, onPrev, onNext }: Props =
-	$props();
+let { step, guide, progress, isFirst, isLast, onEnd, onPrev, onNext }: Props = $props();
 </script>
 
 <!--
@@ -24,13 +22,7 @@ let { step, guide, progress, isFirst, isLast, bubbleStyle, onEnd, onPrev, onNext
   これにより step 切替時に bubble DOM が破棄されず、tab フォーカス・SR 読み上げ・現在 activeTab が維持される。
   値は Svelte 5 の reactive プロパティ更新で自然に追従する。
 -->
-<div
-	class="guide-bubble"
-	style:top={bubbleStyle.top}
-	style:left={bubbleStyle.left}
-	style:width={bubbleStyle.width}
-	data-step-id={step.id}
->
+<div class="guide-bubble" data-step-id={step.id}>
 	<!-- Header -->
 	<div class="guide-header">
 		<span class="guide-header-icon">{guide?.icon ?? '📖'}</span>
@@ -74,9 +66,10 @@ let { step, guide, progress, isFirst, isLast, bubbleStyle, onEnd, onPrev, onNext
 
 <style>
 	.guide-bubble {
-		position: fixed;
-		/* #2106: bubble sits +10 above overlay (callout layering within --z-tutorial tier) */
-		z-index: calc(var(--z-tutorial) + 10);
+		/* The driver.js popover wrapper owns viewport placement, so the bubble renders as a
+		   normal-flow element filling the wrapper (manual fixed positioning removed in PageGuideOverlay). */
+		width: 360px;
+		max-width: calc(100vw - 24px);
 		background: white;
 		border-radius: 16px;
 		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);

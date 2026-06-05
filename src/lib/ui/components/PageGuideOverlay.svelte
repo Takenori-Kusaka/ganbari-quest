@@ -1,198 +1,251 @@
 <script lang="ts">
+import { type Config, type Driver, type DriveStep, driver, type Side } from 'driver.js';
+import { mount, unmount } from 'svelte';
+import 'driver.js/dist/driver.css';
 import PageGuideBubble from '$lib/ui/tutorial/PageGuideBubble.svelte';
 import {
+	completePageGuide,
 	endPageGuide,
 	getCurrentGuideInfo,
-	getCurrentGuideStep,
-	getGuideProgress,
-	isFirstGuideStep,
-	isLastGuideStep,
 	isPageGuideActive,
-	nextGuideStep,
-	prevGuideStep,
 } from '$lib/ui/tutorial/page-guide-store.svelte';
-
-let targetRect = $state<DOMRect | null>(null);
+import type { GuideStep, PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 const active = $derived(isPageGuideActive());
-const step = $derived(getCurrentGuideStep());
 const guide = $derived(getCurrentGuideInfo());
-const progress = $derived(getGuideProgress());
-const isFirst = $derived(isFirstGuideStep());
-const isLast = $derived(isLastGuideStep());
 
-// #2375 AC-V2-3/9: AbortController で setTimeout 群を cleanup + selector 解決時 focus
-$effect(() => {
-	if (active && step) {
-		const ctrl = new AbortController();
-		const outerTimer = setTimeout(() => {
-			if (ctrl.signal.aborted) return;
-			const el = step.selector
-				? (document.querySelector(step.selector) as HTMLElement | null)
-				: null;
-			if (el) {
-				el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-				const innerTimer = setTimeout(() => {
-					if (ctrl.signal.aborted) return;
-					targetRect = el.getBoundingClientRect();
-					try {
-						el.focus({ preventScroll: true });
-					} catch {
-						/* focus 不可要素はスキップ (#2371 focus trap 対応) */
-					}
-				}, 350);
-				ctrl.signal.addEventListener('abort', () => clearTimeout(innerTimer));
-			} else {
-				targetRect = new DOMRect(window.innerWidth / 2 - 100, window.innerHeight / 3, 200, 40);
+let driverInstance: Driver | null = null;
+let mountedBubble: Record<string, unknown> | null = null;
+// 最終 step まで到達して閉じたか (= 完了として localStorage に永続するか) の判定フラグ。
+// onDestroyed 内では driver が teardown 済で isLastStep() が信用できないため、
+// destroy を呼ぶ側 (最終 step の onNext / onEnd) で確定させる。
+let completedLastStep = false;
+// プログラム的 teardown (store inactive / guide 切替) 中は onDestroyed の store 副作用を抑止する。
+// これがないと「新 guide の startDriver → 旧 driver.destroy() → onDestroyed → endPageGuide()」で
+// 起動直後の store を即座に無効化してしまう。
+let suppressDestroyHook = false;
+
+/** GuideStep.position を driver.js の Side に写像する ('auto' は viewport 自動調整に委ねる)。 */
+function toSide(position: GuideStep['position']): Side {
+	switch (position) {
+		case 'top':
+			return 'top';
+		case 'left':
+			return 'left';
+		case 'right':
+			return 'right';
+		default:
+			// 'auto' / 'bottom' / undefined は bottom を希望ヒントにし、収まらなければ driver.js が flip
+			return 'bottom';
+	}
+}
+
+/**
+ * 既存 Svelte 3 タブ UI (PageGuideBubble) を driver.js popover の wrapper に mount する。
+ * driver.js は positioning / scroll-into-view / spotlight cutout を担い、本体 UI は流用する (AC2)。
+ */
+function renderBubble(
+	wrapper: HTMLElement,
+	pageGuide: PageGuide,
+	step: GuideStep,
+	d: Driver,
+): void {
+	// E2E / a11y 互換: 既存 spec が参照する role / aria / class を popover wrapper に付与する。
+	wrapper.classList.add('guide-overlay');
+	wrapper.setAttribute('role', 'dialog');
+	wrapper.setAttribute('aria-modal', 'true');
+	wrapper.setAttribute('aria-labelledby', 'page-guide-title');
+
+	if (mountedBubble) {
+		unmount(mountedBubble);
+		mountedBubble = null;
+	}
+	wrapper.replaceChildren();
+
+	const activeIndex = d.getActiveIndex() ?? 0;
+	mountedBubble = mount(PageGuideBubble, {
+		target: wrapper,
+		props: {
+			step,
+			guide: pageGuide,
+			progress: { current: activeIndex + 1, total: pageGuide.steps.length },
+			isFirst: d.isFirstStep(),
+			isLast: d.isLastStep(),
+			onEnd: () => {
+				// 途中の「とじる」は未完了扱い (completedLastStep は false のまま)
+				d.destroy();
+			},
+			onPrev: () => d.movePrevious(),
+			onNext: () => {
+				if (d.isLastStep()) {
+					// 最終 step の「かんりょう！」= 完了として永続する
+					completedLastStep = true;
+					d.destroy();
+				} else {
+					d.moveNext();
+				}
+			},
+		},
+	});
+}
+
+function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
+	return pageGuide.steps.map((step) => ({
+		// selector 省略 step (ページ概要等) は element 無し → driver.js が画面中央 modal で表示 (Sub-2 ①概要 前提)
+		element: step.selector,
+		popover: {
+			side: toSide(step.position),
+			align: 'center',
+			// title / description は空にし、custom render の Svelte UI に全面委譲する (AC2)
+			showButtons: [],
+			onPopoverRender: (popover, { driver: d }) => {
+				renderBubble(popover.wrapper, pageGuide, step, d);
+			},
+		},
+	}));
+}
+
+function destroyDriver(): void {
+	if (mountedBubble) {
+		unmount(mountedBubble);
+		mountedBubble = null;
+	}
+	if (driverInstance) {
+		const inst = driverInstance;
+		driverInstance = null;
+		// プログラム的 teardown: onDestroyed の store 副作用 (end/complete) を抑止して
+		// driver の DOM だけ破棄する (store 状態は呼び出し元が責務を持つ)。
+		suppressDestroyHook = true;
+		if (inst.isActive()) inst.destroy();
+		suppressDestroyHook = false;
+	}
+}
+
+function startDriver(pageGuide: PageGuide): void {
+	destroyDriver();
+	completedLastStep = false;
+
+	const config: Config = {
+		// 演出を煽らない (ADR-0012): smoothScroll で対象を確実に画面内へ運んでから配置する。
+		animate: true,
+		smoothScroll: true,
+		// Escape での close は許可 (allowKeyboardControl) しつつ、backdrop click では閉じない。
+		// 旧実装は backdrop 矩形 click のみで閉じ、❓ 連打 (force click) では閉じなかったため、
+		// その挙動を維持する (overlayClickBehavior を no-op hook にして誤 dismiss を防ぐ)。
+		allowClose: true,
+		overlayClickBehavior: () => {},
+		// backdrop cutout (spotlight) の余白と角丸 — 視認性のため大きめに取る (AC6)
+		stagePadding: 8,
+		stageRadius: 12,
+		overlayColor: 'rgb(0, 0, 0)',
+		overlayOpacity: 0.6,
+		// 対象要素はガイド中もクリック可能 (Anti-engagement: 記録→数秒で閉じる導線を阻害しない)
+		disableActiveInteraction: false,
+		allowKeyboardControl: true,
+		popoverClass: 'page-guide-popover',
+		steps: buildDriveSteps(pageGuide),
+		// 最終 step まで到達して閉じたら完了 (localStorage 永続)、途中終了 (とじる / Escape /
+		// overlay click) なら未完了のまま end。判定は completedLastStep フラグで行う。
+		onDestroyed: () => {
+			driverInstance = null;
+			if (mountedBubble) {
+				unmount(mountedBubble);
+				mountedBubble = null;
 			}
-		}, 100);
+			// プログラム的 teardown (destroyDriver) 経由なら store 副作用は呼ばない。
+			if (suppressDestroyHook) return;
+			if (completedLastStep) completePageGuide();
+			else endPageGuide();
+		},
+	};
 
-		return () => {
-			ctrl.abort();
-			clearTimeout(outerTimer);
-		};
-	}
-	targetRect = null;
-});
-
-// #2375 AC-V2-6: Escape で閉じる
-function handleKeydown(e: KeyboardEvent) {
-	if (active && e.key === 'Escape') {
-		e.preventDefault();
-		endPageGuide();
-	}
+	driverInstance = driver(config);
+	driverInstance.drive(0);
 }
 
-function handleOverlayClick(e: MouseEvent) {
-	if ((e.target as HTMLElement).classList.contains('guide-overlay-bg')) {
-		endPageGuide();
-	}
-}
-
-const bubbleStyle = $derived.by(() => {
-	if (!targetRect || !step) return { top: '50%', left: '50%', width: '360px' };
-	const gap = 16;
-	const bw = 360;
-	const r = targetRect;
-	const pos = (step.position ?? 'auto') === 'auto' ? 'bottom' : step.position;
-	let top = 0;
-	let left = 0;
-	if (pos === 'bottom') {
-		top = r.bottom + gap;
-		left = r.left + r.width / 2 - bw / 2;
-	} else if (pos === 'top') {
-		top = r.top - gap;
-		left = r.left + r.width / 2 - bw / 2;
-	} else if (pos === 'left') {
-		top = r.top + r.height / 2;
-		left = r.left - bw - gap;
+// store の active 状態に追従して driver.js tour を起動 / 破棄する。
+// 手動 positioning / targetRect / SVG spotlight は撤去し、driver.js に全面委譲した (AC1)。
+$effect(() => {
+	if (active && guide) {
+		startDriver(guide);
 	} else {
-		top = r.top + r.height / 2;
-		left = r.right + gap;
+		destroyDriver();
 	}
-	left = Math.max(12, Math.min(left, window.innerWidth - bw - 12));
-	top = Math.max(12, Math.min(top, window.innerHeight - 400));
-	return { top: `${top}px`, left: `${left}px`, width: `${bw}px` };
+
+	return () => {
+		destroyDriver();
+	};
 });
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-{#if active && step && targetRect}
-	<!-- #2375 AC-V2-7: a11y 強化 — role="dialog" + aria-modal + aria-labelledby + tabindex="-1" (modal dialog 標準) -->
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		class="guide-overlay"
-		onclick={handleOverlayClick}
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="page-guide-title"
-		tabindex="-1"
-	>
-		<!-- Dark overlay with spotlight cutout (装飾的マスクのみ。情報は dialog 本文が保持するため SR は skip) -->
-		<svg class="guide-overlay-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-			<defs>
-				<mask id="guide-spotlight">
-					<rect width="100%" height="100%" fill="white" />
-					<rect
-						x={targetRect.x - 8}
-						y={targetRect.y - 8}
-						width={targetRect.width + 16}
-						height={targetRect.height + 16}
-						rx="12"
-						fill="black"
-					/>
-				</mask>
-			</defs>
-			<rect
-				class="guide-overlay-bg"
-				width="100%"
-				height="100%"
-				fill="rgba(0,0,0,0.6)"
-				mask="url(#guide-spotlight)"
-			/>
-		</svg>
-
-		<!-- Spotlight ring -->
-		<div
-			class="guide-spotlight-ring"
-			style:top="{targetRect.y - 10}px"
-			style:left="{targetRect.x - 10}px"
-			style:width="{targetRect.width + 20}px"
-			style:height="{targetRect.height + 20}px"
-		></div>
-
-		<PageGuideBubble
-			{step}
-			{guide}
-			{progress}
-			{isFirst}
-			{isLast}
-			{bubbleStyle}
-			onEnd={endPageGuide}
-			onPrev={prevGuideStep}
-			onNext={nextGuideStep}
-		/>
-	</div>
-{/if}
-
 <style>
-	.guide-overlay {
-		position: fixed;
-		inset: 0;
-		/* #2106: DESIGN section 10 z-index token migration (replaces hardcoded z-index: 100) */
-		z-index: var(--z-tutorial);
+	/*
+	  Minimal adjustments to the driver.js popover for our guide UI.
+	  PageGuideBubble draws its own white card / header / nav, so we strip only the
+	  default driver.js popover chrome (padding / background / box-shadow) and use the
+	  wrapper as a transparent positioning container. :global overrides the elements
+	  driver.js injects at body level from this component scope.
+	  NOTE: do NOT use `all: unset` — it would also wipe the z-index driver.js gives
+	  `.driver-popover` (above the overlay SVG), dropping the bubble behind the overlay so
+	  button clicks get intercepted by the overlay SVG. Override chrome properties only.
+	*/
+	:global(.driver-popover.page-guide-popover) {
+		max-width: 360px;
+		min-width: 0;
+		background: transparent;
+		box-shadow: none;
+		padding: 0;
+		margin: 0;
+		border-radius: 0;
+		color: inherit;
 	}
 
-	.guide-overlay-svg {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
+	/* Hide driver.js's built-in popover UI (title / body / footer / progress / close / arrow)
+	   — the UI is fully delegated to the Svelte PageGuideBubble (AC2). */
+	:global(.driver-popover.page-guide-popover .driver-popover-title),
+	:global(.driver-popover.page-guide-popover .driver-popover-description),
+	:global(.driver-popover.page-guide-popover .driver-popover-footer),
+	:global(.driver-popover.page-guide-popover .driver-popover-progress-text),
+	:global(.driver-popover.page-guide-popover .driver-popover-close-btn),
+	:global(.driver-popover.page-guide-popover .driver-popover-arrow) {
+		display: none !important;
 	}
 
-	.guide-overlay-bg {
-		pointer-events: auto;
-		cursor: pointer;
-	}
-
-	.guide-spotlight-ring {
-		position: absolute;
-		border: 2px solid rgba(59, 130, 246, 0.6);
+	/*
+	  Stronger spotlight ring (AC6 / PO finding c): put the box-shadow directly on the
+	  .driver-active-element that driver.js applies to the highlighted element. Because it is
+	  the element's own box-shadow, the ring always follows it when driver.js re-positions on
+	  scroll / resize, so it never drifts. Thick blue ring + double glow + pulse make the
+	  focus target obvious at a glance.
+	*/
+	:global(.driver-active-element) {
 		border-radius: 12px;
-		box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-		pointer-events: none;
-		animation: guide-ring-pulse 2s ease-in-out infinite;
+		box-shadow:
+			0 0 0 3px var(--color-action-primary),
+			0 0 0 6px color-mix(in srgb, var(--color-action-primary) 35%, transparent),
+			0 0 18px 4px color-mix(in srgb, var(--color-action-primary) 45%, transparent) !important;
+		animation: page-guide-ring-pulse 1.8s ease-in-out infinite;
 	}
 
-	@keyframes guide-ring-pulse {
-		0%, 100% {
-			box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+	@keyframes page-guide-ring-pulse {
+		0%,
+		100% {
+			box-shadow:
+				0 0 0 3px var(--color-action-primary),
+				0 0 0 6px color-mix(in srgb, var(--color-action-primary) 30%, transparent),
+				0 0 14px 3px color-mix(in srgb, var(--color-action-primary) 35%, transparent);
 		}
 		50% {
-			box-shadow: 0 0 24px rgba(59, 130, 246, 0.5);
+			box-shadow:
+				0 0 0 4px var(--color-action-primary),
+				0 0 0 8px color-mix(in srgb, var(--color-action-primary) 40%, transparent),
+				0 0 26px 6px color-mix(in srgb, var(--color-action-primary) 55%, transparent);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:global(.driver-active-element) {
+			animation: none;
 		}
 	}
 </style>
