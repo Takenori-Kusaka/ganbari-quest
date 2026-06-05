@@ -3,8 +3,8 @@
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { getAuthMode } from '$lib/server/auth/factory';
-import { getDebugPlanTier } from '$lib/server/debug-plan';
 import { getRepos } from '$lib/server/db/factory';
+import { getDebugPlanTier } from '$lib/server/debug-plan';
 import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-context';
 import type { TrialTier } from '$lib/server/services/trial-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';

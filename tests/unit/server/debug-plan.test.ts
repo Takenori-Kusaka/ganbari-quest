@@ -15,8 +15,8 @@ import type { AuthContext } from '$lib/server/auth/types';
 import {
 	applyDebugPlanOverride,
 	getDebugPlanOverride,
-	getDebugPlanTier,
 	getDebugPlanSummary,
+	getDebugPlanTier,
 	getDebugTrialOverride,
 	isDebugPlanActive,
 } from '$lib/server/debug-plan';
