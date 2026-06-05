@@ -49,6 +49,10 @@ const BASE_TEST_IGNORE = [
 	// CI 既定実行から除外、`SS_LABEL=after npx playwright test tests/e2e/admin-activities-delete-screenshots.spec.ts`
 	// で手動実行する。
 	...(process.env.SS_LABEL ? [] : ['**/admin-activities-delete-screenshots.spec.ts']),
+	// #2930 QM Re-BLOCK fix: PageGuide settled-state SS 撮影専用 spec。
+	// CI 既定実行から除外、`SS_LABEL=after npx playwright test tests/e2e/page-guide-screenshots.spec.ts`
+	// で手動実行する (After = PR HEAD / Before = origin/main build)。
+	...(process.env.SS_LABEL ? [] : ['**/page-guide-screenshots.spec.ts']),
 	'**/production-smoke.spec.ts',
 	// ビジュアル回帰テストはプラットフォーム固有のスナップショットを使うため
 	// CI（Linux）ではスキップし、ローカル開発でのUI崩壊検知にのみ使用する
