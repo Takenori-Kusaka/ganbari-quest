@@ -528,7 +528,6 @@ async function handleCopyFromChild() {
 	<section>
 		<h3
 			class="text-sm font-bold text-[var(--color-text-muted)] mb-2"
-			data-tutorial="rewards-add-start"
 		>{REWARDS_LABELS.selectTemplateTitle}</h3>
 		<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
 			{#each filteredTemplates as tmpl}
@@ -612,6 +611,7 @@ async function handleCopyFromChild() {
 				size="md"
 				disabled={!data.isPremium}
 				class="w-full"
+				data-tutorial="rewards-add-start"
 			>
 				{REWARDS_LABELS.grantButton(customIcon, customTitle, customPoints)}
 			</Button>
