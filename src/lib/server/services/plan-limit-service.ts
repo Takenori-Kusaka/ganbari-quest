@@ -4,6 +4,7 @@
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
+import { getDebugPlanTier } from '$lib/server/debug-plan';
 import { buildPlanTierCacheKey, getRequestContext } from '$lib/server/request-context';
 import type { TrialTier } from '$lib/server/services/trial-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
@@ -85,6 +86,12 @@ export function resolvePlanTier(
 	trialEndDate?: string | null,
 	trialTier?: TrialTier | null,
 ): PlanTier {
+	// #758 / #2919: dev の DEBUG_PLAN は mode 強制 (local / anonymous = family) より優先する。
+	// 従来は下の local 分岐が先に評価され、AUTH_MODE=local (npm run dev / E2E webServer) では
+	// DEBUG_PLAN=free・standard が無視されていた (plan 別表示の dev 検証が不可能だった)。
+	// dev=false (本番 build) では getDebugPlanTier が常に null を返すため挙動不変。
+	const debugTier = getDebugPlanTier();
+	if (debugTier) return debugTier;
 	const mode = getAuthMode();
 	// ローカル版（セルフホスト）は常に全機能解放
 	if (mode === 'local') return 'family';

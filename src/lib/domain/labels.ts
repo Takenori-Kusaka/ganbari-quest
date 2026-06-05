@@ -4696,7 +4696,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	emptyTitle: '取込済のルールがありません',
 	emptyDesc: `${TEMPLATE_TERMS.userFacing}から bonus / exchange ルールを取込むとここに表示されます`,
 	browseLink: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.browse} →`,
-	sectionBonusTitle: '🎯 ボーナスルール',
+	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
 	sectionBonusDesc:
 		'活動記録時に発火するボーナスポイント。enabled な preset のみが活動記録時に評価されます。',
 	sectionExchangeDesc:

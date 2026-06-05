@@ -5,7 +5,7 @@ import { FEATURES_LABELS, NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$
 import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
-import { getPageGuide } from '$lib/ui/tutorial/page-guide-registry';
+import { filterGuideStepsByTier, getPageGuide } from '$lib/ui/tutorial/page-guide-registry';
 import { startPageGuide } from '$lib/ui/tutorial/page-guide-store.svelte';
 // #2375: v1 PageHelpButton + handleStartTutorial fallback 撤去 (P4)。
 // AC-V2-5 のため v2 PageGuide 起動時に v1 tutorial を強制終了する目的で endTutorial のみ import。
@@ -53,7 +53,11 @@ $effect(() => {
 
 	const adminPath = path.replace(basePath, '/admin');
 	getPageGuide(adminPath).then((guide) => {
-		hasPageGuide = guide !== null;
+		// #2919: requiredTier フィルタ後に手順が 1 つも残らないページでは ❓ を出さない
+		// (空ガイドを開くと dead-end になるため)。現状 challenges は free でも非 gate 手順が
+		// 1 つ残るため button は維持されるが、将来 family 限定手順のみのページが追加されても
+		// 自動で button が抑止される。
+		hasPageGuide = guide !== null && filterGuideStepsByTier(guide, planTier) !== null;
 	});
 });
 
@@ -62,8 +66,12 @@ async function handleStartPageGuide() {
 	endTutorial();
 	const path = $page.url.pathname.replace(basePath, '/admin');
 	const guide = await getPageGuide(path);
-	if (guide) {
-		startPageGuide(guide);
+	if (!guide) return;
+	// #2919: 現在のプランで表示できない手順 (requiredTier 未達、例: challenges-intro の family)
+	// を除外してから起動する。free ユーザーに「上位プラン限定」の手順を見せない (NN/G #1 / #5)。
+	const filtered = filterGuideStepsByTier(guide, planTier);
+	if (filtered) {
+		startPageGuide(filtered);
 	}
 }
 

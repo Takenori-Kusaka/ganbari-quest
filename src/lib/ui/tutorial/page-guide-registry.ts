@@ -5,6 +5,7 @@
  */
 
 import type { PageGuide } from './page-guide-types';
+import { meetsRequiredTier, type PlanTier } from './tutorial-types';
 
 // 動的インポートでガイド定義を取得（バンドルサイズ最適化）
 const GUIDE_LOADERS: Record<
@@ -62,6 +63,26 @@ export async function getPageGuide(path: string): Promise<PageGuide | null> {
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * ページガイドの手順を現在のプランティアでフィルタする。
+ *
+ * 各 GuideStep の `requiredTier`（例: challenges-intro の `family`）を満たさない手順を除外し、
+ * 残った手順だけのガイドを返す。これにより free ユーザーには「上位プラン限定機能」の手順を見せず、
+ * 「設定したのに使えない」混乱（NN/G #1 visibility / #5 error prevention）を防ぐ。
+ *
+ * 判定は tutorial-chapters / FeatureGate と同じ {@link meetsRequiredTier}（TIER_ORDER SSOT）を共有する。
+ * 全手順が除外された場合は `null` を返し、呼び出し側でガイド起動を抑止できるようにする。
+ *
+ * @param guide フィルタ対象のページガイド
+ * @param planTier 現在のプランティア
+ * @returns requiredTier を満たす手順だけのガイド。残手順が 0 なら null
+ */
+export function filterGuideStepsByTier(guide: PageGuide, planTier: PlanTier): PageGuide | null {
+	const steps = guide.steps.filter((step) => meetsRequiredTier(planTier, step.requiredTier));
+	if (steps.length === 0) return null;
+	return { ...guide, steps };
 }
 
 /** 全ガイドのページID一覧（完了状態表示用） */

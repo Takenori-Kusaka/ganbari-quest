@@ -9,10 +9,11 @@
  * /admin/activities のガイドを全 step 通し撮影し、PO 指摘 (a)(b)(c) — バブルの重複 /
  * 見切れ / spotlight 不全 — の解消を before/after 比較できる視覚証跡を残す。
  *
- * 本番ルートを demo Lambda 同型 env (AUTH_MODE=anonymous + DATA_SOURCE=demo) で
- * 起動した dev server 上で開き、user-gesture で ❓ を click した overlay 表示状態を撮影する。
+ * ❓ ボタンは AdminLayout の `{#if !isDemo && hasPageGuide}` gate 配下のため demo モードでは
+ * 描画されない。本撮影は通常の認証済 admin (mode="live") の dev server 上で開き、user-gesture で
+ * ❓ を click した overlay 表示状態を撮影する (demo env では ❓ が出ず撮影できない)。
  *
- * 使用例 (BASE_URL は demo Lambda env で起動した dev server):
+ * 使用例 (BASE_URL は認証済 admin を表示する dev server):
  *   MSYS_NO_PATHCONV=1 BASE_URL=http://localhost:5173 node scripts/capture.mjs \
  *     --flow admin-page-guide-2905 \
  *     --url /admin/activities \

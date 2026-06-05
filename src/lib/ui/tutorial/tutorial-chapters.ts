@@ -7,9 +7,7 @@ import {
 } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
-import type { PlanTier, TutorialChapter } from './tutorial-types';
-
-const TIER_ORDER: Record<PlanTier, number> = { free: 0, standard: 1, family: 2 };
+import { meetsRequiredTier, type PlanTier, type TutorialChapter } from './tutorial-types';
 
 const L = TUTORIAL_CHAPTER_LABELS;
 
@@ -288,9 +286,6 @@ export function getAllSteps() {
 export function getChaptersForPlan(planTier: PlanTier): TutorialChapter[] {
 	return TUTORIAL_CHAPTERS.map((ch) => ({
 		...ch,
-		steps: ch.steps.filter((step) => {
-			if (!step.requiredTier) return true;
-			return TIER_ORDER[planTier] >= TIER_ORDER[step.requiredTier];
-		}),
+		steps: ch.steps.filter((step) => meetsRequiredTier(planTier, step.requiredTier)),
 	})).filter((ch) => ch.steps.length > 0);
 }
