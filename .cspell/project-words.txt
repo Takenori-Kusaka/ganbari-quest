@@ -476,3 +476,7 @@ NOSEP
 aррӏ
 # xample = `xample` is the literal Latin token left over after the leading character was substituted by a full-width Latin e (U+FF45) in the fuzz fixture for PR #2770
 xample
+# ===== #2926 (EPIC #2925 Sub-1) =====
+# viewports = "viewport" の複数形。cspell 辞書は singular `viewport` のみ収録のため plural を明示登録
+# (page-guide-layout-invariant.spec.ts の VIEWPORTS const で desktop / mobile 2 viewport をループする)
+viewports

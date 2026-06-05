@@ -9,14 +9,12 @@ interface Props {
 	progress: { current: number; total: number };
 	isFirst: boolean;
 	isLast: boolean;
-	bubbleStyle: { top: string; left: string; width: string };
 	onEnd: () => void;
 	onPrev: () => void;
 	onNext: () => void;
 }
 
-let { step, guide, progress, isFirst, isLast, bubbleStyle, onEnd, onPrev, onNext }: Props =
-	$props();
+let { step, guide, progress, isFirst, isLast, onEnd, onPrev, onNext }: Props = $props();
 </script>
 
 <!--
@@ -24,13 +22,7 @@ let { step, guide, progress, isFirst, isLast, bubbleStyle, onEnd, onPrev, onNext
   これにより step 切替時に bubble DOM が破棄されず、tab フォーカス・SR 読み上げ・現在 activeTab が維持される。
   値は Svelte 5 の reactive プロパティ更新で自然に追従する。
 -->
-<div
-	class="guide-bubble"
-	style:top={bubbleStyle.top}
-	style:left={bubbleStyle.left}
-	style:width={bubbleStyle.width}
-	data-step-id={step.id}
->
+<div class="guide-bubble" data-step-id={step.id}>
 	<!-- Header -->
 	<div class="guide-header">
 		<span class="guide-header-icon">{guide?.icon ?? '📖'}</span>
@@ -74,16 +66,21 @@ let { step, guide, progress, isFirst, isLast, bubbleStyle, onEnd, onPrev, onNext
 
 <style>
 	.guide-bubble {
-		position: fixed;
-		/* #2106: bubble sits +10 above overlay (callout layering within --z-tutorial tier) */
-		z-index: calc(var(--z-tutorial) + 10);
+		/* The driver.js popover wrapper owns viewport placement and caps its own size to
+		   `min(360px, 100vw - 24px)` × `100vh - 24px` (see PageGuideOverlay popover styles).
+		   The bubble fills that wrapper (width:100%) so the wrapper's measured size — which
+		   driver.js uses for collision-aware positioning & viewport clamping — always equals
+		   the rendered bubble size. This prevents CI (taller JP text) from producing a bubble
+		   that overflows the viewport. The bubble scrolls when content exceeds the height cap. */
+		width: 100%;
+		box-sizing: border-box;
 		background: white;
 		border-radius: 16px;
 		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
 		overflow: hidden;
 		animation: guide-bubble-appear 0.3s ease-out;
 		pointer-events: auto;
-		max-height: 80vh;
+		max-height: calc(100vh - 24px);
 		overflow-y: auto;
 	}
 
