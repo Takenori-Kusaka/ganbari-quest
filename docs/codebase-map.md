@@ -60,6 +60,7 @@
 | [docs/sessions/dev-session.md](sessions/dev-session.md) | Dev セッション (実装・CI/CD・設計書同期、overall map) |
 | [docs/sessions/dev-process/README.md](sessions/dev-process/README.md) | 開発プロセス運用知 各論 (完遂原則 / アンチパターン / QA fix / 並列 Agent / 調査規律 / 横展開、#2516) |
 | [docs/sessions/qa-session.md](sessions/qa-session.md) | QA セッション (PR レビュー・品質ゲート) |
+| [docs/sessions/webui-review-process.md](sessions/webui-review-process.md) | WebUI レビュー & 改善プロセス SSOT (4 層自動化モデル + A〜D 課題一般化フロー + 既存資産対応表、#2936) |
 | [docs/sessions/branch-strategy.md](sessions/branch-strategy.md) | ブランチ戦略 SSOT (develop 二層 + gate 二層 + merge 責任分担、#2858) |
 | [docs/sessions/audit-team.md](sessions/audit-team.md) | 外部品質監査チーム役割定義 SSOT (マネージャ + 8 チーム + ポリシー準拠判定、2 段 gate 境界、#2862 / EPIC #2861) |
 | [docs/design/06-UI設計書.md](design/06-UI設計書.md) | UI 機能・画面・オーバーレイ仕様 |
