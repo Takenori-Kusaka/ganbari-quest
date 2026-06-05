@@ -2,7 +2,9 @@ name: "Dependency Review"
 
 on:
   pull_request:
-    branches: [main]
+    # #2931 / branch-strategy.md §4: 軽量レーン（高速 + 依存脆弱性は per-PR で検知価値が高い）。
+    # develop 向け PR でも発火する。
+    branches: [main, develop]
     # #1218: ready_for_review は除外（Draft でも走るため再実行は無駄）。
     types: [opened, synchronize, reopened]
     paths:

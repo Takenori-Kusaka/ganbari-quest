@@ -5,7 +5,9 @@ name: PR Info
 
 on:
   pull_request:
-    branches: [main]
+    # #2931 / branch-strategy.md §4: 軽量レーン（comment-only / label 付与のみ、block しない）。
+    # develop 向け PR でも発火する。
+    branches: [main, develop]
     types: [opened, synchronize, reopened]
 
 permissions:

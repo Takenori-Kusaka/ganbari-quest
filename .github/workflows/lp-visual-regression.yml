@@ -23,6 +23,8 @@ name: LP Visual Regression (pixelmatch baseline)
 
 on:
   pull_request:
+    # #2931 / branch-strategy.md §4: 重量レーン。main 向け PR のみ発火（develop 向けでは skip）。
+    branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "site/**"
