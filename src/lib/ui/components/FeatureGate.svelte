@@ -2,9 +2,8 @@
 import type { Snippet } from 'svelte';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
 import { PLAN_TERMS } from '$lib/domain/terms';
+import { meetsRequiredTier, type PlanTier } from '$lib/ui/tutorial/tutorial-types';
 import PremiumBadge from './PremiumBadge.svelte';
-
-type PlanTier = 'free' | 'standard' | 'family';
 
 interface Props {
 	/** 現在のプラン */
@@ -30,7 +29,6 @@ let {
 	display = 'section',
 }: Props = $props();
 
-const TIER_ORDER: Record<PlanTier, number> = { free: 0, standard: 1, family: 2 };
 // Phase 7 PR-L4 (#2836): 顧客可視の gate ラベルを premium atom 参照化 (ADR-0045 / ADR-0058)。
 const TIER_LABELS: Record<PlanTier, string> = {
 	free: PLAN_TERMS.free,
@@ -38,7 +36,8 @@ const TIER_LABELS: Record<PlanTier, string> = {
 	family: PLAN_TERMS.premium,
 };
 
-const isLocked = $derived(TIER_ORDER[currentTier] < TIER_ORDER[requiredTier]);
+// requiredTier を満たさない = ロック。tutorial-chapters / page-guide と同じ TIER_ORDER SSOT を共有する。
+const isLocked = $derived(!meetsRequiredTier(currentTier, requiredTier));
 const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 </script>
 
