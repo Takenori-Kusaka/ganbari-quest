@@ -94,6 +94,14 @@ export interface ChallengeSetImportResult {
 	imported: number;
 	skipped: number;
 	errors: string[];
+	/**
+	 * #2830: 実際に persist 失敗した child×challenge 行数。
+	 *   本 import は 1 challenge を `createChildChallengesBulk` で複数 child に bulk 配信するため、
+	 *   bulk throw 1 回で childIds.length 行が喪失するが `errors.length` は 1 しか増えない。
+	 *   UI の partial-failure 件数表示は `errors.length` ではなく本フィールド (= 失敗 challenge
+	 *   × childIds.length) を使い、失敗規模の過小評価を防ぐ。
+	 */
+	failed: number;
 }
 
 /** カテゴリ ID → コード (preview 集計表示用) */
@@ -188,11 +196,15 @@ export async function importChallengeSet(
 			imported: 0,
 			skipped: 0,
 			errors: ['childIds が必須です (1 名以上のお子さまを選択してください)'],
+			failed: 0,
 		};
 	}
 
 	const errors: string[] = [];
 	let imported = 0;
+	// #2830: 実際に persist 失敗した child×challenge 行数。1 challenge の bulk throw で
+	//   childIds.length 行が喪失するため、errors.length ではなく行数で honest に計上する。
+	let failed = 0;
 	// #2488 (ask-4): skipped は常に 0。本 import は per-child instance を child 数分作成する
 	// 特性上、title 重複検知は `previewChallengeSetImport` 段階で集計表示のみ行い、本 import 内
 	// では skip を発火しない (preset 内の title 一意性 + child 数倍化を前提)。旧
@@ -239,6 +251,8 @@ export async function importChallengeSet(
 			imported += created.length;
 		} catch (e) {
 			errors.push(`「${ch.title}」: ${e instanceof Error ? e.message : String(e)}`);
+			// #2830: 1 challenge の bulk throw で childIds.length 行 (各 child の instance) が喪失する。
+			failed += childIds.length;
 		}
 	}
 	logger.info('[challenge-set-import] per-child インポート完了', {
@@ -246,10 +260,11 @@ export async function importChallengeSet(
 			tenantId,
 			imported,
 			skipped,
+			failed,
 			errors: errors.length,
 			presetId: presetId ?? null,
 			childCount: childIds.length,
 		},
 	});
-	return { imported, skipped, errors };
+	return { imported, skipped, errors, failed };
 }

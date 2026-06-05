@@ -44,6 +44,12 @@ export interface RewardSetImportResult {
 	skipped: number;
 	/** 個別失敗のエラー（DB 例外など） */
 	errors: string[];
+	/**
+	 * #2830: 実際に persist 失敗した reward 件数。reward-set は per-reward try/catch のため
+	 *   `errors.length` と一致するが、5 type 横断で UI が一貫して `failed` を参照できるよう
+	 *   明示的に算出して返す (AC4 横展開、ImportResult 契約整合)。
+	 */
+	failed: number;
 }
 
 export interface ImportRewardSetOptions {
@@ -79,6 +85,8 @@ export interface RewardSetImportToChildrenResult {
 	imported: number;
 	skipped: number;
 	errors: string[];
+	/** #2830: 全 child 合算の実失敗 reward 行数 (errors.length と分離、UI 件数表示用)。 */
+	failed: number;
 	/** target child 別の取込件数 (UI 表示 / debug 用) */
 	byChild: Record<number, { imported: number; skipped: number; errors: number }>;
 }
@@ -199,7 +207,8 @@ export async function importRewardSet(
 		},
 	});
 
-	return { imported, skipped, errors };
+	// #2830: per-reward try/catch のため失敗 reward 数 = errors.length。
+	return { imported, skipped, errors, failed: errors.length };
 }
 
 /**
@@ -221,6 +230,7 @@ export async function importRewardSetToChildren(
 	const byChild: Record<number, { imported: number; skipped: number; errors: number }> = {};
 	let totalImported = 0;
 	let totalSkipped = 0;
+	let totalFailed = 0;
 	const allErrors: string[] = [];
 
 	for (const childId of childIds) {
@@ -232,6 +242,7 @@ export async function importRewardSetToChildren(
 		};
 		totalImported += result.imported;
 		totalSkipped += result.skipped;
+		totalFailed += result.failed;
 		for (const e of result.errors) {
 			allErrors.push(`child ${childId}: ${e}`);
 		}
@@ -252,6 +263,7 @@ export async function importRewardSetToChildren(
 		imported: totalImported,
 		skipped: totalSkipped,
 		errors: allErrors,
+		failed: totalFailed,
 		byChild,
 	};
 }

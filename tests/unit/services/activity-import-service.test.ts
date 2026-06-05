@@ -260,6 +260,88 @@ describe('importActivities', () => {
 		expect(result.errors.some((e) => e.includes('per-child instance 作成失敗'))).toBe(true);
 		expect(result.errors.some((e) => e.includes('DB constraint violation'))).toBe(true);
 		expect(result.errors.some((e) => e.includes('保存できませんでした'))).toBe(true);
+		// #2830: failed は「実失敗 activity 数」= 2 (errors.length と無関係に正確)
+		expect(result.failed).toBe(2);
+	});
+
+	// ──────────────────────────────────────────────────────────
+	// #2830: failed 件数精度 — errors 配列長と実失敗 activity 数の乖離
+	// AC1: failed = 実失敗 activity 数 (errors.length と分離)
+	// AC3: bulk throw 1 回 × 複数 activity / child A 成功・child B 失敗 を assert
+	// ──────────────────────────────────────────────────────────
+	describe('#2830 partial-failure failed 件数精度', () => {
+		it('AC3 正例: bulk throw 1 回 × 複数 activity -> failed=実失敗数 ≠ errors.length', async () => {
+			// 5 件全てが新規。fallback 単一 child に対する bulk が 1 回 throw する。
+			// errors は ① per-child catch 行 ② 集計行 の 2 本しか積まれないが、
+			// 実際には 5 activity 全てが persist 失敗している。
+			mockInsertActivitiesBulk.mockRejectedValueOnce(new Error('bulk insert exploded'));
+
+			const items = [
+				makeItem({ name: 'A', categoryCode: 'undou' }),
+				makeItem({ name: 'B', categoryCode: 'benkyou' }),
+				makeItem({ name: 'C', categoryCode: 'seikatsu' }),
+				makeItem({ name: 'D', categoryCode: 'kouryuu' }),
+				makeItem({ name: 'E', categoryCode: 'souzou' }),
+			];
+
+			const result = await importActivities(items, TENANT);
+
+			expect(result.imported).toBe(0);
+			// failed は実失敗 activity 数 = 5 (errors.length は 2 程度に留まる)
+			expect(result.failed).toBe(5);
+			// 乖離の核心: errors.length は 5 を表現できない (= 旧 errorsCount 過小表示の証跡)
+			expect(result.errors.length).toBeLessThan(result.failed);
+		});
+
+		it('AC3 正例: child A 成功 / child B 失敗 -> failed は失敗 child 分のみ計上', async () => {
+			const CHILD_A = 11;
+			const CHILD_B = 22;
+			mockFindActivitiesByChild.mockResolvedValue([]);
+			// child A の bulk は成功 (入力 echo)、child B の bulk は throw。
+			mockInsertActivitiesBulk.mockImplementation(
+				async (inputs: Array<{ childId: number; name: string }>) => {
+					const cid = inputs[0]?.childId;
+					if (cid === CHILD_B) throw new Error('child B write failed');
+					return inputs.map((i, idx) => ({ id: idx + 1, ...i }));
+				},
+			);
+
+			const items = [
+				makeItem({ name: 'なわとび', categoryCode: 'undou' }),
+				makeItem({ name: 'おんどく', categoryCode: 'benkyou' }),
+			];
+
+			const result = await importActivities(items, TENANT, { childIds: [CHILD_A, CHILD_B] });
+
+			// imported は「いずれかの child に persist できた名前数」= 2 (child A で成功)。
+			expect(result.imported).toBe(2);
+			// child A で全名が成功するため、name 粒度の failed は 0 (現行 name 集合仕様)。
+			// AC2: name 粒度仕様を honest に反映 (child B 失敗は errors で可視化)。
+			expect(result.failed).toBe(0);
+			expect(result.errors.some((e) => e.includes('child B write failed'))).toBe(true);
+		});
+
+		it('AC3 負例: 全 child 成功 -> failed=0 (false positive を出さない)', async () => {
+			const result = await importActivities(
+				[makeItem({ name: 'X', categoryCode: 'undou' })],
+				TENANT,
+				{ childIds: [1, 2] },
+			);
+			expect(result.imported).toBe(1);
+			expect(result.failed).toBe(0);
+			expect(result.errors).toEqual([]);
+		});
+
+		it('AC1 負例: カテゴリ不明 (validation error) は failed に計上しない (persist 失敗ではない)', async () => {
+			// validation error は plannedNewNames に入らないため persist 失敗ではなく、
+			// failed=0。errors には記録される (件数の意味を混同しない)。
+			const items = [makeItem({ name: '謎', categoryCode: 'invalid' as never })];
+			const result = await importActivities(items, TENANT);
+
+			expect(result.imported).toBe(0);
+			expect(result.failed).toBe(0);
+			expect(result.errors).toHaveLength(1);
+		});
 	});
 
 	it('混合シナリオ: 新規 + 重複 + カテゴリエラー', async () => {

@@ -78,6 +78,7 @@ export const challengeSetStrategy: ImportStrategy<ChallengeSetPayload> = {
 				imported: 0,
 				skipped: preview.duplicates,
 				errors: [],
+				failed: 0,
 			};
 		}
 
@@ -91,6 +92,8 @@ export const challengeSetStrategy: ImportStrategy<ChallengeSetPayload> = {
 			imported: raw.imported,
 			skipped: raw.skipped,
 			errors: raw.errors,
+			// #2830: errors.length ではなく実失敗 child×challenge 行数を UI 件数表示用に伝播。
+			failed: raw.failed,
 		};
 	},
 };

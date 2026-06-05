@@ -230,6 +230,18 @@ describe('importRewardSet', () => {
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toContain('失敗する reward');
 		expect(result.errors[0]).toContain('DB constraint violation');
+		// #2830 AC4: reward-set は per-item try/catch のため failed = errors.length (1)。
+		expect(result.failed).toBe(1);
+	});
+
+	it('#2830 負例: 全件成功 -> failed=0', async () => {
+		const rewards = [makeReward({ title: 'a' }), makeReward({ title: 'b' })];
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: PRESET_ID,
+			childId: CHILD_ID,
+		});
+		expect(result.imported).toBe(2);
+		expect(result.failed).toBe(0);
 	});
 
 	it('同名が入力に2回 -> 2つ目は重複扱い', async () => {

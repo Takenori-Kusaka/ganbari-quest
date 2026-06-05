@@ -78,6 +78,7 @@ export const activityPackStrategy: ImportStrategy<ActivityPackPayload> = {
 				imported: 0,
 				skipped: preview.duplicates,
 				errors: [],
+				failed: 0,
 			};
 		}
 
@@ -96,6 +97,8 @@ export const activityPackStrategy: ImportStrategy<ActivityPackPayload> = {
 			imported: raw.imported,
 			skipped: raw.skipped,
 			errors: raw.errors,
+			// #2830: errors.length ではなく実失敗 activity 数を UI 件数表示用に伝播する。
+			failed: raw.failed,
 		};
 	},
 };

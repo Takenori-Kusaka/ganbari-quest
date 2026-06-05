@@ -45,6 +45,13 @@ export interface ActivityImportResult {
 	imported: number;
 	skipped: number;
 	errors: string[];
+	/**
+	 * #2830: 実際に persist 失敗した activity 数 (= 計画した新規 - 実 persist)。
+	 *   `errors.length` は per-child catch 行 + 集計行が混在するため失敗 activity 数と
+	 *   一致しない (bulk throw 1 回で 30 activity 喪失でも errors.length≈2)。UI の
+	 *   partial-failure 件数表示は本フィールドを使う。
+	 */
+	failed: number;
 }
 
 /**
@@ -217,6 +224,10 @@ async function dispatchPerChildBulk(
  * #2824: per-child bulk を実行し、実際に persist できた activity 数 (imported) を返す。
  * 計画したのに persist できなかった分 (DynamoDB stub / 容量超過 等) は errors に記録する。
  * child が 0 件のときは write を行わず imported=0 (honest)。
+ *
+ * #2830: `failed` (= 計画した新規 - 実 persist) も合わせて返す。`errors.length` は
+ *   per-child catch 行 + 集計行が混在し失敗 activity 数と乖離するため、UI 件数表示用の
+ *   honest な失敗数を別途算出する。
  */
 async function persistAndCountImported(
 	childIds: readonly number[],
@@ -224,18 +235,18 @@ async function persistAndCountImported(
 	plannedNewNames: Set<string>,
 	tenantId: string,
 	errors: string[],
-): Promise<number> {
-	if (childIds.length === 0) return 0;
+): Promise<{ imported: number; failed: number }> {
+	if (childIds.length === 0) return { imported: 0, failed: 0 };
 	const persistedNames = await dispatchPerChildBulk(childInputsByChild, tenantId, errors);
 	let imported = 0;
 	for (const name of plannedNewNames) {
 		if (persistedNames.has(name)) imported++;
 	}
-	const failedToPersist = plannedNewNames.size - imported;
-	if (failedToPersist > 0) {
-		errors.push(`${failedToPersist} 件の活動を保存できませんでした`);
+	const failed = plannedNewNames.size - imported;
+	if (failed > 0) {
+		errors.push(`${failed} 件の活動を保存できませんでした`);
 	}
-	return imported;
+	return { imported, failed };
 }
 
 /**
@@ -346,7 +357,7 @@ export async function importActivities(
 	//   stub / 容量超過 等) でも UI が「N 件登録しました」と偽る。dispatchPerChildBulk が
 	//   返す persist 成功名のみを imported に算入し、計画したのに persist できなかった分は
 	//   errors として可視化する。これにより「偽の成功件数」を構造的に出さない。
-	const imported = await persistAndCountImported(
+	const { imported, failed } = await persistAndCountImported(
 		childIds,
 		childInputsByChild,
 		plannedNewNames,
@@ -360,6 +371,7 @@ export async function importActivities(
 			imported,
 			plannedNew: plannedNewNames.size,
 			skipped,
+			failed,
 			errors: errors.length,
 			presetId: presetId ?? null,
 			applyMustDefault,
@@ -367,5 +379,5 @@ export async function importActivities(
 		},
 	});
 
-	return { imported, skipped, errors };
+	return { imported, skipped, errors, failed };
 }

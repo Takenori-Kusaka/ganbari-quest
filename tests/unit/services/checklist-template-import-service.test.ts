@@ -242,6 +242,16 @@ describe('importChecklistTemplate', () => {
 		expect(result.importedItems).toBe(2);
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toContain('DB busy');
+		// #2830 AC4: checklist は per-item try/catch のため failed = errors.length (1)。
+		expect(result.failed).toBe(1);
+	});
+
+	it('#2830 負例: 全 item 成功 -> failed=0', async () => {
+		mockGetMarketplaceItem.mockReturnValue(makePresetItem());
+		const result = await importChecklistTemplate('event-pool', CHILD_ID, TENANT);
+		expect(result.imported).toBe(1);
+		expect(result.failed).toBe(0);
+		expect(result.errors).toEqual([]);
 	});
 
 	it('timing=morning → timeSlot=morning にマップ', async () => {
