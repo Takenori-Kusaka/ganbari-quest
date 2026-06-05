@@ -103,6 +103,8 @@ gh issue view <X>  # PR body の closes #X から取得
 
 UI/UX 品質チェックは @docs/sessions/qa-checklist-ui-quality.md（10 項目）。気になった点だけ具体記述、無言 approve 不可。
 
+UI 系 fix / design PR では **A〜D 仕分けの妥当性**も判定する（[webui-review-process.md](webui-review-process.md) §4/§5）。PR body の仕分け結果を見て、B/C/D（コンポーネント設計 / 配置アルゴリズム / ガイドライン欠落）に起因する問題を A（画面固有のその場修正）で済ませていないか、還元先（primitives / トークン / geometry assertion / DESIGN.md・skill）への実装が同 PR にあるか（または 後続 issue が起票済か）を確認する。対症療法のままなら BLOCK（ADR-0003）。
+
 #### SS 不足・撮り直し時
 
 `scripts/capture.mjs` を使う（`--help` 参照、6 種類の起動例 + KB 参照）。独自 Playwright スクリプト・手動サーバー起動不要。
