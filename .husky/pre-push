@@ -50,33 +50,43 @@ node scripts/check-gh-account-before-pr.mjs
 
 echo "[pre-push] QA self-implement 第 8 弾 verify chain (#2598)"
 
-# --- Step 2.1: origin/main rebase drift verify (#2557 / 本日 7+ 連続 BLOCK の root cause) ---
+# --- Step 2.0: base branch 解決 (#2959 / develop 二層 cutover #2870) ---
+# develop 二層 (branch-strategy.md §3/§5) では feature branch は develop 向け、
+# hotfix (fix/* from main) は main 向け。drift 検査 / deploy 削除 gate / biome 抽出の
+# 比較 base を scripts/lib/resolve-base-branch.mjs (SSOT) で解決する。
+# 解決不能時 (offline 等) は main に fallback (従来挙動と同一)。
+# hotfix の初回 push (PR 未作成 + develop 乖離) は `GANBARI_PR_BASE=main git push` で明示可。
+BASE_BRANCH=$(node scripts/lib/resolve-base-branch.mjs 2>/dev/null) || BASE_BRANCH="main"
+echo "[pre-push] (0/3) base branch 解決: origin/$BASE_BRANCH (#2959)"
+
+# --- Step 2.1: origin/<base> rebase drift verify (#2557 / 本日 7+ 連続 BLOCK の root cause) ---
 # 本 step は git fetch を伴うため network access が前提。
 # offline 環境では `git fetch` が fail し、本 hook 全体が exit するため
 # offline で push したい場合は `--no-verify` を使うこと (ADR-0026 例外運用)。
-echo "[pre-push] (1/3) origin/main rebase drift verify"
-git fetch origin main --quiet 2>/dev/null || {
-	echo "[pre-push] WARN: git fetch origin main 失敗 (offline?) — rebase verify を skip"
+echo "[pre-push] (1/3) origin/$BASE_BRANCH rebase drift verify"
+git fetch origin "$BASE_BRANCH" --quiet 2>/dev/null || {
+	echo "[pre-push] WARN: git fetch origin $BASE_BRANCH 失敗 (offline?) — rebase verify を skip"
 	echo "          通常 push では network 接続を確認してください"
 }
 
-# origin/main が手元 branch に取り込まれているか検証
-# MERGE_BASE = 手元 HEAD と origin/main の共通祖先
-# MAIN_HEAD = origin/main の最新 commit
-# MERGE_BASE != MAIN_HEAD なら手元は origin/main の最新を取り込んでいない
-if MERGE_BASE=$(git merge-base origin/main HEAD 2>/dev/null) && MAIN_HEAD=$(git rev-parse origin/main 2>/dev/null); then
-	if [ "$MERGE_BASE" != "$MAIN_HEAD" ]; then
-		AHEAD_COMMITS=$(git rev-list --count "$MERGE_BASE..$MAIN_HEAD" 2>/dev/null || echo "?")
-		echo "[pre-push] FAIL: origin/main が $AHEAD_COMMITS commits ahead (rebase drift)"
-		echo "          対処: git fetch origin main && git rebase origin/main"
+# origin/<base> が手元 branch に取り込まれているか検証
+# MERGE_BASE = 手元 HEAD と origin/<base> の共通祖先
+# BASE_HEAD = origin/<base> の最新 commit
+# MERGE_BASE != BASE_HEAD なら手元は origin/<base> の最新を取り込んでいない
+if MERGE_BASE=$(git merge-base "origin/$BASE_BRANCH" HEAD 2>/dev/null) && BASE_HEAD=$(git rev-parse "origin/$BASE_BRANCH" 2>/dev/null); then
+	if [ "$MERGE_BASE" != "$BASE_HEAD" ]; then
+		AHEAD_COMMITS=$(git rev-list --count "$MERGE_BASE..$BASE_HEAD" 2>/dev/null || echo "?")
+		echo "[pre-push] FAIL: origin/$BASE_BRANCH が $AHEAD_COMMITS commits ahead (rebase drift)"
+		echo "          対処: git fetch origin $BASE_BRANCH && git rebase origin/$BASE_BRANCH"
 		echo "          理由: 本日 7+ 連続 BLOCK の root cause (#2557 / #2598)。"
 		echo "                rebase せず push すると過去 merged PR を revert する diff が混入する。"
+		echo "          base 誤判定の場合: GANBARI_PR_BASE=<main|develop> git push で明示 (#2959)"
 		echo "          skip (非推奨): git push --no-verify (ADR-0026 で discouraged)"
 		exit 1
 	fi
-	echo "[pre-push]     OK: origin/main 同期済"
+	echo "[pre-push]     OK: origin/$BASE_BRANCH 同期済"
 else
-	echo "[pre-push] WARN: rebase verify を skip (offline / origin/main 未取得)"
+	echo "[pre-push] WARN: rebase verify を skip (offline / origin/$BASE_BRANCH 未取得)"
 fi
 
 # --- Step 2.2 / 2.3: PR が既に存在する場合のみ deploy 削除 + PR body verify ---
@@ -105,7 +115,10 @@ if [ -n "$PR_NUM" ]; then
 	# 引数なしで呼ぶと verify gate skip + 削除 check のみ実行され、push 前 hook 意図と整合する。
 	# defense in depth は CI 経路 + QM Re-Review / Fix Agent worktree mode で `--pr` 付き gate が
 	# 真正実行 (PR HEAD = checkout HEAD 一致) されるため失われない。詳細は ADR-0056 §F 補足参照。
-	node scripts/check-recent-deploy-deletion.mjs || {
+	# #2959: 比較 base は解決済み base branch (develop 基点 branch で sibling PR の
+	# develop commit を自 PR の削除と誤算入しないため)。deploy file list 自体は
+	# script 内部で本日 deploy tag (main) から取得されるため意味は不変。
+	RECENT_DEPLOY_CHECK_BASE="origin/$BASE_BRANCH" node scripts/check-recent-deploy-deletion.mjs || {
 		EXIT_CODE=$?
 		echo "[pre-push] FAIL: 本日 deploy 全 file 削除検出 (exit $EXIT_CODE)"
 		echo "          対処: 削除した file が本日 merged の effort を revert していないか確認"
@@ -133,11 +146,12 @@ fi
 # --- Step 2.4: biome check (軽量 lint、変更 file 絞り込み) ---
 # 重い svelte-check / vitest / playwright は CI 委ね。
 # biome check のみ push レイヤで実行することで CI で初めて lint fail に気づく事故を予防。
-# origin/main..HEAD で変更 file を抽出し、biome 対象拡張子のみ check (Pre-PMF 整合、push 速度保持)。
+# origin/<base>...HEAD (three-dot) で変更 file を抽出し、biome 対象拡張子のみ check (Pre-PMF 整合、push 速度保持)。
+# #2959: base は Step 2.0 で解決済み。three-dot 化で base 側の進行 commit を誤算入しない。
 echo "[pre-push] biome check (軽量 lint、変更 file 絞り込み)"
 if command -v npx >/dev/null 2>&1; then
 	# 変更 file 抽出 (added / modified、削除 file は対象外)
-	CHANGED_LINT_FILES=$(git diff --name-only --diff-filter=AM origin/main..HEAD 2>/dev/null | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|svelte|css|json|jsonc)$' || true)
+	CHANGED_LINT_FILES=$(git diff --name-only --diff-filter=AM "origin/$BASE_BRANCH...HEAD" 2>/dev/null | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|svelte|css|json|jsonc)$' || true)
 	if [ -n "$CHANGED_LINT_FILES" ]; then
 		echo "$CHANGED_LINT_FILES" | head -5
 		echo "$CHANGED_LINT_FILES" | xargs npx biome check 2>&1 | tail -3 || {

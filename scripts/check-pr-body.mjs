@@ -489,7 +489,7 @@ export function checkMergeable(prNumber) {
 	if (!prNumber) return null;
 	let raw;
 	try {
-		raw = execSync(`gh pr view ${prNumber} --json mergeable,mergeStateStatus`, {
+		raw = execSync(`gh pr view ${prNumber} --json mergeable,mergeStateStatus,baseRefName`, {
 			encoding: 'utf-8',
 			stdio: ['ignore', 'pipe', 'ignore'],
 			timeout: 15_000,
@@ -505,11 +505,14 @@ export function checkMergeable(prNumber) {
 		return null;
 	}
 	if (data.mergeable === 'CONFLICTING' || data.mergeStateStatus === 'DIRTY') {
+		// #2959: develop 二層 cutover (#2870) 後は base が develop / main の 2 系統あるため、
+		// rebase 指示は PR の実際の baseRefName に連動させる (main 固定だと誤指示になる)。
+		const baseRef = data.baseRefName || 'main';
 		return {
 			id: 'mergeable-conflicting',
 			message:
-				`PR #${prNumber} は base branch (main) と CONFLICTING です。Ready 化前に rebase して conflict 解消してください。\n` +
-				`  gh pr checkout ${prNumber}\n  git fetch origin && git rebase origin/main\n  # conflict 解消後\n  git push --force-with-lease`,
+				`PR #${prNumber} は base branch (${baseRef}) と CONFLICTING です。Ready 化前に rebase して conflict 解消してください。\n` +
+				`  gh pr checkout ${prNumber}\n  git fetch origin && git rebase origin/${baseRef}\n  # conflict 解消後\n  git push --force-with-lease`,
 		};
 	}
 	return null;

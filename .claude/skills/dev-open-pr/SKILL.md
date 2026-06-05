@@ -13,7 +13,7 @@ description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari
 2. **PR body Ready checklist 全 `[x]` 化** — 「QA 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言、QM が re-verify する )
 3. **AC 検証マップ 4 列形式** (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`) — 2 列簡略形式は `ac-map-incomplete` で exit 1
 4. **forbidden-terms 0 件** (「予定」「follow-up」「TODO」「PENDING」「DEFERRED」「別途」「個別起票」) — PR で完遂 or Issue 起票して PR から除去 (partial PR 禁止)
-5. **rebase 完了** (`git fetch origin main && git rebase origin/main`) — 本日 deploy 全 file 取込、mergeable: CONFLICTING でないこと
+5. **rebase 完了** — base branch に rebase 済みで mergeable: CONFLICTING でないこと。**base は develop 二層で決まる** (branch-strategy.md §3/§5、#2870 cutover / #2959): feature/fix/docs PR = `git fetch origin develop && git rebase origin/develop` / hotfix (`fix/*` → main) = `git fetch origin main && git rebase origin/main`。判定 SSOT: `node scripts/lib/resolve-base-branch.mjs`
 
 これらは Step 9 で自動 verify されるが、**実装者は pre-ready を skip しない**。「Step 9 は PR body 表面チェックだから」という誤認で skip した結果、本日 #2625-#2630 で 4 連続 CI fail → QA Tier 2 Review BLOCK 列挙工程化 → QM 本質判定時間圧迫 = QA チーム時間効率 (user 明示 priority) 毀損。
 
@@ -25,7 +25,7 @@ Dev が本 SKILL の `pre-ready` を skip した場合でも、`git push` 実行
 
 | Step | 検証内容 | 起動 trigger | bypass |
 |---|---|---|---|
-| 1 | origin/main rebase drift verify (#2557 / 本日 7+ 連続 BLOCK の root cause) | 全 push | `--no-verify` で skip 可だが discouraged (ADR-0026) |
+| 1 | origin/&lt;base&gt; rebase drift verify (#2557 / base は `scripts/lib/resolve-base-branch.mjs` で解決 #2959) | 全 push | `--no-verify` で skip 可だが discouraged (ADR-0026) |
 | 2 | 本日 deploy 全 file 削除 0 verify (#2603 / #2628 第 4 弾) | PR 存在時のみ | 同上 |
 | 3 | PR body 13 セクション + AC 4 列 + 禁止語 + mojibake verify (#2576 / #2586 / #2633 第 5 弾) | PR 存在時のみ | 同上 |
 | 4 | biome check (軽量 lint) | 全 push | 同上 |
@@ -223,7 +223,10 @@ node scripts/check-pr-template-sections-sync.mjs --fix
 node scripts/check-gh-account-before-pr.mjs
 
 # Draft PR 起票（`--body-file` 必須、#1172 / #2562 / #2576 / [Skill: issue-triage SSOT](../issue-triage/SKILL.md) §「`--body-file` 運用」）
+# ⚠️ --base develop 必須 (#2870 cutover / #2959)。省略すると default branch (main) 向けになり
+#    main-pr-base-guard で fail する。hotfix (fix/* from main) のみ --base main。
 gh pr create --draft \
+  --base develop \
   --title "<type>: #<num> <subject>" \
   --body-file tmp/pr-bodies/<num>-<slug>.md
 

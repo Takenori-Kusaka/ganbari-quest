@@ -40,6 +40,7 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveBaseBranchAuto } from './lib/resolve-base-branch.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -176,12 +177,16 @@ function run(cmd, argv) {
 }
 
 /**
- * `git diff origin/main...HEAD --name-only` で変更ファイル一覧を取得する。
+ * `git diff origin/<base>...HEAD --name-only` で変更ファイル一覧を取得する。
+ * base は scripts/lib/resolve-base-branch.mjs (#2959 SSOT) で解決する
+ * (develop 二層 cutover #2870 後、feature branch は develop 基点のため
+ *  origin/main 固定だと sibling PR の develop commit を誤算入する)。
+ * @param {string} baseBranch 解決済み base branch 名 ('develop' | 'main')
  * @returns {Promise<string[]>}
  */
-async function getChangedFiles() {
+async function getChangedFiles(baseBranch) {
 	return new Promise((resolveP) => {
-		const child = spawn('git', ['diff', 'origin/main...HEAD', '--name-only'], {
+		const child = spawn('git', ['diff', `origin/${baseBranch}...HEAD`, '--name-only'], {
 			cwd: repoRoot,
 			stdio: ['ignore', 'pipe', 'ignore'],
 			shell: true,
@@ -525,11 +530,20 @@ async function main() {
 	console.log('[pre-ready] Ready for Review 前のローカル一括セルフチェック (Issue #1775)');
 	console.log(`[pre-ready] PR 番号: ${args.pr ?? '(未指定 — Step 9, 12 はスキップ)'}`);
 
+	// base branch 解決 (#2959 / develop 二層 cutover #2870)
+	let baseBranch = 'main';
+	try {
+		baseBranch = resolveBaseBranchAuto({ cwd: repoRoot });
+	} catch {
+		// git 情報取得不能時は main fallback (従来挙動と同一)
+	}
+	console.log(`[pre-ready] base branch: origin/${baseBranch} (#2959 SSOT 解決)`);
+
 	// 変更ファイル取得 (LP / UI 変更検知用)
-	const changedFiles = await getChangedFiles();
+	const changedFiles = await getChangedFiles(baseBranch);
 	if (changedFiles.length === 0) {
 		console.log(
-			'[pre-ready] WARN: origin/main からの変更ファイルが取得できませんでした (origin 未 fetch / ブランチ不一致の可能性)',
+			`[pre-ready] WARN: origin/${baseBranch} からの変更ファイルが取得できませんでした (origin 未 fetch / ブランチ不一致の可能性)`,
 		);
 	} else {
 		console.log(`[pre-ready] 変更ファイル数: ${changedFiles.length}`);
