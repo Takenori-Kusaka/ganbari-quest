@@ -93,17 +93,18 @@ export function parseArgs(argv) {
 	const out = { base: '', head: '', actor: '' };
 	for (let i = 0; i < argv.length; i += 1) {
 		const arg = argv[i];
+		if (arg === undefined || !arg.startsWith('--')) continue;
 		const eq = arg.indexOf('=');
-		if (arg.startsWith('--') && eq !== -1) {
+		if (eq !== -1) {
 			// --base=main 形式
 			out[arg.slice(2, eq)] = arg.slice(eq + 1);
-		} else if (arg.startsWith('--')) {
+		} else {
 			// --base main 形式
 			out[arg.slice(2)] = argv[i + 1] ?? '';
 			i += 1;
 		}
 	}
-	return { baseRef: out.base, headRef: out.head, actor: out.actor };
+	return { baseRef: out.base ?? '', headRef: out.head ?? '', actor: out.actor ?? '' };
 }
 
 const isMain = (() => {
