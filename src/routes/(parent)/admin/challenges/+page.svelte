@@ -280,7 +280,7 @@ function tabHref(childId: number | 'all'): string {
 		</nav>
 	{/if}
 
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between" data-tutorial="challenges-create">
 		<h2 class="text-lg font-bold">{CHALLENGES_LABELS.sectionTitle}</h2>
 		<Button
 			variant={creating ? 'ghost' : 'primary'}

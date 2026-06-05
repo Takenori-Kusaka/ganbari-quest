@@ -134,12 +134,13 @@ async function handleReactivate() {
 		</p>
 	</Card>
 
-	<div class="settings-hub__grid" data-testid="settings-hub-grid">
-		{#each groupCards as group (group.href)}
+	<div class="settings-hub__grid" data-testid="settings-hub-grid" data-tutorial="settings-hub">
+		{#each groupCards as group, i (group.href)}
 			<a
 				href={group.href}
 				class="settings-hub__card"
 				data-testid={group.testid}
+				data-tutorial={i === 0 ? 'settings-first-card' : undefined}
 			>
 				<div class="settings-hub__card-icon" aria-hidden="true">{group.icon}</div>
 				<div class="settings-hub__card-body">
