@@ -162,6 +162,11 @@ export default defineConfig({
 		timeout: 30_000,
 		env: {
 			DATABASE_URL: `./data/e2e-worker-${i}.db`,
+			// #2919: tier 別 page-guide E2E (`DEBUG_PLAN=free npx playwright test ...`、
+			// tests/CLAUDE.md §「プラン別 seed fixture」記載の正規手順) のための明示 passthrough。
+			// launchProcess は `{...process.env, ...env}` でマージするため省略しても届くが、
+			// 「この webServer は DEBUG_PLAN を受け付ける」意図を config 上で可視化する。
+			...(process.env.DEBUG_PLAN ? { DEBUG_PLAN: process.env.DEBUG_PLAN } : {}),
 		},
 		// #2648 Round 12 (debug 一時、安定化後 revert 検討): preview server の stdout/stderr を
 		// CI 出力に出すため pipe を有効化。これにより client.ts lazy init の
