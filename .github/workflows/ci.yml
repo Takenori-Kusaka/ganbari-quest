@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # #2931 / branch-strategy.md §4: develop 二層化。develop 向け PR = 軽量レーン
+    # (重量 job は `github.base_ref != 'develop'` 条件で skip)、main 向け PR = 重量レーン。
+    branches: [main, develop]
     # #1218: `ready_for_review` をトリガーに含めない。
     # 本 CI は Draft PR でも opened/synchronize で実行されるため、Draft→Ready 化で
     # 同一 SHA を再実行しても結果が変わらず、runtime（特に e2e-test）が無駄になる。
@@ -383,7 +385,8 @@ jobs:
   # src/lib/server/** や src/routes/**/*.server.ts のみ変更の場合は skip される。
   storybook-test:
     needs: changes
-    if: needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'
+    # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip (main 向け PR / push で実行)。
+    if: github.base_ref != 'develop' && (needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -423,8 +426,9 @@ jobs:
     # #923 Phase 1: lint-and-test 依存を外して並列化 (-2m 44s)。
     # lint 失敗時も e2e は走るが、ci-gate が両方の結果を集約するので問題なし。
     # #1006 Phase 2: --shard matrix で 3 並列化 (7m 37s → ~3m 目標)
+    # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
     needs: [changes]
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    if: github.base_ref != 'develop' && (needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true')
     permissions:
       contents: read
     strategy:
@@ -492,7 +496,8 @@ jobs:
   a11y:
     runs-on: ubuntu-latest
     needs: [changes]
-    if: needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'
+    # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
+    if: github.base_ref != 'develop' && (needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true')
     permissions:
       contents: read
     steps:
@@ -579,7 +584,8 @@ jobs:
   e2e-cognito-dev:
     runs-on: ubuntu-latest
     needs: [changes]
-    if: needs.changes.outputs.cognito == 'true' || needs.changes.outputs.deps == 'true'
+    # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
+    if: github.base_ref != 'develop' && (needs.changes.outputs.cognito == 'true' || needs.changes.outputs.deps == 'true')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -637,8 +643,9 @@ jobs:
     runs-on: ubuntu-latest
     # #923 Phase 1: lint-and-test 依存を外して並列化 (e2e-test と同じ理由)
     # #1551: docker フィルターで絞り込み。tests/ / docs/ のみ変更時はスキップ。
+    # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
     needs: [changes]
-    if: needs.changes.outputs.docker == 'true' || needs.changes.outputs.deps == 'true'
+    if: github.base_ref != 'develop' && (needs.changes.outputs.docker == 'true' || needs.changes.outputs.deps == 'true')
     permissions:
       contents: read
     steps:
@@ -657,10 +664,12 @@ jobs:
   e2e-demo-lambda:
     runs-on: ubuntu-latest
     needs: [changes]
+    # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip (area:demo label があっても)。
     if: >-
       github.event_name == 'workflow_dispatch'
       || github.event_name == 'push'
       || (github.event_name == 'pull_request'
+          && github.base_ref != 'develop'
           && contains(github.event.pull_request.labels.*.name, 'area:demo'))
     permissions:
       contents: read
@@ -836,6 +845,49 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: node scripts/check-schema-migration-completeness.mjs
 
+  # #2931 / branch-strategy.md §7-1: main 向け PR の base/head 検査 gate。
+  # 「main へ PR を出せるのは develop（統合 PR）と fix/*（hotfix、§5）のみ」を機械強制する。
+  # Branch Ruleset は head branch の base 制限を直接持たないため workflow gate で補完する。
+  #
+  # 有効化は repository variable `BRANCH_STRATEGY_CUTOVER_AT`（ISO 8601 日時、ユーザー手動設定 = §8 step 5）:
+  #   - 未設定: gate inactive（既存 open PR を block しない、§8 step 6 の無停止 cutover）
+  #   - 設定後: 設定日時より後に作成された main 向け PR のみ enforce
+  #     （設定日時より前に作成された open PR は grandfather 免除 = §8 step 6「retarget しない」）
+  # bot（dependabot / renovate）は exempt（dependabot.yml の target-branch 切替は cutover 完了時に別途）。
+  main-pr-base-guard:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    permissions:
+      contents: read
+    steps:
+      - name: Check head branch is develop or fix/* (branch-strategy.md §3 / §7-1)
+        env:
+          CUTOVER_AT: ${{ vars.BRANCH_STRATEGY_CUTOVER_AT }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_CREATED_AT: ${{ github.event.pull_request.created_at }}
+          PR_ACTOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ -z "$CUTOVER_AT" ]; then
+            echo "BRANCH_STRATEGY_CUTOVER_AT 未設定 → gate inactive（cutover 前、§8 step 6）"
+            exit 0
+          fi
+          case "$PR_ACTOR" in
+            dependabot\[bot\]|renovate\[bot\])
+              echo "bot PR ($PR_ACTOR) → exempt"
+              exit 0 ;;
+          esac
+          # ISO 8601 UTC (YYYY-MM-DDTHH:MM:SSZ) 同士の辞書順比較
+          if [[ "$PR_CREATED_AT" < "$CUTOVER_AT" ]]; then
+            echo "PR 作成 ($PR_CREATED_AT) < cutover ($CUTOVER_AT) → grandfather 免除（§8 step 6）"
+            exit 0
+          fi
+          if [ "$HEAD_REF" = "develop" ] || [[ "$HEAD_REF" == fix/* ]]; then
+            echo "head=$HEAD_REF → OK（develop 統合 PR または hotfix）"
+            exit 0
+          fi
+          echo "::error::main 向け PR の head は develop（統合 PR）または fix/*（hotfix、ADR-0002 重量 gate 必須）のみ許可されています。head=$HEAD_REF は develop 向けに PR を出し直してください（docs/sessions/branch-strategy.md §3 / §5）。"
+          exit 1
+
   # Gate job: always runs and reports overall CI status.
   # Required by branch ruleset instead of individual jobs,
   # so skipped jobs (via path filter) don't block merges.
@@ -861,6 +913,7 @@ jobs:
         new-env-distribution-check,
         schema-change-tests-check,
         schema-migration-completeness-check,
+        main-pr-base-guard,
       ]
     runs-on: ubuntu-latest
     steps:
