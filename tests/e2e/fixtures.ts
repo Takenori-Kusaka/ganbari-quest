@@ -52,7 +52,10 @@ type WorkerFixtures = {
 	workerBaseURL: string;
 };
 
-export const test = base.extend<{ baseURL: string }, WorkerFixtures>({
+export const test = base.extend<
+	{ baseURL: string; extraHTTPHeaders: Record<string, string> | undefined },
+	WorkerFixtures
+>({
 	workerDbPath: [
 		// biome-ignore lint/correctness/noEmptyPattern: Playwright fixture system requires `{}` for dependency-free worker fixtures (https://playwright.dev/docs/test-fixtures)
 		async ({}, use, workerInfo) => {
@@ -81,6 +84,15 @@ export const test = base.extend<{ baseURL: string }, WorkerFixtures>({
 	 */
 	baseURL: async ({ workerBaseURL }, use) => {
 		await use(workerBaseURL);
+	},
+	/**
+	 * `extraHTTPHeaders.Origin` も worker URL に同期する (#2846)。
+	 * playwright.config.ts の static `Origin: http://localhost:${BASE_PORT}` のままだと、
+	 * worker[1+] (port 5191+) への非 GET API 呼び出し (multipart / form) が SvelteKit の
+	 * CSRF origin check で 403 になる (baseURL だけ override すると Origin が server と乖離する)。
+	 */
+	extraHTTPHeaders: async ({ workerBaseURL }, use) => {
+		await use({ Origin: workerBaseURL });
 	},
 });
 

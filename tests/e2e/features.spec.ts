@@ -102,8 +102,8 @@ test.describe('#0025: 特別報酬 API', () => {
 			const res = await ctx.put('/api/v1/special-rewards/templates', {
 				data: {
 					templates: [
-						{ title: 'ゲーム30分', points: 50, icon: '🎮', category: 'entertainment' },
-						{ title: 'おかしを1つ', points: 30, icon: '🍭', category: 'food' },
+						{ title: 'ゲーム30分', points: 50, icon: '🎮', category: 'other' },
+						{ title: 'おかしを1つ', points: 30, icon: '🍭', category: 'life' },
 					],
 				},
 			});
