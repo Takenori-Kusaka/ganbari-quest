@@ -103,6 +103,12 @@ docs/pr-screenshots/
 
 # PR# プレフィックスの screenshots は screenshots ブランチに push（main 追跡禁止）
 pr-*/
+# 例外: composite action `actions/pr-lane/` は `pr-*/` に偶発マッチするが追跡必須 (#2943)。
+# GitHub の制約上 local composite action は repo root の `actions/` に置く必要があり
+# (`.github/actions/` だと reusable workflow と誤認される)、その配下 `pr-lane/` が
+# screenshots 用 `pr-*/` rule に巻き込まれるため明示的に un-ignore する。
+!actions/
+!actions/**
 
 # 一時 screenshots / 旧 PR アセット / 孤児 sound は履歴から filter-repo で抹消済み（main 追跡禁止）
 tmp-screenshots/
