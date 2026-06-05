@@ -102,6 +102,67 @@ function renderBubble(
 	}
 }
 
+/**
+ * render 層の viewport clamp — 構成的保証 (#2971)。
+ *
+ * driver.js は popover を配置する際に wrapper の measured size を使い position を決定するが、
+ * CI 環境 (Linux / Pixel 7 emulation) では日本語テキストが local より高く / 広くレンダーされるため
+ * 配置後の popover 辺が viewport を超えることがある。本関数は onPopoverRender hook (= driver.js が
+ * 配置を完了した後に毎回発火) で wrapper の getBoundingClientRect() を計測し、viewport 境界を
+ * padding 8px (stagePadding 相当) で内側に保って超過分を transform: translate で補正する。
+ *
+ * なぜ transform か:
+ *   - driver.js の position: absolute + top/left に重ねるだけで layout flow に影響しない
+ *   - driver.js が次のステップ遷移で reset するため永続的な副作用がない
+ *   - onPopoverRender は selector 省略 step の rAF refresh 後にも再発火するため、
+ *     refresh → clamp の順序が自然に保たれる
+ *
+ * 両立不能 (target 要素が viewport の大半を占める等、幾何的に回避不能) な場合は補正しない。
+ * そのような step は invariant spec の幾何 exempt 条件 (assertBubbleNotOverlapTarget) が正しく吸収する。
+ */
+function clampPopoverToViewport(wrapper: HTMLElement): void {
+	const rect = wrapper.getBoundingClientRect();
+	if (rect.width === 0 && rect.height === 0) return; // まだ mount されていない
+
+	const vw = window.innerWidth;
+	const vh = window.innerHeight;
+	const pad = 8; // stagePadding と同値
+
+	// 現在の transform を除去して素の位置を取得するため、一時的に transform をリセットする。
+	// driver.js は style.transform を直接操作しないため、既存 transform は本 clamp が設定したもの。
+	const prevTransform = wrapper.style.transform;
+	wrapper.style.transform = '';
+	const baseRect = wrapper.getBoundingClientRect();
+	wrapper.style.transform = prevTransform;
+
+	let dx = 0;
+	let dy = 0;
+
+	// 右端が viewport を超えていれば左に移動
+	if (baseRect.right > vw - pad) {
+		dx = vw - pad - baseRect.right;
+	}
+	// 左端が viewport より左なら右に移動 (右端補正後に再チェック)
+	if (baseRect.left + dx < pad) {
+		dx = pad - baseRect.left;
+	}
+
+	// 下端が viewport を超えていれば上に移動
+	if (baseRect.bottom > vh - pad) {
+		dy = vh - pad - baseRect.bottom;
+	}
+	// 上端が viewport より上なら下に移動 (下端補正後に再チェック)
+	if (baseRect.top + dy < pad) {
+		dy = pad - baseRect.top;
+	}
+
+	if (dx !== 0 || dy !== 0) {
+		wrapper.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
+	} else {
+		wrapper.style.transform = '';
+	}
+}
+
 function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 	return pageGuide.steps.map((step) => ({
 		// selector 省略 step (ページ概要等) は element 無し → driver.js が画面中央 modal で表示 (Sub-2 ①概要 前提)
@@ -112,7 +173,12 @@ function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 			// title / description は空にし、custom render の Svelte UI に全面委譲する (AC2)
 			showButtons: [],
 			onPopoverRender: (popover, { driver: d }) => {
+				// 1. Svelte bubble を driver.js wrapper に mount する
 				renderBubble(popover.wrapper, pageGuide, step, d);
+				// 2. mount 後に viewport clamp を適用する (#2971 render 層の構成的保証)。
+				//    onPopoverRender は driver.js の配置完了後 + selector 省略 step の rAF refresh 後にも
+				//    再発火するため、clamp は常に最終配置位置に対して効く。
+				clampPopoverToViewport(popover.wrapper);
 			},
 		},
 	}));
