@@ -131,14 +131,28 @@ export async function findAllRecordedActivityIds(childId: number, _tenantId: str
 		.map((l) => l.activityId);
 }
 
-/** ミッションを挿入 */
+/** ミッションを挿入
+ *
+ * #2565: `getTodayMissions` は TOCTOU (check `findTodayMissions().length === 0` →
+ * generate → insert) のため、同一 child home に並行リクエストが到達すると両方が
+ * `generateMissions` を実行し、同じ `(child_id, mission_date, activity_id)` で重複
+ * INSERT → `idx_daily_missions_unique` violation で 500 を返す (E2E workers=2 で
+ * 同一 worker DB を共有する child-tutorial spec が複数 child home に並行アクセスして
+ * flake 化した root cause)。`onConflictDoNothing` で重複 INSERT を静かに skip し、
+ * 並行 generate でも constraint violation を起こさず同一 mission set に収束させる。
+ * ADR-0006 整合 (テスト側 retry でなく実装側 race の真因解消)。 */
 export async function insertDailyMission(
 	childId: number,
 	date: string,
 	activityId: number,
 	_tenantId: string,
 ) {
-	db.insert(dailyMissions).values({ childId, missionDate: date, activityId }).run();
+	db.insert(dailyMissions)
+		.values({ childId, missionDate: date, activityId })
+		.onConflictDoNothing({
+			target: [dailyMissions.childId, dailyMissions.missionDate, dailyMissions.activityId],
+		})
+		.run();
 }
 
 /** テナントの全デイリーミッションを削除（SQLite: シングルテナントのため全行削除） */
