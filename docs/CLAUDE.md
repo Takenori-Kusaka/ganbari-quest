@@ -72,9 +72,9 @@ pixelmatch baseline (ADR-0053) は LP のみでなく、アプリ本体 critical
 |---|---|---|---|---|
 | LP | `scripts/lp-screenshot-baseline/` | `capture-hp-screenshots.mjs` / `lp-visual-regression.yml` (#2401) | LP 全 SS (mobile + desktop) | hard-fail (diff > 10%) |
 | child home | `scripts/child-home-baseline/` | `capture-hp-screenshots.mjs` / `child-home-visual-regression.yml` (#2520) | child home 4 mode (preschool/elementary/junior/senior) + battle | warn (continue-on-error) |
-| app | `scripts/app-screenshot-baseline/` | `capture-app-baseline.mjs` / `app-visual-regression.yml` (CX-DoR #8) | baby home (5 番目 age mode) + admin/activities + admin/checklists (marketplace 取込 CUJ 受領先) | warn (continue-on-error) |
+| app | `scripts/app-screenshot-baseline/` | `capture-app-baseline.mjs` / `app-visual-regression.yml` (CX-DoR #8) | baby home (5 番目 age mode) + admin/activities + admin/checklists (marketplace 取込 CUJ 受領先) + **ページガイド open 状態 (admin/activities・checklists・status × desktop+mobile、#2928)** | warn (continue-on-error) |
 
-3 層合算で **5 age mode home (baby/preschool/elementary/junior/senior) + admin critical 画面** の見た目回帰を機械検出する (`tests/CLAUDE.md` 条件 8)。意図的変更時は各 baseline を `--update-baseline` で更新し git commit する (LP と同パターン)。app 層の撮影は決定的環境 (`AUTH_MODE=anonymous` + `DATA_SOURCE=demo`、ADR-0048) で本番ルートを demo fixture data で描画する。
+3 層合算で **5 age mode home (baby/preschool/elementary/junior/senior) + admin critical 画面 + ページガイド open 状態** の見た目回帰を機械検出する (`tests/CLAUDE.md` 条件 8)。意図的変更時は各 baseline を `--update-baseline` で更新し git commit する (LP と同パターン)。app 層の撮影は決定的環境 (`AUTH_MODE=anonymous` + `DATA_SOURCE=demo`、ADR-0048) で本番ルートを demo fixture data で描画する。ガイド open baseline (#2928) は pixel での「重複 / 見切れ / spotlight 不全」回帰検出を担い、geometry の全 step 網羅は `tests/e2e/page-guide-layout-invariant.spec.ts` (#2926、重量レーン e2e 必須 job) が担う (両輪)。更新手順は [runbooks/lp-visual-regression-baseline.md §5](runbooks/lp-visual-regression-baseline.md)。
 
 ## ADR 管理
 

@@ -487,6 +487,11 @@ export class ScreenshotCapture {
 	 *   demo モード (AUTH_MODE=anonymous + DATA_SOURCE=demo) で撮影する際、`selectedChildId` cookie を
 	 *   pre-set して `/(child)/+layout.server.ts` の `/switch` redirect をバイパスする目的。
 	 *   各 cookie の `path` 既定値は `/`、`httpOnly` は `false`、`sameSite` は `'Lax'`。
+	 * @param {(page: import('playwright').Page) => Promise<void>} [opts.interact] -
+	 *   ページ読込 + `waitForStablePage` 完了後・撮影直前に実行する任意の操作 hook (#2928)。
+	 *   ❓ ガイドを開く等の user-gesture を必要とする "操作後の状態" を baseline 撮影するために使う。
+	 *   この hook 内で `page.click()` / `page.addStyleTag()` / box 安定待ち等を行い、撮影したい
+	 *   settled 状態を作る。例外は capture() の戻り値 `{ ok: false, error }` に集約される。
 	 * @returns {Promise<{ ok: true; filePath: string; size: number; domPath?: string; domSize?: number } | { ok: false; error: Error }>}
 	 */
 	async capture({
@@ -502,6 +507,7 @@ export class ScreenshotCapture {
 		domSnapshot,
 		waitSplide = false,
 		cookies,
+		interact,
 	}) {
 		if (!this.#browser) throw new Error('setup() を先に呼び出してください。');
 
@@ -541,6 +547,11 @@ export class ScreenshotCapture {
 				);
 			});
 			await waitForStablePage(page, { selector, skipNetworkIdle: true, waitSplide });
+
+			// #2928: 撮影直前の任意操作 hook (❓ ガイドを開く等)。settled 状態の調整は hook 内で行う。
+			if (interact) {
+				await interact(page);
+			}
 
 			const screenshotType = format === 'jpeg' ? 'jpeg' : 'png';
 			const ext = format === 'webp' ? 'png' : screenshotType;

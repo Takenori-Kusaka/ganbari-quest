@@ -10,10 +10,11 @@ name: App Visual Regression (pixelmatch baseline)
 #   3 層 visual regression 体制を完成させる:
 #     - LP (lp-screenshot-baseline/、#2401)
 #     - child home 4 mode + battle (child-home-baseline/、#2520)
-#     - app: baby home + admin 代表 2 画面 (app-screenshot-baseline/、本 workflow)
+#     - app: baby home + admin 代表 2 画面 + ページガイド open 状態 (app-screenshot-baseline/、本 workflow)
 #
 #   撮影元: `scripts/capture-app-baseline.mjs --webp` (本番ルート /baby/home /admin/activities
-#   /admin/checklists を demo fixture data で撮影、AUTH_MODE=anonymous + DATA_SOURCE=demo、ADR-0048)
+#   /admin/checklists を demo fixture data で撮影、AUTH_MODE=anonymous + DATA_SOURCE=demo、ADR-0048)。
+#   #2928 (EPIC #2925 Sub-3): ガイド open 状態 (❓ → driver.js popover settled) を desktop + mobile で追加撮影。
 #   比較: `scripts/check-lp-visual-regression.mjs` の汎用 pixelmatch ロジックを
 #   `--baseline-dir scripts/app-screenshot-baseline --current-dir tmp/app-baseline-current` で再利用
 #
@@ -36,8 +37,11 @@ on:
       - "src/routes/(child)/**"
       - "src/routes/(parent)/admin/activities/**"
       - "src/routes/(parent)/admin/checklists/**"
+      - "src/routes/(parent)/admin/status/**"
       - "src/lib/features/admin/**"
+      - "src/lib/ui/tutorial/**"
       - "scripts/capture-app-baseline.mjs"
+      - "scripts/lib/page-guide-capture.mjs"
       - "scripts/check-lp-visual-regression.mjs"
       - "scripts/app-screenshot-baseline/**"
       - ".github/workflows/app-visual-regression.yml"
@@ -48,8 +52,11 @@ on:
       - "src/routes/(child)/**"
       - "src/routes/(parent)/admin/activities/**"
       - "src/routes/(parent)/admin/checklists/**"
+      - "src/routes/(parent)/admin/status/**"
       - "src/lib/features/admin/**"
+      - "src/lib/ui/tutorial/**"
       - "scripts/capture-app-baseline.mjs"
+      - "scripts/lib/page-guide-capture.mjs"
       - "scripts/check-lp-visual-regression.mjs"
       - "scripts/app-screenshot-baseline/**"
       - ".github/workflows/app-visual-regression.yml"
