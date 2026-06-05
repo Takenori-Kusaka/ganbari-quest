@@ -2,7 +2,8 @@
 // Done チケット機能検証テスト
 // smoke.spec.ts で未カバーの Done チケットを E2E 検証する
 
-import { expect, test } from '@playwright/test';
+import { request as pwRequest } from '@playwright/test';
+import { expect, test } from './fixtures';
 import {
 	dismissOverlays,
 	expandAllCategories,
@@ -81,6 +82,39 @@ test.describe('#0037: もちものチェックリスト', () => {
 // #0025: 特別報酬システム (API テスト)
 // ============================================================
 test.describe('#0025: 特別報酬 API', () => {
+	// #2846: 「テンプレート一覧 API が templates.length > 0 を返す」前提を本 describe が
+	// 自前で保証する (shard isolation flake の根治)。
+	//
+	// `/api/v1/special-rewards/templates` は `getRewardTemplates` 経由で settings テーブルの
+	// `reward_templates` キーを読む。同一 worker DB を共有する sibling spec
+	// (setup-resume-path.spec.ts) が `DELETE FROM settings WHERE key = 'reward_templates'`
+	// すると空配列になり fail する。#2851 の snapshot/restore (破壊側で復元) は
+	// 「snapshot 時点で seed が存在する」前提に依存し、null snapshot で再発した。
+	//
+	// 根治: 本 describe の beforeAll で `PUT /api/v1/special-rewards/templates` により
+	// 冪等 seed し、他 spec の副作用・実行順に一切依存しないようにする (Issue AC1)。
+	// 書き込みは test が読むのと同一の server プロセス経由で行う — 直接 SQLite write は
+	// CI で server から観測されない事象があった (run 26997307743) ため API 経路を採る。
+	test.beforeAll(async ({ workerBaseURL }) => {
+		if (isAwsEnv()) return; // AWS / cognito 環境は local テナント seed が成立しないため skip。
+		const ctx = await pwRequest.newContext({ baseURL: workerBaseURL });
+		try {
+			const res = await ctx.put('/api/v1/special-rewards/templates', {
+				data: {
+					templates: [
+						{ title: 'ゲーム30分', points: 50, icon: '🎮', category: 'other' },
+						{ title: 'おかしを1つ', points: 30, icon: '🍭', category: 'life' },
+					],
+				},
+			});
+			if (!res.ok()) {
+				throw new Error(`#2846 seed failed: PUT templates -> ${res.status()} ${await res.text()}`);
+			}
+		} finally {
+			await ctx.dispose();
+		}
+	});
+
 	test('テンプレート一覧 API が 200 を返す', async ({ request }) => {
 		test.skip(isAwsEnv(), 'AWS 環境では特別報酬テンプレートのシードデータがない');
 		const res = await request.get('/api/v1/special-rewards/templates');
