@@ -142,14 +142,24 @@ async function waitForBubbleAnimations(bubble: ReturnType<Page['locator']>) {
 }
 
 /**
- * helpBtn click → tutorial active flag set を 3 retry で確実に発火させる (#2558 fix)。
+ * helpBtn click → tutorial active flag set を 3 retry で確実に発火させる (#2558 fix / #2565)。
  * 単発 click は rapid onMount/effect の hydration 過渡で ~30% flake するため、
- * `data-tutorial-active` が set されるまで再 click する。
+ * `data-tutorial-active` が set されるまで再発火する。
+ *
+ * #2565: `click({ force: true })` は actionability check (visibility / stable / receives
+ * events) をスキップするが、browser hit-testing で別 element (子供 home の auto-open
+ * dialog / cheer / parent-message overlay 等) が `?` button の上に被さると click event が
+ * onclick handler に到達せず、tablet project で `html[data-tutorial-active]` 不在の
+ * timeout flake になる (child-tutorial-dialog-screenshots.spec.ts は #2558 で既に
+ * `dispatchEvent('click')` に移行済だが、本 spec は `force: true` click のまま取り残されて
+ * いたのが root cause)。`dispatchEvent('click')` は hit-testing を完全にバイパスし要素自身の
+ * event listener を直接発火させるため、auto-open overlay との干渉を確実に回避する。
  */
 async function startTutorialWithRetry(page: Page) {
 	const helpBtn = page.locator('[data-testid="header-help-btn"]');
+	await expect(helpBtn).toBeVisible({ timeout: 10_000 });
 	for (let attempt = 0; attempt < 3; attempt++) {
-		await helpBtn.click({ force: true });
+		await helpBtn.dispatchEvent('click');
 		try {
 			await page.waitForFunction(
 				() => document.documentElement.hasAttribute('data-tutorial-active'),
@@ -158,7 +168,7 @@ async function startTutorialWithRetry(page: Page) {
 			);
 			return;
 		} catch {
-			// fallthrough → re-click
+			// fallthrough → re-dispatch
 		}
 	}
 }
@@ -172,7 +182,8 @@ test.describe('#2393 子供画面 CHILD_TUTORIAL_CHAPTERS 全ステップ検証'
 			await page.setViewportSize({ width: 1280, height: 800 });
 			await gotoChildHome(page, uiMode);
 
-			// チュートリアル起動 (force: true で auto-open dialog 被さりを無視、3 retry で flake 解消)
+			// チュートリアル起動 (dispatchEvent('click') で auto-open dialog の hit-testing 被さりを
+			// バイパス、3 retry で flake 解消 — #2565)
 			await startTutorialWithRetry(page);
 			// tutorial active flag を待つ (cheer overlay の backdrop と衝突しない)
 			await page.waitForSelector('html[data-tutorial-active]', { timeout: 10_000 });

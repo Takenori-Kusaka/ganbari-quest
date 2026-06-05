@@ -425,6 +425,7 @@ async function handleCopyFromChild() {
 		<div
 			class="child-tab-row"
 			data-testid="admin-rewards-child-tabs"
+			data-tutorial="rewards-child-tabs"
 			role="tablist"
 			aria-label={ADMIN_REWARDS_PAGE_LABELS.childTabsAriaLabel}
 		>
@@ -525,7 +526,10 @@ async function handleCopyFromChild() {
 
 	<!-- ごほうび一覧 (旧: テンプレートを選択 → プリセットを選択) -->
 	<section>
-		<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{REWARDS_LABELS.selectTemplateTitle}</h3>
+		<h3
+			class="text-sm font-bold text-[var(--color-text-muted)] mb-2"
+			data-tutorial="rewards-add-start"
+		>{REWARDS_LABELS.selectTemplateTitle}</h3>
 		<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
 			{#each filteredTemplates as tmpl}
 				<Button

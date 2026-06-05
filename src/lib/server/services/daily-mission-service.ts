@@ -160,6 +160,14 @@ async function generateMissions(childId: number, date: string, tenantId: string)
 	const child = await findChildForMission(childId, tenantId);
 	if (!child) return;
 
+	// #2565: getTodayMissions の check-then-generate は TOCTOU を持つため、同一 child home
+	// への並行リクエストが両方ここに到達すると二重生成し mission が 3 件を超えて並ぶ
+	// (重複 activity の UNIQUE violation 自体は insertDailyMission の onConflictDoNothing で
+	// 回避されるが、ランダム選択で別 activity を選ぶと件数オーバーが残る)。generate 直前に
+	// 既存 mission を再確認し、既に生成済みなら何もしない (二重生成ガード)。
+	const existing = await findTodayMissions(childId, date, tenantId);
+	if (existing.length > 0) return;
+
 	// 対象児の表示可能な活動を取得
 	// #2362 PR-3 Phase 7b-2c: ChildActivity (per-child instance) は ageMin/ageMax を持たない。
 	// findVisibleActivities は全 child の活動を返すため、childId で filter する。

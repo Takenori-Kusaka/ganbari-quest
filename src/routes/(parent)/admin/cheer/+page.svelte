@@ -106,7 +106,7 @@ $effect(() => {
 		>
 			<!-- Step 1: select child -->
 			<section data-tutorial="cheer-child-select">
-				<h3 class="step-title">{CHEER_LABELS.selectChildTitle}</h3>
+				<h3 class="step-title" data-tutorial="cheer-select-heading">{CHEER_LABELS.selectChildTitle}</h3>
 				<div class="flex gap-2 flex-wrap">
 					{#each data.children as child}
 						<Button
@@ -125,7 +125,7 @@ $effect(() => {
 
 			<!-- Step 2: reason -->
 			<section data-tutorial="cheer-reason">
-				<h3 class="step-title">{CHEER_LABELS.reasonTitle}</h3>
+				<h3 class="step-title" data-tutorial="cheer-reason-heading">{CHEER_LABELS.reasonTitle}</h3>
 				<Card>
 					<!-- 日本ローカライズ reason テンプレ (#2300、EPIC #2294 ⑥) — 1 タップで reason / P / category / icon を prefill -->
 					<div class="preset-templates">

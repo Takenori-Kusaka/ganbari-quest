@@ -1,53 +1,48 @@
-import { OYAKAGI_LABELS } from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
+// #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
+// #2319 で設定はハブ + 6 サブグループ (アカウント / 活動・ポイント / 通知 / データ / サポート /
+// プラン) に分割済み。旧ガイドはサブページ内の selector (pin-settings 等) を参照していたが、
+// ハブページ (/admin/settings) には存在しないため、本ページではハブのカード構成を案内する。
+// step 1 は selector 省略で画面中央 modal 表示。② はハブ冒頭の説明カード (小要素)、③ は先頭の
+// 設定カード (アカウント、小要素) を target にする。グリッド全体 (settings-hub = mobile で 6 枚
+// 縦積み = 縦長) は driver.js が非重複でバブルを置けないため target にしない (#2927: mobile ②
+// で縦長グリッドにバブルが重なる exempt を解消)。
 export const SETTINGS_GUIDE: PageGuide = {
 	pageId: 'admin-settings',
 	title: '設定',
 	icon: '⚙️',
 	steps: [
+		// ① ページ概要
 		{
-			id: 'settings-pin',
-			selector: '[data-tutorial="pin-settings"]',
-			title: OYAKAGI_LABELS.sectionTitle,
-			what: `${ADMIN_VIEW_TERMS.canonical}へのアクセスを保護する${OYAKAGI_LABELS.name}（4桁の数字）を変更できます。お子さまが誤って${ADMIN_VIEW_TERMS.canonical}に入るのを防ぎます。${OYAKAGI_LABELS.defaultValueHint}。`,
-			how: `1. 現在の${OYAKAGI_LABELS.name}を入力\n2. 新しい${OYAKAGI_LABELS.name}（4桁）を入力\n3. 確認のためもう一度入力\n4. 「変更する」をタップ`,
-			goal: `${OYAKAGI_LABELS.name}が更新され、次回のログインから新しいコードが必要になります。`,
-			tips: [
-				`${OYAKAGI_LABELS.name}を忘れた場合は、ブラウザのCookieをクリアすると再設定できます（ローカル版の場合）`,
-			],
+			id: 'settings-intro',
+			title: 'このページについて',
+			what: `${ADMIN_VIEW_TERMS.canonical}の各種設定をまとめたページです。アクセスを守るおやカギ、ポイントの表示単位、データのバックアップなどをここから設定します。`,
+			how: '設定はグループ別のカードに整理されています。設定したい項目のカードを選んで、その中の設定画面に進みます。',
+			goal: '必要な設定にすぐたどり着けるので、おやカギの変更やバックアップなどの「念のための備え」を迷わず行えます。',
+		},
+		// ② 画面の見方（ハブ冒頭の説明カードを起点にグループ構成を案内）
+		{
+			id: 'settings-hub',
+			selector: '[data-tutorial="settings-hub-intro"]',
+			title: '画面の見方（設定グループ）',
+			what: '設定は「アカウント」「活動・ポイント」「通知」「データ」「サポート・アプリ情報」「プラン・課金」のグループに分かれ、この下にカードで並びます。',
+			how: '1. 目的のグループのカードをタップします\n2. そのグループの設定画面に移動します',
+			goal: '設定項目が多くても、目的のカードを選ぶだけで迷わずたどり着けます。',
 			position: 'bottom',
 		},
+		// ③ 最頻操作（先頭のアカウントカードを起点におやカギ変更を案内）
 		{
-			id: 'settings-points',
-			title: 'ポイント表示設定',
-			what: 'ポイントの表示単位を「ポイント」「円」「ドル」などに変更できます。交換レートも設定できるので、実際のおこづかい額と連動させられます。',
-			how: '1. 「ポイント設定」セクションを見つけます\n2. 表示モード（ポイント/通貨）を選択\n3. 通貨モードの場合: 通貨とレートを設定（例: 1ポイント = 1円）\n4. プレビューで表示を確認\n5. 「保存」をタップ',
-			goal: 'すべての画面でポイントが指定した通貨で表示されます。「100円ぶん貯まったよ！」とお子さまに伝えられるので、お金の感覚も育ちます。',
+			id: 'settings-account',
+			selector: '[data-tutorial="settings-first-card"]',
+			title: 'よく使う操作（アカウント・おやカギ）',
+			what: '最初に確認したいのが「アカウント」カードです。ここからおやカギ（4桁の数字）の変更ができ、お子さまが誤って見守り画面に入るのを防げます。',
+			how: '1. 「アカウント」カードをタップ\n2. おやカギの変更画面で、現在のコードと新しいコードを入力\n3. 「変更する」をタップ',
+			goal: 'おやカギが更新され、次回から新しいコードが必要になります。データのバックアップは「データ」カードから行えます。',
+			tips: ['おやカギの初期値や、ポイント表示・通貨設定は各カードの中で変更できます'],
 			position: 'bottom',
-		},
-		{
-			id: 'settings-export',
-			title: 'データのバックアップ',
-			what: 'すべてのデータ（お子さま・活動・記録・ポイント）をファイルに書き出せます。機種変更時のデータ移行や、万が一の備えに使えます。',
-			how: '1. 「データの入出力」セクションを見つけます\n2. 「エクスポート」をタップ\n3. ファイル形式を選択（JSON）\n4. ダウンロードされたファイルを安全な場所に保管\n5. 復元時は「インポート」からファイルを選択',
-			goal: 'お子さまの頑張りの記録が安全にバックアップされます。新しいデバイスでもデータを復元できるので、記録が失われる心配がありません。',
-			tips: [
-				'月に1回のバックアップをおすすめします',
-				'クラウドエクスポート機能（共有コードで別端末と共有）も利用できます',
-			],
-			position: 'bottom',
-		},
-		{
-			id: 'settings-feedback',
-			selector: '[data-tutorial="feedback-section"]',
-			title: 'フィードバック・サポート',
-			what: '使い方で困ったことや改善要望を開発チームに直接伝えられます。バグ報告もここから行えます。',
-			how: '1. 「フィードバック」セクションを見つけます\n2. お問い合わせの種類を選択\n3. 内容を入力して送信',
-			goal: '開発チームにフィードバックが届き、今後のアップデートに反映されます。「この機能がほしい」「ここが使いにくい」など、お気軽にお伝えください。',
-			position: 'top',
 		},
 	],
 };

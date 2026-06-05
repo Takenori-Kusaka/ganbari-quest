@@ -87,6 +87,19 @@ function renderBubble(
 			},
 		},
 	});
+
+	// selector 省略 step (= 画面中央 modal) のみ mount 後に driver.refresh() で再 positioning する。
+	// driver.js は popover を ae() で「mount 前の空 wrapper 実測幅」を使い center 配置するため、
+	// Svelte bubble mount 後に wrapper が最終幅 (max 360px) へ成長すると計測幅とずれ、特に CI mobile
+	// (production) では left = innerWidth/2 - realWidth/2 が過小評価され右端が viewport を超える
+	// (#2927: [mobile] checklists step#1 right=400.5 > 391)。element 紐付き step は driver.js の
+	// collision 回避が target 基準で正しく働くため refresh は不要 (refresh すると逆に再 mount 経由で
+	// 一時的な overlap を誘発しうる)。中央 modal に限定して最終幅で再 center させる。
+	if (!step.selector && typeof requestAnimationFrame === 'function') {
+		requestAnimationFrame(() => {
+			if (driverInstance === d && d.isActive()) d.refresh();
+		});
+	}
 }
 
 function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {

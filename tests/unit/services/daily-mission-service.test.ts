@@ -1,6 +1,7 @@
 // tests/unit/services/daily-mission-service.test.ts
 // デイリーミッションのユニットテスト
 
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 import {
@@ -28,6 +29,7 @@ vi.mock('$lib/domain/date-utils', () => ({
 	todayDateJST: () => '2026-03-08',
 }));
 
+import { insertDailyMission } from '../../../src/lib/server/db/sqlite/daily-mission-repo';
 import {
 	checkMissionCompletion,
 	getTodayMissions,
@@ -297,5 +299,64 @@ describe('checkMissionCompletion', () => {
 
 		const result2 = await checkMissionCompletion(1, firstMission.activityId, 'test-tenant');
 		expect(result2.missionCompleted).toBe(false);
+	});
+});
+
+// #2565: getTodayMissions は check-then-generate の TOCTOU を持つため、同一 child home
+// への並行リクエストが両方 generateMissions を実行すると同一 (child_id, mission_date,
+// activity_id) で重複 INSERT し UNIQUE constraint (idx_daily_missions_unique) violation で
+// 500 を返していた。E2E workers=2 で同一 worker DB を共有する child-tutorial spec が複数
+// child home に並行アクセスして flake 化した root cause。insertDailyMission の
+// onConflictDoNothing で構造的に解消する (ADR-0006: テスト側 retry でなく実装側 race の真因解消)。
+describe('insertDailyMission 並行重複挿入 (#2565 flake root cause)', () => {
+	beforeEach(() => {
+		resetDb();
+		seedChild();
+		seedActivities();
+	});
+
+	it('同一 (childId, date, activityId) を二重挿入しても UNIQUE violation を起こさない', async () => {
+		const childActivity = testDb.select().from(schema.childActivities).all()[0];
+		if (!childActivity) throw new Error('Expected at least one child activity');
+
+		// 1 回目の INSERT
+		await insertDailyMission(1, '2026-03-08', childActivity.id, 'test-tenant');
+		// 2 回目の INSERT (並行リクエストが同じ mission を再生成したケースを模す)。
+		// fix 前は idx_daily_missions_unique violation で throw していた。
+		await expect(
+			insertDailyMission(1, '2026-03-08', childActivity.id, 'test-tenant'),
+		).resolves.not.toThrow();
+
+		// 重複 skip され DB には 1 行のみ
+		const rows = testDb
+			.select()
+			.from(schema.dailyMissions)
+			.where(eq(schema.dailyMissions.childId, 1))
+			.all();
+		expect(rows.filter((r) => r.activityId === childActivity.id)).toHaveLength(1);
+	});
+
+	it('getTodayMissions を並行実行しても UNIQUE violation で reject しない (500 root cause 解消)', async () => {
+		// generateMissions の check-then-insert を 2 並列で実行。
+		// fix 前は両方が同一 (child_id, mission_date, activity_id) を INSERT して
+		// idx_daily_missions_unique violation で片方が reject → child home load が 500 →
+		// tutorial 起動前に詰まって E2E flake していた。onConflictDoNothing で root cause を解消。
+		const [first, second] = await Promise.all([
+			getTodayMissions(1, 'test-tenant'),
+			getTodayMissions(1, 'test-tenant'),
+		]);
+		// 両リクエストとも reject せず最低 3 件の mission を返す (dead-end / 500 にならない)。
+		expect(first.missions.length).toBeGreaterThanOrEqual(3);
+		expect(second.missions.length).toBeGreaterThanOrEqual(3);
+
+		// 重複 activity の INSERT は skip されるため、DB 上に同一 activityId の mission は
+		// 1 件のみ (UNIQUE 制約が onConflictDoNothing で守られている)。
+		const rows = testDb
+			.select()
+			.from(schema.dailyMissions)
+			.where(eq(schema.dailyMissions.childId, 1))
+			.all();
+		const activityIds = rows.map((r) => r.activityId);
+		expect(new Set(activityIds).size).toBe(activityIds.length);
 	});
 });

@@ -43,6 +43,7 @@ playwright-report/
 playwright-report-demo/
 test-results/
 test-results.json
+blob-report/
 tests/e2e/.auth/
 playwright/.auth/
 
