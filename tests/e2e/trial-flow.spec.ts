@@ -79,6 +79,12 @@ test.describe('#752 トライアルフロー — free ユーザー', () => {
 		await expect(page.getByTestId('trial-banner-active-cta')).toBeVisible();
 		// 「開始」バナーは消える
 		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
+
+		// #2932 CRITICAL: reload 後も trial 状態が維持される（insert が永続していることの確認）。
+		// stub の no-op insert だった頃は reload で「開始」バナーに戻っていた（偽 success）。
+		await page.reload({ waitUntil: 'commit', timeout: 30_000 });
+		await expect(page.getByText(/無料体験中/)).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
 	});
 
 	// ========================================================

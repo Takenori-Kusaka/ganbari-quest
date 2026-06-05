@@ -54,7 +54,7 @@ const ALLOW_LIST = new Set([
 const GRANDFATHERED_STUBS = new Map([
 	['evaluation-repo.ts', 1014], // rest days 機能: follow-up Issue #1014
 	['message-repo.ts', 1015], // parent messages 機能: follow-up Issue #1015
-	['trial-history-repo.ts', 1016], // trial history 機能: follow-up Issue #1016
+	// trial-history-repo.ts (#1016) は #2932 で本実装完了し除去済 (本番 trial 開始不能 CRITICAL 根治)
 ]);
 
 /**

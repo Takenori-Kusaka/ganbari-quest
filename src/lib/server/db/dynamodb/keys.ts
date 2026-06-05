@@ -1012,6 +1012,48 @@ export function cloudExportSKPrefix(): string {
 }
 
 // ============================================================
+// Trial history (#314 / #769 / #1016 / #2932) — トライアル履歴
+// ============================================================
+//
+// 設計方針 (GSI 不要、ADR-0055 §3.1 / ADR-0010):
+//   アクセスパターン:
+//     (a) findLatestByTenant(tenantId)  — tenant 内最新 1 件 (trial 状態判定の hot path)
+//     (b) findActiveTrials()            — endDate >= today の全 tenant 横断 (日次 cron 1 回)
+//     (c) insert(input)                 — trial 開始時 1 件追加
+//     (d) updateConversion(id)          — Stripe 本契約移行時 1 件更新 (tenantId なし、稀)
+//     (e) deleteByTenantId(tenantId)    — 退会時削除 (ADR-0049)
+//   (a)/(c)/(e) は tenant 既知のため tenant partition に集約する:
+//     PK = T#<tenantId>#TRIAL, SK = HIST#<paddedId>
+//   SK の paddedId は 8 桁 0 埋め (counter 採番 = SQLite auto-increment 互換) で辞書順 = id 昇順。
+//   (a) findLatestByTenant は tenant partition を ScanIndexForward=false で Query Limit 1 →
+//     最大 id (=最新) を 1 read で取得する (GSI 不要)。
+//   (b) findActiveTrials は tenantId を受けない全 tenant 横断 + 日次 cron の低頻度経路のため、
+//     Scan + FilterExpression(begins_with(SK,'HIST#') AND endDate >= today) で対応する
+//     (cancellation-reason-repo / cloud-export-repo.deleteExpired と同じ Pre-PMF 方針、
+//     GSI 追加は過剰防衛 ADR-0010)。
+//   (d) updateConversion は id のみ受け tenantId が不明なため、tenant 横断 Scan + id filter で
+//     PK/SK を解決して Update する (message-repo.markShown / stamp-card-repo の id 解決と同パターン、
+//     Stripe webhook 経由の稀な経路、#2842 教訓で Scan は Limit なしページング)。
+
+/** Trial history: PK=T#<tenant>#TRIAL, SK=HIST#<paddedId> */
+export function trialHistoryKey(historyId: number, tenantId: string): DynamoKey {
+	return {
+		PK: tenantPK('TRIAL', tenantId),
+		SK: `HIST#${padId(historyId)}`,
+	};
+}
+
+/** Trial history PK for tenant Query (findLatestByTenant / deleteByTenantId) */
+export function trialHistoryTenantPK(tenantId: string): string {
+	return tenantPK('TRIAL', tenantId);
+}
+
+/** Trial history SK prefix for querying all history of a tenant / tenant cleanup / cross-tenant Scan filter */
+export function trialHistoryPrefix(): string {
+	return 'HIST#';
+}
+
+// ============================================================
 // Viewer token (#2824 Wave 6B / #371) — 閲覧専用リンク token
 // ============================================================
 //
@@ -1107,6 +1149,8 @@ export const ENTITY_NAMES = {
 	reportDailySummary: 'reportDailySummary',
 	cloudExport: 'cloudExport',
 	viewerToken: 'viewerToken',
+	// #1016 / #2932 (ADR-0055): trial-history grandfathered stub 本実装
+	trialHistory: 'trialHistory',
 } as const;
 
 export type EntityName = (typeof ENTITY_NAMES)[keyof typeof ENTITY_NAMES];
