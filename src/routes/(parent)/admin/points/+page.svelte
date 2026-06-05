@@ -241,7 +241,7 @@ async function handleReceiptFile(event: Event) {
 			<input type="hidden" name="amount" value={effectiveAmount} />
 
 			<!-- Mode Tabs -->
-			<div class="flex rounded-lg bg-[var(--color-surface-secondary)] p-1" data-tutorial="points-convert-tabs">
+			<div class="flex rounded-lg bg-[var(--color-surface-secondary)] p-1">
 				<Button
 					type="button"
 					variant="ghost"
