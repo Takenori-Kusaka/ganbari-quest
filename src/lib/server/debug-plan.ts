@@ -58,6 +58,23 @@ export function getDebugPlanOverride(): DebugPlanOverride | null {
 }
 
 /**
+ * DEBUG_PLAN による plan tier の直接 override を返す (#758 / #2919)。
+ *
+ * `resolvePlanTier` は AUTH_MODE=local (セルフホスト) / anonymous (demo) で tier を
+ * 無条件 family に強制するため、licenseStatus 経由の `getDebugPlanOverride` だけでは
+ * local モードの dev / E2E で free・standard の表示検証ができない (#758 の意図が半減する)。
+ * 本関数を mode 強制より前に評価することで、dev 環境では DEBUG_PLAN が常に最優先になる。
+ * dev でない、または env 未設定 / 不正値の場合は null (不正値の warn は
+ * `getDebugPlanOverride` 側が担うため、ここでは黙って null を返す)。
+ */
+export function getDebugPlanTier(): DebugPlan | null {
+	if (!dev) return null;
+	const raw = process.env.DEBUG_PLAN?.trim().toLowerCase();
+	if (!raw || !VALID_PLANS.has(raw)) return null;
+	return raw as DebugPlan;
+}
+
+/**
  * DEBUG_TRIAL env に基づくトライアル上書きを返す。
  * dev モードでない、または env 未設定の場合は null。
  */
