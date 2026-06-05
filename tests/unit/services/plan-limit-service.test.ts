@@ -3,6 +3,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// #2919: resolvePlanTier が getDebugPlanTier (debug-plan.ts) を参照するようになったため、
+// debug-plan が import する $app/environment.dev を切替可能に mock する
+// (tests/unit/server/debug-plan.test.ts と同パターン)。
+const devState = { dev: true };
+vi.mock('$app/environment', () => ({
+	get dev() {
+		return devState.dev;
+	},
+}));
+
 // mock repos
 const mockFindAllChildren = vi.fn();
 const mockFindActivities = vi.fn();
@@ -54,9 +64,40 @@ import {
 describe('plan-limit-service', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		devState.dev = true;
+		delete process.env.DEBUG_PLAN;
 	});
 
 	describe('resolvePlanTier', () => {
+		// #758 / #2919: dev の DEBUG_PLAN は mode 強制 (local / anonymous = family) より優先する。
+		// tests/CLAUDE.md §「プラン別 seed fixture」が「E2E は DEBUG_PLAN でプラン切替」と
+		// 文書化しているのに、従来は local 分岐が先に評価され DEBUG_PLAN が無視されていた
+		// (文書化済み仕様と実装の乖離) ことへの regression guard。
+		it('DEBUG_PLAN=free は local mode の family 強制より優先される (#2919)', () => {
+			process.env.AUTH_MODE = 'local';
+			process.env.DEBUG_PLAN = 'free';
+			expect(resolvePlanTier('none')).toBe('free');
+		});
+
+		it('DEBUG_PLAN=standard は anonymous mode の family 強制より優先される (#2919)', () => {
+			process.env.AUTH_MODE = 'anonymous';
+			process.env.DEBUG_PLAN = 'standard';
+			expect(resolvePlanTier('active', 'family-monthly')).toBe('standard');
+		});
+
+		it('DEBUG_PLAN は dev=false では無効 (本番セーフガード、local は family のまま)', () => {
+			devState.dev = false;
+			process.env.AUTH_MODE = 'local';
+			process.env.DEBUG_PLAN = 'free';
+			expect(resolvePlanTier('none')).toBe('family');
+		});
+
+		it('DEBUG_PLAN 不正値は無視され従来の mode 判定にフォールバックする', () => {
+			process.env.AUTH_MODE = 'local';
+			process.env.DEBUG_PLAN = 'bogus';
+			expect(resolvePlanTier('none')).toBe('family');
+		});
+
 		it('active (no planId) → standard', () => {
 			process.env.AUTH_MODE = 'cognito';
 			expect(resolvePlanTier('active')).toBe('standard');

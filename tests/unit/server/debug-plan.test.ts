@@ -16,6 +16,7 @@ import {
 	applyDebugPlanOverride,
 	getDebugPlanOverride,
 	getDebugPlanSummary,
+	getDebugPlanTier,
 	getDebugTrialOverride,
 	isDebugPlanActive,
 } from '$lib/server/debug-plan';
@@ -72,6 +73,29 @@ describe('debug-plan', () => {
 			expect(getDebugPlanOverride()).toBeNull();
 			expect(warn).toHaveBeenCalled();
 			warn.mockRestore();
+		});
+	});
+
+	describe('getDebugPlanTier (#2919)', () => {
+		it('dev=false なら常に null（本番セーフガード）', () => {
+			devState.dev = false;
+			process.env.DEBUG_PLAN = 'free';
+			expect(getDebugPlanTier()).toBeNull();
+		});
+
+		it('有効値 (free / standard / family) をそのまま返す', () => {
+			process.env.DEBUG_PLAN = 'free';
+			expect(getDebugPlanTier()).toBe('free');
+			process.env.DEBUG_PLAN = 'standard';
+			expect(getDebugPlanTier()).toBe('standard');
+			process.env.DEBUG_PLAN = 'FAMILY';
+			expect(getDebugPlanTier()).toBe('family');
+		});
+
+		it('未設定 / 不正値は null（warn は getDebugPlanOverride 側の責務）', () => {
+			expect(getDebugPlanTier()).toBeNull();
+			process.env.DEBUG_PLAN = 'bogus';
+			expect(getDebugPlanTier()).toBeNull();
 		});
 	});
 

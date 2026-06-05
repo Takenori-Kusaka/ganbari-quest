@@ -14,7 +14,7 @@ import { Portal } from '@ark-ui/svelte/portal';
  * として渡す (Composition over Inheritance)。
  *
  * UX 規約 (User 合意済 2026-05-23 §6.1):
- *   📦 みんなのテンプレから取込
+ *   🏪 みんなのテンプレから取込
  *   🤖 AI で提案してもらう (Help と並ぶ「便利機能」レイヤ)
  *   ──────────
  *   ⬇ バックアップから復元
