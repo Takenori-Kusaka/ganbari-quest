@@ -89,15 +89,27 @@ function renderBubble(
 	});
 
 	// selector 省略 step (= 画面中央 modal) のみ mount 後に driver.refresh() で再 positioning する。
-	// driver.js は popover を ae() で「mount 前の空 wrapper 実測幅」を使い center 配置するため、
+	// driver.js は popover を ee() で「mount 前の空 wrapper 実測幅」を使い center 配置するため、
 	// Svelte bubble mount 後に wrapper が最終幅 (max 360px) へ成長すると計測幅とずれ、特に CI mobile
 	// (production) では left = innerWidth/2 - realWidth/2 が過小評価され右端が viewport を超える
-	// (#2927: [mobile] checklists step#1 right=400.5 > 391)。element 紐付き step は driver.js の
-	// collision 回避が target 基準で正しく働くため refresh は不要 (refresh すると逆に再 mount 経由で
-	// 一時的な overlap を誘発しうる)。中央 modal に限定して最終幅で再 center させる。
+	// (#2971: [mobile] checklists step#1 right=400.5 > 391)。element 紐付き step は driver.js の
+	// collision 回避が target 基準で正しく働くため refresh は不要。中央 modal に限定して最終幅で
+	// 再 center させる。
+	//
+	// 重要: driver.js の refresh() は be() → ne() のみ呼び、ee() (onPopoverRender を含む) は
+	// 呼ばない (#2971 調査確定)。そのため refresh 後に clamp が自動的に再適用されることはなく、
+	// 明示的に再実行する必要がある。
+	// 実行順序:
+	//   [1] d.refresh() → ne() で「Svelte bubble mount 後の正しい幅」を使い style.left/top を再計算
+	//   [2] clampPopoverToViewport() で viewport 超過分を transform で補正 (#2971 根治)
 	if (!step.selector && typeof requestAnimationFrame === 'function') {
 		requestAnimationFrame(() => {
-			if (driverInstance === d && d.isActive()) d.refresh();
+			if (driverInstance === d && d.isActive()) {
+				d.refresh();
+				// [2] refresh は onPopoverRender を再発火しないため clamp を明示再実行する (#2971)
+				const popoverWrapper = document.getElementById('driver-popover-content');
+				if (popoverWrapper) clampPopoverToViewport(popoverWrapper);
+			}
 		});
 	}
 }
@@ -114,8 +126,10 @@ function renderBubble(
  * なぜ transform か:
  *   - driver.js の position: absolute + top/left に重ねるだけで layout flow に影響しない
  *   - driver.js が次のステップ遷移で reset するため永続的な副作用がない
- *   - onPopoverRender は selector 省略 step の rAF refresh 後にも再発火するため、
- *     refresh → clamp の順序が自然に保たれる
+ *
+ * selector 省略 step (中央 modal) の rAF refresh 後の clamp 再適用について (#2971):
+ *   - driver.js の refresh() = be() → ne() のみ。ee() (onPopoverRender を含む) は呼ばない。
+ *   - そのため refresh 後の clamp 再適用は rAF ブロック内で明示的に行う (上部 startGuideStep 参照)。
  *
  * 両立不能 (target 要素が viewport の大半を占める等、幾何的に回避不能) な場合は補正しない。
  * そのような step は invariant spec の幾何 exempt 条件 (assertBubbleNotOverlapTarget) が正しく吸収する。
@@ -176,8 +190,8 @@ function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 				// 1. Svelte bubble を driver.js wrapper に mount する
 				renderBubble(popover.wrapper, pageGuide, step, d);
 				// 2. mount 後に viewport clamp を適用する (#2971 render 層の構成的保証)。
-				//    onPopoverRender は driver.js の配置完了後 + selector 省略 step の rAF refresh 後にも
-				//    再発火するため、clamp は常に最終配置位置に対して効く。
+				//    selector 省略 step の rAF refresh 後は onPopoverRender は再発火しないため、
+				//    startGuideStep の rAF ブロック内で明示的に clamp を再実行している。
 				clampPopoverToViewport(popover.wrapper);
 			},
 		},
