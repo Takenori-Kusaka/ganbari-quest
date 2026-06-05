@@ -2,7 +2,6 @@
 // 決定的解決順序 6 段の境界を網羅する unit test。
 // develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md §3/§5) のクライアント側 SSOT。
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error -- .mjs module (JSDoc typed、tests/unit/audit/* と同パターン)
 import { resolveBaseBranch } from '../../../scripts/lib/resolve-base-branch.mjs';
 
 const base = {

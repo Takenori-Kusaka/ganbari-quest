@@ -75,6 +75,7 @@ export function resolveBaseBranch({
  */
 export function resolveBaseBranchAuto(opts = {}) {
 	const cwd = opts.cwd ?? process.cwd();
+	/** @param {string} args git サブコマンド文字列 (固定引数のみ、ユーザー入力は通さない) */
 	const git = (args) =>
 		execSync(`git ${args}`, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 
