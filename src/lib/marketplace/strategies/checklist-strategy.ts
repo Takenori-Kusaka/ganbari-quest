@@ -122,6 +122,7 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 				imported: 0,
 				skipped: preview.duplicates,
 				errors: [],
+				failed: 0,
 			};
 		}
 
@@ -133,6 +134,8 @@ export const checklistStrategy: ImportStrategy<ChecklistPayload> = {
 			imported: raw.imported,
 			skipped: raw.skipped,
 			errors: raw.errors,
+			// #2830: errors.length ではなく実失敗 item 数を UI 件数表示用に伝播。
+			failed: raw.failed,
 		};
 	},
 };

@@ -138,7 +138,7 @@ export const rulePresetStrategy: ImportStrategy<RulePresetPayload> & {
 	 */
 	async apply(payload: RulePresetPayload, ctx: ImportContext): Promise<ImportResult> {
 		if (ctx.dryRun === true) {
-			return { imported: 0, skipped: 0, errors: [] };
+			return { imported: 0, skipped: 0, errors: [], failed: 0 };
 		}
 		if (!ctx.presetId) {
 			return {
@@ -147,6 +147,8 @@ export const rulePresetStrategy: ImportStrategy<RulePresetPayload> & {
 				errors: [
 					'[rule-preset-strategy] apply() には ctx.presetId が必要です — 通常は applyRulePreset() を使ってください',
 				],
+				// #2830: presetId 欠落は 1 件の構成エラー (取込対象 0)。
+				failed: 1,
 			};
 		}
 		const result = await this.applyRulePreset(
@@ -158,6 +160,9 @@ export const rulePresetStrategy: ImportStrategy<RulePresetPayload> & {
 			imported: result.imported,
 			skipped: result.skipped,
 			errors: [...result.errors, ...result.warnings],
+			// #2830: errors 配列は warnings (already-imported 等の非失敗) を畳み込むため、
+			//   実失敗件数は genuine error のみ (warnings を除外) で算出する。
+			failed: result.errors.length,
 		};
 	},
 

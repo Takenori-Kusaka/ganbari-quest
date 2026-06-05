@@ -227,6 +227,14 @@ function applyImportFailure(failText: string) {
 	showToast(display.message, undefined, 'error');
 }
 
+// #2830: partial-failure の失敗件数を解決する。server 算出の `failed` (実失敗 activity 数) を
+//   優先し、errors 配列長に fallback する。errors は per-child catch 行 + 集計行が混在するため
+//   失敗規模を過小表示する (bulk throw 1 回で 30 activity 喪失でも errors.length≈2)。
+function resolveFailedCount(data: Record<string, unknown> | undefined): number {
+	if (typeof data?.failed === 'number') return data.failed;
+	return Array.isArray(data?.errors) ? (data.errors as unknown[]).length : 0;
+}
+
 // ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
 async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	if (!pendingImportPresetId) {
@@ -279,7 +287,8 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 				return;
 			}
 			const imported = Number((data?.imported as number | undefined) ?? 0);
-			const errorsCount = Array.isArray(data?.errors) ? (data.errors as unknown[]).length : 0;
+			// #2830: 失敗件数は errors 配列長ではなく server 算出の `failed` を優先する (resolveFailedCount)。
+			const errorsCount = resolveFailedCount(data);
 			// #2745 fix Round 2 (CI artifact 解析根拠): Toast primitive (`role="alert"`) を
 			// 一次 feedback として表示しつつ、in-page banner (`role="status"`) を 2 重防御として
 			// 同期 set する。Toast は module-level `$state` push でリアクティブ更新されるが

@@ -155,6 +155,8 @@ describe('importRewardSetToChildren', () => {
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toMatch(/child 202/); // child prefix が付与される
 		expect(result.errors[0]).toMatch(/「A」/);
+		// #2830 AC4: 全 child 合算の failed = 1 (child 202 の 1 reward 失敗)。
+		expect(result.failed).toBe(1);
 	});
 
 	it('tenantId が全 child の insert に伝播する', async () => {

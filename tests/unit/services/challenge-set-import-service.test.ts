@@ -292,6 +292,26 @@ describe('importChallengeSet', () => {
 		expect(result.imported).toBe(2);
 		expect(result.errors).toHaveLength(1);
 		expect(result.errors[0]).toContain('failing');
+		// #2830 AC1/AC3: 1 challenge の bulk throw で childIds.length (=2) child 行が喪失する。
+		//   errors.length は 1 しか積まれないため、failed は errors.length と乖離する。
+		expect(result.failed).toBe(CHILD_IDS.length);
+		expect(result.failed).toBeGreaterThan(result.errors.length);
+	});
+
+	it('#2830 負例: 全 challenge 成功 → failed=0 (false positive を出さない)', async () => {
+		const challenges = [makeChallenge({ title: 'A' }), makeChallenge({ title: 'B' })];
+		const result = await importChallengeSet(challenges, TENANT, { childIds: CHILD_IDS });
+		expect(result.imported).toBe(4);
+		expect(result.failed).toBe(0);
+		expect(result.errors).toEqual([]);
+	});
+
+	it('#2830 負例: childIds 空 → failed=0 (構成エラーは errors のみ)', async () => {
+		const result = await importChallengeSet([makeChallenge({ title: 'A' })], TENANT, {
+			childIds: [],
+		});
+		expect(result.failed).toBe(0);
+		expect(result.errors).toHaveLength(1);
 	});
 
 	it('sourceTemplateId に presetId が埋め込まれる', async () => {

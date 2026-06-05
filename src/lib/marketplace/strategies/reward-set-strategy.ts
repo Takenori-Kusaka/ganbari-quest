@@ -107,6 +107,7 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 				imported: 0,
 				skipped: preview.duplicates,
 				errors: [],
+				failed: 0,
 			};
 		}
 
@@ -121,6 +122,8 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 				imported: raw.imported,
 				skipped: raw.skipped,
 				errors: raw.errors,
+				// #2830: errors.length ではなく実失敗 reward 行数を UI 件数表示用に伝播。
+				failed: raw.failed,
 			};
 		}
 		// legacy-single: 既存 admin/rewards 手動 form 互換
@@ -132,6 +135,8 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 			imported: raw.imported,
 			skipped: raw.skipped,
 			errors: raw.errors,
+			// #2830: errors.length ではなく実失敗 reward 行数を UI 件数表示用に伝播。
+			failed: raw.failed,
 		};
 	},
 };

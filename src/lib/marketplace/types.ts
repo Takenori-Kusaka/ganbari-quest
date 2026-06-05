@@ -78,12 +78,26 @@ export interface ImportPreview {
 }
 
 /**
- * apply 実行結果。imported + skipped + errors.length = total となる契約。
+ * apply 実行結果。
+ *
+ * @property imported 実際に persist できた item / row 数
+ * @property skipped  重複等で意図的に取込まなかった item 数
+ * @property errors   人間可読のエラーメッセージ列 (UI ログ / 詳細表示用)
+ * @property failed   #2830: **実際に persist 失敗した item / row 数** (errors.length と分離)。
+ *
+ *   `errors` は per-child catch 行 / 集計行「N 件保存できませんでした」/ per-item validation
+ *   error が混在しうるため、`errors.length` は「失敗した item 数」と一致しない (bulk throw
+ *   1 回で 30 row 喪失でも errors.length≈2)。UI の partial-failure 件数表示は `errors.length`
+ *   ではなく本フィールドを使うことで、親が失敗規模を過小評価して再取込をスキップする事故を防ぐ。
+ *
+ *   後方互換のため optional。未指定の場合 UI は `errors.length` に fallback する。
+ *   新規 / 既存の全 Strategy は本フィールドを必ず算出して返すこと (AC1 / AC4)。
  */
 export interface ImportResult {
 	imported: number;
 	skipped: number;
 	errors: string[];
+	failed?: number;
 }
 
 // ── ImportStrategy interface ─────────────────────────────────────

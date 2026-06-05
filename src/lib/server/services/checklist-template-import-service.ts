@@ -43,6 +43,12 @@ export interface ChecklistImportResult {
 	importedItems: number;
 	/** エラーメッセージ (item 個別失敗のみ。template 全体失敗時は throw) */
 	errors: string[];
+	/**
+	 * #2830: 実際に persist 失敗した item 数。checklist は per-item try/catch のため
+	 *   `errors.length` と一致するが、5 type 横断で UI が一貫して `failed` を参照できるよう
+	 *   明示的に算出して返す (AC4 横展開、ImportResult 契約整合)。
+	 */
+	failed: number;
 	/** 作成された template ID (imported=1 時のみ) */
 	templateId?: number;
 }
@@ -182,7 +188,7 @@ async function importChecklistTemplateInternal(
 		logger.info('[checklist-import] 既に同 preset で family scope 取込済 → スキップ', {
 			context: { tenantId, presetId, existingTemplateId: duplicate.id },
 		});
-		return { imported: 0, skipped: 1, importedItems: 0, errors: [] };
+		return { imported: 0, skipped: 1, importedItems: 0, errors: [], failed: 0 };
 	}
 
 	const timeSlot = options.timeSlot ?? normalizeTimeSlot(payload.timing);
@@ -241,6 +247,8 @@ async function importChecklistTemplateInternal(
 		skipped: 0,
 		importedItems,
 		errors,
+		// #2830: per-item try/catch のため失敗 item 数 = errors.length。
+		failed: errors.length,
 		templateId: template.id,
 	};
 }
