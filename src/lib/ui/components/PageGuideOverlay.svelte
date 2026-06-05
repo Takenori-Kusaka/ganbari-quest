@@ -190,7 +190,20 @@ $effect(() => {
 	  button clicks get intercepted by the overlay SVG. Override chrome properties only.
 	*/
 	:global(.driver-popover.page-guide-popover) {
-		max-width: 360px;
+		/*
+		  driver.js positions / viewport-clamps the popover using THIS wrapper's measured
+		  width & height (`se()` → wrapper.getBoundingClientRect()). To guarantee the bubble
+		  can always be placed fully inside the viewport (invariant (b)), the wrapper must
+		  never be wider/taller than the viewport minus a margin. CI (Linux) renders the
+		  Japanese bubble text taller than local, so a fixed 360px without a height cap let
+		  driver place the popover with a negative top / off-viewport edge. We therefore cap
+		  BOTH axes responsively here and make the inner bubble fill the wrapper (width 100%),
+		  so the wrapper's measured size always equals the rendered bubble size and stays
+		  within `100vw - 24px` × `100vh - 24px`. The bubble itself scrolls (overflow-y:auto)
+		  when content exceeds the cap.
+		*/
+		max-width: min(360px, calc(100vw - 24px));
+		max-height: calc(100vh - 24px);
 		min-width: 0;
 		background: transparent;
 		box-shadow: none;
