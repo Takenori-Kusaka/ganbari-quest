@@ -40,21 +40,20 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-	process.stdout.write(
-		[
-			'Usage:',
-			'  node scripts/audit/verify-audit-evidence.mjs --file <path>',
-			'',
-			'Verifies a single audit evidence JSON against the schema in',
-			'scripts/audit/evidence-schema.mjs (audit-manager.md §B):',
-			'  - run_id / integration_pr / team (許容値)',
-			'  - 各 finding: id / title / location / detail / severity(1-4) / policy_candidate',
-			'  - SARIF 互換: ruleId / level / locations / (任意) partialFingerprints',
-			'  - competitive / audit-manager-cuj は evidence_urls 必須',
-			'',
-			'See .claude/agents/audit-manager.md §B / scripts/verify-adversarial-output.mjs',
-		].join('\n') + '\n',
-	);
+	const lines = [
+		'Usage:',
+		'  node scripts/audit/verify-audit-evidence.mjs --file <path>',
+		'',
+		'Verifies a single audit evidence JSON against the schema in',
+		'scripts/audit/evidence-schema.mjs (audit-manager.md §B):',
+		'  - run_id / integration_pr / team (許容値)',
+		'  - 各 finding: id / title / location / detail / severity(1-4) / policy_candidate',
+		'  - SARIF 互換: ruleId / level / locations / (任意) partialFingerprints',
+		'  - competitive / audit-manager-cuj は evidence_urls 必須',
+		'',
+		'See .claude/agents/audit-manager.md §B / scripts/verify-adversarial-output.mjs',
+	];
+	process.stdout.write(`${lines.join('\n')}\n`);
 }
 
 function main() {

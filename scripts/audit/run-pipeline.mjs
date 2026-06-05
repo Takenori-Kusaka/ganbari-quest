@@ -65,22 +65,21 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-	process.stdout.write(
-		[
-			'Usage:',
-			'  node scripts/audit/run-pipeline.mjs --run-id <id> [options]',
-			'',
-			'Options:',
-			'  --run-id <id>           run 識別子 (例: baseline-20260610 / 2950-20260610) [必須]',
-			'  --scope <s>             baseline | integration (default: baseline)',
-			'  --evidence-dir <dir>    領域別 evidence JSON dir (default: tmp/audit-evidence)',
-			'  --out <file>            集約レポート出力先 (default: tmp/audit-run-<date>.md)',
-			'  --strict                schema 不充足 evidence があれば exit 1 (CI gate 用)',
-			'',
-			'pipeline: 全件発露 → schema verify (URL 欠落/不充足は自動棄却) → 重複統合 → severity filter',
-			'See .claude/agents/audit-manager.md §B/§E / docs/sessions/audit-team.md §3.6',
-		].join('\n') + '\n',
-	);
+	const lines = [
+		'Usage:',
+		'  node scripts/audit/run-pipeline.mjs --run-id <id> [options]',
+		'',
+		'Options:',
+		'  --run-id <id>           run 識別子 (例: baseline-20260610 / 2950-20260610) [必須]',
+		'  --scope <s>             baseline | integration (default: baseline)',
+		'  --evidence-dir <dir>    領域別 evidence JSON dir (default: tmp/audit-evidence)',
+		'  --out <file>            集約レポート出力先 (default: tmp/audit-run-<date>.md)',
+		'  --strict                schema 不充足 evidence があれば exit 1 (CI gate 用)',
+		'',
+		'pipeline: 全件発露 → schema verify (URL 欠落/不充足は自動棄却) → 重複統合 → severity filter',
+		'See .claude/agents/audit-manager.md §B/§E / docs/sessions/audit-team.md §3.6',
+	];
+	process.stdout.write(`${lines.join('\n')}\n`);
 }
 
 /** YYYYMMDD (UTC) */
