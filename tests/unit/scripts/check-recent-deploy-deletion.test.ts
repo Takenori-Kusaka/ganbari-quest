@@ -33,13 +33,19 @@
  *   - ADR-0056 (QM drift prevention、本 script は案 1 deploy 保全機構)
  */
 
-import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import {
 	DEFAULT_BASE,
 	DEFAULT_DAYS,
 	findViolations,
+	getDeletedFiles,
 	helpText,
+	isAncestor,
 	isIgnored,
 	parseArgs,
 	resolveSinceWindow,
@@ -577,5 +583,166 @@ describe('AC-4 rename detection 仕様 (integration note)', () => {
 	it('rename detection は git diff -M で D 行のみ収集 (仕様 comment)', () => {
 		// no-op assertion: 仕様 documentation のみ
 		expect(true).toBe(true);
+	});
+});
+
+/**
+ * Issue #2877: three-dot (merge-base) 化の integration 検証
+ *
+ * `getDeletedFiles` / `isAncestor` は実 git repo の状態に依存するため、mock では検証
+ * できない (two-dot vs three-dot の差は端点 tree vs merge-base diff の git 挙動そのもの)。
+ * 本 describe は一時 git repo を fixture として組み立て、以下を実 git 操作で検証する:
+ *
+ *   - AC1 (偽陽性解消): main 進化で追加された file が branch HEAD tree に無くても、PR 自身が
+ *     削除していなければ getDeletedFiles は 0 件 (two-dot なら Z を誤検出 = 偽陽性が出る case)
+ *   - AC3-1 (behind だが削除なし → exit 0 相当): rebase 未済 (behind) でも three-dot 削除 0 件
+ *   - AC3-2 (真の削除 → exit 2 相当): PR 自身が削除した file は three-dot D として検出される
+ *   - AC3-3 (意図的削除も真 D): #2822/#2841 型の意図的削除は現挙動どおり D として残る
+ *   - AC2 (is-ancestor fast-path): rebase 済で is-ancestor 真 / behind で is-ancestor 偽
+ *
+ * 各 test は `process.chdir` で fixture repo に入り、afterEach で元 cwd へ復元する
+ * (`getDeletedFiles` 等は process.cwd() の git repo に対し実行されるため)。
+ */
+describe('#2877 three-dot (merge-base) integration (実 git fixture)', () => {
+	let repoDir: string;
+	let originalCwd: string;
+	let baseSha: string;
+
+	/** fixture repo 内で git を実行する helper (stdout を返す) */
+	function git(...args: string[]): string {
+		return execFileSync('git', args, { cwd: repoDir, encoding: 'utf8' });
+	}
+
+	/** ファイルを書き込み add + commit する helper */
+	function writeCommit(file: string, content: string, message: string): void {
+		execFileSync(
+			'node',
+			['-e', `require('fs').writeFileSync(process.argv[1], process.argv[2])`, file, content],
+			{
+				cwd: repoDir,
+			},
+		);
+		git('add', file);
+		git('commit', '-m', message);
+	}
+
+	beforeAll(() => {
+		originalCwd = process.cwd();
+		repoDir = mkdtempSync(join(tmpdir(), 'rdd-2877-'));
+		// fixture repo を初期化 (CI / local の global git config に依存しない最小設定)
+		git('init', '-q', '-b', 'main');
+		git('config', 'user.email', 'test@example.com');
+		git('config', 'user.name', 'Test');
+		git('config', 'commit.gpgsign', 'false');
+		// base commit: file-x.txt / file-y.txt を作る
+		writeCommit('file-x.txt', 'X v1\n', 'base: add x and y (part 1)');
+		writeCommit('file-y.txt', 'Y v1\n', 'base: add y (part 2)');
+		// 各 test で main を base まで戻すための起点 SHA を記録
+		baseSha = git('rev-parse', 'HEAD').trim();
+	});
+
+	afterAll(() => {
+		process.chdir(originalCwd);
+		rmSync(repoDir, { recursive: true, force: true });
+	});
+
+	beforeEach(() => {
+		process.chdir(repoDir);
+		// 各 test 開始時に main を base SHA まで戻し、前 test の feature branch を削除して
+		// test 独立性を担保する (前 test が main を進めた / feature を作った状態を巻き戻す)。
+		execFileSync('git', ['checkout', '-q', 'main'], { cwd: repoDir });
+		execFileSync('git', ['reset', '-q', '--hard', baseSha], { cwd: repoDir });
+		execFileSync('git', ['clean', '-fdq'], { cwd: repoDir });
+		try {
+			execFileSync('git', ['branch', '-D', 'feature'], { cwd: repoDir, stdio: 'ignore' });
+		} catch {
+			// feature branch 未作成 (初回) は無視
+		}
+	});
+
+	afterEach(() => {
+		process.chdir(originalCwd);
+	});
+
+	it('AC1 (偽陽性解消): main 進化で Z が追加されても、PR が削除していなければ getDeletedFiles は 0 件', () => {
+		// base から feature を作る (Z 取込前 = behind の状態)
+		git('checkout', '-q', '-b', 'feature');
+		// feature では file-y を編集するだけ (削除なし)
+		writeCommit('file-y.txt', 'Y v2 (edited by feature)\n', 'feature: edit y (no deletion)');
+		// main を進めて file-z.txt を追加 (feature は未取込 = rebase drift)
+		git('checkout', '-q', 'main');
+		writeCommit('file-z.txt', 'Z v1\n', 'main evolves: add z (sibling PR merge)');
+		// feature に戻して getDeletedFiles を実行
+		git('checkout', '-q', 'feature');
+
+		// three-dot: feature 自身は何も削除していないので 0 件 (Z は main 側追加なので誤算入しない)
+		const deleted = getDeletedFiles('main');
+		expect(deleted).not.toBeNull();
+		expect(deleted).toEqual([]);
+
+		// 反証: two-dot (`main..HEAD`) は Z を D として誤検出する (本 PR が解消した偽陽性)。
+		// two-dot diff の D エントリに file-z.txt が含まれることを確認し、three-dot 化の必要性を実証。
+		const twoDot = git('diff', '-M', '--name-status', 'main..HEAD');
+		expect(twoDot).toContain('D\tfile-z.txt');
+		// three-dot には file-z.txt の D は含まれない
+		const threeDot = git('diff', '-M', '--name-status', 'main...HEAD');
+		expect(threeDot).not.toContain('file-z.txt');
+	});
+
+	it('AC3-1 (behind だが削除なし → exit 0 相当): rebase 未済でも three-dot 削除 0 件 + is-ancestor 偽', () => {
+		git('checkout', '-q', '-b', 'feature');
+		writeCommit('file-y.txt', 'Y v2\n', 'feature: edit y');
+		git('checkout', '-q', 'main');
+		writeCommit('file-z.txt', 'Z v1\n', 'main evolves: add z');
+		git('checkout', '-q', 'feature');
+
+		// behind 状態: main は feature の ancestor ではない (is-ancestor 偽)
+		expect(isAncestor('main')).toBe(false);
+		// しかし three-dot 削除は 0 件 → main fast-path で OK 判定される (exit 0 相当)
+		expect(getDeletedFiles('main')).toEqual([]);
+	});
+
+	it('AC3-2 (真の削除 → exit 2 相当): PR 自身が file-x を削除 → three-dot D に file-x が出る', () => {
+		git('checkout', '-q', '-b', 'feature');
+		// feature で file-x.txt を意図的に削除
+		git('rm', '-q', 'file-x.txt');
+		git('commit', '-q', '-m', 'feature: delete file-x intentionally');
+
+		const deleted = getDeletedFiles('main');
+		if (deleted === null) throw new Error('getDeletedFiles must not be null in fixture repo');
+		expect(deleted).toContain('file-x.txt');
+		expect(deleted).toHaveLength(1);
+		// この削除 file が直近 merge と重複していれば findViolations で violation (exit 2) になる
+		const merges = [
+			{ commit: 'abc12345', date: '2026-06-04 10:00:00 +0900', files: ['file-x.txt'] },
+		];
+		expect(findViolations(deleted, merges, [])).toHaveLength(1);
+	});
+
+	it('AC3-3 (意図的削除も真 D、#2822/#2841 型): rebase 済 + 意図的削除でも three-dot で検出維持', () => {
+		// feature を main 最新から派生 (rebase 済 = is-ancestor 真)
+		git('checkout', '-q', '-b', 'feature');
+		git('rm', '-q', 'file-y.txt');
+		git('commit', '-q', '-m', 'feature: delete file-y (intentional, rebased)');
+
+		// rebase 済なので is-ancestor 真
+		expect(isAncestor('main')).toBe(true);
+		// 意図的削除は three-dot でも D として検出される (真陽性の検出能力維持)
+		expect(getDeletedFiles('main')).toEqual(['file-y.txt']);
+	});
+
+	it('AC2 (is-ancestor fast-path): rebase 済 + 削除 0 件 → is-ancestor 真 かつ deleted 0 件', () => {
+		// main 最新から feature を作り、追加のみ (削除なし)
+		git('checkout', '-q', '-b', 'feature');
+		writeCommit('file-w.txt', 'W v1\n', 'feature: add w only (no deletion, rebased)');
+
+		expect(isAncestor('main')).toBe(true);
+		expect(getDeletedFiles('main')).toEqual([]);
+		// → main 側 fast-path で即 exit 0 になる条件 (is-ancestor 真 ∧ 削除 0)
+	});
+
+	it('isAncestor: 存在しない base ref → null (git エラーと非 ancestor を区別)', () => {
+		git('checkout', '-q', 'main');
+		expect(isAncestor('no-such-ref-xyz')).toBeNull();
 	});
 });

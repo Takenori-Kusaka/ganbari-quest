@@ -93,6 +93,11 @@ if [ -n "$PR_NUM" ]; then
 	echo "[pre-push] (2/3) 本日 deploy 全 file 削除 0 verify (PR #$PR_NUM)"
 	# 本 step は本日 merged PR の全 file 削除を検出する (#2603 第 4 弾 gate)。
 	#
+	# #2877: 削除判定は three-dot (merge-base) diff `<base>...HEAD` で「PR 自身の削除」のみを
+	# 検出する。two-dot (端点比較) は sibling PR が main に追加した file が HEAD tree に無いだけで
+	# 偽陽性 BLOCK していた (単日 4 PR #2853/#2857/#2855/#2859 連続誤 BLOCK) が、three-dot 化で
+	# main 進化を PR の削除と誤算入しなくなった。意図的削除は three-dot でも D として検出維持される。
+	#
 	# #2647 hotfix (第 9 弾): `--pr "$PR_NUM"` 引数は **付与しない**。
 	# 理由: `--pr <N>` 指定時は worktree HEAD = remote PR HEAD verify gate (#2618 第 4 弾) が走るが、
 	# push 前 hook 経路では local が rebase + new commit を持つため worktree HEAD ≠ remote PR HEAD
