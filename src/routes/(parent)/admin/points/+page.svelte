@@ -186,7 +186,7 @@ async function handleReceiptFile(event: Event) {
 	</div>
 
 	<!-- Balance Overview -->
-	<div class="grid gap-3">
+	<div class="grid gap-3" data-tutorial="points-child-balances">
 		{#each data.children as child}
 			{#if child.balance}
 				<div
@@ -241,7 +241,7 @@ async function handleReceiptFile(event: Event) {
 			<input type="hidden" name="amount" value={effectiveAmount} />
 
 			<!-- Mode Tabs -->
-			<div class="flex rounded-lg bg-[var(--color-surface-secondary)] p-1">
+			<div class="flex rounded-lg bg-[var(--color-surface-secondary)] p-1" data-tutorial="points-convert-tabs">
 				<Button
 					type="button"
 					variant="ghost"

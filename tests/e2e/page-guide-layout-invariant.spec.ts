@@ -93,11 +93,22 @@ async function assertBubbleWithinViewport(page: Page, bubble: Locator, ctx: stri
  * (a) バブルと現在 highlight 中の対象要素が重ならないことを検証する (target が存在する step のみ)。
  *
  * PO 指摘 (a) の本質は「小さな対象 (追加ボタン等) をバブルが覆い隠す」こと。driver.js は collision
- * 回避でこれを防ぐ。一方、対象が viewport の大半を占める巨大コンテナ (例: 一覧 section 全体) の場合、
- * バブルを置く余地が幾何学的に存在しない (target 高 + バブル高 + gap > viewport 高)。これは positioning
- * の不具合ではなく「巨大要素を step target にしている」narrative 側の問題 (EPIC #2925 Sub-2 #2927 が
- * 概要 step の element 省略化 + 小要素 target 化で解消) であり、Sub-1 の positioning 委譲では解けない。
- * よって幾何学的に回避可能な (= バブルを clear して置ける余地がある) ケースに限り厳密非重複を要求する。
+ * 回避でこれを防ぐ。一方、対象が viewport の大半を占める要素 (例: 一覧 section 全体 / radar / 残高グリッド)
+ * や、viewport 下端近くにある薄い要素の場合、バブルを置く余地が幾何学的に存在しない (target 高 + バブル高
+ * + gap > viewport 高)。これは positioning の不具合ではなく「要素の幾何配置」の制約であり、driver.js の
+ * collision 回避でも解けない。よって幾何学的に回避可能な (= バブルを clear して置ける余地がある) ケースに
+ * 限り厳密非重複を要求する。
+ *
+ * #2927 (EPIC #2925 Sub-2) の効果: 旧 narrative は ①概要 step に巨大コンテナ (活動一覧全体 = 864×2705 等)
+ * を target にしていたため本 exempt が常時発動していたが、全 11 ページを「①概要 (selector 省略 = 中央 modal)
+ * → ②画面の見方 → ③最頻操作」に統一し、target を持つ step は小〜中要素のみを指すよう書き直した。これにより
+ * 「viewport を大半覆う巨大 target」は登録 guide から消滅し、本 exempt が幾何回避不能で発動するのは
+ * radar (830×400) / 残高グリッド / 下端付近の薄い要素など、driver.js positioning でも回避できない正当な
+ * 幾何制約ケースに限られる。
+ *
+ * 例外 (skip): driver.js が element 省略 step (①概要 = 中央 modal) で挿入する `#driver-dummy-element`
+ * は width=0 height=0 の placeholder で実 target ではないため検証対象外 (これを overlap 判定に通すと
+ * 0×0 矩形との非重複を誤検証してしまう)。
  */
 async function assertBubbleNotOverlapTarget(
 	page: Page,
@@ -105,7 +116,7 @@ async function assertBubbleNotOverlapTarget(
 	ctx: string,
 ): Promise<void> {
 	const target = page.locator(DRIVER_ACTIVE_ELEMENT).first();
-	// element 省略 step (中央 modal) は active-element が無い → overlap 検証対象外。
+	// element 省略 step (中央 modal = ①概要) は active-element が無い → overlap 検証対象外。
 	if ((await target.count()) === 0) return;
 	if (!(await target.isVisible().catch(() => false))) return;
 
@@ -114,6 +125,10 @@ async function assertBubbleNotOverlapTarget(
 	if (!bubbleBox || !targetBox) return;
 	const vp = page.viewportSize();
 	if (!vp) return;
+
+	// driver.js が element 省略 step で center 配置のために挿入する 0×0 placeholder (#driver-dummy-element)
+	// は実 target ではないため検証対象外 (#2927: ①概要 step を中央 modal 化した全ページで該当)。
+	if (targetBox.width === 0 && targetBox.height === 0) return;
 
 	// driver.js の popoverOffset (既定 10px) + stagePadding (8px) 相当の最小 gap。
 	const minGap = 18;
@@ -127,7 +142,9 @@ async function assertBubbleNotOverlapTarget(
 		vp.width - (targetBox.x + targetBox.width) - minGap >= bubbleBox.width;
 
 	if (!fitsVertically && !fitsHorizontally) {
-		// 巨大 target — 非重複は幾何学的に不可能 (Sub-2 narrative 課題)。本 step は overlap 検証を skip。
+		// 幾何学的に回避不能 (radar / グリッド / 下端付近の薄い要素など driver.js positioning でも
+		// 回避できない正当な制約)。#2927 で巨大コンテナ target は撤廃済 — 本 exempt はもはや
+		// 「巨大 narrative target」では発動しない (上記 docstring 参照)。本 step は overlap 検証を skip。
 		return;
 	}
 
