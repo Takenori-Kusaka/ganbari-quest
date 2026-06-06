@@ -129,7 +129,7 @@ function renderBubble(
  *
  * selector 省略 step (中央 modal) の rAF refresh 後の clamp 再適用について (#2971):
  *   - driver.js の refresh() = be() → ne() のみ。ee() (onPopoverRender を含む) は呼ばない。
- *   - そのため refresh 後の clamp 再適用は rAF ブロック内で明示的に行う (上部 startGuideStep 参照)。
+ *   - そのため refresh 後の clamp 再適用は rAF ブロック内で明示的に行う (上部 renderBubble 参照)。
  *
  * 両立不能 (target 要素が viewport の大半を占める等、幾何的に回避不能) な場合は補正しない。
  * そのような step は invariant spec の幾何 exempt 条件 (assertBubbleNotOverlapTarget) が正しく吸収する。
@@ -191,7 +191,7 @@ function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 				renderBubble(popover.wrapper, pageGuide, step, d);
 				// 2. mount 後に viewport clamp を適用する (#2971 render 層の構成的保証)。
 				//    selector 省略 step の rAF refresh 後は onPopoverRender は再発火しないため、
-				//    startGuideStep の rAF ブロック内で明示的に clamp を再実行している。
+				//    renderBubble の rAF ブロック内で明示的に clamp を再実行している。
 				clampPopoverToViewport(popover.wrapper);
 			},
 		},
