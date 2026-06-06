@@ -12,9 +12,13 @@
 //   + battle 1 件をカバー済み。本 script は残ギャップを埋める:
 //     1. baby home (#2520 未カバーの 5 番目 age mode、ADR-0011 準備モード)
 //     2. admin 代表 critical 画面 (marketplace 取込 CUJ の受領先 = /admin/activities, /admin/checklists)
+//     3. ページガイド open 状態 (#2928、EPIC #2925 Sub-3): ❓ を開いた driver.js popover の
+//        settled 状態 (重複 / 見切れ / spotlight 不全の pixel 回帰検出)。代表 3 ページ × desktop + mobile。
+//        scripts/lib/page-guide-capture.mjs の openPageGuide hook を ScreenshotCapture.capture({ interact })
+//        に渡して撮影する (#1442 使い捨て禁止 — 既存 capture infra の generic 拡張)。
 //
-//   これにより「critical CUJ × 5 age mode + admin」の見た目回帰を pixelmatch で機械検出する
-//   3 層 (LP / child-home / app) の visual regression 体制が完成する。
+//   これにより「critical CUJ × 5 age mode + admin + ガイド open」の見た目回帰を pixelmatch で
+//   機械検出する 3 層 (LP / child-home / app) の visual regression 体制が完成する。
 //
 // 前提:
 //   preview server を AUTH_MODE=anonymous + DATA_SOURCE=demo で起動していること
@@ -46,6 +50,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { openPageGuide } from './lib/page-guide-capture.mjs';
 import { ScreenshotCapture } from './lib/screenshot-helpers.mjs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
@@ -57,8 +62,12 @@ const BASELINE_DIR = path.resolve('scripts/app-screenshot-baseline');
 // ============================================================
 //
 // LP 側は desktop も担保済み (scripts/lp-screenshot-baseline/*-desktop.webp)。
-// アプリ本体は mobile 優先 (主要 user は mobile、Pre-PMF ADR-0010 最小スコープ)。
+// アプリ本体 home / admin 一覧は mobile 優先 (主要 user は mobile、Pre-PMF ADR-0010 最小スコープ)。
 const MOBILE = { width: 390, height: 844, deviceScaleFactor: 2 };
+// ガイド open 状態のみ desktop も撮る (#2928 AC1)。driver.js の collision 回避は viewport 幅依存で
+// 配置が変わるため、mobile 狭幅 / desktop 広幅の双方で「重複 / 見切れ / spotlight」回帰を pixel 検出する。
+// page-guide-layout-invariant.spec.ts (#2926) の VIEWPORTS と同値 (desktop 1280x800)。
+const DESKTOP = { width: 1280, height: 800, deviceScaleFactor: 1 };
 
 // ============================================================
 // Demo fixture child IDs (SSOT: src/lib/server/demo/demo-data.ts)
@@ -103,6 +112,12 @@ function deriveChildIdCookieFromUrl(urlPath) {
 //   - admin/activities (marketplace 取込 CUJ 受領先 / add 経路集約画面、DESIGN.md §10)
 //   - admin/checklists (marketplace 取込 CUJ 受領先、in-page UnifiedImportHub)
 //   mobile 1 viewport のみ (desktop は LP で担保、Pre-PMF mobile 優先)
+//
+// #2928 (EPIC #2925 Sub-3): ガイド open 状態 baseline を追加。
+//   各 spec の `interact` が ❓ を click → driver.js popover を settled 状態にしてから撮る。
+//   `fullPage: false` (バブル位置は viewport 相対 + driver.js fixed overlay のため viewport 撮影)。
+//   代表ページ = /admin/activities (PO 実機指摘の起点、必須) + /admin/checklists + /admin/status
+//   を desktop + mobile で撮る (全 11 ページ × 全 step は no-go、網羅は invariant E2E が担う)。
 const SPECS = [
 	{
 		group: 'age',
@@ -119,6 +134,24 @@ const SPECS = [
 		name: 'app-admin-checklists',
 		url: '/admin/checklists',
 	},
+	// ガイド open 状態 (#2928 AC1)。desktop + mobile を別 spec として展開。
+	...[
+		{ url: '/admin/activities', slug: 'admin-activities' },
+		{ url: '/admin/checklists', slug: 'admin-checklists' },
+		{ url: '/admin/status', slug: 'admin-status' },
+	].flatMap(({ url, slug }) =>
+		[
+			{ vp: MOBILE, suffix: 'mobile' },
+			{ vp: DESKTOP, suffix: 'desktop' },
+		].map(({ vp, suffix }) => ({
+			group: 'guide',
+			name: `app-guide-${slug}-${suffix}`,
+			url,
+			viewport: vp,
+			fullPage: false,
+			interact: openPageGuide,
+		})),
+	),
 ];
 
 // ============================================================
@@ -149,12 +182,12 @@ function printHelp() {
 
 Options:
   --webp              PNG 撮影後に WebP 変換 (baseline は webp、pixelmatch 比較対象)。
-  --only <group>      撮影対象 group を絞り込む (age / admin)。
+  --only <group>      撮影対象 group を絞り込む (age / admin / guide)。
   --update-baseline   撮影後 tmp/app-baseline-current/ を scripts/app-screenshot-baseline/ に上書き。
   -h, --help          このヘルプを表示。
 
-撮影対象 (mobile 390x844):
-${SPECS.map((s) => `  - ${s.name.padEnd(24)} ${s.url} (${s.group})`).join('\n')}
+撮影対象 (mobile 390x844 / guide は desktop 1280x800 も):
+${SPECS.map((s) => `  - ${s.name.padEnd(34)} ${s.url} (${s.group})`).join('\n')}
 `);
 }
 
@@ -192,10 +225,13 @@ async function main() {
 			const result = await capture.capture({
 				url,
 				name: spec.name,
-				viewport: MOBILE,
+				// guide spec は spec ごとに desktop / mobile を指定。それ以外は mobile 既定。
+				viewport: spec.viewport ?? MOBILE,
 				format: args.webp ? 'webp' : 'png',
-				fullPage: true,
+				// guide spec はバブルが viewport 相対のため viewport 撮影。それ以外は fullPage。
+				fullPage: spec.fullPage ?? true,
 				...(cookies ? { cookies } : {}),
+				...(spec.interact ? { interact: spec.interact } : {}),
 			});
 			if (result.ok) {
 				console.log(`  [OK]   ${spec.name.padEnd(24)} ${spec.url} (${result.size} bytes)`);
