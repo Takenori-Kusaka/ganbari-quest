@@ -1,0 +1,71 @@
+# actions/pr-lane/action.yml — Issue #2943 (Phase A/A-1、親 #2942 / EPIC #2861)
+#
+# PR の base/head/actor を context から受け取り、scripts/pr-lane.mjs (SSOT) を呼び出して
+# lane 文字列 (feature / integration / hotfix / dependabot) を outputs.lane に set する
+# 薄い composite action。判定ロジックは持たず、context → script への配線のみを担う。
+#
+# 【配置が actions/ (repo root) であって .github/actions/ でない理由】
+#   composite action を `.github/actions/` 配下ではなく **repo root の `actions/`** に置く。
+#   `.github/` 配下に action.yml を置くと、一部の tooling / linter が reusable workflow
+#   (workflow_call) と誤認しやすく、また GitHub の慣習上 reusable workflow は
+#   `.github/workflows/` に、local composite action は repo root の任意 dir に置く
+#   (Docs: Reusing workflow configurations / community #18601)。本 repo では root の
+#   `actions/` を local composite action の確立配置とする (#2943 no-go に明記)。
+#
+# 【利用 event の制約】
+#   `github.base_ref` / `github.head_ref` は **pull_request / pull_request_target event でのみ**
+#   定義される (push event では空)。本 action は pull_request 系 event の job からのみ呼ぶこと
+#   (#2943 no-go)。caller 側で base/head を明示渡しすれば event 非依存にも使えるが、
+#   既定は context の base_ref / head_ref / actor を入力にする。
+#
+# 【出力 contract (後続 gate A-2〜A-5 が参照)】
+#   steps.<id>.outputs.lane で lane 文字列を取得する。
+#   例:
+#     - id: lane
+#       uses: ./actions/pr-lane
+#     - run: echo "lane=${{ steps.lane.outputs.lane }}"
+#
+# resolve-base-branch.mjs (#2959、クライアント tooling 用) との責務分担は
+# scripts/pr-lane.mjs の冒頭コメントを参照 (CI gate 用 vs local tooling 用で別 SSOT)。
+
+name: 'PR Lane Classifier'
+description: >-
+  Classify a pull request into one of 4 lanes (feature / integration / hotfix / dependabot)
+  from base/head/actor using scripts/pr-lane.mjs (SSOT). Lightweight wiring only — no logic.
+
+inputs:
+  base-ref:
+    description: 'PR base branch name (default: github.base_ref). pull_request event でのみ自動取得可。'
+    required: false
+    default: ${{ github.base_ref }}
+  head-ref:
+    description: 'PR head branch name (default: github.head_ref).'
+    required: false
+    default: ${{ github.head_ref }}
+  actor:
+    description: 'PR author login (default: github.actor). bot 判定に使用。'
+    required: false
+    default: ${{ github.actor }}
+
+outputs:
+  lane:
+    description: 'Classified lane: feature | integration | hotfix | dependabot'
+    value: ${{ steps.classify.outputs.lane }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Classify PR lane (scripts/pr-lane.mjs SSOT)
+      id: classify
+      shell: bash
+      env:
+        # context を env 経由で渡し、bash の引数注入 (改行 / メタ文字) を避ける
+        PR_LANE_BASE: ${{ inputs.base-ref }}
+        PR_LANE_HEAD: ${{ inputs.head-ref }}
+        PR_LANE_ACTOR: ${{ inputs.actor }}
+      run: |
+        set -euo pipefail
+        lane="$(node "${GITHUB_ACTION_PATH}/../../scripts/pr-lane.mjs" \
+          --base "${PR_LANE_BASE}" --head "${PR_LANE_HEAD}" --actor "${PR_LANE_ACTOR}")"
+        echo "Classified lane: ${lane} (base=${PR_LANE_BASE} head=${PR_LANE_HEAD} actor=${PR_LANE_ACTOR})"
+        echo "lane=${lane}" >> "${GITHUB_OUTPUT}"

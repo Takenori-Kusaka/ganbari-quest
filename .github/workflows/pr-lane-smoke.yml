@@ -1,0 +1,78 @@
+name: PR Lane Smoke
+
+# Issue #2943 (Phase A/A-1): lane 判定 SSOT の動作実証。
+#
+# AC4「composite action を 2 つ以上の gate workflow で実際に `uses: ./actions/pr-lane`
+# して lane を取得できることを本 issue の PR 内で最低 1 gate の試験適用で示す」を満たす
+# 最小の試験適用。既存 gate 6 本 (pr-template-gate 等) の改修は A-2〜A-5 の scope であり
+# 本 issue では触らない (no-go) ため、本 issue では独立した smoke workflow で
+# `uses: ./actions/pr-lane` の動作を実証する。A-2 以降が同 action を本番 gate に組み込む。
+#
+# 本 workflow は comment-only / block しない (label 付与すらしない)。lane 値を log と
+# step summary に出すだけの非 required check。main ruleset の required context は増やさない
+# (no-go: 既存 10 context を変更しない)。
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      base-ref:
+        description: 'base branch (手動 smoke 用)'
+        required: false
+        default: 'main'
+      head-ref:
+        description: 'head branch (手動 smoke 用)'
+        required: false
+        default: 'develop'
+      actor:
+        description: 'actor (手動 smoke 用)'
+        required: false
+        default: 'manual'
+
+permissions:
+  contents: read
+
+jobs:
+  lane-smoke:
+    name: PR lane 判定の動作実証
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # pull_request event では context の base_ref/head_ref/actor を、
+      # workflow_dispatch では手動入力を渡す (composite action は両対応)。
+      - name: Classify lane (pull_request context)
+        if: github.event_name == 'pull_request'
+        id: lane-pr
+        uses: ./actions/pr-lane
+
+      - name: Classify lane (workflow_dispatch inputs)
+        if: github.event_name == 'workflow_dispatch'
+        id: lane-dispatch
+        uses: ./actions/pr-lane
+        with:
+          base-ref: ${{ github.event.inputs.base-ref }}
+          head-ref: ${{ github.event.inputs.head-ref }}
+          actor: ${{ github.event.inputs.actor }}
+
+      - name: Report lane (outputs contract 実証)
+        env:
+          LANE: ${{ steps.lane-pr.outputs.lane || steps.lane-dispatch.outputs.lane }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LANE}" ]; then
+            echo "::error::lane output が空です。actions/pr-lane の outputs.lane contract を確認してください。"
+            exit 1
+          fi
+          case "${LANE}" in
+            feature|integration|hotfix|dependabot)
+              echo "PR lane = ${LANE}（4 lane のいずれか、contract OK）" ;;
+            *)
+              echo "::error::想定外の lane='${LANE}'（feature/integration/hotfix/dependabot 以外）"
+              exit 1 ;;
+          esac
+          echo "### PR lane: \`${LANE}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "判定 SSOT: \`scripts/pr-lane.mjs\` / composite action: \`actions/pr-lane\`（#2943）" >> "${GITHUB_STEP_SUMMARY}"
