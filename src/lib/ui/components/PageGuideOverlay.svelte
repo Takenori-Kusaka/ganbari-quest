@@ -92,6 +92,17 @@ function renderBubble(
 		},
 	});
 
+	// mount 直後に .guide-bubble へ runtime px maxWidth を適用する (#2971 round5)。
+	// CSS `max-width: min(360px, calc(100vw - 24px))` が CI 二重 emulation (412px) で 388px に
+	// 評価されるため、window.innerWidth 基準の確実な値を直接 style に書き込む。
+	// 恒常 rAF ループ (clampPopoverFrame) が毎フレーム同値を再設定するが、mount 直後の
+	// 初期フレームで値を確定させることで driver.refresh() 再計測時の幅整合を担保する。
+	const pad = 8;
+	const initialBubble = wrapper.querySelector<HTMLElement>('.guide-bubble');
+	if (initialBubble) {
+		initialBubble.style.maxWidth = `${Math.min(360, window.innerWidth - 2 * pad)}px`;
+	}
+
 	// selector 省略 step (= 画面中央 modal) のみ mount 後に driver.refresh() で再 positioning する。
 	// driver.js は popover を ee() で「mount 前の空 wrapper 実測幅」を使い center 配置するため、
 	// Svelte bubble mount 後に wrapper が最終幅 (max 360px) へ成長すると計測幅とずれ、特に CI mobile
@@ -131,11 +142,16 @@ function renderBubble(
  * リセット方式は per-frame flicker を生むため採用しない。
  * clamp はべき等 (超過なしなら何もしない = no-op)。収束後は実質的にコストゼロ。
  *
- * 【width clamp (#2971 round3 機能維持)】
+ * 【width clamp — 計測対象は .guide-bubble (#2971 round5 確定)】
+ * round2-4 では wrapper (driver-popover-content) に maxWidth を適用していたが、
+ * invariant spec の計測対象は内側の Svelte 子要素 `.guide-bubble` であるため
+ * wrapper clamp は計測値に届かなかった (right=400.5 が全 round 不変だった理由)。
  * CSS `max-width: min(360px, calc(100vw - 24px))` の `100vw` は CI 二重 emulation 環境
- * (project=mobile layout 412px → invariant spec が 390px resize) で乖離するため、
- * window.innerWidth 基準の runtime px 値を style.maxWidth に直接設定して確実に
- * viewport 内に収める。
+ * (project=mobile layout 412px → invariant spec が 390px resize) で 388px に評価され、
+ * x≈12.5 + 388 = 400.5 と完全一致する。
+ * → runtime px 値を `.guide-bubble` 自身の style.maxWidth に直接設定し、
+ *   位置 clamp の計測対象も `.guide-bubble` rect に変更する (計測対象の一致が本質)。
+ *   translate は wrapper に適用で OK (bubble は子として追従)。
  */
 
 /** rAF ループの 1 フレーム処理: incremental delta 方式で popover を viewport 内に clamp する。 */
@@ -144,19 +160,25 @@ function clampPopoverFrame(wrapper: HTMLElement): void {
 	const vh = window.innerHeight;
 	const pad = 8; // stagePadding と同値
 
-	// --- runtime px 幅 clamp (CSS vw 評価の emulation/reflow race 対策、#2971 round3) ---
-	const currentRect = wrapper.getBoundingClientRect();
-	if (currentRect.width === 0 && currentRect.height === 0) return; // まだ mount されていない
-
-	const maxW = vw - 2 * pad;
-	if (currentRect.width > maxW) {
-		wrapper.style.maxWidth = `${maxW}px`;
+	// --- runtime px 幅 clamp を .guide-bubble に適用 (#2971 round5 確定) ---
+	// spec 計測対象 = .guide-bubble、wrapper 計測では届かない (#2971 round5 確定)。
+	// wrapper (driver-popover-content) への maxWidth 適用では .guide-bubble の CSS
+	// `max-width: min(360px, calc(100vw - 24px))` が CI 二重 emulation で 388px に評価され
+	// right=400.5 が不変のまま全 round で失敗した根本原因。
+	const bubble = wrapper.querySelector<HTMLElement>('.guide-bubble');
+	if (bubble) {
+		bubble.style.maxWidth = `${Math.min(360, vw - 2 * pad)}px`;
 	}
+
+	// 計測対象は .guide-bubble (= spec と同一要素)。bubble 未 mount なら wrapper で fallback。
+	const measureTarget = bubble ?? wrapper;
+	const rect = measureTarget.getBoundingClientRect();
+	if (rect.width === 0 && rect.height === 0) return; // まだ mount されていない
 
 	// --- incremental delta 方式 translate clamp ---
 	// 現在の rect (既存 translate 込み) を計測し、超過分だけ translate に加算する。
 	// transform リセットなしで計測するため per-frame flicker が発生しない。
-	const rect = wrapper.getBoundingClientRect();
+	// 計測対象は .guide-bubble (= spec と同一要素) を使用する (#2971 round5 確定)。
 
 	let addDx = 0;
 	let addDy = 0;
@@ -343,6 +365,15 @@ $effect(() => {
 		  so the wrapper's measured size always equals the rendered bubble size and stays
 		  within `100vw - 24px` × `100vh - 24px`. The bubble itself scrolls (overflow-y:auto)
 		  when content exceeds the cap.
+
+		  NOTE (#2971 round5): The CSS `max-width: min(360px, calc(100vw - 24px))` here applies
+		  to the wrapper (driver-popover-content), but the invariant spec measures the inner
+		  `.guide-bubble` element. In CI double-emulation (project=mobile layout 412px, then
+		  invariant spec resizes to 390px), `100vw` evaluates to 412px → 388px max-width,
+		  causing right≈12.5+388=400.5 > 390 invariant failure across all rounds.
+		  The runtime fix is applied in clampPopoverFrame() + renderBubble() via
+		  `bubble.style.maxWidth = Math.min(360, innerWidth-2*pad)px` on the .guide-bubble
+		  directly. This CSS fallback remains for initial load before JS runs.
 		*/
 		max-width: min(360px, calc(100vw - 24px));
 		max-height: calc(100vh - 24px);
