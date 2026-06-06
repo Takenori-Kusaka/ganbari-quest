@@ -24,6 +24,10 @@ let completedLastStep = false;
 // これがないと「新 guide の startDriver → 旧 driver.destroy() → onDestroyed → endPageGuide()」で
 // 起動直後の store を即座に無効化してしまう。
 let suppressDestroyHook = false;
+// 恒常 rAF clamp ループのハンドル (#2971 round4)。
+// ガイド表示中はフレーム毎に clamp を適用し、driver.js の scroll/resize 再配置を含む
+// あらゆる再配置経路を構成的に被覆する (onPopoverRender 非発火の再配置も補正される)。
+let clampLoopId: number | null = null;
 
 /** GuideStep.position を driver.js の Side に写像する ('auto' は viewport 自動調整に委ねる)。 */
 function toSide(position: GuideStep['position']): Side {
@@ -97,105 +101,121 @@ function renderBubble(
 	// 再 center させる。
 	//
 	// 重要: driver.js の refresh() は be() → ne() のみ呼び、ee() (onPopoverRender を含む) は
-	// 呼ばない (#2971 調査確定)。そのため refresh 後に clamp が自動的に再適用されることはなく、
-	// 明示的に再実行する必要がある。
-	// 実行順序:
-	//   [1] d.refresh() → ne() で「Svelte bubble mount 後の正しい幅」を使い style.left/top を再計算
-	//   [2] clampPopoverToViewport() で viewport 超過分を transform で補正 (#2971 根治)
+	// 呼ばない (#2971 調査確定)。refresh 後の clamp 補正は恒常 rAF ループが次フレームで担う。
 	if (!step.selector && typeof requestAnimationFrame === 'function') {
 		requestAnimationFrame(() => {
 			if (driverInstance === d && d.isActive()) {
 				d.refresh();
-				// [2] refresh は onPopoverRender を再発火しないため clamp を明示再実行する (#2971)
-				const popoverWrapper = document.getElementById('driver-popover-content');
-				if (popoverWrapper) clampPopoverToViewport(popoverWrapper);
+				// refresh 後の clamp 補正は恒常 rAF ループ (startClampLoop) が次フレームで担う (#2971 round4)
 			}
 		});
 	}
 }
 
 /**
- * render 層の viewport clamp — 構成的保証 (#2971)。
+ * 恒常 rAF clamp ループ — 構成的保証 (#2971 round4)。
  *
- * driver.js は popover を配置する際に wrapper の measured size を使い position を決定するが、
- * CI 環境 (Linux / Pixel 7 emulation) では日本語テキストが local より高く / 広くレンダーされるため
- * 配置後の popover 辺が viewport を超えることがある。本関数は onPopoverRender hook (= driver.js が
- * 配置を完了した後に毎回発火) で wrapper の getBoundingClientRect() を計測し、viewport 境界を
- * padding 8px (stagePadding 相当) で内側に保って超過分を transform: translate で補正する。
+ * 【確定機序 (#2971 round4)】
+ * driver.js は scroll / resize イベントで popover を自前再配置する際、onPopoverRender を発火しない
+ * (be() → ne() のみ)。そのため step 遷移時の smoothScroll 後の再配置で一発 clamp (#2972/#2976/#2978)
+ * が上書きされ、未 clamp 位置のまま「安定」して計測される。CI は font metrics 差で scroll 発生量が
+ * 変わり local と乖離する。
  *
- * なぜ transform か:
- *   - driver.js の position: absolute + top/left に重ねるだけで layout flow に影響しない
- *   - driver.js が次のステップ遷移で reset するため永続的な副作用がない
+ * 【解法: rAF ループによる恒常 clamp】
+ * ガイド表示中はフレーム毎に clamp 条件をチェックし、超過があれば補正する。
+ * driver.js の scroll/resize/refresh どの再配置後も次フレームで補正されるため、
+ * spec の stable 待ちは「clamp 済み安定」を観測する設計になる。
  *
- * 【width clamp — round3 (#2971)】
- * CI の project=mobile (Pixel 7、layout 412px) 内で invariant spec が viewport を 390px へ
- * resize する二重 emulation 環境では、CSS `max-width: min(360px, calc(100vw - 24px))` の
- * `100vw` 評価が 412px 基準のまま (or reflow race) になり幅 388px → 右端 400.5 > 391 と
- * viewport を超過する (QM CI artifact run 27045487339 で確定診断)。
- * CSS vw に依存しない runtime px での幅 clamp を translate 補正前に実施し、
- * `el.style.maxWidth` を `window.innerWidth - 2*pad` px に直接設定して
- * 再計測 → translate 補正の順序を保証する。
- * 100vw 評価が emulation/reflow race で viewport と乖離する CI 環境への runtime px 保証 (#2971 round3)。
+ * 【incremental delta 方式】
+ * transform をリセットせず現在の rect を計測し、viewport 超過分だけ既存 translate に加算する。
+ * リセット方式は per-frame flicker を生むため採用しない。
+ * clamp はべき等 (超過なしなら何もしない = no-op)。収束後は実質的にコストゼロ。
  *
- * selector 省略 step (中央 modal) の rAF refresh 後の clamp 再適用について (#2971):
- *   - driver.js の refresh() = be() → ne() のみ。ee() (onPopoverRender を含む) は呼ばない。
- *   - そのため refresh 後の clamp 再適用は rAF ブロック内で明示的に行う (上部 startGuideStep 参照)。
- *
- * 両立不能 (target 要素が viewport の大半を占める等、幾何的に回避不能) な場合は補正しない。
- * そのような step は invariant spec の幾何 exempt 条件 (assertBubbleNotOverlapTarget) が正しく吸収する。
+ * 【width clamp (#2971 round3 機能維持)】
+ * CSS `max-width: min(360px, calc(100vw - 24px))` の `100vw` は CI 二重 emulation 環境
+ * (project=mobile layout 412px → invariant spec が 390px resize) で乖離するため、
+ * window.innerWidth 基準の runtime px 値を style.maxWidth に直接設定して確実に
+ * viewport 内に収める。
  */
-function clampPopoverToViewport(wrapper: HTMLElement): void {
-	const rect = wrapper.getBoundingClientRect();
-	if (rect.width === 0 && rect.height === 0) return; // まだ mount されていない
 
+/** rAF ループの 1 フレーム処理: incremental delta 方式で popover を viewport 内に clamp する。 */
+function clampPopoverFrame(wrapper: HTMLElement): void {
 	const vw = window.innerWidth;
 	const vh = window.innerHeight;
 	const pad = 8; // stagePadding と同値
 
-	// --- runtime px 幅 clamp (#2971 round3) ---
-	// CSS `max-width: min(360px, calc(100vw - 24px))` の `100vw` は CI 二重 emulation 環境
-	// (project=mobile layout 412px → invariant spec が 390px resize) で乖離するため、
-	// window.innerWidth 基準の runtime px 値を style.maxWidth に直接設定して確実に
-	// viewport 内に収める。CSS vw に依存しない構成的保証。
-	// 100vw 評価が emulation/reflow race で viewport と乖離する CI 環境への runtime px 保証 (#2971 round3)。
+	// --- runtime px 幅 clamp (CSS vw 評価の emulation/reflow race 対策、#2971 round3) ---
+	const currentRect = wrapper.getBoundingClientRect();
+	if (currentRect.width === 0 && currentRect.height === 0) return; // まだ mount されていない
+
 	const maxW = vw - 2 * pad;
-	if (rect.width > maxW) {
+	if (currentRect.width > maxW) {
 		wrapper.style.maxWidth = `${maxW}px`;
 	}
 
-	// 現在の transform を除去して素の位置を取得するため、一時的に transform をリセットする。
-	// maxWidth 変更後の最新 rect が必要なため transform リセット → getBoundingClientRect の順で実行。
-	// driver.js は style.transform を直接操作しないため、既存 transform は本 clamp が設定したもの。
-	const prevTransform = wrapper.style.transform;
-	wrapper.style.transform = '';
-	const baseRect = wrapper.getBoundingClientRect();
-	wrapper.style.transform = prevTransform;
+	// --- incremental delta 方式 translate clamp ---
+	// 現在の rect (既存 translate 込み) を計測し、超過分だけ translate に加算する。
+	// transform リセットなしで計測するため per-frame flicker が発生しない。
+	const rect = wrapper.getBoundingClientRect();
 
-	let dx = 0;
-	let dy = 0;
+	let addDx = 0;
+	let addDy = 0;
 
-	// 右端が viewport を超えていれば左に移動
-	if (baseRect.right > vw - pad) {
-		dx = vw - pad - baseRect.right;
+	// 右端が viewport を超えていれば左に追加移動
+	if (rect.right > vw - pad) {
+		addDx = vw - pad - rect.right;
 	}
-	// 左端が viewport より左なら右に移動 (右端補正後に再チェック)
-	if (baseRect.left + dx < pad) {
-		dx = pad - baseRect.left;
+	// 左端が viewport より左なら右に追加移動 (右端補正後に再チェック)
+	if (rect.left + addDx < pad) {
+		addDx = pad - rect.left;
 	}
 
-	// 下端が viewport を超えていれば上に移動
-	if (baseRect.bottom > vh - pad) {
-		dy = vh - pad - baseRect.bottom;
+	// 下端が viewport を超えていれば上に追加移動
+	if (rect.bottom > vh - pad) {
+		addDy = vh - pad - rect.bottom;
 	}
-	// 上端が viewport より上なら下に移動 (下端補正後に再チェック)
-	if (baseRect.top + dy < pad) {
-		dy = pad - baseRect.top;
+	// 上端が viewport より上なら下に追加移動 (下端補正後に再チェック)
+	if (rect.top + addDy < pad) {
+		addDy = pad - rect.top;
 	}
 
-	if (dx !== 0 || dy !== 0) {
-		wrapper.style.transform = `translate(${Math.round(dx)}px, ${Math.round(dy)}px)`;
-	} else {
-		wrapper.style.transform = '';
+	if (addDx === 0 && addDy === 0) return; // 超過なし → no-op (べき等)
+
+	// 既存 translate を解析して加算する
+	const existingTransform = wrapper.style.transform;
+	let existingDx = 0;
+	let existingDy = 0;
+	if (existingTransform) {
+		const match = existingTransform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+		if (match) {
+			existingDx = parseFloat(match[1] ?? '0') || 0;
+			existingDy = parseFloat(match[2] ?? '0') || 0;
+		}
+	}
+
+	wrapper.style.transform = `translate(${Math.round(existingDx + addDx)}px, ${Math.round(existingDy + addDy)}px)`;
+}
+
+/**
+ * ガイド表示中の恒常 rAF clamp ループを開始する。
+ * driver.js の scroll/resize/refresh による再配置 (onPopoverRender 非発火) を含む
+ * あらゆる再配置経路を構成的に被覆する (#2971 round4)。
+ */
+function startClampLoop(getWrapper: () => HTMLElement | null): void {
+	stopClampLoop();
+	const tick = () => {
+		const wrapper = getWrapper();
+		if (wrapper) clampPopoverFrame(wrapper);
+		clampLoopId = requestAnimationFrame(tick);
+	};
+	clampLoopId = requestAnimationFrame(tick);
+}
+
+/** ガイド close / destroy 時に rAF ループを停止する (リーク防止)。 */
+function stopClampLoop(): void {
+	if (clampLoopId !== null) {
+		cancelAnimationFrame(clampLoopId);
+		clampLoopId = null;
 	}
 }
 
@@ -211,16 +231,19 @@ function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 			onPopoverRender: (popover, { driver: d }) => {
 				// 1. Svelte bubble を driver.js wrapper に mount する
 				renderBubble(popover.wrapper, pageGuide, step, d);
-				// 2. mount 後に viewport clamp を適用する (#2971 render 層の構成的保証)。
-				//    selector 省略 step の rAF refresh 後は onPopoverRender は再発火しないため、
-				//    startGuideStep の rAF ブロック内で明示的に clamp を再実行している。
-				clampPopoverToViewport(popover.wrapper);
+				// 2. 恒常 rAF clamp ループを開始する (#2971 round4)。
+				//    driver.js の scroll/resize 再配置は onPopoverRender を再発火しないため、
+				//    一発 clamp では scroll 後の再配置位置が補正されないまま「安定」してしまう。
+				//    ループによる恒常 clamp は全再配置経路を構成的に被覆する。
+				startClampLoop(() => document.getElementById('driver-popover-content'));
 			},
 		},
 	}));
 }
 
 function destroyDriver(): void {
+	// rAF ループを最初に停止してリークを防ぐ (#2971 round4)
+	stopClampLoop();
 	if (mountedBubble) {
 		unmount(mountedBubble);
 		mountedBubble = null;
