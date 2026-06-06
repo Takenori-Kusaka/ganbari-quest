@@ -545,7 +545,7 @@ function getChildName(childId: number): string {
 <div class="space-y-4" data-testid="admin-checklists-page" data-tutorial="checklists-page">
 	<!-- #2362 PR-5 Phase 2: page header + OverflowMenu (top-right ⋮) -->
 	<!-- #2905: ❓ ページガイド (CHECKLISTS_GUIDE) の起点アンカーは本 wrapper (data-tutorial="checklists-page")。 -->
-	<header class="flex items-start justify-between gap-2">
+	<header class="flex items-start justify-between gap-2" data-tutorial="checklists-header">
 		<div class="space-y-1 flex-1 min-w-0">
 			<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
 				{ADMIN_CHECKLISTS_PAGE_LABELS.pageTitle}

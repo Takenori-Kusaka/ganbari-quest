@@ -67,7 +67,7 @@ async function handleStartPageGuide() {
 	const path = $page.url.pathname.replace(basePath, '/admin');
 	const guide = await getPageGuide(path);
 	if (!guide) return;
-	// #2919: 現在のプランで表示できない手順 (requiredTier 未達、例: challenges-overview の family)
+	// #2919: 現在のプランで表示できない手順 (requiredTier 未達、例: challenges-intro の family)
 	// を除外してから起動する。free ユーザーに「上位プラン限定」の手順を見せない (NN/G #1 / #5)。
 	const filtered = filterGuideStepsByTier(guide, planTier);
 	if (filtered) {

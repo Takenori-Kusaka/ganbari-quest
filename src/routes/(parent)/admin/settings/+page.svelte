@@ -125,21 +125,24 @@ async function handleReactivate() {
 		</div>
 	{/if}
 
-	<Card padding="lg">
-		<h2 class="text-xl font-bold text-[var(--color-text)] mb-2">
-			{SETTINGS_LABELS.hubTitle}
-		</h2>
-		<p class="text-sm text-[var(--color-text-muted)]">
-			{SETTINGS_LABELS.hubDesc}
-		</p>
-	</Card>
+	<div data-tutorial="settings-hub-intro">
+		<Card padding="lg">
+			<h2 class="text-xl font-bold text-[var(--color-text)] mb-2">
+				{SETTINGS_LABELS.hubTitle}
+			</h2>
+			<p class="text-sm text-[var(--color-text-muted)]">
+				{SETTINGS_LABELS.hubDesc}
+			</p>
+		</Card>
+	</div>
 
 	<div class="settings-hub__grid" data-testid="settings-hub-grid">
-		{#each groupCards as group (group.href)}
+		{#each groupCards as group, i (group.href)}
 			<a
 				href={group.href}
 				class="settings-hub__card"
 				data-testid={group.testid}
+				data-tutorial={i === 0 ? 'settings-first-card' : undefined}
 			>
 				<div class="settings-hub__card-icon" aria-hidden="true">{group.icon}</div>
 				<div class="settings-hub__card-body">

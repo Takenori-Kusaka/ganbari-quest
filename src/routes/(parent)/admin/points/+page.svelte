@@ -46,6 +46,10 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 const currentBalance = $derived(selectedChild?.balance?.balance ?? 0);
 const maxConvertable = $derived(selectedChild?.balance?.convertableAmount ?? 0);
 
+// #2927: ページガイド ③ (交換の起点) のアンカー。残高カードのうち最初に描画される 1 枚
+// (= 残高を持つ先頭のお子さま) を小要素として highlight するための id。
+const firstBalanceChildId = $derived(data.children.find((c) => c.balance)?.id ?? 0);
+
 // 変換履歴
 const convertHistory = $derived(selectedChild?.convertHistory ?? []);
 let historyPeriod = $state<'this-month' | 'last-month' | 'all'>('all');
@@ -186,12 +190,13 @@ async function handleReceiptFile(event: Event) {
 	</div>
 
 	<!-- Balance Overview -->
-	<div class="grid gap-3">
+	<div class="grid gap-3" data-tutorial="points-child-balances">
 		{#each data.children as child}
 			{#if child.balance}
 				<div
 					class="bg-white rounded-xl p-4 shadow-sm flex items-center gap-4 cursor-pointer transition-shadow
 						{selectedChildId === child.id ? 'ring-2 ring-[var(--color-border-focus)]' : 'hover:shadow-md'}"
+					data-tutorial={child.id === firstBalanceChildId ? 'points-first-balance' : undefined}
 					role="button"
 					tabindex="0"
 					onclick={() => { selectedChildId = child.id; convertResult = null; }}

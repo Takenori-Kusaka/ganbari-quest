@@ -115,12 +115,15 @@ let levelTitleInputs: Record<number, string> = $state({});
 					size={280}
 				/>
 			</div>
-			<p class="text-xs text-[var(--color-text-muted)] text-center mb-4">
+			<p
+				class="text-xs text-[var(--color-text-muted)] text-center mb-4"
+				data-tutorial="status-radar-note"
+			>
 				{STATUS_LABELS.radarChartNote}
 			</p>
 
 			<!-- 分析サマリー (G8) -->
-			<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 mb-4">
+			<div class="bg-[var(--color-surface-muted)] rounded-lg p-3 mb-4" data-tutorial="status-summary">
 				<h4 class="text-sm font-bold text-[var(--color-text)] mb-2">{STATUS_LABELS.analysisSummaryTitle}</h4>
 				<div class="space-y-1">
 					{#each CATEGORY_DEFS as catDef (catDef.id)}

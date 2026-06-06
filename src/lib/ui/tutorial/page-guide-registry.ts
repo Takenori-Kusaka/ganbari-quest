@@ -68,7 +68,7 @@ export async function getPageGuide(path: string): Promise<PageGuide | null> {
 /**
  * ページガイドの手順を現在のプランティアでフィルタする。
  *
- * 各 GuideStep の `requiredTier`（例: challenges-overview の `family`）を満たさない手順を除外し、
+ * 各 GuideStep の `requiredTier`（例: challenges-intro の `family`）を満たさない手順を除外し、
  * 残った手順だけのガイドを返す。これにより free ユーザーには「上位プラン限定機能」の手順を見せず、
  * 「設定したのに使えない」混乱（NN/G #1 visibility / #5 error prevention）を防ぐ。
  *
