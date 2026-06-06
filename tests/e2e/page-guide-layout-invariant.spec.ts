@@ -74,7 +74,12 @@ async function assertBubbleWithinViewport(page: Page, bubble: Locator, ctx: stri
 	const box = await bubble.boundingBox();
 	expect(box, `${ctx}: バブルの bounding box が取得できる`).not.toBeNull();
 	if (!box) return;
-	const vp = page.viewportSize();
+	// #2971 round6: project device emulation 下では setViewportSize がページ layout に
+	// 反映されないことがあり、viewportSize() との比較は座標空間不一致になる。
+	// boundingBox() は実 CSS px 空間 (例: Pixel 7 emulation = 412px) を返すが、
+	// page.viewportSize() は要求値 (390px) を返すため比較が誤る。
+	// window.innerWidth を使うことで rect と同一座標空間を参照する。
+	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
 	expect(vp, `${ctx}: viewport size`).not.toBeNull();
 	if (!vp) return;
 	const tol = 1; // sub-pixel 丸め許容
@@ -197,6 +202,9 @@ test.describe('#2926 PageGuide layout invariant — driver.js 委譲後の (a)(b
 				page,
 			}) => {
 				await page.setViewportSize({ width, height });
+				// #2971 round6: 診断用 — 要求値と実 window.innerWidth の乖離をログ (assert はしない)
+				const actualVp = await page.evaluate(() => ({ w: window.innerWidth })).catch(() => null);
+				console.log(`[viewport-diag] requested=${width} actual=${actualVp?.w ?? 'unknown'}`);
 				await page.goto(path);
 				await page.waitForLoadState('domcontentloaded');
 				await dismissWelcome(page);
