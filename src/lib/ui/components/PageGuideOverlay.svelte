@@ -127,6 +127,16 @@ function renderBubble(
  *   - driver.js の position: absolute + top/left に重ねるだけで layout flow に影響しない
  *   - driver.js が次のステップ遷移で reset するため永続的な副作用がない
  *
+ * 【width clamp — round3 (#2971)】
+ * CI の project=mobile (Pixel 7、layout 412px) 内で invariant spec が viewport を 390px へ
+ * resize する二重 emulation 環境では、CSS `max-width: min(360px, calc(100vw - 24px))` の
+ * `100vw` 評価が 412px 基準のまま (or reflow race) になり幅 388px → 右端 400.5 > 391 と
+ * viewport を超過する (QM CI artifact run 27045487339 で確定診断)。
+ * CSS vw に依存しない runtime px での幅 clamp を translate 補正前に実施し、
+ * `el.style.maxWidth` を `window.innerWidth - 2*pad` px に直接設定して
+ * 再計測 → translate 補正の順序を保証する。
+ * 100vw 評価が emulation/reflow race で viewport と乖離する CI 環境への runtime px 保証 (#2971 round3)。
+ *
  * selector 省略 step (中央 modal) の rAF refresh 後の clamp 再適用について (#2971):
  *   - driver.js の refresh() = be() → ne() のみ。ee() (onPopoverRender を含む) は呼ばない。
  *   - そのため refresh 後の clamp 再適用は rAF ブロック内で明示的に行う (上部 startGuideStep 参照)。
@@ -142,7 +152,19 @@ function clampPopoverToViewport(wrapper: HTMLElement): void {
 	const vh = window.innerHeight;
 	const pad = 8; // stagePadding と同値
 
+	// --- runtime px 幅 clamp (#2971 round3) ---
+	// CSS `max-width: min(360px, calc(100vw - 24px))` の `100vw` は CI 二重 emulation 環境
+	// (project=mobile layout 412px → invariant spec が 390px resize) で乖離するため、
+	// window.innerWidth 基準の runtime px 値を style.maxWidth に直接設定して確実に
+	// viewport 内に収める。CSS vw に依存しない構成的保証。
+	// 100vw 評価が emulation/reflow race で viewport と乖離する CI 環境への runtime px 保証 (#2971 round3)。
+	const maxW = vw - 2 * pad;
+	if (rect.width > maxW) {
+		wrapper.style.maxWidth = `${maxW}px`;
+	}
+
 	// 現在の transform を除去して素の位置を取得するため、一時的に transform をリセットする。
+	// maxWidth 変更後の最新 rect が必要なため transform リセット → getBoundingClientRect の順で実行。
 	// driver.js は style.transform を直接操作しないため、既存 transform は本 clamp が設定したもの。
 	const prevTransform = wrapper.style.transform;
 	wrapper.style.transform = '';
