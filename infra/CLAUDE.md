@@ -153,4 +153,4 @@ cron-dispatcher は **CRON_SECRET** または **OPS_SECRET_KEY** 最低 1 本必
 
 ## CDK Replacement gate の既知良性パターン (ADR-0019 運用)
 
-- `ErrorPagesDeploy/AwsCliLayer` の `may-cause-replacement` は aws-cdk-lib の version bump で BucketDeployment 補助 layer (deploy 時ツーリング) が再生成されるもの。**ユーザー向けリソースの置換ではなく良性** — 検出時は PR body に `replacement-approved: ErrorPagesDeploy/AwsCliLayer` を記載して承認する (初出: aws-cdk-lib 2.257→2.258、#2963)。
+- `ErrorPagesDeploy/AwsCliLayer` の `may-cause-replacement` は aws-cdk-lib の version bump で BucketDeployment 補助 layer (deploy 時ツーリング) が再生成されるもの。**ユーザー向けリソースの置換ではなく良性** — 検出時は **branch の commit message (body) に** `replacement-approved: <ID>` を記載して承認する (squash message は commit message 由来 — PR body は乗らない) (初出: aws-cdk-lib 2.257→2.258、#2963)。
