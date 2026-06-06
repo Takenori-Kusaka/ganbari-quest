@@ -229,6 +229,10 @@ function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 			// title / description は空にし、custom render の Svelte UI に全面委譲する (AC2)
 			showButtons: [],
 			onPopoverRender: (popover, { driver: d }) => {
+				// per-step で前 step の clamp delta を破棄 (#2971 round4 QM 指摘)
+				// driver が直前に fresh 配置した直後なので、前 step の incremental translate が
+				// 残留すると新 step の popover が旧 delta 分オフセットして表示される潜在要因になる。
+				popover.wrapper.style.transform = '';
 				// 1. Svelte bubble を driver.js wrapper に mount する
 				renderBubble(popover.wrapper, pageGuide, step, d);
 				// 2. 恒常 rAF clamp ループを開始する (#2971 round4)。
