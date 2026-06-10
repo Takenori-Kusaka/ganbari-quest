@@ -234,8 +234,10 @@ challenge-set は **#2362 PR-7 (ADR-0055、User §6) で activity-pack と同型
 - `+page.svelte`: `ChildSelectionDialog` import + `?marketplace-import=<presetId>` を `$effect` で検出して auto-open + `handleChildSelectionConfirm` で `?/importMarketplaceChallengeSet` に CSV 形式で POST
 - `+page.server.ts` load: `importPresetId` / `importPresetInvalid` を export (rewards `?import=` 同型、dialog auto-open trigger 用)
 - `+page.server.ts` action `importMarketplaceChallengeSet`: CSV (`childIds=1,2,3` or `'all'`) 受領サポート追加 (旧 `getAll('childIds')` repeated 形式は後方互換維持) + **CWE-598 guard 追加** (`tenantChildren` の ID set に含まれない `childId` を 1 件でも検出すると 403 reject、admin-rewards `importPresetToChildren` 同型)
-- `tests/e2e/admin-challenges-import-marketplace.spec.ts`: CUJ-CH2 を **partial → 完全 terminal goal verify** に upgrade (admin-rewards CUJ-R2 と同型の `grew || hadSkips` dual condition で dev DB 永続状態 robust)
+- CUJ-CH2 の E2E 検証 (旧 `admin-challenges-import-marketplace.spec.ts`) は CUJ-A3 / CUJ-R2 と同型の完全 terminal goal verify に upgrade されていた
 - `src/lib/domain/labels.ts` `ADMIN_CHALLENGES_PAGE_LABELS`: `importSuccess / importAllDuplicates / importFailed / importDemo / importInvalidPreset` を追加 (admin-rewards 同型)
+
+> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の preset (japan-annual-events) を廃止した。これにより上記 marketplace 経由のチャレンジ取込 (CUJ-CH2) は撤去し、検証 spec も削除した。`challenge-set` の型 / schema / Registry 登録 / `?import=` 受領経路は互換のため残置 (valid preset 不在時は invalid guidance を表示)。チャレンジ機能本体 (自作 + auto-challenge) は `/admin/challenges` に保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
 
 #### reward-set 取込フロー (EPIC #2362 PR-4 で実装済)
 

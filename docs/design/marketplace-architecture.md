@@ -346,7 +346,9 @@ EPIC #2362 P1 Phase 1 で導入された Valibot schema SSOT。`src/lib/marketpl
 
 ### 9.5 `challenge-set` (`ChallengeSetPayloadSchema`)
 
-SSOT 整合: `src/lib/domain/marketplace-item.ts` `ChallengeSetPayload` interface (#2297 で導入)。協力タイプ固定 (EPIC #2294 ② で competitive UI 撤去済) で、期間は monthDay (MM-DD) + durationDays の論理表現で年間行事 (お正月 / 節分 / ひな祭り / ハロウィン / クリスマス等) を表現する。import 時に service 側で当該年の日付に展開。参照データ: `src/lib/data/marketplace/challenge-sets/japan-annual-events.json` (15 件)。
+SSOT 整合: `src/lib/domain/marketplace-item.ts` `ChallengeSetPayload` interface (#2297 で導入)。協力タイプ固定 (EPIC #2294 ② で competitive UI 撤去済) で、期間は monthDay (MM-DD) + durationDays の論理表現で年間行事 (お正月 / 節分 / ひな祭り / ハロウィン / クリスマス等) を表現する。import 時に service 側で当該年の日付に展開。
+
+#2896 (2026-06-11 PO 判断): marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の production preset を廃止した。`challenge-set` の型 / schema / Registry 登録は互換のため残置し、schema 整合の参照データは test fixture `tests/fixtures/marketplace/challenge-sets/japan-annual-events.json` (15 件) で継続検証する。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
 
 ```ts
 {

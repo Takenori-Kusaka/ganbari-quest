@@ -381,9 +381,11 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - 重複検知ロジック (`sameSourceTitles`) 変更 → unit テスト 3 件 (「同一 preset 同一 title」/「別 preset 同名」/「sourcePresetId=null 手動 reward」) で誤検知ガード
 - reward の即時付与（grant）と一括取込（import）の区別: 一括取込は **point 加算しない**（"候補登録"）。grant は `insertPointEntry` を呼ぶ
 
-#### 7e. marketplace challenge-set 一括追加 (#2297, EPIC #2294 ③)
+#### 7e. marketplace challenge-set 一括追加 (#2297, EPIC #2294 ③ — #2896 で marketplace 陳列廃止)
 
-`src/lib/data/marketplace/challenge-sets/*.json` (現状 1 件: 日本年間行事パック 15 件入り) は **マーケットプレイス詳細ページ → /admin/challenges 画面**の動線で一括取込される。`MarketplaceItemType` を 4 → 5 type に拡張した実装。
+> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の production preset (日本年間行事パック) を廃止した (JSON は `tests/fixtures/marketplace/challenge-sets/` へ移管し schema 互換検証を継続)。以下のペア表は型 / schema / Registry 登録の互換維持のため残置するが、marketplace 経由のチャレンジ取込動線は撤去済。チャレンジ機能本体 (自作 + auto-challenge) は `/admin/challenges` に保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
+
+`src/lib/domain/marketplace-item.ts` の `ChallengeSetPayload` 等は **マーケットプレイス詳細ページ → /admin/challenges 画面**の動線（現在は廃止）で一括取込されていた。`MarketplaceItemType` を 4 → 5 type に拡張した実装。
 
 **並行実装ペア (`MarketplaceItemType` 拡張時の同期対象)**:
 
