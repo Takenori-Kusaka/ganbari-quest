@@ -1325,7 +1325,7 @@ export const OYAKAGI_LABELS = {
 	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
 	gateModalDescription: `${ADMIN_VIEW_TERMS.canonical}には${PARENT_TERMS.neutral}のみが入れます。${OYAKAGI_TERMS.name}を入力してください。`,
 	gateModalSubmitting: 'かくにん中…',
-	// #2991: ロック時は解除予定の絶対時刻を提示する (NIST SP 800-63B / iOS Security Lockout は残り時間明示、
+	// #2991: ロック時は解除の絶対時刻を提示する (NIST SP 800-63B / iOS Security Lockout は残り時間明示、
 	// NN/g heuristic #1 visibility)。秒カウントダウンは temporal vigilance で不安を増幅するため絶対時刻型を採用
 	// (research: tmp/research/pin-gate-ux-ideal-state.md Q2)。timeStr は呼び出し側で「HH:MM」整形した文字列。
 	gateLockedUntilNotice: (timeStr: string) =>

@@ -63,7 +63,7 @@ function registerParentGateTests(): void {
 			await expect(page.getByTestId('parent-gate-error')).toBeVisible({ timeout: 10_000 });
 		});
 
-		test('#2991: ロック時に解除予定の絶対時刻が表示される', async ({ page }) => {
+		test('#2991: ロック時に解除の絶対時刻が表示される', async ({ page }) => {
 			// 実 lockout (6 回失敗) は PinInput remount で入力フォーカスが flaky になるため、
 			// verify API を LOCKED_OUT + 固定 lockedUntil で intercept し「サーバが返す解除時刻が
 			// クライアントで HH:MM 表示されるか」の wiring を決定的に検証する (page.route = Integration、
@@ -93,7 +93,7 @@ function registerParentGateTests(): void {
 
 			const errorAlert = page.getByTestId('parent-gate-error');
 			await expect(errorAlert).toBeVisible({ timeout: 10_000 });
-			// 解除予定の絶対時刻が文言に含まれる (時刻なし「しばらく」だけの表示でないこと)
+			// 解除の絶対時刻が文言に含まれる (時刻なし「しばらく」だけの表示でないこと)
 			await expect(errorAlert).toContainText(expectedTime);
 			await expect(errorAlert).not.toContainText('しばらく');
 		});

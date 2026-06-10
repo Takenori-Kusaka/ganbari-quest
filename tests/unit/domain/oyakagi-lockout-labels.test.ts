@@ -1,9 +1,9 @@
 // tests/unit/domain/oyakagi-lockout-labels.test.ts
-// #2991: おやカギコード ロック時に解除予定時刻を明示する文言の SSOT 検証。
+// #2991: おやカギコード ロック時に解除時刻を明示する文言の SSOT 検証。
 //
 // 背景: 旧 lockedError は「しばらく待ってから」で解除時刻が無く、ユーザは「いつ再試行できるか」
 // 分からず不安 → サポート連絡を強いられていた (NN/g heuristic #1 violation)。
-// #2991 で gateLockedUntilNotice(timeStr) を導入し、解除予定の絶対時刻を提示する
+// #2991 で gateLockedUntilNotice(timeStr) を導入し、解除の絶対時刻を提示する
 // (NIST SP 800-63B / iOS Security Lockout は残り時間明示、秒カウントダウンは temporal vigilance で
 //  不安増大のため絶対時刻型を採用 — tmp/research/pin-gate-ux-ideal-state.md Q2)。
 
@@ -12,7 +12,7 @@ import { OYAKAGI_LABELS } from '$lib/domain/labels';
 import { OYAKAGI_TERMS } from '$lib/domain/terms';
 
 describe('#2991 OYAKAGI_LABELS.gateLockedUntilNotice (ロック解除時刻の明示)', () => {
-	it('解除予定の時刻文字列を文言に埋め込む', () => {
+	it('解除の時刻文字列を文言に埋め込む', () => {
 		const msg = OYAKAGI_LABELS.gateLockedUntilNotice('20:45');
 		expect(msg).toContain('20:45');
 	});
