@@ -22,8 +22,11 @@ import kinderStarter from './activity-packs/kinder-starter.json';
 import seniorBoy from './activity-packs/senior-boy.json';
 import seniorGirl from './activity-packs/senior-girl.json';
 import seniorHighChallenge from './activity-packs/senior-high-challenge.json';
-// ── Challenge Sets (#2297, EPIC #2294 ③) ────────────────────
-import japanAnnualEvents from './challenge-sets/japan-annual-events.json';
+// ── Challenge Sets ──────────────────────────────────────────
+// #2896 (2026-06-11 PO 判断): marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、
+// 唯一の challenge-set preset (japan-annual-events、地域限定の季節コンテンツ) を廃止。
+// challenge 機能自体は /admin/challenges (自作 + auto-challenge) に保持。challenge-set 型 / schema /
+// Registry 登録 / round-trip 検証は互換のため残置 (round-trip は tests/fixtures に移管した fixture で継続検証)。
 // ── Checklists ──────────────────────────────────────────────
 // #1758 (#1709-D): morning/evening/weekend × 4 年齢 = 12 件削除（持ち物純化）
 // 旧 routine 系 checklist は activities.priority='must'（#1755）に役割移管済み。
@@ -96,8 +99,7 @@ const allItems: MarketplaceItem[] = [
 	siblingCoop,
 	weekendSpecial,
 	selfStudyReward,
-	// Challenge sets (#2297, EPIC #2294 ③)
-	japanAnnualEvents,
+	// Challenge sets: #2896 で唯一の preset (japan-annual-events) を廃止し marketplace 陳列から除外。
 ] as unknown as MarketplaceItem[];
 
 const itemMap = new Map<string, MarketplaceItem>();
@@ -153,9 +155,13 @@ export function getMarketplaceItem(
  * Round 18 Cluster I (#tag-filter-collapse): 50+ tag が並列表示されて Hick's Law 違反していたため、
  * 人気順を SSOT 化して LP / filter sidebar が頻出 tag を優先表示できるようにした。
  */
-export function getAllTags(): string[] {
+export function getAllTags(typeCodes?: readonly MarketplaceItemType[]): string[] {
+	// #2896: marketplace の陳列が一部 type に絞られた場合、tag cloud も陳列対象 type の
+	// item に出現する tag だけを返せるよう、任意の type 絞り込みを受け付ける。
+	// 未指定時は従来通り全 item を対象 (後方互換)。
+	const scoped = typeCodes ? allItems.filter((i) => typeCodes.includes(i.type)) : allItems;
 	const frequency = new Map<string, number>();
-	for (const item of allItems) {
+	for (const item of scoped) {
 		for (const tag of item.tags) {
 			frequency.set(tag, (frequency.get(tag) ?? 0) + 1);
 		}

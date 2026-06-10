@@ -56,11 +56,14 @@ describe('marketplace データ整合性', () => {
 		}
 	});
 
-	it('getMarketplaceCounts が全タイプ >= 1 を返す', () => {
+	it('陳列対象 type (活動 / ごほうび / チェックリスト) は >= 1 件、challenge-set は 0 件 (#2896)', () => {
+		// #2896: marketplace を 3 type に絞ったため challenge-set の production preset は廃止 (0 件)。
+		// rule-preset は陳列対象外だが production data 上は preset を残しているため >= 1 のまま。
 		const counts = getMarketplaceCounts();
-		for (const [type, count] of Object.entries(counts)) {
-			expect(count, `${type} は 1 件以上`).toBeGreaterThan(0);
-		}
+		expect(counts['activity-pack'], '活動セットは 1 件以上').toBeGreaterThan(0);
+		expect(counts['reward-set'], 'ごほうびセットは 1 件以上').toBeGreaterThan(0);
+		expect(counts.checklist, 'チェックリストは 1 件以上').toBeGreaterThan(0);
+		expect(counts['challenge-set'], 'challenge-set は陳列廃止で 0 件').toBe(0);
 	});
 
 	it('getAllTags が unique かつ人気順 (frequency desc) sort 済 (Round 18 Cluster I)', () => {

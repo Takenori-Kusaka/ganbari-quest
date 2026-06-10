@@ -1,6 +1,7 @@
 import { getAllTags, getMarketplaceCounts, getMarketplaceIndex } from '$lib/data/marketplace';
 import { getAgeTierShortLabel, type MarketplaceSortKey } from '$lib/domain/labels';
 import { AGE_BANDS, type AgeBand, type MarketplaceGender } from '$lib/domain/marketplace-item';
+import { isBrowseableMarketplaceType, MARKETPLACE_BROWSE_TYPE_CODES } from '$lib/marketplace/types';
 import { logger } from '$lib/server/logger';
 import { getChildById } from '$lib/server/services/child-service';
 import type { PageServerLoad } from './$types';
@@ -70,6 +71,15 @@ function resolveGender(genderParam: string | null): MarketplaceGender | null {
 		: null;
 }
 
+/**
+ * #2896: type フィルタを陳列対象 (MARKETPLACE_BROWSE_TYPE_CODES) に限定する。
+ * 陳列外 type (rule-preset / challenge-set) の `?type=` は無視して null を返す。
+ * load() の cognitive complexity を抑えるため分離。
+ */
+function resolveBrowseTypeFilter(typeParam: string | null): string | null {
+	return typeParam && isBrowseableMarketplaceType(typeParam) ? typeParam : null;
+}
+
 export const load: PageServerLoad = async ({ url, cookies, locals }) => {
 	const typeFilter = url.searchParams.get('type');
 	const explicitAgeFilter = url.searchParams.get('age'); // AgeBand id (明示指定)
@@ -87,10 +97,16 @@ export const load: PageServerLoad = async ({ url, cookies, locals }) => {
 	const sort = resolveSort(sortParam);
 	const gender = resolveGender(genderFilter);
 
-	let items = getMarketplaceIndex();
+	// #2896: marketplace は活動 / ごほうび / チェックリストの 3 type に絞る。
+	// 陳列 surface (一覧 / type filter / 件数) は MARKETPLACE_BROWSE_TYPE_CODES を SSOT として filter する。
+	// rule-preset / challenge-set は型 / 直リンク / admin の ?import= 互換のため Registry には残すが、
+	// この一覧には載せない (陳列対象外)。
+	let items = getMarketplaceIndex().filter((i) => isBrowseableMarketplaceType(i.type));
 
-	if (typeFilter) {
-		items = items.filter((i) => i.type === typeFilter);
+	// 陳列対象 type のみを有効な type filter として扱う (陳列外 type の ?type= は無視)。
+	const activeTypeFilter = resolveBrowseTypeFilter(typeFilter);
+	if (activeTypeFilter) {
+		items = items.filter((i) => i.type === activeTypeFilter);
 	}
 
 	if (ageFilter) {
@@ -138,11 +154,15 @@ export const load: PageServerLoad = async ({ url, cookies, locals }) => {
 		// (browse-first journey の dead-end を解消しつつ公開ページ性を維持)。
 		isAuthenticated: !!locals.context,
 		items,
-		tags: getAllTags(),
-		counts: getMarketplaceCounts(),
+		// #2896: tag cloud も陳列対象 3 type の item に出現する tag のみに絞る。
+		tags: getAllTags(MARKETPLACE_BROWSE_TYPE_CODES),
+		// #2896: 件数も陳列対象 3 type に絞って返す (陳列外 type のカードを出さない)。
+		counts: Object.fromEntries(
+			MARKETPLACE_BROWSE_TYPE_CODES.map((code) => [code, getMarketplaceCounts()[code]]),
+		) as Record<(typeof MARKETPLACE_BROWSE_TYPE_CODES)[number], number>,
 		ageBands: AGE_BANDS.map((b) => ({ id: b.id as AgeBand, label: b.label })),
 		filters: {
-			type: typeFilter,
+			type: activeTypeFilter,
 			age: ageFilter,
 			tag: tagFilter,
 			gender,

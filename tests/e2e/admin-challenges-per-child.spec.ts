@@ -50,31 +50,24 @@ test.describe('admin/challenges per-child UX (#2362 PR-7)', () => {
 		await expect.poll(() => new URL(page.url()).searchParams.get('childId')).toBe(childId);
 	});
 
-	test('?import=<presetId> で取込確認 dialog 表示 (CWE-598 = URL に childId なし)', async ({
+	test('#2896: ?import=<廃止 preset> でも page は 200 で開き dead-end しない (childId URL に出ない)', async ({
 		page,
 	}) => {
-		// #2774: 5 type 取込 CTA 統一で `?marketplace-import=` → `?import=` rename。
-		await page.goto(`/admin/challenges?import=${JAPAN_ANNUAL_EVENTS_PRESET}`);
+		// #2896: marketplace を 3 type に絞り challenge-set preset (japan-annual-events) を廃止したため、
+		// `?import=` の server 受領経路は残置しつつも valid preset が無い。手動指定時も page は 200 で開き
+		// invalid guidance を表示する (5xx で crash しない / dead-end しない)。
+		const res = await page.goto(`/admin/challenges?import=${JAPAN_ANNUAL_EVENTS_PRESET}`);
+		expect(res?.status()).toBeLessThan(500);
 		// CWE-598: URL に childId / nickname なし
 		const url = new URL(page.url());
 		expect(url.searchParams.get('childId')).toBeNull();
 		expect(url.searchParams.get('nickname')).toBeNull();
 	});
 
-	test('marketplace challenge-set 詳細から admin redirect 動線 (childId URL に出ない)', async ({
-		page,
-	}) => {
-		await page.goto(`/marketplace/challenge-set/${JAPAN_ANNUAL_EVENTS_PRESET}`);
-		// #2774: 5 type 取込 CTA 統一で `?import=<presetId>` query 一本化。
-		const cta = page.getByTestId('challenge-set-import-cta');
-		const exists = await cta.isVisible().catch(() => false);
-		if (exists) {
-			const href = await cta.getAttribute('href');
-			expect(href).toContain('?import=');
-			expect(href).not.toContain('marketplace-import=');
-			expect(href).not.toContain('childId=');
-			expect(href).not.toContain('nickname=');
-		}
+	test('#2896: 廃止 challenge-set 詳細ページは marketplace から 404 (陳列外)', async ({ page }) => {
+		// challenge-set は marketplace 陳列対象外 + 唯一の preset を廃止したため詳細ページは 404。
+		const res = await page.goto(`/marketplace/challenge-set/${JAPAN_ANNUAL_EVENTS_PRESET}`);
+		expect(res?.status()).toBe(404);
 	});
 });
 
