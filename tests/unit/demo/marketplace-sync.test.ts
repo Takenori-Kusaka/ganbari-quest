@@ -60,7 +60,6 @@ const INTENTIONALLY_EXCLUDED_PACK_IDS = new Set([
 	'weekend-special',
 	'category-challenge',
 	'chore-skip',
-	'sibling-coop',
 	'sleep-in-pass',
 ]);
 
