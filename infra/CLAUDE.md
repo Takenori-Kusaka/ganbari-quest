@@ -124,6 +124,24 @@ docker compose logs -f scheduler
 
 日次 DB バックアップ + restore 検証は `profiles: backup`。`scheduler` と同じく **`docker compose up -d` のみでは更新されない** — `--profile backup` を付けないと build / 再作成の対象外になり、古い crontab が凍結されて config drift する (#2985 で `deploy-nuc.yml` に `--profile backup` を追加して恒久対処)。MODULE_NOT_FOUND 等の障害切り分け・復旧手順は [docs/runbooks/nuc-container-recovery.md](../docs/runbooks/nuc-container-recovery.md)。
 
+### NUC staging 系統 (#2872 / EPIC #2861 D 系)
+
+統合 PR (develop→main) を本番取込前に検証する staging 系統。本番 NUC と**同一マシン上**に同居させつつ、別 working-dir / 別 port / 別 compose project / 別 DB path で完全隔離する (本番不変条件)。
+
+| 項目 | 本番 NUC | NUC staging |
+|---|---|---|
+| workflow | `deploy-nuc.yml` | `deploy-nuc-staging.yml` |
+| working-dir | `C:\Docker\ganbari-quest` | `C:\Docker\ganbari-quest-staging` |
+| compose project | (既定) | `-p ganbari-quest-staging`（`docker-compose.yml` 無改変、CLI flag 隔離） |
+| port | 3000 | 3100 (`.env` の `PORT=3100`) |
+| trigger | main push / dispatch | 統合 PR (base=main) / dispatch (develop HEAD) |
+| DB 起点 | 既存 `data/ganbari-quest.db` | 本番 DB の online snapshot (`scripts/snapshot-prod-db.cjs`、本番不在時 fixture fallback) |
+| health | `localhost:3000/api/health` | `localhost:3100/api/health` (200 + `schema.schemaValid=true` assert) |
+
+- **snapshot-forward 起動**: staging は本番 DB snapshot から起動し `applyLazyStartupMigrations` を貫通させる (過去状態からのマイグレーション込み実機起動の実機担保、#2872 AC6)。snapshot は本番 DB を read のみで取得 (本番 DB へ write しない)。
+- **当面 advisory**: required check 未登録。staging working-dir 未 provision 時に develop→main 取込をブロックしない。物理 provision (staging dir / port 3100 / ruleset) は PO 手作業。
+- 検証手順 SSOT: [.claude/skills/deploy-verify/SKILL.md](../.claude/skills/deploy-verify/SKILL.md) / 構成詳細: [docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.2](../docs/design/13-AWSサーバレスアーキテクチャ設計書.md)。
+
 ## EventBridge Cron Rules (#1376)
 
 定期ジョブは `EventBridge Rule → ganbari-quest-cron-dispatcher Lambda → HTTP POST → SvelteKit /api/cron/:job`。
