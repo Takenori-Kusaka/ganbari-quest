@@ -110,11 +110,14 @@ jobs:
       # BUILD_TIMESTAMP busts the build-stage cache (#711 / PR #826 review) — without this,
       # a workflow_dispatch redeploy of the same commit would reuse the cached layer and
       # keep the stale date. Passing a fresh timestamp every run guarantees regeneration.
+      # --profile backup を付与しないと profile ゲートの backup service が
+      # build / up の対象外になり、compose を更新しても旧コンテナ (古い crontab)
+      # が凍結されたまま残り config drift する (#2985 / #2779 再発の根因)。
       - name: Build and start
         run: |
           $env:BUILD_TIMESTAMP = (Get-Date -Format "yyyyMMddHHmmss")
-          docker compose build
-          docker compose up -d
+          docker compose --profile backup build
+          docker compose --profile backup up -d
 
       # Step 4: Verify the service is healthy after deployment
       # Uses curl.exe instead of Invoke-WebRequest to avoid NETWORK SERVICE proxy/timeout issues

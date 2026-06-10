@@ -120,6 +120,10 @@ docker compose logs -f scheduler
 
 `docker compose up -d` のみでは scheduler 起動しない。`--profile scheduler` 必須。app コンテナ起動後に起動。
 
+### NUC Backup コンテナ (#2519 / #2985)
+
+日次 DB バックアップ + restore 検証は `profiles: backup`。`scheduler` と同じく **`docker compose up -d` のみでは更新されない** — `--profile backup` を付けないと build / 再作成の対象外になり、古い crontab が凍結されて config drift する (#2985 で `deploy-nuc.yml` に `--profile backup` を追加して恒久対処)。MODULE_NOT_FOUND 等の障害切り分け・復旧手順は [docs/runbooks/nuc-container-recovery.md](../docs/runbooks/nuc-container-recovery.md)。
+
 ## EventBridge Cron Rules (#1376)
 
 定期ジョブは `EventBridge Rule → ganbari-quest-cron-dispatcher Lambda → HTTP POST → SvelteKit /api/cron/:job`。
