@@ -45,6 +45,14 @@ services:
         echo "0 3 * * * cd /app && node scripts/backup-db.cjs >> /proc/1/fd/1 2>&1 && node scripts/verify-backup-restore.cjs >> /proc/1/fd/1 2>&1" | crontab -
         echo "[Backup] Cron scheduled: daily 3:00 AM JST (backup + restore verification)"
         crond -f
+    # backup コンテナは web server を持たないため Dockerfile の HEALTHCHECK
+    # (wget :3000/health) を継承すると恒久的に unhealthy 誤表示になる (#2985)。
+    # crond プロセスの稼働を確認する専用 healthcheck で上書きする。
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep crond > /dev/null || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
     volumes:
       - ./data:/app/data
       - ./scripts:/app/scripts:ro
