@@ -414,6 +414,24 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 `deploy-nuc.yml` は public repo の self-hosted runner で動作するため、**self-hosted NUC runner 上で実行できる actor を ADR-0022 体制で想定済みの actor に限定する** ために actor 許可リストで gate する (`if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)`)。本 workflow の trigger は `push: branches=[main]` + `workflow_dispatch` のみであり、fork PR からの直接 push は GitHub の保護 (fork 側に upstream main への push 権限がない) により発生せず、`workflow_dispatch` も upstream リポジトリの権限がある actor からしか発火しない。したがって本 gate の目的は「fork PR 防御」ではなく、**想定外の actor (誤って付与された collaborator / 将来の admin bypass / bot 等) による NUC 本番マシン上での任意コード実行を防ぐ**こと。許可は (1) **Takenori-Kusaka** (PO / repo owner) と (2) **ganbariquestsupport-lab** (ADR-0022 QA merge 体制の squash merge actor) の 2 account のみ。AWS Lambda 側 `deploy.yml` は GitHub-hosted runner + OIDC で動くため本 gate は不要。新たな信頼 account を追加する場合は本リストに 1 行追記すれば足り、構造変更は伴わない。
 
+### 4.2 NUC staging 環境 (Issue #2872 / EPIC #2861 D 系)
+
+統合 PR (develop→main) を本番取込**前**に本番近似環境で検証するため、本番 NUC とは独立した NUC staging 系統を `deploy-nuc-staging.yml` で構築する。本番への副作用ゼロ (本番不変条件) を前提とした隔離構成:
+
+| 項目 | 本番 NUC (`deploy-nuc.yml`) | NUC staging (`deploy-nuc-staging.yml`) |
+|---|---|---|
+| working-dir | `C:\Docker\ganbari-quest` | `C:\Docker\ganbari-quest-staging` |
+| compose project | (既定) | `-p ganbari-quest-staging`（CLI flag で隔離、`docker-compose.yml` は無改変・`name:` 不追加） |
+| port | 3000 | 3100（staging `.env` の `PORT=3100` → compose `${PORT:-3000}`） |
+| DB path | `data\ganbari-quest.db` | `data\ganbari-quest.db`（別 working-dir のため物理的に別 file） |
+| trigger | `push: [main]` + dispatch | `pull_request: [main]`（統合 PR）+ dispatch（develop HEAD） |
+| health | `localhost:3000/api/health` | `localhost:3100/api/health` |
+
+- **snapshot-forward migration 貫通 (G-MIG / #2872 AC6)**: staging container を「**直近本番 DB snapshot から起動**」させ、`applyLazyStartupMigrations` (`src/lib/server/db/migration/lazy-startup-migrations.ts`) を貫通させて「過去状態からマイグレーション込み実機起動」を実機担保する。snapshot は `scripts/snapshot-prod-db.cjs` が better-sqlite3 online backup (`db.backup()`) で本番 DB を **read のみ**で取得し staging DB path に書き出す。本番 DB 不在時は exit 0 + fixture fallback で継続し、staging は fresh DB から lazy migration で起動する。post-deploy で `/api/health` 200 + response body `schema.schemaValid === true` を assert し、migration 失敗を検出する (#2508 startup crash 再発防止)。
+- **本番不変条件 (#2872 AC4)**: staging は別 working-dir / 別 port / 別 compose project / 別 DB path で完全隔離され、本番 container を停止せず、本番 DB へ write しない (online snapshot は source read-only)。
+- **当面 advisory**: 本 workflow は当面 required check に登録しない (staging working-dir が物理 NUC 上に未 provision の間、develop→main 取込をブロックしないため)。merge blocker 化 (#2872 AC3) は staging provision + branch ruleset 配線後に行う。
+- **§3.8 step 9 連携 (G-PD / #2872 AC8)**: staging health (`localhost:3100/api/health`) は `docs/sessions/audit-team.md` §3.8 step 9「AWS + NUC 両 health check」の NUC 側として配線する (AWS 側は #2873)。検証手順 SSOT は `.claude/skills/deploy-verify/SKILL.md`。
+
 ## 5. セキュリティ（WAFなし構成）
 
 | 対策 | 実装 | コスト |
