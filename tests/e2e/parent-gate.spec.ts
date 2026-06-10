@@ -63,6 +63,41 @@ function registerParentGateTests(): void {
 			await expect(page.getByTestId('parent-gate-error')).toBeVisible({ timeout: 10_000 });
 		});
 
+		test('#2991: ロック時に解除の絶対時刻が表示される', async ({ page }) => {
+			// 実 lockout (6 回失敗) は PinInput remount で入力フォーカスが flaky になるため、
+			// verify API を LOCKED_OUT + 固定 lockedUntil で intercept し「サーバが返す解除時刻が
+			// クライアントで HH:MM 表示されるか」の wiring を決定的に検証する (page.route = Integration、
+			// tests/CLAUDE.md 公認パターン)。実 lockout 閾値ロジックは auth-service.test.ts でカバー。
+			const lockedUntilIso = '2099-01-01T20:45:00.000Z';
+			// クライアントと同一ロジックで期待時刻を算出 (CI のタイムゾーンに依存せず一致させる)
+			const expectedTime = new Date(lockedUntilIso).toLocaleTimeString('ja-JP', {
+				hour: '2-digit',
+				minute: '2-digit',
+			});
+
+			await page.route('**/api/v1/parent-gate/verify', async (route) => {
+				await route.fulfill({
+					status: 423,
+					contentType: 'application/json',
+					body: JSON.stringify({ ok: false, error: 'LOCKED_OUT', lockedUntil: lockedUntilIso }),
+				});
+			});
+
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			// 4 桁入力 → onComplete → verify (intercept) → LOCKED_OUT 表示
+			for (const ch of '1234') {
+				await page.keyboard.press(ch);
+			}
+
+			const errorAlert = page.getByTestId('parent-gate-error');
+			await expect(errorAlert).toBeVisible({ timeout: 10_000 });
+			// 解除の絶対時刻が文言に含まれる (時刻なし「しばらく」だけの表示でないこと)
+			await expect(errorAlert).toContainText(expectedTime);
+			await expect(errorAlert).not.toContainText('しばらく');
+		});
+
 		test('AC3: 子供モード切替時に PIN session cookie が破棄される (EPIC 構造的核心)', async ({
 			page,
 			context,

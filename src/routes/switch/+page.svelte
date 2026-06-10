@@ -74,7 +74,14 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		pinInputKey += 1;
 		if (body.error === 'LOCKED_OUT' && body.lockedUntil) {
 			lockoutUntil = new Date(body.lockedUntil).getTime();
-			pinError = OYAKAGI_LABELS.lockedError;
+			// #2991: 解除の絶対時刻 (HH:MM、ローカルタイム) を提示し「いつ再試行できるか」を明示する。
+			// lockedUntil が parse 不能な場合のみ時刻なし fallback (lockedError)。
+			const unlockTime = new Date(body.lockedUntil);
+			pinError = Number.isNaN(unlockTime.getTime())
+				? OYAKAGI_LABELS.lockedError
+				: OYAKAGI_LABELS.gateLockedUntilNotice(
+						unlockTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+					);
 		} else if (body.error === 'PIN_FORMAT') {
 			pinError = OYAKAGI_LABELS.gateFormatNotice;
 		} else if (body.error === 'INVALID_PIN' || body.error === 'PIN_NOT_SET') {
