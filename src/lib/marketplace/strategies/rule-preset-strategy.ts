@@ -162,6 +162,9 @@ export const rulePresetStrategy: ImportStrategy<RulePresetPayload> & {
 			errors: [...result.errors, ...result.warnings],
 			// #2830: errors 配列は warnings (already-imported 等の非失敗) を畳み込むため、
 			//   実失敗件数は genuine error のみ (warnings を除外) で算出する。
+			// #2955: この非対称 (errors = 表示ログ用 merge / failed = 実失敗数) は意図的。
+			//   ImportResult.failed が required 化されたため、UI が errors.length を失敗数として
+			//   読む fallback 経路は存在せず、warnings が失敗件数に誤算入されることはない。
 			failed: result.errors.length,
 		};
 	},

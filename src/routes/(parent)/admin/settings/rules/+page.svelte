@@ -56,6 +56,9 @@ type ImportFormResult = {
 	skipped?: number;
 	total?: number;
 	errors?: string[];
+	// #2955: 実失敗件数 (server 算出)。rule-preset の errors は warnings (already-imported 等の
+	// 非失敗通知) を merge した表示ログのため、失敗判定は errors.length でなく failed を使う。
+	failed?: number;
 	presetId?: string;
 	// #2823: demo write-guard が返す no-op マーカー (presetId なし)。real 経路とは別分岐で扱う。
 	demo?: boolean;
@@ -85,7 +88,9 @@ $effect(() => {
 			showToast(ADMIN_RULES_PAGE_LABELS.importToastSuccess(display), undefined, 'success');
 		} else if (r.skipped === r.total && (r.total ?? 0) > 0) {
 			showToast(ADMIN_RULES_PAGE_LABELS.importToastDuplicate(display), undefined, 'info');
-		} else if (r.errors && r.errors.length > 0) {
+		} else if ((r.failed ?? 0) > 0) {
+			// #2955: errors.length 判定だと rule-preset の warnings (非失敗) が error toast に
+			// 誤判定される (penalty/special の no-op warning 等)。failed (genuine error 数) で判定する。
 			showToast(ADMIN_RULES_PAGE_LABELS.importToastError(display), undefined, 'error');
 		}
 		cleanupImportQueryParam();

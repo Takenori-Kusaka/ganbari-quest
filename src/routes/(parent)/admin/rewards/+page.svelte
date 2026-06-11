@@ -24,6 +24,7 @@ import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHea
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import ChildSelectionDialog, {
@@ -304,7 +305,7 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		const actionResult = deserialize(await resp.text()) as
 			| {
 					type: 'success';
-					data?: { imported?: number; skipped?: number; total?: number };
+					data?: { imported?: number; skipped?: number; total?: number; failed?: number };
 			  }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
@@ -316,12 +317,17 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 				actionMessage = ADMIN_REWARDS_PAGE_LABELS.importDemo;
 				showToast(ADMIN_REWARDS_PAGE_LABELS.importDemo, undefined, 'info');
 			} else {
-				const imp = Number(actionResult.data?.imported ?? 0);
-				actionMessage =
-					imp === 0
-						? ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates
-						: ADMIN_REWARDS_PAGE_LABELS.importSuccess(imp);
-				showToast(actionMessage, undefined, imp > 0 ? 'success' : 'info');
+				// #2955 (#2830 横展開): server 算出 `failed` > 0 のときは partial-failure を
+				// 2 層 feedback (Toast + banner) で正直に出す (admin/activities と同型、共通 helper)。
+				const feedback = resolveImportFeedback(
+					actionResult.data as Record<string, unknown> | undefined,
+					{
+						success: ADMIN_REWARDS_PAGE_LABELS.importSuccess,
+						allDuplicates: ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates,
+					},
+				);
+				actionMessage = feedback.message;
+				showToast(actionMessage, undefined, feedback.tone);
 				await invalidateAll();
 			}
 		} else if (actionResult.type === 'failure') {

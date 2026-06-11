@@ -208,6 +208,7 @@ export async function importRewardSet(
 	});
 
 	// #2830: per-reward try/catch のため失敗 reward 数 = errors.length。
+	// #2955 注意: この等式は「1 reward = 1 error 行」の per-item 設計が前提。将来 bulk persist 化する場合は activity/challenge と同じ行数ベース集計 (planned - persisted) への再設計が必須。
 	return { imported, skipped, errors, failed: errors.length };
 }
 

@@ -113,17 +113,16 @@ export interface ImportPreview {
  *
  *   `errors` は per-child catch 行 / 集計行「N 件保存できませんでした」/ per-item validation
  *   error が混在しうるため、`errors.length` は「失敗した item 数」と一致しない (bulk throw
- *   1 回で 30 row 喪失でも errors.length≈2)。UI の partial-failure 件数表示は `errors.length`
- *   ではなく本フィールドを使うことで、親が失敗規模を過小評価して再取込をスキップする事故を防ぐ。
- *
- *   後方互換のため optional。未指定の場合 UI は `errors.length` に fallback する。
- *   新規 / 既存の全 Strategy は本フィールドを必ず算出して返すこと (AC1 / AC4)。
+ *   1 回で 30 row 喪失でも errors.length≈2)。さらに rule-preset は warnings (already-imported
+ *   等の非失敗通知) を `errors` に畳み込んで表示するため、`errors.length` を失敗数として
+ *   読むと無害な warning が失敗に誤算入される。UI の partial-failure 件数表示は必ず本
+ *   フィールドを使うこと (#2955 で optional fallback を撤去し required 化、5 strategy 全配線済)。
  */
 export interface ImportResult {
 	imported: number;
 	skipped: number;
 	errors: string[];
-	failed?: number;
+	failed: number;
 }
 
 // ── ImportStrategy interface ─────────────────────────────────────

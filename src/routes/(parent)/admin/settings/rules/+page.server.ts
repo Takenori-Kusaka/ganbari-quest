@@ -130,6 +130,9 @@ export const actions: Actions = {
 				skipped: result.skipped,
 				total: result.total,
 				errors: result.errors,
+				// #2955: rule-preset の errors は warnings (already-imported 等の非失敗) を merge した
+				// 表示ログ。失敗判定は genuine error 数の failed を使う (warnings 誤算入の根治)。
+				failed: result.failed,
 				presetId,
 			};
 		} catch (e) {

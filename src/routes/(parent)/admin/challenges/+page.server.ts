@@ -352,6 +352,8 @@ export const actions: Actions = {
 				skipped: result.skipped,
 				total: result.total,
 				errors: result.errors,
+				// #2955: 実失敗件数 (UI partial-failure 表示の SSOT、errors.length は表示ログ専用)
+				failed: result.failed,
 				presetId,
 			};
 		} catch (e) {
