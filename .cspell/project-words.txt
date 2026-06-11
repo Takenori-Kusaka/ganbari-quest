@@ -483,3 +483,9 @@ xample
 # (page-guide-layout-invariant.spec.ts の VIEWPORTS const で desktop / mobile 2 viewport をループする)
 viewports
 Mearge
+
+# ===== #2994 operator PIN reset runbook (operator reset の一次資料参照) =====
+# changepassword = Metabase changepassword アクション (operator reset runbook 参照)
+# Metabase = Metabase BI tool (operator reset 一次資料の参照先)
+changepassword
+Metabase

@@ -150,6 +150,15 @@ const envSchema = z.object({
 	 * 通常の cognito-dev では既存 E2E 全 spec を破壊しないため gate 無効。
 	 */
 	PARENT_GATE_FORCE_ACTIVE: booleanStringSchema,
+	/**
+	 * operator-level PIN reset token (#2994、optional)。AUTH_MODE=local 専用。
+	 * 任意の未使用文字列 (例: 日付 "reset-2026-06-11") を設定して再起動すると、
+	 * 初回リクエストで PIN が未設定状態に戻り初回作成フロー (#2992) に誘導される。
+	 * 同 token は二度と適用されない (settings.pin_reset_applied で冪等)。適用後は削除推奨。
+	 * 配布: 運用者がデプロイ環境 (docker-compose .env / PaaS config vars) に手動設定。
+	 * 手順 SSOT: docs/runbooks/operator-pin-reset.md
+	 */
+	PARENT_PIN_RESET: z.string().optional(),
 
 	// ----- Test runtime -----
 	/** vitest 自動設定 (`process.env.VITEST = "true"`)。production 判定の例外用 */

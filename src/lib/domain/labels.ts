@@ -1337,6 +1337,8 @@ export const OYAKAGI_LABELS = {
 	gatePinRequiredBanner: `${ADMIN_VIEW_TERMS.canonical}に入るには${OYAKAGI_TERMS.name}が必要です`,
 	// #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分 token + 1 回限り)
 	gateForgotPinLink: `${OYAKAGI_TERMS.name}を忘れた方`,
+	// #2994: local (self-host) では運用者向け reset 手順に誘導する (email/リンク導線なし)
+	gateOperatorResetNotice: `${OYAKAGI_TERMS.name}を忘れた場合は、サーバー管理者向けのリセット手順で再設定できます`,
 	gateForgotPinHelp: `${OYAKAGI_TERMS.name}が分からない場合は登録メールで再設定できます`,
 	// #2992 (EPIC #2990): 初回は「作る」フロー。PIN 未設定 tenant には login でなく
 	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。

@@ -296,10 +296,15 @@ async function handlePinComplete(details: { valueAsString: string }) {
 	{#if pinSubmitting}
 		<p class="text-xs text-[var(--color-text-muted)] text-center mt-3" data-testid="parent-gate-submitting">{pinCreateMode ? OYAKAGI_LABELS.gateCreateSubmitting : OYAKAGI_LABELS.gateModalSubmitting}</p>
 	{/if}
-	{#if !pinCreateMode && data.pinResetAvailable}
-		<!-- #2993: PIN 忘れ救済導線 (パスワード再入力方式、cognito のみ。作成モードでは PIN 未存在のため非表示) -->
+	{#if !pinCreateMode}
+		<!-- #2993/#2994: PIN 忘れ救済導線 (作成モードでは PIN 未存在のため非表示)。
+		     cognito = パスワード再入力ページへ / local = 運用者向け reset 手順 (runbook) の案内 -->
 		<div class="mt-4 text-center">
-			<a href="/auth/reset-pin" class="text-sm text-[var(--color-text-link)] no-underline hover:underline" data-testid="parent-gate-forgot-pin-link">{OYAKAGI_LABELS.gateForgotPinLink}</a>
+			{#if data.pinResetAvailable}
+				<a href="/auth/reset-pin" class="text-sm text-[var(--color-text-link)] no-underline hover:underline" data-testid="parent-gate-forgot-pin-link">{OYAKAGI_LABELS.gateForgotPinLink}</a>
+			{:else}
+				<p class="text-xs text-[var(--color-text-muted)] m-0" data-testid="parent-gate-operator-reset-notice">{OYAKAGI_LABELS.gateOperatorResetNotice}</p>
+			{/if}
 		</div>
 	{/if}
 </Dialog>
