@@ -128,13 +128,15 @@ per-PR で「render-only 禁止 / act → outcome 必須」を守りつつ、CUJ
 
 #### マーケットプレイス インポート CUJ (#2554 follow-up P1 / 研究 SSOT)
 
-5 type (activity-pack / reward-set / checklist / rule-preset / challenge-set) の B1 dead-end 5 type 横展開を担保するため、以下 3 type の terminal goal verify を `?import=<presetId>` ＋ ChildSelectionDialog 確定動線で配備済 (research `tmp/research-marketplace-import-coverage-matrix-2026-05-29.md` §4-A P1):
+marketplace 陳列対象 3 type (activity-pack / reward-set / checklist、#2896) の B1 dead-end 横展開を担保するため、以下の terminal goal verify を `?import=<presetId>` ＋ ChildSelectionDialog 確定動線で配備済 (research `tmp/research-marketplace-import-coverage-matrix-2026-05-29.md` §4-A P1):
 
 - **CUJ-A3** (activity-pack): `tests/e2e/admin-activities-import-marketplace.spec.ts` — `?import=kinder-starter` → `import-child-selection-dialog` 全員選択 → 確定 → 全 child タブ件数 sum が grew
 - **CUJ-R2** (reward-set): `tests/e2e/admin-rewards-import-marketplace.spec.ts` — `?import=kinder-rewards` → `reward-import-child-selection-dialog` 全員選択 → 確定 → 全 child タブ件数 sum が grew
-- **CUJ-CH2** (challenge-set): `tests/e2e/admin-challenges-import-marketplace.spec.ts` — `?marketplace-import=japan-annual-events` → `challenge-import-child-selection-dialog` 全員選択 → 確定 → admin チャレンジ group 数が grew (#2554 follow-up で partial → 完全 terminal verify に upgrade、admin-rewards CUJ-R2 と同型の `grew || hadSkips` dual condition、PR-CH2 #2638)
+- **CUJ-checklist**: `tests/e2e/marketplace-checklist-import.spec.ts` — `marketplace-preset-import-event-pool` click → imported badge visible + reload で永続
 
-既存 `tests/e2e/marketplace-checklist-import.spec.ts` の checklist 「`marketplace-preset-import-event-pool` click → imported badge visible + reload で永続」が exemplar (#2362 PR-5)。本 follow-up はその pattern を残 4 type に横展開する第 1 弾。**2026-05-29 時点 5 type 中 4 type (checklist / activity-pack / reward-set / challenge-set) が完全 terminal verify**。残 1 type (rule-preset) の terminal verify + 残 gap (B5 per-child dedup unit regression / B10 永続化 5 type 揃い / B7 5 age mode 取込後表示) は research SSOT §4-B Phase 1-4 で別 PR で順次扱う。
+> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞り、rule-preset / challenge-set を陳列対象外とした。旧 CUJ-CH2 (challenge-set marketplace import、`admin-challenges-import-marketplace.spec.ts`) は唯一の preset (japan-annual-events) 廃止に伴い撤去。challenge-set / rule-preset の「陳列されない」回帰は `tests/e2e/marketplace-challenge-set-import.spec.ts` で担保する。チャレンジ機能本体は `/admin/challenges` の自作フォーム + auto-challenge に保持。
+
+既存 `tests/e2e/marketplace-checklist-import.spec.ts` の checklist 「`marketplace-preset-import-event-pool` click → imported badge visible + reload で永続」が exemplar (#2362 PR-5)。**2026-06-11 時点 陳列 3 type (checklist / activity-pack / reward-set) が完全 terminal verify**。残 gap (B5 per-child dedup unit regression / B10 永続化 / B7 5 age mode 取込後表示) は research SSOT §4-B で別 PR で順次扱う。
 
 #### CUJ-5 child visible terminal verify + critical CUJ video record (C-3 / C-7、2026-06-03)
 

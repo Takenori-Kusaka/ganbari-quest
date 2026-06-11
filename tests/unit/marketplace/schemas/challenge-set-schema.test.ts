@@ -176,12 +176,14 @@ describe('ChallengeSetPayloadSchema', () => {
 		expect(result.success).toBe(false);
 	});
 
-	test('実 fixture japan-annual-events.json (15 件) が schema を満たす (将来 divergence 検知)', () => {
-		// recommend-1: 実配信中の JSON が schema に整合することを継続検証する。
+	test('challenge-set fixture japan-annual-events.json (15 件) が schema を満たす (将来 divergence 検知)', () => {
+		// recommend-1: challenge-set payload の JSON が schema に整合することを継続検証する。
 		// schema と interface が再び divergence した場合、本 test が即 fail する。
+		// #2896: 当該 preset は marketplace 陳列から外し production data から test fixture へ移管したが、
+		// challenge-set 型 / schema の互換 net は fixture で維持する。
 		const fixturePath = resolve(
 			process.cwd(),
-			'src/lib/data/marketplace/challenge-sets/japan-annual-events.json',
+			'tests/fixtures/marketplace/challenge-sets/japan-annual-events.json',
 		);
 		const raw = readFileSync(fixturePath, 'utf-8');
 		const parsed = JSON.parse(raw);
