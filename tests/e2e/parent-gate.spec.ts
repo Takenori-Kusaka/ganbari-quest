@@ -469,4 +469,81 @@ function registerParentGateTests(): void {
 			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 		});
 	});
+
+	// #3025: federated (Google OAuth) ユーザの PIN reset — requires-recent-login 方式。
+	// federated user は Cognito パスワードを持たないため、パスワード欄は出さず
+	// 「Google で本人確認」(再ログイン) → auth_time fresh で PIN 再設定を許可する。
+	// dev では google-owner@example.com (DEV_USERS、identities claim 付き JWT) でログイン直後 = fresh を再現。
+	// stale 経路 (5 分超 → FRESH_LOGIN_REQUIRED) は unit (parent-gate-reset-verified-api.test.ts) でカバー。
+	test.describe('#3025 federated (Google) ユーザの PIN reset', () => {
+		// SQLite local の settings は key PK (tenant 列なし、単一 tenant 前提) のため、本 describe の
+		// reset は seed 済 pin_hash を上書きする。#2851 snapshot/restore で seed 状態へ完全復元する。
+		const DB_PATH = 'data/ganbari-quest.db';
+		let pinHashSnapshot: string | null = null;
+
+		test.beforeAll(async () => {
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				const row = db.prepare("SELECT value FROM settings WHERE key = 'pin_hash'").get() as
+					| { value: string }
+					| undefined;
+				pinHashSnapshot = row?.value ?? null;
+			} finally {
+				db.close();
+			}
+		});
+
+		test.afterAll(async () => {
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				if (pinHashSnapshot !== null) {
+					db.prepare(
+						"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('pin_hash', ?, datetime('now'))",
+					).run(pinHashSnapshot);
+				} else {
+					db.prepare("DELETE FROM settings WHERE key = 'pin_hash'").run();
+				}
+			} finally {
+				db.close();
+			}
+		});
+
+		test('ログイン直後 (fresh): パスワード欄なしで新 PIN を設定でき /admin に入れる', async ({
+			page,
+		}) => {
+			// federated 相当ユーザでログイン (識別は JWT の identities claim、ログイン手段は dev form)
+			await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
+			await page.locator('input[name="email"]').fill('google-owner@example.com');
+			await page.locator('input[name="password"]').fill('Gq!Dev#Goog2026xy');
+			await page.locator('form button[type="submit"]').first().click();
+			await page.waitForURL(/\/(admin|switch)/, { timeout: 15_000 });
+
+			await page.goto('/auth/reset-pin', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('pin-reset-verified-form')).toBeVisible();
+			// パスワード欄が存在しない (federated dead-end の根治、#3025 の核心 assert)
+			await expect(page.getByTestId('pin-reset-verified-password')).toHaveCount(0);
+			// ログイン直後 = recent-auth 済の案内が出て PIN 入力が可能
+			await expect(page.getByTestId('pin-reset-verified-fresh')).toBeVisible();
+
+			const firstDigit = page
+				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]')
+				.first();
+			await expect(firstDigit).toHaveAttribute('aria-label', /of 4/);
+			await firstDigit.click();
+			await expect(firstDigit).toBeFocused();
+			for (const ch of '6420') {
+				await page.keyboard.press(ch);
+			}
+			const resetResponse = page.waitForResponse(
+				(res) => res.url().includes('/api/v1/parent-gate/reset-verified') && res.status() === 200,
+			);
+			await page.getByTestId('pin-reset-verified-submit').click();
+			await resetResponse;
+			await expect(page.getByTestId('pin-reset-verified-success')).toBeVisible({ timeout: 10_000 });
+			await page.getByTestId('pin-reset-verified-success-cta').click();
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+		});
+	});
 }

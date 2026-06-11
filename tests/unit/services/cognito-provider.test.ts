@@ -93,6 +93,10 @@ describe('CognitoAuthProvider', () => {
 				type: 'cognito',
 				userId: 'u-abc-123',
 				email: 'parent@example.com',
+				groups: undefined,
+				// #3025: identities claim なし = password ユーザ (federated でない)
+				isFederated: false,
+				authTime: undefined,
 			});
 			expect(mockVerifyIdentityToken).toHaveBeenCalledWith('valid-jwt');
 		});
