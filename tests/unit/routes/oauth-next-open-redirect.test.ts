@@ -32,7 +32,7 @@ const { GET: googleStartGET } = await import('../../../src/routes/auth/oauth/goo
 const { GET: callbackGET } = await import('../../../src/routes/auth/callback/+server');
 
 // redirect() は throw するため、location を取り出すヘルパ
-async function getRedirectLocation(fn: () => Promise<unknown>): Promise<string> {
+async function getRedirectLocation(fn: () => unknown): Promise<string> {
 	try {
 		await fn();
 	} catch (e) {
