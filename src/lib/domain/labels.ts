@@ -662,6 +662,12 @@ export const TRIAL_LABELS = {
 		FEATURE_LABELS.dataExport,
 	] as readonly string[],
 	bannerCtaSubmitting: ACTION_LABELS.submitting,
+	// #2941 項目 2: startTrial action の negative path (trialUsed=true 再押下 → fail 400) を
+	// ユーザーに見える形で表示する (NN/G #1 visibility of system status)。
+	// startErrorAlreadyUsed は server (subscription +page.server.ts) が fail body に入れ、
+	// startErrorFallback は client (TrialBanner) が getActionErrorDisplay の fallback に使う。
+	startErrorAlreadyUsed: `${ACTION_LABELS.freeTrial}はすでに使用済みです`,
+	startErrorFallback: `${ACTION_LABELS.freeTrial}を開始できませんでした。時間をおいて再度お試しください。`,
 	bannerTitleExpired: `${ACTION_LABELS.freeTrial}が終了しました`,
 	bannerDescExpired: `${ACTION_LABELS.upgrade}で全機能をご利用いただけます。`,
 	bannerDescExpiredWithArchive: `一部のデータが制限されています。${ACTION_LABELS.upgrade}ですべて復元できます。`,

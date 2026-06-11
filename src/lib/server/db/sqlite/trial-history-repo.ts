@@ -1,7 +1,7 @@
 // src/lib/server/db/sqlite/trial-history-repo.ts
 // SQLite implementation of ITrialHistoryRepo (#314, #769)
 
-import { desc, eq, gte } from 'drizzle-orm';
+import { and, desc, eq, gte } from 'drizzle-orm';
 import { db } from '../client';
 import type {
 	InsertTrialHistoryInput,
@@ -38,7 +38,11 @@ export async function insert(input: InsertTrialHistoryInput): Promise<void> {
 	});
 }
 
-/** トライアル後のコンバージョン情報を記録（Stripe 本契約移行時に呼ぶ） */
+/**
+ * トライアル後のコンバージョン情報を記録（Stripe 本契約移行時に呼ぶ）。
+ * #2941 項目 1: DynamoDB 実装 (tenant 別採番) との等価性 + cross-tenant 上書き防御のため、
+ * id 単独でなく tenant scope で record を特定する。
+ */
 export async function updateConversion(input: UpdateTrialConversionInput): Promise<void> {
 	await db
 		.update(trialHistory)
@@ -46,7 +50,7 @@ export async function updateConversion(input: UpdateTrialConversionInput): Promi
 			stripeSubscriptionId: input.stripeSubscriptionId,
 			upgradeReason: input.upgradeReason,
 		})
-		.where(eq(trialHistory.id, input.id));
+		.where(and(eq(trialHistory.id, input.id), eq(trialHistory.tenantId, input.tenantId)));
 }
 
 /** テナントの全トライアル履歴を削除 */

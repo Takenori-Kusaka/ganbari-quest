@@ -243,60 +243,97 @@ describe('findActiveTrials', () => {
 });
 
 // ============================================================
-// updateConversion (Stripe 本契約移行、id 解決経路)
+// updateConversion (Stripe 本契約移行、#2941 項目 1: tenant scope 直接 Update)
 // ============================================================
 
 describe('updateConversion', () => {
-	it('id を Scan で解決し該当 item の conversion 列を SET する', async () => {
-		mockSend
-			.mockResolvedValueOnce({ Items: [{ PK: `T#${TENANT}#TRIAL`, SK: 'HIST#00000007' }] }) // scanKeyById
-			.mockResolvedValueOnce({}); // UpdateCommand
+	it('tenantId + id から確定した PK/SK へ直接 Update する (Scan を発行しない)', async () => {
+		mockSend.mockResolvedValueOnce({}); // UpdateCommand
 
 		const { updateConversion } = await loadRepo();
-		await updateConversion({ id: 7, stripeSubscriptionId: 'sub_abc', upgradeReason: 'auto' });
+		await updateConversion({
+			id: 7,
+			tenantId: TENANT,
+			stripeSubscriptionId: 'sub_abc',
+			upgradeReason: 'auto',
+		});
 
-		expect(mockSend).toHaveBeenCalledTimes(2);
-		const scanCall = mockSend.mock.calls[0]?.[0] as {
-			input: { FilterExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
-		};
-		expect(scanCall.input.FilterExpression).toContain('id = :id');
-		expect(scanCall.input.ExpressionAttributeValues?.[':id']).toBe(7);
-		expect(scanCall.input.ExpressionAttributeValues?.[':prefix']).toBe('HIST#');
-
-		const updCall = mockSend.mock.calls[1]?.[0] as {
+		// #2941: 旧 scanKeyById (tenant 横断 Scan) は cross-tenant 上書きの余地があったため撤去。
+		// send は UpdateCommand 1 回のみで、Key が tenant partition に固定されている。
+		expect(mockSend).toHaveBeenCalledTimes(1);
+		const updCall = mockSend.mock.calls[0]?.[0] as {
 			input: {
 				UpdateExpression?: string;
+				ConditionExpression?: string;
 				Key?: Record<string, unknown>;
 				ExpressionAttributeValues?: Record<string, unknown>;
 			};
 		};
+		expect(updCall).toBeInstanceOf(MockUpdateCommand);
+		expect(updCall.input.Key?.PK).toBe(`T#${TENANT}#TRIAL`);
+		expect(updCall.input.Key?.SK).toBe('HIST#00000007');
 		expect(updCall.input.UpdateExpression).toContain('stripeSubscriptionId = :sub');
 		expect(updCall.input.UpdateExpression).toContain('upgradeReason = :reason');
-		expect(updCall.input.Key?.SK).toBe('HIST#00000007');
 		expect(updCall.input.ExpressionAttributeValues?.[':sub']).toBe('sub_abc');
 		expect(updCall.input.ExpressionAttributeValues?.[':reason']).toBe('auto');
+		// 不在 key への upsert (item 新規作成) を防ぐ
+		expect(updCall.input.ConditionExpression).toBe('attribute_exists(PK)');
 	});
 
-	it('該当 id 不在のとき Update を呼ばない (no-op、SQLite 0 row UPDATE と等価)', async () => {
-		mockSend.mockResolvedValueOnce({ Items: [] }); // 不在
+	it('該当 record 不在 (ConditionalCheckFailedException) は no-op で握りつぶす (SQLite 0 row UPDATE と等価)', async () => {
+		const condErr = new Error('The conditional request failed');
+		condErr.name = 'ConditionalCheckFailedException';
+		mockSend.mockRejectedValueOnce(condErr);
+
 		const { updateConversion } = await loadRepo();
-		await updateConversion({ id: 99, stripeSubscriptionId: 'sub_x', upgradeReason: 'manual' });
-		expect(mockSend).toHaveBeenCalledTimes(1); // Scan のみ
+		await expect(
+			updateConversion({
+				id: 99,
+				tenantId: TENANT,
+				stripeSubscriptionId: 'sub_x',
+				upgradeReason: 'manual',
+			}),
+		).resolves.toBeUndefined();
+		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 
-	it('#2842: 対象 id が先頭ページに無くても LastEvaluatedKey でページングして見つける', async () => {
-		mockSend
-			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'c', SK: 'c' } })
-			.mockResolvedValueOnce({ Items: [{ PK: `T#${TENANT}#TRIAL`, SK: 'HIST#00000003' }] })
-			.mockResolvedValueOnce({}); // Update
+	it('ConditionalCheckFailedException 以外のエラーは rethrow する (silent skip 禁止)', async () => {
+		const otherErr = new Error('ProvisionedThroughputExceededException');
+		otherErr.name = 'ProvisionedThroughputExceededException';
+		mockSend.mockRejectedValueOnce(otherErr);
+
 		const { updateConversion } = await loadRepo();
-		await updateConversion({ id: 3, stripeSubscriptionId: 'sub_y', upgradeReason: 'email_cta' });
-		expect(mockSend).toHaveBeenCalledTimes(3);
-		const secondScan = mockSend.mock.calls[1]?.[0] as {
-			input: { ExclusiveStartKey?: Record<string, unknown>; Limit?: number };
-		};
-		expect(secondScan.input.ExclusiveStartKey).toEqual({ PK: 'c', SK: 'c' });
-		expect(secondScan.input.Limit).toBeUndefined();
+		await expect(
+			updateConversion({
+				id: 1,
+				tenantId: TENANT,
+				stripeSubscriptionId: 'sub_y',
+				upgradeReason: 'email_cta',
+			}),
+		).rejects.toThrow('ProvisionedThroughputExceededException');
+	});
+
+	it('#2941: 別 tenant を指定すると別 partition の Key になる (cross-tenant 上書き構造防止)', async () => {
+		mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({});
+		const { updateConversion } = await loadRepo();
+		await updateConversion({
+			id: 7,
+			tenantId: 'tenant-A',
+			stripeSubscriptionId: 'sub_a',
+			upgradeReason: 'auto',
+		});
+		await updateConversion({
+			id: 7,
+			tenantId: 'tenant-B',
+			stripeSubscriptionId: 'sub_b',
+			upgradeReason: 'auto',
+		});
+		const first = mockSend.mock.calls[0]?.[0] as { input: { Key?: Record<string, unknown> } };
+		const second = mockSend.mock.calls[1]?.[0] as { input: { Key?: Record<string, unknown> } };
+		// 同一 id でも tenant が異なれば partition が分離され、互いの record に届かない
+		expect(first.input.Key?.PK).toBe('T#tenant-A#TRIAL');
+		expect(second.input.Key?.PK).toBe('T#tenant-B#TRIAL');
+		expect(first.input.Key?.SK).toBe(second.input.Key?.SK);
 	});
 });
 

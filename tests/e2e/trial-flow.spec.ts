@@ -147,3 +147,77 @@ test.describe('#752 トライアルフロー — trial-expired ユーザー', ()
 		await expect(card).toHaveAttribute('data-plan-tier', 'free');
 	});
 });
+
+// ============================================================
+// #2941 項目 2: negative path — trialUsed=true 再押下で fail(400) が
+// ユーザーに見えるエラーメッセージとして表示される (NN/G #1)
+// ============================================================
+test.describe('#2941 トライアル開始 negative path — 使用済み tenant の再押下', () => {
+	test.use({ storageState: 'playwright/.auth/free.json' });
+
+	// 本 describe は dev-tenant-free に使用済み trial を直接 seed するため、
+	// 終了後にクリーンアップして plan-free.spec.ts 等への副作用を防ぐ
+	// (上の free describe と同パターン)
+	test.afterAll(async () => {
+		const Database = (await import('better-sqlite3')).default;
+		const dbPath = path.resolve('data/ganbari-quest.db');
+		const db = new Database(dbPath);
+		try {
+			const result = db
+				.prepare("DELETE FROM trial_history WHERE tenant_id = 'dev-tenant-free'")
+				.run();
+			if (result.changes > 0) {
+				console.log(
+					`[trial-negative cleanup] Removed ${result.changes} trial record(s) for dev-tenant-free.`,
+				);
+			}
+		} finally {
+			db.close();
+		}
+	});
+
+	test('stale 画面から「開始」再押下 → 400 エラーがユーザーに見える形で表示される', async ({
+		page,
+	}) => {
+		// 1. trial 未使用状態で /admin を開く（「開始」ボタンが見える stale 画面を作る）
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
+		await expect(page.getByTestId('trial-banner-start-button')).toBeVisible({ timeout: 30_000 });
+		// #702 hydration marker: use:enhance バインド前に click すると native form POST に
+		// fallback して /admin/subscription へ全画面遷移してしまうため、hydration 完了を待つ
+		await page.waitForFunction(() => window.__APP_HYDRATED__ === true, undefined, {
+			timeout: 30_000,
+		});
+
+		// 2. 「別タブで既に開始済み」の状況を再現: DB に使用済み trial を直接 seed
+		//    (global-setup.ts の dev-tenant-trial-expired seed と同手法)
+		const Database = (await import('better-sqlite3')).default;
+		const db = new Database(path.resolve('data/ganbari-quest.db'));
+		try {
+			const pastEnd = new Date();
+			pastEnd.setDate(pastEnd.getDate() - 3);
+			const pastStart = new Date();
+			pastStart.setDate(pastStart.getDate() - 10);
+			db.prepare(
+				'INSERT INTO trial_history (tenant_id, start_date, end_date, tier, source) VALUES (?, ?, ?, ?, ?)',
+			).run(
+				'dev-tenant-free',
+				pastStart.toISOString().split('T')[0],
+				pastEnd.toISOString().split('T')[0],
+				'standard',
+				'user_initiated',
+			);
+		} finally {
+			db.close();
+		}
+
+		// 3. stale 画面の「開始」ボタンを再押下 → server action は startTrial=false で fail(400)
+		await page.getByTestId('trial-banner-start-button').click();
+
+		// 4. NN/G #1: 400 が黙殺されず、role=alert のエラーメッセージとして表示される
+		//    (getActionErrorDisplay #2913 経路、TRIAL_LABELS.startErrorAlreadyUsed)
+		const error = page.getByTestId('trial-banner-start-error');
+		await expect(error).toBeVisible({ timeout: 30_000 });
+		await expect(error).toHaveText('無料体験はすでに使用済みです');
+		await expect(error).toHaveAttribute('role', 'alert');
+	});
+});

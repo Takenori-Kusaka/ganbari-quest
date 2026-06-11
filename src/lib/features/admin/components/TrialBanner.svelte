@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
+import { getActionErrorDisplay } from '$lib/domain/errors';
 import { TRIAL_LABELS } from '$lib/domain/labels';
 
 interface Props {
@@ -27,6 +28,9 @@ const canStartTrial = $derived(planTier === 'free' && !trialUsed && !isTrialActi
 const isUrgent = $derived(daysRemaining <= 1);
 
 let submitting = $state(false);
+// #2941 項目 2: startTrial の fail(400) (trialUsed=true 再押下等) をユーザーに見える形で
+// 表示する (NN/G #1 visibility of system status)。getActionErrorDisplay (#2913) 経路。
+let startError = $state('');
 </script>
 
 {#if isTrialActive}
@@ -66,10 +70,17 @@ let submitting = $state(false);
 			action="/admin/subscription?/startTrial"
 			use:enhance={() => {
 				submitting = true;
+				startError = '';
 				return async ({ result, update }) => {
 					await update({ reset: false });
 					if (result.type === 'success') {
 						await invalidateAll();
+					} else if (result.type === 'failure') {
+						// #2941 項目 2: fail(400) をユーザーに見える形で表示 (NN/G #1)
+						startError = getActionErrorDisplay(
+							result.data?.error,
+							TRIAL_LABELS.startErrorFallback,
+						).message;
 					}
 					submitting = false;
 				};
@@ -84,6 +95,11 @@ let submitting = $state(false);
 				{submitting ? TRIAL_LABELS.bannerCtaSubmitting : TRIAL_LABELS.bannerCtaStart}
 			</button>
 		</form>
+		{#if startError}
+			<p class="trial-error" role="alert" data-testid="trial-banner-start-error">
+				{startError}
+			</p>
+		{/if}
 	</div>
 {:else if isTrialExpired}
 	<div class="trial-banner expired" data-testid="trial-banner-expired">
@@ -121,6 +137,17 @@ let submitting = $state(false);
 	.trial-banner.not-started {
 		border-color: var(--color-border-trial);
 		background: var(--gradient-surface-trial);
+		/* #2941: wrap so the startError row spans full width */
+		flex-wrap: wrap;
+	}
+
+	/* #2941 item 2: visible error feedback for startTrial failure (NN/G #1) */
+	.trial-error {
+		flex-basis: 100%;
+		margin: 4px 0 0;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--color-feedback-error-text);
 	}
 
 	.trial-banner.expired {

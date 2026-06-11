@@ -8,6 +8,7 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { TRIAL_LABELS } from '$lib/domain/labels';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { getActivities } from '$lib/server/services/activity-service';
 import { isPinConfigured } from '$lib/server/services/auth-service';
@@ -92,7 +93,9 @@ export const actions: Actions = {
 		});
 
 		if (!started) {
-			return fail(400, { error: 'トライアルはすでに使用済みです' });
+			// #2941 項目 2: メッセージは TRIAL_LABELS SSOT 経由。TrialBanner が
+			// getActionErrorDisplay でユーザーに見える形で表示する (NN/G #1)
+			return fail(400, { error: TRIAL_LABELS.startErrorAlreadyUsed });
 		}
 
 		return { success: true };
