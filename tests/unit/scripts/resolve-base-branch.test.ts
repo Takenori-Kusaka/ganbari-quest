@@ -2,7 +2,10 @@
 // 決定的解決順序 6 段の境界を網羅する unit test。
 // develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md §3/§5) のクライアント側 SSOT。
 import { describe, expect, it } from 'vitest';
-import { resolveBaseBranch } from '../../../scripts/lib/resolve-base-branch.mjs';
+import {
+	refspecCoversDevelop,
+	resolveBaseBranch,
+} from '../../../scripts/lib/resolve-base-branch.mjs';
 
 const base = {
 	envBase: null as string | null,
@@ -67,5 +70,36 @@ describe('resolveBaseBranch (#2959)', () => {
 				containsDevelopOnlyCommits: false,
 			}),
 		).toBe('main');
+	});
+});
+
+// Issue #2975 AC1: single-branch refspec self-heal の純粋判定境界。
+// main 限定 refspec (clone --single-branch 由来) を heal 対象として正しく検出し、
+// 全 branch wildcard / develop 明示行を誤 heal しないことを保証する。
+describe('refspecCoversDevelop (#2975)', () => {
+	it('main 限定 refspec (single-branch clone 由来) は develop を cover しない → heal 対象', () => {
+		expect(refspecCoversDevelop(['+refs/heads/main:refs/remotes/origin/main'])).toBe(false);
+	});
+
+	it('全 branch wildcard refspec は develop を cover する → heal 不要', () => {
+		expect(refspecCoversDevelop(['+refs/heads/*:refs/remotes/origin/*'])).toBe(true);
+	});
+
+	it('develop 明示行 (応急処置済 repo) は cover する → heal 不要 (冪等)', () => {
+		expect(
+			refspecCoversDevelop([
+				'+refs/heads/main:refs/remotes/origin/main',
+				'+refs/heads/develop:refs/remotes/origin/develop',
+			]),
+		).toBe(true);
+	});
+
+	it('+ prefix なし refspec 行も判定できる', () => {
+		expect(refspecCoversDevelop(['refs/heads/develop:refs/remotes/origin/develop'])).toBe(true);
+		expect(refspecCoversDevelop(['refs/heads/main:refs/remotes/origin/main'])).toBe(false);
+	});
+
+	it('空配列 (refspec 未設定) は cover しない', () => {
+		expect(refspecCoversDevelop([])).toBe(false);
 	});
 });
