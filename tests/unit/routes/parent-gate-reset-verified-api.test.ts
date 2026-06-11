@@ -102,7 +102,10 @@ describe('POST /api/v1/parent-gate/reset-verified (#2993)', () => {
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ ok: true });
 		// セッション既知の email で re-auth する (手入力 email を受け付けない)
-		expect(mockAuthenticateWithCognito).toHaveBeenCalledWith('owner@example.com', 'correct-password');
+		expect(mockAuthenticateWithCognito).toHaveBeenCalledWith(
+			'owner@example.com',
+			'correct-password',
+		);
 		expect(mockSetupPin).toHaveBeenCalledWith('7531', 'tenant-1');
 		expect(cookieSet).toHaveBeenCalledWith(
 			'gq_parent_session',
