@@ -1,6 +1,7 @@
 <script lang="ts">
 import { FEATURES_LABELS } from '$lib/domain/labels';
-import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
+import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
+import type { MenuItem } from '$lib/ui/primitives/Menu.svelte';
 
 // #2558 段階2: 「追加」「一括追加」「別の子からコピー」を 1 つの + 追加メニューに統合。
 // `browse` は admin 内ブラウズ UI を撤去し /marketplace へ画面遷移する (PO 方針: マーケットプレイス一本化)。
@@ -21,6 +22,12 @@ let { onClearAll, clearConfirmOpen, canAdd, onAddSelect, onRestore, canCopyFromC
 	$props();
 
 const L = FEATURES_LABELS.activitiesHeader;
+
+// #2998 (EPIC #2897): 本 component は AdminResourceHeader (3 画面共通) の thin wrapper に縮約。
+//   ヘッダーのレイアウト (title + 説明 + + 追加 dropdown + ︙ overflow) は AdminResourceHeader が
+//   SSOT として固定し、本 component は活動固有の menu item 構成のみを担う。
+//   既存 testid (header-add-activity-btn / header-overflow-menu-btn) と add menu の順序
+//   (manual / ai / browse / [copy] / bulk) は不変 (admin-add-path-isomorphism.spec.ts AC3)。
 
 // + 追加 dropdown menu items (EPIC #2253 / #2255 / #2558 段階2 で copy / bulk / browse を統合)
 // メニュー構成 (DESIGN.md §10 Hick's Law / add 経路 ≤ 4 整合、browse は marketplace 一本化のため別カウント):
@@ -105,87 +112,16 @@ const overflowItems = $derived<MenuItem[]>([
 ]);
 </script>
 
-<div class="activities-header">
-	<div class="flex items-center gap-2">
-		<h2 class="activities-title">{L.title}</h2>
-	</div>
-	<div class="activities-toolbar">
-		<!-- + 追加 dropdown menu (EPIC #2253 / #2255 / #2260 Fix-1: nested button 解消) -->
-		<Menu
-			items={addMenuItems}
-			placement="bottom-end"
-			ariaLabel={L.addMenuAriaLabel}
-			testid="header-add-activity-btn"
-			triggerClass="add-btn"
-			triggerLabel={L.addButtonLabel}
-			dataTutorial="add-activity-btn"
-			disabled={!canAdd}
-		/>
-		<!-- ︙ overflow menu (EPIC #2253 / #2257 / #2260 Fix-1) -->
-		<Menu
-			items={overflowItems}
-			placement="bottom-end"
-			ariaLabel={L.overflowMenuAriaLabel}
-			testid="header-overflow-menu-btn"
-			triggerClass="overflow-btn"
-			triggerLabel={L.overflowTriggerLabel}
-		/>
-	</div>
-</div>
-
-<style>
-	.activities-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.activities-title {
-		font-size: 1.125rem;
-		font-weight: 700;
-	}
-	.activities-toolbar {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
-	/* #2260 Fix-1: Menu primitive pass-through requires :global selector for parent scope visibility */
-	:global(.activities-toolbar .add-btn) {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.4rem 0.85rem;
-		border: none;
-		border-radius: var(--radius-md);
-		background: var(--color-action-primary);
-		color: var(--color-text-inverse);
-		font-size: 0.875rem;
-		font-weight: 700;
-		cursor: pointer;
-		transition: filter 0.15s;
-	}
-	:global(.activities-toolbar .add-btn:hover:not(:disabled)) {
-		filter: brightness(0.9);
-	}
-	:global(.activities-toolbar .add-btn:disabled) {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-	:global(.activities-toolbar .overflow-btn) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 2rem;
-		height: 2rem;
-		border: none;
-		border-radius: var(--radius-sm);
-		background: transparent;
-		font-size: 1.25rem;
-		line-height: 1;
-		cursor: pointer;
-		transition: background 0.15s;
-		color: var(--color-text-secondary);
-	}
-	:global(.activities-toolbar .overflow-btn:hover) {
-		background: var(--color-surface-muted);
-	}
-</style>
+<AdminResourceHeader
+	title={L.title}
+	addMenuItems={addMenuItems}
+	addButtonLabel={L.addButtonLabel}
+	addMenuAriaLabel={L.addMenuAriaLabel}
+	addMenuTestid="header-add-activity-btn"
+	addMenuDataTutorial="add-activity-btn"
+	addDisabled={!canAdd}
+	overflowItems={overflowItems}
+	overflowTriggerLabel={L.overflowTriggerLabel}
+	overflowMenuAriaLabel={L.overflowMenuAriaLabel}
+	overflowMenuTestid="header-overflow-menu-btn"
+/>

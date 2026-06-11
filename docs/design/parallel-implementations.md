@@ -208,12 +208,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/server/services/parent-gate-session.ts` | 署名 cookie 発行 / 検証 / sliding refresh の SSOT |
 | `src/routes/api/v1/parent-gate/verify/+server.ts` | PIN verify endpoint + cookie 発行 |
 | `src/routes/api/v1/parent-gate/logout/+server.ts` | cookie 削除 endpoint |
-| `src/lib/server/services/pin-reset-service.ts` (#2353) | jose JWT 30 分 token 発行 / 検証 / JTI consume (1 回限り) |
-| `src/lib/server/services/email-service.ts` `sendPinResetEmail` (#2353) | SES magic link 配信 |
-| `src/routes/api/v1/parent-gate/reset/request/+server.ts` (#2353) | reset 要求 (email 入力、enumeration 防止 200 維持) |
-| `src/routes/api/v1/parent-gate/reset/verify/+server.ts` (#2353) | reset 完了 (token + 新 PIN → setupPin + consume) |
-| `src/routes/auth/forgot-pin/+page.svelte` (#2353) | reset Step 1 (email 入力) |
-| `src/routes/auth/reset-pin/[token]/+page.svelte` (#2353) | reset Step 2 (新 PIN 設定、PinInput primitive 再利用) |
+| `src/routes/api/v1/parent-gate/reset-verified/+server.ts` (#2993) | PIN reset (パスワード re-auth → setupPin + session 発行、cognito 専用) |
+| `src/routes/auth/reset-pin/+page.svelte` + `+page.server.ts` (#2993) | PIN reset 1 画面 UI (パスワード + 新 PIN、cognito identity guard) |
 | `src/lib/domain/labels.ts` `OYAKAGI_LABELS` / `PIN_RESET_LABELS` / `PIN_GATE_ONBOARDING_LABELS` (#2353) | 全文言 SSOT (atom 経由化、ADR-0045 §3.3 整合) |
 | `src/lib/domain/terms.ts` `OYAKAGI_TERMS` / `PIN_DEFAULT_TERMS` (#2353) | atom (おやカギコード / 初期値 5086 ヒント) |
 | `src/routes/(child)/+layout.server.ts` `loadPinGateOnboardingSeen` (#2353) | onboarding dialog 表示要否 (settings.pin_gate_onboarding_seen) |

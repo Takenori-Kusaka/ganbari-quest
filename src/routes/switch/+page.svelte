@@ -1,6 +1,7 @@
 <script lang="ts">
 import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
+import { invalidateAll } from '$app/navigation';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
@@ -28,16 +29,91 @@ let pinInputKey = $state<number>(0);
 // 子供画面から戻って `/switch?pinRequired=1` 再アクセス時、banner だけ残って modal が出ない bug の構造的修正。
 // $state は初期化のみで data.pinRequired の変化に追従しないため、$effect で同期する。
 // Research 結論 (Wave 28-A): 業界 8 サービス調査で「banner だけ + modal 出さない」設計は prior art ゼロ = 構造的 bug 確定。
+//
+// #2992: 前回値比較ガードを追加。data.pinRequired が true のまま $effect が再発火しても
+// 2 度目以降は no-op にし、`pinModalOpen` / `pinInputKey` への再書き込み連鎖
+// (effect_update_depth_exceeded、EPIC #2990 finding) を構造的に遮断する。
+// prevPinRequired は plain 変数 (非 reactive) のため $effect の依存にならない。
+let prevPinRequired = false;
 $effect(() => {
-	if (data.pinRequired) {
+	const required = data.pinRequired ?? false;
+	if (required && !prevPinRequired) {
 		pinModalOpen = true;
 		// 過去の error / lockout / 入力残骸をクリアして再入力できる状態に揃える
 		pinError = '';
 		pinInputKey += 1;
 	}
+	prevPinRequired = required;
 });
 
 const lockedNow = $derived(lockoutUntil !== null && Date.now() < (lockoutUntil ?? 0));
+
+// #2992 (EPIC #2990): 「初回は作る・既存は入る」。PIN 未設定 tenant は login modal でなく
+// 新規作成 (入力→確認の 2 段) フローを表示する (Apple Screen Time / Google Family Link 同型)。
+// 既定 PIN を知らない保護者の初回 dead-end を構造的に解消し、PIN 入力画面に初期値ヒントを
+// 出せない制約 (#2353 Fix 5) とも両立する (未設定者はヒント不要 = 自分で作るため)。
+const pinCreateMode = $derived(!data.pinConfigured);
+let createStep = $state<'enter' | 'confirm'>('enter');
+let createFirstPin = $state<string>('');
+
+function resetCreateFlow() {
+	createStep = 'enter';
+	createFirstPin = '';
+	pinInputKey += 1;
+}
+
+async function handleCreateComplete(details: { valueAsString: string }) {
+	if (pinSubmitting) return;
+	pinError = '';
+
+	// 1 段目: 入力を保持して確認入力へ
+	if (createStep === 'enter') {
+		createFirstPin = details.valueAsString;
+		createStep = 'confirm';
+		pinInputKey += 1;
+		return;
+	}
+
+	// 2 段目: 確認一致で作成 API へ
+	if (details.valueAsString !== createFirstPin) {
+		pinError = OYAKAGI_LABELS.gateCreateMismatch;
+		resetCreateFlow();
+		return;
+	}
+
+	pinSubmitting = true;
+	try {
+		const res = await fetch('/api/v1/parent-gate/setup', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ pin: details.valueAsString }),
+		});
+		const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+		if (res.ok && body.ok) {
+			pinModalOpen = false;
+			// next path が /admin 配下に限定されていることは server 側で保証済
+			window.location.href = data.nextPath ?? '/admin';
+			return;
+		}
+		if (body.error === 'ALREADY_CONFIGURED') {
+			// 別タブ等で先に作成済みのケース。data を再取得して入力 modal に切り替える
+			pinError = OYAKAGI_LABELS.gateCreateAlreadyConfigured;
+			resetCreateFlow();
+			await invalidateAll();
+		} else if (body.error === 'PIN_FORMAT') {
+			pinError = OYAKAGI_LABELS.gateFormatNotice;
+			resetCreateFlow();
+		} else {
+			pinError = OYAKAGI_LABELS.gateCreateGenericError;
+			resetCreateFlow();
+		}
+	} catch {
+		pinError = OYAKAGI_LABELS.gateCreateGenericError;
+		resetCreateFlow();
+	} finally {
+		pinSubmitting = false;
+	}
+}
 
 async function handleAdminLinkClick(e: MouseEvent) {
 	// cognito モードで /auth/login に飛ばす場合は本フローをスキップ (子供画面では本リンク自体が非表示)
@@ -74,7 +150,14 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		pinInputKey += 1;
 		if (body.error === 'LOCKED_OUT' && body.lockedUntil) {
 			lockoutUntil = new Date(body.lockedUntil).getTime();
-			pinError = OYAKAGI_LABELS.lockedError;
+			// #2991: 解除の絶対時刻 (HH:MM、ローカルタイム) を提示し「いつ再試行できるか」を明示する。
+			// lockedUntil が parse 不能な場合のみ時刻なし fallback (lockedError)。
+			const unlockTime = new Date(body.lockedUntil);
+			pinError = Number.isNaN(unlockTime.getTime())
+				? OYAKAGI_LABELS.lockedError
+				: OYAKAGI_LABELS.gateLockedUntilNotice(
+						unlockTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+					);
 		} else if (body.error === 'PIN_FORMAT') {
 			pinError = OYAKAGI_LABELS.gateFormatNotice;
 		} else if (body.error === 'INVALID_PIN' || body.error === 'PIN_NOT_SET') {
@@ -175,18 +258,35 @@ async function handlePinComplete(details: { valueAsString: string }) {
 
 <Dialog
 	bind:open={pinModalOpen}
-	title={OYAKAGI_LABELS.gateModalTitle}
+	title={pinCreateMode
+		? createStep === 'enter'
+			? OYAKAGI_LABELS.gateCreateTitle
+			: OYAKAGI_LABELS.gateCreateConfirmTitle
+		: OYAKAGI_LABELS.gateModalTitle}
 	testid="parent-gate-modal"
 	size="sm"
 >
-	<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.gateModalDescription}</p>
-	{#key pinInputKey}
-		<PinInput length={4} mask onComplete={handlePinComplete} />
-	{/key}
+	{#if pinCreateMode}
+		<!-- #2992: 初回作成フロー (入力→確認の 2 段)。未設定 tenant に既定 PIN を要求しない -->
+		<div data-testid="parent-gate-create" data-step={createStep}>
+			<p class="text-sm text-[var(--color-text-muted)] mb-4">
+				{createStep === 'enter'
+					? OYAKAGI_LABELS.gateCreateDescription
+					: OYAKAGI_LABELS.gateCreateConfirmDescription}
+			</p>
+			{#key pinInputKey}
+				<PinInput length={4} mask onComplete={handleCreateComplete} />
+			{/key}
+		</div>
+	{:else}
+		<p class="text-sm text-[var(--color-text-muted)] mb-4">{OYAKAGI_LABELS.gateModalDescription}</p>
+		{#key pinInputKey}
+			<PinInput length={4} mask onComplete={handlePinComplete} />
+		{/key}
+	{/if}
 	<!-- Issue #2353 Fix 5 (Phase A): 初期 PIN 5086 ヒントを modal から削除 (子供脆弱性) -->
 	<!-- 業界 PIN 採用 4 サービス全てで初期値ヒントは setup 時のみ、modal では非表示 (Apple / Nintendo / Roblox / BusyKid) -->
-	<!-- setup/complete/+page.svelte の OYAKAGI_LABELS.defaultValueHint は適切な文脈 (初期 setup 完了時) なので維持 -->
-	<!-- Phase C: gateDefaultHint atom は labels.ts から削除済、ここでは Phase C 由来の Forgot PIN リンクのみ追加 -->
+	<!-- #2992 以降は「初回は作成フロー」のため既定 PIN ヒント自体が不要 (未設定者は自分で作る) -->
 
 	{#if pinError}
 		<div class="mt-3" data-testid="parent-gate-error">
@@ -194,12 +294,14 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		</div>
 	{/if}
 	{#if pinSubmitting}
-		<p class="text-xs text-[var(--color-text-muted)] text-center mt-3" data-testid="parent-gate-submitting">{OYAKAGI_LABELS.gateModalSubmitting}</p>
+		<p class="text-xs text-[var(--color-text-muted)] text-center mt-3" data-testid="parent-gate-submitting">{pinCreateMode ? OYAKAGI_LABELS.gateCreateSubmitting : OYAKAGI_LABELS.gateModalSubmitting}</p>
 	{/if}
-	<!-- #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分有効 + 1 回限り) -->
-	<div class="mt-4 text-center">
-		<a href="/auth/forgot-pin" class="text-sm text-[var(--color-text-link)] no-underline hover:underline" data-testid="parent-gate-forgot-pin-link">{OYAKAGI_LABELS.gateForgotPinLink}</a>
-	</div>
+	{#if !pinCreateMode && data.pinResetAvailable}
+		<!-- #2993: PIN 忘れ救済導線 (パスワード再入力方式、cognito のみ。作成モードでは PIN 未存在のため非表示) -->
+		<div class="mt-4 text-center">
+			<a href="/auth/reset-pin" class="text-sm text-[var(--color-text-link)] no-underline hover:underline" data-testid="parent-gate-forgot-pin-link">{OYAKAGI_LABELS.gateForgotPinLink}</a>
+		</div>
+	{/if}
 </Dialog>
 
 <style>

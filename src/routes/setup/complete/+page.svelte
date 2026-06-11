@@ -54,9 +54,9 @@ const childHomeUrl = $derived(firstChild ? `/${firstChild.uiMode}/home` : '/swit
 		</a>
 	</div>
 
-	<!-- PINヒント -->
+	<!-- PINヒント (#2992: 初回は新規作成フローのため、旧 5086 既定値注記から作成案内に変更) -->
 	<p class="text-[0.6875rem] text-[var(--color-neutral-400)] mt-2">
-		{SETUP_COMPLETE_LABELS.pinHintPrefix}{OYAKAGI_LABELS.name}{SETUP_COMPLETE_LABELS.pinHintMiddle}{OYAKAGI_LABELS.defaultValueHint}
+		{SETUP_COMPLETE_LABELS.pinHintPrefix}{OYAKAGI_LABELS.name}{SETUP_COMPLETE_LABELS.pinHintMiddle}{SETUP_COMPLETE_LABELS.pinHintSuffix}
 	</p>
 </div>
 

@@ -1325,7 +1325,11 @@ export const OYAKAGI_LABELS = {
 	gateModalTitle: `${OYAKAGI_TERMS.name}を入力してください`,
 	gateModalDescription: `${ADMIN_VIEW_TERMS.canonical}には${PARENT_TERMS.neutral}のみが入れます。${OYAKAGI_TERMS.name}を入力してください。`,
 	gateModalSubmitting: 'かくにん中…',
-	gateLockoutNotice: (sec: number) => `連続で間違えたため、${sec}秒後に再度お試しください`,
+	// #2991: ロック時は解除の絶対時刻を提示する (NIST SP 800-63B / iOS Security Lockout は残り時間明示、
+	// NN/g heuristic #1 visibility)。秒カウントダウンは temporal vigilance で不安を増幅するため絶対時刻型を採用
+	// (research: tmp/research/pin-gate-ux-ideal-state.md Q2)。timeStr は呼び出し側で「HH:MM」整形した文字列。
+	gateLockedUntilNotice: (timeStr: string) =>
+		`${OYAKAGI_TERMS.name}の入力に連続して失敗しました。${timeStr} まで待ってから再度お試しください`,
 	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
 	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
@@ -1334,51 +1338,46 @@ export const OYAKAGI_LABELS = {
 	// #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分 token + 1 回限り)
 	gateForgotPinLink: `${OYAKAGI_TERMS.name}を忘れた方`,
 	gateForgotPinHelp: `${OYAKAGI_TERMS.name}が分からない場合は登録メールで再設定できます`,
+	// #2992 (EPIC #2990): 初回は「作る」フロー。PIN 未設定 tenant には login でなく
+	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。
+	// これにより既定 PIN を知らない保護者の初回 dead-end が構造的に解消する。
+	gateCreateTitle: `${OYAKAGI_TERMS.name}をつくってください`,
+	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（4〜6桁の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
+	gateCreateConfirmTitle: `もう一度入力してください`,
+	gateCreateConfirmDescription: `確認のため、同じ${OYAKAGI_TERMS.name}をもう一度入力してください。`,
+	gateCreateMismatch: `入力が一致しませんでした。最初からやり直してください`,
+	gateCreateAlreadyConfigured: `${OYAKAGI_TERMS.name}は設定済みです。入力画面からやり直してください`,
+	gateCreateGenericError: `${OYAKAGI_TERMS.name}の作成に失敗しました。もう一度お試しください`,
+	gateCreateSubmitting: 'つくっています…',
 } as const;
 
 /**
- * PIN reset 一連の画面文言 SSOT (#2353 設計欠陥 4)
+ * PIN reset 画面文言 SSOT (#2993、EPIC #2990)
  *
- * /auth/forgot-pin (email 入力) / /auth/reset-pin/[token] (新 PIN 設定) の 2 画面で利用。
- * SES 経由 magic link で配信した 30 分有効 / 1 回限り token を消費する。
+ * /auth/reset-pin (cognito 専用): アカウントパスワード再入力で本人確認し、その場で
+ * 新しい PIN を設定する (Apple Screen Time 同型)。email はセッション既知のため手入力なし。
  */
 export const PIN_RESET_LABELS = {
-	requestPageTitle: `${OYAKAGI_TERMS.name}の再設定`,
-	requestHeading: `${OYAKAGI_TERMS.name}を忘れた場合`,
-	requestDescription: `アカウントに登録されているメールアドレスへ再設定用のリンクをお送りします。リンクは送信から 30 分間のみ有効です。`,
-	requestEmailLabel: 'メールアドレス',
-	requestEmailPlaceholder: 'parent@example.com',
-	requestSubmit: '再設定用のリンクを送信',
-	requestSubmitting: '送信中…',
-	requestSuccessHeading: '送信しました',
-	requestSuccessBody:
-		'メールに記載のリンクから再設定画面を開いてください。リンクは 30 分間のみ有効、一度のみ利用できます。届かない場合は迷惑メールフォルダもご確認ください。',
-	requestBackToSwitch: `${ADMIN_VIEW_TERMS.canonical}に戻る`,
-	// resetPage = /auth/reset-pin/[token]
 	resetPageTitle: `${OYAKAGI_TERMS.name}の再設定`,
-	resetHeading: `新しい${OYAKAGI_TERMS.name}を設定`,
-	resetDescription: `4〜6桁の半角数字でお好きな${OYAKAGI_TERMS.name}を入力してください。`,
-	resetPinLabel: `新しい${OYAKAGI_TERMS.name}`,
-	resetSubmit: `${OYAKAGI_TERMS.name}を設定する`,
+	resetHeading: `${OYAKAGI_TERMS.name}を忘れた場合`,
+	resetDescription: `ご本人確認のため、ログイン中のアカウントのパスワードを入力してください。そのまま新しい${OYAKAGI_TERMS.name}を設定できます。`,
+	resetAccountLabel: 'ログイン中のアカウント',
+	resetPasswordLabel: 'アカウントのパスワード',
+	resetPasswordHint: `${LOGIN_TERMS.canonical}時に使っているパスワードです`,
+	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
+	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',
 	resetSuccessHeading: '再設定が完了しました',
 	resetSuccessBody: `新しい${OYAKAGI_TERMS.name}で${ADMIN_VIEW_TERMS.canonical}に入れます。`,
 	resetSuccessCta: `${ADMIN_VIEW_TERMS.canonical}へ`,
+	resetBackToSwitch: `${ADMIN_VIEW_TERMS.canonical}に戻る`,
 	// エラー文言
-	errorInvalidEmail: '有効なメールアドレスを入力してください',
-	errorRateLimited: '送信回数が上限に達しました。しばらく時間をおいてからお試しください',
-	errorTokenExpired: 'リンクの有効期限が切れています。もう一度はじめから再設定してください',
-	errorTokenInvalid: 'リンクが無効です。もう一度はじめから再設定してください',
-	errorTokenAlreadyUsed: 'このリンクは既に使用済みです。もう一度はじめから再設定してください',
+	errorInvalidPassword: 'パスワードが正しくありません',
+	errorPasswordRequired: 'パスワードを入力してください',
 	errorPinFormat: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	errorRateLimited: '試行回数が上限に達しました。しばらく時間をおいてからお試しください',
+	errorNotSupported: 'この環境では本画面から再設定できません。管理者向け手順で再設定してください',
 	errorGeneric: '再設定に失敗しました。時間をおいてもう一度お試しください',
-	// メール本文
-	emailSubject: `【がんばりクエスト】${OYAKAGI_TERMS.name}の再設定`,
-	emailHeading: `${OYAKAGI_TERMS.name}の再設定リクエスト`,
-	emailIntro: `下記のリンクから${OYAKAGI_TERMS.name}を再設定してください。`,
-	emailNote:
-		'このリンクは送信から 30 分間のみ有効で、1 回のみ使用できます。お心当たりがない場合は本メールを破棄してください。',
-	emailCtaLabel: `${OYAKAGI_TERMS.name}を再設定`,
 } as const;
 
 /**
@@ -1390,7 +1389,9 @@ export const PIN_RESET_LABELS = {
 export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogTitle: `${ADMIN_VIEW_TERMS.canonical}に入る方法`,
 	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_VIEW_TERMS.parent} のリンクをタップしてください。`,
-	dialogPinHint: `初回ログイン時の${OYAKAGI_TERMS.name}は ${PIN_DEFAULT_TERMS.hintCompact} です。設定完了画面でも確認できます。`,
+	// #2992: 初回は既定 PIN の入力でなく新規作成 (入力→確認) フローになるため、
+	// 旧「初回ログイン時の○○は 初期 5086…」の既定値案内から作成フロー案内に変更。
+	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（4〜6桁の数字）を作成します。`,
 	dialogChangePinHint: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.canonical}の「せってい」 → 「${OYAKAGI_TERMS.name}」からいつでも変更できます。`,
 	dontShowAgain: '今後表示しない',
 	// Issue #2353 Phase D / E2E 衝突対策: 子供向け Dialog の「とじる」と strict mode 衝突するため
@@ -3509,8 +3510,9 @@ export const REWARDS_LABELS = {
 	sectionTitle: '🎁 ごほうび管理',
 	premiumBadge: '有料限定',
 	tabRewards: 'ごほうび',
-	pageDescTitle: '🎁 ごほうび管理 — 子供 shop に並べる商品',
-	pageDescText1: '子供 shop に並べるごほうび（おこづかい、ゲーム時間、おやつなど）を管理します。',
+	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
+	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
+	// (pageDescHint*) のみ page-description カードに残す。
 	pageDescText2: '応援機能（突発のごほうび）は /admin/cheer をご利用ください。',
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	pageDescHintLink: 'おうえんメッセージ',
@@ -3839,6 +3841,8 @@ export const SETUP_COMPLETE_LABELS = {
 	ctaSecondary: 'おやのせっていをみる',
 	pinHintPrefix: `💡 ${ADMIN_VIEW_TERMS.canonical}の「せってい」から`,
 	pinHintMiddle: 'を変更すると、おやの画面を守れるよ。',
+	// #2992: 初回は既定 PIN 入力でなく新規作成フローのため、旧 5086 注記 (defaultValueHint) を置換
+	pinHintSuffix: '初めて入るときに作成します。',
 } as const;
 
 export const CERTIFICATE_DETAIL_LABELS = {
@@ -4094,6 +4098,23 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #2998 (EPIC #2897): ヘッダー + 「+ 追加」dropdown 統一 (activities / checklists と同型)。
+	//   AI 提案パネル本文直置きを撤去し、dropdown 内の選択肢 (手動 / AI / みんなのテンプレートから探す)
+	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
+	//   icon / 文言は activities header (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
+	//   3 画面の add 経路構成 (種類・順序) 一致を E2E (admin-add-path-isomorphism.spec.ts) で固定する。
+	headerDescription: '子供 shop に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します',
+	addMenuButton: '+ 追加',
+	addMenuAriaLabel: 'ごほうびを追加するメニューを開く',
+	addManualLabel: '手動で1つ追加',
+	addManualIcon: '✏️',
+	addAiLabel: 'AI で提案してもらう',
+	addAiIcon: '✨',
+	addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesIcon: '🔍',
+	// add dialog title (mode 別、activities の addDialogTitle* / checklists の addDialogTitleAi と同型)
+	addDialogTitleManual: '+ 手動でごほうびを追加',
+	addDialogTitleAi: 'AI で提案してもらう',
 } as const;
 
 /**
@@ -7436,6 +7457,21 @@ export const STORYBOOK_LABELS = {
 		itemRewards: 'ごほうびプリセットを選ぶ',
 		itemChecklist: 'チェックリストを作る',
 		itemChildScreen: '子供の画面を確認する',
+	},
+	// #2998: AdminResourceHeader story の mock 文言 (3 画面共通ヘッダーの play coverage、CX-DoR #8)。
+	adminResourceHeader: {
+		title: '活動管理',
+		description: 'お子さまの活動を登録・編集します',
+		addButtonLabel: '+ 追加',
+		addMenuAriaLabel: '追加メニューを開く',
+		addManual: '手動で1つ追加',
+		addAi: 'AI で提案してもらう',
+		addBrowse: 'みんなのテンプレートから探す',
+		overflowTrigger: '︙',
+		overflowAriaLabel: 'その他の操作',
+		overflowRestore: 'バックアップから復元',
+		overflowExport: 'エクスポート',
+		badge: '有料限定',
 	},
 } as const;
 

@@ -25,6 +25,13 @@ describe('legacy-url-map', () => {
 			}
 		});
 
+		it('/auth/forgot-pin → /auth/reset-pin (#2993) エントリが存在する', () => {
+			const entry = LEGACY_URL_MAP.find((e) => e.from === '/auth/forgot-pin');
+			expect(entry).toBeDefined();
+			expect(entry?.to).toBe('/auth/reset-pin');
+			expect(entry?.issue).toBe('#2993');
+		});
+
 		it('from と to が異なる', () => {
 			for (const entry of LEGACY_URL_MAP) {
 				expect(entry.from).not.toBe(entry.to);
