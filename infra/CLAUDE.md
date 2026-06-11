@@ -139,7 +139,8 @@ docker compose logs -f scheduler
 | health | `localhost:3000/api/health` | `localhost:3100/api/health` (200 + `schema.schemaValid=true` assert) |
 
 - **snapshot-forward 起動**: staging は本番 DB snapshot から起動し `applyLazyStartupMigrations` を貫通させる (過去状態からのマイグレーション込み実機起動の実機担保、#2872 AC6)。snapshot は本番 DB を read のみで取得 (本番 DB へ write しない)。
-- **当面 advisory**: required check 未登録。staging working-dir 未 provision 時に develop→main 取込をブロックしない。物理 provision (staging dir / port 3100 / ruleset) は PO 手作業。
+- **self-provisioning**: staging working-dir 未 provision でも workflow Step 0 が自動 clone する (NUC runner の global git credential 流用、物理 NUC 上の手作業不要)。health check は runner 自身からの `localhost:3100` のため Firewall 設定も不要 (LAN 越しにブラウザで見たい場合のみ任意で許可)。
+- **当面 advisory**: required check 未登録。staging 初回緑を確認するまで develop→main 取込をブロックしない。merge blocker 化 (#2872 AC3) は初回緑確認後に audit-manager が main ruleset の `required_status_checks` へ `deploy-nuc-staging` を追加して行う。
 - 検証手順 SSOT: [.claude/skills/deploy-verify/SKILL.md](../.claude/skills/deploy-verify/SKILL.md) / 構成詳細: [docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.2](../docs/design/13-AWSサーバレスアーキテクチャ設計書.md)。
 
 ## EventBridge Cron Rules (#1376)
