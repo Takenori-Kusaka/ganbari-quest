@@ -417,11 +417,12 @@ function registerParentGateTests(): void {
 			for (const ch of pin) {
 				await page.keyboard.press(ch);
 			}
-			// 全桁反映を確認してから次の操作へ (最終桁の input value が入るまで待つ)
+			// 全桁反映を確認してから次の操作へ。Ark PinInput (mask) は DOM value を出さないため
+			// value でなく data-complete 属性 (全桁入力完了 = onComplete 発火と同期) を待つ
 			const lastDigit = page
 				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]')
 				.last();
-			await expect(lastDigit).not.toHaveValue('');
+			await expect(lastDigit).toHaveAttribute('data-complete', '');
 		}
 
 		test('誤パスワードでは再設定できずエラー表示 (子供の gate 突破防止)', async ({ page }) => {
