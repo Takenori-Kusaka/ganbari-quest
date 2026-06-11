@@ -77,6 +77,20 @@ export function resolveBaseBranch({
 }
 
 /**
+ * base branch 名の whitelist 検証 (#2982、unit test 対象)。
+ * develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md) の正当な lane は main / develop の
+ * 2 つのみ。解決値を `shell: true` のコマンド文字列 (`origin/${base}` 等) に展開する消費側
+ * (scripts/pre-ready.mjs getChangedFiles / 本 CLI --verify-base) は、展開前に本関数で防御的に
+ * clamp する (脅威モデルは「本人の local tool」のため理論枠だが、injection 面を構造的に閉じる)。
+ *
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function isAllowedBaseBranch(name) {
+	return /^(main|develop)$/.test(name);
+}
+
+/**
  * remote.origin.fetch の refspec 行が origin/develop の追跡を含むかの純粋判定 (#2975、unit test 対象)。
  * `+refs/heads/*:refs/remotes/origin/*` (全 branch) または develop 明示行があれば true。
  *
@@ -223,8 +237,11 @@ if (isMain) {
 		if (process.argv.includes('--verify-base')) {
 			// #2975 AC2: 基点鮮度の機械検証。branch 作成直後 / push 前に
 			// 「HEAD が origin/<base> の最新を取り込んでいる (behind 0)」ことを exit code で保証する。
-			if (!/^[\w./-]+$/.test(base)) {
-				console.error(`[resolve-base-branch] ERROR: 不正な base branch 名: ${base}`);
+			// #2982: 後続の execSync コマンド文字列に base を展開するため whitelist 検証 (main / develop の 2 lane のみ)
+			if (!isAllowedBaseBranch(base)) {
+				console.error(
+					`[resolve-base-branch] ERROR: 不正な base branch 名: ${base} (whitelist: main / develop、#2982)`,
+				);
 				process.exit(1);
 			}
 			/** @param {string} cmd 固定コマンド + validate 済 base 名のみ @param {number} [timeout] ms */

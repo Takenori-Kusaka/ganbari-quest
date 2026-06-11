@@ -40,7 +40,7 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveBaseBranchAuto } from './lib/resolve-base-branch.mjs';
+import { isAllowedBaseBranch, resolveBaseBranchAuto } from './lib/resolve-base-branch.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
@@ -185,8 +185,18 @@ function run(cmd, argv) {
  * @returns {Promise<string[]>}
  */
 async function getChangedFiles(baseBranch) {
+	// #2982: shell:true 下で `origin/${baseBranch}` をコマンド文字列に展開するため、展開前に
+	// whitelist (main / develop の 2 lane) で防御的に clamp する。脅威モデルは「本人の local tool」
+	// のため理論枠 (ADR-0010 整合で非 BLOCK 裁定済) だが、injection 面を構造的に閉じる。
+	let base = baseBranch;
+	if (!isAllowedBaseBranch(base)) {
+		console.warn(
+			`[pre-ready] WARN: 想定外の base branch "${base}" (whitelist: main / develop) — origin/main に clamp します (#2982)`,
+		);
+		base = 'main';
+	}
 	return new Promise((resolveP) => {
-		const child = spawn('git', ['diff', `origin/${baseBranch}...HEAD`, '--name-only'], {
+		const child = spawn('git', ['diff', `origin/${base}...HEAD`, '--name-only'], {
 			cwd: repoRoot,
 			stdio: ['ignore', 'pipe', 'ignore'],
 			shell: true,

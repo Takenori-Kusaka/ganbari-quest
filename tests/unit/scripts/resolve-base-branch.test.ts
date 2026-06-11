@@ -3,6 +3,7 @@
 // develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md §3/§5) のクライアント側 SSOT。
 import { describe, expect, it } from 'vitest';
 import {
+	isAllowedBaseBranch,
 	refspecCoversDevelop,
 	resolveBaseBranch,
 } from '../../../scripts/lib/resolve-base-branch.mjs';
@@ -101,5 +102,33 @@ describe('refspecCoversDevelop (#2975)', () => {
 
 	it('空配列 (refspec 未設定) は cover しない', () => {
 		expect(refspecCoversDevelop([])).toBe(false);
+	});
+});
+
+// Issue #2982: shell:true コマンド文字列へ展開する前の base branch whitelist 検証。
+// develop 二層戦略の正当な lane (main / develop) のみ許可し、injection 面を構造的に閉じる
+// (脅威モデルは local tool のため理論枠、ADR-0010 整合)。
+describe('isAllowedBaseBranch (#2982)', () => {
+	it('正当な 2 lane (main / develop) のみ許可する', () => {
+		expect(isAllowedBaseBranch('main')).toBe(true);
+		expect(isAllowedBaseBranch('develop')).toBe(true);
+	});
+
+	it('origin/ prefix 付き・feature branch・空文字は拒否する', () => {
+		expect(isAllowedBaseBranch('origin/main')).toBe(false);
+		expect(isAllowedBaseBranch('feature/123-foo')).toBe(false);
+		expect(isAllowedBaseBranch('')).toBe(false);
+	});
+
+	it('shell metacharacter を含む文字列は拒否する (injection 面の閉鎖)', () => {
+		expect(isAllowedBaseBranch('main; rm -rf /')).toBe(false);
+		expect(isAllowedBaseBranch('main && echo pwned')).toBe(false);
+		expect(isAllowedBaseBranch('$(whoami)')).toBe(false);
+		expect(isAllowedBaseBranch('main\ndevelop')).toBe(false);
+	});
+
+	it('部分一致 (mainline / developer) は拒否する (anchored regex)', () => {
+		expect(isAllowedBaseBranch('mainline')).toBe(false);
+		expect(isAllowedBaseBranch('developer')).toBe(false);
 	});
 });
