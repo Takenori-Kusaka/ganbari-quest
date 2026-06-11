@@ -4,6 +4,7 @@
 
 - **cognito クラウド版のユーザ救済はこの runbook の対象外**: アプリ内の `/auth/reset-pin` (アカウントパスワード再入力、#2993) で自己回復できる。本 runbook の §4 (DynamoDB) は SaaS 運用者によるサポート介入用フォールバック。
 - 適用結果: PIN は **未設定状態** に戻り、次回 `/switch` アクセスで**新規作成フロー (#2992)** が表示される (env に新しい平文 PIN を書く方式は不採用 — Vaultwarden の平文警告と同根)。
+- **残余リスク (受容済み、#3024 OBJ-3)**: reset 後〜owner が新 PIN を再設定するまでの間、legacy local 経路では `DEFAULT_PIN` 5086 fallback (`auth-service.ts`、#1360 互換) が有効であり、新規作成フロー (#2992) には gate に先着した者が PIN を作成し得る先着競合が残る。PIN は speed bump であり実認証でないという確定 policy (EPIC #2990) に基づき受容する。
 
 ## 1. 主機構: `PARENT_PIN_RESET` env (AUTH_MODE=local 専用)
 
