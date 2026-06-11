@@ -1,8 +1,12 @@
 // tests/unit/services/bonus-hook-service.test.ts
-// #2138 MP-3 AC3: 6 bonus rule hook の全件評価
+// #2138 MP-3 / #2895: bonus rule hook の全件評価
 //
-// 検証対象: streak-bonus / early-bird / weekend-special / category-challenge /
-// sibling-coop / self-study-reward の 6 件全てがポイント計算ロジックに反映される。
+// 検証対象 (#2895 はりぼて整理後、本番経路で発火する 5 preset):
+//   streak-bonus / early-bird / weekend-special (2x) / category-challenge / self-study-reward。
+// 撤去済 (発火しない rule を陳列しない、ADR-0013 LP truth):
+//   - sibling-coop preset 全体 (allSiblingsActiveToday 永久不発 + 死蔵 rule)
+//   - weekend-special `かぞくでチャレンジ` / self-study-reward `しんきかもくボーナス`
+// `allSiblingsActiveToday` ctx field は撤去済 (本番 activity-log-service が常に false 固定だった)。
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -57,10 +61,7 @@ function earlyBirdPreset() {
 }
 
 function weekendSpecialPreset() {
-	return makePreset('weekend-special', [
-		{ title: 'しゅうまつ2ばいボーナス', pointBonus: 0 },
-		{ title: 'かぞくでチャレンジ', pointBonus: 20 },
-	]);
+	return makePreset('weekend-special', [{ title: 'しゅうまつ2ばいボーナス', pointBonus: 0 }]);
 }
 
 function categoryChallengePreset() {
@@ -70,17 +71,9 @@ function categoryChallengePreset() {
 	]);
 }
 
-function siblingCoopPreset() {
-	return makePreset('sibling-coop', [
-		{ title: 'きょうだいいっしょボーナス', pointBonus: 10 },
-		{ title: 'きょうだいおうえんボーナス', pointBonus: 5 },
-	]);
-}
-
 function selfStudyRewardPreset() {
 	return makePreset('self-study-reward', [
 		{ title: 'じしゅがくしゅうボーナス', pointBonus: 10 },
-		{ title: 'しんきかもくボーナス', pointBonus: 15 },
 		{ title: 'ウィークリー学習マスター', pointBonus: 30 },
 	]);
 }
@@ -127,7 +120,7 @@ describe('evaluateBonusHooks - 取込なし', () => {
 // 6 bonus rule 全件の発火検証 (AC3)
 // ==========================================================
 
-describe('evaluateBonusHooks - streak-bonus (1/6)', () => {
+describe('evaluateBonusHooks - streak-bonus (1/5)', () => {
 	it('3 日目で +10', async () => {
 		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [streakBonusPreset()] });
 		const r = await evaluateBonusHooks(
@@ -191,7 +184,7 @@ describe('evaluateBonusHooks - streak-bonus (1/6)', () => {
 	});
 });
 
-describe('evaluateBonusHooks - early-bird (2/6)', () => {
+describe('evaluateBonusHooks - early-bird (2/5)', () => {
 	it('朝 6 時に記録 -> はやおきボーナス +5', async () => {
 		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [earlyBirdPreset()] });
 		const r = await evaluateBonusHooks(
@@ -239,7 +232,7 @@ describe('evaluateBonusHooks - early-bird (2/6)', () => {
 	});
 });
 
-describe('evaluateBonusHooks - weekend-special (3/6)', () => {
+describe('evaluateBonusHooks - weekend-special (3/5)', () => {
 	it('土曜 -> pointsMultiplier=2.0', async () => {
 		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [weekendSpecialPreset()] });
 		const r = await evaluateBonusHooks(
@@ -271,7 +264,7 @@ describe('evaluateBonusHooks - weekend-special (3/6)', () => {
 		expect(r.totalBonus).toBe(0);
 	});
 
-	it('土曜 + 家族活動 -> 倍率 + かぞくでチャレンジ +20', async () => {
+	it('土曜 -> 2 倍のみ (かぞくでチャレンジ は #2895 で撤去、totalBonus は加算なし)', async () => {
 		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [weekendSpecialPreset()] });
 		const r = await evaluateBonusHooks(
 			{
@@ -280,16 +273,17 @@ describe('evaluateBonusHooks - weekend-special (3/6)', () => {
 				todayDistinctCategoryCount: 1,
 				isFirstToday: true,
 				categoryId: 1,
-				allSiblingsActiveToday: true,
 			},
 			TENANT,
 		);
 		expect(r.pointsMultiplier).toBe(2.0);
-		expect(r.totalBonus).toBe(20);
+		// 加点 rule は撤去済のため totalBonus は 0 (2x multiplier のみ)
+		expect(r.totalBonus).toBe(0);
+		expect(r.hits).toHaveLength(1);
 	});
 });
 
-describe('evaluateBonusHooks - category-challenge (4/6)', () => {
+describe('evaluateBonusHooks - category-challenge (4/5)', () => {
 	it('3 カテゴリ -> +15', async () => {
 		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [categoryChallengePreset()] });
 		const r = await evaluateBonusHooks(
@@ -336,41 +330,7 @@ describe('evaluateBonusHooks - category-challenge (4/6)', () => {
 	});
 });
 
-describe('evaluateBonusHooks - sibling-coop (5/6)', () => {
-	it('きょうだい全員活動 -> +10', async () => {
-		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [siblingCoopPreset()] });
-		const r = await evaluateBonusHooks(
-			{
-				consecutiveDays: 1,
-				recordedAt: WEEKDAY_NOON,
-				todayDistinctCategoryCount: 1,
-				isFirstToday: true,
-				categoryId: 1,
-				allSiblingsActiveToday: true,
-			},
-			TENANT,
-		);
-		expect(r.totalBonus).toBe(10);
-	});
-
-	it('きょうだい非活動 -> 発火しない', async () => {
-		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [siblingCoopPreset()] });
-		const r = await evaluateBonusHooks(
-			{
-				consecutiveDays: 1,
-				recordedAt: WEEKDAY_NOON,
-				todayDistinctCategoryCount: 1,
-				isFirstToday: true,
-				categoryId: 1,
-				allSiblingsActiveToday: false,
-			},
-			TENANT,
-		);
-		expect(r.totalBonus).toBe(0);
-	});
-});
-
-describe('evaluateBonusHooks - self-study-reward (6/6)', () => {
+describe('evaluateBonusHooks - self-study-reward (5/5)', () => {
 	it('学習カテゴリ (categoryId=2) で活動 -> +10', async () => {
 		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [selfStudyRewardPreset()] });
 		const r = await evaluateBonusHooks(
@@ -460,6 +420,56 @@ describe('evaluateBonusHooks - 複数 preset 合算', () => {
 		);
 		expect(r.totalBonus).toBe(10 + 50); // streak 3day + all-category
 		expect(r.hits.length).toBe(2);
+	});
+});
+
+// ==========================================================
+// #2895 撤去済 / 未知 preset の forward-compat (既存テナントのデータ整合)
+// ==========================================================
+
+describe('evaluateBonusHooks - 撤去済 / 未知 preset の graceful skip', () => {
+	it('撤去済 sibling-coop が settings KVS に残存していても throw せず no-op で skip', async () => {
+		// #2895 で marketplace から撤去した sibling-coop を過去に取込済のテナントを再現。
+		// switch の default 分岐で logger.warn + skip するため、bonus は付与されない。
+		const legacy = makePreset('sibling-coop', [
+			{ title: 'きょうだいいっしょボーナス', pointBonus: 10 },
+			{ title: 'きょうだいおうえんボーナス', pointBonus: 5 },
+		]);
+		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [legacy] });
+		const r = await evaluateBonusHooks(
+			{
+				consecutiveDays: 1,
+				recordedAt: WEEKDAY_NOON,
+				todayDistinctCategoryCount: 1,
+				isFirstToday: true,
+				categoryId: 1,
+			},
+			TENANT,
+		);
+		expect(r.totalBonus).toBe(0);
+		expect(r.pointsMultiplier).toBe(1.0);
+		expect(r.hits).toEqual([]);
+	});
+
+	it('撤去済 preset + 存続 preset の混在 -> 存続分のみ評価', async () => {
+		const legacy = makePreset('sibling-coop', [
+			{ title: 'きょうだいいっしょボーナス', pointBonus: 10 },
+		]);
+		mockLoadBonusOverrides.mockResolvedValueOnce({ presets: [legacy, streakBonusPreset()] });
+		const r = await evaluateBonusHooks(
+			{
+				consecutiveDays: 3,
+				recordedAt: WEEKDAY_NOON,
+				todayDistinctCategoryCount: 1,
+				isFirstToday: true,
+				categoryId: 1,
+			},
+			TENANT,
+		);
+		// streak-bonus 3day (+10) のみ。撤去済 sibling-coop は加算されない。
+		expect(r.totalBonus).toBe(10);
+		expect(r.hits.length).toBe(1);
+		expect(r.hits[0]?.presetId).toBe('streak-bonus');
 	});
 });
 

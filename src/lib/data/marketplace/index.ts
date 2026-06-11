@@ -52,7 +52,6 @@ import earlyBird from './rule-presets/early-bird.json';
 import nightOwlPass from './rule-presets/night-owl-pass.json';
 import screenTimeExchange from './rule-presets/screen-time-exchange.json';
 import selfStudyReward from './rule-presets/self-study-reward.json';
-import siblingCoop from './rule-presets/sibling-coop.json';
 import sleepInPass from './rule-presets/sleep-in-pass.json';
 import streakBonus from './rule-presets/streak-bonus.json';
 import weekendSpecial from './rule-presets/weekend-special.json';
@@ -96,7 +95,6 @@ const allItems: MarketplaceItem[] = [
 	categoryChallenge,
 	earlyBird,
 	screenTimeExchange,
-	siblingCoop,
 	weekendSpecial,
 	selfStudyReward,
 	// Challenge sets: #2896 で唯一の preset (japan-annual-events) を廃止し marketplace 陳列から除外。

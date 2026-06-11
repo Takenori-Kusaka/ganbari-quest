@@ -1,17 +1,23 @@
 // src/lib/server/services/bonus-hook-service.ts
-// #2138 MP-3: 6 bonus rule hook の集約 (activity-log-service から呼び出される)
+// #2138 MP-3 / #2895: bonus rule hook の集約 (activity-log-service から呼び出される)
 //
 // 既存の `calcStreakBonus()` (`$lib/domain/validation/activity`) は streak-bonus の
 // デフォルト挙動 (consecutiveDays - 1 を最大 10 まで) のみ。本 service はそれに加えて
-// マーケットプレイス取込済 bonus preset 6 種を順次評価し、合算 bonus を返す。
+// マーケットプレイス取込済 bonus preset を順次評価し、合算 bonus を返す。
 //
-// 6 件:
+// #2895 はりぼて整理 (ADR-0013 LP truth): 本番経路で発火しない rule を撤去した。
+//   - sibling-coop preset 全体 (唯一の加点 `きょうだいいっしょボーナス` が
+//     allSiblingsActiveToday の上位計算未実装で永久不発、`きょうだいおうえんボーナス` は
+//     switch 分岐なしで死蔵) を marketplace から撤去 → 本 switch からも case を撤去。
+//   - weekend-special の `かぞくでチャレンジ` (allSiblingsActiveToday 依存で永久不発) を撤去。
+//   - self-study-reward の `しんきかもくボーナス` (switch 分岐なしで死蔵) を撤去。
+//
+// 評価対象 (本番で発火する rule のみ):
 // 1. streak-bonus: 3 / 7 / 30 日連続で +10 / +30 / +100 (既存 calcStreakBonus と相補)
-// 2. early-bird:   朝 8 時までに記録で +5、平日 5 日連続で +25
-// 3. weekend-special: 土日の活動はポイント 2 倍 (relative bonus)、家族で活動で +20
+// 2. early-bird:   朝 8 時までに記録で +5、5 日連続で +25
+// 3. weekend-special: 土日の活動はポイント 2 倍 (relative bonus)
 // 4. category-challenge: 1 日に 3 / 5 カテゴリで +15 / +50
-// 5. sibling-coop:  きょうだい全員同日活動 / きょうだい手伝い +10 / +5
-// 6. self-study-reward: 自主学習 / 新教科 / 週 5 日学習 +10 / +15 / +30
+// 5. self-study-reward: 学習カテゴリで自主学習 +10、5 日連続で週次マスター +30
 //
 // 設計原則 (ADR-0012 §6 anti-engagement):
 // - bonus は子供 UI に「連続表示」「累積表示」させない (点数履歴に短く出るのみ)
@@ -43,8 +49,6 @@ export interface BonusHookContext {
 	isFirstToday: boolean;
 	/** 活動カテゴリ ID (self-study-reward の判定用、学習系カテゴリで +10) */
 	categoryId: number;
-	/** sibling-coop hook: きょうだい全員が同日記録済か (上位レイヤで計算済を渡す) */
-	allSiblingsActiveToday?: boolean;
 	/** 子供画面で記録される追加メモ (今 phase では未使用、将来枠) */
 	memo?: string;
 }
@@ -78,15 +82,17 @@ export interface BonusHookResult {
 // ============================================================
 
 /**
- * 活動記録時に取込済 bonus preset 6 種を順次評価し、合算 bonus を返す。
+ * 活動記録時に取込済 bonus preset を順次評価し、合算 bonus を返す。
  *
  * 既存の `calcStreakBonus()` (デフォルト streak 計算) と相補的に動作する。
  * 本 hook は「マーケットプレイスから明示的に取込まれた bonus」のみを評価し、
  * 取込前は totalBonus=0 / pointsMultiplier=1.0 を返す (regression なし)。
  *
- * AC3 検証: 6 件 ruleId 全てがポイント計算ロジックに反映される。
+ * #2895: 本番経路で発火する preset (streak / early-bird / weekend 2x / category / self-study) のみを
+ * 評価する。死蔵 / 永久不発 rule (sibling-coop / かぞくでチャレンジ / しんきかもくボーナス) は撤去済。
+ * 未知 / 撤去済 preset entry が settings KVS に残っていても default 分岐で no-op skip する (forward compat)。
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 6 bonus rule の個別判定を 1 ヶ所に集約するため
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: bonus rule の個別判定を 1 ヶ所に集約するため
 export async function evaluateBonusHooks(
 	ctx: BonusHookContext,
 	tenantId: string,
@@ -165,19 +171,6 @@ export async function evaluateBonusHooks(
 							multiplier: 2.0,
 						});
 					}
-					// 家族活動 bonus (allSiblingsActiveToday が proxy)
-					if (ctx.allSiblingsActiveToday) {
-						const familyBonus = preset.rules.find((r) => r.title === 'かぞくでチャレンジ');
-						if (familyBonus) {
-							hits.push({
-								presetId: preset.presetId,
-								ruleTitle: familyBonus.title,
-								bonusPoints: familyBonus.pointBonus,
-								multiplier: 1.0,
-							});
-							totalBonus += familyBonus.pointBonus;
-						}
-					}
 				}
 				break;
 			}
@@ -209,25 +202,10 @@ export async function evaluateBonusHooks(
 				}
 				break;
 
-			case 'sibling-coop':
-				// きょうだい全員同日活動で +10 (allSiblingsActiveToday flag による発火)
-				if (ctx.allSiblingsActiveToday && ctx.isFirstToday) {
-					const coop = preset.rules.find((r) => r.title === 'きょうだいいっしょボーナス');
-					if (coop) {
-						hits.push({
-							presetId: preset.presetId,
-							ruleTitle: coop.title,
-							bonusPoints: coop.pointBonus,
-							multiplier: 1.0,
-						});
-						totalBonus += coop.pointBonus;
-					}
-				}
-				break;
-
 			case 'self-study-reward':
 				// 学習系カテゴリ (categoryId === 2 = 勉強) で自主学習 bonus
 				// 仕様簡略化: 学習カテゴリで記録した場合 +10 (本来は memo / 教科判定が必要)
+				// #2895: `しんきかもくボーナス` (新教科判定) は本番判定ロジックがなく死蔵だったため preset から撤去済。
 				if (ctx.categoryId === 2) {
 					const study = preset.rules.find((r) => r.title === 'じしゅがくしゅうボーナス');
 					if (study) {

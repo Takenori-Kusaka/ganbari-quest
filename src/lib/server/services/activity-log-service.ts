@@ -187,9 +187,6 @@ export async function recordActivity(
 				todayDistinctCategoryCount,
 				isFirstToday,
 				categoryId: activity.categoryId,
-				// sibling-coop / weekend-special family の判定は上位計算が必要、
-				// 本 phase では false 固定 (将来 sibling-challenge-service と統合)
-				allSiblingsActiveToday: false,
 			},
 			tenantId,
 		);

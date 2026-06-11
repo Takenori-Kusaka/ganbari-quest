@@ -3,33 +3,20 @@ import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll, replaceState } from '$app/navigation';
 import { page } from '$app/state';
-import { ADMIN_RULES_PAGE_LABELS, APP_LABELS, OVERFLOW_MENU_LABELS } from '$lib/domain/labels';
-// #2391 (Phase 2): in-page rule-preset 取込 UI を統一
-// #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
-// `/marketplace?type=rule-preset` への画面遷移に統一 (DESIGN.md §10)。
-import { CONCEPT_ICONS, TEMPLATE_TERMS } from '$lib/domain/terms';
-// CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import { ADMIN_RULES_PAGE_LABELS, APP_LABELS } from '$lib/domain/labels';
+// #2895: marketplace 陳列の in-page browse UI / OverflowMenu / help-restore-export dialog を撤去し、
+// 本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
+// marketplace 詳細 → `?import=<presetId>` の bonus auto-import 経路は bonus 取込導線として維持する。
+// UnifiedEmptyState は SSOT 維持 (CX-DoR #11、NN/G #4 consistency)。
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
-import Dialog from '$lib/ui/primitives/Dialog.svelte';
-import OverflowMenu, { type OverflowMenuItem } from '$lib/ui/primitives/OverflowMenu.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 let { data, form } = $props();
 
-// #2391 (Phase 2): marketplace import 完了メッセージ
-let marketplaceImportMessage = $state('');
-
-// #2362 PR-6: OverflowMenu からの「未実装」表示用 Dialog 群
-let helpDialogOpen = $state(false);
-let restoreDialogOpen = $state(false);
-let exportDialogOpen = $state(false);
-
-// #2362 PR-6: `?import=<presetId>` auto-import 制御
-// load 側で validate 済 (importPresetId / importPresetError)、本 client 側は
-// 1 度だけ form を programmatically submit + URL を `?import=` 除去
+// `?import=<presetId>` auto-import 制御 (load 側で validate 済)。1 度だけ form を programmatic submit + URL cleanup。
 let autoImportTriggered = $state(false);
 let autoImportFormRef = $state<HTMLFormElement | null>(null);
 let autoImportPresetIdInput = $state<HTMLInputElement | null>(null);
@@ -62,10 +49,7 @@ $effect(() => {
 	}
 });
 
-// #2362 PR-6: import action 完了後の form 戻り値を観察し toast 表示
-// SvelteKit が action union から narrowing を自動推論できないため、
-// importMarketplaceRulePreset 専用の shape として cast (top-level shape:
-// { packName, imported, skipped, total, errors, presetId })
+// import action 完了後の form 戻り値を観察し toast 表示。
 type ImportFormResult = {
 	packName?: string;
 	imported?: number;
@@ -73,23 +57,17 @@ type ImportFormResult = {
 	total?: number;
 	errors?: string[];
 	presetId?: string;
-	// #2823: demo write-guard (buildDemoNoopResponseBody) が返す no-op マーカー。
-	// demo 応答は presetId を含まないため、real 経路 (presetId 必須) とは別分岐で扱う。
+	// #2823: demo write-guard が返す no-op マーカー (presetId なし)。real 経路とは別分岐で扱う。
 	demo?: boolean;
 };
 
-// 同一 form result の二重発火防止 — invalidateAll 後の re-render / 別 form action 後にも
-// effect 再実行されるため、最後に処理した import result のシリアライズを記録して比較する。
 let lastProcessedImportFingerprint = $state<string | null>(null);
-// #2823: demo no-op の二重 toast 防止 (real 経路と同様、effect 再走で多重発火しないよう 1 回のみ)。
 let demoNoopToastShown = $state(false);
 
 $effect(() => {
 	if (!form) return;
 	const r = form as ImportFormResult;
-	// #2823: demo 環境の no-op 取込 ({demo:true, imported:0} で presetId なし) を正直に明示。
-	// activity / reward / challenge / checklist と同文言で 5 type の体験を統一する (NN/G #1 / #4)。
-	// real 経路 (presetId 必須) より先に判定し、demo 応答が無言で素通りするのを防ぐ。
+	// #2823: demo 環境の no-op 取込 ({demo:true, imported:0}、presetId なし) を正直に明示。
 	if (r.demo === true) {
 		if (!demoNoopToastShown) {
 			demoNoopToastShown = true;
@@ -99,8 +77,6 @@ $effect(() => {
 		return;
 	}
 	if (r.presetId && typeof r.imported === 'number') {
-		// fingerprint: presetId + imported + skipped で同一 import result の識別。
-		// 同じ result の effect 再実行では toast を出さない。
 		const fp = `${r.presetId}|${r.imported}|${r.skipped ?? 0}|${r.total ?? 0}`;
 		if (fp === lastProcessedImportFingerprint) return;
 		lastProcessedImportFingerprint = fp;
@@ -121,61 +97,15 @@ async function cleanupImportQueryParam() {
 	const u = new URL(page.url);
 	if (!u.searchParams.has('import')) return;
 	u.searchParams.delete('import');
-	// $effect は mount 直後に fire するため初回は router 未初期化で
-	// `replaceState` from $app/navigation が throw する。tick() で 1 回 microtask を
-	// 待つと router init が完了するため安全に呼べる (PR #2478 review feedback)。
+	// $effect は mount 直後に fire するため初回は router 未初期化で replaceState が throw する。
+	// tick() で 1 回 microtask を待つと router init が完了するため安全に呼べる。
 	await tick();
 	try {
 		replaceState(u, page.state ?? {});
 	} catch {
-		// fallback: tick 後でも router が未初期化な極端なケースのみ
-		// window.history.replaceState (SvelteKit warning 出るが URL bar 更新のみで navigation 無し)
 		window.history.replaceState(window.history.state, '', u.toString());
 	}
 }
-
-// #2362 PR-6: OverflowMenu items (PR-2 OVERFLOW_MENU_LABELS 経由)
-// rule bonus は family scope なので AI 提案は対象外 (個別 child カスタマイズが効きにくい)
-const overflowItems = $derived<OverflowMenuItem[]>([
-	{
-		type: 'action',
-		id: OVERFLOW_MENU_LABELS.items.marketplace.id,
-		label: OVERFLOW_MENU_LABELS.items.marketplace.label,
-		icon: OVERFLOW_MENU_LABELS.items.marketplace.icon,
-		onSelect: () => {
-			window.location.href = '/marketplace?type=rule-preset';
-		},
-	},
-	{ type: 'divider', id: 'divider-1' },
-	{
-		type: 'action',
-		id: OVERFLOW_MENU_LABELS.items.restore.id,
-		label: OVERFLOW_MENU_LABELS.items.restore.label,
-		icon: OVERFLOW_MENU_LABELS.items.restore.icon,
-		onSelect: () => {
-			restoreDialogOpen = true;
-		},
-	},
-	{
-		type: 'action',
-		id: OVERFLOW_MENU_LABELS.items.export.id,
-		label: OVERFLOW_MENU_LABELS.items.export.label,
-		icon: OVERFLOW_MENU_LABELS.items.export.icon,
-		onSelect: () => {
-			exportDialogOpen = true;
-		},
-	},
-	{ type: 'divider', id: 'divider-2' },
-	{
-		type: 'action',
-		id: OVERFLOW_MENU_LABELS.items.help.id,
-		label: OVERFLOW_MENU_LABELS.items.help.label,
-		icon: OVERFLOW_MENU_LABELS.items.help.icon,
-		onSelect: () => {
-			helpDialogOpen = true;
-		},
-	},
-]);
 
 function formatImportedAt(iso: string): string {
 	try {
@@ -191,7 +121,7 @@ function formatImportedAt(iso: string): string {
 	<title>{ADMIN_RULES_PAGE_LABELS.pageTitle}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<!-- #2362 PR-6: ?import=<presetId> auto-import 用の hidden form (programmatic submit) -->
+<!-- `?import=<presetId>` auto-import 用の hidden form (programmatic submit) -->
 <form
 	bind:this={autoImportFormRef}
 	method="POST"
@@ -207,21 +137,13 @@ function formatImportedAt(iso: string): string {
 </form>
 
 <div class="max-w-3xl mx-auto px-4 py-6 space-y-6" data-testid="admin-rules-page">
-	<header class="flex items-start justify-between gap-2">
-		<div class="space-y-2 flex-1 min-w-0">
-			<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
-				{ADMIN_RULES_PAGE_LABELS.pageTitle}
-			</h1>
-			<p class="text-sm text-[var(--color-text-secondary)]">
-				{ADMIN_RULES_PAGE_LABELS.pageDescription}
-			</p>
-		</div>
-		<!-- #2362 PR-6: OverflowMenu (top-right ⋮) -->
-		<OverflowMenu
-			items={overflowItems}
-			ariaLabel={ADMIN_RULES_PAGE_LABELS.overflowMenuAriaLabel}
-			testid="rules-overflow-menu"
-		/>
+	<header class="space-y-2">
+		<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
+			{ADMIN_RULES_PAGE_LABELS.pageTitle}
+		</h1>
+		<p class="text-sm text-[var(--color-text-secondary)]">
+			{ADMIN_RULES_PAGE_LABELS.pageDescription}
+		</p>
 	</header>
 
 	{#if form?.toggleSuccess || form?.removeSuccess}
@@ -236,9 +158,8 @@ function formatImportedAt(iso: string): string {
 	{/if}
 
 	{#if data.bonusPresets.length === 0}
-		<!-- 取込済が無い場合。CX-DoR #9・#11 横展開 (Round 18): 独自 markup を UnifiedEmptyState
-		     SSOT に統一。文言 (emptyTitle / emptyDesc / browseLink) を override props で渡し視覚回帰最小。
-		     marketplace browse は link mode (form 不要 page、SvelteKit 標準遷移)。testid は E2E 互換維持。 -->
+		<!-- 取込済が無い場合。CX-DoR #11: empty state を共通 SSOT に統一 (NN/G #4 consistency)。
+		     #2895: marketplace 陳列撤去に伴い browse link / primary CTA は出さない。 -->
 		<Card padding="lg" variant="elevated">
 			{#snippet children()}
 			<UnifiedEmptyState
@@ -246,59 +167,18 @@ function formatImportedAt(iso: string): string {
 				noItemsText={ADMIN_RULES_PAGE_LABELS.emptyTitle}
 				descText={ADMIN_RULES_PAGE_LABELS.emptyDesc}
 				showPrimary={false}
-				secondaryMode="link"
-				browseHref="/marketplace?type=rule-preset"
-				importLinkLabel={ADMIN_RULES_PAGE_LABELS.browseLink}
-				importTestid="rules-browse-marketplace"
+				canImport={false}
 			/>
 			{/snippet}
 		</Card>
-	{/if}
-
-	<!--
-		#2558 段階2 横展開: in-page UnifiedImportHub (admin 内 marketplace 風 browse UI、
-		二重管理) を撤去し marketplace への画面遷移に統一 (DESIGN.md §10 構造的ルール
-		「marketplace 取込はマーケットプレイス画面に一本化」)。取込実行は marketplace 詳細
-		→ `?import=<presetId>` → 即取込 + toast の正規経路 (marketplace-import-flow.md §3.1)
-		に合流させる。
-
-		marketplace 取込メッセージ + secondary link「みんなのテンプレートを見る」
-		(empty state / 運用期到達性、DESIGN.md §10「bulk import bridge ルール」整合) は保持。
-	-->
-	<section data-testid="rules-marketplace-import-section">
-		{#if marketplaceImportMessage}
-			<div
-				class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)]"
-				data-testid="rules-marketplace-import-result"
-			>
-				{marketplaceImportMessage}
-			</div>
-		{/if}
-		<a
-			href="/marketplace?type=rule-preset"
-			class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
-			data-testid="rules-marketplace-browse-link"
-		>
-			{CONCEPT_ICONS.template} {TEMPLATE_TERMS.browse}
-		</a>
-	</section>
-
-	{#if data.bonusPresets.length > 0}
-		<!-- bonus preset 一覧 -->
+	{:else}
+		<!-- bonus preset 一覧 (確認 + ON/OFF + 削除) -->
 		<Card padding="lg" variant="elevated">
 			{#snippet children()}
 			<section class="space-y-3" data-testid="rules-bonus-section">
-				<div class="flex items-center justify-between">
-					<h2 class="text-sm font-bold text-[var(--color-text-primary)]">
-						{ADMIN_RULES_PAGE_LABELS.sectionBonusTitle}
-					</h2>
-					<a
-						href="/marketplace?type=rule-preset"
-						class="text-xs text-[var(--color-action-primary)] hover:underline"
-					>
-						{ADMIN_RULES_PAGE_LABELS.browseLink}
-					</a>
-				</div>
+				<h2 class="text-sm font-bold text-[var(--color-text-primary)]">
+					{ADMIN_RULES_PAGE_LABELS.sectionBonusTitle}
+				</h2>
 				<p class="text-xs text-[var(--color-text-tertiary)]">
 					{ADMIN_RULES_PAGE_LABELS.sectionBonusDesc}
 				</p>
@@ -411,66 +291,4 @@ function formatImportedAt(iso: string): string {
 			{/snippet}
 		</Card>
 	{/if}
-
-	<!-- exchange 系の注釈 (取込済 reward は /admin/rewards 側で管理) -->
-	<Card padding="md">
-		{#snippet children()}
-		<p class="text-xs text-[var(--color-text-tertiary)]">
-			{ADMIN_RULES_PAGE_LABELS.sectionExchangeDesc}
-		</p>
-		<a
-			href="/admin/rewards"
-			class="text-xs text-[var(--color-action-primary)] hover:underline"
-		>
-			{ADMIN_RULES_PAGE_LABELS.rewardsLinkLabel}
-		</a>
-		{/snippet}
-	</Card>
-
-	<!-- penalty / special タイプの説明 -->
-	<Card padding="md">
-		{#snippet children()}
-		<h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-1">
-			{ADMIN_RULES_PAGE_LABELS.penaltyNotImplementedTitle}
-		</h2>
-		<p class="text-xs text-[var(--color-text-tertiary)]">
-			{ADMIN_RULES_PAGE_LABELS.penaltyNotImplementedDesc}
-		</p>
-		{/snippet}
-	</Card>
 </div>
-
-<!-- #2362 PR-6: OverflowMenu からの未実装機能告知 + ヘルプ Dialog 群 -->
-<Dialog
-	bind:open={helpDialogOpen}
-	title={ADMIN_RULES_PAGE_LABELS.helpDialogTitle}
-	testid="rules-help-dialog"
->
-	{#snippet children()}
-	<p class="text-sm text-[var(--color-text-secondary)]">
-		{ADMIN_RULES_PAGE_LABELS.helpDialogDesc}
-	</p>
-	{/snippet}
-</Dialog>
-<Dialog
-	bind:open={restoreDialogOpen}
-	title={ADMIN_RULES_PAGE_LABELS.restoreNotImplementedTitle}
-	testid="rules-restore-dialog"
->
-	{#snippet children()}
-	<p class="text-sm text-[var(--color-text-secondary)]">
-		{ADMIN_RULES_PAGE_LABELS.restoreNotImplementedDesc}
-	</p>
-	{/snippet}
-</Dialog>
-<Dialog
-	bind:open={exportDialogOpen}
-	title={ADMIN_RULES_PAGE_LABELS.exportNotImplementedTitle}
-	testid="rules-export-dialog"
->
-	{#snippet children()}
-	<p class="text-sm text-[var(--color-text-secondary)]">
-		{ADMIN_RULES_PAGE_LABELS.exportNotImplementedDesc}
-	</p>
-	{/snippet}
-</Dialog>

@@ -4693,17 +4693,17 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 // #2138 MP-3: /admin/settings/rules — 取込済 rule-preset 管理画面
 // ============================================================
 
+// #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
+// 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
 export const ADMIN_RULES_PAGE_LABELS = {
-	pageTitle: '取込済ルール一覧',
-	pageDescription: `${TEMPLATE_TERMS.userFacing}から取込んだ bonus / exchange 系ルールを管理します。bonus は ON/OFF で有効化を切り替えられます。`,
-	emptyTitle: '取込済のルールがありません',
-	emptyDesc: `${TEMPLATE_TERMS.userFacing}から bonus / exchange ルールを取込むとここに表示されます`,
-	browseLink: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.browse} →`,
+	pageTitle: 'ボーナスルール',
+	pageDescription:
+		'お子さまの活動記録時に発火するボーナスポイントのルールです。ON / OFF で有効化を切り替えられます。',
+	emptyTitle: 'ボーナスルールがありません',
+	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
 	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
 	sectionBonusDesc:
-		'活動記録時に発火するボーナスポイント。enabled な preset のみが活動記録時に評価されます。',
-	sectionExchangeDesc:
-		'exchange タイプ (ポイント交換アイテム) はお子さまの「ごほうび」一覧から確認できます。',
+		'活動記録時に発火するボーナスポイント。有効なルールのみが活動記録時に評価されます。',
 	enabledBadge: '有効',
 	disabledBadge: '無効',
 	enableButton: '有効化',
@@ -4715,19 +4715,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	pointBonusSuffix: 'pt',
 	updateSuccess: 'ルールを更新しました',
 	removeSuccess: 'ルールを削除しました',
-	updateError: '更新に失敗しました',
-	rewardsLinkLabel: '/admin/rewards へ →',
-	penaltyNotImplementedTitle: 'ℹ️ penalty / special タイプについて',
-	penaltyNotImplementedDesc:
-		'penalty / special タイプは ADR-0012 anti-engagement 細則により慎重審査中のため、本画面には表示されません。取込試行は audit log に記録されます。',
-	// #2362 PR-6: OverflowMenu (top-right ⋮) + ?import=<presetId> 自動取込 + toast
-	overflowMenuAriaLabel: 'ルール管理メニュー',
-	helpDialogTitle: 'ルール管理ヘルプ',
-	helpDialogDesc: `${TEMPLATE_TERMS.userFacing}から取込んだボーナスルールを ON/OFF で管理できます。bonus は ${PARENT_TERMS.neutral} が家族全員に一律適用するため、お子さま個別の選択は不要です。`,
-	restoreNotImplementedTitle: 'バックアップから復元',
-	restoreNotImplementedDesc: '本機能は今後のアップデートで対応予定です。',
-	exportNotImplementedTitle: 'エクスポート',
-	exportNotImplementedDesc: '取込済ルールのエクスポートは今後のアップデートで対応予定です。',
+	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
 	importToastSuccess: (presetName: string) =>
 		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
 	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
