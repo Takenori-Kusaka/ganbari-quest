@@ -5,7 +5,7 @@ description: Use after deploying to production or staging. Runs post-deployment 
 
 # デプロイ検証手順（ADR-0021 / ADR-0024 / ADR-0048）
 
-本リポジトリの 3 系統 (AWS Lambda 本番 / NUC 本番 / NUC staging) はいずれも **GitHub Actions workflow が
+本リポジトリの 4 系統 (AWS Lambda 本番 / AWS staging / NUC 本番 / NUC staging) はいずれも **GitHub Actions workflow が
 deploy + post-deploy health/smoke を自動実行**する。本 skill は各 workflow が叩く endpoint・schema 検証・
 rollback 経路を再利用するための SSOT。手動で再確認する場合も同じ endpoint / 手順を使う。
 
@@ -14,6 +14,7 @@ rollback 経路を再利用するための SSOT。手動で再確認する場合
 | 系統 | workflow | working-dir / 実行基盤 | health endpoint | migration |
 |---|---|---|---|---|
 | AWS Lambda 本番 | `.github/workflows/deploy.yml` (main push) | GitHub-hosted runner + OIDC、Lambda Function URL | `<FunctionUrl>api/health` | DynamoDB backend のため lazy startup migration は呼ばれない |
+| AWS staging (#2873) | `.github/workflows/deploy-aws-staging.yml` (PR base=main / dispatch) | GitHub-hosted runner + OIDC、staging 3 stack (`ganbari-quest-staging` prefix)、Lambda Function URL | `<StagingFunctionUrl>api/health` (Fn 名 `ganbari-quest-staging-app`) | DynamoDB backend のため schema assert 無し (G-MIG の主担保は NUC staging) |
 | NUC 本番 | `.github/workflows/deploy-nuc.yml` (main push / dispatch) | self-hosted `[Windows, X64]`、`C:\Docker\ganbari-quest`、docker compose、port 3000 | `http://localhost:3000/api/health` | startup lazy migration (`applyLazyStartupMigrations`、SQLite) |
 | NUC staging | `.github/workflows/deploy-nuc-staging.yml` (PR base=main / dispatch) | self-hosted `[Windows, X64]`、`C:\Docker\ganbari-quest-staging`、docker compose project `ganbari-quest-staging`、port 3100 | `http://localhost:3100/api/health` | snapshot-forward → startup lazy migration (本番 DB snapshot から起動) |
 
@@ -38,6 +39,12 @@ rollback 経路を再利用するための SSOT。手動で再確認する場合
 - self-hosted runner が `C:\Docker\ganbari-quest` で `git reset --hard origin/main` → `.env` 再生成
   → `docker compose --profile backup build` → `up -d`（stop→build→up 順は WAL safety のため必須）
 
+### AWS staging（`deploy-aws-staging.yml`、#2873）
+
+- 統合 PR (base=main、paths filter) で自動実行 / 手動: `gh workflow run deploy-aws-staging.yml`（develop HEAD を deploy）
+- ADR-0019 gate (`check-cdk-replacement.mjs`) ×2 → StorageStaging deploy → ECR push (`ganbari-quest-staging:{sha,latest}`)
+  → staging 3 stack 明示列挙 deploy（`--all` 不使用）→ `update-function-code ganbari-quest-staging-app` → health/smoke
+
 ### NUC staging（`deploy-nuc-staging.yml`）
 
 - 統合 PR (base=main) で自動実行 / 手動: `gh workflow run deploy-nuc-staging.yml`（develop HEAD を deploy）
@@ -49,8 +56,8 @@ rollback 経路を再利用するための SSOT。手動で再確認する場合
 
 ### ヘルスチェック
 
-- [ ] `/api/health` が 200 を返す（AWS = Function URL / NUC 本番 = `localhost:3000` / NUC staging = `localhost:3100`）
-- [ ] NUC (本番 / staging) は response body の `schema.schemaValid === true` を確認（lazy migration 貫通 = `#2508` startup crash 再発防止）
+- [ ] `/api/health` が 200 を返す（AWS 本番 / AWS staging = 各 Function URL / NUC 本番 = `localhost:3000` / NUC staging = `localhost:3100`）
+- [ ] NUC (本番 / staging) は response body の `schema.schemaValid === true` を確認（lazy migration 貫通 = `#2508` startup crash 再発防止）。AWS (本番 / staging) は DynamoDB backend で lazy migration を呼ばないため schema assert 無し（200 のみ）
 - [ ] トップページ（`/`）が 200 / 302 で応答する
 
 ### スモークテスト
@@ -59,16 +66,17 @@ rollback 経路を再利用するための SSOT。手動で再確認する場合
 - [ ] AWS は `deploy.yml` の e2e-production（post-deploy smoke on Lambda URL）+ demo Lambda smoke（#2130）が緑
 - [ ] 管理画面（`/admin`）が PIN gate を返す
 
-### §3.8 step 9 = AWS + NUC 両 health を 1 run で確認（SSOT）
+### §3.8 step 9 = AWS + NUC 両 health を 1 run で確認（SSOT、4 系統形）
 
 統合監査サイクル（`docs/sessions/audit-team.md` §3.8 step 9）の「本番 AWS 版・ローカル NUC 版の両方へ health check」は、
 本 skill の health endpoint を再利用して **1 run 内で両系統を確認する**:
 
 - AWS 本番: `deploy.yml` の Health check step（`<FunctionUrl>api/health` が 200）
+- AWS staging: `deploy-aws-staging.yml` の Health check step（`<StagingFunctionUrl>api/health` が 200。統合 PR 検証時、#2873。schema assert が無いのは DynamoDB backend が lazy migration を呼ばないため — G-MIG は NUC staging が主担保）
 - NUC 本番: `http://localhost:3000/api/health` が 200 + `schema.schemaValid=true`
 - NUC staging: `http://localhost:3100/api/health` が 200 + `schema.schemaValid=true`（統合 PR 検証時、`deploy-nuc-staging.yml`）
 
-片系統だけ緑の誤判定を防ぐため、両系統の health 結果を揃えて確認する（G-PD / §3.7 #5）。
+片系統だけ緑の誤判定を防ぐため、両系統の health 結果を揃えて確認する（G-PD / §3.7 #5）。統合 PR では AWS staging + NUC staging の 2 系統が PR 上で、本番 2 系統が merge 後の main push で揃う。
 
 ### E2E（本番向け）
 
@@ -96,6 +104,10 @@ gh workflow run deploy.yml
 git reset --hard <前のコミット>
 docker compose --profile backup build
 docker compose --profile backup up -d
+
+# AWS staging: deploy-aws-staging.yml の "Rollback on failure" step が staging ECR previous digest に
+#   自動で戻す。手動で正常 ref を流し直す場合 (本番に影響しない):
+gh workflow run deploy-aws-staging.yml
 
 # NUC staging: 本番に影響しないため、再 deploy（workflow_dispatch）で正常 ref を流し直す。
 gh workflow run deploy-nuc-staging.yml

@@ -143,6 +143,26 @@ docker compose logs -f scheduler
 - **当面 advisory**: required check 未登録。staging 初回緑を確認するまで develop→main 取込をブロックしない。merge blocker 化 (#2872 AC3) は初回緑確認後に audit-manager が main ruleset の `required_status_checks` へ `deploy-nuc-staging` を追加して行う。
 - 検証手順 SSOT: [.claude/skills/deploy-verify/SKILL.md](../.claude/skills/deploy-verify/SKILL.md) / 構成詳細: [docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.2](../docs/design/13-AWSサーバレスアーキテクチャ設計書.md)。
 
+### AWS staging 系統 (#2873 / EPIC #2861 D 系)
+
+本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) を統合 PR で貫通検証する AWS staging 系統。同一アカウント・同一リージョン (us-east-1) に物理名 prefix で分離する (本番 6 stack の stack 名・論理 ID・物理名は一切変えない)。
+
+| 項目 | 本番 AWS | AWS staging |
+|---|---|---|
+| workflow | `deploy.yml` | `deploy-aws-staging.yml` |
+| stack | 6 stack (`--all`) | 3 stack (`GanbariQuest{Storage,Auth,Compute}Staging`、明示列挙) |
+| 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging` (Lambda `ganbari-quest-staging-app` / SSM `/ganbari-quest-staging/`) |
+| ECR repo | `ganbari-quest` (maxImageCount:10) | `ganbari-quest-staging` 専用 (maxImageCount:3、prod repo 共有不採用) |
+| 外部サービス | Stripe / Discord / Gemini / SES 注入 | 非注入 (副作用ゼロ。SES / CE の IAM grant も無し) |
+| CDK gate | context 無し (staging stack は instantiate されない) | `-c stagingEnabled=true` (`infra/bin/app.ts` context gate) |
+| trigger | main push | 統合 PR (base=main、paths filter) / dispatch (develop HEAD) |
+| health | `<FunctionUrl>api/health` | `<StagingFunctionUrl>api/health` (200 のみ。DynamoDB backend のため schema assert 無し — G-MIG は NUC staging が主担保) |
+
+- **実装方式**: 既存 stack class に optional `envConfig` props (`infra/lib/env-config.ts`、default = `PROD_ENV_CONFIG`)。prod 不変 guard は `tests/unit/infra/staging-cdk.test.ts`。
+- **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / staging 3 stack の 2 段)。
+- **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required へ `deploy-aws-staging` を追加。
+- 構成詳細: [docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3](../docs/design/13-AWSサーバレスアーキテクチャ設計書.md) / 検証手順 SSOT: [.claude/skills/deploy-verify/SKILL.md](../.claude/skills/deploy-verify/SKILL.md)。
+
 ## EventBridge Cron Rules (#1376)
 
 定期ジョブは `EventBridge Rule → ganbari-quest-cron-dispatcher Lambda → HTTP POST → SvelteKit /api/cron/:job`。
