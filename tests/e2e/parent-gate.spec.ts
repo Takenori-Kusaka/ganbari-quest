@@ -404,25 +404,23 @@ function registerParentGateTests(): void {
 		});
 
 		/**
-		 * Ark PinInput の最初の桁を明示 click してから入力する (password input と区別)。
-		 * click → keyboard.press の間に focus が確定しない race があるため (初回実行で
-		 * PIN 全桁が空のまま submit され flake)、toBeFocused で focus 確定を待ってから入力する。
+		 * hydration 完了を待ってから Ark PinInput に入力する。
+		 * dev server の初回 compile では client JS が数秒遅れ、SSR markup 上で password fill /
+		 * PIN 入力 (native input) が通ったまま onclick handler 未 attach で submit が無反応になる
+		 * (trace 実証: API call 0 件)。SSR markup の aria-label は "pin code N of 0" で、Ark machine
+		 * 初期化後 (= hydration 済) のみ "of 4" になるため、これを決定的 signal として待つ。
+		 * data-complete / data-filled は SSR markup に既在のため hydration 判定に使えない。
 		 */
 		async function typeNewPin(page: import('@playwright/test').Page, pin: string) {
 			const firstDigit = page
 				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]')
 				.first();
+			await expect(firstDigit).toHaveAttribute('aria-label', /of 4/);
 			await firstDigit.click();
 			await expect(firstDigit).toBeFocused();
 			for (const ch of pin) {
 				await page.keyboard.press(ch);
 			}
-			// 全桁反映を確認してから次の操作へ。Ark PinInput (mask) は DOM value を出さないため
-			// value でなく data-complete 属性 (全桁入力完了 = onComplete 発火と同期) を待つ
-			const lastDigit = page
-				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]')
-				.last();
-			await expect(lastDigit).toHaveAttribute('data-complete', '');
 		}
 
 		test('誤パスワードでは再設定できずエラー表示 (子供の gate 突破防止)', async ({ page }) => {
