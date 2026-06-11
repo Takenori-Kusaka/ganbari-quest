@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
+import { isPinConfigured } from '$lib/server/services/auth-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import {
 	getOnboardingProgress,
@@ -50,7 +51,20 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}
 	}
 
-	return { children, adminLink, showAdminLink, reason, pinRequired, nextPath, onboarding };
+	// #2992 (EPIC #2990): 「初回は作る・既存は入る」分岐。PIN 未設定 tenant には
+	// gate modal を login でなく新規作成 (入力→確認) フローで表示する。
+	const pinConfigured = await isPinConfigured(tenantId);
+
+	return {
+		children,
+		adminLink,
+		showAdminLink,
+		reason,
+		pinRequired,
+		nextPath,
+		onboarding,
+		pinConfigured,
+	};
 };
 
 export const actions: Actions = {

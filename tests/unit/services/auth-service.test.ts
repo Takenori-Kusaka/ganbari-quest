@@ -273,35 +273,32 @@ describe('auth-service', () => {
 			expect(attempts).toBe('1');
 		});
 
-		it('pin_hash 未設定時に DEFAULT_PIN (5086) で verifyPin 成功', async () => {
+		// #2992 (EPIC #2990): 「初回は作る・既存は入る」。未設定 tenant は DEFAULT_PIN 照合せず
+		// PIN_NOT_SET を返し、作成フロー (POST /api/v1/parent-gate/setup) へ誘導する。
+		// どんな入力 (5086 含む) でも通らないことを保証する (旧「未設定 → 5086 で ok」仕様を supersede)。
+		it('#2992: pin_hash 未設定時は 5086 でも PIN_NOT_SET (作成フローへ誘導)', async () => {
 			seedAuthSettings('');
 			const result = await verifyPin('5086', 'test-tenant');
-			expect(result).toEqual({ ok: true });
+			expect(result).toEqual({ ok: false, error: 'PIN_NOT_SET' });
 		});
 
-		it('pin_hash 未設定時に DEFAULT_PIN 以外で verifyPin 失敗 (INVALID_PIN)', async () => {
+		it('#2992: pin_hash 未設定時は任意の入力で PIN_NOT_SET', async () => {
 			seedAuthSettings('');
 			const result = await verifyPin('1234', 'test-tenant');
-			expect(result).toEqual({ ok: false, error: 'INVALID_PIN' });
+			expect(result).toEqual({ ok: false, error: 'PIN_NOT_SET' });
 		});
 
-		// #2335 hotfix Phase 1: 本番で「pin_hash 未設定 (DynamoDB scan 0 件) + pin='5086'」フローが
-		// 失敗している現象の logic 側を再確認する明示的テスト。logic が正常であることを保証し、
-		// 仮説 2 (getSetting が '' 返却) / 仮説 1 (PinInput valueAsString) / 仮説 3 (tenantId) /
-		// 仮説 4 (build minify) を切り分けるための baseline。
-		it('#2335 baseline: pin_hash 完全未挿入 (DEFAULT_PIN 比較経路) で 5086 → ok', async () => {
-			// settings から pin_hash 行を完全に削除 (空文字列ではなく row 自体が無い状態)
+		it('#2992: pin_hash 行が完全未挿入 (row 自体なし) でも PIN_NOT_SET', async () => {
+			// settings から pin_hash 行を完全に削除 (空文字列ではなく row 自体が無い状態、#2335 系列の経路)
 			sqlite.exec("DELETE FROM settings WHERE key = 'pin_hash'");
 			const result = await verifyPin('5086', 'test-tenant');
-			expect(result).toEqual({ ok: true });
+			expect(result).toEqual({ ok: false, error: 'PIN_NOT_SET' });
 		});
 
-		it('#2335 baseline: pin_hash 空文字列 (DynamoDB empty value 模擬) で 5086 → ok', async () => {
-			// 仮説 2: DynamoDB が empty string を返す可能性。
-			// 現在の logic では `!pinHash` が true になり DEFAULT_PIN 比較 path に入るはず。
+		it('#2992: pin_hash 未設定時は失敗カウントを増やさない (作成誘導はペナルティでない)', async () => {
 			seedAuthSettings('');
-			const result = await verifyPin('5086', 'test-tenant');
-			expect(result).toEqual({ ok: true });
+			await verifyPin('9999', 'test-tenant');
+			expect(await getSetting('pin_failed_attempts', 'test-tenant')).toBe('0');
 		});
 
 		it('5回失敗でロックアウト (login と共通のカウンタ)', async () => {
