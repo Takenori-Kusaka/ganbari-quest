@@ -24,7 +24,7 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 
 ## Build & Test
 
-`npm run dev` / `dev:cognito` (#1026, 認証画面) / `build` / `biome check .` / `drizzle-kit push` / `vitest run` / `playwright test` / `test:storybook` / `test:e2e:matrix` (port 5201-5205, CI 未組込)
+`npm run dev` / `dev:cognito` (#1026, 認証画面) / `build` / `biome check .` / `drizzle-kit push` / `vitest run` / `playwright test` / `test:storybook` / `test:e2e:matrix` (ADR-0040 mode×plan matrix 4 project, port 5201-5204, 重量レーン CI 組込 #2874)
 
 ### 開発プラン切替 (#758、dev only)
 

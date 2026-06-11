@@ -17,12 +17,6 @@
 				"description": "土日の活動はポイント2倍！",
 				"icon": "✨",
 				"pointBonus": 0
-			},
-			{
-				"title": "かぞくでチャレンジ",
-				"description": "週末に家族全員で活動したら +20ポイント",
-				"icon": "👨‍👩‍👧‍👦",
-				"pointBonus": 20
 			}
 		]
 	}

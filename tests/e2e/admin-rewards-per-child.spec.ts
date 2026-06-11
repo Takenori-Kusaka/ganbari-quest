@@ -93,11 +93,20 @@ test.describe('admin/rewards per-child UX (#2362 PR-4)', () => {
 		// Phase 4 では family レベルの preset カタログ + per-child SpecialReward が並存
 		const firstTab = page.locator('[data-testid^="rewards-child-tab-"]').first();
 		await expect(firstTab).toBeVisible();
-		// PR #2474 must-5 (Round 2): 旧 spec は `getByText('テンプレート')` を期待していたが、
-		// 本 PR で UnifiedImportHub セクション (旧 marketplace-reward-import-section) が
-		// `+page.svelte` から削除されたため「テンプレート」テキストが消失していた (Round 1 self-fail)。
-		// 実画面で残っている family preset 動線 = `REWARDS_LABELS.selectTemplateTitle`
-		// (='プリセットを選択', `+page.svelte` line 462 の h3) を assert する。
+		// #2998 (EPIC #2897): プリセット選択 (REWARDS_LABELS.selectTemplateTitle = 'プリセットを選択') は
+		// 本文常時露出から「+ 追加 → 手動で1つ追加」Dialog 内に移設された (activities / checklists と
+		// 同型の dropdown → Dialog 起動)。Dialog を開いて family preset 動線が存在することを assert する。
+		// Ark UI Menu は hydration 後に listener を attach するため data-state=open まで rAF 間隔で再 click。
+		const addTrigger = page.getByTestId('rewards-add-menu');
+		for (let i = 0; i < 30; i++) {
+			await addTrigger.click();
+			if ((await addTrigger.getAttribute('data-state')) === 'open') break;
+			await page.evaluate(
+				() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+			);
+		}
+		await page.getByTestId('menu-item-manual').click();
+		await expect(page.getByTestId('rewards-add-dialog')).toBeVisible({ timeout: 5000 });
 		await expect(page.getByText('プリセットを選択', { exact: false }).first()).toBeVisible();
 	});
 });

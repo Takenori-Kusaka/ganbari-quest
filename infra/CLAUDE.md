@@ -120,6 +120,49 @@ docker compose logs -f scheduler
 
 `docker compose up -d` のみでは scheduler 起動しない。`--profile scheduler` 必須。app コンテナ起動後に起動。
 
+### NUC Backup コンテナ (#2519 / #2985)
+
+日次 DB バックアップ + restore 検証は `profiles: backup`。`scheduler` と同じく **`docker compose up -d` のみでは更新されない** — `--profile backup` を付けないと build / 再作成の対象外になり、古い crontab が凍結されて config drift する (#2985 で `deploy-nuc.yml` に `--profile backup` を追加して恒久対処)。MODULE_NOT_FOUND 等の障害切り分け・復旧手順は [docs/runbooks/nuc-container-recovery.md](../docs/runbooks/nuc-container-recovery.md)。
+
+### NUC staging 系統 (#2872 / EPIC #2861 D 系)
+
+統合 PR (develop→main) を本番取込前に検証する staging 系統。本番 NUC と**同一マシン上**に同居させつつ、別 working-dir / 別 port / 別 compose project / 別 DB path で完全隔離する (本番不変条件)。
+
+| 項目 | 本番 NUC | NUC staging |
+|---|---|---|
+| workflow | `deploy-nuc.yml` | `deploy-nuc-staging.yml` |
+| working-dir | `C:\Docker\ganbari-quest` | `C:\Docker\ganbari-quest-staging` |
+| compose project | (既定) | `-p ganbari-quest-staging`（`docker-compose.yml` 無改変、CLI flag 隔離） |
+| port | 3000 | 3100 (`.env` の `PORT=3100`) |
+| trigger | main push / dispatch | 統合 PR (base=main) / dispatch (develop HEAD) |
+| DB 起点 | 既存 `data/ganbari-quest.db` | 本番 DB の online snapshot (`scripts/snapshot-prod-db.cjs`、本番不在時 fixture fallback) |
+| health | `localhost:3000/api/health` | `localhost:3100/api/health` (200 + `schema.schemaValid=true` assert) |
+
+- **snapshot-forward 起動**: staging は本番 DB snapshot から起動し `applyLazyStartupMigrations` を貫通させる (過去状態からのマイグレーション込み実機起動の実機担保、#2872 AC6)。snapshot は本番 DB を read のみで取得 (本番 DB へ write しない)。
+- **self-provisioning**: staging working-dir 未 provision でも workflow Step 0 が自動 clone する (NUC runner の global git credential 流用、物理 NUC 上の手作業不要)。health check は runner 自身からの `localhost:3100` のため Firewall 設定も不要 (LAN 越しにブラウザで見たい場合のみ任意で許可)。
+- **当面 advisory**: required check 未登録。staging 初回緑を確認するまで develop→main 取込をブロックしない。merge blocker 化 (#2872 AC3) は初回緑確認後に audit-manager が main ruleset の `required_status_checks` へ `deploy-nuc-staging` を追加して行う。
+- 検証手順 SSOT: [.claude/skills/deploy-verify/SKILL.md](../.claude/skills/deploy-verify/SKILL.md) / 構成詳細: [docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.2](../docs/design/13-AWSサーバレスアーキテクチャ設計書.md)。
+
+### AWS staging 系統 (#2873 / EPIC #2861 D 系)
+
+本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) を統合 PR で貫通検証する AWS staging 系統。同一アカウント・同一リージョン (us-east-1) に物理名 prefix で分離する (本番 6 stack の stack 名・論理 ID・物理名は一切変えない)。
+
+| 項目 | 本番 AWS | AWS staging |
+|---|---|---|
+| workflow | `deploy.yml` | `deploy-aws-staging.yml` |
+| stack | 6 stack (`--all`) | 3 stack (`GanbariQuest{Storage,Auth,Compute}Staging`、明示列挙) |
+| 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging` (Lambda `ganbari-quest-staging-app` / SSM `/ganbari-quest-staging/`) |
+| ECR repo | `ganbari-quest` (maxImageCount:10) | `ganbari-quest-staging` 専用 (maxImageCount:3、prod repo 共有不採用) |
+| 外部サービス | Stripe / Discord / Gemini / SES 注入 | 非注入 (副作用ゼロ。SES / CE の IAM grant も無し) |
+| CDK gate | context 無し (staging stack は instantiate されない) | `-c stagingEnabled=true` (`infra/bin/app.ts` context gate) |
+| trigger | main push | 統合 PR (base=main、paths filter) / dispatch (develop HEAD) |
+| health | `<FunctionUrl>api/health` | `<StagingFunctionUrl>api/health` (200 のみ。DynamoDB backend のため schema assert 無し — G-MIG は NUC staging が主担保) |
+
+- **実装方式**: 既存 stack class に optional `envConfig` props (`infra/lib/env-config.ts`、default = `PROD_ENV_CONFIG`)。prod 不変 guard は `tests/unit/infra/staging-cdk.test.ts`。
+- **ADR-0019 gate**: `scripts/check-cdk-replacement.mjs` を staging diff にも適用 (StorageStaging / staging 3 stack の 2 段)。
+- **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required へ `deploy-aws-staging` を追加。
+- 構成詳細: [docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3](../docs/design/13-AWSサーバレスアーキテクチャ設計書.md) / 検証手順 SSOT: [.claude/skills/deploy-verify/SKILL.md](../.claude/skills/deploy-verify/SKILL.md)。
+
 ## EventBridge Cron Rules (#1376)
 
 定期ジョブは `EventBridge Rule → ganbari-quest-cron-dispatcher Lambda → HTTP POST → SvelteKit /api/cron/:job`。

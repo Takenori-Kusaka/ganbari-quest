@@ -1,18 +1,22 @@
 // src/routes/(parent)/admin/settings/rules/+page.server.ts
-// #2138 (MP-3): 取込済 rule-preset 管理画面
+// #2895: 取込済 bonus rule-preset の確認 + 有効/無効トグル + 削除のみのシンプル画面。
 //
-// マーケットプレイス取込済の bonus / exchange 系 rule-preset を一覧 + 管理する。
-// - bonus preset: ON/OFF 切替 + 削除 (settings KVS の rule_preset_bonus_overrides JSON)
-// - exchange preset: 子供ごとの special_rewards 一覧へのリンク (削除は /admin/rewards から)
+// PO 判断 (2026-06-04): 「とくべつルール (rule-preset)」の in-page marketplace 風 browse UI /
+// OverflowMenu / help-restore-export dialog 系の装飾を削ぎ落とし、本画面は「現在ある bonus ルールを
+// 確認して ON / OFF を切り替える + 削除する」だけに簡素化した。
 //
-// ADR-0012 §6 anti-engagement 細則: penalty / special タイプは本画面に表示しない
-// (取込試行は audit log として settings.rule_preset_import_warnings に記録されるのみ)。
+// 動作する bonus 機構 (streak-bonus / category-challenge / early-bird / weekend-special 2x /
+// self-study-reward) は存続させる。marketplace 詳細 → `?import=<presetId>` の bonus auto-import 経路は
+// bonus 取込導線として維持する (family scope、即取込 + toast)。
+//
+// 既存取込済テナントのデータ整合: settings KVS の rule_preset_bonus_overrides JSON に
+// 残る preset entry (撤去済 sibling-coop 等を含む) はそのまま toggle / 削除できる
+// (graceful degradation、loadBonusOverrides 参照)。
 
 import { fail } from '@sveltejs/kit';
 import { getMarketplaceItem } from '$lib/data/marketplace';
-// #2391 (Phase 2): rule-preset in-page UnifiedImportHub のため dispatcher 経由 import 追加
-import { dispatchImport } from '$lib/marketplace';
 // #2368 (ADR-0052): bonus state SSOT は marketplace strategy 配下に移動済。
+import { dispatchImport } from '$lib/marketplace';
 import {
 	loadBonusOverrides,
 	removeBonusPreset,
@@ -32,17 +36,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		logger.error('[admin/settings/rules] loadBonusOverrides 失敗', { error: String(e) });
 	}
 
-	// #2558 段階2 横展開: admin 内 marketplace 風 browse UI を撤去し
-	// `/marketplace?type=rule-preset` への画面遷移に統一 (DESIGN.md §10 構造的ルール
-	// 「marketplace 取込はマーケットプレイス画面に一本化、admin 内ブラウズ UI 二重管理禁止」)。
-	// 旧 `rulePresets` (UnifiedImportHub feed) は本 page で未参照になったため load 出力から削除。
-	// 取込実行は marketplace 詳細 → `?import=<presetId>` → 即取込 + toast の正規経路
-	// (marketplace-import-flow.md §3.1) に合流させる。
-
-	// #2362 PR-6: `?import=<presetId>` で marketplace から遷移した場合、
-	// 自動取込のために presetId を validate し client 側 $effect で `?/importMarketplaceRulePreset`
-	// action を 1 度だけ POST する。dialog 不要 (family scope、即取込 + toast)。
-	// 不正な presetId / 非 bonus type は client 側 toast で error 表示。
+	// marketplace 詳細 → `?import=<presetId>` で遷移した bonus preset の auto-import 用 validate。
+	// 不正な presetId / 非 bonus type は client 側 toast で error 表示。dialog 不要 (family scope)。
 	const importPresetIdRaw = url.searchParams.get('import')?.trim() || null;
 	let importPresetId: string | null = null;
 	let importPresetError: 'not-found' | 'wrong-type' | null = null;
@@ -54,7 +49,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			!('ruleType' in item.payload) ||
 			(item.payload as { ruleType: string }).ruleType !== 'bonus'
 		) {
-			// exchange / penalty / special は本画面の auto-import 対象外。
 			// exchange は admin/rewards 経由、penalty / special は ADR-0012 細則で取込不可。
 			importPresetError = 'wrong-type';
 		} else {
@@ -111,7 +105,7 @@ export const actions: Actions = {
 		}
 	},
 
-	// #2391 (Phase 2): UnifiedImportHub から rule-preset 一括追加 (ADR-0052 dispatchImport 経由)
+	// marketplace 詳細 → `?import=<presetId>` bonus auto-import (ADR-0052 dispatchImport 経由)
 	importMarketplaceRulePreset: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
@@ -130,7 +124,6 @@ export const actions: Actions = {
 				displayName: item.name,
 				ctx: { tenantId, presetId },
 			});
-			// Hub 互換 top-level shape
 			return {
 				packName: result.packName,
 				imported: result.imported,

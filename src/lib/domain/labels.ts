@@ -3510,8 +3510,9 @@ export const REWARDS_LABELS = {
 	sectionTitle: '🎁 ごほうび管理',
 	premiumBadge: '有料限定',
 	tabRewards: 'ごほうび',
-	pageDescTitle: '🎁 ごほうび管理 — 子供 shop に並べる商品',
-	pageDescText1: '子供 shop に並べるごほうび（おこづかい、ゲーム時間、おやつなど）を管理します。',
+	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
+	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
+	// (pageDescHint*) のみ page-description カードに残す。
 	pageDescText2: '応援機能（突発のごほうび）は /admin/cheer をご利用ください。',
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	pageDescHintLink: 'おうえんメッセージ',
@@ -4097,6 +4098,23 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #2998 (EPIC #2897): ヘッダー + 「+ 追加」dropdown 統一 (activities / checklists と同型)。
+	//   AI 提案パネル本文直置きを撤去し、dropdown 内の選択肢 (手動 / AI / みんなのテンプレートから探す)
+	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
+	//   icon / 文言は activities header (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
+	//   3 画面の add 経路構成 (種類・順序) 一致を E2E (admin-add-path-isomorphism.spec.ts) で固定する。
+	headerDescription: '子供 shop に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します',
+	addMenuButton: '+ 追加',
+	addMenuAriaLabel: 'ごほうびを追加するメニューを開く',
+	addManualLabel: '手動で1つ追加',
+	addManualIcon: '✏️',
+	addAiLabel: 'AI で提案してもらう',
+	addAiIcon: '✨',
+	addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesIcon: '🔍',
+	// add dialog title (mode 別、activities の addDialogTitle* / checklists の addDialogTitleAi と同型)
+	addDialogTitleManual: '+ 手動でごほうびを追加',
+	addDialogTitleAi: 'AI で提案してもらう',
 } as const;
 
 /**
@@ -4693,17 +4711,17 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 // #2138 MP-3: /admin/settings/rules — 取込済 rule-preset 管理画面
 // ============================================================
 
+// #2895: marketplace 陳列撤去に伴い、本画面は「取込済 bonus ルールの確認 + ON/OFF + 削除」に簡素化。
+// 旧 marketplace import 受付 / OverflowMenu / help-restore-export dialog 系のラベルは撤去した。
 export const ADMIN_RULES_PAGE_LABELS = {
-	pageTitle: '取込済ルール一覧',
-	pageDescription: `${TEMPLATE_TERMS.userFacing}から取込んだ bonus / exchange 系ルールを管理します。bonus は ON/OFF で有効化を切り替えられます。`,
-	emptyTitle: '取込済のルールがありません',
-	emptyDesc: `${TEMPLATE_TERMS.userFacing}から bonus / exchange ルールを取込むとここに表示されます`,
-	browseLink: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.browse} →`,
+	pageTitle: 'ボーナスルール',
+	pageDescription:
+		'お子さまの活動記録時に発火するボーナスポイントのルールです。ON / OFF で有効化を切り替えられます。',
+	emptyTitle: 'ボーナスルールがありません',
+	emptyDesc: 'ボーナスルールを取込むと、ここで ON / OFF を切り替えられます',
 	sectionBonusTitle: `${CONCEPT_ICONS.challenge} ボーナスルール`,
 	sectionBonusDesc:
-		'活動記録時に発火するボーナスポイント。enabled な preset のみが活動記録時に評価されます。',
-	sectionExchangeDesc:
-		'exchange タイプ (ポイント交換アイテム) はお子さまの「ごほうび」一覧から確認できます。',
+		'活動記録時に発火するボーナスポイント。有効なルールのみが活動記録時に評価されます。',
 	enabledBadge: '有効',
 	disabledBadge: '無効',
 	enableButton: '有効化',
@@ -4715,19 +4733,7 @@ export const ADMIN_RULES_PAGE_LABELS = {
 	pointBonusSuffix: 'pt',
 	updateSuccess: 'ルールを更新しました',
 	removeSuccess: 'ルールを削除しました',
-	updateError: '更新に失敗しました',
-	rewardsLinkLabel: '/admin/rewards へ →',
-	penaltyNotImplementedTitle: 'ℹ️ penalty / special タイプについて',
-	penaltyNotImplementedDesc:
-		'penalty / special タイプは ADR-0012 anti-engagement 細則により慎重審査中のため、本画面には表示されません。取込試行は audit log に記録されます。',
-	// #2362 PR-6: OverflowMenu (top-right ⋮) + ?import=<presetId> 自動取込 + toast
-	overflowMenuAriaLabel: 'ルール管理メニュー',
-	helpDialogTitle: 'ルール管理ヘルプ',
-	helpDialogDesc: `${TEMPLATE_TERMS.userFacing}から取込んだボーナスルールを ON/OFF で管理できます。bonus は ${PARENT_TERMS.neutral} が家族全員に一律適用するため、お子さま個別の選択は不要です。`,
-	restoreNotImplementedTitle: 'バックアップから復元',
-	restoreNotImplementedDesc: '本機能は今後のアップデートで対応予定です。',
-	exportNotImplementedTitle: 'エクスポート',
-	exportNotImplementedDesc: '取込済ルールのエクスポートは今後のアップデートで対応予定です。',
+	// marketplace 詳細 → `?import=<presetId>` bonus auto-import の toast (family scope、即取込)。
 	importToastSuccess: (presetName: string) =>
 		`ボーナスルール「${presetName}」を取込みました。家族全員に適用されます。`,
 	importToastDuplicate: (presetName: string) => `「${presetName}」は既に取込済みです。`,
@@ -7451,6 +7457,21 @@ export const STORYBOOK_LABELS = {
 		itemRewards: 'ごほうびプリセットを選ぶ',
 		itemChecklist: 'チェックリストを作る',
 		itemChildScreen: '子供の画面を確認する',
+	},
+	// #2998: AdminResourceHeader story の mock 文言 (3 画面共通ヘッダーの play coverage、CX-DoR #8)。
+	adminResourceHeader: {
+		title: '活動管理',
+		description: 'お子さまの活動を登録・編集します',
+		addButtonLabel: '+ 追加',
+		addMenuAriaLabel: '追加メニューを開く',
+		addManual: '手動で1つ追加',
+		addAi: 'AI で提案してもらう',
+		addBrowse: 'みんなのテンプレートから探す',
+		overflowTrigger: '︙',
+		overflowAriaLabel: 'その他の操作',
+		overflowRestore: 'バックアップから復元',
+		overflowExport: 'エクスポート',
+		badge: '有料限定',
 	},
 } as const;
 

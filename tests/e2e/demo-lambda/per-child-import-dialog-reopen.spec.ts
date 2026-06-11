@@ -7,7 +7,8 @@
 // false になると effect が再走し、data.importPresetId が残存して即座に再 open していた。
 // presetId 単位の one-shot guard (consumedImportPresetId) で再 open を防ぐ。
 //
-// 検証 (3 per-child type 横断):
+// 検証 (per-child type 横断、#2896 で challenge-set を marketplace 陳列から外したため activity-pack /
+// reward-set の 2 type):
 //   (1) 確定後に dialog が閉じる (再 open しない = dead-end でない)
 //   (2) demo no-op は「デモではお試し用」を明示し、偽の成功件数を出さない
 //   (3) キャンセルで dialog が閉じる
@@ -38,13 +39,9 @@ const CASES: Case[] = [
 		dialogTestid: 'reward-import-child-selection-dialog',
 		falseSuccess: /件のごほうびを追加しました/,
 	},
-	{
-		label: 'challenge-set',
-		adminPath: '/admin/challenges',
-		importPreset: 'japan-annual-events',
-		dialogTestid: 'challenge-import-child-selection-dialog',
-		falseSuccess: /件のチャレンジを追加しました/,
-	},
+	// #2896: challenge-set は marketplace を 3 type に絞った際に陳列廃止 (唯一の preset
+	// japan-annual-events を撤去) したため、per-child 取込 demo の検証対象から外した。
+	// チャレンジは /admin/challenges の自作フォーム + auto-challenge で運用する。
 ];
 
 async function openImportDialog(page: Page, c: Case) {

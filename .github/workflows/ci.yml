@@ -369,7 +369,26 @@ jobs:
           merge-multiple: true
 
       - name: Merge vitest reports and validate coverage
-        run: npx vitest --merge-reports --coverage
+        # #2874: json-summary reporter を追加し coverage/coverage-summary.json を出力する
+        # (integration-evidence job の §3.5 #4 カバレッジエビデンス入力)。
+        # threshold 検証は reporter に依らず vite.config.ts thresholds で行われる。
+        run: >-
+          npx vitest --merge-reports --coverage
+          --coverage.reporter=text
+          --coverage.reporter=html
+          --coverage.reporter=lcov
+          --coverage.reporter=json-summary
+
+      # #2874: coverage summary を artifact 化し integration-evidence job で download する。
+      # threshold 未達 (step 失敗) でも summary 自体は出力済みのため if: always() で upload。
+      - name: Upload coverage summary (#2874)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-summary
+          path: coverage/coverage-summary.json
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Coverage threshold ratchet check
         if: github.event_name == 'pull_request'
@@ -386,7 +405,13 @@ jobs:
   storybook-test:
     needs: changes
     # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip (main 向け PR / push で実行)。
-    if: github.base_ref != 'develop' && (needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true')
+    # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火する。
+    # integration 判定 (base==main && head==develop) は scripts/pr-lane.mjs rule 2 が SSOT。
+    # composite action (actions/pr-lane) 経由の needs 化は main push 経路 (base_ref 空) を壊すため
+    # inline 式で OR する (handoff spec 承認済 / A-6 #2948 で対応表化予定)。
+    if: >-
+      (github.base_ref == 'main' && github.head_ref == 'develop')
+      || (github.base_ref != 'develop' && (needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -427,8 +452,11 @@ jobs:
     # lint 失敗時も e2e は走るが、ci-gate が両方の結果を集約するので問題なし。
     # #1006 Phase 2: --shard matrix で 3 並列化 (7m 37s → ~3m 目標)
     # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
+    # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火 (pr-lane.mjs rule 2 SSOT)。
     needs: [changes]
-    if: github.base_ref != 'develop' && (needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true')
+    if: >-
+      (github.base_ref == 'main' && github.head_ref == 'develop')
+      || (github.base_ref != 'develop' && (needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'))
     permissions:
       contents: read
     strategy:
@@ -497,7 +525,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes]
     # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
-    if: github.base_ref != 'develop' && (needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true')
+    # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火 (pr-lane.mjs rule 2 SSOT)。
+    if: >-
+      (github.base_ref == 'main' && github.head_ref == 'develop')
+      || (github.base_ref != 'develop' && (needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'))
     permissions:
       contents: read
     steps:
@@ -576,6 +607,63 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # #2874 (G-E2E-MATRIX): ADR-0040 mode×plan matrix E2E (playwright.matrix.config.ts) の
+  # 重量レーン CI 組込。4 project (demo-free 5201 / local-debug-family 5202 /
+  # aws-prod-trial-expired 5203 / nuc-prod-trust-based 5204) × smoke spec を workers:1 で実行し、
+  # 3 層アーキテクチャ (env.ts → evaluation-context.ts → capabilities.ts) の境界条件を
+  # 統合 PR / main 向け PR / main push で機械検証する。
+  # 注: 「5 年齢モード matrix」ではない (gap-list G-E2E-MATRIX の記載は実体と乖離、#2874 で是正)。
+  # 5 年齢モード横断は通常 E2E (multi-age-mode.spec.ts 等、e2e-test job) が重量レーンで既カバー。
+  # paths filter は意図的に置かない (統合 PR での保証発火、pr-lane.mjs rule 2 SSOT)。
+  e2e-matrix:
+    runs-on: ubuntu-latest
+    needs: [changes]
+    # 重量レーン: develop 向け PR では skip。main 向け PR (integration / hotfix) + main push で実行。
+    if: github.base_ref != 'develop'
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache-matrix
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache-matrix.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright deps (cached browsers)
+        if: steps.playwright-cache-matrix.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run mode×plan matrix E2E (4 project, port 5201-5204)
+        # dev server 4 本同時起動 (playwright.matrix.config.ts webServer)。
+        # PARENT_GATE_COOKIE_SECRET は e2e-test job と同じダミー固定値 (#806 / ADR-0050)。
+        env:
+          PARENT_GATE_COOKIE_SECRET: e2e-test-parent-gate-secret-do-not-use
+          CI: "true"
+        run: npm run test:e2e:matrix
+
+      - name: Upload matrix E2E results
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-matrix-results
+          path: test-results/
+          retention-days: 7
+
   # #1500: cognito-dev モード（AUTH_MODE=cognito COGNITO_DEV_MODE=true）での統合テスト。
   # plan 別 storageState（setup プロジェクト）を使って認証を高速化。
   # #1543: cognito フィルターに一致する変更（認証・課金・プラン関連）か、deps 変更時のみ実行。
@@ -585,7 +673,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes]
     # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
-    if: github.base_ref != 'develop' && (needs.changes.outputs.cognito == 'true' || needs.changes.outputs.deps == 'true')
+    # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火 (pr-lane.mjs rule 2 SSOT)。
+    if: >-
+      (github.base_ref == 'main' && github.head_ref == 'develop')
+      || (github.base_ref != 'develop' && (needs.changes.outputs.cognito == 'true' || needs.changes.outputs.deps == 'true'))
     permissions:
       contents: read
     timeout-minutes: 30
@@ -644,8 +735,11 @@ jobs:
     # #923 Phase 1: lint-and-test 依存を外して並列化 (e2e-test と同じ理由)
     # #1551: docker フィルターで絞り込み。tests/ / docs/ のみ変更時はスキップ。
     # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
+    # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火 (pr-lane.mjs rule 2 SSOT)。
     needs: [changes]
-    if: github.base_ref != 'develop' && (needs.changes.outputs.docker == 'true' || needs.changes.outputs.deps == 'true')
+    if: >-
+      (github.base_ref == 'main' && github.head_ref == 'develop')
+      || (github.base_ref != 'develop' && (needs.changes.outputs.docker == 'true' || needs.changes.outputs.deps == 'true'))
     permissions:
       contents: read
     steps:
@@ -665,9 +759,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes]
     # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip (area:demo label があっても)。
+    # #2874: 統合 PR (develop → main) では area:demo label 条件を bypass して保証発火
+    # (pr-lane.mjs rule 2 SSOT。統合 PR は label 有無に依らず demo Lambda 等価性を最終検証する)。
     if: >-
       github.event_name == 'workflow_dispatch'
       || github.event_name == 'push'
+      || (github.event_name == 'pull_request'
+          && github.base_ref == 'main'
+          && github.head_ref == 'develop')
       || (github.event_name == 'pull_request'
           && github.base_ref != 'develop'
           && contains(github.event.pull_request.labels.*.name, 'area:demo'))
@@ -904,6 +1003,7 @@ jobs:
         unit-test-merge,
         storybook-test,
         e2e-test,
+        e2e-matrix,
         a11y,
         e2e-merge-reports,
         e2e-cognito-dev,
@@ -931,3 +1031,76 @@ jobs:
             exit 1
           fi
           echo "CI passed"
+
+  # #2874 (G-API-COV / G-COV-MAP): 統合 PR (develop → main) のマージ判定エビデンス自動生成。
+  # audit-team.md §3.5 の #3 (テスト結果表) / #4 (カバレッジ + API 突合) を artifact 化する。
+  # - ci-gate の needs には入れない (gate ではない。merge 判定は ci-gate + audit-manager の責務)。
+  # - if: always() で fail run でも表を残す = §3.6 全件発露の入力 (handoff spec 承認済設計判断)。
+  # - integration 判定は inline 式 (pr-lane.mjs rule 2 SSOT。composite action 経由 needs は
+  #   main push 経路を壊すため不採用)。
+  # - §3.5 #1 (含有 PR 一覧) / #2 (変更×テスト突合) は B-1 (#2950) 領域 —
+  #   evidence template に placeholder 行で境界明示済。
+  integration-evidence:
+    needs:
+      [
+        changes,
+        lint-and-test,
+        marketplace-registry-integrity-check,
+        unit-test,
+        unit-test-merge,
+        storybook-test,
+        e2e-test,
+        e2e-matrix,
+        a11y,
+        e2e-merge-reports,
+        e2e-cognito-dev,
+        e2e-demo-lambda,
+        docker-build,
+        site-check,
+        new-env-distribution-check,
+        schema-change-tests-check,
+        schema-migration-completeness-check,
+        main-pr-base-guard,
+      ]
+    if: >-
+      always()
+      && github.event_name == 'pull_request'
+      && github.base_ref == 'main'
+      && github.head_ref == 'develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      # unit-test-merge job が upload した coverage summary を取得 (欠落許容 —
+      # scripts 側が「未取得」を明示して warn-only で続行する)。
+      - name: Download coverage summary
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-summary
+          path: coverage/
+
+      - name: Generate integration PR evidence (audit-team.md §3.5 #3/#4)
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: >-
+          node scripts/audit/generate-integration-evidence.mjs
+          --run-id "${{ github.run_id }}"
+          --pr "${{ github.event.pull_request.number }}"
+          --out integration-evidence
+
+      - name: Write GITHUB_STEP_SUMMARY (≤ 1MiB)
+        run: head -c 1000000 integration-evidence/evidence.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload integration PR evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-pr-evidence-${{ github.run_id }}
+          path: integration-evidence/
+          retention-days: 30

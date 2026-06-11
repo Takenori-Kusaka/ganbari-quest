@@ -482,3 +482,4 @@ xample
 # viewports = "viewport" の複数形。cspell 辞書は singular `viewport` のみ収録のため plural を明示登録
 # (page-guide-layout-invariant.spec.ts の VIEWPORTS const で desktop / mobile 2 viewport をループする)
 viewports
+Mearge

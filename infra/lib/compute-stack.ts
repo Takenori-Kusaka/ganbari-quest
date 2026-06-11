@@ -12,6 +12,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import type * as s3 from 'aws-cdk-lib/aws-s3';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
+import { type GqEnvConfig, PROD_ENV_CONFIG } from './env-config';
 
 // SSOT: src/lib/server/cron/schedule-registry.ts
 // CDK tsconfig rootDir は infra/ 固定のため、utcCronExpression + name のみインライン定義する。
@@ -35,12 +36,19 @@ export interface ComputeStackProps extends cdk.StackProps {
 	table: dynamodb.TableV2;
 	assetsBucket: s3.Bucket;
 	repository: ecr.Repository;
+	/**
+	 * 環境設定 (#2873)。未指定時は PROD_ENV_CONFIG (現行 prod 値) — prod template 不変条件。
+	 * staging は prefix 分離 + demo Lambda / cron-dispatcher / log archiving 省略 +
+	 * 外部サービス env (Stripe / Discord / Gemini / SES) 非注入で構築する。
+	 */
+	envConfig?: GqEnvConfig;
 }
 
 export class ComputeStack extends cdk.Stack {
 	public readonly fn: lambda.Function;
 	public readonly functionUrl: lambda.FunctionUrl;
-	public readonly cronDispatcherFn: lambda.Function;
+	/** cron-dispatcher (#1376)。enableCronDispatcher=false (staging) では未構築 */
+	public readonly cronDispatcherFn?: lambda.Function;
 
 	// --- ADR-0048 Multi-Lambda Demo (#2097 week 4) ---
 	// demo Fn / FunctionUrl / IAM role を本番と完全分離する。
@@ -49,12 +57,18 @@ export class ComputeStack extends cdk.Stack {
 	// IAM role には CloudWatch Logs write (`AWSLambdaBasicExecutionRole`) のみを付与し、
 	// DynamoDB / Cognito / Secrets Manager / SES / S3 へのアクセスは付与しない。
 	// 検証: tests/unit/infra/multi-lambda-cdk.test.ts (C-1 IAM isolation regression test)
-	public readonly demoFn: lambda.Function;
-	public readonly demoFunctionUrl: lambda.FunctionUrl;
-	public readonly demoLambdaRole: iam.Role;
+	// enableDemoLambda=false (staging) では未構築 (#2873)。
+	// buildDemoLambda() (constructor 外) で代入するため readonly を外している。
+	public demoFn?: lambda.Function;
+	public demoFunctionUrl?: lambda.FunctionUrl;
+	public demoLambdaRole?: iam.Role;
 
 	constructor(scope: Construct, id: string, props: ComputeStackProps) {
 		super(scope, id, props);
+
+		const cfg = props.envConfig ?? PROD_ENV_CONFIG;
+		const prefix = cfg.resourcePrefix;
+		const isProd = cfg.envName === 'prod';
 
 		// --- CloudWatch Log Group ---
 		// retention 30 日 SSOT (Issue #2735 / QA Adversarial security 軸 follow-up、Phase 7 PR-3b prerequisite):
@@ -64,28 +78,31 @@ export class ComputeStack extends cdk.Stack {
 		//   を 30 日以内に実行可能とする必要がある (Pre-PMF Bucket A、ADR-0010 整合、compliance + post-mortem)。
 		//   その他の非課金 LogGroup (cron-dispatcher / demo / health-check) は 3-day retention を維持。
 		const logGroup = new logs.LogGroup(this, 'AppLogGroup', {
-			logGroupName: '/aws/lambda/ganbari-quest-app',
+			logGroupName: `/aws/lambda/${prefix}-app`,
 			retention: logs.RetentionDays.ONE_MONTH, // 30 日、課金 path post-mortem SSOT
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 
 		// --- Cognito 設定を SSM から取得（cross-stack export を回避） ---
+		// staging (#2873) は ssmPrefix='/ganbari-quest-staging' の staging 専用 param を参照する。
 		const cognitoUserPoolId = ssm.StringParameter.valueForStringParameter(
 			this,
-			'/ganbari-quest/cognito/user-pool-id',
+			`${cfg.ssmPrefix}/cognito/user-pool-id`,
 		);
 		const cognitoClientId = ssm.StringParameter.valueForStringParameter(
 			this,
-			'/ganbari-quest/cognito/client-id',
+			`${cfg.ssmPrefix}/cognito/client-id`,
 		);
-		// Cognito Hosted UI ドメイン（Google OAuth 有効時に auth-stack が SSM に書き込む）
+		// Cognito Hosted UI ドメイン（prod: Google OAuth 有効時に auth-stack が SSM に書き込む /
+		// staging: auth-stack が default domain 値を必ず書き込む — #2873）
 		const cognitoDomain = ssm.StringParameter.valueForStringParameter(
 			this,
-			'/ganbari-quest/cognito/domain',
+			`${cfg.ssmPrefix}/cognito/domain`,
 		);
+		// staging の context-token-secret は deploy-aws-staging.yml が冪等 put する (PO 手作業なし)
 		const contextTokenSecret = ssm.StringParameter.valueForStringParameter(
 			this,
-			'/ganbari-quest/context-token-secret',
+			`${cfg.ssmPrefix}/context-token-secret`,
 		);
 
 		// --- Gemini API Key（SSM から取得、未設定時はフォールバック動作） ---
@@ -162,84 +179,131 @@ export class ComputeStack extends cdk.Stack {
 		const discordWebhookChurn = this.node.tryGetContext('discordWebhookChurn') ?? '';
 		const discordWebhookIncident = this.node.tryGetContext('discordWebhookIncident') ?? '';
 
+		// --- staging 用 Lambda env (#2873) ---
+		// prod との差分 (handoff spec):
+		//   - Stripe / Discord / Gemini / SES 系 env は注入しない (本番外部サービスへの副作用ゼロ)
+		//   - CRON_SECRET / OPS_SECRET_KEY 不要 (cron-dispatcher 省略)
+		//   - ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL: Function URL は synth 時未確定
+		//     (自己参照) のため placeholder。deploy-aws-staging.yml の ORIGIN resolve step が
+		//     get-function-url-config で解決し read-modify-write で更新する (health/smoke は
+		//     GET のみで ORIGIN 非依存のため縮退可)。
+		const stagingOriginPlaceholder = 'https://staging-origin-placeholder.invalid';
+		const stagingEnvironment: Record<string, string> = {
+			DATA_SOURCE: 'dynamodb',
+			DYNAMODB_TABLE: props.table.tableName!,
+			TABLE_NAME: props.table.tableName!,
+			ASSETS_BUCKET: props.assetsBucket.bucketName,
+			DATABASE_URL: '/tmp/ganbari-quest.db',
+			AWS_LWA_PORT: '3000',
+			PORT: '3000',
+			HOST: '0.0.0.0',
+			NODE_ENV: 'production',
+			ORIGIN: stagingOriginPlaceholder,
+			BODY_SIZE_LIMIT: '10485760',
+			AUTH_MODE: 'cognito',
+			ANALYTICS_ENABLED: 'true',
+			ANALYTICS_TABLE_NAME: props.table.tableName!,
+			COGNITO_USER_POOL_ID: cognitoUserPoolId,
+			COGNITO_CLIENT_ID: cognitoClientId,
+			COGNITO_DOMAIN: cognitoDomain,
+			COGNITO_CALLBACK_URL: `${stagingOriginPlaceholder}/auth/callback`,
+			COGNITO_LOGOUT_URL: `${stagingOriginPlaceholder}/auth/login`,
+			CONTEXT_TOKEN_SECRET: contextTokenSecret,
+			MAINTENANCE_MODE: 'false',
+		};
+
 		// --- Lambda: SvelteKit via Lambda Web Adapter ---
 		this.fn = new lambda.DockerImageFunction(this, 'SvelteKitFn', {
-			functionName: 'ganbari-quest-app',
+			functionName: `${prefix}-app`,
 			code: lambda.DockerImageCode.fromEcr(props.repository, {
 				tagOrDigest: 'latest',
 			}),
 			memorySize: 512,
 			timeout: cdk.Duration.seconds(30),
 			architecture: lambda.Architecture.ARM_64,
-			environment: {
-				DATA_SOURCE: 'dynamodb',
-				DYNAMODB_TABLE: props.table.tableName!,
-				TABLE_NAME: props.table.tableName!,
-				ASSETS_BUCKET: props.assetsBucket.bucketName,
-				DATABASE_URL: '/tmp/ganbari-quest.db',
-				AWS_LWA_PORT: '3000',
-				PORT: '3000',
-				HOST: '0.0.0.0',
-				NODE_ENV: 'production',
-				ORIGIN: 'https://ganbari-quest.com',
-				BODY_SIZE_LIMIT: '10485760',
-				AUTH_MODE: 'cognito',
-				// #1591 (ADR-0023 I2): DynamoDB analytics provider を本番有効化。
-				// メインテーブルに ANALYTICS#<date> パーティションを同居させる
-				// (single-table design)。TTL 90 日でレコードは自動削除される (provider 側)。
-				// umami / Sentry は #1591 で削除済み。analytics 系の env はこれだけで完結。
-				ANALYTICS_ENABLED: 'true',
-				ANALYTICS_TABLE_NAME: props.table.tableName!,
-				COGNITO_USER_POOL_ID: cognitoUserPoolId,
-				COGNITO_CLIENT_ID: cognitoClientId,
-				COGNITO_DOMAIN: cognitoDomain,
-				COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
-				CONTEXT_TOKEN_SECRET: contextTokenSecret,
-				MAINTENANCE_MODE: 'false',
-				...(feedbackDiscordWebhookUrl
-					? { FEEDBACK_DISCORD_WEBHOOK_URL: feedbackDiscordWebhookUrl }
-					: {}),
-				...(discordWebhookSignup ? { DISCORD_WEBHOOK_SIGNUP: discordWebhookSignup } : {}),
-				...(discordWebhookBilling ? { DISCORD_WEBHOOK_BILLING: discordWebhookBilling } : {}),
-				...(discordWebhookChurn ? { DISCORD_WEBHOOK_CHURN: discordWebhookChurn } : {}),
-				...(feedbackDiscordWebhookUrl
-					? { DISCORD_WEBHOOK_INQUIRY: feedbackDiscordWebhookUrl }
-					: {}),
-				...(discordWebhookIncident ? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident } : {}),
-				...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
-				...(legacyOpsSecretKey ? { OPS_SECRET_KEY: legacyOpsSecretKey } : {}),
-				// Epic #2525 Phase 7 PR-L5 (#2860): AWS_LICENSE_SECRET 注入を撤去 (license key 全廃)。
-				// #2310 / #2337 / ADR-0050: parent-gate-session.ts の getSecret() が production
-				// cognito mode で必須要求する。未注入だと /admin/* cold start 時に throw して
-				// 500 連発 (2026-05-20 実害発生)。AWS_LICENSE_SECRET と同じ運用。
-				// demo Lambda (SvelteKitDemoFn) は AUTH_MODE=anonymous で PIN gate 無効
-				// (ADR-0048 整合) のため注入しない。
-				...(parentGateCookieSecret ? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret } : {}),
-				...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
-				...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
-				...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
-				...(stripePriceStandardMonthly
-					? { STRIPE_PRICE_STANDARD_MONTHLY: stripePriceStandardMonthly }
-					: {}),
-				...(stripePriceFamilyMonthly
-					? { STRIPE_PRICE_FAMILY_MONTHLY: stripePriceFamilyMonthly }
-					: {}),
-				// Phase 7 PR-3b cutover (#2721): default 'true' で lookup_key 経路有効化。
-				// Stripe API 障害時は env var fallback (config.ts isLookupKeyEnabled() / getPriceId())。
-				// kill switch: Lambda env を 'false' に変更すると約 30 秒で env var 直読経路に巻き戻し。
-				USE_LOOKUP_KEY: useLookupKey,
-				// Phase 7 PR-4a 配備 (#2713): default 'false'。PR-4b cutover で 'true' 切替。
-				// shadow mode = log only handler (`/api/stripe/webhook-v2`)、本番動作不変。
-				STRIPE_WEBHOOK_SHADOW_MODE: stripeWebhookShadowMode,
-				// Phase 7 PR-4a 配備 (#2713 / #2627 §C): Test mode webhook signing secret。
-				// shadow / cutover で getWebhookSecretForShadow() (config.ts:120) 経由参照。
-				// 空文字 fallback で本番 STRIPE_WEBHOOK_SECRET に flow。Production cutover 後に
-				// 本番 secret に置換 (PR-4b マージ時、#2627 §F)。
-				...(stripeWebhookSecretTest ? { STRIPE_WEBHOOK_SECRET_TEST: stripeWebhookSecretTest } : {}),
-				COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
-				SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
-				SES_CONFIG_SET_NAME: 'ganbari-quest-config',
-			},
+			// prod は従来の inline env を一切変えない (prod template 不変条件 #2873 / ADR-0019)。
+			// PARENT_GATE_COOKIE_SECRET は staging でも必須 (cognito mode の parent-gate-session.ts
+			// が cold start 時に要求する。既存 GitHub Secret を再利用、新規 secret ゼロ)。
+			environment: isProd
+				? {
+						DATA_SOURCE: 'dynamodb',
+						DYNAMODB_TABLE: props.table.tableName!,
+						TABLE_NAME: props.table.tableName!,
+						ASSETS_BUCKET: props.assetsBucket.bucketName,
+						DATABASE_URL: '/tmp/ganbari-quest.db',
+						AWS_LWA_PORT: '3000',
+						PORT: '3000',
+						HOST: '0.0.0.0',
+						NODE_ENV: 'production',
+						ORIGIN: 'https://ganbari-quest.com',
+						BODY_SIZE_LIMIT: '10485760',
+						AUTH_MODE: 'cognito',
+						// #1591 (ADR-0023 I2): DynamoDB analytics provider を本番有効化。
+						// メインテーブルに ANALYTICS#<date> パーティションを同居させる
+						// (single-table design)。TTL 90 日でレコードは自動削除される (provider 側)。
+						// umami / Sentry は #1591 で削除済み。analytics 系の env はこれだけで完結。
+						ANALYTICS_ENABLED: 'true',
+						ANALYTICS_TABLE_NAME: props.table.tableName!,
+						COGNITO_USER_POOL_ID: cognitoUserPoolId,
+						COGNITO_CLIENT_ID: cognitoClientId,
+						COGNITO_DOMAIN: cognitoDomain,
+						COGNITO_CALLBACK_URL: 'https://ganbari-quest.com/auth/callback',
+						CONTEXT_TOKEN_SECRET: contextTokenSecret,
+						MAINTENANCE_MODE: 'false',
+						...(feedbackDiscordWebhookUrl
+							? { FEEDBACK_DISCORD_WEBHOOK_URL: feedbackDiscordWebhookUrl }
+							: {}),
+						...(discordWebhookSignup ? { DISCORD_WEBHOOK_SIGNUP: discordWebhookSignup } : {}),
+						...(discordWebhookBilling ? { DISCORD_WEBHOOK_BILLING: discordWebhookBilling } : {}),
+						...(discordWebhookChurn ? { DISCORD_WEBHOOK_CHURN: discordWebhookChurn } : {}),
+						...(feedbackDiscordWebhookUrl
+							? { DISCORD_WEBHOOK_INQUIRY: feedbackDiscordWebhookUrl }
+							: {}),
+						...(discordWebhookIncident ? { DISCORD_WEBHOOK_INCIDENT: discordWebhookIncident } : {}),
+						...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
+						...(legacyOpsSecretKey ? { OPS_SECRET_KEY: legacyOpsSecretKey } : {}),
+						// Epic #2525 Phase 7 PR-L5 (#2860): AWS_LICENSE_SECRET 注入を撤去 (license key 全廃)。
+						// #2310 / #2337 / ADR-0050: parent-gate-session.ts の getSecret() が production
+						// cognito mode で必須要求する。未注入だと /admin/* cold start 時に throw して
+						// 500 連発 (2026-05-20 実害発生)。AWS_LICENSE_SECRET と同じ運用。
+						// demo Lambda (SvelteKitDemoFn) は AUTH_MODE=anonymous で PIN gate 無効
+						// (ADR-0048 整合) のため注入しない。
+						...(parentGateCookieSecret
+							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
+							: {}),
+						...(geminiApiKey ? { GEMINI_API_KEY: geminiApiKey } : {}),
+						...(stripeSecretKey ? { STRIPE_SECRET_KEY: stripeSecretKey } : {}),
+						...(stripeWebhookSecret ? { STRIPE_WEBHOOK_SECRET: stripeWebhookSecret } : {}),
+						...(stripePriceStandardMonthly
+							? { STRIPE_PRICE_STANDARD_MONTHLY: stripePriceStandardMonthly }
+							: {}),
+						...(stripePriceFamilyMonthly
+							? { STRIPE_PRICE_FAMILY_MONTHLY: stripePriceFamilyMonthly }
+							: {}),
+						// Phase 7 PR-3b cutover (#2721): default 'true' で lookup_key 経路有効化。
+						// Stripe API 障害時は env var fallback (config.ts isLookupKeyEnabled() / getPriceId())。
+						// kill switch: Lambda env を 'false' に変更すると約 30 秒で env var 直読経路に巻き戻し。
+						USE_LOOKUP_KEY: useLookupKey,
+						// Phase 7 PR-4a 配備 (#2713): default 'false'。PR-4b cutover で 'true' 切替。
+						// shadow mode = log only handler (`/api/stripe/webhook-v2`)、本番動作不変。
+						STRIPE_WEBHOOK_SHADOW_MODE: stripeWebhookShadowMode,
+						// Phase 7 PR-4a 配備 (#2713 / #2627 §C): Test mode webhook signing secret。
+						// shadow / cutover で getWebhookSecretForShadow() (config.ts:120) 経由参照。
+						// 空文字 fallback で本番 STRIPE_WEBHOOK_SECRET に flow。Production cutover 後に
+						// 本番 secret に置換 (PR-4b マージ時、#2627 §F)。
+						...(stripeWebhookSecretTest
+							? { STRIPE_WEBHOOK_SECRET_TEST: stripeWebhookSecretTest }
+							: {}),
+						COGNITO_LOGOUT_URL: 'https://ganbari-quest.com/auth/login',
+						SES_SENDER_EMAIL: 'noreply@ganbari-quest.com',
+						SES_CONFIG_SET_NAME: 'ganbari-quest-config',
+					}
+				: {
+						...stagingEnvironment,
+						...(parentGateCookieSecret
+							? { PARENT_GATE_COOKIE_SECRET: parentGateCookieSecret }
+							: {}),
+					},
 		});
 		this.fn.node.addDependency(logGroup);
 
@@ -247,21 +311,25 @@ export class ComputeStack extends cdk.Stack {
 		props.table.grantReadWriteData(this.fn);
 		props.assetsBucket.grantReadWrite(this.fn);
 
-		// Grant Lambda SES SendEmail permission
-		this.fn.addToRolePolicy(
-			new iam.PolicyStatement({
-				actions: ['ses:SendEmail', 'ses:SendRawEmail'],
-				resources: ['*'],
-			}),
-		);
+		// staging (#2873): SES / Cost Explorer grant は付与しない (本番外部サービスへの
+		// 副作用ゼロ + blast radius 最小化。SES env も非注入のためアプリは送信経路を持たない)。
+		if (isProd) {
+			// Grant Lambda SES SendEmail permission
+			this.fn.addToRolePolicy(
+				new iam.PolicyStatement({
+					actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+					resources: ['*'],
+				}),
+			);
 
-		// Grant Lambda Cost Explorer read access (OPS dashboard)
-		this.fn.addToRolePolicy(
-			new iam.PolicyStatement({
-				actions: ['ce:GetCostAndUsage'],
-				resources: ['*'],
-			}),
-		);
+			// Grant Lambda Cost Explorer read access (OPS dashboard)
+			this.fn.addToRolePolicy(
+				new iam.PolicyStatement({
+					actions: ['ce:GetCostAndUsage'],
+					resources: ['*'],
+				}),
+			);
+		}
 
 		// Lambda Function URL (public, CloudFront will be in front)
 		this.functionUrl = this.fn.addFunctionUrl({
@@ -270,76 +338,84 @@ export class ComputeStack extends cdk.Stack {
 		});
 
 		// --- Log archiving: CloudWatch Logs → Firehose → S3 (Glacier) ---
-		this.setupLogArchiving(logGroup, props.assetsBucket);
+		// staging (#2873): log archiving は省略 (idle≈¥0、CW Logs free tier で十分)。
+		if (cfg.enableLogArchiving) {
+			this.setupLogArchiving(logGroup, props.assetsBucket);
+		}
 
 		// --- Cron Dispatcher Lambda + EventBridge Rules (#1376) ---
 		// LWA は HTTP イベントのみ処理できるため、EventBridge を直接 SvelteKit Lambda に
 		// 接続することはできない。このディスパッチャーが EventBridge ペイロードを
 		// HTTP POST に変換して SvelteKit の /api/cron/:job を呼び出す。
-		const cronDispatcherLogGroup = new logs.LogGroup(this, 'CronDispatcherLogGroup', {
-			logGroupName: '/aws/lambda/ganbari-quest-cron-dispatcher',
-			retention: logs.RetentionDays.THREE_DAYS,
-			removalPolicy: cdk.RemovalPolicy.DESTROY,
-		});
-
-		// #1586: cron-dispatcher は CRON_SECRET / OPS_SECRET_KEY のいずれか最低 1 本が
-		// 注入されていないと、Lambda 起動時に「FUNCTION_URL or CRON_SECRET not set」で throw し
-		// 全ジョブ (license-expire / retention-cleanup / trial-notifications) が fail する。
-		// silent skip ではなく CDK synth 時点で deploy をブロックする (ADR-0006 Safety Assertion Erosion Ban)。
-		// 修復経緯: PR#1509 で dispatcher を新設した際、メイン Lambda (L148-149) と異なり
-		// OPS_SECRET_KEY fallback の注入が抜け落ち、かつ CRON_SECRET が GitHub Secret 未登録だったため
-		// 2 日間 silent fail し続けた (#1586)。
-		if (!cronSecret && !legacyOpsSecretKey) {
-			throw new Error(
-				'[ComputeStack] cron-dispatcher requires cronSecret or opsSecretKey CDK context. ' +
-					// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax
-					'Pass `-c cronSecret=${{ secrets.CRON_SECRET }}` or `-c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}` ' +
-					'in deploy.yml. Confirm `OPS_SECRET_KEY` (or `CRON_SECRET`) is registered via `gh secret list` (#1586).',
-			);
-		}
-
-		// #1828: AWS Lambda Node.js 20.x EOL (2026-04-30) 対応で 22.x へ migration
-		this.cronDispatcherFn = new lambdaNode.NodejsFunction(this, 'CronDispatcherFn', {
-			functionName: 'ganbari-quest-cron-dispatcher',
-			entry: path.join(__dirname, '..', 'lambda', 'cron-dispatcher', 'index.ts'),
-			handler: 'handler',
-			runtime: lambda.Runtime.NODEJS_22_X,
-			architecture: lambda.Architecture.ARM_64,
-			memorySize: 128,
-			timeout: cdk.Duration.minutes(5),
-			logGroup: cronDispatcherLogGroup,
-			environment: {
-				FUNCTION_URL: this.functionUrl.url,
-				// #1586: メイン Lambda (L148-149) と整合させ CRON_SECRET と OPS_SECRET_KEY の両方を注入。
-				// dispatcher 側 (cron-dispatcher/index.ts) は `CRON_SECRET ?? OPS_SECRET_KEY` の順で
-				// fallback 参照する。L79-81 の後方互換設計に従う。
-				...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
-				...(legacyOpsSecretKey ? { OPS_SECRET_KEY: legacyOpsSecretKey } : {}),
-			},
-			bundling: {
-				minify: true,
-				sourceMap: false,
-			},
-		});
-		this.cronDispatcherFn.node.addDependency(cronDispatcherLogGroup);
-
-		// EventBridge Rules: CRON_JOBS (SSOT: src/lib/server/cron/schedule-registry.ts)
-		for (const job of CRON_JOBS) {
-			// camelCase ID: license-expire → CronRuleLicenseExpire
-			const ruleId = `CronRule${job.name
-				.split('-')
-				.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-				.join('')}`;
-			const rule = new events.Rule(this, ruleId, {
-				ruleName: `ganbari-quest-cron-${job.name}`,
-				description: `Cron job dispatcher for ${job.name} (#1376)`,
-				schedule: events.Schedule.expression(job.utcCronExpression),
+		// staging (#2873): cron-dispatcher は省略する (定期ジョブの検証責務は本番系統が担い、
+		// staging は deploy 経路貫通 + post-deploy health が責務)。cronSecret throw guard も
+		// 本分岐内に移動 — staging synth では CRON_SECRET / OPS_SECRET_KEY を要求しない。
+		if (cfg.enableCronDispatcher) {
+			const cronDispatcherLogGroup = new logs.LogGroup(this, 'CronDispatcherLogGroup', {
+				logGroupName: `/aws/lambda/${prefix}-cron-dispatcher`,
+				retention: logs.RetentionDays.THREE_DAYS,
+				removalPolicy: cdk.RemovalPolicy.DESTROY,
 			});
-			rule.addTarget(
-				new eventsTargets.LambdaFunction(this.cronDispatcherFn, {
-					event: events.RuleTargetInput.fromObject({ cronJob: job.name }),
-				}),
-			);
+
+			// #1586: cron-dispatcher は CRON_SECRET / OPS_SECRET_KEY のいずれか最低 1 本が
+			// 注入されていないと、Lambda 起動時に「FUNCTION_URL or CRON_SECRET not set」で throw し
+			// 全ジョブ (license-expire / retention-cleanup / trial-notifications) が fail する。
+			// silent skip ではなく CDK synth 時点で deploy をブロックする (ADR-0006 Safety Assertion Erosion Ban)。
+			// 修復経緯: PR#1509 で dispatcher を新設した際、メイン Lambda (L148-149) と異なり
+			// OPS_SECRET_KEY fallback の注入が抜け落ち、かつ CRON_SECRET が GitHub Secret 未登録だったため
+			// 2 日間 silent fail し続けた (#1586)。
+			if (!cronSecret && !legacyOpsSecretKey) {
+				throw new Error(
+					'[ComputeStack] cron-dispatcher requires cronSecret or opsSecretKey CDK context. ' +
+						// biome-ignore lint/suspicious/noTemplateCurlyInString: GitHub Actions template syntax
+						'Pass `-c cronSecret=${{ secrets.CRON_SECRET }}` or `-c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}` ' +
+						'in deploy.yml. Confirm `OPS_SECRET_KEY` (or `CRON_SECRET`) is registered via `gh secret list` (#1586).',
+				);
+			}
+
+			// #1828: AWS Lambda Node.js 20.x EOL (2026-04-30) 対応で 22.x へ migration
+			this.cronDispatcherFn = new lambdaNode.NodejsFunction(this, 'CronDispatcherFn', {
+				functionName: `${prefix}-cron-dispatcher`,
+				entry: path.join(__dirname, '..', 'lambda', 'cron-dispatcher', 'index.ts'),
+				handler: 'handler',
+				runtime: lambda.Runtime.NODEJS_22_X,
+				architecture: lambda.Architecture.ARM_64,
+				memorySize: 128,
+				timeout: cdk.Duration.minutes(5),
+				logGroup: cronDispatcherLogGroup,
+				environment: {
+					FUNCTION_URL: this.functionUrl.url,
+					// #1586: メイン Lambda (L148-149) と整合させ CRON_SECRET と OPS_SECRET_KEY の両方を注入。
+					// dispatcher 側 (cron-dispatcher/index.ts) は `CRON_SECRET ?? OPS_SECRET_KEY` の順で
+					// fallback 参照する。L79-81 の後方互換設計に従う。
+					...(cronSecret ? { CRON_SECRET: cronSecret } : {}),
+					...(legacyOpsSecretKey ? { OPS_SECRET_KEY: legacyOpsSecretKey } : {}),
+				},
+				bundling: {
+					minify: true,
+					sourceMap: false,
+				},
+			});
+			this.cronDispatcherFn.node.addDependency(cronDispatcherLogGroup);
+
+			// EventBridge Rules: CRON_JOBS (SSOT: src/lib/server/cron/schedule-registry.ts)
+			for (const job of CRON_JOBS) {
+				// camelCase ID: license-expire → CronRuleLicenseExpire
+				const ruleId = `CronRule${job.name
+					.split('-')
+					.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+					.join('')}`;
+				const rule = new events.Rule(this, ruleId, {
+					ruleName: `${prefix}-cron-${job.name}`,
+					description: `Cron job dispatcher for ${job.name} (#1376)`,
+					schedule: events.Schedule.expression(job.utcCronExpression),
+				});
+				rule.addTarget(
+					new eventsTargets.LambdaFunction(this.cronDispatcherFn, {
+						event: events.RuleTargetInput.fromObject({ cronJob: job.name }),
+					}),
+				);
+			}
 		}
 
 		// --- ADR-0048 Multi-Lambda Demo Fn (#2097 week 4) ---
@@ -360,7 +436,34 @@ export class ComputeStack extends cdk.Stack {
 		//   - C-1 IAM isolation: DynamoDB / Cognito / Secrets Manager / SES へのアクセスなし
 		//   - C-2 CloudFront distribution count: prod + demo = 2 本
 		//   - C-3 demo Fn env: DATA_SOURCE='demo' + AUTH_MODE='anonymous'
+		//
+		// staging (#2873): demo Lambda は省略 (enableDemoLambda=false)。staging の責務は
+		// 本番 deploy 経路の貫通 + post-deploy health であり、demo 配信は本番系統のみ。
+		if (cfg.enableDemoLambda) {
+			this.buildDemoLambda(props);
+		}
 
+		// --- Outputs ---
+		new cdk.CfnOutput(this, 'FunctionUrl', { value: this.functionUrl.url });
+		new cdk.CfnOutput(this, 'FunctionName', { value: this.fn.functionName });
+		if (this.cronDispatcherFn) {
+			new cdk.CfnOutput(this, 'CronDispatcherFunctionName', {
+				value: this.cronDispatcherFn.functionName,
+			});
+		}
+		if (this.demoFunctionUrl && this.demoFn && this.demoLambdaRole) {
+			new cdk.CfnOutput(this, 'DemoFunctionUrl', { value: this.demoFunctionUrl.url });
+			new cdk.CfnOutput(this, 'DemoFunctionName', { value: this.demoFn.functionName });
+			new cdk.CfnOutput(this, 'DemoLambdaRoleArn', { value: this.demoLambdaRole.roleArn });
+		}
+	}
+
+	/**
+	 * ADR-0048 Multi-Lambda Demo Fn (#2097 week 4)。prod のみ構築 (enableDemoLambda)。
+	 * 中身は従来 constructor inline だったものを無変更で移設 (#2873 — prod template 不変条件、
+	 * construct ID / 物理名 / env / IAM は一切変えない)。
+	 */
+	private buildDemoLambda(props: ComputeStackProps): void {
 		// 1. 独立 LogGroup (3-day retention、prod と同じ運用)
 		const demoLogGroup = new logs.LogGroup(this, 'DemoAppLogGroup', {
 			logGroupName: '/aws/lambda/ganbari-quest-app-demo',
@@ -433,16 +536,6 @@ export class ComputeStack extends cdk.Stack {
 		//    かつ予算制約のため未採用 (PO 判断 2026-05-15)。cold start ~1-2s で運用。
 		//    必要になったら AWS Service Quotas で増額申請後に lambda.Alias + provisionedConcurrentExecutions=1
 		//    を追加する (cost ~$2.74/月)。
-
-		// --- Outputs ---
-		new cdk.CfnOutput(this, 'FunctionUrl', { value: this.functionUrl.url });
-		new cdk.CfnOutput(this, 'FunctionName', { value: this.fn.functionName });
-		new cdk.CfnOutput(this, 'CronDispatcherFunctionName', {
-			value: this.cronDispatcherFn.functionName,
-		});
-		new cdk.CfnOutput(this, 'DemoFunctionUrl', { value: this.demoFunctionUrl.url });
-		new cdk.CfnOutput(this, 'DemoFunctionName', { value: this.demoFn.functionName });
-		new cdk.CfnOutput(this, 'DemoLambdaRoleArn', { value: this.demoLambdaRole.roleArn });
 	}
 
 	private setupLogArchiving(logGroup: logs.LogGroup, bucket: s3.Bucket): void {

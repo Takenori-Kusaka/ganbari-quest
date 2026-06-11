@@ -414,6 +414,52 @@ export function resolveDemoActive(env: Pick<TypedEnv, 'AUTH_MODE' | 'DATA_SOURCE
 
 `deploy-nuc.yml` は public repo の self-hosted runner で動作するため、**self-hosted NUC runner 上で実行できる actor を ADR-0022 体制で想定済みの actor に限定する** ために actor 許可リストで gate する (`if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)`)。本 workflow の trigger は `push: branches=[main]` + `workflow_dispatch` のみであり、fork PR からの直接 push は GitHub の保護 (fork 側に upstream main への push 権限がない) により発生せず、`workflow_dispatch` も upstream リポジトリの権限がある actor からしか発火しない。したがって本 gate の目的は「fork PR 防御」ではなく、**想定外の actor (誤って付与された collaborator / 将来の admin bypass / bot 等) による NUC 本番マシン上での任意コード実行を防ぐ**こと。許可は (1) **Takenori-Kusaka** (PO / repo owner) と (2) **ganbariquestsupport-lab** (ADR-0022 QA merge 体制の squash merge actor) の 2 account のみ。AWS Lambda 側 `deploy.yml` は GitHub-hosted runner + OIDC で動くため本 gate は不要。新たな信頼 account を追加する場合は本リストに 1 行追記すれば足り、構造変更は伴わない。
 
+### 4.2 NUC staging 環境 (Issue #2872 / EPIC #2861 D 系)
+
+統合 PR (develop→main) を本番取込**前**に本番近似環境で検証するため、本番 NUC とは独立した NUC staging 系統を `deploy-nuc-staging.yml` で構築する。本番への副作用ゼロ (本番不変条件) を前提とした隔離構成:
+
+| 項目 | 本番 NUC (`deploy-nuc.yml`) | NUC staging (`deploy-nuc-staging.yml`) |
+|---|---|---|
+| working-dir | `C:\Docker\ganbari-quest` | `C:\Docker\ganbari-quest-staging` |
+| compose project | (既定) | `-p ganbari-quest-staging`（CLI flag で隔離、`docker-compose.yml` は無改変・`name:` 不追加） |
+| port | 3000 | 3100（staging `.env` の `PORT=3100` → compose `${PORT:-3000}`） |
+| DB path | `data\ganbari-quest.db` | `data\ganbari-quest.db`（別 working-dir のため物理的に別 file） |
+| trigger | `push: [main]` + dispatch | `pull_request: [main]`（統合 PR）+ dispatch（develop HEAD） |
+| health | `localhost:3000/api/health` | `localhost:3100/api/health` |
+
+- **snapshot-forward migration 貫通 (G-MIG / #2872 AC6)**: staging container を「**直近本番 DB snapshot から起動**」させ、`applyLazyStartupMigrations` (`src/lib/server/db/migration/lazy-startup-migrations.ts`) を貫通させて「過去状態からマイグレーション込み実機起動」を実機担保する。snapshot は `scripts/snapshot-prod-db.cjs` が better-sqlite3 online backup (`db.backup()`) で本番 DB を **read のみ**で取得し staging DB path に書き出す。本番 DB 不在時は exit 0 + fixture fallback で継続し、staging は fresh DB から lazy migration で起動する。post-deploy で `/api/health` 200 + response body `schema.schemaValid === true` を assert し、migration 失敗を検出する (#2508 startup crash 再発防止)。
+- **本番不変条件 (#2872 AC4)**: staging は別 working-dir / 別 port / 別 compose project / 別 DB path で完全隔離され、本番 container を停止せず、本番 DB へ write しない (online snapshot は source read-only)。
+- **当面 advisory**: 本 workflow は当面 required check に登録しない (staging working-dir が物理 NUC 上に未 provision の間、develop→main 取込をブロックしないため)。merge blocker 化 (#2872 AC3) は staging provision + branch ruleset 配線後に行う。
+- **§3.8 step 9 連携 (G-PD / #2872 AC8)**: staging health (`localhost:3100/api/health`) は `docs/sessions/audit-team.md` §3.8 step 9「AWS + NUC 両 health check」の NUC 側として配線する (AWS 側は §4.3 AWS staging)。検証手順 SSOT は `.claude/skills/deploy-verify/SKILL.md`。
+
+### 4.3 AWS staging 環境 (Issue #2873 / EPIC #2861 D 系)
+
+本番 deploy 経路 (CDK synth → ECR push → Lambda update → health) そのものを統合 PR で検証するため、本番 6 stack の staging 版を `deploy-aws-staging.yml` で構築する。staging は **3 stack のみ** (`GanbariQuestStorageStaging` / `GanbariQuestAuthStaging` / `GanbariQuestComputeStaging`)。Network / Ses / Ops は省略し Function URL 直アクセスで検証する (CloudFront は geoRestriction JP のため本番 e2e も Function URL 直の実績パターン踏襲)。
+
+| 項目 | 本番 (`deploy.yml`) | AWS staging (`deploy-aws-staging.yml`) |
+|---|---|---|
+| stack | 6 stack (`GanbariQuest{Storage,Auth,Compute,Network,Ses,Ops}`) | 3 stack (`GanbariQuest{Storage,Auth,Compute}Staging`)、明示列挙 deploy (`--all` 不使用) |
+| 物理名 prefix | `ganbari-quest` | `ganbari-quest-staging`（table / Lambda `ganbari-quest-staging-app` / log group / pool / bucket / ECR repo） |
+| SSM prefix | `/ganbari-quest/` | `/ganbari-quest-staging/`（`context-token-secret` は workflow が冪等 put） |
+| ECR repo | `ganbari-quest`（maxImageCount:10） | `ganbari-quest-staging` 専用 repo（maxImageCount:3。prod repo 共有は rollback `[-2]` digest 選択 + lifecycle を staging push が侵食するため不採用） |
+| Cognito | custom domain `auth.ganbari-quest.com` + Google IdP | default domain（prefix `ganbari-quest-staging`）。Google IdP / Route53 省略。SSM `cognito/domain` param は default domain 値で必ず書く |
+| 外部サービス env | Stripe / Discord / Gemini / SES 注入 | **非注入**（本番外部サービスへの副作用ゼロ。SES / Cost Explorer の IAM grant も付与しない） |
+| Backup / demo Lambda / cron-dispatcher / log archiving | あり | なし（`enableDemoLambda` / `enableCronDispatcher` / `enableBackup` / `enableLogArchiving` = false） |
+| RemovalPolicy | RETAIN | DESTROY（使い捨て可能） |
+| trigger | `push: [main]` + tag + dispatch | `pull_request: [main]`（統合 PR、paths filter 付き）+ dispatch（develop HEAD） |
+| ADR-0019 gate | `check-cdk-replacement.mjs` ×2（Storage / all） | 同 script 再利用 ×2（StorageStaging / staging 3 stack） |
+| tag | — | `gq-env=staging`（staging 3 stack に付与） |
+
+実装方式: 既存 stack class に optional `envConfig` props（`infra/lib/env-config.ts` の `GqEnvConfig`、default = `PROD_ENV_CONFIG` = 現行 prod 値）を追加。staging 専用 class の複製は二重管理のため不採用。`infra/bin/app.ts` は `-c stagingEnabled=true` の context gate でのみ staging 3 stack を instantiate するため、本番 `cdk deploy --all` / `cdk diff --all` の挙動は不変。
+
+- **prod template 不変 3 重防御**: ① optional props + prod default で diff ゼロ設計 ② `tests/unit/infra/staging-cdk.test.ts` の prod 不変 guard（synth-time、`ganbari-quest` table / `ganbari-quest-app` Fn / `ganbari-quest-users-v2` pool 等の物理名 assert）③ 本番 `deploy.yml` の ADR-0019 gate（deploy-time）。
+- **ORIGIN 解決**: Function URL は synth 時未確定（自己参照）のため CDK は placeholder を注入し、workflow が `get-function-url-config` で解決して jq read-modify-write で `update-function-configuration` する（health / smoke は GET のみで ORIGIN 非依存のため縮退可）。
+- **責務分界 (G-PD / G-MIG)**: AWS Lambda は DynamoDB backend で `applyLazyStartupMigrations` を呼ばないため、**migration 込み起動 (G-MIG) の主担保は NUC staging (§4.2 / #2872)**。#2873 の責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」であり、migration 検証を AWS に重複実装しない。
+- **データ戦略**: staging table は空作成（health / smoke はデータ非依存）。demo fixture (`DATA_SOURCE=demo`) は DynamoDB repository 経路を通らず staging の存在意義が消えるため不採用。PITR / Backup restore 自動化は不採用 (ADR-0010 Bucket C)。本番相当データが必要になった場合の手動 runbook: 本番 table を AWS Backup の on-demand backup から `ganbari-quest-staging-restore` 等の別名 table に restore し、`aws dynamodb scan` + `batch-write-item`（または S3 export/import）で staging table に流し込む。終了後は restore table を削除する（本番 table へは一切 write しない）。
+- **コスト (idle≈¥0、PO 承認済 #2873)**: 固定費 = staging ECR repo ≈$0.05〜0.15/月のみ（一次情報: https://aws.amazon.com/ecr/pricing/ — $0.10/GB-月、Lambda image 0.5〜1.5GB × maxImageCount:3 の差分 layer 共有後実効）。他は DynamoDB on-demand / Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。従量は 1 日 1 run で月数円未満。既存 budget（$5/月、OpsStack）が包含するため staging 専用 budget alarm は追加しない。
+- **当面 advisory**: 初回 deploy 緑実証後に audit-manager が main ruleset required_status_checks へ `deploy-aws-staging` を追加する（merge blocker 化）。
+- **§3.8 step 9 連携 (G-PD AWS 側)**: staging health（`<StagingFunctionUrl>api/health` 200）は `docs/sessions/audit-team.md` §3.8 step 9 の AWS 側として配線する。検証手順 SSOT は `.claude/skills/deploy-verify/SKILL.md`。
+
 ## 5. セキュリティ（WAFなし構成）
 
 | 対策 | 実装 | コスト |
