@@ -261,7 +261,12 @@ function buildDriveSteps(pageGuide: PageGuide): DriveStep[] {
 				//    driver.js の scroll/resize 再配置は onPopoverRender を再発火しないため、
 				//    一発 clamp では scroll 後の再配置位置が補正されないまま「安定」してしまう。
 				//    ループによる恒常 clamp は全再配置経路を構成的に被覆する。
-				startClampLoop(() => document.getElementById('driver-popover-content'));
+				//    wrapper は driver.js 内部 id (`driver-popover-content`) の getElementById でなく
+				//    onPopoverRender が渡す popover.wrapper を直接参照する (#2982 / #2971 cleanup —
+				//    内部 id 命名への依存を撤去)。destroy 後は isConnected=false で no-op になり、
+				//    ループ自体も destroyDriver → stopClampLoop で停止する (二重防御)。
+				const { wrapper } = popover;
+				startClampLoop(() => (wrapper.isConnected ? wrapper : null));
 			},
 		},
 	}));

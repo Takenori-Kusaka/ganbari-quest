@@ -128,7 +128,10 @@ async function assertBubbleNotOverlapTarget(
 	const bubbleBox = await bubble.boundingBox();
 	const targetBox = await target.boundingBox();
 	if (!bubbleBox || !targetBox) return;
-	const vp = page.viewportSize();
+	// #2982 (#2971 cleanup): assertBubbleWithinViewport と同じく window.innerWidth/innerHeight を
+	// 参照し、boundingBox() と同一座標空間で fits 判定する。page.viewportSize() は device emulation
+	// 下で要求値を返し実 CSS px 空間 (例: Pixel 7 = 412px) と乖離するため使わない (#2971 round6 同件)。
+	const vp = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
 	if (!vp) return;
 
 	// driver.js が element 省略 step で center 配置のために挿入する 0×0 placeholder (#driver-dummy-element)
