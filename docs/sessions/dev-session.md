@@ -357,7 +357,7 @@ PO 側 SSOT (`docs/sessions/po-session.md` §「補佐設計品質ガード 6」
 `git push --force` 禁止。やむを得ない場合は `--force-with-lease`。main / release 候補ブランチは `require_last_push_approval: true` で force push 後の再 approve 必須。
 
 - push 前に `git fetch origin <base> && git rebase origin/<base>` を実行する（base は `node scripts/lib/resolve-base-branch.mjs` で解決）
-- `--force-with-lease` が stale info で reject された場合は `git fetch origin <branch>` で当該 branch ref を明示更新してから再 push する（worktree では tracking ref が自動更新されない、#2975）
+- `--force-with-lease` が stale info で reject された場合は `git fetch origin <branch>:refs/remotes/origin/<branch> --force` で tracking ref を明示更新してから再 push する（worktree / 限定 refspec 下では `git fetch origin <branch>` は FETCH_HEAD のみ更新で tracking ref を更新しない、#2975）
 - **PR open 中に base（develop）が進んだら QM BLOCK を待たず速やかに rebase + push する**（#3009）。UI 変更 PR は rebase 後の SS 再撮影も必須。SOP SSOT: [branch-strategy.md §3](branch-strategy.md)
 
 ### 設計ポリシー先行確認（ADR-0008 / #1023）
