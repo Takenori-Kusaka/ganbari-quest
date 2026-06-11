@@ -10,7 +10,6 @@ import {
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 } from '$lib/domain/labels';
-import { CONCEPT_ICONS, TEMPLATE_TERMS } from '$lib/domain/terms';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
@@ -292,16 +291,14 @@ function tabHref(childId: number | 'all'): string {
 	</div>
 
 	<!--
-		#2558 段階2 横展開: in-page UnifiedImportHub (admin 内 marketplace 風 browse UI、二重管理)
-		を撤去 (DESIGN.md §10 構造的ルール「marketplace 取込はマーケットプレイス画面に一本化」)。
-		marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open の
-		正規経路 (marketplace-import-flow.md §3.1、#2774 で 5 type 統一) に合流させる。
-
-		marketplace 取込メッセージ + secondary link「みんなのテンプレートを見る」(empty state /
-		運用期到達性、DESIGN.md §10「bulk import bridge ルール」整合) は保持。
+		#2896 (2026-06-11 PO 判断): marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、
+		チャレンジは marketplace 陳列対象外となった。「みんなのテンプレートを見る」browse link は陳列撤去で
+		空の filter に遷移するため撤去。チャレンジは本画面の自作フォーム + auto-challenge (週次自動生成) で
+		運用する。`?import=<presetId>` の server 受領経路自体は互換のため残置 (現状 valid preset は無いため
+		手動指定時は invalid guidance を表示)。
 	-->
-	<section data-testid="challenges-marketplace-import-section" data-tutorial="challenges-marketplace">
-		{#if marketplaceImportMessage}
+	{#if marketplaceImportMessage}
+		<section data-testid="challenges-marketplace-import-section">
 			<div
 				class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] flex flex-wrap items-center gap-2"
 				data-testid="challenges-marketplace-import-result"
@@ -318,15 +315,8 @@ function tabHref(childId: number | 'all'): string {
 					</a>
 				{/if}
 			</div>
-		{/if}
-		<a
-			href="/marketplace?type=challenge-set"
-			class="inline-flex items-center gap-1 text-xs text-[var(--color-action-primary)] hover:underline"
-			data-testid="challenges-marketplace-browse-link"
-		>
-			{CONCEPT_ICONS.template} {TEMPLATE_TERMS.browse}
-		</a>
-	</section>
+		</section>
+	{/if}
 
 	{#if form?.error}
 		<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)]">{form.error}</div>
@@ -427,8 +417,9 @@ function tabHref(childId: number | 'all'): string {
 
 	<!-- チャレンジ group 一覧 (per-child instance + 兄弟連動表示) -->
 	<!-- CX-DoR #9・#11 横展開 (Round 18): 独自 empty markup を UnifiedEmptyState SSOT に統一。
-	     icon / filter-aware title (noItemsText) / desc (descText) / marketplace CTA (link mode) を
-	     override props で渡し文言不変。selectedChildId='all' / per-child の文言分岐を維持。 -->
+	     icon / filter-aware title (noItemsText) / desc (descText) を override props で渡し文言不変。
+	     #2896: marketplace 陳列対象外 (3 type 化) に伴い「みんなのテンプレートを見る」secondary link は
+	     撤去 (canImport=false)。チャレンジ作成は上部の「作成」ボタン (自作フォーム) を正規導線とする。 -->
 	{#if filteredGroups.length === 0}
 		<UnifiedEmptyState
 			testid="admin-challenges-empty-state"
@@ -440,9 +431,7 @@ function tabHref(childId: number | 'all'): string {
 				? CHALLENGES_LABELS.emptyStateDesc
 				: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyDesc}
 			showPrimary={false}
-			secondaryMode="link"
-			browseHref="/marketplace?type=challenge-set"
-			importLinkLabel={CHALLENGES_LABELS.templateCta}
+			canImport={false}
 		/>
 	{:else}
 		<div class="space-y-3">

@@ -5,8 +5,12 @@ import {
 	MARKETPLACE_LABELS,
 	type MarketplaceSortKey,
 } from '$lib/domain/labels';
-import type { MarketplaceGender, MarketplaceItemType } from '$lib/domain/marketplace-item';
+import type { MarketplaceGender } from '$lib/domain/marketplace-item';
 import { MARKETPLACE_TYPE_ICONS, MARKETPLACE_TYPE_LABELS } from '$lib/domain/marketplace-item';
+import {
+	MARKETPLACE_BROWSE_TYPE_CODES,
+	type MarketplaceBrowseTypeCode,
+} from '$lib/marketplace/types';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Badge from '$lib/ui/primitives/Badge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -16,14 +20,10 @@ import Select from '$lib/ui/primitives/Select.svelte';
 
 let { data } = $props();
 
-// #2297 (EPIC #2294 ③): challenge-set 追加で 5 type に拡張
-const typeKeys: MarketplaceItemType[] = [
-	'activity-pack',
-	'reward-set',
-	'checklist',
-	'rule-preset',
-	'challenge-set',
-];
+// #2896: marketplace は活動 / ごほうび / チェックリストの 3 type に絞る (陳列 SSOT)。
+// rule-preset / challenge-set は陳列対象外 (型 / 直リンク / admin の ?import= は残置)。
+// counts は陳列対象 3 type のみの Record のため、index key 型も Browse 型に揃える。
+const typeKeys: MarketplaceBrowseTypeCode[] = [...MARKETPLACE_BROWSE_TYPE_CODES];
 
 const activeType = $derived(data.filters.type);
 const activeAge = $derived(data.filters.age);
@@ -225,8 +225,8 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 			</p>
 		</div>
 
-		<!-- Type counts summary (#2297: 5 type / mobile 2 列・SP 3 列・desktop 5 列) -->
-		<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-6">
+		<!-- Type counts summary (#2896: 3 type / mobile 3 列・desktop 3 列) -->
+		<div class="grid grid-cols-3 gap-2 mb-6">
 			{#each typeKeys as t (t)}
 				<a
 					href={filterUrl({ type: activeType === t ? null : t })}

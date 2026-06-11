@@ -35,6 +35,32 @@ export const MARKETPLACE_TYPE_CODES = [
 	'challenge-set',
 ] as const satisfies readonly MarketplaceTypeCode[];
 
+/**
+ * marketplace の「ブラウズ / 陳列 surface」に出す type の SSOT (Issue #2896)。
+ *
+ * 2026-06-11 PO 判断: marketplace は活動 / ごほうび / チェックリストの 3 type に絞る。
+ * `rule-preset` (とくべつルール) と `challenge-set` (チャレンジ集) は陳列対象から外し、
+ * 機能本体は各 admin 画面 (`/admin/settings/rules` / `/admin/challenges`) に保持する。
+ *
+ * 重要 (互換維持):
+ *   - `MARKETPLACE_TYPE_CODES` (全 5 type) は Registry 登録 / schema / round-trip / 直リンク
+ *     (`/marketplace/<type>/<itemId>`) / admin の `?import=` 受領経路の互換のため不変。
+ *   - 本定数は **一覧 loader / 一覧 UI の陳列・type filter・件数集計**でのみ使う filter SSOT。
+ *     これにより「型は残すが陳列だけ絞る」をハードコード散在なしで実現する。
+ */
+export const MARKETPLACE_BROWSE_TYPE_CODES = [
+	'activity-pack',
+	'reward-set',
+	'checklist',
+] as const satisfies readonly MarketplaceTypeCode[];
+
+export type MarketplaceBrowseTypeCode = (typeof MARKETPLACE_BROWSE_TYPE_CODES)[number];
+
+/** 指定 type が marketplace の陳列対象かどうかを判定する (filter SSOT)。 */
+export function isBrowseableMarketplaceType(typeCode: string): boolean {
+	return (MARKETPLACE_BROWSE_TYPE_CODES as readonly string[]).includes(typeCode);
+}
+
 // ── 共通 Context ──────────────────────────────────────────────────
 
 /**

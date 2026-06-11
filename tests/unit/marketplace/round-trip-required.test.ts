@@ -96,8 +96,11 @@ const SEED_CASES: readonly SeedCase[] = [
 		expectedItemKey: 'rules',
 	},
 	{
+		// #2896: challenge-set は marketplace 陳列から外し production preset を廃止したが、
+		// 型 / schema / Registry 登録は残置 (互換)。round-trip 完整性は廃止 preset を移管した
+		// test fixture で継続検証し、全 5 type の schema 互換 net を維持する。
 		typeId: 'challenge-set',
-		seedFile: 'src/lib/data/marketplace/challenge-sets/japan-annual-events.json',
+		seedFile: 'tests/fixtures/marketplace/challenge-sets/japan-annual-events.json',
 		expectedItemKey: 'challenges',
 	},
 ] as const;
