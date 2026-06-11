@@ -64,18 +64,17 @@ async function clickUntilDialogOpen(page, triggerLocator, dialogTestid) {
 export default async (page, capture) => {
 	// --- 1) per-child reward 一覧 (処理待ちバッジ) ---
 	await page.goto(`${BASE_URL}/admin/rewards`);
-	const row = page
-		.locator('[data-testid^="reward-item-"]')
-		.filter({ hasText: SEED_TITLE })
-		.first();
+	const row = page.locator('[data-testid^="reward-item-"]').filter({ hasText: SEED_TITLE }).first();
 	await row.waitFor({ state: 'visible', timeout: 30_000 });
 	await capture('2832-rewards-list-pending-badge');
 
 	// --- 2) 編集 dialog + 申請時点 snapshot note (AC2 案 b) ---
-	await clickUntilDialogOpen(page, row.locator('[data-testid^="reward-edit-btn-"]'), 'reward-edit-dialog');
-	await page
-		.getByTestId('reward-edit-pending-note')
-		.waitFor({ state: 'visible', timeout: 10_000 });
+	await clickUntilDialogOpen(
+		page,
+		row.locator('[data-testid^="reward-edit-btn-"]'),
+		'reward-edit-dialog',
+	);
+	await page.getByTestId('reward-edit-pending-note').waitFor({ state: 'visible', timeout: 10_000 });
 	await capture('2832-reward-edit-dialog-pending-note');
 	await page.keyboard.press('Escape');
 	await page
