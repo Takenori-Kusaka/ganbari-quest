@@ -31,7 +31,17 @@ async function waitForMenuOpen(page, triggerTestId) {
 		triggerTestId,
 		{ timeout: 10_000 },
 	);
-	await btn.click();
+	// Ark UI Menu は hydration 後に listener attach するため、open になるまで rAF 間隔で再 click
+	// (tests/e2e の openMenu helper / #2260 Fix-6 と同型)
+	const MAX_ATTEMPTS = 30;
+	for (let i = 0; i < MAX_ATTEMPTS; i++) {
+		await btn.click();
+		const state = await btn.evaluate((el) => el.getAttribute('aria-expanded'));
+		if (state === 'true') break;
+		await page.evaluate(
+			() => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))),
+		);
+	}
 	await page.waitForFunction(
 		(testid) => {
 			const el = document.querySelector(`[data-testid="${testid}"]`);
