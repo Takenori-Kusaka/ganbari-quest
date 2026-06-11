@@ -53,8 +53,7 @@ $effect(() => {
 });
 
 // #2904: 旧 #839 FeedbackFab (右下常設バルーン) は撤去。フィードバック導線は
-// 設定 > サポート (/admin/settings/support) を SSOT とし、各リソース画面の
-// ︙ overflow menu 末尾「ご意見を送る」(AdminResourceHeader 自動 append) から 1 hop で到達する。
+// 設定 > サポート (/admin/settings/support) の単独 SSOT (PO 判断: 各ページには不要)。
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode}>

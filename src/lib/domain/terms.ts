@@ -1043,9 +1043,6 @@ export const OVERFLOW_MENU_TERMS = {
 	itemExportIcon: '⬆',
 	itemHelp: 'このページのヘルプ',
 	itemHelpIcon: CONCEPT_ICONS.help,
-	// #2904: FeedbackFab 撤去の補填導線 — /admin/settings/support への 1 hop 到達性を ︙ menu で担保
-	itemFeedback: 'ご意見を送る',
-	itemFeedbackIcon: '💬',
 } as const;
 
 // ============================================================

@@ -5848,12 +5848,6 @@ export const OVERFLOW_MENU_LABELS = {
 			label: `${OVERFLOW_MENU_TERMS.itemHelp}`,
 			icon: `${OVERFLOW_MENU_TERMS.itemHelpIcon}`,
 		},
-		// #2904: FeedbackFab 撤去の補填 — AdminResourceHeader が ︙ 末尾に自動 append する標準 item
-		feedback: {
-			id: 'feedback',
-			label: `${OVERFLOW_MENU_TERMS.itemFeedback}`,
-			icon: `${OVERFLOW_MENU_TERMS.itemFeedbackIcon}`,
-		},
 	},
 } as const;
 

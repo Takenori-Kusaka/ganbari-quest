@@ -67,39 +67,8 @@ const { Story } = defineMeta({
 <!-- AddDisabled: 上限到達など add 不可状態では + 追加 trigger が disabled になる -->
 <Story name="AddDisabled" args={{ addDisabled: true }} />
 
-<!--
-  OverflowWithFeedback (#2904): ︙ overflow を開くと、ページが渡した item (restore / export) の
-  末尾に標準「ご意見を送る」item が自動 append されている (FeedbackFab 撤去の補填導線)。
--->
-<Story
-	name="OverflowWithFeedback"
-	play={async () => {
-		const trigger = screen.getByTestId('story-overflow-menu');
-		await expect(trigger).toBeVisible();
-		await userEvent.click(trigger);
-		const restoreItem = await waitFor(() => screen.getByTestId('menu-item-restore'));
-		await expect(restoreItem).toBeVisible();
-		await expect(screen.getByTestId('menu-item-export')).toBeVisible();
-		// 標準末尾 item (ご意見を送る) が component により自動 append される
-		await expect(screen.getByTestId('menu-item-feedback')).toBeVisible();
-	}}
-/>
-
-<!--
-  FeedbackOnlyOverflow (#2904、旧 NoOverflow): ページが overflow item を渡さなくても、
-  標準「ご意見を送る」item のみで ︙ が render される (全リソース画面 1 hop 到達性の担保)。
--->
-<Story
-	name="FeedbackOnlyOverflow"
-	args={{ overflowItems: [] }}
-	play={async () => {
-		const trigger = screen.getByTestId('story-overflow-menu');
-		await expect(trigger).toBeVisible();
-		await userEvent.click(trigger);
-		const feedbackItem = await waitFor(() => screen.getByTestId('menu-item-feedback'));
-		await expect(feedbackItem).toBeVisible();
-	}}
-/>
+<!-- NoOverflow: overflow item が空なら ︙ を出さない (補助操作なし画面) -->
+<Story name="NoOverflow" args={{ overflowItems: [] }} />
 
 <!-- WithBadge: title 横に有料バッジ等を差し込む -->
 <Story name="WithBadge">

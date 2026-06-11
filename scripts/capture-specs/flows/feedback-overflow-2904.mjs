@@ -1,12 +1,14 @@
 /**
  * scripts/capture-specs/flows/feedback-overflow-2904.mjs
  *
- * #2904: 右下常設 FeedbackFab の撤去 + ︙ overflow menu 末尾「ご意見を送る」導線の SS。
+ * #2904: 右下常設 FeedbackFab の撤去 + フィードバック導線 = 設定 > サポート単独 SSOT の SS。
+ * (PO 判断: 「各ページには不要。設定>サポートにあればOK。」 — ︙ overflow への
+ *  「ご意見を送る」item は不採用)
  *
  * - admin/activities 一覧: 右下 FAB が存在しない (撤去後の after 状態)
- * - activities / rewards / checklists の ︙ overflow を user-gesture で展開し、
- *   末尾に標準「ご意見を送る」item (AdminResourceHeader 自動 append) が見える状態を撮る
- * - 設定 > サポート (/admin/settings/support): ご意見フォーム SSOT (遷移先)
+ * - activities の ︙ overflow を user-gesture で展開し、「ご意見を送る」item が
+ *   存在しない (補助操作のみ) 状態を撮る
+ * - 設定 > サポート (/admin/settings/support): ご意見フォーム SSOT (唯一の導線)
  *
  * 使用例:
  *   MSYS_NO_PATHCONV=1 BASE_URL=http://localhost:5173 node scripts/capture.mjs \
@@ -73,29 +75,19 @@ export default async (page, capture) => {
 	await page.getByTestId('header-add-activity-btn').waitFor({ state: 'visible', timeout: 15_000 });
 	await capture('issue-2904-admin-activities-no-fab');
 
-	// --- 2) activities ︙ overflow 展開 (末尾に「ご意見を送る」) ---
+	// --- 2) activities ︙ overflow 展開 (「ご意見を送る」item が無い = 補助操作のみ) ---
 	await waitForMenuOpen(page, 'header-overflow-menu-btn');
-	await page.getByTestId('menu-item-feedback').waitFor({ state: 'visible', timeout: 5_000 });
-	await capture('issue-2904-activities-overflow-feedback');
+	await page.getByTestId('menu-item-restore').waitFor({ state: 'visible', timeout: 5_000 });
+	const feedbackItemCount = await page.getByTestId('menu-item-feedback').count();
+	if (feedbackItemCount > 0) {
+		throw new Error(
+			'#2904: ︙ overflow に「ご意見を送る」item が残存しています (設定 > サポート単独 SSOT 違反)',
+		);
+	}
+	await capture('issue-2904-activities-overflow-no-feedback');
 	await page.keyboard.press('Escape');
 
-	// --- 3) rewards ︙ overflow (overflowSnippet 経路にも末尾 append) ---
-	await page.goto(`${BASE_URL}/admin/rewards?screenshot=all`);
-	await waitForMenuOpen(page, 'rewards-overflow-menu');
-	await page.getByTestId('menu-item-feedback').waitFor({ state: 'visible', timeout: 5_000 });
-	await capture('issue-2904-rewards-overflow-feedback');
-	await page.keyboard.press('Escape');
-
-	// --- 4) checklists ︙ overflow (OverflowMenu primitive 経路にも末尾 append) ---
-	await page.goto(`${BASE_URL}/admin/checklists?screenshot=all`);
-	await waitForMenuOpen(page, 'checklists-overflow-menu');
-	await page
-		.getByTestId('overflow-menu-item-feedback')
-		.waitFor({ state: 'visible', timeout: 5_000 });
-	await capture('issue-2904-checklists-overflow-feedback');
-	await page.keyboard.press('Escape');
-
-	// --- 5) 遷移先: 設定 > サポート (ご意見フォーム SSOT) ---
+	// --- 3) 唯一の導線: 設定 > サポート (ご意見フォーム SSOT) ---
 	await page.goto(`${BASE_URL}/admin/settings/support?screenshot=all`);
 	await page
 		.locator('[data-tutorial="feedback-section"]')

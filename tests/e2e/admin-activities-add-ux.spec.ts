@@ -79,7 +79,7 @@ test.describe('EPIC #2253 — admin/activities add UX', () => {
 	}) => {
 		// 旧 add-activity-fab は撤去済
 		await expect(page.getByTestId('add-activity-fab')).toHaveCount(0);
-		// #2904: 旧 FeedbackFab (右下常設バルーン) も撤去済 — ご意見導線は ︙ overflow menu へ
+		// #2904: 旧 FeedbackFab (右下常設バルーン) も撤去済 — ご意見導線は 設定 > サポート単独 SSOT
 		await expect(page.getByTestId('feedback-fab')).toHaveCount(0);
 		// header の + 追加 ボタンが代替経路
 		const addBtn = page.getByTestId('header-add-activity-btn');

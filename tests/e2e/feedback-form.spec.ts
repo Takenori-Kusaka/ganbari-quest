@@ -1,9 +1,10 @@
 // tests/e2e/feedback-form.spec.ts
 // #2904: フィードバック導線 E2E (旧 #839 FeedbackFab + FeedbackDialog は撤去済)
 //
-// - 右下常設 FeedbackFab が admin 画面に存在しない (イルカ問題の根治、research §4)
-// - 各リソース画面の ︙ overflow menu 末尾「ご意見を送る」(AdminResourceHeader 自動 append)
-//   から /admin/settings/support へ 1 hop で遷移できる (NN/G 隠し導線半減の補填、research §5-3)
+// PO 判断 (#2904): フィードバック導線は 設定 > サポート (/admin/settings/support) の
+// 単独 SSOT。「各ページには不要。設定>サポートにあればOK。」
+// - 右下常設 FeedbackFab が admin 画面に存在しない (イルカ問題の根治)
+// - 各リソース画面の ︙ overflow menu に「ご意見を送る」item を置かない
 // - 設定 > サポートのご意見フォーム (SSOT) で送信が goal 完遂する
 //   (act → outcome assert、tests/CLAUDE.md「render-only 禁止」)
 
@@ -41,44 +42,25 @@ async function openMenu(page: Page, triggerTestid: string): Promise<void> {
 	await expect(trigger).toHaveAttribute('data-state', 'open');
 }
 
-test.describe('#2904 フィードバック導線 (FAB 撤去 + ︙ ご意見を送る + 設定 > サポート SSOT)', () => {
+test.describe('#2904 フィードバック導線 (FAB 撤去 + 設定 > サポート単独 SSOT)', () => {
 	test('admin 画面に右下常設 FeedbackFab が存在しない', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'domcontentloaded' });
 		await expect(page.getByTestId('feedback-fab')).toHaveCount(0);
-		// FAB が消えてもフィードバック経路自体は維持されている (設定ナビにサポートが残る) — AC2
+		// FAB が消えてもフィードバック経路自体は維持されている (設定 > サポート SSOT) — AC2
 		await page.goto('/admin/settings/support', { waitUntil: 'domcontentloaded' });
 		await expect(page.locator('[data-tutorial="feedback-section"]')).toBeVisible();
 	});
 
-	test('activities ︙ menu 末尾「ご意見を送る」→ /admin/settings/support へ 1 hop 遷移', async ({
+	test('︙ overflow menu に「ご意見を送る」item を置かない (設定 > サポート単独 SSOT、PO 判断)', async ({
 		page,
 	}) => {
 		await page.goto('/admin/activities', { waitUntil: 'domcontentloaded' });
 		await openMenu(page, 'header-overflow-menu-btn');
-		const feedbackItem = page.getByTestId('menu-item-feedback');
-		await expect(feedbackItem).toBeVisible();
-		await Promise.all([
-			page.waitForURL(/\/admin\/settings\/support/, { timeout: 15_000 }),
-			feedbackItem.click(),
-		]);
-		// 遷移先 = ご意見フォーム SSOT (act → outcome)
-		await expect(page.locator('[data-tutorial="feedback-section"]')).toBeVisible();
-	});
-
-	test('rewards ︙ menu (overflowSnippet 経路) にも「ご意見を送る」が末尾 append される', async ({
-		page,
-	}) => {
-		await page.goto('/admin/rewards', { waitUntil: 'domcontentloaded' });
-		await openMenu(page, 'rewards-overflow-menu');
-		await expect(page.getByTestId('menu-item-feedback')).toBeVisible();
-	});
-
-	test('checklists ︙ menu (OverflowMenu primitive 経路) にも「ご意見を送る」が末尾 append される', async ({
-		page,
-	}) => {
-		await page.goto('/admin/checklists', { waitUntil: 'domcontentloaded' });
-		await openMenu(page, 'checklists-overflow-menu');
-		await expect(page.getByTestId('overflow-menu-item-feedback')).toBeVisible();
+		// menu が実際に open している (既存補助操作 item が見える) ことを確認したうえで、
+		// feedback item が存在しないことを assert する
+		await expect(page.getByTestId('menu-item-restore')).toBeVisible();
+		await expect(page.getByTestId('menu-item-feedback')).toHaveCount(0);
+		await expect(page.getByText('ご意見を送る')).toHaveCount(0);
 	});
 
 	test('設定 > サポートのご意見フォームで送信が完遂する (act → outcome)', async ({ page }) => {

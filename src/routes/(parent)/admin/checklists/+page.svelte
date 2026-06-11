@@ -568,11 +568,9 @@ function getChildName(childId: number): string {
 			addMenuAriaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuAriaLabel}
 			addMenuTestid="checklists-add-menu"
 		>
-			<!-- #2904: trailingItems = AdminResourceHeader が末尾に渡す標準 item (ご意見を送る)。
-			     OverflowMenuActionItem は type 省略可のため MenuItem をそのまま spread できる。 -->
-			{#snippet overflowSnippet(trailingItems)}
+			{#snippet overflowSnippet()}
 				<OverflowMenu
-					items={[...overflowItems, ...trailingItems]}
+					items={overflowItems}
 					ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.overflowMenuAriaLabel}
 					testid="checklists-overflow-menu"
 				/>

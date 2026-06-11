@@ -591,10 +591,9 @@ async function handleCopyFromChild() {
 				</span>
 			{/if}
 		{/snippet}
-		<!-- #2904: trailingItems = AdminResourceHeader が末尾に渡す標準 item (ご意見を送る) -->
-		{#snippet overflowSnippet(trailingItems)}
+		{#snippet overflowSnippet()}
 			<Menu
-				items={[...overflowMenuItems, ...trailingItems]}
+				items={overflowMenuItems}
 				ariaLabel={REWARDS_LABELS.overflowMenuAriaLabel}
 				testid="rewards-overflow-menu"
 				triggerLabel="︙"
