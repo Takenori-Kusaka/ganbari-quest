@@ -3510,8 +3510,9 @@ export const REWARDS_LABELS = {
 	sectionTitle: '🎁 ごほうび管理',
 	premiumBadge: '有料限定',
 	tabRewards: 'ごほうび',
-	pageDescTitle: '🎁 ごほうび管理 — 子供 shop に並べる商品',
-	pageDescText1: '子供 shop に並べるごほうび（おこづかい、ゲーム時間、おやつなど）を管理します。',
+	// #2998 fix: pageDescTitle / pageDescText1 は AdminResourceHeader の title / description と
+	// 二重表示になっていたため撤去。応援機能との区別案内 (pageDescText2) と messages クロスリンク
+	// (pageDescHint*) のみ page-description カードに残す。
 	pageDescText2: '応援機能（突発のごほうび）は /admin/cheer をご利用ください。',
 	pageDescHintPrefix: '💌 スタンプやメッセージは',
 	pageDescHintLink: 'おうえんメッセージ',

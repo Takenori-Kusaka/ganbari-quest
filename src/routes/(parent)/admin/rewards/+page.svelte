@@ -467,11 +467,11 @@ async function handleCopyFromChild() {
 		{/snippet}
 	</AdminResourceHeader>
 
-	<!-- Page Description -->
+	<!-- #2998 (EPIC #2897) fix: title + 重複説明文は AdminResourceHeader が担うため撤去し、
+	     ごほうび固有の有用なポインタ (応援機能との区別案内 + おうえんメッセージへのクロスリンク) のみ残す。
+	     旧: pageDescTitle / pageDescText1 がヘッダー title / description と二重表示されていた。 -->
 	<div class="page-description">
-		<p class="page-description__title">{REWARDS_LABELS.pageDescTitle}</p>
 		<p class="page-description__text">
-			{REWARDS_LABELS.pageDescText1}
 			{REWARDS_LABELS.pageDescText2}
 		</p>
 		<p class="page-description__hint">
@@ -786,12 +786,6 @@ async function handleCopyFromChild() {
 		border-radius: 0.75rem;
 		padding: 1rem;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-	}
-	.page-description__title {
-		font-size: 0.9375rem;
-		font-weight: 700;
-		color: var(--color-text);
-		margin-bottom: 0.25rem;
 	}
 	.page-description__text {
 		font-size: 0.8125rem;
