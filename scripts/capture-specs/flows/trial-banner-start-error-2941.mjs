@@ -22,6 +22,7 @@
  *     --server-mode cognito --presets desktop
  */
 
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 
@@ -86,6 +87,17 @@ export default async (page, capture) => {
 			.getByTestId('trial-banner-start-error')
 			.waitFor({ state: 'visible', timeout: 15_000 });
 		await capture('2941-trial-banner-start-error-visible');
+
+		// #1747: SS と同一 page から DOM snapshot を保存 (flow mode は per-step dom 出力が
+		// 無いため、エラー表示状態の outerHTML を明示保存して SS との同時取得を保証する)
+		const outDir = path.resolve(process.env.DOM_OUT_DIR || 'tmp/screenshots/pr-2941');
+		mkdirSync(outDir, { recursive: true });
+		const html = await page.evaluate(() => document.documentElement.outerHTML);
+		writeFileSync(
+			path.join(outDir, 'trial-banner-start-error-2941-flow.dom.html'),
+			html,
+			'utf-8',
+		);
 	} finally {
 		cleanTrial();
 	}
