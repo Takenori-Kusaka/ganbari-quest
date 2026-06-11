@@ -130,6 +130,17 @@ await refreshParentSession(cookie);           // lastActiveAt 更新 + 再 sign
 > email はセッション既知 (`locals.identity.email`) のため手入力もメール往復も不要となり、ユーザ報告
 > 「email 入力が冗長」「メールが届かない」(local sendEmail no-op) の両方を根治した。local モードの救済は
 > operator reset (#2994) が担当。現行仕様の SSOT は `docs/design/14-セキュリティ設計書.md` §4.4。
+>
+> **回復チャネルのモード分岐 (現行)**:
+>
+> | モード | 回復チャネル | 実装 |
+> |---|---|---|
+> | cognito (SaaS) | アカウントパスワード再入力 → PIN 再作成 (#2993) | `/auth/reset-pin` + `reset-verified` API |
+> | local (self-host) | operator reset — `PARENT_PIN_RESET` env (冪等・no-op default) (#2994) | `pin-operator-reset.ts` + `runbooks/operator-pin-reset.md` |
+>
+> **#2353 Fix5 (初期 PIN 5086 ヒント隠蔽) の前提変更 (#2992)**: 既定 5086 での login 自体を廃止し
+> 「初回は新規作成・既存は入る」に倒したため、「5086 を子供から隠す」制約は構造的に自然解消した
+> (未設定 tenant に既定 PIN が存在しなくなった)。
 > 以下は歴史的記録として保持する。
 
 
