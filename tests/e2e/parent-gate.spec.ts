@@ -189,7 +189,7 @@ function registerParentGateTests(): void {
 			await expect(adminLink).not.toContainText('おやのかんりがめん');
 		});
 
-		test('AC5 (Fix 4 PIN reset): PIN modal 内に「PINを忘れた方」link が表示され /auth/forgot-pin に遷移する', async ({
+		test('AC5 (#2993 置換): PIN modal の「忘れた方」link は /auth/reset-pin (パスワード再入力方式) に遷移する', async ({
 			page,
 		}) => {
 			await page.goto('/admin', { waitUntil: 'domcontentloaded' });
@@ -199,48 +199,11 @@ function registerParentGateTests(): void {
 			await expect(forgotLink).toBeVisible();
 			await expect(forgotLink).toContainText('おやカギコードを忘れた方');
 			await forgotLink.click();
-			await page.waitForURL('**/auth/forgot-pin', { timeout: 10_000 });
-			await expect(page.getByTestId('pin-reset-request-form')).toBeVisible();
-		});
-
-		test('AC5 (Fix 4 PIN reset): forgot-pin で email 入力 → success state 表示 (enumeration 防止)', async ({
-			page,
-		}) => {
-			await page.goto('/auth/forgot-pin', { waitUntil: 'domcontentloaded' });
-			await expect(page.getByTestId('pin-reset-request-form')).toBeVisible();
-			// 未登録 email でも success state を返す (enumeration 防止)
-			await page.locator('input#pin-reset-email').fill('unknown-user-2353@example.com');
-			await page.getByTestId('pin-reset-request-submit').click();
-			await expect(page.getByTestId('pin-reset-request-success')).toBeVisible({
-				timeout: 10_000,
-			});
-		});
-
-		test('AC5 (Fix 4 PIN reset): forgot-pin の email format 不正は INVALID_EMAIL エラー表示', async ({
-			page,
-		}) => {
-			await page.goto('/auth/forgot-pin', { waitUntil: 'domcontentloaded' });
-			await page.locator('input#pin-reset-email').fill('not-an-email');
-			await page.getByTestId('pin-reset-request-submit').click();
-			await expect(page.getByTestId('pin-reset-request-error')).toBeVisible({
-				timeout: 5_000,
-			});
-		});
-
-		test('AC5 (Fix 4 PIN reset): reset-pin/[token] で invalid token は TOKEN_INVALID エラー表示', async ({
-			page,
-		}) => {
-			await page.goto('/auth/reset-pin/invalid-token-string', {
-				waitUntil: 'domcontentloaded',
-			});
-			await expect(page.getByTestId('pin-reset-verify-form')).toBeVisible();
-			// PinInput 4 桁入力 → verify endpoint 呼び出し
-			for (const ch of '1234') {
-				await page.keyboard.press(ch);
-			}
-			await expect(page.getByTestId('pin-reset-verify-error')).toBeVisible({
-				timeout: 10_000,
-			});
+			await page.waitForURL('**/auth/reset-pin', { timeout: 10_000 });
+			await expect(page.getByTestId('pin-reset-verified-form')).toBeVisible();
+			// email はセッション既知のため手入力フォームが存在しない (#2993 ユーザ報告①の根治)
+			await expect(page.getByTestId('pin-reset-verified-account')).toContainText('@');
+			await expect(page.locator('input[type="email"]')).toHaveCount(0);
 		});
 
 		test('AC6 (Fix 5 初期 PIN 5086 ヒント削除): PIN modal に「初期値は 5086」が表示されない', async ({
@@ -392,6 +355,118 @@ function registerParentGateTests(): void {
 			await expect(page.getByTestId('parent-gate-error')).toBeVisible({ timeout: 10_000 });
 			await expect(page.getByTestId('parent-gate-error')).toContainText('一致しません');
 			await expect(create).toHaveAttribute('data-step', 'enter');
+		});
+	});
+
+	// #2993 (EPIC #2990): PIN 忘れ救済 — アカウントパスワード再入力方式 (/auth/reset-pin)
+	// 旧 email 手入力 + SES magic link 経路を置換。reset 成功 test が pin_hash を書き換えるため、
+	// #2851 snapshot/restore パターンで seed 状態へ完全復元する。
+	test.describe('#2993 PIN 忘れ救済 (パスワード再入力方式)', () => {
+		test.use({ storageState: 'playwright/.auth/owner.json' });
+
+		const DB_PATH = 'data/ganbari-quest.db';
+		// DEV_USERS owner (cognito-dev.ts SSOT) — auth.setup.ts が owner.json を生成するアカウント
+		const OWNER_PASSWORD = 'Gq!Dev#Owner2026x';
+		let pinHashSnapshot: string | null = null;
+
+		test.beforeAll(async () => {
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				const row = db.prepare("SELECT value FROM settings WHERE key = 'pin_hash'").get() as
+					| { value: string }
+					| undefined;
+				pinHashSnapshot = row?.value ?? null;
+			} finally {
+				db.close();
+			}
+		});
+
+		test.beforeEach(async ({ context }) => {
+			await context.clearCookies({ name: 'gq_parent_session' });
+		});
+
+		test.afterAll(async () => {
+			// seed 状態へ完全復元 (#2851: reset 成功 test が書き換えた pin_hash を必ず戻す)
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				if (pinHashSnapshot !== null) {
+					db.prepare(
+						"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('pin_hash', ?, datetime('now'))",
+					).run(pinHashSnapshot);
+				} else {
+					db.prepare("DELETE FROM settings WHERE key = 'pin_hash'").run();
+				}
+			} finally {
+				db.close();
+			}
+		});
+
+		/**
+		 * hydration 完了を待ってから Ark PinInput に入力する。
+		 * dev server の初回 compile では client JS が数秒遅れ、SSR markup 上で password fill /
+		 * PIN 入力 (native input) が通ったまま onclick handler 未 attach で submit が無反応になる
+		 * (trace 実証: API call 0 件)。SSR markup の aria-label は "pin code N of 0" で、Ark machine
+		 * 初期化後 (= hydration 済) のみ "of 4" になるため、これを決定的 signal として待つ。
+		 * data-complete / data-filled は SSR markup に既在のため hydration 判定に使えない。
+		 */
+		async function typeNewPin(page: import('@playwright/test').Page, pin: string) {
+			const firstDigit = page
+				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]')
+				.first();
+			await expect(firstDigit).toHaveAttribute('aria-label', /of 4/);
+			await firstDigit.click();
+			await expect(firstDigit).toBeFocused();
+			for (const ch of pin) {
+				await page.keyboard.press(ch);
+			}
+		}
+
+		test('誤パスワードでは再設定できずエラー表示 (子供の gate 突破防止)', async ({ page }) => {
+			await page.goto('/auth/reset-pin', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('pin-reset-verified-form')).toBeVisible();
+			await page.getByTestId('pin-reset-verified-password').fill('wrong-password-x');
+			await typeNewPin(page, '7777');
+			await page.getByTestId('pin-reset-verified-submit').click();
+			await expect(page.getByTestId('pin-reset-verified-error')).toBeVisible({ timeout: 10_000 });
+			await expect(page.getByTestId('pin-reset-verified-error')).toContainText(
+				'パスワードが正しくありません',
+			);
+		});
+
+		test('正パスワード + 新 PIN で再設定が完了し新 PIN で /admin に入れる (goal 完遂)', async ({
+			page,
+		}) => {
+			await page.goto('/auth/reset-pin', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('pin-reset-verified-form')).toBeVisible();
+			await page.getByTestId('pin-reset-verified-password').fill(OWNER_PASSWORD);
+			await typeNewPin(page, '7531');
+			const resetResponse = page.waitForResponse(
+				(res) => res.url().includes('/api/v1/parent-gate/reset-verified') && res.status() === 200,
+			);
+			await page.getByTestId('pin-reset-verified-submit').click();
+			await resetResponse;
+			await expect(page.getByTestId('pin-reset-verified-success')).toBeVisible({ timeout: 10_000 });
+
+			// success CTA → /admin に到達する (reset-verified が parent session も発行するため再入力不要)
+			await page.getByTestId('pin-reset-verified-success-cta').click();
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+
+			// 新 PIN で gate を通過できる (旧 PIN 無効化 + 新 PIN 有効を実 verify API で確認)
+			await page.context().clearCookies({ name: 'gq_parent_session' });
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+			const verifyResponse = page.waitForResponse(
+				(res) => res.url().includes('/api/v1/parent-gate/verify') && res.status() === 200,
+			);
+			const firstDigit = page.locator('[data-testid="parent-gate-modal"] input').first();
+			await firstDigit.click();
+			for (const ch of '7531') {
+				await page.keyboard.press(ch);
+			}
+			await verifyResponse;
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 		});
 	});
 }

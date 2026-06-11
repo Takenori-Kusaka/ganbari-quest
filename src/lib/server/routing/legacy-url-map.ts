@@ -44,6 +44,17 @@ export interface LegacyUrlEntry {
  * 先に評価され、誤ったマッチングを防ぐ。
  */
 export const LEGACY_URL_MAP: readonly LegacyUrlEntry[] = [
+	// #2993 (EPIC #2990): PIN 忘れ救済を email magic link 方式からパスワード再入力方式に置換。
+	// 旧 /auth/forgot-pin (email 手入力) は新 /auth/reset-pin (パスワード再入力 + 新 PIN) に統合。
+	// 旧 /auth/reset-pin/<token> は 30 分期限・1 回限りの使い捨て magic link のため救済対象外
+	// (from: '/auth/reset-pin' は新 URL 自身に prefix match し無限ループするため登録不可)。
+	{
+		from: '/auth/forgot-pin',
+		to: '/auth/reset-pin',
+		deletedAt: '2026-06-11',
+		issue: '#2993',
+		reason: 'PIN 忘れ救済をパスワード再入力方式に置換 (email 手入力 + SES magic link 廃止)',
+	},
 	// #2371 (EPIC #2362 PO 指摘 ③): /admin/activities/introduce 廃止
 	// PR #2388 で PageGuideOverlay v2 + PageGuideRegistry 経由のヘッダー `?` ボタンに統一
 	// したため、旧 introduce ページは不要。ブックマーク / 外部リンク救済のため URL 層で吸収。

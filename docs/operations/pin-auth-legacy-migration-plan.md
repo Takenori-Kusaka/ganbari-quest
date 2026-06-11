@@ -44,7 +44,7 @@ $ grep -rn "legacy.*[Pp]in|[Pp]in.*legacy" src/
 | `src/routes/(parent)/login/+page.server.ts` | 同上 form action | 同上 |
 | `src/routes/api/v1/parent-gate/verify/+server.ts` | `verifyPin` 流用 → `gq_parent_session` 発行 | **EPIC #2310 / ADR-0050 §4.3 (新規)** |
 | `src/routes/api/stripe/portal/+server.ts` | `verifyPin` 経由の二段階確認 (破壊的操作 gate、#771) | `auth-service.ts:99-106` PIN 再確認用途 |
-| `src/routes/api/v1/parent-gate/reset/verify/+server.ts` | `setupPin` 流用 → 新 PIN hash 保存 | **#2353 PIN reset 機構 / 14-セキュリティ設計書 §4.4** |
+| `src/routes/api/v1/parent-gate/reset-verified/+server.ts` | `setupPin` 流用 → 新 PIN hash 保存 (パスワード re-auth 後、#2993) | **14-セキュリティ設計書 §4.4** |
 | `src/lib/server/services/auth-service.ts` `login` / `verifyPin` / `setupPin` / `isPinConfigured` | 上記すべての裏側 | bcrypt + DEFAULT_PIN フォールバック (#1360) |
 
 ---
