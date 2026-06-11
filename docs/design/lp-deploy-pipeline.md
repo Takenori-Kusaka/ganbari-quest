@@ -106,6 +106,14 @@ demo (`/demo/**`) 配下に 3 段階の `?screenshot` mode を導入。SSOT は 
 - demo seed (`src/lib/server/demo/demo-data.ts`) の 902 番ペルソナは「ひなちゃん」（旧「ゆうきちゃん」、13 日分活動ログ ≥ 10 件で `records_10` マイルストーン達成済）に固定し、本番 NUC ユーザ視覚と一致させる
 - `scripts/capture-hp-screenshots.mjs` の `withScreenshotParam(path)` のデフォルトは `screenshot=all` (#1893 で変更)。後方互換で `?screenshot=1` (noise-only) が必要な場合は `withScreenshotParam(path, { mode: 'noise-only' })` を使う
 
+### 日付依存演出の抑止（決定的撮影、#3017）
+
+screenshot mode の「演出強制 ON」は **撮影日に依らず決定的に再現可能な演出のみ** を対象とする。撮影日で表示が変わる日付依存演出は、visual regression baseline (LP / child-home / app の 3 層、[docs/CLAUDE.md §visual regression 3 層](../CLAUDE.md)) との比較決定性を壊すため、screenshot mode 中（`noise-only` / `all` 両方）は **OFF** にする。
+
+- **誕生日ボーナス banner** (`BirthdayBanner`、子供 home 最上部): demo fixture 5 子の birthDate は固定のため、撮影日が誕生日 window（誕生日から 3 日間、`birthday-bonus-service.ts` の `CLAIM_WINDOW_DAYS`）に入ると banner が全要素を押し下げ、baseline と diff >10% で誤 fail する。`src/routes/(child)/[uiMode=uiMode]/home/+page.svelte` で `isScreenshotMode` 中は非 render（通常表示の挙動は不変）
+- 回帰検証: `tests/e2e/demo-lambda/visual-equality.spec.ts` が `?screenshot=all` / `?screenshot=1` で `birthday-banner` testid 0 件を assert
+- 新規の日付依存演出（季節・記念日等）を子供画面に追加する場合は、同様に screenshot mode 中の抑止を併せて実装する
+
 ### 並行実装
 
 `?screenshot` mode 仕様変更時は以下を同時更新する（[parallel-implementations.md](parallel-implementations.md)）:

@@ -523,7 +523,12 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {:else}
 <div class="px-[var(--sp-sm)] py-1" data-testid="{data.uiMode}-home-page">
 	<!-- Birthday bonus banner -->
-	{#if data.birthdayBonus}
+	<!-- #3017: `?screenshot=*` 中は抑止 — 撮影日が demo fixture の誕生日 window (誕生日から 3 日間)
+	     に重なると banner が出現して全要素を押し下げ、LP/child-home/app の visual regression
+	     baseline と diff >10% で誤 fail する (年 5 回再発する撮影日依存 flake)。screenshot mode は
+	     「決定的に再現可能な演出のみ ON」(#1893) が趣旨であり、日付依存演出は OFF が整合的。
+	     通常表示 (screenshot mode off) の挙動は不変。 -->
+	{#if data.birthdayBonus && !isScreenshotMode}
 		<BirthdayBanner
 			nickname={data.child?.nickname ?? ''}
 			newAge={data.birthdayBonus.newAge ?? 0}
