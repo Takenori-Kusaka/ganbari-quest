@@ -489,3 +489,15 @@ Mearge
 # Metabase = Metabase BI tool (operator reset 一次資料の参照先)
 changepassword
 Metabase
+# ===== #2975 refspec self-heal + rebase SOP (PR #3020) =====
+# refspec = git remote.origin.fetch の fetch refspec / retarget = PR base 変更操作
+# WCAG = Web Content Accessibility Guidelines / OOUI = Object-Oriented UI / webui = WebUI レビュープロセス
+refspec
+retarget
+WCAG
+OOUI
+webui
+
+# ===== #2975 single-branch refspec self-heal (resolve-base-branch.mjs / branch-strategy SOP) =====
+# refspec = git fetch/push の ref mapping 指定 (+refs/heads/develop:refs/remotes/origin/develop)
+refspec
