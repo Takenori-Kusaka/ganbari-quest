@@ -34,6 +34,9 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		redirect(302, '/auth/login?error=invalid_state');
 	}
 
+	// #3025: redirect() は throw するため try 内で成功 redirect を投げると catch に捕まり
+	// error redirect に化ける (従来コードの潜在バグ)。成功遷移先は try の外で確定させる。
+	let successPath = '/admin';
 	try {
 		// Authorization Code → Token 交換
 		const tokens = await exchangeCodeForTokens(code, cookies);
@@ -46,12 +49,22 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 			setRefreshCookie(cookies, tokens.refreshToken);
 		}
 
-		// 認証成功 → ご家族の見守り画面へ（resolveContext で自動的にテナント選択される）
-		redirect(302, '/admin');
+		// #3025: 「Google で本人確認」(PIN reset 等) から来た場合は oauth_next cookie の
+		// 内部 path (先頭 1 個の "/" のみ許可 = open redirect 防止) へ戻す
+		const next = cookies.get('oauth_next');
+		if (next) {
+			cookies.delete('oauth_next', { path: '/' });
+			if (/^\/(?!\/)/.test(next)) {
+				successPath = next;
+			}
+		}
 	} catch (e) {
 		logger.error('[AUTH] OAuth callback token exchange failed', {
 			error: e instanceof Error ? e.message : String(e),
 		});
 		redirect(302, '/auth/login?error=token_exchange_failed');
 	}
+
+	// 認証成功 → ご家族の見守り画面 or oauth_next（resolveContext で自動的にテナント選択される）
+	redirect(302, successPath);
 };

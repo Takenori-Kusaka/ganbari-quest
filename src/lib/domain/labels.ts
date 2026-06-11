@@ -1366,6 +1366,12 @@ export const PIN_RESET_LABELS = {
 	resetAccountLabel: 'ログイン中のアカウント',
 	resetPasswordLabel: 'アカウントのパスワード',
 	resetPasswordHint: `${LOGIN_TERMS.canonical}時に使っているパスワードです`,
+	// #3025: federated (Google) ユーザ向け — Cognito パスワードを持たないため再ログインで本人確認
+	resetFederatedDescription: `ご本人確認のため、Googleでログインし直してください。確認後そのまま新しい${OYAKAGI_TERMS.name}を設定できます。`,
+	resetFederatedReauthButton: `Google で本人確認する`,
+	resetFederatedVerified: `本人確認ができました。新しい${OYAKAGI_TERMS.name}を入力してください。`,
+	errorFreshLoginRequired:
+		'本人確認の有効期限が切れました。もう一度「Google で本人確認する」からやり直してください',
 	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
 	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',

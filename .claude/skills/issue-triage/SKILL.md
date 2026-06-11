@@ -331,3 +331,7 @@ rm tmp/issue-bodies/<slug>.md
 ### PR body での運用も同パターン (#1804)
 
 PR 本文も同様に `gh pr create --body-file tmp/pr-bodies/<slug>.md` 経由。詳細は `.claude/skills/dev-open-pr/SKILL.md` 参照。
+
+## 認証・回復系 Issue の AC はログイン手段マトリクスで書く (#3025)
+
+認証・本人確認・回復系の Issue を起票する際は、`docs/design/14-セキュリティ設計書.md` §4.3b「ログイン手段マトリクス」の**全行 (password / Google federated / local) について AC を明記**する。federated 行の見落としで「パスワード再入力」設計が Google ユーザの dead-end になった #3025 (検証環境にも federated が不在で機械検証では発見不能だった) の構造的再発防止。

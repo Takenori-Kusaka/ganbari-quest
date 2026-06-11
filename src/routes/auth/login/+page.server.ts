@@ -177,6 +177,7 @@ async function handleDevLogin(
 		userId: user.userId,
 		email: user.email,
 		groups: user.groups,
+		federated: user.federated,
 	});
 
 	cookies.set(IDENTITY_COOKIE_NAME, idToken, {

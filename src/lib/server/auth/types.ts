@@ -23,7 +23,16 @@ export type Role = 'owner' | 'parent' | 'child';
  */
 export type Identity =
 	| { type: 'local' }
-	| { type: 'cognito'; userId: string; email: string; groups?: string[] }
+	| {
+			type: 'cognito';
+			userId: string;
+			email: string;
+			groups?: string[];
+			/** #3025: federated IdP (Google 等) 経由 = Cognito パスワードを持たない */
+			isFederated?: boolean;
+			/** #3025: 実認証時刻 (epoch 秒)。requires-recent-login 判定用 (refresh では更新されない) */
+			authTime?: number;
+	  }
 	| { type: 'anonymous'; userId: string; email: string };
 
 /** Layer 2: Context（何として操作しているか）

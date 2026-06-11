@@ -16,7 +16,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(302, '/auth/login');
 	}
 
+	// #3025: federated (Google) ユーザはパスワードを持たない → requires-recent-login 方式。
+	// auth_time が閾値以内なら本人確認済としてそのまま PIN 入力 UI を出す
+	const RECENT_AUTH_MAX_AGE_SEC = 5 * 60;
+	const ageSec = identity.authTime
+		? Math.floor(Date.now() / 1000) - identity.authTime
+		: Number.POSITIVE_INFINITY;
+
 	return {
 		accountEmail: identity.email,
+		isFederated: identity.isFederated ?? false,
+		hasRecentAuth: ageSec <= RECENT_AUTH_MAX_AGE_SEC,
 	};
 };

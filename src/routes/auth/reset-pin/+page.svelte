@@ -25,7 +25,8 @@ function handlePinComplete(details: { valueAsString: string }) {
 
 async function submitReset() {
 	if (submitting || success) return;
-	if (!password) {
+	// #3025: federated (Google) ユーザはパスワードを持たない (本人確認は recent-auth で API 側検証)
+	if (!data.isFederated && !password) {
 		errorMessage = PIN_RESET_LABELS.errorPasswordRequired;
 		return;
 	}
@@ -62,6 +63,9 @@ async function submitReset() {
 			case 'RATE_LIMITED':
 				errorMessage = PIN_RESET_LABELS.errorRateLimited;
 				break;
+			case 'FRESH_LOGIN_REQUIRED':
+				errorMessage = PIN_RESET_LABELS.errorFreshLoginRequired;
+				break;
 			case 'NOT_SUPPORTED':
 				errorMessage = PIN_RESET_LABELS.errorNotSupported;
 				break;
@@ -84,7 +88,7 @@ async function submitReset() {
 	<Card padding="none" class="w-full max-w-[440px] px-8 py-10 shadow-[0_20px_60px_rgba(0,0,0,0.15)]">
 		{#snippet children()}
 			<h1 class="text-xl font-bold text-[var(--color-text-primary)] mb-2 text-center">{PIN_RESET_LABELS.resetHeading}</h1>
-			<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mb-6">{PIN_RESET_LABELS.resetDescription}</p>
+			<p class="text-sm text-[var(--color-text-muted)] leading-relaxed mb-6">{data.isFederated ? PIN_RESET_LABELS.resetFederatedDescription : PIN_RESET_LABELS.resetDescription}</p>
 
 			{#if success}
 				<div data-testid="pin-reset-verified-success">
@@ -105,32 +109,50 @@ async function submitReset() {
 						<span class="text-sm font-semibold text-[var(--color-text-primary)]">{PIN_RESET_LABELS.resetAccountLabel}</span>
 						<p class="text-sm text-[var(--color-text-muted)] m-0 mt-1" data-testid="pin-reset-verified-account">{data.accountEmail}</p>
 					</div>
-					<FormField
-						type="password"
-						label={PIN_RESET_LABELS.resetPasswordLabel}
-						hint={PIN_RESET_LABELS.resetPasswordHint}
-						bind:value={password}
-						showToggle
-						required
-						disabled={submitting}
-						data-testid="pin-reset-verified-password"
-					/>
-					<div>
-						<span class="text-sm font-semibold text-[var(--color-text-primary)] block mb-2">{PIN_RESET_LABELS.resetPinLabel}</span>
-						{#key pinInputKey}
-							<PinInput length={4} mask onComplete={handlePinComplete} />
-						{/key}
-					</div>
-					<Button
-						variant="primary"
-						size="lg"
-						class="w-full"
-						loading={submitting}
-						onclick={submitReset}
-						data-testid="pin-reset-verified-submit"
-					>
-						{submitting ? PIN_RESET_LABELS.resetSubmitting : PIN_RESET_LABELS.resetSubmit}
-					</Button>
+					{#if data.isFederated && !data.hasRecentAuth}
+						<!-- #3025: federated + 本人確認前 — Google 再ログイン (requires-recent-login) へ誘導。
+						     パスワード欄は存在しない値を要求する dead-end になるため出さない -->
+						<Button
+							href="/auth/oauth/google?next=/auth/reset-pin"
+							variant="primary"
+							size="lg"
+							class="w-full"
+							data-testid="pin-reset-verified-reauth"
+						>
+							{PIN_RESET_LABELS.resetFederatedReauthButton}
+						</Button>
+					{:else}
+						{#if data.isFederated}
+							<p class="text-sm text-[var(--color-feedback-success-text)] m-0" data-testid="pin-reset-verified-fresh">{PIN_RESET_LABELS.resetFederatedVerified}</p>
+						{:else}
+							<FormField
+								type="password"
+								label={PIN_RESET_LABELS.resetPasswordLabel}
+								hint={PIN_RESET_LABELS.resetPasswordHint}
+								bind:value={password}
+								showToggle
+								required
+								disabled={submitting}
+								data-testid="pin-reset-verified-password"
+							/>
+						{/if}
+						<div>
+							<span class="text-sm font-semibold text-[var(--color-text-primary)] block mb-2">{PIN_RESET_LABELS.resetPinLabel}</span>
+							{#key pinInputKey}
+								<PinInput length={4} mask onComplete={handlePinComplete} />
+							{/key}
+						</div>
+						<Button
+							variant="primary"
+							size="lg"
+							class="w-full"
+							loading={submitting}
+							onclick={submitReset}
+							data-testid="pin-reset-verified-submit"
+						>
+							{submitting ? PIN_RESET_LABELS.resetSubmitting : PIN_RESET_LABELS.resetSubmit}
+						</Button>
+					{/if}
 					<a href="/switch" class="text-sm text-[var(--color-text-link)] text-center" data-testid="pin-reset-verified-back">{PIN_RESET_LABELS.resetBackToSwitch}</a>
 				</div>
 			{/if}

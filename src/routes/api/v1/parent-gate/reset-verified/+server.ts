@@ -29,6 +29,8 @@ import type { RequestHandler } from './$types';
 
 const PIN_PATTERN = /^\d{4,6}$/;
 const COOKIE_MAX_AGE_SEC = 60 * 60 * 24; // verify と同じ 24 時間 hard max (sliding は 15 分)
+/** #3025: federated user の requires-recent-login 閾値 (Firebase 同型の 5 分) */
+const RECENT_AUTH_MAX_AGE_SEC = 5 * 60;
 /** パスワード brute force 防止 (Cognito 側 throttle と二重) */
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
@@ -64,25 +66,43 @@ export const POST: RequestHandler = async ({ request, cookies, locals, getClient
 	if (!newPin || !PIN_PATTERN.test(newPin)) {
 		return json({ ok: false, error: 'PIN_FORMAT' }, { status: 400 });
 	}
-	if (!password) {
-		return json({ ok: false, error: 'PASSWORD_REQUIRED' }, { status: 400 });
-	}
 
-	// アカウントパスワード re-auth (email はセッション既知のものを使用、手入力なし)
-	let passwordValid = false;
-	if (isCognitoDevMode()) {
-		passwordValid = authenticateDevUser(identity.email, password) !== null;
+	if (identity.isFederated) {
+		// #3025: federated (Google 等) ユーザは Cognito パスワードを持たないため、
+		// requires-recent-login (Firebase / Identity Platform 同型) で本人確認する:
+		// auth_time (実認証時刻、refresh token 経由の再発行では更新されない) が
+		// 閾値以内 = 「Google でログインし直した直後」のみ再設定を許可。
+		// Cognito は prompt=login を IdP に転送しないため (既知制限)、これが第三者
+		// アプリとして到達可能な最大強度 (research: tmp/research/pin-reset-federated-user-2026-06-11.md)
+		const authTime = identity.authTime;
+		const ageSec = authTime ? Math.floor(Date.now() / 1000) - authTime : Number.POSITIVE_INFINITY;
+		if (ageSec > RECENT_AUTH_MAX_AGE_SEC) {
+			logger.info('[PARENT_GATE] reset-verified: federated recent-auth stale (再ログイン誘導)', {
+				context: { tenantIdPrefix: tenantId.slice(0, 12), ageSec },
+			});
+			return json({ ok: false, error: 'FRESH_LOGIN_REQUIRED' }, { status: 401 });
+		}
 	} else {
-		const result = await authenticateWithCognito(identity.email, password);
-		// success | MFA_REQUIRED = パスワード正解 (MFA は第 2 要素であり password 検証は通過済)
-		passwordValid = result.success || result.error === 'MFA_REQUIRED';
-	}
+		if (!password) {
+			return json({ ok: false, error: 'PASSWORD_REQUIRED' }, { status: 400 });
+		}
 
-	if (!passwordValid) {
-		logger.warn('[PARENT_GATE] reset-verified: password re-auth failed', {
-			context: { tenantIdPrefix: tenantId.slice(0, 12) },
-		});
-		return json({ ok: false, error: 'INVALID_PASSWORD' }, { status: 401 });
+		// アカウントパスワード re-auth (email はセッション既知のものを使用、手入力なし)
+		let passwordValid = false;
+		if (isCognitoDevMode()) {
+			passwordValid = authenticateDevUser(identity.email, password) !== null;
+		} else {
+			const result = await authenticateWithCognito(identity.email, password);
+			// success | MFA_REQUIRED = パスワード正解 (MFA は第 2 要素であり password 検証は通過済)
+			passwordValid = result.success || result.error === 'MFA_REQUIRED';
+		}
+
+		if (!passwordValid) {
+			logger.warn('[PARENT_GATE] reset-verified: password re-auth failed', {
+				context: { tenantIdPrefix: tenantId.slice(0, 12) },
+			});
+			return json({ ok: false, error: 'INVALID_PASSWORD' }, { status: 401 });
+		}
 	}
 
 	await setupPin(newPin, tenantId);
