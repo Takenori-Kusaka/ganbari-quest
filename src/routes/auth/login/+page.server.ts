@@ -13,7 +13,7 @@ import {
 	resendConfirmationCode,
 	respondToMfaChallenge,
 } from '$lib/server/auth/providers/cognito-direct-auth';
-import { setIdentityCookie } from '$lib/server/auth/providers/cognito-oauth';
+import { setIdentityCookie, setRefreshCookie } from '$lib/server/auth/providers/cognito-oauth';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { logger } from '$lib/server/logger';
 import {
@@ -94,7 +94,7 @@ export const actions: Actions = {
 			const loginResult = await authenticateWithCognito(email, password);
 			if (loginResult.success) {
 				await resetLoginFailures(email);
-				setIdentityCookie(cookies, loginResult.idToken);
+				establishSession(cookies, loginResult);
 				redirect(302, '/admin');
 			}
 		}
@@ -157,10 +157,24 @@ export const actions: Actions = {
 		}
 
 		// MFA成功 → セッション確立
-		setIdentityCookie(cookies, result.idToken);
+		establishSession(cookies, result);
 		redirect(302, '/admin');
 	},
 };
+
+/**
+ * 認証成功時のセッション cookie 確立
+ * identity cookie (1時間) + refresh cookie (30日、#1365 / #3022) をセットで保存する
+ */
+function establishSession(
+	cookies: import('@sveltejs/kit').Cookies,
+	result: { idToken: string; refreshToken?: string },
+): void {
+	setIdentityCookie(cookies, result.idToken);
+	if (result.refreshToken) {
+		setRefreshCookie(cookies, result.refreshToken);
+	}
+}
 
 /** devモード: ダミーユーザーで認証 */
 async function handleDevLogin(
@@ -259,6 +273,6 @@ async function handleCognitoLogin(
 
 	// 認証成功: ロックアウトカウンターをリセット → セッション確立
 	await resetLoginFailures(email);
-	setIdentityCookie(cookies, result.idToken);
+	establishSession(cookies, result);
 	redirect(302, '/admin');
 }
