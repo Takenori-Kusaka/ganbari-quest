@@ -52,12 +52,15 @@ export async function countUnshownMessages(childId: number, _tenantId: string) {
 	return result?.count ?? 0;
 }
 
-/** メッセージを表示済みにする */
-export async function markMessageShown(messageId: number, _tenantId: string) {
+/**
+ * メッセージを表示済みにする。
+ * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
+ */
+export async function markMessageShown(childId: number, messageId: number, _tenantId: string) {
 	return db
 		.update(parentMessages)
 		.set({ shownAt: new Date().toISOString() })
-		.where(eq(parentMessages.id, messageId))
+		.where(and(eq(parentMessages.id, messageId), eq(parentMessages.childId, childId)))
 		.returning()
 		.get();
 }

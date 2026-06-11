@@ -20,7 +20,9 @@ export async function findRedemptionRequestsByTenant(
 	return getRepos().rewardRedemption.findRedemptionRequestsByTenant(tenantId, opts);
 }
 
+/** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */
 export async function updateRedemptionRequestStatus(
+	childId: number,
 	id: number,
 	updates: {
 		status: string;
@@ -30,7 +32,7 @@ export async function updateRedemptionRequestStatus(
 	},
 	tenantId: string,
 ) {
-	return getRepos().rewardRedemption.updateRedemptionRequestStatus(id, updates, tenantId);
+	return getRepos().rewardRedemption.updateRedemptionRequestStatus(childId, id, updates, tenantId);
 }
 
 export async function findPendingByChildAndReward(
@@ -45,8 +47,9 @@ export async function findUnshownResultByChild(childId: number, tenantId: string
 	return getRepos().rewardRedemption.findUnshownResultByChild(childId, tenantId);
 }
 
-export async function markRedemptionResultShown(id: number, tenantId: string) {
-	return getRepos().rewardRedemption.markRedemptionResultShown(id, tenantId);
+/** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */
+export async function markRedemptionResultShown(childId: number, id: number, tenantId: string) {
+	return getRepos().rewardRedemption.markRedemptionResultShown(childId, id, tenantId);
 }
 
 export async function expireOldRedemptions(tenantId: string) {

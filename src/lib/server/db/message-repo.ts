@@ -15,6 +15,7 @@ export async function findUnshownMessage(childId: number, tenantId: string) {
 export async function countUnshownMessages(childId: number, tenantId: string) {
 	return getRepos().message.countUnshownMessages(childId, tenantId);
 }
-export async function markMessageShown(messageId: number, tenantId: string) {
-	return getRepos().message.markMessageShown(messageId, tenantId);
+/** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */
+export async function markMessageShown(childId: number, messageId: number, tenantId: string) {
+	return getRepos().message.markMessageShown(childId, messageId, tenantId);
 }

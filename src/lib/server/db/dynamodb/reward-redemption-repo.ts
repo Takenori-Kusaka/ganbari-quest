@@ -205,11 +205,14 @@ export const findRedemptionRequestsByTenant: IRewardRedemptionRepo['findRedempti
 // updateRedemptionRequestStatus — 申請状態を更新
 // ============================================================
 
+/**
+ * #2845 課題①: childId + id で PK/SK を直接構成し UpdateItem する (full composite-key
+ * addressing)。旧実装の tenant Scan + id filter (Limit:1 / #2842 バグクラス B2 残党) は撤去。
+ * `attribute_exists(PK)` で (childId, id) 不一致 / 不在を ConditionalCheckFailedException →
+ * undefined にする (SQLite `WHERE id=? AND child_id=?` の affected 0 と等価)。
+ */
 export const updateRedemptionRequestStatus: IRewardRedemptionRepo['updateRedemptionRequestStatus'] =
-	async (id, updates, tenantId): Promise<RedemptionRequestRow | undefined> => {
-		const found = await findRedemptionItemById(id, tenantId);
-		if (!found) return undefined;
-
+	async (childId, id, updates, tenantId): Promise<RedemptionRequestRow | undefined> => {
 		const sets: string[] = ['#status = :status'];
 		const names: Record<string, string> = { '#status': 'status' };
 		const values: Record<string, unknown> = { ':status': updates.status };
@@ -228,18 +231,24 @@ export const updateRedemptionRequestStatus: IRewardRedemptionRepo['updateRedempt
 			values[':resolvedByParentId'] = updates.resolvedByParentId;
 		}
 
-		const result = await getDocClient().send(
-			new UpdateCommand({
-				TableName: TABLE_NAME,
-				Key: { PK: found.PK, SK: found.SK },
-				UpdateExpression: `SET ${sets.join(', ')}`,
-				ExpressionAttributeNames: names,
-				ExpressionAttributeValues: values,
-				ReturnValues: 'ALL_NEW',
-			}),
-		);
-		if (!result.Attributes) return undefined;
-		return toRow(result.Attributes);
+		try {
+			const result = await getDocClient().send(
+				new UpdateCommand({
+					TableName: TABLE_NAME,
+					Key: rewardRedemptionKey(childId, id, tenantId),
+					UpdateExpression: `SET ${sets.join(', ')}`,
+					ConditionExpression: 'attribute_exists(PK)',
+					ExpressionAttributeNames: names,
+					ExpressionAttributeValues: values,
+					ReturnValues: 'ALL_NEW',
+				}),
+			);
+			if (!result.Attributes) return undefined;
+			return toRow(result.Attributes);
+		} catch (e) {
+			if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return undefined;
+			throw e;
+		}
 	};
 
 // ============================================================
@@ -288,24 +297,30 @@ export const findUnshownResultByChild: IRewardRedemptionRepo['findUnshownResultB
 // markRedemptionResultShown — 未表示通知を表示済みにする
 // ============================================================
 
+/** #2845 課題①: childId + id の composite key で直接 UpdateItem (Scan 撤去)。 */
 export const markRedemptionResultShown: IRewardRedemptionRepo['markRedemptionResultShown'] = async (
+	childId,
 	id,
 	tenantId,
 ): Promise<RedemptionRequestRow | undefined> => {
-	const found = await findRedemptionItemById(id, tenantId);
-	if (!found) return undefined;
 	const now = Math.floor(Date.now() / 1000);
-	const result = await getDocClient().send(
-		new UpdateCommand({
-			TableName: TABLE_NAME,
-			Key: { PK: found.PK, SK: found.SK },
-			UpdateExpression: 'SET shownToChildAt = :now',
-			ExpressionAttributeValues: { ':now': now },
-			ReturnValues: 'ALL_NEW',
-		}),
-	);
-	if (!result.Attributes) return undefined;
-	return toRow(result.Attributes);
+	try {
+		const result = await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: rewardRedemptionKey(childId, id, tenantId),
+				UpdateExpression: 'SET shownToChildAt = :now',
+				ConditionExpression: 'attribute_exists(PK)',
+				ExpressionAttributeValues: { ':now': now },
+				ReturnValues: 'ALL_NEW',
+			}),
+		);
+		if (!result.Attributes) return undefined;
+		return toRow(result.Attributes);
+	} catch (e) {
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return undefined;
+		throw e;
+	}
 };
 
 // ============================================================
@@ -414,31 +429,4 @@ async function scanTenantRedemptions(tenantId: string): Promise<Record<string, u
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);
 	return items;
-}
-
-/**
- * id だけ受け取る update / markShown 用に、tenant 配下を Scan して PK/SK + item を解決する。
- * SK は REDEMPT#<id> だが childId が不明なため tenant Scan + id filter で 1 件特定する
- * (special-reward-repo.markRewardShown と同じパターン)。
- */
-async function findRedemptionItemById(
-	id: number,
-	tenantId: string,
-): Promise<({ PK: string; SK: string } & Record<string, unknown>) | undefined> {
-	const result = await getDocClient().send(
-		new ScanCommand({
-			TableName: TABLE_NAME,
-			FilterExpression:
-				'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
-			ExpressionAttributeValues: {
-				':tenantPrefix': tenantPK('CHILD#', tenantId),
-				':skPrefix': PREFIX,
-				':id': id,
-			},
-			Limit: 1,
-		}),
-	);
-	const item = (result.Items ?? [])[0];
-	if (!item) return undefined;
-	return item as { PK: string; SK: string } & Record<string, unknown>;
 }

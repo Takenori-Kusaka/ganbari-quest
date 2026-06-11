@@ -43,6 +43,7 @@ export async function findUnshownReward(
 }
 
 export async function markRewardShown(
+	_childId: number,
 	_rewardId: number,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
@@ -59,6 +60,7 @@ export async function markRewardShown(
  * (UI 側は demo フラグで no-op を明示するため成功偽装しない)。
  */
 export async function updateSpecialReward(
+	_childId: number,
 	_rewardId: number,
 	_updates: UpdateSpecialRewardInput,
 	_tenantId: string,
@@ -70,7 +72,11 @@ export async function updateSpecialReward(
  * #2832: 削除 stub。Stateless demo は fixture を mutate しない (write = no-op)。
  * sqlite repo の「該当行なし → false」と整合させ false を返す。
  */
-export async function deleteSpecialReward(_rewardId: number, _tenantId: string): Promise<boolean> {
+export async function deleteSpecialReward(
+	_childId: number,
+	_rewardId: number,
+	_tenantId: string,
+): Promise<boolean> {
 	return false;
 }
 

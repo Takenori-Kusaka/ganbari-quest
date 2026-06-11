@@ -28,17 +28,20 @@ export async function insertEntry(input: InsertStampEntryInput, tenantId: string
 }
 
 async function _updateCardStatus(
+	childId: number,
 	cardId: number,
 	input: UpdateStampCardStatusInput,
 	tenantId: string,
 ) {
-	return getRepos().stampCard.updateCardStatus(cardId, input, tenantId);
+	return getRepos().stampCard.updateCardStatus(childId, cardId, input, tenantId);
 }
 
+/** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら affected=0。 */
 export async function updateCardStatusIfCollecting(
+	childId: number,
 	cardId: number,
 	input: UpdateStampCardStatusInput,
 	tenantId: string,
 ) {
-	return getRepos().stampCard.updateCardStatusIfCollecting(cardId, input, tenantId);
+	return getRepos().stampCard.updateCardStatusIfCollecting(childId, cardId, input, tenantId);
 }

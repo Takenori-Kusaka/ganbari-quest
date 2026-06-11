@@ -42,6 +42,7 @@ export async function countUnshownMessages(_childId: number, _tenantId: string):
 }
 
 export async function markMessageShown(
+	_childId: number,
 	_messageId: number,
 	_tenantId: string,
 ): Promise<ParentMessage | undefined> {

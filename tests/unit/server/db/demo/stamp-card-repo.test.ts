@@ -202,6 +202,7 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 		it('updateCardStatus / updateCardStatusIfCollecting は no-op / 0', async () => {
 			await expect(
 				stampCardRepo.updateCardStatus(
+					902,
 					702,
 					{
 						status: 'redeemed',
@@ -215,6 +216,7 @@ describe('demo/stamp-card-repo (#2097 Phase B-2)', () => {
 
 			expect(
 				await stampCardRepo.updateCardStatusIfCollecting(
+					902,
 					702,
 					{
 						status: 'redeemed',

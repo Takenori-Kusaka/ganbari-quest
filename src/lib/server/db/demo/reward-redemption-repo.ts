@@ -39,6 +39,7 @@ export async function findRedemptionRequestsByTenant(
 }
 
 export async function updateRedemptionRequestStatus(
+	_childId: number,
 	_id: number,
 	_updates: {
 		status: string;
@@ -67,6 +68,7 @@ export async function findUnshownResultByChild(
 }
 
 export async function markRedemptionResultShown(
+	_childId: number,
 	_id: number,
 	_tenantId: string,
 ): Promise<RedemptionRequestRow | undefined> {

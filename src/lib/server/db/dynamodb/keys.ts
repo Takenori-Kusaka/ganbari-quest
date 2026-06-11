@@ -372,8 +372,8 @@ export function rewardRedemptionPrefix(): string {
  * おうえんメッセージ (親→子) を child partition 配下に置き (activity_logs / point_ledger と同居)、
  * `findMessages` / `findUnshownMessage` / `countUnshownMessages` を単一 partition Query
  * (begins_with(SK, 'MSG#')) で完結させる。read は全て child 軸のため追加 GSI 不要 (ADR-0055 §3.1)。
- * `markMessageShown` は messageId のみ受けるため tenant Scan + id filter で 1 件特定する
- * (reward-redemption-repo.findRedemptionItemById と同じパターン、低頻度経路)。
+ * `markMessageShown` は childId + messageId の複合キーで本関数から PK/SK を直接構成し
+ * UpdateItem する (#2845 課題①: full composite-key addressing、Scan 不使用)。
  */
 export function parentMessageKey(childId: number, messageId: number, tenantId: string): DynamoKey {
 	return {
@@ -420,8 +420,9 @@ export function siblingCheerPrefix(): string {
  * per-child instance を child partition 配下に置き (special_rewards / activity_logs と同居)、
  * `findCardByChildAndWeek` を childId + weekStart 既知の GetItem 1 回で完結させる
  * (weekStart は child 内で一意 = SQLite uniqueIndex(child_id, week_start) と等価)。
- * child 軸を構造的に担保し追加 GSI 不要 (ADR-0055 §3.1)。cardId だけで引く
- * updateCardStatus* は低頻度 (週次 redeem) のため tenant Scan + id filter で解決する。
+ * child 軸を構造的に担保し追加 GSI 不要 (ADR-0055 §3.1)。updateCardStatus* は
+ * childId + cardId の複合キーで child partition Query + id filter で解決する
+ * (#2845 課題①: full composite-key addressing、tenant Scan 不使用)。
  */
 export function stampCardKey(childId: number, weekStart: string, tenantId: string): DynamoKey {
 	return {

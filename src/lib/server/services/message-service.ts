@@ -53,9 +53,12 @@ export async function getUnshownMessageCount(childId: number, tenantId: string) 
 	return countUnshownMessages(childId, tenantId);
 }
 
-/** メッセージを表示済みにする */
-export async function markAsShown(messageId: number, tenantId: string) {
-	return markMessageShown(messageId, tenantId);
+/**
+ * メッセージを表示済みにする。
+ * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。
+ */
+export async function markAsShown(childId: number, messageId: number, tenantId: string) {
+	return markMessageShown(childId, messageId, tenantId);
 }
 
 /** メッセージ履歴を取得 */

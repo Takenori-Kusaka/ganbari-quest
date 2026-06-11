@@ -243,9 +243,24 @@ describe('getUnshownReward / markRewardShown', () => {
 				'test-tenant',
 			),
 		);
-		await markRewardShown(reward.id, 'test-tenant');
+		await markRewardShown(1, reward.id, 'test-tenant');
 		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).toBeNull();
+	});
+
+	it('#2845 課題① / B1: 他の childId では表示済みにできない (所有権検証、SQLite backend)', async () => {
+		const reward = assertSuccess(
+			await grantSpecialReward(
+				{ childId: 1, title: 'テスト100点', points: 100, category: 'academic' },
+				'test-tenant',
+			),
+		);
+		// childId=999 (別の子) を指定して rewardId だけ一致させても更新されない
+		const ok = await markRewardShown(999, reward.id, 'test-tenant');
+		expect(ok).toBe(false);
+		// 本来の子の未表示報酬は残る (silent 越境更新が起きていない)
+		const result = await getUnshownReward(1, 'test-tenant');
+		expect(result?.id).toBe(reward.id);
 	});
 
 	it('複数の報酬がある場合、未表示のものだけ返す', async () => {
@@ -261,7 +276,7 @@ describe('getUnshownReward / markRewardShown', () => {
 		);
 
 		// 1回目を表示済みにする
-		await markRewardShown(r1.id, 'test-tenant');
+		await markRewardShown(1, r1.id, 'test-tenant');
 
 		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).not.toBeNull();
@@ -275,7 +290,7 @@ describe('getUnshownReward / markRewardShown', () => {
 				'test-tenant',
 			),
 		);
-		await markRewardShown(r1.id, 'test-tenant');
+		await markRewardShown(1, r1.id, 'test-tenant');
 
 		// 新しい報酬を付与
 		await grantSpecialReward(

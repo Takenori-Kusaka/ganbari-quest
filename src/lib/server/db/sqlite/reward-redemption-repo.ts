@@ -102,8 +102,12 @@ export async function findRedemptionRequestsByTenant(
 	return rows;
 }
 
-/** 申請状態を更新 */
+/**
+ * 申請状態を更新。
+ * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
+ */
 export async function updateRedemptionRequestStatus(
+	childId: number,
 	id: number,
 	updates: {
 		status: string;
@@ -116,7 +120,7 @@ export async function updateRedemptionRequestStatus(
 	return db
 		.update(rewardRedemptionRequests)
 		.set(updates)
-		.where(eq(rewardRedemptionRequests.id, id))
+		.where(and(eq(rewardRedemptionRequests.id, id), eq(rewardRedemptionRequests.childId, childId)))
 		.returning()
 		.get();
 }
@@ -172,13 +176,16 @@ export async function findUnshownResultByChild(childId: number, _tenantId: strin
 		.get();
 }
 
-/** 未表示通知を表示済みにする */
-export async function markRedemptionResultShown(id: number, _tenantId: string) {
+/**
+ * 未表示通知を表示済みにする。
+ * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
+ */
+export async function markRedemptionResultShown(childId: number, id: number, _tenantId: string) {
 	const now = Math.floor(Date.now() / 1000);
 	return db
 		.update(rewardRedemptionRequests)
 		.set({ shownToChildAt: now })
-		.where(eq(rewardRedemptionRequests.id, id))
+		.where(and(eq(rewardRedemptionRequests.id, id), eq(rewardRedemptionRequests.childId, childId)))
 		.returning()
 		.get();
 }
