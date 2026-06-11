@@ -1,16 +1,17 @@
 // tests/e2e/admin-rules-family-scope.spec.ts
-// #2362 PR-6: rule bonus 管理画面 (admin/settings/rules) family-scope UX 検証
+// #2362 PR-6 / #2895: rule bonus 管理画面 (admin/settings/rules) family-scope UX 検証
 //
-// 検証範囲:
+// 検証範囲 (#2895 簡素化後):
 //   1. admin/settings/rules は family-wide 一覧 (per-child タブなし)
-//   2. OverflowMenu (top-right ⋮) 配置 + marketplace / restore / export / help 4 項目
-//   3. `?import=<presetId>` で auto-import + 一覧反映 (dialog 不要)
-//   4. CWE-598: marketplace bonus CTA は childId URL/body を含まない
-//   5. exchange 系 preset CTA の入力 form には childId が含まれる (PR-6 scope 外、回帰確認のみ)
+//   2. `?import=<presetId>` で auto-import + 一覧反映 (dialog 不要、bonus 取込導線として維持)
+//   3. CWE-598: marketplace bonus CTA は childId URL/body を含まない
+//
+// #2895 で in-page OverflowMenu / help-restore-export dialog / browse UI は撤去したため、
+// 旧「OverflowMenu 4 items」「OverflowMenu help → Dialog」test は削除した。
 //
 // 認証: AUTH_MODE=local の自動セットアップで /admin 配下に到達できる前提
 
-import { expect, type Page, test } from './fixtures';
+import { expect, test } from './fixtures';
 
 // #2648 Phase A Round 15 (H-9 fix): template DB 直接 DELETE を `workerDbPath` fixture
 // 経由に置換。Phase A Step A-4 で webServer が worker DB を見る設計に変えたため。
@@ -25,49 +26,7 @@ async function cleanupRulePresetState(workerDbPath: string): Promise<void> {
 	}
 }
 
-/**
- * Ark UI Menu trigger を確実に開く helper (admin-activities-add-ux.spec.ts #2260 Fix-6 と同パターン)。
- *
- * 根本原因: Ark UI Menu の Trigger は client-side hydration 完了後に
- * pointerdown / click listener を attach する。Playwright の `locator.click()` は
- * `waitForLoadState('domcontentloaded')` 直後に発火可能だが、その時点では
- * hydration が間に合っていない場合があり、初回 click は DOM event として通る
- * (`data-state` は `"closed"` のまま) が menu は開かない。
- *
- * 対策: click が menu を実際に開くまで rAF 間隔で retry (max 30 ~0.5s)。
- * ADR-0006 適合: assertion 強化 (`data-state="open"` を hard assert)、interaction の
- * retry のみで安定化、skip / weakening ではない。
- */
-async function openMenu(page: Page, triggerTestid: string): Promise<void> {
-	const trigger = page.getByTestId(triggerTestid);
-	await expect(trigger).toBeVisible();
-	// 2 段階の hydration wait: load + 2 rAF で Ark UI の listener attach を確実に待つ
-	await page.evaluate(
-		() =>
-			new Promise<void>((resolve) => {
-				const waitRaf = () => requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-				if (document.readyState === 'complete') {
-					waitRaf();
-				} else {
-					window.addEventListener('load', waitRaf, { once: true });
-				}
-			}),
-	);
-	// Retry click until Ark UI Menu transitions to `data-state="open"`.
-	// Up to 60 attempts (~1s) — production hydration / network 揺らぎを吸収。
-	const MAX_ATTEMPTS = 60;
-	for (let i = 0; i < MAX_ATTEMPTS; i++) {
-		await trigger.click();
-		const state = await trigger.evaluate((el) => el.getAttribute('data-state'));
-		if (state === 'open') return;
-		await page.evaluate(
-			() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
-		);
-	}
-	await expect(trigger).toHaveAttribute('data-state', 'open');
-}
-
-test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
+test.describe('#2362 PR-6 / #2895 admin/settings/rules family-scope UX', () => {
 	test.setTimeout(180_000);
 
 	test.beforeEach(async ({ workerDbPath }) => {
@@ -83,38 +42,6 @@ test.describe('#2362 PR-6 admin/settings/rules family-scope UX', () => {
 		// rule bonus は family scope なので child-tab は存在しない (per-child UX は activity / reward 系のみ)
 		const childTabRow = page.locator('[data-testid="child-tab-row"]');
 		expect(await childTabRow.count()).toBe(0);
-	});
-
-	test('OverflowMenu: 4 items (marketplace / restore / export / help) が表示される', async ({
-		page,
-	}) => {
-		test.slow();
-		await page.goto('/admin/settings/rules', { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('admin-rules-page')).toBeVisible();
-
-		// #2260 Fix-6 pattern: Ark UI Menu hydration race を rAF retry で吸収
-		await openMenu(page, 'rules-overflow-menu');
-
-		// 4 items 順序: marketplace / restore / export / help (PR-2 OVERFLOW_MENU_LABELS 整合)
-		await expect(page.getByTestId('overflow-menu-item-marketplace')).toBeVisible();
-		await expect(page.getByTestId('overflow-menu-item-restore')).toBeVisible();
-		await expect(page.getByTestId('overflow-menu-item-export')).toBeVisible();
-		await expect(page.getByTestId('overflow-menu-item-help')).toBeVisible();
-
-		// rule bonus は family scope のため AI 提案は不要 (個別 child 最適化不可)
-		expect(await page.getByTestId('overflow-menu-item-ai-suggest').count()).toBe(0);
-	});
-
-	test('OverflowMenu help → Dialog 表示', async ({ page }) => {
-		test.slow();
-		await page.goto('/admin/settings/rules', { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('admin-rules-page')).toBeVisible();
-
-		// #2260 Fix-6 pattern: Ark UI Menu hydration race を rAF retry で吸収
-		await openMenu(page, 'rules-overflow-menu');
-		await page.getByTestId('overflow-menu-item-help').click();
-
-		await expect(page.getByTestId('rules-help-dialog')).toBeVisible({ timeout: 10_000 });
 	});
 
 	test('?import=<presetId> auto-import: streak-bonus が一覧に追加される', async ({ page }) => {

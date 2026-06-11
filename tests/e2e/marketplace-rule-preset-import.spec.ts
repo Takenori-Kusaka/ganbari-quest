@@ -207,16 +207,16 @@ test.describe('#2138 MP-3 marketplace rule-preset 一括追加', () => {
 	});
 
 	// ============================================================
-	// 6. 各 rule-preset 10 件全件 200 で開ける (AC2 4 ruleType 全対応の確認)
+	// 6. 各 rule-preset 全件 200 で開ける (AC2 ruleType 全対応の確認)
+	// #2895: はりぼて sibling-coop 撤去後、bonus 5 + exchange 4 = 9 件。
 	// ============================================================
-	test('rule-preset 10 件全 (bonus 6 + exchange 4) が 200 で開ける', async ({ page }) => {
+	test('rule-preset 9 件全 (bonus 5 + exchange 4) が 200 で開ける', async ({ page }) => {
 		test.slow();
 		const presetIds = [
 			'streak-bonus',
 			'early-bird',
 			'weekend-special',
 			'category-challenge',
-			'sibling-coop',
 			'self-study-reward',
 			'screen-time-exchange',
 			'sleep-in-pass',
