@@ -501,3 +501,12 @@ webui
 # ===== #2975 single-branch refspec self-heal (resolve-base-branch.mjs / branch-strategy SOP) =====
 # refspec = git fetch/push の ref mapping 指定 (+refs/heads/develop:refs/remotes/origin/develop)
 refspec
+
+# ===== #3012 SS render health gate (PR #3023) =====
+# dogfooding/quotepath/taskkill/greyscale/fullpage/Pngs = pr-quality-gate.yml / capture scripts / sharp / test 内の技術用語
+dogfooding
+quotepath
+taskkill
+greyscale
+fullpage
+Pngs

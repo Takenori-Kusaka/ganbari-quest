@@ -77,6 +77,9 @@ const { values, positionals } = parseArgs({
 		// #1825: Splide.js carousel 初期化完了を待機する。
 		// `--server-mode lp` 指定時は自動的に有効化される。
 		'wait-splide': { type: 'boolean', default: false },
+		// #3012: SS render 健全性検証の opt-out。エラーページ自体のデザイン SS を
+		// 意図的に撮影する場合のみ指定する (デフォルトは検証 ON、違反検出で exit 1)。
+		'allow-error-page': { type: 'boolean', default: false },
 		help: { type: 'boolean', default: false },
 	},
 });
@@ -149,6 +152,15 @@ Splide.js 初期化待機 (#1825):
   --wait-splide     hero carousel 等の Splide.js 初期化完了 (.splide__slide.is-active 出現) を待ってから撮影。
                     LP 撮影で carousel が黒ブロック化する問題への対処。--server-mode lp 指定時は自動有効化。
                     Splide が存在しないページでは silent skip するため副作用なし
+
+SS render 健全性検証 (#3012):
+  デフォルトで撮影直前に「エラーページを撮ろうとしていないか」を assert します:
+    - HTTP response status >= 500 (サーバーエラー)
+    - アプリ error ページ DOM marker (src/routes/+error.svelte の .error-page / .error-status)
+    - infra error ページ marker (infra/error-pages の "Error 5xx" / title)
+  違反検出時は SS を撮影せず exit 1 で停止します (screenshots branch にも push されません)。
+  PR #3006 で 500 エラーページが「実画面 SS」として 2 度 push された事故の構造的再発防止。
+  --allow-error-page  検証を無効化 (エラーページ自体のデザイン SS を意図的に撮る場合のみ)
 
   --help            このヘルプを表示
 
@@ -239,6 +251,13 @@ const domSnapshotEnabled = !values['no-dom-snapshot'];
 // #1825: Splide.js 初期化完了待機。`--server-mode lp` 指定時は自動有効化（LP 撮影で hero carousel
 // が黒ブロック化する問題への対処）。明示的に `--wait-splide` 指定時も有効化。
 const waitSplideEnabled = values['wait-splide'] || serverMode === 'lp';
+
+// #3012: SS render 健全性検証 (デフォルト ON)。--allow-error-page で opt-out。
+const renderHealthEnabled = !values['allow-error-page'];
+
+// #3012: render 健全性違反の収集先。1 件でもあれば screenshots branch push 前に exit 1。
+/** @type {Array<{ name: string; message: string }>} */
+const renderHealthViolations = [];
 
 // プリセット検証（早期エラー）
 for (const name of presetNames) {
@@ -614,6 +633,11 @@ async function runFlowMode() {
 function recordCaptureResult(result, capturedFiles, domFiles) {
 	if (!result.ok) {
 		console.error(`  エラー: ${result.error.message}`);
+		// #3012: render 健全性違反 (エラーページ撮影) は通常の撮影失敗と区別して収集し、
+		// 全撮影完了後に screenshots branch push 前で exit 1 させる。
+		if (/** @type {Error & { code?: string }} */ (result.error).code === 'ERR_RENDER_HEALTH') {
+			renderHealthViolations.push({ name: 'capture', message: result.error.message });
+		}
 		return false;
 	}
 	console.log(`  -> ${result.filePath} (${(result.size / 1024).toFixed(0)} KB)`);
@@ -716,6 +740,7 @@ async function runConfigMode() {
 				storageState,
 				waitSplide: waitSplideEnabled,
 				cookies,
+				renderHealthCheck: renderHealthEnabled,
 			});
 			if (recordCaptureResult(result, capturedFiles, domFiles)) success++;
 		}
@@ -777,6 +802,7 @@ async function runUrlMode() {
 			section: values.section,
 			storageState,
 			waitSplide: waitSplideEnabled,
+			renderHealthCheck: renderHealthEnabled,
 		});
 		recordCaptureResult(result, capturedFiles, domFiles);
 	}
@@ -828,6 +854,27 @@ try {
 	}
 
 	const { screenshots: capturedFiles, domFiles } = result;
+
+	// #3012: SS render 健全性違反 (エラーページ撮影) 検出時は screenshots branch push 前に
+	// fail-fast する。違反した URL の SS は撮影自体が行われていない (ファイル不生成) が、
+	// 他の成功分も push せず exit 1 で停止し、修正後の再撮影を強制する。
+	if (renderHealthViolations.length > 0) {
+		console.error(
+			`\nSS render 健全性違反 (#3012): ${renderHealthViolations.length} 件のエラーページ描画を検出しました。`,
+		);
+		console.error(
+			[
+				'',
+				'対応方法:',
+				'  1. 対象ページが 500 / 404 を返す原因 (load 関数 / service 層の例外等) を修正する',
+				'  2. 修正後に同じコマンドで SS を撮り直す',
+				'  3. エラーページ自体のデザイン SS が必要な場合のみ --allow-error-page を付けて再実行する',
+				'',
+				'参考: Issue #3012 (PR #3006 で 500 エラーページが実画面 SS として push された事故の再発防止)',
+			].join('\n'),
+		);
+		process.exit(1);
+	}
 
 	// #2059: Before / After sha256 同一検出ガード
 	// 撮影完了直後にローカル file hash で完全一致を検出し、screenshots branch push 前に
