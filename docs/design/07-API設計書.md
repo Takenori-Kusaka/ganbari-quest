@@ -71,7 +71,7 @@
 |----------|------|------|------|
 | GET | /api/v1/special-rewards/[childId] | 子供の特別報酬一覧 | 全ロール |
 | POST | /api/v1/special-rewards/[childId] | 特別報酬作成 | owner/parent |
-| POST | /api/v1/special-rewards/[rewardId]/shown | 報酬表示済みマーク | 全ロール |
+| POST | /api/v1/special-rewards/[rewardId]/shown | 報酬表示済みマーク（`selectedChildId` cookie 必須、`(childId, rewardId)` 複合キーで所有権検証 #2845。cookie 不在 400 / 不一致 404） | 全ロール |
 | GET | /api/v1/special-rewards/templates | 報酬テンプレート一覧 | owner/parent |
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
 | POST | /api/v1/special-rewards/suggest | ごほうびサジェスト（AI推定） | owner/parent |
@@ -1670,6 +1670,9 @@ Stripe からの Webhook イベントを受信する。Stripe 署名ヘッダ（
 メッセージを表示済みにマーク。子供画面でオーバーレイ表示後に呼ばれる。
 
 **認証:** 全ロール
+
+**childId 解決 (#2845):** `selectedChildId` cookie 必須。`(childId, messageId)` の複合キーで
+repo 層が所有権を検証し、不一致は 404。cookie 不在は 400。
 
 **レスポンス:** `200 { success: true }`
 
