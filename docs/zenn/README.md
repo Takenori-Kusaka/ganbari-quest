@@ -190,6 +190,8 @@ npx textlint "docs/zenn/**/*.md"
 3. **commit 前 diff 全件確認**: 機械生成を受け入れた場合でも commit 前に `git diff` で全件目視し、長音記号の重複・不正なネスト・意図しない置換を検知する
 4. **50 ファイル超は分割必須**: `docs/CLAUDE.md` §「巨大 docs refactor PR 分割ガイドライン」(#2225) に従い、50 files 超で警告 / 100 files 超で BLOCK。textlint 由来の大規模修正は同ガイドラインの対象
 
+> **`ja-space-around-code` は off (#2966)**: preset-ja-spacing 3.0.0 で default ON 化された本 rule は「インラインコード前後にスペースを入れない」思想だが、本 repo の表記慣習 (CLAUDE.md / docs/ 全体で日本語 + 半角スペース + インラインコード) と逆のため `.textlintrc.json` で off にしている。違反 +37 件に直面しても反射的に一括 `--fix` しないこと (#2243 の一括禁止運用)。
+
 #### CI 統合方針
 GitHub Actions (`zenn-lint.yml`) により、`docs/zenn/**` への変更時に自動で lint が実行されます。
 - 現在は導入初期のため `continue-on-error: true` (warning レベルの運用) としており、CI は失敗しません。
