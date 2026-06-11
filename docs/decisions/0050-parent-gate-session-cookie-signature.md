@@ -123,7 +123,15 @@ await refreshParentSession(cookie);           // lastActiveAt 更新 + 再 sign
 - bundle 増加 < 1KB
 - 将来 PII を cookie payload に含める要件が出た場合は γ `iron-session` への乗換を ADR で議論する (本 ADR を supersede)
 
-## 4.補. PIN reset 機構 (#2353 設計欠陥 4 — 2026-05-21 追記)
+## 4.補. PIN reset 機構 (#2353 — 2026-05-21 追記、**2026-06-11 #2993 で superseded**)
+
+> **superseded (2026-06-11、#2993 / EPIC #2990)**: 本節の SES magic link + jose JWT reset token 機構は、
+> アカウントパスワード再入力方式 (Cognito InitiateAuth re-auth、Apple Screen Time 同型) に置換され実装削除済。
+> email はセッション既知 (`locals.identity.email`) のため手入力もメール往復も不要となり、ユーザ報告
+> 「email 入力が冗長」「メールが届かない」(local sendEmail no-op) の両方を根治した。local モードの救済は
+> operator reset (#2994) が担当。現行仕様の SSOT は `docs/design/14-セキュリティ設計書.md` §4.4。
+> 以下は歴史的記録として保持する。
+
 
 PR #2325 マージ後の運用観察で、PIN 忘れ救済導線が無く本番 user が permanent lockout 状態に陥る設計欠陥が PO から指摘 (#2353)。業界標準 (Auth0 / Cognito password reset / NextAuth Email provider / WP password reset) の SES magic link + signed token + DB consume 記録パターンで補強する。
 

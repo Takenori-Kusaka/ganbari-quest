@@ -1352,48 +1352,32 @@ export const OYAKAGI_LABELS = {
 } as const;
 
 /**
- * PIN reset 一連の画面文言 SSOT (#2353 設計欠陥 4)
+ * PIN reset 画面文言 SSOT (#2993、EPIC #2990)
  *
- * /auth/forgot-pin (email 入力) / /auth/reset-pin/[token] (新 PIN 設定) の 2 画面で利用。
- * SES 経由 magic link で配信した 30 分有効 / 1 回限り token を消費する。
+ * /auth/reset-pin (cognito 専用): アカウントパスワード再入力で本人確認し、その場で
+ * 新しい PIN を設定する (Apple Screen Time 同型)。email はセッション既知のため手入力なし。
  */
 export const PIN_RESET_LABELS = {
-	requestPageTitle: `${OYAKAGI_TERMS.name}の再設定`,
-	requestHeading: `${OYAKAGI_TERMS.name}を忘れた場合`,
-	requestDescription: `アカウントに登録されているメールアドレスへ再設定用のリンクをお送りします。リンクは送信から 30 分間のみ有効です。`,
-	requestEmailLabel: 'メールアドレス',
-	requestEmailPlaceholder: 'parent@example.com',
-	requestSubmit: '再設定用のリンクを送信',
-	requestSubmitting: '送信中…',
-	requestSuccessHeading: '送信しました',
-	requestSuccessBody:
-		'メールに記載のリンクから再設定画面を開いてください。リンクは 30 分間のみ有効、一度のみ利用できます。届かない場合は迷惑メールフォルダもご確認ください。',
-	requestBackToSwitch: `${ADMIN_VIEW_TERMS.canonical}に戻る`,
-	// resetPage = /auth/reset-pin/[token]
 	resetPageTitle: `${OYAKAGI_TERMS.name}の再設定`,
-	resetHeading: `新しい${OYAKAGI_TERMS.name}を設定`,
-	resetDescription: `4〜6桁の半角数字でお好きな${OYAKAGI_TERMS.name}を入力してください。`,
-	resetPinLabel: `新しい${OYAKAGI_TERMS.name}`,
-	resetSubmit: `${OYAKAGI_TERMS.name}を設定する`,
+	resetHeading: `${OYAKAGI_TERMS.name}を忘れた場合`,
+	resetDescription: `ご本人確認のため、ログイン中のアカウントのパスワードを入力してください。そのまま新しい${OYAKAGI_TERMS.name}を設定できます。`,
+	resetAccountLabel: 'ログイン中のアカウント',
+	resetPasswordLabel: 'アカウントのパスワード',
+	resetPasswordHint: `${LOGIN_TERMS.canonical}時に使っているパスワードです`,
+	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
+	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',
 	resetSuccessHeading: '再設定が完了しました',
 	resetSuccessBody: `新しい${OYAKAGI_TERMS.name}で${ADMIN_VIEW_TERMS.canonical}に入れます。`,
 	resetSuccessCta: `${ADMIN_VIEW_TERMS.canonical}へ`,
+	resetBackToSwitch: `${ADMIN_VIEW_TERMS.canonical}に戻る`,
 	// エラー文言
-	errorInvalidEmail: '有効なメールアドレスを入力してください',
-	errorRateLimited: '送信回数が上限に達しました。しばらく時間をおいてからお試しください',
-	errorTokenExpired: 'リンクの有効期限が切れています。もう一度はじめから再設定してください',
-	errorTokenInvalid: 'リンクが無効です。もう一度はじめから再設定してください',
-	errorTokenAlreadyUsed: 'このリンクは既に使用済みです。もう一度はじめから再設定してください',
+	errorInvalidPassword: 'パスワードが正しくありません',
+	errorPasswordRequired: 'パスワードを入力してください',
 	errorPinFormat: `${OYAKAGI_TERMS.name}は4〜6桁の数字で入力してください`,
+	errorRateLimited: '試行回数が上限に達しました。しばらく時間をおいてからお試しください',
+	errorNotSupported: 'この環境では本画面から再設定できません。管理者向け手順で再設定してください',
 	errorGeneric: '再設定に失敗しました。時間をおいてもう一度お試しください',
-	// メール本文
-	emailSubject: `【がんばりクエスト】${OYAKAGI_TERMS.name}の再設定`,
-	emailHeading: `${OYAKAGI_TERMS.name}の再設定リクエスト`,
-	emailIntro: `下記のリンクから${OYAKAGI_TERMS.name}を再設定してください。`,
-	emailNote:
-		'このリンクは送信から 30 分間のみ有効で、1 回のみ使用できます。お心当たりがない場合は本メールを破棄してください。',
-	emailCtaLabel: `${OYAKAGI_TERMS.name}を再設定`,
 } as const;
 
 /**

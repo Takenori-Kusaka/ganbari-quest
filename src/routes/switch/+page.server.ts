@@ -64,6 +64,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		nextPath,
 		onboarding,
 		pinConfigured,
+		// #2993: PIN 忘れ救済 (/auth/reset-pin) は cognito identity でのみ提供 (local は operator reset #2994)
+		pinResetAvailable: locals.identity?.type === 'cognito',
 	};
 };
 
