@@ -244,7 +244,10 @@ export default async function globalSetup() {
 					parent_note TEXT,
 					resolved_at INTEGER,
 					resolved_by_parent_id INTEGER,
-					shown_to_child_at INTEGER
+					shown_to_child_at INTEGER,
+					reward_title TEXT,
+					reward_points INTEGER,
+					reward_icon TEXT
 				)`);
 				db.exec(
 					'CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)',
@@ -255,6 +258,15 @@ export default async function globalSetup() {
 				console.log('[E2E Setup]   Created reward_redemption_requests table.');
 			} catch {
 				// テーブルが既に存在する場合は無視
+			}
+
+			// #2832: 申請時点 snapshot 列追加マイグレーション (既存 E2E DB 向け)
+			for (const col of ['reward_title TEXT', 'reward_points INTEGER', 'reward_icon TEXT']) {
+				try {
+					db.exec(`ALTER TABLE reward_redemption_requests ADD COLUMN ${col}`);
+				} catch {
+					// カラムが既に存在する場合は無視
+				}
 			}
 
 			db.close();
@@ -1234,7 +1246,10 @@ export default async function globalSetup() {
 				parent_note TEXT,
 				resolved_at INTEGER,
 				resolved_by_parent_id INTEGER,
-				shown_to_child_at INTEGER
+				shown_to_child_at INTEGER,
+				reward_title TEXT,
+				reward_points INTEGER,
+				reward_icon TEXT
 			)`);
 			db.exec(
 				'CREATE INDEX IF NOT EXISTS idx_redemption_child_status ON reward_redemption_requests(child_id, status)',
@@ -1245,6 +1260,15 @@ export default async function globalSetup() {
 			console.log('[E2E Setup]   Created reward_redemption_requests table.');
 		} catch {
 			// テーブルが既に存在する場合は無視
+		}
+
+		// #2832: 申請時点 snapshot 列追加マイグレーション (既存 E2E DB 向け)
+		for (const col of ['reward_title TEXT', 'reward_points INTEGER', 'reward_icon TEXT']) {
+			try {
+				db.exec(`ALTER TABLE reward_redemption_requests ADD COLUMN ${col}`);
+			} catch {
+				// カラムが既に存在する場合は無視
+			}
 		}
 
 		// #1335: ショップ E2E テスト用シードデータ

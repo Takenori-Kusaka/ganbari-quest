@@ -4137,6 +4137,30 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	// add dialog title (mode 別、activities の addDialogTitle* / checklists の addDialogTitleAi と同型)
 	addDialogTitleManual: '+ 手動でごほうびを追加',
 	addDialogTitleAi: 'AI で提案してもらう',
+	// #2832: reward 一覧の編集 / 削除 (pending redemption ガード)
+	rewardListEmpty: `この${CHILD_TERMS.honorific}にはまだごほうびがありません`,
+	rewardEditButton: '編集',
+	rewardDeleteButton: '削除',
+	rewardPendingBadge: '交換申請 処理待ち',
+	editDialogTitle: 'ごほうびを編集',
+	// AC2 (案 b): 編集許容 + snapshot 仕様 (申請時点値) の明示 note
+	editPendingNote: '申請済みの交換は申請時点の内容（名前・ポイント）で処理されます',
+	editSaveButton: '保存する',
+	editSavingButton: '保存しています…',
+	editCancelButton: 'キャンセル',
+	editSuccess: 'ごほうびを更新しました',
+	editFailed: '更新に失敗しました',
+	deleteDialogTitle: 'ごほうびを削除',
+	deleteConfirmMessage: (title: string) => `「${title}」を削除しますか？`,
+	deleteIrreversibleNote: 'この操作は取り消せません。このごほうびの交換履歴も削除されます。',
+	deleteConfirmButton: '削除する',
+	deleteDeletingButton: '削除しています…',
+	deleteCancelButton: 'キャンセル',
+	deleteSuccess: 'ごほうびを削除しました',
+	deleteFailed: '削除に失敗しました',
+	// AC1: pending redemption ガード (hasPendingByReward) の削除拒否メッセージ
+	deletePendingBlocked:
+		'交換申請が処理待ちのため削除できません。申請を承認または却下してから削除してください',
 } as const;
 
 /**

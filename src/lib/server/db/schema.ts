@@ -419,6 +419,11 @@ export const rewardRedemptionRequests = sqliteTable(
 		resolvedAt: integer('resolved_at'),
 		resolvedByParentId: integer('resolved_by_parent_id'),
 		shownToChildAt: integer('shown_to_child_at'),
+		// #2832: 申請時点 snapshot (reward 編集後も申請時の内容で表示・控除する仕様、
+		// DynamoDB 実装の非正規化 item と等価)。旧行は NULL → 読み出し側で live JOIN 値に fallback
+		rewardTitle: text('reward_title'),
+		rewardPoints: integer('reward_points'),
+		rewardIcon: text('reward_icon'),
 	},
 	(table) => [
 		index('idx_redemption_requests_child_status').on(table.childId, table.status),

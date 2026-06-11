@@ -36,7 +36,8 @@ import { test as base, expect } from '@playwright/test';
 
 // playwright.config.ts と一致させる必要あり (research §7.5)。
 // 将来 dotenv / shared config に集約する候補だが、Phase A scope では 2 箇所 hardcode で OK。
-const BASE_PORT = 5190;
+// #2832: 並行 worktree の server 衝突回避のため E2E_BASE_PORT env で上書き可能 (config と同値)。
+const BASE_PORT = Number(process.env.E2E_BASE_PORT ?? 5190);
 
 type WorkerFixtures = {
 	/**
