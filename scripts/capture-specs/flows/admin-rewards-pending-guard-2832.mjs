@@ -30,7 +30,7 @@ async function waitForDialogOpen(page, testid) {
 			return el.getAttribute('data-state') === 'open' && !el.hasAttribute('hidden');
 		},
 		testid,
-		{ timeout: 15_000, polling: 100 },
+		{ timeout: 5_000, polling: 100 },
 	);
 	await page.evaluate(
 		() =>
@@ -38,6 +38,23 @@ async function waitForDialogOpen(page, testid) {
 				requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
 			),
 	);
+}
+
+/**
+ * Svelte 5 onclick は hydration 完了後にのみ bind されるため、dialog が open になるまで
+ * click を最大 5 回 retry する (tests/e2e/admin-rewards-edit-delete.spec.ts と同設計)。
+ */
+async function clickUntilDialogOpen(page, triggerLocator, dialogTestid) {
+	for (let attempt = 0; attempt < 5; attempt++) {
+		await triggerLocator.click();
+		try {
+			await waitForDialogOpen(page, dialogTestid);
+			return;
+		} catch {
+			// hydration race / 再 click で吸収
+		}
+	}
+	await waitForDialogOpen(page, dialogTestid);
 }
 
 /**
@@ -55,8 +72,7 @@ export default async (page, capture) => {
 	await capture('2832-rewards-list-pending-badge');
 
 	// --- 2) 編集 dialog + 申請時点 snapshot note (AC2 案 b) ---
-	await row.locator('[data-testid^="reward-edit-btn-"]').click();
-	await waitForDialogOpen(page, 'reward-edit-dialog');
+	await clickUntilDialogOpen(page, row.locator('[data-testid^="reward-edit-btn-"]'), 'reward-edit-dialog');
 	await page
 		.getByTestId('reward-edit-pending-note')
 		.waitFor({ state: 'visible', timeout: 10_000 });
@@ -68,8 +84,11 @@ export default async (page, capture) => {
 		.catch(() => {});
 
 	// --- 3) 削除確認 dialog (pending 警告 + 不可逆 note) ---
-	await row.locator('[data-testid^="reward-delete-btn-"]').click();
-	await waitForDialogOpen(page, 'reward-delete-dialog');
+	await clickUntilDialogOpen(
+		page,
+		row.locator('[data-testid^="reward-delete-btn-"]'),
+		'reward-delete-dialog',
+	);
 	await page
 		.getByTestId('reward-delete-pending-warning')
 		.waitFor({ state: 'visible', timeout: 10_000 });
@@ -77,6 +96,9 @@ export default async (page, capture) => {
 
 	// --- 4) 削除確定 → ガード拒否 banner (AC1) ---
 	await page.getByTestId('reward-delete-confirm').click();
-	await page.getByTestId('rewards-action-message').waitFor({ state: 'visible', timeout: 15_000 });
+	const banner = page.getByTestId('rewards-action-message');
+	await banner.waitFor({ state: 'visible', timeout: 15_000 });
+	// banner は検索 section 下に配置されるため fold 内に scroll してから撮影する
+	await banner.scrollIntoViewIfNeeded();
 	await capture('2832-reward-delete-blocked-banner');
 };
