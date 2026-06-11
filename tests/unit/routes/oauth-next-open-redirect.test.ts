@@ -101,7 +101,9 @@ describe('#3025 GET /auth/callback — oauth_next の open-redirect ガード', 
 	});
 
 	it('oauth_next が内部 path なら遷移先に採用される', async () => {
-		const location = await getRedirectLocation(() => callbackGET(makeCallbackEvent('/auth/reset-pin')));
+		const location = await getRedirectLocation(() =>
+			callbackGET(makeCallbackEvent('/auth/reset-pin')),
+		);
 		expect(location).toBe('/auth/reset-pin');
 	});
 
