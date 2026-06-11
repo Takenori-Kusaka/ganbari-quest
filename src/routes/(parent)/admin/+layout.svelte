@@ -33,16 +33,11 @@ interface Props {
 let { data, children }: Props = $props();
 
 const trial = $derived(data.trialStatus);
-const planTier = $derived(data.planTier ?? 'free');
-// #3033: trial active 中の残日数は header pill (AdminLayout) で常時視認させる。
-// body バナーは行動喚起が必要な 3 状態のみ: urgent (残 ≤1 日) / expired / 未使用 free の開始導線
+// #3033 (PO 指摘 2026-06-12): body バナーは urgent (trial 残 1 日以下) のみ。
+// 残日数 = header pill / 開始導線 = /admin/subscription / 期限切れ = TrialEndedDialog (#770)。
+// 全ページ常設の販促バナーは無料版ユーザーの不利益になるため置かない (ADR-0012 準用)
 const showTrialBanner = $derived(
-	data.authMode !== 'local' &&
-		trial &&
-		((trial.isTrialActive && trial.daysRemaining <= 1) ||
-			(trial.trialUsed && !trial.isTrialActive && trial.trialEndDate !== null) ||
-			// #731: 未使用 free ユーザーにもトライアル開始導線を表示
-			(planTier === 'free' && !trial.trialUsed && !trial.isTrialActive)),
+	data.authMode !== 'local' && trial && trial.isTrialActive && trial.daysRemaining <= 1,
 );
 // #3033: header pill 用 (trial 非 active 時は null で非表示)
 const trialDaysRemaining = $derived(trial?.isTrialActive ? trial.daysRemaining : null);
@@ -69,14 +64,7 @@ $effect(() => {
 	{/if}
 	{#if showTrialBanner && trial}
 		<div style:margin-bottom="16px">
-			<TrialBanner
-				isTrialActive={trial.isTrialActive}
-				daysRemaining={trial.daysRemaining}
-				trialUsed={trial.trialUsed}
-				trialEndDate={trial.trialEndDate}
-				{planTier}
-				hasArchivedResources={data.archivedSummary?.hasArchivedResources ?? false}
-			/>
+			<TrialBanner isTrialActive={trial.isTrialActive} daysRemaining={trial.daysRemaining} />
 		</div>
 	{/if}
 	{@render children()}

@@ -393,6 +393,7 @@ async function openPortal() {
 							variant="primary"
 							size="md"
 							class="w-full"
+							data-testid="subscription-start-trial-button"
 						>
 							{SUBSCRIPTION_PAGE_LABELS.trialStartButton}
 						</Button>

@@ -113,7 +113,7 @@ export const TRIAL_TERMS = {
 	durationDays: 7,
 	noCreditCard: 'クレジットカード登録不要',
 	noCreditCardShort: 'クレカ登録不要',
-	// #1958 Phase 7 H1: TRIAL_LABELS.bannerDescNotStarted の文末「カード登録不要。」用 atom。
+	// #1958 Phase 7 H1: トライアル訴求文の文末「カード登録不要。」用 atom。
 	// 既存の noCreditCard (12 文字) / noCreditCardShort (8 文字) と異なる中間長 (7 文字) であり、
 	// 文字列差分ゼロ維持のため新 atom として独立させる。
 	noCreditCardMid: 'カード登録不要',

@@ -44,24 +44,15 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await expect(page.getByTestId('plan-status-card')).toHaveCount(0);
 	});
 
-	// #2901 AC4 (contextual paywall): free / trial 未使用ユーザーの TrialBanner (not-started) は
-	// 「全機能無料」だけでなく「無料版で制限される機能」を機能名込みで列挙し、
-	// やりたい事をやろうとしたら無料版では出来ない、に気づける状態を作る (PO 指摘 #4)。
-	test('/admin ホームの TrialBanner が制限機能を機能名込みで列挙する (#2901 AC4)', async ({
-		page,
-	}) => {
+	// #3033 (PO 指摘 2026-06-12): 旧 #2901 AC4 の「not-started バナーで制限機能を列挙」は
+	// 全ページ常設がモバイルで画面の半分を占めるため撤去 (supersede)。
+	// 「何が制限されるか」の recognition はロック機能接触時の文脈表示
+	// (本 spec の AiSuggestPanel テスト / rewards-upgrade-banner / export-upsell) が担う。
+	test('/admin ホームに常設トライアルバナーが出ない (#3033)', async ({ page }) => {
 		await page.goto('/admin');
-		// not-started バナー本体が出る (dev-tenant-free は trial 未使用)。
-		const banner = page.getByTestId('trial-banner-not-started');
-		await expect(banner).toBeVisible({ timeout: 30_000 });
-		// 制限機能の列挙ブロックが表示される (contextual paywall の核)。
-		const gated = page.getByTestId('trial-banner-gated-features');
-		await expect(gated).toBeVisible();
-		// 機能名 (FEATURE_LABELS SSOT 由来) が読める形で出る = generic な訴求ではない。
-		await expect(gated).toContainText('AI');
-		await expect(gated).toContainText('ごほうび');
-		// アップグレード/トライアル開始導線が併置される (NN/G #9 error recovery 同型)。
-		await expect(page.getByTestId('trial-banner-start-button')).toBeVisible();
+		await expect(page.locator('[data-tutorial="upgrade-btn"]')).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
+		await expect(page.getByTestId('trial-banner-gated-features')).toHaveCount(0);
 	});
 
 	test('/admin/reports — weekly-report-upsell バナーが表示される', async ({ page }) => {
@@ -92,8 +83,17 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 
 		// + dropdown menu から AI を選択
 		// （AiSuggestPanel は Dialog 内 addMode='ai' のときのみ描画される）
+		// Ark UI menu は open 直後の outside-click 判定で閉じることがある (flake) ため、
+		// item が可視にならなければ menu を再オープンする
 		await addBtn.click();
-		await page.getByTestId('menu-item-ai').click();
+		const aiItem = page.getByTestId('menu-item-ai');
+		try {
+			await expect(aiItem).toBeVisible({ timeout: 5_000 });
+		} catch {
+			await addBtn.click();
+			await expect(aiItem).toBeVisible({ timeout: 10_000 });
+		}
+		await aiItem.click();
 		await expect(page.getByTestId('add-activity-dialog')).toBeVisible();
 
 		const panel = page.getByTestId('ai-suggest-panel');

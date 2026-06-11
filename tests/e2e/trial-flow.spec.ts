@@ -45,45 +45,46 @@ test.describe('#752 トライアルフロー — free ユーザー', () => {
 	});
 
 	// ========================================================
-	// 1. 未使用 free ユーザーにトライアル開始導線が表示
+	// 1. 未使用 free ユーザー — 開始導線は /admin/subscription のみ (#3033)
 	// ========================================================
-	test('free ユーザーに TrialBanner の「開始」状態が表示される', async ({ page }) => {
+	test('開始導線は /admin/subscription にあり、/admin に常設バナーは出ない (#3033)', async ({
+		page,
+	}) => {
+		// #3033 (PO 指摘): not-started バナーの全ページ常設は無料版ユーザーの不利益のため撤去
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
+		await expect(page.locator('[data-tutorial="upgrade-btn"]')).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
+		await expect(page.getByTestId('trial-banner-start-button')).toHaveCount(0);
 
-		const banner = page.getByTestId('trial-banner-not-started');
-		await expect(banner).toBeVisible({ timeout: 30_000 });
-		// "7日間 無料で試す" ボタンが存在
-		await expect(page.getByTestId('trial-banner-start-button')).toBeVisible();
-		// #1383: 誤字「試すます」→「試せます」を検知できるよう完全一致でアサート
-		await expect(banner).toContainText('7日間、全機能を無料で試せます');
+		// 開始導線は subscription ページの開始セクションに一本化
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+		await expect(page.getByTestId('subscription-start-trial-button')).toBeVisible({
+			timeout: 30_000,
+		});
 	});
 
 	// ========================================================
-	// 2. 「7日間無料で試す」ボタンでトライアル開始 → active 状態
+	// 2. subscription ページでトライアル開始 → header pill (#3033)
 	// ========================================================
-	test('トライアル開始ボタンクリック → header の残日数 pill に切り替わる (#3033)', async ({
+	test('トライアル開始 → header の残日数 pill が全 admin ページに出る (#3033)', async ({
 		page,
 	}) => {
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		// 「開始」バナーが表示されるまで待機
+		// 開始ボタンをクリック (plain form POST → full reload)
 		await page
-			.getByTestId('trial-banner-start-button')
+			.getByTestId('subscription-start-trial-button')
 			.waitFor({ state: 'visible', timeout: 30_000 });
-
-		// トライアル開始ボタンをクリック
-		await page.getByTestId('trial-banner-start-button').click();
+		await page.getByTestId('subscription-start-trial-button').click();
 
 		// #3033: trial active 中 (残 7 日 = 非 urgent) は body バナーでなく header pill で残日数を表示
 		const pill = page.getByTestId('header-trial-pill');
 		await expect(pill).toBeVisible({ timeout: 30_000 });
 		await expect(pill).toContainText(/残り\d+日/);
-		// 「開始」バナーは消える
-		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
 
-		// #2932 CRITICAL: reload 後も trial 状態が維持される（insert が永続していることの確認）。
-		// stub の no-op insert だった頃は reload で「開始」バナーに戻っていた（偽 success）。
-		await page.reload({ waitUntil: 'commit', timeout: 30_000 });
+		// #2932 CRITICAL: 別ページ遷移後も trial 状態が維持される（insert が永続していることの確認）。
+		// stub の no-op insert だった頃は再描画で未開始状態に戻っていた（偽 success）。
+		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 		await expect(page.getByTestId('header-trial-pill')).toBeVisible({ timeout: 30_000 });
 		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
 
@@ -115,28 +116,28 @@ test.describe('#752 トライアルフロー — trial-expired ユーザー', ()
 	test.use({ storageState: 'playwright/.auth/trial-expired.json' });
 
 	// ========================================================
-	// 4. トライアル期限切れユーザー — expired バナー表示
+	// 4. トライアル期限切れユーザー — 常設バナーは出ない (#3033)
 	// ========================================================
-	test('トライアル期限切れユーザーに expired バナーが表示される', async ({ page }) => {
+	test('期限切れユーザーの /admin に常設バナーは出ない (#3033、通知は TrialEndedDialog #770)', async ({
+		page,
+	}) => {
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
-		const expiredBanner = page.getByTestId('trial-banner-expired');
-		await expect(expiredBanner).toBeVisible({ timeout: 30_000 });
-		// 「無料体験が終了しました」テキスト
-		await expect(expiredBanner).toContainText('終了');
-		// アップグレード CTA が表示される
-		await expect(page.getByTestId('trial-banner-expired-cta')).toBeVisible();
+		// #3033 (PO 指摘): expired バナーの全ページ常設は無料版継続ユーザーの不利益のため撤去
+		await expect(page.locator('[data-tutorial="upgrade-btn"]')).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('trial-banner-expired')).toHaveCount(0);
+		await expect(page.getByTestId('header-trial-pill')).toHaveCount(0);
 	});
 
 	// ========================================================
-	// 5. 期限切れユーザー — 再トライアル開始ボタンが存在しない
+	// 5. 期限切れユーザー — 再トライアル開始導線が存在しない
 	// ========================================================
-	test('トライアル使用済みユーザーには「開始」ボタンが表示されない', async ({ page }) => {
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
+	test('トライアル使用済みユーザーには開始導線が表示されない', async ({ page }) => {
+		// 開始導線の正位置 (subscription ページ) でも trialUsed=true なら開始ボタンは出ない
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		// expired バナーが表示されるまで待つ
-		await page.getByTestId('trial-banner-expired').waitFor({ state: 'visible', timeout: 30_000 });
-		// 「開始」ボタンは表示されない（trialUsed=true なので canStartTrial=false）
+		await expect(page.getByTestId('saas-license-panel')).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('subscription-start-trial-button')).toHaveCount(0);
 		await expect(page.getByTestId('trial-banner-start-button')).toHaveCount(0);
 	});
 
