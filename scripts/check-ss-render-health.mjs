@@ -144,6 +144,7 @@ export function findImagesMissingDomPair(imageNames, domNames) {
  *   dir 不在なら null
  */
 export async function fetchPrScreenshotEntries({ repo, prNumber, fetcher = fetch }) {
+	/** @type {Record<string, string>} */
 	const headers = {
 		Accept: 'application/vnd.github+json',
 		'X-GitHub-Api-Version': '2022-11-28',
@@ -254,7 +255,7 @@ async function main() {
 	try {
 		result = await checkSsRenderHealth({ repo: REPO, prNumber: PR_NUMBER, labels: PR_LABELS });
 	} catch (err) {
-		console.error(`${prefix} internal error:`, err.message);
+		console.error(`${prefix} internal error:`, err instanceof Error ? err.message : String(err));
 		return 2;
 	}
 
@@ -279,9 +280,10 @@ async function main() {
 	}
 
 	// fail
+	const violations = result.violations ?? [];
 	console.log(`\n${prefix} ${isError ? 'ERROR' : 'WARN'} — ${result.reason}`);
 	console.log('\nerror ページ marker が検出された SS:');
-	for (const v of result.violations) {
+	for (const v of violations) {
 		console.log(`  - pr-${PR_NUMBER}/${v.name}`);
 		for (const r of v.reasons) {
 			console.log(`      ${r}`);
@@ -299,7 +301,7 @@ async function main() {
 			'  3. エラーページ自体のデザイン SS が正当な場合のみ PR ラベル',
 			`     '${ERROR_PAGE_INTENDED_LABEL}' を付与して re-run する`,
 			'',
-			`mode=${MODE}, violations=${result.violations.length} ` +
+			`mode=${MODE}, violations=${violations.length} ` +
 				`(${isError ? 'CI を red にします' : 'warning として記録、CI は通過させます'})`,
 		].join('\n'),
 	);

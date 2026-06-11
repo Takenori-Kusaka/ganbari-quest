@@ -208,8 +208,8 @@ describe('check-ss-render-health.mjs — judgeDomSnapshots', () => {
 			{ name: 'admin-activities-mobile.dom.html', html: HEALTHY_ADMIN_HTML },
 		]);
 		expect(violations).toHaveLength(1);
-		expect(violations[0].name).toBe('admin-rewards-mobile.dom.html');
-		expect(violations[0].reasons.length).toBeGreaterThan(0);
+		expect(violations[0]?.name).toBe('admin-rewards-mobile.dom.html');
+		expect(violations[0]?.reasons.length).toBeGreaterThan(0);
 	});
 
 	it('全件 healthy なら空配列', () => {
