@@ -16,8 +16,9 @@ QM は PR の **base branch でレーンを判別**し、レーンごとに gate
 | **hotfix レーン** | `fix/*`（main 分岐） → `main`、`priority:critical` のみ | 即時（毎時 cadence 内で最優先） | **重量 gate 維持** + ADR-0002 5 要件（E2E 回帰 / AC 全完了 / 提案全実装 / 5 年齢モード / 30 日重複チェック）。gate 省略禁止 | `--squash` + **develop へ back-merge 必須**（drift 防止、Fix Agent で実施） |
 | **統合 PR（暫定代行）** | `develop` → `main` | 1 日 1 回 | **最重厚 gate**（軽量全 job 再実行 + e2e ×3 + a11y + e2e-cognito-dev + docker / demo-lambda + storybook + visual regression 3 層） | **`--merge`（merge commit）**。squash 禁止（develop/main の履歴接続を維持し、次回統合 PR の diff 汚染を防ぐ）。develop は削除しない |
 
-- **レーン判別**: `gh pr list --json baseRefName,headRefName` で base=develop → 軽量 / base=main かつ head=develop → 統合 / base=main かつ head=`fix/*` + `priority:critical` → hotfix。**base=main でそれ以外の head は新ルール違反** — retarget (base を develop へ変更) を依頼するコメントを残し、レビューは保留する（cutover 前から open の既存 PR は §「発効条件」の経過措置どおり現行ルールで処理）。
-- **統合 PR の暫定代行**: develop→main の発行・最重厚 gate 判定・merge は本来 外部品質監査チーム（[audit-team.md](audit-team.md)）の責務。**監査 run pipeline（#2867 系）稼働までの間は QM が暫定代行**し、稼働後に本節の「統合 PR」行を監査チームへ移管する（branch-strategy.md §6）。暫定代行中も adversarial evidence + V-7 Orchestrator 専権の approve 規律は同一に適用する。
+- **レーン判別**: `gh pr list --json baseRefName,headRefName` で base=develop → 軽量 / base=main かつ head=develop → 統合 / base=main かつ head=`fix/*`（緊急 fix / CI 環境構築）→ hotfix。**base=main でそれ以外の head（feature 系）は起票時の base 誤設定** — 開発チームに差し戻さず QM の **Fix Agent が base を develop へ訂正 + develop へ rebase** して軽量レーンに載せる（2026-06-11 User 指示。手順は本節下部 + Step 2 コメント参照。旧「retarget 依頼で保留」は差し戻しコストが高いため廃止）。
+- **統合 PR（develop→main）は外部監査チーム担当**: develop→main release の発行・最重厚 gate 判定・merge は **外部品質監査チーム（[audit-team.md](audit-team.md)）の責務であり QM の通常レビュー対象外**（2026-06-11 User 指示で「暫定 QM 代行」を終了）。QM が main へ関与するのは **緊急 fix / CI 環境構築の例外的 hotfix のみ**。例外 hotfix でも adversarial evidence + V-7 Orchestrator 専権 approve 規律は同一に適用する。
+- **base 誤設定 feature の Fix Agent 対応手順**: (1) `gh pr edit <N> --base develop` (2) worktree 内で `git rebase origin/develop` → conflict 解消 → `git push --force-with-lease`（旧 main ベースの drift を解消し本来の diff に戻す） (3) base=develop の軽量レーンとして通常 Tier 2 review → develop merge。
 - **発効条件（cutover §8 連動）**: 本レーン区分は **develop branch 作成 + workflow 改修（branch-strategy.md §8 Step 2-3）完了後に発効**する。発効前は現行どおり main 向け PR を重量 gate で 5 手順レビューする。既存 open PR は retarget しない（§8 Step 6）。
 - **軽量レーンの CI 解釈**: e2e / a11y / storybook / visual regression が**不発火・skip でも approve を保留しない**（これらは統合 PR で集約検証される設計）。逆に、軽量レーンの required（lint-and-test / unit / PR テンプレ gate）が red のまま approve することは引き続き禁止。
 
@@ -45,11 +46,15 @@ git fetch origin
 gh pr list --repo Takenori-Kusaka/ganbari-quest --state open \
   --json number,title,isDraft,reviewDecision,author,headRefName,baseRefName,labels
 # 対象: isDraft: false かつ reviewDecision != APPROVED
-# baseRefName でレーン判別（§レビュー対象レーン）:
-#   develop ← feat/*    → 軽量レーン（5 手順 + 軽量 gate）
-#   main    ← develop   → 統合 PR（最重厚 gate、暫定 QM 代行）
-#   main    ← fix/* + priority:critical → hotfix（重量 gate + ADR-0002）
-#   main    ← その他    → retarget 依頼コメント、レビュー保留
+# baseRefName でレーン判別（§レビュー対象レーン、2026-06-11 User 指示で改訂）:
+#   develop ← feat/*    → 軽量レーン（5 手順 + 軽量 gate）★QM の通常レビュー対象
+#   main    ← develop   → release 統合 PR → 【外部監査チーム】が担当。QM 対象外（旧「暫定 QM 代行」は終了）
+#   main    ← fix/* 緊急 fix / CI 環境構築 → 例外的に QM がレビュー（重量 gate、critical は ADR-0002）
+#   main    ← その他の feature 系（head≠develop）→ 起票時の base 誤設定の可能性が高い。
+#       開発チームに差し戻さず QM の【Fix Agent】が base 訂正 + develop rebase で develop レーンに載せる:
+#         (1) gh pr edit <N> --base develop  （2) worktree 内で git rebase origin/develop → push --force-with-lease
+#         (3) 以降は develop ← feat/* と同じ軽量レーンで Tier 2 review → develop merge
+#       （根拠: base=main への正規 PR は develop 由来のみ。retarget 依頼の差し戻しより Fix Agent 対応が低コスト）
 # 0 件なら「Ready PR なし」記録して終了
 
 # Step 3: PR ごとに Review Agent spawn（複数 PR 同時 spawn 可、変更ファイル重複なき場合）
@@ -260,7 +265,7 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 - **軽量レーンで e2e / a11y の不発火を理由に approve を保留し続ける**（gate 二層設計の否定。統合 PR で集約検証される — §レビュー対象レーン）。逆に**統合 PR / hotfix で重量 gate を省略して merge** も禁止
 - **統合 PR (develop→main) を squash merge**（develop/main の履歴接続が切れ、次回統合 PR の diff が汚染される。必ず merge commit）
 - **hotfix merge 後の develop back-merge を省略**（main/develop drift の温床）
-- **base=main の feature PR（head が develop / fix/* 以外）を見逃して approve**（branch-strategy.md §3 違反。retarget 依頼が正）
+- **base=main の feature PR（head が develop / fix/* 以外）を見逃して approve**（branch-strategy.md §3 違反。Fix Agent で base を develop へ訂正 + rebase が正 — 2026-06-11 User 指示）
 - **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は **3 層機械強制機構** で abort される:
     - L1: `.claude/settings.json` PreToolUse hook (`scripts/claude-hook-prevent-qa-account-pr.mjs`、Claude / Agent 経由の `gh pr create` / `gh api .../pulls` を捕捉、#1879)
     - L2: `.husky/pre-push` → `scripts/check-gh-account-before-pr.mjs`（`git push` 直前検査、#1879）
