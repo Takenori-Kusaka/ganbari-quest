@@ -50,11 +50,12 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 		}
 
 		// #3025: 「Google で本人確認」(PIN reset 等) から来た場合は oauth_next cookie の
-		// 内部 path (先頭 1 個の "/" のみ許可 = open redirect 防止) へ戻す
+		// 内部 path へ戻す (open redirect 防止: "//" と "/\" の両方を拒否する。
+		// ブラウザは Location の "\" を "/" に正規化するため "/\evil.com" も外部遷移し得る)
 		const next = cookies.get('oauth_next');
 		if (next) {
 			cookies.delete('oauth_next', { path: '/' });
-			if (/^\/(?!\/)/.test(next)) {
+			if (/^\/(?![/\\])/.test(next)) {
 				successPath = next;
 			}
 		}
