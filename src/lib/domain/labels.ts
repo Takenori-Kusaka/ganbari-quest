@@ -665,9 +665,14 @@ export const TRIAL_LABELS = {
 	// #2941 項目 2: startTrial action の negative path (trialUsed=true 再押下 → fail 400) を
 	// ユーザーに見える形で表示する (NN/G #1 visibility of system status)。
 	// startErrorAlreadyUsed は server (subscription +page.server.ts) が fail body に入れ、
-	// startErrorFallback は client (TrialBanner) が getActionErrorDisplay の fallback に使う。
+	// startErrorFallback は client (#3033 で開始導線を SaasLicensePanel に一本化後は
+	// 同 panel の startTrial form) が getActionErrorDisplay の fallback に使う。
 	startErrorAlreadyUsed: `${ACTION_LABELS.freeTrial}はすでに使用済みです`,
 	startErrorFallback: `${ACTION_LABELS.freeTrial}を開始できませんでした。時間をおいて再度お試しください。`,
+	// #3033: trial active 中は body バナーでなく header pill で残日数を常時視認させる
+	// (tap で /admin/subscription へ。urgent 残 1 日以下のみ body バナー併用)
+	headerPillLabel: (days: number) => `残り${days}日`,
+	headerPillTitle: `${ACTION_LABELS.freeTrial}中`,
 	bannerTitleExpired: `${ACTION_LABELS.freeTrial}が終了しました`,
 	bannerDescExpired: `${ACTION_LABELS.upgrade}で全機能をご利用いただけます。`,
 	bannerDescExpiredWithArchive: `一部のデータが制限されています。${ACTION_LABELS.upgrade}ですべて復元できます。`,
@@ -4183,9 +4188,7 @@ export const ADMIN_HOME_LABELS = {
 	tutorialBannerHint: 'チュートリアルで使い方を確認しましょう（約3分）',
 	tutorialStartButton: '開始',
 	tutorialLaterButton: 'あとで',
-	freePlanQuickName: `${PLAN_FULL_TERMS.free}`,
-	freePlanQuickHint: 'もっと便利に使いませんか？',
-	freePlanQuickAction: '⭐ アップグレード →',
+	// #3033: freePlanQuick* 削除済 (plan-quick-link 撤去、プラン導線は header upgrade-btn に一本化)
 	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
 	summaryChildrenAria: '登録こども数',
 	summaryChildrenLabel: 'こどもの数',

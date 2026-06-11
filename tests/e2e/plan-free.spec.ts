@@ -33,14 +33,15 @@ test.describe('#751 free プラン — 機能ゲート', () => {
 		await expect(page.getByTestId('plan-status-trial-badge')).toHaveCount(0);
 	});
 
-	test('/admin ホームに無料プラン用 PlanStatusCard が表示される', async ({ page }) => {
+	test('/admin ホームには PlanStatusCard を出さず header アップグレード導線で誘導する (#3033)', async ({
+		page,
+	}) => {
 		await page.goto('/admin');
-		// free のときは PlanStatusCard が data-plan-tier="free" で表示される
-		const card = page.getByTestId('plan-status-card');
-		await expect(card).toBeVisible({ timeout: 30_000 });
-		await expect(card).toHaveAttribute('data-plan-tier', 'free');
-		// free 専用のアップグレード CTA が表示される
-		await expect(page.getByTestId('plan-status-free-cta')).toBeVisible();
+		// #3033: body 常設プランカードは撤去 (プラン情報は /admin/subscription に一本化)
+		const upgradeBtn = page.locator('[data-tutorial="upgrade-btn"]');
+		await expect(upgradeBtn).toBeVisible({ timeout: 30_000 });
+		await expect(upgradeBtn).toHaveAttribute('href', '/admin/subscription');
+		await expect(page.getByTestId('plan-status-card')).toHaveCount(0);
 	});
 
 	// #2901 AC4 (contextual paywall): free / trial 未使用ユーザーの TrialBanner (not-started) は

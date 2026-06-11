@@ -61,7 +61,9 @@ test.describe('#752 トライアルフロー — free ユーザー', () => {
 	// ========================================================
 	// 2. 「7日間無料で試す」ボタンでトライアル開始 → active 状態
 	// ========================================================
-	test('トライアル開始ボタンクリック → active バナーに切り替わる', async ({ page }) => {
+	test('トライアル開始ボタンクリック → header の残日数 pill に切り替わる (#3033)', async ({
+		page,
+	}) => {
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
 		// 「開始」バナーが表示されるまで待機
@@ -72,19 +74,22 @@ test.describe('#752 トライアルフロー — free ユーザー', () => {
 		// トライアル開始ボタンをクリック
 		await page.getByTestId('trial-banner-start-button').click();
 
-		// ページが更新されてアクティブバナーに切り替わる
-		// active バナーには "残りN日" テキストが表示される
-		await expect(page.getByText(/無料体験中/)).toBeVisible({ timeout: 30_000 });
-		// CTA「プランを見る」リンクが表示される
-		await expect(page.getByTestId('trial-banner-active-cta')).toBeVisible();
+		// #3033: trial active 中 (残 7 日 = 非 urgent) は body バナーでなく header pill で残日数を表示
+		const pill = page.getByTestId('header-trial-pill');
+		await expect(pill).toBeVisible({ timeout: 30_000 });
+		await expect(pill).toContainText(/残り\d+日/);
 		// 「開始」バナーは消える
 		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
 
 		// #2932 CRITICAL: reload 後も trial 状態が維持される（insert が永続していることの確認）。
 		// stub の no-op insert だった頃は reload で「開始」バナーに戻っていた（偽 success）。
 		await page.reload({ waitUntil: 'commit', timeout: 30_000 });
-		await expect(page.getByText(/無料体験中/)).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('header-trial-pill')).toBeVisible({ timeout: 30_000 });
 		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
+
+		// pill click → プランページへ遷移 (render-only 禁止、act → outcome)
+		await page.getByTestId('header-trial-pill').click();
+		await expect(page).toHaveURL(/\/admin\/subscription/, { timeout: 30_000 });
 	});
 
 	// ========================================================

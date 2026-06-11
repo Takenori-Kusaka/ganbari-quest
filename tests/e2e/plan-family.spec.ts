@@ -32,10 +32,11 @@ test.describe('#779 family プラン — 全機能解放確認', () => {
 
 	test('/admin にホームを開いても free 用アップグレード CTA が出ない', async ({ page }) => {
 		await page.goto('/admin');
-		// family のときは PlanStatusCard が data-plan-tier="family" で表示される
-		const card = page.getByTestId('plan-status-card');
-		await expect(card).toBeVisible({ timeout: 30_000 });
-		await expect(card).toHaveAttribute('data-plan-tier', 'family');
+		// #3033: home に PlanStatusCard は出ない。premium は header plan-badge で現在プランを示す
+		const badge = page.locator('.plan-badge');
+		await expect(badge).toBeVisible({ timeout: 30_000 });
+		await expect(badge).toHaveAttribute('href', '/admin/subscription');
+		await expect(page.getByTestId('plan-status-card')).toHaveCount(0);
 		// free 専用の CTA は表示されない
 		await expect(page.getByTestId('plan-status-free-cta')).toHaveCount(0);
 	});
