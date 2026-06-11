@@ -12,7 +12,7 @@
  *     --pr 2260 --config scripts/capture-specs/epic-2253-admin-add-ux.mjs`
  *
  * 撮影内容 (config モードは静的画面のみ、menu 展開 SS は別途 dev で目視確認):
- *   - 通常一覧 (header + 追加 + ︙ の 2 要素 + 右下 FAB は FeedbackFab のみ)
+ *   - 通常一覧 (header + 追加 + ︙ の 2 要素。右下 FAB は 0 個 — FeedbackFab は #2904 で撤去)
  *
  * × mobile + desktop = 2 SS
  *

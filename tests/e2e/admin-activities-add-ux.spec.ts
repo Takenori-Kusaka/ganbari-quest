@@ -73,12 +73,14 @@ test.describe('EPIC #2253 — admin/activities add UX', () => {
 		await page.waitForLoadState('domcontentloaded');
 	});
 
-	// --- 子 ② / 子 ⑤: AddActivityFab が撤去され FeedbackFab のみが残る ---
-	test('AddActivityFab が撤去され、画面 FAB は FeedbackFab のみ (M3 単一 FAB / DESIGN §10)', async ({
+	// --- 子 ② / 子 ⑤: AddActivityFab 撤去 (#2253) + FeedbackFab 撤去 (#2904) で画面 FAB ゼロ ---
+	test('画面 FAB ゼロ — AddActivityFab (#2253) / FeedbackFab (#2904) とも撤去済 (DESIGN §10)', async ({
 		page,
 	}) => {
 		// 旧 add-activity-fab は撤去済
 		await expect(page.getByTestId('add-activity-fab')).toHaveCount(0);
+		// #2904: 旧 FeedbackFab (右下常設バルーン) も撤去済 — ご意見導線は ︙ overflow menu へ
+		await expect(page.getByTestId('feedback-fab')).toHaveCount(0);
 		// header の + 追加 ボタンが代替経路
 		const addBtn = page.getByTestId('header-add-activity-btn');
 		await expect(addBtn).toBeVisible();

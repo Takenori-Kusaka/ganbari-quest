@@ -1,13 +1,11 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
-import FeedbackDialog from '$lib/features/admin/components/FeedbackDialog.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
-import FeedbackFab from '$lib/ui/components/FeedbackFab.svelte';
 
 interface Props {
 	data: {
@@ -54,8 +52,9 @@ $effect(() => {
 	}
 });
 
-// #839: フィードバックダイアログ
-let showFeedback = $state(false);
+// #2904: 旧 #839 FeedbackFab (右下常設バルーン) は撤去。フィードバック導線は
+// 設定 > サポート (/admin/settings/support) を SSOT とし、各リソース画面の
+// ︙ overflow menu 末尾「ご意見を送る」(AdminResourceHeader 自動 append) から 1 hop で到達する。
 </script>
 
 <AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode}>
@@ -83,7 +82,4 @@ let showFeedback = $state(false);
 	bind:open={showTrialEndedDialog}
 	onDismiss={() => { showTrialEndedDialog = false; }}
 />
-<!-- #839: フィードバック FAB + ダイアログ -->
-<FeedbackFab onclick={() => { showFeedback = true; }} />
-<FeedbackDialog bind:open={showFeedback} />
 <DebugPlanIndicator summary={data.debugPlanSummary ?? null} />

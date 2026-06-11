@@ -1,5 +1,7 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
+import { goto } from '$app/navigation';
+import { OVERFLOW_MENU_LABELS } from '$lib/domain/labels';
 import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
 
 /**
@@ -19,7 +21,10 @@ import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
  * - **+ 追加 dropdown**: 手動 / AI で提案 / みんなのテンプレートから探す … を集約
  *   (DESIGN.md §10 Hick's Law / add 経路 ≤ 4 / Notion・Linear の `+` パターン)。
  *   AI 提案は dropdown 内の選択肢 → Dialog 起動に統一し、本文直置きしない。
- * - **︙ overflow menu**: 復元 / エクスポート / 全削除 等の補助操作 (任意)
+ * - **︙ overflow menu**: 復元 / エクスポート / 全削除 等の補助操作 (任意)。
+ *   末尾には標準「ご意見を送る」item (#2904) を本 component が自動 append する
+ *   (FeedbackFab 常設撤去の補填。設定 > サポートへの 1 hop 到達性を全リソース画面で担保し、
+ *   NN/G 隠し導線の発見率半減問題を緩和する)。snippet 経路のページには snippet 引数で渡す。
  *
  * 各画面は `addMenuItems` / `overflowItems` を props で渡して item の中身を構成するが、
  * **レイアウト (要素集合・配置)** は本 component が SSOT として固定する。これにより
@@ -47,7 +52,7 @@ interface Props {
 	addMenuDataTutorial?: string;
 	/** 「+ 追加」trigger を無効化 (上限到達時など) */
 	addDisabled?: boolean;
-	/** ︙ overflow menu の item 配列 (任意。空配列なら ︙ を出さない) */
+	/** ︙ overflow menu の item 配列 (任意。末尾に標準「ご意見を送る」item を自動 append する #2904) */
 	overflowItems?: MenuItem[];
 	/** ︙ overflow trigger のラベル (既定: '︙') */
 	overflowTriggerLabel?: string;
@@ -59,8 +64,10 @@ interface Props {
 	 * ︙ overflow を独自 primitive (OverflowMenu 等) で描画したい画面用の slot。
 	 * 指定すると `overflowItems` (内蔵 Menu) より優先される。既存 E2E testid を保つため、
 	 * checklists のように `OverflowMenu` primitive を使うページはこちらに渡す。
+	 * snippet には標準末尾 item (「ご意見を送る」#2904) が引数で渡るため、
+	 * snippet 側は自前 items の末尾に spread して描画すること (3 画面同型性、NN/G #4)。
 	 */
-	overflowSnippet?: Snippet;
+	overflowSnippet?: Snippet<[MenuItem[]]>;
 	/** title 横に差し込む追加要素 (PremiumBadge / pending badge など) */
 	badge?: Snippet;
 	/** toolbar (右側 + 追加 / ︙ の並び) に差し込む追加 trigger (任意、+ 追加 の前に表示) */
@@ -78,12 +85,23 @@ let {
 	addDisabled = false,
 	overflowItems = [],
 	overflowTriggerLabel = '︙',
-	overflowMenuAriaLabel,
+	overflowMenuAriaLabel = OVERFLOW_MENU_LABELS.openLabel,
 	overflowMenuTestid,
 	overflowSnippet,
 	badge,
 	toolbarLeading,
 }: Props = $props();
+
+// #2904: FeedbackFab 常設撤去 (イルカ問題) の補填導線。全 admin リソース画面の ︙ 末尾に
+// 「ご意見を送る」標準 item を自動 append し、設定 > サポート (ご意見フォーム SSOT) への
+// 1 hop 到達性を担保する (research: tmp/research-feedback-fab-2026-06-11.md §5-3)。
+const feedbackOverflowItem: MenuItem = {
+	id: OVERFLOW_MENU_LABELS.items.feedback.id,
+	label: OVERFLOW_MENU_LABELS.items.feedback.label,
+	icon: OVERFLOW_MENU_LABELS.items.feedback.icon,
+	onSelect: () => goto('/admin/settings/support'),
+};
+const resolvedOverflowItems = $derived<MenuItem[]>([...overflowItems, feedbackOverflowItem]);
 </script>
 
 <header class="admin-resource-header">
@@ -109,12 +127,13 @@ let {
 			dataTutorial={addMenuDataTutorial}
 			disabled={addDisabled}
 		/>
-		<!-- ︙ overflow menu (補助操作、任意)。独自 primitive 利用時は overflowSnippet が優先。 -->
+		<!-- ︙ overflow menu (補助操作 + 標準「ご意見を送る」#2904)。独自 primitive 利用時は
+		     overflowSnippet が優先され、標準末尾 item は snippet 引数として渡す。 -->
 		{#if overflowSnippet}
-			{@render overflowSnippet()}
-		{:else if overflowItems.length > 0}
+			{@render overflowSnippet([feedbackOverflowItem])}
+		{:else}
 			<Menu
-				items={overflowItems}
+				items={resolvedOverflowItems}
 				placement="bottom-end"
 				ariaLabel={overflowMenuAriaLabel}
 				testid={overflowMenuTestid}

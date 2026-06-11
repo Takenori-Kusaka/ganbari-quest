@@ -6,11 +6,16 @@ import { fail } from '@sveltejs/kit';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { generateInquiryId, saveInquiry } from '$lib/server/db/inquiry-repo';
 import { logger } from '$lib/server/logger';
+import { trackBusinessEvent } from '$lib/server/services/analytics-service';
 import { notifyInquiry } from '$lib/server/services/discord-notify-service';
 import { sendInquiryConfirmationEmail } from '$lib/server/services/email-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals }) => {
+	// #2904: FeedbackFab 撤去を reversible にする計測 (research §5-5 / ADR-0010 最小実装)。
+	// 既存 analytics 機構 (DynamoDB provider、未設定環境では noop) に 1 イベント追加するのみで、
+	// 撤去後 1-2 ヶ月で「support 到達 / 送信がゼロ化していないか」を確認できるようにする。
+	trackBusinessEvent('support_page_view', undefined, locals.context?.tenantId);
 	return {};
 };
 
@@ -65,6 +70,8 @@ export const actions = {
 		}
 
 		logger.info(`Feedback received: [${categoryLabel}] ${inquiryId} from ${email} (${tenantId})`);
+		// #2904: フィードバック送信数の計測 (FAB 撤去 reversible 化、research §5-5)
+		trackBusinessEvent('feedback_submitted', { category }, tenantId);
 		return { feedbackSuccess: true, inquiryId };
 	},
 } satisfies Actions;
