@@ -85,7 +85,7 @@ export function resolveBaseBranch({
  */
 export function refspecCoversDevelop(refspecLines) {
 	return refspecLines.some((line) => {
-		const src = line.replace(/^\+/, '').split(':')[0].trim();
+		const src = (line.replace(/^\+/, '').split(':')[0] ?? '').trim();
 		return src === 'refs/heads/*' || src === 'refs/heads/develop';
 	});
 }
@@ -104,6 +104,7 @@ export function refspecCoversDevelop(refspecLines) {
  */
 export function ensureDevelopRefspec(opts = {}) {
 	const cwd = opts.cwd ?? process.cwd();
+	/** @param {string} cmd 固定コマンド文字列 (ユーザー入力は通さない) @param {number} [timeout] ms */
 	const run = (cmd, timeout) =>
 		execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout }).trim();
 
@@ -226,6 +227,7 @@ if (isMain) {
 				console.error(`[resolve-base-branch] ERROR: 不正な base branch 名: ${base}`);
 				process.exit(1);
 			}
+			/** @param {string} cmd 固定コマンド + validate 済 base 名のみ @param {number} [timeout] ms */
 			const run = (cmd, timeout) =>
 				execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout }).trim();
 			try {
