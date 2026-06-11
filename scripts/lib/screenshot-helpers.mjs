@@ -251,6 +251,130 @@ export async function waitForStablePage(page, options = {}) {
 }
 
 // ============================================================
+// #3012: SS render 健全性検証 (500 / error ページ混入検出)
+// ============================================================
+//
+// 設計背景: PR #3006 で /admin/rewards・/admin/checklists の 500 エラーページが
+// 「実画面 SS」として screenshots branch に 2 度 push され、既存 CI gate
+// (blob SHA 一意性 #2063 / ローカルパス禁止 #1741) を素通りした。
+// 「SS が正常画面か (error ページでないか)」を検証する層がゼロだったため、
+// 撮影 script 側で撮影直前に assert する (根本層)。CI 側の補完 gate は
+// scripts/check-ss-render-health.mjs (.dom.html marker scan) が担う。
+//
+// マーカーの実体 (SSOT):
+//   - アプリ error ページ: src/routes/+error.svelte
+//       root: <div class="error-page" data-role=...> + <p class="error-status">{status}</p>
+//       (Svelte scoping class が付くため `class="error-page ` 前方一致で検出)
+//   - infra error ページ: infra/error-pages/{500,502,503,504}.html
+//       <p class="code">Error 5xx</p> + <title>エラーが おきたよ - がんばりクエスト</title>
+
+/** infra/error-pages/*.html の title / h1 に含まれる固有マーカー文言 */
+export const INFRA_ERROR_TITLE_MARKER = 'エラーが おきたよ';
+
+/**
+ * render 健全性の純粋判定。Playwright page から抽出した facts を受け取り、
+ * error ページ描画 / 5xx 応答なら unhealthy を返す。
+ *
+ * 判定ルール:
+ *   1. HTTP status >= 500 → unhealthy (SSR が 500 を返した)
+ *   2. アプリ error ページの DOM marker (.error-page .error-status に 3 桁 status) → unhealthy
+ *      (404 / 403 含む — error ページを「実画面 SS」として撮ることは常に誤り)
+ *   3. infra error ページの marker (<p class="code">Error 5xx</p> / title マーカー) → unhealthy
+ *
+ * @param {object} facts
+ * @param {number | null} [facts.httpStatus] - page.goto() response の HTTP status
+ * @param {string | null} [facts.appErrorStatus] - `.error-page .error-status` の textContent
+ * @param {string | null} [facts.infraCode] - `p.code` の textContent
+ * @param {string} [facts.title] - document.title
+ * @returns {{ healthy: true; reason: '' } | { healthy: false; reason: string }}
+ */
+export function evaluateRenderHealth({
+	httpStatus = null,
+	appErrorStatus = null,
+	infraCode = null,
+	title = '',
+} = {}) {
+	if (typeof httpStatus === 'number' && httpStatus >= 500) {
+		return { healthy: false, reason: `HTTP ${httpStatus} 応答 (サーバーエラー)` };
+	}
+	if (typeof appErrorStatus === 'string' && /^\d{3}$/.test(appErrorStatus.trim())) {
+		return {
+			healthy: false,
+			reason: `アプリ error ページ描画 (status ${appErrorStatus.trim()}、src/routes/+error.svelte)`,
+		};
+	}
+	if (typeof infraCode === 'string' && /^Error 5\d\d$/.test(infraCode.trim())) {
+		return {
+			healthy: false,
+			reason: `infra error ページ描画 (${infraCode.trim()}、infra/error-pages/)`,
+		};
+	}
+	if (typeof title === 'string' && title.includes(INFRA_ERROR_TITLE_MARKER)) {
+		return {
+			healthy: false,
+			reason: `infra error ページ描画 (title "${INFRA_ERROR_TITLE_MARKER}")`,
+		};
+	}
+	return { healthy: true, reason: '' };
+}
+
+/**
+ * Playwright page から render 健全性 facts を抽出して判定する。
+ *
+ * SS 撮影直前に呼び、unhealthy なら撮影せずに fail させる用途。
+ * テスト容易性のため page は `evaluate` のみを要求する duck-typed 受け取り
+ * (captureDomSnapshot と同パターン)。
+ *
+ * @param {{ evaluate: (fn: () => unknown) => Promise<unknown> }} page
+ * @param {{ httpStatus?: number | null }} [options]
+ * @returns {Promise<{ healthy: boolean; reason: string }>}
+ */
+export async function checkRenderHealth(page, { httpStatus = null } = {}) {
+	const facts =
+		/** @type {{ appErrorStatus: string|null; infraCode: string|null; title: string }} */ (
+			await page.evaluate(() => {
+				const appErrorEl = document.querySelector('.error-page .error-status');
+				const codeEl = document.querySelector('p.code');
+				return {
+					appErrorStatus: appErrorEl?.textContent?.trim() ?? null,
+					infraCode: codeEl?.textContent?.trim() ?? null,
+					title: document.title || '',
+				};
+			})
+		);
+	return evaluateRenderHealth({ httpStatus, ...facts });
+}
+
+/**
+ * HTML 文字列 (.dom.html スナップショット等) から error ページ固有マーカーを検出する。
+ *
+ * CI 側補完 gate (scripts/check-ss-render-health.mjs) が screenshots branch に
+ * push 済みの `.dom.html` を scan する用途。撮影時 assert (checkRenderHealth) と
+ * 同じマーカー定義を共有する (SSOT)。
+ *
+ * 注: Svelte の scoping class (`class="error-page svelte-xxxx"`) を考慮し前方一致で照合。
+ *
+ * @param {string} html
+ * @returns {string[]} 検出理由の配列 (空 = healthy)
+ */
+export function detectErrorMarkersInHtml(html) {
+	const reasons = [];
+	if (/class="error-page[\s"]/.test(html) && /class="error-status[\s"]/.test(html)) {
+		const statusMatch = html.match(/class="error-status[^"]*"[^>]*>\s*(\d{3})/);
+		reasons.push(
+			`アプリ error ページ marker (.error-page + .error-status${statusMatch ? `, status ${statusMatch[1]}` : ''})`,
+		);
+	}
+	if (/<p class="code">\s*Error 5\d\d\s*<\/p>/.test(html)) {
+		reasons.push('infra error ページ marker (<p class="code">Error 5xx</p>)');
+	}
+	if (html.includes(INFRA_ERROR_TITLE_MARKER)) {
+		reasons.push(`infra error ページ marker ("${INFRA_ERROR_TITLE_MARKER}")`);
+	}
+	return reasons;
+}
+
+// ============================================================
 // #1424: 新規エクスポート — プリセット・純粋関数
 // ============================================================
 
@@ -492,6 +616,12 @@ export class ScreenshotCapture {
 	 *   ❓ ガイドを開く等の user-gesture を必要とする "操作後の状態" を baseline 撮影するために使う。
 	 *   この hook 内で `page.click()` / `page.addStyleTag()` / box 安定待ち等を行い、撮影したい
 	 *   settled 状態を作る。例外は capture() の戻り値 `{ ok: false, error }` に集約される。
+	 * @param {boolean} [opts.renderHealthCheck=false] - SS render 健全性検証 (#3012)。
+	 *   true の場合、撮影直前に HTTP status >= 500 / error ページ DOM marker
+	 *   (src/routes/+error.svelte / infra/error-pages) を検出し、検出時は撮影せず
+	 *   `{ ok: false, error }` (error.code = 'ERR_RENDER_HEALTH') を返す。
+	 *   PR #3006 で 500 エラーページが「実画面 SS」として push された事故の根本対策。
+	 *   default false (capture-hp-screenshots.mjs 等の既存利用箇所の挙動を変えない)。
 	 * @returns {Promise<{ ok: true; filePath: string; size: number; domPath?: string; domSize?: number } | { ok: false; error: Error }>}
 	 */
 	async capture({
@@ -508,6 +638,7 @@ export class ScreenshotCapture {
 		waitSplide = false,
 		cookies,
 		interact,
+		renderHealthCheck = false,
 	}) {
 		if (!this.#browser) throw new Error('setup() を先に呼び出してください。');
 
@@ -541,16 +672,38 @@ export class ScreenshotCapture {
 			// Normalize: strip duplicate leading slashes (Windows Git Bash expands /foo to //foo)
 			const normalizedPath = `/${url.replace(/^\/+/, '')}`;
 			const targetUrl = `${this.#baseUrl}${normalizedPath}`;
-			await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {
-				throw new Error(
-					`サーバーに接続できません: ${targetUrl}\nnpm run dev または npm run dev:cognito でサーバーを起動してください。`,
-				);
-			});
+			// #3012: render 健全性検証のため goto response (HTTP status) を保持する
+			const response = await page
+				.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
+				.catch(() => {
+					throw new Error(
+						`サーバーに接続できません: ${targetUrl}\nnpm run dev または npm run dev:cognito でサーバーを起動してください。`,
+					);
+				});
 			await waitForStablePage(page, { selector, skipNetworkIdle: true, waitSplide });
 
 			// #2928: 撮影直前の任意操作 hook (❓ ガイドを開く等)。settled 状態の調整は hook 内で行う。
 			if (interact) {
 				await interact(page);
+			}
+
+			// #3012: SS render 健全性 assert — error ページを「実画面 SS」として撮影しない。
+			// 撮影前に検証するため、違反時は SS ファイル自体が生成されない (screenshots branch
+			// push 対象にもならない)。PR #3006 (500 ページ 2 度 push) の構造的再発防止。
+			if (renderHealthCheck) {
+				const health = await checkRenderHealth(page, {
+					httpStatus: response ? response.status() : null,
+				});
+				if (!health.healthy) {
+					const err = new Error(
+						`SS render 健全性違反 (#3012): ${health.reason}\n` +
+							`  URL: ${targetUrl}\n` +
+							'  エラーページは「実画面 SS」として撮影できません。対象ページの 500/404 を修正してください。\n' +
+							'  エラーページ自体のデザイン SS が必要な場合のみ capture.mjs の --allow-error-page を使ってください。',
+					);
+					/** @type {Error & { code?: string }} */ (err).code = 'ERR_RENDER_HEALTH';
+					throw err;
+				}
 			}
 
 			const screenshotType = format === 'jpeg' ? 'jpeg' : 'png';

@@ -150,6 +150,45 @@ jobs:
           export PR_LABELS
           node scripts/check-ss-blob-sha-uniqueness.mjs
 
+  # ============================================================
+  # #3012 — SS render 健全性検証 (500 / error ページ混入検出)
+  #   PR #3006 で 500 エラーページが「実画面 SS」として screenshots branch に
+  #   2 度 push され、既存 gate (blob SHA 一意性 / ローカルパス禁止) を素通りした
+  #   事故への補完 gate。根本層は capture.mjs / capture-app-baseline.mjs の
+  #   撮影時 assert (scripts/lib/screenshot-helpers.mjs checkRenderHealth) が担い、
+  #   本 job は screenshots branch pr-<N>/ の .dom.html (#1766 DOM snapshot) を
+  #   text scan して error ページ marker を検出する軽量 heuristic 1 つに限定
+  #   (画像解析は不採用、ADR-0010 Pre-PMF)。
+  #   CHECK_MODE=error: error ページ混入は顧客提示物の毀損で致命的なため
+  #   #2063 と同様 warn 段階を経ず hard-fail。marker は src/routes/+error.svelte /
+  #   infra/error-pages 固有の class / 文言で false positive リスク ~0、
+  #   正当な error ページ SS には 'ss:error-page-intended' ラベル exempt あり。
+  # ============================================================
+  ss-render-health-check:
+    name: "SS render 健全性検証 (error ページ混入検出 #3012)"
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            scripts/check-ss-render-health.mjs
+            scripts/lib/screenshot-helpers.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Run check-ss-render-health.mjs
+        env:
+          CHECK_MODE: error
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          PR_LABELS=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --json labels --jq '[.labels[].name] | join(",")')
+          export PR_LABELS
+          node scripts/check-ss-render-health.mjs
+
   design-doc-check:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false

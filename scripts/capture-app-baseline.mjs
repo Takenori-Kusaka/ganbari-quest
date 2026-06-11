@@ -232,6 +232,9 @@ async function main() {
 				fullPage: spec.fullPage ?? true,
 				...(cookies ? { cookies } : {}),
 				...(spec.interact ? { interact: spec.interact } : {}),
+				// #3012: error ページ (500 / +error.svelte / infra/error-pages) を baseline として
+				// 撮影しない。違反時は当該 spec が FAIL になり exit 1 + baseline 更新も中止される。
+				renderHealthCheck: true,
 			});
 			if (result.ok) {
 				console.log(`  [OK]   ${spec.name.padEnd(24)} ${spec.url} (${result.size} bytes)`);
@@ -247,6 +250,14 @@ async function main() {
 	console.log(`\n撮影完了: ${targets.length - failed}/${targets.length} 件 → ${CURRENT_DIR}`);
 
 	if (args.updateBaseline) {
+		// #3012: 撮影 fail (render 健全性違反含む) があるまま baseline を部分更新しない。
+		// 壊れた画面 / 欠落した spec が baseline に混入・凍結されるのを防ぐ。
+		if (failed > 0) {
+			console.error(
+				`❌ 撮影 ${failed} 件 fail のため baseline 更新を中止しました (#3012)。fail 原因を修正して再実行してください。`,
+			);
+			process.exit(1);
+		}
 		fs.mkdirSync(BASELINE_DIR, { recursive: true });
 		const ext = args.webp ? '.webp' : '.png';
 		let copied = 0;
