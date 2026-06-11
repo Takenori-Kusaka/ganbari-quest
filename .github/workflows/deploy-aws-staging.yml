@@ -1,0 +1,335 @@
+name: Deploy to AWS (Staging)
+
+# AWS staging 3 stack (#2873 / EPIC #2861 D 系) — 本番 deploy 経路の貫通検証レーン。
+#
+# 設計の核 (prod template 不変条件 / handoff spec 厳守):
+#   - staging = GanbariQuestStorageStaging / GanbariQuestAuthStaging / GanbariQuestComputeStaging
+#     の 3 stack のみ (Network / Ses / Ops 省略、Function URL 直アクセスで検証)。
+#   - 同一アカウント・同一リージョン (us-east-1) + 物理名 prefix `ganbari-quest-staging` 分離。
+#   - CDK は `-c stagingEnabled=true` の context gate でのみ staging stack を instantiate する。
+#     本番 deploy.yml の `cdk deploy --all` / `cdk diff --all` (context 無し) は挙動不変。
+#   - staging 3 stack は**明示列挙**で deploy する (`--all` 不使用、本番 6 stack との混線防止)。
+#   - 外部サービス副作用ゼロ: Stripe / Discord / Gemini / SES 系 secret は一切渡さない。
+#
+# 責務分界 (docs/design/13-AWSサーバレスアーキテクチャ設計書.md §4.3):
+#   - 本 workflow の責務は「本番 deploy 経路の貫通 + post-deploy health (G-PD AWS 側)」。
+#   - migration 込み起動 (G-MIG) の主担保は NUC staging (#2872 / deploy-nuc-staging.yml)。
+#     AWS Lambda は DynamoDB backend で applyLazyStartupMigrations を呼ばないため重複実装しない。
+#
+# 位置付け (当面 advisory):
+#   本 workflow は当面 required check に登録しない。初回緑実証後に audit-manager が
+#   main ruleset required_status_checks へ `deploy-aws-staging` を追加する (merge blocker 化)。
+#
+# コスト (idle≈¥0 / PO 承認済 #2873):
+#   固定費 = staging ECR repo (maxImageCount:3) ≈$0.05〜0.15/月のみ。他は DynamoDB on-demand /
+#   Lambda リクエスト課金 / Cognito 10k MAU free / CW Logs free tier で idle $0。
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'static/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'svelte.config.js'
+      - 'vite.config.ts'
+      - 'Dockerfile*'
+      - 'infra/**'
+      - '.github/workflows/deploy-aws-staging.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-aws-staging
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: ganbari-quest-staging
+  LAMBDA_FUNCTION: ganbari-quest-staging-app
+  APP_MAJOR_VERSION: "1"
+  # staging 3 stack の明示列挙 (--all 禁止)。deploy 順は Storage → Auth → Compute 固定
+  # (Auth が SSM cognito param を書き、Compute が deploy-time に解決するため順序依存)。
+  STAGING_STACKS: GanbariQuestStorageStaging GanbariQuestAuthStaging GanbariQuestComputeStaging
+
+jobs:
+  deploy-aws-staging:
+    runs-on: ubuntu-24.04-arm
+    environment: staging
+    # Actor guard: ADR-0022 体制の 2 account に限定 (deploy-nuc-staging.yml と同型)。
+    # 想定外 actor による staging stack への任意 deploy を防ぐ。
+    if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)
+    steps:
+      # Step 1: Checkout。pull_request = 統合 PR の HEAD / workflow_dispatch = develop HEAD。
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'develop' || github.event.pull_request.head.sha }}
+
+      # Step 2: Node 22
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # Step 3: Validate required secrets (ADR-0024 — silent skip 禁止)。
+      # 新規 secret はゼロ (#2873): いずれも本番 deploy.yml で配布済みの既存 secret を再利用する。
+      # - AWS_OIDC_IAMROLE_ARN: AWS 認証
+      # - PARENT_GATE_COOKIE_SECRET: staging Lambda (AUTH_MODE=cognito) の /admin/* PIN gate 署名鍵
+      # - OPS_SECRET_KEY: 同一 CDK app 内で prod ComputeStack が常に instantiate され、
+      #   #1586 cron-dispatcher guard が synth-time に発火するため context として必要
+      #   (staging stack 自体は cron-dispatcher を持たず env にも注入されない)。
+      - name: Validate required secrets
+        env:
+          AWS_OIDC_IAMROLE_ARN: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
+          PARENT_GATE_COOKIE_SECRET: ${{ secrets.PARENT_GATE_COOKIE_SECRET }}
+          OPS_SECRET_KEY: ${{ secrets.OPS_SECRET_KEY }}
+        run: |
+          missing=0
+          for s in AWS_OIDC_IAMROLE_ARN PARENT_GATE_COOKIE_SECRET OPS_SECRET_KEY; do
+            val=$(eval echo "\$$s")
+            if [ -z "$val" ]; then
+              echo "::error::Required GitHub Secret '$s' is missing. Register via 'gh secret set $s --body <value>'"
+              missing=$((missing + 1))
+            else
+              echo "::notice::Required secret '$s' is set"
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::error::$missing required secret(s) missing — aborting staging deploy (#2873)"
+            exit 1
+          fi
+
+      # Step 4: AWS OIDC 認証 (deploy.yml と同 action / 同 secret)
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Step 5: CDK dependencies
+      - name: Install CDK dependencies
+        working-directory: infra/
+        run: npm ci
+
+      # Step 6: staging SSM context-token-secret の冪等 put (PO 手作業なし)。
+      # ComputeStaging が deploy-time に /ganbari-quest-staging/context-token-secret を
+      # AWS::SSM::Parameter::Value<String> で解決するため、Compute deploy 前に存在保証する。
+      # 既存なら no-op (rotate は手動)。
+      - name: Ensure staging SSM context-token-secret (idempotent)
+        run: |
+          PARAM_NAME="/ganbari-quest-staging/context-token-secret"
+          if aws ssm get-parameter --name "$PARAM_NAME" --region $AWS_REGION > /dev/null 2>&1; then
+            echo "::notice::SSM $PARAM_NAME already exists; skipping put"
+          else
+            SECRET=$(openssl rand -hex 32)
+            aws ssm put-parameter \
+              --name "$PARAM_NAME" \
+              --type String \
+              --value "$SECRET" \
+              --region $AWS_REGION
+            echo "::notice::SSM $PARAM_NAME created"
+          fi
+
+      # Step 7: ADR-0019 gate (Storage) — Replacement / Destroy を deploy 前に検知し、
+      # 未承認なら exit 1 で停止する (scripts/check-cdk-replacement.mjs 再利用、#1400)。
+      - name: CDK diff — replacement check (StorageStaging)
+        working-directory: infra/
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          npx cdk diff GanbariQuestStorageStaging \
+            -c stagingEnabled=true \
+            -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
+
+      # Step 8: StorageStaging deploy (ECR repo / DynamoDB table / S3 を先行作成 —
+      # 続く docker push 先 repo を確保するため)
+      - name: CDK Deploy StorageStaging
+        working-directory: infra/
+        run: >-
+          npx cdk deploy GanbariQuestStorageStaging --require-approval never
+          -c stagingEnabled=true
+          -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }}
+          -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+
+      # Step 9: Docker build (ARM64) → staging ECR push (sha + latest)。
+      # prod repo は使わない (prod rollback の [-2] digest 選択 + lifecycle maxImageCount:10 を
+      # staging push が侵食するため、staging 専用 repo ganbari-quest-staging に push する)。
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Generate version
+        run: npm run version:generate
+        env:
+          APP_MAJOR_VERSION: ${{ env.APP_MAJOR_VERSION }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push Docker image (staging)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.lambda
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          build-args: |
+            BUILD_TIMESTAMP=${{ github.run_id }}-${{ github.run_attempt }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Step 10: ADR-0019 gate (staging 3 stack)
+      - name: CDK diff — replacement check (staging 3 stacks)
+        working-directory: infra/
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          npx cdk diff $STAGING_STACKS \
+            -c stagingEnabled=true \
+            -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
+            -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }} \
+            2>&1 | COMMIT_MSG="$COMMIT_MSG" node ../scripts/check-cdk-replacement.mjs
+
+      # Step 11: staging 3 stack を明示列挙で deploy (`--all` 禁止 — 本番 6 stack 混線防止)。
+      # Auth → Compute の順序は SSM param (cognito/*) の deploy-time 解決に必要なため、
+      # 1 stack ずつ直列に deploy する (Auth/Compute 間に CFN 依存辺は意図的に無い)。
+      - name: CDK Deploy staging stacks (explicit enumeration)
+        working-directory: infra/
+        run: |
+          for stack in $STAGING_STACKS; do
+            echo "=== cdk deploy $stack ==="
+            npx cdk deploy "$stack" --require-approval never \
+              -c stagingEnabled=true \
+              -c parentGateCookieSecret=${{ secrets.PARENT_GATE_COOKIE_SECRET }} \
+              -c opsSecretKey=${{ secrets.OPS_SECRET_KEY }}
+          done
+
+      # Step 12: staging Lambda を今回 push した sha image に明示更新 (deploy.yml Phase 4 同型 —
+      # `latest` タグは CFN が新 push を検知できないため)。
+      - name: Update Lambda function image (staging)
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          aws lambda update-function-code \
+            --function-name $LAMBDA_FUNCTION \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            --region $AWS_REGION
+          aws lambda wait function-updated \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION
+
+      # Step 13: ORIGIN / COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL の解決 (縮退可)。
+      # Function URL は synth 時未確定 (自己参照) のため CDK は placeholder を注入している。
+      # get-function-url-config で実 URL を取得し、jq read-modify-write で env を merge 更新する。
+      # health / smoke (Step 14-15) は GET のみで ORIGIN 非依存のため、本 step 失敗でも続行する
+      # (continue-on-error)。POST 系 (CSRF origin check) の検証が必要になった時点で必須化を再判断。
+      - name: Resolve ORIGIN from Function URL (best-effort)
+        continue-on-error: true
+        run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION \
+            --query 'FunctionUrl' --output text)
+          ORIGIN="${FUNCTION_URL%/}"
+          echo "Resolved staging ORIGIN: $ORIGIN"
+          ENV_JSON=$(aws lambda get-function-configuration \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION \
+            --query 'Environment.Variables' --output json)
+          NEW_ENV=$(echo "$ENV_JSON" | jq --arg origin "$ORIGIN" \
+            '. + {ORIGIN: $origin, COGNITO_CALLBACK_URL: ($origin + "/auth/callback"), COGNITO_LOGOUT_URL: ($origin + "/auth/login")}')
+          aws lambda update-function-configuration \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION \
+            --environment "{\"Variables\": $NEW_ENV}"
+          aws lambda wait function-updated \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION
+          echo "::notice::staging ORIGIN resolved and applied: $ORIGIN"
+
+      # Step 14: Post-deploy health check (deploy.yml Phase 5 pattern、5 retry)。
+      # staging table は空だが /api/health はデータ非依存 (設計 §データ戦略)。
+      - name: Health check (staging)
+        id: healthcheck
+        run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION \
+            --query 'FunctionUrl' --output text)
+          echo "Health check target: ${FUNCTION_URL}api/health"
+          echo "Waiting 10s for Lambda cold start..."
+          sleep 10
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health")
+            echo "Attempt $i: status=$STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "::notice::staging health check passed (G-PD AWS 側、#2873)"
+              exit 0
+            fi
+            echo "Retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::staging health check failed after 5 attempts (last status: $STATUS)"
+          exit 1
+
+      # Step 15: Smoke test — / と /switch の到達 (200/302) を確認
+      # (deploy-nuc-staging.yml Step 7 と同判定基準)。
+      - name: Smoke test (staging)
+        run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION \
+            --query 'FunctionUrl' --output text)
+          BASE="${FUNCTION_URL%/}"
+          ROOT=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/")
+          echo "GET / -> $ROOT"
+          if [ "$ROOT" != "200" ] && [ "$ROOT" != "302" ]; then
+            echo "::error::Smoke test failed: GET / returned $ROOT (expected 200 or 302)"
+            exit 1
+          fi
+          SWITCH=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/switch")
+          echo "GET /switch -> $SWITCH"
+          if [ "$SWITCH" != "200" ] && [ "$SWITCH" != "302" ]; then
+            echo "::error::Smoke test failed: GET /switch returned $SWITCH (expected 200 or 302)"
+            exit 1
+          fi
+          echo "::notice::staging smoke test passed (/ and /switch reachable)"
+
+      # Step 16: Rollback on failure — staging ECR の previous digest に戻す
+      # (deploy.yml Phase 5b 同型。staging repo は maxImageCount:3 のため直近 2 世代まで戻せる)。
+      - name: Rollback on failure
+        if: failure() && steps.healthcheck.outcome == 'failure'
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          echo "Staging deployment failed, rolling back to previous image..."
+          PREVIOUS_DIGEST=$(aws ecr describe-images \
+            --repository-name $ECR_REPOSITORY \
+            --query 'sort_by(imageDetails,&imagePushedAt)[-2].imageDigest' \
+            --output text \
+            --region $AWS_REGION)
+          if [ "$PREVIOUS_DIGEST" = "None" ] || [ -z "$PREVIOUS_DIGEST" ]; then
+            echo "No previous staging image found, cannot rollback (initial deploy?)"
+            exit 1
+          fi
+          echo "Rolling back to image digest: $PREVIOUS_DIGEST"
+          aws lambda update-function-code \
+            --function-name $LAMBDA_FUNCTION \
+            --image-uri $ECR_REGISTRY/$ECR_REPOSITORY@$PREVIOUS_DIGEST \
+            --region $AWS_REGION
+          aws lambda wait function-updated \
+            --function-name $LAMBDA_FUNCTION \
+            --region $AWS_REGION
+          echo "Staging rollback complete"

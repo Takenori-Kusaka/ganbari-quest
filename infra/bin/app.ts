@@ -3,6 +3,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
 import { ComputeStack } from '../lib/compute-stack';
+import { STAGING_ENV_CONFIG } from '../lib/env-config';
 import { NetworkStack } from '../lib/network-stack';
 import { OpsStack } from '../lib/ops-stack';
 import { SesStack } from '../lib/ses-stack';
@@ -94,5 +95,42 @@ new OpsStack(app, `${appName}Ops`, {
 	opsEmail,
 	discordWebhookHealth,
 });
+
+// --- AWS staging 3 stack (#2873 / EPIC #2861 D 系) ---
+// `-c stagingEnabled=true` 時のみ instantiate する context gate。
+// 本番の `cdk deploy --all` / `cdk diff --all` (deploy.yml) は context 無しで実行されるため
+// 挙動不変 (staging との混線防止)。staging deploy は .github/workflows/deploy-aws-staging.yml が
+// 3 stack を明示列挙して行う (`--all` 不使用)。
+// Network / Ses / Ops は省略: Function URL 直アクセスで検証する (CloudFront は
+// geoRestriction JP のため本番 e2e も Function URL 直の実績パターン踏襲)。
+const stagingEnabled = String(app.node.tryGetContext('stagingEnabled')) === 'true';
+if (stagingEnabled) {
+	const stagingStorage = new StorageStack(app, `${appName}StorageStaging`, {
+		env,
+		description: 'DynamoDB + S3 + ECR for Ganbari Quest (staging, #2873)',
+		envConfig: STAGING_ENV_CONFIG,
+	});
+
+	// staging Auth: custom domain / Google IdP / Route53 省略 (googleClientId 未指定で
+	// 既存条件分岐が自然 skip)。Cognito default domain + SSM domain param は stack 内で必ず書く。
+	const stagingAuth = new AuthStack(app, `${appName}AuthStaging`, {
+		env,
+		description: 'Cognito User Pool for Ganbari Quest (staging, #2873)',
+		envConfig: STAGING_ENV_CONFIG,
+	});
+
+	const stagingCompute = new ComputeStack(app, `${appName}ComputeStaging`, {
+		env,
+		description: 'Lambda (SvelteKit) for Ganbari Quest (staging, #2873)',
+		table: stagingStorage.table,
+		assetsBucket: stagingStorage.assetsBucket,
+		repository: stagingStorage.repository,
+		envConfig: STAGING_ENV_CONFIG,
+	});
+
+	for (const stack of [stagingStorage, stagingAuth, stagingCompute]) {
+		cdk.Tags.of(stack).add('gq-env', 'staging');
+	}
+}
 
 app.synth();

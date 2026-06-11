@@ -6,6 +6,7 @@ import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
+import { type GqEnvConfig, PROD_ENV_CONFIG } from './env-config';
 
 export interface AuthStackProps extends cdk.StackProps {
 	/** App domain for future use (e.g. ganbari-quest.com) */
@@ -16,6 +17,11 @@ export interface AuthStackProps extends cdk.StackProps {
 	googleClientSecret?: string;
 	/** ACM certificate ARN covering auth.<appDomain> (us-east-1) */
 	certificateArn?: string;
+	/**
+	 * 環境設定 (#2873)。未指定時は PROD_ENV_CONFIG (現行 prod 値) — prod template 不変条件。
+	 * staging は custom domain / Google IdP / Route53 を省略し、Cognito default domain を使う。
+	 */
+	envConfig?: GqEnvConfig;
 }
 
 export class AuthStack extends cdk.Stack {
@@ -24,6 +30,10 @@ export class AuthStack extends cdk.Stack {
 
 	constructor(scope: Construct, id: string, props: AuthStackProps) {
 		super(scope, id, props);
+
+		const cfg = props.envConfig ?? PROD_ENV_CONFIG;
+		const prefix = cfg.resourcePrefix;
+		const isProd = cfg.envName === 'prod';
 
 		// GoogleIdP を UserPoolClient より先に用意し、CloudFormation に明示依存を付けるために
 		// ローカル変数として保持する。supportedIdentityProviders に Google を含めるクライアントは
@@ -41,7 +51,7 @@ export class AuthStack extends cdk.Stack {
 		// 論理 ID を変えることで新 Pool を新規作成 → 旧 Pool は RETAIN により orphan として残る
 		// (deploy 成功後に手動で削除する)。Pre-PMF 境界内で既存 federated ユーザー消失を許容。
 		this.userPool = new cognito.UserPool(this, 'UserPoolV2', {
-			userPoolName: 'ganbari-quest-users-v2',
+			userPoolName: `${prefix}-users-v2`,
 			selfSignUpEnabled: true,
 			signInAliases: { email: true },
 			autoVerify: { email: true },
@@ -50,12 +60,16 @@ export class AuthStack extends cdk.Stack {
 				email: { required: true, mutable: true },
 			},
 			// SES 経由でメール送信（DKIM/SPF 付き ganbari-quest.com ドメインから）
-			email: cognito.UserPoolEmail.withSES({
-				sesRegion: 'us-east-1',
-				fromEmail: 'noreply@ganbari-quest.com',
-				fromName: 'がんばりクエスト',
-				sesVerifiedDomain: 'ganbari-quest.com',
-			}),
+			// staging (#2873): 本番外部サービスへの副作用ゼロ方針のため SES 送信は構成せず
+			// Cognito default email に fallback する (undefined 指定で CDK default)。
+			email: isProd
+				? cognito.UserPoolEmail.withSES({
+						sesRegion: 'us-east-1',
+						fromEmail: 'noreply@ganbari-quest.com',
+						fromName: 'がんばりクエスト',
+						sesVerifiedDomain: 'ganbari-quest.com',
+					})
+				: undefined,
 			// Email OTP is enforced at the application layer (not Cognito MFA)
 			// after USER_PASSWORD_AUTH succeeds, app sends OTP via SES and verifies
 			mfa: cognito.Mfa.OPTIONAL,
@@ -81,7 +95,7 @@ export class AuthStack extends cdk.Stack {
 				tenantId: new cognito.StringAttribute({ mutable: true }),
 				role: new cognito.StringAttribute({ mutable: true }),
 			},
-			removalPolicy: cdk.RemovalPolicy.RETAIN,
+			removalPolicy: cfg.removalPolicy,
 		});
 
 		// --- #820 PR-C: /ops ダッシュボード用 Cognito group ---
@@ -100,7 +114,7 @@ export class AuthStack extends cdk.Stack {
 		// --- CustomMessage Lambda Trigger (日本語HTML メールテンプレート) ---
 		// #1828: AWS Lambda Node.js 20.x EOL (2026-04-30) 対応で 22.x へ migration
 		const customMessageFn = new lambda.Function(this, 'CustomMessageFn', {
-			functionName: 'ganbari-quest-cognito-custom-message',
+			functionName: `${prefix}-cognito-custom-message`,
 			runtime: lambda.Runtime.NODEJS_22_X,
 			handler: 'index.handler',
 			timeout: cdk.Duration.seconds(5),
@@ -173,7 +187,7 @@ export class AuthStack extends cdk.Stack {
 				// フォールバック: Cognito デフォルトドメイン
 				const domain = this.userPool.addDomain('CognitoDomain', {
 					cognitoDomain: {
-						domainPrefix: 'ganbari-quest',
+						domainPrefix: prefix,
 					},
 				});
 				domainValue = `${domain.domainName}.auth.${this.region}.amazoncognito.com`;
@@ -191,7 +205,7 @@ export class AuthStack extends cdk.Stack {
 
 			// Cognito Domain を SSM に出力（アプリ側で参照）
 			new ssm.StringParameter(this, 'CognitoDomainParam', {
-				parameterName: '/ganbari-quest/cognito/domain',
+				parameterName: `${cfg.ssmPrefix}/cognito/domain`,
 				stringValue: domainValue,
 			});
 
@@ -203,6 +217,27 @@ export class AuthStack extends cdk.Stack {
 				value: 'true',
 				description: 'Google Identity Provider is configured',
 			});
+		} else if (!isProd) {
+			// --- staging (#2873): Google IdP 無しでも Hosted UI default domain + SSM param を必ず用意 ---
+			// ComputeStack が `${ssmPrefix}/cognito/domain` を valueForStringParameter で解決するため、
+			// param 不在だと staging Compute の deploy が失敗する。custom domain / Route53 は省略し
+			// Cognito default domain (https://<prefix>.auth.<region>.amazoncognito.com) を書き込む。
+			const domain = this.userPool.addDomain('CognitoDomain', {
+				cognitoDomain: {
+					domainPrefix: prefix,
+				},
+			});
+			const domainValue = `${domain.domainName}.auth.${this.region}.amazoncognito.com`;
+
+			new ssm.StringParameter(this, 'CognitoDomainParam', {
+				parameterName: `${cfg.ssmPrefix}/cognito/domain`,
+				stringValue: domainValue,
+			});
+
+			new cdk.CfnOutput(this, 'CognitoDomainOutput', {
+				value: domainValue,
+				description: 'Cognito Hosted UI Domain (staging default domain)',
+			});
 		}
 
 		// --- User Pool Client (パブリッククライアント、USER_PASSWORD_AUTH + OAuth) ---
@@ -210,7 +245,7 @@ export class AuthStack extends cdk.Stack {
 		// GoogleIdP 作成完了を待ってから UserPoolClient を作成する (race 回避)。
 		// Deploy 失敗ログ: "The provider Google does not exist for User Pool ..." (2026-04-21)
 		this.userPoolClient = this.userPool.addClient('PublicClient', {
-			userPoolClientName: 'ganbari-quest-public',
+			userPoolClientName: `${prefix}-public`,
 			generateSecret: false, // InitiateAuth (USER_PASSWORD_AUTH) はパブリッククライアント必須
 			authFlows: {
 				userPassword: true, // cognito-direct-auth.ts の USER_PASSWORD_AUTH
@@ -248,11 +283,11 @@ export class AuthStack extends cdk.Stack {
 
 		// --- SSM Parameters (スタック間依存の切り離し) ---
 		new ssm.StringParameter(this, 'UserPoolIdParam', {
-			parameterName: '/ganbari-quest/cognito/user-pool-id',
+			parameterName: `${cfg.ssmPrefix}/cognito/user-pool-id`,
 			stringValue: this.userPool.userPoolId,
 		});
 		new ssm.StringParameter(this, 'UserPoolClientIdParam', {
-			parameterName: '/ganbari-quest/cognito/client-id',
+			parameterName: `${cfg.ssmPrefix}/cognito/client-id`,
 			stringValue: this.userPoolClient.userPoolClientId,
 		});
 
