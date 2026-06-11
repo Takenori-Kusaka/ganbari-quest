@@ -1,5 +1,9 @@
 name: Deploy to NUC (Staging)
 
+# NOTE (#3014): Windows PowerShell 5.1 は UTF-8 (BOM 無し) script を CP932 誤読するため、
+# run block 内の**文字列リテラルは ASCII のみ**とする (多バイト文字が `"` 直前にあると
+# 0x82 等の先行 byte が閉じ引用符を食い ParseException)。YAML コメントの日本語は可。
+
 # NUC staging 環境 (#2872 / EPIC #2861 D 系) — 統合 PR (develop→main) の本番近似検証レーン。
 #
 # 設計の核 (本番不変条件 #2872 AC4 厳守):
