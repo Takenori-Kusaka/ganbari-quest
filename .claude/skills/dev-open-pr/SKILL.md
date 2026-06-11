@@ -13,7 +13,7 @@ description: Use when a Dev Agent (Claude Code) is about to open a PR on ganbari
 2. **PR body Ready checklist 全 `[x]` 化** — 「QA 承認・動作確認が完了している」も Dev 自身で `[x]` (Dev 完遂宣言、QM が re-verify する )
 3. **AC 検証マップ 4 列形式** (`| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |`) — 2 列簡略形式は `ac-map-incomplete` で exit 1
 4. **forbidden-terms 0 件** (「予定」「follow-up」「TODO」「PENDING」「DEFERRED」「別途」「個別起票」) — PR で完遂 or Issue 起票して PR から除去 (partial PR 禁止)
-5. **rebase 完了** — base branch に rebase 済みで mergeable: CONFLICTING でないこと。**base は develop 二層で決まる** (branch-strategy.md §3/§5、#2870 cutover / #2959): feature/fix/docs PR = `git fetch origin develop && git rebase origin/develop` / hotfix (`fix/*` → main) = `git fetch origin main && git rebase origin/main`。判定 SSOT: `node scripts/lib/resolve-base-branch.mjs`
+5. **rebase 完了** — base branch に rebase 済みで mergeable: CONFLICTING でないこと。**base は develop 二層で決まる** (branch-strategy.md §3/§5、#2870 cutover / #2959): feature/fix/docs PR = `git fetch origin develop && git rebase origin/develop` / hotfix (`fix/*` → main) = `git fetch origin main && git rebase origin/main`。判定 SSOT: `node scripts/lib/resolve-base-branch.mjs` / 基点鮮度の機械検証: `node scripts/lib/resolve-base-branch.mjs --verify-base` (#2975)。`--force-with-lease` が stale info で reject されたら `git fetch origin <branch>:refs/remotes/origin/<branch> --force` 後に再 push (worktree / 限定 refspec 下の tracking ref は自動更新されない)。**PR open 中に base が進んだら QM BLOCK を待たず速やかに rebase + SS 再撮影** (#3009、SOP SSOT: [branch-strategy.md §3](../../../docs/sessions/branch-strategy.md))
 
 これらは Step 9 で自動 verify されるが、**実装者は pre-ready を skip しない**。「Step 9 は PR body 表面チェックだから」という誤認で skip した結果、本日 #2625-#2630 で 4 連続 CI fail → QA Tier 2 Review BLOCK 列挙工程化 → QM 本質判定時間圧迫 = QA チーム時間効率 (user 明示 priority) 毀損。
 

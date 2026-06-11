@@ -24,9 +24,19 @@
  *
  * Usage (CLI):
  *   node scripts/lib/resolve-base-branch.mjs            # => "develop" または "main" を stdout に出力
+ *   node scripts/lib/resolve-base-branch.mjs --verify-base  # 基点鮮度検証 (#2975 AC2): HEAD が
+ *                                                           # origin/<base> 最新を取り込んでいなければ exit 1
  *   GANBARI_PR_BASE=main node scripts/lib/resolve-base-branch.mjs
  *
  * exit: 0 = 解決成功 / 1 = git 情報取得不能 (呼び出し側は main に fallback すること)
+ *       --verify-base 時は「HEAD が origin/<base> より遅れている (stale base)」でも 1
+ *
+ * #2975 (single-branch refspec self-heal):
+ *   `git clone --single-branch` 由来の main 限定 refspec だと `git fetch origin develop` しても
+ *   refs/remotes/origin/develop が更新されず、stale develop 基点ズレ (16 commits 遅れ事故 2 回) と
+ *   pre-push drift verify の偽 PASS が構造的に発生する。resolveBaseBranchAuto() の冒頭で
+ *   ensureDevelopRefspec() が refspec を自己修復するため、本 SSOT を経由する全経路
+ *   (.husky/pre-push Step 2.0 / scripts/pre-ready.mjs) に self-heal が波及する。
  */
 
 import { execSync } from 'node:child_process';
@@ -67,6 +77,64 @@ export function resolveBaseBranch({
 }
 
 /**
+ * remote.origin.fetch の refspec 行が origin/develop の追跡を含むかの純粋判定 (#2975、unit test 対象)。
+ * `+refs/heads/*:refs/remotes/origin/*` (全 branch) または develop 明示行があれば true。
+ *
+ * @param {string[]} refspecLines `git config --get-all remote.origin.fetch` の行配列
+ * @returns {boolean}
+ */
+export function refspecCoversDevelop(refspecLines) {
+	return refspecLines.some((line) => {
+		const src = (line.replace(/^\+/, '').split(':')[0] ?? '').trim();
+		return src === 'refs/heads/*' || src === 'refs/heads/develop';
+	});
+}
+
+/**
+ * single-branch refspec の自己修復 (#2975 AC1)。
+ * remote.origin.fetch に develop を追跡する refspec が無い場合、remote に develop が実在することを
+ * 確認した上で refspec 追加 + fetch する。worktree は main repo と git config を共有するため、
+ * 修復は clone 単位で 1 回だけ走る (以後 refspecCoversDevelop が true で即 return)。
+ *
+ * - offline / remote に develop 不在 (cutover 前 repo 互換) → 何もしない (従来挙動維持)
+ * - 修復失敗は呼び出し側の base 解決を妨げない (throw しない)
+ *
+ * @param {{ cwd?: string }} [opts]
+ * @returns {boolean} true = refspec を修復した
+ */
+export function ensureDevelopRefspec(opts = {}) {
+	const cwd = opts.cwd ?? process.cwd();
+	/** @param {string} cmd 固定コマンド文字列 (ユーザー入力は通さない) @param {number} [timeout] ms */
+	const run = (cmd, timeout) =>
+		execSync(cmd, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout }).trim();
+
+	let lines = [];
+	try {
+		lines = run('git config --get-all remote.origin.fetch')
+			.split('\n')
+			.filter((l) => l.trim() !== '');
+	} catch {
+		return false; // origin 未設定等 — 解決は従来どおり進める
+	}
+	if (lines.length === 0 || refspecCoversDevelop(lines)) return false;
+
+	try {
+		// remote に develop が実在する場合のみ修復 (不在 remote へ refspec を足すと fetch が壊れる)
+		const lsRemote = run('git ls-remote --heads origin develop', 15_000);
+		if (!lsRemote) return false;
+		run('git config --add remote.origin.fetch "+refs/heads/develop:refs/remotes/origin/develop"');
+	} catch {
+		return false; // offline / ls-remote 失敗 — 修復見送り
+	}
+	try {
+		run('git fetch origin develop', 30_000);
+	} catch {
+		// fetch 失敗 (一時的 offline 等) でも refspec 追加自体は有効 — 次回 fetch で追跡される
+	}
+	return true;
+}
+
+/**
  * git / gh から解決入力を収集して resolveBaseBranch を呼ぶ。
  * git 情報が取得できない場合は throw する (呼び出し側で main fallback)。
  *
@@ -78,6 +146,14 @@ export function resolveBaseBranchAuto(opts = {}) {
 	/** @param {string} args git サブコマンド文字列 (固定引数のみ、ユーザー入力は通さない) */
 	const git = (args) =>
 		execSync(`git ${args}`, { cwd, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+
+	// #2975 AC1: single-branch refspec self-heal。base 解決前に origin/develop の追跡を保証し、
+	// stale develop 基点ズレ + pre-push drift verify 偽 PASS を構造的に防ぐ。
+	try {
+		ensureDevelopRefspec({ cwd });
+	} catch {
+		// self-heal 失敗でも解決は継続 (従来挙動と同一の fallback 経路)
+	}
 
 	const envBase = process.env.GANBARI_PR_BASE?.trim() || null;
 	if (envBase) {
@@ -143,7 +219,37 @@ const isMain = (() => {
 
 if (isMain) {
 	try {
-		process.stdout.write(`${resolveBaseBranchAuto()}\n`);
+		const base = resolveBaseBranchAuto();
+		if (process.argv.includes('--verify-base')) {
+			// #2975 AC2: 基点鮮度の機械検証。branch 作成直後 / push 前に
+			// 「HEAD が origin/<base> の最新を取り込んでいる (behind 0)」ことを exit code で保証する。
+			if (!/^[\w./-]+$/.test(base)) {
+				console.error(`[resolve-base-branch] ERROR: 不正な base branch 名: ${base}`);
+				process.exit(1);
+			}
+			/** @param {string} cmd 固定コマンド + validate 済 base 名のみ @param {number} [timeout] ms */
+			const run = (cmd, timeout) =>
+				execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], timeout }).trim();
+			try {
+				run(`git fetch origin ${base}`, 30_000);
+			} catch {
+				console.error(
+					`[resolve-base-branch] WARN: git fetch origin ${base} 失敗 (offline?) — 手元 ref で鮮度判定します`,
+				);
+			}
+			const behind = run(`git rev-list --count HEAD..origin/${base}`);
+			if (behind !== '0') {
+				console.error(
+					`[resolve-base-branch] FAIL: HEAD は origin/${base} より ${behind} commits 遅れています (stale base 基点ズレ #2975)`,
+				);
+				console.error(`          対処: git fetch origin ${base} && git rebase origin/${base}`);
+				process.exit(1);
+			}
+			console.error(
+				`[resolve-base-branch] OK: HEAD は origin/${base} の最新を取り込み済 (behind 0)`,
+			);
+		}
+		process.stdout.write(`${base}\n`);
 		process.exit(0);
 	} catch (err) {
 		console.error(

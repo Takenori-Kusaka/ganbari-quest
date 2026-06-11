@@ -91,7 +91,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 
 ## PR 作業時の手順
 
-1. `git fetch origin && git pull` で最新化
+1. `git fetch origin && git pull` で最新化。worktree / clone 直後は refspec に develop 行があるか確認 + branch 作成直後は `node scripts/lib/resolve-base-branch.mjs --verify-base` で基点鮮度を機械検証（stale develop 基点ズレ防止 #2975、SOP SSOT: [branch-strategy.md §3](branch-strategy.md)）
 2. PR / Issue / レビューコメント確認: `gh pr view <num>`, `gh issue view <num>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応禁止）
 4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #1920 で SSOT 検証 step 拡張)。10 step (biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / lp-fallback / **check-no-plan-literals** (#972 / Phase 5 F1) / **generate-lp-labels --check** (#1917 / Phase 1 B1) / check-pr-body / capture) を順次実行、fail で即停止 + 修正方針表示。E2E / Storybook は別途
@@ -355,6 +355,10 @@ PO 側 SSOT (`docs/sessions/po-session.md` §「補佐設計品質ガード 6」
 ### force push 禁止（ADR-0026 / #1750）
 
 `git push --force` 禁止。やむを得ない場合は `--force-with-lease`。main / release 候補ブランチは `require_last_push_approval: true` で force push 後の再 approve 必須。
+
+- push 前に `git fetch origin <base> && git rebase origin/<base>` を実行する（base は `node scripts/lib/resolve-base-branch.mjs` で解決）
+- `--force-with-lease` が stale info で reject された場合は `git fetch origin <branch>:refs/remotes/origin/<branch> --force` で tracking ref を明示更新してから再 push する（worktree / 限定 refspec 下では `git fetch origin <branch>` は FETCH_HEAD のみ更新で tracking ref を更新しない、#2975）
+- **PR open 中に base（develop）が進んだら QM BLOCK を待たず速やかに rebase + push する**（#3009）。UI 変更 PR は rebase 後の SS 再撮影も必須。SOP SSOT: [branch-strategy.md §3](branch-strategy.md)
 
 ### 設計ポリシー先行確認（ADR-0008 / #1023）
 
