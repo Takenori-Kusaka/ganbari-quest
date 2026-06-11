@@ -100,7 +100,10 @@ export const POST: RequestHandler = async ({ request, cookies, locals, getClient
  * 最大強度 (research: tmp/research/pin-reset-federated-user-2026-06-11.md)。
  * @returns 検証 NG なら error Response、OK なら null
  */
-function verifyFederatedRecentAuth(authTime: number | undefined, tenantId: string): Response | null {
+function verifyFederatedRecentAuth(
+	authTime: number | undefined,
+	tenantId: string,
+): Response | null {
 	const ageSec = authTime ? Math.floor(Date.now() / 1000) - authTime : Number.POSITIVE_INFINITY;
 	if (ageSec > RECENT_AUTH_MAX_AGE_SEC) {
 		logger.info('[PARENT_GATE] reset-verified: federated recent-auth stale (再ログイン誘導)', {
