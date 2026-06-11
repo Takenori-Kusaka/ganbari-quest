@@ -1,12 +1,26 @@
 // src/lib/server/db/dynamodb/special-reward-repo.ts
 // DynamoDB implementation of ISpecialRewardRepo
 
-import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	DeleteCommand,
+	PutCommand,
+	QueryCommand,
+	ScanCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
+import type { UpdateSpecialRewardInput } from '../interfaces/special-reward-repo.interface';
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { childPK, ENTITY_NAMES, specialRewardKey, specialRewardPrefix, tenantPK } from './keys';
+import {
+	childPK,
+	ENTITY_NAMES,
+	rewardRedemptionPrefix,
+	specialRewardKey,
+	specialRewardPrefix,
+	tenantPK,
+} from './keys';
 
 /** Strip PK/SK/GSI keys from a DynamoDB item */
 function stripKeys<T extends Record<string, unknown>>(
@@ -155,6 +169,133 @@ export async function markRewardShown(
 
 	if (!updateResult.Attributes) return undefined;
 	return stripKeys(updateResult.Attributes) as unknown as SpecialReward;
+}
+
+/**
+ * tenant 配下から指定 rewardId の REWARD# item を 1 件特定する (PK/SK 解決用)。
+ * SK = REWARD#<ts>#<id> で childId が不明なため tenant Scan + id filter
+ * (reward-redemption-repo.findRedemptionItemById と同パターン、低頻度操作)。
+ */
+async function findRewardItemById(
+	rewardId: number,
+	tenantId: string,
+): Promise<({ PK: string; SK: string } & Record<string, unknown>) | undefined> {
+	const result = await getDocClient().send(
+		new ScanCommand({
+			TableName: TABLE_NAME,
+			FilterExpression: 'begins_with(PK, :tenantPrefix) AND begins_with(SK, :prefix) AND id = :id',
+			ExpressionAttributeValues: {
+				':tenantPrefix': tenantPK('CHILD#', tenantId),
+				':prefix': specialRewardPrefix(),
+				':id': rewardId,
+			},
+			Limit: 1,
+		}),
+	);
+	const item = (result.Items ?? [])[0];
+	if (!item) return undefined;
+	return item as { PK: string; SK: string } & Record<string, unknown>;
+}
+
+/**
+ * #2832: 特別報酬を編集 (title / points / icon / category)。
+ * pending redemption が存在しても編集可 (案 b)。申請済みの交換は redemption item の
+ * 非正規化 snapshot (申請時点値) で処理されるため、本編集は申請に波及しない。
+ */
+export async function updateSpecialReward(
+	rewardId: number,
+	updates: UpdateSpecialRewardInput,
+	tenantId: string,
+): Promise<SpecialReward | undefined> {
+	const found = await findRewardItemById(rewardId, tenantId);
+	if (!found) return undefined;
+
+	const sets: string[] = [];
+	const names: Record<string, string> = {};
+	const values: Record<string, unknown> = {};
+	if (updates.title !== undefined) {
+		sets.push('#title = :title');
+		names['#title'] = 'title';
+		values[':title'] = updates.title;
+	}
+	if (updates.points !== undefined) {
+		sets.push('#points = :points');
+		names['#points'] = 'points';
+		values[':points'] = updates.points;
+	}
+	if (updates.icon !== undefined) {
+		sets.push('#icon = :icon');
+		names['#icon'] = 'icon';
+		values[':icon'] = updates.icon;
+	}
+	if (updates.category !== undefined) {
+		sets.push('#category = :category');
+		names['#category'] = 'category';
+		values[':category'] = updates.category;
+	}
+	if (sets.length === 0) {
+		return stripKeys(found) as unknown as SpecialReward;
+	}
+
+	const result = await getDocClient().send(
+		new UpdateCommand({
+			TableName: TABLE_NAME,
+			Key: { PK: found.PK, SK: found.SK },
+			UpdateExpression: `SET ${sets.join(', ')}`,
+			ExpressionAttributeNames: names,
+			ExpressionAttributeValues: values,
+			ReturnValues: 'ALL_NEW',
+		}),
+	);
+	if (!result.Attributes) return undefined;
+	return stripKeys(result.Attributes) as unknown as SpecialReward;
+}
+
+/**
+ * #2832: 特別報酬を削除。
+ * pending redemption ガードは service 層 (hasPendingByReward) が担う前提。
+ * SQLite 実装 (挙動 SSOT) と等価にするため、当該 reward の交換申請履歴 item
+ * (解決済 approved/rejected/expired) も削除する。
+ */
+export async function deleteSpecialReward(rewardId: number, tenantId: string): Promise<boolean> {
+	const found = await findRewardItemById(rewardId, tenantId);
+	if (!found) return false;
+
+	// 当該 reward の REDEMPT# item を tenant Scan で収集して削除 (SQLite の cascade 削除と等価)
+	const doc = getDocClient();
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await doc.send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND rewardId = :rid',
+				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
+					':skPrefix': rewardRedemptionPrefix(),
+					':rid': rewardId,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) {
+			await doc.send(
+				new DeleteCommand({
+					TableName: TABLE_NAME,
+					Key: { PK: item.PK as string, SK: item.SK as string },
+				}),
+			);
+		}
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+
+	await doc.send(
+		new DeleteCommand({
+			TableName: TABLE_NAME,
+			Key: { PK: found.PK, SK: found.SK },
+		}),
+	);
+	return true;
 }
 
 /** テナントの全特別報酬を削除（CHILD#* 配下の REWARD# アイテム） */

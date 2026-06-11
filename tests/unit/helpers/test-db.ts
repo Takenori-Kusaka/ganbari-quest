@@ -328,7 +328,11 @@ export const SQL_TABLES = `
 		parent_note TEXT,
 		resolved_at INTEGER,
 		resolved_by_parent_id INTEGER,
-		shown_to_child_at INTEGER
+		shown_to_child_at INTEGER,
+		-- #2832: 申請時点 snapshot (NULL = 旧行、live JOIN fallback)
+		reward_title TEXT,
+		reward_points INTEGER,
+		reward_icon TEXT
 	);
 	CREATE INDEX idx_redemption_child_status ON reward_redemption_requests(child_id, status);
 	CREATE INDEX idx_redemption_reward_status ON reward_redemption_requests(reward_id, status);
