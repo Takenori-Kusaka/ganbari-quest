@@ -56,7 +56,7 @@ async function mockPartialFailureAction(
 }
 
 /** `?import=` auto-open dialog → 確定 → action response 待ち → banner の partial-failure 表示 assert */
-async function runPartialFailureFlow(
+async function expectPartialFailureShown(
 	page: import('@playwright/test').Page,
 	opts: {
 		path: string;
@@ -119,7 +119,7 @@ test.describe('#2955 marketplace 取込 partial-failure 表示 (failed 件数の
 			failed: 2,
 			presetId: 'kinder-starter',
 		});
-		await runPartialFailureFlow(page, {
+		await expectPartialFailureShown(page, {
 			path: '/admin/activities?import=kinder-starter',
 			dialogTestid: 'import-child-selection-dialog',
 			actionName: 'importPackToChildren',
@@ -141,7 +141,7 @@ test.describe('#2955 marketplace 取込 partial-failure 表示 (failed 件数の
 			failed: 2,
 			presetId: 'kinder-rewards',
 		});
-		await runPartialFailureFlow(page, {
+		await expectPartialFailureShown(page, {
 			path: '/admin/rewards?import=kinder-rewards',
 			dialogTestid: 'reward-import-child-selection-dialog',
 			actionName: 'importPresetToChildren',
@@ -164,7 +164,7 @@ test.describe('#2955 marketplace 取込 partial-failure 表示 (failed 件数の
 			presetId: 'event-school-start',
 			distributedCount: 2,
 		});
-		await runPartialFailureFlow(page, {
+		await expectPartialFailureShown(page, {
 			path: '/admin/checklists?import=event-school-start',
 			dialogTestid: 'checklist-import-child-selection-dialog',
 			actionName: 'importPresetToChildren',
