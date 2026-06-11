@@ -14,10 +14,10 @@
 //     (運用者フォールバックは docs/runbooks/operator-pin-reset.md の DynamoDB 手順)
 //   - settings repo (SQLite/DynamoDB/demo 抽象) 経由のため 3 形態同一コード
 
+import { env } from '$lib/runtime/env';
 import { getAuthMode } from '$lib/server/auth/factory';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
-import { env } from '$lib/runtime/env';
 
 /** AUTH_MODE=local は単一 tenant ('local' 固定、local.ts provider と同値) */
 const LOCAL_TENANT_ID = 'local';

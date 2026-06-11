@@ -25,7 +25,6 @@ import {
 } from '$lib/server/demo/demo-plan';
 import { sendDiscordAlert } from '$lib/server/discord-alert';
 import { logger } from '$lib/server/logger';
-import { applyOperatorPinResetIfRequested } from '$lib/server/services/pin-operator-reset';
 import { runWithRequestContext } from '$lib/server/request-context';
 import { findLegacyRedirect, rewriteLegacyPath } from '$lib/server/routing/legacy-url-map';
 import { checkApiRateLimit, checkAuthRateLimit } from '$lib/server/security/rate-limiter';
@@ -33,6 +32,7 @@ import { trackServerError } from '$lib/server/services/analytics-service';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
+import { applyOperatorPinResetIfRequested } from '$lib/server/services/pin-operator-reset';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 
 // Epic #2525 Phase 7 Step 0 PR-L0 (#2806): license key 完全全廃 (#2788) の expand 起点。
