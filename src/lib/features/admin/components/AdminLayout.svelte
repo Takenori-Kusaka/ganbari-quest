@@ -460,7 +460,7 @@ function isItemActive(itemHref: string): boolean {
 		background: var(--color-premium);
 		color: var(--color-text-inverse);
 	}
-	/* Trial countdown pill (#3033) — trial active 中のみ表示、TrialBanner と同系トークン */
+	/* Trial countdown pill (#3033) — visible only while trial is active, same tokens as TrialBanner */
 	.trial-pill {
 		display: inline-flex;
 		align-items: center;
@@ -478,7 +478,7 @@ function isItemActive(itemHref: string): boolean {
 	.trial-pill:hover {
 		background: var(--color-action-trial-hover);
 	}
-	/* Plan badge — single instance (#490)。#3033 でプランページへのリンク化 */
+	/* Plan badge — single instance (#490), linked to the subscription page (#3033) */
 	.plan-badge {
 		display: inline-flex;
 		align-items: center;
