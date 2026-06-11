@@ -11,6 +11,7 @@ import {
 	UI_LABELS,
 } from '$lib/domain/labels';
 import { CONCEPT_ICONS } from '$lib/domain/terms';
+import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { ChecklistPreviewData } from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChecklistPanel.svelte';
 // #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
@@ -26,7 +27,8 @@ import ChildSelectionDialog, {
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 // #2778 (Cluster D): 「+ 追加」dropdown menu 用 (User 指摘 #1 ボタン重複解消、Hick's Law / DESIGN.md §10 add 経路 ≤ 4 統合)
-import Menu, { type MenuItem } from '$lib/ui/primitives/Menu.svelte';
+// #2998: Menu component 自体は AdminResourceHeader 内で描画するため、本 page では MenuItem 型のみ参照。
+import type { MenuItem } from '$lib/ui/primitives/Menu.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 import OverflowMenu, { type OverflowMenuItem } from '$lib/ui/primitives/OverflowMenu.svelte';
 // CX-DoR #9 NN/G #4 consistency (Round 18): 取込/配信結果を Toast primitive で一次通知。
@@ -543,23 +545,34 @@ function getChildName(childId: number): string {
 </svelte:head>
 
 <div class="space-y-4" data-testid="admin-checklists-page" data-tutorial="checklists-page">
-	<!-- #2362 PR-5 Phase 2: page header + OverflowMenu (top-right ⋮) -->
+	<!-- #2998 (EPIC #2897): 3 画面共通 AdminResourceHeader に統一 (title + 説明 + + 追加 dropdown + ︙)。
+	     旧 inline header + 本文下部の独立 + 追加 Menu を本 header 1 箇所に集約した (NN/G #4 consistency)。
+	     ︙ overflow は既存 testid (checklists-overflow-menu / overflow-menu-item-*) を保つため
+	     OverflowMenu primitive を overflowSnippet で渡す。 -->
 	<!-- #2905: ❓ ページガイド (CHECKLISTS_GUIDE) の起点アンカーは本 wrapper (data-tutorial="checklists-page")。 -->
-	<header class="flex items-start justify-between gap-2" data-tutorial="checklists-header">
-		<div class="space-y-1 flex-1 min-w-0">
-			<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
-				{ADMIN_CHECKLISTS_PAGE_LABELS.pageTitle}
-			</h1>
-			<p class="text-sm text-[var(--color-text-secondary)]">
-				{ADMIN_CHECKLISTS_PAGE_LABELS.familyChecklistsSectionDesc}
-			</p>
-		</div>
-		<OverflowMenu
-			items={overflowItems}
-			ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.overflowMenuAriaLabel}
-			testid="checklists-overflow-menu"
-		/>
-	</header>
+	<div data-tutorial="checklists-header">
+		<AdminResourceHeader
+			title={ADMIN_CHECKLISTS_PAGE_LABELS.pageTitle}
+			description={ADMIN_CHECKLISTS_PAGE_LABELS.familyChecklistsSectionDesc}
+			addMenuItems={addMenuItems}
+			addButtonLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuButton}
+			addMenuAriaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuAriaLabel}
+			addMenuTestid="checklists-add-menu"
+		>
+			{#snippet overflowSnippet()}
+				<OverflowMenu
+					items={overflowItems}
+					ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.overflowMenuAriaLabel}
+					testid="checklists-overflow-menu"
+				/>
+			{/snippet}
+			{#snippet badge()}
+				{#if !data.isPremium}
+					<PremiumBadge size="sm" label={ADMIN_CHECKLISTS_PAGE_LABELS.premiumBadgeLabel} />
+				{/if}
+			{/snippet}
+		</AdminResourceHeader>
+	</div>
 
 	{#if actionMessage}
 		<div
@@ -657,12 +670,20 @@ function getChildName(childId: number): string {
 		{#if filteredTemplates.length === 0}
 			<Card variant="elevated" padding="lg">
 				{#snippet children()}
+				<!-- #2998 (EPIC #2897): empty state の CTA 出し分けを 3 画面で統一 (AC4)。
+				     activities (ActivityEmptyState) と同型に、初期 setup 期の発見性として
+				     「みんなのテンプレートから探す」secondary link (DESIGN.md §10 bulk import bridge) を出す。
+				     primary 追加は header `+ 追加` dropdown に集約済のため showPrimary=false で重複を避ける。 -->
 				<UnifiedEmptyState
 					testid="admin-checklists-empty-state"
 					icon="🎒"
 					noItemsText={ADMIN_CHECKLISTS_PAGE_LABELS.emptyChecklistMessage}
 					showPrimary={false}
-					canImport={false}
+					canImport={true}
+					importLinkLabel={ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
+					importTestid="checklists-empty-import-link"
+					secondaryMode="link"
+					browseHref="/marketplace?type=checklist"
 				/>
 				{/snippet}
 			</Card>
@@ -846,20 +867,8 @@ function getChildName(childId: number): string {
 			</div>
 		{/if}
 
-		<!-- Actions: #2778 (Cluster D / User 指摘 #1 ボタン重複解消)
-		     旧: テンプレート作成 / ワンオフ追加 の 2 並列 Button (常時可視で混乱)
-		     新: 「+ 追加」dropdown menu に集約 (Hick's Law / DESIGN.md §10 add 経路 ≤ 4) -->
-		<div class="flex gap-2 items-center">
-			<Menu
-				ariaLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuButton}
-				testid="checklists-add-menu"
-				triggerLabel={ADMIN_CHECKLISTS_PAGE_LABELS.addMenuButton}
-				items={addMenuItems}
-			/>
-			{#if !data.isPremium}
-				<PremiumBadge size="sm" label={ADMIN_CHECKLISTS_PAGE_LABELS.premiumBadgeLabel} />
-			{/if}
-		</div>
+		<!-- #2998 (EPIC #2897): 「+ 追加」dropdown + PremiumBadge は AdminResourceHeader に集約済
+		     (旧: 本文下部に Menu を別置きしていたが、3 画面で add 経路の入口を header に統一)。 -->
 
 		<!-- Today's overrides -->
 		{#if selectedChild.overrides.length > 0}

@@ -4097,6 +4097,23 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	copySameChild: `違う${CHILD_TERMS.honorific}を選んでください`,
 	// 互換: importPresetId が無効な場合の guidance
 	importInvalidPreset: '取込対象のプリセットが見つかりませんでした',
+	// #2998 (EPIC #2897): ヘッダー + 「+ 追加」dropdown 統一 (activities / checklists と同型)。
+	//   AI 提案パネル本文直置きを撤去し、dropdown 内の選択肢 (手動 / AI / みんなのテンプレートから探す)
+	//   → Dialog 起動に統一する (DESIGN.md §10 add 経路 ≤ 4 / NN/G #4 consistency)。
+	//   icon / 文言は activities header (FEATURES_LABELS.activitiesHeader.add*) と同一語彙で揃え、
+	//   3 画面の add 経路構成 (種類・順序) 一致を E2E (admin-add-path-isomorphism.spec.ts) で固定する。
+	headerDescription: '子供 shop に並べるごほうび（おこづかい・ゲーム時間・おやつなど）を管理します',
+	addMenuButton: '+ 追加',
+	addMenuAriaLabel: 'ごほうびを追加するメニューを開く',
+	addManualLabel: '手動で1つ追加',
+	addManualIcon: '✏️',
+	addAiLabel: 'AI で提案してもらう',
+	addAiIcon: '✨',
+	addBrowseTemplatesLabel: `${TEMPLATE_TERMS.userFacing}から探す`,
+	addBrowseTemplatesIcon: '🔍',
+	// add dialog title (mode 別、activities の addDialogTitle* / checklists の addDialogTitleAi と同型)
+	addDialogTitleManual: '+ 手動でごほうびを追加',
+	addDialogTitleAi: 'AI で提案してもらう',
 } as const;
 
 /**
@@ -7439,6 +7456,21 @@ export const STORYBOOK_LABELS = {
 		itemRewards: 'ごほうびプリセットを選ぶ',
 		itemChecklist: 'チェックリストを作る',
 		itemChildScreen: '子供の画面を確認する',
+	},
+	// #2998: AdminResourceHeader story の mock 文言 (3 画面共通ヘッダーの play coverage、CX-DoR #8)。
+	adminResourceHeader: {
+		title: '活動管理',
+		description: 'お子さまの活動を登録・編集します',
+		addButtonLabel: '+ 追加',
+		addMenuAriaLabel: '追加メニューを開く',
+		addManual: '手動で1つ追加',
+		addAi: 'AI で提案してもらう',
+		addBrowse: 'みんなのテンプレートから探す',
+		overflowTrigger: '︙',
+		overflowAriaLabel: 'その他の操作',
+		overflowRestore: 'バックアップから復元',
+		overflowExport: 'エクスポート',
+		badge: '有料限定',
 	},
 } as const;
 

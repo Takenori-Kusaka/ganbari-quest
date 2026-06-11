@@ -20,12 +20,12 @@ import {
 	REWARDS_LABELS,
 } from '$lib/domain/labels';
 import { CHILD_TERMS, CONCEPT_ICONS, TEMPLATE_TERMS } from '$lib/domain/terms';
+import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
-import Card from '$lib/ui/primitives/Card.svelte';
 import ChildSelectionDialog, {
 	type ChildOption,
 } from '$lib/ui/primitives/ChildSelectionDialog.svelte';
@@ -94,10 +94,22 @@ $effect(() => {
 });
 
 // #2362 PR-4: 取込失敗 / invalid preset の guidance
+// #2998 fix: 旧実装は invalid 時に毎 effect 実行で `actionMessage` set + `showToast` を呼び、
+//   `showToast` の module-level $state push と effect 再評価が hydration / preview で
+//   `effect_update_depth_exceeded` を起こしていた (develop で再現する pre-existing 不具合、
+//   /admin/rewards が「無反応」化し tab 同期 / copy dialog / action message が全て壊れる)。
+//   one-shot guard (handledInvalidPreset) で同一 invalid 状態に 1 回だけ反映してループを断つ
+//   (import auto-open effect の consumedImportPresetId と同型の guard)。
+let handledInvalidPreset = $state(false);
 $effect(() => {
 	if (data.importPresetInvalid) {
-		actionMessage = ADMIN_REWARDS_PAGE_LABELS.importInvalidPreset;
-		showToast(ADMIN_REWARDS_PAGE_LABELS.importInvalidPreset, undefined, 'info');
+		if (!handledInvalidPreset) {
+			handledInvalidPreset = true;
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.importInvalidPreset;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.importInvalidPreset, undefined, 'info');
+		}
+	} else {
+		handledInvalidPreset = false;
 	}
 });
 
@@ -113,6 +125,62 @@ const childOptions = $derived<ChildOption[]>(
 
 // #2268: 検索 UI 状態
 let searchQuery = $state('');
+
+// #2998 (EPIC #2897): 「+ 追加」dropdown → Dialog 起動方式に統一 (activities / checklists と同型)。
+//   manual = 手動追加フォーム (template grid + custom form) を Dialog で開く。
+//   ai     = AI 提案パネルを Dialog で開く (旧: 本文直置きを撤去)。
+//   browse = /marketplace?type=reward-set へ画面遷移 (admin 内 browse UI を出さない)。
+let showAddDialog = $state(false);
+let addMode = $state<'manual' | 'ai' | null>(null);
+
+function handleAddSelect(mode: 'manual' | 'ai' | 'browse') {
+	switch (mode) {
+		case 'manual':
+		case 'ai':
+			addMode = mode;
+			showAddDialog = true;
+			break;
+		case 'browse':
+			void goto('/marketplace?type=reward-set');
+			break;
+	}
+}
+
+function closeAddDialog() {
+	showAddDialog = false;
+	addMode = null;
+}
+
+// 「+ 追加」dropdown menu items。先頭 3 種 (manual / ai / browse) を activities / checklists と
+// 同一 id・同一順序で揃える (admin-add-path-isomorphism.spec.ts AC6 同型性固定)。
+const addMenuItems = $derived<MenuItem[]>([
+	{
+		id: 'manual',
+		label: ADMIN_REWARDS_PAGE_LABELS.addManualLabel,
+		icon: ADMIN_REWARDS_PAGE_LABELS.addManualIcon,
+		disabled: !data.isPremium,
+		onSelect: () => handleAddSelect('manual'),
+	},
+	{
+		id: 'ai',
+		label: ADMIN_REWARDS_PAGE_LABELS.addAiLabel,
+		icon: ADMIN_REWARDS_PAGE_LABELS.addAiIcon,
+		onSelect: () => handleAddSelect('ai'),
+	},
+	{
+		id: 'browse',
+		label: ADMIN_REWARDS_PAGE_LABELS.addBrowseTemplatesLabel,
+		icon: ADMIN_REWARDS_PAGE_LABELS.addBrowseTemplatesIcon,
+		onSelect: () => handleAddSelect('browse'),
+	},
+]);
+
+// #2998: AI 提案を採用したら Dialog を manual フォーム表示に切り替える (activities acceptAiPreview と同型)。
+//   prefill 後に manual フォームを見せて内容確認 → 「追加する」で確定できる流れ。
+function acceptAiRewardThenSwitch(preview: RewardPreviewData) {
+	acceptAiReward(preview);
+	addMode = 'manual';
+}
 
 // --- ごほうび追加フォーム ---
 let selectedTemplate = $state<{
@@ -362,27 +430,42 @@ async function handleCopyFromChild() {
 </svelte:head>
 
 <div class="space-y-4" data-tutorial="rewards-section">
-	<div class="flex items-center gap-2">
-		<h2 class="text-lg font-bold">{REWARDS_LABELS.sectionTitle}
+	<!-- #2998 (EPIC #2897): 3 画面共通 AdminResourceHeader に統一 (title + 説明 + + 追加 dropdown + ︙)。
+	     旧: inline h2 + overflow Menu。AI 提案パネルの本文直置きを撤去し、+ 追加 dropdown → Dialog 起動に
+	     統一した (activities / checklists と同型、NN/G #4 consistency)。
+	     申請承認の overflow menu (rewards-overflow-menu) と pending バッジは既存 testid を保つため
+	     toolbarLeading / overflowSnippet / badge slot に渡す。 -->
+	<AdminResourceHeader
+		title={REWARDS_LABELS.sectionTitle}
+		description={ADMIN_REWARDS_PAGE_LABELS.headerDescription}
+		addMenuItems={addMenuItems}
+		addButtonLabel={ADMIN_REWARDS_PAGE_LABELS.addMenuButton}
+		addMenuAriaLabel={ADMIN_REWARDS_PAGE_LABELS.addMenuAriaLabel}
+		addMenuTestid="rewards-add-menu"
+		addMenuDataTutorial="rewards-add-start"
+	>
+		{#snippet badge()}
 			{#if !data.isPremium}
-				<span class="ml-1 inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">{REWARDS_LABELS.premiumBadge}</span>
+				<span class="inline-block px-2 py-0.5 text-[10px] rounded-full bg-[var(--color-premium)] text-[var(--color-text-inverse)] align-middle">{REWARDS_LABELS.premiumBadge}</span>
 			{/if}
-		</h2>
-		<!-- #2268: 申請承認バッジ + overflow menu に振替 (旧: タブで併存) -->
-		<div class="ml-auto flex items-center gap-2">
+		{/snippet}
+		{#snippet toolbarLeading()}
 			{#if data.pendingRequestsCount > 0}
 				<span class="inline-flex items-center justify-center min-w-5 h-5 px-1 text-xs font-bold rounded-full bg-[var(--color-action-danger)] text-white" data-testid="pending-badge">
 					{data.pendingRequestsCount}
 				</span>
 			{/if}
+		{/snippet}
+		{#snippet overflowSnippet()}
 			<Menu
 				items={overflowMenuItems}
 				ariaLabel={REWARDS_LABELS.overflowMenuAriaLabel}
 				testid="rewards-overflow-menu"
 				triggerLabel="︙"
+				triggerClass="admin-resource-header__overflow-btn"
 			/>
-		</div>
-	</div>
+		{/snippet}
+	</AdminResourceHeader>
 
 	<!-- Page Description -->
 	<div class="page-description">
@@ -507,8 +590,8 @@ async function handleCopyFromChild() {
 		</div>
 	{/if}
 
-	<!-- AI Suggest Reward Panel (#719) -->
-	<AiSuggestRewardPanel onaccept={acceptAiReward} isFamily={data.planTier === 'family'} />
+	<!-- #2998 (EPIC #2897): AI 提案パネルの本文直置きを撤去。activities / checklists と同型に
+	     「+ 追加」dropdown → AI ダイアログ (下部 showAddDialog + addMode='ai') で開く方式に統一。 -->
 
 	<!-- #2268: 検索結果 0 件メッセージ。CX-DoR #9・#11 横展開 (Round 18): 独自 banner markup を
 	     UnifiedEmptyState SSOT に統一 (NN/G #4 consistency)。filter 結果空のため hasFilter mode +
@@ -523,29 +606,6 @@ async function handleCopyFromChild() {
 			canImport={false}
 		/>
 	{/if}
-
-	<!-- ごほうび一覧 (旧: テンプレートを選択 → プリセットを選択) -->
-	<section>
-		<h3
-			class="text-sm font-bold text-[var(--color-text-muted)] mb-2"
-		>{REWARDS_LABELS.selectTemplateTitle}</h3>
-		<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-			{#each filteredTemplates as tmpl}
-				<Button
-					variant="ghost"
-					size="sm"
-					disabled={!data.isPremium}
-					class="bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto
-						{selectedTemplate?.title === tmpl.title ? 'ring-2 ring-[var(--color-action-primary)]' : ''}"
-					onclick={() => selectTemplate(tmpl)}
-				>
-					<span class="text-2xl block">{tmpl.icon ?? '🎁'}</span>
-					<p class="text-xs font-bold text-[var(--color-text-muted)] mt-1">{tmpl.title}</p>
-					<p class="text-xs text-[var(--color-point)] font-bold">{tmpl.points}P</p>
-				</Button>
-			{/each}
-		</div>
-	</section>
 
 	<!--
 		#2558 段階2 横展開: 旧 Preset Catalog (admin 内 marketplace 風 in-page browse UI、
@@ -567,63 +627,98 @@ async function handleCopyFromChild() {
 		</a>
 	</section>
 
-	<!-- Add Form (旧: Grant Form、#2268 リネーム) -->
-	<Card variant="elevated" padding="md">
-		{#snippet children()}
-		<form
-			method="POST"
-			action="?/add"
-			use:enhance={() => {
-				return async ({ result, update }) => {
-					if (result.type === 'success' && result.data && 'granted' in result.data) {
-						grantSuccess = true;
-						setTimeout(() => { grantSuccess = false; }, 3000);
-					}
-					await update();
-				};
-			}}
-			class="space-y-3"
-		>
-			<h3 class="text-sm font-bold text-[var(--color-text-muted)]">{REWARDS_LABELS.confirmGrantTitle}</h3>
-			<input type="hidden" name="childId" value={selectedChildId} />
-
-			<div class="grid grid-cols-2 gap-3">
-				<FormField label={REWARDS_LABELS.titleLabel} type="text" name="title" bind:value={customTitle} disabled={!data.isPremium} required />
-				<FormField label={REWARDS_LABELS.pointsLabel} type="number" name="points" bind:value={customPoints} min={1} max={10000} disabled={!data.isPremium} required />
-			</div>
-			<div class="grid grid-cols-2 gap-3">
-				<FormField label={REWARDS_LABELS.iconLabel} type="text" name="icon" bind:value={customIcon} disabled={!data.isPremium} />
-				<FormField label={REWARDS_LABELS.categoryLabel}>
-					{#snippet children()}
-						<NativeSelect
-							name="category"
-							bind:value={customCategory}
-							disabled={!data.isPremium}
-							options={Object.entries(categoryLabels).map(([value, label]) => ({ value, label }))}
-						/>
-					{/snippet}
-				</FormField>
-			</div>
-
-			<Button
-				type="submit"
-				variant="primary"
-				size="md"
-				disabled={!data.isPremium}
-				class="w-full"
-				data-tutorial="rewards-add-start"
-			>
-				{REWARDS_LABELS.grantButton(customIcon, customTitle, customPoints)}
-			</Button>
-		</form>
-		{/snippet}
-	</Card>
-
 	{#if grantSuccess}
 		<div class="bg-[color-mix(in_srgb,var(--color-action-success)_10%,transparent)] rounded-xl p-4 border border-[color-mix(in_srgb,var(--color-action-success)_30%,transparent)] text-center">
 			<p class="text-[var(--color-action-success)] font-bold">{REWARDS_LABELS.grantSuccess}</p>
 		</div>
 	{/if}
+
+	<!-- #2998 (EPIC #2897): 「+ 追加」dropdown → Dialog (activities / checklists と同型)。
+	     manual = 手動追加フォーム (プリセット選択 + custom フォーム)、ai = AI 提案パネル。
+	     旧: ごほうび一覧 (プリセット選択 grid) + AI panel + 追加フォームを本文に常時露出していたが、
+	     入口を + 追加 dropdown に統一し視覚ノイズを削減 (NN/G #4 consistency / Hick's Law)。 -->
+	<Dialog
+		bind:open={showAddDialog}
+		title={addMode === 'ai' ? ADMIN_REWARDS_PAGE_LABELS.addDialogTitleAi : ADMIN_REWARDS_PAGE_LABELS.addDialogTitleManual}
+		testid="rewards-add-dialog"
+	>
+		{#if addMode === 'ai'}
+			<!-- AI Suggest Reward Panel (#719)。採用したら manual フォームに切替えて内容確認 → 追加。 -->
+			<AiSuggestRewardPanel onaccept={acceptAiRewardThenSwitch} isFamily={data.planTier === 'family'} />
+		{:else if addMode === 'manual'}
+			<div class="space-y-4">
+				<!-- プリセットを選択 → フォームに prefill -->
+				<section>
+					<h3 class="text-sm font-bold text-[var(--color-text-muted)] mb-2">{REWARDS_LABELS.selectTemplateTitle}</h3>
+					<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+						{#each filteredTemplates as tmpl}
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={!data.isPremium}
+								class="bg-[var(--color-surface-card)] rounded-xl p-3 shadow-sm text-center hover:shadow-md flex-col h-auto
+									{selectedTemplate?.title === tmpl.title ? 'ring-2 ring-[var(--color-action-primary)]' : ''}"
+								onclick={() => selectTemplate(tmpl)}
+							>
+								<span class="text-2xl block">{tmpl.icon ?? '🎁'}</span>
+								<p class="text-xs font-bold text-[var(--color-text-muted)] mt-1">{tmpl.title}</p>
+								<p class="text-xs text-[var(--color-point)] font-bold">{tmpl.points}P</p>
+							</Button>
+						{/each}
+					</div>
+				</section>
+
+				<!-- Add Form (旧: Grant Form、#2268 リネーム) -->
+				<form
+					method="POST"
+					action="?/add"
+					use:enhance={() => {
+						return async ({ result, update }) => {
+							if (result.type === 'success' && result.data && 'granted' in result.data) {
+								grantSuccess = true;
+								closeAddDialog();
+								setTimeout(() => { grantSuccess = false; }, 3000);
+							}
+							await update();
+						};
+					}}
+					class="space-y-3"
+				>
+					<h3 class="text-sm font-bold text-[var(--color-text-muted)]">{REWARDS_LABELS.confirmGrantTitle}</h3>
+					<input type="hidden" name="childId" value={selectedChildId} />
+
+					<div class="grid grid-cols-2 gap-3">
+						<FormField label={REWARDS_LABELS.titleLabel} type="text" name="title" bind:value={customTitle} disabled={!data.isPremium} required />
+						<FormField label={REWARDS_LABELS.pointsLabel} type="number" name="points" bind:value={customPoints} min={1} max={10000} disabled={!data.isPremium} required />
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<FormField label={REWARDS_LABELS.iconLabel} type="text" name="icon" bind:value={customIcon} disabled={!data.isPremium} />
+						<FormField label={REWARDS_LABELS.categoryLabel}>
+							{#snippet children()}
+								<NativeSelect
+									name="category"
+									bind:value={customCategory}
+									disabled={!data.isPremium}
+									options={Object.entries(categoryLabels).map(([value, label]) => ({ value, label }))}
+								/>
+							{/snippet}
+						</FormField>
+					</div>
+
+					<Button
+						type="submit"
+						variant="primary"
+						size="md"
+						disabled={!data.isPremium}
+						class="w-full"
+						data-testid="rewards-add-submit"
+					>
+						{REWARDS_LABELS.grantButton(customIcon, customTitle, customPoints)}
+					</Button>
+				</form>
+			</div>
+		{/if}
+	</Dialog>
 
 	<!-- #2362 PR-4: ChildSelectionDialog (`?import=<presetId>` auto-open) -->
 	<ChildSelectionDialog

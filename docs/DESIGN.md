@@ -571,9 +571,24 @@ Material Design 3「画面 FAB 1 個原則」+ Notion / Linear / Asana / Todoist
 
 同一リソースの add 系操作は **1 つの `+ 追加` dropdown menu に集約**する (Notion / Linear の `+` パターン)。並列の独立ボタンは顧客混乱を招くため不可。適用済: admin/activities (#2558)・admin/checklists (#2778 → #2903、`Menu` primitive で統合)。
 
-#### admin リソース管理ページの add 経路は同型に揃える (#2903、PO 指摘 #6b)
+#### admin リソース管理画面の標準構成 = AdminResourceHeader + + 追加 dropdown + UnifiedEmptyState (#2998、EPIC #2897)
 
-複数の admin リソース管理ページ (活動 / チェックリスト / ごほうび / 等) の「+ 追加」dropdown は、**先頭 3 経路 (手動 / AI で提案 / みんなのテンプレートから探す) を同一順序で揃える** (NN/G #4 consistency)。AI 提案は dropdown 内の選択肢 → Dialog で開く方式に統一し、ページ本文に AI パネルを直置きしない (操作の入口がページ間で異なると顧客が混乱するため)。「みんなのテンプレートから探す」は admin 内 browse UI を出さず `/marketplace?type=<typeCode>` へ画面遷移する (マーケットプレイス一本化、本 §10 上記ルール整合)。同型性は `tests/e2e/admin-add-path-isomorphism.spec.ts` が assert する。
+活動管理 / チェックリスト管理 / ごほうび管理 など admin リソース管理画面は、**同一の正準構成**で実装する。ヘッダー構造・add 経路・AI 起動・empty state がページごとにバラバラだと顧客が画面ごとに操作を学び直す (NN/G #4 consistency 違反、PO 再三指摘「UI を統一してくれというのはずっと言ってきた」) ため、構成要素を共通コンポーネント / SSOT に集約する。
+
+| 要素 | 正準実装 | 配置 |
+|---|---|---|
+| **ヘッダー** | `AdminResourceHeader.svelte` (`src/lib/features/admin/components/`) を全画面で共有 | title + 1 行説明 + 右側 toolbar (+ 追加 dropdown / ︙ overflow) |
+| **+ 追加 dropdown** | `AdminResourceHeader` の `addMenuItems` (Menu primitive)。先頭 3 経路 = 手動 / AI で提案 / みんなのテンプレートから探す を**同一 id・同一順序**で揃える | header 右側 (本文に独立 add ボタンを置かない) |
+| **AI 提案** | + 追加 dropdown の選択肢 → Dialog で起動。**ページ本文に AI パネルを直置きしない** | Dialog 内 |
+| **みんなのテンプレートから探す** | admin 内 browse UI を出さず `/marketplace?type=<typeCode>` へ画面遷移 | dropdown 選択 → goto |
+| **empty state** | `UnifiedEmptyState.svelte` (SSOT、CX-DoR #11)。genuine-empty では bulk import bridge link を出す (下記「bulk import bridge ルール」整合)。primary CTA は header `+ 追加` に集約済のため重複させない | 一覧 0 件時 |
+| **page タイトル** | `PAGE_TITLES.*` (svelte:head) + `AdminResourceHeader` の title。リソース名は単独名詞 (「チェックリスト管理」等、「持ち物」等の限定語を付けない) | — |
+
+新規の admin リソース管理画面を作る際は、独自ヘッダーを inline で組まず **`AdminResourceHeader` を使う**。`ActivitiesHeader.svelte` は本コンポーネントの thin wrapper (活動固有の menu item 構成のみ担当)。`?` ページガイド trigger は `AdminLayout` (全 admin 共通) が担うため本コンポーネント scope 外。
+
+#### admin リソース管理ページの add 経路は同型に揃える (#2903 / #2998、PO 指摘 #6b)
+
+複数の admin リソース管理ページ (活動 / チェックリスト / ごほうび / 等) の「+ 追加」dropdown は、**先頭 3 経路 (手動 / AI で提案 / みんなのテンプレートから探す) を同一順序で揃える** (NN/G #4 consistency)。AI 提案は dropdown 内の選択肢 → Dialog で開く方式に統一し、ページ本文に AI パネルを直置きしない (操作の入口がページ間で異なると顧客が混乱するため)。「みんなのテンプレートから探す」は admin 内 browse UI を出さず `/marketplace?type=<typeCode>` へ画面遷移する (マーケットプレイス一本化、本 §10 上記ルール整合)。同型性は **3 画面 (活動 / チェックリスト / ごほうび)** を対象に `tests/e2e/admin-add-path-isomorphism.spec.ts` が assert する (経路「数」でなく dropdown item の種類・順序の配置パターン同型性、#2998 AC6)。
 
 #### marketplace 取込はマーケットプレイス画面に一本化 (admin 内ブラウズ UI 二重管理禁止、#2558)
 
