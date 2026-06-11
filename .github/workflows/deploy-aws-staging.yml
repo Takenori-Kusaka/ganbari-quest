@@ -16,9 +16,18 @@ name: Deploy to AWS (Staging)
 #   - migration 込み起動 (G-MIG) の主担保は NUC staging (#2872 / deploy-nuc-staging.yml)。
 #     AWS Lambda は DynamoDB backend で applyLazyStartupMigrations を呼ばないため重複実装しない。
 #
-# 位置付け (当面 advisory):
-#   本 workflow は当面 required check に登録しない。初回緑実証後に audit-manager が
-#   main ruleset required_status_checks へ `deploy-aws-staging` を追加する (merge blocker 化)。
+# 位置付け (段階導入、#2874 / docs/runbooks/staging-gate-required-checks.md):
+#   Phase 1 = advisory 観測 (統合 PR 数本で発火・所要・安定性を観測、required 未登録)。
+#   Phase 2 = PO 承認後、audit-manager が main ruleset `PR_Mearge` の required_status_checks へ
+#   `deploy-aws-staging` context を追加する (merge blocker 化、gh api 1 call)。
+#
+# paths filter 撤去 (#2874 / G-STG-GATE required 化の前提):
+#   paths filter 付き workflow を required 化すると、filter 不一致 PR で check が Pending のまま
+#   merge が永久 block される (GitHub Docs troubleshooting-required-status-checks)。
+#   そのため main 向け PR では常に発火させる。docs-only 統合 PR でも deploy が走るが、
+#   idle≈¥0 + 1 日 1 回の統合 PR 頻度で許容 (PO 承認済コスト方針)。
+#   hotfix PR (fix/* → main) でも staging deploy が発火する = ADR-0002「hotfix も重量 gate を
+#   省略しない」と整合 (本番 deploy 経路の事前貫通検証を hotfix にも適用)。
 #
 # コスト (idle≈¥0 / PO 承認済 #2873):
 #   固定費 = staging ECR repo (maxImageCount:3) ≈$0.05〜0.15/月のみ。他は DynamoDB on-demand /
@@ -27,16 +36,6 @@ name: Deploy to AWS (Staging)
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'static/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'svelte.config.js'
-      - 'vite.config.ts'
-      - 'Dockerfile*'
-      - 'infra/**'
-      - '.github/workflows/deploy-aws-staging.yml'
   workflow_dispatch:
 
 permissions:
