@@ -21,7 +21,8 @@
  * ## 注意
  *
  * - 4 つの dev server を port 5201-5204 で同時起動するため、起動に 30-60 秒程度かかる
- * - デフォルト CI には含めない（追加時は e2e-test ジョブのタイムアウトを要確認）
+ * - CI 組込済 (#2874): `.github/workflows/ci.yml` の `e2e-matrix` job が重量レーン
+ *   (main 向け PR = 統合 PR / hotfix + main push) で実行する。develop 向け PR では skip。
  * - DEBUG_* env の上書きは `dev === true` でのみ効く（ADR-0029 safety）
  */
 import { defineConfig, devices } from '@playwright/test';
@@ -92,7 +93,10 @@ export default defineConfig({
 		command: `npm run dev -- --port ${s.port}`,
 		port: s.port,
 		reuseExistingServer: !process.env.CI,
-		timeout: 60_000,
+		// #2874: CI runner で dev server 4 本同時起動すると 60s では cold start が間に合わず
+		// flake するため 120s に拡張 (server 起動待ちの上限であり、test assertion の
+		// timeout / retries:0 は不変 = ADR-0006 assertion 弱体化に非該当)。
+		timeout: 120_000,
 		env: s.env,
 	})),
 });
