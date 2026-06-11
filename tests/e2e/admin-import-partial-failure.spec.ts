@@ -92,6 +92,11 @@ async function expectPartialFailureShown(
 	const banner = page.getByTestId(opts.bannerTestid);
 	await expect(banner).toBeVisible({ timeout: 10_000 });
 
+	// 取込完了で ChildSelectionDialog が閉じること (#2819 one-shot guard) も assert する。
+	// SS をダイアログ越しにしないため撮影前に置く (orchestrator SS 自己レビューで
+	// rewards/activities の after SS がダイアログに覆われ証跡不成立だった是正)。
+	await expect(dialog).toBeHidden({ timeout: 15_000 });
+
 	// SS 証跡 (PR body 添付用、#2955 AC1「SS 添付、表示変化あり」)。
 	// 文言 assert より前に撮ることで、修正前 code では「成功表示のまま」の before 証跡が残る。
 	// DOM HTML スナップショットも同一 page インスタンスから併保する (#1747 AC4 と同思想)。
