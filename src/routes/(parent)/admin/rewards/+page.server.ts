@@ -246,6 +246,8 @@ export const actions: Actions = {
 				skipped: result.skipped,
 				total: result.total,
 				errors: result.errors,
+				// #2955: 実失敗件数 (UI partial-failure 表示の SSOT)
+				failed: result.failed,
 				presetId,
 			};
 		} catch (e) {
@@ -337,6 +339,8 @@ export const actions: Actions = {
 					skipped: result.skipped,
 					total: result.total,
 					errors: result.errors,
+					// #2955: 実失敗件数 (UI partial-failure 表示の SSOT、errors.length は表示ログ専用)
+					failed: result.failed,
 					presetId,
 				};
 			}
@@ -364,6 +368,7 @@ export const actions: Actions = {
 			};
 			let totalImported = 0;
 			let totalSkipped = 0;
+			let totalFailed = 0;
 			const allErrors: string[] = [];
 			for (const childId of childIds) {
 				const result = await rulePresetStrategy.applyRulePreset(identity, payload, {
@@ -372,6 +377,10 @@ export const actions: Actions = {
 				});
 				totalImported += result.imported;
 				totalSkipped += result.skipped;
+				// #2955: 実失敗数は genuine errors のみで数える。warnings (already-imported 等の
+				// 非失敗通知) は表示ログ (allErrors) には載せるが失敗件数に算入しない
+				// (rule-preset-strategy.apply の errors/failed 非対称と同じ精度規約)。
+				totalFailed += result.errors.length;
 				allErrors.push(...result.errors, ...result.warnings);
 			}
 			return {
@@ -381,6 +390,7 @@ export const actions: Actions = {
 				skipped: totalSkipped,
 				total: totalImported + totalSkipped,
 				errors: allErrors,
+				failed: totalFailed,
 				presetId,
 			};
 		} catch (e) {

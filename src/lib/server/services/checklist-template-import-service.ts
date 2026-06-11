@@ -248,6 +248,7 @@ async function importChecklistTemplateInternal(
 		importedItems,
 		errors,
 		// #2830: per-item try/catch のため失敗 item 数 = errors.length。
+		// #2955 注意: この等式は「1 item = 1 error 行」の per-item 設計が前提。将来 bulk persist 化する場合は activity/challenge と同じ行数ベース集計 (planned - persisted) への再設計が必須。
 		failed: errors.length,
 		templateId: template.id,
 	};

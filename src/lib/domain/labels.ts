@@ -3990,6 +3990,23 @@ export const ACTIVITY_FORM_LABELS = {
 } as const;
 
 /**
+ * marketplace 取込 feedback の type 横断共通 compound (#2955)
+ *
+ * partial-failure (一部保存失敗) の表示文言は 5 type (activities / rewards / checklists /
+ * challenges / rules) で同一にする (DESIGN.md §10 NN/G #4 consistency)。
+ * 各 admin page は `resolveImportFeedback()` ($lib/marketplace/ui/import-feedback) 経由で
+ * 本 compound を既定参照する。
+ */
+export const MARKETPLACE_IMPORT_FEEDBACK_LABELS = {
+	// #2818: 一部 (または全件) が保存できなかったとき正直に出す。
+	//   「N 件登録しました」と偽らず、追加できた件数と保存できなかった件数を分けて表示する。
+	partialFailure: (imported: number, failed: number) =>
+		imported > 0
+			? `${imported} 件を追加しましたが、${failed} 件は保存できませんでした`
+			: '保存に失敗しました。もう一度お試しください',
+} as const;
+
+/**
  * admin/activities ページ用ラベル (#2362 PR-3 Phase 4)
  * 子供別タブ切替 + 兄弟共通化 UX (copy / 一括追加) の SSOT。
  */
@@ -4032,11 +4049,8 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	importFailed: '取込に失敗しました',
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	// #2818: 一部 (または全件) が保存できなかったとき正直に出す。
-	//   「N 件登録しました」と偽らず、追加できた件数と保存できなかった件数を分けて表示する。
-	importPartialFailure: (imported: number, failed: number) =>
-		imported > 0
-			? `${imported} 件を追加しましたが、${failed} 件は保存できませんでした`
-			: '保存に失敗しました。もう一度お試しください',
+	// #2955: 文言の SSOT は MARKETPLACE_IMPORT_FEEDBACK_LABELS (3 admin page 横展開で共通化)。
+	importPartialFailure: MARKETPLACE_IMPORT_FEEDBACK_LABELS.partialFailure,
 	// Round 18 Cluster G (per-child scope badge): 英語内部語彙「per-child」UI 露出撤去 (ADR-0045 §9)
 	// 「お子さま別」= per-child scope (個別 child に紐付く activity) を親向けに明示する短い表示
 	scopeBadgePerChild: `${CHILD_TERMS.honorific}別`,

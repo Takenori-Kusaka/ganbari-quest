@@ -33,6 +33,11 @@ export interface DispatchImportResult {
 	skipped: number;
 	total: number;
 	errors: string[];
+	/**
+	 * #2955: 実際に persist 失敗した item / row 数 (ImportResult.failed の素通し)。
+	 * UI の partial-failure 件数表示はこのフィールドが SSOT (errors.length は表示ログ専用)。
+	 */
+	failed: number;
 }
 
 /**
@@ -79,5 +84,8 @@ export async function dispatchImport(input: DispatchImportInput): Promise<Dispat
 		skipped: result.skipped,
 		total: preview.total,
 		errors: result.errors,
+		// #2955: Strategy 算出の failed (実失敗数) を素通しする。旧実装はここで drop しており、
+		// UI が errors.length に fallback して失敗規模を誤表示する経路の根因だった。
+		failed: result.failed,
 	};
 }
