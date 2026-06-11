@@ -108,6 +108,18 @@ export type VerifyPinResult =
 export async function verifyPin(pin: string, tenantId: string): Promise<VerifyPinResult> {
 	const pinHash = await getSetting('pin_hash', tenantId);
 
+	// #2992: 未設定 tenant は DEFAULT_PIN 照合せず PIN_NOT_SET を返す。
+	// parent-gate は「初回は作成・既存は入る」(Apple Screen Time / Google Family Link 同型) に分岐し、
+	// 未設定者は /switch の作成フロー (POST /api/v1/parent-gate/setup) へ誘導される。
+	// 「既定 5086 を login で入力させる」経路は本関数からは廃止 (初回 dead-end の根因、EPIC #2990)。
+	// legacy local 経路 (login() / changePin()) の DEFAULT_PIN fallback は #1360 互換で維持。
+	if (!pinHash) {
+		logger.info('[AUTH] verifyPin: PIN 未設定 tenant (作成フローへ誘導)', {
+			context: { tenantIdPrefix: tenantId.slice(0, 12) },
+		});
+		return { ok: false, error: 'PIN_NOT_SET' };
+	}
+
 	// 2) ロックアウトチェック
 	const lockedUntil = await getSetting('pin_locked_until', tenantId);
 	if (lockedUntil && new Date(lockedUntil) > new Date()) {
@@ -115,13 +127,8 @@ export async function verifyPin(pin: string, tenantId: string): Promise<VerifyPi
 		return { ok: false, error: 'LOCKED_OUT', lockedUntil };
 	}
 
-	// 3) おやカギコード検証（pin_hash 未設定 → DEFAULT_PIN と照合）
-	let isValid: boolean;
-	if (!pinHash) {
-		isValid = pin === DEFAULT_PIN;
-	} else {
-		isValid = bcrypt.compareSync(pin, pinHash);
-	}
+	// 3) おやカギコード検証
+	const isValid = bcrypt.compareSync(pin, pinHash);
 	if (!isValid) {
 		await incrementFailedAttempts(tenantId);
 		// #2335 hotfix Phase 1: PIN gate 本番 5086 confirmation 失敗の root cause 特定用 debug log。

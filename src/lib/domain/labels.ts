@@ -1338,6 +1338,17 @@ export const OYAKAGI_LABELS = {
 	// #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分 token + 1 回限り)
 	gateForgotPinLink: `${OYAKAGI_TERMS.name}を忘れた方`,
 	gateForgotPinHelp: `${OYAKAGI_TERMS.name}が分からない場合は登録メールで再設定できます`,
+	// #2992 (EPIC #2990): 初回は「作る」フロー。PIN 未設定 tenant には login でなく
+	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。
+	// これにより既定 PIN を知らない保護者の初回 dead-end が構造的に解消する。
+	gateCreateTitle: `${OYAKAGI_TERMS.name}をつくってください`,
+	gateCreateDescription: `${ADMIN_VIEW_TERMS.canonical}に入るための${OYAKAGI_TERMS.name}（4〜6桁の数字）を、${PARENT_TERMS.neutral}が決めて入力してください。`,
+	gateCreateConfirmTitle: `もう一度入力してください`,
+	gateCreateConfirmDescription: `確認のため、同じ${OYAKAGI_TERMS.name}をもう一度入力してください。`,
+	gateCreateMismatch: `入力が一致しませんでした。最初からやり直してください`,
+	gateCreateAlreadyConfigured: `${OYAKAGI_TERMS.name}は設定済みです。入力画面からやり直してください`,
+	gateCreateGenericError: `${OYAKAGI_TERMS.name}の作成に失敗しました。もう一度お試しください`,
+	gateCreateSubmitting: 'つくっています…',
 } as const;
 
 /**
@@ -1394,7 +1405,9 @@ export const PIN_RESET_LABELS = {
 export const PIN_GATE_ONBOARDING_LABELS = {
 	dialogTitle: `${ADMIN_VIEW_TERMS.canonical}に入る方法`,
 	dialogIntro: `子供の画面から${ADMIN_VIEW_TERMS.canonical}に戻るには、トップの「だれがつかう？」画面で 🔒 ${ADMIN_VIEW_TERMS.parent} のリンクをタップしてください。`,
-	dialogPinHint: `初回ログイン時の${OYAKAGI_TERMS.name}は ${PIN_DEFAULT_TERMS.hintCompact} です。設定完了画面でも確認できます。`,
+	// #2992: 初回は既定 PIN の入力でなく新規作成 (入力→確認) フローになるため、
+	// 旧「初回ログイン時の○○は 初期 5086…」の既定値案内から作成フロー案内に変更。
+	dialogPinHint: `初めて${ADMIN_VIEW_TERMS.canonical}に入るときに、${PARENT_TERMS.neutral}が${OYAKAGI_TERMS.name}（4〜6桁の数字）を作成します。`,
 	dialogChangePinHint: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.canonical}の「せってい」 → 「${OYAKAGI_TERMS.name}」からいつでも変更できます。`,
 	dontShowAgain: '今後表示しない',
 	// Issue #2353 Phase D / E2E 衝突対策: 子供向け Dialog の「とじる」と strict mode 衝突するため
@@ -3843,6 +3856,8 @@ export const SETUP_COMPLETE_LABELS = {
 	ctaSecondary: 'おやのせっていをみる',
 	pinHintPrefix: `💡 ${ADMIN_VIEW_TERMS.canonical}の「せってい」から`,
 	pinHintMiddle: 'を変更すると、おやの画面を守れるよ。',
+	// #2992: 初回は既定 PIN 入力でなく新規作成フローのため、旧 5086 注記 (defaultValueHint) を置換
+	pinHintSuffix: '初めて入るときに作成します。',
 } as const;
 
 export const CERTIFICATE_DETAIL_LABELS = {

@@ -278,13 +278,120 @@ function registerParentGateTests(): void {
 			const isVisible = await dialog.isVisible().catch(() => false);
 			if (isVisible) {
 				await expect(dialog).toContainText('ご家族の見守り画面');
-				await expect(dialog).toContainText('5086');
+				// #2992: 初回は既定 PIN 入力でなく新規作成フローのため、案内文言は
+				// 「5086 既定値」から「作成します」に変更済 (dialogPinHint)
+				await expect(dialog).toContainText('作成します');
+				await expect(dialog).not.toContainText('5086');
 				await expect(page.getByTestId('pin-gate-onboarding-dont-show-again')).toBeVisible();
 				// 「とじる」ボタンで閉じる + persist
 				await page.getByTestId('pin-gate-onboarding-close').click();
 				await expect(dialog).toBeHidden();
 			}
 			void request; // unused in skipped path
+		});
+	});
+
+	// #2992 (EPIC #2990): 初回 PIN 新規作成フロー (「初回は作る・既存は入る」)
+	// PIN 未設定 tenant は gate modal が login でなく作成 (入力→確認の 2 段) になり、
+	// 確認一致で setup API → parent session 発行 → /admin に到達する (初回 dead-end の根治)。
+	//
+	// cognito-dev config は単一 DB (data/ganbari-quest.db、global-setup が pin_hash を seed 済) のため、
+	// 「未設定 tenant」は spec 内で pin_hash を snapshot → 削除して再現し、afterAll で完全復元する
+	// (#2851 snapshot/restore パターン。削除したまま終了すると後続 spec の「設定済み」前提を壊す)。
+	test.describe('#2992 初回 PIN 作成フロー (PIN 未設定 tenant)', () => {
+		test.use({ storageState: 'playwright/.auth/owner.json' });
+
+		const DB_PATH = 'data/ganbari-quest.db';
+		let pinHashSnapshot: string | null = null;
+
+		test.beforeAll(async () => {
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				const row = db.prepare("SELECT value FROM settings WHERE key = 'pin_hash'").get() as
+					| { value: string }
+					| undefined;
+				pinHashSnapshot = row?.value ?? null;
+			} finally {
+				db.close();
+			}
+		});
+
+		test.beforeEach(async ({ context }) => {
+			await context.clearCookies({ name: 'gq_parent_session' });
+			// 各 test を「未設定」状態から開始 (先行 test の作成で pin_hash が入るため毎回削除)
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				db.prepare("DELETE FROM settings WHERE key = 'pin_hash'").run();
+			} finally {
+				db.close();
+			}
+		});
+
+		test.afterAll(async () => {
+			// seed 状態へ完全復元 (#2851: 自分が消した seed 値を必ず戻す)
+			const { default: Database } = await import('better-sqlite3');
+			const db = new Database(DB_PATH);
+			try {
+				if (pinHashSnapshot !== null) {
+					db.prepare(
+						"INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('pin_hash', ?, datetime('now'))",
+					).run(pinHashSnapshot);
+				} else {
+					db.prepare("DELETE FROM settings WHERE key = 'pin_hash'").run();
+				}
+			} finally {
+				db.close();
+			}
+		});
+
+		/** PinInput remount ({#key}) 後はフォーカスが外れるため、明示 click してから入力する */
+		async function typePinInto(page: import('@playwright/test').Page, pin: string) {
+			const firstInput = page.locator('[data-testid="parent-gate-modal"] input').first();
+			await firstInput.click();
+			for (const ch of pin) {
+				await page.keyboard.press(ch);
+			}
+		}
+
+		test('未設定 tenant: 作成フロー (入力→確認→一致) で /admin に到達する', async ({ page }) => {
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			// login でなく作成フローが表示される (1 段目)
+			const create = page.getByTestId('parent-gate-create');
+			await expect(create).toBeVisible();
+			await expect(create).toHaveAttribute('data-step', 'enter');
+			// 作成モードでは「忘れた方」リンクは出ない (PIN がまだ存在しない)
+			await expect(page.getByTestId('parent-gate-forgot-pin-link')).toHaveCount(0);
+
+			// 1 段目入力 → 確認 step へ
+			await typePinInto(page, '4321');
+			await expect(create).toHaveAttribute('data-step', 'confirm');
+
+			// 2 段目 (一致) → setup API → /admin 到達 (goal 完遂、dead-end でない)
+			const setupResponse = page.waitForResponse(
+				(res) => res.url().includes('/api/v1/parent-gate/setup') && res.status() === 200,
+			);
+			await typePinInto(page, '4321');
+			await setupResponse;
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+		});
+
+		test('確認不一致はエラー表示 + 1 段目からやり直し (dead-end でない)', async ({ page }) => {
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			const create = page.getByTestId('parent-gate-create');
+			await expect(create).toHaveAttribute('data-step', 'enter');
+
+			await typePinInto(page, '4321');
+			await expect(create).toHaveAttribute('data-step', 'confirm');
+
+			// 不一致 → エラー + enter に戻る (リトライ可能)
+			await typePinInto(page, '9999');
+			await expect(page.getByTestId('parent-gate-error')).toBeVisible({ timeout: 10_000 });
+			await expect(page.getByTestId('parent-gate-error')).toContainText('一致しません');
+			await expect(create).toHaveAttribute('data-step', 'enter');
 		});
 	});
 }
