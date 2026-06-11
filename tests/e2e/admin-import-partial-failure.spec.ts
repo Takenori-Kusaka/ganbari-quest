@@ -23,6 +23,7 @@
  *   `tests/unit/marketplace/ui/import-feedback.test.ts` で表示ロジックを回帰固定)。
  */
 
+import { writeFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 import { stringify } from 'devalue';
 
@@ -93,7 +94,9 @@ async function runPartialFailureFlow(
 
 	// SS 証跡 (PR body 添付用、#2955 AC1「SS 添付、表示変化あり」)。
 	// 文言 assert より前に撮ることで、修正前 code では「成功表示のまま」の before 証跡が残る。
+	// DOM HTML スナップショットも同一 page インスタンスから併保する (#1747 AC4 と同思想)。
 	await page.screenshot({ path: `tmp/ss-2955/${opts.screenshotName}.png`, fullPage: false });
+	await writeFile(`tmp/ss-2955/${opts.screenshotName}.dom.html`, await page.content(), 'utf-8');
 
 	await expect(
 		banner,
