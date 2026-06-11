@@ -4230,7 +4230,494 @@ h1, h2, h3, h4 {
 		padding: 0.125rem 0.375rem;
 		border-radius: 4px;
 	}
- .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/components/Logo.svelte?svelte&amp;type=style&amp;lang.css">
+ .svelte-1j96wlh{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/primitives/Menu.svelte?svelte&amp;type=style&amp;lang.css">
+	.menu-trigger-default {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.4rem 0.85rem;
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-sm);
+		background: var(--color-surface-card);
+		font-size: 0.875rem;
+		cursor: pointer;
+	}
+
+	.menu-trigger-default:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.menu-positioner {
+		/* DESIGN section 10: --z-dropdown = 20 token (no raw z-index) */
+		z-index: var(--z-dropdown);
+	}
+
+	.menu-content {
+		min-width: 180px;
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-md);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+		padding: 0.25rem;
+		outline: none;
+	}
+
+	.menu-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+		font-size: 0.875rem;
+		color: var(--color-text-primary);
+		user-select: none;
+		transition: background 0.1s;
+		outline: none;
+	}
+
+	.menu-item[data-highlighted] {
+		background: var(--color-surface-muted);
+	}
+
+	.menu-item[data-disabled] {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.menu-item--danger {
+		color: var(--color-action-danger);
+	}
+
+	.menu-item--danger[data-highlighted] {
+		background: var(--color-feedback-error-bg);
+	}
+
+	.menu-item__icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.25rem;
+		font-size: 1rem;
+		flex-shrink: 0;
+	}
+
+	.menu-item__label {
+		flex: 1;
+	}
+ .svelte-1kkzxk2{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/features/admin/components/AdminResourceHeader.svelte?svelte&amp;type=style&amp;lang.css">
+	.admin-resource-header.svelte-dratj4 {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+	.admin-resource-header__meta.svelte-dratj4 {
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+		flex: 1;
+		min-width: 0;
+	}
+	.admin-resource-header__title-row.svelte-dratj4 {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.admin-resource-header__title.svelte-dratj4 {
+		font-size: 1.125rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+	}
+	.admin-resource-header__desc.svelte-dratj4 {
+		font-size: 0.8125rem;
+		color: var(--color-text-secondary);
+		line-height: 1.4;
+	}
+	.admin-resource-header__toolbar.svelte-dratj4 {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		flex-shrink: 0;
+	}
+	/* Menu primitive pass-through requires :global selector for parent scope visibility (#2260 Fix-1) */
+	.admin-resource-header__toolbar .admin-resource-header__add-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.4rem 0.85rem;
+		border: none;
+		border-radius: var(--radius-md);
+		background: var(--color-action-primary);
+		color: var(--color-text-inverse);
+		font-size: 0.875rem;
+		font-weight: 700;
+		cursor: pointer;
+		transition: filter 0.15s;
+	}
+	.admin-resource-header__toolbar .admin-resource-header__add-btn:hover:not(:disabled) {
+		filter: brightness(0.9);
+	}
+	.admin-resource-header__toolbar .admin-resource-header__add-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+	.admin-resource-header__toolbar .admin-resource-header__overflow-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border: none;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		font-size: 1.25rem;
+		line-height: 1;
+		cursor: pointer;
+		transition: background 0.15s;
+		color: var(--color-text-secondary);
+	}
+	.admin-resource-header__toolbar .admin-resource-header__overflow-btn:hover {
+		background: var(--color-surface-muted);
+	}
+ .svelte-dratj4{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/components/ProgressMessage.svelte?svelte&amp;type=style&amp;lang.css">
+	.progress-message.svelte-1u7s47l {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 0.875rem;
+		color: #6b7280;
+	}
+
+	.progress-message__dot.svelte-1u7s47l {
+		display: inline-flex;
+		gap: 3px;
+	}
+
+	.progress-message__dot.svelte-1u7s47l::before,
+	.progress-message__dot.svelte-1u7s47l::after,
+	.progress-message__dot.svelte-1u7s47l {
+		content: '';
+	}
+
+	/* Three bouncing dots */
+	.progress-message__dot.svelte-1u7s47l {
+		width: 6px;
+		height: 6px;
+		background: currentColor;
+		border-radius: 50%;
+		animation: svelte-1u7s47l-dot-bounce 1.2s ease-in-out infinite;
+	}
+
+	.progress-message__text.svelte-1u7s47l {
+		animation: svelte-1u7s47l-fade-in 0.3s ease-out;
+	}
+
+	@keyframes svelte-1u7s47l-dot-bounce {
+		0%,
+		80%,
+		100% {
+			transform: scale(0.6);
+			opacity: 0.4;
+		}
+		40% {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
+	@keyframes svelte-1u7s47l-fade-in {
+		from {
+			opacity: 0;
+			transform: translateY(4px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+ .svelte-1u7s47l{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/features/admin/components/AiSuggestRewardPanel.svelte?svelte&amp;type=style&amp;lang.css">
+	.ai-spinner.svelte-1yve11x {
+		display: inline-block;
+		width: 1em;
+		height: 1em;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		animation: svelte-1yve11x-spin 0.6s linear infinite;
+		vertical-align: middle;
+	}
+
+	@keyframes svelte-1yve11x-spin {
+		to { transform: rotate(360deg); }
+	}
+ .svelte-1yve11x{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/marketplace/ui/UnifiedEmptyState.svelte?svelte&amp;type=style&amp;lang.css">
+	.unified-empty-state.svelte-z1q8ae {
+		text-align: center;
+		padding: 2rem 1rem;
+	}
+	.empty-icon.svelte-z1q8ae {
+		font-size: 2rem;
+		margin-bottom: 0.5rem;
+	}
+	.empty-text.svelte-z1q8ae {
+		font-size: 0.875rem;
+		color: var(--color-text-tertiary);
+		margin-bottom: 0.75rem;
+	}
+	.empty-desc.svelte-z1q8ae {
+		font-size: 0.75rem;
+		color: var(--color-text-tertiary);
+		margin-bottom: 0.75rem;
+	}
+	.empty-actions.svelte-z1q8ae {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.empty-import-link.svelte-z1q8ae {
+		display: inline-block;
+		margin-top: 0.5rem;
+		font-size: 0.8125rem;
+		color: var(--color-text-link);
+		background: transparent;
+		border: none;
+		text-decoration: underline;
+		cursor: pointer;
+		padding: 0.25rem 0.5rem;
+	}
+	.empty-import-link.svelte-z1q8ae:hover {
+		filter: brightness(0.85);
+	}
+ .svelte-z1q8ae{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/primitives/ChildSelectionDialog.svelte?svelte&amp;type=style&amp;lang.css">
+	.child-selection-list.svelte-vfvqg1 {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: var(--sp-md);
+	}
+
+	.child-selection-option.svelte-vfvqg1 {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.75rem;
+		border: 2px solid var(--color-border-default);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: border-color 0.1s, background 0.1s;
+		min-height: 56px;
+	}
+
+	.child-selection-option.svelte-vfvqg1:hover {
+		background: var(--color-surface-muted);
+	}
+
+	.child-selection-option.svelte-vfvqg1:has(input:where(.svelte-vfvqg1):checked) {
+		border-color: var(--color-border-focus);
+		background: var(--color-surface-accent);
+	}
+
+	.child-selection-option--all.svelte-vfvqg1 {
+		font-weight: 600;
+	}
+
+	.child-selection-option__icon.svelte-vfvqg1 {
+		font-size: 1.5rem;
+		flex-shrink: 0;
+	}
+
+	.child-selection-option__label.svelte-vfvqg1 {
+		flex: 1;
+		font-size: 0.95rem;
+		color: var(--color-text-primary);
+	}
+
+	.child-selection-option__age.svelte-vfvqg1 {
+		color: var(--color-text-muted);
+		font-size: 0.85rem;
+	}
+
+	.child-selection-option.svelte-vfvqg1 input:where(.svelte-vfvqg1) {
+		flex-shrink: 0;
+	}
+
+	.child-selection-footer.svelte-vfvqg1 {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: var(--sp-sm);
+		border-top: 1px solid var(--color-border-light);
+	}
+ .svelte-vfvqg1{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/primitives/FormField.svelte?svelte&amp;type=style&amp;lang.css">
+	.password-toggle.svelte-pwdxgn {
+		position: absolute;
+		top: 50%;
+		right: 8px;
+		transform: translateY(-50%);
+		padding: 4px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--color-text-muted);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 4px;
+		transition: color 0.15s;
+	}
+
+	.password-toggle.svelte-pwdxgn:hover {
+		color: var(--color-text);
+	}
+
+	.password-toggle.svelte-pwdxgn:focus-visible {
+		outline: 2px solid var(--color-brand-500);
+		outline-offset: 2px;
+	}
+ .svelte-pwdxgn{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/routes/(parent)/admin/rewards/+page.svelte?svelte&amp;type=style&amp;lang.css">
+	.page-description.svelte-1roq0bd {
+		background: var(--color-surface-card);
+		border-radius: 0.75rem;
+		padding: 1rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+	}
+	.page-description__text.svelte-1roq0bd {
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+	}
+	.page-description__hint.svelte-1roq0bd {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+		margin-top: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.06));
+	}
+	.page-description__link.svelte-1roq0bd {
+		color: var(--color-action-primary);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.page-description__link.svelte-1roq0bd:hover {
+		text-decoration: underline;
+	}
+
+	/* #2362 PR-4: child tab row + actions */
+	.child-tab-row.svelte-1roq0bd {
+		display: flex;
+		gap: 0.375rem;
+		flex-wrap: wrap;
+		align-items: center;
+		padding: 0.5rem;
+		background: var(--color-surface-muted);
+		border-radius: var(--radius-md);
+	}
+	.child-tab {
+		border-radius: 9999px !important;
+		font-size: 0.85rem !important;
+	}
+	.child-tab--inactive {
+		background: var(--color-surface) !important;
+		color: var(--color-text-secondary) !important;
+	}
+	.child-tab__count.svelte-1roq0bd {
+		font-size: 0.75rem;
+		opacity: 0.8;
+		margin-left: 0.25rem;
+	}
+	.child-tab-actions.svelte-1roq0bd {
+		display: flex;
+		gap: 0.25rem;
+		margin-left: auto;
+	}
+	.child-context-banner.svelte-1roq0bd {
+		padding: 0.5rem 0.75rem;
+		background: var(--color-surface-accent);
+		border-left: 3px solid var(--color-border-accent);
+		border-radius: var(--radius-sm);
+		display: flex;
+		flex-direction: column;
+		gap: 0.125rem;
+	}
+	.child-context-banner__label.svelte-1roq0bd {
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
+	}
+	.child-context-banner__hint.svelte-1roq0bd {
+		font-size: 0.75rem;
+		color: var(--color-text-muted);
+	}
+
+	.action-message.svelte-1roq0bd {
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius-md);
+		background: var(--color-feedback-info-bg);
+		border: 1px solid var(--color-feedback-info-border);
+		color: var(--color-feedback-info-text);
+		font-size: 0.85rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.action-upgrade-link.svelte-1roq0bd {
+		font-weight: 600;
+		color: var(--color-text-link);
+		text-decoration: underline;
+	}
+
+	/* Copy dialog */
+	.copy-dialog-desc.svelte-1roq0bd {
+		font-size: 0.9rem;
+		color: var(--color-text-secondary);
+		margin-bottom: 0.75rem;
+	}
+	.copy-source-list.svelte-1roq0bd {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+	.copy-source-option.svelte-1roq0bd {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.copy-source-option.svelte-1roq0bd:has(input:where(.svelte-1roq0bd):checked) {
+		background: var(--color-surface-accent);
+		border-color: var(--color-border-focus);
+	}
+	.copy-source-option__label.svelte-1roq0bd {
+		display: flex;
+		gap: 0.5rem;
+		flex: 1;
+	}
+	.copy-source-option__age.svelte-1roq0bd,
+	.copy-source-option__count.svelte-1roq0bd {
+		color: var(--color-text-muted);
+		font-size: 0.85rem;
+	}
+	.copy-source-empty.svelte-1roq0bd {
+		text-align: center;
+		color: var(--color-text-muted);
+		padding: 1rem;
+	}
+	.copy-dialog-footer.svelte-1roq0bd {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border-light);
+	}
+ .svelte-1roq0bd{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/components/Logo.svelte?svelte&amp;type=style&amp;lang.css">
 	.logo-wrapper.svelte-1n7r250 {
 		display: inline-flex;
 		align-items: center;
@@ -5288,494 +5775,7 @@ h1, h2, h3, h4 {
 		border-radius: 0.25rem;
 		letter-spacing: 0.05em;
 	}
- .svelte-h6xk8m{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/primitives/Menu.svelte?svelte&amp;type=style&amp;lang.css">
-	.menu-trigger-default {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0.4rem 0.85rem;
-		border: 1px solid var(--color-border-default);
-		border-radius: var(--radius-sm);
-		background: var(--color-surface-card);
-		font-size: 0.875rem;
-		cursor: pointer;
-	}
-
-	.menu-trigger-default:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.menu-positioner {
-		/* DESIGN section 10: --z-dropdown = 20 token (no raw z-index) */
-		z-index: var(--z-dropdown);
-	}
-
-	.menu-content {
-		min-width: 180px;
-		background: var(--color-surface-card);
-		border: 1px solid var(--color-border-default);
-		border-radius: var(--radius-md);
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-		padding: 0.25rem;
-		outline: none;
-	}
-
-	.menu-item {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-		font-size: 0.875rem;
-		color: var(--color-text-primary);
-		user-select: none;
-		transition: background 0.1s;
-		outline: none;
-	}
-
-	.menu-item[data-highlighted] {
-		background: var(--color-surface-muted);
-	}
-
-	.menu-item[data-disabled] {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.menu-item--danger {
-		color: var(--color-action-danger);
-	}
-
-	.menu-item--danger[data-highlighted] {
-		background: var(--color-feedback-error-bg);
-	}
-
-	.menu-item__icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.25rem;
-		font-size: 1rem;
-		flex-shrink: 0;
-	}
-
-	.menu-item__label {
-		flex: 1;
-	}
- .svelte-1kkzxk2{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/features/admin/components/AdminResourceHeader.svelte?svelte&amp;type=style&amp;lang.css">
-	.admin-resource-header.svelte-dratj4 {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
-	.admin-resource-header__meta.svelte-dratj4 {
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-		flex: 1;
-		min-width: 0;
-	}
-	.admin-resource-header__title-row.svelte-dratj4 {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.admin-resource-header__title.svelte-dratj4 {
-		font-size: 1.125rem;
-		font-weight: 700;
-		color: var(--color-text-primary);
-	}
-	.admin-resource-header__desc.svelte-dratj4 {
-		font-size: 0.8125rem;
-		color: var(--color-text-secondary);
-		line-height: 1.4;
-	}
-	.admin-resource-header__toolbar.svelte-dratj4 {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		flex-shrink: 0;
-	}
-	/* Menu primitive pass-through requires :global selector for parent scope visibility (#2260 Fix-1) */
-	.admin-resource-header__toolbar .admin-resource-header__add-btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.4rem 0.85rem;
-		border: none;
-		border-radius: var(--radius-md);
-		background: var(--color-action-primary);
-		color: var(--color-text-inverse);
-		font-size: 0.875rem;
-		font-weight: 700;
-		cursor: pointer;
-		transition: filter 0.15s;
-	}
-	.admin-resource-header__toolbar .admin-resource-header__add-btn:hover:not(:disabled) {
-		filter: brightness(0.9);
-	}
-	.admin-resource-header__toolbar .admin-resource-header__add-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-	.admin-resource-header__toolbar .admin-resource-header__overflow-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 2rem;
-		height: 2rem;
-		border: none;
-		border-radius: var(--radius-sm);
-		background: transparent;
-		font-size: 1.25rem;
-		line-height: 1;
-		cursor: pointer;
-		transition: background 0.15s;
-		color: var(--color-text-secondary);
-	}
-	.admin-resource-header__toolbar .admin-resource-header__overflow-btn:hover {
-		background: var(--color-surface-muted);
-	}
- .svelte-dratj4{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/components/ProgressMessage.svelte?svelte&amp;type=style&amp;lang.css">
-	.progress-message.svelte-1u7s47l {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		font-size: 0.875rem;
-		color: #6b7280;
-	}
-
-	.progress-message__dot.svelte-1u7s47l {
-		display: inline-flex;
-		gap: 3px;
-	}
-
-	.progress-message__dot.svelte-1u7s47l::before,
-	.progress-message__dot.svelte-1u7s47l::after,
-	.progress-message__dot.svelte-1u7s47l {
-		content: '';
-	}
-
-	/* Three bouncing dots */
-	.progress-message__dot.svelte-1u7s47l {
-		width: 6px;
-		height: 6px;
-		background: currentColor;
-		border-radius: 50%;
-		animation: svelte-1u7s47l-dot-bounce 1.2s ease-in-out infinite;
-	}
-
-	.progress-message__text.svelte-1u7s47l {
-		animation: svelte-1u7s47l-fade-in 0.3s ease-out;
-	}
-
-	@keyframes svelte-1u7s47l-dot-bounce {
-		0%,
-		80%,
-		100% {
-			transform: scale(0.6);
-			opacity: 0.4;
-		}
-		40% {
-			transform: scale(1);
-			opacity: 1;
-		}
-	}
-
-	@keyframes svelte-1u7s47l-fade-in {
-		from {
-			opacity: 0;
-			transform: translateY(4px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
- .svelte-1u7s47l{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/features/admin/components/AiSuggestRewardPanel.svelte?svelte&amp;type=style&amp;lang.css">
-	.ai-spinner.svelte-1yve11x {
-		display: inline-block;
-		width: 1em;
-		height: 1em;
-		border: 2px solid currentColor;
-		border-right-color: transparent;
-		border-radius: 50%;
-		animation: svelte-1yve11x-spin 0.6s linear infinite;
-		vertical-align: middle;
-	}
-
-	@keyframes svelte-1yve11x-spin {
-		to { transform: rotate(360deg); }
-	}
- .svelte-1yve11x{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/marketplace/ui/UnifiedEmptyState.svelte?svelte&amp;type=style&amp;lang.css">
-	.unified-empty-state.svelte-z1q8ae {
-		text-align: center;
-		padding: 2rem 1rem;
-	}
-	.empty-icon.svelte-z1q8ae {
-		font-size: 2rem;
-		margin-bottom: 0.5rem;
-	}
-	.empty-text.svelte-z1q8ae {
-		font-size: 0.875rem;
-		color: var(--color-text-tertiary);
-		margin-bottom: 0.75rem;
-	}
-	.empty-desc.svelte-z1q8ae {
-		font-size: 0.75rem;
-		color: var(--color-text-tertiary);
-		margin-bottom: 0.75rem;
-	}
-	.empty-actions.svelte-z1q8ae {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.empty-import-link.svelte-z1q8ae {
-		display: inline-block;
-		margin-top: 0.5rem;
-		font-size: 0.8125rem;
-		color: var(--color-text-link);
-		background: transparent;
-		border: none;
-		text-decoration: underline;
-		cursor: pointer;
-		padding: 0.25rem 0.5rem;
-	}
-	.empty-import-link.svelte-z1q8ae:hover {
-		filter: brightness(0.85);
-	}
- .svelte-z1q8ae{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/primitives/ChildSelectionDialog.svelte?svelte&amp;type=style&amp;lang.css">
-	.child-selection-list.svelte-vfvqg1 {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		margin-bottom: var(--sp-md);
-	}
-
-	.child-selection-option.svelte-vfvqg1 {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem;
-		border: 2px solid var(--color-border-default);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: border-color 0.1s, background 0.1s;
-		min-height: 56px;
-	}
-
-	.child-selection-option.svelte-vfvqg1:hover {
-		background: var(--color-surface-muted);
-	}
-
-	.child-selection-option.svelte-vfvqg1:has(input:where(.svelte-vfvqg1):checked) {
-		border-color: var(--color-border-focus);
-		background: var(--color-surface-accent);
-	}
-
-	.child-selection-option--all.svelte-vfvqg1 {
-		font-weight: 600;
-	}
-
-	.child-selection-option__icon.svelte-vfvqg1 {
-		font-size: 1.5rem;
-		flex-shrink: 0;
-	}
-
-	.child-selection-option__label.svelte-vfvqg1 {
-		flex: 1;
-		font-size: 0.95rem;
-		color: var(--color-text-primary);
-	}
-
-	.child-selection-option__age.svelte-vfvqg1 {
-		color: var(--color-text-muted);
-		font-size: 0.85rem;
-	}
-
-	.child-selection-option.svelte-vfvqg1 input:where(.svelte-vfvqg1) {
-		flex-shrink: 0;
-	}
-
-	.child-selection-footer.svelte-vfvqg1 {
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.5rem;
-		padding-top: var(--sp-sm);
-		border-top: 1px solid var(--color-border-light);
-	}
- .svelte-vfvqg1{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/lib/ui/primitives/FormField.svelte?svelte&amp;type=style&amp;lang.css">
-	.password-toggle.svelte-pwdxgn {
-		position: absolute;
-		top: 50%;
-		right: 8px;
-		transform: translateY(-50%);
-		padding: 4px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--color-text-muted);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 4px;
-		transition: color 0.15s;
-	}
-
-	.password-toggle.svelte-pwdxgn:hover {
-		color: var(--color-text);
-	}
-
-	.password-toggle.svelte-pwdxgn:focus-visible {
-		outline: 2px solid var(--color-brand-500);
-		outline-offset: 2px;
-	}
- .svelte-pwdxgn{}</style><style type="text/css" data-vite-dev-id="C:/Users/kokor/ganbari-quest/.claude/worktrees/agent-acf825a5ba952c387/src/routes/(parent)/admin/rewards/+page.svelte?svelte&amp;type=style&amp;lang.css">
-	.page-description.svelte-1roq0bd {
-		background: var(--color-surface-card);
-		border-radius: 0.75rem;
-		padding: 1rem;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-	}
-	.page-description__text.svelte-1roq0bd {
-		font-size: 0.8125rem;
-		color: var(--color-text-muted);
-		line-height: 1.5;
-	}
-	.page-description__hint.svelte-1roq0bd {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-		margin-top: 0.5rem;
-		padding-top: 0.5rem;
-		border-top: 1px solid var(--color-border, rgba(0, 0, 0, 0.06));
-	}
-	.page-description__link.svelte-1roq0bd {
-		color: var(--color-action-primary);
-		font-weight: 600;
-		text-decoration: none;
-	}
-	.page-description__link.svelte-1roq0bd:hover {
-		text-decoration: underline;
-	}
-
-	/* #2362 PR-4: child tab row + actions */
-	.child-tab-row.svelte-1roq0bd {
-		display: flex;
-		gap: 0.375rem;
-		flex-wrap: wrap;
-		align-items: center;
-		padding: 0.5rem;
-		background: var(--color-surface-muted);
-		border-radius: var(--radius-md);
-	}
-	.child-tab {
-		border-radius: 9999px !important;
-		font-size: 0.85rem !important;
-	}
-	.child-tab--inactive {
-		background: var(--color-surface) !important;
-		color: var(--color-text-secondary) !important;
-	}
-	.child-tab__count.svelte-1roq0bd {
-		font-size: 0.75rem;
-		opacity: 0.8;
-		margin-left: 0.25rem;
-	}
-	.child-tab-actions.svelte-1roq0bd {
-		display: flex;
-		gap: 0.25rem;
-		margin-left: auto;
-	}
-	.child-context-banner.svelte-1roq0bd {
-		padding: 0.5rem 0.75rem;
-		background: var(--color-surface-accent);
-		border-left: 3px solid var(--color-border-accent);
-		border-radius: var(--radius-sm);
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-	.child-context-banner__label.svelte-1roq0bd {
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: var(--color-text-primary);
-	}
-	.child-context-banner__hint.svelte-1roq0bd {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-	}
-
-	.action-message.svelte-1roq0bd {
-		padding: 0.5rem 0.75rem;
-		border-radius: var(--radius-md);
-		background: var(--color-feedback-info-bg);
-		border: 1px solid var(--color-feedback-info-border);
-		color: var(--color-feedback-info-text);
-		font-size: 0.85rem;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.action-upgrade-link.svelte-1roq0bd {
-		font-weight: 600;
-		color: var(--color-text-link);
-		text-decoration: underline;
-	}
-
-	/* Copy dialog */
-	.copy-dialog-desc.svelte-1roq0bd {
-		font-size: 0.9rem;
-		color: var(--color-text-secondary);
-		margin-bottom: 0.75rem;
-	}
-	.copy-source-list.svelte-1roq0bd {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		margin-bottom: 1rem;
-	}
-	.copy-source-option.svelte-1roq0bd {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem;
-		border: 1px solid var(--color-border-default);
-		border-radius: var(--radius-sm);
-		cursor: pointer;
-	}
-	.copy-source-option.svelte-1roq0bd:has(input:where(.svelte-1roq0bd):checked) {
-		background: var(--color-surface-accent);
-		border-color: var(--color-border-focus);
-	}
-	.copy-source-option__label.svelte-1roq0bd {
-		display: flex;
-		gap: 0.5rem;
-		flex: 1;
-	}
-	.copy-source-option__age.svelte-1roq0bd,
-	.copy-source-option__count.svelte-1roq0bd {
-		color: var(--color-text-muted);
-		font-size: 0.85rem;
-	}
-	.copy-source-empty.svelte-1roq0bd {
-		text-align: center;
-		color: var(--color-text-muted);
-		padding: 1rem;
-	}
-	.copy-dialog-footer.svelte-1roq0bd {
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.5rem;
-		padding-top: 0.5rem;
-		border-top: 1px solid var(--color-border-light);
-	}
- .svelte-1roq0bd{}</style></head>
+ .svelte-h6xk8m{}</style></head>
 	<body data-sveltekit-preload-data="hover" style="">
 		<div style="display: contents"><!--[--><!--[0--><!--[--><!--[-1--><!--]--><!----> <!--[-1--><!--]--><!----> <!--[-1--><div class="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 w-80"><div role="alert" class="bg-white shadow-lg rounded-[var(--radius-md)] px-[var(--sp-md)] py-[var(--sp-sm)] flex items-center gap-[var(--sp-sm)] border-l-4 animate-bounce-in
 					
@@ -5800,7 +5800,7 @@ h1, h2, h3, h4 {
 					]).then(([kit, app]) => {
 						kit.start(app, element, {
 							node_ids: [0, 4, 35],
-							data: [{type:"data",data:{role:"owner",requestId:"1242f1c2-cd46-4e08-aa54-35e004fd7fa7",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"local",tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null},setupOnboarding:null,runtimeMode:"local-debug"},uses:{search_params:["from"]}},{type:"data",data:{children:[{id:1,nickname:"たろうくん",age:4,birthDate:null,theme:"pink",uiMode:"preschool",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:3,totalRewardPoints:100099},{id:2,nickname:"はなこちゃん",age:1,birthDate:null,theme:"pink",uiMode:"baby",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:0,totalRewardPoints:0},{id:3,nickname:"けんたくん",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:0,totalRewardPoints:0},{id:4,nickname:"ゆうこちゃん",age:13,birthDate:null,theme:"green",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:0,totalRewardPoints:0},{id:5,nickname:"まさとくん",age:16,birthDate:null,theme:"purple",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:0,totalRewardPoints:0}],childRewardsByChild:{"1":[{id:3,childId:1,title:"E2Eテスト用ごほうび（交換不可）",description:null,points:99999,icon:"💎",category:"shop_e2e",grantedAt:"2026-06-11 09:04:21"},{id:2,childId:1,title:"E2Eテスト用ごほうび（キャンセル確認用）",description:null,points:50,icon:"🔔",category:"shop_e2e",grantedAt:"2026-06-11 09:04:21"},{id:1,childId:1,title:"E2Eテスト用ごほうび（交換可）",description:null,points:50,icon:"🎁",category:"shop_e2e",grantedAt:"2026-06-11 09:04:21"}],"2":[],"3":[],"4":[],"5":[]},templates:[{title:"テスト100てん",points:100,icon:"🎓",category:"academic"},{title:"しかくごうかく",points:200,icon:"📜",category:"academic"},{title:"うんどうかい1い",points:150,icon:"🏆",category:"sports"},{title:"はっぴょうかいがんばった",points:100,icon:"🎤",category:"social"},{title:"さくひんにゅうしょう",points:150,icon:"🎨",category:"creative"},{title:"おてつだいありがとう",points:50,icon:"🙏",category:"life"}],isPremium:true,planTier:"family",pendingRequestsCount:0,importPresetId:"kinder-rewards",importPresetTypeCode:"reward-set",importPresetInvalid:false,initialChildId:null},uses:{search_params:["import","childId"]}}],
+							data: [{type:"data",data:{role:"owner",requestId:"849cfed8-53e1-424b-80fa-f6ce9ac3889b",isDemo:false},uses:{}},{type:"data",data:{pointSettings:{mode:"point",currency:"JPY",rate:1},authMode:"local",tenantStatus:"active",isPremium:true,planTier:"family",tutorialStarted:false,userRole:"owner",trialStatus:{isTrialActive:false,daysRemaining:0,trialUsed:false,trialEndDate:null},trialJustExpired:false,archivedSummary:{archivedChildCount:0,hasArchivedResources:false},debugPlanSummary:null,gracePeriodStatus:{isSoftDeleted:false,softDeletedAt:null,gracePeriodDays:0,physicalDeletionDate:null,daysRemaining:0,isExpired:false,planTier:null},setupOnboarding:null,runtimeMode:"local-debug"},uses:{search_params:["from"]}},{type:"data",data:{children:[{id:1,nickname:"たろうくん",age:4,birthDate:null,theme:"pink",uiMode:"preschool",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:3,totalRewardPoints:100099},{id:2,nickname:"はなこちゃん",age:1,birthDate:null,theme:"pink",uiMode:"baby",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:0,totalRewardPoints:0},{id:3,nickname:"けんたくん",age:8,birthDate:null,theme:"blue",uiMode:"elementary",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:0,totalRewardPoints:0},{id:4,nickname:"ゆうこちゃん",age:13,birthDate:null,theme:"green",uiMode:"junior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:0,totalRewardPoints:0},{id:5,nickname:"まさとくん",age:16,birthDate:null,theme:"purple",uiMode:"senior",uiModeManuallySet:0,avatarUrl:null,displayConfig:null,userId:null,birthdayBonusMultiplier:1,lastBirthdayBonusYear:null,createdAt:"2026-06-11 09:04:21",updatedAt:"2026-06-11 09:04:21",_sv:3,isArchived:0,archivedReason:null,rewardCount:0,totalRewardPoints:0}],childRewardsByChild:{"1":[{id:3,childId:1,title:"E2Eテスト用ごほうび（交換不可）",description:null,points:99999,icon:"💎",category:"shop_e2e",grantedAt:"2026-06-11 09:04:21"},{id:2,childId:1,title:"E2Eテスト用ごほうび（キャンセル確認用）",description:null,points:50,icon:"🔔",category:"shop_e2e",grantedAt:"2026-06-11 09:04:21"},{id:1,childId:1,title:"E2Eテスト用ごほうび（交換可）",description:null,points:50,icon:"🎁",category:"shop_e2e",grantedAt:"2026-06-11 09:04:21"}],"2":[],"3":[],"4":[],"5":[]},templates:[{title:"テスト100てん",points:100,icon:"🎓",category:"academic"},{title:"しかくごうかく",points:200,icon:"📜",category:"academic"},{title:"うんどうかい1い",points:150,icon:"🏆",category:"sports"},{title:"はっぴょうかいがんばった",points:100,icon:"🎤",category:"social"},{title:"さくひんにゅうしょう",points:150,icon:"🎨",category:"creative"},{title:"おてつだいありがとう",points:50,icon:"🙏",category:"life"}],isPremium:true,planTier:"family",pendingRequestsCount:0,importPresetId:"kinder-rewards",importPresetTypeCode:"reward-set",importPresetInvalid:false,initialChildId:null},uses:{search_params:["import","childId"]}}],
 							form: null,
 							error: null
 						});
@@ -5822,7 +5822,7 @@ h1, h2, h3, h4 {
 		</div>
 	
 
-<!----><!----><!----><!----><!----><div data-scope="menu" data-part="positioner" dir="ltr" id="menu:s1:popper" class="menu-positioner" style="position: absolute; isolation: isolate; min-width: max-content; pointer-events: none; top: 0px; left: 0px; transform: translate3d(0px, -100vh, 0px); z-index: var(--z-index);"><!----><!----><!----><!----><!----><!----><div data-scope="menu" data-part="content" id="menu:s1:content" hidden="" data-state="closed" role="menu" tabindex="0" dir="ltr" aria-labelledby="menu:s1:trigger" class="menu-content"><!----><!----><!----><!----><!----><!----><div data-scope="menu" data-part="item" id="s1/manual" role="menuitem" data-ownedby="menu:s1:content" data-value="manual" class="menu-item " data-testid="menu-item-manual"><!----><!----><span class="menu-item__icon svelte-1kkzxk2" aria-hidden="true">✏️</span><!----> <span class="menu-item__label svelte-1kkzxk2">手動で1つ追加</span></div><!----><!----><!----><!----><div data-scope="menu" data-part="item" id="s1/ai" role="menuitem" data-ownedby="menu:s1:content" data-value="ai" class="menu-item " data-testid="menu-item-ai"><!----><!----><span class="menu-item__icon svelte-1kkzxk2" aria-hidden="true">✨</span><!----> <span class="menu-item__label svelte-1kkzxk2">AI で提案してもらう</span></div><!----><!----><!----><!----><div data-scope="menu" data-part="item" id="s1/browse" role="menuitem" data-ownedby="menu:s1:content" data-value="browse" class="menu-item " data-testid="menu-item-browse"><!----><!----><span class="menu-item__icon svelte-1kkzxk2" aria-hidden="true">🔍</span><!----> <span class="menu-item__label svelte-1kkzxk2">みんなのテンプレートから探す</span></div></div></div><!----><!----><!----><!----><!----><div data-scope="menu" data-part="positioner" dir="ltr" id="menu:s2:popper" class="menu-positioner" style="position: absolute; isolation: isolate; min-width: max-content; pointer-events: none; top: 0px; left: 0px; transform: translate3d(0px, -100vh, 0px); z-index: var(--z-index);"><!----><!----><!----><!----><!----><!----><div data-scope="menu" data-part="content" id="menu:s2:content" hidden="" data-state="closed" role="menu" tabindex="0" dir="ltr" aria-labelledby="menu:s2:trigger" class="menu-content"><!----><!----><!----><!----><!----><!----><div data-scope="menu" data-part="item" id="s2/requests" role="menuitem" data-ownedby="menu:s2:content" data-value="requests" class="menu-item " data-testid="menu-item-requests"><!----><!----><span class="menu-item__icon svelte-1kkzxk2" aria-hidden="true">📋</span><!----> <span class="menu-item__label svelte-1kkzxk2">申請承認</span></div></div></div><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s3:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s3:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s3:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s3:title" aria-describedby="dialog:s3:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="rewards-add-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s3:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->+ 手動でごほうびを追加</h2><!----> <!----><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s3:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" id="dialog:s4:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity " style=""><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s4:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" id="dialog:s4:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s4:title" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="reward-import-child-selection-dialog" style="--layer-index: 0; --nested-layer-count: 0;"><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s4:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->どのお子さまに追加?</h2><!----> <div class="child-selection-list svelte-vfvqg1" role="group" aria-label="お子さま一覧"><label class="child-selection-option child-selection-option--all svelte-vfvqg1"><input name="child-selection" data-testid="child-selection-all" class="svelte-vfvqg1" type="checkbox" style=""> <span class="child-selection-option__icon svelte-vfvqg1" aria-hidden="true">👨‍👩‍👧‍👦</span> <span class="child-selection-option__label svelte-vfvqg1">全員に追加</span></label> <label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-1" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">たろうくん<span class="child-selection-option__age svelte-vfvqg1"> (4 歳)</span><!----></span></label><label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-2" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">はなこちゃん<span class="child-selection-option__age svelte-vfvqg1"> (1 歳)</span><!----></span></label><label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-3" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">けんたくん<span class="child-selection-option__age svelte-vfvqg1"> (8 歳)</span><!----></span></label><label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-4" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">ゆうこちゃん<span class="child-selection-option__age svelte-vfvqg1"> (13 歳)</span><!----></span></label><label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-5" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">まさとくん<span class="child-selection-option__age svelte-vfvqg1"> (16 歳)</span><!----></span></label><!----></div> <div class="child-selection-footer svelte-vfvqg1"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false"><!---->キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false" data-testid="child-selection-confirm"><!---->追加<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s4:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s5:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s5:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s5:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s5:title" aria-describedby="dialog:s5:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="rewards-copy-from-child-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s5:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->他のお子さまからごほうびをコピー</h2><!----> <p class="copy-dialog-desc svelte-1roq0bd">コピー元のお子さまを選んでください (コピー先: <strong class="svelte-1roq0bd">たろうくん</strong>)</p> <div class="copy-source-list svelte-1roq0bd"><label class="copy-source-option svelte-1roq0bd"><input type="radio" name="copy-source" class="svelte-1roq0bd" value="2" data-testid="rewards-copy-source-2" style=""> <span class="copy-source-option__label svelte-1roq0bd">はなこちゃん <span class="copy-source-option__age svelte-1roq0bd">(1 歳)</span> <span class="copy-source-option__count svelte-1roq0bd">0 件</span></span></label><label class="copy-source-option svelte-1roq0bd"><input type="radio" name="copy-source" class="svelte-1roq0bd" value="3" data-testid="rewards-copy-source-3" style=""> <span class="copy-source-option__label svelte-1roq0bd">けんたくん <span class="copy-source-option__age svelte-1roq0bd">(8 歳)</span> <span class="copy-source-option__count svelte-1roq0bd">0 件</span></span></label><label class="copy-source-option svelte-1roq0bd"><input type="radio" name="copy-source" class="svelte-1roq0bd" value="4" data-testid="rewards-copy-source-4" style=""> <span class="copy-source-option__label svelte-1roq0bd">ゆうこちゃん <span class="copy-source-option__age svelte-1roq0bd">(13 歳)</span> <span class="copy-source-option__count svelte-1roq0bd">0 件</span></span></label><label class="copy-source-option svelte-1roq0bd"><input type="radio" name="copy-source" class="svelte-1roq0bd" value="5" data-testid="rewards-copy-source-5" style=""> <span class="copy-source-option__label svelte-1roq0bd">まさとくん <span class="copy-source-option__age svelte-1roq0bd">(16 歳)</span> <span class="copy-source-option__count svelte-1roq0bd">0 件</span></span></label></div> <div class="copy-dialog-footer svelte-1roq0bd"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false"><!---->キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " disabled="" aria-busy="false" data-testid="rewards-copy-from-child-confirm"><!---->コピーする<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s5:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s6:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s6:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s6:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s6:title" aria-describedby="dialog:s6:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-resume-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s6:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->チュートリアルの続き</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">前回の途中から続けますか？</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->最初から<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->続きから<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s7:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s7:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s7:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s7:title" aria-describedby="dialog:s7:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-quick-complete-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s7:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->基本の使い方を確認しました！</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">ここからは実際にお子さまを登録して使い始めましょう。</p> <p class="dialog-hint svelte-1hkj8k9">残りのガイド（活動管理・報酬・レポートなど）は、いつでもヘッダーの「❓」ボタンから確認できます。</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->もっと詳しく見る<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->使い始める<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s8:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s8:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s8:content" tabindex="-1" data-state="closed" aria-modal="true" aria-label="チュートリアル終了確認" aria-labelledby="dialog:s8:title" aria-describedby="dialog:s8:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-exit-confirm-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s8:title" class="sr-only"><!---->チュートリアル終了確認</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">チュートリアルを終了しますか？</p> <p class="dialog-hint svelte-1hkj8k9">進捗は保存されるので、後から続きを再開できます。</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->続ける<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-danger)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->終了する<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s8:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s9:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s9:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s9:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s9:title" aria-describedby="dialog:s9:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="trial-ended-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s9:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->無料体験が終了しました</h2><!----> <div class="trial-ended-body svelte-d5o3di"><div class="trial-ended-icon svelte-d5o3di" aria-hidden="true">📦</div> <p class="trial-ended-message svelte-d5o3di">無料体験期間が終了しました。<br class="svelte-d5o3di"> フリープランの範囲内で引き続きご利用いただけます。</p> <ul class="trial-ended-notes svelte-d5o3di"><li class="svelte-d5o3di">オリジナル活動やチェックリストの超過分は一時的に非表示になります</li> <li class="svelte-d5o3di">データは削除されません — アップグレードで復活します</li></ul> <div class="trial-ended-actions svelte-d5o3di"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-warning)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" aria-busy="false" data-testid="trial-ended-upgrade-cta"><!---->⭐ プランを見る<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false" data-testid="trial-ended-dismiss"><!---->あとで<!----></button><!----></div></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s9:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s10:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s10:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s10:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s10:title" aria-describedby="dialog:s10:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="feedback-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s10:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->ご意見・不具合報告</h2><!----> <!----><form class="space-y-4" data-testid="feedback-form"><!----> <!----><!----><!----><!----><div data-scope="select" data-part="root" dir="ltr" id="select:c1"><!----><div class="flex flex-col gap-1 "><!----><!----><!----><label dir="ltr" id="select:c1:label" data-scope="select" data-part="label" for="select:c1:select" class="text-sm font-medium text-[var(--color-text)]"><!---->種別</label><!----> <!----><!----><!----><div data-scope="select" data-part="control" dir="ltr" id="select:c1:control" data-state="closed"><!----><!----><!----><!----><!----><button id="select:c1:trigger" dir="ltr" type="button" role="combobox" aria-controls="select:c1:content" aria-expanded="false" aria-haspopup="listbox" data-state="closed" aria-invalid="false" aria-required="false" aria-labelledby="select:c1:label" data-scope="select" data-part="trigger" data-placeholder-shown="" class="w-full flex items-center justify-between px-3 py-2 border rounded-[var(--input-radius)]
+<!----><!----><!----><!----><!----><div data-scope="menu" data-part="positioner" dir="ltr" id="menu:s1:popper" class="menu-positioner" style="position: absolute; isolation: isolate; min-width: max-content; pointer-events: none; top: 0px; left: 0px; transform: translate3d(0px, -100vh, 0px); z-index: var(--z-index);"><!----><!----><!----><!----><!----><!----><div data-scope="menu" data-part="content" id="menu:s1:content" hidden="" data-state="closed" role="menu" tabindex="0" dir="ltr" aria-labelledby="menu:s1:trigger" class="menu-content"><!----><!----><!----><!----><!----><!----><div data-scope="menu" data-part="item" id="s1/manual" role="menuitem" data-ownedby="menu:s1:content" data-value="manual" class="menu-item " data-testid="menu-item-manual"><!----><!----><span class="menu-item__icon svelte-1kkzxk2" aria-hidden="true">✏️</span><!----> <span class="menu-item__label svelte-1kkzxk2">手動で1つ追加</span></div><!----><!----><!----><!----><div data-scope="menu" data-part="item" id="s1/ai" role="menuitem" data-ownedby="menu:s1:content" data-value="ai" class="menu-item " data-testid="menu-item-ai"><!----><!----><span class="menu-item__icon svelte-1kkzxk2" aria-hidden="true">✨</span><!----> <span class="menu-item__label svelte-1kkzxk2">AI で提案してもらう</span></div><!----><!----><!----><!----><div data-scope="menu" data-part="item" id="s1/browse" role="menuitem" data-ownedby="menu:s1:content" data-value="browse" class="menu-item " data-testid="menu-item-browse"><!----><!----><span class="menu-item__icon svelte-1kkzxk2" aria-hidden="true">🔍</span><!----> <span class="menu-item__label svelte-1kkzxk2">みんなのテンプレートから探す</span></div></div></div><!----><!----><!----><!----><!----><div data-scope="menu" data-part="positioner" dir="ltr" id="menu:s2:popper" class="menu-positioner" style="position: absolute; isolation: isolate; min-width: max-content; pointer-events: none; top: 0px; left: 0px; transform: translate3d(0px, -100vh, 0px); z-index: var(--z-index);"><!----><!----><!----><!----><!----><!----><div data-scope="menu" data-part="content" id="menu:s2:content" hidden="" data-state="closed" role="menu" tabindex="0" dir="ltr" aria-labelledby="menu:s2:trigger" class="menu-content"><!----><!----><!----><!----><!----><!----><div data-scope="menu" data-part="item" id="s2/requests" role="menuitem" data-ownedby="menu:s2:content" data-value="requests" class="menu-item " data-testid="menu-item-requests"><!----><!----><span class="menu-item__icon svelte-1kkzxk2" aria-hidden="true">📋</span><!----> <span class="menu-item__label svelte-1kkzxk2">申請承認</span></div></div></div><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s3:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s3:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s3:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s3:title" aria-describedby="dialog:s3:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="rewards-add-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s3:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->+ 手動でごほうびを追加</h2><!----> <!----><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s3:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" id="dialog:s4:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity " style="" hidden=""><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s4:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" id="dialog:s4:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s4:title" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="reward-import-child-selection-dialog" style="--layer-index: 0; --nested-layer-count: 0;" hidden=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s4:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->どのお子さまに追加?</h2><!----> <div class="child-selection-list svelte-vfvqg1" role="group" aria-label="お子さま一覧"><label class="child-selection-option child-selection-option--all svelte-vfvqg1"><input name="child-selection" data-testid="child-selection-all" class="svelte-vfvqg1" type="checkbox" style=""> <span class="child-selection-option__icon svelte-vfvqg1" aria-hidden="true">👨‍👩‍👧‍👦</span> <span class="child-selection-option__label svelte-vfvqg1">全員に追加</span></label> <label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-1" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">たろうくん<span class="child-selection-option__age svelte-vfvqg1"> (4 歳)</span><!----></span></label><label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-2" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">はなこちゃん<span class="child-selection-option__age svelte-vfvqg1"> (1 歳)</span><!----></span></label><label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-3" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">けんたくん<span class="child-selection-option__age svelte-vfvqg1"> (8 歳)</span><!----></span></label><label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-4" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">ゆうこちゃん<span class="child-selection-option__age svelte-vfvqg1"> (13 歳)</span><!----></span></label><label class="child-selection-option svelte-vfvqg1"><input name="child-selection" class="svelte-vfvqg1" type="checkbox" data-testid="child-selection-5" style=""> <!----> <span class="child-selection-option__label svelte-vfvqg1">まさとくん<span class="child-selection-option__age svelte-vfvqg1"> (16 歳)</span><!----></span></label><!----></div> <div class="child-selection-footer svelte-vfvqg1"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false"><!---->キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false" data-testid="child-selection-confirm"><!---->追加<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s4:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s5:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s5:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s5:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s5:title" aria-describedby="dialog:s5:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="rewards-copy-from-child-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s5:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->他のお子さまからごほうびをコピー</h2><!----> <p class="copy-dialog-desc svelte-1roq0bd">コピー元のお子さまを選んでください (コピー先: <strong class="svelte-1roq0bd">たろうくん</strong>)</p> <div class="copy-source-list svelte-1roq0bd"><label class="copy-source-option svelte-1roq0bd"><input type="radio" name="copy-source" class="svelte-1roq0bd" value="2" data-testid="rewards-copy-source-2" style=""> <span class="copy-source-option__label svelte-1roq0bd">はなこちゃん <span class="copy-source-option__age svelte-1roq0bd">(1 歳)</span> <span class="copy-source-option__count svelte-1roq0bd">0 件</span></span></label><label class="copy-source-option svelte-1roq0bd"><input type="radio" name="copy-source" class="svelte-1roq0bd" value="3" data-testid="rewards-copy-source-3" style=""> <span class="copy-source-option__label svelte-1roq0bd">けんたくん <span class="copy-source-option__age svelte-1roq0bd">(8 歳)</span> <span class="copy-source-option__count svelte-1roq0bd">0 件</span></span></label><label class="copy-source-option svelte-1roq0bd"><input type="radio" name="copy-source" class="svelte-1roq0bd" value="4" data-testid="rewards-copy-source-4" style=""> <span class="copy-source-option__label svelte-1roq0bd">ゆうこちゃん <span class="copy-source-option__age svelte-1roq0bd">(13 歳)</span> <span class="copy-source-option__count svelte-1roq0bd">0 件</span></span></label><label class="copy-source-option svelte-1roq0bd"><input type="radio" name="copy-source" class="svelte-1roq0bd" value="5" data-testid="rewards-copy-source-5" style=""> <span class="copy-source-option__label svelte-1roq0bd">まさとくん <span class="copy-source-option__age svelte-1roq0bd">(16 歳)</span> <span class="copy-source-option__count svelte-1roq0bd">0 件</span></span></label></div> <div class="copy-dialog-footer svelte-1roq0bd"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false"><!---->キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " disabled="" aria-busy="false" data-testid="rewards-copy-from-child-confirm"><!---->コピーする<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s5:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s6:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s6:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s6:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s6:title" aria-describedby="dialog:s6:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-resume-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s6:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->チュートリアルの続き</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">前回の途中から続けますか？</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->キャンセル<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->最初から<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->続きから<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s7:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s7:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s7:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s7:title" aria-describedby="dialog:s7:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-quick-complete-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s7:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->基本の使い方を確認しました！</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">ここからは実際にお子さまを登録して使い始めましょう。</p> <p class="dialog-hint svelte-1hkj8k9">残りのガイド（活動管理・報酬・レポートなど）は、いつでもヘッダーの「❓」ボタンから確認できます。</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->もっと詳しく見る<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-primary)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->使い始める<!----></button><!----></div><!----> <!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s8:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s8:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s8:content" tabindex="-1" data-state="closed" aria-modal="true" aria-label="チュートリアル終了確認" aria-labelledby="dialog:s8:title" aria-describedby="dialog:s8:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="tutorial-exit-confirm-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s8:title" class="sr-only"><!---->チュートリアル終了確認</h2><!----> <div class="dialog-body svelte-1hkj8k9"><p class="svelte-1hkj8k9">チュートリアルを終了しますか？</p> <p class="dialog-hint svelte-1hkj8k9">進捗は保存されるので、後から続きを再開できます。</p></div> <div class="dialog-actions svelte-1hkj8k9"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--theme-secondary)] text-[var(--color-text)] hover:brightness-95 active:brightness-90 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->続ける<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-danger)] text-white hover:brightness-90 active:brightness-80 px-4 py-2 text-sm rounded-[var(--radius-sm)] " aria-busy="false"><!---->終了する<!----></button><!----></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s8:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s9:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s9:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s9:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s9:title" aria-describedby="dialog:s9:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(20rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="trial-ended-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s9:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->無料体験が終了しました</h2><!----> <div class="trial-ended-body svelte-d5o3di"><div class="trial-ended-icon svelte-d5o3di" aria-hidden="true">📦</div> <p class="trial-ended-message svelte-d5o3di">無料体験期間が終了しました。<br class="svelte-d5o3di"> フリープランの範囲内で引き続きご利用いただけます。</p> <ul class="trial-ended-notes svelte-d5o3di"><li class="svelte-d5o3di">オリジナル活動やチェックリストの超過分は一時的に非表示になります</li> <li class="svelte-d5o3di">データは削除されません — アップグレードで復活します</li></ul> <div class="trial-ended-actions svelte-d5o3di"><!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-[var(--color-warning)] text-white hover:brightness-90 active:brightness-80 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 w-full" aria-busy="false" data-testid="trial-ended-upgrade-cta"><!---->⭐ プランを見る<!----></button><!----> <!----><button class="tap-target inline-flex items-center justify-center gap-2 font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-transparent text-[var(--color-text-muted)] hover:bg-black/5 active:bg-black/10 px-6 py-3 text-md rounded-[var(--radius-md)] min-h-12 " aria-busy="false" data-testid="trial-ended-dismiss"><!---->あとで<!----></button><!----></div></div><!----> <!----><!----><!----><!----><button data-scope="dialog" data-part="close-trigger" dir="ltr" id="dialog:s9:close" type="button" class="absolute top-3 right-3 tap-target w-10 h-10 flex items-center justify-center rounded-[var(--radius-full)] text-[var(--color-text-muted)] hover:bg-black/5" aria-label="とじる"><!---->✕</button><!----></div></div><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="backdrop" dir="ltr" hidden="" id="dialog:s10:backdrop" data-state="closed" class="fixed inset-0 z-[var(--z-overlay)] bg-black/50 backdrop-blur-sm transition-opacity "><!----></div><!----> <!----><!----><!----><!----><div data-scope="dialog" data-part="positioner" dir="ltr" id="dialog:s10:positioner" class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-2 sm:p-[var(--sp-md)]" style="pointer-events: none;"><!----><!----><!----><!----><!----><!----><div data-scope="dialog" data-part="content" dir="ltr" role="dialog" hidden="" id="dialog:s10:content" tabindex="-1" data-state="closed" aria-modal="true" aria-labelledby="dialog:s10:title" aria-describedby="dialog:s10:description" class="bg-white rounded-[var(--radius-lg)] shadow-xl w-full min-w-[280px] max-w-[min(28rem,calc(100vw-1rem))] max-h-[90dvh] overflow-y-auto p-[var(--sp-lg)] " data-testid="feedback-dialog" style=""><!----><!----><!----><!----><!----><!----><h2 data-scope="dialog" data-part="title" dir="ltr" id="dialog:s10:title" class="text-xl font-bold mb-[var(--sp-md)]"><!---->ご意見・不具合報告</h2><!----> <!----><form class="space-y-4" data-testid="feedback-form"><!----> <!----><!----><!----><!----><div data-scope="select" data-part="root" dir="ltr" id="select:c1"><!----><div class="flex flex-col gap-1 "><!----><!----><!----><label dir="ltr" id="select:c1:label" data-scope="select" data-part="label" for="select:c1:select" class="text-sm font-medium text-[var(--color-text)]"><!---->種別</label><!----> <!----><!----><!----><div data-scope="select" data-part="control" dir="ltr" id="select:c1:control" data-state="closed"><!----><!----><!----><!----><!----><button id="select:c1:trigger" dir="ltr" type="button" role="combobox" aria-controls="select:c1:content" aria-expanded="false" aria-haspopup="listbox" data-state="closed" aria-invalid="false" aria-required="false" aria-labelledby="select:c1:label" data-scope="select" data-part="trigger" data-placeholder-shown="" class="w-full flex items-center justify-between px-3 py-2 border rounded-[var(--input-radius)]
 					bg-[var(--input-bg)] text-sm transition-colors
 					border-[var(--input-border)] hover:border-[var(--color-border-strong)]
 					disabled:opacity-50 disabled:cursor-not-allowed"><!----><!----><!----><!----><!----><span data-scope="select" data-part="value-text" dir="ltr" placeholder="選択してください" class="truncate"><!----><!---->選択してください</span><!----> <span class="text-[var(--color-text-muted)] text-xs ml-2">▼</span></button></div><!----> <!----></div> <!----><!----></div><!----> <div class="flex flex-col gap-1"><label for="feedback-text" class="text-sm font-medium text-[var(--color-text)]">内容</label> <textarea id="feedback-text" data-testid="feedback-text" rows="5" placeholder="お気づきの点やご要望をお聞かせください" class="w-full px-3 py-2 border rounded-lg text-sm resize-y
