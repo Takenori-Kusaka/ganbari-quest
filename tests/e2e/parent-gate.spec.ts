@@ -403,15 +403,25 @@ function registerParentGateTests(): void {
 			}
 		});
 
-		/** Ark PinInput の最初の桁を明示 click してから入力する (password input と区別) */
+		/**
+		 * Ark PinInput の最初の桁を明示 click してから入力する (password input と区別)。
+		 * click → keyboard.press の間に focus が確定しない race があるため (初回実行で
+		 * PIN 全桁が空のまま submit され flake)、toBeFocused で focus 確定を待ってから入力する。
+		 */
 		async function typeNewPin(page: import('@playwright/test').Page, pin: string) {
 			const firstDigit = page
 				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]')
 				.first();
 			await firstDigit.click();
+			await expect(firstDigit).toBeFocused();
 			for (const ch of pin) {
 				await page.keyboard.press(ch);
 			}
+			// 全桁反映を確認してから次の操作へ (最終桁の input value が入るまで待つ)
+			const lastDigit = page
+				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]')
+				.last();
+			await expect(lastDigit).not.toHaveValue('');
 		}
 
 		test('誤パスワードでは再設定できずエラー表示 (子供の gate 突破防止)', async ({ page }) => {
