@@ -93,11 +93,7 @@ export default async (page, capture) => {
 		const outDir = path.resolve(process.env.DOM_OUT_DIR || 'tmp/screenshots/pr-2941');
 		mkdirSync(outDir, { recursive: true });
 		const html = await page.evaluate(() => document.documentElement.outerHTML);
-		writeFileSync(
-			path.join(outDir, 'trial-banner-start-error-2941-flow.dom.html'),
-			html,
-			'utf-8',
-		);
+		writeFileSync(path.join(outDir, 'trial-banner-start-error-2941-flow.dom.html'), html, 'utf-8');
 	} finally {
 		cleanTrial();
 	}
