@@ -21,7 +21,10 @@ export type BusinessEventName =
 	| 'activation_signup_completed'
 	| 'activation_first_child_added'
 	| 'activation_first_activity_completed'
-	| 'activation_first_reward_seen';
+	| 'activation_first_reward_seen'
+	// #2904: FeedbackFab 撤去を reversible にする計測 (撤去後に声収集がゼロ化していないか確認)
+	| 'support_page_view'
+	| 'feedback_submitted';
 
 /**
  * Properties that can be attached to a tracking event.

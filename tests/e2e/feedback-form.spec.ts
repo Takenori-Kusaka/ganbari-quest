@@ -1,126 +1,86 @@
 // tests/e2e/feedback-form.spec.ts
-// #839: アプリ内フィードバック送信フォーム E2E テスト
+// #2904: フィードバック導線 E2E (旧 #839 FeedbackFab + FeedbackDialog は撤去済)
+//
+// PO 判断 (#2904): フィードバック導線は 設定 > サポート (/admin/settings/support) の
+// 単独 SSOT。「各ページには不要。設定>サポートにあればOK。」
+// - 右下常設 FeedbackFab が admin 画面に存在しない (イルカ問題の根治)
+// - 各リソース画面の ︙ overflow menu に「ご意見を送る」item を置かない
+// - 設定 > サポートのご意見フォーム (SSOT) で送信が goal 完遂する
+//   (act → outcome assert、tests/CLAUDE.md「render-only 禁止」)
 
-import type { Page } from '@playwright/test';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 /**
- * PremiumWelcome ダイアログが表示されていたら閉じる。
- * global-setup で premium_welcome_shown=true をセット済みだが、
- * DB 状態のタイミングで表示される可能性があるためフォールバック。
+ * Ark UI Menu trigger を開く helper (admin-activities-add-ux.spec.ts と同型)。
+ * Ark UI Menu は hydration 完了後に listener を attach するため、`data-state="open"` に
+ * 遷移するまで rAF 間隔で再 click する (#2260 Fix-6 で確立した安定化パターン)。
  */
-async function dismissWelcomeIfVisible(page: Page): Promise<void> {
-	const welcomeDialog = page.getByRole('dialog', { name: /ようこそ/ });
-	const isVisible = await welcomeDialog.isVisible().catch(() => false);
-	if (isVisible) {
-		const dismissBtn = page.getByRole('button', { name: /さっそく始める/ });
-		await dismissBtn.click();
-		await expect(welcomeDialog).toHaveCount(0);
+async function openMenu(page: Page, triggerTestid: string): Promise<void> {
+	const trigger = page.getByTestId(triggerTestid);
+	await expect(trigger).toBeVisible({ timeout: 15_000 });
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve) => {
+				if (document.readyState === 'complete') {
+					requestAnimationFrame(() => resolve());
+				} else {
+					window.addEventListener('load', () => requestAnimationFrame(() => resolve()), {
+						once: true,
+					});
+				}
+			}),
+	);
+	const MAX_ATTEMPTS = 30;
+	for (let i = 0; i < MAX_ATTEMPTS; i++) {
+		await trigger.click();
+		const state = await trigger.evaluate((el) => el.getAttribute('data-state'));
+		if (state === 'open') return;
+		await page.evaluate(
+			() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+		);
 	}
+	await expect(trigger).toHaveAttribute('data-state', 'open');
 }
 
-test.describe('#839 フィードバックフォーム', () => {
-	test.beforeEach(async ({ page }) => {
+test.describe('#2904 フィードバック導線 (FAB 撤去 + 設定 > サポート単独 SSOT)', () => {
+	test('admin 画面に右下常設 FeedbackFab が存在しない', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'domcontentloaded' });
-		await dismissWelcomeIfVisible(page);
+		await expect(page.getByTestId('feedback-fab')).toHaveCount(0);
+		// FAB が消えてもフィードバック経路自体は維持されている (設定 > サポート SSOT) — AC2
+		await page.goto('/admin/settings/support', { waitUntil: 'domcontentloaded' });
+		await expect(page.locator('[data-tutorial="feedback-section"]')).toBeVisible();
 	});
 
-	test('FAB ボタンが表示される', async ({ page }) => {
-		const fab = page.getByTestId('feedback-fab');
-		await expect(fab).toBeVisible();
+	test('︙ overflow menu に「ご意見を送る」item を置かない (設定 > サポート単独 SSOT、PO 判断)', async ({
+		page,
+	}) => {
+		await page.goto('/admin/activities', { waitUntil: 'domcontentloaded' });
+		await openMenu(page, 'header-overflow-menu-btn');
+		// menu が実際に open している (既存補助操作 item が見える) ことを確認したうえで、
+		// feedback item が存在しないことを assert する
+		await expect(page.getByTestId('menu-item-restore')).toBeVisible();
+		await expect(page.getByTestId('menu-item-feedback')).toHaveCount(0);
+		await expect(page.getByText('ご意見を送る')).toHaveCount(0);
 	});
 
-	test('FAB クリックでダイアログが開く', async ({ page }) => {
-		const fab = page.getByTestId('feedback-fab');
-		await fab.click();
-
-		const dialog = page.getByTestId('feedback-dialog');
-		await expect(dialog).toBeVisible();
-
-		// フォーム要素が存在することを確認
-		const form = page.getByTestId('feedback-form');
-		await expect(form).toBeVisible();
-		await expect(page.getByTestId('feedback-text')).toBeVisible();
-		await expect(page.getByTestId('feedback-submit')).toBeVisible();
-	});
-
-	test('種別選択 + テキスト入力 + 送信でフォーム送信（API インターセプト）', async ({ page }) => {
-		// API をインターセプトして成功レスポンスを返す
-		await page.route('**/api/v1/feedback', (route) => {
-			return route.fulfill({
-				status: 200,
-				contentType: 'application/json',
-				body: JSON.stringify({ success: true }),
-			});
-		});
-
-		// FAB クリックでダイアログを開く
-		await page.getByTestId('feedback-fab').click();
-		await expect(page.getByTestId('feedback-dialog')).toBeVisible();
-
-		// 種別を選択（Ark UI Select: trigger → content → item）
-		const selectTrigger = page.locator(
-			'[data-testid="feedback-form"] [data-scope="select"][data-part="trigger"]',
-		);
-		await selectTrigger.click();
-		// 選択肢のリストが表示されるのを待つ
-		const selectContent = page.locator(
-			'[data-scope="select"][data-part="content"][data-state="open"]',
-		);
-		await selectContent.waitFor({ state: 'visible', timeout: 3000 });
-		// 「不具合報告」を選択
-		const bugItem = selectContent.locator('[data-scope="select"][data-part="item"]', {
-			hasText: '不具合報告',
-		});
-		await bugItem.click();
-
-		// テキスト入力
-		const textarea = page.getByTestId('feedback-text');
-		await textarea.fill('テスト用のフィードバック内容です');
-
-		// 送信ボタンが有効になっていることを確認
-		const submitBtn = page.getByTestId('feedback-submit');
+	test('設定 > サポートのご意見フォームで送信が完遂する (act → outcome)', async ({ page }) => {
+		await page.goto('/admin/settings/support', { waitUntil: 'domcontentloaded' });
+		// カテゴリ選択 (NativeSelect = native <select>)
+		await page.locator('#feedbackCategory').selectOption('bug');
+		// 内容入力
+		await page.locator('#feedbackText').fill('E2E テスト用のフィードバック内容です (#2904)');
+		const submitBtn = page.getByRole('button', { name: 'フィードバックを送信' });
 		await expect(submitBtn).toBeEnabled();
-
-		// 送信し、API レスポンスを待つ
-		const responsePromise = page.waitForResponse('**/api/v1/feedback');
+		// 送信 → form action (?/sendFeedback) の成功反映 (SuccessAlert) まで検証
 		await submitBtn.click();
-		await responsePromise;
-
-		// 成功メッセージが表示されることを確認
-		const successMessage = page.getByTestId('feedback-success');
-		await expect(successMessage).toBeVisible();
+		await expect(
+			page.getByText(/お問い合わせを受け付けました|今後の参考とさせていただきます/),
+		).toBeVisible({ timeout: 15_000 });
 	});
 
-	test('テキスト未入力では送信ボタンが無効', async ({ page }) => {
-		await page.getByTestId('feedback-fab').click();
-		await expect(page.getByTestId('feedback-dialog')).toBeVisible();
-
-		const submitBtn = page.getByTestId('feedback-submit');
+	test('内容未入力では送信ボタンが無効 (空送信 dead-end 防止)', async ({ page }) => {
+		await page.goto('/admin/settings/support', { waitUntil: 'domcontentloaded' });
+		const submitBtn = page.getByRole('button', { name: 'フィードバックを送信' });
 		await expect(submitBtn).toBeDisabled();
 	});
-
-	test('1000文字超過で文字カウントが警告表示になる', async ({ page }) => {
-		await page.getByTestId('feedback-fab').click();
-		await expect(page.getByTestId('feedback-dialog')).toBeVisible();
-
-		const textarea = page.getByTestId('feedback-text');
-		// 1001文字のテキストを入力
-		const longText = 'あ'.repeat(1001);
-		await textarea.fill(longText);
-
-		// 送信ボタンが無効であることを確認（種別未選択＋文字数超過）
-		const submitBtn = page.getByTestId('feedback-submit');
-		await expect(submitBtn).toBeDisabled();
-	});
-
-	// #2097 PR-B3 (#2188): `/demo/admin` 撤去 + legacy redirect 化に伴い、デモ版固有の
-	// FAB / Dialog (isDemo=true) テスト 2 件を削除。
-	// LOCAL_AUTH E2E 環境では `/demo/admin → /admin` redirect で `isDemo=false` の本番 FAB が
-	// 動作するため、上の本番 FAB テスト (test('FAB ボタンが表示される') / test('FAB クリックで
-	// ダイアログが開く')) で実質的にカバーされる。
-	// デモ Dialog 固有 UI (`isDemo` prop, '送信されません' 表示) は demo Lambda 環境
-	// (AUTH_MODE=anonymous + DATA_SOURCE=demo、ADR-0048) で `data.isDemo=true` 経路を踏むため、
-	// demo Lambda の preview server 上で manual SS 確認 + 別 spec で env 駆動テスト追加を
-	// PR-B4 (#2189) で検討。本 spec scope では本番 FAB テストのみ維持する。
 });

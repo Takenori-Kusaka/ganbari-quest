@@ -50,7 +50,7 @@ export const DOMAIN_CONTEXT = `
 
 ## DESIGN.md §10 構造的ルール (EPIC #2253 / #2558 admin-activities UX)
 
-- **画面あたり FAB は最大 1 個** (FeedbackFab のみ、画面別ローカル FAB 撤去原則)
+- **admin に常設 FAB は置かない (0 個、#2904)** — フィードバック導線は 設定 > サポート単独 SSOT (PO 判断: 各ページには不要)。画面 FAB は最大 1 個原則を維持
 - **add 経路 ≤ 4 ルール (Hick's Law)** — 同一リソース (活動/子供/報酬) の add 経路 (CTA × UI 配置) が 4 を超えたら menu / dropdown / command palette で集約
 - **marketplace 取込はマーケットプレイス画面に一本化** — admin 内ブラウズ UI 二重管理禁止 (#2558 段階2、in-page UnifiedImportHub は本 PR scope では維持)
 - **bulk import bridge ルール** — empty state secondary link + header + メニュー内 1 階層内アクセスを両方提供

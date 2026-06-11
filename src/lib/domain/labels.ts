@@ -6022,9 +6022,6 @@ export const UI_COMPONENTS_LABELS = {
 	featureGateLockText: (plan: string) => `${plan}プラン以上で利用可能`,
 	featureGateUpgrade: 'アップグレード',
 
-	// ---- FeedbackFab ----
-	feedbackFabLabel: 'ご意見・不具合報告',
-
 	// ---- GoogleSignInButton ----
 	googleSignInLabel: 'Google でログイン',
 
@@ -6338,34 +6335,6 @@ export const FEATURES_LABELS = {
 		placeholder: '例: 運動会で1位、テストで100点、お皿を進んで洗った',
 		acceptBtn: 'この内容で応援を送る',
 		reasonLabel: '理由',
-	},
-
-	// ---- features/admin/components/FeedbackDialog ----
-	feedbackDialog: {
-		title: 'ご意見・不具合報告',
-		successText: '送信しました。ご意見ありがとうございます！',
-		closeBtn: '閉じる',
-		demoNote: 'デモ版のため、実際には送信されません',
-		categoryLabel: '種別',
-		categoryOpinion: 'ご意見',
-		categoryBug: '不具合報告',
-		categoryFeature: '機能要望',
-		categoryOther: 'その他',
-		categoryPlaceholder: '選択してください',
-		contentLabel: '内容',
-		contentPlaceholder: 'お気づきの点やご要望をお聞かせください',
-		screenshotLabel: 'スクリーンショット（任意）',
-		screenshotImageAlt: '添付スクリーンショット',
-		screenshotRemoveBtn: '削除',
-		screenshotPickerLabel: '画像を選択（最大 2MB）',
-		cancelBtn: 'キャンセル',
-		submitBtn: '送信する',
-		submittingText: '送信中...',
-		errorScreenshotSize: 'スクリーンショットは2MB以内にしてください',
-		errorScreenshotType: '画像ファイルを選択してください',
-		errorReadFile: 'ファイルの読み込みに失敗しました',
-		errorSend: '送信に失敗しました',
-		errorNetwork: 'ネットワークエラーが発生しました',
 	},
 
 	// ---- features/admin/components/PremiumWelcome ----
