@@ -64,6 +64,38 @@ const INTERNAL_TERMS_BANLIST = [
 ];
 
 // ---------------------------------------------------------------------------
+// CONN_INFO_BANLIST (#2987) — NUC 接続情報 (LAN IP / SSH user) の再混入検知
+//
+// 公開 repo への実値直書きを禁止し、docs/runbook は <NUC_HOST> / <NUC_USER>
+// プレースホルダー、script は env (NUC_SSH_HOST / NUC_SSH_USER) 経由に統一済。
+// 本 group はその再混入を CI で検出する (専用 script 新設は #1442 違反のため
+// 本 script に config 駆動で相乗り — docs/CLAUDE.md §docs SSOT 原則)。
+//
+// - regex は escape 表記で構成し、検出対象の実値リテラルを本 script に含めない
+// - comment 行も検査対象 (UI 用語と異なり comment 中の混入も情報漏洩)
+// - baseline なし — 新規 1 件で即 fail (#2987 で残存 0 化済)
+// ---------------------------------------------------------------------------
+
+const CONN_INFO_BANLIST = [
+	{ regex: /192\.168\.68\.(?:79|0\/23)/, label: '<NUC_HOST> (NUC LAN IP / subnet)', category: 'conn-info' },
+	{ regex: /kusaka[-]server/, label: '<NUC_USER> (NUC SSH user)', category: 'conn-info' },
+];
+const CONN_INFO_ROOTS = ['docs', 'scripts', '.github', 'infra', 'site', 'src', 'tests'];
+const CONN_INFO_EXTENSIONS = [
+	'.md',
+	'.sh',
+	'.mjs',
+	'.cjs',
+	'.js',
+	'.ts',
+	'.svelte',
+	'.yml',
+	'.yaml',
+	'.json',
+	'.html',
+];
+
+// ---------------------------------------------------------------------------
 // SEARCH_ROOTS / EXCLUSIONS
 //
 // 親 UI (admin / 親管理画面) で内部用語の露出を検知する。
@@ -89,20 +121,22 @@ function shouldExclude(filePath) {
 	return EXCLUDE_PATTERNS.some((p) => p.test(rel));
 }
 
-function walk(dir, out = []) {
+function walk(dir, out = [], extensions = EXTENSIONS, exclude = shouldExclude) {
 	if (!fs.existsSync(dir)) return out;
 	const stat = fs.statSync(dir);
 	if (stat.isFile()) {
-		if (EXTENSIONS.some((ext) => dir.endsWith(ext)) && !shouldExclude(dir)) {
+		if (extensions.some((ext) => dir.endsWith(ext)) && !exclude(dir)) {
 			out.push(dir);
 		}
 		return out;
 	}
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		const full = path.join(dir, entry.name);
-		if (entry.isDirectory()) walk(full, out);
-		else if (entry.isFile() && EXTENSIONS.some((ext) => entry.name.endsWith(ext))) {
-			if (!shouldExclude(full)) out.push(full);
+		if (entry.isDirectory()) {
+			if (entry.name === 'node_modules' || entry.name === '.svelte-kit') continue;
+			walk(full, out, extensions, exclude);
+		} else if (entry.isFile() && extensions.some((ext) => entry.name.endsWith(ext))) {
+			if (!exclude(full)) out.push(full);
 		}
 	}
 	return out;
@@ -172,6 +206,37 @@ function relPath(filePath) {
 }
 
 // ---------------------------------------------------------------------------
+// conn-info group 検査 (#2987)
+// ---------------------------------------------------------------------------
+
+function scanConnInfo() {
+	const files = [];
+	for (const root of CONN_INFO_ROOTS) {
+		walk(path.join(REPO_ROOT, root), files, CONN_INFO_EXTENSIONS, () => false);
+	}
+	const violations = [];
+	for (const f of files) {
+		const lines = fs.readFileSync(f, 'utf8').split(/\r?\n/);
+		for (let i = 0; i < lines.length; i++) {
+			for (const { regex, label, category } of CONN_INFO_BANLIST) {
+				const m = lines[i].match(regex);
+				if (m) {
+					violations.push({
+						file: relPath(f),
+						line: i + 1,
+						col: m.index + 1,
+						pattern: label,
+						category,
+						snippet: lines[i].trim().slice(0, 200),
+					});
+				}
+			}
+		}
+	}
+	return { fileCount: files.length, violations };
+}
+
+// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
@@ -211,6 +276,26 @@ function main() {
 	const totalHits = [...allHits.values()].reduce((sum, hits) => sum + hits.length, 0);
 	console.log(`[check-internal-terms] 全違反件数: ${totalHits} (baseline pin 済 + 新規違反含む)`);
 	console.log(`[check-internal-terms] 新規違反件数: ${newViolations.length}`);
+
+	// 5. conn-info group (#2987) — baseline なし、1 件で fail
+	const connInfo = scanConnInfo();
+	console.log(
+		`[check-internal-terms] conn-info group (#2987): 検査 ${connInfo.fileCount} files / 違反 ${connInfo.violations.length} 件`,
+	);
+	if (connInfo.violations.length > 0) {
+		console.log('\n[check-internal-terms] ✗ FAIL — NUC 接続情報の直書きが検出されました:\n');
+		for (const v of connInfo.violations) {
+			console.log(`  ${v.file}:${v.line}:${v.col}  [${v.category}] ${v.pattern}`);
+			console.log(`    ${v.snippet}`);
+		}
+		console.log(
+			'\n修正方針 (#2987):\n' +
+				'  - docs / runbook → <NUC_HOST> / <NUC_USER> プレースホルダー表記に置換\n' +
+				'  - script → env (NUC_SSH_HOST / NUC_SSH_USER) 経由化 (.env.example §NUC SSH 接続情報)\n' +
+				'  - SSOT: docs/design/05-開発指針書.md §9「NUC 接続情報の管理」\n',
+		);
+		return 1;
+	}
 
 	if (newViolations.length === 0) {
 		console.log('[check-internal-terms] ✓ PASS — 新規違反 0 件');

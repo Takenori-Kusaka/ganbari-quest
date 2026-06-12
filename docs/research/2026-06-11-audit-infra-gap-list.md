@@ -16,7 +16,7 @@
 |---|---|---|---|
 | `ci.yml` | push:main / PR:[main,develop] / dispatch | ubuntu-latest | changes(paths-filter) → lint-and-test / unit-test(2 shard) / e2e-test(3 shard) / a11y / storybook-test / e2e-cognito-dev / e2e-demo-lambda / docker-build / site-check / 各種 env・schema gate → ci-gate 集約 |
 | `deploy.yml` | push:main(paths) / tag v*/ dispatch | ubuntu-24.04-arm | deploy(CDK 6 stack + ECR build/push + Lambda update) → e2e-production(smoke) → release/notify |
-| `deploy-nuc.yml` | push:main(paths) / dispatch | **self-hosted [Windows,X64]** (`local_nuc`) | stop→pull→.env生成→build→up→health check |
+| `deploy-nuc.yml` | push:main(paths) / dispatch | **self-hosted [Windows,X64]**（runner label は deploy-nuc.yml 参照、#2987 で本 doc から具体 identifier を抽象化） | stop→pull→.env生成→build→up→health check |
 | `audit-run.yml` | **dispatch のみ** | ubuntu-latest | a11y-scan / lp-metrics / rules-based-checks / coverage / pipeline-selftest（全 continue-on-error、起票せず artifact 化） |
 | `lp-visual-regression.yml` / `child-home-visual-regression.yml` / `app-visual-regression.yml` | — | ubuntu-latest | pixelmatch 3 層（LP=hard-fail / child-home・app=warn） |
 | `lp-metrics.yml` / `security-scan.yml` / `codeql.yml` / `dependency-review.yml` | — | ubuntu-latest | LP ratchet / SAST / 依存脆弱性 |

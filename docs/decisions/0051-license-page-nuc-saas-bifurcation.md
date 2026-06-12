@@ -12,7 +12,7 @@
 
 ## コンテキスト
 
-PO 報告 (2026-05-20、NUC 192.168.68.79:3000 dogfood):
+PO 報告 (2026-05-20、NUC <NUC_HOST>:3000 dogfood):
 
 - 親管理画面 `/admin/license` (940 行メガファイル) が NUC ローカル版でも「決済機能は現在準備中です」placeholder / ライセンスキー入力 / 支払い履歴 等を表示し冗長
 - header「ファミリープラン」と本文「無料プラン」の表示矛盾 (SSOT 2 系統: `planTier` resolveFullPlanTier 経由 vs `license.plan` Stripe subscription tier)
