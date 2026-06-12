@@ -227,8 +227,13 @@ describe('getUnshownRedemptionResult / markRedemptionShown', () => {
 		expect(unshown).toBeTruthy();
 		expect(unshown?.status).toBe('approved');
 
+		// #2845 課題①: 他の childId では表示済みにできない (所有権検証、SQLite backend)
+		const wrongChild = await markRedemptionShown(childId + 999, reqResult.id, TENANT_ID);
+		expect(wrongChild).toBeUndefined();
+		expect(await getUnshownRedemptionResult(childId, TENANT_ID)).toBeTruthy();
+
 		// 表示済みにする
-		await markRedemptionShown(reqResult.id, TENANT_ID);
+		await markRedemptionShown(childId, reqResult.id, TENANT_ID);
 
 		const afterMark = await getUnshownRedemptionResult(childId, TENANT_ID);
 		expect(afterMark).toBeNull();

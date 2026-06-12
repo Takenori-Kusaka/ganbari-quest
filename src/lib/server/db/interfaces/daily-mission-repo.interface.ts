@@ -17,7 +17,17 @@ export interface IDailyMissionRepo {
 		activityId: number,
 		tenantId: string,
 	): Promise<{ id: number; completed: number } | undefined>;
-	markMissionCompleted(missionId: number, tenantId: string): Promise<void>;
+	/**
+	 * #2845 B1: (childId, date, activityId) 複合キー必須 (旧 missionId-only は DynamoDB 側で
+	 * tenant 無束縛 Scan + 全 tenant write 可能形状)。DynamoDB は exact Key (`dailyMissionKey`)
+	 * で直接 UpdateItem、SQLite は composite WHERE。不在 / 不一致は silent no-op。
+	 */
+	markMissionCompleted(
+		childId: number,
+		date: string,
+		activityId: number,
+		tenantId: string,
+	): Promise<void>;
 	findAllMissionStatuses(
 		childId: number,
 		date: string,

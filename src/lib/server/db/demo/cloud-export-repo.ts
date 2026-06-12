@@ -35,7 +35,7 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 	};
 }
 
-export async function incrementDownloadCount(_id: number): Promise<void> {
+export async function incrementDownloadCount(_id: number, _tenantId: string): Promise<void> {
 	// Stub: no-op
 }
 

@@ -171,9 +171,10 @@ export async function approveRedemption(
 		tenantId,
 	);
 
-	// ステータス更新
+	// ステータス更新 (#2845 課題①: req.childId で所有権検証付き composite key 更新)
 	const now = Math.floor(Date.now() / 1000);
 	const updated = await updateRedemptionRequestStatus(
+		req.childId,
 		requestId,
 		{
 			status: 'approved',
@@ -215,7 +216,9 @@ export async function rejectRedemption(
 	if (req.status !== 'pending_parent_approval') return { error: 'INVALID_STATUS' };
 
 	const now = Math.floor(Date.now() / 1000);
+	// #2845 課題①: req.childId で所有権検証付き composite key 更新
 	const updated = await updateRedemptionRequestStatus(
+		req.childId,
 		requestId,
 		{
 			status: 'rejected',
@@ -270,7 +273,10 @@ export async function getUnshownRedemptionResult(
 	};
 }
 
-/** 未表示通知を表示済みにする */
-export async function markRedemptionShown(id: number, tenantId: string) {
-	return markRedemptionResultShown(id, tenantId);
+/**
+ * 未表示通知を表示済みにする。
+ * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。
+ */
+export async function markRedemptionShown(childId: number, id: number, tenantId: string) {
+	return markRedemptionResultShown(childId, id, tenantId);
 }

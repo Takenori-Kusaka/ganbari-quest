@@ -241,8 +241,17 @@ export async function insertTemplateItem(
 	return db.insert(checklistTemplateItems).values(input).returning().get();
 }
 
-export async function deleteTemplateItem(id: number, _tenantId: string): Promise<void> {
-	db.delete(checklistTemplateItems).where(eq(checklistTemplateItems.id, id)).run();
+/** #2845 B1: templateId 所有権検証付き (composite key)。不一致なら affected 0 の no-op。 */
+export async function deleteTemplateItem(
+	templateId: number,
+	id: number,
+	_tenantId: string,
+): Promise<void> {
+	db.delete(checklistTemplateItems)
+		.where(
+			and(eq(checklistTemplateItems.id, id), eq(checklistTemplateItems.templateId, templateId)),
+		)
+		.run();
 }
 
 // ============================================================
@@ -311,8 +320,15 @@ export async function insertOverride(
 	return db.insert(checklistOverrides).values(input).returning().get();
 }
 
-export async function deleteOverride(id: number, _tenantId: string): Promise<void> {
-	db.delete(checklistOverrides).where(eq(checklistOverrides.id, id)).run();
+/** #2845 B1: childId 所有権検証付き (composite key)。不一致なら affected 0 の no-op。 */
+export async function deleteOverride(
+	childId: number,
+	id: number,
+	_tenantId: string,
+): Promise<void> {
+	db.delete(checklistOverrides)
+		.where(and(eq(checklistOverrides.id, id), eq(checklistOverrides.childId, childId)))
+		.run();
 }
 
 /** テナントの全チェックリストデータを削除 (SQLite: シングルテナントのため全行削除) */

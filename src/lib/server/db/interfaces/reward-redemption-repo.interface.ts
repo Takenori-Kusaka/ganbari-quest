@@ -37,7 +37,12 @@ export interface IRewardRedemptionRepo {
 		opts?: { status?: string; childId?: number; limit?: number },
 	): Promise<RedemptionRequestWithDetails[]>;
 
+	/**
+	 * #2845 課題①: full composite-key addressing。childId + id の複合キーで対象を直接
+	 * 特定し、repo 入口で child 所有権を構造的に検証する。不一致なら undefined。
+	 */
 	updateRedemptionRequestStatus(
+		childId: number,
 		id: number,
 		updates: {
 			status: string;
@@ -59,7 +64,9 @@ export interface IRewardRedemptionRepo {
 		tenantId: string,
 	): Promise<RedemptionRequestWithReward | undefined>;
 
+	/** #2845 課題①: childId 所有権検証付き (composite key 直接特定)。不一致なら undefined。 */
 	markRedemptionResultShown(
+		childId: number,
 		id: number,
 		tenantId: string,
 	): Promise<RedemptionRequestRow | undefined>;

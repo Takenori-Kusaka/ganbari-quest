@@ -98,28 +98,33 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-describe('updateSpecialReward (#2832)', () => {
-	it('tenant scoped Scan で item を特定し、指定フィールドのみ SET 更新する', async () => {
+describe('updateSpecialReward (#2832 / #2845 課題①)', () => {
+	it('child partition Query で item を特定し、指定フィールドのみ SET 更新する', async () => {
 		mockSend
-			.mockResolvedValueOnce({ Items: [makeRewardItem()] }) // findRewardItemById (Scan)
+			.mockResolvedValueOnce({ Items: [makeRewardItem()] }) // findRewardItemByChildAndId (Query)
 			.mockResolvedValueOnce({
 				Attributes: makeRewardItem({ title: '新しい名前', points: 50 }),
 			}); // UpdateCommand
 
 		const { updateSpecialReward } = await loadRepo();
 		const result = await updateSpecialReward(
+			CHILD_ID,
 			REWARD_ID,
 			{ title: '新しい名前', points: 50 },
 			TENANT,
 		);
 
-		// Scan が tenant prefix + REWARD# prefix + id filter で発行される
-		const scan = mockSend.mock.calls[0]?.[0] as {
-			input: { ExpressionAttributeValues?: Record<string, unknown> };
+		// Query が child partition (tenant + child 境界) + REWARD# prefix + id filter で発行される
+		const query = mockSend.mock.calls[0]?.[0] as {
+			input: {
+				KeyConditionExpression?: string;
+				ExpressionAttributeValues?: Record<string, unknown>;
+			};
 		};
-		expect(scan.input.ExpressionAttributeValues?.[':tenantPrefix']).toBe(`T#${TENANT}#CHILD#`);
-		expect(scan.input.ExpressionAttributeValues?.[':prefix']).toBe('REWARD#');
-		expect(scan.input.ExpressionAttributeValues?.[':id']).toBe(REWARD_ID);
+		expect(query.input.KeyConditionExpression).toContain('PK = :pk');
+		expect(query.input.ExpressionAttributeValues?.[':pk']).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
+		expect(query.input.ExpressionAttributeValues?.[':prefix']).toBe('REWARD#');
+		expect(query.input.ExpressionAttributeValues?.[':id']).toBe(REWARD_ID);
 
 		// UpdateCommand が title / points のみ SET する (icon / category は含めない)
 		const update = mockSend.mock.calls[1]?.[0] as {
@@ -141,7 +146,7 @@ describe('updateSpecialReward (#2832)', () => {
 	it('対象 reward が存在しない場合は undefined を返し Update しない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { updateSpecialReward } = await loadRepo();
-		const result = await updateSpecialReward(REWARD_ID, { title: 'x' }, TENANT);
+		const result = await updateSpecialReward(CHILD_ID, REWARD_ID, { title: 'x' }, TENANT);
 		expect(result).toBeUndefined();
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
@@ -149,13 +154,13 @@ describe('updateSpecialReward (#2832)', () => {
 	it('更新フィールドが空の場合は現状 item を返し Update しない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [makeRewardItem()] });
 		const { updateSpecialReward } = await loadRepo();
-		const result = await updateSpecialReward(REWARD_ID, {}, TENANT);
+		const result = await updateSpecialReward(CHILD_ID, REWARD_ID, {}, TENANT);
 		expect(result?.title).toBe('ゲーム時間30分');
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 });
 
-describe('deleteSpecialReward (#2832)', () => {
+describe('deleteSpecialReward (#2832 / #2845 課題①)', () => {
 	it('reward item と当該 reward の REDEMPT# item を削除して true を返す (SQLite cascade と等価)', async () => {
 		const redemptionItem = {
 			PK: `T#${TENANT}#CHILD#${CHILD_ID}`,
@@ -165,21 +170,28 @@ describe('deleteSpecialReward (#2832)', () => {
 			status: 'rejected',
 		};
 		mockSend
-			.mockResolvedValueOnce({ Items: [makeRewardItem()] }) // findRewardItemById (Scan)
-			.mockResolvedValueOnce({ Items: [redemptionItem] }) // REDEMPT# Scan
+			.mockResolvedValueOnce({ Items: [makeRewardItem()] }) // findRewardItemByChildAndId (Query)
+			.mockResolvedValueOnce({ Items: [redemptionItem] }) // REDEMPT# child partition Query
 			.mockResolvedValueOnce({}) // DeleteCommand (redemption)
 			.mockResolvedValueOnce({}); // DeleteCommand (reward)
 
 		const { deleteSpecialReward } = await loadRepo();
-		const result = await deleteSpecialReward(REWARD_ID, TENANT);
+		const result = await deleteSpecialReward(CHILD_ID, REWARD_ID, TENANT);
 		expect(result).toBe(true);
 
-		// REDEMPT# Scan が rewardId filter 付きで発行される
-		const redemptScan = mockSend.mock.calls[1]?.[0] as {
-			input: { ExpressionAttributeValues?: Record<string, unknown> };
+		// REDEMPT# 収集が child partition Query (tenant + child 境界) + rewardId filter で発行される
+		const redemptQuery = mockSend.mock.calls[1]?.[0] as {
+			input: {
+				KeyConditionExpression?: string;
+				ExpressionAttributeValues?: Record<string, unknown>;
+			};
 		};
-		expect(redemptScan.input.ExpressionAttributeValues?.[':skPrefix']).toBe('REDEMPT#');
-		expect(redemptScan.input.ExpressionAttributeValues?.[':rid']).toBe(REWARD_ID);
+		expect(redemptQuery.input.KeyConditionExpression).toContain('PK = :pk');
+		expect(redemptQuery.input.ExpressionAttributeValues?.[':pk']).toBe(
+			`T#${TENANT}#CHILD#${CHILD_ID}`,
+		);
+		expect(redemptQuery.input.ExpressionAttributeValues?.[':skPrefix']).toBe('REDEMPT#');
+		expect(redemptQuery.input.ExpressionAttributeValues?.[':rid']).toBe(REWARD_ID);
 
 		// redemption item → reward item の順で DeleteCommand
 		const delRedemption = mockSend.mock.calls[2]?.[0] as {
@@ -195,9 +207,87 @@ describe('deleteSpecialReward (#2832)', () => {
 	it('対象 reward が存在しない場合は false を返し Delete しない', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [] });
 		const { deleteSpecialReward } = await loadRepo();
-		const result = await deleteSpecialReward(REWARD_ID, TENANT);
+		const result = await deleteSpecialReward(CHILD_ID, REWARD_ID, TENANT);
 		expect(result).toBe(false);
 		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('markRewardShown (#2845 B1: tenant 境界 + paging)', () => {
+	it('item 検索が tenant 境界で絞られる (cross-tenant IDOR 形状の遮断)', async () => {
+		// 検索 (Query/Scan) 0 件 → undefined。発行された検索条件の値に自 tenant prefix が
+		// 含まれることを assert する (旧実装は begins_with(SK,'REWARD#') + id のみで
+		// FilterExpression に tenant 束縛が無く、全 tenant の REWARD# item に到達できた)。
+		mockSend.mockResolvedValue({ Items: [] });
+		const repo = await loadRepo();
+		await repo.markRewardShown(CHILD_ID, REWARD_ID, TENANT);
+
+		const first = mockSend.mock.calls[0]?.[0] as {
+			input: { ExpressionAttributeValues?: Record<string, unknown> };
+		};
+		const values = Object.values(first.input.ExpressionAttributeValues ?? {});
+		const tenantScoped = values.some((v) => typeof v === 'string' && v.startsWith(`T#${TENANT}#`));
+		expect(tenantScoped).toBe(true);
+	});
+
+	it('対象 item が後続ページに居ても見つけて更新する (#2842 Limit:1 + Filter class の遮断)', async () => {
+		const shownAt = '2026-06-12T00:00:00.000Z';
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 's' } }) // page 1: 空振り
+			.mockResolvedValueOnce({ Items: [makeRewardItem()] }) // page 2: 一致
+			.mockResolvedValueOnce({ Attributes: makeRewardItem({ shownAt }) }); // UpdateCommand
+
+		const repo = await loadRepo();
+		const result = await repo.markRewardShown(CHILD_ID, REWARD_ID, TENANT);
+		expect(result?.shownAt).toBe(shownAt);
+	});
+
+	it('全ページ走査しても不在なら undefined を返し Update しない', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 's' } })
+			.mockResolvedValueOnce({ Items: [] });
+		const repo = await loadRepo();
+		expect(await repo.markRewardShown(CHILD_ID, REWARD_ID, TENANT)).toBeUndefined();
+		expect(mockSend).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('findUnshownReward (#2845 B2: Limit:1 + Filter 併用の遮断)', () => {
+	it('Query に Limit を付けず child partition (tenant + child 境界) で発行する', async () => {
+		mockSend.mockResolvedValue({ Items: [makeRewardItem()] });
+		const repo = await loadRepo();
+		const result = await repo.findUnshownReward(CHILD_ID, TENANT);
+
+		const query = mockSend.mock.calls[0]?.[0];
+		expect(query).toBeInstanceOf(MockQueryCommand);
+		expect(query).not.toBeInstanceOf(MockScanCommand);
+		const input = (query as { input: Record<string, unknown> }).input;
+		// literal PK assert: tenant + child 境界が KeyCondition で構造的に担保される
+		expect((input.ExpressionAttributeValues as Record<string, unknown>)[':pk']).toBe(
+			`T#${TENANT}#CHILD#${CHILD_ID}`,
+		);
+		// #2842: Limit + FilterExpression 併用は filter 前評価上限で false NOT_FOUND になる
+		expect(input.Limit).toBeUndefined();
+		expect(result?.id).toBe(REWARD_ID);
+	});
+
+	it('未表示 reward が後続ページに居ても見つける (旧 Limit:1 では false NOT_FOUND)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 's' } }) // page 1: shown 済のみ filter で 0 件
+			.mockResolvedValueOnce({ Items: [makeRewardItem()] }); // page 2: 未表示 hit
+		const repo = await loadRepo();
+		const result = await repo.findUnshownReward(CHILD_ID, TENANT);
+		expect(result?.id).toBe(REWARD_ID);
+		expect(mockSend).toHaveBeenCalledTimes(2);
+	});
+
+	it('全ページ走査しても未表示が無ければ undefined', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 's' } })
+			.mockResolvedValueOnce({ Items: [] });
+		const repo = await loadRepo();
+		expect(await repo.findUnshownReward(CHILD_ID, TENANT)).toBeUndefined();
+		expect(mockSend).toHaveBeenCalledTimes(2);
 	});
 });
 

@@ -19,10 +19,11 @@
 //     → entry は cardId だけで lookup される (findEntriesWithMasterByCardId に childId が
 //       渡らない) ため card 自身を partition key にした専用 partition に置く。
 //       単一 partition Query で全 entry を取得でき追加 GSI 不要 (ADR-0055 §3.1)。
-//   cardId だけで引く updateCardStatus* は低頻度 (週次 redeem) のため tenant Scan + id filter
-//   で PK/SK を解決する。Scan は ExclusiveStartKey で全ページ走査し一致 item を探す
-//   (DynamoDB Scan の Limit は filter 適用「前」の評価件数上限なので Limit:1 + Filter は
-//    対象が scan 順先頭でない限り空振りする。#2842 修正)。
+//   updateCardStatus* は childId + cardId の複合キーで child partition Query
+//   (KeyCondition PK=childPK + begins_with STMPCARD#) + id filter で PK/SK を解決する
+//   (#2845 課題①: full composite-key addressing、tenant Scan 撤去)。Query は
+//   ExclusiveStartKey で全ページ走査し一致 item を探す (DynamoDB の Limit は filter 適用
+//   「前」の評価件数上限なので Limit:1 + Filter は対象が先頭でない限り空振りする。#2842)。
 //
 // stamp master JOIN:
 //   SQLite の findEntriesWithMasterByCardId は stamp_entries LEFT JOIN stamp_masters で
@@ -32,13 +33,7 @@
 //
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/stamp-card-repo.ts (SSOT)
 
-import {
-	GetCommand,
-	PutCommand,
-	QueryCommand,
-	ScanCommand,
-	UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { getDefaultStampMasters } from '../stamp-master-defaults';
 import type {
 	InsertStampCardInput,
@@ -51,6 +46,7 @@ import type {
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
+	childPK,
 	ENTITY_NAMES,
 	stampCardKey,
 	stampCardPrefix,
@@ -88,9 +84,10 @@ function toCard(item: Record<string, unknown>): StampCard {
  * 有効な stamp master 16 件を返す。tenant 別カスタマイズ機構は未実装 (Pre-PMF) のため
  * DEFAULT_STAMP_MASTERS_DATA SSOT を全 tenant 共通で返す。空配列を返すと
  * stamp-card-service.stampToday が NO_STAMPS_AVAILABLE になるため必ず 16 件を返す。
+ * #2845 課題④: SQLite `WHERE is_enabled = 1` との filter parity (isEnabled=0 を除外)。
  */
 export async function findEnabledStampMasters(_tenantId: string): Promise<StampMaster[]> {
-	return getDefaultStampMasters();
+	return getDefaultStampMasters().filter((m) => m.isEnabled === 1);
 }
 
 // ============================================================
@@ -213,15 +210,16 @@ export async function insertEntry(input: InsertStampEntryInput, tenantId: string
 }
 
 // ============================================================
-// updateCardStatus — card status を更新 (cardId → Scan で PK/SK 解決)
+// updateCardStatus — card status を更新 (childId + cardId → child partition Query で PK/SK 解決)
 // ============================================================
 
 export async function updateCardStatus(
+	childId: number,
 	cardId: number,
 	input: UpdateStampCardStatusInput,
 	tenantId: string,
 ): Promise<void> {
-	const found = await findCardItemById(cardId, tenantId);
+	const found = await findCardItemByChildAndId(childId, cardId, tenantId);
 	if (!found) return;
 	await getDocClient().send(
 		new UpdateCommand({
@@ -245,11 +243,12 @@ export async function updateCardStatus(
 // ============================================================
 
 export async function updateCardStatusIfCollecting(
+	childId: number,
 	cardId: number,
 	input: UpdateStampCardStatusInput,
 	tenantId: string,
 ): Promise<number> {
-	const found = await findCardItemById(cardId, tenantId);
+	const found = await findCardItemByChildAndId(childId, cardId, tenantId);
 	if (!found) return 0;
 	try {
 		await getDocClient().send(
@@ -321,19 +320,17 @@ async function queryCardEntries(
 }
 
 /**
- * cardId だけ受け取る update* 用に、tenant 配下を Scan して card item (PK/SK) を解決する。
- * card は child partition (PK=CHILD#<cId>, SK=STMPCARD#<weekStart>) に分散し childId が
- * 不明なため、tenant Scan + id filter で 1 件特定する。
- * redeem は週次・低頻度のため Pre-PMF では GSI 不要 (ADR-0010)。
+ * childId + cardId を受け取る update* 用に、child partition を Query して card item (PK/SK)
+ * を解決する (#2845 課題①: full composite-key addressing)。card は child partition
+ * (PK=CHILD#<cId>, SK=STMPCARD#<weekStart>) に置かれ weekStart が不明なため、
+ * KeyCondition (PK=childPK + begins_with STMPCARD#) + id filter で 1 件特定する。
+ * tenant + child 境界が KeyCondition で構造的に担保され、旧 tenant Scan は撤去。
  *
- * 重要 (#2842): DynamoDB Scan の `Limit` は **FilterExpression 適用前**に評価する item 数の
- * 上限であり、filter 通過後の返却件数ではない。`Limit: 1` + Filter だと「scan 順の先頭 item が
- * たまたま対象 card」でない限り Items が空になり、updateCardStatus* が silent no-op → redeem
- * が黙って失敗していた。よって `Limit` は付けず `ExclusiveStartKey` で全ページを走査し、
- * 一致 item を見つけ次第 early return する (queryCardEntries の entry Query loop と同じ
- * ページング正パターン)。1 件も無ければ全ページ走査後に undefined を返す。
+ * 重要 (#2842): Limit + Filter は filter 適用「前」評価のため使わず、`ExclusiveStartKey` で
+ * 全ページを走査し一致 item を見つけ次第 early return する (paging 正パターン)。
  */
-async function findCardItemById(
+async function findCardItemByChildAndId(
+	childId: number,
 	cardId: number,
 	tenantId: string,
 ): Promise<{ PK: string; SK: string } | undefined> {
@@ -341,12 +338,12 @@ async function findCardItemById(
 	let lastKey: Record<string, unknown> | undefined;
 	do {
 		const result = await doc.send(
-			new ScanCommand({
+			new QueryCommand({
 				TableName: TABLE_NAME,
-				FilterExpression:
-					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
+				FilterExpression: 'id = :id',
 				ExpressionAttributeValues: {
-					':tenantPrefix': tenantPK('CHILD#', tenantId),
+					':pk': childPK(childId, tenantId),
 					':skPrefix': CARD_PREFIX,
 					':id': cardId,
 				},

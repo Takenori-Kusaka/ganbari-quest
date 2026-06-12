@@ -152,11 +152,27 @@ describe('message-repo', () => {
 			'test-tenant',
 		);
 
-		const shown = await markMessageShown(msg.id, 'test-tenant');
+		const shown = await markMessageShown(1, msg.id, 'test-tenant');
 		expect(shown?.shownAt).toMatch(/^\d{4}-\d{2}-\d{2}/);
 
 		const unshown = await findUnshownMessage(1, 'test-tenant');
 		expect(unshown).toBeUndefined();
+	});
+
+	it('#2845 課題①: 他の childId では表示済みにできない (所有権検証、SQLite backend)', async () => {
+		const msg = await insertMessage(
+			{ childId: 1, messageType: 'stamp', stampCode: 'sugoi', icon: '🌟' },
+			'test-tenant',
+		);
+
+		// childId=999 (別の子) を指定して messageId だけ一致させても更新されない
+		const result = await markMessageShown(999, msg.id, 'test-tenant');
+		expect(result).toBeUndefined();
+
+		// 本来の子の未表示メッセージは残る (silent 越境更新が起きていない)
+		const unshown = await findUnshownMessage(1, 'test-tenant');
+		expect(unshown?.id).toBe(msg.id);
+		expect(unshown?.shownAt).toBeNull();
 	});
 
 	it('メッセージ履歴を降順で取得できる', async () => {

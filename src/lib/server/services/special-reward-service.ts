@@ -163,6 +163,7 @@ export async function updateReward(
 	if (!existing) return { error: 'NOT_FOUND', target: 'reward' };
 
 	const updated = await updateSpecialReward(
+		childId,
 		rewardId,
 		{
 			title: data.title,
@@ -201,7 +202,7 @@ export async function deleteReward(
 		return { error: 'PENDING_REDEMPTION' };
 	}
 
-	const deleted = await deleteSpecialReward(rewardId, tenantId);
+	const deleted = await deleteSpecialReward(childId, rewardId, tenantId);
 	if (!deleted) return { error: 'NOT_FOUND', target: 'reward' };
 
 	// destructive 操作の audit log (irreversible 削除の証跡)
@@ -244,8 +245,13 @@ export async function getUnshownReward(
 
 // --- 報酬表示済みマーク ---
 
-export async function markRewardShown(rewardId: number, tenantId: string): Promise<boolean> {
-	const result = await markRewardShownRepo(rewardId, tenantId);
+/** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら false。 */
+export async function markRewardShown(
+	childId: number,
+	rewardId: number,
+	tenantId: string,
+): Promise<boolean> {
+	const result = await markRewardShownRepo(childId, rewardId, tenantId);
 	return !!result;
 }
 

@@ -770,6 +770,8 @@ function getChildName(childId: number): string {
 								<span class="text-xs px-1.5 py-0.5 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] rounded">{directionLabel(item.direction)}</span>
 							</div>
 							<form method="POST" action="?/removeItem" use:enhance={() => async () => invalidateAll()}>
+								<!-- #2845 B1: templateId 所有権検証付き delete (composite key) -->
+								<input type="hidden" name="templateId" value={template.id} />
 								<input type="hidden" name="itemId" value={item.id} />
 								<Button
 									type="submit"
@@ -897,6 +899,8 @@ function getChildName(childId: number): string {
 								</span>
 							</div>
 							<form method="POST" action="?/removeOverride" use:enhance={() => async () => invalidateAll()}>
+								<!-- #2845 B1: childId 所有権検証付き delete (composite key) -->
+								<input type="hidden" name="childId" value={ov.childId} />
 								<input type="hidden" name="overrideId" value={ov.id} />
 								<Button type="submit" variant="ghost" size="sm" class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-error-text)] px-1" title={ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton} aria-label={ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}>✕</Button>
 							</form>

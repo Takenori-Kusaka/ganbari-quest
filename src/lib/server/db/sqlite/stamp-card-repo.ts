@@ -97,8 +97,12 @@ export async function insertEntry(input: InsertStampEntryInput, _tenantId: strin
 		.run();
 }
 
-/** カードのステータスを更新 */
+/**
+ * カードのステータスを更新。
+ * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら no-op。
+ */
 export async function updateCardStatus(
+	childId: number,
 	cardId: number,
 	input: UpdateStampCardStatusInput,
 	_tenantId: string,
@@ -110,12 +114,16 @@ export async function updateCardStatus(
 			redeemedAt: input.redeemedAt,
 			updatedAt: input.updatedAt,
 		})
-		.where(eq(schema.stampCards.id, cardId))
+		.where(and(eq(schema.stampCards.id, cardId), eq(schema.stampCards.childId, childId)))
 		.run();
 }
 
-/** status='collecting' の場合のみ更新し、affected 行数を返す（冪等ガード） */
+/**
+ * status='collecting' の場合のみ更新し、affected 行数を返す（冪等ガード）。
+ * #2845 課題①: childId 所有権検証付き。不一致 / 非 collecting なら 0。
+ */
 export async function updateCardStatusIfCollecting(
+	childId: number,
 	cardId: number,
 	input: UpdateStampCardStatusInput,
 	_tenantId: string,
@@ -128,7 +136,13 @@ export async function updateCardStatusIfCollecting(
 			redeemedAt: input.redeemedAt,
 			updatedAt: input.updatedAt,
 		})
-		.where(and(eq(schema.stampCards.id, cardId), eq(schema.stampCards.status, 'collecting')))
+		.where(
+			and(
+				eq(schema.stampCards.id, cardId),
+				eq(schema.stampCards.childId, childId),
+				eq(schema.stampCards.status, 'collecting'),
+			),
+		)
 		.run();
 	return result.changes;
 }

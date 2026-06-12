@@ -298,9 +298,10 @@ export async function redeemStampCard(
 		loginMultiplier,
 	);
 
-	// カードを引き換え済みに更新（冪等ガード: 同時リクエスト対策）
+	// カードを引き換え済みに更新（冪等ガード: 同時リクエスト対策、#2845: childId 所有権検証付き）
 	const now = new Date().toISOString();
 	const affected = await updateCardStatusIfCollecting(
+		childId,
 		cardData.id,
 		{
 			status: 'redeemed',
@@ -376,9 +377,10 @@ export async function autoRedeemPreviousWeek(
 		loginMultiplier,
 	);
 
-	// 冪等ガード: 同時リクエストで二重付与を防ぐ
+	// 冪等ガード: 同時リクエストで二重付与を防ぐ (#2845: childId 所有権検証付き)
 	const now = new Date().toISOString();
 	const affected = await updateCardStatusIfCollecting(
+		childId,
 		prevCard.id,
 		{ status: 'redeemed', redeemedPoints: total, redeemedAt: now, updatedAt: now },
 		tenantId,
