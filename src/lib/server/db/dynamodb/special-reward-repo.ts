@@ -95,7 +95,13 @@ export async function findSpecialRewards(
 	return items;
 }
 
-/** 子供の未表示の特別報酬を1件取得 */
+/**
+ * 子供の未表示の特別報酬を1件取得。
+ *
+ * #2845 B2: 旧実装は `Limit: 1` + FilterExpression の併用で「filter 前評価 1 件が
+ * shown 済だと false NOT_FOUND」になる #2842 class だった。Limit を撤去し
+ * 全ページ走査 + 一致で早期 return に置換 (本 file の findRewardItemByChildAndId と同パターン)。
+ */
 export async function findUnshownReward(
 	childId: number,
 	tenantId: string,
@@ -104,24 +110,27 @@ export async function findUnshownReward(
 	const prefix = specialRewardPrefix();
 
 	// Query all rewards for this child (descending), filter for unshown
-	const result = await getDocClient().send(
-		new QueryCommand({
-			TableName: TABLE_NAME,
-			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-			FilterExpression: 'attribute_not_exists(shownAt) OR shownAt = :null',
-			ExpressionAttributeValues: {
-				':pk': pk,
-				':prefix': prefix,
-				':null': null,
-			},
-			ScanIndexForward: false, // descending order (newest first)
-			Limit: 1,
-		}),
-	);
-
-	const items = result.Items ?? [];
-	if (items.length === 0) return undefined;
-	return stripKeys(items[0] as Record<string, unknown>) as unknown as SpecialReward;
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+				FilterExpression: 'attribute_not_exists(shownAt) OR shownAt = :null',
+				ExpressionAttributeValues: {
+					':pk': pk,
+					':prefix': prefix,
+					':null': null,
+				},
+				ScanIndexForward: false, // descending order (newest first)
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		const item = (result.Items ?? [])[0];
+		if (item) return stripKeys(item as Record<string, unknown>) as unknown as SpecialReward;
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+	return undefined;
 }
 
 /**
