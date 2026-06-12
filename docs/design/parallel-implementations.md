@@ -206,6 +206,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/routes/switch/+page.server.ts` `select` action | 子供モード切替時の cookie 明示削除 (構造的核心) |
 | `src/routes/(parent)/admin/+layout.server.ts` | PIN gate middleware (未認証時 `/switch?pinRequired=1&next=…` redirect + sliding refresh) |
 | `src/lib/server/services/parent-gate-session.ts` | 署名 cookie 発行 / 検証 / sliding refresh の SSOT |
+| `src/routes/api/v1/parent-gate/setup/+server.ts` (#2992) | 初回 PIN 作成 endpoint (未設定 tenant のみ、設定済へは 403 `ALREADY_CONFIGURED`。成功で verify と同じ cookie 発行) |
 | `src/routes/api/v1/parent-gate/verify/+server.ts` | PIN verify endpoint + cookie 発行 |
 | `src/routes/api/v1/parent-gate/logout/+server.ts` | cookie 削除 endpoint |
 | `src/routes/api/v1/parent-gate/reset-verified/+server.ts` (#2993) | PIN reset (パスワード re-auth → setupPin + session 発行、cognito 専用) |
@@ -223,9 +224,9 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - timeout 値 (`INACTIVITY_TIMEOUT_MS=15min` / `MAX_SESSION_MS=24h`) 変更は ADR-0050 §4 + 14-セキュリティ設計書.md §4.3 と同期
 - 新規 `/admin/*` ページ追加: middleware は layout で一括適用されるため個別 page 側の対応不要 (PIN gate は config-free)
 - 新規 PO 系 endpoint で「子供モード切替時 cookie 破棄」相当ロジックが必要になった場合は `/api/v1/parent-gate/logout` を呼ぶ
-- reset token TTL (30 分) 変更は ADR-0050 §4 補論 + 14-セキュリティ設計書.md §4.4 と同期、`RESET_TOKEN_TTL_SEC` 定数経由で参照
+- PIN reset 方式 (cognito=パスワード再入力 / local=operator reset) の変更は 14-セキュリティ設計書.md §4.3b〜4.4 + 06-UI設計書.md §4.6.2 + `runbooks/operator-pin-reset.md` + ADR-0050 §7 と同期
 - onboarding dialog 文言変更は `PIN_GATE_ONBOARDING_LABELS` SSOT 経由 (Svelte 直書き禁止)
-- PIN 初期値 5086 ヒントは setup 完了画面 / onboarding dialog / `/admin/settings` PIN 変更画面でのみ表示。`/switch` PIN gate modal では非表示 (#2353 設計欠陥 5)
+- PIN 初期値 5086 ヒント (`OYAKAGI_LABELS.defaultValueHint`) は `/admin/settings/account` PIN 変更画面でのみ表示 (legacy local `changePin` の現コード照合文脈)。setup 完了画面 / onboarding dialog は初回作成フロー案内 (#2992、`pinHintSuffix` / `dialogPinHint`)、`/switch` PIN gate modal は非表示 (#2353 設計欠陥 5)。SSOT: 14-セキュリティ設計書.md §4.3「初期 PIN ヒント表示ポリシー」
 
 ---
 

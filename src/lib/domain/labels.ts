@@ -1339,13 +1339,12 @@ export const OYAKAGI_LABELS = {
 	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
 	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
-	// setup フローでの初期値伝達は OYAKAGI_LABELS.defaultValueHint で継続 (適切な文脈 = 親が初期 setup 完了画面で見る)
+	// (#2992 以降は初回作成フローのため gate 経路に既定 PIN ヒント自体が不要。defaultValueHint は legacy local 文脈の PIN 変更画面のみで継続)
 	gatePinRequiredBanner: `${ADMIN_VIEW_TERMS.canonical}に入るには${OYAKAGI_TERMS.name}が必要です`,
-	// #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分 token + 1 回限り)
+	// #2993: PIN 忘れ救済導線 (入力モード + cognito identity のみ表示、/auth/reset-pin = パスワード再入力方式へ遷移)
 	gateForgotPinLink: `${OYAKAGI_TERMS.name}を忘れた方`,
 	// #2994: local (self-host) では運用者向け reset 手順に誘導する (email/リンク導線なし)
 	gateOperatorResetNotice: `${OYAKAGI_TERMS.name}を忘れた場合は、サーバー管理者向けのリセット手順で再設定できます`,
-	gateForgotPinHelp: `${OYAKAGI_TERMS.name}が分からない場合は登録メールで再設定できます`,
 	// #2992 (EPIC #2990): 初回は「作る」フロー。PIN 未設定 tenant には login でなく
 	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。
 	// これにより既定 PIN を知らない保護者の初回 dead-end が構造的に解消する。
