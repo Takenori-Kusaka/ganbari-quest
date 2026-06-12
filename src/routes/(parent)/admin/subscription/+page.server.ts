@@ -93,8 +93,8 @@ export const actions: Actions = {
 		});
 
 		if (!started) {
-			// #2941 項目 2: メッセージは TRIAL_LABELS SSOT 経由。TrialBanner が
-			// getActionErrorDisplay でユーザーに見える形で表示する (NN/G #1)
+			// #2941 項目 2: メッセージは TRIAL_LABELS SSOT 経由。SaasLicensePanel の startTrial form
+			// (#3033 で開始導線を一本化) が getActionErrorDisplay でユーザーに見える形で表示する (NN/G #1)
 			return fail(400, { error: TRIAL_LABELS.startErrorAlreadyUsed });
 		}
 

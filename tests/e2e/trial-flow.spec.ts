@@ -71,7 +71,8 @@ test.describe('#752 トライアルフロー — free ユーザー', () => {
 	}) => {
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		// 開始ボタンをクリック (plain form POST → full reload)
+		// 開始ボタンをクリック (#2941 移植で use:enhance 化。未 hydration 時は native POST に
+		// fallback して full reload するが、いずれも成功時は trial 状態が page data に反映される)
 		await page
 			.getByTestId('subscription-start-trial-button')
 			.waitFor({ state: 'visible', timeout: 30_000 });
@@ -185,11 +186,14 @@ test.describe('#2941 トライアル開始 negative path — 使用済み tenant
 	test('stale 画面から「開始」再押下 → 400 エラーがユーザーに見える形で表示される', async ({
 		page,
 	}) => {
-		// 1. trial 未使用状態で /admin を開く（「開始」ボタンが見える stale 画面を作る）
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
-		await expect(page.getByTestId('trial-banner-start-button')).toBeVisible({ timeout: 30_000 });
+		// 1. trial 未使用状態で /admin/subscription を開く（「開始」ボタンが見える stale 画面を作る）
+		//    (#3033: 開始導線は SaasLicensePanel の startTrial form に一本化、TrialBanner は urgent 専用)
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+		await expect(page.getByTestId('subscription-start-trial-button')).toBeVisible({
+			timeout: 30_000,
+		});
 		// #702 hydration marker: use:enhance バインド前に click すると native form POST に
-		// fallback して /admin/subscription へ全画面遷移してしまうため、hydration 完了を待つ
+		// fallback して full reload してしまうため、hydration 完了を待つ
 		await page.waitForFunction(() => window.__APP_HYDRATED__ === true, undefined, {
 			timeout: 30_000,
 		});
@@ -217,11 +221,11 @@ test.describe('#2941 トライアル開始 negative path — 使用済み tenant
 		}
 
 		// 3. stale 画面の「開始」ボタンを再押下 → server action は startTrial=false で fail(400)
-		await page.getByTestId('trial-banner-start-button').click();
+		await page.getByTestId('subscription-start-trial-button').click();
 
 		// 4. NN/G #1: 400 が黙殺されず、role=alert のエラーメッセージとして表示される
 		//    (getActionErrorDisplay #2913 経路、TRIAL_LABELS.startErrorAlreadyUsed)
-		const error = page.getByTestId('trial-banner-start-error');
+		const error = page.getByTestId('subscription-start-trial-error');
 		await expect(error).toBeVisible({ timeout: 30_000 });
 		await expect(error).toHaveText('無料体験はすでに使用済みです');
 		await expect(error).toHaveAttribute('role', 'alert');

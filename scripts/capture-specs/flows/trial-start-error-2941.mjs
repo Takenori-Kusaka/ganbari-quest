@@ -1,23 +1,25 @@
 /**
- * scripts/capture-specs/flows/trial-banner-start-error-2941.mjs
+ * scripts/capture-specs/flows/trial-start-error-2941.mjs
  *
  * #2941 項目 2: trialUsed=true 再押下 negative path の visible feedback 撮影。
+ * (#3033 で trial 開始導線が TrialBanner not-started form から /admin/subscription の
+ *  SaasLicensePanel startTrial form に一本化されたため、撮影対象を同 form に改修)
  *
- * 旧挙動: TrialBanner の use:enhance が failure result を黙殺し、startTrial の
+ * 旧挙動: startTrial form の use:enhance が failure result を黙殺し、startTrial の
  * fail(400) がユーザーに一切見えなかった (NN/G #1 違反)。本 fix で
  * getActionErrorDisplay (#2913) 経由の role=alert エラーメッセージを表示する。
  *
  * 撮影 2 状態:
- *   1. trial 未使用 free ユーザーの「開始」バナー (stale 画面)
- *   2. DB 直接 seed で使用済み化 → 再押下 → trial-banner-start-error 表示
+ *   1. trial 未使用 free ユーザーの /admin/subscription 開始 form (stale 画面)
+ *   2. DB 直接 seed で使用済み化 → 再押下 → subscription-start-trial-error 表示
  *
  * 前提: cognito-dev サーバ (port 5174) + free storageState。
  *
  * 使用例:
- *   node scripts/capture.mjs --pr 2941 \
- *     --flow trial-banner-start-error-2941 \
- *     --url /admin \
- *     --actions scripts/capture-specs/flows/trial-banner-start-error-2941.mjs \
+ *   node scripts/capture.mjs --pr 3035 \
+ *     --flow trial-start-error-2941 \
+ *     --url /admin/subscription \
+ *     --actions scripts/capture-specs/flows/trial-start-error-2941.mjs \
  *     --storage-state playwright/.auth/free.json \
  *     --server-mode cognito --presets desktop
  */
@@ -69,31 +71,31 @@ function seedUsedTrial() {
 export default async (page, capture) => {
 	cleanTrial();
 	try {
-		// --- 1) trial 未使用の「開始」バナー (stale 画面の起点) ---
-		await page.goto(`${BASE_URL}/admin`);
+		// --- 1) trial 未使用の subscription 開始 form (stale 画面の起点) ---
+		await page.goto(`${BASE_URL}/admin/subscription`);
 		await page
-			.getByTestId('trial-banner-start-button')
+			.getByTestId('subscription-start-trial-button')
 			.waitFor({ state: 'visible', timeout: 30_000 });
 		// #702 hydration marker: use:enhance バインド前 click の native POST fallback を防ぐ
 		await page.waitForFunction(() => window.__APP_HYDRATED__ === true, undefined, {
 			timeout: 30_000,
 		});
-		await capture('2941-trial-banner-not-started');
+		await capture('2941-subscription-trial-not-started');
 
 		// --- 2) 使用済み化 → 再押下 → エラーメッセージ表示 (NN/G #1) ---
 		seedUsedTrial();
-		await page.getByTestId('trial-banner-start-button').click();
+		await page.getByTestId('subscription-start-trial-button').click();
 		await page
-			.getByTestId('trial-banner-start-error')
+			.getByTestId('subscription-start-trial-error')
 			.waitFor({ state: 'visible', timeout: 15_000 });
-		await capture('2941-trial-banner-start-error-visible');
+		await capture('2941-subscription-trial-start-error-visible');
 
 		// #1747: SS と同一 page から DOM snapshot を保存 (flow mode は per-step dom 出力が
 		// 無いため、エラー表示状態の outerHTML を明示保存して SS との同時取得を保証する)
-		const outDir = path.resolve(process.env.DOM_OUT_DIR || 'tmp/screenshots/pr-2941');
+		const outDir = path.resolve(process.env.DOM_OUT_DIR || 'tmp/screenshots/pr-3035');
 		mkdirSync(outDir, { recursive: true });
 		const html = await page.evaluate(() => document.documentElement.outerHTML);
-		writeFileSync(path.join(outDir, 'trial-banner-start-error-2941-flow.dom.html'), html, 'utf-8');
+		writeFileSync(path.join(outDir, 'trial-start-error-2941-flow.dom.html'), html, 'utf-8');
 	} finally {
 		cleanTrial();
 	}
