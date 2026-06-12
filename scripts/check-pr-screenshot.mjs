@@ -187,11 +187,36 @@ export function extractImageUrls(body) {
  * URL がスクリーンショット (拡張子 .png / .jpg / .jpeg / .webp / .gif) を指しているかを判定。
  * HTTPS 以外の URL や user-attachments の uuid (拡張子なし) は false を返す。
  *
+ * 注 (#2929): user-attachments URL を本関数で true にすると、DOM スナップショット併記検証
+ * (#1766、checkDomSnapshotViolation) が drag&drop SS (capture.mjs 非経由で .dom.html を持たない)
+ * にも .dom.html を要求して false-warn する。embed 判定での user-attachments 許容は
+ * hasEmbeddedScreenshotImage 側 (isUserAttachmentAssetUrl) で行い、本関数は拡張子判定に限定する。
+ *
  * @param {string} url
  * @returns {boolean}
  */
 export function isScreenshotUrl(url) {
 	return /\.(?:png|jpe?g|webp|gif)(?:[?#]|$)/i.test(url);
+}
+
+// GitHub drag&drop で生成される添付 URL (拡張子なし uuid)。
+// 例: https://github.com/user-attachments/assets/9c6c8430-1234-5678-aaaa-bbbb
+const USER_ATTACHMENT_URL_PATTERN = /^https:\/\/github\.com\/user-attachments\/assets\/[\w-]+$/i;
+
+/**
+ * URL が GitHub user-attachments の添付 (PR body へのドラッグ&ドロップで生成、拡張子なし uuid)
+ * かを判定する (#2929 項目 1)。
+ *
+ * PR template (`.github/PULL_REQUEST_TEMPLATE.md`) / dev-session.md / 本 script の修復メッセージは
+ * いずれも user-attachments を正規の embed 手段として案内しているため、embed 判定
+ * (hasEmbeddedScreenshotImage) で screenshot 同等に扱う。query / fragment 付きは添付 uuid の
+ * 正規形ではないため不一致とする。
+ *
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isUserAttachmentAssetUrl(url) {
+	return USER_ATTACHMENT_URL_PATTERN.test(url);
 }
 
 /**
@@ -218,6 +243,22 @@ export function hasDomSnapshotReference(body) {
 //
 // CI screenshot-check (main 処理) とロジック SSOT を共有するため、検出関数は本ファイルに集約し
 // pre-ready は env SCREENSHOT_EMBED_GATE 経由で本検証のみを error モードで起動する (二重実装しない)。
+//
+// 検出軸の責務分離マップ (#2929 項目 2 で収斂・明文化):
+//
+// | 検出軸                          | pre-ready Step 11b (mainEmbedGate) | CI main() (screenshot-quality-check) |
+// |---------------------------------|------------------------------------|--------------------------------------|
+// | ローカルパス禁止 (#1741)        | error                              | warn (MODE 昇格で error)             |
+// | before/after ラベル (#1740)     | — (CI 専任)                        | warn (同上)                          |
+// | DOM 併記 (#1766)                | — (CI 専任)                        | warn (同上)                          |
+// | 未来形記述 (#2918)              | error                              | warn (同上、#2929 で追加)            |
+// | embed 不在 (#2918)              | error                              | warn (同上、#2929 で追加)            |
+//
+// authoritative は CI 側 (pr-quality-gate.yml)。pre-ready Step 11b は gh 失敗時に fail-open
+// (WARN + skip) する defense-in-depth であり、最終判定は CI が担う。なお legacy job
+// `screenshot-check` (pr-quality-gate.yml 内 inline github-script) は「UI PR に画像 1 件以上」
+// のみを hard-fail する独立 gate として併存する (required check のため一本化は lane 設計変更を
+// 伴い #2929 では据置)。
 // ---------------------------------------------------------------------------
 
 // 未来形 / 予告記述パターン。「SS は (後で) push する」「添付予定」「撮影予定」等の未完了宣言。
@@ -251,13 +292,17 @@ export function hasFutureTenseScreenshotMarker(body) {
  *
  * - ローカルパス (tmp/ / .tmp-screenshots/) のみの参照は embed とみなさない (detectLocalPaths で別途 fail)
  * - http(s) URL かつ画像拡張子 (.png/.jpg/.jpeg/.webp/.gif) を持つものを embed として数える
+ * - GitHub user-attachments URL (drag&drop、拡張子なし uuid) も embed として数える (#2929 項目 1。
+ *   PR template / dev-session.md が正規手段として案内する経路を gate が false-positive fail しない)
  *
  * @param {string} body
  * @returns {boolean}
  */
 export function hasEmbeddedScreenshotImage(body) {
 	const urls = extractImageUrls(body);
-	return urls.some((url) => /^https?:\/\//i.test(url) && isScreenshotUrl(url));
+	return urls.some(
+		(url) => /^https?:\/\//i.test(url) && (isScreenshotUrl(url) || isUserAttachmentAssetUrl(url)),
+	);
 }
 
 /**
@@ -297,33 +342,51 @@ export function checkScreenshotEmbedReadiness({ body, files, labels }) {
 
 	// 未来形記述の検出 (#2918)
 	if (hasFutureTenseScreenshotMarker(body)) {
-		violations.push({
-			id: 'future-tense-screenshot',
-			issue: '#2918',
-			message:
-				'PR body に「SS は後で push する / 添付予定」等の未来形・未完了の記述が残っています。\n' +
-				'Ready 化前に SS 撮影 → screenshots branch push → body embed を完了してください。\n' +
-				'  - node scripts/capture.mjs --pr <N> で撮影 (SS + DOM HTML が screenshots branch に push されます)\n' +
-				'  - 出力された Markdown スニペット (raw.githubusercontent.com の embed) を PR body に貼り付け\n' +
-				'  - UI 変更を含まない PR の場合は「該当なし（refactor / docs / chore）」と明記してください。',
-		});
+		violations.push(buildFutureTenseViolation());
 	}
 
 	// GitHub 表示可能な embed 画像の不在検出 (#2918)
 	if (!hasEmbeddedScreenshotImage(body)) {
-		violations.push({
-			id: 'screenshot-embed-missing',
-			issue: '#2918',
-			message:
-				'UI 変更 PR ですが、PR body に GitHub Web 上で表示可能な SS embed 画像が 1 件もありません。\n' +
-				'(テキスト表のみ / ローカルパス参照のみ / embed 0 件 は Ready 化前 fail です — #2913 / #2914 / #2915 / #2909)\n' +
-				'  - node scripts/capture.mjs --pr <N> で撮影 → screenshots branch push\n' +
-				'  - raw.githubusercontent.com/.../screenshots/pr-<N>/ 形式の embed 画像を 1 件以上 body に貼り付け\n' +
-				'  - UI 変更を含まない PR の場合は「該当なし（refactor / docs / chore）」と明記してください。',
-		});
+		violations.push(buildEmbedMissingViolation());
 	}
 
 	return { skipped: false, skipReason: null, violations };
+}
+
+/**
+ * 未来形記述違反 (#2918) を生成する。pre-ready Step 11b (mainEmbedGate) と CI main() の
+ * 双方から使う共通 builder (#2929 項目 2 — 検出軸収斂)。
+ * @returns {{ id: string; issue: string; message: string }}
+ */
+function buildFutureTenseViolation() {
+	return {
+		id: 'future-tense-screenshot',
+		issue: '#2918',
+		message:
+			'PR body に「SS は後で push する / 添付予定」等の未来形・未完了の記述が残っています。\n' +
+			'Ready 化前に SS 撮影 → screenshots branch push → body embed を完了してください。\n' +
+			'  - node scripts/capture.mjs --pr <N> で撮影 (SS + DOM HTML が screenshots branch に push されます)\n' +
+			'  - 出力された Markdown スニペット (raw.githubusercontent.com の embed) を PR body に貼り付け\n' +
+			'  - UI 変更を含まない PR の場合は「該当なし（refactor / docs / chore）」と明記してください。',
+	};
+}
+
+/**
+ * embed 画像不在違反 (#2918) を生成する。pre-ready Step 11b と CI main() の共通 builder (#2929)。
+ * @returns {{ id: string; issue: string; message: string }}
+ */
+function buildEmbedMissingViolation() {
+	return {
+		id: 'screenshot-embed-missing',
+		issue: '#2918',
+		message:
+			'UI 変更 PR ですが、PR body に GitHub Web 上で表示可能な SS embed 画像が 1 件もありません。\n' +
+			'(テキスト表のみ / ローカルパス参照のみ / embed 0 件 は Ready 化前 fail です — #2913 / #2914 / #2915 / #2909)\n' +
+			'  - node scripts/capture.mjs --pr <N> で撮影 → screenshots branch push\n' +
+			'  - raw.githubusercontent.com/.../screenshots/pr-<N>/ 形式の embed 画像を 1 件以上 body に貼り付け\n' +
+			'    (GitHub 編集画面への drag&drop で生成される user-attachments URL も可)\n' +
+			'  - UI 変更を含まない PR の場合は「該当なし（refactor / docs / chore）」と明記してください。',
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -424,7 +487,7 @@ function main() {
 	}
 
 	if (skipReason) {
-		console.log(`[screenshot-check] ${skipReason} — before/after / DOM 検証をスキップ`);
+		console.log(`[screenshot-check] ${skipReason} — before/after / DOM / embed 検証をスキップ`);
 	} else {
 		// 検証 2: before/after ラベル検証 (#1740)
 		const beforeAfterViolation = checkBeforeAfterViolation(PR_BODY);
@@ -433,6 +496,12 @@ function main() {
 		// 検証 3: DOM スナップショット参照検証 (#1766 / #1747 AC4)
 		const domViolation = checkDomSnapshotViolation(PR_BODY);
 		if (domViolation) violations.push(domViolation);
+
+		// 検証 4 / 5: 未来形記述 + embed 不在 (#2918 / #2929 項目 2)
+		// pre-ready Step 11b (mainEmbedGate) と検出軸を収斂し「ローカル PASS ⊇ CI 検査軸」を双方向化する。
+		// CI では SCREENSHOT_CHECK_MODE=warn の間は warning として記録され、error 昇格時に hard-fail に収斂する。
+		if (hasFutureTenseScreenshotMarker(PR_BODY)) violations.push(buildFutureTenseViolation());
+		if (!hasEmbeddedScreenshotImage(PR_BODY)) violations.push(buildEmbedMissingViolation());
 	}
 
 	// 結果出力

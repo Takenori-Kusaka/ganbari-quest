@@ -138,7 +138,7 @@
 | `npm run dev` | 開発サーバー (port 5173、local モード) |
 | `npm run dev:cognito` | Cognito 認証画面 (#1026、認証画面 PR Ready 前必須) |
 | `npm run build` | SvelteKit production build |
-| `npm run pre-ready -- --pr <num>` | Ready 化前 10 step 検証 (ADR-0030 / #1920) |
+| `npm run pre-ready -- --pr <num>` | Ready 化前 全 14 step 検証 (ADR-0030 / #1920 / #2918。一覧 SSOT は `--help`) |
 | `npx biome check .` | Biome lint (Tier T1) |
 | `npx svelte-check` | Svelte 型チェック |
 | `npx vitest run` | unit / integration テスト |
