@@ -18,6 +18,7 @@ import {
 	hasUiNotApplicableMarker,
 	isScreenshotUrl,
 	isUiPr,
+	isUserAttachmentAssetUrl,
 } from '../../../scripts/check-pr-screenshot.mjs';
 
 describe('isUiPr (#1740)', () => {
@@ -153,7 +154,7 @@ describe('isScreenshotUrl (#1766)', () => {
 		expect(isScreenshotUrl('https://example.com/foo.webp#frag')).toBe(true);
 	});
 
-	it('user-attachments の uuid (拡張子なし) は false', () => {
+	it('user-attachments の uuid (拡張子なし) は false (拡張子判定に限定。embed 判定は isUserAttachmentAssetUrl 側で許容 #2929)', () => {
 		expect(
 			isScreenshotUrl('https://github.com/user-attachments/assets/9c6c8430-1234-5678-aaaa-bbbb'),
 		).toBe(false);
@@ -161,6 +162,48 @@ describe('isScreenshotUrl (#1766)', () => {
 
 	it('.dom.html は false', () => {
 		expect(isScreenshotUrl('https://example.com/foo.dom.html')).toBe(false);
+	});
+});
+
+describe('isUserAttachmentAssetUrl (#2929 項目 1)', () => {
+	it('GitHub user-attachments の uuid URL は true', () => {
+		expect(
+			isUserAttachmentAssetUrl(
+				'https://github.com/user-attachments/assets/9c6c8430-1234-5678-aaaa-bbbb',
+			),
+		).toBe(true);
+	});
+
+	it('http (非 https) は false', () => {
+		expect(
+			isUserAttachmentAssetUrl('http://github.com/user-attachments/assets/9c6c8430-1234'),
+		).toBe(false);
+	});
+
+	it('user-attachments 以外の github.com URL は false', () => {
+		expect(isUserAttachmentAssetUrl('https://github.com/Takenori-Kusaka/ganbari-quest')).toBe(
+			false,
+		);
+		expect(
+			isUserAttachmentAssetUrl(
+				'https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-1/a.png',
+			),
+		).toBe(false);
+	});
+
+	it('偽装ドメイン (github.com.evil.example) は false', () => {
+		expect(
+			isUserAttachmentAssetUrl('https://github.com.evil.example/user-attachments/assets/abc'),
+		).toBe(false);
+	});
+
+	it('uuid 後に path / query が続く非正規形は false', () => {
+		expect(
+			isUserAttachmentAssetUrl('https://github.com/user-attachments/assets/abc/../../evil'),
+		).toBe(false);
+		expect(isUserAttachmentAssetUrl('https://github.com/user-attachments/assets/abc?x=1')).toBe(
+			false,
+		);
 	});
 });
 
@@ -244,12 +287,12 @@ describe('hasEmbeddedScreenshotImage (#2918)', () => {
 		);
 	});
 
-	it('拡張子なし user-attachments の uuid は false (screenshot URL 判定不可)', () => {
+	it('拡張子なし user-attachments の uuid も embed として true (#2929 項目 1 — PR template / dev-session.md の正規手段案内と整合)', () => {
 		expect(
 			hasEmbeddedScreenshotImage(
 				'![x](https://github.com/user-attachments/assets/9c6c8430-1234-5678-aaaa-bbbb)',
 			),
-		).toBe(false);
+		).toBe(true);
 	});
 });
 
@@ -295,6 +338,16 @@ describe('checkScreenshotEmbedReadiness (#2918 — Ready 化前ゲート)', () =
 	it('UI 変更あり + GitHub raw URL embed あり → 違反なし (pass)', () => {
 		const result = checkScreenshotEmbedReadiness({
 			body: '## SS\n![after-mobile](https://raw.githubusercontent.com/Takenori-Kusaka/ganbari-quest/screenshots/pr-2918/after-mobile.png)',
+			files: ['src/routes/admin/+page.svelte'],
+			labels: [],
+		});
+		expect(result.skipped).toBe(false);
+		expect(result.violations).toHaveLength(0);
+	});
+
+	it('UI 変更あり + user-attachments embed のみ → 違反なし (pass、#2929 項目 1 false-positive 解消)', () => {
+		const result = checkScreenshotEmbedReadiness({
+			body: '## SS\n![after-mobile](https://github.com/user-attachments/assets/9c6c8430-1234-5678-aaaa-bbbb)',
 			files: ['src/routes/admin/+page.svelte'],
 			labels: [],
 		});

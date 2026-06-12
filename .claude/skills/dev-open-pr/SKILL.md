@@ -320,7 +320,7 @@ rm tmp/pr-bodies/<num>-<slug>.md
 | @scripts/check-pr-body.mjs | PR body セルフチェック CLI（#1775 / ADR-0030） |
 | @scripts/check-pr-template-sections-sync.mjs | **#2060: template ↔ SSOT JSON drift 検出 CLI** (`--fix` で JSON 再生成) |
 | @scripts/check-pr-screenshot.mjs | SS 4 スロット / ローカルパス検証 CLI（#1740 / #1741） |
-| @scripts/pre-ready.mjs | pre-ready 10 step CLI（#1920 で SSOT 検証 step 3 件追加） |
+| @scripts/pre-ready.mjs | pre-ready 全 14 step CLI（#1920 / #2918 で SSOT 検証 step 拡張。一覧 SSOT は `--help`） |
 | @docs/troubleshoot/screenshot_capture.md | SS 撮影 KB（SC-007 screenshots branch 運用 / SC-008 tmp gitignore） |
 | @docs/decisions/0004-review-and-ac-verification.md | AC 検証マップ義務（gate 1） |
 | @docs/decisions/0030-pre-ready-cli.md | pre-ready 全 Step PASS 必須 |

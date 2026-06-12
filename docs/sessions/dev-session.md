@@ -94,7 +94,7 @@ PO セッションが定めた AC を全て満たし、スクラップ&ビルド
 1. `git fetch origin && git pull` で最新化。worktree / clone 直後は refspec に develop 行があるか確認 + branch 作成直後は `node scripts/lib/resolve-base-branch.mjs --verify-base` で基点鮮度を機械検証（stale develop 基点ズレ防止 #2975、SOP SSOT: [branch-strategy.md §3](branch-strategy.md)）
 2. PR / Issue / レビューコメント確認: `gh pr view <num>`, `gh issue view <num>`, `gh api repos/{owner}/{repo}/pulls/{number}/reviews`
 3. レビュー指摘を全件修正（部分対応禁止）
-4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #1920 で SSOT 検証 step 拡張)。10 step (biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / lp-fallback / **check-no-plan-literals** (#972 / Phase 5 F1) / **generate-lp-labels --check** (#1917 / Phase 1 B1) / check-pr-body / capture) を順次実行、fail で即停止 + 修正方針表示。E2E / Storybook は別途
+4. **`npm run pre-ready -- --pr <num>` 全 Step PASS 必須** (ADR-0030 / #1775 / #1920 / #2918 で SSOT 検証 step 拡張)。全 14 step (biome / svelte-check / vitest / hardcoded-strings / lp-dimensions / lp-fallback / check-no-plan-literals (#972) / check-license-key-leak (#2836) / generate-lp-labels --check (#1917) / Readiness gate = check-pr-body / doc-code-references (#2577) / terminology-coherence (#2555) / **SS embed gate (#2918)** / capture) を順次実行、fail で即停止 + 修正方針表示。**一覧 SSOT は `npm run pre-ready -- --help`** (#2929)。E2E / Storybook は別途
 5. **AC 検証マップ全行埋める** (ADR-0004) — 空行 = 実装未了。コマンド結果 / SS パス / grep 結果で埋める
 6. **gh アカウント確認** (#1728 / ADR-0022)：
    ```bash
@@ -269,7 +269,7 @@ node scripts/check-no-direct-env-access.mjs
 node scripts/check-new-required-env.mjs
 ```
 
-または `npm run pre-ready -- --pr <num>` で 10 step 一括 (ADR-0030)。Step 9 = `check-pr-body.mjs` で gate 1+2+3 を網羅。**hotfix 緊急時こそ pre-ready を回す**。
+または `npm run pre-ready -- --pr <num>` で全 14 step 一括 (ADR-0030、一覧 SSOT は `--help`)。Step 9 = `check-pr-body.mjs` で gate 1+2+3 を網羅。**hotfix 緊急時こそ pre-ready を回す**。
 
 ### hotfix runbook の禁忌
 
