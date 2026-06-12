@@ -45,7 +45,8 @@ describe('demo/checklist-repo', () => {
 		await checklistRepo.deleteTemplate(900, 'demo');
 		expect(DEMO_CHECKLIST_TEMPLATES.length).toBe(before);
 		const beforeItems = DEMO_CHECKLIST_ITEMS.length;
-		await checklistRepo.deleteTemplateItem(20, 'demo');
+		// #2845 B1: (templateId, id, tenantId) composite key
+		await checklistRepo.deleteTemplateItem(900, 20, 'demo');
 		expect(DEMO_CHECKLIST_ITEMS.length).toBe(beforeItems);
 	});
 });

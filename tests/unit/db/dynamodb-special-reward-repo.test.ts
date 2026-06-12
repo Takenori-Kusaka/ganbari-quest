@@ -252,6 +252,45 @@ describe('markRewardShown (#2845 B1: tenant 境界 + paging)', () => {
 	});
 });
 
+describe('findUnshownReward (#2845 B2: Limit:1 + Filter 併用の遮断)', () => {
+	it('Query に Limit を付けず child partition (tenant + child 境界) で発行する', async () => {
+		mockSend.mockResolvedValue({ Items: [makeRewardItem()] });
+		const repo = await loadRepo();
+		const result = await repo.findUnshownReward(CHILD_ID, TENANT);
+
+		const query = mockSend.mock.calls[0]?.[0];
+		expect(query).toBeInstanceOf(MockQueryCommand);
+		expect(query).not.toBeInstanceOf(MockScanCommand);
+		const input = (query as { input: Record<string, unknown> }).input;
+		// literal PK assert: tenant + child 境界が KeyCondition で構造的に担保される
+		expect((input.ExpressionAttributeValues as Record<string, unknown>)[':pk']).toBe(
+			`T#${TENANT}#CHILD#${CHILD_ID}`,
+		);
+		// #2842: Limit + FilterExpression 併用は filter 前評価上限で false NOT_FOUND になる
+		expect(input.Limit).toBeUndefined();
+		expect(result?.id).toBe(REWARD_ID);
+	});
+
+	it('未表示 reward が後続ページに居ても見つける (旧 Limit:1 では false NOT_FOUND)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 's' } }) // page 1: shown 済のみ filter で 0 件
+			.mockResolvedValueOnce({ Items: [makeRewardItem()] }); // page 2: 未表示 hit
+		const repo = await loadRepo();
+		const result = await repo.findUnshownReward(CHILD_ID, TENANT);
+		expect(result?.id).toBe(REWARD_ID);
+		expect(mockSend).toHaveBeenCalledTimes(2);
+	});
+
+	it('全ページ走査しても未表示が無ければ undefined', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: { PK: 'p', SK: 's' } })
+			.mockResolvedValueOnce({ Items: [] });
+		const repo = await loadRepo();
+		expect(await repo.findUnshownReward(CHILD_ID, TENANT)).toBeUndefined();
+		expect(mockSend).toHaveBeenCalledTimes(2);
+	});
+});
+
 describe('interface 適合 (ISpecialRewardRepo、#2832 拡張)', () => {
 	it('updateSpecialReward / deleteSpecialReward を含む全メソッドを export している', async () => {
 		const repo = await loadRepo();
