@@ -19,14 +19,19 @@
  *
  * 親コンポーネント: /admin/subscription/+page.svelte (薄ラッパー、子#2331)
  */
+import { enhance } from '$app/forms';
+import { invalidateAll } from '$app/navigation';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { DowngradePreview } from '$lib/domain/downgrade-types';
+import { getActionErrorDisplay } from '$lib/domain/errors';
 import {
+	ACTION_LABELS,
 	APP_LABELS,
 	OYAKAGI_LABELS,
 	PAGE_TITLES,
 	SUBSCRIPTION_PAGE_LABELS,
+	TRIAL_LABELS,
 } from '$lib/domain/labels';
 import { getLicenseHighlights } from '$lib/domain/plan-features';
 import DowngradeResourceSelector from '$lib/features/admin/components/DowngradeResourceSelector.svelte';
@@ -59,6 +64,11 @@ const churnLostRetentionLabel = $derived(
 
 let checkoutLoading = $state(false);
 let portalLoading = $state(false);
+// #2941 項目 2 (#3033 で TrialBanner not-started form から本 panel へ移植):
+// startTrial の fail(400) (trialUsed=true 再押下等) をユーザーに見える形で表示する
+// (NN/G #1 visibility of system status)。getActionErrorDisplay (#2913) 経路。
+let trialSubmitting = $state(false);
+let trialStartError = $state('');
 let showChurnModal = $state(false);
 let selectedTier = $state<'standard' | 'family'>('standard');
 let billingInterval = $state<'monthly' | 'yearly'>('monthly');
@@ -387,16 +397,49 @@ async function openPortal() {
 					<p class="text-sm text-[var(--color-text-muted)] mb-4">
 						{SUBSCRIPTION_PAGE_LABELS.trialStartDesc}
 					</p>
-					<form method="POST" action="?/startTrial">
+					<form
+						method="POST"
+						action="?/startTrial"
+						use:enhance={() => {
+							trialSubmitting = true;
+							trialStartError = '';
+							return async ({ result, update }) => {
+								await update({ reset: false });
+								if (result.type === 'success') {
+									await invalidateAll();
+								} else if (result.type === 'failure') {
+									// #2941 item 2: fail(400) must be visible to the user (NN/G #1)
+									trialStartError = getActionErrorDisplay(
+										result.data?.error,
+										TRIAL_LABELS.startErrorFallback,
+									).message;
+								}
+								trialSubmitting = false;
+							};
+						}}
+					>
 						<Button
 							type="submit"
 							variant="primary"
 							size="md"
 							class="w-full"
+							loading={trialSubmitting}
+							data-testid="subscription-start-trial-button"
 						>
-							{SUBSCRIPTION_PAGE_LABELS.trialStartButton}
+							{trialSubmitting
+								? ACTION_LABELS.submitting
+								: SUBSCRIPTION_PAGE_LABELS.trialStartButton}
 						</Button>
 					</form>
+					{#if trialStartError}
+						<p
+							class="text-xs font-semibold text-[var(--color-feedback-error-text)] mt-2"
+							role="alert"
+							data-testid="subscription-start-trial-error"
+						>
+							{trialStartError}
+						</p>
+					{/if}
 					<p class="text-xs text-[var(--color-text-tertiary)] mt-2">
 						{SUBSCRIPTION_PAGE_LABELS.trialStartNote}
 					</p>

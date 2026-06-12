@@ -3,10 +3,9 @@ import { requireTenantId } from '$lib/server/auth/factory';
 // #2295 (EPIC #2294 ①): season-event-repo / seasonal-content-service 削除済 (2026-05-19)
 import { getSettings, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
-import { getActivities } from '$lib/server/services/activity-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/onboarding-service';
-import { getPlanLimits, isPaidTier } from '$lib/server/services/plan-limit-service';
+import { isPaidTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
 import { getChildStatus } from '$lib/server/services/status-service';
@@ -18,7 +17,6 @@ import {
 	getTenantValuePreview,
 	type TenantValuePreview,
 } from '$lib/server/services/value-preview-service';
-import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
@@ -81,23 +79,7 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	}
 
 	// #2295 (EPIC #2294 ①): 季節コンテンツ情報 / 思い出チケット削除済 (2026-05-19)
-
-	// #767: ダッシュボードにプラン利用状況を表示
-	const planLimits = getPlanLimits(tier);
-	let activityCount = 0;
-	try {
-		const acts = await getActivities(tenantId, { includeHidden: false });
-		activityCount = acts.filter((a) => a.source === 'parent').length;
-	} catch {
-		/* fallback */
-	}
-	const planStats = {
-		activityCount,
-		activityMax: planLimits.maxActivities,
-		childCount: children.length,
-		childMax: planLimits.maxChildren,
-		retentionDays: planLimits.historyRetentionDays,
-	};
+	// #3033: planStats (#767) は /admin/subscription (+page.server.ts) に一本化 — home では取得しない
 
 	// #1292: 本日の子供ごとの使用時間サマリー
 	let todayUsage: { childId: number; childName: string; durationMin: number }[] = [];
@@ -144,8 +126,6 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		currentMonth: yearMonth,
 		showPremiumWelcome,
 		// #2295: seasonalInfo 削除済
-		planStats,
-		stripeEnabled: isStripeEnabled(),
 		todayUsage,
 		weeklyUsage,
 		valuePreview,

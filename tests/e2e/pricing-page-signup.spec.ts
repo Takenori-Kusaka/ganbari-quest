@@ -107,21 +107,22 @@ test.describe('#757 free ユーザートライアル開始フロー', () => {
 		}
 	});
 
-	test('free ユーザーでトライアル開始後に TrialBanner が「無料体験中」を表示', async ({ page }) => {
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
+	test('free ユーザーでトライアル開始後に header pill が「残り N 日」を表示 (#3033)', async ({
+		page,
+	}) => {
+		// #3033: 開始導線は /admin/subscription の開始セクションに一本化
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		// まずトライアル未開始状態を確認
-		const startButton = page.getByTestId('trial-banner-start-button');
+		const startButton = page.getByTestId('subscription-start-trial-button');
 		await expect(startButton).toBeVisible({ timeout: 30_000 });
 
 		// トライアル開始（pricing からの signup 後に startTrial() が呼ばれるのと同等）
 		await startButton.click();
 
-		// active バナーに切り替わる
-		await expect(page.getByText(/無料体験中/)).toBeVisible({ timeout: 30_000 });
-
-		// 「プランを見る」CTA が表示される
-		await expect(page.getByTestId('trial-banner-active-cta')).toBeVisible();
+		// header の残日数 pill に切り替わる (body 常設バナーは出ない)
+		const pill = page.getByTestId('header-trial-pill');
+		await expect(pill).toBeVisible({ timeout: 30_000 });
+		await expect(pill).toContainText(/残り\d+日/);
 	});
 
 	test('トライアル開始後に /admin/subscription で planTier が standard に昇格している', async ({
@@ -136,17 +137,14 @@ test.describe('#757 free ユーザートライアル開始フロー', () => {
 		await expect(trialBadge).toContainText(/残り.*日/);
 	});
 
-	test('TrialBanner の CTA が /pricing へのリンクである', async ({ page }) => {
+	test('header pill がサブスクリプションページへのリンクである (#3033)', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
-		// active バナーの CTA リンクを検証
-		const cta = page.getByTestId('trial-banner-active-cta');
-		await expect(cta).toBeVisible({ timeout: 30_000 });
+		// trial active 中の header pill のリンクを検証
+		const pill = page.getByTestId('header-trial-pill');
+		await expect(pill).toBeVisible({ timeout: 30_000 });
 
-		// href が /pricing を含む（または /admin/subscription）
-		const href = await cta.getAttribute('href');
-		expect(href).toBeTruthy();
-		// CTA は /pricing またはサブスクリプションページへのリンク (#2818 で /admin/license → /admin/subscription)
-		expect(href).toMatch(/\/(pricing|admin\/subscription)/);
+		const href = await pill.getAttribute('href');
+		expect(href).toBe('/admin/subscription');
 	});
 });

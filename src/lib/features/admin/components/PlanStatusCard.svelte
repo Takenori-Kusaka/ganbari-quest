@@ -114,7 +114,7 @@ const trialTierLabel = $derived(
 				</Button>
 			{:else}
 				<a
-					href="{basePath}/license"
+					href="{basePath}/subscription"
 					class="plan-status__cta plan-status__cta--upgrade"
 					data-testid="plan-status-trial-cta"
 				>
@@ -135,7 +135,7 @@ const trialTierLabel = $derived(
 				</Button>
 			{:else}
 				<a
-					href="{basePath}/license"
+					href="{basePath}/subscription"
 					class="plan-status__cta plan-status__cta--upgrade"
 					data-testid="plan-status-free-cta"
 				>
@@ -144,7 +144,7 @@ const trialTierLabel = $derived(
 			{/if}
 		{:else if planTier === 'standard'}
 			<div class="plan-status__actions">
-				<a href="{basePath}/license" class="plan-status__cta plan-status__cta--detail">{FEATURES_LABELS.planStatusCard.planDetailLink}</a>
+				<a href="{basePath}/subscription" class="plan-status__cta plan-status__cta--detail">{FEATURES_LABELS.planStatusCard.planDetailLink}</a>
 				{#if onUpgrade}
 					<Button
 						variant="primary"
@@ -157,7 +157,7 @@ const trialTierLabel = $derived(
 						{upgradeLoading ? FEATURES_LABELS.planStatusCard.processingText : FEATURES_LABELS.planStatusCard.familyUpgradeBtn}
 					</Button>
 				{:else}
-					<a href="{basePath}/license" class="plan-status__cta plan-status__cta--family">{FEATURES_LABELS.planStatusCard.familyUpgradeBtn}</a>
+					<a href="{basePath}/subscription" class="plan-status__cta plan-status__cta--family">{FEATURES_LABELS.planStatusCard.familyUpgradeBtn}</a>
 				{/if}
 			</div>
 		{/if}

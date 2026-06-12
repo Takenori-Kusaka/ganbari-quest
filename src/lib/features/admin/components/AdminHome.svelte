@@ -17,7 +17,6 @@ import {
 import ChildListCard from './ChildListCard.svelte';
 import NotificationPermissionBanner from './NotificationPermissionBanner.svelte';
 import OnboardingChecklist from './OnboardingChecklist.svelte';
-import PlanStatusCard from './PlanStatusCard.svelte';
 import PremiumWelcome from './PremiumWelcome.svelte';
 
 interface ChildSummary {
@@ -40,22 +39,7 @@ interface MonthSummaryData {
 }
 
 // #2295 (EPIC #2294 ①): SeasonEventInfo / MemoryTicketInfo 削除済 (2026-05-19)
-
-interface PlanStats {
-	activityCount: number;
-	activityMax: number | null;
-	childCount: number;
-	childMax: number | null;
-	retentionDays: number | null;
-}
-
-interface TrialStatusProp {
-	isTrialActive: boolean;
-	trialUsed: boolean;
-	daysRemaining: number;
-	trialEndDate: string | null;
-	trialTier?: 'standard' | 'family' | null;
-}
+// #3033: PlanStats / TrialStatusProp は PlanStatusCard 撤去 (subscription ページ一本化) に伴い削除
 
 interface Props {
 	children: ChildSummary[];
@@ -69,10 +53,6 @@ interface Props {
 	planTier?: 'free' | 'standard' | 'family';
 	showPremiumWelcome?: boolean;
 	// #2295 (EPIC #2294 ①): seasonalInfo 削除済 (2026-05-19)
-	/** #767: ダッシュボードにプラン利用状況を表示 + ワンクリックアップグレード */
-	planStats?: PlanStats | null;
-	trialStatus?: TrialStatusProp | null;
-	stripeEnabled?: boolean;
 	/** #1292: 本日の子供ごとの使用時間サマリー */
 	todayUsage?: { childId: number; childName: string; durationMin: number }[];
 	/** #1576: 週次使用時間サマリー（子供ごとの日別使用時間） */
@@ -96,9 +76,6 @@ let {
 	currentMonth = '',
 	planTier = 'free',
 	showPremiumWelcome = false,
-	planStats = null,
-	trialStatus = null,
-	stripeEnabled = false,
 	todayUsage = [],
 	weeklyUsage = [],
 	valuePreview = null,
@@ -124,26 +101,7 @@ const showOnboarding = $derived(
 );
 const onboardingComplete = $derived(!isDemo && onboarding?.allCompleted && !onboarding?.dismissed);
 
-// #767: ワンクリックアップグレード — ダッシュボードから直接 Stripe Checkout に遷移
-let upgradeLoading = $state(false);
-
-async function handleOneClickUpgrade(planId: string) {
-	if (upgradeLoading || isDemo || !stripeEnabled) return;
-	upgradeLoading = true;
-	try {
-		const res = await fetch('/api/stripe/checkout', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ planId, returnPath: `${basePath}` }),
-		});
-		const data = await res.json();
-		if (data.url) {
-			window.location.href = data.url;
-		}
-	} finally {
-		upgradeLoading = false;
-	}
-}
+// #3033: ワンクリックアップグレード (#767) は /admin/subscription (SaasLicensePanel) に一本化
 
 async function handleStartTutorial() {
 	await markTutorialStarted();
@@ -238,31 +196,8 @@ function childLink(child: ChildSummary): string {
 		<NotificationPermissionBanner />
 	{/if}
 
-	<!-- #767: ダッシュボードにプラン利用状況 + ワンクリックアップグレード導線 -->
-	{#if !isDemo && planStats}
-		<PlanStatusCard
-			{planTier}
-			activityCount={planStats.activityCount}
-			activityMax={planStats.activityMax}
-			childCount={planStats.childCount}
-			childMax={planStats.childMax}
-			retentionDays={planStats.retentionDays}
-			{trialStatus}
-			onUpgrade={stripeEnabled ? handleOneClickUpgrade : null}
-			{upgradeLoading}
-			{basePath}
-		/>
-	{:else if !isDemo && planTier === 'free'}
-		<a href="{basePath}/license" class="plan-quick-link plan-quick-link--free">
-			<span class="plan-quick-link__info">
-				<span class="plan-quick-link__name">{ADMIN_HOME_LABELS.freePlanQuickName}</span>
-				<span class="plan-quick-link__hint">{ADMIN_HOME_LABELS.freePlanQuickHint}</span>
-			</span>
-			<span class="plan-quick-link__action">{ADMIN_HOME_LABELS.freePlanQuickAction}</span>
-		</a>
-	{/if}
-
-	<!-- #2295 (EPIC #2294 ①): Seasonal Content section 削除済 (2026-05-19) -->
+	<!-- #3033: PlanStatusCard / plan-quick-link は撤去。プラン情報は header (AdminLayout) と
+	     /admin/subscription (SaasLicensePanel) に一本化 (body 常設プランカードは業界慣行外) -->
 
 	<!-- Summary Cards -->
 	<div class="grid grid-cols-2 gap-3" data-tutorial="summary-cards">
@@ -454,50 +389,6 @@ function childLink(child: ChildSummary): string {
 		font-size: 0.75rem;
 		cursor: pointer;
 		text-decoration: underline;
-	}
-
-	.plan-quick-link {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-		border-radius: var(--radius-lg, 12px);
-		text-decoration: none;
-		transition: all 0.15s;
-	}
-
-	.plan-quick-link--free {
-		background: var(--color-premium-bg);
-		border: 1px solid var(--color-premium-bg);
-	}
-
-	.plan-quick-link--free:hover {
-		border-color: var(--color-premium);
-	}
-
-	.plan-quick-link__info {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.plan-quick-link__name {
-		font-size: 0.8rem;
-		font-weight: 700;
-		color: var(--color-text-secondary);
-	}
-
-	.plan-quick-link__hint {
-		font-size: 0.7rem;
-		color: var(--color-text-tertiary);
-	}
-
-	.plan-quick-link__action {
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--color-premium);
-		white-space: nowrap;
 	}
 
 	/* #961 QA: All tutorial guide cards */

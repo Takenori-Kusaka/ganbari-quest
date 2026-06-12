@@ -637,41 +637,24 @@ export const ACTION_LABELS = {
  * CI: scripts/check-forbidden-terms.mjs が完全一致禁止語を検出する。
  */
 // #1916: atom (トライアル日数) は terms.ts (TRIAL_TERMS) に移譲
-// #1958 Phase 7 H1: bannerDescNotStarted の文末「カード登録不要。」を TRIAL_TERMS.noCreditCardMid 参照に統一。
+// #3033: TrialBanner を urgent 専用に縮小し not-started / expired / active 通常の compound を撤去
+// (代替: header pill / /admin/subscription / TrialEndedDialog #770 / ロック機能接触時の文脈表示)
 export const TRIAL_LABELS = {
 	durationDays: TRIAL_TERMS.durationDays,
-	bannerTitleActive: (days: number) => `${ACTION_LABELS.freeTrial}中（残り${days}日）`,
 	bannerTitleUrgent: `${ACTION_LABELS.freeTrial}は明日で終了します`,
 	bannerDescActive: '全機能をお試しいただけます。',
-	bannerTitleNotStarted: `${TRIAL_TERMS.duration}、全機能を${ACTION_LABELS.freeTrialDesc}`,
-	bannerDescNotStarted: `${PLAN_LABELS.standard}のすべての機能をお使いいただけます。${TRIAL_TERMS.noCreditCardMid}。`,
 	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
-	bannerCtaStart: `${TRIAL_TERMS.duration} ${ACTION_LABELS.freeTrialWord}`,
-	// #2901 AC2 (contextual paywall): generic な「全機能無料」訴求だけでは「どの機能が
-	// 無料版で使えないのか」をユーザーが recognition できない (PO 指摘 #4、NN/G #6
-	// recognition rather than recall)。not-started バナーに free 版で制限される主要機能を
-	// 列挙し「やりたい事をやろうとしたら無料版では出来ない、に気づく」体験を作る。
-	// 機能名は FEATURE_LABELS / CHILD_TERMS SSOT から参照し直書きしない (ADR-0045)。
-	// ダークパターン (偽の緊急性・解約妨害) は含めない (ADR-0012 anti-engagement)。
-	bannerGatedHeading: '無料版では制限される機能',
-	bannerGatedFeatures: [
-		`${FEATURE_LABELS.activity}の作成を無制限に`,
-		`${CHILD_TERMS.honorific}の登録を無制限に`,
-		FEATURE_LABELS.aiActivitySuggest,
-		`特別な${FEATURE_LABELS.reward}設定`,
-		FEATURE_LABELS.dataExport,
-	] as readonly string[],
-	bannerCtaSubmitting: ACTION_LABELS.submitting,
 	// #2941 項目 2: startTrial action の negative path (trialUsed=true 再押下 → fail 400) を
 	// ユーザーに見える形で表示する (NN/G #1 visibility of system status)。
 	// startErrorAlreadyUsed は server (subscription +page.server.ts) が fail body に入れ、
-	// startErrorFallback は client (TrialBanner) が getActionErrorDisplay の fallback に使う。
+	// startErrorFallback は client (#3033 で開始導線を SaasLicensePanel に一本化後は
+	// 同 panel の startTrial form) が getActionErrorDisplay の fallback に使う。
 	startErrorAlreadyUsed: `${ACTION_LABELS.freeTrial}はすでに使用済みです`,
 	startErrorFallback: `${ACTION_LABELS.freeTrial}を開始できませんでした。時間をおいて再度お試しください。`,
-	bannerTitleExpired: `${ACTION_LABELS.freeTrial}が終了しました`,
-	bannerDescExpired: `${ACTION_LABELS.upgrade}で全機能をご利用いただけます。`,
-	bannerDescExpiredWithArchive: `一部のデータが制限されています。${ACTION_LABELS.upgrade}ですべて復元できます。`,
-	bannerCtaExpired: `⭐ ${ACTION_LABELS.upgrade}`,
+	// trial active 中は body バナーでなく header pill で残日数を常時視認させる
+	// (tap で /admin/subscription へ。urgent 残 1 日以下のみ body バナー併用)
+	headerPillLabel: (days: number) => `残り${days}日`,
+	headerPillTitle: `${ACTION_LABELS.freeTrial}中`,
 } as const;
 
 // ============================================================
@@ -4183,9 +4166,7 @@ export const ADMIN_HOME_LABELS = {
 	tutorialBannerHint: 'チュートリアルで使い方を確認しましょう（約3分）',
 	tutorialStartButton: '開始',
 	tutorialLaterButton: 'あとで',
-	freePlanQuickName: `${PLAN_FULL_TERMS.free}`,
-	freePlanQuickHint: 'もっと便利に使いませんか？',
-	freePlanQuickAction: '⭐ アップグレード →',
+	// #3033: freePlanQuick* 削除済 (plan-quick-link 撤去、プラン導線は header upgrade-btn に一本化)
 	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
 	summaryChildrenAria: '登録こども数',
 	summaryChildrenLabel: 'こどもの数',
