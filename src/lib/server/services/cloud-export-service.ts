@@ -267,8 +267,8 @@ export async function fetchCloudExportByPin(pinCode: string): Promise<{
 	const fileData = await repos.storage.readFile(record.s3Key);
 	if (!fileData) throw new Error('エクスポートデータが見つかりません');
 
-	// ダウンロードカウント増加
-	await repos.cloudExport.incrementDownloadCount(record.id);
+	// ダウンロードカウント増加 (#2845 B1: record.tenantId で tenant 束縛)
+	await repos.cloudExport.incrementDownloadCount(record.id, record.tenantId);
 
 	return { record, data: fileData.data.toString('utf-8') };
 }

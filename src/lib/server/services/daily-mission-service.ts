@@ -101,8 +101,8 @@ export async function checkMissionCompletion(
 		return { missionCompleted: false, allComplete: false, bonusAwarded: 0 };
 	}
 
-	// ミッション達成
-	await markMissionCompleted(mission.id, tenantId);
+	// ミッション達成 (#2845 B1: (childId, date, activityId) composite key で tenant + child 束縛)
+	await markMissionCompleted(childId, today, activityId, tenantId);
 
 	// 全ミッションの達成状況を確認
 	const allMissions = await findAllMissionStatuses(childId, today, tenantId);

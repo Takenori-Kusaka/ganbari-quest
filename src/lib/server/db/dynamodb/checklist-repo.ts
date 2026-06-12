@@ -396,22 +396,35 @@ export async function insertTemplateItem(
 	return item;
 }
 
-export async function deleteTemplateItem(id: number, _tenantId: string): Promise<void> {
+/**
+ * #2845 B1: 旧実装は tenant prefix を含まない全テーブル Scan (`begins_with(SK,'ITEM#') + id`)
+ * で全 tenant の item を delete できる形状だった。templateId を受け取り
+ * template partition Query (PK = T#<tenant>#CKTPL#<tplId>、tenant 境界を KeyCondition で
+ * 構造的に担保) + id filter で解決する。SK = ITEM#<sort>#<id> で sortOrder が不明なため
+ * exact Key 構成は不可、全ページ走査 + 一致で早期 return (#2842 paging 正パターン)。
+ */
+export async function deleteTemplateItem(
+	templateId: number,
+	id: number,
+	tenantId: string,
+): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;
 	do {
 		const result = await getDocClient().send(
-			new ScanCommand({
+			new QueryCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+				FilterExpression: 'id = :id',
 				ExpressionAttributeValues: {
+					':pk': tenantPK(`CKTPL#${templateId}`, tenantId),
 					':prefix': checklistItemPrefix(),
 					':id': id,
 				},
 				ExclusiveStartKey: lastKey,
 			}),
 		);
-		if (result.Items && result.Items.length > 0) {
-			const item = result.Items[0] as Record<string, unknown>;
+		const item = (result.Items ?? [])[0] as Record<string, unknown> | undefined;
+		if (item) {
 			await getDocClient().send(
 				new DeleteCommand({
 					TableName: TABLE_NAME,
@@ -549,22 +562,31 @@ export async function insertOverride(
 	return override;
 }
 
-export async function deleteOverride(id: number, _tenantId: string): Promise<void> {
+/**
+ * #2845 B1: 旧実装は tenant prefix を含まない全テーブル Scan (`begins_with(SK,'CKOVER#') + id`)
+ * で全 tenant の override を delete できる形状だった。childId を受け取り
+ * child partition Query (tenant + child 境界を KeyCondition で構造的に担保) + id filter で
+ * 解決する。SK = CKOVER#<date>#<id> で date が不明なため exact Key 構成は不可、
+ * 全ページ走査 + 一致で早期 return (#2842 paging 正パターン)。
+ */
+export async function deleteOverride(childId: number, id: number, tenantId: string): Promise<void> {
 	let lastKey: Record<string, unknown> | undefined;
 	do {
 		const result = await getDocClient().send(
-			new ScanCommand({
+			new QueryCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+				FilterExpression: 'id = :id',
 				ExpressionAttributeValues: {
-					':prefix': 'CKOVER#',
+					':pk': childPK(childId, tenantId),
+					':prefix': checklistOverridePrefix(),
 					':id': id,
 				},
 				ExclusiveStartKey: lastKey,
 			}),
 		);
-		if (result.Items && result.Items.length > 0) {
-			const item = result.Items[0] as Record<string, unknown>;
+		const item = (result.Items ?? [])[0] as Record<string, unknown> | undefined;
+		if (item) {
 			await getDocClient().send(
 				new DeleteCommand({
 					TableName: TABLE_NAME,

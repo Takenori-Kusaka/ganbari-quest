@@ -51,7 +51,12 @@ export async function findMissionByActivity(
 	return mission ? { id: mission.id, completed: mission.completed } : undefined;
 }
 
-export async function markMissionCompleted(_missionId: number, _tenantId: string): Promise<void> {
+export async function markMissionCompleted(
+	_childId: number,
+	_date: string,
+	_activityId: number,
+	_tenantId: string,
+): Promise<void> {
 	// Stub: no-op
 }
 

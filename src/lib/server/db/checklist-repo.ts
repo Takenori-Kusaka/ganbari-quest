@@ -90,8 +90,9 @@ export async function insertTemplateItem(
 	return getRepos().checklist.insertTemplateItem(input, tenantId);
 }
 
-export async function deleteTemplateItem(id: number, tenantId: string) {
-	return getRepos().checklist.deleteTemplateItem(id, tenantId);
+// #2845 B1: templateId 所有権検証付き (composite key)
+export async function deleteTemplateItem(templateId: number, id: number, tenantId: string) {
+	return getRepos().checklist.deleteTemplateItem(templateId, id, tenantId);
 }
 
 // ── Logs ────────────────────────────────────────────────────────
@@ -119,8 +120,9 @@ export async function insertOverride(input: InsertChecklistOverrideInput, tenant
 	return getRepos().checklist.insertOverride(input, tenantId);
 }
 
-export async function deleteOverride(id: number, tenantId: string) {
-	return getRepos().checklist.deleteOverride(id, tenantId);
+// #2845 B1: childId 所有権検証付き (composite key)
+export async function deleteOverride(childId: number, id: number, tenantId: string) {
+	return getRepos().checklist.deleteOverride(childId, id, tenantId);
 }
 
 // ── #783: archive / restore ─────────────────────────────────────

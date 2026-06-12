@@ -279,11 +279,14 @@ export const actions: Actions = {
 	removeItem: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
+		const templateId = Number(formData.get('templateId'));
 		const itemId = Number(formData.get('itemId'));
 
+		if (!templateId) return fail(400, { error: 'テンプレートIDが不正です' });
 		if (!itemId) return fail(400, { error: 'アイテムIDが不正です' });
 
-		await removeTemplateItem(itemId, tenantId);
+		// #2845 B1: templateId 所有権検証付き (composite key)。不一致なら no-op
+		await removeTemplateItem(templateId, itemId, tenantId);
 		return { success: true };
 	},
 
@@ -307,11 +310,14 @@ export const actions: Actions = {
 	removeOverride: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
 		const overrideId = Number(formData.get('overrideId'));
 
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!overrideId) return fail(400, { error: 'オーバーライドIDが不正です' });
 
-		await removeOverride(overrideId, tenantId);
+		// #2845 B1: childId 所有権検証付き (composite key)。不一致なら no-op
+		await removeOverride(childId, overrideId, tenantId);
 		return { success: true };
 	},
 

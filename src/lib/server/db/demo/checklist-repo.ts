@@ -214,7 +214,11 @@ export async function insertTemplateItem(
 	};
 }
 
-export async function deleteTemplateItem(_id: number, _tenantId: string): Promise<void> {
+export async function deleteTemplateItem(
+	_templateId: number,
+	_id: number,
+	_tenantId: string,
+): Promise<void> {
 	// Stub: no-op
 }
 
@@ -272,7 +276,11 @@ export async function insertOverride(
 	};
 }
 
-export async function deleteOverride(_id: number, _tenantId: string): Promise<void> {
+export async function deleteOverride(
+	_childId: number,
+	_id: number,
+	_tenantId: string,
+): Promise<void> {
 	// Stub: no-op
 }
 

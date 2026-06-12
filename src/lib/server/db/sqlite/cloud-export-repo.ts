@@ -56,10 +56,11 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 	return toRecord(row);
 }
 
-export async function incrementDownloadCount(id: number): Promise<void> {
+/** #2845 B1: tenantId 所有権検証付き (composite key)。不一致なら affected 0 の no-op。 */
+export async function incrementDownloadCount(id: number, tenantId: string): Promise<void> {
 	db.update(cloudExports)
 		.set({ downloadCount: sql`${cloudExports.downloadCount} + 1` })
-		.where(eq(cloudExports.id, id))
+		.where(and(eq(cloudExports.id, id), eq(cloudExports.tenantId, tenantId)))
 		.run();
 }
 

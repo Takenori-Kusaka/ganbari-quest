@@ -20,8 +20,14 @@ export async function findMissionByActivity(
 ) {
 	return getRepos().dailyMission.findMissionByActivity(childId, date, activityId, tenantId);
 }
-export async function markMissionCompleted(missionId: number, tenantId: string) {
-	return getRepos().dailyMission.markMissionCompleted(missionId, tenantId);
+// #2845 B1: (childId, date, activityId) 所有権検証付き (composite key)
+export async function markMissionCompleted(
+	childId: number,
+	date: string,
+	activityId: number,
+	tenantId: string,
+) {
+	return getRepos().dailyMission.markMissionCompleted(childId, date, activityId, tenantId);
 }
 export async function findAllMissionStatuses(childId: number, date: string, tenantId: string) {
 	return getRepos().dailyMission.findAllMissionStatuses(childId, date, tenantId);

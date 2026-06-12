@@ -410,8 +410,9 @@ export async function addTemplateItem(
 	);
 }
 
-export async function removeTemplateItem(id: number, tenantId: string) {
-	await deleteTemplateItem(id, tenantId);
+// #2845 B1: templateId 所有権検証付き (composite key)
+export async function removeTemplateItem(templateId: number, id: number, tenantId: string) {
+	await deleteTemplateItem(templateId, id, tenantId);
 }
 
 export async function addOverride(
@@ -436,6 +437,7 @@ export async function addOverride(
 	);
 }
 
-export async function removeOverride(id: number, tenantId: string) {
-	await deleteOverride(id, tenantId);
+// #2845 B1: childId 所有権検証付き (composite key)
+export async function removeOverride(childId: number, id: number, tenantId: string) {
+	await deleteOverride(childId, id, tenantId);
 }
