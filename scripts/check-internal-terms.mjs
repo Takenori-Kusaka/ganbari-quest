@@ -77,7 +77,11 @@ const INTERNAL_TERMS_BANLIST = [
 // ---------------------------------------------------------------------------
 
 const CONN_INFO_BANLIST = [
-	{ regex: /192\.168\.68\.(?:79|0\/23)/, label: '<NUC_HOST> (NUC LAN IP / subnet)', category: 'conn-info' },
+	{
+		regex: /192\.168\.68\.(?:79|0\/23)/,
+		label: '<NUC_HOST> (NUC LAN IP / subnet)',
+		category: 'conn-info',
+	},
 	{ regex: /kusaka[-]server/, label: '<NUC_USER> (NUC SSH user)', category: 'conn-info' },
 ];
 const CONN_INFO_ROOTS = ['docs', 'scripts', '.github', 'infra', 'site', 'src', 'tests'];
