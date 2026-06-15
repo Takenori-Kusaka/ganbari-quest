@@ -14,6 +14,16 @@ name: PR template SSOT 同期検証
 #
 # 修正方法:
 #   `node scripts/check-pr-template-sections-sync.mjs --fix` で JSON を template から再生成する。
+#
+# ★ lane 概念との関係 (#2944 / Phase A/A-2、Phase B 接続点):
+#   本 workflow は template ↔ JSON の 1 対 1 sync を検証する drift gate であり、PR の lane
+#   (feature / integration / hotfix / dependabot) には依存しない (全 PR で同一観点)。
+#   本 phase (A-2) では sync 対象を増やさず、現行の 1 JSON (PR_TEMPLATE_SECTIONS.json) のままにする。
+#   integration lane の必須 section set は `scripts/pr-template-gate-checks.mjs` の
+#   INTEGRATION_REQUIRED_SECTIONS (暫定) が担い、本 sync gate の対象外。
+#   Phase B (#2871) で統合 PR 専用 template (PR_TEMPLATE_SECTIONS.integration.json 等) を
+#   追加する際は、本 workflow の paths / sync 対象を複数 JSON に拡張する (本 phase では未対応)。
+#   = 本 issue (A-2) では「現行 sync を壊さない」確認のみ (#2944 AC7)。
 
 on:
   pull_request:

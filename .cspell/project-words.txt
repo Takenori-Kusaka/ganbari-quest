@@ -511,3 +511,6 @@ taskkill
 greyscale
 fullpage
 Pngs
+# ===== #2944 PR template gate lane-aware (Phase A/A-2) =====
+# pipefail = `set -euo pipefail` (bash strict mode) — pr-template-gate.yml / pr-lane-smoke.yml の shell step
+pipefail
