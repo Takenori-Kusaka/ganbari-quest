@@ -84,6 +84,25 @@ const CONN_INFO_BANLIST = [
 	},
 	{ regex: /kusaka[-]server/, label: '<NUC_USER> (NUC SSH user)', category: 'conn-info' },
 ];
+// ---------------------------------------------------------------------------
+// WORKFLOW_LANE_COVERAGE (#2948) — 全 workflow が gate × lane 対応表に記載済か検証
+//
+// docs/sessions/branch-strategy.md §4「全 workflow の gate × lane 対応表」が
+// 全 .github/workflows/*.yml の SSOT。新規 workflow を追加したのに対応表へ行を
+// 足さない場合に CI fail させる (専用 script 新設は #1442 / ADR-0010 で抑制対象の
+// ため、config 駆動の本 script に conn-info group と同型で相乗りする)。
+//
+// 最小実装: 「.github/workflows/*.yml のファイル名集合 ⊆ 対応表に出現するファイル名集合」
+// の差分検出のみ (#2948 no-go: lane 帰属の妥当性判定までは広げない、人手 + 表 SSOT)。
+// baseline なし — 未記載 1 件で即 fail。
+// ---------------------------------------------------------------------------
+
+const WORKFLOWS_DIR = '.github/workflows';
+const LANE_TABLE_DOC = 'docs/sessions/branch-strategy.md';
+// 対応表セルの `workflow.yml` (バッククォート囲み) を抽出する。表外の散文記載も
+// 拾えるよう、doc 全文から `<name>.yml` / `<name>.yaml` リテラルを網羅収集する。
+const WORKFLOW_FILENAME_REGEX = /([\w.-]+\.ya?ml)/g;
+
 const CONN_INFO_ROOTS = ['docs', 'scripts', '.github', 'infra', 'site', 'src', 'tests'];
 const CONN_INFO_EXTENSIONS = [
 	'.md',
@@ -241,6 +260,40 @@ function scanConnInfo() {
 }
 
 // ---------------------------------------------------------------------------
+// workflow-lane-coverage group 検査 (#2948)
+// ---------------------------------------------------------------------------
+
+function scanWorkflowLaneCoverage() {
+	const workflowsDir = path.join(REPO_ROOT, WORKFLOWS_DIR);
+	const docPath = path.join(REPO_ROOT, LANE_TABLE_DOC);
+
+	// 実 workflow ファイル名集合
+	let workflowFiles = [];
+	try {
+		workflowFiles = fs
+			.readdirSync(workflowsDir)
+			.filter((f) => f.endsWith('.yml') || f.endsWith('.yaml'));
+	} catch (err) {
+		return { ok: false, error: `workflows dir read error: ${err.message}`, missing: [] };
+	}
+
+	// 対応表 (doc 全文) に出現するファイル名集合
+	const documented = new Set();
+	try {
+		const doc = fs.readFileSync(docPath, 'utf8');
+		for (const m of doc.matchAll(WORKFLOW_FILENAME_REGEX)) {
+			documented.add(m[1]);
+		}
+	} catch (err) {
+		return { ok: false, error: `lane table doc read error: ${err.message}`, missing: [] };
+	}
+
+	// 実ファイル ⊆ 表記載 の差分 (表に行が無い workflow)
+	const missing = workflowFiles.filter((f) => !documented.has(f)).sort();
+	return { ok: missing.length === 0, workflowCount: workflowFiles.length, missing };
+}
+
+// ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
@@ -297,6 +350,34 @@ function main() {
 				'  - docs / runbook → <NUC_HOST> / <NUC_USER> プレースホルダー表記に置換\n' +
 				'  - script → env (NUC_SSH_HOST / NUC_SSH_USER) 経由化 (.env.example §NUC SSH 接続情報)\n' +
 				'  - SSOT: docs/design/05-開発指針書.md §9「NUC 接続情報の管理」\n',
+		);
+		return 1;
+	}
+
+	// 6. workflow-lane-coverage group (#2948) — baseline なし、未記載 1 件で fail
+	const laneCoverage = scanWorkflowLaneCoverage();
+	if (laneCoverage.error) {
+		console.log(
+			`\n[check-internal-terms] ✗ FAIL — workflow-lane-coverage 検査エラー: ${laneCoverage.error}`,
+		);
+		return 1;
+	}
+	console.log(
+		`[check-internal-terms] workflow-lane-coverage group (#2948): workflow ${laneCoverage.workflowCount} 本 / 未記載 ${laneCoverage.missing.length} 件`,
+	);
+	if (!laneCoverage.ok) {
+		console.log(
+			'\n[check-internal-terms] ✗ FAIL — gate × lane 対応表に未記載の workflow が検出されました:\n',
+		);
+		for (const f of laneCoverage.missing) {
+			console.log(`  .github/workflows/${f}`);
+		}
+		console.log(
+			'\n修正方針 (#2948):\n' +
+				`  - 新規 workflow を追加したら ${LANE_TABLE_DOC} §4「全 workflow の gate × lane 対応表」に\n` +
+				'    1 行追加する (lane 帰属 / required context 名 / lane 分岐有無 / 重量・軽量 を埋める)\n' +
+				'  - required status check を生む job を追加した場合は ruleset (gh api .../rulesets/14673945) との\n' +
+				'    整合も確認する (対応表 ★ 印 = ruleset の required_status_checks 配列と一致)\n',
 		);
 		return 1;
 	}
