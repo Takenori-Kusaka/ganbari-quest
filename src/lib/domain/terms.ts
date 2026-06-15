@@ -952,16 +952,18 @@ export const OYAKAGI_TERMS = {
 // ============================================================
 //
 // #2353 設計欠陥 5: PIN modal に「初期値は 5086（がんばり）です」を表示すると
-// 子供が見て即入力できる脆弱性。「setup フローでのみ伝達、gate modal では非表示」
-// が PO 確定方針。
+// 子供が見て即入力できる脆弱性。gate modal では非表示が PO 確定方針。
 //
-// ただし setup 完了画面 / setup wizard / onboarding dialog で「初期 PIN を覚えて
-// おいてください」と伝達する文脈は残るため、用語自体は atom 化して 1 行更新できる
-// 体制を維持する。値そのものは src/lib/domain/constants/oyakagi.ts の DEFAULT_PIN
-// (= '5086') を SSOT とし、本 atom は表示用の文字列だけ。
+// #2992 (EPIC #2990) で parent-gate 経路は「初回は新規作成」フローになり既定 PIN の
+// 事前伝達自体が不要化。setup 完了画面 / onboarding dialog の案内も作成フロー型
+// (SETUP_COMPLETE_LABELS.pinHintSuffix / PIN_GATE_ONBOARDING_LABELS.dialogPinHint) に置換済。
+// 本 atom の現役利用は legacy local 経路 (changePin の現コード = DEFAULT_PIN 照合、#1360 互換)
+// を案内する PIN 変更画面 (OYAKAGI_LABELS.defaultValueHint) のみ。
+// 値そのものは src/lib/domain/constants/oyakagi.ts の DEFAULT_PIN (= '5086') を SSOT とし、
+// 本 atom は表示用の文字列だけ。
 //
 // 設計指針:
-//   - hintFull       : '初期値は 5086（がんばり）です'  (setup 完了 / onboarding dialog 用)
+//   - hintFull       : '初期値は 5086（がんばり）です'  (PIN 変更画面 = legacy local 文脈用)
 //   - hintCompact    : '初期 5086（がんばり）'           (短縮版、checklist 等向け)
 
 export const PIN_DEFAULT_TERMS = {
