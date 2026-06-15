@@ -1,6 +1,7 @@
 # NUC activities → child_activities Data Recovery Runbook
 
 > **対象**: 運用担当 (PO)
+> **接続情報**: 本文の `<NUC_USER>` / `<NUC_HOST>` は NUC の SSH ユーザー名 / LAN ホストのプレースホルダー (#2987、実値は repo にコミットしない)。実値の管理場所は [docs/design/05-開発指針書.md §9](../design/05-開発指針書.md) を参照
 > **関連 Issue**: [#2510](https://github.com/Takenori-Kusaka/ganbari-quest/issues/2510)
 > **関連 PR**: #2487 (原因 — activity-repo facade rewrite)、#2491 (#2458-A2 demo/dynamodb 同期)、PR #2509 (lazy-startup-migrations.ts 枠組作成)
 > **関連 ADR**: ADR-0002 (Critical 5 要件)、ADR-0031 (SQLite ADD COLUMN only)、ADR-0010 (Pre-PMF Bucket A)
@@ -29,7 +30,7 @@ PR #2487 (2026-05-26) で `src/lib/server/db/sqlite/activity-repo.ts` を per-ch
 
 | 前提 | 確認方法 |
 |------|---------|
-| NUC docker container 起動済 | `ssh kusaka-server@192.168.68.79 docker ps` |
+| NUC docker container 起動済 | `ssh <NUC_USER>@<NUC_HOST> docker ps` |
 | `activities` table に旧 data 残存 | `SELECT COUNT(*) FROM activities` > 0 |
 | `child_activities` table が空 (or 部分復旧) | `SELECT COUNT(*) FROM child_activities` |
 | `lazy-startup-migrations.ts` `migrateActivityFkSwitchover` が FK swap 済 | `PRAGMA foreign_key_list(activity_logs)` の table = `child_activities` |
@@ -43,14 +44,14 @@ PR #2487 (2026-05-26) で `src/lib/server/db/sqlite/activity-repo.ts` を per-ch
 
 ```bash
 # row count 確認
-ssh kusaka-server@192.168.68.79 'docker exec ganbari-quest-app-1 sqlite3 /app/data/ganbari-quest.db \
+ssh <NUC_USER>@<NUC_HOST> 'docker exec ganbari-quest-app-1 sqlite3 /app/data/ganbari-quest.db \
   "SELECT '\''activities'\'' AS t, COUNT(*) AS c FROM activities \
    UNION ALL SELECT '\''child_activities'\'', COUNT(*) FROM child_activities \
    UNION ALL SELECT '\''activity_logs'\'', COUNT(*) FROM activity_logs \
    UNION ALL SELECT '\''children'\'', COUNT(*) FROM children;"'
 
 # orphan 数確認 (4 table)
-ssh kusaka-server@192.168.68.79 'docker exec ganbari-quest-app-1 sqlite3 /app/data/ganbari-quest.db \
+ssh <NUC_USER>@<NUC_HOST> 'docker exec ganbari-quest-app-1 sqlite3 /app/data/ganbari-quest.db \
   "SELECT '\''orphan_logs'\'' AS check_name, COUNT(*) AS c FROM activity_logs al \
    WHERE NOT EXISTS (SELECT 1 FROM child_activities ca WHERE ca.id = al.activity_id) \
    UNION ALL SELECT '\''orphan_missions'\'', COUNT(*) FROM daily_missions dm \
@@ -65,12 +66,12 @@ ssh kusaka-server@192.168.68.79 'docker exec ganbari-quest-app-1 sqlite3 /app/da
 
 ```bash
 # DB を sqlite3 .backup で安全に hot backup
-ssh kusaka-server@192.168.68.79 \
+ssh <NUC_USER>@<NUC_HOST> \
   'docker exec ganbari-quest-app-1 sqlite3 /app/data/ganbari-quest.db \
    ".backup '\''/app/data/ganbari-quest.db.backup-pre-recovery-$(date +%Y%m%d)'\''"'
 
 # 確認
-ssh kusaka-server@192.168.68.79 'docker exec ganbari-quest-app-1 ls -la /app/data/'
+ssh <NUC_USER>@<NUC_HOST> 'docker exec ganbari-quest-app-1 ls -la /app/data/'
 ```
 
 ### 3.3 recovery script を NUC に転送
@@ -78,9 +79,9 @@ ssh kusaka-server@192.168.68.79 'docker exec ganbari-quest-app-1 ls -la /app/dat
 ```bash
 # Windows host 経由で container に配置 (NUC 環境特有)
 scp scripts/recover-activities-data.mjs \
-    "kusaka-server@192.168.68.79:C:/Users/kusaka-server/recover-activities-data.mjs"
-ssh kusaka-server@192.168.68.79 \
-  "docker cp C:/Users/kusaka-server/recover-activities-data.mjs ganbari-quest-app-1:/app/recover-activities-data.mjs"
+    "<NUC_USER>@<NUC_HOST>:C:/Users/<NUC_USER>/recover-activities-data.mjs"
+ssh <NUC_USER>@<NUC_HOST> \
+  "docker cp C:/Users/<NUC_USER>/recover-activities-data.mjs ganbari-quest-app-1:/app/recover-activities-data.mjs"
 ```
 
 > **重要**: container の `/tmp` には `node_modules` resolver が及ばないため、必ず `/app/` 配下に配置する。
@@ -88,7 +89,7 @@ ssh kusaka-server@192.168.68.79 \
 ### 3.4 dry-run (必ず最初に実行)
 
 ```bash
-ssh kusaka-server@192.168.68.79 \
+ssh <NUC_USER>@<NUC_HOST> \
   "docker exec -e DRY_RUN=1 ganbari-quest-app-1 node /app/recover-activities-data.mjs"
 ```
 
@@ -106,7 +107,7 @@ ssh kusaka-server@192.168.68.79 \
 ### 3.5 本実行
 
 ```bash
-ssh kusaka-server@192.168.68.79 \
+ssh <NUC_USER>@<NUC_HOST> \
   "docker exec ganbari-quest-app-1 node /app/recover-activities-data.mjs"
 ```
 
@@ -131,7 +132,7 @@ ssh kusaka-server@192.168.68.79 \
 
 ```bash
 # health check
-ssh kusaka-server@192.168.68.79 "curl -sf -o NUL -w '%{http_code}' http://localhost:3000/"
+ssh <NUC_USER>@<NUC_HOST> "curl -sf -o NUL -w '%{http_code}' http://localhost:3000/"
 # 期待: 302 (login redirect)
 ```
 
@@ -147,18 +148,18 @@ ssh kusaka-server@192.168.68.79 "curl -sf -o NUL -w '%{http_code}' http://localh
 
 ```bash
 # container 停止
-ssh kusaka-server@192.168.68.79 "docker stop ganbari-quest-app-1"
+ssh <NUC_USER>@<NUC_HOST> "docker stop ganbari-quest-app-1"
 
 # backup から戻す (例: 2026-05-27 の backup)
-ssh kusaka-server@192.168.68.79 \
+ssh <NUC_USER>@<NUC_HOST> \
   "docker exec ganbari-quest-app-1 cp /app/data/ganbari-quest.db.backup-pre-recovery-20260527 /app/data/ganbari-quest.db"
 
 # WAL / SHM を削除 (古い backup 復元時に必須)
-ssh kusaka-server@192.168.68.79 \
+ssh <NUC_USER>@<NUC_HOST> \
   "docker exec ganbari-quest-app-1 rm -f /app/data/ganbari-quest.db-wal /app/data/ganbari-quest.db-shm"
 
 # 再起動
-ssh kusaka-server@192.168.68.79 "docker start ganbari-quest-app-1"
+ssh <NUC_USER>@<NUC_HOST> "docker start ganbari-quest-app-1"
 ```
 
 ---

@@ -23,7 +23,7 @@ const config = {
 		},
 		csrf: {
 			// Docker(NUC LAN) ビルドでは DISABLE_CSRF_ORIGIN_CHECK=true を build arg で渡し、
-			// 192.168.68.0/23 内の任意端末からの POST を許可する。
+			// 家庭内 LAN サブネット内の任意端末からの POST を許可する (実サブネット値は repo にコミットしない、#2987)。
 			// Lambda(本番) ビルドではデフォルト空配列 → ORIGIN env var のみ信頼。
 			trustedOrigins: process.env.DISABLE_CSRF_ORIGIN_CHECK === 'true' ? ['*'] : [],
 		},
