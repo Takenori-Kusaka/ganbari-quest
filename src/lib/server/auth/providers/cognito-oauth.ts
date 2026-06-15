@@ -179,7 +179,16 @@ export function clearRefreshCookie(cookies: Cookies): void {
  */
 export async function refreshCognitoIdToken(cookies: Cookies): Promise<{ idToken: string } | null> {
 	const refreshToken = cookies.get(REFRESH_COOKIE_NAME);
-	if (!refreshToken) return null;
+	if (!refreshToken) {
+		// #3034: refresh cookie 不在で silent refresh を skip する経路を観測可能にする。
+		//   このパスは匿名 / refresh cookie 未保存ユーザで高頻度に発火するため debug レベル
+		//   (本番デフォルト抑止 = isProduction で MIN_LOG_LEVEL='info'、診断時のみ LOG_LEVEL=debug で可視)
+		//   とし、prod ログ noise を避けつつセッション短命化の原因追跡を可能にする。
+		//   #3022 (login の refresh cookie 適用漏れ) が 14 日間無症状で検知されなかった
+		//   主因が「この skip が無ログ」だったことへの再発防止 (failure は #3026 で warn 済)。
+		logger.debug('[AUTH] Silent refresh skipped — refresh cookie absent');
+		return null;
+	}
 
 	const config = getCognitoOAuthConfig();
 	const tokenUrl = `https://${config.domain}/oauth2/token`;

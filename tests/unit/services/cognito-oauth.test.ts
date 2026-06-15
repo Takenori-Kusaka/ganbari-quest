@@ -7,6 +7,8 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+// #3034: mock 化された logger を import して debug 呼出を assert する
+import { logger } from '$lib/server/logger';
 // static import — vi.mock はホイストされるため安全
 // 各関数は呼び出し時に process.env を参照するため beforeEach での設定が有効
 import {
@@ -207,6 +209,14 @@ describe('cognito-oauth', () => {
 			// biome-ignore lint/suspicious/noExplicitAny: test mock
 			const result = await refreshCognitoIdToken(cookies as any);
 			expect(result).toBeNull();
+		});
+
+		it('#3034: refresh cookie 不在の silent skip を debug ログで観測可能にする', async () => {
+			const cookies = createMockCookies();
+			// biome-ignore lint/suspicious/noExplicitAny: test mock
+			await refreshCognitoIdToken(cookies as any);
+			// silent skip でなく debug ログが出る (本番は LOG_LEVEL=info で抑止、診断時のみ可視)
+			expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining('refresh cookie absent'));
 		});
 
 		it('正常なリフレッシュで新しい ID Token を返す', async () => {
