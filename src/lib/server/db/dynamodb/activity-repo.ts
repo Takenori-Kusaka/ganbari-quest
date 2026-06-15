@@ -410,13 +410,22 @@ export async function hasActivityLogs(activityId: number, tenantId: string): Pro
 	return false;
 }
 
-/** 全活動のログ数を取得（キャンセル除外） */
-export async function getActivityLogCounts(_tenantId: string): Promise<Record<number, number>> {
+/** 全活動のログ数を取得（キャンセル除外、tenant 束縛） */
+export async function getActivityLogCounts(tenantId: string): Promise<Record<number, number>> {
+	// #3044 (#2845 §1 同型残党、cross-tenant read 集計混入): 旧実装は `begins_with(SK, 'LOG#')`
+	//   のみで tenant 無束縛の全テーブル Scan だった。pooled multi-tenant single-table では他 tenant
+	//   の LOG item も集計され、admin/activities 一覧の活動別ログ件数 (activityId 別 count) に
+	//   別家庭の記録数が混入する形状だった (情報開示 + 削除可否判定の誤り)。FilterExpression に
+	//   `begins_with(PK, T#<tenant>#CHILD#)` を加え、当該 tenant の child partition だけを集計する
+	//   (hasActivityLogs と同型)。activityId は tenant 別採番で衝突しうるため、tenant 束縛なしでは
+	//   別 tenant の同 id ログが加算され count が過大になる。
 	const items = await scanAll({
 		TableName: TABLE_NAME,
-		FilterExpression: 'begins_with(SK, :skPrefix) AND #cancelled = :cancelled',
+		FilterExpression:
+			'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND #cancelled = :cancelled',
 		ExpressionAttributeNames: { '#cancelled': 'cancelled' },
 		ExpressionAttributeValues: {
+			':tenantPrefix': tenantPK('CHILD#', tenantId),
 			':skPrefix': 'LOG#',
 			':cancelled': 0,
 		},
@@ -439,13 +448,23 @@ export async function countMainQuestActivities(_tenantId: string): Promise<numbe
 
 export async function deleteDailyMissionsByActivity(
 	activityId: number,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<void> {
+	// #3044 (#2845 §1 同型残党、cross-tenant write/delete IDOR): 旧実装は
+	//   `begins_with(SK, 'MISSION#')` のみで tenant 無束縛の全テーブル Scan だった。MISSION item は
+	//   `dailyMissionKey` (keys.ts) で PK=`T#<tenant>#CHILD#<cId>` / SK=`MISSION#<date>#<paddedActId>`
+	//   と child partition 配下に置かれる (LOG# と同じ child scope)。pooled multi-tenant single-table
+	//   で別 tenant が同じ activity_id を採番していると他 tenant の MISSION item を拾い、活動削除に
+	//   随伴する mission cleanup が他家庭の今日のミッションを巻き込んで BatchWrite 削除する
+	//   cross-tenant delete IDOR 形状だった。FilterExpression に `begins_with(PK, T#<tenant>#CHILD#)`
+	//   を加え、当該 tenant の child partition だけを削除対象にする (LOG# 系 read 2 件と同じ PK 規約)。
 	const items = await scanAll({
 		TableName: TABLE_NAME,
-		FilterExpression: 'begins_with(SK, :skPrefix) AND #activityId = :activityId',
+		FilterExpression:
+			'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND #activityId = :activityId',
 		ExpressionAttributeNames: { '#activityId': 'activityId' },
 		ExpressionAttributeValues: {
+			':tenantPrefix': tenantPK('CHILD#', tenantId),
 			':skPrefix': 'MISSION#',
 			':activityId': activityId,
 		},
@@ -639,14 +658,23 @@ export async function findActivityLogById(
 	return undefined;
 }
 
-/** 活動ログをキャンセルにする（idからScanで検索後、Update） */
-export async function markActivityLogCancelled(id: number, _tenantId: string): Promise<void> {
+/** 活動ログをキャンセルにする（tenant 内 Scan で id 解決後、Update） */
+export async function markActivityLogCancelled(id: number, tenantId: string): Promise<void> {
+	// #3044 (#2845 §1 同型残党、cross-tenant write IDOR): 旧実装は `begins_with(SK, 'LOG#')`
+	//   のみで tenant 無束縛の全テーブル Scan だった。pooled multi-tenant single-table で別 tenant
+	//   が同じ log id を採番していると他 tenant の LOG item を拾い、上位 (cancelActivityLog) が
+	//   その item を cancelled=1 に書き換える cross-tenant write IDOR (他家庭の活動記録を勝手に
+	//   取り消す) 形状だった。FilterExpression に `begins_with(PK, T#<tenant>#CHILD#)` を加え
+	//   (resolveChildIdForActivity / findActivityLogById と同型)、Scan を当該 tenant の child
+	//   partition に構造的に閉じ込める (childId は interface が受けないため §1「tenant 束縛済だが
+	//   childId を interface が受けない tenant Scan 解決」カテゴリ)。
 	// Find the item first by scanning
 	const items = await scanAll({
 		TableName: TABLE_NAME,
-		FilterExpression: 'begins_with(SK, :skPrefix) AND #id = :id',
+		FilterExpression: 'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND #id = :id',
 		ExpressionAttributeNames: { '#id': 'id' },
 		ExpressionAttributeValues: {
+			':tenantPrefix': tenantPK('CHILD#', tenantId),
 			':skPrefix': 'LOG#',
 			':id': id,
 		},
