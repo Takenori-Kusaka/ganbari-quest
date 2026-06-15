@@ -133,7 +133,7 @@
 		"eslint-plugin-svelte": "^3.19.0",
 		"googleapis": "^173.0.0",
 		"husky": "^9.1.7",
-		"jscpd": "^4.2.4",
+		"jscpd": "^5.0.8",
 		"jsdom": "^29.1.1",
 		"knip": "^6.15.0",
 		"parse5": "^8.0.1",
