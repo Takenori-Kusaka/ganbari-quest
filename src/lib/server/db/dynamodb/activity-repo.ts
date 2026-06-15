@@ -371,20 +371,27 @@ export async function deleteActivity(id: number, tenantId: string): Promise<Acti
 }
 
 /** 活動にログが存在するか確認 */
-export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
+export async function hasActivityLogs(activityId: number, tenantId: string): Promise<boolean> {
 	// #2842: DynamoDB は FilterExpression より先に Limit を評価するため、Limit:1 では
 	//   「最初に scan された 1 件が match しない」だけで false negative になる
 	//   (= ログを持つ活動が hard-delete され子供の履歴が永久消失する)。
 	//   Limit は付けず scanAll と同型の do/while + ExclusiveStartKey で全 page を走査し、
 	//   filter match を 1 件見つけ次第 early-return true、page 尽きたら false を返す。
+	// #3044: tenant 束縛 — log は child partition (PK=T#<tenantId>#CHILD#<cId>) に分散し
+	//   childId を受けないため exact Key 不可だが、`begins_with(PK, :tenantPrefix)` で
+	//   自 tenant 内に限定する。これを欠くと別 tenant の log が cross-tenant に hit し、
+	//   tenant 別採番 activityId 衝突時に偽 true を返す (削除ガード誤判定の情報漏洩形状)。
+	//   in-file 先例 resolveChildIdForActivity と同型 (#2845 / PR #3040 棚卸の read 残党)。
 	let lastKey: Record<string, unknown> | undefined;
 	do {
 		const result = await getDocClient().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :skPrefix) AND #activityId = :activityId',
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND #activityId = :activityId',
 				ExpressionAttributeNames: { '#activityId': 'activityId' },
 				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
 					':skPrefix': 'LOG#',
 					':activityId': activityId,
 				},
@@ -591,20 +598,27 @@ export async function insertActivityLog(
 /** IDで活動ログを取得（childId不明のためScanが必要） */
 export async function findActivityLogById(
 	id: number,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<ActivityLog | undefined> {
 	// #2842: DynamoDB は FilterExpression より先に Limit を評価するため、Limit を付けると
 	//   1 page 内に match が無いだけで取りこぼす。Limit は外し、scanAll と同型の
 	//   do/while + ExclusiveStartKey で全 page を走査する。各 page では filter match した
 	//   全 Items を走査し (`items[0]` だけ見ない)、最初の match を返す。
+	// #3044: tenant 束縛 — log は child partition (PK=T#<tenantId>#CHILD#<cId>) に分散し
+	//   childId を受けないため exact Key 不可。`begins_with(PK, :tenantPrefix)` で自 tenant
+	//   内に限定する。これを欠くと tenant 別採番 id 衝突時に別 tenant の log record を返し、
+	//   上位がそのまま表示すれば cross-tenant read IDOR (情報漏洩) になる
+	//   (#2845 / PR #3040 棚卸が認定した read 残党、in-file 先例 resolveChildIdForActivity と同型)。
 	let lastKey: Record<string, unknown> | undefined;
 	do {
 		const result = await getDocClient().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :skPrefix) AND #id = :id',
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND #id = :id',
 				ExpressionAttributeNames: { '#id': 'id' },
 				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
 					':skPrefix': 'LOG#',
 					':id': id,
 				},
