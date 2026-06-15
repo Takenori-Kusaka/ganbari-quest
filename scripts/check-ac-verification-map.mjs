@@ -82,7 +82,8 @@ function findEmptyRows(rows) {
 			.split('|')
 			.slice(1, -1)
 			.map((c) => c.trim());
-		return cells.some((c) => c === '' || /^<!--.*-->$/.test(c));
+		// js/bad-tag-filter (CodeQL): 改行を含むコメント + `--!>` 終端も検出する
+		return cells.some((c) => c === '' || /^<!--[\s\S]*--!?>$/.test(c));
 	});
 }
 

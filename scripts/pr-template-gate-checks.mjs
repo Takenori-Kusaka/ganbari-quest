@@ -258,7 +258,7 @@ export function checkIssueReference({ body, labels, template, lane }) {
 		.filter((l) => !l.startsWith(heading))
 		.filter((l) => !/^closes\s+#\s*$/.test(l.trim()))
 		.filter((l) => !/^\s*<!--/.test(l))
-		.filter((l) => !/^\s*-->\s*$/.test(l))
+		.filter((l) => !/^\s*--!?>\s*$/.test(l))
 		.filter((l) => l.trim().length > 0);
 	const meaningfulText = meaningfulLines.join('').replace(/\s/g, '');
 	if (meaningfulText.length >= 10) {
@@ -392,7 +392,8 @@ export function checkCustomerValue({ body, labels, template, lane }) {
 		const m = body.match(new RegExp(`\\*\\*${escaped}\\*\\*:\\s*(.*)`));
 		if (m) {
 			const val = (m[1] ?? '').trim();
-			if (!val || /^<!--.*-->$/.test(val)) {
+			// js/bad-tag-filter (CodeQL): 改行を含むコメント + `--!>` 終端も検出する
+			if (!val || /^<!--[\s\S]*--!?>$/.test(val)) {
 				errors.push(`\`**${field}**\` がプレースホルダーのまま未記入です。`);
 			}
 		}
