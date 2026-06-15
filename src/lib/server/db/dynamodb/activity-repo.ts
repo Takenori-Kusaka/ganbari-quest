@@ -371,7 +371,15 @@ export async function deleteActivity(id: number, tenantId: string): Promise<Acti
 }
 
 /** 活動にログが存在するか確認 */
-export async function hasActivityLogs(activityId: number, _tenantId: string): Promise<boolean> {
+export async function hasActivityLogs(activityId: number, tenantId: string): Promise<boolean> {
+	// #3044 (#2845 §1 read 系残党): 旧実装は `begins_with(SK, 'LOG#')` のみで tenant 無束縛の
+	//   全テーブル Scan だった。pooled multi-tenant single-table では別 tenant が同じ
+	//   activity_id を採番していると他 tenant の LOG item を拾い、活動削除判定 (admin/activities
+	//   delete / clearAll) が cross-tenant の存在に引きずられる (原則 1 = full composite-key
+	//   addressing 違反)。FilterExpression に `begins_with(PK, T#<tenant>#CHILD#)` を加え、
+	//   Scan を当該 tenant の child partition に構造的に閉じ込める (resolveChildIdForActivity と
+	//   同型の tenant 束縛、§1「tenant 束縛済だが childId を interface が受けない tenant Scan
+	//   解決」カテゴリ)。
 	// #2842: DynamoDB は FilterExpression より先に Limit を評価するため、Limit:1 では
 	//   「最初に scan された 1 件が match しない」だけで false negative になる
 	//   (= ログを持つ活動が hard-delete され子供の履歴が永久消失する)。
@@ -382,9 +390,11 @@ export async function hasActivityLogs(activityId: number, _tenantId: string): Pr
 		const result = await getDocClient().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :skPrefix) AND #activityId = :activityId',
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND #activityId = :activityId',
 				ExpressionAttributeNames: { '#activityId': 'activityId' },
 				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
 					':skPrefix': 'LOG#',
 					':activityId': activityId,
 				},
@@ -588,11 +598,18 @@ export async function insertActivityLog(
 	return log;
 }
 
-/** IDで活動ログを取得（childId不明のためScanが必要） */
+/** IDで活動ログを取得（childId 不明のため tenant 内 Scan + id filter で 1 件特定） */
 export async function findActivityLogById(
 	id: number,
-	_tenantId: string,
+	tenantId: string,
 ): Promise<ActivityLog | undefined> {
+	// #3044 (#2845 §1 read 系残党、cross-tenant read IDOR): 旧実装は `begins_with(SK, 'LOG#')`
+	//   のみで tenant 無束縛の全テーブル Scan だった。tenant 別採番の id 衝突時に他 tenant の
+	//   LOG item を返し、上位 (cancelActivityLog) がそのまま childId / points 等を読み取れば
+	//   cross-tenant 情報漏洩になる。FilterExpression に `begins_with(PK, T#<tenant>#CHILD#)` を
+	//   加え、当該 tenant の child partition だけを走査することで cross-tenant read を構造的に
+	//   遮断する (childId は interface が受けないため §1「tenant 束縛済だが childId を interface
+	//   が受けない tenant Scan 解決」カテゴリ。certificate.findCertificateById と同型)。
 	// #2842: DynamoDB は FilterExpression より先に Limit を評価するため、Limit を付けると
 	//   1 page 内に match が無いだけで取りこぼす。Limit は外し、scanAll と同型の
 	//   do/while + ExclusiveStartKey で全 page を走査する。各 page では filter match した
@@ -602,9 +619,11 @@ export async function findActivityLogById(
 		const result = await getDocClient().send(
 			new ScanCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :skPrefix) AND #id = :id',
+				FilterExpression:
+					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND #id = :id',
 				ExpressionAttributeNames: { '#id': 'id' },
 				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
 					':skPrefix': 'LOG#',
 					':id': id,
 				},
