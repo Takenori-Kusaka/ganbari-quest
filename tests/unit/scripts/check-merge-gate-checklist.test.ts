@@ -2,9 +2,9 @@
 // feature/hotfix lane = 現行 2 section 全消化 (回帰ゼロ)、integration lane = 統合用 section (設定可能)。
 import { describe, expect, it } from 'vitest';
 import {
+	checkMergeGateChecklist,
 	DEFAULT_INTEGRATION_LANE_SECTIONS,
 	LIGHT_LANE_SECTIONS,
-	checkMergeGateChecklist,
 	resolveIntegrationSections,
 	shouldSkip,
 } from '../../../scripts/check-merge-gate-checklist.mjs';

@@ -316,7 +316,7 @@ if (isMain) {
 	const opt = {};
 	for (let i = 0; i < argv.length; i += 1) {
 		const a = argv[i];
-		if (a && a.startsWith('--')) {
+		if (a?.startsWith('--')) {
 			const eq = a.indexOf('=');
 			if (eq !== -1) opt[a.slice(2, eq)] = a.slice(eq + 1);
 			else {

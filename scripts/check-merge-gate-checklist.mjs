@@ -57,7 +57,7 @@ export const DEFAULT_INTEGRATION_LANE_SECTIONS = ['## 統合 PR チェックリ�
  * @returns {string[]}
  */
 export function resolveIntegrationSections(override) {
-	if (!override || !override.trim()) return DEFAULT_INTEGRATION_LANE_SECTIONS;
+	if (!override?.trim()) return DEFAULT_INTEGRATION_LANE_SECTIONS;
 	return override
 		.split(',')
 		.map((s) => s.trim())
@@ -208,7 +208,7 @@ if (isMain) {
 	const opt = {};
 	for (let i = 0; i < argv.length; i += 1) {
 		const a = argv[i];
-		if (a && a.startsWith('--')) {
+		if (a?.startsWith('--')) {
 			const eq = a.indexOf('=');
 			if (eq !== -1) opt[a.slice(2, eq)] = a.slice(eq + 1);
 			else {

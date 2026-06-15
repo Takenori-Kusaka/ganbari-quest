@@ -178,7 +178,11 @@ describe('shouldSkip (全 lane 共通の skip 条件)', () => {
 
 describe('checkAcVerification (lane エントリ、AC3/AC4)', () => {
 	it('feature lane: AC マップ観点 (PASS)', () => {
-		const r = checkAcVerification({ body: FEATURE_AC_MAP_PASS, labels: ['type:feat'], lane: 'feature' });
+		const r = checkAcVerification({
+			body: FEATURE_AC_MAP_PASS,
+			labels: ['type:feat'],
+			lane: 'feature',
+		});
 		expect(r.ok).toBe(true);
 	});
 
