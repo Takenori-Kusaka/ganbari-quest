@@ -278,7 +278,7 @@ function scanWorkflowLaneCoverage() {
 	}
 
 	// 対応表 (doc 全文) に出現するファイル名集合
-	let documented = new Set();
+	const documented = new Set();
 	try {
 		const doc = fs.readFileSync(docPath, 'utf8');
 		for (const m of doc.matchAll(WORKFLOW_FILENAME_REGEX)) {
