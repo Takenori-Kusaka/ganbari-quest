@@ -59,6 +59,10 @@
  */
 
 const MODE = (process.env.SCREENSHOT_CHECK_MODE || 'warn').toLowerCase();
+// #2946 (Phase A/A-4): lane 判定は SSOT (scripts/pr-lane.mjs + actions/pr-lane) が出した
+// 値を env PR_LANE で受け取るだけ。本 script 内で base/head/actor から lane を再判定しない
+// (no-go: lane 判定ロジックの inline 重複禁止)。未設定時は 'feature' (軽量レーン、後方互換)。
+const PR_LANE = (process.env.PR_LANE || 'feature').trim().toLowerCase();
 const PR_BODY = process.env.PR_BODY || '';
 const PR_FILES = (process.env.PR_FILES || '')
 	.split('\n')
@@ -231,6 +235,54 @@ export function isUserAttachmentAssetUrl(url) {
  */
 export function hasDomSnapshotReference(body) {
 	return DOM_REF_PATTERN.test(body);
+}
+
+// ---------------------------------------------------------------------------
+// #2946 (Phase A/A-4): integration lane (develop→main 統合 PR) の SS 観点切替
+//
+// 統合 PR は複数 feature を束ねるバッチであり「修正前 / 修正後」という単一比較軸が
+// 成立しない (複数機能の SS を 1 つの before/after 表に収められない)。そのため
+// integration lane では before/after 4 スロットを必須にせず、SS 観点を
+// 「① 統合状態の visual regression (VR 3 層: lp / child-home / app) への紐づけ +
+//  ② 含有 PR 群が develop 取込時に SS 検証済である確認」に切り替える (AC3)。
+//
+// VR 3 層 (`*-visual-regression.yml`) は main 向け PR (= integration / hotfix) で
+// 発火し統合状態の見た目回帰を baseline 比較で別途担保する (docs/CLAUDE.md
+// §visual regression 3 層 / branch-strategy.md §4)。本検証は「VR への委譲」が
+// 明示されているか (= 見た目検証を完全には消していない、no-go) を PR body で確認する。
+// ---------------------------------------------------------------------------
+
+// 統合 PR の SS 観点で受理する evidence マーカー。以下のいずれかが PR body に
+// 含まれれば「VR 3 層への紐づけ / 含有 PR の SS 検証済確認」が宣言されたとみなす。
+// 観点の移譲であって検証の放棄ではない (Issue #2946 選択肢 A) ため、generic な
+// 文字列ではなく VR 層名 / 含有 PR / visual regression workflow を指す語に限定する。
+const INTEGRATION_VR_EVIDENCE_PATTERNS = [
+	// VR 3 層 workflow への言及 (lp / child-home / app visual regression)
+	/visual[\s-]*regression/i,
+	/\*?-visual-regression\.yml/i,
+	/(?:lp|child-home|app)[\s-]*(?:visual|vr|pixelmatch|baseline)/i,
+	// 含有 PR 群が develop 取込時に SS 検証済である宣言
+	/含有\s*PR/,
+	/(?:取込|取り込み)\s*(?:済|時).*(?:SS|スクリーンショット|スクショ|検証)/,
+	/統合\s*(?:対象|状態|smoke)/,
+];
+
+/**
+ * integration lane (統合 PR) の SS 観点 evidence が PR body に含まれるかを判定 (#2946)。
+ *
+ * before/after 4 スロットの代わりに、統合 PR では以下のいずれかの宣言を要求する:
+ * - VR 3 層 (lp / child-home / app visual regression) 結果への紐づけ
+ * - 含有 PR 群が develop 取込時に SS 検証済である確認
+ * - 統合状態の smoke / 統合対象 PR 群の参照
+ *
+ * 「観点の移譲」であって「検証の放棄」ではない (no-go: 見た目検証を完全に消さない) ため、
+ * いずれの evidence も無い場合は違反として扱う (warn / error は MODE 依存)。
+ *
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function hasIntegrationVrEvidence(body) {
+	return INTEGRATION_VR_EVIDENCE_PATTERNS.some((p) => p.test(body));
 }
 
 // ---------------------------------------------------------------------------
@@ -465,10 +517,31 @@ function checkDomSnapshotViolation(body) {
 	};
 }
 
+/**
+ * integration lane (統合 PR) の SS evidence 欠落違反 (#2946) を生成する。
+ * before/after 4 スロットの代わりに VR 3 層紐づけ / 含有 PR SS 検証済の宣言を要求する。
+ * @returns {{ id: string; issue: string; message: string }}
+ */
+function buildIntegrationEvidenceMissingViolation() {
+	return {
+		id: 'integration-vr-evidence-missing',
+		issue: '#2946',
+		message:
+			'統合 PR (lane=integration、develop→main) ですが、SS 観点の evidence が PR body にありません。\n' +
+			'統合 PR は複数機能のバッチで「修正前 / 修正後」の単一比較軸が成立しないため、\n' +
+			'before/after 4 スロットの代わりに以下のいずれかを PR body に明記してください:\n' +
+			'  - 統合状態の visual regression (VR 3 層: lp / child-home / app の *-visual-regression.yml) 結果への紐づけ\n' +
+			'    (main 向け PR では VR 3 層 workflow が自動発火し見た目回帰を baseline 比較で検証します)\n' +
+			'  - 含有 PR 群が develop 取込時に SS 検証済であることの確認 (含有 PR 一覧 + SS 検証済の記載)\n' +
+			'  - 統合 smoke / 統合対象 PR 群への参照\n' +
+			'(VR 3 層への「観点の移譲」であり、見た目検証を完全に消すことは許容しません — #2946 no-go)',
+	};
+}
+
 function main() {
 	const violations = [];
 
-	// 検証 1: ローカルパス禁止 (#1741) — UI PR でなくても貼ったらアウト
+	// 検証 1: ローカルパス禁止 (#1741) — UI PR でなくても貼ったらアウト (lane 非依存)
 	const localViolation = checkLocalPathViolation(PR_BODY);
 	if (localViolation) violations.push(localViolation);
 
@@ -486,9 +559,25 @@ function main() {
 		skipReason = `PR ラベル '${INTERNAL_REFACTOR_LABEL}' により内部 refactor として exempt (#2017 / ADR-0003 §4)`;
 	}
 
+	// #2946 (Phase A/A-4): lane=integration は SS 観点を切替。
+	// before/after 4 スロット / DOM 併記 / embed 不在 (per-PR 単一比較前提) を要求せず、
+	// 代わりに VR 3 層への紐づけ / 含有 PR SS 検証済の宣言を要求する (AC3)。
+	// skip 条件 (UI 変更なし / 該当なし / 内部 refactor label) は全 lane 共通で優先。
+	const isIntegrationLane = PR_LANE === 'integration';
+
 	if (skipReason) {
-		console.log(`[screenshot-check] ${skipReason} — before/after / DOM / embed 検証をスキップ`);
+		console.log(`[screenshot-check] ${skipReason} — SS 観点検証をスキップ (lane=${PR_LANE})`);
+	} else if (isIntegrationLane) {
+		// 統合 PR: before/after でなく VR 3 層 evidence を検証する (#2946 AC3)
+		if (!hasIntegrationVrEvidence(PR_BODY)) {
+			violations.push(buildIntegrationEvidenceMissingViolation());
+		} else {
+			console.log(
+				'[screenshot-check] lane=integration — VR 3 層 evidence / 含有 PR SS 検証済の紐づけを確認 (before/after 4 スロットは不要、#2946)',
+			);
+		}
 	} else {
+		// feature / hotfix lane: 現行 (per-PR before/after) を完全維持 (#2946 AC4)
 		// 検証 2: before/after ラベル検証 (#1740)
 		const beforeAfterViolation = checkBeforeAfterViolation(PR_BODY);
 		if (beforeAfterViolation) violations.push(beforeAfterViolation);
