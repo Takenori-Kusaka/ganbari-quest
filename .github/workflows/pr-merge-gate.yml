@@ -57,9 +57,12 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
           PR_LANE: ${{ steps.lane.outputs.lane }}
-          # #2945 AC5: 統合 PR 用 section 名は env で差替可能 (Phase B #2871 で確定するまでの暫定既定を使う)。
-          # 値を設定すれば scripts/check-merge-gate-checklist.mjs の DEFAULT_INTEGRATION_LANE_SECTIONS を上書きする。
-          MERGE_GATE_INTEGRATION_SECTIONS: ""
+          # #2945 AC5 / #2950 (Phase B/B-1): 統合 PR 用 section 名は env で差替可能。
+          # #2950 で統合 PR 専用 template (.github/INTEGRATION_PR_TEMPLATE.md) が確定したため、
+          # その checklist section「## NG 0 件 / カバレッジ宣言」(残 NG 0 / カバレッジ閾値 / 全 job 緑 /
+          # adversarial 解消の `- [ ]`) を接続する。lane 判定ロジック自体は不変、env 値の接続のみ。
+          # 値を設定すると scripts/check-merge-gate-checklist.mjs の DEFAULT_INTEGRATION_LANE_SECTIONS を上書きする。
+          MERGE_GATE_INTEGRATION_SECTIONS: "## NG 0 件 / カバレッジ宣言"
         with:
           script: |
             const lane = process.env.PR_LANE || 'feature';
