@@ -2,7 +2,7 @@
 // 決定的 4 lane 分類 (feature / integration / hotfix / dependabot) の境界を網羅する unit test。
 // develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md §3〜§5) の CI gate 側 SSOT。
 import { describe, expect, it } from 'vitest';
-import { classifyLane, parseArgs } from '../../../scripts/pr-lane.mjs';
+import { BOT_ACTORS, classifyLane, parseArgs } from '../../../scripts/pr-lane.mjs';
 
 describe('classifyLane (#2943 AC1/AC2)', () => {
 	// --- AC2 で明示された 6 境界条件 ---
@@ -114,6 +114,22 @@ describe('classifyLane (#2943 AC1/AC2)', () => {
 		for (const c of cases) {
 			expect(lanes.has(classifyLane(c))).toBe(true);
 		}
+	});
+});
+
+describe('BOT_ACTORS SSOT (#2947 AC1)', () => {
+	it('bot lane の actor 集合を named export する (dependabot[bot] / renovate[bot])', () => {
+		expect(BOT_ACTORS).toEqual(['dependabot[bot]', 'renovate[bot]']);
+	});
+
+	it('BOT_ACTORS の各 actor は classifyLane で dependabot lane に分類される (SSOT 整合)', () => {
+		for (const actor of BOT_ACTORS) {
+			expect(classifyLane({ baseRef: 'develop', headRef: 'feat/x', actor })).toBe('dependabot');
+		}
+	});
+
+	it('BOT_ACTORS は freeze されており実行時改変できない (SSOT 不変条件)', () => {
+		expect(Object.isFrozen(BOT_ACTORS)).toBe(true);
 	});
 });
 
