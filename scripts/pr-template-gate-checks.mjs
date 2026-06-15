@@ -76,7 +76,11 @@ export const INTEGRATION_REQUIRED_SECTIONS = [
 	'## QM レビュー結果',
 ];
 
-/** dependencies label / type:docs 等の既存 skip 条件 (lane と直交)。 */
+/**
+ * dependencies label / type:docs 等の既存 skip 条件 (lane と直交)。
+ * @param {string[]} labels
+ * @returns {boolean}
+ */
 function hasDependenciesLabel(labels) {
 	return labels.some((l) => l.includes('dependencies'));
 }
@@ -163,12 +167,13 @@ export function detectIssueSectionHeading(template) {
 	const lines = template.split('\n');
 	let heading = '## 関連 Issue';
 	for (let i = 0; i < lines.length; i += 1) {
-		if (/^## /.test(lines[i])) {
+		const line = lines[i] ?? '';
+		if (/^## /.test(line)) {
 			const sectionEndIdx = lines.findIndex((l, idx) => idx > i && /^## /.test(l));
 			const lookaheadEnd = sectionEndIdx === -1 ? Math.min(i + 15, lines.length) : sectionEndIdx;
 			const lookahead = lines.slice(i + 1, lookaheadEnd);
 			if (lookahead.some((l) => /closes\s+#/.test(l))) {
-				heading = lines[i].trim();
+				heading = line.trim();
 				break;
 			}
 		}
@@ -279,12 +284,13 @@ export function detectChangeTypeHeading(template) {
 	const lines = template.split('\n');
 	let heading = '## 変更タイプ';
 	for (let i = 0; i < lines.length; i += 1) {
-		if (/^## /.test(lines[i])) {
+		const line = lines[i] ?? '';
+		if (/^## /.test(line)) {
 			const sectionEndIdx = lines.findIndex((l, idx) => idx > i && /^## /.test(l));
 			const lookaheadEnd = sectionEndIdx === -1 ? Math.min(i + 50, lines.length) : sectionEndIdx;
 			const lookahead = lines.slice(i + 1, lookaheadEnd);
 			if (lookahead.filter((l) => /^- \[ \]/.test(l)).length >= 3) {
-				heading = lines[i].trim();
+				heading = line.trim();
 				break;
 			}
 		}
@@ -369,25 +375,23 @@ export function checkCustomerValue({ body, labels, template, lane }) {
 	const secondSectionIdx = lines.findIndex((l, i) => i > 0 && /^## /.test(l));
 	const firstSectionLines = lines.slice(0, secondSectionIdx > 0 ? secondSectionIdx : 25);
 
-	const inlineFields = firstSectionLines
-		.map((l) => {
-			const m = l.match(/^\*\*([^*]+)\*\*:\s*<!--/);
-			return m ? m[1] : null;
-		})
-		.filter(Boolean);
-	const multilineFields = firstSectionLines
-		.map((l) => {
-			const m = l.match(/^\*\*([^*]+)\*\*:\s*$/);
-			return m ? m[1] : null;
-		})
-		.filter(Boolean);
+	/** @type {string[]} */
+	const inlineFields = [];
+	/** @type {string[]} */
+	const multilineFields = [];
+	for (const l of firstSectionLines) {
+		const inlineM = l.match(/^\*\*([^*]+)\*\*:\s*<!--/);
+		if (inlineM?.[1]) inlineFields.push(inlineM[1]);
+		const multiM = l.match(/^\*\*([^*]+)\*\*:\s*$/);
+		if (multiM?.[1]) multilineFields.push(multiM[1]);
+	}
 
 	const errors = [];
 	for (const field of inlineFields) {
 		const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 		const m = body.match(new RegExp(`\\*\\*${escaped}\\*\\*:\\s*(.*)`));
 		if (m) {
-			const val = m[1].trim();
+			const val = (m[1] ?? '').trim();
 			if (!val || /^<!--.*-->$/.test(val)) {
 				errors.push(`\`**${field}**\` がプレースホルダーのまま未記入です。`);
 			}
@@ -447,8 +451,9 @@ export function detectTestSectionKeyword(template) {
 	const tableHeaderIdx = lines.findIndex((l) => /テスト種別.*コマンド.*結果/.test(l));
 	if (tableHeaderIdx !== -1) {
 		for (let i = tableHeaderIdx; i >= 0; i -= 1) {
-			if (/^###?\s/.test(lines[i])) {
-				keyword = lines[i].replace(/^###?\s+/, '').trim();
+			const line = lines[i] ?? '';
+			if (/^###?\s/.test(line)) {
+				keyword = line.replace(/^###?\s+/, '').trim();
 				break;
 			}
 		}
@@ -597,9 +602,9 @@ const isMain = (() => {
 
 if (isMain) {
 	const args = parseArgs(process.argv.slice(2));
-	const checkName = args.check;
+	const checkName = args.check ?? '';
 	const lane = /** @type {Lane} */ (args.lane || 'feature');
-	const fn = CHECKS[checkName];
+	const fn = /** @type {Record<string, (input: CheckInput) => CheckResult>} */ (CHECKS)[checkName];
 	if (!fn) {
 		console.error(
 			`[pr-template-gate-checks] 未知の --check '${checkName}'。` +
@@ -612,6 +617,7 @@ if (isMain) {
 		process.exit(2);
 	}
 
+	/** @param {string} key @returns {string} */
 	const readFileArg = (key) => {
 		const path = args[key];
 		if (!path) return '';
@@ -634,11 +640,19 @@ if (isMain) {
 		const parsed = labelsRaw ? JSON.parse(labelsRaw) : [];
 		labels = Array.isArray(parsed)
 			? parsed
-					.map((l) => (typeof l === 'string' ? l : l?.name ? String(l.name) : ''))
+					.map((/** @type {unknown} */ l) =>
+						typeof l === 'string'
+							? l
+							: l && typeof l === 'object' && 'name' in l
+								? String(/** @type {{ name: unknown }} */ (l).name)
+								: '',
+					)
 					.filter(Boolean)
 			: [];
 	} catch (err) {
-		console.error(`[pr-template-gate-checks] labels-json parse 失敗: ${err.message}`);
+		console.error(
+			`[pr-template-gate-checks] labels-json parse 失敗: ${err instanceof Error ? err.message : String(err)}`,
+		);
 		process.exit(2);
 	}
 
@@ -650,7 +664,7 @@ if (isMain) {
 			if (Array.isArray(ssot.sections)) ssotSections = ssot.sections.map(String);
 		} catch (err) {
 			console.error(
-				`[pr-template-gate-checks] ssot-file parse 失敗 (template fallback): ${err.message}`,
+				`[pr-template-gate-checks] ssot-file parse 失敗 (template fallback): ${err instanceof Error ? err.message : String(err)}`,
 			);
 		}
 	}
