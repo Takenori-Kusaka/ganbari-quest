@@ -8,22 +8,24 @@ name: PR template SSOT 同期検証
 #   pr-template-gate.yml の `必須セクションの存在確認` job が SSOT JSON を読むようになったが、
 #   template だけ更新して JSON を更新し忘れる drift を防ぐ必要がある。
 #
-# 検証対象:
-#   PR で `.github/PULL_REQUEST_TEMPLATE.md` または `.github/PR_TEMPLATE_SECTIONS.json` が
-#   変更された場合に、両者の `## ` 見出し配列が完全一致するかを検証する。
+# 検証対象 (複数ペア、#2950 で拡張):
+#   PR で下記いずれかが変更された場合に、各 template の `## ` 見出し配列と対応する SSOT JSON が
+#   完全一致するかを検証する。
+#     1. feature PR:     PULL_REQUEST_TEMPLATE.md ↔ PR_TEMPLATE_SECTIONS.json (#2060)
+#     2. integration PR: INTEGRATION_PR_TEMPLATE.md ↔ INTEGRATION_PR_TEMPLATE_SECTIONS.json (#2950)
 #
 # 修正方法:
-#   `node scripts/check-pr-template-sections-sync.mjs --fix` で JSON を template から再生成する。
+#   `node scripts/check-pr-template-sections-sync.mjs --fix` で全ペアの JSON を template から再生成する。
 #
-# ★ lane 概念との関係 (#2944 / Phase A/A-2、Phase B 接続点):
+# ★ lane 概念との関係 (#2944 / Phase A/A-2 → #2950 / Phase B/B-1):
 #   本 workflow は template ↔ JSON の 1 対 1 sync を検証する drift gate であり、PR の lane
 #   (feature / integration / hotfix / dependabot) には依存しない (全 PR で同一観点)。
-#   本 phase (A-2) では sync 対象を増やさず、現行の 1 JSON (PR_TEMPLATE_SECTIONS.json) のままにする。
-#   integration lane の必須 section set は `scripts/pr-template-gate-checks.mjs` の
-#   INTEGRATION_REQUIRED_SECTIONS (暫定) が担い、本 sync gate の対象外。
-#   Phase B (#2871) で統合 PR 専用 template (PR_TEMPLATE_SECTIONS.integration.json 等) を
-#   追加する際は、本 workflow の paths / sync 対象を複数 JSON に拡張する (本 phase では未対応)。
-#   = 本 issue (A-2) では「現行 sync を壊さない」確認のみ (#2944 AC7)。
+#   #2950 (Phase B/B-1) で develop→main 統合 PR 専用 template (INTEGRATION_PR_TEMPLATE.md) を
+#   別系統で新設したため、本 workflow の paths / sync 対象を 2 ペアに拡張した
+#   (専用 workflow を新設せず本 gate に相乗り、#1442)。
+#   integration lane の section-presence / checklist 検証は別 gate
+#   (pr-template-gate.yml / pr-merge-gate.yml / pr-ac-verification-check.yml) が担い、
+#   本 sync gate は「template と JSON の見出しが一致するか」のみを検証する。
 
 on:
   pull_request:
@@ -31,6 +33,8 @@ on:
     paths:
       - '.github/PULL_REQUEST_TEMPLATE.md'
       - '.github/PR_TEMPLATE_SECTIONS.json'
+      - '.github/INTEGRATION_PR_TEMPLATE.md'
+      - '.github/INTEGRATION_PR_TEMPLATE_SECTIONS.json'
       - 'scripts/check-pr-template-sections-sync.mjs'
 
 permissions:
