@@ -30,6 +30,16 @@ const FEATURE_AC_MAP_EMPTY_CELL = `
 | AC1 | ログイン後 | \`vitest\` |  |
 `;
 
+// js/bad-tag-filter (#3021 CodeQL): `--!>` 終端のコメントは旧 regex `/^<!--.*-->$/` が
+// 検出できず空欄プレースホルダのまま gate を通過した。robust 化後は空欄扱いで検出される。
+const FEATURE_AC_MAP_COMMENT_EVASION = `
+## AC 検証マップ
+
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---|---|---|---|
+| AC1 | ログイン | \`vitest\` | <!-- まだ書いてない --!> |
+`;
+
 const FEATURE_AC_MAP_TODO = `
 ## AC 検証マップ
 
@@ -104,6 +114,12 @@ describe('checkPerPrAcMap (feature/hotfix lane、AC4)', () => {
 
 	it('FAIL: 空欄セルがある', () => {
 		const r = checkPerPrAcMap(FEATURE_AC_MAP_EMPTY_CELL, 'feature');
+		expect(r.ok).toBe(false);
+		expect(r.error).toContain('空欄');
+	});
+
+	it('FAIL: `--!>` 終端のコメントプレースホルダも空欄扱い (js/bad-tag-filter, #3021)', () => {
+		const r = checkPerPrAcMap(FEATURE_AC_MAP_COMMENT_EVASION, 'feature');
 		expect(r.ok).toBe(false);
 		expect(r.error).toContain('空欄');
 	});

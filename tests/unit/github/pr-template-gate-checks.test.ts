@@ -256,6 +256,24 @@ describe('feature lane: 現行観点維持 (#2944 AC4)', () => {
 		expect(r.ok).toBe(false);
 		expect(r.message).toContain('対象ユーザー');
 	});
+	it('customer-value FAIL: `--!>` 終端の placeholder も未記入扱いで検出 (js/bad-tag-filter, #3021)', () => {
+		// 旧 regex `/^<!--.*-->$/` は `--!>` 終端を comment と認識せず gate を通過させた。
+		const tplNoComment = `## 顧客価値・目的
+
+**対象ユーザー**: <!-- 子供 / 親 -->
+
+## 関連 Issue
+`;
+		const body = `## 顧客価値・目的
+
+**対象ユーザー**: <!-- 子供 / 親 --!>
+
+## 関連 Issue
+`;
+		const r = checkCustomerValue({ ...base, template: tplNoComment, body });
+		expect(r.ok).toBe(false);
+		expect(r.message).toContain('対象ユーザー');
+	});
 	it('test-results PASS: 結果列記入済み', () => {
 		expect(checkTestResults({ ...base, body: VALID_FEATURE_BODY }).ok).toBe(true);
 	});
