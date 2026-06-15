@@ -52,7 +52,25 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const DEPENDABOT_ACTORS = new Set(['dependabot[bot]', 'renovate[bot]']);
+/**
+ * `dependabot` lane に分類される bot actor の集合 (SSOT、#2947 AC1)。
+ *
+ * 「bot とは誰か」をこの 1 箇所だけで定義する。auto-merge (dependabot-auto-merge.yml) や
+ * gate workflow の exempt (`github.actor != 'dependabot[bot]'` 等の inline 重複) は、
+ * この集合 / `classifyLane` の `dependabot` lane 判定を SSOT として参照し、判定基準の
+ * 二重実装を解消する。新 bot (別の自動更新 bot 等) を追加する際は本配列を 1 行修正する
+ * だけで全 gate の bot 扱いに伝播する (terms.ts atom / ADR-0042 3 層トークンと同型の SSOT)。
+ *
+ * 注: `dependabot-auto-merge.yml` の auto-merge 発火条件は **dependabot[bot] のみ** で
+ * renovate を含まない (現行仕様、#2947 no-go「auto-merge を renovate に拡大しない」)。
+ * 本集合は「lane = dependabot として exempt / 軽量扱いする actor」の定義であり、
+ * 「auto-merge 対象 actor」とは別概念。両者を混同しないこと。
+ *
+ * @type {readonly string[]}
+ */
+export const BOT_ACTORS = Object.freeze(['dependabot[bot]', 'renovate[bot]']);
+
+const BOT_ACTOR_SET = new Set(BOT_ACTORS);
 
 /**
  * PR lane 判定の純粋関数 (unit test 対象、AC1)。副作用なし (AC6)。
@@ -69,8 +87,8 @@ export function classifyLane({ baseRef, headRef, actor }) {
 	const head = (headRef ?? '').trim();
 	const who = (actor ?? '').trim();
 
-	// 1. bot は base/head より優先 (Dependabot exempt を lane の 1 種として吸収)
-	if (DEPENDABOT_ACTORS.has(who)) return 'dependabot';
+	// 1. bot は base/head より優先 (Dependabot exempt を lane の 1 種として吸収、BOT_ACTORS SSOT)
+	if (BOT_ACTOR_SET.has(who)) return 'dependabot';
 	// 2. develop → main = 統合 PR (重量レーン)
 	if (head === 'develop' && base === 'main') return 'integration';
 	// 3. fix/* → main = hotfix (ADR-0002 重量レーン)

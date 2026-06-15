@@ -1,5 +1,16 @@
 name: Dependabot auto-merge
 
+# bot lane の SSOT は scripts/pr-lane.mjs の BOT_ACTORS (#2947 / 親 #2942 / EPIC #2861)。
+# 「bot とは誰か」(= dependabot lane の actor 集合) の正準定義は BOT_ACTORS = ['dependabot[bot]',
+# 'renovate[bot]'] に一本化されており、gate workflow の exempt (pr-template-gate.yml 等の
+# `github.actor != 'dependabot[bot]'`) も同 SSOT / classifyLane の dependabot lane 判定を参照する。
+#
+# ただし下記 auto-merge の発火条件は **dependabot[bot] のみ** で renovate を含まない (現行仕様、
+# #2947 no-go「auto-merge を renovate に拡大しない」)。BOT_ACTORS は「lane = dependabot として
+# exempt / 軽量扱いする actor」の定義であり「auto-merge 対象 actor」とは別概念のため、本 workflow
+# は意図的に actor == 'dependabot[bot]' で即絞る軽量な actor 判定を維持する (composite action
+# actions/pr-lane を挟むと全 PR で checkout+node が走りオーバーヘッドが増えるため不採用、#2947 選択肢 B 却下)。
+
 on: pull_request
 
 permissions:
@@ -9,6 +20,8 @@ permissions:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
+    # auto-merge 対象は dependabot[bot] のみ (renovate は対象外、上記コメント参照)。
+    # bot lane SSOT = scripts/pr-lane.mjs の BOT_ACTORS。
     if: github.actor == 'dependabot[bot]'
     steps:
       - name: Dependabot metadata
