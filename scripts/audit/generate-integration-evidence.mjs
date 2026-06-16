@@ -32,11 +32,16 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+	evaluateMergeReadiness,
+	formatMergeReadinessMarkdown,
+} from './evaluate-merge-readiness.mjs';
+import {
 	extractApiEndpoints,
 	formatApiCoverageMarkdown,
 	matchEndpointCoverage,
 } from './generate-api-coverage-map.mjs';
 import { buildCoverageGapMap, formatCoverageGapMarkdown } from './generate-coverage-gap-map.mjs';
+import { flattenFindings, toSarif } from './to-sarif.mjs';
 
 /** B-1 (#2950) 境界明示 placeholder (audit-manager run が記入する領域) */
 export const B1_PLACEHOLDER = '（B-1 #2950 領域 — audit-manager run が記入。CI 自動生成の対象外）';
@@ -85,12 +90,25 @@ export function buildEvidence({
 	needs,
 	coverageGapMap,
 	apiCoverageMap,
+	auditFindings = [],
 	runId = '',
 	prNumber = '',
 	generatedAt = new Date().toISOString(),
 }) {
 	const jobResults = buildJobResultTable(needs);
 	const failedJobs = jobResults.filter((j) => j.result === 'failure' || j.result === 'cancelled');
+	const allGreen = jobResults.length > 0 && failedJobs.length === 0;
+
+	// --- B-4 (#2876): SARIF サマリ + advisory マージ判定 (hard fail させない先行 gate) ---
+	// audit evidence finding を SARIF 2.1.0 に変換しサマリ化 (空でも valid 空 SARIF)。
+	const sarif = toSarif(auditFindings ?? []);
+	const sarifResults = sarif.runs[0].results;
+	const mergeReadiness = evaluateMergeReadiness({
+		findings: auditFindings ?? [],
+		sarifResults,
+		coverageGapMap,
+		allGreen,
+	});
 
 	const json = {
 		schema: 'integration-pr-evidence/v1',
@@ -103,8 +121,15 @@ export function buildEvidence({
 		jobResults, // #3 テスト結果表
 		coverage: coverageGapMap, // #4 自動テストカバレッジ (gap map 込み)
 		apiCoverage: apiCoverageMap, // #4 補助: API 設計書 × test 突合
-		remainingNg: null, // #5 NG 0 件エビデンス — B-1 / audit-manager 判定領域
+		remainingNg: null, // #5 NG 0 件エビデンス — B-1 / audit-manager 判定領域 (人間判定が正本)
 		failedJobCount: failedJobs.length,
+		// --- B-4 (#2876): SARIF サマリ + advisory マージ判定 (hard fail させない先行 gate) ---
+		sarif: {
+			resultCount: sarifResults.length,
+			ruleCount: sarif.runs[0].tool.driver.rules.length,
+			errorLevelCount: sarifResults.filter((r) => r.level === 'error').length,
+		},
+		mergeReadinessAdvisory: mergeReadiness,
 	};
 
 	const md = [
@@ -145,6 +170,13 @@ export function buildEvidence({
 		'## 5. 残 NG / 実装一貫性最終チェック',
 		'',
 		`${B1_PLACEHOLDER}`,
+		'',
+		'### SARIF 2.1.0 サマリ (#2876)',
+		'',
+		`- finding → SARIF result: ${sarifResults.length} 件 / rule: ${sarif.runs[0].tool.driver.rules.length} 件 / level=error: ${sarifResults.filter((r) => r.level === 'error').length} 件`,
+		'- 完全 SARIF document は attestation artifact (`integration-attestation-<run_id>/sarif.json`) に永続化される (in-toto Release predicate と併せ merge commit に紐付け)',
+		'',
+		formatMergeReadinessMarkdown(mergeReadiness),
 		'',
 	]
 		.filter((line) => line !== null)
@@ -196,10 +228,15 @@ export function runCli(argv = process.argv.slice(2)) {
 		);
 	}
 
+	// audit evidence finding を読み込む (best-effort、無ければ空 = SARIF 0 件 + advisory は coverage 等で判定)。
+	const evidenceDir = argOf(argv, '--audit-evidence', 'tmp/audit-evidence');
+	const auditFindings = internalHelpers.readAuditFindings(evidenceDir);
+
 	const { json, markdown } = buildEvidence({
 		needs,
 		coverageGapMap,
 		apiCoverageMap,
+		auditFindings,
 		runId: argOf(argv, '--run-id', process.env.GITHUB_RUN_ID || ''),
 		prNumber: argOf(argv, '--pr', ''),
 	});
@@ -235,6 +272,30 @@ const internalHelpers = {
 		walk('tests/integration');
 		walk('tests/e2e');
 		return texts.join('\n');
+	},
+	/**
+	 * tmp/audit-evidence/*.json の finding を flatten して読み込む (best-effort)。
+	 * dir 不在 / parse 失敗時は空配列 (advisory は coverage / job 結果のみで評価)。
+	 * @param {string} dir
+	 * @returns {Array<any>}
+	 */
+	readAuditFindings(dir) {
+		if (!existsSync(dir)) return [];
+		/** @type {any[]} */
+		const evidences = [];
+		try {
+			for (const name of readdirSync(dir)) {
+				if (!name.endsWith('.json')) continue;
+				try {
+					evidences.push(JSON.parse(readFileSync(join(dir, name), 'utf8')));
+				} catch {
+					// 個別 file の parse 失敗は skip (全件発露を妨げない)。
+				}
+			}
+		} catch {
+			return [];
+		}
+		return flattenFindings(evidences);
 	},
 };
 
