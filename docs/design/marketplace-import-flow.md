@@ -307,6 +307,32 @@ importChecklistTemplateForFamily(presetId, tenantId, {childIds})
 
 **配信先設定の事後変更**: admin/checklists の各 template card 内の「配信先を設定」ボタン → `ChecklistDistributionDialog` → `VisibilityChipGroup` で chip toggle → `?/syncDistribution` action で差分計算 (`syncDistribution()` service 経由) → assignment 追加/解除。
 
+### 3.4 個別 backup / restore (file 由来、marketplace registry 非依存、#3079)
+
+ごほうび・チェックリストの「エクスポート」「バックアップから復元」は marketplace 取込とは**別概念**である。marketplace 取込は registry に陳列された preset を `presetId` で参照するのに対し、backup/restore は **ユーザーが過去に export した v2 envelope ファイル** を入出力する。両者を混同しないこと (DESIGN.md §10「ファイル復元はマーケットプレイスとは別概念」)。
+
+**reward-set (per-child instance type)**: file 復元は marketplace 経路と同じ `dispatchImport({typeCode:'reward-set'})` に合流できる。reward-set Strategy / `importRewardSet` は `rewards` payload を引数から受け取るため、file から剥がした payload をそのまま渡せる。固定 sentinel presetId (`'backup-restore:reward-set'`、marketplace registry に存在しない値) + 選択中 childId を ctx に注入し、同 title 重複は skip (= 同一ファイル 2 回復元の冪等性)。
+
+```
+export: getChildSpecialRewards(childId) → reward-set payload
+  → dispatchExportToJson('reward-set', payload) → /api/v1/special-rewards/export?childId
+restore: file → loadRewardSetFromFile (parseAnyExportEnvelope で envelope 剥がし + checksum 検証)
+  → dispatchImport({typeCode:'reward-set', presetId:'backup-restore:reward-set', childId})
+```
+
+**checklist (family master type)**: file 復元は `dispatchImport({typeCode:'checklist'})` に**合流できない**。checklist Strategy / `importChecklistTemplateForFamily` は `getMarketplaceItem('checklist', presetId)` で **registry から payload を引く** 設計のため、registry に存在しない file payload を取込めない。よって file 復元専用の payload-driven helper (`importChecklistTemplateFromPayload` / `previewChecklistImportFromPayload`、`checklist-template-import-service.ts`) を使い、registry を介さず `ChecklistPayload` を直接受け取って family master template + items を投入する。重複判定はテンプレート名 (tenant scope)、sourcePresetId は null (marketplace 由来ではないため)。テンプレート名は export ファイル名 (`checklist-<name>.json`) を round-trip キャリアとする (checklist payload schema は `{timing, items}` で name を持たないため)。
+
+```
+export: findTemplateById(templateId) + findTemplateItems → checklist payload (1 テンプレート単位)
+  → dispatchExportToJson('checklist', payload) → /api/v1/checklists/export?templateId
+restore: file → loadChecklistFromFile → importChecklistTemplateFromPayload(payload, name, icon, tenantId)
+  (registry 非依存、sourcePresetId=null、同名既存なら preset 全体 skip)
+```
+
+**preview → 実行の 2 段 (両 type 共通)**: `?/restorePreview` (dryRun で件数 / 重複を集計、DB write なし) → preview 表示 → `?/restoreFile` (実 DB write)。dead-end 防止のため preview / cancel 経路を `tests/e2e/admin-backup-restore.spec.ts` で貫通検証する。
+
+**責務切り分け**: 個別 backup/restore (本節) = リソース別 (1 child の reward / 1 テンプレート) を v2 envelope 単位で書き出し・復元。家族全体 backup (`/admin/settings/data`, #1254) = 全リソース横断 (JSON / ZIP) の一括 export/import。両者は別画面・別概念。
+
 ---
 
 ## 4. privacy 検証チェックリスト (各 PR で確認)

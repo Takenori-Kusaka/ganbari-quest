@@ -4072,6 +4072,47 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 } as const;
 
 /**
+ * 個別 backup/restore 共通ラベル (#3079、DESIGN.md §10 consistency)
+ *
+ * 活動 (ActivitiesHeader) と同型の「エクスポート」+「バックアップから復元」を、ごほうび・
+ * チェックリストでも UX 同型に出すための共通ラベル SSOT。overflow menu item ラベル / アイコンは
+ * OVERFLOW_MENU_TERMS atom を参照 (ADR-0045)。preview → 実行の 2 段フロー文言もここに集約する。
+ *
+ * resourceNoun は呼出側で渡す (「ごほうび」/「チェックリスト」)。同一概念を 2 箇所にハードコード
+ * しないため、文を組み立てる関数は引数で resourceNoun を受け取る形にする。
+ */
+export const BACKUP_RESTORE_LABELS = {
+	restoreLabel: OVERFLOW_MENU_TERMS.itemRestore,
+	restoreIcon: OVERFLOW_MENU_TERMS.itemRestoreIcon,
+	exportLabel: OVERFLOW_MENU_TERMS.itemExport,
+	exportIcon: OVERFLOW_MENU_TERMS.itemExportIcon,
+	restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
+	restoreDialogDesc: (resourceNoun: string) =>
+		`以前エクスポートした${resourceNoun}データ (JSON) を読み込んで復元します。みんなのテンプレートの取り込みとは別の機能です。`,
+	fileRequired: 'ファイルを選択してください',
+	fileFallbackName: 'ファイル',
+	checkButton: '内容を確認',
+	checking: '確認中…',
+	restoreSubmitBtn: '復元する',
+	restoreProcessing: '復元中…',
+	cancelButton: 'キャンセル',
+	backButton: '選び直す',
+	previewHeading: '復元する内容',
+	previewSummary: (total: number, newItems: number, duplicates: number) =>
+		`全 ${total} 件（新規 ${newItems} 件 / 既存のためスキップ ${duplicates} 件）`,
+	previewAllDuplicates: (resourceNoun: string) => `この${resourceNoun}はすべて既に登録済みです`,
+	restoreSuccess: (name: string, imported: number, skipped: number) =>
+		skipped > 0
+			? `✨ 「${name}」から ${imported} 件を復元しました (${skipped} 件は既存のためスキップ)`
+			: `✨ 「${name}」から ${imported} 件を復元しました`,
+	restoreAllDuplicatesResult: (name: string, resourceNoun: string) =>
+		`「${name}」の${resourceNoun}はすべて既に登録済みです`,
+	restoreFailed: '復元に失敗しました',
+	exportFailed: 'エクスポートに失敗しました',
+	exportEmpty: (resourceNoun: string) => `エクスポートする${resourceNoun}がありません`,
+} as const;
+
+/**
  * /admin/rewards (per-child UX 整備) 用ラベル (#2362 PR-4、ADR-0055)
  *
  * PR-3 の ADMIN_ACTIVITIES_PAGE_LABELS と同型 (子供別タブ + 兄弟共通化 + 取込ダイアログ)。
@@ -4723,10 +4764,15 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	overflowMenuAriaLabel: 'チェックリスト管理メニュー',
 	helpDialogTitle: 'チェックリスト ヘルプ',
 	helpDialogDesc: `家族で 1 つのリストを作成し、配信先のお子さまを選ぶことで、同じリストを複数の${CHILD_TERMS.honorific}で共有できます。${CHILD_TERMS.honorific}ごとに今日の進捗が記録されます。`,
-	restoreNotImplementedTitle: 'バックアップから復元',
-	restoreNotImplementedDesc: '本機能は今後のアップデートで対応予定です。',
-	exportNotImplementedTitle: 'エクスポート',
-	exportNotImplementedDesc: '取込済リストのエクスポートは今後のアップデートで対応予定です。',
+	// #3079: 個別 backup/restore 実装に伴い「今後対応予定」Dialog を撤去 (実機能に置換)。
+	// 復元 dialog の文言は BACKUP_RESTORE_LABELS (共通 SSOT) を参照。restoreResourceNoun は
+	// BACKUP_RESTORE_LABELS の文組み立て関数に渡す resource 名詞 (DESIGN.md §10 consistency)。
+	restoreResourceNoun: 'チェックリスト',
+	// テンプレート単位 export の選択 dialog 文言:
+	exportSelectTitle: 'エクスポートするチェックリスト',
+	exportSelectDesc: '1 つのチェックリストを選んで JSON ファイルに書き出します。',
+	exportSelectEmpty: 'エクスポートできるチェックリストがありません',
+	exportItemButton: (name: string) => `「${name}」をエクスポート`,
 	importToastSuccess: (presetName: string, distributedCount: number) =>
 		`「${presetName}」を取込み、${distributedCount}名のお子さまに配信しました`,
 	importToastDuplicate: (presetName: string) =>

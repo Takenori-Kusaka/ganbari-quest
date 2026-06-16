@@ -37,7 +37,9 @@ vi.mock('$lib/server/logger', () => ({
 
 import {
 	importChecklistTemplate,
+	importChecklistTemplateFromPayload,
 	previewChecklistImport,
+	previewChecklistImportFromPayload,
 } from '../../../src/lib/server/services/checklist-template-import-service';
 
 // ---------- Helpers ----------
@@ -319,5 +321,96 @@ describe('importChecklistTemplate', () => {
 			expect.objectContaining({ timeSlot: 'morning' }),
 			TENANT,
 		);
+	});
+});
+
+// ==========================================================
+// #3079: payload-driven 復元 (previewChecklistImportFromPayload / importChecklistTemplateFromPayload)
+// ==========================================================
+
+const RESTORE_PAYLOAD = {
+	timing: 'morning' as const,
+	items: [
+		{ label: 'ハンカチ', icon: '🧻', order: 0 },
+		{ label: 'ティッシュ', icon: '🤧', order: 1 },
+	],
+};
+
+describe('previewChecklistImportFromPayload (#3079)', () => {
+	it('同名テンプレートなし → alreadyImported=false / item 数集計', async () => {
+		mockFindTemplatesByTenant.mockResolvedValue([]);
+
+		const result = await previewChecklistImportFromPayload(RESTORE_PAYLOAD, 'もちもの', TENANT);
+
+		expect(result.alreadyImported).toBe(false);
+		expect(result.itemCount).toBe(2);
+		expect(result.existingTemplateName).toBeUndefined();
+	});
+
+	it('同名テンプレートが既存 → alreadyImported=true (name scope 重複判定)', async () => {
+		mockFindTemplatesByTenant.mockResolvedValue([
+			{ id: 9, name: 'もちもの', sourcePresetId: null },
+		]);
+
+		const result = await previewChecklistImportFromPayload(RESTORE_PAYLOAD, 'もちもの', TENANT);
+
+		expect(result.alreadyImported).toBe(true);
+		expect(result.existingTemplateName).toBe('もちもの');
+	});
+});
+
+describe('importChecklistTemplateFromPayload (#3079)', () => {
+	it('新規復元 → template 作成 + items 投入 (sourcePresetId=null)', async () => {
+		mockFindTemplatesByTenant.mockResolvedValue([]);
+
+		const result = await importChecklistTemplateFromPayload(
+			RESTORE_PAYLOAD,
+			'もちもの',
+			'📋',
+			TENANT,
+		);
+
+		expect(result.imported).toBe(1);
+		expect(result.skipped).toBe(0);
+		expect(result.importedItems).toBe(2);
+		expect(result.failed).toBe(0);
+		expect(mockCreateTemplate).toHaveBeenCalledWith(
+			expect.objectContaining({ name: 'もちもの', icon: '📋', sourcePresetId: null }),
+			TENANT,
+		);
+		expect(mockAddTemplateItem).toHaveBeenCalledTimes(2);
+	});
+
+	it('同名テンプレート既存 → preset 全体スキップ (imported=0 / skipped=1)', async () => {
+		mockFindTemplatesByTenant.mockResolvedValue([
+			{ id: 9, name: 'もちもの', sourcePresetId: null },
+		]);
+
+		const result = await importChecklistTemplateFromPayload(
+			RESTORE_PAYLOAD,
+			'もちもの',
+			'📋',
+			TENANT,
+		);
+
+		expect(result.imported).toBe(0);
+		expect(result.skipped).toBe(1);
+		expect(mockCreateTemplate).not.toHaveBeenCalled();
+	});
+
+	it('items は order 昇順で追加される', async () => {
+		mockFindTemplatesByTenant.mockResolvedValue([]);
+		const unordered = {
+			timing: 'daily' as const,
+			items: [
+				{ label: 'B', icon: '🅱️', order: 2 },
+				{ label: 'A', icon: '🅰️', order: 0 },
+			],
+		};
+
+		await importChecklistTemplateFromPayload(unordered, '順序テスト', '📋', TENANT);
+
+		const firstCallName = mockAddTemplateItem.mock.calls[0][0].name;
+		expect(firstCallName).toBe('A');
 	});
 });

@@ -19,6 +19,9 @@
 
 import type { ActivityPackItem } from '$lib/domain/activity-pack';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
+import { parseAnyExportEnvelope } from '../export-schema.js';
+import type { ChecklistPayload } from '../schemas/checklist-schema.js';
+import type { RewardSetPayload } from '../schemas/reward-set-schema.js';
 
 /**
  * File パースエラー (UI fail() メッセージに使う)
@@ -105,4 +108,79 @@ function parseCsvActivities(text: string): ActivityPackItem[] {
 	}
 
 	return items;
+}
+
+/**
+ * v2 export envelope (#2372 / dispatchExport 出力) の `.json` File を payload に展開する
+ * 汎用 loader (#3079: ごほうび・チェックリスト個別 backup/restore)。
+ *
+ * activity-pack は CSV 互換 + 旧 v1 形式があるため `loadActivityPackFromFile` を別 path で
+ * 維持するが、reward-set / checklist は marketplace 5 type の export が v2 envelope 1 形式に
+ * 統一されている (`dispatchExportToJson`) ため、本 loader が envelope を `parseAnyExportEnvelope`
+ * で剥がし `envelope.payload` を rawPayload として返す。round-trip 整合は
+ * `tests/unit/marketplace/file-source-envelope.test.ts` で検証する。
+ *
+ * @param file       アップロードされた `.json` File (v2 envelope)
+ * @param typeCode   期待する marketplace typeCode (envelope.typeCode と一致必須)
+ * @returns          Strategy.parse() に渡せる payload + displayName (= file 名)
+ * @throws FileSourceError 構文エラー / 空 / typeCode 不一致 / checksum 不一致
+ */
+async function loadEnvelopePayloadFromFile(
+	file: File,
+	typeCode: 'reward-set' | 'checklist',
+): Promise<{ payload: unknown; displayName: string }> {
+	if (!file || file.size === 0) {
+		throw new FileSourceError('ファイルを選択してください');
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(await file.text());
+	} catch {
+		throw new FileSourceError('JSON の形式が正しくありません');
+	}
+
+	let envelope: ReturnType<typeof parseAnyExportEnvelope>;
+	try {
+		// checksum 検証 + schema validation を一括実行 (改竄 / 破損ファイル検知)
+		envelope = parseAnyExportEnvelope(parsed);
+	} catch {
+		throw new FileSourceError('バックアップファイルの形式が正しくありません');
+	}
+
+	if (envelope.typeCode !== typeCode) {
+		throw new FileSourceError(
+			'このページのバックアップファイルではありません（種類が一致しません）',
+		);
+	}
+
+	return { payload: envelope.payload, displayName: file.name };
+}
+
+/**
+ * ごほうび (reward-set) の v2 envelope バックアップファイルを payload に展開する (#3079)。
+ *
+ * 戻り値 `payload` は `RewardSetPayload` shape (`{ rewards: [...] }`)。
+ * 呼出側は `dispatchImport({ typeCode: 'reward-set', rawPayload: payload, ctx })` に渡す。
+ */
+export async function loadRewardSetFromFile(
+	file: File,
+): Promise<{ payload: RewardSetPayload; displayName: string }> {
+	const { payload, displayName } = await loadEnvelopePayloadFromFile(file, 'reward-set');
+	return { payload: payload as RewardSetPayload, displayName };
+}
+
+/**
+ * チェックリスト (checklist) の v2 envelope バックアップファイルを payload に展開する (#3079)。
+ *
+ * 戻り値 `payload` は `ChecklistPayload` shape (`{ timing, items: [...] }`、単一テンプレート)。
+ * 呼出側は `importChecklistTemplateFromPayload(payload, ...)` に渡す
+ * (checklist Strategy は marketplace preset registry 参照型のため、file 復元は payload-driven
+ * import helper を直接呼ぶ。詳細は marketplace-import-flow.md §3.3)。
+ */
+export async function loadChecklistFromFile(
+	file: File,
+): Promise<{ payload: ChecklistPayload; displayName: string }> {
+	const { payload, displayName } = await loadEnvelopePayloadFromFile(file, 'checklist');
+	return { payload: payload as ChecklistPayload, displayName };
 }

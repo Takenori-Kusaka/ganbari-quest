@@ -74,6 +74,7 @@
 | POST | /api/v1/special-rewards/[rewardId]/shown | 報酬表示済みマーク（`selectedChildId` cookie 必須、`(childId, rewardId)` 複合キーで所有権検証 #2845。cookie 不在 400 / 不一致 404） | 全ロール |
 | GET | /api/v1/special-rewards/templates | 報酬テンプレート一覧 | owner/parent |
 | PUT | /api/v1/special-rewards/templates | 報酬テンプレート更新 | owner/parent |
+| GET | /api/v1/special-rewards/export | 個別バックアップ（#3079）。`?childId=<n>` の reward 全件を marketplace v2 envelope（reward-set）JSON でダウンロード（`Content-Disposition: attachment`）。復元は admin/rewards `?/restoreFile` action | owner/parent |
 | POST | /api/v1/special-rewards/suggest | ごほうびサジェスト（AI推定） | owner/parent |
 | POST | /api/v1/cheer/suggest | 応援サジェスト（AI推定、family 限定、#2273） | owner/parent (family) |
 
@@ -91,6 +92,7 @@
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
 | POST | /api/v1/checklists/suggest | チェックリストサジェスト（AI推定） | owner/parent |
+| GET | /api/v1/checklists/export | 個別バックアップ（#3079）。`?templateId=<id>` の family checklist テンプレート 1 件を marketplace v2 envelope（checklist）JSON でダウンロード。復元は admin/checklists `?/restoreFile` action（payload-driven、marketplace-import-flow.md §3.4） | owner/parent |
 
 ### おうえんメッセージ
 

@@ -5,6 +5,7 @@ import { getActionErrorDisplay } from '$lib/domain/errors';
 import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
+	BACKUP_RESTORE_LABELS,
 	OVERFLOW_MENU_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
@@ -265,10 +266,14 @@ let showDistributionDialog = $state(false);
 let distributionTemplateId = $state<number | null>(null);
 let distributionVisibility = $state<Record<number, boolean>>({});
 
-// 「ヘルプ」「復元」「エクスポート」未実装 dialog
+// 「ヘルプ」dialog
 let helpDialogOpen = $state(false);
+// #3079: 個別 backup/restore dialog
 let restoreDialogOpen = $state(false);
 let exportDialogOpen = $state(false);
+let restoreLoading = $state(false);
+let restoreFile = $state<File | null>(null);
+let restorePreview = $state<{ total: number; newItems: number; duplicates: number } | null>(null);
 
 // childOptions for ChildSelectionDialog (PR-2 primitive)
 const childSelectionOptions = $derived<ChildOption[]>(
@@ -336,6 +341,8 @@ const overflowItems = $derived<OverflowMenuItem[]>([
 		label: OVERFLOW_MENU_LABELS.items.restore.label,
 		icon: OVERFLOW_MENU_LABELS.items.restore.icon,
 		onSelect: () => {
+			restoreFile = null;
+			restorePreview = null;
 			restoreDialogOpen = true;
 		},
 	},
@@ -359,6 +366,109 @@ const overflowItems = $derived<OverflowMenuItem[]>([
 		},
 	},
 ]);
+
+// #3079: チェックリスト個別 backup/restore handlers
+const RESTORE_NOUN = ADMIN_CHECKLISTS_PAGE_LABELS.restoreResourceNoun;
+
+function onRestoreFileChange(event: Event) {
+	const input = event.currentTarget as HTMLInputElement;
+	restoreFile = input.files?.[0] ?? null;
+	restorePreview = null;
+}
+
+// 復元 step 1: preview (DB write なし) — 件数 / 重複を取得
+async function handleRestorePreview() {
+	if (!restoreFile) {
+		actionMessage = BACKUP_RESTORE_LABELS.fileRequired;
+		return;
+	}
+	restoreLoading = true;
+	try {
+		const formData = new FormData();
+		formData.append('file', restoreFile);
+		const resp = await fetch('?/restorePreview', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const r = deserialize(await resp.text()) as
+			| { type: 'success'; data?: { total?: number; newItems?: number; duplicates?: number } }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+		if (r.type === 'success' && r.data) {
+			restorePreview = {
+				total: r.data.total ?? 0,
+				newItems: r.data.newItems ?? 0,
+				duplicates: r.data.duplicates ?? 0,
+			};
+		} else if (r.type === 'failure') {
+			actionMessage = r.data?.error ?? BACKUP_RESTORE_LABELS.restoreFailed;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+		}
+	} catch {
+		actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+	} finally {
+		restoreLoading = false;
+	}
+}
+
+// 復元 step 2: 実行 — 実 DB write
+async function handleRestoreConfirm() {
+	if (!restoreFile) return;
+	restoreLoading = true;
+	try {
+		const formData = new FormData();
+		formData.append('file', restoreFile);
+		const resp = await fetch('?/restoreFile', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const r = deserialize(await resp.text()) as
+			| {
+					type: 'success';
+					data?: { fileName?: string; imported?: number; skipped?: number; importedItems?: number };
+			  }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+		if (r.type === 'success' && r.data) {
+			const name = r.data.fileName ?? BACKUP_RESTORE_LABELS.fileFallbackName;
+			const imported = r.data.importedItems ?? 0;
+			const skipped = (r.data.skipped ?? 0) > 0 ? (restorePreview?.total ?? 0) : 0;
+			actionMessage =
+				(r.data.imported ?? 0) === 0 && (r.data.skipped ?? 0) > 0
+					? BACKUP_RESTORE_LABELS.restoreAllDuplicatesResult(name, RESTORE_NOUN)
+					: BACKUP_RESTORE_LABELS.restoreSuccess(name, imported, skipped);
+			showToast(actionMessage, undefined, 'success');
+			restoreDialogOpen = false;
+			await invalidateAll();
+		} else if (r.type === 'failure') {
+			actionMessage = r.data?.error ?? BACKUP_RESTORE_LABELS.restoreFailed;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+		}
+	} catch {
+		actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+	} finally {
+		restoreLoading = false;
+	}
+}
+
+// エクスポート — テンプレートを選択して v2 envelope JSON でダウンロード
+function exportTemplate(templateId: number) {
+	const a = document.createElement('a');
+	a.href = `/api/v1/checklists/export?templateId=${templateId}`;
+	a.download = 'checklist-export.json';
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	exportDialogOpen = false;
+}
 
 // ChildSelectionDialog confirm: family preset 取込 + 配信先 children 設定
 //
@@ -1127,19 +1237,137 @@ function getChildName(childId: number): string {
 	</div>
 </Dialog>
 
-<!-- #2362 PR-5 Phase 2: OverflowMenu の未実装機能告知 + Help dialog 群 -->
+<!-- #2362 PR-5 Phase 2: OverflowMenu の Help dialog -->
 <Dialog bind:open={helpDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.helpDialogTitle}>
 	<p class="text-sm text-[var(--color-text-secondary)]">
 		{ADMIN_CHECKLISTS_PAGE_LABELS.helpDialogDesc}
 	</p>
 </Dialog>
-<Dialog bind:open={restoreDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.restoreNotImplementedTitle}>
-	<p class="text-sm text-[var(--color-text-secondary)]">
-		{ADMIN_CHECKLISTS_PAGE_LABELS.restoreNotImplementedDesc}
-	</p>
+
+<!-- #3079: バックアップから復元 dialog (preview → 実行の 2 段)。
+     JSON v2 envelope を読み込んで family checklist を復元。マーケットプレイス取込とは別概念。 -->
+<Dialog
+	bind:open={restoreDialogOpen}
+	closable={true}
+	title={BACKUP_RESTORE_LABELS.restoreDialogTitle}
+	testid="restore-checklist-dialog"
+>
+	<p class="restore-dialog-desc">{BACKUP_RESTORE_LABELS.restoreDialogDesc(RESTORE_NOUN)}</p>
+	{#if restorePreview === null}
+		<input
+			type="file"
+			accept="application/json,.json"
+			class="restore-file-input"
+			disabled={restoreLoading}
+			onchange={onRestoreFileChange}
+			data-testid="restore-checklist-file-input"
+		/>
+		<div class="restore-footer">
+			<Button variant="ghost" onclick={() => { restoreDialogOpen = false; }}>
+				{BACKUP_RESTORE_LABELS.cancelButton}
+			</Button>
+			<Button
+				variant="primary"
+				loading={restoreLoading}
+				disabled={!restoreFile}
+				data-testid="restore-checklist-check"
+				onclick={handleRestorePreview}
+			>
+				{restoreLoading ? BACKUP_RESTORE_LABELS.checking : BACKUP_RESTORE_LABELS.checkButton}
+			</Button>
+		</div>
+	{:else}
+		<div class="restore-preview" data-testid="restore-checklist-preview">
+			<p class="restore-preview__heading">{BACKUP_RESTORE_LABELS.previewHeading}</p>
+			{#if restorePreview.newItems === 0 && restorePreview.duplicates > 0}
+				<p class="restore-preview__all-dup">{BACKUP_RESTORE_LABELS.previewAllDuplicates(RESTORE_NOUN)}</p>
+			{:else}
+				<p class="restore-preview__summary">
+					{BACKUP_RESTORE_LABELS.previewSummary(restorePreview.total, restorePreview.newItems, restorePreview.duplicates)}
+				</p>
+			{/if}
+		</div>
+		<div class="restore-footer">
+			<Button variant="ghost" disabled={restoreLoading} onclick={() => { restorePreview = null; }}>
+				{BACKUP_RESTORE_LABELS.backButton}
+			</Button>
+			<Button
+				variant="primary"
+				loading={restoreLoading}
+				disabled={restorePreview.newItems === 0}
+				data-testid="restore-checklist-confirm"
+				onclick={handleRestoreConfirm}
+			>
+				{restoreLoading ? BACKUP_RESTORE_LABELS.restoreProcessing : BACKUP_RESTORE_LABELS.restoreSubmitBtn}
+			</Button>
+		</div>
+	{/if}
 </Dialog>
-<Dialog bind:open={exportDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.exportNotImplementedTitle}>
-	<p class="text-sm text-[var(--color-text-secondary)]">
-		{ADMIN_CHECKLISTS_PAGE_LABELS.exportNotImplementedDesc}
-	</p>
+
+<!-- #3079: エクスポート dialog — テンプレートを選んで JSON 書き出し (checklist payload は単一テンプレート単位)。 -->
+<Dialog
+	bind:open={exportDialogOpen}
+	closable={true}
+	title={ADMIN_CHECKLISTS_PAGE_LABELS.exportSelectTitle}
+	testid="export-checklist-dialog"
+>
+	<p class="restore-dialog-desc">{ADMIN_CHECKLISTS_PAGE_LABELS.exportSelectDesc}</p>
+	{#if data.familyTemplates.length === 0}
+		<p class="restore-preview__all-dup">{ADMIN_CHECKLISTS_PAGE_LABELS.exportSelectEmpty}</p>
+	{:else}
+		<div class="export-template-list">
+			{#each data.familyTemplates as tpl (tpl.id)}
+				<Button
+					variant="ghost"
+					data-testid="export-checklist-item-{tpl.id}"
+					onclick={() => exportTemplate(tpl.id)}
+				>
+					{ADMIN_CHECKLISTS_PAGE_LABELS.exportItemButton(tpl.name)}
+				</Button>
+			{/each}
+		</div>
+	{/if}
 </Dialog>
+
+<style>
+	/* #3079: restore/export dialog (comments use ASCII for local/no-hardcoded-jp-text in style) */
+	.restore-dialog-desc {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		margin-bottom: 1rem;
+		line-height: 1.6;
+	}
+	.restore-file-input {
+		display: block;
+		width: 100%;
+		margin-bottom: 1rem;
+	}
+	.restore-preview {
+		background: var(--color-surface-muted);
+		border-radius: 0.5rem;
+		padding: 0.75rem 1rem;
+		margin-bottom: 1rem;
+	}
+	.restore-preview__heading {
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+	}
+	.restore-preview__summary {
+		color: var(--color-text);
+	}
+	.restore-preview__all-dup {
+		color: var(--color-text-muted);
+	}
+	.restore-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border-light);
+	}
+	.export-template-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+</style>
