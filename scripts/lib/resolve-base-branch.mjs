@@ -15,6 +15,7 @@
  *   2. 現 branch に open PR が存在すれば、その baseRefName (最も権威ある情報)
  *   3. `origin/develop` 不在 → main (cutover 前 repo / clone 直後への後方互換)
  *   4. 現 branch == develop → main (統合 PR レーン)
+ *   4b. 現 branch が release/* → main (release ブランチ方式の統合標的、branch-strategy.md §3)
  *   5. branch が develop 固有 commit を含む → develop (develop 基点 feature branch)
  *   6. それ以外 → main (main 基点 hotfix、または develop == main で等価)
  *
@@ -70,6 +71,10 @@ export function resolveBaseBranch({
 	if (!hasDevelop) return 'main';
 	// 4. develop 自身は main へ向かう (統合 PR レーン)
 	if (currentBranch === 'develop') return 'main';
+	// 4b. release/* は develop の凍結コミットから cut した統合標的 → main へ向かう
+	//     (branch-strategy.md §3 release ブランチ方式)。release/* は develop 固有 commit を
+	//     含むため、rule 5 より前で判定しないと誤って develop 基点 feature と分類される。
+	if (currentBranch.startsWith('release/')) return 'main';
 	// 5. develop 固有 commit を含む branch は develop 基点の feature branch
 	if (containsDevelopOnlyCommits) return 'develop';
 	// 6. それ以外 = main 基点 hotfix、または develop == main (どちらでも等価)
