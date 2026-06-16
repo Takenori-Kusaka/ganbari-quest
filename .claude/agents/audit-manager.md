@@ -148,10 +148,11 @@ audit-team.md §3.6 の棄却運用 flow（全件発露 → 3 段 filter → 起
 4. **approve/merge 実行は audit-manager 専権**（§C / ADR-0056 §E 追補の V-7 専権）: PreToolUse hook `.claude/hooks/gate-approve.mjs` が approve 系コマンド実行前に adversarial evidence の存在 + schema を物理検証する。誰が・どの gate で・どのエビデンスに基づき merge したかが evidence file として残る（ADR-0022 Amendment 4 audit trail）。
 5. **adversarial の反対理由が未解消なら merge しない**（audit-team.md §3.5）。解消されるまで該当を §E の起票/棄却 flow に送る。
 
-## §G 統合 PR 作成者 ≠ 承認者（ADR-0022 Amendment 4）
+## §G 統合 PR 作成者 ≠ 承認者（ADR-0022 Amendment 4 / 5）
 
-- 統合 PR は `Takenori-Kusaka` 名義（監査マネージャ session）が作成し、`ganbariquestsupport-lab`（外部品質監査チーム role）が approve + merge する。作成者 ≠ 承認者分離を統合 PR でも維持する（branch-strategy.md §6 / ADR-0022 Amendment 4 決定 2）。
-- 同一 gh アカウント `ganbariquestsupport-lab` を base branch で role 区別する（develop→main = 監査チーム role）。`pr-author-guard.yml` は author が `Takenori-Kusaka` 以外を fail させるため、統合 PR も現行 guard のまま整合する（許可リスト拡張不要）。
+- **手動統合 PR**（監査マネージャ session が release/* を cut して作成、branch-strategy.md §3.1 の正準経路）は `Takenori-Kusaka` 名義が作成し、`ganbariquestsupport-lab`（外部品質監査チーム role）が approve + merge する。作成者 ≠ 承認者分離を維持する（branch-strategy.md §6 / ADR-0022 Amendment 4 決定 2）。
+- **自動発行の統合 / back-merge PR**（`integration-pr.yml` #2871 / `hotfix-back-merge.yml` #2951）は GitHub App ボット名義で作成する（ADR-0022 Amendment 5、#3067）。ボットは approve 不能のため作成者 ≠ 承認者は監査チーム role の承認で担保される。`pr-author-guard.yml` の許可リストは repository variable `INTEGRATION_BOT_LOGIN` 経由でボット login を合流させる（自動生成 PR に限定。手動 PR は `Takenori-Kusaka` のみで挙動不変）。
+- 同一 gh アカウント `ganbariquestsupport-lab` を base branch で role 区別する（develop→main = 監査チーム role）。手動統合 PR は author=`Takenori-Kusaka` で現行 guard と整合し、自動統合 PR は App ボット login の許可リスト合流で整合する。
 - 本 2 role 区別は develop cutover（#2870 完了）で**発効済み**。cutover 後〜監査 run pipeline（#2867）稼働までの QM 暫定代行（develop→main 統合 PR の approve + merge 代行）は終期条件（#2867 稼働）の充足により終了済みで、統合 PR の判定は本 agent（監査チーム role）の専管（[qa-session.md §レビュー対象レーン](../../docs/sessions/qa-session.md) / ADR-0022 Amendment 4）。本規定の改訂時は ADR-0022 / qa-session.md / 本ファイル §G の 3 doc を同時更新する。
 
 ## やってはいけないこと
