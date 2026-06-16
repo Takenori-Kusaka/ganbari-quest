@@ -51,6 +51,17 @@ describe('resolveBaseBranch (#2959)', () => {
 		).toBe('main');
 	});
 
+	it('4b. release/* は main へ向かう (release ブランチ方式、develop 固有 commit を含んでも main)', () => {
+		// release/* は develop から cut するため develop 固有 commit を含むが、rule 5 より前で main に解決する
+		expect(
+			resolveBaseBranch({
+				...base,
+				currentBranch: 'release/2026-06-16',
+				containsDevelopOnlyCommits: true,
+			}),
+		).toBe('main');
+	});
+
 	it('5. develop 固有 commit を含む branch は develop (feature lane)', () => {
 		expect(resolveBaseBranch({ ...base, containsDevelopOnlyCommits: true })).toBe('develop');
 		expect(

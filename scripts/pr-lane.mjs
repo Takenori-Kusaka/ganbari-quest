@@ -29,10 +29,16 @@
  *
  * lane 分類 (4 種、決定的・優先順位付き = 最初にマッチした lane を返す):
  *   1. actor が `dependabot[bot]` / `renovate[bot]`       → 'dependabot'
- *   2. headRef === 'develop' かつ baseRef === 'main'      → 'integration' (統合 PR、重量レーン)
+ *   2. baseRef === 'main' かつ (headRef === 'develop' または headRef が 'release/' で始まる)
+ *                                                         → 'integration' (統合 PR、重量レーン)
  *   3. headRef が 'fix/' で始まり baseRef === 'main'      → 'hotfix'      (ADR-0002 重量レーン)
  *   4. baseRef === 'develop'                              → 'feature'    (軽量レーン)
  *   5. 上記いずれにも非該当                                → 'feature'    (既定、後方互換)
+ *
+ * release ブランチ方式 (branch-strategy.md §3、#3021 動く標的問題の構造的解消):
+ *   develop の凍結コミットから cut した `release/*` を frozen 標的として main へ統合する。
+ *   release/* → main も develop → main と同じ integration (重量レーン) として扱い、
+ *   統合観点の AC gate / 重量 job を保証発火させる。
  *
  * back-merge PR の帰属 (#2960 / #2967 実地観測):
  *   hotfix を main に merge した後の main → develop back-merge PR
@@ -44,6 +50,7 @@
  *
  * Usage (CLI、AC5):
  *   node scripts/pr-lane.mjs --base main --head develop --actor x   # => "integration"
+ *   node scripts/pr-lane.mjs --base main --head release/2026-06-16 --actor x  # => "integration"
  *   node scripts/pr-lane.mjs --base develop --head feat/123 --actor Takenori-Kusaka  # => "feature"
  *
  * exit: 0 = 分類成功 (lane を stdout に出力) / 2 = 引数不足
@@ -89,8 +96,9 @@ export function classifyLane({ baseRef, headRef, actor }) {
 
 	// 1. bot は base/head より優先 (Dependabot exempt を lane の 1 種として吸収、BOT_ACTORS SSOT)
 	if (BOT_ACTOR_SET.has(who)) return 'dependabot';
-	// 2. develop → main = 統合 PR (重量レーン)
-	if (head === 'develop' && base === 'main') return 'integration';
+	// 2. develop → main または release/* → main = 統合 PR (重量レーン)
+	//    release/* は develop の凍結コミットから cut した統合標的 (branch-strategy.md §3)。
+	if (base === 'main' && (head === 'develop' || head.startsWith('release/'))) return 'integration';
 	// 3. fix/* → main = hotfix (ADR-0002 重量レーン)
 	if (head.startsWith('fix/') && base === 'main') return 'hotfix';
 	// 4. → develop = 軽量レーン (back-merge main→develop もここに帰属)
