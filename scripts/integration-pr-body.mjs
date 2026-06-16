@@ -112,6 +112,7 @@ export function extractAreaLabel(pr) {
 export function escapeCell(s) {
 	return String(s ?? '')
 		.replace(/\r?\n/g, ' ')
+		.replace(/\\/g, '\\\\')
 		.replace(/\|/g, '\\|')
 		.trim();
 }

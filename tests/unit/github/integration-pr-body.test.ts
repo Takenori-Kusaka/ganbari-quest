@@ -81,6 +81,12 @@ describe('escapeCell (#2871 AC3 — markdown 安全化)', () => {
 	it('改行を空白に潰す', () => {
 		expect(escapeCell('line1\nline2')).toBe('line1 line2');
 	});
+
+	it('backslash を先にエスケープする (incomplete-sanitization 防止、CodeQL js/incomplete-sanitization)', () => {
+		// backslash を pipe より先に escape しないと \| が \\| になり表崩れ / sanitization bypass の温床になる
+		expect(escapeCell('a\\b')).toBe('a\\\\b');
+		expect(escapeCell('a\\|b')).toBe('a\\\\\\|b');
+	});
 });
 
 describe('buildContainedPrTable (#2871 AC3 — 含有 PR 一覧 4 列表)', () => {
