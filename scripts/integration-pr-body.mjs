@@ -51,7 +51,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** PR の labels（string[] or {name}[]）を string[] に正規化する純粋関数。 */
+/**
+ * PR の labels（string[] or {name}[]）を string[] に正規化する純粋関数。
+ *
+ * @param {Array<string | { name?: string }> | undefined} labels
+ * @returns {string[]}
+ */
 function normalizeLabels(labels) {
 	return (labels ?? []).map((l) => (typeof l === 'string' ? l : (l?.name ?? '')));
 }
@@ -188,7 +193,7 @@ export function replaceSectionBody(template, heading, replacement) {
 	// 次の `## ` 見出し（または EOF）まで
 	let endIdx = lines.length;
 	for (let i = startIdx + 1; i < lines.length; i += 1) {
-		if (lines[i].startsWith('## ')) {
+		if ((lines[i] ?? '').startsWith('## ')) {
 			endIdx = i;
 			break;
 		}
@@ -196,9 +201,9 @@ export function replaceSectionBody(template, heading, replacement) {
 
 	// section 内で、見出し直後の `<!-- ... -->` 説明コメントブロックは保持する。
 	let insertIdx = startIdx + 1;
-	while (insertIdx < endIdx && lines[insertIdx].trim() === '') insertIdx += 1; // 先頭空行 skip
-	if (insertIdx < endIdx && lines[insertIdx].trim().startsWith('<!--')) {
-		while (insertIdx < endIdx && !lines[insertIdx].includes('-->')) insertIdx += 1;
+	while (insertIdx < endIdx && (lines[insertIdx] ?? '').trim() === '') insertIdx += 1; // 先頭空行 skip
+	if (insertIdx < endIdx && (lines[insertIdx] ?? '').trim().startsWith('<!--')) {
+		while (insertIdx < endIdx && !(lines[insertIdx] ?? '').includes('-->')) insertIdx += 1;
 		if (insertIdx < endIdx) insertIdx += 1; // `-->` 行の次へ
 	}
 
@@ -310,7 +315,8 @@ if (isMain) {
 	try {
 		template = readFileSync(templatePath, 'utf8');
 	} catch (err) {
-		console.error(`[integration-pr-body] template 読込失敗 (${templatePath}): ${err.message}`);
+		const message = err instanceof Error ? err.message : String(err);
+		console.error(`[integration-pr-body] template 読込失敗 (${templatePath}): ${message}`);
 		process.exit(3);
 	}
 
