@@ -5,7 +5,7 @@
 //   family master template + per-child assignments + per-child progress logs。
 //   旧 per-child instance (`childId` 列) は migrate-local.ts で family master 化済み。
 
-import { and, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import { db } from '../client';
 import {
@@ -295,6 +295,21 @@ export async function upsertLog(
 			.get();
 	}
 	return db.insert(checklistLogs).values(input).returning().get();
+}
+
+/**
+ * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
+ */
+export async function findLogsByChild(
+	childId: number,
+	_tenantId: string,
+): Promise<ChecklistLog[]> {
+	return db
+		.select()
+		.from(checklistLogs)
+		.where(eq(checklistLogs.childId, childId))
+		.orderBy(desc(checklistLogs.checkedDate))
+		.all();
 }
 
 // ============================================================

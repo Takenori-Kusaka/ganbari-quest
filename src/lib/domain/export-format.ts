@@ -58,6 +58,12 @@ export interface ExportChild {
 	avatarUrl: string | null;
 	activeTitle: string | null;
 	createdAt: string;
+	/**
+	 * #3077: エクスポート元の数値 childId。ZIP 同梱の静的ファイル
+	 * (`avatars/{childId}/…` / `voices/{childId}/…`) を import 時に
+	 * 新 childId へ再マップするために用いる (v1.3.0+、省略時は静的ファイル再配置スキップ)。
+	 */
+	sourceChildId?: number;
 }
 
 // ============================================================

@@ -8,6 +8,7 @@ import {
 	type ExportActivity,
 	type ExportActivityLog,
 	type ExportCategory,
+	type ExportChecklistLog,
 	type ExportChecklistTemplate,
 	type ExportChild,
 	type ExportChildAchievement,
@@ -25,7 +26,11 @@ import {
 } from '$lib/domain/export-format';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { findActivities, findActivityLogs } from '$lib/server/db/activity-repo';
-import { findTemplateItems, findTemplatesByChild } from '$lib/server/db/checklist-repo';
+import {
+	findLogsByChild,
+	findTemplateItems,
+	findTemplatesByChild,
+} from '$lib/server/db/checklist-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { findEvaluationsByChild } from '$lib/server/db/evaluation-repo';
 import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
@@ -126,6 +131,7 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 		avatarUrl: child.avatarUrl,
 		activeTitle: null, // 称号システム廃止（#322）
 		createdAt: child.createdAt,
+		sourceChildId: child.id, // #3077: ZIP 静的ファイルの id 再マップ用
 	}));
 
 	// childId → exportId マッピング
@@ -206,6 +212,7 @@ async function collectTransactionData(
 	const allEvaluations: ExportEvaluation[] = [];
 	const allSpecialRewards: ExportSpecialReward[] = [];
 	const allChecklistTemplates: ExportChecklistTemplate[] = [];
+	const allChecklistLogs: ExportChecklistLog[] = [];
 	for (const childId of childIds) {
 		const childRef = childExportIdMap.get(childId) ?? `child-${childId}`;
 
@@ -330,7 +337,10 @@ async function collectTransactionData(
 		}
 
 		// Checklist templates with items
+		// #3078: templateId → name マップを構築し checklistLogs の参照解決に使う。
+		const templateNameById = new Map<number, string>();
 		for (const tpl of checklistTemplates) {
+			templateNameById.set(tpl.id, tpl.name);
 			const items = await findTemplateItems(tpl.id, tenantId);
 			allChecklistTemplates.push({
 				childRef,
@@ -349,6 +359,23 @@ async function collectTransactionData(
 				})),
 			});
 		}
+
+		// #3078: チェックリスト完了ログ。templateName で参照し、import 側で再マップする。
+		// 配信中 template に紐づかないログ (archive 済 template 等) は name 解決不能のためスキップ。
+		const checklistLogs = await findLogsByChild(childId, tenantId);
+		for (const log of checklistLogs) {
+			const templateName = templateNameById.get(log.templateId);
+			if (!templateName) continue;
+			allChecklistLogs.push({
+				childRef,
+				templateName,
+				checkedDate: log.checkedDate,
+				itemsJson: log.itemsJson,
+				completedAll: log.completedAll === 1,
+				pointsAwarded: log.pointsAwarded,
+				createdAt: log.createdAt,
+			});
+		}
 	}
 
 	return {
@@ -362,7 +389,7 @@ async function collectTransactionData(
 		evaluations: allEvaluations,
 		specialRewards: allSpecialRewards,
 		checklistTemplates: allChecklistTemplates,
-		checklistLogs: [], // Phase 2: バルク取得メソッド追加後に対応
+		checklistLogs: allChecklistLogs, // #3078
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
 	};

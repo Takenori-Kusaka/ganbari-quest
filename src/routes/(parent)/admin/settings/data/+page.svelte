@@ -104,6 +104,31 @@ const anyFormBusy = $derived(
 	exportLoading || importLoading || cloudLoading || cloudImportLoading || clearSubmitting,
 );
 
+// #3077: JSON は 10MB、ZIP (静的ファイル同梱) は export ZIP と整合する 100MB を許容。
+const MAX_JSON_BYTES = 10 * 1024 * 1024;
+const MAX_ZIP_BYTES = 100 * 1024 * 1024;
+
+/**
+ * #3077: 選択ファイルが ZIP なら raw bytes を application/zip で、JSON なら従来通り JSON で送る。
+ */
+async function postImport(mode: string): Promise<Response> {
+	if (!importFile) throw new Error('ファイルが選択されていません');
+	if (importFile.name.endsWith('.zip')) {
+		return fetch(`/api/v1/import?mode=${mode}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/zip' },
+			body: importFile,
+		});
+	}
+	const text = await importFile.text();
+	const json = JSON.parse(text);
+	return fetch(`/api/v1/import?mode=${mode}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(json),
+	});
+}
+
 async function handleImportFileChange(e: Event) {
 	if (anyFormBusy) return;
 	const input = e.target as HTMLInputElement;
@@ -114,26 +139,22 @@ async function handleImportFileChange(e: Event) {
 	importStep = 'select';
 
 	if (!importFile) return;
-	if (!importFile.name.endsWith('.json')) {
-		importError = 'JSONファイルを選択してください';
+	const isZip = importFile.name.endsWith('.zip');
+	if (!importFile.name.endsWith('.json') && !isZip) {
+		importError = 'JSON または ZIP ファイルを選択してください';
 		importFile = null;
 		return;
 	}
-	if (importFile.size > 10 * 1024 * 1024) {
-		importError = 'ファイルサイズが大きすぎます（最大10MB）';
+	const maxBytes = isZip ? MAX_ZIP_BYTES : MAX_JSON_BYTES;
+	if (importFile.size > maxBytes) {
+		importError = `ファイルサイズが大きすぎます（最大${isZip ? '100' : '10'}MB）`;
 		importFile = null;
 		return;
 	}
 
 	importLoading = true;
 	try {
-		const text = await importFile.text();
-		const json = JSON.parse(text);
-		const res = await fetch('/api/v1/import?mode=preview', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(json),
-		});
+		const res = await postImport('preview');
 		const d = await res.json();
 		if (!res.ok) {
 			throw new Error(d?.error?.message ?? 'プレビューに失敗しました');
@@ -153,14 +174,8 @@ async function handleImportExecute() {
 	importLoading = true;
 	importError = '';
 	try {
-		const text = await importFile.text();
-		const json = JSON.parse(text);
 		const mode = importMode === 'replace' ? 'replace' : 'execute';
-		const res = await fetch(`/api/v1/import?mode=${mode}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(json),
-		});
+		const res = await postImport(mode);
 		const d = await res.json();
 		if (!res.ok) {
 			throw new Error(d?.error?.message ?? 'インポートに失敗しました');
@@ -546,7 +561,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						{/if}
 						<input
 							type="file"
-							accept=".json"
+							accept=".json,.zip"
 							onchange={handleImportFileChange}
 							class="hidden"
 							data-testid="import-file-input"

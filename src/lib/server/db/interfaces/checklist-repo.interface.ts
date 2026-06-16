@@ -110,6 +110,12 @@ export interface IChecklistRepo {
 	): Promise<ChecklistLog | undefined>;
 	upsertLog(input: UpsertChecklistLogInput, tenantId: string): Promise<ChecklistLog>;
 
+	/**
+	 * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
+	 * activityLog の `findActivityLogs` と対をなす一括取得 API。
+	 */
+	findLogsByChild(childId: number, tenantId: string): Promise<ChecklistLog[]>;
+
 	// ── Per-child overrides (one-off items) ─────────────────────────
 
 	findOverrides(childId: number, date: string, tenantId: string): Promise<ChecklistOverride[]>;

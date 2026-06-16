@@ -1551,7 +1551,8 @@ export const SETTINGS_LABELS = {
 
 	// インポート
 	dataImportTitle: 'データのインポート',
-	dataImportDesc: 'エクスポートしたJSONファイルからデータを復元できます。',
+	dataImportDesc:
+		'エクスポートしたJSON / ZIPファイルからデータを復元できます（ZIPはアバター画像・音声も復元します）。',
 	dataImportMode: 'インポートモード',
 	dataImportModeReplace: '置換（既存データを削除してインポート）',
 	dataImportModeAdd: '追加（既存データを残して追加）',
@@ -1559,7 +1560,7 @@ export const SETTINGS_LABELS = {
 		'既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。',
 	dataImportModeAddNote: '新しい子供データとして追加されます（既存データは上書きされません）。',
 	dataImportLoading: '読み込み中...',
-	dataImportSelectFile: 'JSONファイルを選択',
+	dataImportSelectFile: 'JSON / ZIPファイルを選択',
 	dataImportChecksumOk: '✓ ファイルの整合性を確認しました',
 	dataImportPreviewChildren: (n: number | string | undefined) => `子供: ${n}人`,
 	dataImportPreviewActivityLogs: (n: number | string | undefined) => `活動ログ: ${n}件`,

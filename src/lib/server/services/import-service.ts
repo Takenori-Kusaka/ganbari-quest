@@ -13,15 +13,20 @@ import {
 } from '$lib/server/db/activity-repo';
 import {
 	assignTemplateToChildren,
+	findLogsByChild,
 	findTemplatesByChild,
 	insertTemplate,
 	insertTemplateItem,
+	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
+import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
+import { saveFile } from '$lib/server/storage';
+import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
 
 // カテゴリコード → ID
 const CATEGORY_CODE_TO_ID: Record<string, number> = {};
@@ -48,6 +53,12 @@ export interface ImportResult {
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
 	statusHistorySkipped: number;
+	/** #3078: チェックリスト完了履歴 */
+	checklistLogsImported: number;
+	checklistLogsSkipped: number;
+	/** #3077: ZIP 同梱の静的ファイル (アバター画像 / 音声) の復元件数 */
+	staticFilesRestored: number;
+	staticFilesSkipped: number;
 	/** スキップ内訳 (#1254 G2): preset/name/constraint の各カテゴリ */
 	skipped: {
 		preset: number;
@@ -203,10 +214,17 @@ export async function previewImport(data: ExportData, tenantId: string): Promise
  * 家族データをインポート (#1254: silent try-catch を pre-fetch 方式に統一)
  *
  * 処理順: 活動マスタ → 子供作成 → ステータス → 活動ログ → ポイント台帳 → ログインボーナス
- *   → チェックリスト → ごほうび → ステータス履歴
+ *   → チェックリスト → ごほうび → ステータス履歴 → 静的ファイル復元
  * 各セクションは専用ヘルパ関数に委譲し、本関数は oversight に集中する。
+ *
+ * @param staticFiles #3077: ZIP 同梱の静的ファイル (相対パス → bytes)。
+ *   JSON のみインポート時は undefined (後方互換)。
  */
-export async function importFamilyData(data: ExportData, tenantId: string): Promise<ImportResult> {
+export async function importFamilyData(
+	data: ExportData,
+	tenantId: string,
+	staticFiles?: Record<string, Uint8Array>,
+): Promise<ImportResult> {
 	const result = createEmptyImportResult();
 	logger.info('[import] インポート開始', { context: { tenantId } });
 
@@ -223,9 +241,15 @@ export async function importFamilyData(data: ExportData, tenantId: string): Prom
 	await importActivityLogsData(data, childIdMap, activityNameMap, tenantId, result);
 	await importPointLedgerData(data, childIdMap, tenantId, result);
 	await importLoginBonusesData(data, childIdMap, tenantId, result);
-	await importChecklistTemplatesData(data, childIdMap, tenantId, result);
+	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
+	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
+
+	// #3077: ZIP 同梱の静的ファイル (アバター画像 / 音声) を新 childId に再マップして復元。
+	if (staticFiles && Object.keys(staticFiles).length > 0) {
+		await importStaticFiles(data, childIdMap, staticFiles, tenantId, result);
+	}
 
 	logger.info('[import] インポート完了', { context: { ...result } });
 	return result;
@@ -248,6 +272,10 @@ function createEmptyImportResult(): ImportResult {
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,
 		statusHistorySkipped: 0,
+		checklistLogsImported: 0,
+		checklistLogsSkipped: 0,
+		staticFilesRestored: 0,
+		staticFilesSkipped: 0,
 		skipped: { preset: 0, name: 0, constraint: 0 },
 		errors: [],
 		warnings: [],
@@ -533,26 +561,37 @@ async function importLoginBonusesData(
 	}
 }
 
+/**
+ * チェックリスト template を import する。
+ *
+ * 返り値 (#3078): childId → (templateName → templateId) の解決マップ。
+ *   既存 (重複スキップ含む) / 新規作成いずれの template も name → id を登録するため、
+ *   後段の checklistLog import が `ExportChecklistLog.templateName` から新 templateId を解決できる。
+ */
 async function importChecklistTemplatesData(
 	data: ExportData,
 	childIdMap: Map<string, number>,
 	tenantId: string,
 	result: ImportResult,
-): Promise<void> {
+): Promise<Map<number, Map<string, number>>> {
 	const existingByChild = new Map<number, { names: Set<string>; presetIds: Set<string> }>();
+	const templateIdByChild = new Map<number, Map<string, number>>();
 
 	for (const tpl of data.data.checklistTemplates) {
 		const childId = childIdMap.get(tpl.childRef);
 		if (!childId) continue;
 
 		let existing = existingByChild.get(childId);
-		if (!existing) {
+		let nameToId = templateIdByChild.get(childId);
+		if (!existing || !nameToId) {
 			const rows = await findTemplatesByChild(childId, tenantId, true);
 			existing = {
 				names: new Set(rows.map((r) => r.name)),
 				presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
 			};
+			nameToId = new Map(rows.map((r) => [r.name, r.id]));
 			existingByChild.set(childId, existing);
+			templateIdByChild.set(childId, nameToId);
 		}
 
 		// #1254 G1: preset_duplicate → name_duplicate の順で判定
@@ -582,6 +621,7 @@ async function importChecklistTemplatesData(
 			);
 			await assignTemplateToChildren(newTpl.id, [childId], tenantId);
 			existing.names.add(tpl.name);
+			nameToId.set(tpl.name, newTpl.id);
 			if (tpl.sourcePresetId) existing.presetIds.add(tpl.sourcePresetId);
 			for (const item of tpl.items) {
 				await insertTemplateItem(
@@ -598,6 +638,76 @@ async function importChecklistTemplatesData(
 			}
 		} catch (e) {
 			result.errors.push(`チェックリスト「${tpl.name}」インポート失敗: ${String(e)}`);
+		}
+	}
+
+	return templateIdByChild;
+}
+
+/**
+ * チェックリスト完了履歴 (checklistLogs) を import する (#3078)。
+ *
+ * - `ExportChecklistLog.templateName` を import 後の新 templateId に再マップする
+ *   (templateIdByChild マップ経由、childId 単位)。
+ * - 重複は (childId, templateId, checkedDate) 既存ログとの照合で事前スキップする
+ *   (upsertLog は UNIQUE 制約上書きのため、重複を import 件数に数えない)。
+ * - template 名が解決できないログ (template 未取込 / archive 済) はスキップ。
+ */
+async function importChecklistLogsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	templateIdByChild: Map<number, Map<string, number>>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	const existingKeysByChild = new Map<number, Set<string>>();
+
+	for (const log of data.data.checklistLogs) {
+		const childId = childIdMap.get(log.childRef);
+		if (!childId) {
+			result.checklistLogsSkipped++;
+			continue;
+		}
+
+		const templateId = templateIdByChild.get(childId)?.get(log.templateName);
+		if (!templateId) {
+			result.checklistLogsSkipped++;
+			continue;
+		}
+
+		let existingKeys = existingKeysByChild.get(childId);
+		if (!existingKeys) {
+			const rows = await findLogsByChild(childId, tenantId);
+			existingKeys = new Set(rows.map((r) => `${r.templateId}:${r.checkedDate}`));
+			existingKeysByChild.set(childId, existingKeys);
+		}
+
+		const key = `${templateId}:${log.checkedDate}`;
+		if (existingKeys.has(key)) {
+			result.checklistLogsSkipped++;
+			result.skipped.constraint++;
+			continue;
+		}
+
+		try {
+			await upsertLog(
+				{
+					childId,
+					templateId,
+					checkedDate: log.checkedDate,
+					itemsJson: log.itemsJson,
+					completedAll: log.completedAll ? 1 : 0,
+					pointsAwarded: log.pointsAwarded,
+				},
+				tenantId,
+			);
+			result.checklistLogsImported++;
+			existingKeys.add(key);
+		} catch (e) {
+			result.checklistLogsSkipped++;
+			result.errors.push(
+				`チェックリスト履歴 insert 失敗 (child=${log.childRef}, template=${log.templateName}): ${String(e)}`,
+			);
 		}
 	}
 }
@@ -695,6 +805,149 @@ async function importSpecialRewards(
 		warnings.push(
 			`ごほうび ${result.specialRewardsSkipped} 件が既存と同名または同一プリセットのためスキップされました`,
 		);
+	}
+}
+
+// ============================================================
+// 静的ファイル (アバター画像 / 音声) の復元 (#3077)
+// ============================================================
+
+/** 静的ファイル ZIP 相対パスの形式: `<type>/<childId>/<rest...>` (type = avatars|voices|generated) */
+const STATIC_FILE_PATH_RE = /^(avatars|voices|generated)\/(\d+)\/(.+)$/;
+
+const CONTENT_TYPE_BY_EXT: Record<string, string> = {
+	png: 'image/png',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	webp: 'image/webp',
+	gif: 'image/gif',
+	svg: 'image/svg+xml',
+	mp3: 'audio/mpeg',
+	m4a: 'audio/mp4',
+	wav: 'audio/wav',
+	ogg: 'audio/ogg',
+	webm: 'audio/webm',
+};
+
+function contentTypeFromPath(path: string): string {
+	const ext = path.split('.').pop()?.toLowerCase() ?? '';
+	return CONTENT_TYPE_BY_EXT[ext] ?? 'application/octet-stream';
+}
+
+/**
+ * ZIP 同梱の静的ファイル (`avatars/<oldChildId>/…` / `voices/<oldChildId>/…`) を
+ * import 後の新 childId 配下に再配置し、child.avatarUrl 参照を貼り替える (#3077)。
+ *
+ * - エクスポート元の `sourceChildId` → 新 childId の対応を解決し、パスの childId
+ *   セグメントを書き換えて `tenants/<tenantId>/<type>/<newChildId>/<rest>` に保存する。
+ * - 旧→新の storage key 対応を集め、各 child の avatarUrl を新 key (公開 URL) へ更新する。
+ * - childId が解決できないファイル (孤立) はスキップする。
+ */
+async function importStaticFiles(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	staticFiles: Record<string, Uint8Array>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	// sourceChildId (export 元の数値 id) → 新 childId
+	const oldChildToNew = new Map<number, number>();
+	for (const child of data.family.children) {
+		const newId = childIdMap.get(child.exportId);
+		if (typeof child.sourceChildId === 'number' && newId) {
+			oldChildToNew.set(child.sourceChildId, newId);
+		}
+	}
+
+	const prefix = tenantPrefix(tenantId);
+	// 旧 storage key (相対パス) → 新 storage key (相対パス) の対応 (avatarUrl 貼り替え用)
+	const relativeKeyRemap = new Map<string, string>();
+
+	for (const [relPath, bytes] of Object.entries(staticFiles)) {
+		const match = STATIC_FILE_PATH_RE.exec(relPath);
+		if (!match) {
+			// data.json や想定外パスはスキップ (data.json は API 側で除外済だが二重防御)
+			continue;
+		}
+		const [, type, oldChildIdStr, rest] = match;
+		const newChildId = oldChildToNew.get(Number(oldChildIdStr));
+		if (!newChildId) {
+			result.staticFilesSkipped++;
+			continue;
+		}
+
+		const newRelPath = `${type}/${newChildId}/${rest}`;
+		const storageKey = `${prefix}${newRelPath}`;
+		try {
+			await saveFile(storageKey, Buffer.from(bytes), contentTypeFromPath(relPath));
+			relativeKeyRemap.set(relPath, newRelPath);
+			result.staticFilesRestored++;
+		} catch (e) {
+			result.staticFilesSkipped++;
+			result.errors.push(`静的ファイル「${relPath}」の復元に失敗: ${String(e)}`);
+		}
+	}
+
+	await remapChildAvatarUrls(
+		{ data, childIdMap, oldChildToNew, relativeKeyRemap },
+		tenantId,
+		result,
+	);
+}
+
+interface AvatarRemapState {
+	data: ExportData;
+	childIdMap: Map<string, number>;
+	/** sourceChildId (export 元 id) → 新 childId */
+	oldChildToNew: Map<number, number>;
+	/** 旧 storage 相対パス → 復元済の新相対パス */
+	relativeKeyRemap: Map<string, string>;
+}
+
+/**
+ * 各 child の avatarUrl を import 後の新 storage key (公開 URL) に貼り替える (#3077)。
+ *
+ * avatarUrl は `/tenants/<oldTenant>/avatars/<oldChildId>/<uuid>.<ext>` 形式。
+ * tenant / childId セグメントを新環境のものに書き換え、復元済ファイルがあれば参照を更新する。
+ */
+async function remapChildAvatarUrls(
+	state: AvatarRemapState,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	const { data, childIdMap, oldChildToNew, relativeKeyRemap } = state;
+	const prefix = tenantPrefix(tenantId);
+	for (const child of data.family.children) {
+		if (!child.avatarUrl) continue;
+		const newChildId = childIdMap.get(child.exportId);
+		if (!newChildId) continue;
+
+		// `/tenants/<tenant>/<type>/<childId>/<rest>` から相対パス `<type>/<childId>/<rest>` を抽出。
+		const avatarMatch = /\/tenants\/[^/]+\/(avatars\/\d+\/.+)$/.exec(child.avatarUrl);
+		const oldRelPath = avatarMatch?.[1];
+		if (!oldRelPath) continue;
+
+		// 同梱ファイルから復元済の新パスを優先。なければ id セグメントだけ書き換える。
+		let newRelPath = relativeKeyRemap.get(oldRelPath);
+		if (!newRelPath) {
+			const relMatch = STATIC_FILE_PATH_RE.exec(oldRelPath);
+			const type = relMatch?.[1];
+			const oldChildIdStr = relMatch?.[2];
+			const rest = relMatch?.[3];
+			if (!type || !oldChildIdStr || !rest) continue;
+			const mappedChildId = oldChildToNew.get(Number(oldChildIdStr)) ?? newChildId;
+			newRelPath = `${type}/${mappedChildId}/${rest}`;
+		}
+
+		try {
+			await updateChildAvatarUrl(
+				newChildId,
+				storageKeyToPublicUrl(`${prefix}${newRelPath}`),
+				tenantId,
+			);
+		} catch (e) {
+			result.errors.push(`アバター参照の更新に失敗 (child=${child.exportId}): ${String(e)}`);
+		}
 	}
 }
 
