@@ -1,0 +1,353 @@
+# hotfix-back-merge.yml — Issue #2951 (Phase B/B-5、親 #2949 / EPIC #2861)
+#
+# branch-strategy.md §5「back-merge 必須」の機械強制。
+# main への hotfix (fix/* / hotfix / priority:critical label) merge を契機に
+# main → develop の back-merge PR を自動発行する。
+#
+# 判定 SSOT: scripts/hotfix-back-merge.mjs (pure function、unit test 済)。
+# 本 workflow は薄い orchestrator。判定 logic は yml に分散させない。
+#
+# 設計原則 (Issue #2951 no-gos):
+#   - conflict 時に強制 push / 自動 force resolve しない。conflict 明示 PR + status:blocked label
+#     + 通知で人手解決へ (AC3、silent fail なし)。
+#   - 統合 PR (develop → main) merge を back-merge トリガーに含めない (AC2、無限ループ防止)。
+#     scripts/hotfix-back-merge.mjs の classifyMergedPr が 'integration' を除外する。
+#   - back-merge PR の author は Takenori-Kusaka を維持 (ADR-0022 Amendment 4-2 / AC4)。
+#     → secrets.BACK_MERGE_PAT (Takenori-Kusaka の PAT) を使う。未設定時は silent fail せず
+#       Discord / Issue で「PAT 未設定で back-merge を発行できない = drift 顕在化」を通知する。
+#   - deploy 経路 (main push トリガー) に手を入れない (#2949 no-go)。本 workflow は
+#     deploy.yml / pages.yml / deploy-nuc.yml と独立した別 workflow として push[main] を購読する。
+#
+# author=Takenori-Kusaka 維持の前提 (B-3 #2871 と共通の手動設定依存):
+#   GitHub Actions の secrets.GITHUB_TOKEN で PR を作ると author=github-actions[bot] になり
+#   pr-author-guard.yml に auto-close される。Takenori-Kusaka 名義を維持するため、本 workflow は
+#   repository secret BACK_MERGE_PAT (Takenori-Kusaka 個人 PAT、contents+pull-requests write) を
+#   使う。未設定環境では back-merge PR を発行できないため、drift を silent に放置せず通知する。
+
+name: hotfix-back-merge
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'main の merge commit SHA (省略時は最新の main HEAD)'
+        required: false
+        type: string
+
+# 同一 main HEAD への重複起動を防ぐ (push 連発時の二重 PR 発行回避)。
+concurrency:
+  group: hotfix-back-merge-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  back-merge:
+    name: hotfix back-merge PR 自動発行
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v6
+        with:
+          # back-merge には main と develop 双方の履歴が必要。
+          fetch-depth: 0
+          # PR 発行は後段で BACK_MERGE_PAT を使う。checkout は既定 token で十分。
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      # ----------------------------------------------------------------------
+      # 1. merge された PR を解決し、back-merge 要否を判定する (純粋 SSOT 経由)
+      # ----------------------------------------------------------------------
+      - name: Resolve merged PR + classify (scripts/hotfix-back-merge.mjs)
+        id: classify
+        uses: actions/github-script@v9
+        env:
+          DISPATCH_SHA: ${{ inputs.sha }}
+        with:
+          script: |
+            const { execSync } = require('node:child_process');
+            const sha = (process.env.DISPATCH_SHA || context.sha).trim();
+            core.info(`back-merge 判定対象 SHA: ${sha}`);
+
+            // push された SHA に紐づく merged PR を取得 (squash / merge commit 双方に対応)。
+            const { owner, repo } = context.repo;
+            const assoc = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner, repo, commit_sha: sha,
+            });
+            const merged = assoc.data.find((p) => p.merged_at) || assoc.data[0];
+
+            if (!merged) {
+              // 直接 push (PR 非経由) — back-merge 対象外。silent ではなく info で明示。
+              core.info('この SHA に紐づく PR が無い (直接 push) → back-merge 対象外');
+              core.setOutput('do_back_merge', 'false');
+              core.setOutput('reason', 'no-associated-pr');
+              return;
+            }
+
+            const headRef = merged.head?.ref ?? '';
+            const baseRef = merged.base?.ref ?? '';
+            const labels = (merged.labels ?? []).map((l) => l.name);
+            core.info(`merged PR #${merged.number}: head=${headRef} base=${baseRef} labels=${labels.join(',')}`);
+
+            // 判定 SSOT (純粋関数) を CLI 経由で呼ぶ。判定 logic は yml に持たない。
+            const labelArg = labels.join(',');
+            const out = execSync(
+              `node scripts/hotfix-back-merge.mjs --base ${JSON.stringify(baseRef)} --head ${JSON.stringify(headRef)} --labels ${JSON.stringify(labelArg)}`,
+              { encoding: 'utf8' },
+            ).trim();
+            core.info(`判定結果: ${out}`);
+            const result = JSON.parse(out);
+
+            core.setOutput('do_back_merge', String(result.shouldBackMerge));
+            core.setOutput('classification', result.classification);
+            core.setOutput('branch', result.branch ?? '');
+            core.setOutput('hotfix_pr', String(merged.number));
+            core.setOutput('hotfix_head', headRef);
+            core.setOutput('merge_sha', sha);
+            core.setOutput('reason', result.classification);
+
+      # ----------------------------------------------------------------------
+      # 2. no-op 判定: 既に develop に同 commit があれば二重適用しない (AC5)
+      # ----------------------------------------------------------------------
+      - name: No-op guard (merge SHA が既に develop の祖先か)
+        id: noop
+        if: steps.classify.outputs.do_back_merge == 'true'
+        run: |
+          set -euo pipefail
+          git fetch origin develop --depth=0 || git fetch origin develop
+          MERGE_SHA='${{ steps.classify.outputs.merge_sha }}'
+          if git merge-base --is-ancestor "$MERGE_SHA" origin/develop 2>/dev/null; then
+            echo "already_in_develop=true" >> "$GITHUB_OUTPUT"
+            echo "merge SHA $MERGE_SHA は既に develop の祖先 → back-merge no-op (AC5)"
+          else
+            echo "already_in_develop=false" >> "$GITHUB_OUTPUT"
+            echo "merge SHA $MERGE_SHA は develop 未取込 → back-merge を発行する"
+          fi
+
+      # ----------------------------------------------------------------------
+      # 3. PAT 検証: author=Takenori-Kusaka 維持に必須。未設定なら drift を通知 (silent fail なし、AC3)
+      # ----------------------------------------------------------------------
+      - name: Verify BACK_MERGE_PAT presence
+        id: pat
+        if: >-
+          steps.classify.outputs.do_back_merge == 'true' &&
+          steps.noop.outputs.already_in_develop == 'false'
+        env:
+          BACK_MERGE_PAT: ${{ secrets.BACK_MERGE_PAT }}
+        run: |
+          if [ -n "${BACK_MERGE_PAT:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::BACK_MERGE_PAT 未設定。author=Takenori-Kusaka 維持で back-merge PR を発行できない (ADR-0022 Amendment 4-2)。drift 通知のみ行う。"
+          fi
+
+      # ----------------------------------------------------------------------
+      # 4. back-merge branch を作成し、clean / conflict を判定して push する
+      # ----------------------------------------------------------------------
+      - name: Create back-merge branch (clean / conflict 判定)
+        id: merge
+        if: >-
+          steps.classify.outputs.do_back_merge == 'true' &&
+          steps.noop.outputs.already_in_develop == 'false' &&
+          steps.pat.outputs.present == 'true'
+        env:
+          GIT_AUTHOR_NAME: Takenori-Kusaka
+          GIT_AUTHOR_EMAIL: takenori.kusaka@gmail.com
+          GIT_COMMITTER_NAME: Takenori-Kusaka
+          GIT_COMMITTER_EMAIL: takenori.kusaka@gmail.com
+          BRANCH: ${{ steps.classify.outputs.branch }}
+          MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
+          HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
+        run: |
+          set -euo pipefail
+          git fetch origin main develop
+          # back-merge branch は develop 起点。同名 branch があれば作り直す (upsert)。
+          git switch -C "$BRANCH" origin/develop
+          # main の merge commit を develop に取り込む。conflict は失敗させて分岐検知。
+          if git merge --no-edit --no-ff "$MERGE_SHA" \
+                -m "Merge hotfix #${HOTFIX_PR} (${MERGE_SHA}) back into develop (back-merge, #2951)"; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+            echo "clean merge 成功 → 通常 back-merge PR を発行する"
+          else
+            # conflict: 強制 resolve しない。conflict marker を残したまま commit して
+            # 明示 PR を出し、人手解決を促す (AC3、no-go: 自動 force resolve 禁止)。
+            git add -A
+            git commit --no-edit -m "Back-merge hotfix #${HOTFIX_PR} into develop — CONFLICT (手動解決必要, #2951)" || true
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::back-merge で conflict 発生。conflict marker を残した PR を発行し status:blocked を付与する。"
+          fi
+          git push "https://x-access-token:${{ secrets.BACK_MERGE_PAT }}@github.com/${{ github.repository }}.git" \
+            "$BRANCH" --force-with-lease || \
+          git push "https://x-access-token:${{ secrets.BACK_MERGE_PAT }}@github.com/${{ github.repository }}.git" \
+            "$BRANCH" --force
+
+      # ----------------------------------------------------------------------
+      # 5. back-merge PR を upsert (clean / conflict で本文・label を出し分け)
+      # ----------------------------------------------------------------------
+      - name: Upsert back-merge PR
+        id: pr
+        if: >-
+          steps.classify.outputs.do_back_merge == 'true' &&
+          steps.noop.outputs.already_in_develop == 'false' &&
+          steps.pat.outputs.present == 'true'
+        uses: actions/github-script@v9
+        env:
+          GH_TOKEN: ${{ secrets.BACK_MERGE_PAT }}
+          BRANCH: ${{ steps.classify.outputs.branch }}
+          HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
+          HOTFIX_HEAD: ${{ steps.classify.outputs.hotfix_head }}
+          MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
+          CONFLICT: ${{ steps.merge.outputs.conflict }}
+        with:
+          github-token: ${{ secrets.BACK_MERGE_PAT }}
+          script: |
+            const { owner, repo } = context.repo;
+            const branch = process.env.BRANCH;
+            const hotfixPr = process.env.HOTFIX_PR;
+            const hotfixHead = process.env.HOTFIX_HEAD;
+            const mergeSha = process.env.MERGE_SHA;
+            const isConflict = process.env.CONFLICT === 'true';
+
+            const title = isConflict
+              ? `[back-merge CONFLICT] hotfix #${hotfixPr} → develop (手動解決必要, #2951)`
+              : `[back-merge] hotfix #${hotfixPr} (${hotfixHead}) → develop (#2951)`;
+
+            const body = [
+              '## hotfix back-merge (自動発行, #2951 / branch-strategy.md §5)',
+              '',
+              `main に merge された hotfix #${hotfixPr} (\`${hotfixHead}\`, ${mergeSha.slice(0, 7)}) を`,
+              'develop に取り込む back-merge PR です (main / develop drift 防止)。',
+              '',
+              isConflict
+                ? [
+                    '### ⚠️ CONFLICT — 手動解決が必要',
+                    '',
+                    '自動 merge で conflict が発生したため、conflict marker を残したまま branch を作成しました。',
+                    '**自動 force resolve は行っていません** (#2951 no-go)。`status:blocked` label が付与されています。',
+                    '',
+                    '解決手順:',
+                    '1. `git fetch origin && git switch ' + branch + '`',
+                    '2. conflict を手動解決して commit',
+                    '3. `git push` 後、本 PR の `status:blocked` を外して develop 軽量レーン gate を通す',
+                  ].join('\n')
+                : [
+                    '### clean merge',
+                    '',
+                    'conflict なく develop に取り込めました。develop 軽量レーン gate (branch-strategy.md §4) を',
+                    '通過後に merge してください。',
+                  ].join('\n'),
+              '',
+              '---',
+              '- base: `develop` (軽量レーン、`pr-lane.mjs` rule 4 = feature)',
+              '- author: Takenori-Kusaka 維持 (ADR-0022 Amendment 4-2)',
+              `- 元 hotfix: #${hotfixPr}`,
+              '- drift contract label: `back-merge` (B-3 統合 PR §6 が未取込 hotfix として読む)',
+              '',
+              'closes #2951 の機械強制対象 (本 PR 自体は #2951 を close しない)',
+            ].join('\n');
+
+            // 既存 open back-merge PR があれば本文更新 (upsert)、無ければ新規作成。
+            const existing = await github.rest.pulls.list({
+              owner, repo, state: 'open', head: `${owner}:${branch}`, base: 'develop',
+            });
+
+            let prNumber;
+            if (existing.data.length > 0) {
+              prNumber = existing.data[0].number;
+              await github.rest.pulls.update({ owner, repo, pull_number: prNumber, title, body });
+              core.info(`既存 back-merge PR #${prNumber} を更新 (upsert)`);
+            } else {
+              const created = await github.rest.pulls.create({
+                owner, repo, title, body, head: branch, base: 'develop',
+              });
+              prNumber = created.data.number;
+              core.info(`back-merge PR #${prNumber} を新規作成`);
+            }
+            core.setOutput('number', String(prNumber));
+
+            // drift contract label 'back-merge' を idempotent に保証 (AC6)。
+            // B-3 統合 PR §6 が `is:open is:pr label:back-merge base:develop` で
+            // 「未取込 hotfix」を機械的に query するため、label が必ず存在する状態を作る。
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: 'back-merge' });
+            } catch {
+              await github.rest.issues.createLabel({
+                owner, repo, name: 'back-merge', color: 'b60205',
+                description: 'hotfix の main→develop back-merge PR (B-3 統合 PR §6 が drift 状態として読む, #2951)',
+              });
+              core.info("'back-merge' label を新規作成 (drift contract SSOT)");
+            }
+
+            // label 付与: 常に 'back-merge' (drift contract, AC6)。conflict 時は 'status:blocked' も。
+            const labels = ['back-merge'];
+            if (isConflict) labels.push('status:blocked');
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: prNumber, labels });
+            } catch (e) {
+              core.warning(`label 付与 skip (${labels.join(',')}): ${e.message}`);
+            }
+
+      # ----------------------------------------------------------------------
+      # 6. 通知 (Discord) — conflict / PAT 未設定 で drift を顕在化させる (AC3 / AC6)
+      # ----------------------------------------------------------------------
+      - name: Notify drift / conflict (Discord)
+        if: >-
+          always() &&
+          steps.classify.outputs.do_back_merge == 'true' &&
+          steps.noop.outputs.already_in_develop == 'false' &&
+          vars.DISCORD_WEBHOOK_URL != '' &&
+          (steps.pat.outputs.present == 'false' || steps.merge.outputs.conflict == 'true')
+        env:
+          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
+          PAT_PRESENT: ${{ steps.pat.outputs.present }}
+          CONFLICT: ${{ steps.merge.outputs.conflict }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          if [ "${PAT_PRESENT}" = "false" ]; then
+            TITLE="hotfix back-merge 未発行 (PAT 未設定)"
+            DESC="hotfix #${HOTFIX_PR} の develop back-merge を発行できません (BACK_MERGE_PAT 未設定)。main/develop が drift します。手動 back-merge が必要です。"
+            COLOR=15158332
+          else
+            TITLE="hotfix back-merge CONFLICT"
+            DESC="hotfix #${HOTFIX_PR} の back-merge PR #${PR_NUMBER} で conflict 発生。status:blocked 付与済。手動解決が必要です。"
+            COLOR=15105570
+          fi
+          curl -s -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":$COLOR}]}" || true
+
+      # PAT 未設定時は Discord に加えて GitHub log にも残す (vars 未設定環境のフォールバック)。
+      - name: Drift summary (job summary)
+        if: >-
+          always() &&
+          steps.classify.outputs.do_back_merge == 'true' &&
+          steps.noop.outputs.already_in_develop == 'false'
+        env:
+          HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
+          PAT_PRESENT: ${{ steps.pat.outputs.present }}
+          CONFLICT: ${{ steps.merge.outputs.conflict }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          {
+            echo "### hotfix back-merge (#2951)"
+            echo ""
+            echo "- 元 hotfix: #${HOTFIX_PR}"
+            if [ "${PAT_PRESENT}" = "false" ]; then
+              echo "- 状態: ⚠️ PAT 未設定で back-merge 未発行 = **drift**。手動 back-merge が必要。"
+            elif [ "${CONFLICT}" = "true" ]; then
+              echo "- 状態: ⚠️ back-merge PR #${PR_NUMBER} で CONFLICT (status:blocked、手動解決必要)。"
+            else
+              echo "- 状態: ✅ back-merge PR #${PR_NUMBER} を clean 発行。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

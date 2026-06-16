@@ -1,13 +1,23 @@
 // src/lib/server/db/sqlite/reward-redemption-repo.ts
 // ごほうびショップ交換申請リポジトリ (#1337)
 
-import { and, desc, eq, inArray, isNull, lt } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { db } from '../client';
 import { children, rewardRedemptionRequests, specialRewards } from '../schema';
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
-/** 交換申請を作成 */
+// #2832: 申請時点 snapshot fallback。
+// 新規行は insert 時に reward_* snapshot を保存し、編集後も「申請時点の内容 (名前/ポイント)」で
+// 表示・控除する (DynamoDB 非正規化 item と等価の仕様)。snapshot 列導入前の旧行 (NULL) は
+// live JOIN 値に fallback する。
+const snapshotTitle = sql<string>`COALESCE(${rewardRedemptionRequests.rewardTitle}, ${specialRewards.title})`;
+const snapshotIcon = sql<
+	string | null
+>`COALESCE(${rewardRedemptionRequests.rewardIcon}, ${specialRewards.icon})`;
+const snapshotPoints = sql<number>`COALESCE(${rewardRedemptionRequests.rewardPoints}, ${specialRewards.points})`;
+
+/** 交換申請を作成（#2832: reward title/points/icon の申請時点 snapshot を保存） */
 export async function insertRedemptionRequest(
 	input: {
 		childId: number;
@@ -16,6 +26,16 @@ export async function insertRedemptionRequest(
 	},
 	_tenantId: string,
 ) {
+	const reward = db
+		.select({
+			title: specialRewards.title,
+			points: specialRewards.points,
+			icon: specialRewards.icon,
+		})
+		.from(specialRewards)
+		.where(eq(specialRewards.id, input.rewardId))
+		.get();
+
 	return db
 		.insert(rewardRedemptionRequests)
 		.values({
@@ -23,6 +43,9 @@ export async function insertRedemptionRequest(
 			rewardId: input.rewardId,
 			requestedAt: input.requestedAt,
 			status: 'pending_parent_approval',
+			rewardTitle: reward?.title ?? null,
+			rewardPoints: reward?.points ?? null,
+			rewardIcon: reward?.icon ?? null,
 		})
 		.returning()
 		.get();
@@ -63,9 +86,10 @@ export async function findRedemptionRequestsByTenant(
 			resolvedByParentId: rewardRedemptionRequests.resolvedByParentId,
 			shownToChildAt: rewardRedemptionRequests.shownToChildAt,
 			childName: children.nickname,
-			rewardTitle: specialRewards.title,
-			rewardIcon: specialRewards.icon,
-			rewardPoints: specialRewards.points,
+			// #2832: 申請時点 snapshot 優先 (旧行は live JOIN 値に fallback)
+			rewardTitle: snapshotTitle,
+			rewardIcon: snapshotIcon,
+			rewardPoints: snapshotPoints,
 		})
 		.from(rewardRedemptionRequests)
 		.innerJoin(children, eq(rewardRedemptionRequests.childId, children.id))
@@ -78,8 +102,12 @@ export async function findRedemptionRequestsByTenant(
 	return rows;
 }
 
-/** 申請状態を更新 */
+/**
+ * 申請状態を更新。
+ * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
+ */
 export async function updateRedemptionRequestStatus(
+	childId: number,
 	id: number,
 	updates: {
 		status: string;
@@ -92,7 +120,7 @@ export async function updateRedemptionRequestStatus(
 	return db
 		.update(rewardRedemptionRequests)
 		.set(updates)
-		.where(eq(rewardRedemptionRequests.id, id))
+		.where(and(eq(rewardRedemptionRequests.id, id), eq(rewardRedemptionRequests.childId, childId)))
 		.returning()
 		.get();
 }
@@ -130,8 +158,9 @@ export async function findUnshownResultByChild(childId: number, _tenantId: strin
 			resolvedAt: rewardRedemptionRequests.resolvedAt,
 			resolvedByParentId: rewardRedemptionRequests.resolvedByParentId,
 			shownToChildAt: rewardRedemptionRequests.shownToChildAt,
-			rewardTitle: specialRewards.title,
-			rewardIcon: specialRewards.icon,
+			// #2832: 申請時点 snapshot 優先 (旧行は live JOIN 値に fallback)
+			rewardTitle: snapshotTitle,
+			rewardIcon: snapshotIcon,
 		})
 		.from(rewardRedemptionRequests)
 		.innerJoin(specialRewards, eq(rewardRedemptionRequests.rewardId, specialRewards.id))
@@ -147,13 +176,16 @@ export async function findUnshownResultByChild(childId: number, _tenantId: strin
 		.get();
 }
 
-/** 未表示通知を表示済みにする */
-export async function markRedemptionResultShown(id: number, _tenantId: string) {
+/**
+ * 未表示通知を表示済みにする。
+ * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
+ */
+export async function markRedemptionResultShown(childId: number, id: number, _tenantId: string) {
 	const now = Math.floor(Date.now() / 1000);
 	return db
 		.update(rewardRedemptionRequests)
 		.set({ shownToChildAt: now })
-		.where(eq(rewardRedemptionRequests.id, id))
+		.where(and(eq(rewardRedemptionRequests.id, id), eq(rewardRedemptionRequests.childId, childId)))
 		.returning()
 		.get();
 }

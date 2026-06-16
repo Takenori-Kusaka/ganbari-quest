@@ -268,29 +268,38 @@ describe('findRedemptionRequestsByTenant', () => {
 // updateRedemptionRequestStatus
 // ============================================================
 
-describe('updateRedemptionRequestStatus', () => {
-	it('id を Scan で解決 → status + 指定 field のみ UpdateItem (ALL_NEW)', async () => {
-		mockSend
-			.mockResolvedValueOnce({ Items: [makeItem({ id: 5 })] }) // findRedemptionItemById Scan
-			.mockResolvedValueOnce({
-				Attributes: makeItem({
-					id: 5,
-					status: 'approved',
-					resolvedAt: 1700001000,
-					resolvedByParentId: 3,
-				}),
-			});
+describe('updateRedemptionRequestStatus (#2845 課題①: full composite-key addressing)', () => {
+	it('childId + id で PK/SK を直接構成し UpdateItem 1 回で完結する (Scan 不使用)', async () => {
+		mockSend.mockResolvedValueOnce({
+			Attributes: makeItem({
+				id: 5,
+				status: 'approved',
+				resolvedAt: 1700001000,
+				resolvedByParentId: 3,
+			}),
+		});
 		const { updateRedemptionRequestStatus } = await loadRepo();
 		const row = await updateRedemptionRequestStatus(
+			CHILD_ID,
 			5,
 			{ status: 'approved', resolvedAt: 1700001000, resolvedByParentId: 3 },
 			TENANT,
 		);
 		expect(row?.status).toBe('approved');
 		expect(row?.resolvedAt).toBe(1700001000);
-		const upd = mockSend.mock.calls[1]?.[0] as {
-			input: { UpdateExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
+		// UpdateItem 1 回のみ (旧 tenant Scan 逆引き = #2842 B2 残党は撤去済)
+		expect(mockSend).toHaveBeenCalledTimes(1);
+		const upd = mockSend.mock.calls[0]?.[0] as {
+			input: {
+				Key?: Record<string, string>;
+				UpdateExpression?: string;
+				ConditionExpression?: string;
+			};
 		};
+		// tenant + child 境界が composite key で構造的に担保される
+		expect(upd.input.Key?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
+		expect(upd.input.Key?.SK).toBe('REDEMPT#00000005');
+		expect(upd.input.ConditionExpression).toBe('attribute_exists(PK)');
 		expect(upd.input.UpdateExpression).toContain('#status = :status');
 		expect(upd.input.UpdateExpression).toContain('resolvedAt = :resolvedAt');
 		expect(upd.input.UpdateExpression).toContain('resolvedByParentId = :resolvedByParentId');
@@ -299,32 +308,41 @@ describe('updateRedemptionRequestStatus', () => {
 	});
 
 	it('null は明示的に SET する (rejected の parentNote=null 等)', async () => {
-		mockSend.mockResolvedValueOnce({ Items: [makeItem({ id: 5 })] }).mockResolvedValueOnce({
+		mockSend.mockResolvedValueOnce({
 			Attributes: makeItem({ id: 5, status: 'rejected', parentNote: null }),
 		});
 		const { updateRedemptionRequestStatus } = await loadRepo();
-		await updateRedemptionRequestStatus(5, { status: 'rejected', parentNote: null }, TENANT);
-		const upd = mockSend.mock.calls[1]?.[0] as {
+		await updateRedemptionRequestStatus(
+			CHILD_ID,
+			5,
+			{ status: 'rejected', parentNote: null },
+			TENANT,
+		);
+		const upd = mockSend.mock.calls[0]?.[0] as {
 			input: { ExpressionAttributeValues?: Record<string, unknown> };
 		};
 		expect(upd.input.ExpressionAttributeValues?.[':parentNote']).toBeNull();
 	});
 
-	it('id 不在 (Scan 0 件) のとき undefined を返し Update しない', async () => {
-		mockSend.mockResolvedValueOnce({ Items: [] });
+	it('(childId, id) 不一致 / 不在は ConditionalCheckFailedException → undefined', async () => {
+		mockSend.mockRejectedValueOnce(
+			Object.assign(new Error('conditional check failed'), {
+				name: 'ConditionalCheckFailedException',
+			}),
+		);
 		const { updateRedemptionRequestStatus } = await loadRepo();
-		expect(await updateRedemptionRequestStatus(99, { status: 'approved' }, TENANT)).toBeUndefined();
-		expect(mockSend).toHaveBeenCalledTimes(1); // Scan のみ
+		expect(
+			await updateRedemptionRequestStatus(CHILD_ID, 99, { status: 'approved' }, TENANT),
+		).toBeUndefined();
+		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
 
 	it('残高に触れない (point ledger / balance への write を行わない)', async () => {
-		mockSend
-			.mockResolvedValueOnce({ Items: [makeItem({ id: 5 })] })
-			.mockResolvedValueOnce({ Attributes: makeItem({ id: 5, status: 'approved' }) });
+		mockSend.mockResolvedValueOnce({ Attributes: makeItem({ id: 5, status: 'approved' }) });
 		const { updateRedemptionRequestStatus } = await loadRepo();
-		await updateRedemptionRequestStatus(5, { status: 'approved' }, TENANT);
-		// Scan + Update の 2 send のみ。BALANCE / POINT への追加 write は service 層の責務。
-		expect(mockSend).toHaveBeenCalledTimes(2);
+		await updateRedemptionRequestStatus(CHILD_ID, 5, { status: 'approved' }, TENANT);
+		// Update の 1 send のみ。BALANCE / POINT への追加 write は service 層の責務。
+		expect(mockSend).toHaveBeenCalledTimes(1);
 		for (const call of mockSend.mock.calls) {
 			const input = (call[0] as { input: { Key?: { SK?: string } } }).input;
 			expect(input.Key?.SK ?? '').not.toContain('BALANCE');
@@ -392,22 +410,36 @@ describe('findUnshownResultByChild', () => {
 // markRedemptionResultShown
 // ============================================================
 
-describe('markRedemptionResultShown', () => {
-	it('id を Scan で解決 → shownToChildAt を SET し ALL_NEW を返す', async () => {
-		mockSend
-			.mockResolvedValueOnce({ Items: [makeItem({ id: 5 })] })
-			.mockResolvedValueOnce({ Attributes: makeItem({ id: 5, shownToChildAt: 1700002000 }) });
+describe('markRedemptionResultShown (#2845 課題①: full composite-key addressing)', () => {
+	it('childId + id で PK/SK を直接構成し shownToChildAt を SET する (Scan 不使用)', async () => {
+		mockSend.mockResolvedValueOnce({
+			Attributes: makeItem({ id: 5, shownToChildAt: 1700002000 }),
+		});
 		const { markRedemptionResultShown } = await loadRepo();
-		const row = await markRedemptionResultShown(5, TENANT);
+		const row = await markRedemptionResultShown(CHILD_ID, 5, TENANT);
 		expect(row?.shownToChildAt).toBe(1700002000);
-		const upd = mockSend.mock.calls[1]?.[0] as { input: { UpdateExpression?: string } };
+		expect(mockSend).toHaveBeenCalledTimes(1);
+		const upd = mockSend.mock.calls[0]?.[0] as {
+			input: {
+				Key?: Record<string, string>;
+				UpdateExpression?: string;
+				ConditionExpression?: string;
+			};
+		};
+		expect(upd.input.Key?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
+		expect(upd.input.Key?.SK).toBe('REDEMPT#00000005');
+		expect(upd.input.ConditionExpression).toBe('attribute_exists(PK)');
 		expect(upd.input.UpdateExpression).toContain('shownToChildAt = :now');
 	});
 
-	it('id 不在のとき undefined', async () => {
-		mockSend.mockResolvedValueOnce({ Items: [] });
+	it('(childId, id) 不一致 / 不在は ConditionalCheckFailedException → undefined', async () => {
+		mockSend.mockRejectedValueOnce(
+			Object.assign(new Error('conditional check failed'), {
+				name: 'ConditionalCheckFailedException',
+			}),
+		);
 		const { markRedemptionResultShown } = await loadRepo();
-		expect(await markRedemptionResultShown(99, TENANT)).toBeUndefined();
+		expect(await markRedemptionResultShown(CHILD_ID, 99, TENANT)).toBeUndefined();
 	});
 });
 

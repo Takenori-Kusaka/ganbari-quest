@@ -9,15 +9,43 @@ permissions:
   pull-requests: read
 
 jobs:
+  # ============================================================
+  # #2946 (Phase A/A-4): screenshot-check (required context) の lane-aware 化。
+  #   - job は全レーンで必ず実行 (trigger filter / job-level skip しない、#2942 no-go)。
+  #   - lane 判定は A-1 SSOT (actions/pr-lane → scripts/pr-lane.mjs) 経由のみ (AC1)。
+  #   - feature / hotfix lane = 現行 (UI 変更時 before/after 画像必須、内部 refactor exempt)。
+  #   - integration lane = before/after 単一比較を要求せず、VR 3 層 (lp/child-home/app の
+  #     *-visual-regression.yml) 結果への紐づけ / 含有 PR SS 検証済の確認に観点を切替 (AC3)。
+  #   - required context 名 `screenshot-check` は変更しない (AC6)。
+  # ============================================================
   screenshot-check:
     runs-on: ubuntu-latest
-    # Draft PRは作業中なのでスキップ
+    # Draft PR は作業中なので skip (lane に関わらず draft 共通。lane skip ではない)
     if: github.event.pull_request.draft == false
     steps:
-      - name: "Check PR body for screenshots (legacy: 画像有無)"
+      # A-1 lane 判定 SSOT を uses。inline 判定はしない (AC1、#2942 no-go)。
+      # composite action (actions/pr-lane) + judge 関数 (check-pr-screenshot.mjs) を読むため checkout。
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            actions/pr-lane
+            scripts/pr-lane.mjs
+            scripts/check-pr-screenshot.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Classify PR lane (A-1 SSOT)
+        id: lane
+        uses: ./actions/pr-lane
+
+      - name: "Check PR body for screenshots (lane-aware: feature/hotfix=before-after, integration=VR 3 層)"
         uses: actions/github-script@v9
+        env:
+          PR_LANE: ${{ steps.lane.outputs.lane }}
         with:
           script: |
+            const lane = process.env.PR_LANE || 'feature';
+            core.info(`PR lane = ${lane} (判定 SSOT: scripts/pr-lane.mjs / actions/pr-lane、#2946)`);
+
             // UI関連ファイルが変更されているか確認
             const { data: files } = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
@@ -36,6 +64,7 @@ jobs:
 
             // #2017: 内部 refactor (atom-compound 階層化、visual diff ゼロ) の label exempt。
             // I1 (#1985) design-doc-check と同パターン。判定基準は ADR-0003 §4.1 (4 条件).
+            // skip 条件 (UI 変更なし / 内部 refactor label) は全 lane 共通で優先する。
             const labels = (context.payload.pull_request.labels || []).map((l) => l.name);
             const INTERNAL_REFACTOR_LABEL = 'refactor:internal-no-doc-impact';
             const hasInternalRefactorLabel = labels.some(
@@ -48,9 +77,45 @@ jobs:
               return;
             }
 
-            // UI変更あり: PR本文にスクリーンショットがあるか確認
             const body = context.payload.pull_request.body || '';
 
+            // ============================================================
+            // #2946: lane=integration (develop→main 統合 PR) は SS 観点を切替 (AC3)。
+            //   統合 PR は複数機能のバッチで「修正前 / 修正後」の単一比較軸が成立しないため、
+            //   before/after 画像でなく VR 3 層 (lp/child-home/app の *-visual-regression.yml)
+            //   結果への紐づけ / 含有 PR SS 検証済の宣言を要求する (= 観点の移譲、検証の放棄ではない)。
+            //   VR 3 層は main 向け PR で自動発火し統合状態の見た目回帰を別途担保する。
+            //   判定ロジックは scripts/check-pr-screenshot.mjs::hasIntegrationVrEvidence を再利用 (二重実装しない)。
+            // ============================================================
+            if (lane === 'integration') {
+              const ssMod = await import(
+                `${process.env.GITHUB_WORKSPACE}/scripts/check-pr-screenshot.mjs`
+              );
+              if (ssMod.hasIntegrationVrEvidence(body)) {
+                core.info(
+                  '✅ lane=integration — VR 3 層 (lp/child-home/app visual regression) 結果への紐づけ / 含有 PR SS 検証済の確認を検出 (before/after 4 スロットは不要、#2946 AC3)',
+                );
+              } else {
+                core.setFailed(
+                  [
+                    '❌ 統合 PR (lane=integration) の SS 観点 evidence が PR body にありません。',
+                    '',
+                    '統合 PR は複数機能のバッチで「修正前 / 修正後」の単一比較軸が成立しないため、',
+                    'before/after 4 スロットの代わりに以下のいずれかを PR body に明記してください:',
+                    '  - 統合状態の visual regression (VR 3 層: lp / child-home / app の *-visual-regression.yml) 結果への紐づけ',
+                    '  - 含有 PR 群が develop 取込時に SS 検証済であることの確認 (含有 PR 一覧 + SS 検証済の記載)',
+                    '  - 統合 smoke / 統合対象 PR 群への参照',
+                    '',
+                    '(VR 3 層への「観点の移譲」であり、見た目検証を完全に消すことは許容しません — #2946 no-go)',
+                  ].join('\n')
+                );
+              }
+              return;
+            }
+
+            // ============================================================
+            // feature / hotfix / dependabot lane: 現行 (UI 変更時 before/after 画像必須) を完全維持 (#2946 AC4)。
+            // ============================================================
             // Markdown画像: ![alt](url) / HTML画像: <img ...>
             const hasImage = /!\[.*?\]\(.*?\)|<img\s/i.test(body);
 
@@ -81,6 +146,9 @@ jobs:
   #   - #1740: 「修正前 / 修正後」両ラベル付き画像の存在を検証
   #   - 段階適用: SCREENSHOT_CHECK_MODE=warn (default) で warning として記録、
   #     dogfooding 期間後に env を `error` に変更して hard-fail に昇格する
+  #   - #2946 (Phase A/A-4): lane=integration では before/after ラベル検証を緩和し、
+  #     代わりに VR 3 層 evidence / 含有 PR SS 検証済を検証する (warn のまま観点だけ統合用)。
+  #     lane 判定は A-1 SSOT (actions/pr-lane → scripts/pr-lane.mjs) 経由のみ (AC1、inline 判定なし)。
   # ============================================================
   screenshot-quality-check:
     name: "SS 品質チェック (修正前/後 + ローカルパス禁止)"
@@ -89,13 +157,22 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          sparse-checkout: scripts/check-pr-screenshot.mjs
+          sparse-checkout: |
+            actions/pr-lane
+            scripts/pr-lane.mjs
+            scripts/check-pr-screenshot.mjs
           sparse-checkout-cone-mode: false
+
+      - name: Classify PR lane (A-1 SSOT)
+        id: lane
+        uses: ./actions/pr-lane
 
       - name: Run check-pr-screenshot.mjs
         env:
           # 段階適用 (#1740): 最初は warn-only、定着後に error 化
           SCREENSHOT_CHECK_MODE: warn
+          # #2946: lane を SSOT 経由で渡し、script 側で integration の SS 観点切替を行う
+          PR_LANE: ${{ steps.lane.outputs.lane }}
           PR_BODY: ${{ github.event.pull_request.body }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -131,14 +208,25 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          sparse-checkout: scripts/check-ss-blob-sha-uniqueness.mjs
+          # #2946: lane SSOT (actions/pr-lane → scripts/pr-lane.mjs) も取得
+          sparse-checkout: |
+            actions/pr-lane
+            scripts/pr-lane.mjs
+            scripts/check-ss-blob-sha-uniqueness.mjs
           sparse-checkout-cone-mode: false
+
+      - name: Classify PR lane (A-1 SSOT)
+        id: lane
+        uses: ./actions/pr-lane
 
       - name: Run check-ss-blob-sha-uniqueness.mjs
         env:
           # #2063: 偽装は致命的なため warn 段階を経ずに即 hard-fail (initial error 採用)。
           # false positive ゼロは Issue #2063 AC2 で 5 PR (PR-2050/2051/2053/2055/2056) 空走確認済。
           CHECK_MODE: error
+          # #2946 AC5: lane を渡す。本 gate は before/after ペア不在時に skip する設計のため lane 分岐は
+          # 最小 (統合 PR の skip が false positive でないことを log で可視化するに留める)。検証ロジックは lane 非依存。
+          PR_LANE: ${{ steps.lane.outputs.lane }}
           PR_BODY: ${{ github.event.pull_request.body }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -149,6 +237,45 @@ jobs:
             --json labels --jq '[.labels[].name] | join(",")')
           export PR_LABELS
           node scripts/check-ss-blob-sha-uniqueness.mjs
+
+  # ============================================================
+  # #3012 — SS render 健全性検証 (500 / error ページ混入検出)
+  #   PR #3006 で 500 エラーページが「実画面 SS」として screenshots branch に
+  #   2 度 push され、既存 gate (blob SHA 一意性 / ローカルパス禁止) を素通りした
+  #   事故への補完 gate。根本層は capture.mjs / capture-app-baseline.mjs の
+  #   撮影時 assert (scripts/lib/screenshot-helpers.mjs checkRenderHealth) が担い、
+  #   本 job は screenshots branch pr-<N>/ の .dom.html (#1766 DOM snapshot) を
+  #   text scan して error ページ marker を検出する軽量 heuristic 1 つに限定
+  #   (画像解析は不採用、ADR-0010 Pre-PMF)。
+  #   CHECK_MODE=error: error ページ混入は顧客提示物の毀損で致命的なため
+  #   #2063 と同様 warn 段階を経ず hard-fail。marker は src/routes/+error.svelte /
+  #   infra/error-pages 固有の class / 文言で false positive リスク ~0、
+  #   正当な error ページ SS には 'ss:error-page-intended' ラベル exempt あり。
+  # ============================================================
+  ss-render-health-check:
+    name: "SS render 健全性検証 (error ページ混入検出 #3012)"
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            scripts/check-ss-render-health.mjs
+            scripts/lib/screenshot-helpers.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Run check-ss-render-health.mjs
+        env:
+          CHECK_MODE: error
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          PR_LABELS=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --json labels --jq '[.labels[].name] | join(",")')
+          export PR_LABELS
+          node scripts/check-ss-render-health.mjs
 
   design-doc-check:
     runs-on: ubuntu-latest

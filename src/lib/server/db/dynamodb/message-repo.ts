@@ -13,12 +13,13 @@
 //   PK = T#<tenantId>#CHILD#<childId>   (child partition、activity_logs 等と同居)
 //   SK = MSG#<paddedId>                 (8 桁 0 埋め、辞書順)
 //   → findMessages / findUnshownMessage / countUnshownMessages は単一 partition Query で
-//     完結し GSI 不要 (ADR-0055 §3.1)。markMessageShown は messageId のみ受けるため
-//     tenant Scan + id filter で 1 件特定する (reward-redemption-repo と同パターン、低頻度)。
+//     完結し GSI 不要 (ADR-0055 §3.1)。markMessageShown は childId + messageId の複合キーで
+//     PK/SK を直接構成し UpdateItem する (#2845 課題①: full composite-key addressing、
+//     Scan 全廃 + repo 入口での child 所有権検証)。
 //
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/message-repo.ts (SSOT)
 
-import { PutCommand, QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { InsertParentMessageInput, ParentMessage } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
@@ -132,23 +133,35 @@ export async function countUnshownMessages(childId: number, tenantId: string): P
 // markMessageShown — メッセージを表示済みにする
 // ============================================================
 
+/**
+ * #2845 課題①: childId + messageId で PK/SK を直接構成し UpdateItem する
+ * (full composite-key addressing)。旧実装の tenant Scan + id filter は撤去。
+ * `attribute_exists(PK)` で「存在しない / 他 child の item」への phantom 書込みを防ぎ、
+ * (childId, messageId) 不一致は ConditionalCheckFailedException → undefined にする
+ * (SQLite `WHERE id=? AND child_id=?` の affected 0 と等価)。
+ */
 export async function markMessageShown(
+	childId: number,
 	messageId: number,
 	tenantId: string,
 ): Promise<ParentMessage | undefined> {
-	const found = await findMessageItemById(messageId, tenantId);
-	if (!found) return undefined;
-	const result = await getDocClient().send(
-		new UpdateCommand({
-			TableName: TABLE_NAME,
-			Key: { PK: found.PK, SK: found.SK },
-			UpdateExpression: 'SET shownAt = :now',
-			ExpressionAttributeValues: { ':now': new Date().toISOString() },
-			ReturnValues: 'ALL_NEW',
-		}),
-	);
-	if (!result.Attributes) return undefined;
-	return toMessage(result.Attributes);
+	try {
+		const result = await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: parentMessageKey(childId, messageId, tenantId),
+				UpdateExpression: 'SET shownAt = :now',
+				ConditionExpression: 'attribute_exists(PK)',
+				ExpressionAttributeValues: { ':now': new Date().toISOString() },
+				ReturnValues: 'ALL_NEW',
+			}),
+		);
+		if (!result.Attributes) return undefined;
+		return toMessage(result.Attributes);
+	} catch (e) {
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return undefined;
+		throw e;
+	}
 }
 
 // ============================================================
@@ -197,42 +210,4 @@ async function queryChildMessages(
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);
 	return items;
-}
-
-/**
- * messageId だけ受け取る markMessageShown 用に、tenant 配下を Scan して PK/SK + item を
- * 解決する。SK は MSG#<id> だが childId が不明なため tenant Scan + id filter で 1 件特定する。
- *
- * #2842: DynamoDB の Scan `Limit` は **FilterExpression 適用前に評価された item 数** を
- *   上限とするため、`Limit: 1` + Filter では「scan 順で先頭に来た 1 件」が filter に一致
- *   しない限り `Items` が空になり markMessageShown が無言で no-op になる致命バグだった。
- *   正しくは `Limit` を付けず (= page ごと最大 1MB を評価)、`ExclusiveStartKey` で
- *   `LastEvaluatedKey` が尽きるまでページングし、一致 item を見つけた時点で早期 return する。
- *   一致が無ければ全ページ走査後に undefined を返す (queryChildMessages と同じページング正パターン)。
- */
-async function findMessageItemById(
-	id: number,
-	tenantId: string,
-): Promise<({ PK: string; SK: string } & Record<string, unknown>) | undefined> {
-	const doc = getDocClient();
-	let lastKey: Record<string, unknown> | undefined;
-	do {
-		const result = await doc.send(
-			new ScanCommand({
-				TableName: TABLE_NAME,
-				FilterExpression:
-					'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix) AND id = :id',
-				ExpressionAttributeValues: {
-					':tenantPrefix': tenantPK('CHILD#', tenantId),
-					':skPrefix': PREFIX,
-					':id': id,
-				},
-				ExclusiveStartKey: lastKey,
-			}),
-		);
-		const item = (result.Items ?? [])[0];
-		if (item) return item as { PK: string; SK: string } & Record<string, unknown>;
-		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-	} while (lastKey);
-	return undefined;
 }

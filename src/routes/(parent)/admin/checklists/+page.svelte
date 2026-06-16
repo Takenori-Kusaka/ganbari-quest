@@ -17,6 +17,7 @@ import AiSuggestChecklistPanel from '$lib/features/admin/components/AiSuggestChe
 // #2558 段階2 横展開: admin 内 marketplace 風 browse UI (UnifiedImportHub) を撤去し
 // `/marketplace?type=checklist` への画面遷移に統一 (DESIGN.md §10)。
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
@@ -399,6 +400,7 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 						imported?: number;
 						skipped?: number;
 						total?: number;
+						failed?: number;
 						distributedCount?: number;
 						packName?: string;
 					};
@@ -415,12 +417,19 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			} else {
 				const packName = actionResult.data?.packName ?? '';
 				const distributedCount = Number(actionResult.data?.distributedCount ?? 0);
-				const imp = Number(actionResult.data?.imported ?? 0);
-				actionMessage =
-					imp === 0
-						? ADMIN_CHECKLISTS_PAGE_LABELS.importToastDuplicate(packName)
-						: ADMIN_CHECKLISTS_PAGE_LABELS.importToastSuccess(packName, distributedCount);
-				showToast(actionMessage, undefined, imp > 0 ? 'success' : 'info');
+				// #2955 (#2830 横展開): server 算出 `failed` > 0 のときは partial-failure を
+				// 2 層 feedback (Toast + banner) で正直に出す (admin/activities と同型、共通 helper)。
+				// success 文言は checklist 固有 (packName + 配信人数) のため closure で包む。
+				const feedback = resolveImportFeedback(
+					actionResult.data as Record<string, unknown> | undefined,
+					{
+						success: () =>
+							ADMIN_CHECKLISTS_PAGE_LABELS.importToastSuccess(packName, distributedCount),
+						allDuplicates: ADMIN_CHECKLISTS_PAGE_LABELS.importToastDuplicate(packName),
+					},
+				);
+				actionMessage = feedback.message;
+				showToast(actionMessage, undefined, feedback.tone);
 			}
 		} else if (actionResult.type === 'failure') {
 			// #2894 AC3: PlanLimitError オブジェクトの `[object Object]` 化壊れ表示を根治。
@@ -761,6 +770,8 @@ function getChildName(childId: number): string {
 								<span class="text-xs px-1.5 py-0.5 bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] rounded">{directionLabel(item.direction)}</span>
 							</div>
 							<form method="POST" action="?/removeItem" use:enhance={() => async () => invalidateAll()}>
+								<!-- #2845 B1: templateId 所有権検証付き delete (composite key) -->
+								<input type="hidden" name="templateId" value={template.id} />
 								<input type="hidden" name="itemId" value={item.id} />
 								<Button
 									type="submit"
@@ -888,6 +899,8 @@ function getChildName(childId: number): string {
 								</span>
 							</div>
 							<form method="POST" action="?/removeOverride" use:enhance={() => async () => invalidateAll()}>
+								<!-- #2845 B1: childId 所有権検証付き delete (composite key) -->
+								<input type="hidden" name="childId" value={ov.childId} />
 								<input type="hidden" name="overrideId" value={ov.id} />
 								<Button type="submit" variant="ghost" size="sm" class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-feedback-error-text)] px-1" title={ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton} aria-label={ADMIN_CHECKLISTS_PAGE_LABELS.deleteButton}>✕</Button>
 							</form>

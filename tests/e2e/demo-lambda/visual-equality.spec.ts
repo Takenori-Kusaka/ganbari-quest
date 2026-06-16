@@ -92,6 +92,54 @@ test.describe('#2097 AC12: 5 年齢モード home の構造等価 (demo Lambda)'
 		});
 	}
 
+	// #3017: 撮影の決定性 assert — `?screenshot=all` では日付依存演出 (誕生日ボーナス banner) を
+	// 抑止する。demo fixture 5 子の birthDate は固定 (901=01-15 / 902=06-10 / 903=03-22 /
+	// 904=08-05 / 906=11-20) のため、撮影日が誕生日 window (誕生日から 3 日間、
+	// birthday-bonus-service.ts CLAIM_WINDOW_DAYS) に入ると banner が home 最上部に出現し
+	// LP / child-home / app の visual regression baseline と diff >10% で誤 fail していた
+	// (年 5 回再発する撮影日依存 flake)。capture-hp-screenshots.mjs は `?screenshot=all` で
+	// 撮影するため、screenshot mode 中の banner 非表示 = 撮影の決定性を保証する。
+	test('#3017: ?screenshot=all で誕生日ボーナス banner が表示されない (日付依存演出の決定的撮影)', async ({
+		context,
+		page,
+	}) => {
+		// preschool (902 ひな birthDate=2020-06-10) を代表として検証。
+		// 他 4 子も同一 +page.svelte の同一分岐を通るため 1 mode で regression 検出可能。
+		await context.clearCookies();
+		await context.addCookies([
+			{ name: 'selectedChildId', value: '902', domain: 'localhost', path: '/' },
+		]);
+
+		// 1) screenshot mode off: 今日が誕生日 window 内なら banner が表示される (通常挙動は不変)。
+		//    window 外の日は banner 不在 = 観測のみ (vacuous でも後段の count(0) assert は常に有効)。
+		await page.goto('/preschool/home');
+		await expect(page.locator('main').first()).toBeVisible();
+		const bannerVisibleToday = await page
+			.getByTestId('birthday-banner')
+			.isVisible()
+			.catch(() => false);
+
+		// 2) screenshot mode (`?screenshot=all`): 日付依存演出は常に抑止 — 撮影日に依らず 0 件。
+		await page.goto('/preschool/home?screenshot=all');
+		await expect(page.locator('main').first()).toBeVisible();
+		await expect(page.getByTestId('birthday-banner')).toHaveCount(0);
+
+		// 3) 後方互換 `?screenshot=1` (noise-only) でも同様に抑止 (#2097 PR-B1 hotfix と同型の
+		//    isScreenshotMode 判定を共有するため)。
+		await page.goto('/preschool/home?screenshot=1');
+		await expect(page.locator('main').first()).toBeVisible();
+		await expect(page.getByTestId('birthday-banner')).toHaveCount(0);
+
+		// 誕生日 window 内に実行された場合のみ「banner あり → screenshot で消える」の実差分を
+		// 検証できたことを test 出力に残す (window 外では off 側が元々非表示で vacuous)。
+		test.info().annotations.push({
+			type: 'birthday-window',
+			description: bannerVisibleToday
+				? 'in-window: suppression exercised (banner visible without ?screenshot)'
+				: 'out-of-window: count(0) assert only (banner absent in both modes today)',
+		});
+	});
+
 	test('AC12-summary: 5 年齢モード home が全て 200 で hydrate する (集約 regression)', async ({
 		context,
 		page,

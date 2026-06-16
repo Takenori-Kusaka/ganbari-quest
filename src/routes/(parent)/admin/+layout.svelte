@@ -1,13 +1,11 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
-import FeedbackDialog from '$lib/features/admin/components/FeedbackDialog.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
-import FeedbackFab from '$lib/ui/components/FeedbackFab.svelte';
 
 interface Props {
 	data: {
@@ -35,15 +33,14 @@ interface Props {
 let { data, children }: Props = $props();
 
 const trial = $derived(data.trialStatus);
-const planTier = $derived(data.planTier ?? 'free');
+// #3033 (PO 指摘 2026-06-12): body バナーは urgent (trial 残 1 日以下) のみ。
+// 残日数 = header pill / 開始導線 = /admin/subscription / 期限切れ = TrialEndedDialog (#770)。
+// 全ページ常設の販促バナーは無料版ユーザーの不利益になるため置かない (ADR-0012 準用)
 const showTrialBanner = $derived(
-	data.authMode !== 'local' &&
-		trial &&
-		(trial.isTrialActive ||
-			(trial.trialUsed && !trial.isTrialActive && trial.trialEndDate !== null) ||
-			// #731: 未使用 free ユーザーにもトライアル開始導線を表示
-			(planTier === 'free' && !trial.trialUsed && !trial.isTrialActive)),
+	data.authMode !== 'local' && trial && trial.isTrialActive && trial.daysRemaining <= 1,
 );
+// #3033: header pill 用 (trial 非 active 時は null で非表示)
+const trialDaysRemaining = $derived(trial?.isTrialActive ? trial.daysRemaining : null);
 
 // #770: トライアル終了検知 — server から trialJustExpired が来たらダイアログを表示
 // $effect で一度 true になったら dismiss するまで維持する
@@ -54,11 +51,11 @@ $effect(() => {
 	}
 });
 
-// #839: フィードバックダイアログ
-let showFeedback = $state(false);
+// #2904: 旧 #839 FeedbackFab (右下常設バルーン) は撤去。フィードバック導線は
+// 設定 > サポート (/admin/settings/support) の単独 SSOT (PO 判断: 各ページには不要)。
 </script>
 
-<AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode}>
+<AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining}>
 	<!-- #2821: setup 由来で admin に着地したときの文脈バナー (続きの step へ戻る導線) -->
 	{#if data.setupOnboarding}
 		<div style:margin-bottom="16px">
@@ -67,14 +64,7 @@ let showFeedback = $state(false);
 	{/if}
 	{#if showTrialBanner && trial}
 		<div style:margin-bottom="16px">
-			<TrialBanner
-				isTrialActive={trial.isTrialActive}
-				daysRemaining={trial.daysRemaining}
-				trialUsed={trial.trialUsed}
-				trialEndDate={trial.trialEndDate}
-				{planTier}
-				hasArchivedResources={data.archivedSummary?.hasArchivedResources ?? false}
-			/>
+			<TrialBanner isTrialActive={trial.isTrialActive} daysRemaining={trial.daysRemaining} />
 		</div>
 	{/if}
 	{@render children()}
@@ -83,7 +73,4 @@ let showFeedback = $state(false);
 	bind:open={showTrialEndedDialog}
 	onDismiss={() => { showTrialEndedDialog = false; }}
 />
-<!-- #839: フィードバック FAB + ダイアログ -->
-<FeedbackFab onclick={() => { showFeedback = true; }} />
-<FeedbackDialog bind:open={showFeedback} />
 <DebugPlanIndicator summary={data.debugPlanSummary ?? null} />

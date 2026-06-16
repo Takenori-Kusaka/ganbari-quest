@@ -26,7 +26,8 @@ describe('demo/daily-mission-repo', () => {
 
 	it('markMissionCompleted / insertDailyMission は no-op で fixture mutate なし', async () => {
 		const before = DEMO_DAILY_MISSIONS.length;
-		await dailyMissionRepo.markMissionCompleted(1, 'demo');
+		// #2845 B1: (childId, date, activityId, tenantId) composite key
+		await dailyMissionRepo.markMissionCompleted(902, '2026-04-01', 1, 'demo');
 		await dailyMissionRepo.insertDailyMission(902, '2026-04-01', 1, 'demo');
 		expect(DEMO_DAILY_MISSIONS.length).toBe(before);
 	});

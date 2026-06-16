@@ -400,6 +400,7 @@ describe('cloud-export-service', () => {
 			future.setDate(future.getDate() + 3);
 			mockCloudExportRepo.findByPin.mockResolvedValue({
 				id: 1,
+				tenantId: 'tenant-1',
 				pinCode: 'ABC123',
 				expiresAt: future.toISOString(),
 				downloadCount: 0,
@@ -414,7 +415,8 @@ describe('cloud-export-service', () => {
 			const result = await fetchCloudExportByPin('ABC123');
 
 			expect(result.data).toBe('{"test":"data"}');
-			expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(1);
+			// #2845 B1: record.tenantId で tenant 束縛して increment する
+			expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(1, 'tenant-1');
 		});
 
 		it('PINは大文字に変換される', async () => {

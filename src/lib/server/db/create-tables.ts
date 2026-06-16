@@ -257,6 +257,7 @@ export const SQL_CREATE_TABLES = `
 		ON special_rewards(child_id, granted_at);
 
 	-- #1337: ごほうびショップ交換申請
+	-- #2832: reward_title / reward_points / reward_icon = 申請時点 snapshot (NULL = 旧行、live JOIN fallback)
 	CREATE TABLE IF NOT EXISTS reward_redemption_requests (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
@@ -266,7 +267,10 @@ export const SQL_CREATE_TABLES = `
 		parent_note TEXT,
 		resolved_at INTEGER,
 		resolved_by_parent_id INTEGER,
-		shown_to_child_at INTEGER
+		shown_to_child_at INTEGER,
+		reward_title TEXT,
+		reward_points INTEGER,
+		reward_icon TEXT
 	);
 	CREATE INDEX IF NOT EXISTS idx_redemption_child_status
 		ON reward_redemption_requests(child_id, status);

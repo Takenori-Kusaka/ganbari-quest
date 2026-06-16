@@ -2,7 +2,7 @@
 // 決定的 4 lane 分類 (feature / integration / hotfix / dependabot) の境界を網羅する unit test。
 // develop 二層ブランチ戦略 (docs/sessions/branch-strategy.md §3〜§5) の CI gate 側 SSOT。
 import { describe, expect, it } from 'vitest';
-import { classifyLane, parseArgs } from '../../../scripts/pr-lane.mjs';
+import { BOT_ACTORS, classifyLane, parseArgs } from '../../../scripts/pr-lane.mjs';
 
 describe('classifyLane (#2943 AC1/AC2)', () => {
 	// --- AC2 で明示された 6 境界条件 ---
@@ -22,6 +22,32 @@ describe('classifyLane (#2943 AC1/AC2)', () => {
 		expect(classifyLane({ baseRef: 'main', headRef: 'fix/urgent', actor: 'Takenori-Kusaka' })).toBe(
 			'hotfix',
 		);
+	});
+
+	// --- release ブランチ方式 (branch-strategy.md §3、動く標的問題の構造的解消) ---
+	it('integration: release/* → main も統合 PR (重量レーン) に帰属', () => {
+		expect(
+			classifyLane({ baseRef: 'main', headRef: 'release/2026-06-16', actor: 'Takenori-Kusaka' }),
+		).toBe('integration');
+	});
+
+	it('integration: release/ 接頭辞の各種命名 (日付 / 連番) も integration', () => {
+		for (const head of ['release/2026-06-16', 'release/v1.2.3', 'release/3021']) {
+			expect(classifyLane({ baseRef: 'main', headRef: head, actor: 'u' })).toBe('integration');
+		}
+	});
+
+	it('release/* → develop (base develop) は integration ではなく feature 軽量レーン', () => {
+		// base が develop のときは release 接頭辞でも feature (back-merge / 誤 base 防御)
+		expect(classifyLane({ baseRef: 'develop', headRef: 'release/2026-06-16', actor: 'u' })).toBe(
+			'feature',
+		);
+	});
+
+	it('優先順位: bot は release/* → main でも dependabot が勝つ', () => {
+		expect(
+			classifyLane({ baseRef: 'main', headRef: 'release/2026-06-16', actor: 'dependabot[bot]' }),
+		).toBe('dependabot');
 	});
 
 	it('dependabot: actor が base/head より優先 (develop→main でも bot なら dependabot)', () => {
@@ -114,6 +140,22 @@ describe('classifyLane (#2943 AC1/AC2)', () => {
 		for (const c of cases) {
 			expect(lanes.has(classifyLane(c))).toBe(true);
 		}
+	});
+});
+
+describe('BOT_ACTORS SSOT (#2947 AC1)', () => {
+	it('bot lane の actor 集合を named export する (dependabot[bot] / renovate[bot])', () => {
+		expect(BOT_ACTORS).toEqual(['dependabot[bot]', 'renovate[bot]']);
+	});
+
+	it('BOT_ACTORS の各 actor は classifyLane で dependabot lane に分類される (SSOT 整合)', () => {
+		for (const actor of BOT_ACTORS) {
+			expect(classifyLane({ baseRef: 'develop', headRef: 'feat/x', actor })).toBe('dependabot');
+		}
+	});
+
+	it('BOT_ACTORS は freeze されており実行時改変できない (SSOT 不変条件)', () => {
+		expect(Object.isFrozen(BOT_ACTORS)).toBe(true);
 	});
 });
 

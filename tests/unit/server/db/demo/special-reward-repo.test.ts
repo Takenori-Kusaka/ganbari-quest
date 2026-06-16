@@ -68,12 +68,12 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 
 	describe('markRewardShown: stateless stub (fixture mutate なし)', () => {
 		it('markRewardShown は undefined を返す (sqlite repo の returning().get() 整合)', async () => {
-			expect(await specialRewardRepo.markRewardShown(5000, 'demo')).toBeUndefined();
+			expect(await specialRewardRepo.markRewardShown(902, 5000, 'demo')).toBeUndefined();
 		});
 
 		it('markRewardShown 呼出後も findUnshownReward は同じ unshown reward を返す (stateless)', async () => {
 			const before = await specialRewardRepo.findUnshownReward(902, 'demo');
-			await specialRewardRepo.markRewardShown(before?.id ?? 0, 'demo');
+			await specialRewardRepo.markRewardShown(902, before?.id ?? 0, 'demo');
 			const after = await specialRewardRepo.findUnshownReward(902, 'demo');
 			expect(after?.id).toBe(before?.id);
 			expect(after?.shownAt).toBeNull();
@@ -81,7 +81,7 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 
 		it('markRewardShown 呼出後も fixture (MARKETPLACE_SPECIAL_REWARDS_BY_CHILD) 件数不変', async () => {
 			const before = getDemoMarketplaceSpecialRewardsByChild(902).length;
-			await specialRewardRepo.markRewardShown(5000, 'demo');
+			await specialRewardRepo.markRewardShown(902, 5000, 'demo');
 			expect(getDemoMarketplaceSpecialRewardsByChild(902).length).toBe(before);
 		});
 	});
@@ -116,6 +116,26 @@ describe('demo/special-reward-repo (#2097 B-5a 達成プレゼント modal 発�
 	describe('deleteByTenantId: no-op stub', () => {
 		it('deleteByTenantId は no-op (Promise<void>)', async () => {
 			await expect(specialRewardRepo.deleteByTenantId('demo')).resolves.toBeUndefined();
+		});
+	});
+
+	// #2832: updateSpecialReward / deleteSpecialReward stub (stateless、fixture mutate なし)
+	describe('updateSpecialReward / deleteSpecialReward: stateless stub (#2832)', () => {
+		it('updateSpecialReward は undefined を返す (write no-op、成功偽装しない)', async () => {
+			expect(
+				await specialRewardRepo.updateSpecialReward(902, 5000, { title: 'x', points: 1 }, 'demo'),
+			).toBeUndefined();
+		});
+
+		it('deleteSpecialReward は false を返す (write no-op、成功偽装しない)', async () => {
+			expect(await specialRewardRepo.deleteSpecialReward(902, 5000, 'demo')).toBe(false);
+		});
+
+		it('呼出後も fixture 件数不変 (stateless)', async () => {
+			const before = getDemoMarketplaceSpecialRewardsByChild(902).length;
+			await specialRewardRepo.updateSpecialReward(902, 5000, { title: 'x' }, 'demo');
+			await specialRewardRepo.deleteSpecialReward(902, 5000, 'demo');
+			expect(getDemoMarketplaceSpecialRewardsByChild(902).length).toBe(before);
 		});
 	});
 });

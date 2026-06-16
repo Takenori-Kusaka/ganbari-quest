@@ -2,6 +2,7 @@
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
 import { getDemoMarketplaceSpecialRewardsByChild } from '$lib/server/demo/demo-data';
+import type { UpdateSpecialRewardInput } from '../interfaces/special-reward-repo.interface';
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
 
 export async function insertSpecialReward(
@@ -42,6 +43,7 @@ export async function findUnshownReward(
 }
 
 export async function markRewardShown(
+	_childId: number,
 	_rewardId: number,
 	_tenantId: string,
 ): Promise<SpecialReward | undefined> {
@@ -50,6 +52,32 @@ export async function markRewardShown(
 	// reward が再度 modal 表示されても UX 上問題なし (anti-engagement 原則 ADR-0012: 子供が
 	// modal を閉じる動作で十分体験は完結する)
 	return undefined;
+}
+
+/**
+ * #2832: 編集 stub。Stateless demo は fixture を mutate しない (write = no-op)。
+ * sqlite repo の「該当行なし → undefined」と整合させ undefined を返す
+ * (UI 側は demo フラグで no-op を明示するため成功偽装しない)。
+ */
+export async function updateSpecialReward(
+	_childId: number,
+	_rewardId: number,
+	_updates: UpdateSpecialRewardInput,
+	_tenantId: string,
+): Promise<SpecialReward | undefined> {
+	return undefined;
+}
+
+/**
+ * #2832: 削除 stub。Stateless demo は fixture を mutate しない (write = no-op)。
+ * sqlite repo の「該当行なし → false」と整合させ false を返す。
+ */
+export async function deleteSpecialReward(
+	_childId: number,
+	_rewardId: number,
+	_tenantId: string,
+): Promise<boolean> {
+	return false;
 }
 
 export async function deleteByTenantId(_tenantId: string): Promise<void> {

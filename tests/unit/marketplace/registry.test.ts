@@ -44,6 +44,7 @@ function createDummyStrategy(): ImportStrategy<DummyPayload> {
 				imported: payload.items.length,
 				skipped: 0,
 				errors: [],
+				failed: 0,
 			}),
 		),
 	};

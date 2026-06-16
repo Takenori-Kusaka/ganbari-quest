@@ -94,7 +94,11 @@ export interface IChecklistRepo {
 		input: InsertChecklistTemplateItemInput,
 		tenantId: string,
 	): Promise<ChecklistTemplateItem>;
-	deleteTemplateItem(id: number, tenantId: string): Promise<void>;
+	/**
+	 * #2845 B1: templateId 必須 (composite key)。旧 id-only は DynamoDB 側で
+	 * tenant 無束縛 Scan + 全 tenant delete 可能形状だった。
+	 */
+	deleteTemplateItem(templateId: number, id: number, tenantId: string): Promise<void>;
 
 	// ── Per-child progress (logs) ────────────────────────────────────
 
@@ -110,7 +114,11 @@ export interface IChecklistRepo {
 
 	findOverrides(childId: number, date: string, tenantId: string): Promise<ChecklistOverride[]>;
 	insertOverride(input: InsertChecklistOverrideInput, tenantId: string): Promise<ChecklistOverride>;
-	deleteOverride(id: number, tenantId: string): Promise<void>;
+	/**
+	 * #2845 B1: childId 必須 (composite key)。旧 id-only は DynamoDB 側で
+	 * tenant 無束縛 Scan + 全 tenant delete 可能形状だった。
+	 */
+	deleteOverride(childId: number, id: number, tenantId: string): Promise<void>;
 
 	// ── #783: archive / restore ─────────────────────────────────────
 

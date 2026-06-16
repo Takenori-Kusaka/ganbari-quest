@@ -120,36 +120,29 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 	return record;
 }
 
-export async function incrementDownloadCount(id: number): Promise<void> {
-	// id のみ受ける (SQLite 同様)。tenant が不明なので PK を特定するため Scan で raw key を引く。
-	let lastKey: Record<string, unknown> | undefined;
-	do {
-		const res = await getDocClient().send(
-			new ScanCommand({
+/**
+ * #2845 B1: 旧実装は「id のみ受けるため tenant 不明 → 全テーブル Scan で raw key 逆引き」
+ * だった (tenant 無束縛 write 形状)。実際は呼び出し元 (cloud-export-service の
+ * fetchCloudExportByPin) が findByPin の戻り値 record.tenantId を持つため、signature に
+ * tenantId を追加し exact Key (`cloudExportKey`) で直接 UpdateItem する (Scan 撤去)。
+ * `attribute_exists(PK)` で phantom item 生成を防ぎ、不在は旧挙動どおり silent no-op。
+ */
+export async function incrementDownloadCount(id: number, tenantId: string): Promise<void> {
+	try {
+		await getDocClient().send(
+			new UpdateCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
-				ExpressionAttributeValues: {
-					':prefix': cloudExportSKPrefix(),
-					':id': id,
-				},
-				ProjectionExpression: 'PK, SK',
-				ExclusiveStartKey: lastKey,
+				Key: cloudExportKey(id, tenantId),
+				UpdateExpression: 'ADD downloadCount :one',
+				ConditionExpression: 'attribute_exists(PK)',
+				ExpressionAttributeValues: { ':one': 1 },
 			}),
 		);
-		const found = (res.Items ?? [])[0];
-		if (found) {
-			await getDocClient().send(
-				new UpdateCommand({
-					TableName: TABLE_NAME,
-					Key: { PK: found.PK, SK: found.SK },
-					UpdateExpression: 'ADD downloadCount :one',
-					ExpressionAttributeValues: { ':one': 1 },
-				}),
-			);
-			return;
-		}
-		lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
-	} while (lastKey);
+	} catch (error) {
+		// 不在 (tenant 不一致を含む) は affected 0 と等価の no-op に正規化 (§08-DB 原則 1)
+		if ((error as { name?: string }).name === 'ConditionalCheckFailedException') return;
+		throw error;
+	}
 }
 
 export async function deleteById(id: number, tenantId: string): Promise<void> {

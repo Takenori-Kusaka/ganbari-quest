@@ -204,6 +204,7 @@ Lottie
 lowr
 LOWR
 maxlength
+metacharacter
 Metas
 microticks
 miteruyo
@@ -483,3 +484,33 @@ xample
 # (page-guide-layout-invariant.spec.ts の VIEWPORTS const で desktop / mobile 2 viewport をループする)
 viewports
 Mearge
+
+# ===== #2994 operator PIN reset runbook (operator reset の一次資料参照) =====
+# changepassword = Metabase changepassword アクション (operator reset runbook 参照)
+# Metabase = Metabase BI tool (operator reset 一次資料の参照先)
+changepassword
+Metabase
+# ===== #2975 refspec self-heal + rebase SOP (PR #3020) =====
+# refspec = git remote.origin.fetch の fetch refspec / retarget = PR base 変更操作
+# WCAG = Web Content Accessibility Guidelines / OOUI = Object-Oriented UI / webui = WebUI レビュープロセス
+refspec
+retarget
+WCAG
+OOUI
+webui
+
+# ===== #2975 single-branch refspec self-heal (resolve-base-branch.mjs / branch-strategy SOP) =====
+# refspec = git fetch/push の ref mapping 指定 (+refs/heads/develop:refs/remotes/origin/develop)
+refspec
+
+# ===== #3012 SS render health gate (PR #3023) =====
+# dogfooding/quotepath/taskkill/greyscale/fullpage/Pngs = pr-quality-gate.yml / capture scripts / sharp / test 内の技術用語
+dogfooding
+quotepath
+taskkill
+greyscale
+fullpage
+Pngs
+# ===== #2944 PR template gate lane-aware (Phase A/A-2) =====
+# pipefail = `set -euo pipefail` (bash strict mode) — pr-template-gate.yml / pr-lane-smoke.yml の shell step
+pipefail

@@ -74,6 +74,11 @@ import { resolve as pathResolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const MODE = (process.env.CHECK_MODE || 'warn').toLowerCase();
+// #2946 (Phase A/A-4): lane は SSOT (actions/pr-lane → scripts/pr-lane.mjs) 経由で渡される。
+// 本 gate は before-*/after-* ペア不在時に既に skip する設計のため lane 分岐は最小 (Issue #2946 解決策)。
+// integration lane (統合 PR、複数機能バッチで before/after ペアを持たない) で false positive が
+// 出ないことを log で可視化するに留め、検証ロジック (checkSsBlobShaUniqueness) は lane 非依存に保つ。
+const PR_LANE = (process.env.PR_LANE || 'feature').trim().toLowerCase();
 const PR_BODY = process.env.PR_BODY || '';
 const PR_LABELS = (process.env.PR_LABELS || '')
 	.split(',')
@@ -337,6 +342,15 @@ async function main() {
 	}
 
 	const prefix = '[ss-blob-sha-uniqueness]';
+
+	// #2946 AC5: 統合 PR は before/after ペアを持たないため skip 系に落ちるのが正常。
+	// lane=integration で skip した場合は「false positive ではなく対象なし pass」であることを明示。
+	if (PR_LANE === 'integration' && result.status === 'skip') {
+		console.log(
+			`${prefix} SKIP (lane=integration) — ${result.reason}。統合 PR は before/after ペア前提を持たないため対象なし pass (false positive ではありません、#2946 AC5)`,
+		);
+		return 0;
+	}
 
 	if (result.status === 'skip') {
 		console.log(`${prefix} SKIP — ${result.reason}`);

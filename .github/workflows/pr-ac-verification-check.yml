@@ -7,6 +7,16 @@ name: PR AC verification check (ADR-0038)
 # #1808: Dependabot / Renovate / Copilot 自動 PR は本ジョブを skip する
 # (依存更新 PR は AC マップを持たないため、毎回手動で `<!-- ac-verification-skip: ... -->`
 # コメントを追加する運用負担を解消)。
+#
+# #2945 (Phase A/A-3、親 #2942): lane-aware 化。
+#   - job は全レーンで必ず実行 (trigger filter / job-level 全体 skip しない、#2942 no-go)。
+#     ただし dependabot は従来どおり job-level if で skip 相当 (AC6、挙動不変)。
+#   - lane 判定は A-1 SSOT (actions/pr-lane → scripts/pr-lane.mjs) 経由のみ (AC1、inline 判定なし)。
+#   - feature / hotfix lane = 現行 (AC 検証マップ 4 列 + #1539 未完了表記検出) を完全維持 (AC4)。
+#   - integration lane = per-PR AC マップの代わりに「マージ判定エビデンス表」section の存在 +
+#     4 列 (含有 PR / 領域 / テスト / 結果) + 「残 NG 0 件」明示を検証 (AC3、audit-team.md §3.5)。
+#   - 検証ロジックは scripts/check-ac-verification-map.mjs に集約 (unit test 可能、二重実装しない)。
+#   - required context 名「Verify AC map in PR body」は不変 (AC7)。
 
 on:
   pull_request:
@@ -20,115 +30,51 @@ jobs:
   check:
     name: Verify AC map in PR body
     runs-on: ubuntu-latest
-    # #1808: Dependabot / Renovate は依存更新 PR で AC マップを持たないため job レベルで skip
+    # #1808 / #2945 AC6: Dependabot / Renovate は依存更新 PR で AC マップを持たないため job レベルで skip。
+    # (skip された job は Success を報告し required check は通過する = 従来どおりの挙動不変。
+    #  これは dependabot lane の「観点」であり、他レーンは下記 step で必ず実検証する)
     if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
     timeout-minutes: 3
     steps:
-      - name: Checkout
+      # A-1 lane 判定 SSOT を uses。inline 判定はしない (AC1、#2942 no-go)。
+      # composite action (actions/pr-lane) + judge 関数 (check-ac-verification-map.mjs) を読むため checkout。
+      - name: Checkout (lane SSOT + judge 関数)
         uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            actions/pr-lane
+            scripts/pr-lane.mjs
+            scripts/check-ac-verification-map.mjs
+          sparse-checkout-cone-mode: false
 
-      - name: Check AC verification map
+      - name: Classify PR lane (A-1 SSOT)
+        id: lane
+        uses: ./actions/pr-lane
+
+      - name: "Check AC verification (lane-aware: feature/hotfix=AC map, integration=evidence table)"
         uses: actions/github-script@v9
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          PR_LANE: ${{ steps.lane.outputs.lane }}
         with:
           script: |
+            const lane = process.env.PR_LANE || 'feature';
+            core.info(`PR lane = ${lane} (判定 SSOT: scripts/pr-lane.mjs / actions/pr-lane、#2945)`);
+
             const body = process.env.PR_BODY || '';
-            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map((l) => l.name);
 
-            // 除外条件 1: type:docs ラベル
-            if (labels.includes('type:docs')) {
-              core.info('PR is type:docs, skipping AC verification check');
+            // 検証ロジックは scripts/check-ac-verification-map.mjs に集約 (二重実装しない、unit test 済)。
+            const mod = await import(
+              `${process.env.GITHUB_WORKSPACE}/scripts/check-ac-verification-map.mjs`
+            );
+            const result = mod.checkAcVerification({ body, labels, lane });
+
+            for (const line of result.info || []) core.info(line);
+
+            if (result.ok) {
+              core.info(`✅ ${result.reason || 'PASS'} (lane=${result.lane})`);
               return;
             }
-
-            // 除外条件 2: dependencies ラベル (#1808: Dependabot exempt 二重防御)
-            if (labels.some(l => l.includes('dependencies'))) {
-              core.info('PR has dependencies label, skipping AC verification check');
-              return;
-            }
-
-            // 除外条件 3: 明示的 skip コメント
-            const skipMatch = body.match(/<!--\s*ac-verification-skip:\s*(.+?)\s*-->/);
-            if (skipMatch) {
-              core.warning(`AC verification skipped: ${skipMatch[1]}`);
-              return;
-            }
-
-            // AC 検証マップの行を抽出 (パイプで区切られた 4 列のマークダウン行)
-            // ヘッダー行 (`| AC 番号 | AC 内容 ...`) とセパレーター (`|---|---|`) を除く
-            const mapHeaderIdx = body.indexOf('AC 検証マップ');
-            if (mapHeaderIdx === -1) {
-              core.setFailed('❌ PR 本文に「AC 検証マップ」セクションが見つかりません (ADR-0038)\nPR テンプレートのセクションが削除されています。');
-              return;
-            }
-
-            const section = body.slice(mapHeaderIdx);
-            // 4-column table rows: | AC... | ... | ... | ... |
-            const rows = section
-              .split('\n')
-              .filter(l => /^\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|/.test(l))
-              .filter(l => !/^\|\s*-+\s*\|/.test(l)) // separator
-              .filter(l => !/AC 番号\s*\|\s*AC 内容/.test(l)); // header
-
-            // テンプレのプレースホルダ (`<!-- ... -->`) や空白のみの行を検出
-            const emptyRows = rows.filter(row => {
-              const cells = row.split('|').slice(1, -1).map(c => c.trim());
-              // 各セルが placeholder / 空白 / <!-- --> コメントだけかを判定
-              return cells.some(c => c === '' || /^<!--.*-->$/.test(c));
-            });
-
-            core.info(`AC map rows found: ${rows.length}, empty/placeholder rows: ${emptyRows.length}`);
-
-            if (rows.length === 0) {
-              core.setFailed(
-                '❌ AC 検証マップに行が 1 件もありません (ADR-0038)\n\n' +
-                'Issue の Acceptance Criteria 1 行ごとに 1 行を埋めてください。\n' +
-                '例:\n| AC1 | ログイン後にダッシュボードが表示される | `npx playwright test auth.spec.ts` | PASS |'
-              );
-              return;
-            }
-
-            if (emptyRows.length > 0) {
-              const details = emptyRows.map(r => `  ${r.slice(0, 120)}`).join('\n');
-              core.setFailed(
-                `❌ AC 検証マップに ${emptyRows.length} 件の空欄/プレースホルダ行があります (ADR-0038)\n\n` +
-                '「AC 内容」「検証手段」「結果 / エビデンス」の全列を埋めてください。\n' +
-                '目視確認のみは不可。機械検証可能なコマンド / ファイルパス / スクリーンショット番号で記入してください。\n\n' +
-                `空欄行:\n${details}`
-              );
-              return;
-            }
-
-            // #1539: AC マップの 4 列目（結果/エビデンス列）に未完了表記が含まれる場合 FAIL
-            // 禁止語: TODO / 予定 / 追加予定 / 別途 / follow-up / 後で
-            const todoPattern = /todo|予定|追加予定|別途|follow[\s-]?up|後で/i;
-            const todoRows = rows
-              .map((row, idx) => {
-                const cells = row.split('|').slice(1, -1).map(c => c.trim());
-                // 4 列目（インデックス 3）が結果/エビデンス列
-                const evidenceCell = cells[3] ?? '';
-                if (todoPattern.test(evidenceCell)) {
-                  // AC 番号は 1 列目（インデックス 0）
-                  const acId = cells[0] || `行 ${idx + 1}`;
-                  return { acId, evidenceCell, row };
-                }
-                return null;
-              })
-              .filter(Boolean);
-
-            if (todoRows.length > 0) {
-              const details = todoRows.map(
-                item => `  ${item.acId}: 「${item.evidenceCell.slice(0, 80)}」`
-              ).join('\n');
-              core.setFailed(
-                `❌ AC 検証マップの「結果/エビデンス」列に未完了表記が ${todoRows.length} 件あります (#1539)\n\n` +
-                '「TODO」「予定」「追加予定」「別途」「follow-up」「後で」は未完了を示します。\n' +
-                '全 AC を実際に検証した上で、具体的なエビデンス（PASS / スクリーンショット番号 / コマンド結果）を記入してください。\n\n' +
-                `未完了行:\n${details}`
-              );
-              return;
-            }
-
-            core.info('AC 検証マップ: 全行 埋まっています ✓');
+            core.setFailed(result.error || '❌ AC 検証に失敗しました');

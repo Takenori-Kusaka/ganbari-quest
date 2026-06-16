@@ -553,6 +553,205 @@ describe('findActivityLogById (#2842 Scan pagination 正パターン)', () => {
 });
 
 // ============================================================
+// #3044: read 系 2 経路の tenant 束縛 (cross-tenant read IDOR 遮断)
+// ============================================================
+//
+// 旧実装は `begins_with(SK, 'LOG#')` のみで tenant 無束縛の全テーブル Scan だった
+// (#2845 §1 read 系残党)。tenant 別採番 id の衝突時に他 tenant の LOG item を拾い、
+// findActivityLogById は cross-tenant 情報を返す形状だった。本 describe は FilterExpression に
+// `begins_with(PK, T#<tenant>#CHILD#)` の tenant 束縛が乗っていること (= 旧コードでは欠落して
+// いたため fail する RED→GREEN 証跡) と、別 tenant の item を渡しても KeyCondition では拾えない
+// = Scan の filter 文言で tenant partition に閉じていることを固定する。
+
+/** Scan 1 page 分の FilterExpression / ExpressionAttributeValues を取り出す。 */
+function lastScanInput(): {
+	FilterExpression?: string;
+	ExpressionAttributeValues?: Record<string, unknown>;
+} {
+	const lastCall = mockSend.mock.calls.at(-1)?.[0] as {
+		input: { FilterExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
+	};
+	return lastCall.input;
+}
+
+describe('#3044 hasActivityLogs は tenant partition に束縛して Scan する', () => {
+	it('FilterExpression に tenant prefix の begins_with(PK,...) が含まれ、値が当該 tenant の literal PK である', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [{ id: 1, activityId: 7 }] });
+		const { hasActivityLogs } = await loadRepo();
+		await hasActivityLogs(7, TENANT);
+
+		const input = lastScanInput();
+		// 旧コード (tenant 無束縛) ならこの assert で fail する RED→GREEN 証跡
+		expect(input.FilterExpression).toContain('begins_with(PK, :tenantPrefix)');
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).toBe(`T#${TENANT}#CHILD#`);
+		// activityId filter は維持
+		expect(input.ExpressionAttributeValues?.[':activityId']).toBe(7);
+	});
+
+	it('別 tenant を渡すと別 literal PK prefix で Scan する (tenant ごとに partition が切り替わる)', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [] });
+		const { hasActivityLogs } = await loadRepo();
+		await hasActivityLogs(7, 'tenant-OTHER');
+
+		const input = lastScanInput();
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).toBe('T#tenant-OTHER#CHILD#');
+		// TENANT の partition は走査対象に含まれない (cross-tenant read 遮断)
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).not.toBe(`T#${TENANT}#CHILD#`);
+	});
+});
+
+describe('#3044 findActivityLogById は tenant partition に束縛して Scan する', () => {
+	it('FilterExpression に tenant prefix の begins_with(PK,...) が含まれ、値が当該 tenant の literal PK である', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'LOG#2026-06-04#00000055', id: 55 }],
+		});
+		const { findActivityLogById } = await loadRepo();
+		await findActivityLogById(55, TENANT);
+
+		const input = lastScanInput();
+		// 旧コード (tenant 無束縛) ならこの assert で fail する RED→GREEN 証跡
+		expect(input.FilterExpression).toContain('begins_with(PK, :tenantPrefix)');
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).toBe(`T#${TENANT}#CHILD#`);
+		expect(input.ExpressionAttributeValues?.[':id']).toBe(55);
+	});
+
+	it('別 tenant の partition だけを走査し、cross-tenant の id 衝突 item を返さない', async () => {
+		// 別 tenant (`tenant-OTHER`) で findActivityLogById(55) を呼ぶと、Scan は
+		// `T#tenant-OTHER#CHILD#` partition のみを対象とする。filter にマッチする item が
+		// 当該 tenant に存在しなければ undefined を返す (旧実装なら全テーブル Scan で他 tenant の
+		// id=55 item を拾い得たが、tenant 束縛後は拾えないことを固定)。
+		mockSend.mockResolvedValueOnce({ Items: [] }); // 別 tenant partition には該当なし
+		const { findActivityLogById } = await loadRepo();
+		const log = await findActivityLogById(55, 'tenant-OTHER');
+
+		expect(log).toBeUndefined();
+		const input = lastScanInput();
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).toBe('T#tenant-OTHER#CHILD#');
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).not.toBe(`T#${TENANT}#CHILD#`);
+	});
+});
+
+// ============================================================
+// #3044 (#2845 §1 同型残党): write / aggregate 系 3 経路の tenant 束縛
+// (cross-tenant write / read 集計 / delete IDOR 遮断)
+// ============================================================
+//
+// markActivityLogCancelled / getActivityLogCounts / deleteDailyMissionsByActivity は
+// 旧実装で `begins_with(SK, 'LOG#' | 'MISSION#')` のみの tenant 無束縛 Scan だった。
+// pooled multi-tenant single-table で tenant 別採番の id / activityId が衝突した際、
+//   - markActivityLogCancelled: 他 tenant の LOG item を cancelled=1 に書換 (cross-tenant write)
+//   - getActivityLogCounts: 他 tenant の LOG を集計し件数に混入 (cross-tenant read 集計)
+//   - deleteDailyMissionsByActivity: 他 tenant の MISSION item を BatchWrite 削除 (cross-tenant delete)
+// になる形状だった。本 describe は FilterExpression に `begins_with(PK, T#<tenant>#CHILD#)` の
+// tenant 束縛が乗っていること (旧コードでは欠落 = RED→GREEN 証跡) と、別 tenant を渡すと別 literal
+// PK prefix で Scan され当該 tenant の対象に到達しない (= write/delete されない) ことを固定する。
+
+describe('#3044 markActivityLogCancelled は tenant partition に束縛して Scan する', () => {
+	it('FilterExpression に tenant prefix が含まれ、値が当該 tenant の literal PK である', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'LOG#2026-06-04#00000055' }],
+			}) // Scan (id 解決)
+			.mockResolvedValueOnce({}); // UpdateItem
+		const { markActivityLogCancelled } = await loadRepo();
+		await markActivityLogCancelled(55, TENANT);
+
+		// 1 回目の呼び出し = Scan の input
+		const scanInput = mockSend.mock.calls[0]?.[0] as {
+			input: { FilterExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
+		};
+		// 旧コード (tenant 無束縛) ならこの assert で fail する RED→GREEN 証跡
+		expect(scanInput.input.FilterExpression).toContain('begins_with(PK, :tenantPrefix)');
+		expect(scanInput.input.ExpressionAttributeValues?.[':tenantPrefix']).toBe(`T#${TENANT}#CHILD#`);
+		expect(scanInput.input.ExpressionAttributeValues?.[':id']).toBe(55);
+	});
+
+	it('別 tenant で id が当該 partition に無ければ何も Update しない (cross-tenant write 遮断)', async () => {
+		// 別 tenant (`tenant-OTHER`) の partition だけを Scan し、対象 id が無ければ early-return。
+		// 旧実装なら全テーブル Scan で他 tenant の同 id LOG を拾い cancelled=1 に書換え得たが、
+		// tenant 束縛後は当該 partition のみが対象のため UpdateItem は呼ばれない。
+		mockSend.mockResolvedValueOnce({ Items: [] }); // 別 tenant partition に該当なし
+		const { markActivityLogCancelled } = await loadRepo();
+		await markActivityLogCancelled(55, 'tenant-OTHER');
+
+		const scanInput = mockSend.mock.calls[0]?.[0] as {
+			input: { ExpressionAttributeValues?: Record<string, unknown> };
+		};
+		expect(scanInput.input.ExpressionAttributeValues?.[':tenantPrefix']).toBe(
+			'T#tenant-OTHER#CHILD#',
+		);
+		// Scan のみで UpdateItem (2 回目の send) は発火しない = cross-tenant の対象に到達しない
+		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('#3044 getActivityLogCounts は tenant partition に束縛して Scan する', () => {
+	it('FilterExpression に tenant prefix が含まれ、当該 tenant の LOG のみ集計する', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [{ activityId: 7 }, { activityId: 7 }, { activityId: 9 }],
+		});
+		const { getActivityLogCounts } = await loadRepo();
+		const counts = await getActivityLogCounts(TENANT);
+
+		expect(counts).toEqual({ 7: 2, 9: 1 });
+		const input = lastScanInput();
+		// 旧コード (tenant 無束縛) ならこの assert で fail する RED→GREEN 証跡
+		expect(input.FilterExpression).toContain('begins_with(PK, :tenantPrefix)');
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).toBe(`T#${TENANT}#CHILD#`);
+		expect(input.ExpressionAttributeValues?.[':cancelled']).toBe(0);
+	});
+
+	it('別 tenant を渡すと別 literal PK prefix で集計する (cross-tenant 件数混入を遮断)', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [] });
+		const { getActivityLogCounts } = await loadRepo();
+		await getActivityLogCounts('tenant-OTHER');
+
+		const input = lastScanInput();
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).toBe('T#tenant-OTHER#CHILD#');
+		expect(input.ExpressionAttributeValues?.[':tenantPrefix']).not.toBe(`T#${TENANT}#CHILD#`);
+	});
+});
+
+describe('#3044 deleteDailyMissionsByActivity は tenant partition に束縛して Scan する', () => {
+	it('FilterExpression に tenant prefix + MISSION# prefix が含まれる', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'MISSION#2026-06-04#00000007' }],
+			}) // Scan
+			.mockResolvedValueOnce({}); // BatchWrite
+		const { deleteDailyMissionsByActivity } = await loadRepo();
+		await deleteDailyMissionsByActivity(7, TENANT);
+
+		const scanInput = mockSend.mock.calls[0]?.[0] as {
+			input: { FilterExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
+		};
+		// 旧コード (tenant 無束縛) ならこの assert で fail する RED→GREEN 証跡
+		expect(scanInput.input.FilterExpression).toContain('begins_with(PK, :tenantPrefix)');
+		expect(scanInput.input.ExpressionAttributeValues?.[':tenantPrefix']).toBe(`T#${TENANT}#CHILD#`);
+		expect(scanInput.input.ExpressionAttributeValues?.[':skPrefix']).toBe('MISSION#');
+		expect(scanInput.input.ExpressionAttributeValues?.[':activityId']).toBe(7);
+	});
+
+	it('別 tenant で対象 MISSION が無ければ BatchWrite を発火しない (cross-tenant delete 遮断)', async () => {
+		// 別 tenant (`tenant-OTHER`) の partition だけを Scan し、対象 activityId の MISSION が
+		// 無ければ削除対象 0 件 → BatchWrite は呼ばれない。旧実装なら全テーブル Scan で他 tenant の
+		// 同 activityId MISSION を拾い BatchWrite 削除し得たが、tenant 束縛後は到達しない。
+		mockSend.mockResolvedValueOnce({ Items: [] }); // 別 tenant partition に該当なし
+		const { deleteDailyMissionsByActivity } = await loadRepo();
+		await deleteDailyMissionsByActivity(7, 'tenant-OTHER');
+
+		const scanInput = mockSend.mock.calls[0]?.[0] as {
+			input: { ExpressionAttributeValues?: Record<string, unknown> };
+		};
+		expect(scanInput.input.ExpressionAttributeValues?.[':tenantPrefix']).toBe(
+			'T#tenant-OTHER#CHILD#',
+		);
+		// Scan のみで BatchWrite (2 回目の send) は発火しない = cross-tenant の対象に到達しない
+		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+});
+
+// ============================================================
 // interface 適合 (stub 後退していないこと)
 // ============================================================
 

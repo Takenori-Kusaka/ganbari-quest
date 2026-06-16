@@ -19,9 +19,10 @@
 //   → findActiveTrials() は tenantId を受けない全 tenant 横断 + 日次 cron の低頻度経路のため、
 //     Scan + FilterExpression(begins_with(SK,'HIST#') AND endDate >= today) で対応
 //     (cancellation-reason-repo と同じ Pre-PMF 方針、ADR-0010 — GSI 追加は過剰防衛)。
-//   → updateConversion(id) は tenantId が不明なため tenant 横断 Scan + id filter で PK/SK を解決して
-//     Update する (message-repo.markShown / stamp-card-repo の id 解決と同パターン、Stripe webhook
-//     経由の稀な経路、#2842 教訓で Scan は Limit なしページング)。
+//   → updateConversion(id, tenantId) は trialHistoryKey(id, tenantId) で PK/SK が確定するため
+//     直接 Update する (#2941 項目 1: 旧 scanKeyById の tenant 横断 Scan + id filter は trial counter
+//     が tenant 別採番で id 衝突し cross-tenant 上書きの余地があったため撤去。tenantId は
+//     interface で必須化し、不在時は ConditionExpression で no-op)。
 //
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/trial-history-repo.ts (SSOT)
 
@@ -141,21 +142,34 @@ export async function insert(input: InsertTrialHistoryInput): Promise<void> {
 // updateConversion — トライアル後のコンバージョン情報を記録 (Stripe 本契約移行時)
 // ============================================================
 
-/** トライアル後のコンバージョン情報を記録（Stripe 本契約移行時に呼ぶ、id のみ受ける稀な経路） */
+/**
+ * トライアル後のコンバージョン情報を記録（Stripe 本契約移行時に呼ぶ稀な経路）。
+ *
+ * #2941 項目 1: id + tenantId で trialHistoryKey が一意に確定するため直接 Update する。
+ * 旧実装の scanKeyById (tenant 横断 Scan + id filter) は trial counter が tenant 別採番で
+ * id が tenant 間衝突するため、cross-tenant の課金情報上書き (IDOR 形状) の余地があった。
+ * tenant 検証は KeyCondition 相当 (exact Key) に内包され、構造的に他 tenant へ届かない。
+ */
 export async function updateConversion(input: UpdateTrialConversionInput): Promise<void> {
-	const key = await scanKeyById(input.id);
-	if (!key) return; // 該当 id 不在は no-op (SQLite UPDATE ... WHERE id = ? が 0 row と等価)
-	await getDocClient().send(
-		new UpdateCommand({
-			TableName: TABLE_NAME,
-			Key: { PK: key.PK, SK: key.SK },
-			UpdateExpression: 'SET stripeSubscriptionId = :sub, upgradeReason = :reason',
-			ExpressionAttributeValues: {
-				':sub': input.stripeSubscriptionId,
-				':reason': input.upgradeReason,
-			},
-		}),
-	);
+	try {
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: trialHistoryKey(input.id, input.tenantId),
+				UpdateExpression: 'SET stripeSubscriptionId = :sub, upgradeReason = :reason',
+				ExpressionAttributeValues: {
+					':sub': input.stripeSubscriptionId,
+					':reason': input.upgradeReason,
+				},
+				// 不在 key への UpdateItem は item を新規作成してしまうため、既存時のみ更新する。
+				ConditionExpression: 'attribute_exists(PK)',
+			}),
+		);
+	} catch (e) {
+		// 該当 record 不在は no-op (SQLite UPDATE ... WHERE id AND tenant_id が 0 row と等価)。
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return;
+		throw e;
+	}
 }
 
 // ============================================================
@@ -166,36 +180,4 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 	const { deleteItemsByExactPk } = await import('./bulk-delete');
 	// tenant partition (PK=T#<tenant>#TRIAL) は trial history 専用のため exact PK 削除で完結。
 	await deleteItemsByExactPk(trialHistoryTenantPK(tenantId));
-}
-
-// ============================================================
-// 内部ヘルパ
-// ============================================================
-
-/**
- * updateConversion 用に、historyId に一致する item の PK/SK を tenant 横断 Scan で解決する。
- * conversion は id のみ受け tenantId が不明なため tenant 配下を走査する (Stripe webhook 経由の
- * 稀な経路)。#2842 教訓: Scan の Limit は filter 前評価のため付けず ExclusiveStartKey で全ページ走査。
- */
-async function scanKeyById(historyId: number): Promise<{ PK: string; SK: string } | undefined> {
-	const doc = getDocClient();
-	let lastKey: Record<string, unknown> | undefined;
-	do {
-		const result = await doc.send(
-			new ScanCommand({
-				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
-				ExpressionAttributeValues: {
-					':prefix': PREFIX,
-					':id': historyId,
-				},
-				ProjectionExpression: 'PK, SK',
-				ExclusiveStartKey: lastKey,
-			}),
-		);
-		const item = result.Items?.[0];
-		if (item) return { PK: item.PK as string, SK: item.SK as string };
-		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-	} while (lastKey);
-	return undefined;
 }

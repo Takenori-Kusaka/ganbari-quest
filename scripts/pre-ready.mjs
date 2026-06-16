@@ -40,10 +40,16 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveBaseBranchAuto } from './lib/resolve-base-branch.mjs';
+import { isAllowedBaseBranch, resolveBaseBranchAuto } from './lib/resolve-base-branch.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
+
+// #2929 項目 3: fail-open / 明示 skip した gate の監査注記。
+// Step 11b (SS embed gate) は gh pr view 失敗時に WARN + PASS 扱い (fail-open) で素通りし、
+// --skip-ss-embed-gate flag でも skip できるが、その事実が最終 summary から見えないと
+// 「ローカル ALL PASS = SS embed 検証済」と誤認される。ここに集約し summary で 1 行明示する。
+const failOpenNotes = [];
 
 // ---------------------------------------------------------------------------
 // CLI 引数
@@ -185,8 +191,18 @@ function run(cmd, argv) {
  * @returns {Promise<string[]>}
  */
 async function getChangedFiles(baseBranch) {
+	// #2982: shell:true 下で `origin/${baseBranch}` をコマンド文字列に展開するため、展開前に
+	// whitelist (main / develop の 2 lane) で防御的に clamp する。脅威モデルは「本人の local tool」
+	// のため理論枠 (ADR-0010 整合で非 BLOCK 裁定済) だが、injection 面を構造的に閉じる。
+	let base = baseBranch;
+	if (!isAllowedBaseBranch(base)) {
+		console.warn(
+			`[pre-ready] WARN: 想定外の base branch "${base}" (whitelist: main / develop) — origin/main に clamp します (#2982)`,
+		);
+		base = 'main';
+	}
 	return new Promise((resolveP) => {
-		const child = spawn('git', ['diff', `origin/${baseBranch}...HEAD`, '--name-only'], {
+		const child = spawn('git', ['diff', `origin/${base}...HEAD`, '--name-only'], {
 			cwd: repoRoot,
 			stdio: ['ignore', 'pipe', 'ignore'],
 			shell: true,
@@ -284,6 +300,14 @@ function buildSteps(args, changedFiles) {
 	const uiChanged = changedFiles.some(
 		(f) => /\.(svelte|css|scss)$/.test(f) || f.startsWith('site/'),
 	);
+
+	// #2929 項目 3: UI 変更があるのに --skip-ss-embed-gate で明示 skip した場合は監査注記を残す
+	// (UI 変更なし / --pr 未指定による自動 skip は通常動作なので注記しない)
+	if (args.skipSsEmbedGate && uiChanged && args.pr) {
+		failOpenNotes.push(
+			'ss-embed-gate: --skip-ss-embed-gate 指定により UI 変更 PR の SS embed 検証を skip — CI screenshot-quality-check が authoritative (#2929)',
+		);
+	}
 
 	// graceful degradation: 未実装 / 移動済の検査 script は skip + warning に倒す (Issue #1920 設計判断)
 	const planLiteralsScript = resolve(repoRoot, 'scripts/check-no-plan-literals.mjs');
@@ -471,7 +495,11 @@ function buildSteps(args, changedFiles) {
 				const pr = await fetchPrBodyAndLabels(args.pr);
 				if (!pr) {
 					console.log(
-						'[pre-ready] WARN: gh pr view で PR body / labels 取得失敗 — SS embed gate を skip (#2918)',
+						'[pre-ready] WARN: gh pr view で PR body / labels 取得失敗 — SS embed gate を fail-open (PASS 扱い) で素通りします (#2918)。' +
+							'最終判定は CI screenshot-quality-check (authoritative) を確認してください。',
+					);
+					failOpenNotes.push(
+						'ss-embed-gate: gh pr view 失敗により fail-open (SS embed 未検証のまま PASS 扱い) — CI screenshot-quality-check が authoritative (#2929)',
 					);
 					return 0;
 				}
@@ -574,8 +602,13 @@ async function main() {
 		console.log(`[pre-ready] ✓ ${step.label}`);
 	}
 
+	// #2929 項目 3: fail-open / 明示 skip した gate を summary で可視化 (silent pass の誤認防止)
+	for (const note of failOpenNotes) {
+		console.log(`\n[pre-ready] ⚠ fail-open: ${note}`);
+	}
+
 	console.log(
-		`\n[pre-ready] ALL PASS — Ready for Review に進めます。\n` +
+		`\n[pre-ready] ALL PASS${failOpenNotes.length > 0 ? ` (fail-open ${failOpenNotes.length} 件あり — 上記 ⚠ を確認)` : ''} — Ready for Review に進めます。\n` +
 			`  実行: ${steps.length - skipped.length} step / skip: ${skipped.length} step (${skipped.join(', ') || 'none'})\n` +
 			`  次の手順:\n` +
 			`    1. node scripts/check-gh-account-before-pr.mjs   # gh アカウント確認 (#1728)\n` +

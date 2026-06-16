@@ -152,7 +152,7 @@ audit-team.md §3.6 の棄却運用 flow（全件発露 → 3 段 filter → 起
 
 - 統合 PR は `Takenori-Kusaka` 名義（監査マネージャ session）が作成し、`ganbariquestsupport-lab`（外部品質監査チーム role）が approve + merge する。作成者 ≠ 承認者分離を統合 PR でも維持する（branch-strategy.md §6 / ADR-0022 Amendment 4 決定 2）。
 - 同一 gh アカウント `ganbariquestsupport-lab` を base branch で role 区別する（develop→main = 監査チーム role）。`pr-author-guard.yml` は author が `Takenori-Kusaka` 以外を fail させるため、統合 PR も現行 guard のまま整合する（許可リスト拡張不要）。
-- 本 2 role 区別は **develop cutover（#2870）完了後に発効**する。cutover 前は現行運用（全 PR が main 向け、QM role が毎時 approve + merge）が継続する（ADR-0022 Amendment 4 §発効条件）。
+- 本 2 role 区別は develop cutover（#2870 完了）で**発効済み**。cutover 後〜監査 run pipeline（#2867）稼働までの QM 暫定代行（develop→main 統合 PR の approve + merge 代行）は終期条件（#2867 稼働）の充足により終了済みで、統合 PR の判定は本 agent（監査チーム role）の専管（[qa-session.md §レビュー対象レーン](../../docs/sessions/qa-session.md) / ADR-0022 Amendment 4）。本規定の改訂時は ADR-0022 / qa-session.md / 本ファイル §G の 3 doc を同時更新する。
 
 ## やってはいけないこと
 

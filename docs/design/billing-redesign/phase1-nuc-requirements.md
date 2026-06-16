@@ -69,7 +69,7 @@
 | 1 | NUC の収益モデル | ✅ PO 確定 2026-05-27: **完全無料 OSS 配布** (GitLab CE/Ghost 型、収益は SaaS 側) |
 | 2 | 正規購入者判定方式 | ✅ PO 確定 2026-05-27: **信頼ベース** (判定なし・family 固定、DRM 作らない、ADR-0010/0051 整合) |
 | 3 | NUC の機能差別化 (全機能 family vs 一部 SaaS 限定) | 全機能 family が ADR-0051 整合、収益モデル次第 |
-| 4 | 既存 NUC dogfood 機 (192.168.68.79) の license key 撤廃移行手順 | Phase 7 実装で扱う |
+| 4 | 既存 NUC dogfood 機 (<NUC_HOST>) の license key 撤廃移行手順 | Phase 7 実装で扱う |
 | 5 | AWS_LICENSE_SECRET / ALLOW_LEGACY_LICENSE_KEYS env の SaaS 側残存範囲 | Phase 6 (#2514 実装詳細) lateral spread で扱う |
 
 ## 関連 (2026-05-28 補強)

@@ -23,6 +23,8 @@ export interface DevUserProfile {
 	username?: string;
 	/** #820: ダミー JWT の `cognito:groups` claim に載せる group 一覧 */
 	groups?: string[];
+	/** #3025: federated (Google) 相当ユーザ。identities claim をダミー JWT に載せる */
+	federated?: boolean;
 }
 
 /** ダミー Cognito ID Token を生成 */
@@ -36,6 +38,11 @@ export async function signDevIdentityToken(user: DevUserProfile): Promise<string
 	};
 	if (user.groups && user.groups.length > 0) {
 		payload['cognito:groups'] = user.groups;
+	}
+	if (user.federated) {
+		// #3025: 本物の Cognito federation と同形の identities claim + 実認証時刻
+		payload.identities = [{ providerName: 'Google', providerType: 'Google' }];
+		payload.auth_time = Math.floor(Date.now() / 1000);
 	}
 	return new SignJWT(payload)
 		.setProtectedHeader({ alg: 'HS256' })
@@ -67,6 +74,8 @@ export async function verifyDevIdentityToken(token: string): Promise<CognitoClai
 			email_verified: payload.email_verified as boolean | undefined,
 			'cognito:username': payload['cognito:username'] as string | undefined,
 			'cognito:groups': groups,
+			identities: Array.isArray(payload.identities) ? payload.identities : undefined,
+			auth_time: typeof payload.auth_time === 'number' ? payload.auth_time : undefined,
 			iss: payload.iss as string,
 			aud: payload.aud as string,
 		};

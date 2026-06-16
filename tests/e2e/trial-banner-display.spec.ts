@@ -1,105 +1,97 @@
 // tests/e2e/trial-banner-display.spec.ts
-// #750: TrialBanner の表示状態 E2E テスト
+// トライアル表示の状態マトリクス E2E（#750 → #3033 で再設計）
 //
-// AUTH_MODE=cognito + COGNITO_DEV_MODE=true で各プランユーザーでログインし、
-// TrialBanner コンポーネントの 3 状態（未開始 / アクティブ / 期限切れ）が
-// 正しく表示されることを検証する。
+// #3033 (PO 指摘 2026-06-12): 全ページ常設の trial バナー (not-started / expired) は
+// モバイルで画面の半分を占め、無料版のまま使い続けるユーザーの不利益になるため撤去。
+// - 残日数 = header pill (`header-trial-pill`、trial active 中のみ)
+// - 開始導線 = /admin/subscription の開始セクション (`subscription-start-trial-button`)
+// - 期限切れ通知 = 一回限りの TrialEndedDialog (#770)
+// - body バナー = urgent (残 1 日以下) のみ (`trial-banner-urgent`)
 //
-// trial-flow.spec.ts がトライアルのライフサイクル（開始→アクティブ→終了の遷移）を
-// 検証するのに対し、この spec は「各プラン × 各トライアル状態」のマトリクスで
-// バナーの表示/非表示を網羅的に検証する。
-//
-// #1535: loginAsPlan() を storageState ベースに移行（describe ブロック分割）
+// trial-flow.spec.ts がライフサイクル（開始→active→終了の遷移）を検証するのに対し、
+// この spec は「各プラン × 各トライアル状態」のマトリクスで表示/非表示を網羅検証する。
 //
 // 実行: npx playwright test --config playwright.cognito-dev.config.ts trial-banner-display
 
 import { expect, test } from '@playwright/test';
 
 // ============================================================
-// free プラン — トライアル未使用 → not-started バナー
+// free プラン — トライアル未使用: 常設バナーなし + 開始導線は subscription
 // ============================================================
-test.describe('#750 TrialBanner 表示 — free（トライアル未使用）', () => {
+test.describe('トライアル表示 — free（未使用、#3033）', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
-	test('free ユーザーの /admin に not-started バナーが表示される', async ({ page }) => {
+	test('free ユーザーの /admin に常設トライアルバナーが出ない', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
-		const banner = page.getByTestId('trial-banner-not-started');
-		await expect(banner).toBeVisible({ timeout: 30_000 });
-		await expect(banner).toContainText('7日間');
-		await expect(page.getByTestId('trial-banner-start-button')).toBeVisible();
+		// header の常設導線 (アップグレード) は出る
+		await expect(page.locator('[data-tutorial="upgrade-btn"]')).toBeVisible({ timeout: 30_000 });
+		// 常設バナーは出ない (#3033)
+		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
+		await expect(page.getByTestId('trial-banner-urgent')).toHaveCount(0);
+		// trial 非 active なので pill も出ない
+		await expect(page.getByTestId('header-trial-pill')).toHaveCount(0);
 	});
 
-	test('not-started バナーに「カード登録不要」のテキストがある', async ({ page }) => {
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
+	test('開始導線は /admin/subscription の開始セクションに出る', async ({ page }) => {
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		const banner = page.getByTestId('trial-banner-not-started');
-		await expect(banner).toBeVisible({ timeout: 30_000 });
-		await expect(banner).toContainText('カード登録不要');
+		const startBtn = page.getByTestId('subscription-start-trial-button');
+		await expect(startBtn).toBeVisible({ timeout: 30_000 });
 	});
 });
 
 // ============================================================
-// trial-expired — 期限切れ → expired バナー
+// trial-expired — 常設バナーなし + 再開始不可
 // ============================================================
-test.describe('#750 TrialBanner 表示 — trial-expired', () => {
+test.describe('トライアル表示 — trial-expired（#3033）', () => {
 	test.use({ storageState: 'playwright/.auth/trial-expired.json' });
 
-	test('トライアル期限切れユーザーの /admin に expired バナーが表示される', async ({ page }) => {
+	test('期限切れユーザーの /admin に常設バナーが出ない', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
-		const banner = page.getByTestId('trial-banner-expired');
-		await expect(banner).toBeVisible({ timeout: 30_000 });
-		await expect(banner).toContainText('終了');
+		await expect(page.locator('[data-tutorial="upgrade-btn"]')).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('trial-banner-expired')).toHaveCount(0);
+		await expect(page.getByTestId('header-trial-pill')).toHaveCount(0);
 	});
 
-	test('expired バナーにアップグレード CTA が表示される', async ({ page }) => {
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
+	test('期限切れユーザーには開始導線が出ない（1 回限りルール）', async ({ page }) => {
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
 
-		const cta = page.getByTestId('trial-banner-expired-cta');
-		await expect(cta).toBeVisible({ timeout: 30_000 });
-		await expect(cta).toContainText('アップグレード');
-	});
-
-	test('expired ユーザーには「開始」ボタンが表示されない', async ({ page }) => {
-		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
-
-		// expired バナーが表示されるまで待つ
-		await page.getByTestId('trial-banner-expired').waitFor({ state: 'visible', timeout: 30_000 });
-		await expect(page.getByTestId('trial-banner-start-button')).toHaveCount(0);
+		await expect(page.getByTestId('saas-license-panel')).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByTestId('subscription-start-trial-button')).toHaveCount(0);
 	});
 });
 
 // ============================================================
-// standard / family プラン — トライアルバナー非表示
+// standard / family プラン — トライアル UI 一切非表示
 // ============================================================
-test.describe('#750 TrialBanner 表示 — standard（有料プラン）', () => {
+test.describe('トライアル表示 — standard（有料プラン）', () => {
 	test.use({ storageState: 'playwright/.auth/standard.json' });
 
-	test('standard プランユーザーにはトライアルバナーが表示されない', async ({ page }) => {
+	test('standard プランユーザーにはトライアル UI が表示されない', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
-		// /admin のメインコンテンツが描画されるまで待つ
 		await page.waitForLoadState('domcontentloaded');
 
-		// TrialBanner の全 3 状態がいずれも表示されない
 		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
 		await expect(page.getByTestId('trial-banner-expired')).toHaveCount(0);
-		// active バナーには testid がないため、「無料体験中」テキストの不在で確認
-		await expect(page.getByText('無料体験中')).toHaveCount(0);
+		await expect(page.getByTestId('trial-banner-urgent')).toHaveCount(0);
+		await expect(page.getByTestId('header-trial-pill')).toHaveCount(0);
 	});
 });
 
-test.describe('#750 TrialBanner 表示 — family（有料プラン）', () => {
+test.describe('トライアル表示 — family（有料プラン）', () => {
 	test.use({ storageState: 'playwright/.auth/family.json' });
 
-	test('family プランユーザーにはトライアルバナーが表示されない', async ({ page }) => {
+	test('family プランユーザーにはトライアル UI が表示されない', async ({ page }) => {
 		await page.goto('/admin', { waitUntil: 'commit', timeout: 30_000 });
 
 		await page.waitForLoadState('domcontentloaded');
 
 		await expect(page.getByTestId('trial-banner-not-started')).toHaveCount(0);
 		await expect(page.getByTestId('trial-banner-expired')).toHaveCount(0);
-		await expect(page.getByText('無料体験中')).toHaveCount(0);
+		await expect(page.getByTestId('trial-banner-urgent')).toHaveCount(0);
+		await expect(page.getByTestId('header-trial-pill')).toHaveCount(0);
 	});
 });

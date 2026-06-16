@@ -410,7 +410,7 @@ jobs:
     # composite action (actions/pr-lane) 経由の needs 化は main push 経路 (base_ref 空) を壊すため
     # inline 式で OR する (handoff spec 承認済 / A-6 #2948 で対応表化予定)。
     if: >-
-      (github.base_ref == 'main' && github.head_ref == 'develop')
+      (github.base_ref == 'main' && (github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')))
       || (github.base_ref != 'develop' && (needs.changes.outputs.deps == 'true' || needs.changes.outputs.stories == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -455,7 +455,7 @@ jobs:
     # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火 (pr-lane.mjs rule 2 SSOT)。
     needs: [changes]
     if: >-
-      (github.base_ref == 'main' && github.head_ref == 'develop')
+      (github.base_ref == 'main' && (github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')))
       || (github.base_ref != 'develop' && (needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'))
     permissions:
       contents: read
@@ -527,7 +527,7 @@ jobs:
     # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
     # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火 (pr-lane.mjs rule 2 SSOT)。
     if: >-
-      (github.base_ref == 'main' && github.head_ref == 'develop')
+      (github.base_ref == 'main' && (github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')))
       || (github.base_ref != 'develop' && (needs.changes.outputs.app == 'true' || needs.changes.outputs.deps == 'true'))
     permissions:
       contents: read
@@ -675,7 +675,7 @@ jobs:
     # #2931 / branch-strategy.md §4: 重量レーン。develop 向け PR では skip。
     # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火 (pr-lane.mjs rule 2 SSOT)。
     if: >-
-      (github.base_ref == 'main' && github.head_ref == 'develop')
+      (github.base_ref == 'main' && (github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')))
       || (github.base_ref != 'develop' && (needs.changes.outputs.cognito == 'true' || needs.changes.outputs.deps == 'true'))
     permissions:
       contents: read
@@ -738,7 +738,7 @@ jobs:
     # #2874: 統合 PR (develop → main) では paths filter に依らず保証発火 (pr-lane.mjs rule 2 SSOT)。
     needs: [changes]
     if: >-
-      (github.base_ref == 'main' && github.head_ref == 'develop')
+      (github.base_ref == 'main' && (github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')))
       || (github.base_ref != 'develop' && (needs.changes.outputs.docker == 'true' || needs.changes.outputs.deps == 'true'))
     permissions:
       contents: read
@@ -766,7 +766,7 @@ jobs:
       || github.event_name == 'push'
       || (github.event_name == 'pull_request'
           && github.base_ref == 'main'
-          && github.head_ref == 'develop')
+          && (github.head_ref == 'develop' || startsWith(github.head_ref, 'release/')))
       || (github.event_name == 'pull_request'
           && github.base_ref != 'develop'
           && contains(github.event.pull_request.labels.*.name, 'area:demo'))
@@ -959,7 +959,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Check head branch is develop or fix/* (branch-strategy.md §3 / §7-1)
+      - name: Check head branch is develop, release/* or fix/* (branch-strategy.md §3 / §7-1)
         env:
           CUTOVER_AT: ${{ vars.BRANCH_STRATEGY_CUTOVER_AT }}
           HEAD_REF: ${{ github.head_ref }}
@@ -980,11 +980,11 @@ jobs:
             echo "PR 作成 ($PR_CREATED_AT) < cutover ($CUTOVER_AT) → grandfather 免除（§8 step 6）"
             exit 0
           fi
-          if [ "$HEAD_REF" = "develop" ] || [[ "$HEAD_REF" == fix/* ]]; then
-            echo "head=$HEAD_REF → OK（develop 統合 PR または hotfix）"
+          if [ "$HEAD_REF" = "develop" ] || [[ "$HEAD_REF" == release/* ]] || [[ "$HEAD_REF" == fix/* ]]; then
+            echo "head=$HEAD_REF → OK（develop/release 統合 PR または hotfix）"
             exit 0
           fi
-          echo "::error::main 向け PR の head は develop（統合 PR）または fix/*（hotfix、ADR-0002 重量 gate 必須）のみ許可されています。head=$HEAD_REF は develop 向けに PR を出し直してください（docs/sessions/branch-strategy.md §3 / §5）。"
+          echo "::error::main 向け PR の head は develop / release/*（統合 PR）または fix/*（hotfix、ADR-0002 重量 gate 必須）のみ許可されています。head=$HEAD_REF は develop 向けに PR を出し直してください（docs/sessions/branch-strategy.md §3 / §5）。"
           exit 1
 
   # Gate job: always runs and reports overall CI status.
@@ -1066,7 +1066,7 @@ jobs:
       always()
       && github.event_name == 'pull_request'
       && github.base_ref == 'main'
-      && github.head_ref == 'develop'
+      && (github.head_ref == 'develop' || startsWith(github.head_ref, 'release/'))
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -1,14 +1,20 @@
 #!/bin/bash
 # deploy.sh - NUCサーバーへのデプロイスクリプト
-# Usage: bash scripts/deploy.sh
+# Usage: NUC_SSH_USER=<user> NUC_SSH_HOST=<host> bash scripts/deploy.sh
+#
+# 接続情報は env 経由で渡す (#2987、公開 repo への実値直書き禁止):
+#   NUC_SSH_USER  NUC への SSH ユーザー名
+#   NUC_SSH_HOST  NUC の LAN ホスト (IP or hostname)
+# 実値の管理場所は .env.example の「NUC SSH 接続情報」セクションを参照。
+# 未設定時は即 fail する (silent fallback 禁止、ADR-0024)。
 
 set -euo pipefail
 
 # ============================================================
 # Configuration
 # ============================================================
-REMOTE_USER="kusaka-server"
-REMOTE_HOST="192.168.68.79"
+REMOTE_USER="${NUC_SSH_USER:?NUC_SSH_USER is required (SSH user for the NUC). Example: NUC_SSH_USER=<user> NUC_SSH_HOST=<host> bash scripts/deploy.sh — see .env.example §NUC SSH 接続情報}"
+REMOTE_HOST="${NUC_SSH_HOST:?NUC_SSH_HOST is required (LAN host/IP of the NUC). Example: NUC_SSH_USER=<user> NUC_SSH_HOST=<host> bash scripts/deploy.sh — see .env.example §NUC SSH 接続情報}"
 REMOTE_DIR="C:/Apps/ganbari-quest"
 REMOTE_DATA_DIR="C:/Apps/ganbari-quest/data"
 SSH_TARGET="${REMOTE_USER}@${REMOTE_HOST}"
@@ -122,7 +128,7 @@ ssh "${SSH_TARGET}" "powershell -Command \"
   \$env:NODE_ENV = 'production'
   \$env:HOST = '0.0.0.0'
   \$env:PORT = '3000'
-  \$env:ORIGIN = 'http://192.168.68.79:3000'
+  \$env:ORIGIN = 'http://${REMOTE_HOST}:3000'
   Start-Process -FilePath 'node' -ArgumentList '${REMOTE_DIR}/index.js' -WorkingDirectory '${REMOTE_DIR}' -WindowStyle Hidden
   Write-Host 'Application started'
 \""

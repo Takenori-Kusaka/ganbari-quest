@@ -57,7 +57,9 @@ function makeEvent(
 	opts: {
 		password?: unknown;
 		newPin?: unknown;
-		identity?: { type: string; email?: string } | undefined;
+		identity?:
+			| { type: string; email?: string; isFederated?: boolean; authTime?: number }
+			| undefined;
 	} = {},
 ) {
 	const request = new Request('http://localhost/api/v1/parent-gate/reset-verified', {
@@ -191,6 +193,55 @@ describe('POST /api/v1/parent-gate/reset-verified (#2993)', () => {
 		expect(res.status).toBe(400);
 		expect(await res.json()).toEqual({ ok: false, error: 'PASSWORD_REQUIRED' });
 		expect(mockAuthenticateWithCognito).not.toHaveBeenCalled();
+	});
+
+	// --- #3025: federated (Google) ユーザ = requires-recent-login 経路 ---
+
+	it('federated + fresh auth_time: password 不要で 200 (re-auth API を呼ばない)', async () => {
+		const { event, cookieSet } = makeEvent({
+			password: '',
+			identity: {
+				type: 'cognito',
+				email: 'google@example.com',
+				isFederated: true,
+				authTime: Math.floor(Date.now() / 1000) - 60, // 1 分前 = fresh
+			},
+		});
+		const res = await POST(event);
+
+		expect(res.status).toBe(200);
+		expect(mockAuthenticateWithCognito).not.toHaveBeenCalled();
+		expect(mockAuthenticateDevUser).not.toHaveBeenCalled();
+		expect(mockSetupPin).toHaveBeenCalledWith('7531', 'tenant-1');
+		expect(cookieSet).toHaveBeenCalled();
+	});
+
+	it('federated + stale auth_time (5 分超): 401 FRESH_LOGIN_REQUIRED で setupPin を呼ばない', async () => {
+		const { event } = makeEvent({
+			password: '',
+			identity: {
+				type: 'cognito',
+				email: 'google@example.com',
+				isFederated: true,
+				authTime: Math.floor(Date.now() / 1000) - 10 * 60, // 10 分前 = stale
+			},
+		});
+		const res = await POST(event);
+
+		expect(res.status).toBe(401);
+		expect(await res.json()).toEqual({ ok: false, error: 'FRESH_LOGIN_REQUIRED' });
+		expect(mockSetupPin).not.toHaveBeenCalled();
+	});
+
+	it('federated + auth_time 欠落: 401 FRESH_LOGIN_REQUIRED (安全側に倒す)', async () => {
+		const { event } = makeEvent({
+			password: '',
+			identity: { type: 'cognito', email: 'google@example.com', isFederated: true },
+		});
+		const res = await POST(event);
+
+		expect(res.status).toBe(401);
+		expect(mockSetupPin).not.toHaveBeenCalled();
 	});
 
 	it('rate limit 超過は 429 RATE_LIMITED (パスワード brute force 防止)', async () => {

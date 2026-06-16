@@ -11,6 +11,10 @@ export interface CognitoClaims {
 	'cognito:username'?: string;
 	/** #820: ユーザーが所属する Cognito group の一覧（例: ['ops']） */
 	'cognito:groups'?: string[];
+	/** #3025: federated IdP 経由ユーザのみ持つ (例: [{providerName: 'Google', ...}])。有無で federated 判定 */
+	identities?: unknown[];
+	/** #3025: 実認証時刻 (epoch 秒、JWT 標準 claim)。refresh token 経由の再発行では元のログイン時刻を保持する */
+	auth_time?: number;
 	iss: string;
 	aud: string;
 }
@@ -77,6 +81,8 @@ export async function verifyIdentityToken(token: string): Promise<CognitoClaims 
 			email_verified: payload.email_verified as boolean | undefined,
 			'cognito:username': payload['cognito:username'] as string | undefined,
 			'cognito:groups': groups,
+			identities: Array.isArray(payload.identities) ? payload.identities : undefined,
+			auth_time: typeof payload.auth_time === 'number' ? payload.auth_time : undefined,
 			iss: payload.iss as string,
 			aud: payload.aud as string,
 		};

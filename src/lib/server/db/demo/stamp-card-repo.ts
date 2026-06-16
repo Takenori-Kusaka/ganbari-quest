@@ -70,6 +70,7 @@ export async function insertEntry(_input: InsertStampEntryInput, _tenantId: stri
 }
 
 export async function updateCardStatus(
+	_childId: number,
 	_cardId: number,
 	_input: UpdateStampCardStatusInput,
 	_tenantId: string,
@@ -78,6 +79,7 @@ export async function updateCardStatus(
 }
 
 export async function updateCardStatusIfCollecting(
+	_childId: number,
 	_cardId: number,
 	_input: UpdateStampCardStatusInput,
 	_tenantId: string,

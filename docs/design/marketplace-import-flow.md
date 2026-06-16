@@ -160,6 +160,19 @@ POC #2693 EPIC #2724 Round 18 で「activity-pack 取込完了後に何のフィ
 
 **他 type への波及方針**: reward-set (`admin/rewards/importPresetToChildren`) も既に `x-sveltekit-action` header + ActionResult deserialize の同型実装。checklist / rule-preset / challenge-set の admin 動線で fetch ActionResult 経由を採用する場合、本 SSOT 3 件 (Toast + 2 重防御 + `x-sveltekit-action` header) を必ず複製すること。
 
+##### partial-failure (一部保存失敗) feedback と `failed` 件数 SSOT (#2830 / #2955)
+
+取込が部分失敗した場合 (一部 item / row のみ persist 失敗)、「N 件登録しました」と偽らず **「N 件を追加しましたが、M 件は保存できませんでした」** を 2 層 feedback (Toast `error` + banner) で表示する。表示分岐は 4 admin page (activities / rewards / checklists / challenges) 共通の helper に集約する。
+
+| 項目 | 内容 | 実装 SSOT |
+|---|---|---|
+| **失敗件数の SSOT は `failed`** | UI が表示する失敗件数は Strategy 算出の `ImportResult.failed` (実 persist 失敗 item / row 数) のみ。`errors` 配列は per-child catch 行 / 集計行 / rule-preset の warnings merge が混在する**表示ログ専用**で、長さを失敗数として読まない (`errors.length` fallback は #2955 で撤去、`failed` は required 化済) | `src/lib/marketplace/types.ts` (`ImportResult.failed`) / `src/lib/marketplace/dispatcher.ts` (素通し) |
+| **message / tone 出し分け helper** | `resolveImportFeedback(data, labels)` — `failed > 0` → partial-failure (`error`) / `imported > 0` → success / それ以外 → 全件重複 (`info`)。partial-failure 文言は `MARKETPLACE_IMPORT_FEEDBACK_LABELS.partialFailure` (labels.ts、type 横断で同一文言) | `src/lib/marketplace/ui/import-feedback.ts` |
+| **server action の配線義務** | `?import=` 受領 action は dispatcher / Strategy の戻り値から `failed` を **必ず response に含めて返す**。新規 type の取込 action 追加時も同様 | 4 page の `+page.server.ts` (`importPackToChildren` / `importPresetToChildren` / `importMarketplaceChallengeSet`) |
+| **per-item 設計依存の注意** | reward / checklist の `failed = errors.length` 等式は「1 item = 1 error 行」の per-item try/catch 設計が前提。将来 bulk persist 化する場合は activity / challenge と同じ行数ベース集計 (planned − persisted) への再設計が必須 | `reward-set-import-service.ts` / `checklist-template-import-service.ts` 内コメント |
+
+回帰検証: UI 表示分岐は `tests/e2e/admin-import-partial-failure.spec.ts` (ActionResult fixture モック、3 page) + `tests/unit/marketplace/ui/import-feedback.test.ts`。server 層の `failed` 算出精度は `tests/unit/services/activity-import-service.test.ts` (#2830) 等。
+
 ##### `?import=<presetId>` auto-open 後の dialog 再 open 防止 (consumed latch、#2773 後 bug1 spec 検出)
 
 `?import=<presetId>` で `ChildSelectionDialog` を auto-open する `$effect` は `data.importPresetId`

@@ -24,6 +24,7 @@ import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHea
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import ChildSelectionDialog, {
@@ -78,6 +79,135 @@ let isImporting = $state(false);
 // #2362 PR-4: 「他の子供から copy」dialog
 let showCopyFromChildDialog = $state(false);
 let copySourceChildId = $state<number | null>(null);
+
+// #2832: reward 編集 / 削除 dialog state
+type PerChildReward = (typeof perChildRewards)[number];
+let editingReward = $state<PerChildReward | null>(null);
+let showEditDialog = $state(false);
+let editTitle = $state('');
+let editPoints = $state(100);
+let editIcon = $state('🎁');
+let isSavingEdit = $state(false);
+let deletingReward = $state<PerChildReward | null>(null);
+let showDeleteDialog = $state(false);
+let isDeleting = $state(false);
+
+// #2832 AC2: pending redemption が存在する reward か (編集 note / 処理待ちバッジ表示用)
+function hasPendingRedemption(rewardId: number): boolean {
+	return data.pendingRewardIds.includes(rewardId);
+}
+
+function openEditDialog(reward: PerChildReward) {
+	editingReward = reward;
+	editTitle = reward.title;
+	editPoints = reward.points;
+	editIcon = reward.icon ?? '🎁';
+	showEditDialog = true;
+}
+
+function openDeleteDialog(reward: PerChildReward) {
+	deletingReward = reward;
+	showDeleteDialog = true;
+}
+
+// #2832: 編集確定。fetch + deserialize は handleCopyFromChild と同型
+// (`x-sveltekit-action` header 必須、#2474 must-2)。
+async function handleEditConfirm() {
+	if (!editingReward) return;
+	const formData = new FormData();
+	formData.append('rewardId', String(editingReward.id));
+	formData.append('childId', String(editingReward.childId));
+	formData.append('title', editTitle);
+	formData.append('points', String(editPoints));
+	formData.append('icon', editIcon);
+	isSavingEdit = true;
+	actionUpgradeUrl = null;
+	try {
+		const resp = await fetch('?/update', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const actionResult = deserialize(await resp.text()) as
+			| { type: 'success'; data?: Record<string, unknown> }
+			| { type: 'failure'; data?: { error?: unknown } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+
+		if (actionResult.type === 'success') {
+			// 2 層 feedback (DESIGN.md §5): Toast (primary) + in-page banner (保険)
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.editSuccess;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.editSuccess, undefined, 'success');
+			showEditDialog = false;
+			editingReward = null;
+			await invalidateAll();
+		} else if (actionResult.type === 'failure') {
+			const display = getActionErrorDisplay(
+				actionResult.data?.error,
+				ADMIN_REWARDS_PAGE_LABELS.editFailed,
+			);
+			actionMessage = display.message;
+			actionUpgradeUrl = display.upgradeUrl;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.editFailed;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.editFailed, undefined, 'error');
+		}
+	} catch {
+		actionMessage = ADMIN_REWARDS_PAGE_LABELS.editFailed;
+		showToast(ADMIN_REWARDS_PAGE_LABELS.editFailed, undefined, 'error');
+	} finally {
+		isSavingEdit = false;
+	}
+}
+
+// #2832 AC1: 削除確定。pending redemption あり → server が 409 (deletePendingBlocked) を返し
+// 2 層 feedback (Toast + banner) でエラー表示する。
+async function handleDeleteConfirm() {
+	if (!deletingReward) return;
+	const formData = new FormData();
+	formData.append('rewardId', String(deletingReward.id));
+	formData.append('childId', String(deletingReward.childId));
+	isDeleting = true;
+	try {
+		const resp = await fetch('?/delete', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const actionResult = deserialize(await resp.text()) as
+			| { type: 'success'; data?: Record<string, unknown> }
+			| { type: 'failure'; data?: { error?: unknown } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+
+		if (actionResult.type === 'success') {
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.deleteSuccess;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.deleteSuccess, undefined, 'success');
+			showDeleteDialog = false;
+			deletingReward = null;
+			await invalidateAll();
+		} else if (actionResult.type === 'failure') {
+			const display = getActionErrorDisplay(
+				actionResult.data?.error,
+				ADMIN_REWARDS_PAGE_LABELS.deleteFailed,
+			);
+			actionMessage = display.message;
+			showToast(actionMessage, undefined, 'error');
+			// 削除拒否 (pending ガード) は dialog を閉じ、banner + toast でガイダンスを示す
+			showDeleteDialog = false;
+			deletingReward = null;
+		} else {
+			actionMessage = ADMIN_REWARDS_PAGE_LABELS.deleteFailed;
+			showToast(ADMIN_REWARDS_PAGE_LABELS.deleteFailed, undefined, 'error');
+		}
+	} catch {
+		actionMessage = ADMIN_REWARDS_PAGE_LABELS.deleteFailed;
+		showToast(ADMIN_REWARDS_PAGE_LABELS.deleteFailed, undefined, 'error');
+	} finally {
+		isDeleting = false;
+	}
+}
 
 // `?import=<presetId>` で auto-open。presetId 単位の one-shot guard で、確定後に
 // effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
@@ -304,7 +434,7 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		const actionResult = deserialize(await resp.text()) as
 			| {
 					type: 'success';
-					data?: { imported?: number; skipped?: number; total?: number };
+					data?: { imported?: number; skipped?: number; total?: number; failed?: number };
 			  }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
@@ -316,12 +446,17 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 				actionMessage = ADMIN_REWARDS_PAGE_LABELS.importDemo;
 				showToast(ADMIN_REWARDS_PAGE_LABELS.importDemo, undefined, 'info');
 			} else {
-				const imp = Number(actionResult.data?.imported ?? 0);
-				actionMessage =
-					imp === 0
-						? ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates
-						: ADMIN_REWARDS_PAGE_LABELS.importSuccess(imp);
-				showToast(actionMessage, undefined, imp > 0 ? 'success' : 'info');
+				// #2955 (#2830 横展開): server 算出 `failed` > 0 のときは partial-failure を
+				// 2 層 feedback (Toast + banner) で正直に出す (admin/activities と同型、共通 helper)。
+				const feedback = resolveImportFeedback(
+					actionResult.data as Record<string, unknown> | undefined,
+					{
+						success: ADMIN_REWARDS_PAGE_LABELS.importSuccess,
+						allDuplicates: ADMIN_REWARDS_PAGE_LABELS.importAllDuplicates,
+					},
+				);
+				actionMessage = feedback.message;
+				showToast(actionMessage, undefined, feedback.tone);
 				await invalidateAll();
 			}
 		} else if (actionResult.type === 'failure') {
@@ -553,6 +688,49 @@ async function handleCopyFromChild() {
 					{ADMIN_REWARDS_PAGE_LABELS.childContextHint}
 				</span>
 			</div>
+
+			<!-- #2832: 選択中 child のごほうび一覧 (編集 / 削除)。
+			     削除は pending redemption ガード (AC1)、編集は申請時点 snapshot note (AC2 案 b)。 -->
+			<section class="reward-list" data-testid="rewards-per-child-list">
+				{#if perChildRewards.length === 0}
+					<p class="reward-list__empty" data-testid="rewards-per-child-empty">
+						{ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
+					</p>
+				{:else}
+					{#each perChildRewards as reward (reward.id)}
+						<div class="reward-item" data-testid="reward-item-{reward.id}">
+							<span class="reward-item__icon">{reward.icon ?? '🎁'}</span>
+							<span class="reward-item__title">{reward.title}</span>
+							{#if hasPendingRedemption(reward.id)}
+								<span class="reward-item__pending" data-testid="reward-pending-badge-{reward.id}">
+									{ADMIN_REWARDS_PAGE_LABELS.rewardPendingBadge}
+								</span>
+							{/if}
+							<span class="reward-item__points">{reward.points}P</span>
+							<div class="reward-item__actions">
+								<Button
+									variant="ghost"
+									size="sm"
+									disabled={!data.isPremium}
+									data-testid="reward-edit-btn-{reward.id}"
+									onclick={() => openEditDialog(reward)}
+								>
+									{ADMIN_REWARDS_PAGE_LABELS.rewardEditButton}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									class="reward-item__delete-btn"
+									data-testid="reward-delete-btn-{reward.id}"
+									onclick={() => openDeleteDialog(reward)}
+								>
+									{ADMIN_REWARDS_PAGE_LABELS.rewardDeleteButton}
+								</Button>
+							</div>
+						</div>
+					{/each}
+				{/if}
+			</section>
 		{/if}
 	{/if}
 
@@ -731,6 +909,76 @@ async function handleCopyFromChild() {
 		closeOnConfirm={false}
 		testid="reward-import-child-selection-dialog"
 	/>
+
+	<!-- #2832 AC2 (案 b): reward 編集 dialog。pending redemption がある reward は
+	     「申請時点の内容で処理」note を表示する (snapshot 仕様の明示)。 -->
+	<Dialog
+		bind:open={showEditDialog}
+		title={ADMIN_REWARDS_PAGE_LABELS.editDialogTitle}
+		testid="reward-edit-dialog"
+	>
+		{#if editingReward && hasPendingRedemption(editingReward.id)}
+			<div class="edit-pending-note" role="note" data-testid="reward-edit-pending-note">
+				{ADMIN_REWARDS_PAGE_LABELS.editPendingNote}
+			</div>
+		{/if}
+		<div class="space-y-3">
+			<div class="grid grid-cols-2 gap-3">
+				<FormField label={REWARDS_LABELS.titleLabel} type="text" bind:value={editTitle} required />
+				<FormField label={REWARDS_LABELS.pointsLabel} type="number" bind:value={editPoints} min={1} max={10000} required />
+			</div>
+			<FormField label={REWARDS_LABELS.iconLabel} type="text" bind:value={editIcon} />
+		</div>
+		<div class="copy-dialog-footer">
+			<Button variant="ghost" onclick={() => { showEditDialog = false; editingReward = null; }}>
+				{ADMIN_REWARDS_PAGE_LABELS.editCancelButton}
+			</Button>
+			<Button
+				variant="primary"
+				loading={isSavingEdit}
+				disabled={!editTitle.trim()}
+				data-testid="reward-edit-confirm"
+				onclick={handleEditConfirm}
+			>
+				{isSavingEdit ? ADMIN_REWARDS_PAGE_LABELS.editSavingButton : ADMIN_REWARDS_PAGE_LABELS.editSaveButton}
+			</Button>
+		</div>
+	</Dialog>
+
+	<!-- #2832 AC1: reward 削除確認 dialog。pending redemption がある場合は server 側ガード
+	     (hasPendingByReward) が 409 を返し、Toast + banner の 2 層 feedback で拒否理由を表示する。 -->
+	<Dialog
+		bind:open={showDeleteDialog}
+		title={ADMIN_REWARDS_PAGE_LABELS.deleteDialogTitle}
+		testid="reward-delete-dialog"
+	>
+		{#if deletingReward}
+			<p class="delete-dialog-message">
+				{ADMIN_REWARDS_PAGE_LABELS.deleteConfirmMessage(deletingReward.title)}
+			</p>
+			<p class="delete-dialog-irreversible">
+				{ADMIN_REWARDS_PAGE_LABELS.deleteIrreversibleNote}
+			</p>
+			{#if hasPendingRedemption(deletingReward.id)}
+				<div class="edit-pending-note" role="note" data-testid="reward-delete-pending-warning">
+					{ADMIN_REWARDS_PAGE_LABELS.deletePendingBlocked}
+				</div>
+			{/if}
+		{/if}
+		<div class="copy-dialog-footer">
+			<Button variant="ghost" onclick={() => { showDeleteDialog = false; deletingReward = null; }}>
+				{ADMIN_REWARDS_PAGE_LABELS.deleteCancelButton}
+			</Button>
+			<Button
+				variant="danger"
+				loading={isDeleting}
+				data-testid="reward-delete-confirm"
+				onclick={handleDeleteConfirm}
+			>
+				{isDeleting ? ADMIN_REWARDS_PAGE_LABELS.deleteDeletingButton : ADMIN_REWARDS_PAGE_LABELS.deleteConfirmButton}
+			</Button>
+		</div>
+	</Dialog>
 
 	<!-- #2362 PR-4: 「他の子供から copy」 dialog -->
 	<Dialog
@@ -919,5 +1167,79 @@ async function handleCopyFromChild() {
 		gap: 0.5rem;
 		padding-top: 0.5rem;
 		border-top: 1px solid var(--color-border-light);
+	}
+
+	/* #2832: per-child reward list + edit / delete */
+	.reward-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.375rem;
+	}
+	.reward-list__empty {
+		font-size: 0.85rem;
+		color: var(--color-text-muted);
+		padding: 0.75rem;
+		text-align: center;
+	}
+	.reward-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.75rem;
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-light);
+		border-radius: var(--radius-md);
+	}
+	.reward-item__icon {
+		font-size: 1.25rem;
+	}
+	.reward-item__title {
+		flex: 1;
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--color-text-primary);
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+	.reward-item__pending {
+		font-size: 0.7rem;
+		padding: 0.125rem 0.5rem;
+		border-radius: 9999px;
+		background: var(--color-feedback-warning-bg);
+		border: 1px solid var(--color-feedback-warning-border);
+		color: var(--color-feedback-warning-text);
+		white-space: nowrap;
+	}
+	.reward-item__points {
+		font-size: 0.85rem;
+		font-weight: 700;
+		color: var(--color-point, var(--color-text-secondary));
+		white-space: nowrap;
+	}
+	.reward-item__actions {
+		display: flex;
+		gap: 0.25rem;
+	}
+	:global(.reward-item__delete-btn) {
+		color: var(--color-action-danger) !important;
+	}
+	.edit-pending-note {
+		font-size: 0.8rem;
+		padding: 0.5rem 0.75rem;
+		margin-bottom: 0.75rem;
+		border-radius: var(--radius-sm);
+		background: var(--color-feedback-info-bg);
+		border: 1px solid var(--color-feedback-info-border);
+		color: var(--color-feedback-info-text);
+	}
+	.delete-dialog-message {
+		font-size: 0.9rem;
+		color: var(--color-text-primary);
+		margin-bottom: 0.5rem;
+	}
+	.delete-dialog-irreversible {
+		font-size: 0.8rem;
+		color: var(--color-action-danger);
+		margin-bottom: 0.75rem;
 	}
 </style>

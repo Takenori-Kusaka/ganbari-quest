@@ -71,7 +71,11 @@ const BASE_TEST_IGNORE = [
 // global-setup.ts 側の WORKER_COUNT と一致させること (現状: 両方 2)。
 // Phase B / Phase D で 4 復帰判断。
 const WORKER_COUNT = 2;
-const BASE_PORT = 5190;
+// #2832: 並行 worktree agent が同ポート (5190/5191) で E2E server を起動していると
+// `reuseExistingServer: !CI` が他 worktree の stale server (別 code / 別 DB) を再利用して
+// 全 spec が誤動作する。E2E_BASE_PORT env で worktree ごとに ports をずらせるようにする
+// (default 5190 は CI / 単独ローカルで従来通り)。fixtures.ts と同値を読む。
+const BASE_PORT = Number(process.env.E2E_BASE_PORT ?? 5190);
 
 export default defineConfig({
 	testDir: 'tests/e2e',

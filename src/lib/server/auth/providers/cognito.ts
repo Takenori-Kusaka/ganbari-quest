@@ -35,6 +35,9 @@ export class CognitoAuthProvider implements AuthProvider {
 						userId: claims.sub,
 						email: claims.email,
 						groups: claims['cognito:groups'],
+						// #3025: identities claim の有無で federated (Google 等) を判定
+						isFederated: (claims.identities?.length ?? 0) > 0,
+						authTime: claims.auth_time,
 					};
 				}
 			} catch (e) {
@@ -55,6 +58,9 @@ export class CognitoAuthProvider implements AuthProvider {
 						userId: claims.sub,
 						email: claims.email,
 						groups: claims['cognito:groups'],
+						// #3025: identities claim の有無で federated (Google 等) を判定
+						isFederated: (claims.identities?.length ?? 0) > 0,
+						authTime: claims.auth_time,
 					};
 				}
 			}

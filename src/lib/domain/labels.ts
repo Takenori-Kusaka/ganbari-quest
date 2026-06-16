@@ -637,35 +637,24 @@ export const ACTION_LABELS = {
  * CI: scripts/check-forbidden-terms.mjs が完全一致禁止語を検出する。
  */
 // #1916: atom (トライアル日数) は terms.ts (TRIAL_TERMS) に移譲
-// #1958 Phase 7 H1: bannerDescNotStarted の文末「カード登録不要。」を TRIAL_TERMS.noCreditCardMid 参照に統一。
+// #3033: TrialBanner を urgent 専用に縮小し not-started / expired / active 通常の compound を撤去
+// (代替: header pill / /admin/subscription / TrialEndedDialog #770 / ロック機能接触時の文脈表示)
 export const TRIAL_LABELS = {
 	durationDays: TRIAL_TERMS.durationDays,
-	bannerTitleActive: (days: number) => `${ACTION_LABELS.freeTrial}中（残り${days}日）`,
 	bannerTitleUrgent: `${ACTION_LABELS.freeTrial}は明日で終了します`,
 	bannerDescActive: '全機能をお試しいただけます。',
-	bannerTitleNotStarted: `${TRIAL_TERMS.duration}、全機能を${ACTION_LABELS.freeTrialDesc}`,
-	bannerDescNotStarted: `${PLAN_LABELS.standard}のすべての機能をお使いいただけます。${TRIAL_TERMS.noCreditCardMid}。`,
 	bannerCtaNotStarted: ACTION_LABELS.viewPlans,
-	bannerCtaStart: `${TRIAL_TERMS.duration} ${ACTION_LABELS.freeTrialWord}`,
-	// #2901 AC2 (contextual paywall): generic な「全機能無料」訴求だけでは「どの機能が
-	// 無料版で使えないのか」をユーザーが recognition できない (PO 指摘 #4、NN/G #6
-	// recognition rather than recall)。not-started バナーに free 版で制限される主要機能を
-	// 列挙し「やりたい事をやろうとしたら無料版では出来ない、に気づく」体験を作る。
-	// 機能名は FEATURE_LABELS / CHILD_TERMS SSOT から参照し直書きしない (ADR-0045)。
-	// ダークパターン (偽の緊急性・解約妨害) は含めない (ADR-0012 anti-engagement)。
-	bannerGatedHeading: '無料版では制限される機能',
-	bannerGatedFeatures: [
-		`${FEATURE_LABELS.activity}の作成を無制限に`,
-		`${CHILD_TERMS.honorific}の登録を無制限に`,
-		FEATURE_LABELS.aiActivitySuggest,
-		`特別な${FEATURE_LABELS.reward}設定`,
-		FEATURE_LABELS.dataExport,
-	] as readonly string[],
-	bannerCtaSubmitting: ACTION_LABELS.submitting,
-	bannerTitleExpired: `${ACTION_LABELS.freeTrial}が終了しました`,
-	bannerDescExpired: `${ACTION_LABELS.upgrade}で全機能をご利用いただけます。`,
-	bannerDescExpiredWithArchive: `一部のデータが制限されています。${ACTION_LABELS.upgrade}ですべて復元できます。`,
-	bannerCtaExpired: `⭐ ${ACTION_LABELS.upgrade}`,
+	// #2941 項目 2: startTrial action の negative path (trialUsed=true 再押下 → fail 400) を
+	// ユーザーに見える形で表示する (NN/G #1 visibility of system status)。
+	// startErrorAlreadyUsed は server (subscription +page.server.ts) が fail body に入れ、
+	// startErrorFallback は client (#3033 で開始導線を SaasLicensePanel に一本化後は
+	// 同 panel の startTrial form) が getActionErrorDisplay の fallback に使う。
+	startErrorAlreadyUsed: `${ACTION_LABELS.freeTrial}はすでに使用済みです`,
+	startErrorFallback: `${ACTION_LABELS.freeTrial}を開始できませんでした。時間をおいて再度お試しください。`,
+	// trial active 中は body バナーでなく header pill で残日数を常時視認させる
+	// (tap で /admin/subscription へ。urgent 残 1 日以下のみ body バナー併用)
+	headerPillLabel: (days: number) => `残り${days}日`,
+	headerPillTitle: `${ACTION_LABELS.freeTrial}中`,
 } as const;
 
 // ============================================================
@@ -1333,11 +1322,12 @@ export const OYAKAGI_LABELS = {
 	gateFormatNotice: `${OYAKAGI_TERMS.name}は4〜6桁の数字です`,
 	gateGenericError: `${OYAKAGI_TERMS.name}の確認に失敗しました。もう一度お試しください`,
 	// Issue #2353 Fix 5 (Phase A): gateDefaultHint (= '初期値は 5086（がんばり）です') は子供が見て即入れる脆弱性のため modal 用 atom を削除
-	// setup フローでの初期値伝達は OYAKAGI_LABELS.defaultValueHint で継続 (適切な文脈 = 親が初期 setup 完了画面で見る)
+	// (#2992 以降は初回作成フローのため gate 経路に既定 PIN ヒント自体が不要。defaultValueHint は legacy local 文脈の PIN 変更画面のみで継続)
 	gatePinRequiredBanner: `${ADMIN_VIEW_TERMS.canonical}に入るには${OYAKAGI_TERMS.name}が必要です`,
-	// #2353 設計欠陥 4: PIN 忘れ救済導線 (SES magic link + jose JWT 30 分 token + 1 回限り)
+	// #2993: PIN 忘れ救済導線 (入力モード + cognito identity のみ表示、/auth/reset-pin = パスワード再入力方式へ遷移)
 	gateForgotPinLink: `${OYAKAGI_TERMS.name}を忘れた方`,
-	gateForgotPinHelp: `${OYAKAGI_TERMS.name}が分からない場合は登録メールで再設定できます`,
+	// #2994: local (self-host) では運用者向け reset 手順に誘導する (email/リンク導線なし)
+	gateOperatorResetNotice: `${OYAKAGI_TERMS.name}を忘れた場合は、サーバー管理者向けのリセット手順で再設定できます`,
 	// #2992 (EPIC #2990): 初回は「作る」フロー。PIN 未設定 tenant には login でなく
 	// 新規作成 (入力→確認の 2 段) を表示する (Apple Screen Time / Google Family Link 同型)。
 	// これにより既定 PIN を知らない保護者の初回 dead-end が構造的に解消する。
@@ -1364,6 +1354,12 @@ export const PIN_RESET_LABELS = {
 	resetAccountLabel: 'ログイン中のアカウント',
 	resetPasswordLabel: 'アカウントのパスワード',
 	resetPasswordHint: `${LOGIN_TERMS.canonical}時に使っているパスワードです`,
+	// #3025: federated (Google) ユーザ向け — Cognito パスワードを持たないため再ログインで本人確認
+	resetFederatedDescription: `ご本人確認のため、Googleでログインし直してください。確認後そのまま新しい${OYAKAGI_TERMS.name}を設定できます。`,
+	resetFederatedReauthButton: `Google で本人確認する`,
+	resetFederatedVerified: `本人確認ができました。新しい${OYAKAGI_TERMS.name}を入力してください。`,
+	errorFreshLoginRequired:
+		'本人確認の有効期限が切れました。もう一度「Google で本人確認する」からやり直してください',
 	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
 	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',
@@ -3988,6 +3984,23 @@ export const ACTIVITY_FORM_LABELS = {
 } as const;
 
 /**
+ * marketplace 取込 feedback の type 横断共通 compound (#2955)
+ *
+ * partial-failure (一部保存失敗) の表示文言は 5 type (activities / rewards / checklists /
+ * challenges / rules) で同一にする (DESIGN.md §10 NN/G #4 consistency)。
+ * 各 admin page は `resolveImportFeedback()` ($lib/marketplace/ui/import-feedback) 経由で
+ * 本 compound を既定参照する。
+ */
+export const MARKETPLACE_IMPORT_FEEDBACK_LABELS = {
+	// #2818: 一部 (または全件) が保存できなかったとき正直に出す。
+	//   「N 件登録しました」と偽らず、追加できた件数と保存できなかった件数を分けて表示する。
+	partialFailure: (imported: number, failed: number) =>
+		imported > 0
+			? `${imported} 件を追加しましたが、${failed} 件は保存できませんでした`
+			: '保存に失敗しました。もう一度お試しください',
+} as const;
+
+/**
  * admin/activities ページ用ラベル (#2362 PR-3 Phase 4)
  * 子供別タブ切替 + 兄弟共通化 UX (copy / 一括追加) の SSOT。
  */
@@ -4030,11 +4043,8 @@ export const ADMIN_ACTIVITIES_PAGE_LABELS = {
 	importFailed: '取込に失敗しました',
 	importDemo: 'デモではお試し用です（実際の追加は行われません）',
 	// #2818: 一部 (または全件) が保存できなかったとき正直に出す。
-	//   「N 件登録しました」と偽らず、追加できた件数と保存できなかった件数を分けて表示する。
-	importPartialFailure: (imported: number, failed: number) =>
-		imported > 0
-			? `${imported} 件を追加しましたが、${failed} 件は保存できませんでした`
-			: '保存に失敗しました。もう一度お試しください',
+	// #2955: 文言の SSOT は MARKETPLACE_IMPORT_FEEDBACK_LABELS (3 admin page 横展開で共通化)。
+	importPartialFailure: MARKETPLACE_IMPORT_FEEDBACK_LABELS.partialFailure,
 	// Round 18 Cluster G (per-child scope badge): 英語内部語彙「per-child」UI 露出撤去 (ADR-0045 §9)
 	// 「お子さま別」= per-child scope (個別 child に紐付く activity) を親向けに明示する短い表示
 	scopeBadgePerChild: `${CHILD_TERMS.honorific}別`,
@@ -4115,6 +4125,30 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	// add dialog title (mode 別、activities の addDialogTitle* / checklists の addDialogTitleAi と同型)
 	addDialogTitleManual: '+ 手動でごほうびを追加',
 	addDialogTitleAi: 'AI で提案してもらう',
+	// #2832: reward 一覧の編集 / 削除 (pending redemption ガード)
+	rewardListEmpty: `この${CHILD_TERMS.honorific}にはまだごほうびがありません`,
+	rewardEditButton: '編集',
+	rewardDeleteButton: '削除',
+	rewardPendingBadge: '交換申請 処理待ち',
+	editDialogTitle: 'ごほうびを編集',
+	// AC2 (案 b): 編集許容 + snapshot 仕様 (申請時点値) の明示 note
+	editPendingNote: '申請済みの交換は申請時点の内容（名前・ポイント）で処理されます',
+	editSaveButton: '保存する',
+	editSavingButton: '保存しています…',
+	editCancelButton: 'キャンセル',
+	editSuccess: 'ごほうびを更新しました',
+	editFailed: '更新に失敗しました',
+	deleteDialogTitle: 'ごほうびを削除',
+	deleteConfirmMessage: (title: string) => `「${title}」を削除しますか？`,
+	deleteIrreversibleNote: 'この操作は取り消せません。このごほうびの交換履歴も削除されます。',
+	deleteConfirmButton: '削除する',
+	deleteDeletingButton: '削除しています…',
+	deleteCancelButton: 'キャンセル',
+	deleteSuccess: 'ごほうびを削除しました',
+	deleteFailed: '削除に失敗しました',
+	// AC1: pending redemption ガード (hasPendingByReward) の削除拒否メッセージ
+	deletePendingBlocked:
+		'交換申請が処理待ちのため削除できません。申請を承認または却下してから削除してください',
 } as const;
 
 /**
@@ -4131,9 +4165,7 @@ export const ADMIN_HOME_LABELS = {
 	tutorialBannerHint: 'チュートリアルで使い方を確認しましょう（約3分）',
 	tutorialStartButton: '開始',
 	tutorialLaterButton: 'あとで',
-	freePlanQuickName: `${PLAN_FULL_TERMS.free}`,
-	freePlanQuickHint: 'もっと便利に使いませんか？',
-	freePlanQuickAction: '⭐ アップグレード →',
+	// #3033: freePlanQuick* 削除済 (plan-quick-link 撤去、プラン導線は header upgrade-btn に一本化)
 	// #2295 (EPIC #2294 ①): seasonalSectionTitle / memoryTicket* 削除済 (2026-05-19)
 	summaryChildrenAria: '登録こども数',
 	summaryChildrenLabel: 'こどもの数',
@@ -5976,9 +6008,6 @@ export const UI_COMPONENTS_LABELS = {
 	featureGateLockText: (plan: string) => `${plan}プラン以上で利用可能`,
 	featureGateUpgrade: 'アップグレード',
 
-	// ---- FeedbackFab ----
-	feedbackFabLabel: 'ご意見・不具合報告',
-
 	// ---- GoogleSignInButton ----
 	googleSignInLabel: 'Google でログイン',
 
@@ -6292,34 +6321,6 @@ export const FEATURES_LABELS = {
 		placeholder: '例: 運動会で1位、テストで100点、お皿を進んで洗った',
 		acceptBtn: 'この内容で応援を送る',
 		reasonLabel: '理由',
-	},
-
-	// ---- features/admin/components/FeedbackDialog ----
-	feedbackDialog: {
-		title: 'ご意見・不具合報告',
-		successText: '送信しました。ご意見ありがとうございます！',
-		closeBtn: '閉じる',
-		demoNote: 'デモ版のため、実際には送信されません',
-		categoryLabel: '種別',
-		categoryOpinion: 'ご意見',
-		categoryBug: '不具合報告',
-		categoryFeature: '機能要望',
-		categoryOther: 'その他',
-		categoryPlaceholder: '選択してください',
-		contentLabel: '内容',
-		contentPlaceholder: 'お気づきの点やご要望をお聞かせください',
-		screenshotLabel: 'スクリーンショット（任意）',
-		screenshotImageAlt: '添付スクリーンショット',
-		screenshotRemoveBtn: '削除',
-		screenshotPickerLabel: '画像を選択（最大 2MB）',
-		cancelBtn: 'キャンセル',
-		submitBtn: '送信する',
-		submittingText: '送信中...',
-		errorScreenshotSize: 'スクリーンショットは2MB以内にしてください',
-		errorScreenshotType: '画像ファイルを選択してください',
-		errorReadFile: 'ファイルの読み込みに失敗しました',
-		errorSend: '送信に失敗しました',
-		errorNetwork: 'ネットワークエラーが発生しました',
 	},
 
 	// ---- features/admin/components/PremiumWelcome ----

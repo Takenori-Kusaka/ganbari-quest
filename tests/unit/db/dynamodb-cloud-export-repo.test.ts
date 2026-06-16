@@ -8,7 +8,9 @@
  *
  * キー設計 (keys.ts cloudExportKey): PK = T#<tenant>#CEXPORT, SK = EXPORT#<id>
  *   - tenant list / count / id lookup → Query / GetItem
- *   - findByPin (no tenant) / deleteExpired / incrementDownloadCount(id) → Scan + 属性フィルタ
+ *   - findByPin (no tenant) / deleteExpired → Scan + 属性フィルタ
+ *   - incrementDownloadCount(id, tenantId) → exact Key UpdateItem (#2845 B1: 旧 tenant 無束縛
+ *     Scan 逆引きを撤去。呼び出し元 fetchCloudExportByPin が record.tenantId を持つ)
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -228,25 +230,39 @@ describe('insert', () => {
 	});
 });
 
-describe('incrementDownloadCount', () => {
-	it('Scan で id の raw key を引き当て ADD downloadCount +1', async () => {
-		mockSend
-			.mockResolvedValueOnce({
-				Items: [{ PK: `T#${TENANT}#CEXPORT`, SK: 'EXPORT#00000005' }],
-			})
-			.mockResolvedValueOnce({}); // UpdateCommand
+describe('incrementDownloadCount (#2845 B1: tenant 束縛 exact Key)', () => {
+	it('exact Key (T#<tenant>#CEXPORT / EXPORT#<id>) で直接 UpdateItem する (Scan 不発行)', async () => {
+		mockSend.mockResolvedValueOnce({}); // UpdateCommand
 		const { incrementDownloadCount } = await loadRepo();
-		await incrementDownloadCount(5);
-		const upArg = callOf(1).input;
-		expect(upArg.UpdateExpression).toContain('ADD downloadCount :one');
+		await incrementDownloadCount(5, TENANT);
+
+		expect(mockSend).toHaveBeenCalledTimes(1);
+		const cmd = mockSend.mock.calls[0]?.[0];
+		expect(cmd).toBeInstanceOf(MockUpdateCommand);
+		expect(cmd).not.toBeInstanceOf(MockScanCommand);
+		const upArg = callOf(0).input;
+		// literal PK assert: tenant 境界が Key で構造的に担保される (cross-tenant write 遮断)
+		expect((upArg.Key as Record<string, string>).PK).toBe(`T#${TENANT}#CEXPORT`);
 		expect((upArg.Key as Record<string, string>).SK).toBe('EXPORT#00000005');
+		expect(upArg.UpdateExpression).toContain('ADD downloadCount :one');
+		// attribute_exists で phantom item 生成を防ぐ
+		expect(upArg.ConditionExpression).toBe('attribute_exists(PK)');
 	});
 
-	it('該当なしなら Update を呼ばない', async () => {
-		mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+	it('不在 (別 tenant の id を含む) は ConditionalCheckFailed → silent no-op', async () => {
+		const err = Object.assign(new Error('conditional check failed'), {
+			name: 'ConditionalCheckFailedException',
+		});
+		mockSend.mockRejectedValueOnce(err);
 		const { incrementDownloadCount } = await loadRepo();
-		await incrementDownloadCount(999);
+		await expect(incrementDownloadCount(999, 'other-tenant')).resolves.toBeUndefined();
 		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+
+	it('ConditionalCheckFailed 以外のエラーは握りつぶさず throw する', async () => {
+		mockSend.mockRejectedValueOnce(Object.assign(new Error('boom'), { name: 'InternalError' }));
+		const { incrementDownloadCount } = await loadRepo();
+		await expect(incrementDownloadCount(5, TENANT)).rejects.toThrow('boom');
 	});
 });
 

@@ -34,6 +34,8 @@ export interface DevUser {
 	plan?: string;
 	/** #820: Cognito group 疑似所属。未指定は空扱い */
 	groups?: string[];
+	/** #3025: federated (Google) 相当。Cognito パスワードを持たないユーザの再現 (PIN reset 分岐検証用) */
+	federated?: boolean;
 }
 
 export const DEV_USERS: DevUser[] = [
@@ -98,6 +100,17 @@ export const DEV_USERS: DevUser[] = [
 		licenseStatus: AUTH_LICENSE_STATUS.NONE,
 		plan: undefined,
 	},
+	// ---------- #3025: federated (Google OAuth) 相当ユーザー ----------
+	// 本番の Google ログインユーザは Cognito パスワードを持たない。dev では login form の
+	// password でログインさせるが、発行する JWT に identities claim を載せ federated と同形にする。
+	{
+		userId: 'dev-google-owner-001',
+		email: 'google-owner@example.com',
+		password: 'Gq!Dev#Goog2026xy',
+		tenantId: 'dev-tenant-google',
+		role: 'owner',
+		federated: true,
+	},
 	// ---------- #820 PR-C: /ops 認可 E2E 用ユーザー ----------
 	// groups: ['ops'] を付与し、Cognito の ops group 所属として扱う。
 	// ops ダッシュボードは単独テナントで閲覧・操作するため、専用 tenant を割り当てる。
@@ -135,6 +148,9 @@ export class DevCognitoAuthProvider implements AuthProvider {
 					userId: claims.sub,
 					email: claims.email,
 					groups: claims['cognito:groups'],
+					// #3025: 本番 CognitoAuthProvider と同じ federated / recent-auth 情報
+					isFederated: (claims.identities?.length ?? 0) > 0,
+					authTime: claims.auth_time,
 				};
 			}
 		} catch (e) {

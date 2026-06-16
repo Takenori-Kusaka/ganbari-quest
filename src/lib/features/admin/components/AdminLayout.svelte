@@ -1,7 +1,13 @@
 <script lang="ts">
 import type { Snippet } from 'svelte';
 import { navigating, page } from '$app/stores';
-import { FEATURES_LABELS, NAV_CATEGORIES, NAV_ITEM_LABELS, PLAN_LABELS } from '$lib/domain/labels';
+import {
+	FEATURES_LABELS,
+	NAV_CATEGORIES,
+	NAV_ITEM_LABELS,
+	PLAN_LABELS,
+	TRIAL_LABELS,
+} from '$lib/domain/labels';
 import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
@@ -33,9 +39,19 @@ interface Props {
 	/** #2198: Multi-Lambda demo deployment (`AUTH_MODE=anonymous`) — upgrade CTA / plan badge を抑止する。
 	 *   LP SS carousel-4 で「demo なのにアップグレード強要」訴求毀損を防ぐ (ADR-0048 §決定 P-1.8 整合)。 */
 	authMode?: string;
+	/** #3033: trial active 中のみ残日数 (null = trial 非 active で pill 非表示) */
+	trialDaysRemaining?: number | null;
 }
 
-let { children, mode, basePath, isPremium = false, planTier = 'free', authMode }: Props = $props();
+let {
+	children,
+	mode,
+	basePath,
+	isPremium = false,
+	planTier = 'free',
+	authMode,
+	trialDaysRemaining = null,
+}: Props = $props();
 
 const isDemo = $derived(mode === 'demo');
 const isAnonymousLambda = $derived(authMode === 'anonymous');
@@ -143,7 +159,7 @@ const navCategories: NavCategory[] = $derived([
 		icon: NAV_CATEGORIES.settings.icon,
 		items: [
 			{ href: `${basePath}/settings`, label: NAV_ITEM_LABELS.settings, icon: '⚙️' },
-			{ href: `${basePath}/license`, label: NAV_ITEM_LABELS.license, icon: '💎' },
+			{ href: `${basePath}/subscription`, label: NAV_ITEM_LABELS.license, icon: '💎' },
 			{ href: `${basePath}/billing`, label: NAV_ITEM_LABELS.billing, icon: '🧾' },
 			// #2178: メンバー → family カテゴリへ移動済
 		],
@@ -208,24 +224,37 @@ function isItemActive(itemHref: string): boolean {
 	<header class="admin-header sticky {isDemo ? 'top-10' : 'top-0'} z-30 backdrop-blur border-b border-[var(--color-border-default)] px-4 py-3">
 		<div class="max-w-4xl mx-auto flex items-center justify-between">
 			<div class="flex items-center gap-2">
+				<!-- #3033: スマホは symbol (アイコンのみ) で header 領域を確保し trial pill 等の優先要素を残す -->
 				<a href={basePath} class="flex items-center">
-					<Logo variant="compact" size={140} />
+					<span class="hidden md:inline-flex"><Logo variant="compact" size={140} /></span>
+					<span class="inline-flex md:hidden"><Logo variant="symbol" size={44} /></span>
 				</a>
 				{#if isDemo}
 					<span class="header-badge header-badge--demo">{FEATURES_LABELS.adminLayout.demoBadge}</span>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
+				{#if !isDemo && !isAnonymousLambda && trialDaysRemaining !== null}
+					<!-- #3033: trial active 中の残日数 pill (Buffer 型)。tap でプランページへ -->
+					<a
+						href="{basePath}/subscription"
+						class="trial-pill"
+						data-testid="header-trial-pill"
+						title={TRIAL_LABELS.headerPillTitle}
+					>
+						⭐ {TRIAL_LABELS.headerPillLabel(trialDaysRemaining)}
+					</a>
+				{/if}
 				{#if !isDemo && !isAnonymousLambda && !isPremium}
 					<a
-						href="{basePath}/license"
+						href="{basePath}/subscription"
 						class="upgrade-btn"
 						data-tutorial="upgrade-btn"
 					>
 						{FEATURES_LABELS.adminLayout.upgradeBtn}
 					</a>
 				{:else if !isDemo && !isAnonymousLambda && isPremium}
-					<span class="plan-badge plan-badge--{planTier}">{planLabel}</span>
+					<a href="{basePath}/subscription" class="plan-badge plan-badge--{planTier}">{planLabel}</a>
 				{/if}
 				{#if !isDemo && hasPageGuide}
 					<button
@@ -431,7 +460,25 @@ function isItemActive(itemHref: string): boolean {
 		background: var(--color-premium);
 		color: var(--color-text-inverse);
 	}
-	/* Plan badge — single instance (#490) */
+	/* Trial countdown pill (#3033) — visible only while trial is active, same tokens as TrialBanner */
+	.trial-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding: 4px 10px;
+		font-size: 0.7rem;
+		font-weight: 700;
+		color: var(--color-text-inverse);
+		background: var(--color-action-trial);
+		border-radius: var(--radius-full);
+		text-decoration: none;
+		white-space: nowrap;
+		transition: background 0.15s ease;
+	}
+	.trial-pill:hover {
+		background: var(--color-action-trial-hover);
+	}
+	/* Plan badge — single instance (#490), linked to the subscription page (#3033) */
 	.plan-badge {
 		display: inline-flex;
 		align-items: center;
@@ -441,6 +488,7 @@ function isItemActive(itemHref: string): boolean {
 		font-weight: 700;
 		border-radius: 9999px;
 		white-space: nowrap;
+		text-decoration: none;
 	}
 	.plan-badge--standard {
 		background: var(--plan-badge-bg, #f3e8ff);

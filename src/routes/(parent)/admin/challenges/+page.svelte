@@ -11,6 +11,7 @@ import {
 	PLAN_GATE_LABELS,
 } from '$lib/domain/labels';
 // CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
+import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
 import SiblingChallengeComparison from '$lib/ui/features/admin/SiblingChallengeComparison.svelte';
@@ -20,6 +21,7 @@ import ChildSelectionDialog, {
 } from '$lib/ui/primitives/ChildSelectionDialog.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 let { data, form } = $props();
 
@@ -99,7 +101,13 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 		const actionResult = deserialize(await resp.text()) as
 			| {
 					type: 'success';
-					data?: { imported?: number; skipped?: number; total?: number; demo?: boolean };
+					data?: {
+						imported?: number;
+						skipped?: number;
+						total?: number;
+						failed?: number;
+						demo?: boolean;
+					};
 			  }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
@@ -110,11 +118,18 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
 				marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importDemo;
 			} else {
-				const imp = Number(actionResult.data?.imported ?? 0);
-				marketplaceImportMessage =
-					imp === 0
-						? ADMIN_CHALLENGES_PAGE_LABELS.importAllDuplicates
-						: ADMIN_CHALLENGES_PAGE_LABELS.importSuccess(imp);
+				// #2955 (#2830 横展開): server 算出 `failed` > 0 のときは partial-failure を
+				// 2 層 feedback (Toast + banner) で正直に出す (admin/activities と同型、共通 helper)。
+				// 本 page は従来 banner 単層だったため、DESIGN.md §5 の 2 層防御に合わせ Toast を追加。
+				const feedback = resolveImportFeedback(
+					actionResult.data as Record<string, unknown> | undefined,
+					{
+						success: ADMIN_CHALLENGES_PAGE_LABELS.importSuccess,
+						allDuplicates: ADMIN_CHALLENGES_PAGE_LABELS.importAllDuplicates,
+					},
+				);
+				marketplaceImportMessage = feedback.message;
+				showToast(feedback.message, undefined, feedback.tone);
 				await invalidateAll();
 			}
 		} else if (actionResult.type === 'failure') {

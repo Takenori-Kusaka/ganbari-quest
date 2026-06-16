@@ -21,6 +21,7 @@ import ActivityListItem from '$lib/features/admin/components/ActivityListItem.sv
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
 import HiddenActivitiesSection from '$lib/features/admin/components/HiddenActivitiesSection.svelte';
+import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
 import Button from '$lib/ui/primitives/Button.svelte';
 import ChildSelectionDialog, {
 	type ChildOption,
@@ -227,14 +228,6 @@ function applyImportFailure(failText: string) {
 	showToast(display.message, undefined, 'error');
 }
 
-// #2830: partial-failure の失敗件数を解決する。server 算出の `failed` (実失敗 activity 数) を
-//   優先し、errors 配列長に fallback する。errors は per-child catch 行 + 集計行が混在するため
-//   失敗規模を過小表示する (bulk throw 1 回で 30 activity 喪失でも errors.length≈2)。
-function resolveFailedCount(data: Record<string, unknown> | undefined): number {
-	if (typeof data?.failed === 'number') return data.failed;
-	return Array.isArray(data?.errors) ? (data.errors as unknown[]).length : 0;
-}
-
 // ChildSelectionDialog 確定ハンドラ: 'all' or number[] (選択 child IDs)
 async function handleChildSelectionConfirm(result: 'all' | number[]) {
 	if (!pendingImportPresetId) {
@@ -286,9 +279,6 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 				showToast(ADMIN_ACTIVITIES_PAGE_LABELS.importDemo, undefined, 'info');
 				return;
 			}
-			const imported = Number((data?.imported as number | undefined) ?? 0);
-			// #2830: 失敗件数は errors 配列長ではなく server 算出の `failed` を優先する (resolveFailedCount)。
-			const errorsCount = resolveFailedCount(data);
 			// #2745 fix Round 2 (CI artifact 解析根拠): Toast primitive (`role="alert"`) を
 			// 一次 feedback として表示しつつ、in-page banner (`role="status"`) を 2 重防御として
 			// 同期 set する。Toast は module-level `$state` push でリアクティブ更新されるが
@@ -297,23 +287,15 @@ async function handleChildSelectionConfirm(result: 'all' | number[]) {
 			// banner は同 page state なので同期 set、handler return 後の re-render で即座に表示される。
 			// regression test (#2745 spec) は role="alert" を待つが、Toast / banner どちらが先に
 			// 表示されても regex マッチで PASS する 2 重防御。Anti-engagement 整合 (DESIGN.md §5)。
-			// #2824 (取込永続 honesty): server が errors を返したら「N 件登録しました」と
-			// 偽らず、保存できなかった事実を出す。imported=0 を「追加済み」(importAllDuplicates)
-			// で誤魔化す経路は errors=0 (= 純粋な重複) のときに限定する。
-			let message: string;
-			let tone: 'success' | 'info' | 'error';
-			if (errorsCount > 0) {
-				message = ADMIN_ACTIVITIES_PAGE_LABELS.importPartialFailure(imported, errorsCount);
-				tone = 'error';
-			} else if (imported > 0) {
-				message = ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess(imported);
-				tone = 'success';
-			} else {
-				message = ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates;
-				tone = 'info';
-			}
-			actionMessage = message;
-			showToast(message, undefined, tone);
+			// #2824 (取込永続 honesty) / #2830 / #2955: 失敗件数は server 算出 `failed` が SSOT。
+			// message / tone の出し分けは 4 admin page 共通 helper (resolveImportFeedback) に集約。
+			const feedback = resolveImportFeedback(data, {
+				success: ADMIN_ACTIVITIES_PAGE_LABELS.importSuccess,
+				allDuplicates: ADMIN_ACTIVITIES_PAGE_LABELS.importAllDuplicates,
+				partialFailure: ADMIN_ACTIVITIES_PAGE_LABELS.importPartialFailure,
+			});
+			actionMessage = feedback.message;
+			showToast(feedback.message, undefined, feedback.tone);
 			await invalidateAll();
 		} else {
 			// #2894 AC3: 403 (PlanLimitError) を含む失敗 body を deserialize し、

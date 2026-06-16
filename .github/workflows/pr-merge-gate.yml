@@ -8,6 +8,17 @@ name: PR Merge Gate
 #   旧項目は self-referential な循環依存 (CI 通過しないと [x] にできないがこの項目自体が CI ゲート対象)
 #   を生んでおり、PR #1746/#1751/#1754/#1759/#1765/#1770 で Fix Agent が項目埋めだけのために動く事故が頻発。
 #   CI 通過確認は GitHub Status Checks 側に委ね、本 workflow はチェックリスト未完了のみを検出する。
+#
+# #2945 (Phase A/A-3、親 #2942): lane-aware 化。
+#   - job は全レーンで必ず実行 (trigger filter / job-level 全体 skip しない、#2942 no-go)。
+#     ただし dependabot は従来どおり job-level if で skip 相当 (AC6、挙動不変)。
+#   - lane 判定は A-1 SSOT (actions/pr-lane → scripts/pr-lane.mjs) 経由のみ (AC1、inline 判定なし)。
+#   - feature / hotfix lane = 現行 2 section (Ready for Review / 完了チェックリスト) 全消化を維持 (AC4)。
+#   - integration lane = 統合 PR 用 section を対象に切替 (AC5)。section 名は env で差替可能
+#     (Phase B #2871 で確定、targetSections をハードコードで統合用に置換しない、#2945 no-go)。
+#     必須 section 不在は fail (warning で素通りさせない、#2945 no-go)。
+#   - 検証ロジックは scripts/check-merge-gate-checklist.mjs に集約 (unit test 可能、二重実装しない)。
+#   - required context 名「PR チェックリスト完了確認」は不変 (AC7)。
 
 on:
   pull_request:
@@ -21,59 +32,63 @@ jobs:
   checklist-check:
     name: PR チェックリスト完了確認
     runs-on: ubuntu-latest
-    # #1808: Dependabot / Renovate は依存更新 PR で PR template チェックリストを持たないため job レベルで skip
+    # #1808 / #2945 AC6: Dependabot / Renovate は依存更新 PR で PR template チェックリストを
+    # 持たないため job レベルで skip (skip=Success で required check 通過、挙動不変)。
     if: "github.event.pull_request.draft == false && github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
     timeout-minutes: 3
     steps:
-      - name: チェックリストの未完了項目を検証
+      # A-1 lane 判定 SSOT を uses。inline 判定はしない (AC1、#2942 no-go)。
+      - name: Checkout (lane SSOT + judge 関数)
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            actions/pr-lane
+            scripts/pr-lane.mjs
+            scripts/check-merge-gate-checklist.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Classify PR lane (A-1 SSOT)
+        id: lane
+        uses: ./actions/pr-lane
+
+      - name: "チェックリストの未完了項目を検証 (lane-aware: feature/hotfix=2 section, integration=統合用 section)"
         uses: actions/github-script@v9
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          PR_LANE: ${{ steps.lane.outputs.lane }}
+          # #2945 AC5 / #2950 (Phase B/B-1): 統合 PR 用 section 名は env で差替可能。
+          # #2950 で統合 PR 専用 template (.github/INTEGRATION_PR_TEMPLATE.md) が確定したため、
+          # その checklist section「## NG 0 件 / カバレッジ宣言」(残 NG 0 / カバレッジ閾値 / 全 job 緑 /
+          # adversarial 解消の `- [ ]`) を接続する。lane 判定ロジック自体は不変、env 値の接続のみ。
+          # 値を設定すると scripts/check-merge-gate-checklist.mjs の DEFAULT_INTEGRATION_LANE_SECTIONS を上書きする。
+          MERGE_GATE_INTEGRATION_SECTIONS: "## NG 0 件 / カバレッジ宣言"
         with:
           script: |
-            const body = process.env.PR_BODY || '';
-            const labels = JSON.parse(process.env.PR_LABELS || '[]').map(l => l.name);
+            const lane = process.env.PR_LANE || 'feature';
+            core.info(`PR lane = ${lane} (判定 SSOT: scripts/pr-lane.mjs / actions/pr-lane、#2945)`);
 
-            // #1808: dependencies ラベルでも skip (Dependabot exempt 二重防御)
-            if (labels.some(l => l.includes('dependencies'))) {
-              core.info('PR has dependencies label, skipping merge gate checklist check');
+            const body = process.env.PR_BODY || '';
+            const labels = JSON.parse(process.env.PR_LABELS || '[]').map((l) => l.name);
+            const integrationSectionsOverride = process.env.MERGE_GATE_INTEGRATION_SECTIONS || undefined;
+
+            // 検証ロジックは scripts/check-merge-gate-checklist.mjs に集約 (二重実装しない、unit test 済)。
+            const mod = await import(
+              `${process.env.GITHUB_WORKSPACE}/scripts/check-merge-gate-checklist.mjs`
+            );
+            const result = mod.checkMergeGateChecklist({
+              body,
+              labels,
+              lane,
+              integrationSectionsOverride,
+            });
+
+            core.info(`対象 section: ${result.targetSections.join(' / ') || '(skip)'}`);
+            for (const w of result.warnings || []) core.warning(w);
+            for (const line of result.info || []) core.info(line);
+
+            if (result.ok) {
+              core.info(`✅ ${result.reason || 'PASS'} (lane=${result.lane})`);
               return;
             }
-
-            // 対象セクション: Ready for Review チェックリスト / 完了チェックリスト
-            // "- [ ]" が残っていれば fail
-            // N/A 選択肢を持つ条件付きチェック（他セクション）は対象外とし、必須2セクションのみ対象
-            const targetSections = [
-              '## Ready for Review チェックリスト',
-              '## 完了チェックリスト',
-            ];
-
-            let totalUnchecked = 0;
-
-            for (const section of targetSections) {
-              const idx = body.indexOf(section);
-              if (idx === -1) {
-                core.warning(`セクション「${section.replace('## ', '')}」が PR 本文に見つかりません。PR テンプレートを使用しているか確認してください。`);
-                continue;
-              }
-              const nextSection = body.indexOf('\n## ', idx + 1);
-              const sectionBody = nextSection === -1
-                ? body.slice(idx)
-                : body.slice(idx, nextSection);
-
-              const unchecked = (sectionBody.match(/^\s*- \[ \]/gm) || []).length;
-              if (unchecked > 0) {
-                core.setFailed(
-                  `❌ 「${section.replace('## ', '')}」に未チェック項目が ${unchecked} 件残っています。\n` +
-                  'すべてのチェックボックスを確認してから Ready for Review にしてください。'
-                );
-                totalUnchecked += unchecked;
-              } else {
-                core.info(`✅ ${section.replace('## ', '')}: 全項目チェック済み`);
-              }
-            }
-
-            if (totalUnchecked === 0) {
-              core.info('✅ PR チェックリスト: 全必須項目チェック済み');
-            }
+            core.setFailed(result.error || '❌ PR チェックリスト検証に失敗しました');

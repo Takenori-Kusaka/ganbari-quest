@@ -2,13 +2,17 @@ import type { RewardCategory } from '$lib/domain/validation/special-reward';
 import { rewardTemplatesArraySchema } from '$lib/domain/validation/special-reward';
 import { countActiveActivityLogs } from '$lib/server/db/activity-repo';
 import { findChildById, insertPointEntry } from '$lib/server/db/point-repo';
+import { hasPendingByReward } from '$lib/server/db/reward-redemption-repo';
 import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import {
+	deleteSpecialReward,
 	findSpecialRewards,
 	findUnshownReward,
 	insertSpecialReward,
 	markRewardShown as markRewardShownRepo,
+	updateSpecialReward,
 } from '$lib/server/db/special-reward-repo';
+import { logger } from '$lib/server/logger';
 
 // --- 定数 ---
 
@@ -133,6 +137,81 @@ export async function addReward(
  */
 export const grantSpecialReward = addReward;
 
+// --- ごほうび編集 / 削除 (#2832) ---
+
+export interface UpdateRewardInput {
+	title: string;
+	points: number;
+	icon?: string;
+	category?: string;
+}
+
+/**
+ * #2832 AC2 (案 b): reward 編集。pending redemption が存在しても編集を許容する。
+ * 申請済みの交換は申請時点 snapshot (redemption insert 時に保存した reward title/points)
+ * で表示・控除されるため、編集は処理待ちの申請に波及しない (UI 側で note 明示)。
+ */
+export async function updateReward(
+	rewardId: number,
+	childId: number,
+	data: UpdateRewardInput,
+	tenantId: string,
+): Promise<SpecialRewardResult | { error: 'NOT_FOUND'; target: string }> {
+	// 所有権検証: 指定 child に紐付く reward であること (IDOR 防御、requestRedemption と同型)
+	const rewards = await findSpecialRewards(childId, tenantId);
+	const existing = rewards.find((r) => r.id === rewardId);
+	if (!existing) return { error: 'NOT_FOUND', target: 'reward' };
+
+	const updated = await updateSpecialReward(
+		childId,
+		rewardId,
+		{
+			title: data.title,
+			points: data.points,
+			icon: data.icon,
+			category: data.category,
+		},
+		tenantId,
+	);
+	if (!updated) return { error: 'NOT_FOUND', target: 'reward' };
+	return toRewardResult(updated);
+}
+
+export type DeleteRewardResult =
+	| { deleted: true }
+	| { error: 'NOT_FOUND'; target: string }
+	| { error: 'PENDING_REDEMPTION' };
+
+/**
+ * #2832 AC1: reward 削除。pending redemption が存在する場合は削除を拒否する
+ * (`hasPendingByReward` ガード配線)。親は申請を承認/却下してから削除する。
+ * 削除時は当該 reward の解決済交換申請履歴行も削除される (repo 層、FK 整合)。
+ */
+export async function deleteReward(
+	rewardId: number,
+	childId: number,
+	tenantId: string,
+): Promise<DeleteRewardResult> {
+	// 所有権検証: 指定 child に紐付く reward であること (IDOR 防御)
+	const rewards = await findSpecialRewards(childId, tenantId);
+	const existing = rewards.find((r) => r.id === rewardId);
+	if (!existing) return { error: 'NOT_FOUND', target: 'reward' };
+
+	// AC1: pending redemption ガード — 処理待ち申請があれば削除拒否
+	if (await hasPendingByReward(rewardId, tenantId)) {
+		return { error: 'PENDING_REDEMPTION' };
+	}
+
+	const deleted = await deleteSpecialReward(childId, rewardId, tenantId);
+	if (!deleted) return { error: 'NOT_FOUND', target: 'reward' };
+
+	// destructive 操作の audit log (irreversible 削除の証跡)
+	logger.info('[special-reward-service] reward deleted', {
+		context: { rewardId, childId, title: existing.title, points: existing.points },
+	});
+	return { deleted: true };
+}
+
 // --- 履歴取得 ---
 
 export async function getChildSpecialRewards(
@@ -166,8 +245,13 @@ export async function getUnshownReward(
 
 // --- 報酬表示済みマーク ---
 
-export async function markRewardShown(rewardId: number, tenantId: string): Promise<boolean> {
-	const result = await markRewardShownRepo(rewardId, tenantId);
+/** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら false。 */
+export async function markRewardShown(
+	childId: number,
+	rewardId: number,
+	tenantId: string,
+): Promise<boolean> {
+	const result = await markRewardShownRepo(childId, rewardId, tenantId);
 	return !!result;
 }
 

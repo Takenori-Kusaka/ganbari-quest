@@ -63,11 +63,26 @@ export async function findMissionByActivity(
 		.get();
 }
 
-/** ミッションを達成済みにする */
-export async function markMissionCompleted(missionId: number, _tenantId: string) {
+/**
+ * ミッションを達成済みにする。
+ * #2845 B1: (childId, date, activityId) 所有権検証付き (composite key)。
+ * 不一致なら affected 0 の no-op (DynamoDB exact Key + attribute_exists と等価)。
+ */
+export async function markMissionCompleted(
+	childId: number,
+	date: string,
+	activityId: number,
+	_tenantId: string,
+) {
 	db.update(dailyMissions)
 		.set({ completed: 1, completedAt: new Date().toISOString() })
-		.where(eq(dailyMissions.id, missionId))
+		.where(
+			and(
+				eq(dailyMissions.childId, childId),
+				eq(dailyMissions.missionDate, date),
+				eq(dailyMissions.activityId, activityId),
+			),
+		)
 		.run();
 }
 

@@ -8,7 +8,7 @@ import { getMarketplaceItem } from '$lib/data/marketplace';
 // 旧 `PRESET_REWARD_GROUPS` の in-page render は撤去済 (本 file の load 出力からも削除)。
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
-import { PLAN_GATE_LABELS } from '$lib/domain/labels';
+import { ADMIN_REWARDS_PAGE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
 // #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
 import { dispatchImport } from '$lib/marketplace';
@@ -32,10 +32,12 @@ import {
 import { getRedemptionRequestsForParent } from '$lib/server/services/reward-redemption-service';
 import {
 	addReward,
+	deleteReward,
 	getChildSpecialRewards,
 	getRewardTemplates,
 	type RewardTemplate,
 	saveRewardTemplates,
+	updateReward,
 } from '$lib/server/services/special-reward-service';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -113,6 +115,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// 取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog auto-open
 	// の正規経路 (marketplace-import-flow.md §3.1) に合流させる。
 
+	// #2832 AC2: pending redemption が存在する reward の集合。
+	// 編集 dialog の「申請時点の内容で処理」note + 削除前の処理待ちバッジ表示に使う。
+	const pendingRewardIds = [...new Set(pendingRequests.map((r) => r.rewardId))];
+
 	return {
 		children: childrenWithRewards,
 		childRewardsByChild,
@@ -120,6 +126,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		isPremium,
 		planTier: tier,
 		pendingRequestsCount: pendingRequests.length,
+		pendingRewardIds,
 		importPresetId,
 		// #2775: rule-preset (exchange) も `?import=` で受領可能化 — typeCode を svelte に伝達して
 		// fetch action 振り分けに使う
@@ -166,6 +173,71 @@ export const actions: Actions = {
 		}
 
 		return { granted: true, reward: result };
+	},
+
+	// #2832 AC2 (案 b): reward 編集。pending redemption 中も許容。
+	// 申請済みの交換は申請時点 snapshot で処理される (UI が note で明示)。
+	// プランゲートは add と同じ (編集で実質新規作成できるため bypass を防ぐ)。
+	update: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const tier = await resolveTier(locals, tenantId);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE),
+			});
+		}
+
+		const formData = await request.formData();
+		const rewardId = Number(formData.get('rewardId'));
+		const childId = Number(formData.get('childId'));
+		const title = String(formData.get('title') ?? '').trim();
+		const points = Number(formData.get('points') ?? 0);
+		const icon = String(formData.get('icon') ?? '🎁');
+		const category = String(formData.get('category') ?? '');
+
+		if (!rewardId || !childId) return fail(400, { error: 'ごほうびが指定されていません' });
+		if (!title) return fail(400, { error: 'タイトルを入力してください' });
+		if (points <= 0 || points > 10000) return fail(400, { error: 'ポイントは1〜10000の範囲です' });
+
+		const result = await updateReward(
+			rewardId,
+			childId,
+			{ title, points, icon, category: category || undefined },
+			tenantId,
+		);
+		if ('error' in result) {
+			return fail(404, { error: ADMIN_REWARDS_PAGE_LABELS.editFailed });
+		}
+
+		return { rewardUpdated: true, reward: result };
+	},
+
+	// #2832 AC1: reward 削除。pending redemption ガード (hasPendingByReward) 配線。
+	// 処理待ち申請あり → 409 で削除拒否 (labels SSOT メッセージ)。
+	// プランゲートなし: 既存データの整理 (削除) は free tier でも可能でなければならない
+	// (downgrade 後の data lifecycle 整合)。
+	delete: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const formData = await request.formData();
+		const rewardId = Number(formData.get('rewardId'));
+		const childId = Number(formData.get('childId'));
+
+		if (!rewardId || !childId) return fail(400, { error: 'ごほうびが指定されていません' });
+
+		const result = await deleteReward(rewardId, childId, tenantId);
+		if ('error' in result) {
+			if (result.error === 'PENDING_REDEMPTION') {
+				logger.info('[admin/rewards] pending redemption により削除拒否', {
+					context: { rewardId, childId, tenantId },
+				});
+				return fail(409, { error: ADMIN_REWARDS_PAGE_LABELS.deletePendingBlocked });
+			}
+			return fail(404, { error: ADMIN_REWARDS_PAGE_LABELS.deleteFailed });
+		}
+
+		return { rewardDeleted: true };
 	},
 
 	addPreset: async ({ request, locals }) => {
@@ -246,6 +318,8 @@ export const actions: Actions = {
 				skipped: result.skipped,
 				total: result.total,
 				errors: result.errors,
+				// #2955: 実失敗件数 (UI partial-failure 表示の SSOT)
+				failed: result.failed,
 				presetId,
 			};
 		} catch (e) {
@@ -337,6 +411,8 @@ export const actions: Actions = {
 					skipped: result.skipped,
 					total: result.total,
 					errors: result.errors,
+					// #2955: 実失敗件数 (UI partial-failure 表示の SSOT、errors.length は表示ログ専用)
+					failed: result.failed,
 					presetId,
 				};
 			}
@@ -364,6 +440,7 @@ export const actions: Actions = {
 			};
 			let totalImported = 0;
 			let totalSkipped = 0;
+			let totalFailed = 0;
 			const allErrors: string[] = [];
 			for (const childId of childIds) {
 				const result = await rulePresetStrategy.applyRulePreset(identity, payload, {
@@ -372,6 +449,10 @@ export const actions: Actions = {
 				});
 				totalImported += result.imported;
 				totalSkipped += result.skipped;
+				// #2955: 実失敗数は genuine errors のみで数える。warnings (already-imported 等の
+				// 非失敗通知) は表示ログ (allErrors) には載せるが失敗件数に算入しない
+				// (rule-preset-strategy.apply の errors/failed 非対称と同じ精度規約)。
+				totalFailed += result.errors.length;
 				allErrors.push(...result.errors, ...result.warnings);
 			}
 			return {
@@ -381,6 +462,7 @@ export const actions: Actions = {
 				skipped: totalSkipped,
 				total: totalImported + totalSkipped,
 				errors: allErrors,
+				failed: totalFailed,
 				presetId,
 			};
 		} catch (e) {

@@ -27,7 +27,14 @@ vi.mock('$lib/server/db/client', () => ({
 }));
 
 import {
+	approveRedemption,
+	getRedemptionRequestsForParent,
+	rejectRedemption,
+	requestRedemption,
+} from '../../../src/lib/server/services/reward-redemption-service';
+import {
 	checkAndGrantFixedIntervalReward,
+	deleteReward,
 	getChildSpecialRewards,
 	getRewardTemplates,
 	getSpecialRewardProgress,
@@ -36,6 +43,7 @@ import {
 	markRewardShown,
 	SPECIAL_REWARD_INTERVAL,
 	saveRewardTemplates,
+	updateReward,
 } from '../../../src/lib/server/services/special-reward-service';
 
 beforeAll(() => {
@@ -235,9 +243,24 @@ describe('getUnshownReward / markRewardShown', () => {
 				'test-tenant',
 			),
 		);
-		await markRewardShown(reward.id, 'test-tenant');
+		await markRewardShown(1, reward.id, 'test-tenant');
 		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).toBeNull();
+	});
+
+	it('#2845 課題① / B1: 他の childId では表示済みにできない (所有権検証、SQLite backend)', async () => {
+		const reward = assertSuccess(
+			await grantSpecialReward(
+				{ childId: 1, title: 'テスト100点', points: 100, category: 'academic' },
+				'test-tenant',
+			),
+		);
+		// childId=999 (別の子) を指定して rewardId だけ一致させても更新されない
+		const ok = await markRewardShown(999, reward.id, 'test-tenant');
+		expect(ok).toBe(false);
+		// 本来の子の未表示報酬は残る (silent 越境更新が起きていない)
+		const result = await getUnshownReward(1, 'test-tenant');
+		expect(result?.id).toBe(reward.id);
 	});
 
 	it('複数の報酬がある場合、未表示のものだけ返す', async () => {
@@ -253,7 +276,7 @@ describe('getUnshownReward / markRewardShown', () => {
 		);
 
 		// 1回目を表示済みにする
-		await markRewardShown(r1.id, 'test-tenant');
+		await markRewardShown(1, r1.id, 'test-tenant');
 
 		const result = await getUnshownReward(1, 'test-tenant');
 		expect(result).not.toBeNull();
@@ -267,7 +290,7 @@ describe('getUnshownReward / markRewardShown', () => {
 				'test-tenant',
 			),
 		);
-		await markRewardShown(r1.id, 'test-tenant');
+		await markRewardShown(1, r1.id, 'test-tenant');
 
 		// 新しい報酬を付与
 		await grantSpecialReward(
@@ -465,5 +488,163 @@ describe('getSpecialRewardProgress', () => {
 		const progress = await getSpecialRewardProgress(1, 'test-tenant');
 		expect(progress.totalRecords).toBe(SPECIAL_REWARD_INTERVAL + 1);
 		expect(progress.remaining).toBe(SPECIAL_REWARD_INTERVAL - 1);
+	});
+});
+
+// ============================================================
+// #2832: updateReward / deleteReward (pending redemption ガード + 申請時点 snapshot)
+// ============================================================
+
+describe('#2832 deleteReward / updateReward (pending redemption ガード)', () => {
+	/** 子供 + ポイント残高 + reward を seed し、id を返す */
+	function seedRewardWithBalance() {
+		resetDb();
+		sqlite
+			.prepare(`INSERT INTO children (nickname, age, theme, ui_mode) VALUES (?, ?, ?, ?)`)
+			.run('テストちゃん', 8, 'blue', 'elementary');
+		const childRow = sqlite.prepare('SELECT id FROM children LIMIT 1').get() as { id: number };
+		sqlite
+			.prepare(
+				`INSERT INTO point_ledger (child_id, amount, type, description, created_at)
+				 VALUES (?, 100, 'activity', 'テスト付与', CURRENT_TIMESTAMP)`,
+			)
+			.run(childRow.id);
+		sqlite
+			.prepare(
+				`INSERT INTO special_rewards (child_id, title, points, icon, category, granted_at)
+				 VALUES (?, 'ゲーム時間30分', 80, '🎮', 'とくべつ', CURRENT_TIMESTAMP)`,
+			)
+			.run(childRow.id);
+		const rewardRow = sqlite.prepare('SELECT id FROM special_rewards LIMIT 1').get() as {
+			id: number;
+		};
+		return { childId: childRow.id, rewardId: rewardRow.id };
+	}
+
+	it('AC1: pending redemption 中の削除は PENDING_REDEMPTION で拒否される', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		const req = await requestRedemption(childId, rewardId, 'test-tenant');
+		expect('error' in req).toBe(false);
+
+		const result = await deleteReward(rewardId, childId, 'test-tenant');
+		expect(result).toEqual({ error: 'PENDING_REDEMPTION' });
+
+		// reward は削除されていない
+		const remaining = sqlite
+			.prepare('SELECT COUNT(*) AS c FROM special_rewards WHERE id = ?')
+			.get(rewardId) as { c: number };
+		expect(remaining.c).toBe(1);
+	});
+
+	it('AC3: pending 解消 (却下) 後は削除でき、解決済の申請履歴行も削除される', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		const req = await requestRedemption(childId, rewardId, 'test-tenant');
+		expect('error' in req).toBe(false);
+		if ('error' in req) return;
+
+		const rejected = await rejectRedemption(req.id, 'いまは だめ', 'test-tenant');
+		expect('error' in rejected).toBe(false);
+
+		const result = await deleteReward(rewardId, childId, 'test-tenant');
+		expect(result).toEqual({ deleted: true });
+
+		const remaining = sqlite
+			.prepare('SELECT COUNT(*) AS c FROM special_rewards WHERE id = ?')
+			.get(rewardId) as { c: number };
+		expect(remaining.c).toBe(0);
+		// FK 整合: 解決済の交換申請履歴行も削除される (repo 層 cascade)
+		const requests = sqlite
+			.prepare('SELECT COUNT(*) AS c FROM reward_redemption_requests WHERE reward_id = ?')
+			.get(rewardId) as { c: number };
+		expect(requests.c).toBe(0);
+	});
+
+	it('pending が無い reward は削除できる', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		const result = await deleteReward(rewardId, childId, 'test-tenant');
+		expect(result).toEqual({ deleted: true });
+	});
+
+	it('他の child を指定した削除は NOT_FOUND (IDOR 防御)', async () => {
+		const { rewardId } = seedRewardWithBalance();
+		const result = await deleteReward(rewardId, 999, 'test-tenant');
+		expect(result).toEqual({ error: 'NOT_FOUND', target: 'reward' });
+	});
+
+	it('AC2 (案 b): 編集は pending redemption 中も成功する', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		const req = await requestRedemption(childId, rewardId, 'test-tenant');
+		expect('error' in req).toBe(false);
+
+		const result = await updateReward(
+			rewardId,
+			childId,
+			{ title: 'ゲーム時間60分', points: 50, icon: '🕹️' },
+			'test-tenant',
+		);
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.title).toBe('ゲーム時間60分');
+		expect(result.points).toBe(50);
+	});
+
+	it('AC2: 編集後も pending 申請は申請時点 snapshot (名前/ポイント) で表示される', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		const req = await requestRedemption(childId, rewardId, 'test-tenant');
+		expect('error' in req).toBe(false);
+
+		await updateReward(rewardId, childId, { title: '新しい名前', points: 10 }, 'test-tenant');
+
+		const rows = await getRedemptionRequestsForParent('test-tenant', {
+			status: 'pending_parent_approval',
+		});
+		expect(rows).toHaveLength(1);
+		// 申請時点 snapshot のまま (編集後の値ではない)
+		expect(rows[0]?.rewardTitle).toBe('ゲーム時間30分');
+		expect(rows[0]?.rewardPoints).toBe(80);
+	});
+
+	it('AC2: 承認時の控除ポイントも申請時点 snapshot (編集後の値ではない)', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		const req = await requestRedemption(childId, rewardId, 'test-tenant');
+		expect('error' in req).toBe(false);
+		if ('error' in req) return;
+
+		await updateReward(rewardId, childId, { title: 'ゲーム時間30分', points: 10 }, 'test-tenant');
+
+		const approved = await approveRedemption(req.id, 1, 'test-tenant');
+		expect('error' in approved).toBe(false);
+
+		const entry = sqlite
+			.prepare(
+				`SELECT amount FROM point_ledger WHERE type = 'reward_redemption' AND reference_id = ?`,
+			)
+			.get(req.id) as { amount: number } | undefined;
+		expect(entry?.amount).toBe(-80);
+	});
+
+	it('snapshot 列が NULL の旧行は live JOIN 値に fallback する (NULL 混在行)', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		// snapshot 列導入前の旧行を再現 (reward_title / reward_points / reward_icon = NULL)
+		sqlite
+			.prepare(
+				`INSERT INTO reward_redemption_requests (child_id, reward_id, requested_at, status)
+				 VALUES (?, ?, ?, 'pending_parent_approval')`,
+			)
+			.run(childId, rewardId, Math.floor(Date.now() / 1000));
+
+		const rows = await getRedemptionRequestsForParent('test-tenant', {
+			status: 'pending_parent_approval',
+		});
+		expect(rows).toHaveLength(1);
+		// live JOIN 値 (special_rewards) に fallback
+		expect(rows[0]?.rewardTitle).toBe('ゲーム時間30分');
+		expect(rows[0]?.rewardPoints).toBe(80);
+	});
+
+	it('存在しない reward の編集は NOT_FOUND', async () => {
+		const { childId } = seedRewardWithBalance();
+		const result = await updateReward(9999, childId, { title: 'x', points: 1 }, 'test-tenant');
+		expect(result).toEqual({ error: 'NOT_FOUND', target: 'reward' });
 	});
 });

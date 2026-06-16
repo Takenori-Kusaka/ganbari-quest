@@ -71,28 +71,38 @@ export async function findTodayMissions(
 	return enriched;
 }
 
-/** ミッションボーナスの記録を検索 */
+/**
+ * ミッションボーナスの記録を検索。
+ *
+ * #2845 B2: 旧実装は `Limit: 1` + FilterExpression の併用で「filter 前評価 1 件が
+ * 別 description だと false NOT_FOUND」になる #2842 class だった (重複ボーナス付与の温床)。
+ * Limit を撤去し全ページ走査 + 一致で早期 return に置換。
+ */
 export async function findMissionBonusRecord(
 	childId: number,
 	description: string,
 	tenantId: string,
 ): Promise<{ amount: number } | undefined> {
-	const result = await getDocClient().send(
-		new QueryCommand({
-			TableName: TABLE_NAME,
-			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-			FilterExpression: 'description = :desc',
-			ExpressionAttributeValues: {
-				':pk': childPK(childId, tenantId),
-				':prefix': pointLedgerPrefix(),
-				':desc': description,
-			},
-			Limit: 1,
-		}),
-	);
-
-	if (!result.Items || result.Items.length === 0) return undefined;
-	return { amount: result.Items[0]?.amount as number };
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+				FilterExpression: 'description = :desc',
+				ExpressionAttributeValues: {
+					':pk': childPK(childId, tenantId),
+					':prefix': pointLedgerPrefix(),
+					':desc': description,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		const item = (result.Items ?? [])[0];
+		if (item) return { amount: item.amount as number };
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+	return undefined;
 }
 
 /** 特定活動のミッションを検索 */
@@ -116,41 +126,39 @@ export async function findMissionByActivity(
 	};
 }
 
-/** ミッションを完了に更新 */
-export async function markMissionCompleted(missionId: number, _tenantId: string): Promise<void> {
-	// Scan to find the mission by id
-	let lastKey: Record<string, unknown> | undefined;
-
-	do {
-		const result = await getDocClient().send(
-			new ScanCommand({
+/**
+ * ミッションを完了に更新。
+ *
+ * #2845 B1: 旧実装は tenant prefix を含まない全テーブル Scan (`begins_with(SK,'MISSION#') + id`)
+ * で全 tenant の mission を write できる形状だった。SK = MISSION#<date>#<activityId> は
+ * 呼び出し元 (daily-mission-service.checkMissionCompletion) が全要素を持つため、
+ * signature を (childId, date, activityId) に変更し exact Key (`dailyMissionKey`) で
+ * 直接 UpdateItem する (Scan 撤去)。`attribute_exists(PK)` で phantom item 生成を防ぎ、
+ * 不在 (tenant/child 不一致を含む) は旧挙動どおり silent no-op に正規化 (§08-DB 原則 1)。
+ */
+export async function markMissionCompleted(
+	childId: number,
+	date: string,
+	activityId: number,
+	tenantId: string,
+): Promise<void> {
+	try {
+		await getDocClient().send(
+			new UpdateCommand({
 				TableName: TABLE_NAME,
-				FilterExpression: 'begins_with(SK, :prefix) AND id = :id',
+				Key: dailyMissionKey(childId, date, activityId, tenantId),
+				UpdateExpression: 'SET completed = :completed, completedAt = :completedAt',
+				ConditionExpression: 'attribute_exists(PK)',
 				ExpressionAttributeValues: {
-					':prefix': dailyMissionPrefix(),
-					':id': missionId,
+					':completed': 1,
+					':completedAt': new Date().toISOString(),
 				},
-				ExclusiveStartKey: lastKey,
 			}),
 		);
-
-		if (result.Items && result.Items.length > 0) {
-			const item = result.Items[0] as Record<string, unknown>;
-			await getDocClient().send(
-				new UpdateCommand({
-					TableName: TABLE_NAME,
-					Key: { PK: item.PK, SK: item.SK },
-					UpdateExpression: 'SET completed = :completed, completedAt = :completedAt',
-					ExpressionAttributeValues: {
-						':completed': 1,
-						':completedAt': new Date().toISOString(),
-					},
-				}),
-			);
-			return;
-		}
-		lastKey = result.LastEvaluatedKey;
-	} while (lastKey);
+	} catch (error) {
+		if ((error as { name?: string }).name === 'ConditionalCheckFailedException') return;
+		throw error;
+	}
 }
 
 /** 全ミッションのステータス一覧 */

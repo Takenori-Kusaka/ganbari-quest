@@ -32,6 +32,7 @@ import { trackServerError } from '$lib/server/services/analytics-service';
 import { checkConsent } from '$lib/server/services/consent-service';
 import { notifyIncident } from '$lib/server/services/discord-notify-service';
 import { touchTenantLastActive } from '$lib/server/services/last-active-touch';
+import { applyOperatorPinResetIfRequested } from '$lib/server/services/pin-operator-reset';
 import { isSetupRequired } from '$lib/server/services/setup-service';
 
 // Epic #2525 Phase 7 Step 0 PR-L0 (#2806): license key 完全全廃 (#2788) の expand 起点。
@@ -153,6 +154,10 @@ export const handle: Handle = ({ event, resolve }) =>
 		// globalSetup 完了後) に DB が open されるため、Round 10 H-1 (schema cache
 		// invalidation 失敗) が構造的に解消される。
 		getOrInitDb();
+
+		// #2994: operator-level PIN reset (PARENT_PIN_RESET env)。プロセスごと初回のみ実評価、
+		// 2 回目以降は同期 return。DB 接続確立 (getOrInitDb) 後である必要がある。
+		await applyOperatorPinResetIfRequested();
 
 		// 0-a) メンテナンスモード（Lambda環境変数で切替）
 		if (MAINTENANCE_MODE && path !== '/api/health') {
