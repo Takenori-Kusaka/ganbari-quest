@@ -1,0 +1,266 @@
+# integration-pr.yml — Issue #2871 (Phase B/B-3、親 #2949 / EPIC #2861)
+#
+# develop → main 統合 PR を release PR パターンで自動運用する (release-please の
+# 「Release PR を常時最新に保ち merge 時に統合」モデルを develop→main に適用)。
+#
+# 本文生成 SSOT: scripts/integration-pr-body.mjs (pure function、unit test 済)。
+# 本 workflow は薄い orchestrator。本文組み立て logic は yml に分散させない (#1442 / hotfix-back-merge.yml 同型)。
+#
+# 設計原則 (#2871 解決策 / no-gos):
+#   - merge 戦略 = merge commit (squash でない、含有 PR の commit 粒度保持 + B-4 in-toto link 整合)。
+#     本 workflow は PR を merge しない (発行・本文更新のみ)。merge は audit-manager 専権 (ADR-0056)。
+#     merge commit 方式の宣言は branch-strategy.md §4 + 本コメント (AC4)。
+#   - author=Takenori-Kusaka 維持 (作成者≠承認者分離、ADR-0022 Amendment 4-2 / AC2)。
+#     secrets.GITHUB_TOKEN で PR を作ると author=github-actions[bot] になり pr-author-guard.yml に
+#     auto-close される。Takenori-Kusaka 名義維持に repository secret BACK_MERGE_PAT (B-5 #2951 と共有、
+#     contents+pull-requests write) を使う。未設定時は silent fail せず drift 通知で degrade (AC1/AC2)。
+#   - lab に approve/merge を自動実行させない (本 workflow は PR 発行のみ、不可逆 action は
+#     audit-manager 専権 ADR-0056 §E)。
+#   - deploy.yml / pages.yml の trigger に触れない (main 不変条件、#2949 no-go / AC7)。
+#     本 workflow は deploy 系と独立した別 workflow として schedule / dispatch を購読する。
+#
+# cadence 段階導入 (AC6、branch-strategy.md §9):
+#   初期 = 週 1-2 回 cron (月・木の UTC 21:00 = JST 06:00) から開始。運用安定後に daily へ引き上げる
+#   (daily 化は cron を '0 21 * * *' に変更するだけ、B-6 runbook に手順記載)。
+#   段階導入の意図: drift 蓄積を防ぎつつ GitHub Actions 分の消費を抑制 (Pre-PMF、ADR-0010)。
+
+name: integration-pr
+
+on:
+  schedule:
+    # 週 2 回 (月・木) JST 06:00 = UTC 前日 21:00。daily 化は '0 21 * * *' へ変更 (B-6 runbook)。
+    - cron: '0 21 * * 0,3'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'true: PR を発行せず生成 body を job summary に出力するのみ (AC1 検証用)'
+        required: false
+        default: 'false'
+        type: string
+
+# 同時刻の重複起動を防ぐ (cron + 手動 dispatch が重なっても 1 本に集約、release PR パターン)。
+concurrency:
+  group: integration-pr
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  upsert-integration-pr:
+    name: develop→main 統合 PR upsert (release PR パターン)
+    runs-on: ubuntu-latest
+    # 各 run を固定時間 box で完了させ無限ループを防ぐ (AC5)。PR upsert のみの軽量処理で 15 分は十分。
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v6
+        with:
+          # develop / main 双方の merge 履歴・diff 比較に full history が必要。
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      # ----------------------------------------------------------------------
+      # 1. develop ⇔ main の差分有無を判定する (差分ゼロなら統合 PR 不要)
+      # ----------------------------------------------------------------------
+      - name: Detect develop⇔main diff
+        id: diff
+        run: |
+          set -euo pipefail
+          git fetch origin main develop
+          DEVELOP_HEAD=$(git rev-parse origin/develop)
+          MAIN_HEAD=$(git rev-parse origin/main)
+          echo "develop_head=$DEVELOP_HEAD" >> "$GITHUB_OUTPUT"
+          echo "main_head=$MAIN_HEAD" >> "$GITHUB_OUTPUT"
+          # develop に main 未取込の commit があるか (= 統合すべき差分)。
+          AHEAD=$(git rev-list --count origin/main..origin/develop)
+          echo "ahead=$AHEAD" >> "$GITHUB_OUTPUT"
+          if [ "$AHEAD" -gt 0 ]; then
+            echo "has_diff=true" >> "$GITHUB_OUTPUT"
+            echo "develop は main より $AHEAD commit 先行 → 統合 PR を upsert する"
+          else
+            echo "has_diff=false" >> "$GITHUB_OUTPUT"
+            echo "develop と main に差分なし → 統合 PR 不要 (no-op)"
+          fi
+
+      # ----------------------------------------------------------------------
+      # 2. develop の merge 履歴から含有 PR 一覧を取得する (前回統合 merge 以降分、AC3)
+      # ----------------------------------------------------------------------
+      - name: Collect contained PRs + back-merge drift state
+        id: collect
+        if: steps.diff.outputs.has_diff == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIN_HEAD: ${{ steps.diff.outputs.main_head }}
+        run: |
+          set -euo pipefail
+          # 前回統合 merge = 現 main HEAD の committer 日時。これ以降に develop へ merge された PR を含有とする。
+          SINCE_ISO=$(git show -s --format=%cI "$MAIN_HEAD")
+          SINCE_DATE=${SINCE_ISO%%T*}
+          UNTIL_DATE=$(date -u +%F)
+          echo "since=$SINCE_DATE" >> "$GITHUB_OUTPUT"
+          echo "until=$UNTIL_DATE" >> "$GITHUB_OUTPUT"
+
+          # develop に merge された PR (mergedAt が前回統合以降) を JSON 取得。
+          # gh pr list の searchで base=develop + merged を絞る。--json で機械可読化 (AC3)。
+          gh pr list --base develop --state merged --limit 200 \
+            --json number,title,headRefName,labels,mergedAt \
+            --jq "[.[] | select(.mergedAt >= \"$SINCE_ISO\")]" > /tmp/develop-merged.json
+          echo "含有候補 PR 件数: $(jq 'length' /tmp/develop-merged.json)"
+
+          # B-5 contract: 未取込 hotfix back-merge PR (open, label:back-merge, base:develop) を drift 状態として取得。
+          gh pr list --state open --base develop --label back-merge --limit 50 \
+            --json number,title > /tmp/back-merge-open.json || echo '[]' > /tmp/back-merge-open.json
+          echo "未取込 back-merge PR 件数: $(jq 'length' /tmp/back-merge-open.json)"
+
+          # drift 日数 = 前回統合 merge からの経過日数。
+          NOW_EPOCH=$(date -u +%s)
+          SINCE_EPOCH=$(date -u -d "$SINCE_ISO" +%s)
+          DRIFT_DAYS=$(( (NOW_EPOCH - SINCE_EPOCH) / 86400 ))
+          echo "drift_days=$DRIFT_DAYS" >> "$GITHUB_OUTPUT"
+
+      # ----------------------------------------------------------------------
+      # 3. 統合 PR 本文を生成する (pure function SSOT 経由、手書きなし、AC3)
+      # ----------------------------------------------------------------------
+      - name: Render integration PR body (scripts/integration-pr-body.mjs)
+        id: body
+        if: steps.diff.outputs.has_diff == 'true'
+        env:
+          DEVELOP_HEAD: ${{ steps.diff.outputs.develop_head }}
+          SINCE: ${{ steps.collect.outputs.since }}
+          UNTIL: ${{ steps.collect.outputs.until }}
+          DRIFT_DAYS: ${{ steps.collect.outputs.drift_days }}
+        run: |
+          set -euo pipefail
+          node scripts/integration-pr-body.mjs \
+            --template .github/INTEGRATION_PR_TEMPLATE.md \
+            --prs /tmp/develop-merged.json \
+            --back-merge-prs /tmp/back-merge-open.json \
+            --develop-head "$DEVELOP_HEAD" \
+            --since "$SINCE" --until "$UNTIL" --drift-days "$DRIFT_DAYS" \
+            > /tmp/integration-pr-body.md
+          echo "生成 body 行数: $(wc -l < /tmp/integration-pr-body.md)"
+          {
+            echo "### 統合 PR body (生成結果)"
+            echo ""
+            echo '```markdown'
+            cat /tmp/integration-pr-body.md
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ----------------------------------------------------------------------
+      # 4. dry-run: PR を発行せず body を job summary に出すのみ (AC1 検証用)
+      # ----------------------------------------------------------------------
+      - name: Dry-run notice
+        if: >-
+          steps.diff.outputs.has_diff == 'true' &&
+          inputs.dry_run == 'true'
+        run: |
+          echo "::notice::dry_run=true のため PR を発行しません。生成 body は job summary を参照 (AC1)。"
+
+      # ----------------------------------------------------------------------
+      # 5. PAT 検証: author=Takenori-Kusaka 維持に必須。未設定なら drift を通知 (silent fail なし、AC2)
+      # ----------------------------------------------------------------------
+      - name: Verify BACK_MERGE_PAT presence
+        id: pat
+        if: >-
+          steps.diff.outputs.has_diff == 'true' &&
+          inputs.dry_run != 'true'
+        env:
+          BACK_MERGE_PAT: ${{ secrets.BACK_MERGE_PAT }}
+        run: |
+          if [ -n "${BACK_MERGE_PAT:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::BACK_MERGE_PAT 未設定。author=Takenori-Kusaka 維持で統合 PR を発行できない (ADR-0022 Amendment 4-2)。drift 通知のみ行う。"
+          fi
+
+      # ----------------------------------------------------------------------
+      # 6. 統合 PR を upsert する (release PR パターン = 既存があれば本文更新、無ければ新規作成、AC1)
+      # ----------------------------------------------------------------------
+      - name: Upsert integration PR
+        id: pr
+        if: >-
+          steps.diff.outputs.has_diff == 'true' &&
+          inputs.dry_run != 'true' &&
+          steps.pat.outputs.present == 'true'
+        uses: actions/github-script@v9
+        env:
+          GH_TOKEN: ${{ secrets.BACK_MERGE_PAT }}
+        with:
+          github-token: ${{ secrets.BACK_MERGE_PAT }}
+          script: |
+            const fs = require('node:fs');
+            const { owner, repo } = context.repo;
+            const body = fs.readFileSync('/tmp/integration-pr-body.md', 'utf8');
+            const today = new Date().toISOString().slice(0, 10);
+            const title = `[統合] develop → main (${today})`;
+
+            // 既存の open 統合 PR (head=develop, base=main) があれば本文更新 (upsert)、無ければ新規作成。
+            const existing = await github.rest.pulls.list({
+              owner, repo, state: 'open', head: `${owner}:develop`, base: 'main',
+            });
+
+            let prNumber;
+            if (existing.data.length > 0) {
+              prNumber = existing.data[0].number;
+              await github.rest.pulls.update({ owner, repo, pull_number: prNumber, title, body });
+              core.info(`既存統合 PR #${prNumber} を本文更新 (release PR パターン upsert)`);
+            } else {
+              const created = await github.rest.pulls.create({
+                owner, repo, title, body, head: 'develop', base: 'main',
+              });
+              prNumber = created.data.number;
+              core.info(`統合 PR #${prNumber} を新規作成`);
+            }
+            core.setOutput('number', String(prNumber));
+
+      # ----------------------------------------------------------------------
+      # 7. drift 通知 (Discord) — PAT 未設定で統合 PR を発行できない場合 (silent fail 回避、AC2)
+      # ----------------------------------------------------------------------
+      - name: Notify drift (PAT 未設定)
+        if: >-
+          always() &&
+          steps.diff.outputs.has_diff == 'true' &&
+          inputs.dry_run != 'true' &&
+          steps.pat.outputs.present == 'false' &&
+          vars.DISCORD_WEBHOOK_URL != ''
+        env:
+          WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+          AHEAD: ${{ steps.diff.outputs.ahead }}
+        run: |
+          TITLE="統合 PR 未発行 (PAT 未設定)"
+          DESC="develop が main より ${AHEAD} commit 先行していますが、BACK_MERGE_PAT 未設定のため統合 PR を発行できません。手動で develop→main 統合 PR を作成してください (main/develop drift)。"
+          curl -s -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":15158332}]}" || true
+
+      # ----------------------------------------------------------------------
+      # 8. job summary — 発行結果 / drift を常に GitHub log に残す (vars 未設定環境のフォールバック)
+      # ----------------------------------------------------------------------
+      - name: Run summary (job summary)
+        if: always() && steps.diff.outputs.has_diff == 'true'
+        env:
+          AHEAD: ${{ steps.diff.outputs.ahead }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PAT_PRESENT: ${{ steps.pat.outputs.present }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          {
+            echo "### develop→main 統合 PR (#2871)"
+            echo ""
+            echo "- develop 先行 commit 数: ${AHEAD}"
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "- 状態: 🔍 dry-run (PR 未発行、生成 body は上の job summary 参照)"
+            elif [ "${PAT_PRESENT}" = "false" ]; then
+              echo "- 状態: ⚠️ PAT 未設定で統合 PR 未発行 = **drift**。手動発行が必要。"
+            else
+              echo "- 状態: ✅ 統合 PR #${PR_NUMBER} を upsert (merge 戦略 = merge commit、merge は audit-manager 専権)。"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
