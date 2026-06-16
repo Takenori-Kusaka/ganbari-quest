@@ -44,7 +44,10 @@ concurrency:
 
 jobs:
   deploy-nuc-staging:
-    runs-on: [self-hosted, Windows, X64]
+    # NUC 専用 runner (local_nuc) に pin する。`nuc` ラベルなしの汎用 self-hosted runner
+    # (ci-runner-win 等、docker 不在 / NETWORK SERVICE 実行ポリシー Restricted) への誤割り当てを
+    # 排除する。本 job が ci-runner-win に割り当たり Step 0 で即死した事象の根治 (#3063)。
+    runs-on: [self-hosted, Windows, X64, nuc]
     # Self-hosted runner actor guard: 本番 deploy-nuc.yml と同じ ADR-0022 体制の 2 account に限定。
     # NUC 本番マシン上 (staging container も同マシンに同居) での想定外 actor による任意コード実行を防ぐ。
     if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)

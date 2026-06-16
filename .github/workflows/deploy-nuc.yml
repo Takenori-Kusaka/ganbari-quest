@@ -23,7 +23,10 @@ concurrency:
 
 jobs:
   deploy-nuc:
-    runs-on: [self-hosted, Windows, X64]
+    # NUC 専用 runner (local_nuc) に pin する。`nuc` ラベルなしの汎用 self-hosted runner
+    # (ci-runner-win 等、docker 不在 / 実行ポリシー Restricted) への誤割り当てを排除し、
+    # 本番 deploy を必ず実 NUC で走らせる (#3063 runner 誤割り当て根治)。
+    runs-on: [self-hosted, Windows, X64, nuc]
     # Self-hosted runner actor guard: restrict self-hosted NUC runner execution to
     # trusted actors performing main push / workflow_dispatch.
     #
