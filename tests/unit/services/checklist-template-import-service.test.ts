@@ -410,7 +410,7 @@ describe('importChecklistTemplateFromPayload (#3079)', () => {
 
 		await importChecklistTemplateFromPayload(unordered, '順序テスト', '📋', TENANT);
 
-		const firstCallName = mockAddTemplateItem.mock.calls[0][0].name;
+		const firstCallName = mockAddTemplateItem.mock.calls[0]?.[0]?.name;
 		expect(firstCallName).toBe('A');
 	});
 });
