@@ -264,11 +264,21 @@ jobs:
               echo "- ✅ attestation 発行成功: ${ATTEST_URL:-(URL 未取得)}";
               echo "";
               echo "### 検証コマンド (audit trail を遡る)";
+              echo "";
+              echo "本 attestation の subject は **git commit** (\`subject-digest: sha1:${MERGE_SHA}\`) です。";
+              echo "\`gh attestation verify\` は file / oci:// image 専用のため commit subject には使えません。";
+              echo "commit subject の attestation は GH attestations API を subject digest 照会して取得します:";
+              echo "";
               echo '```bash';
-              echo "gh attestation verify --repo ${GITHUB_REPOSITORY} \\";
-              echo "  --predicate-type https://in-toto.io/attestation/release/v0.2 \\";
-              echo "  oci://ghcr.io/... # または subject = ${GITHUB_REPOSITORY}@${MERGE_SHA}";
-              echo "# 統合 PR の含有 PR 群 / テスト結果 / NG-0 宣言を改ざん検知付きで取得できる";
+              echo "# 1) merge commit (subject digest = sha1:<sha>) に紐づく attestation を一覧取得";
+              echo "gh api repos/${GITHUB_REPOSITORY}/attestations/sha1:${MERGE_SHA} \\";
+              echo "  --jq '.attestations[].bundle.dsseEnvelope.payload' \\";
+              echo "  | base64 -d | jq .";
+              echo "# → in-toto Release predicate (含有 PR 群 / テスト結果 / NG-0 宣言) を改ざん検知付きで取得できる";
+              echo "#";
+              echo "# 2) predicate-type で絞り込む場合";
+              echo "gh api repos/${GITHUB_REPOSITORY}/attestations/sha1:${MERGE_SHA} \\";
+              echo "  --jq '.attestations[] | select(.bundle.dsseEnvelope.payload | (@base64d | fromjson).predicateType == \"https://in-toto.io/attestation/release/v0.2\")'";
               echo '```';
             else
               echo "- ⚠️ attestation 発行に失敗 (outcome=${ATTEST_OUTCOME})。deploy は阻害されません (独立 job)。";
