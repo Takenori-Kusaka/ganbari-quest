@@ -33,10 +33,10 @@ import { SEVERITY_ESCALATION_THRESHOLD } from './severity-filter.mjs';
  * finding 形式 (severity 数値 + policy_compliant) も受け、severity>=3 かつ policy_compliant!==true を NG とする。
  *
  * @param {Array<any>} items SARIF results または finding 配列
- * @returns {{ ngCount: number, ngItems: Array<{ ruleId?: string, reason: string }> }}
+ * @returns {{ ngCount: number, ngItems: Array<any> }}
  */
 export function countNg(items) {
-	/** @type {Array<{ ruleId?: string, reason: string }>} */
+	/** @type {Array<any>} */
 	const ngItems = [];
 	for (const it of items ?? []) {
 		// finding 形式: severity 数値 + policy_compliant boolean

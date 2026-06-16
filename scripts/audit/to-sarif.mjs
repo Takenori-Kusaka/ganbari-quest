@@ -39,7 +39,10 @@ export const SARIF_SCHEMA_URI =
 /** SARIF document version (本 module が出力する固定値) */
 export const SARIF_VERSION = '2.1.0';
 
-/** severity (1-4) → SARIF level の写像 (level 欠落 finding の fallback) */
+/**
+ * severity (1-4) → SARIF level の写像 (level 欠落 finding の fallback)
+ * @type {Record<number, 'note' | 'warning' | 'error'>}
+ */
 const SEVERITY_TO_LEVEL = Object.freeze({
 	1: 'note',
 	2: 'warning',
@@ -69,7 +72,7 @@ export function resolveSarifLevel(finding) {
 	if (Number.isInteger(sev) && SEVERITY_TO_LEVEL[sev]) {
 		return SEVERITY_TO_LEVEL[sev];
 	}
-	return 'none';
+	return /** @type {const} */ ('none');
 }
 
 /**
@@ -79,13 +82,13 @@ export function resolveSarifLevel(finding) {
  *   (末尾 ":行[:列]" は region.startLine / startColumn に分離)
  *
  * @param {any} finding
- * @returns {Array<{ physicalLocation: { artifactLocation: { uri: string }, region?: { startLine: number, startColumn?: number } } }>}
+ * @returns {Array<any>}
  */
 export function buildSarifLocations(finding) {
 	if (Array.isArray(finding?.locations) && finding.locations.length > 0) {
 		// 既に SARIF 互換 locations を持つ場合はそのまま採用 (uri が空なら fallback)。
-		const usable = finding.locations.filter((l) =>
-			isNonEmptyString(l?.physicalLocation?.artifactLocation?.uri),
+		const usable = finding.locations.filter(
+			/** @param {any} l */ (l) => isNonEmptyString(l?.physicalLocation?.artifactLocation?.uri),
 		);
 		if (usable.length > 0) return usable;
 	}
@@ -155,7 +158,7 @@ export function findingToResult(finding) {
  * ruleId を重複排除し、各 rule に最初に出現した finding の title を shortDescription として付与する。
  *
  * @param {Array<any>} findings
- * @returns {Array<{ id: string, shortDescription: { text: string } }>}
+ * @returns {Array<any>}
  */
 export function buildSarifRules(findings) {
 	/** @type {Map<string, { id: string, shortDescription: { text: string } }>} */
@@ -175,22 +178,22 @@ export function buildSarifRules(findings) {
  *
  * @param {Array<any>} findings finding オブジェクト配列 (evidence の findings を flatten 済)
  * @param {{ toolName?: string, toolVersion?: string, informationUri?: string }} [opts]
- * @returns {{
- *   $schema: string,
- *   version: string,
- *   runs: Array<{
- *     tool: { driver: { name: string, version?: string, informationUri?: string, rules: Array<any> } },
- *     results: Array<any>,
- *   }>,
- * }}
+ * @returns {{ $schema: string, version: string, runs: Array<any> }}
  */
 export function toSarif(findings, opts = {}) {
 	const list = Array.isArray(findings) ? findings : [];
-	const toolName = isNonEmptyString(opts.toolName) ? opts.toolName : 'ganbari-quest-audit';
+	const toolName =
+		typeof opts.toolName === 'string' && opts.toolName.trim().length > 0
+			? opts.toolName
+			: 'ganbari-quest-audit';
 	/** @type {{ name: string, version?: string, informationUri?: string, rules: Array<any> }} */
 	const driver = { name: toolName, rules: buildSarifRules(list) };
-	if (isNonEmptyString(opts.toolVersion)) driver.version = opts.toolVersion;
-	if (isNonEmptyString(opts.informationUri)) driver.informationUri = opts.informationUri;
+	if (typeof opts.toolVersion === 'string' && opts.toolVersion.trim().length > 0) {
+		driver.version = opts.toolVersion;
+	}
+	if (typeof opts.informationUri === 'string' && opts.informationUri.trim().length > 0) {
+		driver.informationUri = opts.informationUri;
+	}
 
 	return {
 		$schema: SARIF_SCHEMA_URI,
@@ -282,8 +285,11 @@ export function runCli(argv = process.argv.slice(2)) {
 	const dir = dirname(/** @type {string} */ (outPath));
 	if (dir && dir !== '.') mkdirSync(dir, { recursive: true });
 	writeFileSync(/** @type {string} */ (outPath), `${JSON.stringify(sarif, null, 2)}\n`);
+	const run0 = sarif.runs[0];
+	const resultCount = run0 ? run0.results.length : 0;
+	const ruleCount = run0 ? run0.tool.driver.rules.length : 0;
 	console.log(
-		`[to-sarif] ${findings.length} finding → ${sarif.runs[0].results.length} result / ${sarif.runs[0].tool.driver.rules.length} rule → ${outPath}`,
+		`[to-sarif] ${findings.length} finding → ${resultCount} result / ${ruleCount} rule → ${outPath}`,
 	);
 	return { sarif, outPath: /** @type {string} */ (outPath) };
 }

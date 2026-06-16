@@ -147,7 +147,6 @@ describe('buildReleasePredicate', () => {
 	});
 
 	it('mergeCommitSha 欠落は例外 (subject digest 必須)', () => {
-		// @ts-expect-error 不正入力
 		expect(() => buildReleasePredicate({})).toThrow(/mergeCommitSha/);
 		expect(() => buildReleasePredicate({ mergeCommitSha: '   ' })).toThrow(/mergeCommitSha/);
 	});

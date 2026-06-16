@@ -70,16 +70,17 @@ function normalizeLabels(labels) {
  * (integration-pr-body.mjs の含有判定 SSOT を再利用、重複実装しない)。
  *
  * @param {Array<{ number?: number, title?: string, headRefName?: string, labels?: Array<string|{name:string}>, mergedAt?: string }>} prs
- * @returns {Array<{ number: number, title: string, labels: string[], mergedAt: string | null }>}
+ * @returns {Array<any>}
  */
 export function buildContainedPrRecords(prs) {
 	return (prs ?? [])
 		.filter((pr) => classifyForContainedList(pr) === 'contained')
 		.map((pr) => ({
 			number: Number(pr.number),
-			title: isNonEmptyString(pr.title) ? pr.title.trim() : '',
+			title: typeof pr.title === 'string' && pr.title.trim().length > 0 ? pr.title.trim() : '',
 			labels: normalizeLabels(pr.labels).filter(isNonEmptyString),
-			mergedAt: isNonEmptyString(pr.mergedAt) ? pr.mergedAt : null,
+			mergedAt:
+				typeof pr.mergedAt === 'string' && pr.mergedAt.trim().length > 0 ? pr.mergedAt : null,
 		}))
 		.sort((a, b) => a.number - b.number);
 }
@@ -94,8 +95,8 @@ export function buildContainedPrRecords(prs) {
  */
 export function summarizeJobResults(jobResults) {
 	const list = (jobResults ?? []).map((j) => ({
-		job: isNonEmptyString(j?.job) ? j.job : 'unknown',
-		result: isNonEmptyString(j?.result) ? j.result : 'unknown',
+		job: typeof j?.job === 'string' && j.job.trim().length > 0 ? j.job : 'unknown',
+		result: typeof j?.result === 'string' && j.result.trim().length > 0 ? j.result : 'unknown',
 	}));
 	const failedJobs = list
 		.filter((j) => j.result === 'failure' || j.result === 'cancelled')
@@ -121,7 +122,11 @@ export function summarizeJobResults(jobResults) {
  * @returns {{ remainingNg: number, coverageRatchetOk: boolean, ngZero: boolean }}
  */
 export function evaluateNgZero({ remainingNg, coverageRatchetOk } = {}) {
-	const ng = Number.isInteger(remainingNg) && remainingNg >= 0 ? remainingNg : -1; // 未指定は -1 (不明 = ngZero false)
+	// 未指定は -1 (不明 = ngZero false)。typeof guard で number に絞る (noUncheckedIndexedAccess 整合)。
+	const ng =
+		typeof remainingNg === 'number' && Number.isInteger(remainingNg) && remainingNg >= 0
+			? remainingNg
+			: -1;
 	const covOk = coverageRatchetOk === true;
 	return {
 		remainingNg: ng,
@@ -134,7 +139,7 @@ export function evaluateNgZero({ remainingNg, coverageRatchetOk } = {}) {
  * in-toto Release predicate 互換 statement を組み立てる (pure)。
  *
  * @param {{
- *   mergeCommitSha: string,
+ *   mergeCommitSha?: string,
  *   containedPrs?: Array<any>,
  *   jobResults?: Array<{ job?: string, result?: string }>,
  *   coverage?: { lines?: number, statements?: number, functions?: number, branches?: number } | null,
@@ -146,7 +151,7 @@ export function evaluateNgZero({ remainingNg, coverageRatchetOk } = {}) {
  * }} input
  * @returns {{
  *   _type: string,
- *   subject: Array<{ name: string, digest: { sha1: string } }>,
+ *   subject: Array<any>,
  *   predicateType: string,
  *   predicate: Record<string, any>,
  * }}
@@ -162,7 +167,7 @@ export function buildReleasePredicate({
 	repository = 'Takenori-Kusaka/ganbari-quest',
 	generatedAt = new Date().toISOString(),
 } = {}) {
-	if (!isNonEmptyString(mergeCommitSha)) {
+	if (typeof mergeCommitSha !== 'string' || mergeCommitSha.trim().length === 0) {
 		throw new Error('buildReleasePredicate: mergeCommitSha (subject digest) が必須です');
 	}
 	const sha = mergeCommitSha.trim();
@@ -225,7 +230,7 @@ function argOf(argv, name, fallback) {
  * @returns {any}
  */
 function readJsonOrNull(path) {
-	if (!isNonEmptyString(path) || !existsSync(path)) return null;
+	if (typeof path !== 'string' || path.trim().length === 0 || !existsSync(path)) return null;
 	try {
 		return JSON.parse(readFileSync(path, 'utf8'));
 	} catch (e) {

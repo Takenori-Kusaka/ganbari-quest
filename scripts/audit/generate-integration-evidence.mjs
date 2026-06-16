@@ -65,26 +65,12 @@ export function buildJobResultTable(needs) {
  *   needs: Record<string, { result?: string }>,
  *   coverageGapMap: ReturnType<typeof buildCoverageGapMap> | null,
  *   apiCoverageMap: ReturnType<typeof matchEndpointCoverage> | null,
+ *   auditFindings?: Array<any>,
  *   runId?: string,
  *   prNumber?: string,
  *   generatedAt?: string,
  * }} input
- * @returns {{
- *   json: {
- *     schema: string,
- *     generatedAt: string,
- *     runId: string,
- *     prNumber: string,
- *     includedChanges: null,
- *     changeTestMapping: null,
- *     jobResults: Array<{ job: string, result: string }>,
- *     coverage: ReturnType<typeof buildCoverageGapMap> | null,
- *     apiCoverage: ReturnType<typeof matchEndpointCoverage> | null,
- *     remainingNg: null,
- *     failedJobCount: number,
- *   },
- *   markdown: string,
- * }}
+ * @returns {{ json: Record<string, any>, markdown: string }}
  */
 export function buildEvidence({
 	needs,
@@ -102,7 +88,11 @@ export function buildEvidence({
 	// --- B-4 (#2876): SARIF サマリ + advisory マージ判定 (hard fail させない先行 gate) ---
 	// audit evidence finding を SARIF 2.1.0 に変換しサマリ化 (空でも valid 空 SARIF)。
 	const sarif = toSarif(auditFindings ?? []);
-	const sarifResults = sarif.runs[0].results;
+	/** @type {Array<any>} */
+	const sarifResults = sarif.runs[0]?.results ?? [];
+	const errorLevelCount = sarifResults.filter((r) => r?.level === 'error').length;
+	/** @type {number} */
+	const ruleCount = sarif.runs[0]?.tool?.driver?.rules?.length ?? 0;
 	const mergeReadiness = evaluateMergeReadiness({
 		findings: auditFindings ?? [],
 		sarifResults,
@@ -126,8 +116,8 @@ export function buildEvidence({
 		// --- B-4 (#2876): SARIF サマリ + advisory マージ判定 (hard fail させない先行 gate) ---
 		sarif: {
 			resultCount: sarifResults.length,
-			ruleCount: sarif.runs[0].tool.driver.rules.length,
-			errorLevelCount: sarifResults.filter((r) => r.level === 'error').length,
+			ruleCount,
+			errorLevelCount,
 		},
 		mergeReadinessAdvisory: mergeReadiness,
 	};
@@ -173,7 +163,7 @@ export function buildEvidence({
 		'',
 		'### SARIF 2.1.0 サマリ (#2876)',
 		'',
-		`- finding → SARIF result: ${sarifResults.length} 件 / rule: ${sarif.runs[0].tool.driver.rules.length} 件 / level=error: ${sarifResults.filter((r) => r.level === 'error').length} 件`,
+		`- finding → SARIF result: ${sarifResults.length} 件 / rule: ${ruleCount} 件 / level=error: ${errorLevelCount} 件`,
 		'- 完全 SARIF document は attestation artifact (`integration-attestation-<run_id>/sarif.json`) に永続化される (in-toto Release predicate と併せ merge commit に紐付け)',
 		'',
 		formatMergeReadinessMarkdown(mergeReadiness),

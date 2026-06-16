@@ -142,7 +142,10 @@ describe('toSarif', () => {
 			f({ id: 'b', ruleId: 'rule-a' }),
 			f({ id: 'c', ruleId: 'rule-b' }),
 		]);
-		expect(sarif.runs[0].tool.driver.rules.map((r) => r.id)).toEqual(['rule-a', 'rule-b']);
+		expect(sarif.runs[0].tool.driver.rules.map((r: { id: string }) => r.id)).toEqual([
+			'rule-a',
+			'rule-b',
+		]);
 		expect(sarif.runs[0].results).toHaveLength(3);
 	});
 
