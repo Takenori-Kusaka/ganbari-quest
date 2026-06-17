@@ -44,7 +44,7 @@
 |---|---|---|
 | unit / integration | `tests/unit/` `tests/integration/` / `vitest run`（2 shard + coverage ratchet） | **○**（`ci.yml` unit-test、ADR-0005 閾値 merge 後検証） |
 | E2E（既定） | `tests/e2e/` / `playwright test`（3 shard） | **○**（main 向け / push のみ、重量レーン） |
-| E2E matrix（5 年齢モード） | `test:e2e:matrix`（`playwright.matrix.config.ts`、port 5201-5205） | **✕ CI 未組込**（ローカル手動のみ。CLAUDE.md 明記） |
+| E2E matrix（mode×plan） | `test:e2e:matrix`（`playwright.matrix.config.ts`、4 project port 5201-5204） | **○ CI 組込済**（`ci.yml` `e2e-matrix` job、main 向け PR + push:main、§7.1 で実測再確認。本行は #2874 完了前 snapshot で当初「✕」と誤記） |
 | E2E cognito-dev | `playwright.cognito-dev.config.ts` | **○**（cognito フィルタ該当時のみ） |
 | E2E demo Lambda | `tests/e2e/demo-lambda/` / `test:e2e:demo` | **△**（`area:demo` label / push / dispatch のみ） |
 | Storybook play | `test:storybook` | **○**（stories 変更時、main 向けのみ） |
@@ -159,3 +159,76 @@ audit-team.md §3.7（初回事前準備 5 項目）/ §3.8（毎回 9 ステッ
 - GitHub Docs: Monitor self-hosted runners — https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/monitor-and-troubleshoot
 - Red Hat: E2E testing with self-hosted runners — https://developers.redhat.com/articles/2023/07/25/end-end-testing-self-hosted-runners-github-actions
 - Test Automation Pipeline with CI/CD (Medium) — https://medium.com/@robert_mcbryde/building-a-best-practice-test-automation-pipeline-with-ci-cd-part-2-github-integration-and-eb6fb5545f73
+
+## §7 AC 完遂補完 + 現状再検証（2026-06-18）
+
+> §1-§6 は 2026-06-11 の audit-manager snapshot。本節は Issue #2878 の AC4（matrix CI cost 概算）/ AC5（API 網羅率算出 + 未カバー一覧）を完遂し、その際に判明した §1-§2 の stale 記述を実測再確認で是正する。出典は本リポの実 file / 実 CI run（GitHub Actions API 実測値）。
+
+### §7.1 stale 記述の是正（実測再確認）
+
+| §1-§2 の記述 | 2026-06-18 実測 | 是正 |
+|---|---|---|
+| §1.3 L47「E2E matrix … ✕ CI 未組込（ローカル手動のみ）」 | `.github/workflows/ci.yml` の `e2e-matrix` job（`if: github.base_ref != 'develop'`、main 向け PR + push:main + dispatch で発火）が実在し `npm run test:e2e:matrix` を実行。直近 main run 3 件で **success**（後述 §7.2 の実測 wall-clock 参照） | **○ CI 組込済**。§2 L75 の「実体是正注記」が正、§1.3 L47 の「✕」は #2874（`e2e-matrix` job 化）完了前の旧状態。G-E2E-MATRIX は **解消済**（severity 3→0） |
+| §1.2「`-staging` suffix の stack・stage 分離は存在しない」/ §2 G-STG-NUC・G-STG-AWS「staging 不在」 | `.github/workflows/deploy-aws-staging.yml`（実在、AWS staging 3 stack を `-c stagingEnabled=true` で deploy + health/smoke）/ `.github/workflows/deploy-nuc-staging.yml`（実在、本番 DB snapshot → staging container 起動の migration-forward step を含む）が両方実在 | G-STG-NUC / G-STG-AWS は **workflow 実装済（#2872 / #2873 の D 系成果）**。ただし infra/CLAUDE.md 記載どおり **当面 advisory（main ruleset の required_status_checks 未登録）**。残 gap は G-STG-GATE（merge blocker 化 = required 登録）に収斂 |
+| §2 G-MIG「過去状態からの migration 込み実機起動の post-deploy 検証なし」 | `deploy-nuc-staging.yml` が `scripts/snapshot-prod-db.cjs` で本番 DB snapshot → staging で `applyLazyStartupMigrations` 貫通 → health の経路を実装 | G-MIG は **NUC staging 側で実装済**。AWS は DynamoDB backend のため対象外（§1.4 整合）。残 gap は「advisory → required 昇格」（G-STG-GATE に合流） |
+
+**要点**: 2026-06-11 snapshot 時点の「未着手」前提の sev4/sev3 gap（G-STG / G-MIG / G-E2E-MATRIX）は、その後の D 系実装（#2872/#2873/#2874 workflow）で **構造は実装済**になり、残るのは **「advisory → required_status_checks 登録による merge blocker 化」**（G-STG-GATE、severity 3）に収斂した。これは audit-manager が main ruleset を更新する運用判断（infra/CLAUDE.md §NUC/AWS staging 系統「初回緑確認後に required 化」）であり、新規実装 issue ではない。
+
+### §7.2 AC4 — `e2e-matrix` CI 取込コスト概算（実測）
+
+`e2e-matrix` は既に CI 組込済（§7.1）のため、**概算ではなく実 CI run の実測値**を示す（#2871 cost 概算と整合する形式）。
+
+- **構成**（`playwright.matrix.config.ts`）: ADR-0040 mode×plan の **4 project**（`demo-free`:5201 / `local-debug-family`:5202 / `aws-prod-trial-expired`:5203 / `nuc-prod-trust-based`:5204）、1 worker、retries:0、testMatch=`tests/e2e/adr-0040/matrix.spec.ts`（3 test）。
+- **実測 wall-clock**（`ci.yml` の `e2e-matrix` job、直近 main run、GitHub Actions API `gh run view --json jobs`）:
+
+| CI run 日時 | job wall-clock |
+|---|---|
+| 2026-06-16 07:35 | 2m16s |
+| 2026-06-15 12:49 | 2m29s |
+| 2026-06-11 06:57 | 1m33s |
+
+- **GitHub Actions 分概算**: ubuntu-latest（1× 課金乗数）で 1 job ≈ **2–3 Actions-min/run**。発火頻度 = main 向け PR（≒1 日 1 回の統合 PR）+ push:main のみ（develop 向け feature PR では skip、§1.1 重量レーン方針）。月概算 ≈ 統合 PR 30 回 + main push 数十回 = **~100–150 Actions-min/月**（ubuntu free tier 2,000 min/月 に対し誤差レベル、ADR-0010 Pre-PMF 適合）。
+- **結論**: AC4 が想定した「未組込 → 組込時の追加コスト」は **既に発生済みで実測 2–3 Actions-min/run と極小**。追加コスト懸念なし。#2874 が `e2e-matrix` を保証発火 job 化した判断は cost 面でも妥当。
+
+### §7.3 AC5 — API テスト網羅率（`07-API設計書.md` 基準）+ 未カバー一覧
+
+**母数**（実測、`find src/routes/api -name '+server.ts'` / handler は `export (const|async function) (GET|POST|PUT|PATCH|DELETE)` grep）:
+- endpoint file（`+server.ts`）: **100**
+- handler method（endpoint × method）: **129**
+
+**直接テスト資産**（再現可能な定義 = endpoint 専用の unit/integration テストが存在）:
+- `tests/integration/api/`: **3 file**（`activity-api` / `activity-log-api` / `point-api`）→ activities・activity-logs・points 系 ~8 endpoint を境界網羅
+- `tests/unit/routes/*-api*.test.ts` ほか: **14 file**（`account-delete-api` / `activities-suggest-api` / `admin-tenant-cancel` / `api-stripe-webhook` / `api-stripe-webhook-v2` / `cron-analytics-aggregate-api` / `cron-auth-3-endpoints`（3 endpoint）/ `cron-challenge-aggregate-api` / `feedback-api` / `notifications-subscribe-api` / `parent-gate-reset-request-code-api` / `parent-gate-reset-verified-api` / `parent-gate-setup-api` / `weekly-report-api`）→ ~16 endpoint
+
+**網羅率（2 指標、再現可能）**:
+
+| 指標 | 分子/分母 | 率 | 定義 |
+|---|---|---|---|
+| **専用 unit/integration テスト網羅** | ~24 / 100 endpoint file | **~24%** | endpoint ごとの専用 API テスト（境界条件・認可・エラーを assert）が存在 |
+| **何らかのテスト網羅（E2E smoke 含む）** | ~37 / 100 endpoint file | **~37%** | 上記 + E2E spec が経路を 1 回以上叩く（health / auth / battle / login-bonus / account-deletion / parent-gate-verify / stripe-checkout / usage 等の smoke） |
+
+→ **API テスト網羅率 ≈ 24%（専用テスト）〜 37%（E2E smoke 込み）**。残 **63–76 endpoint が専用テスト不在**。G-API-COV（§2、severity 2）の定量化。
+
+**未カバー endpoint 一覧（専用テスト不在、優先度別）**:
+
+- **高（コア業務ロジック / AI）**: `special-rewards/[childId]`・`special-rewards/[rewardId]/shown`・`special-rewards/suggest`・`cheer/suggest`・`checklists/suggest`・`messages/[childId]`(POST)・`messages/[messageId]/shown`・`rest-days/[childId]`(CRUD)・`settings/decay`・`evaluations/[childId]`・`achievements/[childId]`・`points/ocr-receipt`・`children/[id]/voices`(CRUD)
+- **中（admin / データライフサイクル）**: `admin/account/{export,grace-status,restore}`・`admin/downgrade-{archive,preview,restore}`・`admin/invites/[code]`(DELETE)・`admin/members/{[userId],transfer-ownership,leave}`・`admin/trial-expiration`・`admin/viewer-tokens`(CRUD)・`admin/migration`・`admin/cleanup-orphans`・`admin/notifications/{reminder,streak-warning}`
+- **低（export/import / 設定）**: `activities/export`・`special-rewards/export`・`checklists/export`・`export/cloud`(CRUD)・`import/cloud`・`data/{summary,clear}`・`settings/{tutorial,pin-gate-onboarding,vapid-key}`・`notifications/unsubscribe`・`inquiry/founder`・`images`(GET/POST)・`analytics`系
+
+**`07-API設計書.md` doc-vs-code 差分**（AC5 副産物、ADR-0001 同期 gap）:
+- **doc 記載・code 不在の疑い**: `GET /api/v1/children` / `GET /api/v1/children/[id]`（設計書に table 記載あるが `+server.ts` 未検出 — 実体は `load` 経由の可能性、要 #2577 doc-code-references 精査）
+- **code 実在・doc 未記載**: `admin/account/{export,grace-status,restore}` / `admin/downgrade-{archive,preview,restore}` / `admin/trial-expiration` / `settings/pin-gate-onboarding` / `inquiry/founder` 等 ~9 endpoint（07-API設計書.md の table に追補が必要）
+
+→ doc-vs-code 同期は **別 feature issue 起票候補**（本 gap-list の scope は棚卸しまで、是正実装は #2874 の API 網羅拡充 or 専用 issue）。
+
+### §7.4 AC → 充足 section 対応表（#2878 完遂確認）
+
+| AC | 要求 | 充足 section | 状態 |
+|---|---|---|---|
+| AC1 | gap-list レポート新設 + path 報告 | 本 file（`docs/research/2026-06-11-audit-infra-gap-list.md`）。Issue へ path コメント報告 | ✅ |
+| AC2 | gap 件数表（領域×件数×severity）5 領域網羅 | §2「gap 件数表」（staging / migration / post-deploy / E2E / API・カバレッジ / 仮ユーザの 6 区分、11 gap）+ §7.1 で sev 再評価 | ✅ |
+| AC3 | 各 gap → 担当 issue 紐付け | §2 gap 表「対応 issue」列（#2872/#2873/#2874/新規）+ §7.1 で実装済 gap の収斂先明示 | ✅ |
+| AC4 | matrix CI 取込 wall-clock + Actions 分概算（#2871 整合） | §7.2（実測 1m33s–2m29s / ~2–3 Actions-min/run / ~100–150 min/月） | ✅ |
+| AC5 | API 網羅率（07-API設計書 基準）+ 未カバー一覧 | §7.3（24%専用 / 37%smoke 込み、母数 100 file・129 handler、未カバー 63–76 endpoint を優先度別列挙 + doc-vs-code 差分） | ✅ |
+
+**残課題（本 gap-list scope 外、別 issue 判断）**: G-STG-GATE（staging advisory → required 昇格、audit-manager 運用判断）/ API 網羅拡充（G-API-COV 是正実装、#2874 or 専用 feature issue）/ 07-API設計書 doc-vs-code 同期（ADR-0001、専用 issue 候補）。
