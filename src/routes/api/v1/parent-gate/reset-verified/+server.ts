@@ -1,14 +1,17 @@
-// POST /api/v1/parent-gate/reset-verified — #2993 (EPIC #2990)
+// POST /api/v1/parent-gate/reset-verified — #2993 (EPIC #2990) / #3070 (federated email-OTP)
 //
-// cognito モードの「おやカギコードを忘れた」救済: **アカウントパスワードの再入力**で本人確認し、
-// その場で PIN を再作成する (Apple Screen Time 同型 = 忘れた → アカウント資格情報で reset)。
+// cognito モードの「おやカギコードを忘れた」救済。本人確認は認証種別で分岐する:
+//   - password ユーザ: **アカウントパスワードの再入力**で本人確認 (Apple Screen Time 同型、#2993、現状維持)
+//   - federated (Google) ユーザ: **登録メールに送った 6 桁の確認コード (email-OTP)** で本人確認 (#3070)
+// いずれも本人確認成功後その場で PIN を再作成する。
 //
-// 設計の核心 (Issue #2993 設計コメント):
+// 設計の核心 (Issue #2993 / #3070):
 //   - cognito 認証済みセッション ≠ 親 (家庭内共有端末で親のセッションのまま子供が触る前提が
 //     parent-gate の存在意義)。セッションだけで reset を許すと子供が gate を突破できる穴になる
-//     ため、子供が知らない「アカウントパスワード」を本人確認に使う
+//     ため、子供が知らない材料 (アカウントパスワード / メール確認コード) を本人確認に使う
 //   - email は `locals.identity.email` (cognito identity) を使い手入力させない
-//   - メール往復 (旧 SES magic link) なし。旧 email reset 経路は本 PR で削除 (置換)
+//   - #3070: federated は Cognito が prompt=login を IdP に転送しないため recent-login が共有端末で
+//     silent SSO 無入力通過し得る。email-OTP は子がメールを読めないため確実に塞ぐ
 //   - MFA_REQUIRED は success 扱い: InitiateAuth でパスワード正解後に返る第 2 要素要求であり、
 //     パスワードが正しいことは確定している (token は使わないため MFA を完遂する必要がない)
 //   - local モードは対象外 (gate 無効 + 救済は operator reset #2994 が担当)
@@ -25,13 +28,13 @@ import {
 	createParentSession,
 	PARENT_SESSION_COOKIE_NAME,
 } from '$lib/server/services/parent-gate-session';
+import { PIN_RESET_OTP_COOKIE_NAME, verifyPinResetOtp } from '$lib/server/services/pin-reset-otp';
 import type { RequestHandler } from './$types';
 
 const PIN_PATTERN = /^\d{4,6}$/;
+const OTP_PATTERN = /^\d{6}$/;
 const COOKIE_MAX_AGE_SEC = 60 * 60 * 24; // verify と同じ 24 時間 hard max (sliding は 15 分)
-/** #3025: federated user の requires-recent-login 閾値 (Firebase 同型の 5 分) */
-const RECENT_AUTH_MAX_AGE_SEC = 5 * 60;
-/** パスワード brute force 防止 (Cognito 側 throttle と二重) */
+/** パスワード / コード brute force 防止 (Cognito 側 throttle / OTP attempts と多重) */
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
@@ -55,10 +58,12 @@ export const POST: RequestHandler = async ({ request, cookies, locals, getClient
 
 	let password: string;
 	let newPin: string;
+	let code: string;
 	try {
 		const body = await request.json();
 		password = typeof body?.password === 'string' ? body.password : '';
 		newPin = typeof body?.newPin === 'string' ? body.newPin : '';
+		code = typeof body?.code === 'string' ? body.code : '';
 	} catch {
 		error(400, 'INVALID_BODY');
 	}
@@ -68,15 +73,18 @@ export const POST: RequestHandler = async ({ request, cookies, locals, getClient
 	}
 
 	const verifyError = identity.isFederated
-		? verifyFederatedRecentAuth(identity.authTime, tenantId)
+		? verifyFederatedOtp(code, cookies, tenantId)
 		: await verifyAccountPassword(identity.email, password, tenantId);
 	if (verifyError) {
 		return verifyError;
 	}
 
 	await setupPin(newPin, tenantId);
-	logger.info('[PARENT_GATE] PIN reset via password re-auth (#2993)', {
-		context: { tenantIdPrefix: tenantId.slice(0, 12) },
+	logger.info('[PARENT_GATE] PIN reset via re-auth', {
+		context: {
+			tenantIdPrefix: tenantId.slice(0, 12),
+			method: identity.isFederated ? 'email-otp' : 'password',
+		},
 	});
 
 	// 再作成した本人をそのまま親画面へ通す (verify / setup と同じ session 発行)
@@ -93,25 +101,48 @@ export const POST: RequestHandler = async ({ request, cookies, locals, getClient
 };
 
 /**
- * #3025: federated (Google 等) ユーザの本人確認 — requires-recent-login (Firebase 同型)。
- * federated は Cognito パスワードを持たないため、auth_time (実認証時刻、refresh token 経由の
- * 再発行では更新されない) が閾値以内 = 「Google でログインし直した直後」のみ再設定を許可する。
- * Cognito は prompt=login を IdP に転送しないため (既知制限)、これが第三者アプリとして到達可能な
- * 最大強度 (research: tmp/research/pin-reset-federated-user-2026-06-11.md)。
- * @returns 検証 NG なら error Response、OK なら null
+ * #3070: federated (Google 等) ユーザの本人確認 — 登録メールに送った 6 桁 OTP を検証。
+ * `reset-request-code` が署名 cookie (pin_reset_otp) に格納した codeHash / expiresAt / attempts /
+ * tenantId と照合する (DB 非保存の stateless 方式)。検証成功時は consume-once で cookie を clear する。
+ * federated は Cognito パスワードを持たないため、共有端末で silent SSO 無入力通過し得る
+ * recent-login の代わりに、子がアクセスできない email を確認材料に使う。
+ * @returns 検証 NG なら error Response、OK なら null (呼び出し側が setupPin する)
  */
-function verifyFederatedRecentAuth(
-	authTime: number | undefined,
+function verifyFederatedOtp(
+	code: string,
+	cookies: Parameters<RequestHandler>[0]['cookies'],
 	tenantId: string,
 ): Response | null {
-	const ageSec = authTime ? Math.floor(Date.now() / 1000) - authTime : Number.POSITIVE_INFINITY;
-	if (ageSec > RECENT_AUTH_MAX_AGE_SEC) {
-		logger.info('[PARENT_GATE] reset-verified: federated recent-auth stale (再ログイン誘導)', {
-			context: { tenantIdPrefix: tenantId.slice(0, 12), ageSec },
-		});
-		return json({ ok: false, error: 'FRESH_LOGIN_REQUIRED' }, { status: 401 });
+	if (!code || !OTP_PATTERN.test(code)) {
+		return json({ ok: false, error: 'CODE_REQUIRED' }, { status: 401 });
 	}
-	return null;
+
+	const cookie = cookies.get(PIN_RESET_OTP_COOKIE_NAME);
+	const result = verifyPinResetOtp(cookie, code, tenantId);
+
+	if (result.ok) {
+		// consume-once: 検証成功した OTP cookie は即 clear (同 code の二度目を不可にする)
+		cookies.delete(PIN_RESET_OTP_COOKIE_NAME, { path: '/' });
+		return null;
+	}
+
+	// 失敗: 残試行を継続する場合 (nextCookie) は再 set、それ以外 (上限 / 失効 / 改竄) は clear
+	if (result.nextCookie) {
+		cookies.set(PIN_RESET_OTP_COOKIE_NAME, result.nextCookie, {
+			path: '/',
+			httpOnly: true,
+			secure: COOKIE_SECURE,
+			sameSite: 'lax',
+			maxAge: COOKIE_MAX_AGE_SEC,
+		});
+	} else {
+		cookies.delete(PIN_RESET_OTP_COOKIE_NAME, { path: '/' });
+	}
+
+	logger.info('[PARENT_GATE] reset-verified: federated OTP verify failed (#3070)', {
+		context: { tenantIdPrefix: tenantId.slice(0, 12), reason: result.reason },
+	});
+	return json({ ok: false, error: result.reason }, { status: 401 });
 }
 
 /**

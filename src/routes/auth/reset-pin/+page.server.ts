@@ -1,8 +1,10 @@
-// /auth/reset-pin — #2993 (EPIC #2990): PIN 忘れ救済 (cognito 専用、パスワード再入力方式)
+// /auth/reset-pin — #2993 (EPIC #2990) / #3070: PIN 忘れ救済 (cognito 専用)
 //
 // 旧 /auth/forgot-pin (email 手入力) + /auth/reset-pin/[token] (SES magic link) を置換。
-// email はセッション既知 (locals.identity.email) のため手入力させず、本人確認は
-// アカウントパスワードの再入力で行う (Apple Screen Time 同型、Issue #2993 設計コメント)。
+// email はセッション既知 (locals.identity.email) のため手入力させない。本人確認は認証種別で分岐:
+//   - password ユーザ: アカウントパスワードの再入力 (Apple Screen Time 同型、#2993)
+//   - federated (Google) ユーザ: 登録メールに送る 6 桁の確認コード = email-OTP (#3070)
+//     (recent-login は共有端末で silent SSO 無入力通過し得るため OTP に置換)
 
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
@@ -16,16 +18,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		redirect(302, '/auth/login');
 	}
 
-	// #3025: federated (Google) ユーザはパスワードを持たない → requires-recent-login 方式。
-	// auth_time が閾値以内なら本人確認済としてそのまま PIN 入力 UI を出す
-	const RECENT_AUTH_MAX_AGE_SEC = 5 * 60;
-	const ageSec = identity.authTime
-		? Math.floor(Date.now() / 1000) - identity.authTime
-		: Number.POSITIVE_INFINITY;
-
 	return {
 		accountEmail: identity.email,
 		isFederated: identity.isFederated ?? false,
-		hasRecentAuth: ageSec <= RECENT_AUTH_MAX_AGE_SEC,
 	};
 };
