@@ -1203,6 +1203,103 @@ describe('importFamilyData', () => {
 		});
 	});
 
+	describe('チェックリスト log の round-trip キー (#3107 同名取り違え防止)', () => {
+		it('templateExportId を優先して正しい template に再マップする (name でなく exportId 解決)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			// 別名 2 template。log は 2 番目 (exportId e2) を指す。
+			data.data.checklistTemplates = [
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					exportId: 'e1',
+				},
+				{
+					childRef: 'c1',
+					name: 'よるのしたく',
+					icon: '🌙',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					exportId: 'e2',
+				},
+			];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: 'よるのしたく',
+					templateExportId: 'e2',
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: true,
+					pointsAwarded: 1,
+					createdAt: '2026-03-15T20:00:00Z',
+				},
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			// 1 件目 → id 50、2 件目 → id 51
+			mockInsertTemplate.mockResolvedValueOnce({ id: 50 }).mockResolvedValueOnce({ id: 51 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			mockUpsertLog.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(1);
+			// exportId e2 → 2 番目に作成した template (id 51) に attach (name 一致でなく exportId 解決)
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({ childId: 101, templateId: 51 }),
+				TENANT,
+			);
+		});
+
+		it('templateExportId が無い旧 export は templateName で fallback する (後方互換)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.checklistTemplates = [
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					// exportId なし (旧 export 想定)
+				},
+			];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: 'あさのしたく',
+					// templateExportId なし
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: true,
+					pointsAwarded: 1,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertTemplate.mockResolvedValue({ id: 60 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			mockUpsertLog.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(1);
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({ childId: 101, templateId: 60 }),
+				TENANT,
+			);
+		});
+	});
+
 	describe('静的ファイル (アバター画像 / 音声) のインポート (#3077)', () => {
 		function makeChildWithAvatar(exportId: string, sourceChildId: number, avatarUrl: string) {
 			return {
