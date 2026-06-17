@@ -3,7 +3,9 @@
 
 export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #1254 G1: 1.2.0 で `sourcePresetId` フィールドを追加 (activities / specialRewards / checklistTemplates)
-export const EXPORT_VERSION = '1.2.0' as const;
+// #3106 / #3107: 1.3.0 で checklist の `exportId` / `isArchived` / log `templateExportId` を追加
+//   (archive 済 template の log 保全 + 同名 template の round-trip 取り違え防止)。いずれも optional で後方互換。
+export const EXPORT_VERSION = '1.3.0' as const;
 
 // ============================================================
 // マスタデータ型
@@ -163,6 +165,11 @@ export interface ExportChecklistTemplate {
 	items: ExportChecklistTemplateItem[];
 	// #1254 G1: マーケットプレイスプリセット由来の識別子 (v1.2.0+)
 	sourcePresetId?: string | null;
+	// #3107: export 内で安定な template 識別子 (v1.3.0+)。checklistLog の round-trip キーに使い、
+	// 同名 template が複数あっても log を取り違えない。旧 export には無いため optional。
+	exportId?: string;
+	// #3106: archive 状態を round-trip で保全 (v1.3.0+)。旧 export には無いため optional (未指定=非 archived)。
+	isArchived?: boolean;
 }
 
 export interface ExportChecklistTemplateItem {
@@ -176,6 +183,9 @@ export interface ExportChecklistTemplateItem {
 export interface ExportChecklistLog {
 	childRef: string;
 	templateName: string;
+	// #3107: 紐づく template の安定識別子 (v1.3.0+)。import 側はこれを優先して再マップし、
+	// 無い場合 (旧 export) のみ templateName で fallback する。
+	templateExportId?: string;
 	checkedDate: string;
 	itemsJson: string;
 	completedAll: boolean;

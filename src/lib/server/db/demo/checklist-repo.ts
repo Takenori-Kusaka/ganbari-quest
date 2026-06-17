@@ -100,13 +100,17 @@ export async function findTemplatesByChild(
 	childId: number,
 	_tenantId: string,
 	includeInactive?: boolean,
+	// #3106: archive 済 template を含めるか (export/backup 文脈のみ true)
+	includeArchived?: boolean,
 ): Promise<ChecklistTemplate[]> {
 	const assignedIds = new Set(
 		ALL_DEMO_CHECKLIST_ASSIGNMENTS.filter((a) => a.childId === childId).map((a) => a.templateId),
 	);
 	return ALL_DEMO_CHECKLIST_TEMPLATES.filter(
 		(t) =>
-			assignedIds.has(t.id) && (includeInactive === true || t.isActive === 1) && t.isArchived === 0,
+			assignedIds.has(t.id) &&
+			(includeInactive === true || t.isActive === 1) &&
+			(includeArchived === true || t.isArchived === 0),
 	);
 }
 

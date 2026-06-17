@@ -47,6 +47,9 @@ export interface IChecklistRepo {
 		childId: number,
 		tenantId: string,
 		includeInactive?: boolean,
+		// #3106: archive 済 template を含めるか。既定 false (従来どおり archived 除外)。
+		// export/backup 文脈のみ true にし、archive 済 template の checklistLog 欠落を防ぐ。
+		includeArchived?: boolean,
 	): Promise<ChecklistTemplate[]>;
 
 	findTemplateById(id: number, tenantId: string): Promise<ChecklistTemplate | undefined>;

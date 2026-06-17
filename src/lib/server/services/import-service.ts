@@ -116,7 +116,9 @@ export function validateExportData(
 	if (d.format !== EXPORT_FORMAT) {
 		return { valid: false, error: `フォーマットが不正です（期待: ${EXPORT_FORMAT}）` };
 	}
-	const supportedVersions = [EXPORT_VERSION, '1.1.0', '1.0.0'];
+	// #3106/#3107: EXPORT_VERSION を 1.3.0 に bump したが、既存 1.2.0 backup も import 可能に保つ
+	// (新 field はすべて optional で後方互換)。
+	const supportedVersions = [EXPORT_VERSION, '1.2.0', '1.1.0', '1.0.0'];
 	if (!supportedVersions.includes(d.version as string)) {
 		return {
 			valid: false,
@@ -561,102 +563,158 @@ async function importLoginBonusesData(
 	}
 }
 
+/** checklistLog の再マップに使う、childId 単位の template id 解決マップ群。 */
+export interface ChecklistTemplateIdMaps {
+	/** templateName → templateId (#3078、旧 export の fallback 用) */
+	byName: Map<number, Map<string, number>>;
+	/** exportId → templateId (#3107、同名 template 取り違え防止の安定キー) */
+	byExportId: Map<number, Map<string, number>>;
+}
+
+/** childId 単位の checklist template import 状態 (既存 + 当 import で作成した template の id 解決)。 */
+interface ChildChecklistState {
+	names: Set<string>;
+	presetIds: Set<string>;
+	idByName: Map<string, number>;
+	idByPreset: Map<string, number>;
+	/** exportId → templateId (#3107 round-trip キー、当 import data の exportId のみ) */
+	exportIdToId: Map<string, number>;
+}
+
+/** child の既存 template から import 状態を初期化する。 */
+async function loadChildChecklistState(
+	childId: number,
+	tenantId: string,
+): Promise<ChildChecklistState> {
+	const rows = await findTemplatesByChild(childId, tenantId, true, true);
+	return {
+		names: new Set(rows.map((r) => r.name)),
+		presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
+		idByName: new Map(rows.map((r) => [r.name, r.id])),
+		idByPreset: new Map(
+			rows.filter((r) => r.sourcePresetId).map((r) => [r.sourcePresetId as string, r.id]),
+		),
+		exportIdToId: new Map(),
+	};
+}
+
+/** 1 件の checklist template を import (重複スキップ / 新規作成) し、exportId を id に登録する。 */
+async function importOneChecklistTemplate(
+	tpl: ExportData['data']['checklistTemplates'][number],
+	childId: number,
+	state: ChildChecklistState,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	// #3107: 解決先 templateId を round-trip キー (exportId) に登録する (スキップ時も既存 id を登録)。
+	const register = (templateId: number) => {
+		if (tpl.exportId) state.exportIdToId.set(tpl.exportId, templateId);
+	};
+
+	// #1254 G1: preset_duplicate → name_duplicate の順で判定
+	if (tpl.sourcePresetId && state.presetIds.has(tpl.sourcePresetId)) {
+		result.skipped.preset++;
+		const dupId = state.idByPreset.get(tpl.sourcePresetId);
+		if (dupId !== undefined) register(dupId);
+		return;
+	}
+	if (state.names.has(tpl.name)) {
+		result.skipped.name++;
+		const dupId = state.idByName.get(tpl.name);
+		if (dupId !== undefined) register(dupId);
+		return;
+	}
+
+	try {
+		// #2362 PR-5 (ADR-0055): family master template + assignment 自動付与。
+		const newTpl = await insertTemplate(
+			{
+				name: tpl.name,
+				icon: tpl.icon,
+				pointsPerItem: tpl.pointsPerItem,
+				completionBonus: tpl.completionBonus,
+				isActive: tpl.isActive ? 1 : 0,
+				sourcePresetId: tpl.sourcePresetId ?? null,
+			},
+			tenantId,
+		);
+		await assignTemplateToChildren(newTpl.id, [childId], tenantId);
+		state.names.add(tpl.name);
+		state.idByName.set(tpl.name, newTpl.id);
+		register(newTpl.id);
+		if (tpl.sourcePresetId) {
+			state.presetIds.add(tpl.sourcePresetId);
+			state.idByPreset.set(tpl.sourcePresetId, newTpl.id);
+		}
+		for (const item of tpl.items) {
+			await insertTemplateItem(
+				{
+					templateId: newTpl.id,
+					name: item.name,
+					icon: item.icon,
+					frequency: item.frequency,
+					direction: item.direction,
+					sortOrder: item.sortOrder,
+				},
+				tenantId,
+			);
+		}
+	} catch (e) {
+		result.errors.push(`チェックリスト「${tpl.name}」インポート失敗: ${String(e)}`);
+	}
+}
+
 /**
  * チェックリスト template を import する。
  *
- * 返り値 (#3078): childId → (templateName → templateId) の解決マップ。
- *   既存 (重複スキップ含む) / 新規作成いずれの template も name → id を登録するため、
- *   後段の checklistLog import が `ExportChecklistLog.templateName` から新 templateId を解決できる。
+ * 返り値 (#3078 / #3107): childId → templateName/exportId → templateId の解決マップ。
+ *   既存 (重複スキップ含む) / 新規作成いずれの template も登録するため、後段の checklistLog
+ *   import が `templateExportId` (優先) または `templateName` (fallback) から新 templateId を解決できる。
+ *   #3107: 同名 template が複数あっても exportId 経由で正しい template に attach する。
  */
 async function importChecklistTemplatesData(
 	data: ExportData,
 	childIdMap: Map<string, number>,
 	tenantId: string,
 	result: ImportResult,
-): Promise<Map<number, Map<string, number>>> {
-	const existingByChild = new Map<number, { names: Set<string>; presetIds: Set<string> }>();
-	const templateIdByChild = new Map<number, Map<string, number>>();
+): Promise<ChecklistTemplateIdMaps> {
+	const stateByChild = new Map<number, ChildChecklistState>();
 
 	for (const tpl of data.data.checklistTemplates) {
 		const childId = childIdMap.get(tpl.childRef);
 		if (!childId) continue;
 
-		let existing = existingByChild.get(childId);
-		let nameToId = templateIdByChild.get(childId);
-		if (!existing || !nameToId) {
-			const rows = await findTemplatesByChild(childId, tenantId, true);
-			existing = {
-				names: new Set(rows.map((r) => r.name)),
-				presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
-			};
-			nameToId = new Map(rows.map((r) => [r.name, r.id]));
-			existingByChild.set(childId, existing);
-			templateIdByChild.set(childId, nameToId);
+		let state = stateByChild.get(childId);
+		if (!state) {
+			state = await loadChildChecklistState(childId, tenantId);
+			stateByChild.set(childId, state);
 		}
-
-		// #1254 G1: preset_duplicate → name_duplicate の順で判定
-		if (tpl.sourcePresetId && existing.presetIds.has(tpl.sourcePresetId)) {
-			result.skipped.preset++;
-			continue;
-		}
-		if (existing.names.has(tpl.name)) {
-			result.skipped.name++;
-			continue;
-		}
-
-		try {
-			// #2362 PR-5 (ADR-0055): family master template + assignment 自動付与。
-			// InsertChecklistTemplateInput は family scope (childId なし) に変更済。
-			// export data 由来の childRef は assignment で 1 row 配信先として記録する。
-			const newTpl = await insertTemplate(
-				{
-					name: tpl.name,
-					icon: tpl.icon,
-					pointsPerItem: tpl.pointsPerItem,
-					completionBonus: tpl.completionBonus,
-					isActive: tpl.isActive ? 1 : 0,
-					sourcePresetId: tpl.sourcePresetId ?? null,
-				},
-				tenantId,
-			);
-			await assignTemplateToChildren(newTpl.id, [childId], tenantId);
-			existing.names.add(tpl.name);
-			nameToId.set(tpl.name, newTpl.id);
-			if (tpl.sourcePresetId) existing.presetIds.add(tpl.sourcePresetId);
-			for (const item of tpl.items) {
-				await insertTemplateItem(
-					{
-						templateId: newTpl.id,
-						name: item.name,
-						icon: item.icon,
-						frequency: item.frequency,
-						direction: item.direction,
-						sortOrder: item.sortOrder,
-					},
-					tenantId,
-				);
-			}
-		} catch (e) {
-			result.errors.push(`チェックリスト「${tpl.name}」インポート失敗: ${String(e)}`);
-		}
+		await importOneChecklistTemplate(tpl, childId, state, tenantId, result);
 	}
 
-	return templateIdByChild;
+	const byName = new Map<number, Map<string, number>>();
+	const byExportId = new Map<number, Map<string, number>>();
+	for (const [childId, state] of stateByChild) {
+		byName.set(childId, state.idByName);
+		byExportId.set(childId, state.exportIdToId);
+	}
+	return { byName, byExportId };
 }
 
 /**
- * チェックリスト完了履歴 (checklistLogs) を import する (#3078)。
+ * チェックリスト完了履歴 (checklistLogs) を import する (#3078 / #3107)。
  *
- * - `ExportChecklistLog.templateName` を import 後の新 templateId に再マップする
- *   (templateIdByChild マップ経由、childId 単位)。
+ * - #3107: `templateExportId` (安定キー) を優先して import 後の新 templateId に再マップし、
+ *   無い場合 (旧 export) のみ `templateName` で fallback する。同名 template が複数あっても
+ *   取り違えない。
  * - 重複は (childId, templateId, checkedDate) 既存ログとの照合で事前スキップする
  *   (upsertLog は UNIQUE 制約上書きのため、重複を import 件数に数えない)。
- * - template 名が解決できないログ (template 未取込 / archive 済) はスキップ。
+ * - template が解決できないログ (template 未取込) はスキップ。
  */
 async function importChecklistLogsData(
 	data: ExportData,
 	childIdMap: Map<string, number>,
-	templateIdByChild: Map<number, Map<string, number>>,
+	templateIdMaps: ChecklistTemplateIdMaps,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
@@ -669,7 +727,11 @@ async function importChecklistLogsData(
 			continue;
 		}
 
-		const templateId = templateIdByChild.get(childId)?.get(log.templateName);
+		// #3107: exportId を優先解決、無ければ name で fallback (旧 export 互換)
+		const templateId =
+			(log.templateExportId
+				? templateIdMaps.byExportId.get(childId)?.get(log.templateExportId)
+				: undefined) ?? templateIdMaps.byName.get(childId)?.get(log.templateName);
 		if (!templateId) {
 			result.checklistLogsSkipped++;
 			continue;
