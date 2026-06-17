@@ -229,6 +229,72 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 		});
 	});
 
+	describe('C-2b: /_app/* static asset Origin Shield (#3087)', () => {
+		// adapter-node + Lambda Web Adapter 構成では SvelteKit の build 済 client 静的アセット
+		// (/_app/immutable/*) も Lambda(Function URL) が配信する。エッジ cache cold 時に ~224 本の
+		// チャンクが Lambda origin を一斉直撃し TooManyRequestsException (429) + 輻輳で最遅 ~16s に
+		// 達していた (HAR 実測、#3087)。/_app/* 専用 origin に Origin Shield を有効化し cold-miss
+		// burst を 1 リージョンに collapse する。region は origin (Lambda) と同一 us-east-1。
+		type CfnOrigin = {
+			DomainName?: unknown;
+			CustomOriginConfig?: unknown;
+			OriginShield?: { Enabled?: boolean; OriginShieldRegion?: string };
+		};
+
+		function shieldOriginsFor(distributionLogicalIdPrefix: string): CfnOrigin[] {
+			const distributions = networkTemplate.findResources('AWS::CloudFront::Distribution');
+			const matched = Object.entries(distributions).filter(([logicalId]) =>
+				logicalId.startsWith(distributionLogicalIdPrefix),
+			);
+			expect(
+				matched.length,
+				`distribution with logical id prefix ${distributionLogicalIdPrefix} must exist`,
+			).toBe(1);
+			const entry = matched[0];
+			if (!entry) return [];
+			const origins = ((
+				entry[1] as { Properties?: { DistributionConfig?: { Origins?: CfnOrigin[] } } }
+			).Properties?.DistributionConfig?.Origins ?? []) as CfnOrigin[];
+			return origins.filter((o) => o.OriginShield?.Enabled === true);
+		}
+
+		it('本番 distribution の /_app/* origin に Origin Shield (us-east-1) が有効', () => {
+			const shielded = shieldOriginsFor('CDN');
+			// 静的アセット専用 origin (lambda function URL) のみ shield 有効、ちょうど 1 本
+			expect(shielded.length).toBe(1);
+			const origin = shielded[0];
+			if (!origin) throw new Error('unreachable: shielded.length === 1 asserted above');
+			expect(origin.OriginShield?.OriginShieldRegion).toBe('us-east-1');
+			// shield origin は HTTP custom origin (Lambda Function URL)、S3 ではない
+			expect(origin.CustomOriginConfig).toBeDefined();
+		});
+
+		it('demo distribution の /_app/* origin にも Origin Shield (us-east-1) が有効 (本番と同型)', () => {
+			const shielded = shieldOriginsFor('DemoCDN');
+			expect(shielded.length).toBe(1);
+			const origin = shielded[0];
+			if (!origin) throw new Error('unreachable: shielded.length === 1 asserted above');
+			expect(origin.OriginShield?.OriginShieldRegion).toBe('us-east-1');
+			expect(origin.CustomOriginConfig).toBeDefined();
+		});
+
+		it('default behavior (HTML/API) origin は Origin Shield 無し (動的応答に余計な hop を載せない)', () => {
+			// 各 distribution の origin は「shield 有効 1 本 + 無効 N 本」構成。
+			// default behavior が shield 経由になっていない = shield 無効 origin が最低 1 本あること。
+			const distributions = networkTemplate.findResources('AWS::CloudFront::Distribution');
+			for (const [logicalId, def] of Object.entries(distributions)) {
+				const origins = ((
+					def as { Properties?: { DistributionConfig?: { Origins?: CfnOrigin[] } } }
+				).Properties?.DistributionConfig?.Origins ?? []) as CfnOrigin[];
+				const nonShielded = origins.filter((o) => o.OriginShield?.Enabled !== true);
+				expect(
+					nonShielded.length,
+					`distribution ${logicalId} must keep at least one non-shielded origin for dynamic content`,
+				).toBeGreaterThanOrEqual(1);
+			}
+		});
+	});
+
 	describe('C-3: demo Fn environment variables', () => {
 		it('#2337: 本番 Fn (ganbari-quest-app) に PARENT_GATE_COOKIE_SECRET が注入される', () => {
 			// ADR-0050 + #2337 regression test: PR #2325 で本番 Lambda 未配備による /admin/* 500 障害再発防止。

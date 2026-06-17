@@ -214,9 +214,11 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - デフォルト動作: Lambda Function URL (SSR + API)
   - キャッシュ無効（動的コンテンツ）
   - 全HTTPメソッド許可
+  - origin = `lambdaOrigin`（Origin Shield なし。キャッシュ無効な動的応答に二次キャッシュは無効で、余計な hop を載せないため）
 - `/_app/*`: SvelteKitの静的アセット
   - 365日キャッシュ（immutable）
   - Gzip + Brotli圧縮
+  - origin = `staticAssetOrigin`（**Origin Shield 有効 / region `us-east-1`、#3087**）。adapter-node + Lambda Web Adapter 構成では client 静的アセットも Lambda が配信するため、エッジ cache cold 時に ~224 本のチャンクが Lambda origin を一斉直撃し `TooManyRequestsException`(429) + HTTP/1.1 接続キュー輻輳で最遅 ~16s に達していた（HAR 実測）。Origin Shield（regional mid-tier cache）で cold-miss burst を 1 リージョンに集約 = 同一アセットの同時 origin fetch を 1 本に collapse + 二次キャッシュで Lambda 直撃を激減させる。region は origin (Lambda) と同一 us-east-1
 - `/error/*`: S3 エラーページ（OAC経由、Lambda障害時でもS3から配信）
 - カスタムエラーレスポンス: 500/502/503/504 → S3の子供向けエラーページ
 - Price Class: PriceClass_100（北米+欧州+アジア）
@@ -318,6 +320,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 - 別名: `demo.ganbari-quest.com`
 - ACM 証明書: `props.demoCertificateArn` (未指定時は本番 `certificateArn` を fallback、wildcard `*.ganbari-quest.com` が apex と sub-domain 双方をカバー)
 - キャッシュポリシー: 本番と同一 (`CACHING_DISABLED` 本系 + `/_app/*` 365 日キャッシュ)
+- Origin Shield: 本番と同型に `/_app/*` の `demoStaticAssetOrigin` で有効 (region `us-east-1`、#3087)。default behavior origin は本番同様 shield なし
 - セキュリティヘッダ: 本番と同一 (`SECURITY_HEADERS` policy)
 - CloudFront Function: query slash encode のみ (admin IP 制限は demo に適用しない、anonymous public demo のため)
 - geoRestriction: `JP` (本番と同一、Pre-PMF 段階)
