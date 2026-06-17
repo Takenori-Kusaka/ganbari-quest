@@ -34,6 +34,19 @@ export class FileSourceError extends Error {
 }
 
 /**
+ * JSON が export envelope (v2: `schemaVersion=2` / 旧 v1: `formatVersion='1.0'`) の形か判定する。
+ *
+ * `parseAnyExportEnvelope` に渡す前の安価な discriminator。`true` の場合のみ checksum 検証 +
+ * v1→v2 migration を行い、`false` の場合は bare array / `{ activities:[] }` の手書き JSON として扱う
+ * (活動の旧 CSV/JSON インポート互換、#3079 AC4)。
+ */
+function isExportEnvelopeLike(input: unknown): boolean {
+	if (!input || typeof input !== 'object') return false;
+	const obj = input as Record<string, unknown>;
+	return obj.schemaVersion === 2 || obj.formatVersion === '1.0';
+}
+
+/**
  * `.json` / `.csv` の File から `{ activities: ActivityPackItem[] }` 形式の raw payload を生成。
  *
  * @param file アップロードされた File オブジェクト
@@ -51,15 +64,9 @@ export async function loadActivityPackFromFile(
 	let activities: ActivityPackItem[];
 
 	try {
-		if (file.name.endsWith('.csv')) {
-			activities = parseCsvActivities(text);
-		} else {
-			const parsed = JSON.parse(text);
-			activities = parsed.activities ?? parsed;
-			if (!Array.isArray(activities)) {
-				throw new FileSourceError('JSON の形式が正しくありません');
-			}
-		}
+		activities = file.name.endsWith('.csv')
+			? parseCsvActivities(text)
+			: parseActivitiesFromJson(JSON.parse(text));
 	} catch (e) {
 		if (e instanceof FileSourceError) throw e;
 		throw new FileSourceError('ファイルの解析に失敗しました');
@@ -70,6 +77,38 @@ export async function loadActivityPackFromFile(
 	}
 
 	return { activities, displayName: file.name };
+}
+
+/**
+ * 活動 JSON 入力を `ActivityPackItem[]` に正規化する (#3079 AC4)。
+ *
+ * 活動 export を v2 envelope に統一したため、復元入力は次の 3 形式を全て受理する:
+ *   (a) v2 envelope ({ schemaVersion:2, typeCode:'activity-pack', payload:{activities}, checksum })
+ *   (b) 旧 v1 envelope ({ formatVersion:'1.0', activities }) ← 後方互換 (parseAnyExportEnvelope)
+ *   (c) bare array / { activities:[] } JSON (旧 CSV/JSON 手書きインポート互換)
+ * (a)/(b) は parseAnyExportEnvelope が checksum 検証 + v1→v2 migration を一括処理する。
+ */
+function parseActivitiesFromJson(parsed: unknown): ActivityPackItem[] {
+	if (isExportEnvelopeLike(parsed)) {
+		let envelope: ReturnType<typeof parseAnyExportEnvelope>;
+		try {
+			envelope = parseAnyExportEnvelope(parsed);
+		} catch {
+			throw new FileSourceError('バックアップファイルの形式が正しくありません');
+		}
+		if (envelope.typeCode !== 'activity-pack') {
+			throw new FileSourceError(
+				'このページのバックアップファイルではありません（種類が一致しません）',
+			);
+		}
+		return (envelope.payload as { activities: ActivityPackItem[] }).activities;
+	}
+
+	const activities = (parsed as { activities?: unknown })?.activities ?? parsed;
+	if (!Array.isArray(activities)) {
+		throw new FileSourceError('JSON の形式が正しくありません');
+	}
+	return activities as ActivityPackItem[];
 }
 
 /**
