@@ -3,6 +3,7 @@ import { untrack } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { APP_LABELS, OYAKAGI_LABELS, PAGE_TITLES, SWITCH_PAGE_LABELS } from '$lib/domain/labels';
+import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import Logo from '$lib/ui/components/Logo.svelte';
 import Alert from '$lib/ui/primitives/Alert.svelte';
@@ -27,6 +28,10 @@ let pinSubmitting = $state<boolean>(false);
 // 見える困惑を解消する (NN/g #1 visibility of system status)。一度 true にしたら解除しない
 // (ナビ完了でページごと置換されるため)。
 let navigatingToAdmin = $state<boolean>(false);
+// #3089: `?screenshot=all` モード時は transient な navigating overlay を強制描画し、SS 撮影可能にする
+// (MilestoneBanner の bypassSeenCheck と同型の既存パターン、src/routes/CLAUDE.md §?screenshot)。
+// 本番ユーザは screenshot mode に入らないため通常表示には影響しない。
+const isScreenshotAll = $derived(getScreenshotModeKind() === 'all');
 // PinInput remount 用 key (失敗時に入力欄を確実にリセット)
 let pinInputKey = $state<number>(0);
 
@@ -321,7 +326,7 @@ async function handlePinComplete(details: { valueAsString: string }) {
 <!-- #3089: PIN 認証成功 → 親画面表示完了までの全画面 progress。
      ハードナビ (window.location.href) 中も現在ページ上に残り、子供画面が静止して見える困惑を解消する。
      NN/g #1 visibility of system status。z-index は §10 トークン (var(--z-modal)) を使用。 -->
-{#if navigatingToAdmin}
+{#if navigatingToAdmin || isScreenshotAll}
 	<div class="login-overlay" role="status" aria-live="polite" data-testid="parent-gate-navigating">
 		<span class="login-overlay__spinner" aria-hidden="true"></span>
 		<p class="login-overlay__text">{OYAKAGI_LABELS.gateNavigating}</p>
