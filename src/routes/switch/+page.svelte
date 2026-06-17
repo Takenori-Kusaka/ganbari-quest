@@ -22,6 +22,11 @@ let pinModalOpen = $state<boolean>(untrack(() => data.pinRequired ?? false));
 let pinError = $state<string>('');
 let lockoutUntil = $state<number | null>(null);
 let pinSubmitting = $state<boolean>(false);
+// #3089: PIN 認証成功 → 親画面 (ハードナビ) 表示完了までの数秒間、全画面 progress を出すフラグ。
+// window.location.href によるハードナビ中も現在ページ上にオーバーレイが残り、子供画面が静止して
+// 見える困惑を解消する (NN/g #1 visibility of system status)。一度 true にしたら解除しない
+// (ナビ完了でページごと置換されるため)。
+let navigatingToAdmin = $state<boolean>(false);
 // PinInput remount 用 key (失敗時に入力欄を確実にリセット)
 let pinInputKey = $state<number>(0);
 
@@ -91,6 +96,8 @@ async function handleCreateComplete(details: { valueAsString: string }) {
 		const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
 		if (res.ok && body.ok) {
 			pinModalOpen = false;
+			// #3089: ハードナビ前に全画面 progress を出し、/admin 表示まで「読み込み中」を見せ続ける
+			navigatingToAdmin = true;
 			// next path が /admin 配下に限定されていることは server 側で保証済
 			window.location.href = data.nextPath ?? '/admin';
 			return;
@@ -142,6 +149,8 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		};
 		if (res.ok && body.ok) {
 			pinModalOpen = false;
+			// #3089: ハードナビ前に全画面 progress を出し、/admin 表示まで「読み込み中」を見せ続ける
+			navigatingToAdmin = true;
 			// next path が /admin 配下に限定されていることは server 側で保証済
 			window.location.href = data.nextPath ?? '/admin';
 			return;
@@ -309,8 +318,53 @@ async function handlePinComplete(details: { valueAsString: string }) {
 	{/if}
 </Dialog>
 
+<!-- #3089: PIN 認証成功 → 親画面表示完了までの全画面 progress。
+     ハードナビ (window.location.href) 中も現在ページ上に残り、子供画面が静止して見える困惑を解消する。
+     NN/g #1 visibility of system status。z-index は §10 トークン (var(--z-modal)) を使用。 -->
+{#if navigatingToAdmin}
+	<div class="login-overlay" role="status" aria-live="polite" data-testid="parent-gate-navigating">
+		<span class="login-overlay__spinner" aria-hidden="true"></span>
+		<p class="login-overlay__text">{OYAKAGI_LABELS.gateNavigating}</p>
+	</div>
+{/if}
+
 <style>
 	.portal-page {
 		background: linear-gradient(135deg, var(--color-brand-100) 0%, var(--color-brand-50) 50%, var(--color-gold-100) 100%);
+	}
+	.login-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: var(--z-modal);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		background: var(--color-surface-overlay);
+		backdrop-filter: blur(2px);
+	}
+	.login-overlay__spinner {
+		width: 2.5rem;
+		height: 2.5rem;
+		border: 4px solid var(--color-text-inverse);
+		border-right-color: transparent;
+		border-radius: 50%;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.login-overlay__spinner {
+			animation: login-overlay-spin 0.7s linear infinite;
+		}
+	}
+	.login-overlay__text {
+		margin: 0;
+		color: var(--color-text-inverse);
+		font-weight: 700;
+		font-size: 1rem;
+	}
+	@keyframes login-overlay-spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>

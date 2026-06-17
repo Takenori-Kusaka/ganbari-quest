@@ -342,6 +342,36 @@ function registerParentGateTests(): void {
 			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 		});
 
+		// #3089: PIN 認証成功 → 親画面 (ハードナビ) 表示完了まで数秒かかる間、全画面 progress を出す。
+		// modal が閉じてから子供画面が静止して見える「困惑」(PO 報告) の回帰固定。
+		// /admin の document nav を遅延させ、遷移中 overlay を決定的に観測する。
+		test('#3089: PIN 認証成功後、親画面表示完了まで全画面 progress (navigating overlay) が表示される', async ({
+			page,
+		}) => {
+			await page.route('**/admin', async (route) => {
+				if (route.request().resourceType() === 'document') {
+					await new Promise((resolve) => setTimeout(resolve, 1200));
+				}
+				await route.continue();
+			});
+
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			// 作成フロー (未設定 tenant): 入力 → 確認一致 → setup 成功
+			await typePinInto(page, '1357');
+			await expect(page.getByTestId('parent-gate-create')).toHaveAttribute('data-step', 'confirm');
+			await typePinInto(page, '1357');
+
+			// 成功直後、/admin 表示完了前に navigating overlay が見える (子供画面が静止して見えない)
+			const overlay = page.getByTestId('parent-gate-navigating');
+			await expect(overlay).toBeVisible({ timeout: 5_000 });
+			await expect(overlay).toContainText('ひらいています');
+
+			// overlay は dead-end でなく遷移の途中表示 — 最終的に /admin へ到達する
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+		});
+
 		test('確認不一致はエラー表示 + 1 段目からやり直し (dead-end でない)', async ({ page }) => {
 			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
 			const create = page.getByTestId('parent-gate-create');
