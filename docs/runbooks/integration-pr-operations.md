@@ -14,10 +14,10 @@
 |---|---|---|
 | **重量 gate（CI）が 1 件でも fail** | **merge 見送り** | fail job を run log で特定 → 原因の develop 取込 PR を fix（develop へ追加 PR）or revert。統合 PR（release/*）は frozen 標的のため、修正は develop で行い release branch に append（[branch-strategy.md §3.1](../sessions/branch-strategy.md)「append 後は再監査必須」）|
 | **severity 3-4 の未解決 finding が残存** | **merge 見送り** | [audit-team.md §3.6](../sessions/audit-team.md) 棄却 flow に送る（ポリシー準拠判定 `policy-compliance` で意図的設計を filter → 真の NG のみ `issue-triage` で起票）。起票した Issue を Blocked by に紐付け、解消後の次 run へ繰越 |
-| **severity 1-2 のみ（重大 NG 0 件 + CI 全緑）** | **merge 可** | severity 1-2 は backlog Issue を起票（merge をブロックしない）。統合 PR body §3 のマージ判定エビデンス表に「残 NG 0（severity 3-4）」を確認のうえ lab approve → squash merge |
+| **severity 1-2 のみ（重大 NG 0 件 + CI 全緑）** | **merge 可** | severity 1-2 は backlog Issue を起票（merge をブロックしない）。統合 PR body §3 のマージ判定エビデンス表に「残 NG 0（severity 3-4）」を確認のうえ lab approve → **merge commit（`gh pr merge --merge`、squash 禁止、[branch-strategy.md §3.1](../sessions/branch-strategy.md) / audit-team.md §3.5）** |
 | **adversarial 反対理由が未解消**（ADR-0056） | **merge 見送り** | 反対理由が解消されるまで起票/棄却 flow へ（[audit-team.md §3.5](../sessions/audit-team.md)）|
 
-**繰越（carryover）原則**: 見送った統合 PR は close せず、次 run で develop の修正取込後に release branch を append（or 新しい `release/<date>` を cut し直し）て再監査する。**部分 merge（一部 develop PR だけ main へ）は release ブランチ単位の squash merge では行わない** — 問題のある develop PR を develop 側で revert/fix し、release frozen 標的を健全化してから統合する。
+**繰越（carryover）原則**: 見送った統合 PR は close せず、次 run で develop の修正取込後に release branch を append（or 新しい `release/<date>` を cut し直し）て再監査する。**部分 merge（一部 develop PR だけ main へ）は行わない**（統合は release ブランチ単位の merge commit で一括取込） — 問題のある develop PR を develop 側で revert/fix し、release frozen 標的を健全化してから統合する。
 
 ---
 
