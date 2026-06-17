@@ -239,6 +239,20 @@ const mockChecklistItems = [
 	},
 ];
 
+// #3078: チェックリスト完了ログ (templateId 1 = あさのじゅんび に紐づく)
+const mockChecklistLogs = [
+	{
+		id: 1,
+		childId: 1,
+		templateId: 1,
+		checkedDate: '2026-03-15',
+		itemsJson: '{"1":true}',
+		completedAll: 1,
+		pointsAwarded: 7,
+		createdAt: '2026-03-15T08:00:00Z',
+	},
+];
+
 // 全リポジトリファサードをモック
 vi.mock('$lib/server/db/child-repo', () => ({
 	findAllChildren: vi.fn(() => Promise.resolve(mockChildren)),
@@ -266,6 +280,9 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 		childId === 1 ? Promise.resolve(mockChecklistTemplates) : Promise.resolve([]),
 	),
 	findTemplateItems: vi.fn(() => Promise.resolve(mockChecklistItems)),
+	findLogsByChild: vi.fn((childId: number) =>
+		childId === 1 ? Promise.resolve(mockChecklistLogs) : Promise.resolve([]),
+	),
 }));
 vi.mock('$lib/server/db/evaluation-repo', () => ({
 	findEvaluationsByChild: vi.fn((childId: number) =>
@@ -415,6 +432,17 @@ describe('exportFamilyData', () => {
 		expect(result.data.checklistTemplates[0]?.name).toBe('あさのじゅんび');
 		expect(result.data.checklistTemplates[0]?.items).toHaveLength(1);
 		expect(result.data.checklistTemplates[0]?.items[0]?.name).toBe('はみがき');
+	});
+
+	it('#3078: チェックリスト完了ログが templateName で参照されてエクスポートされる', async () => {
+		const result = await exportFamilyData({ tenantId: 'test-tenant' });
+		expect(result.data.checklistLogs).toHaveLength(1);
+		const log = result.data.checklistLogs[0];
+		expect(log?.childRef).toBe('child-1');
+		expect(log?.templateName).toBe('あさのじゅんび');
+		expect(log?.checkedDate).toBe('2026-03-15');
+		expect(log?.completedAll).toBe(true);
+		expect(log?.pointsAwarded).toBe(7);
 	});
 
 	it('チェックサムが再現可能であること', async () => {

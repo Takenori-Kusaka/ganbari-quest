@@ -509,6 +509,33 @@ export async function upsertLog(
 	return log;
 }
 
+/**
+ * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
+ * PK=CHILD#<childId> + begins_with(SK, 'CKLOG#') を全ページ走査する。
+ */
+export async function findLogsByChild(childId: number, tenantId: string): Promise<ChecklistLog[]> {
+	const logs: ChecklistLog[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+				ExpressionAttributeValues: {
+					':pk': childPK(childId, tenantId),
+					':prefix': checklistLogPrefix(),
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) {
+			logs.push(stripKeys(item) as unknown as ChecklistLog);
+		}
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+	return logs;
+}
+
 // ============================================================
 // Overrides (per-child)
 // ============================================================

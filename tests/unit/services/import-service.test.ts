@@ -22,8 +22,14 @@ const mockInsertTemplateItem = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
 // #2362 PR-5: family master 化に伴い import 時 assignment 自動付与が必要
 const mockAssignTemplateToChildren = vi.fn();
+// #3078: checklistLogs export/import 往復
+const mockFindLogsByChild = vi.fn();
+const mockUpsertLog = vi.fn();
 const mockFindSpecialRewards = vi.fn();
 const mockInsertSpecialReward = vi.fn();
+// #3077: 静的ファイル復元
+const mockSaveFile = vi.fn();
+const mockUpdateChildAvatarUrl = vi.fn();
 
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
@@ -58,11 +64,23 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
 	// #2362 PR-5 (ADR-0055): family master 化に伴い import 時 assignment 自動付与が必要
 	assignTemplateToChildren: (...args: unknown[]) => mockAssignTemplateToChildren(...args),
+	// #3078: checklistLogs export/import 往復
+	findLogsByChild: (...args: unknown[]) => mockFindLogsByChild(...args),
+	upsertLog: (...args: unknown[]) => mockUpsertLog(...args),
 }));
 
 vi.mock('$lib/server/db/special-reward-repo', () => ({
 	findSpecialRewards: (...args: unknown[]) => mockFindSpecialRewards(...args),
 	insertSpecialReward: (...args: unknown[]) => mockInsertSpecialReward(...args),
+}));
+
+// #3077: 静的ファイル復元 (storage / image-repo)
+vi.mock('$lib/server/storage', () => ({
+	saveFile: (...args: unknown[]) => mockSaveFile(...args),
+}));
+
+vi.mock('$lib/server/db/image-repo', () => ({
+	updateChildAvatarUrl: (...args: unknown[]) => mockUpdateChildAvatarUrl(...args),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -147,6 +165,9 @@ beforeEach(() => {
 	mockFindRecentBonuses.mockResolvedValue([]);
 	mockFindSpecialRewards.mockResolvedValue([]);
 	mockFindTemplatesByChild.mockResolvedValue([]);
+	mockFindLogsByChild.mockResolvedValue([]);
+	mockSaveFile.mockResolvedValue(undefined);
+	mockUpdateChildAvatarUrl.mockResolvedValue(undefined);
 });
 
 // ============================================================
@@ -1087,6 +1108,227 @@ describe('importFamilyData', () => {
 
 			expect(result.errors).toEqual(
 				expect.arrayContaining([expect.stringContaining('失敗リスト')]),
+			);
+		});
+	});
+
+	describe('チェックリスト完了ログのインポート (#3078)', () => {
+		function makeDataWithTemplateAndLog() {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.checklistTemplates = [
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 2,
+					completionBonus: 5,
+					isActive: true,
+					items: [],
+				},
+			];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: 'あさのしたく',
+					checkedDate: '2026-03-15',
+					itemsJson: '{"1":true}',
+					completedAll: true,
+					pointsAwarded: 7,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+			];
+			return data;
+		}
+
+		it('templateName が import 後の新 templateId に再マップされて復元される', async () => {
+			const data = makeDataWithTemplateAndLog();
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertTemplate.mockResolvedValue({ id: 50 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			mockUpsertLog.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(1);
+			expect(result.checklistLogsSkipped).toBe(0);
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({
+					childId: 101,
+					templateId: 50, // 新規作成された family master template の id に再マップ
+					checkedDate: '2026-03-15',
+					completedAll: 1, // boolean -> number
+					pointsAwarded: 7,
+				}),
+				TENANT,
+			);
+		});
+
+		it('既存ログと同一 (templateId, checkedDate) は重複としてスキップされる', async () => {
+			const data = makeDataWithTemplateAndLog();
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertTemplate.mockResolvedValue({ id: 50 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			// 既存ログ: templateId 50, 同 checkedDate
+			mockFindLogsByChild.mockResolvedValue([{ templateId: 50, checkedDate: '2026-03-15' }]);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(0);
+			expect(result.checklistLogsSkipped).toBe(1);
+			expect(mockUpsertLog).not.toHaveBeenCalled();
+		});
+
+		it('template が解決できないログ (template 未取込) はスキップされる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: '存在しないテンプレート',
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: false,
+					pointsAwarded: 0,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(0);
+			expect(result.checklistLogsSkipped).toBe(1);
+			expect(mockUpsertLog).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('静的ファイル (アバター画像 / 音声) のインポート (#3077)', () => {
+		function makeChildWithAvatar(exportId: string, sourceChildId: number, avatarUrl: string) {
+			return {
+				exportId,
+				nickname: 'テスト太郎',
+				age: 5,
+				birthDate: '2021-01-15',
+				theme: 'blue',
+				uiMode: 'preschool',
+				avatarUrl,
+				activeTitle: null,
+				createdAt: '2025-06-01T00:00:00Z',
+				sourceChildId,
+			};
+		}
+
+		it('ZIP 同梱の静的ファイルが新 childId 配下に復元され avatarUrl が貼り替わる', async () => {
+			const data = makeExportData();
+			// sourceChildId 7 (export 元) → import 後に新 id 101
+			data.family.children = [
+				makeChildWithAvatar('c1', 7, '/tenants/old-tenant/avatars/7/abc.png'),
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const staticFiles: Record<string, Uint8Array> = {
+				'avatars/7/abc.png': new Uint8Array([1, 2, 3]),
+				'voices/7/hello.mp3': new Uint8Array([4, 5, 6]),
+			};
+
+			const result = await importFamilyData(data, TENANT, staticFiles);
+
+			expect(result.staticFilesRestored).toBe(2);
+			expect(result.staticFilesSkipped).toBe(0);
+			// 新 childId 101 配下 + tenant prefix に保存
+			expect(mockSaveFile).toHaveBeenCalledWith(
+				`tenants/${TENANT}/avatars/101/abc.png`,
+				expect.any(Buffer),
+				'image/png',
+			);
+			expect(mockSaveFile).toHaveBeenCalledWith(
+				`tenants/${TENANT}/voices/101/hello.mp3`,
+				expect.any(Buffer),
+				'audio/mpeg',
+			);
+			// avatarUrl が新 storage key (公開 URL) へ貼り替え
+			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(
+				101,
+				`/tenants/${TENANT}/avatars/101/abc.png`,
+				TENANT,
+			);
+		});
+
+		it('childId が解決できない孤立ファイルはスキップされる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/a.png')];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const staticFiles: Record<string, Uint8Array> = {
+				'avatars/7/a.png': new Uint8Array([1]),
+				'avatars/999/orphan.png': new Uint8Array([2]), // 対応する child なし
+			};
+
+			const result = await importFamilyData(data, TENANT, staticFiles);
+
+			expect(result.staticFilesRestored).toBe(1);
+			expect(result.staticFilesSkipped).toBe(1);
+		});
+
+		it('zip-slip: `..` を含む悪意あるパスは保存せずスキップ扱いになる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/ok.png')];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const staticFiles: Record<string, Uint8Array> = {
+				'avatars/7/ok.png': new Uint8Array([1]), // 正常エントリ
+				'avatars/101/../../../../etc/passwd': new Uint8Array([6, 6, 6]), // path-escape
+				'avatars\\101\\..\\..\\evil.png': new Uint8Array([7]), // backslash escape (Windows)
+			};
+
+			const result = await importFamilyData(data, TENANT, staticFiles);
+
+			// 正常 1 件のみ復元、悪意ある 2 件はスキップ
+			expect(result.staticFilesRestored).toBe(1);
+			expect(result.staticFilesSkipped).toBe(2);
+			// static/ を逸脱する key で saveFile が呼ばれないこと
+			for (const call of mockSaveFile.mock.calls) {
+				expect(String(call[0])).not.toContain('..');
+				expect(String(call[0])).not.toContain('etc/passwd');
+			}
+			// 復元された 1 件は正規の安全パス
+			expect(mockSaveFile).toHaveBeenCalledTimes(1);
+			expect(mockSaveFile).toHaveBeenCalledWith(
+				`tenants/${TENANT}/avatars/101/ok.png`,
+				expect.any(Buffer),
+				'image/png',
+			);
+		});
+
+		it('staticFiles 未指定 (JSON-only) では復元処理を行わない (後方互換)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.staticFilesRestored).toBe(0);
+			expect(result.staticFilesSkipped).toBe(0);
+			expect(mockSaveFile).not.toHaveBeenCalled();
+			expect(mockUpdateChildAvatarUrl).not.toHaveBeenCalled();
+		});
+
+		it('同梱ファイルが無くても avatarUrl は id セグメントを書き換えて貼り替える', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/keep.png')];
+			mockInsertChild.mockResolvedValue({ id: 202 });
+
+			// staticFiles は空だが avatarUrl 参照だけ書き換える必要がある
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/x.mp3': new Uint8Array([1]),
+			});
+
+			expect(result.staticFilesRestored).toBe(1); // voices/7/x.mp3
+			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(
+				202,
+				`/tenants/${TENANT}/avatars/202/keep.png`,
+				TENANT,
 			);
 		});
 	});

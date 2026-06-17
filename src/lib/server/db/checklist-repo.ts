@@ -110,6 +110,11 @@ export async function upsertLog(input: UpsertChecklistLogInput, tenantId: string
 	return getRepos().checklist.upsertLog(input, tenantId);
 }
 
+/** #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。 */
+export async function findLogsByChild(childId: number, tenantId: string) {
+	return getRepos().checklist.findLogsByChild(childId, tenantId);
+}
+
 // ── Overrides ───────────────────────────────────────────────────
 
 export async function findOverrides(childId: number, date: string, tenantId: string) {

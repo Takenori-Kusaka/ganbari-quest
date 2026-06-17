@@ -250,6 +250,14 @@ export async function upsertLog(
 	};
 }
 
+// #3078: demo fixture には per-child progress log を持たないため空配列を返す。
+export async function findLogsByChild(
+	_childId: number,
+	_tenantId: string,
+): Promise<ChecklistLog[]> {
+	return [];
+}
+
 // ---------- Overrides ----------
 
 export async function findOverrides(
