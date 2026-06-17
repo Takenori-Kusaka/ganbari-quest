@@ -2,6 +2,9 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    # develop 二層: 依存更新 PR を develop 軽量レーン経由にし main 直行を止める
+    # (#3072 / branch-strategy.md §7。main へは統合 PR の重量レーン + 監査で反映)
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     labels:
@@ -14,6 +17,8 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/"
+    # develop 二層: 依存更新 PR を develop 軽量レーン経由にする (#3072 / branch-strategy.md §7)
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     labels:
@@ -30,6 +35,8 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/infra"
+    # develop 二層: 依存更新 PR を develop 軽量レーン経由にする (#3072 / branch-strategy.md §7)
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     labels:
