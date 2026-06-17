@@ -559,7 +559,9 @@ function registerParentGateTests(): void {
 			});
 
 			// 誤コード (000000) + 新 PIN で送信 → reset-verified は 401 で setupPin を呼ばない
-			const codeInputs = page.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]');
+			const codeInputs = page.locator(
+				'[data-testid="pin-reset-verified-form"] [data-part="input"]',
+			);
 			// stage 2 は OTP(6) + 新 PIN(4) の 2 つの PinInput。先頭 6 桁が OTP
 			const otpFirst = codeInputs.first();
 			await otpFirst.click();
