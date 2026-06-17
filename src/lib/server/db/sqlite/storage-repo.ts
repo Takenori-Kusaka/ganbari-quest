@@ -19,6 +19,16 @@ import type { FileData, IStorageRepo } from '../interfaces/storage.interface';
  */
 function resolveContainedPath(key: string): string {
 	const staticDir = resolve(process.cwd(), 'static');
+	// OS 非依存の事前拒否 (Linux では `\` がファイル名のリテラル文字となり path.resolve の
+	// containment では escape を検知できないため、`\` を含む key は無条件で弾く)。
+	// 絶対パス・Windows ドライブレターも `path.resolve` 前に拒否して防御を多層化する。
+	if (
+		key.includes('\\') || // backslash (Windows separator / Linux ではリテラル文字)
+		key.startsWith('/') || // 絶対パス (POSIX)
+		/^[a-zA-Z]:/.test(key) // Windows ドライブレター
+	) {
+		throw new Error(`storage key が static/ ディレクトリを逸脱しています: ${key}`);
+	}
 	const dest = resolve(staticDir, key);
 	if (dest !== staticDir && !dest.startsWith(staticDir + sep)) {
 		throw new Error(`storage key が static/ ディレクトリを逸脱しています: ${key}`);

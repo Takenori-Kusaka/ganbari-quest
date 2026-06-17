@@ -821,11 +821,12 @@ const STATIC_FILE_PATH_RE = /^(avatars|voices|generated)\/(\d+)\/(.+)$/;
  * 先頭スラッシュ・Windows ドライブ等を弾く。安全なら true。
  */
 function isSafeRelativePath(relPath: string): boolean {
-	// バックスラッシュは forward slash に正規化して segment 分割する。
-	const normalized = relPath.replace(/\\/g, '/');
-	if (normalized.startsWith('/')) return false; // 絶対パス
-	if (/^[a-zA-Z]:/.test(normalized)) return false; // Windows ドライブレター
-	const segments = normalized.split('/');
+	// バックスラッシュは OS 非依存で無条件拒否する (Linux では `\` がファイル名のリテラル
+	// 文字になり segment 分割では escape を検知できないため、含むパスはすべて弾く)。
+	if (relPath.includes('\\')) return false;
+	if (relPath.startsWith('/')) return false; // 絶対パス
+	if (/^[a-zA-Z]:/.test(relPath)) return false; // Windows ドライブレター
+	const segments = relPath.split('/');
 	for (const seg of segments) {
 		if (seg === '..') return false; // 親ディレクトリ参照
 	}
