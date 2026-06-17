@@ -146,6 +146,13 @@ export const REQUIRED_SLOT_NAMES: readonly string[] = CANONICAL_SLOT_ORDER.filte
  * activity / reward = per-child「子供が持つ」(per-child-tabs + child-selection-dialog)。
  * checklist = family master「配信される」(family-distribute + visibility-chip)。
  *   Sub-2 (#3096) で checklist を per-child-tabs に更新予定だが、本 PR では現状を宣言する。
+ *
+ * **ADR-0055 との関係 (Sub-1 暫定宣言)**: per-child / family master のデータモデル原則は ADR-0055 が
+ * SSOT だが、ADR-0055 は設計 doc であり code-level の共有 type を持たない (本 registry 起票時点で
+ * `organizingModel` / `binding` の TypeScript 型は本ファイルが初出)。よって本宣言は ADR-0055 の値を
+ * **再宣言ではなく初の code 化**であり二重 SSOT ではない。将来 ADR-0055 由来の共有 scope 型
+ * (`data-model-resource-scope`) が code 化された場合は、Sub-2 (#3096) で本 registry をそれに寄せて
+ * 統一し、drift gate (registry 値 ⇄ schema/ADR 整合の CI 照合) を併設する。
  */
 export const ADMIN_RESOURCE_MODEL_REGISTRY = {
 	activity: {

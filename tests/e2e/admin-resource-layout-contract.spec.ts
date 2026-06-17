@@ -28,6 +28,15 @@ import {
 
 const RESOURCES = Object.values(ADMIN_RESOURCE_MODEL_REGISTRY);
 
+/** 全 resource の全 slot 代表 testid 集合 (drift 検出時の「正準 testid か」判定に使う)。 */
+const ALL_CANONICAL_TESTIDS = new Set<string>(
+	RESOURCES.flatMap((r) =>
+		CANONICAL_SLOT_ORDER.map((slot) => slot.testid(r.resource)).filter((t): t is string =>
+			Boolean(t),
+		),
+	),
+);
+
 /**
  * ページ DOM から「正準スロットのうち実際に出現したもの」を、document 上の出現順序で返す。
  *
@@ -84,6 +93,89 @@ async function readVisibleSlotsInDomOrder(
 	return orderedNames.map((t) => testidToName.get(t) ?? t);
 }
 
+/**
+ * canonical スロット間に「非正準の slot-level 兄弟要素」が割り込んでいないか検出する。
+ *
+ * `readVisibleSlotsInDomOrder` は **canonical-named testid だけ** を query するため、スロットとスロットの
+ * 間に正準でない section / banner が挿入されても部分列照合では見えない (順序は崩れていないため PASS)。
+ * これを塞ぐため、canonical スロット要素の共通親 (LCA) を求め、その **直接の子要素**を document 順に
+ * 走査し、「canonical スロットを含む子」の連続帯 (first〜last canonical child) の中に、
+ * canonical でない `data-testid` を持つ slot-level 兄弟が割り込んでいないかを assert する。
+ *
+ * 返り値: 割り込んでいた非正準 testid の配列 (空なら drift なし)。
+ */
+async function findIntruderTestidsBetweenSlots(
+	page: Page,
+	resource: AdminResourceModel['resource'],
+): Promise<string[]> {
+	const canonicalTestids = CANONICAL_SLOT_ORDER.map((slot) => slot.testid(resource)).filter(
+		(t): t is string => Boolean(t),
+	);
+	return page.evaluate(
+		({ canonicalTestids, allCanonicalTestids }) => {
+			// canonical スロット要素群の lowest common ancestor (LCA) を返す (browser context helper)。
+			const findLca = (els: Element[]): Element | null => {
+				let lca: Element | null = els[0] ?? null;
+				for (let i = 1; i < els.length && lca; i++) {
+					const ancestors = new Set<Element>();
+					for (let a: Element | null = lca; a; a = a.parentElement) ancestors.add(a);
+					let b: Element | null = els[i] ?? null;
+					while (b && !ancestors.has(b)) b = b.parentElement;
+					lca = b;
+				}
+				return lca;
+			};
+
+			const present = canonicalTestids
+				.map((t) => document.querySelector(`[data-testid="${t}"]`))
+				.filter((el): el is Element => el !== null);
+			if (present.length < 2) return [];
+
+			const lca = findLca(present);
+			if (!lca) return [];
+
+			// LCA の直接の子のうち「canonical スロットを内包する子」の index 範囲を求める。
+			const children = Array.from(lca.children);
+			const containsCanonical = (child: Element): boolean =>
+				present.some((slot) => child === slot || child.contains(slot));
+			const canonicalChildIdx = children
+				.map((c, i) => (containsCanonical(c) ? i : -1))
+				.filter((i) => i >= 0);
+			const firstIdx = canonicalChildIdx[0];
+			const lastIdx = canonicalChildIdx[canonicalChildIdx.length - 1];
+			if (firstIdx === undefined || lastIdx === undefined) return [];
+
+			// first〜last の帯の中で、canonical スロットを含まないのに「slot 名前空間 testid」を持つ
+			// 直接の子 = 割り込み (drift)。
+			//
+			// 判定対象は **slot 名前空間** `admin-<res>-*` (+ `<res>-action-message` /
+			// `<res>-child-context-banner` の variant) とする。`admin-<res>-` で始まる testid を持つ
+			// 直接の子は「page-level slot」を名乗っているとみなし、canonical 集合外なら割り込み (新規 slot)
+			// として捕捉する (例: `admin-checklists-promo-banner` を search と list の間に追加)。
+			//
+			// (B) 正当なドメインセクション (marketplace-import-section / checklist-distribution-section-*
+			// 等) は `admin-<res>-` 接頭辞を持たない固有 testid であり、かつ各自の canonical スロット内に
+			// 置かれる限り「canonical を含む子」として帯から除外されるため誤検出しない。
+			const slotNamespaceRe =
+				/^admin-(activities|rewards|checklists)-|-(action-message|child-context-banner)$/;
+			const isIntruder = (child: Element): string | null => {
+				if (containsCanonical(child)) return null;
+				const tid = child.getAttribute('data-testid');
+				return tid && slotNamespaceRe.test(tid) && !allCanonicalTestids.includes(tid) ? tid : null;
+			};
+
+			const intruders: string[] = [];
+			for (let i = firstIdx + 1; i < lastIdx; i++) {
+				const child = children[i];
+				const tid = child ? isIntruder(child) : null;
+				if (tid) intruders.push(tid);
+			}
+			return intruders;
+		},
+		{ canonicalTestids, allCanonicalTestids: Array.from(ALL_CANONICAL_TESTIDS) },
+	);
+}
+
 /** observed が canonical の部分列 (subsequence) なら true (= observed が正準順に並んでいる)。 */
 function isSubsequence(observed: string[], canonical: string[]): boolean {
 	let ci = 0;
@@ -106,12 +198,23 @@ test.describe('#3097 admin リソース正準スロット契約 (activities / re
 				await expect(page.getByTestId('admin-resource-header')).toBeVisible({ timeout: 15_000 });
 			});
 
-			test('(a) 出現スロットが正準順 (CANONICAL_SLOT_ORDER の部分列) に並ぶ', async ({ page }) => {
+			test('(a) 出現スロットが正準順 (CANONICAL_SLOT_ORDER の部分列) かつ間に非正準 slot が割り込まない', async ({
+				page,
+			}) => {
 				const observed = await readVisibleSlotsInDomOrder(page, model.resource);
 				expect(
 					isSubsequence(observed, CANONICAL_NAMES),
 					`observed slot order ${JSON.stringify(observed)} は canonical ${JSON.stringify(CANONICAL_NAMES)} の部分列ではない (順序違反)`,
 				).toBe(true);
+
+				// 部分列照合は canonical-named testid しか見ないため、スロット間に非正準の slot-level 要素
+				// (例: 新規 `admin-checklists-promo-banner` を search と list の間に挿入) が割り込んでも
+				// 順序は崩れず見逃す。共通親の直接子帯を走査し、slot 名前空間の割り込みが 0 件であることを assert する。
+				const intruders = await findIntruderTestidsBetweenSlots(page, model.resource);
+				expect(
+					intruders,
+					`canonical スロット間に非正準の slot-level 要素が割り込んでいる: ${JSON.stringify(intruders)} (正準スロット契約逸脱)`,
+				).toEqual([]);
 			});
 
 			test('(b) 必須スロット (header / child-tabs / search / list) が存在する', async ({
@@ -123,11 +226,22 @@ test.describe('#3097 admin リソース正準スロット契約 (activities / re
 				}
 			});
 
-			test('(c) 共有 component を使用している (header=AdminResourceHeader / empty=UnifiedEmptyState testid 体系)', async ({
+			test('(c) 共有 component を使用している (AdminResourceHeader は画面に 1 個 / list は canonical 共有スロット)', async ({
 				page,
 			}) => {
-				// header = AdminResourceHeader (admin-resource-header testid を内包)
-				await expect(page.getByTestId('admin-resource-header')).toBeVisible();
+				// 共有 AdminResourceHeader を**ちょうど 1 個**使う。inline header を独自再実装すると
+				// 0 個 (testid 無し) か、共有 + inline の 2 個になるため、count===1 で「共有 component を
+				// 正しく 1 回だけ使っている」ことを assert する (beforeEach の visible 再確認では検出不可)。
+				await expect(page.getByTestId('admin-resource-header')).toHaveCount(1);
+
+				// 一覧 slot は canonical 共有 testid (`admin-<res>-list`) で描画される。この container の
+				// 空時 branch は UnifiedEmptyState SSOT を使う契約 (demo fixture はデータ投入済のため空に
+				// ならず、ここでは「canonical list slot が存在する」= 共有スロット使用を assert する)。
+				const listTestid = CANONICAL_SLOT_ORDER.find((s) => s.name === 'list')?.testid(
+					model.resource,
+				);
+				expect(listTestid, 'list スロットの testid が registry に定義されていない').toBeTruthy();
+				await expect(page.getByTestId(listTestid as string)).toHaveCount(1);
 			});
 
 			test('(d) registry 宣言と DOM (子供タブ / child-binding モデル) が整合する', async ({
@@ -138,20 +252,30 @@ test.describe('#3097 admin リソース正準スロット契約 (activities / re
 
 				if (model.binding === 'child-selection-dialog') {
 					// per-child-tabs (activity / reward) は ChildSelectionDialog で取込先 child を選ぶ。
-					// 取込 dialog が DOM 上に mount されている (closed でも Ark UI が DOM に保持) ことを確認し、
-					// family master 専用の配信 VisibilityChip は持たないことを assert する。
+					// family master 専用の配信 VisibilityChip (`checklist-distribution-visibility`) を
+					// **絶対に持たない**ことを assert する (per-child リソースが配信モデルを混入させたら fail)。
 					await expect(page.getByTestId('checklist-distribution-visibility')).toHaveCount(0);
 				} else {
-					// family-distribute (checklist) は配信先設定の入口 (distribution section) を持つ。
-					// VisibilityChip 本体は Dialog open 時のみ Portal に mount されるため、ここでは
-					// 配信モデルの入口 (per-template distribution section) が DOM 上に存在することを確認する。
-					// (templates が 0 件のときは section が無いため、その場合は child-tabs 存在で代替検証する。)
+					// family-distribute (checklist) は「配信される」モデル。配信導線が item 件数 0 でも
+					// 必ず存在することを能動的に assert する (旧実装は `if (sectionCount > 0)` で 0 件時に
+					// 何も検証せず vacuous pass していた — toothless 分岐)。
+					//   - templates ≥ 1: 各 template に per-template 配信 section が出る
+					//   - templates = 0: empty state が配信元 (marketplace) への import bridge link を出す
+					// いずれかの配信導線が DOM 上に存在することを assert し、両状態で契約を貫通検証する。
 					const distributionSections = page.locator(
 						'[data-testid^="checklist-distribution-section-"]',
 					);
+					const importBridgeLink = page.getByTestId('checklists-empty-import-link');
 					const sectionCount = await distributionSections.count();
+					const bridgeCount = await importBridgeLink.count();
+					expect(
+						sectionCount + bridgeCount,
+						'family-distribute (checklist) の配信導線 (per-template 配信 section または empty state の import bridge link) が item 件数に関わらず 1 つも存在しない (配信モデル契約逸脱)',
+					).toBeGreaterThan(0);
 					if (sectionCount > 0) {
 						await expect(distributionSections.first()).toBeVisible();
+					} else {
+						await expect(importBridgeLink).toBeVisible();
 					}
 				}
 			});
