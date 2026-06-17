@@ -33,6 +33,14 @@ export interface ParentSessionPayload {
 	lastActiveAt: number; // unix ms
 }
 
+/**
+ * cookie 署名用 secret を取得 (production 未設定は throw)。
+ * #3070: federated PIN reset OTP cookie も同 secret で署名するため export する。
+ */
+export function getParentGateCookieSecret(): string {
+	return getSecret();
+}
+
 function getSecret(): string {
 	const env = getEnv();
 	const secret = env.PARENT_GATE_COOKIE_SECRET;

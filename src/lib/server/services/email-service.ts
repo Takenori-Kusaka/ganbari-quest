@@ -4,7 +4,11 @@
 
 import { SESClient, SendEmailCommand, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import { env } from '$env/dynamic/private';
-import { LIFECYCLE_EMAIL_LABELS, PMF_SURVEY_LABELS } from '$lib/domain/labels';
+import {
+	LIFECYCLE_EMAIL_LABELS,
+	PIN_RESET_EMAIL_LABELS,
+	PMF_SURVEY_LABELS,
+} from '$lib/domain/labels';
 // #2057: 「管理画面」 → 「ご家族の見守り画面」 rename atom 参照
 import { ADMIN_VIEW_TERMS } from '$lib/domain/terms';
 import { logger } from '$lib/server/logger';
@@ -365,7 +369,37 @@ export async function sendMemberJoinedEmail(
 }
 
 // ============================================================
-// PIN reset メール (#2353 設計欠陥 4)
+// PIN reset 確認コードメール (#3070、federated email-OTP)
+// ============================================================
+
+/**
+ * #3070: federated (Google) PIN reset の email-OTP 確認コードメール。
+ *
+ * 共有端末で親の Google session が生きていると silent SSO で recent-login が無入力通過するため、
+ * 登録メールへ 6 桁コードを送り、メールを読める本人のみが reset できるようにする。
+ * 文言は `PIN_RESET_EMAIL_LABELS` (labels.ts SSOT)。Anti-engagement (ADR-0012) 整合の中立トーン。
+ * code 平文はメール本文にのみ載せ、ログには残さない (呼び出し側 endpoint も同様)。
+ */
+export async function sendPinResetCodeEmail(email: string, code: string): Promise<boolean> {
+	const labels = PIN_RESET_EMAIL_LABELS;
+	return sendEmail({
+		to: email,
+		subject: labels.subject,
+		htmlBody: wrapTemplate(`
+      <h2>${labels.heading}</h2>
+      <p>${labels.intro}</p>
+      <p style="text-align:center;margin:24px 0">
+        <span style="display:inline-block;font-size:32px;font-weight:bold;letter-spacing:8px;color:#4f46e5">${code}</span>
+      </p>
+      <p>${labels.codeNote}</p>
+      <p style="font-size:13px;color:#9ca3af">${labels.ignoreNote}</p>
+    `),
+		textBody: `${labels.heading}\n\n${labels.intro}\n\n${code}\n\n${labels.codeNote}\n${labels.ignoreNote}`,
+	});
+}
+
+// ============================================================
+// 週次活動レポート
 // ============================================================
 
 /** 週次活動レポート */

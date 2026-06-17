@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |------|------|
-| ステータス | accepted (2026-06-11 §7 改訂: PIN reset 機構の supersede 記録、EPIC #2990 / #2995) |
+| ステータス | accepted (2026-06-17 §7 改訂: federated PIN reset を recent-login → email-OTP に置換、#3070) |
 | 日付 | 2026-05-20 |
 | 起票者 | Dev session (Claude) |
 | 関連 Issue | #2310 (EPIC Phase Parent-Gate) / #2313 (本 ADR 起票元) / #2353 / EPIC #2990 |
@@ -95,10 +95,11 @@ PR #2325 マージ後、本 env が本番 Lambda 未配備で `/admin/*` cold st
 
 | モード | 回復チャネル | 実装 |
 |---|---|---|
-| cognito (SaaS) | アカウントパスワード再入力 → PIN 再作成 (#2993、Apple Screen Time 同型)。email はセッション既知のため手入力なし。federated (Google) は requires-recent-login (#3025) | `/auth/reset-pin` + `reset-verified` API |
+| cognito (SaaS) — password ユーザ | アカウントパスワード再入力 → PIN 再作成 (#2993、Apple Screen Time 同型)。email はセッション既知のため手入力なし | `/auth/reset-pin` + `reset-verified` API |
+| cognito (SaaS) — federated (Google) ユーザ | **登録メールへ 6 桁の確認コード (email-OTP) → 入力で PIN 再作成** (#3070)。Cognito は `prompt=login` を IdP に転送しないため recent-login (#3025) は共有端末で silent SSO 無入力通過し得る穴があり、子がアクセスできない email を確認材料にして塞ぐ。OTP は DB 非保存で、code ハッシュ + 失効 (10 分) + tenantId + attempts を `cookie-signature` 署名 httpOnly cookie に格納する stateless 方式 (本 ADR の署名機構を流用、schema 変更なし)。6 桁 / consume-once / 試行 5 回上限 / enumeration 防止 | `/auth/reset-pin` + `reset-request-code` (OTP 発行・送信) + `reset-verified` (OTP 検証) + `pin-reset-otp.ts` |
 | local (self-host) | **operator reset が主機構** (#2994) — `PARENT_PIN_RESET` env (env-gated・冪等・env 無しは完全 no-op) で PIN を未設定状態に戻し、初回作成フロー (#2992) に合流させる。メール非依存 | `pin-operator-reset.ts` + `runbooks/operator-pin-reset.md` |
 
-現行仕様の SSOT は `docs/design/14-セキュリティ設計書.md` §4.3b〜4.4。旧機構の token schema / consume 設計は git 履歴で追跡。
+federated の本人確認は #3025 の requires-recent-login から #3070 で email-OTP に置換した (recent-login が共有端末 silent SSO で無入力通過し得る穴の根治)。現行仕様の SSOT は `docs/design/14-セキュリティ設計書.md` §4.3b〜4.4。旧 SES magic link / 旧 recent-login の設計は git 履歴で追跡。
 
 **#2353 Fix5 (初期 PIN 5086 ヒント隠蔽) の前提変更 (#2992)**: 既定 5086 での gate login 自体を廃止し「初回は新規作成 (入力→確認)・既存は入力」に倒したため、「5086 を子供から隠す」制約は構造的に自然解消した (未設定 tenant に既定 PIN が存在しない)。ヒント表示は legacy local `changePin` 文脈の PIN 変更画面のみに残る (14-セキュリティ設計書 §4.3「初期 PIN ヒント表示ポリシー」)。
 

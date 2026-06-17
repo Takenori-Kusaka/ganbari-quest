@@ -1354,12 +1354,16 @@ export const PIN_RESET_LABELS = {
 	resetAccountLabel: 'ログイン中のアカウント',
 	resetPasswordLabel: 'アカウントのパスワード',
 	resetPasswordHint: `${LOGIN_TERMS.canonical}時に使っているパスワードです`,
-	// #3025: federated (Google) ユーザ向け — Cognito パスワードを持たないため再ログインで本人確認
-	resetFederatedDescription: `ご本人確認のため、Googleでログインし直してください。確認後そのまま新しい${OYAKAGI_TERMS.name}を設定できます。`,
-	resetFederatedReauthButton: `Google で本人確認する`,
-	resetFederatedVerified: `本人確認ができました。新しい${OYAKAGI_TERMS.name}を入力してください。`,
-	errorFreshLoginRequired:
-		'本人確認の有効期限が切れました。もう一度「Google で本人確認する」からやり直してください',
+	// #3070: federated (Google) ユーザ向け — Cognito パスワードを持たず、共有端末で silent SSO により
+	// recent-login が無入力で通過し得るため、登録メールへ 6 桁コードを送る email-OTP で本人確認する。
+	resetFederatedDescription: `ご本人確認のため、ログイン中のアカウントのメールに確認コードをお送りします。コードを入力すると新しい${OYAKAGI_TERMS.name}を設定できます。`,
+	resetFederatedSendCodeButton: '確認コードを送る',
+	resetFederatedSendingCode: '送信中…',
+	resetFederatedCodeSent:
+		'確認コードをメールにお送りしました。メールに記載の6桁のコードを入力してください。',
+	resetFederatedCodeLabel: '確認コード（6桁の数字）',
+	resetFederatedResendButton: 'コードを再送する',
+	// エラー文言
 	resetPinLabel: `新しい${OYAKAGI_TERMS.name}（4〜6桁の数字）`,
 	resetSubmit: `${OYAKAGI_TERMS.name}を再設定する`,
 	resetSubmitting: '設定中…',
@@ -1374,6 +1378,27 @@ export const PIN_RESET_LABELS = {
 	errorRateLimited: '試行回数が上限に達しました。しばらく時間をおいてからお試しください',
 	errorNotSupported: 'この環境では本画面から再設定できません。管理者向け手順で再設定してください',
 	errorGeneric: '再設定に失敗しました。時間をおいてもう一度お試しください',
+	// #3070: federated email-OTP のエラー文言
+	errorCodeRequired: '先に「確認コードを送る」からコードを受け取ってください',
+	errorInvalidCode: '確認コードが正しくありません。メールに記載のコードをご確認ください',
+	errorCodeExpired:
+		'確認コードの有効期限が切れました。もう一度「コードを再送する」からやり直してください',
+	errorTooManyAttempts:
+		'確認コードの入力回数が上限に達しました。もう一度「コードを再送する」からやり直してください',
+	errorCodeSendFailed: '確認コードの送信に失敗しました。時間をおいてもう一度お試しください',
+} as const;
+
+/**
+ * #3070: federated PIN reset の確認コードメール文言 SSOT。
+ * Anti-engagement (ADR-0012) 整合: 煽らず中立トーン。「心当たりがなければ無視してください」で
+ * 不正送信時の安全側案内も含める。
+ */
+export const PIN_RESET_EMAIL_LABELS = {
+	subject: `【がんばりクエスト】${OYAKAGI_TERMS.name}再設定の確認コード`,
+	heading: `${OYAKAGI_TERMS.name}再設定の確認コード`,
+	intro: `${OYAKAGI_TERMS.name}の再設定をご希望の場合は、以下の確認コードを入力してください。`,
+	codeNote: 'このコードは10分間有効です。',
+	ignoreNote: 'このメールに心当たりがない場合は、操作せずにこのまま無視してください。',
 } as const;
 
 /**
