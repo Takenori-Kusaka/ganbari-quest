@@ -1318,6 +1318,12 @@ export const OYAKAGI_LABELS = {
 	// 「認証は成功して読み込み中」を明示し、modal が閉じてから子供画面が静止して見える困惑を解消する
 	// (NN/g heuristic #1 visibility of system status)。
 	gateNavigating: `${ADMIN_VIEW_TERMS.canonical}をひらいています…`,
+	// #3089: navigating overlay の timeout / error fallback 文言。ハードナビが unload しないまま
+	// 一定時間 (CloudFront 429 / /admin 5xx / 通信断 / cookie 失効 等) 経過した際、spinner dead-end を
+	// 解除して「読み込みに失敗した・再試行できる」ことを明示する (NN/g #1 visibility + #9 error recovery)。
+	gateNavigatingError: `${ADMIN_VIEW_TERMS.canonical}の読み込みに時間がかかっています。もう一度お試しください。`,
+	// #3089: navigating overlay error 状態の再試行ボタン文言。
+	gateNavigatingRetry: 'もう一度ひらく',
 	// #2991: ロック時は解除の絶対時刻を提示する (NIST SP 800-63B / iOS Security Lockout は残り時間明示、
 	// NN/g heuristic #1 visibility)。秒カウントダウンは temporal vigilance で不安を増幅するため絶対時刻型を採用
 	// (research: tmp/research/pin-gate-ux-ideal-state.md Q2)。timeStr は呼び出し側で「HH:MM」整形した文字列。

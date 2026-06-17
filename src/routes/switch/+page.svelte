@@ -25,9 +25,48 @@ let lockoutUntil = $state<number | null>(null);
 let pinSubmitting = $state<boolean>(false);
 // #3089: PIN 認証成功 → 親画面 (ハードナビ) 表示完了までの数秒間、全画面 progress を出すフラグ。
 // window.location.href によるハードナビ中も現在ページ上にオーバーレイが残り、子供画面が静止して
-// 見える困惑を解消する (NN/g #1 visibility of system status)。一度 true にしたら解除しない
-// (ナビ完了でページごと置換されるため)。
+// 見える困惑を解消する (NN/g #1 visibility of system status)。正常時はナビ完了でページごと置換される。
 let navigatingToAdmin = $state<boolean>(false);
+// #3089 fail-safe: ハードナビが unload しないまま timeout / error した場合に立てるフラグ。
+// CloudFront 429 / /admin 5xx / 通信断 / cookie 失効 等で spinner が永続 dead-end になるのを防ぎ、
+// overlay を error 状態 (role=alert + 再試行ボタン) に切り替えて escape hatch を提供する
+// (NN/g #1 visibility + #9 help users recover from errors)。
+let navigatingError = $state<boolean>(false);
+// timeout の二重起動防止 + 成功 unload 前のクリア用ハンドル。
+let navigatingTimeout: ReturnType<typeof setTimeout> | null = null;
+
+// #3089: /admin へのハードナビを fail-safe で起動する。8s 経っても unload しなければ
+// (ナビ失敗とみなして) overlay を error 状態に切り替え、window.location.assign が同期 throw
+// した場合も同様に error にフォールバックする。これにより spinner の永続 dead-end を構造的に解消する。
+function triggerAdminNavigation() {
+	const target = data.nextPath ?? '/admin';
+	navigatingToAdmin = true;
+	navigatingError = false;
+	if (navigatingTimeout !== null) clearTimeout(navigatingTimeout);
+	navigatingTimeout = setTimeout(() => {
+		// ここに到達 = 8s 経ってもページが unload していない = ナビ失敗。
+		navigatingToAdmin = false;
+		navigatingError = true;
+		navigatingTimeout = null;
+	}, 8000);
+	try {
+		// next path が /admin 配下に限定されていることは server 側で保証済
+		window.location.assign(target);
+	} catch {
+		// 同期 throw (稀: 不正 URL / SecurityError 等) も dead-end にせず error 状態へ
+		if (navigatingTimeout !== null) clearTimeout(navigatingTimeout);
+		navigatingTimeout = null;
+		navigatingToAdmin = false;
+		navigatingError = true;
+	}
+}
+
+// error 状態からの再試行: overlay を spinner 状態に戻して再度ハードナビを起動する。
+function retryAdminNavigation() {
+	soundService.ensureContext();
+	soundService.play('tap');
+	triggerAdminNavigation();
+}
 // #3089: `?screenshot=all` モード時は transient な navigating overlay を強制描画し、SS 撮影可能にする
 // (MilestoneBanner の bypassSeenCheck と同型の既存パターン、src/routes/CLAUDE.md §?screenshot)。
 // 本番ユーザは screenshot mode に入らないため通常表示には影響しない。
@@ -101,10 +140,9 @@ async function handleCreateComplete(details: { valueAsString: string }) {
 		const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
 		if (res.ok && body.ok) {
 			pinModalOpen = false;
-			// #3089: ハードナビ前に全画面 progress を出し、/admin 表示まで「読み込み中」を見せ続ける
-			navigatingToAdmin = true;
-			// next path が /admin 配下に限定されていることは server 側で保証済
-			window.location.href = data.nextPath ?? '/admin';
+			// #3089: ハードナビ前に全画面 progress を出し、/admin 表示まで「読み込み中」を見せ続ける。
+			// timeout / error 時は overlay を error 状態に切り替えて dead-end を回避する (fail-safe)。
+			triggerAdminNavigation();
 			return;
 		}
 		if (body.error === 'ALREADY_CONFIGURED') {
@@ -154,10 +192,9 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		};
 		if (res.ok && body.ok) {
 			pinModalOpen = false;
-			// #3089: ハードナビ前に全画面 progress を出し、/admin 表示まで「読み込み中」を見せ続ける
-			navigatingToAdmin = true;
-			// next path が /admin 配下に限定されていることは server 側で保証済
-			window.location.href = data.nextPath ?? '/admin';
+			// #3089: ハードナビ前に全画面 progress を出し、/admin 表示まで「読み込み中」を見せ続ける。
+			// timeout / error 時は overlay を error 状態に切り替えて dead-end を回避する (fail-safe)。
+			triggerAdminNavigation();
 			return;
 		}
 		// 失敗: input 欄をリセット
@@ -324,12 +361,19 @@ async function handlePinComplete(details: { valueAsString: string }) {
 </Dialog>
 
 <!-- #3089: PIN 認証成功 → 親画面表示完了までの全画面 progress。
-     ハードナビ (window.location.href) 中も現在ページ上に残り、子供画面が静止して見える困惑を解消する。
-     NN/g #1 visibility of system status。z-index は §10 トークン (var(--z-modal)) を使用。 -->
+     ハードナビ (window.location.assign) 中も現在ページ上に残り、子供画面が静止して見える困惑を解消する。
+     NN/g #1 visibility of system status。z-index は §10 トークン (var(--z-modal)) を使用。
+     timeout / error 時 (navigatingError) は spinner を error 表示 (role=alert + 再試行) に切り替え、
+     spinner の永続 dead-end を回避する (NN/g #9 help users recover from errors)。 -->
 {#if navigatingToAdmin || isScreenshotAll}
 	<div class="login-overlay" role="status" aria-live="polite" data-testid="parent-gate-navigating">
 		<span class="login-overlay__spinner" aria-hidden="true"></span>
 		<p class="login-overlay__text">{OYAKAGI_LABELS.gateNavigating}</p>
+	</div>
+{:else if navigatingError}
+	<div class="login-overlay" role="alert" aria-live="assertive" data-testid="parent-gate-navigating-error">
+		<p class="login-overlay__text">{OYAKAGI_LABELS.gateNavigatingError}</p>
+		<Button variant="primary" onclick={retryAdminNavigation}>{OYAKAGI_LABELS.gateNavigatingRetry}</Button>
 	</div>
 {/if}
 
