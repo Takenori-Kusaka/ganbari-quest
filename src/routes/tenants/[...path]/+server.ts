@@ -2,7 +2,7 @@
 // Serves from local filesystem (NUC) or S3 (Lambda)
 
 import { error } from '@sveltejs/kit';
-import { safeContentType } from '$lib/server/security/file-sanitizer';
+import { safeContentDisposition, safeContentType } from '$lib/server/security/file-sanitizer';
 import { readFile } from '$lib/server/storage';
 import type { RequestHandler } from './$types';
 
@@ -20,14 +20,14 @@ export const GET: RequestHandler = async ({ params }) => {
 		throw error(404, 'File not found');
 	}
 
-	// 音声ファイルは attachment として配信（ブラウザでの直接実行を防止）
-	const isAudio = result.contentType.startsWith('audio/');
-	const disposition = isAudio ? 'attachment' : 'inline';
+	// #3105: ラスタ画像のみ inline、SVG / audio / 不明 type は attachment 配信
+	// (script 入り SVG への top-level navigation で inline script が実行される stored XSS を封殺)。
+	const ct = safeContentType(result.contentType);
 
 	return new Response(new Uint8Array(result.data), {
 		headers: {
-			'Content-Type': safeContentType(result.contentType),
-			'Content-Disposition': disposition,
+			'Content-Type': ct,
+			'Content-Disposition': safeContentDisposition(ct),
 			'Cache-Control': 'public, max-age=31536000, immutable',
 		},
 	});

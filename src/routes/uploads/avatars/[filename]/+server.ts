@@ -2,7 +2,7 @@
 // Serves from local filesystem (NUC) or S3 (Lambda)
 
 import { error } from '@sveltejs/kit';
-import { safeContentType } from '$lib/server/security/file-sanitizer';
+import { safeContentDisposition, safeContentType } from '$lib/server/security/file-sanitizer';
 import { readFile } from '$lib/server/storage';
 import type { RequestHandler } from './$types';
 
@@ -19,10 +19,14 @@ export const GET: RequestHandler = async ({ params }) => {
 		throw error(404, 'File not found');
 	}
 
+	// #3105: avatar も tenants 配信路と対称に、ラスタ画像のみ inline / SVG 等は attachment
+	// (upload 路は sharp 再エンコードで非 SVG だが、防御の対称化として共通 helper を経由)。
+	const ct = safeContentType(result.contentType);
+
 	return new Response(new Uint8Array(result.data), {
 		headers: {
-			'Content-Type': safeContentType(result.contentType),
-			'Content-Disposition': 'inline',
+			'Content-Type': ct,
+			'Content-Disposition': safeContentDisposition(ct),
 			'Cache-Control': 'public, max-age=31536000, immutable',
 		},
 	});
