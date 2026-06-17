@@ -34,8 +34,10 @@
  *   3. renderIntegrationPrBody({ template, prs, developHead, sinceDate, untilDate, backMergePrs, driftDays })
  *      → 統合 PR 本文全文（template の placeholder を差し替えた markdown）
  *
- *   B-4 (#2876) が後段で差し込む「マージ判定エビデンス表」は本 script では空枠 + 生成待ち注記のまま残す
- *   （#2871 解決策 3「エビデンス表（§3）は B-4 後段なので空枠 + 生成待ち注記」）。
+ *   「マージ判定エビデンス表」（§3）/「監査 run 結果リンク」（§4）/「NG 0 件宣言」（§5）は
+ *   本 script では差し替えない。これらは audit-manager run が CI artifact（SARIF 集約 + カバレッジ
+ *   gap map、#2874）を入力に記入する section であり、template 本体（B-4 #2876 で実エビデンス基準 +
+ *   SARIF 2.1.0 + in-toto attestation 参照に更新済み）をそのまま骨格として保持する。
  *
  * Usage (CLI、workflow から呼ぶ):
  *   cat prs.json | node scripts/integration-pr-body.mjs \
@@ -220,7 +222,9 @@ export function replaceSectionBody(template, heading, replacement) {
  *   - 「## 統合サマリ」: develop HEAD SHA / 統合対象期間
  *   - 「## 含有 PR 一覧」: develop merge 履歴から 4 列表を自動注入
  *   - 「## back-merge / drift 状態」: B-5 の back-merge PR + drift 日数
- * を差し替える。エビデンス表（§3）は B-4 後段なので template の空枠 + 生成待ち注記のまま残す。
+ * を差し替える。エビデンス表（§3）/ 監査 run 結果リンク（§4）/ NG 0 件宣言（§5）は
+ * audit-manager run が記入する section のため差し替えず、template 本体（B-4 #2876 で実エビデンス
+ * 基準 + SARIF + attestation 参照に更新済み）をそのまま保持する。
  *
  * @param {{
  *   template: string;
@@ -265,8 +269,9 @@ export function renderIntegrationPrBody({
 	const backMergeStatus = buildBackMergeStatus({ backMergePrs, driftDays });
 	body = replaceSectionBody(body, '## back-merge / drift 状態', backMergeStatus);
 
-	// マージ判定エビデンス表（§3）/ 監査 run 結果リンク / NG 0 件宣言は B-4 後段が差し込むため
-	// template の空枠 + 生成待ち注記のまま残す（本 script では差し替えない）。
+	// マージ判定エビデンス表（§3）/ 監査 run 結果リンク（§4）/ NG 0 件宣言（§5）は
+	// audit-manager run が CI artifact を入力に記入する section のため、本 script では差し替えない。
+	// template 本体（B-4 #2876 で実エビデンス基準 + SARIF + attestation 参照に更新済み）を骨格として保持する。
 
 	return body;
 }

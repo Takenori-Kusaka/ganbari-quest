@@ -1098,6 +1098,29 @@ jobs:
       - name: Write GITHUB_STEP_SUMMARY (≤ 1MiB)
         run: head -c 1000000 integration-evidence/evidence.md >> "$GITHUB_STEP_SUMMARY"
 
+      # B-4 (#2876): マージ判定 advisory 評価 (NG-0 + coverage ratchet)。
+      # **advisory 先行**: continue-on-error で hard fail させず、ci-gate needs に入れず、
+      # required_status_checks にも登録しない。NG の最終確定は audit-manager の人間判定が正本。
+      # required 昇格は別 Issue / 段階導入 (deploy-aws-staging.yml 先例同型)。
+      - name: Advisory merge-readiness evaluation (#2876、非 block)
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          ADVISORY=$(node -e "const e=require('./integration-evidence/evidence.json');const a=e.mergeReadinessAdvisory||{};console.log(JSON.stringify(a))")
+          echo "advisory: $ADVISORY"
+          PASS=$(node -e "const a=$ADVISORY;console.log(a.advisoryPass===true)")
+          {
+            echo '## マージ判定 advisory (#2876、非 block / required 未登録)';
+            echo '';
+            echo "- advisoryPass: ${PASS}";
+            echo '';
+            echo '> 本 step は continue-on-error の advisory であり merge を block しません。';
+            echo '> required 昇格は別 Issue / 段階導入で判断します (deploy-aws-staging.yml 先例同型)。';
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PASS" != "true" ]; then
+            echo "::warning::マージ判定 advisory が PASS していません (NG / coverage / job 緑のいずれか未達)。block はしませんが audit-manager 判定で確認してください。"
+          fi
+
       - name: Upload integration PR evidence
         uses: actions/upload-artifact@v7
         with:
