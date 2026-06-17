@@ -1271,6 +1271,36 @@ describe('importFamilyData', () => {
 			expect(result.staticFilesSkipped).toBe(1);
 		});
 
+		it('zip-slip: `..` を含む悪意あるパスは保存せずスキップ扱いになる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/ok.png')];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const staticFiles: Record<string, Uint8Array> = {
+				'avatars/7/ok.png': new Uint8Array([1]), // 正常エントリ
+				'avatars/101/../../../../etc/passwd': new Uint8Array([6, 6, 6]), // path-escape
+				'avatars\\101\\..\\..\\evil.png': new Uint8Array([7]), // backslash escape (Windows)
+			};
+
+			const result = await importFamilyData(data, TENANT, staticFiles);
+
+			// 正常 1 件のみ復元、悪意ある 2 件はスキップ
+			expect(result.staticFilesRestored).toBe(1);
+			expect(result.staticFilesSkipped).toBe(2);
+			// static/ を逸脱する key で saveFile が呼ばれないこと
+			for (const call of mockSaveFile.mock.calls) {
+				expect(String(call[0])).not.toContain('..');
+				expect(String(call[0])).not.toContain('etc/passwd');
+			}
+			// 復元された 1 件は正規の安全パス
+			expect(mockSaveFile).toHaveBeenCalledTimes(1);
+			expect(mockSaveFile).toHaveBeenCalledWith(
+				`tenants/${TENANT}/avatars/101/ok.png`,
+				expect.any(Buffer),
+				'image/png',
+			);
+		});
+
 		it('staticFiles 未指定 (JSON-only) では復元処理を行わない (後方互換)', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];

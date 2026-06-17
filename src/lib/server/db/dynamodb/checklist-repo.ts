@@ -513,10 +513,7 @@ export async function upsertLog(
  * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
  * PK=CHILD#<childId> + begins_with(SK, 'CKLOG#') を全ページ走査する。
  */
-export async function findLogsByChild(
-	childId: number,
-	tenantId: string,
-): Promise<ChecklistLog[]> {
+export async function findLogsByChild(childId: number, tenantId: string): Promise<ChecklistLog[]> {
 	const logs: ChecklistLog[] = [];
 	let lastKey: Record<string, unknown> | undefined;
 	do {

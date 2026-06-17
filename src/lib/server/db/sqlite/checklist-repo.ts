@@ -300,10 +300,7 @@ export async function upsertLog(
 /**
  * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
  */
-export async function findLogsByChild(
-	childId: number,
-	_tenantId: string,
-): Promise<ChecklistLog[]> {
+export async function findLogsByChild(childId: number, _tenantId: string): Promise<ChecklistLog[]> {
 	return db
 		.select()
 		.from(checklistLogs)

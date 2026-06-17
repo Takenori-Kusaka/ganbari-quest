@@ -18,6 +18,11 @@ import type { RequestHandler } from './$types';
 // #3077: ZIP インポートの上限。export ZIP (export/+server.ts MAX_ZIP_SIZE) と整合させる。
 const MAX_IMPORT_BYTES = 100 * 1024 * 1024; // 100MB
 
+// #3078 zip-bomb 防御: 圧縮入力 (MAX_IMPORT_BYTES) だけでなく、展開後 (uncompressed) のサイズも制限する。
+//   fflate.unzipSync は圧縮入力サイズしか見ないため、高圧縮率の ZIP で巨大展開 → OOM を招きうる。
+const MAX_ENTRY_UNCOMPRESSED_BYTES = 25 * 1024 * 1024; // エントリ単体上限 25MB
+const MAX_TOTAL_UNCOMPRESSED_BYTES = 200 * 1024 * 1024; // 展開後合計上限 200MB
+
 interface ParsedImport {
 	body: unknown;
 	/** #3077: ZIP 同梱の静的ファイル (相対パス → bytes)。JSON-only では undefined。 */
@@ -53,9 +58,22 @@ async function parseImportRequest(
 	let entries: Record<string, Uint8Array>;
 	try {
 		const { unzipSync } = await import('fflate');
-		entries = unzipSync(new Uint8Array(buffer));
+		// #3078 zip-bomb 防御: filter で central directory の originalSize を見て、
+		//   per-entry 上限を超えるエントリは展開せず弾く (高圧縮率の巨大展開 → OOM 阻止)。
+		entries = unzipSync(new Uint8Array(buffer), {
+			filter: (file) => file.originalSize <= MAX_ENTRY_UNCOMPRESSED_BYTES,
+		});
 	} catch {
 		return { ok: false, error: 'ZIPの解凍に失敗しました' };
+	}
+
+	// #3078 zip-bomb 防御: 展開後合計サイズが上限を超える ZIP を拒否する。
+	let totalUncompressed = 0;
+	for (const bytes of Object.values(entries)) {
+		totalUncompressed += bytes.length;
+		if (totalUncompressed > MAX_TOTAL_UNCOMPRESSED_BYTES) {
+			return { ok: false, error: '展開後のファイルサイズが大きすぎます（最大200MB）' };
+		}
 	}
 
 	const dataJson = entries['data.json'];

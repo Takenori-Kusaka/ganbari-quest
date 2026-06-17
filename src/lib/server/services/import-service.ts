@@ -815,6 +815,23 @@ async function importSpecialRewards(
 /** 静的ファイル ZIP 相対パスの形式: `<type>/<childId>/<rest...>` (type = avatars|voices|generated) */
 const STATIC_FILE_PATH_RE = /^(avatars|voices|generated)\/(\d+)\/(.+)$/;
 
+/**
+ * ZIP 相対パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip 防御)。
+ * `STATIC_FILE_PATH_RE` の `rest` (`.+`) は任意文字を許すため、ここで `..` セグメント・
+ * 先頭スラッシュ・Windows ドライブ等を弾く。安全なら true。
+ */
+function isSafeRelativePath(relPath: string): boolean {
+	// バックスラッシュは forward slash に正規化して segment 分割する。
+	const normalized = relPath.replace(/\\/g, '/');
+	if (normalized.startsWith('/')) return false; // 絶対パス
+	if (/^[a-zA-Z]:/.test(normalized)) return false; // Windows ドライブレター
+	const segments = normalized.split('/');
+	for (const seg of segments) {
+		if (seg === '..') return false; // 親ディレクトリ参照
+	}
+	return true;
+}
+
 const CONTENT_TYPE_BY_EXT: Record<string, string> = {
 	png: 'image/png',
 	jpg: 'image/jpeg',
@@ -864,6 +881,11 @@ async function importStaticFiles(
 	const relativeKeyRemap = new Map<string, string>();
 
 	for (const [relPath, bytes] of Object.entries(staticFiles)) {
+		// zip-slip 防御: `..` / 絶対パス等を含むエントリは保存せずスキップ扱いにする。
+		if (!isSafeRelativePath(relPath)) {
+			result.staticFilesSkipped++;
+			continue;
+		}
 		const match = STATIC_FILE_PATH_RE.exec(relPath);
 		if (!match) {
 			// data.json や想定外パスはスキップ (data.json は API 側で除外済だが二重防御)
