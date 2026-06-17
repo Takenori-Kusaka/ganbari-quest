@@ -65,12 +65,18 @@ export function resolveIntegrationSections(override) {
 }
 
 /**
- * skip 判定（dependencies ラベルは全 lane 共通の skip 条件、Dependabot exempt 二重防御）。
+ * skip 判定。feature / hotfix lane では dependencies ラベルで skip する（Dependabot exempt 二重防御）。
+ * **integration lane では skip を一切認めない（#3071、空洞化防止）**: 誤った dependencies label が
+ * 統合 PR に付いても統合 PR 用 section の検証を必ず実行する。
+ * 呼び出し側 workflow は lane=dependabot を job-level if でも skip する（本関数には非 dependabot のみ到達）。
  *
- * @param {{ labels: string[] }} input
+ * @param {{ labels: string[]; lane?: string }} input
  * @returns {{ skip: boolean; reason?: string }}
  */
-export function shouldSkip({ labels }) {
+export function shouldSkip({ labels, lane }) {
+	if (lane === 'integration') {
+		return { skip: false };
+	}
 	if (labels.some((l) => l.includes('dependencies'))) {
 		return { skip: true, reason: 'dependencies ラベル（Dependabot exempt）' };
 	}
@@ -119,7 +125,7 @@ function countUnchecked(body, section) {
  * @returns {ChecklistResult}
  */
 export function checkMergeGateChecklist({ body, labels, lane, integrationSectionsOverride }) {
-	const skip = shouldSkip({ labels });
+	const skip = shouldSkip({ labels, lane });
 	if (skip.skip) {
 		return { ok: true, lane, targetSections: [], reason: `skip: ${skip.reason}` };
 	}

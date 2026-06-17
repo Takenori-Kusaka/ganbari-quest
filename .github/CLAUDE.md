@@ -55,6 +55,8 @@ Dependabot / Renovate の依存更新 PR は以下を自動 skip（`dependencies
 
 検証ロジックは `scripts/check-ac-verification-map.mjs` / `scripts/check-merge-gate-checklist.mjs`（unit test 済、inline 重複なし）。required context 名は不変。lane 別の全 gate 対応表は `docs/sessions/branch-strategy.md`（A-6）が SSOT。
 
+**integration lane の label/comment skip 無効化（#3071、空洞化防止）**: `type:docs` / `dependencies` label / 明示 skip コメント（`<!-- ac-verification-skip -->`）による検証 skip は **feature / hotfix lane でのみ有効**。統合 PR（lane=integration）に誤って `type:docs` 等が付いても §3.5 マージ判定エビデンス表 / 統合用 section / template gate の検証を必ず実行する（誤ラベルで required check が空洞緑化するのを防ぐ）。`pr-template-gate-checks.mjs` の 5 check も同様（`hasDependenciesLabel` / `type:docs` skip を integration で無効化）。dependabot lane（bot actor）は `dependabotSkip(lane)` で従来どおり skip 維持（#1808）。
+
 ## 巨大 docs refactor PR の分割 (#2225)
 
 docs/ 配下の変更ファイル数が **50 超で QM 警告、100 超で BLOCK** (Epic 級は事前分割必須)。SSOT ファイル削除 (`docs/sessions/*` / `docs/decisions/*` / `*CLAUDE.md`) は移動先 PR を先に merge してから別 PR で削除。詳細: `docs/CLAUDE.md` §「巨大 docs refactor PR 分割ガイドライン」。

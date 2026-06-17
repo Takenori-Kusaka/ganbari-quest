@@ -77,11 +77,15 @@ export const INTEGRATION_REQUIRED_SECTIONS = [
 ];
 
 /**
- * dependencies label / type:docs 等の既存 skip 条件 (lane と直交)。
+ * dependencies label による skip 条件。
+ * **integration lane では無効化する (#3071、空洞化防止)**: 誤った dependencies label が統合 PR に
+ * 付いても template gate を必ず実行する。feature / hotfix lane は現行どおり skip (Dependabot exempt 二重防御)。
  * @param {string[]} labels
+ * @param {Lane} [lane]
  * @returns {boolean}
  */
-function hasDependenciesLabel(labels) {
+function hasDependenciesLabel(labels, lane) {
+	if (lane === 'integration') return false;
 	return labels.some((l) => l.includes('dependencies'));
 }
 
@@ -121,7 +125,7 @@ export function extractTemplateSections(template) {
 export function checkSectionPresence({ body, labels, template, ssotSections, lane }) {
 	const dep = dependabotSkip(lane);
 	if (dep) return dep;
-	if (hasDependenciesLabel(labels)) {
+	if (hasDependenciesLabel(labels, lane)) {
 		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
 	}
 
@@ -206,7 +210,7 @@ function sliceSection(body, heading) {
 export function checkIssueReference({ body, labels, template, lane }) {
 	const dep = dependabotSkip(lane);
 	if (dep) return dep;
-	if (hasDependenciesLabel(labels)) {
+	if (hasDependenciesLabel(labels, lane)) {
 		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
 	}
 
@@ -312,7 +316,7 @@ export function detectChangeTypeHeading(template) {
 export function checkChangeType({ body, labels, template, lane }) {
 	const dep = dependabotSkip(lane);
 	if (dep) return dep;
-	if (hasDependenciesLabel(labels)) {
+	if (hasDependenciesLabel(labels, lane)) {
 		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
 	}
 
@@ -367,7 +371,7 @@ export function checkChangeType({ body, labels, template, lane }) {
 export function checkCustomerValue({ body, labels, template, lane }) {
 	const dep = dependabotSkip(lane);
 	if (dep) return dep;
-	if (hasDependenciesLabel(labels)) {
+	if (hasDependenciesLabel(labels, lane)) {
 		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
 	}
 
@@ -478,10 +482,11 @@ export function detectTestSectionKeyword(template) {
 export function checkTestResults({ body, labels, template, lane }) {
 	const dep = dependabotSkip(lane);
 	if (dep) return dep;
-	if (hasDependenciesLabel(labels)) {
+	if (hasDependenciesLabel(labels, lane)) {
 		return { ok: true, skipped: true, message: '依存関係更新 PR のためスキップ', lane };
 	}
-	if (labels.includes('type:docs')) {
+	// integration lane では type:docs による skip を無効化する (#3071、空洞化防止)。
+	if (lane !== 'integration' && labels.includes('type:docs')) {
 		return { ok: true, skipped: true, message: 'type:docs PR のためスキップ', lane };
 	}
 
