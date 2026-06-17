@@ -71,7 +71,7 @@ export default async (page, capture) => {
 	await page.waitForFunction(
 		() => {
 			const el = document.querySelector('[data-testid="parent-gate-navigating"]');
-			return !!(el?.textContent && el.textContent.includes('ひらいています'));
+			return !!el?.textContent?.includes('ひらいています');
 		},
 		{ timeout: 5_000 },
 	);
