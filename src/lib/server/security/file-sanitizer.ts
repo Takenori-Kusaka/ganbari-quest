@@ -93,3 +93,28 @@ const SAFE_CONTENT_TYPES = new Set([
 export function safeContentType(contentType: string): string {
 	return SAFE_CONTENT_TYPES.has(contentType) ? contentType : 'application/octet-stream';
 }
+
+/**
+ * inline 配信して安全な (= top-level navigation でも script を実行し得ない) Content-Type。
+ * ラスタ画像のみ。SVG は image だが XML 文書として script を実行し得るため除外する (#3105)。
+ */
+const INLINE_SAFE_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+/**
+ * user 由来データの静的配信時に使う Content-Disposition を返す (#3105)。
+ *
+ * 背景: ZIP import 復元 (#3083) で `image/svg+xml` を `inline` 配信していたため、認証済
+ * owner/parent が script 入り SVG を含む ZIP を import → その SVG へ top-level navigation すると
+ * CSP `unsafe-inline` 下で inline script が実行される stored XSS が成立していた (avatar 防御の非対称)。
+ *
+ * 対策: ラスタ画像 (jpeg/png/webp) のみ `inline`、それ以外 (SVG / audio / octet-stream 等) は
+ * `attachment` とし、document としてレンダリングさせない (= top-level navigation では download)。
+ * `<img src>` 等の subresource 読込は Content-Disposition を無視するため、正規の fallback SVG
+ * avatar 等の `<img>` 表示は維持される (script も img 経由 SVG では実行されない)。
+ *
+ * user データを静的配信する全経路 (tenants / uploads/avatars 等) は本関数を経由すること
+ * (横展開 #3105、安全配信ユーティリティへの集約)。
+ */
+export function safeContentDisposition(contentType: string): 'inline' | 'attachment' {
+	return INLINE_SAFE_CONTENT_TYPES.has(contentType) ? 'inline' : 'attachment';
+}
