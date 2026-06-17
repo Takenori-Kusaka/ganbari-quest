@@ -745,29 +745,7 @@ async function handleCopyFromChild() {
 		</p>
 	</div>
 
-	{#if !data.isPremium}
-		<!-- #728: 無料プラン向けアップグレード誘導 -->
-		<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 space-y-3 border border-[var(--color-border-premium)]" data-testid="rewards-upgrade-banner">
-			<div class="flex items-start gap-3">
-				<span class="text-2xl">✨</span>
-				<div class="flex-1">
-					<p class="font-bold text-[var(--color-premium)]">{REWARDS_LABELS.upgradeBannerTitle}</p>
-					<p class="text-xs text-[var(--color-premium-light)] mt-1">
-						{REWARDS_LABELS.upgradeBannerDesc}
-					</p>
-				</div>
-			</div>
-			<a
-				href="/admin/subscription"
-				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
-				data-testid="rewards-upgrade-cta"
-			>
-				{REWARDS_LABELS.upgradeButton}
-			</a>
-		</div>
-	{/if}
-
-	<!-- #2362 PR-4: 子供タブ切替 UI -->
+	<!-- #2362 PR-4: 子供タブ切替 UI (slot 2、正準スロット契約 #3097) -->
 	{#if data.children.length > 0}
 		<div
 			class="child-tab-row"
@@ -817,10 +795,67 @@ async function handleCopyFromChild() {
 					{ADMIN_REWARDS_PAGE_LABELS.childContextHint}
 				</span>
 			</div>
+		{/if}
+	{/if}
 
-			<!-- #2832: 選択中 child のごほうび一覧 (編集 / 削除)。
-			     削除は pending redemption ガード (AC1)、編集は申請時点 snapshot note (AC2 案 b)。 -->
-			<section class="reward-list" data-testid="rewards-per-child-list">
+	<!-- #3097 (EPIC #3096): プラン系バナー (slot 4) — 正準スロットに固定配置。
+	     旧: child タブの上にあったため activities (slot 4 = limit banner) と配置がズレていた。 -->
+	{#if !data.isPremium}
+		<!-- #728: 無料プラン向けアップグレード誘導 -->
+		<div class="bg-[var(--color-premium-bg)] rounded-xl p-4 space-y-3 border border-[var(--color-border-premium)]" data-testid="admin-rewards-plan-banner">
+			<div class="flex items-start gap-3" data-testid="rewards-upgrade-banner">
+				<span class="text-2xl">✨</span>
+				<div class="flex-1">
+					<p class="font-bold text-[var(--color-premium)]">{REWARDS_LABELS.upgradeBannerTitle}</p>
+					<p class="text-xs text-[var(--color-premium-light)] mt-1">
+						{REWARDS_LABELS.upgradeBannerDesc}
+					</p>
+				</div>
+			</div>
+			<a
+				href="/admin/subscription"
+				class="inline-block px-3 py-1.5 bg-[var(--color-premium)] text-[var(--color-text-inverse)] rounded-lg font-bold text-sm hover:opacity-90 transition-colors"
+				data-testid="rewards-upgrade-cta"
+			>
+				{REWARDS_LABELS.upgradeButton}
+			</a>
+		</div>
+	{/if}
+
+	<!-- #2268: 検索 UI (slot 5、一覧の直上、正準スロット契約 #3097) -->
+	<section data-testid="admin-rewards-search">
+		<FormField
+			label={REWARDS_LABELS.searchLabel}
+			type="search"
+			bind:value={searchQuery}
+			placeholder={REWARDS_LABELS.searchPlaceholder}
+		/>
+	</section>
+
+	<!-- アクションメッセージ (取込結果 / copy 結果 / invalid preset 警告) — slot 6 (role="status") -->
+	{#if actionMessage}
+		<div
+			class="action-message"
+			role="status"
+			data-testid="rewards-action-message"
+		>
+			<span>{actionMessage}</span>
+			<!-- #2894 AC3: PlanLimitError 受領時はアップグレード導線を併記 (NN/G #9) -->
+			{#if actionUpgradeUrl}
+				<a class="action-upgrade-link" href={actionUpgradeUrl} data-testid="rewards-upgrade-link">
+					{PLAN_GATE_LABELS.upgradeLinkLabel}
+				</a>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- #3097 (EPIC #3096): ごほうび一覧 (slot 7、検索の直下)。
+	     #2832: 選択中 child のごほうび一覧 (編集 / 削除)。削除は pending redemption ガード (AC1)、
+	     編集は申請時点 snapshot note (AC2 案 b)。旧: child-context バナー直下 (slot 3) に置かれ
+	     検索 (slot 5) より上だったため正準順に違反していた。 -->
+	{#if selectedChild}
+		<section class="reward-list" data-testid="admin-rewards-list">
+			<div data-testid="rewards-per-child-list">
 				{#if perChildRewards.length === 0}
 					<p class="reward-list__empty" data-testid="rewards-per-child-empty">
 						{ADMIN_REWARDS_PAGE_LABELS.rewardListEmpty}
@@ -859,35 +894,8 @@ async function handleCopyFromChild() {
 						</div>
 					{/each}
 				{/if}
-			</section>
-		{/if}
-	{/if}
-
-	<!-- #2268: 検索 UI -->
-	<section>
-		<FormField
-			label={REWARDS_LABELS.searchLabel}
-			type="search"
-			bind:value={searchQuery}
-			placeholder={REWARDS_LABELS.searchPlaceholder}
-		/>
-	</section>
-
-	<!-- アクションメッセージ (取込結果 / copy 結果 / invalid preset 警告) -->
-	{#if actionMessage}
-		<div
-			class="action-message"
-			role="status"
-			data-testid="rewards-action-message"
-		>
-			<span>{actionMessage}</span>
-			<!-- #2894 AC3: PlanLimitError 受領時はアップグレード導線を併記 (NN/G #9) -->
-			{#if actionUpgradeUrl}
-				<a class="action-upgrade-link" href={actionUpgradeUrl} data-testid="rewards-upgrade-link">
-					{PLAN_GATE_LABELS.upgradeLinkLabel}
-				</a>
-			{/if}
-		</div>
+			</div>
+		</section>
 	{/if}
 
 	<!-- Error Display -->
@@ -1246,52 +1254,9 @@ async function handleCopyFromChild() {
 		text-decoration: underline;
 	}
 
-	/* #2362 PR-4: child tab row + actions */
-	.child-tab-row {
-		display: flex;
-		gap: 0.375rem;
-		flex-wrap: wrap;
-		align-items: center;
-		padding: 0.5rem;
-		background: var(--color-surface-muted);
-		border-radius: var(--radius-md);
-	}
-	:global(.child-tab) {
-		border-radius: 9999px !important;
-		font-size: 0.85rem !important;
-	}
-	:global(.child-tab--inactive) {
-		background: var(--color-surface) !important;
-		color: var(--color-text-secondary) !important;
-	}
-	.child-tab__count {
-		font-size: 0.75rem;
-		opacity: 0.8;
-		margin-left: 0.25rem;
-	}
-	.child-tab-actions {
-		display: flex;
-		gap: 0.25rem;
-		margin-left: auto;
-	}
-	.child-context-banner {
-		padding: 0.5rem 0.75rem;
-		background: var(--color-surface-accent);
-		border-left: 3px solid var(--color-border-accent);
-		border-radius: var(--radius-sm);
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-	.child-context-banner__label {
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: var(--color-text-primary);
-	}
-	.child-context-banner__hint {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-	}
+	/* #3097 (EPIC #3096): child-tab-row / child-context-banner styles moved to
+	   app.css "Admin resource layout" shared classes (DRY across 3 admin pages).
+	   CSS comments use ASCII to satisfy local/no-hardcoded-jp-text in style blocks. */
 
 	.action-message {
 		padding: 0.5rem 0.75rem;

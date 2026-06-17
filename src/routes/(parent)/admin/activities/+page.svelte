@@ -438,7 +438,7 @@ function selectChild(childId: number) {
 	<title>{PAGE_TITLES.activities}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<div class="space-y-3">
+<div class="space-y-4" data-testid="admin-activities-page">
 	<ActivitiesHeader
 		clearConfirmOpen={showClearConfirm}
 		onClearAll={() => { showClearConfirm = true; }}
@@ -504,10 +504,15 @@ function selectChild(childId: number) {
 		/>
 	{/if}
 
+	<!-- #3097 (EPIC #3096): プラン系バナー (slot 4) — 正準スロットに固定配置 -->
 	{#if activityLimit && !activityLimit.allowed}
-		<ActivityLimitBanner current={activityLimit.current} max={activityLimit.max} />
+		<div data-testid="admin-activities-plan-banner">
+			<ActivityLimitBanner current={activityLimit.current} max={activityLimit.max} />
+		</div>
 	{/if}
 
+	<!-- #3097 (EPIC #3096): 検索 + フィルタ行 (slot 5、一覧の直上)。
+	     (B) カテゴリフィルタは活動固有のドメイン差のため撤去せず本スロットに配置する。 -->
 	<!-- カテゴリフィルタ -->
 	<div class="filter-row" data-tutorial="category-filter">
 		<Button
@@ -531,8 +536,10 @@ function selectChild(childId: number) {
 		{/each}
 	</div>
 
-	<!-- 検索 -->
-	<FormField id="activity-search" label="活動名で検索" type="search" bind:value={searchQuery} placeholder="🔍 活動名で検索..." />
+	<!-- 検索 (slot 5、一覧の直上) -->
+	<div data-testid="admin-activities-search">
+		<FormField id="activity-search" label={ADMIN_ACTIVITIES_PAGE_LABELS.searchLabel} type="search" bind:value={searchQuery} placeholder={ADMIN_ACTIVITIES_PAGE_LABELS.searchPlaceholder} />
+	</div>
 
 	<!-- アクションメッセージ -->
 	<!--
@@ -557,7 +564,7 @@ function selectChild(childId: number) {
 	<!-- #2902 Phase A: 活動一覧（メインコンテンツ）— 選択中 child の per-child instance を
 	     単一表示。全行が ActivityListItem (編集 / 表示切替 / メインクエスト / 削除のフル CRUD)。
 	     旧 per-child read-only badge 行 + family master 並存表示は撤去 (二重表示 / 件数水増し解消)。 -->
-	<div class="space-y-1" data-tutorial="activity-list">
+	<div class="space-y-1" data-tutorial="activity-list" data-testid="admin-activities-list">
 		{#each filteredActivities as activity (activity.id)}
 			<div data-testid="per-child-activity-{activity.id}">
 				<ActivityListItem
@@ -820,47 +827,9 @@ function selectChild(childId: number) {
 		text-decoration: underline;
 	}
 
-	/* #2362 PR-3 Phase 4: child tabs */
-	.child-tab-row {
-		display: flex;
-		gap: 0.375rem;
-		flex-wrap: wrap;
-		align-items: center;
-		padding: 0.5rem;
-		background: var(--color-surface-muted);
-		border-radius: var(--radius-md);
-	}
-	:global(.child-tab) {
-		border-radius: 9999px !important;
-		font-size: 0.85rem !important;
-	}
-	:global(.child-tab--inactive) {
-		background: var(--color-surface) !important;
-		color: var(--color-text-secondary) !important;
-	}
-	.child-tab__count {
-		font-size: 0.75rem;
-		opacity: 0.8;
-		margin-left: 0.25rem;
-	}
-	.child-context-banner {
-		padding: 0.5rem 0.75rem;
-		background: var(--color-surface-accent);
-		border-left: 3px solid var(--color-border-accent);
-		border-radius: var(--radius-sm);
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-	.child-context-banner__label {
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: var(--color-text-primary);
-	}
-	.child-context-banner__hint {
-		font-size: 0.75rem;
-		color: var(--color-text-muted);
-	}
+	/* #3097 (EPIC #3096): child-tab-row / child-context-banner styles moved to
+	   app.css "Admin resource layout" shared classes (DRY across 3 admin pages).
+	   CSS comments use ASCII to satisfy local/no-hardcoded-jp-text in style blocks. */
 
 	/* #2902 Phase A: old .age-filter-banner / .per-child-item* (read-only rows) removed —
 	   display unified into ActivityListItem (ASCII comment to satisfy local/no-hardcoded-jp-text). */

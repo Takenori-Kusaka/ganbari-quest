@@ -4041,6 +4041,9 @@ export const MARKETPLACE_IMPORT_FEEDBACK_LABELS = {
  * 子供別タブ切替 + 兄弟共通化 UX (copy / 一括追加) の SSOT。
  */
 export const ADMIN_ACTIVITIES_PAGE_LABELS = {
+	// #3097 (EPIC #3096): 検索ラベルを SSOT 化 (旧 inline hardcoded `活動名で検索` を labels へ移管)
+	searchLabel: '活動を検索',
+	searchPlaceholder: '🔍 活動名で検索...',
 	// 子供別タブ
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childCountSuffix: '件',
@@ -4715,6 +4718,13 @@ export const DEMO_CHILD_CHECKLIST_LABELS = {
 } as const;
 
 export const ADMIN_CHECKLISTS_PAGE_LABELS = {
+	// #3097 (EPIC #3096): 正準スロット契約に conform — 子供タブ / 子供コンテキストバナー / 検索を
+	//   activities (ADMIN_ACTIVITIES_PAGE_LABELS) と同型に揃える (NN/G #4 consistency)。
+	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
+	childContextSuffix: 'のチェックリスト',
+	childContextHint: `配信先を切り替えると、他の${CHILD_TERMS.honorific}の進捗を確認できます`,
+	searchLabel: 'チェックリストを検索',
+	searchPlaceholder: 'チェックリスト名で検索...',
 	// #1755 (#1709-A): kind 削除に伴い tabAriaLabel は本 sub では未使用化
 	//   後続 sub-issue (#1709-B) で他用途に流用 / 削除を検討
 	tabAriaLabel: 'チェックリスト種別',

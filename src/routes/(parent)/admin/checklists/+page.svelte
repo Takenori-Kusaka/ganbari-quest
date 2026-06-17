@@ -43,21 +43,35 @@ import VisibilityChipGroup, {
 
 let { data, form } = $props();
 
-let selectedChildId = $state(0);
-
-$effect(() => {
-	const first = data.children[0];
-	if (selectedChildId === 0 && first) {
-		selectedChildId = first.id;
-	}
-});
+// #3097 (EPIC #3096): selectedChildId を SSR-safe な override + derived パターンに統一
+//   (activities / rewards と同型)。旧 `$state(0)` + `$effect` 初期化は SSR 時点で 0 のため、
+//   子供コンテキストバナー / 一覧 (slot 3 / 7) が hydration 前に描画されず正準スロット契約に
+//   反していた。derived の fallback を `children[0].id` にすることで SSR から確定する。
+let childIdOverride = $state<number | undefined>(undefined);
+const selectedChildId = $derived(
+	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
+		? childIdOverride
+		: (data.children[0]?.id ?? 0),
+);
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
+
+// #3097 (EPIC #3096): 正準スロット契約に conform — 検索 (slot 5、一覧の直上) を activities / rewards と
+//   同型に追加する。template 名で絞り込む (NN/G #4 consistency)。
+let searchQuery = $state('');
 
 // #2362 PR-5 Phase 2 (ADR-0055): family scope の templates 一覧 (childId 軸ではなく family 軸)
 //   旧 per-child templates 表示は廃止し、family templates を表示する。
 //   override 操作のみ child 軸が残るため selectedChild を維持。
-const filteredTemplates = $derived(data.familyTemplates);
+// #3097: searchQuery で template 名を絞り込む (一覧 slot の表示軸)。
+const filteredTemplates = $derived(
+	searchQuery.trim()
+		? data.familyTemplates.filter((t) =>
+				t.name.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+			)
+		: data.familyTemplates,
+);
+const hasSearchActive = $derived(searchQuery.trim().length > 0);
 
 // #723: Free プランのテンプレート上限（UI ゲート用、family scope での件数）
 // null = 無制限（Standard/Family）
@@ -693,6 +707,87 @@ function getChildName(childId: number): string {
 		</AdminResourceHeader>
 	</div>
 
+	<!-- #3097 (EPIC #3096): 子供タブ (slot 2) — 正準スロット契約に conform。
+	     旧: 「2 人以上」表示条件 + Tailwind 直書き styling だったが、activities / rewards と同型に
+	     「1 人以上」常時表示 + `.child-tab-row` styling + role="tablist" に統一する (NN/G #4 consistency)。
+	     checklist は family master 配信モデルのため、本タブは override / 進捗確認の child 選択に使う。 -->
+	{#if data.children.length > 0}
+		<div
+			class="child-tab-row"
+			data-testid="admin-checklists-child-tabs"
+			role="tablist"
+			aria-label={ADMIN_CHECKLISTS_PAGE_LABELS.childTabsAriaLabel}
+		>
+			{#each data.children as child (child.id)}
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class="child-tab {selectedChildId === child.id ? '' : 'child-tab--inactive'}"
+					data-testid="checklists-child-tab-{child.id}"
+					role="tab"
+					aria-selected={selectedChildId === child.id}
+					onclick={() => (childIdOverride = child.id)}
+				>
+					{child.nickname}
+				</Button>
+			{/each}
+		</div>
+
+		<!-- #3097 (EPIC #3096): 子供コンテキストバナー (slot 3) — activities / rewards と同型に追加。 -->
+		{#if selectedChild}
+			<div class="child-context-banner" data-testid="admin-checklists-child-context-banner">
+				<span class="child-context-banner__label">
+					{selectedChild.nickname}{ADMIN_CHECKLISTS_PAGE_LABELS.childContextSuffix}
+				</span>
+				<span class="child-context-banner__hint">
+					{ADMIN_CHECKLISTS_PAGE_LABELS.childContextHint}
+				</span>
+			</div>
+		{/if}
+	{/if}
+
+	<!-- #3097 (EPIC #3096): プラン系バナー (slot 4) — free プラン上限の誘導を正準スロットに固定配置。
+	     旧: 一覧の下 (templates 描画後) にあったため activities / rewards (slot 4) と配置がズレていた。 -->
+	{#if !data.isPremium && checklistMax !== null}
+		<div class="px-4 py-3 rounded-lg bg-[var(--color-surface-trial)] border border-[var(--color-border-trial)] text-sm" data-testid="admin-checklists-plan-banner">
+			<div class="flex items-center justify-between gap-2">
+				<div class="flex items-center gap-2">
+					<span class="text-base">📋</span>
+					<span class="text-[var(--color-text-primary)]">
+						{#if atLimit}
+							{ADMIN_CHECKLISTS_PAGE_LABELS.limitReachedText(checklistMax)}
+						{:else}
+							{ADMIN_CHECKLISTS_PAGE_LABELS.limitCountText(currentCount, checklistMax)}
+						{/if}
+					</span>
+				</div>
+				<a
+					href="/pricing"
+					class="text-xs font-bold text-[var(--color-action-primary)] hover:underline"
+				>
+					{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeLink}
+				</a>
+			</div>
+			{#if atLimit}
+				<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
+					{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeDesc}
+				</p>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- #3097 (EPIC #3096): 検索 (slot 5、一覧の直上) — activities / rewards と同型に追加。 -->
+	<section data-testid="admin-checklists-search">
+		<FormField
+			label={ADMIN_CHECKLISTS_PAGE_LABELS.searchLabel}
+			type="search"
+			bind:value={searchQuery}
+			placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.searchPlaceholder}
+		/>
+	</section>
+
+	<!-- #3097 (EPIC #3096): action message (slot 6、role="status") — 正準スロットに固定配置。
+	     旧: ヘッダー直下 (slot 2 相当) にあったため activities / rewards (slot 6) と配置がズレていた。 -->
 	{#if actionMessage}
 		<div
 			class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm flex flex-wrap items-center gap-2"
@@ -710,22 +805,6 @@ function getChildName(childId: number): string {
 					{PLAN_GATE_LABELS.upgradeLinkLabel}
 				</a>
 			{/if}
-		</div>
-	{/if}
-
-	<!-- Child selector (override 操作用に残す) -->
-	{#if data.children.length > 1}
-		<div class="flex gap-2" data-testid="checklists-child-tabs">
-			{#each data.children as child (child.id)}
-				<Button
-					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
-					size="sm"
-					class={selectedChildId === child.id ? '' : 'bg-white text-[var(--color-text-secondary)] hover:bg-[var(--color-feedback-info-bg)]'}
-					onclick={() => (selectedChildId = child.id)}
-				>
-					{child.nickname}
-				</Button>
-			{/each}
 		</div>
 	{/if}
 
@@ -782,23 +861,27 @@ function getChildName(childId: number): string {
 			</a>
 		</section>
 
+		<!-- #3097 (EPIC #3096): 一覧 (slot 7、検索の直下)。空時は UnifiedEmptyState (SSOT)。 -->
 		<!-- #1755 (#1709-A): kind 削除 — 全テンプレート一覧表示 -->
 		<!-- CX-DoR #9・#11 横展開 (Round 18): 独自 empty markup を UnifiedEmptyState SSOT に統一。
 		     文言 (🎒 + emptyChecklistMessage) を override props で渡し視覚回帰ゼロ。add は header `+`
 		     menu / marketplace browse link が別途あるため shell 内 CTA は出さない (showPrimary/canImport=false)。 -->
+		<div data-testid="admin-checklists-list">
 		{#if filteredTemplates.length === 0}
 			<Card variant="elevated" padding="lg">
 				{#snippet children()}
 				<!-- #2998 (EPIC #2897): empty state の CTA 出し分けを 3 画面で統一 (AC4)。
 				     activities (ActivityEmptyState) と同型に、初期 setup 期の発見性として
 				     「みんなのテンプレートから探す」secondary link (DESIGN.md §10 bulk import bridge) を出す。
-				     primary 追加は header `+ 追加` dropdown に集約済のため showPrimary=false で重複を避ける。 -->
+				     primary 追加は header `+ 追加` dropdown に集約済のため showPrimary=false で重複を避ける。
+				     #3097: 検索結果空 (hasSearchActive) のときは filter-empty 表示に切替え、import link は出さない。 -->
 				<UnifiedEmptyState
 					testid="admin-checklists-empty-state"
 					icon="🎒"
+					hasFilter={hasSearchActive}
 					noItemsText={ADMIN_CHECKLISTS_PAGE_LABELS.emptyChecklistMessage}
 					showPrimary={false}
-					canImport={true}
+					canImport={!hasSearchActive}
 					importLinkLabel={ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
 					importTestid="checklists-empty-import-link"
 					secondaryMode="link"
@@ -958,40 +1041,13 @@ function getChildName(childId: number): string {
 				{/snippet}
 			</Card>
 		{/each}
-
-		<!-- #723: Free プランで上限到達時のアップグレード誘導 -->
-		{#if !data.isPremium && checklistMax !== null}
-			<div class="px-4 py-3 rounded-lg bg-[var(--color-surface-trial)] border border-[var(--color-border-trial)] text-sm">
-				<div class="flex items-center justify-between gap-2">
-					<div class="flex items-center gap-2">
-						<span class="text-base">📋</span>
-						<span class="text-[var(--color-text-primary)]">
-							{#if atLimit}
-								{ADMIN_CHECKLISTS_PAGE_LABELS.limitReachedText(checklistMax)}
-							{:else}
-								{ADMIN_CHECKLISTS_PAGE_LABELS.limitCountText(currentCount, checklistMax)}
-							{/if}
-						</span>
-					</div>
-					<a
-						href="/pricing"
-						class="text-xs font-bold text-[var(--color-action-primary)] hover:underline"
-					>
-						{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeLink}
-					</a>
-				</div>
-				{#if atLimit}
-					<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
-						{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeDesc}
-					</p>
-				{/if}
-			</div>
-		{/if}
+		</div>
 
 		<!-- #2998 (EPIC #2897): 「+ 追加」dropdown + PremiumBadge は AdminResourceHeader に集約済
-		     (旧: 本文下部に Menu を別置きしていたが、3 画面で add 経路の入口を header に統一)。 -->
+		     (旧: 本文下部に Menu を別置きしていたが、3 画面で add 経路の入口を header に統一)。
+		     #3097: Free プラン上限バナーは slot 4 (プラン系バナー) に移動済 (正準スロット契約)。 -->
 
-		<!-- Today's overrides -->
+		<!-- Today's overrides (slot 8、補助セクション — 一覧の下、(B) checklist 固有の日次 override) -->
 		{#if selectedChild.overrides.length > 0}
 			<Card variant="default" padding="none">
 				{#snippet children()}

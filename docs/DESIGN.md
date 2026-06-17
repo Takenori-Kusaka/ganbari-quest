@@ -586,6 +586,37 @@ Material Design 3「画面 FAB 1 個原則」+ Notion / Linear / Asana / Todoist
 
 新規の admin リソース管理画面を作る際は、独自ヘッダーを inline で組まず **`AdminResourceHeader` を使う**。`ActivitiesHeader.svelte` は本コンポーネントの thin wrapper (活動固有の menu item 構成のみ担当)。`?` ページガイド trigger は `AdminLayout` (全 admin 共通) が担うため本コンポーネント scope 外。
 
+#### admin リソース管理画面の正準スロット縦順契約 (#3097、EPIC #3096)
+
+admin リソース管理 3 画面 (活動 / チェックリスト / ごほうび) は、本文の縦スロットを**以下の正準順で固定**する。各画面は「持つスロットだけ」を埋め、順序・実装・共有 component を不変に保つ (NN/G #4 consistency、画面ごとの操作学び直しコスト根絶)。
+
+| slot | 名称 | 必須 | 実装 |
+|---|---|---|---|
+| 1 | ヘッダー | ✓ | `AdminResourceHeader` (`data-testid="admin-resource-header"` を内包) |
+| 2 | 子供タブ | ✓ | `.child-tab-row` (常時 = 子供 1 人以上で表示、role="tablist")。testid `admin-<res>-child-tabs` |
+| 3 | 子供コンテキストバナー | — | `.child-context-banner` (選択中の子供 + 件数 + ヒント) |
+| 4 | プラン系バナー | — | upgrade / limit バナー (任意) |
+| 5 | **検索 + フィルタ行** | ✓ | **一覧の直上**、検索必須。(B) ドメイン固有フィルタ (活動カテゴリ等) は本スロットに同居 |
+| 6 | action message | — | `role="status"`、testid `<res>-action-message` (操作後のみ表示) |
+| 7 | 一覧 | ✓ | 空時は `UnifiedEmptyState` (SSOT)。testid `admin-<res>-list` |
+| 8 | 補助セクション | — | 一覧の下 (checklist 日次 override 等、(B) ドメイン差) |
+
+**(A) / (B) 線引き**:
+
+- **(A) 真の構造的不統一** (同概念・別配置 / 別実装) → 中身を統一する。例: 検索位置 (一覧直上に統一) / 子供タブ表示条件 (1 人以上に統一) / action message・プラン系バナーの slot 固定 / 子供コンテキストバナーの全画面追加 / 最外 spacing (`space-y-4`) / empty state の `UnifiedEmptyState` 化。
+- **(B) 正当なドメイン差** (その資源固有機能) → **撤去せず、正準スロットに置くだけ**。例: 活動のカテゴリフィルタ / copy・一括追加 (slot 5 or header `+`) / チェックリストの日次 override・配信先設定 (slot 8) は機能を消さない。
+
+**child-binding モデル契約 (ADR-0055 整合)**: 各資源の「子供との関係モデル」を `src/lib/features/admin/admin-resource-model-registry.ts` (SSOT) に宣言する。
+
+| 資源 | organizingModel | binding |
+|---|---|---|
+| activity / reward | `per-child-tabs` (子供が持つ) | `child-selection-dialog` (取込先 child を選ぶ) |
+| checklist | `family-distribute` (配信される) | `visibility-chip` (配信先 child を ON/OFF) |
+
+> checklist は Sub-2 (#3096) で per-child-tabs へ寄せる予定 (family master データモデルは維持)。本 PR では現状を宣言する。
+
+**fitness function (CI ガードレール)**: `tests/e2e/admin-resource-layout-contract.spec.ts` が registry を SSOT とし、各画面の DOM から「出現スロットの testid 順」を抽出 → 正準順の部分列 (subsequence) か / 必須スロット存在 / 共有 component 使用 / registry とモデル整合 を assert する (Architecture Fitness Function、『Building Evolutionary Architecture』Neal Ford 他)。`admin-add-path-isomorphism.spec.ts` (#2998、add 経路 dropdown の同型性) とは補完関係 (本 spec = 縦スロット順 + モデル / add-path spec = dropdown item の種類・順序)。以後どの改修も契約外レイアウト / 独自再実装 / モデル逸脱を作れば CI が即落ちる。
+
 #### admin リソース管理ページの add 経路は同型に揃える (#2903 / #2998、PO 指摘 #6b)
 
 複数の admin リソース管理ページ (活動 / チェックリスト / ごほうび / 等) の「+ 追加」dropdown は、**先頭 3 経路 (手動 / AI で提案 / みんなのテンプレートから探す) を同一順序で揃える** (NN/G #4 consistency)。AI 提案は dropdown 内の選択肢 → Dialog で開く方式に統一し、ページ本文に AI パネルを直置きしない (操作の入口がページ間で異なると顧客が混乱するため)。「みんなのテンプレートから探す」は admin 内 browse UI を出さず `/marketplace?type=<typeCode>` へ画面遷移する (マーケットプレイス一本化、本 §10 上記ルール整合)。同型性は **3 画面 (活動 / チェックリスト / ごほうび)** を対象に `tests/e2e/admin-add-path-isomorphism.spec.ts` が assert する (経路「数」でなく dropdown item の種類・順序の配置パターン同型性、#2998 AC6)。
