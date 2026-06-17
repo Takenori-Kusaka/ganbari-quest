@@ -342,6 +342,72 @@ function registerParentGateTests(): void {
 			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 		});
 
+		// #3089: PIN 認証成功 → 親画面 (ハードナビ) 表示完了まで数秒かかる間、全画面 progress を出す。
+		// modal が閉じてから子供画面が静止して見える「困惑」(PO 報告) の回帰固定。
+		// /admin の document nav を遅延させ、遷移中 overlay を決定的に観測する。
+		test('#3089: PIN 認証成功後、親画面表示完了まで全画面 progress (navigating overlay) が表示される', async ({
+			page,
+		}) => {
+			await page.route('**/admin', async (route) => {
+				if (route.request().resourceType() === 'document') {
+					await new Promise((resolve) => setTimeout(resolve, 1200));
+				}
+				await route.continue();
+			});
+
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			// 作成フロー (未設定 tenant): 入力 → 確認一致 → setup 成功
+			await typePinInto(page, '1357');
+			await expect(page.getByTestId('parent-gate-create')).toHaveAttribute('data-step', 'confirm');
+			await typePinInto(page, '1357');
+
+			// 成功直後、/admin 表示完了前に navigating overlay が見える (子供画面が静止して見えない)
+			const overlay = page.getByTestId('parent-gate-navigating');
+			await expect(overlay).toBeVisible({ timeout: 5_000 });
+			await expect(overlay).toContainText('ひらいています');
+
+			// overlay は dead-end でなく遷移の途中表示 — 最終的に /admin へ到達する
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+		});
+
+		// #3089 fail-safe: ハードナビが失敗 (CloudFront 429 / /admin 5xx / 通信断 / cookie 失効 等で
+		// unload しない) した場合、spinner overlay が永続 dead-end にならず、timeout で error 状態
+		// (再試行ボタン) に切り替わることを検証する。/admin document nav を abort し続けて失敗を再現。
+		test('#3089: ハードナビが失敗すると navigating overlay は dead-end にならず error + 再試行が出る', async ({
+			page,
+		}) => {
+			// /admin への document nav を継続的に abort し、ページが unload しない (= ナビ失敗) を再現
+			await page.route('**/admin', async (route) => {
+				if (route.request().resourceType() === 'document') {
+					await route.abort();
+					return;
+				}
+				await route.continue();
+			});
+
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			// 作成フロー成功 → triggerAdminNavigation 起動 → nav abort → 8s timeout で error へ
+			await typePinInto(page, '2468');
+			await expect(page.getByTestId('parent-gate-create')).toHaveAttribute('data-step', 'confirm');
+			await typePinInto(page, '2468');
+
+			// spinner overlay は一旦表示される
+			await expect(page.getByTestId('parent-gate-navigating')).toBeVisible({ timeout: 5_000 });
+
+			// timeout (8s) 経過後、dead-end でなく error 状態 (role=alert + 再試行ボタン) に切り替わる
+			const errorOverlay = page.getByTestId('parent-gate-navigating-error');
+			await expect(errorOverlay).toBeVisible({ timeout: 12_000 });
+			await expect(errorOverlay).toContainText('もう一度');
+			// spinner overlay は消えている (dead-end でない = escape hatch 提供)
+			await expect(page.getByTestId('parent-gate-navigating')).toBeHidden();
+			// 再試行ボタンが操作可能 (もう一度ナビを起動できる)
+			await expect(errorOverlay.getByRole('button')).toBeEnabled();
+		});
+
 		test('確認不一致はエラー表示 + 1 段目からやり直し (dead-end でない)', async ({ page }) => {
 			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
 			const create = page.getByTestId('parent-gate-create');
