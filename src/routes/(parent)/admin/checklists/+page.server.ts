@@ -8,6 +8,8 @@ import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 // #2367 (EPIC #2362 P3): checklist 経路は dispatchImport 経由 (Strangler Fig)
 // #2402 QM must-2: `marketplaceRegistry` 直接参照は dispatchImport API で代替済、import 撤去
 import { dispatchImport } from '$lib/marketplace';
+// #3079: チェックリスト個別 backup/restore — v2 envelope file source adapter
+import { FileSourceError, loadChecklistFromFile } from '$lib/marketplace/sources/file-source';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
 	findAssignmentsByTemplate,
@@ -28,6 +30,10 @@ import {
 	removeTemplateItem,
 	VALID_TIME_SLOTS,
 } from '$lib/server/services/checklist-service';
+import {
+	importChecklistTemplateFromPayload,
+	previewChecklistImportFromPayload,
+} from '$lib/server/services/checklist-template-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	checkChecklistTemplateLimit,
@@ -559,4 +565,122 @@ export const actions: Actions = {
 			return fail(500, { error: '配信先の同期に失敗しました' });
 		}
 	},
+
+	// #3079: バックアップから復元 (preview) — JSON ファイルを解析し総数 / 重複を返す (DB write なし)。
+	// checklist は family master scope。重複判定は復元テンプレート名 (export ファイル名由来) の tenant 一致。
+	restorePreview: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const tier = await resolveFullPlanTier(
+			tenantId,
+			locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+			locals.context?.plan,
+		);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					PLAN_GATE_LABELS.standardOrAboveFor('チェックリスト管理'),
+				),
+			});
+		}
+
+		const formData = await request.formData();
+		const file = formData.get('file');
+
+		let loaded: Awaited<ReturnType<typeof loadChecklistFromFile>>;
+		try {
+			loaded = await loadChecklistFromFile(file as File);
+		} catch (e) {
+			if (e instanceof FileSourceError) return fail(400, { error: e.message });
+			return fail(400, { error: 'ファイルの解析に失敗しました' });
+		}
+
+		const templateName = deriveRestoreTemplateName(loaded.displayName);
+		const preview = await previewChecklistImportFromPayload(loaded.payload, templateName, tenantId);
+		return {
+			restorePreview: true,
+			fileName: loaded.displayName,
+			templateName,
+			total: preview.itemCount,
+			duplicates: preview.alreadyImported ? preview.itemCount : 0,
+			newItems: preview.alreadyImported ? 0 : preview.itemCount,
+		};
+	},
+
+	// #3079: バックアップから復元 (実行) — preview 確認後の実 DB write。
+	// 同名テンプレートが既存なら preset 全体スキップ (atomic unit)。配信は別途 ChecklistDistributionDialog。
+	restoreFile: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const tier = await resolveFullPlanTier(
+			tenantId,
+			locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+			locals.context?.plan,
+		);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					PLAN_GATE_LABELS.standardOrAboveFor('チェックリスト管理'),
+				),
+			});
+		}
+
+		// プラン上限: 有料プランは maxChecklistTemplates=null (無制限) のため isPaidTier ガードが
+		// 上限ガードを兼ねる。family scope 復元は特定 child に紐づかないため per-child カウント
+		// (checkChecklistTemplateLimit) は意味を持たない。
+
+		const formData = await request.formData();
+		const file = formData.get('file');
+
+		let loaded: Awaited<ReturnType<typeof loadChecklistFromFile>>;
+		try {
+			loaded = await loadChecklistFromFile(file as File);
+		} catch (e) {
+			if (e instanceof FileSourceError) return fail(400, { error: e.message });
+			return fail(400, { error: 'ファイルの解析に失敗しました' });
+		}
+
+		const templateName = deriveRestoreTemplateName(loaded.displayName);
+		try {
+			const result = await importChecklistTemplateFromPayload(
+				loaded.payload,
+				templateName,
+				'📋',
+				tenantId,
+			);
+			return {
+				restored: true,
+				fileName: loaded.displayName,
+				templateName,
+				imported: result.imported,
+				skipped: result.skipped,
+				importedItems: result.importedItems,
+				failed: result.failed,
+			};
+		} catch (e) {
+			logger.error('[admin/checklists] 復元失敗', {
+				error: e instanceof Error ? e.message : String(e),
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
 };
+
+/**
+ * #3079: 復元ファイル名からテンプレート名を導出する。
+ *
+ * export 側 (`/api/v1/checklists/export`) はファイル名を `checklist-<safeName>.json` で出力する。
+ * 復元時は逆に prefix / 拡張子を剥がして元の name を復元する。checklist payload schema は name を
+ * 持たない (`{ timing, items }`) ため、ファイル名がテンプレート名の round-trip キャリアとなる。
+ * 想定外のファイル名 (prefix なし等) は安全な既定名にフォールバックする。
+ */
+function deriveRestoreTemplateName(fileName: string): string {
+	const base = fileName.replace(/\.json$/i, '');
+	const stripped = base.startsWith('checklist-') ? base.slice('checklist-'.length) : base;
+	const cleaned = stripped.replace(/_/g, ' ').trim();
+	return cleaned.length > 0 ? cleaned : '復元したチェックリスト';
+}

@@ -167,6 +167,124 @@ export async function importChecklistTemplateForFamily(
 	return importChecklistTemplateInternal(presetId, tenantId, options);
 }
 
+/**
+ * #3079: ファイルバックアップ復元用の payload-driven preview。
+ *
+ * marketplace preset registry を参照する `previewChecklistImport` と異なり、
+ * 復元ファイル (v2 envelope) から剥がした `ChecklistPayload` + テンプレート名を直接受け取る。
+ * 重複判定は **テンプレート名 (tenant scope)** で行う (file 復元は marketplace presetId を持たない
+ * ため、sourcePresetId ではなく name 一致で「既に取込済」を判定する)。
+ *
+ * @returns alreadyImported = 同名テンプレートが tenant に既存か / itemCount = payload item 数
+ */
+export async function previewChecklistImportFromPayload(
+	payload: ChecklistPayload,
+	templateName: string,
+	tenantId: string,
+): Promise<{ alreadyImported: boolean; itemCount: number; existingTemplateName?: string }> {
+	const existingTemplates = await findTemplatesByTenant(tenantId, true);
+	const existing = existingTemplates.find((t) => t.name === templateName);
+	return {
+		alreadyImported: existing != null,
+		itemCount: payload.items.length,
+		existingTemplateName: existing?.name,
+	};
+}
+
+/**
+ * #3079: ファイルバックアップ復元用の payload-driven import。
+ *
+ * checklist Strategy / `importChecklistTemplateForFamily` は marketplace preset registry を
+ * `getMarketplaceItem('checklist', presetId)` で参照する設計のため、registry に存在しない
+ * ファイル復元 payload を取込めない。本関数は preset registry を介さず `ChecklistPayload` を
+ * 直接受け取り、family master template + items を投入する (marketplace-import-flow.md §3.3)。
+ *
+ * 重複判定: 同名テンプレートが既に存在すれば preset 全体をスキップ (atomic unit、name scope)。
+ * sourcePresetId は null (marketplace 由来ではないため)。配信は別途 admin/checklists の
+ * ChecklistDistributionDialog から行う想定 (childIds 未指定なら assignment 0 件で template のみ作成)。
+ *
+ * @param payload       復元ファイルから剥がした ChecklistPayload (`{ timing, items }`)
+ * @param templateName  復元テンプレート名 (v2 envelope の displayName から導出)
+ * @param templateIcon  復元テンプレート icon (既定 '📋')
+ * @param tenantId      テナント ID
+ * @param options       配信先 childIds (任意)
+ */
+export async function importChecklistTemplateFromPayload(
+	payload: ChecklistPayload,
+	templateName: string,
+	templateIcon: string,
+	tenantId: string,
+	options?: { childIds?: readonly number[] },
+): Promise<ChecklistImportResult> {
+	const childIds: readonly number[] = options?.childIds ?? [];
+
+	// 重複判定: 同名 family template が既に存在すれば preset 全体 skip (atomic unit)
+	const existingTemplates = await findTemplatesByTenant(tenantId, true);
+	const duplicate = existingTemplates.find((t) => t.name === templateName);
+	if (duplicate) {
+		logger.info('[checklist-import] 復元: 同名テンプレートが既存 → スキップ', {
+			context: { tenantId, templateName, existingTemplateId: duplicate.id },
+		});
+		return { imported: 0, skipped: 1, importedItems: 0, errors: [], failed: 0 };
+	}
+
+	const timeSlot = normalizeTimeSlot(payload.timing);
+
+	// 1. family master template 本体を作成 (sourcePresetId は null = marketplace 由来ではない)
+	const template = await createTemplate(
+		{
+			childIds,
+			name: templateName,
+			icon: templateIcon,
+			timeSlot,
+			sourcePresetId: null,
+		},
+		tenantId,
+	);
+
+	// 2. items を order 昇順に追加
+	const errors: string[] = [];
+	let importedItems = 0;
+	const sortedItems = [...payload.items].sort((a, b) => a.order - b.order);
+	for (const ci of sortedItems) {
+		try {
+			await addTemplateItem(
+				{
+					templateId: template.id,
+					name: ci.label,
+					icon: ci.icon,
+					frequency: 'daily',
+					direction: 'bring',
+					sortOrder: ci.order,
+				},
+				tenantId,
+			);
+			importedItems++;
+		} catch (e) {
+			errors.push(`「${ci.label}」: ${String(e)}`);
+		}
+	}
+
+	logger.info('[checklist-import] 復元: インポート完了', {
+		context: {
+			tenantId,
+			templateName,
+			templateId: template.id,
+			importedItems,
+			errors: errors.length,
+		},
+	});
+
+	return {
+		imported: 1,
+		skipped: 0,
+		importedItems,
+		errors,
+		failed: errors.length,
+		templateId: template.id,
+	};
+}
+
 async function importChecklistTemplateInternal(
 	presetId: string,
 	tenantId: string,

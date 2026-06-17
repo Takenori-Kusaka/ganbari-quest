@@ -15,11 +15,12 @@ import { getActionErrorDisplay, getErrorMessage } from '$lib/domain/errors';
 import {
 	ADMIN_REWARDS_PAGE_LABELS,
 	APP_LABELS,
+	BACKUP_RESTORE_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
 	REWARDS_LABELS,
 } from '$lib/domain/labels';
-import { CHILD_TERMS, CONCEPT_ICONS, TEMPLATE_TERMS } from '$lib/domain/terms';
+import { CHILD_TERMS, CONCEPT_ICONS, REWARD_TERMS, TEMPLATE_TERMS } from '$lib/domain/terms';
 import AdminResourceHeader from '$lib/features/admin/components/AdminResourceHeader.svelte';
 import type { RewardPreviewData } from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
 import AiSuggestRewardPanel from '$lib/features/admin/components/AiSuggestRewardPanel.svelte';
@@ -79,6 +80,12 @@ let isImporting = $state(false);
 // #2362 PR-4: 「他の子供から copy」dialog
 let showCopyFromChildDialog = $state(false);
 let copySourceChildId = $state<number | null>(null);
+
+// #3079: バックアップから復元 dialog (preview → 実行の 2 段)。resource noun = REWARD_TERMS.canonical
+let showRestoreDialog = $state(false);
+let restoreLoading = $state(false);
+let restoreFile = $state<File | null>(null);
+let restorePreview = $state<{ total: number; newItems: number; duplicates: number } | null>(null);
 
 // #2832: reward 編集 / 削除 dialog state
 type PerChildReward = (typeof perChildRewards)[number];
@@ -374,7 +381,7 @@ const hasSearchActive = $derived(searchQuery.trim().length > 0);
 // allEmpty 判定は user-created templates のみで行う。
 const allEmpty = $derived(hasSearchActive && filteredTemplates.length === 0);
 
-// #2268: overflow menu (申請承認等)
+// #2268: overflow menu (申請承認等) + #3079: 個別 backup/restore (活動と同順序: 復元 → エクスポート)
 const overflowMenuItems = $derived<MenuItem[]>([
 	{
 		id: 'requests',
@@ -385,7 +392,129 @@ const overflowMenuItems = $derived<MenuItem[]>([
 		icon: '📋',
 		onSelect: () => goto('/admin/rewards/requests'),
 	},
+	{
+		id: 'restore',
+		label: BACKUP_RESTORE_LABELS.restoreLabel,
+		icon: BACKUP_RESTORE_LABELS.restoreIcon,
+		onSelect: openRestoreDialog,
+	},
+	{
+		id: 'export',
+		label: BACKUP_RESTORE_LABELS.exportLabel,
+		icon: BACKUP_RESTORE_LABELS.exportIcon,
+		onSelect: exportRewards,
+	},
 ]);
+
+// #3079: エクスポート — 選択中 child の reward を v2 envelope JSON でダウンロード
+function exportRewards() {
+	if (!selectedChildId) return;
+	const a = document.createElement('a');
+	a.href = `/api/v1/special-rewards/export?childId=${selectedChildId}`;
+	a.download = 'rewards-export.json';
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+}
+
+// #3079: バックアップから復元 — dialog を開く (state リセット)
+function openRestoreDialog() {
+	restoreFile = null;
+	restorePreview = null;
+	showRestoreDialog = true;
+}
+
+function onRestoreFileChange(event: Event) {
+	const input = event.currentTarget as HTMLInputElement;
+	restoreFile = input.files?.[0] ?? null;
+	restorePreview = null;
+}
+
+// 2 段フロー step 1: preview (dryRun) — 件数 / 重複を取得
+async function handleRestorePreview() {
+	if (!restoreFile) {
+		actionMessage = BACKUP_RESTORE_LABELS.fileRequired;
+		return;
+	}
+	if (!selectedChildId) return;
+	restoreLoading = true;
+	try {
+		const formData = new FormData();
+		formData.append('childId', String(selectedChildId));
+		formData.append('file', restoreFile);
+		const resp = await fetch('?/restorePreview', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const r = deserialize(await resp.text()) as
+			| { type: 'success'; data?: { total?: number; newItems?: number; duplicates?: number } }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+		if (r.type === 'success' && r.data) {
+			restorePreview = {
+				total: r.data.total ?? 0,
+				newItems: r.data.newItems ?? 0,
+				duplicates: r.data.duplicates ?? 0,
+			};
+		} else if (r.type === 'failure') {
+			actionMessage = r.data?.error ?? BACKUP_RESTORE_LABELS.restoreFailed;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+		}
+	} catch {
+		actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+	} finally {
+		restoreLoading = false;
+	}
+}
+
+// 2 段フロー step 2: 実行 — 実 DB write
+async function handleRestoreConfirm() {
+	if (!restoreFile || !selectedChildId) return;
+	restoreLoading = true;
+	try {
+		const formData = new FormData();
+		formData.append('childId', String(selectedChildId));
+		formData.append('file', restoreFile);
+		const resp = await fetch('?/restoreFile', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const r = deserialize(await resp.text()) as
+			| {
+					type: 'success';
+					data?: { fileName?: string; imported?: number; skipped?: number; total?: number };
+			  }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+		if (r.type === 'success' && r.data) {
+			const name = r.data.fileName ?? BACKUP_RESTORE_LABELS.fileFallbackName;
+			const imported = r.data.imported ?? 0;
+			const skipped = r.data.skipped ?? 0;
+			actionMessage =
+				imported === 0 && skipped > 0
+					? BACKUP_RESTORE_LABELS.restoreAllDuplicatesResult(name, REWARD_TERMS.canonical)
+					: BACKUP_RESTORE_LABELS.restoreSuccess(name, imported, skipped);
+			showToast(actionMessage, undefined, 'success');
+			showRestoreDialog = false;
+			await invalidateAll();
+		} else if (r.type === 'failure') {
+			actionMessage = r.data?.error ?? BACKUP_RESTORE_LABELS.restoreFailed;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+		}
+	} catch {
+		actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+	} finally {
+		restoreLoading = false;
+	}
+}
 
 // #2362 PR-4: 子供タブクリック時に URL を `?childId=<n>` に同期 (share link / refresh 対応)
 function selectChild(childId: number) {
@@ -1026,6 +1155,67 @@ async function handleCopyFromChild() {
 			</Button>
 		</div>
 	</Dialog>
+
+	<!-- #3079: バックアップから復元 dialog (preview → 実行の 2 段)。
+	     ファイル選択 → 内容を確認 (件数/重複 preview) → 復元する の 2 step。
+	     マーケットプレイス取込とは別概念 (JSON v2 envelope を読み込んで復元)。 -->
+	<Dialog
+		bind:open={showRestoreDialog}
+		title={BACKUP_RESTORE_LABELS.restoreDialogTitle}
+		closable={true}
+		testid="restore-rewards-dialog"
+	>
+		<p class="restore-dialog-desc">{BACKUP_RESTORE_LABELS.restoreDialogDesc(REWARD_TERMS.canonical)}</p>
+		{#if restorePreview === null}
+			<input
+				type="file"
+				accept="application/json,.json"
+				class="restore-file-input"
+				disabled={restoreLoading}
+				onchange={onRestoreFileChange}
+				data-testid="restore-rewards-file-input"
+			/>
+			<div class="restore-footer">
+				<Button variant="ghost" onclick={() => { showRestoreDialog = false; }}>
+					{BACKUP_RESTORE_LABELS.cancelButton}
+				</Button>
+				<Button
+					variant="primary"
+					loading={restoreLoading}
+					disabled={!restoreFile}
+					data-testid="restore-rewards-check"
+					onclick={handleRestorePreview}
+				>
+					{restoreLoading ? BACKUP_RESTORE_LABELS.checking : BACKUP_RESTORE_LABELS.checkButton}
+				</Button>
+			</div>
+		{:else}
+			<div class="restore-preview" data-testid="restore-rewards-preview">
+				<p class="restore-preview__heading">{BACKUP_RESTORE_LABELS.previewHeading}</p>
+				{#if restorePreview.newItems === 0 && restorePreview.duplicates > 0}
+					<p class="restore-preview__all-dup">{BACKUP_RESTORE_LABELS.previewAllDuplicates(REWARD_TERMS.canonical)}</p>
+				{:else}
+					<p class="restore-preview__summary">
+						{BACKUP_RESTORE_LABELS.previewSummary(restorePreview.total, restorePreview.newItems, restorePreview.duplicates)}
+					</p>
+				{/if}
+			</div>
+			<div class="restore-footer">
+				<Button variant="ghost" disabled={restoreLoading} onclick={() => { restorePreview = null; }}>
+					{BACKUP_RESTORE_LABELS.backButton}
+				</Button>
+				<Button
+					variant="primary"
+					loading={restoreLoading}
+					disabled={restorePreview.newItems === 0}
+					data-testid="restore-rewards-confirm"
+					onclick={handleRestoreConfirm}
+				>
+					{restoreLoading ? BACKUP_RESTORE_LABELS.restoreProcessing : BACKUP_RESTORE_LABELS.restoreSubmitBtn}
+				</Button>
+			</div>
+		{/if}
+	</Dialog>
 </div>
 
 <style>
@@ -1162,6 +1352,42 @@ async function handleCopyFromChild() {
 		padding: 1rem;
 	}
 	.copy-dialog-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border-light);
+	}
+
+	/* #3079: restore-from-backup dialog (comments use ASCII for local/no-hardcoded-jp-text in style) */
+	.restore-dialog-desc {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		margin-bottom: 1rem;
+		line-height: 1.6;
+	}
+	.restore-file-input {
+		display: block;
+		width: 100%;
+		margin-bottom: 1rem;
+	}
+	.restore-preview {
+		background: var(--color-surface-muted);
+		border-radius: 0.5rem;
+		padding: 0.75rem 1rem;
+		margin-bottom: 1rem;
+	}
+	.restore-preview__heading {
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+	}
+	.restore-preview__summary {
+		color: var(--color-text);
+	}
+	.restore-preview__all-dup {
+		color: var(--color-text-muted);
+	}
+	.restore-footer {
 		display: flex;
 		justify-content: flex-end;
 		gap: 0.5rem;
