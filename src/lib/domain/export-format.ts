@@ -261,7 +261,12 @@ export function buildAttachmentContentDisposition(filename: string): string {
 	// ASCII fallback: 非 ASCII (> U+007E) と制御文字 (< U+0020) と " \ を `_` に置換し
 	// ByteString 安全 + ヘッダ injection 安全にする (printable ASCII 0x20-0x7E 以外 + 引用符)
 	const asciiFallback = filename.replace(/[^ -~]|["\\]/g, '_');
-	// RFC 5987: UTF-8 を percent-encoding (encodeURIComponent は RFC 5987 の値表現として十分)
-	const encoded = encodeURIComponent(filename);
+	// RFC 5987 ext-value: encodeURIComponent は ' ( ) * ! ~ を escape しないが、これらは
+	// RFC 5987 ext-value grammar の attr-char ではないため、strict parser / proxy / WAF が
+	// 不正値として reject しうる。追加で percent-encode し attr-char + pct-encoded のみにする。
+	const encoded = encodeURIComponent(filename).replace(
+		/['()*!~]/g,
+		(c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
+	);
 	return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }

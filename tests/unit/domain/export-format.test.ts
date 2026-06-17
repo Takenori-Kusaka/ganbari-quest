@@ -33,7 +33,7 @@ describe('buildAttachmentContentDisposition (#3104)', () => {
 		const cd = buildAttachmentContentDisposition('checklist-あさのしたく.json');
 		// ASCII fallback: 非 ASCII は _ に ("あさのしたく" = 6 文字 → _ × 6)
 		expect(cd).toContain('filename="checklist-______.json"');
-		// RFC 5987: 日本語は percent-encoded で復元可能
+		// RFC 5987: 日本語は percent-encoded で復元可能 (ひらがなは ' ( ) * ! ~ を含まないため encodeURIComponent と一致)
 		expect(cd).toContain(`filename*=UTF-8''${encodeURIComponent('checklist-あさのしたく.json')}`);
 	});
 
@@ -47,5 +47,31 @@ describe('buildAttachmentContentDisposition (#3104)', () => {
 		const cd = buildAttachmentContentDisposition('checklist-📋ごはん.json');
 		expect(isByteStringSafe(cd)).toBe(true);
 		expect(() => new Response('{}', { headers: { 'Content-Disposition': cd } })).not.toThrow();
+	});
+
+	it("' * ( ) ! ~ は filename* で percent-encode され RFC 5987 attr-char 不正値を作らない", () => {
+		// encodeURIComponent はこれらを escape しないため、旧実装では filename* に literal で残り
+		// strict parser / proxy / WAF が ext-value grammar 違反として reject しうる
+		const cd = buildAttachmentContentDisposition("a'b*c(d)e!f~g.json");
+		const match = cd.match(/filename\*=UTF-8''(\S+)$/);
+		expect(match).not.toBeNull();
+		const extValue = match?.[1] ?? '';
+		expect(extValue).not.toBe('');
+		// ext-value = charset "'" [language] "'" value-chars。value-chars は attr-char / pct-encoded のみ。
+		// attr-char = ALPHA / DIGIT / "!" は NG (上記で除外済) → 実用上 [A-Za-z0-9] と一部記号 + %HH。
+		// ここでは ' ( ) * ! ~ が literal で残っていないこと + 許可 charset のみであることを検証する。
+		expect(extValue).toMatch(/^[A-Za-z0-9%\-._]*$/);
+		// 問題の 6 文字は literal で出現しない (全て %HH 化されている)
+		for (const ch of ["'", '*', '(', ')', '!', '~']) {
+			expect(extValue.includes(ch)).toBe(false);
+		}
+		// 期待 percent-encode: ' → %27, * → %2A, ( → %28, ) → %29, ! → %21, ~ → %7E
+		expect(extValue).toContain('%27');
+		expect(extValue).toContain('%2A');
+		expect(extValue).toContain('%28');
+		expect(extValue).toContain('%29');
+		expect(extValue).toContain('%21');
+		expect(extValue).toContain('%7E');
+		expect(isByteStringSafe(cd)).toBe(true);
 	});
 });
