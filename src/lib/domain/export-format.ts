@@ -236,3 +236,32 @@ export interface ExportOptions {
 	childIds?: number[];
 	compact?: boolean;
 }
+
+// ============================================================
+// Content-Disposition (RFC 5987) — #3104
+// ============================================================
+
+/**
+ * `Content-Disposition: attachment` ヘッダ値を RFC 5987 準拠で組む (#3104)。
+ *
+ * 背景: HTTP ヘッダ値は ByteString (Latin-1, ≤ U+00FF) のため、日本語等の非 ASCII を
+ * `filename="..."` に直接入れると `new Response()` が TypeError (ByteString 変換失敗) を投げ
+ * 500 になる (checklists/export が日本語名テンプレで全滅した #3104 の root cause)。
+ *
+ * 対策: ASCII fallback (`filename=`、非 ASCII を `_` 置換) と RFC 5987
+ * (`filename*=UTF-8''<percent-encoded>`) を併記する。modern browser は `filename*` を
+ * 優先し日本語名を復元、`filename*` 非対応の旧 browser は ASCII fallback を使う。
+ *
+ * 動的に user データからファイル名を組む全 export 経路は本関数を経由すること
+ * (静的 ASCII 名は対象外で可、横展開方針 #3104)。
+ *
+ * @param filename ダウンロード時のファイル名 (拡張子込み、非 ASCII 可)
+ */
+export function buildAttachmentContentDisposition(filename: string): string {
+	// ASCII fallback: 非 ASCII (> U+007E) と制御文字 (< U+0020) と " \ を `_` に置換し
+	// ByteString 安全 + ヘッダ injection 安全にする (printable ASCII 0x20-0x7E 以外 + 引用符)
+	const asciiFallback = filename.replace(/[^ -~]|["\\]/g, '_');
+	// RFC 5987: UTF-8 を percent-encoding (encodeURIComponent は RFC 5987 の値表現として十分)
+	const encoded = encodeURIComponent(filename);
+	return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
+}
