@@ -573,6 +573,13 @@ export interface ChecklistTemplateIdMaps {
 
 /** childId 単位の checklist template import 状態 (既存 + 当 import で作成した template の id 解決)。 */
 interface ChildChecklistState {
+	/**
+	 * #3107: tenant に **取込前から存在した** template 名のスナップショット (DB load 時点)。
+	 * re-import (同一 backup の再取込) の冪等性を担保する name-dedup はこの集合に対してのみ行う。
+	 * 当 import 内で新規作成した同名 template (distinct exportId) はここに含めず、collapse させない。
+	 */
+	preExistingNames: Set<string>;
+	/** preExisting + 当 import で作成した template 全ての名 (exportId なし旧 backup の fallback name-dedup 用)。 */
 	names: Set<string>;
 	presetIds: Set<string>;
 	idByName: Map<string, number>;
@@ -587,8 +594,10 @@ async function loadChildChecklistState(
 	tenantId: string,
 ): Promise<ChildChecklistState> {
 	const rows = await findTemplatesByChild(childId, tenantId, true, true);
+	const existingNames = new Set(rows.map((r) => r.name));
 	return {
-		names: new Set(rows.map((r) => r.name)),
+		preExistingNames: new Set(existingNames),
+		names: existingNames,
 		presetIds: new Set(rows.map((r) => r.sourcePresetId).filter((p): p is string => !!p)),
 		idByName: new Map(rows.map((r) => [r.name, r.id])),
 		idByPreset: new Map(
@@ -611,6 +620,13 @@ async function importOneChecklistTemplate(
 		if (tpl.exportId) state.exportIdToId.set(tpl.exportId, templateId);
 	};
 
+	// #3107: 同一 import data 内に同じ exportId が 2 度現れたら真の重複 → 既存解決先を再登録して skip。
+	//   (export-service は templateId ごとに distinct exportId を発番するため通常は発生しないが防御的に処理)
+	if (tpl.exportId && state.exportIdToId.has(tpl.exportId)) {
+		result.skipped.name++;
+		return;
+	}
+
 	// #1254 G1: preset_duplicate → name_duplicate の順で判定
 	if (tpl.sourcePresetId && state.presetIds.has(tpl.sourcePresetId)) {
 		result.skipped.preset++;
@@ -618,7 +634,15 @@ async function importOneChecklistTemplate(
 		if (dupId !== undefined) register(dupId);
 		return;
 	}
-	if (state.names.has(tpl.name)) {
+	// #3107: name-dedup の対象集合を exportId 有無で切り替える。
+	//   - exportId あり (新 backup): 取込前から存在した template (preExistingNames) との衝突のみ skip。
+	//     当 import 内で先に作成した同名 template (distinct exportId) には collapse させず、各々 distinct
+	//     な template として復元する (同名 template の log 取り違え = #3107 根治)。re-import の冪等性は
+	//     pre-existing 名一致で担保される (DB の既存行は exportId を持たないため name でしか照合できない)。
+	//   - exportId なし (旧 backup): 従来通り full names (preExisting + 当 import 作成分) で name-dedup
+	//     し後方互換を維持する。
+	const nameDedupSet = tpl.exportId ? state.preExistingNames : state.names;
+	if (nameDedupSet.has(tpl.name)) {
 		result.skipped.name++;
 		const dupId = state.idByName.get(tpl.name);
 		if (dupId !== undefined) register(dupId);
