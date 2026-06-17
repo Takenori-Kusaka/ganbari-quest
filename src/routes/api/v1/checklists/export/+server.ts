@@ -9,6 +9,7 @@
 // importChecklistTemplateFromPayload) で受ける。
 
 import { json } from '@sveltejs/kit';
+import { buildAttachmentContentDisposition } from '$lib/domain/export-format';
 import { dispatchExportToJson } from '$lib/marketplace/export-dispatcher';
 import type { ChecklistPayload } from '$lib/marketplace/schemas/checklist-schema';
 import { findTemplateById, findTemplateItems } from '$lib/server/db/checklist-repo';
@@ -63,13 +64,17 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	const body = dispatchExportToJson({ typeCode: 'checklist', payload });
 
 	// テンプレート名をファイル名に含める (復元時の同名重複判定で使うため、name は payload 外で保持)。
-	// safe filename: 非 ASCII / 記号を除去し、fallback は templateId。
-	const safeName = template.name.replace(/[^\w぀-ヿ一-鿿-]/g, '_') || `template-${templateId}`;
+	// #3104: 日本語名をそのまま Content-Disposition に入れると ByteString 変換 500 になるため、
+	// RFC 5987 (filename*=UTF-8'') + ASCII fallback を組む共通 helper を経由する。
+	// modern browser は filename* で日本語名を復元するので round-trip の name 保持も維持される。
+	const downloadName = template.name
+		? `checklist-${template.name}.json`
+		: `checklist-template-${templateId}.json`;
 
 	return new Response(body, {
 		headers: {
 			'Content-Type': 'application/json',
-			'Content-Disposition': `attachment; filename="checklist-${safeName}.json"`,
+			'Content-Disposition': buildAttachmentContentDisposition(downloadName),
 		},
 	});
 };
