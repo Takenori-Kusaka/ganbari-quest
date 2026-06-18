@@ -19,24 +19,31 @@ import {
 } from '$lib/server/services/value-preview-service';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, parent }) => {
-	const tenantId = requireTenantId(locals);
+// #3088: admin landing の load を高速化するための独立ブロック helper 群。
+// 各ブロックは children + tenantId のみ依存で相互独立のため、load 本体で Promise.all 並列実行する
+// (従来は 6 ブロックを逐次 await + per-child で balance→status を逐次しており wall-clock が sum 加算
+//  だった。並列化で max に短縮。クエリロジック自体は不変で機能回帰なし)。
 
-	// #726: 親 layout で解決済みの planTier をそのまま継承する。
-	// ここで独自に resolvePlanTier を呼ぶとトライアル情報を渡し忘れ、
-	// トライアル中でも free と判定される（歓迎画面が出ない）バグにつながる。
-	const parentData = await parent();
-	const tier = parentData.planTier;
+type AdminChildren = Awaited<ReturnType<typeof getAllChildren>>;
+type MonthlySummaries = Record<
+	number,
+	{ totalActivities: number; currentLevel: number; newAchievements: number }
+>;
+type TodayUsage = { childId: number; childName: string; durationMin: number }[];
+type WeeklyUsage = {
+	childId: number;
+	childName: string;
+	dailySummary: { date: string; durationMin: number }[];
+}[];
 
-	const [children, onboarding] = await Promise.all([
-		getAllChildren(tenantId),
-		getOnboardingProgress(tenantId, '/admin'),
-	]);
-
-	const childrenWithStatus = await Promise.all(
+/** 子供ごとの残高 + ステータス。per-child の balance/status も並列取得する (#3088)。 */
+async function loadChildrenWithStatus(children: AdminChildren, tenantId: string) {
+	return Promise.all(
 		children.map(async (child) => {
-			const balance = await getPointBalance(child.id, tenantId);
-			const status = await getChildStatus(child.id, tenantId);
+			const [balance, status] = await Promise.all([
+				getPointBalance(child.id, tenantId),
+				getChildStatus(child.id, tenantId),
+			]);
 			if ('error' in balance) {
 				logger.warn('[admin] ポイント取得フォールバック', {
 					context: { childId: child.id, error: balance.error },
@@ -55,69 +62,102 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 			};
 		}),
 	);
+}
 
-	// 今月の簡易サマリー
-	const now = new Date();
-	const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-	let monthlySummaries: Record<
-		number,
-		{ totalActivities: number; currentLevel: number; newAchievements: number }
-	> = {};
+/** 今月の簡易サマリー (失敗時は空でフォールバック)。 */
+async function loadMonthlySummaries(
+	tenantId: string,
+	yearMonth: string,
+): Promise<MonthlySummaries> {
 	try {
 		const summaryMap = await getAllChildrenSimpleSummary(tenantId, yearMonth);
-		monthlySummaries = Object.fromEntries(summaryMap);
+		return Object.fromEntries(summaryMap);
 	} catch (e) {
 		logger.warn('[admin] 月次サマリー取得フォールバック', { context: { error: String(e) } });
+		return {};
 	}
+}
 
-	// 有料プラン歓迎画面フラグ（トライアル中も有料扱い）
-	const isPaid = isPaidTier(tier);
-	let showPremiumWelcome = false;
-	if (isPaid) {
-		const welcomeSettings = await getSettings(['premium_welcome_shown'], tenantId);
-		showPremiumWelcome = welcomeSettings.premium_welcome_shown !== 'true';
-	}
+/** 有料プラン歓迎画面フラグ (トライアル中も有料扱い)。 */
+async function loadPremiumWelcome(isPaid: boolean, tenantId: string): Promise<boolean> {
+	if (!isPaid) return false;
+	const welcomeSettings = await getSettings(['premium_welcome_shown'], tenantId);
+	return welcomeSettings.premium_welcome_shown !== 'true';
+}
 
-	// #2295 (EPIC #2294 ①): 季節コンテンツ情報 / 思い出チケット削除済 (2026-05-19)
-	// #3033: planStats (#767) は /admin/subscription (+page.server.ts) に一本化 — home では取得しない
-
-	// #1292: 本日の子供ごとの使用時間サマリー
-	let todayUsage: { childId: number; childName: string; durationMin: number }[] = [];
+/** #1292: 本日の子供ごとの使用時間サマリー (失敗時は空)。 */
+async function loadTodayUsage(children: AdminChildren, tenantId: string): Promise<TodayUsage> {
 	try {
-		todayUsage = await getTodayUsageSummary(
+		return await getTodayUsageSummary(
 			tenantId,
 			children.map((c) => ({ id: c.id, nickname: c.nickname })),
 		);
 	} catch (e) {
 		logger.warn('[admin] 使用時間取得フォールバック', { context: { error: String(e) } });
+		return [];
 	}
+}
 
-	// #1576: 週次使用時間サマリー（子供ごとの日別使用時間）
-	let weeklyUsage: {
-		childId: number;
-		childName: string;
-		dailySummary: { date: string; durationMin: number }[];
-	}[] = [];
+/** #1576: 週次使用時間サマリー (失敗時は空)。 */
+async function loadWeeklyUsage(children: AdminChildren, tenantId: string): Promise<WeeklyUsage> {
 	try {
-		const weeklyResults = await Promise.all(
+		return await Promise.all(
 			children.map(async (child) => {
 				const dailySummary = await getWeeklyUsageSummary(tenantId, child.id);
 				return { childId: child.id, childName: child.nickname, dailySummary };
 			}),
 		);
-		weeklyUsage = weeklyResults;
 	} catch (e) {
 		logger.warn('[admin] 週次使用時間取得フォールバック', { context: { error: String(e) } });
+		return [];
 	}
+}
 
-	// #1600 ADR-0023 I9: 初月価値プレビュー（マイルストーン + 30 日プレビュー）
-	// 取得失敗時はフォールバック（preview セクション非表示）で admin 全体は守る
-	let valuePreview: TenantValuePreview | null = null;
+/** #1600: 初月価値プレビュー (失敗時は null = preview セクション非表示)。 */
+async function loadValuePreview(tenantId: string): Promise<TenantValuePreview | null> {
 	try {
-		valuePreview = await getTenantValuePreview(tenantId);
+		return await getTenantValuePreview(tenantId);
 	} catch (e) {
 		logger.warn('[admin] 価値プレビュー取得フォールバック', { context: { error: String(e) } });
+		return null;
 	}
+}
+
+export const load: PageServerLoad = async ({ locals, parent }) => {
+	const tenantId = requireTenantId(locals);
+
+	// #726: 親 layout で解決済みの planTier をそのまま継承する。
+	// ここで独自に resolvePlanTier を呼ぶとトライアル情報を渡し忘れ、
+	// トライアル中でも free と判定される（歓迎画面が出ない）バグにつながる。
+	const parentData = await parent();
+	const tier = parentData.planTier;
+
+	const [children, onboarding] = await Promise.all([
+		getAllChildren(tenantId),
+		getOnboardingProgress(tenantId, '/admin'),
+	]);
+
+	const now = new Date();
+	const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+	const isPaid = isPaidTier(tier);
+
+	// #3088: 以降の 6 ブロックは children + tenantId のみ依存で相互独立 → 並列実行して wall-clock を短縮。
+	// #2295: 季節コンテンツ / 思い出チケット削除済。#3033: planStats は /admin/subscription に一本化。
+	const [
+		childrenWithStatus,
+		monthlySummaries,
+		showPremiumWelcome,
+		todayUsage,
+		weeklyUsage,
+		valuePreview,
+	] = await Promise.all([
+		loadChildrenWithStatus(children, tenantId),
+		loadMonthlySummaries(tenantId, yearMonth),
+		loadPremiumWelcome(isPaid, tenantId),
+		loadTodayUsage(children, tenantId),
+		loadWeeklyUsage(children, tenantId),
+		loadValuePreview(tenantId),
+	]);
 
 	return {
 		children: childrenWithStatus,
