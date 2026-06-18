@@ -6,14 +6,16 @@ name: Admin Bypass Evidence Check
 
 on:
   schedule:
-    # 毎時 10 分に起動（LOOKBACK_HOURS=2 と組み合わせて merge 後 1h 以内に拾えるようにする）
-    - cron: '10 * * * *'
+    # #3048 P2: 毎時(24 run/日)から日次へ緩和。LOOKBACK_HOURS=26 で 24h の間隔 + 2h 余裕を
+    # カバーし merge 漏れを防ぐ（block しない事後追記要求のため日次粒度で十分、ADR-0044）。
+    # 15:10 UTC = 00:10 JST 日次起動。
+    - cron: '10 15 * * *'
   workflow_dispatch:
     inputs:
       lookback_hours:
-        description: 'Lookback window in hours (default 2)'
+        description: 'Lookback window in hours (default 26 = 日次 cron の 24h 間隔 + 余裕)'
         required: false
-        default: '2'
+        default: '26'
       dry_run:
         description: 'Skip comment posting (for testing)'
         required: false
@@ -32,7 +34,7 @@ jobs:
       - name: Run admin bypass evidence check
         env:
           REPO: ${{ github.repository }}
-          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '2' }}
+          LOOKBACK_HOURS: ${{ github.event.inputs.lookback_hours || '26' }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/check-admin-bypass-evidence.mjs

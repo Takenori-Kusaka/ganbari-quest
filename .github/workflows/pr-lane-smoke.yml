@@ -1,5 +1,9 @@
 name: PR Lane Smoke
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # Issue #2943 (Phase A/A-1): lane 判定 SSOT の動作実証。
 #
 # AC4「composite action を 2 つ以上の gate workflow で実際に `uses: ./actions/pr-lane`

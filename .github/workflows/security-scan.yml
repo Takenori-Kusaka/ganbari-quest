@@ -36,7 +36,9 @@ jobs:
         with:
           name: security-audit-results
           path: audit-result.json
-          retention-days: 90
+          # #3048 P4: 90→30 日。npm audit スナップショットは scheduled run 毎に再生成される
+          # デバッグ用 backup で、90 日保持は過剰（監査 trail 系の長期保持とは別物）。
+          retention-days: 30
 
       - name: Ensure required labels exist
         if: always()

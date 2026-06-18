@@ -1,5 +1,9 @@
 name: LP fallback check (labels.ts <-> site/*.html data-lp-key)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # #1919 Phase 5 F2: LP fallback テキスト整合 CI
 #
 # 背景:

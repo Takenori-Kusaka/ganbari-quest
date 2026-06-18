@@ -1,5 +1,9 @@
 name: PR Author Guard
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # PR 起票アカウント違反の server side gate (#1994 / ADR-0022 amendment 4 相当)
 #
 # 背景:
