@@ -39,7 +39,11 @@ export async function insertCharacterImage(
 }
 
 /** 子供のアバターURLを更新 */
-export async function updateChildAvatarUrl(childId: number, avatarUrl: string, _tenantId: string) {
+export async function updateChildAvatarUrl(
+	childId: number,
+	avatarUrl: string | null,
+	_tenantId: string,
+) {
 	db.update(children)
 		.set({ avatarUrl, updatedAt: new Date().toISOString() })
 		.where(eq(children.id, childId))

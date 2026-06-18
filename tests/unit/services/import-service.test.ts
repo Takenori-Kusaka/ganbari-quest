@@ -75,8 +75,15 @@ vi.mock('$lib/server/db/special-reward-repo', () => ({
 }));
 
 // #3077: 静的ファイル復元 (storage / image-repo)
+// #3136: fileExists は「実際に saveFile された key」のみ true を返す (savedKeys 追跡) ことで、
+// 復元済ファイルが実在する場合のみ avatarUrl を貼り替える remap の挙動を忠実に再現する。
+const savedKeys = new Set<string>();
 vi.mock('$lib/server/storage', () => ({
-	saveFile: (...args: unknown[]) => mockSaveFile(...args),
+	saveFile: (...args: unknown[]) => {
+		savedKeys.add(String(args[0]));
+		return mockSaveFile(...args);
+	},
+	fileExists: (key: string) => Promise.resolve(savedKeys.has(key)),
 }));
 
 vi.mock('$lib/server/db/image-repo', () => ({
@@ -168,6 +175,7 @@ beforeEach(() => {
 	mockFindLogsByChild.mockResolvedValue([]);
 	mockSaveFile.mockResolvedValue(undefined);
 	mockUpdateChildAvatarUrl.mockResolvedValue(undefined);
+	savedKeys.clear(); // #3136: fileExists 追跡をテストごとにリセット
 });
 
 // ============================================================
@@ -1536,22 +1544,20 @@ describe('importFamilyData', () => {
 			expect(mockUpdateChildAvatarUrl).not.toHaveBeenCalled();
 		});
 
-		it('同梱ファイルが無くても avatarUrl は id セグメントを書き換えて貼り替える', async () => {
+		it('#3136: avatar 実体が同梱されていない場合は avatarUrl を null 化する (dangling reference を作らない)', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/keep.png')];
 			mockInsertChild.mockResolvedValue({ id: 202 });
 
-			// staticFiles は空だが avatarUrl 参照だけ書き換える必要がある
+			// staticFiles に avatar 実体が無い (voices のみ)。旧実装は存在しない storage key へ
+			// 貼り替えて dangling を生んでいたが、#3136 で「実在しなければ null 化」に是正。
 			const result = await importFamilyData(data, TENANT, {
 				'voices/7/x.mp3': new Uint8Array([1]),
 			});
 
 			expect(result.staticFilesRestored).toBe(1); // voices/7/x.mp3
-			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(
-				202,
-				`/tenants/${TENANT}/avatars/202/keep.png`,
-				TENANT,
-			);
+			// avatar 実ファイルが無いため null 化 (存在しない /tenants/.../avatars/202/keep.png を指さない)
+			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(202, null, TENANT);
 		});
 	});
 
