@@ -18,6 +18,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 	const reason = url.searchParams.get('reason');
 
+	// 親管理画面で一定時間アイドル → /switch?timedOut=1 で自動リダイレクトされた旨を通知
+	const timedOut = url.searchParams.get('timedOut') === '1';
+
 	// EPIC #2310 子#2312: PIN gate modal 自動起動の query
 	const pinRequired = url.searchParams.get('pinRequired') === '1';
 	const rawNext = url.searchParams.get('next') ?? '/admin';
@@ -60,6 +63,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		adminLink,
 		showAdminLink,
 		reason,
+		timedOut,
 		pinRequired,
 		nextPath,
 		onboarding,

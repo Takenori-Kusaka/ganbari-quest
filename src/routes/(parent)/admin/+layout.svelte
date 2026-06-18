@@ -4,6 +4,7 @@ import AdminLayout from '$lib/features/admin/components/AdminLayout.svelte';
 import SetupResumeBanner from '$lib/features/admin/components/SetupResumeBanner.svelte';
 import TrialBanner from '$lib/features/admin/components/TrialBanner.svelte';
 import TrialEndedDialog from '$lib/features/admin/components/TrialEndedDialog.svelte';
+import { startParentGateInactivityRedirect } from '$lib/features/admin/parent-gate-inactivity';
 import type { OnboardingProgress } from '$lib/server/services/onboarding-service';
 import DebugPlanIndicator from '$lib/ui/components/DebugPlanIndicator.svelte';
 
@@ -26,11 +27,30 @@ interface Props {
 		};
 		// #2821: setup 由来遷移 (`?from=setup`) 時のみ非 null
 		setupOnboarding?: OnboardingProgress | null;
+		// parent-gate inactivity redirect 起動フラグ (PIN gate 有効時のみ true)
+		pinGateActive?: boolean;
 	};
 	children: Snippet;
 }
 
 let { data, children }: Props = $props();
+
+// parent-gate inactivity redirect: PIN gate 有効時のみ、15 分アイドルで親 session を logout し
+// /switch (子供選択画面) へ自動リダイレクトする。放置画面を子供が触れない本来の意図を、
+// 「固める」のでなく「子供選択画面に戻す」挙動で達成する (ユーザ報告: 放置でタイムアウト→操作不能)。
+$effect(() => {
+	if (!data.pinGateActive) return;
+	return startParentGateInactivityRedirect({
+		onTimeout: async () => {
+			try {
+				await fetch('/api/v1/parent-gate/logout', { method: 'POST' });
+			} catch {
+				// logout 失敗時も /switch には戻す (server session は遅くとも 15 分で失効する)
+			}
+			window.location.href = '/switch?timedOut=1';
+		},
+	});
+});
 
 const trial = $derived(data.trialStatus);
 // #3033 (PO 指摘 2026-06-12): body バナーは urgent (trial 残 1 日以下) のみ。
