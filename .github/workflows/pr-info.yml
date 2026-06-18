@@ -1,5 +1,9 @@
 name: PR Info
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # #1481 Phase 4: pr-size-check.yml + pr-file-overlap.yml を統合
 # 両ジョブとも comment-only（block しない）。マージ順序・サイズの注意喚起が目的。
 

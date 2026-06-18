@@ -1,5 +1,9 @@
 name: "Dependency Review"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     # #2931 / branch-strategy.md §4: 軽量レーン（高速 + 依存脆弱性は per-PR で検知価値が高い）。

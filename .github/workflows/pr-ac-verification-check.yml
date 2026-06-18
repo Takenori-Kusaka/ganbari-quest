@@ -1,5 +1,9 @@
 name: PR AC verification check (ADR-0038)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # #1165 / ADR-0038: PR 本文の「AC 検証マップ」が全行埋まっているかを機械検証する
 # 初期リリース: warn-only (continue-on-error: true)。
 # → hard-fail に昇格済み（pr-template-gate.yml 導入に合わせて統一）。

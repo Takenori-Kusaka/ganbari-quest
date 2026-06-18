@@ -1,5 +1,9 @@
 name: Orphan resource detection (EPIC #2362 follow-up)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # 10 種類の orphan detection script を統合実行し、新規 orphan の流入を block する CI gate。
 #
 # 設計背景:
