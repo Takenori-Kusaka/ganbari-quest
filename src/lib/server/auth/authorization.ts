@@ -57,6 +57,13 @@ const ROUTE_RULES: RouteRule[] = [
 		pattern: '/api/v1',
 		roles: ['owner', 'parent', 'child'],
 	},
+	// テナント配下の静的ファイル配信 — 全ロール（認証必須）。
+	// #3133: ROUTE_RULES 不在だと findMatchingRule が undefined → default-allow に落ち、
+	// 認証済なら他テナントの静的ファイルを GET できる cross-tenant IDOR になる。
+	// 明示登録で「認証必須」を担保し、実際の tenant 一致検証は各ハンドラ側で行う
+	// (ROUTE_RULES はロール検査のみで path 内の tenantId を知らないため)。
+	{ pattern: '/tenants', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
+	{ pattern: '/uploads', roles: ['owner', 'parent', 'child'], unauthRedirect: '/auth/login' },
 ];
 
 /**

@@ -247,4 +247,37 @@ describe('authorizeCognito', () => {
 			expect(authorizeCognito('/preschool/home', id, ctx).allowed).toBe(true);
 		});
 	});
+
+	// ============================================================
+	// #3133: 静的ファイル配信ルートの認証必須化（default-allow 禁止）
+	// ============================================================
+	describe('静的ファイル配信ルート (#3133 cross-tenant IDOR)', () => {
+		const id = cognitoIdentity();
+
+		it('/tenants/* は未認証で 401（default-allow に落ちない）', () => {
+			const result = authorizeCognito('/tenants/t-other/avatars/1/x.png', null, null);
+			expect(result.allowed).toBe(false);
+			if (!result.allowed) expect(result.status).toBe(401);
+		});
+
+		it('/uploads/avatars/* は未認証で 401（default-allow に落ちない）', () => {
+			const result = authorizeCognito('/uploads/avatars/avatar-1-x.png', null, null);
+			expect(result.allowed).toBe(false);
+			if (!result.allowed) expect(result.status).toBe(401);
+		});
+
+		it('/tenants/* は認証済の全ロールで allowed（tenant 一致検証はハンドラ層）', () => {
+			for (const role of ['owner', 'parent', 'child'] as const) {
+				const ctx = makeContext({ role });
+				expect(authorizeCognito('/tenants/t-test/avatars/1/x.png', id, ctx).allowed).toBe(true);
+			}
+		});
+
+		it('/uploads/avatars/* は認証済の全ロールで allowed（tenant 一致検証はハンドラ層）', () => {
+			for (const role of ['owner', 'parent', 'child'] as const) {
+				const ctx = makeContext({ role });
+				expect(authorizeCognito('/uploads/avatars/avatar-1-x.png', id, ctx).allowed).toBe(true);
+			}
+		});
+	});
 });
