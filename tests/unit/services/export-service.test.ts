@@ -221,6 +221,7 @@ const mockChecklistTemplates = [
 		pointsPerItem: 2,
 		completionBonus: 5,
 		isActive: 1,
+		isArchived: 0,
 		createdAt: '2025-06-01T00:00:00Z',
 		updatedAt: '2025-06-01T00:00:00Z',
 	},
@@ -275,14 +276,16 @@ vi.mock('$lib/server/db/achievement-repo', () => ({
 		childId === 1 ? Promise.resolve(mockUnlockedAchievements) : Promise.resolve([]),
 	),
 }));
+const mockFindTemplatesByChild = vi.fn((childId: number) =>
+	childId === 1 ? Promise.resolve(mockChecklistTemplates) : Promise.resolve([]),
+);
+const mockFindLogsByChild = vi.fn((childId: number) =>
+	childId === 1 ? Promise.resolve(mockChecklistLogs) : Promise.resolve([]),
+);
 vi.mock('$lib/server/db/checklist-repo', () => ({
-	findTemplatesByChild: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockChecklistTemplates) : Promise.resolve([]),
-	),
+	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...(args as [number])),
 	findTemplateItems: vi.fn(() => Promise.resolve(mockChecklistItems)),
-	findLogsByChild: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockChecklistLogs) : Promise.resolve([]),
-	),
+	findLogsByChild: (...args: unknown[]) => mockFindLogsByChild(...(args as [number])),
 }));
 vi.mock('$lib/server/db/evaluation-repo', () => ({
 	findEvaluationsByChild: vi.fn((childId: number) =>
@@ -443,6 +446,63 @@ describe('exportFamilyData', () => {
 		expect(log?.checkedDate).toBe('2026-03-15');
 		expect(log?.completedAll).toBe(true);
 		expect(log?.pointsAwarded).toBe(7);
+	});
+
+	describe('#3106: archive 済 template の checklistLog を backup に含める', () => {
+		it('export は findTemplatesByChild を includeInactive=true + includeArchived=true で呼ぶ (AC2)', async () => {
+			await exportFamilyData({ tenantId: 'test-tenant' });
+			// signature: findTemplatesByChild(childId, tenantId, includeInactive, includeArchived)
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, 'test-tenant', true, true);
+		});
+
+		it('archive 済 template の checklistLog が backup に含まれる (silent drop しない)', async () => {
+			// archive 済 template (id 2) + その完了ログ + active template (id 1) を返す
+			const archivedTemplate = {
+				id: 2,
+				childId: 1,
+				name: 'むかしのしたく',
+				icon: '📦',
+				pointsPerItem: 1,
+				completionBonus: 0,
+				isActive: 0,
+				isArchived: 1,
+				createdAt: '2025-05-01T00:00:00Z',
+				updatedAt: '2025-05-20T00:00:00Z',
+			};
+			mockFindTemplatesByChild.mockImplementationOnce(() =>
+				Promise.resolve([...mockChecklistTemplates, archivedTemplate]),
+			);
+			mockFindLogsByChild.mockImplementationOnce(() =>
+				Promise.resolve([
+					...mockChecklistLogs,
+					{
+						id: 2,
+						childId: 1,
+						templateId: 2, // archive 済 template に紐づく log
+						checkedDate: '2026-02-10',
+						itemsJson: '{"9":true}',
+						completedAll: 1,
+						pointsAwarded: 3,
+						createdAt: '2026-02-10T08:00:00Z',
+					},
+				]),
+			);
+
+			const result = await exportFamilyData({ tenantId: 'test-tenant' });
+
+			// archive 済 template 自体が export に含まれる
+			expect(result.data.checklistTemplates.map((t) => t.name)).toContain('むかしのしたく');
+			// archive 済 template の log も name + exportId 解決され silent drop しない
+			expect(result.data.checklistLogs).toHaveLength(2);
+			const archivedLog = result.data.checklistLogs.find(
+				(l) => l.templateName === 'むかしのしたく',
+			);
+			expect(archivedLog).toBeDefined();
+			expect(archivedLog?.checkedDate).toBe('2026-02-10');
+			expect(archivedLog?.pointsAwarded).toBe(3);
+			// #3107: exportId が発番され round-trip キーになっている
+			expect(archivedLog?.templateExportId).toBe('chk-child-1-2');
+		});
 	});
 
 	it('チェックサムが再現可能であること', async () => {

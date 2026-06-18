@@ -84,6 +84,8 @@ export async function findTemplatesByChild(
 	childId: number,
 	tenantId: string,
 	includeInactive?: boolean,
+	// #3106: archive 済 template を含めるか (export/backup 文脈のみ true)
+	includeArchived?: boolean,
 ): Promise<ChecklistTemplate[]> {
 	const assignments = await findAssignmentsByChild(childId, tenantId);
 	if (assignments.length === 0) return [];
@@ -92,7 +94,7 @@ export async function findTemplatesByChild(
 	for (const a of assignments) {
 		const t = await findTemplateById(a.templateId, tenantId);
 		if (!t) continue;
-		if (t.isArchived === 1) continue;
+		if (!includeArchived && t.isArchived === 1) continue;
 		if (!includeInactive && t.isActive !== 1) continue;
 		templates.push(t);
 	}

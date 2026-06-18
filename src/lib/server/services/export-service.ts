@@ -232,7 +232,9 @@ async function collectTransactionData(
 			findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
 			findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
 			findSpecialRewards(childId, tenantId),
-			findTemplatesByChild(childId, tenantId, true),
+			// #3106: backup なので includeInactive=true + includeArchived=true。
+			// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
+			findTemplatesByChild(childId, tenantId, true, true),
 		]);
 
 		// ステータス履歴は全カテゴリ分を取得
@@ -337,10 +339,15 @@ async function collectTransactionData(
 		}
 
 		// Checklist templates with items
-		// #3078: templateId → name マップを構築し checklistLogs の参照解決に使う。
+		// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
+		// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
+		// 複数あっても log を取り違えない round-trip キーにする。
 		const templateNameById = new Map<number, string>();
+		const exportIdByTemplateId = new Map<number, string>();
 		for (const tpl of checklistTemplates) {
 			templateNameById.set(tpl.id, tpl.name);
+			const exportId = `chk-${childRef}-${tpl.id}`;
+			exportIdByTemplateId.set(tpl.id, exportId);
 			const items = await findTemplateItems(tpl.id, tenantId);
 			allChecklistTemplates.push({
 				childRef,
@@ -350,6 +357,8 @@ async function collectTransactionData(
 				completionBonus: tpl.completionBonus,
 				isActive: tpl.isActive === 1,
 				sourcePresetId: tpl.sourcePresetId,
+				exportId, // #3107
+				isArchived: tpl.isArchived === 1, // #3106: archive 状態を round-trip 保全
 				items: items.map((item) => ({
 					name: item.name,
 					icon: item.icon,
@@ -360,15 +369,18 @@ async function collectTransactionData(
 			});
 		}
 
-		// #3078: チェックリスト完了ログ。templateName で参照し、import 側で再マップする。
-		// 配信中 template に紐づかないログ (archive 済 template 等) は name 解決不能のためスキップ。
+		// #3078 / #3106: チェックリスト完了ログ。#3106 で archive 済 template も export に含めたため、
+		// その log も exportId 経由で保全される (従来は name 解決不能で silent drop していた)。
 		const checklistLogs = await findLogsByChild(childId, tenantId);
 		for (const log of checklistLogs) {
 			const templateName = templateNameById.get(log.templateId);
-			if (!templateName) continue;
+			const templateExportId = exportIdByTemplateId.get(log.templateId);
+			// template が export に含まれない場合のみスキップ (#3106 で archived も含むため通常は解決可)
+			if (!templateName || !templateExportId) continue;
 			allChecklistLogs.push({
 				childRef,
 				templateName,
+				templateExportId, // #3107: import 側はこれを優先して再マップ
 				checkedDate: log.checkedDate,
 				itemsJson: log.itemsJson,
 				completedAll: log.completedAll === 1,
