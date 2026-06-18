@@ -182,3 +182,58 @@ export const ADMIN_RESOURCE_MODEL_REGISTRY = {
 } as const satisfies Record<string, AdminResourceModel>;
 
 export type AdminResourceKey = keyof typeof ADMIN_RESOURCE_MODEL_REGISTRY;
+
+/**
+ * #3134: 正準スロット契約 (ADMIN_RESOURCE_MODEL_REGISTRY) の **scope 外**と判断した admin リソース
+ * 管理画面と、その明示理由。
+ *
+ * 本 registry の正準契約は #3096 EPIC で導入した「marketplace 3 type (活動 / ごほうび / チェックリスト) の
+ * per-child / family-master child-binding + 正準スロット縦順」を対象とする。以下の画面は admin リソース
+ * 管理の見た目を持つが、この binding / 正準スロット契約には該当しないため registry には載せず、本リストで
+ * **明示的に除外理由を記録**する。
+ *
+ * これにより `tests/unit/features/admin-resource-model-registry.test.ts` の no-silent-gap guard が
+ * 「§10 admin リソース画面が registry にも本除外リストにも無い = 暗黙の網羅漏れ」を CI で検出できる
+ * (#3131 監査 sev3-B: 契約が自身の網羅漏れを silent に見逃していた問題の構造的解消)。
+ */
+export const NON_CANONICAL_ADMIN_RESOURCES = {
+	challenges: {
+		route: '/admin/challenges',
+		/**
+		 * challenge-set は marketplace type (#2369、5 type の 1 つ) で、challenges 管理画面も per-child-tabs
+		 * + ChildSelectionDialog 取込 binding (`?import=<presetId>` auto-open) を実装済み。よって binding /
+		 * marketplace 自体は備えているが、ヘッダーが `AdminResourceHeader` ではなく inline `<h2>` で、正準
+		 * スロット縦順 (search / list 等の testid 規約) にも未移行のため、現時点では #3096 正準契約の scope 外。
+		 * canonical 化 (AdminResourceHeader + 正準スロットへの移行) は #3096 系の大規模 UI refactor で別途判断
+		 * する。本除外で「未移行の特例」として明示化する (silent drift にしない)。
+		 */
+		reason:
+			'challenge-set は marketplace type (#2369) で per-child-tabs + ChildSelectionDialog 取込 binding を持つが、AdminResourceHeader + 正準スロット縦順に未移行のため現時点で正準契約 scope 外。canonical 化は #3096 系の大規模 UI refactor で別途判断。',
+	},
+	rules: {
+		route: '/admin/settings/rules',
+		/**
+		 * `/admin/settings/` 配下の settings サブページ (とくべつルール設定)。rule-preset (#2368) の marketplace
+		 * 取込先ではあるが、per-child / family-master の resource-list 画面ではない (settings 内の一機能) ため、
+		 * 正準スロット契約の対象外。
+		 */
+		reason:
+			'settings サブページ (とくべつルール) で、rule-preset (#2368) marketplace 取込先だが resource-list ではない',
+	},
+} as const;
+
+export type NonCanonicalAdminResourceKey = keyof typeof NON_CANONICAL_ADMIN_RESOURCES;
+
+/**
+ * DESIGN.md §10「admin リソース管理画面」の既知全集合 (#3134 no-silent-gap guard の母数)。
+ * 各画面は **registry (正準契約) か NON_CANONICAL_ADMIN_RESOURCES (明示除外) のいずれかで必ず説明される**
+ * こと。新規 admin リソース管理画面を追加したら本集合に加え、registry か除外リストに登録する
+ * (どちらにも無いと unit test が fail する = 暗黙の網羅漏れを防ぐ)。
+ */
+export const ALL_ADMIN_RESOURCE_PAGES = [
+	'activity',
+	'reward',
+	'checklist',
+	'challenges',
+	'rules',
+] as const;
