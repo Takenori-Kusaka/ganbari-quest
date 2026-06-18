@@ -32,8 +32,14 @@ async function statusOf(result: unknown): Promise<number | null> {
 beforeEach(() => {
 	vi.clearAllMocks();
 	readFileMock.mockResolvedValue({ data: Buffer.from([1, 2, 3]), contentType: 'image/png' });
-	// biome-ignore lint/suspicious/noExplicitAny: テスト用の最小 Child スタブ
-	getChildByIdMock.mockResolvedValue({ id: 1, tenantId: 't-self' } as any);
+	// 既定では「自テナントの子供 id=1 で、avatarUrl が要求 filename を指す」正常 Child を返す。
+	// avatarUrl は legacy flat key の公開 URL (`/uploads/avatars/avatar-1-abc.png`)。
+	getChildByIdMock.mockResolvedValue({
+		id: 1,
+		tenantId: 't-self',
+		avatarUrl: '/uploads/avatars/avatar-1-abc.png',
+		// biome-ignore lint/suspicious/noExplicitAny: テスト用の最小 Child スタブ
+	} as any);
 });
 
 describe('#3133 /tenants/[...path] cross-tenant IDOR guard', () => {
@@ -110,7 +116,7 @@ describe('#3133 /uploads/avatars/[filename] legacy cross-tenant IDOR guard', () 
 		expect(readFileMock).not.toHaveBeenCalled();
 	});
 
-	it('childId が自テナントの子供なら配信される（getChildById で tenant scope 検証）', async () => {
+	it('自テナントの子供かつ avatarUrl が要求 filename を指すなら配信される（file ownership 一致）', async () => {
 		const event = createMockEvent({
 			url: '/uploads/avatars/avatar-1-abc.png',
 			params: { filename: 'avatar-1-abc.png' },
@@ -120,5 +126,41 @@ describe('#3133 /uploads/avatars/[filename] legacy cross-tenant IDOR guard', () 
 		expect(res.status).toBe(200);
 		expect(getChildByIdMock).toHaveBeenCalledWith(1, 't-self');
 		expect(readFileMock).toHaveBeenCalledWith('uploads/avatars/avatar-1-abc.png');
+	});
+
+	it('id-collision: 自テナントに同 id の子供が居ても avatarUrl が別ファイルなら 404、storage に到達しない', async () => {
+		// 攻撃シナリオ: テナント A の攻撃者が自テナントの child id=1 を持つ。
+		// getChildById(1, t-self) は VALID な自テナント child を返すが、その avatarUrl は
+		// 別ファイル（被害者の avatar-1-victim.png ではない）を指す。
+		// 旧実装は「同 id child が存在する」だけで配信していたため被害者ファイルを漏洩した。
+		getChildByIdMock.mockResolvedValue({
+			id: 1,
+			tenantId: 't-self',
+			avatarUrl: '/uploads/avatars/avatar-1-myown.png',
+			// biome-ignore lint/suspicious/noExplicitAny: テスト用の最小 Child スタブ
+		} as any);
+		const event = createMockEvent({
+			url: '/uploads/avatars/avatar-1-victim.png',
+			params: { filename: 'avatar-1-victim.png' },
+			context: { tenantId: 't-self', role: 'owner' },
+		});
+		expect(await statusOf(avatarsGET(event))).toBe(404);
+		expect(readFileMock).not.toHaveBeenCalled();
+	});
+
+	it('id-collision: 自テナントに同 id の子供が居ても avatarUrl=null なら 404、storage に到達しない', async () => {
+		getChildByIdMock.mockResolvedValue({
+			id: 1,
+			tenantId: 't-self',
+			avatarUrl: null,
+			// biome-ignore lint/suspicious/noExplicitAny: テスト用の最小 Child スタブ
+		} as any);
+		const event = createMockEvent({
+			url: '/uploads/avatars/avatar-1-victim.png',
+			params: { filename: 'avatar-1-victim.png' },
+			context: { tenantId: 't-self', role: 'owner' },
+		});
+		expect(await statusOf(avatarsGET(event))).toBe(404);
+		expect(readFileMock).not.toHaveBeenCalled();
 	});
 });
