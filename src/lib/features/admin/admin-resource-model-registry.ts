@@ -200,17 +200,25 @@ export const NON_CANONICAL_ADMIN_RESOURCES = {
 	challenges: {
 		route: '/admin/challenges',
 		/**
-		 * per-child だが marketplace 陳列対象外 (#2896)。child-selection-dialog 取込 binding を持たず
-		 * (自作フォーム + auto-challenge 運用)、正準スロット (search / list 等) も完備しないため #3096
-		 * 契約の対象外。DESIGN.md §10 の AdminResourceHeader 全面採用 (inline header の置換) は別判断とし、
-		 * 本除外で「非正準の特例」として明示化する (silent drift にしない)。
+		 * challenge-set は marketplace type (#2369、5 type の 1 つ) で、challenges 管理画面も per-child-tabs
+		 * + ChildSelectionDialog 取込 binding (`?import=<presetId>` auto-open) を実装済み。よって binding /
+		 * marketplace 自体は備えているが、ヘッダーが `AdminResourceHeader` ではなく inline `<h2>` で、正準
+		 * スロット縦順 (search / list 等の testid 規約) にも未移行のため、現時点では #3096 正準契約の scope 外。
+		 * canonical 化 (AdminResourceHeader + 正準スロットへの移行) は #3096 系の大規模 UI refactor で別途判断
+		 * する。本除外で「未移行の特例」として明示化する (silent drift にしない)。
 		 */
-		reason: 'per-child だが marketplace 対象外 (#2896)・child-binding / 正準スロット非該当',
+		reason:
+			'challenge-set は marketplace type (#2369) で per-child-tabs + ChildSelectionDialog 取込 binding を持つが、AdminResourceHeader + 正準スロット縦順に未移行のため現時点で正準契約 scope 外。canonical 化は #3096 系の大規模 UI refactor で別途判断。',
 	},
 	rules: {
 		route: '/admin/settings/rules',
-		/** `/admin/settings/` 配下の settings サブページ (とくべつルール設定) で、per-child / family-master の resource-list ではない。正準スロット契約の対象外。 */
-		reason: 'settings サブページ (とくべつルール) で resource-list ではない',
+		/**
+		 * `/admin/settings/` 配下の settings サブページ (とくべつルール設定)。rule-preset (#2368) の marketplace
+		 * 取込先ではあるが、per-child / family-master の resource-list 画面ではない (settings 内の一機能) ため、
+		 * 正準スロット契約の対象外。
+		 */
+		reason:
+			'settings サブページ (とくべつルール) で、rule-preset (#2368) marketplace 取込先だが resource-list ではない',
 	},
 } as const;
 
