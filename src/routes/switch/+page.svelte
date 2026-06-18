@@ -234,6 +234,10 @@ async function handlePinComplete(details: { valueAsString: string }) {
 		<div class="bg-[var(--color-gold-100)] text-[var(--color-gold-700)] py-3 px-4 text-center text-sm font-semibold border-b border-[var(--color-gold-500)]" role="alert">{SWITCH_PAGE_LABELS.adminForbiddenNotice}</div>
 	{/if}
 
+	{#if data.timedOut}
+		<div class="bg-[var(--color-feedback-info-bg)] text-[var(--color-feedback-info-text)] py-3 px-4 text-center text-sm font-semibold border-b border-[var(--color-feedback-info-border)]" role="status" data-testid="parent-gate-timed-out-banner">{OYAKAGI_LABELS.gateTimedOutNotice}</div>
+	{/if}
+
 	{#if data.pinRequired}
 		<div class="bg-[var(--color-feedback-info-bg)] text-[var(--color-feedback-info-text)] py-3 px-4 text-center text-sm font-semibold border-b border-[var(--color-feedback-info-border)]" role="status" data-testid="parent-gate-required-banner">{OYAKAGI_LABELS.gatePinRequiredBanner}</div>
 	{/if}
