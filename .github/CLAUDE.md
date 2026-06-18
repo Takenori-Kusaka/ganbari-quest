@@ -7,7 +7,7 @@
 - 新規チケットは `gh issue create`。`docs/tickets/` への新規ファイル禁止（レガシー、参照のみ）
 - テンプレート: `.github/ISSUE_TEMPLATE/dev_ticket.yml` / `bug_report.yml` / `feature_request.yml`
 - ラベル: `type:feat|fix|refactor|infra|design|docs|marketing|test` / `priority:critical|high|medium|low` / `status:blocked|in-progress|on-hold` / `area:auth|billing|child-ui|admin|lp|db`
-- PR / コミットで `closes #<num>` 自動クローズ
+- PR / コミットでの自動クローズは **`Closes #<num>` / `Fixes #<num>`（closing keyword の直後に `#番号`）が default branch（= `main`）に到達した時のみ**発火する。**conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#<num>`）は Issue 参照であって closing keyword ではなく、merge しても auto-close しない**。develop 二層では base=develop（非 default branch）かつ commit 規約が conventional-commit のため、Issue は基本的に main 反映でも auto-close されない。close 運用の SSOT は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)（手動 `- [x]` close + AC gate、または明示 `Closes #N` keyword 付与）
 
 ## Issue 起票ルール（CRITICAL — ADR-0003）
 
@@ -78,10 +78,12 @@ docs/ 配下の変更ファイル数が **50 超で QM 警告、100 超で BLOCK
 
 | close 経路 | gate 挙動 |
 |---|---|
-| PR の `closes #N` で auto-close | **skip** (PR Ready チェックリストで検証済み) |
-| squash merge commit message の `closes #N` で auto-close | **skip** (PR 経由と同等) |
+| PR の `Closes #N` keyword（default branch=main 向け PR、例 hotfix）で auto-close | **skip** (PR Ready チェックリストで検証済み) |
+| squash merge commit message の `Closes #N` keyword が main に到達して auto-close | **skip** (PR 経由と同等) |
 | `gh issue close` / GitHub UI ボタンで手動 close | **AC 検証 gate を通す** (`- [ ]` 残存で reopen) |
 | `wontfix` / `duplicate` ラベル付き close | **skip** (従来通り) |
+
+> **develop 二層での実態（#3119 / #3123）**: 上 2 行の auto-close 経路は **`Closes #N` / `Fixes #N` closing keyword が main に到達した場合のみ**発火する。本リポジトリの commit 規約は conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#N`）で closing keyword を含まないため、**develop 二層の通常フローでは auto-close 経路はほぼ発火せず、close はほぼ全て下段の手動 close 経路（AC gate を通る）になる**。詳細は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)。`Closes #N` を明示した main 向け hotfix PR / commit のみが上 2 行に該当する。
 
 判定純粋関数: `scripts/issue-close-gate-skip-judge.mjs` (unit test 11 ケース: `tests/unit/github/issue-close-gate-skip-judge.test.ts`)。
 
