@@ -14,7 +14,11 @@ export async function findCachedImage(
 export async function insertCharacterImage(input: InsertCharacterImageInput, tenantId: string) {
 	return getRepos().image.insertCharacterImage(input, tenantId);
 }
-export async function updateChildAvatarUrl(childId: number, avatarUrl: string, tenantId: string) {
+export async function updateChildAvatarUrl(
+	childId: number,
+	avatarUrl: string | null,
+	tenantId: string,
+) {
 	return getRepos().image.updateChildAvatarUrl(childId, avatarUrl, tenantId);
 }
 export async function findChildForImage(childId: number, tenantId: string) {

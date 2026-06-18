@@ -25,7 +25,7 @@ import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
-import { saveFile } from '$lib/server/storage';
+import { fileExists, saveFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl, tenantPrefix } from '$lib/server/storage-keys';
 
 // カテゴリコード → ID
@@ -1004,7 +1004,7 @@ async function importStaticFiles(
 	);
 }
 
-interface AvatarRemapState {
+export interface AvatarRemapState {
 	data: ExportData;
 	childIdMap: Map<string, number>;
 	/** sourceChildId (export 元 id) → 新 childId */
@@ -1019,7 +1019,7 @@ interface AvatarRemapState {
  * avatarUrl は `/tenants/<oldTenant>/avatars/<oldChildId>/<uuid>.<ext>` 形式。
  * tenant / childId セグメントを新環境のものに書き換え、復元済ファイルがあれば参照を更新する。
  */
-async function remapChildAvatarUrls(
+export async function remapChildAvatarUrls(
 	state: AvatarRemapState,
 	tenantId: string,
 	result: ImportResult,
@@ -1048,10 +1048,16 @@ async function remapChildAvatarUrls(
 			newRelPath = `${type}/${mappedChildId}/${rest}`;
 		}
 
+		// #3136: 実ファイルが復元されている場合のみ avatarUrl を貼り替える。ZIP に静的ファイルが
+		// 同梱されていない (JSON のみ移管) / 改竄破損で skip された場合に、存在しない storage key を
+		// 指す dangling avatarUrl を生成しないため、貼替前に fileExists で実在を検証する。実在しなければ
+		// avatarUrl を null 化する (旧 tenant path を据え置くと、それ自体が新環境で dangling になるため)。
+		const newKey = `${prefix}${newRelPath}`;
 		try {
+			const restored = await fileExists(newKey);
 			await updateChildAvatarUrl(
 				newChildId,
-				storageKeyToPublicUrl(`${prefix}${newRelPath}`),
+				restored ? storageKeyToPublicUrl(newKey) : null,
 				tenantId,
 			);
 		} catch (e) {

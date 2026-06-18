@@ -65,7 +65,7 @@ export async function insertCharacterImage(
 /** 子供のアバターURLを更新 */
 export async function updateChildAvatarUrl(
 	childId: number,
-	avatarUrl: string,
+	avatarUrl: string | null,
 	tenantId: string,
 ): Promise<void> {
 	const now = new Date().toISOString();
