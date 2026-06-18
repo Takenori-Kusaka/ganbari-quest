@@ -615,6 +615,8 @@ admin リソース管理 3 画面 (活動 / チェックリスト / ごほうび
 
 > checklist は Sub-2 (#3096) で per-child-tabs へ寄せる予定 (family master データモデルは維持)。本 PR では現状を宣言する。
 
+**正準契約の scope と非正準画面の明示除外 (#3134、no-silent-gap)**: 本正準スロット契約 (registry + fitness function) の対象は **marketplace 3 type (活動 / ごほうび / チェックリスト)** の per-child / family-master child-binding 画面である。`/admin/challenges` (per-child だが marketplace 対象外 #2896・child-binding / 正準スロット非該当) と `/admin/settings/rules` (settings サブページで resource-list ではない) は本契約の **scope 外**であり、`admin-resource-model-registry.ts` の `NON_CANONICAL_ADMIN_RESOURCES` に**除外理由付きで明示登録**する。これにより「§10 admin リソース画面が registry にも除外リストにも無い = 暗黙の網羅漏れ」を `tests/unit/features/admin-resource-model-registry.test.ts` の no-silent-gap guard が CI で検出する (契約が自身の網羅漏れを silent に見逃さない)。challenges の AdminResourceHeader 全面採用 (inline header の置換) は非正準特例として本除外で明示化しており、正準スロット完備を要求しない。
+
 **fitness function (CI ガードレール)**: `tests/e2e/admin-resource-layout-contract.spec.ts` が registry を SSOT とし、各画面の DOM から「出現スロットの testid 順」を抽出 → 正準順の部分列 (subsequence) か / 必須スロット存在 / 共有 component 使用 / registry とモデル整合 を assert する (Architecture Fitness Function、『Building Evolutionary Architecture』Neal Ford 他)。`admin-add-path-isomorphism.spec.ts` (#2998、add 経路 dropdown の同型性) とは補完関係 (本 spec = 縦スロット順 + モデル / add-path spec = dropdown item の種類・順序)。以後どの改修も契約外レイアウト / 独自再実装 / モデル逸脱を作れば CI が即落ちる。
 
 #### admin リソース管理ページの add 経路は同型に揃える (#2903 / #2998、PO 指摘 #6b)

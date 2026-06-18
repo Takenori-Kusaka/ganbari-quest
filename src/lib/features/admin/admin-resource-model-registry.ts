@@ -182,3 +182,50 @@ export const ADMIN_RESOURCE_MODEL_REGISTRY = {
 } as const satisfies Record<string, AdminResourceModel>;
 
 export type AdminResourceKey = keyof typeof ADMIN_RESOURCE_MODEL_REGISTRY;
+
+/**
+ * #3134: 正準スロット契約 (ADMIN_RESOURCE_MODEL_REGISTRY) の **scope 外**と判断した admin リソース
+ * 管理画面と、その明示理由。
+ *
+ * 本 registry の正準契約は #3096 EPIC で導入した「marketplace 3 type (活動 / ごほうび / チェックリスト) の
+ * per-child / family-master child-binding + 正準スロット縦順」を対象とする。以下の画面は admin リソース
+ * 管理の見た目を持つが、この binding / 正準スロット契約には該当しないため registry には載せず、本リストで
+ * **明示的に除外理由を記録**する。
+ *
+ * これにより `tests/unit/features/admin-resource-model-registry.test.ts` の no-silent-gap guard が
+ * 「§10 admin リソース画面が registry にも本除外リストにも無い = 暗黙の網羅漏れ」を CI で検出できる
+ * (#3131 監査 sev3-B: 契約が自身の網羅漏れを silent に見逃していた問題の構造的解消)。
+ */
+export const NON_CANONICAL_ADMIN_RESOURCES = {
+	challenges: {
+		route: '/admin/challenges',
+		/**
+		 * per-child だが marketplace 陳列対象外 (#2896)。child-selection-dialog 取込 binding を持たず
+		 * (自作フォーム + auto-challenge 運用)、正準スロット (search / list 等) も完備しないため #3096
+		 * 契約の対象外。DESIGN.md §10 の AdminResourceHeader 全面採用 (inline header の置換) は別判断とし、
+		 * 本除外で「非正準の特例」として明示化する (silent drift にしない)。
+		 */
+		reason: 'per-child だが marketplace 対象外 (#2896)・child-binding / 正準スロット非該当',
+	},
+	rules: {
+		route: '/admin/settings/rules',
+		/** `/admin/settings/` 配下の settings サブページ (とくべつルール設定) で、per-child / family-master の resource-list ではない。正準スロット契約の対象外。 */
+		reason: 'settings サブページ (とくべつルール) で resource-list ではない',
+	},
+} as const;
+
+export type NonCanonicalAdminResourceKey = keyof typeof NON_CANONICAL_ADMIN_RESOURCES;
+
+/**
+ * DESIGN.md §10「admin リソース管理画面」の既知全集合 (#3134 no-silent-gap guard の母数)。
+ * 各画面は **registry (正準契約) か NON_CANONICAL_ADMIN_RESOURCES (明示除外) のいずれかで必ず説明される**
+ * こと。新規 admin リソース管理画面を追加したら本集合に加え、registry か除外リストに登録する
+ * (どちらにも無いと unit test が fail する = 暗黙の網羅漏れを防ぐ)。
+ */
+export const ALL_ADMIN_RESOURCE_PAGES = [
+	'activity',
+	'reward',
+	'checklist',
+	'challenges',
+	'rules',
+] as const;
