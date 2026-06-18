@@ -74,4 +74,19 @@ describe('#3136 remapChildAvatarUrls — dangling avatarUrl 防止', () => {
 		expect(updateMock).not.toHaveBeenCalled();
 		expect(fileExistsMock).not.toHaveBeenCalled();
 	});
+
+	it('relativeKeyRemap ミス時に .. traversal を含む avatarUrl は null 化し、traversed key を fileExists で probe しない（zip-slip 防御）', async () => {
+		// relativeKeyRemap は空 → fallback 分岐 (STATIC_FILE_PATH_RE 再構成) に入る。
+		// rest = `5/../../../t-other/avatars/9/secret.png` で `..` を含むため isSafeRelativePath が弾く想定。
+		const traversal = '/tenants/t-old/avatars/5/../../../t-other/avatars/9/secret.png';
+		await remapChildAvatarUrls(makeState(traversal), TENANT, makeResult());
+		// unsafe key は決して fileExists で probe されない（存在オラクル化を防ぐ）
+		expect(fileExistsMock).not.toHaveBeenCalled();
+		// dangling→null と同じ挙動で avatarUrl は null 化される
+		expect(updateMock).toHaveBeenCalledWith(100, null, TENANT);
+		// traversed/.. を含む key で更新しない（公開 URL を永続化しない）
+		for (const call of updateMock.mock.calls) {
+			expect(String(call[1])).not.toContain('..');
+		}
+	});
 });

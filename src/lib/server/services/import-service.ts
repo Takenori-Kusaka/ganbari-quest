@@ -1026,6 +1026,16 @@ export async function remapChildAvatarUrls(
 ): Promise<void> {
 	const { data, childIdMap, oldChildToNew, relativeKeyRemap } = state;
 	const prefix = tenantPrefix(tenantId);
+
+	/** avatarUrl 更新を 1 箇所に集約し、失敗は result.errors に蓄積する。 */
+	const persist = async (childId: number, url: string | null, exportId: string): Promise<void> => {
+		try {
+			await updateChildAvatarUrl(childId, url, tenantId);
+		} catch (e) {
+			result.errors.push(`アバター参照の更新に失敗 (child=${exportId}): ${String(e)}`);
+		}
+	};
+
 	for (const child of data.family.children) {
 		if (!child.avatarUrl) continue;
 		const newChildId = childIdMap.get(child.exportId);
@@ -1036,16 +1046,16 @@ export async function remapChildAvatarUrls(
 		const oldRelPath = avatarMatch?.[1];
 		if (!oldRelPath) continue;
 
-		// 同梱ファイルから復元済の新パスを優先。なければ id セグメントだけ書き換える。
-		let newRelPath = relativeKeyRemap.get(oldRelPath);
-		if (!newRelPath) {
-			const relMatch = STATIC_FILE_PATH_RE.exec(oldRelPath);
-			const type = relMatch?.[1];
-			const oldChildIdStr = relMatch?.[2];
-			const rest = relMatch?.[3];
-			if (!type || !oldChildIdStr || !rest) continue;
-			const mappedChildId = oldChildToNew.get(Number(oldChildIdStr)) ?? newChildId;
-			newRelPath = `${type}/${mappedChildId}/${rest}`;
+		const newRelPath = resolveNewAvatarRelPath(oldRelPath, {
+			relativeKeyRemap,
+			oldChildToNew,
+			newChildId,
+		});
+		if (newRelPath === undefined) continue; // 抽出不能 → 据え置き (skip)
+		if (newRelPath === null) {
+			// zip-slip 防御で unsafe と判定 → dangling→null と同じく null 化する。
+			await persist(newChildId, null, child.exportId);
+			continue;
 		}
 
 		// #3136: 実ファイルが復元されている場合のみ avatarUrl を貼り替える。ZIP に静的ファイルが
@@ -1055,15 +1065,46 @@ export async function remapChildAvatarUrls(
 		const newKey = `${prefix}${newRelPath}`;
 		try {
 			const restored = await fileExists(newKey);
-			await updateChildAvatarUrl(
-				newChildId,
-				restored ? storageKeyToPublicUrl(newKey) : null,
-				tenantId,
-			);
+			await persist(newChildId, restored ? storageKeyToPublicUrl(newKey) : null, child.exportId);
 		} catch (e) {
 			result.errors.push(`アバター参照の更新に失敗 (child=${child.exportId}): ${String(e)}`);
 		}
 	}
+}
+
+/**
+ * 旧相対パスから貼替先の新相対パスを解決する (#3136 / zip-slip 防御)。
+ *
+ * - 同梱ファイル復元済 (`relativeKeyRemap` hit) を優先。これらは importStaticFiles 保存時に
+ *   `isSafeRelativePath` で検証済 (§importStaticFiles) のため再検証不要。
+ * - miss 時は backup 由来 avatarUrl から id セグメントを書き換えて再構成する。backup の avatarUrl は
+ *   `STATIC_FILE_PATH_RE` の `(.+)$` に `..` / 絶対パスを含み得るため、再構成 key に
+ *   `isSafeRelativePath` を適用する (importStaticFiles と同じ zip-slip ガード)。
+ *
+ * @returns 新相対パス / `undefined` (抽出不能 = skip) / `null` (unsafe = avatarUrl を null 化)
+ */
+function resolveNewAvatarRelPath(
+	oldRelPath: string,
+	ctx: {
+		relativeKeyRemap: Map<string, string>;
+		oldChildToNew: Map<number, number>;
+		newChildId: number;
+	},
+): string | null | undefined {
+	const hit = ctx.relativeKeyRemap.get(oldRelPath);
+	if (hit) return hit;
+
+	const relMatch = STATIC_FILE_PATH_RE.exec(oldRelPath);
+	const type = relMatch?.[1];
+	const oldChildIdStr = relMatch?.[2];
+	const rest = relMatch?.[3];
+	if (!type || !oldChildIdStr || !rest) return undefined;
+
+	const mappedChildId = ctx.oldChildToNew.get(Number(oldChildIdStr)) ?? ctx.newChildId;
+	const candidate = `${type}/${mappedChildId}/${rest}`;
+	// unsafe (`..` / 絶対パス) は fileExists で probe (存在オラクル化) / 永続化させない。
+	if (!isSafeRelativePath(candidate)) return null;
+	return candidate;
 }
 
 // Re-export labels type for API handler
