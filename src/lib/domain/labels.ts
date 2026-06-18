@@ -4844,6 +4844,23 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 		`「${presetName}」の取込に失敗しました。時間をおいて再試行してください。`,
 	importToastNotFound: (presetId: string) => `プリセット「${presetId}」が見つかりません。`,
 	importInvalidPreset: '指定されたプリセットが見つかりませんでした',
+	// #3098 (EPIC #3096 Sub-2): 子供主軸 UI 統一に伴う「別の子から copy」(= 配信先追加) 導線。
+	//   activity の copy 導線 (ADMIN_ACTIVITIES_PAGE_LABELS.copy*) と同型語彙。
+	copyFromChildMenuLabel: `他の${CHILD_TERMS.honorific}から取り込む`,
+	copyFromChildMenuIcon: '📋',
+	copyDialogTitle: `他の${CHILD_TERMS.honorific}のチェックリストを取り込む`,
+	copyDialogDescPrefix: 'コピー元を選んでください（コピー先: ',
+	copyDialogDescSuffix: '）',
+	copyDialogSelectedPlaceholder: '—',
+	copyDialogAgeSuffix: '歳',
+	copyDialogCountSuffix: '件',
+	copyDialogEmpty: `他の${CHILD_TERMS.honorific}がいません`,
+	copyDialogCancel: 'キャンセル',
+	copyDialogConfirm: '取り込む',
+	copyDifferentChildError: `違う${CHILD_TERMS.honorific}を選んでください`,
+	copyNoChange: '取り込めるチェックリストがありませんでした（すでに配信済み）',
+	copySuccess: (added: number) => `${added} 件のチェックリストを取り込みました`,
+	copyFailed: '取り込みに失敗しました',
 } as const;
 
 // ============================================================

@@ -100,6 +100,15 @@ PO 集計 (`tmp/user-question/2026-05-23-customer-use-case-data-model-qa.md`、6
 - **ADR-0047 (Demo / 本番 UI Contract)**: 実装 PR-3〜7 で demo 同期必須。本 ADR は docs only のため影響なし
 - **ADR-0031 (ADR-0023 廃案 + 帰属マップ、tenant isolation 整合)**: per-child instance も `tenantId` 必須を維持 (Repository SSOT、ADR-0052 §「tenant isolation 強制」と整合)
 
+### 3.4 UI 表示軸は 3 資源とも child 主軸に統一 (#3096 / #3098、データ scope とは別レイヤー)
+
+データ scope (§3.1) は資源ごとに異なる (activity / reward = per-child instance、checklist = family master template + assignments) が、**admin 管理画面の UI 表示軸は 3 資源 (活動 / ごほうび / チェックリスト) すべて child 主軸 (`per-child-tabs`) に統一する** (NN/G #4 consistency、利用者 mental model の不統一を解消)。
+
+- **UI 統一とデータ scope は別レイヤー**: checklist は family master template を維持したまま、「子供タブ = 選択中 child に配信済み (assignments) の template」を per-child view として表示する。template は tenant 1 レコードのまま (子ごとに重複作成しない)、assignments で表示を絞るだけ。
+- **追加 / 取込導線**: 3 資源とも `ChildSelectionDialog`「どのお子さまに?」で配信 / 取込先の子供を選ぶ (`binding: 'child-selection-dialog'`)。checklist の VisibilityChipGroup は配信先編集 dialog の二次導線に降格 (page top の主軸入口には置かない)。
+- **兄弟共通化**: 活動同様「別の子から取り込む」copy 導線 (= source child の配信 template を選択中 child の assignments に追加) で行う。
+- UI 表示軸 / binding の宣言 SSOT は `src/lib/features/admin/admin-resource-model-registry.ts`、契約は `tests/e2e/admin-resource-layout-contract.spec.ts` (fitness function) が CI で照合する。
+
 ## 4. 結果
 
 - 後続 PR (PR-3〜7) は本 ADR §3.1 表を参照して schema 変更方針を判定可能

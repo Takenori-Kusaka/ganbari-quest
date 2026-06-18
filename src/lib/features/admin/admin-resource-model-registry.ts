@@ -19,13 +19,20 @@
  * admin リソースの「子供との関係モデル」分類。
  *
  * - `organizingModel`:
- *   - `'per-child-tabs'` — リソースが per-child instance で、子供タブで「この子のリソース」を切替表示する
- *     (活動 / ごほうび。ADR-0055 per-child 主軸)。
- *   - `'family-distribute'` — リソースが family master で、配信先の子供を選んで複数の子に配る
- *     (チェックリスト。family master データモデル)。Sub-2 (#3096) で per-child-tabs へ寄せる予定。
+ *   - `'per-child-tabs'` — 子供タブで「選択中 child のリソース」を切替表示する UI モデル
+ *     (活動 / ごほうび / チェックリスト。3 資源とも child 主軸 UI に統一、#3098 Sub-2)。
+ *   - `'family-distribute'` — page top の配信 chip で複数 child に同時配信する旧 UI モデル
+ *     (現在どの資源も採用していない。enum 値は将来の family-wide リソース用に温存)。
+ *   - **重要**: organizingModel は **UI 表示軸**であり、データ scope とは別レイヤー (#3096)。
+ *     activity/reward = per-child instance、checklist = family master template + assignments
+ *     (ADR-0055 §3.1) とデータモデルは異なるが、UI は 3 資源とも `per-child-tabs` に揃える。
+ *     checklist の per-child view は assignments で「選択中 child に配信済みの template」を絞るだけで、
+ *     template 自体は tenant 1 レコードのまま (child ごとに重複作成しない)。
  * - `binding` — 取込 / 追加時に「どの子に紐付けるか」を確定する UI:
- *   - `'child-selection-dialog'` — ChildSelectionDialog で取込先の子供を選ぶ (per-child リソース)。
- *   - `'visibility-chip'` — VisibilityChipGroup で配信先の子供を ON/OFF する (family master リソース)。
+ *   - `'child-selection-dialog'` — ChildSelectionDialog で配信 / 取込先の子供を選ぶ
+ *     (活動 / ごほうび = per-child instance 作成、チェックリスト = assignments 作成、#3098)。
+ *   - `'visibility-chip'` — VisibilityChipGroup を page top の主軸入口にする旧モデル
+ *     (現在どの資源も主軸には採用していない。checklist は配信先編集 dialog の二次導線で残す)。
  */
 export type AdminResourceOrganizingModel = 'per-child-tabs' | 'family-distribute';
 export type AdminResourceBinding = 'child-selection-dialog' | 'visibility-chip';
@@ -174,10 +181,18 @@ export const ADMIN_RESOURCE_MODEL_REGISTRY = {
 	checklist: {
 		resource: 'checklist',
 		route: '/admin/checklists',
-		organizingModel: 'family-distribute',
-		binding: 'visibility-chip',
+		// Sub-2 (#3098): UI 表示軸を child 主軸に統一 (activity / reward と同型)。
+		//   子供タブで「選択中 child に配信済みの template だけ」を表示し (per-child view)、
+		//   追加 / 取込は ChildSelectionDialog「どのお子さまに?」で配信先を選ぶ。
+		//   data scope は family master template + assignments のまま (ADR-0055 §3.1 維持)。
+		//   UI 統一とデータ scope は別レイヤー (#3096): activity/reward=per-child instance、
+		//   checklist=family master+assignments だが、3 資源とも child 主軸 UI に揃える。
+		//   VisibilityChipGroup は配信先編集 dialog (二次導線) に降格 — 主軸の入口ではないため
+		//   visibilityChipTestid は null (page top に配信 chip を常設しない)。
+		organizingModel: 'per-child-tabs',
+		binding: 'child-selection-dialog',
 		childTabsTestid: 'admin-checklists-child-tabs',
-		visibilityChipTestid: 'checklist-distribution-visibility',
+		visibilityChipTestid: null,
 	},
 } as const satisfies Record<string, AdminResourceModel>;
 

@@ -606,14 +606,14 @@ admin リソース管理 3 画面 (活動 / チェックリスト / ごほうび
 - **(A) 真の構造的不統一** (同概念・別配置 / 別実装) → 中身を統一する。例: 検索位置 (一覧直上に統一) / 子供タブ表示条件 (1 人以上に統一) / action message・プラン系バナーの slot 固定 / 子供コンテキストバナーの全画面追加 / 最外 spacing (`space-y-4`) / empty state の `UnifiedEmptyState` 化。
 - **(B) 正当なドメイン差** (その資源固有機能) → **撤去せず、正準スロットに置くだけ**。例: 活動のカテゴリフィルタ / copy・一括追加 (slot 5 or header `+`) / チェックリストの日次 override・配信先設定 (slot 8) は機能を消さない。
 
-**child-binding モデル契約 (ADR-0055 整合)**: 各資源の「子供との関係モデル」を `src/lib/features/admin/admin-resource-model-registry.ts` (SSOT) に宣言する。
+**child-binding モデル契約 (ADR-0055 整合)**: 各資源の「子供との関係モデル」を `src/lib/features/admin/admin-resource-model-registry.ts` (SSOT) に宣言する。**3 資源とも UI 表示軸は child 主軸 (`per-child-tabs`) に統一する** (#3098、NN/G #4 consistency)。子供タブで「選択中 child のリソース」を表示し、追加 / 取込は ChildSelectionDialog で配信 / 取込先の子供を選ぶ。
 
-| 資源 | organizingModel | binding |
-|---|---|---|
-| activity / reward | `per-child-tabs` (子供が持つ) | `child-selection-dialog` (取込先 child を選ぶ) |
-| checklist | `family-distribute` (配信される) | `visibility-chip` (配信先 child を ON/OFF) |
+| 資源 | organizingModel (UI 表示軸) | binding | データ scope (ADR-0055、UI とは別レイヤー) |
+|---|---|---|---|
+| activity / reward | `per-child-tabs` (子供が持つ) | `child-selection-dialog` (取込先 child を選ぶ) | per-child instance |
+| checklist | `per-child-tabs` (子供が持つ) | `child-selection-dialog` (配信先 child を選ぶ) | family master template + assignments |
 
-> checklist は Sub-2 (#3096) で per-child-tabs へ寄せる予定 (family master データモデルは維持)。本 PR では現状を宣言する。
+> **UI 統一とデータ scope は別レイヤー (#3096)**: activity / reward は per-child instance、checklist は family master template + per-child assignments とデータモデルが異なるが、**UI は 3 資源とも child 主軸**に揃える。checklist の per-child view は「選択中 child に配信済み (assignments) の template」を絞って表示するだけで、template 自体は tenant 1 レコードのまま (子ごとに重複作成しない)。兄弟共通化は「別の子から取り込む」copy 導線 (= assignments 追加) で行う。VisibilityChipGroup は配信先編集 dialog の**二次導線**に降格 (page top の主軸入口には置かない)。
 
 **正準契約の scope と非正準画面の明示除外 (#3134、no-silent-gap)**: 本正準スロット契約 (registry + fitness function) の対象は **marketplace 3 type (活動 / ごほうび / チェックリスト)** の per-child / family-master child-binding 画面である。`/admin/challenges` (challenge-set は marketplace type #2369 で per-child-tabs + ChildSelectionDialog 取込 binding を持つが、AdminResourceHeader + 正準スロット縦順に未移行) と `/admin/settings/rules` (rule-preset #2368 marketplace 取込先だが settings サブページの一機能で resource-list ではない) は本契約の **scope 外**であり、`admin-resource-model-registry.ts` の `NON_CANONICAL_ADMIN_RESOURCES` に**除外理由付きで明示登録**する。これにより「§10 admin リソース画面が registry にも除外リストにも無い = 暗黙の網羅漏れ」を `tests/unit/features/admin-resource-model-registry.test.ts` の no-silent-gap guard が CI で検出する (契約が自身の網羅漏れを silent に見逃さない)。challenges は marketplace type / child-binding 自体は備えるが、canonical 化 (AdminResourceHeader + 正準スロットへの移行) が #3096 系の大規模 UI refactor 待ちであり、本除外で「未移行の特例」として明示化する (正準スロット完備を要求しない)。
 

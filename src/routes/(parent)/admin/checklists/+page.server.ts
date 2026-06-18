@@ -12,6 +12,7 @@ import { dispatchImport } from '$lib/marketplace';
 import { FileSourceError, loadChecklistFromFile } from '$lib/marketplace/sources/file-source';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
+	findAssignmentsByChild,
 	findAssignmentsByTemplate,
 	findOverrides,
 	findTemplateItems,
@@ -19,7 +20,10 @@ import {
 	findTodayLog,
 } from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
-import { syncDistribution } from '$lib/server/services/checklist-distribution-service';
+import {
+	distributeToChildren,
+	syncDistribution,
+} from '$lib/server/services/checklist-distribution-service';
 import {
 	addOverride,
 	addTemplateItem,
@@ -563,6 +567,75 @@ export const actions: Actions = {
 				context: { templateId, desiredChildIds },
 			});
 			return fail(500, { error: '配信先の同期に失敗しました' });
+		}
+	},
+
+	// #3098 (EPIC #3096 Sub-2): 「別の子から copy」= source child に配信済みの family template を
+	// target child にも配信する (assignments 追加のみ、template 自体は family master のまま複製しない)。
+	// activity の copyFromChild と同型の child 主軸 UX。既配信は distributeToChildren が skip する。
+	//
+	// CWE-598 防御 (importPresetToChildren / syncDistribution と同型):
+	//   source / target childId が tenant 配下の child であることを assert。1 件でも tenant 外なら 403。
+	copyDistributionFromChild: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const sourceChildId = Number(formData.get('sourceChildId'));
+		const targetChildId = Number(formData.get('targetChildId'));
+
+		if (!sourceChildId || !targetChildId) {
+			return fail(400, { error: 'お子さまを選択してください' });
+		}
+		if (sourceChildId === targetChildId) {
+			return fail(400, { error: '違うお子さまを選んでください' });
+		}
+
+		// CWE-598 guard: source / target が tenant 配下であることを確認
+		const tenantChildren = await getAllChildren(tenantId);
+		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
+		if (!allowedChildIdSet.has(sourceChildId) || !allowedChildIdSet.has(targetChildId)) {
+			logger.warn(
+				'[admin/checklists] tenant 外 child ID が copyDistributionFromChild に指定された',
+				{
+					context: { sourceChildId, targetChildId, tenantId },
+				},
+			);
+			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
+		}
+
+		// per-child quota: free プランは target child のテンプレ上限を超えないか事前確認
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
+		if (!limit.allowed) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				),
+				upgradeRequired: true,
+			});
+		}
+
+		try {
+			const sourceAssignments = await findAssignmentsByChild(sourceChildId, tenantId);
+			const sourceTemplateIds = sourceAssignments.map((a) => a.templateId);
+			if (sourceTemplateIds.length === 0) {
+				return { copiedFromChild: true, added: 0 };
+			}
+			// 各 source template を target child に配信 (既配信は distributeToChildren が skip)。
+			let added = 0;
+			for (const templateId of sourceTemplateIds) {
+				const inserted = await distributeToChildren(templateId, [targetChildId], tenantId);
+				added += inserted.length;
+			}
+			return { copiedFromChild: true, added };
+		} catch (e) {
+			logger.error('[admin/checklists] 別の子からの copy 失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { sourceChildId, targetChildId },
+			});
+			return fail(500, { error: '取り込みに失敗しました' });
 		}
 	},
 
