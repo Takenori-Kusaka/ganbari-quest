@@ -4737,7 +4737,8 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	//   activities (ADMIN_ACTIVITIES_PAGE_LABELS) と同型に揃える (NN/G #4 consistency)。
 	childTabsAriaLabel: `${CHILD_TERMS.honorific}を選択`,
 	childContextSuffix: 'のチェックリスト',
-	childContextHint: `配信先を切り替えると、他の${CHILD_TERMS.honorific}の進捗を確認できます`,
+	// #3098: child 主軸 UI 統一に伴い hint を activities (childContextHint) と同型に揃える。
+	childContextHint: `タブを切り替えると、他の${CHILD_TERMS.honorific}のチェックリストを表示します`,
 	searchLabel: 'チェックリストを検索',
 	searchPlaceholder: 'チェックリスト名で検索...',
 	// #1755 (#1709-A): kind 削除に伴い tabAriaLabel は本 sub では未使用化
@@ -4802,8 +4803,10 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	// #2899: 汎用チェックリスト機能のため「持ち物」限定表記を「チェックリスト / リスト」へ是正
 	pageTitle: 'チェックリスト管理',
 	familyChecklistsSectionTitle: '家族のチェックリスト',
+	// #3098: child 主軸 UI 統一に伴い、header 説明を「子供タブで選択中の子のチェックリストを表示」軸に更新。
+	//   同じリストを複数のお子さまに配ることも可能 (= 追加時に配信先を選ぶ) という従来の柔軟性は維持。
 	familyChecklistsSectionDesc:
-		'1 つのリストを家族全員のお子さまに配信できます。お子さまごとの進捗は配信後に表示されます。',
+		'お子さまタブで、その子のチェックリストを管理できます。同じリストを複数のお子さまに追加することもできます。',
 	emptyFamilyMessage: '家族のチェックリストがまだありません',
 	emptyFamilyDesc: `みんなのテンプレートから取込むか、「${OVERFLOW_MENU_TERMS.itemMarketplace}」メニューから追加できます`,
 	browseMarketplaceLink: `${CONCEPT_ICONS.template} ${TEMPLATE_TERMS.browse} →`,
