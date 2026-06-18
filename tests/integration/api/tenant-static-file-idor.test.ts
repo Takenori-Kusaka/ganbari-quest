@@ -136,7 +136,7 @@ describe('#3133 /uploads/avatars/[filename] legacy cross-tenant IDOR guard', () 
 		getChildByIdMock.mockResolvedValue({
 			id: 1,
 			tenantId: 't-self',
-			avatarUrl: '/uploads/avatars/avatar-1-myown.png',
+			avatarUrl: '/uploads/avatars/avatar-1-mine.png',
 			// biome-ignore lint/suspicious/noExplicitAny: テスト用の最小 Child スタブ
 		} as any);
 		const event = createMockEvent({
