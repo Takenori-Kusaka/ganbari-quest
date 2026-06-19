@@ -14,7 +14,28 @@
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
+
+// #3163: reward restore は `source_preset_id` (= 'backup-restore:reward-set' sentinel) で
+// 二重取込を検知する (reward-set-import-service.ts / admin/rewards +page.server.ts:55)。
+// seed 済 reward は source_preset_id=NULL のため、export → restore の初回は「重複なし」と判定され
+// 全件が複製コピーとして INSERT される。これが共有 worker DB を汚染し、後続 spec
+// (child-shop-exchange) が同一 reward の 2 枚目カードを検出して strict-mode violation で fail していた
+// (tests/CLAUDE.md #2851「worker DB 共有 spec は変更を afterEach/afterAll で復元」違反)。
+// restore が作る sentinel 由来コピーを各テスト後に除去し、worker DB を seed 状態へ戻す。
+const RESTORE_REWARD_SET_PRESET_ID = 'backup-restore:reward-set';
+
+async function cleanupRestoredRewardCopies(workerDbPath: string): Promise<void> {
+	const { default: Database } = await import('better-sqlite3');
+	const db = new Database(workerDbPath);
+	try {
+		db.prepare('DELETE FROM special_rewards WHERE source_preset_id = ?').run(
+			RESTORE_REWARD_SET_PRESET_ID,
+		);
+	} finally {
+		db.close();
+	}
+}
 
 // download を一時ファイルに保存し、その絶対パスを返す。
 async function saveDownload(
@@ -41,6 +62,12 @@ async function openMenuItem(
 }
 
 test.describe('admin/rewards backup/restore (#3079)', () => {
+	// #3163: restore が INSERT した sentinel 由来コピーを除去し worker DB を seed 状態へ復元する。
+	// confirm を押す分岐 (空 child でない = 全件重複でない) では reward 複製が残るため必須。
+	test.afterEach(async ({ workerDbPath }) => {
+		await cleanupRestoredRewardCopies(workerDbPath);
+	});
+
 	test('export → restore round-trip で全件重複スキップを preview → 復元まで貫通', async ({
 		page,
 	}) => {

@@ -265,6 +265,7 @@ CI 自動チェック (`scripts/check-schema-change-tests.mjs`、warn): `schema.
 - 全 4 年齢コアモード (preschool/elementary/junior/senior) のテストデータ必要
 - 活動記録の完全フロー (確認→記録→コンボ→スタンプ→レベルアップ→ホーム復帰) を検証
 - **worker DB 共有 spec が seed 済 setting を削除する場合、削除前 snapshot + afterAll で復元が必須** (#2851、`features.spec.ts` #0025 が `templates.length > 0` を要求する `reward_templates` を `setup-resume-path.spec.ts` が削除したまま終了し決定的 fail した教訓)。afterAll で「自分が追加した値」を消すだけでは seed 値が復元されず不十分。beforeAll で削除前の seed 値を `SELECT` で退避し、afterAll で `INSERT OR REPLACE` (snapshot 非 null) / `DELETE` (snapshot null) で元の seed 状態へ完全復元する
+- **worker DB 共有 spec が seed 済データを「追加複製」する場合も afterEach/afterAll で除去が必須** (#3163、`admin-backup-restore.spec.ts` が export → restore で seed 済 reward を複製 INSERT (restore dedup は `source_preset_id='backup-restore:reward-set'` sentinel scope のため seed の `source_preset_id=NULL` 行を重複検知できない) → 共有 worker DB に複製が残り、後続 `child-shop-exchange.spec.ts` が同一 reward の 2 枚目カードを検出して strict-mode violation で fail した教訓)。restore 等が INSERT した可識別行 (sentinel `source_preset_id` 等) を afterEach で `DELETE` し worker DB を seed 状態へ戻す。**reward / checklist の陳列・取込ロジックや seed 値を変えたら、共有 worker DB を汚染しないかを「同一 reward が複数カードになる」観点で点検する** (child shop は DB 行と 1:1 で描画するため、行が重複すればカードも重複する)
 
 ## プラン別 seed fixture（#759）
 

@@ -183,6 +183,10 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		const expensiveCard = page.locator('[data-testid^="reward-card-"]').filter({
 			hasText: 'E2Eテスト用ごほうび（交換不可）',
 		});
+		// #3163: 重複なし不変条件を明示。共有 worker DB が backup/restore 等で汚染され
+		// 同一 reward が 2 行になると本 assertion が「2」を報告して原因を即指摘する
+		// (toBeVisible 単体の strict-mode violation より診断的)。
+		await expect(expensiveCard).toHaveCount(1);
 		await expect(expensiveCard).toBeVisible();
 
 		// そのカード内の交換ボタンが disabled であることを確認
@@ -202,6 +206,8 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		const affordableCard = page.locator('[data-testid^="reward-card-"]').filter({
 			hasText: 'E2Eテスト用ごほうび（交換可）',
 		});
+		// #3163: 交換可ごほうびも 1 枚のみ (worker DB 汚染で複製されていないこと) を保証
+		await expect(affordableCard).toHaveCount(1);
 		await expect(affordableCard).toBeVisible();
 
 		// 交換ボタン（enabled）をクリック
