@@ -1,12 +1,17 @@
 <script lang="ts">
 import { page } from '$app/state';
 import { ADMIN_HOME_LABELS } from '$lib/domain/labels';
+import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
 
 let { data } = $props();
 
 // #3144: ごほうび交換の承認待ち件数 (admin ホームの発見性バナー)
 const pendingRedemptionCount = $derived<number>(data.pendingRedemptionCount ?? 0);
+// #3144: `?screenshot=all` 時はバナーを代表件数 (2) で強制描画し SS 撮影可能にする
+// (MilestoneBanner の bypassSeenCheck と同型の正規パターン、src/routes/CLAUDE.md §?screenshot)。
+const isScreenshotAll = $derived(getScreenshotModeKind() === 'all');
+const bannerCount = $derived(isScreenshotAll ? Math.max(pendingRedemptionCount, 2) : pendingRedemptionCount);
 
 // ADR-0048 Phase B-1 (#2097): demo Lambda (AUTH_MODE=anonymous) では
 // `(parent)/admin/+page.svelte` も isDemo=true として描画される。
@@ -19,10 +24,10 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 
 <!-- #3144: ごほうび交換の承認待ち導線 (pending > 0 のときのみ)。
      子供の engagement バッジ (#2109 撤廃) でなく親の管理タスク導線のため ADR-0012 非抵触。 -->
-{#if pendingRedemptionCount > 0}
+{#if bannerCount > 0}
 	<a class="redemption-pending-banner" href="/admin/rewards/requests" data-testid="redemption-pending-banner">
 		<span class="redemption-pending-banner__icon" aria-hidden="true">🎁</span>
-		<span class="redemption-pending-banner__text">{ADMIN_HOME_LABELS.pendingRedemptionBanner(pendingRedemptionCount)}</span>
+		<span class="redemption-pending-banner__text">{ADMIN_HOME_LABELS.pendingRedemptionBanner(bannerCount)}</span>
 		<span class="redemption-pending-banner__cta" aria-hidden="true">▶</span>
 	</a>
 {/if}
