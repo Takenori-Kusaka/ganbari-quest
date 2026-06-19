@@ -64,7 +64,7 @@ jobs:
     if: contains(fromJSON('["Takenori-Kusaka", "ganbariquestsupport-lab"]'), github.actor)
     steps:
       # Step 1: Checkout。pull_request = 統合 PR の HEAD / workflow_dispatch = develop HEAD。
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && 'develop' || github.event.pull_request.head.sha }}
 
