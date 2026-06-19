@@ -6,7 +6,8 @@
 //     - ポイント残高: 100pt（beforeEach で再調整するため parallel workers の汚染を防ぐ）
 //     - 交換可能なごほうび（交換可）: 50pt — 交換フローテスト専用
 //     - 交換可能なごほうび（キャンセル確認用）: 50pt — キャンセルテスト専用（独立）
-//     - 交換不可なごほうび: 99999pt（並行ワーカーがどれだけポイントを積んでも届かない閾値）
+//     - 交換不可なごほうび: 10000pt（special-reward ドメイン上限 = reward-set export schema 上限。
+//       テスト child の残高 ~100pt を遥かに超え交換不可を維持。#3132 で旧 99999pt = out-of-domain を是正）
 //
 // AC マッピング:
 //   AC1: 交換フロー全体（子が申請 → 申請中バッジ確認）
@@ -178,7 +179,7 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 
 		await expect(page.getByTestId('shop-page')).toBeVisible();
 
-		// 99999pt のごほうびカードを探す（E2Eテスト用ごほうび（交換不可））
+		// 10000pt のごほうびカードを探す（E2Eテスト用ごほうび（交換不可）。#3132 で 99999→10000）
 		const expensiveCard = page.locator('[data-testid^="reward-card-"]').filter({
 			hasText: 'E2Eテスト用ごほうび（交換不可）',
 		});
