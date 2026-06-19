@@ -38,6 +38,13 @@ export async function findRedemptionRequestsByTenant(
 	return [];
 }
 
+export async function countRedemptionRequestsByTenant(
+	_tenantId: string,
+	_opts?: { status?: string; childId?: number },
+): Promise<number> {
+	return 0;
+}
+
 export async function updateRedemptionRequestStatus(
 	_childId: number,
 	_id: number,

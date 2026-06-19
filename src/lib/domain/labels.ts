@@ -4239,6 +4239,9 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 export const ADMIN_HOME_LABELS = {
 	pageTitle: `${ADMIN_VIEW_TERMS.canonical} - がんばりクエスト`,
 	pageTitleDemoSuffix: ' デモ',
+	// #3144: ごほうび交換の承認待ち導線バナー (pending > 0 のときのみ表示)
+	pendingRedemptionBanner: (count: number) =>
+		`${REWARD_TERMS.canonical}の交換申請が ${count} 件 承認待ちです。確認して受け渡しましょう`,
 	heading: '管理ダッシュボード',
 	headingDemoSuffix: '（デモ）',
 	onboardingCompleteText: 'すべてのセットアップが完了しました！',

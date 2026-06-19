@@ -20,6 +20,14 @@ export async function findRedemptionRequestsByTenant(
 	return getRepos().rewardRedemption.findRedemptionRequestsByTenant(tenantId, opts);
 }
 
+/** #3144: テナント内の交換申請の正確な件数 (COUNT、limit なし)。50 件以上でも飽和しない。 */
+export async function countRedemptionRequestsByTenant(
+	tenantId: string,
+	opts?: { status?: string; childId?: number },
+) {
+	return getRepos().rewardRedemption.countRedemptionRequestsByTenant(tenantId, opts);
+}
+
 /** #2845 課題①: childId 所有権検証付き (composite key)。不一致なら undefined。 */
 export async function updateRedemptionRequestStatus(
 	childId: number,

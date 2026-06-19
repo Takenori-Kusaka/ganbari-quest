@@ -103,6 +103,32 @@ export async function findRedemptionRequestsByTenant(
 }
 
 /**
+ * #3144: テナント内の交換申請の正確な件数を返す (COUNT、limit なし)。
+ * findRedemptionRequestsByTenant の WHERE 条件 (status / childId) と同一の filter を適用するが、
+ * admin 一覧用の limit(50) を掛けず COUNT(*) で件数を返すため 50 件以上でも飽和しない。
+ */
+export async function countRedemptionRequestsByTenant(
+	_tenantId: string,
+	opts?: { status?: string; childId?: number },
+) {
+	const conditions = [];
+	if (opts?.status) {
+		conditions.push(eq(rewardRedemptionRequests.status, opts.status));
+	}
+	if (opts?.childId) {
+		conditions.push(eq(rewardRedemptionRequests.childId, opts.childId));
+	}
+
+	const row = db
+		.select({ count: sql<number>`COUNT(*)` })
+		.from(rewardRedemptionRequests)
+		.where(conditions.length > 0 ? and(...conditions) : undefined)
+		.get();
+
+	return row?.count ?? 0;
+}
+
+/**
  * 申請状態を更新。
  * #2845 課題①: childId 所有権検証付き (composite key)。不一致なら更新せず undefined。
  */
