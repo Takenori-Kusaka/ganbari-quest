@@ -26,6 +26,7 @@ vi.mock('$lib/server/db/client', () => ({
 
 import {
 	approveRedemption,
+	countPendingRedemptionsForParent,
 	expireOldRedemptions,
 	getRedemptionRequestsForChild,
 	getRedemptionRequestsForParent,
@@ -212,6 +213,24 @@ describe('getRedemptionRequestsForParent', () => {
 		expect(requests.length).toBe(1);
 		expect(requests[0]!.rewardTitle).toBe('ゲーム時間30分');
 		expect(requests[0]!.childName).toBe('テストちゃん');
+	});
+});
+
+describe('countPendingRedemptionsForParent (#3144)', () => {
+	it('承認待ち申請が無ければ 0 を返す', async () => {
+		seedBaseData();
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
+	});
+
+	it('pending 申請の件数を返し、承認すると減る', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		if ('error' in reqResult) throw new Error('request failed');
+
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(1);
+
+		await approveRedemption(reqResult.id, 1, TENANT_ID);
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
 	});
 });
 

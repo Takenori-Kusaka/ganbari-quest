@@ -133,6 +133,17 @@ export async function getRedemptionRequestsForParent(
 	}));
 }
 
+/**
+ * #3144: テナント内の「親の承認待ち」ごほうび交換申請の件数を返す。
+ * admin ホームの承認待ちバナー（発見性導線）で使う。
+ */
+export async function countPendingRedemptionsForParent(tenantId: string): Promise<number> {
+	const rows = await findRedemptionRequestsByTenant(tenantId, {
+		status: 'pending_parent_approval',
+	});
+	return rows.length;
+}
+
 // ============================================================
 // 承認
 // ============================================================

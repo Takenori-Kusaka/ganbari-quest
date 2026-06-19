@@ -1,8 +1,12 @@
 <script lang="ts">
 import { page } from '$app/state';
+import { ADMIN_HOME_LABELS } from '$lib/domain/labels';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
 
 let { data } = $props();
+
+// #3144: ごほうび交換の承認待ち件数 (admin ホームの発見性バナー)
+const pendingRedemptionCount = $derived<number>(data.pendingRedemptionCount ?? 0);
 
 // ADR-0048 Phase B-1 (#2097): demo Lambda (AUTH_MODE=anonymous) では
 // `(parent)/admin/+page.svelte` も isDemo=true として描画される。
@@ -12,6 +16,16 @@ let { data } = $props();
 // これにより onboarding ダイアログ等の本番専用 UI が demo Lambda 上で誤表示されない (A-6 ISSUE-003)。
 const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 </script>
+
+<!-- #3144: ごほうび交換の承認待ち導線 (pending > 0 のときのみ)。
+     子供の engagement バッジ (#2109 撤廃) でなく親の管理タスク導線のため ADR-0012 非抵触。 -->
+{#if pendingRedemptionCount > 0}
+	<a class="redemption-pending-banner" href="/admin/rewards/requests" data-testid="redemption-pending-banner">
+		<span class="redemption-pending-banner__icon" aria-hidden="true">🎁</span>
+		<span class="redemption-pending-banner__text">{ADMIN_HOME_LABELS.pendingRedemptionBanner(pendingRedemptionCount)}</span>
+		<span class="redemption-pending-banner__cta" aria-hidden="true">▶</span>
+	</a>
+{/if}
 
 <AdminHome
 	children={data.children}
@@ -28,3 +42,32 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 	weeklyUsage={data.weeklyUsage}
 	valuePreview={data.valuePreview}
 />
+
+<style>
+	.redemption-pending-banner {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 16px;
+		padding: 0.875rem 1rem;
+		border: 1px solid var(--color-border-warning);
+		border-radius: 0.75rem;
+		background: var(--color-surface-warning);
+		color: var(--color-text-warm);
+		text-decoration: none;
+		font-weight: 600;
+	}
+	.redemption-pending-banner:hover {
+		background: var(--color-feedback-warning-bg-strong);
+	}
+	.redemption-pending-banner__icon {
+		font-size: 1.25rem;
+	}
+	.redemption-pending-banner__text {
+		flex: 1;
+		min-width: 0;
+	}
+	.redemption-pending-banner__cta {
+		color: var(--color-text-warm-muted);
+	}
+</style>

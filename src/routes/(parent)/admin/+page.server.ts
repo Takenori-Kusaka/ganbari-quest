@@ -8,6 +8,7 @@ import { dismissOnboarding, getOnboardingProgress } from '$lib/server/services/o
 import { isPaidTier } from '$lib/server/services/plan-limit-service';
 import { getPointBalance } from '$lib/server/services/point-service';
 import { getAllChildrenSimpleSummary } from '$lib/server/services/report-service';
+import { countPendingRedemptionsForParent } from '$lib/server/services/reward-redemption-service';
 import { getChildStatus } from '$lib/server/services/status-service';
 import {
 	getTodayUsageSummary,
@@ -132,9 +133,14 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	const parentData = await parent();
 	const tier = parentData.planTier;
 
-	const [children, onboarding] = await Promise.all([
+	const [children, onboarding, pendingRedemptionCount] = await Promise.all([
 		getAllChildren(tenantId),
 		getOnboardingProgress(tenantId, '/admin'),
+		// #3144: ごほうび交換の承認待ち件数 (admin ホームの発見性バナー用)。失敗時は 0。
+		countPendingRedemptionsForParent(tenantId).catch((e) => {
+			logger.warn('[admin] 承認待ち件数取得フォールバック', { context: { error: String(e) } });
+			return 0;
+		}),
 	]);
 
 	const now = new Date();
@@ -169,6 +175,8 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		todayUsage,
 		weeklyUsage,
 		valuePreview,
+		// #3144: ごほうび交換の承認待ち件数 (admin ホームの発見性バナー)
+		pendingRedemptionCount,
 	};
 };
 
