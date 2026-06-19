@@ -39,7 +39,7 @@ jobs:
     name: PR lane 判定の動作実証
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # pull_request event では context の base_ref/head_ref/actor を、
       # workflow_dispatch では手動入力を渡す (composite action は両対応)。
