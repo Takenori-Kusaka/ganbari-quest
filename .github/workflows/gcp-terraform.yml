@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.action == 'apply' && 'production' || '' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Authenticate to GCP (Workload Identity Federation)
         uses: google-github-actions/auth@v3
