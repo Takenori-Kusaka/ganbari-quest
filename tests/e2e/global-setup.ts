@@ -1335,7 +1335,13 @@ export default async function globalSetup() {
 				.get(cId);
 			if (!existingExpensive) {
 				db.prepare(
-					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換不可）', 99999, '💎', 'shop_e2e', CURRENT_TIMESTAMP)",
+					// #3132: points は special-reward ドメイン validation (special-reward.ts `.max(10000)`) +
+					// reward-set export schema (reward-set-schema.ts `maxValue(10000)`) の上限に合わせ 10000 とする。
+					// 旧値 99999 はドメイン上限超過 (直接 SQL で validation を迂回した out-of-domain 値) で、
+					// export → restore round-trip が reward-set-schema で弾かれていた (統合 blocker)。
+					// 10000 でも本 reward はテスト child の残高 (~100pt にリセット、§balance 調整) を遥かに超え
+					// 「交換不可」を維持する (child-shop-exchange は title 一致で card を探すため値非依存)。
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換不可）', 10000, '💎', 'shop_e2e', CURRENT_TIMESTAMP)",
 				).run(cId);
 				console.log('[E2E Setup]   Created expensive shop reward for たろうくん.');
 			}
