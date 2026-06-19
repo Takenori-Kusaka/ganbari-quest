@@ -1,8 +1,8 @@
 <script lang="ts">
 import { page } from '$app/state';
 import { ADMIN_HOME_LABELS } from '$lib/domain/labels';
-import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
+import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 
 let { data } = $props();
 
@@ -11,7 +11,9 @@ const pendingRedemptionCount = $derived<number>(data.pendingRedemptionCount ?? 0
 // #3144: `?screenshot=all` 時はバナーを代表件数 (2) で強制描画し SS 撮影可能にする
 // (MilestoneBanner の bypassSeenCheck と同型の正規パターン、src/routes/CLAUDE.md §?screenshot)。
 const isScreenshotAll = $derived(getScreenshotModeKind() === 'all');
-const bannerCount = $derived(isScreenshotAll ? Math.max(pendingRedemptionCount, 2) : pendingRedemptionCount);
+const bannerCount = $derived(
+	isScreenshotAll ? Math.max(pendingRedemptionCount, 2) : pendingRedemptionCount,
+);
 
 // ADR-0048 Phase B-1 (#2097): demo Lambda (AUTH_MODE=anonymous) では
 // `(parent)/admin/+page.svelte` も isDemo=true として描画される。
