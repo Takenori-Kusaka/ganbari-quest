@@ -14,6 +14,8 @@ export async function insertSpecialReward(
 		icon?: string;
 		category: string;
 		sourcePresetId?: string | null;
+		// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は null で表示側 fallback
+		shopCategory?: string | null;
 	},
 	_tenantId: string,
 ) {

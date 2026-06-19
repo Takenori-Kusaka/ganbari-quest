@@ -243,6 +243,8 @@ export interface SpecialReward {
 	shownAt: string | null;
 	// #1254 G1: プリセット非由来は NULL / 未設定
 	sourcePresetId?: string | null;
+	// #3147: ショップ陳列系統 (physical/money/privilege)。null は旧行/未指定で表示側が推定 fallback
+	shopCategory?: string | null;
 }
 
 /** ごほうびショップ交換申請 (#1337) */
@@ -477,6 +479,8 @@ export interface InsertSpecialRewardInput {
 	icon?: string;
 	category: string;
 	sourcePresetId?: string | null;
+	// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は表示側 deriveShopCategory に委ねる
+	shopCategory?: string | null;
 }
 
 export interface InsertStatusHistoryInput {

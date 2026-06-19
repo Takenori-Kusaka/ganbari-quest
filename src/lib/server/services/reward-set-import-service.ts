@@ -186,6 +186,8 @@ export async function importRewardSet(
 					icon: r.icon,
 					category: r.category,
 					sourcePresetId: presetId,
+					// #3147: preset 由来の shop_category を round-trip (null は表示側 fallback)
+					shopCategory: r.shopCategory ?? null,
 				},
 				tenantId,
 			);

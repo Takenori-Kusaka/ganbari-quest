@@ -9,6 +9,8 @@ import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { ADMIN_REWARDS_PAGE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
+// #3147: ショップ陳列系統 (physical/money/privilege) の SSOT
+import { SHOP_CATEGORIES } from '$lib/domain/shop-category';
 // #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
 import { dispatchImport } from '$lib/marketplace';
@@ -170,12 +172,21 @@ export const actions: Actions = {
 		const points = Number(formData.get('points') ?? 0);
 		const icon = String(formData.get('icon') ?? '🎁');
 		const category = String(formData.get('category') ?? 'other');
+		// #3147: 親が選んだショップ陳列系統 (physical/money/privilege)。
+		// 未選択 (空) のときは null を渡し、shop 表示側で deriveShopCategory に fallback。
+		const shopCategoryRaw = String(formData.get('shopCategory') ?? '').trim();
+		const shopCategory = (SHOP_CATEGORIES as readonly string[]).includes(shopCategoryRaw)
+			? shopCategoryRaw
+			: null;
 
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!title) return fail(400, { error: 'タイトルを入力してください' });
 		if (points <= 0 || points > 10000) return fail(400, { error: 'ポイントは1〜10000の範囲です' });
 
-		const result = await addReward({ childId, title, points, icon, category }, tenantId);
+		const result = await addReward(
+			{ childId, title, points, icon, category, shopCategory },
+			tenantId,
+		);
 		if ('error' in result) {
 			return fail(400, { error: result.error });
 		}

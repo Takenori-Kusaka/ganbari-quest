@@ -396,6 +396,9 @@ export const specialRewards = sqliteTable(
 		shownAt: text('shown_at'),
 		// #1254 G1: プリセット由来のごほうびを識別（import 時の preset_duplicate 検知に利用）
 		sourcePresetId: text('source_preset_id'),
+		// #3147: ショップ陳列系統 (physical/money/privilege)。null は旧行/未指定で表示側が
+		// deriveShopCategory に fallback。validateAndMigrate が既存 DB に ALTER ADD COLUMN 自動適用。
+		shopCategory: text('shop_category'),
 	},
 	(table) => [index('idx_special_rewards_child').on(table.childId, table.grantedAt)],
 );

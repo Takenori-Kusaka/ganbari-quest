@@ -44,6 +44,8 @@ export async function insertSpecialReward(
 		grantedAt: now,
 		shownAt: null,
 		sourcePresetId: input.sourcePresetId ?? null,
+		// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は null で表示側 fallback
+		shopCategory: input.shopCategory ?? null,
 	};
 
 	const key = specialRewardKey(input.childId, now, id, tenantId);

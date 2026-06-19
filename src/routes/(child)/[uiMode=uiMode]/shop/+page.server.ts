@@ -41,12 +41,16 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			points: reward.points,
 			icon: reward.icon,
 			description: reward.description,
-			// #2157 ショップ 3 系統 (実物/お小遣い/特権)。DB に列が無いため title/icon から派生
-			shopCategory: deriveShopCategory({
-				title: reward.title,
-				icon: reward.icon,
-				description: reward.description,
-			}),
+			// #2157 / #3147 ショップ 3 系統 (実物/お小遣い/特権)。
+			// 親が登録時に選んだ shop_category 列を優先し、null (旧行/未指定) のときのみ
+			// title/icon から推定 fallback (後方互換)。
+			shopCategory:
+				reward.shopCategory ??
+				deriveShopCategory({
+					title: reward.title,
+					icon: reward.icon,
+					description: reward.description,
+				}),
 			latestRequestStatus: latestRequest?.status ?? null,
 			latestRequestId: latestRequest?.id ?? null,
 		};

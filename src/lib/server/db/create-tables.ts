@@ -251,7 +251,9 @@ export const SQL_CREATE_TABLES = `
 		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		shown_at TEXT,
 		-- #1254 G1: プリセット由来のごほうびを識別（NULL=プリセット非由来）
-		source_preset_id TEXT
+		source_preset_id TEXT,
+		-- #3147: ショップ陳列系統 (physical/money/privilege)。NULL は旧行/未指定で表示側が推定 fallback
+		shop_category TEXT
 	);
 	CREATE INDEX IF NOT EXISTS idx_special_rewards_child
 		ON special_rewards(child_id, granted_at);
