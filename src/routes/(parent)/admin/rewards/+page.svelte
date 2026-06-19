@@ -330,7 +330,17 @@ let customTitle = $state('');
 let customPoints = $state(100);
 let customIcon = $state('🎁');
 let customCategory = $state('とくべつ');
+// #3147: ショップ陳列系統 (physical/money/privilege)。'' = 自動振り分け (表示側 deriveShopCategory)
+let customShopCategory = $state('');
 let grantSuccess = $state(false);
+
+// #3147: ショップ陳列系統セレクトの選択肢 ('' = 自動振り分け先頭)
+const shopCategoryOptions = [
+	{ value: '', label: ADMIN_REWARDS_PAGE_LABELS.shopCategoryAuto },
+	{ value: 'physical', label: ADMIN_REWARDS_PAGE_LABELS.shopCategoryPhysical },
+	{ value: 'money', label: ADMIN_REWARDS_PAGE_LABELS.shopCategoryMoney },
+	{ value: 'privilege', label: ADMIN_REWARDS_PAGE_LABELS.shopCategoryPrivilege },
+];
 
 function selectTemplate(tmpl: { title: string; points: number; icon?: string; category: string }) {
 	selectedTemplate = { ...tmpl, icon: tmpl.icon ?? '🎁' };
@@ -1019,6 +1029,20 @@ async function handleCopyFromChild() {
 							{/snippet}
 						</FormField>
 					</div>
+					<!-- #3147: ショップ陳列系統 (physical/money/privilege)。未選択 ('') なら表示側 deriveShopCategory に fallback -->
+					<FormField
+						label={ADMIN_REWARDS_PAGE_LABELS.shopCategoryLabel}
+						hint={ADMIN_REWARDS_PAGE_LABELS.shopCategoryHint}
+					>
+						{#snippet children()}
+							<NativeSelect
+								name="shopCategory"
+								bind:value={customShopCategory}
+								disabled={!data.isPremium}
+								options={shopCategoryOptions}
+							/>
+						{/snippet}
+					</FormField>
 
 					<Button
 						type="submit"

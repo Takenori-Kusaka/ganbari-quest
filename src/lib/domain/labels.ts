@@ -4231,6 +4231,15 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	// AC1: pending redemption ガード (hasPendingByReward) の削除拒否メッセージ
 	deletePendingBlocked:
 		'交換申請が処理待ちのため削除できません。申請を承認または却下してから削除してください',
+	// #3147: ショップ陳列系統 (physical/money/privilege) の登録時セレクト。
+	// RewardCategory(6値) とは独立した「子供 shop の 3 タブ」のどれに並べるかの軸。
+	// 未選択 (auto) のときは表示側 deriveShopCategory が title/icon から推定する。
+	shopCategoryLabel: 'ショップの並び（タブ）',
+	shopCategoryHint: '子供のごほうびショップでどのタブに並べるかを選べます（未選択なら自動で振り分け）',
+	shopCategoryAuto: '自動で振り分け',
+	shopCategoryPhysical: 'もの（おもちゃ・おやつなど）',
+	shopCategoryMoney: 'おこづかい',
+	shopCategoryPrivilege: 'とくべつ（ゲーム時間・おでかけなど）',
 } as const;
 
 /**

@@ -21,6 +21,8 @@ export async function insertSpecialReward(
 		grantedAt: new Date().toISOString(),
 		shownAt: null,
 		sourcePresetId: input.sourcePresetId ?? null,
+		// #3147: ショップ陳列系統 (physical/money/privilege)
+		shopCategory: input.shopCategory ?? null,
 	};
 }
 

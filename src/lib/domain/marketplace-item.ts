@@ -7,6 +7,7 @@
 
 import { AGE_TIER_LABELS } from './labels.js';
 import { CONCEPT_ICONS } from './terms.js';
+import type { ShopCategory } from './shop-category.js';
 import type { CategoryCode, GradeLevel } from './validation/activity.js';
 import type { UiMode } from './validation/age-tier-types.js';
 import type { RewardCategory } from './validation/special-reward.js';
@@ -102,6 +103,9 @@ export interface RewardSetPayload {
 		icon: string;
 		category: RewardCategory;
 		description?: string;
+		// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は取込側で推定 fallback。
+		// RewardCategory(6値) とは直交する軸 (登録カテゴリとショップ陳列の分離)。
+		shopCategory?: ShopCategory;
 	}[];
 }
 

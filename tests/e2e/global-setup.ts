@@ -233,6 +233,14 @@ export default async function globalSetup() {
 				}
 			}
 
+			// #3147: special_rewards.shop_category カラム追加（nullable、NULL は表示側で推定 fallback）
+			try {
+				db.exec('ALTER TABLE special_rewards ADD COLUMN shop_category TEXT');
+				console.log('[E2E Setup]   Added special_rewards.shop_category column (#3147).');
+			} catch {
+				// カラムが既に存在する場合は無視
+			}
+
 			// #1335: reward_redemption_requests テーブル追加
 			try {
 				db.exec(`CREATE TABLE IF NOT EXISTS reward_redemption_requests (

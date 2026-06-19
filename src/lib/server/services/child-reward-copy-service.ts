@@ -97,6 +97,8 @@ export async function copyChildRewardsToSiblings(
 						category: r.category,
 						// source の sourcePresetId はリネージとして引き継ぐ (取込重複検知互換)
 						sourcePresetId: r.sourcePresetId,
+						// #3147: ショップ陳列系統も兄弟間で引き継ぐ (null は表示側 fallback)
+						shopCategory: r.shopCategory ?? null,
 					},
 					tenantId,
 				);
