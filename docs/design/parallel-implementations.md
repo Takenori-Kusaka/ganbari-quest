@@ -379,6 +379,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - 新しい reward-set を追加 → import-service テスト + E2E で itemId を網羅
 - 重複検知ロジック (`sameSourceTitles`) 変更 → unit テスト 3 件 (「同一 preset 同一 title」/「別 preset 同名」/「sourcePresetId=null 手動 reward」) で誤検知ガード
 - reward の即時付与（grant）と一括取込（import）の区別: 一括取込は **point 加算しない**（"候補登録"）。grant は `insertPointEntry` を呼ぶ
+- **backup/restore (#3079) の重複検知は preset lineage scope** (`source_preset_id='backup-restore:reward-set'` sentinel)。`source_preset_id=NULL` の手動作成 / seed 済 reward は初回 restore で「重複なし」と判定され**複製 INSERT される** (再 restore のみ idempotent)。E2E で restore を実行する spec は afterEach で sentinel 由来コピーを除去し共有 worker DB を seed 状態へ戻す (#3163、`admin-backup-restore.spec.ts`)。**reward 陳列 (child shop) × seed × backup/restore は worker DB を共有するため、行重複 = カード重複に直結する**（child shop は DB 行と 1:1 描画）
 
 #### 7e. marketplace challenge-set 一括追加 (#2297, EPIC #2294 ③ — #2896 で marketplace 陳列廃止)
 
