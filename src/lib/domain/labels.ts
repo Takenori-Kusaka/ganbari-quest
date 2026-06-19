@@ -4235,7 +4235,8 @@ export const ADMIN_REWARDS_PAGE_LABELS = {
 	// RewardCategory(6値) とは独立した「子供 shop の 3 タブ」のどれに並べるかの軸。
 	// 未選択 (auto) のときは表示側 deriveShopCategory が title/icon から推定する。
 	shopCategoryLabel: 'ショップの並び（タブ）',
-	shopCategoryHint: '子供のごほうびショップでどのタブに並べるかを選べます（未選択なら自動で振り分け）',
+	shopCategoryHint:
+		'子供のごほうびショップでどのタブに並べるかを選べます（未選択なら自動で振り分け）',
 	shopCategoryAuto: '自動で振り分け',
 	shopCategoryPhysical: 'もの（おもちゃ・おやつなど）',
 	shopCategoryMoney: 'おこづかい',

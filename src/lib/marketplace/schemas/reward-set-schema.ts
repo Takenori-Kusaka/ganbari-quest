@@ -34,10 +34,7 @@ export const RewardSetItemSchema = v.object({
 	// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は取込側で推定 fallback。
 	// RewardCategory(6値) とは直交する軸 (登録カテゴリとショップ陳列の分離)。
 	shopCategory: v.optional(
-		v.picklist(
-			SHOP_CATEGORIES,
-			'shopCategory は SHOP_CATEGORIES のいずれかで指定してください',
-		),
+		v.picklist(SHOP_CATEGORIES, 'shopCategory は SHOP_CATEGORIES のいずれかで指定してください'),
 	),
 });
 
