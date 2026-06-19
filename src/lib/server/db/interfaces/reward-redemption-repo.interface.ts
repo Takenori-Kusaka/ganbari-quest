@@ -38,6 +38,16 @@ export interface IRewardRedemptionRepo {
 	): Promise<RedemptionRequestWithDetails[]>;
 
 	/**
+	 * #3144: テナント内の交換申請の正確な件数を返す (COUNT、limit なし)。
+	 * findRedemptionRequestsByTenant は admin 一覧表示用に limit(50) を持つため件数算出に
+	 * 流用すると 50 で飽和する。本メソッドは limit を掛けず正確な件数を返す。
+	 */
+	countRedemptionRequestsByTenant(
+		tenantId: string,
+		opts?: { status?: string; childId?: number },
+	): Promise<number>;
+
+	/**
 	 * #2845 課題①: full composite-key addressing。childId + id の複合キーで対象を直接
 	 * 特定し、repo 入口で child 所有権を構造的に検証する。不一致なら undefined。
 	 */

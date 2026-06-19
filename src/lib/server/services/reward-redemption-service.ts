@@ -3,6 +3,7 @@
 
 import { findChildById, getBalance, insertPointEntry } from '$lib/server/db/point-repo';
 import {
+	countRedemptionRequestsByTenant,
 	expireOldRedemptions as expireOldRedemptionsRepo,
 	findPendingByChildAndReward,
 	findRedemptionRequestsByChild,
@@ -136,12 +137,13 @@ export async function getRedemptionRequestsForParent(
 /**
  * #3144: テナント内の「親の承認待ち」ごほうび交換申請の件数を返す。
  * admin ホームの承認待ちバナー（発見性導線）で使う。
+ * countRedemptionRequestsByTenant は limit を掛けず COUNT するため 50 件以上でも飽和しない
+ * (findRedemptionRequestsByTenant の limit(50) 流用だと 51+ 件で過少カウントになる)。
  */
 export async function countPendingRedemptionsForParent(tenantId: string): Promise<number> {
-	const rows = await findRedemptionRequestsByTenant(tenantId, {
+	return countRedemptionRequestsByTenant(tenantId, {
 		status: 'pending_parent_approval',
 	});
-	return rows.length;
 }
 
 // ============================================================

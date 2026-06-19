@@ -232,6 +232,23 @@ describe('countPendingRedemptionsForParent (#3144)', () => {
 		await approveRedemption(reqResult.id, 1, TENANT_ID);
 		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
 	});
+
+	it('承認待ちが 50 件を超えても正確な件数を返す (limit(50) 飽和なし)', async () => {
+		const { childId, rewardId } = seedBaseData();
+		// 申請動線 (requestRedemption) は同一報酬の重複 pending を弾く + 残高検証があるため、
+		// 件数飽和の回帰検証は pending 行を直接 60 件投入して COUNT 経路のみを検証する。
+		const now = Math.floor(Date.now() / 1000);
+		const insert = sqlite.prepare(
+			`INSERT INTO reward_redemption_requests (child_id, reward_id, requested_at, status)
+			 VALUES (?, ?, ?, 'pending_parent_approval')`,
+		);
+		for (let i = 0; i < 60; i++) {
+			insert.run(childId, rewardId, now + i);
+		}
+
+		// limit(50) を流用していた旧実装ではここが 50 で飽和し過少カウントになる。
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(60);
+	});
 });
 
 describe('getUnshownRedemptionResult / markRedemptionShown', () => {
