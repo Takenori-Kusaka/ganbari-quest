@@ -284,7 +284,31 @@ describe('importRewardSet', () => {
 				icon: '🏞️',
 				category: 'sports',
 				sourcePresetId: PRESET_ID,
+				// #3147: preset に shopCategory が無ければ null で round-trip (表示側 fallback)
+				shopCategory: null,
 			},
+			TENANT,
+		);
+	});
+
+	it('#3147: preset の shopCategory を insertSpecialReward に round-trip する', async () => {
+		const rewards = [
+			makeReward({
+				title: 'ゲーム30ぷん',
+				points: 50,
+				icon: '🎮',
+				category: 'other',
+				shopCategory: 'privilege',
+			}),
+		];
+
+		await importRewardSet(rewards, TENANT, {
+			presetId: PRESET_ID,
+			childId: CHILD_ID,
+		});
+
+		expect(mockInsertSpecialReward).toHaveBeenCalledWith(
+			expect.objectContaining({ shopCategory: 'privilege' }),
 			TENANT,
 		);
 	});
