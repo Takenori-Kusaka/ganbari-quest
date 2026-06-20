@@ -237,3 +237,67 @@ export const ALL_ADMIN_RESOURCE_PAGES = [
 	'challenges',
 	'rules',
 ] as const;
+
+/**
+ * #3164: `ALL_ADMIN_RESOURCE_PAGES` (手管理 literal) の網羅性を **実 route FS から導出**するための
+ * 分類 SSOT。#3134 の no-silent-gap guard は 3 定数の整合は assert するが、母数自体が手管理 literal の
+ * ため「真に新規の admin 画面を literal 未更新で追加すると silent pass」する blind spot があった
+ * (#3134 root の部分達成、#3152 fitness function 機械強制の最初の具体適用先)。
+ *
+ * `tests/unit/features/admin-resource-model-registry.test.ts` が `src/routes/(parent)/admin/` 直下の
+ * `+page.*` を持つ全 route dir を FS 走査し、各 dir が **resource page (key へ map) か non-resource page
+ * (明示除外) のいずれか**で必ず説明されることを assert する。未分類の dir (= 新規 admin 画面の登録漏れ)
+ * があれば fail する = 母数が SSOT (実 route FS) から導出される。
+ */
+
+/**
+ * admin 直下の route dir 名 → §10 正準契約の resource key への map。
+ * resource-list 管理画面 (AdminResourceHeader / child-tabs を持つ §10 対象) のみを列挙する。
+ * value は `ADMIN_RESOURCE_MODEL_REGISTRY` (正準) か `NON_CANONICAL_ADMIN_RESOURCES` (明示除外) の key。
+ *
+ * 注: `rules` (とくべつルール) は `/admin/settings/rules` の **settings サブページ**で admin 直下 dir では
+ * ないため本 map には現れない (NON_CANONICAL_ADMIN_RESOURCES には引き続き存在)。
+ */
+export const ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY = {
+	activities: 'activity',
+	rewards: 'reward',
+	checklists: 'checklist',
+	challenges: 'challenges',
+} as const;
+
+/**
+ * admin 直下の route dir のうち、§10「admin リソース管理画面」(resource-list) **ではない** page。
+ * FS 走査の母数を全 admin page で説明するための明示除外 (silent gap を作らない)。新規に admin 直下 page を
+ * 追加したら、resource-list なら `ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY` + registry/除外へ、そうでなければ
+ * 本リストへ reason 付きで登録する (どちらにも無いと FS 走査 test が fail する)。
+ */
+export const NON_RESOURCE_ADMIN_PAGE_ROUTES = {
+	billing: { reason: '課金・プラン管理画面 (resource-list ではない)' },
+	certificates: { reason: '表彰状の発行・閲覧画面 (resource-list ではない)' },
+	cheer: { reason: 'おうえんメッセージ送信画面 (resource-list ではない)' },
+	children: { reason: 'お子さま登録・編集画面 (resource-list ではない)' },
+	'growth-book': { reason: '成長記録 (グロースブック) 閲覧画面 (resource-list ではない)' },
+	members: { reason: '家族メンバー管理画面 (resource-list ではない)' },
+	packs: { reason: 'バックアップ/エクスポート (パック) 画面 (resource-list ではない)' },
+	points: { reason: 'ポイント調整・履歴画面 (resource-list ではない)' },
+	reports: { reason: 'レポート閲覧画面 (resource-list ではない)' },
+	settings: {
+		reason: '設定 (サブページ集約)。配下の rules は NON_CANONICAL_ADMIN_RESOURCES で別途説明',
+	},
+	status: { reason: 'ステータス閲覧画面 (resource-list ではない)' },
+	subscription: { reason: 'サブスクリプション管理画面 (resource-list ではない)' },
+} as const;
+
+/**
+ * admin 直下の route dir 1 件を分類する純関数 (#3164)。FS 走査 test が各 dir に対して呼ぶ。
+ * - `'resource'` — §10 resource-list 管理画面 (`ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY` に存在)
+ * - `'non-resource'` — resource-list ではない admin page (`NON_RESOURCE_ADMIN_PAGE_ROUTES` に存在)
+ * - `'unclassified'` — どちらにも無い = 新規画面の登録漏れ (guard が fail させる対象)
+ */
+export function classifyAdminPageRoute(
+	routeDir: string,
+): 'resource' | 'non-resource' | 'unclassified' {
+	if (routeDir in ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY) return 'resource';
+	if (routeDir in NON_RESOURCE_ADMIN_PAGE_ROUTES) return 'non-resource';
+	return 'unclassified';
+}
