@@ -52,6 +52,8 @@ export default async (page, capture) => {
 	// --- 3) BLOCKED（permission=denied → 「ブロック中」badge + 案内文、ボタンなし）---
 	await page.addInitScript(stubScript('denied', false));
 	await page.reload();
-	await page.getByTestId('notification-blocked-note').waitFor({ state: 'visible', timeout: 12_000 });
+	await page
+		.getByTestId('notification-blocked-note')
+		.waitFor({ state: 'visible', timeout: 12_000 });
 	await capture('issue-3186-notification-blocked');
 };
