@@ -172,6 +172,27 @@ gh pr checks <num>
 - `skipping` 無視可
 - red → CI Fix Agent spawn（後述）
 
+##### 重量 e2e 敏感領域の追加判定（#3172、軽量レーン緑だけで approve しない領域）
+
+軽量レーン（→ develop）の e2e は skip で正常だが、**重量 e2e でしか守れない不変条件に触れる PR を「軽量レーン緑」だけで approve すると、統合監査（release → main）で初めて落ちる回帰を素通しする**。3 サイクル連続の統合 blocker（[#3104](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3104) → [#3132](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3132) → [#3163](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3163)）はすべてこの class。これを feature → develop の **最早 human gate** で捕捉する。
+
+**判定**: PR diff が以下の領域（SSOT: [`parallel-implementations.md` §「🔥 重量 e2e 敏感領域 SSOT」](../design/parallel-implementations.md)）に触れるか確認する:
+
+- export / import schema・marketplace schema（`*-schema.ts`）
+- reward 陳列・shop_category / child shop（`shop/+page.server.ts` 等）
+- domain validation 値域（`domain/validation/*.ts`）
+- parent-gate（`/switch` modal + `/admin/*` middleware）
+- DB スキーマ（schema.ts / create-tables.ts / repo / seed）
+
+**該当する場合は、軽量レーン緑に加えて以下のいずれかを approve 条件とする**（属人的記憶に頼らず SSOT 表で判定）:
+
+1. **作者による該当重量 e2e spec のローカル実行証跡**（PR body / コメントに `npx playwright test tests/e2e/<該当 spec>.spec.ts` の PASS ログ）
+2. **`parallel-implementations.md` 該当ペア更新の確認**（ペア全箇所 + e2e seed 同期を触ったことの明記）
+
+証跡が無い場合は手順 5 で BLOCK し、(1) または (2) を依頼する（全 PR への重量 e2e 必須化はしない — ADR-0007 軽量レーンの趣旨。本判定は敏感領域に限定）。
+
+> **二段構え**: 機械強制側は EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152)（shift-left / fitness function）/ [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151)（schema-SSOT）が担い、本手順は人手判断側。Dev 着手時の事前予防は [dev-session.md](dev-session.md) 新規実装時（#3173）。
+
 **順序の理由**: CI 確認を先にやると「CI 緑 = approve」proxy 退行が再発（#1197 / #1198）。必ず手順 1-3 完了後に実行。
 
 ### 手順 5: 承認/マージ判断

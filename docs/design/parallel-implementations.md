@@ -559,6 +559,39 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+## 🔥 重量 e2e 敏感領域 SSOT（軽量レーンをすり抜ける不変条件、#3172 / #3173）
+
+> **このリストは「軽量レーン緑 = 安全」と誤認してはいけない領域の SSOT**。
+> develop 軽量レーン（lint-and-test / unit / schema gate）は重量 e2e（Playwright）を発火させないため、
+> ここに挙げた領域の不変条件は **軽量レーンをすり抜けて統合監査（release → main）で初めて落ちる**。
+> 3 サイクル連続の統合 blocker（[#3104](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3104) 日本語名 export →
+> [#3132](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3132) rewards points 値域 →
+> [#3163](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3163) child shop 重複カード）は
+> すべて「重量 e2e でしか守れない不変条件が軽量レーンをすり抜ける」同一 root class。
+
+### 対象領域と守るべき不変条件・該当重量 e2e
+
+| 敏感領域 | 守るべき不変条件 | 並行実装ペア | 該当重量 e2e spec |
+|---------|----------------|------------|------------------|
+| **export / import schema・marketplace schema** | domain validation 値域 ⊆ wire(export) schema 値域。round-trip（export → restore）が ValiError なく貫通。restore が共有 worker DB を汚染しない（sentinel 削除を afterEach） | `*-schema.ts`（valibot wire）↔ `domain/validation/*.ts`（domain 値域）↔ e2e seed（`global-setup.ts`） | `admin-backup-restore.spec.ts` / `marketplace-round-trip-required.spec.ts` |
+| **reward 陳列・shop_category / child shop** | 1 ごほうび = 1 カード（陳列クエリが重複行を返さない / null fallback が二重カウントしない / 共有 worker DB を後続 spec が汚染しない） | shop load（`shop/+page.server.ts`）↔ child shop UI ↔ e2e seed（`global-setup.ts` shop_e2e）↔ `test-db.ts` | `child-shop-exchange.spec.ts` / `child-shop-tabs-filter.spec.ts` |
+| **domain validation 値域** | SQL 直挿入 seed 値も含め domain 値域 ⊆ export schema 値域（直接 SQL は validation を迂回するため out-of-domain 値が混入しうる） | `domain/validation/*.ts` ↔ `*-schema.ts` ↔ e2e seed（`global-setup.ts`） | `admin-backup-restore.spec.ts` |
+| **parent-gate（/switch modal + /admin middleware）** | inactivity redirect / session 署名 / onboarding 整合 | §6.5 親 PIN gate の 4 ファイル群 | `parent-gate-*.spec.ts` / `switch-*.spec.ts` |
+| **DB スキーマ変更** | 4 並行実装（schema.ts / create-tables.ts / sqlite repo / dynamodb repo）+ e2e seed + test-db + demo-data 同期 | §7 シードデータ vs マイグレーション | 全 admin / child CUJ spec |
+
+### 着手・レビュー時の必須アクション（人手 gate、機械側は EPIC #3152）
+
+上表の領域に触れる変更は、**軽量レーン緑だけで完了/approve とせず**、以下のいずれかの証跡を残す:
+
+1. **作者による該当重量 e2e のローカル実行証跡** — `npx playwright test tests/e2e/<該当 spec>.spec.ts`（PASS ログ）
+2. **本表の並行実装ペア更新の確認** — ペア全箇所を触ったことを PR body / コメントに明記
+3. **e2e seed / test-db を変更に同期** — schema / 値域 / 陳列を変えたら `global-setup.ts` + `test-db.ts` を追従
+4. **domain 値域 ⊆ wire(export) schema 値域の整合確認** — 直接 SQL seed 値も schema 上限内に収める
+
+> **二段三重構え**: 機械強制 = EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152)（shift-left / fitness function）+ [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151)（schema-SSOT）/ QA 人手 gate = [qa-session.md](../sessions/qa-session.md) 手順 4（#3172）/ Dev 着手時セルフチェック = [dev-session.md](../sessions/dev-session.md) 新規実装時（#3173）。人手 gate 単独に頼らせない。
+
+---
+
 ## 修正時チェックリスト
 
 **すべての修正前に、以下のどれに該当するか確認し、対応するペアを触ること**:
@@ -569,6 +602,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期
 - [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
+- [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
 - [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
 - [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを `node scripts/check-lp-ssot.mjs` で確認
