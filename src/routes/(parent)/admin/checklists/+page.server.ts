@@ -602,7 +602,8 @@ export const actions: Actions = {
 			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
 		}
 
-		// per-child quota: free プランは target child のテンプレ上限を超えないか事前確認
+		// per-child quota: free プランは target child のテンプレ上限を超えないか確認。
+		// limit.max === null は無制限 (standard 以上)。limit.allowed が false (= 既に上限到達) なら 1 件も追加できない。
 		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
 		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
 		if (!limit.allowed) {
@@ -623,11 +624,31 @@ export const actions: Actions = {
 			if (sourceTemplateIds.length === 0) {
 				return { copiedFromChild: true, added: 0 };
 			}
-			// 各 source template を target child に配信 (既配信は distributeToChildren が skip)。
+			// #3098 QM BLOCK 対応: per-iteration の quota enforcement。
+			// 旧実装は「ループ前に 1 回 limit.allowed を見るだけ」で、5 件の source を copy すると
+			// free プラン target の per-child 上限 (maxChecklistTemplates) を超過 (over-grant) していた。
+			// limit.max === null (無制限プラン) → 全件 copy。
+			// 有限プラン → 残スロット (max - current) 件まで copy し、超過分は skip して partial-success を返す。
+			// distributeToChildren は既配信を skip し「実際に追加した childId」を返すため、
+			// inserted.length (= 0 or 1) を残スロットから消費する。
 			let added = 0;
+			let limitReached = false;
 			for (const templateId of sourceTemplateIds) {
+				if (limit.max !== null && added >= limit.max - limit.current) {
+					// 残スロットを使い切った。残りの source は target 上限超過になるため copy しない。
+					limitReached = true;
+					break;
+				}
 				const inserted = await distributeToChildren(templateId, [targetChildId], tenantId);
 				added += inserted.length;
+			}
+			if (limitReached) {
+				return {
+					copiedFromChild: true,
+					added,
+					limitReached: true,
+					message: `${added} 件取り込みました。フリープランの上限に達したため残りは取り込めませんでした。スタンダード以上で無制限。`,
+				};
 			}
 			return { copiedFromChild: true, added };
 		} catch (e) {

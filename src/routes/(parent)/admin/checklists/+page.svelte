@@ -273,17 +273,25 @@ async function handleCopyFromChild() {
 			body: formData,
 		});
 		const actionResult = deserialize(await resp.text()) as
-			| { type: 'success'; data?: { added?: number } }
+			| { type: 'success'; data?: { added?: number; limitReached?: boolean; message?: string } }
 			| { type: 'failure'; data?: { error?: string } }
 			| { type: 'redirect'; location: string }
 			| { type: 'error'; error: unknown };
 		if (actionResult.type === 'success') {
 			const added = Number(actionResult.data?.added ?? 0);
-			actionMessage =
-				added === 0
-					? ADMIN_CHECKLISTS_PAGE_LABELS.copyNoChange
-					: ADMIN_CHECKLISTS_PAGE_LABELS.copySuccess(added);
-			showToast(actionMessage, undefined, added === 0 ? 'info' : 'success');
+			// #3098 QM BLOCK 対応: free プラン上限で source の一部を取り込めなかった場合
+			// (limitReached) は server の partial-success message を出し、silent な over-grant /
+			// silent な drop を避ける (warning トーンで「上限に達した」を可視化)。
+			if (actionResult.data?.limitReached && actionResult.data?.message) {
+				actionMessage = actionResult.data.message;
+				showToast(actionMessage, undefined, 'info');
+			} else {
+				actionMessage =
+					added === 0
+						? ADMIN_CHECKLISTS_PAGE_LABELS.copyNoChange
+						: ADMIN_CHECKLISTS_PAGE_LABELS.copySuccess(added);
+				showToast(actionMessage, undefined, added === 0 ? 'info' : 'success');
+			}
 			showCopyFromChildDialog = false;
 			copySourceChildId = null;
 			await invalidateAll();
