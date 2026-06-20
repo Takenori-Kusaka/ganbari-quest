@@ -10,7 +10,7 @@
 // 現状 (develop) は本ルールを 0 違反で満たすため hard guard として固定する。
 // 以降どの route が drizzle-orm / schema / client / backend-specific repo を直 import すれば CI が即落ちる。
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
