@@ -3,6 +3,7 @@ import { dev } from '$app/environment';
 import { getAuthMode, requireTenantId } from '$lib/server/auth/factory';
 import { COOKIE_SECURE } from '$lib/server/cookie-config';
 import { isPinConfigured } from '$lib/server/services/auth-service';
+import { resetChildData } from '$lib/server/services/child-data-reset-service';
 import { getAllChildren, getChildById } from '$lib/server/services/child-service';
 import {
 	getOnboardingProgress,
@@ -109,7 +110,7 @@ export const actions: Actions = {
 	},
 
 	resetChild: async ({ request, locals }) => {
-		const _tenantId = requireTenantId(locals);
+		const tenantId = requireTenantId(locals);
 		if (!dev) {
 			return { error: 'Not available in production' };
 		}
@@ -121,22 +122,12 @@ export const actions: Actions = {
 			return { error: 'Invalid childId' };
 		}
 
-		// Dynamic import to avoid bundling debug code in production
-		const { db } = await import('$lib/server/db/client');
-		const { activityLogs, pointLedger, loginBonuses, childAchievements } = await import(
-			'$lib/server/db/schema'
-		);
-		const { eq } = await import('drizzle-orm');
-
-		// Clear activity logs
-		db.delete(activityLogs).where(eq(activityLogs.childId, childId)).run();
-		// Clear point ledger
-		db.delete(pointLedger).where(eq(pointLedger.childId, childId)).run();
-		// Clear login bonuses
-		db.delete(loginBonuses).where(eq(loginBonuses.childId, childId)).run();
-		// Clear achievements
-		db.delete(childAchievements).where(eq(childAchievements.childId, childId)).run();
-
-		return { reset: true, childId };
+		// route↔DB 境界 (CLAUDE.md / ADR-0061): raw ORM 削除は service 層へ移譲。
+		// tenant scoping は resetChildData が getChildById で検証する。
+		const result = await resetChildData(childId, tenantId);
+		if (!result.reset) {
+			return { error: 'Invalid childId' };
+		}
+		return result;
 	},
 };
