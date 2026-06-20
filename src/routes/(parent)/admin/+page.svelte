@@ -78,7 +78,7 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 	.redemption-pending-banner:hover {
 		background: var(--color-feedback-warning-bg-strong);
 	}
-	/* #3148: 件数取得失敗の導線 (warning でなく error 系 semantic token で区別) */
+	/* #3148: error variant for count-load failure (error semantic tokens, not warning) */
 	.redemption-pending-banner--error {
 		border-color: var(--color-feedback-error-border);
 		background: var(--color-surface-error);
