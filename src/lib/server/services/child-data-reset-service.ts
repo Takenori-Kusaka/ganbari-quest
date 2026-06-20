@@ -6,16 +6,17 @@
 // `db.delete(...).where(eq(...))` を **route から raw ORM 直呼び** していた
 // (dynamic import 経由のため route↔DB 境界 fitness function をすり抜けていた)。
 // CLAUDE.md / ADR-0061 の「routes は ORM を直接使用しない (services / db facade 経由)」
-// に整合させるため、raw ORM 操作を本サービス層へ移譲した。
+// に整合させるため、route → 本サービス → db facade (child-repo.resetChildProgressData)
+// へ移譲した。raw ORM 操作は repo 層 (db/sqlite, db/dynamodb) に置き、本サービスは
+// tenant 検証 + facade 呼び出しのみを担う (services 層は ORM を直接参照しない、
+// no-direct-db-access fitness function)。
 //
 // tenant scoping: 削除対象 4 テーブルは child_id のみで scope され tenant_id カラムを
 // 持たないため、**削除前に getChildById(childId, tenantId) で該当 child が呼び出し元
 // tenant に属することを検証** し、cross-tenant の childId に対する削除を防ぐ
 // (route 側の requireTenantId による auth gate + 本検証の二段で tenant 境界を担保)。
 
-import { eq } from 'drizzle-orm';
-import { db } from '$lib/server/db/client';
-import { activityLogs, childAchievements, loginBonuses, pointLedger } from '$lib/server/db/schema';
+import { resetChildProgressData } from '$lib/server/db/child-repo';
 import { getChildById } from './child-service';
 
 export interface ResetChildDataResult {
@@ -44,10 +45,10 @@ export async function resetChildData(
 		return { reset: false, childId };
 	}
 
-	db.delete(activityLogs).where(eq(activityLogs.childId, childId)).run();
-	db.delete(pointLedger).where(eq(pointLedger.childId, childId)).run();
-	db.delete(loginBonuses).where(eq(loginBonuses.childId, childId)).run();
-	db.delete(childAchievements).where(eq(childAchievements.childId, childId)).run();
+	// 進捗系 4 テーブルの削除は db facade (child-repo) 経由で行う。
+	// raw ORM (db.delete(...).where(eq(...))) は repo / facade 層の責務であり、
+	// services 層は ORM を直接参照しない (no-direct-db-access fitness function / ADR-0061)。
+	await resetChildProgressData(childId, tenantId);
 
 	return { reset: true, childId };
 }

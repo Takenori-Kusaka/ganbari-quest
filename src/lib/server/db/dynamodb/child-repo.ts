@@ -14,8 +14,17 @@ import { writeBackDynamoDB } from '../migration/writeback';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
-import { childKey, childPK, ENTITY_NAMES, tenantPK } from './keys';
-import { batchDeleteItems, stripKeys } from './repo-helpers';
+import {
+	activityLogPrefix,
+	childAchievementPrefix,
+	childKey,
+	childPK,
+	ENTITY_NAMES,
+	loginBonusPrefix,
+	pointLedgerPrefix,
+	tenantPK,
+} from './keys';
+import { batchDeleteItems, queryAllItems, stripKeys } from './repo-helpers';
 
 /** DynamoDB アイテムをマイグレーション（必要なら Write-Back） */
 async function hydrateChild(
@@ -240,6 +249,28 @@ export async function deleteChild(id: number, tenantId: string): Promise<void> {
 		}
 		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);
+
+	await batchDeleteItems(allKeys);
+}
+
+/** #3152: 子供 1 人分の進捗データを削除 (child profile / 関連 master は残す) */
+export async function resetChildProgressData(id: number, tenantId: string): Promise<void> {
+	const pk = childPK(id, tenantId);
+	// 進捗系 4 entity の SK prefix のみを Query → batch 削除する。
+	const prefixes = [
+		activityLogPrefix(),
+		pointLedgerPrefix(),
+		loginBonusPrefix(),
+		childAchievementPrefix(),
+	];
+
+	const allKeys: Array<{ PK: string; SK: string }> = [];
+	for (const prefix of prefixes) {
+		const items = await queryAllItems(pk, prefix, { projectionExpression: 'PK, SK' });
+		for (const item of items) {
+			allKeys.push({ PK: item.PK as string, SK: item.SK as string });
+		}
+	}
 
 	await batchDeleteItems(allKeys);
 }
