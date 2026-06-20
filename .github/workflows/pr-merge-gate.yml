@@ -43,7 +43,7 @@ jobs:
     steps:
       # A-1 lane 判定 SSOT を uses。inline 判定はしない (AC1、#2942 no-go)。
       - name: Checkout (lane SSOT + judge 関数)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             actions/pr-lane
