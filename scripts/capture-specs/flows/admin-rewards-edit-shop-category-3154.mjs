@@ -83,9 +83,7 @@ export default async (page, capture) => {
 	await openEditDialogWithRetry(page, firstEditBtn);
 
 	// 編集 dialog 下部の「ショップの並び（タブ）」セレクトが見える位置までスクロール
-	const shopSelect = page.locator(
-		'[data-testid="reward-edit-dialog"] select[name="shopCategory"]',
-	);
+	const shopSelect = page.locator('[data-testid="reward-edit-dialog"] select[name="shopCategory"]');
 	await shopSelect.waitFor({ state: 'attached', timeout: 5_000 });
 	await shopSelect.scrollIntoViewIfNeeded();
 	await page.evaluate(
