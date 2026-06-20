@@ -21,6 +21,7 @@ import {
 	childPK,
 	ENTITY_NAMES,
 	loginBonusPrefix,
+	pointBalanceKey,
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
@@ -271,6 +272,12 @@ export async function resetChildProgressData(id: number, tenantId: string): Prom
 			allKeys.push({ PK: item.PK as string, SK: item.SK as string });
 		}
 	}
+
+	// POINT# 行のみ消すと、ADD #balance で増分維持される派生集計 (SK=BALANCE) が
+	// 取り残され getBalance() が reset 前の残高を返す (SQLite は行集計のため reset 後 0)。
+	// deleteByTenantId / deletePointLedgerBeforeDate と同じく BALANCE も明示削除し
+	// reset 後の getBalance() を 0 に揃える。
+	allKeys.push(pointBalanceKey(id, tenantId));
 
 	await batchDeleteItems(allKeys);
 }
