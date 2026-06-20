@@ -14,6 +14,9 @@ const isScreenshotAll = $derived(getScreenshotModeKind() === 'all');
 const bannerCount = $derived(
 	isScreenshotAll ? Math.max(pendingRedemptionCount, 2) : pendingRedemptionCount,
 );
+// #3148: 承認待ち件数の取得が失敗したか。true なら「取得失敗」導線を出し、障害時に承認待ちを
+// silent 非表示にしない (true-0 と failure-0 を区別)。screenshot 撮影時は failure 状態を描画しない。
+const pendingCountFailed = $derived(!isScreenshotAll && data.pendingRedemptionCountFailed === true);
 
 // ADR-0048 Phase B-1 (#2097): demo Lambda (AUTH_MODE=anonymous) では
 // `(parent)/admin/+page.svelte` も isDemo=true として描画される。
@@ -30,6 +33,14 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 	<a class="redemption-pending-banner" href="/admin/rewards/requests" data-testid="redemption-pending-banner">
 		<span class="redemption-pending-banner__icon" aria-hidden="true">🎁</span>
 		<span class="redemption-pending-banner__text">{ADMIN_HOME_LABELS.pendingRedemptionBanner(bannerCount)}</span>
+		<span class="redemption-pending-banner__cta" aria-hidden="true">▶</span>
+	</a>
+{:else if pendingCountFailed}
+	<!-- #3148: 件数取得失敗時は silent 非表示にせず、承認待ち確認ページへの導線を出す
+	     (true-0 = 承認待ちなし と failure-0 = 取得障害 を区別し、親が承認待ちを見落とさない)。 -->
+	<a class="redemption-pending-banner redemption-pending-banner--error" href="/admin/rewards/requests" data-testid="redemption-pending-banner-error">
+		<span class="redemption-pending-banner__icon" aria-hidden="true">⚠️</span>
+		<span class="redemption-pending-banner__text">{ADMIN_HOME_LABELS.pendingRedemptionLoadFailed}</span>
 		<span class="redemption-pending-banner__cta" aria-hidden="true">▶</span>
 	</a>
 {/if}
@@ -66,6 +77,15 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 	}
 	.redemption-pending-banner:hover {
 		background: var(--color-feedback-warning-bg-strong);
+	}
+	/* #3148: 件数取得失敗の導線 (warning でなく error 系 semantic token で区別) */
+	.redemption-pending-banner--error {
+		border-color: var(--color-feedback-error-border);
+		background: var(--color-surface-error);
+		color: var(--color-feedback-error-text);
+	}
+	.redemption-pending-banner--error:hover {
+		background: var(--color-feedback-error-bg-strong);
 	}
 	.redemption-pending-banner__icon {
 		font-size: 1.25rem;
