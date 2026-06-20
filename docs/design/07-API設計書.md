@@ -38,7 +38,7 @@
 
 | メソッド | パス | 概要 | 認証 |
 |----------|------|------|------|
-| POST | /api/v1/parent-gate/setup | 初回 PIN 設定（`{ pin }`、4 桁。未設定時のみ。設定済は 403 `ALREADY_CONFIGURED`） | cognito（tenant 一致） |
+| POST | /api/v1/parent-gate/setup | 初回 PIN 設定（`{ pin }`、4〜6 桁。未設定時のみ。設定済は 403 `ALREADY_CONFIGURED`） | cognito（tenant 一致） |
 | POST | /api/v1/parent-gate/verify | PIN 検証 → 親 session cookie 発行（`{ pin }`。不一致 401） | cognito（tenant 一致） |
 | POST | /api/v1/parent-gate/logout | 親 session cookie クリア | cognito |
 | POST | /api/v1/parent-gate/reset-request-code | **federated 専用**（#3070）。登録メール（`locals.identity.email`）へ 6 桁 OTP を送信し、署名 httpOnly cookie（`pin_reset_otp`、stateless）に格納。enumeration 防止のため送信成否に依らず常に `{ ok: true }`。code はログに残さない。非 federated / 非 cognito は 400 `NOT_SUPPORTED` | cognito（federated、tenant 一致） |

@@ -8,12 +8,11 @@
 // 背景:
 // - `special_rewards.category` は `RewardCategory` (academic/sports/social/creative/life/other)
 //   であり、UI 上の 3 系統 (実物/お小遣い/特権) とは独立した分類軸。
-// - preset 段階では `shopCategory` を持つが、DB 保存時に落ちる (#1336 残課題)。
-// - DB schema 拡張は Pre-PMF コストが高いため (ADR-0010)、reward の title / icon /
-//   description から決定的ルールで `ShopCategory` を派生して UI フィルタに用いる。
-//
-// 将来 (PMF 後) `special_rewards.shop_category` 列を追加し migration で
-// 既存 reward を本ヒューリスティックで埋めれば、本ファイルは「型再エクスポート」のみに縮退する。
+// - `special_rewards.shop_category` 列は #3150 で追加済 (schema.ts / create-tables.ts)。
+//   preset / 取込時に `shopCategory` が永続化される。
+// - `deriveShopCategory()` は列が null の場合 (列追加前の legacy 行 / 未指定 reward) の
+//   fallback として用いる。呼び出し側は `reward.shopCategory ?? deriveShopCategory(...)` で
+//   「保存値優先・無ければ title / icon / description から決定的ルールで派生」を実現する。
 
 import type { ShopCategory } from '$lib/data/preset-rewards';
 
