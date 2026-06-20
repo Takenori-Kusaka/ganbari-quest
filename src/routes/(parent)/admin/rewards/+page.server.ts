@@ -617,7 +617,15 @@ export const actions: Actions = {
 				typeCode: 'reward-set',
 				rawPayload: loaded.payload,
 				displayName: loaded.displayName,
-				ctx: { tenantId, presetId: RESTORE_REWARD_SET_PRESET_ID, childId, dryRun: true },
+				// #3168: restore は dedupMode='content' で冪等。populated tenant の既存 reward
+				// (手動/seed = sourcePresetId 非依存) を (title+points) 照合で二重化させない。
+				ctx: {
+					tenantId,
+					presetId: RESTORE_REWARD_SET_PRESET_ID,
+					childId,
+					dryRun: true,
+					dedupMode: 'content',
+				},
 			});
 			return {
 				restorePreview: true,
@@ -666,7 +674,8 @@ export const actions: Actions = {
 				typeCode: 'reward-set',
 				rawPayload: loaded.payload,
 				displayName: loaded.displayName,
-				ctx: { tenantId, presetId: RESTORE_REWARD_SET_PRESET_ID, childId },
+				// #3168: restore (実行) も dedupMode='content' で冪等復元。
+				ctx: { tenantId, presetId: RESTORE_REWARD_SET_PRESET_ID, childId, dedupMode: 'content' },
 			});
 			return {
 				restored: true,

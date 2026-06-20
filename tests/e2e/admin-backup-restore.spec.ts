@@ -16,13 +16,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from './fixtures';
 
-// #3163: reward restore は `source_preset_id` (= 'backup-restore:reward-set' sentinel) で
-// 二重取込を検知する (reward-set-import-service.ts / admin/rewards +page.server.ts:55)。
-// seed 済 reward は source_preset_id=NULL のため、export → restore の初回は「重複なし」と判定され
-// 全件が複製コピーとして INSERT される。これが共有 worker DB を汚染し、後続 spec
-// (child-shop-exchange) が同一 reward の 2 枚目カードを検出して strict-mode violation で fail していた
-// (tests/CLAUDE.md #2851「worker DB 共有 spec は変更を afterEach/afterAll で復元」違反)。
-// restore が作る sentinel 由来コピーを各テスト後に除去し、worker DB を seed 状態へ戻す。
+// #3163/#3168: reward restore の重複検知。
+// #3163 当時: restore は `source_preset_id` (= 'backup-restore:reward-set' sentinel) scope で
+//   dedup していたため、seed 済 reward (source_preset_id=NULL) を複製 INSERT し共有 worker DB を
+//   汚染、後続 child-shop-exchange が 2 枚目カードを検出して fail していた。
+// #3168: restore を dedupMode='content' (title+points 照合、source_preset_id 非依存) で**冪等化**。
+//   identical data の restore は全件 skip され複製を作らない (本番側根治)。
+// 以降の afterEach は「冪等化前の残骸 / 将来の退行」に対する defense-in-depth として併存させる。
 const RESTORE_REWARD_SET_PRESET_ID = 'backup-restore:reward-set';
 
 async function cleanupRestoredRewardCopies(workerDbPath: string): Promise<void> {
@@ -32,6 +32,20 @@ async function cleanupRestoredRewardCopies(workerDbPath: string): Promise<void> 
 		db.prepare('DELETE FROM special_rewards WHERE source_preset_id = ?').run(
 			RESTORE_REWARD_SET_PRESET_ID,
 		);
+	} finally {
+		db.close();
+	}
+}
+
+// #3168: restore が作った sentinel 由来 reward 行数。冪等 restore (identical data) では 0 のはず。
+async function countRestoredRewardCopies(workerDbPath: string): Promise<number> {
+	const { default: Database } = await import('better-sqlite3');
+	const db = new Database(workerDbPath);
+	try {
+		const row = db
+			.prepare('SELECT COUNT(*) AS n FROM special_rewards WHERE source_preset_id = ?')
+			.get(RESTORE_REWARD_SET_PRESET_ID) as { n: number };
+		return row.n;
 	} finally {
 		db.close();
 	}
@@ -62,14 +76,15 @@ async function openMenuItem(
 }
 
 test.describe('admin/rewards backup/restore (#3079)', () => {
-	// #3163: restore が INSERT した sentinel 由来コピーを除去し worker DB を seed 状態へ復元する。
-	// confirm を押す分岐 (空 child でない = 全件重複でない) では reward 複製が残るため必須。
+	// #3163/#3168: restore が万一 sentinel 由来コピーを残した場合に worker DB を seed 状態へ戻す
+	// defense-in-depth。#3168 の冪等化 (dedupMode='content') 後は通常 no-op だが、退行検知の保険として残す。
 	test.afterEach(async ({ workerDbPath }) => {
 		await cleanupRestoredRewardCopies(workerDbPath);
 	});
 
 	test('export → restore round-trip で全件重複スキップを preview → 復元まで貫通', async ({
 		page,
+		workerDbPath,
 	}) => {
 		await page.goto('/admin/rewards');
 		await expect(page.getByTestId('admin-rewards-child-tabs')).toBeVisible();
@@ -105,6 +120,11 @@ test.describe('admin/rewards backup/restore (#3079)', () => {
 			await confirm.click();
 			await expect(dialog).toBeHidden();
 		}
+
+		// #3168: restore 冪等性の data-level pin。export → 同一データ restore は content dedup で
+		// 全件 skip され、sentinel 由来の複製行を 1 件も作らない (= 既存 reward を二重化しない)。
+		// 冪等化前 (#3163) はここが複製件数だけ非 0 になり worker DB を汚染していた。
+		expect(await countRestoredRewardCopies(workerDbPath)).toBe(0);
 
 		await fs.unlink(exportPath).catch(() => {});
 	});
