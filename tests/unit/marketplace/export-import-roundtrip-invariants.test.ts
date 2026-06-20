@@ -16,6 +16,7 @@
 
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
+import { createActivitySchema } from '$lib/domain/validation/activity';
 import { ActivityPackItemSchema } from '$lib/marketplace/schemas/activity-pack-schema';
 import { ChallengeSetItemSchema } from '$lib/marketplace/schemas/challenge-set-schema';
 import { ChecklistItemSchema } from '$lib/marketplace/schemas/checklist-schema';
@@ -75,9 +76,28 @@ describe('#3143 export/import round-trip 不変条件 (4 type)', () => {
 			expect(ok(ActivityPackItemSchema, activityItem({ basePoints: 10000 }))).toBe(true);
 			expect(ok(ActivityPackItemSchema, activityItem({ basePoints: 10001 }))).toBe(false);
 		});
-		it('activity-pack の domain 上限 (basePoints 100) は export schema を必ず通る (domain ⊆ schema)', () => {
-			// domain validation (activity.ts: basePoints.max(100)) が許容する最大値が export schema を通る。
+		it('activity domain ⊆ export schema: 実 domain validator を oracle に値域整合を cross-assert (#3153)', () => {
+			// #3153: 旧 test は basePoints=100 を hardcode し domain validator を import していなかったため、
+			// domain max が export schema max を超えて drift しても緑のままだった (#3132 class を catch できない)。
+			// 実 domain validator (createActivitySchema) を独立 oracle として import し、
+			// 「domain が受理する値は export schema も受理」「export schema の上限超過値は domain も拒否」を assert する。
+			const domainActivity = (basePoints: number) => ({
+				name: 'からだをうごかす',
+				categoryId: 1,
+				icon: '🏃',
+				basePoints,
+				ageMin: null,
+				ageMax: null,
+			});
+			// domain validator の境界を実 validator で確認 (hardcode でなく validator が boundary を決める)。
+			expect(createActivitySchema.safeParse(domainActivity(100)).success).toBe(true);
+			expect(createActivitySchema.safeParse(domainActivity(101)).success).toBe(false);
+			// domain が受理する最大値 (100) は export schema を必ず通る (domain ⊆ schema)。
 			expect(ok(ActivityPackItemSchema, activityItem({ basePoints: 100 }))).toBe(true);
+			// 値域整合の drift guard: export schema 上限超過 (10001) を domain validator も拒否する。
+			// domain max が export schema max (10000) を超えて drift すると domain が 10001 を受理 → 本 assert が落ち、
+			// #3132 と同 class (domain 値域 ⊄ export schema 値域) の再混入を CI で検出する。
+			expect(createActivitySchema.safeParse(domainActivity(10001)).success).toBe(false);
 		});
 		it('checklist order は 0 以上整数 (負値拒否)', () => {
 			expect(ok(ChecklistItemSchema, checklistItem({ order: 0 }))).toBe(true);
@@ -109,13 +129,16 @@ describe('#3143 export/import round-trip 不変条件 (4 type)', () => {
 			['reward-set', RewardSetItemSchema, () => rewardItem({ title: 'おかし🍪パーティー' })],
 		];
 		for (const [name, schema, make] of cases) {
-			it(`${name}: 非 ASCII (日本語/絵文字) item が valid + JSON.stringify→parse で同値`, () => {
+			it(`${name}: 非 ASCII (日本語/絵文字) item が JSON シリアライズ往復後も schema を通る`, () => {
 				const item = make();
 				expect(ok(schema, item)).toBe(true);
-				// JSON シリアライズ往復で非 ASCII が壊れない (export = JSON body の round-trip 整合)
-				const roundTripped = JSON.parse(JSON.stringify(item));
-				expect(roundTripped).toEqual(item);
-				expect(ok(schema, roundTripped)).toBe(true);
+				// #3153: 旧 test の `JSON.parse(JSON.stringify(item)).toEqual(item)` は plain object で常に成立する
+				// dead assertion だったため除去。export body は JSON 文字列として送受信されるため、JSON 往復後の
+				// 「文字列値」を再 parse して schema を通ること (= 非 ASCII が JSON serialize で壊れない) を有効検証する。
+				const serialized = JSON.stringify(item);
+				// 非 ASCII が JSON 文字列にエスケープ落ちせず保持される (mojibake/欠落の検出)。
+				expect(serialized).toContain(String((item as Record<string, unknown>).icon ?? ''));
+				expect(ok(schema, JSON.parse(serialized))).toBe(true);
 			});
 		}
 	});
