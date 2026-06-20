@@ -32,6 +32,22 @@
 | GET | /auth/callback | Cognito OAuth コールバック | 不要 |
 | POST/GET | /auth/logout | ログアウト（Cookie クリア + リダイレクト） | 不要 |
 
+### 親ゲート（PIN）認証（#2310 / #3070）
+
+保護者専用画面（`/admin/*` / `/switch`）を子供から保護する PIN ゲート。session は `cookie-signature` 署名 httpOnly cookie（ADR-0050）。PIN reset は本人確認方式を識別タイプで分岐する: **password ユーザは再認証 password**、**federated（Google）ユーザは登録メールへの 6 桁 email-OTP**（#3070、子はメールを読めないため silent SSO 通過の穴を塞ぐ）。
+
+| メソッド | パス | 概要 | 認証 |
+|----------|------|------|------|
+| POST | /api/v1/parent-gate/setup | 初回 PIN 設定（`{ pin }`、4〜6 桁。未設定時のみ。設定済は 403 `ALREADY_CONFIGURED`） | cognito（tenant 一致） |
+| POST | /api/v1/parent-gate/verify | PIN 検証 → 親 session cookie 発行（`{ pin }`。不一致 401） | cognito（tenant 一致） |
+| POST | /api/v1/parent-gate/logout | 親 session cookie クリア | cognito |
+| POST | /api/v1/parent-gate/reset-request-code | **federated 専用**（#3070）。登録メール（`locals.identity.email`）へ 6 桁 OTP を送信し、署名 httpOnly cookie（`pin_reset_otp`、stateless）に格納。enumeration 防止のため送信成否に依らず常に `{ ok: true }`。code はログに残さない。非 federated / 非 cognito は 400 `NOT_SUPPORTED` | cognito（federated、tenant 一致） |
+| POST | /api/v1/parent-gate/reset-verified | PIN reset 実行 + 本人確認（`{ newPin, password?, code? }`）。federated は `code`（OTP cookie 照合）、password ユーザは `password`（アカウント再認証）で検証 → `setupPin` で再設定 → 親 session 発行。`newPin` 不正は 400 `PIN_FORMAT` | cognito（tenant 一致） |
+
+- **email-OTP フロー（federated）**: `reset-request-code`（OTP 発行 → メール送信 + `pin_reset_otp` 署名 cookie set）→ `reset-verified`（`{ newPin, code }` で cookie 照合）。OTP 形式は `^\d{6}$`。
+- **レートリミット**: `reset-request-code` / `reset-verified` とも IP 単位 **5 回 / 15 分**（超過 429 `RATE_LIMITED`）。brute force 防止。
+- **対象外**: local / anonymous モード（local の PIN 救済は operator reset #2994）。
+
 ### 子供関連
 
 | メソッド | パス | 概要 | 認証 |
