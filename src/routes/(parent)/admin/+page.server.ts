@@ -133,14 +133,19 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	const parentData = await parent();
 	const tier = parentData.planTier;
 
-	const [children, onboarding, pendingRedemptionCount] = await Promise.all([
+	const [children, onboarding, pendingRedemption] = await Promise.all([
 		getAllChildren(tenantId),
 		getOnboardingProgress(tenantId, '/admin'),
-		// #3144: ごほうび交換の承認待ち件数 (admin ホームの発見性バナー用)。失敗時は 0。
-		countPendingRedemptionsForParent(tenantId).catch((e) => {
-			logger.warn('[admin] 承認待ち件数取得フォールバック', { context: { error: String(e) } });
-			return 0;
-		}),
+		// #3144 / #3148: ごほうび交換の承認待ち件数 (admin ホームの発見性バナー用)。
+		// #3148: 取得失敗時に { count: 0 } を返すと「true-0 (承認待ちなし)」と「failure-0 (取得障害)」が
+		// 区別できず、障害時にバナーが恒久的に非表示になって親が承認待ちに気づかない (#3144 の目的を毀損)。
+		// failed フラグを返して UI で「件数取得に失敗」状態を出せるようにする。
+		countPendingRedemptionsForParent(tenantId)
+			.then((count) => ({ count, failed: false }))
+			.catch((e) => {
+				logger.warn('[admin] 承認待ち件数取得フォールバック', { context: { error: String(e) } });
+				return { count: 0, failed: true };
+			}),
 	]);
 
 	const now = new Date();
@@ -176,7 +181,9 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 		weeklyUsage,
 		valuePreview,
 		// #3144: ごほうび交換の承認待ち件数 (admin ホームの発見性バナー)
-		pendingRedemptionCount,
+		pendingRedemptionCount: pendingRedemption.count,
+		// #3148: 件数取得が失敗したか (true なら UI で「取得失敗」状態を出し silent 非表示を避ける)
+		pendingRedemptionCountFailed: pendingRedemption.failed,
 	};
 };
 

@@ -21,6 +21,8 @@ const mockGetChildStatus = vi.fn();
 const mockGetAllChildrenSimpleSummary = vi.fn();
 const mockGetSettings = vi.fn();
 const mockSetSetting = vi.fn();
+// #3148: 承認待ち件数取得 (失敗時の banner 状態検証用)
+const mockCountPendingRedemptionsForParent = vi.fn();
 // #2295 (EPIC #2294 ①): mockFindActiveEvents / mockGetMemoryTicketStatus 削除済 (2026-05-19)
 
 vi.mock('$lib/server/auth/factory', () => ({
@@ -69,6 +71,10 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
 }));
 
+vi.mock('$lib/server/services/reward-redemption-service', () => ({
+	countPendingRedemptionsForParent: mockCountPendingRedemptionsForParent,
+}));
+
 const mod = await import('../../../src/routes/(parent)/admin/+page.server');
 const load = mod.load as unknown as (event: {
 	locals: App.Locals;
@@ -79,6 +85,8 @@ const load = mod.load as unknown as (event: {
 	monthlySummaries: unknown;
 	currentMonth: string;
 	onboarding: unknown;
+	pendingRedemptionCount: number;
+	pendingRedemptionCountFailed: boolean;
 }>;
 
 const dismissAction = mod.actions.dismissPremiumWelcome as unknown as (event: {
@@ -111,6 +119,32 @@ describe('/admin page.server — PremiumWelcome 表示制御 (#778)', () => {
 		// #2295: mockFindActiveEvents / mockGetMemoryTicketStatus 削除済
 		// デフォルトでは premium_welcome_shown は未設定（初回想定）
 		mockGetSettings.mockResolvedValue({});
+		// #3148: 承認待ち件数はデフォルト成功で 0 件
+		mockCountPendingRedemptionsForParent.mockResolvedValue(0);
+	});
+
+	// #3148: 承認待ち件数の取得失敗を silent 非表示にしない (failure-0 と true-0 の区別)
+	describe('load: pendingRedemptionCount 取得失敗の区別 (#3148)', () => {
+		it('取得成功 (3 件) → count=3 / failed=false', async () => {
+			mockCountPendingRedemptionsForParent.mockResolvedValue(3);
+			const result = await load({ locals: makeLocals(), parent: makeParent('family') });
+			expect(result.pendingRedemptionCount).toBe(3);
+			expect(result.pendingRedemptionCountFailed).toBe(false);
+		});
+
+		it('取得成功 (0 件 = 承認待ちなし) → count=0 / failed=false (true-0)', async () => {
+			mockCountPendingRedemptionsForParent.mockResolvedValue(0);
+			const result = await load({ locals: makeLocals(), parent: makeParent('family') });
+			expect(result.pendingRedemptionCount).toBe(0);
+			expect(result.pendingRedemptionCountFailed).toBe(false);
+		});
+
+		it('取得失敗 (例外) → count=0 / failed=true (failure-0 を UI が区別できる)', async () => {
+			mockCountPendingRedemptionsForParent.mockRejectedValue(new Error('Scan timeout'));
+			const result = await load({ locals: makeLocals(), parent: makeParent('family') });
+			expect(result.pendingRedemptionCount).toBe(0);
+			expect(result.pendingRedemptionCountFailed).toBe(true);
+		});
 	});
 
 	describe('load: showPremiumWelcome', () => {
