@@ -244,7 +244,7 @@ test.describe('#2832 reward 編集/削除の pending redemption ガード', () =
 		workerDbPath,
 	}) => {
 		test.slow();
-		const seeded = await seedReward(workerDbPath, 'shopcat');
+		const seeded = await seedReward(workerDbPath, 'shop');
 
 		await page.goto('/admin/rewards', { waitUntil: 'domcontentloaded' });
 		const rewardItem = page.getByTestId(`reward-item-${seeded.rewardId}`);
