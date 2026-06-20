@@ -32,6 +32,21 @@ body:
       required: true
 
   - type: textarea
+    id: root-cause
+    attributes:
+      label: 根本原因（5 Whys → root class）
+      description: |
+        個別 instance でなく root class を特定する（ADR-0003 / ADR-0061）。
+        「なぜ」を繰り返して構造的原因に到達し、同一 class の再発を防ぐ guard 方針を書く。
+      placeholder: |
+        1. なぜ X が起きたか → ...
+        2. なぜそれが起きたか → ...
+        （root class = ...）
+        再発防止: 別 instance パッチでなく <CI gate / lint / property test / fitness function> で class を lock する
+    validations:
+      required: true
+
+  - type: textarea
     id: environment
     attributes:
       label: 環境

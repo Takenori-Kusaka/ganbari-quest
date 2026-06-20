@@ -46,6 +46,18 @@ body:
       description: なぜこのタスクが必要なのか
 
   - type: textarea
+    id: root-cause
+    attributes:
+      label: 根本原因（5 Whys → root class、type:fix は必須）
+      description: |
+        type:fix（バグ修正）の場合は必須（ADR-0003 / ADR-0061）。個別 instance でなく root class を特定し、
+        同一 class の再発を防ぐ guard 方針（CI gate / lint / property test / fitness function）を書く。
+        feat/refactor/infra で該当しなければ空欄可。
+      placeholder: |
+        1. なぜ X が起きたか → ...（root class = ...）
+        再発防止: 別 instance パッチでなく <guard> で class を lock する
+
+  - type: textarea
     id: goals
     attributes:
       label: ゴール（Acceptance Criteria）
