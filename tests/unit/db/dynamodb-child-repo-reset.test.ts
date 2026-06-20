@@ -73,8 +73,8 @@ const { mockSend, store, resetStore } = vi.hoisted(() => {
 			string,
 			Array<{ DeleteRequest?: { Key: { PK: unknown; SK: unknown } } }>
 		>;
-		for (const reqs of Object.values(requestItems)) {
-			for (const req of reqs) {
+		for (const requests of Object.values(requestItems)) {
+			for (const req of requests) {
 				if (req.DeleteRequest) map.delete(keyOf(req.DeleteRequest.Key));
 			}
 		}
