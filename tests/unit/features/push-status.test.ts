@@ -3,13 +3,17 @@
 // 内部の permission↔subscription 差を正しく隠蔽してマッピングするか検証する。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getPushStatus } from '../../../src/lib/features/admin/push-subscription';
+import {
+	getPushStatus,
+	unsubscribeFromPush,
+} from '../../../src/lib/features/admin/push-subscription';
 
 const g = globalThis as unknown as {
 	window?: unknown;
 	navigator?: unknown;
 	Notification?: unknown;
 	PushManager?: unknown;
+	fetch?: unknown;
 };
 
 const orig = {
@@ -17,6 +21,7 @@ const orig = {
 	navigator: g.navigator,
 	Notification: g.Notification,
 	PushManager: g.PushManager,
+	fetch: g.fetch,
 };
 
 /** isPushSupported() = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window */
@@ -79,5 +84,58 @@ describe('#3186 getPushStatus() — 内部状態を 4 値に隠蔽', () => {
 		g.PushManager = (g.window as { PushManager: unknown }).PushManager;
 		g.Notification = { permission: 'granted' };
 		expect(await getPushStatus()).toBe('off');
+	});
+});
+
+/**
+ * #3186: unsubscribeFromPush() は subscribeToPush() と対称に server レスポンスの
+ * .ok を必ず判定する。非 2xx を握り潰すと「ブラウザは解除済みだがサーバー側
+ * subscription 行が生存 → 停止済みエンドポイントへ push 継続」の silent fail になる。
+ */
+function setupUnsubscribeSupported(opts: { fetchOk: boolean; fetchStatus?: number }) {
+	const subscription = {
+		endpoint: 'https://push.example/abc',
+		unsubscribe: vi.fn(async () => true),
+	};
+	g.window = { PushManager: function PushManager() {}, Notification: {} };
+	g.navigator = {
+		serviceWorker: {
+			ready: Promise.resolve({
+				pushManager: { getSubscription: async () => subscription },
+			}),
+		},
+	};
+	g.PushManager = (g.window as { PushManager: unknown }).PushManager;
+	g.Notification = { permission: 'granted' };
+	g.fetch = vi.fn(async () => ({
+		ok: opts.fetchOk,
+		status: opts.fetchStatus ?? (opts.fetchOk ? 200 : 500),
+	}));
+	return subscription;
+}
+
+describe('#3186 unsubscribeFromPush() — server .ok を判定 (silent fail 防止)', () => {
+	beforeEach(() => {
+		vi.stubGlobal('window', undefined);
+	});
+	afterEach(() => {
+		g.window = orig.window;
+		g.navigator = orig.navigator;
+		g.Notification = orig.Notification;
+		g.PushManager = orig.PushManager;
+		g.fetch = orig.fetch;
+		vi.unstubAllGlobals();
+	});
+
+	it('サーバーが非 2xx を返したら throw する (subscribe と対称、.ok 判定)', async () => {
+		const subscription = setupUnsubscribeSupported({ fetchOk: false, fetchStatus: 500 });
+		await expect(unsubscribeFromPush()).rejects.toThrow(/unsubscribe API failed: 500/);
+		// ブラウザ側 unsubscribe は実行された上で、サーバー失敗を呼び出し元に伝播する
+		expect(subscription.unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
+	it('サーバーが 2xx を返したら true を返す (成功経路は維持)', async () => {
+		setupUnsubscribeSupported({ fetchOk: true, fetchStatus: 200 });
+		expect(await unsubscribeFromPush()).toBe(true);
 	});
 });

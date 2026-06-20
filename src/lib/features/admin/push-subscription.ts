@@ -129,12 +129,18 @@ export async function unsubscribeFromPush(): Promise<boolean> {
 
 	await subscription.unsubscribe();
 
-	// サーバーに解除を通知
-	await fetch('/api/v1/notifications/unsubscribe', {
+	// サーバーに解除を通知 (#2115 AC6 / #3186: silent 失敗防止のため .ok を必ず判定。
+	// 非 2xx をそのまま return true で握り潰すと、ブラウザは解除済みなのに
+	// サーバー側 subscription 行が残り、停止済みエンドポイントへ push し続ける)
+	const res = await fetch('/api/v1/notifications/unsubscribe', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ endpoint: subscription.endpoint }),
 	});
+
+	if (!res.ok) {
+		throw new Error(`unsubscribe API failed: ${res.status}`);
+	}
 
 	return true;
 }

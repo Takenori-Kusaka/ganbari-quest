@@ -1532,6 +1532,7 @@ export const SETTINGS_LABELS = {
 	notificationEnableSuccess: '通知をオンにしました',
 	notificationEnableFailure: '通知をオンにできませんでした。時間をおいて再度お試しください',
 	notificationDisableSuccess: '通知をオフにしました',
+	notificationDisableFailure: '通知をオフにできませんでした。時間をおいて再度お試しください',
 	notificationReminderLabel: 'リマインダー通知（毎日の記録を促す）',
 	notificationStreakLabel: 'ストリーク警告（連続記録が途切れそうな時）',
 	notificationAchievementLabel: '達成通知（記録完了・レベルアップ時）',

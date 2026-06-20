@@ -59,12 +59,17 @@ async function enableNotifications() {
 	}
 }
 
+// 「通知をオフにする」: enableNotifications と対称。解除失敗時も silent no-op を撲滅 (#3186)。
 async function disableNotifications() {
 	busy = true;
 	try {
 		await unsubscribeFromPush();
 		status = 'off';
 		showToast(SETTINGS_LABELS.notificationDisableSuccess, undefined, 'success');
+	} catch {
+		// 解除失敗 (サーバー非 2xx 等)。現在状態を取り直して反映し失敗を必ず通知。
+		status = await getPushStatus().catch(() => 'unsupported' as PushStatus);
+		showToast(SETTINGS_LABELS.notificationDisableFailure, undefined, 'error');
 	} finally {
 		busy = false;
 	}
