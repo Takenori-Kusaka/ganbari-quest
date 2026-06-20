@@ -60,23 +60,33 @@ const selectedChild = $derived(data.children.find((c) => c.id === selectedChildI
 //   同型に追加する。template 名で絞り込む (NN/G #4 consistency)。
 let searchQuery = $state('');
 
-// #2362 PR-5 Phase 2 (ADR-0055): family scope の templates 一覧 (childId 軸ではなく family 軸)
-//   旧 per-child templates 表示は廃止し、family templates を表示する。
-//   override 操作のみ child 軸が残るため selectedChild を維持。
+// #3098 (EPIC #3096 Sub-2): UI 表示軸を child 主軸に統一 (activity / reward と同型)。
+//   一覧は「選択中 child に配信済み (assignedChildIds に selectedChildId を含む) の template だけ」を
+//   per-child view として表示する。family master template + assignments のデータモデルは不変で
+//   (template は tenant 1 レコードのまま)、assignments で表示を絞るだけ (ADR-0055 §3.1 維持)。
+//   旧「family 全 template 一覧」表示は廃止し、子供タブで「この子のチェックリスト」を見せる。
+const childTemplates = $derived(
+	data.familyTemplates.filter((t) => t.assignedChildIds.includes(selectedChildId)),
+);
 // #3097: searchQuery で template 名を絞り込む (一覧 slot の表示軸)。
 const filteredTemplates = $derived(
 	searchQuery.trim()
-		? data.familyTemplates.filter((t) =>
-				t.name.toLowerCase().includes(searchQuery.trim().toLowerCase()),
-			)
-		: data.familyTemplates,
+		? childTemplates.filter((t) => t.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+		: childTemplates,
 );
 const hasSearchActive = $derived(searchQuery.trim().length > 0);
 
-// #723: Free プランのテンプレート上限（UI ゲート用、family scope での件数）
+// #3098: 兄弟共通化の「別の子から copy」(= その子の配信 template を選択中 child にも配信)。
+//   activity の copyFromChild と同型 (assignments 追加なので template 重複作成は発生しない)。
+let showCopyFromChildDialog = $state(false);
+let copySourceChildId = $state<number | null>(null);
+const canCopyFromChild = $derived(data.children.length >= 2);
+
+// #723: Free プランのテンプレート上限（UI ゲート用、per-child quota: 選択中 child の配信済み件数）。
+//   checkChecklistTemplateLimit (server) も per-child quota で判定するため UI も per-child 件数で揃える。
 // null = 無制限（Standard/Family）
 const checklistMax = $derived(data.checklistTemplateMax);
-const currentCount = $derived(data.familyTemplates.length);
+const currentCount = $derived(childTemplates.length);
 const atLimit = $derived(checklistMax !== null && currentCount >= checklistMax);
 
 // Add item dialog
@@ -146,7 +156,9 @@ function timeSlotLabel(slot: string): string {
 const COMMON_ICONS = ['🏫', '👕', '👟', '🎨', '🎵', '📚', '🧹', '🍱', '💧', '📦', '🎒', '✏️'];
 
 // Dialog exclusion: only one dialog open at a time
-const anyDialogOpen = $derived(addItemOpen || addTemplateOpen || overrideOpen || aiDialogOpen);
+const anyDialogOpen = $derived(
+	addItemOpen || addTemplateOpen || overrideOpen || aiDialogOpen || showCopyFromChildDialog,
+);
 
 // #2903 (EPIC #2897): 「+ 追加」dropdown を activities (ActivitiesHeader.addMenuItems) と同型に統一する。
 //   旧: AI 提案パネル本文直置き + dropdown は (テンプレート作成 / ワンオフ追加) の 2 項目 (#2778)。
@@ -180,6 +192,19 @@ const addMenuItems = $derived<MenuItem[]>([
 		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideMenuIcon,
 		onSelect: openOverride,
 	},
+	// #3098: 兄弟共通化の copy 導線 (activity の copyFromChild と同型)。child が 2 人以上のときのみ。
+	//   add 経路の先頭 3 (manual / ai / browse) は activities と同型のため、本 page 固有 item は末尾に置く
+	//   (admin-add-path-isomorphism.spec.ts は先頭 3 item の同型性のみ assert)。
+	...(canCopyFromChild
+		? [
+				{
+					id: 'copy',
+					label: ADMIN_CHECKLISTS_PAGE_LABELS.copyFromChildMenuLabel,
+					icon: ADMIN_CHECKLISTS_PAGE_LABELS.copyFromChildMenuIcon,
+					onSelect: openCopyFromChild,
+				},
+			]
+		: []),
 ]);
 
 function openAddItem(templateId: number) {
@@ -222,6 +247,70 @@ function openAiDialog() {
 //   取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog の正規経路に合流する。
 function handleAddBrowse() {
 	void goto('/marketplace?type=checklist');
+}
+
+// #3098: 「別の子から copy」= source child の配信 template を選択中 child にも配信する (assignments 追加)。
+//   template 自体は family master のまま複製せず、assignments を増やすだけ (activity copy と同型)。
+function openCopyFromChild() {
+	if (anyDialogOpen) return;
+	copySourceChildId = null;
+	showCopyFromChildDialog = true;
+}
+
+async function handleCopyFromChild() {
+	if (!copySourceChildId || !selectedChildId || copySourceChildId === selectedChildId) {
+		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.copyDifferentChildError;
+		showToast(actionMessage, undefined, 'error');
+		return;
+	}
+	const formData = new FormData();
+	formData.append('sourceChildId', String(copySourceChildId));
+	formData.append('targetChildId', String(selectedChildId));
+	try {
+		const resp = await fetch('?/copyDistributionFromChild', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const actionResult = deserialize(await resp.text()) as
+			| { type: 'success'; data?: { added?: number; limitReached?: boolean; message?: string } }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+		if (actionResult.type === 'success') {
+			const added = Number(actionResult.data?.added ?? 0);
+			// #3098 QM BLOCK 対応: free プラン上限で source の一部を取り込めなかった場合
+			// (limitReached) は server の partial-success message を出し、silent な over-grant /
+			// silent な drop を避ける (warning トーンで「上限に達した」を可視化)。
+			if (actionResult.data?.limitReached && actionResult.data?.message) {
+				actionMessage = actionResult.data.message;
+				showToast(actionMessage, undefined, 'info');
+			} else {
+				actionMessage =
+					added === 0
+						? ADMIN_CHECKLISTS_PAGE_LABELS.copyNoChange
+						: ADMIN_CHECKLISTS_PAGE_LABELS.copySuccess(added);
+				showToast(actionMessage, undefined, added === 0 ? 'info' : 'success');
+			}
+			showCopyFromChildDialog = false;
+			copySourceChildId = null;
+			await invalidateAll();
+		} else if (actionResult.type === 'failure') {
+			actionMessage = actionResult.data?.error ?? ADMIN_CHECKLISTS_PAGE_LABELS.copyFailed;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.copyFailed;
+			showToast(actionMessage, undefined, 'error');
+		}
+	} catch {
+		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.copyFailed;
+		showToast(actionMessage, undefined, 'error');
+	}
+}
+
+// #3098: 各 child に配信済みの template 件数 (copy dialog の選択肢補助表示用)。
+function assignedCountForChild(childId: number): number {
+	return data.familyTemplates.filter((t) => t.assignedChildIds.includes(childId)).length;
 }
 
 function frequencyLabel(freq: string): string {
@@ -1251,6 +1340,55 @@ function getChildName(childId: number): string {
 	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={data.planTier === 'family'} />
 </Dialog>
 
+<!-- #3098: 「別の子から copy」dialog — source child の配信 template を選択中 child にも配信 (assignments 追加)。
+     activity (copy-from-child-dialog) と同型。template 自体は family master のまま複製しない。 -->
+<Dialog
+	bind:open={showCopyFromChildDialog}
+	closable={true}
+	title={ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogTitle}
+	testid="checklist-copy-from-child-dialog"
+>
+	<p class="copy-dialog-desc">
+		{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogDescPrefix}<strong>{selectedChild?.nickname ?? ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogSelectedPlaceholder}</strong>{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogDescSuffix}
+	</p>
+	<div class="copy-source-list">
+		{#each data.children.filter((c) => c.id !== selectedChildId) as child (child.id)}
+			<label class="copy-source-option">
+				<input
+					type="radio"
+					name="checklist-copy-source"
+					value={child.id}
+					checked={copySourceChildId === child.id}
+					onchange={() => { copySourceChildId = child.id; }}
+					data-testid="checklist-copy-source-{child.id}"
+				/>
+				<span class="copy-source-option__label">
+					{child.nickname}
+					<span class="copy-source-option__age">({child.age} {ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogAgeSuffix})</span>
+					<span class="copy-source-option__count">
+						{assignedCountForChild(child.id)} {ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogCountSuffix}
+					</span>
+				</span>
+			</label>
+		{:else}
+			<p class="copy-source-empty">{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogEmpty}</p>
+		{/each}
+	</div>
+	<div class="copy-dialog-footer">
+		<Button variant="ghost" onclick={() => { showCopyFromChildDialog = false; copySourceChildId = null; }}>
+			{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogCancel}
+		</Button>
+		<Button
+			variant="primary"
+			disabled={!copySourceChildId}
+			data-testid="checklist-copy-from-child-confirm"
+			onclick={handleCopyFromChild}
+		>
+			{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogConfirm}
+		</Button>
+	</div>
+</Dialog>
+
 <!-- #2362 PR-5 Phase 2: ChildSelectionDialog (auto-open via `?import=<presetId>`) -->
 <ChildSelectionDialog
 	children={childSelectionOptions}
@@ -1425,5 +1563,53 @@ function getChildName(childId: number): string {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+	}
+
+	/* #3098: copy-from-child dialog (mirrors admin/activities copy dialog; ASCII comments for local/no-hardcoded-jp-text) */
+	.copy-dialog-desc {
+		font-size: 0.9rem;
+		color: var(--color-text-secondary);
+		margin-bottom: 0.75rem;
+	}
+	.copy-source-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+	.copy-source-option {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.copy-source-option:has(input:checked) {
+		background: var(--color-surface-accent);
+		border-color: var(--color-border-focus);
+	}
+	.copy-source-option__label {
+		display: flex;
+		gap: 0.5rem;
+		flex: 1;
+	}
+	.copy-source-option__age,
+	.copy-source-option__count {
+		color: var(--color-text-muted);
+		font-size: 0.85rem;
+	}
+	.copy-source-empty {
+		text-align: center;
+		color: var(--color-text-muted);
+		padding: 1rem;
+	}
+	.copy-dialog-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border-light);
 	}
 </style>
