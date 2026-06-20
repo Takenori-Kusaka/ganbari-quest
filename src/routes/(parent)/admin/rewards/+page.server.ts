@@ -214,6 +214,15 @@ export const actions: Actions = {
 		const points = Number(formData.get('points') ?? 0);
 		const icon = String(formData.get('icon') ?? '🎁');
 		const category = String(formData.get('category') ?? '');
+		// #3154: 編集時も陳列系統を変更可能にする (add action と同じ正規化: 空/不正 → null = 自動振り分け)。
+		// form に shopCategory が無い場合 (古い UI) は undefined を渡し既存値を保全する。
+		const hasShopCategory = formData.has('shopCategory');
+		const shopCategoryRaw = String(formData.get('shopCategory') ?? '').trim();
+		const shopCategory = hasShopCategory
+			? (SHOP_CATEGORIES as readonly string[]).includes(shopCategoryRaw)
+				? shopCategoryRaw
+				: null
+			: undefined;
 
 		if (!rewardId || !childId) return fail(400, { error: 'ごほうびが指定されていません' });
 		if (!title) return fail(400, { error: 'タイトルを入力してください' });
@@ -222,7 +231,7 @@ export const actions: Actions = {
 		const result = await updateReward(
 			rewardId,
 			childId,
-			{ title, points, icon, category: category || undefined },
+			{ title, points, icon, category: category || undefined, shopCategory },
 			tenantId,
 		);
 		if ('error' in result) {

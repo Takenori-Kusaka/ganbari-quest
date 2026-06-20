@@ -238,6 +238,12 @@ export async function updateSpecialReward(
 		names['#category'] = 'category';
 		values[':category'] = updates.category;
 	}
+	// #3154: 陳列系統 (physical/money/privilege/null) を編集で変更可能にする
+	if (updates.shopCategory !== undefined) {
+		sets.push('#shopCategory = :shopCategory');
+		names['#shopCategory'] = 'shopCategory';
+		values[':shopCategory'] = updates.shopCategory;
+	}
 	if (sets.length === 0) {
 		return stripKeys(found) as unknown as SpecialReward;
 	}

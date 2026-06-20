@@ -94,6 +94,8 @@ let showEditDialog = $state(false);
 let editTitle = $state('');
 let editPoints = $state(100);
 let editIcon = $state('🎁');
+// #3154: 編集時もショップ陳列系統を変更可能にする ('' = 自動振り分け → null)
+let editShopCategory = $state('');
 let isSavingEdit = $state(false);
 let deletingReward = $state<PerChildReward | null>(null);
 let showDeleteDialog = $state(false);
@@ -109,6 +111,8 @@ function openEditDialog(reward: PerChildReward) {
 	editTitle = reward.title;
 	editPoints = reward.points;
 	editIcon = reward.icon ?? '🎁';
+	// #3154: 既存の陳列系統を初期選択 (null/未指定は '' = 自動振り分け)
+	editShopCategory = reward.shopCategory ?? '';
 	showEditDialog = true;
 }
 
@@ -127,6 +131,8 @@ async function handleEditConfirm() {
 	formData.append('title', editTitle);
 	formData.append('points', String(editPoints));
 	formData.append('icon', editIcon);
+	// #3154: 陳列系統 ('' = 自動振り分け → server 側で null 正規化)
+	formData.append('shopCategory', editShopCategory);
 	isSavingEdit = true;
 	actionUpgradeUrl = null;
 	try {
@@ -1089,6 +1095,20 @@ async function handleCopyFromChild() {
 				<FormField label={REWARDS_LABELS.pointsLabel} type="number" bind:value={editPoints} min={1} max={10000} required />
 			</div>
 			<FormField label={REWARDS_LABELS.iconLabel} type="text" bind:value={editIcon} />
+			<!-- #3154: 編集時もショップ陳列系統 (physical/money/privilege) を変更可能 (06-UI §14.6 整合) -->
+			<FormField
+				label={ADMIN_REWARDS_PAGE_LABELS.shopCategoryLabel}
+				hint={ADMIN_REWARDS_PAGE_LABELS.shopCategoryHint}
+			>
+				{#snippet children()}
+					<NativeSelect
+						name="shopCategory"
+						bind:value={editShopCategory}
+						options={shopCategoryOptions}
+						data-testid="reward-edit-shop-category"
+					/>
+				{/snippet}
+			</FormField>
 		</div>
 		<div class="copy-dialog-footer">
 			<Button variant="ghost" onclick={() => { showEditDialog = false; editingReward = null; }}>

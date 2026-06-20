@@ -152,6 +152,9 @@ export interface UpdateRewardInput {
 	points: number;
 	icon?: string;
 	category?: string;
+	// #3154: ショップ陳列系統 (physical/money/privilege)。null = 自動振り分け (deriveShopCategory fallback)。
+	// undefined を渡すと既存値を保全 (update は present field のみ set)。
+	shopCategory?: string | null;
 }
 
 /**
@@ -178,6 +181,8 @@ export async function updateReward(
 			points: data.points,
 			icon: data.icon,
 			category: data.category,
+			// #3154: 編集時も陳列系統を変更可能にする (undefined なら既存値保全)。
+			shopCategory: data.shopCategory,
 		},
 		tenantId,
 	);
