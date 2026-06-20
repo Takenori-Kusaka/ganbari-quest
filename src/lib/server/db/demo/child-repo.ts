@@ -56,6 +56,10 @@ export async function deleteChild(_id: number, _tenantId: string): Promise<void>
 	// Stub: no-op
 }
 
+export async function resetChildProgressData(_id: number, _tenantId: string): Promise<void> {
+	// Stub: no-op (#3152)
+}
+
 // ---------- Archive / Restore ----------
 // Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
 
