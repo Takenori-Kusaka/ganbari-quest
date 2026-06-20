@@ -44,6 +44,7 @@ export/import クラスタで 2 サイクル連続して blocker が発生した
 | same-class-N→guard | 本 ADR + pr-review skill 判定節 | Phase 1 |
 | push-down-pyramid | pr-review skill C項 + ADR-0007 整合注記 | Phase 1 |
 | fitness function 化 | #3134/#3164 (admin 正準) 済 + 残り構造ルールの dependency-cruiser/eslint encode | **Phase 2 (#3152 後続、follow-up Issue で段階導入)** |
+| deps 供給線 shift-left (#3191) | `ci.yml deps-supply-chain-check` = `check-dependabot-target-branch.mjs` (dependabot main 直行封鎖 regression guard) + `native-dep-smoke.mjs` (better-sqlite3/bcrypt/sharp の native binding crash を軽量レーンで捕捉) + audit-team.md §3.5.1 (deps diff scope) | #3191 (#3190 SIGSEGV 再発防止) |
 
 - **トレードオフ**: Phase 1 は process / 軽量 gate のみで即効性は限定的。構造ルールの完全機械化 (Phase 2) は dependency-cruiser 導入 or eslint-plugin-local 拡張を伴うため段階導入する (本 ADR で原則を fix し、適用は #3134/#3164 を起点に拡張)。
 - **10 枠ルール (README)**: 本 ADR 追加に伴う 1-in-1-out は ADR-0060 と同様、2026-06 最終週の月 1 棚卸で archive 候補 (proposed 据置 / 重複) と併せて消化する。

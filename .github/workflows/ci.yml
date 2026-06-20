@@ -31,6 +31,7 @@ jobs:
     outputs:
       app: ${{ steps.filter.outputs.app }}
       deps: ${{ steps.filter.outputs.deps }}
+      dependabot: ${{ steps.filter.outputs.dependabot }}
       site: ${{ steps.filter.outputs.site }}
       stories: ${{ steps.filter.outputs.stories }}
       cognito: ${{ steps.filter.outputs.cognito }}
@@ -61,6 +62,11 @@ jobs:
             deps:
               - 'package.json'
               - 'package-lock.json'
+              - 'scripts/native-dep-smoke.mjs'
+            # #3191: dependabot 設定 (main 直行封鎖 regression guard) の変更検出
+            dependabot:
+              - '.github/dependabot.yml'
+              - 'scripts/check-dependabot-target-branch.mjs'
             site:
               - 'site/**'
               - 'scripts/check-site-html.mjs'
@@ -284,6 +290,33 @@ jobs:
 
       - name: Marketplace Registry integrity check (#2374 / ADR-0052)
         run: node scripts/check-marketplace-registry-integrity.mjs
+
+  # #3191: deps 供給線の監査すり抜け 3 穴 (dependabot main 直行 / native dep crash の
+  # shift-left 欠如) を機械で塞ぐ。#3190 (better-sqlite3 12.11.1 SIGSEGV) の再発防止。
+  deps-supply-chain-check:
+    needs: changes
+    if: needs.changes.outputs.deps == 'true' || needs.changes.outputs.dependabot == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      # dependabot main 直行 regression guard は yaml parse のみ (#3191 AC1)
+      - run: npm ci
+
+      - name: Dependabot target-branch=develop regression guard (#3072 / #3191)
+        run: node scripts/check-dependabot-target-branch.mjs
+
+      # native dep (better-sqlite3 / bcrypt / sharp) の ABI/バージョン不整合 crash を
+      # 軽量レーンで捕捉する shift-left smoke (#3190 SIGSEGV class、#3191 AC3)
+      - name: Native dependency smoke (SQLite/bcrypt/sharp binding 健全性)
+        run: node scripts/native-dep-smoke.mjs
 
   # #1006 Phase 2: vitest を 2 shard に分割して並列化 (1m 23s → ~40s 目標)
   # 各 shard は coverage を出力し、unit-test-merge で合算してラチェットチェック。
