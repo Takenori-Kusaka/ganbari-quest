@@ -29,14 +29,42 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { AutoChallenge } from '$lib/server/db/types';
 import {
-	analyzeWeakCategory,
+	computeProposal,
 	getActiveChallenge,
 	getChallengeHistory,
+	getLastWeekStart,
 	getOrCreateWeeklyChallenge,
 	getWeekStart,
 	incrementChallengeProgress,
+	summarizeChallengeAnalytics,
 } from '$lib/server/services/auto-challenge-service';
+
+// computeProposal は (counts, prev, weekStart) を取る純粋関数。
+// weekIndexOf(weekStart) % 4 === 0 を「得意週」とするため、テストの weekStart は週インデックスで選ぶ。
+// 2026-01-05(月) の週インデックスは 2922 (= 2922 % 4 = 2 → 非得意週)。得意週検証用に別 weekStart を使う。
+const WEEK_WEAKNESS = '2026-01-05'; // 非得意週 (weekIndex % 4 !== 0)
+function counts(byId: Record<number, number>): Record<number, number> {
+	return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, ...byId };
+}
+function makePrev(over: Partial<Record<string, unknown>> = {}) {
+	return {
+		id: 1,
+		childId: CHILD_ID,
+		tenantId: TENANT,
+		weekStart: getLastWeekStart(WEEK_WEAKNESS),
+		categoryId: 2,
+		targetCount: 3,
+		currentCount: 0,
+		status: 'expired',
+		mode: 'weakness',
+		consecutiveMissCount: 0,
+		createdAt: '2025-12-29T00:00:00Z',
+		updatedAt: '2026-01-04T00:00:00Z',
+		...over,
+	};
+}
 
 const TENANT = 'test-tenant';
 const CHILD_ID = 1;
@@ -71,45 +99,76 @@ describe('getWeekStart', () => {
 	});
 });
 
-describe('analyzeWeakCategory', () => {
-	it('identifies the weakest category from activity logs', async () => {
-		mockGetActivityLogs.mockResolvedValue({
-			logs: [],
-			summary: {
-				totalCount: 20,
-				totalPoints: 100,
-				byCategory: {
-					1: { count: 8, points: 40 },
-					2: { count: 6, points: 30 },
-					3: { count: 4, points: 20 },
-					4: { count: 2, points: 10 },
-					5: { count: 0, points: 0 },
-				},
-			},
-		});
+describe('computeProposal — カテゴリ選択 (§3.4)', () => {
+	const STRENGTH_WEEK = '2026-01-19'; // weekIndex % 4 === 0 → 得意週
 
-		const result = await analyzeWeakCategory(CHILD_ID, TENANT);
-		// Category 5 (souzou) has 0 records, should be weakest
-		expect(result.categoryId).toBe(5);
-		expect(result.categoryName).toBe('そうぞう');
-		expect(result.targetCount).toBeGreaterThanOrEqual(3);
+	it('データ不足なら explore モード (target=最小2)', () => {
+		const p = computeProposal(counts({ 1: 2 }), undefined, WEEK_WEAKNESS);
+		expect(p.mode).toBe('explore');
+		expect(p.targetCount).toBe(2);
+		expect(p.reason).toContain('まだ記録が少ない');
 	});
 
-	it('returns random category when not enough data', async () => {
-		mockGetActivityLogs.mockResolvedValue({
-			logs: [],
-			summary: {
-				totalCount: 2,
-				totalPoints: 10,
-				byCategory: {
-					1: { count: 2, points: 10 },
-				},
-			},
-		});
+	it('通常週は weakness モード (target は 2〜7 に収まる)', () => {
+		const p = computeProposal(counts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 }), undefined, WEEK_WEAKNESS);
+		expect(p.mode).toBe('weakness');
+		expect(p.targetCount).toBeGreaterThanOrEqual(2);
+		expect(p.targetCount).toBeLessThanOrEqual(7);
+		expect(p.consecutiveMissCount).toBe(0);
+	});
 
-		const result = await analyzeWeakCategory(CHILD_ID, TENANT);
-		expect(result.targetCount).toBe(3);
-		expect(result.reason).toContain('まだ記録が少ない');
+	it('得意週は strength モードで最多カテゴリを選ぶ', () => {
+		const p = computeProposal(counts({ 1: 8, 5: 0 }), undefined, STRENGTH_WEEK);
+		expect(p.mode).toBe('strength');
+		expect(p.categoryId).toBe(1); // 最多 = うんどう
+		expect(p.targetCount).toBe(5); // avg 4 → base clamp(5,2,7)
+	});
+});
+
+describe('computeProposal — 翌週適応 (Flow 3 分岐)', () => {
+	const STRENGTH_WEEK = '2026-01-19';
+
+	it('前週完了 + 大幅超過なら target を上げる (+2)', () => {
+		// 得意週 → 最多カテゴリ1 を決定的に選択。prev も cat1 完了で overshoot 2
+		const prev = makePrev({ categoryId: 1, status: 'completed', targetCount: 5, currentCount: 7 });
+		const p = computeProposal(counts({ 1: 4 }), prev, STRENGTH_WEEK);
+		expect(p.categoryId).toBe(1);
+		expect(p.targetCount).toBe(7); // max(base3, 5+2)=7
+	});
+
+	it('前週未達 (半分以上) なら据え置き', () => {
+		const prev = makePrev({ categoryId: 1, status: 'expired', targetCount: 5, currentCount: 3 });
+		const p = computeProposal(counts({ 1: 4 }), prev, STRENGTH_WEEK);
+		expect(p.targetCount).toBe(5); // ratio 0.6 → 据置
+		expect(p.consecutiveMissCount).toBe(1);
+	});
+
+	it('前週未達 (半分未満) なら 1 下げる', () => {
+		const prev = makePrev({ categoryId: 1, status: 'expired', targetCount: 5, currentCount: 1 });
+		const p = computeProposal(counts({ 1: 4 }), prev, STRENGTH_WEEK);
+		expect(p.targetCount).toBe(4); // ratio 0.2 → -1
+	});
+
+	it('2 週連続未達なら rescue-strength (target 最小 + 得意カテゴリ)', () => {
+		// prev が未達 + 既に 1 連続未達 → 今週 incoming streak = 2 → レスキュー
+		const prev = makePrev({
+			categoryId: 2,
+			status: 'expired',
+			consecutiveMissCount: 1,
+			targetCount: 3,
+			currentCount: 0,
+		});
+		const p = computeProposal(counts({ 1: 6 }), prev, WEEK_WEAKNESS);
+		expect(p.mode).toBe('rescue-strength');
+		expect(p.categoryId).toBe(1); // 最多 = 得意
+		expect(p.targetCount).toBe(2); // MIN_TARGET
+		expect(p.consecutiveMissCount).toBe(2);
+	});
+
+	it('前週完了なら連続未達カウントは 0 にリセット', () => {
+		const prev = makePrev({ status: 'completed', consecutiveMissCount: 3 });
+		const p = computeProposal(counts({ 1: 8, 2: 4 }), prev, WEEK_WEAKNESS);
+		expect(p.consecutiveMissCount).toBe(0);
 	});
 });
 
@@ -239,6 +298,61 @@ describe('getChallengeHistory', () => {
 		expect(result[0]?.progressPercent).toBe(100);
 		expect(result[1]?.status).toBe('expired');
 		expect(result[1]?.progressPercent).toBe(50);
+	});
+});
+
+describe('summarizeChallengeAnalytics', () => {
+	function row(over: Partial<AutoChallenge>): AutoChallenge {
+		return {
+			id: 0,
+			childId: CHILD_ID,
+			tenantId: TENANT,
+			weekStart: '2026-01-05',
+			categoryId: 1,
+			targetCount: 3,
+			currentCount: 0,
+			status: 'expired',
+			mode: 'weakness',
+			consecutiveMissCount: 0,
+			createdAt: '',
+			updatedAt: '',
+			...over,
+		};
+	}
+
+	it('空リストは全指標 0', () => {
+		const a = summarizeChallengeAnalytics([]);
+		expect(a.totalWeeks).toBe(0);
+		expect(a.completionRate).toBe(0);
+		expect(a.consecutiveMissRate).toBe(0);
+	});
+
+	it('達成率 / 超過度 / 得意週vs苦手週 を算出する', () => {
+		const a = summarizeChallengeAnalytics([
+			row({
+				categoryId: 1,
+				status: 'completed',
+				targetCount: 3,
+				currentCount: 5,
+				mode: 'weakness',
+			}),
+			row({ categoryId: 1, status: 'expired', targetCount: 4, currentCount: 1, mode: 'weakness' }),
+			row({
+				categoryId: 2,
+				status: 'completed',
+				targetCount: 2,
+				currentCount: 2,
+				mode: 'strength',
+			}),
+			row({ categoryId: 3, status: 'expired', consecutiveMissCount: 2, mode: 'weakness' }),
+		]);
+		expect(a.totalWeeks).toBe(4);
+		expect(a.completionRate).toBe(0.5); // 2/4
+		expect(a.completionRateByCategory[1]).toBe(0.5); // 1/2
+		expect(a.avgOvershoot).toBe(1); // (5-3)+(2-2)=2 / 2 completed
+		expect(a.consecutiveMissRate).toBe(0.25); // 1/4
+		expect(a.strengthCompletionRate).toBe(1); // 1/1
+		expect(a.weaknessCompletionRate).toBeCloseTo(1 / 3); // 1/3
 	});
 });
 

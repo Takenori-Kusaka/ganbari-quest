@@ -705,6 +705,8 @@ export const SQL_TABLES = `
 		target_count INTEGER NOT NULL,
 		current_count INTEGER NOT NULL DEFAULT 0,
 		status TEXT NOT NULL DEFAULT 'active',
+		mode TEXT NOT NULL DEFAULT 'weakness',
+		consecutive_miss_count INTEGER NOT NULL DEFAULT 0,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);

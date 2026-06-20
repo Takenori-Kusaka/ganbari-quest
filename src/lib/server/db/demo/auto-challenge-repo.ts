@@ -52,6 +52,8 @@ export async function insert(
 		targetCount: input.targetCount,
 		currentCount: 0,
 		status: 'active',
+		mode: input.mode ?? 'weakness',
+		consecutiveMissCount: input.consecutiveMissCount ?? 0,
 		createdAt: now,
 		updatedAt: now,
 	};

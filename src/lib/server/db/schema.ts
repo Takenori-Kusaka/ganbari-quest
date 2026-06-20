@@ -971,6 +971,10 @@ export const autoChallenges = sqliteTable(
 		targetCount: integer('target_count').notNull(),
 		currentCount: integer('current_count').notNull().default(0),
 		status: text('status').notNull().default('active'), // active | completed | expired
+		// #3194: 生成モード (weakness | strength | rescue-strength | explore)。analytics で得意週 vs 苦手週の達成率差を集計
+		mode: text('mode').notNull().default('weakness'),
+		// #3194: この週の生成時点での「連続未達週数」(翌週適応のレスキュー判定 §3.4)
+		consecutiveMissCount: integer('consecutive_miss_count').notNull().default(0),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 	},
