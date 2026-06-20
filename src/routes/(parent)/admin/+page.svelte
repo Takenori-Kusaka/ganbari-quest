@@ -1,7 +1,7 @@
 <script lang="ts">
 import { page } from '$app/state';
-import { ADMIN_HOME_LABELS } from '$lib/domain/labels';
 import AdminHome from '$lib/features/admin/components/AdminHome.svelte';
+import RedemptionPendingBanner from '$lib/features/admin/components/RedemptionPendingBanner.svelte';
 import { getScreenshotModeKind } from '$lib/features/demo/screenshot-mode';
 
 let { data } = $props();
@@ -30,19 +30,11 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 <!-- #3144: ごほうび交換の承認待ち導線 (pending > 0 のときのみ)。
      子供の engagement バッジ (#2109 撤廃) でなく親の管理タスク導線のため ADR-0012 非抵触。 -->
 {#if bannerCount > 0}
-	<a class="redemption-pending-banner" href="/admin/rewards/requests" data-testid="redemption-pending-banner">
-		<span class="redemption-pending-banner__icon" aria-hidden="true">🎁</span>
-		<span class="redemption-pending-banner__text">{ADMIN_HOME_LABELS.pendingRedemptionBanner(bannerCount)}</span>
-		<span class="redemption-pending-banner__cta" aria-hidden="true">▶</span>
-	</a>
+	<RedemptionPendingBanner variant="pending" count={bannerCount} />
 {:else if pendingCountFailed}
 	<!-- #3148: 件数取得失敗時は silent 非表示にせず、承認待ち確認ページへの導線を出す
 	     (true-0 = 承認待ちなし と failure-0 = 取得障害 を区別し、親が承認待ちを見落とさない)。 -->
-	<a class="redemption-pending-banner redemption-pending-banner--error" href="/admin/rewards/requests" data-testid="redemption-pending-banner-error">
-		<span class="redemption-pending-banner__icon" aria-hidden="true">⚠️</span>
-		<span class="redemption-pending-banner__text">{ADMIN_HOME_LABELS.pendingRedemptionLoadFailed}</span>
-		<span class="redemption-pending-banner__cta" aria-hidden="true">▶</span>
-	</a>
+	<RedemptionPendingBanner variant="error" />
 {/if}
 
 <AdminHome
@@ -60,41 +52,3 @@ const adminMode = $derived<'live' | 'demo'>(page.data.isDemo ? 'demo' : 'live');
 	weeklyUsage={data.weeklyUsage}
 	valuePreview={data.valuePreview}
 />
-
-<style>
-	.redemption-pending-banner {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		margin-bottom: 16px;
-		padding: 0.875rem 1rem;
-		border: 1px solid var(--color-border-warning);
-		border-radius: 0.75rem;
-		background: var(--color-surface-warning);
-		color: var(--color-text-warm);
-		text-decoration: none;
-		font-weight: 600;
-	}
-	.redemption-pending-banner:hover {
-		background: var(--color-feedback-warning-bg-strong);
-	}
-	/* #3148: error variant for count-load failure (error semantic tokens, not warning) */
-	.redemption-pending-banner--error {
-		border-color: var(--color-feedback-error-border);
-		background: var(--color-surface-error);
-		color: var(--color-feedback-error-text);
-	}
-	.redemption-pending-banner--error:hover {
-		background: var(--color-feedback-error-bg-strong);
-	}
-	.redemption-pending-banner__icon {
-		font-size: 1.25rem;
-	}
-	.redemption-pending-banner__text {
-		flex: 1;
-		min-width: 0;
-	}
-	.redemption-pending-banner__cta {
-		color: var(--color-text-warm-muted);
-	}
-</style>
