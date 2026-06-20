@@ -171,19 +171,22 @@ export function checkDesignDocSync({ files, labels = [] }) {
 // CLI エントリポイント (node scripts/check-design-doc-sync.mjs から呼ばれる場合)
 // ---------------------------------------------------------------------------
 
+/** @param {string[]} argv @returns {{ filesPath: string | null, labelsArg: string | null }} */
 function parseCliArgs(argv) {
+	/** @type {{ filesPath: string | null, labelsArg: string | null }} */
 	const args = { filesPath: null, labelsArg: null };
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i];
 		if (arg === '--files' && i + 1 < argv.length) {
-			args.filesPath = argv[++i];
+			args.filesPath = argv[++i] ?? null;
 		} else if (arg === '--labels' && i + 1 < argv.length) {
-			args.labelsArg = argv[++i];
+			args.labelsArg = argv[++i] ?? null;
 		}
 	}
 	return args;
 }
 
+/** @param {string | null} filePath @returns {Promise<string[]>} */
 async function readFiles(filePath) {
 	if (!filePath) {
 		const env = process.env.PR_FILES || '';
@@ -200,6 +203,7 @@ async function readFiles(filePath) {
 		.filter(Boolean);
 }
 
+/** @param {string | null} labelsArg @returns {string[]} */
 function readLabels(labelsArg) {
 	const raw = labelsArg ?? process.env.PR_LABELS ?? '';
 	return raw
@@ -227,7 +231,7 @@ async function main() {
 		console.error(`[fail] ${result.reason}`);
 		process.exit(1);
 	} catch (err) {
-		console.error(`[error] internal: ${err?.stack ? err.stack : err}`);
+		console.error(`[error] internal: ${err instanceof Error ? err.stack : String(err)}`);
 		process.exit(2);
 	}
 }
