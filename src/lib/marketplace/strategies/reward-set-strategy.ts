@@ -88,6 +88,8 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 			narrowed.presetId,
 			previewChildId,
 			ctx.tenantId,
+			// #3168: restore は dedupMode='content' で冪等 preview (sourcePresetId 非依存)。
+			ctx.dedupMode,
 		);
 		return {
 			total: raw.total,
@@ -126,10 +128,12 @@ export const rewardSetStrategy: ImportStrategy<RewardSetPayload> = {
 				failed: raw.failed,
 			};
 		}
-		// legacy-single: 既存 admin/rewards 手動 form 互換
+		// legacy-single: 既存 admin/rewards 手動 form 互換 + backup/restore (#3079)。
+		// #3168: restore は ctx.dedupMode='content' で冪等復元 (既存 reward を二重化しない)。
 		const raw = await importRewardSet(rewards, ctx.tenantId, {
 			presetId: narrowed.presetId,
 			childId: narrowed.childId,
+			dedupMode: ctx.dedupMode,
 		});
 		return {
 			imported: raw.imported,

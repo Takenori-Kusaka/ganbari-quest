@@ -74,6 +74,9 @@ export function isBrowseableMarketplaceType(typeCode: string): boolean {
  *                           (activity-pack / challenge-set 等) で複数 child 配信。
  *                           `requiresChildSelection: true` の Descriptor では必須。
  * @property applyMustDefault activity-pack の must 推奨採用フラグ (#1758)
+ * @property dedupMode       重複検知モード (#3168)。現状 reward-set restore のみが解釈する。
+ *                           `'content'` = sourcePresetId 非依存で (title+points) 照合 = 冪等復元。
+ *                           省略時は各 Strategy の既定 (reward-set は `'preset-scope'`、#1254 G1)。
  */
 export interface ImportContext {
 	tenantId: string;
@@ -82,6 +85,7 @@ export interface ImportContext {
 	childId?: number;
 	childIds?: readonly number[];
 	applyMustDefault?: boolean;
+	dedupMode?: 'preset-scope' | 'content';
 }
 
 // ── 共通 Preview / Result ────────────────────────────────────────
