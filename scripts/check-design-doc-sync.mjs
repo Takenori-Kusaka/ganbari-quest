@@ -50,6 +50,7 @@ const DESIGN_DOC_PREFIX = 'docs/design/';
 const FILE_EXEMPT_MATCHERS = [
 	/(?:^|\/|\\)CLAUDE\.md$/, // **/CLAUDE.md (任意の階層)
 	/^scripts\//, // CI/CD スクリプト
+	/^tests\//, // テスト (検証であって設計書同期不要、#3152)
 	/^docs\//, // docs 自体が設計書
 	/^infra\//, // インフラ設定
 	/^\.github\//, // CI 設定
