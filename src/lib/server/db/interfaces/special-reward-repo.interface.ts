@@ -1,11 +1,13 @@
 import type { InsertSpecialRewardInput, SpecialReward } from '../types';
 
-/** #2832: reward 編集 input (title / points / icon / category のみ編集可) */
+/** #2832 / #3154: reward 編集 input (title / points / icon / category / shopCategory を編集可) */
 export interface UpdateSpecialRewardInput {
 	title?: string;
 	points?: number;
 	icon?: string | null;
 	category?: string;
+	// #3154: ショップ陳列系統 (physical/money/privilege/null)。undefined = 既存値保全。
+	shopCategory?: string | null;
 }
 
 export interface ISpecialRewardRepo {
