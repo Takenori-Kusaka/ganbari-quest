@@ -1507,7 +1507,6 @@ export const SETTINGS_LABELS = {
 	// きょうだいチャレンジ設定
 	siblingSectionTitle: '👥 きょうだいチャレンジ設定',
 	siblingSaved: 'きょうだい設定を保存しました',
-	siblingChallengeMode: 'チャレンジモード',
 	siblingRankingLabel: 'きょうだいランキングを表示する',
 	// #1960 Phase 7 H3: terms.ts atom 参照化
 	siblingRankingUpsell: `きょうだいランキングは${PLAN_FULL_TERMS.premium}限定の機能です。`,

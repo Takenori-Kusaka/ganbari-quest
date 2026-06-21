@@ -162,33 +162,20 @@ describe('POST /admin/settings?/updateSiblingSettings (#782)', () => {
 			createEvent('family', { siblingMode: 'both' }, true),
 		);
 		expect(result).toEqual({ siblingSuccess: true });
-		expect(mockSetSetting).toHaveBeenCalledWith('sibling_mode', 'both', 't-test');
 		expect(mockSetSetting).toHaveBeenCalledWith('sibling_ranking_enabled', 'true', 't-test');
+		// #3195: sibling_mode は撤去済 (保存されない)
+		expect(mockSetSetting).not.toHaveBeenCalledWith('sibling_mode', expect.anything(), 't-test');
 	});
 
-	it('free プランで ranking OFF のままモードだけ更新する場合は成功する', async () => {
-		const result = await actions.updateSiblingSettings!(
-			createEvent('free', { siblingMode: 'cooperative' }, false),
-		);
+	it('free プランで ranking OFF を保存できる', async () => {
+		const result = await actions.updateSiblingSettings!(createEvent('free', {}, false));
 		expect(result).toEqual({ siblingSuccess: true });
-		expect(mockSetSetting).toHaveBeenCalledWith('sibling_mode', 'cooperative', 't-test');
 		expect(mockSetSetting).toHaveBeenCalledWith('sibling_ranking_enabled', 'false', 't-test');
 	});
 
 	it('family プランでも ranking OFF を保存できる', async () => {
-		const result = await actions.updateSiblingSettings!(
-			createEvent('family', { siblingMode: 'competitive' }, false),
-		);
+		const result = await actions.updateSiblingSettings!(createEvent('family', {}, false));
 		expect(result).toEqual({ siblingSuccess: true });
-		expect(mockSetSetting).toHaveBeenCalledWith('sibling_mode', 'competitive', 't-test');
 		expect(mockSetSetting).toHaveBeenCalledWith('sibling_ranking_enabled', 'false', 't-test');
-	});
-
-	it('不正な siblingMode は 400 を返す', async () => {
-		const result = await actions.updateSiblingSettings!(
-			createEvent('family', { siblingMode: 'invalid' }, true),
-		);
-		expect(result).toMatchObject({ status: 400 });
-		expect(mockSetSetting).not.toHaveBeenCalled();
 	});
 });

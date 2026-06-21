@@ -7,8 +7,8 @@
 // 各 default 値の根拠:
 // - decayIntensity='normal': 既定 (実画面の DECAY_OPTIONS デフォルト値と同期)
 // - pointMode='point': 通貨換算は上級者向けなので「ポイント」表示を初期推奨
-// - siblingMode='both': 協力+競争両方を出して家族の使い方発見を促す
 // - siblingRankingEnabled=false: family プラン限定機能、free / standard では gate される
+//   (#3195: 競争モード sibling_mode は撤去。チャレンジはアプリ自動生成・協力固定)
 //
 // ADR-0014 整合: 既存パターン継承、新規 OSS 不要
 
@@ -23,8 +23,6 @@ export interface ActivitiesSettingsDefaults {
 	pointCurrency: CurrencyCode;
 	/** ポイント → 通貨換算レート */
 	pointRate: number;
-	/** きょうだいチャレンジモード ('cooperative' | 'competitive' | 'both') */
-	siblingMode: 'cooperative' | 'competitive' | 'both';
 	/** きょうだいランキング表示 (family 限定、setup 時は OFF) */
 	siblingRankingEnabled: boolean;
 }
@@ -34,7 +32,6 @@ export const ACTIVITIES_SETTINGS_DEFAULTS: ActivitiesSettingsDefaults = {
 	pointMode: 'point',
 	pointCurrency: 'JPY',
 	pointRate: 1,
-	siblingMode: 'both',
 	siblingRankingEnabled: false,
 } as const;
 
@@ -47,7 +44,6 @@ export function activitiesDefaultsToSettingPairs(
 		['point_unit_mode', defaults.pointMode],
 		['point_currency', defaults.pointCurrency],
 		['point_rate', String(defaults.pointRate)],
-		['sibling_mode', defaults.siblingMode],
 		['sibling_ranking_enabled', defaults.siblingRankingEnabled ? 'true' : 'false'],
 	];
 }
