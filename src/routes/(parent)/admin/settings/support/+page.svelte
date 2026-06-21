@@ -1,14 +1,12 @@
 <script lang="ts">
-// #2324 (EPIC #2319 ⑤): support グループ — founderInquiry / feedback / appInfo
-// 旧 /admin/settings/+page.svelte 行 1776 (founderInquiry) / 1792 (feedback) / 1885 (appInfo) を移行。
+// #2324 (EPIC #2319 ⑤): support グループ — feedback / appInfo
+// #support-unify: 旧「開発者に直接相談」CTA カードと「フィードバック」カードの 2 セクション分離を解消し、
+// 単一フォーム内で「ご用件」(感想・要望 / 相談・困りごと) を intent ラジオで選ぶ構成へ統合。
+// 競合フォーム research: 単一フォーム + intent セレクタ + 段階表示 (progressive disclosure) が支配的。
+// founder 直接相談の独立ページ (/inquiry/founder) は LP / ライセンス導線から到達するため存続。
 
 import { enhance } from '$app/forms';
-import {
-	APP_LABELS,
-	FOUNDER_INQUIRY_LABELS,
-	PAGE_TITLES,
-	SETTINGS_LABELS,
-} from '$lib/domain/labels';
+import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
@@ -16,14 +14,44 @@ import FormField from '$lib/ui/primitives/FormField.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 import { APP_VERSION } from '$lib/version';
 
-let { form } = $props();
+let { form, data } = $props();
+
+type FeedbackIntent = 'feedback' | 'consult';
 
 let feedbackSuccess = $state(false);
 let feedbackSubmitting = $state(false);
+let feedbackIntent = $state<FeedbackIntent>('feedback');
 let feedbackCategory = $state('feature');
+let feedbackChildAge = $state('');
 let feedbackText = $state('');
 let feedbackEmail = $state('');
 let feedbackInquiryId = $state('');
+let feedbackSuccessIntent = $state<FeedbackIntent>('feedback');
+let feedbackSuccessHadEmail = $state(false);
+
+const isConsult = $derived(feedbackIntent === 'consult');
+// 相談 (返信前提) で、かつアカウントメールが無いときのみ返信先を必須にする。
+// アカウントメールがあればサーバ側で fallback されるため入力は任意 (別アドレス希望時のみ)。
+const replyRequired = $derived(isConsult && !data.accountEmail);
+const replyHint = $derived(
+	isConsult
+		? data.accountEmail
+			? SETTINGS_LABELS.feedbackReplyHintConsultWithAccount(data.accountEmail)
+			: SETTINGS_LABELS.feedbackReplyHintConsultNoAccount
+		: SETTINGS_LABELS.feedbackReplyHintFeedback,
+);
+const replyLabel = $derived(
+	replyRequired
+		? SETTINGS_LABELS.feedbackReplyEmailLabel
+		: `${SETTINGS_LABELS.feedbackReplyEmailLabel}${SETTINGS_LABELS.feedbackReplyEmailOptionalSuffix}`,
+);
+const successMessage = $derived(
+	feedbackSuccessIntent === 'consult'
+		? SETTINGS_LABELS.feedbackSuccessConsult(feedbackInquiryId)
+		: feedbackInquiryId
+			? `${SETTINGS_LABELS.feedbackSuccessFeedbackWithId(feedbackInquiryId)}${feedbackSuccessHadEmail ? SETTINGS_LABELS.feedbackSuccessFeedbackEmailNote : ''}`
+			: SETTINGS_LABELS.feedbackSuccessFeedbackNoId,
+);
 </script>
 
 <svelte:head>
@@ -31,43 +59,17 @@ let feedbackInquiryId = $state('');
 </svelte:head>
 
 <div class="space-y-6">
-	<!-- founder 1:1 ヒアリング動線 (#1594 ADR-0023 I8) -->
-	<Card padding="lg" data-testid="admin-founder-inquiry-cta">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-3">
-			{FOUNDER_INQUIRY_LABELS.ctaSectionHeading}
-		</h3>
-		<p class="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-3">
-			{FOUNDER_INQUIRY_LABELS.ctaSectionLead}
-		</p>
-		<ul
-			class="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-4 list-disc pl-5 space-y-1"
-		>
-			<li>{FOUNDER_INQUIRY_LABELS.ctaSectionBullet1}</li>
-			<li>{FOUNDER_INQUIRY_LABELS.ctaSectionBullet2}</li>
-			<li>{FOUNDER_INQUIRY_LABELS.ctaSectionBullet3}</li>
-		</ul>
-		<Button
-			href="/inquiry/founder"
-			variant="primary"
-			size="md"
-			data-testid="admin-founder-inquiry-link"
-		>
-			{FOUNDER_INQUIRY_LABELS.ctaButton}
-		</Button>
-	</Card>
-
-	<!-- フィードバック -->
+	<!-- #support-unify: 単一サポートフォーム (ご用件 intent + 内容分類 + 段階表示) -->
 	<Card padding="lg" data-tutorial="feedback-section">
-		<h3 class="text-lg font-bold text-[var(--color-text)] mb-4">
+		<h3 class="text-lg font-bold text-[var(--color-text)] mb-2">
 			{SETTINGS_LABELS.feedbackSectionTitle}
 		</h3>
+		<p class="text-sm text-[var(--color-text-secondary)] leading-relaxed mb-4">
+			{SETTINGS_LABELS.feedbackSectionDesc}
+		</p>
 
 		{#if feedbackSuccess}
-			<SuccessAlert
-				message={feedbackInquiryId
-					? `お問い合わせを受け付けました。受付番号: ${feedbackInquiryId}\n${feedbackEmail ? '入力いただいたメールアドレスに確認メールをお送りしました。' : ''}`
-					: 'お問い合わせありがとうございます。今後の参考とさせていただきます。'}
-			/>
+			<SuccessAlert message={successMessage} />
 		{/if}
 
 		{#if form?.feedbackError}
@@ -81,14 +83,19 @@ let feedbackInquiryId = $state('');
 				feedbackSubmitting = true;
 				feedbackSuccess = false;
 				feedbackInquiryId = '';
+				const submittedIntent = feedbackIntent;
+				const submittedHadEmail = feedbackEmail.length > 0;
 				return async ({ result, update }) => {
 					feedbackSubmitting = false;
 					if (result.type === 'success') {
 						feedbackSuccess = true;
+						feedbackSuccessIntent = submittedIntent;
+						feedbackSuccessHadEmail = submittedHadEmail;
 						feedbackInquiryId =
 							(result.data as { inquiryId?: string })?.inquiryId ?? '';
 						feedbackText = '';
 						feedbackCategory = 'feature';
+						feedbackChildAge = '';
 						feedbackEmail = '';
 					}
 					await update();
@@ -96,17 +103,61 @@ let feedbackInquiryId = $state('');
 			}}
 			class="flex flex-col gap-4"
 		>
-			<NativeSelect
-				id="feedbackCategory"
-				name="category"
-				label="カテゴリ"
-				bind:value={feedbackCategory}
-				options={[
-					{ value: 'feature', label: '機能要望' },
-					{ value: 'bug', label: 'バグ報告' },
-					{ value: 'other', label: 'その他' },
-				]}
-			/>
+			<!-- ご用件 (intent) — 返信要否を分岐する 2 軸ラジオ。fieldset/legend で a11y を担保。 -->
+			<fieldset class="flex flex-col gap-2">
+				<legend class="text-sm font-medium text-[var(--color-text)] mb-1">
+					{SETTINGS_LABELS.feedbackIntentLabel}
+				</legend>
+				<label class="flex items-center gap-2 text-sm text-[var(--color-text)]">
+					<input
+						type="radio"
+						name="intent"
+						value="feedback"
+						bind:group={feedbackIntent}
+						class="accent-[var(--color-action-primary)]"
+					/>
+					{SETTINGS_LABELS.feedbackIntentFeedback}
+				</label>
+				<label class="flex items-center gap-2 text-sm text-[var(--color-text)]">
+					<input
+						type="radio"
+						name="intent"
+						value="consult"
+						bind:group={feedbackIntent}
+						class="accent-[var(--color-action-primary)]"
+					/>
+					{SETTINGS_LABELS.feedbackIntentConsult}
+				</label>
+			</fieldset>
+
+			<!-- 感想・要望のときのみ「種類」を出す (progressive disclosure) -->
+			{#if !isConsult}
+				<NativeSelect
+					id="feedbackCategory"
+					name="category"
+					label={SETTINGS_LABELS.feedbackCategoryLabel}
+					bind:value={feedbackCategory}
+					options={[
+						{ value: 'feature', label: SETTINGS_LABELS.feedbackCategoryFeature },
+						{ value: 'bug', label: SETTINGS_LABELS.feedbackCategoryBug },
+						{ value: 'other', label: SETTINGS_LABELS.feedbackCategoryOther },
+					]}
+				/>
+			{/if}
+
+			<!-- 相談のときのみお子さまの年齢を任意で聞く (単一・任意フィールドの段階表示) -->
+			{#if isConsult}
+				<FormField
+					label={SETTINGS_LABELS.feedbackChildAgeLabel}
+					type="text"
+					id="feedbackChildAge"
+					name="childAge"
+					bind:value={feedbackChildAge}
+					placeholder={SETTINGS_LABELS.feedbackChildAgePlaceholder}
+					maxlength={100}
+					hint={SETTINGS_LABELS.feedbackChildAgeHint}
+				/>
+			{/if}
 
 			<div>
 				<label
@@ -131,14 +182,15 @@ let feedbackInquiryId = $state('');
 			</div>
 
 			<FormField
-				label="返信先メールアドレス（任意）"
+				label={replyLabel}
 				type="email"
 				id="feedbackEmail"
 				name="email"
 				bind:value={feedbackEmail}
 				placeholder="reply@example.com"
 				maxlength={254}
-				hint="ご入力いただいた場合、内容によってはメールでご返信する場合があります"
+				required={replyRequired}
+				hint={replyHint}
 			/>
 
 			<Button
@@ -148,7 +200,9 @@ let feedbackInquiryId = $state('');
 				class="w-full"
 				disabled={feedbackSubmitting || feedbackText.length === 0}
 			>
-				{feedbackSubmitting ? '送信中...' : 'フィードバックを送信'}
+				{feedbackSubmitting
+					? SETTINGS_LABELS.feedbackSubmittingText
+					: SETTINGS_LABELS.feedbackSubmitButton}
 			</Button>
 		</form>
 		<p class="text-xs text-[var(--color-text-muted)] mt-3 text-center">
