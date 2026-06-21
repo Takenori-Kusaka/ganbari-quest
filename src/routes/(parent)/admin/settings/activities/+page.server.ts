@@ -19,7 +19,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const tenantId = requireTenantId(locals);
 
 	let decayIntensity = 'normal';
-	let siblingMode = 'both';
 	let siblingRankingEnabled = 'false';
 	let children: Awaited<ReturnType<typeof getAllChildren>> = [];
 	let defaultChildId: number | null = null;
@@ -32,14 +31,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const planLimits = getPlanLimits(planTier);
 
 	try {
-		[decayIntensity, siblingMode, siblingRankingEnabled, children, defaultChildId] =
-			await Promise.all([
-				getSetting('decay_intensity', tenantId).then((v) => v ?? 'normal'),
-				getSetting('sibling_mode', tenantId).then((v) => v ?? 'both'),
-				getSetting('sibling_ranking_enabled', tenantId).then((v) => v ?? 'false'),
-				getAllChildren(tenantId),
-				getDefaultChildId(tenantId),
-			]);
+		[decayIntensity, siblingRankingEnabled, children, defaultChildId] = await Promise.all([
+			getSetting('decay_intensity', tenantId).then((v) => v ?? 'normal'),
+			getSetting('sibling_ranking_enabled', tenantId).then((v) => v ?? 'false'),
+			getAllChildren(tenantId),
+			getDefaultChildId(tenantId),
+		]);
 	} catch (err) {
 		logger.error('[settings/activities] load failed, using defaults', {
 			error: String(err),
@@ -48,7 +45,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		decayIntensity,
-		siblingMode,
 		siblingRankingEnabled,
 		canSiblingRanking: planLimits.canSiblingRanking,
 		children: children.map((c) => ({ id: c.id, nickname: c.nickname })),
@@ -109,12 +105,8 @@ export const actions = {
 	updateSiblingSettings: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
-		const mode = form.get('siblingMode')?.toString() ?? 'both';
+		// #3195: 競争モード (sibling_mode) は撤去。チャレンジはアプリ自動生成 (協力) に一本化。
 		const rankingRequested = form.has('siblingRankingEnabled');
-
-		if (!['cooperative', 'competitive', 'both'].includes(mode)) {
-			return fail(400, { siblingError: '不正なモードです' });
-		}
 
 		const planTier = await resolveFullPlanTier(
 			tenantId,
@@ -136,7 +128,6 @@ export const actions = {
 
 		const rankingEnabled = rankingRequested && planLimits.canSiblingRanking ? 'true' : 'false';
 
-		await setSetting('sibling_mode', mode, tenantId);
 		await setSetting('sibling_ranking_enabled', rankingEnabled, tenantId);
 
 		return { siblingSuccess: true };

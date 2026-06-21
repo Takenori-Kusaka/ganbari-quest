@@ -46,7 +46,8 @@ function getSiblingName(id: number): string {
 	return siblingNames.find((s) => s.id === id)?.nickname ?? `#${id}`;
 }
 
-const typeIcon = (t: string) => (t === 'cooperative' ? '🤝' : '⚔️');
+// #3195: 競争タイプ撤去によりチャレンジは協力固定。アイコンも 🤝 固定。
+const typeIcon = (_t: string) => '🤝';
 </script>
 
 {#if challenges.length > 0}
