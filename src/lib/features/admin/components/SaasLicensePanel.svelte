@@ -42,6 +42,7 @@ import Alert from '$lib/ui/primitives/Alert.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 let { data } = $props();
 
@@ -71,7 +72,9 @@ let trialSubmitting = $state(false);
 let trialStartError = $state('');
 let showChurnModal = $state(false);
 let selectedTier = $state<'standard' | 'family'>('standard');
-let billingInterval = $state<'monthly' | 'yearly'>('monthly');
+// #3204: 年額は #2719 で廃止確定 (checkout が yearly を reject)。月額固定にし、年額トグル UI を撤去。
+// #3204: checkout 失敗時のエラーメッセージ (silent no-op 撲滅、Toast と併用の in-page banner)
+let checkoutError = $state<string | null>(null);
 
 // #771 Portal を開く前の PIN / 確認フレーズ入力
 const DOWNGRADE_CONFIRM_PHRASE = 'プランを変更します';
@@ -165,16 +168,34 @@ const hasSubscription = $derived(!!license.stripeSubscriptionId);
 
 async function startCheckout(planId: string) {
 	checkoutLoading = true;
+	checkoutError = null;
 	try {
 		const res = await fetch('/api/stripe/checkout', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ planId }),
 		});
-		const data = await res.json();
-		if (data.url) {
+		const data = await res.json().catch(() => ({}));
+		if (res.ok && data.url) {
 			window.location.href = data.url;
+			return;
 		}
+		// #3204: silent no-op 撲滅。非 2xx / url 欠落時はサーバーメッセージを必ず提示する
+		// (decision 機能無効 = STRIPE_DISABLED は「決済機能は現在利用できません」、
+		//  INVALID_PLAN 等も同様)。demo/staging で押下しても無反応にしない。
+		const message =
+			typeof data?.message === 'string' && data.message
+				? data.message
+				: SUBSCRIPTION_PAGE_LABELS.checkoutFailed;
+		checkoutError = message;
+		showToast(SUBSCRIPTION_PAGE_LABELS.checkoutFailedToastTitle, message, 'error');
+	} catch {
+		checkoutError = SUBSCRIPTION_PAGE_LABELS.checkoutFailed;
+		showToast(
+			SUBSCRIPTION_PAGE_LABELS.checkoutFailedToastTitle,
+			SUBSCRIPTION_PAGE_LABELS.checkoutFailed,
+			'error',
+		);
 	} finally {
 		checkoutLoading = false;
 	}
@@ -520,24 +541,7 @@ async function openPortal() {
 		{:else}
 			<!-- サブスクリプション無し → プラン選択 -->
 			<div class="grid gap-4">
-				<!-- 請求間隔切り替え -->
-				<div class="flex justify-center gap-2 mb-2">
-					<button
-						class="interval-btn"
-						class:active={billingInterval === 'monthly'}
-						onclick={() => (billingInterval = 'monthly')}
-					>
-						{SUBSCRIPTION_PAGE_LABELS.billingMonthly}
-					</button>
-					<button
-						class="interval-btn"
-						class:active={billingInterval === 'yearly'}
-						onclick={() => (billingInterval = 'yearly')}
-					>
-						{SUBSCRIPTION_PAGE_LABELS.billingYearly}
-					</button>
-				</div>
-
+				<!-- #3204: 年額トグル撤去 (年額は #2719 で廃止確定、checkout が reject)。月額固定。 -->
 				<!-- PLAN_LABELS.standard -->
 				<div
 					class="plan-card"
@@ -553,14 +557,7 @@ async function openPortal() {
 							<p class="font-semibold text-[var(--color-text-primary)]">{SUBSCRIPTION_PAGE_LABELS.standardPlanName}</p>
 							<p class="text-xs text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.standardPlanDesc}</p>
 						</div>
-						{#if billingInterval === 'monthly'}
-							<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{SUBSCRIPTION_PAGE_LABELS.standardPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.standardPerMonth}</span></p>
-						{:else}
-							<div class="text-right">
-								<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{SUBSCRIPTION_PAGE_LABELS.standardPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.standardPerYear}</span></p>
-								<p class="text-xs text-[var(--color-feedback-success-text)]" data-testid="standard-yearly-monthly-equiv">{SUBSCRIPTION_PAGE_LABELS.standardYearlyMonthlyEquiv}</p>
-							</div>
-						{/if}
+						<p class="text-xl font-bold text-[var(--color-feedback-info-text)]">{SUBSCRIPTION_PAGE_LABELS.standardPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.standardPerMonth}</span></p>
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
 						{#each getLicenseHighlights('standard') as highlight}
@@ -586,14 +583,7 @@ async function openPortal() {
 							<p class="font-semibold text-[var(--color-text-primary)]">{SUBSCRIPTION_PAGE_LABELS.familyPlanName}</p>
 							<p class="text-xs text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.familyPlanDesc}</p>
 						</div>
-						{#if billingInterval === 'monthly'}
-							<p class="text-xl font-bold text-[var(--color-stat-purple)]">{SUBSCRIPTION_PAGE_LABELS.familyPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.standardPerMonth}</span></p>
-						{:else}
-							<div class="text-right">
-								<p class="text-xl font-bold text-[var(--color-stat-purple)]">{SUBSCRIPTION_PAGE_LABELS.familyPriceYearly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.standardPerYear}</span></p>
-								<p class="text-xs text-[var(--color-feedback-success-text)]" data-testid="family-yearly-monthly-equiv">{SUBSCRIPTION_PAGE_LABELS.familyYearlyMonthlyEquiv}</p>
-							</div>
-						{/if}
+						<p class="text-xl font-bold text-[var(--color-stat-purple)]">{SUBSCRIPTION_PAGE_LABELS.familyPriceMonthly}<span class="text-sm font-normal text-[var(--color-text-muted)]">{SUBSCRIPTION_PAGE_LABELS.standardPerMonth}</span></p>
 					</div>
 					<ul class="text-xs text-[var(--color-text-muted)] space-y-1 mb-3">
 						{#each getLicenseHighlights('family') as highlight}
@@ -604,14 +594,24 @@ async function openPortal() {
 
 				<!-- 購入ボタン -->
 				<Button
-					onclick={() => startCheckout(selectedTier === 'family' ? `family-${billingInterval}` : billingInterval)}
-					disabled={checkoutLoading}
+					onclick={() =>
+						startCheckout(
+							selectedTier === 'family'
+								? SUBSCRIPTION_PLAN.FAMILY_MONTHLY
+								: SUBSCRIPTION_PLAN.MONTHLY,
+						)}
+					loading={checkoutLoading}
 					variant="primary"
 					size="md"
 					class="w-full"
 				>
 					{SUBSCRIPTION_PAGE_LABELS.checkoutButton(selectedTier, checkoutLoading)}
 				</Button>
+
+				<!-- #3204: checkout 失敗時の in-page banner (Toast との 2 層 feedback、silent no-op 撲滅) -->
+				{#if checkoutError}
+					<Alert variant="danger" message={checkoutError} />
+				{/if}
 
 				<p class="text-xs text-[var(--color-text-tertiary)] text-center">
 					{SUBSCRIPTION_PAGE_LABELS.checkoutNote}
@@ -743,24 +743,6 @@ async function openPortal() {
 </div>
 
 <style>
-	.interval-btn {
-		padding: 6px 16px;
-		font-size: 0.8rem;
-		font-weight: 600;
-		border-radius: 8px;
-		border: 1px solid var(--color-neutral-200, #e5e7eb);
-		background: white;
-		color: var(--color-neutral-500, #6b7280);
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.interval-btn.active {
-		background: var(--color-violet-500, #8b5cf6);
-		color: white;
-		border-color: var(--color-violet-500, #8b5cf6);
-	}
-
 	.plan-card {
 		position: relative;
 		border: 2px solid var(--color-neutral-200, #e5e7eb);

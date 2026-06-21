@@ -1838,6 +1838,9 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 		`⚠️ プラン変更には${usesPin ? '親 PIN' : '確認フレーズ'}の入力が必要です`,
 	billingMonthly: '月額',
 	billingYearly: '年額（17% OFF）',
+	// #3204: checkout 失敗時のユーザ向けフィードバック (silent no-op 撲滅)
+	checkoutFailed: '決済を開始できませんでした。時間をおいて再度お試しください',
+	checkoutFailedToastTitle: '決済を開始できませんでした',
 
 	// スタンダードプラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
