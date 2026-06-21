@@ -4846,7 +4846,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	restoreResourceNoun: 'チェックリスト',
 	// テンプレート単位 export の選択 dialog 文言:
 	exportSelectTitle: 'エクスポートするチェックリスト',
-	exportSelectDesc: '1 つのチェックリストを選んでバックアップファイルに書き出します。',
+	exportSelectDesc: `1 つのチェックリストを選んで${BACKUP_TERMS.file}に書き出します。`,
 	exportSelectEmpty: 'エクスポートできるチェックリストがありません',
 	exportItemButton: (name: string) => `「${name}」をエクスポート`,
 	importToastSuccess: (presetName: string, distributedCount: number) =>
@@ -6551,8 +6551,8 @@ export const FEATURES_LABELS = {
 		clearAllIcon: '🗑',
 		// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクションの独立化)
 		restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
-		restoreDialogDesc:
-			'以前書き出した活動のバックアップファイルを読み込んで復元します。みんなのテンプレートの取り込みとは別の機能です。',
+		// #backup-terms: 活動取込は JSON バックアップに加え CSV (自作表計算) も読み込めるため CSV を露出する (ADR-0013 truth、#3079 AC4)
+		restoreDialogDesc: `活動の${BACKUP_TERMS.importFile} ファイルを読み込んで取り込みます。みんなのテンプレートの取り込みとは別の機能です。`,
 		restoreSubmitBtn: '読み込む',
 		restoreProcessing: '読み込み中…',
 		restoreSuccess: (name: string, imported: number, skipped: number) =>
@@ -8103,7 +8103,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k63: '<strong>ありません。</strong>広告配信自体を一切行っておらず、お子さまの行動データを第三者に提供することもありません。',
 	k64: 'データは「お子さまの成長を家族内で共有する」目的のみに使用されます。詳細は <a href="privacy.html">プライバシーポリシー</a> をご参照ください。',
 	k65: 'データのエクスポート（書き出し）はできますか？',
-	k66: `はい。<strong>${PLAN_FULL_TERMS.standard}以上</strong>で、${ADMIN_VIEW_TERMS.canonical}から家族のデータをバックアップファイルとしてエクスポートできます。`,
+	k66: `はい。<strong>${PLAN_FULL_TERMS.standard}以上</strong>で、${ADMIN_VIEW_TERMS.canonical}から家族のデータを${BACKUP_TERMS.file}としてエクスポートできます。`,
 	// #1815: 「シール、称号、」を削除（export-service.ts に実装がなく ADR-0013 LP truth 違反のため）
 	k67: 'エクスポート対象: お子さま情報、活動、ポイント履歴、チェックリスト。',
 	k68: 'お引越しや他のサービスへの移行、ご自身でのバックアップにご利用いただけます。',
@@ -8517,7 +8517,8 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	emptyMarketplace: '取り込めるアイテムが見つかりません。',
 	marketplaceHeading: 'マーケットプレイスから',
 	fileHeading: 'ファイルから',
-	fileDesc: '保存しておいたバックアップファイルを取り込みます。',
+	// #backup-terms: 活動取込は CSV (自作表計算) も受けるため CSV を露出する (ADR-0013 truth)
+	fileDesc: `保存しておいた${BACKUP_TERMS.importFile} ファイルを取り込みます。`,
 	fileImportBtn: 'ファイルを取り込む',
 	addBtn: 'この内容で追加',
 	processingText: '取り込み中...',
