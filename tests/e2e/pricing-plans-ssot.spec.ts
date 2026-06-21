@@ -41,15 +41,12 @@ test.describe('#765 /pricing プランメタ情報 SSOT', () => {
 		expect(body).not.toMatch(/￥/);
 	});
 
-	test('年額表記は standard / family にのみ表示される', async ({ page }) => {
-		const standardCard = page.locator('[data-plan="standard"]');
-		const familyCard = page.locator('[data-plan="family"]');
-		const freeCard = page.locator('[data-plan="free"]');
-
-		await expect(standardCard.getByTestId('pricing-yearly-price')).toContainText('年額 ¥5,000');
-		await expect(familyCard.getByTestId('pricing-yearly-price')).toContainText('年額 ¥7,800');
-		// free には yearly-price 要素が存在しない
-		await expect(freeCard.getByTestId('pricing-yearly-price')).toHaveCount(0);
+	test('年額表記は廃止済み（#2719 / FR-2 課金期間 = 月額のみ）', async ({ page }) => {
+		// #2719: 年額プラン廃止。どのプランにも年額表示 (pricing-yearly-price) は出ない。
+		await expect(page.getByTestId('pricing-yearly-price')).toHaveCount(0);
+		// 画面本文にも「年額」表記が残らない
+		const body = await page.locator('body').textContent();
+		expect(body).not.toMatch(/年額/);
 	});
 
 	test('おすすめバッジは standard のみに表示される（#749 §7.4）', async ({ page }) => {

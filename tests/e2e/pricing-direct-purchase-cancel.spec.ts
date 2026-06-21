@@ -127,24 +127,23 @@ test.describe('#2098 AC4: pricing.html 直接購入 CTA (Tower 型二段 CTA 下
 		expect(firstNoteText).toMatch(/決済情報|カード|ライセンスキー/);
 	});
 
-	test('AC4-4: 月額/年額トグル (billing-cycle) が描画され、初期状態 monthly が checked', async ({
+	test('AC4-4: 月額/年額トグル (billing-cycle) は撤去され、直接購入 CTA は billing=monthly 固定 (#3212)', async ({
 		page,
 	}) => {
 		await page.goto(`${baseUrl}/pricing.html`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 
-		// site/pricing.html 内では `<input type="radio" name="billing-cycle">` で実装されている
-		// (#2102 F-1)。AC4-1/2 で CTA href の billing=monthly を検証しているのに対し、
-		// 本 AC4-4 では「トグル UI 自体が DOM に存在し、monthly が初期 checked であること」を
-		// 強い assertion で確認する (ADR-0006 tautology 撤廃: typeof === 'boolean' 禁止)。
-		const monthlyRadio = page.locator('input[name="billing-cycle"][value="monthly"]');
-		const yearlyRadio = page.locator('input[name="billing-cycle"][value="yearly"]');
+		// #3212: 年額廃止 (#2719) に伴い billing-cycle トグルを撤去。トグル DOM が存在しないこと。
+		await expect(page.locator('input[name="billing-cycle"]')).toHaveCount(0);
 
-		await expect(monthlyRadio).toHaveCount(1);
-		await expect(yearlyRadio).toHaveCount(1);
-
-		// 初期状態は monthly が checked
-		await expect(monthlyRadio).toBeChecked();
-		await expect(yearlyRadio).not.toBeChecked();
+		// 直接購入 CTA は billing=monthly 固定 (yearly を生成しない)
+		const directCtas = page.locator('a[data-direct-purchase]');
+		const ctaCount = await directCtas.count();
+		expect(ctaCount).toBeGreaterThanOrEqual(1);
+		for (let i = 0; i < ctaCount; i++) {
+			const href = (await directCtas.nth(i).getAttribute('href')) ?? '';
+			expect(href).toContain('billing=monthly');
+			expect(href).not.toContain('billing=yearly');
+		}
 	});
 });
 

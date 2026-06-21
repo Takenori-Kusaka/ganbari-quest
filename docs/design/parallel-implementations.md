@@ -482,7 +482,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - LP 側は `scripts/check-lp-plan-sync.mjs` で drift を自動検知（#764, `npm run lint:parallel` 経由）
   - `site/pricing.html`: 全 feature 完全一致（strict）
   - `site/index.html`, `site/pamphlet.html`: 少なくとも 1 feature 一致（loose, LP トップとパンフ簡略版のため）
-  - 価格（`price` / `yearlyPrice` の数値部）は全ファイルでチェック（pamphlet は月額のみ）
+  - 価格（`price` の数値部）は全ファイルでチェック（年額 `yearlyPrice` は #2719 / FR-2 で廃止済 = 月額のみ）
 
 **修正時チェック**:
 - [ ] プラン機能追加 → `plan-features.ts` の該当プラン配列に追加
