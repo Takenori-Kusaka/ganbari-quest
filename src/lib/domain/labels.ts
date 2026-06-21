@@ -1659,8 +1659,37 @@ export const SETTINGS_LABELS = {
 		'この操作は取り消せません。事前にデータをエクスポートすることをお勧めします。',
 	clearCompleted: 'データクリアが完了しました。ページを再読み込みしてください。',
 
-	// フィードバック
-	feedbackSectionTitle: '💬 フィードバック・ご意見',
+	// フィードバック (#support-unify: 1 フォーム統合 — intent 2 軸 + 内容分類併用。研究: 単一フォーム + intent セレクタ)
+	feedbackSectionTitle: '💬 サポート・ご意見',
+	feedbackSectionDesc:
+		'個人開発のため、開発者本人がひとつずつ目を通します。ご感想・ご要望も、導入や使い方・解約のご相談もこちらからどうぞ。',
+	feedbackIntentLabel: 'ご用件',
+	feedbackIntentFeedback: '感想・要望を送る（返信は不要）',
+	feedbackIntentConsult: '相談・困りごと（返信を希望）',
+	feedbackCategoryLabel: '種類',
+	feedbackCategoryFeature: '機能要望',
+	feedbackCategoryBug: 'バグ報告',
+	feedbackCategoryOther: 'その他',
+	feedbackChildAgeLabel: 'お子さまの年齢（任意）',
+	feedbackChildAgePlaceholder: '例: 7 歳、3 歳と 6 歳など',
+	feedbackChildAgeHint: 'お子さまに合うかどうかをご一緒に考えるための参考にします。',
+	feedbackReplyEmailLabel: '返信先メールアドレス',
+	feedbackReplyEmailOptionalSuffix: '（任意）',
+	feedbackReplyHintFeedback: '読ませていただきますが、個別の返信はできない場合があります。',
+	feedbackReplyHintConsultWithAccount: (account: string) =>
+		`${account} に返信します（通常 1〜2 日以内）。別のアドレスを希望する場合は入力してください。`,
+	feedbackReplyHintConsultNoAccount:
+		'返信のためメールアドレスを入力してください（通常 1〜2 日以内）。',
+	feedbackConsultReplyRequiredError: '相談・困りごとは返信先メールアドレスを入力してください',
+	feedbackInvalidIntentError: 'ご用件の選択が不正です',
+	feedbackSubmitButton: '送信する',
+	feedbackSubmittingText: '送信中...',
+	feedbackSuccessConsult: (inquiryId: string) =>
+		`ご相談を受け付けました。受付番号: ${inquiryId}。内容を確認のうえ、入力いただいたメールアドレスにご返信します。`,
+	feedbackSuccessFeedbackWithId: (inquiryId: string) =>
+		`お問い合わせを受け付けました。受付番号: ${inquiryId}。`,
+	feedbackSuccessFeedbackEmailNote: '入力いただいたメールアドレスに確認メールをお送りしました。',
+	feedbackSuccessFeedbackNoId: 'お問い合わせありがとうございます。今後の参考とさせていただきます。',
 	feedbackContentLabel: '内容',
 	feedbackContentPlaceholder: 'ご意見・ご要望をお聞かせください...',
 	feedbackContactNote: '技術的なご質問・使い方の相談は',
@@ -5433,14 +5462,9 @@ export const LP_PRICING_LABELS = {
  * 実践として、初期 ~10 親契約まで全員と直接対話する。
  */
 export const FOUNDER_INQUIRY_LABELS = {
-	// LP / admin 共通の CTA セクション
-	ctaSectionHeading: '👋 開発者に直接相談（無料）',
-	ctaSectionLead:
-		'個人開発のため、Pre-PMF 期は開発者本人が一人ひとりの相談に直接お返事します。商業的な売り込みではなく、「ご家庭に本当に合うかどうか」を一緒に判断します。',
-	ctaSectionBullet1: '導入前のご相談（向き / 不向きを率直にお伝えします）',
-	ctaSectionBullet2: '使い方が分からない・困っている',
-	ctaSectionBullet3: '解約を検討中（その前に一度お話しさせてください）',
-	ctaButton: '直接相談する（無料）',
+	// #support-unify: 旧「LP / admin 共通の CTA セクション」(ctaSectionHeading / Lead / Bullet1-3 /
+	// ctaButton) は、admin/settings/support の founder CTA カードを統合サポートフォームへ集約した際に
+	// 全参照が消えたため削除。/inquiry/founder ページ本体のラベルのみ存続させる。
 	mailtoFallbackLabel: 'メールで送る',
 	// /inquiry/founder ページ
 	pageTitle: '開発者に直接相談',
