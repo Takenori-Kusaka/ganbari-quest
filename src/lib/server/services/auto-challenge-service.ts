@@ -109,8 +109,8 @@ function weekIndexOf(weekStart: string): number {
 	return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
 }
 
-/** 直近 2 週間のカテゴリ別記録数を集計する。 */
-async function aggregateCategoryCounts(
+/** 直近 2 週間のカテゴリ別記録数を集計する。child_challenges 生成側 (#3195) でも再利用する。 */
+export async function aggregateCategoryCounts(
 	childId: number,
 	tenantId: string,
 ): Promise<Record<number, number>> {

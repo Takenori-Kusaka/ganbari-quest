@@ -27,6 +27,7 @@ import { getChecklistsForChild } from '$lib/server/services/checklist-service';
 import {
 	claimChildChallengeReward,
 	getActiveChildChallengesWithSiblings,
+	getOrCreateWeeklyChildChallenge,
 } from '$lib/server/services/child-challenge-service';
 import { getTodayMissions } from '$lib/server/services/daily-mission-service';
 import { getFamilyStreak, getNextMilestone } from '$lib/server/services/family-streak-service';
@@ -111,6 +112,9 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			mustStatus: null,
 		};
 	}
+
+	// #3195: アプリ週次自動生成。バナー/演出/報酬が読む前に当週 child_challenge を冪等生成する。
+	await getOrCreateWeeklyChildChallenge(child.id, tenantId);
 
 	// 独立したDB呼び出しを並列実行（LCP改善）
 	// #2295 (EPIC #2294 ①): activeEvents / monthlyPremiumReward 削除済 (2026-05-19)
