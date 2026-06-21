@@ -141,7 +141,7 @@ async function handleImportFileChange(e: Event) {
 	if (!importFile) return;
 	const isZip = importFile.name.endsWith('.zip');
 	if (!importFile.name.endsWith('.json') && !isZip) {
-		importError = 'JSON または ZIP ファイルを選択してください';
+		importError = SETTINGS_LABELS.dataImportInvalidFile;
 		importFile = null;
 		return;
 	}

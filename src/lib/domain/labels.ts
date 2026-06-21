@@ -32,6 +32,7 @@ import {
 	ADVENTURE_TERMS,
 	AGE_RANGE_TERMS,
 	AUTONOMY_TERMS,
+	BACKUP_TERMS,
 	CANCEL_TERMS,
 	CHECKOUT_TERMS,
 	CHEER_TERMS,
@@ -1210,8 +1211,7 @@ export const TUTORIAL_CHAPTER_LABELS = {
 		},
 		'customize-1': {
 			title: 'データ管理',
-			description:
-				'家族のデータをJSONファイルとしてエクスポート（バックアップ）したり、別の環境からインポート（復元）できます。機種変更やデータの引っ越しに便利です。',
+			description: `家族のデータを${BACKUP_TERMS.file}として書き出して保存したり、別の環境で${BACKUP_TERMS.restoreVerb}できます。機種変更やデータの引っ越しに便利です。`,
 		},
 		'settings-1': {
 			title: 'こども画面へ切替',
@@ -1443,7 +1443,7 @@ export const PIN_GATE_ONBOARDING_LABELS = {
 export const IMPORT_LABELS = {
 	// エラーメッセージ
 	errorChecksumMismatch: 'ファイルが破損しているか改ざんされています',
-	errorInvalidJson: 'JSONの解析に失敗しました',
+	errorInvalidJson: 'ファイルの読み込みに失敗しました',
 	errorImportFailed: 'インポートに失敗しました',
 
 	// 事前確認ダイアログ
@@ -1548,34 +1548,31 @@ export const SETTINGS_LABELS = {
 	pointPreviewLabel: (n: number) => `プレビュー（${n}P の場合）`,
 	pointSaveAction: 'ポイント設定を保存',
 
-	// データ管理
+	// データ管理 (#backup-terms: 内部フォーマット JSON/ZIP は UI 露出しない。BACKUP_TERMS 統一)
 	dataSectionTitle: '💾 データ管理',
-	dataExportDesc:
-		'家族のデータをJSONファイルとしてダウンロードできます。バックアップや別環境への移行に使用できます。',
-	dataExportTarget: 'エクスポート対象:',
+	dataExportDesc: `家族のデータを${BACKUP_TERMS.file}としてダウンロードできます。${BACKUP_TERMS.exportNoun}や別環境への移行に使用できます。`,
+	dataExportTarget: `${BACKUP_TERMS.canonical}に含まれるもの:`,
 	dataExportItem1: '子供プロフィール・活動記録・ポイント履歴',
 	dataExportItem2: 'ステータス・実績・称号・ログインボーナス',
 	dataExportItem3: 'チェックリスト・誕生日振り返り',
 	dataExportItem4: '活動マスタ・きせかえアイテム',
-	dataExportUpsellTitle: '🔒 データエクスポートは ',
+	dataExportUpsellTitle: `🔒 データの${BACKUP_TERMS.exportNoun}は `,
 	// #1960 Phase 7 H3: terms.ts atom 参照化
 	dataExportUpsellPlan: `${PLAN_FULL_TERMS.standard}`,
 	dataExportUpsellSuffix: ' 以上でご利用いただけます。',
-	dataExportUpsellDesc:
-		'家族のデータをJSON/ZIP形式でダウンロードして、バックアップや引っ越しに利用できます。',
+	dataExportUpsellDesc: `家族のデータを${BACKUP_TERMS.file}としてダウンロードして、${BACKUP_TERMS.exportNoun}や引っ越しに利用できます。`,
 	dataExportUpsellCta: 'プランを見る',
-	dataExportLockedButton: '🔒 データをエクスポート（有料プラン限定）',
-	dataExportIncludeFiles: '画像・音声ファイルも含める（ZIP形式）',
+	dataExportLockedButton: `🔒 ${BACKUP_TERMS.canonical}をダウンロード（有料プラン限定）`,
+	dataExportIncludeFiles: '画像・音声ファイルも含める',
 	dataExportIncludeFilesHint:
 		'画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。',
-	dataExportCompact: '圧縮形式でエクスポート（ファイルサイズを削減）',
-	dataExporting: 'エクスポート中...',
-	dataExportAction: 'データをエクスポート',
+	dataExportCompact: 'ファイルサイズを小さくする（圧縮）',
+	dataExporting: '書き出し中...',
+	dataExportAction: `${BACKUP_TERMS.canonical}をダウンロード`,
 
 	// インポート
 	dataImportTitle: 'データのインポート',
-	dataImportDesc:
-		'エクスポートしたJSON / ZIPファイルからデータを復元できます（ZIPはアバター画像・音声も復元します）。',
+	dataImportDesc: `保存した${BACKUP_TERMS.file}からデータを${BACKUP_TERMS.restoreVerb}できます（画像・音声を含むファイルはアバター画像・音声も${BACKUP_TERMS.restoreVerb}します）。`,
 	dataImportMode: 'インポートモード',
 	dataImportModeReplace: '置換（既存データを削除してインポート）',
 	dataImportModeAdd: '追加（既存データを残して追加）',
@@ -1583,7 +1580,9 @@ export const SETTINGS_LABELS = {
 		'既存の子供・活動ログ・ポイント等のデータをすべて削除してからインポートします。',
 	dataImportModeAddNote: '新しい子供データとして追加されます（既存データは上書きされません）。',
 	dataImportLoading: '読み込み中...',
-	dataImportSelectFile: 'JSON / ZIPファイルを選択',
+	dataImportSelectFile: `${BACKUP_TERMS.file}を選択`,
+	// #backup-terms: 不正ファイル選択時 (内部フォーマット名は出さず「バックアップファイル」で統一)
+	dataImportInvalidFile: `${BACKUP_TERMS.file}を選択してください`,
 	dataImportChecksumOk: '✓ ファイルの整合性を確認しました',
 	dataImportPreviewChildren: (n: number | string | undefined) => `子供: ${n}人`,
 	dataImportPreviewActivityLogs: (n: number | string | undefined) => `活動ログ: ${n}件`,
@@ -4140,7 +4139,7 @@ export const BACKUP_RESTORE_LABELS = {
 	exportIcon: OVERFLOW_MENU_TERMS.itemExportIcon,
 	restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
 	restoreDialogDesc: (resourceNoun: string) =>
-		`以前エクスポートした${resourceNoun}データ (JSON) を読み込んで復元します。みんなのテンプレートの取り込みとは別の機能です。`,
+		`以前書き出した${resourceNoun}の${BACKUP_TERMS.file}を読み込んで復元します。みんなのテンプレートの取り込みとは別の機能です。`,
 	fileRequired: 'ファイルを選択してください',
 	fileFallbackName: 'ファイル',
 	checkButton: '内容を確認',
@@ -4847,7 +4846,7 @@ export const ADMIN_CHECKLISTS_PAGE_LABELS = {
 	restoreResourceNoun: 'チェックリスト',
 	// テンプレート単位 export の選択 dialog 文言:
 	exportSelectTitle: 'エクスポートするチェックリスト',
-	exportSelectDesc: '1 つのチェックリストを選んで JSON ファイルに書き出します。',
+	exportSelectDesc: `1 つのチェックリストを選んで${BACKUP_TERMS.file}に書き出します。`,
 	exportSelectEmpty: 'エクスポートできるチェックリストがありません',
 	exportItemButton: (name: string) => `「${name}」をエクスポート`,
 	importToastSuccess: (presetName: string, distributedCount: number) =>
@@ -6552,8 +6551,8 @@ export const FEATURES_LABELS = {
 		clearAllIcon: '🗑',
 		// #2558 段階2: バックアップから復元ダイアログ (旧 UnifiedImportHub file セクションの独立化)
 		restoreDialogTitle: `📥 ${OVERFLOW_MENU_TERMS.itemRestore}`,
-		restoreDialogDesc:
-			'以前エクスポートした活動データ (JSON / CSV) を読み込んで復元します。みんなのテンプレートの取り込みとは別の機能です。',
+		// #backup-terms: 活動取込は JSON バックアップに加え CSV (自作表計算) も読み込めるため CSV を露出する (ADR-0013 truth、#3079 AC4)
+		restoreDialogDesc: `活動の${BACKUP_TERMS.importFile} ファイルを読み込んで取り込みます。みんなのテンプレートの取り込みとは別の機能です。`,
 		restoreSubmitBtn: '読み込む',
 		restoreProcessing: '読み込み中…',
 		restoreSuccess: (name: string, imported: number, skipped: number) =>
@@ -6760,7 +6759,7 @@ export const LP_FAQ_LABELS = {
 	text19: `プラン別の猶予期間（読み取り専用）— ${PLAN_TERMS.free}: 即時削除 / ${PLAN_TERMS.standard}: 7 日 / ${PLAN_TERMS.premium}: 30 日`,
 	text20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
 	text21: '猶予期間終了後: すべてのデータが完全に削除',
-	text22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータエクスポート（JSON / CSV）をお願いします。`,
+	text22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータのバックアップをお願いします。`,
 	text23: 'トライアル中に作ったデータは残りますか？',
 	text24: 'はい、残ります。',
 	text25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
@@ -6776,7 +6775,7 @@ export const LP_FAQ_LABELS = {
 	text35: '長期の履歴保持（無料: 過去 90 日まで → 有料: 無期限）',
 	text36: 'AI 自動提案（活動案・ごほうび案）',
 	text37: 'きょうだいランキング・家族メンバー招待',
-	text38: 'データエクスポート（JSON / CSV）',
+	text38: 'データのバックアップ',
 	text39: '料金プランページ',
 	text40: '子供が勝手に課金してしまう心配はありませんか？',
 	text41: 'ありません。',
@@ -7140,7 +7139,7 @@ export const LP_INDEX_EXTRA_LABELS = {
 	k96: 'ありません。課金操作は保護者権限のアカウントからのみ実行できる設計です。お子さまアカウントにはプラン変更ボタン自体が表示されません。',
 	k97: '詳しくはこちら',
 	k98: 'サービスが終了したらデータはどうなりますか？',
-	k99: '終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。',
+	k99: '終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをバックアップ（ファイルに書き出し）いただけます。',
 	k100: '詳しくはこちら',
 	k101: '料金・兄弟姉妹・年齢モード・エクスポート等、他のご質問は ',
 	// #1896 (PO-4-10) AC2: k102 完全削除。
@@ -7902,7 +7901,7 @@ export const LP_INDEX_PHASEB_LABELS = {
 	k74: '子供が勝手に課金してしまう心配はありませんか？',
 	k75: 'ありません。課金操作は保護者権限のアカウントからのみ実行できる設計です。お子さまアカウントにはプラン変更ボタン自体が表示されません。<a href="faq.html#pricing">詳しくはこちら</a>',
 	k76: 'サービスが終了したらデータはどうなりますか？',
-	k77: '終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをエクスポート（JSON / CSV）いただけます。<a href="faq.html#privacy">詳しくはこちら</a>',
+	k77: '終了日の 30 日以上前に登録メールアドレスへお知らせし、その間にデータをバックアップ（ファイルに書き出し）いただけます。<a href="faq.html#privacy">詳しくはこちら</a>',
 	// #1897 PO-4-11: 旧 k78 footnote (FAQ 案内文 2 重) を削除。section-desc (k87) で 1 行案内に集約。
 	// #1838: 旧 indexB.k79/k80/k81/k82 (最終 CTA cta-bottom セクション) を削除 (選択肢 A 採用)。
 	//   #1797 で導入した「アプリを開かなくなった日」Success 像は hero 主訴求 + growth-roadmap 達成体験に内在化。
@@ -8059,7 +8058,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k19: `${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「解約」から${CANCEL_TERMS.anytime}できます。解約を申請すると、ご利用プランに応じた読み取り専用の<strong>猶予期間</strong>に入ります（${PLAN_FULL_TERMS.free}: 即時削除 / ${PLAN_FULL_TERMS.standard}: 7 日間 / ${PLAN_FULL_TERMS.premium}: 30 日間）。`,
 	k20: '猶予期間中: データの閲覧・エクスポートが可能（新規作成・編集は不可）',
 	k21: '猶予期間終了後: すべてのデータが完全に削除',
-	k22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータエクスポート（JSON / CSV）をお願いします。`,
+	k22: `バックアップが必要な場合は、猶予期間中に${ADMIN_VIEW_TERMS.canonical}からデータのバックアップをお願いします。`,
 	k23: 'トライアル中に作ったデータは残りますか？',
 	k24: `<strong>はい、残ります。</strong>トライアル終了後に${PLAN_FULL_TERMS.free}へ戻っても、お子さま・活動・ポイント・履歴などのデータは引き続き保存されます。`,
 	k25: `ただし${PLAN_FULL_TERMS.free}の制限（お子さま 2 人まで、活動 3 個までなど）を超えるデータは、閲覧はできますが追加・編集の一部が制限されます。制限解除は有料プランへのアップグレードで行えます。`,
@@ -8076,7 +8075,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k35: `長期の履歴保持（${PLAN_TERMS.free}: 過去 90 日まで → 有料: 無期限）`,
 	k36: 'AI 自動提案（活動案・ごほうび案）',
 	k37: 'きょうだいランキング・家族メンバー招待',
-	k38: 'データエクスポート（JSON / CSV）',
+	k38: 'データのバックアップ',
 	k39: '詳細は <a href="pricing.html">料金プランページ</a> の比較表をご覧ください。',
 	k40: '子供が勝手に課金してしまう心配はありませんか？',
 	k41: '<strong>ありません。</strong>課金操作は保護者権限のアカウントからのみ実行できるよう設計されています。',
@@ -8104,7 +8103,7 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k63: '<strong>ありません。</strong>広告配信自体を一切行っておらず、お子さまの行動データを第三者に提供することもありません。',
 	k64: 'データは「お子さまの成長を家族内で共有する」目的のみに使用されます。詳細は <a href="privacy.html">プライバシーポリシー</a> をご参照ください。',
 	k65: 'データのエクスポート（書き出し）はできますか？',
-	k66: `はい。<strong>${PLAN_FULL_TERMS.standard}以上</strong>で、${ADMIN_VIEW_TERMS.canonical}から JSON / CSV 形式でデータをエクスポートできます。`,
+	k66: `はい。<strong>${PLAN_FULL_TERMS.standard}以上</strong>で、${ADMIN_VIEW_TERMS.canonical}から家族のデータを${BACKUP_TERMS.file}としてエクスポートできます。`,
 	// #1815: 「シール、称号、」を削除（export-service.ts に実装がなく ADR-0013 LP truth 違反のため）
 	k67: 'エクスポート対象: お子さま情報、活動、ポイント履歴、チェックリスト。',
 	k68: 'お引越しや他のサービスへの移行、ご自身でのバックアップにご利用いただけます。',
@@ -8518,7 +8517,8 @@ export const UNIFIED_IMPORT_HUB_LABELS = {
 	emptyMarketplace: '取り込めるアイテムが見つかりません。',
 	marketplaceHeading: 'マーケットプレイスから',
 	fileHeading: 'ファイルから',
-	fileDesc: '保存しておいた JSON / CSV ファイルを取り込みます。',
+	// #backup-terms: 活動取込は CSV (自作表計算) も受けるため CSV を露出する (ADR-0013 truth)
+	fileDesc: `保存しておいた${BACKUP_TERMS.importFile} ファイルを取り込みます。`,
 	fileImportBtn: 'ファイルを取り込む',
 	addBtn: 'この内容で追加',
 	processingText: '取り込み中...',
