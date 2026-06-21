@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockInsert = vi.fn();
 const mockInsertBulk = vi.fn();
 const mockFindAllByTenant = vi.fn();
+const mockFindByChildId = vi.fn();
 const mockFindActiveByChildId = vi.fn();
 const mockFindActiveOrUnclaimedByChildId = vi.fn();
 const mockUpdateProgress = vi.fn();
@@ -24,6 +25,7 @@ vi.mock('$lib/server/db/factory', () => ({
 			insert: (...a: unknown[]) => mockInsert(...a),
 			insertBulk: (...a: unknown[]) => mockInsertBulk(...a),
 			findAllByTenant: (...a: unknown[]) => mockFindAllByTenant(...a),
+			findByChildId: (...a: unknown[]) => mockFindByChildId(...a),
 			findActiveByChildId: (...a: unknown[]) => mockFindActiveByChildId(...a),
 			findActiveOrUnclaimedByChildId: (...a: unknown[]) => mockFindActiveOrUnclaimedByChildId(...a),
 			updateProgress: (...a: unknown[]) => mockUpdateProgress(...a),
@@ -31,6 +33,17 @@ vi.mock('$lib/server/db/factory', () => ({
 		},
 	}),
 }));
+
+// auto-challenge-service: computeProposal / getWeekStart / getLastWeekStart は実物を使い、
+// 集計 (activity-log 依存) のみ mock する。
+const mockAggregateCategoryCounts = vi.fn();
+vi.mock('$lib/server/services/auto-challenge-service', async (importActual) => {
+	const actual = await importActual<typeof import('$lib/server/services/auto-challenge-service')>();
+	return {
+		...actual,
+		aggregateCategoryCounts: (...a: unknown[]) => mockAggregateCategoryCounts(...a),
+	};
+});
 
 vi.mock('$lib/server/db/child-repo', () => ({
 	findAllChildren: (...a: unknown[]) => mockFindAllChildren(...a),
@@ -51,6 +64,7 @@ import {
 	createChildChallengesBulk,
 	getActiveChildChallengesWithSiblings,
 	getChallengeGroupsForAdmin,
+	getOrCreateWeeklyChildChallenge,
 	updateChildChallengeProgress,
 } from '../../../src/lib/server/services/child-challenge-service';
 
@@ -58,6 +72,51 @@ const TENANT = 'test-tenant-001';
 
 beforeEach(() => {
 	vi.clearAllMocks();
+});
+
+describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => {
+	it('当週分が無ければ child_challenges を自動生成する (targetConfig に metric/categoryId/genMode 内包)', async () => {
+		mockFindByChildId.mockResolvedValue([]); // 既存なし
+		mockAggregateCategoryCounts.mockResolvedValue({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
+		mockInsert.mockImplementation(async (input) => ({
+			id: 1,
+			currentValue: 0,
+			completed: 0,
+			...input,
+		}));
+
+		await getOrCreateWeeklyChildChallenge(10, TENANT);
+
+		expect(mockInsert).toHaveBeenCalledTimes(1);
+		const input = mockInsert.mock.calls[0]?.[0];
+		expect(input.sourceTemplateId).toBe('auto:weekly');
+		expect(input.challengeType).toBe('cooperative');
+		expect(input.periodType).toBe('weekly');
+		const cfg = JSON.parse(input.targetConfig);
+		expect(cfg.metric).toBe('count'); // 既存 updateChildChallengeProgress が増分できる形
+		expect(cfg.categoryId).toBeGreaterThanOrEqual(1);
+		expect(typeof cfg.genMode).toBe('string');
+		expect(input.targetValue).toBeGreaterThanOrEqual(2); // MIN_TARGET
+	});
+
+	it('当週分が既にあれば再生成しない (冪等)', async () => {
+		const { getWeekStart } = await import(
+			'../../../src/lib/server/services/auto-challenge-service'
+		);
+		const existing = {
+			id: 99,
+			childId: 10,
+			sourceTemplateId: 'auto:weekly',
+			startDate: getWeekStart(),
+			targetConfig: '{"metric":"count","categoryId":2,"baseTarget":3}',
+		};
+		mockFindByChildId.mockResolvedValue([existing]);
+
+		const result = await getOrCreateWeeklyChildChallenge(10, TENANT);
+		expect(result).toBe(existing);
+		expect(mockInsert).not.toHaveBeenCalled();
+		expect(mockAggregateCategoryCounts).not.toHaveBeenCalled();
+	});
 });
 
 describe('calcAgeAdjustedTarget', () => {
