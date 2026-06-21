@@ -50,6 +50,9 @@ function toAutoChallenge(item: Record<string, unknown>): AutoChallenge {
 		// SQLite schema default: current_count = 0 / status = 'active'
 		currentCount: (s.currentCount ?? 0) as number,
 		status: (s.status ?? 'active') as string,
+		// #3194: 旧 item には mode / consecutiveMissCount が無いため SQLite schema default で補完
+		mode: (s.mode ?? 'weakness') as string,
+		consecutiveMissCount: (s.consecutiveMissCount ?? 0) as number,
 		createdAt: s.createdAt as string,
 		updatedAt: s.updatedAt as string,
 	};
@@ -126,6 +129,8 @@ export async function insert(
 		// SQLite schema default
 		currentCount: 0,
 		status: 'active',
+		mode: input.mode ?? 'weakness',
+		consecutiveMissCount: input.consecutiveMissCount ?? 0,
 		createdAt: now,
 		updatedAt: now,
 	};
