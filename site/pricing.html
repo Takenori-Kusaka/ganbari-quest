@@ -71,14 +71,7 @@
 .plan-cta-direct:hover{background:var(--brand-50);text-decoration:none}
 .cta-trial-note{font-size:.7rem;color:var(--gray-500);text-align:center;margin:0 0 var(--space-2);line-height:1.5}
 .cta-direct-note{font-size:.7rem;color:var(--gray-700);background:var(--gray-50);border:1px solid var(--gray-200);border-radius:6px;padding:var(--space-2) var(--space-2);margin:0 0 var(--space-3);line-height:1.5;text-align:center}
-/* #2102 F-1: 月額/年額トグル (radio) */
-.billing-toggle{display:flex;justify-content:center;align-items:center;gap:var(--space-2);margin-bottom:var(--space-6);font-size:.85rem;color:var(--gray-700)}
-.billing-toggle fieldset{border:1px solid var(--brand-300);border-radius:2rem;padding:var(--space-1);display:inline-flex;gap:var(--space-1);background:#fff}
-.billing-toggle legend{padding:0 var(--space-2);font-size:.78rem;color:var(--gray-500);font-weight:500}
-.billing-toggle label{cursor:pointer;padding:var(--space-2) var(--space-4);border-radius:2rem;font-size:.82rem;font-weight:500;color:var(--gray-700);transition:all .15s}
-.billing-toggle input[type=radio]{position:absolute;opacity:0;pointer-events:none}
-.billing-toggle input[type=radio]:checked + span{background:var(--brand-600);color:#fff;border-radius:2rem;padding:var(--space-2) var(--space-4);display:inline-block;margin:calc(-1 * var(--space-2)) calc(-1 * var(--space-4));font-weight:600}
-.billing-toggle label:hover span{color:var(--brand-700)}
+/* #3212: 月額/年額トグル (.billing-toggle) は撤去 (年額廃止 #2719) */
 .billing-toggle input[type=radio]:focus-visible + span{outline:2px solid var(--brand-500);outline-offset:2px;border-radius:2rem}
 /* #2103 F-2: CTA-bottom 直下の解約 small リンク (既存有料ユーザー誘導) */
 .existing-cancel-link{font-size:.82rem;color:var(--gray-700);margin-top:var(--space-4);line-height:1.6}
@@ -246,20 +239,7 @@
 <section class="plans-section" id="plans">
   <div class="plans-inner">
 
-    <!-- #2102 F-1: 月額/年額トグル — Standard / Family の直接購入 CTA で参照 -->
-    <div class="billing-toggle">
-      <fieldset>
-        <legend class="sr-only" data-lp-key="pricing.billingToggleLegend">お支払い周期を選択</legend>
-        <label>
-          <input type="radio" name="billing-cycle" value="monthly" checked>
-          <span data-lp-key="pricing.billingToggleMonthly">月額</span>
-        </label>
-        <label>
-          <input type="radio" name="billing-cycle" value="yearly">
-          <span data-lp-key="pricing.billingToggleYearly">年額（2ヶ月分お得）</span>
-        </label>
-      </fieldset>
-    </div>
+    <!-- #3212: 月額/年額トグルを撤去 (年額は #2719 で廃止確定・checkout が reject。月額固定) -->
 
     <div class="plan-grid">
 
@@ -291,12 +271,11 @@
         <span class="plan-badge" data-lp-key="pricing.planStandardBadge">おすすめ</span>
         <div class="plan-name" data-lp-key="pricing.planStandardName">スタンダード</div>
         <div class="plan-price"><span data-lp-key="pricing.planStandardPrice">¥500</span> <span class="unit" data-lp-key="pricing.planStandardUnit">/月（税込）</span></div>
-        <div class="plan-price-sub" data-lp-key="pricing.planStandardYearly">年額 ¥5,000（税込・2ヶ月分お得）</div>
         <div class="plan-persona" data-lp-key="pricing.planStandardPersona">お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ</div>
         <div class="plan-desc" data-lp-key="pricing.planStandardDesc">カスタマイズ自由自在。お子さまにぴったりの環境を作れます。</div>
         <a href="https://ganbari-quest.com/auth/signup?plan=standard" class="plan-cta plan-cta-standard" data-lp-key="common.trialPeriodLabel">7 日間無料トライアル</a>
         <p class="cta-trial-note" data-lp-key="pricing.trialCtaNote">※ クレジットカード登録不要（7 日間の無料体験経路）</p>
-        <!-- #2102 F-1: 直接購入 CTA (Tower 型二段 CTA 下段) — billing-cycle トグルで URL を切替 -->
+        <!-- #2102 F-1 / #3212: 直接購入 CTA (Tower 型二段 CTA 下段)。billing=monthly 固定 (年額廃止 #2719) -->
         <a href="https://ganbari-quest.com/auth/signup?plan=standard&direct=true&billing=monthly" class="plan-cta-direct" data-direct-purchase="standard" data-lp-key="pricing.planStandardDirectCta">今すぐ購入（スタンダード）</a>
         <p class="cta-direct-note" data-lp-key="pricing.directPurchaseNote">※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます</p>
         <ul class="plan-features">
@@ -316,12 +295,11 @@
       <div class="plan-card">
         <div class="plan-name" data-lp-key="pricing.planFamilyName">プレミアム</div>
         <div class="plan-price"><span data-lp-key="pricing.planFamilyPrice">¥780</span> <span class="unit" data-lp-key="pricing.planFamilyUnit">/月（税込）</span></div>
-        <div class="plan-price-sub" data-lp-key="pricing.planFamilyYearly">年額 ¥7,800（税込・2ヶ月分お得）</div>
         <div class="plan-persona" data-lp-key="pricing.planFamilyPersona">祖父母・離れた家族と一緒に応援したいご家族へ</div>
         <div class="plan-desc" data-lp-key="pricing.planFamilyDesc">家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。</div>
         <a href="https://ganbari-quest.com/auth/signup?plan=family" class="plan-cta plan-cta-family" data-lp-key="common.trialPeriodLabel">7 日間無料トライアル</a>
         <p class="cta-trial-note" data-lp-key="pricing.trialCtaNote">※ クレジットカード登録不要（7 日間の無料体験経路）</p>
-        <!-- #2102 F-1: 直接購入 CTA (Tower 型二段 CTA 下段) — billing-cycle トグルで URL を切替 -->
+        <!-- #2102 F-1 / #3212: 直接購入 CTA (Tower 型二段 CTA 下段)。billing=monthly 固定 (年額廃止 #2719) -->
         <a href="https://ganbari-quest.com/auth/signup?plan=family&direct=true&billing=monthly" class="plan-cta-direct" data-direct-purchase="family" data-lp-key="pricing.planFamilyDirectCta">今すぐ購入（プレミアム）</a>
         <p class="cta-direct-note" data-lp-key="pricing.directPurchaseNote">※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます</p>
         <ul class="plan-features">
@@ -484,12 +462,7 @@
 
     <details class="faq-item">
       <summary data-lp-key="pricing.faqBillingDateQ">お支払い日はいつですか？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqBillingDateA">お申し込み日を起算日として、月額プランは毎月、年額プランは毎年自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日（月額）または翌年4月15日（年額）です。</div>
-    </details>
-
-    <details class="faq-item">
-      <summary data-lp-key="pricing.faqYearlyCancelQ">年額プランを途中解約した場合は？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqYearlyCancelA">年額プランを途中解約しても、お支払い済みの残り期間は引き続きご利用いただけます。日割りでの返金は行っておりません。</div>
+      <div class="faq-answer" data-lp-key="pricing.faqBillingDateA">お申し込み日を起算日として毎月自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日です。</div>
     </details>
 
     <details class="faq-item">
@@ -499,7 +472,7 @@
 
     <details class="faq-item">
       <summary data-lp-key="pricing.faqPlanChangeQ">プランの変更はできますか？</summary>
-      <div class="faq-answer" data-lp-key="pricing.faqPlanChangeA">はい。スタンダード↔ファミリー、月額↔年額の切り替えが可能です。ご家族の見守り画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。</div>
+      <div class="faq-answer" data-lp-key="pricing.faqPlanChangeA">はい。スタンダード↔ファミリーの切り替えが可能です。ご家族の見守り画面の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。</div>
     </details>
 
     <details class="faq-item">
@@ -569,25 +542,6 @@
 <script src="js/contact.js"></script>
 <!-- #1786: BudouX 全長文セクション自動 wrap (ADR-0016 整合) -->
 <script src="js/auto-budoux.js" defer></script>
-<!-- #2102 F-1: 月額/年額トグルで直接購入 CTA の URL を切替 -->
-<script>
-(function(){
-  'use strict';
-  var radios = document.querySelectorAll('input[name="billing-cycle"]');
-  var directCtas = document.querySelectorAll('a[data-direct-purchase]');
-  if (!radios.length || !directCtas.length) return;
-  function updateDirectCtaUrls(billing){
-    directCtas.forEach(function(a){
-      var plan = a.getAttribute('data-direct-purchase');
-      a.setAttribute('href', 'https://ganbari-quest.com/auth/signup?plan=' + encodeURIComponent(plan) + '&direct=true&billing=' + encodeURIComponent(billing));
-    });
-  }
-  radios.forEach(function(r){
-    r.addEventListener('change', function(){
-      if (r.checked) updateDirectCtaUrls(r.value);
-    });
-  });
-})();
-</script>
+<!-- #3212: 月額/年額トグル撤去に伴い、トグル連動の直接購入 URL 切替 JS を撤去 (billing=monthly 固定) -->
 </body>
 </html>

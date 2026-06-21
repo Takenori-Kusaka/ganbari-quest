@@ -5277,7 +5277,7 @@ export const LP_PRICING_LABELS = {
 	planStandardName: `${PLAN_TERMS.standard}`,
 	planStandardPrice: `${PRICE_TERMS.standard}`,
 	planStandardUnit: '/月（税込）',
-	planStandardYearly: '年額 ¥5,000（税込・2ヶ月分お得）',
+	// #3212: planStandardYearly / planFamilyYearly は年額廃止 (#2719) で撤去
 	planStandardPersona: 'お子さま 3 人以上 / 我が家ルールをカスタマイズしたいご家族へ',
 	planStandardDesc: 'カスタマイズ自由自在。お子さまにぴったりの環境を作れます。',
 	planStandardCta: '7日間 無料体験',
@@ -5287,7 +5287,6 @@ export const LP_PRICING_LABELS = {
 	planFamilyName: `${PLAN_TERMS.premium}`,
 	planFamilyPrice: `${PRICE_TERMS.family}`,
 	planFamilyUnit: '/月（税込）',
-	planFamilyYearly: '年額 ¥7,800（税込・2ヶ月分お得）',
 	planFamilyPersona: '祖父母・離れた家族と一緒に応援したいご家族へ',
 	planFamilyDesc: '家族みんなで見守る。きょうだいの比較やレポートで成長を応援できます。',
 	planFamilyCta: '7日間 無料体験',
@@ -5368,16 +5367,14 @@ export const LP_PRICING_LABELS = {
 	faqCancelA:
 		'プランによって異なります。スタンダードプランは解約申請から 7 日間、ファミリープランは解約申請から 30 日間はデータを見られます。その後すべてのデータが完全に削除されます（復旧不可）。この期間中はログインしてダウンロードが可能です。',
 	faqBillingDateQ: 'お支払い日はいつですか？',
+	// #3212: 年額廃止 (#2719) に伴い月額のみの記述に整合。faqYearlyCancel* は撤去。
 	faqBillingDateA:
-		'お申し込み日を起算日として、月額プランは毎月、年額プランは毎年自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日（月額）または翌年4月15日（年額）です。',
-	faqYearlyCancelQ: '年額プランを途中解約した場合は？',
-	faqYearlyCancelA:
-		'年額プランを途中解約しても、お支払い済みの残り期間は引き続きご利用いただけます。日割りでの返金は行っておりません。',
+		'お申し込み日を起算日として毎月自動更新されます。例えば4月15日にお申し込みの場合、次回のお支払い日は5月15日です。',
 	faqPaymentQ: '支払い方法は？',
 	faqPaymentA:
 		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA: `はい。スタンダード↔ファミリー、月額↔年額の切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
+	faqPlanChangeA: `はい。スタンダード↔ファミリーの切り替えが可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。プラン変更方法についてご不明な点は、お問い合わせください。`,
 	faqAdsQ: '子供の画面に広告は出ますか？',
 	faqAdsA:
 		'いいえ。無料プランでも広告は一切表示しません。お子さまが安心して使える環境を最優先にしています。',
@@ -5397,14 +5394,9 @@ export const LP_PRICING_LABELS = {
 	ctaBottomSecondary: 'デモで体験する',
 
 	// #2102 F-1: Tower 型二段 CTA — 「7 日間無料体験」(既存) + 「今すぐ購入」(新規) を並列配置
-	// 月額/年額トグルで billing cycle 選択、Stripe Checkout 経由のサブスクリプション課金動線。
 	// #2836 (Epic #2525 Phase 7 PR-L4): license key 全廃に伴い「購入後ライセンスキーをメールで…」を
 	// サブスクリプション整合の文言に置換 (決済後 tenant.status=ACTIVE で即時利用可、key 配布なし)。
-	// #2104 F-3: 既存「CC 登録不要」訴求 5 箇所 (heroSubtextSuffix / planFreePriceSub / trialStep1Desc /
-	// faqAfterTrialA + cta-trust-credit-card.svg) は γ 既存維持で無修正。新 CTA 周辺のみ「決済情報入力必須」注記を併記。
-	billingToggleLegend: 'お支払い周期を選択',
-	billingToggleMonthly: '月額',
-	billingToggleYearly: '年額（2ヶ月分お得）',
+	// #3212: 月額/年額トグル (billingToggle*) は年額廃止 (#2719) で撤去。billing=monthly 固定。
 	planStandardDirectCta: `今すぐ購入（${PLAN_TERMS.standard}）`,
 	planFamilyDirectCta: `今すぐ購入（${PLAN_TERMS.premium}）`,
 	directPurchaseNote: '※ 決済情報の入力が必要です。購入後すぐに有料機能をご利用いただけます',
