@@ -15,6 +15,10 @@
 //
 // 使用: node scripts/native-dep-smoke.mjs
 
+import { unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 let failures = 0;
 
 function ok(name, msg) {
@@ -25,20 +29,81 @@ function fail(name, err) {
 	failures++;
 }
 
-// --- better-sqlite3: SIGSEGV #3190 の当該 native module。load + in-memory CRUD ---
-try {
-	const Database = (await import('better-sqlite3')).default;
-	const db = new Database(':memory:');
-	db.exec('CREATE TABLE smoke (id INTEGER PRIMARY KEY, name TEXT)');
-	db.prepare('INSERT INTO smoke (name) VALUES (?)').run('がんばり');
-	const row = db.prepare('SELECT name FROM smoke WHERE id = 1').get();
-	db.close();
-	if (row?.name !== 'がんばり') throw new Error(`unexpected read: ${JSON.stringify(row)}`);
-	const ver = (await import('better-sqlite3/package.json', { with: { type: 'json' } })).default
-		.version;
-	ok('better-sqlite3', `v${ver} load + CRUD 正常 (SIGSEGV なし)`);
-} catch (e) {
-	fail('better-sqlite3', e);
+// temp file 名の一意化カウンタ (process.pid と組み合わせて衝突回避)
+let dbCounter = 0;
+
+// SQLite file + WAL sidecar (-wal / -shm) を best-effort で削除する。
+// 存在しない file の unlink は無視 (ENOENT)。
+function cleanupSqliteFiles(basePath) {
+	for (const suffix of ['', '-wal', '-shm']) {
+		try {
+			unlinkSync(`${basePath}${suffix}`);
+		} catch {
+			/* 未生成 / 既削除は無害 */
+		}
+	}
+}
+
+// --- better-sqlite3: SIGSEGV #3190 の当該 native module。
+//     実 crash 経路 (src/lib/server/db/client.ts getOrInitDb) を mirror して
+//     **file-backed DB + WAL pragma** を実際に exercise する。
+//
+//     `:memory:` DB は mmap/共有メモリ (-wal / -shm sidecar) を使わない別 native codepath で、
+//     WAL 固有の binding crash を素通りさせてしまう (#3190 の実 crash は file+WAL 経路)。
+//     よって smoke は temp file DB を作り、client.ts と同一の pragma を適用したうえで
+//     CRUD round-trip を行い、生成された WAL sidecar ごと後始末する。
+//
+//     temp file 名は Date.now()/Math.random() が制限される実行文脈でも衝突しないよう
+//     process.pid + module-level counter で一意化する (pre-unlink で残骸も除去)。
+{
+	let tempPath;
+	let db;
+	try {
+		const Database = (await import('better-sqlite3')).default;
+		tempPath = join(tmpdir(), `native-dep-smoke-${process.pid}-${dbCounter++}.db`);
+		// 前回 run の残骸があれば除去してから new Database (clean state)
+		cleanupSqliteFiles(tempPath);
+
+		db = new Database(tempPath);
+		// client.ts getOrInitDb (src/lib/server/db/client.ts:93-101) と同一の pragma 列。
+		// journal_mode = WAL が mmap/-wal/-shm 経路を起動する (#3190 crash codepath)。
+		db.pragma('journal_mode = WAL');
+		db.pragma('foreign_keys = ON');
+		db.pragma('busy_timeout = 5000');
+		db.pragma('wal_autocheckpoint = 100');
+		db.pragma('synchronous = NORMAL');
+
+		// WAL が実際に有効化されたことを確認 (pragma 適用 + native codepath 起動の証跡)
+		const journalMode = db.pragma('journal_mode', { simple: true });
+		if (String(journalMode).toLowerCase() !== 'wal') {
+			throw new Error(`journal_mode が WAL になっていない: ${journalMode}`);
+		}
+
+		db.exec('CREATE TABLE smoke (id INTEGER PRIMARY KEY, name TEXT)');
+		db.prepare('INSERT INTO smoke (name) VALUES (?)').run('がんばり');
+		const row = db.prepare('SELECT name FROM smoke WHERE id = 1').get();
+		// WAL checkpoint を強制し -wal の page を本体へ書き戻す (mmap write 経路も exercise)
+		db.pragma('wal_checkpoint(TRUNCATE)');
+		db.close();
+		db = null;
+		if (row?.name !== 'がんばり') throw new Error(`unexpected read: ${JSON.stringify(row)}`);
+
+		const ver = (await import('better-sqlite3/package.json', { with: { type: 'json' } })).default
+			.version;
+		ok('better-sqlite3', `v${ver} file+WAL load + CRUD 正常 (SIGSEGV なし) [${tempPath}]`);
+	} catch (e) {
+		fail('better-sqlite3', e);
+	} finally {
+		// open db が残っていれば close、その後 .db / -wal / -shm sidecar を全て後始末
+		if (db) {
+			try {
+				db.close();
+			} catch {
+				/* close 失敗は cleanup を阻害しない */
+			}
+		}
+		if (tempPath) cleanupSqliteFiles(tempPath);
+	}
 }
 
 // --- bcrypt: native hashing。load + hash/compare ---
