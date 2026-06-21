@@ -143,7 +143,9 @@ export const PREMIUM_UNLOCKED_FEATURES: Record<
  * - `name` / `shortDescription` は料金ページの見出し用。PLAN_LABELS との違いに注意：
  *   料金ページではブランディング観点で「フリー」を使うが、PLAN_LABELS は
  *   「無料プラン」を使う（#749 ブランドガイドライン §7.1 参照）。
- * - `price` / `unit` / `yearlyPrice` は表記揺れ防止のため文字列で持つ（#749 §7.2）。
+ * - `price` / `unit` は表記揺れ防止のため文字列で持つ（#749 §7.2）。
+ *   年額 (`yearlyPrice`) は #2719 / FR-2 (課金期間 = 月額のみ) で廃止済（年額 checkout を
+ *   server が reject するため、表示すると LP-truth 違反になる）。
  * - `ctaLabel` / `ctaHref` は CTA ボタン文言のハードコード禁止（#749 §7.3「無料体験」統一）。
  * - `recommended` = true のプランのみ `badge` が表示される（#749 §7.4）。
  */
@@ -152,7 +154,6 @@ export interface PricingPageMeta {
 	name: string;
 	price: string;
 	unit: string;
-	yearlyPrice?: string;
 	shortDescription: string;
 	ctaLabel: string;
 	ctaHref: string;
@@ -177,7 +178,6 @@ export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 		name: PLAN_TERMS.standard,
 		price: '¥500',
 		unit: '/月',
-		yearlyPrice: '年額 ¥5,000（2ヶ月分お得）',
 		shortDescription: 'カスタマイズ自由自在。お子さまにぴったりの環境を。',
 		ctaLabel: `${TRIAL_LABELS.durationDays}日間 ${ACTION_LABELS.freeTrial}`,
 		ctaHref: '/auth/signup?plan=standard',
@@ -190,7 +190,6 @@ export const PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 		name: PLAN_TERMS.premium,
 		price: '¥780',
 		unit: '/月',
-		yearlyPrice: '年額 ¥7,800（2ヶ月分お得）',
 		shortDescription: '全機能解放。きょうだいの成長をまとめて見守れます。',
 		ctaLabel: `${TRIAL_LABELS.durationDays}日間 ${ACTION_LABELS.freeTrial}`,
 		ctaHref: '/auth/signup?plan=family',

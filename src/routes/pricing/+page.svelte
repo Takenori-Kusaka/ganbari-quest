@@ -40,11 +40,7 @@ const plans = getPricingPagePlans().map((meta) => ({
 						<span class="text-[0.9rem] text-[var(--color-neutral-500)]">{plan.unit}</span>
 					{/if}
 				</div>
-				{#if plan.yearlyPrice}
-					<p class="text-[0.8rem] text-[var(--color-neutral-500)] mb-3" data-testid="pricing-yearly-price">{plan.yearlyPrice}</p>
-				{:else}
-					<p class="text-[0.8rem] text-[var(--color-neutral-500)] mb-3">&nbsp;</p>
-				{/if}
+				<!-- #2719 / FR-2: 課金期間 = 月額のみ。年額表示 (yearlyPrice) は廃止済 -->
 				<p class="text-[0.85rem] text-[var(--color-neutral-500)] mb-5">{plan.shortDescription}</p>
 
 				<a
