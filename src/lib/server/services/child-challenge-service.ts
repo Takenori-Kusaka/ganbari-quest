@@ -23,6 +23,7 @@ import type {
 } from '$lib/server/db/types';
 import {
 	aggregateCategoryCounts,
+	CATEGORY_NAMES,
 	computeProposal,
 	getLastWeekStart,
 	getWeekStart,
@@ -272,6 +273,80 @@ export async function getActiveChildChallenges(
 	const repos = getRepos();
 	const today = todayDateJST();
 	return repos.childChallenge.findActiveByChildId(childId, today, tenantId);
+}
+
+/**
+ * #3195: 子供 challenges ページ表示用の view 整形型。
+ * 旧 auto-challenge-service の `ActiveChallengeInfo` を child_challenges 一本化に合わせて再現する
+ * (home が child_challenges を生成し、challenges ページもこれを読むことで二重生成を防ぐ)。
+ */
+export interface ChildChallengeView {
+	id: number;
+	categoryName: string;
+	targetCount: number;
+	currentCount: number;
+	weekStart: string;
+	status: 'active' | 'completed' | 'expired';
+	progressPercent: number;
+	description: string;
+}
+
+/** child_challenge row → 子供画面 view (categoryName は targetConfig.categoryId から解決)。 */
+function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
+	let categoryId: number | undefined;
+	try {
+		const cfg = JSON.parse(row.targetConfig) as { categoryId?: number };
+		categoryId = cfg.categoryId;
+	} catch {
+		// 破損 JSON は categoryName 空で続行
+	}
+	const categoryName = categoryId ? (CATEGORY_NAMES[categoryId] ?? '') : '';
+	const target = row.targetValue > 0 ? row.targetValue : 1;
+	const current = row.currentValue;
+	const status: ChildChallengeView['status'] =
+		row.completed === 1
+			? 'completed'
+			: row.startDate <= todayDateJST() && row.endDate >= todayDateJST()
+				? 'active'
+				: 'expired';
+	return {
+		id: row.id,
+		categoryName,
+		targetCount: row.targetValue,
+		currentCount: current,
+		weekStart: row.startDate,
+		status,
+		progressPercent: Math.min(100, Math.round((current / target) * 100)),
+		description: row.description ?? '',
+	};
+}
+
+/**
+ * #3195: 子供 challenges ページの当週アクティブ challenge を view 形で取得 (なければ自動生成)。
+ * home の `getOrCreateWeeklyChildChallenge` と同一の生成入口を共有するため、challenges ページと
+ * home は常に同一の週次 child_challenge を表示する (一本化、二重生成なし)。
+ */
+export async function getOrCreateWeeklyChildChallengeView(
+	childId: number,
+	tenantId: string,
+): Promise<ChildChallengeView> {
+	const row = await getOrCreateWeeklyChildChallenge(childId, tenantId);
+	return toChildChallengeView(row);
+}
+
+/** #3195: 子供 challenges ページの履歴 (新しい順、上限 limit)。 */
+export async function getChildChallengeHistory(
+	childId: number,
+	tenantId: string,
+	limit = 10,
+): Promise<ChildChallengeView[]> {
+	const repos = getRepos();
+	const all = await repos.childChallenge.findByChildId(childId, tenantId);
+	return all
+		.slice()
+		.sort((a, b) => b.startDate.localeCompare(a.startDate))
+		.slice(0, limit)
+		.map(toChildChallengeView);
 }
 
 /**

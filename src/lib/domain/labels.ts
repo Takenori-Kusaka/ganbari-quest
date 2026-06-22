@@ -2916,7 +2916,6 @@ export const CHALLENGES_LABELS = {
 	descPlaceholder: '家族みんなでうんどうしよう',
 	typeLabel: '種別',
 	typeCooperative: '協力',
-	typeCompetitive: '競争',
 	periodLabel: '期間',
 	periodWeekly: '週間',
 	periodMonthly: '月間',
@@ -2959,7 +2958,6 @@ export const CHALLENGES_LABELS = {
 
 	// Challenge type/period labels
 	typeLabelCooperative: '協力',
-	typeLabelCompetitive: '競争',
 	periodLabelWeekly: '週間',
 	periodLabelMonthly: '月間',
 	periodLabelCustom: 'カスタム',
@@ -3156,7 +3154,7 @@ export const DEMO_TOP_LABELS = {
 	feature2Title: 'ステータス',
 	feature2Desc: '— 5軸のレーダーチャートで成長を可視化',
 	feature3Title: 'きょうだいチャレンジ',
-	feature3Desc: '— きょうだいで協力・競争する目標を設定',
+	feature3Desc: '— きょうだいで協力して取り組む目標を設定',
 	feature4Title: 'デイリーミッション',
 	feature4Desc: '— 毎日の目標で継続をサポート',
 
@@ -4698,7 +4696,7 @@ export const SETUP_ACTIVITIES_DEFAULTS_LABELS = {
 	defaultsSummaryTitle: '適用される初期設定',
 	defaultDecayLabel: 'ステータス減少: ふつう（最初の2日は減少しません）',
 	defaultPointModeLabel: 'ポイント表示: 「P」（あとで通貨換算も選べます）',
-	defaultSiblingModeLabel: 'きょうだいチャレンジ: 協力 + 競争 両方',
+	defaultSiblingModeLabel: 'きょうだいチャレンジ: 協力（家族みんなで取り組みます）',
 	defaultSiblingRankingLabel: 'きょうだいランキング: OFF（family プランで ON 可能）',
 	applyButton: 'おすすめ初期値を適用してすすむ',
 	applyingLabel: '適用中...',

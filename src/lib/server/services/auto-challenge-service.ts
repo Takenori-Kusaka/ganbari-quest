@@ -19,8 +19,8 @@ import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-l
 /** Category IDs from the categories master table */
 const ALL_CATEGORY_IDS = [1, 2, 3, 4, 5];
 
-/** Category names for display */
-const CATEGORY_NAMES: Record<number, string> = {
+/** Category names for display (#3195: child-challenge-service が autoGen challenge の view 整形で再利用) */
+export const CATEGORY_NAMES: Record<number, string> = {
 	1: 'うんどう',
 	2: 'べんきょう',
 	3: 'せいかつ',
