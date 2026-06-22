@@ -452,6 +452,55 @@ describe("#3168 dedupMode='content' (restore 冪等)", () => {
 		expect(result.skipped).toBe(0);
 	});
 
+	it('content: 同一 title + 同一 points なら icon/desc が異なっても collapse する (#3178 under-restore 仕様の固定)', async () => {
+		// content key は (title, points) のみ。同 title + 同 points で icon/desc だけ違う distinct
+		// reward は restore で 1 件に collapse する (装飾差の under-restore)。child shop の user-visible
+		// identity は title+points で子供から区別不能なため low-severity と裁定済 (#3174 QM)。本挙動を
+		// test で明示固定し、意図せぬ「icon も鍵に含める」変更で over-restore (二重化) に戻るのを防ぐ。
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({
+				title: 'ごほうび',
+				points: 50,
+				icon: '🎁',
+				description: '旧説明',
+				sourcePresetId: null,
+			}),
+		]);
+		const rewards = [
+			makeReward({ title: 'ごほうび', points: 50, icon: '⭐', description: '新説明' }),
+		];
+
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: RESTORE_PRESET,
+			childId: CHILD_ID,
+			dedupMode: 'content',
+		});
+
+		// icon/desc が違っても (title, points) 一致で重複扱い = collapse (新規 INSERT しない)
+		expect(result.imported).toBe(0);
+		expect(result.skipped).toBe(1);
+		expect(mockInsertSpecialReward).not.toHaveBeenCalled();
+	});
+
+	it('content: title が区切り曖昧な値でも NUL 区切りで別物が誤 merge されない (#3178 区切り堅牢性)', async () => {
+		// 旧 JSDoc は NUL 区切りを宣言、実装は literal NUL byte (#3178 で可読な `\\0` エスケープに是正)。
+		// 区切りに依存せず (title, points) の組が正しく区別されることを固定する。
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({ title: 'ごほうび 5', points: 10, sourcePresetId: null }),
+		]);
+		// title='ごほうび', points=510 は上記と別 reward。NUL 区切りなら別キーで新規復元される。
+		const rewards = [makeReward({ title: 'ごほうび', points: 510 })];
+
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: RESTORE_PRESET,
+			childId: CHILD_ID,
+			dedupMode: 'content',
+		});
+
+		expect(result.imported).toBe(1);
+		expect(result.skipped).toBe(0);
+	});
+
 	it('preset 取込 (dedupMode 未指定) は content の影響を受けず preset-scope のまま (#1254 G1 不変)', async () => {
 		mockFindSpecialRewards.mockResolvedValue([
 			makeExistingRow({ title: '手動ごほうび', points: 20, sourcePresetId: null }),
