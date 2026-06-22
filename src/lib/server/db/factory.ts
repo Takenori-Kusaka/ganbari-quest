@@ -8,7 +8,6 @@ import * as demoActivityMasteryRepo from './demo/activity-mastery-repo';
 import * as demoActivityPrefRepo from './demo/activity-pref-repo';
 import * as demoActivityRepo from './demo/activity-repo';
 import * as demoAuthRepo from './demo/auth-repo';
-import * as demoAutoChallengeRepo from './demo/auto-challenge-repo';
 import * as demoBattleRepo from './demo/battle-repo';
 import * as demoCancellationReasonRepo from './demo/cancellation-reason-repo';
 import * as demoCertificateRepo from './demo/certificate-repo';
@@ -44,7 +43,6 @@ import * as dynamoActivityMasteryRepo from './dynamodb/activity-mastery-repo';
 import * as dynamoActivityPrefRepo from './dynamodb/activity-pref-repo';
 import * as dynamoActivityRepo from './dynamodb/activity-repo';
 import * as dynamoAuthRepo from './dynamodb/auth-repo';
-import * as dynamoAutoChallengeRepo from './dynamodb/auto-challenge-repo';
 import * as dynamoBattleRepo from './dynamodb/battle-repo';
 import * as dynamoCancellationReasonRepo from './dynamodb/cancellation-reason-repo';
 import * as dynamoCertificateRepo from './dynamodb/certificate-repo';
@@ -80,7 +78,6 @@ import type { IActivityMasteryRepo } from './interfaces/activity-mastery-repo.in
 import type { IActivityPrefRepo } from './interfaces/activity-pref-repo.interface';
 import type { IActivityRepo } from './interfaces/activity-repo.interface';
 import type { IAuthRepo } from './interfaces/auth-repo.interface';
-import type { IAutoChallengeRepo } from './interfaces/auto-challenge-repo.interface';
 import type { IBattleRepo } from './interfaces/battle-repo.interface';
 import type { ICancellationReasonRepo } from './interfaces/cancellation-reason-repo.interface';
 import type { ICertificateRepo } from './interfaces/certificate-repo.interface';
@@ -116,7 +113,6 @@ import * as sqliteActivityMasteryRepo from './sqlite/activity-mastery-repo';
 import * as sqliteActivityPrefRepo from './sqlite/activity-pref-repo';
 import * as sqliteActivityRepo from './sqlite/activity-repo';
 import * as sqliteAuthRepo from './sqlite/auth-repo';
-import * as sqliteAutoChallengeRepo from './sqlite/auto-challenge-repo';
 import * as sqliteBattleRepo from './sqlite/battle-repo';
 import * as sqliteCancellationReasonRepo from './sqlite/cancellation-reason-repo';
 import * as sqliteCertificateRepo from './sqlite/certificate-repo';
@@ -150,7 +146,6 @@ import * as sqliteVoiceRepo from './sqlite/voice-repo';
 
 export interface Repositories {
 	accountLockout: IAccountLockoutRepo;
-	autoChallenge: IAutoChallengeRepo;
 	battle: IBattleRepo;
 	cancellationReason: ICancellationReasonRepo;
 	certificate: ICertificateRepo;
@@ -209,7 +204,6 @@ export function getRepos(): Repositories {
 		// 物理的に発生不可能にする。
 		const repos: Repositories = {
 			accountLockout: demoAccountLockoutRepo,
-			autoChallenge: demoAutoChallengeRepo,
 			battle: demoBattleRepo,
 			cancellationReason: demoCancellationReasonRepo,
 			certificate: demoCertificateRepo,
@@ -251,7 +245,6 @@ export function getRepos(): Repositories {
 	if (dataSource === 'dynamodb') {
 		const repos: Repositories = {
 			accountLockout: dynamoAccountLockoutRepo,
-			autoChallenge: dynamoAutoChallengeRepo,
 			battle: dynamoBattleRepo,
 			cancellationReason: dynamoCancellationReasonRepo,
 			certificate: dynamoCertificateRepo,
@@ -293,7 +286,6 @@ export function getRepos(): Repositories {
 
 	const repos: Repositories = {
 		accountLockout: sqliteAccountLockoutRepo,
-		autoChallenge: sqliteAutoChallengeRepo,
 		battle: sqliteBattleRepo,
 		cancellationReason: sqliteCancellationReasonRepo,
 		certificate: sqliteCertificateRepo,
