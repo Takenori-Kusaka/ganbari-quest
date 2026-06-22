@@ -112,6 +112,15 @@ export const actions = {
 			});
 		} catch (err) {
 			logger.error('Inquiry save failed', { error: String(err) });
+			// #3210: save 失敗を握り潰して偽成功を返さない (data-loss + 偽成功の根治)。
+			// Discord は founder の実 inbox なので best-effort backup として試行しつつ、
+			// ユーザーには明示エラーを返し「届いた」と誤認させない (feedback / consult 双方)。
+			notifyInquiry(tenantId, category, body, email, replyEmail || undefined, inquiryId).catch(
+				() => {},
+			);
+			return fail(500, {
+				feedbackError: '送信に失敗しました。お手数ですが時間をおいて再度お試しください',
+			});
 		}
 
 		notifyInquiry(tenantId, category, body, email, replyEmail || undefined, inquiryId).catch(
