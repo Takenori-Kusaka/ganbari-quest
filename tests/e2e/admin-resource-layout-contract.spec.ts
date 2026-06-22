@@ -247,37 +247,25 @@ test.describe('#3097 admin リソース正準スロット契約 (activities / re
 			test('(d) registry 宣言と DOM (子供タブ / child-binding モデル) が整合する', async ({
 				page,
 			}) => {
-				// 子供タブ: per-child-tabs / family-distribute いずれも child タブを描画する (本 PR では両モデルとも常時表示)。
+				// 子供タブ: 3 資源とも per-child-tabs で child タブを常時描画する。
 				await expect(page.getByTestId(model.childTabsTestid)).toBeVisible();
 
-				if (model.binding === 'child-selection-dialog') {
-					// per-child-tabs (activity / reward) は ChildSelectionDialog で取込先 child を選ぶ。
-					// family master 専用の配信 VisibilityChip (`checklist-distribution-visibility`) を
-					// **絶対に持たない**ことを assert する (per-child リソースが配信モデルを混入させたら fail)。
-					await expect(page.getByTestId('checklist-distribution-visibility')).toHaveCount(0);
-				} else {
-					// family-distribute (checklist) は「配信される」モデル。配信導線が item 件数 0 でも
-					// 必ず存在することを能動的に assert する (旧実装は `if (sectionCount > 0)` で 0 件時に
-					// 何も検証せず vacuous pass していた — toothless 分岐)。
-					//   - templates ≥ 1: 各 template に per-template 配信 section が出る
-					//   - templates = 0: empty state が配信元 (marketplace) への import bridge link を出す
-					// いずれかの配信導線が DOM 上に存在することを assert し、両状態で契約を貫通検証する。
-					const distributionSections = page.locator(
-						'[data-testid^="checklist-distribution-section-"]',
-					);
-					const importBridgeLink = page.getByTestId('checklists-empty-import-link');
-					const sectionCount = await distributionSections.count();
-					const bridgeCount = await importBridgeLink.count();
-					expect(
-						sectionCount + bridgeCount,
-						'family-distribute (checklist) の配信導線 (per-template 配信 section または empty state の import bridge link) が item 件数に関わらず 1 つも存在しない (配信モデル契約逸脱)',
-					).toBeGreaterThan(0);
-					if (sectionCount > 0) {
-						await expect(distributionSections.first()).toBeVisible();
-					} else {
-						await expect(importBridgeLink).toBeVisible();
-					}
-				}
+				// #3233: #3098/#3126 で checklist も child 主軸 (binding='child-selection-dialog' /
+				//   visibilityChipTestid=null) に統一済。registry 上 family-distribute を binding に持つ
+				//   資源は現存しないため、旧 if/else の else (family-distribute 配信導線 assert) は
+				//   到達不能な dead branch だった (前回監査 sev2 mp-3)。registry SSOT を唯一の真実とし、
+				//   全資源で「配信 VisibilityChip を page-top に surface しない」契約だけを表明する。
+				expect(
+					model.binding,
+					`registry binding が child-selection-dialog 以外 (${model.binding})。family-distribute 資源を再導入する場合は本契約 test を拡張すること`,
+				).toBe('child-selection-dialog');
+				expect(model.visibilityChipTestid, 'registry visibilityChipTestid は null 契約').toBeNull();
+
+				// checklist は配信 VisibilityChip を「配信先編集 dialog」(二次導線、初期 close) 内にのみ
+				// 持つ。activity / reward は DOM に存在しない。いずれも page 初期表示で surface しない
+				// (= page-top に配信 chip を常設しない契約)。per-child リソースが配信 chip を page-top に
+				// 常設したら toBeHidden が fail する。
+				await expect(page.getByTestId('checklist-distribution-visibility')).toBeHidden();
 			});
 		});
 	}
