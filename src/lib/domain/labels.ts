@@ -2894,10 +2894,9 @@ export const CHALLENGES_LABELS = {
 	familyStreakMilestone: (remaining: number, days: number, points: number) =>
 		`あと${remaining}日で${days}日ボーナス（+${points}P）`,
 
-	// Family plan notice
-	familyPlanTitle: '👨‍👩‍👧‍👦 ファミリープラン限定機能',
-	familyPlanDesc: 'きょうだいチャレンジと家族ストリークはファミリープランでご利用いただけます',
-	familyPlanButton: 'プランを確認',
+	// #3222 (#3193): チャレンジ全プラン開放に伴い「ファミリープラン限定機能」notice 文言を撤去
+	// (familyPlanTitle/Desc/Button は dead label 化、UI 参照ゼロ)。きょうだいランキングの
+	// family 限定は SETTINGS_LABELS.siblingRanking* が別途担う。
 
 	// Challenge section
 	sectionTitle: '👥 きょうだいチャレンジ',
@@ -3153,8 +3152,8 @@ export const DEMO_TOP_LABELS = {
 	feature1Desc: '— お子さまの日々のがんばりをワンタップで記録',
 	feature2Title: 'ステータス',
 	feature2Desc: '— 5軸のレーダーチャートで成長を可視化',
-	feature3Title: 'きょうだいチャレンジ',
-	feature3Desc: '— きょうだいで協力して取り組む目標を設定',
+	feature3Title: '週間チャレンジ',
+	feature3Desc: '— アプリが毎週、苦手・得意に合わせた目標を自動で提案',
 	feature4Title: 'デイリーミッション',
 	feature4Desc: '— 毎日の目標で継続をサポート',
 
