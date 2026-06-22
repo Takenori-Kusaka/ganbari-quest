@@ -2,11 +2,26 @@
 // Serves from local filesystem (NUC) or S3 (Lambda)
 
 import { error } from '@sveltejs/kit';
+import { logger } from '$lib/server/logger';
 import { safeContentDisposition, safeContentType } from '$lib/server/security/file-sanitizer';
 import { getChildById } from '$lib/server/services/child-service';
 import { readFile } from '$lib/server/storage';
 import { storageKeyToPublicUrl } from '$lib/server/storage-keys';
 import type { RequestHandler } from './$types';
+
+// #3139: deny path は全て 404 で存在秘匿する (cross-tenant / unauth / avatarUrl=null / mismatch /
+// 実体 missing を区別しない)。レスポンスは 404 のまま、deny 理由のみ内部ログに記録し、攻撃 404 と
+// 正常 404 (default-icon fallback 等) の監視切り分けを可能にする (response には理由を漏らさない)。
+function denyAvatar(
+	reason: string,
+	meta: { tenantId?: string; context?: Record<string, unknown> },
+): never {
+	logger.info('avatar serve deny', {
+		tenantId: meta.tenantId,
+		context: { reason, ...meta.context },
+	});
+	throw error(404, 'File not found');
+}
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const filename = params.filename;
@@ -34,19 +49,32 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	// 存在有無を漏らさないよう全て 404 を返す。
 	const context = locals.context;
 	const childIdMatch = filename.match(/^avatar-(\d+)-/);
-	if (!context || !childIdMatch) {
-		throw error(404, 'File not found');
+	if (!context) {
+		denyAvatar('no-context', { context: { filename } });
+	}
+	if (!childIdMatch) {
+		denyAvatar('malformed-filename', { tenantId: context.tenantId, context: { filename } });
 	}
 	const child = await getChildById(Number(childIdMatch[1]), context.tenantId);
 	// file ownership anchor: avatarUrl がこの legacy filename を指していなければ拒否する
 	const expectedPublicUrl = storageKeyToPublicUrl(`uploads/avatars/${filename}`);
-	if (!child || child.avatarUrl !== expectedPublicUrl) {
-		throw error(404, 'File not found');
+	if (!child) {
+		denyAvatar('no-child', { tenantId: context.tenantId, context: { childId: childIdMatch[1] } });
+	}
+	if (child.avatarUrl !== expectedPublicUrl) {
+		// 所有権 anchor 不一致 (別ファイル参照 / avatarUrl=null)。cross-tenant 取得試行の主要シグナル。
+		denyAvatar('ownership-mismatch', {
+			tenantId: context.tenantId,
+			context: { childId: childIdMatch[1], hasAvatarUrl: child.avatarUrl !== null },
+		});
 	}
 
 	const result = await readFile(`uploads/avatars/${filename}`);
 	if (!result) {
-		throw error(404, 'File not found');
+		denyAvatar('file-missing', {
+			tenantId: context.tenantId,
+			context: { childId: childIdMatch[1] },
+		});
 	}
 
 	// #3105: avatar も tenants 配信路と対称に、ラスタ画像のみ inline / SVG 等は attachment
