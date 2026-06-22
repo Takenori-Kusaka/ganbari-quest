@@ -91,7 +91,7 @@ vi.mock('$lib/server/db/factory', () => ({
 		trialHistory: { deleteByTenantId: noopDeleteByTenantId },
 		siblingChallenge: { deleteByTenantId: noopDeleteByTenantId },
 		siblingCheer: { deleteByTenantId: noopDeleteByTenantId },
-		autoChallenge: { deleteByTenantId: noopDeleteByTenantId },
+		// #3213 (EPIC #3193): autoChallenge 削除済 (auto_challenges 廃止、child_challenges へ一本化)
 		reportDailySummary: { deleteByTenantId: noopDeleteByTenantId },
 		image: { deleteByTenantId: noopDeleteByTenantId },
 	}),

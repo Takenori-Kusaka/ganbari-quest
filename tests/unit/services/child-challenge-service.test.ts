@@ -34,16 +34,26 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
-// auto-challenge-service: computeProposal / getWeekStart / getLastWeekStart は実物を使い、
-// 集計 (activity-log 依存) のみ mock する。
-const mockAggregateCategoryCounts = vi.fn();
-vi.mock('$lib/server/services/auto-challenge-service', async (importActual) => {
-	const actual = await importActual<typeof import('$lib/server/services/auto-challenge-service')>();
-	return {
-		...actual,
-		aggregateCategoryCounts: (...a: unknown[]) => mockAggregateCategoryCounts(...a),
-	};
-});
+// #3213: 生成アルゴリズム (computeProposal / getWeekStart / getLastWeekStart / aggregateCategoryCounts)
+// は child-challenge-service へ移設したため実物を使い、その内部依存である
+// activity-log-aggregation.aggregateActivityLogsByCategory のみ mock する。
+// aggregateCategoryCounts は内部で aggregateActivityLogsByCategory().summary.byCategory[id].count を
+// 読むため、テストの「カテゴリ別記録数 map」を summary 形に変換して mock 戻り値に詰める。
+const mockAggregateActivityLogsByCategory = vi.fn();
+/** カテゴリ別記録数 map → aggregateActivityLogsByCategory().summary.byCategory 形に変換して mock させる */
+function mockCategoryCounts(counts: Record<number, number>): void {
+	const byCategory: Record<number, { count: number; points: number }> = {};
+	for (const [id, count] of Object.entries(counts)) {
+		byCategory[Number(id)] = { count, points: 0 };
+	}
+	mockAggregateActivityLogsByCategory.mockResolvedValue({
+		logs: [],
+		summary: { totalCount: 0, totalPoints: 0, byCategory },
+	});
+}
+vi.mock('$lib/server/services/activity-log-aggregation', () => ({
+	aggregateActivityLogsByCategory: (...a: unknown[]) => mockAggregateActivityLogsByCategory(...a),
+}));
 
 vi.mock('$lib/server/db/child-repo', () => ({
 	findAllChildren: (...a: unknown[]) => mockFindAllChildren(...a),
@@ -59,12 +69,16 @@ vi.mock('$lib/domain/date-utils', () => ({
 
 import {
 	buildPerChildTargets,
+	type ChallengePrev,
 	calcAgeAdjustedTarget,
+	computeProposal,
 	createChildChallenge,
 	createChildChallengesBulk,
 	getActiveChildChallengesWithSiblings,
 	getChallengeGroupsForAdmin,
+	getLastWeekStart,
 	getOrCreateWeeklyChildChallenge,
+	getWeekStart,
 	updateChildChallengeProgress,
 } from '../../../src/lib/server/services/child-challenge-service';
 
@@ -74,10 +88,140 @@ beforeEach(() => {
 	vi.clearAllMocks();
 });
 
+// ============================================================
+// 週次チャレンジ生成アルゴリズム (#3194 / #3213、旧 auto-challenge-service.test.ts より移設)
+// auto_challenges 廃止 (#3213) に伴い computeProposal / getWeekStart / getLastWeekStart は
+// child-challenge-service へ移設したため、#3194 で強化したアルゴリズム挙動
+// (苦手中心＋時々得意＋翌週適応＋consecutiveMissCount) の回帰テストも本ファイルへ移設する。
+// ============================================================
+
+// computeProposal は (counts, prev, weekStart) を取る純粋関数。
+// weekIndexOf(weekStart) % 4 === 0 を「得意週」とするため、テストの weekStart は週インデックスで選ぶ。
+// 2026-01-05(月) の週インデックスは 2922 (= 2922 % 4 = 2 → 非得意週)。得意週検証用に別 weekStart を使う。
+const WEEK_WEAKNESS = '2026-01-05'; // 非得意週 (weekIndex % 4 !== 0)
+function algoCounts(byId: Record<number, number>): Record<number, number> {
+	return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, ...byId };
+}
+function makePrev(over: Partial<ChallengePrev> = {}): ChallengePrev {
+	return {
+		categoryId: 2,
+		targetCount: 3,
+		currentCount: 0,
+		status: 'expired',
+		consecutiveMissCount: 0,
+		...over,
+	};
+}
+
+describe('getWeekStart (#3213 移設)', () => {
+	it('returns Monday for a Monday date', () => {
+		// 2026-04-06 is a Monday
+		expect(getWeekStart(new Date(2026, 3, 6))).toBe('2026-04-06');
+	});
+
+	it('returns previous Monday for a Wednesday', () => {
+		// 2026-04-08 is a Wednesday
+		expect(getWeekStart(new Date(2026, 3, 8))).toBe('2026-04-06');
+	});
+
+	it('returns previous Monday for a Sunday', () => {
+		// 2026-04-12 is a Sunday
+		expect(getWeekStart(new Date(2026, 3, 12))).toBe('2026-04-06');
+	});
+
+	it('returns previous Monday for a Saturday', () => {
+		// 2026-04-11 is a Saturday
+		expect(getWeekStart(new Date(2026, 3, 11))).toBe('2026-04-06');
+	});
+});
+
+describe('getLastWeekStart (#3213 移設)', () => {
+	it('returns the Monday 7 days before the given weekStart', () => {
+		expect(getLastWeekStart('2026-01-05')).toBe('2025-12-29');
+	});
+});
+
+describe('computeProposal — カテゴリ選択 (§3.4、#3194 / #3213 移設)', () => {
+	const STRENGTH_WEEK = '2026-01-19'; // weekIndex % 4 === 0 → 得意週
+
+	it('データ不足なら explore モード (target=最小2)', () => {
+		const p = computeProposal(algoCounts({ 1: 2 }), undefined, WEEK_WEAKNESS);
+		expect(p.mode).toBe('explore');
+		expect(p.targetCount).toBe(2);
+		expect(p.reason).toContain('まだ記録が少ない');
+	});
+
+	it('通常週は weakness モード (target は 2〜7 に収まる)', () => {
+		const p = computeProposal(
+			algoCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 }),
+			undefined,
+			WEEK_WEAKNESS,
+		);
+		expect(p.mode).toBe('weakness');
+		expect(p.targetCount).toBeGreaterThanOrEqual(2);
+		expect(p.targetCount).toBeLessThanOrEqual(7);
+		expect(p.consecutiveMissCount).toBe(0);
+	});
+
+	it('得意週は strength モードで最多カテゴリを選ぶ', () => {
+		const p = computeProposal(algoCounts({ 1: 8, 5: 0 }), undefined, STRENGTH_WEEK);
+		expect(p.mode).toBe('strength');
+		expect(p.categoryId).toBe(1); // 最多 = うんどう
+		expect(p.targetCount).toBe(5); // avg 4 → base clamp(5,2,7)
+	});
+});
+
+describe('computeProposal — 翌週適応 (Flow 3 分岐、#3194 / #3213 移設)', () => {
+	const STRENGTH_WEEK = '2026-01-19';
+
+	it('前週完了 + 大幅超過なら target を上げる (+2)', () => {
+		// 得意週 → 最多カテゴリ1 を決定的に選択。prev も cat1 完了で overshoot 2
+		const prev = makePrev({ categoryId: 1, status: 'completed', targetCount: 5, currentCount: 7 });
+		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
+		expect(p.categoryId).toBe(1);
+		expect(p.targetCount).toBe(7); // max(base3, 5+2)=7
+	});
+
+	it('前週未達 (半分以上) なら据え置き', () => {
+		const prev = makePrev({ categoryId: 1, status: 'expired', targetCount: 5, currentCount: 3 });
+		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
+		expect(p.targetCount).toBe(5); // ratio 0.6 → 据置
+		expect(p.consecutiveMissCount).toBe(1);
+	});
+
+	it('前週未達 (半分未満) なら 1 下げる', () => {
+		const prev = makePrev({ categoryId: 1, status: 'expired', targetCount: 5, currentCount: 1 });
+		const p = computeProposal(algoCounts({ 1: 4 }), prev, STRENGTH_WEEK);
+		expect(p.targetCount).toBe(4); // ratio 0.2 → -1
+	});
+
+	it('2 週連続未達なら rescue-strength (target 最小 + 得意カテゴリ)', () => {
+		// prev が未達 + 既に 1 連続未達 → 今週 incoming streak = 2 → レスキュー
+		const prev = makePrev({
+			categoryId: 2,
+			status: 'expired',
+			consecutiveMissCount: 1,
+			targetCount: 3,
+			currentCount: 0,
+		});
+		const p = computeProposal(algoCounts({ 1: 6 }), prev, WEEK_WEAKNESS);
+		expect(p.mode).toBe('rescue-strength');
+		expect(p.categoryId).toBe(1); // 最多 = 得意
+		expect(p.targetCount).toBe(2); // MIN_TARGET
+		expect(p.consecutiveMissCount).toBe(2);
+	});
+
+	it('前週完了なら連続未達カウントは 0 にリセット', () => {
+		const prev = makePrev({ status: 'completed', consecutiveMissCount: 3 });
+		const p = computeProposal(algoCounts({ 1: 8, 2: 4 }), prev, WEEK_WEAKNESS);
+		expect(p.consecutiveMissCount).toBe(0);
+	});
+});
+
 describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => {
 	it('当週分が無ければ child_challenges を自動生成する (targetConfig に metric/categoryId/genMode 内包)', async () => {
 		mockFindByChildId.mockResolvedValue([]); // 既存なし
-		mockAggregateCategoryCounts.mockResolvedValue({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
+		mockCategoryCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
 		mockInsert.mockImplementation(async (input) => ({
 			id: 1,
 			currentValue: 0,
@@ -101,7 +245,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 
 	it('当週分が既にあれば再生成しない (冪等)', async () => {
 		const { getWeekStart } = await import(
-			'../../../src/lib/server/services/auto-challenge-service'
+			'../../../src/lib/server/services/child-challenge-service'
 		);
 		const existing = {
 			id: 99,
@@ -115,7 +259,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		const result = await getOrCreateWeeklyChildChallenge(10, TENANT);
 		expect(result).toBe(existing);
 		expect(mockInsert).not.toHaveBeenCalled();
-		expect(mockAggregateCategoryCounts).not.toHaveBeenCalled();
+		expect(mockAggregateActivityLogsByCategory).not.toHaveBeenCalled();
 	});
 });
 

@@ -1,19 +1,15 @@
 // src/lib/server/services/activity-log-aggregation.ts
-// #2097 ADR-0048 week 4 / Fix 2: 循環依存解消のため、activity-log-service と
-// auto-challenge-service の共通依存である「期間内 activity_logs のカテゴリ別集計」を
-// 純粋関数として分離。両 service は本 module を import するが、本 module は
+// #2097 ADR-0048 week 4 / Fix 2: 循環依存解消のため、「期間内 activity_logs のカテゴリ別集計」を
+// 純粋関数として分離。consumer service は本 module を import するが、本 module は
 // activity-repo (DB 層) のみに依存し、上位 service には依存しない。
 //
-// 抽出前の問題:
-//   - activity-log-service → auto-challenge-service (記録時の進捗更新)
-//   - auto-challenge-service → activity-log-service (analyzeWeakCategory が getActivityLogs を呼ぶ)
+// 抽出前の問題 (旧 auto-challenge-service との循環、#2097):
 //   両方向の依存があり biome noImportCycles が fail。dynamic import (`await import()`) で
-//   回避していたが、ADR-0006 / 静的解析 tier 観点で循環依存自体を解消するのが正道。
+//   回避していたが、ADR-0006 / 静的解析 tier 観点で循環依存自体を解消するのが正道だった。
 //
-// 抽出後:
+// 抽出後 (#3213 で週次生成は child-challenge-service へ一本化):
 //   - activity-log-service → activity-log-aggregation (純粋集計)
-//   - auto-challenge-service → activity-log-aggregation (純粋集計)
-//   - activity-log-service → auto-challenge-service (一方向の trigger 呼び出し、static import 可)
+//   - child-challenge-service → activity-log-aggregation (週次生成の苦手判定、純粋集計)
 
 import { findActivityLogs } from '$lib/server/db/activity-repo';
 

@@ -21,9 +21,9 @@
 //       evaluations (rest_days) / points / stampCards / statuses /
 //       loginBonuses / specialRewards (templates) / activityPref /
 //       activityMastery / message / trialHistory /
-//       siblingChallenge / siblingCheer / autoChallenge /
+//       siblingChallenge / siblingCheer /
 //       reportDailySummary / image。
-//       (#2295 で tenantEvent / seasonEvent 削除済 2026-05-19)
+//       (#2295 で tenantEvent / seasonEvent 削除済 2026-05-19 / #3213 で autoChallenge 削除済)
 //
 // ## 呼び出し側の使い分け
 //
@@ -281,13 +281,8 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] siblingCheer 削除失敗: ${String(err)}`);
 	}
 
-	// Auto challenges
-	try {
-		await r.autoChallenge.deleteByTenantId(tenantId);
-		deleted++;
-	} catch (err) {
-		logger.warn(`[tenant-cleanup] autoChallenge 削除失敗: ${String(err)}`);
-	}
+	// #3213 (EPIC #3193): auto_challenges 削除済。週次自動生成は child_challenges へ一本化 (#3195)。
+	// child_challenges の tenant cleanup は childChallenge repo / children カスケードが担う。
 
 	// Report daily summaries
 	try {

@@ -641,27 +641,7 @@ export const SQL_CREATE_TABLES = `
 		ON cloud_exports(pin_code);
 
 	-- #2295 (EPIC #2294 ①): tenant_events / tenant_event_progress テーブル削除済 (2026-05-19)
-
-	CREATE TABLE IF NOT EXISTS auto_challenges (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		tenant_id TEXT NOT NULL,
-		week_start TEXT NOT NULL,
-		category_id INTEGER NOT NULL REFERENCES categories(id),
-		target_count INTEGER NOT NULL,
-		current_count INTEGER NOT NULL DEFAULT 0,
-		status TEXT NOT NULL DEFAULT 'active',
-		mode TEXT NOT NULL DEFAULT 'weakness',
-		consecutive_miss_count INTEGER NOT NULL DEFAULT 0,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_auto_challenges_child_week
-		ON auto_challenges(child_id, week_start);
-	CREATE INDEX IF NOT EXISTS idx_auto_challenges_tenant
-		ON auto_challenges(tenant_id);
-	CREATE INDEX IF NOT EXISTS idx_auto_challenges_status
-		ON auto_challenges(status);
+	-- #3213 (EPIC #3193): auto_challenges テーブル削除済。週次自動生成は child_challenges へ一本化 (#3195)。
 
 	CREATE TABLE IF NOT EXISTS trial_history (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
