@@ -5923,6 +5923,18 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 // src/lib/ui/primitives/ 配下のハードコード文字列を集約
 // ============================================================
 
+// #3218 (EPIC #3217): 統一エラー通知 helper (error-notify.ts) の文言 SSOT。
+// 内部例外をそのまま出さず、ユーザ向け平易文言にマッピングする (WCAG 3.3.1/3.3.3、Apple HIG)。
+export const ERROR_NOTIFY_LABELS = {
+	title: '処理できませんでした',
+	generic: '時間をおいて再度お試しください',
+	network: '通信に失敗しました。接続を確認して再度お試しください',
+	server: 'エラーが発生しました。時間をおいて再度お試しください',
+	forbidden: 'この操作を行う権限がありません',
+	conflict: '他の操作と競合しました。画面を更新して再度お試しください',
+	badRequest: '入力内容をご確認ください',
+} as const;
+
 export const UI_PRIMITIVES_LABELS = {
 	// BirthdayInput
 	birthdayInputLabel: 'おたんじょうび',
