@@ -266,27 +266,35 @@ export const ALL_ADMIN_RESOURCE_PAGES = [
  */
 
 /**
- * admin 直下の route dir 名 → §10 正準契約の resource key への map。
+ * admin route path (admin/ からの相対、nested は '/' 区切り) → §10 正準契約の resource key への map。
  * resource-list 管理画面 (AdminResourceHeader / child-tabs を持つ §10 対象) のみを列挙する。
  * value は `ADMIN_RESOURCE_MODEL_REGISTRY` (正準) か `NON_CANONICAL_ADMIN_RESOURCES` (明示除外) の key。
  *
- * 注: `rules` (とくべつルール) は `/admin/settings/rules` の **settings サブページ**で admin 直下 dir では
- * ないため本 map には現れない (NON_CANONICAL_ADMIN_RESOURCES には引き続き存在)。
+ * #3171: FS 走査を recursive 化したため、nested route の `settings/rules` (とくべつルール、rule-preset
+ * marketplace 取込先) も母数に含まれるようになった。これを NON_CANONICAL の `rules` key に map し、
+ * 「nested に新規 resource 管理画面を追加すると guard が検出せず silent-pass する」理論的 gap を封じる。
  */
 export const ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY = {
 	activities: 'activity',
 	rewards: 'reward',
 	checklists: 'checklist',
 	challenges: 'challenges',
+	// #3171: nested route。NON_CANONICAL_ADMIN_RESOURCES.rules (settings サブページの rule-preset) へ map。
+	'settings/rules': 'rules',
 } as const;
 
 /**
- * admin 直下の route dir のうち、§10「admin リソース管理画面」(resource-list) **ではない** page。
- * FS 走査の母数を全 admin page で説明するための明示除外 (silent gap を作らない)。新規に admin 直下 page を
- * 追加したら、resource-list なら `ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY` + registry/除外へ、そうでなければ
- * 本リストへ reason 付きで登録する (どちらにも無いと FS 走査 test が fail する)。
+ * admin route path (admin/ からの相対、nested は '/' 区切り) のうち、§10「admin リソース管理画面」
+ * (resource-list) **ではない** page。FS 走査 (#3171 で recursive 化) の母数を全 admin page で説明する
+ * ための明示除外 (silent gap を作らない)。新規に admin page を追加したら、resource-list なら
+ * `ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY` + registry/除外へ、そうでなければ本リストへ reason 付きで登録する
+ * (どちらにも無いと FS 走査 test が fail する)。
+ *
+ * #3171: recursive 化で nested route (settings サブページ / 詳細・編集ページ / 解約フロー等) も母数に
+ * 含まれるため、それらも本リストで明示分類する。`[id]` は動的セグメントを literal で表す。
  */
 export const NON_RESOURCE_ADMIN_PAGE_ROUTES = {
+	// --- top-level non-resource ---
 	billing: { reason: '課金・プラン管理画面 (resource-list ではない)' },
 	certificates: { reason: '表彰状の発行・閲覧画面 (resource-list ではない)' },
 	cheer: { reason: 'おうえんメッセージ送信画面 (resource-list ではない)' },
@@ -296,11 +304,25 @@ export const NON_RESOURCE_ADMIN_PAGE_ROUTES = {
 	packs: { reason: 'バックアップ/エクスポート (パック) 画面 (resource-list ではない)' },
 	points: { reason: 'ポイント調整・履歴画面 (resource-list ではない)' },
 	reports: { reason: 'レポート閲覧画面 (resource-list ではない)' },
-	settings: {
-		reason: '設定 (サブページ集約)。配下の rules は NON_CANONICAL_ADMIN_RESOURCES で別途説明',
-	},
+	settings: { reason: '設定ハブ (サブページ集約)。配下の各サブページは個別に分類' },
 	status: { reason: 'ステータス閲覧画面 (resource-list ではない)' },
 	subscription: { reason: 'サブスクリプション管理画面 (resource-list ではない)' },
+	// --- nested: 詳細・編集ページ (動的セグメント含む、#3171) ---
+	'activities/[id]/edit': { reason: '活動の編集ページ (詳細フォーム、resource-list ではない)' },
+	'certificates/[id]': { reason: '表彰状の個別表示ページ (詳細、resource-list ではない)' },
+	'rewards/requests': {
+		reason: 'ごほうび交換の承認待ち一覧 (redemption sub-page、resource-list ではない)',
+	},
+	// --- nested: 解約フロー (#3171) ---
+	'billing/cancel': { reason: '解約フローの導入ページ (resource-list ではない)' },
+	'billing/cancel/graduation': { reason: '解約フロー (卒業) ページ (resource-list ではない)' },
+	'billing/cancel/thanks': { reason: '解約フロー (完了) ページ (resource-list ではない)' },
+	// --- nested: settings サブページ (#3171。rules は ADMIN_RESOURCE_PAGE_ROUTE_TO_KEY で resource 扱い) ---
+	'settings/account': { reason: '設定 > アカウント (OYAKAGI / PIN、resource-list ではない)' },
+	'settings/activities': { reason: '設定 > 活動 (ステータス減少設定、resource-list ではない)' },
+	'settings/data': { reason: '設定 > データ (エクスポート/復元、resource-list ではない)' },
+	'settings/notifications': { reason: '設定 > 通知 (resource-list ではない)' },
+	'settings/support': { reason: '設定 > サポート (フィードバック、resource-list ではない)' },
 } as const;
 
 /**

@@ -16,26 +16,42 @@ import {
 	NON_RESOURCE_ADMIN_PAGE_ROUTES,
 } from '../../../src/lib/features/admin/admin-resource-model-registry';
 
-// #3164: admin route の実 FS から「admin 直下で +page.* を持つ route dir」を導出する。
+// #3164 / #3171: admin route の実 FS から「+page.* を持つ route dir」を導出する。
 // 母数を手管理 literal でなく実 route に固定することで、新規 admin 画面の登録漏れを silent pass させない。
+// #3171: **recursive 化**。旧実装は admin 直下 (top-level) のみ走査しており、nested route
+// (settings/rules・rewards/requests・activities/[id]/edit 等) を母数から取りこぼしていた
+// (= nested に新規 resource 管理画面を追加すると guard が検出せず silent-pass する理論的 gap)。
+// 本実装は admin/ 配下の **全 dir** を再帰走査し、+page.* を持つ dir の相対 route path
+// (admin/ からの相対、'/' 区切り) を返す。admin 直下の +page.* (admin ホーム) 自体は subdir でないため
+// 旧実装と同様に対象外 (route dir = subdirectory のみを分類対象とする)。
 const ADMIN_ROUTES_DIR = resolve(
 	dirname(fileURLToPath(import.meta.url)),
 	'../../../src/routes/(parent)/admin',
 );
 
+const PAGE_FILES = ['+page.svelte', '+page.server.ts', '+page.ts'] as const;
+
+function hasPageFile(absDir: string): boolean {
+	return PAGE_FILES.some((f) => existsSync(resolve(absDir, f)));
+}
+
 function discoverAdminPageRoutes(): string[] {
 	if (!existsSync(ADMIN_ROUTES_DIR)) {
 		throw new Error(`admin routes dir not found: ${ADMIN_ROUTES_DIR}`);
 	}
-	return readdirSync(ADMIN_ROUTES_DIR, { withFileTypes: true })
-		.filter((e) => e.isDirectory())
-		.filter((e) =>
-			['+page.svelte', '+page.server.ts', '+page.ts'].some((f) =>
-				existsSync(resolve(ADMIN_ROUTES_DIR, e.name, f)),
-			),
-		)
-		.map((e) => e.name)
-		.sort();
+	const routes: string[] = [];
+	// admin/ 配下を再帰走査。各 subdir で +page.* を持てば相対 path を route として記録する。
+	const walk = (absDir: string, relPath: string): void => {
+		for (const e of readdirSync(absDir, { withFileTypes: true })) {
+			if (!e.isDirectory()) continue;
+			const childAbs = resolve(absDir, e.name);
+			const childRel = relPath ? `${relPath}/${e.name}` : e.name;
+			if (hasPageFile(childAbs)) routes.push(childRel);
+			walk(childAbs, childRel);
+		}
+	};
+	walk(ADMIN_ROUTES_DIR, '');
+	return routes.sort();
 }
 
 describe('#3134 admin リソース正準契約の網羅性 (no silent gap)', () => {
@@ -78,11 +94,14 @@ describe('#3134 admin リソース正準契約の網羅性 (no silent gap)', () 
 describe('#3164 母数を実 route FS から導出する (literal 未更新の silent pass を封殺)', () => {
 	const discovered = discoverAdminPageRoutes();
 
-	it('admin 直下の page route が実在し空でない (FS 走査が機能している sanity)', () => {
+	it('admin の page route が実在し空でない (FS 走査が機能している sanity)', () => {
 		expect(discovered.length).toBeGreaterThan(0);
 		// 既知の代表 route が含まれること (走査ロジックが壊れていない確認)
 		expect(discovered).toContain('activities');
 		expect(discovered).toContain('settings');
+		// #3171: recursive 化で nested route も母数に入る (top-level only だと取りこぼしていた)
+		expect(discovered).toContain('settings/rules');
+		expect(discovered).toContain('rewards/requests');
 	});
 
 	it('実在する全 admin page route が resource / non-resource のいずれかで説明される (unclassified 0)', () => {
