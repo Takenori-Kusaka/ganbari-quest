@@ -34,11 +34,11 @@ vi.mock('$lib/server/db/factory', () => ({
 	}),
 }));
 
-// auto-challenge-service: computeProposal / getWeekStart / getLastWeekStart は実物を使い、
+// challenge-generation: computeProposal / getWeekStart / getLastWeekStart は実物を使い、
 // 集計 (activity-log 依存) のみ mock する。
 const mockAggregateCategoryCounts = vi.fn();
-vi.mock('$lib/server/services/auto-challenge-service', async (importActual) => {
-	const actual = await importActual<typeof import('$lib/server/services/auto-challenge-service')>();
+vi.mock('$lib/server/services/challenge-generation', async (importActual) => {
+	const actual = await importActual<typeof import('$lib/server/services/challenge-generation')>();
 	return {
 		...actual,
 		aggregateCategoryCounts: (...a: unknown[]) => mockAggregateCategoryCounts(...a),
@@ -100,9 +100,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 	});
 
 	it('当週分が既にあれば再生成しない (冪等)', async () => {
-		const { getWeekStart } = await import(
-			'../../../src/lib/server/services/auto-challenge-service'
-		);
+		const { getWeekStart } = await import('../../../src/lib/server/services/challenge-generation');
 		const existing = {
 			id: 99,
 			childId: 10,

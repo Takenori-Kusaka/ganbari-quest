@@ -32,7 +32,6 @@ import {
 	aggregateActivityLogsByCategory,
 } from '$lib/server/services/activity-log-aggregation';
 import { trackActivationFirstActivityCompleted } from '$lib/server/services/analytics-service';
-import { incrementChallengeProgress } from '$lib/server/services/auto-challenge-service';
 // #2138 MP-3: bonus-hook-service - マーケットプレイス取込済 bonus preset 6 件評価
 import { evaluateBonusHooks } from '$lib/server/services/bonus-hook-service';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
@@ -310,19 +309,9 @@ export async function recordActivity(
 		[];
 	const calendarEventResults: { eventCode: string; eventName: string; completed: boolean }[] = [];
 
-	// 自動チャレンジ進捗チェック
-	// #2097 Fix 2: 循環依存解消 (activity-log-aggregation 抽出) により dynamic import 撤廃。
+	// #3213: auto_challenges 廃止。チャレンジ進捗は child_challenges 一本化 (下記 updateChildChallengeProgress)。
+	// autoChallengeCompleted は child_challenges の完了から導出する (下で set)。
 	let autoChallengeCompleted = false;
-	try {
-		const challengeResult = await incrementChallengeProgress(
-			childId,
-			activity.categoryId,
-			tenantId,
-		);
-		autoChallengeCompleted = challengeResult.challengeCompleted;
-	} catch {
-		// 自動チャレンジ進捗失敗は記録フローを止めない
-	}
 
 	// per-child チャレンジ進捗チェック (#2458-B: sibling-challenge-service → child-challenge-service)
 	// 戻り値型: sibling-challenge は `allSiblingsComplete` (group 全員完了) を返したが、
@@ -351,6 +340,8 @@ export async function recordActivity(
 			allSiblingsComplete: r.completed,
 			challengeTitle: r.challengeTitle,
 		}));
+		// #3213: 自動生成 (auto:weekly) 含む child_challenge がこの記録で完了したか
+		autoChallengeCompleted = perChildResults.some((r) => r.completed);
 	} catch {
 		// per-child チャレンジチェック失敗は記録フローを止めない
 	}

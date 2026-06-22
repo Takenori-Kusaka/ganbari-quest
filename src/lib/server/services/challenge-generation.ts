@@ -1,26 +1,21 @@
-// src/lib/server/services/auto-challenge-service.ts
-// Auto-Challenge Proposal Service (#3194)
+// src/lib/server/services/challenge-generation.ts
+// チャレンジ生成アルゴリズム (純粋ロジック、#3194 → #3213 で共有モジュール化)
+//
 // 苦手中心＋時々得意の週次チャレンジを、行動科学・教育心理学ベースの
-// ヒューリスティック＋調整可能定数で生成する。
+// ヒューリスティック＋調整可能定数で生成する。特定の保存先テーブルに依存しない純粋関数群。
+// child_challenges 生成 (child-challenge-service) が利用する。
 // 設計: docs/design/44-チャレンジ設計書.md §3.4 / docs/rationale/12-auto-challenge-generation-rationale.md
 
-import {
-	expireOldChallenges,
-	findActiveByChild,
-	findByChild,
-	findByChildAndWeek,
-	insert,
-	update,
-} from '$lib/server/db/auto-challenge-repo';
-import type { AutoChallenge, AutoChallengeMode } from '$lib/server/db/types';
-import { logger } from '$lib/server/logger';
 import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-log-aggregation';
 
+/** 生成モード。weakness=苦手, strength=得意深掘り週, rescue-strength=連続未達レスキュー, explore=データ不足 */
+export type ChallengeMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
+
 /** Category IDs from the categories master table */
-const ALL_CATEGORY_IDS = [1, 2, 3, 4, 5];
+export const ALL_CATEGORY_IDS = [1, 2, 3, 4, 5];
 
 /** Category names for display */
-const CATEGORY_NAMES: Record<number, string> = {
+export const CATEGORY_NAMES: Record<number, string> = {
 	1: 'うんどう',
 	2: 'べんきょう',
 	3: 'せいかつ',
@@ -50,26 +45,22 @@ const MISS_RESCUE_AFTER = 2;
 /** Minimum records to analyze (if below this, use explore challenge) */
 const MIN_RECORDS_FOR_ANALYSIS = 3;
 
-export interface AutoChallengeProposal {
+/** computeProposal が参照する前週チャレンジの最小形 (保存先テーブル非依存)。 */
+export interface ChallengePrev {
 	categoryId: number;
-	categoryName: string;
+	status: string;
+	currentCount: number;
 	targetCount: number;
-	mode: AutoChallengeMode;
 	consecutiveMissCount: number;
-	reason: string;
 }
 
-export interface ActiveChallengeInfo {
-	id: number;
+export interface ChallengeProposal {
 	categoryId: number;
 	categoryName: string;
 	targetCount: number;
-	currentCount: number;
-	weekStart: string;
-	status: string;
-	mode: string;
-	progressPercent: number;
-	description: string;
+	mode: ChallengeMode;
+	consecutiveMissCount: number;
+	reason: string;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -102,6 +93,17 @@ export function getLastWeekStart(weekStart: string): string {
 	return `${yyyy}-${mm}-${dd}`;
 }
 
+/** weekStart の週末 (Sunday, YYYY-MM-DD) を返す。 */
+export function getWeekEnd(weekStart: string): string {
+	const [y, m, d] = weekStart.split('-').map(Number);
+	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+	dt.setUTCDate(dt.getUTCDate() + 6);
+	const yyyy = dt.getUTCFullYear();
+	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+	const dd = String(dt.getUTCDate()).padStart(2, '0');
+	return `${yyyy}-${mm}-${dd}`;
+}
+
 /** weekStart を epoch からの週インデックスに変換する (得意週の周期判定用、決定的)。 */
 function weekIndexOf(weekStart: string): number {
 	const [y, m, d] = weekStart.split('-').map(Number);
@@ -109,7 +111,7 @@ function weekIndexOf(weekStart: string): number {
 	return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
 }
 
-/** 直近 2 週間のカテゴリ別記録数を集計する。child_challenges 生成側 (#3195) でも再利用する。 */
+/** 直近 2 週間のカテゴリ別記録数を集計する。 */
 export async function aggregateCategoryCounts(
 	childId: number,
 	tenantId: string,
@@ -163,7 +165,7 @@ function weightedWeakPick(counts: Record<number, number>, excludeId?: number): n
 	return sorted[0] ?? ALL_CATEGORY_IDS[0] ?? 1;
 }
 
-function reasonFor(mode: AutoChallengeMode, categoryName: string): string {
+function reasonFor(mode: ChallengeMode, categoryName: string): string {
 	switch (mode) {
 		case 'explore':
 			return 'まだ記録が少ないので、いろんなことにチャレンジしてみよう！';
@@ -179,10 +181,10 @@ function reasonFor(mode: AutoChallengeMode, categoryName: string): string {
 /** カテゴリ選択 (weighted interleaving §3.4)。explore / rescue-strength / strength / weakness を返す。 */
 function selectCategory(
 	counts: Record<number, number>,
-	prev: AutoChallenge | undefined,
+	prev: ChallengePrev | undefined,
 	weekStart: string,
 	consecutiveMissCount: number,
-): { categoryId: number; mode: AutoChallengeMode } {
+): { categoryId: number; mode: ChallengeMode } {
 	const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0);
 	if (totalRecords < MIN_RECORDS_FOR_ANALYSIS) {
 		return {
@@ -207,9 +209,9 @@ function selectCategory(
 /** target 決定 (ability ベース + Flow 3 分岐適応 §3.4)。 */
 function decideTarget(
 	counts: Record<number, number>,
-	prev: AutoChallenge | undefined,
+	prev: ChallengePrev | undefined,
 	categoryId: number,
-	mode: AutoChallengeMode,
+	mode: ChallengeMode,
 ): number {
 	if (mode === 'rescue-strength') return MIN_TARGET; // 必ず達成できる最小目標
 
@@ -235,9 +237,9 @@ function decideTarget(
  */
 export function computeProposal(
 	counts: Record<number, number>,
-	prev: AutoChallenge | undefined,
+	prev: ChallengePrev | undefined,
 	weekStart: string,
-): AutoChallengeProposal {
+): ChallengeProposal {
 	// 生成時点での「連続未達週数」(前週が未達なら前週の streak + 1、達成ならリセット)
 	const prevMissed = prev != null && prev.status !== 'completed';
 	const consecutiveMissCount = prevMissed ? (prev?.consecutiveMissCount ?? 0) + 1 : 0;
@@ -256,167 +258,44 @@ export function computeProposal(
 	};
 }
 
-/**
- * Generate (or get existing) weekly auto-challenge for a child.
- * Called when the child opens the app / at week start.
- */
-export async function getOrCreateWeeklyChallenge(
-	childId: number,
-	tenantId: string,
-): Promise<ActiveChallengeInfo | null> {
-	const weekStart = getWeekStart();
-
-	// Check if challenge already exists for this week
-	const existing = await findByChildAndWeek(childId, weekStart, tenantId);
-	if (existing) {
-		return formatChallengeInfo(existing);
-	}
-
-	// Expire old active challenges
-	await expireOldChallenges(weekStart, tenantId);
-
-	// 前週チャレンジを読んで翌週適応の入力にする (§3.4)
-	const prev = await findByChildAndWeek(childId, getLastWeekStart(weekStart), tenantId);
-	const counts = await aggregateCategoryCounts(childId, tenantId);
-	const proposal = computeProposal(counts, prev, weekStart);
-
-	// Insert new challenge
-	const challenge = await insert(
-		{
-			childId,
-			weekStart,
-			categoryId: proposal.categoryId,
-			targetCount: proposal.targetCount,
-			mode: proposal.mode,
-			consecutiveMissCount: proposal.consecutiveMissCount,
-		},
-		tenantId,
-	);
-
-	logger.info('[auto-challenge] Generated weekly challenge', {
-		context: {
-			childId,
-			weekStart,
-			categoryId: proposal.categoryId,
-			targetCount: proposal.targetCount,
-			mode: proposal.mode,
-			consecutiveMissCount: proposal.consecutiveMissCount,
-			reason: proposal.reason,
-		},
-	});
-
-	return formatChallengeInfo(challenge);
-}
-
-/**
- * Get the active auto-challenge for a child (if any).
- */
-export async function getActiveChallenge(
-	childId: number,
-	tenantId: string,
-): Promise<ActiveChallengeInfo | null> {
-	const challenge = await findActiveByChild(childId, tenantId);
-	if (!challenge) return null;
-	return formatChallengeInfo(challenge);
-}
-
-/**
- * Get challenge history for a child.
- */
-export async function getChallengeHistory(
-	childId: number,
-	tenantId: string,
-	limit = 10,
-): Promise<ActiveChallengeInfo[]> {
-	const challenges = await findByChild(childId, tenantId, limit);
-	return challenges.map(formatChallengeInfo);
-}
-
-/**
- * Increment auto-challenge progress when an activity in the matching category is recorded.
- * Returns whether the challenge was completed by this increment.
- */
-export async function incrementChallengeProgress(
-	childId: number,
-	categoryId: number,
-	tenantId: string,
-): Promise<{ challengeCompleted: boolean; challengeInfo: ActiveChallengeInfo | null }> {
-	const challenge = await findActiveByChild(childId, tenantId);
-	if (!challenge || challenge.categoryId !== categoryId) {
-		return { challengeCompleted: false, challengeInfo: null };
-	}
-
-	const newCount = challenge.currentCount + 1;
-	const completed = newCount >= challenge.targetCount;
-
-	await update(
-		challenge.id,
-		{
-			currentCount: newCount,
-			status: completed ? 'completed' : 'active',
-		},
-		tenantId,
-	);
-
-	if (completed) {
-		logger.info('[auto-challenge] Challenge completed!', {
-			context: { childId, challengeId: challenge.id },
-		});
-	}
-
-	const updatedChallenge: AutoChallenge = {
-		...challenge,
-		currentCount: newCount,
-		status: completed ? 'completed' : 'active',
-	};
-
-	return {
-		challengeCompleted: completed,
-		challengeInfo: formatChallengeInfo(updatedChallenge),
-	};
-}
-
 // ============================================================
-// analytics (§3.4 フィードバック改善)。ユーザーカスタマイズを撤去したため、
-// アルゴリズム改善の唯一の入力が達成率系の集計。既存 auto_challenges 行から算出する。
+// analytics (§3.4 フィードバック改善)。生成行の達成率系を集計する純粋関数 (保存先非依存)。
 // ============================================================
+
+/** analytics 集計が参照する 1 行の最小形 (child_challenges / 任意の生成行)。 */
+export interface ChallengeAnalyticsRow {
+	categoryId: number;
+	status: string;
+	currentCount: number;
+	targetCount: number;
+	mode: string;
+	consecutiveMissCount: number;
+}
 
 export interface ChallengeAnalytics {
-	/** 集計対象の生成週数 */
 	totalWeeks: number;
-	/** 全体の達成率 (completed / 全週) */
 	completionRate: number;
-	/** カテゴリ別達成率 (completed / そのカテゴリの生成数) */
 	completionRateByCategory: Record<number, number>;
-	/** 達成時の平均超過度 (currentCount - targetCount、completed のみ) */
 	avgOvershoot: number;
-	/** 未達時の平均到達率 (currentCount / targetCount、未達のみ) */
 	avgReachRatioWhenMissed: number;
-	/** 2 連続未達が発生した週の割合 (consecutiveMissCount >= 2) */
 	consecutiveMissRate: number;
-	/** 得意週 (strength/rescue-strength) の達成率 */
 	strengthCompletionRate: number;
-	/** 苦手週 (weakness) の達成率 */
 	weaknessCompletionRate: number;
 }
 
-/**
- * auto_challenges 行のリストから達成率系 analytics を算出する純粋関数。
- * 親レポート / アルゴリズム定数チューニングの入力に使う (§3.4)。
- */
-export function summarizeChallengeAnalytics(challenges: AutoChallenge[]): ChallengeAnalytics {
-	const total = challenges.length;
-	const isDone = (c: AutoChallenge) => c.status === 'completed';
-	const rate = (subset: AutoChallenge[]) =>
+export function summarizeChallengeAnalytics(rows: ChallengeAnalyticsRow[]): ChallengeAnalytics {
+	const total = rows.length;
+	const isDone = (c: ChallengeAnalyticsRow) => c.status === 'completed';
+	const rate = (subset: ChallengeAnalyticsRow[]) =>
 		subset.length === 0 ? 0 : subset.filter(isDone).length / subset.length;
 
 	const byCategory: Record<number, number> = {};
 	for (const catId of ALL_CATEGORY_IDS) {
-		byCategory[catId] = rate(challenges.filter((c) => c.categoryId === catId));
+		byCategory[catId] = rate(rows.filter((c) => c.categoryId === catId));
 	}
 
-	const completed = challenges.filter(isDone);
-	const missed = challenges.filter((c) => c.status !== 'completed');
+	const completed = rows.filter(isDone);
+	const missed = rows.filter((c) => c.status !== 'completed');
 	const avgOvershoot =
 		completed.length === 0
 			? 0
@@ -427,56 +306,18 @@ export function summarizeChallengeAnalytics(challenges: AutoChallenge[]): Challe
 			: missed.reduce((s, c) => s + (c.targetCount > 0 ? c.currentCount / c.targetCount : 0), 0) /
 				missed.length;
 
-	const strengthWeeks = challenges.filter(
-		(c) => c.mode === 'strength' || c.mode === 'rescue-strength',
-	);
-	const weaknessWeeks = challenges.filter((c) => c.mode === 'weakness');
+	const strengthWeeks = rows.filter((c) => c.mode === 'strength' || c.mode === 'rescue-strength');
+	const weaknessWeeks = rows.filter((c) => c.mode === 'weakness');
 
 	return {
 		totalWeeks: total,
-		completionRate: rate(challenges),
+		completionRate: rate(rows),
 		completionRateByCategory: byCategory,
 		avgOvershoot,
 		avgReachRatioWhenMissed,
 		consecutiveMissRate:
-			total === 0 ? 0 : challenges.filter((c) => c.consecutiveMissCount >= 2).length / total,
+			total === 0 ? 0 : rows.filter((c) => c.consecutiveMissCount >= 2).length / total,
 		strengthCompletionRate: rate(strengthWeeks),
 		weaknessCompletionRate: rate(weaknessWeeks),
-	};
-}
-
-/**
- * child の達成率 analytics を取得する。直近 weeks 週分を集計する。
- */
-export async function getChallengeAnalytics(
-	childId: number,
-	tenantId: string,
-	weeks = 26,
-): Promise<ChallengeAnalytics> {
-	const challenges = await findByChild(childId, tenantId, weeks);
-	return summarizeChallengeAnalytics(challenges);
-}
-
-/**
- * Format a DB record into a UI-friendly info object.
- */
-function formatChallengeInfo(challenge: AutoChallenge): ActiveChallengeInfo {
-	const catName = CATEGORY_NAMES[challenge.categoryId] ?? '';
-	const progressPercent = Math.min(
-		100,
-		Math.round((challenge.currentCount / challenge.targetCount) * 100),
-	);
-
-	return {
-		id: challenge.id,
-		categoryId: challenge.categoryId,
-		categoryName: catName,
-		targetCount: challenge.targetCount,
-		currentCount: challenge.currentCount,
-		weekStart: challenge.weekStart,
-		status: challenge.status,
-		mode: challenge.mode,
-		progressPercent,
-		description: `今週は「${catName}」を${challenge.targetCount}回やってみよう！`,
 	};
 }

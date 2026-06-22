@@ -281,13 +281,8 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] siblingCheer 削除失敗: ${String(err)}`);
 	}
 
-	// Auto challenges
-	try {
-		await r.autoChallenge.deleteByTenantId(tenantId);
-		deleted++;
-	} catch (err) {
-		logger.warn(`[tenant-cleanup] autoChallenge 削除失敗: ${String(err)}`);
-	}
+	// #3213: auto_challenges 廃止。週次自動チャレンジは child_challenges に一本化し、
+	// child FK の onDelete cascade で children 削除時に除去される (明示削除呼出は不要)。
 
 	// Report daily summaries
 	try {

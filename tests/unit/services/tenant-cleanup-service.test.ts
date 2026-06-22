@@ -63,7 +63,6 @@ const mockMessageRepo = mkTenantDelete();
 // #2458 (Path B sibling drop): mockSiblingChallengeRepo 削除済 (2026-05-26)、child-challenge-repo へ移行
 const mockTrialHistoryRepo = mkTenantDelete();
 const mockSiblingCheerRepo = mkTenantDelete();
-const mockAutoChallengeRepo = mkTenantDelete();
 const mockReportDailySummaryRepo = mkTenantDelete();
 const mockImageRepo = mkTenantDelete();
 
@@ -92,7 +91,6 @@ vi.mock('$lib/server/db/factory', () => ({
 		// #2458 (Path B sibling drop): siblingChallenge 削除済 (2026-05-26)
 		trialHistory: mockTrialHistoryRepo,
 		siblingCheer: mockSiblingCheerRepo,
-		autoChallenge: mockAutoChallengeRepo,
 		reportDailySummary: mockReportDailySummaryRepo,
 		image: mockImageRepo,
 	}),
@@ -208,7 +206,6 @@ describe('deleteTenantScopedData', () => {
 		// #2458 (Path B sibling drop): mockSiblingChallengeRepo.deleteByTenantId assertion 削除済 (2026-05-26)、
 		// table 物理 drop 済のため tenant-cleanup-service も呼び出さない。child-challenges は child cascade で削除。
 		expect(mockSiblingCheerRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
-		expect(mockAutoChallengeRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 		expect(mockReportDailySummaryRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 		expect(mockImageRepo.deleteByTenantId).toHaveBeenCalledWith(TENANT);
 	});

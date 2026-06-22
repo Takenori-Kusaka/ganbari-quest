@@ -1,8 +1,5 @@
 import { requireTenantId } from '$lib/server/auth/factory';
-import {
-	getChallengeHistory,
-	getOrCreateWeeklyChallenge,
-} from '$lib/server/services/auto-challenge-service';
+import { getWeeklyChildChallengeView } from '$lib/server/services/child-challenge-service';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, parent }) => {
@@ -10,10 +7,6 @@ export const load: PageServerLoad = async ({ locals, parent }) => {
 	const { child } = await parent();
 	if (!child) return { activeChallenge: null, history: [] };
 
-	const [activeChallenge, history] = await Promise.all([
-		getOrCreateWeeklyChallenge(child.id, tenantId),
-		getChallengeHistory(child.id, tenantId, 10),
-	]);
-
-	return { activeChallenge, history };
+	// #3213: auto_challenges 廃止。child_challenges (sourceTemplateId='auto:weekly') から取得。
+	return getWeeklyChildChallengeView(child.id, tenantId, 10);
 };

@@ -953,37 +953,7 @@ export const cloudExports = sqliteTable(
 // season_events 撤去に伴うテナント別 opt-in / 進捗テーブルも完全撤去。
 // 並行実装ペアの sqlite / demo / dynamodb repo / service / UI / test fixtures も同期削除。
 
-// ============================================================
-// auto_challenges - 自動生成ウィークリーチャレンジ
-// ============================================================
-export const autoChallenges = sqliteTable(
-	'auto_challenges',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		childId: integer('child_id')
-			.notNull()
-			.references(() => children.id),
-		tenantId: text('tenant_id').notNull(),
-		weekStart: text('week_start').notNull(), // YYYY-MM-DD (Monday)
-		categoryId: integer('category_id')
-			.notNull()
-			.references(() => categories.id),
-		targetCount: integer('target_count').notNull(),
-		currentCount: integer('current_count').notNull().default(0),
-		status: text('status').notNull().default('active'), // active | completed | expired
-		// #3194: 生成モード (weakness | strength | rescue-strength | explore)。analytics で得意週 vs 苦手週の達成率差を集計
-		mode: text('mode').notNull().default('weakness'),
-		// #3194: この週の生成時点での「連続未達週数」(翌週適応のレスキュー判定 §3.4)
-		consecutiveMissCount: integer('consecutive_miss_count').notNull().default(0),
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [
-		uniqueIndex('idx_auto_challenges_child_week').on(table.childId, table.weekStart),
-		index('idx_auto_challenges_tenant').on(table.tenantId),
-		index('idx_auto_challenges_status').on(table.status),
-	],
-);
+// #3213: auto_challenges テーブル廃止。週次自動チャレンジは child_challenges に一本化。
 
 // ============================================================
 // trial_history - トライアル履歴（#314）

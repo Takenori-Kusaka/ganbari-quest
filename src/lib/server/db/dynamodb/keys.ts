@@ -505,29 +505,6 @@ export function enemyCollectionPrefix(): string {
 }
 
 /**
- * Auto challenge (#2824 Wave 6A / ADR-0055): PK=CHILD#<cId>, SK=AUTOCHAL#<weekStart>
- *
- * per-child の週次自動チャレンジを child partition 配下に置き (stamp_cards / activity_logs と同居)、
- * `findByChildAndWeek` を childId + weekStart 既知の GetItem 1 回で完結させる
- * (weekStart は child 内で一意 = SQLite uniqueIndex(child_id, week_start) と等価)。
- * `findActiveByChild` / `findByChild` も単一 partition Query (begins_with(SK, 'AUTOCHAL#')) で
- * 完結し追加 GSI 不要 (ADR-0055 §3.1)。id だけで引く `update` と tenant 横断の
- * `expireOldChallenges` は低頻度 (週次 cron) のため tenant Scan + filter で解決する
- * (stampCardKey と同型、#2842 paging 教訓で Scan は Limit なしページング)。
- */
-export function autoChallengeKey(childId: number, weekStart: string, tenantId: string): DynamoKey {
-	return {
-		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
-		SK: `AUTOCHAL#${weekStart}`,
-	};
-}
-
-/** Auto challenge SK prefix for querying all challenges of a child / tenant cleanup */
-export function autoChallengePrefix(): string {
-	return 'AUTOCHAL#';
-}
-
-/**
  * Certificate (#2824 Wave 6A / ADR-0055): PK=CHILD#<cId>, SK=CERT#<certificateType>
  *
  * がんばり証明書 (卒業証明書等) を child partition 配下に置き (special_rewards / activity_logs と同居)、
@@ -1130,7 +1107,6 @@ export const ENTITY_NAMES = {
 	stampCard: 'stampCard',
 	dailyBattle: 'dailyBattle',
 	enemyCollection: 'enemyCollection',
-	autoChallenge: 'autoChallenge',
 	certificate: 'certificate',
 	checklistTemplate: 'checklistTemplate',
 	checklistAssignment: 'checklistAssignment',

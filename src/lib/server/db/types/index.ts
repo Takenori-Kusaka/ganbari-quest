@@ -1028,43 +1028,7 @@ export interface InsertCloudExportInput {
 // #2295 (EPIC #2294 ①): TenantEvent / InsertTenantEventInput / UpdateTenantEventInput /
 // TenantEventProgress / UpsertTenantEventProgressInput 型削除済 (2026-05-19)
 
-// ============================================================
-// Auto Challenges (weekly auto-generated per-child challenges)
-// ============================================================
-
-export type AutoChallengeStatus = 'active' | 'completed' | 'expired';
-
-// #3194: 生成モード。weakness=苦手, strength=得意深掘り週, rescue-strength=連続未達レスキュー, explore=データ不足
-export type AutoChallengeMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
-
-export interface AutoChallenge {
-	id: number;
-	childId: number;
-	tenantId: string;
-	weekStart: string;
-	categoryId: number;
-	targetCount: number;
-	currentCount: number;
-	status: string;
-	mode: string; // AutoChallengeMode (#3194)
-	consecutiveMissCount: number; // 生成時点の連続未達週数 (#3194)
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface InsertAutoChallengeInput {
-	childId: number;
-	weekStart: string;
-	categoryId: number;
-	targetCount: number;
-	mode?: AutoChallengeMode; // 既定 'weakness' (#3194)
-	consecutiveMissCount?: number; // 既定 0 (#3194)
-}
-
-export interface UpdateAutoChallengeInput {
-	currentCount?: number;
-	status?: string;
-}
+// #3213: auto_challenges 廃止。週次自動チャレンジは child_challenges に一本化。
 
 // ============================================================
 // Viewer Tokens (閲覧専用リンク #371)

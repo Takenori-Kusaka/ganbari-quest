@@ -15,7 +15,6 @@ import { insertPointLedger } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
-	AutoChallenge,
 	ChildChallenge,
 	ChildChallengeGroup,
 	ChildChallengeWithSiblings,
@@ -23,10 +22,13 @@ import type {
 } from '$lib/server/db/types';
 import {
 	aggregateCategoryCounts,
+	CATEGORY_NAMES,
+	type ChallengePrev,
 	computeProposal,
 	getLastWeekStart,
+	getWeekEnd,
 	getWeekStart,
-} from '$lib/server/services/auto-challenge-service';
+} from '$lib/server/services/challenge-generation';
 
 /** group key 解決 (admin getChallengeGroupsForAdmin と同一規約、ADR-0055 §4.7 整合) */
 function resolveGroupKey(
@@ -165,19 +167,8 @@ const AUTO_WEEKLY_SOURCE = 'auto:weekly';
 /** 自動生成チャレンジ達成時の既定ごほうびポイント (PO 確認対象、控えめな既定値) */
 const AUTO_WEEKLY_REWARD_POINTS = 30;
 
-/** weekStart (Monday, YYYY-MM-DD) の週末 (Sunday) を返す。 */
-function weekEndOf(weekStart: string): string {
-	const [y, m, d] = weekStart.split('-').map(Number);
-	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
-	dt.setUTCDate(dt.getUTCDate() + 6);
-	const yyyy = dt.getUTCFullYear();
-	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
-	const dd = String(dt.getUTCDate()).padStart(2, '0');
-	return `${yyyy}-${mm}-${dd}`;
-}
-
-/** 前週の自動生成 child_challenge を computeProposal の prev 入力 (AutoChallenge 形) に写像する。 */
-function toProposalPrev(row: ChildChallenge): AutoChallenge {
+/** 前週の自動生成 child_challenge を computeProposal の prev 入力 (ChallengePrev) に写像する。 */
+function toProposalPrev(row: ChildChallenge): ChallengePrev {
 	let categoryId = 1;
 	let genMissStreak = 0;
 	try {
@@ -191,18 +182,11 @@ function toProposalPrev(row: ChildChallenge): AutoChallenge {
 		// 破損 JSON は既定値で続行
 	}
 	return {
-		id: row.id,
-		childId: row.childId,
-		tenantId: '',
-		weekStart: row.startDate,
 		categoryId,
 		targetCount: row.targetValue,
 		currentCount: row.currentValue,
 		status: row.completed === 1 ? 'completed' : 'expired',
-		mode: 'weakness',
 		consecutiveMissCount: genMissStreak,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
 	};
 }
 
@@ -254,7 +238,7 @@ export async function getOrCreateWeeklyChildChallenge(
 			challengeType: 'cooperative',
 			periodType: 'weekly',
 			startDate: weekStart,
-			endDate: weekEndOf(weekStart),
+			endDate: getWeekEnd(weekStart),
 			targetConfig,
 			rewardConfig,
 			sourceTemplateId: AUTO_WEEKLY_SOURCE,
@@ -262,6 +246,66 @@ export async function getOrCreateWeeklyChildChallenge(
 		},
 		tenantId,
 	);
+}
+
+/** 子供チャレンジページ (`/(child)/.../challenges`) 表示用の自動生成チャレンジ view。 */
+export interface WeeklyChallengeView {
+	id: number;
+	categoryName: string;
+	weekStart: string;
+	status: string; // active | completed | expired
+	currentCount: number;
+	targetCount: number;
+	progressPercent: number;
+	description: string;
+}
+
+function toWeeklyView(row: ChildChallenge): WeeklyChallengeView {
+	let categoryId = 0;
+	try {
+		categoryId = (JSON.parse(row.targetConfig) as { categoryId?: number }).categoryId ?? 0;
+	} catch {
+		// noop
+	}
+	const today = todayDateJST();
+	const status = row.completed === 1 ? 'completed' : row.endDate >= today ? 'active' : 'expired';
+	const progressPercent =
+		row.targetValue > 0 ? Math.min(100, Math.round((row.currentValue / row.targetValue) * 100)) : 0;
+	return {
+		id: row.id,
+		categoryName: CATEGORY_NAMES[categoryId] ?? '',
+		weekStart: row.startDate,
+		status,
+		currentCount: row.currentValue,
+		targetCount: row.targetValue,
+		progressPercent,
+		description: row.description ?? row.title,
+	};
+}
+
+/**
+ * 子供チャレンジページ向け: 当週分を冪等生成したうえで、active (当週) + history を返す。
+ * `/(child)/.../challenges` の load が使う (#3213、旧 auto-challenge-service の後継)。
+ */
+export async function getWeeklyChildChallengeView(
+	childId: number,
+	tenantId: string,
+	historyLimit = 10,
+): Promise<{ activeChallenge: WeeklyChallengeView | null; history: WeeklyChallengeView[] }> {
+	await getOrCreateWeeklyChildChallenge(childId, tenantId);
+	const repos = getRepos();
+	const weekStart = getWeekStart();
+	const autoRows = (await repos.childChallenge.findByChildId(childId, tenantId))
+		.filter((c) => c.sourceTemplateId === AUTO_WEEKLY_SOURCE)
+		.sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+	const activeRow = autoRows.find((c) => c.startDate === weekStart) ?? null;
+	const history = autoRows.filter((c) => c.startDate !== weekStart).slice(0, historyLimit);
+
+	return {
+		activeChallenge: activeRow ? toWeeklyView(activeRow) : null,
+		history: history.map(toWeeklyView),
+	};
 }
 
 /** 子供画面: 子供自身のアクティブ challenge 一覧 */
