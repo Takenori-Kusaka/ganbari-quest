@@ -263,14 +263,19 @@ export interface ExportOptions {
  * 優先し日本語名を復元、`filename*` 非対応の旧 browser は ASCII fallback を使う。
  *
  * 動的に user データからファイル名を組む全 export 経路は本関数を経由すること
- * (静的 ASCII 名は対象外で可、横展開方針 #3104)。
+ * (静的 ASCII 名 / timestamp・数値のみの補間は対象外で可、横展開方針 #3104)。
+ * **新規 export endpoint で user データ由来の動的ファイル名を Content-Disposition に入れる場合は
+ * 必ず本関数を経由する** (header 直書きすると #3104 ByteString 500 + injection が再発する、#3115)。
  *
  * @param filename ダウンロード時のファイル名 (拡張子込み、非 ASCII 可)
  */
 export function buildAttachmentContentDisposition(filename: string): string {
-	// ASCII fallback: 非 ASCII (> U+007E) と制御文字 (< U+0020) と " \ を `_` に置換し
-	// ByteString 安全 + ヘッダ injection 安全にする (printable ASCII 0x20-0x7E 以外 + 引用符)
-	const asciiFallback = filename.replace(/[^ -~]|["\\]/g, '_');
+	// ASCII fallback: 非 ASCII (> U+007E) / 制御文字 (< U+0020) / " \ ; = を `_` に置換し
+	// ByteString 安全 + ヘッダ injection 安全にする (printable ASCII 0x20-0x7E 以外 + 引用符)。
+	// #3115: `;` `=` も `_` 化する (defense-in-depth)。RFC 6266 の quoted-string 内では `;` `=` は
+	// 本来 inert だが、寛容/非準拠なパーサ・proxy・WAF が `filename="x"; foo=bar` を directive
+	// injection と解釈するリスクを断つ。CR/LF (header splitting) は制御文字として既に塞がれている。
+	const asciiFallback = filename.replace(/[^ -~]|["\\;=]/g, '_');
 	// RFC 5987 ext-value: encodeURIComponent は ' ( ) * ! ~ を escape しないが、これらは
 	// RFC 5987 ext-value grammar の attr-char ではないため、strict parser / proxy / WAF が
 	// 不正値として reject しうる。追加で percent-encode し attr-char + pct-encoded のみにする。

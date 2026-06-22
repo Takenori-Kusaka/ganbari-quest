@@ -43,6 +43,24 @@ describe('buildAttachmentContentDisposition (#3104)', () => {
 		expect(isByteStringSafe(cd)).toBe(true);
 	});
 
+	it('; と = は ASCII fallback で _ に置換される (directive injection の defense-in-depth、#3115)', () => {
+		// 寛容/非準拠パーサが `filename="x"; foo=bar` を directive 注入と解釈するリスクを断つ。
+		const cd = buildAttachmentContentDisposition('a;b=c.json');
+		expect(cd).toContain('filename="a_b_c.json"');
+		// quoted-string 部 (filename="...") に ; や = が literal で残っていない
+		const fnMatch = cd.match(/filename="([^"]*)"/);
+		expect(fnMatch?.[1]).not.toMatch(/[;=]/);
+		expect(isByteStringSafe(cd)).toBe(true);
+	});
+
+	it('"; foo=bar 風の偽 directive を挿入しようとしても ASCII fallback の filename 値が 1 つに保たれる (#3115)', () => {
+		// attacker が template 名等に注入を試みた最悪ケース。filename 値内に余分な directive 区切りを作らない。
+		const cd = buildAttachmentContentDisposition('evil"; attachment; filename=hack.exe');
+		const fnMatch = cd.match(/filename="([^"]*)"/);
+		expect(fnMatch?.[1]).not.toMatch(/["\\;=]/);
+		expect(isByteStringSafe(cd)).toBe(true);
+	});
+
 	it('絵文字 (サロゲートペア) を含む名でも ByteString 安全', () => {
 		const cd = buildAttachmentContentDisposition('checklist-📋ごはん.json');
 		expect(isByteStringSafe(cd)).toBe(true);
