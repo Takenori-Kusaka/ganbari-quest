@@ -122,6 +122,28 @@ function migrateChecklistTemplatesDropKind(db: Database.Database): void {
 }
 
 /**
+ * #3213 (EPIC #3193): `auto_challenges` テーブル DROP。週次自動生成チャレンジは
+ * `child_challenges` へ一本化 (#3195) され、`auto_challenges` は読み取り経路ゼロの
+ * 冗長テーブルとなった。#3194/#3195 deploy 後の既存 NUC DB には本テーブルが残るため、
+ * 新 schema (auto_challenges 不在) との drift で startup block (#2508 同型) を起こさぬよう
+ * 起動時に DROP する。data loss は許容 (生成チャレンジは child_challenges 側に存続)。
+ *
+ * 冪等: テーブル不在なら skip。DROP は transaction で囲み partial state を残さない (#2509)。
+ */
+function migrateDropAutoChallenges(db: Database.Database): void {
+	// guard (read-only): tx 外で OK
+	if (!tableExists(db, 'auto_challenges')) {
+		return;
+	}
+	const run = db.transaction(() => {
+		// 関連 index も table 削除に伴い消えるが、念のため明示 drop (IF EXISTS で冪等)
+		db.exec('DROP TABLE IF EXISTS auto_challenges;');
+		console.info('[lazy-migrate #3213] dropped legacy auto_challenges table');
+	});
+	run();
+}
+
+/**
  * #2362 PR-3 (Phase 7b-2a): activity 系テーブルの FK target を
  * 旧 `activities` から `child_activities` に切替。
  *
@@ -817,6 +839,8 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 	db.pragma('foreign_keys = OFF');
 	try {
 		migrateChecklistTemplatesDropKind(db);
+		// #3213 (EPIC #3193): auto_challenges DROP。FK switchover 前の単純 table drop。
+		migrateDropAutoChallenges(db);
 		migrateActivityFkSwitchover(db);
 		// #2510 / #2513: FK switchover (dim 3) の **後** に data copy (dim 4) を実行。
 		// FK target が child_activities になった後でないと remap が整合しないため順序固定。

@@ -112,6 +112,22 @@ function seedLegacyProductionSchema(db: Database.Database): void {
 			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
+
+		-- #3194/#3195 deploy 後の NUC 旧 schema に残る auto_challenges (#3213 で DROP 対象)
+		CREATE TABLE auto_challenges (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			child_id INTEGER NOT NULL REFERENCES children(id),
+			tenant_id TEXT NOT NULL,
+			week_start TEXT NOT NULL,
+			category_id INTEGER NOT NULL,
+			target_count INTEGER NOT NULL,
+			current_count INTEGER NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'active',
+			mode TEXT NOT NULL DEFAULT 'weakness',
+			consecutive_miss_count INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
 	`);
 	db.pragma('foreign_keys = ON');
 }
@@ -149,6 +165,20 @@ describe('applyLazyStartupMigrations', () => {
 				name: string;
 			}[];
 			expect(remaining.map((r) => r.name)).toEqual(['belongings-template']);
+		});
+
+		it('legacy auto_challenges テーブルを DROP する (#3213、child_challenges 一本化)', () => {
+			// 旧 schema には auto_challenges が存在する
+			expect(tableExists(db, 'auto_challenges')).toBe(true);
+			db.prepare("INSERT INTO children (nickname, age) VALUES ('A', 8)").run();
+			db.prepare(
+				"INSERT INTO auto_challenges (child_id, tenant_id, week_start, category_id, target_count) VALUES (1, 'default', '2026-06-22', 1, 3)",
+			).run();
+
+			applyLazyStartupMigrations(db);
+
+			// migration 後は auto_challenges が消えている (NUC startup drift 解消)
+			expect(tableExists(db, 'auto_challenges')).toBe(false);
 		});
 
 		it('checklist_templates を child_id (NOT NULL) → tenant_id (NOT NULL) に flip し assignments に migrate する (#2362 PR-5)', () => {
