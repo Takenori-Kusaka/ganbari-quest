@@ -1865,7 +1865,7 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	portalPinNote: (usesPin: boolean) =>
 		`⚠️ プラン変更には${usesPin ? '親 PIN' : '確認フレーズ'}の入力が必要です`,
 	billingMonthly: '月額',
-	billingYearly: '年額（17% OFF）',
+	// #3208: billingYearly は年額廃止 (#2719) で撤去 (LP-truth、checkout が yearly を reject)
 	// #3204: checkout 失敗時のユーザ向けフィードバック (silent no-op 撲滅)
 	checkoutFailed: '決済を開始できませんでした。時間をおいて再度お試しください',
 	checkoutFailedToastTitle: '決済を開始できませんでした',
@@ -1875,22 +1875,16 @@ export const SUBSCRIPTION_PAGE_LABELS = {
 	standardPlanName: `${PLAN_TERMS.standard}`,
 	standardPlanDesc: '子供無制限・活動無制限・1年保持',
 	standardPriceMonthly: `${PRICE_TERMS.standard}`,
-	standardPriceYearly: '¥5,000',
 	standardPerMonth: '/月',
-	standardPerYear: '/年',
-	// #2347 (EPIC #2345): 年額表示 UX 強化 — 月換算サブテキスト
-	// 「¥5,000/年 (月換算 ¥417、約 17% off)」で freemium × 低価格帯特有の
-	// 「結局いくら払うの?」混乱を抑止し、長期割引を訴求 (Notion / Linear / GitHub 整合)
-	standardYearlyMonthlyEquiv: '月換算 ¥417 (約 17% off)',
+	// #3208: standardPriceYearly / standardPerYear / standardYearlyMonthlyEquiv は
+	// 年額廃止 (#2719) で撤去 (LP-truth、pricing.html の年額 UI は #3212 で撤去済)
 
 	// ファミリープラン
 	// #1963: atom (PLAN_TERMS / PRICE_TERMS) を terms.ts から参照
 	familyPlanName: `${PLAN_TERMS.premium}`,
 	familyPlanDesc: '家族みんなで見守る+永久保持',
 	familyPriceMonthly: `${PRICE_TERMS.family}`,
-	familyPriceYearly: '¥7,800',
-	// #2347 (EPIC #2345): 年額表示 UX 強化 — 月換算サブテキスト
-	familyYearlyMonthlyEquiv: '月換算 ¥650 (約 17% off)',
+	// #3208: familyPriceYearly / familyYearlyMonthlyEquiv は年額廃止 (#2719) で撤去 (LP-truth)
 	familyRecommendBadge: 'おすすめ',
 
 	// 購入ボタン
@@ -2350,7 +2344,7 @@ export const BILLING_LABELS = {
 	billingPortalDesc: `Stripe の${STRIPE_PORTAL_TERMS.short}で以下の操作ができます:`,
 	featureInvoices: '過去の請求書の確認・ダウンロード',
 	featurePaymentMethod: '支払い方法（クレジットカード）の変更',
-	featurePlanSwitch: '月額 / 年額プランの切り替え',
+	featurePlanSwitch: 'スタンダード / ファミリープランの切り替え',
 	featureNextBilling: '次回請求日の確認',
 	notReadyAlert: '決済機能は現在準備中です',
 	openPortalError: `${STRIPE_PORTAL_TERMS.short}を開けませんでした`,
@@ -3488,7 +3482,7 @@ export const PRICING_PAGE_LABELS = {
 	faqPaymentA:
 		'クレジットカード（Visa, Mastercard, JCB, American Express）に対応しています。Stripeによる安全な決済処理を使用しています。',
 	faqPlanChangeQ: 'プランの変更はできますか？',
-	faqPlanChangeA: `はい。スタンダード↔ファミリー、月額↔年額の切り替えがいつでも可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から変更できます。`,
+	faqPlanChangeA: `はい。スタンダード↔ファミリーの切り替えがいつでも可能です。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」から変更できます。`,
 	faqSelfHostQ: 'セルフホスト版はありますか？',
 	faqSelfHostA:
 		'はい。全機能を無料でお使いいただけるオープンソース版があります。DockerとNode.jsの基本的な知識が必要です。',
@@ -6811,11 +6805,11 @@ export const LP_FAQ_LABELS = {
 	text52: '支払い方法は何が使えますか？',
 	text53:
 		'クレジットカード（Visa / Mastercard / JCB / American Express）に対応しています。Stripe による安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
-	text54: '年額プランを途中で解約した場合の返金は？',
+	text54: 'プランを途中で解約した場合の返金は？',
 	text55:
-		'年額プランを途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
+		'途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	text56: '特定商取引法に基づく表記',
-	text57: 'プランの変更（月額↔年額、スタンダード↔ファミリー）はできますか？',
+	text57: 'プランの変更（スタンダード↔ファミリー）はできますか？',
 	text58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。`,
 	text59:
 		'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
@@ -8110,10 +8104,10 @@ export const LP_FAQ_PHASEB_LABELS = {
 	k51: `きょうだいランキング機能（${PLAN_FULL_TERMS.premium}）では、年齢差を考慮した調整もできるため「上の子が有利すぎる」状況を緩和できます。`,
 	k52: '支払い方法は何が使えますか？',
 	k53: 'クレジットカード（Visa / Mastercard / JCB / American Express）に対応しています。Stripe による安全な決済処理を使用しており、カード情報は当サービスのサーバーには保存されません。',
-	k54: '年額プランを途中で解約した場合の返金は？',
-	k55: '年額プランを途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
+	k54: 'プランを途中で解約した場合の返金は？',
+	k55: '途中解約された場合も、お支払い済みの残り期間は引き続きご利用いただけます（プレミアム機能は期間満了まで有効）。',
 	k56: '日割りでの返金は行っておりません。詳細は <a href="tokushoho.html">特定商取引法に基づく表記</a> をご確認ください。',
-	k57: 'プランの変更（月額↔年額、スタンダード↔ファミリー）はできますか？',
+	k57: 'プランの変更（スタンダード↔ファミリー）はできますか？',
 	k58: `はい。${ADMIN_VIEW_TERMS.canonical}の「プラン・お支払い」→「プラン変更・支払い管理」からお手続きいただけます。`,
 	k59: 'アップグレード時は即座に反映され、ダウングレード時は次回更新日から新プランが適用されます。ご不明な点はお問い合わせください。',
 	k60: '<span class="faq-category-num">3</span>プライバシー・データについて',
@@ -8509,7 +8503,7 @@ export const LP_LEGAL_SLA_LABELS = {
 // ============================================================
 export const LP_LEGAL_TOKUSHOHO_LABELS = {
 	articleHeader: '<h1>特定商取引法に基づく表記</h1><p class="meta">最終更新日: 2026年4月9日</p>',
-	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込） / 年額5,000円（税込）<br>${PLAN_FULL_TERMS.premium}: 月額780円（税込） / 年額7,800円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金<br>年額プラン: 毎年契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${STRIPE_PORTAL_TERMS.short}の「プラン変更・支払い管理」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.premium}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
+	tableContent: `<tr><th>販売業者</th><td>日下武紀</td></tr><tr><th>運営責任者</th><td>日下武紀</td></tr><tr><th>所在地</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-所在地">ganbari.quest.support@gmail.com</a> までご連絡ください）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく所在地を書面・メール等にて開示いたします</small></td></tr><tr><th>電話番号</th><td>請求があり次第、遅滞なく開示します（<a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法-電話番号">ganbari.quest.support@gmail.com</a> までご連絡ください）<br>受付時間: 平日 10:00〜18:00（土日祝・年末年始を除く）<br>※お問い合わせはメールを推奨いたします（即日〜翌営業日に返信）<br><small>※特商法第 11 条 + 同法施行規則第 23 条に基づく省略表示。請求受付後、遅滞なく電話番号を書面・メール等にて開示いたします</small></td></tr><tr><th>メールアドレス</th><td><a href="mailto:ganbari.quest.support@gmail.com" data-contact-context="特商法">ganbari.quest.support@gmail.com</a></td></tr><tr><th>URL</th><td><a href="https://www.ganbari-quest.com">https://www.ganbari-quest.com</a></td></tr><tr><th>販売価格</th><td>${PLAN_FULL_TERMS.free}: 無料<br>${PLAN_FULL_TERMS.standard}: 月額500円（税込）<br>${PLAN_FULL_TERMS.premium}: 月額780円（税込）</td></tr><tr><th>支払方法</th><td>クレジットカード（Visa, Mastercard, JCB, American Express）<br>※Stripe決済サービス経由</td></tr><tr><th>支払時期</th><td>初回: 7 日間無料トライアルから開始。トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行し、自動課金は発生しません。有料プランへの移行はお客さまご自身で${ADMIN_VIEW_TERMS.canonical}より手続きしていただく必要があります。<br>月額プラン: 毎月契約日に自動課金</td></tr><tr><th>サービス提供時期</th><td>お申込み後、即時ご利用いただけます（有料プランは 7 日間無料トライアルから開始）</td></tr><tr><th>返品・キャンセル</th><td>デジタルサービスのため返品はお受けしておりません。<br>有料プランの解約（中途解約）は、${STRIPE_PORTAL_TERMS.short}の「プラン変更・支払い管理」からいつでも可能です。<br>解約後は現在の請求期間終了まで引き続きご利用いただけます。日割り計算による返金は行いません。<br><br><strong>解約後のデータ削除について（#1643 R38 整合）</strong>：解約後はプランに応じた読み取り専用の猶予期間（${PLAN_FULL_TERMS.standard}: 7 日 / ${PLAN_FULL_TERMS.premium}: 30 日）が設けられ、その猶予期間の経過後にすべてのお客様データが完全に削除されます（復旧不可）。猶予期間中は読み取り専用でデータエクスポートが可能です。なお、${PLAN_FULL_TERMS.free}の場合は解約と同時にデータが削除されます。</td></tr><tr><th>無料トライアル</th><td>初回お申込み時に 7 日間無料トライアルをご利用いただけます。<br>トライアル期間中にキャンセルされた場合、料金は発生しません。<br>トライアル終了後は自動的に${PLAN_FULL_TERMS.free}に移行します。自動課金は一切ありません。</td></tr><tr><th>追加料金</th><td>表示価格以外の追加料金はございません。<br>（インターネット接続に必要な通信料等は利用者のご負担となります）</td></tr><tr><th>動作環境</th><td>Chrome, Safari, Firefox, Edge の最新版<br>インターネット接続が必要です</td></tr>`,
 	effective: '<p>制定日: 2026年3月31日</p><p>最終改定日: 2026年4月9日</p>',
 } as const;
 
