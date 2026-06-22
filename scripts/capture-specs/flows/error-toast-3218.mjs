@@ -45,8 +45,13 @@ export default async (page, capture) => {
 
 	// --- 2) After: error ボタン click → error Toast (role=alert + ✕ 手動閉じ) ---
 	await page.locator('#storybook-root button').first().click();
-	await page.getByRole('alert').waitFor({ state: 'visible', timeout: 15_000 });
-	// bounce-in アニメーション完了待ち
-	await page.waitForTimeout(700);
+	const alert = page.getByRole('alert');
+	await alert.waitFor({ state: 'visible', timeout: 15_000 });
+	// bounce-in アニメーション完了待ち (固定 sleep ではなく実 animation の finish を待つ #1208)。
+	// animate-bounce-in は opacity:0 起点のため、getAnimations() の finished を await して
+	// 完全に settle した状態 (opacity:1) を撮影する。
+	await alert.evaluate((el) =>
+		Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished.catch(() => {}))),
+	);
 	await capture('pr3221-after-error-toast-alert');
 };
