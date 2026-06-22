@@ -3,6 +3,17 @@
 <!-- 命名規則: NN-機能名-rationale.md -->
 <!-- rationale = 機能別の設計経緯・なぜそう決めたか (Why)。仕様の結論は docs/design/44-チャレンジ設計書.md が SSOT -->
 
+## 保存先テーブルの訂正（2026-06-22、child_challenges 一本化）
+
+本 rationale 初版（#3194）は生成アルゴリズム `computeProposal` を **`auto_challenges`** テーブルに実装した。しかし #3195 着手時の影響調査で、子供向けのバナー / 達成演出 / ごほうび受取 / history は別テーブル **`child_challenges`** を読んでおり、`auto_challenges` はそれらに繋がっていない（2 系統並走）ことが判明した。
+
+PO 判断で **`child_challenges` 一本化** に訂正:
+- アルゴリズム（`computeProposal` / `summarizeChallengeAnalytics`）は**そのまま流用**するが、生成先を `child_challenges` に向ける（`getOrCreateWeeklyChildChallenge`、`sourceTemplateId='auto:weekly'`）。生成メタ（mode / 連続未達）は `targetConfig` JSON に内包し追加カラムを不要にする。
+- `auto_challenges` テーブル + `auto-challenge-service` は廃止（#3213）。
+- 全プランに開放（family 限定ではない）。
+
+以下本文の「auto_challenges テーブル」「2 カラム migration」記述は、上記訂正後は **child_challenges + targetConfig JSON** に読み替える。アルゴリズム本体（§1〜§6 の生成・適応ロジック）は不変。
+
 ## 議論の発端
 
 - **日時**: 2026-06-20
