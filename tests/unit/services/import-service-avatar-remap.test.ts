@@ -90,3 +90,73 @@ describe('#3136 remapChildAvatarUrls — dangling avatarUrl 防止', () => {
 		}
 	});
 });
+
+// #3139: avatarUrl anchor の不変条件 — 「avatarUrl は server 生成 path 以外から設定されない」。
+// #3137 の cross-tenant IDOR 根治は「child.avatarUrl は server が tenant-scoped key からのみ生成する
+// (attacker 不可設定)」を anchor とする。将来 import/restore が attacker-influenced な avatarUrl を
+// そのまま採用すると anchor が silently 無効化され IDOR が再発しうる (CI は green のまま)。
+// 本テスト群は remapChildAvatarUrls が「外部入力由来の文字列を verbatim 永続化しない」ことを固定する。
+describe('#3139 invariant: avatarUrl は外部入力から verbatim 採用されない (anchor robustness)', () => {
+	it('attacker 由来の外部 URL (/tenants/ を含まない) は採用されず persist しない', async () => {
+		fileExistsMock.mockResolvedValue(true);
+		await remapChildAvatarUrls(
+			makeState('https://evil.example/avatars/5/x.png'),
+			TENANT,
+			makeResult(),
+		);
+		// regex 非マッチ → skip。外部 URL を verbatim 永続化しない
+		expect(updateMock).not.toHaveBeenCalled();
+		expect(fileExistsMock).not.toHaveBeenCalled();
+	});
+
+	it('javascript: scheme 等の非 path 文字列も採用しない', async () => {
+		fileExistsMock.mockResolvedValue(true);
+		await remapChildAvatarUrls(makeState('javascript:alert(1)'), TENANT, makeResult());
+		expect(updateMock).not.toHaveBeenCalled();
+	});
+
+	it('外部 host を含む偽装 path でも、host は剥がされ取込先 tenant の server key にのみ再構成される', async () => {
+		// `/tenants/t-evil/avatars/5/x.png` 部分が regex にマッチしても、再構成 key は取込先
+		// tenant (t-new) prefix + マップ済 childId で組まれ、外部 host / 別 tenant は反映されない。
+		fileExistsMock.mockResolvedValue(true);
+		await remapChildAvatarUrls(
+			makeState('https://evil.example/tenants/t-evil/avatars/5/x.png'),
+			TENANT,
+			makeResult(),
+		);
+		expect(updateMock).toHaveBeenCalledTimes(1);
+		const persistedUrl = String(updateMock.mock.calls[0]?.[1]);
+		expect(persistedUrl).toBe('/tenants/t-new/avatars/100/x.png');
+		expect(persistedUrl).not.toContain('evil.example');
+		expect(persistedUrl).not.toContain('t-evil');
+	});
+
+	it('別 tenant path も取込先 tenant prefix に再構成される (cross-tenant 越境しない)', async () => {
+		fileExistsMock.mockResolvedValue(true);
+		await remapChildAvatarUrls(makeState('/tenants/t-other/avatars/5/x.png'), TENANT, makeResult());
+		const persistedUrl = String(updateMock.mock.calls[0]?.[1]);
+		expect(persistedUrl).toBe('/tenants/t-new/avatars/100/x.png');
+		expect(persistedUrl).not.toContain('t-other');
+	});
+
+	it('不変条件: persist される avatarUrl は null か 取込先 tenant の server prefix 配下のみ (多様な悪性入力)', async () => {
+		const malicious = [
+			'https://evil.example/x.png',
+			'//evil.example/avatars/5/x.png',
+			'/etc/passwd',
+			'/tenants/t-other/avatars/5/legit.png',
+			'https://evil.example/tenants/t-evil/avatars/5/x.png',
+			'/tenants/t-old/avatars/5/../../../t-x/avatars/9/secret.png',
+		];
+		fileExistsMock.mockResolvedValue(true);
+		for (const url of malicious) {
+			await remapChildAvatarUrls(makeState(url), TENANT, makeResult());
+		}
+		// 1 件でも null/取込先 tenant prefix 以外を永続化したら invariant 違反
+		for (const call of updateMock.mock.calls) {
+			const persisted = call[1];
+			if (persisted === null) continue;
+			expect(String(persisted).startsWith(`/tenants/${TENANT}/`)).toBe(true);
+		}
+	});
+});
