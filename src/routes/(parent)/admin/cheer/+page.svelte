@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { APP_LABELS, CHEER_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -99,7 +100,9 @@ $effect(() => {
 			action="?/grant"
 			class="space-y-6"
 			use:enhance={() => {
-				return async ({ update }) => {
+				return async ({ result, update }) => {
+					// #3218: grant 失敗 (fail()) を silent にせず必ず通知する
+					notifyActionError(result);
 					await update();
 				};
 			}}
