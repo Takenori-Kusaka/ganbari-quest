@@ -19,8 +19,8 @@ import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-l
 /** Category IDs from the categories master table */
 const ALL_CATEGORY_IDS = [1, 2, 3, 4, 5];
 
-/** Category names for display */
-const CATEGORY_NAMES: Record<number, string> = {
+/** Category names for display (#3195: child-challenge-service が autoGen challenge の view 整形で再利用) */
+export const CATEGORY_NAMES: Record<number, string> = {
 	1: 'うんどう',
 	2: 'べんきょう',
 	3: 'せいかつ',
@@ -109,8 +109,8 @@ function weekIndexOf(weekStart: string): number {
 	return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
 }
 
-/** 直近 2 週間のカテゴリ別記録数を集計する。 */
-async function aggregateCategoryCounts(
+/** 直近 2 週間のカテゴリ別記録数を集計する。child_challenges 生成側 (#3195) でも再利用する。 */
+export async function aggregateCategoryCounts(
 	childId: number,
 	tenantId: string,
 ): Promise<Record<number, number>> {

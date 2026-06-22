@@ -299,8 +299,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 旧 `sibling_challenges` (family-wide + 別 `sibling_challenge_progress` table、全 child を自動 enroll) は **#2458 (Path B sibling drop、本 PR、2026-05-26) で物理撤去完了**。child_challenges 単独経路:
 
 - **schema**: 旧 `sibling_challenges` / `sibling_challenge_progress` table 撤去済、`child_challenges` table のみ
-- **services**: `child-challenge-service.ts` / `child-challenge-copy-service.ts` (SRP 分離) のみ。`sibling-challenge-service.ts` / `sibling-challenge-repo.ts` facade / 3 backend 実装 / `ISiblingChallengeRepo` interface / `SiblingChallenge*` 型は #2458-B (PR #2488) + Path B sibling drop で完全撤去
-- **routes**: `/admin/challenges` は per-child instance + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte) + 一括追加 + cross-child copy。`/marketplace/[type]/[itemId]` challenge-set は admin redirect 動線 (CWE-598 排除、`?marketplace-import=<presetId>` のみ、#2458-B で reward-set / checklist と同型化)
+- **services**: `child-challenge-service.ts` のみ (`child-challenge-copy-service.ts` は #3195 で親手動 copyToSiblings 撤去に伴い削除、repo interface の `copyAcrossChildren` は #3213 cleanup で整理)。`sibling-challenge-service.ts` / `sibling-challenge-repo.ts` facade / 3 backend 実装 / `ISiblingChallengeRepo` interface / `SiblingChallenge*` 型は #2458-B (PR #2488) + Path B sibling drop で完全撤去
+- **routes**: `/admin/challenges` は per-child instance の閲覧 + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte)。**#3195 (EPIC #3193)**: アプリ自動生成一本化に伴い親手動作成 / 一括追加 / cross-child copy / marketplace challenge-set import を撤去し閲覧専用化、child_challenges はアプリ週次自動生成 (`sourceTemplateId='auto:weekly'`) で埋める
 - **子供画面 (#2458-B caller migration)**:
   - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key (sourceTemplateId / `title::start::end`) 兄弟連動情報 (`siblings[]`) を取得
   - `ChallengeBanner.svelte` / `SiblingCelebration.svelte` は `ChildChallengeWithSiblings` 型に統合 (自身の `currentValue` / `targetValue` / `rewardClaimed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定)

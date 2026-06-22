@@ -15,11 +15,19 @@ import { insertPointLedger } from '$lib/server/db/activity-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { getRepos } from '$lib/server/db/factory';
 import type {
+	AutoChallenge,
 	ChildChallenge,
 	ChildChallengeGroup,
 	ChildChallengeWithSiblings,
 	InsertChildChallengeInput,
 } from '$lib/server/db/types';
+import {
+	aggregateCategoryCounts,
+	CATEGORY_NAMES,
+	computeProposal,
+	getLastWeekStart,
+	getWeekStart,
+} from '$lib/server/services/auto-challenge-service';
 
 /** group key 解決 (admin getChallengeGroupsForAdmin と同一規約、ADR-0055 §4.7 整合) */
 function resolveGroupKey(
@@ -143,6 +151,120 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 	return groups;
 }
 
+// ============================================================
+// アプリ週次自動生成 (#3195、EPIC #3193 child_challenges 一本化)
+// 親手動作成に代わり、アプリが毎週 child_challenges を自動生成する。
+// 生成アルゴリズム (苦手中心＋時々得意＋翌週適応) は auto-challenge-service の
+// computeProposal を流用。child_challenges に書くことで既存の進捗フック
+// (updateChildChallengeProgress) / 完了 / ごほうび受取 / バナー / 達成演出が
+// そのまま生きる。生成メタ (mode / 連続未達) は targetConfig JSON に内包し
+// child_challenges のスキーマ変更を不要にする。
+// ============================================================
+
+/** 自動生成 instance を識別する sourceTemplateId 値 */
+const AUTO_WEEKLY_SOURCE = 'auto:weekly';
+/** 自動生成チャレンジ達成時の既定ごほうびポイント (PO 確認対象、控えめな既定値) */
+const AUTO_WEEKLY_REWARD_POINTS = 30;
+
+/** weekStart (Monday, YYYY-MM-DD) の週末 (Sunday) を返す。 */
+function weekEndOf(weekStart: string): string {
+	const [y, m, d] = weekStart.split('-').map(Number);
+	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+	dt.setUTCDate(dt.getUTCDate() + 6);
+	const yyyy = dt.getUTCFullYear();
+	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+	const dd = String(dt.getUTCDate()).padStart(2, '0');
+	return `${yyyy}-${mm}-${dd}`;
+}
+
+/** 前週の自動生成 child_challenge を computeProposal の prev 入力 (AutoChallenge 形) に写像する。 */
+function toProposalPrev(row: ChildChallenge): AutoChallenge {
+	let categoryId = 1;
+	let genMissStreak = 0;
+	try {
+		const cfg = JSON.parse(row.targetConfig) as {
+			categoryId?: number;
+			genMissStreak?: number;
+		};
+		categoryId = cfg.categoryId ?? 1;
+		genMissStreak = cfg.genMissStreak ?? 0;
+	} catch {
+		// 破損 JSON は既定値で続行
+	}
+	return {
+		id: row.id,
+		childId: row.childId,
+		tenantId: '',
+		weekStart: row.startDate,
+		categoryId,
+		targetCount: row.targetValue,
+		currentCount: row.currentValue,
+		status: row.completed === 1 ? 'completed' : 'expired',
+		mode: 'weakness',
+		consecutiveMissCount: genMissStreak,
+		createdAt: row.createdAt,
+		updatedAt: row.updatedAt,
+	};
+}
+
+/**
+ * 当週のアプリ自動生成 child_challenge を取得 (なければ生成)。子供 home / challenges の
+ * load で呼び、バナー等に流す。冪等 (当週分が既にあれば再生成しない)。
+ */
+export async function getOrCreateWeeklyChildChallenge(
+	childId: number,
+	tenantId: string,
+): Promise<ChildChallenge> {
+	const repos = getRepos();
+	const weekStart = getWeekStart();
+
+	const all = await repos.childChallenge.findByChildId(childId, tenantId);
+	const existing = all.find(
+		(c) => c.sourceTemplateId === AUTO_WEEKLY_SOURCE && c.startDate === weekStart,
+	);
+	if (existing) return existing;
+
+	const lastWeekStart = getLastWeekStart(weekStart);
+	const prevRow = all.find(
+		(c) => c.sourceTemplateId === AUTO_WEEKLY_SOURCE && c.startDate === lastWeekStart,
+	);
+	const counts = await aggregateCategoryCounts(childId, tenantId);
+	const proposal = computeProposal(
+		counts,
+		prevRow ? toProposalPrev(prevRow) : undefined,
+		weekStart,
+	);
+
+	const targetConfig = JSON.stringify({
+		metric: 'count',
+		categoryId: proposal.categoryId,
+		baseTarget: proposal.targetCount,
+		genMode: proposal.mode,
+		genMissStreak: proposal.consecutiveMissCount,
+	});
+	const rewardConfig = JSON.stringify({
+		points: AUTO_WEEKLY_REWARD_POINTS,
+		message: proposal.reason,
+	});
+
+	return repos.childChallenge.insert(
+		{
+			childId,
+			title: `今週は「${proposal.categoryName}」を${proposal.targetCount}回`,
+			description: proposal.reason,
+			challengeType: 'cooperative',
+			periodType: 'weekly',
+			startDate: weekStart,
+			endDate: weekEndOf(weekStart),
+			targetConfig,
+			rewardConfig,
+			sourceTemplateId: AUTO_WEEKLY_SOURCE,
+			targetValue: proposal.targetCount,
+		},
+		tenantId,
+	);
+}
+
 /** 子供画面: 子供自身のアクティブ challenge 一覧 */
 export async function getActiveChildChallenges(
 	childId: number,
@@ -151,6 +273,80 @@ export async function getActiveChildChallenges(
 	const repos = getRepos();
 	const today = todayDateJST();
 	return repos.childChallenge.findActiveByChildId(childId, today, tenantId);
+}
+
+/**
+ * #3195: 子供 challenges ページ表示用の view 整形型。
+ * 旧 auto-challenge-service の `ActiveChallengeInfo` を child_challenges 一本化に合わせて再現する
+ * (home が child_challenges を生成し、challenges ページもこれを読むことで二重生成を防ぐ)。
+ */
+export interface ChildChallengeView {
+	id: number;
+	categoryName: string;
+	targetCount: number;
+	currentCount: number;
+	weekStart: string;
+	status: 'active' | 'completed' | 'expired';
+	progressPercent: number;
+	description: string;
+}
+
+/** child_challenge row → 子供画面 view (categoryName は targetConfig.categoryId から解決)。 */
+function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
+	let categoryId: number | undefined;
+	try {
+		const cfg = JSON.parse(row.targetConfig) as { categoryId?: number };
+		categoryId = cfg.categoryId;
+	} catch {
+		// 破損 JSON は categoryName 空で続行
+	}
+	const categoryName = categoryId ? (CATEGORY_NAMES[categoryId] ?? '') : '';
+	const target = row.targetValue > 0 ? row.targetValue : 1;
+	const current = row.currentValue;
+	const status: ChildChallengeView['status'] =
+		row.completed === 1
+			? 'completed'
+			: row.startDate <= todayDateJST() && row.endDate >= todayDateJST()
+				? 'active'
+				: 'expired';
+	return {
+		id: row.id,
+		categoryName,
+		targetCount: row.targetValue,
+		currentCount: current,
+		weekStart: row.startDate,
+		status,
+		progressPercent: Math.min(100, Math.round((current / target) * 100)),
+		description: row.description ?? '',
+	};
+}
+
+/**
+ * #3195: 子供 challenges ページの当週アクティブ challenge を view 形で取得 (なければ自動生成)。
+ * home の `getOrCreateWeeklyChildChallenge` と同一の生成入口を共有するため、challenges ページと
+ * home は常に同一の週次 child_challenge を表示する (一本化、二重生成なし)。
+ */
+export async function getOrCreateWeeklyChildChallengeView(
+	childId: number,
+	tenantId: string,
+): Promise<ChildChallengeView> {
+	const row = await getOrCreateWeeklyChildChallenge(childId, tenantId);
+	return toChildChallengeView(row);
+}
+
+/** #3195: 子供 challenges ページの履歴 (新しい順、上限 limit)。 */
+export async function getChildChallengeHistory(
+	childId: number,
+	tenantId: string,
+	limit = 10,
+): Promise<ChildChallengeView[]> {
+	const repos = getRepos();
+	const all = await repos.childChallenge.findByChildId(childId, tenantId);
+	return all
+		.slice()
+		.sort((a, b) => b.startDate.localeCompare(a.startDate))
+		.slice(0, limit)
+		.map(toChildChallengeView);
 }
 
 /**
