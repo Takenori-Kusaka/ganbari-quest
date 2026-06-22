@@ -68,7 +68,9 @@ test.describe('#2320 /admin/settings 6 グループ child routes', () => {
 			waitUntil: 'domcontentloaded',
 		});
 		// notification status 要素 (clientside onMount で更新される)
-		await expect(page.locator('#notification-status')).toBeVisible();
+		// #3233: #3186 で旧 `#notification-status` (命令的 DOM 更新) を撤廃し、
+		//   常時描画される宣言的コンテナ `notification-browser-status` に集約 (ON/OFF + 異常系)。
+		await expect(page.getByTestId('notification-browser-status')).toBeVisible();
 	});
 
 	test('data route が表示される (data-export-section が存在)', async ({ page }) => {

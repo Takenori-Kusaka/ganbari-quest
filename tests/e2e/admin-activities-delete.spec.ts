@@ -116,7 +116,9 @@ test.describe('#2744 admin/activities Delete UI (AC4 family scope)', () => {
 		await expect(dialog).toBeHidden();
 
 		// outcome 2: Toast success が表示 (DL.deleteSuccess、labels.ts SSOT 参照)
-		await expect(page.getByRole('alert').filter({ hasText: '活動を削除しました' })).toBeVisible();
+		// #3233: #3221/ADR-0062 で success Toast は role="status"(polite) に変更 (WCAG 4.1.3 —
+		//   成功通知は assertive=alert ではなく polite=status。error のみ role="alert")。
+		await expect(page.getByRole('status').filter({ hasText: '活動を削除しました' })).toBeVisible();
 
 		// outcome 3: 一覧件数が確実に -1 (delete action は activity ログがあれば hidden 化、
 		//           なければ hard delete、いずれも一覧表示からは消える)
