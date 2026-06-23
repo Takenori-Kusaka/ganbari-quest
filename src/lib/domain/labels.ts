@@ -1605,8 +1605,22 @@ export const SETTINGS_LABELS = {
 		`活動ログ: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportResultPointLedger: (imported: number | string, skipped: number | string) =>
 		`ポイント: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	// #3095: silent-skip 可視化 — 静的ファイル / チェックリスト履歴 / ごほうび の復元・skip 件数を surface
+	dataImportResultSpecialRewards: (imported: number | string, skipped: number | string) =>
+		`ごほうび: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	dataImportResultChecklistLogs: (imported: number | string, skipped: number | string) =>
+		`チェックリスト履歴: ${imported}件${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
+	dataImportResultStaticFiles: (restored: number | string, skipped: number | string) =>
+		`画像・音声ファイル: ${restored}件復元${Number(skipped) > 0 ? `（${skipped}件スキップ）` : ''}`,
 	dataImportWarningsTitle: (n: number | string) => `警告 (${n}件):`,
 	dataImportErrorsTitle: (n: number | string) => `エラー (${n}件):`,
+	// #3095: partial-restore の data-integrity 可視化 — errors があれば「完了」でなく部分復元として警告する。
+	// とくに置換 (replace) は既存データをクリア後に復元するため、部分失敗が成功扱いになると家族データが半損する。
+	dataImportPartialTitle: '一部のデータを復元できませんでした',
+	dataImportPartialBodyReplace:
+		'既存データはクリア済みのため、復元できなかった項目は失われています。下記の内容をご確認のうえ、バックアップから再度インポートしてください。',
+	dataImportPartialBodyAdd:
+		'復元できなかった項目があります。下記の内容をご確認のうえ、必要に応じて再度インポートしてください。',
 	dataImportClose: '閉じる',
 
 	// クラウドエクスポート
