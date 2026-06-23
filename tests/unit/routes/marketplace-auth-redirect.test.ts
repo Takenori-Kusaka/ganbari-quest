@@ -86,9 +86,7 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 		it('#3227: challenge-set 未ログイン CTA (login redirect) も除去済 (到達不能分岐)', () => {
 			// challenge-set は preset 0 件で marketplace 詳細が必ず 404 するため、未ログイン
 			// signup-redirect 分岐も到達不能 dead code。本 PR で除去し再生を回帰防止する。
-			expect(content).not.toMatch(
-				/href=["']\/auth\/login\?next=\/marketplace\/challenge-set\//,
-			);
+			expect(content).not.toMatch(/href=["']\/auth\/login\?next=\/marketplace\/challenge-set\//);
 		});
 
 		it('詳細画面 activity-pack 未ログイン CTA は /auth/login へ遷移する (#2362 PR-3 Phase 5)', () => {
