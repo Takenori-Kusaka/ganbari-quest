@@ -489,7 +489,10 @@ export async function getOrCreateWeeklyChildChallenge(
 		message: proposal.reason,
 	});
 
-	return repos.childChallenge.insert(
+	// #3245: insert ではなく atomic getOrCreateWeeklyAuto を使う。
+	// 上の existing 事前チェックは最適化に過ぎず、concurrent race (両者が「無し」と判定) でも
+	// DB の一意制約 + 条件付き書込で 1 行に収束させ、ポイント二重付与を不可能化する。
+	return repos.childChallenge.getOrCreateWeeklyAuto(
 		{
 			childId,
 			title: `今週は「${proposal.categoryName}」を${proposal.targetCount}回`,

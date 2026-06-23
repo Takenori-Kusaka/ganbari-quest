@@ -10,6 +10,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockInsert = vi.fn();
+const mockGetOrCreateWeeklyAuto = vi.fn();
 const mockInsertBulk = vi.fn();
 const mockFindAllByTenant = vi.fn();
 const mockFindByChildId = vi.fn();
@@ -23,6 +24,7 @@ vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		childChallenge: {
 			insert: (...a: unknown[]) => mockInsert(...a),
+			getOrCreateWeeklyAuto: (...a: unknown[]) => mockGetOrCreateWeeklyAuto(...a),
 			insertBulk: (...a: unknown[]) => mockInsertBulk(...a),
 			findAllByTenant: (...a: unknown[]) => mockFindAllByTenant(...a),
 			findByChildId: (...a: unknown[]) => mockFindByChildId(...a),
@@ -222,7 +224,8 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 	it('当週分が無ければ child_challenges を自動生成する (targetConfig に metric/categoryId/genMode 内包)', async () => {
 		mockFindByChildId.mockResolvedValue([]); // 既存なし
 		mockCategoryCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
-		mockInsert.mockImplementation(async (input) => ({
+		// #3245: 生成は atomic な getOrCreateWeeklyAuto 経由
+		mockGetOrCreateWeeklyAuto.mockImplementation(async (input) => ({
 			id: 1,
 			currentValue: 0,
 			completed: 0,
@@ -231,8 +234,8 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 
 		await getOrCreateWeeklyChildChallenge(10, TENANT);
 
-		expect(mockInsert).toHaveBeenCalledTimes(1);
-		const input = mockInsert.mock.calls[0]?.[0];
+		expect(mockGetOrCreateWeeklyAuto).toHaveBeenCalledTimes(1);
+		const input = mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0];
 		expect(input.sourceTemplateId).toBe('auto:weekly');
 		expect(input.challengeType).toBe('cooperative');
 		expect(input.periodType).toBe('weekly');
@@ -258,6 +261,7 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 
 		const result = await getOrCreateWeeklyChildChallenge(10, TENANT);
 		expect(result).toBe(existing);
+		expect(mockGetOrCreateWeeklyAuto).not.toHaveBeenCalled();
 		expect(mockInsert).not.toHaveBeenCalled();
 		expect(mockAggregateActivityLogsByCategory).not.toHaveBeenCalled();
 	});

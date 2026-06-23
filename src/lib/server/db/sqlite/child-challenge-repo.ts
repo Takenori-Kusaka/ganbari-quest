@@ -122,6 +122,55 @@ export async function insert(
 	return row;
 }
 
+/**
+ * #3245: auto:weekly の atomic get-or-create。
+ * 部分 unique index idx_child_challenges_auto_weekly_unique により (child_id, start_date) は
+ * auto:weekly 行で一意。`onConflictDoNothing` で concurrent 二重 INSERT を DB レベルで no-op 化し、
+ * 直後の SELECT で勝者 1 行に収束させる (= ポイント二重付与を不可能化)。
+ */
+export async function getOrCreateWeeklyAuto(
+	input: InsertChildChallengeInput,
+	_tenantId: string,
+): Promise<ChildChallenge> {
+	const now = new Date().toISOString();
+	db.insert(childChallenges)
+		.values({
+			childId: input.childId,
+			title: input.title,
+			description: input.description ?? null,
+			challengeType: input.challengeType ?? 'cooperative',
+			periodType: input.periodType ?? 'weekly',
+			startDate: input.startDate,
+			endDate: input.endDate,
+			targetConfig: input.targetConfig,
+			rewardConfig: input.rewardConfig,
+			sourceTemplateId: input.sourceTemplateId ?? 'auto:weekly',
+			currentValue: 0,
+			targetValue: input.targetValue,
+			completed: 0,
+			rewardClaimed: 0,
+			createdAt: now,
+			updatedAt: now,
+		})
+		// 部分 unique index への衝突 (= 同一 child×week の auto 行が既存) は no-op
+		.onConflictDoNothing()
+		.run();
+
+	const row = db
+		.select()
+		.from(childChallenges)
+		.where(
+			and(
+				eq(childChallenges.childId, input.childId),
+				eq(childChallenges.startDate, input.startDate),
+				eq(childChallenges.sourceTemplateId, input.sourceTemplateId ?? 'auto:weekly'),
+			),
+		)
+		.get();
+	if (!row) throw new Error('getOrCreateWeeklyAuto: row not found after upsert');
+	return row;
+}
+
 export async function insertBulk(
 	inputs: readonly InsertChildChallengeInput[],
 	tenantId: string,
