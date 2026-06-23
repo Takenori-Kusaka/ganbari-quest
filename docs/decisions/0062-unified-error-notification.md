@@ -53,6 +53,7 @@
 
 ## 結果
 
-- 統一 helper `error-notify.ts`（`notifyApiError`/`notifyActionError`/`notifyNetworkError`/`resolveApiErrorMessage`）+ `ERROR_NOTIFY_LABELS`（labels.ts）+ `Toast` role/自動消滅改修を P0（#3218）で実装。silent-failure を順次 helper 経由に統一（P1）、`fetch` 未処理検出の fitness を P2（ADR-0061 適用例）で機械化。
+- 統一 helper `error-notify.ts`（`notifyApiError`/`notifyActionError`/`notifyNetworkError`/`resolveApiErrorMessage`）+ `ERROR_NOTIFY_LABELS`（labels.ts）+ `Toast` role/自動消滅改修を P0（#3218）で実装。silent-failure を helper 経由に統一（P1: #3241 parent/ops / #3248 packs / #3253 child age-tier 文言、`ERROR_NOTIFY_LABELS_CHILD` + `getErrorNotifyLabels`）。
+- **再発防止 fitness（P2、ADR-0061 適用例）**: `tests/unit/architecture/fetch-error-handling-ratchet.test.ts` が routes/features の client `fetch` のうちエラー処理（`*.ok` / catch / `notify*` / `showToast` / form action result 処理）を伴わないものを走査し、**baseline ratchet** で新規 silent fetch を CI で hard-fail する（`base-token-routes-ratchet` と同型）。意図的 fire-and-forget は直前コメント `fetch-error-exempt` で除外。
 - **トレードオフ**: 既存散在 state（`*Error` 個別命名）の全面置換は段階的（P1）。Banner/Dialog 振り分けの完全自動化はせず、重大度は呼出側が helper 戻り値 + Alert/Dialog 併用で判断する。
 - **10 枠ルール（README）**: 本 ADR 追加の 1-in-1-out は 2026-06 最終週の月 1 棚卸で archive 候補（proposed 据置 ADR-0014/0015/0016 等）と併せて消化する。
