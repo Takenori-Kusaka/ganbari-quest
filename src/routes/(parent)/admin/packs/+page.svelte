@@ -1,7 +1,6 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { APP_LABELS, PACKS_PAGE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
-import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -114,10 +113,8 @@ const categoryLabels: Record<string, string> = {
 						{#if !pack.isFullyImported}
 							<form method="POST" action="?/importPack" use:enhance={() => {
 								importing = pack.packId;
-								return async ({ result, update }) => {
+								return async ({ update }) => {
 									importing = null;
-									// #3225: 取込失敗を silent にしない (failure/error を error Toast 化)
-									notifyActionError(result);
 									await update();
 								};
 							}}>
