@@ -8,6 +8,7 @@ import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import { notifyActionError, notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -47,11 +48,17 @@ async function saveDecayIntensity() {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ intensity: decayIntensity }),
 		});
-		if (!res.ok) throw new Error('Failed to save');
+		// #3225: 保存失敗を silent にしない (error Toast でユーザに通知)
+		if (!res.ok) {
+			await notifyApiError(res);
+			return;
+		}
 		decaySuccess = true;
 		setTimeout(() => {
 			decaySuccess = false;
 		}, 3000);
+	} catch {
+		notifyNetworkError();
 	} finally {
 		decaySaving = false;
 	}
@@ -153,6 +160,9 @@ const previewFormatted = $derived(
 					pointSubmitting = false;
 					if (result.type === 'success') {
 						pointSuccess = true;
+					} else {
+						// #3225: ポイント設定の保存失敗を silent にしない
+						notifyActionError(result);
 					}
 					await update();
 				};

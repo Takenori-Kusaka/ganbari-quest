@@ -2,6 +2,7 @@
 import QRCode from 'qrcode';
 import { page } from '$app/stores';
 import { APP_LABELS, MEMBERS_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -63,7 +64,17 @@ async function createInvite() {
 
 async function revokeInvite(code: string) {
 	if (!confirm(MEMBERS_LABELS.revokeConfirm)) return;
-	await fetch(`/api/v1/admin/invites/${code}`, { method: 'DELETE' });
+	try {
+		const res = await fetch(`/api/v1/admin/invites/${code}`, { method: 'DELETE' });
+		// #3225: 取り消し失敗を silent にしない (失敗時は reload せず error Toast)
+		if (!res.ok) {
+			await notifyApiError(res);
+			return;
+		}
+	} catch {
+		notifyNetworkError();
+		return;
+	}
 	window.location.reload();
 }
 
@@ -117,13 +128,33 @@ async function createViewerLink() {
 
 async function revokeViewerToken(id: number) {
 	if (!confirm(MEMBERS_LABELS.viewerRevokeConfirm)) return;
-	await fetch(`/api/v1/admin/viewer-tokens/${id}?action=revoke`, { method: 'DELETE' });
+	try {
+		const res = await fetch(`/api/v1/admin/viewer-tokens/${id}?action=revoke`, {
+			method: 'DELETE',
+		});
+		if (!res.ok) {
+			await notifyApiError(res);
+			return;
+		}
+	} catch {
+		notifyNetworkError();
+		return;
+	}
 	window.location.reload();
 }
 
 async function deleteViewerToken(id: number) {
 	if (!confirm(MEMBERS_LABELS.viewerDeleteConfirm)) return;
-	await fetch(`/api/v1/admin/viewer-tokens/${id}`, { method: 'DELETE' });
+	try {
+		const res = await fetch(`/api/v1/admin/viewer-tokens/${id}`, { method: 'DELETE' });
+		if (!res.ok) {
+			await notifyApiError(res);
+			return;
+		}
+	} catch {
+		notifyNetworkError();
+		return;
+	}
 	window.location.reload();
 }
 

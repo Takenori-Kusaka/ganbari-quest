@@ -6,6 +6,7 @@ import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
 import { calcDeviationScore, getComparisonLabel } from '$lib/domain/validation/status';
 import { SuccessAlert } from '$lib/ui/components';
 import RadarChart from '$lib/ui/components/RadarChart.svelte';
+import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -200,6 +201,9 @@ let levelTitleInputs: Record<number, string> = $state({});
 											levelTitleSuccess = true;
 											delete levelTitleInputs[lt.level];
 											await invalidateAll();
+										} else {
+											// #3225: 保存失敗を silent にしない (failure/error を error Toast 化)
+											notifyActionError(result);
 										}
 									};
 								}}
@@ -241,6 +245,9 @@ let levelTitleInputs: Record<number, string> = $state({});
 											levelTitleSuccess = true;
 											delete levelTitleInputs[lt.level];
 											await invalidateAll();
+										} else {
+											// #3225: 保存失敗を silent にしない (failure/error を error Toast 化)
+											notifyActionError(result);
 										}
 									};
 								}}
@@ -272,6 +279,9 @@ let levelTitleInputs: Record<number, string> = $state({});
 									levelTitleSuccess = true;
 									levelTitleInputs = {};
 									await invalidateAll();
+								} else {
+									// #3225: 一括リセット失敗を silent にしない
+									notifyActionError(result);
 								}
 							};
 						}}
@@ -369,6 +379,9 @@ let levelTitleInputs: Record<number, string> = $state({});
 								delete bmInputMean[bmKey];
 								delete bmInputSd[bmKey];
 								await invalidateAll();
+							} else {
+								// #3225: ベンチマーク更新失敗を silent にしない
+								notifyActionError(result);
 							}
 						};
 					}}
