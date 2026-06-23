@@ -11,12 +11,15 @@
 //
 // key 設計 (keys.ts §childChallengeKey):
 //   PK = T#<tenantId>#CHILD#<childId>   (child partition、child_activities / activity_logs と同居)
-//   SK = CHILDCHAL#<paddedId>           (8 桁 0 埋め、辞書順)
-//   → findByChildId は単一 partition Query で完結し追加 GSI 不要 (ADR-0055 §3.1)。
+//   SK = CHILDCHAL#<paddedId>           (regular instance、8 桁 0 埋め、辞書順)
+//   SK = CHILDCHAL#AUTO#<weekStart>     (auto:weekly instance、#3245 の atomic get-or-create 用)
+//   → findByChildId は単一 partition Query (begins_with(SK,'CHILDCHAL#')) で両種を取得し GSI 不要。
 //
 // child-activity との差分: interface の mutation method (update / markCompleted / claimReward /
 //   deleteChallenge / findById) が childId を受け取らず id 単独のため、id → PK/SK 解決を
-//   tenant 配下 Scan (begins_with(SK, 'CHILDCHAL#') AND SK = :sk) で行う。challenge instance は
+//   tenant 配下 Scan で行う。#3258: auto:weekly 行は SK が id-addressable でない (CHILDCHAL#AUTO#)
+//   ため SK exact-match では never match し全 mutation が silent no-op になっていた。解決は SK 形式
+//   非依存の id 属性 match (`#id = :id`) で行い regular / auto 双方に作用させる。challenge instance は
 //   1 child 当たり数件 (週次/月次) と低頻度なため Scan で十分 (ADR-0010 Pre-PMF、GSI 追加は過剰防衛)。
 //
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/child-challenge-repo.ts (SSOT)
@@ -28,6 +31,7 @@ import {
 	ScanCommand,
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { logger } from '$lib/server/logger';
 import type {
 	ChildChallenge,
 	InsertChildChallengeInput,
@@ -41,7 +45,6 @@ import {
 	childChallengePrefix,
 	childPK,
 	ENTITY_NAMES,
-	padId,
 	tenantPK,
 } from './keys';
 import { queryAllItems, stripKeys } from './repo-helpers';
@@ -122,7 +125,9 @@ export async function findAllByTenant(tenantId: string): Promise<ChildChallenge[
 // ============================================================
 
 export async function findById(id: number, tenantId: string): Promise<ChildChallenge | undefined> {
-	const items = await scanTenantChallenges(tenantId, { sk: `${PREFIX}${padId(id)}` });
+	// #3258: SK 形式 (regular=CHILDCHAL#<padId> / auto=CHILDCHAL#AUTO#<weekStart>) に依存せず
+	// id 属性で解決する (auto:weekly 行が exact-SK match を外して silent に取得不能になるのを根治)。
+	const items = await scanTenantChallenges(tenantId, { id });
 	const item = items[0];
 	return item ? toChildChallenge(item) : undefined;
 }
@@ -402,21 +407,27 @@ export async function deleteByTenantId(tenantId: string): Promise<void> {
 
 /**
  * tenant 配下の CHILDCHAL# item を Scan で収集する。
- * @param opts.sk         SK 完全一致 (findById / resolveKeyById 用)
+ * @param opts.id         id 属性の完全一致 (findById / resolveKeyById 用)。
+ *                        auto:weekly 行は SK=CHILDCHAL#AUTO#<weekStart> で id-addressable でないため、
+ *                        SK 形式に依存せず id 属性で解決する (#3258 silent no-op 根治。
+ *                        regular 行 SK=CHILDCHAL#<padId> / auto 行 SK=CHILDCHAL#AUTO# 双方に作用)。
  * @param opts.projection ProjectionExpression (PK/SK のみ取得したいとき)
  */
 async function scanTenantChallenges(
 	tenantId: string,
-	opts?: { sk?: string; projection?: string },
+	opts?: { id?: number; projection?: string },
 ): Promise<Record<string, unknown>[]> {
 	const filters = ['begins_with(SK, :skPrefix)', 'begins_with(PK, :tenantPrefix)'];
 	const values: Record<string, unknown> = {
 		':skPrefix': PREFIX,
 		':tenantPrefix': tenantPK('CHILD#', tenantId),
 	};
-	if (opts?.sk) {
-		filters.push('SK = :sk');
-		values[':sk'] = opts.sk;
+	// `id` は DynamoDB の予約語ではないが、安全のため ExpressionAttributeNames で別名化する。
+	const names: Record<string, string> | undefined =
+		opts?.id !== undefined ? { '#id': 'id' } : undefined;
+	if (opts?.id !== undefined) {
+		filters.push('#id = :id');
+		values[':id'] = opts.id;
 	}
 
 	const items: Record<string, unknown>[] = [];
@@ -427,6 +438,7 @@ async function scanTenantChallenges(
 				TableName: TABLE_NAME,
 				FilterExpression: filters.join(' AND '),
 				ExpressionAttributeValues: values,
+				ExpressionAttributeNames: names,
 				ProjectionExpression: opts?.projection,
 				ExclusiveStartKey: lastKey,
 			}),
@@ -439,16 +451,28 @@ async function scanTenantChallenges(
 	return items;
 }
 
-/** id から PK/SK を解決する (mutation method 用)。不在なら undefined。 */
+/**
+ * id から PK/SK を解決する (mutation method 用)。不在なら undefined。
+ * #3258: id 属性で解決し、auto:weekly 行 (SK=CHILDCHAL#AUTO#<weekStart>) も id-addressable にする。
+ * 旧実装は SK=CHILDCHAL#<padId(id)> の exact match のみで auto 行を never match し、
+ * updateProgress/markCompleted/claimReward/update/delete が DynamoDB prod で silent no-op だった。
+ */
 async function resolveKeyById(
 	id: number,
 	tenantId: string,
 ): Promise<{ PK: string; SK: string } | undefined> {
 	const items = await scanTenantChallenges(tenantId, {
-		sk: `${PREFIX}${padId(id)}`,
+		id,
 		projection: 'PK, SK',
 	});
 	const item = items[0];
-	if (!item) return undefined;
+	if (!item) {
+		// #3258 AC5: id 解決失敗を observable にする。mutation 呼出時に id が解決できないのは
+		// (削除済 race を除き) 想定外であり、旧来の if(!key) return; の silent no-op を warn で可視化する。
+		logger.warn('child-challenge resolveKeyById: id 未解決 (mutation no-op)', {
+			context: { id, tenantId },
+		});
+		return undefined;
+	}
 	return { PK: item.PK as string, SK: item.SK as string };
 }
