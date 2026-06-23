@@ -85,8 +85,8 @@ describe('#3262 F1: getPageGuide 親パス フォールバック', () => {
 
 	it('未登録サブパスは登録済の親候補に到達する (= ? が空にならない)', () => {
 		// /admin/settings/account は未登録だが、候補に登録済の /admin/settings を含む
-		const cands = guideCandidatePaths('/admin/settings/account');
-		expect(cands.some((c) => REGISTERED_GUIDE_PATHS.includes(c))).toBe(true);
+		const candidates = guideCandidatePaths('/admin/settings/account');
+		expect(candidates.some((c) => REGISTERED_GUIDE_PATHS.includes(c))).toBe(true);
 		// /admin 配下は最終的に必ず /admin (登録済) にフォールバックできる
 		expect(guideCandidatePaths('/admin/members').includes('/admin')).toBe(true);
 	});
