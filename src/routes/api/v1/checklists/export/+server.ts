@@ -12,6 +12,7 @@ import { json } from '@sveltejs/kit';
 import { buildAttachmentContentDisposition } from '$lib/domain/export-format';
 import { dispatchExportToJson } from '$lib/marketplace/export-dispatcher';
 import type { ChecklistPayload } from '$lib/marketplace/schemas/checklist-schema';
+import { requireRole } from '$lib/server/auth/factory';
 import { findTemplateById, findTemplateItems } from '$lib/server/db/checklist-repo';
 import type { RequestHandler } from './$types';
 
@@ -27,6 +28,8 @@ function timeSlotToTiming(timeSlot: string): ChecklistPayload['timing'] {
 }
 
 export const GET: RequestHandler = async ({ locals, url }) => {
+	// #3246: export は import と同じ owner/parent gate に揃える (child role 到達不可)。
+	requireRole(locals, ['owner', 'parent']);
 	const context = locals.context;
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });

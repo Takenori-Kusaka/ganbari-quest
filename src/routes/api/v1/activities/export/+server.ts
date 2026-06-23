@@ -12,6 +12,7 @@ import { json } from '@sveltejs/kit';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { dispatchExportToJson } from '$lib/marketplace/export-dispatcher';
 import type { ActivityPackPayload } from '$lib/marketplace/schemas/activity-pack-schema';
+import { requireRole } from '$lib/server/auth/factory';
 import { getActivities } from '$lib/server/services/activity-service';
 import type { RequestHandler } from './$types';
 
@@ -21,6 +22,8 @@ for (const [i, code] of CATEGORY_CODES.entries()) {
 }
 
 export const GET: RequestHandler = async ({ locals }) => {
+	// #3246: export は import と同じ owner/parent gate に揃える (child role 到達不可)。
+	requireRole(locals, ['owner', 'parent']);
 	const context = locals.context;
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
