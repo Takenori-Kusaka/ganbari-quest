@@ -83,10 +83,11 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 			);
 		});
 
-		it('詳細画面 challenge-set 未ログイン CTA は /auth/login へ遷移する', () => {
-			// challenge-set CTA: `href="/auth/login?next=/marketplace/challenge-set/{item.itemId}"`
-			expect(content).toMatch(
-				/href=["']\/auth\/login\?next=\/marketplace\/challenge-set\/\{item\.itemId\}["']/,
+		it('#3227: challenge-set 未ログイン CTA (login redirect) も除去済 (到達不能分岐)', () => {
+			// challenge-set は preset 0 件で marketplace 詳細が必ず 404 するため、未ログイン
+			// signup-redirect 分岐も到達不能 dead code。本 PR で除去し再生を回帰防止する。
+			expect(content).not.toMatch(
+				/href=["']\/auth\/login\?next=\/marketplace\/challenge-set\//,
 			);
 		});
 
@@ -178,9 +179,15 @@ describe('#2303 marketplace 未ログイン CTA は /auth/login redirect', () =>
 			expect(content).toMatch(/data-testid=["']rule-preset-import-cta["']/);
 		});
 
-		it('challenge-set CTA は `<a href="/admin/challenges?import=...">` (旧 ?marketplace-import= 廃止)', () => {
-			expect(content).toMatch(/href=["']\/admin\/challenges\?import=\{item\.itemId\}["']/);
-			expect(content).toMatch(/data-testid=["']challenge-set-import-cta["']/);
+		it('#3227: challenge-set の dead 分岐 (import CTA / preview / signup redirect) は除去済', () => {
+			// #2896 で challenge-set は非陳列・preset 0 件化し、marketplace 詳細 loader は
+			// getMarketplaceItem('challenge-set', *)=undefined → error(404) を必ず投げるため、
+			// isChallengeSet 分岐は 100% 到達不能。admin/challenges も ?import= を parse しない
+			// (#3195) ため CTA は silent no-op の dead 分岐だった。本 PR で +page.svelte から除去。
+			expect(content).not.toMatch(/data-testid=["']challenge-set-import-cta["']/);
+			expect(content).not.toMatch(/data-testid=["']challenge-set-signup-redirect["']/);
+			expect(content).not.toMatch(/data-testid=["']challenge-set-preview["']/);
+			expect(content).not.toMatch(/href=["']\/admin\/challenges\?import=/);
 		});
 
 		it('activity-pack CTA は `<a href="/admin/activities?import=...">` + testid=activity-pack-import-cta (#2362 PR-3 既存)', () => {
