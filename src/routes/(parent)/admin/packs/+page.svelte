@@ -1,6 +1,7 @@
 <script lang="ts">
 import { enhance } from '$app/forms';
 import { APP_LABELS, PACKS_PAGE_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 let { data } = $props();
@@ -47,13 +48,14 @@ const categoryLabels: Record<string, string> = {
 						? 'border-[var(--color-feedback-warning-border)] bg-[var(--color-feedback-warning-bg)]'
 						: 'border-[var(--color-border)] bg-white'}"
 			>
-				<!-- Pack header -->
-				<button
-					type="button"
-					class="w-full text-left p-4"
+				<!-- Pack header (#3242: disclosure を Button primitive 化、no-raw-button 解消) -->
+				<Button
+					variant="ghost"
+					aria-expanded={expandedPack === pack.packId}
+					class="!w-full !justify-start !p-4 !font-normal !rounded-none text-left"
 					onclick={() => (expandedPack = expandedPack === pack.packId ? null : pack.packId)}
 				>
-					<div class="flex items-start gap-3">
+					<div class="flex items-start gap-3 w-full">
 						<span class="text-3xl">{pack.icon}</span>
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2 flex-wrap">
@@ -86,7 +88,7 @@ const categoryLabels: Record<string, string> = {
 							</div>
 						</div>
 					</div>
-				</button>
+				</Button>
 
 				<!-- Expanded content -->
 				{#if expandedPack === pack.packId}
@@ -113,8 +115,10 @@ const categoryLabels: Record<string, string> = {
 						{#if !pack.isFullyImported}
 							<form method="POST" action="?/importPack" use:enhance={() => {
 								importing = pack.packId;
-								return async ({ update }) => {
+								return async ({ result, update }) => {
 									importing = null;
+									// #3242: 取込失敗を silent にしない (failure/error を error Toast 化)
+									notifyActionError(result);
 									await update();
 								};
 							}}>
