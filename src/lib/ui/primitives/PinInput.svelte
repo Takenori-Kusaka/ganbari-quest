@@ -32,7 +32,10 @@ function handleValueComplete(details: { value: string[]; valueAsString: string }
 }
 </script>
 
-<ArkPinInput.Root onValueComplete={handleValueComplete} {mask} type="numeric" class="flex flex-col gap-[var(--sp-sm)]">
+<!-- Root は flex-col だが gap を持たない: 視覚差分ゼロを保つため、ラベル ↔ 桁行の余白は
+	可視ラベル側の margin (labelClass の mb-* 等) に委ねる。sr-only ラベル時は余白ゼロで
+	桁行が最上段に来る (旧実装の単独桁行と同一)。桁ボックス間の gap は Control が持つ。 -->
+<ArkPinInput.Root onValueComplete={handleValueComplete} {mask} type="numeric" class="flex flex-col">
 	<ArkPinInput.Label class={labelClass}>{label}</ArkPinInput.Label>
 	<ArkPinInput.Control class="flex gap-[var(--sp-sm)] justify-center">
 		{#each Array(length) as _, i}

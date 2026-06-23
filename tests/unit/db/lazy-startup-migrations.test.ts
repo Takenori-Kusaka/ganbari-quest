@@ -181,6 +181,51 @@ describe('applyLazyStartupMigrations', () => {
 			expect(tableExists(db, 'auto_challenges')).toBe(false);
 		});
 
+		it('auto_challenges DROP が child_challenges の auto:weekly 行を保全する (#3259 cuj-2 / #3213 一本化)', () => {
+			// #3213 の DROP は「data loss 許容」だが、それは生成チャレンジが child_challenges 側に
+			// 存続することが前提 (#3195 一本化)。本 test は DROP が一本化先 (child_challenges) の
+			// auto:weekly データを巻き込んで失わないこと = 保全を機械的に固定する。
+			db.exec(`
+				CREATE TABLE child_challenges (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					child_id INTEGER NOT NULL,
+					title TEXT NOT NULL,
+					start_date TEXT NOT NULL,
+					end_date TEXT NOT NULL,
+					source_template_id TEXT,
+					current_value INTEGER NOT NULL DEFAULT 0,
+					status TEXT NOT NULL DEFAULT 'active'
+				);
+			`);
+			db.prepare("INSERT INTO children (nickname, age) VALUES ('A', 8)").run();
+			// 一本化された週次自動チャレンジ (auto:weekly) — DROP で失われてはならない保全対象
+			db.prepare(
+				"INSERT INTO child_challenges (child_id, title, start_date, end_date, source_template_id, current_value) VALUES (1, '先週のチャレンジ', '2026-06-15', '2026-06-21', 'auto:weekly', 5)",
+			).run();
+			db.prepare(
+				"INSERT INTO child_challenges (child_id, title, start_date, end_date, source_template_id, current_value) VALUES (1, '今週のチャレンジ', '2026-06-22', '2026-06-28', 'auto:weekly', 2)",
+			).run();
+			// legacy auto_challenges (DROP 対象)
+			db.prepare(
+				"INSERT INTO auto_challenges (child_id, tenant_id, week_start, category_id, target_count) VALUES (1, 'default', '2026-06-22', 1, 3)",
+			).run();
+
+			applyLazyStartupMigrations(db);
+
+			// 冗長 legacy table は消えるが…
+			expect(tableExists(db, 'auto_challenges')).toBe(false);
+			// …一本化先の auto:weekly データは件数・進捗値ともに完全保全される (collateral loss なし)。
+			const rows = db
+				.prepare(
+					"SELECT title, start_date, current_value FROM child_challenges WHERE source_template_id = 'auto:weekly' ORDER BY start_date",
+				)
+				.all() as { title: string; start_date: string; current_value: number }[];
+			expect(rows).toEqual([
+				{ title: '先週のチャレンジ', start_date: '2026-06-15', current_value: 5 },
+				{ title: '今週のチャレンジ', start_date: '2026-06-22', current_value: 2 },
+			]);
+		});
+
 		it('checklist_templates を child_id (NOT NULL) → tenant_id (NOT NULL) に flip し assignments に migrate する (#2362 PR-5)', () => {
 			db.prepare("INSERT INTO children (nickname, age) VALUES ('A', 5)").run();
 			db.prepare("INSERT INTO children (nickname, age) VALUES ('B', 7)").run();
