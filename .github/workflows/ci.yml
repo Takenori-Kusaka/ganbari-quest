@@ -222,6 +222,12 @@ jobs:
         # 用語不統一・add 経路重複 (Hick's Law ≤4) を warning 0 で gate (CX-DoR 条件 3/4)。
         run: npx tsx scripts/check-terminology-coherence.ts
 
+      - name: Guide copy rules check (#3261 / EPIC #3260 F0)
+        # ページガイド (_guide.ts) 文言が guide-copy-rules.md に準拠するかを機械検証。
+        # 謎用語 / 内部事情露出 / 文字数上限 / step 数 ≤5 を hard-fail (現行 baseline=0)。
+        # 二重防御: tests/unit/scripts/check-guide-copy.test.ts も baseline 0 を vitest で検証。
+        run: npx tsx scripts/check-guide-copy.ts --fail-on-violation
+
       - name: Scripts unit tests (node:test for check-doc-code-references.mjs) (#2259 C3)
         # #2259 C3 fix: vitest config は tests/unit/** / tests/integration/** のみで
         # scripts/__tests__/*.test.mjs は vitest 対象外。node --test を CI gate に組み込む。
