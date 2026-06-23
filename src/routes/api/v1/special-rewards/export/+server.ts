@@ -11,12 +11,16 @@ import { json } from '@sveltejs/kit';
 import { REWARD_CATEGORIES } from '$lib/domain/validation/special-reward';
 import { dispatchExportToJson } from '$lib/marketplace/export-dispatcher';
 import type { RewardSetPayload } from '$lib/marketplace/schemas/reward-set-schema';
+import { requireRole } from '$lib/server/auth/factory';
 import { getChildSpecialRewards } from '$lib/server/services/special-reward-service';
 import type { RequestHandler } from './$types';
 
 const VALID_CATEGORIES = new Set<string>(REWARD_CATEGORIES);
 
 export const GET: RequestHandler = async ({ locals, url }) => {
+	// #3246: export は import と同じ owner/parent gate に揃える (child role 到達不可)。
+	// child から ?childId 指定で兄弟データを列挙できる家庭内 IDOR を塞ぐ。
+	requireRole(locals, ['owner', 'parent']);
 	const context = locals.context;
 	if (!context) {
 		return json({ error: '認証が必要です' }, { status: 401 });
