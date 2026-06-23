@@ -11,8 +11,6 @@ import {
 	type ExportChecklistLog,
 	type ExportChecklistTemplate,
 	type ExportChild,
-	type ExportChildAchievement,
-	type ExportChildTitle,
 	type ExportData,
 	type ExportEvaluation,
 	type ExportLoginBonus,
@@ -195,213 +193,249 @@ export async function exportFamilyData(options: ExportOptions): Promise<ExportDa
 	return exportData;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 複雑なビジネスロジックのため、別 Issue でリファクタ予定
+/**
+ * capped query が cap ちょうどの件数を返した = silent truncation の可能性を observable にする
+ * (#3259 perf-6、no-silent-cap 原則。MAX_EXPORT_ROWS で頭打ちした export は半損のため warn する)。
+ */
+function warnIfTruncated(kind: string, childId: number, count: number): void {
+	if (count >= MAX_EXPORT_ROWS) {
+		logger.warn(
+			'[export] 取得件数が上限に達しました — export が truncate されている可能性があります',
+			{
+				context: { kind, childId, count, cap: MAX_EXPORT_ROWS },
+			},
+		);
+	}
+}
+
+/** 1 child 分の transaction データ。collectForChild が返し、collectTransactionData が childIds 順に連結する。 */
+interface ChildTransactionData {
+	activityLogs: ExportActivityLog[];
+	pointLedger: ExportPointLedger[];
+	statuses: ExportStatus[];
+	statusHistory: ExportStatusHistory[];
+	loginBonuses: ExportLoginBonus[];
+	evaluations: ExportEvaluation[];
+	specialRewards: ExportSpecialReward[];
+	checklistTemplates: ExportChecklistTemplate[];
+	checklistLogs: ExportChecklistLog[];
+}
+
+/**
+ * 1 child 分の全 transaction データを収集する。
+ * #3259 perf-6: 旧実装は childIds を sequential `for...of await` で回し N child = N 回の
+ * 直列ラウンドトリップになっていた (N+1)。本関数を child 単位に切り出し、呼び出し側で
+ * `Promise.all(childIds.map(...))` 並列化する。出力は childIds 順に連結するため checksum は決定的。
+ */
+async function collectForChild(
+	childId: number,
+	childExportIdMap: Map<number, string>,
+	tenantId: string,
+): Promise<ChildTransactionData> {
+	const childRef = childExportIdMap.get(childId) ?? `child-${childId}`;
+
+	// 各データを並列取得
+	const [
+		activityLogs,
+		pointHistory,
+		statuses,
+		loginBonuses,
+		evaluations,
+		specialRewards,
+		checklistTemplates,
+	] = await Promise.all([
+		findActivityLogs(childId, tenantId),
+		findPointHistory(childId, { limit: MAX_EXPORT_ROWS, offset: 0 }, tenantId),
+		findStatuses(childId, tenantId),
+		findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
+		findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
+		findSpecialRewards(childId, tenantId),
+		// #3106: backup なので includeInactive=true + includeArchived=true。
+		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
+		findTemplatesByChild(childId, tenantId, true, true),
+	]);
+
+	// ステータス履歴は全カテゴリ分を取得
+	const statusHistoryResults = await Promise.all(
+		[1, 2, 3, 4, 5].map((catId) =>
+			findRecentStatusHistory(childId, catId, tenantId, MAX_EXPORT_ROWS),
+		),
+	);
+
+	// #3259 perf-6: cap 到達 (= 取りこぼし可能性) を observable 化
+	warnIfTruncated('pointLedger', childId, pointHistory.length);
+	warnIfTruncated('loginBonuses', childId, loginBonuses.length);
+	warnIfTruncated('evaluations', childId, evaluations.length);
+	for (const entries of statusHistoryResults) {
+		warnIfTruncated('statusHistory', childId, entries.length);
+	}
+
+	const activityLogsOut: ExportActivityLog[] = activityLogs.map((log) => ({
+		childRef,
+		activityName: log.activityName,
+		activityCategory: getCategoryCode(log.categoryId),
+		points: log.points,
+		streakDays: log.streakDays,
+		streakBonus: log.streakBonus,
+		recordedDate: log.recordedAt.split('T')[0] ?? log.recordedAt,
+		recordedAt: log.recordedAt,
+		cancelled: false,
+	}));
+
+	const pointLedgerOut: ExportPointLedger[] = pointHistory.map((entry) => ({
+		childRef,
+		amount: entry.amount,
+		type: entry.type,
+		description: entry.description,
+		createdAt: entry.createdAt,
+	}));
+
+	const statusesOut: ExportStatus[] = statuses.map((status) => ({
+		childRef,
+		categoryCode: getCategoryCode(status.categoryId),
+		totalXp: status.totalXp,
+		level: status.level,
+		peakXp: status.peakXp,
+		updatedAt: status.updatedAt,
+	}));
+
+	const statusHistoryOut: ExportStatusHistory[] = statusHistoryResults.flatMap((entries) =>
+		entries.map((entry) => ({
+			childRef,
+			categoryCode: getCategoryCode(entry.categoryId),
+			value: entry.value,
+			changeAmount: entry.changeAmount,
+			changeType: entry.changeType,
+			recordedAt: entry.recordedAt,
+		})),
+	);
+
+	// 実績システム廃止（#322）— Achievements / Titles スキップ
+
+	const loginBonusesOut: ExportLoginBonus[] = loginBonuses.map((lb) => ({
+		childRef,
+		loginDate: lb.loginDate,
+		rank: lb.rank,
+		basePoints: lb.basePoints,
+		multiplier: lb.multiplier,
+		totalPoints: lb.totalPoints,
+		consecutiveDays: lb.consecutiveDays,
+		createdAt: lb.createdAt,
+	}));
+
+	const evaluationsOut: ExportEvaluation[] = evaluations.map((ev) => ({
+		childRef,
+		weekStart: ev.weekStart,
+		weekEnd: ev.weekEnd,
+		scoresJson: ev.scoresJson,
+		bonusPoints: ev.bonusPoints,
+		createdAt: ev.createdAt,
+	}));
+
+	const specialRewardsOut: ExportSpecialReward[] = specialRewards.map((sr) => ({
+		childRef,
+		title: sr.title,
+		description: sr.description,
+		points: sr.points,
+		icon: sr.icon,
+		category: sr.category,
+		grantedAt: sr.grantedAt,
+		sourcePresetId: sr.sourcePresetId,
+	}));
+
+	// Checklist templates with items
+	// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
+	// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
+	// 複数あっても log を取り違えない round-trip キーにする。
+	// #3259 perf-6: template ごとの findTemplateItems も sequential N+1 だったため Promise.all 並列化
+	// (出力は checklistTemplates の元順を維持するため index 対応で組み立てる)。
+	const templateItems = await Promise.all(
+		checklistTemplates.map((tpl) => findTemplateItems(tpl.id, tenantId)),
+	);
+	const templateNameById = new Map<number, string>();
+	const exportIdByTemplateId = new Map<number, string>();
+	const checklistTemplatesOut: ExportChecklistTemplate[] = checklistTemplates.map((tpl, idx) => {
+		templateNameById.set(tpl.id, tpl.name);
+		const exportId = `chk-${childRef}-${tpl.id}`;
+		exportIdByTemplateId.set(tpl.id, exportId);
+		return {
+			childRef,
+			name: tpl.name,
+			icon: tpl.icon,
+			pointsPerItem: tpl.pointsPerItem,
+			completionBonus: tpl.completionBonus,
+			isActive: tpl.isActive === 1,
+			sourcePresetId: tpl.sourcePresetId,
+			exportId, // #3107
+			isArchived: tpl.isArchived === 1, // #3106: archive 状態を round-trip 保全
+			items: (templateItems[idx] ?? []).map((item) => ({
+				name: item.name,
+				icon: item.icon,
+				frequency: item.frequency,
+				direction: item.direction,
+				sortOrder: item.sortOrder,
+			})),
+		};
+	});
+
+	// #3078 / #3106: チェックリスト完了ログ。#3106 で archive 済 template も export に含めたため、
+	// その log も exportId 経由で保全される (従来は name 解決不能で silent drop していた)。
+	const checklistLogsRaw = await findLogsByChild(childId, tenantId);
+	const checklistLogsOut: ExportChecklistLog[] = [];
+	for (const log of checklistLogsRaw) {
+		const templateName = templateNameById.get(log.templateId);
+		const templateExportId = exportIdByTemplateId.get(log.templateId);
+		// template が export に含まれない場合のみスキップ (#3106 で archived も含むため通常は解決可)
+		if (!templateName || !templateExportId) continue;
+		checklistLogsOut.push({
+			childRef,
+			templateName,
+			templateExportId, // #3107: import 側はこれを優先して再マップ
+			checkedDate: log.checkedDate,
+			itemsJson: log.itemsJson,
+			completedAll: log.completedAll === 1,
+			pointsAwarded: log.pointsAwarded,
+			createdAt: log.createdAt,
+		});
+	}
+
+	return {
+		activityLogs: activityLogsOut,
+		pointLedger: pointLedgerOut,
+		statuses: statusesOut,
+		statusHistory: statusHistoryOut,
+		loginBonuses: loginBonusesOut,
+		evaluations: evaluationsOut,
+		specialRewards: specialRewardsOut,
+		checklistTemplates: checklistTemplatesOut,
+		checklistLogs: checklistLogsOut,
+	};
+}
+
 async function collectTransactionData(
 	childIds: number[],
 	childExportIdMap: Map<number, string>,
 	_achievementMap: Map<number, { code: string }>,
 	tenantId: string,
 ): Promise<ExportTransactionData> {
-	const allActivityLogs: ExportActivityLog[] = [];
-	const allPointLedger: ExportPointLedger[] = [];
-	const allStatuses: ExportStatus[] = [];
-	const allStatusHistory: ExportStatusHistory[] = [];
-	const allChildAchievements: ExportChildAchievement[] = [];
-	const allChildTitles: ExportChildTitle[] = [];
-	const allLoginBonuses: ExportLoginBonus[] = [];
-	const allEvaluations: ExportEvaluation[] = [];
-	const allSpecialRewards: ExportSpecialReward[] = [];
-	const allChecklistTemplates: ExportChecklistTemplate[] = [];
-	const allChecklistLogs: ExportChecklistLog[] = [];
-	for (const childId of childIds) {
-		const childRef = childExportIdMap.get(childId) ?? `child-${childId}`;
-
-		// 各データを並列取得
-		const [
-			activityLogs,
-			pointHistory,
-			statuses,
-			loginBonuses,
-			evaluations,
-			specialRewards,
-			checklistTemplates,
-		] = await Promise.all([
-			findActivityLogs(childId, tenantId),
-			findPointHistory(childId, { limit: MAX_EXPORT_ROWS, offset: 0 }, tenantId),
-			findStatuses(childId, tenantId),
-			findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
-			findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
-			findSpecialRewards(childId, tenantId),
-			// #3106: backup なので includeInactive=true + includeArchived=true。
-			// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
-			findTemplatesByChild(childId, tenantId, true, true),
-		]);
-
-		// ステータス履歴は全カテゴリ分を取得
-		const statusHistoryPromises = [1, 2, 3, 4, 5].map((catId) =>
-			findRecentStatusHistory(childId, catId, tenantId, MAX_EXPORT_ROWS),
-		);
-		const statusHistoryResults = await Promise.all(statusHistoryPromises);
-
-		// Activity logs
-		for (const log of activityLogs) {
-			allActivityLogs.push({
-				childRef,
-				activityName: log.activityName,
-				activityCategory: getCategoryCode(log.categoryId),
-				points: log.points,
-				streakDays: log.streakDays,
-				streakBonus: log.streakBonus,
-				recordedDate: log.recordedAt.split('T')[0] ?? log.recordedAt,
-				recordedAt: log.recordedAt,
-				cancelled: false,
-			});
-		}
-
-		// Point ledger
-		for (const entry of pointHistory) {
-			allPointLedger.push({
-				childRef,
-				amount: entry.amount,
-				type: entry.type,
-				description: entry.description,
-				createdAt: entry.createdAt,
-			});
-		}
-
-		// Statuses
-		for (const status of statuses) {
-			allStatuses.push({
-				childRef,
-				categoryCode: getCategoryCode(status.categoryId),
-				totalXp: status.totalXp,
-				level: status.level,
-				peakXp: status.peakXp,
-				updatedAt: status.updatedAt,
-			});
-		}
-
-		// Status history
-		for (const entries of statusHistoryResults) {
-			for (const entry of entries) {
-				allStatusHistory.push({
-					childRef,
-					categoryCode: getCategoryCode(entry.categoryId),
-					value: entry.value,
-					changeAmount: entry.changeAmount,
-					changeType: entry.changeType,
-					recordedAt: entry.recordedAt,
-				});
-			}
-		}
-
-		// 実績システム廃止（#322）— Achievements スキップ
-		// 称号システム廃止（#322）— Titles スキップ
-
-		// Login bonuses
-		for (const lb of loginBonuses) {
-			allLoginBonuses.push({
-				childRef,
-				loginDate: lb.loginDate,
-				rank: lb.rank,
-				basePoints: lb.basePoints,
-				multiplier: lb.multiplier,
-				totalPoints: lb.totalPoints,
-				consecutiveDays: lb.consecutiveDays,
-				createdAt: lb.createdAt,
-			});
-		}
-
-		// Evaluations
-		for (const ev of evaluations) {
-			allEvaluations.push({
-				childRef,
-				weekStart: ev.weekStart,
-				weekEnd: ev.weekEnd,
-				scoresJson: ev.scoresJson,
-				bonusPoints: ev.bonusPoints,
-				createdAt: ev.createdAt,
-			});
-		}
-
-		// Special rewards
-		for (const sr of specialRewards) {
-			allSpecialRewards.push({
-				childRef,
-				title: sr.title,
-				description: sr.description,
-				points: sr.points,
-				icon: sr.icon,
-				category: sr.category,
-				grantedAt: sr.grantedAt,
-				sourcePresetId: sr.sourcePresetId,
-			});
-		}
-
-		// Checklist templates with items
-		// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
-		// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
-		// 複数あっても log を取り違えない round-trip キーにする。
-		const templateNameById = new Map<number, string>();
-		const exportIdByTemplateId = new Map<number, string>();
-		for (const tpl of checklistTemplates) {
-			templateNameById.set(tpl.id, tpl.name);
-			const exportId = `chk-${childRef}-${tpl.id}`;
-			exportIdByTemplateId.set(tpl.id, exportId);
-			const items = await findTemplateItems(tpl.id, tenantId);
-			allChecklistTemplates.push({
-				childRef,
-				name: tpl.name,
-				icon: tpl.icon,
-				pointsPerItem: tpl.pointsPerItem,
-				completionBonus: tpl.completionBonus,
-				isActive: tpl.isActive === 1,
-				sourcePresetId: tpl.sourcePresetId,
-				exportId, // #3107
-				isArchived: tpl.isArchived === 1, // #3106: archive 状態を round-trip 保全
-				items: items.map((item) => ({
-					name: item.name,
-					icon: item.icon,
-					frequency: item.frequency,
-					direction: item.direction,
-					sortOrder: item.sortOrder,
-				})),
-			});
-		}
-
-		// #3078 / #3106: チェックリスト完了ログ。#3106 で archive 済 template も export に含めたため、
-		// その log も exportId 経由で保全される (従来は name 解決不能で silent drop していた)。
-		const checklistLogs = await findLogsByChild(childId, tenantId);
-		for (const log of checklistLogs) {
-			const templateName = templateNameById.get(log.templateId);
-			const templateExportId = exportIdByTemplateId.get(log.templateId);
-			// template が export に含まれない場合のみスキップ (#3106 で archived も含むため通常は解決可)
-			if (!templateName || !templateExportId) continue;
-			allChecklistLogs.push({
-				childRef,
-				templateName,
-				templateExportId, // #3107: import 側はこれを優先して再マップ
-				checkedDate: log.checkedDate,
-				itemsJson: log.itemsJson,
-				completedAll: log.completedAll === 1,
-				pointsAwarded: log.pointsAwarded,
-				createdAt: log.createdAt,
-			});
-		}
-	}
+	// #3259 perf-6: child を並列収集 (旧 sequential N+1 解消)。Promise.all は入力順を維持するため、
+	// 連結後の childRef 順は childIds 順で決定的 = checksum 安定 (round-trip 不変)。
+	const perChild = await Promise.all(
+		childIds.map((childId) => collectForChild(childId, childExportIdMap, tenantId)),
+	);
 
 	return {
-		activityLogs: allActivityLogs,
-		pointLedger: allPointLedger,
-		statuses: allStatuses,
-		statusHistory: allStatusHistory,
-		childAchievements: allChildAchievements,
-		childTitles: allChildTitles,
-		loginBonuses: allLoginBonuses,
-		evaluations: allEvaluations,
-		specialRewards: allSpecialRewards,
-		checklistTemplates: allChecklistTemplates,
-		checklistLogs: allChecklistLogs, // #3078
+		activityLogs: perChild.flatMap((p) => p.activityLogs),
+		pointLedger: perChild.flatMap((p) => p.pointLedger),
+		statuses: perChild.flatMap((p) => p.statuses),
+		statusHistory: perChild.flatMap((p) => p.statusHistory),
+		childAchievements: [], // 実績システム廃止（#322）
+		childTitles: [], // 称号システム廃止（#322）
+		loginBonuses: perChild.flatMap((p) => p.loginBonuses),
+		evaluations: perChild.flatMap((p) => p.evaluations),
+		specialRewards: perChild.flatMap((p) => p.specialRewards),
+		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
+		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
 	};
