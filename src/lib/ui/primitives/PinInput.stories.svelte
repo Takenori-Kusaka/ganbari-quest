@@ -25,6 +25,24 @@ const completeSpy = fn();
 <Story name="Length4" args={{ length: 4, mask: true }} />
 
 <!--
+  WithLabel (#3259 ux-1 follow-up): label prop で accessible name を上書きできることを固定。
+  同一画面に複数 PinInput を置くとき (reset-pin の「確認コード」+「新しい PIN」) に
+  汎用 'PINコード' が重複し SR で曖昧化する退行を防ぐ。custom label が描画され、
+  既定の汎用ラベル 'PINコード' に退行していないことを assert する。
+-->
+<Story
+	name="WithLabel"
+	args={{ length: 4, mask: false, label: '確認コード（6桁の数字）' }}
+	play={async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+		// custom label が描画される (Ark Label → input 関連付け)。getByText は不在で throw。
+		await waitFor(() => canvas.getByText('確認コード（6桁の数字）'));
+		// 汎用既定ラベルに退行していない (重複の原因を回帰固定)。
+		expect(canvas.queryByText('PINコード')).toBeNull();
+	}}
+/>
+
+<!--
   CompleteFlow (length=4 / unmasked): 4 桁を順に入力 → onComplete が valueAsString='1234' で発火。
   mask=false で input が role=textbox になり Testing Library から query できる
   (mask=true は type=password で role を持たないため、操作回帰には unmasked を使う)。
