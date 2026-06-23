@@ -9,7 +9,7 @@
 //   - 内部例外メッセージをそのまま出さない: 500 系は body を信用せず汎用文言にする
 //     (Apple HIG「コード羅列タイトル禁止」/ NN/g「専門用語禁止」/ セキュリティ)。
 //   - 400/403/409 はサーバが返す UI 向け文言 (error(400,'…')) を尊重し、無ければ
-//     ステータス別の汎用文言にフォールバック。
+//     ステータス別の汎用文言にフォールバック。echo hardening (#3225) で無害化する。
 //   - error は role="alert"(assertive) の Toast (Toast.svelte 側で error は自動消滅させず
 //     手動閉じ)。重大・要決定は呼出側で Alert/Dialog を併用する。
 //   - 文言は labels.ts (ERROR_NOTIFY_LABELS) に SSOT 化。
@@ -27,14 +27,52 @@ export interface ApiErrorResult {
 	status?: number;
 }
 
+/** 4xx serverMessage の最大表示長 (#3225: layout-break / info-disclosure 余地を抑える)。 */
+export const MAX_SERVER_MESSAGE_LENGTH = 200;
+
+// ユーザ向け文言は labels.ts SSOT のとおり日本語。ひらがな / カタカナ / 漢字 / 半角カナの
+// いずれも含まない 4xx body は内部識別子 (例: 'INVALID_PLAN' / 'ValidationException') や
+// コード dump の疑いがあるため verbatim 表示せず generic fallback する (#3225 echo hardening)。
+const JAPANESE_CHAR_RE = /[぀-ヿ㐀-鿿ｦ-ﾟ]/;
+
+/** 制御文字 (C0: 0x00-0x1f / C1: 0x7f-0x9f) を空白化する。正規表現に制御文字を直書きしない。 */
+function stripControlChars(raw: string): string {
+	let out = '';
+	for (const ch of raw) {
+		const code = ch.codePointAt(0) ?? 0;
+		out += code < 0x20 || (code >= 0x7f && code <= 0x9f) ? ' ' : ch;
+	}
+	return out;
+}
+
+/**
+ * 4xx の serverMessage を UI 表示用に無害化する (#3225)。
+ *   - 制御文字 (C0/C1) を空白化し連続空白を 1 個に畳む
+ *   - 日本語文字を 1 つも含まない = 内部識別子 / 例外クラス名 / dump の疑い → 空文字 (= 不採用)
+ *   - 過大長は info-disclosure / layout-break 余地のため MAX_SERVER_MESSAGE_LENGTH で切る
+ * 空文字を返した場合、呼出側はステータス別の汎用文言にフォールバックする。
+ */
+export function sanitizeServerMessage(raw: string): string {
+	const cleaned = stripControlChars(raw).replace(/\s+/g, ' ').trim();
+	if (!cleaned) return '';
+	if (!JAPANESE_CHAR_RE.test(cleaned)) return '';
+	return cleaned.length > MAX_SERVER_MESSAGE_LENGTH
+		? `${cleaned.slice(0, MAX_SERVER_MESSAGE_LENGTH)}…`
+		: cleaned;
+}
+
 /**
  * HTTP status + サーバ body からユーザ向け文言を決定する。
  * 500 系は内部例外露出防止のため body の message を使わず汎用文言にする。
+ * 400/403/409 はサーバの UI 向け文言を尊重するが、echo hardening (#3225) で
+ * 無害化し、内部識別子 / 過大 body はステータス別の汎用文言にフォールバックする。
  */
 export function resolveApiErrorMessage(status: number, serverMessage = ''): string {
 	if (status >= 500) return ERROR_NOTIFY_LABELS.server;
-	// 400/403/409 はサーバの UI 向け文言を尊重 (error(400,'プランが正しくありません') 等)
-	if (serverMessage) return serverMessage;
+	// 400/403/409 はサーバの UI 向け文言を尊重 (error(400,'プランが正しくありません') 等)。
+	// ただし verbatim ではなく sanitize 経由 (#3225 echo hardening)。
+	const safe = sanitizeServerMessage(serverMessage);
+	if (safe) return safe;
 	if (status === 403) return ERROR_NOTIFY_LABELS.forbidden;
 	if (status === 409) return ERROR_NOTIFY_LABELS.conflict;
 	if (status === 400) return ERROR_NOTIFY_LABELS.badRequest;
