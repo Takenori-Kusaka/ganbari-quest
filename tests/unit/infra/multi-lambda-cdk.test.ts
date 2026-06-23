@@ -29,7 +29,7 @@ import { StorageStack } from '../../../infra/lib/storage-stack';
 // suite 全体で 1 回のみ synth してテンプレートを共有する。
 // テストは Template (read-only) の assertion のみなので相互干渉しない。
 
-// cspell:ignore hostedzone TESTPOOL
+// cspell:ignore hostedzone TESTPOOL oacs
 // Pre-populated cdk context: route53 + acm の fromLookup が credentials を要求するため、
 // CDK_DEFAULT_ACCOUNT と 本番と同じ hosted-zone lookup の cache を test の app に直接注入する。
 // 値は CDK synth が CFN を生成するためだけに使われ、AWS API は呼ばない。
@@ -257,6 +257,56 @@ describe('ADR-0048 Multi-Lambda Demo Deployment (#2097 week 4)', () => {
 			).Properties?.DistributionConfig?.Origins ?? []) as CfnOrigin[];
 			return origins.filter((o) => o.OriginShield?.Enabled === true);
 		}
+
+		// #3102: Origin Shield 追加 (#3087) の最重要不変条件 = 既存 s3ErrorOrigin の OAC 論理 ID が
+		// churn せず CloudFront Distribution が replace されないこと。#3087 は `/error/*` を `/_app/*` より
+		// 先に宣言し s3ErrorOrigin を origin index 2 に固定して preempt 済だが、shield 有無/region/count の
+		// assert のみで template-level の非 replacement を守れておらず、宣言順 preempt を崩す将来変更を
+		// deploy 直前 (check-cdk-replacement.mjs gate) まで検知できなかった。本 test 群で PR-lane に前倒す。
+		it('s3ErrorOrigin の OAC 論理 ID が origin index 2 由来で安定 = 宣言順 preempt が崩れていない (非 replacement、#3102)', () => {
+			const oacs = networkTemplate.findResources('AWS::CloudFront::OriginAccessControl');
+			const oacIds = Object.keys(oacs);
+			// s3ErrorOrigin の OAC ちょうど 1 本。
+			expect(oacIds.length).toBe(1);
+			// 論理 ID prefix は origin index (`CDNOrigin2`) 由来。`CDNOrigin2` → `CDNOrigin3` 等への変化 =
+			// origin 宣言順が変わり既存 error origin OAC が replace される signal (= CloudFront churn)。
+			// 末尾 hash は aws-cdk-lib バージョン依存のため prefix で判定し、CDK upgrade での誤検知を避けつつ
+			// 「index ずれ」だけを捕捉する。意図的に index を変える際は cdk diff で requires replacement 0 を
+			// 確認すること (ADR-0019)。
+			expect(oacIds[0]).toMatch(/^CDNOrigin2S3OriginAccessControl/);
+		});
+
+		it('本番 Distribution の s3ErrorOrigin が origin index 2 のまま (staticAssetOrigin 追加で displace されない、#3102)', () => {
+			const distributions = networkTemplate.findResources('AWS::CloudFront::Distribution');
+			const cdn = Object.entries(distributions).find(([lid]) => lid.startsWith('CDN'));
+			expect(cdn, '本番 CDN distribution が存在する').toBeDefined();
+			const origins = ((
+				cdn?.[1] as {
+					Properties?: {
+						DistributionConfig?: {
+							Origins?: Array<{
+								Id?: string;
+								OriginAccessControlId?: unknown;
+								S3OriginConfig?: unknown;
+							}>;
+						};
+					};
+				}
+			).Properties?.DistributionConfig?.Origins ?? []) as Array<{
+				Id?: string;
+				OriginAccessControlId?: unknown;
+				S3OriginConfig?: unknown;
+			}>;
+			// S3 (OAC) origin = s3ErrorOrigin。ちょうど 1 本で Id は index 2 (CDNOrigin2) を保つ。
+			const s3Origins = origins.filter(
+				(o) => o.OriginAccessControlId != null || o.S3OriginConfig != null,
+			);
+			expect(s3Origins.length).toBe(1);
+			expect(String(s3Origins[0]?.Id)).toContain('CDNOrigin2');
+			// origin は 3 本: lambda(index1) / s3Error(index2) / staticAsset shield(index3)。
+			// 新規 origin を index 2 より前に挿入すると s3Error が displace され OAC が churn する。
+			expect(origins.length).toBe(3);
+		});
 
 		it('本番 distribution の /_app/* origin に Origin Shield (us-east-1) が有効', () => {
 			const shielded = shieldOriginsFor('CDN');
