@@ -705,6 +705,8 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_child_challenges_child ON child_challenges(child_id, status);
 			CREATE INDEX IF NOT EXISTS idx_child_challenges_dates ON child_challenges(start_date, end_date);
 			CREATE INDEX IF NOT EXISTS idx_child_challenges_source ON child_challenges(source_template_id);
+			-- #3245 並行実装整合: auto:weekly は (child_id, start_date) で一意 (e2e DB も本番/test-db と同制約)
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_child_challenges_auto_weekly_unique ON child_challenges(child_id, start_date) WHERE source_template_id = 'auto:weekly';
 		`);
 
 		// sibling_cheers テーブル（#0216 きょうだいスタンプ）
