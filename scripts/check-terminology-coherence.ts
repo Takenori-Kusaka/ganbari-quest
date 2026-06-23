@@ -52,7 +52,8 @@ const FAIL_ON_VIOLATION = process.argv.includes('--fail-on-violation');
 // 非 SSOT な代替語 (内部語彙) が UI ラベルに混入しているのを検出する。
 // ---------------------------------------------------------------------------
 
-const MYSTERY_TERMS = [
+// #3261 (EPIC #3260 F0): guide-copy linter (check-guide-copy.ts) でも共有するため export。
+export const MYSTERY_TERMS = [
 	{
 		pattern: 'パックから',
 		reason: `内部語彙「パック」が露出。SSOT は ${TEMPLATE_TERMS.userFacing} / ${TEMPLATE_TERMS.short} を使う (bug-3)`,
