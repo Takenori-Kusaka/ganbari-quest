@@ -27,6 +27,8 @@ import {
 	type MarketplaceTypeCodeClient,
 	type MarketplaceTypeMeta,
 } from '$lib/marketplace/client-types';
+// #3247: 陳列対象 (browseable) 判定 SSOT。types.ts は type-only import で browser-safe。
+import { isBrowseableMarketplaceType } from '$lib/marketplace/types';
 import Button from '$lib/ui/primitives/Button.svelte';
 
 type MarketplaceTypeCode = MarketplaceTypeCodeClient;
@@ -67,9 +69,13 @@ let {
 	importedPresetIds,
 }: Props = $props();
 
-// client-types SSOT から動的に type 一覧を取得（typeCode 指定時はその 1 件のみ）
+// client-types SSOT から動的に type 一覧を取得（typeCode 指定時はその 1 件のみ）。
+// #3247: 全 type tab モードでは陳列対象 (browseable) のみ表示する。#2896 で非陳列化した
+// challenge-set / rule-preset を取込タブに出すと、撤去済み action へ向かう dead-end になるため除外。
 const descriptors = $derived<MarketplaceTypeMeta[]>(
-	typeCode ? [getMarketplaceTypeMetaClient(typeCode)] : [...MARKETPLACE_TYPE_METAS_CLIENT],
+	typeCode
+		? [getMarketplaceTypeMetaClient(typeCode)]
+		: MARKETPLACE_TYPE_METAS_CLIENT.filter((m) => isBrowseableMarketplaceType(m.typeCode)),
 );
 
 // 単一 type モードかタブ表示モードか
