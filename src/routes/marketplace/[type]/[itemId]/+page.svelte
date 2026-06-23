@@ -5,7 +5,6 @@
 import { APP_LABELS, formatAgeRange, MARKETPLACE_LABELS } from '$lib/domain/labels';
 import type {
 	ActivityPackPayload,
-	ChallengeSetPayload,
 	ChecklistPayload,
 	MarketplaceItem,
 	PersonaTag,
@@ -31,18 +30,6 @@ const isActivityPack = $derived(item.type === 'activity-pack');
 const isRewardSet = $derived(item.type === 'reward-set');
 const isChecklist = $derived(item.type === 'checklist');
 const isRulePreset = $derived(item.type === 'rule-preset');
-// #2297 (EPIC #2294 ③): challenge-set 表示判定
-const isChallengeSet = $derived(item.type === 'challenge-set');
-const challengeSetPayload = $derived(isChallengeSet ? (item.payload as ChallengeSetPayload) : null);
-const challengeCount = $derived(challengeSetPayload?.challenges.length ?? 0);
-// #2297: カテゴリ ID → 名称マッピング (sibling-challenge 5 軸と同一)
-const CATEGORY_LABELS: Record<number, string> = {
-	1: 'うんどう',
-	2: 'べんきょう',
-	3: 'せいかつ',
-	4: 'こうりゅう',
-	5: 'そうぞう',
-};
 
 // #2362 PR-4 (ADR-0055 / CWE-598): reward-set 一括追加 UI は admin/rewards 側 ChildSelectionDialog
 // に集約。marketplace 詳細では item count のみ表示。selectedChildId / rewardImport state は撤去。
@@ -201,8 +188,6 @@ function deselectAllActivities() {
 					{MARKETPLACE_LABELS.detailChecklistItems}
 				{:else if isRulePreset}
 					{MARKETPLACE_LABELS.detailRuleContent}
-				{:else if isChallengeSet}
-					{MARKETPLACE_LABELS.detailIncludedChallenges}
 				{/if}
 			</h2>
 
@@ -327,29 +312,6 @@ function deselectAllActivities() {
 									{MARKETPLACE_LABELS.detailRulePointBonus}: +{rule.pointBonus}P
 								</p>
 							{/if}
-						</div>
-					{/each}
-				</div>
-			{:else if isChallengeSet && challengeSetPayload}
-				<!-- #2297 (EPIC #2294 ③): challenge-set 内容プレビュー -->
-				<div class="space-y-2" data-testid="challenge-set-preview">
-					{#each challengeSetPayload.challenges as ch (ch.title)}
-						<div class="p-3 rounded-lg bg-[var(--color-surface-muted)]">
-							<div class="flex items-center gap-2 mb-1">
-								<span class="text-lg">{ch.icon}</span>
-								<span class="text-sm font-bold text-[var(--color-text-primary)]">{ch.title}</span>
-								<span class="text-[10px] text-[var(--color-text-tertiary)] ml-auto">
-									{MARKETPLACE_LABELS.detailChallengePeriod(ch.monthDay, ch.durationDays)}
-								</span>
-							</div>
-							<p class="text-xs text-[var(--color-text-secondary)] ml-8">{ch.description}</p>
-							<p class="text-xs text-[var(--color-text-tertiary)] ml-8 mt-1">
-								{MARKETPLACE_LABELS.detailChallengeMeta(
-									CATEGORY_LABELS[ch.categoryId] ?? '',
-									ch.baseTarget,
-									ch.rewardPoints,
-								)}
-							</p>
 						</div>
 					{/each}
 				</div>
@@ -535,35 +497,6 @@ function deselectAllActivities() {
 				</a>
 				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
 					{MARKETPLACE_LABELS.detailCtaImportRuleSignedOut}
-				</p>
-			{:else if isChallengeSet && data.isAuthenticated}
-				<!-- #2297 (EPIC #2294 ③): challenge-set ログイン済 → /admin/challenges に遷移してフォーム pre-fill -->
-				<p class="text-xs text-[var(--color-text-tertiary)]">
-					{MARKETPLACE_LABELS.detailCtaImportChallengeSetDesc}
-				</p>
-				<a
-					href="/admin/challenges?import={item.itemId}"
-					class="block"
-					data-testid="challenge-set-import-cta"
-				>
-					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportChallengeSetWithCount(challengeCount)}
-					</Button>
-				</a>
-			{:else if isChallengeSet}
-				<!-- #2297 / #2303: challenge-set 未ログイン → login へ誘導 (誤新規登録防止 / data integrity 保護)。
-					login 画面内「新規アカウント作成」リンクで signup へ到達可能 -->
-				<a
-					href="/auth/login?next=/marketplace/challenge-set/{item.itemId}"
-					class="block"
-					data-testid="challenge-set-signup-redirect"
-				>
-					<Button variant="primary" size="lg" class="w-full">
-						{MARKETPLACE_LABELS.detailCtaImportChallengeSet}
-					</Button>
-				</a>
-				<p class="text-xs text-center text-[var(--color-text-tertiary)]">
-					{MARKETPLACE_LABELS.detailCtaImportChallengeSetSignedOut}
 				</p>
 			{:else if isActivityPack && data.isAuthenticated && data.children.length > 0}
 				<!-- #2362 PR-3 Phase 5 (CWE-598): activity-pack ログイン済 + 子供登録済

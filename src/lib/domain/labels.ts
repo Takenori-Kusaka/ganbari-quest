@@ -919,14 +919,9 @@ export const MARKETPLACE_LABELS = {
 	detailIncludedRewards: 'ふくまれるごほうび',
 	detailChecklistItems: 'チェック項目',
 	detailRuleContent: 'ルール内容',
-	/** #2297 (EPIC #2294 ③): challenge-set ふくまれるチャレンジ見出し */
-	detailIncludedChallenges: 'ふくまれるチャレンジ',
-	/** #2297: 各 challenge のメタ表記 (monthDay ・ durationDays日間) */
-	detailChallengePeriod: (monthDay: string, durationDays: number) =>
-		`${monthDay}・${durationDays}日間`,
-	/** #2297: 各 challenge の詳細行 (カテゴリ ・ 目標 N回 ・ ごほうび +NP) */
-	detailChallengeMeta: (category: string, baseTarget: number, rewardPoints: number) =>
-		`${category} ・ 目標 ${baseTarget}回 ・ ごほうび +${rewardPoints}P`,
+	// #3227: challenge-set 詳細見出し / プレビュー label (detailIncludedChallenges /
+	// detailChallengePeriod / detailChallengeMeta) は marketplace 詳細の isChallengeSet 到達不能
+	// 分岐除去に伴い参照ゼロの dead label となったため削除。
 	// #2558 bug-3: detailLegacyPackNote / detailLegacyPackLink / detailLegacyPackSuffix
 	// は参照ゼロの dead label (内部語彙「パック」露出元) のため削除。marketplace 取込の
 	// ユーザー向けラベルは TEMPLATE_TERMS (みんなのテンプレート / テンプレート) に統一。
@@ -1020,17 +1015,6 @@ export const MARKETPLACE_LABELS = {
 	detailCtaImportRuleSignedOut: '一括追加するには登録 / ログインが必要です',
 	detailRuleImportLinkToBonusList: '取込済ルール一覧へ →',
 	detailRuleImportLinkToRewardsList: 'ごほうび一覧へ →',
-	// #2297 (EPIC #2294 ③): challenge-set 一括追加 CTA
-	detailCtaImportChallengeSet: '🎯 このチャレンジ集を使ってみる',
-	detailCtaImportChallengeSetWithCount: (count: number) =>
-		`🎯 このチャレンジ集を使ってみる (${count}件)`,
-	detailCtaImportChallengeSetDesc:
-		'家族の見守り画面でフォームに反映されます。家族でお祝いしたい行事だけ選んで保存してください。',
-	detailCtaImportChallengeSetSignedOut: 'チャレンジ集を使うには登録 / ログインが必要です',
-	detailChallengeSetImportSuccess: (presetName: string, count: number) =>
-		`✨ 「${presetName}」から ${count} 件のチャレンジを追加しました`,
-	detailChallengeSetImportDuplicate: (presetName: string) =>
-		`⚠️ 「${presetName}」は既に取込済みです`,
 	backToTypeListSuffix: '一覧に戻る',
 	typeCountSuffix: '種',
 } as const;
