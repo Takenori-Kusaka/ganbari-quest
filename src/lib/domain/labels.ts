@@ -5925,6 +5925,17 @@ export const ADMIN_REWARDS_REQUESTS_LABELS = {
 
 // #3218 (EPIC #3217): 統一エラー通知 helper (error-notify.ts) の文言 SSOT。
 // 内部例外をそのまま出さず、ユーザ向け平易文言にマッピングする (WCAG 3.3.1/3.3.3、Apple HIG)。
+/** error-notify helper が受け取るエラー文言セットの構造 (#3225 ②b: age-tier 切替用)。 */
+export type ErrorNotifyLabelSet = {
+	readonly title: string;
+	readonly generic: string;
+	readonly network: string;
+	readonly server: string;
+	readonly forbidden: string;
+	readonly conflict: string;
+	readonly badRequest: string;
+};
+
 export const ERROR_NOTIFY_LABELS = {
 	title: '処理できませんでした',
 	generic: '時間をおいて再度お試しください',
@@ -5933,7 +5944,29 @@ export const ERROR_NOTIFY_LABELS = {
 	forbidden: 'この操作を行う権限がありません',
 	conflict: '他の操作と競合しました。画面を更新して再度お試しください',
 	badRequest: '入力内容をご確認ください',
-} as const;
+} as const satisfies ErrorNotifyLabelSet;
+
+// #3225 ②b (EPIC #3217): 子供画面 (preschool / baby) 向けエラー文言。
+// DESIGN.md §8 整合 — ひらがな・責めない言い回し・必ず次アクション (「もういちど ためしてね」) を提示する。
+export const ERROR_NOTIFY_LABELS_CHILD = {
+	title: 'できなかったよ',
+	generic: 'もういちど ためしてね',
+	network: 'つうしんが できなかったみたい。もういちど ためしてね',
+	server: 'うまく いかなかったよ。あとで もういちど ためしてね',
+	forbidden: 'これは できないみたい',
+	conflict: 'もういちど やってみてね',
+	badRequest: 'もういちど かくにんしてね',
+} as const satisfies ErrorNotifyLabelSet;
+
+/**
+ * uiMode に応じたエラー文言セットを返す (#3225 ②b)。
+ * preschool / baby はひらがな (`ERROR_NOTIFY_LABELS_CHILD`)、elementary 以上は標準 (漢字許容)。
+ */
+export function getErrorNotifyLabels(uiMode: string): ErrorNotifyLabelSet {
+	return uiMode === 'preschool' || uiMode === 'baby'
+		? ERROR_NOTIFY_LABELS_CHILD
+		: ERROR_NOTIFY_LABELS;
+}
 
 export const UI_PRIMITIVES_LABELS = {
 	// BirthdayInput

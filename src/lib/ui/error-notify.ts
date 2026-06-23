@@ -15,8 +15,19 @@
 //   - 文言は labels.ts (ERROR_NOTIFY_LABELS) に SSOT 化。
 
 import type { ActionResult } from '@sveltejs/kit';
-import { ERROR_NOTIFY_LABELS } from '$lib/domain/labels';
+import { ERROR_NOTIFY_LABELS, type ErrorNotifyLabelSet } from '$lib/domain/labels';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
+
+/**
+ * notify 系 helper の共通オプション。
+ * - `toastTitle`: Toast タイトルの上書き。
+ * - `labels` (#3225 ②b): エラー文言セットの上書き。子供画面は `getErrorNotifyLabels(uiMode)` で
+ *   ひらがな版 (`ERROR_NOTIFY_LABELS_CHILD`) を渡す。未指定時は標準 (`ERROR_NOTIFY_LABELS`)。
+ */
+export interface NotifyOpts {
+	toastTitle?: string;
+	labels?: ErrorNotifyLabelSet;
+}
 
 export interface ApiErrorResult {
 	/** ユーザに通知済みか (常に true。呼出側が inline 表示する際の message 取得用) */
@@ -67,16 +78,20 @@ export function sanitizeServerMessage(raw: string): string {
  * 400/403/409 はサーバの UI 向け文言を尊重するが、echo hardening (#3225) で
  * 無害化し、内部識別子 / 過大 body はステータス別の汎用文言にフォールバックする。
  */
-export function resolveApiErrorMessage(status: number, serverMessage = ''): string {
-	if (status >= 500) return ERROR_NOTIFY_LABELS.server;
+export function resolveApiErrorMessage(
+	status: number,
+	serverMessage = '',
+	labels: ErrorNotifyLabelSet = ERROR_NOTIFY_LABELS,
+): string {
+	if (status >= 500) return labels.server;
 	// 400/403/409 はサーバの UI 向け文言を尊重 (error(400,'プランが正しくありません') 等)。
 	// ただし verbatim ではなく sanitize 経由 (#3225 echo hardening)。
 	const safe = sanitizeServerMessage(serverMessage);
 	if (safe) return safe;
-	if (status === 403) return ERROR_NOTIFY_LABELS.forbidden;
-	if (status === 409) return ERROR_NOTIFY_LABELS.conflict;
-	if (status === 400) return ERROR_NOTIFY_LABELS.badRequest;
-	return ERROR_NOTIFY_LABELS.generic;
+	if (status === 403) return labels.forbidden;
+	if (status === 409) return labels.conflict;
+	if (status === 400) return labels.badRequest;
+	return labels.generic;
 }
 
 /** Response body から message / error フィールドを安全に取り出す (非 JSON は空文字)。 */
@@ -95,22 +110,21 @@ async function extractServerMessage(res: Response): Promise<string> {
  * 非 2xx の fetch Response をユーザに通知する (error Toast)。
  * @returns 通知に使った message (呼出側が in-page Alert にも再利用できる)
  */
-export async function notifyApiError(
-	res: Response,
-	opts?: { toastTitle?: string },
-): Promise<ApiErrorResult> {
+export async function notifyApiError(res: Response, opts?: NotifyOpts): Promise<ApiErrorResult> {
+	const labels = opts?.labels ?? ERROR_NOTIFY_LABELS;
 	const serverMessage = await extractServerMessage(res);
-	const message = resolveApiErrorMessage(res.status, serverMessage);
-	showToast(opts?.toastTitle ?? ERROR_NOTIFY_LABELS.title, message, 'error');
+	const message = resolveApiErrorMessage(res.status, serverMessage, labels);
+	showToast(opts?.toastTitle ?? labels.title, message, 'error');
 	return { shown: true, message, status: res.status };
 }
 
 /**
  * ネットワーク例外 (fetch reject / throw / タイムアウト) をユーザに通知する。
  */
-export function notifyNetworkError(opts?: { toastTitle?: string }): ApiErrorResult {
-	showToast(opts?.toastTitle ?? ERROR_NOTIFY_LABELS.title, ERROR_NOTIFY_LABELS.network, 'error');
-	return { shown: true, message: ERROR_NOTIFY_LABELS.network };
+export function notifyNetworkError(opts?: NotifyOpts): ApiErrorResult {
+	const labels = opts?.labels ?? ERROR_NOTIFY_LABELS;
+	showToast(opts?.toastTitle ?? labels.title, labels.network, 'error');
+	return { shown: true, message: labels.network };
 }
 
 /**
@@ -118,10 +132,8 @@ export function notifyNetworkError(opts?: { toastTitle?: string }): ApiErrorResu
  * failure (`fail()`) の `data.error` を UI 向け文言として尊重し、error (500 相当) は汎用文言。
  * success / redirect は何もしない (null を返す)。
  */
-export function notifyActionError(
-	result: ActionResult,
-	opts?: { toastTitle?: string },
-): ApiErrorResult | null {
+export function notifyActionError(result: ActionResult, opts?: NotifyOpts): ApiErrorResult | null {
+	const labels = opts?.labels ?? ERROR_NOTIFY_LABELS;
 	if (result.type === 'failure') {
 		const data = result.data as { error?: unknown; message?: unknown } | undefined;
 		const serverMessage =
@@ -130,14 +142,14 @@ export function notifyActionError(
 				: typeof data?.message === 'string'
 					? data.message
 					: '';
-		const message = resolveApiErrorMessage(result.status ?? 400, serverMessage);
-		showToast(opts?.toastTitle ?? ERROR_NOTIFY_LABELS.title, message, 'error');
+		const message = resolveApiErrorMessage(result.status ?? 400, serverMessage, labels);
+		showToast(opts?.toastTitle ?? labels.title, message, 'error');
 		return { shown: true, message, status: result.status };
 	}
 	if (result.type === 'error') {
 		// 予期せぬ例外 (500 相当)。内部 message は出さず汎用文言。
-		showToast(opts?.toastTitle ?? ERROR_NOTIFY_LABELS.title, ERROR_NOTIFY_LABELS.server, 'error');
-		return { shown: true, message: ERROR_NOTIFY_LABELS.server };
+		showToast(opts?.toastTitle ?? labels.title, labels.server, 'error');
+		return { shown: true, message: labels.server };
 	}
 	return null;
 }
