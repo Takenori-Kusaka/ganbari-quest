@@ -143,6 +143,52 @@ function migrateDropAutoChallenges(db: Database.Database): void {
 	run();
 }
 
+function indexExists(db: Database.Database, name: string): boolean {
+	return !!db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name = ?").get(name);
+}
+
+/**
+ * #3245: child_challenges の auto:weekly に (child_id, start_date) 部分 unique index を復活。
+ * 旧 auto_challenges の UNIQUE(child_id, week_start) が #3213/#3220 一本化で喪失していたため、
+ * concurrent 二重 INSERT (= ポイント二重付与) を DB レベルで不可能化する。
+ *
+ * 既存 production DB に重複行があると CREATE UNIQUE INDEX が失敗するため、
+ * 先に重複 auto:weekly 行を dedup (各 child×start_date で最小 id を残し他を削除) してから index 作成。
+ * 冪等: index 既存なら skip。
+ */
+function migrateChildChallengeAutoWeeklyUnique(db: Database.Database): void {
+	if (!tableExists(db, 'child_challenges')) return;
+	if (indexExists(db, 'idx_child_challenges_auto_weekly_unique')) return;
+
+	const run = db.transaction(() => {
+		// dedup: 同一 (child_id, start_date) の auto:weekly 行のうち最小 id 以外を削除
+		const dedup = db
+			.prepare(`
+			DELETE FROM child_challenges
+			WHERE source_template_id = 'auto:weekly'
+			  AND id NOT IN (
+				SELECT MIN(id) FROM child_challenges
+				WHERE source_template_id = 'auto:weekly'
+				GROUP BY child_id, start_date
+			  )
+		`)
+			.run();
+		if (dedup.changes > 0) {
+			console.info(
+				`[lazy-migrate #3245] deduped ${dedup.changes} duplicate auto:weekly child_challenges rows`,
+			);
+		}
+		db.exec(
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_child_challenges_auto_weekly_unique
+			 ON child_challenges(child_id, start_date) WHERE source_template_id = 'auto:weekly';`,
+		);
+		console.info(
+			'[lazy-migrate #3245] created partial unique index for auto:weekly child_challenges',
+		);
+	});
+	run();
+}
+
 /**
  * #2362 PR-3 (Phase 7b-2a): activity 系テーブルの FK target を
  * 旧 `activities` から `child_activities` に切替。
@@ -841,6 +887,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		migrateChecklistTemplatesDropKind(db);
 		// #3213 (EPIC #3193): auto_challenges DROP。FK switchover 前の単純 table drop。
 		migrateDropAutoChallenges(db);
+		// #3245: child_challenges auto:weekly に (child_id, start_date) 部分 unique index 復活
+		// (dedup → index)。auto_challenges drop 後、child_challenges を触る前に実行。
+		migrateChildChallengeAutoWeeklyUnique(db);
 		migrateActivityFkSwitchover(db);
 		// #2510 / #2513: FK switchover (dim 3) の **後** に data copy (dim 4) を実行。
 		// FK target が child_activities になった後でないと remap が整合しないため順序固定。

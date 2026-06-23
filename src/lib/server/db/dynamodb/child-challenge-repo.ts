@@ -21,7 +21,13 @@
 //
 // 関連: ADR-0055 / docs/design/08-データベース設計書.md / sqlite/child-challenge-repo.ts (SSOT)
 
-import { DeleteCommand, PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	DeleteCommand,
+	GetCommand,
+	PutCommand,
+	ScanCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import type {
 	ChildChallenge,
 	InsertChildChallengeInput,
@@ -30,6 +36,7 @@ import type {
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
+	childChallengeAutoWeeklyKey,
 	childChallengeKey,
 	childChallengePrefix,
 	childPK,
@@ -178,6 +185,45 @@ export async function insert(
 	);
 
 	return challenge;
+}
+
+/**
+ * #3245: auto:weekly の atomic get-or-create。
+ * SK を weekStart 由来の決定的キー (childChallengeAutoWeeklyKey) にし、
+ * 条件付き PutItem (attribute_not_exists(PK)) で concurrent 二重作成を atomic に防ぐ。
+ * 衝突時は同キーを GetItem して勝者 1 行に収束させる (= ポイント二重付与を不可能化)。
+ */
+export async function getOrCreateWeeklyAuto(
+	input: InsertChildChallengeInput,
+	tenantId: string,
+): Promise<ChildChallenge> {
+	const doc = getDocClient();
+	const key = childChallengeAutoWeeklyKey(input.childId, input.startDate, tenantId);
+
+	// fast path: 既存があれば即返す (proposal 再計算も省ける)
+	const existing = await doc.send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
+	if (existing.Item) return toChildChallenge(existing.Item);
+
+	const id = await nextId(ENTITY_NAMES.childChallenge, tenantId);
+	const challenge = buildChildChallenge(id, input, new Date().toISOString());
+	try {
+		await doc.send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: { ...key, ...challenge },
+				// 同一 (child, week) の auto 行が既存なら書込まない (atomic)
+				ConditionExpression: 'attribute_not_exists(PK)',
+			}),
+		);
+		return challenge;
+	} catch (e) {
+		// concurrent な先行作成と衝突 → 勝者を読み直す
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') {
+			const won = await doc.send(new GetCommand({ TableName: TABLE_NAME, Key: key }));
+			if (won.Item) return toChildChallenge(won.Item);
+		}
+		throw e;
+	}
 }
 
 export async function insertBulk(

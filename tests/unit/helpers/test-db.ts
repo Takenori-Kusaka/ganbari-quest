@@ -594,6 +594,7 @@ export const SQL_TABLES = `
 	CREATE INDEX idx_child_challenges_child ON child_challenges(child_id, status);
 	CREATE INDEX idx_child_challenges_dates ON child_challenges(start_date, end_date);
 	CREATE INDEX idx_child_challenges_source ON child_challenges(source_template_id);
+	CREATE UNIQUE INDEX idx_child_challenges_auto_weekly_unique ON child_challenges(child_id, start_date) WHERE source_template_id = 'auto:weekly';
 
 	-- sibling_cheers
 	CREATE TABLE sibling_cheers (

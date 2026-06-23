@@ -800,6 +800,12 @@ export const childChallenges = sqliteTable(
 		index('idx_child_challenges_child').on(table.childId, table.status),
 		index('idx_child_challenges_dates').on(table.startDate, table.endDate),
 		index('idx_child_challenges_source').on(table.sourceTemplateId),
+		// #3245: アプリ週次自動生成 (sourceTemplateId='auto:weekly') は child×week で一意。
+		// 旧 auto_challenges の UNIQUE(child_id, week_start) を child_challenges 一本化で喪失していたため
+		// 部分 unique index で復活し、concurrent 二重 INSERT (= ポイント二重付与) を DB レベルで不可能化する。
+		uniqueIndex('idx_child_challenges_auto_weekly_unique')
+			.on(table.childId, table.startDate)
+			.where(sql`source_template_id = 'auto:weekly'`),
 	],
 );
 

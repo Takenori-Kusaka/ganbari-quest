@@ -143,6 +143,23 @@ export function childChallengePrefix(): string {
 	return 'CHILDCHAL#';
 }
 
+/**
+ * #3245: アプリ週次自動生成 (auto:weekly) の **決定的** key。
+ * SK を id 採番でなく weekStart 由来にすることで、(child, weekStart) が一意に定まり、
+ * 条件付き PutItem (attribute_not_exists) で concurrent 二重作成を atomic に防げる。
+ * `CHILDCHAL#` で始まるため既存の begins_with(SK,'CHILDCHAL#') Query にもそのまま載る。
+ */
+export function childChallengeAutoWeeklyKey(
+	childId: number,
+	weekStart: string,
+	tenantId: string,
+): DynamoKey {
+	return {
+		PK: tenantPK(`${PREFIX.CHILD}#${childId}`, tenantId),
+		SK: `CHILDCHAL#AUTO#${weekStart}`,
+	};
+}
+
 /** Activity log: PK=CHILD#<cId>, SK=LOG#<date>#<id> */
 export function activityLogKey(
 	childId: number,

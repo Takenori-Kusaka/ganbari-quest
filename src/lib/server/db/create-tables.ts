@@ -556,6 +556,9 @@ export const SQL_CREATE_TABLES = `
 		ON child_challenges(start_date, end_date);
 	CREATE INDEX IF NOT EXISTS idx_child_challenges_source
 		ON child_challenges(source_template_id);
+	-- #3245: auto:weekly は (child_id, start_date) で一意 (concurrent 二重 INSERT = ポイント二重付与 を防ぐ)
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_challenges_auto_weekly_unique
+		ON child_challenges(child_id, start_date) WHERE source_template_id = 'auto:weekly';
 
 	-- #1593 (ADR-0023 I6) subscriber_role: 'parent' | 'owner' のみ許容、'child' は subscribe 拒否。
 	-- 既存行 backfill 用の default 'parent' (ADR-0031 NULL 混在防止)。
