@@ -44,10 +44,10 @@ const BACKWARD_CHARS = 240;
 // 明示 exempt マーカー (意図的な fire-and-forget。直前/同行コメントに付与)。
 const EXEMPT_MARKER = 'fetch-error-exempt';
 
-// #3225 P2 時点の既存「未処理 fetch」occurrence 数。helper 配線で解消したら下げる。増加は CI fail。
-//   現 develop の 1 件は `(child)/[uiMode]/home` の togglePin (PR #3253 で age-tier 文言配線、
-//   merge 後は実測 0 に減る)。#3253 が先に merge されれば本 baseline を 0 に ratchet-down する。
-const BASELINE_UNHANDLED = 1;
+// 既存「未処理 fetch」occurrence 数。helper 配線で解消したら下げる。増加は CI fail。
+//   P1 (#3241/#3248/#3253) で audit 確定 silent をすべて解消したため develop 実測は 0。
+//   以降は新規 silent fetch を 1 件でも足すと CI が落ちる (hard guard)。
+const BASELINE_UNHANDLED = 0;
 
 function walkSvelteFiles(dir: string, acc: string[]): string[] {
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
