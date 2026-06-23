@@ -41,7 +41,9 @@ DDD Anti-Corruption Layer: Marketplace → AdminApp 遷移で Marketplace 側の
 
 ### 2.2 取込ダイアログの SSOT 化
 
-「誰に追加 / 全員」のダイアログ UI は **AdminApp 側 1 箇所のみで実装** (PR-2 Framework で抽象化)。各 type の取込フロー (`activity-pack` / `reward-set` / `checklist` / `rule-preset` / `challenge-set`) は同じダイアログを呼び出す。
+「誰に追加 / 全員」のダイアログ UI は **AdminApp 側 1 箇所のみで実装** (PR-2 Framework で抽象化)。各取込 type のフロー (`activity-pack` / `reward-set` / `checklist` / `rule-preset`) は同じダイアログを呼び出す。
+
+> **challenge-set は取込型ではない (#3195 / #3227)**: 週間チャレンジはアプリが自動生成する一本化方式で、親による手動取込は存在しない。challenge-set は marketplace 陳列対象外 (#2896) かつ valid preset 0 件で `/marketplace/challenge-set/*` は全環境 404。marketplace 詳細の challenge-set 取込 CTA / 分岐は到達不能 dead code として除去済 (#3277)。型 / schema / Registry 登録は互換のため残すが取込導線 (`?import=`) は持たない。
 
 #### 取込実行中の loading 表示 (#2632、NN/G #1 visibility of system status)
 
@@ -59,14 +61,15 @@ DDD Anti-Corruption Layer: Marketplace → AdminApp 遷移で Marketplace 側の
 
 ## 3. 取込フロー sequence
 
-### 3.1 全 type 共通の取込フロー (5 type 統一、#2774)
+### 3.1 取込 type 共通の取込フロー (取込 CTA 統一、#2774)
 
 **取込 CTA 統一形式** (#2774 / #2775):
 
-全 5 type (activity-pack / reward-set / checklist / rule-preset / challenge-set) の認証済
+取込対象 4 type (activity-pack / reward-set / checklist / rule-preset) の認証済
 取込 CTA は **`<a href="/admin/<page>?import=${itemId}">`** 形式に**完全統一**する (marketplace 詳細 page の
 server action は 0 件)。admin 側 server load は
 **`?import=<presetId>` query** を一律に読取り、ChildSelectionDialog auto-open する。
+(challenge-set は取込型ではない — §2.2 注記。)
 
 | type | marketplace 詳細 CTA href | admin 側 query 読取り | testid (統一命名) |
 |---|---|---|---|
@@ -75,13 +78,14 @@ server action は 0 件)。admin 側 server load は
 | checklist | `/admin/checklists?import=${itemId}` | `?import=` | `checklist-import-cta` |
 | rule-preset bonus | `/admin/settings/rules?import=${itemId}` | `?import=` | `rule-preset-import-bonus-cta` |
 | rule-preset exchange (#2775) | `/admin/rewards?import=${itemId}` | `?import=` | `rule-preset-import-cta` |
-| challenge-set | `/admin/challenges?import=${itemId}` | `?import=` | `challenge-set-import-cta` |
+
+> challenge-set は本表に含めない (取込型ではない、§2.2 注記)。marketplace 詳細は取込 CTA を持たず、admin/challenges は `?import=` を処理しない (#3195 で読み取り専用ビュー)。
 
 **rule-preset exchange 統一 (#2775、Issue #2774 Phase 2)**: special_rewards table への per-child
 取込を admin/rewards 側 ChildSelectionDialog 経由で受領するよう mechanism を拡張済。`?import=` server
 load が rule-preset (exchange) を判別し、`importPresetToChildren` action は item type を見て
 reward-set Strategy (`dispatchImport`) または rule-preset Strategy (`rulePresetStrategy.applyRulePreset`)
-に分岐する。**5 type 完全統一達成** = marketplace 詳細 page の server action は 0 件。
+に分岐する。**全取込 type で `<a href>` 統一達成** = marketplace 詳細 page の server action は 0 件。
 
 ```
 [親管理画面 /admin/*]
@@ -250,7 +254,7 @@ challenge-set は **#2362 PR-7 (ADR-0055、User §6) で activity-pack と同型
 - CUJ-CH2 の E2E 検証 (旧 `admin-challenges-import-marketplace.spec.ts`) は CUJ-A3 / CUJ-R2 と同型の完全 terminal goal verify に upgrade されていた
 - `src/lib/domain/labels.ts` `ADMIN_CHALLENGES_PAGE_LABELS`: `importSuccess / importAllDuplicates / importFailed / importDemo / importInvalidPreset` を追加 (admin-rewards 同型)
 
-> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の preset (japan-annual-events) を廃止した。これにより上記 marketplace 経由のチャレンジ取込 (CUJ-CH2) は撤去し、検証 spec も削除した。`challenge-set` の型 / schema / Registry 登録 / `?import=` 受領経路は互換のため残置 (valid preset 不在時は invalid guidance を表示)。チャレンジ機能本体 (自作 + auto-challenge) は `/admin/challenges` に保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
+> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の preset (japan-annual-events) を廃止した。これにより上記 marketplace 経由のチャレンジ取込 (CUJ-CH2) は撤去し、検証 spec も削除した。`challenge-set` の型 / schema / Registry 登録は互換のため残置するが、marketplace 詳細の取込 CTA / 分岐は到達不能 dead code として除去済 (#3277)、admin/challenges も `?import=` を処理しない (#3195 読み取り専用ビュー)。チャレンジ機能本体 (アプリ自動生成、#3195 一本化) は `/admin/challenges` に保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
 
 #### reward-set 取込フロー (EPIC #2362 PR-4 で実装済)
 
