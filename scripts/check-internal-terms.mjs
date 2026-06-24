@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// @ts-nocheck — CLI lint script。#3299 で unit test が import するため TS graph に入るが、
+// 本 file は untyped JS の CLI ツール (check-doc-code-references.mjs と同方針で型検査を無効化)。
 /**
  * scripts/check-internal-terms.mjs (#2288 EPIC #2283 ⑤)
  *
@@ -32,7 +34,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,11 +98,18 @@ const CONN_INFO_BANLIST = [
 // 対象: labels.ts (compound UI 文字列の本体) + 全 routes + features の .ts / .svelte。
 // comment 行は除外 (isCommentLine) — issue note 等「#NNNN で統合済」コメントは正当な開発記録。
 // baseline なし — 残存 0 で導入し、新規 1 件で即 fail (conn-info group と同型)。
-// 検出語は「動作の完了報告 (〜しました / 〜されています)」に限定し、子供向けの内容語
-// (「がんばりをまとめました」等のデータ要約) を誤検出しない短語 (整理/統合 単独) は採らない。
+//
+// ⚠️ 位置づけ (#3299): 本 group は「特定の自己言及句の再混入を防ぐ regression guard」(ADR-0061)
+// であって、内部事情文言の網羅検出ではない。言い換え (「カード別に分類」等) は無限に作れるため
+// 機械的な完全網羅は非現実的。検出語は「構造再編の完了報告 (〜しました / 〜されています)」に
+// 限定し、子供向け内容語 (「がんばりをまとめました」等のデータ要約) や正当な成功 toast
+// (「ポイントを変更しました」等) を誤検出しないよう、短語単独 (整理 / 統合) や汎用動詞
+// (改善しました / 変更しました) は採らない。新パターンは「人手レビューで発見 → banlist 追記」
+// の運用 (PR レビュー併用前提)。
 // ---------------------------------------------------------------------------
 
-const SELF_REF_CHANGE_BANLIST = [
+export const SELF_REF_CHANGE_BANLIST = [
+	// 構造再編の完了報告 (初版 9 語、#3259)
 	'整理しました',
 	'整理されています',
 	'統合しました',
@@ -110,6 +119,16 @@ const SELF_REF_CHANGE_BANLIST = [
 	'リニューアルしました',
 	'新しくなりました',
 	'生まれ変わりました',
+	// 言い換えすり抜け対策の追加語 (#3299、人手レビューで観測された再編系)
+	'見直しました',
+	'見直しています',
+	'再編しました',
+	'再構成しました',
+	'集約しました',
+	'まとめ直しました',
+	'分類しました',
+	'分類されています',
+	'整頓しました',
 ];
 
 const SELF_REF_ROOTS = ['src/lib/domain/labels.ts', 'src/routes', 'src/lib/features'];
@@ -199,7 +218,7 @@ function walk(dir, out = [], extensions = EXTENSIONS, exclude = shouldExclude) {
 // コメント行判定 (check-no-plan-literals.mjs と同パターン)
 // ---------------------------------------------------------------------------
 
-function isCommentLine(line) {
+export function isCommentLine(line) {
 	const trimmed = line.trim();
 	if (trimmed.startsWith('//')) return true;
 	if (trimmed.startsWith('*')) return true;
@@ -293,6 +312,32 @@ function scanConnInfo() {
 // self-ref-change group 検査 (#3259) — UI 文字列の「実装変更の自己言及」
 // ---------------------------------------------------------------------------
 
+/**
+ * テキスト内の self-ref-change 違反を検出する pure function (#3299: unit test 可能化)。
+ * comment 行は除外し、非コメント行 (string リテラル等) の banlist 語のみ hit にする。
+ * @param {string} text  ファイル本文
+ * @returns {{ line: number, col: number, pattern: string, snippet: string }[]}
+ */
+export function findSelfRefChangeHits(text) {
+	const lines = text.split(/\r?\n/);
+	const hits = [];
+	for (let i = 0; i < lines.length; i++) {
+		if (isCommentLine(lines[i])) continue; // 開発記録コメントは正当 (string 値のみ検査)
+		for (const pattern of SELF_REF_CHANGE_BANLIST) {
+			const idx = lines[i].indexOf(pattern);
+			if (idx >= 0) {
+				hits.push({
+					line: i + 1,
+					col: idx + 1,
+					pattern,
+					snippet: lines[i].trim().slice(0, 200),
+				});
+			}
+		}
+	}
+	return hits;
+}
+
 function scanSelfRefChange() {
 	const files = [];
 	for (const root of SELF_REF_ROOTS) {
@@ -302,22 +347,8 @@ function scanSelfRefChange() {
 	for (const f of files) {
 		// テストは UI 文言ではないため対象外
 		if (/\.(test|spec)\.(ts|mjs)$/.test(f)) continue;
-		const lines = fs.readFileSync(f, 'utf8').split(/\r?\n/);
-		for (let i = 0; i < lines.length; i++) {
-			if (isCommentLine(lines[i])) continue; // 開発記録コメントは正当 (string 値のみ検査)
-			for (const pattern of SELF_REF_CHANGE_BANLIST) {
-				const idx = lines[i].indexOf(pattern);
-				if (idx >= 0) {
-					violations.push({
-						file: relPath(f),
-						line: i + 1,
-						col: idx + 1,
-						pattern,
-						category: 'self-ref-change',
-						snippet: lines[i].trim().slice(0, 200),
-					});
-				}
-			}
+		for (const hit of findSelfRefChangeHits(fs.readFileSync(f, 'utf8'))) {
+			violations.push({ file: relPath(f), category: 'self-ref-change', ...hit });
 		}
 	}
 	return { fileCount: files.length, violations };
@@ -491,5 +522,7 @@ function main() {
 	return 1;
 }
 
-const code = main();
-process.exit(code);
+// #3299: CLI 直接実行時のみ main() を走らせる (unit test での import 時は実行しない)。
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+	process.exit(main());
+}

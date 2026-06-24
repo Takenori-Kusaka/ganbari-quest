@@ -74,6 +74,7 @@ autodocs
 AUTOINCREMENT
 autoreply
 backfill
+banlist
 bedrock
 Bedrock
 benkyou
