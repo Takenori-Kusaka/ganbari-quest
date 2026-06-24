@@ -1482,6 +1482,61 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	adminSubscription: {
+		title: 'プラン・課金',
+		steps: {
+			// ① ページ概要（selector 省略で画面中央 modal、全環境で表示）。NUC セルフホスト版では
+			// 現在のプラン／プラン管理セクションが無いため、intro は両環境で正しい「契約・プランの
+			// 状況を確認するページ」に留める（実装にない操作を案内しない、ADR-0013）。
+			'subscription-intro': {
+				title: 'このページについて',
+				what: '今ご利用中のプランや契約の状況を確認するページです。プランに関する操作の入り口がここに集まっています。',
+				how: '上から順に、現在の状況・プランの管理・支払い履歴への入り口が並びます。表示される項目はご利用環境によって変わります。',
+				goal: `プランの状況をひと目で把握でき、必要なときに${PLAN_CHANGE_TERMS.changeNoun}や支払いの管理へ迷わず進めます。`,
+			},
+			// ② 画面の見方（現在のプラン）— SaaS 版のみ（NUC では本セクション非表示のため除外）。
+			'subscription-current-plan': {
+				title: '画面の見方（現在のプラン）',
+				what: 'いま契約中のプランと、無料トライアル中ならその残り期間がここに表示されます。',
+				how: '1. 上部で現在のプランを確認します\n2. 下の「プラン管理」で変更できます',
+				goal: '今どのプランかをすぐ確認でき、変更前の状態を把握できます。',
+			},
+			// ③ 最頻操作（プラン管理）— SaaS 版のみ。実 UI は契約状況で分岐するため両分岐を記述する。
+			'subscription-plan-management': {
+				title: `よく使う操作（${PLAN_CHANGE_TERMS.changeNoun}）`,
+				what: `プランの開始・変更をここから行います。まだ有料プランをご契約でないときはプランを選んでお申し込みでき、ご契約済みのときは${STRIPE_PORTAL_TERMS.canonical}での管理に進めます。`,
+				how: `・未契約のとき: 1. プランを選びます 2. 申し込みボタンで手続きします\n・契約済みのとき: 1. ${STRIPE_PORTAL_TERMS.short}を開きます 2. プラン変更や支払い方法を手続きします`,
+				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
+				tips: [`${CANCEL_TERMS.anytime}できます`],
+			},
+		},
+	},
+	adminBilling: {
+		title: 'お支払い',
+		steps: {
+			// ① ページ概要（selector 省略で画面中央 modal）。
+			'billing-intro': {
+				title: 'このページについて',
+				what: `ご契約の状況確認と、${STRIPE_PORTAL_TERMS.short}での支払い管理・${CANCEL_TERMS.canonical}をまとめたページです。`,
+				how: '上から「ご契約状況」「請求管理」の順に並びます。',
+				goal: `支払いの状況を把握でき、必要なら${STRIPE_PORTAL_TERMS.short}や${CANCEL_TERMS.canonicalVerb}手続きに進めます。`,
+			},
+			// ② 画面の見方（ご契約状況）。
+			'billing-overview': {
+				title: '画面の見方（ご契約状況）',
+				what: '契約中のプランの状態と、次回の請求予定がここに表示されます。',
+				how: '1. 契約状況を確認します\n2. 下の「請求管理」で支払い方法を変えられます',
+				goal: '今の契約と請求予定をひと目で確認できます。',
+			},
+			// ③ 最頻操作（請求管理ページ）。ご契約があるときに「請求管理ページを開く」ボタンが出る。
+			'billing-portal': {
+				title: `よく使う操作（${STRIPE_PORTAL_TERMS.short}）`,
+				what: `支払い方法の変更や領収書の確認は${STRIPE_PORTAL_TERMS.canonical}から行います。ご契約があるときに開くボタンが表示されます。`,
+				how: `1. ${STRIPE_PORTAL_TERMS.short}を開きます\n2. 支払い方法や${CANCEL_TERMS.canonical}を手続きします`,
+				goal: `支払い方法を最新に保て、${CANCEL_TERMS.anytime}できます。`,
+			},
+		},
+	},
 	adminStatus: {
 		title: '成長レポート',
 		steps: {

@@ -40,6 +40,14 @@ export interface GuideStep {
 	relatedLinks?: readonly { label: string; href: string }[];
 	/** この手順を表示する最低プランティア */
 	requiredTier?: PlanTier;
+	/**
+	 * この手順を表示する実行モード制約（#3291）。
+	 * 'saas' を指定した手順は SaaS（aws-prod / local-debug / demo）でのみ表示し、
+	 * NUC セルフホスト版（nuc-prod）では除外する。NUC では当該 UI セクション
+	 * （現在のプラン / プラン管理 等）が存在せず、selector が解決できず空 spotlight に
+	 * なる + 実装にない操作を案内してしまう（ADR-0013）ため。未指定は全モードで表示。
+	 */
+	requiredRuntime?: 'saas';
 	/** バブルの表示位置 */
 	position?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
 }
