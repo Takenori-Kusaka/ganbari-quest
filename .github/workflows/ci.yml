@@ -1,5 +1,9 @@
 name: CI
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
@@ -27,6 +31,7 @@ jobs:
     outputs:
       app: ${{ steps.filter.outputs.app }}
       deps: ${{ steps.filter.outputs.deps }}
+      dependabot: ${{ steps.filter.outputs.dependabot }}
       site: ${{ steps.filter.outputs.site }}
       stories: ${{ steps.filter.outputs.stories }}
       cognito: ${{ steps.filter.outputs.cognito }}
@@ -57,6 +62,11 @@ jobs:
             deps:
               - 'package.json'
               - 'package-lock.json'
+              - 'scripts/native-dep-smoke.mjs'
+            # #3191: dependabot 設定 (main 直行封鎖 regression guard) の変更検出
+            dependabot:
+              - '.github/dependabot.yml'
+              - 'scripts/check-dependabot-target-branch.mjs'
             site:
               - 'site/**'
               - 'scripts/check-site-html.mjs'
@@ -212,6 +222,12 @@ jobs:
         # 用語不統一・add 経路重複 (Hick's Law ≤4) を warning 0 で gate (CX-DoR 条件 3/4)。
         run: npx tsx scripts/check-terminology-coherence.ts
 
+      - name: Guide copy rules check (#3261 / EPIC #3260 F0)
+        # ページガイド (_guide.ts) 文言が guide-copy-rules.md に準拠するかを機械検証。
+        # 謎用語 / 内部事情露出 / 文字数上限 / step 数 ≤5 を hard-fail (現行 baseline=0)。
+        # 二重防御: tests/unit/scripts/check-guide-copy.test.ts も baseline 0 を vitest で検証。
+        run: npx tsx scripts/check-guide-copy.ts --fail-on-violation
+
       - name: Scripts unit tests (node:test for check-doc-code-references.mjs) (#2259 C3)
         # #2259 C3 fix: vitest config は tests/unit/** / tests/integration/** のみで
         # scripts/__tests__/*.test.mjs は vitest 対象外。node --test を CI gate に組み込む。
@@ -280,6 +296,33 @@ jobs:
 
       - name: Marketplace Registry integrity check (#2374 / ADR-0052)
         run: node scripts/check-marketplace-registry-integrity.mjs
+
+  # #3191: deps 供給線の監査すり抜け 3 穴 (dependabot main 直行 / native dep crash の
+  # shift-left 欠如) を機械で塞ぐ。#3190 (better-sqlite3 12.11.1 SIGSEGV) の再発防止。
+  deps-supply-chain-check:
+    needs: changes
+    if: needs.changes.outputs.deps == 'true' || needs.changes.outputs.dependabot == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      # dependabot main 直行 regression guard は yaml parse のみ (#3191 AC1)
+      - run: npm ci
+
+      - name: Dependabot target-branch=develop regression guard (#3072 / #3191)
+        run: node scripts/check-dependabot-target-branch.mjs
+
+      # native dep (better-sqlite3 / bcrypt / sharp) の ABI/バージョン不整合 crash を
+      # 軽量レーンで捕捉する shift-left smoke (#3190 SIGSEGV class、#3191 AC3)
+      - name: Native dependency smoke (SQLite/bcrypt/sharp binding 健全性)
+        run: node scripts/native-dep-smoke.mjs
 
   # #1006 Phase 2: vitest を 2 shard に分割して並列化 (1m 23s → ~40s 目標)
   # 各 shard は coverage を出力し、unit-test-merge で合算してラチェットチェック。
@@ -999,6 +1042,7 @@ jobs:
         changes,
         lint-and-test,
         marketplace-registry-integrity-check,
+        deps-supply-chain-check,
         unit-test,
         unit-test-merge,
         storybook-test,
@@ -1046,6 +1090,7 @@ jobs:
         changes,
         lint-and-test,
         marketplace-registry-integrity-check,
+        deps-supply-chain-check,
         unit-test,
         unit-test-merge,
         storybook-test,
@@ -1097,6 +1142,29 @@ jobs:
 
       - name: Write GITHUB_STEP_SUMMARY (≤ 1MiB)
         run: head -c 1000000 integration-evidence/evidence.md >> "$GITHUB_STEP_SUMMARY"
+
+      # B-4 (#2876): マージ判定 advisory 評価 (NG-0 + coverage ratchet)。
+      # **advisory 先行**: continue-on-error で hard fail させず、ci-gate needs に入れず、
+      # required_status_checks にも登録しない。NG の最終確定は audit-manager の人間判定が正本。
+      # required 昇格は別 Issue / 段階導入 (deploy-aws-staging.yml 先例同型)。
+      - name: Advisory merge-readiness evaluation (#2876、非 block)
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          ADVISORY=$(node -e "const e=require('./integration-evidence/evidence.json');const a=e.mergeReadinessAdvisory||{};console.log(JSON.stringify(a))")
+          echo "advisory: $ADVISORY"
+          PASS=$(node -e "const a=$ADVISORY;console.log(a.advisoryPass===true)")
+          {
+            echo '## マージ判定 advisory (#2876、非 block / required 未登録)';
+            echo '';
+            echo "- advisoryPass: ${PASS}";
+            echo '';
+            echo '> 本 step は continue-on-error の advisory であり merge を block しません。';
+            echo '> required 昇格は別 Issue / 段階導入で判断します (deploy-aws-staging.yml 先例同型)。';
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PASS" != "true" ]; then
+            echo "::warning::マージ判定 advisory が PASS していません (NG / coverage / job 緑のいずれか未達)。block はしませんが audit-manager 判定で確認してください。"
+          fi
 
       - name: Upload integration PR evidence
         uses: actions/upload-artifact@v7

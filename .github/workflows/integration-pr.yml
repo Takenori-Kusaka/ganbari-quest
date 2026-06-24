@@ -10,10 +10,14 @@
 #   - merge 戦略 = merge commit (squash でない、含有 PR の commit 粒度保持 + B-4 in-toto link 整合)。
 #     本 workflow は PR を merge しない (発行・本文更新のみ)。merge は audit-manager 専権 (ADR-0056)。
 #     merge commit 方式の宣言は branch-strategy.md §4 + 本コメント (AC4)。
-#   - author=Takenori-Kusaka 維持 (作成者≠承認者分離、ADR-0022 Amendment 4-2 / AC2)。
+#   - author=GitHub App ボット名義 (作成者≠承認者分離、ADR-0022 Amendment 5 / AC2)。
 #     secrets.GITHUB_TOKEN で PR を作ると author=github-actions[bot] になり pr-author-guard.yml に
-#     auto-close される。Takenori-Kusaka 名義維持に repository secret BACK_MERGE_PAT (B-5 #2951 と共有、
-#     contents+pull-requests write) を使う。未設定時は silent fail せず drift 通知で degrade (AC1/AC2)。
+#     auto-close され、かつ下流 CI を発火させない。プロジェクト専用 GitHub App の install トークン
+#     (actions/create-github-app-token、実行毎に短命発行・自動失効) で PR を発行する。ボット独自
+#     identity が author となり承認は人間/lab (監査 role) が行う (なりすましゼロ)。App トークンは
+#     GITHUB_TOKEN と違い下流 workflow を発火させる (統合 PR の lane-aware gate が回る)。credential
+#     (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定時は silent fail せず drift
+#     通知で degrade (AC1/AC2)。長命個人 PAT (旧 BACK_MERGE_PAT) は撤廃 (#3067)。
 #   - lab に approve/merge を自動実行させない (本 workflow は PR 発行のみ、不可逆 action は
 #     audit-manager 専権 ADR-0056 §E)。
 #   - deploy.yml / pages.yml の trigger に触れない (main 不変条件、#2949 no-go / AC7)。
@@ -164,22 +168,35 @@ jobs:
           echo "::notice::dry_run=true のため PR を発行しません。生成 body は job summary を参照 (AC1)。"
 
       # ----------------------------------------------------------------------
-      # 5. PAT 検証: author=Takenori-Kusaka 維持に必須。未設定なら drift を通知 (silent fail なし、AC2)
+      # 5. GitHub App 認証情報の検証 + 短命トークン発行。未設定なら drift を通知 (silent fail なし、AC2)
       # ----------------------------------------------------------------------
-      - name: Verify BACK_MERGE_PAT presence
-        id: pat
+      - name: Verify GitHub App credentials presence
+        id: appcreds
         if: >-
           steps.diff.outputs.has_diff == 'true' &&
           inputs.dry_run != 'true'
         env:
-          BACK_MERGE_PAT: ${{ secrets.BACK_MERGE_PAT }}
+          APP_ID: ${{ secrets.INTEGRATION_BOT_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.INTEGRATION_BOT_APP_PRIVATE_KEY }}
         run: |
-          if [ -n "${BACK_MERGE_PAT:-}" ]; then
+          if [ -n "${APP_ID:-}" ] && [ -n "${APP_PRIVATE_KEY:-}" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::BACK_MERGE_PAT 未設定。author=Takenori-Kusaka 維持で統合 PR を発行できない (ADR-0022 Amendment 4-2)。drift 通知のみ行う。"
+            echo "::warning::GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定。統合 PR を発行できない (ADR-0022 Amendment 5)。drift 通知のみ行う。"
           fi
+
+      # App install トークンは実行毎に短命発行・自動失効する (長命個人 PAT 撤廃、#3067)。
+      - name: Generate GitHub App token
+        id: app-token
+        if: >-
+          steps.diff.outputs.has_diff == 'true' &&
+          inputs.dry_run != 'true' &&
+          steps.appcreds.outputs.present == 'true'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.INTEGRATION_BOT_APP_ID }}
+          private-key: ${{ secrets.INTEGRATION_BOT_APP_PRIVATE_KEY }}
 
       # ----------------------------------------------------------------------
       # 6. 統合 PR を upsert する (release PR パターン = 既存があれば本文更新、無ければ新規作成、AC1)
@@ -189,12 +206,12 @@ jobs:
         if: >-
           steps.diff.outputs.has_diff == 'true' &&
           inputs.dry_run != 'true' &&
-          steps.pat.outputs.present == 'true'
+          steps.appcreds.outputs.present == 'true'
         uses: actions/github-script@v9
         env:
-          GH_TOKEN: ${{ secrets.BACK_MERGE_PAT }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
-          github-token: ${{ secrets.BACK_MERGE_PAT }}
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const fs = require('node:fs');
             const { owner, repo } = context.repo;
@@ -222,21 +239,21 @@ jobs:
             core.setOutput('number', String(prNumber));
 
       # ----------------------------------------------------------------------
-      # 7. drift 通知 (Discord) — PAT 未設定で統合 PR を発行できない場合 (silent fail 回避、AC2)
+      # 7. drift 通知 (Discord) — App 認証未設定で統合 PR を発行できない場合 (silent fail 回避、AC2)
       # ----------------------------------------------------------------------
-      - name: Notify drift (PAT 未設定)
+      - name: Notify drift (App 認証未設定)
         if: >-
           always() &&
           steps.diff.outputs.has_diff == 'true' &&
           inputs.dry_run != 'true' &&
-          steps.pat.outputs.present == 'false' &&
+          steps.appcreds.outputs.present == 'false' &&
           vars.DISCORD_WEBHOOK_URL != ''
         env:
           WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
           AHEAD: ${{ steps.diff.outputs.ahead }}
         run: |
-          TITLE="統合 PR 未発行 (PAT 未設定)"
-          DESC="develop が main より ${AHEAD} commit 先行していますが、BACK_MERGE_PAT 未設定のため統合 PR を発行できません。手動で develop→main 統合 PR を作成してください (main/develop drift)。"
+          TITLE="統合 PR 未発行 (GitHub App 認証未設定)"
+          DESC="develop が main より ${AHEAD} commit 先行していますが、GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定のため統合 PR を発行できません。手動で develop→main 統合 PR を作成してください (main/develop drift)。"
           curl -s -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":15158332}]}" || true
@@ -249,7 +266,7 @@ jobs:
         env:
           AHEAD: ${{ steps.diff.outputs.ahead }}
           DRY_RUN: ${{ inputs.dry_run }}
-          PAT_PRESENT: ${{ steps.pat.outputs.present }}
+          CREDS_PRESENT: ${{ steps.appcreds.outputs.present }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           {
@@ -258,8 +275,8 @@ jobs:
             echo "- develop 先行 commit 数: ${AHEAD}"
             if [ "${DRY_RUN}" = "true" ]; then
               echo "- 状態: 🔍 dry-run (PR 未発行、生成 body は上の job summary 参照)"
-            elif [ "${PAT_PRESENT}" = "false" ]; then
-              echo "- 状態: ⚠️ PAT 未設定で統合 PR 未発行 = **drift**。手動発行が必要。"
+            elif [ "${CREDS_PRESENT}" = "false" ]; then
+              echo "- 状態: ⚠️ GitHub App 認証未設定で統合 PR 未発行 = **drift**。手動発行が必要。"
             else
               echo "- 状態: ✅ 統合 PR #${PR_NUMBER} を upsert (merge 戦略 = merge commit、merge は audit-manager 専権)。"
             fi

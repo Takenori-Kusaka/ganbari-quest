@@ -26,8 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
 // Pre-PMF fallback に置換されていた repo は Wave 群 (#2824) ですべて DynamoDB 本実装に移行済。
-// #2824 Wave 6A (ADR-0055): auto-challenge-repo は本実装済のため stub fallback テスト対象外。
-//   機能等価性は tests/unit/db/dynamodb-auto-challenge-repo.test.ts (AWS SDK mock) で検証する。
+// #3213 (EPIC #3193): auto-challenge-repo 削除済 (auto_challenges 廃止、child_challenges へ一本化)。
 // #2824 Wave 5A (ADR-0055): battle-repo は本実装済のため stub fallback テスト対象外。
 //   機能等価性は tests/unit/db/dynamodb-battle-repo.test.ts (AWS SDK mock) で検証する。
 // #2824 (ADR-0055): child-activity-repo は本実装済のため stub fallback テスト対象外。
@@ -54,11 +53,7 @@ const TODAY = '2026-05-19';
 describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 	// #2295 (EPIC #2294 ①): season-event-repo describe 削除済 (2026-05-19、repo 自体撤去)
 
-	// #2824 Wave 6A (ADR-0055): auto-challenge-repo は本実装済 (stub 除外)。
-	//   週次自動チャレンジの生成・進捗が本番 DynamoDB Lambda で永続する。本実装の機能等価性
-	//   テストは dynamodb-auto-challenge-repo.test.ts に分離。ここで stub 前提の assert を残すと
-	//   「実装済なのに stub 期待」で誤った退行 gate になるため除外する (他 repo の fallback assert
-	//   は維持 = assertion 弱体化に該当しない)。
+	// #3213 (EPIC #3193): auto-challenge-repo 削除済 (auto_challenges 廃止、child_challenges へ一本化)。
 
 	// #2824 Wave 5A (ADR-0055): battle-repo は本実装済 (stub 除外)。
 	//   LP machine-tour ④ feature-rpg-battle 訴求の日次バトル (進行 / 勝敗 / 報酬 / 敵図鑑) が
@@ -113,6 +108,7 @@ describe('#2263 hotfix: DynamoDB Pre-PMF fallback 動作検証', () => {
 	// #2824 系で childActivity / rewardRedemption / message / stampCard / battle /
 	//   siblingCheer / autoChallenge / cloudExport / reportDailySummary / viewerToken を
 	//   本実装化 (10 → 0 repo)。これで stub fallback repo は SSR 経路から消滅した。
+	//   (#3213 で autoChallenge repo は auto_challenges 廃止に伴い削除済)
 	describe('regression guard: stub fallback repo が SSR 経路から全廃された', () => {
 		it('Pre-PMF stub fallback baseline は空 (新規 stub なし) である', () => {
 			// #2263 root cause: SSR の Promise.all 経路で 1 repo でも throw すると 500 になる。

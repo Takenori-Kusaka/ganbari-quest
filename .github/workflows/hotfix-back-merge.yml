@@ -12,17 +12,19 @@
 #     + 通知で人手解決へ (AC3、silent fail なし)。
 #   - 統合 PR (develop → main) merge を back-merge トリガーに含めない (AC2、無限ループ防止)。
 #     scripts/hotfix-back-merge.mjs の classifyMergedPr が 'integration' を除外する。
-#   - back-merge PR の author は Takenori-Kusaka を維持 (ADR-0022 Amendment 4-2 / AC4)。
-#     → secrets.BACK_MERGE_PAT (Takenori-Kusaka の PAT) を使う。未設定時は silent fail せず
-#       Discord / Issue で「PAT 未設定で back-merge を発行できない = drift 顕在化」を通知する。
+#   - back-merge PR の author は GitHub App ボット名義 (ADR-0022 Amendment 5 / AC4)。
+#     → actions/create-github-app-token で実行毎に短命トークンを発行して使う。未設定時は silent
+#       fail せず Discord / job summary で「App 認証未設定で back-merge を発行できない = drift 顕在化」を通知する。
 #   - deploy 経路 (main push トリガー) に手を入れない (#2949 no-go)。本 workflow は
 #     deploy.yml / pages.yml / deploy-nuc.yml と独立した別 workflow として push[main] を購読する。
 #
-# author=Takenori-Kusaka 維持の前提 (B-3 #2871 と共通の手動設定依存):
+# author=GitHub App ボット名義の前提 (B-3 #2871 と共通の手動設定依存、#3067):
 #   GitHub Actions の secrets.GITHUB_TOKEN で PR を作ると author=github-actions[bot] になり
-#   pr-author-guard.yml に auto-close される。Takenori-Kusaka 名義を維持するため、本 workflow は
-#   repository secret BACK_MERGE_PAT (Takenori-Kusaka 個人 PAT、contents+pull-requests write) を
-#   使う。未設定環境では back-merge PR を発行できないため、drift を silent に放置せず通知する。
+#   pr-author-guard.yml に auto-close され、かつ下流 CI を発火させない。ボット独自 identity で PR を
+#   発行するため、本 workflow はプロジェクト専用 GitHub App の install トークン (短命発行・自動失効) を
+#   使う。承認は人間/lab が行うため作成者≠承認者が自然に満たされる (なりすましゼロ)。credential
+#   (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定環境では back-merge PR を
+#   発行できないため、drift を silent に放置せず通知する。長命個人 PAT (旧 BACK_MERGE_PAT) は撤廃。
 
 name: hotfix-back-merge
 
@@ -57,7 +59,7 @@ jobs:
         with:
           # back-merge には main と develop 双方の履歴が必要。
           fetch-depth: 0
-          # PR 発行は後段で BACK_MERGE_PAT を使う。checkout は既定 token で十分。
+          # PR 発行は後段で App install トークンを使う。checkout は既定 token で十分。
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v6
@@ -134,22 +136,52 @@ jobs:
           fi
 
       # ----------------------------------------------------------------------
-      # 3. PAT 検証: author=Takenori-Kusaka 維持に必須。未設定なら drift を通知 (silent fail なし、AC3)
+      # 3. GitHub App 認証情報の検証 + 短命トークン発行。未設定なら drift を通知 (silent fail なし、AC3)
       # ----------------------------------------------------------------------
-      - name: Verify BACK_MERGE_PAT presence
-        id: pat
+      - name: Verify GitHub App credentials presence
+        id: appcreds
         if: >-
           steps.classify.outputs.do_back_merge == 'true' &&
           steps.noop.outputs.already_in_develop == 'false'
         env:
-          BACK_MERGE_PAT: ${{ secrets.BACK_MERGE_PAT }}
+          APP_ID: ${{ secrets.INTEGRATION_BOT_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.INTEGRATION_BOT_APP_PRIVATE_KEY }}
         run: |
-          if [ -n "${BACK_MERGE_PAT:-}" ]; then
+          if [ -n "${APP_ID:-}" ] && [ -n "${APP_PRIVATE_KEY:-}" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::BACK_MERGE_PAT 未設定。author=Takenori-Kusaka 維持で back-merge PR を発行できない (ADR-0022 Amendment 4-2)。drift 通知のみ行う。"
+            echo "::warning::GitHub App 認証情報 (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY) 未設定。back-merge PR を発行できない (ADR-0022 Amendment 5)。drift 通知のみ行う。"
           fi
+
+      # App install トークンは実行毎に短命発行・自動失効する (長命個人 PAT 撤廃、#3067)。
+      # app-slug / トークンは後段の git push / commit author / PR 発行で使う。
+      - name: Generate GitHub App token
+        id: app-token
+        if: >-
+          steps.classify.outputs.do_back_merge == 'true' &&
+          steps.noop.outputs.already_in_develop == 'false' &&
+          steps.appcreds.outputs.present == 'true'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.INTEGRATION_BOT_APP_ID }}
+          private-key: ${{ secrets.INTEGRATION_BOT_APP_PRIVATE_KEY }}
+
+      # back-merge merge commit の author を App ボット identity に設定する (PR author と一致、AC4)。
+      - name: Resolve App bot identity (commit author)
+        id: bot-identity
+        if: >-
+          steps.classify.outputs.do_back_merge == 'true' &&
+          steps.noop.outputs.already_in_develop == 'false' &&
+          steps.appcreds.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          USER_ID=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          echo "name=${APP_SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
 
       # ----------------------------------------------------------------------
       # 4. back-merge branch を作成し、clean / conflict を判定して push する
@@ -159,12 +191,12 @@ jobs:
         if: >-
           steps.classify.outputs.do_back_merge == 'true' &&
           steps.noop.outputs.already_in_develop == 'false' &&
-          steps.pat.outputs.present == 'true'
+          steps.appcreds.outputs.present == 'true'
         env:
-          GIT_AUTHOR_NAME: Takenori-Kusaka
-          GIT_AUTHOR_EMAIL: takenori.kusaka@gmail.com
-          GIT_COMMITTER_NAME: Takenori-Kusaka
-          GIT_COMMITTER_EMAIL: takenori.kusaka@gmail.com
+          GIT_AUTHOR_NAME: ${{ steps.bot-identity.outputs.name }}
+          GIT_AUTHOR_EMAIL: ${{ steps.bot-identity.outputs.email }}
+          GIT_COMMITTER_NAME: ${{ steps.bot-identity.outputs.name }}
+          GIT_COMMITTER_EMAIL: ${{ steps.bot-identity.outputs.email }}
           BRANCH: ${{ steps.classify.outputs.branch }}
           MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
           HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
@@ -186,9 +218,9 @@ jobs:
             echo "conflict=true" >> "$GITHUB_OUTPUT"
             echo "::warning::back-merge で conflict 発生。conflict marker を残した PR を発行し status:blocked を付与する。"
           fi
-          git push "https://x-access-token:${{ secrets.BACK_MERGE_PAT }}@github.com/${{ github.repository }}.git" \
+          git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
             "$BRANCH" --force-with-lease || \
-          git push "https://x-access-token:${{ secrets.BACK_MERGE_PAT }}@github.com/${{ github.repository }}.git" \
+          git push "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git" \
             "$BRANCH" --force
 
       # ----------------------------------------------------------------------
@@ -199,17 +231,17 @@ jobs:
         if: >-
           steps.classify.outputs.do_back_merge == 'true' &&
           steps.noop.outputs.already_in_develop == 'false' &&
-          steps.pat.outputs.present == 'true'
+          steps.appcreds.outputs.present == 'true'
         uses: actions/github-script@v9
         env:
-          GH_TOKEN: ${{ secrets.BACK_MERGE_PAT }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH: ${{ steps.classify.outputs.branch }}
           HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
           HOTFIX_HEAD: ${{ steps.classify.outputs.hotfix_head }}
           MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
           CONFLICT: ${{ steps.merge.outputs.conflict }}
         with:
-          github-token: ${{ secrets.BACK_MERGE_PAT }}
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const { owner, repo } = context.repo;
             const branch = process.env.BRANCH;
@@ -249,7 +281,7 @@ jobs:
               '',
               '---',
               '- base: `develop` (軽量レーン、`pr-lane.mjs` rule 4 = feature)',
-              '- author: Takenori-Kusaka 維持 (ADR-0022 Amendment 4-2)',
+              '- author: GitHub App ボット名義 (ADR-0022 Amendment 5、承認は人間/lab)',
               `- 元 hotfix: #${hotfixPr}`,
               '- drift contract label: `back-merge` (B-3 統合 PR §6 が未取込 hotfix として読む)',
               '',
@@ -298,7 +330,7 @@ jobs:
             }
 
       # ----------------------------------------------------------------------
-      # 6. 通知 (Discord) — conflict / PAT 未設定 で drift を顕在化させる (AC3 / AC6)
+      # 6. 通知 (Discord) — conflict / App 認証未設定 で drift を顕在化させる (AC3 / AC6)
       # ----------------------------------------------------------------------
       - name: Notify drift / conflict (Discord)
         if: >-
@@ -306,17 +338,17 @@ jobs:
           steps.classify.outputs.do_back_merge == 'true' &&
           steps.noop.outputs.already_in_develop == 'false' &&
           vars.DISCORD_WEBHOOK_URL != '' &&
-          (steps.pat.outputs.present == 'false' || steps.merge.outputs.conflict == 'true')
+          (steps.appcreds.outputs.present == 'false' || steps.merge.outputs.conflict == 'true')
         env:
           WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
           HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
-          PAT_PRESENT: ${{ steps.pat.outputs.present }}
+          CREDS_PRESENT: ${{ steps.appcreds.outputs.present }}
           CONFLICT: ${{ steps.merge.outputs.conflict }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
-          if [ "${PAT_PRESENT}" = "false" ]; then
-            TITLE="hotfix back-merge 未発行 (PAT 未設定)"
-            DESC="hotfix #${HOTFIX_PR} の develop back-merge を発行できません (BACK_MERGE_PAT 未設定)。main/develop が drift します。手動 back-merge が必要です。"
+          if [ "${CREDS_PRESENT}" = "false" ]; then
+            TITLE="hotfix back-merge 未発行 (GitHub App 認証未設定)"
+            DESC="hotfix #${HOTFIX_PR} の develop back-merge を発行できません (INTEGRATION_BOT_APP_ID / INTEGRATION_BOT_APP_PRIVATE_KEY 未設定)。main/develop が drift します。手動 back-merge が必要です。"
             COLOR=15158332
           else
             TITLE="hotfix back-merge CONFLICT"
@@ -327,7 +359,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"$DESC\",\"color\":$COLOR}]}" || true
 
-      # PAT 未設定時は Discord に加えて GitHub log にも残す (vars 未設定環境のフォールバック)。
+      # App 認証未設定時は Discord に加えて GitHub log にも残す (vars 未設定環境のフォールバック)。
       - name: Drift summary (job summary)
         if: >-
           always() &&
@@ -335,7 +367,7 @@ jobs:
           steps.noop.outputs.already_in_develop == 'false'
         env:
           HOTFIX_PR: ${{ steps.classify.outputs.hotfix_pr }}
-          PAT_PRESENT: ${{ steps.pat.outputs.present }}
+          CREDS_PRESENT: ${{ steps.appcreds.outputs.present }}
           CONFLICT: ${{ steps.merge.outputs.conflict }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
         run: |
@@ -343,8 +375,8 @@ jobs:
             echo "### hotfix back-merge (#2951)"
             echo ""
             echo "- 元 hotfix: #${HOTFIX_PR}"
-            if [ "${PAT_PRESENT}" = "false" ]; then
-              echo "- 状態: ⚠️ PAT 未設定で back-merge 未発行 = **drift**。手動 back-merge が必要。"
+            if [ "${CREDS_PRESENT}" = "false" ]; then
+              echo "- 状態: ⚠️ GitHub App 認証未設定で back-merge 未発行 = **drift**。手動 back-merge が必要。"
             elif [ "${CONFLICT}" = "true" ]; then
               echo "- 状態: ⚠️ back-merge PR #${PR_NUMBER} で CONFLICT (status:blocked、手動解決必要)。"
             else

@@ -216,6 +216,59 @@ describe('/admin/rewards page.server', () => {
 			expect(mockGrantSpecialReward).toHaveBeenCalledTimes(1);
 			expect(result.granted).toBe(true);
 		});
+
+		// #3147: shop_category 列をフォームから addReward へ受け渡す
+		it('親が選んだ shopCategory (privilege) を addReward に渡す', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('standard');
+			mockGrantSpecialReward.mockResolvedValue({ id: 3, title: 'ゲーム30分', points: 100 });
+
+			await grantAction({
+				request: makeFormRequest({
+					childId: 1,
+					title: 'ゲーム30分',
+					points: 100,
+					icon: '🎮',
+					shopCategory: 'privilege',
+				}),
+				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
+			});
+
+			expect(mockGrantSpecialReward).toHaveBeenCalledTimes(1);
+			const arg = mockGrantSpecialReward.mock.calls[0]?.[0];
+			expect(arg.shopCategory).toBe('privilege');
+		});
+
+		it('shopCategory 未選択 (空) は null として addReward に渡す (表示側 fallback)', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('standard');
+			mockGrantSpecialReward.mockResolvedValue({ id: 4, title: 'おやつ', points: 30 });
+
+			await grantAction({
+				request: makeFormRequest({ childId: 1, title: 'おやつ', points: 30, icon: '🍪' }),
+				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
+			});
+
+			const arg = mockGrantSpecialReward.mock.calls[0]?.[0];
+			expect(arg.shopCategory).toBeNull();
+		});
+
+		it('shopCategory に不正値が来た場合は null に正規化する', async () => {
+			mockResolveFullPlanTier.mockResolvedValue('standard');
+			mockGrantSpecialReward.mockResolvedValue({ id: 5, title: 'ふせい', points: 10 });
+
+			await grantAction({
+				request: makeFormRequest({
+					childId: 1,
+					title: 'ふせい',
+					points: 10,
+					icon: '🎁',
+					shopCategory: 'not-a-real-category',
+				}),
+				locals: makeLocals({ licenseStatus: 'active', plan: 'standard_monthly' }),
+			});
+
+			const arg = mockGrantSpecialReward.mock.calls[0]?.[0];
+			expect(arg.shopCategory).toBeNull();
+		});
 	});
 
 	describe('addPreset action', () => {

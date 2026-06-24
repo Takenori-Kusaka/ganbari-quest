@@ -20,7 +20,7 @@ const t = $derived(getModeVariant((data.uiMode ?? 'preschool') as UiMode).text);
 		<Card padding="md" class="mb-[var(--sp-md)]">
 			{#snippet children()}
 			<div class="flex items-center gap-2 mb-[var(--sp-sm)]">
-				<span class="text-2xl">⚔️</span>
+				<span class="text-2xl">🤝</span>
 				<h2 class="text-base font-bold text-[var(--color-text)]">{t.achievementsWeeklyTitle}</h2>
 			</div>
 			<p class="text-sm text-[var(--color-text-secondary)] mb-[var(--sp-sm)]">{active.description}</p>

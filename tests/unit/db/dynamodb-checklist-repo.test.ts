@@ -171,3 +171,87 @@ describe('deleteOverride (#2845 B1: tenant + child 境界 + paging)', () => {
 		expect(mockSend.mock.calls[0]?.[0]).toBeInstanceOf(MockQueryCommand);
 	});
 });
+
+describe('findLogsByChild (#3078: child 単位バルク取得 + paging)', () => {
+	it('child partition Query (literal PK) + CKLOG# prefix で全件返す', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				{
+					PK: `T#${TENANT}#CHILD#${CHILD_ID}`,
+					SK: 'CKLOG#00000005#2026-03-15',
+					id: 1,
+					childId: CHILD_ID,
+					templateId: 5,
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: 1,
+					pointsAwarded: 7,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+			],
+		});
+		const { findLogsByChild } = await loadRepo();
+		const logs = await findLogsByChild(CHILD_ID, TENANT);
+
+		const query = mockSend.mock.calls[0]?.[0];
+		expect(query).toBeInstanceOf(MockQueryCommand);
+		const input = queryInput(0);
+		// literal PK assert: tenant + child 境界が KeyCondition で構造的に担保される
+		expect((input.ExpressionAttributeValues as Record<string, unknown>)[':pk']).toBe(
+			`T#${TENANT}#CHILD#${CHILD_ID}`,
+		);
+		expect((input.ExpressionAttributeValues as Record<string, unknown>)[':prefix']).toBe('CKLOG#');
+		// stripKeys で PK/SK が除去された domain 形で返る
+		expect(logs).toHaveLength(1);
+		expect(logs[0]).not.toHaveProperty('PK');
+		expect(logs[0]?.templateId).toBe(5);
+		expect(logs[0]?.pointsAwarded).toBe(7);
+	});
+
+	it('後続ページのログも全件集約する (#2842 paging)', async () => {
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [
+					{
+						PK: `T#${TENANT}#CHILD#${CHILD_ID}`,
+						SK: 'CKLOG#00000005#2026-03-14',
+						id: 1,
+						childId: CHILD_ID,
+						templateId: 5,
+						checkedDate: '2026-03-14',
+						itemsJson: '{}',
+						completedAll: 0,
+						pointsAwarded: 1,
+						createdAt: '2026-03-14T08:00:00Z',
+					},
+				],
+				LastEvaluatedKey: { PK: 'p', SK: 's' },
+			})
+			.mockResolvedValueOnce({
+				Items: [
+					{
+						PK: `T#${TENANT}#CHILD#${CHILD_ID}`,
+						SK: 'CKLOG#00000005#2026-03-15',
+						id: 2,
+						childId: CHILD_ID,
+						templateId: 5,
+						checkedDate: '2026-03-15',
+						itemsJson: '{}',
+						completedAll: 1,
+						pointsAwarded: 7,
+						createdAt: '2026-03-15T08:00:00Z',
+					},
+				],
+			});
+		const { findLogsByChild } = await loadRepo();
+		const logs = await findLogsByChild(CHILD_ID, TENANT);
+		expect(mockSend).toHaveBeenCalledTimes(2);
+		expect(logs).toHaveLength(2);
+	});
+
+	it('ログ 0 件なら空配列を返す', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [] });
+		const { findLogsByChild } = await loadRepo();
+		expect(await findLogsByChild(CHILD_ID, TENANT)).toEqual([]);
+	});
+});

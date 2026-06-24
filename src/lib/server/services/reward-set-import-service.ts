@@ -52,6 +52,60 @@ export interface RewardSetImportResult {
 	failed: number;
 }
 
+/**
+ * 重複検知モード (#3168)。
+ * - `'preset-scope'` (既定、#1254 G1): 「同一 sourcePresetId + 同一 title」のみ重複扱い。
+ *   marketplace preset 取込で、ユーザーが手動作成した同名 reward (sourcePresetId=NULL) を
+ *   clobber しないための意図的 scope。
+ * - `'content'` (#3168 backup/restore): sourcePresetId 非依存で「同一 title + 同一 points」を
+ *   全既存 reward と照合して重複扱い。populated tenant へ自分のバックアップを復元しても二重化
+ *   しない (restore 冪等性)。restore 専用で、preset 取込は `'preset-scope'` のまま。
+ */
+export type RewardDedupMode = 'preset-scope' | 'content';
+
+/** (title, points) を結合した content 重複キー。区切りに NUL を使い title 内の偶発衝突を避ける。 */
+function rewardContentKey(title: string, points: number): string {
+	return `${title}\0${points}`;
+}
+
+/**
+ * 既存 reward 群から「取込候補 reward が重複か」を判定する matcher を構築する (#3168)。
+ * dedupMode で preset-scope (#1254 G1) / content (restore 冪等) を切り替える。
+ */
+interface RewardDuplicateMatcher {
+	/** 取込候補 reward が (既存 or 同一バッチ内で既取込) 重複か */
+	isDuplicate(reward: { title: string; points: number }): boolean;
+	/** import で実 INSERT した reward を「既取込」として登録 (同一バッチ内の重複 title も skip するため) */
+	markImported(reward: { title: string; points: number }): void;
+}
+
+function buildRewardDuplicateMatcher(
+	existing: ReadonlyArray<{ title: string; points: number; sourcePresetId?: string | null }>,
+	presetId: string,
+	dedupMode: RewardDedupMode,
+): RewardDuplicateMatcher {
+	if (dedupMode === 'content') {
+		// #3168: sourcePresetId 非依存で (title+points) 照合 = restore 冪等。
+		const keys = new Set(existing.map((r) => rewardContentKey(r.title, r.points)));
+		return {
+			isDuplicate: (reward) => keys.has(rewardContentKey(reward.title, reward.points)),
+			markImported: (reward) => {
+				keys.add(rewardContentKey(reward.title, reward.points));
+			},
+		};
+	}
+	// 既定 (preset-scope, #1254 G1): 同一 sourcePresetId + 同一 title のみ重複。
+	const sameSourceTitles = new Set(
+		existing.filter((r) => r.sourcePresetId === presetId).map((r) => r.title),
+	);
+	return {
+		isDuplicate: (reward) => sameSourceTitles.has(reward.title),
+		markImported: (reward) => {
+			sameSourceTitles.add(reward.title);
+		},
+	};
+}
+
 export interface ImportRewardSetOptions {
 	/**
 	 * マーケットプレイスのプリセット ID（例: `kinder-rewards`）。
@@ -63,6 +117,11 @@ export interface ImportRewardSetOptions {
 	 * 適用対象の子供 ID。reward-set は子供毎に付与するため必須。
 	 */
 	childId: number;
+	/**
+	 * 重複検知モード (#3168)。省略時は `'preset-scope'` (既定、#1254 G1)。
+	 * backup/restore は `'content'` を渡して冪等復元する。
+	 */
+	dedupMode?: RewardDedupMode;
 }
 
 /**
@@ -109,17 +168,16 @@ export async function previewRewardSetImport(
 	presetId: string,
 	childId: number,
 	tenantId: string,
+	dedupMode: RewardDedupMode = 'preset-scope',
 ): Promise<RewardSetImportPreview> {
 	const existing = await findSpecialRewards(childId, tenantId);
-	const sameSourceTitles = new Set(
-		existing.filter((r) => r.sourcePresetId === presetId).map((r) => r.title),
-	);
+	const matcher = buildRewardDuplicateMatcher(existing, presetId, dedupMode);
 
 	const duplicateTitles: string[] = [];
 	let newCount = 0;
 
 	for (const r of rewards) {
-		if (sameSourceTitles.has(r.title)) {
+		if (matcher.isDuplicate(r)) {
 			duplicateTitles.push(r.title);
 		} else {
 			newCount++;
@@ -158,19 +216,17 @@ export async function importRewardSet(
 	tenantId: string,
 	options: ImportRewardSetOptions,
 ): Promise<RewardSetImportResult> {
-	const { presetId, childId } = options;
+	const { presetId, childId, dedupMode = 'preset-scope' } = options;
 
 	const existing = await findSpecialRewards(childId, tenantId);
-	const sameSourceTitles = new Set(
-		existing.filter((r) => r.sourcePresetId === presetId).map((r) => r.title),
-	);
+	const matcher = buildRewardDuplicateMatcher(existing, presetId, dedupMode);
 
 	const errors: string[] = [];
 	let imported = 0;
 	let skipped = 0;
 
 	for (const r of rewards) {
-		if (sameSourceTitles.has(r.title)) {
+		if (matcher.isDuplicate(r)) {
 			skipped++;
 			continue;
 		}
@@ -186,11 +242,13 @@ export async function importRewardSet(
 					icon: r.icon,
 					category: r.category,
 					sourcePresetId: presetId,
+					// #3147: preset 由来の shop_category を round-trip (null は表示側 fallback)
+					shopCategory: r.shopCategory ?? null,
 				},
 				tenantId,
 			);
 			imported++;
-			sameSourceTitles.add(r.title);
+			matcher.markImported(r);
 		} catch (e) {
 			errors.push(`「${r.title}」: ${String(e)}`);
 		}

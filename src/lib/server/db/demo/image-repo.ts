@@ -22,7 +22,7 @@ export async function insertCharacterImage(
 
 export async function updateChildAvatarUrl(
 	_childId: number,
-	_avatarUrl: string,
+	_avatarUrl: string | null,
 	_tenantId: string,
 ): Promise<void> {
 	// Stub: no-op

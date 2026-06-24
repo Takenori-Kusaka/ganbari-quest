@@ -10,8 +10,31 @@ import {
 	unlinkSync,
 	writeFileSync,
 } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import type { FileData, IStorageRepo } from '../interfaces/storage.interface';
+
+/**
+ * key が static/ ディレクトリ配下に収まることを保証して絶対パスを返す (zip-slip 防御)。
+ * `..` 等で static/ を抜け出す key は拒否する (import 経由の悪意ある ZIP からの path escape 阻止)。
+ */
+function resolveContainedPath(key: string): string {
+	const staticDir = resolve(process.cwd(), 'static');
+	// OS 非依存の事前拒否 (Linux では `\` がファイル名のリテラル文字となり path.resolve の
+	// containment では escape を検知できないため、`\` を含む key は無条件で弾く)。
+	// 絶対パス・Windows ドライブレターも `path.resolve` 前に拒否して防御を多層化する。
+	if (
+		key.includes('\\') || // backslash (Windows separator / Linux ではリテラル文字)
+		key.startsWith('/') || // 絶対パス (POSIX)
+		/^[a-zA-Z]:/.test(key) // Windows ドライブレター
+	) {
+		throw new Error(`storage key が static/ ディレクトリを逸脱しています: ${key}`);
+	}
+	const dest = resolve(staticDir, key);
+	if (dest !== staticDir && !dest.startsWith(staticDir + sep)) {
+		throw new Error(`storage key が static/ ディレクトリを逸脱しています: ${key}`);
+	}
+	return dest;
+}
 
 const MIME_TYPES: Record<string, string> = {
 	jpg: 'image/jpeg',
@@ -22,7 +45,8 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 export const saveFile: IStorageRepo['saveFile'] = async (key, data, _contentType) => {
-	const fullPath = join(process.cwd(), 'static', key);
+	// zip-slip 防御: key が static/ 配下に収まることを書き込み前に検証する。
+	const fullPath = resolveContainedPath(key);
 	const dir = dirname(fullPath);
 	if (!existsSync(dir)) {
 		mkdirSync(dir, { recursive: true });

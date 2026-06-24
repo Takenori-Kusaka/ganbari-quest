@@ -14,6 +14,8 @@ export async function insertSpecialReward(
 		icon?: string;
 		category: string;
 		sourcePresetId?: string | null;
+		// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は null で表示側 fallback
+		shopCategory?: string | null;
 	},
 	_tenantId: string,
 ) {
@@ -72,6 +74,8 @@ export async function updateSpecialReward(
 	if (updates.points !== undefined) set.points = updates.points;
 	if (updates.icon !== undefined) set.icon = updates.icon;
 	if (updates.category !== undefined) set.category = updates.category;
+	// #3154: 陳列系統 (physical/money/privilege/null) を編集で変更可能にする
+	if (updates.shopCategory !== undefined) set.shopCategory = updates.shopCategory;
 	if (Object.keys(set).length === 0) {
 		return db.select().from(specialRewards).where(ownership).get();
 	}

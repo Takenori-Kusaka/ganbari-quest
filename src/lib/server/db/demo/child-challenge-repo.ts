@@ -86,6 +86,24 @@ export async function insert(
 	};
 }
 
+/**
+ * #3245: auto:weekly の atomic get-or-create (demo stub)。
+ * demo は read=fixture / write=stub のため、当週 fixture があればそれを返し、無ければ insert stub を返す。
+ */
+export async function getOrCreateWeeklyAuto(
+	input: InsertChildChallengeInput,
+	tenantId: string,
+): Promise<ChildChallenge> {
+	const existing = DEMO_CHILD_CHALLENGES.find(
+		(c) =>
+			c.childId === input.childId &&
+			c.startDate === input.startDate &&
+			c.sourceTemplateId === (input.sourceTemplateId ?? 'auto:weekly'),
+	);
+	if (existing) return existing;
+	return insert(input, tenantId);
+}
+
 export async function insertBulk(
 	inputs: readonly InsertChildChallengeInput[],
 	tenantId: string,

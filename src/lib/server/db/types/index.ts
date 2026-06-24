@@ -243,6 +243,8 @@ export interface SpecialReward {
 	shownAt: string | null;
 	// #1254 G1: プリセット非由来は NULL / 未設定
 	sourcePresetId?: string | null;
+	// #3147: ショップ陳列系統 (physical/money/privilege)。null は旧行/未指定で表示側が推定 fallback
+	shopCategory?: string | null;
 }
 
 /** ごほうびショップ交換申請 (#1337) */
@@ -477,6 +479,8 @@ export interface InsertSpecialRewardInput {
 	icon?: string;
 	category: string;
 	sourcePresetId?: string | null;
+	// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は表示側 deriveShopCategory に委ねる
+	shopCategory?: string | null;
 }
 
 export interface InsertStatusHistoryInput {
@@ -1024,36 +1028,10 @@ export interface InsertCloudExportInput {
 // #2295 (EPIC #2294 ①): TenantEvent / InsertTenantEventInput / UpdateTenantEventInput /
 // TenantEventProgress / UpsertTenantEventProgressInput 型削除済 (2026-05-19)
 
-// ============================================================
-// Auto Challenges (weekly auto-generated per-child challenges)
-// ============================================================
-
-export type AutoChallengeStatus = 'active' | 'completed' | 'expired';
-
-export interface AutoChallenge {
-	id: number;
-	childId: number;
-	tenantId: string;
-	weekStart: string;
-	categoryId: number;
-	targetCount: number;
-	currentCount: number;
-	status: string;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface InsertAutoChallengeInput {
-	childId: number;
-	weekStart: string;
-	categoryId: number;
-	targetCount: number;
-}
-
-export interface UpdateAutoChallengeInput {
-	currentCount?: number;
-	status?: string;
-}
+// #3213 (EPIC #3193): AutoChallenge / AutoChallengeStatus / AutoChallengeMode /
+// InsertAutoChallengeInput / UpdateAutoChallengeInput 型削除済。週次自動生成チャレンジは
+// child_challenges へ一本化され (#3195)、生成アルゴリズムが使う最小 prev 型は
+// child-challenge-service.ts の ChallengePrev へ移設した。
 
 // ============================================================
 // Viewer Tokens (閲覧専用リンク #371)

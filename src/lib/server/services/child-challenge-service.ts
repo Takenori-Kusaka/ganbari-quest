@@ -20,6 +20,263 @@ import type {
 	ChildChallengeWithSiblings,
 	InsertChildChallengeInput,
 } from '$lib/server/db/types';
+import { aggregateActivityLogsByCategory } from '$lib/server/services/activity-log-aggregation';
+
+// ============================================================
+// 週次チャレンジ生成アルゴリズム (#3194 / #3213、旧 auto-challenge-service より移設)
+// 苦手中心＋時々得意の週次チャレンジを、行動科学・教育心理学ベースの
+// ヒューリスティック＋調整可能定数で生成する純粋関数群。
+// auto_challenges テーブル廃止 (#3213) に伴い child_challenges 一本化側へ移設した。
+// 設計: docs/design/44-チャレンジ設計書.md §3.4 / docs/rationale/12-auto-challenge-generation-rationale.md
+// ============================================================
+
+/** Category IDs from the categories master table */
+const ALL_CATEGORY_IDS = [1, 2, 3, 4, 5];
+
+/** Category names for display (生成 challenge の view 整形でも再利用) */
+export const CATEGORY_NAMES: Record<number, string> = {
+	1: 'うんどう',
+	2: 'べんきょう',
+	3: 'せいかつ',
+	4: 'こうりゅう',
+	5: 'そうぞう',
+};
+
+/** 生成モード。weakness=苦手, strength=得意深掘り週, rescue-strength=連続未達レスキュー, explore=データ不足 (#3194) */
+export type ChallengeProposalMode = 'weakness' | 'strength' | 'rescue-strength' | 'explore';
+
+// ------------------------------------------------------------
+// 調整可能定数 (§3.4)。1 箇所に集約し「ルールエンジン化しない」境界を物理的に示す。
+// ------------------------------------------------------------
+/** 実測週平均 + これ = base target */
+const TARGET_DELTA = 1;
+/** target 下限 (Fogg "make it tiny" で 3→2)。週1回ペースを下回らせない最小の前進 */
+const MIN_TARGET = 2;
+/** target 上限 (青天井で難度を煽らない) */
+const MAX_TARGET = 7;
+/** 苦手カテゴリ優先の重み (rank 0 の苦手に WEAK_BIAS_BASE、以降 -1) */
+const WEAK_BIAS_BASE = 5;
+/** 「得意深掘り週」を入れる周期 */
+const EVERY_N_WEEKS_STRONG = 4;
+/** 達成時の昇圧 (ジャスト達成) */
+const BUMP_NORMAL = 1;
+/** 達成時の昇圧 (大幅超過) */
+const BUMP_OVERSHOOT = 2;
+/** 連続未達がこの数に達したらレスキュー (target 最小 + 得意週) に切替える */
+const MISS_RESCUE_AFTER = 2;
+/** Minimum records to analyze (if below this, use explore challenge) */
+const MIN_RECORDS_FOR_ANALYSIS = 3;
+
+/**
+ * computeProposal が前週情報として必要とする最小 shape (#3213)。
+ * 旧 `AutoChallenge` (auto_challenges 行型) から本 standalone 型へ置換した。
+ * 前週 child_challenge を `toProposalPrev` でこの形に写像して渡す。
+ */
+export interface ChallengePrev {
+	/** 前週の達成状態。'completed' なら連続未達カウントをリセットする */
+	status: string;
+	/** 前週生成時点での連続未達週数 */
+	consecutiveMissCount: number;
+	/** 前週のカテゴリ ID (同一カテゴリ回避 / target 据置判定に使う) */
+	categoryId: number;
+	/** 前週の目標回数 (翌週適応の Flow 分岐に使う) */
+	targetCount: number;
+	/** 前週の実績回数 (overshoot / reach ratio 計算に使う) */
+	currentCount: number;
+}
+
+export interface ChallengeProposal {
+	categoryId: number;
+	categoryName: string;
+	targetCount: number;
+	mode: ChallengeProposalMode;
+	consecutiveMissCount: number;
+	reason: string;
+}
+
+function clamp(value: number, min: number, max: number): number {
+	return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Get the current Monday's date string (YYYY-MM-DD) for a given date.
+ * Uses local date components to avoid timezone issues.
+ */
+export function getWeekStart(date: Date = new Date()): string {
+	const d = new Date(date);
+	const day = d.getDay(); // 0=Sun, 1=Mon, ...
+	const diff = day === 0 ? -6 : 1 - day; // Adjust to Monday
+	d.setDate(d.getDate() + diff);
+	const yyyy = d.getFullYear();
+	const mm = String(d.getMonth() + 1).padStart(2, '0');
+	const dd = String(d.getDate()).padStart(2, '0');
+	return `${yyyy}-${mm}-${dd}`;
+}
+
+/** weekStart (YYYY-MM-DD, Monday) の 1 週間前の Monday を返す。 */
+export function getLastWeekStart(weekStart: string): string {
+	const [y, m, d] = weekStart.split('-').map(Number);
+	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+	dt.setUTCDate(dt.getUTCDate() - 7);
+	const yyyy = dt.getUTCFullYear();
+	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+	const dd = String(dt.getUTCDate()).padStart(2, '0');
+	return `${yyyy}-${mm}-${dd}`;
+}
+
+/** weekStart を epoch からの週インデックスに変換する (得意週の周期判定用、決定的)。 */
+function weekIndexOf(weekStart: string): number {
+	const [y, m, d] = weekStart.split('-').map(Number);
+	const ms = Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+	return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
+}
+
+/** 直近 2 週間のカテゴリ別記録数を集計する。週次自動生成の苦手判定入力に使う。 */
+export async function aggregateCategoryCounts(
+	childId: number,
+	tenantId: string,
+): Promise<Record<number, number>> {
+	const now = new Date();
+	const twoWeeksAgo = new Date(now);
+	twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+	const fromDate = twoWeeksAgo.toISOString().slice(0, 10);
+	const toDate = now.toISOString().slice(0, 10);
+
+	const { summary } = await aggregateActivityLogsByCategory(childId, tenantId, {
+		from: fromDate,
+		to: toDate,
+	});
+
+	const counts: Record<number, number> = {};
+	for (const catId of ALL_CATEGORY_IDS) {
+		counts[catId] = summary.byCategory[catId]?.count ?? 0;
+	}
+	return counts;
+}
+
+/** 最多記録カテゴリ (得意) を返す。同数は最小 id を優先 (決定的)。 */
+function strongestCategory(counts: Record<number, number>): number {
+	let best = ALL_CATEGORY_IDS[0] ?? 1;
+	let max = -1;
+	for (const catId of ALL_CATEGORY_IDS) {
+		const n = counts[catId] ?? 0;
+		if (n > max) {
+			max = n;
+			best = catId;
+		}
+	}
+	return best;
+}
+
+/**
+ * 苦手バイアスの重み付き抽選。記録が少ないカテゴリほど重みが高い (rank 0 = WEAK_BIAS_BASE)。
+ * excludeId を渡すと連続週の同一カテゴリを避ける。
+ */
+function weightedWeakPick(counts: Record<number, number>, excludeId?: number): number {
+	const cats = ALL_CATEGORY_IDS.filter((c) => c !== excludeId);
+	const sorted = [...cats].sort((a, b) => (counts[a] ?? 0) - (counts[b] ?? 0));
+	const weighted = sorted.map((c, rank) => ({ c, w: Math.max(1, WEAK_BIAS_BASE - rank) }));
+	const total = weighted.reduce((s, x) => s + x.w, 0);
+	let r = Math.random() * total;
+	for (const x of weighted) {
+		r -= x.w;
+		if (r <= 0) return x.c;
+	}
+	return sorted[0] ?? ALL_CATEGORY_IDS[0] ?? 1;
+}
+
+function reasonFor(mode: ChallengeProposalMode, categoryName: string): string {
+	switch (mode) {
+		case 'explore':
+			return 'まだ記録が少ないので、いろんなことにチャレンジしてみよう！';
+		case 'strength':
+			return `得意な「${categoryName}」をもっと伸ばしてみよう！`;
+		case 'rescue-strength':
+			return `得意な「${categoryName}」でリズムを取り戻そう！`;
+		default:
+			return `最近「${categoryName}」が少なめだったから、今週はチャレンジしてみよう！`;
+	}
+}
+
+/** カテゴリ選択 (weighted interleaving §3.4)。explore / rescue-strength / strength / weakness を返す。 */
+function selectCategory(
+	counts: Record<number, number>,
+	prev: ChallengePrev | undefined,
+	weekStart: string,
+	consecutiveMissCount: number,
+): { categoryId: number; mode: ChallengeProposalMode } {
+	const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0);
+	if (totalRecords < MIN_RECORDS_FOR_ANALYSIS) {
+		return {
+			categoryId: ALL_CATEGORY_IDS[Math.floor(Math.random() * ALL_CATEGORY_IDS.length)] ?? 1,
+			mode: 'explore',
+		};
+	}
+	if (consecutiveMissCount >= MISS_RESCUE_AFTER) {
+		return { categoryId: strongestCategory(counts), mode: 'rescue-strength' };
+	}
+	if (weekIndexOf(weekStart) % EVERY_N_WEEKS_STRONG === 0) {
+		return { categoryId: strongestCategory(counts), mode: 'strength' };
+	}
+	let categoryId = weightedWeakPick(counts);
+	// 直前週と同一カテゴリは原則回避 (interleaving の連続ブロック防止)
+	if (prev != null && categoryId === prev.categoryId) {
+		categoryId = weightedWeakPick(counts, prev.categoryId);
+	}
+	return { categoryId, mode: 'weakness' };
+}
+
+/** target 決定 (ability ベース + Flow 3 分岐適応 §3.4)。 */
+function decideTarget(
+	counts: Record<number, number>,
+	prev: ChallengePrev | undefined,
+	categoryId: number,
+	mode: ChallengeProposalMode,
+): number {
+	if (mode === 'rescue-strength') return MIN_TARGET; // 必ず達成できる最小目標
+
+	const avg = (counts[categoryId] ?? 0) / 2; // 直近 2 週の週平均
+	const base = clamp(Math.round(avg) + TARGET_DELTA, MIN_TARGET, MAX_TARGET);
+
+	if (prev == null || prev.categoryId !== categoryId) return base; // 別カテゴリは base 基準
+	if (prev.status === 'completed') {
+		const overshoot = prev.currentCount - prev.targetCount;
+		const bump = overshoot >= 2 ? BUMP_OVERSHOOT : BUMP_NORMAL;
+		return clamp(Math.max(base, prev.targetCount + bump), MIN_TARGET, MAX_TARGET);
+	}
+	// 同カテゴリ未達: 半分以上できていれば据置 (折らない)、半分未満は下げる (anxiety 脱出)
+	const ratio = prev.targetCount > 0 ? prev.currentCount / prev.targetCount : 0;
+	return ratio >= 0.5
+		? Math.max(MIN_TARGET, prev.targetCount)
+		: Math.max(MIN_TARGET, prev.targetCount - 1);
+}
+
+/**
+ * カテゴリ別記録数と前週チャレンジから今週のチャレンジ提案を決める (§3.4)。
+ * カテゴリ選択 (weighted interleaving) + target (ability ベース + 前週結果の Flow 適応) を統合する。
+ */
+export function computeProposal(
+	counts: Record<number, number>,
+	prev: ChallengePrev | undefined,
+	weekStart: string,
+): ChallengeProposal {
+	// 生成時点での「連続未達週数」(前週が未達なら前週の streak + 1、達成ならリセット)
+	const prevMissed = prev != null && prev.status !== 'completed';
+	const consecutiveMissCount = prevMissed ? (prev?.consecutiveMissCount ?? 0) + 1 : 0;
+
+	const { categoryId, mode } = selectCategory(counts, prev, weekStart, consecutiveMissCount);
+	const targetCount = decideTarget(counts, prev, categoryId, mode);
+
+	const categoryName = CATEGORY_NAMES[categoryId] ?? '';
+	return {
+		categoryId,
+		categoryName,
+		targetCount,
+		mode,
+		consecutiveMissCount,
+		reason: reasonFor(mode, categoryName),
+	};
+}
 
 /** group key 解決 (admin getChallengeGroupsForAdmin と同一規約、ADR-0055 §4.7 整合) */
 function resolveGroupKey(
@@ -143,6 +400,116 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 	return groups;
 }
 
+// ============================================================
+// アプリ週次自動生成 (#3195、EPIC #3193 child_challenges 一本化)
+// 親手動作成に代わり、アプリが毎週 child_challenges を自動生成する。
+// 生成アルゴリズム (苦手中心＋時々得意＋翌週適応) は本ファイル冒頭の computeProposal
+// (#3213 で auto-challenge-service より移設) を使う。child_challenges に書くことで既存の進捗フック
+// (updateChildChallengeProgress) / 完了 / ごほうび受取 / バナー / 達成演出が
+// そのまま生きる。生成メタ (mode / 連続未達) は targetConfig JSON に内包し
+// child_challenges のスキーマ変更を不要にする。
+// ============================================================
+
+/** 自動生成 instance を識別する sourceTemplateId 値 */
+const AUTO_WEEKLY_SOURCE = 'auto:weekly';
+/** 自動生成チャレンジ達成時の既定ごほうびポイント (PO 確認対象、控えめな既定値) */
+const AUTO_WEEKLY_REWARD_POINTS = 30;
+
+/** weekStart (Monday, YYYY-MM-DD) の週末 (Sunday) を返す。 */
+function weekEndOf(weekStart: string): string {
+	const [y, m, d] = weekStart.split('-').map(Number);
+	const dt = new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1));
+	dt.setUTCDate(dt.getUTCDate() + 6);
+	const yyyy = dt.getUTCFullYear();
+	const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+	const dd = String(dt.getUTCDate()).padStart(2, '0');
+	return `${yyyy}-${mm}-${dd}`;
+}
+
+/** 前週の自動生成 child_challenge を computeProposal の prev 入力 (ChallengePrev 形) に写像する。 */
+function toProposalPrev(row: ChildChallenge): ChallengePrev {
+	let categoryId = 1;
+	let genMissStreak = 0;
+	try {
+		const cfg = JSON.parse(row.targetConfig) as {
+			categoryId?: number;
+			genMissStreak?: number;
+		};
+		categoryId = cfg.categoryId ?? 1;
+		genMissStreak = cfg.genMissStreak ?? 0;
+	} catch {
+		// 破損 JSON は既定値で続行
+	}
+	return {
+		categoryId,
+		targetCount: row.targetValue,
+		currentCount: row.currentValue,
+		status: row.completed === 1 ? 'completed' : 'expired',
+		consecutiveMissCount: genMissStreak,
+	};
+}
+
+/**
+ * 当週のアプリ自動生成 child_challenge を取得 (なければ生成)。子供 home / challenges の
+ * load で呼び、バナー等に流す。冪等 (当週分が既にあれば再生成しない)。
+ */
+export async function getOrCreateWeeklyChildChallenge(
+	childId: number,
+	tenantId: string,
+): Promise<ChildChallenge> {
+	const repos = getRepos();
+	const weekStart = getWeekStart();
+
+	const all = await repos.childChallenge.findByChildId(childId, tenantId);
+	const existing = all.find(
+		(c) => c.sourceTemplateId === AUTO_WEEKLY_SOURCE && c.startDate === weekStart,
+	);
+	if (existing) return existing;
+
+	const lastWeekStart = getLastWeekStart(weekStart);
+	const prevRow = all.find(
+		(c) => c.sourceTemplateId === AUTO_WEEKLY_SOURCE && c.startDate === lastWeekStart,
+	);
+	const counts = await aggregateCategoryCounts(childId, tenantId);
+	const proposal = computeProposal(
+		counts,
+		prevRow ? toProposalPrev(prevRow) : undefined,
+		weekStart,
+	);
+
+	const targetConfig = JSON.stringify({
+		metric: 'count',
+		categoryId: proposal.categoryId,
+		baseTarget: proposal.targetCount,
+		genMode: proposal.mode,
+		genMissStreak: proposal.consecutiveMissCount,
+	});
+	const rewardConfig = JSON.stringify({
+		points: AUTO_WEEKLY_REWARD_POINTS,
+		message: proposal.reason,
+	});
+
+	// #3245: insert ではなく atomic getOrCreateWeeklyAuto を使う。
+	// 上の existing 事前チェックは最適化に過ぎず、concurrent race (両者が「無し」と判定) でも
+	// DB の一意制約 + 条件付き書込で 1 行に収束させ、ポイント二重付与を不可能化する。
+	return repos.childChallenge.getOrCreateWeeklyAuto(
+		{
+			childId,
+			title: `今週は「${proposal.categoryName}」を${proposal.targetCount}回`,
+			description: proposal.reason,
+			challengeType: 'cooperative',
+			periodType: 'weekly',
+			startDate: weekStart,
+			endDate: weekEndOf(weekStart),
+			targetConfig,
+			rewardConfig,
+			sourceTemplateId: AUTO_WEEKLY_SOURCE,
+			targetValue: proposal.targetCount,
+		},
+		tenantId,
+	);
+}
+
 /** 子供画面: 子供自身のアクティブ challenge 一覧 */
 export async function getActiveChildChallenges(
 	childId: number,
@@ -151,6 +518,80 @@ export async function getActiveChildChallenges(
 	const repos = getRepos();
 	const today = todayDateJST();
 	return repos.childChallenge.findActiveByChildId(childId, today, tenantId);
+}
+
+/**
+ * #3195: 子供 challenges ページ表示用の view 整形型。
+ * 旧 auto-challenge-service の `ActiveChallengeInfo` を child_challenges 一本化に合わせて再現する
+ * (home が child_challenges を生成し、challenges ページもこれを読むことで二重生成を防ぐ)。
+ */
+export interface ChildChallengeView {
+	id: number;
+	categoryName: string;
+	targetCount: number;
+	currentCount: number;
+	weekStart: string;
+	status: 'active' | 'completed' | 'expired';
+	progressPercent: number;
+	description: string;
+}
+
+/** child_challenge row → 子供画面 view (categoryName は targetConfig.categoryId から解決)。 */
+function toChildChallengeView(row: ChildChallenge): ChildChallengeView {
+	let categoryId: number | undefined;
+	try {
+		const cfg = JSON.parse(row.targetConfig) as { categoryId?: number };
+		categoryId = cfg.categoryId;
+	} catch {
+		// 破損 JSON は categoryName 空で続行
+	}
+	const categoryName = categoryId ? (CATEGORY_NAMES[categoryId] ?? '') : '';
+	const target = row.targetValue > 0 ? row.targetValue : 1;
+	const current = row.currentValue;
+	const status: ChildChallengeView['status'] =
+		row.completed === 1
+			? 'completed'
+			: row.startDate <= todayDateJST() && row.endDate >= todayDateJST()
+				? 'active'
+				: 'expired';
+	return {
+		id: row.id,
+		categoryName,
+		targetCount: row.targetValue,
+		currentCount: current,
+		weekStart: row.startDate,
+		status,
+		progressPercent: Math.min(100, Math.round((current / target) * 100)),
+		description: row.description ?? '',
+	};
+}
+
+/**
+ * #3195: 子供 challenges ページの当週アクティブ challenge を view 形で取得 (なければ自動生成)。
+ * home の `getOrCreateWeeklyChildChallenge` と同一の生成入口を共有するため、challenges ページと
+ * home は常に同一の週次 child_challenge を表示する (一本化、二重生成なし)。
+ */
+export async function getOrCreateWeeklyChildChallengeView(
+	childId: number,
+	tenantId: string,
+): Promise<ChildChallengeView> {
+	const row = await getOrCreateWeeklyChildChallenge(childId, tenantId);
+	return toChildChallengeView(row);
+}
+
+/** #3195: 子供 challenges ページの履歴 (新しい順、上限 limit)。 */
+export async function getChildChallengeHistory(
+	childId: number,
+	tenantId: string,
+	limit = 10,
+): Promise<ChildChallengeView[]> {
+	const repos = getRepos();
+	const all = await repos.childChallenge.findByChildId(childId, tenantId);
+	return all
+		.slice()
+		.sort((a, b) => b.startDate.localeCompare(a.startDate))
+		.slice(0, limit)
+		.map(toChildChallengeView);
 }
 
 /**

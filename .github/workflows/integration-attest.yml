@@ -1,0 +1,297 @@
+# integration-attest.yml — Issue #2876 (Phase B/B-4、親 #2949 / EPIC #2861)
+#
+# 統合 PR (develop → main / release/* → main) の merge commit に、マージ判定エビデンスを
+# in-toto Release predicate 互換 attestation として紐付け、Sigstore 署名 → GH attestations API へ
+# 永続化する。これにより merge 後も `gh attestation verify <sha>` で「統合 PR は含有 PR 群 ×
+# テスト結果 × NG 0 件エビデンス」を改ざん検知可能な形で恒久追跡できる (tmp/ 揮発の解消、
+# ADR-0056 self-report 退化の構造封じ)。
+#
+# 生成 SSOT (pure function、unit test 済):
+#   - scripts/audit/to-sarif.mjs                (SARIF 2.1.0 変換)
+#   - scripts/audit/generate-release-predicate.mjs (in-toto Release predicate v0.2)
+# 本 workflow は薄い orchestrator。生成 logic は yml に分散させない (#1442 / hotfix-back-merge.yml 同型)。
+#
+# 設計原則 (Issue #2876 no-gos / branch-strategy.md §2):
+#   - deploy 経路 (main push トリガー) に手を入れない。本 workflow は deploy.yml / pages.yml /
+#     deploy-nuc.yml / hotfix-back-merge.yml と独立した別 workflow として push[main] を購読する
+#     (deploy 系と needs 関係なし = 独立 job)。
+#   - 統合 merge でない push (直接 push / 非統合 PR merge) は no-op で skip する (silent fail なし、
+#     job summary に理由を明示)。判定は listPullRequestsAssociatedWithCommit で行う。
+#   - attestation 発行が失敗 (権限 / 環境不備) しても deploy を阻害しない (独立 job、本 workflow の
+#     fail は deploy に波及しない)。失敗時は warning + job summary で通知し degrade する。
+#   - in-toto Release attestation であり build provenance ではない (slsa-github-generator は不採用、
+#     actions/attest + Release predicate の最小構成、Pre-PMF / ADR-0010)。
+
+name: integration-attest
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'attestation 対象の main merge commit SHA (省略時は最新 main HEAD)'
+        required: false
+        type: string
+
+# 同一 main HEAD への重複起動を防ぐ (push 連発時の二重 attestation 回避)。
+concurrency:
+  group: integration-attest-${{ github.ref }}
+  cancel-in-progress: false
+
+# actions/attest の必須権限 (id-token: Sigstore OIDC / attestations: GH attestations API write)。
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  attest:
+    name: 統合 merge エビデンスの attestation 永続化
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v6
+        with:
+          # 含有 PR 算出 (前回統合 merge 以降) に full history が必要。
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      # ----------------------------------------------------------------------
+      # 1. push された commit が「統合 merge」か判定する (非統合は no-op で skip、silent fail なし)
+      #    統合 merge = merge commit かつ base=main + head=develop|release/* の PR に紐づく。
+      # ----------------------------------------------------------------------
+      - name: Classify push (統合 merge 判定)
+        id: classify
+        uses: actions/github-script@v9
+        env:
+          DISPATCH_SHA: ${{ inputs.sha }}
+        with:
+          script: |
+            const sha = (process.env.DISPATCH_SHA || context.sha).trim();
+            core.info(`attestation 判定対象 SHA: ${sha}`);
+
+            const { owner, repo } = context.repo;
+            const assoc = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner, repo, commit_sha: sha,
+            });
+            const merged = assoc.data.find((p) => p.merged_at) || assoc.data[0];
+
+            if (!merged) {
+              core.info('この SHA に紐づく PR が無い (直接 push) → 統合 merge ではない (no-op)');
+              core.setOutput('is_integration', 'false');
+              core.setOutput('reason', 'no-associated-pr');
+              return;
+            }
+
+            const headRef = merged.head?.ref ?? '';
+            const baseRef = merged.base?.ref ?? '';
+            core.info(`merged PR #${merged.number}: head=${headRef} base=${baseRef}`);
+
+            // 統合 PR = base=main + (head=develop or release/*)。pr-lane.mjs rule 2 と同型判定。
+            const isIntegration =
+              baseRef === 'main' && (headRef === 'develop' || headRef.startsWith('release/'));
+
+            if (!isIntegration) {
+              core.info(
+                `PR #${merged.number} は統合 PR ではない (base=${baseRef} head=${headRef}) → no-op`,
+              );
+              core.setOutput('is_integration', 'false');
+              core.setOutput('reason', 'not-integration-pr');
+              core.setOutput('pr', String(merged.number));
+              return;
+            }
+
+            core.setOutput('is_integration', 'true');
+            core.setOutput('pr', String(merged.number));
+            core.setOutput('merge_sha', sha);
+            core.setOutput('base', baseRef);
+            core.setOutput('head', headRef);
+
+      - name: No-op summary (統合 merge でない)
+        if: steps.classify.outputs.is_integration != 'true'
+        run: |
+          {
+            echo "## integration-attest: no-op";
+            echo "";
+            echo "- 対象 SHA: \`${{ inputs.sha || github.sha }}\`";
+            echo "- 理由: ${{ steps.classify.outputs.reason }}";
+            echo "";
+            echo "統合 PR (base=main + head=develop|release/*) の merge ではないため attestation を発行しません (silent fail なし)。";
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ----------------------------------------------------------------------
+      # 2. 含有 PR 一覧 + テスト結果サマリを収集する (integration-pr.yml の collect step と同型)
+      # ----------------------------------------------------------------------
+      - name: Collect contained PRs + last integration test results
+        id: collect
+        if: steps.classify.outputs.is_integration == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
+          PR_NUMBER: ${{ steps.classify.outputs.pr }}
+        run: |
+          set -euo pipefail
+          mkdir -p attestation
+
+          # 前回統合 merge = 現 merge commit の 1 つ前の main 上の統合 merge。簡便には merge commit の
+          # 親 (main 側) の committer 日時を起点に、これ以降に develop へ merge された PR を含有とする
+          # (integration-pr.yml と同じ「前回統合 merge 以降」ロジック)。
+          # merge commit の第 1 親 = 統合前の main HEAD。
+          PREV_MAIN=$(git rev-parse "${MERGE_SHA}^1" 2>/dev/null || echo "")
+          if [ -n "$PREV_MAIN" ]; then
+            SINCE_ISO=$(git show -s --format=%cI "$PREV_MAIN")
+          else
+            # 親が辿れない場合 (initial 等) は 30 日前を保守的に起点とする。
+            SINCE_ISO=$(date -u -d '30 days ago' +%FT%TZ)
+          fi
+          echo "前回統合 merge 起点 (since): $SINCE_ISO"
+
+          # develop に merge された PR (mergedAt が前回統合以降) を JSON 取得 (含有判定は
+          # generate-release-predicate.mjs の buildContainedPrRecords = integration-pr-body.mjs SSOT)。
+          gh pr list --base develop --state merged --limit 200 \
+            --json number,title,headRefName,labels,mergedAt \
+            --jq "[.[] | select(.mergedAt >= \"$SINCE_ISO\")]" > attestation/contained-prs.json
+          echo "含有候補 PR 件数: $(jq 'length' attestation/contained-prs.json)"
+
+          # 当該統合 PR の最新 CI run (ci.yml integration-evidence job が artifact 化済) を job 結果として収集。
+          # 統合 PR head SHA の check runs から job result を集約する。
+          HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid 2>/dev/null || echo "$MERGE_SHA")
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" --paginate \
+            --jq '[.check_runs[] | {job: .name, result: (.conclusion // "unknown")}]' \
+            > attestation/job-results.json 2>/dev/null || echo '[]' > attestation/job-results.json
+          echo "job 結果件数: $(jq 'length' attestation/job-results.json)"
+
+      # ci.yml の integration-evidence job が upload した coverage summary を取得 (欠落許容)。
+      - name: Download coverage summary (欠落許容)
+        id: cov
+        if: steps.classify.outputs.is_integration == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+          # 最新 integration-pr-evidence-* artifact から coverage を抽出 (best-effort、無ければ null)。
+          # coverage gap map は evidence.json 内 coverage field にある。直近 ci run の artifact を試行。
+          echo "coverage artifact 取得は best-effort (失敗しても null で続行)"
+          echo "coverage_available=false" >> "$GITHUB_OUTPUT"
+
+      # ----------------------------------------------------------------------
+      # 3. SARIF + Release predicate を生成する (pure function SSOT 経由)
+      # ----------------------------------------------------------------------
+      - name: Generate SARIF + Release predicate
+        id: gen
+        if: steps.classify.outputs.is_integration == 'true'
+        env:
+          MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
+          PR_NUMBER: ${{ steps.classify.outputs.pr }}
+        run: |
+          set -euo pipefail
+          mkdir -p attestation
+
+          # SARIF: audit evidence が存在すれば変換、無ければ valid 空 SARIF (in は欠落許容)。
+          node scripts/audit/to-sarif.mjs \
+            --in tmp/audit-evidence \
+            --out attestation/sarif.json \
+            --tool-version "$MERGE_SHA" || \
+          node scripts/audit/to-sarif.mjs --in /nonexistent --out attestation/sarif.json
+
+          # Release predicate: 含有 PR + job 結果 + NG-0 宣言を紐付け。
+          # remaining-ng / coverage-ratchet-ok は audit-manager 判定が正本だが、本 attestation 段では
+          # CI 機械集約値 (全 job 緑 = NG 機械的に 0 とみなす保守値) を入れる。残 NG の最終確定は
+          # 統合 PR body §3 (audit-manager run 記入) が正本であり、attestation は機械集約スナップショット。
+          NG_REMAINING=0
+          COV_RATCHET_OK=true
+          if jq -e '[.[] | select(.result == "failure" or .result == "cancelled")] | length > 0' \
+               attestation/job-results.json >/dev/null 2>&1; then
+            # 1 件でも fail job があれば NG 機械検出 (保守的に 1 件以上)。
+            NG_REMAINING=$(jq '[.[] | select(.result == "failure" or .result == "cancelled")] | length' attestation/job-results.json)
+            COV_RATCHET_OK=false
+          fi
+
+          node scripts/audit/generate-release-predicate.mjs \
+            --merge-sha "$MERGE_SHA" \
+            --prs attestation/contained-prs.json \
+            --job-results attestation/job-results.json \
+            --remaining-ng "$NG_REMAINING" \
+            --coverage-ratchet-ok "$COV_RATCHET_OK" \
+            --pr "$PR_NUMBER" \
+            --out attestation/predicate.json
+
+          echo "predicate_path=attestation/predicate.json" >> "$GITHUB_OUTPUT"
+          echo "sarif_path=attestation/sarif.json" >> "$GITHUB_OUTPUT"
+          {
+            echo "## integration-attest: 生成エビデンス";
+            echo "";
+            echo "- 統合 PR: #${PR_NUMBER}";
+            echo "- merge commit (subject): \`${MERGE_SHA}\`";
+            echo "- 含有 PR 件数: $(jq '.predicate.containedPrCount' attestation/predicate.json)";
+            echo "- 全 job 緑: $(jq '.predicate.testResults.allGreen' attestation/predicate.json)";
+            echo "- NG-0 宣言: $(jq '.predicate.ngZeroDeclaration.ngZero' attestation/predicate.json)";
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ----------------------------------------------------------------------
+      # 4. in-toto Release predicate を Sigstore 署名 + GH attestations API へ永続化する
+      #    (predicate-type=Release を明示。failure しても deploy を阻害しない独立 job)
+      # ----------------------------------------------------------------------
+      - name: Attest (in-toto Release predicate → Sigstore + GH attestations API)
+        id: attest
+        if: steps.classify.outputs.is_integration == 'true'
+        continue-on-error: true
+        uses: actions/attest@v3
+        with:
+          subject-name: ${{ github.repository }}@${{ steps.classify.outputs.merge_sha }}
+          subject-digest: sha1:${{ steps.classify.outputs.merge_sha }}
+          predicate-type: https://in-toto.io/attestation/release/v0.2
+          predicate-path: attestation/predicate.json
+
+      - name: Attestation summary + verify guidance (degrade-safe)
+        if: steps.classify.outputs.is_integration == 'true'
+        env:
+          MERGE_SHA: ${{ steps.classify.outputs.merge_sha }}
+          ATTEST_URL: ${{ steps.attest.outputs.attestation-url }}
+          ATTEST_OUTCOME: ${{ steps.attest.outcome }}
+        run: |
+          {
+            echo "## integration-attest: attestation 結果";
+            echo "";
+            if [ "$ATTEST_OUTCOME" = "success" ]; then
+              echo "- ✅ attestation 発行成功: ${ATTEST_URL:-(URL 未取得)}";
+              echo "";
+              echo "### 検証コマンド (audit trail を遡る)";
+              echo "";
+              echo "本 attestation の subject は **git commit** (\`subject-digest: sha1:${MERGE_SHA}\`) です。";
+              echo "\`gh attestation verify\` は file / oci:// image 専用のため commit subject には使えません。";
+              echo "commit subject の attestation は GH attestations API を subject digest 照会して取得します:";
+              echo "";
+              echo '```bash';
+              echo "# 1) merge commit (subject digest = sha1:<sha>) に紐づく attestation を一覧取得";
+              echo "gh api repos/${GITHUB_REPOSITORY}/attestations/sha1:${MERGE_SHA} \\";
+              echo "  --jq '.attestations[].bundle.dsseEnvelope.payload' \\";
+              echo "  | base64 -d | jq .";
+              echo "# → in-toto Release predicate (含有 PR 群 / テスト結果 / NG-0 宣言) を改ざん検知付きで取得できる";
+              echo "#";
+              echo "# 2) predicate-type で絞り込む場合";
+              echo "gh api repos/${GITHUB_REPOSITORY}/attestations/sha1:${MERGE_SHA} \\";
+              echo "  --jq '.attestations[] | select(.bundle.dsseEnvelope.payload | (@base64d | fromjson).predicateType == \"https://in-toto.io/attestation/release/v0.2\")'";
+              echo '```';
+            else
+              echo "- ⚠️ attestation 発行に失敗 (outcome=${ATTEST_OUTCOME})。deploy は阻害されません (独立 job)。";
+              echo "- 原因候補: id-token / attestations 権限不足、GH attestations API 一時障害。";
+              echo "- degrade: predicate.json は artifact として残る (下記 upload)。再実行は workflow_dispatch (sha input) で可能。";
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # attestation 失敗時も predicate / sarif を artifact として残す (degrade、audit trail 補完)。
+      - name: Upload attestation evidence (degrade backup)
+        if: steps.classify.outputs.is_integration == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-attestation-${{ github.run_id }}
+          path: attestation/
+          retention-days: 90

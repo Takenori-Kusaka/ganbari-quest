@@ -6,7 +6,8 @@
 //     - ポイント残高: 100pt（beforeEach で再調整するため parallel workers の汚染を防ぐ）
 //     - 交換可能なごほうび（交換可）: 50pt — 交換フローテスト専用
 //     - 交換可能なごほうび（キャンセル確認用）: 50pt — キャンセルテスト専用（独立）
-//     - 交換不可なごほうび: 99999pt（並行ワーカーがどれだけポイントを積んでも届かない閾値）
+//     - 交換不可なごほうび: 10000pt（special-reward ドメイン上限 = reward-set export schema 上限。
+//       テスト child の残高 ~100pt を遥かに超え交換不可を維持。#3132 で旧 99999pt = out-of-domain を是正）
 //
 // AC マッピング:
 //   AC1: 交換フロー全体（子が申請 → 申請中バッジ確認）
@@ -178,10 +179,14 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 
 		await expect(page.getByTestId('shop-page')).toBeVisible();
 
-		// 99999pt のごほうびカードを探す（E2Eテスト用ごほうび（交換不可））
+		// 10000pt のごほうびカードを探す（E2Eテスト用ごほうび（交換不可）。#3132 で 99999→10000）
 		const expensiveCard = page.locator('[data-testid^="reward-card-"]').filter({
 			hasText: 'E2Eテスト用ごほうび（交換不可）',
 		});
+		// #3163: 重複なし不変条件を明示。共有 worker DB が backup/restore 等で汚染され
+		// 同一 reward が 2 行になると本 assertion が「2」を報告して原因を即指摘する
+		// (toBeVisible 単体の strict-mode violation より診断的)。
+		await expect(expensiveCard).toHaveCount(1);
 		await expect(expensiveCard).toBeVisible();
 
 		// そのカード内の交換ボタンが disabled であることを確認
@@ -201,6 +206,8 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		const affordableCard = page.locator('[data-testid^="reward-card-"]').filter({
 			hasText: 'E2Eテスト用ごほうび（交換可）',
 		});
+		// #3163: 交換可ごほうびも 1 枚のみ (worker DB 汚染で複製されていないこと) を保証
+		await expect(affordableCard).toHaveCount(1);
 		await expect(affordableCard).toBeVisible();
 
 		// 交換ボタン（enabled）をクリック

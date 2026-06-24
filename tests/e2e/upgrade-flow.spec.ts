@@ -259,9 +259,8 @@ test.describe('#753 /admin/subscription プラン選択 UI — free', () => {
 		await expect(standardPlanCard).toBeVisible();
 		await expect(page.getByTestId('family-plan-card')).toBeVisible();
 
-		// 月額 / 年額の切り替えがある
-		await expect(page.getByText('月額')).toBeVisible();
-		await expect(page.getByText(/年額/)).toBeVisible();
+		// #3204: 年額トグルは撤去 (#2719 年額廃止と UI 整合)。月額固定で年額ボタンは存在しない。
+		await expect(page.getByRole('button', { name: /年額/ })).toHaveCount(0);
 	});
 });
 

@@ -159,6 +159,17 @@ export async function deleteChild(id: number, _tenantId: string) {
 	});
 }
 
+export async function resetChildProgressData(id: number, _tenantId: string) {
+	// #3152: 子供 1 人分の進捗データを削除 (child 行は残す)。
+	// 削除対象 4 テーブルはトランザクションで一括削除する。
+	return db.transaction((tx) => {
+		tx.delete(activityLogs).where(eq(activityLogs.childId, id)).run();
+		tx.delete(pointLedger).where(eq(pointLedger.childId, id)).run();
+		tx.delete(loginBonuses).where(eq(loginBonuses.childId, id)).run();
+		tx.delete(childAchievements).where(eq(childAchievements.childId, id)).run();
+	});
+}
+
 // #783: archive / restore
 // Phase 7 PR-2a (#2688): reason 引数を `ArchivedReason` 型に強制 (PR-1 #2685 で配備済の
 // `ARCHIVED_REASONS` SSOT integration)。schema.ts L45 の enum 制約と同期で型安全担保。

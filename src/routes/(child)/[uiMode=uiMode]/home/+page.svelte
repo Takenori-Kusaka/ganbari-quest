@@ -3,7 +3,12 @@ import { tick } from 'svelte';
 import { enhance } from '$app/forms';
 import { invalidateAll } from '$app/navigation';
 import { parseDisplayConfig } from '$lib/domain/display-config';
-import { APP_LABELS, CHILD_HOME_LABELS, PAGE_TITLES } from '$lib/domain/labels';
+import {
+	APP_LABELS,
+	CHILD_HOME_LABELS,
+	getErrorNotifyLabels,
+	PAGE_TITLES,
+} from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
@@ -28,6 +33,7 @@ import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 // #2295 (EPIC #2294 ①): EventBanner / MonthlyRewardDialog 削除済 (2026-05-19)
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
 import SiblingCheerOverlay from '$lib/ui/components/SiblingCheerOverlay.svelte';
+import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import { showToast } from '$lib/ui/primitives/Toast.svelte';
@@ -274,11 +280,22 @@ async function handlePinToggle() {
 	const formData = new FormData();
 	formData.set('activityId', String(pinMenuActivity.id));
 	formData.set('pinned', String(!pinMenuActivity.isPinned));
-	await fetch('?/togglePin', { method: 'POST', body: formData });
-	pinSubmitting = false;
-	pinMenuOpen = false;
-	pinMenuActivity = null;
-	await invalidateAll();
+	// #3225 ②b: 失敗を silent にしない。子供画面なので age-tier 対応 (preschool/baby=ひらがな) の
+	//   error 文言を使う (DESIGN.md §8)。form action の raw fetch でも !res.ok で汎用文言にフォールバック。
+	const errorLabels = getErrorNotifyLabels(data.uiMode ?? 'preschool');
+	try {
+		const res = await fetch('?/togglePin', { method: 'POST', body: formData });
+		if (!res.ok) {
+			await notifyApiError(res, { labels: errorLabels });
+		}
+	} catch {
+		notifyNetworkError({ labels: errorLabels });
+	} finally {
+		pinSubmitting = false;
+		pinMenuOpen = false;
+		pinMenuActivity = null;
+		await invalidateAll();
+	}
 }
 
 function handleConfirmClose() {
@@ -925,6 +942,8 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {/if}
 
 <style>
+	/* #3225 b2: baby-card global animations moved to app.css (max-style-lines + SSOT for
+	   .baby-card-* rendered by ProdDashboardSections). Only page-local .pending-dot remains. */
 	.pending-dot {
 		display: inline-block;
 		width: 0.7em;
@@ -935,60 +954,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		animation: spin 0.6s linear infinite;
 		vertical-align: middle;
 		margin-right: 4px;
-	}
-
-
-	/* Baby mode card animations */
-	:global(.baby-card-mission) {
-		box-shadow: 0 0 12px rgba(255, 200, 0, 0.5);
-		animation: pulse-gold 2s ease-in-out infinite;
-	}
-	@keyframes pulse-gold {
-		0%, 100% { box-shadow: 0 0 8px rgba(255, 200, 0, 0.4); }
-		50% { box-shadow: 0 0 20px rgba(255, 200, 0, 0.8); }
-	}
-	:global(.baby-card__mission-star) {
-		animation: star-twinkle 1.5s ease-in-out infinite;
-	}
-	@keyframes star-twinkle {
-		0%, 100% { opacity: 0.7; transform: scale(1); }
-		50% { opacity: 1; transform: scale(1.2); }
-	}
-	:global(.baby-card-main-quest) {
-		box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
-		background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
-	}
-	:global(.baby-main-quest-badge) {
-		position: absolute;
-		top: -0.375rem;
-		right: -0.375rem;
-		z-index: 10;
-		padding: 0.125rem 0.375rem;
-		border-radius: 9999px;
-		background: linear-gradient(135deg, #f59e0b, #d97706);
-		color: white;
-		font-size: 0.625rem;
-		font-weight: 700;
-		line-height: 1;
-		white-space: nowrap;
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-	}
-	:global(.baby-card-pending) {
-		animation: card-pulse 0.8s ease-in-out infinite;
-		opacity: 0.7;
-	}
-	@keyframes card-pulse {
-		0%, 100% { transform: scale(1); }
-		50% { transform: scale(0.97); }
-	}
-	:global(.baby-card__spinner) {
-		display: inline-block;
-		width: 2rem;
-		height: 2rem;
-		border: 3px solid var(--theme-primary, #6366f1);
-		border-right-color: transparent;
-		border-radius: 50%;
-		animation: spin 0.6s linear infinite;
 	}
 
 	@keyframes spin {

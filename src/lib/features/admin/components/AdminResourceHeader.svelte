@@ -86,7 +86,7 @@ let {
 }: Props = $props();
 </script>
 
-<header class="admin-resource-header">
+<header class="admin-resource-header" data-testid="admin-resource-header">
 	<div class="admin-resource-header__meta">
 		<div class="admin-resource-header__title-row">
 			<h2 class="admin-resource-header__title">{title}</h2>

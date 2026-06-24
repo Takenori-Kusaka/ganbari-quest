@@ -1,5 +1,9 @@
 name: LP Metrics (dimensions / forbidden terms / CTA variants / removal residue)
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # #1163: LP (site/index.html) のページ肥大化・開発者語彙・CTA 文言散乱を CI で自動検知
 # 閾値違反 / 禁止用語出現 / CTA バリエーション過多 を FAIL にする
 # ratchet ルール: 閾値は下げることのみ許可、上げるには ADR が必要

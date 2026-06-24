@@ -6,7 +6,7 @@
 
 詳細は @docs/DESIGN.md §2-5 / §9 禁忌事項。要点のみ:
 
-- **色**: 3 層トークン (Base → Semantic → Component)。routes は Semantic (`--color-action-primary` 等) のみ参照。hex 直書き禁止 (CI: `stylelint color-no-hex`)
+- **色**: 3 層トークン (Base → Semantic → Component)。routes は Semantic (`--color-action-primary` 等) のみ参照。hex 直書き禁止 (CI: `stylelint color-no-hex`)。**Base トークン (`--color-{brand,neutral,premium}-N`) の routes/features 直接使用は ratchet で機械強制** (`tests/unit/architecture/base-token-routes-ratchet.test.ts`、baseline=221 occurrence を超えると CI fail、#3152 Phase 2 / ADR-0061。削減したら baseline を下げる)
 - **コンポーネント**: ボタン → `Button.svelte` / フォーム → `FormField.svelte` / カード → `Card.svelte`。直書き禁止。新パターンは primitives に追加してから使用
 - **インラインスタイル**: 動的値のみ許容 (`style:width={pct + '%'}`)。Tailwind arbitrary hex 禁止
 - **`<style>` ブロック**: 50 行以下推奨。超過時はコンポーネント分割

@@ -9,9 +9,13 @@ import { getMarketplaceItem } from '$lib/data/marketplace';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
 import { ADMIN_REWARDS_PAGE_LABELS, PLAN_GATE_LABELS } from '$lib/domain/labels';
+// #3147: ショップ陳列系統 (physical/money/privilege) の SSOT
+import { SHOP_CATEGORIES } from '$lib/domain/shop-category';
 // #2366 (ADR-0052): reward-set を新 Strategy + dispatchImport 経由に移行。
 // `$lib/marketplace` の eager-load (`./types/reward-set`) で Registry 登録される。
 import { dispatchImport } from '$lib/marketplace';
+// #3079: ごほうび個別 backup/restore — v2 envelope file source adapter
+import { FileSourceError, loadRewardSetFromFile } from '$lib/marketplace/sources/file-source';
 // #2775 (Issue #2774 Phase 2): rule-preset exchange を本画面 ?import= 受領フローに統合するため
 // Strategy + identity を直接 import (rule-preset 固有 warnings / ruleType を扱うため Registry
 // 経由 generic dispatch ではなく拡張 method `applyRulePreset` を呼ぶ)。
@@ -43,6 +47,12 @@ import type { Actions, PageServerLoad } from './$types';
 
 // #2268: 「特別なごほうび設定」→「ごほうび管理」に文言更新
 const UPGRADE_MESSAGE = PLAN_GATE_LABELS.standardOrAboveFor('ごほうび管理');
+
+// #3079: バックアップ復元時の reward-set Strategy sourcePresetId 固定 sentinel。
+// reward-set Strategy は sourcePresetId で同一 preset の二重取込を検知するため presetId 必須。
+// 復元はマーケットプレイス preset 由来ではないため、marketplace registry に存在しない固定値を使う
+// (同 child に同一ファイルを 2 回復元すると同 title が重複検知でスキップされる = 復元の冪等性を担保)。
+const RESTORE_REWARD_SET_PRESET_ID = 'backup-restore:reward-set';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const tenantId = requireTenantId(locals);
@@ -162,12 +172,21 @@ export const actions: Actions = {
 		const points = Number(formData.get('points') ?? 0);
 		const icon = String(formData.get('icon') ?? '🎁');
 		const category = String(formData.get('category') ?? 'other');
+		// #3147: 親が選んだショップ陳列系統 (physical/money/privilege)。
+		// 未選択 (空) のときは null を渡し、shop 表示側で deriveShopCategory に fallback。
+		const shopCategoryRaw = String(formData.get('shopCategory') ?? '').trim();
+		const shopCategory = (SHOP_CATEGORIES as readonly string[]).includes(shopCategoryRaw)
+			? shopCategoryRaw
+			: null;
 
 		if (!childId) return fail(400, { error: 'こどもを選択してください' });
 		if (!title) return fail(400, { error: 'タイトルを入力してください' });
 		if (points <= 0 || points > 10000) return fail(400, { error: 'ポイントは1〜10000の範囲です' });
 
-		const result = await addReward({ childId, title, points, icon, category }, tenantId);
+		const result = await addReward(
+			{ childId, title, points, icon, category, shopCategory },
+			tenantId,
+		);
 		if ('error' in result) {
 			return fail(400, { error: result.error });
 		}
@@ -195,6 +214,15 @@ export const actions: Actions = {
 		const points = Number(formData.get('points') ?? 0);
 		const icon = String(formData.get('icon') ?? '🎁');
 		const category = String(formData.get('category') ?? '');
+		// #3154: 編集時も陳列系統を変更可能にする (add action と同じ正規化: 空/不正 → null = 自動振り分け)。
+		// form に shopCategory が無い場合 (古い UI) は undefined を渡し既存値を保全する。
+		const hasShopCategory = formData.has('shopCategory');
+		const shopCategoryRaw = String(formData.get('shopCategory') ?? '').trim();
+		const shopCategory = hasShopCategory
+			? (SHOP_CATEGORIES as readonly string[]).includes(shopCategoryRaw)
+				? shopCategoryRaw
+				: null
+			: undefined;
 
 		if (!rewardId || !childId) return fail(400, { error: 'ごほうびが指定されていません' });
 		if (!title) return fail(400, { error: 'タイトルを入力してください' });
@@ -203,7 +231,7 @@ export const actions: Actions = {
 		const result = await updateReward(
 			rewardId,
 			childId,
-			{ title, points, icon, category: category || undefined },
+			{ title, points, icon, category: category || undefined, shopCategory },
 			tenantId,
 		);
 		if ('error' in result) {
@@ -560,6 +588,117 @@ export const actions: Actions = {
 				context: { sourceChildId, targetChildIds },
 			});
 			return fail(500, { error: 'コピーに失敗しました' });
+		}
+	},
+
+	// #3079: バックアップから復元 (preview) — JSON ファイルを解析して総数 / 重複を返す (DB write なし)。
+	// reward-set Strategy は presetId (sourcePresetId 重複検知) + childId 必須のため、復元用の固定
+	// sentinel presetId (marketplace に存在しない id) + 選択中 childId を渡す。dryRun=true で件数のみ集計。
+	restorePreview: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const tier = await resolveTier(locals, tenantId);
+		if (!isPaidTier(tier)) {
+			return fail(403, { error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE) });
+		}
+
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const file = formData.get('file');
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+
+		let loaded: Awaited<ReturnType<typeof loadRewardSetFromFile>>;
+		try {
+			loaded = await loadRewardSetFromFile(file as File);
+		} catch (e) {
+			if (e instanceof FileSourceError) return fail(400, { error: e.message });
+			return fail(400, { error: 'ファイルの解析に失敗しました' });
+		}
+
+		// CWE-598: childId が tenant 配下 child に含まれることを assert (兄弟外 IDOR 防止)
+		const allowed = new Set((await getAllChildren(tenantId)).map((c) => c.id));
+		if (!allowed.has(childId)) {
+			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
+		}
+
+		try {
+			const result = await dispatchImport({
+				typeCode: 'reward-set',
+				rawPayload: loaded.payload,
+				displayName: loaded.displayName,
+				// #3168: restore は dedupMode='content' で冪等。populated tenant の既存 reward
+				// (手動/seed = sourcePresetId 非依存) を (title+points) 照合で二重化させない。
+				ctx: {
+					tenantId,
+					presetId: RESTORE_REWARD_SET_PRESET_ID,
+					childId,
+					dryRun: true,
+					dedupMode: 'content',
+				},
+			});
+			return {
+				restorePreview: true,
+				fileName: loaded.displayName,
+				total: result.total,
+				duplicates: result.skipped,
+				newItems: Math.max(0, result.total - result.skipped),
+			};
+		} catch (e) {
+			logger.error('[admin/rewards] 復元 preview 失敗', {
+				error: e instanceof Error ? e.message : String(e),
+			});
+			return fail(500, { error: 'バックアップファイルの解析に失敗しました' });
+		}
+	},
+
+	// #3079: バックアップから復元 (実行) — preview 確認後の実 DB write。重複 (同 title) はスキップ。
+	restoreFile: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const tier = await resolveTier(locals, tenantId);
+		if (!isPaidTier(tier)) {
+			return fail(403, { error: createPlanLimitError(tier, 'standard', UPGRADE_MESSAGE) });
+		}
+
+		const formData = await request.formData();
+		const childId = Number(formData.get('childId'));
+		const file = formData.get('file');
+		if (!childId) return fail(400, { error: 'こどもを選択してください' });
+
+		let loaded: Awaited<ReturnType<typeof loadRewardSetFromFile>>;
+		try {
+			loaded = await loadRewardSetFromFile(file as File);
+		} catch (e) {
+			if (e instanceof FileSourceError) return fail(400, { error: e.message });
+			return fail(400, { error: 'ファイルの解析に失敗しました' });
+		}
+
+		const allowed = new Set((await getAllChildren(tenantId)).map((c) => c.id));
+		if (!allowed.has(childId)) {
+			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
+		}
+
+		try {
+			const result = await dispatchImport({
+				typeCode: 'reward-set',
+				rawPayload: loaded.payload,
+				displayName: loaded.displayName,
+				// #3168: restore (実行) も dedupMode='content' で冪等復元。
+				ctx: { tenantId, presetId: RESTORE_REWARD_SET_PRESET_ID, childId, dedupMode: 'content' },
+			});
+			return {
+				restored: true,
+				fileName: loaded.displayName,
+				imported: result.imported,
+				skipped: result.skipped,
+				total: result.total,
+				failed: result.failed,
+			};
+		} catch (e) {
+			logger.error('[admin/rewards] 復元失敗', {
+				error: e instanceof Error ? e.message : String(e),
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
 		}
 	},
 };

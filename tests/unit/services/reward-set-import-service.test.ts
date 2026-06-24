@@ -284,7 +284,31 @@ describe('importRewardSet', () => {
 				icon: '🏞️',
 				category: 'sports',
 				sourcePresetId: PRESET_ID,
+				// #3147: preset に shopCategory が無ければ null で round-trip (表示側 fallback)
+				shopCategory: null,
 			},
+			TENANT,
+		);
+	});
+
+	it('#3147: preset の shopCategory を insertSpecialReward に round-trip する', async () => {
+		const rewards = [
+			makeReward({
+				title: 'ゲーム30ぷん',
+				points: 50,
+				icon: '🎮',
+				category: 'other',
+				shopCategory: 'privilege',
+			}),
+		];
+
+		await importRewardSet(rewards, TENANT, {
+			presetId: PRESET_ID,
+			childId: CHILD_ID,
+		});
+
+		expect(mockInsertSpecialReward).toHaveBeenCalledWith(
+			expect.objectContaining({ shopCategory: 'privilege' }),
 			TENANT,
 		);
 	});
@@ -327,6 +351,168 @@ describe('importRewardSet', () => {
 			childId: CHILD_ID,
 		});
 
+		expect(result.imported).toBe(1);
+		expect(result.skipped).toBe(0);
+	});
+});
+
+// ==========================================================
+// #3168: dedupMode='content' (backup/restore 冪等)
+// ==========================================================
+//
+// restore は固定 sentinel presetId で取込むため、preset-scope dedup では既存の手動/seed reward
+// (sourcePresetId=NULL) を重複検知できず二重 INSERT していた (#3163 worker DB 汚染 / 本番 restore 非冪等)。
+// dedupMode='content' は sourcePresetId 非依存で (title+points) を全既存 reward と照合し冪等化する。
+// preset-scope (#1254 G1) は既定のまま不変であることも併せて固定する。
+
+describe("#3168 dedupMode='content' (restore 冪等)", () => {
+	const RESTORE_PRESET = 'backup-restore:reward-set';
+
+	it('preview: sourcePresetId=NULL の既存 reward を content で重複検知 (preset-scope では検知しない対比)', async () => {
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({ title: 'E2Eごほうび', points: 10000, sourcePresetId: null }),
+		]);
+		const rewards = [makeReward({ title: 'E2Eごほうび', points: 10000 })];
+
+		const contentPreview = await previewRewardSetImport(
+			rewards,
+			RESTORE_PRESET,
+			CHILD_ID,
+			TENANT,
+			'content',
+		);
+		expect(contentPreview.newRewards).toBe(0);
+		expect(contentPreview.duplicates).toBe(1);
+
+		// 既定 (preset-scope) は同じ入力で「新規」と判定する (#1254 G1 不変の対比)
+		const presetScopePreview = await previewRewardSetImport(
+			rewards,
+			RESTORE_PRESET,
+			CHILD_ID,
+			TENANT,
+		);
+		expect(presetScopePreview.newRewards).toBe(1);
+		expect(presetScopePreview.duplicates).toBe(0);
+	});
+
+	it('import: 自分のバックアップ復元は既存 reward を二重化しない (冪等)', async () => {
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({ title: '交換可', points: 50, sourcePresetId: null }),
+			makeExistingRow({ title: '交換不可', points: 10000, sourcePresetId: null }),
+		]);
+		const rewards = [
+			makeReward({ title: '交換可', points: 50 }),
+			makeReward({ title: '交換不可', points: 10000 }),
+		];
+
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: RESTORE_PRESET,
+			childId: CHILD_ID,
+			dedupMode: 'content',
+		});
+
+		expect(result.imported).toBe(0);
+		expect(result.skipped).toBe(2);
+		expect(mockInsertSpecialReward).not.toHaveBeenCalled();
+	});
+
+	it('import: 失われた reward (バックアップにあり DB に無い) は content でも復元する', async () => {
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({ title: '交換可', points: 50, sourcePresetId: null }),
+		]);
+		const rewards = [
+			makeReward({ title: '交換可', points: 50 }), // 既存 → skip
+			makeReward({ title: '消えたごほうび', points: 30 }), // DB に無い → 復元
+		];
+
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: RESTORE_PRESET,
+			childId: CHILD_ID,
+			dedupMode: 'content',
+		});
+
+		expect(result.imported).toBe(1);
+		expect(result.skipped).toBe(1);
+		expect(mockInsertSpecialReward).toHaveBeenCalledTimes(1);
+	});
+
+	it('content: 同一 title でも points が異なれば別物として復元する (title+points 複合キー)', async () => {
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({ title: 'ごほうび', points: 50, sourcePresetId: null }),
+		]);
+		const rewards = [makeReward({ title: 'ごほうび', points: 80 })];
+
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: RESTORE_PRESET,
+			childId: CHILD_ID,
+			dedupMode: 'content',
+		});
+
+		expect(result.imported).toBe(1);
+		expect(result.skipped).toBe(0);
+	});
+
+	it('content: 同一 title + 同一 points なら icon/desc が異なっても collapse する (#3178 under-restore 仕様の固定)', async () => {
+		// content key は (title, points) のみ。同 title + 同 points で icon/desc だけ違う distinct
+		// reward は restore で 1 件に collapse する (装飾差の under-restore)。child shop の user-visible
+		// identity は title+points で子供から区別不能なため low-severity と裁定済 (#3174 QM)。本挙動を
+		// test で明示固定し、意図せぬ「icon も鍵に含める」変更で over-restore (二重化) に戻るのを防ぐ。
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({
+				title: 'ごほうび',
+				points: 50,
+				icon: '🎁',
+				description: '旧説明',
+				sourcePresetId: null,
+			}),
+		]);
+		const rewards = [
+			makeReward({ title: 'ごほうび', points: 50, icon: '⭐', description: '新説明' }),
+		];
+
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: RESTORE_PRESET,
+			childId: CHILD_ID,
+			dedupMode: 'content',
+		});
+
+		// icon/desc が違っても (title, points) 一致で重複扱い = collapse (新規 INSERT しない)
+		expect(result.imported).toBe(0);
+		expect(result.skipped).toBe(1);
+		expect(mockInsertSpecialReward).not.toHaveBeenCalled();
+	});
+
+	it('content: title が区切り曖昧な値でも NUL 区切りで別物が誤 merge されない (#3178 区切り堅牢性)', async () => {
+		// 旧 JSDoc は NUL 区切りを宣言、実装は literal NUL byte (#3178 で可読な `\\0` エスケープに是正)。
+		// 区切りに依存せず (title, points) の組が正しく区別されることを固定する。
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({ title: 'ごほうび 5', points: 10, sourcePresetId: null }),
+		]);
+		// title='ごほうび', points=510 は上記と別 reward。NUL 区切りなら別キーで新規復元される。
+		const rewards = [makeReward({ title: 'ごほうび', points: 510 })];
+
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: RESTORE_PRESET,
+			childId: CHILD_ID,
+			dedupMode: 'content',
+		});
+
+		expect(result.imported).toBe(1);
+		expect(result.skipped).toBe(0);
+	});
+
+	it('preset 取込 (dedupMode 未指定) は content の影響を受けず preset-scope のまま (#1254 G1 不変)', async () => {
+		mockFindSpecialRewards.mockResolvedValue([
+			makeExistingRow({ title: '手動ごほうび', points: 20, sourcePresetId: null }),
+		]);
+		const rewards = [makeReward({ title: '手動ごほうび', points: 20 })];
+
+		const result = await importRewardSet(rewards, TENANT, {
+			presetId: PRESET_ID,
+			childId: CHILD_ID,
+		});
+
+		// 手動 reward (sourcePresetId=null) を preset 取込が clobber しない = 新規追加される
 		expect(result.imported).toBe(1);
 		expect(result.skipped).toBe(0);
 	});

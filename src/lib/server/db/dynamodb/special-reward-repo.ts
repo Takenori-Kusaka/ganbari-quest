@@ -44,6 +44,8 @@ export async function insertSpecialReward(
 		grantedAt: now,
 		shownAt: null,
 		sourcePresetId: input.sourcePresetId ?? null,
+		// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は null で表示側 fallback
+		shopCategory: input.shopCategory ?? null,
 	};
 
 	const key = specialRewardKey(input.childId, now, id, tenantId);
@@ -235,6 +237,12 @@ export async function updateSpecialReward(
 		sets.push('#category = :category');
 		names['#category'] = 'category';
 		values[':category'] = updates.category;
+	}
+	// #3154: 陳列系統 (physical/money/privilege/null) を編集で変更可能にする
+	if (updates.shopCategory !== undefined) {
+		sets.push('#shopCategory = :shopCategory');
+		names['#shopCategory'] = 'shopCategory';
+		values[':shopCategory'] = updates.shopCategory;
 	}
 	if (sets.length === 0) {
 		return stripKeys(found) as unknown as SpecialReward;

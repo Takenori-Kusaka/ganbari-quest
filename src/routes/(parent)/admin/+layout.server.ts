@@ -175,6 +175,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 	return {
 		pointSettings,
 		authMode,
+		// parent-gate inactivity redirect (client): PIN gate 有効時のみ admin で
+		// 15 分アイドル → /switch 自動リダイレクトを起動する (dev/demo では起動しない)
+		pinGateActive,
 		tenantStatus,
 		isPremium,
 		planTier,

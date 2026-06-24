@@ -88,14 +88,20 @@ function findEmptyRows(rows) {
 }
 
 /**
- * skip 判定（lane=dependabot 以外でも label / 明示 skip コメントで skip する）。
- * 呼び出し側 workflow は lane=dependabot を job-level if でも skip するが、
- * dependencies / type:docs / 明示 skip コメントは全 lane 共通の skip 条件。
+ * skip 判定。feature / hotfix lane では label / 明示 skip コメントで skip する。
+ * **integration lane では skip を一切認めない（#3071、空洞化防止）**: 誤った type:docs /
+ * dependencies label が統合 PR に付いても §3.5 マージ判定エビデンス表の検証を必ず実行する。
+ * 呼び出し側 workflow は lane=dependabot を job-level if でも skip する（本関数には非 dependabot のみ到達）。
  *
- * @param {{ body: string; labels: string[] }} input
+ * @param {{ body: string; labels: string[]; lane?: string }} input
  * @returns {{ skip: boolean; reason?: string }}
  */
-export function shouldSkip({ body, labels }) {
+export function shouldSkip({ body, labels, lane }) {
+	// integration lane (統合 PR = release/* → main または develop → main) では
+	// label / 明示コメントによる skip を無効化する (#3071)。required 緑のまま evidence 検証が空洞化するのを防ぐ。
+	if (lane === 'integration') {
+		return { skip: false };
+	}
 	if (labels.includes('type:docs')) {
 		return { skip: true, reason: 'type:docs ラベル' };
 	}
@@ -288,7 +294,7 @@ export function checkIntegrationEvidenceTable(body) {
  * @returns {AcCheckResult}
  */
 export function checkAcVerification({ body, labels, lane }) {
-	const skip = shouldSkip({ body, labels });
+	const skip = shouldSkip({ body, labels, lane });
 	if (skip.skip) {
 		return { ok: true, lane, reason: `skip: ${skip.reason}` };
 	}

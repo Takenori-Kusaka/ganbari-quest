@@ -47,6 +47,9 @@ export interface IChecklistRepo {
 		childId: number,
 		tenantId: string,
 		includeInactive?: boolean,
+		// #3106: archive 済 template を含めるか。既定 false (従来どおり archived 除外)。
+		// export/backup 文脈のみ true にし、archive 済 template の checklistLog 欠落を防ぐ。
+		includeArchived?: boolean,
 	): Promise<ChecklistTemplate[]>;
 
 	findTemplateById(id: number, tenantId: string): Promise<ChecklistTemplate | undefined>;
@@ -109,6 +112,12 @@ export interface IChecklistRepo {
 		tenantId: string,
 	): Promise<ChecklistLog | undefined>;
 	upsertLog(input: UpsertChecklistLogInput, tenantId: string): Promise<ChecklistLog>;
+
+	/**
+	 * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
+	 * activityLog の `findActivityLogs` と対をなす一括取得 API。
+	 */
+	findLogsByChild(childId: number, tenantId: string): Promise<ChecklistLog[]>;
 
 	// ── Per-child overrides (one-off items) ─────────────────────────
 

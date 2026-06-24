@@ -226,9 +226,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			error: String(err),
 			context: { tenantId, pattern },
 		});
-		return json(
-			{ error: err instanceof Error ? err.message : 'アカウント削除に失敗しました' },
-			{ status: 500 },
-		);
+		// #3218 (EPIC #3217): 内部例外メッセージ (err.message) をユーザに露出しない。
+		//   生例外 (DynamoDB / Stripe / トランザクション例外) は上記 logger のみに残し、
+		//   レスポンスは固定のユーザ向け文言にする (Apple HIG / NN/g / セキュリティ観点)。
+		return json({ error: 'アカウント削除に失敗しました' }, { status: 500 });
 	}
 };

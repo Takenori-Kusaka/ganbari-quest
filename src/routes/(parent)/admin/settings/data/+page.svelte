@@ -51,9 +51,18 @@ let importResult = $state<{
 	activityLogsSkipped: number;
 	pointLedgerImported: number;
 	pointLedgerSkipped: number;
+	// #3095: silent-skip 可視化のため server ImportResult の skip/restore 件数を取り込む
+	specialRewardsImported: number;
+	specialRewardsSkipped: number;
+	checklistLogsImported: number;
+	checklistLogsSkipped: number;
+	staticFilesRestored: number;
+	staticFilesSkipped: number;
 	errors: string[];
 	warnings: string[];
 } | null>(null);
+// #3095: errors があれば partial-restore (置換時は家族データ半損)。「完了」でなく警告として surface する。
+const importHadErrors = $derived((importResult?.errors.length ?? 0) > 0);
 let importStep = $state<'select' | 'preview' | 'done'>('select');
 let importMode = $state<'add' | 'replace'>('replace');
 
@@ -104,6 +113,31 @@ const anyFormBusy = $derived(
 	exportLoading || importLoading || cloudLoading || cloudImportLoading || clearSubmitting,
 );
 
+// #3077: JSON は 10MB、ZIP (静的ファイル同梱) は export ZIP と整合する 100MB を許容。
+const MAX_JSON_BYTES = 10 * 1024 * 1024;
+const MAX_ZIP_BYTES = 100 * 1024 * 1024;
+
+/**
+ * #3077: 選択ファイルが ZIP なら raw bytes を application/zip で、JSON なら従来通り JSON で送る。
+ */
+async function postImport(mode: string): Promise<Response> {
+	if (!importFile) throw new Error('ファイルが選択されていません');
+	if (importFile.name.endsWith('.zip')) {
+		return fetch(`/api/v1/import?mode=${mode}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/zip' },
+			body: importFile,
+		});
+	}
+	const text = await importFile.text();
+	const json = JSON.parse(text);
+	return fetch(`/api/v1/import?mode=${mode}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(json),
+	});
+}
+
 async function handleImportFileChange(e: Event) {
 	if (anyFormBusy) return;
 	const input = e.target as HTMLInputElement;
@@ -114,26 +148,22 @@ async function handleImportFileChange(e: Event) {
 	importStep = 'select';
 
 	if (!importFile) return;
-	if (!importFile.name.endsWith('.json')) {
-		importError = 'JSONファイルを選択してください';
+	const isZip = importFile.name.endsWith('.zip');
+	if (!importFile.name.endsWith('.json') && !isZip) {
+		importError = SETTINGS_LABELS.dataImportInvalidFile;
 		importFile = null;
 		return;
 	}
-	if (importFile.size > 10 * 1024 * 1024) {
-		importError = 'ファイルサイズが大きすぎます（最大10MB）';
+	const maxBytes = isZip ? MAX_ZIP_BYTES : MAX_JSON_BYTES;
+	if (importFile.size > maxBytes) {
+		importError = `ファイルサイズが大きすぎます（最大${isZip ? '100' : '10'}MB）`;
 		importFile = null;
 		return;
 	}
 
 	importLoading = true;
 	try {
-		const text = await importFile.text();
-		const json = JSON.parse(text);
-		const res = await fetch('/api/v1/import?mode=preview', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(json),
-		});
+		const res = await postImport('preview');
 		const d = await res.json();
 		if (!res.ok) {
 			throw new Error(d?.error?.message ?? 'プレビューに失敗しました');
@@ -153,14 +183,8 @@ async function handleImportExecute() {
 	importLoading = true;
 	importError = '';
 	try {
-		const text = await importFile.text();
-		const json = JSON.parse(text);
 		const mode = importMode === 'replace' ? 'replace' : 'execute';
-		const res = await fetch(`/api/v1/import?mode=${mode}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(json),
-		});
+		const res = await postImport(mode);
 		const d = await res.json();
 		if (!res.ok) {
 			throw new Error(d?.error?.message ?? 'インポートに失敗しました');
@@ -546,7 +570,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						{/if}
 						<input
 							type="file"
-							accept=".json"
+							accept=".json,.zip"
 							onchange={handleImportFileChange}
 							class="hidden"
 							data-testid="import-file-input"
@@ -622,6 +646,7 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 							class="flex-1 flex items-center justify-center gap-2 bg-[var(--color-warning)] hover:brightness-110"
 							disabled={importLoading}
 							onclick={handleImportExecute}
+							data-testid="import-execute-button"
 						>
 							{#if importLoading}
 								<span
@@ -635,11 +660,42 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 						</Button>
 					</div>
 				{:else if importStep === 'done' && importResult}
-					<div class="bg-[var(--color-feedback-success-bg)] rounded-lg p-4 mb-3">
-						<p class="text-sm font-bold text-[var(--color-feedback-success-text)] mb-2">
+					<!-- #3095: errors があれば partial-restore として警告表示。置換時は既存データ
+					     クリア済のため部分失敗 = 家族データ半損であり「完了」と誤認させない。 -->
+					{#if importHadErrors}
+						<div
+							class="bg-[var(--color-feedback-warning-bg)] border border-[var(--color-feedback-warning-border)] rounded-lg p-4 mb-3"
+							role="alert"
+							data-testid="data-import-partial-warning"
+						>
+							<p class="text-sm font-bold text-[var(--color-feedback-warning-text)] mb-1">
+								⚠️ {SETTINGS_LABELS.dataImportPartialTitle}
+							</p>
+							<p class="text-xs text-[var(--color-feedback-warning-text)]">
+								{importMode === 'replace'
+									? SETTINGS_LABELS.dataImportPartialBodyReplace
+									: SETTINGS_LABELS.dataImportPartialBodyAdd}
+							</p>
+						</div>
+					{/if}
+					<div
+						class="rounded-lg p-4 mb-3 {importHadErrors
+							? 'bg-[var(--color-feedback-warning-bg)]'
+							: 'bg-[var(--color-feedback-success-bg)]'}"
+						data-testid="data-import-result"
+					>
+						<p
+							class="text-sm font-bold mb-2 {importHadErrors
+								? 'text-[var(--color-feedback-warning-text)]'
+								: 'text-[var(--color-feedback-success-text)]'}"
+						>
 							{SETTINGS_LABELS.dataImportComplete}
 						</p>
-						<ul class="text-xs text-[var(--color-feedback-success-text)] space-y-1">
+						<ul
+							class="text-xs space-y-1 {importHadErrors
+								? 'text-[var(--color-feedback-warning-text)]'
+								: 'text-[var(--color-feedback-success-text)]'}"
+						>
 							<li>
 								{SETTINGS_LABELS.dataImportResultChildren(importResult.childrenImported)}
 							</li>
@@ -660,8 +716,65 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 									importResult.pointLedgerSkipped,
 								)}
 							</li>
+							<li>
+								{SETTINGS_LABELS.dataImportResultSpecialRewards(
+									importResult.specialRewardsImported,
+									importResult.specialRewardsSkipped,
+								)}
+							</li>
+							{#if importResult.checklistLogsImported > 0 || importResult.checklistLogsSkipped > 0}
+								<li>
+									{SETTINGS_LABELS.dataImportResultChecklistLogs(
+										importResult.checklistLogsImported,
+										importResult.checklistLogsSkipped,
+									)}
+								</li>
+							{/if}
+							{#if importResult.staticFilesRestored > 0 || importResult.staticFilesSkipped > 0}
+								<li>
+									{SETTINGS_LABELS.dataImportResultStaticFiles(
+										importResult.staticFilesRestored,
+										importResult.staticFilesSkipped,
+									)}
+								</li>
+							{/if}
 						</ul>
 					</div>
+					<!-- #3095: errors 内訳を surface (silent-skip 禁止)。再実行判断の材料にする。 -->
+					{#if importResult.errors.length > 0}
+						<div
+							class="bg-[var(--color-feedback-error-bg)] rounded-lg p-4 mb-3"
+							data-testid="data-import-errors"
+						>
+							<p class="text-sm font-bold text-[var(--color-feedback-error-text)] mb-2">
+								{SETTINGS_LABELS.dataImportErrorsTitle(importResult.errors.length)}
+							</p>
+							<ul
+								class="text-xs text-[var(--color-feedback-error-text)] space-y-1 list-disc pl-4"
+							>
+								{#each importResult.errors as err (err)}
+									<li>{err}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+					{#if importResult.warnings.length > 0}
+						<div
+							class="bg-[var(--color-feedback-warning-bg)] rounded-lg p-4 mb-3"
+							data-testid="data-import-warnings"
+						>
+							<p class="text-sm font-bold text-[var(--color-feedback-warning-text)] mb-2">
+								{SETTINGS_LABELS.dataImportWarningsTitle(importResult.warnings.length)}
+							</p>
+							<ul
+								class="text-xs text-[var(--color-feedback-warning-text)] space-y-1 list-disc pl-4"
+							>
+								{#each importResult.warnings as warn (warn)}
+									<li>{warn}</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
 					<Button
 						type="button"
 						variant="ghost"

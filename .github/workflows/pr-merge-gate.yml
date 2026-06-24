@@ -1,5 +1,9 @@
 name: PR Merge Gate
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # #1481: PR チェックリスト未完了 / AC 検証マップ未記入を CI でブロックする
 # Required status checks に `pr-merge-gate / checklist-check` を追加すること（デプロイ後に手動設定）
 #

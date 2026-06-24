@@ -65,8 +65,7 @@ describe('demo/activity-pref-repo', () => {
 	});
 });
 
-// demo/auto-challenge-repo is fixture-backed (DEMO_AUTO_CHALLENGES) — covered in
-// tests/unit/server/db/demo/auto-challenge-repo.test.ts (#2097 Phase B-4)
+// #3213 (EPIC #3193): demo/auto-challenge-repo 削除済 (auto_challenges 廃止、child_challenges へ一本化)
 
 describe('demo/battle-repo', () => {
 	// #2097 Phase B-5b: 902 (preschool) はバトル UI 対象外 / 401 はバトル対象外

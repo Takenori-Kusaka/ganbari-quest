@@ -8,6 +8,7 @@ import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
 import type { CurrencyCode, PointUnitMode } from '$lib/domain/point-display';
 import { CURRENCY_CODES, CURRENCY_DEFS, formatPointValue } from '$lib/domain/point-display';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
+import { notifyActionError, notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -47,11 +48,17 @@ async function saveDecayIntensity() {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ intensity: decayIntensity }),
 		});
-		if (!res.ok) throw new Error('Failed to save');
+		// #3225: 保存失敗を silent にしない (error Toast でユーザに通知)
+		if (!res.ok) {
+			await notifyApiError(res);
+			return;
+		}
 		decaySuccess = true;
 		setTimeout(() => {
 			decaySuccess = false;
 		}, 3000);
+	} catch {
+		notifyNetworkError();
 	} finally {
 		decaySaving = false;
 	}
@@ -153,6 +160,9 @@ const previewFormatted = $derived(
 					pointSubmitting = false;
 					if (result.type === 'success') {
 						pointSuccess = true;
+					} else {
+						// #3225: ポイント設定の保存失敗を silent にしない
+						notifyActionError(result);
 					}
 					await update();
 				};
@@ -327,40 +337,6 @@ const previewFormatted = $derived(
 		{/if}
 
 		<form method="POST" action="?/updateSiblingSettings" use:enhance class="space-y-4">
-			<div>
-				<label
-					for="sibling-mode-both"
-					class="block text-sm font-semibold text-[var(--color-text)] mb-2"
-				>
-					{SETTINGS_LABELS.siblingChallengeMode}
-				</label>
-				<div class="space-y-2">
-					{#each [
-						{ value: 'both', label: '協力＆競争（両方）', desc: '協力チャレンジと競争チャレンジの両方を利用' },
-						{ value: 'cooperative', label: '協力のみ', desc: 'きょうだいで協力するチャレンジのみ' },
-						{ value: 'competitive', label: '競争のみ', desc: 'きょうだい間の競争チャレンジのみ' },
-					] as opt}
-						<label
-							class="flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors {data.siblingMode === opt.value
-								? 'border-[var(--color-brand-400)] bg-[var(--color-feedback-info-bg)]'
-								: 'border-[var(--color-border-default)] hover:bg-[var(--color-surface-muted)]'}"
-						>
-							<input
-								type="radio"
-								id={opt.value === 'both' ? 'sibling-mode-both' : undefined}
-								name="siblingMode"
-								value={opt.value}
-								checked={data.siblingMode === opt.value}
-								class="mt-0.5"
-							/>
-							<div>
-								<span class="text-sm font-medium text-[var(--color-text)]">{opt.label}</span>
-								<p class="text-xs text-[var(--color-text-muted)]">{opt.desc}</p>
-							</div>
-						</label>
-					{/each}
-				</div>
-			</div>
 			{#if data.canSiblingRanking}
 				<label class="flex items-center gap-2">
 					<input

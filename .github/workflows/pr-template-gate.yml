@@ -1,5 +1,9 @@
 name: PR テンプレート必須ゲート
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # PR テンプレート (.github/PULL_REQUEST_TEMPLATE.md) の必須項目が
 # 適切に記入されているかを 5 つの並列ジョブで検証する。
 # いずれか 1 つでも失敗すると PR がブロックされる（hard-fail）。

@@ -299,8 +299,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 旧 `sibling_challenges` (family-wide + 別 `sibling_challenge_progress` table、全 child を自動 enroll) は **#2458 (Path B sibling drop、本 PR、2026-05-26) で物理撤去完了**。child_challenges 単独経路:
 
 - **schema**: 旧 `sibling_challenges` / `sibling_challenge_progress` table 撤去済、`child_challenges` table のみ
-- **services**: `child-challenge-service.ts` / `child-challenge-copy-service.ts` (SRP 分離) のみ。`sibling-challenge-service.ts` / `sibling-challenge-repo.ts` facade / 3 backend 実装 / `ISiblingChallengeRepo` interface / `SiblingChallenge*` 型は #2458-B (PR #2488) + Path B sibling drop で完全撤去
-- **routes**: `/admin/challenges` は per-child instance + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte) + 一括追加 + cross-child copy。`/marketplace/[type]/[itemId]` challenge-set は admin redirect 動線 (CWE-598 排除、`?marketplace-import=<presetId>` のみ、#2458-B で reward-set / checklist と同型化)
+- **services**: `child-challenge-service.ts` のみ (`child-challenge-copy-service.ts` は #3195 で親手動 copyToSiblings 撤去に伴い削除、repo interface の `copyAcrossChildren` は #3213 cleanup で整理)。`sibling-challenge-service.ts` / `sibling-challenge-repo.ts` facade / 3 backend 実装 / `ISiblingChallengeRepo` interface / `SiblingChallenge*` 型は #2458-B (PR #2488) + Path B sibling drop で完全撤去
+- **routes**: `/admin/challenges` は per-child instance の閲覧 + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte)。**#3195 (EPIC #3193)**: アプリ自動生成一本化に伴い親手動作成 / 一括追加 / cross-child copy / marketplace challenge-set import を撤去し閲覧専用化、child_challenges はアプリ週次自動生成 (`sourceTemplateId='auto:weekly'`) で埋める
 - **子供画面 (#2458-B caller migration)**:
   - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key (sourceTemplateId / `title::start::end`) 兄弟連動情報 (`siblings[]`) を取得
   - `ChallengeBanner.svelte` / `SiblingCelebration.svelte` は `ChildChallengeWithSiblings` 型に統合 (自身の `currentValue` / `targetValue` / `rewardClaimed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定)
@@ -379,6 +379,8 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - 新しい reward-set を追加 → import-service テスト + E2E で itemId を網羅
 - 重複検知ロジック (`sameSourceTitles`) 変更 → unit テスト 3 件 (「同一 preset 同一 title」/「別 preset 同名」/「sourcePresetId=null 手動 reward」) で誤検知ガード
 - reward の即時付与（grant）と一括取込（import）の区別: 一括取込は **point 加算しない**（"候補登録"）。grant は `insertPointEntry` を呼ぶ
+- **backup/restore (#3079) の重複検知は #3168 で冪等化済** (`dedupMode='content'`)。restore は `source_preset_id` 非依存で **(title+points) を全既存 reward と照合**し、既存と一致する reward は skip する (`reward-set-import-service.ts` `buildRewardDuplicateMatcher`、restore action `admin/rewards/+page.server.ts` が `ctx.dedupMode='content'` を注入)。これにより populated tenant へ自分のバックアップを復元しても二重化しない。**marketplace preset 取込は `'preset-scope'` (既定) のまま** (#1254 G1 = 手動 reward を preset が clobber しない意図的設計、`reward-set-import-service.test.ts` の preset-scope ケースで pin)。checklist 個別 restore (#3085) は name 一致 dedup で元々冪等 (影響なし)。
+  - **#3163 worker DB 汚染との関係**: #3168 以前は restore が seed reward (`source_preset_id=NULL`) を複製 INSERT し、共有 worker DB を汚染して後続 `child-shop-exchange` が同一 reward の 2 枚目カードを検出していた。#3168 の冪等化で本番側を根治、`admin-backup-restore.spec.ts` の afterEach sentinel 除去 (#3163/#3167) は defense-in-depth として併存。**reward 陳列 (child shop) は DB 行と 1:1 描画のため、行重複 = カード重複に直結する**点は不変 (seed/陳列ロジック変更時の点検観点)。
 
 #### 7e. marketplace challenge-set 一括追加 (#2297, EPIC #2294 ③ — #2896 で marketplace 陳列廃止)
 
@@ -480,7 +482,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - LP 側は `scripts/check-lp-plan-sync.mjs` で drift を自動検知（#764, `npm run lint:parallel` 経由）
   - `site/pricing.html`: 全 feature 完全一致（strict）
   - `site/index.html`, `site/pamphlet.html`: 少なくとも 1 feature 一致（loose, LP トップとパンフ簡略版のため）
-  - 価格（`price` / `yearlyPrice` の数値部）は全ファイルでチェック（pamphlet は月額のみ）
+  - 価格（`price` の数値部）は全ファイルでチェック（年額 `yearlyPrice` は #2719 / FR-2 で廃止済 = 月額のみ）
 
 **修正時チェック**:
 - [ ] プラン機能追加 → `plan-features.ts` の該当プラン配列に追加
@@ -558,6 +560,39 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 ---
 
+## 🔥 重量 e2e 敏感領域 SSOT（軽量レーンをすり抜ける不変条件、#3172 / #3173）
+
+> **このリストは「軽量レーン緑 = 安全」と誤認してはいけない領域の SSOT**。
+> develop 軽量レーン（lint-and-test / unit / schema gate）は重量 e2e（Playwright）を発火させないため、
+> ここに挙げた領域の不変条件は **軽量レーンをすり抜けて統合監査（release → main）で初めて落ちる**。
+> 3 サイクル連続の統合 blocker（[#3104](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3104) 日本語名 export →
+> [#3132](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3132) rewards points 値域 →
+> [#3163](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3163) child shop 重複カード）は
+> すべて「重量 e2e でしか守れない不変条件が軽量レーンをすり抜ける」同一 root class。
+
+### 対象領域と守るべき不変条件・該当重量 e2e
+
+| 敏感領域 | 守るべき不変条件 | 並行実装ペア | 該当重量 e2e spec |
+|---------|----------------|------------|------------------|
+| **export / import schema・marketplace schema** | domain validation 値域 ⊆ wire(export) schema 値域。round-trip（export → restore）が ValiError なく貫通。restore が共有 worker DB を汚染しない（sentinel 削除を afterEach） | `*-schema.ts`（valibot wire）↔ `domain/validation/*.ts`（domain 値域）↔ e2e seed（`global-setup.ts`） | `admin-backup-restore.spec.ts` / `marketplace-round-trip-required.spec.ts` |
+| **reward 陳列・shop_category / child shop** | 1 ごほうび = 1 カード（陳列クエリが重複行を返さない / null fallback が二重カウントしない / 共有 worker DB を後続 spec が汚染しない） | shop load（`shop/+page.server.ts`）↔ child shop UI ↔ e2e seed（`global-setup.ts` shop_e2e）↔ `test-db.ts` | `child-shop-exchange.spec.ts` / `child-shop-tabs-filter.spec.ts` |
+| **domain validation 値域** | SQL 直挿入 seed 値も含め domain 値域 ⊆ export schema 値域（直接 SQL は validation を迂回するため out-of-domain 値が混入しうる） | `domain/validation/*.ts` ↔ `*-schema.ts` ↔ e2e seed（`global-setup.ts`） | `admin-backup-restore.spec.ts` |
+| **parent-gate（/switch modal + /admin middleware）** | inactivity redirect / session 署名 / onboarding 整合 | §6.5 親 PIN gate の 4 ファイル群 | `parent-gate-*.spec.ts` / `switch-*.spec.ts` |
+| **DB スキーマ変更** | 4 並行実装（schema.ts / create-tables.ts / sqlite repo / dynamodb repo）+ e2e seed + test-db + demo-data 同期 | §7 シードデータ vs マイグレーション | 全 admin / child CUJ spec |
+
+### 着手・レビュー時の必須アクション（人手 gate、機械側は EPIC #3152）
+
+上表の領域に触れる変更は、**軽量レーン緑だけで完了/approve とせず**、以下のいずれかの証跡を残す:
+
+1. **作者による該当重量 e2e のローカル実行証跡** — `npx playwright test tests/e2e/<該当 spec>.spec.ts`（PASS ログ）
+2. **本表の並行実装ペア更新の確認** — ペア全箇所を触ったことを PR body / コメントに明記
+3. **e2e seed / test-db を変更に同期** — schema / 値域 / 陳列を変えたら `global-setup.ts` + `test-db.ts` を追従
+4. **domain 値域 ⊆ wire(export) schema 値域の整合確認** — 直接 SQL seed 値も schema 上限内に収める
+
+> **二段三重構え**: 機械強制 = EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152)（shift-left / fitness function）+ [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151)（schema-SSOT）/ QA 人手 gate = [qa-session.md](../sessions/qa-session.md) 手順 4（#3172）/ Dev 着手時セルフチェック = [dev-session.md](../sessions/dev-session.md) 新規実装時（#3173）。人手 gate 単独に頼らせない。
+
+---
+
 ## 修正時チェックリスト
 
 **すべての修正前に、以下のどれに該当するか確認し、対応するペアを触ること**:
@@ -568,6 +603,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - [ ] **アプリ機能** → LP (`site/`) で紹介している場合は文言同期
 - [ ] **ナビゲーション** → 管理画面は `AdminLayout.svelte` 単一ファイルに Desktop dropdown + Mobile submenu が同居（`AdminMobileNav` は存在しない / 2026-04-19 実態確認）。子供画面の `BottomNav.svelte` は独立しており、親向け機能（マケプレ等）は対象外
 - [ ] **DB スキーマ** → `tests/e2e/global-setup.ts` + `tests/unit/helpers/test-db.ts` + `src/lib/server/demo/demo-data.ts`
+- [ ] **重量 e2e 敏感領域** (#3172 / #3173) → export/import schema・marketplace schema / reward 陳列・shop_category / domain validation 値域 / child shop / parent-gate を変更したら §「🔥 重量 e2e 敏感領域 SSOT」の必須アクション（該当重量 e2e ローカル実行 or ペア確認 + seed 同期 + 値域整合）を実施。軽量レーン緑だけで完了としない
 - [ ] **チュートリアル** → 本番 (`tutorial-chapters.ts`) + デモ (`demo-guide-state.svelte.ts`)
 - [ ] **設計書** → 影響する `docs/design/*.md` を更新
 - [ ] **法的文書 (privacy / terms)** (#1638 / #1590) → `site/privacy.html` / `site/terms.html` を変更したら `consent-service.ts` の `CURRENT_TERMS_VERSION` / `CURRENT_PRIVACY_VERSION` を改訂日付に更新し、`LEGAL_LABELS` (`labels.ts`) のキー用語が両文書に存在することを `node scripts/check-lp-ssot.mjs` で確認

@@ -233,6 +233,14 @@ export default async function globalSetup() {
 				}
 			}
 
+			// #3147: special_rewards.shop_category カラム追加（nullable、NULL は表示側で推定 fallback）
+			try {
+				db.exec('ALTER TABLE special_rewards ADD COLUMN shop_category TEXT');
+				console.log('[E2E Setup]   Added special_rewards.shop_category column (#3147).');
+			} catch {
+				// カラムが既に存在する場合は無視
+			}
+
 			// #1335: reward_redemption_requests テーブル追加
 			try {
 				db.exec(`CREATE TABLE IF NOT EXISTS reward_redemption_requests (
@@ -697,6 +705,8 @@ export default async function globalSetup() {
 			CREATE INDEX IF NOT EXISTS idx_child_challenges_child ON child_challenges(child_id, status);
 			CREATE INDEX IF NOT EXISTS idx_child_challenges_dates ON child_challenges(start_date, end_date);
 			CREATE INDEX IF NOT EXISTS idx_child_challenges_source ON child_challenges(source_template_id);
+			-- #3245 並行実装整合: auto:weekly は (child_id, start_date) で一意 (e2e DB も本番/test-db と同制約)
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_child_challenges_auto_weekly_unique ON child_challenges(child_id, start_date) WHERE source_template_id = 'auto:weekly';
 		`);
 
 		// sibling_cheers テーブル（#0216 きょうだいスタンプ）
@@ -1335,7 +1345,13 @@ export default async function globalSetup() {
 				.get(cId);
 			if (!existingExpensive) {
 				db.prepare(
-					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換不可）', 99999, '💎', 'shop_e2e', CURRENT_TIMESTAMP)",
+					// #3132: points は special-reward ドメイン validation (special-reward.ts `.max(10000)`) +
+					// reward-set export schema (reward-set-schema.ts `maxValue(10000)`) の上限に合わせ 10000 とする。
+					// 旧値 99999 はドメイン上限超過 (直接 SQL で validation を迂回した out-of-domain 値) で、
+					// export → restore round-trip が reward-set-schema で弾かれていた (統合 blocker)。
+					// 10000 でも本 reward はテスト child の残高 (~100pt にリセット、§balance 調整) を遥かに超え
+					// 「交換不可」を維持する (child-shop-exchange は title 一致で card を探すため値非依存)。
+					"INSERT INTO special_rewards (child_id, title, points, icon, category, shown_at) VALUES (?, 'E2Eテスト用ごほうび（交換不可）', 10000, '💎', 'shop_e2e', CURRENT_TIMESTAMP)",
 				).run(cId);
 				console.log('[E2E Setup]   Created expensive shop reward for たろうくん.');
 			}

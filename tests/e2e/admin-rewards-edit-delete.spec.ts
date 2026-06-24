@@ -238,4 +238,40 @@ test.describe('#2832 reward 編集/削除の pending redemption ガード', () =
 			timeout: 10_000,
 		});
 	});
+
+	test('#3154: 編集 dialog でショップ陳列系統 (shop_category) を変更すると DB に反映される', async ({
+		page,
+		workerDbPath,
+	}) => {
+		test.slow();
+		const seeded = await seedReward(workerDbPath, 'shop');
+
+		await page.goto('/admin/rewards', { waitUntil: 'domcontentloaded' });
+		const rewardItem = page.getByTestId(`reward-item-${seeded.rewardId}`);
+		await expect(rewardItem).toBeVisible({ timeout: 30_000 });
+
+		const editDialog = page.getByTestId('reward-edit-dialog');
+		await openDialogWithRetry(page.getByTestId(`reward-edit-btn-${seeded.rewardId}`), editDialog);
+
+		// 陳列系統セレクトで 'money' (お小遣い) を選択 → 編集確定 (act → outcome)
+		await editDialog.getByTestId('reward-edit-shop-category').selectOption('money');
+		const [resp] = await Promise.all([
+			page.waitForResponse((r) => /\?\/update/.test(r.url())),
+			page.getByTestId('reward-edit-confirm').click(),
+		]);
+		expect(resp.ok()).toBeTruthy();
+		await expect(page.getByTestId('rewards-action-message')).toBeVisible({ timeout: 10_000 });
+
+		// DB に shop_category='money' が永続したことを検証 (登録後の陳列系統変更が効く)
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			const row = db
+				.prepare('SELECT shop_category FROM special_rewards WHERE id = ?')
+				.get(seeded.rewardId) as { shop_category: string | null } | undefined;
+			expect(row?.shop_category).toBe('money');
+		} finally {
+			db.close();
+		}
+	});
 });

@@ -8,8 +8,11 @@ import type { ChecklistPayload } from '$lib/domain/marketplace-item';
 // #2367 (EPIC #2362 P3): checklist 経路は dispatchImport 経由 (Strangler Fig)
 // #2402 QM must-2: `marketplaceRegistry` 直接参照は dispatchImport API で代替済、import 撤去
 import { dispatchImport } from '$lib/marketplace';
+// #3079: チェックリスト個別 backup/restore — v2 envelope file source adapter
+import { FileSourceError, loadChecklistFromFile } from '$lib/marketplace/sources/file-source';
 import { requireTenantId } from '$lib/server/auth/factory';
 import {
+	findAssignmentsByChild,
 	findAssignmentsByTemplate,
 	findOverrides,
 	findTemplateItems,
@@ -17,7 +20,10 @@ import {
 	findTodayLog,
 } from '$lib/server/db/checklist-repo';
 import { logger } from '$lib/server/logger';
-import { syncDistribution } from '$lib/server/services/checklist-distribution-service';
+import {
+	distributeToChildren,
+	syncDistribution,
+} from '$lib/server/services/checklist-distribution-service';
 import {
 	addOverride,
 	addTemplateItem,
@@ -28,6 +34,10 @@ import {
 	removeTemplateItem,
 	VALID_TIME_SLOTS,
 } from '$lib/server/services/checklist-service';
+import {
+	importChecklistTemplateFromPayload,
+	previewChecklistImportFromPayload,
+} from '$lib/server/services/checklist-template-import-service';
 import { getAllChildren } from '$lib/server/services/child-service';
 import {
 	checkChecklistTemplateLimit,
@@ -559,4 +569,212 @@ export const actions: Actions = {
 			return fail(500, { error: '配信先の同期に失敗しました' });
 		}
 	},
+
+	// #3098 (EPIC #3096 Sub-2): 「別の子から copy」= source child に配信済みの family template を
+	// target child にも配信する (assignments 追加のみ、template 自体は family master のまま複製しない)。
+	// activity の copyFromChild と同型の child 主軸 UX。既配信は distributeToChildren が skip する。
+	//
+	// CWE-598 防御 (importPresetToChildren / syncDistribution と同型):
+	//   source / target childId が tenant 配下の child であることを assert。1 件でも tenant 外なら 403。
+	copyDistributionFromChild: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const sourceChildId = Number(formData.get('sourceChildId'));
+		const targetChildId = Number(formData.get('targetChildId'));
+
+		if (!sourceChildId || !targetChildId) {
+			return fail(400, { error: 'お子さまを選択してください' });
+		}
+		if (sourceChildId === targetChildId) {
+			return fail(400, { error: '違うお子さまを選んでください' });
+		}
+
+		// CWE-598 guard: source / target が tenant 配下であることを確認
+		const tenantChildren = await getAllChildren(tenantId);
+		const allowedChildIdSet = new Set(tenantChildren.map((c) => c.id));
+		if (!allowedChildIdSet.has(sourceChildId) || !allowedChildIdSet.has(targetChildId)) {
+			logger.warn(
+				'[admin/checklists] tenant 外 child ID が copyDistributionFromChild に指定された',
+				{
+					context: { sourceChildId, targetChildId, tenantId },
+				},
+			);
+			return fail(403, { error: '指定されたお子さまが見つかりませんでした' });
+		}
+
+		// per-child quota: free プランは target child のテンプレ上限を超えないか確認。
+		// limit.max === null は無制限 (standard 以上)。limit.allowed が false (= 既に上限到達) なら 1 件も追加できない。
+		const licenseStatus = locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE;
+		const limit = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
+		if (!limit.allowed) {
+			const tier = await resolveFullPlanTier(tenantId, licenseStatus, locals.context?.plan);
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					`フリープランではお子さま1人あたり ${limit.max} 個までです。スタンダード以上にアップグレードすると無制限に作成できます。`,
+				),
+				upgradeRequired: true,
+			});
+		}
+
+		try {
+			const sourceAssignments = await findAssignmentsByChild(sourceChildId, tenantId);
+			const sourceTemplateIds = sourceAssignments.map((a) => a.templateId);
+			if (sourceTemplateIds.length === 0) {
+				return { copiedFromChild: true, added: 0 };
+			}
+			// #3098 QM BLOCK 対応: per-iteration の quota enforcement。
+			// 旧実装は「ループ前に 1 回 limit.allowed を見るだけ」で、5 件の source を copy すると
+			// free プラン target の per-child 上限 (maxChecklistTemplates) を超過 (over-grant) していた。
+			// limit.max === null (無制限プラン) → 全件 copy。
+			// 有限プラン → 残スロット (max - current) 件まで copy し、超過分は skip して partial-success を返す。
+			// distributeToChildren は既配信を skip し「実際に追加した childId」を返すため、
+			// inserted.length (= 0 or 1) を残スロットから消費する。
+			let added = 0;
+			let limitReached = false;
+			for (const templateId of sourceTemplateIds) {
+				if (limit.max !== null && added >= limit.max - limit.current) {
+					// 残スロットを使い切った。残りの source は target 上限超過になるため copy しない。
+					limitReached = true;
+					break;
+				}
+				const inserted = await distributeToChildren(templateId, [targetChildId], tenantId);
+				added += inserted.length;
+			}
+			if (limitReached) {
+				return {
+					copiedFromChild: true,
+					added,
+					limitReached: true,
+					message: `${added} 件取り込みました。フリープランの上限に達したため残りは取り込めませんでした。スタンダード以上で無制限。`,
+				};
+			}
+			return { copiedFromChild: true, added };
+		} catch (e) {
+			logger.error('[admin/checklists] 別の子からの copy 失敗', {
+				error: e instanceof Error ? e.message : String(e),
+				context: { sourceChildId, targetChildId },
+			});
+			return fail(500, { error: '取り込みに失敗しました' });
+		}
+	},
+
+	// #3079: バックアップから復元 (preview) — JSON ファイルを解析し総数 / 重複を返す (DB write なし)。
+	// checklist は family master scope。重複判定は復元テンプレート名 (export ファイル名由来) の tenant 一致。
+	restorePreview: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const tier = await resolveFullPlanTier(
+			tenantId,
+			locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+			locals.context?.plan,
+		);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					PLAN_GATE_LABELS.standardOrAboveFor('チェックリスト管理'),
+				),
+			});
+		}
+
+		const formData = await request.formData();
+		const file = formData.get('file');
+
+		let loaded: Awaited<ReturnType<typeof loadChecklistFromFile>>;
+		try {
+			loaded = await loadChecklistFromFile(file as File);
+		} catch (e) {
+			if (e instanceof FileSourceError) return fail(400, { error: e.message });
+			return fail(400, { error: 'ファイルの解析に失敗しました' });
+		}
+
+		const templateName = deriveRestoreTemplateName(loaded.displayName);
+		const preview = await previewChecklistImportFromPayload(loaded.payload, templateName, tenantId);
+		return {
+			restorePreview: true,
+			fileName: loaded.displayName,
+			templateName,
+			total: preview.itemCount,
+			duplicates: preview.alreadyImported ? preview.itemCount : 0,
+			newItems: preview.alreadyImported ? 0 : preview.itemCount,
+		};
+	},
+
+	// #3079: バックアップから復元 (実行) — preview 確認後の実 DB write。
+	// 同名テンプレートが既存なら preset 全体スキップ (atomic unit)。配信は別途 ChecklistDistributionDialog。
+	restoreFile: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+
+		const tier = await resolveFullPlanTier(
+			tenantId,
+			locals.context?.licenseStatus ?? AUTH_LICENSE_STATUS.NONE,
+			locals.context?.plan,
+		);
+		if (!isPaidTier(tier)) {
+			return fail(403, {
+				error: createPlanLimitError(
+					tier,
+					'standard',
+					PLAN_GATE_LABELS.standardOrAboveFor('チェックリスト管理'),
+				),
+			});
+		}
+
+		// プラン上限: 有料プランは maxChecklistTemplates=null (無制限) のため isPaidTier ガードが
+		// 上限ガードを兼ねる。family scope 復元は特定 child に紐づかないため per-child カウント
+		// (checkChecklistTemplateLimit) は意味を持たない。
+
+		const formData = await request.formData();
+		const file = formData.get('file');
+
+		let loaded: Awaited<ReturnType<typeof loadChecklistFromFile>>;
+		try {
+			loaded = await loadChecklistFromFile(file as File);
+		} catch (e) {
+			if (e instanceof FileSourceError) return fail(400, { error: e.message });
+			return fail(400, { error: 'ファイルの解析に失敗しました' });
+		}
+
+		const templateName = deriveRestoreTemplateName(loaded.displayName);
+		try {
+			const result = await importChecklistTemplateFromPayload(
+				loaded.payload,
+				templateName,
+				'📋',
+				tenantId,
+			);
+			return {
+				restored: true,
+				fileName: loaded.displayName,
+				templateName,
+				imported: result.imported,
+				skipped: result.skipped,
+				importedItems: result.importedItems,
+				failed: result.failed,
+			};
+		} catch (e) {
+			logger.error('[admin/checklists] 復元失敗', {
+				error: e instanceof Error ? e.message : String(e),
+			});
+			return fail(500, { error: 'インポートに失敗しました' });
+		}
+	},
 };
+
+/**
+ * #3079: 復元ファイル名からテンプレート名を導出する。
+ *
+ * export 側 (`/api/v1/checklists/export`) はファイル名を `checklist-<safeName>.json` で出力する。
+ * 復元時は逆に prefix / 拡張子を剥がして元の name を復元する。checklist payload schema は name を
+ * 持たない (`{ timing, items }`) ため、ファイル名がテンプレート名の round-trip キャリアとなる。
+ * 想定外のファイル名 (prefix なし等) は安全な既定名にフォールバックする。
+ */
+function deriveRestoreTemplateName(fileName: string): string {
+	const base = fileName.replace(/\.json$/i, '');
+	const stripped = base.startsWith('checklist-') ? base.slice('checklist-'.length) : base;
+	const cleaned = stripped.replace(/_/g, ' ').trim();
+	return cleaned.length > 0 ? cleaned : '復元したチェックリスト';
+}

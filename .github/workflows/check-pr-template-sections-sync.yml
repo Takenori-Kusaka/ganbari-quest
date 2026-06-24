@@ -1,5 +1,9 @@
 name: PR template SSOT 同期検証
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # Issue #2060: .github/PULL_REQUEST_TEMPLATE.md と
 # .github/PR_TEMPLATE_SECTIONS.json (SSOT) の整合性を検証する drift gate。
 #

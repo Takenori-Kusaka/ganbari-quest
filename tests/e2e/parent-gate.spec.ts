@@ -342,6 +342,72 @@ function registerParentGateTests(): void {
 			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 		});
 
+		// #3089: PIN 認証成功 → 親画面 (ハードナビ) 表示完了まで数秒かかる間、全画面 progress を出す。
+		// modal が閉じてから子供画面が静止して見える「困惑」(PO 報告) の回帰固定。
+		// /admin の document nav を遅延させ、遷移中 overlay を決定的に観測する。
+		test('#3089: PIN 認証成功後、親画面表示完了まで全画面 progress (navigating overlay) が表示される', async ({
+			page,
+		}) => {
+			await page.route('**/admin', async (route) => {
+				if (route.request().resourceType() === 'document') {
+					await new Promise((resolve) => setTimeout(resolve, 1200));
+				}
+				await route.continue();
+			});
+
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			// 作成フロー (未設定 tenant): 入力 → 確認一致 → setup 成功
+			await typePinInto(page, '1357');
+			await expect(page.getByTestId('parent-gate-create')).toHaveAttribute('data-step', 'confirm');
+			await typePinInto(page, '1357');
+
+			// 成功直後、/admin 表示完了前に navigating overlay が見える (子供画面が静止して見えない)
+			const overlay = page.getByTestId('parent-gate-navigating');
+			await expect(overlay).toBeVisible({ timeout: 5_000 });
+			await expect(overlay).toContainText('ひらいています');
+
+			// overlay は dead-end でなく遷移の途中表示 — 最終的に /admin へ到達する
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+		});
+
+		// #3089 fail-safe: ハードナビが失敗 (CloudFront 429 / /admin 5xx / 通信断 / cookie 失効 等で
+		// unload しない) した場合、spinner overlay が永続 dead-end にならず、timeout で error 状態
+		// (再試行ボタン) に切り替わることを検証する。/admin document nav を abort し続けて失敗を再現。
+		test('#3089: ハードナビが失敗すると navigating overlay は dead-end にならず error + 再試行が出る', async ({
+			page,
+		}) => {
+			// /admin への document nav を継続的に abort し、ページが unload しない (= ナビ失敗) を再現
+			await page.route('**/admin', async (route) => {
+				if (route.request().resourceType() === 'document') {
+					await route.abort();
+					return;
+				}
+				await route.continue();
+			});
+
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			// 作成フロー成功 → triggerAdminNavigation 起動 → nav abort → 8s timeout で error へ
+			await typePinInto(page, '2468');
+			await expect(page.getByTestId('parent-gate-create')).toHaveAttribute('data-step', 'confirm');
+			await typePinInto(page, '2468');
+
+			// spinner overlay は一旦表示される
+			await expect(page.getByTestId('parent-gate-navigating')).toBeVisible({ timeout: 5_000 });
+
+			// timeout (8s) 経過後、dead-end でなく error 状態 (role=alert + 再試行ボタン) に切り替わる
+			const errorOverlay = page.getByTestId('parent-gate-navigating-error');
+			await expect(errorOverlay).toBeVisible({ timeout: 12_000 });
+			await expect(errorOverlay).toContainText('もう一度');
+			// spinner overlay は消えている (dead-end でない = escape hatch 提供)
+			await expect(page.getByTestId('parent-gate-navigating')).toBeHidden();
+			// 再試行ボタンが操作可能 (もう一度ナビを起動できる)
+			await expect(errorOverlay.getByRole('button')).toBeEnabled();
+		});
+
 		test('確認不一致はエラー表示 + 1 段目からやり直し (dead-end でない)', async ({ page }) => {
 			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
 			const create = page.getByTestId('parent-gate-create');
@@ -470,12 +536,14 @@ function registerParentGateTests(): void {
 		});
 	});
 
-	// #3025: federated (Google OAuth) ユーザの PIN reset — requires-recent-login 方式。
-	// federated user は Cognito パスワードを持たないため、パスワード欄は出さず
-	// 「Google で本人確認」(再ログイン) → auth_time fresh で PIN 再設定を許可する。
-	// dev では google-owner@example.com (DEV_USERS、identities claim 付き JWT) でログイン直後 = fresh を再現。
-	// stale 経路 (5 分超 → FRESH_LOGIN_REQUIRED) は unit (parent-gate-reset-verified-api.test.ts) でカバー。
-	test.describe('#3025 federated (Google) ユーザの PIN reset', () => {
+	// #3070: federated (Google OAuth) ユーザの PIN reset — email-OTP 方式。
+	// federated user は Cognito パスワードを持たず、共有端末で silent SSO により recent-login が
+	// 無入力通過し得るため、登録メールへ 6 桁コードを送る email-OTP で本人確認する。
+	// 子はメールを読めないため塞がる。本 e2e は「OTP コードなしでは reset を完遂できない」(塞がる) と
+	// 「コード送信導線が機能する」を貫通検証する。OTP 一致での完遂 / 失効 / 試行上限 / consume-once は
+	// unit (parent-gate-reset-verified-api.test.ts) が cookie + email mock でカバーする。
+	// dev では google-owner@example.com (DEV_USERS、identities claim 付き JWT) を使う。
+	test.describe('#3070 federated (Google) ユーザの PIN reset (email-OTP)', () => {
 		// SQLite local の settings は key PK (tenant 列なし、単一 tenant 前提) のため、本 describe の
 		// reset は seed 済 pin_hash を上書きする。#2851 snapshot/restore で seed 状態へ完全復元する。
 		const DB_PATH = 'data/ganbari-quest.db';
@@ -510,40 +578,79 @@ function registerParentGateTests(): void {
 			}
 		});
 
-		test('ログイン直後 (fresh): パスワード欄なしで新 PIN を設定でき /admin に入れる', async ({
-			page,
-		}) => {
+		async function loginAsGoogleUser(page: import('@playwright/test').Page) {
 			// federated 相当ユーザでログイン (識別は JWT の identities claim、ログイン手段は dev form)
 			await page.goto('/auth/login', { waitUntil: 'domcontentloaded' });
 			await page.locator('input[name="email"]').fill('google-owner@example.com');
 			await page.locator('input[name="password"]').fill('Gq!Dev#Goog2026xy');
 			await page.locator('form button[type="submit"]').first().click();
 			await page.waitForURL(/\/(admin|switch)/, { timeout: 15_000 });
+		}
+
+		test('パスワード欄なし + 確認コード送信導線が出る (federated は OTP 本人確認、#3070)', async ({
+			page,
+		}) => {
+			await loginAsGoogleUser(page);
 
 			await page.goto('/auth/reset-pin', { waitUntil: 'domcontentloaded' });
 			await expect(page.getByTestId('pin-reset-verified-form')).toBeVisible();
-			// パスワード欄が存在しない (federated dead-end の根治、#3025 の核心 assert)
+			// パスワード欄は存在しない (federated dead-end の根治、Cognito パスワード不在)
 			await expect(page.getByTestId('pin-reset-verified-password')).toHaveCount(0);
-			// ログイン直後 = recent-auth 済の案内が出て PIN 入力が可能
-			await expect(page.getByTestId('pin-reset-verified-fresh')).toBeVisible();
+			// stage 1: 確認コード送信ボタンが出る (recent-login ボタンではなく OTP 送信導線)
+			await expect(page.getByTestId('pin-reset-verified-send-code')).toBeVisible();
 
-			const firstDigit = page
-				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"]')
+			// 確認コード送信 → stage 2 (コード入力欄) に遷移する (導線が dead-end でないことの goal 完遂)
+			const sendResponse = page.waitForResponse((res) =>
+				res.url().includes('/api/v1/parent-gate/reset-request-code'),
+			);
+			await page.getByTestId('pin-reset-verified-send-code').click();
+			await sendResponse;
+			await expect(page.getByTestId('pin-reset-verified-code-sent')).toBeVisible({
+				timeout: 10_000,
+			});
+		});
+
+		test('OTP コードなしでは reset を完遂できない (共有端末で子が無入力 bypass 不可、#3070 核心)', async ({
+			page,
+		}) => {
+			await loginAsGoogleUser(page);
+
+			await page.goto('/auth/reset-pin', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('pin-reset-verified-form')).toBeVisible();
+
+			// 確認コードを送って stage 2 へ (コードは知らない = メールを読めない子供を再現)
+			await page.getByTestId('pin-reset-verified-send-code').click();
+			await expect(page.getByTestId('pin-reset-verified-code-sent')).toBeVisible({
+				timeout: 10_000,
+			});
+
+			// 誤コード (000000) + 新 PIN で送信 → reset-verified は 401 で setupPin を呼ばない
+			const codeInputs = page.locator(
+				'[data-testid="pin-reset-verified-form"] [data-part="input"]',
+			);
+			// stage 2 は OTP(6) + 新 PIN(4) の 2 つの PinInput。先頭 6 桁が OTP
+			const otpFirst = codeInputs.first();
+			await otpFirst.click();
+			for (const ch of '000000') {
+				await page.keyboard.press(ch);
+			}
+			// 新 PIN (末尾の 4 桁グループ) — aria-label '/of 4' で特定
+			const pinFirst = page
+				.locator('[data-testid="pin-reset-verified-form"] [data-part="input"][aria-label*="of 4"]')
 				.first();
-			await expect(firstDigit).toHaveAttribute('aria-label', /of 4/);
-			await firstDigit.click();
-			await expect(firstDigit).toBeFocused();
+			await pinFirst.click();
 			for (const ch of '6420') {
 				await page.keyboard.press(ch);
 			}
-			const resetResponse = page.waitForResponse(
-				(res) => res.url().includes('/api/v1/parent-gate/reset-verified') && res.status() === 200,
+
+			const rejectResponse = page.waitForResponse(
+				(res) => res.url().includes('/api/v1/parent-gate/reset-verified') && res.status() === 401,
 			);
 			await page.getByTestId('pin-reset-verified-submit').click();
-			await resetResponse;
-			await expect(page.getByTestId('pin-reset-verified-success')).toBeVisible({ timeout: 10_000 });
-			await page.getByTestId('pin-reset-verified-success-cta').click();
-			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+			await rejectResponse;
+			// 完遂しない: success は出ず、エラーが visible (dead-end でなく明示拒否)
+			await expect(page.getByTestId('pin-reset-verified-error')).toBeVisible({ timeout: 10_000 });
+			await expect(page.getByTestId('pin-reset-verified-success')).toHaveCount(0);
 		});
 	});
 }

@@ -22,8 +22,14 @@ const mockInsertTemplateItem = vi.fn();
 const mockFindTemplatesByChild = vi.fn();
 // #2362 PR-5: family master 化に伴い import 時 assignment 自動付与が必要
 const mockAssignTemplateToChildren = vi.fn();
+// #3078: checklistLogs export/import 往復
+const mockFindLogsByChild = vi.fn();
+const mockUpsertLog = vi.fn();
 const mockFindSpecialRewards = vi.fn();
 const mockInsertSpecialReward = vi.fn();
+// #3077: 静的ファイル復元
+const mockSaveFile = vi.fn();
+const mockUpdateChildAvatarUrl = vi.fn();
 
 vi.mock('$lib/server/db/activity-repo', () => ({
 	findActivities: (...args: unknown[]) => mockFindActivities(...args),
@@ -58,11 +64,30 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...args),
 	// #2362 PR-5 (ADR-0055): family master 化に伴い import 時 assignment 自動付与が必要
 	assignTemplateToChildren: (...args: unknown[]) => mockAssignTemplateToChildren(...args),
+	// #3078: checklistLogs export/import 往復
+	findLogsByChild: (...args: unknown[]) => mockFindLogsByChild(...args),
+	upsertLog: (...args: unknown[]) => mockUpsertLog(...args),
 }));
 
 vi.mock('$lib/server/db/special-reward-repo', () => ({
 	findSpecialRewards: (...args: unknown[]) => mockFindSpecialRewards(...args),
 	insertSpecialReward: (...args: unknown[]) => mockInsertSpecialReward(...args),
+}));
+
+// #3077: 静的ファイル復元 (storage / image-repo)
+// #3136: fileExists は「実際に saveFile された key」のみ true を返す (savedKeys 追跡) ことで、
+// 復元済ファイルが実在する場合のみ avatarUrl を貼り替える remap の挙動を忠実に再現する。
+const savedKeys = new Set<string>();
+vi.mock('$lib/server/storage', () => ({
+	saveFile: (...args: unknown[]) => {
+		savedKeys.add(String(args[0]));
+		return mockSaveFile(...args);
+	},
+	fileExists: (key: string) => Promise.resolve(savedKeys.has(key)),
+}));
+
+vi.mock('$lib/server/db/image-repo', () => ({
+	updateChildAvatarUrl: (...args: unknown[]) => mockUpdateChildAvatarUrl(...args),
 }));
 
 vi.mock('$lib/server/logger', () => ({
@@ -147,6 +172,10 @@ beforeEach(() => {
 	mockFindRecentBonuses.mockResolvedValue([]);
 	mockFindSpecialRewards.mockResolvedValue([]);
 	mockFindTemplatesByChild.mockResolvedValue([]);
+	mockFindLogsByChild.mockResolvedValue([]);
+	mockSaveFile.mockResolvedValue(undefined);
+	mockUpdateChildAvatarUrl.mockResolvedValue(undefined);
+	savedKeys.clear(); // #3136: fileExists 追跡をテストごとにリセット
 });
 
 // ============================================================
@@ -1088,6 +1117,447 @@ describe('importFamilyData', () => {
 			expect(result.errors).toEqual(
 				expect.arrayContaining([expect.stringContaining('失敗リスト')]),
 			);
+		});
+	});
+
+	describe('チェックリスト完了ログのインポート (#3078)', () => {
+		function makeDataWithTemplateAndLog() {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.checklistTemplates = [
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 2,
+					completionBonus: 5,
+					isActive: true,
+					items: [],
+				},
+			];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: 'あさのしたく',
+					checkedDate: '2026-03-15',
+					itemsJson: '{"1":true}',
+					completedAll: true,
+					pointsAwarded: 7,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+			];
+			return data;
+		}
+
+		it('templateName が import 後の新 templateId に再マップされて復元される', async () => {
+			const data = makeDataWithTemplateAndLog();
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertTemplate.mockResolvedValue({ id: 50 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			mockUpsertLog.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(1);
+			expect(result.checklistLogsSkipped).toBe(0);
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({
+					childId: 101,
+					templateId: 50, // 新規作成された family master template の id に再マップ
+					checkedDate: '2026-03-15',
+					completedAll: 1, // boolean -> number
+					pointsAwarded: 7,
+				}),
+				TENANT,
+			);
+		});
+
+		it('既存ログと同一 (templateId, checkedDate) は重複としてスキップされる', async () => {
+			const data = makeDataWithTemplateAndLog();
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertTemplate.mockResolvedValue({ id: 50 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			// 既存ログ: templateId 50, 同 checkedDate
+			mockFindLogsByChild.mockResolvedValue([{ templateId: 50, checkedDate: '2026-03-15' }]);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(0);
+			expect(result.checklistLogsSkipped).toBe(1);
+			expect(mockUpsertLog).not.toHaveBeenCalled();
+		});
+
+		it('template が解決できないログ (template 未取込) はスキップされる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: '存在しないテンプレート',
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: false,
+					pointsAwarded: 0,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(0);
+			expect(result.checklistLogsSkipped).toBe(1);
+			expect(mockUpsertLog).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('チェックリスト log の round-trip キー (#3107 同名取り違え防止)', () => {
+		it('templateExportId を優先して正しい template に再マップする (name でなく exportId 解決)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			// 別名 2 template。log は 2 番目 (exportId e2) を指す。
+			data.data.checklistTemplates = [
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					exportId: 'e1',
+				},
+				{
+					childRef: 'c1',
+					name: 'よるのしたく',
+					icon: '🌙',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					exportId: 'e2',
+				},
+			];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: 'よるのしたく',
+					templateExportId: 'e2',
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: true,
+					pointsAwarded: 1,
+					createdAt: '2026-03-15T20:00:00Z',
+				},
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			// 1 件目 → id 50、2 件目 → id 51
+			mockInsertTemplate.mockResolvedValueOnce({ id: 50 }).mockResolvedValueOnce({ id: 51 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			mockUpsertLog.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(1);
+			// exportId e2 → 2 番目に作成した template (id 51) に attach (name 一致でなく exportId 解決)
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({ childId: 101, templateId: 51 }),
+				TENANT,
+			);
+		});
+
+		it('同名 (name 衝突) 2 template を exportId で distinct に復元し log を取り違えない (#3107 実シナリオ)', async () => {
+			// #3107 の根本シナリオ: name に UNIQUE 制約が無く、同一 export 内に同名 template が複数存在する。
+			// 旧実装は name-dedup で 2 件目を skip し exportId を 1 件目に登録 → log が誤った template に attach。
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			// 同名 'あさのしたく' を 2 件。exportId は distinct (e1 / e2)。
+			data.data.checklistTemplates = [
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					exportId: 'e1',
+				},
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					exportId: 'e2',
+				},
+			];
+			// 2 つの log がそれぞれ別 template (e1 / e2) を指す。
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: 'あさのしたく',
+					templateExportId: 'e1',
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: true,
+					pointsAwarded: 1,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+				{
+					childRef: 'c1',
+					templateName: 'あさのしたく',
+					templateExportId: 'e2',
+					checkedDate: '2026-03-16',
+					itemsJson: '{}',
+					completedAll: true,
+					pointsAwarded: 1,
+					createdAt: '2026-03-16T08:00:00Z',
+				},
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			// 同名でも 2 件とも作成される → id 50 / 51 (collapse されない)
+			mockInsertTemplate.mockResolvedValueOnce({ id: 50 }).mockResolvedValueOnce({ id: 51 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			mockUpsertLog.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			// 同名でも 2 template が distinct に作成される (name-collapse 解消)
+			expect(mockInsertTemplate).toHaveBeenCalledTimes(2);
+			expect(result.skipped.name).toBe(0);
+			// 2 件の log がそれぞれ正しい distinct template に attach される
+			expect(result.checklistLogsImported).toBe(2);
+			expect(result.checklistLogsSkipped).toBe(0);
+			// e1 の log → id 50、e2 の log → id 51 (取り違えなし)
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({ childId: 101, templateId: 50, checkedDate: '2026-03-15' }),
+				TENANT,
+			);
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({ childId: 101, templateId: 51, checkedDate: '2026-03-16' }),
+				TENANT,
+			);
+		});
+
+		it('exportId 付き backup を既存 tenant data に再取込しても同名 template を重複作成しない (冪等性)', async () => {
+			// #3107 の冪等性: pre-existing tenant に同名 template が既にある場合、exportId 付きでも
+			// name 一致で skip し重複作成しない (re-import で template が増殖しない)。
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.checklistTemplates = [
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					exportId: 'e1',
+				},
+			];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: 'あさのしたく',
+					templateExportId: 'e1',
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: true,
+					pointsAwarded: 1,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			// tenant に取込前から同名 template (id 70) が存在する
+			mockFindTemplatesByChild.mockResolvedValue([
+				{ id: 70, name: 'あさのしたく', sourcePresetId: null },
+			]);
+			mockUpsertLog.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			// pre-existing と同名 → 重複作成せず skip
+			expect(mockInsertTemplate).not.toHaveBeenCalled();
+			expect(result.skipped.name).toBe(1);
+			// log は既存 template (id 70) に exportId 経由で解決される
+			expect(result.checklistLogsImported).toBe(1);
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({ childId: 101, templateId: 70 }),
+				TENANT,
+			);
+		});
+
+		it('templateExportId が無い旧 export は templateName で fallback する (後方互換)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.checklistTemplates = [
+				{
+					childRef: 'c1',
+					name: 'あさのしたく',
+					icon: '🌅',
+					pointsPerItem: 1,
+					completionBonus: 0,
+					isActive: true,
+					items: [],
+					// exportId なし (旧 export 想定)
+				},
+			];
+			data.data.checklistLogs = [
+				{
+					childRef: 'c1',
+					templateName: 'あさのしたく',
+					// templateExportId なし
+					checkedDate: '2026-03-15',
+					itemsJson: '{}',
+					completedAll: true,
+					pointsAwarded: 1,
+					createdAt: '2026-03-15T08:00:00Z',
+				},
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockInsertTemplate.mockResolvedValue({ id: 60 });
+			mockAssignTemplateToChildren.mockResolvedValue([]);
+			mockUpsertLog.mockResolvedValue({ id: 1 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.checklistLogsImported).toBe(1);
+			expect(mockUpsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({ childId: 101, templateId: 60 }),
+				TENANT,
+			);
+		});
+	});
+
+	describe('静的ファイル (アバター画像 / 音声) のインポート (#3077)', () => {
+		function makeChildWithAvatar(exportId: string, sourceChildId: number, avatarUrl: string) {
+			return {
+				exportId,
+				nickname: 'テスト太郎',
+				age: 5,
+				birthDate: '2021-01-15',
+				theme: 'blue',
+				uiMode: 'preschool',
+				avatarUrl,
+				activeTitle: null,
+				createdAt: '2025-06-01T00:00:00Z',
+				sourceChildId,
+			};
+		}
+
+		it('ZIP 同梱の静的ファイルが新 childId 配下に復元され avatarUrl が貼り替わる', async () => {
+			const data = makeExportData();
+			// sourceChildId 7 (export 元) → import 後に新 id 101
+			data.family.children = [
+				makeChildWithAvatar('c1', 7, '/tenants/old-tenant/avatars/7/abc.png'),
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const staticFiles: Record<string, Uint8Array> = {
+				'avatars/7/abc.png': new Uint8Array([1, 2, 3]),
+				'voices/7/hello.mp3': new Uint8Array([4, 5, 6]),
+			};
+
+			const result = await importFamilyData(data, TENANT, staticFiles);
+
+			expect(result.staticFilesRestored).toBe(2);
+			expect(result.staticFilesSkipped).toBe(0);
+			// 新 childId 101 配下 + tenant prefix に保存
+			expect(mockSaveFile).toHaveBeenCalledWith(
+				`tenants/${TENANT}/avatars/101/abc.png`,
+				expect.any(Buffer),
+				'image/png',
+			);
+			expect(mockSaveFile).toHaveBeenCalledWith(
+				`tenants/${TENANT}/voices/101/hello.mp3`,
+				expect.any(Buffer),
+				'audio/mpeg',
+			);
+			// avatarUrl が新 storage key (公開 URL) へ貼り替え
+			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(
+				101,
+				`/tenants/${TENANT}/avatars/101/abc.png`,
+				TENANT,
+			);
+		});
+
+		it('childId が解決できない孤立ファイルはスキップされる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/a.png')];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const staticFiles: Record<string, Uint8Array> = {
+				'avatars/7/a.png': new Uint8Array([1]),
+				'avatars/999/orphan.png': new Uint8Array([2]), // 対応する child なし
+			};
+
+			const result = await importFamilyData(data, TENANT, staticFiles);
+
+			expect(result.staticFilesRestored).toBe(1);
+			expect(result.staticFilesSkipped).toBe(1);
+		});
+
+		it('zip-slip: `..` を含む悪意あるパスは保存せずスキップ扱いになる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/ok.png')];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const staticFiles: Record<string, Uint8Array> = {
+				'avatars/7/ok.png': new Uint8Array([1]), // 正常エントリ
+				'avatars/101/../../../../etc/passwd': new Uint8Array([6, 6, 6]), // path-escape
+				'avatars\\101\\..\\..\\evil.png': new Uint8Array([7]), // backslash escape (Windows)
+			};
+
+			const result = await importFamilyData(data, TENANT, staticFiles);
+
+			// 正常 1 件のみ復元、悪意ある 2 件はスキップ
+			expect(result.staticFilesRestored).toBe(1);
+			expect(result.staticFilesSkipped).toBe(2);
+			// static/ を逸脱する key で saveFile が呼ばれないこと
+			for (const call of mockSaveFile.mock.calls) {
+				expect(String(call[0])).not.toContain('..');
+				expect(String(call[0])).not.toContain('etc/passwd');
+			}
+			// 復元された 1 件は正規の安全パス
+			expect(mockSaveFile).toHaveBeenCalledTimes(1);
+			expect(mockSaveFile).toHaveBeenCalledWith(
+				`tenants/${TENANT}/avatars/101/ok.png`,
+				expect.any(Buffer),
+				'image/png',
+			);
+		});
+
+		it('staticFiles 未指定 (JSON-only) では復元処理を行わない (後方互換)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.staticFilesRestored).toBe(0);
+			expect(result.staticFilesSkipped).toBe(0);
+			expect(mockSaveFile).not.toHaveBeenCalled();
+			expect(mockUpdateChildAvatarUrl).not.toHaveBeenCalled();
+		});
+
+		it('#3136: avatar 実体が同梱されていない場合は avatarUrl を null 化する (dangling reference を作らない)', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChildWithAvatar('c1', 7, '/tenants/old/avatars/7/keep.png')];
+			mockInsertChild.mockResolvedValue({ id: 202 });
+
+			// staticFiles に avatar 実体が無い (voices のみ)。旧実装は存在しない storage key へ
+			// 貼り替えて dangling を生んでいたが、#3136 で「実在しなければ null 化」に是正。
+			const result = await importFamilyData(data, TENANT, {
+				'voices/7/x.mp3': new Uint8Array([1]),
+			});
+
+			expect(result.staticFilesRestored).toBe(1); // voices/7/x.mp3
+			// avatar 実ファイルが無いため null 化 (存在しない /tenants/.../avatars/202/keep.png を指さない)
+			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(202, null, TENANT);
 		});
 	});
 

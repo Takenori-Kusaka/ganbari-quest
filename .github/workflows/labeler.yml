@@ -1,5 +1,9 @@
 name: "Labeler"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request_target:
     # #1218: ready_for_review は除外（Draft でも走るため再実行は無駄）。

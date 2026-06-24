@@ -36,6 +36,8 @@ export interface SpecialRewardResult {
 	icon: string | null;
 	category: string;
 	grantedAt: string;
+	// #3147: ショップ陳列系統 (physical/money/privilege)。null は旧行/未指定で表示側 fallback
+	shopCategory: string | null;
 }
 
 /** 特別報酬の進捗情報（UI表示用） */
@@ -63,6 +65,8 @@ interface GrantInput {
 	points: number;
 	icon?: string;
 	category: string;
+	// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は表示側 deriveShopCategory に委ねる
+	shopCategory?: string | null;
 }
 
 const TEMPLATES_KEY = 'reward_templates';
@@ -79,6 +83,7 @@ function toRewardResult(row: {
 	icon: string | null;
 	category: string;
 	grantedAt: string;
+	shopCategory?: string | null;
 }): SpecialRewardResult {
 	return {
 		id: row.id,
@@ -89,6 +94,8 @@ function toRewardResult(row: {
 		icon: row.icon,
 		category: row.category,
 		grantedAt: row.grantedAt,
+		// #3147: 列値をそのまま伝播 (undefined/null は表示側 deriveShopCategory に fallback)
+		shopCategory: row.shopCategory ?? null,
 	};
 }
 
@@ -113,6 +120,7 @@ export async function addReward(
 			points: data.points,
 			icon: data.icon,
 			category: data.category,
+			shopCategory: data.shopCategory ?? null,
 		},
 		tenantId,
 	);
@@ -144,6 +152,9 @@ export interface UpdateRewardInput {
 	points: number;
 	icon?: string;
 	category?: string;
+	// #3154: ショップ陳列系統 (physical/money/privilege)。null = 自動振り分け (deriveShopCategory fallback)。
+	// undefined を渡すと既存値を保全 (update は present field のみ set)。
+	shopCategory?: string | null;
 }
 
 /**
@@ -170,6 +181,8 @@ export async function updateReward(
 			points: data.points,
 			icon: data.icon,
 			category: data.category,
+			// #3154: 編集時も陳列系統を変更可能にする (undefined なら既存値保全)。
+			shopCategory: data.shopCategory,
 		},
 		tenantId,
 	);

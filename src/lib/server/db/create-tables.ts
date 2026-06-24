@@ -251,7 +251,9 @@ export const SQL_CREATE_TABLES = `
 		granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		shown_at TEXT,
 		-- #1254 G1: プリセット由来のごほうびを識別（NULL=プリセット非由来）
-		source_preset_id TEXT
+		source_preset_id TEXT,
+		-- #3147: ショップ陳列系統 (physical/money/privilege)。NULL は旧行/未指定で表示側が推定 fallback
+		shop_category TEXT
 	);
 	CREATE INDEX IF NOT EXISTS idx_special_rewards_child
 		ON special_rewards(child_id, granted_at);
@@ -554,6 +556,9 @@ export const SQL_CREATE_TABLES = `
 		ON child_challenges(start_date, end_date);
 	CREATE INDEX IF NOT EXISTS idx_child_challenges_source
 		ON child_challenges(source_template_id);
+	-- #3245: auto:weekly は (child_id, start_date) で一意 (concurrent 二重 INSERT = ポイント二重付与 を防ぐ)
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_child_challenges_auto_weekly_unique
+		ON child_challenges(child_id, start_date) WHERE source_template_id = 'auto:weekly';
 
 	-- #1593 (ADR-0023 I6) subscriber_role: 'parent' | 'owner' のみ許容、'child' は subscribe 拒否。
 	-- 既存行 backfill 用の default 'parent' (ADR-0031 NULL 混在防止)。
@@ -639,25 +644,7 @@ export const SQL_CREATE_TABLES = `
 		ON cloud_exports(pin_code);
 
 	-- #2295 (EPIC #2294 ①): tenant_events / tenant_event_progress テーブル削除済 (2026-05-19)
-
-	CREATE TABLE IF NOT EXISTS auto_challenges (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		child_id INTEGER NOT NULL REFERENCES children(id),
-		tenant_id TEXT NOT NULL,
-		week_start TEXT NOT NULL,
-		category_id INTEGER NOT NULL REFERENCES categories(id),
-		target_count INTEGER NOT NULL,
-		current_count INTEGER NOT NULL DEFAULT 0,
-		status TEXT NOT NULL DEFAULT 'active',
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE UNIQUE INDEX IF NOT EXISTS idx_auto_challenges_child_week
-		ON auto_challenges(child_id, week_start);
-	CREATE INDEX IF NOT EXISTS idx_auto_challenges_tenant
-		ON auto_challenges(tenant_id);
-	CREATE INDEX IF NOT EXISTS idx_auto_challenges_status
-		ON auto_challenges(status);
+	-- #3213 (EPIC #3193): auto_challenges テーブル削除済。週次自動生成は child_challenges へ一本化 (#3195)。
 
 	CREATE TABLE IF NOT EXISTS trial_history (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

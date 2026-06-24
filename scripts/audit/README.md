@@ -91,6 +91,32 @@ node scripts/audit/run-pipeline.mjs --run-id baseline-20260610 --scope baseline
 node scripts/audit/run-pipeline.mjs --run-id baseline-20260610 --strict
 ```
 
+## エビデンス永続化 CLI (#2876 — Phase B/B-4)
+
+`tmp/audit-evidence/` の揮発を解消し、マージ判定エビデンスを統合 PR の merge commit に
+紐付け恒久追跡可能化する 2 本の pure function CLI。
+
+```bash
+# 1. finding 群を SARIF 2.1.0 document に変換 (dir or 単一 file → sarif.json)
+node scripts/audit/to-sarif.mjs --in tmp/audit-evidence --out sarif.json
+#   evidence-schema.mjs の SARIF 互換 field (ruleId / level / partialFingerprints / locations) を
+#   SARIF 2.1.0 runs[].results[] / tool.driver.rules[] へ写像。空入力でも valid 空 SARIF を出す。
+
+# 2. in-toto Release predicate v0.2 互換 statement を組み立て (merge commit を subject に紐付け)
+node scripts/audit/generate-release-predicate.mjs \
+  --merge-sha <sha> --prs prs.json --job-results jobs.json \
+  --remaining-ng 0 --coverage-ratchet-ok true --pr <num> --out predicate.json
+#   含有 PR 判定は integration-pr-body.mjs の classifyForContainedList を再利用 (重複実装なし)。
+#   subject.digest.sha1 = merge commit。predicate に含有 PR / テスト結果 / NG-0 宣言を格納。
+```
+
+これらは `.github/workflows/integration-attest.yml` (push[main]) が呼び、生成した SARIF +
+predicate を `actions/attest` で Sigstore 署名 → GH attestations API へ永続化する。merge 後は
+`gh attestation verify --predicate-type https://in-toto.io/attestation/release/v0.2 <merge commit>`
+で audit trail を改ざん検知付きで遡れる。`integration-evidence` job (PR 時) は
+`scripts/audit/evaluate-merge-readiness.mjs` で NG-0 + coverage ratchet を **advisory (非 block)**
+評価し evidence.md §5 に出す (hard fail させない、required 未登録)。
+
 ## CI 共有 fixture
 
 `scripts/audit/fixtures/sample-evidence.json` は `audit-run.yml` の `pipeline-selftest` job

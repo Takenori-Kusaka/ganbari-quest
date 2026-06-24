@@ -10,6 +10,11 @@ export function createMockEvent(opts: {
 	url: string;
 	params?: Record<string, string>;
 	body?: unknown;
+	/**
+	 * `locals.context` の上書き。省略時は既定の `{ tenantId: 'test-tenant' }`。
+	 * `null` を明示するとテナント未所属（未認証）を表現する（#3133 cross-tenant IDOR テスト用）。
+	 */
+	context?: { tenantId: string; role?: string; licenseStatus?: string } | null;
 	// biome-ignore lint/suspicious/noExplicitAny: RequestEvent モックは型の完全互換が不要
 }): any {
 	const requestUrl = new URL(opts.url, 'http://localhost');
@@ -27,7 +32,7 @@ export function createMockEvent(opts: {
 		url: requestUrl,
 		params: opts.params ?? {},
 		route: { id: null },
-		locals: { context: { tenantId: 'test-tenant' } },
+		locals: { context: 'context' in opts ? opts.context : { tenantId: 'test-tenant' } },
 		cookies: {
 			get: () => undefined,
 			set: () => {},

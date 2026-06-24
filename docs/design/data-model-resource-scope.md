@@ -260,13 +260,13 @@ child_challenges  -- ★新 table (per-child instance、進捗 inline 化)
 - 同じ `source_template_id` (または `title + start_date + end_date`) を共有する複数 child instance を admin/challenges で group 表示
 - `SiblingChallengeComparison.svelte` (admin 画面でのみ使用) で「兄弟の進捗」一覧表示。全員完了時のみ簡素な祝福バナー
 - 子供画面では兄弟比較は非表示 (ADR-0012 Anti-engagement、個人ペース重視)
-- marketplace 取込時に `requiresChildSelection: true` で ChildSelectionDialog から複数 child を選択し、同じ `source_template_id` で per-child instance を一括生成
+- #3195 (EPIC #3193) でチャレンジはアプリ週次自動生成に一本化。親手動作成 / 一括追加 / 兄弟コピー / marketplace challenge-set 取込 / 競争モードは撤去。`source_template_id='auto:weekly'` で per-child instance を自動生成し、子供 home / challenges 画面の load (`getOrCreateWeeklyChildChallenge`) が当週分を冪等生成する
 
 **LP 訴求への波及** (ADR-0013 LP truth):
 
 - LP / pricing / faq の「チャレンジ」訴求は per-child 体験ベース (「自分から目標を立てる」「ウィークリーチャレンジ」) のため per-child 化と既に整合済み
 - 「兄弟チャレンジ family-only」「全員自動参加」「兄弟競争」は LP に元から訴求なし → 文言修正不要
-- `CHALLENGES_LABELS.familyPlanTitle` family-only gate はアプリ内 UI のみで LP 側に波及せず。本 PR では family-only gate を維持 (LP/pricing 整合性は #2457 plan-limit 別 PR 判断)
+- #3195 (EPIC #3193、AC7) でチャレンジは全プランに開放 (旧 family-only gate を撤去)。LP/pricing 整合は #3222 で扱う
 
 `sibling_cheers` は別概念 (応援スタンプ) として既存維持。
 

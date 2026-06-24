@@ -16,32 +16,86 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// 既存 analytics 機構 (DynamoDB provider、未設定環境では noop) に 1 イベント追加するのみで、
 	// 撤去後 1-2 ヶ月で「support 到達 / 送信がゼロ化していないか」を確認できるようにする。
 	trackBusinessEvent('support_page_view', undefined, locals.context?.tenantId);
-	return {};
+	// #support-unify: 相談 intent の返信先 hint (「○○ に返信します」) でアカウントメールを提示するため、
+	// cognito 認証時のみ識別子メールを渡す (local モードは null = フォームで明示入力を促す)。
+	const accountEmail = locals.identity?.type === 'cognito' ? locals.identity.email : null;
+	return { accountEmail };
 };
+
+// #support-unify: 1 フォーム統合の検証ロジック。intent (用件 2 軸) + 内容分類を併用する。
+//   - intent='feedback' (感想・要望、返信不要): category = feature|bug|other を併記
+//   - intent='consult'  (相談・困りごと、返信希望): category='consult' に固定 + 返信先必須 + childAge 任意
+// 競合フォーム research: 単一フォーム + intent セレクタが支配的。返信先の必須/任意は intent でトグル。
+// 純粋関数として抽出し、action の認知的複雑度を抑える (biome noExcessiveCognitiveComplexity)。
+type ParsedFeedback = {
+	intent: 'feedback' | 'consult';
+	category: string;
+	text: string;
+	replyEmail: string;
+	childAge: string;
+};
+
+function validateFeedbackForm(
+	form: FormData,
+	accountEmail: string,
+): { error: string } | { ok: ParsedFeedback } {
+	const intent = form.get('intent')?.toString() ?? 'feedback';
+	const text = form.get('text')?.toString()?.trim() ?? '';
+	const replyEmail = form.get('email')?.toString()?.trim() ?? '';
+	const childAge = form.get('childAge')?.toString()?.trim() ?? '';
+	const rawCategory = form.get('category')?.toString() ?? '';
+
+	if (intent !== 'feedback' && intent !== 'consult') {
+		return { error: 'ご用件の選択が不正です' };
+	}
+	if (!text || text.length === 0) {
+		return { error: '内容を入力してください' };
+	}
+	if (text.length > 1000) {
+		return { error: '1000文字以内で入力してください' };
+	}
+	if (intent === 'feedback' && !['feature', 'bug', 'other'].includes(rawCategory)) {
+		return { error: 'カテゴリが不正です' };
+	}
+	if (replyEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyEmail) || replyEmail.length > 254)) {
+		return { error: 'メールアドレスの形式が正しくありません' };
+	}
+	if (childAge && childAge.length > 100) {
+		return { error: 'お子さまの年齢は100文字以内で入力してください' };
+	}
+	// 相談は返信が前提のため、返信先 (入力 or アカウントメール) を必須にする。
+	if (intent === 'consult' && !replyEmail && !accountEmail) {
+		return { error: '相談・困りごとは返信先メールアドレスを入力してください' };
+	}
+
+	// intent='consult' は category='consult' 固定。intent='feedback' のみ内容分類を要求する。
+	const category = intent === 'consult' ? 'consult' : rawCategory;
+	return { ok: { intent, category, text, replyEmail, childAge } };
+}
 
 export const actions = {
 	sendFeedback: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const form = await request.formData();
-		const category = form.get('category')?.toString() ?? '';
-		const text = form.get('text')?.toString()?.trim() ?? '';
-		const replyEmail = form.get('email')?.toString()?.trim() ?? '';
+		const accountEmail = locals.identity?.type === 'cognito' ? locals.identity.email : '';
 
-		if (!text || text.length === 0) {
-			return fail(400, { feedbackError: '内容を入力してください' });
+		const parsed = validateFeedbackForm(form, accountEmail);
+		if ('error' in parsed) {
+			return fail(400, { feedbackError: parsed.error });
 		}
-		if (text.length > 1000) {
-			return fail(400, { feedbackError: '1000文字以内で入力してください' });
-		}
-		if (!['feature', 'bug', 'other'].includes(category)) {
-			return fail(400, { feedbackError: 'カテゴリが不正です' });
-		}
-		if (replyEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyEmail) || replyEmail.length > 254)) {
-			return fail(400, { feedbackError: 'メールアドレスの形式が正しくありません' });
-		}
+		const { intent, category, text, replyEmail, childAge } = parsed.ok;
 
-		const categoryLabel = { feature: '機能要望', bug: 'バグ報告', other: 'その他' }[category];
-		const email = locals.identity?.type === 'cognito' ? locals.identity.email : 'local-user';
+		const categoryLabel = {
+			feature: '機能要望',
+			bug: 'バグ報告',
+			other: 'その他',
+			consult: '相談・困りごと',
+		}[category as 'feature' | 'bug' | 'other' | 'consult'];
+		const email = accountEmail || 'local-user';
+
+		// InquiryRecord は childAge 列を持たないため、相談時のみ本文先頭に付記する
+		// (3 repo schema 変更を避ける最小実装、ADR-0010)。
+		const body = childAge ? `【お子さまの年齢】${childAge}\n\n${text}` : text;
 
 		let inquiryId = '';
 		try {
@@ -52,15 +106,24 @@ export const actions = {
 				email,
 				replyEmail: replyEmail || null,
 				category,
-				body: text,
+				body,
 				status: 'open',
 				createdAt: new Date().toISOString(),
 			});
 		} catch (err) {
 			logger.error('Inquiry save failed', { error: String(err) });
+			// #3210: save 失敗を握り潰して偽成功を返さない (data-loss + 偽成功の根治)。
+			// Discord は founder の実 inbox なので best-effort backup として試行しつつ、
+			// ユーザーには明示エラーを返し「届いた」と誤認させない (feedback / consult 双方)。
+			notifyInquiry(tenantId, category, body, email, replyEmail || undefined, inquiryId).catch(
+				() => {},
+			);
+			return fail(500, {
+				feedbackError: '送信に失敗しました。お手数ですが時間をおいて再度お試しください',
+			});
 		}
 
-		notifyInquiry(tenantId, category, text, email, replyEmail || undefined, inquiryId).catch(
+		notifyInquiry(tenantId, category, body, email, replyEmail || undefined, inquiryId).catch(
 			() => {},
 		);
 
@@ -71,7 +134,7 @@ export const actions = {
 
 		logger.info(`Feedback received: [${categoryLabel}] ${inquiryId} from ${email} (${tenantId})`);
 		// #2904: フィードバック送信数の計測 (FAB 撤去 reversible 化、research §5-5)
-		trackBusinessEvent('feedback_submitted', { category }, tenantId);
-		return { feedbackSuccess: true, inquiryId };
+		trackBusinessEvent('feedback_submitted', { category, intent }, tenantId);
+		return { feedbackSuccess: true, inquiryId, intent };
 	},
 } satisfies Actions;

@@ -43,6 +43,18 @@ export interface IChildChallengeRepo {
 	/** 1 child に 1 instance insert */
 	insert(input: InsertChildChallengeInput, tenantId: string): Promise<ChildChallenge>;
 
+	/**
+	 * #3245: アプリ週次自動生成 (sourceTemplateId='auto:weekly') の **atomic** get-or-create。
+	 * (child_id, start_date) の一意性を DB レベル (SQLite=部分 unique index / DynamoDB=決定的キー +
+	 * 条件付き書込) で担保し、concurrent 二重 INSERT (= ポイント二重付与) を不可能化する。
+	 * 既存があればそれを、無ければ新規作成して返す (どちらが勝っても 1 行に収束)。
+	 * input.sourceTemplateId は 'auto:weekly'、startDate を週キーとして扱う。
+	 */
+	getOrCreateWeeklyAuto(
+		input: InsertChildChallengeInput,
+		tenantId: string,
+	): Promise<ChildChallenge>;
+
 	/** bulk insert (兄弟一括追加 / preset 取込で複数 child に同時挿入) */
 	insertBulk(
 		inputs: readonly InsertChildChallengeInput[],

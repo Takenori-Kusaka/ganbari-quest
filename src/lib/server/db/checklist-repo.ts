@@ -23,8 +23,15 @@ export async function findTemplatesByChild(
 	childId: number,
 	tenantId: string,
 	includeInactive = false,
+	// #3106: backup/export 文脈のみ true。archive 済 template も含める。
+	includeArchived = false,
 ) {
-	return getRepos().checklist.findTemplatesByChild(childId, tenantId, includeInactive);
+	return getRepos().checklist.findTemplatesByChild(
+		childId,
+		tenantId,
+		includeInactive,
+		includeArchived,
+	);
 }
 
 export async function findTemplateById(id: number, tenantId: string) {
@@ -108,6 +115,11 @@ export async function findTodayLog(
 
 export async function upsertLog(input: UpsertChecklistLogInput, tenantId: string) {
 	return getRepos().checklist.upsertLog(input, tenantId);
+}
+
+/** #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。 */
+export async function findLogsByChild(childId: number, tenantId: string) {
+	return getRepos().checklist.findLogsByChild(childId, tenantId);
 }
 
 // ── Overrides ───────────────────────────────────────────────────

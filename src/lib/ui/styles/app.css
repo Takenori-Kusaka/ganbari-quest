@@ -966,3 +966,144 @@ h1, h2, h3, h4 {
 .animate-btn-pulse {
 	animation: btn-pulse 0.8s ease-in-out infinite;
 }
+
+/* ============================================================
+   Admin resource layout — canonical slot shared classes (#3097 / EPIC #3096)
+   ------------------------------------------------------------
+   admin リソース管理 3 画面 (活動 / チェックリスト / ごほうび) の
+   子供タブ row + 子供コンテキストバナーを 1 箇所に集約 (DRY)。
+   旧: activities / rewards が各 component scope で同一定義を重複保持していた。
+   ============================================================ */
+
+.child-tab-row {
+	display: flex;
+	gap: 0.375rem;
+	flex-wrap: wrap;
+	align-items: center;
+	padding: 0.5rem;
+	background: var(--color-surface-muted);
+	border-radius: var(--radius-md);
+}
+
+.child-tab {
+	border-radius: 9999px !important;
+	font-size: 0.85rem !important;
+}
+
+.child-tab--inactive {
+	background: var(--color-surface) !important;
+	color: var(--color-text-secondary) !important;
+}
+
+.child-tab__count {
+	font-size: 0.75rem;
+	opacity: 0.8;
+	margin-left: 0.25rem;
+}
+
+.child-tab-actions {
+	display: flex;
+	gap: 0.25rem;
+	margin-left: auto;
+}
+
+.child-context-banner {
+	padding: 0.5rem 0.75rem;
+	background: var(--color-surface-accent);
+	border-left: 3px solid var(--color-border-accent);
+	border-radius: var(--radius-sm);
+	display: flex;
+	flex-direction: column;
+	gap: 0.125rem;
+}
+
+.child-context-banner__label {
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--color-text-primary);
+}
+
+.child-context-banner__hint {
+	font-size: 0.75rem;
+	color: var(--color-text-muted);
+}
+
+/* #3225 ②b: baby モードカードのアニメーション (旧: child home page の :global ブロック)。
+   ProdDashboardSections.svelte が描画する .baby-card-* に適用するグローバル規則を SSOT 集約。 */
+.baby-card-mission {
+	box-shadow: 0 0 12px rgba(255, 200, 0, 0.5);
+	animation: pulse-gold 2s ease-in-out infinite;
+}
+
+@keyframes pulse-gold {
+	0%,
+	100% {
+		box-shadow: 0 0 8px rgba(255, 200, 0, 0.4);
+	}
+	50% {
+		box-shadow: 0 0 20px rgba(255, 200, 0, 0.8);
+	}
+}
+.baby-card__mission-star {
+	animation: star-twinkle 1.5s ease-in-out infinite;
+}
+
+@keyframes star-twinkle {
+	0%,
+	100% {
+		opacity: 0.7;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 1;
+		transform: scale(1.2);
+	}
+}
+.baby-card-main-quest {
+	box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
+	background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+}
+.baby-main-quest-badge {
+	position: absolute;
+	top: -0.375rem;
+	right: -0.375rem;
+	z-index: 10;
+	padding: 0.125rem 0.375rem;
+	border-radius: 9999px;
+	background: linear-gradient(135deg, #f59e0b, #d97706);
+	color: white;
+	font-size: 0.625rem;
+	font-weight: 700;
+	line-height: 1;
+	white-space: nowrap;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.baby-card-pending {
+	animation: card-pulse 0.8s ease-in-out infinite;
+	opacity: 0.7;
+}
+
+@keyframes card-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+	50% {
+		transform: scale(0.97);
+	}
+}
+.baby-card__spinner {
+	display: inline-block;
+	width: 2rem;
+	height: 2rem;
+	border: 3px solid var(--theme-primary, #6366f1);
+	border-right-color: transparent;
+	border-radius: 50%;
+	animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}

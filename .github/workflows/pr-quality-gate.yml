@@ -1,5 +1,9 @@
 name: PR Quality Gate
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review]

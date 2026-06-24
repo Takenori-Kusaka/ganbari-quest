@@ -222,11 +222,29 @@ describe('renderIntegrationPrBody (#2871 AC3 — facade、実 template で検証
 		expect(body).toContain('2026-06-16');
 	});
 
-	it('マージ判定エビデンス表 section は B-4 後段の空枠 + 生成待ち注記のまま残す (#2871 解決策 3)', () => {
+	it('マージ判定エビデンス表 section は B-4 実装後のエビデンス表 + SARIF/attestation 参照を保持する (#2876)', () => {
 		const body = renderIntegrationPrBody({ template: TEMPLATE, prs, developHead: 'abc1234' });
-		// template の「B-4 (#2876) で ... 自動生成予定」注記を改変しないこと。
-		expect(body).toContain('B-4');
-		expect(body).toContain('自動生成予定');
+		// facade は §3 を差し替えない（B-4 #2876 で template 本体が実エビデンス内容に更新済み）。
+		// template の §3 が持つべき具体的文言を検証する（空枠注記の死文ではなく現状を assert）。
+		const i3 = body.indexOf('## マージ判定エビデンス表');
+		const i4 = body.indexOf('## 監査 run 結果リンク');
+		expect(i3).toBeGreaterThan(-1);
+		expect(i4).toBeGreaterThan(i3);
+		const section3 = body.slice(i3, i4); // §3 本体のみに限定して検証
+		// マージ判定エビデンス基準 + advisory(非 block) + SARIF 正規化 + 残 NG 0 件明示
+		expect(section3).toContain('マージ判定エビデンス');
+		expect(section3).toContain('SARIF 2.1.0');
+		expect(section3).toContain('advisory (非 block)');
+		expect(section3).toContain('残 NG 0 件');
+		expect(section3).toContain('audit-manager');
+		// §4 (監査 run 結果リンク) は attestation 参照を持つ（merge 後 in-toto Release predicate）。
+		const i5 = body.indexOf('## NG 0 件 / カバレッジ宣言');
+		expect(i5).toBeGreaterThan(i4);
+		const section4 = body.slice(i4, i5);
+		expect(section4).toContain('attestation');
+		expect(section4).toContain('in-toto');
+		// 旧 B-4 空枠注記「自動生成予定」が §3 に残っていないこと（B-4 で解消済み）。
+		expect(section3).not.toContain('自動生成予定');
 	});
 
 	it('back-merge / drift 状態を注入する (B-5 contract)', () => {

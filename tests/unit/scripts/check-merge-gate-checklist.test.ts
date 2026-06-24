@@ -187,3 +187,21 @@ describe('shouldSkip / dependabot lane (AC6)', () => {
 		expect(r.reason).toContain('skip');
 	});
 });
+
+// --- #3071: integration lane では dependencies label による skip を無効化 (空洞化防止) ---
+
+describe('shouldSkip integration lane = skip 無効化 (#3071)', () => {
+	it('integration lane では dependencies ラベルでも skip しない', () => {
+		expect(shouldSkip({ labels: ['dependencies'], lane: 'integration' }).skip).toBe(false);
+	});
+	it('checkMergeGateChecklist: integration + dependencies label でも skip せず section 検証が走る', () => {
+		// 統合 PR section 不在 → 空洞化なら skip で PASS してしまう。fix 後は必ず検証され fail する。
+		const r = checkMergeGateChecklist({
+			body: '## 関係ないセクション\n本文のみ',
+			labels: ['dependencies'],
+			lane: 'integration',
+		});
+		expect(r.reason ?? '').not.toContain('skip');
+		expect(r.ok).toBe(false);
+	});
+});

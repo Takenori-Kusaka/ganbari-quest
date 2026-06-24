@@ -17,8 +17,17 @@
  *
  * - `wontfix` / `duplicate` ラベル付き → skip (従来通り)
  * - 直近 ClosedEvent の `closer.__typename === 'PullRequest'` → PR 経由 close、skip
- * - 直近 ClosedEvent の `closer.__typename === 'Commit'` → squash merge commit message 経由、skip
+ * - 直近 ClosedEvent の `closer.__typename === 'Commit'` → commit message の closing keyword 経由、skip
  * - 直近 ClosedEvent の `closer === null` → 手動 close (`gh issue close` / GitHub UI)、AC gate 通す
+ *
+ * ## conventional-commit 規約下での堅牢性 (#3123)
+ *
+ * 本判定は commit / PR body のテキストを `closes #N` で grep するのではなく、**GitHub が記録した
+ * 権威ある `ClosedEvent.closer` フィールドを読む**ため、commit 規約に依存せず正しく動作する。
+ * 本リポジトリの conventional-commit prefix (`fix:` / `feat:` / `docs:` `#N`) は closing keyword では
+ * ないため develop 二層では auto-close がほぼ発火せず、その場合 closer は null（= 後続の手動 close）と
+ * なり AC gate を通す。明示的に `Closes #N` keyword を含めた場合のみ closer が PR/Commit になり skip
+ * する。詳細な close 運用は docs/sessions/branch-strategy.md §3.2 / .github/CLAUDE.md を参照。
  *
  * ## SSOT
  *
@@ -96,7 +105,7 @@ export function judgeSkipAcGate(ctx) {
 	if (closerType === 'Commit') {
 		return {
 			skip: true,
-			reason: `Issue #${ctx.issueNumber}: Commit ${latest.closer?.oid?.slice(0, 8)} 経由 auto-close を検出 (squash merge "closes #N")、AC gate skip`,
+			reason: `Issue #${ctx.issueNumber}: Commit ${latest.closer?.oid?.slice(0, 8)} 経由 auto-close を検出 (commit message の Closes/Fixes keyword)、AC gate skip`,
 		};
 	}
 

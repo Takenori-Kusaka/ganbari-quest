@@ -202,6 +202,28 @@ export const findRedemptionRequestsByTenant: IRewardRedemptionRepo['findRedempti
 	};
 
 // ============================================================
+// countRedemptionRequestsByTenant — テナント内の正確な件数 (limit なし)
+// ============================================================
+
+/**
+ * #3144: tenant 配下を Scan し status / childId filter 後の件数を返す。
+ * findRedemptionRequestsByTenant と同じ filter を適用するが limit slice を掛けないため
+ * 50 件以上でも飽和しない (admin ホームの承認待ちバナー件数用)。
+ */
+export const countRedemptionRequestsByTenant: IRewardRedemptionRepo['countRedemptionRequestsByTenant'] =
+	async (tenantId, opts): Promise<number> => {
+		const items = await scanTenantRedemptions(tenantId);
+		let rows = items.map(toRow);
+		if (opts?.status) {
+			rows = rows.filter((r) => r.status === opts.status);
+		}
+		if (opts?.childId) {
+			rows = rows.filter((r) => r.childId === opts.childId);
+		}
+		return rows.length;
+	};
+
+// ============================================================
 // updateRedemptionRequestStatus — 申請状態を更新
 // ============================================================
 

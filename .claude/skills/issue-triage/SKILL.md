@@ -15,11 +15,13 @@ description: Use when creating a new GitHub Issue. Forces Pre-PMF bias check, ma
 - **7 ステップ (順次実行)**: 1 根本原因 → 2 Pre-PMF check → 3 マーケ/Growth 視点 → 4 法務/コンプライアンス視点 → 5 財務視点 → 6 仮想顧客レビュー → 7 Issue テンプレート
 - **補助手順 (該当時のみ実行)**: A SSOT namespace 重複検査 / B OSS 先調査 / C research 添付 / D HEREDOC 禁止 / `--body-file` 運用 / **E 補助機能 UX 完成度 checklist (permission 系 / marketplace 系)** / **F 補佐設計品質ガード 6 (同領域 EPIC 確認 + 抽象パターン MUST-DO、#2373)**
 
-## ステップ 1: 根本原因の特定（ADR-0003）
+## ステップ 1: 根本原因の特定（ADR-0003 / ADR-0061）
 
 - 症状ではなく原因を特定する
 - 「X が壊れている」ではなく「Y の処理で Z が考慮されていないため X が発生」
 - 再現手順を明記
+- **5 Whys → root class（ADR-0061）**: 「なぜ」を繰り返して個別 instance でなく **root class**（同種バグの一般形）に到達する。bug_report.yml / dev_ticket.yml の `根本原因（5 Whys → root class）` 欄に記入（type:fix は必須）
+- **same-class-N→guard（ADR-0061）**: 同一 class が 2 回以上再発している領域では、解決策を「別 instance のパッチ」でなく **CI gate / lint / property test / fitness function で class 全体を lock する**方針にする（instance パッチのみの起票は不可）
 
 ## 手順 A: SSOT namespace 重複検査（#2061、ADR-0045）
 

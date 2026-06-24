@@ -386,6 +386,16 @@ describe('integration lane: 観点切替・空洞化なし (#2944 AC2/AC3)', () 
 		expect(r.ok).toBe(true);
 		expect(r.message).toContain('INTEGRATION_REQUIRED_SECTIONS');
 	});
+	// #3071: integration PR に誤って dependencies / type:docs label が付いても skip しない (空洞化防止)
+	it('integration + dependencies label でも section-presence は skip しない (#3071)', () => {
+		const r = checkSectionPresence({ ...base, labels: ['dependencies'], body: INTEGRATION_BODY });
+		expect(r.skipped).toBeFalsy();
+		expect(r.ok).toBe(true);
+	});
+	it('integration + type:docs label でも test-results は skip しない (#3071)', () => {
+		const r = checkTestResults({ ...base, labels: ['type:docs'], body: INTEGRATION_BODY });
+		expect(r.skipped).toBeFalsy();
+	});
 	it('section-presence FAIL: 統合必須 section 欠落で fail (空洞化していない証跡)', () => {
 		const r = checkSectionPresence({
 			...base,

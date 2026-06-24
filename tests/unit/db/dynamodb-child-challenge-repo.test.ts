@@ -265,16 +265,24 @@ describe('findAllByTenant', () => {
 // ============================================================
 
 describe('findById', () => {
-	it('SK 完全一致で Scan し 1 件返す', async () => {
+	it('id 属性で Scan し 1 件返す (#3258: SK 形式非依存解決)', async () => {
 		mockSend.mockResolvedValueOnce({ Items: [makeItem({ id: 7, title: 'X' })] });
 		const { findById } = await loadRepo();
 		const result = await findById(7, TENANT);
 		expect(result?.title).toBe('X');
 		const scan = mockSend.mock.calls[0]?.[0] as {
-			input: { FilterExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
+			input: {
+				FilterExpression?: string;
+				ExpressionAttributeValues?: Record<string, unknown>;
+				ExpressionAttributeNames?: Record<string, string>;
+			};
 		};
-		expect(scan.input.FilterExpression).toContain('SK = :sk');
-		expect(scan.input.ExpressionAttributeValues?.[':sk']).toBe('CHILDCHAL#00000007');
+		// #3258: SK exact-match (CHILDCHAL#<padId>) ではなく id 属性で解決する
+		// (auto:weekly 行 SK=CHILDCHAL#AUTO#... も id-addressable にするため)。
+		expect(scan.input.FilterExpression).toContain('#id = :id');
+		expect(scan.input.FilterExpression).not.toContain('SK = :sk');
+		expect(scan.input.ExpressionAttributeValues?.[':id']).toBe(7);
+		expect(scan.input.ExpressionAttributeNames?.['#id']).toBe('id');
 	});
 
 	it('不在のとき undefined を返す', async () => {
@@ -603,6 +611,77 @@ describe('deleteByTenantId', () => {
 		expect(mockSend).toHaveBeenCalledTimes(3);
 		const del = mockSend.mock.calls[1]?.[0] as { input: { Key?: { PK: string } } };
 		expect(del.input.Key?.PK).toBe(`T#${TENANT}#CHILD#1`);
+	});
+});
+
+// ============================================================
+// #3258: auto:weekly 行 (SK=CHILDCHAL#AUTO#<weekStart>) の id 解決 — silent no-op 根治
+// ============================================================
+//
+// 旧実装は resolveKeyById/findById が SK=CHILDCHAL#<padId(id)> の exact match のみで解決し、
+// auto:weekly 行 (SK=CHILDCHAL#AUTO#...) を never match → updateProgress/markCompleted/
+// claimReward/update/delete が DynamoDB prod で silent no-op になり、コア体験 (チャレンジ→ごほうび)
+// が有料ユーザで永久停止していた。本 block は auto 行が id で解決され mutation が実 SK に作用する
+// (= read/write key 解決の対称性) を回帰固定する。
+
+describe('#3258 auto:weekly 行の id 解決 (read/write 対称性)', () => {
+	const AUTO_SK = 'CHILDCHAL#AUTO#2026-06-01';
+	const AUTO_KEY = { PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: AUTO_SK };
+
+	it('updateProgress は auto 行を id で解決し実 SK で Update する (silent no-op でない)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [AUTO_KEY] }) // resolveKeyById
+			.mockResolvedValueOnce({}); // Update
+		const { updateProgress } = await loadRepo();
+		await updateProgress(50, 3, TENANT);
+
+		// no-op でなく Update まで発行する (resolve + Update = 2 send)
+		expect(mockSend).toHaveBeenCalledTimes(2);
+		// 解決は SK 形式非依存の id 属性 match で行う (auto 行 SK を exact-match で外さない)
+		const resolve = mockSend.mock.calls[0]?.[0] as {
+			input: {
+				FilterExpression?: string;
+				ExpressionAttributeValues?: Record<string, unknown>;
+				ExpressionAttributeNames?: Record<string, string>;
+			};
+		};
+		expect(resolve.input.FilterExpression).toContain('#id = :id');
+		expect(resolve.input.FilterExpression).not.toContain('SK = :sk');
+		expect(resolve.input.ExpressionAttributeValues?.[':id']).toBe(50);
+		expect(resolve.input.ExpressionAttributeNames?.['#id']).toBe('id');
+		// Update は auto 行の実 SK を対象にする (CHILDCHAL#AUTO#...)
+		const upd = mockSend.mock.calls[1]?.[0] as {
+			input: { Key?: { SK: string }; ExpressionAttributeValues?: Record<string, unknown> };
+		};
+		expect(upd.input.Key?.SK).toBe(AUTO_SK);
+		expect(upd.input.ExpressionAttributeValues?.[':cv']).toBe(3);
+	});
+
+	it('markCompleted / claimReward も auto 行に作用する (進捗→完了→報酬の貫通)', async () => {
+		const repo = await loadRepo();
+		// markCompleted
+		mockSend.mockResolvedValueOnce({ Items: [AUTO_KEY] }).mockResolvedValueOnce({});
+		await repo.markCompleted(50, TENANT);
+		expect((mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK: string } } }).input.Key?.SK).toBe(
+			AUTO_SK,
+		);
+
+		mockSend.mockReset();
+		// claimReward
+		mockSend.mockResolvedValueOnce({ Items: [AUTO_KEY] }).mockResolvedValueOnce({});
+		await repo.claimReward(50, TENANT);
+		expect((mockSend.mock.calls[1]?.[0] as { input: { Key?: { SK: string } } }).input.Key?.SK).toBe(
+			AUTO_SK,
+		);
+	});
+
+	it('findById も auto 行を id で取得する (read=write 対称、SK 形式非依存)', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [makeItem({ id: 50, SK: AUTO_SK, title: 'AUTO-WEEKLY' })],
+		});
+		const { findById } = await loadRepo();
+		const result = await findById(50, TENANT);
+		expect(result?.title).toBe('AUTO-WEEKLY');
 	});
 });
 

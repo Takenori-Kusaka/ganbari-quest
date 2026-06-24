@@ -68,7 +68,9 @@ test.describe('#2320 /admin/settings 6 グループ child routes', () => {
 			waitUntil: 'domcontentloaded',
 		});
 		// notification status 要素 (clientside onMount で更新される)
-		await expect(page.locator('#notification-status')).toBeVisible();
+		// #3233: #3186 で旧 `#notification-status` (命令的 DOM 更新) を撤廃し、
+		//   常時描画される宣言的コンテナ `notification-browser-status` に集約 (ON/OFF + 異常系)。
+		await expect(page.getByTestId('notification-browser-status')).toBeVisible();
 	});
 
 	test('data route が表示される (data-export-section が存在)', async ({ page }) => {
@@ -77,9 +79,13 @@ test.describe('#2320 /admin/settings 6 グループ child routes', () => {
 		await expect(page.getByTestId('data-export-section')).toBeVisible();
 	});
 
-	test('support route が表示される (founder CTA が存在)', async ({ page }) => {
+	test('support route が表示される (統合サポートフォームが存在)', async ({ page }) => {
 		test.slow();
 		await page.goto('/admin/settings/support', { waitUntil: 'domcontentloaded' });
-		await expect(page.getByTestId('admin-founder-inquiry-cta')).toBeVisible();
+		// #support-unify: founder CTA / feedback の 2 セクション分離を解消し単一フォームに統合。
+		// ご用件 (intent) ラジオ + 内容 textarea が同一フォーム内に存在する。
+		await expect(page.locator('[data-tutorial="feedback-section"]')).toBeVisible();
+		await expect(page.getByRole('radio', { name: /感想・要望/ })).toBeVisible();
+		await expect(page.getByRole('radio', { name: /相談・困りごと/ })).toBeVisible();
 	});
 });

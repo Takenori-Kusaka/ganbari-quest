@@ -84,6 +84,8 @@ export async function findTemplatesByChild(
 	childId: number,
 	tenantId: string,
 	includeInactive?: boolean,
+	// #3106: archive 済 template を含めるか (export/backup 文脈のみ true)
+	includeArchived?: boolean,
 ): Promise<ChecklistTemplate[]> {
 	const assignments = await findAssignmentsByChild(childId, tenantId);
 	if (assignments.length === 0) return [];
@@ -92,7 +94,7 @@ export async function findTemplatesByChild(
 	for (const a of assignments) {
 		const t = await findTemplateById(a.templateId, tenantId);
 		if (!t) continue;
-		if (t.isArchived === 1) continue;
+		if (!includeArchived && t.isArchived === 1) continue;
 		if (!includeInactive && t.isActive !== 1) continue;
 		templates.push(t);
 	}
@@ -507,6 +509,33 @@ export async function upsertLog(
 	);
 
 	return log;
+}
+
+/**
+ * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
+ * PK=CHILD#<childId> + begins_with(SK, 'CKLOG#') を全ページ走査する。
+ */
+export async function findLogsByChild(childId: number, tenantId: string): Promise<ChecklistLog[]> {
+	const logs: ChecklistLog[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await getDocClient().send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+				ExpressionAttributeValues: {
+					':pk': childPK(childId, tenantId),
+					':prefix': checklistLogPrefix(),
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) {
+			logs.push(stripKeys(item) as unknown as ChecklistLog);
+		}
+		lastKey = result.LastEvaluatedKey;
+	} while (lastKey);
+	return logs;
 }
 
 // ============================================================

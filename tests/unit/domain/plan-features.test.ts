@@ -220,17 +220,19 @@ describe('plan-features.ts SSOT', () => {
 
 		it('全角 ￥ / 円 / YEN 表記は含まれない（#749 §7.2）', () => {
 			const allText = Object.values(PRICING_PAGE_META)
-				.map((m) => `${m.price}${m.unit}${m.yearlyPrice ?? ''}`)
+				.map((m) => `${m.price}${m.unit}`)
 				.join('');
 			expect(allText).not.toMatch(/[￥]/);
 			expect(allText).not.toMatch(/円/);
 			expect(allText).not.toMatch(/YEN/i);
 		});
 
-		it('年額表記は standard / family のみで、お得コピー付き（#749 §7.2）', () => {
-			expect(PRICING_PAGE_META.free.yearlyPrice).toBeUndefined();
-			expect(PRICING_PAGE_META.standard.yearlyPrice).toBe('年額 ¥5,000（2ヶ月分お得）');
-			expect(PRICING_PAGE_META.family.yearlyPrice).toBe('年額 ¥7,800（2ヶ月分お得）');
+		it('年額表記は廃止済み（#2719 / FR-2 課金期間 = 月額のみ）', () => {
+			// 年額 (yearlyPrice) は #2719 で全廃。どのプランも年額表記を持たない。
+			for (const meta of Object.values(PRICING_PAGE_META)) {
+				expect(meta).not.toHaveProperty('yearlyPrice');
+				expect(`${meta.price}${meta.unit}`).not.toMatch(/年額/);
+			}
 		});
 
 		it('CTA 文言は「無料体験」統一、「トライアル」「お試し」は禁止（#749 §7.3）', () => {

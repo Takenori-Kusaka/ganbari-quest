@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	safeContentDisposition,
 	safeContentType,
 	sanitizeAudio,
 	sanitizeImage,
@@ -169,5 +170,29 @@ describe('safeContentType', () => {
 		expect(safeContentType('text/html')).toBe('application/octet-stream');
 		expect(safeContentType('application/javascript')).toBe('application/octet-stream');
 		expect(safeContentType('')).toBe('application/octet-stream');
+	});
+});
+
+describe('safeContentDisposition (#3105 SVG stored XSS)', () => {
+	it('ラスタ画像 (jpeg/png/webp) は inline 配信', () => {
+		expect(safeContentDisposition('image/jpeg')).toBe('inline');
+		expect(safeContentDisposition('image/png')).toBe('inline');
+		expect(safeContentDisposition('image/webp')).toBe('inline');
+	});
+
+	it('SVG は attachment 配信 (top-level navigation で inline script を実行させない)', () => {
+		// 本丸: image/svg+xml を inline で返していたのが stored XSS の root cause
+		expect(safeContentDisposition('image/svg+xml')).toBe('attachment');
+	});
+
+	it('audio は attachment 配信 (従来どおりブラウザ直接実行防止)', () => {
+		expect(safeContentDisposition('audio/mpeg')).toBe('attachment');
+		expect(safeContentDisposition('audio/wav')).toBe('attachment');
+	});
+
+	it('不明 / octet-stream は attachment 配信', () => {
+		expect(safeContentDisposition('application/octet-stream')).toBe('attachment');
+		expect(safeContentDisposition('text/html')).toBe('attachment');
+		expect(safeContentDisposition('image/gif')).toBe('attachment');
 	});
 });

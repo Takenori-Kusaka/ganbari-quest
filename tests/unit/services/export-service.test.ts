@@ -1,7 +1,7 @@
 // tests/unit/services/export-service.test.ts
 // データエクスポートサービスのユニットテスト
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EXPORT_FORMAT, EXPORT_VERSION } from '../../../src/lib/domain/export-format';
 
 // モック定義
@@ -221,6 +221,7 @@ const mockChecklistTemplates = [
 		pointsPerItem: 2,
 		completionBonus: 5,
 		isActive: 1,
+		isArchived: 0,
 		createdAt: '2025-06-01T00:00:00Z',
 		updatedAt: '2025-06-01T00:00:00Z',
 	},
@@ -236,6 +237,20 @@ const mockChecklistItems = [
 		direction: 'bring',
 		sortOrder: 1,
 		createdAt: '2025-06-01T00:00:00Z',
+	},
+];
+
+// #3078: チェックリスト完了ログ (templateId 1 = あさのじゅんび に紐づく)
+const mockChecklistLogs = [
+	{
+		id: 1,
+		childId: 1,
+		templateId: 1,
+		checkedDate: '2026-03-15',
+		itemsJson: '{"1":true}',
+		completedAll: 1,
+		pointsAwarded: 7,
+		createdAt: '2026-03-15T08:00:00Z',
 	},
 ];
 
@@ -261,11 +276,19 @@ vi.mock('$lib/server/db/achievement-repo', () => ({
 		childId === 1 ? Promise.resolve(mockUnlockedAchievements) : Promise.resolve([]),
 	),
 }));
+// #3259 perf-6: export は child を並列収集する (Promise.all) ようになり findLogsByChild /
+// findTemplatesByChild の呼び出し順が child 間で interleave しうる。childId キーの
+// default impl にしておくことで call 順に依存せず決定的になる (production も childId で query)。
+const defaultFindTemplatesByChild = (childId: number) =>
+	childId === 1 ? Promise.resolve(mockChecklistTemplates) : Promise.resolve([]);
+const defaultFindLogsByChild = (childId: number) =>
+	childId === 1 ? Promise.resolve(mockChecklistLogs) : Promise.resolve([]);
+const mockFindTemplatesByChild = vi.fn(defaultFindTemplatesByChild);
+const mockFindLogsByChild = vi.fn(defaultFindLogsByChild);
 vi.mock('$lib/server/db/checklist-repo', () => ({
-	findTemplatesByChild: vi.fn((childId: number) =>
-		childId === 1 ? Promise.resolve(mockChecklistTemplates) : Promise.resolve([]),
-	),
+	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...(args as [number])),
 	findTemplateItems: vi.fn(() => Promise.resolve(mockChecklistItems)),
+	findLogsByChild: (...args: unknown[]) => mockFindLogsByChild(...(args as [number])),
 }));
 vi.mock('$lib/server/db/evaluation-repo', () => ({
 	findEvaluationsByChild: vi.fn((childId: number) =>
@@ -299,6 +322,12 @@ vi.mock('$lib/server/db/status-repo', () => ({
 import { exportFamilyData } from '../../../src/lib/server/services/export-service';
 
 describe('exportFamilyData', () => {
+	// #3259 perf-6: 並列収集化で call 順非依存にするため、各 test 前に childId キーの default へ戻す。
+	beforeEach(() => {
+		mockFindTemplatesByChild.mockImplementation(defaultFindTemplatesByChild);
+		mockFindLogsByChild.mockImplementation(defaultFindLogsByChild);
+	});
+
 	it('正しいフォーマットとバージョンでエクスポートされる', async () => {
 		const result = await exportFamilyData({ tenantId: 'test-tenant' });
 		expect(result.format).toBe(EXPORT_FORMAT);
@@ -314,6 +343,24 @@ describe('exportFamilyData', () => {
 		expect(result.family.children[0]?.nickname).toBe('テスト太郎');
 		expect(result.family.children[1]?.exportId).toBe('child-2');
 		expect(result.family.children[1]?.nickname).toBe('テスト花子');
+	});
+
+	it('#3259 perf-6: child 並列収集後も childRef 順 + checksum が決定的 (N+1 解消で順序が崩れない)', async () => {
+		// 並列化 (Promise.all over children) で取り違え / 順序非決定にならないことを固定。
+		// childRef は childIds 順 (child-1 → child-2) を維持し、同入力なら checksum 完全一致。
+		const a = await exportFamilyData({ tenantId: 'test-tenant' });
+		const b = await exportFamilyData({ tenantId: 'test-tenant' });
+
+		const childRefs = a.data.activityLogs.map((l) => l.childRef);
+		// child-1 の log 群が child-2 の log 群より前に並ぶ (interleave していない)。
+		const firstChild2 = childRefs.indexOf('child-2');
+		if (firstChild2 >= 0) {
+			expect(childRefs.slice(0, firstChild2).every((r) => r === 'child-1')).toBe(true);
+		}
+		// data ペイロード (checksum 計算対象、exportedAt 除く) が 2 回の run で完全一致 = 決定的。
+		// (exportedAt は run ごとに異なるため checksum 自体ではなく data を比較する)
+		expect(JSON.stringify(a.data)).toBe(JSON.stringify(b.data));
+		expect(JSON.stringify(a.family)).toBe(JSON.stringify(b.family));
 	});
 
 	it('childIdsでフィルタリングできる', async () => {
@@ -415,6 +462,80 @@ describe('exportFamilyData', () => {
 		expect(result.data.checklistTemplates[0]?.name).toBe('あさのじゅんび');
 		expect(result.data.checklistTemplates[0]?.items).toHaveLength(1);
 		expect(result.data.checklistTemplates[0]?.items[0]?.name).toBe('はみがき');
+	});
+
+	it('#3078: チェックリスト完了ログが templateName で参照されてエクスポートされる', async () => {
+		const result = await exportFamilyData({ tenantId: 'test-tenant' });
+		expect(result.data.checklistLogs).toHaveLength(1);
+		const log = result.data.checklistLogs[0];
+		expect(log?.childRef).toBe('child-1');
+		expect(log?.templateName).toBe('あさのじゅんび');
+		expect(log?.checkedDate).toBe('2026-03-15');
+		expect(log?.completedAll).toBe(true);
+		expect(log?.pointsAwarded).toBe(7);
+	});
+
+	describe('#3106: archive 済 template の checklistLog を backup に含める', () => {
+		it('export は findTemplatesByChild を includeInactive=true + includeArchived=true で呼ぶ (AC2)', async () => {
+			await exportFamilyData({ tenantId: 'test-tenant' });
+			// signature: findTemplatesByChild(childId, tenantId, includeInactive, includeArchived)
+			expect(mockFindTemplatesByChild).toHaveBeenCalledWith(1, 'test-tenant', true, true);
+		});
+
+		it('archive 済 template の checklistLog が backup に含まれる (silent drop しない)', async () => {
+			// archive 済 template (id 2) + その完了ログ + active template (id 1) を返す
+			const archivedTemplate = {
+				id: 2,
+				childId: 1,
+				name: 'むかしのしたく',
+				icon: '📦',
+				pointsPerItem: 1,
+				completionBonus: 0,
+				isActive: 0,
+				isArchived: 1,
+				createdAt: '2025-05-01T00:00:00Z',
+				updatedAt: '2025-05-20T00:00:00Z',
+			};
+			// #3259 perf-6: child 並列収集で call 順が変わりうるため childId キーで override
+			// (child-1 のみ archived template + log を返す。child-2 は default の [])。
+			mockFindTemplatesByChild.mockImplementation((childId: number) =>
+				childId === 1
+					? Promise.resolve([...mockChecklistTemplates, archivedTemplate])
+					: Promise.resolve([]),
+			);
+			mockFindLogsByChild.mockImplementation((childId: number) =>
+				childId === 1
+					? Promise.resolve([
+							...mockChecklistLogs,
+							{
+								id: 2,
+								childId: 1,
+								templateId: 2, // archive 済 template に紐づく log
+								checkedDate: '2026-02-10',
+								itemsJson: '{"9":true}',
+								completedAll: 1,
+								pointsAwarded: 3,
+								createdAt: '2026-02-10T08:00:00Z',
+							},
+						])
+					: Promise.resolve([]),
+			);
+
+			const result = await exportFamilyData({ tenantId: 'test-tenant' });
+
+			// archive 済 template 自体が export に含まれる
+			expect(result.data.checklistTemplates.map((t) => t.name)).toContain('むかしのしたく');
+			// archive 済 template の log も name + exportId 解決され silent drop しない
+			expect(result.data.checklistLogs).toHaveLength(2);
+			const archivedLog = result.data.checklistLogs.find(
+				(l) => l.templateName === 'むかしのしたく',
+			);
+			expect(archivedLog).toBeDefined();
+			expect(archivedLog?.checkedDate).toBe('2026-02-10');
+			expect(archivedLog?.pointsAwarded).toBe(3);
+			// #3107: exportId が発番され round-trip キーになっている
+			expect(archivedLog?.templateExportId).toBe('chk-child-1-2');
+		});
 	});
 
 	it('チェックサムが再現可能であること', async () => {

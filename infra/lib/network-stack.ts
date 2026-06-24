@@ -133,6 +133,25 @@ function handler(event) {
 			protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
 		});
 
+		// --- Origin Shield origin for /_app/* static assets (#3087) ---
+		// adapter-node + Lambda Web Adapter 構成では SvelteKit の build 済 client 静的
+		// アセット (/_app/immutable/*) も Lambda(Function URL) が配信する。エッジ cache が
+		// cold の間、親画面 1 表示で ~224 本のチャンクが Lambda origin を一斉直撃し、
+		// Lambda 同時実行スロットル (TooManyRequestsException / 429) + HTTP/1.1 接続キュー
+		// 輻輳で最遅 ~16s に達していた (HAR 実測、#3087)。
+		// Origin Shield (regional mid-tier cache) を /_app/* 専用 origin に有効化し、
+		// cold-miss burst を 1 リージョンに集約 = 同一アセットの同時 origin fetch を 1 本に
+		// collapse + 二次キャッシュで Lambda 直撃を激減させる。region は origin (Lambda) と
+		// 同一の us-east-1 (infra/CLAUDE.md「全リソース us-east-1 固定」整合)。
+		// default behavior (HTML/API、CACHING_DISABLED) は Origin Shield 経由にすると
+		// キャッシュ無しの動的応答に余計な hop が乗るため、shield なしの lambdaOrigin を維持し、
+		// 静的アセットのみ別 origin (staticAssetOrigin) に分離する。
+		const staticAssetOrigin = new origins.HttpOrigin(fnUrlDomain, {
+			protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+			originShieldEnabled: true,
+			originShieldRegion: 'us-east-1',
+		});
+
 		this.distribution = new cloudfront.Distribution(this, 'CDN', {
 			comment: 'Ganbari Quest',
 			defaultBehavior: {
@@ -150,8 +169,19 @@ function handler(event) {
 				],
 			},
 			additionalBehaviors: {
+				// #3087: /error/* を /_app/* より先に宣言する。CDK は behavior の宣言順に origin
+				// index (CDNOrigin2/3...) を採番するため、既存 s3ErrorOrigin の index を 2 のまま
+				// 維持し、新規追加する staticAssetOrigin を末尾 (index 3) に置く。これにより既存
+				// error origin の OriginAccessControl 論理 ID が変わらず、cdk diff の不要な
+				// destroy/recreate (ADR-0019 gate ノイズ) を避ける。path pattern は非重複のため
+				// 宣言順は CloudFront のマッチング結果に影響しない。
+				'/error/*': {
+					origin: s3ErrorOrigin,
+					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+					cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+				},
 				'/_app/*': {
-					origin: lambdaOrigin,
+					origin: staticAssetOrigin,
 					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
 					cachePolicy: new cloudfront.CachePolicy(this, 'StaticAssetsCachePolicy', {
 						cachePolicyName: 'GanbariQuestStaticAssets',
@@ -161,11 +191,6 @@ function handler(event) {
 						enableAcceptEncodingGzip: true,
 						enableAcceptEncodingBrotli: true,
 					}),
-				},
-				'/error/*': {
-					origin: s3ErrorOrigin,
-					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-					cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
 				},
 			},
 			errorResponses: [
@@ -315,6 +340,13 @@ function handler(event) {
 				protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
 			});
 
+			// /_app/* 静的アセット用 Origin Shield origin (#3087、本番と同型)。
+			const demoStaticAssetOrigin = new origins.HttpOrigin(demoFnUrlDomain, {
+				protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
+				originShieldEnabled: true,
+				originShieldRegion: 'us-east-1',
+			});
+
 			// demo 用 CloudFront Function: query slash encode のみ (admin IP 制限なし)。
 			const demoQueryFixFn = new cloudfront.Function(this, 'DemoQuerySlashEncodeFn', {
 				functionName: 'ganbari-quest-demo-query-slash-encode',
@@ -352,7 +384,7 @@ function handler(event) {
 				},
 				additionalBehaviors: {
 					'/_app/*': {
-						origin: demoLambdaOrigin,
+						origin: demoStaticAssetOrigin,
 						viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
 						cachePolicy: new cloudfront.CachePolicy(this, 'DemoStaticAssetsCachePolicy', {
 							cachePolicyName: 'GanbariQuestDemoStaticAssets',

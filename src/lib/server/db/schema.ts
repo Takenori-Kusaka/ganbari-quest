@@ -396,6 +396,9 @@ export const specialRewards = sqliteTable(
 		shownAt: text('shown_at'),
 		// #1254 G1: プリセット由来のごほうびを識別（import 時の preset_duplicate 検知に利用）
 		sourcePresetId: text('source_preset_id'),
+		// #3147: ショップ陳列系統 (physical/money/privilege)。null は旧行/未指定で表示側が
+		// deriveShopCategory に fallback。validateAndMigrate が既存 DB に ALTER ADD COLUMN 自動適用。
+		shopCategory: text('shop_category'),
 	},
 	(table) => [index('idx_special_rewards_child').on(table.childId, table.grantedAt)],
 );
@@ -797,6 +800,12 @@ export const childChallenges = sqliteTable(
 		index('idx_child_challenges_child').on(table.childId, table.status),
 		index('idx_child_challenges_dates').on(table.startDate, table.endDate),
 		index('idx_child_challenges_source').on(table.sourceTemplateId),
+		// #3245: アプリ週次自動生成 (sourceTemplateId='auto:weekly') は child×week で一意。
+		// 旧 auto_challenges の UNIQUE(child_id, week_start) を child_challenges 一本化で喪失していたため
+		// 部分 unique index で復活し、concurrent 二重 INSERT (= ポイント二重付与) を DB レベルで不可能化する。
+		uniqueIndex('idx_child_challenges_auto_weekly_unique')
+			.on(table.childId, table.startDate)
+			.where(sql`source_template_id = 'auto:weekly'`),
 	],
 );
 
@@ -950,33 +959,8 @@ export const cloudExports = sqliteTable(
 // season_events 撤去に伴うテナント別 opt-in / 進捗テーブルも完全撤去。
 // 並行実装ペアの sqlite / demo / dynamodb repo / service / UI / test fixtures も同期削除。
 
-// ============================================================
-// auto_challenges - 自動生成ウィークリーチャレンジ
-// ============================================================
-export const autoChallenges = sqliteTable(
-	'auto_challenges',
-	{
-		id: integer('id').primaryKey({ autoIncrement: true }),
-		childId: integer('child_id')
-			.notNull()
-			.references(() => children.id),
-		tenantId: text('tenant_id').notNull(),
-		weekStart: text('week_start').notNull(), // YYYY-MM-DD (Monday)
-		categoryId: integer('category_id')
-			.notNull()
-			.references(() => categories.id),
-		targetCount: integer('target_count').notNull(),
-		currentCount: integer('current_count').notNull().default(0),
-		status: text('status').notNull().default('active'), // active | completed | expired
-		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-		updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
-	},
-	(table) => [
-		uniqueIndex('idx_auto_challenges_child_week').on(table.childId, table.weekStart),
-		index('idx_auto_challenges_tenant').on(table.tenantId),
-		index('idx_auto_challenges_status').on(table.status),
-	],
-);
+// #3213 (EPIC #3193): auto_challenges テーブル削除済。週次自動生成チャレンジは child_challenges
+// に一本化された (#3195)。生成アルゴリズム (computeProposal 等) は child-challenge-service.ts へ移設。
 
 // ============================================================
 // trial_history - トライアル履歴（#314）

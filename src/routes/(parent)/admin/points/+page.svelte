@@ -2,6 +2,7 @@
 import { enhance } from '$app/forms';
 import { APP_LABELS, PAGE_TITLES, POINTS_LABELS } from '$lib/domain/labels';
 import { formatPointValue, getUnitLabel } from '$lib/domain/point-display';
+import { notifyActionError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
@@ -229,6 +230,9 @@ async function handleReceiptFile(event: Event) {
 						convertResult = result.data as typeof convertResult;
 						manualInput = '';
 						resetReceipt();
+					} else {
+						// #3218: convert 失敗 (fail()) を silent にせず必ず通知する
+						notifyActionError(result);
 					}
 					await update();
 				};

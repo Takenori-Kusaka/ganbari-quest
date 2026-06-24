@@ -14,11 +14,11 @@ QM は PR の **base branch でレーンを判別**し、レーンごとに gate
 |---|---|---|---|---|
 | **軽量レーン** | `feat/fix/refactor/docs/infra/*` → `develop` | 毎時 | 軽量 gate（branch-strategy.md §4: lint-and-test / unit ×2 / PR テンプレ gate / site-check 等）+ **5 手順全実行**（SS 実視認・UI レビューは QM 注力領域として維持） | `--squash --delete-branch` |
 | **hotfix レーン** | `fix/*`（main 分岐） → `main`、緊急 fix（`priority:critical`）/ CI 環境構築の main 直 PR | 即時（毎時 cadence 内で最優先） | **重量 gate 維持** + critical は ADR-0002 5 要件（E2E 回帰 / AC 全完了 / 提案全実装 / 5 年齢モード / 30 日重複チェック）。gate 省略禁止 | `--squash` + **develop へ back-merge 必須**（drift 防止、Fix Agent で実施） |
-| **統合 PR（外部監査チーム担当・QM 対象外）** | `develop` → `main` | 1 日 1 回 | 担当 = 外部監査チーム（[audit-team.md](audit-team.md)）。**QM はレビューしない**。監査チーム側の gate 参照情報: **最重厚 gate**（軽量全 job 再実行 + e2e ×3 + a11y + e2e-cognito-dev + docker / demo-lambda + storybook + visual regression 3 層） | **`--merge`（merge commit）**。squash 禁止（develop/main の履歴接続を維持し、次回統合 PR の diff 汚染を防ぐ）。develop は削除しない |
+| **統合 PR（外部監査チーム担当・QM 対象外）** | `release/*` → `main`（§3.1 release ブランチ方式、#3063。`develop` → `main` は後方互換） | 1 日 1 回 | 担当 = 外部監査チーム（[audit-team.md](audit-team.md)）。**QM はレビューしない**。監査チーム側の gate 参照情報: **最重厚 gate**（軽量全 job 再実行 + e2e ×3 + a11y + e2e-cognito-dev + docker / demo-lambda + storybook + visual regression 3 層） | **`--merge`（merge commit）**。squash 禁止（含有 PR の commit 粒度を保持し B-4 in-toto / DORA per-PR 計測を成立させる、#2938 / branch-strategy.md §3.1）。develop は削除しない |
 
-- **レーン判別**: `gh pr list --json baseRefName,headRefName` で base=develop → 軽量 / base=main かつ head=develop → 統合 / base=main かつ head=`fix/*`（緊急 fix / CI 環境構築）→ hotfix。**base=main でそれ以外の head（feature 系）は起票時の base 誤設定** — 開発チームに差し戻さず QM の **Fix Agent が base を develop へ訂正 + develop へ rebase** して軽量レーンに載せる（2026-06-11 User 指示。手順は本節下部 + Step 2 コメント参照。旧「retarget 依頼で保留」は差し戻しコストが高いため廃止）。
+- **レーン判別**: `gh pr list --json baseRefName,headRefName` で base=develop → 軽量 / base=main かつ head=`release/*`（§3.1）または develop（後方互換）→ 統合 / base=main かつ head=`fix/*`（緊急 fix / CI 環境構築）→ hotfix。**base=main でそれ以外の head（feature 系）は起票時の base 誤設定** — 開発チームに差し戻さず QM の **Fix Agent が base を develop へ訂正 + develop へ rebase** して軽量レーンに載せる（2026-06-11 User 指示。手順は本節下部 + Step 2 コメント参照。旧「retarget 依頼で保留」は差し戻しコストが高いため廃止）。
 - **hotfix 安全側フォールバック（label 単独依存の防止、#2938 項目 3）**: base=main かつ head=`fix/*` で `priority:critical` label が無い PR は、判別から漏らさず**安全側で hotfix レーン（重量 gate）として扱った上で**、linked Issue を開いて critical 該当性を確認する。該当 → label 付与 + hotfix 続行（ADR-0002 5 要件適用）/ 非該当（CI 環境構築例外にも該当しない）→ Fix Agent が base を develop へ訂正 + rebase（上記 base 誤設定対応と同手順）。`ci.yml` の `main-pr-base-guard`（#2933）は head=`fix/*` を base 制限としては許容するため、label 有無による critical 判定は本フォールバック（QM 側）が担う。
-- **統合 PR（develop→main）は外部監査チーム担当**: develop→main release の発行・最重厚 gate 判定・merge は **外部品質監査チーム（[audit-team.md](audit-team.md)）の責務であり QM の通常レビュー対象外**（2026-06-11 User 指示で「暫定 QM 代行」を終了）。QM が main へ関与するのは **緊急 fix / CI 環境構築の例外的 hotfix のみ**。例外 hotfix でも adversarial evidence + V-7 Orchestrator 専権 approve 規律は同一に適用する。
+- **統合 PR（`release/*` → main、§3.1。develop→main は後方互換）は外部監査チーム担当**: release 統合 PR の発行・最重厚 gate 判定・merge は **外部品質監査チーム（[audit-team.md](audit-team.md)）の責務であり QM の通常レビュー対象外**（2026-06-11 User 指示で「暫定 QM 代行」を終了）。QM が main へ関与するのは **緊急 fix / CI 環境構築の例外的 hotfix のみ**。例外 hotfix でも adversarial evidence + V-7 Orchestrator 専権 approve 規律は同一に適用する。
 - **base 誤設定 feature の Fix Agent 対応手順**: (1) `gh pr edit <N> --base develop` (2) worktree 内で `git rebase origin/develop` → conflict 解消 → `git push --force-with-lease`（旧 main ベースの drift を解消し本来の diff に戻す） (3) base=develop の軽量レーンとして通常 Tier 2 review → develop merge。
 - **発効条件（cutover §8 連動）**: 本レーン区分は **develop branch 作成 + workflow 改修（branch-strategy.md §8 Step 2-3）完了後に発効**する。発効前は現行どおり main 向け PR を重量 gate で 5 手順レビューする。既存 open PR は retarget しない（§8 Step 6）。
 - **軽量レーンの CI 解釈**: e2e / a11y / storybook / visual regression が**不発火・skip でも approve を保留しない**（これらは統合 PR で集約検証される設計）。逆に、軽量レーンの required（lint-and-test / unit / PR テンプレ gate）が red のまま approve することは引き続き禁止。
@@ -172,6 +172,27 @@ gh pr checks <num>
 - `skipping` 無視可
 - red → CI Fix Agent spawn（後述）
 
+##### 重量 e2e 敏感領域の追加判定（#3172、軽量レーン緑だけで approve しない領域）
+
+軽量レーン（→ develop）の e2e は skip で正常だが、**重量 e2e でしか守れない不変条件に触れる PR を「軽量レーン緑」だけで approve すると、統合監査（release → main）で初めて落ちる回帰を素通しする**。3 サイクル連続の統合 blocker（[#3104](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3104) → [#3132](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3132) → [#3163](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3163)）はすべてこの class。これを feature → develop の **最早 human gate** で捕捉する。
+
+**判定**: PR diff が以下の領域（SSOT: [`parallel-implementations.md` §「🔥 重量 e2e 敏感領域 SSOT」](../design/parallel-implementations.md)）に触れるか確認する:
+
+- export / import schema・marketplace schema（`*-schema.ts`）
+- reward 陳列・shop_category / child shop（`shop/+page.server.ts` 等）
+- domain validation 値域（`domain/validation/*.ts`）
+- parent-gate（`/switch` modal + `/admin/*` middleware）
+- DB スキーマ（schema.ts / create-tables.ts / repo / seed）
+
+**該当する場合は、軽量レーン緑に加えて以下のいずれかを approve 条件とする**（属人的記憶に頼らず SSOT 表で判定）:
+
+1. **作者による該当重量 e2e spec のローカル実行証跡**（PR body / コメントに `npx playwright test tests/e2e/<該当 spec>.spec.ts` の PASS ログ）
+2. **`parallel-implementations.md` 該当ペア更新の確認**（ペア全箇所 + e2e seed 同期を触ったことの明記）
+
+証跡が無い場合は手順 5 で BLOCK し、(1) または (2) を依頼する（全 PR への重量 e2e 必須化はしない — ADR-0007 軽量レーンの趣旨。本判定は敏感領域に限定）。
+
+> **二段構え**: 機械強制側は EPIC [#3152](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3152)（shift-left / fitness function）/ [#3151](https://github.com/Takenori-Kusaka/ganbari-quest/issues/3151)（schema-SSOT）が担い、本手順は人手判断側。Dev 着手時の事前予防は [dev-session.md](dev-session.md) 新規実装時（#3173）。
+
 **順序の理由**: CI 確認を先にやると「CI 緑 = approve」proxy 退行が再発（#1197 / #1198）。必ず手順 1-3 完了後に実行。
 
 ### 手順 5: 承認/マージ判断
@@ -211,7 +232,7 @@ GH_TOKEN=$(gh auth token --user ganbariquestsupport-lab) gh api repos/Takenori-K
 EOF
 )"
 gh pr view <num> --json mergeStateStatus  # CLEAN 確認
-gh pr merge <num> --squash --delete-branch   # 軽量レーン / hotfix。統合 PR (develop→main) は --merge (merge commit、--delete-branch なし)
+gh pr merge <num> --squash --delete-branch   # 軽量レーン / hotfix。統合 PR (release/* → main、§3.1) は --merge (merge commit、--delete-branch なし)
 gh auth switch --user Takenori-Kusaka
 ```
 
@@ -264,7 +285,7 @@ Orchestrator が Tier 2 Review Agent / CI Fix Agent を spawn する際の定型
 - 1 Agent で複数 PR / 独自フォーマットの approve body / `--admin` bypass（ADR-0022 完全禁止）
 - CI 失敗のゼロベーストラブルシュート（KB 参照 → Fix Agent spawn が標準）
 - **軽量レーンで e2e / a11y の不発火を理由に approve を保留し続ける**（gate 二層設計の否定。統合 PR で集約検証される — §レビュー対象レーン）。逆に**統合 PR / hotfix で重量 gate を省略して merge** も禁止
-- **統合 PR (develop→main) を squash merge**（develop/main の履歴接続が切れ、次回統合 PR の diff が汚染される。必ず merge commit）
+- **統合 PR (release/* → main、§3.1。develop→main 後方互換) を squash merge**（含有 PR の commit 粒度が潰れ B-4 in-toto / DORA per-PR 計測が不成立。必ず merge commit）
 - **hotfix merge 後の develop back-merge を省略**（main/develop drift の温床）
 - **base=main の feature PR（head が develop / fix/* 以外）を見逃して approve**（branch-strategy.md §3 違反。Fix Agent で base を develop へ訂正 + rebase が正 — 2026-06-11 User 指示）
 - **`ganbariquestsupport-lab` で PR を作成**（QA レビュー専用、PR 作成は Takenori-Kusaka — #1728 / ADR-0022 amendment）。本禁忌は **3 層機械強制機構** で abort される:

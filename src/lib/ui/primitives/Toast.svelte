@@ -1,10 +1,5 @@
 <script lang="ts" module>
-interface ToastItem {
-	id: number;
-	title: string;
-	description?: string;
-	type: 'success' | 'error' | 'info';
-}
+import { reconcileToastStack, type ToastItem } from '$lib/ui/toast-stack';
 
 let toasts = $state<ToastItem[]>([]);
 let nextId = 0;
@@ -15,10 +10,19 @@ export function showToast(
 	type: 'success' | 'error' | 'info' = 'success',
 ) {
 	const id = nextId++;
-	toasts.push({ id, title, description, type });
-	setTimeout(() => {
-		toasts = toasts.filter((t) => t.id !== id);
-	}, 3000);
+	// #3225: dedup (同一 Toast を多重表示しない) + stack-cap (非自動消滅 error が UI を覆うのを防ぐ)。
+	const before = toasts;
+	toasts = reconcileToastStack(toasts, { id, title, description, type });
+	// dedup された場合は参照が変わらない → タイマーも張らない (既存 Toast が表示中)。
+	if (toasts === before) return;
+	// #3218 (EPIC #3217): error は自動消滅させず手動閉じ (× ボタン) のみ。
+	//   WCAG 2.2.1 Timing Adjustable — 修正を要するエラーをタイマーで消すと情報が失われる。
+	//   success / info は role="status"(polite) + 3 秒自動消滅 (操作不要・軽微通知)。
+	if (type !== 'error') {
+		setTimeout(() => {
+			toasts = toasts.filter((t) => t.id !== id);
+		}, 3000);
+	}
 }
 </script>
 
@@ -38,7 +42,8 @@ export function showToast(
 					{toast.type === 'success' ? 'border-l-[var(--color-success)]' : ''}
 					{toast.type === 'error' ? 'border-l-[var(--color-danger)]' : ''}
 					{toast.type === 'info' ? 'border-l-[var(--theme-primary)]' : ''}"
-				role="alert"
+				role={toast.type === 'error' ? 'alert' : 'status'}
+				aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
 			>
 				<div class="flex-1">
 					<p class="font-bold text-sm">{toast.title}</p>

@@ -1,22 +1,79 @@
 <script lang="ts">
 // #2320 (EPIC #2319 ①): notifications グループ — notification 1 section のみ。
 // 旧 /admin/settings/+page.svelte 行 929 を移行。
-// data-notif-* attribute 経由のクライアントスクリプトも同梱。
+// #3186: 旧 data-notif-* 属性 + 命令的 notification-status-ui.ts を撤廃し、
+// Svelte 5 reactive ($state) + getPushStatus / subscribeToPush + Toast 構成に置換。
+// ユーザ向けステータスは ON/OFF + 異常系 (ブロック/非対応) に集約 (内部状態ジャーゴン排除)。
 
 import { onMount } from 'svelte';
 import { enhance } from '$app/forms';
 import { APP_LABELS, PAGE_TITLES, SETTINGS_LABELS } from '$lib/domain/labels';
-import { initNotificationStatusUi } from '$lib/features/admin/notification-status-ui';
+import {
+	getPushStatus,
+	getPushStatusSync,
+	type PushStatus,
+	subscribeToPush,
+	unsubscribeFromPush,
+} from '$lib/features/admin/push-subscription';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import FormField from '$lib/ui/primitives/FormField.svelte';
+import { showToast } from '$lib/ui/primitives/Toast.svelte';
 
 let { data, form } = $props();
 
-// 通知ステータス UI 制御 (data-notif-* 属性経由でラベル読込)
+// #3186: 通知ステータスを reactive に保持。内部の permission↔subscription 差は
+// getPushStatus() が 'unsupported'/'blocked'/'off'/'on' の 4 値に隠蔽する。
+// 'checking' は初期化中の一瞬のみ (バッジ・ボタンを出さない)。
+let status = $state<PushStatus | 'checking'>('checking');
+let busy = $state(false);
+
 onMount(() => {
-	initNotificationStatusUi();
+	// 同期判定で即座に確定 (unsupported / blocked / off)。'checking' で固まらせない。
+	status = getPushStatusSync();
+	// 購読済み (on) のみ非同期で後追い更新。失敗時は同期値を維持。
+	void getPushStatus()
+		.then((s) => {
+			status = s;
+		})
+		.catch(() => {});
 });
+
+// 「通知をオンにする」: loading 表示 + 成功/失敗 Toast。silent no-op を撲滅 (#3186)。
+async function enableNotifications() {
+	busy = true;
+	try {
+		const sub = await subscribeToPush();
+		if (sub) {
+			status = 'on';
+			showToast(SETTINGS_LABELS.notificationEnableSuccess, undefined, 'success');
+		} else {
+			// null = 非対応 / 拒否 / VAPID 未設定 等。現在状態を取り直して反映し失敗を必ず通知。
+			status = await getPushStatus().catch(() => 'unsupported' as PushStatus);
+			showToast(SETTINGS_LABELS.notificationEnableFailure, undefined, 'error');
+		}
+	} catch {
+		showToast(SETTINGS_LABELS.notificationEnableFailure, undefined, 'error');
+	} finally {
+		busy = false;
+	}
+}
+
+// 「通知をオフにする」: enableNotifications と対称。解除失敗時も silent no-op を撲滅 (#3186)。
+async function disableNotifications() {
+	busy = true;
+	try {
+		await unsubscribeFromPush();
+		status = 'off';
+		showToast(SETTINGS_LABELS.notificationDisableSuccess, undefined, 'success');
+	} catch {
+		// 解除失敗 (サーバー非 2xx 等)。現在状態を取り直して反映し失敗を必ず通知。
+		status = await getPushStatus().catch(() => 'unsupported' as PushStatus);
+		showToast(SETTINGS_LABELS.notificationDisableFailure, undefined, 'error');
+	} finally {
+		busy = false;
+	}
+}
 </script>
 
 <svelte:head>
@@ -44,42 +101,79 @@ onMount(() => {
 			</div>
 		{/if}
 
-		<!-- ブラウザ通知ステータス -->
+		<!-- ブラウザ通知ステータス (#3186: ON/OFF + 異常系のみ。内部状態ジャーゴンを出さず、
+		     通知できないとき (非対応/ブロック) はボタンを disabled にして理由を 1 行で示す) -->
 		<div
 			class="mb-4 p-3 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border-default)]"
-			data-notif-unsupported={SETTINGS_LABELS.notificationBrowserLabel}
-			data-notif-blocked="ブロック中（ブラウザ設定で変更）"
-			data-notif-unset="未設定"
-			data-notif-active="有効"
-			data-notif-inactive="無効"
-			data-notif-pending="許可済み（未登録）"
-			data-notif-device-unsupported="この端末は通知に対応していません"
+			data-testid="notification-browser-status"
 		>
 			<div class="flex items-center justify-between">
 				<span class="text-sm font-medium text-[var(--color-text)]">
 					{SETTINGS_LABELS.notificationBrowserLabel}
 				</span>
-				<span
-					class="text-xs px-2 py-1 rounded-full"
-					id="notification-status">{SETTINGS_LABELS.notificationChecking}</span
-				>
+				{#if status === 'on'}
+					<span
+						class="text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-success-bg-strong)] text-[var(--color-feedback-success-text)]"
+						data-testid="notification-status-badge"
+					>
+						{SETTINGS_LABELS.notificationStatusOn}
+					</span>
+				{:else if status === 'blocked'}
+					<span
+						class="text-xs px-2 py-1 rounded-full bg-[var(--color-feedback-warning-bg-strong)] text-[var(--color-feedback-warning-text)]"
+						data-testid="notification-status-badge"
+					>
+						{SETTINGS_LABELS.notificationStatusBlocked}
+					</span>
+				{:else if status === 'checking'}
+					<span class="text-xs px-2 py-1 rounded-full text-[var(--color-text-muted)]">
+						{SETTINGS_LABELS.notificationChecking}
+					</span>
+				{/if}
 			</div>
-			<div id="notification-action" class="mt-2 hidden">
-				<Button type="button" variant="primary" size="sm" id="notification-subscribe-btn">
-					{SETTINGS_LABELS.notificationEnableAction}
-				</Button>
-			</div>
-			<div id="notification-subscribed" class="mt-2 hidden">
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					class="bg-[var(--color-neutral-200)] text-[var(--color-text)] hover:bg-[var(--color-neutral-300)]"
-					id="notification-unsubscribe-btn"
-				>
-					{SETTINGS_LABELS.notificationDisableAction}
-				</Button>
-			</div>
+
+			{#if status === 'on'}
+				<div class="mt-2">
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						loading={busy}
+						onclick={disableNotifications}
+						data-testid="notification-disable-btn"
+					>
+						{SETTINGS_LABELS.notificationDisableAction}
+					</Button>
+				</div>
+			{:else if status === 'off'}
+				<div class="mt-2">
+					<Button
+						type="button"
+						variant="primary"
+						size="sm"
+						loading={busy}
+						onclick={enableNotifications}
+						data-testid="notification-enable-btn"
+					>
+						{busy
+							? SETTINGS_LABELS.notificationEnableActionLoading
+							: SETTINGS_LABELS.notificationEnableAction}
+					</Button>
+				</div>
+			{:else if status === 'blocked'}
+				<p class="mt-2 text-xs text-[var(--color-text-muted)]" data-testid="notification-blocked-note">
+					{SETTINGS_LABELS.notificationBlockedNote}
+				</p>
+			{:else if status === 'unsupported'}
+				<div class="mt-2">
+					<Button type="button" variant="primary" size="sm" disabled data-testid="notification-enable-btn">
+						{SETTINGS_LABELS.notificationEnableAction}
+					</Button>
+					<p class="mt-2 text-xs text-[var(--color-text-muted)]" data-testid="notification-unsupported-note">
+						{SETTINGS_LABELS.notificationUnsupportedNote}
+					</p>
+				</div>
+			{/if}
 		</div>
 
 		<form

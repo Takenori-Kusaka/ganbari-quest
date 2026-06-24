@@ -19,7 +19,7 @@ SvelteKit 2 + Svelte 5 (Runes) + Ark UI Svelte + SQLite + Drizzle ORM。TypeScri
 - データ取得は `+page.ts` / `+layout.ts` の `load`。コンポーネント内 fetch 禁止
 - 状態管理は `$state` / `$derived` / `$effect` 基本。stores は最小限。Svelte 4 / SvelteKit 1 構文 (`$:` 等) 禁止
 - UI は `$lib/ui/primitives` (Ark UI ラッパ) と `$lib/ui/components` のみ
-- `+server.ts` から ORM 直呼び禁止。`$lib/server/services` 経由
+- `+server.ts` から ORM 直呼び禁止。`$lib/server/services` 経由（**機械強制**: `tests/unit/architecture/route-db-boundary.test.ts` が全 server route の禁止 import を fitness function で検出、#3152 Phase 2 / ADR-0061）
 - API エラーは `@sveltejs/kit` の `error`, `json` で一貫レスポンス
 
 ## Build & Test

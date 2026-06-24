@@ -190,6 +190,28 @@ describe('shouldSkip (全 lane 共通の skip 条件)', () => {
 	});
 });
 
+// --- #3071: integration lane では label / 明示コメントによる skip を無効化 (空洞化防止) ---
+
+describe('shouldSkip integration lane = skip 無効化 (#3071)', () => {
+	it('integration lane では type:docs ラベルでも skip しない', () => {
+		expect(shouldSkip({ body: '', labels: ['type:docs'], lane: 'integration' }).skip).toBe(false);
+	});
+	it('integration lane では dependencies ラベルでも skip しない', () => {
+		expect(shouldSkip({ body: '', labels: ['dependencies'], lane: 'integration' }).skip).toBe(
+			false,
+		);
+	});
+	it('integration lane では明示 skip コメントでも skip しない', () => {
+		expect(
+			shouldSkip({ body: '<!-- ac-verification-skip: x -->', labels: [], lane: 'integration' })
+				.skip,
+		).toBe(false);
+	});
+	it('feature lane は従来どおり type:docs で skip する (回帰なし)', () => {
+		expect(shouldSkip({ body: '', labels: ['type:docs'], lane: 'feature' }).skip).toBe(true);
+	});
+});
+
 // --- checkAcVerification (lane エントリ、観点切替を一気通貫で検証) ---
 
 describe('checkAcVerification (lane エントリ、AC3/AC4)', () => {

@@ -7,6 +7,7 @@
  */
 
 import * as v from 'valibot';
+import { SHOP_CATEGORIES } from '$lib/domain/shop-category.js';
 import { REWARD_CATEGORIES } from '$lib/domain/validation/special-reward.js';
 
 /** reward-set item: 単一のごほうび (`RewardSetPayload['rewards'][number]` の rebuild) */
@@ -30,6 +31,11 @@ export const RewardSetItemSchema = v.object({
 		'category は REWARD_CATEGORIES のいずれかで指定してください',
 	),
 	description: v.optional(v.pipe(v.string(), v.maxLength(500))),
+	// #3147: ショップ陳列系統 (physical/money/privilege)。省略時は取込側で推定 fallback。
+	// RewardCategory(6値) とは直交する軸 (登録カテゴリとショップ陳列の分離)。
+	shopCategory: v.optional(
+		v.picklist(SHOP_CATEGORIES, 'shopCategory は SHOP_CATEGORIES のいずれかで指定してください'),
+	),
 });
 
 export const RewardSetPayloadSchema = v.object({

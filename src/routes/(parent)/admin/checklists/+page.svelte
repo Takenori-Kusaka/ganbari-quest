@@ -5,6 +5,7 @@ import { getActionErrorDisplay } from '$lib/domain/errors';
 import {
 	ADMIN_CHECKLISTS_PAGE_LABELS,
 	APP_LABELS,
+	BACKUP_RESTORE_LABELS,
 	OVERFLOW_MENU_LABELS,
 	PAGE_TITLES,
 	PLAN_GATE_LABELS,
@@ -42,26 +43,50 @@ import VisibilityChipGroup, {
 
 let { data, form } = $props();
 
-let selectedChildId = $state(0);
-
-$effect(() => {
-	const first = data.children[0];
-	if (selectedChildId === 0 && first) {
-		selectedChildId = first.id;
-	}
-});
+// #3097 (EPIC #3096): selectedChildId を SSR-safe な override + derived パターンに統一
+//   (activities / rewards と同型)。旧 `$state(0)` + `$effect` 初期化は SSR 時点で 0 のため、
+//   子供コンテキストバナー / 一覧 (slot 3 / 7) が hydration 前に描画されず正準スロット契約に
+//   反していた。derived の fallback を `children[0].id` にすることで SSR から確定する。
+let childIdOverride = $state<number | undefined>(undefined);
+const selectedChildId = $derived(
+	childIdOverride !== undefined && data.children.some((c) => c.id === childIdOverride)
+		? childIdOverride
+		: (data.children[0]?.id ?? 0),
+);
 
 const selectedChild = $derived(data.children.find((c) => c.id === selectedChildId));
 
-// #2362 PR-5 Phase 2 (ADR-0055): family scope の templates 一覧 (childId 軸ではなく family 軸)
-//   旧 per-child templates 表示は廃止し、family templates を表示する。
-//   override 操作のみ child 軸が残るため selectedChild を維持。
-const filteredTemplates = $derived(data.familyTemplates);
+// #3097 (EPIC #3096): 正準スロット契約に conform — 検索 (slot 5、一覧の直上) を activities / rewards と
+//   同型に追加する。template 名で絞り込む (NN/G #4 consistency)。
+let searchQuery = $state('');
 
-// #723: Free プランのテンプレート上限（UI ゲート用、family scope での件数）
+// #3098 (EPIC #3096 Sub-2): UI 表示軸を child 主軸に統一 (activity / reward と同型)。
+//   一覧は「選択中 child に配信済み (assignedChildIds に selectedChildId を含む) の template だけ」を
+//   per-child view として表示する。family master template + assignments のデータモデルは不変で
+//   (template は tenant 1 レコードのまま)、assignments で表示を絞るだけ (ADR-0055 §3.1 維持)。
+//   旧「family 全 template 一覧」表示は廃止し、子供タブで「この子のチェックリスト」を見せる。
+const childTemplates = $derived(
+	data.familyTemplates.filter((t) => t.assignedChildIds.includes(selectedChildId)),
+);
+// #3097: searchQuery で template 名を絞り込む (一覧 slot の表示軸)。
+const filteredTemplates = $derived(
+	searchQuery.trim()
+		? childTemplates.filter((t) => t.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+		: childTemplates,
+);
+const hasSearchActive = $derived(searchQuery.trim().length > 0);
+
+// #3098: 兄弟共通化の「別の子から copy」(= その子の配信 template を選択中 child にも配信)。
+//   activity の copyFromChild と同型 (assignments 追加なので template 重複作成は発生しない)。
+let showCopyFromChildDialog = $state(false);
+let copySourceChildId = $state<number | null>(null);
+const canCopyFromChild = $derived(data.children.length >= 2);
+
+// #723: Free プランのテンプレート上限（UI ゲート用、per-child quota: 選択中 child の配信済み件数）。
+//   checkChecklistTemplateLimit (server) も per-child quota で判定するため UI も per-child 件数で揃える。
 // null = 無制限（Standard/Family）
 const checklistMax = $derived(data.checklistTemplateMax);
-const currentCount = $derived(data.familyTemplates.length);
+const currentCount = $derived(childTemplates.length);
 const atLimit = $derived(checklistMax !== null && currentCount >= checklistMax);
 
 // Add item dialog
@@ -131,7 +156,9 @@ function timeSlotLabel(slot: string): string {
 const COMMON_ICONS = ['🏫', '👕', '👟', '🎨', '🎵', '📚', '🧹', '🍱', '💧', '📦', '🎒', '✏️'];
 
 // Dialog exclusion: only one dialog open at a time
-const anyDialogOpen = $derived(addItemOpen || addTemplateOpen || overrideOpen || aiDialogOpen);
+const anyDialogOpen = $derived(
+	addItemOpen || addTemplateOpen || overrideOpen || aiDialogOpen || showCopyFromChildDialog,
+);
 
 // #2903 (EPIC #2897): 「+ 追加」dropdown を activities (ActivitiesHeader.addMenuItems) と同型に統一する。
 //   旧: AI 提案パネル本文直置き + dropdown は (テンプレート作成 / ワンオフ追加) の 2 項目 (#2778)。
@@ -165,6 +192,19 @@ const addMenuItems = $derived<MenuItem[]>([
 		icon: ADMIN_CHECKLISTS_PAGE_LABELS.addOverrideMenuIcon,
 		onSelect: openOverride,
 	},
+	// #3098: 兄弟共通化の copy 導線 (activity の copyFromChild と同型)。child が 2 人以上のときのみ。
+	//   add 経路の先頭 3 (manual / ai / browse) は activities と同型のため、本 page 固有 item は末尾に置く
+	//   (admin-add-path-isomorphism.spec.ts は先頭 3 item の同型性のみ assert)。
+	...(canCopyFromChild
+		? [
+				{
+					id: 'copy',
+					label: ADMIN_CHECKLISTS_PAGE_LABELS.copyFromChildMenuLabel,
+					icon: ADMIN_CHECKLISTS_PAGE_LABELS.copyFromChildMenuIcon,
+					onSelect: openCopyFromChild,
+				},
+			]
+		: []),
 ]);
 
 function openAddItem(templateId: number) {
@@ -207,6 +247,70 @@ function openAiDialog() {
 //   取込実行は marketplace 詳細 → `?import=<presetId>` → ChildSelectionDialog の正規経路に合流する。
 function handleAddBrowse() {
 	void goto('/marketplace?type=checklist');
+}
+
+// #3098: 「別の子から copy」= source child の配信 template を選択中 child にも配信する (assignments 追加)。
+//   template 自体は family master のまま複製せず、assignments を増やすだけ (activity copy と同型)。
+function openCopyFromChild() {
+	if (anyDialogOpen) return;
+	copySourceChildId = null;
+	showCopyFromChildDialog = true;
+}
+
+async function handleCopyFromChild() {
+	if (!copySourceChildId || !selectedChildId || copySourceChildId === selectedChildId) {
+		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.copyDifferentChildError;
+		showToast(actionMessage, undefined, 'error');
+		return;
+	}
+	const formData = new FormData();
+	formData.append('sourceChildId', String(copySourceChildId));
+	formData.append('targetChildId', String(selectedChildId));
+	try {
+		const resp = await fetch('?/copyDistributionFromChild', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const actionResult = deserialize(await resp.text()) as
+			| { type: 'success'; data?: { added?: number; limitReached?: boolean; message?: string } }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+		if (actionResult.type === 'success') {
+			const added = Number(actionResult.data?.added ?? 0);
+			// #3098 QM BLOCK 対応: free プラン上限で source の一部を取り込めなかった場合
+			// (limitReached) は server の partial-success message を出し、silent な over-grant /
+			// silent な drop を避ける (warning トーンで「上限に達した」を可視化)。
+			if (actionResult.data?.limitReached && actionResult.data?.message) {
+				actionMessage = actionResult.data.message;
+				showToast(actionMessage, undefined, 'info');
+			} else {
+				actionMessage =
+					added === 0
+						? ADMIN_CHECKLISTS_PAGE_LABELS.copyNoChange
+						: ADMIN_CHECKLISTS_PAGE_LABELS.copySuccess(added);
+				showToast(actionMessage, undefined, added === 0 ? 'info' : 'success');
+			}
+			showCopyFromChildDialog = false;
+			copySourceChildId = null;
+			await invalidateAll();
+		} else if (actionResult.type === 'failure') {
+			actionMessage = actionResult.data?.error ?? ADMIN_CHECKLISTS_PAGE_LABELS.copyFailed;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.copyFailed;
+			showToast(actionMessage, undefined, 'error');
+		}
+	} catch {
+		actionMessage = ADMIN_CHECKLISTS_PAGE_LABELS.copyFailed;
+		showToast(actionMessage, undefined, 'error');
+	}
+}
+
+// #3098: 各 child に配信済みの template 件数 (copy dialog の選択肢補助表示用)。
+function assignedCountForChild(childId: number): number {
+	return data.familyTemplates.filter((t) => t.assignedChildIds.includes(childId)).length;
 }
 
 function frequencyLabel(freq: string): string {
@@ -265,10 +369,14 @@ let showDistributionDialog = $state(false);
 let distributionTemplateId = $state<number | null>(null);
 let distributionVisibility = $state<Record<number, boolean>>({});
 
-// 「ヘルプ」「復元」「エクスポート」未実装 dialog
+// 「ヘルプ」dialog
 let helpDialogOpen = $state(false);
+// #3079: 個別 backup/restore dialog
 let restoreDialogOpen = $state(false);
 let exportDialogOpen = $state(false);
+let restoreLoading = $state(false);
+let restoreFile = $state<File | null>(null);
+let restorePreview = $state<{ total: number; newItems: number; duplicates: number } | null>(null);
 
 // childOptions for ChildSelectionDialog (PR-2 primitive)
 const childSelectionOptions = $derived<ChildOption[]>(
@@ -336,6 +444,8 @@ const overflowItems = $derived<OverflowMenuItem[]>([
 		label: OVERFLOW_MENU_LABELS.items.restore.label,
 		icon: OVERFLOW_MENU_LABELS.items.restore.icon,
 		onSelect: () => {
+			restoreFile = null;
+			restorePreview = null;
 			restoreDialogOpen = true;
 		},
 	},
@@ -359,6 +469,109 @@ const overflowItems = $derived<OverflowMenuItem[]>([
 		},
 	},
 ]);
+
+// #3079: チェックリスト個別 backup/restore handlers
+const RESTORE_NOUN = ADMIN_CHECKLISTS_PAGE_LABELS.restoreResourceNoun;
+
+function onRestoreFileChange(event: Event) {
+	const input = event.currentTarget as HTMLInputElement;
+	restoreFile = input.files?.[0] ?? null;
+	restorePreview = null;
+}
+
+// 復元 step 1: preview (DB write なし) — 件数 / 重複を取得
+async function handleRestorePreview() {
+	if (!restoreFile) {
+		actionMessage = BACKUP_RESTORE_LABELS.fileRequired;
+		return;
+	}
+	restoreLoading = true;
+	try {
+		const formData = new FormData();
+		formData.append('file', restoreFile);
+		const resp = await fetch('?/restorePreview', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const r = deserialize(await resp.text()) as
+			| { type: 'success'; data?: { total?: number; newItems?: number; duplicates?: number } }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+		if (r.type === 'success' && r.data) {
+			restorePreview = {
+				total: r.data.total ?? 0,
+				newItems: r.data.newItems ?? 0,
+				duplicates: r.data.duplicates ?? 0,
+			};
+		} else if (r.type === 'failure') {
+			actionMessage = r.data?.error ?? BACKUP_RESTORE_LABELS.restoreFailed;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+		}
+	} catch {
+		actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+	} finally {
+		restoreLoading = false;
+	}
+}
+
+// 復元 step 2: 実行 — 実 DB write
+async function handleRestoreConfirm() {
+	if (!restoreFile) return;
+	restoreLoading = true;
+	try {
+		const formData = new FormData();
+		formData.append('file', restoreFile);
+		const resp = await fetch('?/restoreFile', {
+			method: 'POST',
+			headers: { accept: 'application/json', 'x-sveltekit-action': 'true' },
+			body: formData,
+		});
+		const r = deserialize(await resp.text()) as
+			| {
+					type: 'success';
+					data?: { fileName?: string; imported?: number; skipped?: number; importedItems?: number };
+			  }
+			| { type: 'failure'; data?: { error?: string } }
+			| { type: 'redirect'; location: string }
+			| { type: 'error'; error: unknown };
+		if (r.type === 'success' && r.data) {
+			const name = r.data.fileName ?? BACKUP_RESTORE_LABELS.fileFallbackName;
+			const imported = r.data.importedItems ?? 0;
+			const skipped = (r.data.skipped ?? 0) > 0 ? (restorePreview?.total ?? 0) : 0;
+			actionMessage =
+				(r.data.imported ?? 0) === 0 && (r.data.skipped ?? 0) > 0
+					? BACKUP_RESTORE_LABELS.restoreAllDuplicatesResult(name, RESTORE_NOUN)
+					: BACKUP_RESTORE_LABELS.restoreSuccess(name, imported, skipped);
+			showToast(actionMessage, undefined, 'success');
+			restoreDialogOpen = false;
+			await invalidateAll();
+		} else if (r.type === 'failure') {
+			actionMessage = r.data?.error ?? BACKUP_RESTORE_LABELS.restoreFailed;
+			showToast(actionMessage, undefined, 'error');
+		} else {
+			actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+		}
+	} catch {
+		actionMessage = BACKUP_RESTORE_LABELS.restoreFailed;
+	} finally {
+		restoreLoading = false;
+	}
+}
+
+// エクスポート — テンプレートを選択して v2 envelope JSON でダウンロード
+function exportTemplate(templateId: number) {
+	const a = document.createElement('a');
+	a.href = `/api/v1/checklists/export?templateId=${templateId}`;
+	a.download = 'checklist-export.json';
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	exportDialogOpen = false;
+}
 
 // ChildSelectionDialog confirm: family preset 取込 + 配信先 children 設定
 //
@@ -583,6 +796,87 @@ function getChildName(childId: number): string {
 		</AdminResourceHeader>
 	</div>
 
+	<!-- #3097 (EPIC #3096): 子供タブ (slot 2) — 正準スロット契約に conform。
+	     旧: 「2 人以上」表示条件 + Tailwind 直書き styling だったが、activities / rewards と同型に
+	     「1 人以上」常時表示 + `.child-tab-row` styling + role="tablist" に統一する (NN/G #4 consistency)。
+	     checklist は family master 配信モデルのため、本タブは override / 進捗確認の child 選択に使う。 -->
+	{#if data.children.length > 0}
+		<div
+			class="child-tab-row"
+			data-testid="admin-checklists-child-tabs"
+			role="tablist"
+			aria-label={ADMIN_CHECKLISTS_PAGE_LABELS.childTabsAriaLabel}
+		>
+			{#each data.children as child (child.id)}
+				<Button
+					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
+					size="sm"
+					class="child-tab {selectedChildId === child.id ? '' : 'child-tab--inactive'}"
+					data-testid="checklists-child-tab-{child.id}"
+					role="tab"
+					aria-selected={selectedChildId === child.id}
+					onclick={() => (childIdOverride = child.id)}
+				>
+					{child.nickname}
+				</Button>
+			{/each}
+		</div>
+
+		<!-- #3097 (EPIC #3096): 子供コンテキストバナー (slot 3) — activities / rewards と同型に追加。 -->
+		{#if selectedChild}
+			<div class="child-context-banner" data-testid="admin-checklists-child-context-banner">
+				<span class="child-context-banner__label">
+					{selectedChild.nickname}{ADMIN_CHECKLISTS_PAGE_LABELS.childContextSuffix}
+				</span>
+				<span class="child-context-banner__hint">
+					{ADMIN_CHECKLISTS_PAGE_LABELS.childContextHint}
+				</span>
+			</div>
+		{/if}
+	{/if}
+
+	<!-- #3097 (EPIC #3096): プラン系バナー (slot 4) — free プラン上限の誘導を正準スロットに固定配置。
+	     旧: 一覧の下 (templates 描画後) にあったため activities / rewards (slot 4) と配置がズレていた。 -->
+	{#if !data.isPremium && checklistMax !== null}
+		<div class="px-4 py-3 rounded-lg bg-[var(--color-surface-trial)] border border-[var(--color-border-trial)] text-sm" data-testid="admin-checklists-plan-banner">
+			<div class="flex items-center justify-between gap-2">
+				<div class="flex items-center gap-2">
+					<span class="text-base">📋</span>
+					<span class="text-[var(--color-text-primary)]">
+						{#if atLimit}
+							{ADMIN_CHECKLISTS_PAGE_LABELS.limitReachedText(checklistMax)}
+						{:else}
+							{ADMIN_CHECKLISTS_PAGE_LABELS.limitCountText(currentCount, checklistMax)}
+						{/if}
+					</span>
+				</div>
+				<a
+					href="/pricing"
+					class="text-xs font-bold text-[var(--color-action-primary)] hover:underline"
+				>
+					{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeLink}
+				</a>
+			</div>
+			{#if atLimit}
+				<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
+					{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeDesc}
+				</p>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- #3097 (EPIC #3096): 検索 (slot 5、一覧の直上) — activities / rewards と同型に追加。 -->
+	<section data-testid="admin-checklists-search">
+		<FormField
+			label={ADMIN_CHECKLISTS_PAGE_LABELS.searchLabel}
+			type="search"
+			bind:value={searchQuery}
+			placeholder={ADMIN_CHECKLISTS_PAGE_LABELS.searchPlaceholder}
+		/>
+	</section>
+
+	<!-- #3097 (EPIC #3096): action message (slot 6、role="status") — 正準スロットに固定配置。
+	     旧: ヘッダー直下 (slot 2 相当) にあったため activities / rewards (slot 6) と配置がズレていた。 -->
 	{#if actionMessage}
 		<div
 			class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] text-[var(--color-feedback-info-text)] rounded-xl p-3 text-sm flex flex-wrap items-center gap-2"
@@ -600,22 +894,6 @@ function getChildName(childId: number): string {
 					{PLAN_GATE_LABELS.upgradeLinkLabel}
 				</a>
 			{/if}
-		</div>
-	{/if}
-
-	<!-- Child selector (override 操作用に残す) -->
-	{#if data.children.length > 1}
-		<div class="flex gap-2" data-testid="checklists-child-tabs">
-			{#each data.children as child (child.id)}
-				<Button
-					variant={selectedChildId === child.id ? 'primary' : 'ghost'}
-					size="sm"
-					class={selectedChildId === child.id ? '' : 'bg-white text-[var(--color-text-secondary)] hover:bg-[var(--color-feedback-info-bg)]'}
-					onclick={() => (selectedChildId = child.id)}
-				>
-					{child.nickname}
-				</Button>
-			{/each}
 		</div>
 	{/if}
 
@@ -672,23 +950,27 @@ function getChildName(childId: number): string {
 			</a>
 		</section>
 
+		<!-- #3097 (EPIC #3096): 一覧 (slot 7、検索の直下)。空時は UnifiedEmptyState (SSOT)。 -->
 		<!-- #1755 (#1709-A): kind 削除 — 全テンプレート一覧表示 -->
 		<!-- CX-DoR #9・#11 横展開 (Round 18): 独自 empty markup を UnifiedEmptyState SSOT に統一。
 		     文言 (🎒 + emptyChecklistMessage) を override props で渡し視覚回帰ゼロ。add は header `+`
 		     menu / marketplace browse link が別途あるため shell 内 CTA は出さない (showPrimary/canImport=false)。 -->
+		<div data-testid="admin-checklists-list">
 		{#if filteredTemplates.length === 0}
 			<Card variant="elevated" padding="lg">
 				{#snippet children()}
 				<!-- #2998 (EPIC #2897): empty state の CTA 出し分けを 3 画面で統一 (AC4)。
 				     activities (ActivityEmptyState) と同型に、初期 setup 期の発見性として
 				     「みんなのテンプレートから探す」secondary link (DESIGN.md §10 bulk import bridge) を出す。
-				     primary 追加は header `+ 追加` dropdown に集約済のため showPrimary=false で重複を避ける。 -->
+				     primary 追加は header `+ 追加` dropdown に集約済のため showPrimary=false で重複を避ける。
+				     #3097: 検索結果空 (hasSearchActive) のときは filter-empty 表示に切替え、import link は出さない。 -->
 				<UnifiedEmptyState
 					testid="admin-checklists-empty-state"
 					icon="🎒"
+					hasFilter={hasSearchActive}
 					noItemsText={ADMIN_CHECKLISTS_PAGE_LABELS.emptyChecklistMessage}
 					showPrimary={false}
-					canImport={true}
+					canImport={!hasSearchActive}
 					importLinkLabel={ADMIN_CHECKLISTS_PAGE_LABELS.marketplaceSeeMore}
 					importTestid="checklists-empty-import-link"
 					secondaryMode="link"
@@ -848,40 +1130,13 @@ function getChildName(childId: number): string {
 				{/snippet}
 			</Card>
 		{/each}
-
-		<!-- #723: Free プランで上限到達時のアップグレード誘導 -->
-		{#if !data.isPremium && checklistMax !== null}
-			<div class="px-4 py-3 rounded-lg bg-[var(--color-surface-trial)] border border-[var(--color-border-trial)] text-sm">
-				<div class="flex items-center justify-between gap-2">
-					<div class="flex items-center gap-2">
-						<span class="text-base">📋</span>
-						<span class="text-[var(--color-text-primary)]">
-							{#if atLimit}
-								{ADMIN_CHECKLISTS_PAGE_LABELS.limitReachedText(checklistMax)}
-							{:else}
-								{ADMIN_CHECKLISTS_PAGE_LABELS.limitCountText(currentCount, checklistMax)}
-							{/if}
-						</span>
-					</div>
-					<a
-						href="/pricing"
-						class="text-xs font-bold text-[var(--color-action-primary)] hover:underline"
-					>
-						{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeLink}
-					</a>
-				</div>
-				{#if atLimit}
-					<p class="mt-1 text-xs text-[var(--color-text-secondary)]">
-						{ADMIN_CHECKLISTS_PAGE_LABELS.upgradeDesc}
-					</p>
-				{/if}
-			</div>
-		{/if}
+		</div>
 
 		<!-- #2998 (EPIC #2897): 「+ 追加」dropdown + PremiumBadge は AdminResourceHeader に集約済
-		     (旧: 本文下部に Menu を別置きしていたが、3 画面で add 経路の入口を header に統一)。 -->
+		     (旧: 本文下部に Menu を別置きしていたが、3 画面で add 経路の入口を header に統一)。
+		     #3097: Free プラン上限バナーは slot 4 (プラン系バナー) に移動済 (正準スロット契約)。 -->
 
-		<!-- Today's overrides -->
+		<!-- Today's overrides (slot 8、補助セクション — 一覧の下、(B) checklist 固有の日次 override) -->
 		{#if selectedChild.overrides.length > 0}
 			<Card variant="default" padding="none">
 				{#snippet children()}
@@ -1085,6 +1340,55 @@ function getChildName(childId: number): string {
 	<AiSuggestChecklistPanel onaccept={acceptAiChecklist} isFamily={data.planTier === 'family'} />
 </Dialog>
 
+<!-- #3098: 「別の子から copy」dialog — source child の配信 template を選択中 child にも配信 (assignments 追加)。
+     activity (copy-from-child-dialog) と同型。template 自体は family master のまま複製しない。 -->
+<Dialog
+	bind:open={showCopyFromChildDialog}
+	closable={true}
+	title={ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogTitle}
+	testid="checklist-copy-from-child-dialog"
+>
+	<p class="copy-dialog-desc">
+		{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogDescPrefix}<strong>{selectedChild?.nickname ?? ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogSelectedPlaceholder}</strong>{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogDescSuffix}
+	</p>
+	<div class="copy-source-list">
+		{#each data.children.filter((c) => c.id !== selectedChildId) as child (child.id)}
+			<label class="copy-source-option">
+				<input
+					type="radio"
+					name="checklist-copy-source"
+					value={child.id}
+					checked={copySourceChildId === child.id}
+					onchange={() => { copySourceChildId = child.id; }}
+					data-testid="checklist-copy-source-{child.id}"
+				/>
+				<span class="copy-source-option__label">
+					{child.nickname}
+					<span class="copy-source-option__age">({child.age} {ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogAgeSuffix})</span>
+					<span class="copy-source-option__count">
+						{assignedCountForChild(child.id)} {ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogCountSuffix}
+					</span>
+				</span>
+			</label>
+		{:else}
+			<p class="copy-source-empty">{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogEmpty}</p>
+		{/each}
+	</div>
+	<div class="copy-dialog-footer">
+		<Button variant="ghost" onclick={() => { showCopyFromChildDialog = false; copySourceChildId = null; }}>
+			{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogCancel}
+		</Button>
+		<Button
+			variant="primary"
+			disabled={!copySourceChildId}
+			data-testid="checklist-copy-from-child-confirm"
+			onclick={handleCopyFromChild}
+		>
+			{ADMIN_CHECKLISTS_PAGE_LABELS.copyDialogConfirm}
+		</Button>
+	</div>
+</Dialog>
+
 <!-- #2362 PR-5 Phase 2: ChildSelectionDialog (auto-open via `?import=<presetId>`) -->
 <ChildSelectionDialog
 	children={childSelectionOptions}
@@ -1127,19 +1431,185 @@ function getChildName(childId: number): string {
 	</div>
 </Dialog>
 
-<!-- #2362 PR-5 Phase 2: OverflowMenu の未実装機能告知 + Help dialog 群 -->
+<!-- #2362 PR-5 Phase 2: OverflowMenu の Help dialog -->
 <Dialog bind:open={helpDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.helpDialogTitle}>
 	<p class="text-sm text-[var(--color-text-secondary)]">
 		{ADMIN_CHECKLISTS_PAGE_LABELS.helpDialogDesc}
 	</p>
 </Dialog>
-<Dialog bind:open={restoreDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.restoreNotImplementedTitle}>
-	<p class="text-sm text-[var(--color-text-secondary)]">
-		{ADMIN_CHECKLISTS_PAGE_LABELS.restoreNotImplementedDesc}
-	</p>
+
+<!-- #3079: バックアップから復元 dialog (preview → 実行の 2 段)。
+     JSON v2 envelope を読み込んで family checklist を復元。マーケットプレイス取込とは別概念。 -->
+<Dialog
+	bind:open={restoreDialogOpen}
+	closable={true}
+	title={BACKUP_RESTORE_LABELS.restoreDialogTitle}
+	testid="restore-checklist-dialog"
+>
+	<p class="restore-dialog-desc">{BACKUP_RESTORE_LABELS.restoreDialogDesc(RESTORE_NOUN)}</p>
+	{#if restorePreview === null}
+		<input
+			type="file"
+			accept="application/json,.json"
+			class="restore-file-input"
+			disabled={restoreLoading}
+			onchange={onRestoreFileChange}
+			data-testid="restore-checklist-file-input"
+		/>
+		<div class="restore-footer">
+			<Button variant="ghost" onclick={() => { restoreDialogOpen = false; }}>
+				{BACKUP_RESTORE_LABELS.cancelButton}
+			</Button>
+			<Button
+				variant="primary"
+				loading={restoreLoading}
+				disabled={!restoreFile}
+				data-testid="restore-checklist-check"
+				onclick={handleRestorePreview}
+			>
+				{restoreLoading ? BACKUP_RESTORE_LABELS.checking : BACKUP_RESTORE_LABELS.checkButton}
+			</Button>
+		</div>
+	{:else}
+		<div class="restore-preview" data-testid="restore-checklist-preview">
+			<p class="restore-preview__heading">{BACKUP_RESTORE_LABELS.previewHeading}</p>
+			{#if restorePreview.newItems === 0 && restorePreview.duplicates > 0}
+				<p class="restore-preview__all-dup">{BACKUP_RESTORE_LABELS.previewAllDuplicates(RESTORE_NOUN)}</p>
+			{:else}
+				<p class="restore-preview__summary">
+					{BACKUP_RESTORE_LABELS.previewSummary(restorePreview.total, restorePreview.newItems, restorePreview.duplicates)}
+				</p>
+			{/if}
+		</div>
+		<div class="restore-footer">
+			<Button variant="ghost" disabled={restoreLoading} onclick={() => { restorePreview = null; }}>
+				{BACKUP_RESTORE_LABELS.backButton}
+			</Button>
+			<Button
+				variant="primary"
+				loading={restoreLoading}
+				disabled={restorePreview.newItems === 0}
+				data-testid="restore-checklist-confirm"
+				onclick={handleRestoreConfirm}
+			>
+				{restoreLoading ? BACKUP_RESTORE_LABELS.restoreProcessing : BACKUP_RESTORE_LABELS.restoreSubmitBtn}
+			</Button>
+		</div>
+	{/if}
 </Dialog>
-<Dialog bind:open={exportDialogOpen} closable={true} title={ADMIN_CHECKLISTS_PAGE_LABELS.exportNotImplementedTitle}>
-	<p class="text-sm text-[var(--color-text-secondary)]">
-		{ADMIN_CHECKLISTS_PAGE_LABELS.exportNotImplementedDesc}
-	</p>
+
+<!-- #3079: エクスポート dialog — テンプレートを選んで JSON 書き出し (checklist payload は単一テンプレート単位)。 -->
+<Dialog
+	bind:open={exportDialogOpen}
+	closable={true}
+	title={ADMIN_CHECKLISTS_PAGE_LABELS.exportSelectTitle}
+	testid="export-checklist-dialog"
+>
+	<p class="restore-dialog-desc">{ADMIN_CHECKLISTS_PAGE_LABELS.exportSelectDesc}</p>
+	{#if data.familyTemplates.length === 0}
+		<p class="restore-preview__all-dup">{ADMIN_CHECKLISTS_PAGE_LABELS.exportSelectEmpty}</p>
+	{:else}
+		<div class="export-template-list">
+			{#each data.familyTemplates as tpl (tpl.id)}
+				<Button
+					variant="ghost"
+					data-testid="export-checklist-item-{tpl.id}"
+					onclick={() => exportTemplate(tpl.id)}
+				>
+					{ADMIN_CHECKLISTS_PAGE_LABELS.exportItemButton(tpl.name)}
+				</Button>
+			{/each}
+		</div>
+	{/if}
 </Dialog>
+
+<style>
+	/* #3079: restore/export dialog (comments use ASCII for local/no-hardcoded-jp-text in style) */
+	.restore-dialog-desc {
+		font-size: 0.875rem;
+		color: var(--color-text-muted);
+		margin-bottom: 1rem;
+		line-height: 1.6;
+	}
+	.restore-file-input {
+		display: block;
+		width: 100%;
+		margin-bottom: 1rem;
+	}
+	.restore-preview {
+		background: var(--color-surface-muted);
+		border-radius: 0.5rem;
+		padding: 0.75rem 1rem;
+		margin-bottom: 1rem;
+	}
+	.restore-preview__heading {
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+	}
+	.restore-preview__summary {
+		color: var(--color-text);
+	}
+	.restore-preview__all-dup {
+		color: var(--color-text-muted);
+	}
+	.restore-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border-light);
+	}
+	.export-template-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	/* #3098: copy-from-child dialog (mirrors admin/activities copy dialog; ASCII comments for local/no-hardcoded-jp-text) */
+	.copy-dialog-desc {
+		font-size: 0.9rem;
+		color: var(--color-text-secondary);
+		margin-bottom: 0.75rem;
+	}
+	.copy-source-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+	.copy-source-option {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem;
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-sm);
+		cursor: pointer;
+	}
+	.copy-source-option:has(input:checked) {
+		background: var(--color-surface-accent);
+		border-color: var(--color-border-focus);
+	}
+	.copy-source-option__label {
+		display: flex;
+		gap: 0.5rem;
+		flex: 1;
+	}
+	.copy-source-option__age,
+	.copy-source-option__count {
+		color: var(--color-text-muted);
+		font-size: 0.85rem;
+	}
+	.copy-source-empty {
+		text-align: center;
+		color: var(--color-text-muted);
+		padding: 1rem;
+	}
+	.copy-dialog-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--color-border-light);
+	}
+</style>

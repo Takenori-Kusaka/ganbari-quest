@@ -16,6 +16,7 @@ const mockCheckRateLimit = vi.fn();
 const mockIsCognitoDevMode = vi.fn();
 const mockAuthenticateDevUser = vi.fn();
 const mockAuthenticateWithCognito = vi.fn();
+const mockVerifyPinResetOtp = vi.fn();
 
 vi.mock('$lib/server/services/auth-service', () => ({
 	setupPin: mockSetupPin,
@@ -24,6 +25,11 @@ vi.mock('$lib/server/services/auth-service', () => ({
 vi.mock('$lib/server/services/parent-gate-session', () => ({
 	createParentSession: vi.fn(() => 'signed-session-value'),
 	PARENT_SESSION_COOKIE_NAME: 'gq_parent_session',
+}));
+
+vi.mock('$lib/server/services/pin-reset-otp', () => ({
+	PIN_RESET_OTP_COOKIE_NAME: 'pin_reset_otp',
+	verifyPinResetOtp: mockVerifyPinResetOtp,
 }));
 
 vi.mock('$lib/server/security/rate-limiter', () => ({
@@ -56,21 +62,28 @@ const { POST } = await import('../../../src/routes/api/v1/parent-gate/reset-veri
 function makeEvent(
 	opts: {
 		password?: unknown;
+		code?: unknown;
 		newPin?: unknown;
+		/** OTP cookie の存在 (federated 経路で cookies.get が返す値) */
+		otpCookie?: string;
 		identity?:
 			| { type: string; email?: string; isFederated?: boolean; authTime?: number }
 			| undefined;
 	} = {},
 ) {
+	const body: Record<string, unknown> = {
+		password: opts.password ?? 'correct-password',
+		newPin: opts.newPin ?? '7531',
+	};
+	if ('code' in opts) body.code = opts.code;
 	const request = new Request('http://localhost/api/v1/parent-gate/reset-verified', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			password: opts.password ?? 'correct-password',
-			newPin: opts.newPin ?? '7531',
-		}),
+		body: JSON.stringify(body),
 	});
 	const cookieSet = vi.fn();
+	const cookieDelete = vi.fn();
+	const cookieGet = vi.fn(() => opts.otpCookie);
 	return {
 		event: {
 			request,
@@ -81,10 +94,12 @@ function makeEvent(
 						? opts.identity
 						: { type: 'cognito' as const, userId: 'u-1', email: 'owner@example.com' },
 			},
-			cookies: { set: cookieSet },
+			cookies: { set: cookieSet, get: cookieGet, delete: cookieDelete },
 			getClientAddress: () => '127.0.0.1',
 		} as unknown as Parameters<typeof POST>[0],
 		cookieSet,
+		cookieDelete,
+		cookieGet,
 	};
 }
 
@@ -195,53 +210,145 @@ describe('POST /api/v1/parent-gate/reset-verified (#2993)', () => {
 		expect(mockAuthenticateWithCognito).not.toHaveBeenCalled();
 	});
 
-	// --- #3025: federated (Google) ユーザ = requires-recent-login 経路 ---
+	// --- #3070: federated (Google) ユーザ = email-OTP 経路 ---
+	// 本人確認は verifyPinResetOtp (署名 cookie 検証) に委譲。endpoint は
+	// 「code 必須 / OTP 結果に応じた cookie 更新・clear / 成功で setupPin」の配線を検証する。
 
-	it('federated + fresh auth_time: password 不要で 200 (re-auth API を呼ばない)', async () => {
-		const { event, cookieSet } = makeEvent({
+	const federatedIdentity = {
+		type: 'cognito' as const,
+		email: 'google@example.com',
+		isFederated: true,
+	};
+
+	it('federated + OTP 一致: 200 + setupPin + OTP cookie consume (delete) + session cookie 発行', async () => {
+		mockVerifyPinResetOtp.mockReturnValue({ ok: true });
+		const { event, cookieSet, cookieDelete } = makeEvent({
 			password: '',
-			identity: {
-				type: 'cognito',
-				email: 'google@example.com',
-				isFederated: true,
-				authTime: Math.floor(Date.now() / 1000) - 60, // 1 分前 = fresh
-			},
+			code: '123456',
+			otpCookie: 'signed-otp-cookie',
+			identity: federatedIdentity,
 		});
 		const res = await POST(event);
 
 		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ ok: true });
+		// re-auth API は呼ばない (federated は OTP で本人確認)
 		expect(mockAuthenticateWithCognito).not.toHaveBeenCalled();
 		expect(mockAuthenticateDevUser).not.toHaveBeenCalled();
+		// OTP 検証は cookie + code + tenantId で行う
+		expect(mockVerifyPinResetOtp).toHaveBeenCalledWith('signed-otp-cookie', '123456', 'tenant-1');
 		expect(mockSetupPin).toHaveBeenCalledWith('7531', 'tenant-1');
-		expect(cookieSet).toHaveBeenCalled();
+		// consume-once: 成功した OTP cookie は delete (同 code 二度目を不可にする)
+		expect(cookieDelete).toHaveBeenCalledWith('pin_reset_otp', { path: '/' });
+		// parent session 発行
+		expect(cookieSet).toHaveBeenCalledWith(
+			'gq_parent_session',
+			'signed-session-value',
+			expect.objectContaining({ httpOnly: true, path: '/' }),
+		);
 	});
 
-	it('federated + stale auth_time (5 分超): 401 FRESH_LOGIN_REQUIRED で setupPin を呼ばない', async () => {
+	it('federated + code 欠落: 401 CODE_REQUIRED で OTP 検証も setupPin も呼ばない (先送信誘導)', async () => {
 		const { event } = makeEvent({
 			password: '',
-			identity: {
-				type: 'cognito',
-				email: 'google@example.com',
-				isFederated: true,
-				authTime: Math.floor(Date.now() / 1000) - 10 * 60, // 10 分前 = stale
-			},
+			// code 未指定
+			otpCookie: 'signed-otp-cookie',
+			identity: federatedIdentity,
 		});
 		const res = await POST(event);
 
 		expect(res.status).toBe(401);
-		expect(await res.json()).toEqual({ ok: false, error: 'FRESH_LOGIN_REQUIRED' });
+		expect(await res.json()).toEqual({ ok: false, error: 'CODE_REQUIRED' });
+		expect(mockVerifyPinResetOtp).not.toHaveBeenCalled();
 		expect(mockSetupPin).not.toHaveBeenCalled();
 	});
 
-	it('federated + auth_time 欠落: 401 FRESH_LOGIN_REQUIRED (安全側に倒す)', async () => {
+	it('federated + code 形式不正 (5 桁): 401 CODE_REQUIRED で OTP 検証前に弾く', async () => {
 		const { event } = makeEvent({
 			password: '',
-			identity: { type: 'cognito', email: 'google@example.com', isFederated: true },
+			code: '12345',
+			otpCookie: 'signed-otp-cookie',
+			identity: federatedIdentity,
 		});
 		const res = await POST(event);
 
 		expect(res.status).toBe(401);
+		expect(await res.json()).toEqual({ ok: false, error: 'CODE_REQUIRED' });
+		expect(mockVerifyPinResetOtp).not.toHaveBeenCalled();
 		expect(mockSetupPin).not.toHaveBeenCalled();
+	});
+
+	it('federated + OTP 不一致 (残試行あり): 401 INVALID_CODE + cookie 再 set + setupPin 呼ばない', async () => {
+		mockVerifyPinResetOtp.mockReturnValue({
+			ok: false,
+			reason: 'INVALID_CODE',
+			nextCookie: 're-signed-otp-cookie',
+		});
+		const { event, cookieSet, cookieDelete } = makeEvent({
+			password: '',
+			code: '000000',
+			otpCookie: 'signed-otp-cookie',
+			identity: federatedIdentity,
+		});
+		const res = await POST(event);
+
+		expect(res.status).toBe(401);
+		expect(await res.json()).toEqual({ ok: false, error: 'INVALID_CODE' });
+		expect(mockSetupPin).not.toHaveBeenCalled();
+		// 残試行を継続するため OTP cookie を再 set (attempts +1)
+		expect(cookieSet).toHaveBeenCalledWith(
+			'pin_reset_otp',
+			're-signed-otp-cookie',
+			expect.objectContaining({ httpOnly: true, path: '/' }),
+		);
+		// session cookie は発行しない
+		expect(cookieSet).not.toHaveBeenCalledWith(
+			'gq_parent_session',
+			expect.anything(),
+			expect.anything(),
+		);
+		expect(cookieDelete).not.toHaveBeenCalled();
+	});
+
+	it('federated + OTP 失効: 401 CODE_EXPIRED + cookie clear + setupPin 呼ばない', async () => {
+		mockVerifyPinResetOtp.mockReturnValue({
+			ok: false,
+			reason: 'CODE_EXPIRED',
+			nextCookie: null,
+		});
+		const { event, cookieDelete } = makeEvent({
+			password: '',
+			code: '123456',
+			otpCookie: 'signed-otp-cookie',
+			identity: federatedIdentity,
+		});
+		const res = await POST(event);
+
+		expect(res.status).toBe(401);
+		expect(await res.json()).toEqual({ ok: false, error: 'CODE_EXPIRED' });
+		expect(mockSetupPin).not.toHaveBeenCalled();
+		// 失効した OTP cookie は clear
+		expect(cookieDelete).toHaveBeenCalledWith('pin_reset_otp', { path: '/' });
+	});
+
+	it('federated + 試行上限到達: 401 TOO_MANY_ATTEMPTS + cookie clear + setupPin 呼ばない', async () => {
+		mockVerifyPinResetOtp.mockReturnValue({
+			ok: false,
+			reason: 'TOO_MANY_ATTEMPTS',
+			nextCookie: null,
+		});
+		const { event, cookieDelete } = makeEvent({
+			password: '',
+			code: '000000',
+			otpCookie: 'signed-otp-cookie',
+			identity: federatedIdentity,
+		});
+		const res = await POST(event);
+
+		expect(res.status).toBe(401);
+		expect(await res.json()).toEqual({ ok: false, error: 'TOO_MANY_ATTEMPTS' });
+		expect(mockSetupPin).not.toHaveBeenCalled();
+		expect(cookieDelete).toHaveBeenCalledWith('pin_reset_otp', { path: '/' });
 	});
 
 	it('rate limit 超過は 429 RATE_LIMITED (パスワード brute force 防止)', async () => {

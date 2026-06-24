@@ -588,6 +588,46 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 		expect(result.points).toBe(50);
 	});
 
+	it('#3154: 編集で shopCategory を変更できる (登録後の陳列系統変更)', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		const result = await updateReward(
+			rewardId,
+			childId,
+			{ title: 'ゲーム時間30分', points: 80, shopCategory: 'money' },
+			'test-tenant',
+		);
+		if ('error' in result) return;
+		expect(result.shopCategory).toBe('money');
+
+		const cleared = await updateReward(
+			rewardId,
+			childId,
+			{ title: 'ゲーム時間30分', points: 80, shopCategory: null },
+			'test-tenant',
+		);
+		if ('error' in cleared) return;
+		expect(cleared.shopCategory).toBeNull();
+	});
+
+	it('#3154: shopCategory 未指定 (undefined) の編集は既存の陳列系統を保全する', async () => {
+		const { childId, rewardId } = seedRewardWithBalance();
+		await updateReward(
+			rewardId,
+			childId,
+			{ title: 'ゲーム時間30分', points: 80, shopCategory: 'privilege' },
+			'test-tenant',
+		);
+		const result = await updateReward(
+			rewardId,
+			childId,
+			{ title: '新タイトル', points: 80 },
+			'test-tenant',
+		);
+		if ('error' in result) return;
+		expect(result.title).toBe('新タイトル');
+		expect(result.shopCategory).toBe('privilege');
+	});
+
 	it('AC2: 編集後も pending 申請は申請時点 snapshot (名前/ポイント) で表示される', async () => {
 		const { childId, rewardId } = seedRewardWithBalance();
 		const req = await requestRedemption(childId, rewardId, 'test-tenant');

@@ -197,7 +197,7 @@ function purchaseStatusTone(status: string): string {
 					<div class="flex flex-col gap-[var(--sp-sm)]" data-testid="history-list-achievements">
 						{#each data.achievements as a (a.id)}
 							<div class="flex items-center gap-[var(--sp-sm)] bg-white rounded-[var(--radius-sm)] px-[var(--sp-sm)] py-[var(--sp-sm)] shadow-sm">
-								<span class="text-2xl">{a.challengeType === 'cooperative' ? '🤝' : '⚔️'}</span>
+								<span class="text-2xl">🤝</span>
 								<div class="flex-1 min-w-0">
 									<p class="text-sm font-bold truncate">{a.title}</p>
 									<p class="text-xs text-[var(--color-text-muted)]">

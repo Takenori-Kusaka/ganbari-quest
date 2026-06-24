@@ -1,5 +1,9 @@
 name: PR Author Guard
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 # PR 起票アカウント違反の server side gate (#1994 / ADR-0022 amendment 4 相当)
 #
 # 背景:
@@ -44,6 +48,10 @@ name: PR Author Guard
 #     bot は ADR-0022 の役割分離 (Takenori-Kusaka が作成 / ganbariquestsupport-lab が approve)
 #     対象外であり、自動依存更新の機能性を維持する。job-level `if:` で機械強制
 #     (`pr-template-gate.yml` line 40 と同パターン、#2430 で exempt 抜け修復)
+#   - 自動生成 PR (統合 #2871 / hotfix back-merge #2951) の GitHub App ボット login は許可リストに
+#     合流させる (ADR-0022 Amendment 5、#3067)。repository variable `INTEGRATION_BOT_LOGIN` で設定し、
+#     未設定なら従来どおり Takenori-Kusaka のみ許可 (挙動不変)。ボットは approve 不能のため
+#     作成者≠承認者は人間/lab 承認で担保され、なりすまし用の長命個人 PAT が不要になる。
 
 on:
   pull_request_target:
@@ -70,12 +78,19 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           # 許可リスト。将来 contributor を追加する場合は本 list を更新する。
           ALLOWED_AUTHORS: 'Takenori-Kusaka'
+          # 自動生成 PR (統合 / back-merge) の GitHub App ボット login (ADR-0022 Amendment 5、#3067)。
+          # repository variable で設定。未設定なら従来どおり Takenori-Kusaka のみ許可 (挙動不変)。
+          # ボットは approve 不能のため、作成者≠承認者は人間/lab 承認で担保される (自動生成 PR に限定)。
+          ALLOWED_BOT_LOGIN: ${{ vars.INTEGRATION_BOT_LOGIN }}
           # 明示的に拒否するアカウント (役割分離の対象)。コメント文言の出し分けにのみ使う。
           QA_ACCOUNT: 'ganbariquestsupport-lab'
         with:
           script: |
             const author = process.env.PR_AUTHOR;
             const allowed = process.env.ALLOWED_AUTHORS.split(',').map(s => s.trim()).filter(Boolean);
+            // 自動生成 PR の App ボット login を許可リストに合流 (ADR-0022 Amendment 5、#3067)。
+            const botLogin = (process.env.ALLOWED_BOT_LOGIN || '').trim();
+            if (botLogin) allowed.push(botLogin);
             const qaAccount = process.env.QA_ACCOUNT;
             const prNumber = Number(process.env.PR_NUMBER);
 

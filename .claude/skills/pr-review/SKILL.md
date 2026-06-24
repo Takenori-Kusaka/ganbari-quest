@@ -17,11 +17,14 @@ description: Use when reviewing a pull request. Enforces the mandatory 9-point c
 - [ ] 部分実装で `closes` していないか（AC 全項目必須）
 - [ ] Issue で提案された対策が全て実装されているか
 
-### C. テスト品質（ADR-0005）
+### C. テスト品質（ADR-0005 / ADR-0061）
 - [ ] 新規コードにユニットテストが同梱されているか
 - [ ] 境界値・異常系・競合のテストケースがあるか
 - [ ] アサーション弱体化（toBeTruthy/toBeDefined への置換）がないか
 - [ ] E2E テストが必要な場合は同梱されているか
+- [ ] **failing-test-first（ADR-0061）**: バグ修正 PR は「再現テスト → 修正」順か。修正前に失敗し修正後に green になるテストで原因が pin されているか（修正だけで再現テストなしは差し戻し）
+- [ ] **push-down-the-pyramid（ADR-0061 / ADR-0007）**: 重量レーン（e2e / 統合監査）で露見した不具合は、同条件を unit / lint / fitness function で捕捉できないか検討し、可能なら下位層に降ろしてあるか
+- [ ] **same-class-N→guard（ADR-0061）**: 同一バグ class が 2 回以上再発している領域は、別 instance パッチでなく CI gate / lint / property test / fitness function で class 全体を lock しているか（instance パッチのみは Done にしない）
 
 ### D. 横展開（parallel-implementations.md）
 - [ ] labels.ts の変更 → site/ + tutorial-chapters.ts も同期

@@ -1,173 +1,24 @@
 <script lang="ts">
-import { deserialize, enhance } from '$app/forms';
-import { invalidateAll } from '$app/navigation';
+import { enhance } from '$app/forms';
 import { todayDateJST } from '$lib/domain/date-utils';
-import { getActionErrorDisplay } from '$lib/domain/errors';
 import {
 	ADMIN_CHALLENGES_PAGE_LABELS,
 	APP_LABELS,
 	CHALLENGES_LABELS,
 	PAGE_TITLES,
-	PLAN_GATE_LABELS,
 } from '$lib/domain/labels';
-// CX-DoR #9・#11 横展開 (Round 18): empty state を共通 SSOT に統一 (NN/G #4 consistency)
-import { resolveImportFeedback } from '$lib/marketplace/ui/import-feedback';
+// CX-DoR #9・#11: empty state を共通 SSOT に統一 (NN/G #4 consistency)
 import UnifiedEmptyState from '$lib/marketplace/ui/UnifiedEmptyState.svelte';
 import type { ChildChallenge, ChildChallengeGroup } from '$lib/server/db/types';
 import SiblingChallengeComparison from '$lib/ui/features/admin/SiblingChallengeComparison.svelte';
 import Button from '$lib/ui/primitives/Button.svelte';
-import ChildSelectionDialog, {
-	type ChildOption,
-} from '$lib/ui/primitives/ChildSelectionDialog.svelte';
-import FormField from '$lib/ui/primitives/FormField.svelte';
-import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
-import { showToast } from '$lib/ui/primitives/Toast.svelte';
+
+// #3195 (EPIC #3193): 親手動作成 / 競争モード / marketplace challenge-set 取込を撤去。
+// チャレンジはアプリが毎週自動生成する (child-challenge-service.getOrCreateWeeklyChildChallenge)。
+// 本画面は「自動生成された子のチャレンジを親が閲覧する」読み取り専用ビュー (作成 UI なし)。
+// 全プランに開放 (旧 family 限定 gate を撤去)。
 
 let { data, form } = $props();
-
-const isFamily = $derived(data.planTier === 'family');
-let creating = $state(false);
-
-let marketplaceImportMessage = $state('');
-// #2894 AC3: PlanLimitError 受領時のアップグレード導線 URL (null=非表示)。
-let marketplaceImportUpgradeUrl = $state<string | null>(null);
-
-// #2554 follow-up CUJ-CH2 完全化: ChildSelectionDialog state (per-child 取込時 auto-open)
-// admin-rewards / admin-activities と同型 pattern (ADR-0055 per-child fan-out + CWE-598)。
-let showChildSelectionDialog = $state(false);
-let pendingImportPresetId = $state<string | null>(null);
-// #2632 CX-DoR #9 NN/G #1: 取込実行中フラグ (confirm ボタン loading 表示)
-let isImporting = $state(false);
-
-// ChildSelectionDialog 用の ChildOption 配列
-const childOptions = $derived<ChildOption[]>(
-	data.children.map((c) => ({
-		id: c.id,
-		nickname: c.nickname,
-		age: c.age,
-		icon: undefined,
-	})),
-);
-
-// #2774: `?import=<presetId>` で auto-open (5 type 統一)。presetId 単位の one-shot guard で、
-// 確定後に effect が再走しても (data.importPresetId が残存) 再 open しないようにする。
-let consumedImportPresetId = $state<string | null>(null);
-$effect(() => {
-	const pid = data.importPresetId;
-	if (pid && pid !== consumedImportPresetId) {
-		consumedImportPresetId = pid;
-		pendingImportPresetId = pid;
-		showChildSelectionDialog = true;
-	} else if (!pid) {
-		consumedImportPresetId = null;
-	}
-});
-
-// 取込失敗 / invalid preset の guidance
-$effect(() => {
-	if (data.importPresetInvalid) {
-		marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importInvalidPreset;
-	}
-});
-
-// #2474 must-2 (admin-rewards 同型 CWE-598 fetch wiring):
-// `x-sveltekit-action: true` + `accept: application/json` header が無いと 303 redirect で
-// JSON parse 常時 fail。公式 enhance と同じ header を付与 + `deserialize()` で正しい
-// ActionResult を取得する。dead-end (無反応 / 件数誤表示) を構造的に防ぐ。
-async function handleChildSelectionConfirm(result: 'all' | number[]) {
-	if (!pendingImportPresetId) {
-		showChildSelectionDialog = false;
-		return;
-	}
-	const childIdsValue = result === 'all' ? 'all' : result.join(',');
-	const formData = new FormData();
-	formData.append('presetId', pendingImportPresetId);
-	formData.append('childIds', childIdsValue);
-
-	// #2632 CX-DoR #9 NN/G #1: 取込実行中は confirm ボタンを loading 表示する。
-	isImporting = true;
-	// #2894 AC3: 新しい取込試行ごとに前回のアップグレード導線をクリアする。
-	marketplaceImportUpgradeUrl = null;
-
-	try {
-		const resp = await fetch('?/importMarketplaceChallengeSet', {
-			method: 'POST',
-			headers: {
-				accept: 'application/json',
-				'x-sveltekit-action': 'true',
-			},
-			body: formData,
-		});
-		const actionResult = deserialize(await resp.text()) as
-			| {
-					type: 'success';
-					data?: {
-						imported?: number;
-						skipped?: number;
-						total?: number;
-						failed?: number;
-						demo?: boolean;
-					};
-			  }
-			| { type: 'failure'; data?: { error?: string } }
-			| { type: 'redirect'; location: string }
-			| { type: 'error'; error: unknown };
-
-		if (actionResult.type === 'success') {
-			// #2558 bug-1 整合: デモ環境 no-op (data.demo === true) は成功偽装せず明示。
-			if ((actionResult.data as Record<string, unknown> | undefined)?.demo === true) {
-				marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importDemo;
-			} else {
-				// #2955 (#2830 横展開): server 算出 `failed` > 0 のときは partial-failure を
-				// 2 層 feedback (Toast + banner) で正直に出す (admin/activities と同型、共通 helper)。
-				// 本 page は従来 banner 単層だったため、DESIGN.md §5 の 2 層防御に合わせ Toast を追加。
-				const feedback = resolveImportFeedback(
-					actionResult.data as Record<string, unknown> | undefined,
-					{
-						success: ADMIN_CHALLENGES_PAGE_LABELS.importSuccess,
-						allDuplicates: ADMIN_CHALLENGES_PAGE_LABELS.importAllDuplicates,
-					},
-				);
-				marketplaceImportMessage = feedback.message;
-				showToast(feedback.message, undefined, feedback.tone);
-				await invalidateAll();
-			}
-		} else if (actionResult.type === 'failure') {
-			// #2894 AC3: PlanLimitError オブジェクトの `[object Object]` 化壊れ表示を根治。
-			// challenge 取込は family-only gate のため free / standard で PlanLimitError が返る。
-			const display = getActionErrorDisplay(
-				actionResult.data?.error,
-				ADMIN_CHALLENGES_PAGE_LABELS.importFailed,
-			);
-			marketplaceImportMessage = display.message;
-			marketplaceImportUpgradeUrl = display.upgradeUrl;
-		} else {
-			marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importFailed;
-		}
-	} catch {
-		marketplaceImportMessage = ADMIN_CHALLENGES_PAGE_LABELS.importFailed;
-	} finally {
-		isImporting = false;
-	}
-	pendingImportPresetId = null;
-	showChildSelectionDialog = false;
-	// URL から marketplace-import param を除去 (戻り遷移時に再 open しない、admin-rewards 同型)
-	if (typeof window !== 'undefined') {
-		const url = new URL(window.location.href);
-		url.searchParams.delete('import');
-		window.history.replaceState({}, '', url.toString());
-	}
-}
-
-function handleChildSelectionCancel() {
-	pendingImportPresetId = null;
-	showChildSelectionDialog = false;
-	if (typeof window !== 'undefined') {
-		const url = new URL(window.location.href);
-		url.searchParams.delete('import');
-		window.history.replaceState({}, '', url.toString());
-	}
-}
 
 interface RewardConfig {
 	points: number;
@@ -207,14 +58,6 @@ const periodLabel = (t: string) => {
 	}
 };
 
-const categories: Record<number, string> = {
-	1: CHALLENGES_LABELS.categoryUndou,
-	2: CHALLENGES_LABELS.categoryBenkyou,
-	3: CHALLENGES_LABELS.categorySeikatsu,
-	4: CHALLENGES_LABELS.categoryKouryuu,
-	5: CHALLENGES_LABELS.categorySouzou,
-};
-
 // 子供別タブ filtering
 const selectedChildId = $derived(data.selectedChildId);
 const filteredGroups = $derived.by((): ChildChallengeGroup[] => {
@@ -237,8 +80,7 @@ function tabHref(childId: number | 'all'): string {
 	<title>{PAGE_TITLES.challenges}{APP_LABELS.pageTitleSuffix}</title>
 </svelte:head>
 
-<!-- #2905: ❓ ページガイド (CHALLENGES_GUIDE) のアンカー。free-plan gate 表示でも常に存在する
-	最外 wrapper に紐付け、page-guide-registry 登録で全 admin ページの ? 機能を回復する。 -->
+<!-- #2905: ❓ ページガイド (CHALLENGES_GUIDE) のアンカー (最外 wrapper)。 -->
 <div class="space-y-4" data-tutorial="challenges-page">
 	{#if data.familyStreak && data.familyStreak.currentStreak > 0}
 		<div class="rounded-xl border bg-white p-4">
@@ -254,18 +96,8 @@ function tabHref(childId: number | 'all'): string {
 		</div>
 	{/if}
 
-	{#if !isFamily}
-		<div class="rounded-xl border border-[var(--color-feedback-warning-border)] bg-[var(--color-feedback-warning-bg)] p-4 text-center">
-			<p class="text-sm font-bold text-[var(--color-feedback-warning-text)]">{CHALLENGES_LABELS.familyPlanTitle}</p>
-			<p class="text-xs text-[var(--color-feedback-warning-text)] mt-1">{CHALLENGES_LABELS.familyPlanDesc}</p>
-			<a href="/admin/subscription" class="inline-block mt-2 px-3 py-1 text-xs font-bold rounded-lg bg-[var(--color-stat-amber)] text-white">
-				{CHALLENGES_LABELS.familyPlanButton}
-			</a>
-		</div>
-	{:else}
-
 	<div class="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-surface-info)] p-3 text-xs text-[var(--color-text-primary)]">
-		<p>{CHALLENGES_LABELS.headerDesc}</p>
+		<p>{ADMIN_CHALLENGES_PAGE_LABELS.autoGeneratedDesc}</p>
 	</div>
 
 	<!-- 子供別タブ -->
@@ -294,147 +126,18 @@ function tabHref(childId: number | 'all'): string {
 		</nav>
 	{/if}
 
-	<div class="flex items-center justify-between" data-tutorial="challenges-create">
+	<div class="flex items-center justify-between">
 		<h2 class="text-lg font-bold">{CHALLENGES_LABELS.sectionTitle}</h2>
-		<Button
-			variant={creating ? 'ghost' : 'primary'}
-			size="sm"
-			onclick={() => { creating = !creating; }}
-		>
-			{creating ? CHALLENGES_LABELS.cancelButton : CHALLENGES_LABELS.createButton}
-		</Button>
 	</div>
-
-	<!--
-		#2896 (2026-06-11 PO 判断): marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、
-		チャレンジは marketplace 陳列対象外となった。「みんなのテンプレートを見る」browse link は陳列撤去で
-		空の filter に遷移するため撤去。チャレンジは本画面の自作フォーム + auto-challenge (週次自動生成) で
-		運用する。`?import=<presetId>` の server 受領経路自体は互換のため残置 (現状 valid preset は無いため
-		手動指定時は invalid guidance を表示)。
-	-->
-	{#if marketplaceImportMessage}
-		<section data-testid="challenges-marketplace-import-section">
-			<div
-				class="mb-2 px-3 py-2 rounded-md text-sm bg-[var(--color-feedback-success-bg)] text-[var(--color-feedback-success-text)] flex flex-wrap items-center gap-2"
-				data-testid="challenges-marketplace-import-result"
-			>
-				<span>{marketplaceImportMessage}</span>
-				<!-- #2894 AC3: PlanLimitError 受領時はアップグレード導線を併記 (NN/G #9) -->
-				{#if marketplaceImportUpgradeUrl}
-					<a
-						href={marketplaceImportUpgradeUrl}
-						class="font-semibold underline text-[var(--color-text-link)]"
-						data-testid="challenges-upgrade-link"
-					>
-						{PLAN_GATE_LABELS.upgradeLinkLabel}
-					</a>
-				{/if}
-			</div>
-		</section>
-	{/if}
 
 	{#if form?.error}
 		<div class="rounded-lg bg-[var(--color-feedback-error-bg)] p-3 text-sm text-[var(--color-feedback-error-text)]">{form.error}</div>
 	{/if}
-	{#if form?.created}
-		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]">{CHALLENGES_LABELS.createdNotice}</div>
-	{/if}
-	{#if form?.bulkCreated}
-		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]" data-testid="admin-challenges-bulk-created-notice">
-			{ADMIN_CHALLENGES_PAGE_LABELS.bulkCreatedMessage(form.bulkCreated)}
-		</div>
-	{/if}
 	{#if form?.deleted}
 		<div class="rounded-lg bg-[var(--color-surface-muted)] p-3 text-sm text-[var(--color-text-primary)]">{CHALLENGES_LABELS.deletedNotice}</div>
 	{/if}
-	{#if form?.copyResult}
-		<div class="rounded-lg bg-[var(--color-feedback-success-bg)] p-3 text-sm text-[var(--color-feedback-success-text)]" data-testid="admin-challenges-copy-result">
-			{ADMIN_CHALLENGES_PAGE_LABELS.copyCompletedMessage(form.copyResult.totalCopied)}
-		</div>
-	{/if}
 
-	<!-- 作成フォーム (per-child 1 件 / 全員一括 切替可能) -->
-	{#if creating}
-		<form method="POST" action="?/bulkCreate" use:enhance class="rounded-xl border bg-white p-4 space-y-3" data-testid="admin-challenges-create-form">
-			<h3 class="font-bold text-sm">{CHALLENGES_LABELS.formTitle}</h3>
-			<div class="grid grid-cols-2 gap-3">
-				<FormField label={CHALLENGES_LABELS.titleLabel} type="text" name="title" placeholder={CHALLENGES_LABELS.titlePlaceholder} required class="col-span-2" />
-				<FormField label={CHALLENGES_LABELS.descLabel} type="text" name="description" placeholder={CHALLENGES_LABELS.descPlaceholder} class="col-span-2" />
-			</div>
-
-			<!-- 対象お子さま (cooperative 設計 + 兄弟連動表示) -->
-			<fieldset class="space-y-1">
-				<legend class="text-xs font-semibold text-[var(--color-text-secondary)]">{ADMIN_CHALLENGES_PAGE_LABELS.bulkAddAction}</legend>
-				<div class="flex flex-wrap gap-2">
-					{#each data.children as child (child.id)}
-						<label class="inline-flex items-center gap-1 text-xs">
-							<input
-								type="checkbox"
-								name="childIds"
-								value={child.id}
-								checked={selectedChildId === 'all' || selectedChildId === child.id}
-								data-testid="admin-challenges-child-checkbox-{child.id}"
-							/>
-							{child.nickname}
-						</label>
-					{/each}
-				</div>
-			</fieldset>
-
-			<div class="grid grid-cols-3 gap-3">
-				<input type="hidden" name="challengeType" value="cooperative" />
-				<FormField label={CHALLENGES_LABELS.typeLabel}>
-					{#snippet children()}
-						<div class="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-surface-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)]">
-							{CHALLENGES_LABELS.typeLabelCooperative}
-						</div>
-					{/snippet}
-				</FormField>
-				<FormField label={CHALLENGES_LABELS.periodLabel}>
-					{#snippet children()}
-						<NativeSelect
-							name="periodType"
-							options={[
-								{ value: 'weekly', label: '週間' },
-								{ value: 'monthly', label: '月間' },
-								{ value: 'custom', label: 'カスタム' },
-							]}
-						/>
-					{/snippet}
-				</FormField>
-				<FormField label={CHALLENGES_LABELS.categoryLabel}>
-					{#snippet children()}
-						<NativeSelect
-							name="categoryId"
-							options={[
-								{ value: '', label: CHALLENGES_LABELS.categoryAll },
-								...Object.entries(categories).map(([id, name]) => ({ value: id, label: name })),
-							]}
-						/>
-					{/snippet}
-				</FormField>
-			</div>
-			<div class="grid grid-cols-2 gap-3">
-				<FormField label={CHALLENGES_LABELS.startDateLabel} type="date" name="startDate" required />
-				<FormField label={CHALLENGES_LABELS.endDateLabel} type="date" name="endDate" required />
-			</div>
-			<div class="grid grid-cols-3 gap-3">
-				<FormField label={CHALLENGES_LABELS.targetLabel} type="number" name="baseTarget" value={3} min={1} required />
-				<FormField label={CHALLENGES_LABELS.rewardPointsLabel} type="number" name="rewardPoints" value={50} min={1} required />
-				<FormField label={CHALLENGES_LABELS.rewardMessageLabel} type="text" name="rewardMessage" placeholder={CHALLENGES_LABELS.rewardMessagePlaceholder} />
-			</div>
-			<input type="hidden" name="metric" value="count" />
-			<Button type="submit" variant="primary" size="sm" class="w-full">
-				{CHALLENGES_LABELS.submitButton}
-			</Button>
-		</form>
-	{/if}
-
-	<!-- チャレンジ group 一覧 (per-child instance + 兄弟連動表示) -->
-	<!-- CX-DoR #9・#11 横展開 (Round 18): 独自 empty markup を UnifiedEmptyState SSOT に統一。
-	     icon / filter-aware title (noItemsText) / desc (descText) を override props で渡し文言不変。
-	     #2896: marketplace 陳列対象外 (3 type 化) に伴い「みんなのテンプレートを見る」secondary link は
-	     撤去 (canImport=false)。チャレンジ作成は上部の「作成」ボタン (自作フォーム) を正規導線とする。 -->
+	<!-- チャレンジ group 一覧 (per-child instance + 兄弟連動表示)。読み取り専用 + 削除のみ。 -->
 	{#if filteredGroups.length === 0}
 		<UnifiedEmptyState
 			testid="admin-challenges-empty-state"
@@ -442,9 +145,7 @@ function tabHref(childId: number | 'all'): string {
 			noItemsText={selectedChildId === 'all'
 				? CHALLENGES_LABELS.noChallengeTitle
 				: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyTitle}
-			descText={selectedChildId === 'all'
-				? CHALLENGES_LABELS.emptyStateDesc
-				: ADMIN_CHALLENGES_PAGE_LABELS.perChildEmptyDesc}
+			descText={ADMIN_CHALLENGES_PAGE_LABELS.autoGeneratedEmptyDesc}
 			showPrimary={false}
 			canImport={false}
 		/>
@@ -486,7 +187,6 @@ function tabHref(childId: number | 'all'): string {
 					{#if group.instances.length >= 2}
 						<SiblingChallengeComparison {group} children={data.children} />
 					{:else if group.instances.length === 1 && firstInstance}
-						<!-- 1 instance (個別) のときは簡易進捗バーのみ -->
 						{@const child = data.children.find((c) => c.id === firstInstance.childId)}
 						{@const pct = Math.min(100, Math.round((firstInstance.currentValue / firstInstance.targetValue) * 100))}
 						<div class="flex items-center gap-2" data-testid="admin-challenges-single-progress">
@@ -524,20 +224,4 @@ function tabHref(childId: number | 'all'): string {
 			{/each}
 		</div>
 	{/if}
-
-	{/if}<!-- /isFamily -->
-
-	<!-- #2554 follow-up CUJ-CH2 完全化 + #2774 (5 type 統一): ChildSelectionDialog
-	     (`?import=<presetId>` auto-open) admin-rewards / admin-activities と同型
-	     (ADR-0055 per-child fan-out + CWE-598 guard) -->
-	<ChildSelectionDialog
-		bind:open={showChildSelectionDialog}
-		children={childOptions}
-		allowMultiple={true}
-		onConfirm={handleChildSelectionConfirm}
-		onCancel={handleChildSelectionCancel}
-		confirmLoading={isImporting}
-		closeOnConfirm={false}
-		testid="challenge-import-child-selection-dialog"
-	/>
 </div>

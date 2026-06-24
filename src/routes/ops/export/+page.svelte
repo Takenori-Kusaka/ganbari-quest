@@ -1,5 +1,6 @@
 <script lang="ts">
 import { OPS_EXPORT_LABELS } from '$lib/domain/labels';
+import { notifyApiError, notifyNetworkError } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
@@ -25,7 +26,11 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 				headers: { Accept: 'text/csv' },
 			},
 		);
-		if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+		// #3225: エクスポート失敗を silent にしない (catch 不在で例外が無反応化していた)
+		if (!res.ok) {
+			await notifyApiError(res);
+			return;
+		}
 
 		const blob = await res.blob();
 		const url = URL.createObjectURL(blob);
@@ -34,6 +39,8 @@ async function downloadCsv(type: 'sales' | 'expenses' | 'summary') {
 		a.download = `${type}_${year}_${monthFrom}-${monthTo}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
+	} catch {
+		notifyNetworkError();
 	} finally {
 		downloading = false;
 	}

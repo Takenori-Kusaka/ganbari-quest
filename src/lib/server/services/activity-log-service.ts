@@ -32,7 +32,6 @@ import {
 	aggregateActivityLogsByCategory,
 } from '$lib/server/services/activity-log-aggregation';
 import { trackActivationFirstActivityCompleted } from '$lib/server/services/analytics-service';
-import { incrementChallengeProgress } from '$lib/server/services/auto-challenge-service';
 // #2138 MP-3: bonus-hook-service - マーケットプレイス取込済 bonus preset 6 件評価
 import { evaluateBonusHooks } from '$lib/server/services/bonus-hook-service';
 import { type ComboResult, checkAndGrantCombo } from '$lib/server/services/combo-service';
@@ -89,7 +88,6 @@ export interface RecordActivityResult {
 	missionComplete: { missionCompleted: boolean; allComplete: boolean; bonusAwarded: number } | null;
 	eventMissions: { eventId: number; missionComplete: boolean; eventName: string }[];
 	calendarEvents: { eventCode: string; eventName: string; completed: boolean }[];
-	autoChallengeCompleted: boolean;
 	siblingChallenges: {
 		challengeId: number;
 		allSiblingsComplete: boolean;
@@ -310,21 +308,9 @@ export async function recordActivity(
 		[];
 	const calendarEventResults: { eventCode: string; eventName: string; completed: boolean }[] = [];
 
-	// 自動チャレンジ進捗チェック
-	// #2097 Fix 2: 循環依存解消 (activity-log-aggregation 抽出) により dynamic import 撤廃。
-	let autoChallengeCompleted = false;
-	try {
-		const challengeResult = await incrementChallengeProgress(
-			childId,
-			activity.categoryId,
-			tenantId,
-		);
-		autoChallengeCompleted = challengeResult.challengeCompleted;
-	} catch {
-		// 自動チャレンジ進捗失敗は記録フローを止めない
-	}
-
 	// per-child チャレンジ進捗チェック (#2458-B: sibling-challenge-service → child-challenge-service)
+	// #3213: auto_challenges 廃止。週次自動生成は child_challenges へ一本化され、ここでの進捗更新は
+	// updateChildChallengeProgress (per-child instance) のみが担う。
 	// 戻り値型: sibling-challenge は `allSiblingsComplete` (group 全員完了) を返したが、
 	// per-child instance では自身の completed のみ判定し、group 全員完了は admin/challenges 側で集計する。
 	// 上流呼び出し (record action UI) では本配列の各要素を「自身が completed したか」のシグナルのみ使用。
@@ -456,7 +442,6 @@ export async function recordActivity(
 		missionComplete: missionResult.missionCompleted ? missionResult : null,
 		eventMissions: eventMissionResults,
 		calendarEvents: calendarEventResults,
-		autoChallengeCompleted,
 		siblingChallenges: siblingChallengeResults,
 		focusBonus,
 		levelUp,

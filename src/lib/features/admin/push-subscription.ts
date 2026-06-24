@@ -17,6 +17,37 @@ export function getNotificationPermission(): NotificationPermission {
 	return Notification.permission;
 }
 
+/**
+ * #3186: ユーザ向け通知ステータス (内部の permission↔subscription 差を隠蔽した 4 値)。
+ *   - `unsupported`: Web Push API 非対応 (secure context 外 / 非対応ブラウザ)
+ *   - `blocked`: ブラウザでブロック (permission='denied')
+ *   - `off`: 未購読 (permission='default' or 'granted' で subscription 無し — 内部差は隠す)
+ *   - `on`: 購読済み
+ */
+export type PushStatus = 'unsupported' | 'blocked' | 'off' | 'on';
+
+/**
+ * #3186: 同期判定できる範囲で即座に状態を返す (await なし)。
+ * `unsupported` / `blocked` は同期確定。granted/default は購読確認前のため `off` 扱い。
+ * UI は本値で即描画し、`getPushStatus()` の非同期確認で `on` のみ後追い更新する。
+ * これにより `serviceWorker` 待ちで 'checking' のまま固まる事故を防ぐ。
+ */
+export function getPushStatusSync(): Exclude<PushStatus, 'on'> {
+	if (!isPushSupported()) return 'unsupported';
+	if (Notification.permission === 'denied') return 'blocked';
+	return 'off';
+}
+
+export async function getPushStatus(): Promise<PushStatus> {
+	const sync = getPushStatusSync();
+	if (sync !== 'off') return sync;
+	// 購読有無のみ非同期確認。getRegistration() は即時解決 (未登録なら undefined)。
+	const registration = await navigator.serviceWorker.getRegistration();
+	if (!registration) return 'off';
+	const subscription = await registration.pushManager.getSubscription();
+	return subscription ? 'on' : 'off';
+}
+
 /** 通知許可をリクエスト */
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
 	if (!isPushSupported()) return 'denied';
@@ -98,12 +129,18 @@ export async function unsubscribeFromPush(): Promise<boolean> {
 
 	await subscription.unsubscribe();
 
-	// サーバーに解除を通知
-	await fetch('/api/v1/notifications/unsubscribe', {
+	// サーバーに解除を通知 (#2115 AC6 / #3186: silent 失敗防止のため .ok を必ず判定。
+	// 非 2xx をそのまま return true で握り潰すと、ブラウザは解除済みなのに
+	// サーバー側 subscription 行が残り、停止済みエンドポイントへ push し続ける)
+	const res = await fetch('/api/v1/notifications/unsubscribe', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ endpoint: subscription.endpoint }),
 	});
+
+	if (!res.ok) {
+		throw new Error(`unsubscribe API failed: ${res.status}`);
+	}
 
 	return true;
 }

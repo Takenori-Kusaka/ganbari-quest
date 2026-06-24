@@ -41,7 +41,9 @@ DDD Anti-Corruption Layer: Marketplace → AdminApp 遷移で Marketplace 側の
 
 ### 2.2 取込ダイアログの SSOT 化
 
-「誰に追加 / 全員」のダイアログ UI は **AdminApp 側 1 箇所のみで実装** (PR-2 Framework で抽象化)。各 type の取込フロー (`activity-pack` / `reward-set` / `checklist` / `rule-preset` / `challenge-set`) は同じダイアログを呼び出す。
+「誰に追加 / 全員」のダイアログ UI は **AdminApp 側 1 箇所のみで実装** (PR-2 Framework で抽象化)。各取込 type のフロー (`activity-pack` / `reward-set` / `checklist` / `rule-preset`) は同じダイアログを呼び出す。
+
+> **challenge-set は取込型ではない (#3195 / #3227)**: 週間チャレンジはアプリが自動生成する一本化方式で、親による手動取込は存在しない。challenge-set は marketplace 陳列対象外 (#2896) かつ valid preset 0 件で `/marketplace/challenge-set/*` は全環境 404。marketplace 詳細の challenge-set 取込 CTA / 分岐は到達不能 dead code として除去済 (#3277)。型 / schema / Registry 登録は互換のため残すが取込導線 (`?import=`) は持たない。
 
 #### 取込実行中の loading 表示 (#2632、NN/G #1 visibility of system status)
 
@@ -59,14 +61,15 @@ DDD Anti-Corruption Layer: Marketplace → AdminApp 遷移で Marketplace 側の
 
 ## 3. 取込フロー sequence
 
-### 3.1 全 type 共通の取込フロー (5 type 統一、#2774)
+### 3.1 取込 type 共通の取込フロー (取込 CTA 統一、#2774)
 
 **取込 CTA 統一形式** (#2774 / #2775):
 
-全 5 type (activity-pack / reward-set / checklist / rule-preset / challenge-set) の認証済
+取込対象 4 type (activity-pack / reward-set / checklist / rule-preset) の認証済
 取込 CTA は **`<a href="/admin/<page>?import=${itemId}">`** 形式に**完全統一**する (marketplace 詳細 page の
 server action は 0 件)。admin 側 server load は
 **`?import=<presetId>` query** を一律に読取り、ChildSelectionDialog auto-open する。
+(challenge-set は取込型ではない — §2.2 注記。)
 
 | type | marketplace 詳細 CTA href | admin 側 query 読取り | testid (統一命名) |
 |---|---|---|---|
@@ -75,13 +78,14 @@ server action は 0 件)。admin 側 server load は
 | checklist | `/admin/checklists?import=${itemId}` | `?import=` | `checklist-import-cta` |
 | rule-preset bonus | `/admin/settings/rules?import=${itemId}` | `?import=` | `rule-preset-import-bonus-cta` |
 | rule-preset exchange (#2775) | `/admin/rewards?import=${itemId}` | `?import=` | `rule-preset-import-cta` |
-| challenge-set | `/admin/challenges?import=${itemId}` | `?import=` | `challenge-set-import-cta` |
+
+> challenge-set は本表に含めない (取込型ではない、§2.2 注記)。marketplace 詳細は取込 CTA を持たず、admin/challenges は `?import=` を処理しない (#3195 で読み取り専用ビュー)。
 
 **rule-preset exchange 統一 (#2775、Issue #2774 Phase 2)**: special_rewards table への per-child
 取込を admin/rewards 側 ChildSelectionDialog 経由で受領するよう mechanism を拡張済。`?import=` server
 load が rule-preset (exchange) を判別し、`importPresetToChildren` action は item type を見て
 reward-set Strategy (`dispatchImport`) または rule-preset Strategy (`rulePresetStrategy.applyRulePreset`)
-に分岐する。**5 type 完全統一達成** = marketplace 詳細 page の server action は 0 件。
+に分岐する。**全取込 type で `<a href>` 統一達成** = marketplace 詳細 page の server action は 0 件。
 
 ```
 [親管理画面 /admin/*]
@@ -236,21 +240,9 @@ Round 18 Round 3 評価で「30 件一括取込で個別選択不可」「既存
 - **family master type (checklist / rule-preset) は tenant 単位 dedup が正しい** (per-child instance ではないため、§3.3 参照)。これは変更対象外。
 - 回帰テスト: `tests/unit/services/activity-import-service.test.ts` §「#2558 per-child dedup 回帰」 + `tests/e2e/admin-activities-per-child.spec.ts` の goal 完遂テスト (1 人目に取込済 → 2 人目に取込 → 2 人目に活動が追加される)。
 
-challenge-set は **#2362 PR-7 (ADR-0055、User §6) で activity-pack と同型の per-child instance + admin redirect 動線に統一済 + #2774 で query 名を 5 type 統一**:
-- marketplace 詳細 `?import=<presetId>` で `/admin/challenges` に遷移 (childId URL に出さず、CWE-598 整合)
-- admin/challenges 側 `importMarketplaceChallengeSet` action が `childIds` body 必須 + ChildSelectionDialog 経由で per-child instance 作成
-- `MarketplaceTypeDescriptor.requiresChildSelection: true` を challenge-set にも追加 (本 PR で flip)
-- 同じ source preset から作成された複数 child instance は `source_template_id: 'challenge-set:<presetId>:<title>'` を共有し、admin/challenges 画面で `SiblingChallengeComparison.svelte` により兄弟連動表示される
-- family-only plan-gate は本 PR 維持 (LP/pricing 整合性確認は別 PR #2457 plan-limit と連携)
+**challenge-set は取込型ではない (取込 4 type に含めない)**: 週間チャレンジはアプリが自動生成する一本化方式 (#3195) で、親による手動取込は存在しない。challenge-set は marketplace 陳列対象外 (#2896) かつ valid preset 0 件で `/marketplace/challenge-set/*` は全環境 404、marketplace 詳細は取込 CTA を持たない。admin/challenges は `?import=` を処理せず読み取り専用ビュー (#3195)。`challenge-set` の型 / schema / Registry 登録は marketplace-item.ts に互換のため残置するが取込導線 (`?import=`) は持たない。
 
-**#2554 follow-up CUJ-CH2 完全化 (本 PR、2026-05-29)**: 上記 #2362 PR-7 動線のうち、`/admin/challenges` 側の **ChildSelectionDialog auto-open 配線が長期未実装**だった (data.marketplaceImport を受領するが UI ハンドラ無し、CUJ-CH2 が partial だった構造的原因)。本 PR で activities/rewards と同型の以下を移植して完全化:
-- `+page.svelte`: `ChildSelectionDialog` import + `?marketplace-import=<presetId>` を `$effect` で検出して auto-open + `handleChildSelectionConfirm` で `?/importMarketplaceChallengeSet` に CSV 形式で POST
-- `+page.server.ts` load: `importPresetId` / `importPresetInvalid` を export (rewards `?import=` 同型、dialog auto-open trigger 用)
-- `+page.server.ts` action `importMarketplaceChallengeSet`: CSV (`childIds=1,2,3` or `'all'`) 受領サポート追加 (旧 `getAll('childIds')` repeated 形式は後方互換維持) + **CWE-598 guard 追加** (`tenantChildren` の ID set に含まれない `childId` を 1 件でも検出すると 403 reject、admin-rewards `importPresetToChildren` 同型)
-- CUJ-CH2 の E2E 検証 (旧 `admin-challenges-import-marketplace.spec.ts`) は CUJ-A3 / CUJ-R2 と同型の完全 terminal goal verify に upgrade されていた
-- `src/lib/domain/labels.ts` `ADMIN_CHALLENGES_PAGE_LABELS`: `importSuccess / importAllDuplicates / importFailed / importDemo / importInvalidPreset` を追加 (admin-rewards 同型)
-
-> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の preset (japan-annual-events) を廃止した。これにより上記 marketplace 経由のチャレンジ取込 (CUJ-CH2) は撤去し、検証 spec も削除した。`challenge-set` の型 / schema / Registry 登録 / `?import=` 受領経路は互換のため残置 (valid preset 不在時は invalid guidance を表示)。チャレンジ機能本体 (自作 + auto-challenge) は `/admin/challenges` に保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
+> **#2896 補足**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の preset (japan-annual-events) を廃止した。これにより上記 marketplace 経由のチャレンジ取込 (CUJ-CH2) は撤去し、検証 spec も削除した。`challenge-set` の型 / schema / Registry 登録は互換のため残置するが、marketplace 詳細の取込 CTA / 分岐は到達不能 dead code として除去済 (#3277)、admin/challenges も `?import=` を処理しない (#3195 読み取り専用ビュー)。チャレンジ機能本体 (アプリ自動生成、#3195 一本化) は `/admin/challenges` に保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
 
 #### reward-set 取込フロー (EPIC #2362 PR-4 で実装済)
 
@@ -307,6 +299,43 @@ importChecklistTemplateForFamily(presetId, tenantId, {childIds})
 
 **配信先設定の事後変更**: admin/checklists の各 template card 内の「配信先を設定」ボタン → `ChecklistDistributionDialog` → `VisibilityChipGroup` で chip toggle → `?/syncDistribution` action で差分計算 (`syncDistribution()` service 経由) → assignment 追加/解除。
 
+### 3.4 個別 backup / restore (file 由来、marketplace registry 非依存、#3079)
+
+活動・ごほうび・チェックリストの「エクスポート」「バックアップから復元」は marketplace 取込とは**別概念**である。marketplace 取込は registry に陳列された preset を `presetId` で参照するのに対し、backup/restore は **ユーザーが過去に export した v2 envelope ファイル** を入出力する。両者を混同しないこと (DESIGN.md §10「ファイル復元はマーケットプレイスとは別概念」)。
+
+**3 リソース v2 統一** (#3079 AC4): 活動 (activity-pack) / ごほうび (reward-set) / チェックリスト (checklist) の個別 export は**全て v2 envelope (`dispatchExportToJson(typeCode, payload)`) で同型出力**する。復元はいずれも file → `loadXxxFromFile` (`parseAnyExportEnvelope` で envelope 剥がし + checksum 検証) を経由する。活動は当初 v1 (`formatVersion: '1.0'`) を出力していたが本 Issue で v2 に統一した。
+
+**activity-pack (per-child instance type)**: file 復元は marketplace 経路と同じ `dispatchImport({typeCode:'activity-pack'})` に合流する。export は tenant の活動全件を v2 envelope (activity-pack) で出力。復元は `loadActivityPackFromFile` が **3 形式を全て受理**する: (a) v2 envelope / (b) 旧 v1 envelope (`formatVersion:'1.0'`、`parseAnyExportEnvelope` の `migrateV1ActivityPackToV2` で変換) / (c) bare array・`{activities:[]}` の手書き JSON・CSV (旧インポート互換)。v1 復元は後方互換として恒久保持し、回帰テスト (`file-source-envelope.test.ts`) で削除を検知する (ADR-0006)。
+
+```
+export: getActivities(tenantId) → activity-pack payload
+  → dispatchExportToJson('activity-pack', payload) → /api/v1/activities/export (v2 envelope)
+restore: file → loadActivityPackFromFile (v2 envelope / 旧 v1 / bare JSON / CSV を判別、checksum 検証)
+  → dispatchImport({typeCode:'activity-pack', ctx:{tenantId}})  (同 name 重複は skip)
+```
+
+**reward-set (per-child instance type)**: file 復元は marketplace 経路と同じ `dispatchImport({typeCode:'reward-set'})` に合流できる。reward-set Strategy / `importRewardSet` は `rewards` payload を引数から受け取るため、file から剥がした payload をそのまま渡せる。固定 sentinel presetId (`'backup-restore:reward-set'`、marketplace registry に存在しない値) + 選択中 childId を ctx に注入し、同 title 重複は skip (= 同一ファイル 2 回復元の冪等性)。
+
+```
+export: getChildSpecialRewards(childId) → reward-set payload
+  → dispatchExportToJson('reward-set', payload) → /api/v1/special-rewards/export?childId
+restore: file → loadRewardSetFromFile (parseAnyExportEnvelope で envelope 剥がし + checksum 検証)
+  → dispatchImport({typeCode:'reward-set', presetId:'backup-restore:reward-set', childId})
+```
+
+**checklist (family master type)**: file 復元は `dispatchImport({typeCode:'checklist'})` に**合流できない**。checklist Strategy / `importChecklistTemplateForFamily` は `getMarketplaceItem('checklist', presetId)` で **registry から payload を引く** 設計のため、registry に存在しない file payload を取込めない。よって file 復元専用の payload-driven helper (`importChecklistTemplateFromPayload` / `previewChecklistImportFromPayload`、`checklist-template-import-service.ts`) を使い、registry を介さず `ChecklistPayload` を直接受け取って family master template + items を投入する。重複判定はテンプレート名 (tenant scope)、sourcePresetId は null (marketplace 由来ではないため)。テンプレート名は export ファイル名 (`checklist-<name>.json`) を round-trip キャリアとする (checklist payload schema は `{timing, items}` で name を持たないため)。
+
+```
+export: findTemplateById(templateId) + findTemplateItems → checklist payload (1 テンプレート単位)
+  → dispatchExportToJson('checklist', payload) → /api/v1/checklists/export?templateId
+restore: file → loadChecklistFromFile → importChecklistTemplateFromPayload(payload, name, icon, tenantId)
+  (registry 非依存、sourcePresetId=null、同名既存なら preset 全体 skip)
+```
+
+**preview → 実行の 2 段 (両 type 共通)**: `?/restorePreview` (dryRun で件数 / 重複を集計、DB write なし) → preview 表示 → `?/restoreFile` (実 DB write)。dead-end 防止のため preview / cancel 経路を `tests/e2e/admin-backup-restore.spec.ts` で貫通検証する。
+
+**責務切り分け**: 個別 backup/restore (本節) = リソース別 (tenant の活動全件 / 1 child の reward / 1 テンプレート) を v2 envelope 単位で書き出し・復元。家族全体 backup (`/admin/settings/data`, #1254) = 全リソース横断 (JSON / ZIP) の一括 export/import。両者は別画面・別概念。
+
 ---
 
 ## 4. privacy 検証チェックリスト (各 PR で確認)
@@ -327,19 +356,19 @@ CWE-598 (Information Exposure Through Query Strings in GET Request) 整合。
 
 EPIC #2362 で実装済の `UnifiedImportHub` (#2370 / PR #2384) は **type 別の marketplace preset 一覧 (browse) + file source を埋め込む in-page hub**。
 
-### 5.1 #2558 段階2 (activities) / 段階3 (残 4 type): 全 5 type で admin 内 browse UI 撤去 (マーケットプレイス一本化完遂)
+### 5.1 admin 内 browse UI 撤去 (全 5 admin 画面、マーケットプレイス一本化完遂)
 
 顧客クレーム (bug-3「追加メニュー内に『パックから追加』という見知らぬ用語」/ bug-4「『パックから追加』がマーケットプレイスに行かず独自 UI を開く」+ User 直接指摘「親管理画面で簡単なマーケットプレイス画面があるなど見た瞬間に指摘される」) を受け、PO 方針「**マーケットプレイス (みんなのテンプレート) で内容確認 → インポート → 親管理画面に取り込み、に一本化する。親管理画面内にマーケットプレイス風の簡易画面を出さない (二重管理)**」に従い、**全 admin 画面 (`activities` / `rewards` / `challenges` / `checklists` / `settings/rules`) の in-page browse UI を撤去**した (DESIGN.md §10 構造的ルール明示禁忌)。
 
-- 各 admin 画面の「みんなのテンプレートから探す」link / menu 項目は `/marketplace?type=<typeCode>` へ**画面遷移**する (§3.1 の正規 sequence に合流)。in-page の marketplace 風ブラウズ UI は出さない。typeCode 対応: activities → `activity-pack` / rewards → `reward-set` / challenges → `challenge-set` / checklists → `checklist` / settings/rules → `rule-preset`。
+- 取込 4 type (activities / rewards / checklists / settings/rules) の「みんなのテンプレートから探す」link / menu 項目は `/marketplace?type=<typeCode>` へ**画面遷移**する (§3.1 の正規 sequence に合流)。in-page の marketplace 風ブラウズ UI は出さない。typeCode 対応 (admin 画面 → marketplace type): activities → `activity-pack` / rewards → `reward-set` / checklists → `checklist` / settings/rules → `rule-preset`。admin/challenges は browse UI 撤去対象 (5 画面) だが marketplace 取込先ではなく `?import=` を処理しない読み取り専用ビュー (#3195) のため、取込導線 (`/marketplace?type=` link) を持たない (challenge-set は取込型ではない)。
 - 旧 `UnifiedImportHub` の **file source セクション (`?/importFile` による JSON/CSV 復元)** は marketplace とは別概念のため、admin/activities では `︙` overflow menu の「バックアップから復元」項目 + 専用ダイアログとして**独立保持**した (`OVERFLOW_MENU_TERMS.itemRestore` 経由)。他 admin 画面では現状 file 復元 UI を提供していない (必要に応じて follow-up Issue で同 pattern 横展開)。
 - `UnifiedImportHub.svelte` component 自体は **本 PR の admin 画面群からは参照されなくなった** が、Storybook story / unit test (`tests/unit/marketplace/ui/UnifiedImportHub.test.ts`) / 将来の用途 (LP 経由公開ブラウズ等) のため component 自体は削除せず存続させる (knip での dead-code 検出が出るか別 Issue で判断)。
 
-### 5.2 ChildSelectionDialog auto-open mechanism (5 type 共通の正規取込経路、#2774)
+### 5.2 ChildSelectionDialog auto-open mechanism (取込 4 type 共通の正規取込経路、#2774)
 
-各 admin page の server load は **`?import=<presetId>` query を 5 type 統一で validation** (activities /
-rewards / checklists / settings-rules / challenges) し、page svelte 側の `$effect` で
-`ChildSelectionDialog` を auto-open する mechanism を保持する。全 5 type で `?import=` に揃っている (5 type 取込導線完全統一)。
+取込 4 type の admin page の server load は **`?import=<presetId>` query を共通 validation** (activities /
+rewards / checklists / settings-rules) し、page svelte 側の `$effect` で
+`ChildSelectionDialog` を auto-open する mechanism を保持する。取込 4 type が `?import=` に揃っている。admin/challenges は `?import=` を処理しない読み取り専用ビュー (#3195) のため本経路の対象外 (challenge-set は取込型ではない)。
 
 Marketplace 詳細 → `<a href="/admin/<page>?import=${itemId}">` 直遷移 → admin 画面で
 ChildSelectionDialog auto-open → child binding 決定 → server action へ POST、が正規経路 (§3.1)。

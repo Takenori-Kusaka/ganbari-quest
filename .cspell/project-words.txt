@@ -146,6 +146,7 @@ epool
 EXIF
 favicon
 fflate
+Fogg
 freetext
 froms
 ftyp
