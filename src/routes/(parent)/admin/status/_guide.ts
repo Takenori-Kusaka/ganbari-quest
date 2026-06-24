@@ -1,3 +1,4 @@
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 // #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
@@ -5,38 +6,31 @@ import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 // ③ は分析サマリー (読み取り → 次の一手を決める起点、小〜中要素) を target にする。
 // 巨大要素 (status-report / status-radar = 280px チャート) は driver.js が非重複でバブルを置けないため
 // target にしない (#2927: 旧 ②③ が status-radar を指していた exempt 常時発動を解消)。
+// #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
+const L = PAGE_GUIDE_LABELS.adminStatus;
+
 export const STATUS_GUIDE: PageGuide = {
 	pageId: 'admin-status',
-	title: '成長レポート',
+	title: L.title,
 	icon: '📊',
 	steps: [
 		// ① ページ概要
 		{
 			id: 'status-intro',
-			title: 'このページについて',
-			what: 'お子さまの活動を「うんどう・べんきょう・せいかつ・こうりゅう・そうぞう」の5つの軸で可視化するページです。どの分野が得意で、どこが伸びしろかが分かります。',
-			how: 'レーダーチャートで5軸のバランスを見ます。同年代の目安（ベンチマーク）と重ねて表示されるので、平均との比較もできます。',
-			goal: '「今月はうんどうが伸びた」「べんきょうが少なめ」といった傾向が数値とグラフで分かり、声かけや活動設計の参考になります。',
+			...L.steps['status-intro'],
 		},
 		// ② 画面の見方（チャート直下の注記を起点に読み方を案内）
 		{
 			id: 'status-radar',
 			selector: '[data-tutorial="status-radar-note"]',
-			title: '画面の見方（バランスチャート）',
-			what: '上のレーダーチャートは5軸のポイント配分を面で表します。外側に広がっている軸ほど、よく取り組んでいる分野です。',
-			how: '1. 外側に広がっている軸 = よく取り組んでいる分野\n2. へこんでいる軸 = 活動が少ない分野\n3. ベンチマーク（目安）との差を見比べます',
-			goal: 'バランスの偏りにひと目で気づけるので、お子さまの今の状態を客観的に把握できます。',
+			...L.steps['status-radar'],
 			position: 'top',
 		},
 		// ③ 最頻操作（分析サマリーを読み取り → 次の一手を決める）
 		{
 			id: 'status-act',
 			selector: '[data-tutorial="status-summary"]',
-			title: 'よく使う操作（次の一手を決める）',
-			what: 'このページの使いどころは「どの分野を伸ばすか」を決めることです。分析サマリーでへこんでいる軸を見つけ、活動管理で新しい活動を足してバランスを整えます。',
-			how: '1. 分析サマリーで少ない分野（へこんでいる軸）を見つけます\n2. 活動管理ページで、その分野の活動を追加します\n3. 翌月以降のチャートで変化を確認します',
-			goal: '「得意をもっと伸ばす」「苦手を少しだけ足す」など、お子さまに合った関わり方を選べます。',
-			tips: ['無理に全軸を均等にする必要はありません。得意分野を伸ばす視点も大切です'],
+			...L.steps['status-act'],
 			position: 'top',
 		},
 	],

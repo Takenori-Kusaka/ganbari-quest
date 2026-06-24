@@ -1,28 +1,26 @@
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 // #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
 // step 1 は selector 省略で画面中央 modal 表示。巨大要素 (points-section) は target にしない。
+// #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
+const L = PAGE_GUIDE_LABELS.adminPoints;
+
 export const POINTS_GUIDE: PageGuide = {
 	pageId: 'admin-points',
-	title: 'ポイント交換',
+	title: L.title,
 	icon: '💰',
 	steps: [
 		// ① ページ概要
 		{
 			id: 'points-intro',
-			title: 'このページについて',
-			what: 'お子さまが活動で貯めたポイントを、おこづかいやご褒美に交換するページです。ポイントの「使い道」を見せることが、貯めるモチベーションになります。',
-			how: 'お子さまを選んで交換ポイント数を指定し、交換を確定します。交換すると残高が引かれ、履歴に記録されます。',
-			goal: '「500ポイント貯めたら交換しようね」という約束が実現でき、お子さまにお金の感覚も育ちます。',
+			...L.steps['points-intro'],
 		},
 		// ② 画面の見方
 		{
 			id: 'points-balances',
 			selector: '[data-tutorial="points-child-balances"]',
-			title: '画面の見方（残高の一覧）',
-			what: '上部にお子さまごとのポイント残高カードが並びます。カードをタップすると、そのお子さまの交換フォームが下に開きます。',
-			how: '1. 交換したいお子さまのカードをタップします\n2. 選んだお子さまの残高が強調表示されます',
-			goal: '誰がどれだけ貯めているかをひと目で把握でき、交換の対象をすぐ選べます。',
+			...L.steps['points-balances'],
 			position: 'bottom',
 		},
 		// ③ 最頻操作（交換の起点 = 残高カードを target にする小要素）
@@ -33,14 +31,7 @@ export const POINTS_GUIDE: PageGuide = {
 			// を target にすると driver.js が非重複でバブルを置けないため、起点のカードのみを指す
 			// (#2927: 中央 modal から具体要素 highlight に戻す)。
 			selector: '[data-tutorial="points-first-balance"]',
-			title: 'よく使う操作（ポイントの交換）',
-			what: '最もよく使うのがポイントの交換です。残高カードをタップすると、その下に交換フォームが開き、「かんたん」「じぶんで」「レシート」の3つの方法から選べます。',
-			how: '1. お子さまの残高カードをタップ\n2. 交換方法のタブを選択\n3. 交換ポイント数を指定（残高が足りない場合はグレーアウト）\n4. 「交換する」をタップで確定',
-			goal: 'お子さまの残高から交換分が引かれ、交換履歴に記録されます。定額おこづかいにも、ご褒美交換にも使えます。',
-			tips: [
-				'交換レートは設定画面で変更できます（例: 100ポイント = 100円）',
-				'画面下部の交換りれきで、月別の交換実績を確認できます',
-			],
+			...L.steps['points-convert'],
 			position: 'bottom',
 		},
 	],

@@ -1,3 +1,4 @@
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 // #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
@@ -5,41 +6,31 @@ import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 // step 2 はページ見出し (小要素) を target にする。
 // 用語は #2909 (PO 指摘 #2899 AC3) で「持ち物チェックリスト管理 → チェックリスト管理」へ是正済み。
 // チェックリストは持ち物に限らない汎用機能で、持ち物は代表ユースケースとして本文に例示する。
+// #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
+const L = PAGE_GUIDE_LABELS.adminChecklists;
+
 export const CHECKLISTS_GUIDE: PageGuide = {
 	pageId: 'admin-checklists',
-	title: 'チェックリスト管理',
+	title: L.title,
 	icon: '📋',
 	steps: [
 		// ① ページ概要
 		{
 			id: 'checklists-intro',
-			title: 'このページについて',
-			what: 'お子さまが「学校の準備」「習い事の持ち物」「寝る前のしたく」などを自分で確認できるチェックリストを、お子さまごとに用意するページです。',
-			how: 'テンプレートを取り込むか新しく追加して、配信するお子さまを選びます。有効にしたチェックリストはお子さまの画面に表示されます。',
-			goal: 'お子さまが自分でタップして「できた！」を確認できるようになり、「ハンカチ持った？」と毎朝聞く必要がなくなります。',
+			...L.steps['checklists-intro'],
 		},
 		// ② 画面の見方
 		{
 			id: 'checklists-header',
 			selector: '[data-tutorial="checklists-header"]',
-			title: '画面の見方（このページの役割）',
-			what: 'ここはチェックリストの管理画面です。お子さまごとにチェックリストを作成・編集し、子供の画面への配信を切り替えます。',
-			how: '1. 対象のお子さまを選びます\n2. 既存のテンプレートを編集するか、新しく追加します\n3. 有効化したテンプレートがお子さまの画面に表示されます',
-			goal: '朝の支度や寝る前のルーティンを、声かけなしでお子さま自身が進められるようになります。',
+			...L.steps['checklists-header'],
 			position: 'bottom',
 		},
 		// ③ 最頻操作
 		{
 			id: 'checklists-marketplace',
 			selector: '[data-tutorial="checklists-marketplace"]',
-			title: 'よく使う操作（テンプレートから取り込む）',
-			what: '最も手軽なのが、みんなのテンプレートからの取り込みです。小学校の時間割・遠足・プールの日など、よくあるチェックリストをそのまま使えます。',
-			how: '1. 「みんなのテンプレートを見る」をタップ\n2. マーケットプレイスでチェックリストを選びます\n3. 「使ってみる」から取り込み、配信するお子さまを選びます',
-			goal: '選んだチェックリストがお子さまのチェックリストに追加されます。家庭に合わせて項目を足したり消したりして調整できます。',
-			tips: [
-				'まずはテンプレートを取り込んで、ご家庭に合わせて調整するのが近道です',
-				'季節やイベントごとにテンプレートを切り替えると管理が楽になります',
-			],
+			...L.steps['checklists-marketplace'],
 			position: 'bottom',
 		},
 	],
