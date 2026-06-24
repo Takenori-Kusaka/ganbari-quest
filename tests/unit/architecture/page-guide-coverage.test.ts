@@ -34,9 +34,8 @@ const PENDING_GUIDE_PATHS = [
 	// C4: members + packs
 	'/admin/members',
 	'/admin/packs',
-	// C5: marketplace
-	'/marketplace',
-	'/marketplace/[type]/[itemId]',
+	// C5: marketplace → #3263 (F2) で /marketplace は REGISTERED へ移行済
+	//   (/marketplace/[type]/[itemId] は親フォールバックで十分なため EXEMPT へ移動)
 	// C7: 低頻度顧客接点
 	'/admin/certificates',
 	'/admin/growth-book',
@@ -51,6 +50,9 @@ const EXEMPT_GUIDE_PATHS: Record<string, string> = {
 	'/admin/billing/cancel': '解約フロー途中 (transient)。/admin/billing にフォールバック',
 	'/admin/billing/cancel/graduation': '卒業フロー (transient)。/admin/billing にフォールバック',
 	'/admin/billing/cancel/thanks': '解約完了 (transient)。/admin/billing にフォールバック',
+	// #3263 (EPIC #3260 F2): marketplace 詳細は概要ガイドで十分。親 /marketplace にフォールバック
+	'/marketplace/[type]/[itemId]':
+		'マーケットプレイス詳細 (取込 CTA)。親 /marketplace ガイドにフォールバック',
 };
 
 function listRoutePaths(): string[] {

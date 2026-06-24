@@ -29,6 +29,10 @@ const GUIDE_LOADERS: Record<
 	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
 	'/admin/subscription': () => import('../../../routes/(parent)/admin/subscription/_guide'),
 	'/admin/billing': () => import('../../../routes/(parent)/admin/billing/_guide'),
+	// #3263 (EPIC #3260 F2): marketplace は AdminLayout 非使用だが admin 取込 CUJ の着地先のため
+	// ガイドを登録する。詳細ルート /marketplace/[type]/[itemId] は親パスフォールバック (#3262 F1)
+	// で本 /marketplace ガイドに degrade する。
+	'/marketplace': () => import('../../../routes/marketplace/_guide'),
 };
 
 /** registry に dedicated guide が登録済のパス一覧（#3262 F1: 網羅 gate test 用）。 */
@@ -52,6 +56,8 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	// #3267 (EPIC #3260 C3)
 	'/admin/subscription': 'SUBSCRIPTION_GUIDE',
 	'/admin/billing': 'BILLING_GUIDE',
+	// #3263 (EPIC #3260 F2)
+	'/marketplace': 'MARKETPLACE_GUIDE',
 };
 
 /**
@@ -158,4 +164,6 @@ export const ALL_PAGE_IDS = [
 	// #3267 (EPIC #3260 C3)
 	'admin-subscription',
 	'admin-billing',
+	// #3263 (EPIC #3260 F2)
+	'marketplace',
 ];
