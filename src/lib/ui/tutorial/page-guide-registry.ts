@@ -26,6 +26,9 @@ const GUIDE_LOADERS: Record<
 	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer (応援) に統合
 	'/admin/cheer': () => import('../../../routes/(parent)/admin/cheer/_guide'),
 	'/admin/settings': () => import('../../../routes/(parent)/admin/settings/_guide'),
+	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
+	'/admin/subscription': () => import('../../../routes/(parent)/admin/subscription/_guide'),
+	'/admin/billing': () => import('../../../routes/(parent)/admin/billing/_guide'),
 };
 
 /** registry に dedicated guide が登録済のパス一覧（#3262 F1: 網羅 gate test 用）。 */
@@ -46,6 +49,9 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer に統合
 	'/admin/cheer': 'CHEER_GUIDE',
 	'/admin/settings': 'SETTINGS_GUIDE',
+	// #3267 (EPIC #3260 C3)
+	'/admin/subscription': 'SUBSCRIPTION_GUIDE',
+	'/admin/billing': 'BILLING_GUIDE',
 };
 
 /**
@@ -123,4 +129,7 @@ export const ALL_PAGE_IDS = [
 	// #2270 / #2274 (EPIC #2266): admin-messages 廃止 → admin-cheer (応援) に統合
 	'admin-cheer',
 	'admin-settings',
+	// #3267 (EPIC #3260 C3)
+	'admin-subscription',
+	'admin-billing',
 ];

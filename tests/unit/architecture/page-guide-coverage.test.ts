@@ -30,9 +30,7 @@ const PENDING_GUIDE_PATHS = [
 	'/admin/settings/notifications',
 	'/admin/settings/rules',
 	'/admin/settings/support',
-	// C3: プラン・課金 + billing
-	'/admin/subscription',
-	'/admin/billing',
+	// C3: プラン・課金 + billing → #3267 で REGISTERED へ移行済
 	// C4: members + packs
 	'/admin/members',
 	'/admin/packs',

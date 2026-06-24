@@ -30,6 +30,9 @@ const ADMIN_GUIDE_PAGES = [
 	'/admin/points',
 	'/admin/reports',
 	'/admin/cheer',
+	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
+	'/admin/subscription',
+	'/admin/billing',
 ] as const;
 
 const VIEWPORTS = [
