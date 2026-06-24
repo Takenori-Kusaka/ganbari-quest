@@ -1482,6 +1482,135 @@ export const PAGE_GUIDE_LABELS = {
 			},
 		},
 	},
+	// #3266 (EPIC #3260 C2): 設定サブ 6 ページの個別ガイド文言。親 adminSettings (ハブ) とは別に、
+	// 各サブページの実セクションを上→下順に説明する (F0 guide-copy-rules 準拠、≤5 step / 3 部構成)。
+	adminSettingsAccount: {
+		title: 'アカウント',
+		steps: {
+			'settings-account-intro': {
+				title: 'このページについて',
+				what: `${ADMIN_VIEW_TERMS.short}を守る${OYAKAGI_TERMS.name}の変更や、ログアウト・アカウントの削除を行うページです。`,
+				how: '上から順に、おやカギの変更・ログアウト・アカウント削除が並びます。表示される項目はご利用環境によって変わります。',
+				goal: `${OYAKAGI_TERMS.shortName}をこまめに変えて、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
+			},
+			'settings-account-pin': {
+				title: `画面の見方（${OYAKAGI_TERMS.shortName}）`,
+				what: `${OYAKAGI_TERMS.name}は${ADMIN_VIEW_TERMS.short}を開くときの4桁の数字です。このカードから変更できます。`,
+				how: '1. 現在のコードを入力します\n2. 新しいコードを入力します',
+				goal: '今のおやカギと、変更する場所がひと目で分かります。',
+			},
+			'settings-account-pin-change': {
+				title: `よく使う操作（${OYAKAGI_TERMS.shortName}を変える）`,
+				what: `${OYAKAGI_TERMS.shortName}を新しい数字に変えます。お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
+				how: `1. 現在の${OYAKAGI_TERMS.shortName}を入力\n2. 新しい数字を入力\n3. 変更ボタンをタップ`,
+				goal: '次回から新しいコードが必要になり、安心して使えます。',
+				tips: [PIN_DEFAULT_TERMS.hintCompact],
+			},
+		},
+	},
+	adminSettingsActivities: {
+		title: '活動・ポイント',
+		steps: {
+			'settings-activities-intro': {
+				title: 'このページについて',
+				what: 'お子さまの活動にまつわる設定をまとめたページです。やる気が続く仕組みや、ポイントの見せ方をここで調整します。',
+				how: '上から順に、ステータス減少・ポイント表示・きょうだいの設定が並びます。',
+				goal: 'ご家庭に合わせて、活動の続けやすさやポイントの見せ方を整えられます。',
+			},
+			'settings-activities-decay': {
+				title: '画面の見方（ステータス減少）',
+				what: '何日か活動しないとステータスが少しずつ下がる仕組みです。下がる強さを4段階で選べます。',
+				how: '1. 強さの段階を選びます\n2. すぐに反映されます',
+				goal: '毎日コツコツ続ける動機づけを、ご家庭の方針に合わせて調整できます。',
+			},
+			'settings-activities-point': {
+				title: 'よく使う操作（ポイント表示）',
+				what: 'ポイントの呼び方や単位を選んで、お子さまに分かりやすい見せ方にできます。',
+				how: '1. 表示したい単位を選びます\n2. 子供の画面に反映されます',
+				goal: 'お子さまの年齢に合った言葉でポイントが表示されます。',
+			},
+		},
+	},
+	adminSettingsNotifications: {
+		title: '通知',
+		steps: {
+			'settings-notifications-intro': {
+				title: 'このページについて',
+				what: 'ブラウザのお知らせを使って、活動のリマインドや達成のお祝いを届ける設定ページです。',
+				how: '上で通知のオン・オフを切り替え、下で届けるお知らせの種類を選びます。',
+				goal: '声かけしなくても、お子さま自身が活動を思い出すきっかけを作れます。',
+			},
+			'settings-notifications-status': {
+				title: '画面の見方（通知のオン・オフ）',
+				what: '今このブラウザで通知が使えるかどうかと、オン・オフの切り替えボタンがここに出ます。',
+				how: '1. 状態を確認します\n2. ボタンでオン・オフを切り替えます',
+				goal: '通知が使える状態かどうかをひと目で確認できます。',
+			},
+			'settings-notifications-types': {
+				title: 'よく使う操作（お知らせの種類）',
+				what: 'リマインダーや連続記録のお祝い、サイレント時間帯など、届けるお知らせを選べます。',
+				how: '1. 届けたいお知らせにチェックします\n2. 保存ボタンをタップします',
+				goal: '必要なお知らせだけが届き、通知が多すぎる状態を避けられます。',
+			},
+		},
+	},
+	adminSettingsData: {
+		title: 'データ',
+		steps: {
+			'settings-data-intro': {
+				title: 'このページについて',
+				what: `記録した活動やポイントなどのデータを${BACKUP_TERMS.exportNoun}・${BACKUP_TERMS.restoreVerb}できるページです。`,
+				how: '上から順に、データの保存と読み込み・すべて消す操作が並びます。',
+				goal: `万一に備えてデータを${BACKUP_TERMS.exportNoun}しておけば、いつでも元に戻せます。`,
+			},
+			'settings-data-management': {
+				title: `画面の見方（データの${BACKUP_TERMS.exportNoun}）`,
+				what: `今までの記録をファイルに保存したり、保存した${BACKUP_TERMS.file}を読み込んだりできます。`,
+				how: '1. 保存か読み込みを選びます\n2. 画面の案内に従います',
+				goal: '大切な記録を手元に残す方法がここに集まっています。',
+			},
+			'settings-data-export': {
+				title: `よく使う操作（${BACKUP_TERMS.exportNoun}）`,
+				what: 'ボタンひとつで、今までの記録を1つのファイルに保存できます。',
+				how: `1. ${BACKUP_TERMS.exportVerb}ボタンをタップ\n2. ファイルが手元に保存されます`,
+				goal: `機種変更や万一のときも、保存したファイルから${BACKUP_TERMS.restoreVerb}できます。`,
+			},
+		},
+	},
+	adminSettingsRules: {
+		title: 'とくべつルール',
+		steps: {
+			'settings-rules-intro': {
+				title: 'このページについて',
+				what: `${TEMPLATE_TERMS.userFacing}から取り込んだ、ボーナスのルールを確認するページです。`,
+				how: '取り込んだルールがある時は一覧で並び、オン・オフや削除ができます。',
+				goal: '今どんなボーナスルールが効いているかを、まとめて確認できます。',
+			},
+			'settings-rules-list': {
+				title: '画面の見方（取り込んだルール）',
+				what: '取り込んだボーナスルールがここに並びます。まだ無いときは、その案内が表示されます。',
+				how: '1. ルールのオン・オフを切り替えます\n2. いらないルールは削除できます',
+				goal: 'ご家庭に合うルールだけを残して、ボーナスを整理できます。',
+			},
+		},
+	},
+	adminSettingsSupport: {
+		title: 'サポート・アプリ情報',
+		steps: {
+			'settings-support-intro': {
+				title: 'このページについて',
+				what: '感想や要望を送ったり、利用規約やバージョンなどのアプリ情報を確認できるページです。',
+				how: '上にお問い合わせのフォーム、下に各種リンクとアプリ情報が並びます。',
+				goal: '困ったときの相談先と、サービスの情報にここからたどり着けます。',
+			},
+			'settings-support-form': {
+				title: 'よく使う操作（感想・要望を送る）',
+				what: '使ってみた感想や「こうしてほしい」という要望を、開発者に直接送れます。',
+				how: '1. 内容を入力します\n2. 送信ボタンをタップします',
+				goal: 'いただいた声をもとに、サービスを改善していきます。',
+			},
+		},
+	},
 	adminSubscription: {
 		title: 'プラン・課金',
 		steps: {

@@ -26,6 +26,16 @@ const GUIDE_LOADERS: Record<
 	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer (応援) に統合
 	'/admin/cheer': () => import('../../../routes/(parent)/admin/cheer/_guide'),
 	'/admin/settings': () => import('../../../routes/(parent)/admin/settings/_guide'),
+	// #3266 (EPIC #3260 C2): 設定サブ 6 ページ個別ガイド（getPageGuide は最具体一致が先に効くため
+	// /admin/settings/<sub> は親 /admin/settings より優先される）。
+	'/admin/settings/account': () => import('../../../routes/(parent)/admin/settings/account/_guide'),
+	'/admin/settings/activities': () =>
+		import('../../../routes/(parent)/admin/settings/activities/_guide'),
+	'/admin/settings/notifications': () =>
+		import('../../../routes/(parent)/admin/settings/notifications/_guide'),
+	'/admin/settings/data': () => import('../../../routes/(parent)/admin/settings/data/_guide'),
+	'/admin/settings/rules': () => import('../../../routes/(parent)/admin/settings/rules/_guide'),
+	'/admin/settings/support': () => import('../../../routes/(parent)/admin/settings/support/_guide'),
 	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
 	'/admin/subscription': () => import('../../../routes/(parent)/admin/subscription/_guide'),
 	'/admin/billing': () => import('../../../routes/(parent)/admin/billing/_guide'),
@@ -53,6 +63,13 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer に統合
 	'/admin/cheer': 'CHEER_GUIDE',
 	'/admin/settings': 'SETTINGS_GUIDE',
+	// #3266 (EPIC #3260 C2): 設定サブ 6 ページ
+	'/admin/settings/account': 'SETTINGS_ACCOUNT_GUIDE',
+	'/admin/settings/activities': 'SETTINGS_ACTIVITIES_GUIDE',
+	'/admin/settings/notifications': 'SETTINGS_NOTIFICATIONS_GUIDE',
+	'/admin/settings/data': 'SETTINGS_DATA_GUIDE',
+	'/admin/settings/rules': 'SETTINGS_RULES_GUIDE',
+	'/admin/settings/support': 'SETTINGS_SUPPORT_GUIDE',
 	// #3267 (EPIC #3260 C3)
 	'/admin/subscription': 'SUBSCRIPTION_GUIDE',
 	'/admin/billing': 'BILLING_GUIDE',
@@ -161,6 +178,13 @@ export const ALL_PAGE_IDS = [
 	// #2270 / #2274 (EPIC #2266): admin-messages 廃止 → admin-cheer (応援) に統合
 	'admin-cheer',
 	'admin-settings',
+	// #3266 (EPIC #3260 C2): 設定サブ 6 ページ
+	'admin-settings-account',
+	'admin-settings-activities',
+	'admin-settings-notifications',
+	'admin-settings-data',
+	'admin-settings-rules',
+	'admin-settings-support',
 	// #3267 (EPIC #3260 C3)
 	'admin-subscription',
 	'admin-billing',

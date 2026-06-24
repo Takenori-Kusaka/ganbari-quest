@@ -181,6 +181,7 @@ async function disableNotifications() {
 			action="?/updateNotificationSettings"
 			use:enhance
 			class="space-y-4"
+			data-tutorial="notification-settings"
 		>
 			<label class="flex items-center gap-2">
 				<input
