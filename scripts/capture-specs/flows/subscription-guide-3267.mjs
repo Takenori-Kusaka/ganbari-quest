@@ -2,6 +2,8 @@
  * scripts/capture-specs/flows/subscription-guide-3267.mjs
  * PR #3291 (#3260 C3): /admin/subscription の ? ページガイド overlay を撮影。
  */
+import { waitForStablePage } from '../../lib/screenshot-helpers.mjs';
+
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5191';
 
 export default async (page, capture) => {
@@ -22,6 +24,7 @@ export default async (page, capture) => {
 	await page
 		.locator('[role="dialog"][aria-labelledby="page-guide-title"]')
 		.waitFor({ state: 'visible', timeout: 8_000 });
-	await page.waitForTimeout(700);
+	// overlay の出現アニメ + フォント/レイアウト確定を待つ (waitForTimeout は scripts/ で禁止 #1208)
+	await waitForStablePage(page, { skipNetworkIdle: true });
 	await capture('subscription-guide');
 };
