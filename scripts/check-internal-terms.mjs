@@ -84,6 +84,36 @@ const CONN_INFO_BANLIST = [
 	},
 	{ regex: /kusaka[-]server/, label: '<NUC_USER> (NUC SSH user)', category: 'conn-info' },
 ];
+
+// ---------------------------------------------------------------------------
+// SELF_REF_CHANGE_BANLIST (#3259 follow-up) — UI 文字列への「実装変更の自己言及」検知
+//
+// 「設定をグループ別に整理しました」等、コードベースの再編をユーザー向け文言で語るメタ言及を
+// 禁止する。ユーザーは内部の整理 / 統合 / 移行という事実を必要とせず、現在の使い方・状態だけ
+// 分かればよい (内部事情の UI 露出。実例: 設定ハブの hubDesc / settings _guide.ts、#3259)。
+// INTERNAL_TERMS (infra / SaaS 語) とは別カテゴリの「変更の自己言及」を対象にする。
+//
+// 対象: labels.ts (compound UI 文字列の本体) + 全 routes + features の .ts / .svelte。
+// comment 行は除外 (isCommentLine) — issue note 等「#NNNN で統合済」コメントは正当な開発記録。
+// baseline なし — 残存 0 で導入し、新規 1 件で即 fail (conn-info group と同型)。
+// 検出語は「動作の完了報告 (〜しました / 〜されています)」に限定し、子供向けの内容語
+// (「がんばりをまとめました」等のデータ要約) を誤検出しない短語 (整理/統合 単独) は採らない。
+// ---------------------------------------------------------------------------
+
+const SELF_REF_CHANGE_BANLIST = [
+	'整理しました',
+	'整理されています',
+	'統合しました',
+	'統合されました',
+	'移行しました',
+	'刷新しました',
+	'リニューアルしました',
+	'新しくなりました',
+	'生まれ変わりました',
+];
+
+const SELF_REF_ROOTS = ['src/lib/domain/labels.ts', 'src/routes', 'src/lib/features'];
+const SELF_REF_EXTENSIONS = ['.ts', '.svelte'];
 // ---------------------------------------------------------------------------
 // WORKFLOW_LANE_COVERAGE (#2948) — 全 workflow が gate × lane 対応表に記載済か検証
 //
@@ -260,6 +290,40 @@ function scanConnInfo() {
 }
 
 // ---------------------------------------------------------------------------
+// self-ref-change group 検査 (#3259) — UI 文字列の「実装変更の自己言及」
+// ---------------------------------------------------------------------------
+
+function scanSelfRefChange() {
+	const files = [];
+	for (const root of SELF_REF_ROOTS) {
+		walk(path.join(REPO_ROOT, root), files, SELF_REF_EXTENSIONS, () => false);
+	}
+	const violations = [];
+	for (const f of files) {
+		// テストは UI 文言ではないため対象外
+		if (/\.(test|spec)\.(ts|mjs)$/.test(f)) continue;
+		const lines = fs.readFileSync(f, 'utf8').split(/\r?\n/);
+		for (let i = 0; i < lines.length; i++) {
+			if (isCommentLine(lines[i])) continue; // 開発記録コメントは正当 (string 値のみ検査)
+			for (const pattern of SELF_REF_CHANGE_BANLIST) {
+				const idx = lines[i].indexOf(pattern);
+				if (idx >= 0) {
+					violations.push({
+						file: relPath(f),
+						line: i + 1,
+						col: idx + 1,
+						pattern,
+						category: 'self-ref-change',
+						snippet: lines[i].trim().slice(0, 200),
+					});
+				}
+			}
+		}
+	}
+	return { fileCount: files.length, violations };
+}
+
+// ---------------------------------------------------------------------------
 // workflow-lane-coverage group 検査 (#2948)
 // ---------------------------------------------------------------------------
 
@@ -354,7 +418,29 @@ function main() {
 		return 1;
 	}
 
-	// 6. workflow-lane-coverage group (#2948) — baseline なし、未記載 1 件で fail
+	// 6. self-ref-change group (#3259) — baseline なし、UI 文字列の自己言及 1 件で fail
+	const selfRef = scanSelfRefChange();
+	console.log(
+		`[check-internal-terms] self-ref-change group (#3259): 検査 ${selfRef.fileCount} files / 違反 ${selfRef.violations.length} 件`,
+	);
+	if (selfRef.violations.length > 0) {
+		console.log(
+			'\n[check-internal-terms] ✗ FAIL — UI 文字列に実装変更の自己言及が検出されました:\n',
+		);
+		for (const v of selfRef.violations) {
+			console.log(`  ${v.file}:${v.line}:${v.col}  [${v.category}] "${v.pattern}"`);
+			console.log(`    ${v.snippet}`);
+		}
+		console.log(
+			'\n修正方針 (#3259):\n' +
+				'  - 「整理しました」「統合しました」「移行しました」等、コード再編の自己言及を UI 文言から除去\n' +
+				'  - ユーザーには現在の使い方・状態のみ伝える (例:「下のカードから設定したい項目を選んでください」)\n' +
+				'  - 変更の経緯・履歴は git / docs に置き、UI には出さない (内部事情の UI 露出を避ける)\n',
+		);
+		return 1;
+	}
+
+	// 7. workflow-lane-coverage group (#2948) — baseline なし、未記載 1 件で fail
 	const laneCoverage = scanWorkflowLaneCoverage();
 	if (laneCoverage.error) {
 		console.log(

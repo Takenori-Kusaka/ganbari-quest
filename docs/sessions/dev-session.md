@@ -178,6 +178,7 @@ MSYS_NO_PATHCONV=1 node scripts/capture.mjs --url /admin/children --presets mobi
 
 **撮影後の UI/UX セルフレビュー** — 詳細は `docs/sessions/qa-checklist-ui-quality.md` 参照。要点:
 - DESIGN.md §9 禁忌 6 点（hex 直書き / プリミティブ再実装 / 内部コード露出 / 用語ハードコード / インラインスタイル / `<style>` 50 行超）
+- **UI 文言に「実装変更の自己言及」を書かない**（「設定をグループ別に整理しました」等）。ユーザーには現在の使い方・状態だけ伝え、整理 / 統合 / 移行の経緯は git・docs に置く。`check-internal-terms.mjs` の self-ref-change group が string リテラル（コメント除く）を検出（#3259）
 - 5 年齢モード fontScale / タップサイズ
 - mobile 390px / desktop 1280px の両ビューポート
 - 色 / 形 / 用語 / 間隔 / 状態 / アクセシビリティ / 読解容易性
