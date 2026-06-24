@@ -121,7 +121,7 @@ const statusLabel = $derived.by(() => {
 	<!-- サブスクリプション概要 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h2 class="text-base font-semibold text-[var(--color-text-secondary)] mb-4">{BILLING_LABELS.subscriptionOverviewTitle}</h2>
+		<h2 class="text-base font-semibold text-[var(--color-text-secondary)] mb-4" data-tutorial="billing-overview">{BILLING_LABELS.subscriptionOverviewTitle}</h2>
 
 		<div class="billing-info-grid">
 			<div class="billing-info-item">
@@ -156,7 +156,7 @@ const statusLabel = $derived.by(() => {
 	<!-- Stripe Customer Portal セクション -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h2 class="text-base font-semibold text-[var(--color-text-secondary)] mb-2">{BILLING_LABELS.billingPortalTitle}</h2>
+		<h2 class="text-base font-semibold text-[var(--color-text-secondary)] mb-2" data-tutorial="billing-portal">{BILLING_LABELS.billingPortalTitle}</h2>
 		<p class="text-sm text-[var(--color-text-muted)] mb-4">
 			{BILLING_LABELS.billingPortalDesc}
 		</p>

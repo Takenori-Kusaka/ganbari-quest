@@ -26,6 +26,9 @@ const GUIDE_LOADERS: Record<
 	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer (応援) に統合
 	'/admin/cheer': () => import('../../../routes/(parent)/admin/cheer/_guide'),
 	'/admin/settings': () => import('../../../routes/(parent)/admin/settings/_guide'),
+	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
+	'/admin/subscription': () => import('../../../routes/(parent)/admin/subscription/_guide'),
+	'/admin/billing': () => import('../../../routes/(parent)/admin/billing/_guide'),
 };
 
 /** registry に dedicated guide が登録済のパス一覧（#3262 F1: 網羅 gate test 用）。 */
@@ -46,6 +49,9 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	// #2270 / #2274 (EPIC #2266): /admin/messages 廃止 → /admin/cheer に統合
 	'/admin/cheer': 'CHEER_GUIDE',
 	'/admin/settings': 'SETTINGS_GUIDE',
+	// #3267 (EPIC #3260 C3)
+	'/admin/subscription': 'SUBSCRIPTION_GUIDE',
+	'/admin/billing': 'BILLING_GUIDE',
 };
 
 /**
@@ -108,6 +114,32 @@ export function filterGuideStepsByTier(guide: PageGuide, planTier: PlanTier): Pa
 	return { ...guide, steps };
 }
 
+/**
+ * ページガイドの手順を実行モードでフィルタする（#3291）。
+ *
+ * `requiredRuntime: 'saas'` を持つ手順は NUC セルフホスト版（`nuc-prod`）では除外する。
+ * 例: /admin/subscription は `nuc-prod` で `NucLicensePanel`（現在のプラン / プラン管理
+ * セクション無し）を描画するため、SaaS 専用手順（`subscription-current-plan` /
+ * `subscription-plan-management`）の selector が解決できず空 spotlight になる + NUC に
+ * 無い操作（プラン選択 / Stripe Portal）を案内してしまう（ADR-0013 truth 違反）。
+ * SaaS（`aws-prod` / `local-debug` / `demo` / `build`）では全手順を表示する。
+ *
+ * {@link filterGuideStepsByTier} と同型（filter → 残 0 なら null）。両者を直列適用できる。
+ *
+ * @param guide フィルタ対象のページガイド
+ * @param runtimeMode 現在の実行モード（ADR-0040、`locals.runtimeMode` 由来）
+ * @returns 当該モードで表示すべき手順だけのガイド。残手順が 0 なら null
+ */
+export function filterGuideStepsByRuntime(
+	guide: PageGuide,
+	runtimeMode: string | undefined,
+): PageGuide | null {
+	const isNuc = runtimeMode === 'nuc-prod';
+	const steps = guide.steps.filter((step) => !(isNuc && step.requiredRuntime === 'saas'));
+	if (steps.length === 0) return null;
+	return { ...guide, steps };
+}
+
 /** 全ガイドのページID一覧（完了状態表示用） */
 export const ALL_PAGE_IDS = [
 	'admin-home',
@@ -123,4 +155,7 @@ export const ALL_PAGE_IDS = [
 	// #2270 / #2274 (EPIC #2266): admin-messages 廃止 → admin-cheer (応援) に統合
 	'admin-cheer',
 	'admin-settings',
+	// #3267 (EPIC #3260 C3)
+	'admin-subscription',
+	'admin-billing',
 ];
