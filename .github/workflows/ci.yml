@@ -63,6 +63,7 @@ jobs:
               - 'package.json'
               - 'package-lock.json'
               - 'scripts/native-dep-smoke.mjs'
+              - 'scripts/check-native-dep-pin.mjs'
             # #3191: dependabot 設定 (main 直行封鎖 regression guard) の変更検出
             dependabot:
               - '.github/dependabot.yml'
@@ -323,6 +324,12 @@ jobs:
       # 軽量レーンで捕捉する shift-left smoke (#3190 SIGSEGV class、#3191 AC3)
       - name: Native dependency smoke (SQLite/bcrypt/sharp binding 健全性)
         run: node scripts/native-dep-smoke.mjs
+
+      # SIGSEGV-safe pin (better-sqlite3@12.10.0) からの逸脱を package.json + lock で静的捕捉。
+      # #3302: runtime smoke (#3197) が CI runner 上で 12.11.1 を load でき crash を再現せず、
+      # dependabot #3293 の 12.11.1 再提案が CI green ですり抜けた空洞化を deterministic に塞ぐ。
+      - name: SIGSEGV-safe native dep pin guard (#3302)
+        run: node scripts/check-native-dep-pin.mjs
 
   # #1006 Phase 2: vitest を 2 shard に分割して並列化 (1m 23s → ~40s 目標)
   # 各 shard は coverage を出力し、unit-test-merge で合算してラチェットチェック。
