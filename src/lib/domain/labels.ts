@@ -1464,7 +1464,7 @@ export const PAGE_GUIDE_LABELS = {
 			'settings-intro': {
 				title: 'このページについて',
 				what: `${ADMIN_VIEW_TERMS.canonical}の各種設定をまとめたページです。アクセスを守るおやカギ、ポイントの表示単位、データのバックアップなどをここから設定します。`,
-				how: '設定はグループ別のカードに整理されています。設定したい項目のカードを選んで、その中の設定画面に進みます。',
+				how: '設定したい項目のカードを選んで、その中の設定画面に進みます。',
 				goal: '必要な設定にすぐたどり着けるので、おやカギの変更やバックアップなどの「念のための備え」を迷わず行えます。',
 			},
 			'settings-hub': {
@@ -2075,7 +2075,7 @@ export const SETTINGS_LABELS = {
 
 	// #2319 Phase Settings-Audit: hub page (6 グループへのナビ集約)
 	hubTitle: '設定',
-	hubDesc: '設定をグループ別に整理しました。下のカードから設定したい項目を選んでください。',
+	hubDesc: '下のカードから設定したい項目を選んでください。',
 	groupAccountTitle: 'アカウント',
 	groupAccountDesc: 'おやかぎコード変更・ログアウト・アカウント削除',
 	groupActivitiesTitle: '活動・ポイント',
