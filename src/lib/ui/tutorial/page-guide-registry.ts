@@ -28,6 +28,9 @@ const GUIDE_LOADERS: Record<
 	'/admin/settings': () => import('../../../routes/(parent)/admin/settings/_guide'),
 };
 
+/** registry に dedicated guide が登録済のパス一覧（#3262 F1: 網羅 gate test 用）。 */
+export const REGISTERED_GUIDE_PATHS = Object.keys(GUIDE_LOADERS);
+
 // ガイド名とモジュールのエクスポート名のマッピング
 const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	'/admin': 'ADMIN_HOME_GUIDE',
@@ -46,23 +49,43 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 };
 
 /**
+ * 正規化パスから「自身 → 親 → 祖先」の候補パスを最も具体的な順で返す（#3262 F1）。
+ * 例: `/admin/settings/account` → ['/admin/settings/account', '/admin/settings', '/admin']
+ */
+export function guideCandidatePaths(normalized: string): string[] {
+	const parts = normalized.split('/').filter(Boolean);
+	const out: string[] = [];
+	for (let n = parts.length; n >= 1; n--) {
+		out.push(`/${parts.slice(0, n).join('/')}`);
+	}
+	return out;
+}
+
+/**
  * パスに対応するページガイドを取得する。
- * ガイドが存在しないページの場合は null を返す。
+ *
+ * #3262 F1: 完全一致が無い場合は**親パスにフォールバック**する（最も具体的な登録済み祖先を採用）。
+ * これにより設定サブページ等の未登録パスでも親（ハブ）ガイドに degrade し、`?` ボタンが
+ * 空にならない（dead-end 防止）。個別最適ガイドは各 Content sub-issue (C1〜C7) で付与する。
+ * いずれの候補も未登録なら null。
  */
 export async function getPageGuide(path: string): Promise<PageGuide | null> {
 	// パスの正規化: 末尾スラッシュ除去、クエリパラメータ除去
 	const normalized = path.replace(/\/$/, '').split('?')[0] ?? '';
 
-	const loader = GUIDE_LOADERS[normalized];
-	if (!loader) return null;
-
-	try {
-		const mod = await loader();
-		const exportName = GUIDE_EXPORT_NAMES[normalized] ?? '';
-		return (mod as Record<string, PageGuide>)[exportName] ?? null;
-	} catch {
-		return null;
+	for (const candidate of guideCandidatePaths(normalized)) {
+		const loader = GUIDE_LOADERS[candidate];
+		if (!loader) continue;
+		try {
+			const mod = await loader();
+			const exportName = GUIDE_EXPORT_NAMES[candidate] ?? '';
+			const guide = (mod as Record<string, PageGuide>)[exportName] ?? null;
+			if (guide) return guide;
+		} catch {
+			// この候補の読込失敗 → 次の親候補を試す
+		}
 	}
+	return null;
 }
 
 /**
