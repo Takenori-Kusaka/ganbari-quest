@@ -203,9 +203,14 @@ async function submitReset() {
 								<Alert variant="info" data-testid="pin-reset-verified-code-sent">{infoMessage}</Alert>
 							{/if}
 							<div>
-								<span class="text-sm font-semibold text-[var(--color-text-primary)] block mb-2">{PIN_RESET_LABELS.resetFederatedCodeLabel}</span>
 								{#key codeInputKey}
-									<PinInput length={6} mask={false} onComplete={handleCodeComplete} />
+									<PinInput
+										length={6}
+										mask={false}
+										label={PIN_RESET_LABELS.resetFederatedCodeLabel}
+										labelClass="text-sm font-semibold text-[var(--color-text-primary)] block mb-2"
+										onComplete={handleCodeComplete}
+									/>
 								{/key}
 							</div>
 						{:else}
@@ -221,9 +226,14 @@ async function submitReset() {
 							/>
 						{/if}
 						<div>
-							<span class="text-sm font-semibold text-[var(--color-text-primary)] block mb-2">{PIN_RESET_LABELS.resetPinLabel}</span>
 							{#key pinInputKey}
-								<PinInput length={4} mask onComplete={handlePinComplete} />
+								<PinInput
+									length={4}
+									mask
+									label={PIN_RESET_LABELS.resetPinLabel}
+									labelClass="text-sm font-semibold text-[var(--color-text-primary)] block mb-2"
+									onComplete={handlePinComplete}
+								/>
 							{/key}
 						</div>
 						<Button
