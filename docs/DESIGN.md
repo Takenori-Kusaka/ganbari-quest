@@ -201,7 +201,7 @@ LP (`site/index.html`) の section padding / margin / heading / faq-item など 
 
 - `loading=true` → spinner 表示 + `disabled` + `aria-busy="true"` を強制（スクリーンリーダーにも「処理中」を伝える）
 - `<button>` 描画時のみ有効。`href` 指定の `<a>` (navigation) には loading 非対応 — ページ遷移系の feedback は遷移先で担保する
-- `ChildSelectionDialog` の取込確定ボタンは `confirmLoading` prop で本機構を内包する。marketplace 5 type 取込 (`?import=` 受領 admin 画面) の `handleChildSelectionConfirm` 中は `confirmLoading={isImporting}` + `closeOnConfirm={false}` で「取込実行中」を表示し、完了後 (finally) に親が `open=false` する
+- `ChildSelectionDialog` の取込確定ボタンは `confirmLoading` prop で本機構を内包する。marketplace 取込 4 type (`?import=` 受領 admin 画面) の `handleChildSelectionConfirm` 中は `confirmLoading={isImporting}` + `closeOnConfirm={false}` で「取込実行中」を表示し、完了後 (finally) に親が `open=false` する
 - 旧 `components/LoadingButton.svelte` は文言固定の限定 variant。新規実装は `Button` の `loading` prop を優先する
 
 ### FormField の `type` 一覧（#1191）
@@ -630,11 +630,11 @@ admin リソース管理 3 画面 (活動 / チェックリスト / ごほうび
 
 - admin 画面の「みんなのテンプレートから探す」は `/marketplace?type=<typeCode>` への**画面遷移**とし、in-page ブラウズ UI を出さない。取込実行は marketplace 詳細 → `?import=<presetId>` → `ChildSelectionDialog` の正規経路 (`marketplace-import-flow.md` §3.1) に合流させる。
 - **ファイル復元 (JSON / CSV import) はマーケットプレイスとは別概念**。`UnifiedImportHub` がブラウズ UI とファイル復元を兼ねている場合、ブラウズ UI のみ撤去し、ファイル復元は独立した導線 (例: `︙` overflow menu の「バックアップから復元」+ 専用ダイアログ、`OVERFLOW_MENU_TERMS.itemRestore`) として保持する。
-- **適用範囲**: #2558 段階2 (activities) + 段階3 (rewards / challenges / checklists / settings/rules) で**全 5 type の admin 画面で in-page browse UI を撤去完了**。`UnifiedImportHub.svelte` component 自体は Storybook / unit test / 将来用途 (LP 経由公開ブラウズ等) のため存続させる。詳細は [marketplace-import-flow.md §5.1](design/marketplace-import-flow.md)。
+- **適用範囲**: 全 5 admin 画面 (activities / rewards / challenges / checklists / settings/rules) で**in-page browse UI を撤去完了**。ただし取込先となるのは取込 4 type (activities / rewards / checklists / settings/rules) のみで、admin/challenges は marketplace 取込先ではなく読み取り専用ビュー (#3195、challenge-set は取込型ではない)。`UnifiedImportHub.svelte` component 自体は Storybook / unit test / 将来用途 (LP 経由公開ブラウズ等) のため存続させる。詳細は [marketplace-import-flow.md §5.1](design/marketplace-import-flow.md)。
 
-#### marketplace 取込 CTA 5 type 統一原則 (#2774 + #2775 で完遂、User 指摘 #2/#4 根治)
+#### marketplace 取込 CTA 取込 4 type 統一原則 (#2774 + #2775 で完遂、User 指摘 #2/#4 根治)
 
-marketplace 詳細 (`/marketplace/<typeCode>/<itemId>`) の認証済取込 CTA は、**全 5 type で `<a href="/admin/<page>?import=${itemId}">` 形式に統一**する (server action 経由は不採用、admin 側 `?import=` query → `ChildSelectionDialog` auto-open に合流)。testid は `<typeCode>-import-cta` 命名。type に応じた Strategy 分岐は `importPresetToChildren` action が担う。詳細・命名一覧は [marketplace-import-flow.md §3.1](design/marketplace-import-flow.md) (#2774 / #2775)。
+marketplace 詳細 (`/marketplace/<typeCode>/<itemId>`) の認証済取込 CTA は、**取込 4 type (activity-pack / reward-set / checklist / rule-preset) で `<a href="/admin/<page>?import=${itemId}">` 形式に統一**する (server action 経由は不採用、admin 側 `?import=` query → `ChildSelectionDialog` auto-open に合流)。testid は `<typeCode>-import-cta` 命名。type に応じた Strategy 分岐は `importPresetToChildren` action が担う。challenge-set は取込型ではない (#3195 / #3227) ため取込 CTA を持たない。詳細・命名一覧は [marketplace-import-flow.md §3.1](design/marketplace-import-flow.md) (#2774 / #2775)。
 
 #### bulk import bridge ルール
 
