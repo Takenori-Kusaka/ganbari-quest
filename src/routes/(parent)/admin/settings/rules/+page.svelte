@@ -142,7 +142,7 @@ function formatImportedAt(iso: string): string {
 </form>
 
 <div class="max-w-3xl mx-auto px-4 py-6 space-y-6" data-testid="admin-rules-page">
-	<header class="space-y-2">
+	<header class="space-y-2" data-tutorial="rules-overview">
 		<h1 class="text-xl font-bold text-[var(--color-text-primary)]">
 			{ADMIN_RULES_PAGE_LABELS.pageTitle}
 		</h1>

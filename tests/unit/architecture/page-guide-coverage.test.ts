@@ -23,13 +23,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 // C1〜C7 で dedicated guide を付与予定の顧客接点ルート (未登録 backlog)。
 // dedicated guide を実装したら該当 route を本 PENDING から削除する (REGISTERED へ移行)。
 const PENDING_GUIDE_PATHS = [
-	// C2: settings サブ 6
-	'/admin/settings/account',
-	'/admin/settings/activities',
-	'/admin/settings/data',
-	'/admin/settings/notifications',
-	'/admin/settings/rules',
-	'/admin/settings/support',
+	// C2: settings サブ 6 → #3266 で REGISTERED へ移行済
 	// C3: プラン・課金 + billing → #3267 で REGISTERED へ移行済
 	// C4: members + packs
 	'/admin/members',
