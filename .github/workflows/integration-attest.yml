@@ -52,7 +52,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout (full history)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # 含有 PR 算出 (前回統合 merge 以降) に full history が必要。
           fetch-depth: 0
@@ -243,7 +243,7 @@ jobs:
         id: attest
         if: steps.classify.outputs.is_integration == 'true'
         continue-on-error: true
-        uses: actions/attest@v3
+        uses: actions/attest@v4
         with:
           subject-name: ${{ github.repository }}@${{ steps.classify.outputs.merge_sha }}
           subject-digest: sha1:${{ steps.classify.outputs.merge_sha }}

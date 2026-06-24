@@ -193,7 +193,7 @@ jobs:
           steps.diff.outputs.has_diff == 'true' &&
           inputs.dry_run != 'true' &&
           steps.appcreds.outputs.present == 'true'
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.INTEGRATION_BOT_APP_ID }}
           private-key: ${{ secrets.INTEGRATION_BOT_APP_PRIVATE_KEY }}
