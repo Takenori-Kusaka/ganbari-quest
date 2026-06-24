@@ -27,6 +27,11 @@ updates:
     ignore:
       - dependency-name: "@types/*"
         update-types: ["version-update:semver-patch"]
+      # #3302: better-sqlite3 12.11.x は demo/SQLite (file-backed + WAL) を SIGSEGV crash させる
+      # (#3190/#3192 で 12.10.0 exact pin に根治)。upstream 修正確認まで 12.11.x を ignore。
+      # 12.12+ は再提案を許可 (修正版採用時は scripts/check-native-dep-pin.mjs の pin と同期更新)。
+      - dependency-name: "better-sqlite3"
+        versions: ["12.11.x"]
     groups:
       npm-minor-patch:
         update-types:
