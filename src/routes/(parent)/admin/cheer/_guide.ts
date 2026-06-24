@@ -1,42 +1,33 @@
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 // #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
 // step 1 は selector 省略で画面中央 modal 表示。section 見出し (小要素) を target にする。
+// #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
+const L = PAGE_GUIDE_LABELS.adminCheer;
+
 export const CHEER_GUIDE: PageGuide = {
 	pageId: 'admin-cheer',
-	title: '応援',
+	title: L.title,
 	icon: '🎉',
 	steps: [
 		// ① ページ概要
 		{
 			id: 'cheer-intro',
-			title: 'このページについて',
-			what: 'お子さまのがんばりに、その場で応援を届けるページです。理由と任意のボーナスポイントを添えて、すぐに気持ちを伝えられます。',
-			how: '送り先のお子さまを選び、応援する理由を入力して送るだけです。毎日の活動ポイントは活動タブから、その場でひと押ししたい応援はこちらから。',
-			goal: '「親が見ていて、すぐに認めてくれる」体験になり、お子さまの継続のモチベーションを支えます。',
+			...L.steps['cheer-intro'],
 		},
 		// ② 画面の見方
 		{
 			id: 'cheer-select',
 			selector: '[data-tutorial="cheer-select-heading"]',
-			title: '画面の見方（送り先を選ぶ）',
-			what: 'まず上部で、応援を送るお子さまを選びます。選んだお子さま宛てに応援が届きます。',
-			how: '1. お子さまのボタンをタップして選びます\n2. 選んだお子さまが強調表示されます',
-			goal: '兄弟姉妹がいても、応援したいお子さまを取り違えずに選べます。',
+			...L.steps['cheer-select'],
 			position: 'bottom',
 		},
 		// ③ 最頻操作
 		{
 			id: 'cheer-reason',
 			selector: '[data-tutorial="cheer-reason-heading"]',
-			title: 'よく使う操作（応援を送る）',
-			what: '最もよく使うのが応援の送信です。応援する理由を入力し、ボーナスポイントやスタンプを添えて送ります。',
-			how: '1. 応援する理由を入力（例:「うんどうかいで 1いに なったよ！」）\n2. ボーナスポイント・カテゴリ・アイコンを選択\n3. 必要なら付随のスタンプ／メッセージを添える\n4. 「応援する」をタップ',
-			goal: 'お子さまの画面にメッセージとポイントが届きます。具体的に褒めると効果が高まります。',
-			tips: [
-				'すごい瞬間にはポイント多め、日常のがんばりには少なめ、と使い分けると価値が伝わります',
-				'送った応援の履歴は、お子さまを選ぶと下部に表示されます（既読／未読も確認できます）',
-			],
+			...L.steps['cheer-reason'],
 			position: 'bottom',
 		},
 	],

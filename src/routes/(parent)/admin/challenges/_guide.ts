@@ -1,29 +1,26 @@
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 // #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
 // step 1 は selector 省略で画面中央 modal 表示。巨大要素 (challenges-page) は target にしない。
+// #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
+const L = PAGE_GUIDE_LABELS.adminChallenges;
+
 export const CHALLENGES_GUIDE: PageGuide = {
 	pageId: 'admin-challenges',
-	title: 'チャレンジ管理',
+	title: L.title,
 	icon: '🏆',
 	steps: [
 		// ① ページ概要（#3193: アプリ自動生成・全プラン・読み取り専用ビュー）
 		{
 			id: 'challenges-intro',
-			title: 'このページについて',
-			what: 'チャレンジは、日々の活動とは別の「中期的なゴール」です。アプリが毎週、お子さまの記録の傾向にあわせて、苦手なことや得意なことを伸ばす目標を自動で用意します。このページでは、そのチャレンジを保護者が一覧で見守れます。',
-			how: '設定や作成は不要です。お子さまがアプリを開くと今週のチャレンジが自動で用意され、ここに表示されます。すべてのプランでご利用いただけます。',
-			goal: 'お子さまの画面に進捗バーが表示され、達成に近づく様子が見えます。期間内に達成すると特別な演出でお祝いされます。',
+			...L.steps['challenges-intro'],
 		},
 		// ② 画面の見方（進捗の確認・削除）— selector 省略で画面中央 modal 表示
 		// (巨大要素 challenges-page は spotlight target にしない、#2926 layout invariant 整合)
 		{
 			id: 'challenges-view',
-			title: '画面の見方',
-			what: '自動で用意された今週のチャレンジと、これまでの履歴が並びます。お子さまごとの進捗バーで達成までの道のりが見えます。きょうだいで同じ目標に取り組んでいる場合は、みんなの進捗が並んで表示されます。',
-			how: 'お子さまタブで子ごとに絞り込めます。不要なチャレンジは各カードの「削除」から取り除けます（新しいチャレンジは翌週また自動で用意されます）。',
-			goal: 'どのお子さまが何にどれくらい取り組んでいるかを、設定の手間なく見守れます。',
-			tips: ['チャレンジはアプリが自動で用意するので、保護者が目標を作る必要はありません'],
+			...L.steps['challenges-view'],
 		},
 	],
 };

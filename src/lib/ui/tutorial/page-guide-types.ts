@@ -34,10 +34,10 @@ export interface GuideStep {
 	goal: string;
 
 	// 補助情報
-	/** 注意点・コツ */
-	tips?: string[];
+	/** 注意点・コツ（labels.ts の `as const` 由来で readonly。表示専用、変更しない） */
+	tips?: readonly string[];
 	/** 関連機能への導線 */
-	relatedLinks?: { label: string; href: string }[];
+	relatedLinks?: readonly { label: string; href: string }[];
 	/** この手順を表示する最低プランティア */
 	requiredTier?: PlanTier;
 	/** バブルの表示位置 */

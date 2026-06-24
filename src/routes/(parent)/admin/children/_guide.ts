@@ -1,42 +1,33 @@
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
 
 // #2927 (EPIC #2925 Sub-2): narrative を「①ページ概要 → ②画面の見方 → ③最頻操作」に統一。
 // step 1 は selector 省略で画面中央 modal 表示。
+// #3264 (EPIC #3260 F3): 表示文言は labels.ts の PAGE_GUIDE_LABELS に SSOT 集約。
+const L = PAGE_GUIDE_LABELS.adminChildren;
+
 export const CHILDREN_GUIDE: PageGuide = {
 	pageId: 'admin-children',
-	title: 'こども管理',
+	title: L.title,
 	icon: '👦',
 	steps: [
 		// ① ページ概要
 		{
 			id: 'children-intro',
-			title: 'このページについて',
-			what: 'お子さまを登録・管理するページです。お子さまごとに専用の画面が作られ、活動・ポイント・レベルが個別に記録されます。',
-			how: 'まずはお子さまを 1 人登録するところから始めます。登録すると、年齢に合わせて画面表示（ひらがな／漢字など）が自動で切り替わります。',
-			goal: '兄弟姉妹それぞれの専用画面ができ、テーマカラーで取り違えることなく一人ひとりの成長を見守れます。',
+			...L.steps['children-intro'],
 		},
 		// ② 画面の見方
 		{
 			id: 'children-list',
 			selector: '[data-tutorial="children-list"]',
-			title: '画面の見方（お子さま一覧）',
-			what: 'このページには登録済みのお子さまのカードが並びます。各カードでポイント残高・レベル・カテゴリ別の活動状況を確認できます。',
-			how: '1. お子さまのカードをタップします\n2. プロフィール詳細が表示されます\n3. 「編集」で名前やテーマカラーを変更できます',
-			goal: 'お子さまが複数いても、それぞれの進捗や得意分野をひと目で見比べられます。',
+			...L.steps['children-list'],
 			position: 'bottom',
 		},
 		// ③ 最頻操作
 		{
 			id: 'children-add',
 			selector: '[data-tutorial="add-child-btn"]',
-			title: 'よく使う操作（お子さまの追加）',
-			what: '最初に行うのがお子さまの追加です。名前・生年月日・テーマカラーを登録します。',
-			how: '1. 「＋ こどもを追加」ボタンをタップ\n2. ニックネームを入力（ひらがな推奨）\n3. 生年月日を設定\n4. テーマカラーを選択\n5. 「保存」をタップ',
-			goal: 'お子さま専用の画面が作成され、活動の記録・ポイント管理・レベルアップが個別に追跡されます。',
-			tips: [
-				'年齢によって画面の文字表現が自動で変わります（3歳→全部ひらがな、小学生→漢字まじり）',
-				'テーマカラーは後から変更できます',
-			],
+			...L.steps['children-add'],
 			position: 'bottom',
 		},
 	],

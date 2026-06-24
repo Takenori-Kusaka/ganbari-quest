@@ -2,9 +2,15 @@
 /**
  * scripts/check-guide-copy.ts (#3261 / EPIC #3260 F0)
  *
- * ページガイド（`_guide.ts` の PageGuide）の文言が「ガイド文言 作成ルール SSOT」
- * (docs/design/guide-copy-rules.md) に準拠しているかを機械検証する linter。
- * check-terminology-coherence.ts (#2555) を母体に、ガイド文言固有の規約を追加する。
+ * ページガイド文言が「ガイド文言 作成ルール SSOT」(docs/design/guide-copy-rules.md) に
+ * 準拠しているかを機械検証する linter。check-terminology-coherence.ts (#2555) を母体に、
+ * ガイド文言固有の規約を追加する。
+ *
+ * #3264 (EPIC #3260 F3): ガイド文言は `_guide.ts` のインライン直書きから labels.ts の
+ * PAGE_GUIDE_LABELS (compound 層 SSOT、ADR-0045) に集約された。本 linter は検査ソースを
+ * labels.ts の PAGE_GUIDE_LABELS に切替える（構造化済 object を直接 import して flatten）。
+ * 閾値・検査ロジック (MYSTERY_TERMS / 内部識別子露出 / 文字数上限 / step 数) は不変。
+ *   - `parseGuideSteps` (旧 `_guide.ts` ソースパーサ) は後方互換のため export 維持。
  *
  * 検出する違反（機械検証可能な範囲）:
  *   (1) 謎用語 / 非 SSOT 用語の露出  — MYSTERY_TERMS を再利用（新用語を読み手に示さない）
@@ -19,13 +25,9 @@
  */
 
 import fs from 'node:fs';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PAGE_GUIDE_LABELS } from '../src/lib/domain/labels.js';
 import { MYSTERY_TERMS } from './check-terminology-coherence.ts';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..');
 
 const FAIL_ON_VIOLATION = process.argv.includes('--fail-on-violation');
 
@@ -198,26 +200,26 @@ export function lintGuideSteps(steps: GuideStepText[], fileRel: string): CopyVio
 	return violations;
 }
 
-function findGuideFiles(): string[] {
-	const out: string[] = [];
-	const roots = [path.join(REPO_ROOT, 'src/routes')];
-	const walk = (dir: string) => {
-		for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-			const full = path.join(dir, e.name);
-			if (e.isDirectory()) walk(full);
-			else if (e.name === '_guide.ts') out.push(full);
-		}
-	};
-	for (const r of roots) if (fs.existsSync(r)) walk(r);
-	return out;
+/**
+ * PAGE_GUIDE_LABELS の 1 ページ分 (steps object) を step 順を保って GuideStepText[] に flatten する。
+ * #3264: ガイド文言 SSOT が labels.ts に移ったため、検査ソースは object literal を直接読む。
+ */
+function flattenGuideSteps(steps: Record<string, GuideStepText>): GuideStepText[] {
+	return Object.values(steps).map((s) => ({
+		title: s.title,
+		what: s.what,
+		how: s.how,
+		goal: s.goal,
+		tips: s.tips ? [...s.tips] : undefined,
+	}));
 }
 
 export function lintAllGuides(): CopyViolation[] {
 	const all: CopyViolation[] = [];
-	for (const file of findGuideFiles()) {
-		const source = fs.readFileSync(file, 'utf8');
-		const rel = file.replace(REPO_ROOT, '').replace(/\\/g, '/');
-		all.push(...lintGuideSteps(parseGuideSteps(source), rel));
+	for (const [pageKey, page] of Object.entries(PAGE_GUIDE_LABELS)) {
+		const steps = flattenGuideSteps(page.steps as Record<string, GuideStepText>);
+		// rel は「どのガイドか」を違反メッセージに示すための識別子。
+		all.push(...lintGuideSteps(steps, `PAGE_GUIDE_LABELS.${pageKey}`));
 	}
 	return all;
 }
