@@ -40,13 +40,31 @@ const GUIDE_LOADERS: Record<
 	'/admin/subscription': () => import('../../../routes/(parent)/admin/subscription/_guide'),
 	'/admin/billing': () => import('../../../routes/(parent)/admin/billing/_guide'),
 	// #3263 (EPIC #3260 F2): marketplace は AdminLayout 非使用だが admin 取込 CUJ の着地先のため
-	// ガイドを登録する。詳細ルート /marketplace/[type]/[itemId] は親パスフォールバック (#3262 F1)
-	// で本 /marketplace ガイドに degrade する。
+	// ガイドを登録する。
 	'/marketplace': () => import('../../../routes/marketplace/_guide'),
+	// #3269 (EPIC #3260 C5): marketplace 詳細 (取込 CTA) は parameterized route のため
+	// 動的セグメントを含む。GUIDE_LOADERS の key には route パターン表記 [type]/[itemId] を用い、
+	// 実パス (例: /marketplace/activity-pack/kinder-starter) は PARAMETERIZED_GUIDE_MATCHERS
+	// 経由で本 key に解決する (#3262 F1 親フォールバックより前段で dedicated guide を優先採用)。
+	'/marketplace/[type]/[itemId]': () =>
+		import('../../../routes/marketplace/[type]/[itemId]/_guide'),
 };
 
 /** registry に dedicated guide が登録済のパス一覧（#3262 F1: 網羅 gate test 用）。 */
 export const REGISTERED_GUIDE_PATHS = Object.keys(GUIDE_LOADERS);
+
+/**
+ * パラメータ付きルートの実パスを GUIDE_LOADERS の route パターン key に解決する matcher (#3269)。
+ *
+ * `guideCandidatePaths` は実パスの祖先を literal に辿るだけで動的セグメント (`[type]` 等) を
+ * 表現できない。そこで実パスを正規表現で照合し、一致したら対応する登録済みパターン key を
+ * 返す。getPageGuide はこの結果を**親フォールバックより前に**試すため、詳細ルートでは
+ * dedicated guide が `/marketplace` への degrade を上書きする。
+ */
+const PARAMETERIZED_GUIDE_MATCHERS: { re: RegExp; key: string }[] = [
+	// /marketplace/<type>/<itemId> (末尾 2 セグメント、追加セグメント無し) → 詳細ガイド
+	{ re: /^\/marketplace\/[^/]+\/[^/]+$/, key: '/marketplace/[type]/[itemId]' },
+];
 
 // ガイド名とモジュールのエクスポート名のマッピング
 const GUIDE_EXPORT_NAMES: Record<string, string> = {
@@ -75,6 +93,8 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	'/admin/billing': 'BILLING_GUIDE',
 	// #3263 (EPIC #3260 F2)
 	'/marketplace': 'MARKETPLACE_GUIDE',
+	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
+	'/marketplace/[type]/[itemId]': 'MARKETPLACE_DETAIL_GUIDE',
 };
 
 /**
@@ -91,18 +111,36 @@ export function guideCandidatePaths(normalized: string): string[] {
 }
 
 /**
+ * 正規化パスに対するガイド候補 key を「最も具体的な順」で返す（#3262 F1 + #3269）。
+ *
+ * #3269: 動的セグメントを含む route（例 `/marketplace/<type>/<itemId>`）は
+ * PARAMETERIZED_GUIDE_MATCHERS で登録済みパターン key に解決し、literal な祖先
+ * フォールバック（guideCandidatePaths）より**前段**に並べる。これにより詳細 dedicated
+ * guide が親 `/marketplace` ガイドへの degrade を上書きする。
+ */
+function resolveGuideCandidateKeys(normalized: string): string[] {
+	const out: string[] = [];
+	for (const { re, key } of PARAMETERIZED_GUIDE_MATCHERS) {
+		if (re.test(normalized)) out.push(key);
+	}
+	out.push(...guideCandidatePaths(normalized));
+	return out;
+}
+
+/**
  * パスに対応するページガイドを取得する。
  *
  * #3262 F1: 完全一致が無い場合は**親パスにフォールバック**する（最も具体的な登録済み祖先を採用）。
  * これにより設定サブページ等の未登録パスでも親（ハブ）ガイドに degrade し、`?` ボタンが
- * 空にならない（dead-end 防止）。個別最適ガイドは各 Content sub-issue (C1〜C7) で付与する。
- * いずれの候補も未登録なら null。
+ * 空にならない（dead-end 防止）。
+ * #3269: 動的セグメントを含む詳細ルートは PARAMETERIZED_GUIDE_MATCHERS で dedicated guide を
+ * 親フォールバックより優先解決する。いずれの候補も未登録なら null。
  */
 export async function getPageGuide(path: string): Promise<PageGuide | null> {
 	// パスの正規化: 末尾スラッシュ除去、クエリパラメータ除去
 	const normalized = path.replace(/\/$/, '').split('?')[0] ?? '';
 
-	for (const candidate of guideCandidatePaths(normalized)) {
+	for (const candidate of resolveGuideCandidateKeys(normalized)) {
 		const loader = GUIDE_LOADERS[candidate];
 		if (!loader) continue;
 		try {
@@ -190,4 +228,6 @@ export const ALL_PAGE_IDS = [
 	'admin-billing',
 	// #3263 (EPIC #3260 F2)
 	'marketplace',
+	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
+	'marketplace-detail',
 ];

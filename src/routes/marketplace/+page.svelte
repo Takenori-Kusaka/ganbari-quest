@@ -315,9 +315,12 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 			<div>
 				<!-- Items grid -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-					{#each data.items as item (item.type + '/' + item.itemId)}
+					{#each data.items as item, i (item.type + '/' + item.itemId)}
+						<!-- #3269 (EPIC #3260 C5): ページガイド marketplace-open step のスポットライト対象。
+							巨大コンテナ (grid 全体) を避け、先頭カード 1 枚のみに data-tutorial を付与する。 -->
 						<a
 							href="/marketplace/{item.type}/{item.itemId}"
+							data-tutorial={i === 0 ? 'marketplace-item-card' : undefined}
 							class="block hover:shadow-md transition-shadow"
 						>
 							<Card padding="lg">

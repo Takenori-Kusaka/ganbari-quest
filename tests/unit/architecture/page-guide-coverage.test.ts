@@ -14,6 +14,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+	getPageGuide,
 	guideCandidatePaths,
 	REGISTERED_GUIDE_PATHS,
 } from '../../../src/lib/ui/tutorial/page-guide-registry';
@@ -44,9 +45,9 @@ const EXEMPT_GUIDE_PATHS: Record<string, string> = {
 	'/admin/billing/cancel': '解約フロー途中 (transient)。/admin/billing にフォールバック',
 	'/admin/billing/cancel/graduation': '卒業フロー (transient)。/admin/billing にフォールバック',
 	'/admin/billing/cancel/thanks': '解約完了 (transient)。/admin/billing にフォールバック',
-	// #3263 (EPIC #3260 F2): marketplace 詳細は概要ガイドで十分。親 /marketplace にフォールバック
-	'/marketplace/[type]/[itemId]':
-		'マーケットプレイス詳細 (取込 CTA)。親 /marketplace ガイドにフォールバック',
+	// #3269 (EPIC #3260 C5): marketplace 詳細は dedicated guide（MARKETPLACE_DETAIL_GUIDE）へ昇格済。
+	//   registry に /marketplace/[type]/[itemId] が登録され、PARAMETERIZED_GUIDE_MATCHERS で
+	//   実パスから解決される（EXEMPT → REGISTERED へ移行）。
 };
 
 function listRoutePaths(): string[] {
@@ -109,5 +110,28 @@ describe('#3262 F1: 顧客接点ルートの登録漏れ網羅 gate', () => {
 			stale,
 			`PENDING に挙げた route が registry 登録済 (dedicated guide 完成)。本 PENDING リストから削除して ratchet を締める:\n${stale.map((r) => `  ${r}`).join('\n')}`,
 		).toEqual([]);
+	});
+});
+
+describe('#3269 C5: marketplace 詳細の dedicated guide 解決', () => {
+	it('一覧 /marketplace は一覧ガイド (marketplace) を解決する', async () => {
+		const guide = await getPageGuide('/marketplace');
+		expect(guide?.pageId).toBe('marketplace');
+	});
+
+	it('詳細 /marketplace/<type>/<itemId> は dedicated 詳細ガイド (marketplace-detail) を解決する (親へ degrade しない)', async () => {
+		const guide = await getPageGuide('/marketplace/activity-pack/kinder-starter');
+		expect(guide?.pageId).toBe('marketplace-detail');
+		// 取込 CUJ 終盤を案内する 3 部構成 (#3269)
+		expect(guide?.steps.length).toBe(3);
+		// 取込 CTA を selector に持つ step が含まれる (dead-end 防止 / 取り込みへ誘導)
+		expect(guide?.steps.some((s) => s.selector === '[data-testid="marketplace-detail-cta"]')).toBe(
+			true,
+		);
+	});
+
+	it('クエリ付き詳細パスでも詳細ガイドに解決する', async () => {
+		const guide = await getPageGuide('/marketplace/checklist/event-pool?import=event-pool');
+		expect(guide?.pageId).toBe('marketplace-detail');
 	});
 });
