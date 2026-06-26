@@ -4,6 +4,12 @@
  * 全ページのガイド定義を集約し、パスベースで取得する。
  */
 
+// #3314: 動的セグメント（[type]/[itemId]）を含むパスの動的 import は Vite/Rollup の
+// build で chunk が emit されず runtime で reject する（literal bracket path を dynamic import が
+// 解決できない）。reject は getPageGuide の catch に飲まれ親 /marketplace 一覧ガイドへ silent
+// degrade していた。bracket path の guide のみ static import で確実に bundle へ取り込む
+// （admin 系の () group path は dynamic import で正しく bundle されるため従来どおり）。
+import { MARKETPLACE_DETAIL_GUIDE } from '../../../routes/marketplace/[type]/[itemId]/_guide';
 import type { PageGuide } from './page-guide-types';
 import { meetsRequiredTier, type PlanTier } from './tutorial-types';
 
@@ -46,8 +52,9 @@ const GUIDE_LOADERS: Record<
 	// 動的セグメントを含む。GUIDE_LOADERS の key には route パターン表記 [type]/[itemId] を用い、
 	// 実パス (例: /marketplace/activity-pack/kinder-starter) は PARAMETERIZED_GUIDE_MATCHERS
 	// 経由で本 key に解決する (#3262 F1 親フォールバックより前段で dedicated guide を優先採用)。
-	'/marketplace/[type]/[itemId]': () =>
-		import('../../../routes/marketplace/[type]/[itemId]/_guide'),
+	// #3314: bracket path は dynamic import が build で解決できないため static import 済の
+	// 定数を Promise でラップして返す（loader interface は維持、確実に bundle される）。
+	'/marketplace/[type]/[itemId]': () => Promise.resolve({ MARKETPLACE_DETAIL_GUIDE }),
 	// #3268 (EPIC #3260 C4): 家族メンバー / パック
 	'/admin/members': () => import('../../../routes/(parent)/admin/members/_guide'),
 	'/admin/packs': () => import('../../../routes/(parent)/admin/packs/_guide'),
@@ -163,8 +170,14 @@ export async function getPageGuide(path: string): Promise<PageGuide | null> {
 			const exportName = GUIDE_EXPORT_NAMES[candidate] ?? '';
 			const guide = (mod as Record<string, PageGuide>)[exportName] ?? null;
 			if (guide) return guide;
-		} catch {
-			// この候補の読込失敗 → 次の親候補を試す
+		} catch (err) {
+			// この候補の読込失敗 → 次の親候補を試す。
+			// #3314: 登録済 loader の reject を黙殺すると、本来出るべき dedicated guide が
+			// 親へ silent degrade する（detail→list 退行を E2E まで気付けなかった原因）。
+			// 開発時に loader 失敗を可視化し、build/bundle 由来の解決失敗を早期検知する。
+			if (typeof console !== 'undefined') {
+				console.warn(`[page-guide] loader failed for "${candidate}", falling back to parent`, err);
+			}
 		}
 	}
 	return null;
