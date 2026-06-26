@@ -32,6 +32,9 @@ interface Props {
 		// #3291: ADR-0040 実行モード (`+layout.server.ts` が locals.runtimeMode を配布)。
 		// AdminLayout へ橋渡しし、NUC で SaaS 専用ガイド手順を除外するために使う。
 		runtimeMode?: string;
+		// #3296: Stripe 決済の有効性 (`+layout.server.ts` が isStripeEnabled() を配布)。
+		// AdminLayout へ橋渡しし、Stripe 無効時に requiredStripe='enabled' ガイド手順を除外する。
+		stripeEnabled?: boolean;
 	};
 	children: Snippet;
 }
@@ -78,7 +81,7 @@ $effect(() => {
 // 設定 > サポート (/admin/settings/support) の単独 SSOT (PO 判断: 各ページには不要)。
 </script>
 
-<AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining} runtimeMode={data.runtimeMode}>
+<AdminLayout mode="live" basePath="/admin" isPremium={data.isPremium ?? false} planTier={data.planTier ?? 'free'} authMode={data.authMode} {trialDaysRemaining} runtimeMode={data.runtimeMode} stripeEnabled={data.stripeEnabled}>
 	<!-- #2821: setup 由来で admin に着地したときの文脈バナー (続きの step へ戻る導線) -->
 	{#if data.setupOnboarding}
 		<div style:margin-bottom="16px">

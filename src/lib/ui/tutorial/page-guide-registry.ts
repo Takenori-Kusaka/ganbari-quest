@@ -176,16 +176,29 @@ export function filterGuideStepsByTier(guide: PageGuide, planTier: PlanTier): Pa
 }
 
 /**
- * ページガイドの手順を実行モードでフィルタする（#3291）。
+ * SaaS 系の実行モード集合（ADR-0040、`nuc-prod` 以外）。`requiredRuntime: 'saas'` 手順の
+ * 表示可否判定に使う。集合に明示列挙することで、未知 / undefined な runtimeMode は
+ * fail-closed（saas / nuc いずれの限定手順も除外）になる（#3296 Part 3）。
+ */
+const SAAS_RUNTIME_MODES = new Set<string>(['build', 'demo', 'local-debug', 'aws-prod']);
+
+/**
+ * ページガイドの手順を実行モードでフィルタする（#3291 / #3296）。
  *
- * `requiredRuntime: 'saas'` を持つ手順は NUC セルフホスト版（`nuc-prod`）では除外する。
- * 例: /admin/subscription は `nuc-prod` で `NucLicensePanel`（現在のプラン / プラン管理
- * セクション無し）を描画するため、SaaS 専用手順（`subscription-current-plan` /
- * `subscription-plan-management`）の selector が解決できず空 spotlight になる + NUC に
- * 無い操作（プラン選択 / Stripe Portal）を案内してしまう（ADR-0013 truth 違反）。
- * SaaS（`aws-prod` / `local-debug` / `demo` / `build`）では全手順を表示する。
+ * - `requiredRuntime: 'saas'` 手順は SaaS（`build` / `demo` / `local-debug` / `aws-prod`）でのみ表示。
+ *   NUC（`nuc-prod`）では `NucLicensePanel`（現在のプラン / プラン管理セクション無し）を描画するため、
+ *   selector 未解決の空 spotlight + 実装にない操作案内（ADR-0013 truth 違反）になるので除外する。
+ * - `requiredRuntime: 'nuc'` 手順は NUC でのみ表示し、SaaS では除外（#3296、NucLicensePanel 固有の
+ *   Edition badge / 利用状況を spotlight する NUC 専用手順）。
+ * - `requiredRuntime` 未指定の手順は全モードで表示する。
  *
- * {@link filterGuideStepsByTier} と同型（filter → 残 0 なら null）。両者を直列適用できる。
+ * **fail-closed（#3296 Part 3）**: `runtimeMode` が undefined / 未知値のときは saas / nuc いずれの
+ * 限定手順も**除外**する。`locals.runtimeMode` 配布（#2327/#2328）が regression したとき、NUC に
+ * SaaS 専用手順が露出して実装にない操作を案内する（ADR-0013 違反）リスクを断つため、安全側に倒す。
+ * 結果として未確定時は `requiredRuntime` 無しの手順（intro 等）だけが残る。
+ *
+ * {@link filterGuideStepsByTier} / {@link filterGuideStepsByStripe} と同型（filter → 残 0 なら null）。
+ * 三者を直列適用できる。
  *
  * @param guide フィルタ対象のページガイド
  * @param runtimeMode 現在の実行モード（ADR-0040、`locals.runtimeMode` 由来）
@@ -196,7 +209,46 @@ export function filterGuideStepsByRuntime(
 	runtimeMode: string | undefined,
 ): PageGuide | null {
 	const isNuc = runtimeMode === 'nuc-prod';
-	const steps = guide.steps.filter((step) => !(isNuc && step.requiredRuntime === 'saas'));
+	const isSaas = runtimeMode !== undefined && SAAS_RUNTIME_MODES.has(runtimeMode);
+	const steps = guide.steps.filter((step) => {
+		switch (step.requiredRuntime) {
+			case 'saas':
+				return isSaas;
+			case 'nuc':
+				return isNuc;
+			default:
+				return true;
+		}
+	});
+	if (steps.length === 0) return null;
+	return { ...guide, steps };
+}
+
+/**
+ * ページガイドの手順を Stripe 決済の有効性でフィルタする（#3296）。
+ *
+ * `requiredStripe: 'enabled'` 手順は `stripeEnabled === true` のときのみ表示する。
+ * 例: `subscription-plan-management` は `SaasLicensePanel` の `{#if stripeEnabled}` ブロック内
+ * （プラン管理セクション）を spotlight するため、Stripe 無効（`STRIPE_SECRET_KEY` 未設定）な
+ * `local-debug` / `demo` では selector 未解決 → 空 spotlight になる。これは runtimeMode='saas' 軸
+ * とは直交する同クラスの空 spotlight（ADR-0061 same-class）であり、本フィルタで塞ぐ。
+ *
+ * **fail-closed**: `stripeEnabled` が undefined のときも除外する（配布 regression 時に
+ * 描画されない UI を spotlight しない安全側）。
+ *
+ * {@link filterGuideStepsByRuntime} と同型（filter → 残 0 なら null）。直列適用できる。
+ *
+ * @param guide フィルタ対象のページガイド
+ * @param stripeEnabled `isStripeEnabled()` 由来（admin `+layout.server.ts` が配布）
+ * @returns Stripe 有効性に整合する手順だけのガイド。残手順が 0 なら null
+ */
+export function filterGuideStepsByStripe(
+	guide: PageGuide,
+	stripeEnabled: boolean | undefined,
+): PageGuide | null {
+	const steps = guide.steps.filter(
+		(step) => step.requiredStripe !== 'enabled' || stripeEnabled === true,
+	);
 	if (steps.length === 0) return null;
 	return { ...guide, steps };
 }
