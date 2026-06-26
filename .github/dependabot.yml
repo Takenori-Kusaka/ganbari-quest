@@ -34,6 +34,11 @@ updates:
         versions: ["12.11.x"]
     groups:
       npm-minor-patch:
+        # #3311: grouped update が per-dependency ignore (上記 better-sqlite3 12.11.x) を
+        # すり抜けて 12.11.1 を再取込した regression を根治。group 自体から除外し再発を断つ
+        # (#3302 SIGSEGV regression guard / scripts/check-native-dep-pin.mjs と同期)。
+        exclude-patterns:
+          - "better-sqlite3"
         update-types:
           - "minor"
           - "patch"
