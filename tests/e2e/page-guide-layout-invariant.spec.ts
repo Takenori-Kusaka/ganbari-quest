@@ -40,6 +40,9 @@ const ADMIN_GUIDE_PAGES = [
 	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
 	'/admin/subscription',
 	'/admin/billing',
+	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	'/admin/members',
+	'/admin/packs',
 ] as const;
 
 const VIEWPORTS = [

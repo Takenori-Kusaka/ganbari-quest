@@ -48,6 +48,9 @@ const GUIDE_LOADERS: Record<
 	// 経由で本 key に解決する (#3262 F1 親フォールバックより前段で dedicated guide を優先採用)。
 	'/marketplace/[type]/[itemId]': () =>
 		import('../../../routes/marketplace/[type]/[itemId]/_guide'),
+	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	'/admin/members': () => import('../../../routes/(parent)/admin/members/_guide'),
+	'/admin/packs': () => import('../../../routes/(parent)/admin/packs/_guide'),
 };
 
 /** registry に dedicated guide が登録済のパス一覧（#3262 F1: 網羅 gate test 用）。 */
@@ -95,6 +98,9 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	'/marketplace': 'MARKETPLACE_GUIDE',
 	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
 	'/marketplace/[type]/[itemId]': 'MARKETPLACE_DETAIL_GUIDE',
+	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	'/admin/members': 'MEMBERS_GUIDE',
+	'/admin/packs': 'PACKS_GUIDE',
 };
 
 /**
@@ -230,4 +236,7 @@ export const ALL_PAGE_IDS = [
 	'marketplace',
 	// #3269 (EPIC #3260 C5): marketplace 詳細 dedicated guide
 	'marketplace-detail',
+	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	'admin-members',
+	'admin-packs',
 ];
