@@ -41,7 +41,7 @@ const planStats = $derived(data.planStats);
 	<!-- 1. Edition badge (Mattermost Team Edition 整合) -->
 	<Card variant="elevated" padding="lg">
 		{#snippet children()}
-			<div class="edition-badge" data-testid="nuc-edition-badge">
+			<div class="edition-badge" data-testid="nuc-edition-badge" data-tutorial="nuc-edition">
 				<h2 class="text-xl font-bold text-[var(--color-text-primary)] mb-2">
 					{NUC_LICENSE_LABELS.editionTitle}
 				</h2>
@@ -55,7 +55,10 @@ const planStats = $derived(data.planStats);
 	<!-- 2. 利用状況 -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-			<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">
+			<h3
+				class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4"
+				data-tutorial="nuc-usage"
+			>
 				{NUC_LICENSE_LABELS.usageTitle}
 			</h3>
 			<dl class="grid gap-3" data-testid="nuc-usage-list">

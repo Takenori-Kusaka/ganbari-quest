@@ -1630,13 +1630,28 @@ export const PAGE_GUIDE_LABELS = {
 				how: '1. 上部で現在のプランを確認します\n2. 下の「プラン管理」で変更できます',
 				goal: '今どのプランかをすぐ確認でき、変更前の状態を把握できます。',
 			},
-			// ③ 最頻操作（プラン管理）— SaaS 版のみ。実 UI は契約状況で分岐するため両分岐を記述する。
+			// ③ 最頻操作（プラン管理）— SaaS 版 + Stripe 有効時のみ。実 UI は契約状況で分岐するため両分岐を記述する。
 			'subscription-plan-management': {
 				title: `よく使う操作（${PLAN_CHANGE_TERMS.changeNoun}）`,
 				what: `プランの開始・変更をここから行います。まだ有料プランをご契約でないときはプランを選んでお申し込みでき、ご契約済みのときは${STRIPE_PORTAL_TERMS.canonical}での管理に進めます。`,
 				how: `・未契約のとき: 1. プランを選びます 2. 申し込みボタンで手続きします\n・契約済みのとき: 1. ${STRIPE_PORTAL_TERMS.short}を開きます 2. プラン変更や支払い方法を手続きします`,
 				goal: `${PLAN_CHANGE_TERMS.changeNoun}が反映され、支払い方法も${STRIPE_PORTAL_TERMS.short}で管理できます。`,
 				tips: [`${CANCEL_TERMS.anytime}できます`],
+			},
+			// ②' 画面の見方（ご利用中の版）— NUC セルフホスト版のみ（#3296）。NucLicensePanel の
+			// Edition badge を spotlight し、全機能が制限なく使える旨を案内する。
+			'subscription-nuc-edition': {
+				title: '画面の見方（ご利用中の版）',
+				what: `このおうちのサーバーで動かす${NUC_EDITION_TERMS.selfHosted}です。${NUC_EDITION_TERMS.fullAccess}で、お子さまや活動の数に制限はありません。`,
+				how: 'ここに版の名前と、使える範囲が表示されます。お申し込みや支払いの手続きは必要ありません。',
+				goal: '追加の費用や手続きなしで、すべての機能をそのまま使えることが分かります。',
+			},
+			// ③' 画面の見方（利用状況）— NUC セルフホスト版のみ（#3296）。利用状況セクションを spotlight。
+			'subscription-nuc-usage': {
+				title: '画面の見方（利用状況）',
+				what: '今このアプリに登録されているお子さまの人数や、これまでに作った活動の数を確認できます。',
+				how: '1. 登録人数や活動数の一覧を見ます\n2. データの保存期間もあわせて確認できます',
+				goal: 'どれくらい使っているかをひと目で把握できます。',
 			},
 		},
 	},

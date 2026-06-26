@@ -13,6 +13,7 @@ import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
 import {
 	filterGuideStepsByRuntime,
+	filterGuideStepsByStripe,
 	filterGuideStepsByTier,
 	getPageGuide,
 } from '$lib/ui/tutorial/page-guide-registry';
@@ -48,6 +49,9 @@ interface Props {
 	/** #3291: ADR-0040 実行モード (`locals.runtimeMode` 由来)。NUC セルフホスト版で
 	 *   SaaS 専用ガイド手順 (requiredRuntime='saas') を除外するために使う。 */
 	runtimeMode?: string;
+	/** #3296: Stripe 決済の有効性 (`isStripeEnabled()` 由来、`+layout.server.ts` が配布)。
+	 *   Stripe 無効時に `requiredStripe='enabled'` ガイド手順 (プラン管理 spotlight) を除外する。 */
+	stripeEnabled?: boolean;
 }
 
 let {
@@ -59,6 +63,7 @@ let {
 	authMode,
 	trialDaysRemaining = null,
 	runtimeMode,
+	stripeEnabled,
 }: Props = $props();
 
 const isDemo = $derived(mode === 'demo');
@@ -81,11 +86,13 @@ $effect(() => {
 		// (空ガイドを開くと dead-end になるため)。現状 challenges は free でも非 gate 手順が
 		// 1 つ残るため button は維持されるが、将来 family 限定手順のみのページが追加されても
 		// 自動で button が抑止される。
-		// #3291: tier フィルタ後に runtime フィルタも適用し、NUC で SaaS 専用手順のみのページ
-		// (残 0) では ❓ を抑止する。両フィルタは filter → 残 0 なら null で同型・直列適用可。
+		// #3291 / #3296: tier → runtime → stripe の 3 フィルタを直列適用し、全手順が除外される
+		// ページ (残 0) では ❓ を抑止する。3 者は filter → 残 0 なら null で同型・直列適用可。
 		const tierFiltered = guide === null ? null : filterGuideStepsByTier(guide, planTier);
+		const runtimeFiltered =
+			tierFiltered === null ? null : filterGuideStepsByRuntime(tierFiltered, runtimeMode);
 		hasPageGuide =
-			tierFiltered !== null && filterGuideStepsByRuntime(tierFiltered, runtimeMode) !== null;
+			runtimeFiltered !== null && filterGuideStepsByStripe(runtimeFiltered, stripeEnabled) !== null;
 	});
 });
 
@@ -98,9 +105,12 @@ async function handleStartPageGuide() {
 	// #2919: 現在のプランで表示できない手順 (requiredTier 未達、例: challenges-intro の family)
 	// を除外してから起動する。free ユーザーに「上位プラン限定」の手順を見せない (NN/G #1 / #5)。
 	// #3291: NUC では SaaS 専用手順 (requiredRuntime='saas') も除外してから起動する。
+	// #3296: Stripe 無効時は requiredStripe='enabled' 手順 (プラン管理 spotlight) も除外する。
 	const tierFiltered = filterGuideStepsByTier(guide, planTier);
-	const filtered =
+	const runtimeFiltered =
 		tierFiltered === null ? null : filterGuideStepsByRuntime(tierFiltered, runtimeMode);
+	const filtered =
+		runtimeFiltered === null ? null : filterGuideStepsByStripe(runtimeFiltered, stripeEnabled);
 	if (filtered) {
 		startPageGuide(filtered);
 	}
