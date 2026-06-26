@@ -26,9 +26,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const PENDING_GUIDE_PATHS = [
 	// C2: settings サブ 6 → #3266 で REGISTERED へ移行済
 	// C3: プラン・課金 + billing → #3267 で REGISTERED へ移行済
-	// C4: members + packs
-	'/admin/members',
-	'/admin/packs',
+	// C4: members + packs → #3268 で REGISTERED へ移行済
 	// C5: marketplace → #3263 (F2) で /marketplace は REGISTERED へ移行済
 	//   (/marketplace/[type]/[itemId] は親フォールバックで十分なため EXEMPT へ移動)
 	// C7: 低頻度顧客接点

@@ -33,7 +33,7 @@ const categoryLabels: Record<string, string> = {
 </svelte:head>
 
 <div class="pb-6">
-	<h1 class="text-lg font-bold text-[var(--color-text)] mb-1">{PACKS_PAGE_LABELS.pageTitle}</h1>
+	<h1 class="text-lg font-bold text-[var(--color-text)] mb-1" data-tutorial="packs-overview">{PACKS_PAGE_LABELS.pageTitle}</h1>
 	<p class="text-sm text-[var(--color-text-muted)] mb-4">
 		{PACKS_PAGE_LABELS.pageDesc}
 	</p>
