@@ -64,6 +64,9 @@ jobs:
               - 'package-lock.json'
               - 'scripts/native-dep-smoke.mjs'
               - 'scripts/check-native-dep-pin.mjs'
+              # #3298: 高権限 GitHub Actions の SHA pin gate (workflow / guard 変更で再検査)
+              - '.github/workflows/**'
+              - 'scripts/check-action-sha-pin.mjs'
             # #3191: dependabot 設定 (main 直行封鎖 regression guard) の変更検出
             dependabot:
               - '.github/dependabot.yml'
@@ -331,6 +334,12 @@ jobs:
       - name: SIGSEGV-safe native dep pin guard (#3302)
         run: node scripts/check-native-dep-pin.mjs
 
+      # 高権限 GitHub Actions (create-github-app-token / attest / cache) の floating tag pin への
+      # regression を捕捉。tag は mutable で再付け替えにより secret 消費 CI に任意コード混入し得る
+      # (GitHub 公式 security hardening guide が SHA pin 推奨)。#3298。
+      - name: 高権限 GitHub Actions SHA pin guard (#3298)
+        run: node scripts/check-action-sha-pin.mjs
+
   # #1006 Phase 2: vitest を 2 shard に分割して並列化 (1m 23s → ~40s 目標)
   # 各 shard は coverage を出力し、unit-test-merge で合算してラチェットチェック。
   # shard 実行時は threshold 未達でも fail しない (部分カバレッジのため不正確)。
@@ -480,7 +489,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v6
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -525,7 +534,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v6
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -593,7 +602,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v6
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -685,7 +694,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache-matrix
-        uses: actions/cache@v6
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -742,7 +751,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache-cognito
-        uses: actions/cache@v6
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -835,7 +844,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache-demo
-        uses: actions/cache@v6
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}

@@ -243,7 +243,7 @@ jobs:
         id: attest
         if: steps.classify.outputs.is_integration == 'true'
         continue-on-error: true
-        uses: actions/attest@v4
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-name: ${{ github.repository }}@${{ steps.classify.outputs.merge_sha }}
           subject-digest: sha1:${{ steps.classify.outputs.merge_sha }}
