@@ -43,6 +43,10 @@ const ADMIN_GUIDE_PAGES = [
 	// #3268 (EPIC #3260 C4): 家族メンバー / パック
 	'/admin/members',
 	'/admin/packs',
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
+	'/admin/certificates',
+	'/admin/growth-book',
+	'/admin/rewards/requests',
 ] as const;
 
 const VIEWPORTS = [
