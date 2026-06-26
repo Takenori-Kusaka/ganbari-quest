@@ -51,6 +51,11 @@ const GUIDE_LOADERS: Record<
 	// #3268 (EPIC #3260 C4): 家族メンバー / パック
 	'/admin/members': () => import('../../../routes/(parent)/admin/members/_guide'),
 	'/admin/packs': () => import('../../../routes/(parent)/admin/packs/_guide'),
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ。getPageGuide は最具体一致が先に効くため
+	// /admin/rewards/requests は親 /admin/rewards より本ガイドが優先される。
+	'/admin/certificates': () => import('../../../routes/(parent)/admin/certificates/_guide'),
+	'/admin/growth-book': () => import('../../../routes/(parent)/admin/growth-book/_guide'),
+	'/admin/rewards/requests': () => import('../../../routes/(parent)/admin/rewards/requests/_guide'),
 };
 
 /** registry に dedicated guide が登録済のパス一覧（#3262 F1: 網羅 gate test 用）。 */
@@ -101,6 +106,10 @@ const GUIDE_EXPORT_NAMES: Record<string, string> = {
 	// #3268 (EPIC #3260 C4): 家族メンバー / パック
 	'/admin/members': 'MEMBERS_GUIDE',
 	'/admin/packs': 'PACKS_GUIDE',
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
+	'/admin/certificates': 'CERTIFICATES_GUIDE',
+	'/admin/growth-book': 'GROWTH_BOOK_GUIDE',
+	'/admin/rewards/requests': 'REWARDS_REQUESTS_GUIDE',
 };
 
 /**
@@ -291,4 +300,8 @@ export const ALL_PAGE_IDS = [
 	// #3268 (EPIC #3260 C4): 家族メンバー / パック
 	'admin-members',
 	'admin-packs',
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
+	'admin-certificates',
+	'admin-growth-book',
+	'admin-rewards-requests',
 ];

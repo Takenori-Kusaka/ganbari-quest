@@ -29,10 +29,7 @@ const PENDING_GUIDE_PATHS = [
 	// C4: members + packs → #3268 で REGISTERED へ移行済
 	// C5: marketplace → #3263 (F2) で /marketplace は REGISTERED へ移行済
 	//   (/marketplace/[type]/[itemId] は親フォールバックで十分なため EXEMPT へ移動)
-	// C7: 低頻度顧客接点
-	'/admin/certificates',
-	'/admin/growth-book',
-	'/admin/rewards/requests',
+	// C7: 低頻度顧客接点 → #3271 で certificates / growth-book / rewards/requests を REGISTERED へ移行済
 ];
 
 // dedicated guide 不要 (親フォールバックで十分) なルート。各々理由を明記。

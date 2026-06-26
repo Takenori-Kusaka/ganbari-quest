@@ -41,6 +41,10 @@ const ADMIN_GUIDE_PAGES = [
 	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
 	'/admin/subscription',
 	'/admin/billing',
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
+	'/admin/certificates',
+	'/admin/growth-book',
+	'/admin/rewards/requests',
 ] as const;
 
 const GUIDE_BTN = '[data-tutorial="page-guide-btn"]';
