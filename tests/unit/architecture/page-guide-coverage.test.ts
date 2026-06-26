@@ -23,7 +23,9 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 // C1〜C7 で dedicated guide を付与予定の顧客接点ルート (未登録 backlog)。
 // dedicated guide を実装したら該当 route を本 PENDING から削除する (REGISTERED へ移行)。
-const PENDING_GUIDE_PATHS = [
+// 全 C1〜C7 が REGISTERED へ移行済のため現状は空。新規 backlog ルート追加時に列挙する
+// (空配列は型注釈が無いと implicitly any[] になり svelte-check warning=error で fail するため string[] 明示)。
+const PENDING_GUIDE_PATHS: string[] = [
 	// C2: settings サブ 6 → #3266 で REGISTERED へ移行済
 	// C3: プラン・課金 + billing → #3267 で REGISTERED へ移行済
 	// C4: members + packs → #3268 で REGISTERED へ移行済
