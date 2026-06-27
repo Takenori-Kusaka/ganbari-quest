@@ -835,7 +835,9 @@ describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gati
 
 		// 一方だけが成功し、他方は付与なしで「すでに受け取り済みです」
 		const results = [first, second];
-		const successes = results.filter((r): r is { points: number; message?: string } => 'points' in r);
+		const successes = results.filter(
+			(r): r is { points: number; message?: string } => 'points' in r,
+		);
 		const failures = results.filter((r): r is { error: string } => 'error' in r);
 		expect(successes).toHaveLength(1);
 		expect(failures).toHaveLength(1);
