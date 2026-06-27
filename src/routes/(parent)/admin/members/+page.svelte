@@ -238,7 +238,7 @@ const roleLabel = (role: string) => {
 
 <div class="space-y-6">
 	<!-- メンバー一覧 -->
-	<Card variant="default" padding="md">
+	<Card variant="default" padding="md" data-tutorial="members-list">
 		{#snippet children()}
 		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.currentMembersTitle}</h3>
 
@@ -312,7 +312,7 @@ const roleLabel = (role: string) => {
 	</Card>
 
 	<!-- 招待リンク作成 -->
-	<Card variant="default" padding="md">
+	<Card variant="default" padding="md" data-tutorial="members-invite">
 		{#snippet children()}
 		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.inviteSectionTitle}</h3>
 

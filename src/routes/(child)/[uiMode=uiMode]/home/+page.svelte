@@ -6,10 +6,12 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import {
 	APP_LABELS,
 	CHILD_HOME_LABELS,
+	FEATURES_LABELS,
 	getErrorNotifyLabels,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
+import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
@@ -28,7 +30,6 @@ import { createProductionDashboardService } from '$lib/services/production/Dashb
 import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
-import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 // #2295 (EPIC #2294 ①): EventBanner / MonthlyRewardDialog 削除済 (2026-05-19)
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
@@ -104,6 +105,21 @@ const celebrationChallenge = $derived(
 	) ?? null,
 );
 let showCelebration = $state(true);
+
+// #3333 fix (B): 個別完了したチャレンジのごほうび受取導線（旧 ChallengeBanner の per-instance claim 復元）。
+// per-child 報酬モデル（ADR-0055）+ #2488 must-1 の設計意図 = 「自身の instance が completed=1 かつ
+// rewardClaimed=0 なら受取可能」。この card を claim の単一経路（永続 claim 導線）にする。
+// SiblingCelebration は dismissible な祝福演出のみを担い claim form を持たないため、単一児
+// （allCompleted=自身完了）でも dismiss で受取不能（dead-end）にならない。完了済・未受取なら
+// 兄弟全完了 / 個別完了いずれでも常に card で受取できる（`!allCompleted` 排他を撤去、二重導線も排除）。
+// server は claim-first で原子化済（既請求は付与せず error）。
+let challengeClaiming = $state(false);
+const claimableChallenge = $derived(
+	data.activeChallenges?.find(
+		(c: { childId: number; completed: number; rewardClaimed: number }) =>
+			c.childId === (data.child?.id ?? 0) && c.completed === 1 && c.rewardClaimed === 0,
+	) ?? null,
+);
 
 // Pin context menu state
 let pinMenuOpen = $state(false);
@@ -254,6 +270,34 @@ function getCategoryMissionCount(categoryId: number) {
 function getCategoryCompletedMissionCount(categoryId: number) {
 	return data.activities.filter((a) => a.categoryId === categoryId && a.isMission && isCompleted(a))
 		.length;
+}
+
+// #3333: チャレンジ対象カテゴリ → 進捗。旧 ChallengeBanner 横長バナーの代替として、
+// 対象カテゴリの CategorySection ヘッダーに静的バッジ + インライン進捗を表示する
+// (#2146/#2168 カード演出統合思想)。
+const challengeTargetByCategory = $derived(
+	new Map(
+		(
+			data.challengeTargets ??
+			([] as {
+				categoryId: number;
+				currentValue: number;
+				targetValue: number;
+				completed: boolean;
+				title: string;
+			}[])
+		).map((t) => [t.categoryId, t]),
+	),
+);
+function getChallengeTarget(categoryId: number) {
+	const t = challengeTargetByCategory.get(categoryId);
+	if (!t) return null;
+	return {
+		current: t.currentValue,
+		target: t.targetValue,
+		remaining: Math.max(0, t.targetValue - t.currentValue),
+		completed: t.completed,
+	};
 }
 
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
@@ -628,6 +672,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		{xpAnimatingCategoryId}
 		{getCategoryMissionCount}
 		{getCategoryCompletedMissionCount}
+		{getChallengeTarget}
 		onActivityTap={handleActivityTap}
 		onActivityLongPress={handleActivityLongPress}
 		onRecordSubmit={(activityId) => {
@@ -638,14 +683,51 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	/>
 
 	<!-- #2295 (EPIC #2294 ①): Season event banner 削除済 (2026-05-19) -->
+	<!--
+		#3333: 旧 ChallengeBanner 横長バナーを撤去。チャレンジ対象は対象カテゴリの
+		CategorySection ヘッダーに静的バッジ + インライン進捗で統合（ProdDashboardSections 経由、
+		#2146/#2168 カード演出統合思想）。ごほうび受取は下のコンパクトな永続 claim-card が単一経路で担う
+		（#2488 must-1 / per-child 報酬 ADR-0055）。SiblingCelebration は祝福演出のみで claim を持たない。
+	-->
 
-	<!-- Sibling challenge banners -->
-	{#if data.activeChallenges && data.activeChallenges.length > 0}
-		<ChallengeBanner
-			challenges={data.activeChallenges}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
-		/>
+	<!-- #3333 fix (B): 完了済・未受取チャレンジのごほうび受取（旧 ChallengeBanner per-instance claim の復元）。
+	     横長 banner ではなくコンパクトなカード演出（fitness function denylist 非該当 / #2146/#2168 整合）。
+	     単一児 / 多子いずれも completed=1 && rewardClaimed=0 なら常時表示の永続 claim 導線（dead-end 回避）。
+	     claim はこの card 単一経路に集約し二重導線 / 二重 POST を排除。server は claim-first で原子化。 -->
+	{#if claimableChallenge}
+		<div
+			class="mx-auto my-[var(--sp-sm)] max-w-xs rounded-[var(--radius-md)] bg-[var(--color-surface-success)] px-[var(--sp-md)] py-[var(--sp-sm)] text-center"
+			data-testid="challenge-reward-claim-card"
+		>
+			<p class="text-sm font-bold text-[var(--color-feedback-success-text)]">
+				<span aria-hidden="true">{CONCEPT_ICONS.challenge}</span>
+				{claimableChallenge.title}
+			</p>
+			<form
+				method="POST"
+				action="?/claimChallengeReward"
+				use:enhance={() => {
+					if (challengeClaiming) return ({ update }) => update();
+					challengeClaiming = true;
+					return async ({ update }) => {
+						await update();
+						challengeClaiming = false;
+					};
+				}}
+			>
+				<input type="hidden" name="challengeId" value={claimableChallenge.id} />
+				<Button
+					type="submit"
+					variant="primary"
+					size="sm"
+					class="mt-[var(--sp-sm)] w-full"
+					disabled={challengeClaiming}
+					data-testid="challenge-reward-claim-btn"
+				>
+					{FEATURES_LABELS.challenge.celebrationClaimBtn}
+				</Button>
+			</form>
+		</div>
 	{/if}
 </div>
 
@@ -919,8 +1001,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {#if f.showSiblingFeatures && showCelebration && celebrationChallenge}
 	<SiblingCelebration
 		challengeTitle={celebrationChallenge.title}
-		challengeId={celebrationChallenge.id}
-		rewardClaimed={false}
 		siblings={celebrationChallenge.siblings.map((s: { childId: number; completed: number }) => ({
 			name: data.allChildren?.find((c: { id: number }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
 			completed: s.completed === 1,

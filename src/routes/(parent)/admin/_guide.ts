@@ -9,22 +9,26 @@
  * 3 部構成に統一。step 1 は selector を省略し画面中央 modal で「このページは何か」を提示する
  * (巨大要素を step target にしないことで PageGuideOverlay の幾何回避不能ケースを根絶する)。
  * 各ステップは三部構成（what/how/goal）を必ず満たすこと。
+ *
+ * #3264 (EPIC #3260 F3): 表示文言 (title / what / how / goal / tips) は labels.ts の
+ * PAGE_GUIDE_LABELS に SSOT 集約。本ファイルは構造フィールド (pageId / icon / selector /
+ * position / step id) と labels 参照のみを保持する。
  */
 
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 import type { PageGuide } from '$lib/ui/tutorial/page-guide-types';
+
+const L = PAGE_GUIDE_LABELS.adminHome;
 
 export const ADMIN_HOME_GUIDE: PageGuide = {
 	pageId: 'admin-home',
-	title: 'ホーム（ダッシュボード）',
+	title: L.title,
 	icon: '🏠',
 	steps: [
 		// ① ページ概要 — selector 省略で画面中央に表示
 		{
 			id: 'home-intro',
-			title: 'このページについて',
-			what: 'ご家族の見守り画面のホームです。お子さま全員の「今日のがんばり」と各機能への入り口がここに集まっています。',
-			how: '毎日ここを開くだけで、お子さまの活動状況をまとめて確認できます。詳しい操作はこのあと順番にご案内します。',
-			goal: '朝・夜のすきま時間にここを開けば、家族みんなのがんばりを 10 秒で把握でき、声かけのきっかけが見つかります。',
+			...L.steps['home-intro'],
 		},
 		// ② 画面の見方
 		{
@@ -32,20 +36,13 @@ export const ADMIN_HOME_GUIDE: PageGuide = {
 			// summary-cards 行は横長 (~864px) かつ viewport 下端付近に位置するため、driver.js が
 			// バブルを上下左右どこにも非重複で置けない (短く幅広な要素 + 下端 = clear 余地不足)。
 			// 中央 modal (selector 省略) で「画面の見方」を説明し、確実に非重複・viewport 内に収める。
-			title: '画面の見方（今日のサマリー）',
-			what: '画面の上部には、お子さま全員の今日の活動回数・獲得ポイント・レベルの概要がカードで並びます。',
-			how: '特に操作は不要です。ページを開くと自動的に最新の情報が表示されます。',
-			goal: '「今日はたくさんやったね！」と声をかけるタイミングが、開いた瞬間に分かります。',
+			...L.steps['home-summary'],
 		},
 		// ③ 最頻操作
 		{
 			id: 'home-nav',
 			selector: '[data-tutorial="nav-primary"]',
-			title: 'よく使う操作（各機能へ移動）',
-			what: '最もよく使うのが、各機能への移動です。画面下部のナビゲーションから「みまもり」「やること」「はげまし」「きろく」に移動できます。',
-			how: '1. 画面下部のアイコンをタップします\n2. 目的のカテゴリを選びます\n3. サブメニューから該当する画面をタップします',
-			goal: 'どの画面からでも 2 タップ以内で目的の機能にたどり着けます。',
-			tips: ['デスクトップ版ではヘッダーのドロップダウンメニューから同じ機能に移動できます'],
+			...L.steps['home-nav'],
 			position: 'top',
 		},
 	],

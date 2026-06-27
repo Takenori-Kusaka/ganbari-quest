@@ -25,6 +25,7 @@ import {
 	getArchivedResourceSummary,
 } from '$lib/server/services/resource-archive-service';
 import { getTrialStatus } from '$lib/server/services/trial-service';
+import { isStripeEnabled } from '$lib/server/stripe/client';
 import type { LayoutServerLoad } from './$types';
 
 const TRIAL_WAS_ACTIVE_COOKIE = 'trial_was_active';
@@ -201,5 +202,9 @@ export const load: LayoutServerLoad = async ({ locals, cookies, url }) => {
 		// /admin/subscription での NucLicensePanel / SaasLicensePanel 2 分岐に使用するほか、
 		// 将来的に他 admin route の NUC/SaaS 分岐が必要になった際の SSOT 起点となる。
 		runtimeMode: locals.runtimeMode,
+		// #3296: Stripe 決済の有効性 (STRIPE_SECRET_KEY 設定有無) を全 admin route に配布。
+		// AdminLayout が requiredStripe='enabled' ガイド手順 (プラン管理 spotlight) を Stripe 無効な
+		// local-debug/demo で除外し、空 spotlight を防ぐために使う (runtimeMode 軸と直交、ADR-0061)。
+		stripeEnabled: isStripeEnabled(),
 	};
 };

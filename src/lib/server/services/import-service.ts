@@ -7,7 +7,6 @@ import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import {
 	findActivities,
 	findActivityLogs,
-	insertActivity,
 	insertActivityLog,
 	insertPointLedger,
 } from '$lib/server/db/activity-repo';
@@ -20,6 +19,8 @@ import {
 	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
+import { insertEvaluation } from '$lib/server/db/evaluation-repo';
+import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
@@ -53,6 +54,9 @@ export interface ImportResult {
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
 	statusHistorySkipped: number;
+	/** #3327/#3328: 評価 (週次評価) の取込件数 */
+	evaluationsImported: number;
+	evaluationsSkipped: number;
 	/** #3078: チェックリスト完了履歴 */
 	checklistLogsImported: number;
 	checklistLogsSkipped: number;
@@ -230,8 +234,8 @@ export async function importFamilyData(
 	const result = createEmptyImportResult();
 	logger.info('[import] インポート開始', { context: { tenantId } });
 
-	await importActivityMaster(data, tenantId, result);
-	const activityNameMap = await buildActivityLookup(tenantId);
+	// #3327 P3: 子を先に作成し childIdMap を確定してから per-child 活動を復元する
+	// (旧実装は活動を子より先に import → replace で子ゼロ時に insertActivity が throw → 全活動喪失)。
 	const childIdMap = await importChildrenData(data, tenantId, result);
 
 	if (childIdMap.size === 0) {
@@ -239,14 +243,23 @@ export async function importFamilyData(
 		return result;
 	}
 
+	// #3327 P3: per-child 活動を元の子へ復元 (master flatten の first-child 一律 bind を廃止)。
+	await importChildActivitiesData(data, childIdMap, tenantId, result);
+	// #3327: 活動ログ remap 用の lookup は (childId, name) の 2 軸で構築する。name のみ lookup は
+	// 兄弟同名活動を 1 件に縮約 (last-wins) し child1 のログを child2 の activity に bind する
+	// cross-child 誤 bind を生む (ADR-0055 per-child 境界侵害)。per-child 活動 insert 後に構築する。
+	const activityLookupByChild = await buildActivityLookupByChild(childIdMap, tenantId);
+
 	await importStatusesData(data, childIdMap, tenantId, result);
-	await importActivityLogsData(data, childIdMap, activityNameMap, tenantId, result);
+	await importActivityLogsData(data, childIdMap, activityLookupByChild, tenantId, result);
 	await importPointLedgerData(data, childIdMap, tenantId, result);
 	await importLoginBonusesData(data, childIdMap, tenantId, result);
 	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
 	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
+	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
+	await importEvaluationsData(data, childIdMap, tenantId, result);
 
 	// #3077: ZIP 同梱の静的ファイル (アバター画像 / 音声) を新 childId に再マップして復元。
 	if (staticFiles && Object.keys(staticFiles).length > 0) {
@@ -255,6 +268,44 @@ export async function importFamilyData(
 
 	logger.info('[import] インポート完了', { context: { ...result } });
 	return result;
+}
+
+/**
+ * 評価 (週次評価) を元の子へ復元する (#3327/#3328)。
+ * 従来 importFamilyData に評価の取込経路が無く、export には含まれるのに restore で全喪失していた
+ * 網羅漏れ (本番 t-82c17558 で評価 22→0 を実証) を解消する。
+ */
+async function importEvaluationsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const ev of data.data.evaluations ?? []) {
+		const childId = childIdMap.get(ev.childRef);
+		if (!childId) {
+			result.evaluationsSkipped++;
+			continue;
+		}
+		try {
+			await insertEvaluation(
+				{
+					childId,
+					weekStart: ev.weekStart,
+					weekEnd: ev.weekEnd,
+					scoresJson: ev.scoresJson,
+					bonusPoints: ev.bonusPoints,
+				},
+				tenantId,
+			);
+			result.evaluationsImported++;
+		} catch (e) {
+			result.evaluationsSkipped++;
+			result.errors.push(
+				`評価 insert 失敗 (child=${ev.childRef}, week=${ev.weekStart}): ${String(e)}`,
+			);
+		}
+	}
 }
 
 function createEmptyImportResult(): ImportResult {
@@ -274,6 +325,8 @@ function createEmptyImportResult(): ImportResult {
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,
 		statusHistorySkipped: 0,
+		evaluationsImported: 0,
+		evaluationsSkipped: 0,
 		checklistLogsImported: 0,
 		checklistLogsSkipped: 0,
 		staticFilesRestored: 0,
@@ -284,66 +337,82 @@ function createEmptyImportResult(): ImportResult {
 	};
 }
 
-async function importActivityMaster(
+/**
+ * per-child 活動インスタンスを元の子へ復元する (#3327 P3)。
+ *
+ * 旧 `importActivityMaster` は `data.master.activities`（名前 flatten・dedup）を
+ * `insertActivity`（first-child 一律 bind）で取り込んでいたため、(1) replace で子ゼロ時に throw、
+ * (2) per-child binding 喪失 + 同名 dedup で全活動が縮約/喪失していた。本関数は `data.data.childActivities`
+ * を `childIdMap` で元の子へ解決し `childActivity.insertActivity({childId,…})` で per-child 復元する。
+ * 子は本関数より前に作成済（importFamilyData が children → 本関数の順）。
+ */
+async function importChildActivitiesData(
 	data: ExportData,
+	childIdMap: Map<string, number>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	if (!data.master?.activities?.length) return;
-
-	const existingActivities = await findActivities(tenantId);
-	const existingNames = new Set(existingActivities.map((a) => a.name));
-	const existingPresetIds = new Set(
-		existingActivities.map((a) => a.sourcePresetId).filter((p): p is string => !!p),
-	);
-
-	for (const exportActivity of data.master.activities) {
-		// #1254 G1: preset_duplicate を name_duplicate より先に判定
-		if (exportActivity.sourcePresetId && existingPresetIds.has(exportActivity.sourcePresetId)) {
-			result.skipped.preset++;
+	const childActivities = data.data.childActivities ?? [];
+	for (const a of childActivities) {
+		const childId = childIdMap.get(a.childRef);
+		if (!childId) {
+			result.warnings.push(`活動「${a.name}」スキップ: childRef「${a.childRef}」が解決できません`);
 			continue;
 		}
-		if (existingNames.has(exportActivity.name)) {
-			result.skipped.name++;
-			continue;
-		}
-		const categoryId = CATEGORY_CODE_TO_ID[exportActivity.categoryCode];
+		const categoryId = CATEGORY_CODE_TO_ID[a.categoryCode];
 		if (!categoryId) {
-			result.warnings.push(
-				`活動「${exportActivity.name}」のカテゴリ「${exportActivity.categoryCode}」が不明のためスキップ`,
-			);
+			result.warnings.push(`活動「${a.name}」のカテゴリ「${a.categoryCode}」が不明のためスキップ`);
 			continue;
 		}
 		try {
-			await insertActivity(
+			await getRepos().childActivity.insertActivity(
 				{
-					name: exportActivity.name,
+					childId,
+					name: a.name,
 					categoryId,
-					icon: exportActivity.icon,
-					basePoints: exportActivity.basePoints,
-					ageMin: null,
-					ageMax: null,
-					triggerHint: exportActivity.triggerHint,
-					sourcePresetId: exportActivity.sourcePresetId ?? null,
+					icon: a.icon,
+					basePoints: a.basePoints,
+					triggerHint: a.triggerHint ?? null,
+					isMainQuest: a.isMainQuest ?? 0,
+					sourcePresetId: a.sourcePresetId ?? null,
+					priority: a.priority === 'must' ? 'must' : 'optional',
 				},
 				tenantId,
 			);
 			result.activitiesCreated++;
-			existingNames.add(exportActivity.name);
-			if (exportActivity.sourcePresetId) {
-				existingPresetIds.add(exportActivity.sourcePresetId);
-			}
 		} catch (e) {
-			result.warnings.push(`活動「${exportActivity.name}」の作成に失敗: ${String(e)}`);
+			result.warnings.push(`活動「${a.name}」(child=${a.childRef}) の作成に失敗: ${String(e)}`);
 		}
 	}
 }
 
-async function buildActivityLookup(
+/**
+ * 活動ログ remap 用の lookup を (childId, name) の 2 軸で構築する (#3327)。
+ *
+ * 旧 `buildActivityLookup` は `findActivities(tenantId)`（childId を持たない Activity shape）を
+ * name キー 1 軸で Map 化していたため、兄弟が同名活動を持つと last-wins で 1 件に縮約し、
+ * child1 のログが child2 の activity id に bind される cross-child 誤 bind を起こしていた
+ * (ADR-0055 per-child 境界侵害)。本関数は childId ごとに `findActivitiesByChild` を引き、
+ * childId → (name → activity) の入れ子 Map を返す。importActivityLogsData が解決済 childId と
+ * activityName の両方で activity を引くことで、各子の正しい activity instance に bind される。
+ */
+async function buildActivityLookupByChild(
+	childIdMap: Map<string, number>,
 	tenantId: string,
-): Promise<Map<string, { id: number; name: string }>> {
-	const activities = await findActivities(tenantId);
-	return new Map(activities.map((a) => [a.name, a]));
+): Promise<Map<number, Map<string, { id: number; name: string }>>> {
+	const lookup = new Map<number, Map<string, { id: number; name: string }>>();
+	const childActivityRepo = getRepos().childActivity;
+	for (const childId of new Set(childIdMap.values())) {
+		const activities = await childActivityRepo.findActivitiesByChild(childId, tenantId, {
+			includeArchived: true,
+		});
+		const byName = new Map<string, { id: number; name: string }>();
+		for (const a of activities) {
+			byName.set(a.name, { id: a.id, name: a.name });
+		}
+		lookup.set(childId, byName);
+	}
+	return lookup;
 }
 
 async function importChildrenData(
@@ -407,24 +476,29 @@ async function importStatusesData(
 async function importActivityLogsData(
 	data: ExportData,
 	childIdMap: Map<string, number>,
-	activityNameMap: Map<string, { id: number; name: string }>,
+	activityLookupByChild: Map<number, Map<string, { id: number; name: string }>>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
 	const existingLogKeysByChild = new Map<number, Set<string>>();
-	const missingActivityNames = new Set<string>();
+	// #3327: 「見つからない」warning の dedup は (childId, name) で行う。name のみだと
+	// 子 A で欠落・子 B で存在のケースで正当な warning を抑制してしまう。
+	const missingActivityKeys = new Set<string>();
 
 	for (const log of data.data.activityLogs) {
 		const childId = childIdMap.get(log.childRef);
 		if (!childId) continue;
 
-		const activity = activityNameMap.get(log.activityName);
+		// #3327: 解決済 childId と activityName の 2 軸で activity を引く。これで兄弟同名活動が
+		// 各子の正しい activity instance に bind され、cross-child 誤 bind を防ぐ (ADR-0055)。
+		const activity = activityLookupByChild.get(childId)?.get(log.activityName);
 		if (!activity) {
 			result.activityLogsSkipped++;
-			if (!missingActivityNames.has(log.activityName)) {
-				missingActivityNames.add(log.activityName);
+			const missKey = `${childId}:${log.activityName}`;
+			if (!missingActivityKeys.has(missKey)) {
+				missingActivityKeys.add(missKey);
 				result.warnings.push(
-					`活動ログスキップ: 活動「${log.activityName}」がマスタに見つかりません`,
+					`活動ログスキップ: 活動「${log.activityName}」(child=${log.childRef}) がマスタに見つかりません`,
 				);
 			}
 			continue;

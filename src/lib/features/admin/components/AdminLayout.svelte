@@ -11,7 +11,14 @@ import {
 import Logo from '$lib/ui/components/Logo.svelte';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import TutorialOverlay from '$lib/ui/components/TutorialOverlay.svelte';
-import { filterGuideStepsByTier, getPageGuide } from '$lib/ui/tutorial/page-guide-registry';
+import {
+	filterGuideStepsByRuntime,
+	filterGuideStepsByStripe,
+	filterGuideStepsByTier,
+	filterGuideStepsToOverview,
+	getPageGuide,
+	resolvePageGuide,
+} from '$lib/ui/tutorial/page-guide-registry';
 import { startPageGuide } from '$lib/ui/tutorial/page-guide-store.svelte';
 // #2375: v1 PageHelpButton + handleStartTutorial fallback 撤去 (P4)。
 // AC-V2-5 のため v2 PageGuide 起動時に v1 tutorial を強制終了する目的で endTutorial のみ import。
@@ -41,6 +48,12 @@ interface Props {
 	authMode?: string;
 	/** #3033: trial active 中のみ残日数 (null = trial 非 active で pill 非表示) */
 	trialDaysRemaining?: number | null;
+	/** #3291: ADR-0040 実行モード (`locals.runtimeMode` 由来)。NUC セルフホスト版で
+	 *   SaaS 専用ガイド手順 (requiredRuntime='saas') を除外するために使う。 */
+	runtimeMode?: string;
+	/** #3296: Stripe 決済の有効性 (`isStripeEnabled()` 由来、`+layout.server.ts` が配布)。
+	 *   Stripe 無効時に `requiredStripe='enabled'` ガイド手順 (プラン管理 spotlight) を除外する。 */
+	stripeEnabled?: boolean;
 }
 
 let {
@@ -51,6 +64,8 @@ let {
 	planTier = 'free',
 	authMode,
 	trialDaysRemaining = null,
+	runtimeMode,
+	stripeEnabled,
 }: Props = $props();
 
 const isDemo = $derived(mode === 'demo');
@@ -73,7 +88,13 @@ $effect(() => {
 		// (空ガイドを開くと dead-end になるため)。現状 challenges は free でも非 gate 手順が
 		// 1 つ残るため button は維持されるが、将来 family 限定手順のみのページが追加されても
 		// 自動で button が抑止される。
-		hasPageGuide = guide !== null && filterGuideStepsByTier(guide, planTier) !== null;
+		// #3291 / #3296: tier → runtime → stripe の 3 フィルタを直列適用し、全手順が除外される
+		// ページ (残 0) では ❓ を抑止する。3 者は filter → 残 0 なら null で同型・直列適用可。
+		const tierFiltered = guide === null ? null : filterGuideStepsByTier(guide, planTier);
+		const runtimeFiltered =
+			tierFiltered === null ? null : filterGuideStepsByRuntime(tierFiltered, runtimeMode);
+		hasPageGuide =
+			runtimeFiltered !== null && filterGuideStepsByStripe(runtimeFiltered, stripeEnabled) !== null;
 	});
 });
 
@@ -81,11 +102,23 @@ async function handleStartPageGuide() {
 	// #2375 AC-V2-5: v1 tutorial (AdminHome banner 経由) を強制終了し、v1/v2 同時 active を防止
 	endTutorial();
 	const path = $page.url.pathname.replace(basePath, '/admin');
-	const guide = await getPageGuide(path);
-	if (!guide) return;
+	const resolved = await resolvePageGuide(path);
+	if (!resolved) return;
+	// #3304: 親フォールバックで継承したガイドは selector 付き step が親画面固有 UI を指すため、
+	// 子ルート (編集フォーム / 解約フロー 等の EXEMPT 遷移ページ) では概要 step のみに絞る
+	// (spotlight 不全 + 「画面に無い操作」案内の不一致を回避)。概要 step が無ければ元のまま。
+	const guide = resolved.viaFallback
+		? (filterGuideStepsToOverview(resolved.guide) ?? resolved.guide)
+		: resolved.guide;
 	// #2919: 現在のプランで表示できない手順 (requiredTier 未達、例: challenges-intro の family)
 	// を除外してから起動する。free ユーザーに「上位プラン限定」の手順を見せない (NN/G #1 / #5)。
-	const filtered = filterGuideStepsByTier(guide, planTier);
+	// #3291: NUC では SaaS 専用手順 (requiredRuntime='saas') も除外してから起動する。
+	// #3296: Stripe 無効時は requiredStripe='enabled' 手順 (プラン管理 spotlight) も除外する。
+	const tierFiltered = filterGuideStepsByTier(guide, planTier);
+	const runtimeFiltered =
+		tierFiltered === null ? null : filterGuideStepsByRuntime(tierFiltered, runtimeMode);
+	const filtered =
+		runtimeFiltered === null ? null : filterGuideStepsByStripe(runtimeFiltered, stripeEnabled);
 	if (filtered) {
 		startPageGuide(filtered);
 	}

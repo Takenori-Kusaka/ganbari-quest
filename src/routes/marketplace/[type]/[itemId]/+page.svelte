@@ -177,6 +177,8 @@ function deselectAllActivities() {
 		{/if}
 
 		<!-- Content preview -->
+		<!-- #3269 (EPIC #3260 C5): ページガイド marketplace-detail-preview step のスポットライト対象。 -->
+		<div data-tutorial="marketplace-detail-preview">
 		<Card padding="lg">
 			{#snippet children()}
 			<h2 class="text-sm font-bold text-[var(--color-text-primary)] mb-3">
@@ -318,6 +320,7 @@ function deselectAllActivities() {
 			{/if}
 			{/snippet}
 		</Card>
+		</div>
 
 		<!-- CTA -->
 		<div

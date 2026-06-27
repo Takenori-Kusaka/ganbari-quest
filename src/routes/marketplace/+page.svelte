@@ -226,7 +226,8 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 		</div>
 
 		<!-- Type counts summary (#2896: 3 type / mobile 3 列・desktop 3 列) -->
-		<div class="grid grid-cols-3 gap-2 mb-6">
+		<!-- #3263 (EPIC #3260 F2): ページガイド marketplace-browse step のスポットライト対象 -->
+		<div class="grid grid-cols-3 gap-2 mb-6" data-tutorial="marketplace-type-filter">
 			{#each typeKeys as t (t)}
 				<a
 					href={filterUrl({ type: activeType === t ? null : t })}
@@ -314,9 +315,12 @@ const hiddenTagsCount = $derived(Math.max(0, totalTags - DEFAULT_TAG_LIMIT));
 			<div>
 				<!-- Items grid -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-					{#each data.items as item (item.type + '/' + item.itemId)}
+					{#each data.items as item, i (item.type + '/' + item.itemId)}
+						<!-- #3269 (EPIC #3260 C5): ページガイド marketplace-open step のスポットライト対象。
+							巨大コンテナ (grid 全体) を避け、先頭カード 1 枚のみに data-tutorial を付与する。 -->
 						<a
 							href="/marketplace/{item.type}/{item.itemId}"
+							data-tutorial={i === 0 ? 'marketplace-item-card' : undefined}
 							class="block hover:shadow-md transition-shadow"
 						>
 							<Card padding="lg">

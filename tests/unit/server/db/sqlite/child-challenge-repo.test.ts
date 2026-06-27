@@ -236,4 +236,30 @@ describe('sqlite/child-challenge-repo', () => {
 		expect(sharedInstances.length).toBe(2);
 		expect(new Set(sharedInstances.map((c) => c.childId))).toEqual(new Set([1, 2]));
 	});
+
+	// #3333 (3): 条件付き UPDATE の原子性。better-sqlite3 の実 DB で「completed=1 && 未請求のみ flip し
+	// 変更行数を返す」を検証する。並行二重 claim でも 2 回目は 0 行 → service が付与をスキップする根拠。
+	describe('claimReward — 条件付き原子化 (#3333)', () => {
+		it('completed=1 && 未請求 → 1 回目は 1 行 flip、2 回目は 0 行 (二重 flip しない)', async () => {
+			const c = await insert(buildInput({ childId: 1, title: 'claim-atomic' }), TENANT);
+			await markCompleted(c.id, TENANT);
+
+			const first = await claimReward(c.id, TENANT);
+			expect(first).toBe(1);
+
+			const second = await claimReward(c.id, TENANT);
+			expect(second).toBe(0);
+
+			const after = await findById(c.id, TENANT);
+			expect(after?.rewardClaimed).toBe(1);
+		});
+
+		it('未完了 (completed=0) → 条件不成立で 0 行 (付与対象外)', async () => {
+			const c = await insert(buildInput({ childId: 1, title: 'not-completed' }), TENANT);
+			const changed = await claimReward(c.id, TENANT);
+			expect(changed).toBe(0);
+			const after = await findById(c.id, TENANT);
+			expect(after?.rewardClaimed).toBe(0);
+		});
+	});
 });

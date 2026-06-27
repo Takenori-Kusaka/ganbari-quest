@@ -275,14 +275,14 @@ describe('updateRedemptionRequestStatus (#2845 課題①: full composite-key add
 				id: 5,
 				status: 'approved',
 				resolvedAt: 1700001000,
-				resolvedByParentId: 3,
+				resolvedByParentId: 'parent-sub-3',
 			}),
 		});
 		const { updateRedemptionRequestStatus } = await loadRepo();
 		const row = await updateRedemptionRequestStatus(
 			CHILD_ID,
 			5,
-			{ status: 'approved', resolvedAt: 1700001000, resolvedByParentId: 3 },
+			{ status: 'approved', resolvedAt: 1700001000, resolvedByParentId: 'parent-sub-3' },
 			TENANT,
 		);
 		expect(row?.status).toBe('approved');

@@ -341,7 +341,7 @@ async function openPortal() {
 	<!-- 現在のプラン -->
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{SUBSCRIPTION_PAGE_LABELS.currentPlanTitle}</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4" data-tutorial="subscription-current-plan">{SUBSCRIPTION_PAGE_LABELS.currentPlanTitle}</h3>
 
 		<div class="grid gap-4">
 			<div class="flex items-center justify-between py-2 border-b border-[var(--color-surface-muted)]">
@@ -516,7 +516,7 @@ async function openPortal() {
 	{#if stripeEnabled}
 	<Card variant="default" padding="lg">
 		{#snippet children()}
-		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4">{SUBSCRIPTION_PAGE_LABELS.planManagementTitle}</h3>
+		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-4" data-tutorial="subscription-plan-management">{SUBSCRIPTION_PAGE_LABELS.planManagementTitle}</h3>
 
 		{#if hasSubscription}
 			<!-- サブスクリプション有り → Stripe Customer Portal で管理 (#771: PIN 再確認ゲート付き) -->

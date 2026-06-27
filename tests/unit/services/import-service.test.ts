@@ -39,6 +39,19 @@ vi.mock('$lib/server/db/activity-repo', () => ({
 	insertPointLedger: (...args: unknown[]) => mockInsertPointLedger(...args),
 }));
 
+// #3327 P3: import が per-child 活動を getRepos().childActivity.insertActivity 経由で復元するため
+// factory の childActivity facade を mock する (insertActivity / findActivitiesByChild)。
+const mockChildActivityInsert = vi.fn();
+const mockChildActivityFindByChild = vi.fn();
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		childActivity: {
+			insertActivity: (...args: unknown[]) => mockChildActivityInsert(...args),
+			findActivitiesByChild: (...args: unknown[]) => mockChildActivityFindByChild(...args),
+		},
+	}),
+}));
+
 vi.mock('$lib/server/db/child-repo', () => ({
 	insertChild: (...args: unknown[]) => mockInsertChild(...args),
 }));
@@ -128,6 +141,7 @@ function makeExportData(overrides: Partial<ExportData> = {}): ExportData {
 			children: [],
 		},
 		data: {
+			childActivities: [],
 			activityLogs: [],
 			pointLedger: [],
 			statuses: [],
@@ -167,6 +181,8 @@ beforeEach(() => {
 
 	// Default: lookup mocks return empty arrays
 	mockFindActivities.mockResolvedValue([]);
+	// #3327: 活動ログ remap lookup は getRepos().childActivity.findActivitiesByChild 経由。
+	mockChildActivityFindByChild.mockResolvedValue([]);
 	mockFindActivityLogs.mockResolvedValue([]);
 	mockFindAllAchievements.mockResolvedValue([]);
 	mockFindRecentBonuses.mockResolvedValue([]);
@@ -522,31 +538,35 @@ describe('importFamilyData', () => {
 	});
 
 	describe('活動マスタのインポート', () => {
-		it('既存活動と重複しない場合は新規作成される', async () => {
+		const childActivityFixture = (childRef: string, name: string, categoryCode = 'undou') => ({
+			childRef,
+			name,
+			categoryCode,
+			icon: '🏃',
+			basePoints: 10,
+			triggerHint: null,
+			isMainQuest: 0,
+			priority: 'optional',
+			sourcePresetId: null,
+			isVisible: 1,
+			sortOrder: 0,
+		});
+
+		it('per-child 活動が childRef で元の子へ作成される (#3327)', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];
-			data.master.activities = [
-				{
-					name: '新しい活動',
-					categoryCode: 'undou',
-					icon: '🏃',
-					basePoints: 10,
-					gradeLevel: null,
-					nameKana: null,
-					nameKanji: null,
-					triggerHint: null,
-				},
-			];
+			data.data.childActivities = [childActivityFixture('c1', '新しい活動')];
 
 			mockInsertChild.mockResolvedValue({ id: 101 });
 			mockFindActivities.mockResolvedValue([]);
-			mockInsertActivity.mockResolvedValue({ id: 1 });
+			mockChildActivityInsert.mockResolvedValue({ id: 1 });
 
 			const result = await importFamilyData(data, TENANT);
 
 			expect(result.activitiesCreated).toBe(1);
-			expect(mockInsertActivity).toHaveBeenCalledWith(
+			expect(mockChildActivityInsert).toHaveBeenCalledWith(
 				expect.objectContaining({
+					childId: 101,
 					name: '新しい活動',
 					categoryId: 1, // undou = 1
 					icon: '🏃',
@@ -556,46 +576,30 @@ describe('importFamilyData', () => {
 			);
 		});
 
-		it('既存活動と名前が重複する場合はスキップされる', async () => {
+		it('同名活動でも per-child は別 instance として復元する (dedup しない、#3327)', async () => {
 			const data = makeExportData();
-			data.family.children = [makeChild('c1')];
-			data.master.activities = [
-				{
-					name: '既存の活動',
-					categoryCode: 'undou',
-					icon: '🏃',
-					basePoints: 10,
-					gradeLevel: null,
-					nameKana: null,
-					nameKanji: null,
-					triggerHint: null,
-				},
+			data.family.children = [makeChild('c1', 'ゆうき'), makeChild('c2', 'たくみ')];
+			data.data.childActivities = [
+				childActivityFixture('c1', '同じ活動'),
+				childActivityFixture('c2', '同じ活動'),
 			];
 
-			mockInsertChild.mockResolvedValue({ id: 101 });
-			// First call for master import, second for lookup building
-			mockFindActivities.mockResolvedValue([{ name: '既存の活動', id: 1 }]);
+			mockInsertChild.mockResolvedValueOnce({ id: 101 }).mockResolvedValueOnce({ id: 102 });
+			mockFindActivities.mockResolvedValue([]);
+			mockChildActivityInsert.mockResolvedValue({ id: 1 });
 
 			const result = await importFamilyData(data, TENANT);
 
-			expect(result.activitiesCreated).toBe(0);
-			expect(mockInsertActivity).not.toHaveBeenCalled();
+			// 名前重複でも子ごとに復元する (旧 master flatten の name dedup を廃止)
+			expect(result.activitiesCreated).toBe(2);
+			expect(mockChildActivityInsert).toHaveBeenCalledTimes(2);
 		});
 
 		it('不明なカテゴリコードの場合は警告が追加される', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];
-			data.master.activities = [
-				{
-					name: '不明カテゴリ活動',
-					categoryCode: 'unknown_category',
-					icon: '❓',
-					basePoints: 5,
-					gradeLevel: null,
-					nameKana: null,
-					nameKanji: null,
-					triggerHint: null,
-				},
+			data.data.childActivities = [
+				childActivityFixture('c1', '不明カテゴリ活動', 'unknown_category'),
 			];
 
 			mockInsertChild.mockResolvedValue({ id: 101 });
@@ -609,25 +613,30 @@ describe('importFamilyData', () => {
 			);
 		});
 
-		it('活動の作成失敗時は警告が追加される', async () => {
+		it('childRef が解決できない活動は警告でスキップされる (#3327)', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1')];
-			data.master.activities = [
-				{
-					name: '失敗する活動',
-					categoryCode: 'benkyou',
-					icon: '📚',
-					basePoints: 8,
-					gradeLevel: null,
-					nameKana: null,
-					nameKanji: null,
-					triggerHint: null,
-				},
-			];
+			data.data.childActivities = [childActivityFixture('c-unknown', '迷子活動')];
 
 			mockInsertChild.mockResolvedValue({ id: 101 });
 			mockFindActivities.mockResolvedValue([]);
-			mockInsertActivity.mockRejectedValue(new Error('constraint violation'));
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.activitiesCreated).toBe(0);
+			expect(result.warnings).toEqual(
+				expect.arrayContaining([expect.stringContaining('c-unknown')]),
+			);
+		});
+
+		it('活動の作成失敗時は警告が追加される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childActivities = [childActivityFixture('c1', '失敗する活動', 'benkyou')];
+
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockFindActivities.mockResolvedValue([]);
+			mockChildActivityInsert.mockRejectedValue(new Error('constraint violation'));
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -658,6 +667,7 @@ describe('importFamilyData', () => {
 
 			mockInsertChild.mockResolvedValue({ id: 101 });
 			mockFindActivities.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
 			mockInsertActivityLog.mockResolvedValue({});
 
 			const result = await importFamilyData(data, TENANT);
@@ -750,6 +760,7 @@ describe('importFamilyData', () => {
 
 			mockInsertChild.mockResolvedValue({ id: 101 });
 			mockFindActivities.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1760,16 +1771,19 @@ describe('importFamilyData', () => {
 		it('複数の子供と各データが正しくインポートされる', async () => {
 			const data = makeExportData();
 			data.family.children = [makeChild('c1', 'たろう'), makeChild('c2', 'はなこ')];
-			data.master.activities = [
+			data.data.childActivities = [
 				{
+					childRef: 'c1',
 					name: 'かけっこ',
 					categoryCode: 'undou',
 					icon: '🏃',
 					basePoints: 5,
-					gradeLevel: null,
-					nameKana: null,
-					nameKanji: null,
 					triggerHint: null,
+					isMainQuest: 0,
+					priority: 'optional',
+					sourcePresetId: null,
+					isVisible: 1,
+					sortOrder: 0,
 				},
 			];
 			data.data.activityLogs = [
@@ -1808,11 +1822,11 @@ describe('importFamilyData', () => {
 			];
 
 			mockInsertChild.mockResolvedValueOnce({ id: 201 }).mockResolvedValueOnce({ id: 202 });
-			// First call for master import check, then for lookup building
-			mockFindActivities
-				.mockResolvedValueOnce([]) // master import check: no existing
-				.mockResolvedValueOnce([{ name: 'かけっこ', id: 99 }]); // lookup building after master import
-			mockInsertActivity.mockResolvedValue({ id: 99 });
+			// #3327 P3: importChildActivitiesData は getRepos().childActivity.insertActivity 経由。
+			// 活動ログ名解決は buildActivityLookupByChild の findActivitiesByChild が 'かけっこ' を返す (#3327)。
+			mockChildActivityInsert.mockResolvedValue({ id: 99 });
+			mockFindActivities.mockResolvedValue([{ name: 'かけっこ', id: 99 }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'かけっこ', id: 99 }]);
 			mockInsertActivityLog.mockResolvedValue({});
 			mockUpsertStatus.mockResolvedValue({});
 

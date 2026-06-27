@@ -11,6 +11,7 @@ import {
 	type ExportChecklistLog,
 	type ExportChecklistTemplate,
 	type ExportChild,
+	type ExportChildActivity,
 	type ExportData,
 	type ExportEvaluation,
 	type ExportLoginBonus,
@@ -31,6 +32,7 @@ import {
 } from '$lib/server/db/checklist-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
 import { findEvaluationsByChild } from '$lib/server/db/evaluation-repo';
+import { getRepos } from '$lib/server/db/factory';
 import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
@@ -210,6 +212,7 @@ function warnIfTruncated(kind: string, childId: number, count: number): void {
 
 /** 1 child 分の transaction データ。collectForChild が返し、collectTransactionData が childIds 順に連結する。 */
 interface ChildTransactionData {
+	childActivities: ExportChildActivity[];
 	activityLogs: ExportActivityLog[];
 	pointLedger: ExportPointLedger[];
 	statuses: ExportStatus[];
@@ -236,6 +239,7 @@ async function collectForChild(
 
 	// 各データを並列取得
 	const [
+		childActivitiesRaw,
 		activityLogs,
 		pointHistory,
 		statuses,
@@ -244,6 +248,8 @@ async function collectForChild(
 		specialRewards,
 		checklistTemplates,
 	] = await Promise.all([
+		// #3327 P2: per-child 活動インスタンスを backup に保持 (archive 済も含む)。
+		getRepos().childActivity.findActivitiesByChild(childId, tenantId, { includeArchived: true }),
 		findActivityLogs(childId, tenantId),
 		findPointHistory(childId, { limit: MAX_EXPORT_ROWS, offset: 0 }, tenantId),
 		findStatuses(childId, tenantId),
@@ -254,6 +260,21 @@ async function collectForChild(
 		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
 		findTemplatesByChild(childId, tenantId, true, true),
 	]);
+
+	// #3327 P2: per-child 活動を childRef 付きで出力 (master flatten の binding 喪失を補う)。
+	const childActivitiesOut: ExportChildActivity[] = childActivitiesRaw.map((a) => ({
+		childRef,
+		name: a.name,
+		categoryCode: getCategoryCode(a.categoryId),
+		icon: a.icon,
+		basePoints: a.basePoints,
+		triggerHint: a.triggerHint,
+		isMainQuest: a.isMainQuest,
+		priority: a.priority,
+		sourcePresetId: a.sourcePresetId ?? null,
+		isVisible: a.isVisible,
+		sortOrder: a.sortOrder,
+	}));
 
 	// ステータス履歴は全カテゴリ分を取得
 	const statusHistoryResults = await Promise.all(
@@ -400,6 +421,7 @@ async function collectForChild(
 	}
 
 	return {
+		childActivities: childActivitiesOut,
 		activityLogs: activityLogsOut,
 		pointLedger: pointLedgerOut,
 		statuses: statusesOut,
@@ -425,6 +447,7 @@ async function collectTransactionData(
 	);
 
 	return {
+		childActivities: perChild.flatMap((p) => p.childActivities),
 		activityLogs: perChild.flatMap((p) => p.activityLogs),
 		pointLedger: perChild.flatMap((p) => p.pointLedger),
 		statuses: perChild.flatMap((p) => p.statuses),

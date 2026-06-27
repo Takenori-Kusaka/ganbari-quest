@@ -1,44 +1,71 @@
 // tests/unit/scripts/check-guide-copy.test.ts
 // #3261 (EPIC #3260 F0): ガイド文言 linter の検証。
-//   - parseGuideSteps: _guide.ts ソースから step text を抽出（' / " / ` 複数行）
 //   - lintGuideSteps: 謎用語 / 内部事情露出 / 文字数上限 / step 数 を検出
+//   - lintGuideSourceFile (#3295): _guide.ts への SSOT バイパス (生の日本語表示文字列直書き) を検出
 //   - 既存 11 ガイドは違反 0（baseline）
 
 import { describe, expect, it } from 'vitest';
 import {
 	COPY_LIMITS,
 	lintAllGuides,
+	lintGuideSourceFile,
+	lintGuideSourceFiles,
 	lintGuideSteps,
 	MAX_STEPS,
-	parseGuideSteps,
 } from '../../../scripts/check-guide-copy.ts';
 
-describe('parseGuideSteps (#3261)', () => {
-	it('\' / " / ` 複数行の text フィールドを step ごとに抽出する', () => {
+describe('lintGuideSourceFile (#3295)', () => {
+	it('step / page-level の表示フィールドに生の日本語文字列直書きがあれば検出する', () => {
+		// SSOT バイパス: title / what / how / goal / tips に日本語リテラル直書き。
 		const src = `
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
 export const X = {
+	title: '設定',
 	steps: [
 		{
 			id: 'a',
-			title: 'タイトル',
-			what: \`複数行の
-説明です\`,
+			what: 'ここから設定します',
 			how: "手順です",
-			goal: 'ゴール',
-		},
-		{
-			id: 'b',
-			title: 'ふたつめ',
-			what: 'みじかい',
+			goal: \`ゴールです\`,
+			tips: ['ヒントです'],
 		},
 	],
 };`;
-		const steps = parseGuideSteps(src);
-		expect(steps).toHaveLength(2);
-		expect(steps[0]?.title).toBe('タイトル');
-		expect(steps[0]?.what).toContain('複数行');
-		expect(steps[0]?.how).toBe('手順です');
-		expect(steps[1]?.title).toBe('ふたつめ');
+		const v = lintGuideSourceFile(src, 'x/_guide.ts');
+		const fields = v.map((x) => x.field).sort();
+		expect(fields).toEqual(['goal', 'how', 'tips', 'title', 'what']);
+	});
+
+	it('labels 参照 (L.title / ...L.steps[...]) と icon 絵文字は違反にしない', () => {
+		// 正規の post-F3 構造: 表示文言は labels 参照のみ、icon は絵文字 (日本語表示文字外)。
+		const src = `
+import { PAGE_GUIDE_LABELS } from '$lib/domain/labels';
+const L = PAGE_GUIDE_LABELS.adminActivities;
+export const X = {
+	title: L.title,
+	icon: '📋',
+	steps: [
+		{
+			id: 'activities-intro',
+			...L.steps['activities-intro'],
+		},
+		{
+			id: 'activities-add',
+			selector: '[data-tutorial="add-activity-btn"]',
+			...L.steps['activities-add'],
+			position: 'bottom',
+		},
+	],
+};`;
+		expect(lintGuideSourceFile(src, 'x/_guide.ts')).toHaveLength(0);
+	});
+
+	it('現行 _guide.ts は SSOT バイパス違反 0（baseline）', () => {
+		const violations = lintGuideSourceFiles();
+		expect(
+			violations.length,
+			`SSOT バイパス違反:\n${violations.map((v) => `  ${v.file}:${v.line} ${v.field}: ${v.detail}`).join('\n')}`,
+		).toBe(0);
 	});
 });
 

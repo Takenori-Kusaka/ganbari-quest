@@ -49,9 +49,9 @@ export async function findActiveByChildId(
  * #2488 (must-1 fix): 子供画面 home/history で active + 「完成済だが未請求」の instance を返す。
  *
  * 旧 `findActiveByChildId` (status='active' のみ) では `markCompleted` が status を 'completed'
- * に flip した瞬間、当該 instance が active 一覧から消えてしまい、`ChallengeBanner` の claim
- * ボタンが render されず、ユーザが報酬を受け取れないまま消える regression が発生した
- * (PR #2488 QM Re-Review must-1)。
+ * に flip した瞬間、当該 instance が active 一覧から消えてしまい、完了時の `SiblingCelebration`
+ * の claim ボタン (#3333 で旧 ChallengeBanner から受取導線を一本化) が render されず、ユーザが
+ * 報酬を受け取れないまま消える regression が発生した (PR #2488 QM Re-Review must-1)。
  *
  * 旧 sibling-challenge-service の挙動: status flip は全 siblings 完了時のみで、それまで
  * 子供画面に表示され続けていた。本関数で「期間内 = 当該 child の今閉じるべき instance」を
@@ -203,12 +203,31 @@ export async function markCompleted(id: number, _tenantId: string): Promise<void
 		.run();
 }
 
-export async function claimReward(id: number, _tenantId: string): Promise<void> {
+/**
+ * ごほうび受取マーク (条件付き原子化、#3333)。
+ * `rewardClaimed=0 AND completed=1` の行のみを 1→flip し、実際に変更した行数を返す。
+ * SQLite は本番 NUC ではプロセス内シリアル実行だが、並行 submit (同 child の二重 POST) でも
+ * UPDATE の WHERE 条件が同一行を 2 回 flip しないことを保証する (better-sqlite3 `.run().changes`)。
+ * service 層は戻り値 === 1 のときだけポイント付与する (claim-first) ことで二重付与を防ぐ。
+ *
+ * 注: childChallenges に tenantId 列は無く SQLite は単一テナント DB のため `_tenantId` は他 mutation
+ * (markCompleted / updateProgress) と同様に未使用。tenant 越え IDOR は DB 分離 + service の childId
+ * 所有権 check で担保する。
+ */
+export async function claimReward(id: number, _tenantId: string): Promise<number> {
 	const now = new Date().toISOString();
-	db.update(childChallenges)
+	const result = db
+		.update(childChallenges)
 		.set({ rewardClaimed: 1, rewardClaimedAt: now, updatedAt: now })
-		.where(eq(childChallenges.id, id))
+		.where(
+			and(
+				eq(childChallenges.id, id),
+				eq(childChallenges.rewardClaimed, 0),
+				eq(childChallenges.completed, 1),
+			),
+		)
 		.run();
+	return result.changes;
 }
 
 export async function update(

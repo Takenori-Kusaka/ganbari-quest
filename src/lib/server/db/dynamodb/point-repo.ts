@@ -1,7 +1,13 @@
 // src/lib/server/db/dynamodb/point-repo.ts
 // DynamoDB implementation of IPointRepo
 
-import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+	GetCommand,
+	PutCommand,
+	QueryCommand,
+	TransactWriteCommand,
+	UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import type { InsertPointLedgerInput, PointLedgerEntry } from '../types';
 import { deleteItemsByPkPrefix } from './bulk-delete';
 import { getDocClient, TABLE_NAME } from './client';
@@ -114,6 +120,70 @@ export async function insertPointEntry(
 	);
 
 	return entry;
+}
+
+/**
+ * #3347: 残高が `amount` 以上のときのみ、原子的にポイントを減算して台帳に負値エントリを挿入する。
+ * BALANCE アイテムへの条件付き減算（`balance >= :amount` 成立時のみ `ADD balance -amount`）と
+ * 台帳エントリ Put を **単一 TransactWrite** で実行し、TOCTOU 二重減算・残高マイナスを防ぐ。
+ * 条件不成立（残高不足 / 並行減算で先に減った）は `TransactionCanceledException`
+ * （理由 `ConditionalCheckFailed`）で送出されるため、握って `INSUFFICIENT_POINTS` を返す。
+ */
+export async function spendPointsAtomic(
+	childId: number,
+	amount: number,
+	entry: { type: string; description: string; referenceId?: number },
+	tenantId: string,
+): Promise<PointLedgerEntry | { error: 'INSUFFICIENT_POINTS' }> {
+	const id = await nextId(ENTITY_NAMES.pointLedger, tenantId);
+	const now = new Date().toISOString();
+
+	const ledger: PointLedgerEntry = {
+		id,
+		childId,
+		amount: -amount,
+		type: entry.type,
+		description: entry.description ?? null,
+		referenceId: entry.referenceId ?? null,
+		createdAt: now,
+	};
+	const key = pointLedgerKey(childId, now, id, tenantId);
+
+	try {
+		await getDocClient().send(
+			new TransactWriteCommand({
+				TransactItems: [
+					{
+						// 残高 >= コスト のときのみ原子的に減算（条件不成立で transaction 全体が cancel される）
+						Update: {
+							TableName: TABLE_NAME,
+							Key: pointBalanceKey(childId, tenantId),
+							UpdateExpression: 'ADD #balance :neg',
+							ConditionExpression: '#balance >= :amount',
+							ExpressionAttributeNames: { '#balance': 'balance' },
+							ExpressionAttributeValues: { ':neg': -amount, ':amount': amount },
+						},
+					},
+					{
+						Put: {
+							TableName: TABLE_NAME,
+							Item: { ...key, ...ledger },
+						},
+					},
+				],
+			}),
+		);
+	} catch (err) {
+		const cancellation = (err as { name?: string; CancellationReasons?: Array<{ Code?: string }> })
+			?.CancellationReasons;
+		const conditionFailed =
+			(err as { name?: string })?.name === 'TransactionCanceledException' &&
+			(cancellation?.some((r) => r?.Code === 'ConditionalCheckFailed') ?? true);
+		if (conditionFailed) return { error: 'INSUFFICIENT_POINTS' };
+		throw err;
+	}
+
+	return ledger;
 }
 
 /** テナントの全ポイント台帳・残高を削除（CHILD#* 配下の POINT# + BALANCE アイテム） */

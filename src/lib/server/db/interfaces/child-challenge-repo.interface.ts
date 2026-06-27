@@ -67,8 +67,13 @@ export interface IChildChallengeRepo {
 	/** 完了マーク (currentValue >= targetValue 達成時) */
 	markCompleted(id: number, tenantId: string): Promise<void>;
 
-	/** ごほうび受取マーク */
-	claimReward(id: number, tenantId: string): Promise<void>;
+	/**
+	 * ごほうび受取マーク (条件付き原子化、#3333)。
+	 * `rewardClaimed=0 AND completed=1` の行のみを flip し、実際に flip した行数を返す。
+	 * 並行 submit による TOCTOU 二重 claim → ポイント二重付与を防ぐため、service 層は
+	 * 戻り行数 === 1 のときだけ insertPointLedger を実行する (claim-first)。
+	 */
+	claimReward(id: number, tenantId: string): Promise<number>;
 
 	/** メタ更新 (status / 期間 / target / reward 変更) */
 	update(id: number, input: UpdateChildChallengeInput, tenantId: string): Promise<void>;

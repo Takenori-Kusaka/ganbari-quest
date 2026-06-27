@@ -30,6 +30,23 @@ const ADMIN_GUIDE_PAGES = [
 	'/admin/points',
 	'/admin/reports',
 	'/admin/cheer',
+	// #3266 (EPIC #3260 C2): 設定サブ 6 ページ（個別ガイド）
+	'/admin/settings/account',
+	'/admin/settings/activities',
+	'/admin/settings/notifications',
+	'/admin/settings/data',
+	'/admin/settings/rules',
+	'/admin/settings/support',
+	// #3267 (EPIC #3260 C3): プラン・課金 + お支払い
+	'/admin/subscription',
+	'/admin/billing',
+	// #3268 (EPIC #3260 C4): 家族メンバー / パック
+	'/admin/members',
+	'/admin/packs',
+	// #3271 (EPIC #3260 C7): 低頻度顧客接点ページ
+	'/admin/certificates',
+	'/admin/growth-book',
+	'/admin/rewards/requests',
 ] as const;
 
 const VIEWPORTS = [

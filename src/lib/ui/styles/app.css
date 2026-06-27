@@ -1061,16 +1061,26 @@ h1, h2, h3, h4 {
 }
 .baby-card-main-quest {
 	box-shadow: 0 0 12px rgba(217, 119, 6, 0.4);
-	background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+
+	/* #3285 uiux-2: hex 直書きを Semantic トークンに置換 (DESIGN.md §2)。色は不変。 */
+	background: linear-gradient(
+		135deg,
+		var(--color-feedback-warning-bg),
+		var(--color-feedback-warning-bg-strong)
+	) !important;
 }
 .baby-main-quest-badge {
 	position: absolute;
 	top: -0.375rem;
 	right: -0.375rem;
-	z-index: 10;
+
+	/* #3285 uiux-2: 生数値 z-index を §10 トークンに置換 (10 = --z-sticky)。 */
+	z-index: var(--z-sticky);
 	padding: 0.125rem 0.375rem;
 	border-radius: 9999px;
-	background: linear-gradient(135deg, #f59e0b, #d97706);
+
+	/* #3285 uiux-2: amber gradient の exact-match Semantic トークン (色不変)。 */
+	background: linear-gradient(135deg, var(--color-chart-2), var(--color-warning-hover));
 	color: white;
 	font-size: 0.625rem;
 	font-weight: 700;
@@ -1096,7 +1106,9 @@ h1, h2, h3, h4 {
 	display: inline-block;
 	width: 2rem;
 	height: 2rem;
-	border: 3px solid var(--theme-primary, #6366f1);
+
+	/* #3285 uiux-2: hex フォールバック撤去 (--theme-primary は全テーマで定義済、DESIGN.md §2)。 */
+	border: 3px solid var(--theme-primary);
 	border-right-color: transparent;
 	border-radius: 50%;
 	animation: spin 0.6s linear infinite;
