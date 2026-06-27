@@ -880,6 +880,18 @@ function migrateBillingPhase6(db: Database.Database): void {
  * 注: 本 helper は単一 SQLite ファイル (NUC / local dev) を前提。
  *     DynamoDB バックエンドでは呼ばない。
  */
+// #3320: resolved_by_parent_id を integer→text 化 (承認/却下した保護者の認証 userId = cognito sub
+// を監査記録)。旧実装は常に 0 を書いており「解決者不明」の sentinel だった。SQLite は dynamic typing
+// のため列型再作成は不要 (非数値文字列はそのまま保存される) で、本 migration は legacy 0 行を NULL
+// (= 解決者不明) に正規化するのみ。これで text 列読み出し時に number 0 が混入するのを防ぐ。
+function migrateRedemptionResolverLegacyZero(db: Database.Database): void {
+	if (!tableExists(db, 'reward_redemption_requests')) return;
+	if (!hasColumn(db, 'reward_redemption_requests', 'resolved_by_parent_id')) return;
+	db.exec(
+		"UPDATE reward_redemption_requests SET resolved_by_parent_id = NULL WHERE resolved_by_parent_id = 0 OR resolved_by_parent_id = '0';",
+	);
+}
+
 export function applyLazyStartupMigrations(db: Database.Database): void {
 	const fkBefore = db.pragma('foreign_keys', { simple: true }) as number;
 	db.pragma('foreign_keys = OFF');
@@ -899,6 +911,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// (`stripe_webhook_events` table + archived_reason NULL 補充)。
 		// 既存 tables に対する純粋追加なので structural migrations の **後** に実行。
 		migrateBillingPhase6(db);
+		// #3320: 既存 tables への純粋な値正規化 (legacy resolved_by_parent_id=0 → NULL)。
+		// 構造 migration の後に実行 (table 存在前提)。
+		migrateRedemptionResolverLegacyZero(db);
 	} catch (err) {
 		// #2509: tx 内で失敗した場合 better-sqlite3 が自動 ROLLBACK 済。partial state
 		// は残らないが、後続の `SQL_CREATE_TABLES` / `validateAndMigrate` 実行は危険

@@ -141,7 +141,7 @@ describe('approveRedemption', () => {
 		expect('error' in reqResult).toBe(false);
 		if ('error' in reqResult) return;
 
-		const approveResult = await approveRedemption(reqResult.id, 1, TENANT_ID);
+		const approveResult = await approveRedemption(reqResult.id, 'parent-sub-1', TENANT_ID);
 		expect('error' in approveResult).toBe(false);
 		if ('error' in approveResult) return;
 		expect(approveResult.status).toBe('approved');
@@ -160,9 +160,34 @@ describe('approveRedemption', () => {
 		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
 		if ('error' in reqResult) return;
 
-		await approveRedemption(reqResult.id, 1, TENANT_ID);
-		const result2 = await approveRedemption(reqResult.id, 1, TENANT_ID);
+		await approveRedemption(reqResult.id, 'parent-sub-1', TENANT_ID);
+		const result2 = await approveRedemption(reqResult.id, 'parent-sub-1', TENANT_ID);
 		expect(result2).toEqual({ error: 'INVALID_STATUS' });
+	});
+
+	// #3320: 承認した保護者の実 userId が監査証跡 resolved_by_parent_id に記録される
+	it('承認すると resolved_by_parent_id に実 parent userId が記録される (監査証跡)', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		if ('error' in reqResult) return;
+
+		await approveRedemption(reqResult.id, 'cognito-sub-parent-A', TENANT_ID);
+		const row = sqlite
+			.prepare('SELECT resolved_by_parent_id FROM reward_redemption_requests WHERE id = ?')
+			.get(reqResult.id) as { resolved_by_parent_id: string | null };
+		expect(row.resolved_by_parent_id).toBe('cognito-sub-parent-A');
+	});
+
+	it('userId が無い実行モード (null) では resolved_by_parent_id は null (解決者不明)', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		if ('error' in reqResult) return;
+
+		await approveRedemption(reqResult.id, null, TENANT_ID);
+		const row = sqlite
+			.prepare('SELECT resolved_by_parent_id FROM reward_redemption_requests WHERE id = ?')
+			.get(reqResult.id) as { resolved_by_parent_id: string | null };
+		expect(row.resolved_by_parent_id).toBeNull();
 	});
 });
 
@@ -188,6 +213,19 @@ describe('rejectRedemption', () => {
 		const rejectResult = await rejectRedemption(reqResult.id, longNote, TENANT_ID);
 		if ('error' in rejectResult) return;
 		expect(rejectResult.parentNote?.length).toBe(100);
+	});
+
+	// #3320: 却下も承認と対称に解決者 userId を記録する
+	it('却下すると resolved_by_parent_id に実 parent userId が記録される (監査証跡)', async () => {
+		const { childId, rewardId } = seedBaseData();
+		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
+		if ('error' in reqResult) return;
+
+		await rejectRedemption(reqResult.id, 'いまは だめ', TENANT_ID, 'cognito-sub-parent-B');
+		const row = sqlite
+			.prepare('SELECT resolved_by_parent_id FROM reward_redemption_requests WHERE id = ?')
+			.get(reqResult.id) as { resolved_by_parent_id: string | null };
+		expect(row.resolved_by_parent_id).toBe('cognito-sub-parent-B');
 	});
 });
 
@@ -229,7 +267,7 @@ describe('countPendingRedemptionsForParent (#3144)', () => {
 
 		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(1);
 
-		await approveRedemption(reqResult.id, 1, TENANT_ID);
+		await approveRedemption(reqResult.id, 'parent-sub-1', TENANT_ID);
 		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
 	});
 
@@ -257,7 +295,7 @@ describe('getUnshownRedemptionResult / markRedemptionShown', () => {
 		const reqResult = await requestRedemption(childId, rewardId, TENANT_ID);
 		if ('error' in reqResult) return;
 
-		await approveRedemption(reqResult.id, 1, TENANT_ID);
+		await approveRedemption(reqResult.id, 'parent-sub-1', TENANT_ID);
 
 		const unshown = await getUnshownRedemptionResult(childId, TENANT_ID);
 		expect(unshown).toBeTruthy();

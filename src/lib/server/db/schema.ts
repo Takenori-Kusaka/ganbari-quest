@@ -420,7 +420,7 @@ export const rewardRedemptionRequests = sqliteTable(
 		status: text('status').notNull().default('pending_parent_approval'),
 		parentNote: text('parent_note'),
 		resolvedAt: integer('resolved_at'),
-		resolvedByParentId: integer('resolved_by_parent_id'),
+		resolvedByParentId: text('resolved_by_parent_id'),
 		shownToChildAt: integer('shown_to_child_at'),
 		// #2832: 申請時点 snapshot (reward 編集後も申請時の内容で表示・控除する仕様、
 		// DynamoDB 実装の非正規化 item と等価)。旧行は NULL → 読み出し側で live JOIN 値に fallback

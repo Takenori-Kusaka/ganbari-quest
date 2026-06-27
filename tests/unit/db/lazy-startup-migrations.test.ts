@@ -904,4 +904,52 @@ describe('applyLazyStartupMigrations', () => {
 			expect(after2.archived_reason).toBe('trial_expired');
 		});
 	});
+
+	// #3320: resolved_by_parent_id の legacy sentinel 0 を NULL (解決者不明) に正規化する。
+	describe('#3320: redemption resolver legacy 0 → NULL 正規化', () => {
+		function seedRedemptionTable(): void {
+			db.exec(`
+				CREATE TABLE reward_redemption_requests (
+					id INTEGER PRIMARY KEY,
+					child_id INTEGER NOT NULL,
+					reward_id INTEGER NOT NULL,
+					status TEXT NOT NULL,
+					requested_at INTEGER NOT NULL,
+					resolved_by_parent_id INTEGER
+				);
+			`);
+			// legacy 0 (旧ハードコード) / NULL / 実 userId 文字列 の 3 種を投入
+			db.exec(`
+				INSERT INTO reward_redemption_requests (id, child_id, reward_id, status, requested_at, resolved_by_parent_id) VALUES
+					(1, 10, 100, 'approved', 1700000000, 0),
+					(2, 10, 101, 'rejected', 1700000001, NULL),
+					(3, 10, 102, 'approved', 1700000002, 'cognito-sub-real');
+			`);
+		}
+
+		it('legacy 0 行は NULL に正規化され、NULL / 実 userId 行は不変', () => {
+			seedRedemptionTable();
+			applyLazyStartupMigrations(db);
+			const rows = db
+				.prepare('SELECT id, resolved_by_parent_id FROM reward_redemption_requests ORDER BY id')
+				.all() as { id: number; resolved_by_parent_id: string | null }[];
+			expect(rows[0].resolved_by_parent_id).toBeNull(); // 0 → NULL
+			expect(rows[1].resolved_by_parent_id).toBeNull(); // NULL 不変
+			expect(rows[2].resolved_by_parent_id).toBe('cognito-sub-real'); // 実 userId 不変
+		});
+
+		it('冪等: 再適用しても 実 userId 行を破壊しない', () => {
+			seedRedemptionTable();
+			applyLazyStartupMigrations(db);
+			applyLazyStartupMigrations(db);
+			const row = db
+				.prepare('SELECT resolved_by_parent_id FROM reward_redemption_requests WHERE id = 3')
+				.get() as { resolved_by_parent_id: string | null };
+			expect(row.resolved_by_parent_id).toBe('cognito-sub-real');
+		});
+
+		it('テーブル不在でも例外を投げない (fresh DB セーフ)', () => {
+			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
+		});
+	});
 });

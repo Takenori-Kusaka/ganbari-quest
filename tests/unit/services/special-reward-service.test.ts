@@ -652,7 +652,7 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 
 		await updateReward(rewardId, childId, { title: 'ゲーム時間30分', points: 10 }, 'test-tenant');
 
-		const approved = await approveRedemption(req.id, 1, 'test-tenant');
+		const approved = await approveRedemption(req.id, 'parent-sub-1', 'test-tenant');
 		expect('error' in approved).toBe(false);
 
 		const entry = sqlite

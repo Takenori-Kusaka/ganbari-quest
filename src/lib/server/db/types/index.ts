@@ -256,7 +256,7 @@ export interface RewardRedemptionRequest {
 	status: 'pending_parent_approval' | 'approved' | 'rejected' | 'expired';
 	parentNote: string | null;
 	resolvedAt: number | null;
-	resolvedByParentId: number | null;
+	resolvedByParentId: string | null;
 	shownToChildAt: number | null;
 }
 

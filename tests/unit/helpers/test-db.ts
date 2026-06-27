@@ -329,7 +329,7 @@ export const SQL_TABLES = `
 		status TEXT NOT NULL DEFAULT 'pending_parent_approval',
 		parent_note TEXT,
 		resolved_at INTEGER,
-		resolved_by_parent_id INTEGER,
+		resolved_by_parent_id TEXT,
 		shown_to_child_at INTEGER,
 		-- #2832: 申請時点 snapshot (NULL = 旧行、live JOIN fallback)
 		reward_title TEXT,

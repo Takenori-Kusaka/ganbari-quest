@@ -17,9 +17,17 @@ const INSUFFICIENT_POINTS_BODY = {
 	message: 'ポイントが不足しています',
 };
 
-async function handleApprove(requestId: number, tenantId: string) {
-	// parentId は resolved_by_parent_id に記録する追跡用。AuthContext に userId が無いため 0 をフォールバック
-	const result = await approveRedemption(requestId, 0, tenantId);
+// #3320: 承認/却下した保護者の認証 userId を監査証跡 (resolved_by_parent_id) に記録する。
+// cognito / anonymous(demo) は userId(sub) を持つ。local 実行モードは null (= 解決者不明)。
+function resolverUserId(locals: App.Locals): string | null {
+	const id = locals.identity;
+	if (id && (id.type === 'cognito' || id.type === 'anonymous')) return id.userId;
+	return null;
+}
+
+async function handleApprove(requestId: number, tenantId: string, parentUserId: string | null) {
+	// #3320: 認証済み identity の userId を監査証跡として記録 (旧: 0 ハードコード)
+	const result = await approveRedemption(requestId, parentUserId, tenantId);
 	if (!('error' in result)) return json(result);
 
 	switch (result.error) {
@@ -32,9 +40,14 @@ async function handleApprove(requestId: number, tenantId: string) {
 	}
 }
 
-async function handleReject(requestId: number, parentNote: string | undefined, tenantId: string) {
+async function handleReject(
+	requestId: number,
+	parentNote: string | undefined,
+	tenantId: string,
+	parentUserId: string | null,
+) {
 	const note = typeof parentNote === 'string' ? parentNote : null;
-	const result = await rejectRedemption(requestId, note, tenantId);
+	const result = await rejectRedemption(requestId, note, tenantId, parentUserId);
 	if (!('error' in result)) return json(result);
 
 	switch (result.error) {
@@ -76,12 +89,14 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 	const { action, parentNote } = body as { action: unknown; parentNote?: string };
 
+	const parentUserId = resolverUserId(locals);
+
 	if (action === 'approve') {
-		return handleApprove(requestId, tenantId);
+		return handleApprove(requestId, tenantId, parentUserId);
 	}
 
 	if (action === 'reject') {
-		return handleReject(requestId, parentNote, tenantId);
+		return handleReject(requestId, parentNote, tenantId, parentUserId);
 	}
 
 	return json(
