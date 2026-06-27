@@ -91,6 +91,35 @@ describe('#3136 remapChildAvatarUrls — dangling avatarUrl 防止', () => {
 	});
 });
 
+// #3230: URL エンコード traversal (`%2e%2e` / 二重エンコード / `..%2f`) がデコード差異で
+// tenant 境界を迂回しないことを固定する。アプリ層 (isSafeRelativePath / remapChildAvatarUrls) は
+// raw 文字列を扱い URL デコードしないため、エンコードされた traversal は literal な 1 セグメントとして
+// 扱われ親ディレクトリ参照にならない。invariant: 永続化される avatarUrl / fileExists で probe する key は
+// 必ず取込先 tenant prefix (`tenants/t-new/`) 内に閉じ、別 tenant に escape しない。
+describe('#3230 invariant: URL エンコード traversal はデコード差異で tenant 境界を迂回しない', () => {
+	const ENCODED_TRAVERSALS = [
+		'/tenants/t-old/avatars/5/%2e%2e/%2e%2e/t-other/avatars/9/secret.png', // %2e%2e = encoded ..
+		'/tenants/t-old/avatars/5/%252e%252e/t-other/avatars/9/secret.png', // 二重エンコード
+		'/tenants/t-old/avatars/5/..%2f..%2ft-other/avatars/9/secret.png', // エンコード slash
+	];
+
+	for (const url of ENCODED_TRAVERSALS) {
+		it(`encoded traversal は t-new tenant 内に閉じ別 tenant へ escape しない: ${url}`, async () => {
+			fileExistsMock.mockResolvedValue(false);
+			await remapChildAvatarUrls(makeState(url), TENANT, makeResult());
+			// 永続化される avatarUrl は null か、取込先 tenant prefix 内のみ (別 tenant key を生成しない)
+			for (const call of updateMock.mock.calls) {
+				const v = call[1];
+				if (v !== null) expect(String(v)).toMatch(/^\/tenants\/t-new\//);
+			}
+			// fileExists で probe する key も取込先 tenant prefix を逸脱しない (デコードで escape しない)
+			for (const call of fileExistsMock.mock.calls) {
+				expect(String(call[0])).toMatch(/^tenants\/t-new\//);
+			}
+		});
+	}
+});
+
 // #3139: avatarUrl anchor の不変条件 — 「avatarUrl は server 生成 path 以外から設定されない」。
 // #3137 の cross-tenant IDOR 根治は「child.avatarUrl は server が tenant-scoped key からのみ生成する
 // (attacker 不可設定)」を anchor とする。将来 import/restore が attacker-influenced な avatarUrl を

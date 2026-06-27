@@ -15,8 +15,12 @@ import type { RequestHandler } from './$types';
 function denyAvatar(
 	reason: string,
 	meta: { tenantId?: string; context?: Record<string, unknown> },
+	// #3230: pre-auth / 自明に到達可能な deny (no-context / malformed-filename) は未認証連打で
+	// log 行が無制限増加し CloudWatch ingestion 課金 / NUC ディスク膨張を招くため debug に下げる。
+	// 攻撃シグナルとして意味のある post-auth deny (ownership-mismatch / no-child 等) は info で残す。
+	level: 'info' | 'debug' = 'info',
 ): never {
-	logger.info('avatar serve deny', {
+	logger[level]('avatar serve deny', {
 		tenantId: meta.tenantId,
 		context: { reason, ...meta.context },
 	});
@@ -50,10 +54,12 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	const context = locals.context;
 	const childIdMatch = filename.match(/^avatar-(\d+)-/);
 	if (!context) {
-		denyAvatar('no-context', { context: { filename } });
+		// #3230: 未認証で自明に到達 = noise。攻撃シグナルでないため debug に下げる。
+		denyAvatar('no-context', { context: { filename } }, 'debug');
 	}
 	if (!childIdMatch) {
-		denyAvatar('malformed-filename', { tenantId: context.tenantId, context: { filename } });
+		// #3230: 認証済だが avatar pattern 外の任意 filename = 自明に到達可能 noise → debug。
+		denyAvatar('malformed-filename', { tenantId: context.tenantId, context: { filename } }, 'debug');
 	}
 	const child = await getChildById(Number(childIdMatch[1]), context.tenantId);
 	// file ownership anchor: avatarUrl がこの legacy filename を指していなければ拒否する
