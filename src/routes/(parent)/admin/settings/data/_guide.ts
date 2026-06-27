@@ -24,9 +24,14 @@ export const SETTINGS_DATA_GUIDE: PageGuide = {
 			position: 'bottom',
 		},
 		// ③ 最頻操作（バックアップ）
+		// #3307: エクスポートは canExport (スタンダード以上) gate。free では同セクションが
+		// upsell 表示になり「ボタンひとつで保存できます」が実態と乖離する (NN/G #1 / ADR-0013)。
+		// requiredTier='standard' で free からは本 step を除外し誤案内を防ぐ
+		// (filterGuideStepsByTier、activities-add と同型)。free は ①概要 + ②画面の見方 が残る。
 		{
 			id: 'settings-data-export',
 			selector: '[data-testid="data-export-section"]',
+			requiredTier: 'standard',
 			...L.steps['settings-data-export'],
 			position: 'bottom',
 		},

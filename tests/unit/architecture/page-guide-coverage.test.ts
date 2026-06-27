@@ -9,11 +9,12 @@
 //     どれにも属さない新規ルート = 登録漏れ → hard-fail (registration leak 検出)。
 //     C2〜C7 が dedicated guide を付与したら、その route を PENDING から外す (REGISTERED へ移行)。
 
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+	filterGuideStepsByTier,
 	filterGuideStepsToOverview,
 	getPageGuide,
 	guideCandidatePaths,
@@ -191,5 +192,108 @@ describe('#3304: filterGuideStepsToOverview', () => {
 			{ id: 'b', selector: '[data-tutorial="b"]', title: 'B', what: 'a', how: 'b', goal: 'c' },
 		]);
 		expect(filterGuideStepsToOverview(g)).toBeNull();
+	});
+});
+
+describe('#3307 Part 1: settings/data エクスポート step の tier 条件付き整合', () => {
+	it('free では settings-data-export (canExport gate) が除外され、概要/見方 step が残る', async () => {
+		const guide = await getPageGuide('/admin/settings/data');
+		expect(guide?.pageId).toBe('admin-settings-data');
+		const free = filterGuideStepsByTier(guide!, 'free');
+		const ids = free?.steps.map((s) => s.id) ?? [];
+		expect(ids).not.toContain('settings-data-export');
+		expect(ids).toContain('settings-data-intro');
+		expect(ids).toContain('settings-data-management');
+	});
+
+	it('standard 以上では settings-data-export が表示される', async () => {
+		const guide = await getPageGuide('/admin/settings/data');
+		const standard = filterGuideStepsByTier(guide!, 'standard');
+		expect(standard?.steps.map((s) => s.id)).toContain('settings-data-export');
+	});
+});
+
+// #3307 Part 2 (selector-miss 静的 gate): 各 step の selector が指す anchor
+// (data-tutorial / data-testid) が「描画側マークアップ」に実在することを build 時に保証する。
+// e2e は selector 不在時に driver.js が中央表示へ degrade し silent skip (backdrop visible で PASS)
+// するため空 spotlight を検出できない (検証安全網の穴)。本 unit gate は「step が存在しない anchor を
+// 参照する」authoring 退行を runtime 環境非依存で hard-fail させる (#3314 class の早期検知)。
+//
+// #3323 BLOCK 是正 (タウトロジー除去): 旧実装は src/ 全 .ts/.svelte (selector 定義の _guide.ts 含む) を
+// 連結し `!srcText.includes('"' + anchor + '"')` で判定したため、selector 文字列リテラル自身 (例
+// `selector: '[data-tutorial="add-activity-btn"]'`) に必ずマッチして常時 PASS = 実 page の属性有無を
+// 検出できなかった。是正の核心は「selector 定義ファイルを連結から除外する」こと:
+//   selector 定義ファイル (_guide.ts / page-guide-registry.ts / tutorial-chapters.ts) を除外し、
+//   anchor を「描画」する側 (.svelte + 通常 .ts) だけを連結する。これで anchor が描画側に実在しなければ
+//   (typo / 削除 / 純 center-modal step への移行漏れ) gate が FAIL する (タウトロジー解消)。
+// 判定形は「描画側で anchor が quote 付きトークン ("anchor" / 'anchor') として現れるか」を見る。
+// 純粋な `data-tutorial="anchor"` 静的属性のみへの厳格化は不可: 本 product の anchor は
+//   (a) 静的属性  : <div data-testid="data-export-section">
+//   (b) prop 経由 : <AdminResourceHeader addMenuDataTutorial="add-activity-btn" />
+//                   (component 内部で data-tutorial={addMenuDataTutorial} に適用)
+//   (c) 動的束縛  : data-tutorial={i === 0 ? 'settings-first-card' : undefined}
+// の 3 形態で wiring され、(b)(c) は literal `data-tutorial="x"` の形を取らない (prop 間接 / 三項)。
+// quote 付きトークン一致は定義ファイル除外後は (b)(c) を正しく拾いつつ、どこにも存在しない anchor
+// (genuine 空 spotlight) を FAIL させる (kebab ID は具体的で偶発衝突なし)。
+// 既知 blind spot: id 形 selector (例 `#point-settings`) は extractAnchor が拾わないため本 gate の
+// scope 外。id selector を新規採用する場合は別途検証する (本 gate は data-tutorial / data-testid 限定)。
+// 注: runtime 別 (nuc/cognito/anonymous) の e2e 網羅は CI コスト大のため ADR-0010 Pre-PMF で別途。
+describe('#3307: ガイド step の selector anchor が描画側 src に実在する (selector-miss 静的 gate)', () => {
+	// selector を「定義」しているファイル群。これらを連結に含めると anchor 文字列自身に
+	// マッチしてタウトロジー化するため除外し、anchor を「描画」する側だけを残す。
+	const isSelectorDefinitionFile = (path: string): boolean => {
+		const normalized = path.replace(/\\/g, '/');
+		return (
+			normalized.endsWith('/_guide.ts') ||
+			normalized.endsWith('/page-guide-registry.ts') ||
+			normalized.endsWith('/tutorial-chapters.ts')
+		);
+	};
+
+	const readRenderSrcText = (): string => {
+		let buf = '';
+		const walk = (dir: string) => {
+			for (const e of readdirSync(dir, { withFileTypes: true })) {
+				const p = resolve(dir, e.name);
+				if (e.isDirectory()) walk(p);
+				else if (/\.(svelte|ts)$/.test(e.name) && !isSelectorDefinitionFile(p))
+					buf += readFileSync(p, 'utf8');
+			}
+		};
+		walk(resolve(REPO_ROOT, 'src'));
+		return buf;
+	};
+
+	const extractAnchor = (selector: string): string | null =>
+		selector.match(/\[data-(?:tutorial|testid)="([^"]+)"\]/)?.[1] ?? null;
+
+	// anchor が描画側マークアップに wiring されているか。静的属性 (data-testid="x") / prop 経由
+	// (addMenuDataTutorial="x") / 動的束縛 ({cond ? 'x' : undefined}) いずれも quote 付きトークンで
+	// 現れるため、"x" / 'x' の完全トークン存在で判定する (定義ファイル除外済のため非タウトロジー)。
+	const isRenderedAnchor = (srcText: string, anchor: string): boolean =>
+		srcText.includes(`"${anchor}"`) || srcText.includes(`'${anchor}'`);
+
+	// 動的セグメント key は実パス例で解決する (PARAMETERIZED_GUIDE_MATCHERS)。
+	const sampleUrlFor = (path: string): string =>
+		path.includes('[') ? '/marketplace/activity-pack/kinder-starter' : path;
+
+	it('全 REGISTERED ガイドの selector anchor が描画側マークアップに属性形で存在する (typo / 削除 anchor / 空 spotlight を検出)', async () => {
+		const srcText = readRenderSrcText();
+		const guides = await Promise.all(
+			REGISTERED_GUIDE_PATHS.map((p) => getPageGuide(sampleUrlFor(p))),
+		);
+		const missing = guides
+			.filter((g): g is NonNullable<typeof g> => g !== null)
+			.flatMap((g) =>
+				g.steps
+					.map((step) => ({ step, anchor: step.selector ? extractAnchor(step.selector) : null }))
+					.filter(({ anchor }) => anchor !== null && !isRenderedAnchor(srcText, anchor))
+					.map(({ step }) => `${g.pageId}/${step.id} → ${step.selector}`),
+			);
+		expect(
+			missing,
+			`ガイド step の selector が描画側に存在しない anchor を参照している (空 spotlight になる)。` +
+				`描画要素に data-tutorial / data-testid を追加するか step を center-modal (selector 省略) へ再分類すること:\n${missing.join('\n')}`,
+		).toEqual([]);
 	});
 });
