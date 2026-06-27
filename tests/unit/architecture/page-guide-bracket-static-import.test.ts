@@ -77,7 +77,10 @@ function parseLoaderEntries(source: string): LoaderEntry[] {
 	const keyRe = /(['"])(\/[^'"]+)\1\s*:/g;
 	const marks: { key: string; colonEnd: number; keyStart: number }[] = [];
 	for (let m = keyRe.exec(body); m !== null; m = keyRe.exec(body)) {
-		marks.push({ key: m[2], colonEnd: keyRe.lastIndex, keyStart: m.index });
+		const key = m[2];
+		// 正規表現の group 2 は必ずマッチするが strict では string | undefined のためナロー。
+		if (key === undefined) continue;
+		marks.push({ key, colonEnd: keyRe.lastIndex, keyStart: m.index });
 	}
 	return marks.map((mark, i) => ({
 		key: mark.key,
