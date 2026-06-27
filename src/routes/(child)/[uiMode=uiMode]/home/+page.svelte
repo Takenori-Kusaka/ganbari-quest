@@ -108,18 +108,16 @@ let showCelebration = $state(true);
 
 // #3333 fix (B): 個別完了したチャレンジのごほうび受取導線（旧 ChallengeBanner の per-instance claim 復元）。
 // per-child 報酬モデル（ADR-0055）+ #2488 must-1 の設計意図 = 「自身の instance が completed=1 かつ
-// rewardClaimed=0 なら受取可能」。SiblingCelebration は allCompleted の group 祝福のみを担うため、
-// 自身は完了したが兄弟が未完了の multi-child ケースでは受取不能（regression）になる。これを防ぐため
-// 個別完了（!allCompleted）を対象にコンパクトなカード演出で受取導線を出す（allCompleted 時は
-// SiblingCelebration が claim を担うので二重導線を避ける）。server は fail-closed（既請求拒否）。
+// rewardClaimed=0 なら受取可能」。この card を claim の単一経路（永続 claim 導線）にする。
+// SiblingCelebration は dismissable な祝福演出のみを担い claim form を持たないため、単一児
+// （allCompleted=自身完了）でも dismiss で受取不能（dead-end）にならない。完了済・未受取なら
+// 兄弟全完了 / 個別完了いずれでも常に card で受取できる（`!allCompleted` 排他を撤去、二重導線も排除）。
+// server は claim-first で原子化済（既請求は付与せず error）。
 let challengeClaiming = $state(false);
 const claimableChallenge = $derived(
 	data.activeChallenges?.find(
-		(c: { childId: number; completed: number; rewardClaimed: number; allCompleted: boolean }) =>
-			c.childId === (data.child?.id ?? 0) &&
-			c.completed === 1 &&
-			c.rewardClaimed === 0 &&
-			!c.allCompleted,
+		(c: { childId: number; completed: number; rewardClaimed: number }) =>
+			c.childId === (data.child?.id ?? 0) && c.completed === 1 && c.rewardClaimed === 0,
 	) ?? null,
 );
 
@@ -688,13 +686,14 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<!--
 		#3333: 旧 ChallengeBanner 横長バナーを撤去。チャレンジ対象は対象カテゴリの
 		CategorySection ヘッダーに静的バッジ + インライン進捗で統合（ProdDashboardSections 経由、
-		#2146/#2168 カード演出統合思想）。ごほうび受取は (a) 全員完了は SiblingCelebration、
-		(b) 個別完了（兄弟未完了）は下のコンパクトな受取カードが担う（#2488 must-1 / per-child 報酬）。
+		#2146/#2168 カード演出統合思想）。ごほうび受取は下のコンパクトな永続 claim-card が単一経路で担う
+		（#2488 must-1 / per-child 報酬 ADR-0055）。SiblingCelebration は祝福演出のみで claim を持たない。
 	-->
 
-	<!-- #3333 fix (B): 個別完了チャレンジのごほうび受取（旧 ChallengeBanner per-instance claim の復元）。
+	<!-- #3333 fix (B): 完了済・未受取チャレンジのごほうび受取（旧 ChallengeBanner per-instance claim の復元）。
 	     横長 banner ではなくコンパクトなカード演出（fitness function denylist 非該当 / #2146/#2168 整合）。
-	     allCompleted は SiblingCelebration が担うため、個別完了のみを対象に二重 claim を避ける。 -->
+	     単一児 / 多子いずれも completed=1 && rewardClaimed=0 なら常時表示の永続 claim 導線（dead-end 回避）。
+	     claim はこの card 単一経路に集約し二重導線 / 二重 POST を排除。server は claim-first で原子化。 -->
 	{#if claimableChallenge}
 		<div
 			class="mx-auto my-[var(--sp-sm)] max-w-xs rounded-[var(--radius-md)] bg-[var(--color-surface-success)] px-[var(--sp-md)] py-[var(--sp-sm)] text-center"
@@ -1002,8 +1001,6 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 {#if f.showSiblingFeatures && showCelebration && celebrationChallenge}
 	<SiblingCelebration
 		challengeTitle={celebrationChallenge.title}
-		challengeId={celebrationChallenge.id}
-		rewardClaimed={false}
 		siblings={celebrationChallenge.siblings.map((s: { childId: number; completed: number }) => ({
 			name: data.allChildren?.find((c: { id: number }) => c.id === s.childId)?.nickname ?? `#${s.childId}`,
 			completed: s.completed === 1,

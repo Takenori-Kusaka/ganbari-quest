@@ -203,12 +203,31 @@ export async function markCompleted(id: number, _tenantId: string): Promise<void
 		.run();
 }
 
-export async function claimReward(id: number, _tenantId: string): Promise<void> {
+/**
+ * ごほうび受取マーク (条件付き原子化、#3333)。
+ * `rewardClaimed=0 AND completed=1` の行のみを 1→flip し、実際に変更した行数を返す。
+ * SQLite は本番 NUC ではプロセス内シリアル実行だが、並行 submit (同 child の二重 POST) でも
+ * UPDATE の WHERE 条件が同一行を 2 回 flip しないことを保証する (better-sqlite3 `.run().changes`)。
+ * service 層は戻り値 === 1 のときだけポイント付与する (claim-first) ことで二重付与を防ぐ。
+ *
+ * 注: childChallenges に tenantId 列は無く SQLite は単一テナント DB のため `_tenantId` は他 mutation
+ * (markCompleted / updateProgress) と同様に未使用。tenant 越え IDOR は DB 分離 + service の childId
+ * 所有権 check で担保する。
+ */
+export async function claimReward(id: number, _tenantId: string): Promise<number> {
 	const now = new Date().toISOString();
-	db.update(childChallenges)
+	const result = db
+		.update(childChallenges)
 		.set({ rewardClaimed: 1, rewardClaimedAt: now, updatedAt: now })
-		.where(eq(childChallenges.id, id))
+		.where(
+			and(
+				eq(childChallenges.id, id),
+				eq(childChallenges.rewardClaimed, 0),
+				eq(childChallenges.completed, 1),
+			),
+		)
 		.run();
+	return result.changes;
 }
 
 export async function update(

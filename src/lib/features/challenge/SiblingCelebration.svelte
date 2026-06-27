@@ -4,22 +4,21 @@
     backdrop click / ESC / focus trap / aria-modal は primitive 側に委譲。
   - #2106: z-index は DESIGN §10 `--z-celebration` 階層を `zLayer="celebration"` で適用 (旧生数値 200)。
   - 紙吹雪エフェクトのみ component で保持 (Anti-engagement ADR-0012 整合: 1 件のみ、自動再生なし)。
-  - 既存呼び出し側 API (`challengeTitle` / `challengeId` / `rewardClaimed` / `siblings` / `onDismiss`) は維持。
+  - #3333: ごほうび受取 form を撤去し「祝福演出のみ」に責務分離。claim は home の永続 claim-card
+    (challenge-reward-claim-card) 単一経路に集約し、二重導線 / 二重 POST を排除する。dismiss しても
+    完了済・未受取なら card で常時受取できるため dead-end にならない。
 -->
 <script lang="ts">
-import { enhance } from '$app/forms';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 
 interface Props {
 	challengeTitle: string;
-	challengeId: number;
-	rewardClaimed: boolean;
 	siblings: { name: string; completed: boolean }[];
 	onDismiss: () => void;
 }
 
-let { challengeTitle, challengeId, rewardClaimed, siblings, onDismiss }: Props = $props();
+let { challengeTitle, siblings, onDismiss }: Props = $props();
 
 // Confetti particles
 // Confetti hex colors: kept as hex because JS array init runs before DOM is available for getComputedStyle
@@ -33,9 +32,6 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 }));
 
 let dialogOpen = $state(true);
-// #3333 (C): 二重 POST 防止。claim 中はボタンを disable する。server も既請求を fail-closed で
-// 拒否する（claimChildChallengeReward: rewardClaimed===1 で error）が、client 側でも連打を抑止する。
-let claiming = $state(false);
 
 function handleDialogChange(details: { open: boolean }) {
 	if (!details.open) {
@@ -82,38 +78,17 @@ function handleDialogChange(details: { open: boolean }) {
 			{/each}
 		</div>
 
-		{#if !rewardClaimed}
-			<form
-				method="POST"
-				action="?/claimChallengeReward"
-				use:enhance={() => {
-					if (claiming) return ({ update }) => update();
-					claiming = true;
-					return async ({ update }) => {
-						await update();
-						claiming = false;
-						dialogOpen = false;
-						onDismiss();
-					};
-				}}
-			>
-				<input type="hidden" name="challengeId" value={challengeId} />
-				<button type="submit" class="celebration__claim-btn" disabled={claiming}>
-					{FEATURES_LABELS.challenge.celebrationClaimBtn}
-				</button>
-			</form>
-		{:else}
-			<button
-				type="button"
-				class="celebration__close-btn"
-				onclick={() => {
-					dialogOpen = false;
-					onDismiss();
-				}}
-			>
-				{FEATURES_LABELS.challenge.celebrationCloseBtn}
-			</button>
-		{/if}
+		<!-- #3333: claim form 撤去。受取は home の永続 claim-card に集約。ここは閉じるだけ。 -->
+		<button
+			type="button"
+			class="celebration__close-btn"
+			onclick={() => {
+				dialogOpen = false;
+				onDismiss();
+			}}
+		>
+			{FEATURES_LABELS.challenge.celebrationCloseBtn}
+		</button>
 	</div>
 </Dialog>
 
@@ -191,23 +166,6 @@ function handleDialogChange(details: { open: boolean }) {
 		font-size: 0.875rem;
 	}
 
-	.celebration__claim-btn {
-		width: 100%;
-		padding: 14px;
-		border: none;
-		border-radius: 12px;
-		background: var(--gradient-premium);
-		color: white;
-		font-size: 1rem;
-		font-weight: 700;
-		cursor: pointer;
-		animation: claim-glow 2s ease-in-out infinite;
-	}
-
-	.celebration__claim-btn:hover {
-		filter: brightness(1.05);
-	}
-
 	.celebration__close-btn {
 		width: 100%;
 		padding: 12px;
@@ -228,16 +186,6 @@ function handleDialogChange(details: { open: boolean }) {
 		100% {
 			transform: translateY(100vh) rotate(720deg);
 			opacity: 0;
-		}
-	}
-
-	@keyframes claim-glow {
-		0%,
-		100% {
-			box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
-		}
-		50% {
-			box-shadow: 0 0 20px 4px rgba(139, 92, 246, 0.3);
 		}
 	}
 </style>

@@ -104,7 +104,7 @@ function toggleExpand() {
 	{#if challengeTarget}
 		{#if challengeTarget.completed}
 			<span
-				class="flex items-center gap-0.5 text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full"
+				class="challenge-badge flex items-center gap-0.5 font-bold bg-[var(--color-surface-success)] text-[var(--color-feedback-success-text)] px-1.5 py-0.5 rounded-full"
 				data-testid="challenge-target-badge-{categoryId}"
 				data-challenge-complete="true"
 				aria-label={UI_COMPONENTS_LABELS.challengeTargetAriaComplete(name)}
@@ -114,7 +114,7 @@ function toggleExpand() {
 			</span>
 		{:else}
 			<span
-				class="flex items-center gap-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full"
+				class="challenge-badge flex items-center gap-0.5 font-bold bg-[var(--color-premium-bg)] text-[var(--color-premium-700)] px-1.5 py-0.5 rounded-full"
 				data-testid="challenge-target-badge-{categoryId}"
 				aria-label={UI_COMPONENTS_LABELS.challengeTargetAria(name, challengeTarget.remaining)}
 			>
@@ -124,8 +124,8 @@ function toggleExpand() {
 						{#each Array(challengeTarget.target) as _, idx (idx)}
 							<span
 								class="w-1.5 h-1.5 rounded-full {idx < challengeTarget.current
-									? 'bg-purple-500'
-									: 'bg-purple-200'}"
+									? 'bg-[var(--color-premium)]'
+									: 'bg-[var(--color-premium-200)]'}"
 							></span>
 						{/each}
 					</span>
@@ -239,6 +239,13 @@ function toggleExpand() {
 </section>
 
 <style>
+	/* #3333: challenge badge font-size follows the age-tier scale (--age-font-scale).
+	   The old fixed text-[10px] became relatively too small for preschool / baby.
+	   Base 10px = 0.625rem multiplied by the per-age scale (elementary=1.0 / preschool=1.2 / baby=1.5).
+	   Colors go through §2 semantic tokens (success / premium); Tailwind palette literals removed. */
+	.challenge-badge {
+		font-size: calc(0.625rem * var(--age-font-scale, 1));
+	}
 	.collapsed {
 		position: relative;
 	}

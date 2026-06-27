@@ -463,19 +463,43 @@ describe('markCompleted', () => {
 });
 
 describe('claimReward', () => {
-	it('rewardClaimed=1 を Update する', async () => {
+	it('条件付き UPDATE が成功 → rewardClaimed=1 を Update し 1 を返す (#3333)', async () => {
 		mockSend
 			.mockResolvedValueOnce({
 				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'CHILDCHAL#00000001' }],
 			})
 			.mockResolvedValueOnce({});
 		const { claimReward } = await loadRepo();
-		await claimReward(1, TENANT);
+		const changed = await claimReward(1, TENANT);
+		expect(changed).toBe(1);
 		const upd = mockSend.mock.calls[1]?.[0] as {
-			input: { UpdateExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
+			input: {
+				UpdateExpression?: string;
+				ConditionExpression?: string;
+				ExpressionAttributeValues?: Record<string, unknown>;
+			};
 		};
 		expect(upd.input.UpdateExpression).toContain('rewardClaimed = :one');
 		expect(upd.input.ExpressionAttributeValues?.[':one']).toBe(1);
+		// 原子化: completed=1 かつ未請求 (未設定 or 0) のみ flip する ConditionExpression
+		expect(upd.input.ConditionExpression).toContain('completed = :one');
+		expect(upd.input.ConditionExpression).toContain('attribute_not_exists(rewardClaimed)');
+		expect(upd.input.ConditionExpression).toContain('rewardClaimed = :zero');
+		expect(upd.input.ExpressionAttributeValues?.[':zero']).toBe(0);
+	});
+
+	it('ConditionalCheckFailedException (既請求 / 並行 2 件目) → 付与せず 0 を返す (#3333 TOCTOU)', async () => {
+		const condFail = Object.assign(new Error('conditional failed'), {
+			name: 'ConditionalCheckFailedException',
+		});
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'CHILDCHAL#00000001' }],
+			})
+			.mockRejectedValueOnce(condFail);
+		const { claimReward } = await loadRepo();
+		const changed = await claimReward(1, TENANT);
+		expect(changed).toBe(0);
 	});
 });
 

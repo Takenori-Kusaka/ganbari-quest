@@ -705,9 +705,15 @@ export async function claimChildChallengeReward(
 	const repos = getRepos();
 	const challenge = await repos.childChallenge.findById(challengeId, tenantId);
 	if (!challenge) return { error: 'チャレンジが見つかりません' };
+	// IDOR 防御 + 事前 gate (childId 所有権 / completed)。rewardClaimed の最終判定は下の条件付き UPDATE で行う。
 	if (challenge.childId !== childId) return { error: 'このチャレンジは別のお子さま用です' };
 	if (challenge.completed !== 1) return { error: 'まだクリアしていません' };
-	if (challenge.rewardClaimed === 1) return { error: 'すでに受け取り済みです' };
+
+	// claim-first (#3333): 先に条件付き claimReward を atomic に実行し、実際に flip できた (戻り値 === 1)
+	// ときだけポイントを付与する。check-then-act だと並行 submit で findById が両方 rewardClaimed=0 を
+	// 読み、insertPointLedger が 2 回走る TOCTOU 二重付与が起きるため、付与の前に flip を確定させる。
+	const flipped = await repos.childChallenge.claimReward(challengeId, tenantId);
+	if (flipped !== 1) return { error: 'すでに受け取り済みです' };
 
 	const rewardConfig: RewardConfig = JSON.parse(challenge.rewardConfig);
 	await insertPointLedger(
@@ -720,7 +726,6 @@ export async function claimChildChallengeReward(
 		},
 		tenantId,
 	);
-	await repos.childChallenge.claimReward(challengeId, tenantId);
 	return { points: rewardConfig.points, message: rewardConfig.message };
 }
 

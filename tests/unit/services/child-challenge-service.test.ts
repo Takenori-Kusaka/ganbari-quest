@@ -766,11 +766,14 @@ function challengeRow(over: Record<string, unknown> = {}) {
 	};
 }
 
-describe('claimChildChallengeReward — fail-closed gating (#3333 C / per-child)', () => {
-	it('自身の instance が completed=1 && rewardClaimed=0 → 受取成功（兄弟未完了は無関係 = per-child）', async () => {
+describe('claimChildChallengeReward — claim-first 原子化 + fail-closed gating (#3333 C / per-child)', () => {
+	it('自身の instance が completed=1 && claimReward が 1 行 flip → 受取成功（兄弟未完了は無関係 = per-child）', async () => {
 		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 1, rewardClaimed: 0 }));
+		mockClaimReward.mockResolvedValueOnce(1); // 条件付き UPDATE が 1 行を flip
 		const result = await claimChildChallengeReward(10, 902, TENANT);
 		expect('points' in result && result.points).toBe(30);
+		// claim-first: claimReward の戻り行数 === 1 を確認してから付与
+		expect(mockClaimReward).toHaveBeenCalledWith(10, TENANT);
 		// point ledger は 1 回だけ加算（二重付与なし）
 		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledTimes(1);
 		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledWith(
@@ -782,29 +785,30 @@ describe('claimChildChallengeReward — fail-closed gating (#3333 C / per-child)
 			}),
 			TENANT,
 		);
-		expect(mockClaimReward).toHaveBeenCalledWith(10, TENANT);
 	});
 
-	it('未完了 (completed=0) → 「まだクリアしていません」で fail-closed（ledger 加算なし）', async () => {
+	it('未完了 (completed=0) → 「まだクリアしていません」で fail-closed（claimReward を呼ばず ledger 加算なし）', async () => {
 		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 0, currentValue: 2 }));
 		const result = await claimChildChallengeReward(10, 902, TENANT);
 		expect('error' in result && result.error).toBe('まだクリアしていません');
-		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
 		expect(mockClaimReward).not.toHaveBeenCalled();
+		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
 	});
 
-	it('既請求 (rewardClaimed=1) → 「すでに受け取り済みです」で fail-closed（二重請求拒否）', async () => {
-		mockFindById.mockResolvedValueOnce(challengeRow({ rewardClaimed: 1 }));
+	it('既請求 (claimReward が 0 行) → 「すでに受け取り済みです」で fail-closed（付与しない）', async () => {
+		// findById は completed=1 を返すが、条件付き UPDATE は既に flip 済のため 0 行 = 付与スキップ
+		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 1, rewardClaimed: 1 }));
+		mockClaimReward.mockResolvedValueOnce(0);
 		const result = await claimChildChallengeReward(10, 902, TENANT);
 		expect('error' in result && result.error).toBe('すでに受け取り済みです');
 		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
-		expect(mockClaimReward).not.toHaveBeenCalled();
 	});
 
-	it('別 child の instance (childId 不一致) → 受取拒否（IDOR fail-closed）', async () => {
+	it('別 child の instance (childId 不一致) → 受取拒否（IDOR fail-closed、claimReward を呼ばない）', async () => {
 		mockFindById.mockResolvedValueOnce(challengeRow({ childId: 903 }));
 		const result = await claimChildChallengeReward(10, 902, TENANT);
 		expect('error' in result && result.error).toBe('このチャレンジは別のお子さま用です');
+		expect(mockClaimReward).not.toHaveBeenCalled();
 		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
 	});
 
@@ -815,16 +819,32 @@ describe('claimChildChallengeReward — fail-closed gating (#3333 C / per-child)
 		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
 	});
 
-	it('二重 claim: 1 回目成功後に再請求 → 2 回目は既請求拒否で ledger 二重加算しない', async () => {
-		// 1 回目: 未請求 → 成功
-		mockFindById.mockResolvedValueOnce(challengeRow({ rewardClaimed: 0 }));
-		await claimChildChallengeReward(10, 902, TENANT);
-		// 2 回目: claimReward 後の状態 (rewardClaimed=1) を返す → fail-closed
-		mockFindById.mockResolvedValueOnce(challengeRow({ rewardClaimed: 1 }));
-		const second = await claimChildChallengeReward(10, 902, TENANT);
-		expect('error' in second && second.error).toBe('すでに受け取り済みです');
-		// ledger は 1 回目の 1 回のみ
+	// #3333 (3) TOCTOU 二重 claim 回帰: mock を直列化せず、同一の completed&未請求 row を両 call が
+	// findById で読む状況を作る。原子化 claimReward は 1 回目だけ 1 行を flip し、2 回目は条件付きで
+	// 0 行を返す。これにより insertPointLedger は「ちょうど 1 回」しか呼ばれず、ポイント二重付与が起きない。
+	it('並行 submit (race): claimReward が 1→0 を返し insertPointLedger はちょうど 1 回だけ呼ばれる', async () => {
+		// 両 call とも findById は同じ completed=1 / rewardClaimed=0 の row を読む (TOCTOU 状況)
+		mockFindById.mockResolvedValue(challengeRow({ completed: 1, rewardClaimed: 0 }));
+		// 原子的 claimReward: 1 回目は 1 行 flip、2 回目以降は 0 行 (条件付き UPDATE が同一行を二度 flip しない)
+		mockClaimReward.mockResolvedValueOnce(1).mockResolvedValue(0);
+
+		const [first, second] = await Promise.all([
+			claimChildChallengeReward(10, 902, TENANT),
+			claimChildChallengeReward(10, 902, TENANT),
+		]);
+
+		// 一方だけが成功し、他方は付与なしで「すでに受け取り済みです」
+		const results = [first, second];
+		const successes = results.filter((r): r is { points: number; message?: string } => 'points' in r);
+		const failures = results.filter((r): r is { error: string } => 'error' in r);
+		expect(successes).toHaveLength(1);
+		expect(failures).toHaveLength(1);
+		expect(successes[0]?.points).toBe(30);
+		expect(failures[0]?.error).toBe('すでに受け取り済みです');
+
+		// 二重付与防止の本丸: insertPointLedger はちょうど 1 回
 		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledTimes(1);
-		expect(mockClaimReward).toHaveBeenCalledTimes(1);
+		// claimReward 自体は両 submit で呼ばれる (原子化判定は repo に委譲)
+		expect(mockClaimReward).toHaveBeenCalledTimes(2);
 	});
 });
