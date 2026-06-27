@@ -109,7 +109,7 @@ let showCelebration = $state(true);
 // #3333 fix (B): 個別完了したチャレンジのごほうび受取導線（旧 ChallengeBanner の per-instance claim 復元）。
 // per-child 報酬モデル（ADR-0055）+ #2488 must-1 の設計意図 = 「自身の instance が completed=1 かつ
 // rewardClaimed=0 なら受取可能」。この card を claim の単一経路（永続 claim 導線）にする。
-// SiblingCelebration は dismissable な祝福演出のみを担い claim form を持たないため、単一児
+// SiblingCelebration は dismissible な祝福演出のみを担い claim form を持たないため、単一児
 // （allCompleted=自身完了）でも dismiss で受取不能（dead-end）にならない。完了済・未受取なら
 // 兄弟全完了 / 個別完了いずれでも常に card で受取できる（`!allCompleted` 排他を撤去、二重導線も排除）。
 // server は claim-first で原子化済（既請求は付与せず error）。
