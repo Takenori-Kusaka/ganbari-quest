@@ -1,7 +1,7 @@
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
-import { findChildById, getBalance, insertPointEntry } from '$lib/server/db/point-repo';
+import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/point-repo';
 import {
 	countRedemptionRequestsByTenant,
 	expireOldRedemptions as expireOldRedemptionsRepo,
@@ -13,7 +13,17 @@ import {
 	markRedemptionResultShown,
 	updateRedemptionRequestStatus,
 } from '$lib/server/db/reward-redemption-repo';
+import { getSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
+
+/**
+ * #3339: ごほうび交換の「即時交換（親承認スキップ）」が家庭設定で有効か。
+ * settings KVS `reward_auto_approve`（既定 OFF = 現行の親承認フロー）。
+ * sibling_ranking_enabled と同じ bool 規約（'true' のみ真）。
+ */
+export async function isRewardAutoApproveEnabled(tenantId: string): Promise<boolean> {
+	return (await getSetting('reward_auto_approve', tenantId)) === 'true';
+}
 
 // ============================================================
 // 型定義
@@ -30,6 +40,11 @@ export interface RedemptionRequestResult {
 	parentNote: string | null;
 	resolvedAt: number | null;
 	shownToChildAt: number | null;
+	/**
+	 * #3339: 即時交換（家庭設定 `reward_auto_approve` ON）で親承認をスキップして
+	 * その場で approved 確定したか。`requestRedemption` のみ設定する（承認/却下経路では undefined）。
+	 */
+	instant?: boolean;
 }
 
 export interface RedemptionRequestWithDetails {
@@ -86,9 +101,41 @@ export async function requestRedemption(
 	const existing = await findPendingByChildAndReward(childId, rewardId, tenantId);
 	if (existing) return { error: 'ALREADY_PENDING' };
 
-	// 申請作成
+	// 申請作成（repo は常に pending_parent_approval で作成する）
 	const now = Math.floor(Date.now() / 1000);
 	const row = await insertRedemptionRequest({ childId, rewardId, requestedAt: now }, tenantId);
+
+	// #3339: 家庭設定で即時交換が有効なら、その場で承認確定（減算 + approved）し親承認をスキップする。
+	// 既存の親承認と同一の finalizeApproval を共有するため減算・監査・status 更新の挙動は一致する
+	// （resolvedByParentId=null = システム自動承認）。OFF（既定）なら従来どおり pending を返す。
+	if (await isRewardAutoApproveEnabled(tenantId)) {
+		const finalized = await finalizeApproval({
+			childId,
+			requestId: row.id,
+			rewardPoints: reward.points,
+			rewardTitle: reward.title,
+			parentUserId: null,
+			tenantId,
+		});
+		if ('error' in finalized) {
+			// #3347: 即時交換で減算に失敗した場合（並行交換による残高不足等）、直前に作成した
+			// pending 行が「親の承認待ち」として残ると、子供がエラーを受け取った交換が保護者画面に
+			// 幻の承認待ちとして出続けてしまう。expired に倒して回収する（getUnshownResult は
+			// approved/rejected のみ surface するため子供側にも露出しない）。
+			await updateRedemptionRequestStatus(
+				childId,
+				row.id,
+				{ status: 'expired', resolvedAt: now },
+				tenantId,
+			);
+			// 残高は上で確認済だが、並行交換で不足した場合は INSUFFICIENT_POINTS を返す。
+			// REQUEST_NOT_FOUND（直前 insert の取り違え）は理論上発生しないが安全側で REWARD_NOT_FOUND に倒す。
+			return finalized.error === 'INSUFFICIENT_POINTS'
+				? { error: 'INSUFFICIENT_POINTS' }
+				: { error: 'REWARD_NOT_FOUND' };
+		}
+		return { ...finalized, instant: true };
+	}
 
 	return {
 		id: row.id,
@@ -99,6 +146,7 @@ export async function requestRedemption(
 		parentNote: row.parentNote,
 		resolvedAt: row.resolvedAt,
 		shownToChildAt: row.shownToChildAt,
+		instant: false,
 	};
 }
 
@@ -155,41 +203,42 @@ export type ApproveError =
 	| { error: 'INSUFFICIENT_POINTS' }
 	| { error: 'REQUEST_NOT_FOUND' };
 
-export async function approveRedemption(
-	requestId: number,
-	// #3320: 承認した保護者の認証 userId (cognito sub 等)。監査証跡として記録する。
-	// local 実行モード等で identity userId が無い場合は null (= 解決者不明)。
-	parentUserId: string | null,
-	tenantId: string,
-): Promise<RedemptionRequestResult | ApproveError> {
-	// 申請取得（テナント内か確認のため全件から検索）
-	// children + specialRewards 結合で取得
-	const allPending = await findRedemptionRequestsByTenant(tenantId);
-	const req = allPending.find((r) => r.id === requestId);
-	if (!req) return { error: 'REQUEST_NOT_FOUND' };
+/**
+ * 申請を「承認 (approved)」に確定する共通処理（#3339 で抽出）。
+ * ポイント減算（残高 >= コストのときのみ原子的に台帳挿入）→ status='approved' 更新を行う。
+ * 親承認（{@link approveRedemption}）と即時交換（{@link requestRedemption} の auto-approve 経路）で共有する。
+ *
+ * #3347（TOCTOU 二重減算根治）: 旧実装は `getBalance`（残高読込）→ 非負確認 →
+ * `insertPointEntry`（挿入）を await を跨いで行っていたため、即時交換の並行 / 二重 submit で
+ * 両方が同じ残高を読んで二重減算・残高マイナスを起こし得た（#3336 と同型）。残高確認と減算を
+ * `spendPointsAtomic`（backend の原子境界）に閉じ込め、2 回目は減算後残高を読み INSUFFICIENT に
+ * 倒すことで構造的に防ぐ。
+ *
+ * @param parentUserId 承認した保護者の認証 userId。即時交換（システム自動承認）では null。
+ */
+async function finalizeApproval(args: {
+	childId: number;
+	requestId: number;
+	rewardPoints: number;
+	rewardTitle: string;
+	parentUserId: string | null;
+	tenantId: string;
+}): Promise<RedemptionRequestResult | { error: 'INSUFFICIENT_POINTS' | 'REQUEST_NOT_FOUND' }> {
+	const { childId, requestId, rewardPoints, rewardTitle, parentUserId, tenantId } = args;
 
-	if (req.status !== 'pending_parent_approval') return { error: 'INVALID_STATUS' };
-
-	// ポイント残高再確認（レースコンディション対策）
-	const balance = await getBalance(req.childId, tenantId);
-	if (balance < req.rewardPoints) return { error: 'INSUFFICIENT_POINTS' };
-
-	// ポイント減算
-	await insertPointEntry(
-		{
-			childId: req.childId,
-			amount: -req.rewardPoints,
-			type: 'reward_redemption',
-			description: req.rewardTitle,
-			referenceId: requestId,
-		},
+	// #3347: 残高再読込 → 非負確認 → 減算を原子境界で実行（TOCTOU 二重減算・残高マイナス防止）。
+	const spend = await spendPointsAtomic(
+		childId,
+		rewardPoints,
+		{ type: 'reward_redemption', description: rewardTitle, referenceId: requestId },
 		tenantId,
 	);
+	if ('error' in spend) return { error: 'INSUFFICIENT_POINTS' };
 
-	// ステータス更新 (#2845 課題①: req.childId で所有権検証付き composite key 更新)
+	// ステータス更新 (#2845 課題①: childId で所有権検証付き composite key 更新)
 	const now = Math.floor(Date.now() / 1000);
 	const updated = await updateRedemptionRequestStatus(
-		req.childId,
+		childId,
 		requestId,
 		{
 			status: 'approved',
@@ -211,6 +260,31 @@ export async function approveRedemption(
 		resolvedAt: updated.resolvedAt,
 		shownToChildAt: updated.shownToChildAt,
 	};
+}
+
+export async function approveRedemption(
+	requestId: number,
+	// #3320: 承認した保護者の認証 userId (cognito sub 等)。監査証跡として記録する。
+	// local 実行モード等で identity userId が無い場合は null (= 解決者不明)。
+	parentUserId: string | null,
+	tenantId: string,
+): Promise<RedemptionRequestResult | ApproveError> {
+	// 申請取得（テナント内か確認のため全件から検索）
+	// children + specialRewards 結合で取得
+	const allPending = await findRedemptionRequestsByTenant(tenantId);
+	const req = allPending.find((r) => r.id === requestId);
+	if (!req) return { error: 'REQUEST_NOT_FOUND' };
+
+	if (req.status !== 'pending_parent_approval') return { error: 'INVALID_STATUS' };
+
+	return finalizeApproval({
+		childId: req.childId,
+		requestId,
+		rewardPoints: req.rewardPoints,
+		rewardTitle: req.rewardTitle,
+		parentUserId,
+		tenantId,
+	});
 }
 
 // ============================================================

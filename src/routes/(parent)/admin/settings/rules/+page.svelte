@@ -151,16 +151,74 @@ function formatImportedAt(iso: string): string {
 		</p>
 	</header>
 
-	{#if form?.toggleSuccess || form?.removeSuccess}
+	{#if form?.toggleSuccess || form?.removeSuccess || form?.rewardAutoApproveSuccess}
 		<div
 			class="bg-[var(--color-feedback-success-bg)] border border-[var(--color-feedback-success-border)] text-[var(--color-feedback-success-text)] rounded-xl p-3 text-sm"
 			data-testid="rules-action-success"
 		>
-			{form.removeSuccess
-				? ADMIN_RULES_PAGE_LABELS.removeSuccess
-				: ADMIN_RULES_PAGE_LABELS.updateSuccess}
+			{#if form?.rewardAutoApproveSuccess}
+				{ADMIN_RULES_PAGE_LABELS.rewardApprovalSuccess}
+			{:else if form?.removeSuccess}
+				{ADMIN_RULES_PAGE_LABELS.removeSuccess}
+			{:else}
+				{ADMIN_RULES_PAGE_LABELS.updateSuccess}
+			{/if}
 		</div>
 	{/if}
+
+	<!-- #3339: ごほうび交換のしかた（即時交換 / 親承認）。settings KVS reward_auto_approve、既定=承認必須。 -->
+	<Card padding="lg" variant="elevated">
+		{#snippet children()}
+		<section class="space-y-3" data-testid="rules-reward-approval-section">
+			<h2 class="text-sm font-bold text-[var(--color-text-primary)]">
+				{ADMIN_RULES_PAGE_LABELS.rewardApprovalSectionTitle}
+			</h2>
+			<p class="text-xs text-[var(--color-text-tertiary)]">
+				{ADMIN_RULES_PAGE_LABELS.rewardApprovalSectionDesc}
+			</p>
+			<div class="flex items-start gap-3 justify-between flex-wrap">
+				<div class="flex-1 min-w-0 space-y-1">
+					<div class="flex items-center gap-2">
+						{#if data.rewardAutoApprove}
+							<Badge variant="info" size="sm">
+								{ADMIN_RULES_PAGE_LABELS.rewardApprovalInstantState}
+							</Badge>
+						{:else}
+							<Badge variant="success" size="sm">
+								{ADMIN_RULES_PAGE_LABELS.rewardApprovalRequireState}
+							</Badge>
+						{/if}
+					</div>
+					<p class="text-xs text-[var(--color-text-secondary)]">
+						{data.rewardAutoApprove
+							? ADMIN_RULES_PAGE_LABELS.rewardApprovalInstantDesc
+							: ADMIN_RULES_PAGE_LABELS.rewardApprovalRequireDesc}
+					</p>
+				</div>
+				<form
+					method="POST"
+					action="?/setRewardAutoApprove"
+					use:enhance={() => async ({ update }) => {
+						await update();
+						await invalidateAll();
+					}}
+				>
+					<input type="hidden" name="enabled" value={data.rewardAutoApprove ? 'false' : 'true'} />
+					<Button
+						type="submit"
+						variant={data.rewardAutoApprove ? 'outline' : 'primary'}
+						size="sm"
+						data-testid="rules-reward-approval-toggle"
+					>
+						{data.rewardAutoApprove
+							? ADMIN_RULES_PAGE_LABELS.rewardApprovalDisableInstantButton
+							: ADMIN_RULES_PAGE_LABELS.rewardApprovalEnableInstantButton}
+					</Button>
+				</form>
+			</div>
+		</section>
+		{/snippet}
+	</Card>
 
 	{#if data.bonusPresets.length === 0}
 		<!-- 取込済が無い場合。CX-DoR #11: empty state を共通 SSOT に統一 (NN/G #4 consistency)。

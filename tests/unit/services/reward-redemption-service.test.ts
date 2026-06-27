@@ -134,6 +134,177 @@ describe('requestRedemption', () => {
 	});
 });
 
+describe('requestRedemption — 即時交換オプション (#3339)', () => {
+	/** settings KVS に reward_auto_approve を設定する。 */
+	function setAutoApprove(value: 'true' | 'false') {
+		sqlite
+			.prepare(
+				`INSERT INTO settings (key, value, updated_at) VALUES ('reward_auto_approve', ?, CURRENT_TIMESTAMP)
+				 ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+			)
+			.run(value);
+	}
+
+	it('OFF（既定）では従来どおり pending_parent_approval + instant=false、減算しない', async () => {
+		const { childId, rewardId } = seedBaseData();
+		setAutoApprove('false');
+
+		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.status).toBe('pending_parent_approval');
+		expect(result.instant).toBe(false);
+
+		// 申請時はポイント減算しない
+		const ledger = sqlite
+			.prepare("SELECT * FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?")
+			.get(childId);
+		expect(ledger).toBeUndefined();
+		// 親の承認待ちに 1 件残る
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(1);
+	});
+
+	it('ON では即時 approved + instant=true、その場で減算、親承認待ちに残らない', async () => {
+		const { childId, rewardId } = seedBaseData();
+		setAutoApprove('true');
+
+		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.status).toBe('approved');
+		expect(result.instant).toBe(true);
+		expect(result.resolvedAt).toBeTruthy();
+
+		// 申請時にポイント減算される (80P)
+		const ledger = sqlite
+			.prepare("SELECT * FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?")
+			.get(childId) as { amount: number } | undefined;
+		expect(ledger).toBeTruthy();
+		expect(ledger!.amount).toBe(-80);
+
+		// 親の承認待ちには残らない（即時交換のため）
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
+
+		// 自動承認は resolvedByParentId=null（システム承認）
+		const row = sqlite
+			.prepare('SELECT resolved_by_parent_id, status FROM reward_redemption_requests WHERE id = ?')
+			.get(result.id) as { resolved_by_parent_id: string | null; status: string };
+		expect(row.status).toBe('approved');
+		expect(row.resolved_by_parent_id).toBeNull();
+	});
+
+	it('ON でも残高不足は弾く（減算せず INSUFFICIENT_POINTS）', async () => {
+		resetDb();
+		sqlite
+			.prepare(`INSERT INTO children (nickname, age, theme, ui_mode) VALUES (?, ?, ?, ?)`)
+			.run('ざんだかなしちゃん', 8, 'blue', 'elementary');
+		const childRow = sqlite.prepare('SELECT id FROM children LIMIT 1').get() as { id: number };
+		const childId = childRow.id;
+		// ポイント 0 のまま、100P のごほうび
+		sqlite
+			.prepare(
+				`INSERT INTO special_rewards (child_id, title, points, icon, category, granted_at)
+				 VALUES (?, 'たかいごほうび', 100, '🎮', 'とくべつ', CURRENT_TIMESTAMP)`,
+			)
+			.run(childId);
+		const rewardRow = sqlite.prepare('SELECT id FROM special_rewards LIMIT 1').get() as {
+			id: number;
+		};
+		setAutoApprove('true');
+
+		const result = await requestRedemption(childId, rewardRow.id, TENANT_ID);
+		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
+
+		// 減算されていない
+		const ledger = sqlite
+			.prepare("SELECT * FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?")
+			.get(childId);
+		expect(ledger).toBeUndefined();
+	});
+
+	// #3347 (TOCTOU 二重減算根治): 即時交換は申請を pending に残さず即 approved + その場減算する。
+	// 旧実装は残高読込→挿入を await を跨いで行っていたため、並行/連打で両方が同じ残高を読み
+	// 二重減算・残高マイナスを起こし得た。spendPointsAtomic（原子境界）で構造的に防ぐことを検証する。
+	function currentBalance(childId: number): number {
+		const row = sqlite
+			.prepare('SELECT COALESCE(SUM(amount), 0) AS total FROM point_ledger WHERE child_id = ?')
+			.get(childId) as { total: number };
+		return row.total;
+	}
+	function redemptionLedgerCount(childId: number): number {
+		const row = sqlite
+			.prepare(
+				"SELECT COUNT(*) AS c FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?",
+			)
+			.get(childId) as { c: number };
+		return row.c;
+	}
+	function approvedCount(childId: number): number {
+		const row = sqlite
+			.prepare(
+				"SELECT COUNT(*) AS c FROM reward_redemption_requests WHERE child_id = ? AND status = 'approved'",
+			)
+			.get(childId) as { c: number };
+		return row.c;
+	}
+
+	it('並行 即時交換（同一ごほうび連打）で二重減算・残高マイナスにならない (#3347 TOCTOU)', async () => {
+		const { childId, rewardId } = seedBaseData(); // 100P, ごほうび 80P
+		setAutoApprove('true');
+
+		const [r1, r2] = await Promise.all([
+			requestRedemption(childId, rewardId, TENANT_ID),
+			requestRedemption(childId, rewardId, TENANT_ID),
+		]);
+
+		// ちょうど 1 件だけ成功し 80P 減算。二重減算なら 100-160 = -60 になる。
+		expect(currentBalance(childId)).toBe(20);
+		expect(redemptionLedgerCount(childId)).toBe(1);
+		expect(approvedCount(childId)).toBe(1);
+
+		// 失敗側は pending を残さない（保護者画面に幻の承認待ちを出さない）
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
+
+		// 2 結果は「片方 approved / 片方エラー（ALREADY_PENDING or INSUFFICIENT_POINTS）」
+		const ok = [r1, r2].filter((r) => !('error' in r));
+		const errors = [r1, r2].filter((r) => 'error' in r);
+		expect(ok.length).toBe(1);
+		expect(errors.length).toBe(1);
+	});
+
+	it('並行 即時交換（異なるごほうび同時）で残高を超えて減算しない (#3347 atomic spend / special_rewards 二重消費防止)', async () => {
+		const { childId, rewardId } = seedBaseData(); // 100P, ごほうび1 80P
+		// 2 つ目の 80P ごほうび（別 reward なので ALREADY_PENDING ガードを通り抜け、両方が減算経路へ進む）
+		sqlite
+			.prepare(
+				`INSERT INTO special_rewards (child_id, title, points, icon, category, granted_at)
+				 VALUES (?, 'べつのごほうび', 80, '🎲', 'とくべつ', CURRENT_TIMESTAMP)`,
+			)
+			.run(childId);
+		const reward2 = sqlite
+			.prepare('SELECT id FROM special_rewards WHERE child_id = ? ORDER BY id DESC LIMIT 1')
+			.get(childId) as { id: number };
+		setAutoApprove('true');
+
+		const [r1, r2] = await Promise.all([
+			requestRedemption(childId, rewardId, TENANT_ID),
+			requestRedemption(childId, reward2.id, TENANT_ID),
+		]);
+
+		// 残高 100 で 80×2 を同時要求 → 1 件のみ成功、残高 20（atomic 不在なら -60）
+		expect(currentBalance(childId)).toBe(20);
+		expect(redemptionLedgerCount(childId)).toBe(1);
+		expect(approvedCount(childId)).toBe(1);
+
+		// 敗者は INSUFFICIENT_POINTS で弾かれ、pending も残さない（expired 回収）
+		const insufficient = [r1, r2].filter(
+			(r) => 'error' in r && (r as { error: string }).error === 'INSUFFICIENT_POINTS',
+		);
+		expect(insufficient.length).toBe(1);
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
+	});
+});
+
 describe('approveRedemption', () => {
 	it('承認するとポイントが減算され status が approved になる', async () => {
 		const { childId, rewardId } = seedBaseData();

@@ -23,6 +23,7 @@ import {
 	setBonusPresetEnabled,
 } from '$lib/marketplace/strategies/rule-preset/bonus-state';
 import { requireTenantId } from '$lib/server/auth/factory';
+import { getSetting, setSetting } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -56,15 +57,41 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		}
 	}
 
+	// #3339: ごほうび交換の即時交換（親承認スキップ）設定。既定 OFF（親承認必須）。
+	let rewardAutoApprove = false;
+	try {
+		rewardAutoApprove = (await getSetting('reward_auto_approve', tenantId)) === 'true';
+	} catch (e) {
+		logger.error('[admin/settings/rules] reward_auto_approve 取得失敗', { error: String(e) });
+	}
+
 	return {
 		bonusPresets: bonusOverrides.presets,
 		importPresetId,
 		importPresetIdRaw,
 		importPresetError,
+		rewardAutoApprove,
 	};
 };
 
 export const actions: Actions = {
+	// #3339: ごほうび交換の即時交換 ON/OFF を settings KVS に保存する。
+	setRewardAutoApprove: async ({ request, locals }) => {
+		const tenantId = requireTenantId(locals);
+		const formData = await request.formData();
+		const enabled = String(formData.get('enabled') ?? '').trim() === 'true';
+		try {
+			await setSetting('reward_auto_approve', enabled ? 'true' : 'false', tenantId);
+			return { rewardAutoApproveSuccess: true, rewardAutoApprove: enabled };
+		} catch (e) {
+			logger.error('[admin/settings/rules] setRewardAutoApprove 失敗', {
+				error: String(e),
+				context: { enabled },
+			});
+			return fail(500, { error: 'ごほうび交換設定の更新に失敗しました' });
+		}
+	},
+
 	togglePreset: async ({ request, locals }) => {
 		const tenantId = requireTenantId(locals);
 		const formData = await request.formData();

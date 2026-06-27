@@ -441,3 +441,115 @@ test.describe('#1335: ごほうびショップ 交換フロー', () => {
 		expect(ledgerAfter.length).toBe(0);
 	});
 });
+
+// ============================================================
+// #3339: 即時交換オプション（家庭一括トグル reward_auto_approve）
+// ============================================================
+// settings KVS の reward_auto_approve を ON にすると、子供の交換が親承認を
+// スキップして即時 approved になる。共有 worker DB を汚染しないよう、afterEach で
+// 必ず設定キーと当該 approved 申請を削除して既定（承認必須）へ戻す（tests/CLAUDE.md #2851）。
+
+/** worker DB の settings.reward_auto_approve を設定/削除する。 */
+async function setRewardAutoApproveSetting(
+	workerDbPath: string,
+	value: 'true' | 'false' | null,
+): Promise<void> {
+	const { default: Database } = await import('better-sqlite3');
+	const db = new Database(workerDbPath);
+	try {
+		if (value === null) {
+			db.prepare("DELETE FROM settings WHERE key = 'reward_auto_approve'").run();
+		} else {
+			db.prepare(
+				`INSERT INTO settings (key, value, updated_at) VALUES ('reward_auto_approve', ?, CURRENT_TIMESTAMP)
+				 ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+			).run(value);
+		}
+	} finally {
+		db.close();
+	}
+}
+
+/** たろうくんの approved な交換申請を削除（即時交換テストの後始末）。 */
+async function clearApprovedRedemptions(workerDbPath: string): Promise<void> {
+	const { default: Database } = await import('better-sqlite3');
+	const db = new Database(workerDbPath);
+	try {
+		const child = db
+			.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
+			.get('たろうくん') as { id: number } | undefined;
+		if (!child) return;
+		db.prepare(
+			"DELETE FROM reward_redemption_requests WHERE child_id = ? AND status = 'approved'",
+		).run(child.id);
+	} finally {
+		db.close();
+	}
+}
+
+// serial 実行はファイル先頭の test.describe.configure({ mode: 'serial' }) が本 describe にも適用される。
+test.describe('#3339: ごほうび即時交換オプション', () => {
+	test.beforeEach(async ({ workerDbPath }) => {
+		await resetKinderChildBalance(workerDbPath);
+		await setRewardAutoApproveSetting(workerDbPath, 'true');
+	});
+
+	test.afterEach(async ({ workerDbPath }) => {
+		// 共有 worker DB を既定（承認必須）へ戻す + 即時交換で作成した approved 申請を掃除
+		await setRewardAutoApproveSetting(workerDbPath, null);
+		await clearApprovedRedemptions(workerDbPath);
+		await resetKinderChildBalance(workerDbPath);
+	});
+
+	test('即時交換 ON: 交換が承認待ちにならず「こうかん済み」バッジ + 即時減算', async ({
+		page,
+		workerDbPath,
+	}) => {
+		await selectKinderChild(page);
+		await dismissOverlays(page);
+		await page.goto('/preschool/shop');
+		await expect(page.getByTestId('shop-page')).toBeVisible();
+
+		const affordableCard = page.locator('[data-testid^="reward-card-"]').filter({
+			hasText: 'E2Eテスト用ごほうび（交換可）',
+		});
+		await expect(affordableCard).toHaveCount(1);
+
+		const exchangeBtn = affordableCard.locator('button[data-testid^="exchange-btn-"]');
+		await expect(exchangeBtn).toBeEnabled();
+		await exchangeBtn.click();
+
+		const confirmYes = page.getByTestId('confirm-exchange-yes');
+		await expect(confirmYes).toBeVisible({ timeout: 10000 });
+		await confirmYes.click();
+		await expect(confirmYes).not.toBeVisible();
+
+		// 即時交換 = 親承認をスキップして approved 化。invalidateAll 後にカードへ
+		// 「こうかん済み」(statusApproved) が出て、「うけとりまち」(承認待ち) は出ない。
+		await expect(affordableCard.getByText('こうかん済み')).toBeVisible({ timeout: 10000 });
+		await expect(affordableCard.getByText('うけとりまち')).toHaveCount(0);
+
+		// 親の承認待ちは作られていない（即時交換のため）+ DB 上 approved 1 件
+		const { default: Database } = await import('better-sqlite3');
+		const db = new Database(workerDbPath);
+		try {
+			const child = db
+				.prepare('SELECT id FROM children WHERE nickname = ? LIMIT 1')
+				.get('たろうくん') as { id: number };
+			const pending = db
+				.prepare(
+					"SELECT COUNT(*) as c FROM reward_redemption_requests WHERE child_id = ? AND status = 'pending_parent_approval'",
+				)
+				.get(child.id) as { c: number };
+			const approved = db
+				.prepare(
+					"SELECT COUNT(*) as c FROM reward_redemption_requests WHERE child_id = ? AND status = 'approved'",
+				)
+				.get(child.id) as { c: number };
+			expect(pending.c).toBe(0);
+			expect(approved.c).toBeGreaterThanOrEqual(1);
+		} finally {
+			db.close();
+		}
+	});
+});
