@@ -303,11 +303,11 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 - **routes**: `/admin/challenges` は per-child instance の閲覧 + 子供別タブ + 兄弟連動表示 (SiblingChallengeComparison.svelte)。**#3195 (EPIC #3193)**: アプリ自動生成一本化に伴い親手動作成 / 一括追加 / cross-child copy / marketplace challenge-set import を撤去し閲覧専用化、child_challenges はアプリ週次自動生成 (`sourceTemplateId='auto:weekly'`) で埋める
 - **子供画面 (#2458-B caller migration)**:
   - `(child)/[uiMode]/home` + `(child)/[uiMode]/(character)/history` は `getActiveChildChallengesWithSiblings(childId, tenantId)` で per-child instance + 同 group key (sourceTemplateId / `title::start::end`) 兄弟連動情報 (`siblings[]`) を取得
-  - `ChallengeBanner.svelte` / `SiblingCelebration.svelte` は `ChildChallengeWithSiblings` 型に統合 (自身の `currentValue` / `targetValue` / `rewardClaimed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定)
+  - チャレンジ対象表示は `ChildChallengeWithSiblings` 型 (自身の `currentValue` / `targetValue` / `rewardClaimed` / `completed` + `siblings[]` で他兄弟進捗 + `allCompleted` 判定) を読む。#3333 で独立横長 `ChallengeBanner.svelte` を撤去し、対象は `CategorySection.svelte` ヘッダーのカード演出バッジ (`challenge-target-badge`) + インライン進捗へ統合。`SiblingCelebration.svelte` は全員完了 (`allCompleted`) の group 祝福のみを担う
   - `claimChallengeReward` action は `claimChildChallengeReward(challengeId, childId, tenantId)` を呼ぶ (per-child instance の `rewardClaimed` flip + 自分のみ tenant-scoped point ledger 加算)
 - **setup wizard (#2458-B)**: `/setup/challenges` は preset 選択 → `getAllChildren` で全 child 取得 → `buildPerChildTargets` で age-adjusted target 計算 → `createChildChallengesBulk` で全 child に同 spec instance を bulk insert (sourceTemplateId = `setup-preset:<presetId>` で admin 兄弟連動表示)
 - **demo**: `DEMO_CHILD_CHALLENGES` 4 件 fixture (3 件は `sourceTemplateId: 'challenge-100pt'` を共有して兄弟連動表示 demo、1 件は個別)
-- **兄弟連動 UI 工夫 (User §6)**: 同じ `sourceTemplateId` (または `title + startDate + endDate`) を共有する per-child instance を admin/challenges + 子供 home / history で group 表示。SiblingChallengeComparison は admin 画面でのみ使用し、子供 home は `ChallengeBanner` 内に `siblings[]` 一覧表示 (ADR-0012 Anti-engagement 整合: 1 件 banner 内集約、連続演出なし)
+- **兄弟連動 UI 工夫 (User §6)**: 同じ `sourceTemplateId` (または `title + startDate + endDate`) を共有する per-child instance を admin/challenges + 子供 home / history で group 表示。SiblingChallengeComparison は admin 画面でのみ使用。子供 home は対象を `CategorySection` カード演出バッジで表示し、兄弟進捗は全員完了時の `SiblingCelebration` で集約表示 (ADR-0012 Anti-engagement 整合: 独立横長 banner なし・連続演出なし、#3333)。個別完了の per-child ごほうび受取は home のコンパクト受取カード (`challenge-reward-claim-card`、#2488 must-1) で担保
 - **LP 整合性 (ADR-0013)**: LP / pricing / faq の「チャレンジ」訴求は per-child 体験ベース (「自分から目標を立てる」「ウィークリーチャレンジ」) のため per-child 化と既に整合済み。LP 文言修正不要
 - **family-only gate**: 既存の `tier !== 'family'` server-side gate は本 PR では維持
 

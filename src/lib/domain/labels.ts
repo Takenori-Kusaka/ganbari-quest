@@ -6848,13 +6848,15 @@ export const UI_COMPONENTS_LABELS = {
 	categorySectionCollapse: '▲ たたむ',
 	categorySectionExpand: (remaining: number) => `▼ もっとみる（のこり ${remaining}こ）`,
 
-	// ---- ChallengeBanner ----
-	challengeBannerClear: 'クリア！',
-	challengeBannerMe: 'じぶん',
-	challengeBannerReceive: '🎁 うけとる',
-	challengeBannerReceived: '✅ うけとりずみ',
-	challengeBannerCountdownUrgent: (days: number) => `あと${days}にち！`,
-	challengeBannerCountdown: (days: number) => `あと${days}にち`,
+	// ---- Challenge target (#3333: 旧 ChallengeBanner 横長バナーを撤去し、対象カテゴリの
+	// CategorySection ヘッダーへ静的バッジ + インライン進捗で統合。#2146/#2168 のカード演出統合
+	// 思想に整合。ごほうび受取は SiblingCelebration が担う) ----
+	challengeTargetRemaining: (count: number) => `のこり${count}かい`,
+	challengeTargetComplete: 'クリア！',
+	challengeTargetAria: (categoryName: string, remaining: number) =>
+		`${categoryName}は今週のチャレンジ対象です。のこり${remaining}かい。`,
+	challengeTargetAriaComplete: (categoryName: string) =>
+		`${categoryName}の今週のチャレンジはクリアしました。`,
 
 	// ---- ErrorAlert ----
 	errorAlertRetry: 'しばらくしてからもう一度お試しください。',

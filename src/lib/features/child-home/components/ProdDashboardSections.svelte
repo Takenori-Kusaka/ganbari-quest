@@ -88,6 +88,7 @@ const {
 	xpAnimatingCategoryId,
 	getCategoryMissionCount,
 	getCategoryCompletedMissionCount,
+	getChallengeTarget,
 	onActivityTap,
 	onActivityLongPress,
 	onRecordSubmit,
@@ -134,6 +135,13 @@ const {
 	xpAnimatingCategoryId: number | null;
 	getCategoryMissionCount: (categoryId: number) => number;
 	getCategoryCompletedMissionCount: (categoryId: number) => number;
+	/**
+	 * #3333: カテゴリが今週のチャレンジ対象なら進捗を返す（非対象は null）。
+	 * CategorySection ヘッダーへ静的バッジ + インライン進捗を表示する（旧 ChallengeBanner 代替）。
+	 */
+	getChallengeTarget: (
+		categoryId: number,
+	) => { current: number; target: number; remaining: number; completed: boolean } | null;
 	onActivityTap: (activity: { id: number; name: string; icon: string }) => void;
 	onActivityLongPress: (activity: {
 		id: number;
@@ -191,6 +199,8 @@ const activitiesByCategory = $derived(
 		xpAnimating={xpAnimatingCategoryId === group.categoryId}
 		missionCount={getCategoryMissionCount(group.categoryId)}
 		completedMissionCount={getCategoryCompletedMissionCount(group.categoryId)}
+		challengeTarget={getChallengeTarget(group.categoryId)}
+		challengeProgressStyle={uiMode === 'preschool' ? 'dots' : 'text'}
 	>
 		{#each group.items as activity, i (activity.id)}
 			{#if features.showPin && i > 0 && !activity.isPinned && group.items[i - 1]?.isPinned}

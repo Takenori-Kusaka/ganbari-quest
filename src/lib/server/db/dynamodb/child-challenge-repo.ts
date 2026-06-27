@@ -282,18 +282,36 @@ export async function markCompleted(id: number, tenantId: string): Promise<void>
 	);
 }
 
-export async function claimReward(id: number, tenantId: string): Promise<void> {
+/**
+ * ごほうび受取マーク (条件付き原子化、#3333)。
+ * `completed=1 AND (rewardClaimed が未設定 OR 0)` の行のみ flip し、flip できたら 1 / できなければ 0 を返す。
+ * DynamoDB ConditionExpression で atomic に判定するため、並行 submit (同 child 二重 POST) でも
+ * 2 件目は ConditionalCheckFailedException となり 0 を返す。service 層は戻り値 === 1 のときだけ
+ * ポイント付与する (claim-first) ことで TOCTOU 二重付与を防ぐ。tenant scope は resolveKeyById の
+ * PK (`T#<tenantId>#...`) 解決で担保 (IDOR 防御)。
+ */
+export async function claimReward(id: number, tenantId: string): Promise<number> {
 	const key = await resolveKeyById(id, tenantId);
-	if (!key) return;
+	if (!key) return 0;
 	const now = new Date().toISOString();
-	await getDocClient().send(
-		new UpdateCommand({
-			TableName: TABLE_NAME,
-			Key: key,
-			UpdateExpression: 'SET rewardClaimed = :one, rewardClaimedAt = :now, updatedAt = :now',
-			ExpressionAttributeValues: { ':one': 1, ':now': now },
-		}),
-	);
+	try {
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: key,
+				UpdateExpression: 'SET rewardClaimed = :one, rewardClaimedAt = :now, updatedAt = :now',
+				ConditionExpression:
+					'completed = :one AND (attribute_not_exists(rewardClaimed) OR rewardClaimed = :zero)',
+				ExpressionAttributeValues: { ':one': 1, ':zero': 0, ':now': now },
+			}),
+		);
+		return 1;
+	} catch (e) {
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') {
+			return 0;
+		}
+		throw e;
+	}
 }
 
 /** UpdateChildChallengeInput で渡された field のみ更新する (SQLite .set({...}) 等価)。 */

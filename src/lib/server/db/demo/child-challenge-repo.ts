@@ -127,8 +127,16 @@ export async function markCompleted(_id: number, _tenantId: string): Promise<voi
 	// Stub: no-op
 }
 
-export async function claimReward(_id: number, _tenantId: string): Promise<void> {
-	// Stub: no-op
+/**
+ * ごほうび受取マーク (条件付きガード、#3333)。
+ * demo は read=fixture / write=stub (永続化なし) のため実際の flip は行わないが、
+ * sqlite / dynamodb と同じ「completed=1 かつ未請求の行のみ 1、それ以外 0」ガードセマンティクスを返す。
+ * これにより service 層の claim-first 判定 (戻り値 === 1 のときだけ付与) が demo でも一貫する。
+ */
+export async function claimReward(id: number, _tenantId: string): Promise<number> {
+	const target = DEMO_CHILD_CHALLENGES.find((c) => c.id === id);
+	if (!target) return 0;
+	return target.completed === 1 && target.rewardClaimed === 0 ? 1 : 0;
 }
 
 export async function update(

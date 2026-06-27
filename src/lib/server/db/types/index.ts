@@ -844,8 +844,9 @@ export interface ChildChallengeGroup {
  *
  * 旧 `SiblingChallengeWithProgress` (family-wide + progress[] 配列) の per-child 後継。
  * 自身の instance を主軸に、同じ sourceTemplateId / (title + 期間) を共有する
- * 兄弟 instance を `siblings` として併記する。`ChallengeBanner` / `SiblingCelebration`
- * が「自分の進捗 + 兄弟の進捗 + 全員完了で celebration」の UX を継続できる。
+ * 兄弟 instance を `siblings` として併記する。CategorySection のチャレンジ対象バッジ
+ * (#3333 で旧 ChallengeBanner から移行) と `SiblingCelebration` が「自分の進捗 + 兄弟の進捗 +
+ * 全員完了で celebration」の UX を継続できる。
  */
 export interface ChildChallengeWithSiblings extends ChildChallenge {
 	/**
