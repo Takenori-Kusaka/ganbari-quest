@@ -282,18 +282,28 @@ export async function markCompleted(id: number, tenantId: string): Promise<void>
 	);
 }
 
-export async function claimReward(id: number, tenantId: string): Promise<void> {
+export async function claimReward(id: number, tenantId: string): Promise<boolean> {
 	const key = await resolveKeyById(id, tenantId);
-	if (!key) return;
+	if (!key) return false;
 	const now = new Date().toISOString();
-	await getDocClient().send(
-		new UpdateCommand({
-			TableName: TABLE_NAME,
-			Key: key,
-			UpdateExpression: 'SET rewardClaimed = :one, rewardClaimedAt = :now, updatedAt = :now',
-			ExpressionAttributeValues: { ':one': 1, ':now': now },
-		}),
-	);
+	// #3284: rewardClaimed <> 1 の条件付き UpdateItem (二重付与防止の原子ゲート)。
+	// 既に受取済なら ConditionalCheckFailedException → false を返し ledger 二重 insert を防ぐ
+	// (SQLite の `WHERE reward_claimed = 0` と等価、#3258 SQLite⇔DynamoDB 等価契約)。
+	try {
+		await getDocClient().send(
+			new UpdateCommand({
+				TableName: TABLE_NAME,
+				Key: key,
+				UpdateExpression: 'SET rewardClaimed = :one, rewardClaimedAt = :now, updatedAt = :now',
+				ConditionExpression: 'rewardClaimed <> :one',
+				ExpressionAttributeValues: { ':one': 1, ':now': now },
+			}),
+		);
+		return true;
+	} catch (err) {
+		if (err instanceof Error && err.name === 'ConditionalCheckFailedException') return false;
+		throw err;
+	}
 }
 
 /** UpdateChildChallengeInput で渡された field のみ更新する (SQLite .set({...}) 等価)。 */

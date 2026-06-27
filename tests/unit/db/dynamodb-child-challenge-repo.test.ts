@@ -463,19 +463,39 @@ describe('markCompleted', () => {
 });
 
 describe('claimReward', () => {
-	it('rewardClaimed=1 を Update する', async () => {
+	it('rewardClaimed=1 を条件付き Update し true を返す (#3284 ConditionExpression)', async () => {
 		mockSend
 			.mockResolvedValueOnce({
 				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'CHILDCHAL#00000001' }],
 			})
 			.mockResolvedValueOnce({});
 		const { claimReward } = await loadRepo();
-		await claimReward(1, TENANT);
+		const claimed = await claimReward(1, TENANT);
+		expect(claimed).toBe(true);
 		const upd = mockSend.mock.calls[1]?.[0] as {
-			input: { UpdateExpression?: string; ExpressionAttributeValues?: Record<string, unknown> };
+			input: {
+				UpdateExpression?: string;
+				ConditionExpression?: string;
+				ExpressionAttributeValues?: Record<string, unknown>;
+			};
 		};
 		expect(upd.input.UpdateExpression).toContain('rewardClaimed = :one');
 		expect(upd.input.ExpressionAttributeValues?.[':one']).toBe(1);
+		// #3284: 既に受取済 (rewardClaimed=1) を弾く原子ゲート
+		expect(upd.input.ConditionExpression).toBe('rewardClaimed <> :one');
+	});
+
+	it('既に受取済 (ConditionalCheckFailed) では false を返す (二重付与防止、SQLite changes=0 と対称)', async () => {
+		const condErr = new Error('conditional check failed');
+		condErr.name = 'ConditionalCheckFailedException';
+		mockSend
+			.mockResolvedValueOnce({
+				Items: [{ PK: `T#${TENANT}#CHILD#${CHILD_ID}`, SK: 'CHILDCHAL#00000001' }],
+			})
+			.mockRejectedValueOnce(condErr);
+		const { claimReward } = await loadRepo();
+		const claimed = await claimReward(1, TENANT);
+		expect(claimed).toBe(false);
 	});
 });
 

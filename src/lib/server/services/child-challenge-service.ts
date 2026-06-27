@@ -710,6 +710,13 @@ export async function claimChildChallengeReward(
 	if (challenge.rewardClaimed === 1) return { error: 'すでに受け取り済みです' };
 
 	const rewardConfig: RewardConfig = JSON.parse(challenge.rewardConfig);
+	// #3284: 二重付与防止。claimReward を **先に** 条件付き flip (reward_claimed 0→1) し、実際に
+	// 受取済へ遷移した場合のみ ledger を insert する。並行 / 再試行の 2 回目は flip が false を返し
+	// ledger 二重 insert を行わない (旧実装は ledger insert → claim の順で、間の error / 再試行で
+	// 二重付与窓が残っていた)。ledger の冪等キー (UNIQUE) 案は special_reward 等が同一 referenceId で
+	// 正当に複数 insert するため不採用 (#3284 設計判断、08-DB 設計書参照)。
+	const claimed = await repos.childChallenge.claimReward(challengeId, tenantId);
+	if (!claimed) return { error: 'すでに受け取り済みです' };
 	await insertPointLedger(
 		{
 			childId,
@@ -720,7 +727,6 @@ export async function claimChildChallengeReward(
 		},
 		tenantId,
 	);
-	await repos.childChallenge.claimReward(challengeId, tenantId);
 	return { points: rewardConfig.points, message: rewardConfig.message };
 }
 

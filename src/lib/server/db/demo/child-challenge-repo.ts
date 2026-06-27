@@ -127,8 +127,9 @@ export async function markCompleted(_id: number, _tenantId: string): Promise<voi
 	// Stub: no-op
 }
 
-export async function claimReward(_id: number, _tenantId: string): Promise<void> {
-	// Stub: no-op
+export async function claimReward(_id: number, _tenantId: string): Promise<boolean> {
+	// #3284: demo は client-side state (永続なし) のため best-effort で true を返す。
+	return true;
 }
 
 export async function update(

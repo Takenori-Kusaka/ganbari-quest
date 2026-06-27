@@ -67,8 +67,14 @@ export interface IChildChallengeRepo {
 	/** 完了マーク (currentValue >= targetValue 達成時) */
 	markCompleted(id: number, tenantId: string): Promise<void>;
 
-	/** ごほうび受取マーク */
-	claimReward(id: number, tenantId: string): Promise<void>;
+	/**
+	 * ごほうび受取マーク (#3284: 二重付与防止の冪等ゲート)。
+	 * `rewardClaimed = 0` の行のみを 0→1 に条件付き更新し、実際に flip したかを返す。
+	 * 既に受取済 (= 並行 / 再試行の 2 回目) なら false を返し、呼び出し側は ledger insert を行わない。
+	 * SQLite は `WHERE reward_claimed = 0` の changes 数、DynamoDB は ConditionExpression で原子的に判定する。
+	 * @returns このコールで実際に受取済へ flip した場合 true / 既に受取済なら false
+	 */
+	claimReward(id: number, tenantId: string): Promise<boolean>;
 
 	/** メタ更新 (status / 期間 / target / reward 変更) */
 	update(id: number, input: UpdateChildChallengeInput, tenantId: string): Promise<void>;

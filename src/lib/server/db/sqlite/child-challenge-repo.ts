@@ -203,12 +203,16 @@ export async function markCompleted(id: number, _tenantId: string): Promise<void
 		.run();
 }
 
-export async function claimReward(id: number, _tenantId: string): Promise<void> {
+export async function claimReward(id: number, _tenantId: string): Promise<boolean> {
 	const now = new Date().toISOString();
-	db.update(childChallenges)
+	// #3284: reward_claimed = 0 の行のみ 0→1 に条件付き更新 (二重付与防止の原子ゲート)。
+	// changes が 0 = 既に受取済 (並行/再試行の 2 回目) → false を返し ledger 二重 insert を防ぐ。
+	const result = db
+		.update(childChallenges)
 		.set({ rewardClaimed: 1, rewardClaimedAt: now, updatedAt: now })
-		.where(eq(childChallenges.id, id))
+		.where(and(eq(childChallenges.id, id), eq(childChallenges.rewardClaimed, 0)))
 		.run();
+	return result.changes > 0;
 }
 
 export async function update(

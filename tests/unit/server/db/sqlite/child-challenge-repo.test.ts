@@ -236,4 +236,34 @@ describe('sqlite/child-challenge-repo', () => {
 		expect(sharedInstances.length).toBe(2);
 		expect(new Set(sharedInstances.map((c) => c.childId))).toEqual(new Set([1, 2]));
 	});
+
+	// #3284: claimReward は reward_claimed=0 の行のみ 0→1 に条件付き flip し、実際に flip したかを返す。
+	// 並行 / 再試行の 2 回目は false を返す (= ledger 二重 insert を呼び出し側が防げる冪等ゲート)。
+	describe('#3284 claimReward 冪等ゲート (二重付与防止)', () => {
+		it('初回 claim は true、2 回目以降は false を返す (条件付き 0→1 flip)', async () => {
+			const c = await insert(
+				buildInput({
+					childId: 1,
+					title: 'claim-idem',
+					startDate: '2026-06-01',
+					endDate: '2026-06-07',
+				}),
+				TENANT,
+			);
+			await markCompleted(c.id, TENANT);
+
+			const first = await claimReward(c.id, TENANT);
+			expect(first).toBe(true); // 0→1 に flip
+
+			const second = await claimReward(c.id, TENANT);
+			expect(second).toBe(false); // 既に 1 → no-op (二重付与窓なし)
+
+			const third = await claimReward(c.id, TENANT);
+			expect(third).toBe(false);
+
+			// flag は 1 のまま (冪等)
+			const row = await findById(c.id, TENANT);
+			expect(row?.rewardClaimed).toBe(1);
+		});
+	});
 });
