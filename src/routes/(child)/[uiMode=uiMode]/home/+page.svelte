@@ -6,10 +6,12 @@ import { parseDisplayConfig } from '$lib/domain/display-config';
 import {
 	APP_LABELS,
 	CHILD_HOME_LABELS,
+	FEATURES_LABELS,
 	getErrorNotifyLabels,
 	PAGE_TITLES,
 } from '$lib/domain/labels';
 import { formatPointValueWithSign } from '$lib/domain/point-display';
+import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier';
 import BirthdayBanner from '$lib/features/birthday/BirthdayBanner.svelte';
@@ -103,6 +105,23 @@ const celebrationChallenge = $derived(
 	) ?? null,
 );
 let showCelebration = $state(true);
+
+// #3333 fix (B): 個別完了したチャレンジのごほうび受取導線（旧 ChallengeBanner の per-instance claim 復元）。
+// per-child 報酬モデル（ADR-0055）+ #2488 must-1 の設計意図 = 「自身の instance が completed=1 かつ
+// rewardClaimed=0 なら受取可能」。SiblingCelebration は allCompleted の group 祝福のみを担うため、
+// 自身は完了したが兄弟が未完了の multi-child ケースでは受取不能（regression）になる。これを防ぐため
+// 個別完了（!allCompleted）を対象にコンパクトなカード演出で受取導線を出す（allCompleted 時は
+// SiblingCelebration が claim を担うので二重導線を避ける）。server は fail-closed（既請求拒否）。
+let challengeClaiming = $state(false);
+const claimableChallenge = $derived(
+	data.activeChallenges?.find(
+		(c: { childId: number; completed: number; rewardClaimed: number; allCompleted: boolean }) =>
+			c.childId === (data.child?.id ?? 0) &&
+			c.completed === 1 &&
+			c.rewardClaimed === 0 &&
+			!c.allCompleted,
+	) ?? null,
+);
 
 // Pin context menu state
 let pinMenuOpen = $state(false);
@@ -669,8 +688,48 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	<!--
 		#3333: 旧 ChallengeBanner 横長バナーを撤去。チャレンジ対象は対象カテゴリの
 		CategorySection ヘッダーに静的バッジ + インライン進捗で統合（ProdDashboardSections 経由、
-		#2146/#2168 カード演出統合思想）。ごほうび受取は完了時の SiblingCelebration が担う。
+		#2146/#2168 カード演出統合思想）。ごほうび受取は (a) 全員完了は SiblingCelebration、
+		(b) 個別完了（兄弟未完了）は下のコンパクトな受取カードが担う（#2488 must-1 / per-child 報酬）。
 	-->
+
+	<!-- #3333 fix (B): 個別完了チャレンジのごほうび受取（旧 ChallengeBanner per-instance claim の復元）。
+	     横長 banner ではなくコンパクトなカード演出（fitness function denylist 非該当 / #2146/#2168 整合）。
+	     allCompleted は SiblingCelebration が担うため、個別完了のみを対象に二重 claim を避ける。 -->
+	{#if claimableChallenge}
+		<div
+			class="mx-auto my-[var(--sp-sm)] max-w-xs rounded-[var(--radius-md)] bg-[var(--color-surface-success)] px-[var(--sp-md)] py-[var(--sp-sm)] text-center"
+			data-testid="challenge-reward-claim-card"
+		>
+			<p class="text-sm font-bold text-[var(--color-feedback-success-text)]">
+				<span aria-hidden="true">{CONCEPT_ICONS.challenge}</span>
+				{claimableChallenge.title}
+			</p>
+			<form
+				method="POST"
+				action="?/claimChallengeReward"
+				use:enhance={() => {
+					if (challengeClaiming) return ({ update }) => update();
+					challengeClaiming = true;
+					return async ({ update }) => {
+						await update();
+						challengeClaiming = false;
+					};
+				}}
+			>
+				<input type="hidden" name="challengeId" value={claimableChallenge.id} />
+				<Button
+					type="submit"
+					variant="primary"
+					size="sm"
+					class="mt-[var(--sp-sm)] w-full"
+					disabled={challengeClaiming}
+					data-testid="challenge-reward-claim-btn"
+				>
+					{FEATURES_LABELS.challenge.celebrationClaimBtn}
+				</Button>
+			</form>
+		</div>
+	{/if}
 </div>
 
 <!-- Pin context menu (non-baby) -->

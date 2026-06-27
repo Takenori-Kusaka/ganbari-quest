@@ -18,6 +18,8 @@ const mockFindActiveByChildId = vi.fn();
 const mockFindActiveOrUnclaimedByChildId = vi.fn();
 const mockUpdateProgress = vi.fn();
 const mockMarkCompleted = vi.fn();
+const mockFindById = vi.fn();
+const mockClaimReward = vi.fn();
 const mockFindAllChildren = vi.fn();
 
 vi.mock('$lib/server/db/factory', () => ({
@@ -32,6 +34,8 @@ vi.mock('$lib/server/db/factory', () => ({
 			findActiveOrUnclaimedByChildId: (...a: unknown[]) => mockFindActiveOrUnclaimedByChildId(...a),
 			updateProgress: (...a: unknown[]) => mockUpdateProgress(...a),
 			markCompleted: (...a: unknown[]) => mockMarkCompleted(...a),
+			findById: (...a: unknown[]) => mockFindById(...a),
+			claimReward: (...a: unknown[]) => mockClaimReward(...a),
 		},
 	}),
 }));
@@ -69,10 +73,12 @@ vi.mock('$lib/domain/date-utils', () => ({
 	todayDateJST: () => '2026-05-25',
 }));
 
+import { insertPointLedger } from '../../../src/lib/server/db/activity-repo';
 import {
 	buildPerChildTargets,
 	type ChallengePrev,
 	calcAgeAdjustedTarget,
+	claimChildChallengeReward,
 	computeProposal,
 	createChildChallenge,
 	createChildChallengesBulk,
@@ -725,5 +731,100 @@ describe('getActiveChildChallengesWithSiblings — #2488 regression', () => {
 		const result = await getActiveChildChallengesWithSiblings(902, TENANT);
 		expect(result).toHaveLength(1);
 		expect(result[0]?.allCompleted).toBe(true);
+	});
+});
+
+// #3333 (C): claimChildChallengeReward の fail-closed gating + per-child 受取意図の回帰テスト。
+// 設計意図 (確定根拠): 旧 ChallengeBanner は `completed===1 && rewardClaimed===0`（= 自身の instance
+// 個別完了）で受取 form を出していた (#2488 must-1 コメント参照)。受取は per-child instance ごとで
+// (ADR-0055 per-child 報酬モデル / claimChildChallengeReward は childId 一致 instance のみ claim)、
+// 兄弟全完了 (allCompleted) を受取条件にしてはならない。server は以下を fail-closed で守る。
+function challengeRow(over: Record<string, unknown> = {}) {
+	return {
+		id: 10,
+		childId: 902,
+		title: 'P',
+		completed: 1,
+		currentValue: 5,
+		targetValue: 5,
+		targetConfig: '{"metric":"count","categoryId":1,"baseTarget":5}',
+		rewardConfig: '{"points":30,"message":"よくがんばったね"}',
+		description: null,
+		challengeType: 'cooperative',
+		periodType: 'weekly',
+		startDate: '2026-05-25',
+		endDate: '2026-06-01',
+		status: 'completed',
+		isActive: 1,
+		completedAt: '2026-05-30T00:00:00Z',
+		rewardClaimed: 0,
+		rewardClaimedAt: null,
+		sourceTemplateId: 'auto:weekly',
+		createdAt: '',
+		updatedAt: '',
+		...over,
+	};
+}
+
+describe('claimChildChallengeReward — fail-closed gating (#3333 C / per-child)', () => {
+	it('自身の instance が completed=1 && rewardClaimed=0 → 受取成功（兄弟未完了は無関係 = per-child）', async () => {
+		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 1, rewardClaimed: 0 }));
+		const result = await claimChildChallengeReward(10, 902, TENANT);
+		expect('points' in result && result.points).toBe(30);
+		// point ledger は 1 回だけ加算（二重付与なし）
+		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledWith(
+			expect.objectContaining({
+				childId: 902,
+				amount: 30,
+				type: 'child_challenge',
+				referenceId: 10,
+			}),
+			TENANT,
+		);
+		expect(mockClaimReward).toHaveBeenCalledWith(10, TENANT);
+	});
+
+	it('未完了 (completed=0) → 「まだクリアしていません」で fail-closed（ledger 加算なし）', async () => {
+		mockFindById.mockResolvedValueOnce(challengeRow({ completed: 0, currentValue: 2 }));
+		const result = await claimChildChallengeReward(10, 902, TENANT);
+		expect('error' in result && result.error).toBe('まだクリアしていません');
+		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
+		expect(mockClaimReward).not.toHaveBeenCalled();
+	});
+
+	it('既請求 (rewardClaimed=1) → 「すでに受け取り済みです」で fail-closed（二重請求拒否）', async () => {
+		mockFindById.mockResolvedValueOnce(challengeRow({ rewardClaimed: 1 }));
+		const result = await claimChildChallengeReward(10, 902, TENANT);
+		expect('error' in result && result.error).toBe('すでに受け取り済みです');
+		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
+		expect(mockClaimReward).not.toHaveBeenCalled();
+	});
+
+	it('別 child の instance (childId 不一致) → 受取拒否（IDOR fail-closed）', async () => {
+		mockFindById.mockResolvedValueOnce(challengeRow({ childId: 903 }));
+		const result = await claimChildChallengeReward(10, 902, TENANT);
+		expect('error' in result && result.error).toBe('このチャレンジは別のお子さま用です');
+		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
+	});
+
+	it('存在しない instance → 受取拒否', async () => {
+		mockFindById.mockResolvedValueOnce(undefined);
+		const result = await claimChildChallengeReward(999, 902, TENANT);
+		expect('error' in result && result.error).toBe('チャレンジが見つかりません');
+		expect(vi.mocked(insertPointLedger)).not.toHaveBeenCalled();
+	});
+
+	it('二重 claim: 1 回目成功後に再請求 → 2 回目は既請求拒否で ledger 二重加算しない', async () => {
+		// 1 回目: 未請求 → 成功
+		mockFindById.mockResolvedValueOnce(challengeRow({ rewardClaimed: 0 }));
+		await claimChildChallengeReward(10, 902, TENANT);
+		// 2 回目: claimReward 後の状態 (rewardClaimed=1) を返す → fail-closed
+		mockFindById.mockResolvedValueOnce(challengeRow({ rewardClaimed: 1 }));
+		const second = await claimChildChallengeReward(10, 902, TENANT);
+		expect('error' in second && second.error).toBe('すでに受け取り済みです');
+		// ledger は 1 回目の 1 回のみ
+		expect(vi.mocked(insertPointLedger)).toHaveBeenCalledTimes(1);
+		expect(mockClaimReward).toHaveBeenCalledTimes(1);
 	});
 });

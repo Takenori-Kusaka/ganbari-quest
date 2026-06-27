@@ -33,6 +33,9 @@ const confetti = Array.from({ length: 30 }, (_, i) => ({
 }));
 
 let dialogOpen = $state(true);
+// #3333 (C): 二重 POST 防止。claim 中はボタンを disable する。server も既請求を fail-closed で
+// 拒否する（claimChildChallengeReward: rewardClaimed===1 で error）が、client 側でも連打を抑止する。
+let claiming = $state(false);
 
 function handleDialogChange(details: { open: boolean }) {
 	if (!details.open) {
@@ -84,15 +87,18 @@ function handleDialogChange(details: { open: boolean }) {
 				method="POST"
 				action="?/claimChallengeReward"
 				use:enhance={() => {
+					if (claiming) return ({ update }) => update();
+					claiming = true;
 					return async ({ update }) => {
 						await update();
+						claiming = false;
 						dialogOpen = false;
 						onDismiss();
 					};
 				}}
 			>
 				<input type="hidden" name="challengeId" value={challengeId} />
-				<button type="submit" class="celebration__claim-btn">
+				<button type="submit" class="celebration__claim-btn" disabled={claiming}>
 					{FEATURES_LABELS.challenge.celebrationClaimBtn}
 				</button>
 			</form>

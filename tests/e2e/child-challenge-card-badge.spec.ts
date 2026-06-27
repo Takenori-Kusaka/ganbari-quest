@@ -85,3 +85,26 @@ test.describe('#3333 Anti-engagement (ADR-0012)', () => {
 		await expect(badge).not.toHaveAttribute('role', 'dialog');
 	});
 });
+
+test.describe('#3333 fix (B): ごほうび受取 gating — per-child 受取カード', () => {
+	// 受取カード (challenge-reward-claim-card) は「自身の instance が completed=1 かつ rewardClaimed=0
+	// かつ !allCompleted」のときだけ出る per-child 個別完了の受取導線（旧 ChallengeBanner の
+	// per-instance claim の復元、#2488 must-1 / per-child 報酬 ADR-0055）。全員完了は SiblingCelebration。
+	//
+	// 正常系（completed=1 → 受取カード表示 → claim 成功 → 既請求拒否）の gating は demo fixture が全件
+	// completed=0 のため deterministic に再現できない（fixture を completed 化すると elementary child の
+	// home visual-regression baseline を破壊する）。そのため正常系 + fail-closed は
+	// tests/unit/services/child-challenge-service.test.ts の claimChildChallengeReward gating で
+	// 網羅する。本 e2e は「未完了 demo 状態で受取カードが spurious に出ない」negative gating を保証する。
+	test('elementary: 未完了 demo 状態で受取カードが描画されない（spurious 表示なし）', async ({
+		page,
+	}) => {
+		await selectElementaryChildAndDismiss(page);
+		await expect(page.locator('[data-testid="challenge-reward-claim-card"]')).toHaveCount(0);
+	});
+
+	test('junior: 未完了 demo 状態で受取カードが描画されない', async ({ page }) => {
+		await selectJuniorChildAndDismiss(page);
+		await expect(page.locator('[data-testid="challenge-reward-claim-card"]')).toHaveCount(0);
+	});
+});
