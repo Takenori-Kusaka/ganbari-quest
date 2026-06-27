@@ -70,6 +70,112 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 		await expect(page.getByText('プランが正しくありません')).toBeVisible({ timeout: 8_000 });
 	});
 
+	// #3209: 503 STRIPE_DISABLED (demo/staging 頻出) path の test 補完。汎用「時間をおいて再度…」
+	// でなく STRIPE_DISABLED 専用の server message ('決済機能は現在利用できません') が surface され、
+	// retry 不能状況で誤って再試行を促さないことを検証する (#3205 で未 test だった branch)。
+	test('checkout 失敗 (503 STRIPE_DISABLED) で専用 server message を提示する (#3209)', async ({
+		page,
+	}) => {
+		// SvelteKit error(503, '決済機能は現在利用できません') 相当の body
+		let checkoutCallCount = 0;
+		await page.route('/api/stripe/checkout', async (route) => {
+			checkoutCallCount += 1;
+			await route.fulfill({
+				status: 503,
+				contentType: 'application/json',
+				body: JSON.stringify({ message: '決済機能は現在利用できません' }),
+			});
+		});
+
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+		if (!(await skipIfStripeDisabled(page))) return;
+
+		// hydration ゲート: skipIfStripeDisabled は SSR 描画済 plan card の visible のみ待つため、
+		// interactive island の hydration 完了前に click すると onclick が発火しない。plan card 選択
+		// (selectedTier) が checkout button label に反映される (= hydration 完了) まで poll-click し、
+		// 確実に interactive 化を待ってから checkout を起動する (flaky 防止)。card click は checkout を
+		// 呼ばないため checkoutCallCount には影響しない。
+		await page.waitForLoadState('load');
+		await expect(async () => {
+			await page.getByTestId('family-plan-card').click();
+			await expect(page.getByRole('button', { name: 'プレミアムプランで始める' })).toBeVisible({
+				timeout: 1_000,
+			});
+		}).toPass({ timeout: 15_000 });
+
+		const checkoutBtn = page.getByRole('button', { name: /プランで始める/ });
+		await checkoutBtn.click();
+
+		// STRIPE_DISABLED 専用文言が surface され、汎用 retry 文言ではないこと (Part 2 整合)
+		// 2 層 feedback (Alert banner + Toast、DESIGN.md §5) で同一文言が複数描画されるため first()
+		await expect(page.getByText('決済機能は現在利用できません').first()).toBeVisible({
+			timeout: 8_000,
+		});
+
+		// fail-closed①: Stripe checkout へ遷移せず元 plan ページに留まること。
+		// 実装 (SaasLicensePanel.startCheckout) は res.ok && data.url の時のみ
+		// window.location.href = data.url で遷移し、503 失敗時は遷移しない不変条件。
+		await expect(page).toHaveURL(/\/admin\/subscription/);
+		expect(page.url()).not.toContain('stripe');
+
+		// fail-closed②: button が loading/disabled に stuck せず再 enable され、
+		// 単一 click で checkout API が二重起動しないこと (finally で checkoutLoading=false)。
+		await expect(checkoutBtn).toBeEnabled();
+		await expect(checkoutBtn).not.toHaveAttribute('aria-busy', 'true');
+		expect(checkoutCallCount).toBe(1);
+	});
+
+	// #3209: network throw (fetch reject = catch branch) path の test 補完。catch 分岐でも
+	// silent no-op せず汎用 feedback (checkoutFailed) が提示されることを検証する。
+	test('checkout 失敗 (network throw / catch branch) で silent no-op せずエラーを提示する (#3209)', async ({
+		page,
+	}) => {
+		// route.abort() で fetch を reject させ catch branch を発火させる
+		let checkoutCallCount = 0;
+		await page.route('/api/stripe/checkout', async (route) => {
+			checkoutCallCount += 1;
+			await route.abort('failed');
+		});
+
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+		if (!(await skipIfStripeDisabled(page))) return;
+
+		// hydration ゲート: skipIfStripeDisabled は SSR 描画済 plan card の visible のみ待つため、
+		// interactive island の hydration 完了前に click すると onclick が発火しない。plan card 選択
+		// (selectedTier) が checkout button label に反映される (= hydration 完了) まで poll-click し、
+		// 確実に interactive 化を待ってから checkout を起動する (flaky 防止)。card click は checkout を
+		// 呼ばないため checkoutCallCount には影響しない。
+		await page.waitForLoadState('load');
+		await expect(async () => {
+			await page.getByTestId('family-plan-card').click();
+			await expect(page.getByRole('button', { name: 'プレミアムプランで始める' })).toBeVisible({
+				timeout: 1_000,
+			});
+		}).toPass({ timeout: 15_000 });
+
+		const checkoutBtn = page.getByRole('button', { name: /プランで始める/ });
+		await checkoutBtn.click();
+
+		// catch 分岐の汎用 feedback が提示されること (silent no-op でない)
+		// 2 層 feedback (Alert banner + Toast、DESIGN.md §5) で同一文言が複数描画されるため first()
+		await expect(
+			page.getByText('決済を開始できませんでした', { exact: false }).first(),
+		).toBeVisible({
+			timeout: 8_000,
+		});
+
+		// fail-closed①: catch branch でも Stripe checkout へ遷移しないこと。
+		// window.location.href は成功時のみ set されるため、fetch reject 時は元 plan ページに留まる。
+		await expect(page).toHaveURL(/\/admin\/subscription/);
+		expect(page.url()).not.toContain('stripe');
+
+		// fail-closed②: button が loading/disabled に stuck せず再 enable され、
+		// 単一 click で checkout API が二重起動しないこと (finally で checkoutLoading=false)。
+		await expect(checkoutBtn).toBeEnabled();
+		await expect(checkoutBtn).not.toHaveAttribute('aria-busy', 'true');
+		expect(checkoutCallCount).toBe(1);
+	});
+
 	test('月額 planId (monthly / family-monthly) が checkout に送信される (mock)', async ({
 		page,
 	}) => {
