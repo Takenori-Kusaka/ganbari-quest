@@ -1495,8 +1495,11 @@ export const PAGE_GUIDE_LABELS = {
 		steps: {
 			'settings-account-intro': {
 				title: 'このページについて',
-				what: `${ADMIN_VIEW_TERMS.short}を守る${OYAKAGI_TERMS.name}の変更や、ログアウト・アカウントの削除を行うページです。`,
-				how: '上から順に、おやカギの変更・ログアウト・アカウント削除が並びます。表示される項目はご利用環境によって変わります。',
+				// #3307: ログアウト / アカウント削除は cognito 環境限定 (NUC / demo は おやカギ カードのみ)。
+				// 全環境共通の おやカギ変更 を主機能として先頭に置き、条件付き項目は明示的に hedge する
+				// (実態に無い操作を全ユーザーに断定的に案内しない、NN/G #1 visibility / ADR-0013)。
+				what: `${ADMIN_VIEW_TERMS.short}を守る${OYAKAGI_TERMS.name}を変更できるページです。ご利用環境によっては、ログアウトやアカウントの削除もここから行えます。`,
+				how: `まず${OYAKAGI_TERMS.shortName}を変更するカードが表示されます。ログアウト・アカウント削除のカードは、ご利用環境によって表示される場合があります。`,
 				goal: `${OYAKAGI_TERMS.shortName}をこまめに変えて、お子さまが誤って${ADMIN_VIEW_TERMS.short}に入るのを防げます。`,
 			},
 			'settings-account-pin': {
@@ -1567,11 +1570,15 @@ export const PAGE_GUIDE_LABELS = {
 				title: 'このページについて',
 				what: `記録した活動やポイントなどのデータを${BACKUP_TERMS.exportNoun}・${BACKUP_TERMS.restoreVerb}できるページです。`,
 				how: '上から順に、データの保存と読み込み・すべて消す操作が並びます。',
-				goal: `万一に備えてデータを${BACKUP_TERMS.exportNoun}しておけば、いつでも元に戻せます。`,
+				// #3307: 読み込み (復元) は無料プランでも可、保存 (エクスポート) は canExport gate のため
+				// PAID_PLAN_LABEL で hedge する (free に export を無条件約束しない、ADR-0013 LP truth / NN/G #1)。
+				goal: `読み込みでの${BACKUP_TERMS.restoreVerb}はどなたでも使え、${BACKUP_TERMS.exportNoun}の保存は${PAID_PLAN_LABEL}で利用できます。`,
 			},
 			'settings-data-management': {
 				title: `画面の見方（データの${BACKUP_TERMS.exportNoun}）`,
-				what: `今までの記録をファイルに保存したり、保存した${BACKUP_TERMS.file}を読み込んだりできます。`,
+				// #3307: 保存 (エクスポート) は canExport gate。読み込みは無料プランでも可のため、
+				// 「保存はファイル保存できます」を無条件に約束せず PAID_PLAN_LABEL で hedge する。
+				what: `保存した${BACKUP_TERMS.file}の読み込みはどなたでも、ファイルへの保存（${BACKUP_TERMS.exportNoun}）は${PAID_PLAN_LABEL}でできます。`,
 				how: '1. 保存か読み込みを選びます\n2. 画面の案内に従います',
 				goal: '大切な記録を手元に残す方法がここに集まっています。',
 			},
