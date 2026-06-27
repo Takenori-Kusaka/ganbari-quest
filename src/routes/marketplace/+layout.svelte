@@ -4,7 +4,12 @@ import { page } from '$app/stores';
 import { FEATURES_LABELS } from '$lib/domain/labels';
 import PageGuideOverlay from '$lib/ui/components/PageGuideOverlay.svelte';
 import IconButton from '$lib/ui/primitives/IconButton.svelte';
-import { filterGuideStepsByTier, getPageGuide } from '$lib/ui/tutorial/page-guide-registry';
+import {
+	filterGuideStepsByTier,
+	filterGuideStepsToOverview,
+	getPageGuide,
+	resolvePageGuide,
+} from '$lib/ui/tutorial/page-guide-registry';
 import { startPageGuide } from '$lib/ui/tutorial/page-guide-store.svelte';
 import { endTutorial } from '$lib/ui/tutorial/tutorial-store.svelte';
 
@@ -31,8 +36,13 @@ $effect(() => {
 async function handleStartPageGuide() {
 	// v1 tutorial を強制終了し v1/v2 同時 active を防止 (AdminLayout と同方針)
 	endTutorial();
-	const guide = await getPageGuide($page.url.pathname);
-	if (!guide) return;
+	const resolved = await resolvePageGuide($page.url.pathname);
+	if (!resolved) return;
+	// #3304: 親フォールバック継承時は概要 step のみに絞る (AdminLayout と同方針)。dedicated 詳細
+	// ガイド (#3269/#3314) は viaFallback=false のため全 step 維持。
+	const guide = resolved.viaFallback
+		? (filterGuideStepsToOverview(resolved.guide) ?? resolved.guide)
+		: resolved.guide;
 	const filtered = filterGuideStepsByTier(guide, GUIDE_TIER);
 	if (filtered) {
 		startPageGuide(filtered);

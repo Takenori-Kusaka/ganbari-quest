@@ -15,7 +15,9 @@ import {
 	filterGuideStepsByRuntime,
 	filterGuideStepsByStripe,
 	filterGuideStepsByTier,
+	filterGuideStepsToOverview,
 	getPageGuide,
+	resolvePageGuide,
 } from '$lib/ui/tutorial/page-guide-registry';
 import { startPageGuide } from '$lib/ui/tutorial/page-guide-store.svelte';
 // #2375: v1 PageHelpButton + handleStartTutorial fallback 撤去 (P4)。
@@ -100,8 +102,14 @@ async function handleStartPageGuide() {
 	// #2375 AC-V2-5: v1 tutorial (AdminHome banner 経由) を強制終了し、v1/v2 同時 active を防止
 	endTutorial();
 	const path = $page.url.pathname.replace(basePath, '/admin');
-	const guide = await getPageGuide(path);
-	if (!guide) return;
+	const resolved = await resolvePageGuide(path);
+	if (!resolved) return;
+	// #3304: 親フォールバックで継承したガイドは selector 付き step が親画面固有 UI を指すため、
+	// 子ルート (編集フォーム / 解約フロー 等の EXEMPT 遷移ページ) では概要 step のみに絞る
+	// (spotlight 不全 + 「画面に無い操作」案内の不一致を回避)。概要 step が無ければ元のまま。
+	const guide = resolved.viaFallback
+		? (filterGuideStepsToOverview(resolved.guide) ?? resolved.guide)
+		: resolved.guide;
 	// #2919: 現在のプランで表示できない手順 (requiredTier 未達、例: challenges-intro の family)
 	// を除外してから起動する。free ユーザーに「上位プラン限定」の手順を見せない (NN/G #1 / #5)。
 	// #3291: NUC では SaaS 専用手順 (requiredRuntime='saas') も除外してから起動する。

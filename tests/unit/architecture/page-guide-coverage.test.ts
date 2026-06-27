@@ -14,10 +14,13 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+	filterGuideStepsToOverview,
 	getPageGuide,
 	guideCandidatePaths,
 	REGISTERED_GUIDE_PATHS,
+	resolvePageGuide,
 } from '../../../src/lib/ui/tutorial/page-guide-registry';
+import type { PageGuide } from '../../../src/lib/ui/tutorial/page-guide-types';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -130,5 +133,63 @@ describe('#3269 C5: marketplace 詳細の dedicated guide 解決', () => {
 	it('クエリ付き詳細パスでも詳細ガイドに解決する', async () => {
 		const guide = await getPageGuide('/marketplace/checklist/event-pool?import=event-pool');
 		expect(guide?.pageId).toBe('marketplace-detail');
+	});
+});
+
+describe('#3304: resolvePageGuide の viaFallback 判定', () => {
+	it('完全一致 (/admin/activities) は viaFallback=false', async () => {
+		const r = await resolvePageGuide('/admin/activities');
+		expect(r?.guide.pageId).toBe('admin-activities');
+		expect(r?.viaFallback).toBe(false);
+	});
+
+	it('未登録の子ルート (/admin/activities/123/edit) は親 /admin/activities へ viaFallback=true', async () => {
+		const r = await resolvePageGuide('/admin/activities/123/edit');
+		expect(r?.guide.pageId).toBe('admin-activities');
+		expect(r?.viaFallback).toBe(true);
+	});
+
+	it('EXEMPT 遷移ルート (/admin/billing/cancel) は親 /admin/billing へ viaFallback=true', async () => {
+		const r = await resolvePageGuide('/admin/billing/cancel');
+		expect(r?.guide.pageId).toBe('admin-billing');
+		expect(r?.viaFallback).toBe(true);
+	});
+
+	it('marketplace 詳細は PARAMETERIZED dedicated 解決のため viaFallback=false (親へ degrade しない)', async () => {
+		const r = await resolvePageGuide('/marketplace/activity-pack/kinder-starter');
+		expect(r?.guide.pageId).toBe('marketplace-detail');
+		expect(r?.viaFallback).toBe(false);
+	});
+
+	it('未登録 top-level (/admin/members 以外の架空パス) は /admin へ viaFallback=true', async () => {
+		const r = await resolvePageGuide('/admin/nonexistent-xyz');
+		expect(r?.guide.pageId).toBe('admin-home');
+		expect(r?.viaFallback).toBe(true);
+	});
+});
+
+describe('#3304: filterGuideStepsToOverview', () => {
+	const makeGuide = (steps: PageGuide['steps']): PageGuide => ({
+		pageId: 'x',
+		title: 't',
+		icon: '❓',
+		steps,
+	});
+
+	it('selector 付き step を除外し selector-less な概要 step のみ残す', () => {
+		const g = makeGuide([
+			{ id: 'intro', title: '概要', what: 'a', how: 'b', goal: 'c' },
+			{ id: 'sel', selector: '[data-tutorial="x"]', title: '操作', what: 'a', how: 'b', goal: 'c' },
+		]);
+		const out = filterGuideStepsToOverview(g);
+		expect(out?.steps.map((s) => s.id)).toEqual(['intro']);
+	});
+
+	it('全 step が selector 付きなら null (呼び出し側が元ガイドへ degrade 判断)', () => {
+		const g = makeGuide([
+			{ id: 'a', selector: '[data-tutorial="a"]', title: 'A', what: 'a', how: 'b', goal: 'c' },
+			{ id: 'b', selector: '[data-tutorial="b"]', title: 'B', what: 'a', how: 'b', goal: 'c' },
+		]);
+		expect(filterGuideStepsToOverview(g)).toBeNull();
 	});
 });
