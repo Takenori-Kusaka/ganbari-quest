@@ -933,9 +933,11 @@ describe('applyLazyStartupMigrations', () => {
 			const rows = db
 				.prepare('SELECT id, resolved_by_parent_id FROM reward_redemption_requests ORDER BY id')
 				.all() as { id: number; resolved_by_parent_id: string | null }[];
-			expect(rows[0].resolved_by_parent_id).toBeNull(); // 0 → NULL
-			expect(rows[1].resolved_by_parent_id).toBeNull(); // NULL 不変
-			expect(rows[2].resolved_by_parent_id).toBe('cognito-sub-real'); // 実 userId 不変
+			expect(rows).toHaveLength(3);
+			const byId = new Map(rows.map((r) => [r.id, r.resolved_by_parent_id]));
+			expect(byId.get(1)).toBeNull(); // 0 → NULL
+			expect(byId.get(2)).toBeNull(); // NULL 不変
+			expect(byId.get(3)).toBe('cognito-sub-real'); // 実 userId 不変
 		});
 
 		it('冪等: 再適用しても 実 userId 行を破壊しない', () => {
