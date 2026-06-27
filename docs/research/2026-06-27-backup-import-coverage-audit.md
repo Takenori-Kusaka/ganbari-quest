@@ -7,29 +7,31 @@
 
 ## 1. 事故サマリ（実証）
 
-`kokorokagami+test1@gmail.com`（tenant t-82c17558）が NUC backup(26KB) を replace import → 子・ポイント・履歴は復元されたが、活動101→0 / 活動ログ362→0 / 評価22→0 / ごほうび9→1 と**約半数の種別が欠落**。Lambda は error 無しで 28.86s 完了（warnings に埋もれ「成功」扱い）。根本は (a) import 順序バグ（活動→子で子未存在 throw 握り潰し #3327）+ (b) export/import の網羅漏れ（#3329）+ (c) 非ACID（#3326）。
+`kokorokagami+test1@gmail.com`（tenant t-82c17558）が NUC backup(26KB) を replace import → 子・ポイント・履歴は復元されたが、活動101→0 / 活動ログ362→0 / 評価22→0 / ごほうび9→1 と**約半数の種別が欠落**。Lambda は error 無しで 28.86s 完了（warnings に埋もれ「成功」扱い）。根本は (a) import の網羅漏れ（evaluations は import 関数自体が存在しない / specialRewards は部分失敗、#3327）+ (b) export の網羅漏れ（#3329）+ (c) 非ACID（#3326）+ (d) 失敗が warning に埋もれ「成功」扱いになる集計不全。
+
+> **訂正（実コード検証済み、#3332）**: 当初記載した「import 順序バグ（活動→子で子未存在 throw 握り潰し）」は実装と一致しない。`import-service.ts importFamilyData`（L233-245）の実順序は `importActivityMaster`（活動 = tenant master、L233）→ `importChildrenData`（子、L235、空なら abort）→ `importStatusesData`（L242）→ `importActivityLogsData`（L243）… であり、子は活動より**後ではなく先に依存解決される**。活動は子を参照しない tenant master として子より前に import されるため「子未存在 throw」の順序バグは存在しない。活動 101→0 の真因は順序ではなく、(i) 活動が per-child instance（ADR-0055）であるのに export では `master.activities` に**名前で flatten・dedup**され（`export-service.ts` L103-114）、import 側 `importActivityMaster`（L287-338）が `insertActivity` を **childId 無し（tenant スコープ）** で呼ぶため per-child binding が失われる構造、(ii) activityLogs が `buildActivityLookup`（L342-346）の活動名→活動 lookup に依存し、活動の復元が崩れると連鎖 skip する構造、にある（厳密な 101→0 の機序は本 2 service だけでは確定できないため別途 incident 再現で要確定）。
 
 ## 2. 全 family 実体 × export × import マトリクス
 
-凡例: ✓=対応 / ✗=未対応 / △=部分・要確認
+凡例: ✓=対応 / ✗=未対応 / △=部分・要確認 / 廃止=機能廃止済でデータ自体が存在しない（バックアップ対象外）/ 繰延=将来対応予定（未実装、空配列を意図的に出力）
 
 | 実体 (keys.ts) | ユーザー概念 | export | import | 判定・備考 |
 |---|---|---|---|---|
 | children | 子供 | ✓ | ✓ | OK |
-| activities (CHILDACT) | 活動 | ✓ | ✗(実質) | **import 順序バグで全 throw（#3327）** |
-| activityLogs | 活動記録 | ✓ | △ | 活動0の連鎖で全 skip（#3327） |
+| activities (CHILDACT) | 活動 | ✓ | △ | export は `master.activities` に**名前で flatten・dedup**（`export-service.ts` L103-114、per-child binding 喪失）。import は `importActivityMaster`（L287-338）で childId 無し insert。順序バグではない（§1 訂正参照）。per-child instance ⇄ master flatten の構造ギャップが真因 |
+| activityLogs | 活動記録 | ✓ | △ | `buildActivityLookup`（L342-346）の活動名 lookup 依存。活動復元が崩れると連鎖 skip（#3327） |
 | pointLedger | ポイント台帳 | ✓ | ✓ | OK（交換/spend 含むか要確認）|
 | statuses | ステータス | ✓ | ✓ | OK（**派生候補**）|
 | statusHistory | ステータス履歴 | ✓ | △ | 件数OKだが recordedAt が import 時刻に書換の疑い（**派生候補**）|
 | loginBonuses | ログインボーナス | ✓ | ✓ | OK（構造見直し #3330 / streak は**派生候補**）|
-| evaluations | 評価 | ✓ | **✗** | **import 関数が存在しない（#3327）** |
-| specialRewards | 特別ごほうび | ✓ | △ | 9→1 部分失敗（#3327） |
+| evaluations | 評価 | ✓ | **✗** | **import 関数が存在しない**（`import-service.ts` に evaluations import 経路なし、#3327）|
+| specialRewards | 特別ごほうび | ✓ | △ | 9→1 部分失敗（`importSpecialRewards` L836-、name/preset dedup でスキップ #3327）|
 | checklistTemplates | チェックリスト | ✓ | ✓ | OK |
 | checklistLogs | チェックリスト記録 | ✓ | ✓ | OK |
-| childAchievements | 実績(子) | △(schema) | **✗** | import 未実装（**派生候補**: マイルストーンから）|
-| childTitles | 称号(子) | △(schema) | **✗** | import 未実装（**派生候補**）|
-| childAvatarItems | アバター所持 | △(schema) | **✗** | import 未実装 |
-| dailyMissions | デイリーミッション | △(schema) | **✗** | import 未実装（**派生/期限切れ候補**）|
+| childAchievements | 実績(子) | **廃止** | **廃止** | **実績システム廃止済（#322）**。export は空配列を意図的に出力（`export-service.ts` L432 `childAchievements: [], // 実績システム廃止（#322）`）。データ自体が存在せずバックアップ対象外 — import 欠落（#3327）の対象ではない |
+| childTitles | 称号(子) | **廃止** | **廃止** | **称号システム廃止済（#322）**。export は空配列を意図的に出力（`export-service.ts` L433 `childTitles: [], // 称号システム廃止（#322）`）。データ自体が存在せずバックアップ対象外 — import 欠落（#3327）の対象ではない |
+| childAvatarItems | アバター所持 | **繰延** | **繰延** | export は空配列（`export-service.ts` L439 `childAvatarItems: []`、コメント無し）。廃止ではなく未実装。実体導入時に export/import 整備が必要 |
+| dailyMissions | デイリーミッション | **繰延** | **繰延** | export は空配列を意図的に出力（`export-service.ts` L440 `dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応`）。Phase 2 で対応予定（**派生/期限切れ候補**）|
 | **rewardRedemption** | **ごほうび交換/購入履歴** | **✗** | **✗** | **export 自体に無い（#3329）。残高に必須（source）** |
 | **childChallenge** (+auto-weekly) | **チャレンジ/達成履歴** | **✗** | **✗** | **export 自体に無い（#3329）** |
 | **stampCard / stampEntry** | スタンプカード | **✗** | **✗** | export 自体に無い（#3329） |
@@ -44,18 +46,24 @@
 
 ### 集計
 - export ✓ かつ import ✓（健全）: children / pointLedger / statuses / statusHistory(△) / loginBonuses / checklistTemplates / checklistLogs
-- export ✓ だが import ✗ or △（**import 側の欠落**, #3327）: activities / activityLogs / evaluations / specialRewards / childAchievements / childTitles / childAvatarItems / dailyMissions
+- export ✓ だが import ✗ or △（**import 側の欠落**, #3327）: activities(△) / activityLogs(△) / evaluations(✗) / specialRewards(△)
 - export ✗（**export 側の網羅漏れ**, #3329）: rewardRedemption / childChallenge / stampCard / dailyBattle / enemyCollection / certificate / parentMessage / siblingCheer / activityPref / activityMastery / settings / pointBalance / characterImage / checklistAssignment / checklistOverride
+- **廃止済（#322）= バックアップ対象外**（export/import 欠落の対象外、データ自体が存在しない）: childAchievements / childTitles
+- **繰延（未実装・将来対応、空配列を意図的に出力）**: childAvatarItems / dailyMissions（Phase 2）
 
 ## 3. source / 派生 分類（再設計の根幹）
 
-PO 指摘（ステータスは活動結果の projection）を踏まえ、backup 対象を分離する。**source は backup 必須、派生は復元時に再計算**（event-sourcing / CQRS）。
+PO 指摘（ステータスは活動結果の projection）を踏まえ、backup 対象を分離する。**source は backup 必須、派生は復元時に再計算**（event-sourcing / CQRS）。なお childAchievements / childTitles は**機能廃止済（#322）でデータ自体が存在しない**ため、source / 派生いずれの分類対象でもない（バックアップ対象外）。
 
 ### source（イベント = 真実、backup 必須）
 children / activities（定義）/ activityLogs / pointLedger（**交換 redemption / bonus / 手動調整を含む**）/ rewardRedemption / childChallenge / evaluations / checklist(template/item/assignment/log/override) / parentMessage / siblingCheer / certificate（授与記録）/ stampCard 設定 / dailyMission 定義 / activityPref / **settings（PIN・ポイント表示・onboarding 等）** / マスタ初期値・各種ルール設定（decay/スコア式）
 
+> **セキュリティ caveat — PIN を backup に含める場合（CWE-312 / CWE-522）**: PIN（おやカギコード）は `keys.ts` の **グローバル unique な認証 secret**（`findByPin` はテナント横断のグローバル lookup 経路、`keys.ts` L982-988）。これを平文 JSON / ZIP backup に含めると、backup ファイル流出時に保護者認証情報がそのまま漏洩する（平文 credential at rest）。settings を source として backup する設計では、PIN フィールドは (a) backup から除外し復元後に再設定させる、(b) もしくは別パスフレーズで暗号化した上で格納する、のいずれかを採用し、平文での同梱は避ける。実装着手時（#3329 export 拡張）にこの方針を確定すること。
+
 ### 派生（projection = source + ルールから再計算、backup は snapshot のみ任意）
-statuses / statusHistory / pointBalance / loginBonus の streak(consecutiveDays) / activityMastery / dailyBattle 結果 / enemyCollection / childAchievements / childTitles / dailyMissions（期限切れ含む）
+statuses / statusHistory / pointBalance / loginBonus の streak(consecutiveDays) / activityMastery / dailyBattle 結果 / enemyCollection / dailyMissions（期限切れ含む、現状 export は Phase 2 まで空配列）
+
+> childAvatarItems は機能未実装（繰延）。実体導入時に source / 派生のいずれかへ分類する。
 
 ### 派生再計算の必要条件（忠実性 caveat）
 1. **decay（ステータス減少）**: 経過時間 + decay 設定が必要（活動だけでは不足）。
@@ -67,9 +75,9 @@ statuses / statusHistory / pointBalance / loginBonus の streak(consecutiveDays)
 
 1. **source / 派生の分類を SSOT 化**（本書 §3 を `keys.ts` or 設計書に正規化）。新実体追加時に「source か派生か」を必須宣言。
 2. **export**: source 実体を全網羅（#3329）。派生は明示的除外（option C）。「keys.ts family 実体 ⊆ export schema ∪ 明示除外」を機械検証。
-3. **import**: source 実体を全復元 + 正しい依存順序（子→活動→ログ…）+ 正しい child 紐付け。失敗は warning に埋めず集計して部分失敗を明示。復元後に派生を **再計算（projection rebuild）**。
+3. **import**: source 実体を全復元 + 正しい child 紐付け（活動を per-child instance として復元し、`master.activities` flatten/dedup による binding 喪失を解消）+ 依存順序の維持（子→活動→ログ…、現状の `importFamilyData` は既に子先行だが per-child binding が欠落、§1 訂正参照）。失敗は warning に埋めず集計して部分失敗を明示。復元後に派生を **再計算（projection rebuild）**。
 4. **atomicity**: replace は import-then-swap（#3326）。
-5. **完全性テスト**: source 全種別の round-trip（export→clear→import→再計算→一致）+ 「子未存在 replace で活動喪失」を赤テストで固定（#3328、failing-test-first）。
+5. **完全性テスト**: source 全種別の round-trip（export→clear→import→再計算→一致）+ 「evaluations が import されず欠落」「活動の per-child binding が flatten で喪失」「specialRewards 部分失敗」を赤テストで固定（#3328、failing-test-first）。
 6. **timestamp 忠実性**: statusHistory 等の recordedAt を import 時刻で上書きしない（または派生化で解消）。
 7. **フル event-sourcing 化**（status 等を完全 projection 化）は大きめ refactor のため別 design issue で Pre-PMF 判断（ADR-0010）。本再設計は最低限「分類 SSOT + source 全網羅 + 派生は除外/再計算」を満たす。
 
