@@ -159,8 +159,33 @@ function resolveGuideCandidateKeys(normalized: string): string[] {
  * 親フォールバックより優先解決する。いずれの候補も未登録なら null。
  */
 export async function getPageGuide(path: string): Promise<PageGuide | null> {
+	return (await resolvePageGuide(path))?.guide ?? null;
+}
+
+/** {@link resolvePageGuide} の戻り値。`viaFallback` はガイドが親フォールバックで得られたか。 */
+export interface ResolvedPageGuide {
+	guide: PageGuide;
+	/**
+	 * #3304: このガイドが「自身の登録」ではなく**親パスフォールバック**で解決されたか。
+	 * true のとき、ガイドの selector 付き step は**親画面の UI**を指しており現ルートには存在しない
+	 * 可能性が高い（spotlight 不全 + 説明と画面の不一致）。呼び出し側は
+	 * {@link filterGuideStepsToOverview} で selector-less な概要 step のみに絞れる。
+	 * 完全一致 / PARAMETERIZED_GUIDE_MATCHERS による dedicated 解決は false。
+	 */
+	viaFallback: boolean;
+}
+
+/**
+ * パスに対応するページガイドを「完全一致 / 親フォールバックの別」付きで解決する（#3304）。
+ *
+ * #3262 F1 / #3269 と同じ候補解決を行い、採用された候補が「自身の正規化パス」または
+ * PARAMETERIZED_GUIDE_MATCHERS の dedicated key のときは `viaFallback=false`、
+ * 厳密な祖先パス（親）のときは `viaFallback=true` を返す。
+ */
+export async function resolvePageGuide(path: string): Promise<ResolvedPageGuide | null> {
 	// パスの正規化: 末尾スラッシュ除去、クエリパラメータ除去
 	const normalized = path.replace(/\/$/, '').split('?')[0] ?? '';
+	const paramKeys = new Set(PARAMETERIZED_GUIDE_MATCHERS.map((m) => m.key));
 
 	for (const candidate of resolveGuideCandidateKeys(normalized)) {
 		const loader = GUIDE_LOADERS[candidate];
@@ -169,18 +194,38 @@ export async function getPageGuide(path: string): Promise<PageGuide | null> {
 			const mod = await loader();
 			const exportName = GUIDE_EXPORT_NAMES[candidate] ?? '';
 			const guide = (mod as Record<string, PageGuide>)[exportName] ?? null;
-			if (guide) return guide;
+			if (guide) {
+				// 採用候補が「自身のパス」でも dedicated param key でもなければ親フォールバック。
+				const viaFallback = candidate !== normalized && !paramKeys.has(candidate);
+				return { guide, viaFallback };
+			}
 		} catch (err) {
 			// この候補の読込失敗 → 次の親候補を試す。
-			// #3314: 登録済 loader の reject を黙殺すると、本来出るべき dedicated guide が
-			// 親へ silent degrade する（detail→list 退行を E2E まで気付けなかった原因）。
-			// 開発時に loader 失敗を可視化し、build/bundle 由来の解決失敗を早期検知する。
+			// #3314: 登録済 loader の reject を黙殺すると本来出るべき dedicated guide が親へ silent
+			// degrade する。開発時に loader 失敗を可視化し build/bundle 由来の解決失敗を早期検知する。
 			if (typeof console !== 'undefined') {
 				console.warn(`[page-guide] loader failed for "${candidate}", falling back to parent`, err);
 			}
 		}
 	}
 	return null;
+}
+
+/**
+ * 親フォールバックで継承したガイドを「概要 step のみ」に絞る（#3304）。
+ *
+ * selector を持つ step は親画面固有の UI（type filter / add ボタン 等）を spotlight するため、
+ * 子ルート（編集フォーム / 解約フロー 等の EXEMPT 遷移ページ）で出すと spotlight 不全 +
+ * 「画面に無い操作」を案内する不一致になる（#3304 / #3263 QM adversarial 検出）。selector を
+ * 持たない概要 step（中央 modal で表示、ページ非依存）だけを残すことで、子画面でも破綻しない
+ * 「このエリアの概要」案内に degrade する。
+ *
+ * 概要 step が 1 つも無い場合は `null` を返す（呼び出し側は元ガイドのまま起動 or 抑止を選べる）。
+ */
+export function filterGuideStepsToOverview(guide: PageGuide): PageGuide | null {
+	const steps = guide.steps.filter((step) => !step.selector);
+	if (steps.length === 0) return null;
+	return { ...guide, steps };
 }
 
 /**
