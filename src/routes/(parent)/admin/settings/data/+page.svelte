@@ -6,6 +6,7 @@ import { enhance } from '$app/forms';
 import { page } from '$app/stores';
 import {
 	APP_LABELS,
+	ERROR_NOTIFY_LABELS,
 	IMPORT_LABELS,
 	type ImportSkipReason,
 	PAGE_TITLES,
@@ -13,6 +14,8 @@ import {
 } from '$lib/domain/labels';
 import { ErrorAlert, SuccessAlert } from '$lib/ui/components';
 import PremiumBadge from '$lib/ui/components/PremiumBadge.svelte';
+// #3285 uiux-1: 生 err.message 露出を撤去し error-notify SSOT (500=汎用 / 4xx=sanitize) 経由に統一
+import { resolveApiErrorMessage } from '$lib/ui/error-notify';
 import Button from '$lib/ui/primitives/Button.svelte';
 import Card from '$lib/ui/primitives/Card.svelte';
 import ChildSelectionDialog from '$lib/ui/primitives/ChildSelectionDialog.svelte';
@@ -121,7 +124,7 @@ const MAX_ZIP_BYTES = 100 * 1024 * 1024;
  * #3077: 選択ファイルが ZIP なら raw bytes を application/zip で、JSON なら従来通り JSON で送る。
  */
 async function postImport(mode: string): Promise<Response> {
-	if (!importFile) throw new Error('ファイルが選択されていません');
+	if (!importFile) throw new Error(SETTINGS_LABELS.dataImportNoFile);
 	if (importFile.name.endsWith('.zip')) {
 		return fetch(`/api/v1/import?mode=${mode}`, {
 			method: 'POST',
@@ -156,7 +159,7 @@ async function handleImportFileChange(e: Event) {
 	}
 	const maxBytes = isZip ? MAX_ZIP_BYTES : MAX_JSON_BYTES;
 	if (importFile.size > maxBytes) {
-		importError = `ファイルサイズが大きすぎます（最大${isZip ? '100' : '10'}MB）`;
+		importError = SETTINGS_LABELS.dataImportFileTooLarge(isZip ? '100' : '10');
 		importFile = null;
 		return;
 	}
@@ -164,14 +167,17 @@ async function handleImportFileChange(e: Event) {
 	importLoading = true;
 	try {
 		const res = await postImport('preview');
-		const d = await res.json();
+		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			throw new Error(d?.error?.message ?? 'プレビューに失敗しました');
+			// #3285 uiux-1: 生サーバ message を露出せず error-notify SSOT で無害化
+			importError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			importFile = null;
+			return;
 		}
 		importPreview = d.preview;
 		importStep = 'preview';
-	} catch (err) {
-		importError = err instanceof Error ? err.message : 'ファイルの読み込みに失敗しました';
+	} catch {
+		importError = ERROR_NOTIFY_LABELS.generic;
 		importFile = null;
 	} finally {
 		importLoading = false;
@@ -185,14 +191,15 @@ async function handleImportExecute() {
 	try {
 		const mode = importMode === 'replace' ? 'replace' : 'execute';
 		const res = await postImport(mode);
-		const d = await res.json();
+		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			throw new Error(d?.error?.message ?? 'インポートに失敗しました');
+			importError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			return;
 		}
 		importResult = d.result;
 		importStep = 'done';
-	} catch (err) {
-		importError = err instanceof Error ? err.message : 'インポートに失敗しました';
+	} catch {
+		importError = ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		importLoading = false;
 	}
@@ -218,7 +225,8 @@ async function handleExport() {
 		const res = await fetch(`/api/v1/export${qs}`);
 		if (!res.ok) {
 			const d = await res.json().catch(() => null);
-			throw new Error(d?.error?.message ?? `エクスポートに失敗しました (${res.status})`);
+			exportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			return;
 		}
 		const blob = await res.blob();
 		const disposition = res.headers.get('Content-Disposition') ?? '';
@@ -233,8 +241,8 @@ async function handleExport() {
 		a.click();
 		a.remove();
 		URL.revokeObjectURL(url);
-	} catch (err) {
-		exportError = err instanceof Error ? err.message : 'エクスポートに失敗しました';
+	} catch {
+		exportError = ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		exportLoading = false;
 	}
@@ -263,14 +271,18 @@ async function handleCloudExport() {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ exportType: cloudExportType }),
 		});
-		const d = await res.json();
+		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			throw new Error(d?.error?.message ?? 'クラウドエクスポートに失敗しました');
+			cloudError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			return;
 		}
-		cloudSuccess = `PINコード: ${d.pinCode}（有効期限: ${new Date(d.expiresAt).toLocaleDateString('ja-JP')}）`;
+		cloudSuccess = SETTINGS_LABELS.cloudExportPinIssued(
+			d.pinCode,
+			new Date(d.expiresAt).toLocaleDateString('ja-JP'),
+		);
 		await loadCloudExports();
-	} catch (err) {
-		cloudError = err instanceof Error ? err.message : 'クラウドエクスポートに失敗しました';
+	} catch {
+		cloudError = ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		cloudLoading = false;
 	}
@@ -280,12 +292,13 @@ async function handleDeleteCloudExport(id: number) {
 	try {
 		const res = await fetch(`/api/v1/export/cloud/${id}`, { method: 'DELETE' });
 		if (!res.ok) {
-			const d = await res.json();
-			throw new Error(d?.error?.message ?? '削除に失敗しました');
+			const d = await res.json().catch(() => null);
+			cloudError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			return;
 		}
 		await loadCloudExports();
-	} catch (err) {
-		cloudError = err instanceof Error ? err.message : '削除に失敗しました';
+	} catch {
+		cloudError = ERROR_NOTIFY_LABELS.generic;
 	}
 }
 
@@ -299,14 +312,15 @@ async function handleCloudImportPreview() {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ pinCode: cloudImportPin.trim() }),
 		});
-		const d = await res.json();
+		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			throw new Error(d?.error?.message ?? 'PINコードが無効です');
+			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			return;
 		}
 		cloudImportPreview = d.preview;
 		cloudImportStep = 'preview';
-	} catch (err) {
-		cloudImportError = err instanceof Error ? err.message : 'PINコードが無効です';
+	} catch {
+		cloudImportError = ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		cloudImportLoading = false;
 	}
@@ -318,8 +332,7 @@ async function handleCloudImportExecute() {
 	// ChildSelectionDialog で取込先 child を選択させてから execute する。
 	if (isCloudImportTemplate) {
 		if (importTargetChildren.length === 0) {
-			cloudImportError =
-				'取込先のお子さまが登録されていません。先に /admin/children でお子さま登録をしてください。';
+			cloudImportError = SETTINGS_LABELS.cloudImportNoChildren;
 			return;
 		}
 		childSelectionOpen = true;
@@ -344,14 +357,15 @@ async function executeCloudImport(targetChildIds: number[] | null) {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body),
 		});
-		const d = await res.json();
+		const d = await res.json().catch(() => null);
 		if (!res.ok) {
-			throw new Error(d?.error?.message ?? 'インポートに失敗しました');
+			cloudImportError = resolveApiErrorMessage(res.status, d?.error?.message ?? '');
+			return;
 		}
 		cloudImportResult = d.result;
 		cloudImportStep = 'done';
-	} catch (err) {
-		cloudImportError = err instanceof Error ? err.message : 'インポートに失敗しました';
+	} catch {
+		cloudImportError = ERROR_NOTIFY_LABELS.generic;
 	} finally {
 		cloudImportLoading = false;
 	}
