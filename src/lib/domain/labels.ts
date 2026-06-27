@@ -3556,100 +3556,23 @@ export const DEMO_SIGNUP_LABELS = {
 // ============================================================
 
 export const CHALLENGES_LABELS = {
-	// Family streak
+	// #3239: チャレンジ一本化 (#3195/#3231: アプリ週次自動生成 + 読み取り専用ビュー) に伴い、
+	// manual 作成フォーム / 一括 import 確認 UI / カテゴリ重複 (GROWTH_BOOK_LABELS と重複) の
+	// dead label (参照ゼロ) を削除。残すのは admin/challenges + setup/challenges が実参照する
+	// 13 key のみ (ADR-0045 labels SSOT 整合)。sectionTitle 等の訴求文言の現モデル整合は別途 PO 判断。
 	familyStreakTitle: (days: number) => `家族ストリーク: ${days}日`,
-	familyStreakRecorded: (count: number) => `今日は${count}人が記録済み`,
-	familyStreakNone: '今日はまだ誰も記録していません',
-	familyStreakMilestone: (remaining: number, days: number, points: number) =>
-		`あと${remaining}日で${days}日ボーナス（+${points}P）`,
-
-	// #3222 (#3193): チャレンジ全プラン開放に伴い「ファミリープラン限定機能」notice 文言を撤去
-	// (familyPlanTitle/Desc/Button は dead label 化、UI 参照ゼロ)。きょうだいランキングの
-	// family 限定は SETTINGS_LABELS.siblingRanking* が別途担う。
-
-	// Challenge section
 	sectionTitle: '👥 きょうだいチャレンジ',
-	cancelButton: 'キャンセル',
-	createButton: '＋ 新規チャレンジ',
-
-	// Notifications
-	createdNotice: 'チャレンジを作成しました',
 	deletedNotice: 'チャレンジを削除しました',
-
-	// Create form
-	formTitle: '新規チャレンジ作成',
-	titleLabel: 'タイトル',
-	titlePlaceholder: 'みんなで今週3回うんどう！',
-	descLabel: '説明（任意）',
-	descPlaceholder: '家族みんなでうんどうしよう',
-	typeLabel: '種別',
-	typeCooperative: '協力',
-	periodLabel: '期間',
-	periodWeekly: '週間',
-	periodMonthly: '月間',
-	periodCustom: 'カスタム',
-	categoryLabel: 'カテゴリ（任意）',
-	categoryAll: '全カテゴリ',
-	startDateLabel: '開始日',
-	endDateLabel: '終了日',
-	targetLabel: '目標回数',
-	rewardPointsLabel: '報酬ポイント',
-	rewardMessageLabel: '達成メッセージ（任意）',
-	rewardMessagePlaceholder: 'みんなすごい！',
-	submitButton: '作成',
-
-	// #2296 (EPIC #2294 ②): 説明文ヘッダ + empty state CTA + テンプレ導線 (2026-05-19)
-	// Research §3.2 (Harvard Health / UNH SAARA / ADR-0012 §6) で兄弟競争は厳禁。
-	// 協力タイプで家族コミュニケーションを促進する文言に統一。
-	headerDesc:
-		'家族で目標を決めて、いっしょに達成するきょうだいチャレンジ。兄弟が協力して取り組むことで、家族のコミュニケーションを促進します。',
-
-	// Empty state
 	noChallengeTitleIcon: '👥',
 	noChallengeTitle: 'チャレンジはまだありません',
-	noChallengeDesc: '上のボタンから作成してください',
-	emptyStateDesc:
-		'まずはテンプレートから始めてみませんか？家族の現実時間に合わせたチャレンジを選べます。',
-	emptyStateOrCreate: '自分で作る場合は上の「新規チャレンジ」ボタンから。',
-	templateCta: '🎁 テンプレートから始める',
-
-	// Challenge card
 	badgeAllCompleted: '全員クリア！',
 	badgeActive: '開催中',
-	badgeExpired: '終了',
-	targetGoal: (count: number) => `目標${count}回`,
 	rewardLabel: (points: number) => `報酬${points}P`,
 	deleteButton: '削除',
-	deleteConfirm: (title: string) => `「${title}」を削除しますか？`,
-
 	dateSeparator: ' 〜 ',
-
-	// Challenge type/period labels
-	typeLabelCooperative: '協力',
 	periodLabelWeekly: '週間',
 	periodLabelMonthly: '月間',
 	periodLabelCustom: 'カスタム',
-
-	// Category names (same as GROWTH_BOOK_LABELS)
-	categoryUndou: 'うんどう',
-	categoryBenkyou: 'べんきょう',
-	categorySeikatsu: 'せいかつ',
-	categoryKouryuu: 'こうりゅう',
-	categorySouzou: 'そうぞう',
-
-	// #2297 (EPIC #2294 ③): マーケプレ challenge-set 一括 import 確認 UI
-	importIcon: '🎯',
-	importHeading: (presetName: string) => `「${presetName}」を一括追加します`,
-	importTotalDesc: (count: number) =>
-		`合計 ${count}件のチャレンジを追加します。期間は当該行事の日付から自動展開されます。`,
-	importBreakdownSummary: '内訳を確認',
-	importItemSuffix: (monthDay: string, durationDays: number) =>
-		`（${monthDay} ・ ${durationDays}日間）`,
-	importCancel: 'キャンセル',
-	importSubmit: (count: number) => `${count}件 一括追加`,
-	importSuccessNotice: (presetName: string, count: number) =>
-		`✨ 「${presetName}」から ${count}件のチャレンジを追加しました`,
-	importErrorSummary: (count: number) => `エラー詳細 (${count}件)`,
 } as const;
 
 // ============================================================
