@@ -33,7 +33,7 @@
 
 ### 3.2 export
 - source 実体を全網羅（#3329）。per-child instance は **per-child 構造で出力**（master 名前 flatten をやめる、活動の binding 保持）。
-- backup フォーマット **version を上げる**（旧 backup 互換は読み取り後方互換で吸収）。
+- backup フォーマットを**自由に刷新してよい**（ユーザー未獲得のため**下位互換不要**、D5 決定）。旧 ZIP 互換読込は実装しない（version 判定の延命コードを持たない）。
 - 派生・除外は出力しない（または検証用 snapshot として分離区画に。復元時は無視）。
 - **PIN（おやカギ pin_hash）取扱**（監査 §3 セキュリティ caveat、CWE-522/916）: backup から除外し復元後に再設定、または別パスフレーズで暗号化。無防備同梱しない（PO 判断、§4）。
 
@@ -51,15 +51,17 @@
 - 部分失敗（skip/warning>0）を success と扱わない assert。
 - 「`keys.ts` family ⊆ 分類レジストリ」整合の機械検証。
 
-## 4. PO 判断事項（叩き台の選択肢 — 確定前に要合意）
+## 4. PO 判断事項（**決定済み — 2026-06-27 PO**）
 
-| # | 論点 | 選択肢 | 補佐の推奨 |
-|---|---|---|---|
-| D1 | **event-sourcing スコープ** | (a) Lite: 現在値は従来通り保持し、backup は source のみ・**復元時のみ**派生再計算 / (b) Full: status/balance 等を恒常 projection 化（読み取りで再計算）| **(a) Lite**。Pre-PMF（ADR-0010）で refactor 規模を抑えつつ backup を直せる。Full 化は別 design issue |
-| D2 | **replace モード** | (a) 残す（import-then-swap で安全化）/ (b) 廃止（add/merge のみ）| **(a)**（移行に replace 相当が要るため）。ただし clear 先行は廃止 |
-| D3 | **PIN(おやカギ) の backup** | (a) 除外し復元後に再設定 / (b) 別パスフレーズで暗号化同梱 | **(a)**（4桁・低 entropy の hash 同梱は CWE-522/916 リスク。再設定が安全・単純）|
-| D4 | **派生の明示除外** | characterImage=再生成 / pointBalance=台帳から再計算 / dailyMissions=Phase 2 繰延 を「意図的除外」と確定 | 推奨どおり除外（除外理由を SSOT に明記）|
-| D5 | **旧 backup 互換** | 旧フォーマット読込を維持するか | 維持（version 判定で吸収。既存 ZIP からの復元を壊さない）|
+D1-D4 は補佐推奨どおり承認、D5 は「下位互換不要」で決定。
+
+| # | 論点 | 決定 |
+|---|---|---|
+| D1 | **event-sourcing スコープ** | **(a) Lite**: 現在値は従来通り保持し、backup は source のみ・**復元時のみ**派生再計算。Full 化（status/balance を恒常 projection 化）は別 design issue で Pre-PMF 判断 |
+| D2 | **replace モード** | **(a) 残す**（import-then-swap で安全化）。**clear 先行は廃止** |
+| D3 | **PIN(おやカギ) の backup** | **(a) 除外し復元後に再設定**（4桁・低 entropy hash 同梱は CWE-522/916 リスクのため同梱しない）|
+| D4 | **派生の明示除外** | characterImage=再生成 / pointBalance=台帳から再計算 / dailyMissions=Phase 2 繰延 を**意図的除外**として確定（除外理由を分類レジストリに明記）|
+| D5 | **下位互換** | **不要**（ユーザー未獲得）。旧 ZIP 互換読込は実装しない。backup schema は自由に刷新してよい |
 
 ## 5. 段階（phasing）
 
@@ -70,4 +72,4 @@
 5. **P5（UX/安全）**: 進捗フィードバック + クライアント timeout + 大容量対応（#3324/#3325）。
 6. 各段階に round-trip 完全性テスト（#3328）。
 
-> 本書は叩き台です。§4 の D1-D5 にご意見・決定をいただければ、確定版を設計書 / ADR（source/派生原則）に正規化し、P1 の再現テストから着手します。
+> §4 の D1-D5 は PO 決定済み（2026-06-27）。本書を確定版として、P1（活動喪失機序の再現テストで確定）から着手する。source/派生/除外の三分類原則は ADR への昇格を別途検討する。
