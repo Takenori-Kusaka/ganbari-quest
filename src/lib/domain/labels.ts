@@ -2230,6 +2230,13 @@ export const SETTINGS_LABELS = {
 	dataImportSelectFile: `${BACKUP_TERMS.file}を選択`,
 	// #backup-terms: 不正ファイル選択時 (内部フォーマット名は出さず「バックアップファイル」で統一)
 	dataImportInvalidFile: `${BACKUP_TERMS.file}を選択してください`,
+	// #3285 uiux-3: settings/data の import 検証 / クラウド連携メッセージを SSOT 集約 (旧: 直書き)
+	dataImportNoFile: `${BACKUP_TERMS.file}が選択されていません`,
+	dataImportFileTooLarge: (maxMb: string) => `ファイルサイズが大きすぎます（最大${maxMb}MB）`,
+	cloudExportPinIssued: (pinCode: string, expiry: string) =>
+		`PINコード: ${pinCode}（有効期限: ${expiry}）`,
+	cloudImportNoChildren:
+		'取込先のお子さまが登録されていません。先に /admin/children でお子さま登録をしてください。',
 	dataImportChecksumOk: '✓ ファイルの整合性を確認しました',
 	dataImportPreviewChildren: (n: number | string | undefined) => `子供: ${n}人`,
 	dataImportPreviewActivityLogs: (n: number | string | undefined) => `活動ログ: ${n}件`,
