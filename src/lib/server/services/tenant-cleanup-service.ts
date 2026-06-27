@@ -225,6 +225,16 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] loginBonus 削除失敗: ${String(err)}`);
 	}
 
+	// #3329: ごほうび交換履歴は special_rewards を reward_id (no cascade) で参照するため、
+	// special_rewards 削除より先に消す。残すと special_rewards 削除が FK で失敗し、さらに
+	// special_rewards.child_id (no cascade) が children 削除も阻む (replace import で子ごと喪失)。
+	try {
+		await r.rewardRedemption.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[tenant-cleanup] rewardRedemption 削除失敗: ${String(err)}`);
+	}
+
 	// Special rewards
 	try {
 		await r.specialReward.deleteByTenantId(tenantId);

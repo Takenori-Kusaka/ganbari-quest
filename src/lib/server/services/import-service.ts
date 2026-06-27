@@ -23,6 +23,7 @@ import { insertEvaluation } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
+import { insertRedemptionForRestore } from '$lib/server/db/reward-redemption-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
@@ -50,6 +51,9 @@ export interface ImportResult {
 	titlesImported: number;
 	specialRewardsImported: number;
 	specialRewardsSkipped: number;
+	/** #3329: ごほうびショップ交換/購入履歴の取込件数 */
+	rewardRedemptionsImported: number;
+	rewardRedemptionsSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -257,6 +261,9 @@ export async function importFamilyData(
 	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
 	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
+	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
+	// importSpecialRewards の後に実行する。
+	await importRewardRedemptionsData(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
@@ -308,6 +315,75 @@ async function importEvaluationsData(
 	}
 }
 
+/**
+ * ごほうびショップ交換/購入履歴を復元する (#3329)。
+ * FK rewardId は import で振り直されるため、export の `rewardRef` (reward title) を取込先 child の
+ * reward 一覧から再解決して結合する。reward が解決できない行 (元 reward 未取込/同名衝突) は
+ * skip + warning (FK NOT NULL を満たせないため。残高への影響は別途 pointLedger が真実を持つ)。
+ * status / 解決情報 / snapshot は insertRedemptionForRestore で申請時点のまま書き戻す。
+ */
+async function importRewardRedemptionsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	const redemptions = data.data.rewardRedemptions ?? [];
+	if (redemptions.length === 0) return;
+
+	// 取込先 child ごとに reward title → rewardId の lookup を構築する (新規 insert + 既存 dedup 双方を含む)。
+	const rewardIdByChildTitle = new Map<number, Map<string, number>>();
+	async function rewardLookup(childId: number): Promise<Map<string, number>> {
+		let map = rewardIdByChildTitle.get(childId);
+		if (!map) {
+			const rows = await findSpecialRewards(childId, tenantId);
+			map = new Map(rows.map((r) => [r.title, r.id]));
+			rewardIdByChildTitle.set(childId, map);
+		}
+		return map;
+	}
+
+	for (const r of redemptions) {
+		const childId = childIdMap.get(r.childRef);
+		if (!childId) {
+			result.rewardRedemptionsSkipped++;
+			continue;
+		}
+		const rewardId = (await rewardLookup(childId)).get(r.rewardRef);
+		if (!rewardId) {
+			result.rewardRedemptionsSkipped++;
+			result.warnings.push(
+				`交換履歴スキップ: ごほうび「${r.rewardRef}」(child=${r.childRef}) が取込先に見つかりません`,
+			);
+			continue;
+		}
+		try {
+			await insertRedemptionForRestore(
+				{
+					childId,
+					rewardId,
+					requestedAt: r.requestedAt,
+					status: r.status,
+					parentNote: r.parentNote,
+					resolvedAt: r.resolvedAt,
+					resolvedByParentId: r.resolvedByParentId,
+					shownToChildAt: r.shownToChildAt,
+					rewardTitle: r.rewardTitle,
+					rewardPoints: r.rewardPoints,
+					rewardIcon: r.rewardIcon,
+				},
+				tenantId,
+			);
+			result.rewardRedemptionsImported++;
+		} catch (e) {
+			result.rewardRedemptionsSkipped++;
+			result.errors.push(
+				`交換履歴 insert 失敗 (child=${r.childRef}, reward=${r.rewardRef}): ${String(e)}`,
+			);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -321,6 +397,8 @@ function createEmptyImportResult(): ImportResult {
 		titlesImported: 0,
 		specialRewardsImported: 0,
 		specialRewardsSkipped: 0,
+		rewardRedemptionsImported: 0,
+		rewardRedemptionsSkipped: 0,
 		loginBonusesImported: 0,
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,

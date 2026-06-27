@@ -162,6 +162,61 @@ export const insertRedemptionRequest: IRewardRedemptionRepo['insertRedemptionReq
 };
 
 // ============================================================
+// insertRedemptionForRestore — backup restore 用 (全フィールド保全、#3329)
+// ============================================================
+
+export const insertRedemptionForRestore: IRewardRedemptionRepo['insertRedemptionForRestore'] =
+	async (input, tenantId): Promise<RedemptionRequestRow> => {
+		const id = await nextId(ENTITY_NAMES.rewardRedemption, tenantId);
+
+		const row: RedemptionRequestRow = {
+			id,
+			childId: input.childId,
+			rewardId: input.rewardId,
+			requestedAt: input.requestedAt,
+			status: input.status,
+			parentNote: input.parentNote,
+			resolvedAt: input.resolvedAt,
+			resolvedByParentId: input.resolvedByParentId,
+			shownToChildAt: input.shownToChildAt,
+		};
+
+		// JOIN 代替の非正規化フィールド: snapshot を優先し、欠落時のみ live 解決へ fallback。
+		const child = await findChildByIdRaw(input.childId, tenantId);
+		let rewardTitle = input.rewardTitle;
+		let rewardIcon = input.rewardIcon;
+		let rewardPoints = input.rewardPoints;
+		if (rewardTitle === null || rewardPoints === null) {
+			const reward = await findRewardFields(input.childId, input.rewardId, tenantId);
+			rewardTitle = rewardTitle ?? reward?.title ?? '';
+			rewardIcon = rewardIcon ?? reward?.icon ?? null;
+			rewardPoints = rewardPoints ?? reward?.points ?? 0;
+		}
+
+		const denorm: DenormFields = {
+			childName: child?.nickname ?? '',
+			rewardTitle: rewardTitle ?? '',
+			rewardIcon,
+			rewardPoints: rewardPoints ?? 0,
+		};
+
+		await getDocClient().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: {
+					...rewardRedemptionKey(input.childId, id, tenantId),
+					...row,
+					// denorm.rewardTitle/Icon/Points は snapshot 優先で解決済 (SQLite の
+					// COALESCE(snapshot, live) 読み出しと等価の表示値を item に非正規化保存)。
+					...denorm,
+				},
+			}),
+		);
+
+		return row;
+	};
+
+// ============================================================
 // findRedemptionRequestsByChild — 子供の申請一覧 (最新順)
 // ============================================================
 

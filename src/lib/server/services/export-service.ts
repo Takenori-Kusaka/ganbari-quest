@@ -17,6 +17,7 @@ import {
 	type ExportLoginBonus,
 	type ExportOptions,
 	type ExportPointLedger,
+	type ExportRewardRedemption,
 	type ExportSpecialReward,
 	type ExportStatus,
 	type ExportStatusHistory,
@@ -35,6 +36,7 @@ import { findEvaluationsByChild } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
+import { findRedemptionRequestsByTenant } from '$lib/server/db/reward-redemption-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
 import { findRecentStatusHistory, findStatuses } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
@@ -220,6 +222,7 @@ interface ChildTransactionData {
 	loginBonuses: ExportLoginBonus[];
 	evaluations: ExportEvaluation[];
 	specialRewards: ExportSpecialReward[];
+	rewardRedemptions: ExportRewardRedemption[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 }
@@ -246,6 +249,7 @@ async function collectForChild(
 		loginBonuses,
 		evaluations,
 		specialRewards,
+		redemptions,
 		checklistTemplates,
 	] = await Promise.all([
 		// #3327 P2: per-child 活動インスタンスを backup に保持 (archive 済も含む)。
@@ -256,6 +260,9 @@ async function collectForChild(
 		findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
 		findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
 		findSpecialRewards(childId, tenantId),
+		// #3329: ごほうびショップ交換/購入履歴を backup に保持 (WithDetails = snapshot 解決済の
+		// rewardTitle/Icon/Points 付き)。childId filter で per-child 収集する。
+		findRedemptionRequestsByTenant(tenantId, { childId, limit: MAX_EXPORT_ROWS }),
 		// #3106: backup なので includeInactive=true + includeArchived=true。
 		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
 		findTemplatesByChild(childId, tenantId, true, true),
@@ -364,6 +371,23 @@ async function collectForChild(
 		sourcePresetId: sr.sourcePresetId,
 	}));
 
+	// #3329: 交換履歴。FK rewardId は import 後に変わるため rewardRef (reward title) で再結合する。
+	// WithDetails の rewardTitle は snapshot 優先で解決済 (COALESCE(snapshot, live))。
+	warnIfTruncated('rewardRedemptions', childId, redemptions.length);
+	const rewardRedemptionsOut: ExportRewardRedemption[] = redemptions.map((r) => ({
+		childRef,
+		rewardRef: r.rewardTitle,
+		requestedAt: r.requestedAt,
+		status: r.status,
+		parentNote: r.parentNote,
+		resolvedAt: r.resolvedAt,
+		resolvedByParentId: r.resolvedByParentId,
+		shownToChildAt: r.shownToChildAt,
+		rewardTitle: r.rewardTitle,
+		rewardPoints: r.rewardPoints,
+		rewardIcon: r.rewardIcon,
+	}));
+
 	// Checklist templates with items
 	// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
 	// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
@@ -429,6 +453,7 @@ async function collectForChild(
 		loginBonuses: loginBonusesOut,
 		evaluations: evaluationsOut,
 		specialRewards: specialRewardsOut,
+		rewardRedemptions: rewardRedemptionsOut,
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
 	};
@@ -457,6 +482,7 @@ async function collectTransactionData(
 		loginBonuses: perChild.flatMap((p) => p.loginBonuses),
 		evaluations: perChild.flatMap((p) => p.evaluations),
 		specialRewards: perChild.flatMap((p) => p.specialRewards),
+		rewardRedemptions: perChild.flatMap((p) => p.rewardRedemptions),
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		childAvatarItems: [],

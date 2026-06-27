@@ -125,8 +125,9 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	rewardRedemption: {
 		classification: 'source',
 		schemaTable: 'rewardRedemptionRequests',
-		backupStatus: 'not-yet-exported',
-		reason: 'ごほうびショップ交換/購入履歴。残高整合に必須だが export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'ごほうびショップ交換/購入履歴。export/import 実装済 (#3329、rewardRef で reward に再結合・status/snapshot 保全)',
 	},
 	childChallenge: {
 		classification: 'source',
