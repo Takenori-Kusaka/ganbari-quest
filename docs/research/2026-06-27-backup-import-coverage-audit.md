@@ -28,10 +28,12 @@
 | specialRewards | 特別ごほうび | ✓ | △ | 9→1 部分失敗（`importSpecialRewards` L836-、name/preset dedup でスキップ #3327）|
 | checklistTemplates | チェックリスト | ✓ | ✓ | OK |
 | checklistLogs | チェックリスト記録 | ✓ | ✓ | OK |
+| checklistAssignment | チェックリスト配信先 | **✗** | △ | export schema に経路無し（#3329）。ただし import 時 `importOneChecklistTemplate` が `assignTemplateToChildren(newTpl.id, [childId])`（`import-service.ts` L665）で**取込先 child へ自動付与（再導出）**するため、取込先 1 child 分の assignment は復元される。原本の配信先 fan-out（どの child に配信済みか）は保持されない。key builder は実装済（`checklistAssignmentKey` `keys.ts` L575）|
+| checklistOverride | チェックリスト日次 override | **✗** | **✗** | key builder 実装済（`checklistOverrideKey` `keys.ts` L633）だが export-service / import-service いずれにも経路が無い（#3329）。per-child の日次 override 設定が backup で失われる |
 | childAchievements | 実績(子) | **廃止** | **廃止** | **実績システム廃止済（#322）**。export は空配列を意図的に出力（`export-service.ts` L432 `childAchievements: [], // 実績システム廃止（#322）`）。データ自体が存在せずバックアップ対象外 — import 欠落（#3327）の対象ではない |
 | childTitles | 称号(子) | **廃止** | **廃止** | **称号システム廃止済（#322）**。export は空配列を意図的に出力（`export-service.ts` L433 `childTitles: [], // 称号システム廃止（#322）`）。データ自体が存在せずバックアップ対象外 — import 欠落（#3327）の対象ではない |
-| childAvatarItems | アバター所持 | **繰延** | **繰延** | export は空配列（`export-service.ts` L439 `childAvatarItems: []`、コメント無し）。廃止ではなく未実装。実体導入時に export/import 整備が必要 |
-| dailyMissions | デイリーミッション | **繰延** | **繰延** | export は空配列を意図的に出力（`export-service.ts` L440 `dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応`）。Phase 2 で対応予定（**派生/期限切れ候補**）|
+| childAvatarItems | アバター所持 | **未実装** | **未実装** | **実体未実装**: `keys.ts` に key builder も ENTITY_NAMES 登録も無く、データ自体が存在しない。export は空配列（`export-service.ts` L439 `childAvatarItems: []`）。dailyMissions（実装済・export 未対応）とは状態が異なる。実体導入時に export/import 整備が必要 |
+| dailyMissions | デイリーミッション | **繰延** | **繰延** | **機能は実装済（export 未対応）**: `keys.ts` に key builder（`dailyMissionKey` L656-676）+ 専用 `daily-mission-service.ts` があり production data を持つ。export が空配列なのは Phase 2 繰延（`export-service.ts` L440 `dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応`）であって機能未実装ではない（childAvatarItems と区別）。**派生/期限切れ候補** |
 | **rewardRedemption** | **ごほうび交換/購入履歴** | **✗** | **✗** | **export 自体に無い（#3329）。残高に必須（source）** |
 | **childChallenge** (+auto-weekly) | **チャレンジ/達成履歴** | **✗** | **✗** | **export 自体に無い（#3329）** |
 | **stampCard / stampEntry** | スタンプカード | **✗** | **✗** | export 自体に無い（#3329） |
@@ -47,9 +49,10 @@
 ### 集計
 - export ✓ かつ import ✓（健全）: children / pointLedger / statuses / statusHistory(△) / loginBonuses / checklistTemplates / checklistLogs
 - export ✓ だが import ✗ or △（**import 側の欠落**, #3327）: activities(△) / activityLogs(△) / evaluations(✗) / specialRewards(△)
-- export ✗（**export 側の網羅漏れ**, #3329）: rewardRedemption / childChallenge / stampCard / dailyBattle / enemyCollection / certificate / parentMessage / siblingCheer / activityPref / activityMastery / settings / pointBalance / characterImage / checklistAssignment / checklistOverride
+- export ✗（**export 側の網羅漏れ**, #3329）: rewardRedemption / childChallenge / stampCard / dailyBattle / enemyCollection / certificate / parentMessage / siblingCheer / activityPref / activityMastery / settings / pointBalance / characterImage / checklistAssignment(import は再導出 △) / checklistOverride
 - **廃止済（#322）= バックアップ対象外**（export/import 欠落の対象外、データ自体が存在しない）: childAchievements / childTitles
-- **繰延（未実装・将来対応、空配列を意図的に出力）**: childAvatarItems / dailyMissions（Phase 2）
+- **実体未実装（key builder 不在、データ自体が存在しない）**: childAvatarItems
+- **機能実装済だが export 未対応（Phase 2 繰延、空配列を意図的に出力）**: dailyMissions
 
 ## 3. source / 派生 分類（再設計の根幹）
 
@@ -58,7 +61,9 @@ PO 指摘（ステータスは活動結果の projection）を踏まえ、backup
 ### source（イベント = 真実、backup 必須）
 children / activities（定義）/ activityLogs / pointLedger（**交換 redemption / bonus / 手動調整を含む**）/ rewardRedemption / childChallenge / evaluations / checklist(template/item/assignment/log/override) / parentMessage / siblingCheer / certificate（授与記録）/ stampCard 設定 / dailyMission 定義 / activityPref / **settings（PIN・ポイント表示・onboarding 等）** / マスタ初期値・各種ルール設定（decay/スコア式）
 
-> **セキュリティ caveat — PIN を backup に含める場合（CWE-312 / CWE-522）**: PIN（おやカギコード）は `keys.ts` の **グローバル unique な認証 secret**（`findByPin` はテナント横断のグローバル lookup 経路、`keys.ts` L982-988）。これを平文 JSON / ZIP backup に含めると、backup ファイル流出時に保護者認証情報がそのまま漏洩する（平文 credential at rest）。settings を source として backup する設計では、PIN フィールドは (a) backup から除外し復元後に再設定させる、(b) もしくは別パスフレーズで暗号化した上で格納する、のいずれかを採用し、平文での同梱は避ける。実装着手時（#3329 export 拡張）にこの方針を確定すること。
+> **セキュリティ caveat — settings を backup に含める場合の PIN 取扱（CWE-522 / CWE-916）**: 本設計で backup 対象に挙げる「settings の PIN」は **(a) おやカギコード（親ゲート認証 PIN）** を指す。これは **per-tenant の認証 secret** で、SSOT は `src/lib/domain/constants/oyakagi.ts`（`DEFAULT_PIN = '5086'`、pin_hash 未設定 tenant の照合値）+ `auth-service.ts`（`getSetting('pin_hash', tenantId)` / `setSetting('pin_hash', …, tenantId)`、L29 / L94）。値は settings の `pin_hash`（bcrypt hash）として tenant 単位に保持される。settings を source として export に含めると、この `pin_hash` が backup ファイルに同梱され、流出時に hash が露出する。おやカギ PIN は 4 桁数値（既定 5086）で entropy が低く、hash 流出 = 10^4 全数 offline brute force が現実的（CWE-522 insufficiently-protected credentials / CWE-916 low-entropy 値への hash 使用）。よって settings を backup する設計では、PIN フィールド（`pin_hash`）は (a) backup から除外し復元後に再設定させる、(b) もしくは別パスフレーズで暗号化して格納する、のいずれかとし、無防備な同梱を避ける。実装着手時（#3329 export 拡張）にこの方針を確定すること。
+>
+> **混同回避 — おやカギ PIN ≠ CloudExport DL PIN**: 上記 (a) おやカギ PIN とは別に、`cloud_exports.pin_code`（`schema.ts` L942、**グローバル unique**）/ `keys.ts findByPin`（L982-988）が存在するが、これは **(b) CloudExport 共有ダウンロード用の PIN**（NUC→cloud backup を S3 配布する際の受領コード、低頻度 download 経路、`keys.ts` L976-989）であり、親ゲート認証 secret とは別機構である。本 backup 網羅性の PIN 流出懸念は (a) おやカギ PIN（settings の `pin_hash`）が対象であって、(b) CloudExport DL PIN ではない。`findByPin` / `cloud_exports.pin_code` は (b) の経路であり、おやカギ PIN の SSOT ではない点に注意。
 
 ### 派生（projection = source + ルールから再計算、backup は snapshot のみ任意）
 statuses / statusHistory / pointBalance / loginBonus の streak(consecutiveDays) / activityMastery / dailyBattle 結果 / enemyCollection / dailyMissions（期限切れ含む、現状 export は Phase 2 まで空配列）
