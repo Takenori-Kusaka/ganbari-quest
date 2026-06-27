@@ -19,6 +19,7 @@ import {
 	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
+import { insertEvaluation } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
@@ -53,6 +54,9 @@ export interface ImportResult {
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
 	statusHistorySkipped: number;
+	/** #3327/#3328: 評価 (週次評価) の取込件数 */
+	evaluationsImported: number;
+	evaluationsSkipped: number;
 	/** #3078: チェックリスト完了履歴 */
 	checklistLogsImported: number;
 	checklistLogsSkipped: number;
@@ -252,6 +256,8 @@ export async function importFamilyData(
 	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
+	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
+	await importEvaluationsData(data, childIdMap, tenantId, result);
 
 	// #3077: ZIP 同梱の静的ファイル (アバター画像 / 音声) を新 childId に再マップして復元。
 	if (staticFiles && Object.keys(staticFiles).length > 0) {
@@ -260,6 +266,44 @@ export async function importFamilyData(
 
 	logger.info('[import] インポート完了', { context: { ...result } });
 	return result;
+}
+
+/**
+ * 評価 (週次評価) を元の子へ復元する (#3327/#3328)。
+ * 従来 importFamilyData に評価の取込経路が無く、export には含まれるのに restore で全喪失していた
+ * 網羅漏れ (本番 t-82c17558 で評価 22→0 を実証) を解消する。
+ */
+async function importEvaluationsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const ev of data.data.evaluations ?? []) {
+		const childId = childIdMap.get(ev.childRef);
+		if (!childId) {
+			result.evaluationsSkipped++;
+			continue;
+		}
+		try {
+			await insertEvaluation(
+				{
+					childId,
+					weekStart: ev.weekStart,
+					weekEnd: ev.weekEnd,
+					scoresJson: ev.scoresJson,
+					bonusPoints: ev.bonusPoints,
+				},
+				tenantId,
+			);
+			result.evaluationsImported++;
+		} catch (e) {
+			result.evaluationsSkipped++;
+			result.errors.push(
+				`評価 insert 失敗 (child=${ev.childRef}, week=${ev.weekStart}): ${String(e)}`,
+			);
+		}
+	}
 }
 
 function createEmptyImportResult(): ImportResult {
@@ -279,6 +323,8 @@ function createEmptyImportResult(): ImportResult {
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,
 		statusHistorySkipped: 0,
+		evaluationsImported: 0,
+		evaluationsSkipped: 0,
 		checklistLogsImported: 0,
 		checklistLogsSkipped: 0,
 		staticFilesRestored: 0,
