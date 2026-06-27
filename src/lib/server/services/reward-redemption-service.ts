@@ -1,7 +1,7 @@
 // src/lib/server/services/reward-redemption-service.ts
 // ごほうびショップ交換申請サービス (#1337)
 
-import { findChildById, getBalance, insertPointEntry } from '$lib/server/db/point-repo';
+import { findChildById, getBalance, spendPointsAtomic } from '$lib/server/db/point-repo';
 import {
 	countRedemptionRequestsByTenant,
 	expireOldRedemptions as expireOldRedemptionsRepo,
@@ -118,6 +118,16 @@ export async function requestRedemption(
 			tenantId,
 		});
 		if ('error' in finalized) {
+			// #3347: 即時交換で減算に失敗した場合（並行交換による残高不足等）、直前に作成した
+			// pending 行が「親の承認待ち」として残ると、子供がエラーを受け取った交換が保護者画面に
+			// 幻の承認待ちとして出続けてしまう。expired に倒して回収する（getUnshownResult は
+			// approved/rejected のみ surface するため子供側にも露出しない）。
+			await updateRedemptionRequestStatus(
+				childId,
+				row.id,
+				{ status: 'expired', resolvedAt: now },
+				tenantId,
+			);
 			// 残高は上で確認済だが、並行交換で不足した場合は INSUFFICIENT_POINTS を返す。
 			// REQUEST_NOT_FOUND（直前 insert の取り違え）は理論上発生しないが安全側で REWARD_NOT_FOUND に倒す。
 			return finalized.error === 'INSUFFICIENT_POINTS'
@@ -195,8 +205,14 @@ export type ApproveError =
 
 /**
  * 申請を「承認 (approved)」に確定する共通処理（#3339 で抽出）。
- * 残高再確認（レース対策）→ ポイント減算 → status='approved' 更新を行う。
+ * ポイント減算（残高 >= コストのときのみ原子的に台帳挿入）→ status='approved' 更新を行う。
  * 親承認（{@link approveRedemption}）と即時交換（{@link requestRedemption} の auto-approve 経路）で共有する。
+ *
+ * #3347（TOCTOU 二重減算根治）: 旧実装は `getBalance`（残高読込）→ 非負確認 →
+ * `insertPointEntry`（挿入）を await を跨いで行っていたため、即時交換の並行 / 二重 submit で
+ * 両方が同じ残高を読んで二重減算・残高マイナスを起こし得た（#3336 と同型）。残高確認と減算を
+ * `spendPointsAtomic`（backend の原子境界）に閉じ込め、2 回目は減算後残高を読み INSUFFICIENT に
+ * 倒すことで構造的に防ぐ。
  *
  * @param parentUserId 承認した保護者の認証 userId。即時交換（システム自動承認）では null。
  */
@@ -210,21 +226,14 @@ async function finalizeApproval(args: {
 }): Promise<RedemptionRequestResult | { error: 'INSUFFICIENT_POINTS' | 'REQUEST_NOT_FOUND' }> {
 	const { childId, requestId, rewardPoints, rewardTitle, parentUserId, tenantId } = args;
 
-	// ポイント残高再確認（レースコンディション対策）
-	const balance = await getBalance(childId, tenantId);
-	if (balance < rewardPoints) return { error: 'INSUFFICIENT_POINTS' };
-
-	// ポイント減算
-	await insertPointEntry(
-		{
-			childId,
-			amount: -rewardPoints,
-			type: 'reward_redemption',
-			description: rewardTitle,
-			referenceId: requestId,
-		},
+	// #3347: 残高再読込 → 非負確認 → 減算を原子境界で実行（TOCTOU 二重減算・残高マイナス防止）。
+	const spend = await spendPointsAtomic(
+		childId,
+		rewardPoints,
+		{ type: 'reward_redemption', description: rewardTitle, referenceId: requestId },
 		tenantId,
 	);
+	if ('error' in spend) return { error: 'INSUFFICIENT_POINTS' };
 
 	// ステータス更新 (#2845 課題①: childId で所有権検証付き composite key 更新)
 	const now = Math.floor(Date.now() / 1000);

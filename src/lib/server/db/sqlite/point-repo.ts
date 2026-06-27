@@ -4,6 +4,7 @@
 import { and, desc, eq, lt, sum } from 'drizzle-orm';
 import { db } from '../client';
 import { children, pointLedger } from '../schema';
+import type { PointLedgerEntry } from '../types';
 
 /** ポイント残高を取得（point_ledgerのamount合計） */
 export async function getBalance(childId: number, _tenantId: string): Promise<number> {
@@ -44,6 +45,42 @@ export async function insertPointEntry(
 	_tenantId: string,
 ) {
 	return db.insert(pointLedger).values(input).returning().get();
+}
+
+/**
+ * #3347: 残高が `amount` 以上のときのみ、原子的にポイントを減算して台帳に負値エントリを挿入する。
+ * better-sqlite3 の**同期トランザクション**で「残高再読込 → 非負確認 → 挿入」を 1 単位に閉じ込め、
+ * 内部で await を挟まない。トランザクション中は他リクエストが event loop に割り込めないため、
+ * 並行 / 二重 submit でも 2 回目は減算後の残高を読み INSUFFICIENT を返す（TOCTOU 二重減算・
+ * 残高マイナスを構造的に防ぐ）。
+ */
+export async function spendPointsAtomic(
+	childId: number,
+	amount: number,
+	entry: { type: string; description: string; referenceId?: number },
+	_tenantId: string,
+): Promise<PointLedgerEntry | { error: 'INSUFFICIENT_POINTS' }> {
+	return db.transaction((tx) => {
+		const result = tx
+			.select({ total: sum(pointLedger.amount) })
+			.from(pointLedger)
+			.where(eq(pointLedger.childId, childId))
+			.get();
+		const balance = Number(result?.total ?? 0);
+		if (balance < amount) return { error: 'INSUFFICIENT_POINTS' as const };
+
+		return tx
+			.insert(pointLedger)
+			.values({
+				childId,
+				amount: -amount,
+				type: entry.type,
+				description: entry.description,
+				referenceId: entry.referenceId,
+			})
+			.returning()
+			.get();
+	});
 }
 
 /** 子供の存在確認 */

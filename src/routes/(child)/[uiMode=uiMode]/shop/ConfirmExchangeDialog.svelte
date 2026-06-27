@@ -81,7 +81,7 @@ let isSubmitting = $state(false);
 						type="submit"
 						variant="primary"
 						size="lg"
-						disabled={isSubmitting}
+						loading={isSubmitting}
 						data-testid="confirm-exchange-yes"
 					>
 						{CHILD_SHOP_LABELS.exchangeConfirmYes}

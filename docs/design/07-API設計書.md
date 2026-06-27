@@ -1944,8 +1944,8 @@ Push 通知の購読解除。
 1. `reward_id` の `special_rewards` が `child_id` に紐付くか検証
 2. `child.points >= special_rewards.requiredPoints` を確認（不足時は `400 INSUFFICIENT_POINTS`）
 3. 同一 `(child_id, reward_id)` で `status = 'pending_parent_approval'` が存在しないか確認（重複時は `409 ALREADY_PENDING`）
-4. `reward_redemption_requests` レコードを作成（`status: 'pending_parent_approval'`, `requested_at: now()`）
-5. ポイントはこの時点では減算しない
+4. `reward_redemption_requests` レコードを作成（repo は常に `status: 'pending_parent_approval'`, `requested_at: now()` で作成）
+5. **即時交換分岐（#3339）**: 家庭設定 settings KVS `reward_auto_approve === 'true'` のとき（後述）、その場で承認確定（`approved` + ポイント減算）まで進め `instant: true` を返す。OFF（既定）なら申請は pending のまま据え置き、ポイントは減算しない
 
 **レスポンス (201):**
 ```json
@@ -1964,6 +1964,17 @@ Push 通知の購読解除。
 | `INSUFFICIENT_POINTS` | 400 | ポイント不足 |
 | `ALREADY_PENDING` | 409 | 同一報酬の申請が既に pending |
 | `REWARD_NOT_FOUND` | 404 | 報酬が存在しない / 子供に属さない |
+
+#### 即時交換モード（settings KVS `reward_auto_approve`、#3339 / #3347）
+
+家庭一括設定で「ごほうび交換のしかた」を切り替える。UI は `/admin/settings/rules` のトグル（`06-UI設計書.md §15.4.4`）、子供側挙動は `§15.3.6`。
+
+| 項目 | 仕様 |
+|---|---|
+| 設定キー | settings KVS `reward_auto_approve`（`sibling_ranking_enabled` と同じ bool 規約 = `'true'` のみ真。**DB スキーマ変更なし**）。取得 `getSetting` / 保存 `setSetting`、保存 action は `POST /admin/settings/rules ?/setRewardAutoApprove` |
+| 既定 | OFF（未設定 = 保護者承認必須）。POST 申請は `pending_parent_approval` のまま、ポイント未減算 |
+| ON | POST 申請を**即時 `approved` 確定 + その場でポイント減算**（親承認スキップ、`resolved_by_parent_id = null` = システム自動承認）。レスポンスに `instant: true` を付与 |
+| 減算の原子性（#3347 TOCTOU 二重減算根治） | 減算は `point` repo の `spendPointsAtomic` で実行する。`getBalance`（残高読込）→ 非負確認 → `insertPointEntry`（台帳挿入）を service 層で await を跨いで行うと並行 / 二重 submit で二重減算・残高マイナスが起き得る（#3336 同型）ため、backend ごとの原子境界（**SQLite=同期トランザクション / DynamoDB=条件付き `TransactWrite`（`balance >= cost` 成立時のみ `ADD balance -cost` + 台帳 Put）/ demo=同期チェック**）で「再読込 → 非負確認 → 挿入」を 1 単位に閉じ込める。残高不足側は `INSUFFICIENT_POINTS` を返し、即時モードで作成済の幻の pending 行は `expired` に回収する |
 
 ---
 
