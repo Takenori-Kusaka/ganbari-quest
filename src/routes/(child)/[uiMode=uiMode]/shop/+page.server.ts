@@ -85,6 +85,9 @@ export const actions: Actions = {
 			return fail(400, { error: msgs[result.error] ?? 'エラーが発生しました' });
 		}
 
+		// #3339: 即時交換（家庭設定 reward_auto_approve ON）なら requestRedemption が approved 確定済。
+		// 子供側 UI は invalidateAll 後の latestRequestStatus（approved=「こうかん済み」/
+		// pending=「うけとりまち」）でフィードバックが切り替わるため、ここでは success のみ返す。
 		return { success: true };
 	},
 };

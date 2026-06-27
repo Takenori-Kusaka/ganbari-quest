@@ -134,6 +134,95 @@ describe('requestRedemption', () => {
 	});
 });
 
+describe('requestRedemption — 即時交換オプション (#3339)', () => {
+	/** settings KVS に reward_auto_approve を設定する。 */
+	function setAutoApprove(value: 'true' | 'false') {
+		sqlite
+			.prepare(
+				`INSERT INTO settings (key, value, updated_at) VALUES ('reward_auto_approve', ?, CURRENT_TIMESTAMP)
+				 ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+			)
+			.run(value);
+	}
+
+	it('OFF（既定）では従来どおり pending_parent_approval + instant=false、減算しない', async () => {
+		const { childId, rewardId } = seedBaseData();
+		setAutoApprove('false');
+
+		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.status).toBe('pending_parent_approval');
+		expect(result.instant).toBe(false);
+
+		// 申請時はポイント減算しない
+		const ledger = sqlite
+			.prepare("SELECT * FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?")
+			.get(childId);
+		expect(ledger).toBeUndefined();
+		// 親の承認待ちに 1 件残る
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(1);
+	});
+
+	it('ON では即時 approved + instant=true、その場で減算、親承認待ちに残らない', async () => {
+		const { childId, rewardId } = seedBaseData();
+		setAutoApprove('true');
+
+		const result = await requestRedemption(childId, rewardId, TENANT_ID);
+		expect('error' in result).toBe(false);
+		if ('error' in result) return;
+		expect(result.status).toBe('approved');
+		expect(result.instant).toBe(true);
+		expect(result.resolvedAt).toBeTruthy();
+
+		// 申請時にポイント減算される (80P)
+		const ledger = sqlite
+			.prepare("SELECT * FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?")
+			.get(childId) as { amount: number } | undefined;
+		expect(ledger).toBeTruthy();
+		expect(ledger!.amount).toBe(-80);
+
+		// 親の承認待ちには残らない（即時交換のため）
+		expect(await countPendingRedemptionsForParent(TENANT_ID)).toBe(0);
+
+		// 自動承認は resolvedByParentId=null（システム承認）
+		const row = sqlite
+			.prepare('SELECT resolved_by_parent_id, status FROM reward_redemption_requests WHERE id = ?')
+			.get(result.id) as { resolved_by_parent_id: string | null; status: string };
+		expect(row.status).toBe('approved');
+		expect(row.resolved_by_parent_id).toBeNull();
+	});
+
+	it('ON でも残高不足は弾く（減算せず INSUFFICIENT_POINTS）', async () => {
+		resetDb();
+		sqlite
+			.prepare(`INSERT INTO children (nickname, age, theme, ui_mode) VALUES (?, ?, ?, ?)`)
+			.run('ざんだかなしちゃん', 8, 'blue', 'elementary');
+		const childRow = sqlite.prepare('SELECT id FROM children LIMIT 1').get() as { id: number };
+		const childId = childRow.id;
+		// ポイント 0 のまま、100P のごほうび
+		sqlite
+			.prepare(
+				`INSERT INTO special_rewards (child_id, title, points, icon, category, granted_at)
+				 VALUES (?, 'たかいごほうび', 100, '🎮', 'とくべつ', CURRENT_TIMESTAMP)`,
+			)
+			.run(childId);
+		const rewardRow = sqlite.prepare('SELECT id FROM special_rewards LIMIT 1').get() as {
+			id: number;
+		};
+		setAutoApprove('true');
+
+		const result = await requestRedemption(childId, rewardRow.id, TENANT_ID);
+		expect(result).toEqual({ error: 'INSUFFICIENT_POINTS' });
+
+		// 減算されていない
+		const ledger = sqlite
+			.prepare("SELECT * FROM point_ledger WHERE type = 'reward_redemption' AND child_id = ?")
+			.get(childId);
+		expect(ledger).toBeUndefined();
+	});
+});
+
 describe('approveRedemption', () => {
 	it('承認するとポイントが減算され status が approved になる', async () => {
 		const { childId, rewardId } = seedBaseData();
