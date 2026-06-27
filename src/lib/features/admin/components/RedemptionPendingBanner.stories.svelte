@@ -25,6 +25,9 @@ const { Story } = defineMeta({
 		await expect(banner).toBeVisible();
 		await expect(banner).toHaveAttribute('href', '/admin/rewards/requests');
 		await expect(banner).toHaveTextContent(ADMIN_HOME_LABELS.pendingRedemptionBanner(3));
+		// #3185 a11y: 出現時に SR へ告知する live region。link role は保持 (role 上書きしない)。
+		await expect(banner).toHaveAttribute('aria-live', 'polite');
+		await expect(banner).not.toHaveAttribute('role'); // <a> の link role を上書きしない
 	}}
 />
 
@@ -38,5 +41,8 @@ const { Story } = defineMeta({
 		await expect(banner).toBeVisible();
 		await expect(banner).toHaveAttribute('href', '/admin/rewards/requests');
 		await expect(banner).toHaveTextContent(ADMIN_HOME_LABELS.pendingRedemptionLoadFailed);
+		// #3185 a11y: 件数取得失敗は assertive で即時告知。link role は保持 (対処画面へ遷移可能)。
+		await expect(banner).toHaveAttribute('aria-live', 'assertive');
+		await expect(banner).not.toHaveAttribute('role'); // <a> の link role を上書きしない
 	}}
 />
