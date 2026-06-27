@@ -7,7 +7,6 @@ import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import {
 	findActivities,
 	findActivityLogs,
-	insertActivity,
 	insertActivityLog,
 	insertPointLedger,
 } from '$lib/server/db/activity-repo';
@@ -20,6 +19,7 @@ import {
 	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
+import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
@@ -230,14 +230,19 @@ export async function importFamilyData(
 	const result = createEmptyImportResult();
 	logger.info('[import] インポート開始', { context: { tenantId } });
 
-	await importActivityMaster(data, tenantId, result);
-	const activityNameMap = await buildActivityLookup(tenantId);
+	// #3327 P3: 子を先に作成し childIdMap を確定してから per-child 活動を復元する
+	// (旧実装は活動を子より先に import → replace で子ゼロ時に insertActivity が throw → 全活動喪失)。
 	const childIdMap = await importChildrenData(data, tenantId, result);
 
 	if (childIdMap.size === 0) {
 		result.errors.push('子供の作成が全て失敗しました');
 		return result;
 	}
+
+	// #3327 P3: per-child 活動を元の子へ復元 (master flatten の first-child 一律 bind を廃止)。
+	await importChildActivitiesData(data, childIdMap, tenantId, result);
+	// 活動ログの活動名 lookup は per-child 活動を insert した後に構築する。
+	const activityNameMap = await buildActivityLookup(tenantId);
 
 	await importStatusesData(data, childIdMap, tenantId, result);
 	await importActivityLogsData(data, childIdMap, activityNameMap, tenantId, result);
@@ -284,57 +289,51 @@ function createEmptyImportResult(): ImportResult {
 	};
 }
 
-async function importActivityMaster(
+/**
+ * per-child 活動インスタンスを元の子へ復元する (#3327 P3)。
+ *
+ * 旧 `importActivityMaster` は `data.master.activities`（名前 flatten・dedup）を
+ * `insertActivity`（first-child 一律 bind）で取り込んでいたため、(1) replace で子ゼロ時に throw、
+ * (2) per-child binding 喪失 + 同名 dedup で全活動が縮約/喪失していた。本関数は `data.data.childActivities`
+ * を `childIdMap` で元の子へ解決し `childActivity.insertActivity({childId,…})` で per-child 復元する。
+ * 子は本関数より前に作成済（importFamilyData が children → 本関数の順）。
+ */
+async function importChildActivitiesData(
 	data: ExportData,
+	childIdMap: Map<string, number>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
-	if (!data.master?.activities?.length) return;
-
-	const existingActivities = await findActivities(tenantId);
-	const existingNames = new Set(existingActivities.map((a) => a.name));
-	const existingPresetIds = new Set(
-		existingActivities.map((a) => a.sourcePresetId).filter((p): p is string => !!p),
-	);
-
-	for (const exportActivity of data.master.activities) {
-		// #1254 G1: preset_duplicate を name_duplicate より先に判定
-		if (exportActivity.sourcePresetId && existingPresetIds.has(exportActivity.sourcePresetId)) {
-			result.skipped.preset++;
+	const childActivities = data.data.childActivities ?? [];
+	for (const a of childActivities) {
+		const childId = childIdMap.get(a.childRef);
+		if (!childId) {
+			result.warnings.push(`活動「${a.name}」スキップ: childRef「${a.childRef}」が解決できません`);
 			continue;
 		}
-		if (existingNames.has(exportActivity.name)) {
-			result.skipped.name++;
-			continue;
-		}
-		const categoryId = CATEGORY_CODE_TO_ID[exportActivity.categoryCode];
+		const categoryId = CATEGORY_CODE_TO_ID[a.categoryCode];
 		if (!categoryId) {
-			result.warnings.push(
-				`活動「${exportActivity.name}」のカテゴリ「${exportActivity.categoryCode}」が不明のためスキップ`,
-			);
+			result.warnings.push(`活動「${a.name}」のカテゴリ「${a.categoryCode}」が不明のためスキップ`);
 			continue;
 		}
 		try {
-			await insertActivity(
+			await getRepos().childActivity.insertActivity(
 				{
-					name: exportActivity.name,
+					childId,
+					name: a.name,
 					categoryId,
-					icon: exportActivity.icon,
-					basePoints: exportActivity.basePoints,
-					ageMin: null,
-					ageMax: null,
-					triggerHint: exportActivity.triggerHint,
-					sourcePresetId: exportActivity.sourcePresetId ?? null,
+					icon: a.icon,
+					basePoints: a.basePoints,
+					triggerHint: a.triggerHint ?? null,
+					isMainQuest: a.isMainQuest ?? 0,
+					sourcePresetId: a.sourcePresetId ?? null,
+					priority: a.priority === 'must' ? 'must' : 'optional',
 				},
 				tenantId,
 			);
 			result.activitiesCreated++;
-			existingNames.add(exportActivity.name);
-			if (exportActivity.sourcePresetId) {
-				existingPresetIds.add(exportActivity.sourcePresetId);
-			}
 		} catch (e) {
-			result.warnings.push(`活動「${exportActivity.name}」の作成に失敗: ${String(e)}`);
+			result.warnings.push(`活動「${a.name}」(child=${a.childRef}) の作成に失敗: ${String(e)}`);
 		}
 	}
 }

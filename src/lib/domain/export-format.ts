@@ -32,6 +32,26 @@ export interface ExportActivity {
 	sourcePresetId?: string | null;
 }
 
+/**
+ * per-child 活動インスタンス (#3327 P2)。`master.activities` の名前 flatten・dedup では
+ * per-child binding が失われ replace import で全活動が喪失するため、childRef 付きで
+ * 子ごとの活動を保持する (ADR-0055 per-child instance を round-trip 復元する SSOT)。
+ */
+export interface ExportChildActivity {
+	/** どの子の活動か (ExportChild.exportId 参照) */
+	childRef: string;
+	name: string;
+	categoryCode: string;
+	icon: string;
+	basePoints: number;
+	triggerHint: string | null;
+	isMainQuest: number;
+	priority: string;
+	sourcePresetId: string | null;
+	isVisible: number;
+	sortOrder: number;
+}
+
 export interface ExportTitle {
 	code: string;
 	name: string;
@@ -214,6 +234,8 @@ export interface ExportMasterData {
 }
 
 export interface ExportTransactionData {
+	/** #3327 P2: per-child 活動インスタンス (master.activities の binding 喪失を補う) */
+	childActivities: ExportChildActivity[];
 	activityLogs: ExportActivityLog[];
 	pointLedger: ExportPointLedger[];
 	statuses: ExportStatus[];
