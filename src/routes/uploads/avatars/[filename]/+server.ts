@@ -59,7 +59,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 	}
 	if (!childIdMatch) {
 		// #3230: 認証済だが avatar pattern 外の任意 filename = 自明に到達可能 noise → debug。
-		denyAvatar('malformed-filename', { tenantId: context.tenantId, context: { filename } }, 'debug');
+		denyAvatar(
+			'malformed-filename',
+			{ tenantId: context.tenantId, context: { filename } },
+			'debug',
+		);
 	}
 	const child = await getChildById(Number(childIdMatch[1]), context.tenantId);
 	// file ownership anchor: avatarUrl がこの legacy filename を指していなければ拒否する
