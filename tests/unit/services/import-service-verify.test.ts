@@ -300,30 +300,9 @@ describe('importFamilyData pre-fetch skip (#1254 G2)', () => {
 		expect(mockInsertLoginBonus).not.toHaveBeenCalled();
 	});
 
-	it('マスタ活動の名前重複は skipped.name に計上', async () => {
-		const data = makeExportData();
-		data.family.children = [makeChild('c1')];
-		data.master.activities = [
-			{
-				name: '重複活動',
-				categoryCode: 'undou',
-				icon: '🏃',
-				basePoints: 10,
-				gradeLevel: null,
-				nameKana: null,
-				nameKanji: null,
-				triggerHint: null,
-			},
-		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
-		mockFindActivities.mockResolvedValue([{ id: 1, name: '重複活動' }]);
-
-		const result = await importFamilyData(data, TENANT);
-
-		expect(result.activitiesCreated).toBe(0);
-		expect(result.skipped.name).toBe(1);
-		expect(mockInsertActivity).not.toHaveBeenCalled();
-	});
+	// #3327 P3 撤去: 旧「マスタ活動の名前重複は skipped.name に計上」は importActivityMaster の
+	// import-side name dedup を検証していたが、活動を per-child instance で復元する変更で obsolete
+	// (per-child は同名を子ごとに保持する)。ごほうび等 他リソースの名前重複検証は以下で維持。
 
 	it('ごほうび名重複は skipped.name に計上', async () => {
 		const data = makeExportData();
@@ -501,60 +480,10 @@ describe('preset_duplicate detection (#1254 G1)', () => {
 		expect(preview.duplicates.activities).toEqual([]);
 	});
 
-	it('importActivityMaster: 同 sourcePresetId は skipped.preset に計上、insertActivity は呼ばれない', async () => {
-		const data = makeExportData();
-		data.family.children = [makeChild('c1')];
-		data.master.activities = [
-			{
-				name: 'プリセットX',
-				categoryCode: 'undou',
-				icon: '🏃',
-				basePoints: 10,
-				gradeLevel: null,
-				nameKana: null,
-				nameKanji: null,
-				triggerHint: null,
-				sourcePresetId: 'pack-x',
-			},
-		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
-		mockFindActivities.mockResolvedValue([{ id: 1, name: '既存-別名', sourcePresetId: 'pack-x' }]);
-
-		const result = await importFamilyData(data, TENANT);
-
-		expect(result.activitiesCreated).toBe(0);
-		expect(result.skipped.preset).toBe(1);
-		expect(result.skipped.name).toBe(0);
-		expect(mockInsertActivity).not.toHaveBeenCalled();
-	});
-
-	it('importActivityMaster: sourcePresetId を insertActivity に round-trip 渡す', async () => {
-		const data = makeExportData();
-		data.family.children = [makeChild('c1')];
-		data.master.activities = [
-			{
-				name: '新規プリセット活動',
-				categoryCode: 'undou',
-				icon: '🏃',
-				basePoints: 10,
-				gradeLevel: null,
-				nameKana: null,
-				nameKanji: null,
-				triggerHint: null,
-				sourcePresetId: 'pack-new',
-			},
-		];
-		mockInsertChild.mockResolvedValue({ id: 101 });
-		mockFindActivities.mockResolvedValue([]);
-		mockInsertActivity.mockResolvedValue({ id: 99 });
-
-		await importFamilyData(data, TENANT);
-
-		expect(mockInsertActivity).toHaveBeenCalledWith(
-			expect.objectContaining({ sourcePresetId: 'pack-new' }),
-			TENANT,
-		);
-	});
+	// #3327 P3 撤去: 旧 importActivityMaster の import-side dedup (skipped.preset / name) +
+	// sourcePresetId round-trip テスト 2 件は、活動が per-child instance (childActivities) で
+	// 復元されるよう変更したため obsolete (per-child は名前/preset で dedup しない=兄弟が同名活動を
+	// それぞれ保持できる)。preview 側の重複「検出」(previewImport duplicates) は上記 describe で維持。
 
 	it('ごほうび: 同 sourcePresetId は skipped.preset に計上', async () => {
 		const data = makeExportData();
