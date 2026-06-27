@@ -70,6 +70,53 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 		await expect(page.getByText('プランが正しくありません')).toBeVisible({ timeout: 8_000 });
 	});
 
+	// #3209: 503 STRIPE_DISABLED (demo/staging 頻出) path の test 補完。汎用「時間をおいて再度…」
+	// でなく STRIPE_DISABLED 専用の server message ('決済機能は現在利用できません') が surface され、
+	// retry 不能状況で誤って再試行を促さないことを検証する (#3205 で未 test だった branch)。
+	test('checkout 失敗 (503 STRIPE_DISABLED) で専用 server message を提示する (#3209)', async ({
+		page,
+	}) => {
+		// SvelteKit error(503, '決済機能は現在利用できません') 相当の body
+		await page.route('/api/stripe/checkout', async (route) => {
+			await route.fulfill({
+				status: 503,
+				contentType: 'application/json',
+				body: JSON.stringify({ message: '決済機能は現在利用できません' }),
+			});
+		});
+
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+		if (!(await skipIfStripeDisabled(page))) return;
+
+		await page.getByTestId('family-plan-card').click();
+		await page.getByRole('button', { name: /プランで始める/ }).click();
+
+		// STRIPE_DISABLED 専用文言が surface され、汎用 retry 文言ではないこと (Part 2 整合)
+		await expect(page.getByText('決済機能は現在利用できません')).toBeVisible({ timeout: 8_000 });
+	});
+
+	// #3209: network throw (fetch reject = catch branch) path の test 補完。catch 分岐でも
+	// silent no-op せず汎用 feedback (checkoutFailed) が提示されることを検証する。
+	test('checkout 失敗 (network throw / catch branch) で silent no-op せずエラーを提示する (#3209)', async ({
+		page,
+	}) => {
+		// route.abort() で fetch を reject させ catch branch を発火させる
+		await page.route('/api/stripe/checkout', async (route) => {
+			await route.abort('failed');
+		});
+
+		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
+		if (!(await skipIfStripeDisabled(page))) return;
+
+		await page.getByTestId('family-plan-card').click();
+		await page.getByRole('button', { name: /プランで始める/ }).click();
+
+		// catch 分岐の汎用 feedback が提示されること (silent no-op でない)
+		await expect(page.getByText('決済を開始できませんでした', { exact: false })).toBeVisible({
+			timeout: 8_000,
+		});
+	});
+
 	test('月額 planId (monthly / family-monthly) が checkout に送信される (mock)', async ({
 		page,
 	}) => {
