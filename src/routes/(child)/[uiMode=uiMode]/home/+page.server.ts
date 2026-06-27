@@ -79,6 +79,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			recommendedActivityIds: [],
 			birthdayBonus: null,
 			activeChallenges: [],
+			challengeTargets: [],
 			siblingRanking: null,
 			unshownCheers: [],
 			specialRewardProgress: null,
@@ -105,6 +106,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 			recommendedActivityIds: [],
 			birthdayBonus: null,
 			activeChallenges: [],
+			challengeTargets: [],
 			siblingRanking: null,
 			unshownCheers: [],
 			familyStreak: null,
@@ -227,6 +229,29 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		mustStatus = null;
 	}
 
+	// #3333: チャレンジ対象カテゴリをカード演出へ渡す派生。旧 ChallengeBanner 横長バナーを撤去し、
+	// 対象カテゴリの CategorySection ヘッダーに静的バッジ + インライン進捗で表示する
+	// (#2146/#2168 カード演出統合思想)。categoryId は targetConfig JSON 内に格納される。
+	const challengeTargets = activeChallenges
+		.map((c) => {
+			let categoryId: number | null = null;
+			try {
+				const cfg = JSON.parse(c.targetConfig) as { categoryId?: number };
+				categoryId = typeof cfg.categoryId === 'number' ? cfg.categoryId : null;
+			} catch {
+				categoryId = null;
+			}
+			if (categoryId === null) return null;
+			return {
+				categoryId,
+				currentValue: c.currentValue,
+				targetValue: c.targetValue,
+				completed: c.completed === 1,
+				title: c.title,
+			};
+		})
+		.filter((t): t is NonNullable<typeof t> => t !== null);
+
 	return {
 		activities: activitiesWithMission,
 		todayRecorded,
@@ -244,6 +269,7 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		recommendedActivityIds: [...recommendedIds],
 		birthdayBonus,
 		activeChallenges,
+		challengeTargets,
 		siblingRanking,
 		unshownCheers,
 		familyStreak: familyStreakData

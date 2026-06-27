@@ -601,8 +601,8 @@ export async function getChildChallengeHistory(
  * 旧 `sibling-challenge-service.getActiveChallengesForChild` の後継。
  *
  * 自身の active instance を主軸に、同じ group key (sourceTemplateId or `title::start::end`) を
- * 共有する兄弟 instance を `siblings` フィールドに格納。`ChallengeBanner` / `SiblingCelebration`
- * の UX 互換性を維持する。
+ * 共有する兄弟 instance を `siblings` フィールドに格納。CategorySection のチャレンジ対象バッジ
+ * (#3333 で旧 ChallengeBanner から移行) と `SiblingCelebration` の UX 互換性を維持する。
  *
  * #2488 (must-1 fix): `findActiveOrUnclaimedByChildId` 経由で「完成済だが未請求」instance も
  * 含めるよう変更 (status='completed' AND rewardClaimed=0)。これにより `markCompleted` 直後に

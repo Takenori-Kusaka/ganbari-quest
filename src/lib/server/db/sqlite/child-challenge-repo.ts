@@ -49,9 +49,9 @@ export async function findActiveByChildId(
  * #2488 (must-1 fix): 子供画面 home/history で active + 「完成済だが未請求」の instance を返す。
  *
  * 旧 `findActiveByChildId` (status='active' のみ) では `markCompleted` が status を 'completed'
- * に flip した瞬間、当該 instance が active 一覧から消えてしまい、`ChallengeBanner` の claim
- * ボタンが render されず、ユーザが報酬を受け取れないまま消える regression が発生した
- * (PR #2488 QM Re-Review must-1)。
+ * に flip した瞬間、当該 instance が active 一覧から消えてしまい、完了時の `SiblingCelebration`
+ * の claim ボタン (#3333 で旧 ChallengeBanner から受取導線を一本化) が render されず、ユーザが
+ * 報酬を受け取れないまま消える regression が発生した (PR #2488 QM Re-Review must-1)。
  *
  * 旧 sibling-challenge-service の挙動: status flip は全 siblings 完了時のみで、それまで
  * 子供画面に表示され続けていた。本関数で「期間内 = 当該 child の今閉じるべき instance」を

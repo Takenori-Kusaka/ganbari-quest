@@ -28,7 +28,6 @@ import { createProductionDashboardService } from '$lib/services/production/Dashb
 import AdventureStartOverlay from '$lib/ui/components/AdventureStartOverlay.svelte';
 import type { CelebrationType } from '$lib/ui/components/CelebrationEffect.svelte';
 import CelebrationEffect from '$lib/ui/components/CelebrationEffect.svelte';
-import ChallengeBanner from '$lib/ui/components/ChallengeBanner.svelte';
 import CompoundIcon from '$lib/ui/components/CompoundIcon.svelte';
 // #2295 (EPIC #2294 ①): EventBanner / MonthlyRewardDialog 削除済 (2026-05-19)
 import ParentMessageOverlay from '$lib/ui/components/ParentMessageOverlay.svelte';
@@ -254,6 +253,34 @@ function getCategoryMissionCount(categoryId: number) {
 function getCategoryCompletedMissionCount(categoryId: number) {
 	return data.activities.filter((a) => a.categoryId === categoryId && a.isMission && isCompleted(a))
 		.length;
+}
+
+// #3333: チャレンジ対象カテゴリ → 進捗。旧 ChallengeBanner 横長バナーの代替として、
+// 対象カテゴリの CategorySection ヘッダーに静的バッジ + インライン進捗を表示する
+// (#2146/#2168 カード演出統合思想)。
+const challengeTargetByCategory = $derived(
+	new Map(
+		(
+			data.challengeTargets ??
+			([] as {
+				categoryId: number;
+				currentValue: number;
+				targetValue: number;
+				completed: boolean;
+				title: string;
+			}[])
+		).map((t) => [t.categoryId, t]),
+	),
+);
+function getChallengeTarget(categoryId: number) {
+	const t = challengeTargetByCategory.get(categoryId);
+	if (!t) return null;
+	return {
+		current: t.currentValue,
+		target: t.targetValue,
+		remaining: Math.max(0, t.targetValue - t.currentValue),
+		completed: t.completed,
+	};
 }
 
 function handleActivityTap(activity: { id: number; name: string; icon: string }) {
@@ -628,6 +655,7 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 		{xpAnimatingCategoryId}
 		{getCategoryMissionCount}
 		{getCategoryCompletedMissionCount}
+		{getChallengeTarget}
 		onActivityTap={handleActivityTap}
 		onActivityLongPress={handleActivityLongPress}
 		onRecordSubmit={(activityId) => {
@@ -638,15 +666,11 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 	/>
 
 	<!-- #2295 (EPIC #2294 ①): Season event banner 削除済 (2026-05-19) -->
-
-	<!-- Sibling challenge banners -->
-	{#if data.activeChallenges && data.activeChallenges.length > 0}
-		<ChallengeBanner
-			challenges={data.activeChallenges}
-			childId={data.child?.id ?? 0}
-			siblings={data.allChildren?.map((c: { id: number; nickname: string }) => ({ id: c.id, nickname: c.nickname })) ?? []}
-		/>
-	{/if}
+	<!--
+		#3333: 旧 ChallengeBanner 横長バナーを撤去。チャレンジ対象は対象カテゴリの
+		CategorySection ヘッダーに静的バッジ + インライン進捗で統合（ProdDashboardSections 経由、
+		#2146/#2168 カード演出統合思想）。ごほうび受取は完了時の SiblingCelebration が担う。
+	-->
 </div>
 
 <!-- Pin context menu (non-baby) -->

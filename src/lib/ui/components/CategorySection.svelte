@@ -2,7 +2,16 @@
 import type { Snippet } from 'svelte';
 import { CARD_SIZE_CSS, type CardSize } from '$lib/domain/display-config';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
+import { CONCEPT_ICONS } from '$lib/domain/terms';
 import { getCategoryById } from '$lib/domain/validation/activity';
+
+/** #3333: 今週のチャレンジ対象カテゴリの進捗（旧 ChallengeBanner の代替表示）。非対象は null。 */
+interface ChallengeTarget {
+	current: number;
+	target: number;
+	remaining: number;
+	completed: boolean;
+}
 
 interface CategoryXpInfo {
 	value: number;
@@ -24,6 +33,10 @@ interface Props {
 	xpAnimating?: boolean;
 	missionCount?: number;
 	completedMissionCount?: number;
+	/** #3333: 今週のチャレンジ対象なら進捗、非対象は null。 */
+	challengeTarget?: ChallengeTarget | null;
+	/** #3333: 進捗の表示様式。preschool は 'dots'（ドット可視化）、それ以外は 'text'（「のこり○かい」）。 */
+	challengeProgressStyle?: 'dots' | 'text';
 	children: Snippet;
 }
 
@@ -38,8 +51,15 @@ let {
 	xpAnimating = false,
 	missionCount = 0,
 	completedMissionCount = 0,
+	challengeTarget = null,
+	challengeProgressStyle = 'text',
 	children,
 }: Props = $props();
+
+// #3333: dots は小さい target のときのみ（過密回避）。大きい target は text にフォールバック。
+const useDots = $derived(
+	challengeProgressStyle === 'dots' && !!challengeTarget && challengeTarget.target <= 6,
+);
 
 const catDef = $derived(getCategoryById(categoryId));
 const color = $derived(catDef?.color ?? 'var(--theme-primary)');
@@ -75,6 +95,48 @@ function toggleExpand() {
 }
 </script>
 
+<!--
+	#3333: チャレンジ対象バッジ。旧 ChallengeBanner 横長バナーを撤去し、対象カテゴリの
+	ヘッダーに静的バッジ + インライン進捗を表示（#2146/#2168 カード演出統合 / ADR-0012 無アニメ）。
+	🎯 は CONCEPT_ICONS.challenge（SSOT）。進捗は preschool=ドット、他=「のこり○かい」。
+-->
+{#snippet challengeBadge()}
+	{#if challengeTarget}
+		{#if challengeTarget.completed}
+			<span
+				class="flex items-center gap-0.5 text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full"
+				data-testid="challenge-target-badge-{categoryId}"
+				data-challenge-complete="true"
+				aria-label={UI_COMPONENTS_LABELS.challengeTargetAriaComplete(name)}
+			>
+				<span aria-hidden="true">{CONCEPT_ICONS.challenge}</span>
+				<span aria-hidden="true">{UI_COMPONENTS_LABELS.challengeTargetComplete}</span>
+			</span>
+		{:else}
+			<span
+				class="flex items-center gap-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full"
+				data-testid="challenge-target-badge-{categoryId}"
+				aria-label={UI_COMPONENTS_LABELS.challengeTargetAria(name, challengeTarget.remaining)}
+			>
+				<span aria-hidden="true">{CONCEPT_ICONS.challenge}</span>
+				{#if useDots}
+					<span class="flex items-center gap-0.5" aria-hidden="true">
+						{#each Array(challengeTarget.target) as _, idx (idx)}
+							<span
+								class="w-1.5 h-1.5 rounded-full {idx < challengeTarget.current
+									? 'bg-purple-500'
+									: 'bg-purple-200'}"
+							></span>
+						{/each}
+					</span>
+				{:else}
+					<span aria-hidden="true">{UI_COMPONENTS_LABELS.challengeTargetRemaining(challengeTarget.remaining)}</span>
+				{/if}
+			</span>
+		{/if}
+	{/if}
+{/snippet}
+
 <section class="mb-[var(--sp-sm)]">
 	<!-- Category header (always visible) -->
 	<!-- #2148: collapsible=false の場合はヘッダーを button ではなく div で描画し、誤タップ全消失を物理的に排除（γ 採用）。 -->
@@ -100,6 +162,7 @@ function toggleExpand() {
 					{completedMissionCount}/{missionCount}
 				</span>
 			{/if}
+			{@render challengeBadge()}
 			{#if xpInfo}
 				<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
 				<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
@@ -137,6 +200,7 @@ function toggleExpand() {
 					{completedMissionCount}/{missionCount}
 				</span>
 			{/if}
+			{@render challengeBadge()}
 			{#if xpInfo}
 				<span class="text-[10px] font-bold" style:color={accent}>Lv.{xpInfo.level}</span>
 				<div class="w-24 h-2.5 rounded-full bg-gray-200 overflow-hidden ml-1" data-testid="xp-bar-{categoryId}" role="progressbar" aria-valuenow={Math.round(xpBarPct(xpInfo))} aria-valuemin={0} aria-valuemax={100}>
