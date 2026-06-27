@@ -221,7 +221,7 @@ describe('discord-notify-service', () => {
 			expect(desc).not.toMatch(/@everyone/);
 			expect(desc).not.toMatch(/@here/);
 			expect(desc).not.toMatch(/<@&999>/);
-			expect(desc).toContain('everyone'); // ZWSP 挿入で文字自体は保持
+			expect(desc).toContain('everyone'); // zero-width space 挿入で文字自体は保持
 			expect(desc).toContain('見てください');
 		});
 	});
