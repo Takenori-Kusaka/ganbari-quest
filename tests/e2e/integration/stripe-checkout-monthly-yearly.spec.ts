@@ -108,7 +108,9 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 
 		// STRIPE_DISABLED 専用文言が surface され、汎用 retry 文言ではないこと (Part 2 整合)
 		// 2 層 feedback (Alert banner + Toast、DESIGN.md §5) で同一文言が複数描画されるため first()
-		await expect(page.getByText('決済機能は現在利用できません').first()).toBeVisible({ timeout: 8_000 });
+		await expect(page.getByText('決済機能は現在利用できません').first()).toBeVisible({
+			timeout: 8_000,
+		});
 
 		// fail-closed①: Stripe checkout へ遷移せず元 plan ページに留まること。
 		// 実装 (SaasLicensePanel.startCheckout) は res.ok && data.url の時のみ
@@ -156,7 +158,9 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 
 		// catch 分岐の汎用 feedback が提示されること (silent no-op でない)
 		// 2 層 feedback (Alert banner + Toast、DESIGN.md §5) で同一文言が複数描画されるため first()
-		await expect(page.getByText('決済を開始できませんでした', { exact: false }).first()).toBeVisible({
+		await expect(
+			page.getByText('決済を開始できませんでした', { exact: false }).first(),
+		).toBeVisible({
 			timeout: 8_000,
 		});
 
