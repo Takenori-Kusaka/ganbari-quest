@@ -67,7 +67,7 @@ function toRow(item: Record<string, unknown>): RedemptionRequestRow {
 		status: stripped.status as string,
 		parentNote: (stripped.parentNote ?? null) as string | null,
 		resolvedAt: (stripped.resolvedAt ?? null) as number | null,
-		resolvedByParentId: (stripped.resolvedByParentId ?? null) as number | null,
+		resolvedByParentId: (stripped.resolvedByParentId ?? null) as string | null,
 		shownToChildAt: (stripped.shownToChildAt ?? null) as number | null,
 	};
 }

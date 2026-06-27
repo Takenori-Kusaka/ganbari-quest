@@ -157,7 +157,9 @@ export type ApproveError =
 
 export async function approveRedemption(
 	requestId: number,
-	parentId: number,
+	// #3320: 承認した保護者の認証 userId (cognito sub 等)。監査証跡として記録する。
+	// local 実行モード等で identity userId が無い場合は null (= 解決者不明)。
+	parentUserId: string | null,
 	tenantId: string,
 ): Promise<RedemptionRequestResult | ApproveError> {
 	// 申請取得（テナント内か確認のため全件から検索）
@@ -192,7 +194,7 @@ export async function approveRedemption(
 		{
 			status: 'approved',
 			resolvedAt: now,
-			resolvedByParentId: parentId,
+			resolvedByParentId: parentUserId,
 		},
 		tenantId,
 	);
@@ -221,6 +223,8 @@ export async function rejectRedemption(
 	requestId: number,
 	parentNote: string | null,
 	tenantId: string,
+	// #3320: 却下した保護者の認証 userId。承認と対称に監査証跡として記録する (null = 解決者不明)。
+	parentUserId: string | null = null,
 ): Promise<RedemptionRequestResult | RejectError> {
 	const allRequests = await findRedemptionRequestsByTenant(tenantId);
 	const req = allRequests.find((r) => r.id === requestId);
@@ -237,6 +241,7 @@ export async function rejectRedemption(
 			status: 'rejected',
 			parentNote: parentNote ? parentNote.slice(0, 100) : null,
 			resolvedAt: now,
+			resolvedByParentId: parentUserId,
 		},
 		tenantId,
 	);

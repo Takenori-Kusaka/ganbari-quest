@@ -36,7 +36,7 @@ export async function updateRedemptionRequestStatus(
 		status: string;
 		parentNote?: string | null;
 		resolvedAt?: number | null;
-		resolvedByParentId?: number | null;
+		resolvedByParentId?: string | null;
 	},
 	tenantId: string,
 ) {

@@ -8,7 +8,7 @@ export interface RedemptionRequestRow {
 	status: string;
 	parentNote: string | null;
 	resolvedAt: number | null;
-	resolvedByParentId: number | null;
+	resolvedByParentId: string | null;
 	shownToChildAt: number | null;
 }
 
@@ -58,7 +58,7 @@ export interface IRewardRedemptionRepo {
 			status: string;
 			parentNote?: string | null;
 			resolvedAt?: number | null;
-			resolvedByParentId?: number | null;
+			resolvedByParentId?: string | null;
 		},
 		tenantId: string,
 	): Promise<RedemptionRequestRow | undefined>;

@@ -268,7 +268,7 @@ export const SQL_CREATE_TABLES = `
 		status TEXT NOT NULL DEFAULT 'pending_parent_approval',
 		parent_note TEXT,
 		resolved_at INTEGER,
-		resolved_by_parent_id INTEGER,
+		resolved_by_parent_id TEXT,
 		shown_to_child_at INTEGER,
 		reward_title TEXT,
 		reward_points INTEGER,
