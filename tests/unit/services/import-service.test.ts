@@ -181,6 +181,8 @@ beforeEach(() => {
 
 	// Default: lookup mocks return empty arrays
 	mockFindActivities.mockResolvedValue([]);
+	// #3327: 活動ログ remap lookup は getRepos().childActivity.findActivitiesByChild 経由。
+	mockChildActivityFindByChild.mockResolvedValue([]);
 	mockFindActivityLogs.mockResolvedValue([]);
 	mockFindAllAchievements.mockResolvedValue([]);
 	mockFindRecentBonuses.mockResolvedValue([]);
@@ -665,6 +667,7 @@ describe('importFamilyData', () => {
 
 			mockInsertChild.mockResolvedValue({ id: 101 });
 			mockFindActivities.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
 			mockInsertActivityLog.mockResolvedValue({});
 
 			const result = await importFamilyData(data, TENANT);
@@ -757,6 +760,7 @@ describe('importFamilyData', () => {
 
 			mockInsertChild.mockResolvedValue({ id: 101 });
 			mockFindActivities.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'テスト活動', id: 5 }]);
 
 			const result = await importFamilyData(data, TENANT);
 
@@ -1819,9 +1823,10 @@ describe('importFamilyData', () => {
 
 			mockInsertChild.mockResolvedValueOnce({ id: 201 }).mockResolvedValueOnce({ id: 202 });
 			// #3327 P3: importChildActivitiesData は getRepos().childActivity.insertActivity 経由。
-			// buildActivityLookup の findActivities は活動ログ名解決のため 'かけっこ' を返す。
+			// 活動ログ名解決は buildActivityLookupByChild の findActivitiesByChild が 'かけっこ' を返す (#3327)。
 			mockChildActivityInsert.mockResolvedValue({ id: 99 });
 			mockFindActivities.mockResolvedValue([{ name: 'かけっこ', id: 99 }]);
+			mockChildActivityFindByChild.mockResolvedValue([{ name: 'かけっこ', id: 99 }]);
 			mockInsertActivityLog.mockResolvedValue({});
 			mockUpsertStatus.mockResolvedValue({});
 

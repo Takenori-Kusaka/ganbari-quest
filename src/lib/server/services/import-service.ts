@@ -245,11 +245,13 @@ export async function importFamilyData(
 
 	// #3327 P3: per-child 活動を元の子へ復元 (master flatten の first-child 一律 bind を廃止)。
 	await importChildActivitiesData(data, childIdMap, tenantId, result);
-	// 活動ログの活動名 lookup は per-child 活動を insert した後に構築する。
-	const activityNameMap = await buildActivityLookup(tenantId);
+	// #3327: 活動ログ remap 用の lookup は (childId, name) の 2 軸で構築する。name のみ lookup は
+	// 兄弟同名活動を 1 件に縮約 (last-wins) し child1 のログを child2 の activity に bind する
+	// cross-child 誤 bind を生む (ADR-0055 per-child 境界侵害)。per-child 活動 insert 後に構築する。
+	const activityLookupByChild = await buildActivityLookupByChild(childIdMap, tenantId);
 
 	await importStatusesData(data, childIdMap, tenantId, result);
-	await importActivityLogsData(data, childIdMap, activityNameMap, tenantId, result);
+	await importActivityLogsData(data, childIdMap, activityLookupByChild, tenantId, result);
 	await importPointLedgerData(data, childIdMap, tenantId, result);
 	await importLoginBonusesData(data, childIdMap, tenantId, result);
 	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
@@ -384,11 +386,33 @@ async function importChildActivitiesData(
 	}
 }
 
-async function buildActivityLookup(
+/**
+ * 活動ログ remap 用の lookup を (childId, name) の 2 軸で構築する (#3327)。
+ *
+ * 旧 `buildActivityLookup` は `findActivities(tenantId)`（childId を持たない Activity shape）を
+ * name キー 1 軸で Map 化していたため、兄弟が同名活動を持つと last-wins で 1 件に縮約し、
+ * child1 のログが child2 の activity id に bind される cross-child 誤 bind を起こしていた
+ * (ADR-0055 per-child 境界侵害)。本関数は childId ごとに `findActivitiesByChild` を引き、
+ * childId → (name → activity) の入れ子 Map を返す。importActivityLogsData が解決済 childId と
+ * activityName の両方で activity を引くことで、各子の正しい activity instance に bind される。
+ */
+async function buildActivityLookupByChild(
+	childIdMap: Map<string, number>,
 	tenantId: string,
-): Promise<Map<string, { id: number; name: string }>> {
-	const activities = await findActivities(tenantId);
-	return new Map(activities.map((a) => [a.name, a]));
+): Promise<Map<number, Map<string, { id: number; name: string }>>> {
+	const lookup = new Map<number, Map<string, { id: number; name: string }>>();
+	const childActivityRepo = getRepos().childActivity;
+	for (const childId of new Set(childIdMap.values())) {
+		const activities = await childActivityRepo.findActivitiesByChild(childId, tenantId, {
+			includeArchived: true,
+		});
+		const byName = new Map<string, { id: number; name: string }>();
+		for (const a of activities) {
+			byName.set(a.name, { id: a.id, name: a.name });
+		}
+		lookup.set(childId, byName);
+	}
+	return lookup;
 }
 
 async function importChildrenData(
@@ -452,24 +476,29 @@ async function importStatusesData(
 async function importActivityLogsData(
 	data: ExportData,
 	childIdMap: Map<string, number>,
-	activityNameMap: Map<string, { id: number; name: string }>,
+	activityLookupByChild: Map<number, Map<string, { id: number; name: string }>>,
 	tenantId: string,
 	result: ImportResult,
 ): Promise<void> {
 	const existingLogKeysByChild = new Map<number, Set<string>>();
-	const missingActivityNames = new Set<string>();
+	// #3327: 「見つからない」warning の dedup は (childId, name) で行う。name のみだと
+	// 子 A で欠落・子 B で存在のケースで正当な warning を抑制してしまう。
+	const missingActivityKeys = new Set<string>();
 
 	for (const log of data.data.activityLogs) {
 		const childId = childIdMap.get(log.childRef);
 		if (!childId) continue;
 
-		const activity = activityNameMap.get(log.activityName);
+		// #3327: 解決済 childId と activityName の 2 軸で activity を引く。これで兄弟同名活動が
+		// 各子の正しい activity instance に bind され、cross-child 誤 bind を防ぐ (ADR-0055)。
+		const activity = activityLookupByChild.get(childId)?.get(log.activityName);
 		if (!activity) {
 			result.activityLogsSkipped++;
-			if (!missingActivityNames.has(log.activityName)) {
-				missingActivityNames.add(log.activityName);
+			const missKey = `${childId}:${log.activityName}`;
+			if (!missingActivityKeys.has(missKey)) {
+				missingActivityKeys.add(missKey);
 				result.warnings.push(
-					`活動ログスキップ: 活動「${log.activityName}」がマスタに見つかりません`,
+					`活動ログスキップ: 活動「${log.activityName}」(child=${log.childRef}) がマスタに見つかりません`,
 				);
 			}
 			continue;

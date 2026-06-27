@@ -29,6 +29,18 @@ vi.mock('$lib/server/db/activity-repo', () => ({
 	insertPointLedger: (...args: unknown[]) => mockInsertPointLedger(...args),
 }));
 
+// #3327: 活動ログ remap lookup / per-child 活動復元は getRepos().childActivity 経由。
+const mockChildActivityInsert = vi.fn();
+const mockChildActivityFindByChild = vi.fn();
+vi.mock('$lib/server/db/factory', () => ({
+	getRepos: () => ({
+		childActivity: {
+			insertActivity: (...args: unknown[]) => mockChildActivityInsert(...args),
+			findActivitiesByChild: (...args: unknown[]) => mockChildActivityFindByChild(...args),
+		},
+	}),
+}));
+
 vi.mock('$lib/server/db/child-repo', () => ({
 	insertChild: (...args: unknown[]) => mockInsertChild(...args),
 }));
@@ -138,6 +150,8 @@ async function computeChecksumFor(data: ExportData): Promise<string> {
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockFindActivities.mockResolvedValue([]);
+	mockChildActivityFindByChild.mockResolvedValue([]);
+	mockChildActivityInsert.mockResolvedValue({ id: 1 });
 	mockFindActivityLogs.mockResolvedValue([]);
 	mockFindRecentBonuses.mockResolvedValue([]);
 	mockFindSpecialRewards.mockResolvedValue([]);
@@ -260,6 +274,7 @@ describe('importFamilyData pre-fetch skip (#1254 G2)', () => {
 
 		mockInsertChild.mockResolvedValue({ id: 101 });
 		mockFindActivities.mockResolvedValue([{ id: 5, name: '運動' }]);
+		mockChildActivityFindByChild.mockResolvedValue([{ id: 5, name: '運動' }]);
 		mockFindActivityLogs.mockResolvedValue([
 			{ activityName: '運動', recordedAt: '2026-03-15T08:30:00Z' },
 		]);
