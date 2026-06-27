@@ -31,6 +31,23 @@ function getWebhookUrl(channel: DiscordChannel): string | undefined {
 	return undefined;
 }
 
+/**
+ * #3211: ユーザー自由記述を Discord embed に載せる前の sanitization。
+ *
+ * Discord は embed の description / field value 内では @everyone / @here / role mention を
+ * ping 発火させない (ping は webhook の top-level `content` のみ) が、将来 content 化された
+ * ときの誤爆と、運用画面での視認ノイズを防ぐため defense-in-depth で mention 構文を中和する。
+ * お子さまの年齢など PII を含む自由記述 (#3211 item1) が webhook JSON に素通りするのを抑える。
+ *
+ * - `@everyone` / `@here` は `@` 直後に zero-width space (U+200B) を挿入して mention 文字列を壊す
+ * - `<@123>` / `<@!123>` / `<@&123>` (user/role) / `<#123>` (channel) mention は `<` 直後に同様
+ *
+ * 文字は削除せず可視内容は保持する (運用者が原文を読めるよう、無害化のみ行う)。
+ */
+export function sanitizeDiscordText(text: string): string {
+	return text.replace(/@(everyone|here)/gi, '@​$1').replace(/<(@!?&?|#)(\d+)>/g, '<​$1$2>');
+}
+
 /** Discord Webhook にメッセージを送信（失敗してもエラーを投げない） */
 export async function notifyDiscord(channel: DiscordChannel, embed: DiscordEmbed): Promise<void> {
 	const webhookUrl = getWebhookUrl(channel);
@@ -156,7 +173,8 @@ export async function notifyCancellationWithReason(input: {
 				? [
 						{
 							name: '自由記述',
-							value: input.freeText.slice(0, 1024),
+							// #3211: 解約理由の自由記述も mention 構文を中和して embed に載せる
+							value: sanitizeDiscordText(input.freeText.slice(0, 1024)),
 							inline: false,
 						},
 					]
@@ -225,15 +243,21 @@ export async function notifyInquiry(
 		other: 'その他',
 	};
 
+	// #3211: ユーザー自由記述 (text=本文、childAge を含む / replyEmail / email) は
+	// mention 構文を中和してから embed に載せる (PII 自由記述の webhook 素通り抑止 + 誤 ping 防止)。
 	await notifyDiscord('inquiry', {
 		title: `📬 ${categoryLabel[category] ?? category}${inquiryId ? ` (${inquiryId})` : ''}`,
-		description: text.slice(0, 2000),
+		description: sanitizeDiscordText(text.slice(0, 2000)),
 		color: category === 'bug' ? 0xff4444 : 0x4a90d9,
 		fields: [
 			...(inquiryId ? [{ name: '受付番号', value: inquiryId, inline: true }] : []),
 			{ name: 'テナント', value: tenantId, inline: true },
-			{ name: '送信者', value: email, inline: true },
-			{ name: '返信先', value: replyEmail || 'なし', inline: true },
+			{ name: '送信者', value: sanitizeDiscordText(email), inline: true },
+			{
+				name: '返信先',
+				value: replyEmail ? sanitizeDiscordText(replyEmail) : 'なし',
+				inline: true,
+			},
 		],
 	});
 }
