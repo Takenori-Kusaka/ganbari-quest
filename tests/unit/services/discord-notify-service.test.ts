@@ -231,13 +231,13 @@ describe('discord-notify-service', () => {
 			expect(desc).toContain('見てください');
 		});
 
-		it('#3388: email/返信先は ZWSP 中和せず原文のまま (foo@here.com 破損回帰の防止)', async () => {
+		it('#3388: email/返信先は zero-width space 中和せず原文のまま (foo@here.com 破損回帰の防止)', async () => {
 			await notifyInquiry('tenant-1', 'other', '本文', 'parent@here.com', 'reply@everyone.org');
 			const body = getLastBody();
 			const fields = body.embeds[0].fields as Array<{ name: string; value: string }>;
 			const sender = fields.find((f) => f.name === '送信者')?.value;
 			const reply = fields.find((f) => f.name === '返信先')?.value;
-			// ZWSP が混入せず原文一致 (コピペ返信が壊れない)。ping は allowed_mentions で無効化済。
+			// zero-width space が混入せず原文一致 (コピペ返信が壊れない)。ping は allowed_mentions で無効化済。
 			expect(sender).toBe('parent@here.com');
 			expect(reply).toBe('reply@everyone.org');
 		});

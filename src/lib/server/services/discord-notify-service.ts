@@ -43,7 +43,7 @@ function getWebhookUrl(channel: DiscordChannel): string | undefined {
  * - `<@123>` / `<@!123>` / `<@&123>` (user/role) / `<#123>` (channel) mention は `<` 直後に同様
  *
  * 文字は削除せず可視内容は保持する。email 等の正当な `@here`/`@everyone` 部分文字列を含む値
- * (`foo@here.com`) には適用しない (ZWSP 混入でコピペが壊れるため、#3388)。
+ * (`foo@here.com`) には適用しない (zero-width space 混入でコピペが壊れるため、#3388)。
  */
 export function sanitizeDiscordText(text: string): string {
 	return text.replace(/@(everyone|here)/gi, '@​$1').replace(/<(@!?&?|#)(\d+)>/g, '<​$1$2>');
@@ -249,8 +249,8 @@ export async function notifyInquiry(
 	};
 
 	// #3388: ping の構造的無効化は notifyDiscord の allowed_mentions:{parse:[]} が担う (単一点防御)。
-	// 本文 (text、childAge を含む自由記述) は表示上のノイズ低減と二重防御で ZWSP 中和を継続する。
-	// email / replyEmail は ZWSP 中和しない: `foo@here.com` 等 mention 語を含む正当アドレスが破損し
+	// 本文 (text、childAge を含む自由記述) は表示上のノイズ低減と二重防御で zero-width space 中和を継続する。
+	// email / replyEmail は zero-width space 中和しない: `foo@here.com` 等 mention 語を含む正当アドレスが破損し
 	// コピペ返信が壊れるため (#3211 回帰)。ping は allowed_mentions で既に無効化済で中和不要。
 	await notifyDiscord('inquiry', {
 		title: `📬 ${categoryLabel[category] ?? category}${inquiryId ? ` (${inquiryId})` : ''}`,
