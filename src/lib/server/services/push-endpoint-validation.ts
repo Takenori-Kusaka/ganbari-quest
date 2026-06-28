@@ -20,7 +20,7 @@ const ALLOWED_PUSH_HOSTS: readonly string[] = [
 	// Chrome / Edge / Brave / Opera (FCM)
 	'fcm.googleapis.com',
 	'android.googleapis.com',
-	// Firefox (autopush)
+	// Firefox (Mozilla push service)
 	'.push.services.mozilla.com',
 	// Safari / iOS / macOS (Apple Push)
 	'.push.apple.com',
