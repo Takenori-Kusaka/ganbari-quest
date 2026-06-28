@@ -204,6 +204,20 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			T,
 		);
 
+		// #3329: 証明書を 1 件 seed (issuedAt 明示)。round-trip 後に issuedAt が保全されること、
+		// および certificate.child_id (no-cascade) が clear を阻害せず「子復元=1」になることを検証する。
+		await getRepos().certificate.insertForRestore(
+			{
+				childId: 1,
+				certificateType: 'graduation',
+				title: 'そつぎょうしょうめいしょ',
+				description: null,
+				issuedAt: '2026-02-01T00:00:00Z',
+				metadata: null,
+			},
+			T,
+		);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -223,6 +237,10 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(data.data.stampCards.length, 'export:スタンプカード').toBe(1);
 		expect(data.data.stampCards[0]?.status, 'export:カード status').toBe('redeemed');
 		expect(data.data.stampCards[0]?.entries.length, 'export:押印').toBe(1);
+		expect(data.data.certificates.length, 'export:証明書').toBe(1);
+		expect(data.data.certificates[0]?.issuedAt, 'export:証明書 issuedAt').toBe(
+			'2026-02-01T00:00:00Z',
+		);
 
 		// --- replace = clear → import ---
 		await clearAllFamilyData(T);
@@ -275,6 +293,11 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 		expect(restoredEntries.length, '押印').toBe(1);
 		expect(restoredEntries[0]?.omikujiRank, '押印 omikujiRank 保全').toBe('test-rank');
+		// #3329: 証明書が issuedAt を保って復元される (clear の FK 阻害も「子復元=1」で担保済)。
+		const restoredCerts = await getRepos().certificate.findCertificates(cid, T);
+		expect(restoredCerts.length, '証明書').toBe(1);
+		expect(restoredCerts[0]?.issuedAt, '証明書 issuedAt 保全').toBe('2026-02-01T00:00:00Z');
+		expect(restoredCerts[0]?.certificateType, '証明書 type 保全').toBe('graduation');
 	});
 
 	// #3329 QM-fix (2)(a): auto:weekly チャレンジの dedup round-trip。

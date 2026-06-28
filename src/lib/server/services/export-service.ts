@@ -9,6 +9,7 @@ import {
 	type ExportActivity,
 	type ExportActivityLog,
 	type ExportCategory,
+	type ExportCertificate,
 	type ExportChecklistLog,
 	type ExportChecklistTemplate,
 	type ExportChild,
@@ -230,6 +231,7 @@ interface ChildTransactionData {
 	rewardRedemptions: ExportRewardRedemption[];
 	childChallenges: ExportChildChallenge[];
 	stampCards: ExportStampCard[];
+	certificates: ExportCertificate[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 }
@@ -259,6 +261,7 @@ async function collectForChild(
 		redemptions,
 		challenges,
 		stampCardsRaw,
+		certificatesRaw,
 		checklistTemplates,
 	] = await Promise.all([
 		// #3327 P2: per-child 活動インスタンスを backup に保持 (archive 済も含む)。
@@ -276,6 +279,8 @@ async function collectForChild(
 		getRepos().childChallenge.findByChildId(childId, tenantId),
 		// #3329: per-child スタンプカードを backup に保持 (entry は後段で card ごとに収集)。
 		getRepos().stampCard.findCardsByChild(childId, tenantId),
+		// #3329: per-child 証明書を backup に保持。
+		getRepos().certificate.findCertificates(childId, tenantId),
 		// #3106: backup なので includeInactive=true + includeArchived=true。
 		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
 		findTemplatesByChild(childId, tenantId, true, true),
@@ -451,6 +456,16 @@ async function collectForChild(
 			};
 		}),
 	);
+	// #3329: per-child 証明書を childRef 付きで出力 (issuedAt/metadata 保全)。
+	warnIfTruncated('certificates', childId, certificatesRaw.length);
+	const certificatesOut: ExportCertificate[] = certificatesRaw.map((c) => ({
+		childRef,
+		certificateType: c.certificateType,
+		title: c.title,
+		description: c.description,
+		issuedAt: c.issuedAt,
+		metadata: c.metadata,
+	}));
 
 	// Checklist templates with items
 	// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
@@ -520,6 +535,7 @@ async function collectForChild(
 		rewardRedemptions: rewardRedemptionsOut,
 		childChallenges: childChallengesOut,
 		stampCards: stampCardsOut,
+		certificates: certificatesOut,
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
 	};
@@ -559,6 +575,7 @@ async function collectTransactionData(
 		rewardRedemptions: perChild.flatMap((p) => p.rewardRedemptions),
 		childChallenges: perChild.flatMap((p) => p.childChallenges),
 		stampCards: perChild.flatMap((p) => p.stampCards),
+		certificates: perChild.flatMap((p) => p.certificates),
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		childAvatarItems: [],

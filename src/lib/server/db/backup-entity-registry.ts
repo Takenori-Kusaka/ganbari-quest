@@ -160,8 +160,9 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	certificate: {
 		classification: 'source',
 		schemaTable: 'certificates',
-		backupStatus: 'not-yet-exported',
-		reason: '証明書/賞状の授与記録。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'証明書/賞状の授与記録。export/import 実装済 (#3329、issuedAt/metadata を insertForRestore で保全)。child_id は no-cascade のため clear で certificate.deleteByTenantId を明示実行',
 	},
 	parentMessage: {
 		classification: 'source',

@@ -68,6 +68,9 @@ export interface ImportResult {
 	stampCardsSkipped: number;
 	stampEntriesImported: number;
 	stampEntriesSkipped: number;
+	/** #3329: per-child 証明書の取込件数 */
+	certificatesImported: number;
+	certificatesSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -285,6 +288,8 @@ export async function importFamilyData(
 	await importChildChallengesData(data, childIdMap, tenantId, result);
 	// #3329: スタンプカード + 押印。card を復元 → 新 cardId に entry を貼り直す。childIdMap のみ必要。
 	await importStampCardsData(data, childIdMap, tenantId, result);
+	// #3329: 証明書 (がんばり/卒業証明書 授与記録) を issuedAt 保全で復元。childIdMap のみ必要。
+	await importCertificatesData(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
@@ -557,6 +562,47 @@ async function importStampCardsData(
 	}
 }
 
+/**
+ * 証明書 (がんばり/卒業証明書 授与記録) を復元する (#3329)。
+ * childRef で取込先 child に解決し insertForRestore で issuedAt / metadata を保全して書き戻す。
+ * tenantId は復元先のものを使う (証明書は per-child の授与記録、id/tenantId は env 固有)。
+ * 同 child + certificateType の重複は onConflictDoNothing で skip (null 返却 → skip カウント)。
+ */
+async function importCertificatesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const cert of data.data.certificates ?? []) {
+		const childId = childIdMap.get(cert.childRef);
+		if (!childId) {
+			result.certificatesSkipped++;
+			continue;
+		}
+		try {
+			const restored = await getRepos().certificate.insertForRestore(
+				{
+					childId,
+					certificateType: cert.certificateType,
+					title: cert.title,
+					description: cert.description,
+					issuedAt: cert.issuedAt,
+					metadata: cert.metadata,
+				},
+				tenantId,
+			);
+			if (restored) result.certificatesImported++;
+			else result.certificatesSkipped++;
+		} catch (e) {
+			result.certificatesSkipped++;
+			result.errors.push(
+				`証明書 insert 失敗 (child=${cert.childRef}, type=${cert.certificateType}): ${String(e)}`,
+			);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -578,6 +624,8 @@ function createEmptyImportResult(): ImportResult {
 		stampCardsSkipped: 0,
 		stampEntriesImported: 0,
 		stampEntriesSkipped: 0,
+		certificatesImported: 0,
+		certificatesSkipped: 0,
 		loginBonusesImported: 0,
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,
