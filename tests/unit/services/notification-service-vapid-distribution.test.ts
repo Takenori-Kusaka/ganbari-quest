@@ -87,7 +87,7 @@ describe('#2191 AC5 VAPID 配布証跡 — notification-service silent fail ガ�
 			{
 				id: 1,
 				tenantId: 'T1',
-				endpoint: 'https://push.example.com/x',
+				endpoint: 'https://fcm.googleapis.com/fcm/send/x',
 				keysP256dh: 'p',
 				keysAuth: 'a',
 				userAgent: null,
@@ -186,7 +186,7 @@ describe('#2191 AC5 4 通知系統 — type 別 sendPushNotification 発火', ()
 			{
 				id: 1,
 				tenantId: 'T1',
-				endpoint: 'https://push.example.com/x',
+				endpoint: 'https://fcm.googleapis.com/fcm/send/x',
 				keysP256dh: 'p',
 				keysAuth: 'a',
 				userAgent: null,

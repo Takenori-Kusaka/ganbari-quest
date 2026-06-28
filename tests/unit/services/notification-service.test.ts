@@ -205,7 +205,7 @@ describe('notification-service', () => {
 				{
 					id: 1,
 					tenantId: 'T1',
-					endpoint: 'https://push1',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/push1',
 					keysP256dh: 'p1',
 					keysAuth: 'a1',
 					userAgent: null,
@@ -215,7 +215,7 @@ describe('notification-service', () => {
 				{
 					id: 2,
 					tenantId: 'T1',
-					endpoint: 'https://push2',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/push2',
 					keysP256dh: 'p2',
 					keysAuth: 'a2',
 					userAgent: null,
@@ -238,7 +238,7 @@ describe('notification-service', () => {
 				{
 					id: 1,
 					tenantId: 'T1',
-					endpoint: 'https://stale',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/stale',
 					keysP256dh: 'p1',
 					keysAuth: 'a1',
 					userAgent: null,
@@ -251,7 +251,10 @@ describe('notification-service', () => {
 			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
 			expect(result.sent).toBe(0);
 			expect(result.failed).toBe(1);
-			expect(mockDeleteByEndpoint).toHaveBeenCalledWith('https://stale', 'T1');
+			expect(mockDeleteByEndpoint).toHaveBeenCalledWith(
+				'https://fcm.googleapis.com/fcm/send/stale',
+				'T1',
+			);
 		});
 
 		// ============================================================
@@ -265,7 +268,7 @@ describe('notification-service', () => {
 				{
 					id: 1,
 					tenantId: 'T1',
-					endpoint: 'https://parent-device',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/parent-device',
 					keysP256dh: 'p1',
 					keysAuth: 'a1',
 					userAgent: null,
@@ -275,7 +278,7 @@ describe('notification-service', () => {
 				{
 					id: 2,
 					tenantId: 'T1',
-					endpoint: 'https://child-device',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/child-device',
 					keysP256dh: 'p2',
 					keysAuth: 'a2',
 					userAgent: null,
@@ -296,8 +299,8 @@ describe('notification-service', () => {
 			const calledEndpoints = mockSendNotification.mock.calls.map(
 				(call) => (call[0] as { endpoint: string }).endpoint,
 			);
-			expect(calledEndpoints).toContain('https://parent-device');
-			expect(calledEndpoints).not.toContain('https://child-device');
+			expect(calledEndpoints).toContain('https://fcm.googleapis.com/fcm/send/parent-device');
+			expect(calledEndpoints).not.toContain('https://fcm.googleapis.com/fcm/send/child-device');
 		});
 
 		it('#1593 不明な subscriber_role の subscription への送信を skip', async () => {
@@ -307,7 +310,7 @@ describe('notification-service', () => {
 				{
 					id: 1,
 					tenantId: 'T1',
-					endpoint: 'https://unknown-role-device',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/unknown-role-device',
 					keysP256dh: 'p1',
 					keysAuth: 'a1',
 					userAgent: null,
@@ -331,7 +334,7 @@ describe('notification-service', () => {
 				{
 					id: 1,
 					tenantId: 'T1',
-					endpoint: 'https://child1',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/child1',
 					keysP256dh: 'p1',
 					keysAuth: 'a1',
 					userAgent: null,
@@ -341,7 +344,7 @@ describe('notification-service', () => {
 				{
 					id: 2,
 					tenantId: 'T1',
-					endpoint: 'https://child2',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/child2',
 					keysP256dh: 'p2',
 					keysAuth: 'a2',
 					userAgent: null,
@@ -373,6 +376,46 @@ describe('notification-service', () => {
 
 			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
 			expect(result).toEqual({ sent: 0, failed: 0 });
+		});
+
+		it('#3404 allowlist 外 endpoint (internal host) への送信を skip (送信側 SSRF defense-in-depth)', async () => {
+			setDaytimeJST();
+			mockCountTodayLogs.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: 1,
+					tenantId: 'T1',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/legit',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+				{
+					id: 2,
+					tenantId: 'T1',
+					// 過去レコード混入 / repo 直 insert で入った allowlist 外 (internal host) endpoint。
+					// subscribe 検証 (#3188) を通らず DB に入った想定。送信側で skip されること。
+					endpoint: 'https://169.254.169.254/latest/meta-data/',
+					keysP256dh: 'p2',
+					keysAuth: 'a2',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+			]);
+			mockSendNotification.mockResolvedValue({} as never);
+
+			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
+			// 正規 endpoint のみ送信、internal host は skip
+			expect(result.sent).toBe(1);
+			expect(mockSendNotification).toHaveBeenCalledTimes(1);
+			const calledEndpoints = mockSendNotification.mock.calls.map(
+				(call) => (call[0] as { endpoint: string }).endpoint,
+			);
+			expect(calledEndpoints).toContain('https://fcm.googleapis.com/fcm/send/legit');
+			expect(calledEndpoints).not.toContain('https://169.254.169.254/latest/meta-data/');
 		});
 	});
 
