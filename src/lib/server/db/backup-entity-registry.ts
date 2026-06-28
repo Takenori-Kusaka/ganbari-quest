@@ -174,8 +174,9 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	siblingCheer: {
 		classification: 'source',
 		schemaTable: 'siblingCheers',
-		backupStatus: 'not-yet-exported',
-		reason: '兄弟応援。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'きょうだい間おうえんスタンプ。export/import 実装済 (#3329、from/to 2 child を childRef で再結合・sentAt/shownAt 保全)。clear は tenant-cleanup の siblingCheer.deleteByTenantId + child cascade で削除済',
 	},
 	activityPref: {
 		classification: 'source',

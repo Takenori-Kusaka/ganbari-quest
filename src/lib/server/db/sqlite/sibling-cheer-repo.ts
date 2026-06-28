@@ -23,6 +23,30 @@ export async function insertCheer(
 	return result;
 }
 
+/** #3329 backup: テナントの全おうえんスタンプ (from/to/sentAt/shownAt)。 */
+export async function findAllByTenant(_tenantId: string): Promise<SiblingCheer[]> {
+	return db.select().from(siblingCheers).orderBy(siblingCheers.sentAt).all();
+}
+
+/** #3329 backup restore 用: sentAt / shownAt を保全して復元する (from/to childId は呼び出し側が解決済)。 */
+export async function insertForRestore(
+	input: Omit<SiblingCheer, 'id' | 'tenantId'>,
+	tenantId: string,
+): Promise<SiblingCheer> {
+	return db
+		.insert(siblingCheers)
+		.values({
+			fromChildId: input.fromChildId,
+			toChildId: input.toChildId,
+			stampCode: input.stampCode,
+			tenantId,
+			sentAt: input.sentAt,
+			shownAt: input.shownAt,
+		})
+		.returning()
+		.get();
+}
+
 export async function findUnshownCheers(
 	toChildId: number,
 	_tenantId: string,

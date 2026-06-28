@@ -23,6 +23,7 @@ import {
 	type ExportPointLedger,
 	type ExportRewardRedemption,
 	type ExportSetting,
+	type ExportSiblingCheer,
 	type ExportSpecialReward,
 	type ExportStampCard,
 	type ExportStatus,
@@ -581,6 +582,23 @@ async function collectTransactionData(
 		.sort()
 		.map((key) => ({ key, value: settingsMap[key] as string }));
 
+	// #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child)。childExportIdMap で
+	// 両 childId を childRef に解決し、どちらかが export 対象外なら skip する (childRef 解決不能を防ぐ)。
+	const siblingCheersRaw = await getRepos().siblingCheer.findAllByTenant(tenantId);
+	const siblingCheersOut: ExportSiblingCheer[] = [];
+	for (const c of siblingCheersRaw) {
+		const fromRef = childExportIdMap.get(c.fromChildId);
+		const toRef = childExportIdMap.get(c.toChildId);
+		if (!fromRef || !toRef) continue;
+		siblingCheersOut.push({
+			fromChildRef: fromRef,
+			toChildRef: toRef,
+			stampCode: c.stampCode,
+			sentAt: c.sentAt,
+			shownAt: c.shownAt,
+		});
+	}
+
 	return {
 		childActivities: perChild.flatMap((p) => p.childActivities),
 		activityLogs: perChild.flatMap((p) => p.activityLogs),
@@ -602,5 +620,6 @@ async function collectTransactionData(
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
 		settings: settingsOut, // #3329
+		siblingCheers: siblingCheersOut, // #3329
 	};
 }
