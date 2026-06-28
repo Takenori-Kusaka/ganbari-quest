@@ -22,6 +22,7 @@ import {
 	type ExportRewardRedemption,
 	type ExportSetting,
 	type ExportSpecialReward,
+	type ExportStampCard,
 	type ExportStatus,
 	type ExportStatusHistory,
 	type ExportTitle,
@@ -228,6 +229,7 @@ interface ChildTransactionData {
 	specialRewards: ExportSpecialReward[];
 	rewardRedemptions: ExportRewardRedemption[];
 	childChallenges: ExportChildChallenge[];
+	stampCards: ExportStampCard[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 }
@@ -256,6 +258,7 @@ async function collectForChild(
 		specialRewards,
 		redemptions,
 		challenges,
+		stampCardsRaw,
 		checklistTemplates,
 	] = await Promise.all([
 		// #3327 P2: per-child 活動インスタンスを backup に保持 (archive 済も含む)。
@@ -271,6 +274,8 @@ async function collectForChild(
 		findRedemptionRequestsByTenant(tenantId, { childId, limit: MAX_EXPORT_ROWS }),
 		// #3329: per-child チャレンジ instance を backup に保持 (auto:weekly 含む全 status)。
 		getRepos().childChallenge.findByChildId(childId, tenantId),
+		// #3329: per-child スタンプカードを backup に保持 (entry は後段で card ごとに収集)。
+		getRepos().stampCard.findCardsByChild(childId, tenantId),
 		// #3106: backup なので includeInactive=true + includeArchived=true。
 		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
 		findTemplatesByChild(childId, tenantId, true, true),
@@ -421,6 +426,32 @@ async function collectForChild(
 		updatedAt: c.updatedAt,
 	}));
 
+	// #3329: スタンプカード + 押印 entry を nested で出力。card ごとに entry を引く (件数小)。
+	warnIfTruncated('stampCards', childId, stampCardsRaw.length);
+	const stampRepo = getRepos().stampCard;
+	const stampCardsOut: ExportStampCard[] = await Promise.all(
+		stampCardsRaw.map(async (card) => {
+			const entries = await stampRepo.findEntriesByCardId(card.id, tenantId);
+			return {
+				childRef,
+				weekStart: card.weekStart,
+				weekEnd: card.weekEnd,
+				status: card.status,
+				redeemedPoints: card.redeemedPoints,
+				redeemedAt: card.redeemedAt,
+				createdAt: card.createdAt,
+				updatedAt: card.updatedAt,
+				entries: entries.map((e) => ({
+					stampMasterId: e.stampMasterId,
+					omikujiRank: e.omikujiRank,
+					slot: e.slot,
+					loginDate: e.loginDate,
+					earnedAt: e.earnedAt,
+				})),
+			};
+		}),
+	);
+
 	// Checklist templates with items
 	// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
 	// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
@@ -488,6 +519,7 @@ async function collectForChild(
 		specialRewards: specialRewardsOut,
 		rewardRedemptions: rewardRedemptionsOut,
 		childChallenges: childChallengesOut,
+		stampCards: stampCardsOut,
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
 	};
@@ -526,6 +558,7 @@ async function collectTransactionData(
 		specialRewards: perChild.flatMap((p) => p.specialRewards),
 		rewardRedemptions: perChild.flatMap((p) => p.rewardRedemptions),
 		childChallenges: perChild.flatMap((p) => p.childChallenges),
+		stampCards: perChild.flatMap((p) => p.stampCards),
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		childAvatarItems: [],

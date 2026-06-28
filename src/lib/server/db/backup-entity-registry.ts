@@ -146,14 +146,16 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	stampCard: {
 		classification: 'source',
 		schemaTable: 'stampCards',
-		backupStatus: 'not-yet-exported',
-		reason: 'スタンプカード。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'スタンプカード。export/import 実装済 (#3329、status/redeemed/日時を insertCardForRestore で保全)',
 	},
 	stampEntry: {
 		classification: 'source',
 		schemaTable: 'stampEntries',
-		backupStatus: 'not-yet-exported',
-		reason: 'スタンプ押印。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'スタンプ押印。export/import 実装済 (#3329、stampCard に nested 同梱・earnedAt 保全。stampMasterId はグローバル master 参照を維持)',
 	},
 	certificate: {
 		classification: 'source',

@@ -63,6 +63,11 @@ export interface ImportResult {
 	/** #3329: per-child チャレンジ instance の取込件数 (auto:weekly 含む) */
 	childChallengesImported: number;
 	childChallengesSkipped: number;
+	/** #3329: スタンプカード / 押印 entry の取込件数 */
+	stampCardsImported: number;
+	stampCardsSkipped: number;
+	stampEntriesImported: number;
+	stampEntriesSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -278,6 +283,8 @@ export async function importFamilyData(
 	await importRewardRedemptionsData(data, childIdMap, tenantId, result);
 	// #3329: per-child チャレンジ (auto:weekly 含む) を進捗/完了/請求保全で復元。childIdMap のみ必要。
 	await importChildChallengesData(data, childIdMap, tenantId, result);
+	// #3329: スタンプカード + 押印。card を復元 → 新 cardId に entry を貼り直す。childIdMap のみ必要。
+	await importStampCardsData(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
@@ -482,6 +489,74 @@ async function importChildChallengesData(
 	}
 }
 
+/**
+ * スタンプカード + 押印 entry を復元する (#3329)。
+ * childRef で取込先 child に解決し insertCardForRestore で card (status/redeemed/日時) を復元、
+ * 返却された新 cardId に各 entry を insertEntryForRestore で貼り直す (earnedAt 保全)。
+ * entry の stampMasterId はグローバル master を指すため値のまま書き戻すが、対象環境に存在しない
+ * 場合は FK で insert 失敗 → 当該 entry のみ skip+warning (card と他 entry は保全)。
+ */
+async function importStampCardsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	const repo = getRepos().stampCard;
+	for (const card of data.data.stampCards ?? []) {
+		const childId = childIdMap.get(card.childRef);
+		if (!childId) {
+			result.stampCardsSkipped++;
+			continue;
+		}
+		let newCardId: number;
+		try {
+			const restored = await repo.insertCardForRestore(
+				{
+					childId,
+					weekStart: card.weekStart,
+					weekEnd: card.weekEnd,
+					status: card.status,
+					redeemedPoints: card.redeemedPoints,
+					redeemedAt: card.redeemedAt,
+					createdAt: card.createdAt,
+					updatedAt: card.updatedAt,
+				},
+				tenantId,
+			);
+			newCardId = restored.id;
+			result.stampCardsImported++;
+		} catch (e) {
+			result.stampCardsSkipped++;
+			result.errors.push(
+				`スタンプカード insert 失敗 (child=${card.childRef}, week=${card.weekStart}): ${String(e)}`,
+			);
+			continue;
+		}
+		for (const entry of card.entries) {
+			try {
+				await repo.insertEntryForRestore(
+					{
+						cardId: newCardId,
+						stampMasterId: entry.stampMasterId,
+						omikujiRank: entry.omikujiRank,
+						slot: entry.slot,
+						loginDate: entry.loginDate,
+						earnedAt: entry.earnedAt,
+					},
+					tenantId,
+				);
+				result.stampEntriesImported++;
+			} catch (e) {
+				result.stampEntriesSkipped++;
+				result.errors.push(
+					`スタンプ押印 insert 失敗 (child=${card.childRef}, slot=${entry.slot}): ${String(e)}`,
+				);
+			}
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -499,6 +574,10 @@ function createEmptyImportResult(): ImportResult {
 		rewardRedemptionsSkipped: 0,
 		childChallengesImported: 0,
 		childChallengesSkipped: 0,
+		stampCardsImported: 0,
+		stampCardsSkipped: 0,
+		stampEntriesImported: 0,
+		stampEntriesSkipped: 0,
 		loginBonusesImported: 0,
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,

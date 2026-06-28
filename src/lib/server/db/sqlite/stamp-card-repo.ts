@@ -83,6 +83,91 @@ export async function findEntriesWithMasterByCardId(
 		.all();
 }
 
+/** #3329 backup: child の全スタンプカード。 */
+export async function findCardsByChild(childId: number, _tenantId: string): Promise<StampCard[]> {
+	return db
+		.select()
+		.from(schema.stampCards)
+		.where(eq(schema.stampCards.childId, childId))
+		.orderBy(schema.stampCards.weekStart)
+		.all();
+}
+
+/** #3329 backup: card に紐づく押印 raw 行 (earnedAt まで含む)。 */
+export async function findEntriesByCardId(
+	cardId: number,
+	_tenantId: string,
+): Promise<
+	Array<{
+		stampMasterId: number | null;
+		omikujiRank: string | null;
+		slot: number;
+		loginDate: string;
+		earnedAt: string;
+	}>
+> {
+	return db
+		.select({
+			stampMasterId: schema.stampEntries.stampMasterId,
+			omikujiRank: schema.stampEntries.omikujiRank,
+			slot: schema.stampEntries.slot,
+			loginDate: schema.stampEntries.loginDate,
+			earnedAt: schema.stampEntries.earnedAt,
+		})
+		.from(schema.stampEntries)
+		.where(eq(schema.stampEntries.cardId, cardId))
+		.orderBy(schema.stampEntries.slot)
+		.all();
+}
+
+/** #3329 backup restore 用: status / redeemed / 日時を保全して card を復元する。 */
+export async function insertCardForRestore(
+	input: Omit<StampCard, 'id'>,
+	_tenantId: string,
+): Promise<StampCard> {
+	const card = db
+		.insert(schema.stampCards)
+		.values({
+			childId: input.childId,
+			weekStart: input.weekStart,
+			weekEnd: input.weekEnd,
+			status: input.status,
+			redeemedPoints: input.redeemedPoints,
+			redeemedAt: input.redeemedAt,
+			createdAt: input.createdAt,
+			updatedAt: input.updatedAt,
+		})
+		.returning()
+		.get();
+	if (!card) throw new Error('insertCardForRestore: insert returned no row');
+	return card;
+}
+
+/** #3329 backup restore 用: earnedAt を保全して押印を復元する。 */
+export async function insertEntryForRestore(
+	input: {
+		cardId: number;
+		stampMasterId: number | null;
+		omikujiRank: string | null;
+		slot: number;
+		loginDate: string;
+		earnedAt: string;
+	},
+	_tenantId: string,
+): Promise<void> {
+	db.insert(schema.stampEntries)
+		.values({
+			cardId: input.cardId,
+			stampMasterId: input.stampMasterId,
+			omikujiRank: input.omikujiRank,
+			slot: input.slot,
+			loginDate: input.loginDate,
+			earnedAt: input.earnedAt,
+		})
+		.onConflictDoNothing()
+		.run();
+}
+
 /** スタンプエントリを挿入（同日重複時は無視） */
 export async function insertEntry(input: InsertStampEntryInput, _tenantId: string): Promise<void> {
 	db.insert(schema.stampEntries)

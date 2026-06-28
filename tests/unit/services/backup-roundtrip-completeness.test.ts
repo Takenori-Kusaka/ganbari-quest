@@ -177,6 +177,33 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 		await getRepos().childChallenge.updateProgress(challenge.id, 2, T);
 
+		// #3329: スタンプカード (交換済) + 押印 1 件を seed。round-trip 後に status/redeemed と
+		// 押印 (omikujiRank/earnedAt) が保全されることを検証する。
+		const stampCard = await getRepos().stampCard.insertCardForRestore(
+			{
+				childId: 1,
+				weekStart: '2026-02-23',
+				weekEnd: '2026-03-01',
+				status: 'redeemed',
+				redeemedPoints: 20,
+				redeemedAt: '2026-03-01T10:00:00Z',
+				createdAt: '2026-02-23T00:00:00Z',
+				updatedAt: '2026-03-01T10:00:00Z',
+			},
+			T,
+		);
+		await getRepos().stampCard.insertEntryForRestore(
+			{
+				cardId: stampCard.id,
+				stampMasterId: null,
+				omikujiRank: 'test-rank',
+				slot: 0,
+				loginDate: '2026-02-24',
+				earnedAt: '2026-02-24T08:00:00Z',
+			},
+			T,
+		);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -193,6 +220,9 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(settingKeys, 'export:設定 pin_hash 除外').not.toContain('pin_hash');
 		expect(data.data.childChallenges.length, 'export:チャレンジ').toBe(1);
 		expect(data.data.childChallenges[0]?.currentValue, 'export:チャレンジ進捗').toBe(2);
+		expect(data.data.stampCards.length, 'export:スタンプカード').toBe(1);
+		expect(data.data.stampCards[0]?.status, 'export:カード status').toBe('redeemed');
+		expect(data.data.stampCards[0]?.entries.length, 'export:押印').toBe(1);
 
 		// --- replace = clear → import ---
 		await clearAllFamilyData(T);
@@ -233,6 +263,18 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredChallenges.length, 'チャレンジ').toBe(1);
 		expect(restoredChallenges[0]?.currentValue, 'チャレンジ進捗保全').toBe(2);
 		expect(restoredChallenges[0]?.title, 'チャレンジ title 保全').toBe('うんどうチャレンジ');
+
+		// #3329: スタンプカードが status/redeemed を保ち、押印 (omikujiRank) が復元される。
+		const restoredCards = await getRepos().stampCard.findCardsByChild(cid, T);
+		expect(restoredCards.length, 'スタンプカード').toBe(1);
+		expect(restoredCards[0]?.status, 'カード status 保全').toBe('redeemed');
+		expect(restoredCards[0]?.redeemedPoints, 'カード redeemedPoints 保全').toBe(20);
+		const restoredEntries = await getRepos().stampCard.findEntriesByCardId(
+			restoredCards[0]?.id as number,
+			T,
+		);
+		expect(restoredEntries.length, '押印').toBe(1);
+		expect(restoredEntries[0]?.omikujiRank, '押印 omikujiRank 保全').toBe('test-rank');
 	});
 
 	// #3329 QM-fix (2)(a): auto:weekly チャレンジの dedup round-trip。
