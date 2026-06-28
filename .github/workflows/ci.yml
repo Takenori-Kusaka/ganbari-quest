@@ -2,7 +2,11 @@ name: CI
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # #3128: PR lane の重複 run のみ cancel する。main push (push:[main]) では
+  # group key が github.ref (=refs/heads/main) に fallback するため、batch-merge が
+  # 短時間に連続すると旧 main-push run が cancel され superseded な中間 commit の
+  # per-commit 再検証が欠落する。pull_request イベント時のみ cancel して main 検証を保全する。
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
