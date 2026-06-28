@@ -384,7 +384,7 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 
 #### 7e. marketplace challenge-set 一括追加 (#2297, EPIC #2294 ③ — #2896 で marketplace 陳列廃止)
 
-> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の production preset (日本年間行事パック) を廃止した (JSON は `tests/fixtures/marketplace/challenge-sets/` へ移管し schema 互換検証を継続)。以下のペア表は型 / schema / Registry 登録の互換維持のため残置するが、marketplace 経由のチャレンジ取込動線は撤去済。チャレンジ機能本体 (自作 + auto-challenge) は `/admin/challenges` に保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
+> **#2896 (2026-06-11 PO 判断)**: marketplace を活動 / ごほうび / チェックリストの 3 type に絞る方針に伴い、challenge-set は陳列対象外とし唯一の production preset (日本年間行事パック) を廃止した (JSON は `tests/fixtures/marketplace/challenge-sets/` へ移管し schema 互換検証を継続)。以下のペア表は型 / schema / Registry 登録の互換維持のため残置するが、marketplace 経由のチャレンジ取込動線は撤去済。チャレンジ機能本体は #3193/#3195/#3238 で**自動生成一本化**され、旧「自作」(手動作成フォーム) 経路は撤去済。`/admin/challenges` は auto-challenge の閲覧（読み取り専用）として保持。陳列方針・顧客価値は [44-チャレンジ設計書.md](44-チャレンジ設計書.md) を参照。
 
 `src/lib/domain/marketplace-item.ts` の `ChallengeSetPayload` 等は **マーケットプレイス詳細ページ → /admin/challenges 画面**の動線（現在は廃止）で一括取込されていた。`MarketplaceItemType` を 4 → 5 type に拡張した実装。
 
@@ -397,11 +397,11 @@ grep -n "bottom-nav\|data-testid" src/lib/ui/components/BottomNav.svelte
 | `src/lib/data/marketplace/index.ts` | `allItems` 配列 + `getMarketplaceCounts` + `countPayloadItems` | TypeScript |
 | `src/routes/marketplace/+page.svelte` | `typeKeys` 配列 (5 type) + grid-cols mobile 2 列 / SP 3 列 / desktop 5 列 | Svelte |
 | `src/routes/marketplace/[type]/[itemId]/+page.server.ts` | `VALID_TYPES` 配列 | TypeScript |
-| `src/routes/marketplace/[type]/[itemId]/+page.svelte` | challenge-set 詳細表示 + 「使ってみる」CTA → `/admin/challenges?marketplace-import=<id>` 遷移 | Svelte |
-| `src/routes/(parent)/admin/challenges/+page.{svelte,server.ts}` | `marketplace-import` query 受取 → ChildSelectionDialog auto-open + `?/importMarketplaceChallengeSet` form action (per-child `createChildChallengesBulk` 配信、#2458-B で legacy `createSiblingChallenge` 撤去済) | Svelte / TS |
+| `src/routes/marketplace/[type]/[itemId]/+page.svelte` | （#3277 で除去済）旧: challenge-set 詳細「使ってみる」CTA → `/admin/challenges?marketplace-import=<id>` 遷移。現在 CTA は到達不能化（型/schema 互換残置のみ） | Svelte |
+| `src/routes/(parent)/admin/challenges/+page.{svelte,server.ts}` | （#3195 で読み取り専用化）旧: `marketplace-import` query 受取 + `?/importMarketplaceChallengeSet` form action。現在 query 非処理・取込 action 撤去済（自動生成一本化、`/admin/challenges` は閲覧のみ） | Svelte / TS |
 | `src/lib/domain/labels.ts` | `MARKETPLACE_LABELS.detailIncludedChallenges` / `detailCtaImportChallengeSet*` | TypeScript |
 
-**同期メカニズム**: `tests/unit/domain/marketplace-items.test.ts` で type enum 完全性確認 + `tests/e2e/marketplace-challenge-set-import.spec.ts` で詳細 → admin 遷移 → 一括追加フロー検証。
+**同期メカニズム**: `tests/unit/domain/marketplace-items.test.ts` で type enum 完全性確認 + `tests/e2e/marketplace-challenge-set-import.spec.ts` で **challenge-set が marketplace に陳列されない（非取込）回帰**を検証（#2896 で取込フローは撤去、旧「詳細 → admin 遷移 → 一括追加」検証から転換）。
 
 **AN-5 補強 (#2180 観察 4 #2297 関連)**: `MarketplaceItemType` 拡張時は以下を全件触ること:
 1. `marketplace-item.ts` enum + Payload interface + LABEL/ICON 4 箇所
