@@ -2,3 +2,7 @@ node_modules/
 cdk.out/
 *.js
 *.d.ts
+
+# #3087 解決策 B: deploy.yml が deploy 済 Docker image から抽出する SvelteKit client
+# immutable アセット (docker cp /app/client → infra/static-assets)。build 成果物のため commit 不可。
+static-assets/
