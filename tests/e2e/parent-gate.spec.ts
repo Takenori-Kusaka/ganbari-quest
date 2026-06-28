@@ -378,6 +378,10 @@ function registerParentGateTests(): void {
 		test('#3089: ハードナビが失敗すると navigating overlay は dead-end にならず error + 再試行が出る', async ({
 			page,
 		}) => {
+			// #3101: NAV_TIMEOUT_MS が 30s (一般的なサーバータイムアウト) に延びたため、実時間で待つと
+			// Playwright の test timeout (30s) を超える。page.clock で timer を制御し fast-forward する。
+			await page.clock.install();
+
 			// /admin への document nav を継続的に abort し、ページが unload しない (= ナビ失敗) を再現
 			await page.route('**/admin', async (route) => {
 				if (route.request().resourceType() === 'document') {
@@ -390,7 +394,7 @@ function registerParentGateTests(): void {
 			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
 			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
 
-			// 作成フロー成功 → triggerAdminNavigation 起動 → nav abort → 8s timeout で error へ
+			// 作成フロー成功 → triggerAdminNavigation 起動 → nav abort → NAV_TIMEOUT_MS で error へ
 			await typePinInto(page, '2468');
 			await expect(page.getByTestId('parent-gate-create')).toHaveAttribute('data-step', 'confirm');
 			await typePinInto(page, '2468');
@@ -398,9 +402,10 @@ function registerParentGateTests(): void {
 			// spinner overlay は一旦表示される
 			await expect(page.getByTestId('parent-gate-navigating')).toBeVisible({ timeout: 5_000 });
 
-			// timeout (8s) 経過後、dead-end でなく error 状態 (role=alert + 再試行ボタン) に切り替わる
+			// NAV_TIMEOUT_MS (30s) を fast-forward → dead-end でなく error 状態 (role=alert + 再試行) へ
+			await page.clock.fastForward(31_000);
 			const errorOverlay = page.getByTestId('parent-gate-navigating-error');
-			await expect(errorOverlay).toBeVisible({ timeout: 12_000 });
+			await expect(errorOverlay).toBeVisible({ timeout: 5_000 });
 			await expect(errorOverlay).toContainText('もう一度');
 			// spinner overlay は消えている (dead-end でない = escape hatch 提供)
 			await expect(page.getByTestId('parent-gate-navigating')).toBeHidden();
