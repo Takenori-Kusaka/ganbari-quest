@@ -36,7 +36,7 @@ function makeEvent(opts: {
 		},
 		body: JSON.stringify(
 			opts.body ?? {
-				endpoint: 'https://push.example.com/abc',
+				endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
 				keys: { p256dh: 'p256-key', auth: 'auth-key' },
 			},
 		),
@@ -63,7 +63,7 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 		mockInsert.mockResolvedValue({
 			id: 1,
 			tenantId: 'tenant-1',
-			endpoint: 'https://push.example.com/abc',
+			endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
 			keysP256dh: 'p256-key',
 			keysAuth: 'auth-key',
 			userAgent: null,
@@ -113,7 +113,7 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 		expect(mockInsert).toHaveBeenCalledWith(
 			expect.objectContaining({
 				tenantId: 'tenant-1',
-				endpoint: 'https://push.example.com/abc',
+				endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
 				subscriberRole: 'parent',
 			}),
 		);
@@ -125,7 +125,7 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 		expect(mockInsert).toHaveBeenCalledWith(
 			expect.objectContaining({
 				tenantId: 'tenant-1',
-				endpoint: 'https://push.example.com/abc',
+				endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
 				subscriberRole: 'owner',
 			}),
 		);
@@ -135,7 +135,7 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 		mockFindByEndpoint.mockResolvedValue({
 			id: 99,
 			tenantId: 'tenant-1',
-			endpoint: 'https://push.example.com/abc',
+			endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
 			keysP256dh: 'p',
 			keysAuth: 'a',
 			userAgent: null,
@@ -166,7 +166,51 @@ describe('POST /api/v1/notifications/subscribe (#1593 ADR-0023 I6)', () => {
 		const res = await POST(
 			makeEvent({
 				role: 'parent',
-				body: { endpoint: 'https://push.example.com/abc' },
+				body: { endpoint: 'https://fcm.googleapis.com/fcm/send/abc' },
+			}),
+		);
+		expect(res.status).toBe(400);
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+
+	// #3188 SSRF hardening: allowlist 外 / internal host の endpoint を 400 で拒否し保存しない
+	it('allowlist 外 endpoint (internal host) は 400 で拒否し insert しない', async () => {
+		const res = await POST(
+			makeEvent({
+				role: 'parent',
+				body: {
+					endpoint: 'https://169.254.169.254/latest/meta-data/',
+					keys: { p256dh: 'p256-key', auth: 'auth-key' },
+				},
+			}),
+		);
+		expect(res.status).toBe(400);
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+
+	it('非 https endpoint は 400 で拒否する', async () => {
+		const res = await POST(
+			makeEvent({
+				role: 'parent',
+				body: {
+					endpoint: 'http://fcm.googleapis.com/fcm/send/abc',
+					keys: { p256dh: 'p256-key', auth: 'auth-key' },
+				},
+			}),
+		);
+		expect(res.status).toBe(400);
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+
+	// #3188: 不正な key 形式 (制御文字 / 過長) も 400 で拒否
+	it('不正な key 形式は 400 で拒否する', async () => {
+		const res = await POST(
+			makeEvent({
+				role: 'parent',
+				body: {
+					endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
+					keys: { p256dh: 'has space', auth: 'auth-key' },
+				},
 			}),
 		);
 		expect(res.status).toBe(400);
