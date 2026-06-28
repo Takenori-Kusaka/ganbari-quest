@@ -181,8 +181,9 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	activityPref: {
 		classification: 'source',
 		schemaTable: 'childActivityPreferences',
-		backupStatus: 'not-yet-exported',
-		reason: '活動の per-child 設定。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'活動の per-child 設定 (ピン留め)。export/import 実装済 (#3329、activityName で childActivity に再結合・isPinned/pinOrder/日時を insertForRestore で保全)。clear は tenant-cleanup + child/activity cascade で削除済',
 	},
 	checklistAssignment: {
 		classification: 'source',

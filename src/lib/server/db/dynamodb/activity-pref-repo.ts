@@ -39,6 +39,50 @@ export async function findPinnedByChild(
 		.sort((a, b) => (a.pinOrder ?? 999) - (b.pinOrder ?? 999));
 }
 
+/** #3329 backup: child の全活動設定 (pinned 不問)。 */
+export async function findAllByChild(
+	childId: number,
+	tenantId: string,
+): Promise<ChildActivityPreference[]> {
+	const result = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': childPK(childId, tenantId),
+				':prefix': activityPrefPrefix(),
+			},
+		}),
+	);
+	const items = (result.Items ?? []) as Record<string, unknown>[];
+	return items
+		.map((item) => stripKeys(item) as unknown as ChildActivityPreference)
+		.sort((a, b) => (a.pinOrder ?? 999) - (b.pinOrder ?? 999));
+}
+
+/** #3329 backup restore 用: isPinned/pinOrder/日時を保全して復元する (childId/activityId 解決済)。 */
+export async function insertForRestore(
+	input: Omit<ChildActivityPreference, 'id'>,
+	tenantId: string,
+): Promise<ChildActivityPreference> {
+	const key = activityPrefKey(input.childId, input.activityId, tenantId);
+	// activityPref の partition key は (childId, activityId) 複合。id は非キー属性のため
+	// togglePin と同様に Date.now() 由来の一意値を採番する (元 id は保全しない)。
+	const id = Date.now();
+	const item: Record<string, unknown> = {
+		...key,
+		id,
+		childId: input.childId,
+		activityId: input.activityId,
+		isPinned: input.isPinned,
+		pinOrder: input.pinOrder,
+		createdAt: input.createdAt,
+		updatedAt: input.updatedAt,
+	};
+	await getDocClient().send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
+	return stripKeys(item) as unknown as ChildActivityPreference;
+}
+
 export async function togglePin(
 	childId: number,
 	activityId: number,

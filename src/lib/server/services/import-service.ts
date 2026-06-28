@@ -77,6 +77,9 @@ export interface ImportResult {
 	/** #3329: きょうだい間おうえんスタンプの取込件数 */
 	siblingCheersImported: number;
 	siblingCheersSkipped: number;
+	/** #3329: per-child 活動設定 (ピン留め) の取込件数 */
+	activityPrefsImported: number;
+	activityPrefsSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -282,6 +285,9 @@ export async function importFamilyData(
 
 	await importStatusesData(data, childIdMap, tenantId, result);
 	await importActivityLogsData(data, childIdMap, activityLookupByChild, tenantId, result);
+	// #3329: per-child 活動設定 (ピン留め)。activityName を取込先 childActivity に再解決して復元。
+	// 活動 lookup (name→新 id) が必要なので buildActivityLookupByChild の後に実行する。
+	await importActivityPrefsData(data, childIdMap, activityLookupByChild, tenantId, result);
 	await importPointLedgerData(data, childIdMap, tenantId, result);
 	await importLoginBonusesData(data, childIdMap, tenantId, result);
 	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
@@ -693,6 +699,51 @@ async function importSiblingCheersData(
 	}
 }
 
+/**
+ * per-child 活動設定 (ピン留め) を復元する (#3329)。
+ * childRef で取込先 child を、activityName で取込先 childActivity (activityLookupByChild) を解決し、
+ * insertForRestore で isPinned/pinOrder/日時を保全する。child or activity が解決できない pref は skip。
+ */
+async function importActivityPrefsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	activityLookupByChild: Map<number, Map<string, { id: number; name: string }>>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const p of data.data.activityPrefs ?? []) {
+		const childId = childIdMap.get(p.childRef);
+		if (!childId) {
+			result.activityPrefsSkipped++;
+			continue;
+		}
+		const activity = activityLookupByChild.get(childId)?.get(p.activityName);
+		if (!activity) {
+			result.activityPrefsSkipped++;
+			continue;
+		}
+		try {
+			await getRepos().activityPref.insertForRestore(
+				{
+					childId,
+					activityId: activity.id,
+					isPinned: p.isPinned,
+					pinOrder: p.pinOrder,
+					createdAt: p.createdAt,
+					updatedAt: p.updatedAt,
+				},
+				tenantId,
+			);
+			result.activityPrefsImported++;
+		} catch (e) {
+			result.activityPrefsSkipped++;
+			result.errors.push(
+				`活動設定 insert 失敗 (child=${p.childRef}, activity=${p.activityName}): ${String(e)}`,
+			);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -718,6 +769,8 @@ function createEmptyImportResult(): ImportResult {
 		certificatesSkipped: 0,
 		parentMessagesImported: 0,
 		parentMessagesSkipped: 0,
+		activityPrefsImported: 0,
+		activityPrefsSkipped: 0,
 		siblingCheersImported: 0,
 		siblingCheersSkipped: 0,
 		loginBonusesImported: 0,

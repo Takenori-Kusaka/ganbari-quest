@@ -341,6 +341,20 @@ export interface ExportSiblingCheer {
 	shownAt: string | null;
 }
 
+/**
+ * #3329: per-child 活動設定 (ピン留め)。activityId は import で振り直されるため activityName で
+ * 取込先 childActivity に再結合する。isPinned/pinOrder/日時を round-trip 保全する。
+ */
+export interface ExportActivityPref {
+	childRef: string;
+	/** import 後に activityId を再解決するための活動名 (per-child で一意) */
+	activityName: string;
+	isPinned: number;
+	pinOrder: number | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -423,6 +437,8 @@ export interface ExportTransactionData {
 	parentMessages: ExportParentMessage[];
 	/** #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child、sentAt/shownAt 保全) */
 	siblingCheers: ExportSiblingCheer[];
+	/** #3329: per-child 活動設定 (ピン留め、activityName で再結合) */
+	activityPrefs: ExportActivityPref[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	childAvatarItems: never[];

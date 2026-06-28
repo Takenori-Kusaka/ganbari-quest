@@ -24,6 +24,38 @@ import { db } from '../client';
 import { activityLogs, childActivities, childActivityPreferences } from '../schema';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
 
+/** #3329 backup: child の全活動設定 (pinned 不問。isPinned/pinOrder を round-trip 保全)。 */
+export async function findAllByChild(
+	childId: number,
+	_tenantId: string,
+): Promise<ChildActivityPreference[]> {
+	return db
+		.select()
+		.from(childActivityPreferences)
+		.where(eq(childActivityPreferences.childId, childId))
+		.orderBy(childActivityPreferences.pinOrder)
+		.all();
+}
+
+/** #3329 backup restore 用: isPinned/pinOrder/日時を保全して復元する (childId/activityId は呼び出し側が解決済)。 */
+export async function insertForRestore(
+	input: Omit<ChildActivityPreference, 'id'>,
+	_tenantId: string,
+): Promise<ChildActivityPreference> {
+	return db
+		.insert(childActivityPreferences)
+		.values({
+			childId: input.childId,
+			activityId: input.activityId,
+			isPinned: input.isPinned,
+			pinOrder: input.pinOrder,
+			createdAt: input.createdAt,
+			updatedAt: input.updatedAt,
+		})
+		.returning()
+		.get();
+}
+
 export async function findPinnedByChild(
 	childId: number,
 	_tenantId: string,

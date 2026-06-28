@@ -8,6 +8,7 @@ import {
 	type ExportAchievement,
 	type ExportActivity,
 	type ExportActivityLog,
+	type ExportActivityPref,
 	type ExportCategory,
 	type ExportCertificate,
 	type ExportChecklistLog,
@@ -235,6 +236,7 @@ interface ChildTransactionData {
 	stampCards: ExportStampCard[];
 	certificates: ExportCertificate[];
 	parentMessages: ExportParentMessage[];
+	activityPrefs: ExportActivityPref[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 }
@@ -266,6 +268,7 @@ async function collectForChild(
 		stampCardsRaw,
 		certificatesRaw,
 		parentMessagesRaw,
+		activityPrefsRaw,
 		checklistTemplates,
 	] = await Promise.all([
 		// #3327 P2: per-child 活動インスタンスを backup に保持 (archive 済も含む)。
@@ -287,6 +290,8 @@ async function collectForChild(
 		getRepos().certificate.findCertificates(childId, tenantId),
 		// #3329: 親→子おうえんメッセージを backup に保持。
 		getRepos().message.findMessages(childId, MAX_EXPORT_ROWS, tenantId),
+		// #3329: per-child 活動設定 (ピン留め) を backup に保持。
+		getRepos().activityPref.findAllByChild(childId, tenantId),
 		// #3106: backup なので includeInactive=true + includeArchived=true。
 		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
 		findTemplatesByChild(childId, tenantId, true, true),
@@ -490,6 +495,25 @@ async function collectForChild(
 		rewardCategory: m.rewardCategory,
 	}));
 
+	// #3329: per-child 活動設定 (ピン留め)。activityId は import で振り直されるため、当該 child の
+	// 活動 (childActivitiesRaw) から activityId → name を解決し activityName で出力する。
+	// 活動が解決できない pref は skip (orphan)。
+	warnIfTruncated('activityPrefs', childId, activityPrefsRaw.length);
+	const activityNameById = new Map<number, string>(childActivitiesRaw.map((a) => [a.id, a.name]));
+	const activityPrefsOut: ExportActivityPref[] = [];
+	for (const pref of activityPrefsRaw) {
+		const name = activityNameById.get(pref.activityId);
+		if (!name) continue;
+		activityPrefsOut.push({
+			childRef,
+			activityName: name,
+			isPinned: pref.isPinned,
+			pinOrder: pref.pinOrder,
+			createdAt: pref.createdAt,
+			updatedAt: pref.updatedAt,
+		});
+	}
+
 	// Checklist templates with items
 	// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
 	// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
@@ -560,6 +584,7 @@ async function collectForChild(
 		stampCards: stampCardsOut,
 		certificates: certificatesOut,
 		parentMessages: parentMessagesOut,
+		activityPrefs: activityPrefsOut,
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
 	};
@@ -618,6 +643,7 @@ async function collectTransactionData(
 		stampCards: perChild.flatMap((p) => p.stampCards),
 		certificates: perChild.flatMap((p) => p.certificates),
 		parentMessages: perChild.flatMap((p) => p.parentMessages),
+		activityPrefs: perChild.flatMap((p) => p.activityPrefs),
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		childAvatarItems: [],
