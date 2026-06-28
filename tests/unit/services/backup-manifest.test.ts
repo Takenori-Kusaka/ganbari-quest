@@ -132,12 +132,12 @@ describe('ZIP round-trip 統合 (#3375)', () => {
 		const withManifest = { ...files, [BACKUP_MANIFEST_FILENAME]: enc(JSON.stringify(manifest)) };
 
 		// export と同じ per-entry 圧縮制御（画像=store, 構造化=deflate）で固める
-		const zippable: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
+		const zipEntries: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
 		for (const [path, bytes] of Object.entries(withManifest)) {
 			const isStatic = path !== 'data.json' && path !== BACKUP_MANIFEST_FILENAME;
-			zippable[path] = [bytes, { level: isStatic ? 0 : 6 }];
+			zipEntries[path] = [bytes, { level: isStatic ? 0 : 6 }];
 		}
-		const zip = zipSync(zippable);
+		const zip = zipSync(zipEntries);
 
 		const entries = unzipSync(zip);
 		const manifestEntry = entries[BACKUP_MANIFEST_FILENAME];

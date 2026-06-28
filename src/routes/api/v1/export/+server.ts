@@ -147,11 +147,11 @@ async function buildZipResponse(
 
 	// #3375: per-entry 圧縮制御。静的ファイル (既圧縮画像) は store(level 0)、
 	// 構造化データ (data.json / manifest.json) は deflate(level 6)。
-	const zippable: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
+	const zipEntries: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
 	for (const [path, bytes] of Object.entries(files)) {
-		zippable[path] = [bytes, { level: staticPaths.has(path) ? 0 : 6 }];
+		zipEntries[path] = [bytes, { level: staticPaths.has(path) ? 0 : 6 }];
 	}
-	const zipData = zipSync(zippable);
+	const zipData = zipSync(zipEntries);
 
 	return new Response(zipData.buffer as ArrayBuffer, {
 		status: 200,
