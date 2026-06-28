@@ -34,15 +34,16 @@ function getWebhookUrl(channel: DiscordChannel): string | undefined {
 /**
  * #3211: ユーザー自由記述を Discord embed に載せる前の sanitization。
  *
- * Discord は embed の description / field value 内では @everyone / @here / role mention を
- * ping 発火させない (ping は webhook の top-level `content` のみ) が、将来 content 化された
- * ときの誤爆と、運用画面での視認ノイズを防ぐため defense-in-depth で mention 構文を中和する。
- * お子さまの年齢など PII を含む自由記述 (#3211 item1) が webhook JSON に素通りするのを抑える。
+ * ping の構造的無効化は notifyDiscord の `allowed_mentions:{parse:[]}` (Discord 公式機構、#3388) が
+ * 担う。本関数は **mention 構文の視認ノイズ低減 + 二重防御** のための補助的中和であり、
+ * 自由記述本文 (text) にのみ適用する。PII (childAge 等) は本関数では redaction されない
+ * (平文のまま送信される)。実 PII redaction/retention は別途 #3211 item1b の領域。
  *
  * - `@everyone` / `@here` は `@` 直後に zero-width space (U+200B) を挿入して mention 文字列を壊す
  * - `<@123>` / `<@!123>` / `<@&123>` (user/role) / `<#123>` (channel) mention は `<` 直後に同様
  *
- * 文字は削除せず可視内容は保持する (運用者が原文を読めるよう、無害化のみ行う)。
+ * 文字は削除せず可視内容は保持する。email 等の正当な `@here`/`@everyone` 部分文字列を含む値
+ * (`foo@here.com`) には適用しない (ZWSP 混入でコピペが壊れるため、#3388)。
  */
 export function sanitizeDiscordText(text: string): string {
 	return text.replace(/@(everyone|here)/gi, '@​$1').replace(/<(@!?&?|#)(\d+)>/g, '<​$1$2>');
@@ -59,6 +60,10 @@ export async function notifyDiscord(channel: DiscordChannel, embed: DiscordEmbed
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				embeds: [{ ...embed, timestamp: embed.timestamp ?? new Date().toISOString() }],
+				// #3388: allowed_mentions parse:[] で全 channel/field の @everyone/@here/role/user
+				// mention の ping を Discord 公式機構で構造的に無効化する (単一点防御)。これにより
+				// embed 内のユーザー自由記述が ping を発火させない。表示はそのまま (無害)、ping のみ抑止。
+				allowed_mentions: { parse: [] },
 			}),
 		});
 
@@ -243,8 +248,10 @@ export async function notifyInquiry(
 		other: 'その他',
 	};
 
-	// #3211: ユーザー自由記述 (text=本文、childAge を含む / replyEmail / email) は
-	// mention 構文を中和してから embed に載せる (PII 自由記述の webhook 素通り抑止 + 誤 ping 防止)。
+	// #3388: ping の構造的無効化は notifyDiscord の allowed_mentions:{parse:[]} が担う (単一点防御)。
+	// 本文 (text、childAge を含む自由記述) は表示上のノイズ低減と二重防御で ZWSP 中和を継続する。
+	// email / replyEmail は ZWSP 中和しない: `foo@here.com` 等 mention 語を含む正当アドレスが破損し
+	// コピペ返信が壊れるため (#3211 回帰)。ping は allowed_mentions で既に無効化済で中和不要。
 	await notifyDiscord('inquiry', {
 		title: `📬 ${categoryLabel[category] ?? category}${inquiryId ? ` (${inquiryId})` : ''}`,
 		description: sanitizeDiscordText(text.slice(0, 2000)),
@@ -252,10 +259,10 @@ export async function notifyInquiry(
 		fields: [
 			...(inquiryId ? [{ name: '受付番号', value: inquiryId, inline: true }] : []),
 			{ name: 'テナント', value: tenantId, inline: true },
-			{ name: '送信者', value: sanitizeDiscordText(email), inline: true },
+			{ name: '送信者', value: email, inline: true },
 			{
 				name: '返信先',
-				value: replyEmail ? sanitizeDiscordText(replyEmail) : 'なし',
+				value: replyEmail || 'なし',
 				inline: true,
 			},
 		],

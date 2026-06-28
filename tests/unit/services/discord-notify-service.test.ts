@@ -82,6 +82,12 @@ describe('discord-notify-service', () => {
 			expect(body.embeds[0].timestamp).toBeDefined();
 		});
 
+		it('#3388: 全 payload に allowed_mentions:{parse:[]} を含み ping を構造的に無効化する', async () => {
+			await notifyDiscord('inquiry', { title: 'mention テスト', color: 0 });
+			const body = getLastBody();
+			expect(body.allowed_mentions).toEqual({ parse: [] });
+		});
+
 		it('inquiry チャネルは FEEDBACK_DISCORD_WEBHOOK_URL にフォールバックする', async () => {
 			await notifyDiscord('inquiry', {
 				title: '問い合わせテスト',
@@ -223,6 +229,17 @@ describe('discord-notify-service', () => {
 			expect(desc).not.toMatch(/<@&999>/);
 			expect(desc).toContain('everyone'); // zero-width space 挿入で文字自体は保持
 			expect(desc).toContain('見てください');
+		});
+
+		it('#3388: email/返信先は ZWSP 中和せず原文のまま (foo@here.com 破損回帰の防止)', async () => {
+			await notifyInquiry('tenant-1', 'other', '本文', 'parent@here.com', 'reply@everyone.org');
+			const body = getLastBody();
+			const fields = body.embeds[0].fields as Array<{ name: string; value: string }>;
+			const sender = fields.find((f) => f.name === '送信者')?.value;
+			const reply = fields.find((f) => f.name === '返信先')?.value;
+			// ZWSP が混入せず原文一致 (コピペ返信が壊れない)。ping は allowed_mentions で無効化済。
+			expect(sender).toBe('parent@here.com');
+			expect(reply).toBe('reply@everyone.org');
 		});
 	});
 
