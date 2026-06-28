@@ -16,6 +16,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mocks (top-level)
 const mockFetchCloudExport = vi.fn();
+// #3376: fetchCloudExportByPin は { record, bytes } を返すようになったため、
+// テスト fixture も JSON を Uint8Array (bytes) に encode して与える。
+const enc = (s: string) => new TextEncoder().encode(s);
 const mockFindAllChildren = vi.fn();
 const mockFindActivitiesByChild = vi.fn();
 const mockInsertActivitiesBulk = vi.fn();
@@ -119,7 +122,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(payload),
+				bytes: enc(JSON.stringify(payload)),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'preview'));
@@ -144,7 +147,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('execute は targetChildIds 必須 (未指定で VALIDATION_ERROR)', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }])),
+				bytes: enc(JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }]))),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'execute'));
@@ -157,7 +160,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('execute は cross-tenant child id を拒否する (CWE-639)', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }])),
+				bytes: enc(JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }]))),
 			});
 
 			const res = await POST(
@@ -176,7 +179,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(payload),
+				bytes: enc(JSON.stringify(payload)),
 			});
 
 			const res = await POST(
@@ -199,7 +202,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			const payload = templateV2Payload([{ childId: 99, names: ['はしる', 'よむ', 'はみがき'] }]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(payload),
+				bytes: enc(JSON.stringify(payload)),
 			});
 			// child=10 には既に「はしる」がある
 			mockFindActivitiesByChild.mockImplementation(async (childId: number) =>
@@ -224,7 +227,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(payload),
+				bytes: enc(JSON.stringify(payload)),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123', targetChildIds: [10] }, 'execute'));
@@ -242,12 +245,14 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('旧 version 1.0.0 (family-wide shape) は拒否される', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify({
-					format: 'ganbari-quest-template',
-					version: '1.0.0',
-					activities: [{ name: 'old' }],
-					checklistTemplates: [],
-				}),
+				bytes: enc(
+					JSON.stringify({
+						format: 'ganbari-quest-template',
+						version: '1.0.0',
+						activities: [{ name: 'old' }],
+						checklistTemplates: [],
+					}),
+				),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'preview'));
@@ -259,12 +264,14 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('format 不正は拒否される', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify({
-					format: 'unknown',
-					version: '2.0.0',
-					activitiesByChild: [],
-					checklistTemplates: [],
-				}),
+				bytes: enc(
+					JSON.stringify({
+						format: 'unknown',
+						version: '2.0.0',
+						activitiesByChild: [],
+						checklistTemplates: [],
+					}),
+				),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'preview'));
