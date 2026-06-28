@@ -13,6 +13,7 @@ import {
 } from '$lib/server/db/push-subscription-repo';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
+import { validatePushEndpoint } from '$lib/server/services/push-endpoint-validation';
 
 // ============================================================
 // 型定義
@@ -201,11 +202,26 @@ export async function sendPushNotification(
 		return { sent: 0, failed: 0 };
 	}
 
+	// #3404 (#3188 follow-up): 送信直前にも endpoint host を再検証する SSRF defense-in-depth。
+	// subscribe API (#3188) で検証済だが、過去レコード混入 / repo 直 insert / 将来 bulk import 経路で
+	// allowlist 外 endpoint が DB に入ると、send (webpush.sendNotification) が実際の HTTP request を
+	// 出す sink となり SSRF (CWE-918) が成立する。送信側でも allowlist 外を skip して single-point を塞ぐ。
+	const validSubscriptions = subscriptions.filter((sub) => {
+		if (validatePushEndpoint(sub.endpoint).ok) return true;
+		logger.warn('[notification] allowlist 外 endpoint への送信を skip (SSRF defense-in-depth)', {
+			context: { tenantId, endpoint: sub.endpoint, notificationType },
+		});
+		return false;
+	});
+	if (validSubscriptions.length === 0) {
+		return { sent: 0, failed: 0 };
+	}
+
 	const payload = JSON.stringify({ title, body, data: { ...data, type: notificationType } });
 	let sent = 0;
 	let failed = 0;
 
-	for (const sub of subscriptions) {
+	for (const sub of validSubscriptions) {
 		try {
 			await webpush.sendNotification(
 				{

@@ -83,6 +83,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		return json({ success: true });
 	} catch (err) {
-		return json({ error: String(err) }, { status: 500 });
+		// #3404 (ADR-0062): 内部例外を client へ露出しない。詳細は server log のみに残し、
+		// client には汎用 message を返す (info-disclosure 防止)。
+		logger.error('[notifications/subscribe] subscribe 失敗', {
+			context: { tenantId: context.tenantId },
+			error: err instanceof Error ? err.message : String(err),
+		});
+		return json({ error: 'Subscription failed' }, { status: 500 });
 	}
 };
