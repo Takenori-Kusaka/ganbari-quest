@@ -56,10 +56,11 @@ describe('buildBackupManifest (#3375)', () => {
 			'data.json',
 			'voices/2/b.bin',
 		]);
-		expect(manifest.files['avatars/1/a.png'].bytes).toBe(7);
-		expect(manifest.files['avatars/1/a.png'].sha256).toBe(
-			await sha256Hex(files['avatars/1/a.png']),
-		);
+		const avatarBytes = files['avatars/1/a.png'];
+		expect(avatarBytes).toBeDefined();
+		const avatarEntry = manifest.files['avatars/1/a.png'];
+		expect(avatarEntry?.bytes).toBe(7);
+		expect(avatarEntry?.sha256).toBe(await sha256Hex(avatarBytes as Uint8Array));
 	});
 });
 
@@ -139,7 +140,9 @@ describe('ZIP round-trip 統合 (#3375)', () => {
 		const zip = zipSync(zippable);
 
 		const entries = unzipSync(zip);
-		const parsed = parseBackupManifest(entries[BACKUP_MANIFEST_FILENAME]);
+		const manifestEntry = entries[BACKUP_MANIFEST_FILENAME];
+		expect(manifestEntry).toBeDefined();
+		const parsed = parseBackupManifest(manifestEntry as Uint8Array);
 		expect(parsed).not.toBeNull();
 		const entriesForVerify: Record<string, Uint8Array> = {};
 		for (const [p, b] of Object.entries(entries)) {
