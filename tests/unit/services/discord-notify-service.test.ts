@@ -30,6 +30,7 @@ import {
 	notifyIncident,
 	notifyInquiry,
 	notifyNewSignup,
+	sanitizeDiscordText,
 } from '$lib/server/services/discord-notify-service';
 
 describe('discord-notify-service', () => {
@@ -203,6 +204,48 @@ describe('discord-notify-service', () => {
 				expect.arrayContaining([
 					expect.objectContaining({ name: '返信先', value: 'reply@test.com' }),
 				]),
+			);
+		});
+
+		// #3211: ユーザー自由記述の mention 構文中和 (PII 自由記述の webhook 素通り抑止 + 誤 ping 防止)
+		it('本文の @everyone / @here / role mention を中和して embed に載せる', async () => {
+			await notifyInquiry(
+				'tenant-1',
+				'other',
+				'緊急 @everyone @here <@&999> 見てください',
+				'user@test.com',
+			);
+			const body = getLastBody();
+			const desc = body.embeds[0].description as string;
+			// 可視内容は保持しつつ mention 構文を壊す (素の @everyone / role mention は残らない)
+			expect(desc).not.toMatch(/@everyone/);
+			expect(desc).not.toMatch(/@here/);
+			expect(desc).not.toMatch(/<@&999>/);
+			expect(desc).toContain('everyone'); // zero-width space 挿入で文字自体は保持
+			expect(desc).toContain('見てください');
+		});
+	});
+
+	describe('sanitizeDiscordText (#3211)', () => {
+		it('@everyone / @here を中和する (文字は保持、mention は壊す)', () => {
+			const out = sanitizeDiscordText('@everyone and @here');
+			expect(out).not.toMatch(/@everyone/);
+			expect(out).not.toMatch(/@here/);
+			expect(out).toContain('everyone');
+			expect(out).toContain('here');
+		});
+
+		it('user / role / channel mention (<@123> / <@&123> / <#123>) を中和する', () => {
+			const out = sanitizeDiscordText('<@123> <@!456> <@&789> <#321>');
+			expect(out).not.toMatch(/<@123>/);
+			expect(out).not.toMatch(/<@!456>/);
+			expect(out).not.toMatch(/<@&789>/);
+			expect(out).not.toMatch(/<#321>/);
+		});
+
+		it('mention を含まない通常文はそのまま (誤変換しない)', () => {
+			expect(sanitizeDiscordText('普通の問い合わせ user@example.com')).toBe(
+				'普通の問い合わせ user@example.com',
 			);
 		});
 	});
