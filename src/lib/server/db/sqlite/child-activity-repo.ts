@@ -117,6 +117,11 @@ export async function insertActivity(
 			isMainQuest: input.isMainQuest ?? 0,
 			sourcePresetId: input.sourcePresetId ?? null,
 			priority: input.priority ?? 'optional',
+			// #3358: round-trip 復元時の表示状態 / 並び順 / アーカイブ状態を保全
+			isVisible: input.isVisible ?? 1,
+			sortOrder: input.sortOrder ?? 0,
+			isArchived: input.isArchived ?? 0,
+			archivedReason: (input.archivedReason ?? null) as ArchivedReason | null,
 		})
 		.returning()
 		.get();
