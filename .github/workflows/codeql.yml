@@ -2,7 +2,10 @@ name: "CodeQL"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # #3128: PR lane の重複 run のみ cancel する。main push では group key が github.ref に
+  # fallback し batch-merge 連続時に旧 main-push scan が cancel され per-commit scan が
+  # 欠落するため、pull_request イベント時のみ cancel して main commit の独立 scan を保全する。
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
