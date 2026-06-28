@@ -5,7 +5,52 @@ export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #1254 G1: 1.2.0 で `sourcePresetId` フィールドを追加 (activities / specialRewards / checklistTemplates)
 // #3106 / #3107: 1.3.0 で checklist の `exportId` / `isArchived` / log `templateExportId` を追加
 //   (archive 済 template の log 保全 + 同名 template の round-trip 取り違え防止)。いずれも optional で後方互換。
-export const EXPORT_VERSION = '1.3.0' as const;
+// #3329: 1.4.0 で `data.settings` (各種設定 KVS の allowlist) を追加。optional で後方互換。
+export const EXPORT_VERSION = '1.4.0' as const;
+
+// ============================================================
+// #3329: backup 可能な設定キーの allowlist (default-deny セキュリティ設計、D3)
+// ============================================================
+// settings は任意キーの KVS。backup に「全キー」を載せると pin_hash (bcrypt の おやカギコード) /
+// session_token / lockout 状態 等の認証情報・秘匿状態が平文 ZIP に漏れる (CWE-522 平文認証情報 /
+// CWE-916 不十分なハッシュ保護 = bcrypt hash の offline crack 露出)。
+// そこで「載せてよいキーだけを明示列挙する default-deny allowlist」を採用する。新キー追加時は
+// デフォルト除外 = 安全側に倒れ、ユーザー設定として保全したい場合のみ意図的に本列挙へ足す。
+//
+// 意図的除外 (本 allowlist に**載せない**もの):
+//   - 認証/秘匿 (CWE-522/916): pin_hash / pin_locked_until / pin_failed_attempts / pin_reset_applied /
+//     session_token / session_expires_at
+//   - 課金/アカウントライフサイクル (環境間で移送すべきでない状態): deletion_grace_plan_tier /
+//     physical_deletion_date / soft_deleted_at / premium_welcome_shown / trial_expiration_modal_shown /
+//     dormant_reactivation_sent / marketing_unsubscribed_at
+// import 側でも本 allowlist で再 filter する (改竄/旧 backup に pin_hash が混在しても書き戻さない多層防御)。
+export const EXPORTABLE_SETTING_KEYS = [
+	'decay_intensity',
+	'notification_achievements_enabled',
+	'notification_quiet_end',
+	'notification_quiet_start',
+	'notification_reminder_time',
+	'notification_reminders_enabled',
+	'notification_streak_enabled',
+	'pin_gate_onboarding_seen',
+	'point_currency',
+	'point_rate',
+	'point_unit_mode',
+	'questionnaire_activity_level',
+	'questionnaire_challenges',
+	'reward_auto_approve',
+	'sibling_ranking_enabled',
+	'tutorial_banner_dismissed',
+	'tutorial_completed_at',
+	'tutorial_started_at',
+	'weekly_report_day',
+	'weekly_report_enabled',
+] as const;
+
+/** #3329: 設定キーが backup allowlist に含まれるか (export/import 双方の filter に使う SSOT)。 */
+export function isExportableSettingKey(key: string): boolean {
+	return (EXPORTABLE_SETTING_KEYS as readonly string[]).includes(key);
+}
 
 // ============================================================
 // マスタデータ型
@@ -191,6 +236,11 @@ export interface ExportRewardRedemption {
 	rewardIcon: string | null;
 }
 
+export interface ExportSetting {
+	key: string;
+	value: string;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -267,6 +317,8 @@ export interface ExportTransactionData {
 	checklistLogs: ExportChecklistLog[];
 	childAvatarItems: never[];
 	dailyMissions: ExportDailyMission[];
+	/** #3329: 各種設定 (tenant-scoped KVS、allowlist 済キーのみ。pin_hash 等の秘匿キーは除外) */
+	settings: ExportSetting[];
 }
 
 export interface ExportData {

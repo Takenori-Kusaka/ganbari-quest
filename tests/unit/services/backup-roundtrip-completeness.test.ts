@@ -51,6 +51,7 @@ import {
 	insertRedemptionRequest,
 	updateRedemptionRequestStatus,
 } from '../../../src/lib/server/db/reward-redemption-repo';
+import { getSetting, setSetting } from '../../../src/lib/server/db/settings-repo';
 import {
 	findSpecialRewards,
 	insertSpecialReward,
@@ -154,6 +155,11 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			T,
 		);
 
+		// #3329: 設定 KVS。allowlist キー (point_unit_mode) + 秘匿キー (pin_hash) を seed し、
+		// 秘匿キーが export に載らない (default-deny) こと + allowlist キーが round-trip することを検証。
+		await setSetting('point_unit_mode', 'custom', T);
+		await setSetting('pin_hash', '$2b$10$fake.hash.not.restored', T);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -164,6 +170,10 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(data.data.specialRewards.length, 'export:ごほうび').toBe(1);
 		expect(data.data.rewardRedemptions.length, 'export:交換履歴').toBe(1);
 		expect(data.data.rewardRedemptions[0]?.status, 'export:交換履歴 status').toBe('approved');
+		// #3329: 設定 export — allowlist キーは含み、秘匿キーは構造的に除外 (CWE-522/916)。
+		const settingKeys = data.data.settings.map((s) => s.key);
+		expect(settingKeys, 'export:設定 allowlist 含む').toContain('point_unit_mode');
+		expect(settingKeys, 'export:設定 pin_hash 除外').not.toContain('pin_hash');
 
 		// --- replace = clear → import ---
 		await clearAllFamilyData(T);
@@ -194,5 +204,9 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredRedemptions.length, '交換履歴').toBe(1);
 		expect(restoredRedemptions[0]?.status, '交換履歴 status 保全').toBe('approved');
 		expect(restoredRedemptions[0]?.rewardTitle, '交換履歴 snapshot 保全').toBe('ごほうびX');
+
+		// #3329: 設定の round-trip — allowlist キーは復元、秘匿キーは clear 後も復元されない。
+		expect(await getSetting('point_unit_mode', T), '設定 round-trip').toBe('custom');
+		expect(await getSetting('pin_hash', T), '秘匿キー非復元').toBeUndefined();
 	});
 });

@@ -1,7 +1,12 @@
 // src/lib/server/services/import-service.ts
 // 家族データインポートサービス（Phase 2 / #1254）
 
-import { EXPORT_FORMAT, EXPORT_VERSION, type ExportData } from '$lib/domain/export-format';
+import {
+	EXPORT_FORMAT,
+	EXPORT_VERSION,
+	type ExportData,
+	isExportableSettingKey,
+} from '$lib/domain/export-format';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import {
@@ -24,6 +29,7 @@ import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
 import { insertRedemptionForRestore } from '$lib/server/db/reward-redemption-repo';
+import { setSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
@@ -64,6 +70,9 @@ export interface ImportResult {
 	/** #3078: チェックリスト完了履歴 */
 	checklistLogsImported: number;
 	checklistLogsSkipped: number;
+	/** #3329: 各種設定 (allowlist 済キーのみ取込)。skip = allowlist 外で書き戻し拒否したキー */
+	settingsImported: number;
+	settingsSkipped: number;
 	/** #3077: ZIP 同梱の静的ファイル (アバター画像 / 音声) の復元件数 */
 	staticFilesRestored: number;
 	staticFilesSkipped: number;
@@ -126,7 +135,7 @@ export function validateExportData(
 	}
 	// #3106/#3107: EXPORT_VERSION を 1.3.0 に bump したが、既存 1.2.0 backup も import 可能に保つ
 	// (新 field はすべて optional で後方互換)。
-	const supportedVersions = [EXPORT_VERSION, '1.2.0', '1.1.0', '1.0.0'];
+	const supportedVersions = [EXPORT_VERSION, '1.3.0', '1.2.0', '1.1.0', '1.0.0'];
 	if (!supportedVersions.includes(d.version as string)) {
 		return {
 			valid: false,
@@ -267,6 +276,8 @@ export async function importFamilyData(
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
+	// #3329: 各種設定 (tenant-scoped KVS)。allowlist 再 filter で秘匿キーを書き戻さない多層防御。
+	await importSettingsData(data, tenantId, result);
 
 	// #3077: ZIP 同梱の静的ファイル (アバター画像 / 音声) を新 childId に再マップして復元。
 	if (staticFiles && Object.keys(staticFiles).length > 0) {
@@ -384,6 +395,34 @@ async function importRewardRedemptionsData(
 	}
 }
 
+/**
+ * 各種設定 (tenant-scoped KVS) を復元する (#3329)。
+ * export 側で allowlist (EXPORTABLE_SETTING_KEYS) 済だが、import でも `isExportableSettingKey` で
+ * **再 filter** する (改竄 backup / 旧 backup に pin_hash・session_token 等が混在しても書き戻さない
+ * 多層防御、CWE-522/916・設計 D3)。allowlist 外キーは settingsSkipped として可視化する。
+ */
+async function importSettingsData(
+	data: ExportData,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const s of data.data.settings ?? []) {
+		if (!isExportableSettingKey(s.key)) {
+			// 秘匿 / 非 allowlist キーは書き戻さない (多層防御)。
+			result.settingsSkipped++;
+			result.warnings.push(`設定「${s.key}」は backup 対象外のためスキップしました`);
+			continue;
+		}
+		try {
+			await setSetting(s.key, s.value, tenantId);
+			result.settingsImported++;
+		} catch (e) {
+			result.settingsSkipped++;
+			result.errors.push(`設定「${s.key}」の取込に失敗: ${String(e)}`);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -407,6 +446,8 @@ function createEmptyImportResult(): ImportResult {
 		evaluationsSkipped: 0,
 		checklistLogsImported: 0,
 		checklistLogsSkipped: 0,
+		settingsImported: 0,
+		settingsSkipped: 0,
 		staticFilesRestored: 0,
 		staticFilesSkipped: 0,
 		skipped: { preset: 0, name: 0, constraint: 0 },
