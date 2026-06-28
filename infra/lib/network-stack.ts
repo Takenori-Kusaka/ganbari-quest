@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
@@ -24,6 +25,18 @@ export interface NetworkStackProps extends cdk.StackProps {
 	//   - apex 専用証明書の場合は demo 専用証明書 ARN を新規発行して渡す
 	//   - 未指定 (undefined) の場合は本番 `certificateArn` を fallback する
 	demoCertificateArn?: string;
+	// --- #3087 解決策 B: /_app/immutable/* の S3 origin offload ---
+	// true の場合、SvelteKit の content-hash 済 immutable 静的アセット (/_app/immutable/*) を
+	// Lambda(Function URL) ではなく S3 (OAC) から配信する。Lambda は HTML/API/動的のみ担う。
+	// false (default) の場合は従来どおり Origin Shield 経由の Lambda origin が /_app/* 全体を
+	// 配信する (#3087 解決策 A)。本番 template 不変条件 = flag OFF で従来構成と byte 一致。
+	staticAssetsS3Offload?: boolean;
+	// staticAssetsS3Offload=true 時に必須。`_app/immutable/` を含むディレクトリ
+	// (= SvelteKit build 出力 `build/client` 相当)。deploy.yml が deploy 済 Docker image から
+	// `docker cp /app/client` で抽出し `infra/static-assets` に配置する (Lambda が配信するのと
+	// 同一 build artifact = content-hash 完全一致を構造的に保証)。未配置のまま flag ON だと
+	// throw する (ADR-0006 silent skip 禁止)。
+	staticAssetsSourceDir?: string;
 }
 
 export class NetworkStack extends cdk.Stack {
@@ -152,6 +165,91 @@ function handler(event) {
 			originShieldRegion: 'us-east-1',
 		});
 
+		// 静的アセット用 cache policy (365 日 immutable)。/_app/* (shield lambda) と
+		// /_app/immutable/* (S3 offload 時) で共有する。
+		const staticAssetsCachePolicy = new cloudfront.CachePolicy(this, 'StaticAssetsCachePolicy', {
+			cachePolicyName: 'GanbariQuestStaticAssets',
+			defaultTtl: cdk.Duration.days(365),
+			maxTtl: cdk.Duration.days(365),
+			minTtl: cdk.Duration.days(1),
+			enableAcceptEncodingGzip: true,
+			enableAcceptEncodingBrotli: true,
+		});
+
+		// --- #3087 解決策 B: /_app/immutable/* を S3 (OAC) から配信する ---
+		// adapter-node の build 済 client immutable アセット (content-hash 付き) を S3 に upload し、
+		// /_app/immutable/* behavior の origin を S3 (OAC) にする。Lambda は HTML/API のみ担うため
+		// cold-miss burst でも Lambda を 0 本直撃 = TooManyRequestsException (429) が構造的に消滅する。
+		// flag OFF (default) の場合は何も生成せず従来構成 (Lambda + Origin Shield が /_app/* 全体配信)
+		// を維持する (本番 template 不変条件)。
+		// 宣言順注意: behavior は /error/* → /_app/immutable/* → /_app/* の順に宣言し、既存
+		// s3ErrorOrigin を origin index 2 に preempt し続ける (OAC 論理 ID churn = CloudFront
+		// replacement を防ぐ、#3102 / ADR-0019)。
+		let prodImmutableS3Origin: cloudfront.IOrigin | undefined;
+		let demoImmutableS3Origin: cloudfront.IOrigin | undefined;
+		if (props.staticAssetsS3Offload) {
+			const srcDir = props.staticAssetsSourceDir;
+			const immutableDir = srcDir ? path.join(srcDir, '_app', 'immutable') : undefined;
+			if (!immutableDir || !fs.existsSync(immutableDir)) {
+				// ADR-0006: silent skip 禁止。flag ON で asset 不在は build / 抽出漏れの hard error。
+				throw new Error(
+					`[network-stack] staticAssetsS3Offload=true requires SvelteKit immutable assets at ${immutableDir ?? '<staticAssetsSourceDir unset>'}. ` +
+						'Run `npm run build` and extract `build/client` (deploy.yml: docker cp <image>:/app/client) into the source dir before synth (#3087 / ADR-0006).',
+				);
+			}
+
+			// network-local bucket (cross-stack cycle 回避、errorPagesBucket と同方針)。
+			// immutable 静的アセット専用。各 deploy で再 upload されるため DESTROY + autoDelete で良い。
+			const staticAssetsBucket = new s3.Bucket(this, 'StaticAssetsBucket', {
+				bucketName: `ganbari-quest-static-assets-${this.account}`,
+				removalPolicy: cdk.RemovalPolicy.DESTROY,
+				autoDeleteObjects: true,
+				blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+				encryption: s3.BucketEncryption.S3_MANAGED,
+			});
+
+			// content-hash 付きで immutable。prune:false で旧 hash を残し、deploy window 中に
+			// 旧 HTML (Lambda 由来) が参照する旧 chunk が 403 にならないようにする。
+			new s3deploy.BucketDeployment(this, 'StaticAssetsDeploy', {
+				sources: [s3deploy.Source.asset(immutableDir)],
+				destinationBucket: staticAssetsBucket,
+				destinationKeyPrefix: '_app/immutable',
+				prune: false,
+				cacheControl: [s3deploy.CacheControl.fromString('public, max-age=31536000, immutable')],
+			});
+
+			// 本番 / demo は同一 Docker image (= 同一 build) の immutable アセットを配信するため
+			// 1 つの bucket を共有する。distribution ごとに OAC + bucket policy が必要なため origin は
+			// それぞれ生成する (同一 bucket を参照)。
+			prodImmutableS3Origin = origins.S3BucketOrigin.withOriginAccessControl(staticAssetsBucket);
+			demoImmutableS3Origin = origins.S3BucketOrigin.withOriginAccessControl(staticAssetsBucket);
+		}
+
+		// 本番 distribution の additionalBehaviors を宣言順 (origin index) に組み立てる。
+		const prodAdditionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {
+			// #3087: /error/* を最初に宣言し s3ErrorOrigin を origin index 2 に固定する。
+			'/error/*': {
+				origin: s3ErrorOrigin,
+				viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+				cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+			},
+		};
+		if (prodImmutableS3Origin) {
+			// /_app/immutable/* は /_app/* より specific なため CloudFront が優先 match する。
+			prodAdditionalBehaviors['/_app/immutable/*'] = {
+				origin: prodImmutableS3Origin,
+				viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+				cachePolicy: staticAssetsCachePolicy,
+			};
+		}
+		// /_app/* (version.json 等 non-immutable / offload OFF 時は immutable も含む) は引き続き
+		// Lambda + Origin Shield。offload ON でも /_app/version.json (no-cache、burst しない) はここ。
+		prodAdditionalBehaviors['/_app/*'] = {
+			origin: staticAssetOrigin,
+			viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+			cachePolicy: staticAssetsCachePolicy,
+		};
+
 		this.distribution = new cloudfront.Distribution(this, 'CDN', {
 			comment: 'Ganbari Quest',
 			defaultBehavior: {
@@ -168,31 +266,7 @@ function handler(event) {
 					},
 				],
 			},
-			additionalBehaviors: {
-				// #3087: /error/* を /_app/* より先に宣言する。CDK は behavior の宣言順に origin
-				// index (CDNOrigin2/3...) を採番するため、既存 s3ErrorOrigin の index を 2 のまま
-				// 維持し、新規追加する staticAssetOrigin を末尾 (index 3) に置く。これにより既存
-				// error origin の OriginAccessControl 論理 ID が変わらず、cdk diff の不要な
-				// destroy/recreate (ADR-0019 gate ノイズ) を避ける。path pattern は非重複のため
-				// 宣言順は CloudFront のマッチング結果に影響しない。
-				'/error/*': {
-					origin: s3ErrorOrigin,
-					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-					cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-				},
-				'/_app/*': {
-					origin: staticAssetOrigin,
-					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-					cachePolicy: new cloudfront.CachePolicy(this, 'StaticAssetsCachePolicy', {
-						cachePolicyName: 'GanbariQuestStaticAssets',
-						defaultTtl: cdk.Duration.days(365),
-						maxTtl: cdk.Duration.days(365),
-						minTtl: cdk.Duration.days(1),
-						enableAcceptEncodingGzip: true,
-						enableAcceptEncodingBrotli: true,
-					}),
-				},
-			},
+			additionalBehaviors: prodAdditionalBehaviors,
 			errorResponses: [
 				{
 					httpStatus: 500,
@@ -347,6 +421,35 @@ function handler(event) {
 				originShieldRegion: 'us-east-1',
 			});
 
+			const demoStaticAssetsCachePolicy = new cloudfront.CachePolicy(
+				this,
+				'DemoStaticAssetsCachePolicy',
+				{
+					cachePolicyName: 'GanbariQuestDemoStaticAssets',
+					defaultTtl: cdk.Duration.days(365),
+					maxTtl: cdk.Duration.days(365),
+					minTtl: cdk.Duration.days(1),
+					enableAcceptEncodingGzip: true,
+					enableAcceptEncodingBrotli: true,
+				},
+			);
+
+			// #3087 解決策 B (本番と同型): /_app/immutable/* を S3 (OAC) から配信。
+			// 宣言順 /_app/immutable/* → /_app/* で immutable S3 origin を先に採番する。
+			const demoAdditionalBehaviors: Record<string, cloudfront.BehaviorOptions> = {};
+			if (demoImmutableS3Origin) {
+				demoAdditionalBehaviors['/_app/immutable/*'] = {
+					origin: demoImmutableS3Origin,
+					viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+					cachePolicy: demoStaticAssetsCachePolicy,
+				};
+			}
+			demoAdditionalBehaviors['/_app/*'] = {
+				origin: demoStaticAssetOrigin,
+				viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+				cachePolicy: demoStaticAssetsCachePolicy,
+			};
+
 			// demo 用 CloudFront Function: query slash encode のみ (admin IP 制限なし)。
 			const demoQueryFixFn = new cloudfront.Function(this, 'DemoQuerySlashEncodeFn', {
 				functionName: 'ganbari-quest-demo-query-slash-encode',
@@ -382,20 +485,7 @@ function handler(event) {
 						},
 					],
 				},
-				additionalBehaviors: {
-					'/_app/*': {
-						origin: demoStaticAssetOrigin,
-						viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-						cachePolicy: new cloudfront.CachePolicy(this, 'DemoStaticAssetsCachePolicy', {
-							cachePolicyName: 'GanbariQuestDemoStaticAssets',
-							defaultTtl: cdk.Duration.days(365),
-							maxTtl: cdk.Duration.days(365),
-							minTtl: cdk.Duration.days(1),
-							enableAcceptEncodingGzip: true,
-							enableAcceptEncodingBrotli: true,
-						}),
-					},
-				},
+				additionalBehaviors: demoAdditionalBehaviors,
 				...(demoCertificate
 					? {
 							domainNames: [demoDomainName],

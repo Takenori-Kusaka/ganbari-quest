@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as path from 'node:path';
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { AuthStack } from '../lib/auth-stack';
@@ -29,6 +30,15 @@ const certificateArn = app.node.tryGetContext('certificateArn') as string | unde
 // PR body の "cert situation" として、本番 certificateArn が wildcard か apex 専用か明記する。
 const demoDomainName = app.node.tryGetContext('demoDomainName') as string | undefined;
 const demoCertificateArn = app.node.tryGetContext('demoCertificateArn') as string | undefined;
+
+// --- #3087 解決策 B: /_app/immutable/* の S3 origin offload ---
+// `-c staticAssetsS3Offload=true` 指定時のみ有効。deploy.yml が deploy 済 Docker image から
+// `docker cp /app/client` で抽出した build artifact を `infra/static-assets` に配置する。
+// flag 未指定 (default) では従来構成 (Origin Shield 経由 Lambda、#3087 解決策 A) を維持する。
+const staticAssetsS3Offload = String(app.node.tryGetContext('staticAssetsS3Offload')) === 'true';
+const staticAssetsSourceDir = staticAssetsS3Offload
+	? path.join(__dirname, '..', 'static-assets')
+	: undefined;
 
 const storage = new StorageStack(app, `${appName}Storage`, {
 	env,
@@ -67,6 +77,9 @@ const network = new NetworkStack(app, `${appName}Network`, {
 	demoFunctionUrl: compute.demoFunctionUrl,
 	demoDomainName,
 	demoCertificateArn,
+	// #3087 解決策 B
+	staticAssetsS3Offload,
+	staticAssetsSourceDir,
 });
 
 // SES Stack: メール送信基盤 + 受信パイプライン（support@ganbari-quest.com）
