@@ -82,6 +82,23 @@ function cleanupSqliteFiles(basePath) {
 		db.exec('CREATE TABLE smoke (id INTEGER PRIMARY KEY, name TEXT)');
 		db.prepare('INSERT INTO smoke (name) VALUES (?)').run('がんばり');
 		const row = db.prepare('SELECT name FROM smoke WHERE id = 1').get();
+
+		// #3202 fidelity: 実 getOrInitDb (client.ts:149 `_db = drizzle(sqlite, { schema })`) は
+		// raw better-sqlite3 ではなく Drizzle ORM 経由で全クエリを発行する。Drizzle は
+		// JS-thin wrapper だが native binding への値 marshalling 層を持つため、同一 file+WAL
+		// handle を Drizzle で wrap して round-trip し、prod の実経路 (Drizzle → native) を
+		// smoke でも exercise する (raw pragma/CRUD だけでなく ORM 層も native surface に通す)。
+		const { drizzle } = await import('drizzle-orm/better-sqlite3');
+		const { sql } = await import('drizzle-orm');
+		const orm = drizzle(db);
+		orm.run(sql`INSERT INTO smoke (name) VALUES (${'クエスト'})`);
+		const ormRow = /** @type {{ name?: string } | undefined} */ (
+			orm.get(sql`SELECT name FROM smoke WHERE id = 2`)
+		);
+		if (ormRow?.name !== 'クエスト') {
+			throw new Error(`Drizzle round-trip 異常: ${JSON.stringify(ormRow)}`);
+		}
+
 		// WAL checkpoint を強制し -wal の page を本体へ書き戻す (mmap write 経路も exercise)
 		db.pragma('wal_checkpoint(TRUNCATE)');
 		db.close();
@@ -90,7 +107,10 @@ function cleanupSqliteFiles(basePath) {
 
 		const ver = (await import('better-sqlite3/package.json', { with: { type: 'json' } })).default
 			.version;
-		ok('better-sqlite3', `v${ver} file+WAL load + CRUD 正常 (SIGSEGV なし) [${tempPath}]`);
+		ok(
+			'better-sqlite3',
+			`v${ver} file+WAL load + raw CRUD + Drizzle round-trip 正常 (SIGSEGV なし) [${tempPath}]`,
+		);
 	} catch (e) {
 		fail('better-sqlite3', e);
 	} finally {
@@ -132,9 +152,20 @@ try {
 }
 
 if (failures > 0) {
+	// #3202 DX: 失敗時に「次に何をすればいいか」を actionable に出す。
+	// 単に「pin/revert してください」では SSOT がどこか分からず復旧が遅れるため、
+	// pin SSOT (check-native-dep-pin.mjs) と dependabot ignore の両方を案内する。
 	console.error(
 		`\n[native-dep-smoke] FAIL — ${failures} 件の native module が load/操作に失敗。` +
-			`\nnative dep の ABI/バージョン不整合の疑い (#3190 SIGSEGV class)。bump を pin/revert してください。`,
+			`\nnative dep の ABI/バージョン不整合の疑い (#3190 SIGSEGV class)。` +
+			`\n\n対処手順:` +
+			`\n  1. 直近の dependabot bump (better-sqlite3 / bcrypt / sharp 等の native dep) を特定する。` +
+			`\n  2. 直前の安定版へ exact pin で戻す (package.json の caret を外し動作版へ固定)。` +
+			`\n     - better-sqlite3 の SIGSEGV-safe pin SSOT: scripts/check-native-dep-pin.mjs。` +
+			`\n       同 script の version を更新し package.json / package-lock.json と同期する。` +
+			`\n  3. 当該版を .github/dependabot.yml の ignore に追加し再提案を止める` +
+			`\n     (grouped update を使う場合は exclude-patterns にも追加、#3311 参照)。` +
+			`\n  4. npm install で lock を再生成し、本 smoke を再実行して緑を確認する。`,
 	);
 	process.exit(1);
 }
