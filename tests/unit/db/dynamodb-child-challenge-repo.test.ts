@@ -710,6 +710,113 @@ describe('#3258 auto:weekly 行の id 解決 (read/write 対称性)', () => {
 });
 
 // ============================================================
+// #3329 QM-fix: insertForRestore の dedup key 整合 (auto:weekly → AUTO# SK)
+// ============================================================
+//
+// backup restore で auto:weekly 行を regular SK (CHILDCHAL#<padId>) に書き戻すと、後続の
+// getOrCreateWeeklyAuto が AUTO# key を GetItem で dedup する経路で復元行を miss し 2 個目の
+// auto:weekly を生成する (週次チャレンジ重複)。SQLite SSOT は部分 unique index で復元行が
+// get-or-create 勝者になり重複しないため、DynamoDB でも復元行を dedup key (AUTO# SK) に置いて
+// 機能等価にする。本 block は read/write key 解決の対称性 (insertForRestore の Put SK ===
+// getOrCreateWeeklyAuto の GetItem SK) を回帰固定する。
+
+describe('#3329 insertForRestore dedup key 整合', () => {
+	const WEEK_START = '2026-06-01';
+	const AUTO_SK = `CHILDCHAL#AUTO#${WEEK_START}`;
+
+	function restoreInput(over: Record<string, unknown> = {}) {
+		return {
+			childId: CHILD_ID,
+			title: '復元チャレンジ',
+			description: null,
+			challengeType: 'cooperative',
+			periodType: 'weekly',
+			startDate: WEEK_START,
+			endDate: '2026-06-07',
+			targetConfig: '{"metric":"count","baseTarget":5}',
+			rewardConfig: '{"points":50}',
+			status: 'active',
+			isActive: 1,
+			sourceTemplateId: null,
+			currentValue: 0,
+			targetValue: 5,
+			completed: 0,
+			completedAt: null,
+			rewardClaimed: 0,
+			rewardClaimedAt: null,
+			createdAt: '2026-06-01T00:00:00.000Z',
+			updatedAt: '2026-06-01T00:00:00.000Z',
+			...over,
+		} as Parameters<Awaited<ReturnType<typeof loadRepo>>['insertForRestore']>[0];
+	}
+
+	it('auto:weekly 行は dedup SK (CHILDCHAL#AUTO#<weekStart>) に書き戻す', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Attributes: { counter: 201 } }) // nextId
+			.mockResolvedValueOnce({}); // Put
+		const { insertForRestore } = await loadRepo();
+		const result = await insertForRestore(
+			restoreInput({ sourceTemplateId: 'auto:weekly', currentValue: 4 }),
+			TENANT,
+		);
+		expect(result.id).toBe(201);
+		expect(result.currentValue).toBe(4);
+		const put = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
+		// regular SK (CHILDCHAL#<padId>) ではなく dedup SK に置く。
+		expect(put.input.Item?.SK).toBe(AUTO_SK);
+		expect(put.input.Item?.PK).toBe(`T#${TENANT}#CHILD#${CHILD_ID}`);
+		expect(put.input.Item?.sourceTemplateId).toBe('auto:weekly');
+		expect(put.input.Item?.currentValue).toBe(4);
+	});
+
+	it('regular 行 (auto:weekly 以外) は従来どおり CHILDCHAL#<padId> に書き戻す', async () => {
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 202 } }).mockResolvedValueOnce({});
+		const { insertForRestore } = await loadRepo();
+		await insertForRestore(restoreInput({ sourceTemplateId: null }), TENANT);
+		const put = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
+		expect(put.input.Item?.SK).toBe('CHILDCHAL#00000202');
+	});
+
+	it('復元後の getOrCreateWeeklyAuto(同一週) が復元行を dedup で拾い 2 個目を生成しない', async () => {
+		// 1) insertForRestore(auto:weekly) → AUTO# SK に Put
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 210 } }).mockResolvedValueOnce({});
+		const repo = await loadRepo();
+		await repo.insertForRestore(
+			restoreInput({ sourceTemplateId: 'auto:weekly', currentValue: 4 }),
+			TENANT,
+		);
+		const restorePut = mockSend.mock.calls[1]?.[0] as { input: { Item?: Record<string, unknown> } };
+		const restoreSK = restorePut.input.Item?.SK;
+
+		// 2) getOrCreateWeeklyAuto(同一 child, 同一 weekStart): fast-path GetItem が復元行に hit。
+		mockSend.mockReset();
+		mockSend.mockResolvedValueOnce({
+			Item: makeItem({ id: 210, SK: AUTO_SK, sourceTemplateId: 'auto:weekly', currentValue: 4 }),
+		});
+		const got = await repo.getOrCreateWeeklyAuto(
+			{
+				childId: CHILD_ID,
+				title: '復元チャレンジ',
+				startDate: WEEK_START,
+				endDate: '2026-06-07',
+				targetConfig: '{"metric":"count","baseTarget":5}',
+				rewardConfig: '{"points":50}',
+				targetValue: 5,
+			},
+			TENANT,
+		);
+		// fast-path で復元行を返す (nextId / Put を発行しない = 2 個目を作らない)。
+		expect(mockSend).toHaveBeenCalledTimes(1);
+		expect(got.id).toBe(210);
+		expect(got.currentValue).toBe(4);
+		// dedup GetItem の Key SK が insertForRestore の Put SK と一致する (read=write 対称)。
+		const get = mockSend.mock.calls[0]?.[0] as { input: { Key?: { SK: string } } };
+		expect(get.input.Key?.SK).toBe(AUTO_SK);
+		expect(get.input.Key?.SK).toBe(restoreSK);
+	});
+});
+
+// ============================================================
 // interface 適合 (SQLite との機能等価性)
 // ============================================================
 
@@ -723,6 +830,8 @@ describe('interface 適合 (IChildChallengeRepo)', () => {
 			'findAllByTenant',
 			'findById',
 			'insert',
+			'insertForRestore',
+			'getOrCreateWeeklyAuto',
 			'insertBulk',
 			'updateProgress',
 			'markCompleted',

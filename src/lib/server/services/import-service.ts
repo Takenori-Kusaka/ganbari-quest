@@ -60,6 +60,9 @@ export interface ImportResult {
 	/** #3329: ごほうびショップ交換/購入履歴の取込件数 */
 	rewardRedemptionsImported: number;
 	rewardRedemptionsSkipped: number;
+	/** #3329: per-child チャレンジ instance の取込件数 (auto:weekly 含む) */
+	childChallengesImported: number;
+	childChallengesSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -273,6 +276,8 @@ export async function importFamilyData(
 	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
 	// importSpecialRewards の後に実行する。
 	await importRewardRedemptionsData(data, childIdMap, tenantId, result);
+	// #3329: per-child チャレンジ (auto:weekly 含む) を進捗/完了/請求保全で復元。childIdMap のみ必要。
+	await importChildChallengesData(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
@@ -423,6 +428,60 @@ async function importSettingsData(
 	}
 }
 
+/**
+ * per-child チャレンジ instance を復元する (#3329)。
+ * childId は import で振り直されるため childRef で取込先 child に解決し、insertForRestore で
+ * 進捗 (currentValue/completed) / 請求 (rewardClaimed) / status / 日時を申請時点のまま書き戻す。
+ * auto:weekly 行 (sourceTemplateId='auto:weekly') も同テーブルの行として保全される。
+ */
+async function importChildChallengesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const c of data.data.childChallenges ?? []) {
+		const childId = childIdMap.get(c.childRef);
+		if (!childId) {
+			result.childChallengesSkipped++;
+			continue;
+		}
+		try {
+			await getRepos().childChallenge.insertForRestore(
+				{
+					childId,
+					title: c.title,
+					description: c.description,
+					challengeType: c.challengeType,
+					periodType: c.periodType,
+					startDate: c.startDate,
+					endDate: c.endDate,
+					targetConfig: c.targetConfig,
+					rewardConfig: c.rewardConfig,
+					status: c.status,
+					isActive: c.isActive,
+					sourceTemplateId: c.sourceTemplateId,
+					currentValue: c.currentValue,
+					targetValue: c.targetValue,
+					completed: c.completed,
+					completedAt: c.completedAt,
+					rewardClaimed: c.rewardClaimed,
+					rewardClaimedAt: c.rewardClaimedAt,
+					createdAt: c.createdAt,
+					updatedAt: c.updatedAt,
+				},
+				tenantId,
+			);
+			result.childChallengesImported++;
+		} catch (e) {
+			result.childChallengesSkipped++;
+			result.errors.push(
+				`チャレンジ insert 失敗 (child=${c.childRef}, title=${c.title}): ${String(e)}`,
+			);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -438,6 +497,8 @@ function createEmptyImportResult(): ImportResult {
 		specialRewardsSkipped: 0,
 		rewardRedemptionsImported: 0,
 		rewardRedemptionsSkipped: 0,
+		childChallengesImported: 0,
+		childChallengesSkipped: 0,
 		loginBonusesImported: 0,
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,

@@ -132,14 +132,16 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	childChallenge: {
 		classification: 'source',
 		schemaTable: 'childChallenges',
-		backupStatus: 'not-yet-exported',
-		reason: 'チャレンジ + 達成履歴。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'チャレンジ + 達成履歴。export/import 実装済 (#3329、進捗/完了/請求/status を insertForRestore で保全)',
 	},
 	childChallengeAutoWeekly: {
 		classification: 'source',
 		// 専用 SQLite table なし (child_challenges の自動週次フラグ運用 + DynamoDB key 専用)
-		backupStatus: 'not-yet-exported',
-		reason: '自動週次チャレンジ。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			"自動週次チャレンジ。child_challenges の sourceTemplateId='auto:weekly' 行として childChallenge 同梱で export/import 済 (#3329)",
 	},
 	stampCard: {
 		classification: 'source',

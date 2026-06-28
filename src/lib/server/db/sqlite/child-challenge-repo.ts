@@ -123,6 +123,45 @@ export async function insert(
 }
 
 /**
+ * #3329 backup restore 用: 進捗 / 完了 / 請求 / status / 日時を含む全フィールドを保全して復元する。
+ * insert と異なり currentValue / completed / rewardClaimed / createdAt 等を引数の値のまま書き戻す。
+ * id は新規採番 (元 id は保全しない、childId は呼び出し側が解決済)。
+ */
+export async function insertForRestore(
+	input: Omit<ChildChallenge, 'id'>,
+	_tenantId: string,
+): Promise<ChildChallenge> {
+	const row = db
+		.insert(childChallenges)
+		.values({
+			childId: input.childId,
+			title: input.title,
+			description: input.description,
+			challengeType: input.challengeType,
+			periodType: input.periodType,
+			startDate: input.startDate,
+			endDate: input.endDate,
+			targetConfig: input.targetConfig,
+			rewardConfig: input.rewardConfig,
+			status: input.status,
+			isActive: input.isActive,
+			sourceTemplateId: input.sourceTemplateId,
+			currentValue: input.currentValue,
+			targetValue: input.targetValue,
+			completed: input.completed,
+			completedAt: input.completedAt,
+			rewardClaimed: input.rewardClaimed,
+			rewardClaimedAt: input.rewardClaimedAt,
+			createdAt: input.createdAt,
+			updatedAt: input.updatedAt,
+		})
+		.returning()
+		.get();
+	if (!row) throw new Error('insertForRestore: insert returned no row');
+	return row;
+}
+
+/**
  * #3245: auto:weekly の atomic get-or-create。
  * 部分 unique index idx_child_challenges_auto_weekly_unique により (child_id, start_date) は
  * auto:weekly 行で一意。`onConflictDoNothing` で concurrent 二重 INSERT を DB レベルで no-op 化し、

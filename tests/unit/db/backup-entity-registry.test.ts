@@ -130,8 +130,7 @@ describe('#3329 backup-entity-registry — silent-gap ガード', () => {
 			'certificate',
 			'checklistAssignment',
 			'checklistOverride',
-			'childChallenge',
-			'childChallengeAutoWeekly',
+			// childChallenge / childChallengeAutoWeekly は #3329 で export 実装済 → exported へ flip
 			'childCustomVoices',
 			'parentMessage',
 			'restDays',

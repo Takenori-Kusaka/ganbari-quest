@@ -44,6 +44,7 @@ import {
 	findEvaluationsByChild,
 	insertEvaluation,
 } from '../../../src/lib/server/db/evaluation-repo';
+import { getRepos } from '../../../src/lib/server/db/factory';
 import { findRecentBonuses, insertLoginBonus } from '../../../src/lib/server/db/login-bonus-repo';
 import { findPointHistory } from '../../../src/lib/server/db/point-repo';
 import {
@@ -160,6 +161,22 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		await setSetting('point_unit_mode', 'custom', T);
 		await setSetting('pin_hash', '$2b$10$fake.hash.not.restored', T);
 
+		// #3329: チャレンジを 1 件 seed し進捗を進める。round-trip 後に currentValue/status が保全されることを検証。
+		const challenge = await getRepos().childChallenge.insert(
+			{
+				childId: 1,
+				title: 'うんどうチャレンジ',
+				periodType: 'weekly',
+				startDate: '2026-03-01',
+				endDate: '2026-03-07',
+				targetConfig: '{"metric":"count","baseTarget":3}',
+				rewardConfig: '{"points":50}',
+				targetValue: 3,
+			},
+			T,
+		);
+		await getRepos().childChallenge.updateProgress(challenge.id, 2, T);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -174,6 +191,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		const settingKeys = data.data.settings.map((s) => s.key);
 		expect(settingKeys, 'export:設定 allowlist 含む').toContain('point_unit_mode');
 		expect(settingKeys, 'export:設定 pin_hash 除外').not.toContain('pin_hash');
+		expect(data.data.childChallenges.length, 'export:チャレンジ').toBe(1);
+		expect(data.data.childChallenges[0]?.currentValue, 'export:チャレンジ進捗').toBe(2);
 
 		// --- replace = clear → import ---
 		await clearAllFamilyData(T);
@@ -208,5 +227,166 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// #3329: 設定の round-trip — allowlist キーは復元、秘匿キーは clear 後も復元されない。
 		expect(await getSetting('point_unit_mode', T), '設定 round-trip').toBe('custom');
 		expect(await getSetting('pin_hash', T), '秘匿キー非復元').toBeUndefined();
+
+		// #3329: チャレンジが進捗 (currentValue) を保って復元される。
+		const restoredChallenges = await getRepos().childChallenge.findByChildId(cid, T);
+		expect(restoredChallenges.length, 'チャレンジ').toBe(1);
+		expect(restoredChallenges[0]?.currentValue, 'チャレンジ進捗保全').toBe(2);
+		expect(restoredChallenges[0]?.title, 'チャレンジ title 保全').toBe('うんどうチャレンジ');
+	});
+
+	// #3329 QM-fix (2)(a): auto:weekly チャレンジの dedup round-trip。
+	// 復元行が getOrCreateWeeklyAuto の dedup 経路 (SQLite=部分 unique index / DynamoDB=AUTO# SK) に
+	// 収まり、後続の getOrCreateWeeklyAuto(同一週) が **同一の単一行** を返す (= 週次チャレンジが
+	// 復元後に二重生成されない) ことを実 SQLite で固定する。
+	it('auto:weekly チャレンジが round-trip 後も単一行で、後続 get-or-create が重複生成しない', async () => {
+		testDb.insert(schema.children).values({ nickname: 'あおい', age: 9, theme: 'green' }).run(); // id=1
+
+		// auto:weekly を get-or-create で seed (sourceTemplateId は既定 'auto:weekly')。
+		const auto = await getRepos().childChallenge.getOrCreateWeeklyAuto(
+			{
+				childId: 1,
+				title: '今週のチャレンジ',
+				periodType: 'weekly',
+				startDate: '2026-03-02',
+				endDate: '2026-03-08',
+				targetConfig: '{"metric":"count","baseTarget":5}',
+				rewardConfig: '{"points":80}',
+				targetValue: 5,
+			},
+			T,
+		);
+		expect(auto.sourceTemplateId, 'seed:auto sourceTemplateId').toBe('auto:weekly');
+		// 進捗を前進させる (round-trip で保全されること)。
+		await getRepos().childChallenge.updateProgress(auto.id, 4, T);
+
+		// export
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.childChallenges.length, 'export:auto challenge').toBe(1);
+		expect(data.data.childChallenges[0]?.sourceTemplateId, 'export:auto sourceTemplateId').toBe(
+			'auto:weekly',
+		);
+		expect(data.data.childChallenges[0]?.currentValue, 'export:auto 進捗').toBe(4);
+
+		// replace = clear → import
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+
+		const children = testDb.select().from(schema.children).all();
+		const cid = children[0]?.id as number;
+
+		// 復元行: auto:weekly が単一行 + 進捗保全。
+		const restored = await getRepos().childChallenge.findByChildId(cid, T);
+		expect(restored.length, '復元後 auto challenge 1 件').toBe(1);
+		expect(restored[0]?.sourceTemplateId, '復元 sourceTemplateId').toBe('auto:weekly');
+		expect(restored[0]?.currentValue, '復元 進捗保全').toBe(4);
+		const restoredId = restored[0]?.id as number;
+
+		// 後続 get-or-create(同一週) が **復元行と同一の単一行** を返す (= 復元行が dedup 経路に収まり
+		// 2 個目を生成しない)。重複していれば findByChildId が 2 件になり fail する。
+		const reGot = await getRepos().childChallenge.getOrCreateWeeklyAuto(
+			{
+				childId: cid,
+				title: '今週のチャレンジ',
+				periodType: 'weekly',
+				startDate: '2026-03-02',
+				endDate: '2026-03-08',
+				targetConfig: '{"metric":"count","baseTarget":5}',
+				rewardConfig: '{"points":80}',
+				targetValue: 5,
+			},
+			T,
+		);
+		expect(reGot.id, 'get-or-create が復元行に収束 (重複生成なし)').toBe(restoredId);
+		expect(reGot.currentValue, 'get-or-create が進捗を破壊しない').toBe(4);
+		const afterReGet = await getRepos().childChallenge.findByChildId(cid, T);
+		expect(afterReGet.length, '後続 get-or-create 後も 1 件 (二重生成なし)').toBe(1);
+	});
+
+	// #3329 QM-fix (2)(b): 完了 + 受取済 (completed/rewardClaimed/各日時/status) の全フィールド保全。
+	it('completed=1 + rewardClaimed=1 のチャレンジが全フィールド保全で round-trip する', async () => {
+		testDb.insert(schema.children).values({ nickname: 'はると', age: 10, theme: 'blue' }).run(); // id=1
+
+		const ch = await getRepos().childChallenge.insert(
+			{
+				childId: 1,
+				title: '完了チャレンジ',
+				periodType: 'weekly',
+				startDate: '2026-03-09',
+				endDate: '2026-03-15',
+				targetConfig: '{"metric":"count","baseTarget":3}',
+				rewardConfig: '{"points":120}',
+				targetValue: 3,
+			},
+			T,
+		);
+		// 進捗 → 完了 → ごほうび受取 まで進め、completed/completedAt/status/rewardClaimed/rewardClaimedAt を立てる。
+		await getRepos().childChallenge.updateProgress(ch.id, 3, T);
+		await getRepos().childChallenge.markCompleted(ch.id, T);
+		const claimed = await getRepos().childChallenge.claimReward(ch.id, T);
+		expect(claimed, 'seed: claimReward 成功').toBe(1);
+
+		// seed 後の確定状態を取得 (id 以外を round-trip 後と厳格比較する基準)。
+		const seeded = await getRepos().childChallenge.findById(ch.id, T);
+		expect(seeded?.completed, 'seed: completed').toBe(1);
+		expect(seeded?.rewardClaimed, 'seed: rewardClaimed').toBe(1);
+		expect(seeded?.status, 'seed: status').toBe('completed');
+		expect(seeded?.completedAt, 'seed: completedAt 非 null').toBeTruthy();
+		expect(seeded?.rewardClaimedAt, 'seed: rewardClaimedAt 非 null').toBeTruthy();
+
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.childChallenges.length, 'export:完了 challenge').toBe(1);
+
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+
+		const children = testDb.select().from(schema.children).all();
+		const cid = children[0]?.id as number;
+		const restored = (await getRepos().childChallenge.findByChildId(cid, T))[0];
+		expect(restored, '復元 challenge 存在').toBeTruthy();
+
+		// 全フィールドが verbatim 保全される (id / childId は再採番されるため除外して厳格比較)。
+		expect(
+			{
+				title: restored?.title,
+				challengeType: restored?.challengeType,
+				periodType: restored?.periodType,
+				startDate: restored?.startDate,
+				endDate: restored?.endDate,
+				targetConfig: restored?.targetConfig,
+				rewardConfig: restored?.rewardConfig,
+				status: restored?.status,
+				isActive: restored?.isActive,
+				sourceTemplateId: restored?.sourceTemplateId,
+				currentValue: restored?.currentValue,
+				targetValue: restored?.targetValue,
+				completed: restored?.completed,
+				completedAt: restored?.completedAt,
+				rewardClaimed: restored?.rewardClaimed,
+				rewardClaimedAt: restored?.rewardClaimedAt,
+				createdAt: restored?.createdAt,
+				updatedAt: restored?.updatedAt,
+			},
+			'完了/受取/日時/status 全フィールド保全',
+		).toEqual({
+			title: seeded?.title,
+			challengeType: seeded?.challengeType,
+			periodType: seeded?.periodType,
+			startDate: seeded?.startDate,
+			endDate: seeded?.endDate,
+			targetConfig: seeded?.targetConfig,
+			rewardConfig: seeded?.rewardConfig,
+			status: seeded?.status,
+			isActive: seeded?.isActive,
+			sourceTemplateId: seeded?.sourceTemplateId,
+			currentValue: seeded?.currentValue,
+			targetValue: seeded?.targetValue,
+			completed: seeded?.completed,
+			completedAt: seeded?.completedAt,
+			rewardClaimed: seeded?.rewardClaimed,
+			rewardClaimedAt: seeded?.rewardClaimedAt,
+			createdAt: seeded?.createdAt,
+			updatedAt: seeded?.updatedAt,
+		});
 	});
 });
