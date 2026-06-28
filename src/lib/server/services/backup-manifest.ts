@@ -3,14 +3,23 @@
 //
 // 背景: 全体バックアップ ZIP は data.json + 静的ファイル (avatars/voices/generated) を同梱するが、
 // 既存の checksum (#1254 G4 / export-format.ts ExportData.checksum) は **data.json の論理内容のみ**を
-// 保護し、**同梱した静的バイナリ (画像等) は無保護**だった。途中欠損・破損・改竄した画像が import で
+// 保護し、**同梱した静的バイナリ (画像等) は無保護**だった。途中欠損・破損した画像が import で
 // サイレントに復元され得る。本モジュールは ZIP 内の **全エントリ (data.json 含む) の SHA-256 + バイト数**を
-// manifest.json に記録し、import 前に照合して破損を検出する (deep research: SHA-256 manifest が
-// Pre-PMF 現実解。Reed-Solomon/par2 は過剰 / ADR-0010)。
+// manifest.json に記録し、import 前に照合して **偶発的破損 (accidental corruption)** を検出する
+// (deep research: SHA-256 manifest が Pre-PMF 現実解。Reed-Solomon/par2 は過剰 / ADR-0010)。
+//
+// 保護対象と非対象 (truth、ADR-0013):
+// - 検出できる: 転送/保存中の偶発的破損 (SHA-256 / バイト数の不一致)、manifest 記載ファイルの欠落、
+//   manifest 記載外ファイルの混入 (注入)。
+// - 検出できない (将来スコープ): **意図的改竄の防止**。manifest は未署名のため、攻撃者は改竄後に
+//   manifest を再計算でき検証を通せる。また manifest.json を削除した旧 ZIP は後方互換で検証スキップ
+//   される (downgrade)。改竄防止が必要になったら署名 (HMAC / 公開鍵) を別途導入する。
 //
 // 後方互換: manifest.json を持たない旧 ZIP / 旧 JSON バックアップは検証スキップ (従来どおり復元可)。
-// formatVersion: dataVersion (ExportData.version) を併記し、将来の復元マイグレーション dispatch の
-// 起点にする (本 Sub では枠組みのみ。実際のデータ移行は export-format の optional フィールド後方互換が担う)。
+//
+// dataVersion / itemCounts は manifest に記録するが、**現状 import 側 (verifyBackupManifest /
+// verifyManifestIfPresent) では未使用の将来用メタデータ**である (件数照合による部分欠損検査・
+// 復元マイグレーション dispatch は未実装。配線時に本コメントを更新する)。
 
 /** manifest 内の 1 エントリの整合性情報。 */
 export interface BackupManifestFileEntry {
@@ -26,13 +35,13 @@ export interface BackupManifest {
 	manifestVersion: number;
 	/** バックアップ識別子。 */
 	format: 'ganbari-quest-backup';
-	/** 同梱 data.json の ExportData.version (将来の復元マイグレーション dispatch 用)。 */
+	/** 同梱 data.json の ExportData.version。将来用メタデータ (現状 import では未使用)。 */
 	dataVersion: string;
 	/** 生成時刻 (ISO8601)。 */
 	createdAt: string;
 	/** path → 整合性情報 (data.json と全静的ファイルを含む)。 */
 	files: Record<string, BackupManifestFileEntry>;
-	/** 主要エンティティの件数 (破損・部分欠損の sanity check 用)。 */
+	/** 主要エンティティの件数。将来用メタデータ (現状 import では未使用。件数照合による部分欠損検査は未実装)。 */
 	itemCounts: Record<string, number>;
 }
 
@@ -59,8 +68,8 @@ export async function sha256Hex(bytes: Uint8Array): Promise<string> {
  * ZIP に同梱する全ファイル (data.json + 静的ファイル) から manifest を構築する。
  *
  * @param files path → bytes (data.json を含む)。
- * @param dataVersion 同梱 data.json の ExportData.version。
- * @param itemCounts 主要エンティティ件数。
+ * @param dataVersion 同梱 data.json の ExportData.version (将来用メタデータ、現状 import 未使用)。
+ * @param itemCounts 主要エンティティ件数 (将来用メタデータ、現状 import 未使用)。
  * @param createdAt 生成時刻 ISO8601。
  */
 export async function buildBackupManifest(
@@ -86,16 +95,25 @@ export async function buildBackupManifest(
 /** {@link verifyBackupManifest} の結果。 */
 export type ManifestVerifyResult =
 	| { ok: true }
-	| { ok: false; reason: 'missing-file' | 'size-mismatch' | 'checksum-mismatch'; path: string };
+	| {
+			ok: false;
+			reason: 'missing-file' | 'size-mismatch' | 'checksum-mismatch' | 'unexpected-file';
+			path: string;
+	  };
 
 /**
  * 展開済み ZIP エントリ群を manifest と照合する (#3375)。
  *
- * manifest.files の各エントリについて (a) ZIP 内に存在する (b) バイト数一致 (c) SHA-256 一致 を検証する。
- * 1 件でも不一致なら破損として失敗を返す。manifest に無い余剰ファイルは検証対象外
- * (importStaticFiles 側の zip-slip / path 検証で別途守られる)。
+ * 双方向に集合一致を検証する (fail-closed):
+ * - manifest.files の各エントリについて (a) ZIP 内に存在する (b) バイト数一致 (c) SHA-256 一致。
+ * - 逆に entries 側に manifest.files へ無いエントリ (= 注入ファイル) があれば `unexpected-file` で失敗。
+ *   manifest がある以上「復元対象集合 = manifest 記載集合」を強制し、記載外ファイルの素通り復元を塞ぐ。
+ * 1 件でも不一致なら失敗を返す。
  *
- * @param entries 展開済み ZIP エントリ (path → bytes、manifest.json 自体は呼び出し側で除外して渡してよい)。
+ * 注: 本検証は偶発的破損 + 集合不一致 (欠落 / 注入) を検出する。manifest は未署名のため意図的改竄の
+ * 防止は対象外 (本ファイル冒頭コメント参照)。
+ *
+ * @param entries 展開済み ZIP エントリ (path → bytes、manifest.json 自体は呼び出し側で除外して渡すこと)。
  * @param manifest 照合する manifest。
  */
 export async function verifyBackupManifest(
@@ -108,6 +126,11 @@ export async function verifyBackupManifest(
 		if (bytes.length !== entry.bytes) return { ok: false, reason: 'size-mismatch', path };
 		const actual = await sha256Hex(bytes);
 		if (actual !== entry.sha256) return { ok: false, reason: 'checksum-mismatch', path };
+	}
+	// injection gap の fail-closed 化: entries(復元対象) ⊆ manifest.files を強制する。
+	// manifest 記載外のファイルが ZIP に混入していたら拒否し、注入ファイルの素通り復元を防ぐ。
+	for (const path of Object.keys(entries)) {
+		if (!manifest.files[path]) return { ok: false, reason: 'unexpected-file', path };
 	}
 	return { ok: true };
 }

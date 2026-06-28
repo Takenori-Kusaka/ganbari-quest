@@ -36,8 +36,10 @@ interface ParsedImport {
 
 /**
  * #3375: 展開済み ZIP エントリに manifest.json があれば整合性照合する。
- * data.json + 全静的ファイルの SHA-256 / バイト数を manifest と突き合わせ、破損・部分欠損・改竄を
- * 復元前に検出する。manifest が無い旧 ZIP は検証スキップ (後方互換) で ok を返す。
+ * data.json + 全静的ファイルの SHA-256 / バイト数を manifest と突き合わせ、偶発的破損 (転送/保存中の
+ * 破損) と集合不一致 (manifest 記載ファイルの欠落 / 記載外ファイルの混入) を復元前に検出する。
+ * manifest は未署名のため意図的改竄の防止は対象外 (将来スコープ、backup-manifest.ts 冒頭参照)。
+ * manifest が無い旧 ZIP は検証スキップ (後方互換) で ok を返す。
  */
 async function verifyManifestIfPresent(
 	entries: Record<string, Uint8Array>,
@@ -58,10 +60,11 @@ async function verifyManifestIfPresent(
 
 	const verdict = await verifyBackupManifest(entriesForVerify, manifest);
 	if (!verdict.ok) {
-		return {
-			ok: false,
-			error: `バックアップが破損しています（${verdict.path}: ${verdict.reason}）。再エクスポートしてください`,
-		};
+		const detail =
+			verdict.reason === 'unexpected-file'
+				? `manifest に記載のないファイルが含まれています（${verdict.path}）`
+				: `バックアップが破損しています（${verdict.path}: ${verdict.reason}）`;
+		return { ok: false, error: `${detail}。再エクスポートしてください` };
 	}
 	return { ok: true };
 }

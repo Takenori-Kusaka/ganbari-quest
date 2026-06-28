@@ -102,6 +102,51 @@ describe('verifyBackupManifest (#3375)', () => {
 		const verdict = await verifyBackupManifest(partial, manifest);
 		expect(verdict).toEqual({ ok: false, reason: 'missing-file', path: 'voices/2/b.bin' });
 	});
+
+	it('manifest 記載外のファイルが混入していると unexpected-file で fail-closed する (注入防御 #3375)', async () => {
+		// manifest は元の sampleFiles() のみを記載。復元側に記載外ファイルを注入しても素通りさせない。
+		const files = sampleFiles();
+		const manifest = await build(files);
+		const injected = {
+			...files,
+			'avatars/9/evil.png': new Uint8Array([0x00, 0x11, 0x22]), // manifest に存在しない注入物
+		};
+		const verdict = await verifyBackupManifest(injected, manifest);
+		expect(verdict).toEqual({ ok: false, reason: 'unexpected-file', path: 'avatars/9/evil.png' });
+	});
+
+	it('entries(復元対象) = manifest.files の完全一致でのみ ok（集合一致を双方向に強制）', async () => {
+		// 改竄なし・欠落なし・注入なしの完全一致時のみ ok。verifyBackupManifest の契約を固定する。
+		const files = sampleFiles();
+		const manifest = await build(files);
+		expect(await verifyBackupManifest(files, manifest)).toEqual({ ok: true });
+	});
+});
+
+// manifest 不在 ZIP の検証スキップ (後方互換 = downgrade を許す既知の仕様) を契約として固定する。
+// 実ロジックは import ハンドラ (verifyManifestIfPresent: manifestBytes が無ければ {ok:true}) にあるが、
+// auth context を要し直接呼べないため、import-zip-bomb-guard.test.ts と同様に最小再現で固定する。
+// 注: これは「manifest を 1 個削除すれば検証全無効化される」未署名仕様 (改竄防止は将来スコープ) の
+//     回帰ガードであり、仕様として正 (旧 ZIP/旧 JSON の後方互換)。
+describe('manifest 不在 = 検証スキップ (後方互換, #3375)', () => {
+	function verifyIfPresent(entries: Record<string, Uint8Array>): { skipped: boolean } {
+		return { skipped: entries[BACKUP_MANIFEST_FILENAME] === undefined };
+	}
+
+	it('manifest.json を含まない ZIP は検証をスキップする (旧 ZIP/旧 JSON 後方互換)', () => {
+		const legacy = sampleFiles(); // manifest.json を含まない
+		expect(verifyIfPresent(legacy)).toEqual({ skipped: true });
+	});
+
+	it('manifest.json を含む ZIP は検証対象になる (スキップしない)', async () => {
+		const files = sampleFiles();
+		const manifest = await buildBackupManifest(files, '1.3.0', {}, '2026-06-28T00:00:00.000Z');
+		const withManifest = {
+			...files,
+			[BACKUP_MANIFEST_FILENAME]: new TextEncoder().encode(JSON.stringify(manifest)),
+		};
+		expect(verifyIfPresent(withManifest)).toEqual({ skipped: false });
+	});
 });
 
 describe('parseBackupManifest (#3375)', () => {
