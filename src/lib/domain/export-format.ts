@@ -269,6 +269,31 @@ export interface ExportChildChallenge {
 	updatedAt: string;
 }
 
+/**
+ * #3329: per-child スタンプカード (週単位) + 押印 entry を nested で保全する。
+ * stampMasterId はグローバル master (環境間で同一 seed) を参照するため値のまま保持する
+ * (import 時に存在しなければ当該 entry を skip)。card status / redeemed / earnedAt を round-trip 復元。
+ */
+export interface ExportStampEntry {
+	stampMasterId: number | null;
+	omikujiRank: string | null;
+	slot: number;
+	loginDate: string;
+	earnedAt: string;
+}
+
+export interface ExportStampCard {
+	childRef: string;
+	weekStart: string;
+	weekEnd: string;
+	status: string;
+	redeemedPoints: number | null;
+	redeemedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+	entries: ExportStampEntry[];
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -343,6 +368,8 @@ export interface ExportTransactionData {
 	rewardRedemptions: ExportRewardRedemption[];
 	/** #3329: per-child チャレンジ instance (auto:weekly 含む。進捗/完了/請求を保全) */
 	childChallenges: ExportChildChallenge[];
+	/** #3329: per-child スタンプカード + 押印 entry (nested、status/redeemed/earnedAt 保全) */
+	stampCards: ExportStampCard[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	childAvatarItems: never[];
