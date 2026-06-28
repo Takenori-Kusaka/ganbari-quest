@@ -6,6 +6,11 @@ import { IMPORT_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
+import {
+	BACKUP_MANIFEST_FILENAME,
+	parseBackupManifest,
+	verifyBackupManifest,
+} from '$lib/server/services/backup-manifest';
 import { clearAllFamilyData } from '$lib/server/services/data-service';
 import {
 	importFamilyData,
@@ -27,6 +32,55 @@ interface ParsedImport {
 	body: unknown;
 	/** #3077: ZIP 同梱の静的ファイル (相対パス → bytes)。JSON-only では undefined。 */
 	staticFiles?: Record<string, Uint8Array>;
+}
+
+/**
+ * #3375: 展開済み ZIP エントリに manifest.json があれば整合性照合する。
+ * data.json + 全静的ファイルの SHA-256 / バイト数を manifest と突き合わせ、偶発的破損 (転送/保存中の
+ * 破損) と集合不一致 (manifest 記載ファイルの欠落 / 記載外ファイルの混入) を復元前に検出する。
+ * manifest は未署名のため意図的改竄の防止は対象外 (将来スコープ、backup-manifest.ts 冒頭参照)。
+ * manifest が無い旧 ZIP は検証スキップ (後方互換) で ok を返す。
+ */
+async function verifyManifestIfPresent(
+	entries: Record<string, Uint8Array>,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+	const manifestBytes = entries[BACKUP_MANIFEST_FILENAME];
+	if (!manifestBytes) return { ok: true };
+
+	const manifest = parseBackupManifest(manifestBytes);
+	if (!manifest) {
+		return { ok: false, error: 'バックアップの manifest.json が壊れています' };
+	}
+
+	const entriesForVerify: Record<string, Uint8Array> = {};
+	for (const [path, bytes] of Object.entries(entries)) {
+		if (path === BACKUP_MANIFEST_FILENAME) continue;
+		entriesForVerify[path] = bytes;
+	}
+
+	const verdict = await verifyBackupManifest(entriesForVerify, manifest);
+	if (!verdict.ok) {
+		const detail =
+			verdict.reason === 'unexpected-file'
+				? `manifest に記載のないファイルが含まれています（${verdict.path}）`
+				: `バックアップが破損しています（${verdict.path}: ${verdict.reason}）`;
+		return { ok: false, error: `${detail}。再エクスポートしてください` };
+	}
+	return { ok: true };
+}
+
+/**
+ * 展開済み ZIP エントリから復元対象の静的ファイル (相対パス → bytes) を抽出する。
+ * data.json / manifest.json (整合性メタ) / ディレクトリエントリ / 空ファイルは除外する。
+ */
+function collectStaticFiles(entries: Record<string, Uint8Array>): Record<string, Uint8Array> {
+	const staticFiles: Record<string, Uint8Array> = {};
+	for (const [path, bytes] of Object.entries(entries)) {
+		if (path === 'data.json' || path === BACKUP_MANIFEST_FILENAME) continue;
+		if (path.endsWith('/') || bytes.length === 0) continue;
+		staticFiles[path] = bytes;
+	}
+	return staticFiles;
 }
 
 /**
@@ -81,6 +135,12 @@ async function parseImportRequest(
 		return { ok: false, error: 'ZIP内に data.json が見つかりません' };
 	}
 
+	// #3375: 整合性 manifest 検証 (manifest が無い旧 ZIP は検証スキップ = 後方互換)。
+	const manifestCheck = await verifyManifestIfPresent(entries);
+	if (!manifestCheck.ok) {
+		return { ok: false, error: manifestCheck.error };
+	}
+
 	let body: unknown;
 	try {
 		body = JSON.parse(new TextDecoder().decode(dataJson));
@@ -88,15 +148,7 @@ async function parseImportRequest(
 		return { ok: false, error: 'data.json の解析に失敗しました' };
 	}
 
-	const staticFiles: Record<string, Uint8Array> = {};
-	for (const [path, bytes] of Object.entries(entries)) {
-		if (path === 'data.json') continue;
-		// ディレクトリエントリ (末尾 /) や空ファイルは無視
-		if (path.endsWith('/') || bytes.length === 0) continue;
-		staticFiles[path] = bytes;
-	}
-
-	return { ok: true, value: { body, staticFiles } };
+	return { ok: true, value: { body, staticFiles: collectStaticFiles(entries) } };
 }
 
 /** POST /api/v1/import?mode=preview|execute|replace */
