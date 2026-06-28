@@ -145,8 +145,8 @@
 |----------|------|------|------|
 | GET | /api/v1/images | 画像取得（S3 プロキシ） | 全ロール |
 | POST | /api/v1/images | 画像アップロード | owner/parent |
-| GET | /api/v1/export | データエクスポート（JSON / ZIP） | owner/parent |
-| POST | /api/v1/import | データインポート（JSON / ZIP、静的ファイル復元） | owner/parent |
+| GET | /api/v1/export | データエクスポート（JSON / ZIP）。ZIP は `data.json` + 静的ファイル（avatars/voices/generated）+ `manifest.json` を同梱。#3375: `manifest.json` に全エントリの SHA-256 + バイト数 + dataVersion + itemCounts を記録し、画像含む同梱バイナリの整合性を保証（既存 `data.json` checksum は論理内容のみを保護）。圧縮は per-entry 制御（既圧縮画像=store / 構造化=deflate） | owner/parent |
+| POST | /api/v1/import | データインポート（JSON / ZIP、静的ファイル復元）。#3375: ZIP に `manifest.json` があれば SHA-256 / サイズ / 存在を復元前に照合し、破損・部分欠損・改竄を明示エラー化。`manifest.json` 無しの旧 ZIP / 旧 JSON は検証スキップで後方互換 | owner/parent |
 | GET | /api/v1/export/cloud | クラウドエクスポート一覧取得 | owner/parent |
 | POST | /api/v1/export/cloud | クラウドエクスポート作成 | owner/parent |
 | DELETE | /api/v1/export/cloud/[id] | クラウドエクスポート削除 | owner/parent |
