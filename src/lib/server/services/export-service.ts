@@ -13,6 +13,7 @@ import {
 	type ExportChecklistTemplate,
 	type ExportChild,
 	type ExportChildActivity,
+	type ExportChildChallenge,
 	type ExportData,
 	type ExportEvaluation,
 	type ExportLoginBonus,
@@ -226,6 +227,7 @@ interface ChildTransactionData {
 	evaluations: ExportEvaluation[];
 	specialRewards: ExportSpecialReward[];
 	rewardRedemptions: ExportRewardRedemption[];
+	childChallenges: ExportChildChallenge[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 }
@@ -253,6 +255,7 @@ async function collectForChild(
 		evaluations,
 		specialRewards,
 		redemptions,
+		challenges,
 		checklistTemplates,
 	] = await Promise.all([
 		// #3327 P2: per-child 活動インスタンスを backup に保持 (archive 済も含む)。
@@ -266,6 +269,8 @@ async function collectForChild(
 		// #3329: ごほうびショップ交換/購入履歴を backup に保持 (WithDetails = snapshot 解決済の
 		// rewardTitle/Icon/Points 付き)。childId filter で per-child 収集する。
 		findRedemptionRequestsByTenant(tenantId, { childId, limit: MAX_EXPORT_ROWS }),
+		// #3329: per-child チャレンジ instance を backup に保持 (auto:weekly 含む全 status)。
+		getRepos().childChallenge.findByChildId(childId, tenantId),
 		// #3106: backup なので includeInactive=true + includeArchived=true。
 		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
 		findTemplatesByChild(childId, tenantId, true, true),
@@ -391,6 +396,31 @@ async function collectForChild(
 		rewardIcon: r.rewardIcon,
 	}));
 
+	// #3329: per-child チャレンジ instance を childRef 付きで出力 (進捗/完了/請求/status 保全)。
+	warnIfTruncated('childChallenges', childId, challenges.length);
+	const childChallengesOut: ExportChildChallenge[] = challenges.map((c) => ({
+		childRef,
+		title: c.title,
+		description: c.description,
+		challengeType: c.challengeType,
+		periodType: c.periodType,
+		startDate: c.startDate,
+		endDate: c.endDate,
+		targetConfig: c.targetConfig,
+		rewardConfig: c.rewardConfig,
+		status: c.status,
+		isActive: c.isActive,
+		sourceTemplateId: c.sourceTemplateId,
+		currentValue: c.currentValue,
+		targetValue: c.targetValue,
+		completed: c.completed,
+		completedAt: c.completedAt,
+		rewardClaimed: c.rewardClaimed,
+		rewardClaimedAt: c.rewardClaimedAt,
+		createdAt: c.createdAt,
+		updatedAt: c.updatedAt,
+	}));
+
 	// Checklist templates with items
 	// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
 	// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
@@ -457,6 +487,7 @@ async function collectForChild(
 		evaluations: evaluationsOut,
 		specialRewards: specialRewardsOut,
 		rewardRedemptions: rewardRedemptionsOut,
+		childChallenges: childChallengesOut,
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
 	};
@@ -494,6 +525,7 @@ async function collectTransactionData(
 		evaluations: perChild.flatMap((p) => p.evaluations),
 		specialRewards: perChild.flatMap((p) => p.specialRewards),
 		rewardRedemptions: perChild.flatMap((p) => p.rewardRedemptions),
+		childChallenges: perChild.flatMap((p) => p.childChallenges),
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		childAvatarItems: [],

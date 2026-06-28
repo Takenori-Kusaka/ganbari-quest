@@ -241,6 +241,34 @@ export interface ExportSetting {
 	value: string;
 }
 
+/**
+ * #3329: per-child チャレンジ instance (auto:weekly 自動週次も sourceTemplateId='auto:weekly' の
+ * 行として同テーブルに含まれるため本 export で両方を保全する)。進捗 / 完了 / 請求 / status を round-trip
+ * 復元する (id / childId は import で振り直すため childRef で再結合)。
+ */
+export interface ExportChildChallenge {
+	childRef: string;
+	title: string;
+	description: string | null;
+	challengeType: string;
+	periodType: string;
+	startDate: string;
+	endDate: string;
+	targetConfig: string;
+	rewardConfig: string;
+	status: string;
+	isActive: number;
+	sourceTemplateId: string | null;
+	currentValue: number;
+	targetValue: number;
+	completed: number;
+	completedAt: string | null;
+	rewardClaimed: number;
+	rewardClaimedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -313,6 +341,8 @@ export interface ExportTransactionData {
 	specialRewards: ExportSpecialReward[];
 	/** #3329: ごほうびショップ交換/購入履歴 (per-child、rewardRef で reward に再結合) */
 	rewardRedemptions: ExportRewardRedemption[];
+	/** #3329: per-child チャレンジ instance (auto:weekly 含む。進捗/完了/請求を保全) */
+	childChallenges: ExportChildChallenge[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	childAvatarItems: never[];

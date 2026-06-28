@@ -193,6 +193,30 @@ export async function insert(
 }
 
 /**
+ * #3329 backup restore 用: 進捗 / 完了 / 請求 / status / 日時を含む全フィールドを保全して復元する。
+ * insert と異なり buildChildChallenge の初期化を経ず、引数の値をそのまま書き戻す (id は新規採番)。
+ */
+export async function insertForRestore(
+	input: Omit<ChildChallenge, 'id'>,
+	tenantId: string,
+): Promise<ChildChallenge> {
+	const id = await nextId(ENTITY_NAMES.childChallenge, tenantId);
+	const challenge: ChildChallenge = { ...input, id };
+
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...childChallengeKey(input.childId, id, tenantId),
+				...challenge,
+			},
+		}),
+	);
+
+	return challenge;
+}
+
+/**
  * #3245: auto:weekly の atomic get-or-create。
  * SK を weekStart 由来の決定的キー (childChallengeAutoWeeklyKey) にし、
  * 条件付き PutItem (attribute_not_exists(PK)) で concurrent 二重作成を atomic に防ぐ。

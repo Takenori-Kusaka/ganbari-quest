@@ -44,6 +44,7 @@ import {
 	findEvaluationsByChild,
 	insertEvaluation,
 } from '../../../src/lib/server/db/evaluation-repo';
+import { getRepos } from '../../../src/lib/server/db/factory';
 import { findRecentBonuses, insertLoginBonus } from '../../../src/lib/server/db/login-bonus-repo';
 import { findPointHistory } from '../../../src/lib/server/db/point-repo';
 import {
@@ -160,6 +161,22 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		await setSetting('point_unit_mode', 'custom', T);
 		await setSetting('pin_hash', '$2b$10$fake.hash.not.restored', T);
 
+		// #3329: チャレンジを 1 件 seed し進捗を進める。round-trip 後に currentValue/status が保全されることを検証。
+		const challenge = await getRepos().childChallenge.insert(
+			{
+				childId: 1,
+				title: 'うんどうチャレンジ',
+				periodType: 'weekly',
+				startDate: '2026-03-01',
+				endDate: '2026-03-07',
+				targetConfig: '{"metric":"count","baseTarget":3}',
+				rewardConfig: '{"points":50}',
+				targetValue: 3,
+			},
+			T,
+		);
+		await getRepos().childChallenge.updateProgress(challenge.id, 2, T);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -174,6 +191,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		const settingKeys = data.data.settings.map((s) => s.key);
 		expect(settingKeys, 'export:設定 allowlist 含む').toContain('point_unit_mode');
 		expect(settingKeys, 'export:設定 pin_hash 除外').not.toContain('pin_hash');
+		expect(data.data.childChallenges.length, 'export:チャレンジ').toBe(1);
+		expect(data.data.childChallenges[0]?.currentValue, 'export:チャレンジ進捗').toBe(2);
 
 		// --- replace = clear → import ---
 		await clearAllFamilyData(T);
@@ -208,5 +227,11 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// #3329: 設定の round-trip — allowlist キーは復元、秘匿キーは clear 後も復元されない。
 		expect(await getSetting('point_unit_mode', T), '設定 round-trip').toBe('custom');
 		expect(await getSetting('pin_hash', T), '秘匿キー非復元').toBeUndefined();
+
+		// #3329: チャレンジが進捗 (currentValue) を保って復元される。
+		const restoredChallenges = await getRepos().childChallenge.findByChildId(cid, T);
+		expect(restoredChallenges.length, 'チャレンジ').toBe(1);
+		expect(restoredChallenges[0]?.currentValue, 'チャレンジ進捗保全').toBe(2);
+		expect(restoredChallenges[0]?.title, 'チャレンジ title 保全').toBe('うんどうチャレンジ');
 	});
 });
