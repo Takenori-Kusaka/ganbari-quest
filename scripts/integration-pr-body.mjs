@@ -151,6 +151,36 @@ export function buildContainedPrTable(prs) {
 }
 
 /**
+ * #3423: 含有 PR 群が **closing keyword で閉じると宣言した issue 番号**を収集する純粋関数。
+ *
+ * close漏れ（fix は main 反映済だが issue が open のまま）を構造的に防ぐため、統合 PR 本文に
+ * `Closes #N` を集約し、main merge 時に GitHub auto-close を発火させる（issue-close-gate は
+ * PR-keyword close を skip 既定のため AC gate reopen も起きない）。
+ *
+ * **精度のため title の `#N` ではなく PR body の closing keyword のみを採用する**:
+ * - title `#N` は EPIC 親 (`[#3260 F2]`) や括弧参照 (`#3133 (#3131 監査検出)`) を含み over-close する。
+ * - 部分対応 PR は body に `関連: #N`（closing keyword なし）を書く運用のため、`closes/fixes/resolves`
+ *   を書いた PR のみを閉じる = 部分 PR を誤って閉じない（#3404 等の partial を尊重）。
+ *
+ * @param {Array<{ number: number; headRefName?: string; labels?: Array<string|{name:string}>; body?: string }>} prs
+ * @returns {number[]} 昇順・重複排除した issue 番号
+ */
+export function extractClosedIssues(prs) {
+	const set = new Set();
+	for (const p of prs ?? []) {
+		if (classifyForContainedList(p) !== 'contained') continue;
+		const body = typeof p.body === 'string' ? p.body : '';
+		// GitHub closing keyword: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved + #N
+		const re = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+		for (const m of body.matchAll(re)) {
+			const n = Number(m[1]);
+			if (Number.isInteger(n) && n > 0) set.add(n);
+		}
+	}
+	return [...set].sort((a, b) => a - b);
+}
+
+/**
  * back-merge / drift 状態 section のデータ行を生成する純粋関数（B-5 #2951 contract）。
  * B-5 の `back-merge` label を持つ open PR（= 未取込 hotfix）を列挙し、
  * develop⇔main drift 日数を併記する。
@@ -228,7 +258,7 @@ export function replaceSectionBody(template, heading, replacement) {
  *
  * @param {{
  *   template: string;
- *   prs: Array<{ number: number; title: string; headRefName?: string; labels?: Array<string|{name:string}> }>;
+ *   prs: Array<{ number: number; title: string; headRefName?: string; labels?: Array<string|{name:string}>; body?: string }>;
  *   developHead: string;
  *   sinceDate?: string;
  *   untilDate?: string;
@@ -249,15 +279,31 @@ export function renderIntegrationPrBody({
 	let body = template;
 
 	// 1. 統合サマリ
+	// #3423: 含有 PR が closing keyword で閉じると宣言した issue を集約し `Closes #N` を本文に出す。
+	// main merge 時に GitHub が auto-close し close漏れ（fix merge 済だが issue open）を構造的に防ぐ。
+	const closedIssues = extractClosedIssues(prs);
+	const closesLines =
+		closedIssues.length > 0
+			? [
+					'',
+					'**自動クローズ対象 issue（#3423 close漏れ防止 — main merge 時に GitHub が auto-close）:**',
+					...closedIssues.map((n) => `Closes #${n}`),
+				]
+			: [
+					'',
+					'> 含有 PR に closing keyword（`Closes #N`）付き issue はありません（部分対応 PR / docs 等）。',
+				];
 	const summary = [
 		`- 対象 develop HEAD: \`${escapeCell(developHead) || '不明'}\``,
 		`- 統合対象期間: \`${escapeCell(sinceDate) || '前回統合 merge'}\` 〜 \`${escapeCell(untilDate) || '今回'}\``,
 		'- 統合 PR 番号: 本 PR（develop → main、release PR パターンで常時 1 本最新化）',
 		'',
-		'> 統合 PR は単一 Issue に紐づきません（`closes #<single>` を持ちません）。変更の出典は',
-		'> 「含有 PR 一覧」が担保します（#2950 AC4）。',
+		'> 統合 PR 自体は単一 Issue に紐づきませんが、含有 PR が `closes/fixes/resolves #N` で閉じると',
+		'> 宣言した issue を下記 `Closes #N` に集約し、main merge 時に一括 auto-close します（#3423）。',
+		'> 変更の出典は「含有 PR 一覧」が担保します（#2950 AC4）。',
+		...closesLines,
 		'',
-		'> _この section は B-3（#2871）が develop HEAD / merge 履歴から自動生成しています（手書きなし）。_',
+		'> _この section は B-3（#2871）/ #3423 が develop HEAD / merge 履歴 / 含有 PR body から自動生成しています（手書きなし）。_',
 	].join('\n');
 	body = replaceSectionBody(body, '## 統合サマリ', summary);
 

@@ -11,6 +11,7 @@ import {
 	classifyForContainedList,
 	escapeCell,
 	extractAreaLabel,
+	extractClosedIssues,
 	extractTypeLabel,
 	parseArgs,
 	renderIntegrationPrBody,
@@ -263,6 +264,42 @@ describe('renderIntegrationPrBody (#2871 AC3 — facade、実 template で検証
 	it('差分ゼロ (含有 PR 0 件) でも本文を生成でき、空である旨を明示する', () => {
 		const body = renderIntegrationPrBody({ template: TEMPLATE, prs: [], developHead: 'abc1234' });
 		expect(body).toContain('含有 PR なし');
+	});
+});
+
+describe('extractClosedIssues (#3423 — close漏れ防止: 含有 PR の closing keyword 集約)', () => {
+	it('含有 PR body の closes/fixes/resolves #N を昇順・重複排除で収集する', () => {
+		const prs = [
+			{ number: 10, headRefName: 'fix/1', body: '## 関連 Issue\ncloses #3133\nFixes #3246' },
+			{ number: 11, headRefName: 'feat/2', body: 'resolve #3088\ncloses #3133' }, // 重複 #3133
+		];
+		expect(extractClosedIssues(prs)).toEqual([3088, 3133, 3246]);
+	});
+
+	it('closing keyword の無い参照 (関連: #N) は閉じない (部分対応 PR を尊重)', () => {
+		const prs = [{ number: 10, headRefName: 'fix/1', body: '関連: #3404（item1a のみ消化）' }];
+		expect(extractClosedIssues(prs)).toEqual([]);
+	});
+
+	it('back-merge / 統合 PR 自身 (excluded) は集約対象外', () => {
+		const prs = [
+			{ number: 10, headRefName: 'develop', body: 'closes #999' },
+			{ number: 11, headRefName: 'back-merge/x', body: 'closes #998' },
+		];
+		expect(extractClosedIssues(prs)).toEqual([]);
+	});
+
+	it('body 欠落 PR は安全に skip する', () => {
+		expect(extractClosedIssues([{ number: 10, headRefName: 'fix/1' }])).toEqual([]);
+	});
+
+	it('renderIntegrationPrBody が Closes #N を本文へ集約する', () => {
+		const body = renderIntegrationPrBody({
+			template: TEMPLATE,
+			prs: [{ number: 10, title: 'fix: #3133 IDOR', headRefName: 'fix/1', body: 'closes #3133' }],
+			developHead: 'abc1234',
+		});
+		expect(body).toContain('Closes #3133');
 	});
 });
 
