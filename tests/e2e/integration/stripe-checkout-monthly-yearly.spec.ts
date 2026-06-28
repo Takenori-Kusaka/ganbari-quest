@@ -19,25 +19,27 @@ import { expect, test } from '@playwright/test';
 test.describe('#3204 月額固定 checkout + 失敗フィードバック — /admin/subscription', () => {
 	test.use({ storageState: 'playwright/.auth/free.json' });
 
-	/** Stripe 未設定環境 (plan card 非表示) では月額ボタンが出ないため skip 判定に使う */
-	async function skipIfStripeDisabled(page: import('@playwright/test').Page): Promise<boolean> {
+	/**
+	 * Stripe 未設定環境 (plan card 非表示) では月額ボタンが出ないため honest に test.skip する。
+	 * #3352: 旧実装は false を返し caller が `if (!...) return` で test.skip() を呼ばず終了 → runner が
+	 * SKIPPED でなく **PASSED** 計上し、fail-closed path 未検証を監査が「検証済」と誤認する Goodhart
+	 * hazard だった。test.skip(condition) で SKIPPED に正す (visible なら no-op で続行)。
+	 */
+	async function skipIfStripeDisabled(page: import('@playwright/test').Page): Promise<void> {
 		const monthlyCheckoutBtn = page.getByTestId('standard-plan-card');
 		const visible = await monthlyCheckoutBtn
 			.waitFor({ state: 'visible', timeout: 5_000 })
 			.then(() => true)
 			.catch(() => false);
-		if (!visible) {
-			test.info().annotations.push({
-				type: 'skip-reason',
-				description: 'Stripe 未設定環境 (stripeEnabled=false で plan card 非表示) のためスキップ',
-			});
-		}
-		return visible;
+		test.skip(
+			!visible,
+			'Stripe 未設定環境 (stripeEnabled=false で plan card 非表示) のためスキップ (#3352)',
+		);
 	}
 
 	test('年額トグルが撤去され月額固定で表示される (#2719 年額廃止と UI 整合)', async ({ page }) => {
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
-		if (!(await skipIfStripeDisabled(page))) return;
+		await skipIfStripeDisabled(page);
 
 		// 年額トグル・年額専用 UI が物理的に存在しないこと (年額選択 → INVALID_PLAN 経路の根絶)
 		await expect(page.getByRole('button', { name: /年額/ })).toHaveCount(0);
@@ -60,7 +62,7 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 		});
 
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
-		if (!(await skipIfStripeDisabled(page))) return;
+		await skipIfStripeDisabled(page);
 
 		// プレミアム選択 → 「プレミアムプランで始める」押下
 		await page.getByTestId('family-plan-card').click();
@@ -88,7 +90,7 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 		});
 
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
-		if (!(await skipIfStripeDisabled(page))) return;
+		await skipIfStripeDisabled(page);
 
 		// hydration ゲート: skipIfStripeDisabled は SSR 描画済 plan card の visible のみ待つため、
 		// interactive island の hydration 完了前に click すると onclick が発火しない。plan card 選択
@@ -138,7 +140,7 @@ test.describe('#3204 月額固定 checkout + 失敗フィードバック — /ad
 		});
 
 		await page.goto('/admin/subscription', { waitUntil: 'commit', timeout: 30_000 });
-		if (!(await skipIfStripeDisabled(page))) return;
+		await skipIfStripeDisabled(page);
 
 		// hydration ゲート: skipIfStripeDisabled は SSR 描画済 plan card の visible のみ待つため、
 		// interactive island の hydration 完了前に click すると onclick が発火しない。plan card 選択
