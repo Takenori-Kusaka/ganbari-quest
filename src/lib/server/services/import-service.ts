@@ -147,9 +147,9 @@ export function validateExportData(
 	if (d.format !== EXPORT_FORMAT) {
 		return { valid: false, error: `フォーマットが不正です（期待: ${EXPORT_FORMAT}）` };
 	}
-	// #3106/#3107: EXPORT_VERSION を 1.3.0 に bump したが、既存 1.2.0 backup も import 可能に保つ
-	// (新 field はすべて optional で後方互換)。
-	const supportedVersions = [EXPORT_VERSION, '1.3.0', '1.2.0', '1.1.0', '1.0.0'];
+	// #3106/#3107: EXPORT_VERSION を bump しても既存 backup を import 可能に保つ
+	// (新 field はすべて optional で後方互換)。#3358 で 1.5.0 へ bump、1.4.0 も明示維持。
+	const supportedVersions = [EXPORT_VERSION, '1.4.0', '1.3.0', '1.2.0', '1.1.0', '1.0.0'];
 	if (!supportedVersions.includes(d.version as string)) {
 		return {
 			valid: false,
@@ -731,6 +731,12 @@ async function importChildActivitiesData(
 					isMainQuest: a.isMainQuest ?? 0,
 					sourcePresetId: a.sourcePresetId ?? null,
 					priority: a.priority === 'must' ? 'must' : 'optional',
+					// #3358: 表示状態 / 並び順 / アーカイブ状態を round-trip 復元
+					// (省略 = 旧 backup 後方互換で schema default)。archived→active 復活防止。
+					isVisible: a.isVisible,
+					sortOrder: a.sortOrder,
+					isArchived: a.isArchived,
+					archivedReason: a.archivedReason ?? null,
 				},
 				tenantId,
 			);

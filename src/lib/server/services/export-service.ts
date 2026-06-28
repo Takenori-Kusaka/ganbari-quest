@@ -304,6 +304,9 @@ async function collectForChild(
 		sourcePresetId: a.sourcePresetId ?? null,
 		isVisible: a.isVisible,
 		sortOrder: a.sortOrder,
+		// #3358: archive 状態を round-trip 保全 (archived→active 復活防止)
+		isArchived: a.isArchived,
+		archivedReason: a.archivedReason ?? null,
 	}));
 
 	// ステータス履歴は全カテゴリ分を取得

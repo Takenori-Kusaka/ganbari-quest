@@ -6,7 +6,10 @@ export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #3106 / #3107: 1.3.0 で checklist の `exportId` / `isArchived` / log `templateExportId` を追加
 //   (archive 済 template の log 保全 + 同名 template の round-trip 取り違え防止)。いずれも optional で後方互換。
 // #3329: 1.4.0 で `data.settings` (各種設定 KVS の allowlist) を追加。optional で後方互換。
-export const EXPORT_VERSION = '1.4.0' as const;
+// #3358: 1.5.0 で childActivity の `isArchived` / `archivedReason` を追加 (isVisible / sortOrder は
+//   1.4.0 以前から存在)。archived 済活動が import 後に active へ復活する round-trip 取りこぼし
+//   (第10回監査 data-5) の修正。いずれも optional で後方互換 (旧 backup は非アーカイブとして復元)。
+export const EXPORT_VERSION = '1.5.0' as const;
 
 // ============================================================
 // #3329: backup 可能な設定キーの allowlist (default-deny セキュリティ設計、D3)
@@ -95,6 +98,9 @@ export interface ExportChildActivity {
 	sourcePresetId: string | null;
 	isVisible: number;
 	sortOrder: number;
+	// #3358: archive 状態を round-trip 保全 (optional で後方互換、旧 backup は非アーカイブ復元)
+	isArchived?: number;
+	archivedReason?: string | null;
 }
 
 export interface ExportTitle {

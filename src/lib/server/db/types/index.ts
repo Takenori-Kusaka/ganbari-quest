@@ -401,6 +401,13 @@ export interface InsertChildActivityInput {
 	isMainQuest?: number;
 	sourcePresetId?: string | null;
 	priority?: ActivityPriority;
+	// #3358: backup → restore round-trip で表示状態 / 並び順 / アーカイブ状態を保全する
+	// (省略時は schema default = 表示 / 並び順 0 / 非アーカイブ)。archived 活動が import 後に
+	// active へ復活する silent なデータ破綻 (第10回監査 data-5) を防ぐ。
+	isVisible?: number;
+	sortOrder?: number;
+	isArchived?: number;
+	archivedReason?: string | null;
 }
 
 export interface UpdateChildActivityInput {
