@@ -294,6 +294,19 @@ export interface ExportStampCard {
 	entries: ExportStampEntry[];
 }
 
+/**
+ * #3329: per-child 証明書 (がんばり証明書/卒業証明書 等の授与記録)。issuedAt / metadata を保全して
+ * round-trip 復元する (id / tenantId は import 環境で振り直すため childRef で再結合)。
+ */
+export interface ExportCertificate {
+	childRef: string;
+	certificateType: string;
+	title: string;
+	description: string | null;
+	issuedAt: string;
+	metadata: string | null;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -370,6 +383,8 @@ export interface ExportTransactionData {
 	childChallenges: ExportChildChallenge[];
 	/** #3329: per-child スタンプカード + 押印 entry (nested、status/redeemed/earnedAt 保全) */
 	stampCards: ExportStampCard[];
+	/** #3329: per-child 証明書 (がんばり/卒業証明書 授与記録、issuedAt/metadata 保全) */
+	certificates: ExportCertificate[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	childAvatarItems: never[];

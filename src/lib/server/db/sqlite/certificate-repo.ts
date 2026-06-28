@@ -34,6 +34,34 @@ export async function issueCertificate(
 	}
 }
 
+/** #3329 backup restore 用: issuedAt / metadata を保全して証明書を復元する。 */
+export async function insertForRestore(
+	input: Omit<Certificate, 'id' | 'tenantId'>,
+	tenantId: string,
+): Promise<Certificate | null> {
+	return (
+		db
+			.insert(certificates)
+			.values({
+				childId: input.childId,
+				tenantId,
+				certificateType: input.certificateType,
+				title: input.title,
+				description: input.description,
+				issuedAt: input.issuedAt,
+				metadata: input.metadata,
+			})
+			.onConflictDoNothing()
+			.returning()
+			.get() ?? null
+	);
+}
+
+/** #3329: テナントの全証明書を削除（SQLite: シングルテナントのため全行削除）。 */
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	db.delete(certificates).run();
+}
+
 /** 子供の全証明書を取得（新しい順） */
 export async function findCertificates(childId: number, tenantId: string): Promise<Certificate[]> {
 	return db
