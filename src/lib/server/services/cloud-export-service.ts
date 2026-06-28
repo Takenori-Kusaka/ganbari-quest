@@ -277,6 +277,11 @@ export async function deleteCloudExport(id: number, tenantId: string): Promise<v
  * PINコードでクラウドエクスポートデータを取得（インポート用）。
  * #3376: full export は ZIP（バイナリ）になり得るため、raw bytes を返す
  * （template=JSON は呼び出し側で utf-8 decode、full は ZIP マジックバイトで判定して解凍）。
+ *
+ * **DL カウントは本関数では消費しない**（#3376 adversarial 是正）。旧実装は parse/validate より前の
+ * fetch 時点で常に increment していたため、preview や validate 失敗・リトライのたびに maxDownloads を
+ * 食い潰し、本来の復元 (execute) ができなくなる恐れがあった。消費は validate 成功後の execute/replace で
+ * {@link consumeCloudExportDownload} を明示的に呼ぶ責務に分離する（preview は非消費）。
  */
 export async function fetchCloudExportByPin(pinCode: string): Promise<{
 	record: CloudExportRecord;
@@ -295,10 +300,17 @@ export async function fetchCloudExportByPin(pinCode: string): Promise<{
 	const fileData = await repos.storage.readFile(record.s3Key);
 	if (!fileData) throw new Error('エクスポートデータが見つかりません');
 
-	// ダウンロードカウント増加 (#2845 B1: record.tenantId で tenant 束縛)
-	await repos.cloudExport.incrementDownloadCount(record.id, record.tenantId);
-
 	return { record, bytes: new Uint8Array(fileData.data) };
+}
+
+/**
+ * クラウドエクスポートの DL カウントを 1 消費する（#3376 adversarial 是正）。
+ * validate 成功後の実取込 (execute / replace) でのみ呼ぶ。preview では呼ばない。
+ * (#2845 B1: record.tenantId で tenant 束縛して increment する)
+ */
+export async function consumeCloudExportDownload(record: CloudExportRecord): Promise<void> {
+	const repos = getRepos();
+	await repos.cloudExport.incrementDownloadCount(record.id, record.tenantId);
 }
 
 /** 期限切れエクスポートを一括削除（Cronジョブ用） */

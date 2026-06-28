@@ -6,7 +6,10 @@ import { requireRole } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { isZipBytes, parseBackupZip } from '$lib/server/services/backup-archive';
-import { fetchCloudExportByPin } from '$lib/server/services/cloud-export-service';
+import {
+	consumeCloudExportDownload,
+	fetchCloudExportByPin,
+} from '$lib/server/services/cloud-export-service';
 import { clearAllFamilyData } from '$lib/server/services/data-service';
 import {
 	importFamilyData,
@@ -75,16 +78,16 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 			new TextDecoder().decode(bytes),
 			tenantId,
 			mode,
-			record.description,
+			record,
 			targetChildIds,
 		);
 	}
 
 	// フルインポート。#3376: 新形式は画像込み ZIP（完全復元）、旧形式は data.json（JSON、後方互換）。
 	if (isZipBytes(bytes)) {
-		return handleFullZipImport(bytes, tenantId, mode);
+		return handleFullZipImport(bytes, tenantId, mode, record);
 	}
-	return handleFullImport(new TextDecoder().decode(bytes), tenantId, mode);
+	return handleFullImport(new TextDecoder().decode(bytes), tenantId, mode, record);
 };
 
 /**
@@ -96,6 +99,7 @@ async function handleFullZipImport(
 	zipBytes: Uint8Array,
 	tenantId: string,
 	mode: string,
+	record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'],
 ): Promise<Response> {
 	const parsed = await parseBackupZip(zipBytes);
 	if (!parsed.ok) {
@@ -115,6 +119,8 @@ async function handleFullZipImport(
 
 	if (mode === 'execute') {
 		try {
+			// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
+			await consumeCloudExportDownload(record);
 			const result = await importFamilyData(validation.data, tenantId, staticFiles);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
@@ -125,6 +131,8 @@ async function handleFullZipImport(
 
 	// replace
 	try {
+		// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
+		await consumeCloudExportDownload(record);
 		logger.info('[cloud-import] 置換インポート開始 (ZIP)', { context: { tenantId } });
 		const clearResult = await clearAllFamilyData(tenantId);
 		const result = await importFamilyData(validation.data, tenantId, staticFiles);
@@ -155,9 +163,10 @@ async function handleTemplateImport(
 	dataStr: string,
 	tenantId: string,
 	mode: string,
-	description: string | null,
+	record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'],
 	targetChildIds: number[] | undefined,
 ): Promise<Response> {
+	const description = record.description;
 	type TemplateActivity = {
 		name: string;
 		categoryId: number;
@@ -247,6 +256,9 @@ async function handleTemplateImport(
 			);
 		}
 
+		// #3376 adversarial: 全 validation 成功後に DL を消費 (preview / validate 失敗では消費しない)
+		await consumeCloudExportDownload(record);
+
 		// 旧 export の活動を平坦化 (childId 元情報は捨てる、復元先 child が SSOT)
 		const flatActivities: TemplateActivity[] = childBuckets.flatMap((b) =>
 			Array.isArray(b.activities) ? b.activities : [],
@@ -311,6 +323,7 @@ async function handleFullImport(
 	dataStr: string,
 	tenantId: string,
 	mode: string,
+	record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'],
 ): Promise<Response> {
 	let parsed: unknown;
 	try {
@@ -331,6 +344,8 @@ async function handleFullImport(
 
 	if (mode === 'execute') {
 		try {
+			// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
+			await consumeCloudExportDownload(record);
 			const result = await importFamilyData(validation.data, tenantId);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
@@ -341,6 +356,8 @@ async function handleFullImport(
 
 	// replace
 	try {
+		// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
+		await consumeCloudExportDownload(record);
 		logger.info('[cloud-import] 置換インポート開始', { context: { tenantId } });
 		const clearResult = await clearAllFamilyData(tenantId);
 		const result = await importFamilyData(validation.data, tenantId);

@@ -7,6 +7,7 @@ import { requireRole } from '$lib/server/auth/factory';
 import type { CloudExportType } from '$lib/server/db/types';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
+import { BackupSizeLimitError } from '$lib/server/services/backup-archive';
 import { createCloudExport, listCloudExports } from '$lib/server/services/cloud-export-service';
 import type { RequestHandler } from './$types';
 
@@ -62,6 +63,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 		return json({ ok: true, ...result }, { status: 201 });
 	} catch (err) {
+		// #3376 fail-closed: 同梱対象が上限超過のとき、不完全な部分バックアップを保管せず明示する。
+		// (本 error の文言にも「上限」が含まれるため、下の substring 判定より前に分岐する)
+		if (err instanceof BackupSizeLimitError) {
+			return apiError('VALIDATION_ERROR', err.userMessage);
+		}
 		const msg = err instanceof Error ? err.message : String(err);
 		if (msg.includes('スタンダード') || msg.includes('上限')) {
 			return apiError('PLAN_LIMIT_EXCEEDED', msg);

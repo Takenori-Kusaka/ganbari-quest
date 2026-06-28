@@ -108,6 +108,7 @@ vi.mock('$lib/server/db/factory', () => ({
 // SUT
 import {
 	cleanupExpiredExports,
+	consumeCloudExportDownload,
 	createCloudExport,
 	deleteCloudExport,
 	fetchCloudExportByPin,
@@ -416,8 +417,9 @@ describe('cloud-export-service', () => {
 
 			// #3376: data:string → bytes:Uint8Array に変更（full は ZIP バイナリ対応のため）
 			expect(new TextDecoder().decode(result.bytes)).toBe('{"test":"data"}');
-			// #2845 B1: record.tenantId で tenant 束縛して increment する
-			expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(1, 'tenant-1');
+			// #3376 adversarial 是正: fetch は DL を消費しない (preview / validate 失敗で
+			// maxDownloads を食い潰さないため)。消費は consumeCloudExportDownload に分離。
+			expect(mockCloudExportRepo.incrementDownloadCount).not.toHaveBeenCalled();
 		});
 
 		it('PINは大文字に変換される', async () => {
@@ -457,6 +459,17 @@ describe('cloud-export-service', () => {
 			});
 
 			await expect(fetchCloudExportByPin('ABC123')).rejects.toThrow('ダウンロード');
+		});
+	});
+
+	describe('consumeCloudExportDownload (#3376 adversarial)', () => {
+		it('record.tenantId で tenant 束縛して DL カウントを 1 消費する (#2845 B1)', async () => {
+			await consumeCloudExportDownload({
+				id: 7,
+				tenantId: 'tenant-1',
+			} as unknown as Parameters<typeof consumeCloudExportDownload>[0]);
+
+			expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(7, 'tenant-1');
 		});
 	});
 

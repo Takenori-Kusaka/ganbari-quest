@@ -16,6 +16,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mocks (top-level)
 const mockFetchCloudExport = vi.fn();
+// #3376 adversarial: DL 消費は consumeCloudExportDownload に分離されたため spy を持つ。
+const mockConsumeDownload = vi.fn();
 // #3376: fetchCloudExportByPin は { record, bytes } を返すようになったため、
 // テスト fixture も JSON を Uint8Array (bytes) に encode して与える。
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -29,6 +31,7 @@ vi.mock('$lib/server/auth/factory', () => ({
 
 vi.mock('$lib/server/services/cloud-export-service', () => ({
 	fetchCloudExportByPin: (...args: unknown[]) => mockFetchCloudExport(...args),
+	consumeCloudExportDownload: (...args: unknown[]) => mockConsumeDownload(...args),
 }));
 
 vi.mock('$lib/server/services/data-service', () => ({
@@ -140,6 +143,8 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			expect(json.preview.activitiesByChild).toHaveLength(2);
 			expect(json.preview.activitiesByChild[0]).toMatchObject({ childId: 99, activityCount: 2 });
 			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+			// #3376 adversarial: preview は DL を消費しない
+			expect(mockConsumeDownload).not.toHaveBeenCalled();
 		});
 	});
 
@@ -170,6 +175,8 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			const json = (await res.json()) as { error?: { message?: string } };
 			expect(json.error?.message).toContain('999');
 			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+			// #3376 adversarial: validation 失敗 (cross-tenant 拒否) では DL を消費しない
+			expect(mockConsumeDownload).not.toHaveBeenCalled();
 		});
 
 		it('execute は ChildSelectionDialog で選ばれた child 全員に bulk insert する', async () => {
@@ -196,6 +203,8 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			// 各 child に 3 件 (dedup 後) ずつ → 計 6 件
 			expect(json.result.activitiesCreated).toBe(6);
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(2);
+			// #3376 adversarial: validate 成功後の execute でちょうど 1 回だけ DL を消費
+			expect(mockConsumeDownload).toHaveBeenCalledTimes(1);
 		});
 
 		it('execute は per-child 既存名と衝突する activity をスキップする', async () => {

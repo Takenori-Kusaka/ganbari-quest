@@ -9,7 +9,7 @@ import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
-import { buildFullBackupZip } from '$lib/server/services/backup-archive';
+import { BackupSizeLimitError, buildFullBackupZip } from '$lib/server/services/backup-archive';
 import { exportFamilyData } from '$lib/server/services/export-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import type { RequestHandler } from './$types';
@@ -59,6 +59,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			},
 		});
 	} catch (err) {
+		// #3376 fail-closed: 同梱対象が上限超過のとき、不完全な部分バックアップを返さずユーザーに明示する。
+		if (err instanceof BackupSizeLimitError) {
+			return apiError('VALIDATION_ERROR', err.userMessage);
+		}
 		logger.error('[export] エクスポート失敗', { error: String(err) });
 		return apiError('INTERNAL_ERROR', 'エクスポートに失敗しました');
 	}

@@ -12,6 +12,7 @@
 // バイト集合の抽出までで、ファイルシステムへは書かない）。
 
 import type { ExportData } from '$lib/domain/export-format';
+import { SETTINGS_LABELS } from '$lib/domain/labels';
 import { logger } from '$lib/server/logger';
 import { listFiles, readFile } from '$lib/server/storage';
 import { tenantPrefix } from '$lib/server/storage-keys';
@@ -24,6 +25,30 @@ import {
 
 // ZIP サイズ上限。export / import で整合させる (#3077)。
 export const MAX_ZIP_SIZE = 100 * 1024 * 1024; // 100MB（構築時の同梱合計上限）
+
+/**
+ * #3376 fail-closed: フルバックアップ同梱対象 (data.json + 静的ファイル) の合計が {@link MAX_ZIP_SIZE} を
+ * 超えたときに throw する番兵 error。
+ *
+ * 旧実装は上限到達時に残りの静的ファイルを silent skip し、manifest を **truncated set から構築**して
+ * いた。結果「フルバックアップ」と銘打ちながら再生成不能な avatar/voice が無警告で欠落し、manifest /
+ * verifyBackupManifest も「truncated set 内で完全整合」と判定して検証を素通りしていた (#3379 と同型の
+ * 「manifest = 内部整合のみ」教訓の再発)。本 error で不完全な ZIP を生成せず親に明示する。
+ *
+ * 呼び出し元 (export/+server / export/cloud/+server) は本 error を捕捉してユーザー向け文言
+ * (labels SSOT、ADR-0062) を返す。
+ */
+export class BackupSizeLimitError extends Error {
+	/** ユーザー向け文言 (labels SSOT、内部例外を露出しない / ADR-0062)。 */
+	readonly userMessage: string;
+	constructor() {
+		const maxMb = Math.floor(MAX_ZIP_SIZE / (1024 * 1024));
+		const message = SETTINGS_LABELS.dataExportTooLarge(String(maxMb));
+		super(message);
+		this.name = 'BackupSizeLimitError';
+		this.userMessage = message;
+	}
+}
 // #3078 zip-bomb 防御: 展開後 (uncompressed) サイズ上限。
 const MAX_ENTRY_UNCOMPRESSED_BYTES = 25 * 1024 * 1024; // エントリ単体 25MB
 const MAX_TOTAL_UNCOMPRESSED_BYTES = 200 * 1024 * 1024; // 展開後合計 200MB
@@ -49,14 +74,16 @@ function countExportItems(exportData: ExportData): Record<string, number> {
 /**
  * 全体バックアップ ZIP を構築する（data.json + テナントの静的ファイル + manifest.json）。
  *
- * - 静的ファイル (avatars/voices/generated) を storage から収集し、合計が MAX_ZIP_SIZE を
- *   超えたら以降をスキップ（ログ警告）。
+ * - 静的ファイル (avatars/voices/generated) を storage から収集する。合計が MAX_ZIP_SIZE を
+ *   超える場合は **silent skip せず {@link BackupSizeLimitError} を throw**（fail-closed、#3376）。
+ *   「フルバックアップ」の意味論を守り、再生成不能な avatar/voice が無警告で欠落した不完全 ZIP を作らない。
  * - #3375: manifest.json に全エントリの SHA-256 + バイト数 + dataVersion + itemCounts を記録。
  * - per-entry 圧縮制御: 既圧縮画像 = store(level 0) / 構造化(data.json/manifest.json) = deflate(level 6)。
  *
  * ローカル DL (export/+server.ts) とクラウド full export (cloud-export-service) が共有する。
  *
  * @returns ZIP バイト列。
+ * @throws {BackupSizeLimitError} 同梱対象の合計が MAX_ZIP_SIZE を超える場合。
  */
 export async function buildFullBackupZip(
 	tenantId: string,
@@ -71,6 +98,10 @@ export async function buildFullBackupZip(
 	const jsonStr = compact ? JSON.stringify(exportData) : JSON.stringify(exportData, null, 2);
 	files['data.json'] = strToU8(jsonStr);
 	let totalSize = files['data.json'].length;
+	// data.json 単体で上限超過 (極端ケース)。これも fail-closed で弾く。
+	if (totalSize > MAX_ZIP_SIZE) {
+		throw new BackupSizeLimitError();
+	}
 
 	// 2. 静的ファイル（S3/ローカルストレージ）。既圧縮画像のため store で同梱する。
 	const staticPaths = new Set<string>();
@@ -78,21 +109,23 @@ export async function buildFullBackupZip(
 		const prefix = tenantPrefix(tenantId);
 		const fileKeys = await listFiles(prefix);
 		for (const key of fileKeys) {
-			if (totalSize >= MAX_ZIP_SIZE) {
-				logger.warn('[backup-archive] ZIP サイズ上限に到達、残りファイルをスキップ', {
-					context: { tenantId, totalSize },
-				});
-				break;
-			}
 			const fileData = await readFile(key);
 			if (fileData) {
 				const relativePath = key.replace(prefix, '');
 				files[relativePath] = new Uint8Array(fileData.data);
 				staticPaths.add(relativePath);
 				totalSize += fileData.data.length;
+				// #3376 fail-closed: 上限超過時は残りファイルを silent skip せず明示エラー。
+				// 不完全な ZIP を「フルバックアップ」として返すと、再生成不能な avatar/voice が
+				// 無警告で欠落し、manifest も truncated set から構築されて整合判定を素通りするため。
+				if (totalSize > MAX_ZIP_SIZE) {
+					throw new BackupSizeLimitError();
+				}
 			}
 		}
 	} catch (err) {
+		// fail-closed の番兵 error は storage 失敗の graceful degrade (JSON のみ) に巻き込まない。
+		if (err instanceof BackupSizeLimitError) throw err;
 		logger.warn('[backup-archive] 静的ファイル取得に失敗（JSONのみでバックアップ）', {
 			error: String(err),
 		});
