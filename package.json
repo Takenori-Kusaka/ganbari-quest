@@ -43,7 +43,7 @@
 		"check:lp-residue": "node scripts/check-lp-removal-residue.mjs",
 		"check:lp-residue:update-baseline": "node scripts/check-lp-removal-residue.mjs --update-baseline",
 		"check:marketplace-registry-integrity": "node scripts/check-marketplace-registry-integrity.mjs",
-		"lint:parallel": "node scripts/check-forbidden-terms.mjs && node scripts/generate-lp-labels.mjs --check && node scripts/check-lp-plan-sync.mjs --check && node scripts/check-ssot-parallel-impl.mjs && node scripts/check-lp-innerhtml-tags.mjs && node scripts/check-lp-removal-residue.mjs && tsx scripts/check-terminology-coherence.ts",
+		"lint:parallel": "node scripts/check-forbidden-terms.mjs && node scripts/generate-lp-labels.mjs --check && node scripts/check-lp-plan-sync.mjs --check && node scripts/check-ssot-parallel-impl.mjs && node scripts/check-lp-innerhtml-tags.mjs && node scripts/check-lp-removal-residue.mjs && node scripts/check-no-at-html.mjs && tsx scripts/check-terminology-coherence.ts",
 		"lint:lp-innerhtml-tags": "node scripts/check-lp-innerhtml-tags.mjs",
 		"lint:fix": "biome check --write .",
 		"generate:lp-labels": "node scripts/generate-lp-labels.mjs",
