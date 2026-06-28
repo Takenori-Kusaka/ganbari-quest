@@ -135,8 +135,7 @@ describe('#3329 backup-entity-registry — silent-gap ガード', () => {
 			'childCustomVoices',
 			'parentMessage',
 			'restDays',
-			// rewardRedemption は #3329 で export 実装済 → exported へ flip (本ベースラインから除外)
-			'setting',
+			// rewardRedemption / setting は #3329 で export 実装済 → exported へ flip (本ベースラインから除外)
 			'siblingCheer',
 			'stampCard',
 			'stampEntry',

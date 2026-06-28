@@ -4,6 +4,7 @@
 import {
 	EXPORT_FORMAT,
 	EXPORT_VERSION,
+	EXPORTABLE_SETTING_KEYS,
 	type ExportAchievement,
 	type ExportActivity,
 	type ExportActivityLog,
@@ -18,6 +19,7 @@ import {
 	type ExportOptions,
 	type ExportPointLedger,
 	type ExportRewardRedemption,
+	type ExportSetting,
 	type ExportSpecialReward,
 	type ExportStatus,
 	type ExportStatusHistory,
@@ -37,6 +39,7 @@ import { getRepos } from '$lib/server/db/factory';
 import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
 import { findRedemptionRequestsByTenant } from '$lib/server/db/reward-redemption-repo';
+import { getSettings } from '$lib/server/db/settings-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
 import { findRecentStatusHistory, findStatuses } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
@@ -471,6 +474,14 @@ async function collectTransactionData(
 		childIds.map((childId) => collectForChild(childId, childExportIdMap, tenantId)),
 	);
 
+	// #3329: 各種設定 (tenant-scoped KVS)。default-deny allowlist のキーのみ取得し、
+	// pin_hash / session_token 等の秘匿キーは構造的に export に載らない (CWE-522/916、D3)。
+	// key 昇順で push して checksum を決定的に保つ。
+	const settingsMap = await getSettings([...EXPORTABLE_SETTING_KEYS], tenantId);
+	const settingsOut: ExportSetting[] = Object.keys(settingsMap)
+		.sort()
+		.map((key) => ({ key, value: settingsMap[key] as string }));
+
 	return {
 		childActivities: perChild.flatMap((p) => p.childActivities),
 		activityLogs: perChild.flatMap((p) => p.activityLogs),
@@ -487,5 +498,6 @@ async function collectTransactionData(
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
+		settings: settingsOut, // #3329
 	};
 }

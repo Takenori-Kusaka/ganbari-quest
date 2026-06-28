@@ -193,9 +193,9 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	setting: {
 		classification: 'source',
 		schemaTable: 'settings',
-		backupStatus: 'not-yet-exported',
+		backupStatus: 'exported',
 		reason:
-			'各種設定 (ポイント表示/onboarding 等)。export 未対応 (#3329)。PIN(pin_hash) は CWE-522/916 で除外 or 暗号化 (設計 D3)',
+			'各種設定 (ポイント表示/通知/onboarding 等)。export/import 実装済 (#3329)。default-deny allowlist (EXPORTABLE_SETTING_KEYS) で pin_hash / session_token 等の秘匿キーは構造的に除外 (CWE-522/916、設計 D3)',
 	},
 	// #3329 QM BLOCK 是正: schema.ts 権威列挙で surface した builder-less source テーブル。
 	restDays: {
