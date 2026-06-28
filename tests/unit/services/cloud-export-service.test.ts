@@ -414,7 +414,8 @@ describe('cloud-export-service', () => {
 
 			const result = await fetchCloudExportByPin('ABC123');
 
-			expect(result.data).toBe('{"test":"data"}');
+			// #3376: data:string → bytes:Uint8Array に変更（full は ZIP バイナリ対応のため）
+			expect(new TextDecoder().decode(result.bytes)).toBe('{"test":"data"}');
 			// #2845 B1: record.tenantId で tenant 束縛して increment する
 			expect(mockCloudExportRepo.incrementDownloadCount).toHaveBeenCalledWith(1, 'tenant-1');
 		});

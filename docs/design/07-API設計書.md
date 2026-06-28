@@ -1077,8 +1077,8 @@ const createCloudExportSchema = z.object({
 }
 ```
 
-- `template`: 活動マスタ・チェックリストテンプレート等の設定データのみ
-- `full`: 子供プロフィール・活動記録・ポイント等の全データ
+- `template`: 活動マスタ・チェックリストテンプレート等の設定データのみ（S3 には `data.json` として JSON 保存）
+- `full`: 子供プロフィール・活動記録・ポイント等の全データ。**画像（アバター等の静的ファイル）を含む完全バックアップ ZIP（`backup.zip`）として S3 保存**（#3376）。zip 構築・解析・zip-bomb 防御・manifest 整合性検証は `src/lib/server/services/backup-archive.ts`（`buildFullBackupZip` / `parseBackupZip`）に一元化し、`/api/v1/export`・`/api/v1/import` と共有する
 
 #### DELETE /api/v1/export/cloud/[id] (#0294)
 
@@ -1093,7 +1093,7 @@ const createCloudExportSchema = z.object({
 
 #### POST /api/v1/import/cloud (#0294)
 
-PINコードを使って他テナントのクラウドエクスポートデータをインポートする。認可: owner/parent。
+PINコードを使って他テナントのクラウドエクスポートデータをインポートする。認可: owner/parent。`full` バックアップが画像込み ZIP（`backup.zip`）の場合は `isZipBytes` で判定し、`parseBackupZip` → `importFamilyData`（staticFiles 込み）で**画像を含む完全復元**を行う（#3376）。旧形式（`data.json` JSON、7 日以内に S3 残存）は非 ZIP として後方互換の JSON 復元経路にフォールバックする。ブラウザ DL を介さずアプリ内で取得するため、ZIP DL 時の Safe Browsing 警告が構造的に発生しない。
 
 **クエリパラメータ:**
 

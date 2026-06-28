@@ -2215,6 +2215,10 @@ export const SETTINGS_LABELS = {
 	dataExportIncludeFiles: '画像・音声ファイルも含める',
 	dataExportIncludeFilesHint:
 		'画像・音声を含める場合は上のチェックをオンにしてください。ファイルサイズが大きくなる場合があります（最大100MB）。',
+	// #3376: 画像込み ZIP ダウンロードはブラウザの安全性警告（保存の確認）が出ることがある。
+	// 画像込みの完全バックアップは、警告の出ないクラウドバックアップを推奨する導線。
+	dataExportZipCloudHint:
+		'画像・音声を含むファイルのダウンロードは、ブラウザが安全性の確認を求めることがあります（壊れたファイルではありません）。画像も含めて安全に残すなら、下の「クラウドバックアップ」がおすすめです。',
 	dataExportCompact: 'ファイルサイズを小さくする（圧縮）',
 	dataExporting: '書き出し中...',
 	dataExportAction: `${BACKUP_TERMS.canonical}をダウンロード`,
