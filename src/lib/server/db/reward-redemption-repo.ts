@@ -13,6 +13,26 @@ export async function findRedemptionRequestsByChild(childId: number, tenantId: s
 	return getRepos().rewardRedemption.findRedemptionRequestsByChild(childId, tenantId);
 }
 
+/** #3329 backup restore 用: 申請時点の全フィールド (status / 解決情報 / snapshot) を保全して復元。 */
+export async function insertRedemptionForRestore(
+	input: {
+		childId: number;
+		rewardId: number;
+		requestedAt: number;
+		status: string;
+		parentNote: string | null;
+		resolvedAt: number | null;
+		resolvedByParentId: string | null;
+		shownToChildAt: number | null;
+		rewardTitle: string | null;
+		rewardPoints: number | null;
+		rewardIcon: string | null;
+	},
+	tenantId: string,
+) {
+	return getRepos().rewardRedemption.insertRedemptionForRestore(input, tenantId);
+}
+
 export async function findRedemptionRequestsByTenant(
 	tenantId: string,
 	opts?: { status?: string; childId?: number; limit?: number },

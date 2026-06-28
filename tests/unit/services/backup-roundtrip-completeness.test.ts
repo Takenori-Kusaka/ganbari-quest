@@ -47,6 +47,11 @@ import {
 import { findRecentBonuses, insertLoginBonus } from '../../../src/lib/server/db/login-bonus-repo';
 import { findPointHistory } from '../../../src/lib/server/db/point-repo';
 import {
+	findRedemptionRequestsByTenant,
+	insertRedemptionRequest,
+	updateRedemptionRequestStatus,
+} from '../../../src/lib/server/db/reward-redemption-repo';
+import {
 	findSpecialRewards,
 	insertSpecialReward,
 } from '../../../src/lib/server/db/special-reward-repo';
@@ -123,7 +128,7 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			},
 			T,
 		);
-		await insertSpecialReward(
+		const reward = await insertSpecialReward(
 			{
 				childId: 1,
 				title: 'ごほうびX',
@@ -136,6 +141,19 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			T,
 		);
 
+		// #3329: ごほうび交換履歴を 1 件 seed し、承認済 (approved) まで進める。
+		// round-trip 後に status=approved と snapshot がそのまま復元されることを検証する。
+		const redemption = await insertRedemptionRequest(
+			{ childId: 1, rewardId: reward.id, requestedAt: 1_700_000_000_000 },
+			T,
+		);
+		await updateRedemptionRequestStatus(
+			1,
+			redemption.id,
+			{ status: 'approved', resolvedAt: 1_700_000_100_000, resolvedByParentId: 'parent-1' },
+			T,
+		);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -144,6 +162,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(data.data.pointLedger.length, 'export:台帳').toBe(1);
 		expect(data.data.evaluations.length, 'export:評価').toBe(1);
 		expect(data.data.specialRewards.length, 'export:ごほうび').toBe(1);
+		expect(data.data.rewardRedemptions.length, 'export:交換履歴').toBe(1);
+		expect(data.data.rewardRedemptions[0]?.status, 'export:交換履歴 status').toBe('approved');
 
 		// --- replace = clear → import ---
 		await clearAllFamilyData(T);
@@ -165,5 +185,14 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect((await findRecentBonuses(cid, T, 999)).length, 'ログインボーナス').toBe(1);
 		expect((await findEvaluationsByChild(cid, 999, T)).length, '評価').toBe(1);
 		expect((await findSpecialRewards(cid, T)).length, 'ごほうび').toBe(1);
+
+		// #3329: 交換履歴が status / snapshot を保って復元される。
+		const restoredRedemptions = await findRedemptionRequestsByTenant(T, {
+			childId: cid,
+			limit: 999,
+		});
+		expect(restoredRedemptions.length, '交換履歴').toBe(1);
+		expect(restoredRedemptions[0]?.status, '交換履歴 status 保全').toBe('approved');
+		expect(restoredRedemptions[0]?.rewardTitle, '交換履歴 snapshot 保全').toBe('ごほうびX');
 	});
 });

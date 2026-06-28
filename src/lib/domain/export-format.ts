@@ -175,6 +175,22 @@ export interface ExportSpecialReward {
 	sourcePresetId?: string | null;
 }
 
+export interface ExportRewardRedemption {
+	childRef: string;
+	/** import 後に FK rewardId を再解決するための reward タイトル (per-child で一意) */
+	rewardRef: string;
+	requestedAt: number;
+	status: string;
+	parentNote: string | null;
+	resolvedAt: number | null;
+	resolvedByParentId: string | null;
+	shownToChildAt: number | null;
+	// #2832: 申請時点 snapshot (reward 改名/削除後も申請時の内容で表示・控除する)
+	rewardTitle: string | null;
+	rewardPoints: number | null;
+	rewardIcon: string | null;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -245,6 +261,8 @@ export interface ExportTransactionData {
 	loginBonuses: ExportLoginBonus[];
 	evaluations: ExportEvaluation[];
 	specialRewards: ExportSpecialReward[];
+	/** #3329: ごほうびショップ交換/購入履歴 (per-child、rewardRef で reward に再結合) */
+	rewardRedemptions: ExportRewardRedemption[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	childAvatarItems: never[];

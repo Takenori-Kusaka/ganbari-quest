@@ -30,6 +30,29 @@ export interface IRewardRedemptionRepo {
 		tenantId: string,
 	): Promise<RedemptionRequestRow>;
 
+	/**
+	 * #3329 backup restore 用: 申請時点の全フィールド (status / 解決情報 / snapshot) を保全して
+	 * 復元する。通常の insertRedemptionRequest は status を pending 固定 + live reward を引くため
+	 * round-trip で承認済/却下/snapshot が失われる。本メソッドは export された値をそのまま書き戻す。
+	 * id は新規採番 (元 id は保全しない、FK は呼び出し側が解決済の rewardId を渡す)。
+	 */
+	insertRedemptionForRestore(
+		input: {
+			childId: number;
+			rewardId: number;
+			requestedAt: number;
+			status: string;
+			parentNote: string | null;
+			resolvedAt: number | null;
+			resolvedByParentId: string | null;
+			shownToChildAt: number | null;
+			rewardTitle: string | null;
+			rewardPoints: number | null;
+			rewardIcon: string | null;
+		},
+		tenantId: string,
+	): Promise<RedemptionRequestRow>;
+
 	findRedemptionRequestsByChild(childId: number, tenantId: string): Promise<RedemptionRequestRow[]>;
 
 	findRedemptionRequestsByTenant(
