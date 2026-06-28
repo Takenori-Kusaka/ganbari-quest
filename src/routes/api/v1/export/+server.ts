@@ -4,10 +4,15 @@ import { json } from '@sveltejs/kit';
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
+import type { ExportData } from '$lib/domain/export-format';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
+import {
+	BACKUP_MANIFEST_FILENAME,
+	buildBackupManifest,
+} from '$lib/server/services/backup-manifest';
 import { exportFamilyData } from '$lib/server/services/export-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
 import { listFiles, readFile } from '$lib/server/storage';
@@ -66,8 +71,25 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 const MAX_ZIP_SIZE = 100 * 1024 * 1024; // 100MB
 
+/**
+ * #3375: ExportData から主要エンティティ件数を数える (manifest の sanity check 用)。
+ * 破損・部分欠損したバックアップを import 前に検出する補助情報。
+ */
+function countExportItems(exportData: ExportData): Record<string, number> {
+	const d = exportData.data;
+	return {
+		children: exportData.family.children.length,
+		childActivities: d.childActivities.length,
+		activityLogs: d.activityLogs.length,
+		pointLedger: d.pointLedger.length,
+		specialRewards: d.specialRewards.length,
+		checklistTemplates: d.checklistTemplates.length,
+		checklistLogs: d.checklistLogs.length,
+	};
+}
+
 async function buildZipResponse(
-	exportData: unknown,
+	exportData: ExportData,
 	tenantId: string,
 	dateStr: string,
 	compact: boolean,
@@ -83,6 +105,9 @@ async function buildZipResponse(
 	let totalSize = files['data.json'].length;
 
 	// 2. 静的ファイル（S3/ローカルストレージ）
+	// #3375: 画像は既圧縮 (png/webp/jpeg) で再圧縮が効かないため per-entry で store (level 0)、
+	// 構造化データ (data.json / manifest.json) のみ deflate にするためパス集合を控える。
+	const staticPaths = new Set<string>();
 	try {
 		const prefix = tenantPrefix(tenantId);
 		const fileKeys = await listFiles(prefix);
@@ -100,6 +125,7 @@ async function buildZipResponse(
 				// tenants/{tenantId}/avatars/1/xxx.png → avatars/1/xxx.png
 				const relativePath = key.replace(prefix, '');
 				files[relativePath] = new Uint8Array(fileData.data);
+				staticPaths.add(relativePath);
 				totalSize += fileData.data.length;
 			}
 		}
@@ -109,7 +135,23 @@ async function buildZipResponse(
 		});
 	}
 
-	const zipData = zipSync(files);
+	// 3. #3375: 整合性 manifest（data.json + 全静的ファイルの SHA-256 + バイト数 + 件数）。
+	// data.json の論理 checksum (ExportData.checksum) では守れない同梱バイナリの破損を検出可能にする。
+	const manifest = await buildBackupManifest(
+		files,
+		exportData.version,
+		countExportItems(exportData),
+		new Date().toISOString(),
+	);
+	files[BACKUP_MANIFEST_FILENAME] = strToU8(JSON.stringify(manifest));
+
+	// #3375: per-entry 圧縮制御。静的ファイル (既圧縮画像) は store(level 0)、
+	// 構造化データ (data.json / manifest.json) は deflate(level 6)。
+	const zippable: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
+	for (const [path, bytes] of Object.entries(files)) {
+		zippable[path] = [bytes, { level: staticPaths.has(path) ? 0 : 6 }];
+	}
+	const zipData = zipSync(zippable);
 
 	return new Response(zipData.buffer as ArrayBuffer, {
 		status: 200,
