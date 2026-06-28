@@ -19,6 +19,7 @@ import {
 	type ExportEvaluation,
 	type ExportLoginBonus,
 	type ExportOptions,
+	type ExportParentMessage,
 	type ExportPointLedger,
 	type ExportRewardRedemption,
 	type ExportSetting,
@@ -232,6 +233,7 @@ interface ChildTransactionData {
 	childChallenges: ExportChildChallenge[];
 	stampCards: ExportStampCard[];
 	certificates: ExportCertificate[];
+	parentMessages: ExportParentMessage[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 }
@@ -262,6 +264,7 @@ async function collectForChild(
 		challenges,
 		stampCardsRaw,
 		certificatesRaw,
+		parentMessagesRaw,
 		checklistTemplates,
 	] = await Promise.all([
 		// #3327 P2: per-child 活動インスタンスを backup に保持 (archive 済も含む)。
@@ -281,6 +284,8 @@ async function collectForChild(
 		getRepos().stampCard.findCardsByChild(childId, tenantId),
 		// #3329: per-child 証明書を backup に保持。
 		getRepos().certificate.findCertificates(childId, tenantId),
+		// #3329: 親→子おうえんメッセージを backup に保持。
+		getRepos().message.findMessages(childId, MAX_EXPORT_ROWS, tenantId),
 		// #3106: backup なので includeInactive=true + includeArchived=true。
 		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
 		findTemplatesByChild(childId, tenantId, true, true),
@@ -467,6 +472,20 @@ async function collectForChild(
 		metadata: c.metadata,
 	}));
 
+	// #3329: 親→子おうえんメッセージを childRef 付きで出力 (sentAt/shownAt 保全)。
+	warnIfTruncated('parentMessages', childId, parentMessagesRaw.length);
+	const parentMessagesOut: ExportParentMessage[] = parentMessagesRaw.map((m) => ({
+		childRef,
+		messageType: m.messageType,
+		stampCode: m.stampCode,
+		body: m.body,
+		icon: m.icon,
+		sentAt: m.sentAt,
+		shownAt: m.shownAt,
+		bonusPoints: m.bonusPoints,
+		rewardCategory: m.rewardCategory,
+	}));
+
 	// Checklist templates with items
 	// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
 	// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
@@ -536,6 +555,7 @@ async function collectForChild(
 		childChallenges: childChallengesOut,
 		stampCards: stampCardsOut,
 		certificates: certificatesOut,
+		parentMessages: parentMessagesOut,
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
 	};
@@ -576,6 +596,7 @@ async function collectTransactionData(
 		childChallenges: perChild.flatMap((p) => p.childChallenges),
 		stampCards: perChild.flatMap((p) => p.stampCards),
 		certificates: perChild.flatMap((p) => p.certificates),
+		parentMessages: perChild.flatMap((p) => p.parentMessages),
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		childAvatarItems: [],

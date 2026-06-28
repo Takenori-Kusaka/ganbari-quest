@@ -54,6 +54,24 @@ function toMessage(item: Record<string, unknown>): ParentMessage {
 // insertMessage — おうえんメッセージを送信 (保存)
 // ============================================================
 
+export async function insertForRestore(
+	input: Omit<ParentMessage, 'id'>,
+	tenantId: string,
+): Promise<ParentMessage> {
+	const id = await nextId(ENTITY_NAMES.parentMessage, tenantId);
+	const message: ParentMessage = { ...input, id };
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...parentMessageKey(input.childId, id, tenantId),
+				...message,
+			},
+		}),
+	);
+	return message;
+}
+
 export async function insertMessage(
 	input: InsertParentMessageInput,
 	tenantId: string,

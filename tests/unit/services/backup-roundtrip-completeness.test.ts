@@ -218,6 +218,22 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			T,
 		);
 
+		// #3329: 親→子メッセージを 1 件 seed (既読 shownAt 明示)。round-trip 後に sentAt/shownAt が保全されること。
+		await getRepos().message.insertForRestore(
+			{
+				childId: 1,
+				messageType: 'text',
+				stampCode: null,
+				body: 'よくがんばったね',
+				icon: '💌',
+				sentAt: '2026-02-10T09:00:00Z',
+				shownAt: '2026-02-10T18:00:00Z',
+				bonusPoints: null,
+				rewardCategory: null,
+			},
+			T,
+		);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -240,6 +256,10 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(data.data.certificates.length, 'export:証明書').toBe(1);
 		expect(data.data.certificates[0]?.issuedAt, 'export:証明書 issuedAt').toBe(
 			'2026-02-01T00:00:00Z',
+		);
+		expect(data.data.parentMessages.length, 'export:メッセージ').toBe(1);
+		expect(data.data.parentMessages[0]?.shownAt, 'export:メッセージ shownAt').toBe(
+			'2026-02-10T18:00:00Z',
 		);
 
 		// --- replace = clear → import ---
@@ -298,6 +318,12 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredCerts.length, '証明書').toBe(1);
 		expect(restoredCerts[0]?.issuedAt, '証明書 issuedAt 保全').toBe('2026-02-01T00:00:00Z');
 		expect(restoredCerts[0]?.certificateType, '証明書 type 保全').toBe('graduation');
+
+		// #3329: 親→子メッセージが sentAt/shownAt を保って復元される。
+		const restoredMsgs = await getRepos().message.findMessages(cid, 999, T);
+		expect(restoredMsgs.length, 'メッセージ').toBe(1);
+		expect(restoredMsgs[0]?.sentAt, 'メッセージ sentAt 保全').toBe('2026-02-10T09:00:00Z');
+		expect(restoredMsgs[0]?.shownAt, 'メッセージ shownAt 保全').toBe('2026-02-10T18:00:00Z');
 	});
 
 	// #3329 QM-fix (2)(a): auto:weekly チャレンジの dedup round-trip。

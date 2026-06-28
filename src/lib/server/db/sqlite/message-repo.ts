@@ -20,6 +20,24 @@ export async function insertMessage(
 	return db.insert(parentMessages).values(input).returning().get();
 }
 
+/** #3329 backup restore 用: sentAt / shownAt を保全してメッセージを復元する。 */
+export async function insertForRestore(
+	input: {
+		childId: number;
+		messageType: string;
+		stampCode: string | null;
+		body: string | null;
+		icon: string;
+		sentAt: string;
+		shownAt: string | null;
+		bonusPoints: number | null;
+		rewardCategory: string | null;
+	},
+	_tenantId: string,
+) {
+	return db.insert(parentMessages).values(input).returning().get();
+}
+
 /** 子供のメッセージ履歴を取得（降順） */
 export async function findMessages(childId: number, limit: number, _tenantId: string) {
 	return db
