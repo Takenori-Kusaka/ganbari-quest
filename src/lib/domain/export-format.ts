@@ -307,6 +307,22 @@ export interface ExportCertificate {
 	metadata: string | null;
 }
 
+/**
+ * #3329: 親→子おうえんメッセージ (stamp/text/reward_notice)。sentAt / shownAt (既読) を保全して
+ * round-trip 復元する (id / childId は import 環境で振り直すため childRef で再結合)。
+ */
+export interface ExportParentMessage {
+	childRef: string;
+	messageType: string;
+	stampCode: string | null;
+	body: string | null;
+	icon: string;
+	sentAt: string;
+	shownAt: string | null;
+	bonusPoints: number | null;
+	rewardCategory: string | null;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -385,6 +401,8 @@ export interface ExportTransactionData {
 	stampCards: ExportStampCard[];
 	/** #3329: per-child 証明書 (がんばり/卒業証明書 授与記録、issuedAt/metadata 保全) */
 	certificates: ExportCertificate[];
+	/** #3329: 親→子おうえんメッセージ (sentAt/shownAt 保全) */
+	parentMessages: ExportParentMessage[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	childAvatarItems: never[];

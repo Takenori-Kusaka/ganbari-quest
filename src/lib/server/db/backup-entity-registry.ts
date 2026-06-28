@@ -167,8 +167,9 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	parentMessage: {
 		classification: 'source',
 		schemaTable: 'parentMessages',
-		backupStatus: 'not-yet-exported',
-		reason: '親→子メッセージ。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'親→子おうえんメッセージ。export/import 実装済 (#3329、sentAt/shownAt を insertForRestore で保全)。clear は tenant-cleanup の message.deleteByTenantId で既に削除済',
 	},
 	siblingCheer: {
 		classification: 'source',
