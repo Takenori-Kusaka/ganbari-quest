@@ -228,7 +228,7 @@ GH_TOKEN=$(gh auth token --user ganbariquestsupport-lab) gh api repos/Takenori-K
 **手順 2 (SS 実視認)**: <各画像 1 行/枚の所見>
 **手順 3 (SS 欠落検知)**: <UI/LP 変更有無 + 画像確認>
 **手順 4 (CI 確認)**: 全 checks pass
-**手順 5 (承認判断)**: 上記 4 手順クリア。squash merge 可。
+**手順 5 (承認判断)**: 上記 4 手順クリア。軽量レーン / hotfix は squash merge 可（統合 PR = `release/*` → main は QM 対象外・外部監査チーム担当で **merge commit**。本テンプレを統合 PR に流用しない）。
 EOF
 )"
 gh pr view <num> --json mergeStateStatus  # CLEAN 確認
