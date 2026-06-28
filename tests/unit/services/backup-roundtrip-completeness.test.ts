@@ -480,4 +480,45 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			updatedAt: seeded?.updatedAt,
 		});
 	});
+
+	// #3329: きょうだい間おうえんスタンプ (from/to 2 child) の round-trip。tenant-scoped かつ 2 child を
+	// 参照するため専用ケースで検証する (sentAt/shownAt 保全 + from/to の childRef 再結合)。
+	it('きょうだい間おうえんスタンプが from/to 再結合 + sentAt/shownAt 保全で round-trip する', async () => {
+		testDb.insert(schema.children).values({ nickname: 'あに', age: 10, theme: 'blue' }).run(); // id=1
+		testDb.insert(schema.children).values({ nickname: 'いもうと', age: 7, theme: 'pink' }).run(); // id=2
+
+		await getRepos().siblingCheer.insertForRestore(
+			{
+				fromChildId: 1,
+				toChildId: 2,
+				stampCode: 'good-job',
+				sentAt: '2026-02-15T10:00:00Z',
+				shownAt: '2026-02-15T12:00:00Z',
+			},
+			T,
+		);
+
+		// export
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.siblingCheers.length, 'export:おうえん').toBe(1);
+		expect(data.data.siblingCheers[0]?.fromChildRef, 'export:from ref').toBe('child-1');
+		expect(data.data.siblingCheers[0]?.toChildRef, 'export:to ref').toBe('child-2');
+
+		// replace = clear → import
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+
+		const children = testDb.select().from(schema.children).all();
+		expect(children.length, '子復元').toBe(2);
+		// 復元後 child id を nickname で引き当て (autoincrement で id がずれ得るため)
+		const brother = children.find((c) => c.nickname === 'あに')?.id as number;
+		const sister = children.find((c) => c.nickname === 'いもうと')?.id as number;
+
+		const restored = await getRepos().siblingCheer.findAllByTenant(T);
+		expect(restored.length, 'おうえん').toBe(1);
+		expect(restored[0]?.fromChildId, 'from 再結合').toBe(brother);
+		expect(restored[0]?.toChildId, 'to 再結合').toBe(sister);
+		expect(restored[0]?.sentAt, 'sentAt 保全').toBe('2026-02-15T10:00:00Z');
+		expect(restored[0]?.shownAt, 'shownAt 保全').toBe('2026-02-15T12:00:00Z');
+	});
 });

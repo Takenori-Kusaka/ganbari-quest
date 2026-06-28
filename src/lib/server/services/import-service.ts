@@ -74,6 +74,9 @@ export interface ImportResult {
 	/** #3329: 親→子おうえんメッセージの取込件数 */
 	parentMessagesImported: number;
 	parentMessagesSkipped: number;
+	/** #3329: きょうだい間おうえんスタンプの取込件数 */
+	siblingCheersImported: number;
+	siblingCheersSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -295,6 +298,8 @@ export async function importFamilyData(
 	await importCertificatesData(data, childIdMap, tenantId, result);
 	// #3329: 親→子おうえんメッセージを sentAt/shownAt 保全で復元。childIdMap のみ必要。
 	await importParentMessagesData(data, childIdMap, tenantId, result);
+	// #3329: きょうだい間おうえんスタンプ。from/to 両 childRef を解決して復元。childIdMap のみ必要。
+	await importSiblingCheersData(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
@@ -649,6 +654,45 @@ async function importParentMessagesData(
 	}
 }
 
+/**
+ * きょうだい間おうえんスタンプを復元する (#3329)。
+ * from/to 両 childRef を取込先 child に解決し、insertForRestore で sentAt/shownAt (既読) を保全する。
+ * どちらかの child が解決できない行は skip (FK NOT NULL を満たせないため)。
+ */
+async function importSiblingCheersData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const c of data.data.siblingCheers ?? []) {
+		const fromChildId = childIdMap.get(c.fromChildRef);
+		const toChildId = childIdMap.get(c.toChildRef);
+		if (!fromChildId || !toChildId) {
+			result.siblingCheersSkipped++;
+			continue;
+		}
+		try {
+			await getRepos().siblingCheer.insertForRestore(
+				{
+					fromChildId,
+					toChildId,
+					stampCode: c.stampCode,
+					sentAt: c.sentAt,
+					shownAt: c.shownAt,
+				},
+				tenantId,
+			);
+			result.siblingCheersImported++;
+		} catch (e) {
+			result.siblingCheersSkipped++;
+			result.errors.push(
+				`おうえんスタンプ insert 失敗 (from=${c.fromChildRef}, to=${c.toChildRef}): ${String(e)}`,
+			);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -674,6 +718,8 @@ function createEmptyImportResult(): ImportResult {
 		certificatesSkipped: 0,
 		parentMessagesImported: 0,
 		parentMessagesSkipped: 0,
+		siblingCheersImported: 0,
+		siblingCheersSkipped: 0,
 		loginBonusesImported: 0,
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,

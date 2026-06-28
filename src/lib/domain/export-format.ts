@@ -323,6 +323,18 @@ export interface ExportParentMessage {
 	rewardCategory: string | null;
 }
 
+/**
+ * #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child を参照)。sentAt/shownAt (既読) を
+ * 保全して round-trip 復元する (id/childId は import 環境で振り直すため fromChildRef/toChildRef で再結合)。
+ */
+export interface ExportSiblingCheer {
+	fromChildRef: string;
+	toChildRef: string;
+	stampCode: string;
+	sentAt: string;
+	shownAt: string | null;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -403,6 +415,8 @@ export interface ExportTransactionData {
 	certificates: ExportCertificate[];
 	/** #3329: 親→子おうえんメッセージ (sentAt/shownAt 保全) */
 	parentMessages: ExportParentMessage[];
+	/** #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child、sentAt/shownAt 保全) */
+	siblingCheers: ExportSiblingCheer[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	childAvatarItems: never[];
