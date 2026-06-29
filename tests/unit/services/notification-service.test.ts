@@ -417,6 +417,78 @@ describe('notification-service', () => {
 			expect(calledEndpoints).toContain('https://fcm.googleapis.com/fcm/send/legit');
 			expect(calledEndpoints).not.toContain('https://169.254.169.254/latest/meta-data/');
 		});
+
+		it('#3421 allowlist 外 endpoint は deleteByEndpoint で cleanup される (stale 410/404 と対称化)', async () => {
+			setDaytimeJST();
+			mockCountTodayLogs.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: 1,
+					tenantId: 'T1',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/legit',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+				{
+					id: 2,
+					tenantId: 'T1',
+					endpoint: 'https://169.254.169.254/latest/meta-data/',
+					keysP256dh: 'p2',
+					keysAuth: 'a2',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+			]);
+			mockSendNotification.mockResolvedValue({} as never);
+
+			await sendPushNotification('T1', 'test', 'Title', 'Body');
+			// allowlist 外 endpoint が DB から削除される (毎回 skip で蓄積しないように)
+			expect(mockDeleteByEndpoint).toHaveBeenCalledWith(
+				'https://169.254.169.254/latest/meta-data/',
+				'T1',
+			);
+			// 正規 endpoint は削除されない
+			expect(mockDeleteByEndpoint).not.toHaveBeenCalledWith(
+				'https://fcm.googleapis.com/fcm/send/legit',
+				'T1',
+			);
+		});
+
+		it('#3421 全 subscription が allowlist 外で 0 件のとき insertLog に証跡を残す (silent 全消失防止)', async () => {
+			setDaytimeJST();
+			mockCountTodayLogs.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: 1,
+					tenantId: 'T1',
+					endpoint: 'https://169.254.169.254/latest/meta-data/',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+			]);
+			mockSendNotification.mockResolvedValue({} as never);
+
+			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
+			expect(result).toEqual({ sent: 0, failed: 0 });
+			// 送信は行われない
+			expect(mockSendNotification).not.toHaveBeenCalled();
+			// 0 件 skip も log に記録される (success=false + allowlist 理由)
+			expect(mockInsertLog).toHaveBeenCalledWith(
+				expect.objectContaining({
+					tenantId: 'T1',
+					notificationType: 'test',
+					success: false,
+					errorMessage: expect.stringContaining('allowlist'),
+				}),
+			);
+		});
 	});
 
 	// ============================================================

@@ -206,14 +206,37 @@ export async function sendPushNotification(
 	// subscribe API (#3188) で検証済だが、過去レコード混入 / repo 直 insert / 将来 bulk import 経路で
 	// allowlist 外 endpoint が DB に入ると、send (webpush.sendNotification) が実際の HTTP request を
 	// 出す sink となり SSRF (CWE-918) が成立する。送信側でも allowlist 外を skip して single-point を塞ぐ。
+	const invalidEndpoints: string[] = [];
 	const validSubscriptions = subscriptions.filter((sub) => {
 		if (validatePushEndpoint(sub.endpoint).ok) return true;
+		invalidEndpoints.push(sub.endpoint);
 		logger.warn('[notification] allowlist 外 endpoint への送信を skip (SSRF defense-in-depth)', {
 			context: { tenantId, endpoint: sub.endpoint, notificationType },
 		});
 		return false;
 	});
+
+	// #3421 item3: allowlist 外 endpoint を DB から cleanup (stale 410/404 自動削除との対称化)。
+	// 残置すると毎回 skip で全通知不達のまま蓄積し、再購読 (subscribe API) でしか正常化しない。
+	// 削除して次回購読フローでの再登録に委ねることで「不達のまま stale 蓄積」を構造的に解消する。
+	for (const endpoint of invalidEndpoints) {
+		await deleteByEndpoint(endpoint, tenantId);
+	}
+
 	if (validSubscriptions.length === 0) {
+		// #3421 item2: 0 件 skip も証跡を残す (insertLog を通さない early return は notification_logs に
+		// 記録ゼロ = 通知 silent 全消失を運用が追跡不能になるため)。
+		await insertLog({
+			tenantId,
+			notificationType,
+			title,
+			body,
+			success: false,
+			errorMessage:
+				invalidEndpoints.length > 0
+					? `all ${invalidEndpoints.length} subscription(s) skipped by SSRF allowlist`
+					: 'no valid subscriptions to send',
+		});
 		return { sent: 0, failed: 0 };
 	}
 
