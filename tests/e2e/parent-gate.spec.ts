@@ -10,6 +10,7 @@
 // 既存 auth.setup.ts / E2E spec を破壊しない構造的妥協 (本 EPIC + ADR-0050 §運用)。
 
 import { expect, test } from '@playwright/test';
+import { NAV_TIMEOUT_MS } from '../../src/routes/switch/nav-timeout';
 
 const PARENT_GATE_ACTIVE = process.env.PARENT_GATE_FORCE_ACTIVE === 'true';
 
@@ -402,8 +403,9 @@ function registerParentGateTests(): void {
 			// spinner overlay は一旦表示される
 			await expect(page.getByTestId('parent-gate-navigating')).toBeVisible({ timeout: 5_000 });
 
-			// NAV_TIMEOUT_MS (30s) を fast-forward → dead-end でなく error 状態 (role=alert + 再試行) へ
-			await page.clock.fastForward(31_000);
+			// NAV_TIMEOUT_MS を超えるまで fast-forward → dead-end でなく error 状態 (role=alert + 再試行) へ。
+			// #3416: マジックナンバー直書きを止め NAV_TIMEOUT_MS SSOT 由来に連動させる (値変更時の誤検知防止)。
+			await page.clock.fastForward(NAV_TIMEOUT_MS + 1_000);
 			const errorOverlay = page.getByTestId('parent-gate-navigating-error');
 			await expect(errorOverlay).toBeVisible({ timeout: 5_000 });
 			await expect(errorOverlay).toContainText('もう一度');
@@ -411,6 +413,40 @@ function registerParentGateTests(): void {
 			await expect(page.getByTestId('parent-gate-navigating')).toBeHidden();
 			// 再試行ボタンが操作可能 (もう一度ナビを起動できる)
 			await expect(errorOverlay.getByRole('button')).toBeEnabled();
+		});
+
+		// #3416 正方向回帰 (ADR-0006): #3101 が直す実バグ「NAV_TIMEOUT_MS 未満の slow-but-successful
+		// nav では誤 error を出さない」を固定する。NAV_TIMEOUT_MS の手前まで時間を進めても error overlay
+		// が出ず、その後 nav が成功して /admin に到達することを assert する (旧 8s 上限の誤検知の再発防止)。
+		test('#3416: NAV_TIMEOUT_MS 手前で完了する slow nav は誤 error を出さず /admin に到達する', async ({
+			page,
+		}) => {
+			await page.clock.install();
+
+			// /admin への document nav を NAV_TIMEOUT_MS 未満だけ遅延させ、最終的に成功させる (slow-but-successful)。
+			await page.route('**/admin', async (route) => {
+				if (route.request().resourceType() === 'document') {
+					await new Promise((resolve) => setTimeout(resolve, 1200));
+				}
+				await route.continue();
+			});
+
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+
+			await typePinInto(page, '3690');
+			await expect(page.getByTestId('parent-gate-create')).toHaveAttribute('data-step', 'confirm');
+			await typePinInto(page, '3690');
+
+			// spinner overlay は出る (遷移中フィードバック)
+			await expect(page.getByTestId('parent-gate-navigating')).toBeVisible({ timeout: 5_000 });
+
+			// NAV_TIMEOUT_MS の手前まで時間を進めても error overlay は出ない (誤検知しない)
+			await page.clock.fastForward(NAV_TIMEOUT_MS - 5_000);
+			await expect(page.getByTestId('parent-gate-navigating-error')).toBeHidden();
+
+			// nav は成功し /admin に到達する (dead-end でない)
+			await page.waitForURL(/\/admin/, { timeout: 15_000 });
 		});
 
 		test('確認不一致はエラー表示 + 1 段目からやり直し (dead-end でない)', async ({ page }) => {
