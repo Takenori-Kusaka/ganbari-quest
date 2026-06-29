@@ -9,9 +9,56 @@ import {
 	calcStreakBonus,
 	createActivitySchema,
 	recordActivitySchema,
+	sanitizeActivityNameField,
+	sanitizeDailyLimit,
 	todayDate,
 	updateActivitySchema,
 } from '../../../src/lib/domain/validation/activity';
+
+describe('#3463 sanitizeDailyLimit (import 境界 + server clamp)', () => {
+	it('null / 空文字 / undefined は null', () => {
+		expect(sanitizeDailyLimit(null)).toBeNull();
+		expect(sanitizeDailyLimit('')).toBeNull();
+		expect(sanitizeDailyLimit(undefined)).toBeNull();
+	});
+	it('範囲内の整数はそのまま', () => {
+		expect(sanitizeDailyLimit(3)).toBe(3);
+		expect(sanitizeDailyLimit('5')).toBe(5);
+	});
+	it('dailyLimit=0 (無制限) は保全する (#3422 整合)', () => {
+		expect(sanitizeDailyLimit(0)).toBe(0);
+		expect(sanitizeDailyLimit('0')).toBe(0);
+	});
+	it('負値 (下限外の不正入力) は安全既定 null (=1回) に倒す — 0=無制限への昇格を避ける (#3463 item2 default-allow 防止)', () => {
+		expect(sanitizeDailyLimit(-5)).toBeNull();
+		expect(sanitizeDailyLimit('-1')).toBeNull();
+		expect(sanitizeDailyLimit(-0.5)).toBeNull();
+	});
+	it('上限超は 99 へ clamp', () => {
+		expect(sanitizeDailyLimit(1000)).toBe(99);
+	});
+	it('非整数は切り捨て', () => {
+		expect(sanitizeDailyLimit(3.9)).toBe(3);
+	});
+	it('NaN / 非数値文字列は null (default-deny)', () => {
+		expect(sanitizeDailyLimit('abc')).toBeNull();
+		expect(sanitizeDailyLimit(Number.NaN)).toBeNull();
+		expect(sanitizeDailyLimit(Number.POSITIVE_INFINITY)).toBeNull();
+	});
+});
+
+describe('#3463 sanitizeActivityNameField (読み仮名/漢字 max 50)', () => {
+	it('null は null', () => {
+		expect(sanitizeActivityNameField(null)).toBeNull();
+	});
+	it('50 文字以内はそのまま', () => {
+		expect(sanitizeActivityNameField('おてつだい')).toBe('おてつだい');
+	});
+	it('50 文字超は切詰め', () => {
+		const long = 'あ'.repeat(120);
+		expect(sanitizeActivityNameField(long)).toHaveLength(50);
+	});
+});
 
 describe('createActivitySchema', () => {
 	it('有効な入力を受け入れる', () => {

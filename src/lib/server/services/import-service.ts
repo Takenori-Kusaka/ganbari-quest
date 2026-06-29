@@ -8,7 +8,11 @@ import {
 	isExportableSettingKey,
 } from '$lib/domain/export-format';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity';
+import {
+	CATEGORY_CODES,
+	sanitizeActivityNameField,
+	sanitizeDailyLimit,
+} from '$lib/domain/validation/activity';
 import {
 	findActivities,
 	findActivityLogs,
@@ -925,9 +929,11 @@ async function importChildActivitiesData(
 					archivedReason: a.archivedReason ?? null,
 					// #3422: 1 日上限 / 読み仮名 / 漢字表記を round-trip 復元 (省略 = 旧 backup は
 					// schema default)。dailyLimit=0 (無制限) を null=1 回固定へ落とさず保全する。
-					dailyLimit: a.dailyLimit,
-					nameKana: a.nameKana ?? null,
-					nameKanji: a.nameKanji ?? null,
+					// #3463 item1: import 境界で値検証。改竄/破損 ZIP の範囲外 dailyLimit (NaN/負/巨大/非整数) を
+					// [0,99] int or null に、巨大 nameKana/nameKanji を max 50 char に正規化する (default-deny)。
+					dailyLimit: sanitizeDailyLimit(a.dailyLimit),
+					nameKana: sanitizeActivityNameField(a.nameKana),
+					nameKanji: sanitizeActivityNameField(a.nameKanji),
 				},
 				tenantId,
 			);
