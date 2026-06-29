@@ -63,7 +63,7 @@ jobs:
 
       - name: Check if LP-relevant files changed
         id: lp-changed
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             if (context.eventName !== 'pull_request') {
@@ -131,7 +131,7 @@ jobs:
 
       - name: Check if residue-relevant files changed
         id: residue-changed
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             if (context.eventName !== 'pull_request') {
@@ -204,7 +204,7 @@ jobs:
 
       - name: Check if LP-relevant files changed
         id: lp-changed
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const { data: files } = await github.rest.pulls.listFiles({
@@ -275,7 +275,7 @@ jobs:
         # #1840: warning 域 (>=7800) 検出時に PR にコメントで早期通知。
         # fail 域 (>8000) は measure script が exit 1 で fail させるため別途扱い。
         if: always() && steps.lp-changed.outputs.changed == 'true' && steps.merge-main.outputs.merge_status == 'success'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -323,7 +323,7 @@ jobs:
 
       - name: Check if inline-style-relevant files changed
         id: inline-changed
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             if (context.eventName !== 'pull_request') {
