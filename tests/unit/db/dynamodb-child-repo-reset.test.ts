@@ -226,6 +226,62 @@ describe('resetChildProgressData (DynamoDB) — BALANCE 集計も削除する (#
 		expect(counts.pointLedger).toBe(0);
 	});
 
+	it('#3477: BALANCE 削除は存在確認 read に gate されず、stale read-miss でも必ず削除集合に入る', async () => {
+		// 安全不変条件 (ADR-0006): reset の BALANCE clear は結果整合 read に依存させない。
+		// BALANCE 行は store に実在するが、存在確認 (count 用) の Get を stale read-miss
+		// (eventual consistency で空応答) に差し替えても、決定的キーの無条件 push により
+		// BALANCE は削除集合に入り getBalance() が 0 に揃うことを検証する。read-miss に
+		// 削除を gate する実装 (旧 BLOCK 版) ならこの test は fail する。
+		const point = await loadPointRepo();
+		await point.insertPointEntry(
+			{ childId: CHILD_ID, amount: 50, type: 'earn', description: 'seed' },
+			TENANT,
+		);
+		// 前提: BALANCE 集計行が store に実在する
+		expect(
+			[...store.values()].some(
+				(i) => String(i.PK).endsWith(`CHILD#${CHILD_ID}`) && i.SK === 'BALANCE',
+			),
+		).toBe(true);
+
+		// SK=BALANCE への Get だけを stale read-miss (空応答) に差し替える。
+		// 他コマンド (BatchWrite 削除含む) は実 store ロジックへ委譲する。
+		const passthrough = mockSend.getMockImplementation();
+		if (!passthrough) throw new Error('mockSend implementation missing');
+		const balanceGetKeys: Array<{ PK: unknown; SK: unknown }> = [];
+		mockSend.mockImplementation(async (cmd: { __type: string; input: Record<string, unknown> }) => {
+			if (cmd.__type === 'Get') {
+				const key = cmd.input.Key as { PK: unknown; SK: unknown };
+				if (key?.SK === 'BALANCE') {
+					balanceGetKeys.push(key);
+					return {}; // stale read-miss
+				}
+			}
+			return passthrough(cmd);
+		});
+
+		try {
+			const child = await loadChildRepo();
+			const counts = await child.resetChildProgressData(CHILD_ID, TENANT);
+
+			// counts は read-miss を反映し 0 (診断値は read 由来のため)
+			expect(counts.pointBalance).toBe(0);
+			// だが BALANCE 行自体は削除されている (無条件 push、read に gate されない)
+			expect(
+				[...store.values()].some(
+					(i) => String(i.PK).endsWith(`CHILD#${CHILD_ID}`) && i.SK === 'BALANCE',
+				),
+			).toBe(false);
+			// read-miss を仕込んだ Get が実際に BALANCE へ発行されていたこと
+			expect(balanceGetKeys.length).toBeGreaterThan(0);
+		} finally {
+			mockSend.mockImplementation(passthrough);
+		}
+
+		// 復旧後の getBalance も 0 (BALANCE 行が消えたため phantom 残高なし)
+		expect(await point.getBalance(CHILD_ID, TENANT)).toBe(0);
+	});
+
 	it('別の子供の BALANCE / POINT# は reset の影響を受けない', async () => {
 		const point = await loadPointRepo();
 		const OTHER = 88;

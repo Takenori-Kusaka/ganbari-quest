@@ -22,6 +22,7 @@ import {
 	childPK,
 	ENTITY_NAMES,
 	loginBonusPrefix,
+	pointBalanceKey,
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
@@ -289,14 +290,28 @@ export async function resetChildProgressData(
 	// 取り残され getBalance() が reset 前の残高を返す (SQLite は行集計のため reset 後 0)。
 	// deleteByTenantId / deletePointLedgerBeforeDate と同じく BALANCE も明示削除し
 	// reset 後の getBalance() を 0 に揃える。
-	// #3475: pointBalance は「実際に削除した BALANCE 集計行数」(他 entity の count と同じ実削除件数の意味)
-	// に統一する。旧実装は BALANCE 行不在でも無条件 1 をハードコードし「削除件数」と乖離していた。
-	// SK=BALANCE は完全一致だが begins_with('BALANCE') で実在を確認し、存在時のみ削除集合へ加え count する。
-	const balanceItems = await queryAllItems(pk, 'BALANCE', { projectionExpression: 'PK, SK' });
-	counts.pointBalance = balanceItems.length;
-	for (const item of balanceItems) {
-		allKeys.push({ PK: item.PK as string, SK: item.SK as string });
-	}
+	//
+	// 削除保証 (最優先): BALANCE 集計行は**決定的キーで無条件に削除集合へ加える**。
+	// 存在確認 query (結果整合 read) の結果に削除を gate すると、stale read-miss 時に
+	// BALANCE が残存し getBalance() が reset 前残高を返し続ける (子供が phantom spendable
+	// point でごほうび交換できてしまう)。reset の BALANCE clear は不変条件のため、read に
+	// 依存させない (ADR-0006 安全 assertion 後退禁止)。
+	const balanceKey = pointBalanceKey(id, tenantId);
+	allKeys.push(balanceKey);
+
+	// #3475: counts.pointBalance を「実際に存在した BALANCE 行数」(他 entity の count と
+	// 同じ実態件数の意味) に揃える診断値。削除保証とは独立に、ConsistentRead GetItem
+	// (SK=BALANCE は完全一致のため GetItem が厳密かつ安価) で存在を確認し 0 or 1 を設定する。
+	// 削除自体は上の無条件 push で行うため、この read が miss しても BALANCE は削除される。
+	const balanceProbe = await getDocClient().send(
+		new GetCommand({
+			TableName: TABLE_NAME,
+			Key: balanceKey,
+			ConsistentRead: true,
+			ProjectionExpression: 'PK',
+		}),
+	);
+	counts.pointBalance = balanceProbe.Item ? 1 : 0;
 
 	await batchDeleteItems(allKeys);
 	return counts;
