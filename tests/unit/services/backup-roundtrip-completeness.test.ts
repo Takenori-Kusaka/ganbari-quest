@@ -248,6 +248,12 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			T,
 		);
 
+		// #3329: おやすみ日を 1 件 seed (createdAt 明示)。round-trip 後に reason/createdAt が保全されること。
+		await getRepos().evaluation.insertRestDayForRestore(
+			{ childId: 1, date: '2026-03-03', reason: 'sick', createdAt: '2026-03-03T00:00:00Z' },
+			T,
+		);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -275,6 +281,8 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(data.data.activityPrefs[0]?.activityName, 'export:活動設定 activityName').toBe(
 			'うんどうA',
 		);
+		expect(data.data.restDays.length, 'export:おやすみ日').toBe(1);
+		expect(data.data.restDays[0]?.reason, 'export:おやすみ日 reason').toBe('sick');
 		expect(data.data.parentMessages.length, 'export:メッセージ').toBe(1);
 		expect(data.data.parentMessages[0]?.shownAt, 'export:メッセージ shownAt').toBe(
 			'2026-02-10T18:00:00Z',
@@ -350,6 +358,14 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredPrefs[0]?.pinOrder, '活動設定 pinOrder 保全').toBe(1);
 		const restoredActs2 = await getChildActivities(cid, T);
 		expect(restoredPrefs[0]?.activityId, '活動設定 activityId 再結合').toBe(restoredActs2[0]?.id);
+
+		// #3329: おやすみ日が reason/createdAt 保全で復元される。
+		const restoredRestDays = await getRepos().evaluation.findRestDaysByChild(cid, T);
+		expect(restoredRestDays.length, 'おやすみ日').toBe(1);
+		expect(restoredRestDays[0]?.reason, 'おやすみ日 reason 保全').toBe('sick');
+		expect(restoredRestDays[0]?.createdAt, 'おやすみ日 createdAt 保全').toBe(
+			'2026-03-03T00:00:00Z',
+		);
 	});
 
 	// #3329 QM-fix (2)(a): auto:weekly チャレンジの dedup round-trip。

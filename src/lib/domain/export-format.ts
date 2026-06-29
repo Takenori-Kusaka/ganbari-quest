@@ -377,6 +377,18 @@ export interface ExportChecklistOverride {
 	createdAt: string;
 }
 
+/**
+ * #3329: per-child おやすみ日 (ステータス減少停止日)。createdAt を保全して round-trip 復元する
+ * (id/childId は import で振り直すため childRef で再結合)。週次評価/streak/decay の input であり
+ * 活動記録から再構成不能。※DynamoDB には保存されない (NUC/SQLite 専用の Pre-PMF fallback)。
+ */
+export interface ExportRestDay {
+	childRef: string;
+	date: string;
+	reason: string;
+	createdAt: string;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -465,6 +477,8 @@ export interface ExportTransactionData {
 	checklistLogs: ExportChecklistLog[];
 	/** #3329: per-child チェックリスト日次 override (createdAt 保全) */
 	checklistOverrides: ExportChecklistOverride[];
+	/** #3329: per-child おやすみ日 (createdAt 保全。DynamoDB では空) */
+	restDays: ExportRestDay[];
 	childAvatarItems: never[];
 	dailyMissions: ExportDailyMission[];
 	/** #3329: 各種設定 (tenant-scoped KVS、allowlist 済キーのみ。pin_hash 等の秘匿キーは除外) */

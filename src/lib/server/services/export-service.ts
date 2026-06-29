@@ -23,6 +23,7 @@ import {
 	type ExportOptions,
 	type ExportParentMessage,
 	type ExportPointLedger,
+	type ExportRestDay,
 	type ExportRewardRedemption,
 	type ExportSetting,
 	type ExportSiblingCheer,
@@ -42,7 +43,7 @@ import {
 	findTemplatesByChild,
 } from '$lib/server/db/checklist-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
-import { findEvaluationsByChild } from '$lib/server/db/evaluation-repo';
+import { findEvaluationsByChild, findRestDaysByChild } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
@@ -242,6 +243,7 @@ interface ChildTransactionData {
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
 	checklistOverrides: ExportChecklistOverride[];
+	restDays: ExportRestDay[];
 }
 
 /**
@@ -590,6 +592,16 @@ async function collectForChild(
 		createdAt: o.createdAt,
 	}));
 
+	// #3329: per-child おやすみ日 (createdAt 保全)。DynamoDB では findRestDaysByChild が空を返す。
+	const restDaysRaw = await findRestDaysByChild(childId, tenantId);
+	warnIfTruncated('restDays', childId, restDaysRaw.length);
+	const restDaysOut: ExportRestDay[] = restDaysRaw.map((r) => ({
+		childRef,
+		date: r.date,
+		reason: r.reason,
+		createdAt: r.createdAt,
+	}));
+
 	return {
 		childActivities: childActivitiesOut,
 		activityLogs: activityLogsOut,
@@ -608,6 +620,7 @@ async function collectForChild(
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
 		checklistOverrides: checklistOverridesOut,
+		restDays: restDaysOut,
 	};
 }
 
@@ -668,6 +681,7 @@ async function collectTransactionData(
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		checklistOverrides: perChild.flatMap((p) => p.checklistOverrides), // #3329
+		restDays: perChild.flatMap((p) => p.restDays), // #3329
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
 		settings: settingsOut, // #3329

@@ -25,7 +25,7 @@ import {
 	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
-import { insertEvaluation } from '$lib/server/db/evaluation-repo';
+import { insertEvaluation, insertRestDayForRestore } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
@@ -84,6 +84,9 @@ export interface ImportResult {
 	/** #3329: per-child チェックリスト日次 override の取込件数 */
 	checklistOverridesImported: number;
 	checklistOverridesSkipped: number;
+	/** #3329: per-child おやすみ日の取込件数 (DynamoDB では no-op で skip) */
+	restDaysImported: number;
+	restDaysSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -298,6 +301,8 @@ export async function importFamilyData(
 	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
 	// #3329: チェックリスト日次 override を createdAt 保全で復元。childIdMap のみ必要。
 	await importChecklistOverridesData(data, childIdMap, tenantId, result);
+	// #3329: おやすみ日を createdAt 保全で復元。childIdMap のみ必要 (DynamoDB では insert が no-op)。
+	await importRestDaysData(data, childIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
 	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
 	// importSpecialRewards の後に実行する。
@@ -788,6 +793,40 @@ async function importChecklistOverridesData(
 	}
 }
 
+/**
+ * おやすみ日を復元する (#3329)。
+ * childRef で取込先 child に解決し insertRestDayForRestore で createdAt を保全して書き戻す。
+ * DynamoDB 環境では insertRestDayForRestore が no-op (undefined) を返すため import されない
+ * (restDays は NUC/SQLite 専用、DynamoDB には保存されない)。
+ */
+async function importRestDaysData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const r of data.data.restDays ?? []) {
+		const childId = childIdMap.get(r.childRef);
+		if (!childId) {
+			result.restDaysSkipped++;
+			continue;
+		}
+		try {
+			const restored = await insertRestDayForRestore(
+				{ childId, date: r.date, reason: r.reason, createdAt: r.createdAt },
+				tenantId,
+			);
+			if (restored) result.restDaysImported++;
+			else result.restDaysSkipped++;
+		} catch (e) {
+			result.restDaysSkipped++;
+			result.errors.push(
+				`おやすみ日 insert 失敗 (child=${r.childRef}, date=${r.date}): ${String(e)}`,
+			);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -815,6 +854,8 @@ function createEmptyImportResult(): ImportResult {
 		parentMessagesSkipped: 0,
 		checklistOverridesImported: 0,
 		checklistOverridesSkipped: 0,
+		restDaysImported: 0,
+		restDaysSkipped: 0,
 		activityPrefsImported: 0,
 		activityPrefsSkipped: 0,
 		siblingCheersImported: 0,

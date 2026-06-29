@@ -126,11 +126,10 @@ describe('#3329 backup-entity-registry — silent-gap ガード', () => {
 		// export に足したら 'exported' へ flip し本ベースラインから外す (意図的更新)。
 		// 新たな not-yet-exported source の silent 増加を禁止する (回帰ネット)。
 		expect(notYetExportedSourceEntities()).toEqual([
-			// activityPref / certificate / checklistAssignment / checklistOverride は #3329 で export 実装済 → exported へ flip
+			// 残り 1 件: childCustomVoices (ユーザー録音音声、ストレージ実体参照で別途検討)。
+			// その他 (activityPref/certificate/checklist*/parentMessage/restDays/rewardRedemption/
+			// setting/stampCard/stampEntry/siblingCheer/childChallenge*) は #3329 で export 実装済 → exported へ flip。
 			'childCustomVoices',
-			// parentMessage は #3329 で export 実装済 → exported へ flip
-			'restDays',
-			// rewardRedemption / setting / stampCard / stampEntry / siblingCheer は #3329 で export 実装済 → exported へ flip
 		]);
 	});
 

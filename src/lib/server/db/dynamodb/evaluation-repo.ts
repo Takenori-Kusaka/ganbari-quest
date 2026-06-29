@@ -269,6 +269,19 @@ export async function findRestDays(
 	return [];
 }
 
+// #3329: restDays は DynamoDB に保存されない (insertRestDay も no-op、NUC/SQLite 専用の Pre-PMF
+// fallback)。backup の find/restore も同方針で no-op を返す (DynamoDB 環境では restDays は常に空)。
+export async function findRestDaysByChild(_childId: number, _tenantId: string): Promise<RestDay[]> {
+	return [];
+}
+
+export async function insertRestDayForRestore(
+	_input: Omit<RestDay, 'id'>,
+	_tenantId: string,
+): Promise<RestDay | undefined> {
+	return undefined;
+}
+
 /** テナントの全評価データを削除（CHILD#* 配下の EVAL# アイテム） */
 export async function deleteByTenantId(tenantId: string): Promise<void> {
 	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), evaluationPrefix());

@@ -296,6 +296,8 @@ vi.mock('$lib/server/db/evaluation-repo', () => ({
 	findEvaluationsByChild: vi.fn((childId: number) =>
 		childId === 1 ? Promise.resolve(mockEvaluations) : Promise.resolve([]),
 	),
+	// #3329: per-child おやすみ日 (export が呼ぶ)。本 test では空で十分。
+	findRestDaysByChild: vi.fn(() => Promise.resolve([])),
 }));
 vi.mock('$lib/server/db/login-bonus-repo', () => ({
 	findRecentBonuses: vi.fn((childId: number) =>
