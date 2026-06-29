@@ -50,6 +50,15 @@ export const HIGH_PRIVILEGE_ACTIONS = [
 		name: 'actions/cache',
 		reason: 'cache を書き込む。cache poisoning で後続 job に汚染物が伝播し得る',
 	},
+	{
+		name: 'aws-actions/configure-aws-credentials',
+		reason:
+			'id-token: write で本番 AWS role を assume する。悪性 re-tag で credential 窃取・本番リソース操作に直結 (#3318)',
+	},
+	{
+		name: 'aws-actions/amazon-ecr-login',
+		reason: 'ECR push 権限の docker login を行う。改竄で image 差し替え経路になり得る (#3318)',
+	},
 ];
 
 const SHA_RE = /^[0-9a-f]{40}$/;
