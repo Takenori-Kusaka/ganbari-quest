@@ -85,6 +85,32 @@ export const createActivitySchema = z.object({
 
 export const updateActivitySchema = createActivitySchema.partial();
 
+// #3463: dailyLimit / nameKana / nameKanji の許容境界 SSOT (form zod と同値)。
+export const DAILY_LIMIT_MIN = 0;
+export const DAILY_LIMIT_MAX = 99;
+export const ACTIVITY_NAME_FIELD_MAX = 50;
+
+/**
+ * #3463 item1/item4: dailyLimit を `[0, 99]` の整数 or null に正規化する (import 境界 + server clamp 共用)。
+ * form action の zod (`min(0).max(99)`) は form 経路限定で、改竄/破損 ZIP 復元や API 直叩きの NaN/負値/
+ * 巨大値/非整数を守らない。本 sanitizer を import-service と +page.server.ts の両境界で適用し default-deny 化する。
+ */
+export function sanitizeDailyLimit(raw: unknown): number | null {
+	if (raw == null || raw === '') return null;
+	const n = typeof raw === 'number' ? raw : Number(raw);
+	if (!Number.isFinite(n)) return null;
+	return Math.min(DAILY_LIMIT_MAX, Math.max(DAILY_LIMIT_MIN, Math.trunc(n)));
+}
+
+/**
+ * #3463 item1: 読み仮名 / 漢字表記を max 50 char に切詰める (import 境界)。巨大 nameKana/nameKanji 流入防止。
+ */
+export function sanitizeActivityNameField(raw: unknown): string | null {
+	if (raw == null) return null;
+	const s = String(raw);
+	return s.length > ACTIVITY_NAME_FIELD_MAX ? s.slice(0, ACTIVITY_NAME_FIELD_MAX) : s;
+}
+
 export const recordActivitySchema = z.object({
 	childId: z.number().int().positive(),
 	activityId: z.number().int().positive(),
