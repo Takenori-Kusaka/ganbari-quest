@@ -300,6 +300,10 @@ export function computeProposal(
 	// #3203 item1: skippedWeeks = 直近生成週から今週までに challenge を生成しなかった (skip した) 週数。
 	// 週を skip する child = disengaging であり rescue (易しい得意 challenge で成功体験を積ませる) の本来対象。
 	// skip 週を miss として streak に加算し、跨いでも rescue を発火させる。
+	// #3472 item2 (skip≠vacation の判断・記録): 旅行/帰省で離れた優良家庭も skip-as-disengagement で
+	// rescue 対象になり得るが、(a) rescue は「易しい得意 challenge」で penalty も催促もなく benign、
+	// (b) vacation 検出 (カレンダー連携/不在判定) は Pre-PMF (ADR-0010) で過剰投資のため、現状は
+	// skip=disengagement の単純モデルを採用する。誤分類時の害が小さく ADR-0012 anti-engagement とも整合。
 	const skippedWeeks = Math.max(0, opts?.skippedWeeks ?? 0);
 	// 生成時点での「連続未達週数」(前週が未達なら前週の streak + 1、達成ならリセット) + skip 週 (disengagement)。
 	const prevMissed = prev != null && prev.status !== 'completed';
