@@ -84,10 +84,30 @@ export const HIGH_PRIVILEGE_ACTIONS = [
 // ---------------------------------------------------------------------------
 // 網羅性 gate (#3483 / ADR-0061 原則 5 class-lock): HIGH_PRIVILEGE_ACTIONS の手動列挙だけだと
 // 「新規高権限 third-party action を未 pin 導入しても silent に通る」no-silent-gap が残る
-// (#3318→#3457→#3483 の手動追加 treadmill の root)。本 gate は **id-token: write / contents: write を
+// (#3318→#3457→#3483 の手動追加 treadmill の root)。本 gate は **以下の write 権限クラスのいずれかを
 // 付与する高権限 workflow 内の third-party action (first-party owner 以外) は SHA pin 必須**
 // (default-deny) とし、floating 許容は LOW_RISK_THIRD_PARTY_ALLOWLIST に理由付き明示する。これにより
 // 新規 third-party action を高権限 workflow に未 pin で足したら CI が自動 fail する (class 全体を lock)。
+//
+// 高権限とみなす write 権限クラス (HIGH_PRIVILEGE_PERMISSION_RE):
+//   - id-token: write    … OIDC で本番クラウド role を assume (#3318 aws / #3457 gcp)
+//   - contents: write    … push / release / asset upload で配布物を改変し得る
+//   - pull-requests: write … PR を編集・auto-merge し得る。特に dependabot auto-merge (#3489) のように
+//                            自動 merge を起動する context では、改竄 action が出力を偽造して悪性 PR の
+//                            merge に直結し得る (= contents/id-token と同等の攻撃面)。#3483 当初は本クラスを
+//                            取りこぼしており no-silent-gap の主張と実装が乖離していた (#3489 で是正)。
+//   - packages: write    … GitHub Packages (registry) に publish し得る。配布物汚染経路
+//   - permissions: write-all … 全 scope を write 付与する最大権限宣言
+//
+// permissions ブロックを全く持たない workflow の扱い (過剰 BLOCK ↔ silent gap のトレードオフ、#3489):
+//   permissions 明示なしの workflow は repo / org の「デフォルト GITHUB_TOKEN 権限」設定に従う。
+//   本 gate は **明示的な write 権限宣言**のみを高権限 context のトリガとする (default-deny の対象を明示宣言に限定)。
+//   理由: 「permissions 明示なし = 高権限」とすると、ci.yml 等の多数の workflow が抱える setup 系
+//   third-party action を一斉に違反化し、Pre-PMF (ADR-0010) で過大な churn を生む。デフォルト token を
+//   read-only に絞る (GitHub 推奨の repo 設定 "Read repository contents permission") を第一防御線とし、
+//   write が必要な workflow は permissions ブロックで明示する運用前提に乗る。この前提が崩れた場合
+//   (デフォルト token が write のまま放置) は本 gate の対象外となる残余リスクであり、repo 設定側で担保する。
+//   → silent gap を完全には潰さない代わりに、明示 write 宣言クラスは漏れなく lock する保守的境界を採る。
 // ---------------------------------------------------------------------------
 
 /** GitHub 公式 (actions/* / github/*)。floating tag 許容 (供給元 = GitHub 本体)。 */
@@ -97,6 +117,11 @@ export const FIRST_PARTY_OWNERS = ['actions', 'github'];
  * 高権限 workflow 内でも floating を許容する低リスク third-party action の allowlist。
  * 基準: artifact/image を produce せず write 権限も持たない「setup / metadata 読取」専用 action のみ。
  * 新規追加は「produce/write 能力なし」を確認し reason を残す (default-deny の例外明示)。
+ *
+ * 注 (#3489): dependabot/fetch-metadata は「metadata 読取のみ」だが、dependabot-auto-merge.yml の
+ * auto-merge 起動 context では出力 (update-type) の偽造が悪性 bump の自動 merge に直結し得るため、
+ * allowlist 例外ではなく SHA pin を採用した (allowlist から除外)。read-only でも「起動する後続処理の
+ * 危険度」で pin 要否を判断する原則の前例。
  */
 export const LOW_RISK_THIRD_PARTY_ALLOWLIST = [
 	{
@@ -104,13 +129,24 @@ export const LOW_RISK_THIRD_PARTY_ALLOWLIST = [
 		reason: 'buildx の setup のみ。artifact produce / write なし',
 	},
 	{ name: 'hashicorp/setup-terraform', reason: 'terraform CLI の setup のみ。produce/write なし' },
-	{ name: 'dependabot/fetch-metadata', reason: 'PR metadata の読取のみ。write なし' },
 	{ name: 'dorny/paths-filter', reason: '変更パス判定の読取のみ。produce/write なし' },
 ];
 
-/** workflow が id-token: write / contents: write を付与する高権限 context か。 */
+/**
+ * 高権限とみなす write 権限宣言の検出パターン (SSOT)。明示宣言クラスのみを対象とする
+ * (permissions 明示なしの扱いは上記コメントのトレードオフ参照)。
+ */
+const HIGH_PRIVILEGE_PERMISSION_RE = [
+	/\bid-token:\s*write\b/,
+	/\bcontents:\s*write\b/,
+	/\bpull-requests:\s*write\b/,
+	/\bpackages:\s*write\b/,
+	/\bpermissions:\s*write-all\b/,
+];
+
+/** workflow が高権限な write 権限クラス (id-token/contents/pull-requests/packages write or write-all) を付与する context か。 */
 export function isHighPrivilegeWorkflow(source) {
-	return /\bid-token:\s*write\b/.test(source) || /\bcontents:\s*write\b/.test(source);
+	return HIGH_PRIVILEGE_PERMISSION_RE.some((re) => re.test(source));
 }
 
 const SHA_RE = /^[0-9a-f]{40}$/;
@@ -161,9 +197,9 @@ export function findTagPinViolations(source, fileRel, actions = HIGH_PRIVILEGE_A
 }
 
 /**
- * 網羅性 gate (#3483): 高権限 workflow (id-token/contents write) 内で、first-party でも
- * LOW_RISK allowlist でもない third-party action が SHA pin されていない `uses:` を violation で返す。
- * これにより新規 third-party action を未 pin で高権限 workflow に足したら自動検出する (no-silent-gap)。
+ * 網羅性 gate (#3483 / #3489): 高権限 workflow (id-token / contents / pull-requests / packages write
+ * or write-all) 内で、first-party でも LOW_RISK allowlist でもない third-party action が SHA pin されて
+ * いない `uses:` を violation で返す。新規 third-party action を未 pin で高権限 workflow に足したら自動検出 (no-silent-gap)。
  *
  * @param {string} source workflow YAML 本文
  * @param {string} fileRel リポジトリ相対パス
@@ -191,8 +227,8 @@ export function findHighPrivilegeContextViolations(source, fileRel) {
 			action: usedPath,
 			ref,
 			reason:
-				'高権限 workflow (id-token/contents write) 内の未 pin third-party action (#3483 網羅性 gate)。' +
-				'pin するか、produce/write 能力なしを確認のうえ LOW_RISK_THIRD_PARTY_ALLOWLIST に reason 付きで追加する',
+				'高権限 workflow (id-token/contents/pull-requests/packages write or write-all) 内の未 pin third-party action (#3483/#3489 網羅性 gate)。' +
+				'pin するか、produce/write 能力なし + 起動する後続処理が安全なことを確認のうえ LOW_RISK_THIRD_PARTY_ALLOWLIST に reason 付きで追加する',
 		});
 	}
 	return violations;

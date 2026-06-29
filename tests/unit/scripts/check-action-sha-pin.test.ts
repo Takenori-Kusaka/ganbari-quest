@@ -104,6 +104,43 @@ describe('#3483 findHighPrivilegeContextViolations (網羅性 gate / no-silent-g
 		expect(isHighPrivilegeWorkflow(src)).toBe(false);
 		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(0);
 	});
+
+	// #3489 回帰: pull-requests: write クラスの取りこぼし是正。id-token / contents が無くても
+	// pull-requests: write (auto-merge 等の context) 内の未 pin third-party を検出する (no-silent-gap)。
+	it('pull-requests: write (id-token/contents 無) 内の未 pin third-party を検出する (#3489)', () => {
+		const src = [
+			'on: pull_request',
+			'permissions:',
+			'  pull-requests: write',
+			'jobs:',
+			'  x:',
+			'    steps:',
+			'      - uses: evilcorp/metadata@v3',
+		].join('\n');
+		expect(isHighPrivilegeWorkflow(src)).toBe(true);
+		const v = findHighPrivilegeContextViolations(src, 'wf.yml');
+		expect(v).toHaveLength(1);
+		expect(v[0]?.action).toBe('evilcorp/metadata');
+	});
+
+	it('packages: write クラスも高権限 context として検出する (#3489)', () => {
+		const src =
+			'permissions:\n  packages: write\njobs:\n  x:\n    steps:\n      - uses: evil/publish@v2';
+		expect(isHighPrivilegeWorkflow(src)).toBe(true);
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(1);
+	});
+
+	it('permissions: write-all も高権限 context として検出する (#3489)', () => {
+		const src = 'permissions: write-all\njobs:\n  x:\n    steps:\n      - uses: evil/a@v1';
+		expect(isHighPrivilegeWorkflow(src)).toBe(true);
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(1);
+	});
+
+	it('permissions 明示なしの workflow は高権限 context 対象外 (default token は repo 設定に委譲、#3489 トレードオフ)', () => {
+		const src = 'on: push\njobs:\n  x:\n    steps:\n      - uses: evil/a@v1';
+		expect(isHighPrivilegeWorkflow(src)).toBe(false);
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(0);
+	});
 });
 
 describe('#3298/#3483 scanAllWorkflows (実 workflow)', () => {
