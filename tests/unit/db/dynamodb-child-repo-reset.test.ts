@@ -302,4 +302,51 @@ describe('resetChildProgressData (DynamoDB) — BALANCE 集計も削除する (#
 		expect(await point.getBalance(CHILD_ID, TENANT)).toBe(0);
 		expect(await point.getBalance(OTHER, TENANT)).toBe(40);
 	});
+
+	// #3485 (reset 完全性 class-lock / ADR-0061 same-class→guard): child partition の全 entity を seed し、
+	// reset 後に「削除対象 (記録系 + BALANCE) のみ消え、意図的保持 entity (ステータス/図鑑/チャレンジ/評価/
+	// ごほうび等) は残る」契約を partition 全件残渣で固定する。これにより #3475→#3485 と続いた「ADD 集計
+	// 派生 entity が reset 残存」型の adversarial finding を 1 本の契約 test で先取り回答する (instance でなく
+	// class を lock)。reset = dev-only 進捗リセット (記録系のみ) であり、COPPA 削除 (= deleteChild = partition
+	// 全削除) とは別レイヤー (#3471 reset scope 契約)。enemyCollection(ENEMYCOL#)/defeatCount は意図的保持
+	// (#3485 の defect 主張は本契約で「設計どおり」と確定、wontfix)。
+	it('#3485: reset は記録系 + BALANCE のみ削除し、ステータス/図鑑/チャレンジ等は意図的に保持する (partition 全件残渣契約)', async () => {
+		const pk = `T#${TENANT}#CHILD#${CHILD_ID}`;
+		const seed = (sk: string) => store.set(`${pk}|${sk}`, { PK: pk, SK: sk });
+		// 削除対象 (記録系 + 派生集計)
+		const DELETED_SKS = [
+			'LOG#2026-06-29#1',
+			'POINT#100#1',
+			'LOGIN#2026-06-29',
+			'ACHV#1#m',
+			'BALANCE',
+		];
+		// 意図的保持 (reset = 記録系のみ。status/dex/challenge/eval/reward/profile/activity は残す、#3471 契約)
+		const SURVIVOR_SKS = [
+			'PROFILE',
+			'CHILDACT#1',
+			'CHILDCHAL#1',
+			'STATUS#01',
+			'STATHIST#01#100#1',
+			'ENEMYCOL#0001', // 敵図鑑 defeatCount (#3485 の対象、意図的保持)
+			'EVAL#2026-06-22',
+			'REWARD#100#1',
+		];
+		for (const sk of [...DELETED_SKS, ...SURVIVOR_SKS]) seed(sk);
+
+		const child = await loadChildRepo();
+		await child.resetChildProgressData(CHILD_ID, TENANT);
+
+		const remaining = new Set(
+			[...store.values()].filter((i) => i.PK === pk).map((i) => String(i.SK)),
+		);
+		// 削除対象は全て消えている
+		for (const sk of DELETED_SKS) {
+			expect(remaining.has(sk), `削除対象 ${sk} が残存している`).toBe(false);
+		}
+		// 意図的保持 entity は全て残る (将来 reset scope を誤って広げたら本 test が fail)
+		for (const sk of SURVIVOR_SKS) {
+			expect(remaining.has(sk), `保持対象 ${sk} が誤削除された`).toBe(true);
+		}
+	});
 });
