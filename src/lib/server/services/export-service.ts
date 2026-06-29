@@ -12,6 +12,7 @@ import {
 	type ExportCategory,
 	type ExportCertificate,
 	type ExportChecklistLog,
+	type ExportChecklistOverride,
 	type ExportChecklistTemplate,
 	type ExportChild,
 	type ExportChildActivity,
@@ -36,6 +37,7 @@ import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { findActivities, findActivityLogs } from '$lib/server/db/activity-repo';
 import {
 	findLogsByChild,
+	findOverridesByChild,
 	findTemplateItems,
 	findTemplatesByChild,
 } from '$lib/server/db/checklist-repo';
@@ -239,6 +241,7 @@ interface ChildTransactionData {
 	activityPrefs: ExportActivityPref[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
+	checklistOverrides: ExportChecklistOverride[];
 }
 
 /**
@@ -575,6 +578,18 @@ async function collectForChild(
 		});
 	}
 
+	// #3329: per-child チェックリスト日次 override (createdAt 保全)。
+	const checklistOverridesRaw = await findOverridesByChild(childId, tenantId);
+	warnIfTruncated('checklistOverrides', childId, checklistOverridesRaw.length);
+	const checklistOverridesOut: ExportChecklistOverride[] = checklistOverridesRaw.map((o) => ({
+		childRef,
+		targetDate: o.targetDate,
+		action: o.action,
+		itemName: o.itemName,
+		icon: o.icon,
+		createdAt: o.createdAt,
+	}));
+
 	return {
 		childActivities: childActivitiesOut,
 		activityLogs: activityLogsOut,
@@ -592,6 +607,7 @@ async function collectForChild(
 		activityPrefs: activityPrefsOut,
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
+		checklistOverrides: checklistOverridesOut,
 	};
 }
 
@@ -651,6 +667,7 @@ async function collectTransactionData(
 		activityPrefs: perChild.flatMap((p) => p.activityPrefs),
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
+		checklistOverrides: perChild.flatMap((p) => p.checklistOverrides), // #3329
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
 		settings: settingsOut, // #3329

@@ -607,4 +607,52 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// **dailyLimit=0 (無制限) が null=1 回固定へ落ちず 0 のまま復元される** (本 PR の核心エッジ)。
 		expect(water?.dailyLimit, 'restore:dailyLimit=0 (無制限) が null へ落ちない').toBe(0);
 	});
+
+	// #3329: チェックリスト配信先 (assignment) + 日次 override の round-trip。
+	// assignment は per-child template の import 時 auto-assign で配信エッジが再構成され、
+	// override は createdAt 保全で復元されることを検証する。
+	it('チェックリスト配信先が再構成され、日次 override が createdAt 保全で round-trip する', async () => {
+		testDb.insert(schema.children).values({ nickname: 'ひかり', age: 9, theme: 'green' }).run(); // id=1
+		const repo = getRepos().checklist;
+
+		// family master template を作成 → child へ配信 (assignment エッジ作成)。
+		const tpl = await repo.insertTemplate({ name: 'もちものリスト', icon: '📋' }, T);
+		await repo.assignTemplateToChildren(tpl.id, [1], T);
+		// 日次 override (特定日に項目追加) を createdAt 明示で seed。
+		await repo.insertOverrideForRestore(
+			{
+				childId: 1,
+				targetDate: '2026-03-05',
+				action: 'add',
+				itemName: 'すいとう',
+				icon: '📦',
+				createdAt: '2026-03-05T07:00:00Z',
+			},
+			T,
+		);
+
+		// export
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.checklistTemplates.length, 'export:template').toBe(1);
+		expect(data.data.checklistOverrides.length, 'export:override').toBe(1);
+		expect(data.data.checklistOverrides[0]?.itemName, 'export:override itemName').toBe('すいとう');
+
+		// replace = clear → import
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+
+		const children = testDb.select().from(schema.children).all();
+		expect(children.length, '子復元').toBe(1);
+		const cid = children[0]?.id as number;
+
+		// 配信エッジ再構成: child に template が配信されている (findAssignmentsByChild が 1 件)。
+		const assignments = await repo.findAssignmentsByChild(cid, T);
+		expect(assignments.length, '配信エッジ再構成').toBe(1);
+
+		// 日次 override: createdAt 保全で復元。
+		const overrides = await repo.findOverridesByChild(cid, T);
+		expect(overrides.length, 'override').toBe(1);
+		expect(overrides[0]?.itemName, 'override itemName 保全').toBe('すいとう');
+		expect(overrides[0]?.createdAt, 'override createdAt 保全').toBe('2026-03-05T07:00:00Z');
+	});
 });
