@@ -31,6 +31,7 @@ vi.mock('$lib/server/logger', () => ({
 import {
 	getCohortAnalysis,
 	RETENTION_DAYS,
+	utcMonthKey,
 } from '../../../src/lib/server/services/cohort-analysis-service';
 
 // --- Helper ---
@@ -80,6 +81,32 @@ describe('getCohortAnalysis', () => {
 
 	afterEach(() => {
 		vi.useRealTimers();
+	});
+
+	// #3449 (prod latent バグの不変条件 lock): UTC↔ローカル月混在で月境界 signup テナントが
+	// cohort key mismatch で取りこぼされる問題を、UTC 月 SSOT 統一 (utcMonthKey) で根治した。
+	// fake clock を複数の境界日で parametrize し、境界テナントが正しい UTC 月コホートに入ることを固定する。
+	it('#3449: utcMonthKey は境界時刻でも UTC 月を返す (JST 翌月になる UTC 月末も UTC 月)', () => {
+		// 2026-05-31T23:00:00Z は JST(+9) では 2026-06-01 09:00 = 翌月。だが UTC 月は 2026-05。
+		expect(utcMonthKey(new Date('2026-05-31T23:00:00Z'))).toBe('2026-05');
+		expect(utcMonthKey(new Date('2026-06-01T00:00:00Z'))).toBe('2026-06');
+		expect(utcMonthKey(new Date('2026-12-31T23:59:59Z'))).toBe('2026-12'); // 年境界
+	});
+
+	it.each([
+		// [signup createdAt(UTC), 期待 UTC 月コホート]
+		['2026-05-31T23:00:00Z', '2026-05'], // UTC 月末 = JST 翌月境界
+		['2026-05-01T00:00:00Z', '2026-05'], // UTC 月初
+		['2026-06-30T23:30:00Z', '2026-06'], // 当月 UTC 月末
+	])('#3449: 月境界 signup テナント (%s) が UTC 月コホート %s に取りこぼされず計上される', async (createdAt, expectedMonth) => {
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({ tenantId: 'boundary', createdAt, plan: SUBSCRIPTION_PLAN.MONTHLY }),
+		]);
+		// clock 2026-06-15 / monthsBack=2 → targetMonths = [2026-05, 2026-06] (UTC 列挙)
+		const result = await getCohortAnalysis(2);
+		const cohort = result.cohorts.find((c) => c.month === expectedMonth);
+		expect(cohort, `cohort ${expectedMonth} が targetMonths に存在する`).toBeDefined();
+		expect(cohort?.size).toBe(1); // 境界テナントが当該 UTC 月に計上される
 	});
 
 	it('テナントが 0 件の場合、空のコホートが返る', async () => {
