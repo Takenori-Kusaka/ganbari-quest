@@ -408,6 +408,11 @@ export interface InsertChildActivityInput {
 	sortOrder?: number;
 	isArchived?: number;
 	archivedReason?: string | null;
+	// #3422: 親が設定する 1 日上限 / 読み仮名 / 漢字表記。child_activities 列は存在するが
+	// 旧 service が drop しており常に null (= ProdDashboardSections で dailyLimit ?? 1 固定) だった。
+	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface UpdateChildActivityInput {
@@ -418,6 +423,10 @@ export interface UpdateChildActivityInput {
 	triggerHint?: string | null;
 	isMainQuest?: number;
 	priority?: ActivityPriority;
+	// #3422: dailyLimit / nameKana / nameKanji の編集を persist する (旧実装は silent drop)。
+	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface InsertActivityLogInput {
