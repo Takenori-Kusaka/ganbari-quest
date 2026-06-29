@@ -11,6 +11,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 import Dialog from '$lib/ui/primitives/Dialog.svelte';
 import PinInput from '$lib/ui/primitives/PinInput.svelte';
 import { soundService } from '$lib/ui/sound/sound-service';
+import { NAV_TIMEOUT_MS } from './nav-timeout';
 
 let { data } = $props();
 
@@ -35,12 +36,10 @@ let navigatingError = $state<boolean>(false);
 // timeout の二重起動防止 + 成功 unload 前のクリア用ハンドル。
 let navigatingTimeout: ReturnType<typeof setTimeout> | null = null;
 
-// #3101: ナビ失敗とみなすまでの待機時間。旧実装は 8s 固定だったが、回線が遅い
+// #3101 / #3416: ナビ失敗とみなすまでの待機時間。旧実装は 8s 固定だったが、回線が遅い
 // (CloudFront cold-miss 等で実測 4.2s が伸びる) slow-but-successful nav が 8s を超えると
 // 成功直前に「読込失敗」が誤表示される問題があった (PO 指摘: 8s 上限に根拠なし)。
-// 一般的なサーバータイムアウト (CloudFront/Lambda の上限が ~30s) に合わせ、真にハングした
-// 場合のみ error 表示する。正常時はナビ完了でページごと置換されるため本タイマーは発火しない。
-const NAV_TIMEOUT_MS = 30_000;
+// 値は nav-timeout.ts に SSOT 集約し、E2E test (parent-gate.spec.ts) と結合させる。
 
 // #3089: /admin へのハードナビを fail-safe で起動する。NAV_TIMEOUT_MS 経っても unload しなければ
 // (ナビ失敗とみなして) overlay を error 状態に切り替え、window.location.assign が同期 throw
