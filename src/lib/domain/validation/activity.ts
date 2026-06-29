@@ -94,12 +94,20 @@ export const ACTIVITY_NAME_FIELD_MAX = 50;
  * #3463 item1/item4: dailyLimit を `[0, 99]` の整数 or null に正規化する (import 境界 + server clamp 共用)。
  * form action の zod (`min(0).max(99)`) は form 経路限定で、改竄/破損 ZIP 復元や API 直叩きの NaN/負値/
  * 巨大値/非整数を守らない。本 sanitizer を import-service と +page.server.ts の両境界で適用し default-deny 化する。
+ *
+ * dailyLimit semantics (`activity-log-service.ts` enforcement): `null=1回 (安全既定)` / `0=無制限 (最 permissive)` /
+ * `N=N回`。下限外 (負値) は改竄/破損由来の不正入力であり、最 permissive な 0 (無制限) へ昇格させると
+ * default-allow になる。よって負値は安全既定の null (=1回) に倒す。ユーザが明示入力した 0 は無制限として保持し、
+ * 上限超は 99 へ丸める (DAILY_LIMIT_MIN..MAX の範囲内のみ trunc clamp)。
  */
 export function sanitizeDailyLimit(raw: unknown): number | null {
 	if (raw == null || raw === '') return null;
 	const n = typeof raw === 'number' ? raw : Number(raw);
 	if (!Number.isFinite(n)) return null;
-	return Math.min(DAILY_LIMIT_MAX, Math.max(DAILY_LIMIT_MIN, Math.trunc(n)));
+	// 下限外 (負値) は不正入力 → 最 permissive な無制限 (0) への昇格を避け安全既定 null (=1回) に倒す。
+	// trunc 前に判定し、-0.5 等が -0 (=0=無制限) に丸まるのを防ぐ。
+	if (n < DAILY_LIMIT_MIN) return null;
+	return Math.min(DAILY_LIMIT_MAX, Math.trunc(n));
 }
 
 /**

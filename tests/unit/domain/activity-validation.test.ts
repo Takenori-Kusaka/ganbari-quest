@@ -29,8 +29,10 @@ describe('#3463 sanitizeDailyLimit (import 境界 + server clamp)', () => {
 		expect(sanitizeDailyLimit(0)).toBe(0);
 		expect(sanitizeDailyLimit('0')).toBe(0);
 	});
-	it('負値は 0 へ clamp', () => {
-		expect(sanitizeDailyLimit(-5)).toBe(0);
+	it('負値 (下限外の不正入力) は安全既定 null (=1回) に倒す — 0=無制限への昇格を避ける (#3463 item2 default-allow 防止)', () => {
+		expect(sanitizeDailyLimit(-5)).toBeNull();
+		expect(sanitizeDailyLimit('-1')).toBeNull();
+		expect(sanitizeDailyLimit(-0.5)).toBeNull();
 	});
 	it('上限超は 99 へ clamp', () => {
 		expect(sanitizeDailyLimit(1000)).toBe(99);

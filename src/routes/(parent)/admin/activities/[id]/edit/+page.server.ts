@@ -2,7 +2,11 @@
 //   /admin/activities/[id]/edit で must トグル + 既存編集項目を扱う。
 //   form action は $lib/server/services/activity-service 経由で priority を含めた更新を行う。
 import { error, fail, redirect } from '@sveltejs/kit';
-import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import {
+	CATEGORY_DEFS,
+	sanitizeActivityNameField,
+	sanitizeDailyLimit,
+} from '$lib/domain/validation/activity';
 import { requireTenantId } from '$lib/server/auth/factory';
 import { logger } from '$lib/server/logger';
 import { getActivityById, updateActivity } from '$lib/server/services/activity-service';
@@ -41,9 +45,13 @@ export const actions: Actions = {
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
 		const ageMax = formData.get('ageMax') ? Number(formData.get('ageMax')) : null;
 		const dailyLimitRaw = formData.get('dailyLimit');
-		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
-		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
-		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
+		const dailyLimit = sanitizeDailyLimit(dailyLimitRaw); // #3463 item1/item4: NaN/負/巨大/非整数を [0,99] int or null に clamp (負値→null=1回 安全既定)
+		const nameKana = sanitizeActivityNameField(
+			String(formData.get('nameKana') ?? '').trim() || null,
+		);
+		const nameKanji = sanitizeActivityNameField(
+			String(formData.get('nameKanji') ?? '').trim() || null,
+		);
 		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
 		// #1756 (#1709-B): must トグル — checkbox は ON 時 'on' / OFF 時 null
 		const priorityRaw = formData.get('priority');
