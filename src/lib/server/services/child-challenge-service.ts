@@ -131,6 +131,11 @@ function weekIndexOf(weekStart: string): number {
 	return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
 }
 
+/** 2 つの weekStart (Monday) 間の週数。連続週なら 1、1 週 skip なら 2 (#3203 item1)。 */
+function weeksBetween(earlier: string, later: string): number {
+	return weekIndexOf(later) - weekIndexOf(earlier);
+}
+
 /** 直近 2 週間のカテゴリ別記録数を集計する。週次自動生成の苦手判定入力に使う。 */
 export async function aggregateCategoryCounts(
 	childId: number,
@@ -172,12 +177,40 @@ function strongestCategory(counts: Record<number, number>): number {
  * 苦手バイアスの重み付き抽選。記録が少ないカテゴリほど重みが高い (rank 0 = WEAK_BIAS_BASE)。
  * excludeId を渡すと連続週の同一カテゴリを避ける。
  */
-function weightedWeakPick(counts: Record<number, number>, excludeId?: number): number {
+// #3203 item2: カテゴリ抽選を childId + weekStart で seed 化し決定的にする。
+// 生成時 1 回 persist されるため以後 flip-flop しないが、week-boundary/race で初回 insert 前に
+// flip し得た。seed 化で (a) 決定性 (同 child・同週は常に同結果) (b) 親への説明性 (c) test 容易性
+// を得る。childId 未指定時 (既存 test 等) は Math.random にフォールバックし後方互換を保つ。
+function hashSeed(childId: number, weekStart: string): number {
+	let h = 2166136261 ^ childId; // FNV-1a 風
+	for (let i = 0; i < weekStart.length; i++) {
+		h = Math.imul(h ^ weekStart.charCodeAt(i), 16777619);
+	}
+	return h >>> 0;
+}
+
+/** mulberry32: seed から決定的な [0,1) 乱数を返す PRNG を作る。 */
+function makeSeededRand(childId: number, weekStart: string): () => number {
+	let a = hashSeed(childId, weekStart);
+	return () => {
+		a |= 0;
+		a = (a + 0x6d2b79f5) | 0;
+		let t = Math.imul(a ^ (a >>> 15), 1 | a);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+function weightedWeakPick(
+	counts: Record<number, number>,
+	rand: () => number,
+	excludeId?: number,
+): number {
 	const cats = ALL_CATEGORY_IDS.filter((c) => c !== excludeId);
 	const sorted = [...cats].sort((a, b) => (counts[a] ?? 0) - (counts[b] ?? 0));
 	const weighted = sorted.map((c, rank) => ({ c, w: Math.max(1, WEAK_BIAS_BASE - rank) }));
 	const total = weighted.reduce((s, x) => s + x.w, 0);
-	let r = Math.random() * total;
+	let r = rand() * total;
 	for (const x of weighted) {
 		r -= x.w;
 		if (r <= 0) return x.c;
@@ -204,11 +237,12 @@ function selectCategory(
 	prev: ChallengePrev | undefined,
 	weekStart: string,
 	consecutiveMissCount: number,
+	rand: () => number,
 ): { categoryId: number; mode: ChallengeProposalMode } {
 	const totalRecords = Object.values(counts).reduce((a, b) => a + b, 0);
 	if (totalRecords < MIN_RECORDS_FOR_ANALYSIS) {
 		return {
-			categoryId: ALL_CATEGORY_IDS[Math.floor(Math.random() * ALL_CATEGORY_IDS.length)] ?? 1,
+			categoryId: ALL_CATEGORY_IDS[Math.floor(rand() * ALL_CATEGORY_IDS.length)] ?? 1,
 			mode: 'explore',
 		};
 	}
@@ -218,10 +252,10 @@ function selectCategory(
 	if (weekIndexOf(weekStart) % EVERY_N_WEEKS_STRONG === 0) {
 		return { categoryId: strongestCategory(counts), mode: 'strength' };
 	}
-	let categoryId = weightedWeakPick(counts);
+	let categoryId = weightedWeakPick(counts, rand);
 	// 直前週と同一カテゴリは原則回避 (interleaving の連続ブロック防止)
 	if (prev != null && categoryId === prev.categoryId) {
-		categoryId = weightedWeakPick(counts, prev.categoryId);
+		categoryId = weightedWeakPick(counts, rand, prev.categoryId);
 	}
 	return { categoryId, mode: 'weakness' };
 }
@@ -259,12 +293,20 @@ export function computeProposal(
 	counts: Record<number, number>,
 	prev: ChallengePrev | undefined,
 	weekStart: string,
+	opts?: { childId?: number; skippedWeeks?: number },
 ): ChallengeProposal {
-	// 生成時点での「連続未達週数」(前週が未達なら前週の streak + 1、達成ならリセット)
+	// #3203 item2: childId 指定時は seed 化した決定的 RNG、未指定 (既存 test) は Math.random。
+	const rand = opts?.childId != null ? makeSeededRand(opts.childId, weekStart) : Math.random;
+	// #3203 item1: skippedWeeks = 直近生成週から今週までに challenge を生成しなかった (skip した) 週数。
+	// 週を skip する child = disengaging であり rescue (易しい得意 challenge で成功体験を積ませる) の本来対象。
+	// skip 週を miss として streak に加算し、跨いでも rescue を発火させる。
+	const skippedWeeks = Math.max(0, opts?.skippedWeeks ?? 0);
+	// 生成時点での「連続未達週数」(前週が未達なら前週の streak + 1、達成ならリセット) + skip 週 (disengagement)。
 	const prevMissed = prev != null && prev.status !== 'completed';
-	const consecutiveMissCount = prevMissed ? (prev?.consecutiveMissCount ?? 0) + 1 : 0;
+	const consecutiveMissCount =
+		(prevMissed ? (prev?.consecutiveMissCount ?? 0) + 1 : 0) + skippedWeeks;
 
-	const { categoryId, mode } = selectCategory(counts, prev, weekStart, consecutiveMissCount);
+	const { categoryId, mode } = selectCategory(counts, prev, weekStart, consecutiveMissCount, rand);
 	const targetCount = decideTarget(counts, prev, categoryId, mode);
 
 	const categoryName = CATEGORY_NAMES[categoryId] ?? '';
@@ -466,15 +508,23 @@ export async function getOrCreateWeeklyChildChallenge(
 	);
 	if (existing) return existing;
 
-	const lastWeekStart = getLastWeekStart(weekStart);
-	const prevRow = all.find(
-		(c) => c.sourceTemplateId === AUTO_WEEKLY_SOURCE && c.startDate === lastWeekStart,
-	);
+	// #3203 item1: 直近の生成済 auto challenge (lastWeekStart に限らず最新の prior 週) を prev に使い、
+	// その週から今週までの skip 週数を disengagement signal として rescue に反映する。
+	const priorAuto = all
+		.filter((c) => c.sourceTemplateId === AUTO_WEEKLY_SOURCE && c.startDate < weekStart)
+		.sort((a, b) => (a.startDate < b.startDate ? 1 : -1)); // 新しい順
+	const prevRow = priorAuto[0];
+	// prevRow が lastWeekStart なら skip 0。さらに過去なら間の週数を skip として数える。
+	const skippedWeeks = prevRow ? weeksBetween(prevRow.startDate, weekStart) - 1 : 0;
 	const counts = await aggregateCategoryCounts(childId, tenantId);
 	const proposal = computeProposal(
 		counts,
 		prevRow ? toProposalPrev(prevRow) : undefined,
 		weekStart,
+		{
+			childId,
+			skippedWeeks,
+		},
 	);
 
 	const targetConfig = JSON.stringify({
