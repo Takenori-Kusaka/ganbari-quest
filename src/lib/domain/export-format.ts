@@ -9,7 +9,10 @@ export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #3358: 1.5.0 で childActivity の `isArchived` / `archivedReason` を追加 (isVisible / sortOrder は
 //   1.4.0 以前から存在)。archived 済活動が import 後に active へ復活する round-trip 取りこぼし
 //   (第10回監査 data-5) の修正。いずれも optional で後方互換 (旧 backup は非アーカイブとして復元)。
-export const EXPORT_VERSION = '1.5.0' as const;
+// #3422: 1.6.0 で childActivity の `dailyLimit` / `nameKana` / `nameKanji` を追加。create/update では
+//   persist 是正済だが backup round-trip では同 3 列が silent drop され、復元後 dailyLimit が null
+//   (= 1 日 1 回固定) に戻る取りこぼしの修正。いずれも optional で後方互換 (旧 backup は schema default)。
+export const EXPORT_VERSION = '1.6.0' as const;
 
 // ============================================================
 // #3329: backup 可能な設定キーの allowlist (default-deny セキュリティ設計、D3)
@@ -101,6 +104,12 @@ export interface ExportChildActivity {
 	// #3358: archive 状態を round-trip 保全 (optional で後方互換、旧 backup は非アーカイブ復元)
 	isArchived?: number;
 	archivedReason?: string | null;
+	// #3422: 親が設定する 1 日上限 / 読み仮名 / 漢字表記を round-trip 保全 (optional で後方互換、
+	// 旧 backup は schema default 復元)。dailyLimit semantics は null=1回 / 0=無制限 / N=N回
+	// (activity-log-service.ts §daily limit 定義)。0 を null へ落とさず保全する。
+	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface ExportTitle {

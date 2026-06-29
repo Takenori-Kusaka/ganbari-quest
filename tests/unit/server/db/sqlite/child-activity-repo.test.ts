@@ -115,7 +115,8 @@ describe('sqlite/child-activity-repo', () => {
 			expect(a.nameKana).toBe('おてつだい');
 			expect(a.nameKanji).toBe('お手伝い');
 
-			// update でも persist される (1 日上限を 3→無制限(null) に変更)
+			// update でも persist される。dailyLimit semantics は null=1回 / 0=無制限 / N=N回
+			// (activity-log-service.ts §daily limit 定義)。1 日上限を 3→1回(null) に変更する。
 			const updated = await updateActivity(
 				a.id,
 				1,
@@ -124,6 +125,10 @@ describe('sqlite/child-activity-repo', () => {
 			);
 			expect(updated?.dailyLimit).toBeNull();
 			expect(updated?.nameKana).toBe('かわった');
+
+			// dailyLimit=0 (無制限) を persist できる。0 を falsy 扱いで null へ落とさないことを固定。
+			const unlimited = await updateActivity(a.id, 1, { dailyLimit: 0 }, TENANT);
+			expect(unlimited?.dailyLimit).toBe(0);
 		});
 
 		it('別 child の activity は取得 list に出ない (cross-child isolation)', async () => {
