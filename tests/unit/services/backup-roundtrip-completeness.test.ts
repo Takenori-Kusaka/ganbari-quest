@@ -234,6 +234,20 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			T,
 		);
 
+		// #3329: 活動設定 (ピン留め) を seed (seedChildActivities の 'うんどうA' をピン)。round-trip 後に
+		// isPinned/pinOrder が保全され、activityName で正しい childActivity に再結合されることを検証する。
+		await getRepos().activityPref.insertForRestore(
+			{
+				childId: 1,
+				activityId: actId,
+				isPinned: 1,
+				pinOrder: 1,
+				createdAt: '2026-02-05T00:00:00Z',
+				updatedAt: '2026-02-05T00:00:00Z',
+			},
+			T,
+		);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -256,6 +270,10 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(data.data.certificates.length, 'export:証明書').toBe(1);
 		expect(data.data.certificates[0]?.issuedAt, 'export:証明書 issuedAt').toBe(
 			'2026-02-01T00:00:00Z',
+		);
+		expect(data.data.activityPrefs.length, 'export:活動設定').toBe(1);
+		expect(data.data.activityPrefs[0]?.activityName, 'export:活動設定 activityName').toBe(
+			'うんどうA',
 		);
 		expect(data.data.parentMessages.length, 'export:メッセージ').toBe(1);
 		expect(data.data.parentMessages[0]?.shownAt, 'export:メッセージ shownAt').toBe(
@@ -324,6 +342,14 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredMsgs.length, 'メッセージ').toBe(1);
 		expect(restoredMsgs[0]?.sentAt, 'メッセージ sentAt 保全').toBe('2026-02-10T09:00:00Z');
 		expect(restoredMsgs[0]?.shownAt, 'メッセージ shownAt 保全').toBe('2026-02-10T18:00:00Z');
+
+		// #3329: 活動設定が isPinned/pinOrder 保全 + 正しい childActivity に再結合されて復元される。
+		const restoredPrefs = await getRepos().activityPref.findAllByChild(cid, T);
+		expect(restoredPrefs.length, '活動設定').toBe(1);
+		expect(restoredPrefs[0]?.isPinned, '活動設定 isPinned 保全').toBe(1);
+		expect(restoredPrefs[0]?.pinOrder, '活動設定 pinOrder 保全').toBe(1);
+		const restoredActs2 = await getChildActivities(cid, T);
+		expect(restoredPrefs[0]?.activityId, '活動設定 activityId 再結合').toBe(restoredActs2[0]?.id);
 	});
 
 	// #3329 QM-fix (2)(a): auto:weekly チャレンジの dedup round-trip。

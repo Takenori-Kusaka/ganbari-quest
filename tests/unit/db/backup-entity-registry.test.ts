@@ -126,8 +126,7 @@ describe('#3329 backup-entity-registry — silent-gap ガード', () => {
 		// export に足したら 'exported' へ flip し本ベースラインから外す (意図的更新)。
 		// 新たな not-yet-exported source の silent 増加を禁止する (回帰ネット)。
 		expect(notYetExportedSourceEntities()).toEqual([
-			'activityPref',
-			// certificate は #3329 で export 実装済 → exported へ flip
+			// activityPref / certificate は #3329 で export 実装済 → exported へ flip
 			'checklistAssignment',
 			'checklistOverride',
 			// childChallenge / childChallengeAutoWeekly は #3329 で export 実装済 → exported へ flip
