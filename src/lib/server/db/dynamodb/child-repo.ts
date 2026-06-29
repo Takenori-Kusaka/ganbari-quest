@@ -22,7 +22,6 @@ import {
 	childPK,
 	ENTITY_NAMES,
 	loginBonusPrefix,
-	pointBalanceKey,
 	pointLedgerPrefix,
 	tenantPK,
 } from './keys';
@@ -290,8 +289,14 @@ export async function resetChildProgressData(
 	// 取り残され getBalance() が reset 前の残高を返す (SQLite は行集計のため reset 後 0)。
 	// deleteByTenantId / deletePointLedgerBeforeDate と同じく BALANCE も明示削除し
 	// reset 後の getBalance() を 0 に揃える。
-	allKeys.push(pointBalanceKey(id, tenantId));
-	counts.pointBalance = 1;
+	// #3475: pointBalance は「実際に削除した BALANCE 集計行数」(他 entity の count と同じ実削除件数の意味)
+	// に統一する。旧実装は BALANCE 行不在でも無条件 1 をハードコードし「削除件数」と乖離していた。
+	// SK=BALANCE は完全一致だが begins_with('BALANCE') で実在を確認し、存在時のみ削除集合へ加え count する。
+	const balanceItems = await queryAllItems(pk, 'BALANCE', { projectionExpression: 'PK, SK' });
+	counts.pointBalance = balanceItems.length;
+	for (const item of balanceItems) {
+		allKeys.push({ PK: item.PK as string, SK: item.SK as string });
+	}
 
 	await batchDeleteItems(allKeys);
 	return counts;

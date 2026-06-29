@@ -217,6 +217,15 @@ describe('resetChildProgressData (DynamoDB) — BALANCE 集計も削除する (#
 		);
 	});
 
+	it('#3475: BALANCE 行が存在しない child の pointBalance は 0 (旧実装の無条件 1 ハードコード是正)', async () => {
+		// ポイント付与なし = BALANCE 集計行が無い。pointBalance は実削除件数 0 を返す
+		// (旧実装は BALANCE 不在でも 1 を hardcode し「削除件数」と乖離していた)。
+		const child = await loadChildRepo();
+		const counts = await child.resetChildProgressData(CHILD_ID, TENANT);
+		expect(counts.pointBalance).toBe(0);
+		expect(counts.pointLedger).toBe(0);
+	});
+
 	it('別の子供の BALANCE / POINT# は reset の影響を受けない', async () => {
 		const point = await loadPointRepo();
 		const OTHER = 88;
