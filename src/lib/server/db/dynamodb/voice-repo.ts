@@ -111,6 +111,52 @@ export async function insert(
 	return { id };
 }
 
+/** #3329 backup: child の全カスタム音声 (scene 不問)。 */
+export async function findAllByChild(
+	childId: number,
+	tenantId: string,
+): Promise<ChildCustomVoice[]> {
+	const result = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk',
+			ExpressionAttributeValues: { ':pk': voicePK(childId, tenantId) },
+		}),
+	);
+	const voices = (result.Items ?? []).map((item) => toEntity(item, tenantId));
+	voices.sort((a, b) => a.scene.localeCompare(b.scene));
+	return voices;
+}
+
+/** #3329 backup restore 用: createdAt / filePath / publicUrl / isActive を保全して音声行を復元する。 */
+export async function insertForRestore(
+	voice: Omit<ChildCustomVoice, 'id'>,
+	_tenantId: string,
+): Promise<{ id: number }> {
+	const id = await nextId('voice', voice.tenantId);
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...voiceKey(voice.childId, id, voice.tenantId),
+				GSI1PK: `VOICEID#${padId(id)}`,
+				GSI1SK: 'DETAIL',
+				voiceId: id,
+				childId: voice.childId,
+				scene: voice.scene,
+				label: voice.label,
+				filePath: voice.filePath,
+				publicUrl: voice.publicUrl,
+				durationMs: voice.durationMs,
+				isActive: voice.isActive,
+				tenantId: voice.tenantId,
+				createdAt: voice.createdAt,
+			},
+		}),
+	);
+	return { id };
+}
+
 export async function setActive(
 	id: number,
 	childId: number,

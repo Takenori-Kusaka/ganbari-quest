@@ -91,6 +91,9 @@ export interface ImportResult {
 	/** #3329: per-child おやすみ日の取込件数 (DynamoDB では no-op で skip) */
 	restDaysImported: number;
 	restDaysSkipped: number;
+	/** #3329: 子のカスタム音声 DB 行の取込件数 (ファイル本体は #3077 が復元) */
+	childVoicesImported: number;
+	childVoicesSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -307,6 +310,8 @@ export async function importFamilyData(
 	await importChecklistOverridesData(data, childIdMap, tenantId, result);
 	// #3329: おやすみ日を createdAt 保全で復元。childIdMap のみ必要 (DynamoDB では insert が no-op)。
 	await importRestDaysData(data, childIdMap, tenantId, result);
+	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
+	await importChildVoicesData(data, childIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
 	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
 	// importSpecialRewards の後に実行する。
@@ -831,6 +836,61 @@ async function importRestDaysData(
 	}
 }
 
+/** voiceRelPath (`voices/<oldChildId>/<rest>`) の rest 部を抽出する正規表現 (#3329)。 */
+const VOICE_REL_PATH_RE = /^voices\/\d+\/(.+)$/;
+
+/**
+ * 子のカスタム音声 DB 行を復元する (#3329)。
+ * childRef で取込先 child に解決し、voiceRelPath から rest (uuid.ext) を取り出して
+ * filePath = `<tenantPrefix>voices/<newChildId>/<rest>` / publicUrl = `/<filePath>` を新環境向けに
+ * 再構成して書き戻す (音声ファイル本体は #3077 importStaticFiles が同一パスへ復元済)。createdAt/
+ * scene/label/durationMs/isActive を保全。child or path 解決不能行は skip。
+ */
+async function importChildVoicesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const v of data.data.childVoices ?? []) {
+		const childId = childIdMap.get(v.childRef);
+		if (!childId) {
+			result.childVoicesSkipped++;
+			continue;
+		}
+		const rest = VOICE_REL_PATH_RE.exec(v.voiceRelPath)?.[1];
+		if (!rest) {
+			result.childVoicesSkipped++;
+			result.warnings.push(
+				`音声スキップ: voiceRelPath「${v.voiceRelPath}」(child=${v.childRef}) を解決できません`,
+			);
+			continue;
+		}
+		const filePath = `${tenantPrefix(tenantId)}voices/${childId}/${rest}`;
+		const publicUrl = storageKeyToPublicUrl(filePath);
+		try {
+			await getRepos().voice.insertForRestore(
+				{
+					childId,
+					scene: v.scene,
+					label: v.label,
+					filePath,
+					publicUrl,
+					durationMs: v.durationMs,
+					isActive: v.isActive,
+					tenantId,
+					createdAt: v.createdAt,
+				},
+				tenantId,
+			);
+			result.childVoicesImported++;
+		} catch (e) {
+			result.childVoicesSkipped++;
+			result.errors.push(`音声 insert 失敗 (child=${v.childRef}, scene=${v.scene}): ${String(e)}`);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -858,6 +918,8 @@ function createEmptyImportResult(): ImportResult {
 		parentMessagesSkipped: 0,
 		checklistOverridesImported: 0,
 		checklistOverridesSkipped: 0,
+		childVoicesImported: 0,
+		childVoicesSkipped: 0,
 		restDaysImported: 0,
 		restDaysSkipped: 0,
 		activityPrefsImported: 0,

@@ -122,15 +122,11 @@ describe('#3329 backup-entity-registry — silent-gap ガード', () => {
 		}
 	});
 
-	it('未 export の source 実体ベースライン (#3329 残課題、ratchet)', () => {
-		// export に足したら 'exported' へ flip し本ベースラインから外す (意図的更新)。
-		// 新たな not-yet-exported source の silent 増加を禁止する (回帰ネット)。
-		expect(notYetExportedSourceEntities()).toEqual([
-			// 残り 1 件: childCustomVoices (ユーザー録音音声、ストレージ実体参照で別途検討)。
-			// その他 (activityPref/certificate/checklist*/parentMessage/restDays/rewardRedemption/
-			// setting/stampCard/stampEntry/siblingCheer/childChallenge*) は #3329 で export 実装済 → exported へ flip。
-			'childCustomVoices',
-		]);
+	it('未 export の source 実体ベースライン (#3329 完遂、ratchet)', () => {
+		// #3329 で全 source 実体の export/import を実装完了 → 未 export source は 0 件。
+		// 以後 not-yet-exported な source を新規追加すると本 assert が fail する (新 source の
+		// backup 取りこぼしを CI で即検知する回帰ネット)。
+		expect(notYetExportedSourceEntities()).toEqual([]);
 	});
 
 	it('excluded 繰延 (deferred) 実体ベースライン (#3329 Phase 2 再分類強制、ratchet)', () => {

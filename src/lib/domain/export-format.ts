@@ -389,6 +389,24 @@ export interface ExportRestDay {
 	createdAt: string;
 }
 
+/**
+ * #3329: 子のカスタム音声 (ユーザーがアップロードした録音)。音声ファイル本体は #3077 の
+ * ZIP 同梱静的ファイル機構で別途復元されるため、本 export は DB 行 (scene/label/durationMs/
+ * isActive/createdAt) + `voiceRelPath` (tenant prefix を除いた `voices/<oldChildId>/<rest>`) を保持する。
+ * import 時に childRef で childId を解決し、filePath/publicUrl を新 tenant+childId へ再構成する
+ * (#3077 が voices/<newChildId>/ へ復元したファイルと一致)。
+ */
+export interface ExportChildVoice {
+	childRef: string;
+	scene: string;
+	label: string;
+	/** tenant prefix を除いた相対 storage パス (`voices/<oldChildId>/<rest>`)。import で新 tenant+childId へ再構成 */
+	voiceRelPath: string;
+	durationMs: number | null;
+	isActive: number;
+	createdAt: string;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -479,6 +497,8 @@ export interface ExportTransactionData {
 	checklistOverrides: ExportChecklistOverride[];
 	/** #3329: per-child おやすみ日 (createdAt 保全。DynamoDB では空) */
 	restDays: ExportRestDay[];
+	/** #3329: 子のカスタム音声 DB 行 (ファイル本体は #3077 ZIP 同梱で復元、行は voiceRelPath で再結合) */
+	childVoices: ExportChildVoice[];
 	childAvatarItems: never[];
 	dailyMissions: ExportDailyMission[];
 	/** #3329: 各種設定 (tenant-scoped KVS、allowlist 済キーのみ。pin_hash 等の秘匿キーは除外) */
