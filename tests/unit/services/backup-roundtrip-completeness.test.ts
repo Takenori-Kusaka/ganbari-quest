@@ -254,6 +254,23 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 			T,
 		);
 
+		// #3329: 子のカスタム音声 DB 行を 1 件 seed (filePath/publicUrl に childId 含む)。round-trip 後に
+		// createdAt/scene/label が保全され、filePath/publicUrl が新 childId へ remap されることを検証する。
+		await getRepos().voice.insertForRestore(
+			{
+				childId: 1,
+				scene: 'complete',
+				label: 'できたよ',
+				filePath: `tenants/${T}/voices/1/sample.mp3`,
+				publicUrl: `/tenants/${T}/voices/1/sample.mp3`,
+				durationMs: 1200,
+				isActive: 1,
+				tenantId: T,
+				createdAt: '2026-02-20T00:00:00Z',
+			},
+			T,
+		);
+
 		// --- export ---
 		const data = await exportFamilyData({ tenantId: T });
 		// export が全種別を捕捉していること (sanity)
@@ -283,6 +300,10 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		);
 		expect(data.data.restDays.length, 'export:おやすみ日').toBe(1);
 		expect(data.data.restDays[0]?.reason, 'export:おやすみ日 reason').toBe('sick');
+		expect(data.data.childVoices.length, 'export:音声').toBe(1);
+		expect(data.data.childVoices[0]?.voiceRelPath, 'export:音声 voiceRelPath').toBe(
+			'voices/1/sample.mp3',
+		);
 		expect(data.data.parentMessages.length, 'export:メッセージ').toBe(1);
 		expect(data.data.parentMessages[0]?.shownAt, 'export:メッセージ shownAt').toBe(
 			'2026-02-10T18:00:00Z',
@@ -365,6 +386,19 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restoredRestDays[0]?.reason, 'おやすみ日 reason 保全').toBe('sick');
 		expect(restoredRestDays[0]?.createdAt, 'おやすみ日 createdAt 保全').toBe(
 			'2026-03-03T00:00:00Z',
+		);
+
+		// #3329: カスタム音声 DB 行が createdAt/scene 保全 + filePath/publicUrl を新 childId へ remap して復元される。
+		const restoredVoices = await getRepos().voice.findAllByChild(cid, T);
+		expect(restoredVoices.length, '音声').toBe(1);
+		expect(restoredVoices[0]?.scene, '音声 scene 保全').toBe('complete');
+		expect(restoredVoices[0]?.label, '音声 label 保全').toBe('できたよ');
+		expect(restoredVoices[0]?.createdAt, '音声 createdAt 保全').toBe('2026-02-20T00:00:00Z');
+		expect(restoredVoices[0]?.filePath, '音声 filePath remap').toBe(
+			`tenants/${T}/voices/${cid}/sample.mp3`,
+		);
+		expect(restoredVoices[0]?.publicUrl, '音声 publicUrl remap').toBe(
+			`/tenants/${T}/voices/${cid}/sample.mp3`,
 		);
 	});
 
