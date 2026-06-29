@@ -56,6 +56,16 @@ interface DenormFields {
 	rewardPoints: number;
 }
 
+// #3337: legacy DynamoDB レコードは resolvedByParentId=0 (number) を持つ (旧 approve/reject の
+// placeholder)。`?? null` は 0 が nullish でないため legacy 0 を素通しし、string|null 型に number が
+// 紛れる coercion trap になる。read-side で 0 / '0' / null/undefined を null に正規化し、SQLite
+// (lazy-startup-migrations で legacy 0→NULL 正規化済) と cross-backend 表現を揃える。
+// 実 parent userId は string で保存されるためそのまま String 化して返す。
+function normalizeResolvedByParentId(raw: unknown): string | null {
+	if (raw === null || raw === undefined || raw === 0 || raw === '0') return null;
+	return String(raw);
+}
+
 // DynamoDB item から PK/SK + 非正規化フィールドを除いた RedemptionRequestRow を作る。
 function toRow(item: Record<string, unknown>): RedemptionRequestRow {
 	const stripped = stripKeys(item) as Record<string, unknown>;
@@ -67,7 +77,7 @@ function toRow(item: Record<string, unknown>): RedemptionRequestRow {
 		status: stripped.status as string,
 		parentNote: (stripped.parentNote ?? null) as string | null,
 		resolvedAt: (stripped.resolvedAt ?? null) as number | null,
-		resolvedByParentId: (stripped.resolvedByParentId ?? null) as string | null,
+		resolvedByParentId: normalizeResolvedByParentId(stripped.resolvedByParentId),
 		shownToChildAt: (stripped.shownToChildAt ?? null) as number | null,
 	};
 }
