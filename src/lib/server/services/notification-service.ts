@@ -13,7 +13,10 @@ import {
 } from '$lib/server/db/push-subscription-repo';
 import { getSettings } from '$lib/server/db/settings-repo';
 import { logger } from '$lib/server/logger';
-import { validatePushEndpoint } from '$lib/server/services/push-endpoint-validation';
+import {
+	isDefinitelyMaliciousEndpoint,
+	validatePushEndpoint,
+} from '$lib/server/services/push-endpoint-validation';
 
 // ============================================================
 // 型定義
@@ -53,6 +56,27 @@ const MAX_DAILY_NOTIFICATIONS = 3;
 
 function isLocalMode(): boolean {
 	return (process.env.AUTH_MODE ?? 'local') === 'local';
+}
+
+/**
+ * 確定 SSRF endpoint (`isDefinitelyMaliciousEndpoint` true のもの) のみを DB から cleanup 削除する。
+ * 各削除を try/catch で隔離し、DB 例外が呼び出し元の有効 subscriber 配信を巻き込まないようにする
+ * (削除失敗は warn + 続行)。allowlist 網羅漏れ (https の未知ベンダー host) は呼び出し側で除外済で、
+ * ここには渡されない (正規購読を恒久喪失させないため、#3455)。
+ */
+async function cleanupMaliciousEndpoints(
+	endpoints: readonly string[],
+	tenantId: string,
+): Promise<void> {
+	for (const endpoint of endpoints) {
+		try {
+			await deleteByEndpoint(endpoint, tenantId);
+		} catch (err) {
+			logger.warn('[notification] 確定 SSRF endpoint の cleanup 削除に失敗 (配信は継続)', {
+				context: { tenantId, endpoint, error: String(err) },
+			});
+		}
+	}
 }
 
 function getVapidKeys(): { publicKey: string; privateKey: string; subject: string } {
@@ -206,22 +230,27 @@ export async function sendPushNotification(
 	// subscribe API (#3188) で検証済だが、過去レコード混入 / repo 直 insert / 将来 bulk import 経路で
 	// allowlist 外 endpoint が DB に入ると、send (webpush.sendNotification) が実際の HTTP request を
 	// 出す sink となり SSRF (CWE-918) が成立する。送信側でも allowlist 外を skip して single-point を塞ぐ。
-	const invalidEndpoints: string[] = [];
+	const skippedEndpoints: string[] = []; // allowlist 外で送信 skip した全 endpoint (証跡用)
+	const maliciousEndpoints: string[] = []; // うち確定 SSRF (削除して安全なもの) のみ
 	const validSubscriptions = subscriptions.filter((sub) => {
 		if (validatePushEndpoint(sub.endpoint).ok) return true;
-		invalidEndpoints.push(sub.endpoint);
+		skippedEndpoints.push(sub.endpoint);
+		const malicious = isDefinitelyMaliciousEndpoint(sub.endpoint);
+		if (malicious) maliciousEndpoints.push(sub.endpoint);
 		logger.warn('[notification] allowlist 外 endpoint への送信を skip (SSRF defense-in-depth)', {
-			context: { tenantId, endpoint: sub.endpoint, notificationType },
+			context: { tenantId, endpoint: sub.endpoint, notificationType, willDelete: malicious },
 		});
 		return false;
 	});
 
-	// #3421 item3: allowlist 外 endpoint を DB から cleanup (stale 410/404 自動削除との対称化)。
-	// 残置すると毎回 skip で全通知不達のまま蓄積し、再購読 (subscribe API) でしか正常化しない。
-	// 削除して次回購読フローでの再登録に委ねることで「不達のまま stale 蓄積」を構造的に解消する。
-	for (const endpoint of invalidEndpoints) {
-		await deleteByEndpoint(endpoint, tenantId);
-	}
+	// #3421 item3 (#3455 BLOCK 是正): cleanup は **確定 SSRF (非 https / private・loopback・
+	// link-local metadata IP)** に限定して削除する。allowlist は静的ハードコードで「動く標的」であり、
+	// ベンダーが push host を新設/移行すると正規 subscription が allowlist-miss に落ちる。これを一律削除
+	// すると、その host の正規購読を**恒久喪失** (allowlist 追記で可逆回復できるのに不可逆破壊) させる。
+	// よって allowlist 網羅漏れ (https + 未知だが plausible なベンダー host) は削除せず skip + warn に留め、
+	// 確定 SSRF のみ stale 410/404 と対称化して削除する (再購読 UI が揃うまで保守的)。
+	// delete は try/catch で隔離し、DB 例外が下の有効 subscriber 配信を巻き込まない (失敗は warn + 続行)。
+	await cleanupMaliciousEndpoints(maliciousEndpoints, tenantId);
 
 	if (validSubscriptions.length === 0) {
 		// #3421 item2: 0 件 skip も証跡を残す (insertLog を通さない early return は notification_logs に
@@ -233,8 +262,8 @@ export async function sendPushNotification(
 			body,
 			success: false,
 			errorMessage:
-				invalidEndpoints.length > 0
-					? `all ${invalidEndpoints.length} subscription(s) skipped by SSRF allowlist`
+				skippedEndpoints.length > 0
+					? `all ${skippedEndpoints.length} subscription(s) skipped by SSRF allowlist`
 					: 'no valid subscriptions to send',
 		});
 		return { sent: 0, failed: 0 };

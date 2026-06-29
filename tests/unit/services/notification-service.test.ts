@@ -458,6 +458,111 @@ describe('notification-service', () => {
 			);
 		});
 
+		it('#3455 allowlist 網羅漏れ (https の新ベンダー host) は skip のみで削除されない (正規購読の恒久喪失防止)', async () => {
+			setDaytimeJST();
+			mockCountTodayLogs.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: 1,
+					tenantId: 'T1',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/legit',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+				{
+					id: 2,
+					tenantId: 'T1',
+					// https + 公開だが allowlist 未登録 (= ベンダーが push host を新設/移行した想定)。
+					// 静的 allowlist の網羅漏れにすぎず、allowlist 追記で可逆回復できる正規購読。
+					// → 送信は skip するが DB からは削除しない (不可逆破壊を回避)。
+					endpoint: 'https://push.new-vendor.example.com/abc123',
+					keysP256dh: 'p2',
+					keysAuth: 'a2',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+				{
+					id: 3,
+					tenantId: 'T1',
+					// 確定 SSRF (loopback)。これは削除して安全。
+					endpoint: 'https://127.0.0.1/internal',
+					keysP256dh: 'p3',
+					keysAuth: 'a3',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+			]);
+			mockSendNotification.mockResolvedValue({} as never);
+
+			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
+
+			// 正規 allowlist host のみ送信
+			expect(result.sent).toBe(1);
+			const calledEndpoints = mockSendNotification.mock.calls.map(
+				(call) => (call[0] as { endpoint: string }).endpoint,
+			);
+			expect(calledEndpoints).toEqual(['https://fcm.googleapis.com/fcm/send/legit']);
+
+			// allowlist-miss の新ベンダー host は送信 skip されるが **削除されない** (核心 assertion)
+			expect(mockDeleteByEndpoint).not.toHaveBeenCalledWith(
+				'https://push.new-vendor.example.com/abc123',
+				'T1',
+			);
+			// 正規 endpoint も削除されない
+			expect(mockDeleteByEndpoint).not.toHaveBeenCalledWith(
+				'https://fcm.googleapis.com/fcm/send/legit',
+				'T1',
+			);
+			// 確定 SSRF (loopback) のみ削除される
+			expect(mockDeleteByEndpoint).toHaveBeenCalledWith('https://127.0.0.1/internal', 'T1');
+			expect(mockDeleteByEndpoint).toHaveBeenCalledTimes(1);
+		});
+
+		it('#3455 cleanup の deleteByEndpoint 失敗は有効 subscriber 配信を巻き込まない (try/catch 隔離)', async () => {
+			setDaytimeJST();
+			mockCountTodayLogs.mockResolvedValue(0);
+			mockFindByTenant.mockResolvedValue([
+				{
+					id: 1,
+					tenantId: 'T1',
+					endpoint: 'https://fcm.googleapis.com/fcm/send/legit',
+					keysP256dh: 'p1',
+					keysAuth: 'a1',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+				{
+					id: 2,
+					tenantId: 'T1',
+					endpoint: 'https://169.254.169.254/latest/meta-data/',
+					keysP256dh: 'p2',
+					keysAuth: 'a2',
+					userAgent: null,
+					subscriberRole: 'parent',
+					createdAt: '',
+				},
+			]);
+			// cleanup の削除が DB 例外を throw しても、有効 subscriber 配信は継続する
+			mockDeleteByEndpoint.mockRejectedValue(new Error('DB connection lost'));
+			mockSendNotification.mockResolvedValue({} as never);
+
+			const result = await sendPushNotification('T1', 'test', 'Title', 'Body');
+
+			// delete が失敗しても有効な endpoint への配信は完遂する (可用性退行なし)
+			expect(result.sent).toBe(1);
+			expect(mockSendNotification).toHaveBeenCalledTimes(1);
+			const calledEndpoints = mockSendNotification.mock.calls.map(
+				(call) => (call[0] as { endpoint: string }).endpoint,
+			);
+			expect(calledEndpoints).toContain('https://fcm.googleapis.com/fcm/send/legit');
+		});
+
 		it('#3421 全 subscription が allowlist 外で 0 件のとき insertLog に証跡を残す (silent 全消失防止)', async () => {
 			setDaytimeJST();
 			mockCountTodayLogs.mockResolvedValue(0);

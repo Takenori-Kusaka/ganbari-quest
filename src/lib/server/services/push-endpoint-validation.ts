@@ -77,6 +77,81 @@ export function validatePushEndpoint(
 }
 
 /**
+ * IPv4 リテラルが private / loopback / link-local (metadata) / CGN 帯か。
+ * IPv4 形式でない文字列 (public hostname 等) は false。
+ */
+function isPrivateIpv4(host: string): boolean {
+	const parts = host.split('.');
+	if (parts.length !== 4) return false;
+	const octets = parts.map((p) => (/^\d{1,3}$/.test(p) ? Number(p) : Number.NaN));
+	if (octets.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false;
+	const a = octets[0] ?? -1;
+	const b = octets[1] ?? -1;
+	if (a === 0) return true; // 0.0.0.0/8 (this network)
+	if (a === 10) return true; // 10.0.0.0/8 (RFC1918)
+	if (a === 127) return true; // 127.0.0.0/8 (loopback)
+	if (a === 169 && b === 254) return true; // 169.254.0.0/16 (link-local + cloud metadata 169.254.169.254)
+	if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 (RFC1918)
+	if (a === 192 && b === 168) return true; // 192.168.0.0/16 (RFC1918)
+	if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 (shared address space)
+	return false;
+}
+
+/**
+ * hostname が private / loopback / link-local の internal target か (SSRF 確定判定用)。
+ * public hostname (未知ベンダー含む) は false を返す。
+ */
+function isPrivateOrLoopbackHost(hostname: string): boolean {
+	let host = hostname.toLowerCase();
+	if (host === 'localhost' || host.endsWith('.localhost')) return true;
+	// URL.hostname は IPv6 を bracket 付きで返すため除去
+	if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
+	if (host.includes(':')) {
+		// IPv6 literal
+		if (host === '::1' || host === '::') return true; // loopback / unspecified
+		if (host.startsWith('fc') || host.startsWith('fd')) return true; // fc00::/7 (unique local)
+		if (/^fe[89ab]/.test(host)) return true; // fe80::/10 (link-local)
+		// IPv4-mapped (::ffff:a.b.c.d)。URL API は dotted を hex 圧縮形 (::ffff:7f00:1) に正規化するため両形を処理
+		const mappedDotted = host.match(/::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+		if (mappedDotted) return isPrivateIpv4(mappedDotted[1] ?? '');
+		const mappedHex = host.match(/::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+		if (mappedHex) {
+			const hi = Number.parseInt(mappedHex[1] ?? '0', 16);
+			const lo = Number.parseInt(mappedHex[2] ?? '0', 16);
+			return isPrivateIpv4(`${(hi >> 8) & 255}.${hi & 255}.${(lo >> 8) & 255}.${lo & 255}`);
+		}
+		return false;
+	}
+	return isPrivateIpv4(host);
+}
+
+/**
+ * endpoint が「確定的に不正 (SSRF target)」か。**cleanup 削除の述語**。
+ *
+ * `validatePushEndpoint().ok === false` には 2 種類が混在する:
+ *   (1) 確定 SSRF — 非 https scheme / private・loopback・link-local(metadata) IP host。
+ *       web-push protocol 上 正規になり得ず、残しても永久に skip されるだけなので削除して安全。
+ *   (2) allowlist 網羅漏れ — https + 未知だが plausible な公開ベンダー host。
+ *       `ALLOWED_PUSH_HOSTS` は静的ハードコードのため、ベンダーが push host を新設/移行すると
+ *       正規 subscription がここに落ちる。削除すると正規購読を恒久喪失する (allowlist 追記で
+ *       可逆回復できるのに不可逆破壊になる) ため、**削除しない** (送信 skip + warn に留める)。
+ *
+ * 本関数は (1) のみ true を返す。(2) は false (= skip するが削除しない)。
+ */
+export function isDefinitelyMaliciousEndpoint(endpoint: unknown): boolean {
+	if (typeof endpoint !== 'string' || endpoint.length === 0) return false;
+	let url: URL;
+	try {
+		url = new URL(endpoint);
+	} catch {
+		return false; // parse 不能な junk は確定判定しない (保守的に skip のみ)
+	}
+	// web push は https のみ。http: / file: 等は内部 host を狙う典型的 SSRF vector であり正規たり得ない
+	if (url.protocol !== 'https:') return true;
+	return isPrivateOrLoopbackHost(url.hostname);
+}
+
+/**
  * Web Push key (p256dh / auth) が base64url 形式かつ妥当な長さか検証する。
  * p256dh は uncompressed EC public key (65 byte ≈ 88 base64 char)、auth は 16 byte (≈ 24 char)。
  * 厳密なバイト長はブラウザ実装で padding 差があるため、charset と上限のみ静的検証する。
