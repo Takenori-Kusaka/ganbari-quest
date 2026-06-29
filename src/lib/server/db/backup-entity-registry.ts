@@ -210,9 +210,9 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	restDays: {
 		classification: 'source',
 		schemaTable: 'restDays',
-		backupStatus: 'not-yet-exported',
+		backupStatus: 'exported',
 		reason:
-			'おやすみ日設定 (per-child、保護者が任意指定)。evaluation-repo が週次評価/streak/decay 計算の input に使い活動記録から再構成不能。export 未対応のため backup で失われる (#3329)',
+			'おやすみ日設定 (per-child、保護者が任意指定)。evaluation-repo が週次評価/streak/decay 計算の input に使い活動記録から再構成不能。export/import 実装済 (#3329、createdAt を insertRestDayForRestore で保全)。NUC/SQLite 専用 (DynamoDB は no-op、そもそも保存されないため backup 対象データなし)。clear は evaluation.deleteByTenantId で削除済',
 	},
 	childCustomVoices: {
 		classification: 'source',
