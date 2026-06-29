@@ -107,7 +107,10 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('$lib/domain/validation/activity', () => ({
+vi.mock('$lib/domain/validation/activity', async (importActual) => ({
+	// #3463: sanitizeDailyLimit / sanitizeActivityNameField は実装をそのまま使う
+	// (mock が CATEGORY_CODES のみだと import-service の sanitize 呼び出しが undefined→throw する)。
+	...(await importActual<typeof import('$lib/domain/validation/activity')>()),
 	CATEGORY_CODES: ['undou', 'benkyou', 'seikatsu', 'kouryuu', 'souzou'],
 }));
 
