@@ -185,6 +185,38 @@ describe('resetChildProgressData (DynamoDB) — BALANCE 集計も削除する (#
 		).toBe(false);
 	});
 
+	it('#3184 item2: deletedCounts を返す (POINT# 行数 + BALANCE 集計を診断用に集計)', async () => {
+		const point = await loadPointRepo();
+		await point.insertPointEntry(
+			{ childId: CHILD_ID, amount: 10, type: 'earn', description: 'a' },
+			TENANT,
+		);
+		await point.insertPointEntry(
+			{ childId: CHILD_ID, amount: 20, type: 'earn', description: 'b' },
+			TENANT,
+		);
+
+		const child = await loadChildRepo();
+		const counts = await child.resetChildProgressData(CHILD_ID, TENANT);
+
+		// POINT# 2 行 + BALANCE 集計 1 を削除したことが診断値に反映される
+		expect(counts.pointLedger).toBe(2);
+		expect(counts.pointBalance).toBe(1);
+		expect(counts.activityLogs).toBe(0);
+		expect(counts.loginBonuses).toBe(0);
+		expect(counts.childAchievements).toBe(0);
+	});
+
+	it('#3184 item1: deletedCounts の key 集合が cross-backend 契約 (ChildProgressResetCounts) と一致する', async () => {
+		// 両 backend (sqlite / dynamodb) は同一 entity allowlist を reset する契約。返り値の key 集合を
+		// canonical な ChildProgressResetCounts と一致させることで「片方だけ別 entity を消す」乖離を機械検出する。
+		const child = await loadChildRepo();
+		const counts = await child.resetChildProgressData(CHILD_ID, TENANT);
+		expect(Object.keys(counts).sort()).toEqual(
+			['activityLogs', 'childAchievements', 'loginBonuses', 'pointBalance', 'pointLedger'].sort(),
+		);
+	});
+
 	it('別の子供の BALANCE / POINT# は reset の影響を受けない', async () => {
 		const point = await loadPointRepo();
 		const OTHER = 88;

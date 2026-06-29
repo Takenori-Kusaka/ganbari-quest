@@ -9,6 +9,7 @@ import {
 	UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { ArchivedReason } from '$lib/domain/archive-types';
+import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
 import { hydrate, withVersion } from '../migration';
 import { writeBackDynamoDB } from '../migration/writeback';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
@@ -255,19 +256,31 @@ export async function deleteChild(id: number, tenantId: string): Promise<void> {
 }
 
 /** #3152: 子供 1 人分の進捗データを削除 (child profile / 関連 master は残す) */
-export async function resetChildProgressData(id: number, tenantId: string): Promise<void> {
+export async function resetChildProgressData(
+	id: number,
+	tenantId: string,
+): Promise<ChildProgressResetCounts> {
 	const pk = childPK(id, tenantId);
 	// 進捗系 4 entity の SK prefix のみを Query → batch 削除する。
-	const prefixes = [
-		activityLogPrefix(),
-		pointLedgerPrefix(),
-		loginBonusPrefix(),
-		childAchievementPrefix(),
+	// #3184 item2: prefix ごとの件数を診断用に集計する (SQLite backend と同 shape)。
+	const prefixByEntity: Array<[keyof ChildProgressResetCounts, string]> = [
+		['activityLogs', activityLogPrefix()],
+		['pointLedger', pointLedgerPrefix()],
+		['loginBonuses', loginBonusPrefix()],
+		['childAchievements', childAchievementPrefix()],
 	];
 
+	const counts: ChildProgressResetCounts = {
+		activityLogs: 0,
+		pointLedger: 0,
+		loginBonuses: 0,
+		childAchievements: 0,
+		pointBalance: 0,
+	};
 	const allKeys: Array<{ PK: string; SK: string }> = [];
-	for (const prefix of prefixes) {
+	for (const [entity, prefix] of prefixByEntity) {
 		const items = await queryAllItems(pk, prefix, { projectionExpression: 'PK, SK' });
+		counts[entity] = items.length;
 		for (const item of items) {
 			allKeys.push({ PK: item.PK as string, SK: item.SK as string });
 		}
@@ -278,8 +291,10 @@ export async function resetChildProgressData(id: number, tenantId: string): Prom
 	// deleteByTenantId / deletePointLedgerBeforeDate と同じく BALANCE も明示削除し
 	// reset 後の getBalance() を 0 に揃える。
 	allKeys.push(pointBalanceKey(id, tenantId));
+	counts.pointBalance = 1;
 
 	await batchDeleteItems(allKeys);
+	return counts;
 }
 
 // #783: archive / restore
