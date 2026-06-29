@@ -298,7 +298,7 @@ export function computeProposal(
 	// #3203 item2: childId 指定時は seed 化した決定的 RNG、未指定 (既存 test) は Math.random。
 	const rand = opts?.childId != null ? makeSeededRand(opts.childId, weekStart) : Math.random;
 	// #3203 item1: skippedWeeks = 直近生成週から今週までに challenge を生成しなかった (skip した) 週数。
-	// 週を skip する child = disengaging であり rescue (Bandura mastery、易しい得意 challenge) の本来対象。
+	// 週を skip する child = disengaging であり rescue (易しい得意 challenge で成功体験を積ませる) の本来対象。
 	// skip 週を miss として streak に加算し、跨いでも rescue を発火させる。
 	const skippedWeeks = Math.max(0, opts?.skippedWeeks ?? 0);
 	// 生成時点での「連続未達週数」(前週が未達なら前週の streak + 1、達成ならリセット) + skip 週 (disengagement)。
