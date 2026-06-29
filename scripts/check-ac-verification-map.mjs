@@ -49,29 +49,35 @@ export const INTEGRATION_EVIDENCE_SECTION = 'マージ判定エビデンス表';
 const TODO_PATTERN = /todo|予定|追加予定|別途|follow[\s-]?up|後で/i;
 
 /**
- * 未完了表記検出の前処理（#3488 false-positive fix）。
- * 結果/エビデンス列には「コミット SHA / ファイルパス」等の**完了済エビデンス参照**が入る。
- * これらの識別子トークンは未完了 status 語ではないため、TODO_PATTERN 適用前に除去する。
+ * 未完了表記検出の前処理（#3488 false-positive fix → #3488 BLOCK 再修正）。
+ * 結果/エビデンス列には「ファイルパス / URL」等の**完了済エビデンス参照**が入り、
+ * その識別子トークン内に未完了語が部分一致することがある。
  * 例: `docs/research/2026-06-29-followup-treadmill-root-cause.md` の filename 中 `followup` を
  *     `follow[\s-]?up` が誤検出していた（research doc 添付で AC 完了済なのに gate fail）。
  *
- * 除去するのは「明らかに status 語ではないエビデンス参照」のみに限定し、
- * 散文中の未完了句（例: `別途 follow-up で対応`, `後で追加予定`）は残して検出を維持する:
- *   1. inline code span（`` `...` ``）— コマンド / SHA / path を囲む正規表記
- *   2. path 様トークン（`/` を含む連続トークン）— ファイルパス / URL
- *   3. ファイル拡張子で終わるトークン — code span / `/` 無しのファイル名
+ * **設計方針（過剰除去より false-positive 残存リスクを取る、#3488 BLOCK 教訓）**:
+ * 日本語は語間に空白が無いため、「inline code span 全除去」「`/` を含むトークン全除去」のような
+ * 広域 strip は、未完了マーカーを囲む code span や `/` 隣接の日本語句ごと cell を空にして
+ * #1539（未完了表記検出）を bypass させてしまう（作者が `` `別途follow-upで対応` `` /
+ * `別途#3500で対応予定/参照` と書くだけで gate 通過）。
+ * よって除去対象は「未完了語と重ならない**明示的な参照トークン**」だけに精密化する:
+ *   1. URL（`https?://…`）— 明示参照。日本語の未完了句を含まない
+ *   2. 拡張子で終わるファイル名トークン（path 区切り `/` を含んでも 1 トークンとして除去）
+ *      — 元 false-positive（`…-root-cause.md` 中の `followup`）はこの rule 単体で解消する
+ *
+ * inline code span 全除去 / `/` トークン全除去は **撤去**した（散文中の未完了句を巻き込むため）。
+ * code span や `/` 隣接に未完了語を置いても #1539 が検出し続ける（負の回帰 test で固定、#3488）。
  *
  * @param {string} cell 結果/エビデンスセルの生テキスト
  * @returns {string} status 検出用に正規化したテキスト
  */
 function stripEvidenceReferences(cell) {
 	return cell
-		.replace(/`[^`]*`/g, ' ') // inline code span
-		.replace(/[^\s|]*\/[^\s|]*/g, ' ') // path / URL（`/` を含むトークン）
+		.replace(/https?:\/\/[^\s|]+/gi, ' ') // URL（明示参照、未完了語と重ならない）
 		.replace(
 			/[^\s|]*\.(?:md|mdx|ts|tsx|js|jsx|mjs|cjs|json|svelte|css|scss|html|ya?ml|sh|py|webp|png|svg|txt|csv)\b/gi,
 			' ',
-		); // 拡張子で終わるファイル名トークン
+		); // 拡張子で終わるファイル名トークン（path 区切り `/` を含んでも全体を 1 トークンとして除去）
 }
 
 /** integration lane の「残 NG 0 件」明示を検出するパターン（audit-team.md §3.5 #5）。 */
