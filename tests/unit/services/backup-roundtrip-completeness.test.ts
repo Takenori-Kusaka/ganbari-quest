@@ -521,4 +521,64 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restored[0]?.sentAt, 'sentAt 保全').toBe('2026-02-15T10:00:00Z');
 		expect(restored[0]?.shownAt, 'shownAt 保全').toBe('2026-02-15T12:00:00Z');
 	});
+
+	// #3422: per-child 活動の dailyLimit / nameKana / nameKanji が backup round-trip で保全される。
+	// create/update では persist 是正済だが export/import 境界で同 3 列が silent drop され、復元後に
+	// dailyLimit が null (= 1 日 1 回固定) へ戻る取りこぼしを赤で機械再現し潰す。
+	// dailyLimit semantics は null=1回 / 0=無制限 / N=N回 (activity-log-service.ts §daily limit)。
+	// **特に dailyLimit=0 (無制限) が `?? null` のエッジで 1 回固定へ落ちないことを直接固定**する。
+	it('活動の dailyLimit (0=無制限含む) / nameKana / nameKanji が export→clear→import で保全される', async () => {
+		testDb.insert(schema.children).values({ nickname: 'みお', age: 8, theme: 'pink' }).run(); // id=1
+		// 非デフォルト値の活動 2 件: dailyLimit=3 (3 回) と dailyLimit=0 (無制限)。
+		seedChildActivities(testDb, 1, [
+			{
+				name: 'おてつだい',
+				categoryId: 1,
+				icon: '🧹',
+				basePoints: 5,
+				dailyLimit: 3,
+				nameKana: 'おてつだい',
+				nameKanji: 'お手伝い',
+				sortOrder: 1,
+			},
+			{
+				name: 'みずをのむ',
+				categoryId: 3,
+				icon: '💧',
+				basePoints: 1,
+				dailyLimit: 0, // 無制限
+				nameKana: 'みずをのむ',
+				nameKanji: '水を飲む',
+				sortOrder: 2,
+			},
+		]);
+
+		// --- export: 3 列が ExportChildActivity に載っていること (silent drop なら undefined で fail) ---
+		const data = await exportFamilyData({ tenantId: T });
+		expect(data.data.childActivities.length, 'export:活動 2 件').toBe(2);
+		const exHelp = data.data.childActivities.find((a) => a.name === 'おてつだい');
+		const exWater = data.data.childActivities.find((a) => a.name === 'みずをのむ');
+		expect(exHelp?.dailyLimit, 'export:dailyLimit=3').toBe(3);
+		expect(exHelp?.nameKana, 'export:nameKana').toBe('おてつだい');
+		expect(exHelp?.nameKanji, 'export:nameKanji').toBe('お手伝い');
+		// 0 が export で欠落 (undefined) / null 化されず、数値 0 のまま載ること。
+		expect(exWater?.dailyLimit, 'export:dailyLimit=0 (無制限) 保持').toBe(0);
+
+		// --- replace = clear → import ---
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+
+		const children = testDb.select().from(schema.children).all();
+		const cid = children[0]?.id as number;
+		const acts = await getChildActivities(cid, T);
+		const help = acts.find((a) => a.name === 'おてつだい');
+		const water = acts.find((a) => a.name === 'みずをのむ');
+
+		// dailyLimit=3 / 読み仮名 / 漢字が round-trip で保全される。
+		expect(help?.dailyLimit, 'restore:dailyLimit=3 保全').toBe(3);
+		expect(help?.nameKana, 'restore:nameKana 保全').toBe('おてつだい');
+		expect(help?.nameKanji, 'restore:nameKanji 保全').toBe('お手伝い');
+		// **dailyLimit=0 (無制限) が null=1 回固定へ落ちず 0 のまま復元される** (本 PR の核心エッジ)。
+		expect(water?.dailyLimit, 'restore:dailyLimit=0 (無制限) が null へ落ちない').toBe(0);
+	});
 });

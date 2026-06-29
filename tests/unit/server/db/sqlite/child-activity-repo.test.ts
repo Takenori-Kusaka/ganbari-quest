@@ -97,6 +97,40 @@ describe('sqlite/child-activity-repo', () => {
 			expect(list[0]?.name).toBe('はみがきした');
 		});
 
+		it('#3422: dailyLimit / nameKana / nameKanji を persist する (旧 silent drop 回帰防止)', async () => {
+			const a = await insertActivity(
+				{
+					childId: 1,
+					name: 'おてつだい',
+					categoryId: 1,
+					icon: '🧹',
+					basePoints: 5,
+					dailyLimit: 3,
+					nameKana: 'おてつだい',
+					nameKanji: 'お手伝い',
+				},
+				TENANT,
+			);
+			expect(a.dailyLimit).toBe(3);
+			expect(a.nameKana).toBe('おてつだい');
+			expect(a.nameKanji).toBe('お手伝い');
+
+			// update でも persist される。dailyLimit semantics は null=1回 / 0=無制限 / N=N回
+			// (activity-log-service.ts §daily limit 定義)。1 日上限を 3→1回(null) に変更する。
+			const updated = await updateActivity(
+				a.id,
+				1,
+				{ dailyLimit: null, nameKana: 'かわった' },
+				TENANT,
+			);
+			expect(updated?.dailyLimit).toBeNull();
+			expect(updated?.nameKana).toBe('かわった');
+
+			// dailyLimit=0 (無制限) を persist できる。0 を falsy 扱いで null へ落とさないことを固定。
+			const unlimited = await updateActivity(a.id, 1, { dailyLimit: 0 }, TENANT);
+			expect(unlimited?.dailyLimit).toBe(0);
+		});
+
 		it('別 child の activity は取得 list に出ない (cross-child isolation)', async () => {
 			await insertActivity(
 				{ childId: 1, name: 'たろう専用', categoryId: 1, icon: '🤸', basePoints: 5 },

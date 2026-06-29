@@ -308,6 +308,11 @@ async function collectForChild(
 		// #3358: archive 状態を round-trip 保全 (archived→active 復活防止)
 		isArchived: a.isArchived,
 		archivedReason: a.archivedReason ?? null,
+		// #3422: 親設定の 1 日上限 / 読み仮名 / 漢字表記を round-trip 保全 (silent drop で
+		// dailyLimit が復元後 null=1 日 1 回固定に戻る取りこぼし防止)。0 (無制限) も保持する。
+		dailyLimit: a.dailyLimit,
+		nameKana: a.nameKana,
+		nameKanji: a.nameKanji,
 	}));
 
 	// ステータス履歴は全カテゴリ分を取得

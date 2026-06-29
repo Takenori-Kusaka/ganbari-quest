@@ -131,11 +131,12 @@ export async function insertActivity(
 		basePoints: input.basePoints,
 		// #3358: round-trip 復元時の表示状態 / 並び順 / アーカイブ状態を保全 (省略時 schema default)
 		isVisible: input.isVisible ?? 1,
-		dailyLimit: null,
+		// #3422: 親入力の 1 日上限 / 読み仮名 / 漢字表記を persist (旧実装は null 固定で drop していた)
+		dailyLimit: input.dailyLimit ?? null,
 		sortOrder: input.sortOrder ?? 0,
 		source: 'demo',
-		nameKana: null,
-		nameKanji: null,
+		nameKana: input.nameKana ?? null,
+		nameKanji: input.nameKanji ?? null,
 		triggerHint: input.triggerHint ?? null,
 		isMainQuest: input.isMainQuest ?? 0,
 		isArchived: input.isArchived ?? 0,

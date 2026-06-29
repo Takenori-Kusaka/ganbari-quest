@@ -151,8 +151,8 @@ export function validateExportData(
 		return { valid: false, error: `フォーマットが不正です（期待: ${EXPORT_FORMAT}）` };
 	}
 	// #3106/#3107: EXPORT_VERSION を bump しても既存 backup を import 可能に保つ
-	// (新 field はすべて optional で後方互換)。#3358 で 1.5.0 へ bump、1.4.0 も明示維持。
-	const supportedVersions = [EXPORT_VERSION, '1.4.0', '1.3.0', '1.2.0', '1.1.0', '1.0.0'];
+	// (新 field はすべて optional で後方互換)。#3358 で 1.5.0、#3422 で 1.6.0 へ bump。旧版も明示維持。
+	const supportedVersions = [EXPORT_VERSION, '1.5.0', '1.4.0', '1.3.0', '1.2.0', '1.1.0', '1.0.0'];
 	if (!supportedVersions.includes(d.version as string)) {
 		return {
 			valid: false,
@@ -783,6 +783,11 @@ async function importChildActivitiesData(
 					sortOrder: a.sortOrder,
 					isArchived: a.isArchived,
 					archivedReason: a.archivedReason ?? null,
+					// #3422: 1 日上限 / 読み仮名 / 漢字表記を round-trip 復元 (省略 = 旧 backup は
+					// schema default)。dailyLimit=0 (無制限) を null=1 回固定へ落とさず保全する。
+					dailyLimit: a.dailyLimit,
+					nameKana: a.nameKana ?? null,
+					nameKanji: a.nameKanji ?? null,
 				},
 				tenantId,
 			);
