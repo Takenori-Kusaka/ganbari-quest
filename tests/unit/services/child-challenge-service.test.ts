@@ -226,6 +226,51 @@ describe('computeProposal — 翌週適応 (Flow 3 分岐、#3194 / #3213 移設
 	});
 });
 
+describe('computeProposal — #3203 item1: skip 週 (disengagement) を rescue に反映', () => {
+	const WEAK_COUNTS = algoCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
+
+	it('前週完了でも 2 週 skip すれば streak=2 で rescue-strength 発火', () => {
+		// 完了後に 2 週 challenge 未生成 (skip) = disengagement → 跨いで rescue 対象にする
+		const prev = makePrev({ status: 'completed', consecutiveMissCount: 0 });
+		const p = computeProposal(WEAK_COUNTS, prev, WEEK_WEAKNESS, { skippedWeeks: 2 });
+		expect(p.consecutiveMissCount).toBe(2);
+		expect(p.mode).toBe('rescue-strength');
+	});
+
+	it('前週未達 + 1 週 skip で streak=2 (1 missed + 1 skipped) → rescue', () => {
+		const prev = makePrev({ status: 'expired', consecutiveMissCount: 0 });
+		const p = computeProposal(WEAK_COUNTS, prev, WEEK_WEAKNESS, { skippedWeeks: 1 });
+		expect(p.consecutiveMissCount).toBe(2);
+		expect(p.mode).toBe('rescue-strength');
+	});
+
+	it('skippedWeeks=0 (連続週) は従来挙動 (完了→streak 0、rescue なし)', () => {
+		const prev = makePrev({ status: 'completed', consecutiveMissCount: 0 });
+		const p = computeProposal(WEAK_COUNTS, prev, WEEK_WEAKNESS, { skippedWeeks: 0 });
+		expect(p.consecutiveMissCount).toBe(0);
+		expect(p.mode).not.toBe('rescue-strength');
+	});
+});
+
+describe('computeProposal — #3203 item2: childId+weekStart で seed 化し決定的', () => {
+	const WEAK_COUNTS = algoCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
+
+	it('同 childId・同週は常に同一カテゴリを返す (flip-flop なし)', () => {
+		const a = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
+		const b = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
+		const c = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
+		expect(a.categoryId).toBe(b.categoryId);
+		expect(b.categoryId).toBe(c.categoryId);
+		expect(a.mode).toBe('weakness');
+	});
+
+	it('childId 未指定でも従来通り動作する (Math.random フォールバック、後方互換)', () => {
+		const p = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS);
+		expect(p.mode).toBe('weakness');
+		expect([1, 2, 3, 4, 5]).toContain(p.categoryId);
+	});
+});
+
 describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => {
 	it('当週分が無ければ child_challenges を自動生成する (targetConfig に metric/categoryId/genMode 内包)', async () => {
 		mockFindByChildId.mockResolvedValue([]); // 既存なし
