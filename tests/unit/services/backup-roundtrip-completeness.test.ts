@@ -556,13 +556,13 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		// --- export: 3 列が ExportChildActivity に載っていること (silent drop なら undefined で fail) ---
 		const data = await exportFamilyData({ tenantId: T });
 		expect(data.data.childActivities.length, 'export:活動 2 件').toBe(2);
-		const exTesudai = data.data.childActivities.find((a) => a.name === 'おてつだい');
-		const exMizu = data.data.childActivities.find((a) => a.name === 'みずをのむ');
-		expect(exTesudai?.dailyLimit, 'export:dailyLimit=3').toBe(3);
-		expect(exTesudai?.nameKana, 'export:nameKana').toBe('おてつだい');
-		expect(exTesudai?.nameKanji, 'export:nameKanji').toBe('お手伝い');
+		const exHelp = data.data.childActivities.find((a) => a.name === 'おてつだい');
+		const exWater = data.data.childActivities.find((a) => a.name === 'みずをのむ');
+		expect(exHelp?.dailyLimit, 'export:dailyLimit=3').toBe(3);
+		expect(exHelp?.nameKana, 'export:nameKana').toBe('おてつだい');
+		expect(exHelp?.nameKanji, 'export:nameKanji').toBe('お手伝い');
 		// 0 が export で欠落 (undefined) / null 化されず、数値 0 のまま載ること。
-		expect(exMizu?.dailyLimit, 'export:dailyLimit=0 (無制限) 保持').toBe(0);
+		expect(exWater?.dailyLimit, 'export:dailyLimit=0 (無制限) 保持').toBe(0);
 
 		// --- replace = clear → import ---
 		await clearAllFamilyData(T);
@@ -571,14 +571,14 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		const children = testDb.select().from(schema.children).all();
 		const cid = children[0]?.id as number;
 		const acts = await getChildActivities(cid, T);
-		const tesudai = acts.find((a) => a.name === 'おてつだい');
-		const mizu = acts.find((a) => a.name === 'みずをのむ');
+		const help = acts.find((a) => a.name === 'おてつだい');
+		const water = acts.find((a) => a.name === 'みずをのむ');
 
 		// dailyLimit=3 / 読み仮名 / 漢字が round-trip で保全される。
-		expect(tesudai?.dailyLimit, 'restore:dailyLimit=3 保全').toBe(3);
-		expect(tesudai?.nameKana, 'restore:nameKana 保全').toBe('おてつだい');
-		expect(tesudai?.nameKanji, 'restore:nameKanji 保全').toBe('お手伝い');
+		expect(help?.dailyLimit, 'restore:dailyLimit=3 保全').toBe(3);
+		expect(help?.nameKana, 'restore:nameKana 保全').toBe('おてつだい');
+		expect(help?.nameKanji, 'restore:nameKanji 保全').toBe('お手伝い');
 		// **dailyLimit=0 (無制限) が null=1 回固定へ落ちず 0 のまま復元される** (本 PR の核心エッジ)。
-		expect(mizu?.dailyLimit, 'restore:dailyLimit=0 (無制限) が null へ落ちない').toBe(0);
+		expect(water?.dailyLimit, 'restore:dailyLimit=0 (無制限) が null へ落ちない').toBe(0);
 	});
 });
