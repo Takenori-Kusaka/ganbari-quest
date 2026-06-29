@@ -59,6 +59,16 @@ export const HIGH_PRIVILEGE_ACTIONS = [
 		name: 'aws-actions/amazon-ecr-login',
 		reason: 'ECR push 権限の docker login を行う。改竄で image 差し替え経路になり得る (#3318)',
 	},
+	{
+		name: 'google-github-actions/auth',
+		reason:
+			'id-token: write 下で GCP OIDC credential を取得する third-party action。aws OIDC と構造的に等価な攻撃面 (#3457)',
+	},
+	{
+		name: 'actions/github-script',
+		reason:
+			'GITHUB_TOKEN 付きで任意 JS を実行する。merge-write workflow で供給網汚染されると merge 権限奪取に直結 (#3457)',
+	},
 ];
 
 const SHA_RE = /^[0-9a-f]{40}$/;

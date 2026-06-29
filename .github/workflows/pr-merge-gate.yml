@@ -56,7 +56,7 @@ jobs:
         uses: ./actions/pr-lane
 
       - name: "チェックリストの未完了項目を検証 (lane-aware: feature/hotfix=2 section, integration=統合用 section)"
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
