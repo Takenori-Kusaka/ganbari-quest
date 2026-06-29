@@ -866,6 +866,19 @@ async function importChildVoicesData(
 			);
 			continue;
 		}
+		// CWE-22 path traversal 防御 (default-deny): 正常 export の rest は `<uuid>.<ext>` (storage-keys.ts
+		// voiceKey、単一ファイル名) だが、backup は untrusted input。細工 voiceRelPath
+		// (`voices/1/../../../../etc/secret`) で rest に `..` / 絶対パス / バックスラッシュ等が紛れ込むと
+		// filePath/publicUrl が tenant 境界外を指し cross-tenant LFI 相当になる。importStaticFiles と同じ
+		// isSafeRelativePath で rest を検証し、unsafe なら insert せず skip + warning で 1 件落とす
+		// (全 restore は止めない)。
+		if (!isSafeRelativePath(rest)) {
+			result.childVoicesSkipped++;
+			result.warnings.push(
+				`音声スキップ: voiceRelPath「${v.voiceRelPath}」(child=${v.childRef}) に不正なパスが含まれます`,
+			);
+			continue;
+		}
 		const filePath = `${tenantPrefix(tenantId)}voices/${childId}/${rest}`;
 		const publicUrl = storageKeyToPublicUrl(filePath);
 		try {
@@ -1596,9 +1609,10 @@ async function importSpecialRewards(
 const STATIC_FILE_PATH_RE = /^(avatars|voices|generated)\/(\d+)\/(.+)$/;
 
 /**
- * ZIP 相対パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip 防御)。
- * `STATIC_FILE_PATH_RE` の `rest` (`.+`) は任意文字を許すため、ここで `..` セグメント・
- * 先頭スラッシュ・Windows ドライブ等を弾く。安全なら true。
+ * 相対 storage パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip / CWE-22 防御)。
+ * `STATIC_FILE_PATH_RE` の `rest` (`.+`、importStaticFiles) / `VOICE_REL_PATH_RE` の `rest`
+ * (`.+`、importChildVoicesData) は任意文字を許すため、ここで `..` セグメント・先頭スラッシュ・
+ * Windows ドライブ・バックスラッシュ等を弾く。安全なら true。
  */
 function isSafeRelativePath(relPath: string): boolean {
 	// バックスラッシュは OS 非依存で無条件拒否する (Linux では `\` がファイル名のリテラル
