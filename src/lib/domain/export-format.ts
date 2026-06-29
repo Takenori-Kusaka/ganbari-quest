@@ -364,6 +364,19 @@ export interface ExportActivityPref {
 	updatedAt: string;
 }
 
+/**
+ * #3329: per-child チェックリスト日次 override (特定日に項目を追加/スキップ)。createdAt を保全して
+ * round-trip 復元する (id/childId は import で振り直すため childRef で再結合)。
+ */
+export interface ExportChecklistOverride {
+	childRef: string;
+	targetDate: string;
+	action: string;
+	itemName: string;
+	icon: string;
+	createdAt: string;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -450,6 +463,8 @@ export interface ExportTransactionData {
 	activityPrefs: ExportActivityPref[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
+	/** #3329: per-child チェックリスト日次 override (createdAt 保全) */
+	checklistOverrides: ExportChecklistOverride[];
 	childAvatarItems: never[];
 	dailyMissions: ExportDailyMission[];
 	/** #3329: 各種設定 (tenant-scoped KVS、allowlist 済キーのみ。pin_hash 等の秘匿キーは除外) */

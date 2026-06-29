@@ -188,15 +188,16 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	checklistAssignment: {
 		classification: 'source',
 		schemaTable: 'checklistTemplateAssignments',
-		backupStatus: 'not-yet-exported',
+		backupStatus: 'exported',
 		reason:
-			'チェックリスト配信先。現状 import 時に取込先 child へ再導出のみ。原本 fan-out は未保全 (#3329)',
+			'チェックリスト配信先 (child×template 配信エッジ)。export/import 実装済 (#3329)。checklistTemplate を per-child (childRef) export し、import 時に importOneChecklistTemplate が assignTemplateToChildren で取込先 child へ配信エッジを再構成するため、どの child にどの checklist が配信されているかは round-trip 保全される (配信 createdAt メタは再スタンプ。master 共有 dedup は per-child export モデル上の fidelity 差で loss ではない)',
 	},
 	checklistOverride: {
 		classification: 'source',
 		schemaTable: 'checklistOverrides',
-		backupStatus: 'not-yet-exported',
-		reason: 'チェックリスト日次 override。export 未対応 (#3329)',
+		backupStatus: 'exported',
+		reason:
+			'チェックリスト日次 override。export/import 実装済 (#3329、createdAt を insertOverrideForRestore で保全)。clear は checklist.deleteByTenantId で削除済',
 	},
 	setting: {
 		classification: 'source',

@@ -289,6 +289,8 @@ vi.mock('$lib/server/db/checklist-repo', () => ({
 	findTemplatesByChild: (...args: unknown[]) => mockFindTemplatesByChild(...(args as [number])),
 	findTemplateItems: vi.fn(() => Promise.resolve(mockChecklistItems)),
 	findLogsByChild: (...args: unknown[]) => mockFindLogsByChild(...(args as [number])),
+	// #3329: per-child チェックリスト日次 override (export が呼ぶ)。本 test では空で十分。
+	findOverridesByChild: vi.fn(() => Promise.resolve([])),
 }));
 vi.mock('$lib/server/db/evaluation-repo', () => ({
 	findEvaluationsByChild: vi.fn((childId: number) =>

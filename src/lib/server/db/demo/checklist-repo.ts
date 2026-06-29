@@ -272,6 +272,21 @@ export async function findOverrides(
 	return [];
 }
 
+export async function findOverridesByChild(
+	_childId: number,
+	_tenantId: string,
+): Promise<ChecklistOverride[]> {
+	return [];
+}
+
+export async function insertOverrideForRestore(
+	input: Omit<ChecklistOverride, 'id'>,
+	_tenantId: string,
+): Promise<ChecklistOverride> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return { ...input, id: 0 };
+}
+
 export async function insertOverride(
 	input: InsertChecklistOverrideInput,
 	_tenantId: string,

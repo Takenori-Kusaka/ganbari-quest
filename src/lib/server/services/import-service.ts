@@ -19,6 +19,7 @@ import {
 	assignTemplateToChildren,
 	findLogsByChild,
 	findTemplatesByChild,
+	insertOverrideForRestore,
 	insertTemplate,
 	insertTemplateItem,
 	upsertLog,
@@ -80,6 +81,9 @@ export interface ImportResult {
 	/** #3329: per-child 活動設定 (ピン留め) の取込件数 */
 	activityPrefsImported: number;
 	activityPrefsSkipped: number;
+	/** #3329: per-child チェックリスト日次 override の取込件数 */
+	checklistOverridesImported: number;
+	checklistOverridesSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -292,6 +296,8 @@ export async function importFamilyData(
 	await importLoginBonusesData(data, childIdMap, tenantId, result);
 	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
 	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
+	// #3329: チェックリスト日次 override を createdAt 保全で復元。childIdMap のみ必要。
+	await importChecklistOverridesData(data, childIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
 	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
 	// importSpecialRewards の後に実行する。
@@ -744,6 +750,44 @@ async function importActivityPrefsData(
 	}
 }
 
+/**
+ * チェックリスト日次 override (特定日の項目追加/スキップ) を復元する (#3329)。
+ * childRef で取込先 child に解決し insertOverrideForRestore で createdAt を保全して書き戻す。
+ */
+async function importChecklistOverridesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const o of data.data.checklistOverrides ?? []) {
+		const childId = childIdMap.get(o.childRef);
+		if (!childId) {
+			result.checklistOverridesSkipped++;
+			continue;
+		}
+		try {
+			await insertOverrideForRestore(
+				{
+					childId,
+					targetDate: o.targetDate,
+					action: o.action,
+					itemName: o.itemName,
+					icon: o.icon,
+					createdAt: o.createdAt,
+				},
+				tenantId,
+			);
+			result.checklistOverridesImported++;
+		} catch (e) {
+			result.checklistOverridesSkipped++;
+			result.errors.push(
+				`チェックリスト override insert 失敗 (child=${o.childRef}, date=${o.targetDate}): ${String(e)}`,
+			);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -769,6 +813,8 @@ function createEmptyImportResult(): ImportResult {
 		certificatesSkipped: 0,
 		parentMessagesImported: 0,
 		parentMessagesSkipped: 0,
+		checklistOverridesImported: 0,
+		checklistOverridesSkipped: 0,
 		activityPrefsImported: 0,
 		activityPrefsSkipped: 0,
 		siblingCheersImported: 0,
