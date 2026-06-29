@@ -44,10 +44,13 @@
 - **未実装の取込を実装**（evaluations 等、網羅）。
 - **依存順序**を保証（children → per-child 実体 → ログ/履歴系。lookup 依存は復元順で解決）。
 - **失敗集計**: skip/warning を種別ごとに集計し、>0 なら結果に部分失敗を明示。UI で「N 件取り込めませんでした」を表示。
-- **atomicity**: replace は **import-then-swap**（新 namespace/staging へ投入→検証成功後に切替、失敗は破棄）。clear 先行を廃止（#3326）。
+- **atomicity（#3326 実装済）**: replace は **「途中失敗時に旧データを必ず復元可能」な原子境界**で clear + import を実行する。clear 先行の永久喪失を廃止。単一強制点は `src/lib/server/services/replace-import-service.ts` の `replaceImportAtomic`（全 replace 経路 = `/api/v1/import` / `/api/v1/import/cloud` が経由）。**success-on-partial-failure ban**: import 中に hard error（例外を伴う取込失敗、`ImportResult.errors > 0`）が 1 件でもあれば原子境界を中止し旧データを復元する（childRef 不在等の skip は `*Skipped` に積まれ中止対象外）。中止時は呼び出し側へ `AtomicReplaceError` を送出し、API は「既存データは保全されています」を返す。
 - 復元後に**派生を再計算**（statuses 現在値/balance/streak 等の projection rebuild。source の statusHistory は再計算せず recordedAt 保持で復元）。
 
-> **import-then-swap の DynamoDB 実装 caveat（安価な atomic swap 前提で着手しない）**: DynamoDB(SaaS) 側は単一テーブル設計で全実体の PK が `T#<tenantId>#…`（`keys.ts` `tenantPK`）であり、tenant の上に staging を切る namespace 間接層が無い。よって all-or-nothing の「namespace 切替」は実体間接ポインタの差し替えでは実現できず、staging tenant へ全 item を **copy → 検証 → 旧 item delete** する copy+delete 方式になる。さらに `TransactWriteItems` は 1 tx 100 item 上限のため、tenant 全データを単一 tx で swap することはできず、batch 投入 + 検証成功後に切替（旧データ delete / 新 tenantId へ alias）という粒度設計が必要になる（部分失敗時は staging を破棄）。NUC(SQLite) 側は単一ファイル / トランザクションで import-then-swap を素直に表現できるため、**SQLite(NUC) と DynamoDB(SaaS) で atomicity の実装方式が異なる**点を実装時に前提化する（#3326 実装で確定）。
+> **backend 別 atomicity 実装（#3326 で確定）**: SQLite と DynamoDB で「どの backend でも全 import を単一 tx で包めない」制約（SQLite=同期 tx が多数の `await insert` を跨げない / DynamoDB=`TransactWriteItems` 100 item 上限 / DSQL=1 write txn 最大 3,000 行）への対処が異なる。
+> - **SQLite（NUC）**: 単一接続で `BEGIN IMMEDIATE` → 成功で `COMMIT` / 例外で `ROLLBACK`。clear も import も同一 tx に乗る（内部の `db.transaction()` は better-sqlite3 が SAVEPOINT にネスト）。
+> - **DynamoDB（本番）**: 全実体の PK が `T#<tenantId>#…`（`keys.ts` `tenantPK`）で tenant の上に staging を切る namespace 間接層が無く、ポインタ差替えの O(1) swap は不可。よって **backup-before-clear（補償トランザクション）**: clear 前に旧データを `exportFamilyData` で snapshot 取得（取得失敗時は安全側に中止）→ clear + import を試行 → 失敗時は snapshot を storage（`tenants/<tenantId>/recovery/`）へ永続化したうえで旧データを復元。二次故障（復元自体の失敗）はオペレータが永続化済 snapshot から手動復旧する退路を残す。
+> - **DSQL 移管時（#3424 / #3436）**: DSQL も単一 tx で家族 1 件を包めない（3,000 行上限、実機確定）ため、import 原子化は #3436「一括 import チャンク+saga」と共同設計に統合する（申し送り: `research/2026-06-29-backup-import-handover-to-dsql-team.md`）。
 
 ### 3.4 完全性テスト（#3328）
 - 全 source 実体の **round-trip**（rich fixture → export →(clear)→ import → 派生再計算 → **件数 + 代表内容一致**）を SQLite + DynamoDB / add + replace で。
