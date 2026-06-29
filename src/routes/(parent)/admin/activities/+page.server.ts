@@ -148,7 +148,7 @@ export const actions: Actions = {
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
 		const ageMax = formData.get('ageMax') ? Number(formData.get('ageMax')) : null;
 		const dailyLimitRaw = formData.get('dailyLimit');
-		const dailyLimit = sanitizeDailyLimit(dailyLimitRaw); // #3463 item4: NaN/負/巨大/非整数を [0,99] int or null に clamp
+		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null; // #3484: 値検証は service 層 (createActivity/updateActivity) の単一強制点へ push-down 済
 		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
@@ -221,7 +221,7 @@ export const actions: Actions = {
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
 		const ageMax = formData.get('ageMax') ? Number(formData.get('ageMax')) : null;
 		const dailyLimitRaw = formData.get('dailyLimit');
-		const dailyLimit = sanitizeDailyLimit(dailyLimitRaw); // #3463 item4: NaN/負/巨大/非整数を [0,99] int or null に clamp
+		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null; // #3484: 値検証は service 層 (createActivity/updateActivity) の単一強制点へ push-down 済
 		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
