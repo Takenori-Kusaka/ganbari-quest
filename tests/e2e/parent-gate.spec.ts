@@ -441,12 +441,49 @@ function registerParentGateTests(): void {
 			// spinner overlay は出る (遷移中フィードバック)
 			await expect(page.getByTestId('parent-gate-navigating')).toBeVisible({ timeout: 5_000 });
 
-			// NAV_TIMEOUT_MS の手前まで時間を進めても error overlay は出ない (誤検知しない)
-			await page.clock.fastForward(NAV_TIMEOUT_MS - 5_000);
-			await expect(page.getByTestId('parent-gate-navigating-error')).toBeHidden();
-
-			// nav は成功し /admin に到達する (dead-end でない)
+			// #3460 item2: 旧実装はここで fastForward(NAV_TIMEOUT_MS-5s) → error 非表示を assert していたが、
+			// route の実時間 setTimeout(1200ms) と fake clock の競合で「nav が先に完了 → page unload →
+			// navigating-error 不在 → toBeHidden() が常時 PASS」の false-pass race があった。誤 error 非表示の
+			// 決定的観測 (nav 完了前に hung nav 上で確認) は下記 "#3460" boundary test に分離し、本 test は
+			// 純粋な success-path (slow nav が成功し /admin に到達する) のみを担う。
 			await page.waitForURL(/\/admin/, { timeout: 15_000 });
+		});
+
+		// #3460 item1 (値 regression 検出力の回復): const 連動 test (NAV_TIMEOUT_MS±N) は値の意図せぬ
+		// regression (例 30s→8s) を緑のまま見逃す。本 test は **literal 29_000 / 31_000 の絶対値**で境界を
+		// pin する。nav を hung (abort 継続) させ timer のみで状態を駆動するため real-time race も無い。
+		// NAV_TIMEOUT_MS が 8s 等へ regress すると 29s 地点で既に error 表示 → toBeHidden() が fail し検出する。
+		test('#3460: NAV_TIMEOUT_MS の絶対値 30s 境界を literal で pin (29s=error なし / 31s=error)', async ({
+			page,
+		}) => {
+			await page.clock.install();
+			// /admin nav を継続 abort し page を unload させない (timer のみが overlay 状態を駆動)。
+			await page.route('**/admin', async (route) => {
+				if (route.request().resourceType() === 'document') {
+					await route.abort();
+					return;
+				}
+				await route.continue();
+			});
+
+			await page.goto('/switch?pinRequired=1', { waitUntil: 'domcontentloaded' });
+			await expect(page.getByTestId('parent-gate-modal')).toBeVisible();
+			await typePinInto(page, '5791');
+			await expect(page.getByTestId('parent-gate-create')).toHaveAttribute('data-step', 'confirm');
+			await typePinInto(page, '5791');
+
+			await expect(page.getByTestId('parent-gate-navigating')).toBeVisible({ timeout: 5_000 });
+
+			// 29s (< 30s literal): error は出ない。NAV_TIMEOUT_MS が 8s 等へ regress するとここで fail する。
+			await page.clock.fastForward(29_000);
+			await expect(page.getByTestId('parent-gate-navigating-error')).toBeHidden();
+			await expect(page.getByTestId('parent-gate-navigating')).toBeVisible();
+
+			// 累計 31s (> 30s literal): error 状態へ切替わる。NAV_TIMEOUT_MS が 60s 等へ regress するとここで fail。
+			await page.clock.fastForward(2_000);
+			await expect(page.getByTestId('parent-gate-navigating-error')).toBeVisible({
+				timeout: 5_000,
+			});
 		});
 
 		test('確認不一致はエラー表示 + 1 段目からやり直し (dead-end でない)', async ({ page }) => {
