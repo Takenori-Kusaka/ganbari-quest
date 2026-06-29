@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+	isDefinitelyMaliciousEndpoint,
 	isValidPushKey,
 	validatePushEndpoint,
 } from '../../../src/lib/server/services/push-endpoint-validation';
@@ -65,6 +66,48 @@ describe('validatePushEndpoint (#3188 SSRF hardening)', () => {
 		expect(validatePushEndpoint(12345).ok).toBe(false);
 		expect(validatePushEndpoint('not a url').ok).toBe(false);
 		expect(validatePushEndpoint(`https://fcm.googleapis.com/${'a'.repeat(3000)}`).ok).toBe(false);
+	});
+});
+
+describe('isDefinitelyMaliciousEndpoint (#3455 cleanup 削除述語)', () => {
+	it('確定 SSRF (非 https / private / loopback / link-local metadata IP) は true (削除して安全)', () => {
+		for (const ep of [
+			'http://fcm.googleapis.com/fcm/send/abc', // 非 https
+			'file:///etc/passwd',
+			'https://169.254.169.254/latest/meta-data/', // cloud metadata
+			'https://localhost/push',
+			'https://sub.localhost/push',
+			'https://127.0.0.1:8080/push', // loopback
+			'https://10.0.0.5/internal', // RFC1918
+			'https://172.16.0.1/x', // RFC1918
+			'https://192.168.1.1/admin', // RFC1918
+			'https://100.64.0.1/x', // shared address space
+			'https://0.0.0.0/x',
+			'https://[::1]/push', // IPv6 loopback
+			'https://[fe80::1]/push', // IPv6 link-local
+			'https://[fd00::1]/push', // IPv6 unique local
+			'https://[::ffff:127.0.0.1]/push', // IPv4-mapped loopback
+		]) {
+			expect(isDefinitelyMaliciousEndpoint(ep)).toBe(true);
+		}
+	});
+
+	it('allowlist 網羅漏れ (https + 公開 host) は false (削除しない、可逆回復対象)', () => {
+		for (const ep of [
+			'https://push.new-vendor.example.com/abc123', // 未知だが plausible なベンダー host
+			'https://fcm.googleapis.com/fcm/send/legit', // 正規 allowlist host
+			'https://web.push.apple.com/QABC',
+			'https://8.8.8.8/x', // 公開 IP (allowlist 外だが private ではない)
+		]) {
+			expect(isDefinitelyMaliciousEndpoint(ep)).toBe(false);
+		}
+	});
+
+	it('空 / 非文字列 / parse 不能は false (保守的に skip のみ、削除しない)', () => {
+		expect(isDefinitelyMaliciousEndpoint('')).toBe(false);
+		expect(isDefinitelyMaliciousEndpoint(undefined)).toBe(false);
+		expect(isDefinitelyMaliciousEndpoint(12345)).toBe(false);
+		expect(isDefinitelyMaliciousEndpoint('not a url')).toBe(false);
 	});
 });
 
