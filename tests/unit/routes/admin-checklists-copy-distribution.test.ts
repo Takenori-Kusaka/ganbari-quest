@@ -115,12 +115,27 @@ function createEvent(
 	} as unknown as Parameters<NonNullable<typeof actions.copyDistributionFromChild>>[0];
 }
 
+// #3181 item1 (TOCTOU 緩和): 実装は各 grant 直前に checkChecklistTemplateLimit を live で再評価する。
+// テスト mock も「target child の per-child テンプレ数が insert ごとに増える」 live DB を模す
+// (静的 count では re-count 化した実装の挙動を検証できない = mock fidelity)。
+let liveTargetCount = 0;
+
+/** target child の現在のテンプレ数 (= per-child quota の current) を設定する。 */
+function setTargetInitialCount(n: number) {
+	liveTargetCount = n;
+	mockRepoFindTemplatesByChild.mockImplementation(async () =>
+		Array.from({ length: liveTargetCount }, (_unused, i) => ({ id: 1000 + i })),
+	);
+}
+
 /** distributeToChildren を「単一 target child・既配信 skip」の実挙動で stub する。
- * assignedTemplateIds に含まれる templateId は inserted 0 件 (skip)、それ以外は呼ばれた childIds をそのまま返す。 */
+ * assignedTemplateIds に含まれる templateId は inserted 0 件 (skip)、それ以外は呼ばれた childIds を返す。
+ * 実 insert 時は liveTargetCount を +1 し、後続の checkChecklistTemplateLimit re-count に反映させる。 */
 function stubDistribute(assignedTemplateIds: Set<number>) {
 	mockDistributeToChildren.mockImplementation(
 		async (templateId: number, childIds: readonly number[]) => {
 			if (assignedTemplateIds.has(templateId)) return [];
+			liveTargetCount += 1; // live DB に 1 件追加された
 			return [...childIds]; // = [targetChildId]
 		},
 	);
@@ -130,6 +145,7 @@ const TENANT_CHILDREN = [{ id: 1 }, { id: 2 }, { id: 3 }];
 
 beforeEach(() => {
 	vi.clearAllMocks();
+	liveTargetCount = 0;
 	mockGetAllChildren.mockResolvedValue(TENANT_CHILDREN);
 });
 
@@ -137,7 +153,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 	it('Free target 2/3 + source 5 件 distinct → 1 件のみ copy (3/3)、残り skip / over-grant なし', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
 		// target child(2) は現在 2 件 (2/3)
-		mockRepoFindTemplatesByChild.mockResolvedValue([{ id: 100 }, { id: 101 }]);
+		setTargetInitialCount(2);
 		// source child(1) は 5 件配信済 (target には未配信なので distribute で全部 insert 候補)
 		mockFindAssignmentsByChild.mockResolvedValue([
 			{ templateId: 200 },
@@ -150,12 +166,21 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 
 		const result = (await actions.copyDistributionFromChild!(
 			createEvent({ sourceChildId: '1', targetChildId: '2' }),
-		)) as { copiedFromChild: boolean; added: number; limitReached?: boolean; message?: string };
+		)) as {
+			copiedFromChild: boolean;
+			added: number;
+			dropped?: number;
+			limitReached?: boolean;
+			message?: string;
+		};
 
 		// 残スロット = 3 - 2 = 1 件のみ copy
 		expect(result.added).toBe(1);
 		expect(result.limitReached).toBe(true);
 		expect(result.message).toContain('1 件取り込みました');
+		// #3181 item2: drop 件数 (5 - 1 = 4) を明示
+		expect(result.dropped).toBe(4);
+		expect(result.message).toContain('4 件は取り込めませんでした');
 		// distributeToChildren は残スロット 1 件で打ち切り (2 回目以降を呼ばない = over-grant 防止)
 		expect(mockDistributeToChildren).toHaveBeenCalledTimes(1);
 		// per-child カウント (current 2 + added 1 = 3) が max(3) を超えない
@@ -165,7 +190,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 
 	it('Free target 既に 3/3 到達 → 1 件も copy せず 403 + upgradeRequired', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
-		mockRepoFindTemplatesByChild.mockResolvedValue([{ id: 100 }, { id: 101 }, { id: 102 }]); // 3/3
+		setTargetInitialCount(3); // 3/3
 		mockFindAssignmentsByChild.mockResolvedValue([{ templateId: 200 }]);
 
 		const result = (await actions.copyDistributionFromChild!(
@@ -202,7 +227,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 
 	it('Free target 0/3 + source の一部が既配信 → 既配信 skip 分を残スロットから消費しない', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
-		mockRepoFindTemplatesByChild.mockResolvedValue([]); // 0/3 → 残スロット 3
+		setTargetInitialCount(0); // 0/3 → 残スロット 3
 		mockFindAssignmentsByChild.mockResolvedValue([
 			{ templateId: 200 }, // 既配信 → insert 0
 			{ templateId: 201 }, // 新規 → insert 1
@@ -227,7 +252,7 @@ describe('POST /admin/checklists?/copyDistributionFromChild — plan-limit over-
 
 	it('source に配信なし → added 0 (early return)', async () => {
 		mockResolveFullPlanTier.mockResolvedValue('free');
-		mockRepoFindTemplatesByChild.mockResolvedValue([]);
+		setTargetInitialCount(0);
 		mockFindAssignmentsByChild.mockResolvedValue([]);
 
 		const result = (await actions.copyDistributionFromChild!(
