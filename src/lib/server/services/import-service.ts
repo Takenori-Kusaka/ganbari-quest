@@ -91,6 +91,9 @@ export interface ImportResult {
 	/** #3329: per-child おやすみ日の取込件数 (DynamoDB では no-op で skip) */
 	restDaysImported: number;
 	restDaysSkipped: number;
+	/** #3329: 子のカスタム音声 DB 行の取込件数 (ファイル本体は #3077 が復元) */
+	childVoicesImported: number;
+	childVoicesSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -307,6 +310,8 @@ export async function importFamilyData(
 	await importChecklistOverridesData(data, childIdMap, tenantId, result);
 	// #3329: おやすみ日を createdAt 保全で復元。childIdMap のみ必要 (DynamoDB では insert が no-op)。
 	await importRestDaysData(data, childIdMap, tenantId, result);
+	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
+	await importChildVoicesData(data, childIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
 	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
 	// importSpecialRewards の後に実行する。
@@ -831,6 +836,74 @@ async function importRestDaysData(
 	}
 }
 
+/** voiceRelPath (`voices/<oldChildId>/<rest>`) の rest 部を抽出する正規表現 (#3329)。 */
+const VOICE_REL_PATH_RE = /^voices\/\d+\/(.+)$/;
+
+/**
+ * 子のカスタム音声 DB 行を復元する (#3329)。
+ * childRef で取込先 child に解決し、voiceRelPath から rest (uuid.ext) を取り出して
+ * filePath = `<tenantPrefix>voices/<newChildId>/<rest>` / publicUrl = `/<filePath>` を新環境向けに
+ * 再構成して書き戻す (音声ファイル本体は #3077 importStaticFiles が同一パスへ復元済)。createdAt/
+ * scene/label/durationMs/isActive を保全。child or path 解決不能行は skip。
+ */
+async function importChildVoicesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const v of data.data.childVoices ?? []) {
+		const childId = childIdMap.get(v.childRef);
+		if (!childId) {
+			result.childVoicesSkipped++;
+			continue;
+		}
+		const rest = VOICE_REL_PATH_RE.exec(v.voiceRelPath)?.[1];
+		if (!rest) {
+			result.childVoicesSkipped++;
+			result.warnings.push(
+				`音声スキップ: voiceRelPath「${v.voiceRelPath}」(child=${v.childRef}) を解決できません`,
+			);
+			continue;
+		}
+		// CWE-22 path traversal 防御 (default-deny): 正常 export の rest は `<uuid>.<ext>` (storage-keys.ts
+		// voiceKey、単一ファイル名) だが、backup は untrusted input。細工 voiceRelPath
+		// (`voices/1/../../../../etc/secret`) で rest に `..` / 絶対パス / バックスラッシュ等が紛れ込むと
+		// filePath/publicUrl が tenant 境界外を指し cross-tenant LFI 相当になる。importStaticFiles と同じ
+		// isSafeRelativePath で rest を検証し、unsafe なら insert せず skip + warning で 1 件落とす
+		// (全 restore は止めない)。
+		if (!isSafeRelativePath(rest)) {
+			result.childVoicesSkipped++;
+			result.warnings.push(
+				`音声スキップ: voiceRelPath「${v.voiceRelPath}」(child=${v.childRef}) に不正なパスが含まれます`,
+			);
+			continue;
+		}
+		const filePath = `${tenantPrefix(tenantId)}voices/${childId}/${rest}`;
+		const publicUrl = storageKeyToPublicUrl(filePath);
+		try {
+			await getRepos().voice.insertForRestore(
+				{
+					childId,
+					scene: v.scene,
+					label: v.label,
+					filePath,
+					publicUrl,
+					durationMs: v.durationMs,
+					isActive: v.isActive,
+					tenantId,
+					createdAt: v.createdAt,
+				},
+				tenantId,
+			);
+			result.childVoicesImported++;
+		} catch (e) {
+			result.childVoicesSkipped++;
+			result.errors.push(`音声 insert 失敗 (child=${v.childRef}, scene=${v.scene}): ${String(e)}`);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -858,6 +931,8 @@ function createEmptyImportResult(): ImportResult {
 		parentMessagesSkipped: 0,
 		checklistOverridesImported: 0,
 		checklistOverridesSkipped: 0,
+		childVoicesImported: 0,
+		childVoicesSkipped: 0,
 		restDaysImported: 0,
 		restDaysSkipped: 0,
 		activityPrefsImported: 0,
@@ -1534,9 +1609,10 @@ async function importSpecialRewards(
 const STATIC_FILE_PATH_RE = /^(avatars|voices|generated)\/(\d+)\/(.+)$/;
 
 /**
- * ZIP 相対パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip 防御)。
- * `STATIC_FILE_PATH_RE` の `rest` (`.+`) は任意文字を許すため、ここで `..` セグメント・
- * 先頭スラッシュ・Windows ドライブ等を弾く。安全なら true。
+ * 相対 storage パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip / CWE-22 防御)。
+ * `STATIC_FILE_PATH_RE` の `rest` (`.+`、importStaticFiles) / `VOICE_REL_PATH_RE` の `rest`
+ * (`.+`、importChildVoicesData) は任意文字を許すため、ここで `..` セグメント・先頭スラッシュ・
+ * Windows ドライブ・バックスラッシュ等を弾く。安全なら true。
  */
 function isSafeRelativePath(relPath: string): boolean {
 	// バックスラッシュは OS 非依存で無条件拒否する (Linux では `\` がファイル名のリテラル

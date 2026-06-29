@@ -17,6 +17,7 @@ import {
 	type ExportChild,
 	type ExportChildActivity,
 	type ExportChildChallenge,
+	type ExportChildVoice,
 	type ExportData,
 	type ExportEvaluation,
 	type ExportLoginBonus,
@@ -52,6 +53,7 @@ import { getSettings } from '$lib/server/db/settings-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
 import { findRecentStatusHistory, findStatuses } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
+import { tenantPrefix } from '$lib/server/storage-keys';
 
 // カテゴリID → コード マッピング（5件固定）
 const CATEGORY_ID_TO_CODE: Record<number, string> = {
@@ -244,6 +246,7 @@ interface ChildTransactionData {
 	checklistLogs: ExportChecklistLog[];
 	checklistOverrides: ExportChecklistOverride[];
 	restDays: ExportRestDay[];
+	childVoices: ExportChildVoice[];
 }
 
 /**
@@ -602,6 +605,22 @@ async function collectForChild(
 		createdAt: r.createdAt,
 	}));
 
+	// #3329: 子のカスタム音声 DB 行。filePath から tenant prefix を除いた相対パス (voices/<childId>/<rest>)
+	// を voiceRelPath として出力し、import 時に新 tenant+childId へ再構成する。音声ファイル本体は
+	// #3077 ZIP 同梱機構が別途復元する。
+	const voicesRaw = await getRepos().voice.findAllByChild(childId, tenantId);
+	warnIfTruncated('childVoices', childId, voicesRaw.length);
+	const prefix = tenantPrefix(tenantId);
+	const childVoicesOut: ExportChildVoice[] = voicesRaw.map((v) => ({
+		childRef,
+		scene: v.scene,
+		label: v.label,
+		voiceRelPath: v.filePath.startsWith(prefix) ? v.filePath.slice(prefix.length) : v.filePath,
+		durationMs: v.durationMs,
+		isActive: v.isActive,
+		createdAt: v.createdAt,
+	}));
+
 	return {
 		childActivities: childActivitiesOut,
 		activityLogs: activityLogsOut,
@@ -621,6 +640,7 @@ async function collectForChild(
 		checklistLogs: checklistLogsOut,
 		checklistOverrides: checklistOverridesOut,
 		restDays: restDaysOut,
+		childVoices: childVoicesOut,
 	};
 }
 
@@ -682,6 +702,7 @@ async function collectTransactionData(
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
 		checklistOverrides: perChild.flatMap((p) => p.checklistOverrides), // #3329
 		restDays: perChild.flatMap((p) => p.restDays), // #3329
+		childVoices: perChild.flatMap((p) => p.childVoices), // #3329
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
 		settings: settingsOut, // #3329

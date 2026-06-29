@@ -217,9 +217,9 @@ export const BACKUP_ENTITY_REGISTRY: Record<string, BackupEntityEntry> = {
 	childCustomVoices: {
 		classification: 'source',
 		schemaTable: 'childCustomVoices',
-		backupStatus: 'not-yet-exported',
+		backupStatus: 'exported',
 		reason:
-			'子のカスタム音声 (ユーザーがアップロードした録音、file_path/public_url はストレージ実体参照)。再生成不能のユーザー生成データ。export 未対応 (#3329)',
+			'子のカスタム音声 (ユーザーがアップロードした録音)。export/import 実装済 (#3329)。DB 行 (scene/label/durationMs/isActive/createdAt) を保全し、filePath/publicUrl は voiceRelPath 経由で import 時に新 tenant+childId へ再構成する。音声ファイル本体は #3077 ZIP 同梱静的ファイル機構が voices/<newChildId>/ へ復元する。clear は voice.deleteByChild で削除済',
 	},
 
 	// ---- derived: source から再計算で復元 (backup 不要) ----
