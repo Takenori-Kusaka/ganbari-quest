@@ -301,6 +301,56 @@ describe('extractClosedIssues (#3423 — close漏れ防止: 含有 PR の closin
 		});
 		expect(body).toContain('Closes #3133');
 	});
+
+	// --- #3444 QM BLOCK 是正: over-close 防御 + under-close 解消 + section scope の境界固定 ---
+
+	it('over-close 防御: 引用 / inline code / code fence / 否定文中の closes #N は集約しない (#3444)', () => {
+		const prs = [
+			{
+				number: 10,
+				headRefName: 'fix/1',
+				body: [
+					'## 関連 Issue',
+					'closes #3200', // 正規の close 宣言（行頭）→ 集約
+					'前 PR では `closes #3133` と書いたが誤り', // inline code + 否定文 → 除外
+					'see closes #5005 mentioned', // 本文中の言及（行頭でない）→ 除外
+					'```',
+					'closes #4001', // code fence 内 → 除外
+					'```',
+				].join('\n'),
+			},
+		];
+		expect(extractClosedIssues(prs)).toEqual([3200]);
+	});
+
+	it('under-close 解消: コロン形式 Closes: #N と全角 ＃ も集約する (#3444)', () => {
+		const prs = [
+			{
+				number: 10,
+				headRefName: 'fix/1',
+				body: ['## 関連 Issue', 'Closes: #3246', 'closes ＃3088'].join('\n'),
+			},
+		];
+		expect(extractClosedIssues(prs)).toEqual([3088, 3246]);
+	});
+
+	it('関連 Issue section 内の正規 closes #N のみ集約し、section 外の closes は無視する (list marker 含む、#3444)', () => {
+		const prs = [
+			{
+				number: 10,
+				headRefName: 'fix/1',
+				body: [
+					'## 関連 Issue',
+					'- closes #3300', // list marker 付き → 集約
+					'fixes #3301',
+					'',
+					'## 影響範囲', // 次 section 以降は走査対象外
+					'closes #9999', // section 外 → 無視
+				].join('\n'),
+			},
+		];
+		expect(extractClosedIssues(prs)).toEqual([3300, 3301]);
+	});
 });
 
 describe('parseArgs (#2871 — CLI 引数)', () => {
