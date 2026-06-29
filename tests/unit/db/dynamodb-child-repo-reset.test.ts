@@ -121,6 +121,19 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
 const TENANT = 'tenant-reset';
 const CHILD_ID = 77;
 
+/**
+ * reset 後に partition (pk) に残存する SK を sort 済 list で返す。
+ * Set の `toEqual` が環境により不安定なため、exact-set (列挙外 key 含む完全一致) 比較は
+ * sort 済配列の同値で行う。membership ループでは捕捉できない「DELETED でも SURVIVOR でもない
+ * 列挙外 key の残存」を検出するための基盤。
+ */
+function remainingSks(store: Map<string, Record<string, unknown>>, pk: string): string[] {
+	return [...store.values()]
+		.filter((i) => i.PK === pk)
+		.map((i) => String(i.SK))
+		.sort();
+}
+
 async function loadPointRepo() {
 	return import('../../../src/lib/server/db/dynamodb/point-repo');
 }
@@ -301,5 +314,84 @@ describe('resetChildProgressData (DynamoDB) — BALANCE 集計も削除する (#
 		// reset 対象の子は 0、別の子は残高維持
 		expect(await point.getBalance(CHILD_ID, TENANT)).toBe(0);
 		expect(await point.getBalance(OTHER, TENANT)).toBe(40);
+	});
+
+	// #3485 (reset 完全性 class-lock / ADR-0061 same-class→guard): child partition の全 entity を seed し、
+	// reset 後に「削除対象 (記録系 + BALANCE) のみ消え、意図的保持 entity (ステータス/図鑑/チャレンジ/評価/
+	// ごほうび等) は残る」契約を partition 全件残渣で固定する。これにより #3475→#3485 と続いた「ADD 集計
+	// 派生 entity が reset 残存」型の adversarial finding を 1 本の契約 test で先取り回答する (instance でなく
+	// class を lock)。reset = dev-only 進捗リセット (記録系のみ) であり、COPPA 削除 (= deleteChild = partition
+	// 全削除) とは別レイヤー (#3471 reset scope 契約)。enemyCollection(ENEMYCOL#)/defeatCount は意図的保持
+	// (#3485 の defect 主張は本契約で「設計どおり」と確定、wontfix)。
+	it('#3485: reset は記録系 + BALANCE のみ削除し、ステータス/図鑑/チャレンジ等は意図的に保持する (partition 全件残渣契約)', async () => {
+		const pk = `T#${TENANT}#CHILD#${CHILD_ID}`;
+		const seed = (sk: string) => store.set(`${pk}|${sk}`, { PK: pk, SK: sk });
+		// 削除対象 (記録系 + 派生集計)
+		const DELETED_SKS = [
+			'LOG#2026-06-29#1',
+			'POINT#100#1',
+			'LOGIN#2026-06-29',
+			'ACHV#1#m',
+			'BALANCE',
+		];
+		// 意図的保持 (reset = 記録系のみ。status/dex/challenge/eval/reward/profile/activity は残す、#3471 契約)
+		const SURVIVOR_SKS = [
+			'PROFILE',
+			'CHILDACT#1',
+			'CHILDCHAL#1',
+			'STATUS#01',
+			'STATHIST#01#100#1',
+			'ENEMYCOL#0001', // 敵図鑑 defeatCount (#3485 の対象、意図的保持)
+			'EVAL#2026-06-22',
+			'REWARD#100#1',
+		];
+		for (const sk of [...DELETED_SKS, ...SURVIVOR_SKS]) seed(sk);
+
+		const child = await loadChildRepo();
+		await child.resetChildProgressData(CHILD_ID, TENANT);
+
+		const remainingList = remainingSks(store, pk);
+		const remaining = new Set(remainingList);
+		// 削除対象は全て消えている (既存 membership 契約は維持)
+		for (const sk of DELETED_SKS) {
+			expect(remaining.has(sk), `削除対象 ${sk} が残存している`).toBe(false);
+		}
+		// 意図的保持 entity は全て残る (将来 reset scope を誤って広げたら本 test が fail)
+		for (const sk of SURVIVOR_SKS) {
+			expect(remaining.has(sk), `保持対象 ${sk} が誤削除された`).toBe(true);
+		}
+		// exhaustive: 残存 SK 集合は survivor 集合と「完全一致」する。membership ループだけでは
+		// DELETED でも SURVIVOR でもない列挙外 key の残存を見逃す (両 list に無く seed されず素通り)。
+		// exact-set で固定することで、将来 child-partition に新設される ADD 集計 / 派生 entity が
+		// reset 漏れした場合に「列挙外残存」として本契約が検出する (instance でなく class を lock、
+		// ADR-0061 same-class→guard)。reset は記録系のみ削除するため、残存 = survivor と一致が不変。
+		expect(remainingList).toEqual([...SURVIVOR_SKS].sort());
+	});
+
+	// #3485 fails-closed 証明: exact-set 契約が「reset 対象であるべきなのに実装が消し忘れている
+	// 将来 entity」を検出して fail-closed になることを実証する。DELETED でも SURVIVOR でもない
+	// 新規 prefix (FUTURE_AGG#) の余分 SK を 1 件 seed すると、reset は未知 prefix を消さないため
+	// 残存し、exact-set 比較が survivor 集合と不一致になる。この「不一致を検出する」挙動自体を
+	// positive に assert することで、将来 entity が増えたら上の partition 全件残渣契約が
+	// fail-closed で気付かせる回帰ネットであることを示す (membership のみなら素通りしていた)。
+	it('#3485 fails-closed: 列挙外の将来 entity (FUTURE_AGG#) が残存すると exact-set 契約が不一致を検出する', async () => {
+		const pk = `T#${TENANT}#CHILD#${CHILD_ID}`;
+		const seed = (sk: string) => store.set(`${pk}|${sk}`, { PK: pk, SK: sk });
+		const SURVIVOR_SKS = ['PROFILE', 'STATUS#01', 'ENEMYCOL#0001'];
+		// reset 対象であるべき (将来の ADD 集計 / 派生 entity) だが実装がまだ削除集合に含めていない、
+		// を模した余分 key。DELETED_SKS にも SURVIVOR_SKS にも属さない新規 prefix。
+		const LEAKED_FUTURE_SK = 'FUTURE_AGG#1';
+		for (const sk of [...SURVIVOR_SKS, LEAKED_FUTURE_SK]) seed(sk);
+
+		const child = await loadChildRepo();
+		await child.resetChildProgressData(CHILD_ID, TENANT);
+
+		const remainingList = remainingSks(store, pk);
+		// 未知 prefix は reset の既知 prefix Query に掛からず残存する (= 消し忘れ将来 entity の再現)
+		expect(remainingList).toContain(LEAKED_FUTURE_SK);
+		// exact-set 契約は「列挙外 key の残存」を survivor 集合との不一致として検出する。
+		// もし partition 全件残渣契約が membership のみだったら、この残存は両 list 外のため素通り
+		// していた。exact-set 化により必ず不一致 (= 上の契約 test が fail) になることの positive 証明。
+		expect(remainingList).not.toEqual([...SURVIVOR_SKS].sort());
 	});
 });
