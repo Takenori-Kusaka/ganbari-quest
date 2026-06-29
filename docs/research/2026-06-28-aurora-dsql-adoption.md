@@ -143,11 +143,46 @@
 
 ---
 
-## 11. PoC 実測ログ（spike 完了時に追記）
+## 11. PoC 実測ログ
 
-> 各 PoC spike issue（#3425-#3429）完了時に、実測値（実 DPU / OCC 率 / cold start レイテンシ / drizzle-kit DDL 適合 / 一括 import 上限抵触 / CDK 構成 / RLS 非対応の最終確証 / 東京単価）をここに追記し、設計 Sub の前提を裏取りする。
+### 11.1 実機 spike #1（2026-06-29、本番同一リージョン us-east-1、実 DSQL クラスタ）
 
-- （未実施）
+> **リージョン訂正（重要）**: 本番インフラは **us-east-1**（`infra/bin/app.ts: region: 'us-east-1'`、GanbariQuest{Compute,Auth,Storage,Network,Ops,Ses} スタックは全て us-east-1。ap-northeast-1 は空）。本研究の初稿が「東京」前提だったのは誤り。**移管先リージョン = us-east-1**。DSQL 単価も us-east-1（$0.000008/DPU・$0.33/GB）の方が東京より安く、コスト最優先にも合致。
+
+使い捨てクラスタ（deletion protection off、tag `ephemeral=true`）を作成し `pg`(node) + IAM admin auth token で実検証 → 検証後削除。安全網として AWS Budgets `dsql-poc-guardrail`（$1・80/100% メールアラート）を先行作成。
+
+**dialect / RLS 検証結果（実エラーコード付き）**:
+
+| 検証 | 結果 | 設計含意 |
+|---|---|---|
+| `SELECT version()` | `PostgreSQL 16` | 想定どおり |
+| `gen_random_uuid()` | ✅ ネイティブ動作 | UUID PK 標準利用可 |
+| `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` | ❌ `[0A000] unsupported` | **RLS 非対応を実機確定**（推定→確証） |
+| `CREATE POLICY` | ❌ `[0A000] unsupported statement: CreatePolicy` | テナント分離は pool + app-layer + fitness function 一択（§10 確定） |
+| `FORCE ROW LEVEL SECURITY` | ❌ `[0A000] unsupported` | 同上 |
+| `SERIAL` PK | ❌ `42704 type "serial" does not exist` | UUID PK 一択 |
+| FK `REFERENCES` | ❌ `[0A000] FOREIGN KEY constraint not supported` | `relations()` アプリ層整合 |
+| `CREATE INDEX`（同期） | ❌ `[0A000] unsupported mode. please use CREATE INDEX ASYNC` | drizzle-kit migration 改造必須 |
+| `CREATE INDEX ASYNC` | ✅ `job_id` 返却 | ASYNC + job 完了待ち runner で対応可 |
+| `generate_series` | ✅ 対応 | 一括 import / seed に利用可 |
+| **3,000 行 / 1 txn** | ✅ commit 成功 | 上限境界 |
+| **3,001 行 / 1 txn** | ❌ `[54000] transaction row limit exceeded` | **3,000 行上限を実機確定** → 一括 import チャンク分割必須（#3428/#3436） |
+| 2 DDL / 1 txn | ❌ `[0A000] multiple ddl statements not supported in a transaction` | migration を 1 文/txn に分割（#3427/#3433） |
+| DDL + DML / 1 txn | ❌ `[0A000] ddl and dml are not supported in the same transaction` | 同上 |
+| **OCC 並行 update** | ✅ commitA=ok / **commitB=`40001`** | OCC 競合を実機再現 → リトライラッパ必須（#3435）。1 家族低競合では非発生だが機構は実在 |
+| 接続確立レイテンシ（token 既発行・TLS+pg handshake） | **約 1,450 ms（cold）** | Lambda cold start で無視できない → 実行コンテキスト接続再利用が必須（#3426）。warm 再利用の実測は Lambda 上で別途 |
+
+**コスト実測（見積 ¥0 との突合）**:
+- ClusterStorageSize = **0.0**（空クラスタ）→ ストレージ課金 ¥0。
+- PoC 全実行の **TotalDPU = 3.53**（Read 0.16 / Write 0.99 / Compute 2.38）= 無料枠 10万 DPU の **0.0035%**。仮に課金でも $8/100万DPU で **約 $0.00003 ≈ ¥0.004**。
+- **作成費・固定費はゼロ**（DSQL に provisioning 料金なし）を実証。
+- → **見積 ¥0 = 実測ほぼ ¥0 が一致**。Budgets guardrail は閾値未到達。
+
+**結論**: §9-§10 の de-risking 推定が実機で全件裏取りされた。特に最重要の **RLS 非対応が確定**し、テナント分離設計（pool + 信頼 claim/context + fitness function + cross-tenant E2E）が唯一解であることが確証された。サプライズなし。残る実機検証（Lambda warm 接続再利用・cold start・drizzle-kit 実 migration 適用・一括 import チャンク実装）は設計 Sub 着手時に実施。
+
+### 11.2 今後の spike（#3425-#3429 着手時に追記）
+
+- （未実施: Lambda 接続再利用 + cold start / drizzle-kit 実 migration 適用 / 一括 import チャンク実装 / CDK CfnCluster 構成）
 
 ---
 
