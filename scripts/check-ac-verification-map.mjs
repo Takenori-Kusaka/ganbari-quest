@@ -45,40 +45,19 @@ import { fileURLToPath } from 'node:url';
 /** 統合 PR の検証で要求する section 見出し（暫定。統合 PR template 確定は Phase B #2871）。 */
 export const INTEGRATION_EVIDENCE_SECTION = 'マージ判定エビデンス表';
 
-/** #1539: AC マップ 4 列目（結果/エビデンス列）の未完了表記検出パターン。 */
-const TODO_PATTERN = /todo|予定|追加予定|別途|follow[\s-]?up|後で/i;
-
 /**
- * 未完了表記検出の前処理（#3488 false-positive fix → #3488 BLOCK 再修正）。
- * 結果/エビデンス列には「ファイルパス / URL」等の**完了済エビデンス参照**が入り、
- * その識別子トークン内に未完了語が部分一致することがある。
- * 例: `docs/research/2026-06-29-followup-treadmill-root-cause.md` の filename 中 `followup` を
- *     `follow[\s-]?up` が誤検出していた（research doc 添付で AC 完了済なのに gate fail）。
+ * #1539: AC マップ 4 列目（結果/エビデンス列）の未完了表記検出パターン。
  *
- * **設計方針（過剰除去より false-positive 残存リスクを取る、#3488 BLOCK 教訓）**:
- * 日本語は語間に空白が無いため、「inline code span 全除去」「`/` を含むトークン全除去」のような
- * 広域 strip は、未完了マーカーを囲む code span や `/` 隣接の日本語句ごと cell を空にして
- * #1539（未完了表記検出）を bypass させてしまう（作者が `` `別途follow-upで対応` `` /
- * `別途#3500で対応予定/参照` と書くだけで gate 通過）。
- * よって除去対象は「未完了語と重ならない**明示的な参照トークン**」だけに精密化する:
- *   1. URL（`https?://…`）— 明示参照。日本語の未完了句を含まない
- *   2. 拡張子で終わるファイル名トークン（path 区切り `/` を含んでも 1 トークンとして除去）
- *      — 元 false-positive（`…-root-cause.md` 中の `followup`）はこの rule 単体で解消する
- *
- * inline code span 全除去 / `/` トークン全除去は **撤去**した（散文中の未完了句を巻き込むため）。
- * code span や `/` 隣接に未完了語を置いても #1539 が検出し続ける（負の回帰 test で固定、#3488）。
- *
- * @param {string} cell 結果/エビデンスセルの生テキスト
- * @returns {string} status 検出用に正規化したテキスト
+ * **`follow[\s-]up`（区切り 1 文字必須）の意図（#3488 BLOCK fix）**:
+ * `?` で区切りを optional にすると、区切り無しの slug `followup` が部分一致してしまい
+ * `docs/research/2026-06-29-followup-treadmill-root-cause.md` のような**完了済エビデンス参照の
+ * ファイル名**を未完了表記として誤検出していた（false-positive → gate fail）。
+ * 未完了マーカーとしての「follow-up」「follow up」は語間に区切り（空白 or ハイフン）を必ず持つため、
+ * 区切り 1 文字必須にすれば slug `followup` を除外しつつ「別途 follow-up で対応」等は検出し続ける。
+ * 拡張子 whitelist による strip 前処理は脆く（bypass + 非収録拡張子の FP）、撤去して生 cell に
+ * 本パターンを直接適用する方針に戻した（#3488）。
  */
-function stripEvidenceReferences(cell) {
-	return cell
-		.replace(/https?:\/\/[^\s|]+/gi, ' ') // URL（明示参照、未完了語と重ならない）
-		.replace(
-			/[^\s|]*\.(?:md|mdx|ts|tsx|js|jsx|mjs|cjs|json|svelte|css|scss|html|ya?ml|sh|py|webp|png|svg|txt|csv)\b/gi,
-			' ',
-		); // 拡張子で終わるファイル名トークン（path 区切り `/` を含んでも全体を 1 トークンとして除去）
-}
+const TODO_PATTERN = /todo|予定|追加予定|別途|follow[\s-]up|後で/i;
 
 /** integration lane の「残 NG 0 件」明示を検出するパターン（audit-team.md §3.5 #5）。 */
 const NG_ZERO_PATTERN = /残\s*NG\s*(?:合計\s*)?0\s*件|残\s*NG[^\n|]*[:：]?\s*0\b|NG\s*0\s*件/;
@@ -213,7 +192,7 @@ export function checkPerPrAcMap(body, lane) {
 				.slice(1, -1)
 				.map((c) => c.trim());
 			const evidenceCell = cells[3] ?? '';
-			if (TODO_PATTERN.test(stripEvidenceReferences(evidenceCell))) {
+			if (TODO_PATTERN.test(evidenceCell)) {
 				const acId = cells[0] || `行 ${idx + 1}`;
 				return { acId, evidenceCell };
 			}

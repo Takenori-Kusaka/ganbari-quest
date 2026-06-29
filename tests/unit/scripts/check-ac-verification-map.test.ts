@@ -48,9 +48,11 @@ const FEATURE_AC_MAP_TODO = `
 | AC1 | ログイン | \`vitest\` | 別途追加予定 |
 `;
 
-// #3488: 結果/エビデンス列のファイルパス / SHA は完了済エビデンス参照であり未完了 status 語ではない。
-// filename 中の "followup"（例: 2026-06-29-followup-treadmill-root-cause.md）を `follow[\s-]?up`
-// が誤検出して gate fail していた false-positive の回帰防止。
+// #3488: ファイル名 slug の "followup"（区切り無し）は完了済エビデンス参照のトークンであり、
+// 未完了マーカー "follow-up" / "follow up"（区切り 1 文字必須）とは別物。
+// `follow[\s-]up`（区切り必須）にすることで slug を誤検出しない（false-positive 回帰防止）。
+// 拡張子 whitelist の strip 前処理は脆い（収録外拡張子で FP / 密着未完了語で bypass）ため撤去し、
+// 生 cell に直接 pattern を当てる方針（#3488 定方針）。
 const FEATURE_AC_MAP_FILENAME_FOLLOWUP = `
 ## AC 検証マップ
 
@@ -59,24 +61,33 @@ const FEATURE_AC_MAP_FILENAME_FOLLOWUP = `
 | AC5 | research SSOT を docs/research に保存 | grep | HEAD \`f183e397a\` / docs/research/2026-06-29-followup-treadmill-root-cause.md |
 `;
 
-// #3488 BLOCK: 直前 fix の stripEvidenceReferences (code span 全除去 / `/` トークン全除去) が
-// #1539 (未完了検出) に bypass 穴を開けた。日本語は語間空白が無いため、未完了マーカーを
-// (a) code span 内 (b) `/` 隣接 (c) 日本語連続トークン に置くだけで cell が空になり gate 通過していた。
-// rule 1/2 撤去後はいずれも検出され続けることを固定する負の回帰 test。
-const FEATURE_AC_MAP_TODO_IN_CODESPAN = `
+// #3488: 旧 strip の収録外拡張子で FP 再発していたケース（.sql / .pdf）も、slug "followup"（区切り無し）
+// なので新 pattern では PASS する（strip 不要で FP 回避）。
+const FEATURE_AC_MAP_SLUG_FOLLOWUP_VARIANTS = `
 ## AC 検証マップ
 
 | AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
 |---|---|---|---|
-| AC1 | ログイン | \`vitest\` | \`別途follow-upで対応\` |
+| AC1 | schema 反映 | drizzle | migrations/schema-followup.sql 適用済 |
+| AC2 | 図版 | review | docs/followup.pdf レビュー済 |
 `;
 
-const FEATURE_AC_MAP_TODO_SLASH_ADJACENT = `
+// #3488: 未完了マーカーは区切り 1 文字（空白 or ハイフン）を必ず持つため検出継続する。
+// strip を全廃したので code span / `/` 隣接 / 日本語連続トークンに置いても生 cell に当たる。
+const FEATURE_AC_MAP_TODO_FOLLOWUP_SPACE = `
 ## AC 検証マップ
 
 | AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
 |---|---|---|---|
-| AC1 | ログイン | \`vitest\` | 別途#3500で対応予定/参照 |
+| AC1 | ログイン | \`vitest\` | 別途 follow-up で対応 |
+`;
+
+const FEATURE_AC_MAP_TODO_FILENAME_SCHEDULED = `
+## AC 検証マップ
+
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---|---|---|---|
+| AC1 | ログイン | \`vitest\` | 対応予定.md を参照 |
 `;
 
 const FEATURE_AC_MAP_TODO_JP_TOKEN = `
@@ -169,25 +180,31 @@ describe('checkPerPrAcMap (feature/hotfix lane、AC4)', () => {
 		expect(r.error).toContain('未完了表記');
 	});
 
-	it('PASS: filename 中の "followup" を未完了表記と誤検出しない (#3488)', () => {
+	it('PASS: filename 中の "followup"（区切り無し slug）を未完了表記と誤検出しない (#3488)', () => {
 		const r = checkPerPrAcMap(FEATURE_AC_MAP_FILENAME_FOLLOWUP, 'feature');
 		expect(r.ok).toBe(true);
 	});
 
-	// #3488 BLOCK 負の回帰: strip が広域化すると下記 3 ケースが bypass する。検出継続を固定する。
-	it('FAIL: 未完了マーカーを code span 内に置いても検出 (#3488 bypass 防止 a)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO_IN_CODESPAN, 'feature');
+	// #3488: 旧 strip の収録外拡張子 FP（.sql / .pdf）も slug followup なので新 pattern で PASS。
+	it('PASS: schema-followup.sql / docs/followup.pdf を誤検出しない (#3488 FP 回避)', () => {
+		const r = checkPerPrAcMap(FEATURE_AC_MAP_SLUG_FOLLOWUP_VARIANTS, 'feature');
+		expect(r.ok).toBe(true);
+	});
+
+	// #3488: 区切り 1 文字を持つ未完了マーカーは検出継続する（strip 全廃で生 cell に当たる）。
+	it('FAIL: "follow-up" / "follow up"（区切りあり）は検出 (#3488)', () => {
+		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO_FOLLOWUP_SPACE, 'feature');
 		expect(r.ok).toBe(false);
 		expect(r.error).toContain('未完了表記');
 	});
 
-	it('FAIL: 未完了マーカーを `/` 隣接に置いても検出 (#3488 bypass 防止 b)', () => {
-		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO_SLASH_ADJACENT, 'feature');
+	it('FAIL: "対応予定.md" の "予定" を検出（strip 全廃で生 cell 検出、#3488）', () => {
+		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO_FILENAME_SCHEDULED, 'feature');
 		expect(r.ok).toBe(false);
 		expect(r.error).toContain('未完了表記');
 	});
 
-	it('FAIL: 未完了マーカーを日本語連続トークンに置いても検出 (#3488 bypass 防止 c)', () => {
+	it('FAIL: 未完了マーカーを日本語連続トークンに置いても検出 (#3488)', () => {
 		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO_JP_TOKEN, 'feature');
 		expect(r.ok).toBe(false);
 		expect(r.error).toContain('未完了表記');
