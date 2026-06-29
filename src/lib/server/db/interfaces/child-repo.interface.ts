@@ -2,8 +2,10 @@ import type { ArchivedReason } from '$lib/domain/archive-types';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
 
 /**
- * #3184 item2: resetChildProgressData が削除した各 entity の件数 (dev-only switch reset の診断用)。
- * pointBalance は DynamoDB のみ存在する派生集計 (SK=BALANCE) の削除有無 (SQLite は行集計のため 0)。
+ * #3184 item2 / #3475: resetChildProgressData が**実際に削除した各 entity の件数**。dev-only switch
+ * reset の診断用。全 field が「実削除件数」で意味統一されている。pointBalance は DynamoDB のみ存在する
+ * 派生集計 (SK=BALANCE) の実削除行数 (存在すれば 1、なければ 0)。SQLite は POINT# 行集計で BALANCE 行を
+ * 持たないため常に 0。
  */
 export interface ChildProgressResetCounts {
 	activityLogs: number;
