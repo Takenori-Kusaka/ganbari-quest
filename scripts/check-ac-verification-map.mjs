@@ -48,6 +48,32 @@ export const INTEGRATION_EVIDENCE_SECTION = 'マージ判定エビデンス表';
 /** #1539: AC マップ 4 列目（結果/エビデンス列）の未完了表記検出パターン。 */
 const TODO_PATTERN = /todo|予定|追加予定|別途|follow[\s-]?up|後で/i;
 
+/**
+ * 未完了表記検出の前処理（#3488 false-positive fix）。
+ * 結果/エビデンス列には「コミット SHA / ファイルパス」等の**完了済エビデンス参照**が入る。
+ * これらの識別子トークンは未完了 status 語ではないため、TODO_PATTERN 適用前に除去する。
+ * 例: `docs/research/2026-06-29-followup-treadmill-root-cause.md` の filename 中 `followup` を
+ *     `follow[\s-]?up` が誤検出していた（research doc 添付で AC 完了済なのに gate fail）。
+ *
+ * 除去するのは「明らかに status 語ではないエビデンス参照」のみに限定し、
+ * 散文中の未完了句（例: `別途 follow-up で対応`, `後で追加予定`）は残して検出を維持する:
+ *   1. inline code span（`` `...` ``）— コマンド / SHA / path を囲む正規表記
+ *   2. path 様トークン（`/` を含む連続トークン）— ファイルパス / URL
+ *   3. ファイル拡張子で終わるトークン — code span / `/` 無しのファイル名
+ *
+ * @param {string} cell 結果/エビデンスセルの生テキスト
+ * @returns {string} status 検出用に正規化したテキスト
+ */
+function stripEvidenceReferences(cell) {
+	return cell
+		.replace(/`[^`]*`/g, ' ') // inline code span
+		.replace(/[^\s|]*\/[^\s|]*/g, ' ') // path / URL（`/` を含むトークン）
+		.replace(
+			/[^\s|]*\.(?:md|mdx|ts|tsx|js|jsx|mjs|cjs|json|svelte|css|scss|html|ya?ml|sh|py|webp|png|svg|txt|csv)\b/gi,
+			' ',
+		); // 拡張子で終わるファイル名トークン
+}
+
 /** integration lane の「残 NG 0 件」明示を検出するパターン（audit-team.md §3.5 #5）。 */
 const NG_ZERO_PATTERN = /残\s*NG\s*(?:合計\s*)?0\s*件|残\s*NG[^\n|]*[:：]?\s*0\b|NG\s*0\s*件/;
 
@@ -181,7 +207,7 @@ export function checkPerPrAcMap(body, lane) {
 				.slice(1, -1)
 				.map((c) => c.trim());
 			const evidenceCell = cells[3] ?? '';
-			if (TODO_PATTERN.test(evidenceCell)) {
+			if (TODO_PATTERN.test(stripEvidenceReferences(evidenceCell))) {
 				const acId = cells[0] || `行 ${idx + 1}`;
 				return { acId, evidenceCell };
 			}

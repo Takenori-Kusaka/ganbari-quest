@@ -48,6 +48,17 @@ const FEATURE_AC_MAP_TODO = `
 | AC1 | ログイン | \`vitest\` | 別途追加予定 |
 `;
 
+// #3488: 結果/エビデンス列のファイルパス / SHA は完了済エビデンス参照であり未完了 status 語ではない。
+// filename 中の "followup"（例: 2026-06-29-followup-treadmill-root-cause.md）を `follow[\s-]?up`
+// が誤検出して gate fail していた false-positive の回帰防止。
+const FEATURE_AC_MAP_FILENAME_FOLLOWUP = `
+## AC 検証マップ
+
+| AC 番号 | AC 内容 | 検証手段 | 結果 / エビデンス |
+|---|---|---|---|
+| AC5 | research SSOT を docs/research に保存 | grep | HEAD \`f183e397a\` / docs/research/2026-06-29-followup-treadmill-root-cause.md |
+`;
+
 const FEATURE_AC_MAP_MISSING_SECTION = `
 ## 概要
 AC マップ section が無い PR
@@ -128,6 +139,11 @@ describe('checkPerPrAcMap (feature/hotfix lane、AC4)', () => {
 		const r = checkPerPrAcMap(FEATURE_AC_MAP_TODO, 'feature');
 		expect(r.ok).toBe(false);
 		expect(r.error).toContain('未完了表記');
+	});
+
+	it('PASS: filename 中の "followup" を未完了表記と誤検出しない (#3488)', () => {
+		const r = checkPerPrAcMap(FEATURE_AC_MAP_FILENAME_FOLLOWUP, 'feature');
+		expect(r.ok).toBe(true);
 	});
 
 	it('hotfix lane も同観点 (PASS)', () => {
