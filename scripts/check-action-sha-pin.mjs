@@ -69,7 +69,49 @@ export const HIGH_PRIVILEGE_ACTIONS = [
 		reason:
 			'GITHUB_TOKEN 付きで任意 JS を実行する。merge-write workflow で供給網汚染されると merge 権限奪取に直結 (#3457)',
 	},
+	{
+		name: 'docker/build-push-action',
+		reason:
+			'ECR/registry に image を build & push する。改竄で本番 image 差し替え経路になり得る (#3483)',
+	},
+	{
+		name: 'softprops/action-gh-release',
+		reason:
+			'contents: write で GitHub Release を作成・asset upload する third-party action。改竄で配布物汚染 (#3483)',
+	},
 ];
+
+// ---------------------------------------------------------------------------
+// 網羅性 gate (#3483 / ADR-0061 原則 5 class-lock): HIGH_PRIVILEGE_ACTIONS の手動列挙だけだと
+// 「新規高権限 third-party action を未 pin 導入しても silent に通る」no-silent-gap が残る
+// (#3318→#3457→#3483 の手動追加 treadmill の root)。本 gate は **id-token: write / contents: write を
+// 付与する高権限 workflow 内の third-party action (first-party owner 以外) は SHA pin 必須**
+// (default-deny) とし、floating 許容は LOW_RISK_THIRD_PARTY_ALLOWLIST に理由付き明示する。これにより
+// 新規 third-party action を高権限 workflow に未 pin で足したら CI が自動 fail する (class 全体を lock)。
+// ---------------------------------------------------------------------------
+
+/** GitHub 公式 (actions/* / github/*)。floating tag 許容 (供給元 = GitHub 本体)。 */
+export const FIRST_PARTY_OWNERS = ['actions', 'github'];
+
+/**
+ * 高権限 workflow 内でも floating を許容する低リスク third-party action の allowlist。
+ * 基準: artifact/image を produce せず write 権限も持たない「setup / metadata 読取」専用 action のみ。
+ * 新規追加は「produce/write 能力なし」を確認し reason を残す (default-deny の例外明示)。
+ */
+export const LOW_RISK_THIRD_PARTY_ALLOWLIST = [
+	{
+		name: 'docker/setup-buildx-action',
+		reason: 'buildx の setup のみ。artifact produce / write なし',
+	},
+	{ name: 'hashicorp/setup-terraform', reason: 'terraform CLI の setup のみ。produce/write なし' },
+	{ name: 'dependabot/fetch-metadata', reason: 'PR metadata の読取のみ。write なし' },
+	{ name: 'dorny/paths-filter', reason: '変更パス判定の読取のみ。produce/write なし' },
+];
+
+/** workflow が id-token: write / contents: write を付与する高権限 context か。 */
+export function isHighPrivilegeWorkflow(source) {
+	return /\bid-token:\s*write\b/.test(source) || /\bcontents:\s*write\b/.test(source);
+}
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 
@@ -118,15 +160,61 @@ export function findTagPinViolations(source, fileRel, actions = HIGH_PRIVILEGE_A
 	return violations;
 }
 
-/** 全 workflow を走査して violations を集約する。 */
+/**
+ * 網羅性 gate (#3483): 高権限 workflow (id-token/contents write) 内で、first-party でも
+ * LOW_RISK allowlist でもない third-party action が SHA pin されていない `uses:` を violation で返す。
+ * これにより新規 third-party action を未 pin で高権限 workflow に足したら自動検出する (no-silent-gap)。
+ *
+ * @param {string} source workflow YAML 本文
+ * @param {string} fileRel リポジトリ相対パス
+ * @returns {{file:string, line:number, action:string, ref:string, reason:string}[]}
+ */
+export function findHighPrivilegeContextViolations(source, fileRel) {
+	if (!isHighPrivilegeWorkflow(source)) return [];
+	const allowSet = new Set(LOW_RISK_THIRD_PARTY_ALLOWLIST.map((a) => a.name));
+	const violations = [];
+	const lines = source.split(/\r?\n/);
+	for (let i = 0; i < lines.length; i++) {
+		const m = (lines[i] ?? '').match(/uses:\s*([A-Za-z0-9._-]+\/[A-Za-z0-9._/-]+)@(\S+)/);
+		if (!m) continue;
+		const usedPath = m[1];
+		const ref = m[2];
+		const owner = usedPath.split('/')[0] ?? '';
+		if (FIRST_PARTY_OWNERS.includes(owner)) continue; // GitHub 公式は floating 許容
+		if (SHA_RE.test(ref)) continue; // 既に pin 済
+		// owner/repo 前方一致で allowlist 判定
+		const allowed = [...allowSet].some((n) => usedPath === n || usedPath.startsWith(`${n}/`));
+		if (allowed) continue;
+		violations.push({
+			file: fileRel,
+			line: i + 1,
+			action: usedPath,
+			ref,
+			reason:
+				'高権限 workflow (id-token/contents write) 内の未 pin third-party action (#3483 網羅性 gate)。' +
+				'pin するか、produce/write 能力なしを確認のうえ LOW_RISK_THIRD_PARTY_ALLOWLIST に reason 付きで追加する',
+		});
+	}
+	return violations;
+}
+
+/** 全 workflow を走査して violations を集約する (named list + 網羅性 gate の両方)。 */
 export function scanAllWorkflows(files = listWorkflowFiles()) {
 	const all = [];
 	for (const file of files) {
 		const source = fs.readFileSync(file, 'utf8');
 		const rel = path.relative(REPO_ROOT, file).replace(/\\/g, '/');
 		all.push(...findTagPinViolations(source, rel));
+		all.push(...findHighPrivilegeContextViolations(source, rel));
 	}
-	return all;
+	// 同一 (file,line,action) の重複を除去 (named list と網羅 gate が同じ行を二重検出し得る)
+	const seen = new Set();
+	return all.filter((v) => {
+		const k = `${v.file}:${v.line}:${v.action}`;
+		if (seen.has(k)) return false;
+		seen.add(k);
+		return true;
+	});
 }
 
 function main() {

@@ -7,8 +7,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	findHighPrivilegeContextViolations,
 	findTagPinViolations,
 	HIGH_PRIVILEGE_ACTIONS,
+	isHighPrivilegeWorkflow,
 	scanAllWorkflows,
 } from '../../../scripts/check-action-sha-pin.mjs';
 
@@ -60,8 +62,52 @@ describe('#3298 findTagPinViolations', () => {
 	});
 });
 
-describe('#3298 scanAllWorkflows (実 workflow)', () => {
-	it('現行 .github/workflows/ は高権限 action 違反 0 (SHA pin 維持)', () => {
+describe('#3483 findHighPrivilegeContextViolations (網羅性 gate / no-silent-gap class-lock)', () => {
+	it('id-token: write を持つ workflow 内の未 pin third-party action を検出する', () => {
+		const src = [
+			'permissions:',
+			'  id-token: write',
+			'jobs:',
+			'  deploy:',
+			'    steps:',
+			'      - uses: evilcorp/some-action@v1',
+		].join('\n');
+		const v = findHighPrivilegeContextViolations(src, 'wf.yml');
+		expect(v).toHaveLength(1);
+		expect(v[0]?.action).toBe('evilcorp/some-action');
+	});
+
+	it('contents: write でも高権限 context として検出する', () => {
+		const src = 'permissions:\n  contents: write\njobs:\n  x:\n    steps:\n      - uses: evil/a@v1';
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(1);
+	});
+
+	it('high-priv 文脈でも first-party (actions/*) の floating は許容する (GitHub 公式)', () => {
+		const src =
+			'permissions:\n  id-token: write\njobs:\n  x:\n    steps:\n      - uses: actions/checkout@v4';
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(0);
+	});
+
+	it('LOW_RISK_THIRD_PARTY_ALLOWLIST の setup/metadata action は floating 許容', () => {
+		const src =
+			'permissions:\n  id-token: write\njobs:\n  x:\n    steps:\n      - uses: docker/setup-buildx-action@v4';
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(0);
+	});
+
+	it('SHA pin 済 third-party は high-priv でも違反にしない', () => {
+		const src = `permissions:\n  id-token: write\njobs:\n  x:\n    steps:\n      - uses: docker/build-push-action@${SHA}`;
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(0);
+	});
+
+	it('低権限 workflow (write 権限なし) は third-party floating でも対象外', () => {
+		const src = 'permissions:\n  contents: read\njobs:\n  x:\n    steps:\n      - uses: evil/a@v1';
+		expect(isHighPrivilegeWorkflow(src)).toBe(false);
+		expect(findHighPrivilegeContextViolations(src, 'wf.yml')).toHaveLength(0);
+	});
+});
+
+describe('#3298/#3483 scanAllWorkflows (実 workflow)', () => {
+	it('現行 .github/workflows/ は高権限 action 違反 0 (named list + 網羅性 gate 両方)', () => {
 		expect(scanAllWorkflows()).toEqual([]);
 	});
 });
