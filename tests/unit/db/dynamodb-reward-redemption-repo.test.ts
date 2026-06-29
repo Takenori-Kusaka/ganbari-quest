@@ -206,6 +206,29 @@ describe('findRedemptionRequestsByChild', () => {
 		const { findRedemptionRequestsByChild } = await loadRepo();
 		expect(await findRedemptionRequestsByChild(CHILD_ID, TENANT)).toEqual([]);
 	});
+
+	it('#3337: legacy resolvedByParentId=0 / "0" は読出時に null へ正規化する (SQLite と cross-backend 整合)', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				makeItem({ id: 1, requestedAt: 300, status: 'approved', resolvedByParentId: 0 }),
+				makeItem({ id: 2, requestedAt: 200, status: 'rejected', resolvedByParentId: '0' }),
+				makeItem({
+					id: 3,
+					requestedAt: 100,
+					status: 'approved',
+					resolvedByParentId: 'parent-sub-9',
+				}),
+			],
+		});
+		const { findRedemptionRequestsByChild } = await loadRepo();
+		const rows = await findRedemptionRequestsByChild(CHILD_ID, TENANT);
+		const byId = new Map(rows.map((r) => [r.id, r.resolvedByParentId]));
+		// legacy placeholder 0 / '0' は null へ (number が string|null 型に紛れる coercion trap を断つ)
+		expect(byId.get(1)).toBeNull();
+		expect(byId.get(2)).toBeNull();
+		// 実 parent userId はそのまま保持
+		expect(byId.get(3)).toBe('parent-sub-9');
+	});
 });
 
 // ============================================================
