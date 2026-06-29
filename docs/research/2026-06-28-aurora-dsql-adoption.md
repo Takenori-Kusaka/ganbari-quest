@@ -86,9 +86,66 @@
 
 ---
 
-## 9. PoC 実測ログ（spike 完了時に追記）
+## 9. de-risking deep research 結果（2026-06-29、致命リスク 8 点判定）
 
-> 各 PoC spike issue（#3425-#3429）完了時に、実測値（実 DPU / OCC 率 / cold start レイテンシ / drizzle-kit DDL 適合 / 一括 import 上限抵触 / CDK 構成）をここに追記し、設計 Sub の前提を裏取りする。
+着手前に「致命的リスク 8 点」を一次ソース + SQL マルチテナント実装 14 件で多角検証した（プロトコル §0 適用）。全結果:
+
+| リスク | verdict | 要旨 |
+|---|---|---|
+| B コスト | **NOT-TRIGGERED** | scale-to-zero は本物・固定費/最低課金なし、無料枠 perpetual。本ワークロード試算 約180 DPU/月（無料枠 0.18%）→ 実費 ¥0 見込み。東京単価は要最終確認 |
+| C 性能 | **NOT-TRIGGERED**（定常）/ Lambda 接続 **NEEDS-POC** | 単一リージョン・低競合で read 数ms・write 低ms と DynamoDB 同等。OCC 300ms 罰則は書込競合時のみ＝1家族では非該当。Lambda cold 接続確立のみ実測 |
+| A スキーマ一本化 | **NOT-TRIGGERED** | AWS 公式 Drizzle blog: pg-core schema 1 本で済む（差は SERIAL→UUID 等の型選択のみ）。FK→relations / SERIAL→UUID / JSONB→TEXT の片方向移植。SQLite 残置 2 バックエンドは不採用 |
+| F CDK/IaC | **NOT-TRIGGERED** | L1 `AWS::DSQL::Cluster` 主要プロパティ No-interruption（ADR-0019 Replacement リスク低）。alpha L2 `aws_dsql_alpha` 実在（要 pin）。IAM grant helper 欠如のみ手書き |
+| E docs | **NOT-TRIGGERED** | 移行ガイド・drizzle-kit migration の落とし穴（SERIAL tracking / ASYNC index）まで公式文書化。空白はローカル開発戦略のみ |
+| D テスト維持性 | **NEEDS-POC（部分 TRIGGERED）** | ドライバ/ORM は AWS 公式実証済で問題なし。**公式ローカルエミュレータ無し**（Playground のみ）→ in-memory SQLite テスト資産を PGlite(unit)+Testcontainers postgres:16(integration)+実DSQL契約テスト(OCC/3000行/FK拒否)の 3 層に再構築。PG/PGlite は OCC・3000行・FK拒否を再現できず静的ガード併設が必要。Node connector は OCC リトライ内蔵なし（自前実装、Drizzle 公式に例あり） |
+| **G マルチテナント×IAM** | **解消（条件付き GO）** | 下記 §10 参照。「IAM で行レベル物理分離」は SQL では不成立（IAM は接続/クラスタレベルまで、`LeadingKeys` 等価物なし）。**RLS（CREATE POLICY）は DSQL 非対応の確度高**。但しコスト最優先の PO 判断で、現 DynamoDB single-table も同じ app-layer 強制であり**非悪化** → pool + 信頼 claim/context + fitness function で論理分離を確定 |
+| **H プロダクト本質** | **非該当（PO 判断で受容）** | RLS 非対応で「DB エンジン強制の砦」は得られないが、現状（DynamoDB）から悪化せず、得られたはずのメリットが 1 つ無いだけ。子供データ保護はアプリ層単一強制点 + CI guard + cross-tenant E2E で担保 |
+
+**収束した強シグナル（記録）**: 調査 A/D が独立に「Postgres 系（Aurora Serverless v2/RDS）なら RLS・移植・テストが容易」と提言。しかし **scale-to-zero・≤¥0 を絶対制約とする PO 判断で Serverless v2/RDS は不採用**（最小 ACU アイドル課金が制約に反する）。DSQL の scale-to-zero がコスト最優先要件に唯一適合。
+
+### de-risking 一次ソース（主要）
+- コスト/性能: billing-metering / pricing / FAQs / [DSQL for financial transactions(perpetual free tier+OCC)](https://aws.amazon.com/blogs/database/amazon-aurora-dsql-for-global-scale-financial-transactions/) / [Performance,Limits&Architecture](https://andrewbaker.ninja/2025/11/19/amazon-aurora-dsql-performance-limits-architecture/)
+- スキーマ/CDK: [Drizzle ORM in Aurora DSQL(AWS Blog)](https://aws.amazon.com/blogs/database/building-type-safe-applications-with-drizzle-orm-in-aurora-dsql/) / [DSQL SQL Dialect](https://aws.amazon.com/blogs/database/dsql-sql-dialect-how-amazon-aurora-dsql-differs-from-single-instance-postgresql/) / [CFN AWS::DSQL::Cluster](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-dsql-cluster.html) / [aws_dsql_alpha L2](https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_dsql_alpha/Cluster.html) / [aws-cdk#34593](https://github.com/aws/aws-cdk/issues/34593)
+- テスト: [Concurrency control(公式)](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/working-with-concurrency-control.html) / [node-postgres connector](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/SECTION_program-with-dsql-connector-for-node-postgres.html) / [Playground(ローカルエミュ無し)](https://www.infoq.com/news/2026/03/aurora-dsql-playground-updates/) / [Testcontainers postgres](https://testcontainers.com/modules/postgresql/)
+- マルチテナント/IAM: [Supported SQL(CREATE POLICY 不在)](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/working-with-postgresql-compatibility-supported-sql-features.html) / [ALTER TABLE(ENABLE RLS 不在)](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/alter-table-syntax-support.html) / [DbConnect/DbConnectAdmin](https://docs.aws.amazon.com/aurora-dsql/latest/userguide/using-database-and-iam-roles.html) / [Securing DSQL access control](https://aws.amazon.com/blogs/database/securing-amazon-aurora-dsql-access-control-best-practices/) / [Prescriptive pool+RLS](https://docs.aws.amazon.com/prescriptive-guidance/latest/saas-multitenant-managed-postgresql/partitioning-models.html) / [DynamoDB LeadingKeys(SQL に等価物なし対比)](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/specifying-conditions.html)
+
+---
+
+## 10. テナント分離アーキテクチャ確定（PO 判断 2026-06-29、最重要設計）
+
+> **方針**: コスト最優先（≤¥0 死守）。テナント = 家族グループ（`tenant_id` 列）。**Pool（単一クラスタ・行分離）+ 信頼 claim/context による論理分離 + 機械強制（fitness function + cross-tenant E2E）**。RLS は DSQL 非対応のため追わない（現 DynamoDB single-table も app-layer 強制であり**非悪化**）。
+
+### なぜ pool + app-layer 強制か（silo / RLS を採らない理由）
+- **silo（1家族=1クラスタ）不採用**: IAM 物理分離は真に成立するが、全クラスタへの N 回マイグレーション / サインアップ毎の provisioning / アカウント quota / 横断集計不能 / 無料枠アカウント単位共有 / 運用 N 倍 が pre-PMF に過剰（ADR-0010）。将来 enterprise/規制テナント出現を再検討トリガとして ADR 化。
+- **RLS 不採用**: DSQL は `CREATE POLICY`/`ENABLE ROW LEVEL SECURITY` を Supported SQL に持たない（確度高、確証は実機 POC 1 回）。現状 DynamoDB も RLS 非依存のため移行で悪化しない。
+
+### 「実効力ある論理分離」の機構（DB は JWT を読まない点に注意）
+1. **Cognito で家族グループ（tenantId）を信頼確立**: 現状は JWT 検証後に membership を DB 解決し**署名付き context cookie**へ（`providers/cognito.ts` / `context-token.ts`）。**Pre-Token-Generation Lambda で familyId を JWT custom claim に載せる方式は最適化オプション**（毎リクエストの membership 解決を省けるが claim 陳腐化対策が要る）。どちらも tenantId は**偽造不能**。
+2. **アプリ層が信頼 tenantId を全クエリへ注入**: DSQL/Postgres は JWT を解釈しない。`hooks.server.ts` が検証済 tenantId を確定 → tenant-scoped repository が `WHERE tenant_id = :tenantId` を常に注入。
+3. **「実効力」の源泉 = 偽造不能 claim**: ユーザーは自分の tenantId を他家族に書き換えられない（署名検証で弾かれる）→ 悪意ある cross-tenant read は不成立。AWS が RLS 無し pool で使う信頼モデルと同型。
+4. **残存リスク（開発者の WHERE 書き忘れ）を機械強制で閉じる**:
+   - tenant-scoped repository を**単一強制点**化（生クエリ発行を境界外で禁止、既存 `route-db-boundary.test.ts` と同型）
+   - **fitness function**: `tenant_id` 述語の無い SELECT/UPDATE/DELETE を AST/lint で CI hard-fail（RLS の代替防御線、ADR-0061 整合）
+   - **cross-tenant E2E 不変条件**: 家族 A の token で家族 B のリソースを叩き 403/空 を assert（既存 IDOR hardening #3228 と同型）
+
+### クラウド / NUC 両立（同一リポジトリコード）
+| 軸 | クラウド（DSQL, multi-tenant） | NUC（SQLite, single-tenant） |
+|---|---|---|
+| tenant context | Cognito 由来 tenantId（claim or membership+署名cookie） | 固定シングルトン（その NUC 唯一の家族 ID） |
+| repository | `WHERE tenant_id = :ctx` 注入 | 同一コード（単一家族で実質 no-op フィルタだが正しく動く） |
+| 分離強度 | 論理（pool）+ app-layer 機械強制 | 物理（1家族=1 SQLite ファイル） |
+
+→ 同一 tenant-scoped repository が両環境で正しい。NUC は SQLite ファイル自体が物理分離なので tenantId 列は将来クラウド移管との型互換のために持つだけ。コードパス 1 本化。
+
+### この設計の machine 強制を担う Sub
+- **#3434（設計⑤ tenantId 列分離 fitness function）= 本設計の中核**。Cognito claim/context → tenant context 解決 + tenant-scoped repository 単一強制点 + fitness function + cross-tenant E2E を内包する。
+- **RLS 非対応の最終確証**（実クラスタで `CREATE POLICY`/`ENABLE RLS` を 1 回試行）は安価な確認 POC として #3434 の前提確認に含める（非対応でも設計は変わらない＝blocker ではない）。
+
+---
+
+## 11. PoC 実測ログ（spike 完了時に追記）
+
+> 各 PoC spike issue（#3425-#3429）完了時に、実測値（実 DPU / OCC 率 / cold start レイテンシ / drizzle-kit DDL 適合 / 一括 import 上限抵触 / CDK 構成 / RLS 非対応の最終確証 / 東京単価）をここに追記し、設計 Sub の前提を裏取りする。
 
 - （未実施）
 
