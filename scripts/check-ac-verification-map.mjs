@@ -45,8 +45,19 @@ import { fileURLToPath } from 'node:url';
 /** 統合 PR の検証で要求する section 見出し（暫定。統合 PR template 確定は Phase B #2871）。 */
 export const INTEGRATION_EVIDENCE_SECTION = 'マージ判定エビデンス表';
 
-/** #1539: AC マップ 4 列目（結果/エビデンス列）の未完了表記検出パターン。 */
-const TODO_PATTERN = /todo|予定|追加予定|別途|follow[\s-]?up|後で/i;
+/**
+ * #1539: AC マップ 4 列目（結果/エビデンス列）の未完了表記検出パターン。
+ *
+ * **`follow[\s-]up`（区切り 1 文字必須）の意図（#3488 BLOCK fix）**:
+ * `?` で区切りを optional にすると、区切り無しの slug `followup` が部分一致してしまい
+ * `docs/research/2026-06-29-followup-treadmill-root-cause.md` のような**完了済エビデンス参照の
+ * ファイル名**を未完了表記として誤検出していた（false-positive → gate fail）。
+ * 未完了マーカーとしての「follow-up」「follow up」は語間に区切り（空白 or ハイフン）を必ず持つため、
+ * 区切り 1 文字必須にすれば slug `followup` を除外しつつ「別途 follow-up で対応」等は検出し続ける。
+ * 拡張子 whitelist による strip 前処理は脆く（bypass + 非収録拡張子の FP）、撤去して生 cell に
+ * 本パターンを直接適用する方針に戻した（#3488）。
+ */
+const TODO_PATTERN = /todo|予定|追加予定|別途|follow[\s-]up|後で/i;
 
 /** integration lane の「残 NG 0 件」明示を検出するパターン（audit-team.md §3.5 #5）。 */
 const NG_ZERO_PATTERN = /残\s*NG\s*(?:合計\s*)?0\s*件|残\s*NG[^\n|]*[:：]?\s*0\b|NG\s*0\s*件/;

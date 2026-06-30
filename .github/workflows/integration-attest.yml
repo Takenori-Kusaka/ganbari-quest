@@ -68,7 +68,7 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Classify push (統合 merge 判定)
         id: classify
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           DISPATCH_SHA: ${{ inputs.sha }}
         with:
@@ -243,7 +243,7 @@ jobs:
         id: attest
         if: steps.classify.outputs.is_integration == 'true'
         continue-on-error: true
-        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
         with:
           subject-name: ${{ github.repository }}@${{ steps.classify.outputs.merge_sha }}
           subject-digest: sha1:${{ steps.classify.outputs.merge_sha }}

@@ -112,8 +112,10 @@ jobs:
 
           # develop に merge された PR (mergedAt が前回統合以降) を JSON 取得。
           # gh pr list の searchで base=develop + merged を絞る。--json で機械可読化 (AC3)。
+          # #3423: body も取得し、含有 PR の closing keyword (closes/fixes/resolves #N) を
+          # 統合 PR 本文へ Closes 集約する (main merge 時 auto-close で close漏れを構造的に防ぐ)。
           gh pr list --base develop --state merged --limit 200 \
-            --json number,title,headRefName,labels,mergedAt \
+            --json number,title,headRefName,labels,mergedAt,body \
             --jq "[.[] | select(.mergedAt >= \"$SINCE_ISO\")]" > /tmp/develop-merged.json
           echo "含有候補 PR 件数: $(jq 'length' /tmp/develop-merged.json)"
 
@@ -207,7 +209,7 @@ jobs:
           steps.diff.outputs.has_diff == 'true' &&
           inputs.dry_run != 'true' &&
           steps.appcreds.outputs.present == 'true'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         with:

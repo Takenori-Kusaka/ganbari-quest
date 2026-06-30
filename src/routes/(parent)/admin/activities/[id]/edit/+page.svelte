@@ -23,22 +23,30 @@ const a = $derived(data.activity);
 // svelte-ignore state_referenced_locally
 const parsed = splitIcon(data.activity.icon);
 
+// svelte-ignore state_referenced_locally
 let editName = $state(a.name);
+// svelte-ignore state_referenced_locally
 let editCategoryId = $state(a.categoryId);
 let editMainIcon = $state(parsed.main);
 let editSubIcon = $state(parsed.sub ?? '');
 const editIcon = $derived(joinIcon(editMainIcon, editSubIcon || null));
+// svelte-ignore state_referenced_locally
 let editPoints = $state(a.basePoints);
 // #2362 PR-3 Phase 7b-2c: ChildActivity は ageMin/ageMax を持たないため空初期化。
 // per-child instance 移行後は年齢 filter 概念が消えるため、edit UI 上は空入力 = 制限なし扱い。
 // Phase 7b-2d 以降で UI から age 入力欄を撤去予定。
 let editAgeMin = $state('');
 let editAgeMax = $state('');
+// svelte-ignore state_referenced_locally
 let editDailyLimit = $state<string>(a.dailyLimit != null ? String(a.dailyLimit) : '');
+// svelte-ignore state_referenced_locally
 let editNameKana = $state(a.nameKana ?? '');
+// svelte-ignore state_referenced_locally
 let editNameKanji = $state(a.nameKanji ?? '');
+// svelte-ignore state_referenced_locally
 let editTriggerHint = $state(a.triggerHint ?? '');
 // #1756 (#1709-B): must トグル
+// svelte-ignore state_referenced_locally
 let editIsMust = $state(a.priority === 'must');
 let saving = $state(false);
 </script>

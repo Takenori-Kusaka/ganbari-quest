@@ -104,7 +104,7 @@ jobs:
 
       # Step 4: AWS OIDC 認証 (deploy.yml と同 action / 同 secret)
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@254c19bd240aabef8777f48595e9d2d7b972184b # v6.2.1
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAMROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -160,7 +160,7 @@ jobs:
       # staging push が侵食するため、staging 専用 repo ganbari-quest-staging に push する)。
       - name: Login to Amazon ECR
         id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
 
       - name: Install app dependencies
         run: npm ci
@@ -174,7 +174,7 @@ jobs:
         uses: docker/setup-buildx-action@v4
 
       - name: Build and push Docker image (staging)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: .
           file: Dockerfile.lambda

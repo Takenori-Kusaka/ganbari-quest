@@ -401,6 +401,18 @@ export interface InsertChildActivityInput {
 	isMainQuest?: number;
 	sourcePresetId?: string | null;
 	priority?: ActivityPriority;
+	// #3358: backup → restore round-trip で表示状態 / 並び順 / アーカイブ状態を保全する
+	// (省略時は schema default = 表示 / 並び順 0 / 非アーカイブ)。archived 活動が import 後に
+	// active へ復活する silent なデータ破綻 (第10回監査 data-5) を防ぐ。
+	isVisible?: number;
+	sortOrder?: number;
+	isArchived?: number;
+	archivedReason?: string | null;
+	// #3422: 親が設定する 1 日上限 / 読み仮名 / 漢字表記。child_activities 列は存在するが
+	// 旧 service が drop しており常に null (= ProdDashboardSections で dailyLimit ?? 1 固定) だった。
+	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface UpdateChildActivityInput {
@@ -411,6 +423,10 @@ export interface UpdateChildActivityInput {
 	triggerHint?: string | null;
 	isMainQuest?: number;
 	priority?: ActivityPriority;
+	// #3422: dailyLimit / nameKana / nameKanji の編集を persist する (旧実装は silent drop)。
+	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface InsertActivityLogInput {

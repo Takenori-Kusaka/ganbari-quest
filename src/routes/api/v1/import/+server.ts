@@ -6,6 +6,7 @@ import { IMPORT_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
+import { type ParsedBackupZip, parseBackupZip } from '$lib/server/services/backup-archive';
 import { clearAllFamilyData } from '$lib/server/services/data-service';
 import {
 	importFamilyData,
@@ -15,36 +16,25 @@ import {
 } from '$lib/server/services/import-service';
 import type { RequestHandler } from './$types';
 
-// #3077: ZIP インポートの上限。export ZIP (export/+server.ts MAX_ZIP_SIZE) と整合させる。
+// #3077: ZIP インポートの上限。export ZIP (backup-archive MAX_ZIP_SIZE) と整合させる。
 const MAX_IMPORT_BYTES = 100 * 1024 * 1024; // 100MB
-
-// #3078 zip-bomb 防御: 圧縮入力 (MAX_IMPORT_BYTES) だけでなく、展開後 (uncompressed) のサイズも制限する。
-//   fflate.unzipSync は圧縮入力サイズしか見ないため、高圧縮率の ZIP で巨大展開 → OOM を招きうる。
-const MAX_ENTRY_UNCOMPRESSED_BYTES = 25 * 1024 * 1024; // エントリ単体上限 25MB
-const MAX_TOTAL_UNCOMPRESSED_BYTES = 200 * 1024 * 1024; // 展開後合計上限 200MB
-
-interface ParsedImport {
-	body: unknown;
-	/** #3077: ZIP 同梱の静的ファイル (相対パス → bytes)。JSON-only では undefined。 */
-	staticFiles?: Record<string, Uint8Array>;
-}
 
 /**
  * リクエスト本文を JSON / ZIP のいずれかとして解析する (#3077)。
- * - `application/zip`: `fflate.unzipSync` で展開し、`data.json` を export body に、
- *   それ以外 (`avatars/**` / `voices/**` 等) を静的ファイルとして返す。
+ * - `application/zip`: #3376 で共通化した `parseBackupZip` で展開 + zip-bomb 防御 +
+ *   #3375 manifest 整合性検証を行い、`data.json` を body に、静的ファイルを staticFiles に返す。
  * - それ以外: JSON として解析 (後方互換)。
  */
 async function parseImportRequest(
 	request: Request,
-): Promise<{ ok: true; value: ParsedImport } | { ok: false; error: string }> {
+): Promise<{ ok: true; value: ParsedBackupZip } | { ok: false; error: string }> {
 	const contentType = request.headers.get('content-type') ?? '';
 	const isZip =
 		contentType.includes('application/zip') || contentType.includes('application/octet-stream');
 
 	if (!isZip) {
 		try {
-			return { ok: true, value: { body: await request.json() } };
+			return { ok: true, value: { body: await request.json(), staticFiles: {} } };
 		} catch {
 			return { ok: false, error: 'JSONの解析に失敗しました' };
 		}
@@ -55,48 +45,7 @@ async function parseImportRequest(
 		return { ok: false, error: 'ファイルサイズが大きすぎます（最大100MB）' };
 	}
 
-	let entries: Record<string, Uint8Array>;
-	try {
-		const { unzipSync } = await import('fflate');
-		// #3078 zip-bomb 防御: filter で central directory の originalSize を見て、
-		//   per-entry 上限を超えるエントリは展開せず弾く (高圧縮率の巨大展開 → OOM 阻止)。
-		entries = unzipSync(new Uint8Array(buffer), {
-			filter: (file) => file.originalSize <= MAX_ENTRY_UNCOMPRESSED_BYTES,
-		});
-	} catch {
-		return { ok: false, error: 'ZIPの解凍に失敗しました' };
-	}
-
-	// #3078 zip-bomb 防御: 展開後合計サイズが上限を超える ZIP を拒否する。
-	let totalUncompressed = 0;
-	for (const bytes of Object.values(entries)) {
-		totalUncompressed += bytes.length;
-		if (totalUncompressed > MAX_TOTAL_UNCOMPRESSED_BYTES) {
-			return { ok: false, error: '展開後のファイルサイズが大きすぎます（最大200MB）' };
-		}
-	}
-
-	const dataJson = entries['data.json'];
-	if (!dataJson) {
-		return { ok: false, error: 'ZIP内に data.json が見つかりません' };
-	}
-
-	let body: unknown;
-	try {
-		body = JSON.parse(new TextDecoder().decode(dataJson));
-	} catch {
-		return { ok: false, error: 'data.json の解析に失敗しました' };
-	}
-
-	const staticFiles: Record<string, Uint8Array> = {};
-	for (const [path, bytes] of Object.entries(entries)) {
-		if (path === 'data.json') continue;
-		// ディレクトリエントリ (末尾 /) や空ファイルは無視
-		if (path.endsWith('/') || bytes.length === 0) continue;
-		staticFiles[path] = bytes;
-	}
-
-	return { ok: true, value: { body, staticFiles } };
+	return parseBackupZip(new Uint8Array(buffer));
 }
 
 /** POST /api/v1/import?mode=preview|execute|replace */

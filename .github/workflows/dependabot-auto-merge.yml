@@ -26,7 +26,9 @@ jobs:
     steps:
       - name: Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v3
+        # SHA pin 必須 (#3489): pull-requests/contents write + auto-merge 起動 context のため、
+        # tag 再付け替え時の出力偽造 (update-type 偽装 → 悪性 bump 自動 merge) を防ぐ。
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 

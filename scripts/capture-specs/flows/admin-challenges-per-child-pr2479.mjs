@@ -79,33 +79,12 @@ export default async (page, capture) => {
 	);
 	await capture('pr2479-admin-challenges-child-tab-903');
 
-	// --- 3) 作成フォーム展開: childIds 複数選択 checkbox UI ---
-	// PR-7 で導入された「対象お子さま (cooperative 設計 + 兄弟連動表示)」fieldset を確認
-	await page.goto(`${BASE_URL}/admin/challenges?screenshot=all`);
-	await page.waitForLoadState('networkidle');
-	await waitForChildTabs(page);
-	// 「＋ 新規チャレンジ」ボタンをクリック (creating = true)
-	// CHALLENGES_LABELS.createButton = '＋ 新規チャレンジ' (labels.ts L2726)
-	const createBtn = page.getByRole('button', { name: /新規チャレンジ/ }).first();
-	await createBtn.click({ timeout: 10_000 }).catch(() => {});
-	await page
-		.locator('[data-testid="admin-challenges-create-form"]')
-		.waitFor({ state: 'visible', timeout: 10_000 })
-		.catch(() => {});
-	// scroll form into view (mobile / desktop で form 全体が見えるよう)
-	await page
-		.locator('[data-testid="admin-challenges-create-form"]')
-		.scrollIntoViewIfNeeded()
-		.catch(() => {});
-	await page.evaluate(
-		() =>
-			new Promise((resolve) =>
-				requestAnimationFrame(() => requestAnimationFrame(() => resolve(undefined))),
-			),
-	);
-	await capture('pr2479-admin-challenges-create-form-with-child-checkboxes');
+	// #3344: 旧「3) 作成フォーム展開」step は撤去。チャレンジは #3195/#3231 で自動生成一本化 +
+	// 読取専用ビュー化され「＋ 新規チャレンジ」ボタン / create-form (testid
+	// `admin-challenges-create-form`) は削除済。dead な click → catch 握りつぶしで空 SS を量産する
+	// だけのため step ごと除去した (撮影対象は 兄弟連動 group の閲覧表示に限定)。
 
-	// --- 4) SiblingChallengeComparison focus: 兄弟連動 group の scroll-into-view ---
+	// --- 3) SiblingChallengeComparison focus: 兄弟連動 group の scroll-into-view ---
 	// 兄弟連動 UI 単体を強調撮影 (903/902/904 progress bar の 3 行を強調)
 	await page.goto(`${BASE_URL}/admin/challenges?screenshot=all`);
 	await page.waitForLoadState('networkidle');

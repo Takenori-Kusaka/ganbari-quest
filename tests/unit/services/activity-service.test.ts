@@ -141,6 +141,48 @@ describe('activity-service', () => {
 		expect(updated?.name).toBe('ラジオたいそう');
 	});
 
+	// #3484 (ADR-0061 push-down / same-class→guard): dailyLimit / nameKana / nameKanji の値検証を
+	// service 層 (createActivity / updateActivity) の単一強制点に push-down した不変条件を fitness
+	// function として lock する。callsite が sanitize を配線していなくても service が必ず clamp するため、
+	// 新規 form callsite で検証漏れが起きても本 test が検出する (instance パッチでなく class を lock)。
+	it('#3484: createActivity が範囲外 dailyLimit / 巨大 nameKana を service 層で clamp する', async () => {
+		const created = await createActivity(
+			{
+				name: 'けんしょう',
+				categoryId: 2,
+				icon: '🔢',
+				basePoints: 5,
+				ageMin: null,
+				ageMax: null,
+				dailyLimit: 1000, // 範囲外 (max 99)
+				nameKana: 'あ'.repeat(120), // max 50 超
+				nameKanji: 'い'.repeat(120),
+			},
+			'test-tenant',
+		);
+		expect(created.dailyLimit).toBe(99); // [0,99] に clamp
+		expect(created.nameKana).toHaveLength(50); // max 50 に切詰め
+		expect(created.nameKanji).toHaveLength(50);
+	});
+
+	it('#3484: updateActivity も範囲外 dailyLimit / 巨大 nameKana を service 層で clamp する', async () => {
+		// 前テスト state 非依存にするため fresh に作成してから更新する。
+		const created = await createActivity(
+			{ name: 'こうしん', categoryId: 2, icon: '🔧', basePoints: 5, ageMin: null, ageMax: null },
+			'test-tenant',
+		);
+		const updated = await updateActivity(
+			created.id,
+			{ dailyLimit: 1000, nameKana: 'う'.repeat(80) },
+			'test-tenant',
+		);
+		expect(updated?.dailyLimit).toBe(99); // 上限超 → 99 に clamp
+		expect(updated?.nameKana).toHaveLength(50);
+		// 負値は安全既定 null (= 1 回固定。無制限 0 への昇格を避ける) になることも確認
+		const neg = await updateActivity(created.id, { dailyLimit: -5 }, 'test-tenant');
+		expect(neg?.dailyLimit).toBeNull();
+	});
+
 	// UT-ACT-08: 活動表示/非表示切替
 	it('UT-ACT-08: 活動表示/非表示切替', async () => {
 		const hidden = await setActivityVisibility(1, false, 'test-tenant');

@@ -6,6 +6,12 @@
 //
 // 旧 sibling_challenges / sibling_challenge_progress は #2458 (Path B sibling drop, 2026-05-26) で
 // 物理 drop 済。本 repo が単一の challenge 経路。
+//
+// tenant isolation について (#3203 item3): `childChallenges` table に tenant_id 列は無く、SQLite は
+// 1 process = 1 DB = 1 tenant のため `_tenantId` 引数は意図的 no-op。DynamoDB repo は PK に tenant を
+// 含み tenant-scoped だが、SQLite で対称化するには列追加 + 全 backend migration が必要で、childId は
+// DB 内 autoincrement unique のため cross-tenant exploit は構造的に不能 (= 防御価値ゼロ)。よって列追加は
+// ADR-0010 Pre-PMF 過剰防衛として採らず、本コメントで非対称の根拠を明示する (#3203 QM follow-up 裁定)。
 
 import { and, eq, gte, inArray, lte } from 'drizzle-orm';
 import { db } from '../client';
@@ -119,6 +125,45 @@ export async function insert(
 		.returning()
 		.get();
 	if (!row) throw new Error('insert: insert returned no row');
+	return row;
+}
+
+/**
+ * #3329 backup restore 用: 進捗 / 完了 / 請求 / status / 日時を含む全フィールドを保全して復元する。
+ * insert と異なり currentValue / completed / rewardClaimed / createdAt 等を引数の値のまま書き戻す。
+ * id は新規採番 (元 id は保全しない、childId は呼び出し側が解決済)。
+ */
+export async function insertForRestore(
+	input: Omit<ChildChallenge, 'id'>,
+	_tenantId: string,
+): Promise<ChildChallenge> {
+	const row = db
+		.insert(childChallenges)
+		.values({
+			childId: input.childId,
+			title: input.title,
+			description: input.description,
+			challengeType: input.challengeType,
+			periodType: input.periodType,
+			startDate: input.startDate,
+			endDate: input.endDate,
+			targetConfig: input.targetConfig,
+			rewardConfig: input.rewardConfig,
+			status: input.status,
+			isActive: input.isActive,
+			sourceTemplateId: input.sourceTemplateId,
+			currentValue: input.currentValue,
+			targetValue: input.targetValue,
+			completed: input.completed,
+			completedAt: input.completedAt,
+			rewardClaimed: input.rewardClaimed,
+			rewardClaimedAt: input.rewardClaimedAt,
+			createdAt: input.createdAt,
+			updatedAt: input.updatedAt,
+		})
+		.returning()
+		.get();
+	if (!row) throw new Error('insertForRestore: insert returned no row');
 	return row;
 }
 

@@ -1,7 +1,7 @@
 // tests/unit/services/cohort-analysis-service.test.ts
 // コホート別 LTV / チャーン率推移サービスのユニットテスト (#838)
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '../../../src/lib/server/auth/entities';
@@ -63,9 +63,23 @@ function firstCohort(cohorts: Awaited<ReturnType<typeof getCohortAnalysis>>['coh
 // =============================================================
 
 describe('getCohortAnalysis', () => {
+	// 日付固定クロック (#2078 cohort flake の根治): 本サービスは getSignupMonth が
+	// `createdAt.slice(0,7)` (UTC) でコホート月を決める一方、targetMonths / 各テストの
+	// 月計算は `getMonth()` (ローカル=JST) を使う。両者が混在するため、実日付が UTC↔JST の
+	// 月境界を跨ぐ日 (例: 2026-06-29 の「120 日前」= 2026-03-01) には、テナントが UTC 月の
+	// コホートに入るのにテスト/targetMonths はローカル月を探す mismatch で retention が null になり、
+	// 日付依存 flake を起こす。境界に十分余裕のある月央・正午 UTC に固定して決定的にする
+	// (この時刻なら UTC と JST で年月が常に一致し、120 日前も月央のままで境界を跨がない)。
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockIsStripeEnabled.mockReturnValue(false);
+		// Date のみ偽装 (setTimeout 等は本物のまま = async hang 回避)。
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it('テナントが 0 件の場合、空のコホートが返る', async () => {

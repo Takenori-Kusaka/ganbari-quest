@@ -6,6 +6,7 @@ import Button from '$lib/ui/primitives/Button.svelte';
 let { data } = $props();
 
 let selectedItems = $state<Set<string>>(new Set());
+// svelte-ignore state_referenced_locally
 let selectedChildId = $state<number>(data.children[0]?.id ?? 0);
 let submitting = $state(false);
 let skipMode = $state(false);

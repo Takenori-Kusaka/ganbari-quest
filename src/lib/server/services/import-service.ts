@@ -1,9 +1,18 @@
 // src/lib/server/services/import-service.ts
 // 家族データインポートサービス（Phase 2 / #1254）
 
-import { EXPORT_FORMAT, EXPORT_VERSION, type ExportData } from '$lib/domain/export-format';
+import {
+	EXPORT_FORMAT,
+	EXPORT_VERSION,
+	type ExportData,
+	isExportableSettingKey,
+} from '$lib/domain/export-format';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
-import { CATEGORY_CODES } from '$lib/domain/validation/activity';
+import {
+	CATEGORY_CODES,
+	sanitizeActivityNameField,
+	sanitizeDailyLimit,
+} from '$lib/domain/validation/activity';
 import {
 	findActivities,
 	findActivityLogs,
@@ -14,15 +23,18 @@ import {
 	assignTemplateToChildren,
 	findLogsByChild,
 	findTemplatesByChild,
+	insertOverrideForRestore,
 	insertTemplate,
 	insertTemplateItem,
 	upsertLog,
 } from '$lib/server/db/checklist-repo';
 import { insertChild } from '$lib/server/db/child-repo';
-import { insertEvaluation } from '$lib/server/db/evaluation-repo';
+import { insertEvaluation, insertRestDayForRestore } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { updateChildAvatarUrl } from '$lib/server/db/image-repo';
 import { findRecentBonuses, insertLoginBonus } from '$lib/server/db/login-bonus-repo';
+import { insertRedemptionForRestore } from '$lib/server/db/reward-redemption-repo';
+import { setSetting } from '$lib/server/db/settings-repo';
 import { findSpecialRewards, insertSpecialReward } from '$lib/server/db/special-reward-repo';
 import { insertStatusHistory, upsertStatus } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
@@ -50,6 +62,38 @@ export interface ImportResult {
 	titlesImported: number;
 	specialRewardsImported: number;
 	specialRewardsSkipped: number;
+	/** #3329: ごほうびショップ交換/購入履歴の取込件数 */
+	rewardRedemptionsImported: number;
+	rewardRedemptionsSkipped: number;
+	/** #3329: per-child チャレンジ instance の取込件数 (auto:weekly 含む) */
+	childChallengesImported: number;
+	childChallengesSkipped: number;
+	/** #3329: スタンプカード / 押印 entry の取込件数 */
+	stampCardsImported: number;
+	stampCardsSkipped: number;
+	stampEntriesImported: number;
+	stampEntriesSkipped: number;
+	/** #3329: per-child 証明書の取込件数 */
+	certificatesImported: number;
+	certificatesSkipped: number;
+	/** #3329: 親→子おうえんメッセージの取込件数 */
+	parentMessagesImported: number;
+	parentMessagesSkipped: number;
+	/** #3329: きょうだい間おうえんスタンプの取込件数 */
+	siblingCheersImported: number;
+	siblingCheersSkipped: number;
+	/** #3329: per-child 活動設定 (ピン留め) の取込件数 */
+	activityPrefsImported: number;
+	activityPrefsSkipped: number;
+	/** #3329: per-child チェックリスト日次 override の取込件数 */
+	checklistOverridesImported: number;
+	checklistOverridesSkipped: number;
+	/** #3329: per-child おやすみ日の取込件数 (DynamoDB では no-op で skip) */
+	restDaysImported: number;
+	restDaysSkipped: number;
+	/** #3329: 子のカスタム音声 DB 行の取込件数 (ファイル本体は #3077 が復元) */
+	childVoicesImported: number;
+	childVoicesSkipped: number;
 	loginBonusesImported: number;
 	loginBonusesSkipped: number;
 	statusHistoryImported: number;
@@ -60,6 +104,9 @@ export interface ImportResult {
 	/** #3078: チェックリスト完了履歴 */
 	checklistLogsImported: number;
 	checklistLogsSkipped: number;
+	/** #3329: 各種設定 (allowlist 済キーのみ取込)。skip = allowlist 外で書き戻し拒否したキー */
+	settingsImported: number;
+	settingsSkipped: number;
 	/** #3077: ZIP 同梱の静的ファイル (アバター画像 / 音声) の復元件数 */
 	staticFilesRestored: number;
 	staticFilesSkipped: number;
@@ -120,9 +167,9 @@ export function validateExportData(
 	if (d.format !== EXPORT_FORMAT) {
 		return { valid: false, error: `フォーマットが不正です（期待: ${EXPORT_FORMAT}）` };
 	}
-	// #3106/#3107: EXPORT_VERSION を 1.3.0 に bump したが、既存 1.2.0 backup も import 可能に保つ
-	// (新 field はすべて optional で後方互換)。
-	const supportedVersions = [EXPORT_VERSION, '1.2.0', '1.1.0', '1.0.0'];
+	// #3106/#3107: EXPORT_VERSION を bump しても既存 backup を import 可能に保つ
+	// (新 field はすべて optional で後方互換)。#3358 で 1.5.0、#3422 で 1.6.0 へ bump。旧版も明示維持。
+	const supportedVersions = [EXPORT_VERSION, '1.5.0', '1.4.0', '1.3.0', '1.2.0', '1.1.0', '1.0.0'];
 	if (!supportedVersions.includes(d.version as string)) {
 		return {
 			valid: false,
@@ -252,14 +299,38 @@ export async function importFamilyData(
 
 	await importStatusesData(data, childIdMap, tenantId, result);
 	await importActivityLogsData(data, childIdMap, activityLookupByChild, tenantId, result);
+	// #3329: per-child 活動設定 (ピン留め)。activityName を取込先 childActivity に再解決して復元。
+	// 活動 lookup (name→新 id) が必要なので buildActivityLookupByChild の後に実行する。
+	await importActivityPrefsData(data, childIdMap, activityLookupByChild, tenantId, result);
 	await importPointLedgerData(data, childIdMap, tenantId, result);
 	await importLoginBonusesData(data, childIdMap, tenantId, result);
 	const templateIdMap = await importChecklistTemplatesData(data, childIdMap, tenantId, result);
 	await importChecklistLogsData(data, childIdMap, templateIdMap, tenantId, result);
+	// #3329: チェックリスト日次 override を createdAt 保全で復元。childIdMap のみ必要。
+	await importChecklistOverridesData(data, childIdMap, tenantId, result);
+	// #3329: おやすみ日を createdAt 保全で復元。childIdMap のみ必要 (DynamoDB では insert が no-op)。
+	await importRestDaysData(data, childIdMap, tenantId, result);
+	// #3329: 子のカスタム音声 DB 行を復元 (filePath/publicUrl を新 tenant+childId へ remap)。childIdMap のみ必要。
+	await importChildVoicesData(data, childIdMap, tenantId, result);
 	await importSpecialRewards(data, childIdMap, tenantId, result);
+	// #3329: ごほうび交換/購入履歴。reward を先に取込済 (FK rewardRef → rewardId を再解決) なので
+	// importSpecialRewards の後に実行する。
+	await importRewardRedemptionsData(data, childIdMap, tenantId, result);
+	// #3329: per-child チャレンジ (auto:weekly 含む) を進捗/完了/請求保全で復元。childIdMap のみ必要。
+	await importChildChallengesData(data, childIdMap, tenantId, result);
+	// #3329: スタンプカード + 押印。card を復元 → 新 cardId に entry を貼り直す。childIdMap のみ必要。
+	await importStampCardsData(data, childIdMap, tenantId, result);
+	// #3329: 証明書 (がんばり/卒業証明書 授与記録) を issuedAt 保全で復元。childIdMap のみ必要。
+	await importCertificatesData(data, childIdMap, tenantId, result);
+	// #3329: 親→子おうえんメッセージを sentAt/shownAt 保全で復元。childIdMap のみ必要。
+	await importParentMessagesData(data, childIdMap, tenantId, result);
+	// #3329: きょうだい間おうえんスタンプ。from/to 両 childRef を解決して復元。childIdMap のみ必要。
+	await importSiblingCheersData(data, childIdMap, tenantId, result);
 	await importStatusHistoryData(data, childIdMap, tenantId, result);
 	// #3327/#3328: 評価 (週次評価) の取込。従来 import 関数が無く restore で全喪失していた網羅漏れを解消。
 	await importEvaluationsData(data, childIdMap, tenantId, result);
+	// #3329: 各種設定 (tenant-scoped KVS)。allowlist 再 filter で秘匿キーを書き戻さない多層防御。
+	await importSettingsData(data, tenantId, result);
 
 	// #3077: ZIP 同梱の静的ファイル (アバター画像 / 音声) を新 childId に再マップして復元。
 	if (staticFiles && Object.keys(staticFiles).length > 0) {
@@ -308,6 +379,531 @@ async function importEvaluationsData(
 	}
 }
 
+/**
+ * ごほうびショップ交換/購入履歴を復元する (#3329)。
+ * FK rewardId は import で振り直されるため、export の `rewardRef` (reward title) を取込先 child の
+ * reward 一覧から再解決して結合する。reward が解決できない行 (元 reward 未取込/同名衝突) は
+ * skip + warning (FK NOT NULL を満たせないため。残高への影響は別途 pointLedger が真実を持つ)。
+ * status / 解決情報 / snapshot は insertRedemptionForRestore で申請時点のまま書き戻す。
+ */
+async function importRewardRedemptionsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	const redemptions = data.data.rewardRedemptions ?? [];
+	if (redemptions.length === 0) return;
+
+	// 取込先 child ごとに reward title → rewardId の lookup を構築する (新規 insert + 既存 dedup 双方を含む)。
+	const rewardIdByChildTitle = new Map<number, Map<string, number>>();
+	async function rewardLookup(childId: number): Promise<Map<string, number>> {
+		let map = rewardIdByChildTitle.get(childId);
+		if (!map) {
+			const rows = await findSpecialRewards(childId, tenantId);
+			map = new Map(rows.map((r) => [r.title, r.id]));
+			rewardIdByChildTitle.set(childId, map);
+		}
+		return map;
+	}
+
+	for (const r of redemptions) {
+		const childId = childIdMap.get(r.childRef);
+		if (!childId) {
+			result.rewardRedemptionsSkipped++;
+			continue;
+		}
+		const rewardId = (await rewardLookup(childId)).get(r.rewardRef);
+		if (!rewardId) {
+			result.rewardRedemptionsSkipped++;
+			result.warnings.push(
+				`交換履歴スキップ: ごほうび「${r.rewardRef}」(child=${r.childRef}) が取込先に見つかりません`,
+			);
+			continue;
+		}
+		try {
+			await insertRedemptionForRestore(
+				{
+					childId,
+					rewardId,
+					requestedAt: r.requestedAt,
+					status: r.status,
+					parentNote: r.parentNote,
+					resolvedAt: r.resolvedAt,
+					resolvedByParentId: r.resolvedByParentId,
+					shownToChildAt: r.shownToChildAt,
+					rewardTitle: r.rewardTitle,
+					rewardPoints: r.rewardPoints,
+					rewardIcon: r.rewardIcon,
+				},
+				tenantId,
+			);
+			result.rewardRedemptionsImported++;
+		} catch (e) {
+			result.rewardRedemptionsSkipped++;
+			result.errors.push(
+				`交換履歴 insert 失敗 (child=${r.childRef}, reward=${r.rewardRef}): ${String(e)}`,
+			);
+		}
+	}
+}
+
+/**
+ * 各種設定 (tenant-scoped KVS) を復元する (#3329)。
+ * export 側で allowlist (EXPORTABLE_SETTING_KEYS) 済だが、import でも `isExportableSettingKey` で
+ * **再 filter** する (改竄 backup / 旧 backup に pin_hash・session_token 等が混在しても書き戻さない
+ * 多層防御、CWE-522/916・設計 D3)。allowlist 外キーは settingsSkipped として可視化する。
+ */
+async function importSettingsData(
+	data: ExportData,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const s of data.data.settings ?? []) {
+		if (!isExportableSettingKey(s.key)) {
+			// 秘匿 / 非 allowlist キーは書き戻さない (多層防御)。
+			result.settingsSkipped++;
+			result.warnings.push(`設定「${s.key}」は backup 対象外のためスキップしました`);
+			continue;
+		}
+		try {
+			await setSetting(s.key, s.value, tenantId);
+			result.settingsImported++;
+		} catch (e) {
+			result.settingsSkipped++;
+			result.errors.push(`設定「${s.key}」の取込に失敗: ${String(e)}`);
+		}
+	}
+}
+
+/**
+ * per-child チャレンジ instance を復元する (#3329)。
+ * childId は import で振り直されるため childRef で取込先 child に解決し、insertForRestore で
+ * 進捗 (currentValue/completed) / 請求 (rewardClaimed) / status / 日時を申請時点のまま書き戻す。
+ * auto:weekly 行 (sourceTemplateId='auto:weekly') も同テーブルの行として保全される。
+ */
+async function importChildChallengesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const c of data.data.childChallenges ?? []) {
+		const childId = childIdMap.get(c.childRef);
+		if (!childId) {
+			result.childChallengesSkipped++;
+			continue;
+		}
+		try {
+			await getRepos().childChallenge.insertForRestore(
+				{
+					childId,
+					title: c.title,
+					description: c.description,
+					challengeType: c.challengeType,
+					periodType: c.periodType,
+					startDate: c.startDate,
+					endDate: c.endDate,
+					targetConfig: c.targetConfig,
+					rewardConfig: c.rewardConfig,
+					status: c.status,
+					isActive: c.isActive,
+					sourceTemplateId: c.sourceTemplateId,
+					currentValue: c.currentValue,
+					targetValue: c.targetValue,
+					completed: c.completed,
+					completedAt: c.completedAt,
+					rewardClaimed: c.rewardClaimed,
+					rewardClaimedAt: c.rewardClaimedAt,
+					createdAt: c.createdAt,
+					updatedAt: c.updatedAt,
+				},
+				tenantId,
+			);
+			result.childChallengesImported++;
+		} catch (e) {
+			result.childChallengesSkipped++;
+			result.errors.push(
+				`チャレンジ insert 失敗 (child=${c.childRef}, title=${c.title}): ${String(e)}`,
+			);
+		}
+	}
+}
+
+/**
+ * スタンプカード + 押印 entry を復元する (#3329)。
+ * childRef で取込先 child に解決し insertCardForRestore で card (status/redeemed/日時) を復元、
+ * 返却された新 cardId に各 entry を insertEntryForRestore で貼り直す (earnedAt 保全)。
+ * entry の stampMasterId はグローバル master を指すため値のまま書き戻すが、対象環境に存在しない
+ * 場合は FK で insert 失敗 → 当該 entry のみ skip+warning (card と他 entry は保全)。
+ */
+async function importStampCardsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	const repo = getRepos().stampCard;
+	for (const card of data.data.stampCards ?? []) {
+		const childId = childIdMap.get(card.childRef);
+		if (!childId) {
+			result.stampCardsSkipped++;
+			continue;
+		}
+		let newCardId: number;
+		try {
+			const restored = await repo.insertCardForRestore(
+				{
+					childId,
+					weekStart: card.weekStart,
+					weekEnd: card.weekEnd,
+					status: card.status,
+					redeemedPoints: card.redeemedPoints,
+					redeemedAt: card.redeemedAt,
+					createdAt: card.createdAt,
+					updatedAt: card.updatedAt,
+				},
+				tenantId,
+			);
+			newCardId = restored.id;
+			result.stampCardsImported++;
+		} catch (e) {
+			result.stampCardsSkipped++;
+			result.errors.push(
+				`スタンプカード insert 失敗 (child=${card.childRef}, week=${card.weekStart}): ${String(e)}`,
+			);
+			continue;
+		}
+		for (const entry of card.entries) {
+			try {
+				await repo.insertEntryForRestore(
+					{
+						cardId: newCardId,
+						stampMasterId: entry.stampMasterId,
+						omikujiRank: entry.omikujiRank,
+						slot: entry.slot,
+						loginDate: entry.loginDate,
+						earnedAt: entry.earnedAt,
+					},
+					tenantId,
+				);
+				result.stampEntriesImported++;
+			} catch (e) {
+				result.stampEntriesSkipped++;
+				result.errors.push(
+					`スタンプ押印 insert 失敗 (child=${card.childRef}, slot=${entry.slot}): ${String(e)}`,
+				);
+			}
+		}
+	}
+}
+
+/**
+ * 証明書 (がんばり/卒業証明書 授与記録) を復元する (#3329)。
+ * childRef で取込先 child に解決し insertForRestore で issuedAt / metadata を保全して書き戻す。
+ * tenantId は復元先のものを使う (証明書は per-child の授与記録、id/tenantId は env 固有)。
+ * 同 child + certificateType の重複は onConflictDoNothing で skip (null 返却 → skip カウント)。
+ */
+async function importCertificatesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const cert of data.data.certificates ?? []) {
+		const childId = childIdMap.get(cert.childRef);
+		if (!childId) {
+			result.certificatesSkipped++;
+			continue;
+		}
+		try {
+			const restored = await getRepos().certificate.insertForRestore(
+				{
+					childId,
+					certificateType: cert.certificateType,
+					title: cert.title,
+					description: cert.description,
+					issuedAt: cert.issuedAt,
+					metadata: cert.metadata,
+				},
+				tenantId,
+			);
+			if (restored) result.certificatesImported++;
+			else result.certificatesSkipped++;
+		} catch (e) {
+			result.certificatesSkipped++;
+			result.errors.push(
+				`証明書 insert 失敗 (child=${cert.childRef}, type=${cert.certificateType}): ${String(e)}`,
+			);
+		}
+	}
+}
+
+/**
+ * 親→子おうえんメッセージ (stamp/text/reward_notice) を復元する (#3329)。
+ * childRef で取込先 child に解決し insertForRestore で sentAt / shownAt (既読) を保全して書き戻す。
+ */
+async function importParentMessagesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const m of data.data.parentMessages ?? []) {
+		const childId = childIdMap.get(m.childRef);
+		if (!childId) {
+			result.parentMessagesSkipped++;
+			continue;
+		}
+		try {
+			await getRepos().message.insertForRestore(
+				{
+					childId,
+					messageType: m.messageType,
+					stampCode: m.stampCode,
+					body: m.body,
+					icon: m.icon,
+					sentAt: m.sentAt,
+					shownAt: m.shownAt,
+					bonusPoints: m.bonusPoints,
+					rewardCategory: m.rewardCategory,
+				},
+				tenantId,
+			);
+			result.parentMessagesImported++;
+		} catch (e) {
+			result.parentMessagesSkipped++;
+			result.errors.push(
+				`メッセージ insert 失敗 (child=${m.childRef}, type=${m.messageType}): ${String(e)}`,
+			);
+		}
+	}
+}
+
+/**
+ * きょうだい間おうえんスタンプを復元する (#3329)。
+ * from/to 両 childRef を取込先 child に解決し、insertForRestore で sentAt/shownAt (既読) を保全する。
+ * どちらかの child が解決できない行は skip (FK NOT NULL を満たせないため)。
+ */
+async function importSiblingCheersData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const c of data.data.siblingCheers ?? []) {
+		const fromChildId = childIdMap.get(c.fromChildRef);
+		const toChildId = childIdMap.get(c.toChildRef);
+		if (!fromChildId || !toChildId) {
+			result.siblingCheersSkipped++;
+			continue;
+		}
+		try {
+			await getRepos().siblingCheer.insertForRestore(
+				{
+					fromChildId,
+					toChildId,
+					stampCode: c.stampCode,
+					sentAt: c.sentAt,
+					shownAt: c.shownAt,
+				},
+				tenantId,
+			);
+			result.siblingCheersImported++;
+		} catch (e) {
+			result.siblingCheersSkipped++;
+			result.errors.push(
+				`おうえんスタンプ insert 失敗 (from=${c.fromChildRef}, to=${c.toChildRef}): ${String(e)}`,
+			);
+		}
+	}
+}
+
+/**
+ * per-child 活動設定 (ピン留め) を復元する (#3329)。
+ * childRef で取込先 child を、activityName で取込先 childActivity (activityLookupByChild) を解決し、
+ * insertForRestore で isPinned/pinOrder/日時を保全する。child or activity が解決できない pref は skip。
+ */
+async function importActivityPrefsData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	activityLookupByChild: Map<number, Map<string, { id: number; name: string }>>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const p of data.data.activityPrefs ?? []) {
+		const childId = childIdMap.get(p.childRef);
+		if (!childId) {
+			result.activityPrefsSkipped++;
+			continue;
+		}
+		const activity = activityLookupByChild.get(childId)?.get(p.activityName);
+		if (!activity) {
+			result.activityPrefsSkipped++;
+			continue;
+		}
+		try {
+			await getRepos().activityPref.insertForRestore(
+				{
+					childId,
+					activityId: activity.id,
+					isPinned: p.isPinned,
+					pinOrder: p.pinOrder,
+					createdAt: p.createdAt,
+					updatedAt: p.updatedAt,
+				},
+				tenantId,
+			);
+			result.activityPrefsImported++;
+		} catch (e) {
+			result.activityPrefsSkipped++;
+			result.errors.push(
+				`活動設定 insert 失敗 (child=${p.childRef}, activity=${p.activityName}): ${String(e)}`,
+			);
+		}
+	}
+}
+
+/**
+ * チェックリスト日次 override (特定日の項目追加/スキップ) を復元する (#3329)。
+ * childRef で取込先 child に解決し insertOverrideForRestore で createdAt を保全して書き戻す。
+ */
+async function importChecklistOverridesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const o of data.data.checklistOverrides ?? []) {
+		const childId = childIdMap.get(o.childRef);
+		if (!childId) {
+			result.checklistOverridesSkipped++;
+			continue;
+		}
+		try {
+			await insertOverrideForRestore(
+				{
+					childId,
+					targetDate: o.targetDate,
+					action: o.action,
+					itemName: o.itemName,
+					icon: o.icon,
+					createdAt: o.createdAt,
+				},
+				tenantId,
+			);
+			result.checklistOverridesImported++;
+		} catch (e) {
+			result.checklistOverridesSkipped++;
+			result.errors.push(
+				`チェックリスト override insert 失敗 (child=${o.childRef}, date=${o.targetDate}): ${String(e)}`,
+			);
+		}
+	}
+}
+
+/**
+ * おやすみ日を復元する (#3329)。
+ * childRef で取込先 child に解決し insertRestDayForRestore で createdAt を保全して書き戻す。
+ * DynamoDB 環境では insertRestDayForRestore が no-op (undefined) を返すため import されない
+ * (restDays は NUC/SQLite 専用、DynamoDB には保存されない)。
+ */
+async function importRestDaysData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const r of data.data.restDays ?? []) {
+		const childId = childIdMap.get(r.childRef);
+		if (!childId) {
+			result.restDaysSkipped++;
+			continue;
+		}
+		try {
+			const restored = await insertRestDayForRestore(
+				{ childId, date: r.date, reason: r.reason, createdAt: r.createdAt },
+				tenantId,
+			);
+			if (restored) result.restDaysImported++;
+			else result.restDaysSkipped++;
+		} catch (e) {
+			result.restDaysSkipped++;
+			result.errors.push(
+				`おやすみ日 insert 失敗 (child=${r.childRef}, date=${r.date}): ${String(e)}`,
+			);
+		}
+	}
+}
+
+/** voiceRelPath (`voices/<oldChildId>/<rest>`) の rest 部を抽出する正規表現 (#3329)。 */
+const VOICE_REL_PATH_RE = /^voices\/\d+\/(.+)$/;
+
+/**
+ * 子のカスタム音声 DB 行を復元する (#3329)。
+ * childRef で取込先 child に解決し、voiceRelPath から rest (uuid.ext) を取り出して
+ * filePath = `<tenantPrefix>voices/<newChildId>/<rest>` / publicUrl = `/<filePath>` を新環境向けに
+ * 再構成して書き戻す (音声ファイル本体は #3077 importStaticFiles が同一パスへ復元済)。createdAt/
+ * scene/label/durationMs/isActive を保全。child or path 解決不能行は skip。
+ */
+async function importChildVoicesData(
+	data: ExportData,
+	childIdMap: Map<string, number>,
+	tenantId: string,
+	result: ImportResult,
+): Promise<void> {
+	for (const v of data.data.childVoices ?? []) {
+		const childId = childIdMap.get(v.childRef);
+		if (!childId) {
+			result.childVoicesSkipped++;
+			continue;
+		}
+		const rest = VOICE_REL_PATH_RE.exec(v.voiceRelPath)?.[1];
+		if (!rest) {
+			result.childVoicesSkipped++;
+			result.warnings.push(
+				`音声スキップ: voiceRelPath「${v.voiceRelPath}」(child=${v.childRef}) を解決できません`,
+			);
+			continue;
+		}
+		// CWE-22 path traversal 防御 (default-deny): 正常 export の rest は `<uuid>.<ext>` (storage-keys.ts
+		// voiceKey、単一ファイル名) だが、backup は untrusted input。細工 voiceRelPath
+		// (`voices/1/../../../../etc/secret`) で rest に `..` / 絶対パス / バックスラッシュ等が紛れ込むと
+		// filePath/publicUrl が tenant 境界外を指し cross-tenant LFI 相当になる。importStaticFiles と同じ
+		// isSafeRelativePath で rest を検証し、unsafe なら insert せず skip + warning で 1 件落とす
+		// (全 restore は止めない)。
+		if (!isSafeRelativePath(rest)) {
+			result.childVoicesSkipped++;
+			result.warnings.push(
+				`音声スキップ: voiceRelPath「${v.voiceRelPath}」(child=${v.childRef}) に不正なパスが含まれます`,
+			);
+			continue;
+		}
+		const filePath = `${tenantPrefix(tenantId)}voices/${childId}/${rest}`;
+		const publicUrl = storageKeyToPublicUrl(filePath);
+		try {
+			await getRepos().voice.insertForRestore(
+				{
+					childId,
+					scene: v.scene,
+					label: v.label,
+					filePath,
+					publicUrl,
+					durationMs: v.durationMs,
+					isActive: v.isActive,
+					tenantId,
+					createdAt: v.createdAt,
+				},
+				tenantId,
+			);
+			result.childVoicesImported++;
+		} catch (e) {
+			result.childVoicesSkipped++;
+			result.errors.push(`音声 insert 失敗 (child=${v.childRef}, scene=${v.scene}): ${String(e)}`);
+		}
+	}
+}
+
 function createEmptyImportResult(): ImportResult {
 	return {
 		childrenImported: 0,
@@ -321,6 +917,28 @@ function createEmptyImportResult(): ImportResult {
 		titlesImported: 0,
 		specialRewardsImported: 0,
 		specialRewardsSkipped: 0,
+		rewardRedemptionsImported: 0,
+		rewardRedemptionsSkipped: 0,
+		childChallengesImported: 0,
+		childChallengesSkipped: 0,
+		stampCardsImported: 0,
+		stampCardsSkipped: 0,
+		stampEntriesImported: 0,
+		stampEntriesSkipped: 0,
+		certificatesImported: 0,
+		certificatesSkipped: 0,
+		parentMessagesImported: 0,
+		parentMessagesSkipped: 0,
+		checklistOverridesImported: 0,
+		checklistOverridesSkipped: 0,
+		childVoicesImported: 0,
+		childVoicesSkipped: 0,
+		restDaysImported: 0,
+		restDaysSkipped: 0,
+		activityPrefsImported: 0,
+		activityPrefsSkipped: 0,
+		siblingCheersImported: 0,
+		siblingCheersSkipped: 0,
 		loginBonusesImported: 0,
 		loginBonusesSkipped: 0,
 		statusHistoryImported: 0,
@@ -329,6 +947,8 @@ function createEmptyImportResult(): ImportResult {
 		evaluationsSkipped: 0,
 		checklistLogsImported: 0,
 		checklistLogsSkipped: 0,
+		settingsImported: 0,
+		settingsSkipped: 0,
 		staticFilesRestored: 0,
 		staticFilesSkipped: 0,
 		skipped: { preset: 0, name: 0, constraint: 0 },
@@ -376,6 +996,19 @@ async function importChildActivitiesData(
 					isMainQuest: a.isMainQuest ?? 0,
 					sourcePresetId: a.sourcePresetId ?? null,
 					priority: a.priority === 'must' ? 'must' : 'optional',
+					// #3358: 表示状態 / 並び順 / アーカイブ状態を round-trip 復元
+					// (省略 = 旧 backup 後方互換で schema default)。archived→active 復活防止。
+					isVisible: a.isVisible,
+					sortOrder: a.sortOrder,
+					isArchived: a.isArchived,
+					archivedReason: a.archivedReason ?? null,
+					// #3422: 1 日上限 / 読み仮名 / 漢字表記を round-trip 復元 (省略 = 旧 backup は
+					// schema default)。dailyLimit=0 (無制限) を null=1 回固定へ落とさず保全する。
+					// #3463 item1: import 境界で値検証。改竄/破損 ZIP の範囲外 dailyLimit (NaN/負/巨大/非整数) を
+					// [0,99] int or null に、巨大 nameKana/nameKanji を max 50 char に正規化する (default-deny)。
+					dailyLimit: sanitizeDailyLimit(a.dailyLimit),
+					nameKana: sanitizeActivityNameField(a.nameKana),
+					nameKanji: sanitizeActivityNameField(a.nameKanji),
 				},
 				tenantId,
 			);
@@ -976,9 +1609,10 @@ async function importSpecialRewards(
 const STATIC_FILE_PATH_RE = /^(avatars|voices|generated)\/(\d+)\/(.+)$/;
 
 /**
- * ZIP 相対パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip 防御)。
- * `STATIC_FILE_PATH_RE` の `rest` (`.+`) は任意文字を許すため、ここで `..` セグメント・
- * 先頭スラッシュ・Windows ドライブ等を弾く。安全なら true。
+ * 相対 storage パスに path-escape (`..` や絶対パス) が含まれていないか検証する (zip-slip / CWE-22 防御)。
+ * `STATIC_FILE_PATH_RE` の `rest` (`.+`、importStaticFiles) / `VOICE_REL_PATH_RE` の `rest`
+ * (`.+`、importChildVoicesData) は任意文字を許すため、ここで `..` セグメント・先頭スラッシュ・
+ * Windows ドライブ・バックスラッシュ等を弾く。安全なら true。
  */
 function isSafeRelativePath(relPath: string): boolean {
 	// バックスラッシュは OS 非依存で無条件拒否する (Linux では `\` がファイル名のリテラル

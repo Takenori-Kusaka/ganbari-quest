@@ -226,6 +226,51 @@ describe('computeProposal — 翌週適応 (Flow 3 分岐、#3194 / #3213 移設
 	});
 });
 
+describe('computeProposal — #3203 item1: skip 週 (disengagement) を rescue に反映', () => {
+	const WEAK_COUNTS = algoCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
+
+	it('前週完了でも 2 週 skip すれば streak=2 で rescue-strength 発火', () => {
+		// 完了後に 2 週 challenge 未生成 (skip) = disengagement → 跨いで rescue 対象にする
+		const prev = makePrev({ status: 'completed', consecutiveMissCount: 0 });
+		const p = computeProposal(WEAK_COUNTS, prev, WEEK_WEAKNESS, { skippedWeeks: 2 });
+		expect(p.consecutiveMissCount).toBe(2);
+		expect(p.mode).toBe('rescue-strength');
+	});
+
+	it('前週未達 + 1 週 skip で streak=2 (1 missed + 1 skipped) → rescue', () => {
+		const prev = makePrev({ status: 'expired', consecutiveMissCount: 0 });
+		const p = computeProposal(WEAK_COUNTS, prev, WEEK_WEAKNESS, { skippedWeeks: 1 });
+		expect(p.consecutiveMissCount).toBe(2);
+		expect(p.mode).toBe('rescue-strength');
+	});
+
+	it('skippedWeeks=0 (連続週) は従来挙動 (完了→streak 0、rescue なし)', () => {
+		const prev = makePrev({ status: 'completed', consecutiveMissCount: 0 });
+		const p = computeProposal(WEAK_COUNTS, prev, WEEK_WEAKNESS, { skippedWeeks: 0 });
+		expect(p.consecutiveMissCount).toBe(0);
+		expect(p.mode).not.toBe('rescue-strength');
+	});
+});
+
+describe('computeProposal — #3203 item2: childId+weekStart で seed 化し決定的', () => {
+	const WEAK_COUNTS = algoCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 });
+
+	it('同 childId・同週は常に同一カテゴリを返す (flip-flop なし)', () => {
+		const a = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
+		const b = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
+		const c = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS, { childId: 42 });
+		expect(a.categoryId).toBe(b.categoryId);
+		expect(b.categoryId).toBe(c.categoryId);
+		expect(a.mode).toBe('weakness');
+	});
+
+	it('childId 未指定でも従来通り動作する (Math.random フォールバック、後方互換)', () => {
+		const p = computeProposal(WEAK_COUNTS, undefined, WEEK_WEAKNESS);
+		expect(p.mode).toBe('weakness');
+		expect([1, 2, 3, 4, 5]).toContain(p.categoryId);
+	});
+});
+
 describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => {
 	it('当週分が無ければ child_challenges を自動生成する (targetConfig に metric/categoryId/genMode 内包)', async () => {
 		mockFindByChildId.mockResolvedValue([]); // 既存なし
@@ -270,6 +315,87 @@ describe('getOrCreateWeeklyChildChallenge (#3195 アプリ自動生成)', () => 
 		expect(mockGetOrCreateWeeklyAuto).not.toHaveBeenCalled();
 		expect(mockInsert).not.toHaveBeenCalled();
 		expect(mockAggregateActivityLogsByCategory).not.toHaveBeenCalled();
+	});
+
+	// #3472 (integration): getOrCreateWeeklyChildChallenge 経由で priorAuto 採用 + weeksBetween-1 の
+	// skip 算出を検証する。unit (#3203) は computeProposal へ直接 skippedWeeks を手渡すが、本 test は
+	// repo 行 (複数 prior・連続/非連続週・同一週重複) からの skip 導出 path 全体を網羅する (ADR-0005/0006)。
+	describe('#3472: skip 算出 integration (priorAuto + weeksBetween-1)', () => {
+		/** 過去 prior auto:weekly 行を組み立てる。completed=1 で前週完了相当。 */
+		function priorAutoRow(startDate: string, over: Record<string, unknown> = {}) {
+			return {
+				id: 1,
+				childId: 10,
+				sourceTemplateId: 'auto:weekly',
+				startDate,
+				targetConfig: JSON.stringify({ categoryId: 2, genMissStreak: 0 }),
+				targetValue: 3,
+				currentValue: 3,
+				completed: 1, // 完了 → prev streak 0
+				status: 'completed',
+				...over,
+			};
+		}
+		/** weekStart を n 週前へ戻す。 */
+		async function weeksAgo(n: number): Promise<string> {
+			const { getWeekStart, getLastWeekStart } = await import(
+				'../../../src/lib/server/services/child-challenge-service'
+			);
+			let w = getWeekStart();
+			for (let i = 0; i < n; i++) w = getLastWeekStart(w);
+			return w;
+		}
+
+		beforeEach(() => {
+			mockCategoryCounts({ 1: 8, 2: 6, 3: 4, 4: 2, 5: 0 }); // 非 explore
+			mockGetOrCreateWeeklyAuto.mockImplementation(async (input) => ({
+				id: 1,
+				currentValue: 0,
+				completed: 0,
+				...input,
+			}));
+		});
+
+		it('完了後 3 週前の prior のみ (= 2 週 skip) → rescue-strength を生成', async () => {
+			const w3 = await weeksAgo(3); // 3 週前 → weeksBetween=3 → skip=2
+			mockFindByChildId.mockResolvedValue([priorAutoRow(w3)]);
+
+			await getOrCreateWeeklyChildChallenge(10, TENANT);
+			const cfg = JSON.parse(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].targetConfig);
+			expect(cfg.genMode).toBe('rescue-strength');
+			expect(cfg.genMissStreak).toBe(2); // skip 2 を miss streak に反映
+		});
+
+		it('連続週 (1 週前完了、skip 0) → rescue にならない', async () => {
+			const w1 = await weeksAgo(1); // 1 週前 → weeksBetween=1 → skip=0
+			mockFindByChildId.mockResolvedValue([priorAutoRow(w1)]);
+
+			await getOrCreateWeeklyChildChallenge(10, TENANT);
+			const cfg = JSON.parse(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].targetConfig);
+			expect(cfg.genMode).not.toBe('rescue-strength');
+			expect(cfg.genMissStreak).toBe(0);
+		});
+
+		it('複数 prior 行から最新週を prev に採用する (sort 検証)', async () => {
+			const w1 = await weeksAgo(1);
+			const w4 = await weeksAgo(4);
+			// 順不同で渡しても最新 (w1) が prev → skip 0
+			mockFindByChildId.mockResolvedValue([priorAutoRow(w4), priorAutoRow(w1)]);
+
+			await getOrCreateWeeklyChildChallenge(10, TENANT);
+			const cfg = JSON.parse(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].targetConfig);
+			expect(cfg.genMissStreak).toBe(0); // w1 採用 = skip 0
+		});
+
+		it('同一 startDate の prior 重複時も決定的に動く (skip 一意)', async () => {
+			const w2 = await weeksAgo(2); // skip=1
+			mockFindByChildId.mockResolvedValue([priorAutoRow(w2), priorAutoRow(w2)]);
+
+			await getOrCreateWeeklyChildChallenge(10, TENANT);
+			const cfg = JSON.parse(mockGetOrCreateWeeklyAuto.mock.calls[0]?.[0].targetConfig);
+			// 2 週前完了 → skip 1 → streak 1 (rescue 閾値 2 未満)
+			expect(cfg.genMissStreak).toBe(1);
+		});
 	});
 });
 

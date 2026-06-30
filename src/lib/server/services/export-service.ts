@@ -4,20 +4,32 @@
 import {
 	EXPORT_FORMAT,
 	EXPORT_VERSION,
+	EXPORTABLE_SETTING_KEYS,
 	type ExportAchievement,
 	type ExportActivity,
 	type ExportActivityLog,
+	type ExportActivityPref,
 	type ExportCategory,
+	type ExportCertificate,
 	type ExportChecklistLog,
+	type ExportChecklistOverride,
 	type ExportChecklistTemplate,
 	type ExportChild,
 	type ExportChildActivity,
+	type ExportChildChallenge,
+	type ExportChildVoice,
 	type ExportData,
 	type ExportEvaluation,
 	type ExportLoginBonus,
 	type ExportOptions,
+	type ExportParentMessage,
 	type ExportPointLedger,
+	type ExportRestDay,
+	type ExportRewardRedemption,
+	type ExportSetting,
+	type ExportSiblingCheer,
 	type ExportSpecialReward,
+	type ExportStampCard,
 	type ExportStatus,
 	type ExportStatusHistory,
 	type ExportTitle,
@@ -27,17 +39,21 @@ import { CATEGORY_CODES } from '$lib/domain/validation/activity';
 import { findActivities, findActivityLogs } from '$lib/server/db/activity-repo';
 import {
 	findLogsByChild,
+	findOverridesByChild,
 	findTemplateItems,
 	findTemplatesByChild,
 } from '$lib/server/db/checklist-repo';
 import { findAllChildren } from '$lib/server/db/child-repo';
-import { findEvaluationsByChild } from '$lib/server/db/evaluation-repo';
+import { findEvaluationsByChild, findRestDaysByChild } from '$lib/server/db/evaluation-repo';
 import { getRepos } from '$lib/server/db/factory';
 import { findRecentBonuses } from '$lib/server/db/login-bonus-repo';
 import { findPointHistory } from '$lib/server/db/point-repo';
+import { findRedemptionRequestsByTenant } from '$lib/server/db/reward-redemption-repo';
+import { getSettings } from '$lib/server/db/settings-repo';
 import { findSpecialRewards } from '$lib/server/db/special-reward-repo';
 import { findRecentStatusHistory, findStatuses } from '$lib/server/db/status-repo';
 import { logger } from '$lib/server/logger';
+import { tenantPrefix } from '$lib/server/storage-keys';
 
 // カテゴリID → コード マッピング（5件固定）
 const CATEGORY_ID_TO_CODE: Record<number, string> = {
@@ -220,8 +236,17 @@ interface ChildTransactionData {
 	loginBonuses: ExportLoginBonus[];
 	evaluations: ExportEvaluation[];
 	specialRewards: ExportSpecialReward[];
+	rewardRedemptions: ExportRewardRedemption[];
+	childChallenges: ExportChildChallenge[];
+	stampCards: ExportStampCard[];
+	certificates: ExportCertificate[];
+	parentMessages: ExportParentMessage[];
+	activityPrefs: ExportActivityPref[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
+	checklistOverrides: ExportChecklistOverride[];
+	restDays: ExportRestDay[];
+	childVoices: ExportChildVoice[];
 }
 
 /**
@@ -246,6 +271,12 @@ async function collectForChild(
 		loginBonuses,
 		evaluations,
 		specialRewards,
+		redemptions,
+		challenges,
+		stampCardsRaw,
+		certificatesRaw,
+		parentMessagesRaw,
+		activityPrefsRaw,
 		checklistTemplates,
 	] = await Promise.all([
 		// #3327 P2: per-child 活動インスタンスを backup に保持 (archive 済も含む)。
@@ -256,6 +287,19 @@ async function collectForChild(
 		findRecentBonuses(childId, tenantId, MAX_EXPORT_ROWS),
 		findEvaluationsByChild(childId, MAX_EXPORT_ROWS, tenantId),
 		findSpecialRewards(childId, tenantId),
+		// #3329: ごほうびショップ交換/購入履歴を backup に保持 (WithDetails = snapshot 解決済の
+		// rewardTitle/Icon/Points 付き)。childId filter で per-child 収集する。
+		findRedemptionRequestsByTenant(tenantId, { childId, limit: MAX_EXPORT_ROWS }),
+		// #3329: per-child チャレンジ instance を backup に保持 (auto:weekly 含む全 status)。
+		getRepos().childChallenge.findByChildId(childId, tenantId),
+		// #3329: per-child スタンプカードを backup に保持 (entry は後段で card ごとに収集)。
+		getRepos().stampCard.findCardsByChild(childId, tenantId),
+		// #3329: per-child 証明書を backup に保持。
+		getRepos().certificate.findCertificates(childId, tenantId),
+		// #3329: 親→子おうえんメッセージを backup に保持。
+		getRepos().message.findMessages(childId, MAX_EXPORT_ROWS, tenantId),
+		// #3329: per-child 活動設定 (ピン留め) を backup に保持。
+		getRepos().activityPref.findAllByChild(childId, tenantId),
 		// #3106: backup なので includeInactive=true + includeArchived=true。
 		// archive 済 template も含め、その checklistLog の silent drop を防ぐ。
 		findTemplatesByChild(childId, tenantId, true, true),
@@ -274,6 +318,14 @@ async function collectForChild(
 		sourcePresetId: a.sourcePresetId ?? null,
 		isVisible: a.isVisible,
 		sortOrder: a.sortOrder,
+		// #3358: archive 状態を round-trip 保全 (archived→active 復活防止)
+		isArchived: a.isArchived,
+		archivedReason: a.archivedReason ?? null,
+		// #3422: 親設定の 1 日上限 / 読み仮名 / 漢字表記を round-trip 保全 (silent drop で
+		// dailyLimit が復元後 null=1 日 1 回固定に戻る取りこぼし防止)。0 (無制限) も保持する。
+		dailyLimit: a.dailyLimit,
+		nameKana: a.nameKana,
+		nameKanji: a.nameKanji,
 	}));
 
 	// ステータス履歴は全カテゴリ分を取得
@@ -364,6 +416,117 @@ async function collectForChild(
 		sourcePresetId: sr.sourcePresetId,
 	}));
 
+	// #3329: 交換履歴。FK rewardId は import 後に変わるため rewardRef (reward title) で再結合する。
+	// WithDetails の rewardTitle は snapshot 優先で解決済 (COALESCE(snapshot, live))。
+	warnIfTruncated('rewardRedemptions', childId, redemptions.length);
+	const rewardRedemptionsOut: ExportRewardRedemption[] = redemptions.map((r) => ({
+		childRef,
+		rewardRef: r.rewardTitle,
+		requestedAt: r.requestedAt,
+		status: r.status,
+		parentNote: r.parentNote,
+		resolvedAt: r.resolvedAt,
+		resolvedByParentId: r.resolvedByParentId,
+		shownToChildAt: r.shownToChildAt,
+		rewardTitle: r.rewardTitle,
+		rewardPoints: r.rewardPoints,
+		rewardIcon: r.rewardIcon,
+	}));
+
+	// #3329: per-child チャレンジ instance を childRef 付きで出力 (進捗/完了/請求/status 保全)。
+	warnIfTruncated('childChallenges', childId, challenges.length);
+	const childChallengesOut: ExportChildChallenge[] = challenges.map((c) => ({
+		childRef,
+		title: c.title,
+		description: c.description,
+		challengeType: c.challengeType,
+		periodType: c.periodType,
+		startDate: c.startDate,
+		endDate: c.endDate,
+		targetConfig: c.targetConfig,
+		rewardConfig: c.rewardConfig,
+		status: c.status,
+		isActive: c.isActive,
+		sourceTemplateId: c.sourceTemplateId,
+		currentValue: c.currentValue,
+		targetValue: c.targetValue,
+		completed: c.completed,
+		completedAt: c.completedAt,
+		rewardClaimed: c.rewardClaimed,
+		rewardClaimedAt: c.rewardClaimedAt,
+		createdAt: c.createdAt,
+		updatedAt: c.updatedAt,
+	}));
+
+	// #3329: スタンプカード + 押印 entry を nested で出力。card ごとに entry を引く (件数小)。
+	warnIfTruncated('stampCards', childId, stampCardsRaw.length);
+	const stampRepo = getRepos().stampCard;
+	const stampCardsOut: ExportStampCard[] = await Promise.all(
+		stampCardsRaw.map(async (card) => {
+			const entries = await stampRepo.findEntriesByCardId(card.id, tenantId);
+			return {
+				childRef,
+				weekStart: card.weekStart,
+				weekEnd: card.weekEnd,
+				status: card.status,
+				redeemedPoints: card.redeemedPoints,
+				redeemedAt: card.redeemedAt,
+				createdAt: card.createdAt,
+				updatedAt: card.updatedAt,
+				entries: entries.map((e) => ({
+					stampMasterId: e.stampMasterId,
+					omikujiRank: e.omikujiRank,
+					slot: e.slot,
+					loginDate: e.loginDate,
+					earnedAt: e.earnedAt,
+				})),
+			};
+		}),
+	);
+	// #3329: per-child 証明書を childRef 付きで出力 (issuedAt/metadata 保全)。
+	warnIfTruncated('certificates', childId, certificatesRaw.length);
+	const certificatesOut: ExportCertificate[] = certificatesRaw.map((c) => ({
+		childRef,
+		certificateType: c.certificateType,
+		title: c.title,
+		description: c.description,
+		issuedAt: c.issuedAt,
+		metadata: c.metadata,
+	}));
+
+	// #3329: 親→子おうえんメッセージを childRef 付きで出力 (sentAt/shownAt 保全)。
+	warnIfTruncated('parentMessages', childId, parentMessagesRaw.length);
+	const parentMessagesOut: ExportParentMessage[] = parentMessagesRaw.map((m) => ({
+		childRef,
+		messageType: m.messageType,
+		stampCode: m.stampCode,
+		body: m.body,
+		icon: m.icon,
+		sentAt: m.sentAt,
+		shownAt: m.shownAt,
+		bonusPoints: m.bonusPoints,
+		rewardCategory: m.rewardCategory,
+	}));
+
+	// #3329: per-child 活動設定 (ピン留め)。activityId は import で振り直されるため、当該 child の
+	// 活動 (childActivitiesRaw) から activityId → name を解決し activityName で出力する。
+	// 活動が解決できない pref は skip (orphan)。
+	warnIfTruncated('activityPrefs', childId, activityPrefsRaw.length);
+	const activityNameById = new Map<number, string>(childActivitiesRaw.map((a) => [a.id, a.name]));
+	const activityPrefsOut: ExportActivityPref[] = [];
+	for (const pref of activityPrefsRaw) {
+		const name = activityNameById.get(pref.activityId);
+		if (!name) continue;
+		activityPrefsOut.push({
+			childRef,
+			activityName: name,
+			isPinned: pref.isPinned,
+			pinOrder: pref.pinOrder,
+			createdAt: pref.createdAt,
+			updatedAt: pref.updatedAt,
+		});
+	}
+
 	// Checklist templates with items
 	// #3078 / #3107: templateId → (name, exportId) マップを構築し checklistLogs の参照解決に使う。
 	// exportId は export 内で安定な識別子 (`chk-${childRef}-${templateId}`) で、同名 template が
@@ -420,6 +583,44 @@ async function collectForChild(
 		});
 	}
 
+	// #3329: per-child チェックリスト日次 override (createdAt 保全)。
+	const checklistOverridesRaw = await findOverridesByChild(childId, tenantId);
+	warnIfTruncated('checklistOverrides', childId, checklistOverridesRaw.length);
+	const checklistOverridesOut: ExportChecklistOverride[] = checklistOverridesRaw.map((o) => ({
+		childRef,
+		targetDate: o.targetDate,
+		action: o.action,
+		itemName: o.itemName,
+		icon: o.icon,
+		createdAt: o.createdAt,
+	}));
+
+	// #3329: per-child おやすみ日 (createdAt 保全)。DynamoDB では findRestDaysByChild が空を返す。
+	const restDaysRaw = await findRestDaysByChild(childId, tenantId);
+	warnIfTruncated('restDays', childId, restDaysRaw.length);
+	const restDaysOut: ExportRestDay[] = restDaysRaw.map((r) => ({
+		childRef,
+		date: r.date,
+		reason: r.reason,
+		createdAt: r.createdAt,
+	}));
+
+	// #3329: 子のカスタム音声 DB 行。filePath から tenant prefix を除いた相対パス (voices/<childId>/<rest>)
+	// を voiceRelPath として出力し、import 時に新 tenant+childId へ再構成する。音声ファイル本体は
+	// #3077 ZIP 同梱機構が別途復元する。
+	const voicesRaw = await getRepos().voice.findAllByChild(childId, tenantId);
+	warnIfTruncated('childVoices', childId, voicesRaw.length);
+	const prefix = tenantPrefix(tenantId);
+	const childVoicesOut: ExportChildVoice[] = voicesRaw.map((v) => ({
+		childRef,
+		scene: v.scene,
+		label: v.label,
+		voiceRelPath: v.filePath.startsWith(prefix) ? v.filePath.slice(prefix.length) : v.filePath,
+		durationMs: v.durationMs,
+		isActive: v.isActive,
+		createdAt: v.createdAt,
+	}));
+
 	return {
 		childActivities: childActivitiesOut,
 		activityLogs: activityLogsOut,
@@ -429,8 +630,17 @@ async function collectForChild(
 		loginBonuses: loginBonusesOut,
 		evaluations: evaluationsOut,
 		specialRewards: specialRewardsOut,
+		rewardRedemptions: rewardRedemptionsOut,
+		childChallenges: childChallengesOut,
+		stampCards: stampCardsOut,
+		certificates: certificatesOut,
+		parentMessages: parentMessagesOut,
+		activityPrefs: activityPrefsOut,
 		checklistTemplates: checklistTemplatesOut,
 		checklistLogs: checklistLogsOut,
+		checklistOverrides: checklistOverridesOut,
+		restDays: restDaysOut,
+		childVoices: childVoicesOut,
 	};
 }
 
@@ -446,6 +656,31 @@ async function collectTransactionData(
 		childIds.map((childId) => collectForChild(childId, childExportIdMap, tenantId)),
 	);
 
+	// #3329: 各種設定 (tenant-scoped KVS)。default-deny allowlist のキーのみ取得し、
+	// pin_hash / session_token 等の秘匿キーは構造的に export に載らない (CWE-522/916、D3)。
+	// key 昇順で push して checksum を決定的に保つ。
+	const settingsMap = await getSettings([...EXPORTABLE_SETTING_KEYS], tenantId);
+	const settingsOut: ExportSetting[] = Object.keys(settingsMap)
+		.sort()
+		.map((key) => ({ key, value: settingsMap[key] as string }));
+
+	// #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child)。childExportIdMap で
+	// 両 childId を childRef に解決し、どちらかが export 対象外なら skip する (childRef 解決不能を防ぐ)。
+	const siblingCheersRaw = await getRepos().siblingCheer.findAllByTenant(tenantId);
+	const siblingCheersOut: ExportSiblingCheer[] = [];
+	for (const c of siblingCheersRaw) {
+		const fromRef = childExportIdMap.get(c.fromChildId);
+		const toRef = childExportIdMap.get(c.toChildId);
+		if (!fromRef || !toRef) continue;
+		siblingCheersOut.push({
+			fromChildRef: fromRef,
+			toChildRef: toRef,
+			stampCode: c.stampCode,
+			sentAt: c.sentAt,
+			shownAt: c.shownAt,
+		});
+	}
+
 	return {
 		childActivities: perChild.flatMap((p) => p.childActivities),
 		activityLogs: perChild.flatMap((p) => p.activityLogs),
@@ -457,9 +692,20 @@ async function collectTransactionData(
 		loginBonuses: perChild.flatMap((p) => p.loginBonuses),
 		evaluations: perChild.flatMap((p) => p.evaluations),
 		specialRewards: perChild.flatMap((p) => p.specialRewards),
+		rewardRedemptions: perChild.flatMap((p) => p.rewardRedemptions),
+		childChallenges: perChild.flatMap((p) => p.childChallenges),
+		stampCards: perChild.flatMap((p) => p.stampCards),
+		certificates: perChild.flatMap((p) => p.certificates),
+		parentMessages: perChild.flatMap((p) => p.parentMessages),
+		activityPrefs: perChild.flatMap((p) => p.activityPrefs),
 		checklistTemplates: perChild.flatMap((p) => p.checklistTemplates),
 		checklistLogs: perChild.flatMap((p) => p.checklistLogs), // #3078
+		checklistOverrides: perChild.flatMap((p) => p.checklistOverrides), // #3329
+		restDays: perChild.flatMap((p) => p.restDays), // #3329
+		childVoices: perChild.flatMap((p) => p.childVoices), // #3329
 		childAvatarItems: [],
 		dailyMissions: [], // Phase 2: エフェメラルデータ対応後に対応
+		settings: settingsOut, // #3329
+		siblingCheers: siblingCheersOut, // #3329
 	};
 }

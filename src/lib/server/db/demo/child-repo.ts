@@ -4,6 +4,7 @@
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import { getDefaultUiMode } from '$lib/domain/validation/age-tier';
 import { DEMO_CHILDREN } from '$lib/server/demo/demo-data';
+import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
 import type { Child, InsertChildInput, UpdateChildInput } from '../types';
 
 export async function findAllChildren(_tenantId: string): Promise<Child[]> {
@@ -56,8 +57,18 @@ export async function deleteChild(_id: number, _tenantId: string): Promise<void>
 	// Stub: no-op
 }
 
-export async function resetChildProgressData(_id: number, _tenantId: string): Promise<void> {
-	// Stub: no-op (#3152)
+export async function resetChildProgressData(
+	_id: number,
+	_tenantId: string,
+): Promise<ChildProgressResetCounts> {
+	// Stub: no-op (#3152)。#3184 item2: 件数は全 0 を返す (demo write は no-op)。
+	return {
+		activityLogs: 0,
+		pointLedger: 0,
+		loginBonuses: 0,
+		childAchievements: 0,
+		pointBalance: 0,
+	};
 }
 
 // ---------- Archive / Restore ----------
