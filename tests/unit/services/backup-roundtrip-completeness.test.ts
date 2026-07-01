@@ -792,7 +792,7 @@ describe('#3507 field-level ratchet — entity 内 field 取りこぼし class �
 			.insert(schema.children)
 			.values({ nickname: 'ふぃーるど', age: 10, theme: 'purple' })
 			.run(); // id=1
-		// 全 seedable field を schema default と異なる distinctive 値で seed。
+		// seed helper が受ける全 field を schema default と異なる distinctive 値で seed。
 		seedChildActivities(testDb, 1, [
 			{
 				name: 'フィールド網羅活動',
