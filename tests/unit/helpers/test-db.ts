@@ -689,7 +689,8 @@ export const SQL_TABLES = `
 		max_downloads INTEGER NOT NULL DEFAULT 10,
 		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		status TEXT NOT NULL DEFAULT 'pending',
-		failure_reason TEXT
+		failure_reason TEXT,
+		build_started_at TEXT
 	);
 	CREATE INDEX idx_cloud_exports_tenant ON cloud_exports(tenant_id);
 	CREATE INDEX idx_cloud_exports_pin ON cloud_exports(pin_code);
