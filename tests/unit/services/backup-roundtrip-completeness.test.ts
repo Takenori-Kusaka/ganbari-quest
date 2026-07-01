@@ -7,6 +7,7 @@
 // 未実装の取込 (現状 evaluations は import 関数が無い、#3327) を **赤で機械再現** し、failing-test-first で
 // 潰す。新種別を export に足したら本テストへ assert を追加する規律で「silent な取りこぼし」を防ぐ。
 
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as schema from '../../../src/lib/server/db/schema';
 import {
@@ -740,5 +741,161 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(restored?.isArchived, 'archived のまま (active 復活しない、#3505 regression 固定)').toBe(
 			1,
 		);
+	});
+});
+
+// #3507 (ADR-0061 §2 class-lock): entity 内 field 取りこぼし class を機械捕捉する field-level ratchet。
+// 件数一致 test (#3328) + entity registry (#3362) は「entity 取りこぼし」を防ぐが、entity は round-trip
+// するのに特定 field だけ import で落ちる drop (childActivity #3358 / checklistTemplate #3505 が同一クラス)
+// は各 entity を既定値 1 件 seed するため件数一致ですり抜ける。本 ratchet は:
+//   (1) export object の全 field key を frozen list と照合 → 新 export field 追加時に必ず fail させ、
+//       author に「round-trip assert も同時追加せよ」を強制する (silent gap を作らせない)。
+//   (2) 全 field を **非既定値**で seed → export→clear→import 後に field 等価を assert し、import が
+//       いずれかの field を drop すれば fail させる。
+// これにより #3358/#3505 と同型の field-drop が新規 entity/field で再発するのを構造的に防ぐ。
+describe('#3507 field-level ratchet — entity 内 field 取りこぼし class の機械捕捉', () => {
+	// export 契約 (export-format.ts) の全 field。新 field を export に追加したら本 list も更新し、
+	// **同時に下の round-trip assert も追加**すること (list 不一致で fail = 更新強制)。
+	const CHILD_ACTIVITY_EXPORT_KEYS = [
+		'childRef',
+		'name',
+		'categoryCode',
+		'icon',
+		'basePoints',
+		'triggerHint',
+		'isMainQuest',
+		'priority',
+		'sourcePresetId',
+		'isVisible',
+		'sortOrder',
+		'isArchived',
+		'archivedReason',
+		'dailyLimit',
+		'nameKana',
+		'nameKanji',
+	].sort();
+	const CHECKLIST_TEMPLATE_EXPORT_KEYS = [
+		'childRef',
+		'name',
+		'icon',
+		'pointsPerItem',
+		'completionBonus',
+		'isActive',
+		'sourcePresetId',
+		'exportId',
+		'isArchived',
+		'items',
+	].sort();
+
+	it('childActivity: 全 export field key が frozen set と一致し、非既定値で round-trip する', async () => {
+		testDb
+			.insert(schema.children)
+			.values({ nickname: 'ふぃーるど', age: 10, theme: 'purple' })
+			.run(); // id=1
+		// seed helper が受ける全 field を schema default と異なる distinctive 値で seed。
+		seedChildActivities(testDb, 1, [
+			{
+				name: 'フィールド網羅活動',
+				categoryId: 2, // default 1 以外 (categoryCode='benkyou' で round-trip)
+				icon: '🎯',
+				basePoints: 42,
+				triggerHint: 'ヒント文',
+				isMainQuest: 1, // default 0
+				priority: 'must', // default 'optional'
+				isVisible: 0, // default 1
+				sortOrder: 7, // default 0
+				dailyLimit: 3, // default null
+				nameKana: 'かなよみ',
+				nameKanji: '漢字表記',
+			},
+		]);
+		// isArchived / archivedReason は seed helper 対象外のため直接 archive (archivedReason は valid enum)。
+		testDb
+			.update(schema.childActivities)
+			.set({ isArchived: 1, archivedReason: 'downgrade_user_selected' })
+			.where(eq(schema.childActivities.name, 'フィールド網羅活動'))
+			.run();
+
+		const data = await exportFamilyData({ tenantId: T });
+		const exported = data.data.childActivities.find((a) => a.name === 'フィールド網羅活動');
+		expect(exported, 'export された').toBeTruthy();
+		// (1) key-freeze ratchet: 新 export field 追加で fail (round-trip assert 追加を強制)。
+		expect(
+			Object.keys(exported as object).sort(),
+			'childActivity export key set が frozen list と一致 (不一致=新 field。下の assert も追加せよ)',
+		).toEqual(CHILD_ACTIVITY_EXPORT_KEYS);
+
+		// (2) replace round-trip → 全 field 等価
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+
+		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
+		const restored = (
+			await getRepos().childActivity.findActivitiesByChild(cid, T, { includeArchived: true })
+		).find((a) => a.name === 'フィールド網羅活動');
+		expect(restored, '復元された').toBeTruthy();
+		expect(restored?.categoryId, 'categoryCode→categoryId round-trip').toBe(2);
+		expect(restored?.basePoints, 'basePoints').toBe(42);
+		expect(restored?.triggerHint, 'triggerHint').toBe('ヒント文');
+		expect(restored?.isMainQuest, 'isMainQuest').toBe(1);
+		expect(restored?.priority, 'priority').toBe('must');
+		expect(restored?.isVisible, 'isVisible').toBe(0);
+		expect(restored?.sortOrder, 'sortOrder').toBe(7);
+		expect(restored?.isArchived, 'isArchived').toBe(1);
+		expect(restored?.archivedReason, 'archivedReason').toBe('downgrade_user_selected');
+		expect(restored?.dailyLimit, 'dailyLimit').toBe(3);
+		expect(restored?.nameKana, 'nameKana').toBe('かなよみ');
+		expect(restored?.nameKanji, 'nameKanji').toBe('漢字表記');
+	});
+
+	it('checklistTemplate: 全 export field key が frozen set と一致し、非既定値で round-trip する', async () => {
+		testDb.insert(schema.children).values({ nickname: 'ちぇっく', age: 9, theme: 'green' }).run(); // id=1
+		const repo = getRepos().checklist;
+		const tpl = await repo.insertTemplate(
+			{
+				name: 'フィールド網羅リスト',
+				icon: '📋',
+				pointsPerItem: 7, // 非既定
+				completionBonus: 15, // 非既定
+				isActive: 1,
+				isArchived: 1, // #3505 fix で persist される
+				sourcePresetId: 'preset-chk',
+			},
+			T,
+		);
+		await repo.assignTemplateToChildren(tpl.id, [1], T);
+		await repo.insertTemplateItem(
+			{
+				templateId: tpl.id,
+				name: 'アイテムA',
+				icon: '✅',
+				frequency: 'daily',
+				direction: 'positive',
+				sortOrder: 0,
+			},
+			T,
+		);
+
+		const data = await exportFamilyData({ tenantId: T });
+		const exported = data.data.checklistTemplates.find((t) => t.name === 'フィールド網羅リスト');
+		expect(exported, 'export された').toBeTruthy();
+		expect(
+			Object.keys(exported as object).sort(),
+			'checklistTemplate export key set が frozen list と一致 (不一致=新 field。下の assert も追加せよ)',
+		).toEqual(CHECKLIST_TEMPLATE_EXPORT_KEYS);
+
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+
+		const cid = testDb.select().from(schema.children).all()[0]?.id as number;
+		const restored = (await repo.findTemplatesByChild(cid, T, true, true)).find(
+			(t) => t.name === 'フィールド網羅リスト',
+		);
+		expect(restored, '復元された').toBeTruthy();
+		expect(restored?.pointsPerItem, 'pointsPerItem').toBe(7);
+		expect(restored?.completionBonus, 'completionBonus').toBe(15);
+		expect(restored?.isActive, 'isActive').toBe(1);
+		expect(restored?.isArchived, 'isArchived').toBe(1);
+		expect(restored?.sourcePresetId, 'sourcePresetId').toBe('preset-chk');
 	});
 });
