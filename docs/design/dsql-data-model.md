@@ -246,11 +246,12 @@ combo / mission / challenge進捗 / certificate(onConflictDoNothing) / special_r
 
 ### §9.1 一括 import の原子化（バックアップチーム申し送り #3326⇄#3436 統合、2026-06-29）
 
-別チーム（backup export/import）との交点。**申し送り SSOT** = `docs/research/2026-06-29-backup-import-handover-to-dsql-team.md`（backup チーム作業ツリー `Documents/ganbari-quest` branch `fix/3326` に存在、#3326/#3329 merge で develop に入る。merge まで本書がローカルキャッシュ）。**replace import / 家族全置換を単一 txn で all-or-nothing にすることは DSQL でも不可**（§P8: 1 write txn = 3,000 行/10MiB/5分、spike#1 実機 `3,001 行→[54000]`）。よって:
+別チーム（backup export/import）との交点。**申し送り SSOT** = `docs/research/2026-06-29-backup-import-handover-to-dsql-team.md` + backup チーム最新 handover（`Documents/ganbari-quest/tmp/dsql-handover.md`、2026-07-01、PR #3491/#3497/#3509）。backup チーム作業ツリー `Documents/ganbari-quest` branch `fix/3326`、#3326/#3329 merge で develop に入る。**replace import / 家族全置換を単一 txn で all-or-nothing にすることは DSQL でも不可**（§P8: 1 write txn = 3,000 行/10MiB/5分、spike#1 実機 `3,001 行→[54000]`）。よって:
 
-- **import-then-swap（staging→pointer swap）or saga（"import 中"フラグ→全 chunk 成功で commit）** に統合する。#3326（import 原子化）と #3436（DSQL chunk+saga）は**同一問題=1 設計にマージ**（二重実装回避）。
-- **チャンク = 3,000 行未満の真の all-or-nothing**（DynamoDB の 100 item 上限より緩い追い風）。現状の 54 個 per-row `await insert`（N+1）は DPU/OCC/行上限すべてで不可 → §8 と同じ batch 機構に乗せる。OCC 40001 retry ラッパ（#3435）必須。
-- **clearAllFamilyData の原子化機構は data-service 層に置く**（呼出元 `/api/v1/data/clear` `/admin/settings/data` `/api/v1/import/cloud` 全経路に効く）。
+- **単一強制点 = `src/lib/server/services/replace-import-service.ts` の `replaceImportAtomic`**（backup チームが既設、`DATA_SOURCE` dispatch で backend strategy 切替: SQLite=`BEGIN IMMEDIATE`/ROLLBACK 実装済 / DynamoDB=backup-before-clear 補償 実装済・移管で破棄 / **DSQL strategy を 1 本足すだけで合流**）。#3326（import 原子化）と #3436（DSQL chunk+saga）は**同一問題=1 設計にマージ**（二重実装回避）。**新規に data-service 層で並行実装しない**（既設 seam に収束）。呼出元 `/api/v1/data/clear` `/admin/settings/data` `/api/v1/import/cloud` 全経路に効く。
+- **DSQL strategy = import-then-swap（staging→pointer swap）or saga（"import 中"フラグ→全 chunk 成功で commit）**、`errors>0→swap 中止` semantics 維持。
+- **チャンク化は `insertForRestore` の batch 版に集約し chunk サイズは backend が決める（SQLite=500 / DynamoDB=25 / DSQL=3,000）**（二重実装回避の唯一解、handover §4）。3,000 行未満の真の all-or-nothing（DynamoDB の 100 item 上限より緩い追い風）。現状の 54 個 per-row `await insert`（N+1）は DPU/OCC/行上限すべてで不可 → §8 と同じ batch 機構に乗せる。OCC 40001 retry ラッパ（#3435）必須。
+- **`cloud_exports.status` カラム + lazy migration（#3509 で追加）を DSQL DDL に整合**させる（Family 集約、§11.3。非同期 export の状態管理列）。
 
 ### §9.2 DSQL repo がバックアップ契約を維持（落とすと round-trip テストが落ちる）
 
