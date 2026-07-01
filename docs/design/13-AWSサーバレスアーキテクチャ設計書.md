@@ -144,6 +144,7 @@ EventBridge / dispatcher 未登録のジョブも NUC では起動する。
 | pmf-survey | `cron(0 0 1 6,12 ? *)` | 6/1・12/1 09:00 | ✓ | ✓ | PMF 判定アンケート (Sean Ellis Test) 年 2 回配信 (#1598, ADR-0023 §5 I7) |
 | analytics-aggregator-daily | `cron(0 18 * * ? *)` | 毎日 03:00 | ✓ | ✓ | 前日分 funnel + cancellation 事前集計バッチ (#1693, #1639 follow-up) |
 | challenge-aggregator-daily | `cron(30 18 * * ? *)` | 毎日 03:30 | ✓ | ✓ | 当日分の全テナント `questionnaire_challenges` スナップショット集計、`/ops/analytics` プリセット分布画面の N+1 移行用 (#1742, #1602) |
+| export-build | `cron(0/5 * * * ? *)` | 5 分毎 | ✓ | ✓ | クラウドエクスポート非同期 build バッチ (#3504, async-backup-export.md §3.2)。`status='pending'` の `cloud_exports` を拾い ZIP 生成 → S3/ローカル FS 保存 → `ready` に遷移。AWS (cron-dispatcher) / NUC (scheduler container) 双方が同一 endpoint を駆動 |
 
 - ターゲット: AWS では `ganbari-quest-cron-dispatcher` Lambda (JSON payload `{ cronJob: "<job-name>" }`) が EventBridge から起動され `/api/cron/:job` を HTTP POST する
 - AWS EventBridge Rule 名は `ganbari-quest-cron-<job-name>` (例: `ganbari-quest-cron-retention-cleanup`)
