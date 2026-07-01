@@ -1147,8 +1147,7 @@ export const TUTORIAL_CHAPTER_LABELS = {
 		},
 		'children-3': {
 			title: 'こどもの詳細',
-			description:
-				'各こどもの名前・年齢・ポイント残高が表示されます。「こどもごとの進捗をざっくり把握したい」時にここを見てください。\n\n⭐ 無料プランではこどもを2人まで登録できます。3人以上のきょうだいがいる場合はスタンダードプラン以上で無制限に登録できます。',
+			description: `各こどもの名前・年齢・ポイント残高が表示されます。「こどもごとの進捗をざっくり把握したい」時にここを見てください。\n\n⭐ ${PLAN_FULL_TERMS.free}ではこどもを2人まで登録できます。3人以上のきょうだいがいる場合は${PLAN_FULL_TERMS.standard}以上で無制限に登録できます。`,
 		},
 		'activities-1': {
 			title: '活動一覧',
@@ -4481,8 +4480,7 @@ export const FORGOT_PASSWORD_LABELS = {
 // ============================================================
 
 export const DEMO_REWARDS_LABELS = {
-	upgradeBannerDesc:
-		'無料プランではプリセット閲覧のみ可能です。スタンダードプラン以上にアップグレードすると、カスタムのボーナスごほうびを作成・付与できます。',
+	upgradeBannerDesc: `${PLAN_FULL_TERMS.free}ではプリセット閲覧のみ可能です。${PLAN_FULL_TERMS.standard}以上にアップグレードすると、カスタムのボーナスごほうびを作成・付与できます。`,
 	// #2272 AC2: 「テンプレート」UI 露出を REWARD_TERMS.preset 経由「プリセット」に置換
 	selectTemplateTitleDemo: `2. ${REWARD_TERMS.preset}を選択（またはカスタム）`,
 	confirmGrantTitleDemo: '3. 内容を確認して付与',
@@ -5121,8 +5119,8 @@ export const ADMIN_CHALLENGES_PAGE_LABELS = {
 export const CERTIFICATES_PAGE_LABELS = {
 	pageTitle: '📜 がんばり証明書',
 	backToReportsLink: 'レポートへ',
-	freePlanNotePrefix: '無料プランでは証明書の閲覧のみ可能です。PDF保存は',
-	freePlanNoteLink: 'スタンダードプラン以上',
+	freePlanNotePrefix: `${PLAN_FULL_TERMS.free}では証明書の閲覧のみ可能です。PDF保存は`,
+	freePlanNoteLink: `${PLAN_FULL_TERMS.standard}以上`,
 	freePlanNoteSuffix: 'で利用できます。',
 	emptyTitle: 'まだ証明書がありません',
 	emptyDesc: '活動を記録すると、マイルストーン達成時に証明書が発行されます',
