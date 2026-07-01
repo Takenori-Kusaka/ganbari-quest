@@ -259,16 +259,19 @@ export interface DrainResult {
 	processed: number;
 	ready: number;
 	failed: number;
-	/** #3509: stale 'building' から 'pending' へ reclaim した件数。 */
+	/** #3509: stale 'building' から 'failed' へ reclaim (fail-closed) した件数。 */
 	reclaimed: number;
 }
 
 /**
- * #3509 QM 是正 (async-backup-export.md §3.2 追補): status='building' のまま
+ * #3509 QM 是正 (async-backup-export.md §3.2-4): status='building' のまま
  * staleThresholdMs 以上経過したレコード (cron worker が build 中に kill/timeout し
- * 永久 stuck した行) を 'pending' へ差し戻し、次回 drain で再試行対象にする。
- * updateStatus('pending') が buildStartedAt も null にリセットするため、reclaim 後の
- * レコードは通常の pending と区別なく findPendingBuilds に拾われる。
+ * 永久 stuck した行) を 'failed' へ fail-closed する。
+ *
+ * 設計書 §3.2-4 は「pending への差し戻し（自動再試行）は採用しない」と明記している。
+ * ワーカーが low-level で kill された場合、対象 ZIP が不完全に S3/FS へ書き込まれている
+ * 可能性があり、自動リトライは重複書込み・競合を生みうるため、fail-closed してユーザーに
+ * 再エクスポートを促す方が安全 (Pre-PMF、ADR-0010 過剰実装回避)。
  */
 export async function reclaimStaleBuildingExports(
 	staleThresholdMs = STALE_BUILDING_THRESHOLD_MS,
@@ -276,8 +279,10 @@ export async function reclaimStaleBuildingExports(
 	const repos = getRepos();
 	const stale = await repos.cloudExport.findStaleBuildingExports(staleThresholdMs);
 	for (const record of stale) {
-		await repos.cloudExport.updateStatus(record.id, record.tenantId, 'pending');
-		logger.warn('[cloud-export] stale building を pending へ reclaim', {
+		await repos.cloudExport.updateStatus(record.id, record.tenantId, 'failed', {
+			failureReason: 'ビルドがタイムアウトしました。再度エクスポートしてください',
+		});
+		logger.warn('[cloud-export] stale building を failed へ reclaim', {
 			context: { id: record.id, tenantId: record.tenantId, exportType: record.exportType },
 		});
 	}
@@ -291,7 +296,7 @@ export async function reclaimStaleBuildingExports(
  * `failureReason` を残す。
  *
  * #3509 QM 是正: build 開始前に {@link reclaimStaleBuildingExports} を呼び、cron worker が
- * kill/timeout して 'building' のまま永久 stuck したレコードを 'pending' へ差し戻してから
+ * kill/timeout して 'building' のまま永久 stuck したレコードを 'failed' へ fail-closed してから
  * 通常の pending drain を行う。
  */
 export async function drainPendingExports(limit = 5): Promise<DrainResult> {

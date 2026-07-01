@@ -362,7 +362,7 @@ describe('cloud-export-service', () => {
 			expect(mockStorageRepo.saveFile).not.toHaveBeenCalled();
 		});
 
-		it('#3509 QM 是正: stale building を pending へ reclaim してから drain する', async () => {
+		it('#3509 QM 是正 (async-backup-export.md §3.2-4): stale building を failed へ fail-closed してから drain する', async () => {
 			mockCloudExportRepo.findStaleBuildingExports.mockResolvedValue([
 				pendingRecord({ id: 99, status: 'building' }),
 			]);
@@ -371,7 +371,14 @@ describe('cloud-export-service', () => {
 			const result = await drainPendingExports();
 
 			expect(result.reclaimed).toBe(1);
-			expect(mockCloudExportRepo.updateStatus).toHaveBeenCalledWith(99, 'tenant-1', 'pending');
+			expect(mockCloudExportRepo.updateStatus).toHaveBeenCalledWith(
+				99,
+				'tenant-1',
+				'failed',
+				expect.objectContaining({
+					failureReason: expect.stringContaining('タイムアウト'),
+				}),
+			);
 		});
 
 		it('#3509 QM 是正: stale building が無ければ reclaim 0 で通常 drain する', async () => {
