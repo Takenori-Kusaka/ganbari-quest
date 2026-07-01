@@ -62,7 +62,7 @@
 > **backend 別 atomicity 実装（#3326 で確定）**: SQLite と DynamoDB で「どの backend でも全 import を単一 tx で包めない」制約（SQLite=同期 tx が多数の `await insert` を跨げない / DynamoDB=`TransactWriteItems` 100 item 上限 / DSQL=1 write txn 最大 3,000 行）への対処が異なる。
 > - **SQLite（NUC）**: 単一接続で `BEGIN IMMEDIATE` → 成功で `COMMIT` / 例外で `ROLLBACK`。clear も import も同一 tx に乗る（内部の `db.transaction()` は better-sqlite3 が SAVEPOINT にネスト）。
 > - **DynamoDB（本番）**: 全実体の PK が `T#<tenantId>#…`（`keys.ts` `tenantPK`）で tenant の上に staging を切る namespace 間接層が無く、ポインタ差替えの O(1) swap は不可。よって **backup-before-clear（補償トランザクション）**: clear 前に旧データを `exportFamilyData` で snapshot 取得（取得失敗時は安全側に中止）→ clear + import を試行 → 失敗時は snapshot を storage（`tenants/<tenantId>/recovery/`）へ永続化したうえで旧データを復元。二次故障（復元自体の失敗）はオペレータが永続化済 snapshot から手動復旧する退路を残す。
-> - **DSQL 移管時（#3424 / #3436）**: DSQL も単一 tx で家族 1 件を包めない（3,000 行上限、実機確定）ため、import 原子化は #3436「一括 import チャンク+saga」と共同設計に統合する（申し送り: `research/2026-06-29-backup-import-handover-to-dsql-team.md`）。
+> - **DSQL 移管時（#3424 / #3436）**: DSQL も単一 tx で家族 1 件を包めない（3,000 行上限、実機確定）ため、import 原子化は #3436「一括 import チャンク+saga」と共同設計に統合する（調整は #3436 で行う）。
 
 ### 3.4 完全性テスト（#3328）
 - 全 source 実体の **round-trip**（rich fixture → export →(clear)→ import → 派生再計算 → **件数 + 代表内容一致**）を SQLite + DynamoDB / add + replace で。
