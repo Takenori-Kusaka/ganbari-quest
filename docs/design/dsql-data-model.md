@@ -409,8 +409,13 @@ DSQL は **1 txn = DDL 1 文・DDL/DML 混在不可**（spike#1）。よって:
 3. **UNIQUE index を張る前に重複を排除（dedup 先行が前提）** → `CREATE [UNIQUE] INDEX ASYNC` を load 後に作成（per-row 再検証回避）。空表への inline UNIQUE は安全（spike#6/F7）、**populated 表（NUC cutover 等）への後付け UNIQUE のみ dedup 先行が必須**（F1）。
 4. `sys.jobs`（job=`completed`）/ `pg_index.indisvalid=true` で **全 index が valid を確認**（F1 実機: dup が残ると job=`failed`・indisvalid=false で**沈黙縮退**＝query 加速されないまま、しかも新 dup 書込は依然 `23505` で制約される）。INVALID なら dedup して drop→再作成。
 5. 接続は IAM トークン、ASYNC index build 完了待ちを CDK/migration に組込。
-   - **レイテンシモデル（一次ソース: re:Invent 2025 DAT439 / spike#8 実測）**: 初回**接続確立 ~1.45s（spike#8: connect 562ms + 初回クエリ）**は Firecracker cold start でなく接続パス（SNI→Relay TLS→IAM トークン検証→placement AZ-local QP 割当→sandbox TLS 移行）。DSQL は warm pool 数百 microVM + Snapstart(CoW) で **compute cold start は実質ゼロ**。**確立済み接続の 2 回目以降は warm 高速**（spike#8: read p50 ~15ms / write p50 ~24ms in-region）。**Lambda 実務**: DB client を handler 外生成し warm コンテナで接続再利用→warm 高速。ただし **IAM トークン寿命 1h・接続 age 上限 1h** ゆえ長寿命 warm コンテナは期限/切断を検知して再接続（再接続時は再び接続パスコスト、トークン再生成は SigV4 相当でローカル軽量）。
-6. **analytics の DynamoDB 直書き経路の帰属（N3）**: `analytics/providers/dynamo.ts` は DB 層と別系統の独自 DynamoDB writer。本番から DynamoDB を全撤去（#3438）するなら analytics event の保存先を確定（DSQL 新表 / 別マネージドサービス / noop 継続のいずれか）。撤去計画 #3438 に編入し「DynamoDB 依存 1 本残存」を防ぐ。
+   - **レイテンシモデル（一次ソース: re:Invent 2025 DAT439 / spike#8 実測）**: 初回**接続確立 ~1.45s（spike#8: connect 562ms + 初回クエリ）**は Firecracker cold start でなく接続パス（SNI→Relay TLS→IAM トークン検証→placement AZ-local QP 割当→sandbox TLS 移行）。DSQL は warm pool 数百 microVM + Snapstart(CoW) で **compute cold start は実質ゼロ**。**確立済み接続の 2 回目以降は warm 高速**（spike#8 はローカル日本→東京から測定＝**client RTT を含む上限値** read p50 ~15ms / write p50 ~24ms。本番の Lambda→DSQL 同一 AZ は client RTT がほぼ消えるため AWS 公表の **local read ~1.2ms / single-digit ms** に近づく＝spike 値より速い）。**接続確立コスト（cold 562ms / reconnect 99ms）は TLS+IAM+placement の接続パス由来で client RTT 依存が小さく、本番でも同程度**（＝connect は path-bound、query は RTT-bound）。**Lambda 実務**: DB client を handler 外生成し warm コンテナで接続再利用→warm 高速。ただし **IAM トークン寿命 1h・接続 age 上限 1h** ゆえ長寿命 warm コンテナは期限/切断を検知して再接続（再接続時は再び接続パスコスト、トークン再生成は SigV4 相当でローカル軽量）。
+6. **⚠️ 非 repo DynamoDB アクセスの完全一覧（N3、scope integrity）**: DynamoDB SDK 使用は全 40 file。36 は `db/dynamodb/` 抽象化レイヤ内（撤去対象）だが、**4 file が抽象化の外に散在**（grep 実測 2026-07-01、DynamoDB アクセスが repo 統一クラスを経ていない残存）:
+   - `src/lib/analytics/providers/dynamo.ts` — analytics event の独自 DynamoDB writer（DB 層と別系統）
+   - `src/lib/server/services/analytics-aggregate-service.ts` — **service 層から DynamoDB を直接 QueryCommand/Put**（`ANALYTICS_AGG#<date>` 集計、repo を経ない散在アクセス）
+   - `src/lib/server/db/probe.ts` — DynamoDB 接続 probe（health/ops、backend 切替で置換/撤去）
+   - `src/lib/server/db/migration/writeback.ts` — migration hydrate writeback（移管ツーリング、撤去対象）
+   → **Phase Z（#3438）は `db/dynamodb/` 39 file だけでなくこの 4 file も scope に含める**。特に analytics 2 file は「DynamoDB 全撤去なら保存先を確定（DSQL 新表 / 別マネージドサービス / noop）」の product 判断が要る。撤去 issue の AC に本 4 file の DynamoDB SDK grep-zero 検証を課し「依存の silent 残存」を防ぐ。
 
 ### §12.2 NUC(SQLite) cutover 移行機構（単一経路に確定、I-4）
 

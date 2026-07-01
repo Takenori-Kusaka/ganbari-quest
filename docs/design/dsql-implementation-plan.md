@@ -81,7 +81,7 @@ EPIC #3424  DynamoDB → Aurora DSQL 移管
 
 **Phase I（並列可）**: #3429 CDK L1 CfnCluster(**us-east-1**)+deletion protection+IAM / #3437 DSQL PITR/AWS Backup(§12.4、本番前 MUST) / #3431 Alarm+Budgets¥100 / #3432 dashboard(OccConflicts/CommitLatency/接続数+fitness#11 metric) / #Nclient Lambda DSQL client factory(handler 外生成+IAM token/接続 age 1h 再接続、§12.1)。**ADR-0024 インフラ PR 必須要件を追加適用**。
 
-**Phase Z**: #3438 `db/dynamodb/` 39file+CI gate 2本+migration hydrate 撤去+analytics DynamoDB 経路確定(§12.1 N3)+rationale 13 supersede。blocked_by: Phase C/D 全 merge+cutover 検証。
+**Phase Z**: #3438 `db/dynamodb/` 39file+CI gate 2本+migration hydrate 撤去+rationale 13 supersede。**⚠️ scope integrity（grep 実測 2026-07-01）**: DynamoDB SDK は全 40 file、うち **repo 抽象化の外に 4 file 散在**（`analytics/providers/dynamo.ts` / `services/analytics-aggregate-service.ts`[service 層直 Query/Put] / `db/probe.ts` / `db/migration/writeback.ts`）。Phase Z はこの 4 file も含め、AC に「全 4 file の DynamoDB SDK grep-zero」を課す。analytics 2 file は保存先確定(DSQL新表/別サービス/noop)の product 判断要。blocked_by: Phase C/D 全 merge+cutover 検証。
 
 ## 2. TDD t-wada 実行フロー（Canon TDD: List→Red→Green→Refactor→Repeat）
 
