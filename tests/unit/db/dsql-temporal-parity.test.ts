@@ -24,7 +24,13 @@ import * as dsqlSchema from '../../../src/lib/server/db/dsql/schema';
 import * as sqliteSchema from '../../../src/lib/server/db/schema';
 
 /** dsql/schema.ts の全 pg 表（export 走査、表追記で自動拡張） */
-const pgTables = Object.values(dsqlSchema).filter((v): v is PgTable => is(v, PgTable));
+// `is(v, PgTable)` を型述語 (`v is PgTable`) 付きで使うと、schema module の export が
+// 表ごとに具体的な `PgTableWithColumns<{name:"children";...}>` 型を持つため、
+// 述語の型 (PgTable) が parameter 型 (具体的な表の型) に非互換と判定され svelte-check
+// エラーになる。型述語を使わず filter 後に `as PgTable<any>[]` へ型アサーションすることで
+// 「pg 表であるかどうか」の実行時走査を型チェックの制約なしに成立させる。
+// biome-ignore lint/suspicious/noExplicitAny: 表ごとに異なる具体的 column 型を持つため、走査用の型ガードとして意図的にジェネリクスを緩めている（上記コメント参照）
+const pgTables = Object.values(dsqlSchema).filter((v) => is(v, PgTable)) as PgTable<any>[];
 
 /** pg temporal 列 = timestamp / date 系 columnType（mode により *String suffix が付く） */
 const isPgTemporal = (columnType: string) =>
@@ -70,11 +76,13 @@ describe('fitness#6: temporal dialect-parity (§11.3 / SQLite parity Finding 6)'
 	});
 
 	it('[3] sqlite: pg schema と同名の表に Date-mode 列が無い（両 backend 共に string）', () => {
-		const pgTableNames = new Set(pgTables.map((t) => getTableName(t)));
-		const sqliteTables = Object.values(sqliteSchema).filter((v): v is SQLiteTable =>
-			is(v, SQLiteTable),
-		);
-		const paired = sqliteTables.filter((t) => pgTableNames.has(getTableName(t)));
+		const pgTableNames = new Set<string>(pgTables.map((t) => getTableName(t)));
+		// pg 側と同様、型述語を使わず filter 後にアサーションする（表追記で export union が
+		// 変わっても svelte-check エラーにならない汎用走査にするため）。
+		const sqliteTables = Object.values(sqliteSchema).filter((v) => is(v, SQLiteTable));
+		// biome-ignore lint/suspicious/noExplicitAny: pg 側と同様、走査用型ガードとして意図的
+		const typedSqliteTables = sqliteTables as SQLiteTable<any>[];
+		const paired = typedSqliteTables.filter((t) => pgTableNames.has(getTableName(t)));
 		// pg 側に children が居る以上、sqlite 側にも同名表が居るはず（parity pair の空振り防止）
 		expect(paired.length).toBeGreaterThan(0);
 
