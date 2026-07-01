@@ -1,7 +1,7 @@
 // tests/unit/services/cohort-analysis-service.test.ts
 // コホート別 LTV / チャーン率推移サービスのユニットテスト (#838)
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SUBSCRIPTION_PLAN } from '$lib/domain/constants/subscription-plan';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
 import type { Tenant } from '../../../src/lib/server/auth/entities';
@@ -31,6 +31,7 @@ vi.mock('$lib/server/logger', () => ({
 import {
 	getCohortAnalysis,
 	RETENTION_DAYS,
+	utcMonthKey,
 } from '../../../src/lib/server/services/cohort-analysis-service';
 
 // --- Helper ---
@@ -63,6 +64,22 @@ function firstCohort(cohorts: Awaited<ReturnType<typeof getCohortAnalysis>>['coh
 // =============================================================
 
 describe('getCohortAnalysis', () => {
+	// #3449 回帰テストの TZ pin (vacuous test 防止 / failing-test-first 成立条件):
+	// 旧バグ (targetMonths をローカル `new Date(y, m-i, 1)` で列挙) は cohort 鍵 (createdAt の UTC 月) と
+	// ローカル月がズレる **非 UTC TZ でのみ**顕在化する。CI 既定の UTC では旧 enumeration も UTC と一致し、
+	// 月境界テナントが取りこぼされないため旧 (develop) コードでもテストが green = 回帰を検出できない。
+	// 本ファイルを Asia/Tokyo に固定し、月末 UTC = JST 翌月になる境界クロック (下記 it.each) で
+	// ローカル列挙が UTC コホート鍵から乖離する状況を再現する (UTC enumeration の HEAD のみ PASS)。
+	// 注: TZ は Date 呼び出しごとに参照されるため beforeAll/afterAll の runtime set で scope 内に閉じる
+	// (process.env.TZ 変更は次の Date 演算から反映、Node 実機検証済)。
+	const ORIGINAL_TZ = process.env.TZ;
+	beforeAll(() => {
+		process.env.TZ = 'Asia/Tokyo';
+	});
+	afterAll(() => {
+		process.env.TZ = ORIGINAL_TZ;
+	});
+
 	// 日付固定クロック (#2078 cohort flake の根治): 本サービスは getSignupMonth が
 	// `createdAt.slice(0,7)` (UTC) でコホート月を決める一方、targetMonths / 各テストの
 	// 月計算は `getMonth()` (ローカル=JST) を使う。両者が混在するため、実日付が UTC↔JST の
@@ -80,6 +97,47 @@ describe('getCohortAnalysis', () => {
 
 	afterEach(() => {
 		vi.useRealTimers();
+	});
+
+	// #3449 (prod latent バグの不変条件 lock): UTC↔ローカル月混在で月境界 signup テナントが
+	// cohort key mismatch で取りこぼされる問題を、UTC 月 SSOT 統一 (utcMonthKey) で根治した。
+	// fake clock を複数の境界日で parametrize し、境界テナントが正しい UTC 月コホートに入ることを固定する。
+	// TZ pin が実際に効いていることの machine guard (vacuous 回帰の再発防止 / ADR-0061)。
+	// この assert が落ちる = TZ pin 不全 = 下記境界テストが UTC で vacuous 化している、を即検出する。
+	it('#3449 前提: テスト TZ が Asia/Tokyo に固定され UTC とローカル月の境界が再現される', () => {
+		expect(process.env.TZ).toBe('Asia/Tokyo');
+		// Asia/Tokyo が効いていれば local 2026-06-01 00:00 = UTC 前日 15:00 (UTC とローカル月の境界が発生)
+		expect(new Date(2026, 5, 1).toISOString()).toBe('2026-05-31T15:00:00.000Z');
+		// 2026-06-30T23:30Z の local 月は JST で 7 月 (getMonth=6) = 旧コードのローカル列挙が UTC とずれる時刻
+		expect(new Date('2026-06-30T23:30:00Z').getMonth()).toBe(6);
+	});
+
+	it('#3449: utcMonthKey は境界時刻でも UTC 月を返す (JST 翌月になる UTC 月末も UTC 月)', () => {
+		// 2026-05-31T23:00:00Z は JST(+9) では 2026-06-01 09:00 = 翌月。だが UTC 月は 2026-05。
+		expect(utcMonthKey(new Date('2026-05-31T23:00:00Z'))).toBe('2026-05');
+		expect(utcMonthKey(new Date('2026-06-01T00:00:00Z'))).toBe('2026-06');
+		expect(utcMonthKey(new Date('2026-12-31T23:59:59Z'))).toBe('2026-12'); // 年境界
+	});
+
+	it.each([
+		// [signup createdAt(UTC), 期待 UTC 月コホート]
+		['2026-05-31T23:00:00Z', '2026-05'], // UTC 月末 = JST 翌月境界
+		['2026-05-01T00:00:00Z', '2026-05'], // UTC 月初
+		['2026-06-30T23:30:00Z', '2026-06'], // 当月 UTC 月末 = JST 翌月境界
+	])('#3449: 月境界 signup テナント (%s) が UTC 月コホート %s に取りこぼされず計上される', async (createdAt, expectedMonth) => {
+		// failing-test-first 成立条件: TZ=Asia/Tokyo + 月末 UTC = JST 翌月になる境界クロックに上書きする。
+		// この時刻だと旧コードのローカル列挙 (JST 7 月基準) targetMonths=[2026-06,2026-07] が
+		// UTC コホート鍵 2026-05 を含まず取りこぼす → develop (旧) で FAIL。
+		// HEAD の UTC 列挙は getUTCMonth=5(6月) 基準で targetMonths=[2026-05,2026-06] のため取りこぼさず PASS。
+		vi.setSystemTime(new Date('2026-06-30T23:30:00Z'));
+		mockListAllTenants.mockResolvedValue([
+			makeTenant({ tenantId: 'boundary', createdAt, plan: SUBSCRIPTION_PLAN.MONTHLY }),
+		]);
+		// clock UTC=2026-06-30T23:30Z / monthsBack=2 → targetMonths(UTC)=[2026-05, 2026-06]
+		const result = await getCohortAnalysis(2);
+		const cohort = result.cohorts.find((c) => c.month === expectedMonth);
+		expect(cohort, `cohort ${expectedMonth} が targetMonths に存在する`).toBeDefined();
+		expect(cohort?.size).toBe(1); // 境界テナントが当該 UTC 月に計上される
 	});
 
 	it('テナントが 0 件の場合、空のコホートが返る', async () => {
