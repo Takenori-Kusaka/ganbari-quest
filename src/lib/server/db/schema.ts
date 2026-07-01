@@ -948,10 +948,16 @@ export const cloudExports = sqliteTable(
 		downloadCount: integer('download_count').notNull().default(0),
 		maxDownloads: integer('max_downloads').notNull().default(10),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		// #3504 (async-backup-export.md §3.1): 非同期 build 状態。
+		// 新規 async 起票は service が明示的に 'pending' を insert する。既存行は
+		// lazy migration (migrateCloudExportStatusColumns) で 'ready' backfill。
+		status: text('status').notNull().default('pending'),
+		failureReason: text('failure_reason'),
 	},
 	(table) => [
 		index('idx_cloud_exports_tenant').on(table.tenantId),
 		index('idx_cloud_exports_pin').on(table.pinCode),
+		index('idx_cloud_exports_status').on(table.status),
 	],
 );
 

@@ -687,10 +687,13 @@ export const SQL_TABLES = `
 		expires_at TEXT NOT NULL,
 		download_count INTEGER NOT NULL DEFAULT 0,
 		max_downloads INTEGER NOT NULL DEFAULT 10,
-		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+		created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		status TEXT NOT NULL DEFAULT 'pending',
+		failure_reason TEXT
 	);
 	CREATE INDEX idx_cloud_exports_tenant ON cloud_exports(tenant_id);
 	CREATE INDEX idx_cloud_exports_pin ON cloud_exports(pin_code);
+	CREATE INDEX idx_cloud_exports_status ON cloud_exports(status);
 
 	-- #2295 (EPIC #2294 ①): tenant_events / tenant_event_progress テーブル定義削除済 (2026-05-19)
 	-- #3213 (EPIC #3193): auto_challenges テーブル定義削除済。週次自動生成は child_challenges へ一本化 (#3195)。

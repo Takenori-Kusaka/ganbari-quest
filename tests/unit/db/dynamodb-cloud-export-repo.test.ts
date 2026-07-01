@@ -311,3 +311,90 @@ describe('countByTenant', () => {
 		expect(callOf(0).input.Select).toBe('COUNT');
 	});
 });
+
+describe('insert は status を含める (#3504)', () => {
+	it('status 省略時は pending / failureReason=null', async () => {
+		mockSend.mockResolvedValueOnce({ Attributes: { counter: 1 } }).mockResolvedValueOnce({});
+		const { insert } = await loadRepo();
+		const r = await insert({
+			tenantId: TENANT,
+			exportType: 'full',
+			pinCode: 'p',
+			s3Key: 'k',
+			fileSizeBytes: 0,
+			expiresAt: '2026-06-01',
+		});
+		expect(r.status).toBe('pending');
+		expect(r.failureReason).toBeNull();
+		const item = (callOf(1).input.Item as Record<string, unknown>) ?? {};
+		expect(item.status).toBe('pending');
+	});
+});
+
+describe('updateStatus (#3504)', () => {
+	it('exact Key + #status 別名で status を SET する', async () => {
+		mockSend.mockResolvedValueOnce({});
+		const { updateStatus } = await loadRepo();
+		await updateStatus(5, TENANT, 'building');
+		const arg = callOf(0).input;
+		expect(arg.UpdateExpression).toContain('#status = :status');
+		expect((arg.ExpressionAttributeNames as Record<string, string>)['#status']).toBe('status');
+		expect((arg.ExpressionAttributeValues as Record<string, string>)[':status']).toBe('building');
+		expect((arg.Key as Record<string, string>).SK).toBe('EXPORT#00000005');
+		expect(arg.ConditionExpression).toBe('attribute_exists(PK)');
+	});
+
+	it('ready 遷移では fileSizeBytes / description も同 UpdateItem で確定する', async () => {
+		mockSend.mockResolvedValueOnce({});
+		const { updateStatus } = await loadRepo();
+		await updateStatus(5, TENANT, 'ready', { fileSizeBytes: 123, description: 'フルバックアップ' });
+		const arg = callOf(0).input;
+		expect(arg.UpdateExpression).toContain('#fs = :fs');
+		expect(arg.UpdateExpression).toContain('#desc = :desc');
+		expect((arg.ExpressionAttributeValues as Record<string, unknown>)[':fs']).toBe(123);
+		expect((arg.ExpressionAttributeValues as Record<string, unknown>)[':desc']).toBe(
+			'フルバックアップ',
+		);
+	});
+
+	it('不在 (別 tenant) は ConditionalCheckFailed → silent no-op', async () => {
+		mockSend.mockRejectedValueOnce(
+			Object.assign(new Error('cc'), { name: 'ConditionalCheckFailedException' }),
+		);
+		const { updateStatus } = await loadRepo();
+		await expect(updateStatus(9, 'other', 'ready')).resolves.toBeUndefined();
+	});
+});
+
+describe('findPendingBuilds (#3504)', () => {
+	it('Scan + #status=pending で最大 limit 件返す', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				{ id: 1, tenantId: TENANT, status: 'pending', createdAt: '2026-05-01T00:00:00.000Z' },
+				{ id: 2, tenantId: TENANT, status: 'pending', createdAt: '2026-05-02T00:00:00.000Z' },
+			],
+		});
+		const { findPendingBuilds } = await loadRepo();
+		const result = await findPendingBuilds(5);
+		expect(result).toHaveLength(2);
+		const arg = callOf(0).input;
+		expect(arg.FilterExpression).toContain('#status = :pending');
+		expect((arg.ExpressionAttributeValues as Record<string, string>)[':pending']).toBe('pending');
+	});
+
+	it('limit で打ち切る (ページング途中でも)', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				{ id: 1, tenantId: TENANT, status: 'pending', createdAt: 'a' },
+				{ id: 2, tenantId: TENANT, status: 'pending', createdAt: 'b' },
+				{ id: 3, tenantId: TENANT, status: 'pending', createdAt: 'c' },
+			],
+			LastEvaluatedKey: { PK: 'x', SK: 'y' },
+		});
+		const { findPendingBuilds } = await loadRepo();
+		const result = await findPendingBuilds(2);
+		expect(result).toHaveLength(2);
+		// limit 到達で 2 ページ目 Scan を発行しない
+		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+});

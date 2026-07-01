@@ -892,6 +892,36 @@ function migrateRedemptionResolverLegacyZero(db: Database.Database): void {
 	);
 }
 
+/**
+ * #3504 (async-backup-export.md §3.1): `cloud_exports` に非同期 build 状態カラム
+ * (`status` / `failure_reason`) を追加する。
+ *
+ * 本機構導入前に作成された既存レコードは **すべて同期 build 済 (= DL 可能)** なので、
+ * `status` を 'ready' で backfill する (ADD COLUMN の DEFAULT 'ready' で既存行を一括埋め)。
+ *
+ * 注: `schema.ts` / `create-tables.ts` の DB DEFAULT は 'pending' だが、これは新規 async
+ * 起票 (service が明示的に 'pending' insert) 用の意味であり、既存行の backfill 意味 (= ready)
+ * とは別。よって本 migration の ADD COLUMN は明示的に DEFAULT 'ready' を使い、既存行を ready 化する。
+ * カラムが既に存在すれば (validateAndMigrate 到達前に本 migration で作成済のため) skip し冪等。
+ *
+ * validateAndMigrate (schema.ts 差分検出) は「カラム不在」のみ検出するため、本 migration で先に
+ * カラムを作っておけば default 値の差 (pending vs ready) で再 ALTER されることはない。
+ */
+function migrateCloudExportStatusColumns(db: Database.Database): void {
+	if (!tableExists(db, 'cloud_exports')) return;
+	if (hasColumn(db, 'cloud_exports', 'status')) return; // 冪等
+	const run = db.transaction(() => {
+		// 既存行 = 同期 build 済 → 'ready' で backfill (ADD COLUMN DEFAULT が既存行に適用される)
+		db.exec("ALTER TABLE cloud_exports ADD COLUMN status TEXT NOT NULL DEFAULT 'ready';");
+		db.exec('ALTER TABLE cloud_exports ADD COLUMN failure_reason TEXT;');
+		db.exec('CREATE INDEX IF NOT EXISTS idx_cloud_exports_status ON cloud_exports(status);');
+		console.info(
+			'[lazy-migrate #3504] added cloud_exports.status / failure_reason (existing rows backfilled to ready)',
+		);
+	});
+	run();
+}
+
 export function applyLazyStartupMigrations(db: Database.Database): void {
 	const fkBefore = db.pragma('foreign_keys', { simple: true }) as number;
 	db.pragma('foreign_keys = OFF');
@@ -914,6 +944,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// #3320: 既存 tables への純粋な値正規化 (legacy resolved_by_parent_id=0 → NULL)。
 		// 構造 migration の後に実行 (table 存在前提)。
 		migrateRedemptionResolverLegacyZero(db);
+		// #3504: cloud_exports に非同期 build 状態カラムを追加 (既存行は ready backfill)。
+		// 純粋な ADD COLUMN + backfill なので構造 migration の後で問題ない。
+		migrateCloudExportStatusColumns(db);
 	} catch (err) {
 		// #2509: tx 内で失敗した場合 better-sqlite3 が自動 ROLLBACK 済。partial state
 		// は残らないが、後続の `SQL_CREATE_TABLES` / `validateAndMigrate` 実行は危険
