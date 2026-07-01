@@ -324,7 +324,15 @@ export function computeProposal(
 	};
 }
 
-/** group key 解決 (admin getChallengeGroupsForAdmin と同一規約、ADR-0055 §4.7 整合) */
+/**
+ * group key 解決 (ADR-0055 §4.7 整合)。`getActiveChildChallengesWithSiblings` 用のベース key。
+ *
+ * #3513 QM BLOCK fix: admin 側 `getChallengeGroupsForAdmin` は本関数と同一規約ではなく、
+ * sourceTemplateId 有無に関わらず常に startDate + endDate を key に含める (tenant 全体・全期間を
+ * 横断集計するため)。本関数は呼び出し側 (`getActiveChildChallengesWithSiblings`) が group 化した
+ * 後に同一 childId の active instance に限定して period filter するため、sourceTemplateId 単体
+ * key のままで安全 (siblings は取得後に startDate/endDate 一致でさらに絞り込む)。
+ */
 function resolveGroupKey(
 	c: Pick<ChildChallenge, 'sourceTemplateId' | 'title' | 'startDate' | 'endDate'>,
 ): string {
@@ -411,6 +419,12 @@ export async function createChildChallengesBulk(
 /**
  * admin/challenges 画面: tenant 全体の challenge instance を sourceTemplateId / (title + 期間) で
  * group 化して返す。SiblingChallengeComparison.svelte で兄弟連動比較表示するため。
+ *
+ * #3513 QM BLOCK fix: groupKey には常に startDate + endDate を含める (sourceTemplateId が
+ * 'auto:weekly' のような tenant 内共有の固定文字列であっても、期間が異なれば別 group とする)。
+ * #2488 must-2 で `getActiveChildChallengesWithSiblings` に導入された「同一期間のみ同 group」
+ * ガードと同じ規約を admin 集計側にも適用し、全週・全子供の auto:weekly challenge が単一 group に
+ * 混線する事故を防ぐ (sourceTemplateId 単体キーだと固定値の場合に期間非依存になってしまう)。
  */
 export async function getChallengeGroupsForAdmin(tenantId: string): Promise<ChildChallengeGroup[]> {
 	const repos = getRepos();
@@ -418,7 +432,9 @@ export async function getChallengeGroupsForAdmin(tenantId: string): Promise<Chil
 
 	const groupMap = new Map<string, ChildChallenge[]>();
 	for (const c of all) {
-		const key = c.sourceTemplateId ?? `${c.title}::${c.startDate}::${c.endDate}`;
+		const key = c.sourceTemplateId
+			? `${c.sourceTemplateId}::${c.startDate}::${c.endDate}`
+			: `${c.title}::${c.startDate}::${c.endDate}`;
 		const arr = groupMap.get(key) ?? [];
 		arr.push(c);
 		groupMap.set(key, arr);

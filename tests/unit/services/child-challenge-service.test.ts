@@ -565,12 +565,76 @@ describe('getChallengeGroupsForAdmin', () => {
 		const groups = await getChallengeGroupsForAdmin(TENANT);
 		expect(groups.length).toBe(2);
 		// 開始日降順 (新しい順): A (2026-05-25) > B (2026-05-20)
-		expect(groups[0]?.groupKey).toBe('tmpl-1');
+		// #3513 QM BLOCK fix: groupKey は sourceTemplateId + 期間 (startDate::endDate) の複合になる
+		expect(groups[0]?.groupKey).toBe('tmpl-1::2026-05-25::2026-06-01');
 		expect(groups[0]?.instances.length).toBe(2);
 		expect(groups[0]?.allCompleted).toBe(false);
 		expect(groups[1]?.groupKey).toContain('B (individual)');
 		expect(groups[1]?.instances.length).toBe(1);
 		expect(groups[1]?.allCompleted).toBe(true);
+	});
+
+	it('#3513 QM BLOCK fix: 同一 sourceTemplateId (auto:weekly) でも期間が異なれば別 group になる (全週混線防止)', async () => {
+		mockFindAllByTenant.mockResolvedValueOnce([
+			{
+				id: 1,
+				childId: 902,
+				title: '今週のチャレンジ',
+				startDate: '2026-05-25',
+				endDate: '2026-05-31',
+				periodType: 'weekly',
+				sourceTemplateId: 'auto:weekly',
+				completed: 1,
+				targetValue: 5,
+				currentValue: 5,
+				description: null,
+				rewardConfig: '{}',
+				targetConfig: '{}',
+				status: 'completed',
+				isActive: 1,
+				challengeType: 'cooperative',
+				completedAt: '2026-05-31T09:00:00Z',
+				rewardClaimed: 0,
+				rewardClaimedAt: null,
+				createdAt: '',
+				updatedAt: '',
+			},
+			// 別の子供・前週分。sourceTemplateId は同じ固定文字列 'auto:weekly' だが期間が異なる。
+			{
+				id: 2,
+				childId: 903,
+				title: '先週のチャレンジ',
+				startDate: '2026-05-18',
+				endDate: '2026-05-24',
+				periodType: 'weekly',
+				sourceTemplateId: 'auto:weekly',
+				completed: 0,
+				targetValue: 5,
+				currentValue: 1,
+				description: null,
+				rewardConfig: '{}',
+				targetConfig: '{}',
+				status: 'active',
+				isActive: 1,
+				challengeType: 'cooperative',
+				completedAt: null,
+				rewardClaimed: 0,
+				rewardClaimedAt: null,
+				createdAt: '',
+				updatedAt: '',
+			},
+		]);
+
+		const groups = await getChallengeGroupsForAdmin(TENANT);
+
+		// 混線していれば 1 group (allCompleted=false かつ instances.length=2) になるが、
+		// 期間フィルタが効いていれば週ごとに別 group (それぞれ 1 instance) になる。
+		expect(groups.length).toBe(2);
+		expect(groups.every((g) => g.instances.length === 1)).toBe(true);
+		const completedGroup = groups.find((g) => g.startDate === '2026-05-25');
+		const activeGroup = groups.find((g) => g.startDate === '2026-05-18');
+		expect(completedGroup?.allCompleted).toBe(true);
+		expect(activeGroup?.allCompleted).toBe(false);
 	});
 
 	it('全 instance 完了で allCompleted=true', async () => {
