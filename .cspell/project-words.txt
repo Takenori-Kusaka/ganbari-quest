@@ -521,3 +521,9 @@ buildx
 dorny
 evilcorp
 softprops
+
+# ===== #3512 PK 凍結 manifest fitness#9 (children linchpin) =====
+# rebuildable = pk-freeze-manifest.ts の JSDoc（「再構築可能」の英語表現、標準英単語）
+# wada = t-wada（テスト駆動開発の提唱者、和田卓人氏の通称）。docs/design/dsql-implementation-plan.md 等で既出の Canon TDD 参照
+rebuildable
+wada
