@@ -67,10 +67,56 @@
 - [ ] 前倒し検討時は **Drizzle pg-core へのスキーマ移植 / OCC リトライ機構 / Lambda の IAM トークン接続 / 一括 import の 3,000 行・10 MiB 分割（#3376 整合）** を PoC 検証する
 - [ ] 比較軸として **Turso/libSQL**（SQLite 互換サーバーレス）も同時評価する
 
+## 追補（2026-07-01）: 移管実行への判断転換と設計完了後の評価
+
+### 判断転換（defer → proceed）
+
+2026-06-28 の結論は「Pre-PMF では DynamoDB 継続・DSQL は将来候補」だったが、再評価トリガ（§残された懸念の「大規模スキーマ変更 EPIC への相乗り」＋「保守性投資フェーズ」）が発火し、**EPIC #3424 で移管実行を決定**。ground-up データモデル設計（`docs/design/dsql-data-model.md`）+ **spike#1-8 実機検証**（FK/RLS/CREATE TYPE/部分index/式index/SAVEPOINT 非対応・jsonb ネイティブ・生成列 UNIQUE・OCC 40001・warm/cold レイテンシ等を実クラスタで確証）+ 技術 2 ラウンドレビュー + **8 名専門家パネル決裁**（DB/戦略/QM/セキュリティ/PO/営業/法務/UX、全員条件付き決裁・却下ゼロ）を経て設計凍結。「今やる」の正当化は §採用案の (b)(c)（顧客価値ゼロの大リファクタだが SQLite が既にリレーショナルで低リスク）に加え、**auth ドメインが SQL schema に不在で SQL 化が不可避**・**recordActivity の非トランザクション部分コミットが correctness 上放置できない**という forcing 要因。
+
+### 返還した技術負債（before → after、定量）
+
+| 負債 | before（DynamoDB single-table 由来） | after（DSQL ground-up） |
+|---|---|---|
+| バックエンド分岐 | 3 backend（dynamodb/sqlite/demo）、`db/dynamodb/` ~11,000 行、専用 CI ゲート 2 本、スキーマ同期 5-6 箇所 | 2 backend（DSQL/SQLite）、~1.2-1.3 万行削除、同期 2-3 箇所、単一論理モデル |
+| 採番ハック | surrogate int PK 43/46 + `counter.ts`（hot-item 採番＝スケールボトルネック）+ `padId`（辞書順ハック） | UUID v4 PK、counter.ts / padId **撤廃** |
+| テナント分離 | tenant_id が 15/46 表のみ・`_tenantId` no-op（越境クエリの温床） | 全テナント表に複合 tenant PK（family_id 先頭）+ fitness function で機械強制 |
+| JSON 詰め込み | itemsJson 等に非正規化を隠蔽 | 意図的解体（検索列 or jsonb を判断基準で選択、§5） |
+| 残高二重実装 | BALANCE item vs SUM の二重管理・乖離リスク | `children.total_point` 派生列 単一 SSOT（記録 txn 内更新で乖離不能） |
+| 記録の原子性 | recordActivity が 5+ 表を**非トランザクション best-effort**（例外握り潰し・部分コミット＝本番 t-82c17558 事故クラス） | core 5 行を単一 txn（all-or-nothing）+ optional 独立 |
+| auth の SQL 不在 | tenant/user/membership/invite/consent が **SQL schema に無く DynamoDB 専用**・role を 2 item に二重書き（片方成功で整合バグ） | リレーショナル 5 表・二重書き**根絶**・owner≤1 を生成列 UNIQUE で DB 強制・consent append-only |
+| 集計の場所 | ランキング/battle/兄弟比較を **app-side fetch + JS 集計**（全件転送 + アプリ CPU） | SQL `GROUP BY`（転送・CPU 削減） |
+
+### 効果（どれくらい効果的だったか）
+
+- **Correctness（最大の効果）**: 部分コミット根絶（原子性）、owner≤1 の DB 強制、backup round-trip の機械保証、consent の改竄防止（append-only）。**「動くが静かに壊れる」クラスの構造的欠陥を設計段階で封鎖**。
+- **保守性**: 二重実装税（1 概念 = 4 ファイル同期 + CI ゲート 2 本）の恒久解消。fitness function **15 件**で tenant 分離・派生列整合・PK 凍結・backup 秘密不在・cron chunk 等の不変条件を**人手でなく CI で機械強制**（ADR-0061 整合）。
+- **開発速度**: SQL の JOIN/GROUP BY/トランザクションで、single-table のアクセスパターン設計 + app-side 集計の負担を削減。Drizzle の型安全・マイグレーション生成が両 backend に効く。
+
+### 正直なパフォーマンス評価（対外的にも誇張しない）
+
+| 観点 | 評価 |
+|---|---|
+| 生 point-lookup | **DynamoDB がやや優位**（接続レス・OCC 無し・predictable single-digit ms）。DSQL は **cold Lambda の接続確立 ~500ms tail が genuine な退行**（spike#8 実測、warm コンテナ接続再利用で緩和）。warm query は in-region 数 ms で**ほぼ同等**（spike#8: laptop 計測 15ms は client RTT 込み、in-region は ~1-5ms） |
+| 集計/JOIN/レポート | **DSQL 優位**（app-side JS 集計 → server-side SQL で転送・CPU 削減） |
+| 書込競合 | DynamoDB は last-writer-wins/conditional write。DSQL は **同一行 write-write のみ 40001**（異なる行はゼロ、spike#8 実証）→ per-child 分散の本設計では稀 |
+| **総合** | **速度は wash〜わずかに悪化（cold 接続 tail のみ要管理）。速度は移管理由ではない** |
+
+→ **DSQL 移管の真の価値は、性能/コスト最適化ではなく `correctness + 技術負債返還 + 開発モデルの健全化`**。データ取り出しの生速度は DynamoDB > DSQL > Aurora Serverless だが、SQL による server-side 整形/集計と NoSQL の広域 scan 回避を総合すると**トータル処理時間はワークロード混合比次第で拮抗**（本プロダクトは point-lookup 主体ゆえ純速度では移管でわずかに不利、その代わり集計・原子性・保守性で回収）。
+
+### 移管で新たに払うコスト（トレードオフ、正直に）
+
+OCC 40001 retry ラッパの実装 / 接続 60 分・IAM トークン寿命の再接続ロジック / 3,000 行・10MiB txn 上限（一括 import は chunk+saga）/ 2 backend の dialect-parity 恒久税 / index 制約（部分・式・GIN 不可、btree 列のみ）/ 単一リージョン SPOF（PITR で緩和、multi-region は ADR-0010 scope 外）。いずれも spike で実機確認し設計に織り込み済。
+
+### 対外コミュニケーション用の 1 行
+
+> DSQL 移管は**性能/コスト最適化ではなく、NoSQL 単一テーブル由来の構造的技術負債（3 バックエンド分岐・非トランザクション部分コミット・auth の SQL 不在・派生データ二重実装・採番ハック）を約 1.2-1.3 万行規模で返還し、正しさと保守性を取り戻す投資**。性能は概ね同等（cold 接続の tail のみ要管理）、コストは両者とも実質ゼロ。判断は 8 専門家パネル決裁 + 実機 spike 8 回で裏取り済。
+
 ## 関連
 
 - **議論源**: PO セッション（2026-06-28）
 - **影響を受ける設計書**: `docs/design/08-データベース設計書.md` / `docs/design/parallel-implementations.md` §7
+- **移管の確定設計書（2026-07-01）**: `docs/design/dsql-data-model.md`（ground-up データモデル、§1-§13）+ 裏付け research（判断①-⑭ + spike#1-8）
+- **移管 EPIC**: #3424（#3433 データモデル設計 / #3434 ADR-0063 tenant 分離 等）
 - **関連先例 rationale**: `07-usage-log-dynamodb-deferred-rationale.md`
 - **関連 ADR**: [ADR-0010 Pre-PMF スコープ判断](../decisions/0010-pre-pmf-scope-judgment.md) / [ADR-0048 Multi-Lambda Demo Deployment](../decisions/0048-multi-lambda-demo-deployment.md)
 - **一次ソース**: AWS Aurora DSQL pricing（https://aws.amazon.com/rds/aurora/dsql/pricing/） / billing-metering（https://docs.aws.amazon.com/aurora-dsql/latest/userguide/billing-metering.html） / 非対応機能・移行（https://docs.aws.amazon.com/aurora-dsql/latest/userguide/working-with-postgresql-compatibility-unsupported-features.html） / クォータ（https://docs.aws.amazon.com/aurora-dsql/latest/userguide/CHAP_quotas.html） / GA ブログ（https://aws.amazon.com/blogs/aws/amazon-aurora-dsql-is-now-generally-available/）
