@@ -179,8 +179,8 @@ let saving = $state(false);
 
 			<!-- かな・漢字 -->
 			<div class="grid grid-cols-2 gap-2">
-				<FormField label={L.editNameKanaLabel} type="text" name="nameKana" bind:value={editNameKana} placeholder={L.editKanaPlaceholderOptional} />
-				<FormField label={L.editNameKanjiLabel} type="text" name="nameKanji" bind:value={editNameKanji} placeholder={L.editKanaPlaceholderOptional} />
+				<FormField label={L.editNameKanaLabel} type="text" name="nameKana" bind:value={editNameKana} maxlength={50} placeholder={L.editKanaPlaceholderOptional} />
+				<FormField label={L.editNameKanjiLabel} type="text" name="nameKanji" bind:value={editNameKanji} maxlength={50} placeholder={L.editKanaPlaceholderOptional} />
 			</div>
 
 			<!-- トリガーヒント -->

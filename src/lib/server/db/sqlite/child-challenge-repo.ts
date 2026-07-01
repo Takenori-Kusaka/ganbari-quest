@@ -21,6 +21,7 @@ import type {
 	InsertChildChallengeInput,
 	UpdateChildChallengeInput,
 } from '../types';
+import { AUTO_WEEKLY_SOURCE_TEMPLATE_ID } from '../types';
 
 export async function findByChildId(childId: number, _tenantId: string): Promise<ChildChallenge[]> {
 	return db
@@ -189,7 +190,7 @@ export async function getOrCreateWeeklyAuto(
 			endDate: input.endDate,
 			targetConfig: input.targetConfig,
 			rewardConfig: input.rewardConfig,
-			sourceTemplateId: input.sourceTemplateId ?? 'auto:weekly',
+			sourceTemplateId: input.sourceTemplateId ?? AUTO_WEEKLY_SOURCE_TEMPLATE_ID,
 			currentValue: 0,
 			targetValue: input.targetValue,
 			completed: 0,
@@ -208,7 +209,10 @@ export async function getOrCreateWeeklyAuto(
 			and(
 				eq(childChallenges.childId, input.childId),
 				eq(childChallenges.startDate, input.startDate),
-				eq(childChallenges.sourceTemplateId, input.sourceTemplateId ?? 'auto:weekly'),
+				eq(
+					childChallenges.sourceTemplateId,
+					input.sourceTemplateId ?? AUTO_WEEKLY_SOURCE_TEMPLATE_ID,
+				),
 			),
 		)
 		.get();
