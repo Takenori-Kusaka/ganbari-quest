@@ -168,7 +168,7 @@
 		"@aws-sdk/client-ses": "^3.1075.0",
 		"@aws-sdk/client-ssm": "^3.1075.0",
 		"@aws-sdk/lib-dynamodb": "^3.1075.0",
-		"@aws-sdk/s3-request-presigner": "^3.1077.0",
+		"@aws-sdk/s3-request-presigner": "3.1075.0",
 		"@google/generative-ai": "^0.24.1",
 		"@standard-schema/spec": "^1.1.0",
 		"bcrypt": "^6.0.0",
@@ -207,6 +207,7 @@
 	"overrides": {
 		"esbuild": ">=0.25.0",
 		"cookie": ">=0.7.0",
-		"protobufjs": "^7.6.3"
+		"protobufjs": "^7.6.3",
+		"@aws-sdk/core": "3.974.23"
 	}
 }
