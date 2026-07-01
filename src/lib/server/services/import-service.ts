@@ -1365,6 +1365,9 @@ async function importOneChecklistTemplate(
 				pointsPerItem: tpl.pointsPerItem,
 				completionBonus: tpl.completionBonus,
 				isActive: tpl.isActive ? 1 : 0,
+				// #3505 (#3358 と同一クラス): archive 状態を round-trip 保全。未渡しだと import 後に
+				// archived template が active 復活する (display filter が isArchived===1 のみ除外するため)。
+				isArchived: tpl.isArchived ? 1 : 0,
 				sourcePresetId: tpl.sourcePresetId ?? null,
 			},
 			tenantId,
