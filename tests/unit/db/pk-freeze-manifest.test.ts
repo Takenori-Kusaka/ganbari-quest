@@ -29,4 +29,16 @@ describe('fitness#9: PK 凍結 manifest (§11.2 / §P1 不可逆不変条件)', 
 		// UUID v4 child_id (§P3 時刻列を PK に入れない) + family_id 先頭 (§P2 複合 tenant PK)。
 		expect(manifest.children).toEqual(['family_id', 'child_id']);
 	});
+
+	it('[3] drizzle pg-core (DSQL) children schema の PK == manifest (drift 検出)', async () => {
+		// red: DSQL pg-core schema は #3512 green で新設。現状は存在せず import が throw する。
+		const { getTableConfig } = await import('drizzle-orm/pg-core');
+		const { children } = await import('../../../src/lib/server/db/dsql/schema');
+		const { PK_FREEZE_MANIFEST } = await import('../../../src/lib/server/db/pk-freeze-manifest');
+
+		// 複合 PK は primaryKeys[0].columns で取得 (§11.2 凍結表と一致すること)。
+		const cfg = getTableConfig(children);
+		const pkCols = cfg.primaryKeys[0]?.columns.map((c) => c.name) ?? [];
+		expect(pkCols).toEqual([...PK_FREEZE_MANIFEST.children]);
+	});
 });
