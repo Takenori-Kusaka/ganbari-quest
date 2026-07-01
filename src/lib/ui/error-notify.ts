@@ -54,11 +54,21 @@ const JAPANESE_CHAR_RE = /[぀-ヿ㐀-鿿ｦ-ﾟ]/;
 // 非該当で素通しする。
 const INTERNAL_IDENTIFIER_PATTERNS: RegExp[] = [
 	/\b[A-Z][A-Za-z0-9]*(?:Exception|Error)\b/, // 例外クラス名 (ValidationException / TypeError)
+	// #3354: 大文字始まり要求で lowercase 例外文 (validationexception / typeerror) を取りこぼしていた補完。
+	/\b[a-z][a-z0-9]*(?:exception|error)\b/, // lowercase 例外クラス名 (validationexception)
 	/\b[a-z][A-Za-z0-9]*(?:Id|ID)\s*[=:]/, // camelCase 内部 id 代入 (userId=12345 / tenantId: x)
+	// #3354: camelCase(Id) 偏重で snake_case 内部 id (user_id=12345 / tenant_id: x) を取りこぼしていた補完。
+	/\b[a-z][a-z0-9_]*_id\b\s*[=:]/i, // snake_case 内部 id 代入 (user_id=12345)
 	/\b[a-z_][a-z0-9_]*#\d+/i, // table#id 参照 (tenants#42)
+	// #3354: `#\d+` のみで slash パス参照 (tenants/42 / users/123) を取りこぼしていた補完。
+	/\b[a-z_][a-z0-9_]{2,}\/\d+/i, // slash パス内部参照 (tenants/42)
 	/\bat\s+\S+:\d+/, // stack-trace フレーム (at file.ts:123)
 	/\b[0-9a-f]{16,}\b/i, // 長い hex / UUID 様式
 	/\b[A-Za-z0-9_-]{32,}\b/, // 長い opaque token / 連続英数字 ID
+	// #3354: JP 混在メッセージに verbatim 露出しうる infra 識別子 (IP / email / SQLSTATE) を補完。
+	/\b\d{1,3}(?:\.\d{1,3}){3}\b/, // IPv4 アドレス (169.254.169.254 / 192.168.x.x)
+	/\b[\w.%+-]+@[\w.-]+\.[a-z]{2,}\b/i, // email アドレス (info-disclosure)
+	/\bSQLSTATE\b/i, // DB エラーコード (SQLSTATE[23000])
 ];
 
 function containsInternalIdentifier(s: string): boolean {

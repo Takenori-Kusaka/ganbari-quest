@@ -527,3 +527,8 @@ softprops
 # wada = t-wada（テスト駆動開発の提唱者、和田卓人氏の通称）。docs/design/dsql-implementation-plan.md 等で既出の Canon TDD 参照
 rebuildable
 wada
+# ===== #3354 echo sanitize blocklist 拡張 =====
+# SQLSTATE = 標準 SQL エラー状態コード（error-notify.ts の internal-identifier blocklist pattern）
+# validationexception = lowercase 例外クラス名の例（blocklist test payload）
+SQLSTATE
+validationexception
