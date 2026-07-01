@@ -813,6 +813,11 @@ export interface ChildChallenge {
 	updatedAt: string;
 }
 
+// #3508 tech-2: auto:weekly 自動週次チャレンジの sourceTemplateId 既定値 SSOT。
+// getOrCreateWeeklyAuto の fallback 既定が backend 間で相違していた (SQLite='auto:weekly' /
+// DynamoDB=null) ため、両 backend の default を本定数に集約して統一する。
+export const AUTO_WEEKLY_SOURCE_TEMPLATE_ID = 'auto:weekly';
+
 export interface InsertChildChallengeInput {
 	childId: number;
 	title: string;

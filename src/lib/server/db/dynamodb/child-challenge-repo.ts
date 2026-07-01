@@ -37,6 +37,7 @@ import type {
 	InsertChildChallengeInput,
 	UpdateChildChallengeInput,
 } from '../types';
+import { AUTO_WEEKLY_SOURCE_TEMPLATE_ID } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -248,7 +249,13 @@ export async function getOrCreateWeeklyAuto(
 	if (existing.Item) return toChildChallenge(existing.Item);
 
 	const id = await nextId(ENTITY_NAMES.childChallenge, tenantId);
-	const challenge = buildChildChallenge(id, input, new Date().toISOString());
+	// #3508 tech-2: auto:weekly 既定を SQLite と統一 (buildChildChallenge の汎用既定は null だが、
+	// auto-weekly get-or-create では sourceTemplateId 未指定時に 'auto:weekly' を SSOT 既定とする)。
+	const challenge = buildChildChallenge(
+		id,
+		{ ...input, sourceTemplateId: input.sourceTemplateId ?? AUTO_WEEKLY_SOURCE_TEMPLATE_ID },
+		new Date().toISOString(),
+	);
 	try {
 		await doc.send(
 			new PutCommand({
