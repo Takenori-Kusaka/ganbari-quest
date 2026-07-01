@@ -205,6 +205,7 @@
 	},
 	"overrides": {
 		"esbuild": ">=0.25.0",
-		"cookie": ">=0.7.0"
+		"cookie": ">=0.7.0",
+		"protobufjs": "^7.6.3"
 	}
 }
