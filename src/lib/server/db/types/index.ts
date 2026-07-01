@@ -1025,6 +1025,13 @@ export interface InsertCertificateInput {
 
 export type CloudExportType = 'template' | 'full';
 
+/**
+ * 非同期 build のライフサイクル状態 (async-backup-export.md §3.1)。
+ * pending (build 待ち) → building (cron が build 中) → ready (DL 可) / failed (build 失敗)。
+ * 本機構導入前に作成された既存レコードは lazy migration で 'ready' に backfill される。
+ */
+export type CloudExportStatus = 'pending' | 'building' | 'ready' | 'failed';
+
 export interface CloudExportRecord {
 	id: number;
 	tenantId: string;
@@ -1038,6 +1045,15 @@ export interface CloudExportRecord {
 	downloadCount: number;
 	maxDownloads: number;
 	createdAt: string;
+	/** 非同期 build 状態 (#3504 / async-backup-export.md §3.1)。既存行は 'ready' backfill。 */
+	status: CloudExportStatus;
+	/** status='failed' 時の失敗理由 (それ以外は null)。 */
+	failureReason: string | null;
+	/**
+	 * #3509 QM 是正: 'building' 状態に遷移した時刻 (ISO)。それ以外の状態では null。
+	 * cron worker が build 中に kill/timeout した場合の stale 検知 (reclaimStaleBuildingExports) に使う。
+	 */
+	buildStartedAt: string | null;
 }
 
 export interface InsertCloudExportInput {
@@ -1050,6 +1066,18 @@ export interface InsertCloudExportInput {
 	description?: string | null;
 	expiresAt: string;
 	maxDownloads?: number;
+	/** 省略時は 'pending' (async build 起票)。既存同期経路との互換のため任意。 */
+	status?: CloudExportStatus;
+}
+
+/** updateStatus の副次更新値 (async-backup-export.md §3.2)。 */
+export interface UpdateCloudExportStatusInput {
+	/** status='failed' の理由。ready/building 遷移では null を渡して残渣を消す。 */
+	failureReason?: string | null;
+	/** build 完了時に確定する ZIP/JSON バイト数。 */
+	fileSizeBytes?: number;
+	/** build 完了時に確定する説明文。 */
+	description?: string | null;
 }
 
 // #2295 (EPIC #2294 ①): TenantEvent / InsertTenantEventInput / UpdateTenantEventInput /

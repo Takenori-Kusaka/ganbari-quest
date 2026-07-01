@@ -948,10 +948,20 @@ export const cloudExports = sqliteTable(
 		downloadCount: integer('download_count').notNull().default(0),
 		maxDownloads: integer('max_downloads').notNull().default(10),
 		createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+		// #3504 (async-backup-export.md §3.1): 非同期 build 状態。
+		// 新規 async 起票は service が明示的に 'pending' を insert する。既存行は
+		// lazy migration (migrateCloudExportStatusColumns) で 'ready' backfill。
+		status: text('status').notNull().default('pending'),
+		failureReason: text('failure_reason'),
+		// #3509 QM 是正: stale 'building' reclaim 用。'building' 遷移時刻を記録し、
+		// cron worker が build 中に kill/timeout した場合の永久 stuck を検知する
+		// (drainPendingExports 冒頭の reclaimStaleBuildingExports が使用)。
+		buildStartedAt: text('build_started_at'),
 	},
 	(table) => [
 		index('idx_cloud_exports_tenant').on(table.tenantId),
 		index('idx_cloud_exports_pin').on(table.pinCode),
+		index('idx_cloud_exports_status').on(table.status),
 	],
 );
 

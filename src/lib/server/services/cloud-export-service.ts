@@ -3,11 +3,10 @@
 
 import { randomInt } from 'node:crypto';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
-import { getAuthMode } from '$lib/server/auth/factory';
 import { getRepos } from '$lib/server/db/factory';
 import type { CloudExportRecord, CloudExportType } from '$lib/server/db/types';
 import { logger } from '$lib/server/logger';
-import { buildFullBackupZip } from '$lib/server/services/backup-archive';
+import { BackupSizeLimitError, buildFullBackupZip } from '$lib/server/services/backup-archive';
 import { exportFamilyData } from '$lib/server/services/export-service';
 import {
 	getPlanLimits,
@@ -179,18 +178,30 @@ export interface CloudExportResult {
 	pinCode: string;
 	expiresAt: string;
 	exportType: CloudExportType;
+	/** 非同期 build (#3504)。起票直後は 0、build 完了 (ready) 後に確定する。 */
 	fileSizeBytes: number;
-	description: string;
+	/** 非同期 build (#3504)。起票直後は null、build 完了 (ready) 後に確定する。 */
+	description: string | null;
+	/** 非同期 build 状態 (#3504)。起票直後は 'pending'。 */
+	status: 'pending' | 'building' | 'ready' | 'failed';
 }
 
-/** クラウドエクスポートを実行 */
+/** exportType から S3/FS 上の filename を導出（build 前に s3Key を確定するため）。 */
+function artifactFilename(exportType: CloudExportType): string {
+	// template = JSON (data.json) / full = 画像込み ZIP (backup.zip、#3376)
+	return exportType === 'template' ? 'data.json' : 'backup.zip';
+}
+
+/**
+ * クラウドエクスポートを **起票** する（#3504 async-backup-export.md §3.2）。
+ *
+ * 同期 build → レスポンス直返しは AWS (Function URL BUFFERED 6MB / Lambda 30 秒) と NUC
+ * (生成中の browser/proxy timeout) の双方で破綻するため、本関数は **ZIP を作らず**
+ * `status='pending'` のレコードを insert して即返す。実 build は cron の
+ * {@link drainPendingExports} が背景で行う。
+ */
 export async function createCloudExport(options: CloudExportOptions): Promise<CloudExportResult> {
 	const { tenantId, exportType, label, licenseStatus, planId } = options;
-
-	// ローカルモードではクラウドエクスポート不可（ファイルDLのみ）
-	if (getAuthMode() === 'local') {
-		throw new Error('クラウドエクスポートはSaaS版でのみ利用可能です');
-	}
 
 	// プラン制限チェック
 	const tier: PlanTier = await resolveFullPlanTier(tenantId, licenseStatus, planId);
@@ -208,51 +219,147 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 		);
 	}
 
-	// エクスポートデータ構築（template = JSON / full = 画像込み ZIP、#3376）
-	const artifact =
-		exportType === 'template'
-			? await buildTemplateExportData(tenantId)
-			: await buildFullExportData(tenantId);
-
-	// PIN生成 + S3保存（filename で template=data.json / full=backup.zip を分ける）
+	// PIN生成 + s3Key を build 前に確定（filename は exportType から決まる）
 	const pinCode = await generateUniquePin();
-	const s3Key = `exports/${tenantId}/${pinCode}/${artifact.filename}`;
+	const s3Key = `exports/${tenantId}/${pinCode}/${artifactFilename(exportType)}`;
 
-	await repos.storage.saveFile(s3Key, Buffer.from(artifact.bytes), artifact.contentType);
-
-	// DB記録
+	// DB記録（pending。fileSizeBytes / description は build 完了時に確定する）
 	const expiresAt = calculateExpiry();
 	await repos.cloudExport.insert({
 		tenantId,
 		exportType,
 		pinCode,
 		s3Key,
-		fileSizeBytes: artifact.bytes.length,
+		fileSizeBytes: 0,
 		label: label ?? null,
-		description: artifact.description,
+		description: null,
 		expiresAt,
+		status: 'pending',
 	});
 
-	logger.info('[cloud-export] エクスポート作成', {
-		context: { tenantId, exportType, pinCode, size: artifact.bytes.length },
+	logger.info('[cloud-export] エクスポート起票 (pending)', {
+		context: { tenantId, exportType, pinCode },
 	});
 
 	return {
 		pinCode,
 		expiresAt,
 		exportType,
-		fileSizeBytes: artifact.bytes.length,
-		description: artifact.description,
+		fileSizeBytes: 0,
+		description: null,
+		status: 'pending',
 	};
 }
 
-/** 自テナントのクラウドエクスポート一覧を取得 */
+/** #3509 QM 是正: 'building' 状態の stale 判定閾値 (cron drain 間隔の複数倍を見込んで 10 分)。 */
+const STALE_BUILDING_THRESHOLD_MS = 10 * 60 * 1000;
+
+/** {@link drainPendingExports} の実行結果。 */
+export interface DrainResult {
+	processed: number;
+	ready: number;
+	failed: number;
+	/** #3509: stale 'building' から 'failed' へ reclaim (fail-closed) した件数。 */
+	reclaimed: number;
+}
+
+/**
+ * #3509 QM 是正 (async-backup-export.md §3.2-4): status='building' のまま
+ * staleThresholdMs 以上経過したレコード (cron worker が build 中に kill/timeout し
+ * 永久 stuck した行) を 'failed' へ fail-closed する。
+ *
+ * 設計書 §3.2-4 は「pending への差し戻し（自動再試行）は採用しない」と明記している。
+ * ワーカーが low-level で kill された場合、対象 ZIP が不完全に S3/FS へ書き込まれている
+ * 可能性があり、自動リトライは重複書込み・競合を生みうるため、fail-closed してユーザーに
+ * 再エクスポートを促す方が安全 (Pre-PMF、ADR-0010 過剰実装回避)。
+ */
+export async function reclaimStaleBuildingExports(
+	staleThresholdMs = STALE_BUILDING_THRESHOLD_MS,
+): Promise<number> {
+	const repos = getRepos();
+	const stale = await repos.cloudExport.findStaleBuildingExports(staleThresholdMs);
+	for (const record of stale) {
+		await repos.cloudExport.updateStatus(record.id, record.tenantId, 'failed', {
+			failureReason: 'ビルドがタイムアウトしました。再度エクスポートしてください',
+		});
+		logger.warn('[cloud-export] stale building を failed へ reclaim', {
+			context: { id: record.id, tenantId: record.tenantId, exportType: record.exportType },
+		});
+	}
+	return stale.length;
+}
+
+/**
+ * pending なクラウドエクスポートを最大 limit 件 build する（#3504 async-backup-export.md §3.2）。
+ * cron (`/api/cron/export-build`) が呼ぶ。AWS (cron-dispatcher) と NUC (scheduler container) の
+ * 双方が同一コードパスを回す。1 件失敗しても他は継続し、失敗レコードは `status='failed'` +
+ * `failureReason` を残す。
+ *
+ * #3509 QM 是正: build 開始前に {@link reclaimStaleBuildingExports} を呼び、cron worker が
+ * kill/timeout して 'building' のまま永久 stuck したレコードを 'failed' へ fail-closed してから
+ * 通常の pending drain を行う。
+ */
+export async function drainPendingExports(limit = 5): Promise<DrainResult> {
+	const repos = getRepos();
+	const reclaimed = await reclaimStaleBuildingExports();
+	const pending = await repos.cloudExport.findPendingBuilds(limit);
+	let ready = 0;
+	let failed = 0;
+
+	for (const record of pending) {
+		const { id, tenantId, exportType, s3Key } = record;
+		try {
+			await repos.cloudExport.updateStatus(id, tenantId, 'building');
+			const artifact =
+				exportType === 'template'
+					? await buildTemplateExportData(tenantId)
+					: await buildFullExportData(tenantId);
+			await repos.storage.saveFile(s3Key, Buffer.from(artifact.bytes), artifact.contentType);
+			await repos.cloudExport.updateStatus(id, tenantId, 'ready', {
+				fileSizeBytes: artifact.bytes.length,
+				description: artifact.description,
+			});
+			ready++;
+			logger.info('[cloud-export] build 完了 (ready)', {
+				context: { tenantId, exportType, id, size: artifact.bytes.length },
+			});
+		} catch (err) {
+			// #3376 fail-closed: サイズ上限超過は userMessage、その他は generic なエラーメッセージを残す。
+			const failureReason =
+				err instanceof BackupSizeLimitError
+					? err.userMessage
+					: err instanceof Error
+						? err.message
+						: String(err);
+			await repos.cloudExport.updateStatus(id, tenantId, 'failed', { failureReason });
+			failed++;
+			logger.error('[cloud-export] build 失敗 (failed)', {
+				context: { tenantId, exportType, id },
+				error: failureReason,
+			});
+		}
+	}
+
+	return { processed: pending.length, ready, failed, reclaimed };
+}
+
+/**
+ * 自テナントのクラウドエクスポート一覧を取得（#3504: 生成中/失敗も返す）。
+ * ready は DL 上限に達した / 期限切れを除外するが、pending/building/failed は生成状況を
+ * UI に見せるため（期限内である限り）返す。
+ */
 export async function listCloudExports(tenantId: string): Promise<CloudExportRecord[]> {
 	const repos = getRepos();
 	const all = await repos.cloudExport.findByTenant(tenantId);
 	const now = new Date().toISOString();
-	// 有効期限切れをフィルタ（表示はするがexpiredフラグ付き）
-	return all.filter((e) => e.expiresAt > now && e.downloadCount < e.maxDownloads);
+	return all.filter((e) => {
+		if (e.expiresAt <= now) return false;
+		// 既存行の NULL 安全性: status 未設定 (旧 backfill 漏れ) は 'ready' 扱い。
+		const status = e.status ?? 'ready';
+		if (status === 'ready') return e.downloadCount < e.maxDownloads;
+		// pending / building / failed は生成状況として表示する。
+		return true;
+	});
 }
 
 /** クラウドエクスポートを削除 */

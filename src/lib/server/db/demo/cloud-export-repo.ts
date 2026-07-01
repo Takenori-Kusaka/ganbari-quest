@@ -1,7 +1,12 @@
 // Demo ICloudExportRepo implementation
 // ADR-0048 §決定 §2: stateless Fake (read) + Stub (write) hybrid.
 
-import type { CloudExportRecord, InsertCloudExportInput } from '../types';
+import type {
+	CloudExportRecord,
+	CloudExportStatus,
+	InsertCloudExportInput,
+	UpdateCloudExportStatusInput,
+} from '../types';
 
 export async function findByTenant(_tenantId: string): Promise<CloudExportRecord[]> {
 	return [];
@@ -32,11 +37,33 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 		downloadCount: 0,
 		maxDownloads: input.maxDownloads ?? 5,
 		createdAt: new Date().toISOString(),
+		status: input.status ?? 'pending',
+		failureReason: null,
+		buildStartedAt: null,
 	};
 }
 
 export async function incrementDownloadCount(_id: number, _tenantId: string): Promise<void> {
 	// Stub: no-op
+}
+
+export async function updateStatus(
+	_id: number,
+	_tenantId: string,
+	_status: CloudExportStatus,
+	_opts?: UpdateCloudExportStatusInput,
+): Promise<void> {
+	// Stub: no-op (demo Lambda は cloud export の状態を持たない)
+}
+
+export async function findPendingBuilds(_limit: number): Promise<CloudExportRecord[]> {
+	return [];
+}
+
+export async function findStaleBuildingExports(
+	_staleThresholdMs: number,
+): Promise<CloudExportRecord[]> {
+	return [];
 }
 
 export async function deleteById(_id: number, _tenantId: string): Promise<void> {

@@ -163,7 +163,7 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			});
 		});
 
-		it('P-3: Compute — fn=ganbari-quest-app / demo Fn / cron-dispatcher + Rule 6 本 / Firehose / SES env が従来どおり', () => {
+		it('P-3: Compute — fn=ganbari-quest-app / demo Fn / cron-dispatcher + Rule 7 本 / Firehose / SES env が従来どおり', () => {
 			prodCompute.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-app',
 				Environment: {
@@ -187,8 +187,8 @@ describe('#2873 AWS staging stack (prod 不変 guard + staging template assert)'
 			prodCompute.hasResourceProperties('AWS::Lambda::Function', {
 				FunctionName: 'ganbari-quest-cron-dispatcher',
 			});
-			// CRON_JOBS 6 本 (compute-stack.ts CRON_JOBS SSOT)
-			prodCompute.resourceCountIs('AWS::Events::Rule', 6);
+			// CRON_JOBS 7 本 (compute-stack.ts CRON_JOBS SSOT。#3504 で export-build を追加)
+			prodCompute.resourceCountIs('AWS::Events::Rule', 7);
 			prodCompute.resourceCountIs('AWS::KinesisFirehose::DeliveryStream', 1);
 			// SES grant (prod のみ) が従来どおり付与されている
 			const policies = prodCompute.findResources('AWS::IAM::Policy');

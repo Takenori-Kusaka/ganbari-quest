@@ -7,7 +7,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { saveFile } from '$lib/server/db/sqlite/storage-repo';
+import {
+	deleteByPrefix,
+	getDownloadUrl,
+	readFile,
+	saveFile,
+} from '$lib/server/db/sqlite/storage-repo';
 
 describe('sqlite storage-repo saveFile — zip-slip 防御 (#3078)', () => {
 	let workDir: string;
@@ -47,5 +52,48 @@ describe('sqlite storage-repo saveFile — zip-slip 防御 (#3078)', () => {
 		await expect(
 			saveFile('avatars\\101\\..\\..\\..\\evil.png', Buffer.from([7]), 'image/png'),
 		).rejects.toThrow(/static/);
+	});
+});
+
+describe('sqlite storage-repo — cloud export は static/ 外 (data/) に保存する (#3504 §3.5)', () => {
+	let workDir: string;
+	let cwdSpy: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		workDir = mkdtempSync(join(tmpdir(), 'gq-storage-ce-test-'));
+		cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(workDir);
+	});
+	afterEach(() => {
+		cwdSpy.mockRestore();
+		rmSync(workDir, { recursive: true, force: true });
+	});
+
+	const KEY = 'exports/t1/ABC234/backup.zip';
+
+	it('exports/ prefix は data/ 配下に保存され static/ には置かれない (無認証 web 配信の回避)', async () => {
+		const bytes = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // ZIP magic
+		await saveFile(KEY, bytes, 'application/zip');
+		// data/ に書かれる
+		expect(existsSync(resolve(workDir, 'data', KEY))).toBe(true);
+		// static/ (web 配信) には書かれない
+		expect(existsSync(resolve(workDir, 'static', KEY))).toBe(false);
+	});
+
+	it('readFile は data/ から読み出す (proxy DL 経路)', async () => {
+		const bytes = Buffer.from([1, 2, 3, 4]);
+		await saveFile(KEY, bytes, 'application/zip');
+		const file = await readFile(KEY);
+		expect(file?.data).toEqual(bytes);
+		expect(file?.contentType).toBe('application/zip');
+	});
+
+	it('deleteByPrefix は data/ 配下の cloud export を削除する', async () => {
+		await saveFile(KEY, Buffer.from([1]), 'application/zip');
+		expect(await deleteByPrefix('exports/t1/ABC234/backup.zip')).toBe(1);
+		expect(existsSync(resolve(workDir, 'data', KEY))).toBe(false);
+	});
+
+	it('getDownloadUrl は NUC では proxy を返す (presigned 不在)', async () => {
+		expect(await getDownloadUrl(KEY, { expiresIn: 300 })).toEqual({ kind: 'proxy' });
 	});
 });
