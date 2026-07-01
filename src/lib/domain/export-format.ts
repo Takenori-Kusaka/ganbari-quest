@@ -15,6 +15,19 @@ export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 export const EXPORT_VERSION = '1.6.0' as const;
 
 // ============================================================
+// 退役キー名の予約 (Protobuf `reserved` / Avro alias の安価な代替)。
+//
+// 原則: **backup DTO のキー名 = 不変 identity**。一度配信した backup に現れたキー名は
+// rename / remove してはならない (旧 backup と意味がずれて silent data loss を生む)。
+// フィールドを廃止する場合は (1) キーを削除せず deprecate (読み捨て) するか、(2) 本配列に
+// 退役名を登録し、(3) 代替は**新しいキー名の追加** + export-migrations の transform で旧→新を変換する。
+// 本配列に載った名前は二度と Export* 型のフィールド名に再利用してはならない
+// (`tests/unit/domain/export-key-stability.test.ts` が export-format.ts の宣言済キー名と本配列の
+//  非交差を機械検証する)。現状は退役キーなし。
+// ============================================================
+export const RESERVED_EXPORT_KEYS: readonly string[] = [];
+
+// ============================================================
 // #3329: backup 可能な設定キーの allowlist (default-deny セキュリティ設計、D3)
 // ============================================================
 // settings は任意キーの KVS。backup に「全キー」を載せると pin_hash (bcrypt の おやカギコード) /

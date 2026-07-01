@@ -1,12 +1,8 @@
 // src/lib/server/services/import-service.ts
 // 家族データインポートサービス（Phase 2 / #1254）
 
-import {
-	EXPORT_FORMAT,
-	EXPORT_VERSION,
-	type ExportData,
-	isExportableSettingKey,
-} from '$lib/domain/export-format';
+import { EXPORT_FORMAT, type ExportData, isExportableSettingKey } from '$lib/domain/export-format';
+import { MIGRATABLE_VERSIONS, migrateExportData } from '$lib/domain/export-migrations';
 import { IMPORT_LABELS, type ImportSkipReason } from '$lib/domain/labels';
 import {
 	CATEGORY_CODES,
@@ -167,13 +163,13 @@ export function validateExportData(
 	if (d.format !== EXPORT_FORMAT) {
 		return { valid: false, error: `フォーマットが不正です（期待: ${EXPORT_FORMAT}）` };
 	}
-	// #3106/#3107: EXPORT_VERSION を bump しても既存 backup を import 可能に保つ
-	// (新 field はすべて optional で後方互換)。#3358 で 1.5.0、#3422 で 1.6.0 へ bump。旧版も明示維持。
-	const supportedVersions = [EXPORT_VERSION, '1.5.0', '1.4.0', '1.3.0', '1.2.0', '1.1.0', '1.0.0'];
-	if (!supportedVersions.includes(d.version as string)) {
+	// 対応バージョンの SSOT は export-migrations の MIGRATABLE_VERSIONS 単独 (版一覧の二重列挙を廃止)。
+	// 未知の未来版は hard-fail (pg_dump 精神)。旧版は importFamilyData 入口の migrateExportData が
+	// 現 shape に copy-transform する (Layer2 = 版識別 + 旧 shape 読取を export-migrations が単一所有)。
+	if (!MIGRATABLE_VERSIONS.includes(d.version as string)) {
 		return {
 			valid: false,
-			error: `バージョンが不正です（対応: ${supportedVersions.join(', ')}, 実際: ${d.version}）`,
+			error: `バージョンが不正です（対応: ${MIGRATABLE_VERSIONS.join(', ')}, 実際: ${d.version}）`,
 		};
 	}
 	if (!d.family || typeof d.family !== 'object') {
@@ -278,8 +274,15 @@ export async function importFamilyData(
 	tenantId: string,
 	staticFiles?: Record<string, Uint8Array>,
 ): Promise<ImportResult> {
+	// #3326 系: lazy マイグレーション。旧 version の backup を現 shape に正規化してから取り込む。
+	// checksum 検証は呼び出し側 (route) で本処理の前に済んでいる (version 書換は checksum 後でなければ mismatch する)。
+	data = migrateExportData(
+		data as unknown as Record<string, unknown>,
+		data.version,
+	) as unknown as ExportData;
+
 	const result = createEmptyImportResult();
-	logger.info('[import] インポート開始', { context: { tenantId } });
+	logger.info('[import] インポート開始', { context: { tenantId, version: data.version } });
 
 	// #3327 P3: 子を先に作成し childIdMap を確定してから per-child 活動を復元する
 	// (旧実装は活動を子より先に import → replace で子ゼロ時に insertActivity が throw → 全活動喪失)。
