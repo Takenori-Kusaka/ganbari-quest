@@ -251,11 +251,37 @@ export async function createCloudExport(options: CloudExportOptions): Promise<Cl
 	};
 }
 
+/** #3509 QM 是正: 'building' 状態の stale 判定閾値 (cron drain 間隔の複数倍を見込んで 10 分)。 */
+const STALE_BUILDING_THRESHOLD_MS = 10 * 60 * 1000;
+
 /** {@link drainPendingExports} の実行結果。 */
 export interface DrainResult {
 	processed: number;
 	ready: number;
 	failed: number;
+	/** #3509: stale 'building' から 'pending' へ reclaim した件数。 */
+	reclaimed: number;
+}
+
+/**
+ * #3509 QM 是正 (async-backup-export.md §3.2 追補): status='building' のまま
+ * staleThresholdMs 以上経過したレコード (cron worker が build 中に kill/timeout し
+ * 永久 stuck した行) を 'pending' へ差し戻し、次回 drain で再試行対象にする。
+ * updateStatus('pending') が buildStartedAt も null にリセットするため、reclaim 後の
+ * レコードは通常の pending と区別なく findPendingBuilds に拾われる。
+ */
+export async function reclaimStaleBuildingExports(
+	staleThresholdMs = STALE_BUILDING_THRESHOLD_MS,
+): Promise<number> {
+	const repos = getRepos();
+	const stale = await repos.cloudExport.findStaleBuildingExports(staleThresholdMs);
+	for (const record of stale) {
+		await repos.cloudExport.updateStatus(record.id, record.tenantId, 'pending');
+		logger.warn('[cloud-export] stale building を pending へ reclaim', {
+			context: { id: record.id, tenantId: record.tenantId, exportType: record.exportType },
+		});
+	}
+	return stale.length;
 }
 
 /**
@@ -263,9 +289,14 @@ export interface DrainResult {
  * cron (`/api/cron/export-build`) が呼ぶ。AWS (cron-dispatcher) と NUC (scheduler container) の
  * 双方が同一コードパスを回す。1 件失敗しても他は継続し、失敗レコードは `status='failed'` +
  * `failureReason` を残す。
+ *
+ * #3509 QM 是正: build 開始前に {@link reclaimStaleBuildingExports} を呼び、cron worker が
+ * kill/timeout して 'building' のまま永久 stuck したレコードを 'pending' へ差し戻してから
+ * 通常の pending drain を行う。
  */
 export async function drainPendingExports(limit = 5): Promise<DrainResult> {
 	const repos = getRepos();
+	const reclaimed = await reclaimStaleBuildingExports();
 	const pending = await repos.cloudExport.findPendingBuilds(limit);
 	let ready = 0;
 	let failed = 0;
@@ -304,7 +335,7 @@ export async function drainPendingExports(limit = 5): Promise<DrainResult> {
 		}
 	}
 
-	return { processed: pending.length, ready, failed };
+	return { processed: pending.length, ready, failed, reclaimed };
 }
 
 /**

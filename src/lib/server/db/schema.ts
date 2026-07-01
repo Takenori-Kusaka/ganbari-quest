@@ -953,6 +953,10 @@ export const cloudExports = sqliteTable(
 		// lazy migration (migrateCloudExportStatusColumns) で 'ready' backfill。
 		status: text('status').notNull().default('pending'),
 		failureReason: text('failure_reason'),
+		// #3509 QM 是正: stale 'building' reclaim 用。'building' 遷移時刻を記録し、
+		// cron worker が build 中に kill/timeout した場合の永久 stuck を検知する
+		// (drainPendingExports 冒頭の reclaimStaleBuildingExports が使用)。
+		buildStartedAt: text('build_started_at'),
 	},
 	(table) => [
 		index('idx_cloud_exports_tenant').on(table.tenantId),

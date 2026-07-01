@@ -39,6 +39,7 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 		createdAt: new Date().toISOString(),
 		status: input.status ?? 'pending',
 		failureReason: null,
+		buildStartedAt: null,
 	};
 }
 
@@ -56,6 +57,12 @@ export async function updateStatus(
 }
 
 export async function findPendingBuilds(_limit: number): Promise<CloudExportRecord[]> {
+	return [];
+}
+
+export async function findStaleBuildingExports(
+	_staleThresholdMs: number,
+): Promise<CloudExportRecord[]> {
 	return [];
 }
 

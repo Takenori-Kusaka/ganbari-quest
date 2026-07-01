@@ -344,6 +344,26 @@ describe('updateStatus (#3504)', () => {
 		expect(arg.ConditionExpression).toBe('attribute_exists(PK)');
 	});
 
+	it('#3509 QM 是正: building 遷移では buildStartedAt を now() で SET する', async () => {
+		mockSend.mockResolvedValueOnce({});
+		const { updateStatus } = await loadRepo();
+		await updateStatus(5, TENANT, 'building');
+		const arg = callOf(0).input;
+		expect(arg.UpdateExpression).toContain('#bsa = :bsa');
+		expect((arg.ExpressionAttributeNames as Record<string, string>)['#bsa']).toBe('buildStartedAt');
+		const bsa = (arg.ExpressionAttributeValues as Record<string, unknown>)[':bsa'];
+		expect(typeof bsa).toBe('string');
+		expect(new Date(bsa as string).toString()).not.toBe('Invalid Date');
+	});
+
+	it('#3509 QM 是正: ready/failed 遷移では buildStartedAt を null に戻す (残渣防止)', async () => {
+		mockSend.mockResolvedValueOnce({});
+		const { updateStatus } = await loadRepo();
+		await updateStatus(5, TENANT, 'ready', { fileSizeBytes: 1, description: 'd' });
+		const arg = callOf(0).input;
+		expect((arg.ExpressionAttributeValues as Record<string, unknown>)[':bsa']).toBeNull();
+	});
+
 	it('ready 遷移では fileSizeBytes / description も同 UpdateItem で確定する', async () => {
 		mockSend.mockResolvedValueOnce({});
 		const { updateStatus } = await loadRepo();
@@ -396,5 +416,34 @@ describe('findPendingBuilds (#3504)', () => {
 		expect(result).toHaveLength(2);
 		// limit 到達で 2 ページ目 Scan を発行しない
 		expect(mockSend).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('findStaleBuildingExports (#3509 QM 是正)', () => {
+	it('Scan + #status=building AND buildStartedAt 未設定/古いレコードを返す', async () => {
+		mockSend.mockResolvedValueOnce({
+			Items: [
+				{
+					id: 1,
+					tenantId: TENANT,
+					status: 'building',
+					buildStartedAt: '2020-01-01T00:00:00.000Z',
+					createdAt: '2020-01-01T00:00:00.000Z',
+				},
+			],
+		});
+		const { findStaleBuildingExports } = await loadRepo();
+		const result = await findStaleBuildingExports(10 * 60 * 1000);
+		expect(result).toHaveLength(1);
+		const arg = callOf(0).input;
+		expect(arg.FilterExpression).toContain('#status = :building');
+		expect(arg.FilterExpression).toContain('attribute_not_exists(buildStartedAt)');
+		expect((arg.ExpressionAttributeValues as Record<string, string>)[':building']).toBe('building');
+	});
+
+	it('該当なしで空配列', async () => {
+		mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+		const { findStaleBuildingExports } = await loadRepo();
+		expect(await findStaleBuildingExports(60000)).toEqual([]);
 	});
 });

@@ -115,6 +115,7 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 		createdAt: now,
 		status: input.status ?? 'pending',
 		failureReason: null,
+		buildStartedAt: null,
 	};
 
 	await getDocClient().send(
@@ -138,13 +139,20 @@ export async function updateStatus(
 	status: CloudExportStatus,
 	opts?: UpdateCloudExportStatusInput,
 ): Promise<void> {
-	const names: Record<string, string> = { '#status': 'status', '#fr': 'failureReason' };
+	// #3509 QM 是正: 'building' 遷移時は buildStartedAt を now() で記録、それ以外は null に戻す
+	// (staleness reclaim の対象外にする)。
+	const names: Record<string, string> = {
+		'#status': 'status',
+		'#fr': 'failureReason',
+		'#bsa': 'buildStartedAt',
+	};
 	const values: Record<string, unknown> = {
 		':status': status,
 		// 非 failed 遷移では失敗理由を消す (残渣防止)。opts 指定があればそれを優先。
 		':fr': opts?.failureReason ?? null,
+		':bsa': status === 'building' ? new Date().toISOString() : null,
 	};
-	const sets = ['#status = :status', '#fr = :fr'];
+	const sets = ['#status = :status', '#fr = :fr', '#bsa = :bsa'];
 	if (opts?.fileSizeBytes !== undefined) {
 		names['#fs'] = 'fileSizeBytes';
 		values[':fs'] = opts.fileSizeBytes;
@@ -195,6 +203,41 @@ export async function findPendingBuilds(limit: number): Promise<CloudExportRecor
 		for (const item of res.Items ?? []) {
 			items.push(mapItem(item));
 			if (items.length >= limit) return items;
+		}
+		lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+	return items;
+}
+
+/**
+ * #3509 QM 是正: status='building' かつ buildStartedAt が staleThresholdMs より古いレコードを
+ * tenant 横断で返す (cron worker が build 中に kill/timeout し永久 stuck した行の reclaim 用)。
+ * buildStartedAt 未設定 (fail-safe) も stale 扱いで含める。低頻度 cron のため Scan + 属性フィルタ
+ * (findPendingBuilds / deleteExpired と同じ Pre-PMF 方針)。
+ */
+export async function findStaleBuildingExports(
+	staleThresholdMs: number,
+): Promise<CloudExportRecord[]> {
+	const cutoff = new Date(Date.now() - staleThresholdMs).toISOString();
+	const items: CloudExportRecord[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const res = await getDocClient().send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression:
+					'begins_with(SK, :prefix) AND #status = :building AND (attribute_not_exists(buildStartedAt) OR buildStartedAt < :cutoff)',
+				ExpressionAttributeNames: { '#status': 'status' },
+				ExpressionAttributeValues: {
+					':prefix': cloudExportSKPrefix(),
+					':building': 'building',
+					':cutoff': cutoff,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of res.Items ?? []) {
+			items.push(mapItem(item));
 		}
 		lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
 	} while (lastKey);

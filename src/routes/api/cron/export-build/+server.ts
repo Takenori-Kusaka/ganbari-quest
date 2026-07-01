@@ -6,7 +6,8 @@
 //
 // 使い方:
 //   POST /api/cron/export-build   x-cron-secret: <CRON_SECRET>   Body(任意): { "limit": 5, "dryRun": true }
-//   200 { ok, processed, ready, failed }
+//   200 { ok, processed, ready, failed, reclaimed }
+//   (#3509: reclaimed = build 中に kill/timeout し永久 stuck した stale 'building' を pending へ差し戻した件数)
 //   401 Unauthorized / 404 secret 未設定 / 500 Internal Error
 
 import { json } from '@sveltejs/kit';

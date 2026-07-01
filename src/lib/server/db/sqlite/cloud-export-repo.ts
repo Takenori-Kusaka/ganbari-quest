@@ -62,7 +62,11 @@ export async function insert(input: InsertCloudExportInput): Promise<CloudExport
 	return toRecord(row);
 }
 
-/** #3504: 非同期 build 状態遷移 (tenantId 束縛)。ready 時は成果物メタ (size/description) も更新。 */
+/**
+ * #3504: 非同期 build 状態遷移 (tenantId 束縛)。ready 時は成果物メタ (size/description) も更新。
+ * #3509 QM 是正: 'building' 遷移時は buildStartedAt を now() で記録し、それ以外の遷移
+ * (pending/ready/failed) では null に戻す (staleness reclaim の対象から外す)。
+ */
 export async function updateStatus(
 	id: number,
 	tenantId: string,
@@ -73,6 +77,7 @@ export async function updateStatus(
 	const patch: Partial<typeof cloudExports.$inferInsert> = {
 		status,
 		failureReason: opts?.failureReason ?? null,
+		buildStartedAt: status === 'building' ? new Date().toISOString() : null,
 	};
 	if (opts?.fileSizeBytes !== undefined) patch.fileSizeBytes = opts.fileSizeBytes;
 	if (opts?.description !== undefined) patch.description = opts.description;
@@ -90,6 +95,28 @@ export async function findPendingBuilds(limit: number): Promise<CloudExportRecor
 		.where(eq(cloudExports.status, 'pending'))
 		.orderBy(asc(cloudExports.createdAt))
 		.limit(limit)
+		.all();
+	return rows.map(toRecord);
+}
+
+/**
+ * #3509 QM 是正: status='building' かつ buildStartedAt が staleThresholdMs より古いレコードを
+ * tenant 横断で返す (cron worker が build 中に kill/timeout し永久 stuck した行の reclaim 用)。
+ * buildStartedAt が NULL (旧行、想定外だが fail-safe) も stale 扱いで含める。
+ */
+export async function findStaleBuildingExports(
+	staleThresholdMs: number,
+): Promise<CloudExportRecord[]> {
+	const cutoff = new Date(Date.now() - staleThresholdMs).toISOString();
+	const rows = await db
+		.select()
+		.from(cloudExports)
+		.where(
+			and(
+				eq(cloudExports.status, 'building'),
+				sql`(${cloudExports.buildStartedAt} IS NULL OR ${cloudExports.buildStartedAt} < ${cutoff})`,
+			),
+		)
 		.all();
 	return rows.map(toRecord);
 }

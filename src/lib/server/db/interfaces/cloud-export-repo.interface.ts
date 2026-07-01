@@ -35,6 +35,12 @@ export interface ICloudExportRepo {
 	 */
 	findPendingBuilds(limit: number): Promise<CloudExportRecord[]>;
 	/**
+	 * #3509 QM 是正 (async-backup-export.md §3.2 追補): status='building' かつ
+	 * buildStartedAt が staleThresholdMs より古いレコードを tenant 横断で返す
+	 * (cron worker が build 中に kill/timeout し永久 stuck した行の reclaim 用)。
+	 */
+	findStaleBuildingExports(staleThresholdMs: number): Promise<CloudExportRecord[]>;
+	/**
 	 * #2845 B1: tenantId 必須 (旧 id-only は DynamoDB 側で tenant 無束縛 Scan + 全 tenant write 可能形状)。
 	 * 呼び出し元 (findByPin 経路) は record.tenantId を持つため signature で束縛する。
 	 */

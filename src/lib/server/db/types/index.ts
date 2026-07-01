@@ -1049,6 +1049,11 @@ export interface CloudExportRecord {
 	status: CloudExportStatus;
 	/** status='failed' 時の失敗理由 (それ以外は null)。 */
 	failureReason: string | null;
+	/**
+	 * #3509 QM 是正: 'building' 状態に遷移した時刻 (ISO)。それ以外の状態では null。
+	 * cron worker が build 中に kill/timeout した場合の stale 検知 (reclaimStaleBuildingExports) に使う。
+	 */
+	buildStartedAt: string | null;
 }
 
 export interface InsertCloudExportInput {

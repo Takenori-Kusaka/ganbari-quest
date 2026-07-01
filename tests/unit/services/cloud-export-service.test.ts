@@ -61,6 +61,8 @@ const mockCloudExportRepo = {
 	// #3504 非同期 build
 	updateStatus: vi.fn(),
 	findPendingBuilds: vi.fn().mockResolvedValue([]),
+	// #3509 QM 是正: stale 'building' reclaim
+	findStaleBuildingExports: vi.fn().mockResolvedValue([]),
 };
 
 const mockStorageRepo = {
@@ -127,6 +129,7 @@ describe('cloud-export-service', () => {
 		mockPlanTier = 'standard';
 		mockCloudExportRepo.countByTenant.mockResolvedValue(0);
 		mockCloudExportRepo.findByPin.mockResolvedValue(null);
+		mockCloudExportRepo.findStaleBuildingExports.mockResolvedValue([]);
 		// #3504: 非同期 build mock を毎回リセット (clearAllMocks は実装を残すため override leak を防ぐ)
 		mockCloudExportRepo.findPendingBuilds.mockResolvedValue([]);
 		mockCloudExportRepo.updateStatus.mockResolvedValue(undefined);
@@ -261,7 +264,7 @@ describe('cloud-export-service', () => {
 
 			const result = await drainPendingExports(5);
 
-			expect(result).toEqual({ processed: 1, ready: 1, failed: 0 });
+			expect(result).toEqual({ processed: 1, ready: 1, failed: 0, reclaimed: 0 });
 			// building → ready の 2 回
 			expect(mockCloudExportRepo.updateStatus).toHaveBeenNthCalledWith(
 				1,
@@ -355,8 +358,30 @@ describe('cloud-export-service', () => {
 		it('pending 0 件のとき何もしない', async () => {
 			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([]);
 			const result = await drainPendingExports();
-			expect(result).toEqual({ processed: 0, ready: 0, failed: 0 });
+			expect(result).toEqual({ processed: 0, ready: 0, failed: 0, reclaimed: 0 });
 			expect(mockStorageRepo.saveFile).not.toHaveBeenCalled();
+		});
+
+		it('#3509 QM 是正: stale building を pending へ reclaim してから drain する', async () => {
+			mockCloudExportRepo.findStaleBuildingExports.mockResolvedValue([
+				pendingRecord({ id: 99, status: 'building' }),
+			]);
+			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([]);
+
+			const result = await drainPendingExports();
+
+			expect(result.reclaimed).toBe(1);
+			expect(mockCloudExportRepo.updateStatus).toHaveBeenCalledWith(99, 'tenant-1', 'pending');
+		});
+
+		it('#3509 QM 是正: stale building が無ければ reclaim 0 で通常 drain する', async () => {
+			mockCloudExportRepo.findStaleBuildingExports.mockResolvedValue([]);
+			mockCloudExportRepo.findPendingBuilds.mockResolvedValue([pendingRecord()]);
+
+			const result = await drainPendingExports();
+
+			expect(result.reclaimed).toBe(0);
+			expect(result.ready).toBe(1);
 		});
 	});
 

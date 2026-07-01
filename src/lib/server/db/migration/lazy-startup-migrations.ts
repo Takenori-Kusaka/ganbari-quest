@@ -922,6 +922,19 @@ function migrateCloudExportStatusColumns(db: Database.Database): void {
 	run();
 }
 
+/**
+ * #3509 QM 是正 (async-backup-export.md §3.2 追補): cloud_exports に build_started_at
+ * カラムを追加する。'building' 状態への遷移時刻を記録し、cron worker が build 中に
+ * kill/timeout した場合に永久 stuck するのを reclaimStaleBuildingExports が検知できるようにする。
+ * 既存行は NULL (= 非 building) のままで問題ない。
+ */
+function migrateCloudExportBuildStartedAtColumn(db: Database.Database): void {
+	if (!tableExists(db, 'cloud_exports')) return;
+	if (hasColumn(db, 'cloud_exports', 'build_started_at')) return; // 冪等
+	db.exec('ALTER TABLE cloud_exports ADD COLUMN build_started_at TEXT;');
+	console.info('[lazy-migrate #3509] added cloud_exports.build_started_at (nullable)');
+}
+
 export function applyLazyStartupMigrations(db: Database.Database): void {
 	const fkBefore = db.pragma('foreign_keys', { simple: true }) as number;
 	db.pragma('foreign_keys = OFF');
@@ -947,6 +960,9 @@ export function applyLazyStartupMigrations(db: Database.Database): void {
 		// #3504: cloud_exports に非同期 build 状態カラムを追加 (既存行は ready backfill)。
 		// 純粋な ADD COLUMN + backfill なので構造 migration の後で問題ない。
 		migrateCloudExportStatusColumns(db);
+		// #3509: cloud_exports に build_started_at カラムを追加 (stale building reclaim 用)。
+		// status カラムの存在を前提としないが、同機能追加の直後に実行する。
+		migrateCloudExportBuildStartedAtColumn(db);
 	} catch (err) {
 		// #2509: tx 内で失敗した場合 better-sqlite3 が自動 ROLLBACK 済。partial state
 		// は残らないが、後続の `SQL_CREATE_TABLES` / `validateAndMigrate` 実行は危険
