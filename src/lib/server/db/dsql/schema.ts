@@ -11,6 +11,7 @@
 import { sql } from 'drizzle-orm';
 import {
 	boolean,
+	check,
 	integer,
 	pgTable,
 	primaryKey,
@@ -20,6 +21,8 @@ import {
 	uuid,
 } from 'drizzle-orm/pg-core';
 import { ARCHIVED_REASONS } from '$lib/domain/archive-types';
+import { UI_MODES } from '$lib/domain/validation/age-tier-types';
+import { enumCheck, THEME_KEYS } from './check-constraints';
 
 // children — Child 集約の linchpin (§11.1)。
 // 変更点 (vs sqlite 現行):
@@ -53,5 +56,11 @@ export const children = pgTable(
 		isArchived: boolean('is_archived').notNull().default(false),
 		archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
 	},
-	(t) => [primaryKey({ columns: [t.familyId, t.childId] })],
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId] }),
+		// CHECK は SSOT から生成 (fitness#13、手書き二重化禁止)。pg/sqlite が同一 helper 共有で一致。
+		check('children_ui_mode_ck', enumCheck(t.uiMode, UI_MODES)),
+		check('children_theme_ck', enumCheck(t.theme, THEME_KEYS)),
+		check('children_archived_reason_ck', enumCheck(t.archivedReason, ARCHIVED_REASONS)),
+	],
 );
