@@ -532,3 +532,7 @@ wada
 # validationexception = lowercase 例外クラス名の例（blocklist test payload）
 SQLSTATE
 validationexception
+
+# ===== #3512 fitness#6 temporal dialect-parity guard =====
+# timestamptz = PostgreSQL/DSQL の標準型名 (TIMESTAMP WITH TIME ZONE の略記、造語ではない)
+timestamptz
