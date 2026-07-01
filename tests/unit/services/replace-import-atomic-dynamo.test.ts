@@ -7,6 +7,7 @@
 // mock で決定的に検証する。
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetEnvForTesting } from '../../../src/lib/runtime/env';
 
 const { clearAllFamilyData, importFamilyData, exportFamilyData, saveFile } = vi.hoisted(() => ({
 	clearAllFamilyData: vi.fn(async () => ({ deleted: {} })),
@@ -32,9 +33,13 @@ import { replaceImportAtomic } from '../../../src/lib/server/services/replace-im
 beforeEach(() => {
 	vi.clearAllMocks();
 	vi.stubEnv('DATA_SOURCE', 'dynamodb');
+	// getEnv() は cache を持つため、stubEnv 後に再 parse させる (ADR-0040 P1、
+	// usage-log-service-dynamodb-noop.test.ts と同パターン)。
+	resetEnvForTesting();
 });
 afterEach(() => {
 	vi.unstubAllEnvs();
+	resetEnvForTesting();
 });
 
 describe('#3326 DynamoDB backup-before-clear', () => {

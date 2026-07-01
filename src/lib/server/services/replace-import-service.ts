@@ -16,6 +16,7 @@
 // SQLite startup 副作用を避けるため、SQLite 戦略内でのみ dynamic import する (data-service.ts と同方針)。
 
 import type { ExportData } from '$lib/domain/export-format';
+import { getEnv } from '$lib/runtime/env';
 import { logger } from '$lib/server/logger';
 import { clearAllFamilyData } from './data-service';
 import { type ImportResult, importFamilyData } from './import-service';
@@ -23,7 +24,9 @@ import { type ImportResult, importFamilyData } from './import-service';
 type Backend = 'sqlite' | 'dynamodb' | 'passthrough';
 
 function currentBackend(): Backend {
-	const src = process.env.DATA_SOURCE ?? 'sqlite';
+	// `getEnv()` は cache を持つが、テストでは `resetEnvForTesting()` を beforeEach で
+	// 呼ぶことで vi.stubEnv() の変更が反映される (usage-log-service.ts と同パターン)。
+	const src = getEnv().DATA_SOURCE;
 	if (src === 'dynamodb') return 'dynamodb';
 	if (src === 'demo') return 'passthrough';
 	return 'sqlite';
