@@ -52,6 +52,15 @@ EPIC #3424  DynamoDB → Aurora DSQL 移管
 **#N0-1 PK 凍結 manifest + `children` linchpin DDL + dialect-parity 土台**（Phase 0）
 - §ref: §11.1/§11.2/§12.2.1(PR-0)/§13.1(#6,#9,#13) / AC: fitness#9(PK==manifest) / fitness#13(pg/sqlite CHECK 文字列一致、CHECK 値は age-tier.ts/archive-types.ts 生成) / temporal `{mode:'string'}` / children secondary 0 本(§4.1) / blocked_by: なし（最上流 linchpin） / 粒度: child_id が ~20 表 PK 先頭＝最初に凍結し下流手戻り防止。manifest+1表DDL+parity test ≤400 LOC。
 
+**#N0-2 DB アクセス経路の一本化 + boundary linter（散在アクセス再発防止）**（Phase 0、fitness#16）
+- §ref: §13.1(fitness#16) / §12.1 N3(非 repo 4 file) / ADR-0061(same-class→guard) / 既存 `route-db-boundary.test.ts`(#3152)
+- AC（test list → red）:
+  - AC1 **fitness#16 を red で先に導入**: DB SDK/ドライバの直接 import（`@aws-sdk/*-dynamodb` / 生 pg / drizzle driver）を `db/<backend>/` 外で検出したら fail する architecture test。導入時点で **4 file の既存違反が red**（analytics/providers/dynamo.ts, analytics-aggregate-service.ts, db/probe.ts, db/migration/writeback.ts）。
+  - AC2 **一本化(green)**: 4 file を修正 — (a) analytics 2 file は `analytics-repo`（新 repo interface）経由に統一、or「analytics は独立 event pipeline」として allowlist に理由付き登録し scope を §12.1 N3 の product 判断に接続。(b) probe/migration ツーリングは allowlist 明示（撤去予定として）。
+  - AC3 fitness#16 が green（新規の直接アクセスは以後 CI hard-fail）。
+- blocked_by: なし（早期導入で移管中の新規散在を防ぐ＝#N1-1 以降の全実装がこの guard 下で進む）
+- 粒度根拠: guard 本体 + allowlist + 4 file 修正。移管の**前提 guard**なので Phase 0 に置き、以後の全 repo 実装を「必ず抽象化経由」に強制。
+
 **#N1-1 `runInTransaction`+`withOccRetry`+tx-handle 引き回し（Unit of Work）**（Phase A、#3435 統合）
 - §ref: §8/§12.2.1(PR-0b)/§13.1(#7,#8)/spike#4 / AC: fitness#8(write-path repo は tx 必須引数・module db 直結禁止・**core 1操作を tx 外に逃がすと pg で部分コミット再現を failing-test-first**) / fitness#7(core txn 内 await は tx-bound のみ allowlist) / spike#4(SAVEPOINT不可・25P02 前提で optional を core に入れない) / backend dispatch(pg async+withOccRetry / SQLite BEGIN IMMEDIATE+retry no-op) / blocked_by: #N0-1 / 粒度: recordActivity と import が共有する土台。
 
@@ -127,7 +136,7 @@ EPIC #3424  DynamoDB → Aurora DSQL 移管
 | ADR-0004 AC 検証マップ(5列) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | ADR-0060 完了10項目(設計書同期) | ✓ | ✓ | ✓ | ✓ | ✓ | — | ✓(rationale supersede=項目10) |
 | failing-test-first(ADR-0061) | ✓ | ✓(最重要) | ✓ | ✓ | ✓ | 一部 | — |
-| fitness function CI | #9/#13/#6 | #7/#8 | #2/#3/#6 | #1/#5/#10/#11/#12/#14 | #1/#15 | #11 metric | 撤去後除去 |
+| fitness function CI | #9/#13/#6/**#16** | #7/#8 | #2/#3/#6 | #1/#5/#10/#11/#12/#14 | #1/#15 | #11 metric | **#16 で db grep-zero** |
 | pg integration test | — | ✓必須 | ✓ | ✓(write path) | ✓ | — | — |
 | dialect-parity test | ✓ | ✓ | ✓ | ✓ | — | — | — |
 | impact-analysis skill | ✓(child_id) | — | ✓(role二重書き廃止) | ✓(int→UUID) | — | — | ✓(11000行削除) |
