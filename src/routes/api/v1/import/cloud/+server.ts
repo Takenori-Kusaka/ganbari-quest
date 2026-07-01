@@ -10,12 +10,15 @@ import {
 	consumeCloudExportDownload,
 	fetchCloudExportByPin,
 } from '$lib/server/services/cloud-export-service';
-import { clearAllFamilyData } from '$lib/server/services/data-service';
 import {
 	importFamilyData,
 	previewImport,
 	validateExportData,
 } from '$lib/server/services/import-service';
+import {
+	AtomicReplaceError,
+	replaceImportAtomic,
+} from '$lib/server/services/replace-import-service';
 import type { RequestHandler } from './$types';
 
 /**
@@ -133,14 +136,20 @@ async function handleFullZipImport(
 	try {
 		// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
 		await consumeCloudExportDownload(record);
-		logger.info('[cloud-import] 置換インポート開始 (ZIP)', { context: { tenantId } });
-		const clearResult = await clearAllFamilyData(tenantId);
-		const result = await importFamilyData(validation.data, tenantId, staticFiles);
-		return json({
-			ok: true,
-			result: { exportType: 'full', ...result, cleared: clearResult.deleted },
-		});
+		// #3326: clear + import を原子境界で実行し、途中失敗時は旧データを必ず復元する。
+		logger.info('[cloud-import] 置換インポート開始 (ZIP, 原子化)', { context: { tenantId } });
+		const result = await replaceImportAtomic(validation.data, tenantId, staticFiles);
+		return json({ ok: true, result: { exportType: 'full', ...result } });
 	} catch (err) {
+		if (err instanceof AtomicReplaceError) {
+			logger.error('[cloud-import] 置換 ZIP インポート中止 (既存データ保全)', {
+				context: { errors: err.result.errors.slice(0, 3) },
+			});
+			return apiError(
+				'VALIDATION_ERROR',
+				`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
+			);
+		}
 		logger.error('[cloud-import] 置換 ZIP インポート失敗', { error: String(err) });
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}
@@ -358,14 +367,20 @@ async function handleFullImport(
 	try {
 		// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
 		await consumeCloudExportDownload(record);
-		logger.info('[cloud-import] 置換インポート開始', { context: { tenantId } });
-		const clearResult = await clearAllFamilyData(tenantId);
-		const result = await importFamilyData(validation.data, tenantId);
-		return json({
-			ok: true,
-			result: { exportType: 'full', ...result, cleared: clearResult.deleted },
-		});
+		// #3326: clear + import を原子境界で実行し、途中失敗時は旧データを必ず復元する。
+		logger.info('[cloud-import] 置換インポート開始 (原子化)', { context: { tenantId } });
+		const result = await replaceImportAtomic(validation.data, tenantId);
+		return json({ ok: true, result: { exportType: 'full', ...result } });
 	} catch (err) {
+		if (err instanceof AtomicReplaceError) {
+			logger.error('[cloud-import] 置換インポート中止 (既存データ保全)', {
+				context: { errors: err.result.errors.slice(0, 3) },
+			});
+			return apiError(
+				'VALIDATION_ERROR',
+				`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
+			);
+		}
 		logger.error('[cloud-import] 置換インポート失敗', { error: String(err) });
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}

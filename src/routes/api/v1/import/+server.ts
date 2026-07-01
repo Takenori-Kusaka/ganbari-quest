@@ -7,13 +7,16 @@ import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
 import { type ParsedBackupZip, parseBackupZip } from '$lib/server/services/backup-archive';
-import { clearAllFamilyData } from '$lib/server/services/data-service';
 import {
 	importFamilyData,
 	previewImport,
 	validateExportData,
 	verifyChecksum,
 } from '$lib/server/services/import-service';
+import {
+	AtomicReplaceError,
+	replaceImportAtomic,
+} from '$lib/server/services/replace-import-service';
 import type { RequestHandler } from './$types';
 
 // #3077: ZIP インポートの上限。export ZIP (backup-archive MAX_ZIP_SIZE) と整合させる。
@@ -94,12 +97,22 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 	if (mode === 'replace') {
 		requireRole(locals, ['owner', 'parent']);
 		try {
-			logger.info('[import] 置換インポート開始: データクリア実行', { context: { tenantId } });
-			const clearResult = await clearAllFamilyData(tenantId);
-			logger.info('[import] データクリア完了、インポート開始');
-			const result = await importFamilyData(validation.data, tenantId, staticFiles);
-			return json({ ok: true, result, cleared: clearResult.deleted });
+			// #3326: clear + import を原子境界で実行。途中失敗時は旧データを必ず復元する
+			// (SQLite=BEGIN/ROLLBACK / DynamoDB=backup-before-clear)。clear 先行の永久喪失を廃止。
+			logger.info('[import] 置換インポート開始 (原子化)', { context: { tenantId } });
+			const result = await replaceImportAtomic(validation.data, tenantId, staticFiles);
+			return json({ ok: true, result });
 		} catch (err) {
+			if (err instanceof AtomicReplaceError) {
+				// 原子境界を中止し旧データを保全済。インポート失敗の旨を返す。
+				logger.error('[import] 置換インポート中止 (既存データ保全)', {
+					context: { errors: err.result.errors.slice(0, 3) },
+				});
+				return apiError(
+					'VALIDATION_ERROR',
+					`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
+				);
+			}
 			logger.error('[import] 置換インポート失敗', { error: String(err) });
 			return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 		}
