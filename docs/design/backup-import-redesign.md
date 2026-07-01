@@ -115,4 +115,4 @@ backup 形式は **5 つの責務を層で分離**する。「旧版を読む」
 
 ### 設計選定根拠
 
-bounded・1 回読みの backup には event-sourcing の **copy-transform（eager once、Greg Young）** が適合し、毎読込変換の lazy upcasting（N+1）は不採用。tolerant reader 単独（Postel's law）は破壊的変更で silent data loss を起こすため、L2 transform を破壊的変更の単一の置き場とする。実 transform 関数は最初の破壊的変更（DSQL 移管 #3433 の型表現変更が初回トリガ候補）と同 PR で実装する（現状の STEPS は全 identity）。詳細根拠は `docs/research/2026-06-29-backup-format-evolution.md`（一次資料比較）。
+bounded・1 回読みの backup には event-sourcing の **copy-transform（eager once、Greg Young）** が適合し、毎読込変換の lazy upcasting（N+1）は不採用。tolerant reader 単独（Postel's law）は破壊的変更で silent data loss を起こすため、L2 transform を破壊的変更の単一の置き場とする。実 transform 関数は最初の破壊的変更（DSQL 移管 #3433 の型表現変更が初回トリガ候補）と同 PR で実装する（現状の STEPS は全 identity）。
