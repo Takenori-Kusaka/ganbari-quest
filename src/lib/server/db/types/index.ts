@@ -520,6 +520,11 @@ export interface InsertChecklistTemplateInput {
 	completionBonus?: number;
 	timeSlot?: string;
 	isActive?: number;
+	// #3505 (#3358 と同一クラス): backup → restore round-trip で archive 状態を保全する
+	// (省略時は schema default = 非アーカイブ)。archived template が import 後に active へ復活する
+	// silent なデータ破綻 (第11回監査 tech-1) を防ぐ。export 契約 (ExportChecklistTemplate) が
+	// 出力するのは isArchived のみのため archivedReason は本 input の対象外。
+	isArchived?: number;
 	// #1755 (#1709-A): kind 削除 — 持ち物純化
 	// #1254 G1: マーケットプレイスプリセット由来の識別子
 	sourcePresetId?: string | null;

@@ -131,7 +131,7 @@ export async function insertTemplate(
 		completionBonus: input.completionBonus ?? 10,
 		timeSlot: input.timeSlot ?? 'anytime',
 		isActive: input.isActive ?? 1,
-		isArchived: 0,
+		isArchived: input.isArchived ?? 0, // #3505: import round-trip で archive 状態を保全
 		archivedReason: null,
 		createdAt: now,
 		updatedAt: now,

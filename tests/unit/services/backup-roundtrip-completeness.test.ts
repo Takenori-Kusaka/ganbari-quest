@@ -705,4 +705,40 @@ describe('#3328 backup round-trip 完全性 — 全 source 実体が export→cl
 		expect(overrides[0]?.itemName, 'override itemName 保全').toBe('すいとう');
 		expect(overrides[0]?.createdAt, 'override createdAt 保全').toBe('2026-03-05T07:00:00Z');
 	});
+
+	// #3505 (#3358 と同型の field-level 回帰固定): archived checklistTemplate が import 後に active
+	// 復活しないこと。従来の完全性 test は非 archived template のみ seed するため、export は isArchived を
+	// 出力する (export-service:554) のに import が drop する field-drop を件数一致では見逃していた。
+	it('archived checklistTemplate が round-trip 後も archived のまま (active 復活しない、#3505)', async () => {
+		testDb.insert(schema.children).values({ nickname: 'そら', age: 8, theme: 'blue' }).run(); // id=1
+		const repo = getRepos().checklist;
+
+		// isArchived=1 の archived template を作成し child へ配信 (import round-trip の保全対象)。
+		const tpl = await repo.insertTemplate(
+			{ name: 'アーカイブ済リスト', icon: '📋', isArchived: 1 },
+			T,
+		);
+		await repo.assignTemplateToChildren(tpl.id, [1], T);
+
+		// export は archived template を isArchived:true で出力する (includeArchived=true 取得)。
+		const data = await exportFamilyData({ tenantId: T });
+		const exported = data.data.checklistTemplates.find((t) => t.name === 'アーカイブ済リスト');
+		expect(exported, 'export: archived template を出力').toBeTruthy();
+		expect(exported?.isArchived, 'export: isArchived=true').toBe(true);
+
+		// replace = clear → import
+		await clearAllFamilyData(T);
+		await importFamilyData(data, T);
+
+		// 復元後も archived のまま (import が isArchived を drop すると default 0 = active 復活 → fail)。
+		const children = testDb.select().from(schema.children).all();
+		const cid = children[0]?.id as number;
+		const restored = (await repo.findTemplatesByChild(cid, T, true, true)).find(
+			(t) => t.name === 'アーカイブ済リスト',
+		);
+		expect(restored, '復元された').toBeTruthy();
+		expect(restored?.isArchived, 'archived のまま (active 復活しない、#3505 regression 固定)').toBe(
+			1,
+		);
+	});
 });
