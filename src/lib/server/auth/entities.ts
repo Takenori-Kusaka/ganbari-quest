@@ -72,6 +72,11 @@ export interface CreateMembershipInput {
 	invitedBy?: string;
 }
 
+/** invite 状態の固定集合。
+ * runtime 配列は DSQL invites.status の CHECK 生成 SSOT (#3528、手書き二重化禁止)。 */
+export const INVITE_STATUSES = ['pending', 'accepted', 'revoked', 'expired'] as const;
+export type InviteStatus = (typeof INVITE_STATUSES)[number];
+
 /** 招待リンク */
 export interface Invite {
 	inviteCode: string;
@@ -79,7 +84,7 @@ export interface Invite {
 	invitedBy: string;
 	role: Role;
 	childId?: number;
-	status: 'pending' | 'accepted' | 'revoked' | 'expired';
+	status: InviteStatus;
 	createdAt: string;
 	expiresAt: string;
 	acceptedBy?: string;
@@ -93,11 +98,16 @@ export interface CreateInviteInput {
 	childId?: number;
 }
 
+/** 同意種別の固定集合。
+ * runtime 配列は DSQL consents.type の CHECK 生成 SSOT (#3528、手書き二重化禁止)。 */
+export const CONSENT_TYPES = ['terms', 'privacy'] as const;
+export type ConsentType = (typeof CONSENT_TYPES)[number];
+
 /** 利用規約・PP 同意記録 (#0192) */
 export interface ConsentRecord {
 	tenantId: string;
 	userId: string;
-	type: 'terms' | 'privacy';
+	type: ConsentType;
 	version: string;
 	consentedAt: string;
 	ipAddress: string;
@@ -107,7 +117,7 @@ export interface ConsentRecord {
 export interface RecordConsentInput {
 	tenantId: string;
 	userId: string;
-	type: 'terms' | 'privacy';
+	type: ConsentType;
 	version: string;
 	ipAddress: string;
 	userAgent: string;
