@@ -9,10 +9,15 @@
 
 import { type SQL, sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
-import { THEME_LABELS } from '$lib/domain/labels';
+import { ACTIVITY_PRIORITY_LABELS, THEME_LABELS } from '$lib/domain/labels';
 
 // theme の SSOT = THEME_LABELS のキー (§2 カラートークン / labels.ts)。
 export const THEME_KEYS = Object.keys(THEME_LABELS) as (keyof typeof THEME_LABELS)[];
+
+// activity priority の SSOT = ACTIVITY_PRIORITY_LABELS のキー (must/optional、labels.ts)。
+export const ACTIVITY_PRIORITY_KEYS = Object.keys(
+	ACTIVITY_PRIORITY_LABELS,
+) as (keyof typeof ACTIVITY_PRIORITY_LABELS)[];
 
 // SSOT 配列から `col IN ('a', 'b', ...)` の CHECK 式を生成する。
 // 値のシングルクォートは '' にエスケープ。nullable 列は NULL が CHECK を通過する (SQL 標準)。
