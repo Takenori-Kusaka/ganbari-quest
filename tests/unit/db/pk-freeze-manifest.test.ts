@@ -108,8 +108,15 @@ describe('fitness#9: PK 凍結 manifest (§11.2 / §P1 不可逆不変条件)', 
 		const { PgTable, getTableConfig } = await import('drizzle-orm/pg-core');
 		const { is, getTableName } = await import('drizzle-orm');
 		const dsqlSchema = await import('../../../src/lib/server/db/dsql/schema');
-		const { PK_FREEZE_MANIFEST } = await import('../../../src/lib/server/db/pk-freeze-manifest');
-		const manifest = PK_FREEZE_MANIFEST as Record<string, readonly string[]>;
+		const { PK_FREEZE_MANIFEST, AUTH_PK_MANIFEST } = await import(
+			'../../../src/lib/server/db/pk-freeze-manifest'
+		);
+		// テナント表 (§11.2) + auth 5 表 (§6.6、#3528) の union。schema に存在する全表が
+		// いずれかの manifest に凍結宣言を持つこと。
+		const manifest = { ...PK_FREEZE_MANIFEST, ...AUTH_PK_MANIFEST } as Record<
+			string,
+			readonly string[]
+		>;
 
 		// dsql/schema.ts に実装された全 pg 表を走査 (表追記時に本テスト変更なしで自動カバー)。
 		// filter 後に cast することで、各 export の具体的な PgTableWithColumns<{name:"..."}>

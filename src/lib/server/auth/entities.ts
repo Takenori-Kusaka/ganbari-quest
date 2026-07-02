@@ -5,11 +5,16 @@ import type { SubscriptionPlan } from '$lib/domain/constants/subscription-plan';
 import type { SubscriptionStatus } from '$lib/domain/constants/subscription-status';
 import type { Role } from './types';
 
+/** 認証プロバイダの固定集合。
+ * runtime 配列は DSQL users.provider の CHECK 生成 SSOT (#3528、手書き二重化禁止)。 */
+export const AUTH_PROVIDERS = ['cognito'] as const;
+export type AuthProviderKind = (typeof AUTH_PROVIDERS)[number];
+
 /** Cognito ユーザー（Email/Password 認証） */
 export interface AuthUser {
 	userId: string;
 	email: string;
-	provider: 'cognito';
+	provider: AuthProviderKind;
 	displayName?: string;
 	createdAt: string;
 	updatedAt: string;
@@ -17,7 +22,7 @@ export interface AuthUser {
 
 export interface CreateUserInput {
 	email: string;
-	provider: 'cognito';
+	provider: AuthProviderKind;
 	displayName?: string;
 }
 
