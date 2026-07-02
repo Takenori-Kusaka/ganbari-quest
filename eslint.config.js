@@ -31,6 +31,14 @@ export default [
 				parser: tsParser,
 			},
 		},
+		rules: {
+			// #3354 (#3243 follow-up): {@html} を機械的に禁止 (stored/echo XSS の回帰防止)。
+			// error message 等のサーバ値は textContent 補間で描画する不変条件を CI gate 化する
+			// (06-UI設計書 + コメント + test の人手依存を機械強制へ昇格)。現状 src/ の {@html} は 0 件。
+			// 正当な sanitize 済 HTML 注入 (ADR-0025 DOMPurify 等) が必要な場合は当該行のみ
+			// eslint-disable-next-line svelte/no-at-html-tags で明示 opt-out する。
+			'svelte/no-at-html-tags': 'error',
+		},
 	},
 	// routes 配下: デザインシステム品質ルール
 	// style="..." 属性禁止、Tailwind hex 禁止、raw <button> 禁止、スタイル行数制限、ファイル行数制限

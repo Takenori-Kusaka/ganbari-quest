@@ -103,50 +103,20 @@ interface TenantInfo {
 }
 
 async function findGracePeriodTenants(): Promise<TenantInfo[]> {
-	// DynamoDB Scan for TENANT#* with status=grace_period
-	const tenants: TenantInfo[] = [];
-
-	// Scan approach: iterate known tenants via auth table
-	// For now, use a simple approach - list all children to discover tenant IDs,
-	// then check each tenant's status
-	// Better approach: add a Scan to auth-repo, but for MVP we'll use storage listing
+	// #3184 item4: route から raw DynamoDB Scan を撤去し、auth repo facade (listAllTenants) +
+	// client-side filter に置換 (route↔DB 境界 fitness function / ADR-0061)。tenant 数は Pre-PMF
+	// 規模で小さく、server-side FilterExpression を client filter に変えても実害なし。SQLite/demo は
+	// listAllTenants が各 backend 実装を返すため try/catch の backend 分岐も不要になる。
 	try {
-		const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
-		const { getDocClient } = await import('$lib/server/db/dynamodb/client');
-
-		const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME ?? 'ganbari-quest';
-		const doc = getDocClient();
-		let lastKey: Record<string, unknown> | undefined;
-
-		do {
-			const result = await doc.send(
-				new ScanCommand({
-					TableName: TABLE_NAME,
-					FilterExpression: 'begins_with(PK, :prefix) AND SK = :sk AND #s = :status',
-					ExpressionAttributeNames: { '#s': 'status' },
-					ExpressionAttributeValues: {
-						':prefix': 'TENANT#',
-						':sk': 'META',
-						':status': SUBSCRIPTION_STATUS.GRACE_PERIOD,
-					},
-					ExclusiveStartKey: lastKey,
-				}),
-			);
-
-			for (const item of result.Items ?? []) {
-				tenants.push({
-					tenantId: item.tenantId as string,
-					planExpiresAt: item.planExpiresAt as string | undefined,
-				});
-			}
-			lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
-		} while (lastKey);
+		const all = await getRepos().auth.listAllTenants();
+		return all
+			.filter((t) => t.status === SUBSCRIPTION_STATUS.GRACE_PERIOD)
+			.map((t) => ({ tenantId: t.tenantId, planExpiresAt: t.planExpiresAt }));
 	} catch {
-		// ローカルモード（SQLite）の場合はスキップ
-		logger.info('[tenant-cleanup] DynamoDB Scan 不可（ローカルモード？）');
+		// backend 未初期化等の場合はスキップ (掃除対象なしとして扱う)
+		logger.info('[tenant-cleanup] listAllTenants 不可（backend 未初期化？）');
+		return [];
 	}
-
-	return tenants;
 }
 
 async function deleteTenantData(

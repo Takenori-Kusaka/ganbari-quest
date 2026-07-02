@@ -8,6 +8,9 @@
 //   - runtimeMode 未確定 (undefined) は fail-closed で saas/nuc 限定手順を除外 (#3296 Part 3)
 //   - requiredStripe='enabled' → Stripe 有効時のみ表示、無効/未確定は fail-closed で除外 (#3296 Part 1)
 
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
 	filterGuideStepsByRuntime,
@@ -15,6 +18,8 @@ import {
 } from '../../../src/lib/ui/tutorial/page-guide-registry';
 import type { PageGuide } from '../../../src/lib/ui/tutorial/page-guide-types';
 import { SUBSCRIPTION_GUIDE } from '../../../src/routes/(parent)/admin/subscription/_guide';
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 const fixture: PageGuide = {
 	pageId: 'test-page',
@@ -92,6 +97,43 @@ describe('#3291/#3296 filterGuideStepsByRuntime', () => {
 				).toBeTruthy();
 			}
 		}
+	});
+
+	// #3319: 各環境で「残った step」の data-tutorial anchor が、その環境で描画される Panel の
+	// markup に実在することを決定的に検証する (AC1 の趣旨 = 環境別 anchor 解決の機械担保)。
+	// #3307 の global anchor-existence gate は anchor をどこかの src に存在することしか保証しないが、
+	// 本 test は「nuc step の anchor は NucLicensePanel に / saas step の anchor は SaasLicensePanel に」
+	// と Panel を runtime に bind して検証するため、Panel の markup 退行 (anchor 削除/typo) による
+	// 空 spotlight (本 PR が直したのと同クラス、ADR-0061 same-class) を runtime 単位で捕捉する。
+	const PANEL_BY_RUNTIME: Record<'nuc' | 'saas', string> = {
+		nuc: 'src/lib/features/admin/components/NucLicensePanel.svelte',
+		saas: 'src/lib/features/admin/components/SaasLicensePanel.svelte',
+	};
+	const extractAnchor = (selector: string | undefined): string | null =>
+		selector?.match(/\[data-(?:tutorial|testid)="([^"]+)"\]/)?.[1] ?? null;
+
+	it('#3319: 環境別 subscription step の anchor が対応 Panel の markup に実在する (runtime-bound 空 spotlight 検出)', () => {
+		const panelSrc: Record<'nuc' | 'saas', string> = {
+			nuc: readFileSync(resolve(REPO_ROOT, PANEL_BY_RUNTIME.nuc), 'utf8'),
+			saas: readFileSync(resolve(REPO_ROOT, PANEL_BY_RUNTIME.saas), 'utf8'),
+		};
+		const missing = SUBSCRIPTION_GUIDE.steps
+			.filter((s) => s.requiredRuntime === 'nuc' || s.requiredRuntime === 'saas')
+			.map((s) => {
+				const runtime = s.requiredRuntime as 'nuc' | 'saas';
+				const anchor = extractAnchor(s.selector);
+				return { id: s.id, runtime, anchor };
+			})
+			.filter(
+				({ runtime, anchor }) =>
+					anchor === null || !panelSrc[runtime].includes(`data-tutorial="${anchor}"`),
+			)
+			.map(({ id, runtime, anchor }) => `${id} (${runtime}) → data-tutorial="${anchor}"`);
+		expect(
+			missing,
+			`環境固有 step の anchor が対応 Panel に存在しない (その環境で空 spotlight になる)。` +
+				`対応 Panel に data-tutorial を追加するか step を再分類すること:\n${missing.join('\n')}`,
+		).toEqual([]);
 	});
 });
 

@@ -71,7 +71,7 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Resolve merged PR + classify (scripts/hotfix-back-merge.mjs)
         id: classify
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           DISPATCH_SHA: ${{ inputs.sha }}
         with:
@@ -232,7 +232,7 @@ jobs:
           steps.classify.outputs.do_back_merge == 'true' &&
           steps.noop.outputs.already_in_develop == 'false' &&
           steps.appcreds.outputs.present == 'true'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH: ${{ steps.classify.outputs.branch }}

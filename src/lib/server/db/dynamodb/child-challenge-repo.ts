@@ -37,6 +37,7 @@ import type {
 	InsertChildChallengeInput,
 	UpdateChildChallengeInput,
 } from '../types';
+import { AUTO_WEEKLY_SOURCE_TEMPLATE_ID } from '../types';
 import { getDocClient, TABLE_NAME } from './client';
 import { nextId } from './counter';
 import {
@@ -193,6 +194,44 @@ export async function insert(
 }
 
 /**
+ * #3329 backup restore 用: 進捗 / 完了 / 請求 / status / 日時を含む全フィールドを保全して復元する。
+ * insert と異なり buildChildChallenge の初期化を経ず、引数の値をそのまま書き戻す (id は新規採番)。
+ *
+ * #3329 QM-fix: auto:weekly 行は dedup SK (childChallengeAutoWeeklyKey = CHILDCHAL#AUTO#<weekStart>)
+ * で書き戻す。regular 行と同じ CHILDCHAL#<paddedId> に入れると、後続の getOrCreateWeeklyAuto
+ * (当該 (child, weekStart) の AUTO# key を GetItem で dedup) が復元行を miss し 2 個目の auto:weekly
+ * を生成してしまう (週次チャレンジ重複 / 進捗分裂)。SQLite SSOT は部分 unique index
+ * (child_id, start_date) で復元行が get-or-create 勝者になり重複しないため、DynamoDB でも復元行を
+ * dedup key に置いて機能等価にする。id 属性は Item に保持されるため findById / resolveKeyById
+ * (#3258 id-addressable Scan) は SK 形式に依存せず auto 行も解決でき、findByChildId の
+ * begins_with(SK,'CHILDCHAL#') Query でも auto 行を拾える。
+ */
+export async function insertForRestore(
+	input: Omit<ChildChallenge, 'id'>,
+	tenantId: string,
+): Promise<ChildChallenge> {
+	const id = await nextId(ENTITY_NAMES.childChallenge, tenantId);
+	const challenge: ChildChallenge = { ...input, id };
+
+	const key =
+		input.sourceTemplateId === 'auto:weekly'
+			? childChallengeAutoWeeklyKey(input.childId, input.startDate, tenantId)
+			: childChallengeKey(input.childId, id, tenantId);
+
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...key,
+				...challenge,
+			},
+		}),
+	);
+
+	return challenge;
+}
+
+/**
  * #3245: auto:weekly の atomic get-or-create。
  * SK を weekStart 由来の決定的キー (childChallengeAutoWeeklyKey) にし、
  * 条件付き PutItem (attribute_not_exists(PK)) で concurrent 二重作成を atomic に防ぐ。
@@ -210,7 +249,13 @@ export async function getOrCreateWeeklyAuto(
 	if (existing.Item) return toChildChallenge(existing.Item);
 
 	const id = await nextId(ENTITY_NAMES.childChallenge, tenantId);
-	const challenge = buildChildChallenge(id, input, new Date().toISOString());
+	// #3508 tech-2: auto:weekly 既定を SQLite と統一 (buildChildChallenge の汎用既定は null だが、
+	// auto-weekly get-or-create では sourceTemplateId 未指定時に 'auto:weekly' を SSOT 既定とする)。
+	const challenge = buildChildChallenge(
+		id,
+		{ ...input, sourceTemplateId: input.sourceTemplateId ?? AUTO_WEEKLY_SOURCE_TEMPLATE_ID },
+		new Date().toISOString(),
+	);
 	try {
 		await doc.send(
 			new PutCommand({

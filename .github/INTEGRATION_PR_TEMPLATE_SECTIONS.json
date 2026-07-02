@@ -8,6 +8,7 @@
 		"## マージ判定エビデンス表",
 		"## 監査 run 結果リンク",
 		"## NG 0 件 / カバレッジ宣言",
+		"## Accepted residual (Pre-PMF)",
 		"## back-merge / drift 状態"
 	]
 }

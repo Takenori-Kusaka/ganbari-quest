@@ -276,6 +276,7 @@ REVD
 Roboto
 sakura
 SARIF
+SAVEPOINT
 scrollbar
 scrshot
 Segoe
@@ -516,3 +517,22 @@ Pngs
 # ===== #2944 PR template gate lane-aware (Phase A/A-2) =====
 # pipefail = `set -euo pipefail` (bash strict mode) — pr-template-gate.yml / pr-lane-smoke.yml の shell step
 pipefail
+buildx
+dorny
+evilcorp
+softprops
+
+# ===== #3512 PK 凍結 manifest fitness#9 (children linchpin) =====
+# rebuildable = pk-freeze-manifest.ts の JSDoc（「再構築可能」の英語表現、標準英単語）
+# wada = t-wada（テスト駆動開発の提唱者、和田卓人氏の通称）。docs/design/dsql-implementation-plan.md 等で既出の Canon TDD 参照
+rebuildable
+wada
+# ===== #3354 echo sanitize blocklist 拡張 =====
+# SQLSTATE = 標準 SQL エラー状態コード（error-notify.ts の internal-identifier blocklist pattern）
+# validationexception = lowercase 例外クラス名の例（blocklist test payload）
+SQLSTATE
+validationexception
+
+# ===== #3512 fitness#6 temporal dialect-parity guard =====
+# timestamptz = PostgreSQL/DSQL の標準型名 (TIMESTAMP WITH TIME ZONE の略記、造語ではない)
+timestamptz

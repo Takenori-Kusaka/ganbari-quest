@@ -5,13 +5,20 @@ import { json } from '@sveltejs/kit';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError, validationError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
-import { fetchCloudExportByPin } from '$lib/server/services/cloud-export-service';
-import { clearAllFamilyData } from '$lib/server/services/data-service';
+import { isZipBytes, parseBackupZip } from '$lib/server/services/backup-archive';
+import {
+	consumeCloudExportDownload,
+	fetchCloudExportByPin,
+} from '$lib/server/services/cloud-export-service';
 import {
 	importFamilyData,
 	previewImport,
 	validateExportData,
 } from '$lib/server/services/import-service';
+import {
+	AtomicReplaceError,
+	replaceImportAtomic,
+} from '$lib/server/services/replace-import-service';
 import type { RequestHandler } from './$types';
 
 /**
@@ -52,13 +59,13 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		? body.targetChildIds.filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
 		: undefined;
 
-	// PINでクラウドデータ取得
+	// PINでクラウドデータ取得（#3376: full は ZIP バイナリになり得るため bytes で取得）
 	let record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'];
-	let data: string;
+	let bytes: Uint8Array;
 	try {
 		const result = await fetchCloudExportByPin(pinCode);
 		record = result.record;
-		data = result.data;
+		bytes = result.bytes;
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
 		if (msg.includes('PIN') || msg.includes('有効期限') || msg.includes('ダウンロード')) {
@@ -68,14 +75,85 @@ export const POST: RequestHandler = async ({ request, url, locals }) => {
 		return apiError('INTERNAL_ERROR', 'クラウドデータの取得に失敗しました');
 	}
 
-	// テンプレートインポート (per-child shape, ADR-0055)
+	// テンプレートインポート (per-child shape, ADR-0055)。template は常に JSON。
 	if (record.exportType === 'template') {
-		return handleTemplateImport(data, tenantId, mode, record.description, targetChildIds);
+		return handleTemplateImport(
+			new TextDecoder().decode(bytes),
+			tenantId,
+			mode,
+			record,
+			targetChildIds,
+		);
 	}
 
-	// フルインポート（既存import-serviceに委譲）
-	return handleFullImport(data, tenantId, mode);
+	// フルインポート。#3376: 新形式は画像込み ZIP（完全復元）、旧形式は data.json（JSON、後方互換）。
+	if (isZipBytes(bytes)) {
+		return handleFullZipImport(bytes, tenantId, mode, record);
+	}
+	return handleFullImport(new TextDecoder().decode(bytes), tenantId, mode, record);
 };
+
+/**
+ * #3376: 画像込み ZIP のクラウドフルインポート。
+ * parseBackupZip で zip-bomb 防御 + manifest 整合性検証を行い、data.json + 静的ファイルを
+ * importFamilyData で完全復元する（avatarUrl 貼替・zip-slip 防御は import-service が担う）。
+ */
+async function handleFullZipImport(
+	zipBytes: Uint8Array,
+	tenantId: string,
+	mode: string,
+	record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'],
+): Promise<Response> {
+	const parsed = await parseBackupZip(zipBytes);
+	if (!parsed.ok) {
+		return apiError('VALIDATION_ERROR', parsed.error);
+	}
+	const { body, staticFiles } = parsed.value;
+
+	const validation = validateExportData(body);
+	if (!validation.valid) {
+		return apiError('VALIDATION_ERROR', validation.error);
+	}
+
+	if (mode === 'preview') {
+		const preview = await previewImport(validation.data, tenantId);
+		return json({ ok: true, preview: { exportType: 'full', ...preview } });
+	}
+
+	if (mode === 'execute') {
+		try {
+			// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
+			await consumeCloudExportDownload(record);
+			const result = await importFamilyData(validation.data, tenantId, staticFiles);
+			return json({ ok: true, result: { exportType: 'full', ...result } });
+		} catch (err) {
+			logger.error('[cloud-import] フル ZIP インポート失敗', { error: String(err) });
+			return apiError('INTERNAL_ERROR', 'フルインポートに失敗しました');
+		}
+	}
+
+	// replace
+	try {
+		// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
+		await consumeCloudExportDownload(record);
+		// #3326: clear + import を原子境界で実行し、途中失敗時は旧データを必ず復元する。
+		logger.info('[cloud-import] 置換インポート開始 (ZIP, 原子化)', { context: { tenantId } });
+		const result = await replaceImportAtomic(validation.data, tenantId, staticFiles);
+		return json({ ok: true, result: { exportType: 'full', ...result } });
+	} catch (err) {
+		if (err instanceof AtomicReplaceError) {
+			logger.error('[cloud-import] 置換 ZIP インポート中止 (既存データ保全)', {
+				context: { errors: err.result.errors.slice(0, 3) },
+			});
+			return apiError(
+				'VALIDATION_ERROR',
+				`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
+			);
+		}
+		logger.error('[cloud-import] 置換 ZIP インポート失敗', { error: String(err) });
+		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
+	}
+}
 
 /**
  * テンプレートインポート (per-child instance, #2362 PR-3 / ADR-0055)
@@ -94,9 +172,10 @@ async function handleTemplateImport(
 	dataStr: string,
 	tenantId: string,
 	mode: string,
-	description: string | null,
+	record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'],
 	targetChildIds: number[] | undefined,
 ): Promise<Response> {
+	const description = record.description;
 	type TemplateActivity = {
 		name: string;
 		categoryId: number;
@@ -186,6 +265,9 @@ async function handleTemplateImport(
 			);
 		}
 
+		// #3376 adversarial: 全 validation 成功後に DL を消費 (preview / validate 失敗では消費しない)
+		await consumeCloudExportDownload(record);
+
 		// 旧 export の活動を平坦化 (childId 元情報は捨てる、復元先 child が SSOT)
 		const flatActivities: TemplateActivity[] = childBuckets.flatMap((b) =>
 			Array.isArray(b.activities) ? b.activities : [],
@@ -250,6 +332,7 @@ async function handleFullImport(
 	dataStr: string,
 	tenantId: string,
 	mode: string,
+	record: Awaited<ReturnType<typeof fetchCloudExportByPin>>['record'],
 ): Promise<Response> {
 	let parsed: unknown;
 	try {
@@ -270,6 +353,8 @@ async function handleFullImport(
 
 	if (mode === 'execute') {
 		try {
+			// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
+			await consumeCloudExportDownload(record);
 			const result = await importFamilyData(validation.data, tenantId);
 			return json({ ok: true, result: { exportType: 'full', ...result } });
 		} catch (err) {
@@ -280,14 +365,22 @@ async function handleFullImport(
 
 	// replace
 	try {
-		logger.info('[cloud-import] 置換インポート開始', { context: { tenantId } });
-		const clearResult = await clearAllFamilyData(tenantId);
-		const result = await importFamilyData(validation.data, tenantId);
-		return json({
-			ok: true,
-			result: { exportType: 'full', ...result, cleared: clearResult.deleted },
-		});
+		// #3376 adversarial: validate 成功後に DL を消費 (preview / validate 失敗では消費しない)
+		await consumeCloudExportDownload(record);
+		// #3326: clear + import を原子境界で実行し、途中失敗時は旧データを必ず復元する。
+		logger.info('[cloud-import] 置換インポート開始 (原子化)', { context: { tenantId } });
+		const result = await replaceImportAtomic(validation.data, tenantId);
+		return json({ ok: true, result: { exportType: 'full', ...result } });
 	} catch (err) {
+		if (err instanceof AtomicReplaceError) {
+			logger.error('[cloud-import] 置換インポート中止 (既存データ保全)', {
+				context: { errors: err.result.errors.slice(0, 3) },
+			});
+			return apiError(
+				'VALIDATION_ERROR',
+				`インポートに失敗したため中止しました（既存データは保全されています）: ${err.result.errors[0] ?? ''}`,
+			);
+		}
 		logger.error('[cloud-import] 置換インポート失敗', { error: String(err) });
 		return apiError('INTERNAL_ERROR', '置換インポートに失敗しました');
 	}

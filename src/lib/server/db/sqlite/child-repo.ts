@@ -2,6 +2,7 @@ import { eq, isNull, or } from 'drizzle-orm';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import { normalizeUiMode } from '$lib/domain/validation/age-tier';
 import { db } from '../client';
+import type { ChildProgressResetCounts } from '../interfaces/child-repo.interface';
 import { hydrate } from '../migration';
 import { ENTITY_VERSIONS } from '../migration/registry';
 import { SCHEMA_VERSION_FIELD } from '../migration/types';
@@ -159,15 +160,21 @@ export async function deleteChild(id: number, _tenantId: string) {
 	});
 }
 
-export async function resetChildProgressData(id: number, _tenantId: string) {
+export async function resetChildProgressData(
+	id: number,
+	_tenantId: string,
+): Promise<ChildProgressResetCounts> {
 	// #3152: 子供 1 人分の進捗データを削除 (child 行は残す)。
 	// 削除対象 4 テーブルはトランザクションで一括削除する。
-	return db.transaction((tx) => {
-		tx.delete(activityLogs).where(eq(activityLogs.childId, id)).run();
-		tx.delete(pointLedger).where(eq(pointLedger.childId, id)).run();
-		tx.delete(loginBonuses).where(eq(loginBonuses.childId, id)).run();
-		tx.delete(childAchievements).where(eq(childAchievements.childId, id)).run();
-	});
+	// #3184 item2: 削除件数を診断用に返す。SQLite は POINT# 行集計のため pointBalance は常に 0。
+	return db.transaction((tx) => ({
+		activityLogs: tx.delete(activityLogs).where(eq(activityLogs.childId, id)).run().changes,
+		pointLedger: tx.delete(pointLedger).where(eq(pointLedger.childId, id)).run().changes,
+		loginBonuses: tx.delete(loginBonuses).where(eq(loginBonuses.childId, id)).run().changes,
+		childAchievements: tx.delete(childAchievements).where(eq(childAchievements.childId, id)).run()
+			.changes,
+		pointBalance: 0,
+	}));
 }
 
 // #783: archive / restore

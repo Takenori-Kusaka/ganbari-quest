@@ -135,7 +135,7 @@ export async function insertTemplate(
 		completionBonus: input.completionBonus ?? 0,
 		timeSlot: input.timeSlot ?? 'anytime',
 		isActive: input.isActive ?? 1,
-		isArchived: 0,
+		isArchived: input.isArchived ?? 0, // #3505: import round-trip で archive 状態を保全
 		archivedReason: null,
 		createdAt: now,
 		updatedAt: now,
@@ -270,6 +270,21 @@ export async function findOverrides(
 	_tenantId: string,
 ): Promise<ChecklistOverride[]> {
 	return [];
+}
+
+export async function findOverridesByChild(
+	_childId: number,
+	_tenantId: string,
+): Promise<ChecklistOverride[]> {
+	return [];
+}
+
+export async function insertOverrideForRestore(
+	input: Omit<ChecklistOverride, 'id'>,
+	_tenantId: string,
+): Promise<ChecklistOverride> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return { ...input, id: 0 };
 }
 
 export async function insertOverride(

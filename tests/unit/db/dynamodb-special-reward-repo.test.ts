@@ -158,6 +158,53 @@ describe('updateSpecialReward (#2832 / #2845 課題①)', () => {
 		expect(result?.title).toBe('ゲーム時間30分');
 		expect(mockSend).toHaveBeenCalledTimes(1);
 	});
+
+	// #3183 / #3154: shopCategory (陳列系統) の dynamodb round-trip。SQLite e2e は本体 PR で担保済だが
+	// dynamodb backend は未 exercise だった。明示値 / null リセット の両方が UpdateCommand に正しく
+	// marshalling され round-trip することを固定する (prod=dynamodb で「auto にリセット」が silent
+	// no-op になる latent risk の回帰防止、既出荷 icon nullable と構造同型)。
+	it('#3183: shopCategory 明示値を SET し round-trip する (money)', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [makeRewardItem()] })
+			.mockResolvedValueOnce({ Attributes: makeRewardItem({ shopCategory: 'money' }) });
+		const { updateSpecialReward } = await loadRepo();
+		const result = await updateSpecialReward(
+			CHILD_ID,
+			REWARD_ID,
+			{ shopCategory: 'money' },
+			TENANT,
+		);
+		const update = mockSend.mock.calls[1]?.[0] as {
+			input: {
+				UpdateExpression?: string;
+				ExpressionAttributeNames?: Record<string, string>;
+				ExpressionAttributeValues?: Record<string, unknown>;
+			};
+		};
+		expect(update.input.UpdateExpression).toContain('#shopCategory = :shopCategory');
+		expect(update.input.ExpressionAttributeNames?.['#shopCategory']).toBe('shopCategory');
+		expect(update.input.ExpressionAttributeValues?.[':shopCategory']).toBe('money');
+		expect(result?.shopCategory).toBe('money');
+	});
+
+	it('#3183: shopCategory=null (auto リセット) も SET し null を marshalling round-trip する', async () => {
+		mockSend
+			.mockResolvedValueOnce({ Items: [makeRewardItem({ shopCategory: 'money' })] })
+			.mockResolvedValueOnce({ Attributes: makeRewardItem({ shopCategory: null }) });
+		const { updateSpecialReward } = await loadRepo();
+		const result = await updateSpecialReward(CHILD_ID, REWARD_ID, { shopCategory: null }, TENANT);
+		const update = mockSend.mock.calls[1]?.[0] as {
+			input: {
+				UpdateExpression?: string;
+				ExpressionAttributeValues?: Record<string, unknown>;
+			};
+		};
+		// null も undefined と区別して SET される (no-op で旧値を残さない = auto へ確実にリセット)
+		expect(update.input.UpdateExpression).toContain('#shopCategory = :shopCategory');
+		expect(update.input.ExpressionAttributeValues).toHaveProperty(':shopCategory');
+		expect(update.input.ExpressionAttributeValues?.[':shopCategory']).toBeNull();
+		expect(result?.shopCategory).toBeNull();
+	});
 });
 
 describe('deleteSpecialReward (#2832 / #2845 課題①)', () => {

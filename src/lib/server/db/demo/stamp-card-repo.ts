@@ -69,6 +69,53 @@ export async function insertEntry(_input: InsertStampEntryInput, _tenantId: stri
 	// Stub: no-op
 }
 
+export async function findCardsByChild(childId: number, _tenantId: string): Promise<StampCard[]> {
+	return DEMO_STAMP_CARDS.filter((c) => c.childId === childId);
+}
+
+export async function findEntriesByCardId(
+	cardId: number,
+	_tenantId: string,
+): Promise<
+	Array<{
+		stampMasterId: number | null;
+		omikujiRank: string | null;
+		slot: number;
+		loginDate: string;
+		earnedAt: string;
+	}>
+> {
+	return DEMO_STAMP_ENTRIES.filter((e) => e.cardId === cardId).map((e) => ({
+		stampMasterId: e.stampMasterId,
+		omikujiRank: e.omikujiRank,
+		slot: e.slot,
+		loginDate: e.loginDate,
+		earnedAt: (e as { earnedAt?: string }).earnedAt ?? '',
+	}));
+}
+
+export async function insertCardForRestore(
+	input: Omit<StampCard, 'id'>,
+	_tenantId: string,
+): Promise<StampCard> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return { ...input, id: 0 };
+}
+
+export async function insertEntryForRestore(
+	_input: {
+		cardId: number;
+		stampMasterId: number | null;
+		omikujiRank: string | null;
+		slot: number;
+		loginDate: string;
+		earnedAt: string;
+	},
+	_tenantId: string,
+): Promise<void> {
+	// Stub: no-op
+}
+
 export async function updateCardStatus(
 	_childId: number,
 	_cardId: number,

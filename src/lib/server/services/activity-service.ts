@@ -1,4 +1,9 @@
-import type { GradeLevel, Source } from '$lib/domain/validation/activity';
+import {
+	type GradeLevel,
+	type Source,
+	sanitizeActivityNameField,
+	sanitizeDailyLimit,
+} from '$lib/domain/validation/activity';
 import type { UiMode } from '$lib/domain/validation/age-tier-types';
 import {
 	countPointLedgerEntriesByTypeAndDate,
@@ -135,9 +140,10 @@ async function _resolveChildIdForActivity(
 /**
  * `CreateActivityInput` (Activity master 型) を `InsertChildActivityInput` に変換。
  *
- * ageMin / ageMax / gradeLevel / subcategory / description / dailyLimit / source /
- * nameKana / nameKanji は ChildActivity に存在しないため drop。Phase 7b-2c で
- * callsite 側で渡されなくなる想定。
+ * ageMin / ageMax / gradeLevel / subcategory / description / source は child_activities に
+ * 列が無いため drop。dailyLimit / nameKana / nameKanji は child_activities に列が存在するため
+ * persist する (#3422: 旧実装は「存在しない」と誤認して drop し、親の 1 日上限設定が常に無視され
+ * ProdDashboardSections の dailyLimit ?? 1 で 1 日 1 回固定になっていた = NN/G #1 visibility 違反)。
  */
 function _toChildActivityInsertInput(
 	input: CreateActivityInput,
@@ -151,6 +157,12 @@ function _toChildActivityInsertInput(
 		basePoints: input.basePoints,
 		triggerHint: input.triggerHint ?? null,
 		priority: input.priority,
+		// #3422 / #3484: 親入力を persist。値検証は本 service 層の単一強制点で push-down 適用する
+		// (form 4 経路は createActivity→本 helper を通るため callsite ごとの sanitize 重複配線が不要に
+		// なり、新規 callsite でも漏れない。ADR-0061 push-down-pyramid / same-class→guard)。
+		dailyLimit: sanitizeDailyLimit(input.dailyLimit),
+		nameKana: sanitizeActivityNameField(input.nameKana),
+		nameKanji: sanitizeActivityNameField(input.nameKanji),
 	};
 }
 
@@ -168,6 +180,11 @@ function _toChildActivityUpdateInput(
 	if (input.triggerHint !== undefined) update.triggerHint = input.triggerHint;
 	if (input.isMainQuest !== undefined) update.isMainQuest = input.isMainQuest;
 	if (input.priority !== undefined) update.priority = input.priority;
+	// #3422 / #3484: dailyLimit / nameKana / nameKanji の編集を persist。値検証は service 層の単一
+	// 強制点で push-down 適用 (form 全経路を 1 箇所で covered、ADR-0061)。
+	if (input.dailyLimit !== undefined) update.dailyLimit = sanitizeDailyLimit(input.dailyLimit);
+	if (input.nameKana !== undefined) update.nameKana = sanitizeActivityNameField(input.nameKana);
+	if (input.nameKanji !== undefined) update.nameKanji = sanitizeActivityNameField(input.nameKanji);
 	return update;
 }
 

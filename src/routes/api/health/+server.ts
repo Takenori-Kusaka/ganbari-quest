@@ -1,49 +1,18 @@
 import { json } from '@sveltejs/kit';
+import { probeDynamoDB, probeSqlite, type SqliteProbeResult } from '$lib/server/db/probe';
 import { APP_VERSION } from '$lib/version';
 import type { RequestHandler } from './$types';
 
 const DATA_SOURCE = process.env.DATA_SOURCE ?? 'sqlite';
 
-async function checkSqlite(): Promise<{
-	schemaValid?: boolean;
-	migrationsApplied?: number;
-	schemaWarnings?: number;
-}> {
-	const { rawSqlite } = await import('$lib/server/db/client');
-	const row = rawSqlite.prepare('SELECT 1 AS ok').get() as { ok: number } | undefined;
-	if (!row || row.ok !== 1) {
-		throw new Error('db_check_failed');
-	}
-	// スキーマ検証結果を返す
-	const { getLastValidationResult } = await import('$lib/server/db/schema-validator');
-	const schemaResult = getLastValidationResult();
-	if (schemaResult && !schemaResult.valid) {
-		throw new Error('schema_incompatible');
-	}
-	return {
-		schemaValid: schemaResult?.valid ?? true,
-		migrationsApplied: schemaResult?.applied.length ?? 0,
-		schemaWarnings: schemaResult?.warnings.length ?? 0,
-	};
-}
-
-async function checkDynamoDB(): Promise<void> {
-	const { DescribeTableCommand } = await import('@aws-sdk/client-dynamodb');
-	const { getDocClient, TABLE_NAME } = await import('$lib/server/db/dynamodb/client');
-	const result = await getDocClient().send(new DescribeTableCommand({ TableName: TABLE_NAME }));
-	if (result.Table?.TableStatus !== 'ACTIVE') {
-		throw new Error('dynamodb_table_not_active');
-	}
-}
-
+// #3184 item4: liveness probe の raw DB touch は db/probe facade に集約 (route↔DB 境界 / ADR-0061)。
 export const GET: RequestHandler = async () => {
-	let schemaInfo: { schemaValid?: boolean; migrationsApplied?: number; schemaWarnings?: number } =
-		{};
+	let schemaInfo: Partial<SqliteProbeResult> = {};
 	try {
 		if (DATA_SOURCE === 'dynamodb') {
-			await checkDynamoDB();
+			await probeDynamoDB();
 		} else {
-			schemaInfo = await checkSqlite();
+			schemaInfo = await probeSqlite();
 		}
 	} catch (e) {
 		return json(

@@ -26,7 +26,11 @@ test.describe('#2191 push 4 systems — Anti-engagement + VAPID distribution smo
 	test('#2191 AC1-1: subscribe API は未認証で 401 (構造防御)', async ({ request }) => {
 		const res = await request.post('/api/v1/notifications/subscribe', {
 			data: {
-				endpoint: 'https://push.example.com/test-reminder',
+				// #3506: endpoint は SSRF allowlist (#3188 validatePushEndpoint) 通過必須。
+				// local auth-skip では parent auto-context で validation まで到達するため、fake host
+				// (push.example.com) だと INVALID_ENDPOINT 400 で短絡し auth 構造 smoke を測れない。
+				// auth 構造 (未認証=401 / child=403) は cognito e2e + unit 12 件が担保する。
+				endpoint: 'https://fcm.googleapis.com/fcm/send/test-reminder',
 				keys: { p256dh: 'p', auth: 'a' },
 			},
 		});
@@ -51,7 +55,8 @@ test.describe('#2191 push 4 systems — Anti-engagement + VAPID distribution smo
 		// E2E では cognito-dev に child 専用 setup がないため、API の到達性のみ smoke 確認。
 		const res = await request.post('/api/v1/notifications/subscribe', {
 			data: {
-				endpoint: 'https://push.example.com/test-child',
+				// #3506: SSRF allowlist 通過 host を使う (理由は AC1-1 コメント参照)。
+				endpoint: 'https://fcm.googleapis.com/fcm/send/test-child',
 				keys: { p256dh: 'p', auth: 'a' },
 			},
 		});
@@ -73,7 +78,11 @@ test.describe('#2191 push 4 systems — Anti-engagement + VAPID distribution smo
 		// { sent: 0, failed: 0 } を返す。webpush.setVapidDetails 経由のクラッシュは起こさない。
 		// この性質を「subscribe→未認証 401」で間接的に担保する (E2E では実 push 経路を叩けない)。
 		const res = await request.post('/api/v1/notifications/subscribe', {
-			data: { endpoint: 'https://valid', keys: { p256dh: 'p', auth: 'a' } },
+			// #3506: SSRF allowlist 通過 host を使う (理由は AC1-1 コメント参照)。
+			data: {
+				endpoint: 'https://fcm.googleapis.com/fcm/send/test-vapid',
+				keys: { p256dh: 'p', auth: 'a' },
+			},
 		});
 		// 200 で silent OK なら subscribe レコードが入り、後で send 時に silent fail が
 		// 観察される (これは正常動作)。401/500 でも構造防御として OK。

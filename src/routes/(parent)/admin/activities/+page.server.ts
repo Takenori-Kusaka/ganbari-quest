@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createPlanLimitError } from '$lib/domain/errors';
-import { CATEGORY_DEFS } from '$lib/domain/validation/activity';
+import { CATEGORY_DEFS, sanitizeDailyLimit } from '$lib/domain/validation/activity';
 // #2767 Fix Round 1 B3 (Adversarial security): indexes query を Zod ベース input validation
 // 経由でパースし、NaN / 負数 / 非整数 / 空文字 / 重複の 4 edge case を回帰固定する。
 import { parseImportIndexes } from '$lib/domain/validation/marketplace-import-params';
@@ -148,7 +148,7 @@ export const actions: Actions = {
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
 		const ageMax = formData.get('ageMax') ? Number(formData.get('ageMax')) : null;
 		const dailyLimitRaw = formData.get('dailyLimit');
-		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
+		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null; // #3484: 値検証は service 層 (createActivity/updateActivity) の単一強制点へ push-down 済
 		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
@@ -221,7 +221,7 @@ export const actions: Actions = {
 		const ageMin = formData.get('ageMin') ? Number(formData.get('ageMin')) : null;
 		const ageMax = formData.get('ageMax') ? Number(formData.get('ageMax')) : null;
 		const dailyLimitRaw = formData.get('dailyLimit');
-		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
+		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null; // #3484: 値検証は service 層 (createActivity/updateActivity) の単一強制点へ push-down 済
 		const nameKana = String(formData.get('nameKana') ?? '').trim() || null;
 		const nameKanji = String(formData.get('nameKanji') ?? '').trim() || null;
 		const triggerHint = String(formData.get('triggerHint') ?? '').trim() || null;
@@ -566,7 +566,7 @@ export const actions: Actions = {
 		const icon = String(formData.get('icon') ?? '📝');
 		const basePoints = Number(formData.get('basePoints') ?? 5);
 		const dailyLimitRaw = formData.get('dailyLimit');
-		const dailyLimit = dailyLimitRaw != null && dailyLimitRaw !== '' ? Number(dailyLimitRaw) : null;
+		const dailyLimit = sanitizeDailyLimit(dailyLimitRaw); // #3463 item4: NaN/負/巨大/非整数を [0,99] int or null に clamp
 		const childIdsRaw = String(formData.get('childIds') ?? '').trim();
 
 		if (!name) return fail(400, { error: '名前を入力してください' });

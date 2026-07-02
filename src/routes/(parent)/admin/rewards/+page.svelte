@@ -49,6 +49,7 @@ const errorMessage = $derived(getErrorMessage(form?.error));
 
 // #2362 PR-4: 子供タブ切替 UI
 //   `?childId=<n>` query で初期 child 復元、未指定なら最初の child
+// svelte-ignore state_referenced_locally
 let childIdOverride = $state<number | undefined>(
 	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
 		? data.initialChildId

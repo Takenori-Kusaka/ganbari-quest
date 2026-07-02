@@ -24,6 +24,36 @@ export async function insertRedemptionRequest(
 	};
 }
 
+export async function insertRedemptionForRestore(
+	input: {
+		childId: number;
+		rewardId: number;
+		requestedAt: number;
+		status: string;
+		parentNote: string | null;
+		resolvedAt: number | null;
+		resolvedByParentId: string | null;
+		shownToChildAt: number | null;
+		rewardTitle: string | null;
+		rewardPoints: number | null;
+		rewardIcon: string | null;
+	},
+	_tenantId: string,
+): Promise<RedemptionRequestRow> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return {
+		id: 0,
+		childId: input.childId,
+		rewardId: input.rewardId,
+		requestedAt: input.requestedAt,
+		status: input.status,
+		parentNote: input.parentNote,
+		resolvedAt: input.resolvedAt,
+		resolvedByParentId: input.resolvedByParentId,
+		shownToChildAt: input.shownToChildAt,
+	};
+}
+
 export async function findRedemptionRequestsByChild(
 	_childId: number,
 	_tenantId: string,

@@ -30,6 +30,8 @@ const CRON_JOBS = [
 	{ name: 'analytics-aggregator-daily', utcCronExpression: 'cron(0 18 * * ? *)' },
 	// #1742: challenge (preset distribution) 事前集計バッチ (#1602 N+1 GetItem 移行)
 	{ name: 'challenge-aggregator-daily', utcCronExpression: 'cron(30 18 * * ? *)' },
+	// #3504: クラウドエクスポート非同期 build バッチ (5 分毎)
+	{ name: 'export-build', utcCronExpression: 'cron(0/5 * * * ? *)' },
 ] as const;
 
 export interface ComputeStackProps extends cdk.StackProps {

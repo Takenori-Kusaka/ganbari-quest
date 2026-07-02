@@ -14,11 +14,25 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import type { FileData, IStorageRepo } from '../interfaces/storage.interface';
 
 /**
- * key が static/ ディレクトリ配下に収まることを保証して絶対パスを返す (zip-slip 防御)。
- * `..` 等で static/ を抜け出す key は拒否する (import 経由の悪意ある ZIP からの path escape 阻止)。
+ * #3504 (async-backup-export.md §3.5): cloud-export の子供データ ZIP を web 配信対象の
+ * `static/` に置くと無認証で配信され得る (CWE-598)。`exports/` prefix の key は `static/` の外
+ * (`data/exports/…`) に保存し、DL は認証済の proxy route (getDownloadUrl → readFile stream) 経由に限る。
+ * それ以外の key (画像アセット等) は従来どおり web 配信対象の `static/` に保存する。
+ */
+const CLOUD_EXPORT_PREFIX = 'exports/';
+
+/** key の格納ベースディレクトリ名 (`static` = web 配信 / `data` = 非配信、cloud export 専用)。 */
+function storageBaseName(key: string): 'static' | 'data' {
+	return key.startsWith(CLOUD_EXPORT_PREFIX) ? 'data' : 'static';
+}
+
+/**
+ * key が格納ベースディレクトリ配下に収まることを保証して絶対パスを返す (zip-slip 防御)。
+ * `..` 等でベースを抜け出す key は拒否する (import 経由の悪意ある ZIP からの path escape 阻止)。
+ * ベースは `storageBaseName` で決定 (cloud export = `data/`、その他 = `static/`)。
  */
 function resolveContainedPath(key: string): string {
-	const staticDir = resolve(process.cwd(), 'static');
+	const base = resolve(process.cwd(), storageBaseName(key));
 	// OS 非依存の事前拒否 (Linux では `\` がファイル名のリテラル文字となり path.resolve の
 	// containment では escape を検知できないため、`\` を含む key は無条件で弾く)。
 	// 絶対パス・Windows ドライブレターも `path.resolve` 前に拒否して防御を多層化する。
@@ -27,11 +41,11 @@ function resolveContainedPath(key: string): string {
 		key.startsWith('/') || // 絶対パス (POSIX)
 		/^[a-zA-Z]:/.test(key) // Windows ドライブレター
 	) {
-		throw new Error(`storage key が static/ ディレクトリを逸脱しています: ${key}`);
+		throw new Error(`storage key が ${storageBaseName(key)}/ ディレクトリを逸脱しています: ${key}`);
 	}
-	const dest = resolve(staticDir, key);
-	if (dest !== staticDir && !dest.startsWith(staticDir + sep)) {
-		throw new Error(`storage key が static/ ディレクトリを逸脱しています: ${key}`);
+	const dest = resolve(base, key);
+	if (dest !== base && !dest.startsWith(base + sep)) {
+		throw new Error(`storage key が ${storageBaseName(key)}/ ディレクトリを逸脱しています: ${key}`);
 	}
 	return dest;
 }
@@ -42,10 +56,12 @@ const MIME_TYPES: Record<string, string> = {
 	png: 'image/png',
 	webp: 'image/webp',
 	svg: 'image/svg+xml',
+	zip: 'application/zip',
+	json: 'application/json',
 };
 
 export const saveFile: IStorageRepo['saveFile'] = async (key, data, _contentType) => {
-	// zip-slip 防御: key が static/ 配下に収まることを書き込み前に検証する。
+	// zip-slip 防御: key がベース配下に収まることを書き込み前に検証する。
 	const fullPath = resolveContainedPath(key);
 	const dir = dirname(fullPath);
 	if (!existsSync(dir)) {
@@ -55,7 +71,8 @@ export const saveFile: IStorageRepo['saveFile'] = async (key, data, _contentType
 };
 
 export const readFile: IStorageRepo['readFile'] = async (key): Promise<FileData | null> => {
-	const filePath = join(process.cwd(), 'static', key);
+	// zip-slip 防御 + cloud export の非配信ベース (data/) を含めて解決する。
+	const filePath = resolveContainedPath(key);
 	if (!existsSync(filePath)) return null;
 	const ext = key.split('.').pop()?.toLowerCase() ?? '';
 	return {
@@ -65,14 +82,22 @@ export const readFile: IStorageRepo['readFile'] = async (key): Promise<FileData 
 };
 
 export const fileExists: IStorageRepo['fileExists'] = async (key) => {
-	return existsSync(join(process.cwd(), 'static', key));
+	return existsSync(resolveContainedPath(key));
 };
 
 export const deleteFile: IStorageRepo['deleteFile'] = async (key) => {
-	const fullPath = join(process.cwd(), 'static', key);
+	const fullPath = resolveContainedPath(key);
 	if (existsSync(fullPath)) {
 		unlinkSync(fullPath);
 	}
+};
+
+/**
+ * #3504: NUC は presigned URL を発行できないため常に proxy 経路を返す。
+ * DL route が readFile から認証済で stream する (static/ 直配信しない)。
+ */
+export const getDownloadUrl: IStorageRepo['getDownloadUrl'] = async () => {
+	return { kind: 'proxy' };
 };
 
 /** 再帰的にディレクトリ配下のファイルを列挙 */
@@ -91,16 +116,16 @@ function walkDir(dir: string): string[] {
 }
 
 export const listFiles: IStorageRepo['listFiles'] = async (prefix) => {
-	const staticDir = join(process.cwd(), 'static');
-	const searchDir = join(staticDir, prefix);
+	const baseDir = resolve(process.cwd(), storageBaseName(prefix));
+	const searchDir = join(baseDir, prefix);
 
 	// prefix がディレクトリを指す場合（末尾スラッシュ等）: 再帰列挙
 	if (existsSync(searchDir) && statSync(searchDir).isDirectory()) {
-		return walkDir(searchDir).map((f) => relative(staticDir, f).replace(/\\/g, '/'));
+		return walkDir(searchDir).map((f) => relative(baseDir, f).replace(/\\/g, '/'));
 	}
 
 	// 従来動作: prefix の親ディレクトリ内でファイル名マッチ
-	const dir = join(staticDir, dirname(prefix));
+	const dir = join(baseDir, dirname(prefix));
 	if (!existsSync(dir)) return [];
 	const baseName = prefix.split('/').pop() ?? '';
 	return readdirSync(dir)
@@ -112,10 +137,11 @@ export const listFiles: IStorageRepo['listFiles'] = async (prefix) => {
 };
 
 export const deleteByPrefix: IStorageRepo['deleteByPrefix'] = async (prefix) => {
+	const baseDir = resolve(process.cwd(), storageBaseName(prefix));
 	const files = await listFiles(prefix);
 	let deleted = 0;
 	for (const file of files) {
-		const fullPath = join(process.cwd(), 'static', file);
+		const fullPath = join(baseDir, file);
 		if (existsSync(fullPath)) {
 			unlinkSync(fullPath);
 			deleted++;

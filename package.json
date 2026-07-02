@@ -43,7 +43,7 @@
 		"check:lp-residue": "node scripts/check-lp-removal-residue.mjs",
 		"check:lp-residue:update-baseline": "node scripts/check-lp-removal-residue.mjs --update-baseline",
 		"check:marketplace-registry-integrity": "node scripts/check-marketplace-registry-integrity.mjs",
-		"lint:parallel": "node scripts/check-forbidden-terms.mjs && node scripts/generate-lp-labels.mjs --check && node scripts/check-lp-plan-sync.mjs --check && node scripts/check-ssot-parallel-impl.mjs && node scripts/check-lp-innerhtml-tags.mjs && node scripts/check-lp-removal-residue.mjs && tsx scripts/check-terminology-coherence.ts",
+		"lint:parallel": "node scripts/check-forbidden-terms.mjs && node scripts/generate-lp-labels.mjs --check && node scripts/check-lp-plan-sync.mjs --check && node scripts/check-ssot-parallel-impl.mjs && node scripts/check-lp-innerhtml-tags.mjs && node scripts/check-lp-removal-residue.mjs && node scripts/check-no-at-html.mjs && tsx scripts/check-terminology-coherence.ts",
 		"lint:lp-innerhtml-tags": "node scripts/check-lp-innerhtml-tags.mjs",
 		"lint:fix": "biome check --write .",
 		"generate:lp-labels": "node scripts/generate-lp-labels.mjs",
@@ -97,6 +97,7 @@
 		"@chromatic-com/storybook": "^5.1.2",
 		"@cspell/dict-fonts": "^4.0.6",
 		"@cspell/dict-software-terms": "^5.2.2",
+		"@electric-sql/pglite": "^0.5.3",
 		"@google/genai": "^2.10.0",
 		"@playwright/test": "^1.61.1",
 		"@storybook/addon-a11y": "^10.4.6",
@@ -126,7 +127,7 @@
 		"cspell": "^10.0.1",
 		"dompurify": "^3.4.11",
 		"drizzle-kit": "^0.31.10",
-		"eslint": "^10.5.0",
+		"eslint": "^10.6.0",
 		"eslint-plugin-playwright": "^2.10.4",
 		"eslint-plugin-sonarjs": "^4.1.0",
 		"eslint-plugin-storybook": "^10.4.6",
@@ -135,7 +136,7 @@
 		"husky": "^9.1.7",
 		"jscpd": "^5.0.11",
 		"jsdom": "^29.1.1",
-		"knip": "^6.21.0",
+		"knip": "^6.22.0",
 		"parse5": "^8.0.1",
 		"pixelmatch": "^7.2.0",
 		"playwright": "^1.59.1",
@@ -168,6 +169,7 @@
 		"@aws-sdk/client-ses": "^3.1075.0",
 		"@aws-sdk/client-ssm": "^3.1075.0",
 		"@aws-sdk/lib-dynamodb": "^3.1075.0",
+		"@aws-sdk/s3-request-presigner": "3.1075.0",
 		"@google/generative-ai": "^0.24.1",
 		"@standard-schema/spec": "^1.1.0",
 		"bcrypt": "^6.0.0",
@@ -205,6 +207,8 @@
 	},
 	"overrides": {
 		"esbuild": ">=0.25.0",
-		"cookie": ">=0.7.0"
+		"cookie": ">=0.7.0",
+		"protobufjs": "^7.6.3",
+		"@aws-sdk/core": "3.974.23"
 	}
 }

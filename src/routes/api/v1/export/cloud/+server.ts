@@ -53,6 +53,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const planId = locals.context?.plan;
 
 	try {
+		// #3504: 非同期起票 (pending)。実 build は cron (drainPendingExports) が背景で行う。
+		// ZIP サイズ上限超過等の build 失敗は起票時ではなく build 時に status='failed' として記録される。
 		const result = await createCloudExport({
 			tenantId,
 			exportType: exportType as CloudExportType,
@@ -63,11 +65,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ ok: true, ...result }, { status: 201 });
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
+		// プラン未達 / 保管上限は起票時点で同期的に弾く。
 		if (msg.includes('スタンダード') || msg.includes('上限')) {
 			return apiError('PLAN_LIMIT_EXCEEDED', msg);
-		}
-		if (msg.includes('SaaS版')) {
-			return apiError('VALIDATION_ERROR', msg);
 		}
 		logger.error('[cloud-export] 作成失敗', { error: msg });
 		return apiError('INTERNAL_ERROR', 'クラウドエクスポートの作成に失敗しました');

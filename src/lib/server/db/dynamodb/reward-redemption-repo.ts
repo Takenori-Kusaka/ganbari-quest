@@ -56,6 +56,16 @@ interface DenormFields {
 	rewardPoints: number;
 }
 
+// #3337: legacy DynamoDB レコードは resolvedByParentId=0 (number) を持つ (旧 approve/reject の
+// placeholder)。`?? null` は 0 が nullish でないため legacy 0 を素通しし、string|null 型に number が
+// 紛れる coercion trap になる。read-side で 0 / '0' / null/undefined を null に正規化し、SQLite
+// (lazy-startup-migrations で legacy 0→NULL 正規化済) と cross-backend 表現を揃える。
+// 実 parent userId は string で保存されるためそのまま String 化して返す。
+function normalizeResolvedByParentId(raw: unknown): string | null {
+	if (raw === null || raw === undefined || raw === 0 || raw === '0') return null;
+	return String(raw);
+}
+
 // DynamoDB item から PK/SK + 非正規化フィールドを除いた RedemptionRequestRow を作る。
 function toRow(item: Record<string, unknown>): RedemptionRequestRow {
 	const stripped = stripKeys(item) as Record<string, unknown>;
@@ -67,7 +77,7 @@ function toRow(item: Record<string, unknown>): RedemptionRequestRow {
 		status: stripped.status as string,
 		parentNote: (stripped.parentNote ?? null) as string | null,
 		resolvedAt: (stripped.resolvedAt ?? null) as number | null,
-		resolvedByParentId: (stripped.resolvedByParentId ?? null) as string | null,
+		resolvedByParentId: normalizeResolvedByParentId(stripped.resolvedByParentId),
 		shownToChildAt: (stripped.shownToChildAt ?? null) as number | null,
 	};
 }
@@ -160,6 +170,61 @@ export const insertRedemptionRequest: IRewardRedemptionRepo['insertRedemptionReq
 
 	return row;
 };
+
+// ============================================================
+// insertRedemptionForRestore — backup restore 用 (全フィールド保全、#3329)
+// ============================================================
+
+export const insertRedemptionForRestore: IRewardRedemptionRepo['insertRedemptionForRestore'] =
+	async (input, tenantId): Promise<RedemptionRequestRow> => {
+		const id = await nextId(ENTITY_NAMES.rewardRedemption, tenantId);
+
+		const row: RedemptionRequestRow = {
+			id,
+			childId: input.childId,
+			rewardId: input.rewardId,
+			requestedAt: input.requestedAt,
+			status: input.status,
+			parentNote: input.parentNote,
+			resolvedAt: input.resolvedAt,
+			resolvedByParentId: input.resolvedByParentId,
+			shownToChildAt: input.shownToChildAt,
+		};
+
+		// JOIN 代替の非正規化フィールド: snapshot を優先し、欠落時のみ live 解決へ fallback。
+		const child = await findChildByIdRaw(input.childId, tenantId);
+		let rewardTitle = input.rewardTitle;
+		let rewardIcon = input.rewardIcon;
+		let rewardPoints = input.rewardPoints;
+		if (rewardTitle === null || rewardPoints === null) {
+			const reward = await findRewardFields(input.childId, input.rewardId, tenantId);
+			rewardTitle = rewardTitle ?? reward?.title ?? '';
+			rewardIcon = rewardIcon ?? reward?.icon ?? null;
+			rewardPoints = rewardPoints ?? reward?.points ?? 0;
+		}
+
+		const denorm: DenormFields = {
+			childName: child?.nickname ?? '',
+			rewardTitle: rewardTitle ?? '',
+			rewardIcon,
+			rewardPoints: rewardPoints ?? 0,
+		};
+
+		await getDocClient().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: {
+					...rewardRedemptionKey(input.childId, id, tenantId),
+					...row,
+					// denorm.rewardTitle/Icon/Points は snapshot 優先で解決済 (SQLite の
+					// COALESCE(snapshot, live) 読み出しと等価の表示値を item に非正規化保存)。
+					...denorm,
+				},
+			}),
+		);
+
+		return row;
+	};
 
 // ============================================================
 // findRedemptionRequestsByChild — 子供の申請一覧 (最新順)

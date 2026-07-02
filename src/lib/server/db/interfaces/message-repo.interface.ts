@@ -2,6 +2,15 @@ import type { InsertParentMessageInput, ParentMessage } from '../types';
 
 export interface IMessageRepo {
 	insertMessage(input: InsertParentMessageInput, tenantId: string): Promise<ParentMessage>;
+
+	/**
+	 * #3329 backup restore 用: sentAt / shownAt を保全して親→子メッセージを復元する。
+	 * insertMessage は sentAt を schema default (now) で発番し shownAt を null 固定するため round-trip で
+	 * 送信日時・既読状態が失われる。本メソッドは export された値をそのまま書き戻す (id は新規採番、
+	 * childId は呼び出し側が解決済)。
+	 */
+	insertForRestore(input: Omit<ParentMessage, 'id'>, tenantId: string): Promise<ParentMessage>;
+
 	findMessages(childId: number, limit: number, tenantId: string): Promise<ParentMessage[]>;
 	findUnshownMessage(childId: number, tenantId: string): Promise<ParentMessage | undefined>;
 	countUnshownMessages(childId: number, tenantId: string): Promise<number>;

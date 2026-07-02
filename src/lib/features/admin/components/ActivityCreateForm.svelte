@@ -270,7 +270,7 @@ function resetForm() {
 	<div>
 		<span class="block text-xs font-bold text-[var(--color-text-muted)] mb-1">{L.nameKanaLabel}</span>
 		<input
-			type="text" name="nameKana" bind:value={formNameKana}
+			type="text" name="nameKana" bind:value={formNameKana} maxlength="50"
 			class="w-full px-3 py-2 border rounded-lg text-sm"
 			placeholder={L.nameKanaPlaceholder}
 		/>
@@ -279,7 +279,7 @@ function resetForm() {
 	<div>
 		<span class="block text-xs font-bold text-[var(--color-text-muted)] mb-1">{L.nameKanjiLabel}</span>
 		<input
-			type="text" name="nameKanji" bind:value={formNameKanji}
+			type="text" name="nameKanji" bind:value={formNameKanji} maxlength="50"
 			class="w-full px-3 py-2 border rounded-lg text-sm"
 			placeholder={L.nameKanjiPlaceholder}
 		/>

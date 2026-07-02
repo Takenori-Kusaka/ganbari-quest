@@ -596,6 +596,8 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 			{ title: 'ゲーム時間30分', points: 80, shopCategory: 'money' },
 			'test-tenant',
 		);
+		// #3183 (ADR-0006): 早期 return だけだと error 退行を緑で通すため明示 assert を前置する
+		expect('error' in result).toBe(false);
 		if ('error' in result) return;
 		expect(result.shopCategory).toBe('money');
 
@@ -605,6 +607,7 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 			{ title: 'ゲーム時間30分', points: 80, shopCategory: null },
 			'test-tenant',
 		);
+		expect('error' in cleared).toBe(false);
 		if ('error' in cleared) return;
 		expect(cleared.shopCategory).toBeNull();
 	});
@@ -623,6 +626,8 @@ describe('#2832 deleteReward / updateReward (pending redemption ガード)', () 
 			{ title: '新タイトル', points: 80 },
 			'test-tenant',
 		);
+		// #3183 (ADR-0006): 早期 return だけだと error 退行を緑で通すため明示 assert を前置する
+		expect('error' in result).toBe(false);
 		if ('error' in result) return;
 		expect(result.title).toBe('新タイトル');
 		expect(result.shopCategory).toBe('privilege');

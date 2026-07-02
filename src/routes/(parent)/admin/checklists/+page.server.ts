@@ -624,33 +624,54 @@ export const actions: Actions = {
 			if (sourceTemplateIds.length === 0) {
 				return { copiedFromChild: true, added: 0 };
 			}
-			// #3098 QM BLOCK 対応: per-iteration の quota enforcement。
-			// 旧実装は「ループ前に 1 回 limit.allowed を見るだけ」で、5 件の source を copy すると
-			// free プラン target の per-child 上限 (maxChecklistTemplates) を超過 (over-grant) していた。
-			// limit.max === null (無制限プラン) → 全件 copy。
-			// 有限プラン → 残スロット (max - current) 件まで copy し、超過分は skip して partial-success を返す。
-			// distributeToChildren は既配信を skip し「実際に追加した childId」を返すため、
-			// inserted.length (= 0 or 1) を残スロットから消費する。
+			// #3098 QM BLOCK 対応 + #3181 item1 (quota TOCTOU 緩和): per-iteration の quota enforcement。
+			// 旧実装は「ループ前に 1 回 limit を読むだけ」で、(a) 5 件の source を copy すると free プラン
+			// target の per-child 上限 (maxChecklistTemplates) を超過 (over-grant) し、(b) 並行 POST 2 本が
+			// 同じ snapshot current を読むと app 横断で上限を超えて over-grant し得た (TOCTOU)。
+			// #3181 item1: snapshot 算術 (max - 初回 current) でなく、各 grant 直前に checkChecklistTemplateLimit を
+			// 再評価し live count で判定する。SQLite (NUC、同期 better-sqlite3) では直前 insert が即反映され
+			// race window が消える。DynamoDB でも once-read snapshot より window が大幅に縮小する。
+			// limit.max === null (無制限プラン) → 全件 copy。distributeToChildren は既配信 skip + 実追加 childId を返す。
 			let added = 0;
 			let limitReached = false;
 			for (const templateId of sourceTemplateIds) {
-				if (limit.max !== null && added >= limit.max - limit.current) {
-					// 残スロットを使い切った。残りの source は target 上限超過になるため copy しない。
-					limitReached = true;
-					break;
+				if (limit.max !== null) {
+					const live = await checkChecklistTemplateLimit(tenantId, licenseStatus, targetChildId);
+					if (!live.allowed) {
+						// live count が上限到達。残りの source は target 上限超過になるため copy しない。
+						limitReached = true;
+						break;
+					}
 				}
 				const inserted = await distributeToChildren(templateId, [targetChildId], tenantId);
 				added += inserted.length;
 			}
+			// #3181 item3 (success audit、defense-in-depth): 誰が誰の templateId を copy したかを
+			// 構造化 log に残し incident traceability を確保する (汎用 audit log でなく最小限の info、ADR-0010)。
+			const actorUserId = locals.identity?.type === 'cognito' ? locals.identity.userId : undefined;
+			logger.info('[admin/checklists] 別の子から checklist を copy', {
+				context: {
+					tenantId,
+					actorUserId,
+					sourceChildId,
+					targetChildId,
+					requestedTemplateIds: sourceTemplateIds,
+					added,
+					limitReached,
+				},
+			});
+			// #3181 item2 (partial-success の drop 件数明示): drop された件数を message + 戻り値に出す。
+			const dropped = sourceTemplateIds.length - added;
 			if (limitReached) {
 				return {
 					copiedFromChild: true,
 					added,
+					dropped,
 					limitReached: true,
-					message: `${added} 件取り込みました。フリープランの上限に達したため残りは取り込めませんでした。スタンダード以上で無制限。`,
+					message: `${added} 件取り込みました。フリープランの上限に達したため ${dropped} 件は取り込めませんでした。スタンダード以上で無制限。`,
 				};
 			}
-			return { copiedFromChild: true, added };
+			return { copiedFromChild: true, added, dropped };
 		} catch (e) {
 			logger.error('[admin/checklists] 別の子からの copy 失敗', {
 				error: e instanceof Error ? e.message : String(e),

@@ -51,7 +51,7 @@ jobs:
 
       - name: サイズ警告コメントを投稿（500行超えの場合）
         if: steps.size.outputs.changed != '' && fromJSON(steps.size.outputs.changed) > 500
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const changed = Number('${{ steps.size.outputs.changed }}');
@@ -104,7 +104,7 @@ jobs:
 
       - name: 重複警告コメントを投稿
         if: steps.overlap.outputs.overlap_count != '' && fromJSON(steps.overlap.outputs.overlap_count) > 0
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -145,7 +145,7 @@ jobs:
 
       - name: 重複解消時に警告コメントを削除
         if: steps.overlap.outputs.overlap_count == '0'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const marker = '<!-- pr-file-overlap-check -->';
@@ -167,7 +167,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "github.actor != 'dependabot[bot]' && github.actor != 'renovate[bot]'"
     steps:
-      - uses: actions/github-script@v9
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             // PR title 接頭辞 (Conventional Commits 風) を SSOT とし type:* label を derive する。

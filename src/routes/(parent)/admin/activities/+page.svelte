@@ -66,6 +66,7 @@ let restoreLoading = $state(false);
 // Round 18 Cluster K (#1870 評価 Round 3): cookie fallback を fallback chain に追加。
 // marketplace (ひな選択) → admin/activities 遷移時に「たろうくんタブが active」になる
 // per-child scope 不整合を解消 (memory `feedback_per_child_scope_consistency` 整合)。
+// svelte-ignore state_referenced_locally
 let childIdOverride = $state<number | undefined>(
 	data.initialChildId != null && data.children.some((c) => c.id === data.initialChildId)
 		? data.initialChildId

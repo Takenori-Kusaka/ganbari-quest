@@ -51,6 +51,46 @@ export async function insertRedemptionRequest(
 		.get();
 }
 
+/**
+ * #3329 backup restore 用: 申請時点の全フィールドを保全して復元する。
+ * insertRedemptionRequest と異なり status / 解決情報 / snapshot を引数の値のまま書き戻す
+ * (live reward 参照しない)。FK rewardId は呼び出し側が import 後の reward に解決済。
+ */
+export async function insertRedemptionForRestore(
+	input: {
+		childId: number;
+		rewardId: number;
+		requestedAt: number;
+		status: string;
+		parentNote: string | null;
+		resolvedAt: number | null;
+		resolvedByParentId: string | null;
+		shownToChildAt: number | null;
+		rewardTitle: string | null;
+		rewardPoints: number | null;
+		rewardIcon: string | null;
+	},
+	_tenantId: string,
+) {
+	return db
+		.insert(rewardRedemptionRequests)
+		.values({
+			childId: input.childId,
+			rewardId: input.rewardId,
+			requestedAt: input.requestedAt,
+			status: input.status,
+			parentNote: input.parentNote,
+			resolvedAt: input.resolvedAt,
+			resolvedByParentId: input.resolvedByParentId,
+			shownToChildAt: input.shownToChildAt,
+			rewardTitle: input.rewardTitle,
+			rewardPoints: input.rewardPoints,
+			rewardIcon: input.rewardIcon,
+		})
+		.returning()
+		.get();
+}
+
 /** 子供の交換申請一覧を取得（最新順） */
 export async function findRedemptionRequestsByChild(childId: number, _tenantId: string) {
 	return db
