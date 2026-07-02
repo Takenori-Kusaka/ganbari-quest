@@ -8,8 +8,10 @@ import type { SubscriptionStatus } from '$lib/domain/constants/subscription-stat
 /** 認証モードの切り替え（DATA_SOURCE パターンと同様） */
 export type AuthMode = 'local' | 'cognito' | 'anonymous';
 
-/** テナント内ロール（#0123: viewer 廃止） */
-export type Role = 'owner' | 'parent' | 'child';
+/** テナント内ロール（#0123: viewer 廃止）。
+ * runtime 配列は DSQL memberships.role の CHECK 生成 SSOT (#3528、手書き二重化禁止)。 */
+export const ROLES = ['owner', 'parent', 'child'] as const;
+export type Role = (typeof ROLES)[number];
 
 /** Layer 1: Identity（誰であるか）
  * - local: LAN内認証なし（NUC/Docker）

@@ -18,10 +18,15 @@ import { UI_MODES } from '$lib/domain/validation/age-tier-types';
 describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁止)', () => {
 	const dialect = new PgDialect();
 
-	async function checkSql(name: string): Promise<string> {
-		const { children } = await import('../../../src/lib/server/db/dsql/schema');
-		const ck = getTableConfig(children).checks.find((c) => c.name === name);
-		if (!ck) throw new Error(`CHECK not found: ${name}`);
+	async function checkSql(name: string, tableName = 'children'): Promise<string> {
+		const schema = (await import('../../../src/lib/server/db/dsql/schema')) as Record<
+			string,
+			unknown
+		>;
+		// biome-ignore lint/suspicious/noExplicitAny: getTableConfig は PgTable を要求、export 走査のため
+		const table = schema[tableName] as any;
+		const ck = getTableConfig(table).checks.find((c) => c.name === name);
+		if (!ck) throw new Error(`CHECK not found: ${tableName}.${name}`);
 		return dialect.sqlToQuery(ck.value).sql;
 	}
 
@@ -39,5 +44,36 @@ describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁�
 		const { THEME_KEYS } = await import('../../../src/lib/server/db/dsql/check-constraints');
 		const s = await checkSql('children_theme_ck');
 		for (const t of THEME_KEYS) expect(s).toContain(`'${t}'`);
+	});
+
+	// ── auth 3 表 (§6.6、#3528 cycle (a)) ──
+
+	it('memberships role CHECK が ROLES 全値を含む (SSOT 生成)', async () => {
+		const { ROLES } = await import('../../../src/lib/server/auth/types');
+		const s = await checkSql('memberships_role_ck', 'memberships');
+		for (const r of ROLES) expect(s).toContain(`'${r}'`);
+	});
+
+	it('families status CHECK が ALL_SUBSCRIPTION_STATUSES 全値を含む (SSOT 生成)', async () => {
+		const { ALL_SUBSCRIPTION_STATUSES } = await import(
+			'../../../src/lib/domain/constants/subscription-status'
+		);
+		const s = await checkSql('families_status_ck', 'families');
+		for (const st of ALL_SUBSCRIPTION_STATUSES) expect(s).toContain(`'${st}'`);
+	});
+
+	it('users provider CHECK が AUTH_PROVIDERS 全値を含む (SSOT 生成)', async () => {
+		const { AUTH_PROVIDERS } = await import('../../../src/lib/server/auth/entities');
+		const s = await checkSql('users_provider_ck', 'users');
+		for (const p of AUTH_PROVIDERS) expect(s).toContain(`'${p}'`);
+	});
+
+	it('families.plan には CHECK を張らない (plans lookup 参照、§6.6 営業パネル 2026-07-01)', async () => {
+		const { families } = await import('../../../src/lib/server/db/dsql/schema');
+		const checks = getTableConfig(families).checks.map((c) => c.name);
+		expect(
+			checks.some((n) => n.includes('plan')),
+			'plan CHECK は増減集合ゆえ禁止',
+		).toBe(false);
 	});
 });

@@ -61,3 +61,16 @@ export const PK_FREEZE_MANIFEST = {
 } as const satisfies Record<string, readonly string[]>;
 
 export type PkFreezeManifest = typeof PK_FREEZE_MANIFEST;
+
+// ── auth 5 表 (§6.6、#3528 Phase B) ──
+// §11.2 の例外: users/invites/consents は自然キー/UUID 単独 PK で family_id 先頭でない
+// (users はグローバル、invites/consents は token_hash/append-only の設計上単独 UUID)。
+// families/memberships はテナントルートゆえ family_id 先頭。凍結 SSOT は §6.6 表
+// (dsql-auth-schema.test.ts [A1] が doc-parse 突合)。
+export const AUTH_PK_MANIFEST = {
+	users: ['user_id'],
+	families: ['family_id'],
+	memberships: ['family_id', 'user_id'],
+	invites: ['invite_id'],
+	consents: ['consent_id'],
+} as const satisfies Record<string, readonly string[]>;
