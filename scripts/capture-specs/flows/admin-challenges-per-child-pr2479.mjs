@@ -3,11 +3,13 @@
  *
  * PR #2479 (#2362 PR-7): admin/challenges per-child UX + 兄弟連動 UI SS フロー
  *
- * 撮影 4 状態 (mobile + desktop = 8 SS):
+ * 撮影 3 状態 (mobile + desktop = 6 SS):
  *   1. default state (子供別タブ + 兄弟連動 group + 個別 challenge group)
  *   2. 2nd child タブ切替後 (childId=903 けんたくん / 兄弟連動 + 個別 instance)
- *   3. 作成フォーム展開後 (childIds checkbox + 一括追加 UI)
- *   4. SiblingChallengeComparison scroll-into-view (兄弟連動 UI focus)
+ *   3. SiblingChallengeComparison scroll-into-view (兄弟連動 UI focus)
+ *
+ * #3344: 旧「3. 作成フォーム展開」は #3195/#3231 のチャレンジ自動生成一本化 + 読取専用ビュー化で
+ *   「＋ 新規チャレンジ」ボタン / create-form が削除されたため撤去済 (本体 step も除去、L82 付近参照)。
  *
  * 起動前提 (ADR-0048 demo Lambda 同型 env):
  *   AUTH_MODE=anonymous DATA_SOURCE=demo npx vite dev --port 5173 --strictPort
