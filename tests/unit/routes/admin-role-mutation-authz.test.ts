@@ -49,6 +49,20 @@ vi.mock('$lib/server/services/email-service', () => ({
 	sendMemberRemovedEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+// #3549 決裁 (a): invites 作成・取消の owner 専用化のための service mocks
+const mockCreateInvite = vi.fn();
+const mockRevokeInvite = vi.fn();
+vi.mock('$lib/server/services/invite-service', () => ({
+	createInvite: (...args: unknown[]) => mockCreateInvite(...args),
+	revokeInvite: (...args: unknown[]) => mockRevokeInvite(...args),
+	listInvites: vi.fn().mockResolvedValue([]),
+}));
+
+const mockCheckFamilyMemberLimit = vi.fn();
+vi.mock('$lib/server/services/plan-limit-service', () => ({
+	checkFamilyMemberLimit: (...args: unknown[]) => mockCheckFamilyMemberLimit(...args),
+}));
+
 vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -58,6 +72,10 @@ const { POST: transferOwnership } = await import(
 );
 const { DELETE: deleteMember } = await import(
 	'../../../src/routes/api/v1/admin/members/[userId]/+server'
+);
+const { POST: createInvitePost } = await import('../../../src/routes/api/v1/admin/invites/+server');
+const { DELETE: revokeInviteDelete } = await import(
+	'../../../src/routes/api/v1/admin/invites/[code]/+server'
 );
 
 // ---------- helpers ----------
@@ -73,6 +91,30 @@ function createEvent(role: Role, opts: { userId?: string; callerUserId?: string 
 			identity: { type: 'cognito', userId: callerUserId },
 		},
 	} as unknown as Parameters<NonNullable<typeof transferOwnership>>[0];
+}
+
+function createInviteCreateEvent(role: Role) {
+	return {
+		request: new Request('http://localhost/api/v1/admin/invites', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ role: 'parent' }),
+		}),
+		locals: {
+			context: { tenantId: 't-test', role, licenseStatus: 'active' },
+			identity: { type: 'cognito', userId: 'u-caller' },
+		},
+	} as unknown as Parameters<NonNullable<typeof createInvitePost>>[0];
+}
+
+function createInviteRevokeEvent(role: Role) {
+	return {
+		params: { code: 'invite-code-1' },
+		locals: {
+			context: { tenantId: 't-test', role },
+			identity: { type: 'cognito', userId: 'u-caller' },
+		},
+	} as unknown as Parameters<NonNullable<typeof revokeInviteDelete>>[0];
 }
 
 // ---------- tests ----------
@@ -159,6 +201,80 @@ describe('owner 専用 member mutation API の requireRole seam 統一 (#3528 fi
 			expect(res.status).toBe(403);
 			await expect(res.json()).resolves.toEqual({ error: 'owner のみメンバーを削除できます' });
 			expect(mockRepos.auth.deleteMembership).not.toHaveBeenCalled();
+		});
+	});
+
+	// #3549 PO 決裁 判断1 = (a): 招待作成・取消は owner 専用
+	describe('POST /api/v1/admin/invites (#3549 (a) 招待作成の owner 専用化)', () => {
+		beforeEach(() => {
+			mockCheckFamilyMemberLimit.mockResolvedValue({ allowed: true, current: 1, max: 6 });
+			mockCreateInvite.mockResolvedValue({ inviteCode: 'new-code', role: 'parent' });
+		});
+
+		it('owner は成功経路に入る (positive)', async () => {
+			const res = await createInvitePost(createInviteCreateEvent('owner'));
+			expect(res.status).toBe(201);
+			await expect(res.json()).resolves.toMatchObject({
+				invite: { inviteCode: 'new-code' },
+			});
+			expect(mockCreateInvite).toHaveBeenCalledWith('t-test', 'u-caller', 'parent', undefined);
+		});
+
+		it('owner 判定は requireRole seam 経由で行われる', async () => {
+			await createInvitePost(createInviteCreateEvent('owner'));
+			expect(requireRoleSpy).toHaveBeenCalledWith(
+				expect.objectContaining({ context: expect.objectContaining({ role: 'owner' }) }),
+				['owner'],
+			);
+		});
+
+		it('parent は 403 + {error} body (negative: 現実装では parent が成功するため red)', async () => {
+			const res = await createInvitePost(createInviteCreateEvent('parent'));
+			expect(res.status).toBe(403);
+			await expect(res.json()).resolves.toEqual({ error: 'owner のみ招待を作成できます' });
+			expect(mockCreateInvite).not.toHaveBeenCalled();
+		});
+
+		it('child は 403 (negative)', async () => {
+			const res = await createInvitePost(createInviteCreateEvent('child'));
+			expect(res.status).toBe(403);
+			await expect(res.json()).resolves.toEqual({ error: 'owner のみ招待を作成できます' });
+			expect(mockCreateInvite).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('DELETE /api/v1/admin/invites/[code] (#3549 (a) 招待取消の owner 専用化)', () => {
+		beforeEach(() => {
+			mockRevokeInvite.mockResolvedValue(undefined);
+		});
+
+		it('owner は成功経路に入る (positive)', async () => {
+			const res = await revokeInviteDelete(createInviteRevokeEvent('owner'));
+			expect(res.status).toBe(200);
+			await expect(res.json()).resolves.toEqual({ ok: true });
+			expect(mockRevokeInvite).toHaveBeenCalledWith('invite-code-1', 't-test');
+		});
+
+		it('owner 判定は requireRole seam 経由で行われる', async () => {
+			await revokeInviteDelete(createInviteRevokeEvent('owner'));
+			expect(requireRoleSpy).toHaveBeenCalledWith(
+				expect.objectContaining({ context: expect.objectContaining({ role: 'owner' }) }),
+				['owner'],
+			);
+		});
+
+		it('parent は 403 + {error} body (negative: 現実装では parent が成功するため red)', async () => {
+			const res = await revokeInviteDelete(createInviteRevokeEvent('parent'));
+			expect(res.status).toBe(403);
+			await expect(res.json()).resolves.toEqual({ error: 'owner のみ招待を取り消しできます' });
+			expect(mockRevokeInvite).not.toHaveBeenCalled();
+		});
+
+		it('child は 403 (negative)', async () => {
+			const res = await revokeInviteDelete(createInviteRevokeEvent('child'));
+			expect(res.status).toBe(403);
+			await expect(res.json()).resolves.toEqual({ error: 'owner のみ招待を取り消しできます' });
+			expect(mockRevokeInvite).not.toHaveBeenCalled();
 		});
 	});
 });
