@@ -17,6 +17,7 @@
 //   [F10-1] 同一 mission への二連打: completed 遷移 1 回のみ、bonus 1 回のみ
 //   [F10-2] 複数 mission: 最後の 1 件を flip した呼び出しだけが daily bonus を付与
 //   [F10-3] 全完了後の再呼び出し: bonus 再付与なし (rowCount=0 経路)
+//   [F10-4] remaining SELECT の FOR UPDATE (write skew ガード) が集約エラーなく allComplete を返す
 //   [F11-1] optional 失敗: 例外 swallow + onFailure カウンタ emit + null 返却
 //   [F11-2] optional 成功: onFailure 非発火、結果を返す
 
@@ -196,6 +197,48 @@ describe('#N4-2 cycle2: optional 書込の隔離 (§8 / fitness#10,#11)', () => 
 		expect(again).toMatchObject({ completedNow: false, bonusGranted: false });
 		expect(await ledgerRows(childId, 'mission_bonus')).toHaveLength(1);
 		expect(await totalPoint(childId)).toBe(30);
+	});
+
+	it('[F10-4] remaining SELECT が FOR UPDATE を伴っても構文/集約エラーなく allComplete を返す (write skew ガード)', async () => {
+		// QM #3546 BLOCK: remaining カウント SELECT に FOR UPDATE を付与し他 mission 行を
+		// write-intent 化して write skew (異なる 2 行の並行完了で daily bonus 永久欠落) を
+		// OCC 40001 で防ぐ。ただし `count(*) ... FOR UPDATE` は PostgreSQL/PGlite が
+		// "FOR UPDATE is not allowed with aggregate functions" で拒否するため、実装は
+		// 内側サブクエリで行を FOR UPDATE 確定 → 外側で count する形を採る。
+		// 本テストはその SQL が構文/集約エラーを出さず、かつ allComplete 判定が正しいことを保証する。
+		//
+		// 既知制約 (#3545 と同種): PGlite は単一接続のため TxnA/TxnB の真の並行実行
+		// (2 別 txn がミリ秒で重なり互いの completed=false 行を snapshot 上で見る状況) を
+		// 再現できない。よって「FOR UPDATE 有無で 40001 が発生する/しない」の直接検証は不可。
+		// ここでは (a) FOR UPDATE 付き SQL が実行可能であること (集約エラー回帰の恒久ガード) と
+		// (b) 未完了残ありでは allComplete=false / 全完了で true になる意味論の 2 点を検証する。
+		const { completeMissionAndMaybeGrantBonus } = await import(
+			'../../../src/lib/server/db/dsql/daily-mission-complete'
+		);
+		const { childId, act } = await newIds();
+		for (const n of [1, 2]) {
+			await db.execute(sql`
+				INSERT INTO daily_missions (family_id, child_id, mission_date, activity_id)
+				VALUES (${FAMILY}, ${childId}, ${TODAY}, ${act(n)})
+			`);
+		}
+		const runner = await makeRunner();
+		const base = {
+			familyId: FAMILY,
+			childId,
+			missionDate: TODAY,
+			bonusPoints: 15,
+			bonusDescription: '全ミッション達成',
+			now: NOW,
+		};
+		// 1 件目 flip: 残 1 → FOR UPDATE 付き remaining SELECT が集約エラーなく allComplete=false を返す
+		const r1 = await completeMissionAndMaybeGrantBonus(runner, { ...base, activityId: act(1) });
+		expect(r1).toMatchObject({ completedNow: true, allComplete: false, bonusGranted: false });
+		// 2 件目 (最後) flip: 残 0 → allComplete=true, bonus 付与
+		const r2 = await completeMissionAndMaybeGrantBonus(runner, { ...base, activityId: act(2) });
+		expect(r2).toMatchObject({ completedNow: true, allComplete: true, bonusGranted: true });
+		expect(await ledgerRows(childId, 'mission_bonus')).toHaveLength(1);
+		expect(await totalPoint(childId)).toBe(15);
 	});
 
 	it('[F11-1] optional 失敗: swallow + onFailure カウンタ emit + null (fitness#11 可観測化)', async () => {

@@ -57,10 +57,24 @@ export async function completeMissionAndMaybeGrantBonus<TTx extends SqlExecutor>
 		const completedNow = flipped.rows.length > 0;
 
 		// 同 txn 内で未完了残を確認 (自 txn の UPDATE は可視)。
+		// remaining SELECT は FOR UPDATE で他 mission 行を write-intent 化し write skew を
+		// OCC 40001 で防ぐ (設計書 §4.1 / 行 228: read-write は非検出 = write skew を防げず、
+		// read 値を条件に別行を書く不変条件は FOR UPDATE で write-intent 化して守る)。
+		// これが無いと、同日の最後の 2 mission A/B を別 txn がほぼ同時に flip した場合、
+		// 双方が「相手はまだ completed=false」とスナップショットで見て bonus 未付与のまま
+		// 異なる行への書込ゆえ 40001 も起きず両方 commit → daily bonus 永久欠落 (write skew)。
+		// FOR UPDATE で相手の completed=false 行に write-intent を張ると、相手が flip 済の同一行
+		// への write-write となり 40001 → runner が retry して正しく bonus を付与する。
+		// 注: PostgreSQL / PGlite は `count(*) ... FOR UPDATE` を
+		//   "FOR UPDATE is not allowed with aggregate functions" で拒否するため、
+		//   FOR UPDATE を内側サブクエリで行を確定してから外側で集約する。
 		const remaining = await tx.execute(sql`
-			SELECT count(*) AS c FROM daily_missions
-			WHERE family_id = ${familyId} AND child_id = ${childId}
-				AND mission_date = ${missionDate} AND completed = false
+			SELECT count(*) AS c FROM (
+				SELECT 1 FROM daily_missions
+				WHERE family_id = ${familyId} AND child_id = ${childId}
+					AND mission_date = ${missionDate} AND completed = false
+				FOR UPDATE
+			) AS unfinished
 		`);
 		const allComplete = Number((remaining.rows[0] as { c: unknown }).c) === 0;
 
