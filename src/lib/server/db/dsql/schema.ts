@@ -27,7 +27,14 @@ import {
 	type SubscriptionStatus,
 } from '$lib/domain/constants/subscription-status';
 import { UI_MODES } from '$lib/domain/validation/age-tier-types';
-import { AUTH_PROVIDERS, type AuthProviderKind } from '$lib/server/auth/entities';
+import {
+	AUTH_PROVIDERS,
+	type AuthProviderKind,
+	CONSENT_TYPES,
+	type ConsentType,
+	INVITE_STATUSES,
+	type InviteStatus,
+} from '$lib/server/auth/entities';
 import { ROLES, type Role } from '$lib/server/auth/types';
 import { enumCheck, THEME_KEYS } from './check-constraints';
 
@@ -157,5 +164,61 @@ export const memberships = pgTable(
 		// findUserTenants (session 3 連 lookup の起点) 用 secondary (§6.6)。
 		index('memberships_user_id_idx').on(t.userId),
 		check('memberships_role_ck', enumCheck(t.role, ROLES)),
+	],
+);
+
+// invites — 招待リンク (adjacency item 廃止、§6.6)。
+// token_hash: 招待コードの timing-safe ハッシュのみ保存 (raw 非保存 = CWE-522、bearer 化による
+// 機密性退行を防ぐ)。email: 設定時は受諾 user の email と一致必須 (§6.6 ⚠️ 横流し防止、
+// invite-accept.ts が txn 内で検証)。child_id は children UUID (#3512 greenfield) 参照。
+export const invites = pgTable(
+	'invites',
+	{
+		inviteId: uuid('invite_id').notNull().default(sql`gen_random_uuid()`),
+		familyId: uuid('family_id').notNull(),
+		invitedBy: uuid('invited_by').notNull(),
+		role: text('role').notNull().$type<Role>(),
+		childId: uuid('child_id'),
+		email: text('email'),
+		tokenHash: text('token_hash').notNull().unique(),
+		status: text('status').notNull().default('pending').$type<InviteStatus>(),
+		expiresAt: timestamp('expires_at', { mode: 'string', withTimezone: true }).notNull(),
+		acceptedBy: uuid('accepted_by'),
+		acceptedAt: timestamp('accepted_at', { mode: 'string', withTimezone: true }),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.inviteId] }),
+		// findTenantInvites 用 secondary (§6.6)。
+		index('invites_family_id_idx').on(t.familyId),
+		check('invites_status_ck', enumCheck(t.status, INVITE_STATUSES)),
+		check('invites_role_ck', enumCheck(t.role, ROLES)),
+	],
+);
+
+// consents — 利用規約/PP 同意記録 (append-only、§6.6 / GDPR Art.7 / COPPA)。
+// UPDATE/DELETE は repo 非定義 + GRANT 除外 + fitness#2 多層禁止 (repo 実装 PR で強制)。
+// 最新判定は consented_at 降順 (version 文字列順に依存しない)。
+export const consents = pgTable(
+	'consents',
+	{
+		consentId: uuid('consent_id').notNull().default(sql`gen_random_uuid()`),
+		familyId: uuid('family_id').notNull(),
+		userId: uuid('user_id').notNull(),
+		type: text('type').notNull().$type<ConsentType>(),
+		version: text('version').notNull(),
+		consentedAt: timestamp('consented_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		ipAddress: text('ip_address').notNull(),
+		userAgent: text('user_agent').notNull(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.consentId] }),
+		// findLatestConsent (HTML GET 毎 2 read、§3.5.3) 用 secondary (§6.6)。
+		index('consents_family_type_at_idx').on(t.familyId, t.type, t.consentedAt),
+		check('consents_type_ck', enumCheck(t.type, CONSENT_TYPES)),
 	],
 );

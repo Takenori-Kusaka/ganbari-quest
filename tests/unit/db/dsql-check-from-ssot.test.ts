@@ -68,6 +68,23 @@ describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁�
 		for (const p of AUTH_PROVIDERS) expect(s).toContain(`'${p}'`);
 	});
 
+	// ── invites / consents (§6.6、#3528 cycle (b)) ──
+
+	it('invites status/role CHECK が SSOT 全値を含む (INVITE_STATUSES / ROLES)', async () => {
+		const { INVITE_STATUSES } = await import('../../../src/lib/server/auth/entities');
+		const { ROLES } = await import('../../../src/lib/server/auth/types');
+		const statusSql = await checkSql('invites_status_ck', 'invites');
+		for (const st of INVITE_STATUSES) expect(statusSql).toContain(`'${st}'`);
+		const roleSql = await checkSql('invites_role_ck', 'invites');
+		for (const r of ROLES) expect(roleSql).toContain(`'${r}'`);
+	});
+
+	it('consents type CHECK が CONSENT_TYPES 全値を含む (SSOT 生成)', async () => {
+		const { CONSENT_TYPES } = await import('../../../src/lib/server/auth/entities');
+		const s = await checkSql('consents_type_ck', 'consents');
+		for (const t of CONSENT_TYPES) expect(s).toContain(`'${t}'`);
+	});
+
 	it('families.plan には CHECK を張らない (plans lookup 参照、§6.6 営業パネル 2026-07-01)', async () => {
 		const { families } = await import('../../../src/lib/server/db/dsql/schema');
 		const checks = getTableConfig(families).checks.map((c) => c.name);
