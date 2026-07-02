@@ -55,15 +55,19 @@ const parseFrozenPkTable = (): Record<string, string[]> => {
 		// 表名: `activity_pref (child_activity_preferences)` は括弧内の実表名を採用。
 		// `**child_custom_voices**（**§3 欠落→編入**）` は強調 + 全角括弧注記を除去。
 		const paren = rawName.match(/\(([a-z0-9_]+)\)/);
-		const name = paren
-			? paren[1]
-			: rawName
-					.replace(/\*\*/g, '')
-					.replace(/（[^）]*）/g, '')
-					.trim();
+		const name =
+			paren?.[1] ??
+			rawName
+				.replace(/\*\*/g, '')
+				.replace(/（[^）]*）/g, '')
+				.trim();
 		expect(name, `表名が snake_case で抽出できる: "${rawName}"`).toMatch(/^[a-z0-9_]+$/);
 		// PK 列: `ledger_id uuid[v4]` / `activity_id uuid` 等の型注記を落とし列名のみ。
-		const cols = m[1].split(',').map((part) => part.trim().split(/\s+/)[0]);
+		const pkColumnList = m[1] ?? '';
+		const cols = pkColumnList.split(',').map((part) => {
+			const trimmed = part.trim();
+			return trimmed.split(/\s+/)[0] ?? trimmed;
+		});
 		frozen[name] = cols;
 	}
 	return frozen;
@@ -108,9 +112,12 @@ describe('fitness#9: PK 凍結 manifest (§11.2 / §P1 不可逆不変条件)', 
 		const manifest = PK_FREEZE_MANIFEST as Record<string, readonly string[]>;
 
 		// dsql/schema.ts に実装された全 pg 表を走査 (表追記時に本テスト変更なしで自動カバー)。
-		const pgTables = Object.values(dsqlSchema).filter((v): v is InstanceType<typeof PgTable> =>
-			is(v, PgTable),
-		);
+		// filter 後に cast することで、各 export の具体的な PgTableWithColumns<{name:"..."}>
+		// 型が InstanceType<typeof PgTable> (PgTable<TableConfig>) の type predicate に
+		// 非 assignable と判定される TS エラーを回避する (predicate は param 型のサブタイプが必要)。
+		const pgTables = Object.values(dsqlSchema).filter((v) => is(v, PgTable)) as InstanceType<
+			typeof PgTable
+		>[];
 		expect(pgTables.length).toBeGreaterThan(0);
 
 		for (const table of pgTables) {
