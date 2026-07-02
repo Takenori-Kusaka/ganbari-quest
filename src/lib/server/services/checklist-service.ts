@@ -27,9 +27,10 @@ import { insertPointEntry } from '$lib/server/db/point-repo';
 // #3424 DSQL 移管: TimeSlot SSOT は $lib/domain/constants/checklist-time-slot に移設
 // (db 層の CHECK 生成 fitness#13 が参照するため、db → service の層逆転 import を回避)。
 // 既存 import 互換のため本 module から re-export する。
-export { type TimeSlot, VALID_TIME_SLOTS } from '$lib/domain/constants/checklist-time-slot';
+import { type TimeSlot, VALID_TIME_SLOTS } from '$lib/domain/constants/checklist-time-slot';
 
-import type { TimeSlot } from '$lib/domain/constants/checklist-time-slot';
+export { VALID_TIME_SLOTS };
+export type { TimeSlot };
 
 export const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
 	morning: 'あさ',
