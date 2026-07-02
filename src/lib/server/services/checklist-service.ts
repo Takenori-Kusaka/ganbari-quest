@@ -29,8 +29,8 @@ import { insertPointEntry } from '$lib/server/db/point-repo';
 // 既存 import 互換のため本 module から re-export する。
 import { type TimeSlot, VALID_TIME_SLOTS } from '$lib/domain/constants/checklist-time-slot';
 
-export { VALID_TIME_SLOTS };
 export type { TimeSlot };
+export { VALID_TIME_SLOTS };
 
 export const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
 	morning: 'あさ',
