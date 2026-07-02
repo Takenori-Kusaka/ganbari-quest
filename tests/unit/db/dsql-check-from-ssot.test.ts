@@ -68,6 +68,22 @@ describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁�
 		for (const p of AUTH_PROVIDERS) expect(s).toContain(`'${p}'`);
 	});
 
+	// ── child_activities (#3539 #N4-1 Phase C) ──
+
+	it('child_activities priority CHECK が ACTIVITY_PRIORITY_KEYS 全値を含む (SSOT 生成)', async () => {
+		const { ACTIVITY_PRIORITY_KEYS } = await import(
+			'../../../src/lib/server/db/dsql/check-constraints'
+		);
+		const s = await checkSql('child_activities_priority_ck', 'childActivities');
+		expect(ACTIVITY_PRIORITY_KEYS.length).toBeGreaterThan(0);
+		for (const p of ACTIVITY_PRIORITY_KEYS) expect(s).toContain(`'${p}'`);
+	});
+
+	it('child_activities archived_reason CHECK が ARCHIVED_REASONS 全値を含む (SSOT 生成)', async () => {
+		const s = await checkSql('child_activities_archived_reason_ck', 'childActivities');
+		for (const r of ARCHIVED_REASONS) expect(s).toContain(`'${r}'`);
+	});
+
 	// ── invites / consents (§6.6、#3528 cycle (b)) ──
 
 	it('invites status/role CHECK が SSOT 全値を含む (INVITE_STATUSES / ROLES)', async () => {

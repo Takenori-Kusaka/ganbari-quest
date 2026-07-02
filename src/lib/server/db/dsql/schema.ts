@@ -36,7 +36,7 @@ import {
 	type InviteStatus,
 } from '$lib/server/auth/entities';
 import { ROLES, type Role } from '$lib/server/auth/types';
-import { enumCheck, THEME_KEYS } from './check-constraints';
+import { ACTIVITY_PRIORITY_KEYS, enumCheck, THEME_KEYS } from './check-constraints';
 
 // children — Child 集約の linchpin (§11.1)。
 // 変更点 (vs sqlite 現行):
@@ -61,6 +61,9 @@ export const children = pgTable(
 		userId: text('user_id'),
 		birthdayBonusMultiplier: real('birthday_bonus_multiplier').notNull().default(1.0),
 		lastBirthdayBonusYear: integer('last_birthday_bonus_year'),
+		// 残高派生列 (§5 P7、#3539): 全 point_ledger 書込 mini-txn 内で共更新 (SUM 乖離不能)。
+		// H2 の毎描画 SUM スキャンを列 read 1 回に置換。突合 = fitness#14 (derived-drift.ts)。
+		totalPoint: integer('total_point').notNull().default(0),
 		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -221,4 +224,130 @@ export const consents = pgTable(
 		index('consents_family_type_at_idx').on(t.familyId, t.type, t.consentedAt),
 		check('consents_type_ck', enumCheck(t.type, CONSENT_TYPES)),
 	],
+);
+
+// ── Child 集約 core hot-path 5 表 (§3.5.1、#3539 #N4-1 Phase C) ──
+// recordActivity 単一 txn (#N4-2) の書込対象。§4.1: PK covering 最優先、
+// secondary は spike#7 で採用確定した point_ledger の 1 本のみ (他は計測後に追加判断)。
+// category_id はグローバル master categories(code) 自然キーへの論理 FK (DSQL FK 非対応、text)。
+
+// child_activities — 活動の per-child instance (§6 PO 判断: catalog+override 不採用、
+// 兄弟共通化は copy)。旧 activities master の二重実装は新スキーマに作らない。
+export const childActivities = pgTable(
+	'child_activities',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		activityId: uuid('activity_id').notNull().default(sql`gen_random_uuid()`),
+		name: text('name').notNull(),
+		categoryId: text('category_id').notNull(),
+		icon: text('icon').notNull(),
+		basePoints: integer('base_points').notNull().default(5),
+		isVisible: boolean('is_visible').notNull().default(true),
+		dailyLimit: integer('daily_limit'),
+		sortOrder: integer('sort_order').notNull().default(0),
+		source: text('source').notNull().default('seed'),
+		nameKana: text('name_kana'),
+		nameKanji: text('name_kanji'),
+		triggerHint: text('trigger_hint'),
+		isMainQuest: boolean('is_main_quest').notNull().default(false),
+		isArchived: boolean('is_archived').notNull().default(false),
+		archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
+		sourcePresetId: text('source_preset_id'),
+		priority: text('priority').notNull().default('optional'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.activityId] }),
+		check('child_activities_priority_ck', enumCheck(t.priority, ACTIVITY_PRIORITY_KEYS)),
+		check('child_activities_archived_reason_ck', enumCheck(t.archivedReason, ARCHIVED_REASONS)),
+	],
+);
+
+// activity_logs — 活動記録。streak_days/streak_bonus は記録 txn 内で算出・確定する派生列 (§5)。
+// date secondary は初期不使用 (PK プレフィクス scan ~1.5ms、spike#7。計測後に追加判断)。
+export const activityLogs = pgTable(
+	'activity_logs',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		logId: uuid('log_id').notNull().default(sql`gen_random_uuid()`),
+		activityId: uuid('activity_id').notNull(),
+		points: integer('points').notNull(),
+		streakDays: integer('streak_days').notNull().default(1),
+		streakBonus: integer('streak_bonus').notNull().default(0),
+		recordedDate: text('recorded_date').notNull(),
+		recordedAt: timestamp('recorded_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		cancelled: boolean('cancelled').notNull().default(false),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.logId] })],
+);
+
+// point_ledger — ポイント台帳 (append 主体)。UUID v4 random で hot-partition ゼロ (§11.2)。
+// created_at は sort 用途のみで PK に入れない (判断⑬訂正)。全 INSERT は同一 mini-txn で
+// children.total_point を共更新する (§5 P7、fitness#14 が突合)。
+export const pointLedger = pgTable(
+	'point_ledger',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		ledgerId: uuid('ledger_id').notNull().default(sql`gen_random_uuid()`),
+		amount: integer('amount').notNull(),
+		type: text('type').notNull(),
+		description: text('description'),
+		// polymorphic 参照 (旧 int id / 新 uuid 混在を許容するため text)。
+		referenceId: text('reference_id'),
+		// 冪等 lookup (countPointLedgerEntriesByTypeAndDate H21) 用 'YYYY-MM-DD'。
+		recordedDate: text('recorded_date').notNull(),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.ledgerId] }),
+		// spike#7 採用の唯一の初期 secondary (§11.2)。履歴ページング用 (family,child,created_at)
+		// は計測後の任意追加。
+		index('point_ledger_type_date_idx').on(t.familyId, t.childId, t.type, t.recordedDate),
+	],
+);
+
+// statuses — カテゴリ別現在ステータス (自然複合 PK、unique(child,category) 昇格 §11.2)。
+// total_xp/level/peak_xp は status 更新 txn 内で維持する派生列 (§5)。_sv 撤去 (OCC)。
+export const statuses = pgTable(
+	'statuses',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		categoryId: text('category_id').notNull(),
+		totalXp: integer('total_xp').notNull().default(0),
+		level: integer('level').notNull().default(1),
+		peakXp: integer('peak_xp').notNull().default(0),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.categoryId] })],
+);
+
+// status_history — ステータス変動履歴。recorded_at は sort 用途 (PK に入れない、§11.2)。
+// findRecentStatusHistory は category プレフィクス scan + sort LIMIT2 (§3.5.1 H5)。
+export const statusHistory = pgTable(
+	'status_history',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		categoryId: text('category_id').notNull(),
+		histId: uuid('hist_id').notNull().default(sql`gen_random_uuid()`),
+		value: real('value').notNull(),
+		changeAmount: real('change_amount').notNull(),
+		changeType: text('change_type').notNull(),
+		recordedAt: timestamp('recorded_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.categoryId, t.histId] })],
 );

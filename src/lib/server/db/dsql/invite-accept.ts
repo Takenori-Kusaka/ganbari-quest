@@ -14,13 +14,11 @@
 // business 失敗を throw で表現するのは rollback を担わせるため (typed error → catch で
 // result に写像し、呼び出し側には throw しない)。
 
-import { type SQL, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { TransactionRunner } from '../interfaces/transaction.interface';
+import type { SqlExecutor } from './sql-executor';
 
-/** tx handle に要求する最小面 (drizzle pg tx / db が構造的に満たす)。 */
-export interface SqlExecutor {
-	execute(query: SQL): Promise<{ rows: unknown[] }>;
-}
+export type { SqlExecutor } from './sql-executor';
 
 export interface AcceptInviteInput {
 	inviteId: string;
