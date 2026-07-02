@@ -709,9 +709,19 @@ function handleRecordResult(result: { type: string; data?: Record<string, unknow
 				use:enhance={() => {
 					if (challengeClaiming) return ({ update }) => update();
 					challengeClaiming = true;
-					return async ({ update }) => {
+					return async ({ result, update }) => {
 						await update();
 						challengeClaiming = false;
+						// #3361 (ux-4): claim 失敗 (fail400 = 既請求 / 未達 / IDOR 等) を可視化して
+						// dead-end (押しても無反応) を回避する (NN/G #1、Toast は role="alert")。
+						if (result.type === 'failure') {
+							const err = result.data?.error;
+							showToast(
+								FEATURES_LABELS.challenge.claimErrorTitle,
+								typeof err === 'string' ? err : FEATURES_LABELS.challenge.claimErrorFallback,
+								'error',
+							);
+						}
 					};
 				}}
 			>

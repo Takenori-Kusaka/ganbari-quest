@@ -7026,6 +7026,9 @@ export const FEATURES_LABELS = {
 		celebrationTitle: 'みんなクリア！',
 		celebrationClaimBtn: '🎁 ほうしゅうをうけとる！',
 		celebrationCloseBtn: 'とじる',
+		// #3361 (ux-4): claim 失敗時の可視フィードバック (dead-end 回避、NN/G #1)
+		claimErrorTitle: 'うけとれなかったよ',
+		claimErrorFallback: 'もういちど ためしてね',
 	},
 
 	// ---- features/child/ ----
