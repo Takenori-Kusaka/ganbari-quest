@@ -368,3 +368,19 @@ export const activityMastery = pgTable(
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.activityId] })],
 );
+
+// daily_missions — デイリーミッション (自然複合 PK、§11.2 凍結: unique(child,mission_date,activity) 昇格)。
+// completed=false→true の conditional UPDATE が once-per-day bonus の serialization point
+// (fitness#10、daily-mission-complete.ts。count-then-insert の TOCTOU 二重付与を構造排除)。
+export const dailyMissions = pgTable(
+	'daily_missions',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		missionDate: text('mission_date').notNull(),
+		activityId: uuid('activity_id').notNull(),
+		completed: boolean('completed').notNull().default(false),
+		completedAt: timestamp('completed_at', { mode: 'string', withTimezone: true }),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.missionDate, t.activityId] })],
+);
