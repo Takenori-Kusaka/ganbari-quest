@@ -351,3 +351,20 @@ export const statusHistory = pgTable(
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.categoryId, t.histId] })],
 );
+
+// activity_mastery — 活動習熟度 (自然複合 PK、unique(child,activity) 昇格 §11.2、#3541)。
+// total_count/level は記録 txn 内で re-read + upsert する派生 (record-activity-core.ts §8)。
+export const activityMastery = pgTable(
+	'activity_mastery',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		activityId: uuid('activity_id').notNull(),
+		totalCount: integer('total_count').notNull().default(0),
+		level: integer('level').notNull().default(1),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.activityId] })],
+);
