@@ -149,6 +149,16 @@ describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁�
 		for (const pt of CHALLENGE_PERIOD_TYPES) expect(periodSql).toContain(`'${pt}'`);
 	});
 
+	// ── Slice C: cloud_exports (#3424 Family 系) ──
+
+	it('cloud_exports status CHECK が CLOUD_EXPORT_STATUSES 全値を含む (SSOT 生成)', async () => {
+		const { CLOUD_EXPORT_STATUSES } = await import(
+			'../../../src/lib/domain/constants/cloud-export-status'
+		);
+		const s2 = await checkSql('cloud_exports_status_ck', 'cloudExports');
+		for (const st of CLOUD_EXPORT_STATUSES) expect(s2).toContain(`'${st}'`);
+	});
+
 	// ── invites / consents (§6.6、#3528 cycle (b)) ──
 
 	it('invites status/role CHECK が SSOT 全値を含む (INVITE_STATUSES / ROLES)', async () => {
