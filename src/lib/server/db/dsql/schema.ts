@@ -390,13 +390,17 @@ export const dailyMissions = pgTable(
 
 // ── StampCard 集約 (§3、Child サブ集約) + ChecklistTemplate 集約 (family master、ADR-0055) ──
 
-// stamp_cards — 週次スタンプカード (自然複合 PK 昇格 §11.2、anchor(b) シーズン撤去前提。
-// 条件 = シーズン/イベントカード復活が roadmap に無いこと)。status は 3 値状態機械 (SSOT 生成 CHECK)。
+// stamp_cards — 週次スタンプカード。UUID surrogate PK (PO 決裁 2026-07-03、PR #3547:
+// シーズン/イベントカード復活があり得る = 同一週複数カードの cardinality 可変で自然複合凍結
+// 不可、governing rule §11.2)。「1子1週1枚」の現行制約は droppable UNIQUE(week_start) で維持
+// (復活時は UNIQUE を DROP するだけで PK 不変)。card_id は stamp_entries の論理参照先を兼ねる。
+// status は 3 値状態機械 (SSOT 生成 CHECK)。
 export const stampCards = pgTable(
 	'stamp_cards',
 	{
 		familyId: uuid('family_id').notNull(),
 		childId: uuid('child_id').notNull(),
+		cardId: uuid('card_id').notNull().default(sql`gen_random_uuid()`),
 		weekStart: text('week_start').notNull(),
 		weekEnd: text('week_end').notNull(),
 		status: text('status').notNull().default('collecting').$type<StampCardStatus>(),
@@ -410,7 +414,9 @@ export const stampCards = pgTable(
 			.defaultNow(),
 	},
 	(t) => [
-		primaryKey({ columns: [t.familyId, t.childId, t.weekStart] }),
+		primaryKey({ columns: [t.familyId, t.childId, t.cardId] }),
+		// 現行「1子1週1枚」制約 (droppable。シーズン/イベントカード導入時に DROP)。
+		unique('stamp_cards_week_uq').on(t.familyId, t.childId, t.weekStart),
 		check('stamp_cards_status_ck', enumCheck(t.status, STAMP_CARD_STATUSES)),
 	],
 );

@@ -12,6 +12,13 @@ import { getTableConfig } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
 describe('StampCard / ChecklistTemplate 集約 DDL の構造要件 (§11.2 補助 UNIQUE/secondary)', () => {
+	it('stamp_cards に droppable UNIQUE (family_id, child_id, week_start) がある (1子1週1枚、PO 決裁 2026-07-03)', async () => {
+		const { stampCards } = await import('../../../src/lib/server/db/dsql/schema');
+		const cfg = getTableConfig(stampCards);
+		const uniqueCols = cfg.uniqueConstraints.map((u) => u.columns.map((c) => c.name).join(','));
+		expect(uniqueCols).toContain('family_id,child_id,week_start');
+	});
+
 	it('stamp_entries に UNIQUE (family_id, card_id, login_date) がある (1日1押印)', async () => {
 		const { stampEntries } = await import('../../../src/lib/server/db/dsql/schema');
 		const cfg = getTableConfig(stampEntries);
