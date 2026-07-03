@@ -2,7 +2,8 @@
 // メンバー削除（owner のみ）
 
 import type { RequestHandler } from '@sveltejs/kit';
-import { json } from '@sveltejs/kit';
+import { isHttpError, json } from '@sveltejs/kit';
+import { requireRole } from '$lib/server/auth/guards';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { sendMemberRemovedEmail } from '$lib/server/services/email-service';
@@ -15,8 +16,15 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const tenantId = context.tenantId;
 	const targetUserId = (params as Record<string, string>).userId ?? '';
 
-	if (context.role !== 'owner') {
-		return json({ error: 'owner のみメンバーを削除できます' }, { status: 403 });
+	// #3528: role 判定は requireRole seam に統一。response 形は既存 client
+	// (admin/members/+page.svelte が d.error を表示) 互換の {error} JSON を維持する
+	try {
+		requireRole(locals, ['owner']);
+	} catch (e) {
+		if (isHttpError(e, 403)) {
+			return json({ error: 'owner のみメンバーを削除できます' }, { status: 403 });
+		}
+		throw e;
 	}
 
 	if (!targetUserId) {

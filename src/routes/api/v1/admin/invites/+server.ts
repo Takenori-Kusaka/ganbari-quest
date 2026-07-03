@@ -2,9 +2,10 @@
 // GET  /api/v1/admin/invites — 招待一覧取得
 // (#0129, #1111)
 
-import { error, json } from '@sveltejs/kit';
+import { error, isHttpError, json } from '@sveltejs/kit';
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { createInviteSchema } from '$lib/domain/validation/auth';
+import { requireRole } from '$lib/server/auth/guards';
 import { validationError } from '$lib/server/errors';
 import { createInvite, listInvites } from '$lib/server/services/invite-service';
 import { checkFamilyMemberLimit } from '$lib/server/services/plan-limit-service';
@@ -26,6 +27,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 	const tenantId = context.tenantId;
+
+	// #3549 決裁 (a): 招待作成は owner 専用。role 判定は requireRole seam (#3528 fitness#3)
+	// に統一し、response 形は既存 client 互換の {error} JSON を維持する
+	try {
+		requireRole(locals, ['owner']);
+	} catch (e) {
+		if (isHttpError(e, 403)) {
+			return json({ error: 'owner のみ招待を作成できます' }, { status: 403 });
+		}
+		throw e;
+	}
+
 	const identity = locals.identity;
 	if (!identity || identity.type !== 'cognito') {
 		error(401, 'Unauthorized');
