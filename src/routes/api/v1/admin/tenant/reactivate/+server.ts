@@ -8,8 +8,9 @@
 // 誘導する。
 
 import type { RequestHandler } from '@sveltejs/kit';
-import { json } from '@sveltejs/kit';
+import { isHttpError, json } from '@sveltejs/kit';
 import { SUBSCRIPTION_STATUS } from '$lib/domain/constants/subscription-status';
+import { requireRole } from '$lib/server/auth/guards';
 import { getRepos } from '$lib/server/db/factory';
 import { logger } from '$lib/server/logger';
 import { notifyCancellationReverted } from '$lib/server/services/discord-notify-service';
@@ -21,8 +22,15 @@ export const POST: RequestHandler = async ({ locals }) => {
 		return json({ error: '認証が必要です' }, { status: 401 });
 	}
 
-	if (context.role !== 'owner') {
-		return json({ error: 'owner のみ解約キャンセルできます' }, { status: 403 });
+	// #3556: role 判定は requireRole seam (#3528 fitness#3) に統一。
+	// response 形は既存 client 互換の {error} JSON を維持する
+	try {
+		requireRole(locals, ['owner']);
+	} catch (e) {
+		if (isHttpError(e, 403)) {
+			return json({ error: 'owner のみ解約キャンセルできます' }, { status: 403 });
+		}
+		throw e;
 	}
 
 	const tenantId = context.tenantId;
