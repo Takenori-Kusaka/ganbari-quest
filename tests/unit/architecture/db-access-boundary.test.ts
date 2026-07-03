@@ -75,7 +75,8 @@ function extractImportSpecifiers(content: string): string[] {
 	for (const re of [STATIC_IMPORT_SPECIFIER, DYNAMIC_IMPORT_SPECIFIER]) {
 		re.lastIndex = 0;
 		for (const m of content.matchAll(re)) {
-			specifiers.push(m[2]);
+			const specifier = m[2];
+			if (specifier) specifiers.push(specifier);
 		}
 	}
 	return specifiers;
