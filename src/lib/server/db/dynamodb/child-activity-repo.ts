@@ -123,16 +123,18 @@ function buildChildActivity(
 		categoryId: input.categoryId,
 		icon: input.icon,
 		basePoints: input.basePoints,
-		isVisible: 1,
-		dailyLimit: null,
-		sortOrder: 0,
+		// #3358: round-trip 復元時の表示状態 / 並び順 / アーカイブ状態を保全 (省略時 schema default)
+		isVisible: input.isVisible ?? 1,
+		// #3422: 親入力の 1 日上限 / 読み仮名 / 漢字表記を persist (旧実装は null 固定で drop していた)
+		dailyLimit: input.dailyLimit ?? null,
+		sortOrder: input.sortOrder ?? 0,
 		source: 'seed',
-		nameKana: null,
-		nameKanji: null,
+		nameKana: input.nameKana ?? null,
+		nameKanji: input.nameKanji ?? null,
 		triggerHint: input.triggerHint ?? null,
 		isMainQuest: input.isMainQuest ?? 0,
-		isArchived: 0,
-		archivedReason: null,
+		isArchived: input.isArchived ?? 0,
+		archivedReason: input.archivedReason ?? null,
 		createdAt,
 		sourcePresetId: input.sourcePresetId ?? null,
 		priority: input.priority ?? 'optional',
@@ -196,6 +198,10 @@ export async function updateActivity(
 		'triggerHint',
 		'isMainQuest',
 		'priority',
+		// #3422: 親入力の編集を persist (旧実装は update 対象外で silent drop)
+		'dailyLimit',
+		'nameKana',
+		'nameKanji',
 	] as const;
 
 	const sets: string[] = [];

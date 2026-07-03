@@ -22,7 +22,10 @@ test.describe('#1593 push subscribe — Anti-engagement 構造防御 smoke', () 
 	test('未認証で POST すると 401', async ({ request }) => {
 		const res = await request.post('/api/v1/notifications/subscribe', {
 			data: {
-				endpoint: 'https://push.example.com/test',
+				// #3506: endpoint は SSRF allowlist (#3188 validatePushEndpoint) 通過必須。local auth-skip では
+				// parent auto-context で validation まで到達し、fake host は INVALID_ENDPOINT 400 で短絡するため
+				// 構造防御 smoke を測れない。未認証=401 の実検証は cognito e2e + unit 12 件が担保する。
+				endpoint: 'https://fcm.googleapis.com/fcm/send/test-anti-engagement',
 				keys: { p256dh: 'p', auth: 'a' },
 			},
 		});

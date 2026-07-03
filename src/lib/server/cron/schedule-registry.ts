@@ -81,6 +81,16 @@ export const scheduleRegistry: CronJob[] = [
 		description: 'analytics 事前集計バッチ (#1693, #1639 follow-up — Pre-PMF 移行用)',
 	},
 	{
+		// #3504 (async-backup-export.md §3.2): クラウドエクスポートの背景 build。
+		// status='pending' を拾って ZIP 生成 → S3/FS 保存 → 'ready' に遷移する。
+		// 起票からの体感待ち時間を短くするため 5 分毎に回す。
+		name: 'export-build',
+		endpoint: '/api/cron/export-build',
+		cronExpression: '*/5 * * * *', // 5 分毎 (JST)
+		utcCronExpression: 'cron(0/5 * * * ? *)', // 5 分毎 (UTC、JST と同一間隔)
+		description: 'クラウドエクスポート非同期 build バッチ (#3504)',
+	},
+	{
 		// #1742: ops/analytics の DynamoDB プリセット分布画面で fetchChallengesPerTenant の
 		// N+1 GetItem を集計テーブル方式 (`PK=CHALLENGE_AGG#<date>`, TTL 365 日) へ移行。
 		// read 側 (ops-analytics-service.fetchChallengesPerTenant) は集計を優先取得し、

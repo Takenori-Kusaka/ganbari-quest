@@ -57,10 +57,19 @@ const MIN_FREE_COHORT_SIZE = 30;
 // ============================================================
 
 /**
- * テナントのサインアップ月を YYYY-MM で返す
+ * #3449: 月境界 SSOT。Date を **UTC 月** `YYYY-MM` に変換する。cohort 鍵・月列挙・churn 判定が
+ * 全て本 helper (UTC 基準) を通ることで、UTC↔ローカル混在による月境界テナント取りこぼしを防ぐ。
+ */
+export function utcMonthKey(d: Date): string {
+	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * テナントのサインアップ月を YYYY-MM (UTC) で返す。
+ * createdAt は ISO UTC 文字列のため slice(0,7) は UTC 月と一致 (#3449、utcMonthKey と同値)。
  */
 function getSignupMonth(tenant: Tenant): string {
-	return tenant.createdAt.slice(0, 7);
+	return utcMonthKey(new Date(tenant.createdAt));
 }
 
 /**
@@ -163,11 +172,15 @@ export async function getCohortAnalysis(monthsBack = 6): Promise<CohortAnalysisR
 		cohortMap.set(month, existing);
 	}
 
-	// 直近 N ヶ月分のコホートを抽出
+	// 直近 N ヶ月分のコホートを抽出。
+	// #3449: cohort 鍵 (getSignupMonth = createdAt.slice(0,7) = UTC 月) と一致させるため、月列挙も
+	// **UTC 基準**で行う (旧実装は now.getFullYear()/getMonth() のローカル月でズレ、JST 月初 = UTC 前月末に
+	// signup したテナントが key mismatch で取りこぼされ /ops の retention/ARPU/churn が境界分過小集計、
+	// Lambda(UTC)/dev(JST) で結果分岐していた)。UTC を月境界 SSOT に統一する。
 	const targetMonths: string[] = [];
 	for (let i = monthsBack - 1; i >= 0; i--) {
-		const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-		targetMonths.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+		const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+		targetMonths.push(utcMonthKey(d));
 	}
 
 	// 全体メトリクス計算
@@ -177,8 +190,8 @@ export async function getCohortAnalysis(monthsBack = 6): Promise<CohortAnalysisR
 	// ARPU: 月間売上 / 有料ユーザー数 (概算: standard=500, family=780)
 	const arpu = paidTenants.length > 0 ? calculateArpu(paidTenants) : 0;
 
-	// 月次解約率
-	const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+	// 月次解約率。#3449: 「今月」境界も UTC 基準に統一 (cohort 鍵 = UTC 月と整合)。
+	const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 	const terminatedThisMonth = tenants.filter((t) => {
 		if (t.status !== SUBSCRIPTION_STATUS.TERMINATED) return false;
 		const updated = new Date(t.updatedAt);

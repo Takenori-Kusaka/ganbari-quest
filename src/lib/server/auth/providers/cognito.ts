@@ -219,7 +219,7 @@ export class CognitoAuthProvider implements AuthProvider {
 			}
 
 			// 招待受諾
-			const result = await acceptInvite(inviteCode, effectiveUserId);
+			const result = await acceptInvite(inviteCode, effectiveUserId, identity.email);
 
 			// Cookie を消費（成功でも失敗でも消す）
 			this.clearInviteCookie(event);

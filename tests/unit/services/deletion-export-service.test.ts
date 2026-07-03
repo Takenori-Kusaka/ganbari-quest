@@ -69,6 +69,8 @@ const mockExportFamilyData = vi.fn().mockResolvedValue({
 		checklistLogs: [],
 		childAvatarItems: [],
 		dailyMissions: [],
+		rewardRedemptions: [],
+		settings: [],
 	},
 });
 

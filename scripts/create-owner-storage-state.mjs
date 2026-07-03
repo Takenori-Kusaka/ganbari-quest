@@ -14,12 +14,17 @@
 import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 
+// #3551: --email/--password で DEV_USERS の任意アカウント (parent 等) に汎用化 (#1442 使い捨て script 禁止)
 const { values } = parseArgs({
 	options: {
 		'base-url': { type: 'string', default: 'http://localhost:5174' },
 		output: { type: 'string', default: 'tmp/auth-state-owner.json' },
+		email: { type: 'string', default: 'owner@example.com' },
+		password: { type: 'string', default: 'Gq!Dev#Owner2026x' },
 	},
 });
+const EMAIL = values.email;
+const PASSWORD = values.password;
 
 const BASE_URL = values['base-url'];
 const OUTPUT = values.output;
@@ -29,7 +34,7 @@ const ctx = await browser.newContext();
 const page = await ctx.newPage();
 
 try {
-	console.log(`Logging in as owner@example.com at ${BASE_URL}/auth/login ...`);
+	console.log(`Logging in as ${EMAIL} at ${BASE_URL}/auth/login ...`);
 	await page.goto(`${BASE_URL}/auth/login`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 	await page.getByLabel('メールアドレス').waitFor({ state: 'visible', timeout: 60_000 });
 	// `type="email"` への切替を待つ (cognito-dev では initial render が type="text")
@@ -42,11 +47,11 @@ try {
 	);
 
 	await page.getByLabel('メールアドレス').click();
-	for (const ch of 'owner@example.com') {
+	for (const ch of EMAIL) {
 		await page.keyboard.type(ch, { delay: 20 });
 	}
 	await page.getByLabel('パスワード', { exact: true }).click();
-	for (const ch of 'Gq!Dev#Owner2026x') {
+	for (const ch of PASSWORD) {
 		await page.keyboard.type(ch, { delay: 20 });
 	}
 	await page.locator('button[type="submit"]:not([disabled])').first().waitFor({

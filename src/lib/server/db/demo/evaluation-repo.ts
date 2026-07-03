@@ -123,6 +123,18 @@ export async function findRestDays(
 	return [];
 }
 
+export async function findRestDaysByChild(_childId: number, _tenantId: string): Promise<RestDay[]> {
+	return [];
+}
+
+export async function insertRestDayForRestore(
+	_input: Omit<RestDay, 'id'>,
+	_tenantId: string,
+): Promise<RestDay | undefined> {
+	// Stub: demo は書き込み no-op。
+	return undefined;
+}
+
 export async function deleteByTenantId(_tenantId: string): Promise<void> {
 	// Stub: no-op
 }

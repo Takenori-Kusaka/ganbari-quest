@@ -80,6 +80,53 @@ export async function insertCheer(
 }
 
 // ============================================================
+// findAllByTenant / insertForRestore — backup export/restore 用 (#3329)
+// ============================================================
+
+export async function findAllByTenant(tenantId: string): Promise<SiblingCheer[]> {
+	const doc = getDocClient();
+	const items: Record<string, unknown>[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await doc.send(
+			new ScanCommand({
+				TableName: TABLE_NAME,
+				FilterExpression: 'begins_with(PK, :tenantPrefix) AND begins_with(SK, :skPrefix)',
+				ExpressionAttributeValues: {
+					':tenantPrefix': tenantPK('CHILD#', tenantId),
+					':skPrefix': PREFIX,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) items.push(item);
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+	const cheers = items.map(toCheer);
+	cheers.sort((a, b) => a.sentAt.localeCompare(b.sentAt));
+	return cheers;
+}
+
+export async function insertForRestore(
+	input: Omit<SiblingCheer, 'id' | 'tenantId'>,
+	tenantId: string,
+): Promise<SiblingCheer> {
+	const id = await nextId(ENTITY_NAMES.siblingCheer, tenantId);
+	const cheer: SiblingCheer = { ...input, id, tenantId };
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				// 受信 child partition に配置 (toChildId 軸、insertCheer と同じ)。
+				...siblingCheerKey(input.toChildId, id, tenantId),
+				...cheer,
+			},
+		}),
+	);
+	return cheer;
+}
+
+// ============================================================
 // findUnshownCheers — 子供宛の未表示おうえんを取得
 // ============================================================
 

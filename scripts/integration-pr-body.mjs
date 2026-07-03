@@ -150,6 +150,93 @@ export function buildContainedPrTable(prs) {
 	return `${header}\n${rows.join('\n')}`;
 }
 
+/** 含有 PR body の close 宣言を集約する section 見出し（feature PR template の SSOT、PULL_REQUEST_TEMPLATE.md）。 */
+const RELATED_ISSUE_HEADING = '## 関連 Issue';
+
+/**
+ * body から `## 関連 Issue` section（見出しの次行 〜 次の `## ` 見出し or EOF）の本体を抜き出す純粋関数。
+ * 見出しが無い body は `null` を返す（呼び出し側で全文 fallback 走査する）。
+ *
+ * @param {string} body
+ * @returns {string | null}
+ */
+function sliceRelatedIssueSection(body) {
+	const lines = body.split('\n');
+	const startIdx = lines.findIndex((l) => l.trim() === RELATED_ISSUE_HEADING);
+	if (startIdx === -1) return null;
+	let endIdx = lines.length;
+	for (let i = startIdx + 1; i < lines.length; i += 1) {
+		if ((lines[i] ?? '').startsWith('## ')) {
+			endIdx = i;
+			break;
+		}
+	}
+	return lines.slice(startIdx + 1, endIdx).join('\n');
+}
+
+/**
+ * code fence（``` ... ```）と inline code（`...`）を空白に潰す純粋関数。
+ * 引用された過去 PR の `closes #N` を集約対象から除外するための前処理（over-close 防止、#3444）。
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function stripCode(text) {
+	return text
+		.replace(/```[\s\S]*?```/g, ' ') // fenced code block（複数行）
+		.replace(/`[^`\r\n]*`/g, ' '); // inline code
+}
+
+/**
+ * 行頭の closing keyword（任意の list marker + 任意のコロン + 半角/全角 `#`）のみを拾う正規表現。
+ * - 否定文（「前 PR では closes #N と書いたが誤り」）や本文中の言及（「see closes #N」）は
+ *   行頭でない / 行頭が closing keyword でないため除外される（over-close 防止、#3444）。
+ * - GitHub closing keyword: close/closes/closed, fix/fixes/fixed, resolve/resolves/resolved。
+ * - GitHub 許容形のコロン `Closes: #N` と全角 `＃` も拾う（under-close 解消、#3444）。
+ */
+const CLOSING_KEYWORD_LINE_RE =
+	/^[ \t]*(?:[-*+][ \t]+)?(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)[ \t]*:?[ \t]*[#＃](\d+)/gim;
+
+/**
+ * #3423 / #3444: 含有 PR 群が **closing keyword で閉じると宣言した issue 番号**を
+ * over-close なく収集する純粋関数。
+ *
+ * close漏れ（fix は main 反映済だが issue が open のまま）を構造的に防ぐため、統合 PR 本文に
+ * `Closes #N` を集約し、main merge 時に GitHub auto-close を発火させる（issue-close-gate は
+ * PR-keyword close を skip 既定のため AC gate reopen も起きない）。
+ *
+ * over-close を避けるため 3 段で絞り込む（#3444 QM BLOCK 是正）:
+ *   1. **走査範囲を `## 関連 Issue` section 内に限定**（見出し 〜 次の `## ` 見出し）。
+ *      section が無い body のみ全文を fallback 走査する（後方互換）。
+ *   2. **code fence / inline code を strip** し、引用された過去 PR の `closes #N` を除外する。
+ *   3. **行頭アンカー**で、否定文 / 本文中の参照（`#3133 (#3131 監査検出)` 等）に紛れた
+ *      `... closes #N ...` を除外する。
+ *
+ * 精度のため title の `#N` ではなく PR body の closing keyword のみを採用する:
+ * - title `#N` は EPIC 親 (`[#3260 F2]`) や括弧参照 (`#3133 (#3131 監査検出)`) を含み over-close する。
+ * - 部分対応 PR は body に `関連: #N`（closing keyword なし）を書く運用のため、closing keyword
+ *   を書いた PR のみを閉じる = 部分 PR を誤って閉じない（#3404 等の partial を尊重）。
+ *
+ * @param {Array<{ number: number; headRefName?: string; labels?: Array<string|{name:string}>; body?: string }>} prs
+ * @returns {number[]} 昇順・重複排除した issue 番号
+ */
+export function extractClosedIssues(prs) {
+	const set = new Set();
+	for (const p of prs ?? []) {
+		if (classifyForContainedList(p) !== 'contained') continue;
+		const body = typeof p.body === 'string' ? p.body : '';
+		const section = sliceRelatedIssueSection(body);
+		const scope = section === null ? body : section; // section が無い body は全文 fallback
+		const scanned = stripCode(scope);
+		CLOSING_KEYWORD_LINE_RE.lastIndex = 0;
+		for (const m of scanned.matchAll(CLOSING_KEYWORD_LINE_RE)) {
+			const n = Number(m[1]);
+			if (Number.isInteger(n) && n > 0) set.add(n);
+		}
+	}
+	return [...set].sort((a, b) => a - b);
+}
+
 /**
  * back-merge / drift 状態 section のデータ行を生成する純粋関数（B-5 #2951 contract）。
  * B-5 の `back-merge` label を持つ open PR（= 未取込 hotfix）を列挙し、
@@ -228,7 +315,7 @@ export function replaceSectionBody(template, heading, replacement) {
  *
  * @param {{
  *   template: string;
- *   prs: Array<{ number: number; title: string; headRefName?: string; labels?: Array<string|{name:string}> }>;
+ *   prs: Array<{ number: number; title: string; headRefName?: string; labels?: Array<string|{name:string}>; body?: string }>;
  *   developHead: string;
  *   sinceDate?: string;
  *   untilDate?: string;
@@ -249,15 +336,31 @@ export function renderIntegrationPrBody({
 	let body = template;
 
 	// 1. 統合サマリ
+	// #3423: 含有 PR が closing keyword で閉じると宣言した issue を集約し `Closes #N` を本文に出す。
+	// main merge 時に GitHub が auto-close し close漏れ（fix merge 済だが issue open）を構造的に防ぐ。
+	const closedIssues = extractClosedIssues(prs);
+	const closesLines =
+		closedIssues.length > 0
+			? [
+					'',
+					'**自動クローズ対象 issue（#3423 close漏れ防止 — main merge 時に GitHub が auto-close）:**',
+					...closedIssues.map((n) => `Closes #${n}`),
+				]
+			: [
+					'',
+					'> 含有 PR に closing keyword（`Closes #N`）付き issue はありません（部分対応 PR / docs 等）。',
+				];
 	const summary = [
 		`- 対象 develop HEAD: \`${escapeCell(developHead) || '不明'}\``,
 		`- 統合対象期間: \`${escapeCell(sinceDate) || '前回統合 merge'}\` 〜 \`${escapeCell(untilDate) || '今回'}\``,
 		'- 統合 PR 番号: 本 PR（develop → main、release PR パターンで常時 1 本最新化）',
 		'',
-		'> 統合 PR は単一 Issue に紐づきません（`closes #<single>` を持ちません）。変更の出典は',
-		'> 「含有 PR 一覧」が担保します（#2950 AC4）。',
+		'> 統合 PR 自体は単一 Issue に紐づきませんが、含有 PR が `closes/fixes/resolves #N` で閉じると',
+		'> 宣言した issue を下記 `Closes #N` に集約し、main merge 時に一括 auto-close します（#3423）。',
+		'> 変更の出典は「含有 PR 一覧」が担保します（#2950 AC4）。',
+		...closesLines,
 		'',
-		'> _この section は B-3（#2871）が develop HEAD / merge 履歴から自動生成しています（手書きなし）。_',
+		'> _この section は B-3（#2871）/ #3423 が develop HEAD / merge 履歴 / 含有 PR body から自動生成しています（手書きなし）。_',
 	].join('\n');
 	body = replaceSectionBody(body, '## 統合サマリ', summary);
 

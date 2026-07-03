@@ -59,7 +59,11 @@ const FORBIDDEN_IMPORT_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 const STATIC_IMPORT_LINE = /^\s*(?:import|export)\b[^\n]*\bfrom\s+['"][^'"]+['"]/;
 // 動的 import / require: `import('...')` / `await import('...')` / `require('...')`
 // (route が dynamic import 経由で raw ORM を直呼びする抜け道を塞ぐ、#3152 QM BLOCK)
-const DYNAMIC_IMPORT_LINE = /\b(?:import|require)\s*\(\s*['"][^'"]+['"]\s*\)/;
+// #3184 item3: 引数の form を問わず import(/require( 呼び出し開始を検出する (literal '...' / "..." /
+// テンプレートリテラル `...` / 連結 'a'+x いずれも走査対象に含める)。実際の違反判定は
+// FORBIDDEN_IMPORT_PATTERNS (DB パス文字列) が担うため、走査対象を広げても DB パスを含まない
+// 正規の dynamic import は false-positive にならない (= 安全に検出網を広げられる)。
+const DYNAMIC_IMPORT_LINE = /\b(?:import|require)\s*\(/;
 
 /** 静的 import / 動的 import / require のいずれかで module を取り込む行を抽出する。 */
 function isImportLike(line: string): boolean {
@@ -93,24 +97,13 @@ interface Violation {
 //
 // 新規 route がここに該当した場合は **baseline に足すのではなく service / facade へ
 // 移譲する** こと。baseline の縮小 (migration) のみ歓迎、拡大は QM 指摘対象。
-const BASELINE_VIOLATIONS: Violation[] = [
-	{
-		// /api/health: SQLite (rawSqlite ping) + DynamoDB (DescribeTable) の双方を
-		// 直接叩く liveness probe。両 backend の生存確認が目的で repo facade では代替不可。
-		file: 'src/routes/api/health/+server.ts',
-		reason: '生 DB client (db/client) を route で直接 import',
-	},
-	{
-		file: 'src/routes/api/health/+server.ts',
-		reason: 'backend 固有実装 (db/dynamodb/*) を route で直接 import (facade 経由にする)',
-	},
-	{
-		// /api/v1/admin/tenant-cleanup: cron 駆動の孤児テナント掃除バッチ。
-		// DynamoDB Scan を直接実行する保守処理で、service 移譲は別 follow-up。
-		file: 'src/routes/api/v1/admin/tenant-cleanup/+server.ts',
-		reason: 'backend 固有実装 (db/dynamodb/*) を route で直接 import (facade 経由にする)',
-	},
-];
+// #3184 item4: 旧 baseline 3 件 (health probe ×2 / tenant-cleanup Scan) は facade 移譲で解消済。
+//   - /api/health → db/probe.ts facade (probeSqlite / probeDynamoDB) 経由
+//   - /api/v1/admin/tenant-cleanup → auth repo facade (listAllTenants) + client filter 経由
+// baseline は空 = route↔DB 境界違反ゼロ。新規 route が違反したら baseline に足さず facade / service
+// へ移譲すること (append は #3184 item3 の length-freeze test が機械禁止)。
+const FROZEN_BASELINE_COUNT = 0; // #3184 item3: 以後 append 禁止 (増やすなら facade 移譲が先)
+const BASELINE_VIOLATIONS: Violation[] = [];
 
 function violationKey(v: Violation): string {
 	return `${v.file}::${v.reason}`;
@@ -194,5 +187,25 @@ describe('#3152 Phase 2: route ↔ DB 境界の fitness function (ADR-0061 / CLA
 		expect(DYNAMIC_IMPORT_LINE.test("const { db } = await import('$lib/server/db/client');")).toBe(
 			true,
 		);
+	});
+
+	it('#3184 item3: テンプレートリテラル / 連結形の dynamic import も走査対象に含める (難読化 import 検出強化)', () => {
+		const obfuscatedSamples = [
+			'const m = await import(`$lib/server/db/client`);', // backtick (full path)
+			"const m = await import('$lib/server/db/' + 'client');", // 連結 (開始引数あり)
+			'const m = await import(modPath);', // computed (path は別変数)
+		];
+		for (const sample of obfuscatedSamples) {
+			expect(isImportLike(sample), `走査対象から漏れている: ${sample}`).toBe(true);
+		}
+		// backtick で full DB パスを書いた難読化は禁止パターンにもマッチする (検出される)
+		const backtickFullPath = 'const m = await import(`$lib/server/db/client`);';
+		expect(FORBIDDEN_IMPORT_PATTERNS.some((p) => p.pattern.test(backtickFullPath))).toBe(true);
+	});
+
+	it('#3184 item3: baseline は append 禁止 (length-freeze、増やすなら facade 移譲が先)', () => {
+		// baseline への新規追加 (= 抜け道の黙認) を機械禁止する。違反が出たら facade / service へ
+		// 移譲して baseline を増やさない。縮小 (migration) のみ許容。
+		expect(BASELINE_VIOLATIONS.length).toBeLessThanOrEqual(FROZEN_BASELINE_COUNT);
 	});
 });

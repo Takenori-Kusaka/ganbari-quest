@@ -30,6 +30,21 @@ export async function insert(
 	return { id: 0 };
 }
 
+export async function findAllByChild(
+	_childId: number,
+	_tenantId: string,
+): Promise<ChildCustomVoice[]> {
+	return [];
+}
+
+export async function insertForRestore(
+	_voice: Omit<ChildCustomVoice, 'id'>,
+	_tenantId: string,
+): Promise<{ id: number }> {
+	// Stub: return dummy id
+	return { id: 0 };
+}
+
 export async function setActive(
 	_id: number,
 	_childId: number,

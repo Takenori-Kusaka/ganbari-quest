@@ -11,6 +11,7 @@ import NativeSelect from '$lib/ui/primitives/NativeSelect.svelte';
 let { data } = $props();
 
 let inviteRole = $state<'parent' | 'child'>('parent');
+let inviteEmail = $state('');
 let inviteChildId = $state<number | '' | undefined>(undefined);
 let creating = $state(false);
 let inviteLink = $state('');
@@ -33,9 +34,13 @@ async function createInvite() {
 	qrDataUrl = '';
 	copied = false;
 	try {
-		const body: { role: string; childId?: number } = { role: inviteRole };
+		const body: { role: string; childId?: number; email?: string } = { role: inviteRole };
 		if (inviteRole === 'child' && inviteChildId) {
 			body.childId = inviteChildId;
+		}
+		// #3549 判断2: 宛先 email (任意)。設定時は受諾者 email 束縛が有効になる
+		if (inviteEmail.trim()) {
+			body.email = inviteEmail.trim();
 		}
 		const res = await fetch('/api/v1/admin/invites', {
 			method: 'POST',
@@ -311,7 +316,8 @@ const roleLabel = (role: string) => {
 		{/snippet}
 	</Card>
 
-	<!-- 招待リンク作成 -->
+	<!-- 招待リンク作成 (owner 専用、#3549 PO 決裁 (a): 招待の発行は owner のみ。API 側 guard と対) -->
+	{#if $page.data.currentRole === 'owner'}
 	<Card variant="default" padding="md" data-tutorial="members-invite">
 		{#snippet children()}
 		<h3 class="text-lg font-semibold text-[var(--color-text-secondary)] mb-3">{MEMBERS_LABELS.inviteSectionTitle}</h3>
@@ -330,6 +336,14 @@ const roleLabel = (role: string) => {
 					/>
 				{/snippet}
 			</FormField>
+			<FormField
+				label={MEMBERS_LABELS.inviteEmailLabel}
+				id="invite-email"
+				type="email"
+				hint={MEMBERS_LABELS.inviteEmailHint}
+				bind:value={inviteEmail}
+				class="flex-1 min-w-[200px]"
+			/>
 			{#if inviteRole === 'child' && availableChildren.length > 0}
 				<FormField label={MEMBERS_LABELS.inviteChildLabel} class="flex-1 min-w-[120px]">
 					{#snippet children()}
@@ -399,6 +413,7 @@ const roleLabel = (role: string) => {
 		{/if}
 		{/snippet}
 	</Card>
+	{/if}
 
 	<!-- 保留中の招待 -->
 	{#if data.invites.length > 0}
@@ -417,13 +432,15 @@ const roleLabel = (role: string) => {
 								{MEMBERS_LABELS.inviteExpiresPrefix}{new Date(invite.expiresAt).toLocaleDateString('ja-JP')}
 							</span>
 						</div>
-						<Button
-							onclick={() => revokeInvite(invite.inviteCode)}
-							variant="danger"
-							size="sm"
-						>
-							{MEMBERS_LABELS.inviteRevokeButton}
-						</Button>
+						{#if $page.data.currentRole === 'owner'}
+							<Button
+								onclick={() => revokeInvite(invite.inviteCode)}
+								variant="danger"
+								size="sm"
+							>
+								{MEMBERS_LABELS.inviteRevokeButton}
+							</Button>
+						{/if}
 					</div>
 				{/each}
 			</div>

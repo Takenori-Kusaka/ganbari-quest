@@ -338,6 +338,38 @@ export async function insertOverride(
 	return db.insert(checklistOverrides).values(input).returning().get();
 }
 
+/** #3329 backup: child の全日次 override (日付不問、export 用)。 */
+export async function findOverridesByChild(
+	childId: number,
+	_tenantId: string,
+): Promise<ChecklistOverride[]> {
+	return db
+		.select()
+		.from(checklistOverrides)
+		.where(eq(checklistOverrides.childId, childId))
+		.orderBy(checklistOverrides.targetDate)
+		.all();
+}
+
+/** #3329 backup restore 用: createdAt を保全して日次 override を復元する (childId は呼び出し側が解決済)。 */
+export async function insertOverrideForRestore(
+	input: Omit<ChecklistOverride, 'id'>,
+	_tenantId: string,
+): Promise<ChecklistOverride> {
+	return db
+		.insert(checklistOverrides)
+		.values({
+			childId: input.childId,
+			targetDate: input.targetDate,
+			action: input.action,
+			itemName: input.itemName,
+			icon: input.icon,
+			createdAt: input.createdAt,
+		})
+		.returning()
+		.get();
+}
+
 /** #2845 B1: childId 所有権検証付き (composite key)。不一致なら affected 0 の no-op。 */
 export async function deleteOverride(
 	childId: number,

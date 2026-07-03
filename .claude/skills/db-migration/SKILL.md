@@ -31,6 +31,14 @@ description: Use when changing database schema (adding/modifying tables, columns
 - [ ] GSI の追加は最小限（既存 GSI で対応できないか先に検討）
 - [ ] 新エンティティの ID 採番は `counter.ts` の `nextId()` を使用
 
+### 4. startup migration の fail-fast 落とし穴（#3286 infra-1）
+
+`applyLazyStartupMigrations` は **try/catch + rollback + 再 throw（fail-fast）** の意図的設計。冪等 / skip 可能な migration は安全だが、**確定的に throw する migration（例: 前提行不在で例外）を仕込むと cold-start でプロセスが brick する**（起動のたびに同じ例外で落ち続ける）。
+
+- [ ] startup migration は **冪等**（再実行・部分適用済でも成功）かつ **前提不在時は skip**（throw でなく no-op）にする
+- [ ] 不可逆 / 失敗時に手当てが要る migration は startup ではなく **明示的な運用手順（runbook）** に置く
+- [ ] migration が throw しうる場合、cold-start brick の影響範囲（全リクエスト 5xx）を許容できるか事前評価する
+
 ## 出力フォーマット
 
 ```markdown

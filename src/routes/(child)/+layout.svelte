@@ -160,6 +160,7 @@ let stampDialogOpen = $state(false);
 // #2353 設計欠陥 6: PIN gate 初心者導線 dialog
 // data.pinGateOnboardingSeen が false (settings 未保存) のとき初回 mount 時に開く。
 // 「今後表示しない」checkbox で確認のうえ閉じる → POST /api/v1/settings/pin-gate-onboarding。
+// svelte-ignore state_referenced_locally
 let pinGateOnboardingOpen = $state(!data.pinGateOnboardingSeen && !isBaby);
 let dontShowAgainChecked = $state(true);
 

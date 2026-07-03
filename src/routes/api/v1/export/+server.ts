@@ -4,14 +4,14 @@ import { json } from '@sveltejs/kit';
 
 import { AUTH_LICENSE_STATUS } from '$lib/domain/constants/auth-license-status';
 import { todayDateJST } from '$lib/domain/date-utils';
+import type { ExportData } from '$lib/domain/export-format';
 import { PLAN_GATE_LABELS } from '$lib/domain/labels';
 import { requireRole } from '$lib/server/auth/factory';
 import { apiError } from '$lib/server/errors';
 import { logger } from '$lib/server/logger';
+import { BackupSizeLimitError, buildFullBackupZip } from '$lib/server/services/backup-archive';
 import { exportFamilyData } from '$lib/server/services/export-service';
 import { getPlanLimits, resolveFullPlanTier } from '$lib/server/services/plan-limit-service';
-import { listFiles, readFile } from '$lib/server/storage';
-import { tenantPrefix } from '$lib/server/storage-keys';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
@@ -59,57 +59,27 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			},
 		});
 	} catch (err) {
+		// #3376 fail-closed: 同梱対象が上限超過のとき、不完全な部分バックアップを返さずユーザーに明示する。
+		if (err instanceof BackupSizeLimitError) {
+			return apiError('VALIDATION_ERROR', err.userMessage);
+		}
 		logger.error('[export] エクスポート失敗', { error: String(err) });
 		return apiError('INTERNAL_ERROR', 'エクスポートに失敗しました');
 	}
 };
 
-const MAX_ZIP_SIZE = 100 * 1024 * 1024; // 100MB
-
+/**
+ * 全体バックアップ ZIP をレスポンスにして返す。ZIP 構築 (data.json + 静的ファイル + manifest +
+ * per-entry 圧縮) は #3376 で `backup-archive.buildFullBackupZip` に共通化済 (ローカル DL と
+ * クラウド full export で同一形式を共有)。
+ */
 async function buildZipResponse(
-	exportData: unknown,
+	exportData: ExportData,
 	tenantId: string,
 	dateStr: string,
 	compact: boolean,
 ): Promise<Response> {
-	const { zipSync, strToU8 } = await import('fflate');
-
-	const files: Record<string, Uint8Array> = {};
-
-	// 1. data.json
-	const jsonStr = compact ? JSON.stringify(exportData) : JSON.stringify(exportData, null, 2);
-	files['data.json'] = strToU8(jsonStr);
-
-	let totalSize = files['data.json'].length;
-
-	// 2. 静的ファイル（S3/ローカルストレージ）
-	try {
-		const prefix = tenantPrefix(tenantId);
-		const fileKeys = await listFiles(prefix);
-
-		for (const key of fileKeys) {
-			if (totalSize >= MAX_ZIP_SIZE) {
-				logger.warn('[export] ZIP サイズ上限に到達、残りファイルをスキップ', {
-					context: { tenantId, totalSize },
-				});
-				break;
-			}
-
-			const fileData = await readFile(key);
-			if (fileData) {
-				// tenants/{tenantId}/avatars/1/xxx.png → avatars/1/xxx.png
-				const relativePath = key.replace(prefix, '');
-				files[relativePath] = new Uint8Array(fileData.data);
-				totalSize += fileData.data.length;
-			}
-		}
-	} catch (err) {
-		logger.warn('[export] 静的ファイル取得に失敗（JSONのみでエクスポート）', {
-			error: String(err),
-		});
-	}
-
-	const zipData = zipSync(files);
+	const zipData = await buildFullBackupZip(tenantId, exportData, compact);
 
 	return new Response(zipData.buffer as ArrayBuffer, {
 		status: 200,

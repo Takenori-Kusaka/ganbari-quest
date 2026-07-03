@@ -86,7 +86,9 @@ export interface TurnAction {
 }
 
 /** バトル結果 */
-export type BattleOutcome = 'win' | 'lose';
+// runtime 配列は DSQL daily_battles.outcome の CHECK 生成 SSOT (#3424、手書き二重化禁止)
+export const BATTLE_OUTCOMES = ['win', 'lose'] as const;
+export type BattleOutcome = (typeof BATTLE_OUTCOMES)[number];
 
 /** バトル結果データ */
 export interface BattleResult {
@@ -105,7 +107,9 @@ export interface BattleResult {
 // ============================================================
 
 /** 日次バトル状態 */
-export type DailyBattleStatus = 'pending' | 'completed';
+// runtime 配列は DSQL daily_battles.status の CHECK 生成 SSOT (#3424)
+export const DAILY_BATTLE_STATUSES = ['pending', 'completed'] as const;
+export type DailyBattleStatus = (typeof DAILY_BATTLE_STATUSES)[number];
 
 /** 日次バトル記録 */
 export interface DailyBattle {

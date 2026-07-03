@@ -131,7 +131,7 @@ export async function insertTemplate(
 		completionBonus: input.completionBonus ?? 10,
 		timeSlot: input.timeSlot ?? 'anytime',
 		isActive: input.isActive ?? 1,
-		isArchived: 0,
+		isArchived: input.isArchived ?? 0, // #3505: import round-trip で archive 状態を保全
 		archivedReason: null,
 		createdAt: now,
 		updatedAt: now,
@@ -559,6 +559,45 @@ export async function findOverrides(
 	);
 
 	return (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistOverride);
+}
+
+/** #3329 backup: child の全日次 override (日付不問、全 OVERRIDE# prefix を Query)。 */
+export async function findOverridesByChild(
+	childId: number,
+	tenantId: string,
+): Promise<ChecklistOverride[]> {
+	const result = await getDocClient().send(
+		new QueryCommand({
+			TableName: TABLE_NAME,
+			KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+			ExpressionAttributeValues: {
+				':pk': childPK(childId, tenantId),
+				':prefix': checklistOverridePrefix(),
+			},
+		}),
+	);
+	const rows = (result.Items ?? []).map((item) => stripKeys(item) as unknown as ChecklistOverride);
+	rows.sort((a, b) => a.targetDate.localeCompare(b.targetDate));
+	return rows;
+}
+
+/** #3329 backup restore 用: createdAt を保全して日次 override を復元する。 */
+export async function insertOverrideForRestore(
+	input: Omit<ChecklistOverride, 'id'>,
+	tenantId: string,
+): Promise<ChecklistOverride> {
+	const id = await nextId(ENTITY_NAMES.checklistOverride, tenantId);
+	const override: ChecklistOverride = { ...input, id };
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...checklistOverrideKey(input.childId, input.targetDate, id, tenantId),
+				...override,
+			},
+		}),
+	);
+	return override;
 }
 
 export async function insertOverride(

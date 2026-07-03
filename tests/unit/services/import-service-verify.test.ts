@@ -120,6 +120,8 @@ function makeExportData(overrides: Partial<ExportData> = {}): ExportData {
 			checklistLogs: [],
 			childAvatarItems: [],
 			dailyMissions: [],
+			rewardRedemptions: [],
+			settings: [],
 		},
 		...overrides,
 	} as ExportData;

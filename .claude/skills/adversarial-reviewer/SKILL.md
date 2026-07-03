@@ -99,6 +99,10 @@ dispatch 元 (QM Orchestrator) は以下を context として与える:
 
 これらは Echoing (arXiv:2511.09710) の代表的 symptom。**「反対理由を強制的に 3 つ書く」が本 skill の存在理由**。
 
+## 生産 ≠ 起票 (accepted-residual gate、#3487 / ADR-0061 原則 5)
+
+本 skill の責務は **3 件の反対理由を生産する**ことであり (echoing 抑止のため不変)、**3 件をそのまま Issue 化することではない**。生産された 3 件は下流の audit-team.md §3.6 filter で `{blocking / class-lock 対象 / accepted-residual}` に分類される。Pre-PMF で受容する marginal な finding (dev-only 診断値の意味統一 / comparator 整形 / 投機的網羅性 等) は **Issue 化せず統合 PR 本文の「Accepted residual (Pre-PMF)」に記録**する。これにより「1 PR ≈ 1 follow-up」の treadmill (merge 行為が generator) を断つ。**must_object_count 3 は維持** (出力先を変えるだけ、echoing 抑止意図は不変)。ガード: severity ≥ high は residual 化禁止 (必ず blocking か Issue)。根拠は ADR-0061 §決定 原則 5 / #3487 deep-research (ISTQB pesticide-paradox / Bach 停止ヒューリスティクス)。
+
 ## 根拠
 
 - **ADR-0056**: QM Orchestrator role drift の構造的対処 (本 skill の設計根拠 SSOT)

@@ -56,6 +56,14 @@ export async function findById(id: number, _tenantId: string): Promise<ChildChal
 	return DEMO_CHILD_CHALLENGES.find((c) => c.id === id);
 }
 
+export async function insertForRestore(
+	input: Omit<ChildChallenge, 'id'>,
+	_tenantId: string,
+): Promise<ChildChallenge> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return { ...input, id: 0 };
+}
+
 export async function insert(
 	input: InsertChildChallengeInput,
 	_tenantId: string,

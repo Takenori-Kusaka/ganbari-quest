@@ -172,6 +172,34 @@ export async function countRestDaysInMonth(
 	return rows.length;
 }
 
+/** #3329 backup: child の全おやすみ日 (月不問、export 用)。 */
+export async function findRestDaysByChild(childId: number, _tenantId: string) {
+	return db
+		.select()
+		.from(restDays)
+		.where(eq(restDays.childId, childId))
+		.orderBy(restDays.date)
+		.all();
+}
+
+/** #3329 backup restore 用: createdAt を保全しておやすみ日を復元する。 */
+export async function insertRestDayForRestore(
+	input: { childId: number; date: string; reason: string; createdAt: string },
+	_tenantId: string,
+) {
+	return db
+		.insert(restDays)
+		.values({
+			childId: input.childId,
+			date: input.date,
+			reason: input.reason,
+			createdAt: input.createdAt,
+		})
+		.onConflictDoNothing()
+		.returning()
+		.get();
+}
+
 /** 子供のおやすみ日一覧を取得 */
 export async function findRestDays(childId: number, yearMonth: string, _tenantId: string) {
 	return db

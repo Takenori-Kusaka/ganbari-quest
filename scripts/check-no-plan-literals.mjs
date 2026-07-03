@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// @ts-nocheck — plain Node lint script。test (labels-plan-literal-ratchet #3359) が checkFile を import
+// するため checkJs:true の svelte-check 型グラフに入るが、本 script は型付け対象外 (scripts/ 他 lint と同方針)。
 /**
  * scripts/check-no-plan-literals.mjs (#972 + Phase 5 F1 #1918)
  *

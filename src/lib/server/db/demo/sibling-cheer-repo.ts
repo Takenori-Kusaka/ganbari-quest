@@ -20,6 +20,18 @@ export async function insertCheer(
 	};
 }
 
+export async function findAllByTenant(tenantId: string): Promise<SiblingCheer[]> {
+	return DEMO_SIBLING_CHEERS.filter((c) => c.tenantId === tenantId).slice();
+}
+
+export async function insertForRestore(
+	input: Omit<SiblingCheer, 'id' | 'tenantId'>,
+	tenantId: string,
+): Promise<SiblingCheer> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return { ...input, id: 0, tenantId };
+}
+
 export async function findUnshownCheers(
 	toChildId: number,
 	_tenantId: string,

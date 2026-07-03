@@ -6,6 +6,7 @@
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import { getRepos } from './factory';
 import type {
+	ChecklistOverride,
 	InsertChecklistOverrideInput,
 	InsertChecklistTemplateInput,
 	InsertChecklistTemplateItemInput,
@@ -130,6 +131,19 @@ export async function findOverrides(childId: number, date: string, tenantId: str
 
 export async function insertOverride(input: InsertChecklistOverrideInput, tenantId: string) {
 	return getRepos().checklist.insertOverride(input, tenantId);
+}
+
+/** #3329 backup: child の全日次 override (日付不問、export 用)。 */
+export async function findOverridesByChild(childId: number, tenantId: string) {
+	return getRepos().checklist.findOverridesByChild(childId, tenantId);
+}
+
+/** #3329 backup restore 用: createdAt を保全して日次 override を復元する。 */
+export async function insertOverrideForRestore(
+	input: Omit<ChecklistOverride, 'id'>,
+	tenantId: string,
+) {
+	return getRepos().checklist.insertOverrideForRestore(input, tenantId);
 }
 
 // #2845 B1: childId 所有権検証付き (composite key)

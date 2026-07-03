@@ -2,7 +2,8 @@
 // Owner 削除前の情報取得（他メンバー一覧、移譲先候補）
 
 import type { RequestHandler } from '@sveltejs/kit';
-import { json } from '@sveltejs/kit';
+import { isHttpError, json } from '@sveltejs/kit';
+import { requireRole } from '$lib/server/auth/guards';
 import { getOwnerDeletionInfo } from '$lib/server/services/account-deletion-service';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -15,8 +16,15 @@ export const GET: RequestHandler = async ({ locals }) => {
 
 	const tenantId = context.tenantId;
 
-	if (context.role !== 'owner') {
-		return json({ error: 'owner のみ取得できます' }, { status: 403 });
+	// #3556: role 判定は requireRole seam (#3528 fitness#3) に統一。
+	// response 形は既存 client 互換の {error} JSON を維持する
+	try {
+		requireRole(locals, ['owner']);
+	} catch (e) {
+		if (isHttpError(e, 403)) {
+			return json({ error: 'owner のみ取得できます' }, { status: 403 });
+		}
+		throw e;
 	}
 
 	try {

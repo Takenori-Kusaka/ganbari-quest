@@ -146,6 +146,116 @@ export async function insertCard(
 }
 
 // ============================================================
+// findCardsByChild / findEntriesByCardId — backup export 用 (#3329)
+// ============================================================
+
+export async function findCardsByChild(childId: number, tenantId: string): Promise<StampCard[]> {
+	const doc = getDocClient();
+	const items: Record<string, unknown>[] = [];
+	let lastKey: Record<string, unknown> | undefined;
+	do {
+		const result = await doc.send(
+			new QueryCommand({
+				TableName: TABLE_NAME,
+				KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
+				ExpressionAttributeValues: {
+					':pk': childPK(childId, tenantId),
+					':prefix': CARD_PREFIX,
+				},
+				ExclusiveStartKey: lastKey,
+			}),
+		);
+		for (const item of result.Items ?? []) items.push(item);
+		lastKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+	} while (lastKey);
+	const cards = items.map(toCard);
+	cards.sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+	return cards;
+}
+
+export async function findEntriesByCardId(
+	cardId: number,
+	tenantId: string,
+): Promise<
+	Array<{
+		stampMasterId: number | null;
+		omikujiRank: string | null;
+		slot: number;
+		loginDate: string;
+		earnedAt: string;
+	}>
+> {
+	const items = await queryCardEntries(cardId, tenantId);
+	const rows = items.map((item) => {
+		const stripped = stripKeys(item) as Record<string, unknown>;
+		return {
+			stampMasterId: (stripped.stampMasterId ?? null) as number | null,
+			omikujiRank: (stripped.omikujiRank ?? null) as string | null,
+			slot: stripped.slot as number,
+			loginDate: stripped.loginDate as string,
+			earnedAt: (stripped.earnedAt ?? '') as string,
+		};
+	});
+	rows.sort((a, b) => a.slot - b.slot);
+	return rows;
+}
+
+// ============================================================
+// insertCardForRestore / insertEntryForRestore — backup restore 用 (#3329、全フィールド保全)
+// ============================================================
+
+export async function insertCardForRestore(
+	input: Omit<StampCard, 'id'>,
+	tenantId: string,
+): Promise<StampCard> {
+	const id = await nextId(ENTITY_NAMES.stampCard, tenantId);
+	const card: StampCard = { ...input, id };
+	await getDocClient().send(
+		new PutCommand({
+			TableName: TABLE_NAME,
+			Item: {
+				...stampCardKey(input.childId, input.weekStart, tenantId),
+				...card,
+			},
+		}),
+	);
+	return card;
+}
+
+export async function insertEntryForRestore(
+	input: {
+		cardId: number;
+		stampMasterId: number | null;
+		omikujiRank: string | null;
+		slot: number;
+		loginDate: string;
+		earnedAt: string;
+	},
+	tenantId: string,
+): Promise<void> {
+	try {
+		await getDocClient().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: {
+					...stampEntryKey(input.cardId, input.slot, tenantId),
+					cardId: input.cardId,
+					stampMasterId: input.stampMasterId,
+					omikujiRank: input.omikujiRank,
+					slot: input.slot,
+					loginDate: input.loginDate,
+					earnedAt: input.earnedAt,
+				},
+				ConditionExpression: 'attribute_not_exists(PK)',
+			}),
+		);
+	} catch (e) {
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return;
+		throw e;
+	}
+}
+
+// ============================================================
 // findEntriesWithMasterByCardId — card の entry 一覧 (master JOIN 付き)
 // ============================================================
 

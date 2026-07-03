@@ -215,15 +215,17 @@ export const NON_CANONICAL_ADMIN_RESOURCES = {
 	challenges: {
 		route: '/admin/challenges',
 		/**
-		 * challenge-set は marketplace type (#2369、5 type の 1 つ) で、challenges 管理画面も per-child-tabs
-		 * + ChildSelectionDialog 取込 binding (`?import=<presetId>` auto-open) を実装済み。よって binding /
-		 * marketplace 自体は備えているが、ヘッダーが `AdminResourceHeader` ではなく inline `<h2>` で、正準
-		 * スロット縦順 (search / list 等の testid 規約) にも未移行のため、現時点では #3096 正準契約の scope 外。
-		 * canonical 化 (AdminResourceHeader + 正準スロットへの移行) は #3096 系の大規模 UI refactor で別途判断
-		 * する。本除外で「未移行の特例」として明示化する (silent drift にしない)。
+		 * challenge-set は marketplace type (#2369、5 type の 1 つ) だが、#3195/#3227 で取込型から外れ、
+		 * challenges 管理画面は ChildSelectionDialog 取込 binding (`?import=<presetId>` auto-open) も
+		 * marketplace 取込 CTA も持たない **読み取り専用ビュー** (チャレンジはアプリが自動生成し、親は閲覧 +
+		 * 削除のみ) に再構成済み。よって import binding 自体が非対象であり、加えてヘッダーが
+		 * `AdminResourceHeader` ではなく inline で、正準スロット縦順 (search / list 等の testid 規約) にも
+		 * 未移行のため、#3096 正準契約の scope 外。canonical 化 (AdminResourceHeader + 正準スロットへの移行)
+		 * は #3096 系の大規模 UI refactor で別途判断する。本除外で「未移行の特例」として明示化する
+		 * (silent drift にしない)。
 		 */
 		reason:
-			'challenge-set は marketplace type (#2369) で per-child-tabs + ChildSelectionDialog 取込 binding を持つが、AdminResourceHeader + 正準スロット縦順に未移行のため現時点で正準契約 scope 外。canonical 化は #3096 系の大規模 UI refactor で別途判断。',
+			'challenge-set は marketplace type (#2369) だが #3195/#3227 で取込型から外れ、admin/challenges は ChildSelectionDialog 取込 binding も取込 CTA も持たない読み取り専用ビュー (自動生成チャレンジの閲覧 + 削除のみ)。import binding 非対象に加え AdminResourceHeader + 正準スロット縦順にも未移行のため正準契約 scope 外。canonical 化は #3096 系の大規模 UI refactor で別途判断。',
 	},
 	rules: {
 		route: '/admin/settings/rules',

@@ -401,6 +401,18 @@ export interface InsertChildActivityInput {
 	isMainQuest?: number;
 	sourcePresetId?: string | null;
 	priority?: ActivityPriority;
+	// #3358: backup → restore round-trip で表示状態 / 並び順 / アーカイブ状態を保全する
+	// (省略時は schema default = 表示 / 並び順 0 / 非アーカイブ)。archived 活動が import 後に
+	// active へ復活する silent なデータ破綻 (第10回監査 data-5) を防ぐ。
+	isVisible?: number;
+	sortOrder?: number;
+	isArchived?: number;
+	archivedReason?: string | null;
+	// #3422: 親が設定する 1 日上限 / 読み仮名 / 漢字表記。child_activities 列は存在するが
+	// 旧 service が drop しており常に null (= ProdDashboardSections で dailyLimit ?? 1 固定) だった。
+	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface UpdateChildActivityInput {
@@ -411,6 +423,10 @@ export interface UpdateChildActivityInput {
 	triggerHint?: string | null;
 	isMainQuest?: number;
 	priority?: ActivityPriority;
+	// #3422: dailyLimit / nameKana / nameKanji の編集を persist する (旧実装は silent drop)。
+	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface InsertActivityLogInput {
@@ -504,6 +520,11 @@ export interface InsertChecklistTemplateInput {
 	completionBonus?: number;
 	timeSlot?: string;
 	isActive?: number;
+	// #3505 (#3358 と同一クラス): backup → restore round-trip で archive 状態を保全する
+	// (省略時は schema default = 非アーカイブ)。archived template が import 後に active へ復活する
+	// silent なデータ破綻 (第11回監査 tech-1) を防ぐ。export 契約 (ExportChecklistTemplate) が
+	// 出力するのは isArchived のみのため archivedReason は本 input の対象外。
+	isArchived?: number;
 	// #1755 (#1709-A): kind 削除 — 持ち物純化
 	// #1254 G1: マーケットプレイスプリセット由来の識別子
 	sourcePresetId?: string | null;
@@ -792,6 +813,11 @@ export interface ChildChallenge {
 	updatedAt: string;
 }
 
+// #3508 tech-2: auto:weekly 自動週次チャレンジの sourceTemplateId 既定値 SSOT。
+// getOrCreateWeeklyAuto の fallback 既定が backend 間で相違していた (SQLite='auto:weekly' /
+// DynamoDB=null) ため、両 backend の default を本定数に集約して統一する。
+export const AUTO_WEEKLY_SOURCE_TEMPLATE_ID = 'auto:weekly';
+
 export interface InsertChildChallengeInput {
 	childId: number;
 	title: string;
@@ -999,6 +1025,13 @@ export interface InsertCertificateInput {
 
 export type CloudExportType = 'template' | 'full';
 
+/**
+ * 非同期 build のライフサイクル状態 (async-backup-export.md §3.1)。
+ * pending (build 待ち) → building (cron が build 中) → ready (DL 可) / failed (build 失敗)。
+ * 本機構導入前に作成された既存レコードは lazy migration で 'ready' に backfill される。
+ */
+export type CloudExportStatus = 'pending' | 'building' | 'ready' | 'failed';
+
 export interface CloudExportRecord {
 	id: number;
 	tenantId: string;
@@ -1012,6 +1045,15 @@ export interface CloudExportRecord {
 	downloadCount: number;
 	maxDownloads: number;
 	createdAt: string;
+	/** 非同期 build 状態 (#3504 / async-backup-export.md §3.1)。既存行は 'ready' backfill。 */
+	status: CloudExportStatus;
+	/** status='failed' 時の失敗理由 (それ以外は null)。 */
+	failureReason: string | null;
+	/**
+	 * #3509 QM 是正: 'building' 状態に遷移した時刻 (ISO)。それ以外の状態では null。
+	 * cron worker が build 中に kill/timeout した場合の stale 検知 (reclaimStaleBuildingExports) に使う。
+	 */
+	buildStartedAt: string | null;
 }
 
 export interface InsertCloudExportInput {
@@ -1024,6 +1066,18 @@ export interface InsertCloudExportInput {
 	description?: string | null;
 	expiresAt: string;
 	maxDownloads?: number;
+	/** 省略時は 'pending' (async build 起票)。既存同期経路との互換のため任意。 */
+	status?: CloudExportStatus;
+}
+
+/** updateStatus の副次更新値 (async-backup-export.md §3.2)。 */
+export interface UpdateCloudExportStatusInput {
+	/** status='failed' の理由。ready/building 遷移では null を渡して残渣を消す。 */
+	failureReason?: string | null;
+	/** build 完了時に確定する ZIP/JSON バイト数。 */
+	fileSizeBytes?: number;
+	/** build 完了時に確定する説明文。 */
+	description?: string | null;
 }
 
 // #2295 (EPIC #2294 ①): TenantEvent / InsertTenantEventInput / UpdateTenantEventInput /

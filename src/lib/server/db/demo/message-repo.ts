@@ -3,6 +3,14 @@
 
 import type { InsertParentMessageInput, ParentMessage } from '../types';
 
+export async function insertForRestore(
+	input: Omit<ParentMessage, 'id'>,
+	_tenantId: string,
+): Promise<ParentMessage> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return { ...input, id: 0 };
+}
+
 export async function insertMessage(
 	input: InsertParentMessageInput,
 	_tenantId: string,

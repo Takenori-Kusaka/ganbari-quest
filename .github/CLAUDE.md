@@ -7,7 +7,7 @@
 - 新規チケットは `gh issue create`。`docs/tickets/` への新規ファイル禁止（レガシー、参照のみ）
 - テンプレート: `.github/ISSUE_TEMPLATE/dev_ticket.yml` / `bug_report.yml` / `feature_request.yml`
 - ラベル: `type:feat|fix|refactor|infra|design|docs|marketing|test` / `priority:critical|high|medium|low` / `status:blocked|in-progress|on-hold` / `area:auth|billing|child-ui|admin|lp|db`
-- PR / コミットでの自動クローズは **`Closes #<num>` / `Fixes #<num>`（closing keyword の直後に `#番号`）が default branch（= `main`）に到達した時のみ**発火する。**conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#<num>`）は Issue 参照であって closing keyword ではなく、merge しても auto-close しない**。develop 二層では base=develop（非 default branch）かつ commit 規約が conventional-commit のため、Issue は基本的に main 反映でも auto-close されない。close 運用の SSOT は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)（手動 `- [x]` close + AC gate、または明示 `Closes #N` keyword 付与）
+- PR / コミットでの自動クローズは **`Closes #<num>` / `Fixes #<num>`（closing keyword の直後に `#番号`）が default branch（= `main`）に到達した時のみ**発火する。**conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#<num>`）は Issue 参照であって closing keyword ではなく、merge しても auto-close しない**。develop 二層では base=develop（非 default branch）かつ commit 規約が conventional-commit のため、**個別 PR の develop merge では Issue は auto-close されない**。ただし **develop→main 統合 PR は含有 PR の `## 関連 Issue` の close 宣言（`closes/fixes/resolves #N`）を `integration-pr-body.mjs` が `Closes #N` に集約し、main 反映で一括 auto-close する**（#3423。over-close 防止のため section 内 行頭 closing keyword のみ集約、#3444。issue-close-gate は PR-keyword close を skip するため reopen storm は起きない）。close 運用の SSOT は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)（個別 close は手動 `- [x]` close + AC gate、統合 PR で集約 `Closes #N` 一括 close）
 
 ## Issue 起票ルール（CRITICAL — ADR-0003）
 
@@ -83,7 +83,7 @@ docs/ 配下の変更ファイル数が **50 超で QM 警告、100 超で BLOCK
 | `gh issue close` / GitHub UI ボタンで手動 close | **AC 検証 gate を通す** (`- [ ]` 残存で reopen) |
 | `wontfix` / `duplicate` ラベル付き close | **skip** (従来通り) |
 
-> **develop 二層での実態（#3119 / #3123）**: 上 2 行の auto-close 経路は **`Closes #N` / `Fixes #N` closing keyword が main に到達した場合のみ**発火する。本リポジトリの commit 規約は conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#N`）で closing keyword を含まないため、**develop 二層の通常フローでは auto-close 経路はほぼ発火せず、close はほぼ全て下段の手動 close 経路（AC gate を通る）になる**。詳細は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)。`Closes #N` を明示した main 向け hotfix PR / commit のみが上 2 行に該当する。
+> **develop 二層での実態（#3119 / #3123 / #3423）**: 上 2 行の auto-close 経路は **`Closes #N` / `Fixes #N` closing keyword が main に到達した場合のみ**発火する。本リポジトリの commit 規約は conventional-commit prefix（`fix:` / `feat:` / `docs:` / `infra:` `#N`）で closing keyword を含まないため、**個別 PR の develop merge では auto-close 経路はほぼ発火せず、個別 close はほぼ全て下段の手動 close 経路（AC gate を通る）になる**。一方 **develop→main 統合 PR（release/* → main）の merge commit には #3423 で含有 PR の `Closes #N` が集約される**ため、上 2 行（PR/commit keyword auto-close → gate skip）が発火し、含有 issue が一括 auto-close される（AC gate reopen は起きない）。詳細は [docs/sessions/branch-strategy.md §3.2](../docs/sessions/branch-strategy.md)。`Closes #N` を明示した main 向け hotfix PR / commit も上 2 行に該当する。
 
 判定純粋関数: `scripts/issue-close-gate-skip-judge.mjs` (unit test 11 ケース: `tests/unit/github/issue-close-gate-skip-judge.test.ts`)。
 

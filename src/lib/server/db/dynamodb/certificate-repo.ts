@@ -134,6 +134,54 @@ export async function hasCertificate(
 }
 
 // ============================================================
+// insertForRestore — backup restore 用 (issuedAt / metadata 保全、#3329)
+// ============================================================
+
+export async function insertForRestore(
+	input: Omit<Certificate, 'id' | 'tenantId'>,
+	tenantId: string,
+): Promise<Certificate | null> {
+	const id = await nextId(ENTITY_NAMES.certificate, tenantId);
+	const certificate: Certificate = {
+		id,
+		childId: input.childId,
+		tenantId,
+		certificateType: input.certificateType,
+		title: input.title,
+		description: input.description,
+		issuedAt: input.issuedAt,
+		metadata: input.metadata,
+	};
+
+	try {
+		await getDocClient().send(
+			new PutCommand({
+				TableName: TABLE_NAME,
+				Item: {
+					...certificateKey(input.childId, input.certificateType, tenantId),
+					...certificate,
+				},
+				ConditionExpression: 'attribute_not_exists(PK)',
+			}),
+		);
+	} catch (e) {
+		if (e instanceof Error && e.name === 'ConditionalCheckFailedException') return null;
+		return null;
+	}
+
+	return certificate;
+}
+
+// ============================================================
+// deleteByTenantId — テナントの全証明書を削除 (#3329)
+// ============================================================
+
+export async function deleteByTenantId(tenantId: string): Promise<void> {
+	const { deleteItemsByPkPrefix } = await import('./bulk-delete');
+	await deleteItemsByPkPrefix(tenantPK('CHILD#', tenantId), PREFIX);
+}
+
+// ============================================================
 // 内部ヘルパ
 // ============================================================
 

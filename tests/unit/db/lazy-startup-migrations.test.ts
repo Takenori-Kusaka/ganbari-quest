@@ -954,4 +954,60 @@ describe('applyLazyStartupMigrations', () => {
 			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
 		});
 	});
+
+	describe('#3504: cloud_exports status / failure_reason 追加 (既存行 ready backfill)', () => {
+		function seedLegacyCloudExports(): void {
+			// 旧 schema (status / failure_reason 列なし)
+			db.exec(`
+				CREATE TABLE cloud_exports (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					tenant_id TEXT NOT NULL,
+					export_type TEXT NOT NULL,
+					pin_code TEXT NOT NULL UNIQUE,
+					s3_key TEXT NOT NULL,
+					file_size_bytes INTEGER NOT NULL,
+					label TEXT,
+					description TEXT,
+					expires_at TEXT NOT NULL,
+					download_count INTEGER NOT NULL DEFAULT 0,
+					max_downloads INTEGER NOT NULL DEFAULT 10,
+					created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				);
+				INSERT INTO cloud_exports (tenant_id, export_type, pin_code, s3_key, file_size_bytes, expires_at)
+					VALUES ('t1', 'full', 'ABC234', 'exports/t1/ABC234/backup.zip', 100, '2999-01-01T00:00:00Z');
+			`);
+		}
+
+		it('status / failure_reason 列を追加し、既存行は ready に backfill する', () => {
+			seedLegacyCloudExports();
+			applyLazyStartupMigrations(db);
+
+			expect(hasColumn(db, 'cloud_exports', 'status')).toBe(true);
+			expect(hasColumn(db, 'cloud_exports', 'failure_reason')).toBe(true);
+			const row = db
+				.prepare('SELECT status, failure_reason FROM cloud_exports WHERE id = 1')
+				.get() as {
+				status: string;
+				failure_reason: string | null;
+			};
+			// 既存行 = 同期 build 済 → ready
+			expect(row.status).toBe('ready');
+			expect(row.failure_reason).toBeNull();
+		});
+
+		it('冪等: 再適用しても既存 status を破壊しない', () => {
+			seedLegacyCloudExports();
+			applyLazyStartupMigrations(db);
+			db.prepare("UPDATE cloud_exports SET status = 'pending' WHERE id = 1").run();
+			applyLazyStartupMigrations(db); // 2 回目は skip (列存在)
+			const row = db.prepare('SELECT status FROM cloud_exports WHERE id = 1').get() as {
+				status: string;
+			};
+			expect(row.status).toBe('pending'); // 破壊されない
+		});
+
+		it('cloud_exports 不在でも例外を投げない', () => {
+			expect(() => applyLazyStartupMigrations(db)).not.toThrow();
+		});
+	});
 });

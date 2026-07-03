@@ -225,12 +225,31 @@ export async function deleteTenantScopedData(tenantId: string): Promise<number> 
 		logger.warn(`[tenant-cleanup] loginBonus 削除失敗: ${String(err)}`);
 	}
 
+	// #3329: ごほうび交換履歴は special_rewards を reward_id (no cascade) で参照するため、
+	// special_rewards 削除より先に消す。残すと special_rewards 削除が FK で失敗し、さらに
+	// special_rewards.child_id (no cascade) が children 削除も阻む (replace import で子ごと喪失)。
+	try {
+		await r.rewardRedemption.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[tenant-cleanup] rewardRedemption 削除失敗: ${String(err)}`);
+	}
+
 	// Special rewards
 	try {
 		await r.specialReward.deleteByTenantId(tenantId);
 		deleted++;
 	} catch (err) {
 		logger.warn(`[tenant-cleanup] specialReward 削除失敗: ${String(err)}`);
+	}
+
+	// #3329: 証明書 (certificates)。child_id が no-cascade のため children 削除より先に明示削除する
+	// (残すと children 削除が FK で失敗し replace import で子ごと喪失する。redemption と同型の修正)。
+	try {
+		await r.certificate.deleteByTenantId(tenantId);
+		deleted++;
+	} catch (err) {
+		logger.warn(`[tenant-cleanup] certificate 削除失敗: ${String(err)}`);
 	}
 
 	// Activity preferences（pin settings）

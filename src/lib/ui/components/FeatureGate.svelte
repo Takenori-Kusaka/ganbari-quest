@@ -1,9 +1,23 @@
 <script lang="ts">
+import { Popover } from '@ark-ui/svelte/popover';
+import { Portal } from '@ark-ui/svelte/portal';
 import type { Snippet } from 'svelte';
 import { UI_COMPONENTS_LABELS } from '$lib/domain/labels';
-import { PLAN_TERMS } from '$lib/domain/terms';
+import { PLAN_FULL_TERMS, PLAN_TERMS } from '$lib/domain/terms';
 import { meetsRequiredTier, type PlanTier } from '$lib/ui/tutorial/tutorial-types';
-import PremiumBadge from './PremiumBadge.svelte';
+
+/**
+ * FeatureGate (EPIC #3533 §10.2 で popover 化)
+ *
+ * free/standard ユーザーが有料機能に触れたとき「存在は示す・操作不可 (disabled)」に留め、
+ * 画面内に個別アップセル CTA / quota カウンタを置かない (P1/P3)。disabled 要素の tap で
+ * popover を開き ① 利用不可 ② 対象プラン名 ③ プラン画面リンク1本 を示す (P2、§10.2.1)。
+ *
+ * disabled は native `disabled` 属性ではなく `aria-disabled="true"` で表現する — native disabled
+ * だと tap イベントが発火せず popover を開けないため。gated 操作の実行ハンドラは本 component が
+ * 肩代わりせず、trigger は popover を開くだけ (実行不可)。バックエンド 403 (requirePaidTier 等) が
+ * 唯一の砦で、本 component は二重防御。
+ */
 
 interface Props {
 	/** 現在のプラン */
@@ -12,12 +26,14 @@ interface Props {
 	requiredTier: PlanTier;
 	/** 有料機能へのコンテンツ */
 	children: Snippet;
-	/** ロック時の代替表示 (省略時はデフォルトのロック表示) */
+	/** ロック時の代替表示 (省略時はデフォルトの 🔒 disabled + popover) */
 	locked?: Snippet;
-	/** disabled ボタンとして表示する場合のラベル */
+	/** disabled ボタンとして表示する場合のラベル (display="inline" 用) */
 	buttonLabel?: string;
 	/** インライン表示（ボタン用）か、セクション表示か */
 	display?: 'inline' | 'section';
+	/** popover のプラン画面リンク先 (§10.2.1、既定 = プラン画面) */
+	planPageHref?: string;
 }
 
 let {
@@ -27,39 +43,79 @@ let {
 	locked,
 	buttonLabel,
 	display = 'section',
+	planPageHref = '/admin/subscription',
 }: Props = $props();
 
-// Phase 7 PR-L4 (#2836): 顧客可視の gate ラベルを premium atom 参照化 (ADR-0045 / ADR-0058)。
 const TIER_LABELS: Record<PlanTier, string> = {
 	free: PLAN_TERMS.free,
 	standard: PLAN_TERMS.standard,
 	family: PLAN_TERMS.premium,
 };
 
+// popover の「対象プラン名」はフル形 (「スタンダードプラン」) を使う (§10.2.1 ②)。
+const TIER_FULL_LABELS: Record<PlanTier, string> = {
+	free: PLAN_FULL_TERMS.free,
+	standard: PLAN_FULL_TERMS.standard,
+	family: PLAN_FULL_TERMS.premium,
+};
+
 // requiredTier を満たさない = ロック。tutorial-chapters / page-guide と同じ TIER_ORDER SSOT を共有する。
 const isLocked = $derived(!meetsRequiredTier(currentTier, requiredTier));
 const requiredLabel = $derived(TIER_LABELS[requiredTier]);
+const requiredFullLabel = $derived(TIER_FULL_LABELS[requiredTier]);
 </script>
+
+{#snippet popoverBody()}
+	<Portal>
+		<Popover.Positioner class="feature-gate-popover-positioner">
+			<Popover.Content class="feature-gate-popover" data-testid="feature-gate-popover">
+				<Popover.Title class="feature-gate-popover__title">
+					{UI_COMPONENTS_LABELS.featureGatePopoverUnavailable}
+				</Popover.Title>
+				<Popover.Description class="feature-gate-popover__desc">
+					{UI_COMPONENTS_LABELS.featureGatePopoverRequirement(requiredFullLabel)}
+				</Popover.Description>
+				<a href={planPageHref} class="feature-gate-popover__link" data-testid="feature-gate-popover-link">
+					{UI_COMPONENTS_LABELS.featureGatePopoverLink}
+				</a>
+			</Popover.Content>
+		</Popover.Positioner>
+	</Portal>
+{/snippet}
 
 {#if !isLocked}
 	{@render children()}
 {:else if locked}
 	{@render locked()}
 {:else if display === 'inline' && buttonLabel}
-	<span class="feature-gate-inline">
-		<button type="button" class="feature-gate-btn" disabled title={UI_COMPONENTS_LABELS.featureGateLockTitle(requiredLabel)}>
-			<span class="feature-gate-btn__icon">🔒</span>
+	<Popover.Root positioning={{ placement: 'top' }}>
+		<Popover.Trigger
+			class="feature-gate-btn"
+			aria-disabled="true"
+			data-testid="feature-gate-locked-trigger"
+			title={UI_COMPONENTS_LABELS.featureGateLockTitle(requiredLabel)}
+		>
+			<span class="feature-gate-btn__icon" aria-hidden="true">🔒</span>
 			<span class="feature-gate-btn__label">{buttonLabel}</span>
-		</button>
-		<PremiumBadge size="sm" label={requiredLabel} />
-	</span>
+		</Popover.Trigger>
+		{@render popoverBody()}
+	</Popover.Root>
 {:else}
 	<div class="feature-gate-section">
-		<div class="feature-gate-overlay">
-			<span class="feature-gate-lock">🔒</span>
-			<p class="feature-gate-text">{UI_COMPONENTS_LABELS.featureGateLockText(requiredLabel)}</p>
-			<PremiumBadge size="md" label={UI_COMPONENTS_LABELS.featureGateUpgrade} />
-		</div>
+		<Popover.Root positioning={{ placement: 'top' }}>
+			<Popover.Trigger
+				class="feature-gate-overlay"
+				aria-disabled="true"
+				data-testid="feature-gate-locked-trigger"
+				title={UI_COMPONENTS_LABELS.featureGateLockTitle(requiredLabel)}
+			>
+				<span class="feature-gate-lock" aria-hidden="true">🔒</span>
+				<span class="feature-gate-text">
+					{UI_COMPONENTS_LABELS.featureGateLockText(requiredLabel)}
+				</span>
+			</Popover.Trigger>
+			{@render popoverBody()}
+		</Popover.Root>
 		<div class="feature-gate-content" aria-hidden="true">
 			{@render children()}
 		</div>
@@ -67,13 +123,8 @@ const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 {/if}
 
 <style>
-	.feature-gate-inline {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.feature-gate-btn {
+	/* class passed to Ark Popover.Trigger crosses the component boundary -> :global (same as Menu.svelte) */
+	:global(.feature-gate-btn) {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.375rem;
@@ -105,7 +156,7 @@ const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 		user-select: none;
 	}
 
-	.feature-gate-overlay {
+	:global(.feature-gate-overlay) {
 		position: absolute;
 		inset: 0;
 		display: flex;
@@ -113,9 +164,11 @@ const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 		align-items: center;
 		justify-content: center;
 		gap: 0.5rem;
-		z-index: 10;
+		z-index: var(--z-dropdown);
 		background: var(--color-surface-overlay, rgba(255, 255, 255, 0.7));
+		border: none;
 		border-radius: var(--radius-md);
+		cursor: not-allowed;
 	}
 
 	.feature-gate-lock {
@@ -126,5 +179,42 @@ const requiredLabel = $derived(TIER_LABELS[requiredTier]);
 		font-size: 0.8rem;
 		font-weight: 600;
 		color: var(--color-text-secondary);
+	}
+
+	:global(.feature-gate-popover-positioner) {
+		/* DESIGN section 10: --z-dropdown = 20 token (popover layer, no raw z-index) */
+		z-index: var(--z-dropdown);
+	}
+
+	:global(.feature-gate-popover) {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		max-width: 16rem;
+		padding: 0.75rem 1rem;
+		background: var(--color-surface-card);
+		border: 1px solid var(--color-border-default);
+		border-radius: var(--radius-md);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+		outline: none;
+	}
+
+	:global(.feature-gate-popover__title) {
+		font-size: 0.875rem;
+		font-weight: 700;
+		color: var(--color-text-primary);
+	}
+
+	:global(.feature-gate-popover__desc) {
+		font-size: 0.8rem;
+		color: var(--color-text-secondary);
+	}
+
+	:global(.feature-gate-popover__link) {
+		align-self: flex-start;
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: var(--color-text-link);
+		text-decoration: underline;
 	}
 </style>

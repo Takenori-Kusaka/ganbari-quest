@@ -5,7 +5,71 @@ export const EXPORT_FORMAT = 'ganbari-quest-backup' as const;
 // #1254 G1: 1.2.0 で `sourcePresetId` フィールドを追加 (activities / specialRewards / checklistTemplates)
 // #3106 / #3107: 1.3.0 で checklist の `exportId` / `isArchived` / log `templateExportId` を追加
 //   (archive 済 template の log 保全 + 同名 template の round-trip 取り違え防止)。いずれも optional で後方互換。
-export const EXPORT_VERSION = '1.3.0' as const;
+// #3329: 1.4.0 で `data.settings` (各種設定 KVS の allowlist) を追加。optional で後方互換。
+// #3358: 1.5.0 で childActivity の `isArchived` / `archivedReason` を追加 (isVisible / sortOrder は
+//   1.4.0 以前から存在)。archived 済活動が import 後に active へ復活する round-trip 取りこぼし
+//   (第10回監査 data-5) の修正。いずれも optional で後方互換 (旧 backup は非アーカイブとして復元)。
+// #3422: 1.6.0 で childActivity の `dailyLimit` / `nameKana` / `nameKanji` を追加。create/update では
+//   persist 是正済だが backup round-trip では同 3 列が silent drop され、復元後 dailyLimit が null
+//   (= 1 日 1 回固定) に戻る取りこぼしの修正。いずれも optional で後方互換 (旧 backup は schema default)。
+export const EXPORT_VERSION = '1.6.0' as const;
+
+// ============================================================
+// 退役キー名の予約 (Protobuf `reserved` / Avro alias の安価な代替)。
+//
+// 原則: **backup DTO のキー名 = 不変 identity**。一度配信した backup に現れたキー名は
+// rename / remove してはならない (旧 backup と意味がずれて silent data loss を生む)。
+// フィールドを廃止する場合は (1) キーを削除せず deprecate (読み捨て) するか、(2) 本配列に
+// 退役名を登録し、(3) 代替は**新しいキー名の追加** + export-migrations の transform で旧→新を変換する。
+// 本配列に載った名前は二度と Export* 型のフィールド名に再利用してはならない
+// (`tests/unit/domain/export-key-stability.test.ts` が export-format.ts の宣言済キー名と本配列の
+//  非交差を機械検証する)。現状は退役キーなし。
+// ============================================================
+export const RESERVED_EXPORT_KEYS: readonly string[] = [];
+
+// ============================================================
+// #3329: backup 可能な設定キーの allowlist (default-deny セキュリティ設計、D3)
+// ============================================================
+// settings は任意キーの KVS。backup に「全キー」を載せると pin_hash (bcrypt の おやカギコード) /
+// session_token / lockout 状態 等の認証情報・秘匿状態が平文 ZIP に漏れる (CWE-522 平文認証情報 /
+// CWE-916 不十分なハッシュ保護 = bcrypt hash の offline crack 露出)。
+// そこで「載せてよいキーだけを明示列挙する default-deny allowlist」を採用する。新キー追加時は
+// デフォルト除外 = 安全側に倒れ、ユーザー設定として保全したい場合のみ意図的に本列挙へ足す。
+//
+// 意図的除外 (本 allowlist に**載せない**もの):
+//   - 認証/秘匿 (CWE-522/916): pin_hash / pin_locked_until / pin_failed_attempts / pin_reset_applied /
+//     session_token / session_expires_at
+//   - 課金/アカウントライフサイクル (環境間で移送すべきでない状態): deletion_grace_plan_tier /
+//     physical_deletion_date / soft_deleted_at / premium_welcome_shown / trial_expiration_modal_shown /
+//     dormant_reactivation_sent / marketing_unsubscribed_at
+// import 側でも本 allowlist で再 filter する (改竄/旧 backup に pin_hash が混在しても書き戻さない多層防御)。
+export const EXPORTABLE_SETTING_KEYS = [
+	'decay_intensity',
+	'notification_achievements_enabled',
+	'notification_quiet_end',
+	'notification_quiet_start',
+	'notification_reminder_time',
+	'notification_reminders_enabled',
+	'notification_streak_enabled',
+	'pin_gate_onboarding_seen',
+	'point_currency',
+	'point_rate',
+	'point_unit_mode',
+	'questionnaire_activity_level',
+	'questionnaire_challenges',
+	'reward_auto_approve',
+	'sibling_ranking_enabled',
+	'tutorial_banner_dismissed',
+	'tutorial_completed_at',
+	'tutorial_started_at',
+	'weekly_report_day',
+	'weekly_report_enabled',
+] as const;
+
+/** #3329: 設定キーが backup allowlist に含まれるか (export/import 双方の filter に使う SSOT)。 */
+export function isExportableSettingKey(key: string): boolean {
+	return (EXPORTABLE_SETTING_KEYS as readonly string[]).includes(key);
+}
 
 // ============================================================
 // マスタデータ型
@@ -50,6 +114,15 @@ export interface ExportChildActivity {
 	sourcePresetId: string | null;
 	isVisible: number;
 	sortOrder: number;
+	// #3358: archive 状態を round-trip 保全 (optional で後方互換、旧 backup は非アーカイブ復元)
+	isArchived?: number;
+	archivedReason?: string | null;
+	// #3422: 親が設定する 1 日上限 / 読み仮名 / 漢字表記を round-trip 保全 (optional で後方互換、
+	// 旧 backup は schema default 復元)。dailyLimit semantics は null=1回 / 0=無制限 / N=N回
+	// (activity-log-service.ts §daily limit 定義)。0 を null へ落とさず保全する。
+	dailyLimit?: number | null;
+	nameKana?: string | null;
+	nameKanji?: string | null;
 }
 
 export interface ExportTitle {
@@ -175,6 +248,178 @@ export interface ExportSpecialReward {
 	sourcePresetId?: string | null;
 }
 
+export interface ExportRewardRedemption {
+	childRef: string;
+	/** import 後に FK rewardId を再解決するための reward タイトル (per-child で一意) */
+	rewardRef: string;
+	requestedAt: number;
+	status: string;
+	parentNote: string | null;
+	resolvedAt: number | null;
+	resolvedByParentId: string | null;
+	shownToChildAt: number | null;
+	// #2832: 申請時点 snapshot (reward 改名/削除後も申請時の内容で表示・控除する)
+	rewardTitle: string | null;
+	rewardPoints: number | null;
+	rewardIcon: string | null;
+}
+
+export interface ExportSetting {
+	key: string;
+	value: string;
+}
+
+/**
+ * #3329: per-child チャレンジ instance (auto:weekly 自動週次も sourceTemplateId='auto:weekly' の
+ * 行として同テーブルに含まれるため本 export で両方を保全する)。進捗 / 完了 / 請求 / status を round-trip
+ * 復元する (id / childId は import で振り直すため childRef で再結合)。
+ */
+export interface ExportChildChallenge {
+	childRef: string;
+	title: string;
+	description: string | null;
+	challengeType: string;
+	periodType: string;
+	startDate: string;
+	endDate: string;
+	targetConfig: string;
+	rewardConfig: string;
+	status: string;
+	isActive: number;
+	sourceTemplateId: string | null;
+	currentValue: number;
+	targetValue: number;
+	completed: number;
+	completedAt: string | null;
+	rewardClaimed: number;
+	rewardClaimedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+/**
+ * #3329: per-child スタンプカード (週単位) + 押印 entry を nested で保全する。
+ * stampMasterId はグローバル master (環境間で同一 seed) を参照するため値のまま保持する
+ * (import 時に存在しなければ当該 entry を skip)。card status / redeemed / earnedAt を round-trip 復元。
+ */
+export interface ExportStampEntry {
+	stampMasterId: number | null;
+	omikujiRank: string | null;
+	slot: number;
+	loginDate: string;
+	earnedAt: string;
+}
+
+export interface ExportStampCard {
+	childRef: string;
+	weekStart: string;
+	weekEnd: string;
+	status: string;
+	redeemedPoints: number | null;
+	redeemedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+	entries: ExportStampEntry[];
+}
+
+/**
+ * #3329: per-child 証明書 (がんばり証明書/卒業証明書 等の授与記録)。issuedAt / metadata を保全して
+ * round-trip 復元する (id / tenantId は import 環境で振り直すため childRef で再結合)。
+ */
+export interface ExportCertificate {
+	childRef: string;
+	certificateType: string;
+	title: string;
+	description: string | null;
+	issuedAt: string;
+	metadata: string | null;
+}
+
+/**
+ * #3329: 親→子おうえんメッセージ (stamp/text/reward_notice)。sentAt / shownAt (既読) を保全して
+ * round-trip 復元する (id / childId は import 環境で振り直すため childRef で再結合)。
+ */
+export interface ExportParentMessage {
+	childRef: string;
+	messageType: string;
+	stampCode: string | null;
+	body: string | null;
+	icon: string;
+	sentAt: string;
+	shownAt: string | null;
+	bonusPoints: number | null;
+	rewardCategory: string | null;
+}
+
+/**
+ * #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child を参照)。sentAt/shownAt (既読) を
+ * 保全して round-trip 復元する (id/childId は import 環境で振り直すため fromChildRef/toChildRef で再結合)。
+ */
+export interface ExportSiblingCheer {
+	fromChildRef: string;
+	toChildRef: string;
+	stampCode: string;
+	sentAt: string;
+	shownAt: string | null;
+}
+
+/**
+ * #3329: per-child 活動設定 (ピン留め)。activityId は import で振り直されるため activityName で
+ * 取込先 childActivity に再結合する。isPinned/pinOrder/日時を round-trip 保全する。
+ */
+export interface ExportActivityPref {
+	childRef: string;
+	/** import 後に activityId を再解決するための活動名 (per-child で一意) */
+	activityName: string;
+	isPinned: number;
+	pinOrder: number | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+/**
+ * #3329: per-child チェックリスト日次 override (特定日に項目を追加/スキップ)。createdAt を保全して
+ * round-trip 復元する (id/childId は import で振り直すため childRef で再結合)。
+ */
+export interface ExportChecklistOverride {
+	childRef: string;
+	targetDate: string;
+	action: string;
+	itemName: string;
+	icon: string;
+	createdAt: string;
+}
+
+/**
+ * #3329: per-child おやすみ日 (ステータス減少停止日)。createdAt を保全して round-trip 復元する
+ * (id/childId は import で振り直すため childRef で再結合)。週次評価/streak/decay の input であり
+ * 活動記録から再構成不能。※DynamoDB には保存されない (NUC/SQLite 専用の Pre-PMF fallback)。
+ */
+export interface ExportRestDay {
+	childRef: string;
+	date: string;
+	reason: string;
+	createdAt: string;
+}
+
+/**
+ * #3329: 子のカスタム音声 (ユーザーがアップロードした録音)。音声ファイル本体は #3077 の
+ * ZIP 同梱静的ファイル機構で別途復元されるため、本 export は DB 行 (scene/label/durationMs/
+ * isActive/createdAt) + `voiceRelPath` (tenant prefix を除いた `voices/<oldChildId>/<rest>`) を保持する。
+ * import 時に childRef で childId を解決し、filePath/publicUrl を新 tenant+childId へ再構成する
+ * (#3077 が voices/<newChildId>/ へ復元したファイルと一致)。
+ */
+export interface ExportChildVoice {
+	childRef: string;
+	scene: string;
+	label: string;
+	/** tenant prefix を除いた相対 storage パス (`voices/<oldChildId>/<rest>`)。import で新 tenant+childId へ再構成 */
+	voiceRelPath: string;
+	durationMs: number | null;
+	isActive: number;
+	createdAt: string;
+}
+
 export interface ExportChecklistTemplate {
 	childRef: string;
 	name: string;
@@ -245,10 +490,32 @@ export interface ExportTransactionData {
 	loginBonuses: ExportLoginBonus[];
 	evaluations: ExportEvaluation[];
 	specialRewards: ExportSpecialReward[];
+	/** #3329: ごほうびショップ交換/購入履歴 (per-child、rewardRef で reward に再結合) */
+	rewardRedemptions: ExportRewardRedemption[];
+	/** #3329: per-child チャレンジ instance (auto:weekly 含む。進捗/完了/請求を保全) */
+	childChallenges: ExportChildChallenge[];
+	/** #3329: per-child スタンプカード + 押印 entry (nested、status/redeemed/earnedAt 保全) */
+	stampCards: ExportStampCard[];
+	/** #3329: per-child 証明書 (がんばり/卒業証明書 授与記録、issuedAt/metadata 保全) */
+	certificates: ExportCertificate[];
+	/** #3329: 親→子おうえんメッセージ (sentAt/shownAt 保全) */
+	parentMessages: ExportParentMessage[];
+	/** #3329: きょうだい間おうえんスタンプ (tenant-scoped、from/to 2 child、sentAt/shownAt 保全) */
+	siblingCheers: ExportSiblingCheer[];
+	/** #3329: per-child 活動設定 (ピン留め、activityName で再結合) */
+	activityPrefs: ExportActivityPref[];
 	checklistTemplates: ExportChecklistTemplate[];
 	checklistLogs: ExportChecklistLog[];
+	/** #3329: per-child チェックリスト日次 override (createdAt 保全) */
+	checklistOverrides: ExportChecklistOverride[];
+	/** #3329: per-child おやすみ日 (createdAt 保全。DynamoDB では空) */
+	restDays: ExportRestDay[];
+	/** #3329: 子のカスタム音声 DB 行 (ファイル本体は #3077 ZIP 同梱で復元、行は voiceRelPath で再結合) */
+	childVoices: ExportChildVoice[];
 	childAvatarItems: never[];
 	dailyMissions: ExportDailyMission[];
+	/** #3329: 各種設定 (tenant-scoped KVS、allowlist 済キーのみ。pin_hash 等の秘匿キーは除外) */
+	settings: ExportSetting[];
 }
 
 export interface ExportData {

@@ -3,6 +3,21 @@
 
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
 
+export async function findAllByChild(
+	_childId: number,
+	_tenantId: string,
+): Promise<ChildActivityPreference[]> {
+	return [];
+}
+
+export async function insertForRestore(
+	input: Omit<ChildActivityPreference, 'id'>,
+	_tenantId: string,
+): Promise<ChildActivityPreference> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return { ...input, id: 0 };
+}
+
 export async function findPinnedByChild(
 	_childId: number,
 	_tenantId: string,

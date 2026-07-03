@@ -44,6 +44,14 @@ export interface IChildChallengeRepo {
 	insert(input: InsertChildChallengeInput, tenantId: string): Promise<ChildChallenge>;
 
 	/**
+	 * #3329 backup restore 用: 進捗 / 完了 / 請求 / status / 日時を含む全フィールドを保全して復元する。
+	 * 通常の insert は currentValue / completed / rewardClaimed / createdAt を初期化するため round-trip で
+	 * 進捗・完了・請求状態が失われる。本メソッドは export された値をそのまま書き戻す (id は新規採番、
+	 * childId は呼び出し側が import 後の child に解決済)。
+	 */
+	insertForRestore(input: Omit<ChildChallenge, 'id'>, tenantId: string): Promise<ChildChallenge>;
+
+	/**
 	 * #3245: アプリ週次自動生成 (sourceTemplateId='auto:weekly') の **atomic** get-or-create。
 	 * (child_id, start_date) の一意性を DB レベル (SQLite=部分 unique index / DynamoDB=決定的キー +
 	 * 条件付き書込) で担保し、concurrent 二重 INSERT (= ポイント二重付与) を不可能化する。

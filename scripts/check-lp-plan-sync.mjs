@@ -7,7 +7,7 @@
  *
  * チェック対象:
  *  1. `site/pricing.html` — 網羅的な料金ページ。
- *     - PRICING_PAGE_META の全プランの `price` / `yearlyPrice` が HTML に現れる
+ *     - PRICING_PAGE_META の全プランの `price` が HTML に現れる
  *     - PRICING_PAGE_FEATURES の全 feature 文字列が HTML に現れる（完全一致 substring）
  *  2. `site/index.html` — LP トップの料金セクション。
  *     - PRICING_PAGE_META の全プランの `price` が HTML に現れる
@@ -98,16 +98,17 @@ function parsePlanFeatures() {
 
 	// PRICING_PAGE_META: Record<PlanKey, PricingPageMeta> = {
 	//   free: { ..., price: '¥0', unit: '', ... },
-	//   standard: { ..., price: '¥500', unit: '/月', yearlyPrice: '年額 ¥5,000 ...' },
+	//   standard: { ..., price: '¥500', unit: '/月', ... },
 	//   ...
 	// }
+	// 年額 (yearlyPrice) は #2719 / #3212 で全廃 (月額のみ)。yearly 分岐は #3215 で除去。
 	const metaBlockMatch = src.match(/export const PRICING_PAGE_META[^{]*{([\s\S]*?)\n} as const;/);
 	if (!metaBlockMatch) {
 		throw new Error('PRICING_PAGE_META block not found in plan-features.ts');
 	}
 	const metaBlock = metaBlockMatch[1];
 
-	/** @type {Record<'free'|'standard'|'family', { price: string; yearlyPrice?: string }>} */
+	/** @type {Record<'free'|'standard'|'family', { price: string }>} */
 	const meta = { free: { price: '' }, standard: { price: '' }, family: { price: '' } };
 	for (const plan of /** @type {const} */ (['free', 'standard', 'family'])) {
 		const planMatch = metaBlock.match(new RegExp(`${plan}:\\s*{([\\s\\S]*?)^\\s*}`, 'm'));
@@ -120,11 +121,6 @@ function parsePlanFeatures() {
 			throw new Error(`PRICING_PAGE_META.${plan}.price not found`);
 		}
 		meta[plan].price = priceMatch[1];
-
-		const yearlyMatch = body.match(/yearlyPrice:\s*'([^']+)'/);
-		if (yearlyMatch) {
-			meta[plan].yearlyPrice = yearlyMatch[1];
-		}
 	}
 
 	return { features, meta };
@@ -174,26 +170,19 @@ function verifyMinPaidPricePolicy(html, ssot) {
 }
 
 /**
- * 全プラン価格 (+ 条件次第で年額) を検証する既定ポリシー。
+ * 全プラン価格 (月額) を検証する既定ポリシー。
  *
  * @param {string} html
  * @param {ReturnType<typeof parsePlanFeatures>} ssot
- * @param {boolean} checkYearlyPrice
  * @returns {string[]}
  */
-function verifyAllPricesPolicy(html, ssot, checkYearlyPrice) {
+function verifyAllPricesPolicy(html, ssot) {
 	/** @type {string[]} */
 	const errors = [];
 	for (const plan of /** @type {const} */ (['free', 'standard', 'family'])) {
-		const { price, yearlyPrice } = ssot.meta[plan];
+		const { price } = ssot.meta[plan];
 		if (!htmlContains(html, price)) {
 			errors.push(`[${plan}] price "${price}" が HTML に現れない`);
-		}
-		if (checkYearlyPrice && yearlyPrice) {
-			const yearlyMatch = yearlyPrice.match(/年額\s*¥[\d,]+/);
-			if (yearlyMatch && !htmlContains(html, yearlyMatch[0])) {
-				errors.push(`[${plan}] yearlyPrice "${yearlyMatch[0]}" が HTML に現れない`);
-			}
 		}
 	}
 	return errors;
@@ -204,9 +193,8 @@ function verifyAllPricesPolicy(html, ssot, checkYearlyPrice) {
  *
  * @param {string} filePath
  * @param {ReturnType<typeof parsePlanFeatures>} ssot
- * @param {{ strictFeatures: boolean; checkYearlyPrice: boolean; checkFeatures?: boolean; pricePolicy?: 'all' | 'minPaid' }} opts
+ * @param {{ strictFeatures: boolean; checkFeatures?: boolean; pricePolicy?: 'all' | 'minPaid' }} opts
  *   strictFeatures=true: 全 feature が含まれる必要
- *   checkYearlyPrice=true: 年額価格もチェックする（pamphlet / index は月額のみなので除外）
  *   checkFeatures=false: features チェック自体をスキップ（#1141 以降の index.html
  *     のように feature を要約して書き直す summary セクション用。pricing.html への
  *     リンクがあり詳細は別ページで担保される場合に使う）
@@ -216,7 +204,7 @@ function verifyAllPricesPolicy(html, ssot, checkYearlyPrice) {
 function verifyHtmlFile(
 	filePath,
 	ssot,
-	{ strictFeatures, checkYearlyPrice, checkFeatures = true, pricePolicy = 'all' },
+	{ strictFeatures, checkFeatures = true, pricePolicy = 'all' },
 ) {
 	const rel = path.relative(REPO_ROOT, filePath);
 	if (!fs.existsSync(filePath)) {
@@ -231,7 +219,7 @@ function verifyHtmlFile(
 	const priceErrors =
 		pricePolicy === 'minPaid'
 			? verifyMinPaidPricePolicy(html, ssot)
-			: verifyAllPricesPolicy(html, ssot, checkYearlyPrice);
+			: verifyAllPricesPolicy(html, ssot);
 	errors.push(...priceErrors);
 
 	// --- 特典リストチェック ---
@@ -291,18 +279,17 @@ function main() {
 	const lpFiles = [SITE_PRICING_HTML, SITE_INDEX_HTML, SITE_PAMPHLET_HTML];
 
 	const results = [
-		verifyHtmlFile(SITE_PRICING_HTML, ssot, { strictFeatures: true, checkYearlyPrice: true }),
+		verifyHtmlFile(SITE_PRICING_HTML, ssot, { strictFeatures: true }),
 		// #1293 以降、index.html の料金セクションは「価格プロミスバンド」に簡素化された
 		// (freemium × 低価格帯での price disambiguation / 配置原則は lp-content-map.md 参照)。
 		// 最低有料価格と安心シグナル文言のみ pricePolicy='minPaid' で検証し、
-		// 全プラン網羅・年額・feature 詳細は pricing.html 側で strict チェックする。
+		// 全プラン網羅・feature 詳細は pricing.html 側で strict チェックする。
 		verifyHtmlFile(SITE_INDEX_HTML, ssot, {
 			strictFeatures: false,
-			checkYearlyPrice: false,
 			checkFeatures: false,
 			pricePolicy: 'minPaid',
 		}),
-		verifyHtmlFile(SITE_PAMPHLET_HTML, ssot, { strictFeatures: false, checkYearlyPrice: false }),
+		verifyHtmlFile(SITE_PAMPHLET_HTML, ssot, { strictFeatures: false }),
 	];
 
 	const bannedResults = lpFiles.map(verifyNoBannedTerms);

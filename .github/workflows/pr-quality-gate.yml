@@ -42,7 +42,7 @@ jobs:
         uses: ./actions/pr-lane
 
       - name: "Check PR body for screenshots (lane-aware: feature/hotfix=before-after, integration=VR 3 層)"
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_LANE: ${{ steps.lane.outputs.lane }}
         with:
@@ -293,7 +293,7 @@ jobs:
       # 旧 inline script は廃止し、ファイルパターン exempt + label exempt (refactor:internal-no-doc-impact)
       # の OR 結合判定を 1 ファイルで管理する。
       - name: Check for design doc updates
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const { execSync } = require('child_process');

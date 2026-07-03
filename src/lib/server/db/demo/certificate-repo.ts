@@ -36,6 +36,18 @@ export async function findCertificates(childId: number, tenantId: string): Promi
 	return DEMO_CERTIFICATES.filter((c) => c.childId === childId && c.tenantId === tenantId).slice();
 }
 
+export async function insertForRestore(
+	input: Omit<Certificate, 'id' | 'tenantId'>,
+	tenantId: string,
+): Promise<Certificate | null> {
+	// Stub: demo は書き込み no-op。引数の状態を反映した row を返す。
+	return { ...input, id: 0, tenantId };
+}
+
+export async function deleteByTenantId(_tenantId: string): Promise<void> {
+	// Stub: no-op
+}
+
 export async function findCertificateById(
 	id: number,
 	tenantId: string,

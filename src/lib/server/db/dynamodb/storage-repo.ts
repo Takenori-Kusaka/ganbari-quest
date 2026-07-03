@@ -89,6 +89,23 @@ export const listFiles: IStorageRepo['listFiles'] = async (prefix) => {
 	return (result.Contents ?? []).map((obj) => obj.Key as string).filter(Boolean);
 };
 
+/**
+ * #3504 (async-backup-export.md §3.4): S3 presigned GET URL を発行し 302 redirect 経路を返す。
+ * 対象 key 限定・短命 TTL (opts.expiresIn 秒) で、Lambda body 6MB / 30 秒制約を迂回する (CWE-598 は
+ * 呼び出し側 DL route の認証 + tenant 一致 + 短命 TTL で緩和)。
+ */
+export const getDownloadUrl: IStorageRepo['getDownloadUrl'] = async (key, opts) => {
+	const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+	const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+	const client = await getS3Client();
+	const url = await getSignedUrl(
+		client,
+		new GetObjectCommand({ Bucket: ASSETS_BUCKET, Key: key }),
+		{ expiresIn: opts.expiresIn },
+	);
+	return { kind: 'redirect', url };
+};
+
 export const deleteByPrefix: IStorageRepo['deleteByPrefix'] = async (prefix) => {
 	const { DeleteObjectsCommand, ListObjectsV2Command } = await import('@aws-sdk/client-s3');
 	const client = await getS3Client();

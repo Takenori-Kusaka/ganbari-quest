@@ -485,6 +485,15 @@ const canConfirmClear = $derived(clearConfirmText === '削除' && clearAgreeChec
 								{SETTINGS_LABELS.dataExportIncludeFilesHint}
 							</p>
 						</div>
+					{:else}
+						<div
+							class="bg-[var(--color-feedback-info-bg)] border border-[var(--color-feedback-info-border)] rounded-lg p-3 mb-3"
+							data-testid="data-export-zip-cloud-hint"
+						>
+							<p class="text-xs text-[var(--color-feedback-info-text)]">
+								{SETTINGS_LABELS.dataExportZipCloudHint}
+							</p>
+						</div>
 					{/if}
 					<label
 						class="flex items-center gap-2 mb-3 text-sm text-[var(--color-text)] cursor-pointer"

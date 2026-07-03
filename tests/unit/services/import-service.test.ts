@@ -43,11 +43,16 @@ vi.mock('$lib/server/db/activity-repo', () => ({
 // factory の childActivity facade を mock する (insertActivity / findActivitiesByChild)。
 const mockChildActivityInsert = vi.fn();
 const mockChildActivityFindByChild = vi.fn();
+// #3329: childVoices DB 行復元は getRepos().voice.insertForRestore 経由。
+const mockVoiceInsertForRestore = vi.fn();
 vi.mock('$lib/server/db/factory', () => ({
 	getRepos: () => ({
 		childActivity: {
 			insertActivity: (...args: unknown[]) => mockChildActivityInsert(...args),
 			findActivitiesByChild: (...args: unknown[]) => mockChildActivityFindByChild(...args),
+		},
+		voice: {
+			insertForRestore: (...args: unknown[]) => mockVoiceInsertForRestore(...args),
 		},
 	}),
 }));
@@ -107,7 +112,10 @@ vi.mock('$lib/server/logger', () => ({
 	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('$lib/domain/validation/activity', () => ({
+vi.mock('$lib/domain/validation/activity', async (importActual) => ({
+	// #3463: sanitizeDailyLimit / sanitizeActivityNameField は実装をそのまま使う
+	// (mock が CATEGORY_CODES のみだと import-service の sanitize 呼び出しが undefined→throw する)。
+	...(await importActual<typeof import('$lib/domain/validation/activity')>()),
 	CATEGORY_CODES: ['undou', 'benkyou', 'seikatsu', 'kouryuu', 'souzou'],
 }));
 
@@ -155,6 +163,8 @@ function makeExportData(overrides: Partial<ExportData> = {}): ExportData {
 			checklistLogs: [],
 			childAvatarItems: [],
 			dailyMissions: [],
+			rewardRedemptions: [],
+			settings: [],
 		},
 		...overrides,
 	} as ExportData;
@@ -1569,6 +1579,65 @@ describe('importFamilyData', () => {
 			expect(result.staticFilesRestored).toBe(1); // voices/7/x.mp3
 			// avatar 実ファイルが無いため null 化 (存在しない /tenants/.../avatars/202/keep.png を指さない)
 			expect(mockUpdateChildAvatarUrl).toHaveBeenCalledWith(202, null, TENANT);
+		});
+	});
+
+	describe('子のカスタム音声 (childVoices) のインポート (#3329 / CWE-22 path traversal 防御)', () => {
+		const makeVoice = (childRef: string, voiceRelPath: string) => ({
+			childRef,
+			scene: 'praise' as const,
+			label: 'よくできました',
+			voiceRelPath,
+			durationMs: 1200,
+			isActive: 1,
+			createdAt: '2026-03-15T08:30:00Z',
+		});
+
+		it('正常な voiceRelPath (voices/<id>/<uuid>.ext) は新 tenant+childId へ再構成され insert される', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childVoices = [makeVoice('c1', 'voices/7/abcd-1234.mp3')];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockVoiceInsertForRestore.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			expect(result.childVoicesImported).toBe(1);
+			expect(result.childVoicesSkipped).toBe(0);
+			expect(mockVoiceInsertForRestore).toHaveBeenCalledTimes(1);
+			const row = mockVoiceInsertForRestore.mock.calls[0]?.[0];
+			expect(row.filePath).toBe(`tenants/${TENANT}/voices/101/abcd-1234.mp3`);
+			expect(row.publicUrl).toBe(`/tenants/${TENANT}/voices/101/abcd-1234.mp3`);
+		});
+
+		it('細工された voiceRelPath (`..` 等のトラバーサル) は insert されず skip + warning になる', async () => {
+			const data = makeExportData();
+			data.family.children = [makeChild('c1')];
+			data.data.childVoices = [
+				makeVoice('c1', 'voices/1/../../../../etc/secret'), // 親ディレクトリ脱出
+				makeVoice('c1', 'voices/1/..\\..\\evil'), // バックスラッシュ脱出 (Windows)
+				makeVoice('c1', 'voices/1//etc/passwd'), // rest 先頭スラッシュ = 絶対パス
+				makeVoice('c1', 'voices/7/safe.mp3'), // 正常エントリ (1 件だけ通る)
+			];
+			mockInsertChild.mockResolvedValue({ id: 101 });
+			mockVoiceInsertForRestore.mockResolvedValue(undefined);
+
+			const result = await importFamilyData(data, TENANT);
+
+			// 正常 1 件のみ insert、トラバーサル 3 件は skip
+			expect(result.childVoicesImported).toBe(1);
+			expect(result.childVoicesSkipped).toBe(3);
+			expect(mockVoiceInsertForRestore).toHaveBeenCalledTimes(1);
+			// tenant 境界外を指す filePath / publicUrl は一切 insert されない
+			for (const call of mockVoiceInsertForRestore.mock.calls) {
+				const [row] = call;
+				expect(String(row.filePath)).not.toContain('..');
+				expect(String(row.filePath)).not.toContain('etc/secret');
+				expect(String(row.filePath)).not.toContain('etc/passwd');
+				expect(String(row.filePath)).not.toContain('\\');
+				expect(String(row.filePath).startsWith(`tenants/${TENANT}/voices/`)).toBe(true);
+			}
+			expect(result.warnings.some((w) => w.includes('不正なパス'))).toBe(true);
 		});
 	});
 

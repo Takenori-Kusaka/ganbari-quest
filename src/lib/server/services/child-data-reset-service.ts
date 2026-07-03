@@ -17,12 +17,15 @@
 // (route 側の requireTenantId による auth gate + 本検証の二段で tenant 境界を担保)。
 
 import { resetChildProgressData } from '$lib/server/db/child-repo';
+import type { ChildProgressResetCounts } from '$lib/server/db/interfaces/child-repo.interface';
 import { getChildById } from './child-service';
 
 export interface ResetChildDataResult {
 	/** 対象 child が tenant に存在し削除を実行したか (cross-tenant / 不在なら false) */
 	reset: boolean;
 	childId: number;
+	/** #3184 item2: 削除した各 entity の件数 (dev-only switch reset の診断用)。reset=false 時は undefined。 */
+	deletedCounts?: ChildProgressResetCounts;
 }
 
 /**
@@ -48,7 +51,7 @@ export async function resetChildData(
 	// 進捗系 4 テーブルの削除は db facade (child-repo) 経由で行う。
 	// raw ORM (db.delete(...).where(eq(...))) は repo / facade 層の責務であり、
 	// services 層は ORM を直接参照しない (no-direct-db-access fitness function / ADR-0061)。
-	await resetChildProgressData(childId, tenantId);
+	const deletedCounts = await resetChildProgressData(childId, tenantId);
 
-	return { reset: true, childId };
+	return { reset: true, childId, deletedCounts };
 }

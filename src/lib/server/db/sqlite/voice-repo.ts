@@ -54,6 +54,28 @@ export async function insert(
 	return { id: Number(result.lastInsertRowid) };
 }
 
+/** #3329 backup: child の全カスタム音声 (scene 不問、export 用)。 */
+export async function findAllByChild(
+	childId: number,
+	_tenantId: string,
+): Promise<ChildCustomVoice[]> {
+	return db
+		.select()
+		.from(childCustomVoices)
+		.where(eq(childCustomVoices.childId, childId))
+		.orderBy(childCustomVoices.scene)
+		.all() as ChildCustomVoice[];
+}
+
+/** #3329 backup restore 用: createdAt / filePath / publicUrl / isActive を保全して音声行を復元する。 */
+export async function insertForRestore(
+	voice: Omit<ChildCustomVoice, 'id'>,
+	_tenantId: string,
+): Promise<{ id: number }> {
+	const result = db.insert(childCustomVoices).values(voice).run();
+	return { id: Number(result.lastInsertRowid) };
+}
+
 export async function setActive(
 	id: number,
 	childId: number,

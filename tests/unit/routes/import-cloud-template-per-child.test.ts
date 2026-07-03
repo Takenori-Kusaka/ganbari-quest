@@ -16,6 +16,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mocks (top-level)
 const mockFetchCloudExport = vi.fn();
+// #3376 adversarial: DL 消費は consumeCloudExportDownload に分離されたため spy を持つ。
+const mockConsumeDownload = vi.fn();
+// #3376: fetchCloudExportByPin は { record, bytes } を返すようになったため、
+// テスト fixture も JSON を Uint8Array (bytes) に encode して与える。
+const enc = (s: string) => new TextEncoder().encode(s);
 const mockFindAllChildren = vi.fn();
 const mockFindActivitiesByChild = vi.fn();
 const mockInsertActivitiesBulk = vi.fn();
@@ -26,6 +31,7 @@ vi.mock('$lib/server/auth/factory', () => ({
 
 vi.mock('$lib/server/services/cloud-export-service', () => ({
 	fetchCloudExportByPin: (...args: unknown[]) => mockFetchCloudExport(...args),
+	consumeCloudExportDownload: (...args: unknown[]) => mockConsumeDownload(...args),
 }));
 
 vi.mock('$lib/server/services/data-service', () => ({
@@ -119,7 +125,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(payload),
+				bytes: enc(JSON.stringify(payload)),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'preview'));
@@ -137,6 +143,8 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			expect(json.preview.activitiesByChild).toHaveLength(2);
 			expect(json.preview.activitiesByChild[0]).toMatchObject({ childId: 99, activityCount: 2 });
 			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+			// #3376 adversarial: preview は DL を消費しない
+			expect(mockConsumeDownload).not.toHaveBeenCalled();
 		});
 	});
 
@@ -144,7 +152,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('execute は targetChildIds 必須 (未指定で VALIDATION_ERROR)', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }])),
+				bytes: enc(JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }]))),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'execute'));
@@ -157,7 +165,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('execute は cross-tenant child id を拒否する (CWE-639)', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }])),
+				bytes: enc(JSON.stringify(templateV2Payload([{ childId: 99, names: ['a'] }]))),
 			});
 
 			const res = await POST(
@@ -167,6 +175,8 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			const json = (await res.json()) as { error?: { message?: string } };
 			expect(json.error?.message).toContain('999');
 			expect(mockInsertActivitiesBulk).not.toHaveBeenCalled();
+			// #3376 adversarial: validation 失敗 (cross-tenant 拒否) では DL を消費しない
+			expect(mockConsumeDownload).not.toHaveBeenCalled();
 		});
 
 		it('execute は ChildSelectionDialog で選ばれた child 全員に bulk insert する', async () => {
@@ -176,7 +186,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(payload),
+				bytes: enc(JSON.stringify(payload)),
 			});
 
 			const res = await POST(
@@ -193,13 +203,15 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			// 各 child に 3 件 (dedup 後) ずつ → 計 6 件
 			expect(json.result.activitiesCreated).toBe(6);
 			expect(mockInsertActivitiesBulk).toHaveBeenCalledTimes(2);
+			// #3376 adversarial: validate 成功後の execute でちょうど 1 回だけ DL を消費
+			expect(mockConsumeDownload).toHaveBeenCalledTimes(1);
 		});
 
 		it('execute は per-child 既存名と衝突する activity をスキップする', async () => {
 			const payload = templateV2Payload([{ childId: 99, names: ['はしる', 'よむ', 'はみがき'] }]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(payload),
+				bytes: enc(JSON.stringify(payload)),
 			});
 			// child=10 には既に「はしる」がある
 			mockFindActivitiesByChild.mockImplementation(async (childId: number) =>
@@ -224,7 +236,7 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 			]);
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify(payload),
+				bytes: enc(JSON.stringify(payload)),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123', targetChildIds: [10] }, 'execute'));
@@ -242,12 +254,14 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('旧 version 1.0.0 (family-wide shape) は拒否される', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify({
-					format: 'ganbari-quest-template',
-					version: '1.0.0',
-					activities: [{ name: 'old' }],
-					checklistTemplates: [],
-				}),
+				bytes: enc(
+					JSON.stringify({
+						format: 'ganbari-quest-template',
+						version: '1.0.0',
+						activities: [{ name: 'old' }],
+						checklistTemplates: [],
+					}),
+				),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'preview'));
@@ -259,12 +273,14 @@ describe('POST /api/v1/import/cloud — テンプレート per-child instance (#
 		it('format 不正は拒否される', async () => {
 			mockFetchCloudExport.mockResolvedValue({
 				record: { exportType: 'template', description: 'テスト' },
-				data: JSON.stringify({
-					format: 'unknown',
-					version: '2.0.0',
-					activitiesByChild: [],
-					checklistTemplates: [],
-				}),
+				bytes: enc(
+					JSON.stringify({
+						format: 'unknown',
+						version: '2.0.0',
+						activitiesByChild: [],
+						checklistTemplates: [],
+					}),
+				),
 			});
 
 			const res = await POST(makeRequest({ pinCode: 'ABC123' }, 'preview'));
