@@ -13,7 +13,6 @@
 //
 // §11.2 で凍結対象外のため本 manifest に載せない表:
 //   - report_daily_summaries (廃止、§7 compute-on-read) / achievements 系 (drop 確定、§10-10)
-//   - Family 系 (settings 等、PK は §11.3 で確定 = 未凍結。確定時に追記)
 //   - グローバル master (categories(code) 等) / auth 5 表 (§6.6) — family_id 先頭でない例外 (test [5])
 
 export const PK_FREEZE_MANIFEST = {
@@ -58,6 +57,18 @@ export const PK_FREEZE_MANIFEST = {
 	child_custom_voices: ['family_id', 'child_id', 'voice_id'],
 	child_challenges: ['family_id', 'child_id', 'challenge_id'],
 	usage_logs: ['family_id', 'child_id', 'log_id'],
+	// ── Family 系 8 表 (2026-07-03 実クエリ調査で §11.2 確定。governing rule 適用) ──
+	// settings のみ自然複合 (anchor (b): KVS の 1 key = 1 value は構造的確実)。
+	// 他 7 表は once-per-period 一意が無い append-only/履歴/mutable token 表で UUID surrogate。
+	// endpoint/token/pin の global UNIQUE は無 tenant 単点 lookup の機能要件 (PK とは別、DDL 側)。
+	settings: ['family_id', 'key'],
+	push_subscriptions: ['family_id', 'subscription_id'],
+	notification_logs: ['family_id', 'log_id'],
+	trial_history: ['family_id', 'trial_id'],
+	viewer_tokens: ['family_id', 'token_id'],
+	cloud_exports: ['family_id', 'export_id'],
+	cancellation_reasons: ['family_id', 'reason_id'],
+	graduation_consent: ['family_id', 'consent_id'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type PkFreezeManifest = typeof PK_FREEZE_MANIFEST;
