@@ -23,6 +23,8 @@ import {
 	uuid,
 } from 'drizzle-orm/pg-core';
 import { ARCHIVED_REASONS } from '$lib/domain/archive-types';
+import { BATTLE_OUTCOMES, DAILY_BATTLE_STATUSES } from '$lib/domain/battle-types';
+import { CHECKLIST_OVERRIDE_ACTIONS } from '$lib/domain/constants/checklist-override-action';
 import { type TimeSlot, VALID_TIME_SLOTS } from '$lib/domain/constants/checklist-time-slot';
 import { STAMP_CARD_STATUSES, type StampCardStatus } from '$lib/domain/constants/stamp-card-status';
 import {
@@ -508,4 +510,174 @@ export const checklistTemplateAssignments = pgTable(
 		primaryKey({ columns: [t.familyId, t.templateId, t.childId] }),
 		index('checklist_template_assignments_child_idx').on(t.familyId, t.childId),
 	],
+);
+
+// ── Child 集約 残り表 Slice A: 記録系 9 表 (§11.2 / §5、#3424) ──
+// PK は pk-freeze-manifest (= §11.2 凍結) と fitness#9 [3] が自動突合。
+
+// evaluations — 週次評価。scoresJson は evaluation_scores 子表に解体 (§5 判断③)。
+// created_at は sort 用途 (findEvaluationsByChild = PK プレフィクス + sort LIMIT、§11.2)。
+export const evaluations = pgTable(
+	'evaluations',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		evalId: uuid('eval_id').notNull().default(sql`gen_random_uuid()`),
+		weekStart: text('week_start').notNull(),
+		weekEnd: text('week_end').notNull(),
+		bonusPoints: integer('bonus_points').notNull().default(0),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.evalId] })],
+);
+
+// evaluation_scores — scoresJson の子表化 (§5: 真の GROUP BY を持つ evaluation 系集計のため列展開)。
+export const evaluationScores = pgTable(
+	'evaluation_scores',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		evalId: uuid('eval_id').notNull(),
+		categoryId: text('category_id').notNull(),
+		score: real('score').notNull(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.evalId, t.categoryId] })],
+);
+
+// rest_days — おやすみ日 (自然複合 PK 昇格、anchor (a) ADR-0012: 1日1回 = policy invariant §11.2)。
+export const restDays = pgTable(
+	'rest_days',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		date: text('date').notNull(),
+		reason: text('reason').notNull().default('rest'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.date] })],
+);
+
+// daily_battles — 日次バトル (自然複合 PK 昇格、anchor (a) ADR-0012 §11.2)。
+// playerStatsJson は固定 5 キー (BattleStats hp/atk/def/spd/rec) のため列展開 (§11.3 の
+// 「実装時にキー数で確定」を 5 固定と実測して確定。ALTER ADD COLUMN 可で可逆)。
+// enemy_id はコード内 enemy master の安定 id (DB 採番 surrogate でないため integer 維持)。
+export const dailyBattles = pgTable(
+	'daily_battles',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		date: text('date').notNull(),
+		enemyId: integer('enemy_id').notNull(),
+		status: text('status').notNull().default('pending'),
+		outcome: text('outcome'),
+		rewardPoints: integer('reward_points').notNull().default(0),
+		turnsUsed: integer('turns_used').notNull().default(0),
+		playerHp: integer('player_hp').notNull().default(0),
+		playerAtk: integer('player_atk').notNull().default(0),
+		playerDef: integer('player_def').notNull().default(0),
+		playerSpd: integer('player_spd').notNull().default(0),
+		playerRec: integer('player_rec').notNull().default(0),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.date] }),
+		check('daily_battles_status_ck', enumCheck(t.status, DAILY_BATTLE_STATUSES)),
+		check('daily_battles_outcome_ck', enumCheck(t.outcome, BATTLE_OUTCOMES)),
+	],
+);
+
+// enemy_collection — 敵図鑑 (自然複合 PK 昇格 §11.2)。enemy_id はコード内 master の安定 id。
+export const enemyCollection = pgTable(
+	'enemy_collection',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		enemyId: integer('enemy_id').notNull(),
+		firstDefeatedAt: timestamp('first_defeated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		defeatCount: integer('defeat_count').notNull().default(1),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.enemyId] })],
+);
+
+// checklist_logs — 日次チェック記録 (自然複合 PK 昇格 §11.2)。itemsJson は
+// checklist_log_items 子表に解体 (§5 判断③)。
+export const checklistLogs = pgTable(
+	'checklist_logs',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		templateId: uuid('template_id').notNull(),
+		checkedDate: text('checked_date').notNull(),
+		completedAll: boolean('completed_all').notNull().default(false),
+		pointsAwarded: integer('points_awarded').notNull().default(0),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.templateId, t.checkedDate] })],
+);
+
+// checklist_log_items — itemsJson の子表化 (§5: item_id は checklist_template_items 論理FK)。
+export const checklistLogItems = pgTable(
+	'checklist_log_items',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		templateId: uuid('template_id').notNull(),
+		checkedDate: text('checked_date').notNull(),
+		itemId: uuid('item_id').notNull(),
+		checked: boolean('checked').notNull().default(false),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.templateId, t.checkedDate, t.itemId] })],
+);
+
+// checklist_overrides — 日次 override (UUID surrogate §11.2: 自然キー一意の前提を置かず確定 N5)。
+export const checklistOverrides = pgTable(
+	'checklist_overrides',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		overrideId: uuid('override_id').notNull().default(sql`gen_random_uuid()`),
+		targetDate: text('target_date').notNull(),
+		action: text('action').notNull(),
+		itemName: text('item_name').notNull(),
+		icon: text('icon').notNull().default('📦'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.overrideId] }),
+		check('checklist_overrides_action_ck', enumCheck(t.action, CHECKLIST_OVERRIDE_ACTIONS)),
+	],
+);
+
+// child_activity_preferences — ピン留め設定 (自然複合 PK 昇格、§3 欠落→編入 §11.2)。
+export const childActivityPreferences = pgTable(
+	'child_activity_preferences',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		activityId: uuid('activity_id').notNull(),
+		isPinned: boolean('is_pinned').notNull().default(false),
+		pinOrder: integer('pin_order'),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.activityId] })],
 );

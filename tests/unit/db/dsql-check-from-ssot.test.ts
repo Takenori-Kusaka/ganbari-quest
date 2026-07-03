@@ -103,6 +103,26 @@ describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁�
 		for (const t of VALID_TIME_SLOTS) expect(s).toContain(`'${t}'`);
 	});
 
+	// ── daily_battles / checklist_overrides (#3424 Child 集約 Slice A) ──
+
+	it('daily_battles status/outcome CHECK が SSOT 全値を含む (DAILY_BATTLE_STATUSES / BATTLE_OUTCOMES)', async () => {
+		const { DAILY_BATTLE_STATUSES, BATTLE_OUTCOMES } = await import(
+			'../../../src/lib/domain/battle-types'
+		);
+		const statusSql = await checkSql('daily_battles_status_ck', 'dailyBattles');
+		for (const st of DAILY_BATTLE_STATUSES) expect(statusSql).toContain(`'${st}'`);
+		const outcomeSql = await checkSql('daily_battles_outcome_ck', 'dailyBattles');
+		for (const o of BATTLE_OUTCOMES) expect(outcomeSql).toContain(`'${o}'`);
+	});
+
+	it('checklist_overrides action CHECK が CHECKLIST_OVERRIDE_ACTIONS 全値を含む (SSOT 生成)', async () => {
+		const { CHECKLIST_OVERRIDE_ACTIONS } = await import(
+			'../../../src/lib/domain/constants/checklist-override-action'
+		);
+		const s2 = await checkSql('checklist_overrides_action_ck', 'checklistOverrides');
+		for (const a of CHECKLIST_OVERRIDE_ACTIONS) expect(s2).toContain(`'${a}'`);
+	});
+
 	// ── invites / consents (§6.6、#3528 cycle (b)) ──
 
 	it('invites status/role CHECK が SSOT 全値を含む (INVITE_STATUSES / ROLES)', async () => {
