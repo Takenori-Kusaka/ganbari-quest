@@ -26,12 +26,18 @@ import { ARCHIVED_REASONS } from '$lib/domain/archive-types';
 import { BATTLE_OUTCOMES, DAILY_BATTLE_STATUSES } from '$lib/domain/battle-types';
 import { CHECKLIST_OVERRIDE_ACTIONS } from '$lib/domain/constants/checklist-override-action';
 import { type TimeSlot, VALID_TIME_SLOTS } from '$lib/domain/constants/checklist-time-slot';
+import {
+	CHALLENGE_PERIOD_TYPES,
+	CHILD_CHALLENGE_STATUSES,
+} from '$lib/domain/constants/child-challenge';
+import { REDEMPTION_STATUSES } from '$lib/domain/constants/redemption-status';
 import { STAMP_CARD_STATUSES, type StampCardStatus } from '$lib/domain/constants/stamp-card-status';
 import {
 	ALL_SUBSCRIPTION_STATUSES,
 	type SubscriptionStatus,
 } from '$lib/domain/constants/subscription-status';
 import { UI_MODES } from '$lib/domain/validation/age-tier-types';
+import { MESSAGE_TYPES } from '$lib/domain/validation/message';
 import {
 	AUTH_PROVIDERS,
 	type AuthProviderKind,
@@ -680,4 +686,243 @@ export const childActivityPreferences = pgTable(
 			.defaultNow(),
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.activityId] })],
+);
+
+// ── Child 集約 残り表 Slice B: ボーナス・報酬・メッセージ系 10 表 (§11.2 / §5、#3424) ──
+
+// login_bonuses — ログインボーナス (自然複合 PK、anchor (a) ADR-0012: 1日1回 §11.2)。
+// rank はおみくじ演出の増減集合のため CHECK 対象外。
+export const loginBonuses = pgTable(
+	'login_bonuses',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		loginDate: text('login_date').notNull(),
+		rank: text('rank').notNull(),
+		basePoints: integer('base_points').notNull(),
+		multiplier: real('multiplier').notNull().default(1.0),
+		totalPoints: integer('total_points').notNull(),
+		consecutiveDays: integer('consecutive_days').notNull().default(1),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.loginDate] })],
+);
+
+// certificates — がんばり証明書 (UUID surrogate、§11.2 governing rule: 再発行/周期型証書が
+// roadmap プラウジブル)。metadata は発行後 immutable・不検索で §5 上 jsonb 可だが、backup の
+// verbatim 移送 (§9.1) を優先し text 維持 ({mode:'json'} 化は repo PR で判断)。
+// certificate_type は増減集合 (周期型証書の追加があり得る) のため CHECK 対象外。
+// 「1 type 有効1通」の active_key 生成列 + UNIQUE (§11.2「要時、droppable」) は、現 product に
+// 有効/無効 (revoke) 概念が無く「要時」に該当しないため未設置 (導入時に ALTER で追加可)。
+export const certificates = pgTable(
+	'certificates',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		certificateId: uuid('certificate_id').notNull().default(sql`gen_random_uuid()`),
+		certificateType: text('certificate_type').notNull(),
+		title: text('title').notNull(),
+		description: text('description'),
+		issuedAt: timestamp('issued_at', { mode: 'string', withTimezone: true }).notNull().defaultNow(),
+		metadata: text('metadata'),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.certificateId] })],
+);
+
+// special_rewards — 特別ごほうび。granted_by は親 user 等の polymorphic 参照 (旧 int/新 uuid
+// 混在許容で text、point_ledger.reference_id と同判断)。shop_category は増減集合で CHECK 対象外。
+export const specialRewards = pgTable(
+	'special_rewards',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		rewardId: uuid('reward_id').notNull().default(sql`gen_random_uuid()`),
+		grantedBy: text('granted_by'),
+		title: text('title').notNull(),
+		description: text('description'),
+		points: integer('points').notNull(),
+		icon: text('icon'),
+		category: text('category').notNull(),
+		grantedAt: timestamp('granted_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		shownAt: timestamp('shown_at', { mode: 'string', withTimezone: true }),
+		sourcePresetId: text('source_preset_id'),
+		shopCategory: text('shop_category'),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.rewardId] }),
+		// findUnshownReward hot (§11.2 補助 secondary)。
+		index('special_rewards_granted_idx').on(t.familyId, t.childId, t.grantedAt),
+	],
+);
+
+// reward_redemption_requests — ごほうびショップ交換申請 (#1337)。
+// requested_at/resolved_at/shown_to_child_at は旧 epoch integer → timestamptz に正規化 (§11.3)。
+// reward_title/points/icon は申請時点 snapshot (#2832、非正規化は実装事実と一致 判断①)。
+export const rewardRedemptionRequests = pgTable(
+	'reward_redemption_requests',
+	{
+		familyId: uuid('family_id').notNull(),
+		redemptionId: uuid('redemption_id').notNull().default(sql`gen_random_uuid()`),
+		childId: uuid('child_id').notNull(),
+		rewardId: uuid('reward_id').notNull(),
+		requestedAt: timestamp('requested_at', { mode: 'string', withTimezone: true }).notNull(),
+		status: text('status').notNull().default('pending_parent_approval'),
+		parentNote: text('parent_note'),
+		resolvedAt: timestamp('resolved_at', { mode: 'string', withTimezone: true }),
+		resolvedByParentId: text('resolved_by_parent_id'),
+		shownToChildAt: timestamp('shown_to_child_at', { mode: 'string', withTimezone: true }),
+		rewardTitle: text('reward_title'),
+		rewardPoints: integer('reward_points'),
+		rewardIcon: text('reward_icon'),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.redemptionId] }),
+		// §11.2 補助 secondary 2 本 (child×status / status×requested_at)。
+		index('redemption_child_status_idx').on(t.familyId, t.childId, t.status),
+		index('redemption_status_requested_idx').on(t.familyId, t.status, t.requestedAt),
+		check('reward_redemption_requests_status_ck', enumCheck(t.status, REDEMPTION_STATUSES)),
+	],
+);
+
+// parent_messages — 親→子メッセージ。sent_at は sort 用途 (PK に入れない §11.2、
+// findMessages/findUnshownMessage は PK プレフィクス + shown_at 残差 + sort LIMIT)。
+export const parentMessages = pgTable(
+	'parent_messages',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		msgId: uuid('msg_id').notNull().default(sql`gen_random_uuid()`),
+		messageType: text('message_type').notNull(),
+		stampCode: text('stamp_code'),
+		body: text('body'),
+		icon: text('icon').notNull().default('💌'),
+		sentAt: timestamp('sent_at', { mode: 'string', withTimezone: true }).notNull().defaultNow(),
+		shownAt: timestamp('shown_at', { mode: 'string', withTimezone: true }),
+		bonusPoints: integer('bonus_points'),
+		rewardCategory: text('reward_category'),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.msgId] }),
+		check('parent_messages_message_type_ck', enumCheck(t.messageType, MESSAGE_TYPES)),
+	],
+);
+
+// sibling_cheers — 兄弟応援 (family scope、from/to の 2 child 参照のため child 主軸にしない §11.2)。
+export const siblingCheers = pgTable(
+	'sibling_cheers',
+	{
+		familyId: uuid('family_id').notNull(),
+		cheerId: uuid('cheer_id').notNull().default(sql`gen_random_uuid()`),
+		fromChildId: uuid('from_child_id').notNull(),
+		toChildId: uuid('to_child_id').notNull(),
+		stampCode: text('stamp_code').notNull(),
+		sentAt: timestamp('sent_at', { mode: 'string', withTimezone: true }).notNull().defaultNow(),
+		shownAt: timestamp('shown_at', { mode: 'string', withTimezone: true }),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.cheerId] }),
+		// findUnshownCheers hot (§11.2 補助 secondary)。
+		index('sibling_cheers_to_shown_idx').on(t.familyId, t.toChildId, t.shownAt),
+	],
+);
+
+// character_images — キャラ画像 (key+メタのみ §9.4、バイトは IStorageRepo)。
+export const characterImages = pgTable(
+	'character_images',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		imageId: uuid('image_id').notNull().default(sql`gen_random_uuid()`),
+		type: text('type').notNull(),
+		filePath: text('file_path').notNull(),
+		promptHash: text('prompt_hash'),
+		generatedAt: timestamp('generated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.imageId] })],
+);
+
+// child_custom_voices — ユーザー録音ボイス (source/not-yet-exported = backup 必須 §11.2)。
+// key+メタのみ (§9.4)、scene は素の列。
+export const childCustomVoices = pgTable(
+	'child_custom_voices',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		voiceId: uuid('voice_id').notNull().default(sql`gen_random_uuid()`),
+		scene: text('scene').notNull().default('complete'),
+		label: text('label').notNull(),
+		filePath: text('file_path').notNull(),
+		publicUrl: text('public_url').notNull(),
+		durationMs: integer('duration_ms'),
+		isActive: boolean('is_active').notNull().default(false),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.voiceId] })],
+);
+
+// child_challenges — per-child チャレンジ (#2362 PR-7)。targetConfig/rewardConfig は
+// 列展開 (§5: target_metric / target_category_id 論理FK / base_target / reward_points /
+// reward_message)。challenge_type は増減集合 (CHECK 対象外)。
+export const childChallenges = pgTable(
+	'child_challenges',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		challengeId: uuid('challenge_id').notNull().default(sql`gen_random_uuid()`),
+		title: text('title').notNull(),
+		description: text('description'),
+		challengeType: text('challenge_type').notNull().default('cooperative'),
+		periodType: text('period_type').notNull().default('weekly'),
+		startDate: text('start_date').notNull(),
+		endDate: text('end_date').notNull(),
+		targetMetric: text('target_metric').notNull(),
+		targetCategoryId: text('target_category_id'),
+		baseTarget: integer('base_target').notNull(),
+		rewardPoints: integer('reward_points').notNull(),
+		rewardMessage: text('reward_message'),
+		status: text('status').notNull().default('active'),
+		isActive: boolean('is_active').notNull().default(true),
+		sourceTemplateId: text('source_template_id'),
+		currentValue: integer('current_value').notNull().default(0),
+		targetValue: integer('target_value').notNull(),
+		completed: boolean('completed').notNull().default(false),
+		completedAt: timestamp('completed_at', { mode: 'string', withTimezone: true }),
+		rewardClaimed: boolean('reward_claimed').notNull().default(false),
+		rewardClaimedAt: timestamp('reward_claimed_at', { mode: 'string', withTimezone: true }),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.challengeId] }),
+		// findActiveOrUnclaimed hot (§11.2 補助 secondary)。
+		index('child_challenges_status_idx').on(t.familyId, t.childId, t.status),
+		check('child_challenges_status_ck', enumCheck(t.status, CHILD_CHALLENGE_STATUSES)),
+		check('child_challenges_period_type_ck', enumCheck(t.periodType, CHALLENGE_PERIOD_TYPES)),
+	],
+);
+
+// usage_logs — 利用時間ログ。started_at/ended_at は timestamptz、duration_sec は終了時算出。
+export const usageLogs = pgTable(
+	'usage_logs',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		logId: uuid('log_id').notNull().default(sql`gen_random_uuid()`),
+		startedAt: timestamp('started_at', { mode: 'string', withTimezone: true }).notNull(),
+		endedAt: timestamp('ended_at', { mode: 'string', withTimezone: true }),
+		durationSec: integer('duration_sec'),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.logId] })],
 );

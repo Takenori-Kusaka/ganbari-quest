@@ -123,6 +123,32 @@ describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁�
 		for (const a of CHECKLIST_OVERRIDE_ACTIONS) expect(s2).toContain(`'${a}'`);
 	});
 
+	// ── Slice B: parent_messages / reward_redemption_requests / child_challenges (#3424) ──
+
+	it('parent_messages message_type CHECK が MESSAGE_TYPES 全値を含む (SSOT 生成)', async () => {
+		const { MESSAGE_TYPES } = await import('../../../src/lib/domain/validation/message');
+		const s2 = await checkSql('parent_messages_message_type_ck', 'parentMessages');
+		for (const m of MESSAGE_TYPES) expect(s2).toContain(`'${m}'`);
+	});
+
+	it('reward_redemption_requests status CHECK が REDEMPTION_STATUSES 全値を含む (SSOT 生成)', async () => {
+		const { REDEMPTION_STATUSES } = await import(
+			'../../../src/lib/domain/constants/redemption-status'
+		);
+		const s2 = await checkSql('reward_redemption_requests_status_ck', 'rewardRedemptionRequests');
+		for (const st of REDEMPTION_STATUSES) expect(s2).toContain(`'${st}'`);
+	});
+
+	it('child_challenges status/period_type CHECK が SSOT 全値を含む (challenge_type は増減集合で対象外)', async () => {
+		const { CHILD_CHALLENGE_STATUSES, CHALLENGE_PERIOD_TYPES } = await import(
+			'../../../src/lib/domain/constants/child-challenge'
+		);
+		const statusSql = await checkSql('child_challenges_status_ck', 'childChallenges');
+		for (const st of CHILD_CHALLENGE_STATUSES) expect(statusSql).toContain(`'${st}'`);
+		const periodSql = await checkSql('child_challenges_period_type_ck', 'childChallenges');
+		for (const pt of CHALLENGE_PERIOD_TYPES) expect(periodSql).toContain(`'${pt}'`);
+	});
+
 	// ── invites / consents (§6.6、#3528 cycle (b)) ──
 
 	it('invites status/role CHECK が SSOT 全値を含む (INVITE_STATUSES / ROLES)', async () => {
