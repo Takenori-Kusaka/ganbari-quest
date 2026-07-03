@@ -1030,7 +1030,10 @@ export type CloudExportType = 'template' | 'full';
  * pending (build 待ち) → building (cron が build 中) → ready (DL 可) / failed (build 失敗)。
  * 本機構導入前に作成された既存レコードは lazy migration で 'ready' に backfill される。
  */
-export type CloudExportStatus = 'pending' | 'building' | 'ready' | 'failed';
+// #3424: runtime SSOT は $lib/domain/constants/cloud-export-status (DSQL CHECK 生成と共有、型同値)
+import type { CloudExportStatus } from '$lib/domain/constants/cloud-export-status';
+
+export type { CloudExportStatus };
 
 export interface CloudExportRecord {
 	id: number;
