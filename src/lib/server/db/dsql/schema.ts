@@ -421,10 +421,10 @@ export const stampCards = pgTable(
 	],
 );
 
-// stamp_entries — カード内押印 (card 単位サブ集約 §3)。card_id は stamp_cards の
-// 代替キーではなく §11.2 の凍結 PK 通り uuid 参照 (stamp_cards 側は自然複合 PK のため
-// entries 側は card 行を一意に指す card_id uuid を別途持つ設計…ではなく §11.2 の
-// (family_id, card_id, slot) に忠実に card_id uuid 列を置く。論理 FK、DSQL FK 非対応)。
+// stamp_entries — カード内押印 (card 単位サブ集約 §3)。stamp_cards は UUID surrogate PK
+// (family_id, child_id, card_id uuid) (PO 決裁 2026-07-03)。card_id は stamp_cards PK の
+// 第 3 要素 card_id を指す論理 FK (DSQL FK 非対応のため制約なし、cross-family / orphan 防止は
+// アプリ層 repo の責務)。PK は §11.2 の凍結 PK (family_id, card_id, slot)。
 // UNIQUE (family_id, card_id, login_date) = 1日1押印 (consistency minor、§11.2 補助 UNIQUE)。
 export const stampEntries = pgTable(
 	'stamp_entries',
