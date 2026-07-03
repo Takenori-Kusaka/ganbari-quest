@@ -1,8 +1,9 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import type { ActivityUsageCount, ChildActivityPreference } from '../types';
 
 export interface IActivityPrefRepo {
 	/** #3329 backup: child の全活動設定 (pinned 不問、export 用)。 */
-	findAllByChild(childId: number, tenantId: string): Promise<ChildActivityPreference[]>;
+	findAllByChild(childId: ChildId, tenantId: string): Promise<ChildActivityPreference[]>;
 
 	/**
 	 * #3329 backup restore 用: isPinned/pinOrder/日時を保全して活動設定を復元する。
@@ -15,16 +16,16 @@ export interface IActivityPrefRepo {
 		tenantId: string,
 	): Promise<ChildActivityPreference>;
 
-	findPinnedByChild(childId: number, tenantId: string): Promise<ChildActivityPreference[]>;
+	findPinnedByChild(childId: ChildId, tenantId: string): Promise<ChildActivityPreference[]>;
 	togglePin(
-		childId: number,
-		activityId: number,
+		childId: ChildId,
+		activityId: ActivityId,
 		pinned: boolean,
 		tenantId: string,
 	): Promise<ChildActivityPreference>;
-	countPinnedInCategory(childId: number, categoryId: number, tenantId: string): Promise<number>;
+	countPinnedInCategory(childId: ChildId, categoryId: CategoryId, tenantId: string): Promise<number>;
 	getUsageCounts(
-		childId: number,
+		childId: ChildId,
 		sinceDate: string,
 		tenantId: string,
 	): Promise<ActivityUsageCount[]>;

@@ -6,7 +6,7 @@
 // PO の「ポジティブな解約」KPI 集計に使う (consented=false でも 1 件カウント)。
 
 export interface GraduationConsentRecord {
-	id: number;
+	id: string;
 	tenantId: string;
 	/** 公開時の表示名（実名禁止 — 親が任意指定） */
 	nickname: string;
@@ -43,7 +43,7 @@ export interface GraduationStats {
 	graduationRate: number;
 	/** 公開承諾された事例（最新順、最大 limit 件、message が空でないもの） */
 	publicSamples: Array<{
-		id: number;
+		id: string;
 		nickname: string;
 		userPoints: number;
 		usagePeriodDays: number;

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/db/sibling-cheer-repo.ts — Facade (delegates to factory)
 
 import { getRepos } from './factory';
@@ -11,16 +12,16 @@ export async function insertCheer(
 }
 
 export async function findUnshownCheers(
-	toChildId: number,
+	toChildId: ChildId,
 	tenantId: string,
 ): Promise<SiblingCheer[]> {
 	return getRepos().siblingCheer.findUnshownCheers(toChildId, tenantId);
 }
 
-export async function markShown(cheerIds: number[], tenantId: string): Promise<void> {
+export async function markShown(cheerIds: string[], tenantId: string): Promise<void> {
 	return getRepos().siblingCheer.markShown(cheerIds, tenantId);
 }
 
-export async function countTodayCheersFrom(fromChildId: number, tenantId: string): Promise<number> {
+export async function countTodayCheersFrom(fromChildId: ChildId, tenantId: string): Promise<number> {
 	return getRepos().siblingCheer.countTodayCheersFrom(fromChildId, tenantId);
 }

@@ -1,10 +1,11 @@
+import type { ChildId } from '$lib/domain/ids';
 import type { Child, InsertLoginBonusInput, LoginBonus } from '../types';
 
 export interface ILoginBonusRepo {
-	findTodayBonus(childId: number, today: string, tenantId: string): Promise<LoginBonus | undefined>;
-	findRecentBonuses(childId: number, tenantId: string, limit?: number): Promise<LoginBonus[]>;
+	findTodayBonus(childId: ChildId, today: string, tenantId: string): Promise<LoginBonus | undefined>;
+	findRecentBonuses(childId: ChildId, tenantId: string, limit?: number): Promise<LoginBonus[]>;
 	insertLoginBonus(input: InsertLoginBonusInput, tenantId: string): Promise<LoginBonus>;
-	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
+	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
 	deleteByTenantId(tenantId: string): Promise<void>;
 
 	// Retention cleanup (#717, #729)
@@ -14,7 +15,7 @@ export interface ILoginBonusRepo {
 	 * @returns 削除件数
 	 */
 	deleteLoginBonusesBeforeDate(
-		childId: number,
+		childId: ChildId,
 		cutoffDate: string,
 		tenantId: string,
 	): Promise<number>;

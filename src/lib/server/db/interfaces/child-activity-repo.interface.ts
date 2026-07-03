@@ -1,3 +1,4 @@
+import type { ActivityId, ChildId } from '$lib/domain/ids';
 /**
  * IChildActivityRepo — per-child activity instance repo interface (#2362 PR-3、ADR-0055)
  *
@@ -30,20 +31,20 @@ export interface IChildActivityRepo {
 	// ── 一覧 / 取得 (child scope) ─────────────────────────────────
 	/** 指定 child の activity 一覧。archived 除外可 */
 	findActivitiesByChild(
-		childId: number,
+		childId: ChildId,
 		tenantId: string,
 		options?: { includeArchived?: boolean; visibleOnly?: boolean },
 	): Promise<ChildActivity[]>;
 
 	/** id + child + tenant の 3 軸で取得 (cross-child access 防止) */
 	findActivityById(
-		id: number,
-		childId: number,
+		id: ActivityId,
+		childId: ChildId,
 		tenantId: string,
 	): Promise<ChildActivity | undefined>;
 
 	/** main quest 数 (per-child) */
-	countMainQuestActivities(childId: number, tenantId: string): Promise<number>;
+	countMainQuestActivities(childId: ChildId, tenantId: string): Promise<number>;
 
 	// ── 作成 / 更新 / 削除 (child scope) ──────────────────────────
 	/** per-child instance 新規作成 */
@@ -59,20 +60,20 @@ export interface IChildActivityRepo {
 	): Promise<ChildActivity[]>;
 
 	updateActivity(
-		id: number,
-		childId: number,
+		id: ActivityId,
+		childId: ChildId,
 		input: UpdateChildActivityInput,
 		tenantId: string,
 	): Promise<ChildActivity | undefined>;
 
 	setActivityVisibility(
-		id: number,
-		childId: number,
+		id: ActivityId,
+		childId: ChildId,
 		visible: boolean,
 		tenantId: string,
 	): Promise<ChildActivity | undefined>;
 
-	deleteActivity(id: number, childId: number, tenantId: string): Promise<ChildActivity | undefined>;
+	deleteActivity(id: ActivityId, childId: ChildId, tenantId: string): Promise<ChildActivity | undefined>;
 
 	// ── 兄弟共通化 UX (ADR-0055 §3.1 兄弟共通化、User §1) ────────
 	/**
@@ -80,16 +81,16 @@ export interface IChildActivityRepo {
 	 * 戻り値は target child に作成された ChildActivity 一覧。
 	 */
 	copyActivitiesAcrossChildren(
-		sourceChildId: number,
-		targetChildId: number,
+		sourceChildId: ChildId,
+		targetChildId: ChildId,
 		tenantId: string,
 	): Promise<ChildActivity[]>;
 
 	// ── archive / restore (#783) ──────────────────────────────────
 	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
-	archiveActivities(ids: number[], reason: ArchivedReason, tenantId: string): Promise<void>;
+	archiveActivities(ids: ActivityId[], reason: ArchivedReason, tenantId: string): Promise<void>;
 	restoreArchivedActivities(reason: ArchivedReason, tenantId: string): Promise<void>;
 
 	// ── Child convenience lookup ─────────────────────────────────
-	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
+	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
 }

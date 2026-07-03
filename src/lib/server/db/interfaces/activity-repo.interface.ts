@@ -1,3 +1,4 @@
+import type { ActivityId, CategoryId, ChildId } from '$lib/domain/ids';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	Activity,
@@ -25,86 +26,86 @@ export interface IActivityRepo {
 	//   (read のみ生存、write は全て NotImplementedError throw)
 	// 共通 callsite は id / name / icon / basePoints / priority / isVisible のみ参照。
 	// physical drop は #2458-C で実施予定。
-	findActivityById(id: number, tenantId: string): Promise<Activity | ChildActivity | undefined>;
+	findActivityById(id: ActivityId, tenantId: string): Promise<Activity | ChildActivity | undefined>;
 	insertActivity(input: InsertActivityInput, tenantId: string): Promise<Activity>;
 	updateActivity(
-		id: number,
+		id: ActivityId,
 		input: UpdateActivityInput,
 		tenantId: string,
 	): Promise<Activity | undefined>;
 	setActivityVisibility(
-		id: number,
+		id: ActivityId,
 		visible: boolean,
 		tenantId: string,
 	): Promise<Activity | undefined>;
-	deleteActivity(id: number, tenantId: string): Promise<Activity | undefined>;
-	hasActivityLogs(activityId: number, tenantId: string): Promise<boolean>;
+	deleteActivity(id: ActivityId, tenantId: string): Promise<Activity | undefined>;
+	hasActivityLogs(activityId: ActivityId, tenantId: string): Promise<boolean>;
 	getActivityLogCounts(tenantId: string): Promise<Record<number, number>>;
 	countMainQuestActivities(tenantId: string): Promise<number>;
-	deleteDailyMissionsByActivity(activityId: number, tenantId: string): Promise<void>;
+	deleteDailyMissionsByActivity(activityId: ActivityId, tenantId: string): Promise<void>;
 
 	// Children (convenience — shared lookup)
-	findChildById(id: number, tenantId: string): Promise<Child | undefined>;
+	findChildById(id: ChildId, tenantId: string): Promise<Child | undefined>;
 
 	// Activity Logs
 	findDailyLog(
-		childId: number,
-		activityId: number,
+		childId: ChildId,
+		activityId: ActivityId,
 		date: string,
 		tenantId: string,
 	): Promise<ActivityLog | undefined>;
 	findStreakLogs(
-		childId: number,
-		activityId: number,
+		childId: ChildId,
+		activityId: ActivityId,
 		tenantId: string,
 	): Promise<{ recordedDate: string }[]>;
 	insertActivityLog(input: InsertActivityLogInput, tenantId: string): Promise<ActivityLog>;
-	findActivityLogById(id: number, tenantId: string): Promise<ActivityLog | undefined>;
-	markActivityLogCancelled(id: number, tenantId: string): Promise<void>;
+	findActivityLogById(id: string, tenantId: string): Promise<ActivityLog | undefined>;
+	markActivityLogCancelled(id: string, tenantId: string): Promise<void>;
 	findActivityLogs(
-		childId: number,
+		childId: ChildId,
 		tenantId: string,
 		options?: { from?: string; to?: string },
 	): Promise<ActivityLogSummary[]>;
 	countTodayActiveRecords(
-		childId: number,
-		activityId: number,
+		childId: ChildId,
+		activityId: ActivityId,
 		date: string,
 		tenantId: string,
 	): Promise<number>;
 	getTodayActivityCountsByChild(
-		childId: number,
+		childId: ChildId,
 		date: string,
 		tenantId: string,
-	): Promise<{ activityId: number; count: number }[]>;
-	findTodayRecordedActivityIds(childId: number, today: string, tenantId: string): Promise<number[]>;
+	): Promise<{ activityId: ActivityId; count: number }[]>;
+	findTodayRecordedActivityIds(childId: ChildId, today: string, tenantId: string): Promise<ActivityId[]>;
 
 	// Aggregation queries
-	findDistinctRecordedDates(childId: number, tenantId: string): Promise<{ recordedDate: string }[]>;
-	countActiveActivityLogs(childId: number, tenantId: string): Promise<number>;
+	findDistinctRecordedDates(childId: ChildId, tenantId: string): Promise<{ recordedDate: string }[]>;
+	countActiveActivityLogs(childId: ChildId, tenantId: string): Promise<number>;
 	getCategoryCountsByDate(
-		childId: number,
+		childId: ChildId,
 		tenantId: string,
 	): Promise<{ recordedDate: string; categoryCount: number }[]>;
-	countDistinctCategories(childId: number, tenantId: string): Promise<number>;
+	countDistinctCategories(childId: ChildId, tenantId: string): Promise<number>;
 	findTodayLogsWithCategory(
-		childId: number,
+		childId: ChildId,
 		date: string,
 		tenantId: string,
-	): Promise<{ activityId: number; categoryId: number }[]>;
+	): Promise<{ activityId: ActivityId; categoryId: CategoryId }[]>;
 	getComboPointsGranted(
-		childId: number,
+		childId: ChildId,
 		descriptionPrefix: string,
 		tenantId: string,
 	): Promise<number>;
 	countActiveActivityLogsByCategory(
-		childId: number,
-		categoryId: number,
+		childId: ChildId,
+		categoryId: CategoryId,
 		tenantId: string,
 	): Promise<number>;
-	countPointLedgerEntriesByType(childId: number, type: string, tenantId: string): Promise<number>;
+	countPointLedgerEntriesByType(childId: ChildId, type: string, tenantId: string): Promise<number>;
 	countPointLedgerEntriesByTypeAndDate(
-		childId: number,
+		childId: ChildId,
 		type: string,
 		date: string,
 		tenantId: string,
@@ -120,18 +121,18 @@ export interface IActivityRepo {
 	 *          activities: must 活動 + 今日記録済みフラグ
 	 */
 	findMustActivitiesWithToday(
-		childId: number,
+		childId: ChildId,
 		today: string,
 		tenantId: string,
 	): Promise<{
 		logged: number;
 		total: number;
-		activities: Array<{ id: number; name: string; icon: string; loggedToday: number }>;
+		activities: Array<{ id: ActivityId; name: string; icon: string; loggedToday: number }>;
 	}>;
 
 	// #783: archive / restore
 	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
-	archiveActivities(ids: number[], reason: ArchivedReason, tenantId: string): Promise<void>;
+	archiveActivities(ids: ActivityId[], reason: ArchivedReason, tenantId: string): Promise<void>;
 	restoreArchivedActivities(reason: ArchivedReason, tenantId: string): Promise<void>;
 
 	// Point Ledger
@@ -144,7 +145,7 @@ export interface IActivityRepo {
 	 * @returns 削除件数
 	 */
 	deleteActivityLogsBeforeDate(
-		childId: number,
+		childId: ChildId,
 		cutoffDate: string,
 		tenantId: string,
 	): Promise<number>;

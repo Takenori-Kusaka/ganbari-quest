@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 import type { ArchivedReason } from '$lib/domain/archive-types';
 import type {
 	ChecklistLog,
@@ -44,7 +45,7 @@ export interface IChecklistRepo {
 	 * Phase 1 既存 callsite (`getChecklistsForChild` 等) との互換 wrap。
 	 */
 	findTemplatesByChild(
-		childId: number,
+		childId: ChildId,
 		tenantId: string,
 		includeInactive?: boolean,
 		// #3106: archive 済 template を含めるか。既定 false (従来どおり archived 除外)。
@@ -52,47 +53,47 @@ export interface IChecklistRepo {
 		includeArchived?: boolean,
 	): Promise<ChecklistTemplate[]>;
 
-	findTemplateById(id: number, tenantId: string): Promise<ChecklistTemplate | undefined>;
+	findTemplateById(id: string, tenantId: string): Promise<ChecklistTemplate | undefined>;
 
 	insertTemplate(input: InsertChecklistTemplateInput, tenantId: string): Promise<ChecklistTemplate>;
 
 	updateTemplate(
-		id: number,
+		id: string,
 		input: UpdateChecklistTemplateInput,
 		tenantId: string,
 	): Promise<ChecklistTemplate | undefined>;
 
-	deleteTemplate(id: number, tenantId: string): Promise<void>;
+	deleteTemplate(id: string, tenantId: string): Promise<void>;
 
 	// ── Distribution (template ↔ child assignments) ─────────────────
 
 	findAssignmentsByTemplate(
-		templateId: number,
+		templateId: string,
 		tenantId: string,
 	): Promise<ChecklistTemplateAssignment[]>;
 
-	findAssignmentsByChild(childId: number, tenantId: string): Promise<ChecklistTemplateAssignment[]>;
+	findAssignmentsByChild(childId: ChildId, tenantId: string): Promise<ChecklistTemplateAssignment[]>;
 
 	/** family checklist を指定 child 群に配信 (既配信は skip)。返り値は actually 追加された assignment 群。 */
 	assignTemplateToChildren(
-		templateId: number,
-		childIds: readonly number[],
+		templateId: string,
+		childIds: readonly ChildId[],
 		tenantId: string,
 	): Promise<ChecklistTemplateAssignment[]>;
 
 	/** 指定 child 群への配信を解除。child 配列が空なら何もしない。 */
 	unassignTemplateFromChildren(
-		templateId: number,
-		childIds: readonly number[],
+		templateId: string,
+		childIds: readonly ChildId[],
 		tenantId: string,
 	): Promise<void>;
 
 	/** template に紐づく全 assignments を削除 (template 削除前に呼ぶ)。 */
-	unassignTemplate(templateId: number, tenantId: string): Promise<void>;
+	unassignTemplate(templateId: string, tenantId: string): Promise<void>;
 
 	// ── Template items (family items) ───────────────────────────────
 
-	findTemplateItems(templateId: number, tenantId: string): Promise<ChecklistTemplateItem[]>;
+	findTemplateItems(templateId: string, tenantId: string): Promise<ChecklistTemplateItem[]>;
 	insertTemplateItem(
 		input: InsertChecklistTemplateItemInput,
 		tenantId: string,
@@ -101,13 +102,13 @@ export interface IChecklistRepo {
 	 * #2845 B1: templateId 必須 (composite key)。旧 id-only は DynamoDB 側で
 	 * tenant 無束縛 Scan + 全 tenant delete 可能形状だった。
 	 */
-	deleteTemplateItem(templateId: number, id: number, tenantId: string): Promise<void>;
+	deleteTemplateItem(templateId: string, id: string, tenantId: string): Promise<void>;
 
 	// ── Per-child progress (logs) ────────────────────────────────────
 
 	findTodayLog(
-		childId: number,
-		templateId: number,
+		childId: ChildId,
+		templateId: string,
 		date: string,
 		tenantId: string,
 	): Promise<ChecklistLog | undefined>;
@@ -117,15 +118,15 @@ export interface IChecklistRepo {
 	 * #3078: child 単位で per-child progress log を全件バルク取得する (export 用)。
 	 * activityLog の `findActivityLogs` と対をなす一括取得 API。
 	 */
-	findLogsByChild(childId: number, tenantId: string): Promise<ChecklistLog[]>;
+	findLogsByChild(childId: ChildId, tenantId: string): Promise<ChecklistLog[]>;
 
 	// ── Per-child overrides (one-off items) ─────────────────────────
 
-	findOverrides(childId: number, date: string, tenantId: string): Promise<ChecklistOverride[]>;
+	findOverrides(childId: ChildId, date: string, tenantId: string): Promise<ChecklistOverride[]>;
 	insertOverride(input: InsertChecklistOverrideInput, tenantId: string): Promise<ChecklistOverride>;
 
 	/** #3329 backup: child の全日次 override (日付不問、export 用)。 */
-	findOverridesByChild(childId: number, tenantId: string): Promise<ChecklistOverride[]>;
+	findOverridesByChild(childId: ChildId, tenantId: string): Promise<ChecklistOverride[]>;
 
 	/**
 	 * #3329 backup restore 用: createdAt を保全して日次 override を復元する。
@@ -140,12 +141,12 @@ export interface IChecklistRepo {
 	 * #2845 B1: childId 必須 (composite key)。旧 id-only は DynamoDB 側で
 	 * tenant 無束縛 Scan + 全 tenant delete 可能形状だった。
 	 */
-	deleteOverride(childId: number, id: number, tenantId: string): Promise<void>;
+	deleteOverride(childId: ChildId, id: string, tenantId: string): Promise<void>;
 
 	// ── #783: archive / restore ─────────────────────────────────────
 
 	// Phase 7 PR-2a (#2688): reason は ArchivedReason 型 (`ARCHIVED_REASONS` SSOT)。
-	archiveChecklistTemplates(ids: number[], reason: ArchivedReason, tenantId: string): Promise<void>;
+	archiveChecklistTemplates(ids: string[], reason: ArchivedReason, tenantId: string): Promise<void>;
 	restoreArchivedChecklistTemplates(reason: ArchivedReason, tenantId: string): Promise<void>;
 
 	// ── Tenant bulk deletion ────────────────────────────────────────

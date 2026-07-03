@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/db/interfaces/certificate-repo.interface.ts
 // ICertificateRepo — Certificate (がんばり証明書) repository contract.
 //
@@ -10,9 +11,9 @@ import type { Certificate, InsertCertificateInput } from '../types';
 
 export interface ICertificateRepo {
 	issueCertificate(input: InsertCertificateInput, tenantId: string): Promise<Certificate | null>;
-	findCertificates(childId: number, tenantId: string): Promise<Certificate[]>;
-	findCertificateById(id: number, tenantId: string): Promise<Certificate | undefined>;
-	hasCertificate(childId: number, certificateType: string, tenantId: string): Promise<boolean>;
+	findCertificates(childId: ChildId, tenantId: string): Promise<Certificate[]>;
+	findCertificateById(id: string, tenantId: string): Promise<Certificate | undefined>;
+	hasCertificate(childId: ChildId, certificateType: string, tenantId: string): Promise<boolean>;
 
 	/**
 	 * #3329 backup restore 用: issuedAt / metadata を保全して証明書を復元する。

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 import type {
 	CategoryActivityCount,
 	CategoryLastDate,
@@ -9,34 +10,34 @@ import type {
 
 export interface IEvaluationRepo {
 	countActivitiesByCategory(
-		childId: number,
+		childId: ChildId,
 		weekStart: string,
 		weekEnd: string,
 		tenantId: string,
 	): Promise<CategoryActivityCount[]>;
 	insertEvaluation(input: InsertEvaluationInput, tenantId: string): Promise<Evaluation>;
 	findAllChildren(tenantId: string): Promise<Child[]>;
-	findEvaluationsByChild(childId: number, limit: number, tenantId: string): Promise<Evaluation[]>;
-	hasDecayRunToday(childId: number, today: string, tenantId: string): Promise<boolean>;
+	findEvaluationsByChild(childId: ChildId, limit: number, tenantId: string): Promise<Evaluation[]>;
+	hasDecayRunToday(childId: ChildId, today: string, tenantId: string): Promise<boolean>;
 	findWeekEvaluation(
-		childId: number,
+		childId: ChildId,
 		weekStart: string,
 		tenantId: string,
-	): Promise<{ id: number } | undefined>;
-	findLastActivityDateByCategory(childId: number, tenantId: string): Promise<CategoryLastDate[]>;
+	): Promise<{ id: string } | undefined>;
+	findLastActivityDateByCategory(childId: ChildId, tenantId: string): Promise<CategoryLastDate[]>;
 	insertRestDay(
-		childId: number,
+		childId: ChildId,
 		date: string,
 		reason: string,
 		tenantId: string,
 	): Promise<RestDay | undefined>;
-	deleteRestDay(childId: number, date: string, tenantId: string): Promise<void>;
-	isRestDay(childId: number, date: string, tenantId: string): Promise<boolean>;
-	countRestDaysInMonth(childId: number, yearMonth: string, tenantId: string): Promise<number>;
-	findRestDays(childId: number, yearMonth: string, tenantId: string): Promise<RestDay[]>;
+	deleteRestDay(childId: ChildId, date: string, tenantId: string): Promise<void>;
+	isRestDay(childId: ChildId, date: string, tenantId: string): Promise<boolean>;
+	countRestDaysInMonth(childId: ChildId, yearMonth: string, tenantId: string): Promise<number>;
+	findRestDays(childId: ChildId, yearMonth: string, tenantId: string): Promise<RestDay[]>;
 
 	/** #3329 backup: child の全おやすみ日 (月不問、export 用)。 */
-	findRestDaysByChild(childId: number, tenantId: string): Promise<RestDay[]>;
+	findRestDaysByChild(childId: ChildId, tenantId: string): Promise<RestDay[]>;
 
 	/**
 	 * #3329 backup restore 用: createdAt を保全しておやすみ日を復元する。

@@ -1,3 +1,4 @@
+import type { ChildId } from '$lib/domain/ids';
 // src/lib/server/auth/guards.ts
 // 認証ガード関数（純粋関数 — DB 依存なし）
 
@@ -16,7 +17,7 @@ export function requireTenantId(locals: App.Locals): string {
  * child ロールの場合、指定された childId が自分のものであるかチェック。
  * owner/parent は常に許可。child は context.childId と一致しなければ 403。
  */
-export function requireChildAccess(locals: App.Locals, requestedChildId: number): void {
+export function requireChildAccess(locals: App.Locals, requestedChildId: ChildId): void {
 	if (!locals.context) {
 		throw error(401, 'Unauthorized');
 	}
