@@ -423,6 +423,7 @@ export const createInvite: IAuthRepo['createInvite'] = async (input) => {
 		invitedBy: input.invitedBy,
 		role: input.role,
 		childId: input.childId,
+		...(input.email ? { email: input.email } : {}),
 		status: 'pending',
 		createdAt: now.toISOString(),
 		expiresAt: expiresAt.toISOString(),

@@ -70,4 +70,11 @@ export const INVITE_EXPIRY_DAYS = 7;
 export const createInviteSchema = z.object({
 	role: z.enum(['parent', 'child']),
 	childId: z.number().optional(),
+	// #3549 判断2: 宛先 email (任意)。設定時は受諾者 email 束縛 (§6.6)。空文字は未設定扱い
+	email: z
+		.string()
+		.trim()
+		.email('有効なメールアドレスを入力してください')
+		.optional()
+		.or(z.literal('').transform(() => undefined)),
 });

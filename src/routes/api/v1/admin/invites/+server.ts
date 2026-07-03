@@ -66,7 +66,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		);
 	}
 
-	const invite = await createInvite(tenantId, userId, parsed.data.role, parsed.data.childId);
+	const invite = await createInvite(
+		tenantId,
+		userId,
+		parsed.data.role,
+		parsed.data.childId,
+		parsed.data.email,
+	);
 
 	return json({ invite }, { status: 201 });
 };

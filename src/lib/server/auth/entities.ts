@@ -84,6 +84,8 @@ export interface Invite {
 	invitedBy: string;
 	role: Role;
 	childId?: number;
+	/** #3549 判断2 (§6.6 ⚠️): 設定時は受諾 user の email と一致必須 (横流し防止)。小文字正規化して保存 */
+	email?: string;
 	status: InviteStatus;
 	createdAt: string;
 	expiresAt: string;
@@ -96,6 +98,8 @@ export interface CreateInviteInput {
 	invitedBy: string;
 	role: Role;
 	childId?: number;
+	/** 宛先 email (任意)。設定時は受諾者 email 束縛が有効になる (#3549 判断2) */
+	email?: string;
 }
 
 /** 同意種別の固定集合。

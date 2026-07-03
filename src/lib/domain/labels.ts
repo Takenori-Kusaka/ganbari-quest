@@ -3648,6 +3648,9 @@ export const MEMBERS_LABELS = {
 	// Invite section
 	inviteSectionTitle: 'メンバーを招待',
 	inviteRoleLabel: '招待ロール',
+	// #3549 判断2: 宛先 email 束縛 (任意入力。設定時は招待リンクをその email のアカウントでのみ受諾可能)
+	inviteEmailLabel: '宛先メールアドレス（任意）',
+	inviteEmailHint: '入力すると、このメールアドレスのアカウントだけが招待を受諾できます',
 	inviteChildLabel: '対象の子供（任意）',
 	inviteChildNone: '-- 後で紐づけ --',
 	inviteCreateLoading: '作成中...',

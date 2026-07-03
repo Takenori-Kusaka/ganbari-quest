@@ -15,11 +15,14 @@ export async function createInvite(
 	invitedBy: string,
 	role: Role,
 	childId?: number,
+	email?: string,
 ): Promise<Invite> {
 	if (role === 'owner') {
 		throw new Error('ownerロールでの招待はできません');
 	}
-	return repos().auth.createInvite({ tenantId, invitedBy, role, childId });
+	// #3549 判断2: 宛先 email は小文字正規化して保存 (照合は case-insensitive、email_lower と同原則)
+	const normalizedEmail = email?.trim().toLowerCase() || undefined;
+	return repos().auth.createInvite({ tenantId, invitedBy, role, childId, email: normalizedEmail });
 }
 
 /** 招待コードで招待を検索。期限切れの場合は自動で expired に更新 */
@@ -46,6 +49,7 @@ export async function getInvite(inviteCode: string): Promise<Invite | null> {
 export async function acceptInvite(
 	inviteCode: string,
 	userId: string,
+	userEmail?: string,
 ): Promise<{ membership: Membership } | { error: string }> {
 	const invite = await getInvite(inviteCode);
 	if (!invite) {
@@ -55,6 +59,13 @@ export async function acceptInvite(
 	// 自己招待防止 (#0203)
 	if (invite.invitedBy === userId) {
 		return { error: 'SELF_INVITE_NOT_ALLOWED' };
+	}
+
+	// 宛先 email 束縛 (#3549 判断2 / dsql-data-model.md §6.6 ⚠️): invite.email 設定時は
+	// 受諾 user の email と case-insensitive 一致必須。未提供は fail-closed (招待リンクの
+	// 横流しによる別人受諾を防ぐ)。招待は消費せず pending のまま (正規宛先の受諾可能性を保持)。
+	if (invite.email && invite.email.toLowerCase() !== userEmail?.trim().toLowerCase()) {
+		return { error: 'INVITE_EMAIL_MISMATCH' };
 	}
 
 	// 1ユーザー=1テナント制約チェック
