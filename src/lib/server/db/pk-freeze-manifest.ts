@@ -32,8 +32,10 @@ export const PK_FREEZE_MANIFEST = {
 	// login_bonuses / daily_battles / rest_days: 1日1回 = ADR-0012 anti-engagement の
 	// policy invariant に anchor された自然複合 PK (governing rule (a)、PO 決裁済)。
 	login_bonuses: ['family_id', 'child_id', 'login_date'],
-	// stamp_cards: anchor (b) シーズン撤去前提。条件 = シーズン/イベントカード復活が roadmap に無いこと。
-	stamp_cards: ['family_id', 'child_id', 'week_start'],
+	// stamp_cards: UUID surrogate (PO 決裁 2026-07-03、PR #3547: シーズン/イベントカード復活が
+	// あり得る = 同一週複数カードの cardinality 可変で anchor (b) 不成立)。「1子1週1枚」の
+	// 現行制約は droppable UNIQUE(family,child,week_start) で維持 (復活時は UNIQUE DROP のみ)。
+	stamp_cards: ['family_id', 'child_id', 'card_id'],
 	stamp_entries: ['family_id', 'card_id', 'slot'],
 	checklist_logs: ['family_id', 'child_id', 'template_id', 'checked_date'],
 	checklist_log_items: ['family_id', 'child_id', 'template_id', 'checked_date', 'item_id'],

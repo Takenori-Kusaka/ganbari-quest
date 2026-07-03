@@ -19,9 +19,12 @@ import {
 	real,
 	text,
 	timestamp,
+	unique,
 	uuid,
 } from 'drizzle-orm/pg-core';
 import { ARCHIVED_REASONS } from '$lib/domain/archive-types';
+import { type TimeSlot, VALID_TIME_SLOTS } from '$lib/domain/constants/checklist-time-slot';
+import { STAMP_CARD_STATUSES, type StampCardStatus } from '$lib/domain/constants/stamp-card-status';
 import {
 	ALL_SUBSCRIPTION_STATUSES,
 	type SubscriptionStatus,
@@ -383,4 +386,126 @@ export const dailyMissions = pgTable(
 		completedAt: timestamp('completed_at', { mode: 'string', withTimezone: true }),
 	},
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.missionDate, t.activityId] })],
+);
+
+// ── StampCard 集約 (§3、Child サブ集約) + ChecklistTemplate 集約 (family master、ADR-0055) ──
+
+// stamp_cards — 週次スタンプカード。UUID surrogate PK (PO 決裁 2026-07-03、PR #3547:
+// シーズン/イベントカード復活があり得る = 同一週複数カードの cardinality 可変で自然複合凍結
+// 不可、governing rule §11.2)。「1子1週1枚」の現行制約は droppable UNIQUE(week_start) で維持
+// (復活時は UNIQUE を DROP するだけで PK 不変)。card_id は stamp_entries の論理参照先を兼ねる。
+// status は 3 値状態機械 (SSOT 生成 CHECK)。
+export const stampCards = pgTable(
+	'stamp_cards',
+	{
+		familyId: uuid('family_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		cardId: uuid('card_id').notNull().default(sql`gen_random_uuid()`),
+		weekStart: text('week_start').notNull(),
+		weekEnd: text('week_end').notNull(),
+		status: text('status').notNull().default('collecting').$type<StampCardStatus>(),
+		redeemedPoints: integer('redeemed_points'),
+		redeemedAt: timestamp('redeemed_at', { mode: 'string', withTimezone: true }),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.childId, t.cardId] }),
+		// 現行「1子1週1枚」制約 (droppable。シーズン/イベントカード導入時に DROP)。
+		unique('stamp_cards_week_uq').on(t.familyId, t.childId, t.weekStart),
+		check('stamp_cards_status_ck', enumCheck(t.status, STAMP_CARD_STATUSES)),
+	],
+);
+
+// stamp_entries — カード内押印 (card 単位サブ集約 §3)。stamp_cards は UUID surrogate PK
+// (family_id, child_id, card_id uuid) (PO 決裁 2026-07-03)。card_id は stamp_cards PK の
+// 第 3 要素 card_id を指す論理 FK (DSQL FK 非対応のため制約なし、cross-family / orphan 防止は
+// アプリ層 repo の責務)。PK は §11.2 の凍結 PK (family_id, card_id, slot)。
+// UNIQUE (family_id, card_id, login_date) = 1日1押印 (consistency minor、§11.2 補助 UNIQUE)。
+export const stampEntries = pgTable(
+	'stamp_entries',
+	{
+		familyId: uuid('family_id').notNull(),
+		cardId: uuid('card_id').notNull(),
+		slot: integer('slot').notNull(),
+		stampMasterId: text('stamp_master_id'),
+		omikujiRank: text('omikuji_rank'),
+		loginDate: text('login_date').notNull(),
+		earnedAt: timestamp('earned_at', { mode: 'string', withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.cardId, t.slot] }),
+		unique('stamp_entries_daily_uq').on(t.familyId, t.cardId, t.loginDate),
+	],
+);
+
+// checklist_templates — family master (ADR-0055: template は tenant 1 レコード、
+// per-child は assignments で配信)。time_slot CHECK は VALID_TIME_SLOTS SSOT 生成。
+export const checklistTemplates = pgTable(
+	'checklist_templates',
+	{
+		familyId: uuid('family_id').notNull(),
+		templateId: uuid('template_id').notNull().default(sql`gen_random_uuid()`),
+		name: text('name').notNull(),
+		icon: text('icon').notNull().default('📋'),
+		pointsPerItem: integer('points_per_item').notNull().default(2),
+		completionBonus: integer('completion_bonus').notNull().default(5),
+		timeSlot: text('time_slot').notNull().default('anytime').$type<TimeSlot>(),
+		isActive: boolean('is_active').notNull().default(true),
+		isArchived: boolean('is_archived').notNull().default(false),
+		archivedReason: text('archived_reason', { enum: ARCHIVED_REASONS }),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.templateId] }),
+		check('checklist_templates_time_slot_ck', enumCheck(t.timeSlot, VALID_TIME_SLOTS)),
+		check('checklist_templates_archived_reason_ck', enumCheck(t.archivedReason, ARCHIVED_REASONS)),
+	],
+);
+
+// checklist_template_items — template 内項目。frequency は 'daily' / 'weekday:N' の
+// パターン集合 (固定 enum でない) ため CHECK を張らない (fitness#13 は固定集合のみ対象)。
+export const checklistTemplateItems = pgTable(
+	'checklist_template_items',
+	{
+		familyId: uuid('family_id').notNull(),
+		templateId: uuid('template_id').notNull(),
+		itemId: uuid('item_id').notNull().default(sql`gen_random_uuid()`),
+		name: text('name').notNull(),
+		icon: text('icon').notNull().default('🏫'),
+		frequency: text('frequency').notNull().default('daily'),
+		direction: text('direction').notNull().default('bring'),
+		sortOrder: integer('sort_order').notNull().default(0),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.familyId, t.templateId, t.itemId] })],
+);
+
+// checklist_template_assignments — template × child の配信 (N:M、自然複合 PK 昇格 §11.2)。
+// secondary (family_id, child_id) = findTemplatesByChild hot path (§11.2 補助 secondary)。
+export const checklistTemplateAssignments = pgTable(
+	'checklist_template_assignments',
+	{
+		familyId: uuid('family_id').notNull(),
+		templateId: uuid('template_id').notNull(),
+		childId: uuid('child_id').notNull(),
+		createdAt: timestamp('created_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.familyId, t.templateId, t.childId] }),
+		index('checklist_template_assignments_child_idx').on(t.familyId, t.childId),
+	],
 );

@@ -84,6 +84,25 @@ describe('fitness#13: children DDL CHECK は SSOT 生成 (手書き二重化禁�
 		for (const r of ARCHIVED_REASONS) expect(s).toContain(`'${r}'`);
 	});
 
+	// ── stamp_cards / checklist_templates (#N4 StampCard/ChecklistTemplate 集約) ──
+
+	it('stamp_cards status CHECK が STAMP_CARD_STATUSES 全値を含む (SSOT 生成)', async () => {
+		const { STAMP_CARD_STATUSES } = await import(
+			'../../../src/lib/domain/constants/stamp-card-status'
+		);
+		const s = await checkSql('stamp_cards_status_ck', 'stampCards');
+		expect(STAMP_CARD_STATUSES.length).toBeGreaterThan(0);
+		for (const st of STAMP_CARD_STATUSES) expect(s).toContain(`'${st}'`);
+	});
+
+	it('checklist_templates time_slot CHECK が VALID_TIME_SLOTS 全値を含む (SSOT 生成)', async () => {
+		const { VALID_TIME_SLOTS } = await import(
+			'../../../src/lib/domain/constants/checklist-time-slot'
+		);
+		const s = await checkSql('checklist_templates_time_slot_ck', 'checklistTemplates');
+		for (const t of VALID_TIME_SLOTS) expect(s).toContain(`'${t}'`);
+	});
+
 	// ── invites / consents (§6.6、#3528 cycle (b)) ──
 
 	it('invites status/role CHECK が SSOT 全値を含む (INVITE_STATUSES / ROLES)', async () => {
