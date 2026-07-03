@@ -351,7 +351,7 @@ children (
 
 ### §11.2 全テナント表 PK 凍結表（§P1、自然複合 PK 昇格 vs UUID）
 
-> 下表で全テナント表の PK を確定する。「自然複合 PK」= surrogate id + counter.ts + padId 全廃。auth 5 表は §6.6。**テナント表の PK 先頭は `family_id`**（グローバル master・auth の users/invites/consents は自然キー/UUID 単独 PK で例外）。per-column 完全 DDL は §11.3（別途生成）。
+> 下表で全テナント表の PK を確定する。「自然複合 PK」= surrogate id + counter.ts + padId 全廃。auth 5 表は §6.6。**テナント表の PK 先頭は `family_id`**（グローバル master・auth の users/invites/consents は自然キー/UUID 単独 PK で例外）。per-column 完全 DDL は §11.3（別途生成）。Family 系 8 表の確定は 2026-07-03 実クエリ調査（governing rule 適用: 自然複合は settings のみ、他 7 表は UUID surrogate + 機能上必須の global UNIQUE）。
 > **⚠️ 自然複合 PK 凍結の governing rule（戦略/PO パネル 2026-07-01、監査可能な線引き）**: 自然複合 PK の凍結（§P1 不可逆）は、once-per-period 一意が **(a) policy invariant（ADR 参照必須、例 ADR-0012 anti-engagement）** または **(b) 構造的確実性（他 cardinality が product 上存在しないことの明示）** のいずれかに anchor される表のみ許す。**「現状そうなっている（mutable product default）」だけを根拠とする表は UUID PK + droppable UNIQUE** に落とす（UNIQUE でも 2 件目拒否の enforcement は同一に効く／失う可逆性は不変条件が反転した時にしか要らない）。判定結果: daily_battles/login_bonuses/rest_days = anchor (a) ADR-0012 ✅ 凍結 / stamp_cards = anchor (b) シーズン撤去前提 ✅ 凍結（**条件: シーズン/イベントカード復活が roadmap に無い確認**）/ **certificates = anchor 無し ❌ → UUID surrogate 化（上表反映済）**。
 >
 > **自然複合 PK 昇格の一意性根拠（全昇格表で確認済 2026-07-01）**: 下表の昇格表 11 件（statuses `unique(child,category)` / activity_mastery `unique(child,activity)` / daily_missions `unique(child,mission_date,activity)` / login_bonuses `unique(child,login_date)` / stamp_cards `unique(child,week_start)` / checklist_logs `unique(...daily)` / certificates `unique(child,type)` / daily_battles `unique(child,date)` / rest_days `unique(child,date)` / enemy_collection `unique(child,enemy)` / checklist_template_assignments `unique(template,child)`）は、**現 schema に対応する UNIQUE index が全て既存**＝提案 PK と一致し恒久一意が裏付け済（grep 実測）。governing rule 適用後の判定: daily_battles/login_bonuses/rest_days は ADR-0012 policy invariant（1日/1期間1回 = anti-engagement の直接帰結、PO 決裁済）で凍結維持。**残る product 確認は stamp_cards のみ**（シーズン/イベントカード復活が roadmap に無いこと）。certificates は governing rule で surrogate 化済。
@@ -392,7 +392,14 @@ children (
 | usage_logs | `(family_id, child_id, log_id uuid)` | — | UUID |
 | report_daily_summaries | **廃止**（§7） | — | compute-on-read |
 | achievements / child_achievements | **drop 判断（#322 廃止・データ不在）**: drop なら §3/§5 から除外、存続なら milestone_values 子表化 | — | 要確定（§10 追記） |
-| **Family 系**: settings`(family_id,key)` / push_subscriptions / notification_logs / trial_history / viewer_tokens / cloud_exports / cancellation_reasons / graduation_consent | 各 `(family_id, <natural or uuid>)` | viewer_tokens/cloud_exports は token/pin の UNIQUE | §11.3 で確定 |
+| settings | `(family_id, key)` | — | 自然複合 (anchor (b): KVS の 1 key = 1 value は構造的確実。⚠️ sqlite 現行は tenant_id 列なし = cutover で family_id 追加、単一家族は定数 §P10) |
+| push_subscriptions | `(family_id, subscription_id uuid)` | **UNIQUE(endpoint) global**（無 tenant 単点 findByEndpoint） | UUID surrogate（endpoint は rotate される mutable、anchor 無し） |
+| notification_logs | `(family_id, log_id uuid[v4])` | sent_at は素の列（sort 用途） | UUID surrogate（append-only log、once-per-period 一意なし） |
+| trial_history | `(family_id, trial_id uuid[v4])` | cross-tenant cron 用 secondary(end_date) は計測後 | UUID surrogate（1 tenant N 回トライアル） |
+| viewer_tokens | `(family_id, token_id uuid)` | **UNIQUE(token) global**（無 tenant 単点 findByToken） | UUID surrogate（token は revoke 後再発行あり） |
+| cloud_exports | `(family_id, export_id uuid)` | **UNIQUE(pin_code) global** + secondary(status)（cron findPendingBuilds） | UUID surrogate（pin は expire 後再利用） |
+| cancellation_reasons | `(family_id, reason_id uuid[v4])` | cross-tenant 分析用 secondary(created_at 系) は計測後 | UUID surrogate（append-only、PO KPI 分析表 = hot path は cross-tenant である点を repo PR で明示） |
+| graduation_consent | `(family_id, consent_id uuid[v4])` | secondary(consented, consented_at)（publicSamples/aggregate） | UUID surrogate（複数子×複数回で多数行が正） |
 | **グローバル master**（tenant 非依存）: categories(code) / stamp_masters / market_benchmarks(age,category_id) / stripe_webhook_events(event_id, tenant_id は nullable analytics 属性) | 自然キー | — | tenant プレフィクスなし。**achievements/child_achievements/title は §10-10 で drop 確定＝新スキーマに作らない** |
 
 ### §11.3 per-column 完全 DDL（drizzle 2 方言）
