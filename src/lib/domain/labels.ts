@@ -6822,6 +6822,11 @@ export const UI_COMPONENTS_LABELS = {
 	featureGateLockTitle: (plan: string) => `${plan}プラン以上で利用可能`,
 	featureGateLockText: (plan: string) => `${plan}プラン以上で利用可能`,
 	featureGateUpgrade: 'アップグレード',
+	// EPIC #3533 §10.2.1: disabled 要素 tap→popover の 3 要素文言 (P2/P5)。
+	// planFull は PLAN_FULL_TERMS 値 (例「スタンダードプラン」) を受ける。
+	featureGatePopoverUnavailable: '現在のプランでは利用できません',
+	featureGatePopoverRequirement: (planFull: string) => `${planFull}以上でご利用いただけます`,
+	featureGatePopoverLink: 'プランを見る',
 
 	// ---- GoogleSignInButton ----
 	googleSignInLabel: 'Google でログイン',
@@ -8069,6 +8074,11 @@ export const STORYBOOK_LABELS = {
 	cardDefault: 'カード',
 	toastDefault: 'トースト',
 	selectDefault: '選択',
+	featureGate: {
+		buttonLabel: 'クラウドエクスポート',
+		unlockedContent: 'この機能は利用できます',
+		sectionTitle: 'AI 提案パネル',
+	},
 	button: {
 		primary: 'プライマリ',
 		secondary: 'セカンダリ',
