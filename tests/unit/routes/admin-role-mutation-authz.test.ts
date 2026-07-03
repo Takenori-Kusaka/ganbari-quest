@@ -217,7 +217,14 @@ describe('owner 専用 member mutation API の requireRole seam 統一 (#3528 fi
 			await expect(res.json()).resolves.toMatchObject({
 				invite: { inviteCode: 'new-code' },
 			});
-			expect(mockCreateInvite).toHaveBeenCalledWith('t-test', 'u-caller', 'parent', undefined);
+			// #3549 判断2: email 引数 (未入力時 undefined) が追加された 5 引数形
+			expect(mockCreateInvite).toHaveBeenCalledWith(
+				't-test',
+				'u-caller',
+				'parent',
+				undefined,
+				undefined,
+			);
 		});
 
 		it('owner 判定は requireRole seam 経由で行われる', async () => {

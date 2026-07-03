@@ -259,3 +259,74 @@ describe('listInvites', () => {
 		expect(result).toHaveLength(2);
 	});
 });
+
+// #3549 判断2 (PO 決裁 2026-07-03) / dsql-data-model.md §6.6 ⚠️:
+// invite.email 設定時は受諾 user の email と一致必須 (招待リンク横流しによる別人受諾防止)。
+// email 未設定の招待は従来通り (opt-in 束縛、child 招待等 email を持たない受諾者向け)。
+describe('招待 email 束縛 (#3549 判断2 / §6.6)', () => {
+	it('invite.email 設定 + 受諾者 email 不一致 → INVITE_EMAIL_MISMATCH (membership 未作成)', async () => {
+		inviteStore.set(
+			'em-1',
+			makePendingInvite({ inviteCode: 'em-1', email: 'intended@example.com' }),
+		);
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		const result = assertError(await acceptInvite('em-1', 'user-new', 'attacker@example.com'));
+		expect(result.error).toBe('INVITE_EMAIL_MISMATCH');
+		expect(membershipStore).toHaveLength(0);
+		// 招待は pending のまま (再受諾可能性を保持、消費しない)
+		expect(inviteStore.get('em-1')?.status).toBe('pending');
+	});
+
+	it('大文字小文字差は一致扱い (email_lower と同じ case-insensitive 原則)', async () => {
+		inviteStore.set(
+			'em-2',
+			makePendingInvite({ inviteCode: 'em-2', email: 'Intended@Example.com' }),
+		);
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		const result = assertSuccess(await acceptInvite('em-2', 'user-new', 'intended@example.com'));
+		expect(result.membership.tenantId).toBe('t-test');
+	});
+
+	it('invite.email 設定 + 受諾者 email 未提供 → INVITE_EMAIL_MISMATCH (fail-closed)', async () => {
+		inviteStore.set(
+			'em-3',
+			makePendingInvite({ inviteCode: 'em-3', email: 'intended@example.com' }),
+		);
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		const result = assertError(await acceptInvite('em-3', 'user-new'));
+		expect(result.error).toBe('INVITE_EMAIL_MISMATCH');
+	});
+
+	it('invite.email 未設定 → 従来通り受諾できる (opt-in 束縛)', async () => {
+		inviteStore.set('em-4', makePendingInvite({ inviteCode: 'em-4' }));
+		tenantStore.set('t-test', {
+			tenantId: 't-test',
+			status: 'active',
+			createdAt: new Date().toISOString(),
+		} as Tenant);
+
+		assertSuccess(await acceptInvite('em-4', 'user-new', 'anyone@example.com'));
+	});
+
+	it('createInvite が email を trim + 小文字化して repo に引き渡す', async () => {
+		await createInvite('t-test', 'user-owner', 'parent', undefined, '  Intended@Example.com ');
+		expect(mockAuthRepo.createInvite).toHaveBeenCalledWith(
+			expect.objectContaining({ email: 'intended@example.com' }),
+		);
+	});
+});
