@@ -26,7 +26,7 @@ import type { TransactionRunner } from '../interfaces/transaction.interface';
 import type { Child, UpdateChildInput } from '../types';
 import type { SqlExecutor } from './sql-executor';
 
-interface ChildRow {
+export interface ChildRow {
 	child_id: string;
 	nickname: string;
 	birth_date: string | null;
@@ -44,14 +44,16 @@ interface ChildRow {
 	updated_at: string;
 }
 
-const CHILD_COLUMNS = sql.raw(
+/** children の SELECT 列 (point/status repo の findChildById も共有、二重管理禁止)。 */
+export const CHILD_COLUMNS = sql.raw(
 	`child_id, nickname, birth_date, theme, ui_mode, ui_mode_manually_set, avatar_url,
 	 display_config, user_id, birthday_bonus_multiplier, last_birthday_bonus_year,
 	 is_archived, archived_reason, created_at, updated_at`,
 );
 
-/** row → Child entity (compute-on-read: age 導出 + ui_mode 再導出、§11.1)。 */
-function toChild(row: ChildRow): Child {
+/** row → Child entity (compute-on-read: age 導出 + ui_mode 再導出、§11.1)。
+ * point/status repo の findChildById からも共有する (mapping 二重実装禁止)。 */
+export function toChild(row: ChildRow): Child {
 	const age = row.birth_date ? calculateAgeFromBirthDate(row.birth_date) : 0;
 	const storedUiMode: UiMode = isValidUiMode(row.ui_mode) ? row.ui_mode : 'preschool';
 	const uiMode = row.birth_date

@@ -931,6 +931,27 @@ export const usageLogs = pgTable(
 	(t) => [primaryKey({ columns: [t.familyId, t.childId, t.logId] })],
 );
 
+// ── グローバル master (§11.2: tenant プレフィクスなし、自然キー PK) ──
+
+// market_benchmarks — 年齢×カテゴリ別の市場ベンチマーク (グローバル master、tenant 非依存)。
+// PK は自然キー (age, category_id) (§11.2「market_benchmarks(age,category_id) PK」/ §4)。
+// category_id はグローバル master categories(code) への論理 FK (text、child_activities と同判断)。
+// PK 凍結は GLOBAL_MASTER_PK_MANIFEST (pk-freeze-manifest.ts) で fitness#9 [3] が突合。
+export const marketBenchmarks = pgTable(
+	'market_benchmarks',
+	{
+		age: integer('age').notNull(),
+		categoryId: text('category_id').notNull(),
+		mean: real('mean').notNull(),
+		stdDev: real('std_dev').notNull(),
+		source: text('source'),
+		updatedAt: timestamp('updated_at', { mode: 'string', withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.age, t.categoryId] })],
+);
+
 // ── Family 系 8 表 (§11.2 #3557 確定 / 調査 SSOT: tmp/research-family-tables-pk-2026-07-03.md、#3424) ──
 // settings のみ自然複合 (anchor (b) KVS 構造的確実性)、他 7 表は UUID surrogate。
 // endpoint/token/pin の global UNIQUE は無 tenant 単点 lookup の機能要件 (§11.2)。

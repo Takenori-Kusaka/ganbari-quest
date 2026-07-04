@@ -161,6 +161,7 @@ DSQL: **PK = index-organized 表本体で全非キー列を自動 INCLUDE coveri
 
 ### 派生列（P7）
 - `children.total_point`（残高）: **不変条件 = 全ての `point_ledger` 書込（base / combo / mission / challenge / reward 等、core/optional を問わず）は、その INSERT を行う mini-txn 内で `children.total_point` を同一 txn 共更新する**（F2 整合: §8 で optional は core txn の外＝独立 mini-txn だが、各 optional 点付与も「point_ledger INSERT + total_point 加算」を 1 txn にする）。これにより SUM からの乖離不能。閲覧は列 read 1 回（SUM スキャン廃止 → DPU 削減）。
+- **retention 削除と P7 の両立 (carryover、#3424 PR-R4)**: `deletePointLedgerBeforeDate` (#729「ポイントは消えず過去明細だけが消える」契約) は、削除対象明細の合算を **`type='carryover'` の繰越エントリとして同一 txn で挿入**する (SUM 不変 = total_point 不変で fitness#14 と両立する唯一解)。carryover は履歴 UI に「繰越」として表示され得る (description で人間可読を担保)。
 - `statuses.total_xp/level/peak_xp`: status 更新 txn 内で派生維持。
 - `activity_logs.streak_days/streak_bonus`: 記録 txn 内で算出・確定。
 - 監査用の再計算は**バッチで突合**（drift 検出 fitness）し、正本は派生列。
