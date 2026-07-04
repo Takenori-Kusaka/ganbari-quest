@@ -37,20 +37,17 @@
 
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-	type ActivityId,
-	asActivityId,
-	asChildId,
-	type ChildId,
-} from '../../../src/lib/domain/ids';
+import { type ActivityId, asActivityId, type ChildId } from '../../../src/lib/domain/ids';
 import { createDsqlChildRepo } from '../../../src/lib/server/db/dsql/child-repo';
 import { completeMissionAndMaybeGrantBonus } from '../../../src/lib/server/db/dsql/daily-mission-complete';
 import { createDsqlDailyMissionRepo } from '../../../src/lib/server/db/dsql/daily-mission-repo';
 import { createDsqlTransactionRunner } from '../../../src/lib/server/db/dsql/run-in-transaction';
+import type { SqlExecutor } from '../../../src/lib/server/db/dsql/sql-executor';
 import { createDsqlStampCardRepo } from '../../../src/lib/server/db/dsql/stamp-card-repo';
 import type { IChildRepo } from '../../../src/lib/server/db/interfaces/child-repo.interface';
 import type { IDailyMissionRepo } from '../../../src/lib/server/db/interfaces/daily-mission-repo.interface';
 import type { IStampCardRepo } from '../../../src/lib/server/db/interfaces/stamp-card-repo.interface';
+import type { TransactionRunner } from '../../../src/lib/server/db/interfaces/transaction.interface';
 import { createDsqlTestDb, type DsqlTestDb } from '../helpers/dsql-test-db';
 
 const FAMILY = '00000000-0000-4000-8000-0000000000c1';
@@ -62,7 +59,7 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 	let childRepo: IChildRepo;
 	let stampRepo: IStampCardRepo;
 	let missionRepo: IDailyMissionRepo;
-	let runner: ReturnType<typeof createDsqlTransactionRunner>;
+	let runner: TransactionRunner<SqlExecutor>;
 
 	/** 新規 child を作って id を返す (各テストは自分の child で分離)。 */
 	const newChild = async (nickname: string, family = FAMILY): Promise<ChildId> => {
@@ -181,7 +178,13 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			FAMILY,
 		);
 		await stampRepo.insertEntry(
-			{ cardId: card.id, stampMasterId: '11', omikujiRank: 'daikichi', slot: 1, loginDate: '2026-06-01' },
+			{
+				cardId: card.id,
+				stampMasterId: '11',
+				omikujiRank: 'daikichi',
+				slot: 1,
+				loginDate: '2026-06-01',
+			},
 			FAMILY,
 		);
 		// 同 loginDate の重複押印は UNIQUE (family, card, login_date) で silent skip (sqlite parity)
@@ -232,7 +235,9 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			},
 			FAMILY,
 		);
-		expect(await countRows(sql`SELECT count(*) AS c FROM stamp_entries WHERE card_id = ${card.id}`)).toBe(0);
+		expect(
+			await countRows(sql`SELECT count(*) AS c FROM stamp_entries WHERE card_id = ${card.id}`),
+		).toBe(0);
 		expect(
 			await countRows(
 				sql`SELECT count(*) AS c FROM stamp_entries WHERE card_id = '00000000-0000-4000-8000-00000000dead'`,
@@ -252,7 +257,13 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 		expect(await stampRepo.findCardsByChild(childId, OTHER_FAMILY)).toEqual([]);
 
 		await stampRepo.insertEntry(
-			{ cardId: older.id, stampMasterId: '5', omikujiRank: 'kichi', slot: 3, loginDate: '2026-06-03' },
+			{
+				cardId: older.id,
+				stampMasterId: '5',
+				omikujiRank: 'kichi',
+				slot: 3,
+				loginDate: '2026-06-03',
+			},
 			FAMILY,
 		);
 		const raw = await stampRepo.findEntriesByCardId(older.id, FAMILY);
@@ -296,7 +307,9 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			FAMILY,
 		);
 		const raw = await stampRepo.findEntriesByCardId(restored.id, FAMILY);
-		expect(raw[0]?.earnedAt).toContain('2025-12-01T08:30');
+		// timestamptz の文字列表現は driver 依存 (PGlite はローカル offset 表記) のため、
+		// verbatim 保全は瞬間 (epoch) 一致で assert する。
+		expect(Date.parse(raw[0]?.earnedAt ?? '')).toBe(Date.parse('2025-12-01T08:30:00+00:00'));
 		expect(raw[0]?.stampMasterId).toBe(null); // omikuji のみの押印 (master 無し)
 
 		// restore 経路も #3562③ tenant 境界を通る (他 family card への restore は no-op)
@@ -353,7 +366,9 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			updatedAt: '2026-07-19T10:00:00+00:00',
 		};
 		expect(await stampRepo.updateCardStatusIfCollecting(stranger, card.id, redeem, FAMILY)).toBe(0);
-		expect(await stampRepo.updateCardStatusIfCollecting(childId, card.id, redeem, OTHER_FAMILY)).toBe(0);
+		expect(
+			await stampRepo.updateCardStatusIfCollecting(childId, card.id, redeem, OTHER_FAMILY),
+		).toBe(0);
 		expect(await stampRepo.updateCardStatusIfCollecting(childId, card.id, redeem, FAMILY)).toBe(1);
 		// 二重 redeem は 0 (status ガード)
 		expect(await stampRepo.updateCardStatusIfCollecting(childId, card.id, redeem, FAMILY)).toBe(0);
@@ -370,7 +385,13 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			OTHER_FAMILY,
 		);
 		await stampRepo.insertEntry(
-			{ cardId: mineCard.id, stampMasterId: '1', omikujiRank: null, slot: 1, loginDate: '2026-06-29' },
+			{
+				cardId: mineCard.id,
+				stampMasterId: '1',
+				omikujiRank: null,
+				slot: 1,
+				loginDate: '2026-06-29',
+			},
 			OTHER_FAMILY,
 		);
 		const keepCard = await stampRepo.insertCard(
@@ -378,14 +399,26 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			FAMILY,
 		);
 		await stampRepo.insertEntry(
-			{ cardId: keepCard.id, stampMasterId: '1', omikujiRank: null, slot: 1, loginDate: '2026-06-29' },
+			{
+				cardId: keepCard.id,
+				stampMasterId: '1',
+				omikujiRank: null,
+				slot: 1,
+				loginDate: '2026-06-29',
+			},
 			FAMILY,
 		);
 
 		await stampRepo.deleteByTenantId(OTHER_FAMILY);
 
-		expect(await countRows(sql`SELECT count(*) AS c FROM stamp_cards WHERE family_id = ${OTHER_FAMILY}`)).toBe(0);
-		expect(await countRows(sql`SELECT count(*) AS c FROM stamp_entries WHERE family_id = ${OTHER_FAMILY}`)).toBe(0);
+		expect(
+			await countRows(sql`SELECT count(*) AS c FROM stamp_cards WHERE family_id = ${OTHER_FAMILY}`),
+		).toBe(0);
+		expect(
+			await countRows(
+				sql`SELECT count(*) AS c FROM stamp_entries WHERE family_id = ${OTHER_FAMILY}`,
+			),
+		).toBe(0);
 		expect((await stampRepo.findCardsByChild(keep, FAMILY)).length).toBe(1);
 		expect((await stampRepo.findEntriesByCardId(keepCard.id, FAMILY)).length).toBe(1);
 	});
@@ -437,9 +470,9 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 		const before = await missionRepo.findMissionByActivity(childId, '2026-07-02', actId, FAMILY);
 		expect(before?.completed).toBe(0);
 		// mission に無い activity は undefined
-		expect(
-			await missionRepo.findMissionByActivity(childId, '2026-07-02', otherAct, FAMILY),
-		).toBe(undefined);
+		expect(await missionRepo.findMissionByActivity(childId, '2026-07-02', otherAct, FAMILY)).toBe(
+			undefined,
+		);
 		// §P9: 他 tenant からの mark は no-op
 		await missionRepo.markMissionCompleted(childId, '2026-07-02', actId, OTHER_FAMILY);
 		expect(
@@ -478,7 +511,9 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 		const statuses = await missionRepo.findAllMissionStatuses(childId, '2026-07-03', FAMILY);
 		expect(statuses).toHaveLength(2);
 		expect(statuses.map((s) => s.completed).sort()).toEqual([0, 1]);
-		expect(await missionRepo.findAllMissionStatuses(childId, '2026-07-03', OTHER_FAMILY)).toEqual([]);
+		expect(await missionRepo.findAllMissionStatuses(childId, '2026-07-03', OTHER_FAMILY)).toEqual(
+			[],
+		);
 	});
 
 	it('[M4] findMissionBonusRecord: type=daily_mission filter (sqlite parity)', async () => {
@@ -498,7 +533,11 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 		expect(found?.amount).toBe(10); // type filter で activity 行 (99) は拾わない
 		expect(await missionRepo.findMissionBonusRecord(childId, 'ほかの説明', FAMILY)).toBe(undefined);
 		expect(
-			await missionRepo.findMissionBonusRecord(childId, '[2026-07-04] ミッションボーナス', OTHER_FAMILY),
+			await missionRepo.findMissionBonusRecord(
+				childId,
+				'[2026-07-04] ミッションボーナス',
+				OTHER_FAMILY,
+			),
 		).toBe(undefined);
 	});
 
@@ -526,7 +565,9 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 		await missionRepo.insertDailyMission(childId, '2026-07-04', a, FAMILY);
 
 		expect(await missionRepo.findPreviousDayMissionIds(childId, '2026-07-04', FAMILY)).toEqual([a]);
-		expect(await missionRepo.findPreviousDayMissionIds(childId, '2026-07-04', OTHER_FAMILY)).toEqual([]);
+		expect(
+			await missionRepo.findPreviousDayMissionIds(childId, '2026-07-04', OTHER_FAMILY),
+		).toEqual([]);
 
 		const id = String(childId);
 		await t.db.execute(sql`
@@ -567,10 +608,16 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 			bonusDescription: '[2026-07-05] ミッションボーナス',
 			now: '2026-07-05T09:00:00+00:00',
 		};
-		const first = await completeMissionAndMaybeGrantBonus(runner, { ...base, activityId: String(a) });
+		const first = await completeMissionAndMaybeGrantBonus(runner, {
+			...base,
+			activityId: String(a),
+		});
 		expect(first).toEqual({ completedNow: true, allComplete: false, bonusGranted: false });
 
-		const last = await completeMissionAndMaybeGrantBonus(runner, { ...base, activityId: String(b) });
+		const last = await completeMissionAndMaybeGrantBonus(runner, {
+			...base,
+			activityId: String(b),
+		});
 		expect(last).toEqual({ completedNow: true, allComplete: true, bonusGranted: true });
 
 		// 二連打の 2 回目は flip も bonus も起きない (exactly-once)
@@ -598,7 +645,11 @@ describe('DSQL stamp-card-repo / daily-mission-repo (PR-R6、実 schema PGlite)'
 
 		await missionRepo.deleteByTenantId(OTHER_FAMILY);
 
-		expect(await countRows(sql`SELECT count(*) AS c FROM daily_missions WHERE family_id = ${OTHER_FAMILY}`)).toBe(0);
+		expect(
+			await countRows(
+				sql`SELECT count(*) AS c FROM daily_missions WHERE family_id = ${OTHER_FAMILY}`,
+			),
+		).toBe(0);
 		expect((await missionRepo.findTodayMissions(keep, '2026-07-06', FAMILY)).length).toBe(1);
 	});
 });

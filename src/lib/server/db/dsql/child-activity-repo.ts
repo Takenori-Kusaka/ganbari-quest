@@ -31,7 +31,7 @@ import type {
 import { createDsqlChildRepo } from './child-repo';
 import type { SqlExecutor } from './sql-executor';
 
-interface ChildActivityRow {
+export interface ChildActivityRow {
 	family_id: string;
 	child_id: string;
 	activity_id: string;
@@ -54,14 +54,16 @@ interface ChildActivityRow {
 	created_at: string;
 }
 
-const ACTIVITY_COLUMNS = sql.raw(
+/** child_activities の SELECT 列 (daily-mission repo の findVisibleActivities も共有、二重管理禁止)。 */
+export const ACTIVITY_COLUMNS = sql.raw(
 	`family_id, child_id, activity_id, name, category_id, icon, base_points, is_visible,
 	 daily_limit, sort_order, source, name_kana, name_kanji, trigger_hint, is_main_quest,
 	 is_archived, archived_reason, source_preset_id, priority, created_at`,
 );
 
-/** row → ChildActivity entity (boolean → 0/1 数値契約 = sqlite 互換 shape)。 */
-function toChildActivity(row: ChildActivityRow): ChildActivity {
+/** row → ChildActivity entity (boolean → 0/1 数値契約 = sqlite 互換 shape)。
+ * daily-mission repo の findVisibleActivities からも共有する (mapping 二重実装禁止)。 */
+export function toChildActivity(row: ChildActivityRow): ChildActivity {
 	return {
 		id: asActivityId(row.activity_id),
 		childId: asChildId(row.child_id),
