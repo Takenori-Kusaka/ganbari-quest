@@ -87,3 +87,12 @@ export const AUTH_PK_MANIFEST = {
 	invites: ['invite_id'],
 	consents: ['consent_id'],
 } as const satisfies Record<string, readonly string[]>;
+
+// ── グローバル master (§11.2 例外: tenant プレフィクスなし、自然キー PK) ──
+// §11.2「グローバル master（tenant 非依存）: categories(code) / stamp_masters /
+// market_benchmarks(age,category_id) / stripe_webhook_events(event_id)」の機械可読宣言。
+// schema.ts へグローバル master 表を追記する際は本 manifest にも 1 行追加する
+// (fitness#9 [3] が PK_FREEZE / AUTH / GLOBAL_MASTER の union で schema 全表を突合)。
+export const GLOBAL_MASTER_PK_MANIFEST = {
+	market_benchmarks: ['age', 'category_id'],
+} as const satisfies Record<string, readonly string[]>;
