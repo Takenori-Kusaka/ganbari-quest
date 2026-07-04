@@ -17,7 +17,6 @@ import ActivitiesHeader from '$lib/features/admin/components/ActivitiesHeader.sv
 import ActivityClearAllConfirm from '$lib/features/admin/components/ActivityClearAllConfirm.svelte';
 import ActivityCreateForm from '$lib/features/admin/components/ActivityCreateForm.svelte';
 import ActivityEmptyState from '$lib/features/admin/components/ActivityEmptyState.svelte';
-import ActivityLimitBanner from '$lib/features/admin/components/ActivityLimitBanner.svelte';
 import ActivityListItem from '$lib/features/admin/components/ActivityListItem.svelte';
 import AiSuggestPanel from '$lib/features/admin/components/AiSuggestPanel.svelte';
 import type { AiPreviewData } from '$lib/features/admin/components/activity-types';
@@ -180,8 +179,18 @@ const canAdd = $derived(!activityLimit || activityLimit.allowed);
 function handleAddSelect(mode: 'manual' | 'ai' | 'browse' | 'copy' | 'bulk') {
 	switch (mode) {
 		case 'manual':
+			// EPIC #3533 §10.2.3: quota 上限到達時は manual を locked-but-active にする
+			//   (完全 disabled は NN/G アンチパターン = dead-end)。選択でプラン画面へ誘導し、
+			//   制約詳細はプラン画面に一元化 (P1)。checklists / rewards と同一パターン。
+			if (!canAdd) {
+				void goto('/admin/subscription');
+				break;
+			}
+			addMode = 'manual';
+			showAddDialog = true;
+			break;
 		case 'ai':
-			addMode = mode;
+			addMode = 'ai';
 			showAddDialog = true;
 			break;
 		case 'browse':
@@ -506,12 +515,11 @@ function selectChild(childId: ChildId) {
 		/>
 	{/if}
 
-	<!-- #3097 (EPIC #3096): プラン系バナー (slot 4) — 正準スロットに固定配置 -->
-	{#if activityLimit && !activityLimit.allowed}
-		<div data-testid="admin-activities-plan-banner">
-			<ActivityLimitBanner current={activityLimit.current} max={activityLimit.max} />
-		</div>
-	{/if}
+	<!-- EPIC #3533 (§10.2 P1): 旧「プラン系バナー (slot 4、ActivityLimitBanner = quota カウンタ)」を撤去。
+	     画面内 quota カウンタ (current/max) を廃止し、制約詳細はプラン画面 (/admin/subscription) に一元化。
+	     機能画面側は「+ 追加」dropdown の manual 項目を locked-but-active (§10.2.3、lock マーカー +
+	     選択でプラン画面遷移) に留める。上限到達時の弾き返しは slot 6 の action-message が担う。 -->
+
 
 	<!-- #3097 (EPIC #3096): 検索 + フィルタ行 (slot 5、一覧の直上)。
 	     (B) カテゴリフィルタは活動固有のドメイン差のため撤去せず本スロットに配置する。 -->
