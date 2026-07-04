@@ -366,6 +366,13 @@ describe('DSQL point-repo / status-repo (PR-R4、実 schema PGlite)', () => {
 			);
 			expect(entry.id).toMatch(/^[0-9a-f-]{36}$/);
 			expect(entry.value).toBe(i * 10);
+			// defaultNow() は同一ループ内で同時刻になり得る (PGlite/実 DSQL 共通) ため、
+			// 順序契約のテストとして recorded_at を明示的に単調化する。実装側は同時刻でも
+			// 決定的になるよう history_id の tie-breaker を持つ (flake 根治 2026-07-04)。
+			await t.db.execute(sql`
+				UPDATE status_history SET recorded_at = ${`2026-07-04T00:00:0${i - 1}.000Z`}
+				WHERE family_id = ${FAMILY} AND hist_id = ${String(entry.id)}
+			`);
 		}
 		const recent = await statusRepo.findRecentStatusHistory(childId, catId, FAMILY);
 		expect(recent).toHaveLength(7); // 既定 limit
