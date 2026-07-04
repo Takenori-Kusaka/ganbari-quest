@@ -97,6 +97,12 @@ replacement-approved: UserPool,UserPool/PublicClient
 - Storage スタックが未デプロイ (初回デプロイ) の場合、diff はすべて `[+]` (新規追加) のみ → Replacement なし → 正常通過
 - `cdk diff` は `--strict` なしで使用。`--strict` は変更があるだけで exit 1 になる
 
+### `Fn::GetAtt` ベース Route53 RecordSet の悲観的 `may-cause-replacement`（SES DKIM 系）
+
+`cdk diff` の template-only 比較は、replacement 強制プロパティ（Route53 RecordSet の `Name`/`Type`/`HostedZoneId`）に**未解決 `Fn::GetAtt` トークンが含まれる場合、値を確定できず「変わったかもしれない=may-cause-replacement」と悲観判定する**（既知挙動: aws-cdk issue #21164）。SES `EmailIdentity`（Easy DKIM）が自動生成する `DkimDnsToken1/2/3` は `Name`・`Value` とも同一 EmailIdentity への `Fn::GetAtt` で、**identity が replace されない限り SES 発行値（DKIM 検証ホスト）は不変**（AWS SES 公式: Easy DKIM トークンは domain identity 単位で安定）。
+
+→ **aws-cdk-lib の bump 等で `EmailIdentity/DkimDnsToken*` に `may-cause-replacement` が出ても、infra コードが EmailIdentity を無変更なら実値変化ではなく differ のアーティファクト**。承認前に `cdk diff --method=change-set`（CloudFormation の正確判定で悲観判定を排除）+ deploy 後 `aws sesv2 get-email-identity` で `DkimStatus=SUCCESS` を smoke 確認すれば安全に承認できる。初回事例: aws-cdk-lib 2.260→2.261 bump で `EmailIdentity/DkimDnsToken3` が false-BLOCK（#3570 統合、一次情報で実値不変を確定）。
+
 ### 承認の取り消し
 
 `replacement-approved` マーカーを含む PR が一度マージされた後でも、次の deploy では
