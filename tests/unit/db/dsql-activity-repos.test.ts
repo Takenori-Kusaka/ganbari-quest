@@ -399,6 +399,11 @@ describe('DSQL activity-pref-repo (PR-R3、実 schema PGlite)', () => {
 		actC = (await activityRepo.insertActivity(activityInput(child, { name: 'pC' }), FAMILY)).id;
 	});
 
+	// [P1 並行性ガード] togglePin(pin=true) は同一 child の別 activity 並行 pin による pin_order
+	// tie (write-skew) を txn 冒頭の children 行 FOR UPDATE で直列化して防ぐ (#3546 と同型)。
+	// PGlite は単一接続ゆえ真の並行 txn を再現できず (#3546 [F10-4] と同じ制約)、本 spec は逐次
+	// 採番 (MAX+1) の正当性のみを assert する。FOR UPDATE 直列化そのものの回帰は本番 DSQL / OCC
+	// runner の統合検証に委ね、ここでは serialization anchor が採番ロジックを壊さないことを保証する。
 	it('[P1] togglePin: pin は MAX+1 採番、unpin は pinOrder null、未存在 unpin は isPinned=0 行作成', async () => {
 		const p1 = await prefRepo.togglePin(child, actA, true, FAMILY);
 		expect(p1.isPinned).toBe(1);

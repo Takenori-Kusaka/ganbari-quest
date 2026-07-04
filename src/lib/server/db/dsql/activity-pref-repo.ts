@@ -6,9 +6,14 @@
 //   - child_activity_preferences は自然複合 PK (family_id, child_id, activity_id) で surrogate id
 //     列を持たない (§11.2 凍結)。entity の `id: string` は `${child_id}:${activity_id}` を
 //     決定的に合成する (呼び出し側は id を lookup key に使っていない — opaque token 契約)。
-//   - togglePin(pinned=true) は「MAX(pin_order)+1 読取 → upsert」を単一 txn で行う
-//     (sqlite は同期ドライバで暗黙直列、DSQL は txn + OCC retry が同等の serialization point)。
-//     work 内 await は tx.execute(...) 直呼びのみ (fitness#7)。
+//   - togglePin(pinned=true) は「MAX(pin_order)+1 読取 → 別 activity 行への upsert」を単一 txn で
+//     行う。この read-then-write は同一 child の別 activity を並行 pin すると write-skew を起こす
+//     (両 txn が同じ MAX をスナップショット読取 → 同じ nextOrder を別行に INSERT → 別行ゆえ OCC
+//     40001 は発火せず pin_order が tie。設計書 §4.1: read-write 依存は非検出 = write skew を
+//     OCC では防げない)。よって txn 冒頭で children 行を FOR UPDATE ロックし、同一 child の pin
+//     操作を直列化する (§8。#3546 daily-mission と同型の serialization anchor)。異なる child は
+//     別行ロックで非競合。sqlite は同期ドライバで暗黙直列のため parity 上も等価。
+//     work 内 await は tx.execute(...) 直呼びのみ (fitness#7、helper 閉包経由 await 禁止)。
 //   - upsert は複合 PK への ON CONFLICT DO UPDATE (record-activity-core.ts と同型)。
 //   - sqlite parity: findAllByChild の並びは pin_order ASC で NULL 先頭 (SQLite の NULL 順)。
 //     Postgres 既定 (NULLS LAST) と異なるため NULLS FIRST を明示する。
@@ -86,8 +91,20 @@ export function createDsqlActivityPrefRepo<TTx extends SqlExecutor>(
 
 		async togglePin(childId, activityId, pinned, tenantId) {
 			if (pinned) {
-				// MAX+1 採番と upsert を単一 txn で (並行 pin の採番衝突は OCC retry が解消、§8)。
+				// MAX+1 採番と別 activity 行への upsert を単一 txn で行う。同一 child の pin 操作は
+				// txn 冒頭の children 行 FOR UPDATE で直列化する: 別 activity 行への INSERT ゆえ OCC
+				// 40001 は発火せず (§4.1 read-write 依存は非検出)、そのままでは 2 つの並行 pin が同じ
+				// MAX をスナップショット読取 → 同じ pin_order を別行に採番して tie となる write-skew を
+				// 起こす。children 行 (child ごと 1 行) を write-intent 化して pin 採番を直列化する
+				// (#3546 と同型、§8)。異なる child は別行ロックゆえ非競合。
 				return runner.runInTransaction(async (tx) => {
+					// serialization anchor: 同一 child の並行 pin を直列化 (pin 対象 activity の child は
+					// 存在前提)。集約関数と併用しない単純行ロックゆえ FOR UPDATE 制約に抵触しない。
+					await tx.execute(sql`
+						SELECT 1 FROM children
+						WHERE family_id = ${tenantId} AND child_id = ${childId}
+						FOR UPDATE
+					`);
 					const maxRead = await tx.execute(sql`
 						SELECT COALESCE(MAX(pin_order), 0)::int AS max_order FROM child_activity_preferences
 						WHERE family_id = ${tenantId} AND child_id = ${childId} AND is_pinned = true
