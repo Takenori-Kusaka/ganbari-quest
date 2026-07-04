@@ -391,7 +391,7 @@ export function createDsqlAuthRepo<TTx extends SqlExecutor>(
 		// ---------------------------------------------------------- Invite (token_hash、CWE-522)
 
 		async createInvite(input) {
-			// raw code は repo が採番し (dynamo backend と同形式 inv-<uuidv4>、122bit エントロピー)、
+			// raw code は repo が採番し (dynamo backend と同形式 inv-<uuid v4>、122bit エントロピー)、
 			// DB には hash のみ INSERT。raw を知るのは作成時の戻り値だけ (以後復元不能)。
 			const inviteCode = `inv-${randomUUID()}`;
 			const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * MS_PER_DAY).toISOString();

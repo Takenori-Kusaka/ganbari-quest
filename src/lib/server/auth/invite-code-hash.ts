@@ -8,7 +8,7 @@
 // - lookup は WHERE token_hash = hashInviteCode(raw) の等値照合。ユーザ入力と
 //   秘密の直接比較を行わないため、B-tree 照合の timing で raw が漏れる面は
 //   hash の前像困難性で遮断される (現行 DynamoDB inviteCode capability 機構の写像)。
-// - salt / pepper は不採用: 招待コードは inv-<uuidv4> で 122bit エントロピーがあり
+// - salt / pepper は不採用: 招待コードは inv-<uuid v4> で 122bit エントロピーがあり
 //   総当たり・レインボー表が成立しない (パスワード hash とは脅威モデルが異なる)。
 //   決定的 hash でないと WHERE 等値 lookup ができない。
 
