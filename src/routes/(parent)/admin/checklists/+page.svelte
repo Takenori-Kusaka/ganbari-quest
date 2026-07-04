@@ -168,7 +168,7 @@ const anyDialogOpen = $derived(
 //   (種類・順序) が一致することを E2E (admin-add-path-isomorphism.spec.ts) が assert する (AC3)。
 const addMenuItems = $derived<MenuItem[]>([
 	{
-		// EPIC #3533 §10.2.2: 上限到達時は disabled にせず locked-but-active にする
+		// EPIC #3533 §10.2.3: 上限到達時は disabled にせず locked-but-active にする
 		//   (完全 disabled は NN/G アンチパターン = dead-end 化)。lock マーカー付きで活性のまま残し、
 		//   選択でプラン画面へ遷移させる (制約詳細はプラン画面に一元化 / dropdown item は popover 不適)。
 		//   業界収束パターン (Figma/Zapier/汎用 Paywall): active item + lock マーカー + 選択で upgrade 導線。
@@ -220,7 +220,7 @@ function openAddItem(templateId: string) {
 	addItemOpen = true;
 }
 
-// EPIC #3533 §10.2.2: 上限到達時の manual 追加は locked-but-active。選択でプラン画面へ誘導する
+// EPIC #3533 §10.2.3: 上限到達時の manual 追加は locked-but-active。選択でプラン画面へ誘導する
 //   (画面内に quota カウンタ / 個別 CTA を持たず、制約詳細はプラン画面に一元化 P1)。
 function goToPlanForLimit() {
 	void goto('/admin/subscription');

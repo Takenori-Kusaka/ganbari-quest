@@ -453,7 +453,7 @@ export const PLAN_GATE_LABELS = {
 	upgradeLinkLabel: `${UPGRADE_TERMS.actionVerb}する`,
 
 	/**
-	 * dropdown / メニュー内の上限到達 add 項目に付ける lock マーカーアイコン (EPIC #3533 §10.2.2)。
+	 * dropdown / メニュー内の上限到達 add 項目に付ける lock マーカーアイコン (EPIC #3533 §10.2.3)。
 	 *
 	 * 上限到達時の add 系メニュー項目は完全 disabled にせず locked-but-active にし
 	 * (NN/G: disabled + 説明なしは dead-end アンチパターン)、本アイコンで「制約あり」を最小表現する。
